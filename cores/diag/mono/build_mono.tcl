@@ -77,13 +77,11 @@ set n [regsub {module layer2_diag } $txt {module layer2 } txt]
 if {$n != 1} { error "layer2_diag.v: 'module layer2_diag ' not found exactly once" }
 set fh [open $bdir/layer2_mono.v w]; puts -nonewline $fh $txt; close $fh
 read_verilog [list $rt/probe.v $rt/diag_regs.v $rt/diag_pads.v $bdir/layer2_mono.v]
-read_verilog -sv [list $rt/diag_avout.v $rt/diag_yc.v]     ;# T201: the A/V test picture (copy of the C128 encoder)
 
 read_xdc $hd/ddr2_pins.xdc
 read_xdc $hd/pins.xdc
 read_xdc $hd/gtp_pins.xdc
 read_xdc $hd/usb_pins.xdc
-read_xdc $dm/avid_pins.xdc                                  ;# T201: the A/V port balls
 
 set incs [list $core $hd]
 synth_design -top top -part $part -generic FPGA_TYPE=$fpga_type -include_dirs $incs {*}$synth_defs

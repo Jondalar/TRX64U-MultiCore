@@ -14,12 +14,9 @@
 //   Taken when the entry was added, after the one full check (T101 S10, T115 section 7). A start compares the directory
 //   entry (size, mtime: FAT date<<16 | time) and the package header (startcheck.h) with these and reads no more of the file;
 //   an entry without mtime (older boot.cfg) gets the full check once at the next start.
-//   core=...|<header digest hex>|<default config>   T198 D8: the seventh field is the entry's default config (a name in <core folder>/configs/); the countdown and the
-//   direct boot start the entry with it, RETURN on the row still starts plain. Written only when there is one; an older host reads the line without it.
 #ifndef HOST_BOOTCFG_H
 #define HOST_BOOTCFG_H
 
-#include "configlist.h"
 #define BOOT_MAX 16
 #define BOOT_COUNTDOWN_DEFAULT 5          // Alex, T84 D4a: the default starts by itself after 5 s
 #define BOOT_AUTOSTART_MAX 60
@@ -32,7 +29,6 @@ struct BootEntry {
     unsigned size;            // bundle file size at the full check, 0 = unknown
     unsigned mtime;           // directory entry date<<16|time at the full check, 0 = never checked (older boot.cfg)
     unsigned hdr;             // digest of the package header at the full check (CorInfo::hdr_digest), 0 for a firmware image
-    char defcfg[CONFIG_NAME_MAX + 1];   // T198 D8: the entry's default config, "" = none
 };
 
 struct BootCfg {
@@ -59,8 +55,6 @@ void bootcfg_remove(BootCfg *c, int i);
 // T139: a new display name for entry i; order, default and everything else of the entry stay. False (nothing changed) for a bad index, an
 // empty or blank name, one longer than BOOT_NAME_MAX, or one with '|' or a line break in it.
 bool bootcfg_rename(BootCfg *c, int i, const char *name);
-// T198 D8: the default config of entry i ("" = none). False (nothing changed) for a bad index or a name config_name_ok refuses.
-bool bootcfg_set_defcfg(BootCfg *c, int i, const char *name);
 // T139: autostart on/off; secs (1..60, clamped; 0 = keep autostart_s) is what the countdown runs for. Off is countdown=0.
 void bootcfg_autostart(BootCfg *c, bool on, int secs);
 void bootcfg_move(BootCfg *c, int i, int dir);               // dir -1 up, +1 down; default follows

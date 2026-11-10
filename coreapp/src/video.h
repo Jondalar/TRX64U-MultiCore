@@ -32,12 +32,9 @@ public:
 };
 
 
-// T210 P1: the menu canvas and its place for a mode; also called before the splash opens (the mode the host handed over).
-void video_place_menu(PxPort *px, int hdmi, int sys);
-
 class Video {
 public:
-    Video(const VideoDesc &d, PxPort *px, CoreIo *io) : d_(d), prim_h_max_(d.h), px_(px), io_(io), mode_(-1), pref_scale_(d.scale), bias_x_(0), bias_y_(0), last_seq_(0), vw_(d.w), vh_(d.h), front_(0), on_(false), ready_(false), hidden_(false) { init_bias(); }
+    Video(const VideoDesc &d, PxPort *px, CoreIo *io) : d_(d), px_(px), io_(io), mode_(-1), pref_scale_(d.scale), bias_x_(0), bias_y_(0), last_seq_(0), vw_(d.w), vh_(d.h), front_(0), on_(false), ready_(false), hidden_(false) { init_bias(); }
 
     // Clears the frame buffers (black) and tells the core where they are. The layer itself is not touched: show() gives it
     // to the core's picture, once the menu or the start message that may still hold it has let go.
@@ -47,9 +44,6 @@ public:
     // T97 5.10: the layer shows only the top left w x h of the picture, centred where the whole picture would be (the core fills the
     // buffers with a smaller window than the descriptor's: everything outside it is not on the screen). 0 x 0 or the descriptor's size: all of it.
     void set_view(uint32_t w, uint32_t h);
-    // T113 D11: the core's own picture changes its height while it runs (the C128's VDC: 400 rows, 480 woven in interlace; the descriptor holds the largest). The layer shows
-    // h rows and the layout (Picture, HDMI mode) is made for that height; no effect on the alternative picture, h = 0 or the same height: nothing.
-    void set_rows(uint32_t h);
     uint32_t view_w() const { return vw_; }
     uint32_t view_h() const { return vh_; }
     void show();
@@ -112,7 +106,6 @@ private:
     void write_set(bool on);
     void place_menu(int hdmi, int sys);
     VideoDesc d_;
-    uint32_t prim_h_max_;                          // the descriptor's height: set_rows() goes up to it
     PxPort *px_;
     CoreIo *io_;
     void init_bias();

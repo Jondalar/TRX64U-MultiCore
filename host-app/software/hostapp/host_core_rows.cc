@@ -1,7 +1,6 @@
 // The rows of every page, as data (host_core_rows.h). The code of hostui.cc's fill_row, update_menu / edit / browse / net / settings, the manifest panel, the chips and the
 // WiFi page's value lines, moved with its texts unchanged; what stayed in hostui.cc is the drawing.
 #include "host_core_rows.h"
-#include "host_core_cfgov.h"
 #include "host_core_nav_rw.h"
 #include "host_core_flow_fileops.h"
 #include "host_core_flow_wifi.h"
@@ -131,15 +130,7 @@ bool hc_row_entry(int i, bool menu_style, HcEntryRow *r)
     const char *ver = ok ? hc_einfo(i).version : "";
     bool full = hc_efull(i);
     snprintf(r->name, sizeof(r->name), "%s", cfg.e[i].name);
-    {   // the board's printf ignores a precision: the 4-character tile is cut by hand
-        const char *tn = full ? "FW" : cfg.e[i].name;
-        size_t k = 0;
-        while (k < 4 && k + 1 < sizeof(r->tile) && tn[k]) {
-            r->tile[k] = tn[k];
-            k++;
-        }
-        r->tile[k] = 0;
-    }
+    snprintf(r->tile, sizeof(r->tile), "%.4s", full ? "FW" : cfg.e[i].name);
     if (menu_style && full && ok) {
         snprintf(r->sub, sizeof(r->sub), "%s  full firmware", cfg.e[i].path);
     } else if (menu_style && ver[0]) {
@@ -151,8 +142,6 @@ bool hc_row_entry(int i, bool menu_style, HcEntryRow *r)
     r->def = i == cfg.def;
     r->full = full;
     r->ok_state = ok;
-    r->configs = !full && st != ES_UNKNOWN ? hc_cfgov_count(cfg.e[i].path) : 0;      // one directory read per generation and core (S15); none before the entry has been read (T101 S10: the first frame lists no folder)
-    hc_cfgov_badge(r->configs, r->cfgbadge, sizeof(r->cfgbadge));
     return true;
 }
 
@@ -209,15 +198,7 @@ void hc_edit_texts(int first, HcEditTexts *t)
     }
     snprintf(t->direct, sizeof(t->direct), "%s", cfg.direct ? "on (C= or fire at power-on: menu)" : "off (menu, then the countdown)");
     snprintf(t->def, sizeof(t->def), "%s", cfg.def >= 0 ? cfg.e[cfg.def].name : "(none)");
-    int sel = hc_nav().sel;
-    if (sel < 0 || sel >= cfg.n) {
-        snprintf(t->defcfg, sizeof(t->defcfg), "(no entry)");
-    } else if (cfg.e[sel].defcfg[0]) {
-        snprintf(t->defcfg, sizeof(t->defcfg), "%s", cfg.e[sel].defcfg);
-    } else {
-        snprintf(t->defcfg, sizeof(t->defcfg), hc_cfgov_count(cfg.e[sel].path) > 0 ? "(none: plain start)" : "(none: this core has no configs)");
-    }
-    hc_pos_text(t->pos, sizeof(t->pos), first, cfg.n, hc_nav_edit_rows());
+    hc_pos_text(t->pos, sizeof(t->pos), first, cfg.n, hc_nav_menu_rows());
 }
 
 // ---- the File Browser ----------------------------------------------------------------------------------------------------------------------------
@@ -293,15 +274,7 @@ bool hc_browse_row(int k, HcBrowseRow *r)
     return true;
 }
 
-// The footer of the boot menu: "RIGHT configs" only while the selected row has configs (T198 D9, mock-up (a)).
-const char *hc_menu_foot(void)
-{
-    const HcNav &v = hc_nav();
-    const bool has = v.sel >= 0 && v.sel < hc_cfg().n && hc_cfgov_count(hc_cfg().e[v.sel].path) > 0;
-    return hc_foot(has ? HCF_MENU : HCF_MENU_PLAIN);
-}
-
-static const char *browse_foot_base(void)
+const char *hc_browse_foot(void)
 {
     const HcNav &v = hc_nav();
     char path[200];
@@ -318,28 +291,12 @@ static const char *browse_foot_base(void)
         return hc_foot(HCF_BR_MEDIA);
     }
     if (hc_browse_sel_bundle(path, sizeof(path))) {
-        return cfw_is_name(path) ? hc_foot(HCF_BR_CFW) : (hc_is_backup_cor(path) ? hc_foot(HCF_BR_BACKUP) : hc_foot(hc_cfgov_count(path) > 0 ? HCF_BROWSE : HCF_BROWSE_PLAIN));
+        return cfw_is_name(path) ? hc_foot(HCF_BR_CFW) : (hc_is_backup_cor(path) ? hc_foot(HCF_BR_BACKUP) : hc_foot(HCF_BROWSE));
     }
     if (v.bsel >= 0 && v.bsel < v.bn && v.bl[v.bsel].dir) {
         return strcmp(v.bl[v.bsel].name, "..") ? hc_foot(HCF_BR_DIR) : hc_foot(HCF_BR_PLAIN);
     }
     return v.bsel >= 0 && v.bsel < v.bn ? (txu_is_name(v.bl[v.bsel].name) ? hc_foot(HCF_BR_TXU) : hc_foot(HCF_BR_FILE)) : hc_foot(HCF_BR_PLAIN);
-}
-
-// T209 D4: a list longer than its window names its paging keys, in the core application's words ("+/- PAGE").
-const char *hc_browse_foot(void)
-{
-    static char buf[320];
-    const char *base = browse_foot_base();
-    const HcNav &v = hc_nav();
-    if (v.bn <= hc_nav_browse_rows() || hc_fo_replace_pending()) {
-        return base;
-    }
-    char dn[16], up[16];
-    hc_key_name(HCX_BROWSE, HCA_BROWSE_PAGE_DOWN, dn, sizeof(dn));
-    hc_key_name(HCX_BROWSE, HCA_BROWSE_PAGE_UP, up, sizeof(up));
-    snprintf(buf, sizeof(buf), "%s    %s/%s PAGE", base, dn, up);
-    return buf;
 }
 
 // the panel's probe cache: keyed by the row and the generation of the list
@@ -832,7 +789,7 @@ void hc_set_row_text(int kind, const char *&name, char (&v)[64], const char *&he
         } else {
             snprintf(v, sizeof(v), "%s (not offered, %s up)", video_hdmi_name(hs->def_hdmi), up < 0 ? "?" : video_hdmi_name(up));
         }
-        help = "Only what the screen names is offered. A change asks for a key within 8 s, else it goes back. RETURN opens the modes the screen names; V opens them from every view. Nothing is applied while you browse.";
+        help = "Only what the screen names is offered. A change asks for a key within 8 s, else it goes back. V steps the mode in every view.";
         break;
     }
     case SK_PROTECT:
@@ -1006,7 +963,7 @@ int dump_menu(char *out, int cap)
     for (int i = 0; i < cfg.n; i++) {
         HcEntryRow r;
         if (hc_row_entry(i, true, &r)) {
-            o.add("  row %d|%s|%s|%s|%s|%s|%s|%s%s%s\n", i, r.name, r.sub, r.badge, tone_name(r.badge_tone), r.def ? "default" : "", r.tile, i == hc_nav().sel ? "SEL" : "", r.cfgbadge[0] ? "|cfg " : "", r.cfgbadge);
+            o.add("  row %d|%s|%s|%s|%s|%s|%s|%s\n", i, r.name, r.sub, r.badge, tone_name(r.badge_tone), r.def ? "default" : "", r.tile, i == hc_nav().sel ? "SEL" : "");
         }
     }
     return o.n;
@@ -1019,11 +976,11 @@ int dump_edit(char *out, int cap)
     HcEditTexts t;
     hc_edit_texts(hc_nav().efirst, &t);
     o.add("page edit|%s|%s\n", hc_page_title("edit"), hc_foot(HCF_EDIT));
-    o.add("  countdown|%s\n  direct|%s\n  default|%s\n  defcfg|%s\n  pos|%s\n", t.countdown, t.direct, t.def, t.defcfg, t.pos);
+    o.add("  countdown|%s\n  direct|%s\n  default|%s\n  pos|%s\n", t.countdown, t.direct, t.def, t.pos);
     for (int i = 0; i < cfg.n; i++) {
         HcEntryRow r;
         if (hc_row_entry(i, false, &r)) {
-            o.add("  row %d|%s|%s|%s|%s|%s|%s%s%s\n", i, r.name, r.sub, r.badge, tone_name(r.badge_tone), r.def ? "default" : "", i == hc_nav().sel ? "SEL" : "", r.cfgbadge[0] ? "|cfg " : "", r.cfgbadge);
+            o.add("  row %d|%s|%s|%s|%s|%s|%s\n", i, r.name, r.sub, r.badge, tone_name(r.badge_tone), r.def ? "default" : "", i == hc_nav().sel ? "SEL" : "");
         }
     }
     return o.n;

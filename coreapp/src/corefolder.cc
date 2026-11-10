@@ -116,15 +116,14 @@ bool corefolder_save_path(const char *cor_path, const char *file, char *out, int
 
 bool corefolder_ensure(CoreFs *fs, const char *cor_path)
 {
-    char d[260], r[260], s[260], cf[260];
+    char d[260], r[260], s[260];
     if (!fs || !corefolder_dir(cor_path, d, sizeof(d)) || !corefolder_sub(cor_path, "roms", r, sizeof(r)) ||
-        !corefolder_sub(cor_path, "saves", s, sizeof(s)) || !corefolder_sub(cor_path, "configs", cf, sizeof(cf))) {
+        !corefolder_sub(cor_path, "saves", s, sizeof(s))) {
         return false;
     }
     bool ok = fs->mkdir(d);
     ok = ok && fs->mkdir(r);
     ok = ok && fs->mkdir(s);
-    ok = ok && fs->mkdir(cf);                        // T198 D10: the configs of the core
     if (!ok) {
         printf("[core] could not make the core folder %s (read only medium?)\n", d);
     }

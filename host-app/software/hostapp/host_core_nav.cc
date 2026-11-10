@@ -14,7 +14,7 @@ HcNavPlatform g_plat;
 struct StartState {                       // the state a fresh start has, before anything runs
     StartState() { hc_nav_reset(); }
 } g_start_state;
-int g_mrows = 5, g_erows = 5, g_brows = 13, g_cmrows = 17;
+int g_mrows = 5, g_brows = 13, g_cmrows = 17;
 
 HcArm g_arm;
 uint32_t g_arm_seq;
@@ -46,15 +46,13 @@ const HcNav &hc_nav(void) { return g_nav; }
 HcNav &hc_nav_rw(void) { return g_nav; }
 const HcNavPlatform &hc_nav_plat(void) { return g_plat; }
 
-void hc_nav_geometry(int menu_rows, int browse_rows, int cores_rows, int edit_rows)
+void hc_nav_geometry(int menu_rows, int browse_rows, int cores_rows)
 {
     g_mrows = menu_rows;
-    g_erows = edit_rows > 0 ? edit_rows : menu_rows;
     g_brows = browse_rows;
     g_cmrows = cores_rows;
 }
 int hc_nav_menu_rows(void) { return g_mrows; }
-int hc_nav_edit_rows(void) { return g_erows; }
 int hc_nav_browse_rows(void) { return g_brows; }
 int hc_nav_cores_rows(void) { return g_cmrows; }
 
@@ -264,7 +262,6 @@ void hc_nav_go(int v)
         g_plat.ask_gone();
     }
     n.wm_mode = 0;                            // T184 D3: so does the WiFi page
-    n.pm_mode = 0;                            // T187 D5: and the Picture page
     n.br_mode = HCB_NORMAL;                   // T139: a target pick or a pending question ends with the view
     if (g_plat.ask_gone) {
         g_plat.ask_gone();
@@ -413,18 +410,6 @@ bool hc_nav_wifi_act(int act, int rows)
     return act == HCA_CURSOR_UP || act == HCA_CURSOR_DOWN;
 }
 
-void hc_nav_pm_open(void)
-{
-    g_nav.cm_mode = HCM_OFF;
-    g_nav.wm_mode = 0;
-    g_nav.pm_mode = 1;
-}
-
-void hc_nav_pm_close(void)
-{
-    g_nav.pm_mode = 0;
-}
-
 void hc_nav_wifi_open(void)
 {
     g_nav.wm_mode = 1;
@@ -480,7 +465,7 @@ void hc_nav_focus(int src, int i)
         if (n.view == HCV_MENU) {
             listwin_fix(n.sel, hc_cfg().n, g_mrows, &n.mfirst);
         } else if (n.view == HCV_EDIT) {
-            listwin_fix(n.sel, hc_cfg().n, g_erows, &n.efirst);
+            listwin_fix(n.sel, hc_cfg().n, g_mrows, &n.efirst);
         }
     } else if (src == 1 && i >= 0 && i < n.bn) {
         n.bsel = i;
@@ -498,7 +483,7 @@ int hc_nav_menu_first(int total)
 
 int hc_nav_edit_first(int total)
 {
-    listwin_fix(g_nav.sel, total, g_erows, &g_nav.efirst);
+    listwin_fix(g_nav.sel, total, g_mrows, &g_nav.efirst);
     return g_nav.efirst;
 }
 
@@ -509,7 +494,7 @@ bool hc_nav_window_follow(void)
         return listwin_fix(n.sel, hc_cfg().n, g_mrows, &n.mfirst);
     }
     if (n.view == HCV_EDIT) {
-        return listwin_fix(n.sel, hc_cfg().n, g_erows, &n.efirst);
+        return listwin_fix(n.sel, hc_cfg().n, g_mrows, &n.efirst);
     }
     return false;
 }
@@ -529,5 +514,4 @@ void hc_nav_test_init(void)
     g_nav.ssel = 0;
     g_nav.br_mode = HCB_NORMAL;
     g_nav.view = HCV_MENU;
-    g_nav.pm_mode = 0;                  // a bench case may end with the Picture page open
 }

@@ -33,8 +33,7 @@ module vdc_top #(
 	output reg     pixel_ce,
 	output reg     active_h,
 	output reg     active_v,
-	output   [3:0] rgbi,
-	output   [1:0] ilace        // T113 D11: {R8[1:0] == 3, field being drawn}
+	output   [3:0] rgbi
 );
 
 reg enable;
@@ -132,10 +131,6 @@ wire	      hsync_pos;
 
 wire        busy;
 wire  		hVisible, vVisible, hdispen;
-wire        vfield;
-// the row parity of the field in a woven picture: 0 = the field whose character lines are 0, 2, 4 ... (the first field of the picture), 1 = lines 1, 3, 5 ...
-// (measured with the bench of c128_pixw: while `cfield` is 1 the VDC draws the even lines)
-assign ilace = {&reg_im, ~vfield};
 
 assign      vsync = vsync_pos ^ (~version & reg_vspol);
 assign      hsync = hsync_pos ^ (~version & reg_hspol);
@@ -184,7 +179,6 @@ vdc_signals signals (
 
 	.hVisible(hVisible),
 	.vVisible(vVisible),
-	.field(vfield),
 	.hdispen(hdispen),
 	.blink(blink),
 

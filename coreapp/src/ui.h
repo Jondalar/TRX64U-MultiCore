@@ -21,8 +21,7 @@ bool ui_available(void);
 // A message view (start phase, errors): title line, text, colour. Visible after the next ui_poll().
 void ui_message(const char *title, const char *text, bool bad);
 // T164 Q7 (amended 2026-11-04): the question after a picture change: the seconds left, a blank line, then its key - inside the box (T152 D10).
-void ui_picture_question(int left_s, const char *now, const char *prev);   // T187 D5: names the mode that came up and the one that comes back
-const char *ui_chip_say_text(void);                       // the message chip of the top bar as last drawn (the bench compares it with the whole message)
+void ui_picture_question(int left_s);
 const char *ui_message_text(void);                        // what the message view shows now (the bench reads it)
 
 // T101 S9: the first picture, before the slow work (settings, picture mode, libraries, ROM search). Drawn once on LVGL's top layer;
@@ -52,23 +51,6 @@ void ui_toast_render(MenuCtl &m);
 // 2026-10-16). ui_cheap_moves() counts those; the bench reads it, and it is the number that says the
 // menu is quick. ui_menu_forget_rows() drops the kept rows when something else cleaned the screen.
 uint32_t ui_cheap_moves(void);
-// T187: the geometry of the flat list as drawn (pane-relative pixels), for the bench: the selected row has to lie whole between rows_top and rows_bottom,
-// the sum of the drawn rows (each with its 1 px gap) is drawn_h, the position label ends at pos_y2 (rows_top is where the first row starts).
-struct UiListProbe {
-    int nrows, first, sel, pane_h, rows_top, rows_bottom, drawn_h, sel_y1, sel_y2, pos_y2;
-    int nvals, val_off_max;               // rows with a value; the largest distance of a value's middle from its label's middle (P4b)
-    bool sel_seen, sel_heading, last_heading;
-    char pos[64];
-    // T205 P3: per drawn row (up to UI_PROBE_ROWS), where it stands and what its label and value objects hold: the bench sets them against the model's row and against the
-    // rows above (the pitch), so a value that stands in another row than its name is seen
-    enum { UI_PROBE_ROWS = 24 };
-    int row_y[UI_PROBE_ROWS], row_h[UI_PROBE_ROWS], lab_cy[UI_PROBE_ROWS], val_cy[UI_PROBE_ROWS];
-    char lab[UI_PROBE_ROWS][64], val[UI_PROBE_ROWS][64];
-    bool row_has_val[UI_PROBE_ROWS];
-};
-bool ui_list_probe(UiListProbe *p);
-// T207: the status line of the pane's foot as drawn (pane-relative; txt = its text), for the bench: it must lie below the last drawn row and inside the pane.
-bool ui_status_probe(int *x1, int *y1, int *x2, int *y2, char *txt, int n);
 // Window moves and changed rows served by writing the rows again instead of building the pane (T104, 2026-10-22).
 uint32_t ui_inplace_moves(void);
 void ui_menu_forget_rows(void);

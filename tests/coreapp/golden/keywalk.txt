@@ -1,1193 +1,1312 @@
-Atari 800 XL F1/home s0 59 1c761a88
-Atari 800 XL F1/home s1 59 1c761a88
-Atari 800 XL F1/home s2 59 b3043f24
-Atari 800 XL F1/home s3 59 1c761a88
-Atari 800 XL F1/home s4 59 1c761a88
-Atari 800 XL F1/home s5 59 b7fabdbe
-Atari 800 XL F1/home s6 59 1c761a88
-Atari 800 XL F1/home s7 59 b3043f24
-Atari 800 XL F1/home s8 59 b3043f24
-Atari 800 XL F1/home s9 59 b3043f24
-Atari 800 XL F1/home s10 59 1c761a88
-Atari 800 XL F1/home s11 59 b7fabdbe
-Atari 800 XL F1/home s12 59 b7fabdbe
-Atari 800 XL F1/home s13 59 b7fabdbe
-Atari 800 XL F1/home s14 59 b7fabdbe
-Atari 800 XL F1/home s15 59 1c761a88
-Atari 800 XL F1/home s16 59 b3043f24
-Atari 800 XL F3/browse s0 59 6e417d21
-Atari 800 XL F3/browse s1 59 8d6ca1c6
-Atari 800 XL F3/browse s2 59 615e80cf
-Atari 800 XL F3/browse s3 59 623cd484
-Atari 800 XL F3/browse s4 59 5d0123d8
-Atari 800 XL F3/browse s5 59 553213b2
-Atari 800 XL F3/browse s6 59 8d6ca1c6
-Atari 800 XL F3/browse s7 59 df19514b
-Atari 800 XL F3/browse s8 59 e4101559
-Atari 800 XL F3/browse s9 59 e4101559
-Atari 800 XL F3/browse s10 59 b2fae01b
-Atari 800 XL F3/browse s11 59 caa6978b
-Atari 800 XL F3/browse s12 59 07cbb08b
-Atari 800 XL F3/browse s13 59 bd681784
-Atari 800 XL F3/browse s14 59 de87b1e0
-Atari 800 XL F3/browse s15 59 9b4af3ab
-Atari 800 XL F3/browse s16 59 c72883b5
-Atari 800 XL F5/settings s0 59 8cbc60a5
-Atari 800 XL F5/settings s1 59 c469675e
-Atari 800 XL F5/settings s2 59 23437047
-Atari 800 XL F5/settings s3 59 8426abeb
-Atari 800 XL F5/settings s4 59 c0b780c0
-Atari 800 XL F5/settings s5 59 788ba0c7
-Atari 800 XL F5/settings s6 59 0bfc5ebb
-Atari 800 XL F5/settings s7 59 cb4eb89f
-Atari 800 XL F5/settings s8 59 d19312be
-Atari 800 XL F5/settings s9 59 58c45c4b
-Atari 800 XL F5/settings s10 59 ae45644c
-Atari 800 XL F5/settings s11 59 794eb262
-Atari 800 XL F5/settings s12 59 8a35e57f
-Atari 800 XL F5/settings s13 59 9c17d060
-Atari 800 XL F5/settings s14 59 d253b2e1
-Atari 800 XL F5/settings s15 59 a74b017f
-Atari 800 XL F5/settings s16 59 a68565d1
-Atari 800 XL F7/quick s0 59 0a9786f0
-Atari 800 XL F7/quick s1 59 8b8d7716
-Atari 800 XL F7/quick s2 59 14a48786
-Atari 800 XL F7/quick s3 59 0a9786f0
-Atari 800 XL F7/quick s4 59 8b8d7716
-Atari 800 XL F7/quick s5 59 6211db6d
-Atari 800 XL F7/quick s6 59 8b8d7716
-Atari 800 XL F7/quick s7 59 14a48786
-Atari 800 XL F7/quick s8 59 f16737bc
-Atari 800 XL F7/quick s9 59 f16737bc
-Atari 800 XL F7/quick s10 59 0a9786f0
-Atari 800 XL F7/quick s11 59 e9fe7d79
-Atari 800 XL F7/quick s12 59 e9fe7d79
-Atari 800 XL F7/quick s13 59 e9fe7d79
-Atari 800 XL F7/quick s14 59 e9fe7d79
-Atari 800 XL F7/quick s15 59 8b8d7716
-Atari 800 XL F7/quick s16 59 14a48786
-Atari 800 XL F8/expert s0 59 13da3901
-Atari 800 XL F8/expert s1 59 3832e156
-Atari 800 XL F8/expert s2 59 4e06db65
-Atari 800 XL F8/expert s3 59 13da3901
-Atari 800 XL F8/expert s4 59 3832e156
-Atari 800 XL F8/expert s5 59 1efe518d
-Atari 800 XL F8/expert s6 59 3832e156
-Atari 800 XL F8/expert s7 59 4e06db65
-Atari 800 XL F8/expert s8 59 524f72fd
-Atari 800 XL F8/expert s9 59 524f72fd
-Atari 800 XL F8/expert s10 59 13da3901
-Atari 800 XL F8/expert s11 59 1c7e0a0f
-Atari 800 XL F8/expert s12 59 1c7e0a0f
-Atari 800 XL F8/expert s13 59 1c7e0a0f
-Atari 800 XL F8/expert s14 59 1c7e0a0f
-Atari 800 XL F8/expert s15 59 3832e156
-Atari 800 XL F8/expert s16 59 4e06db65
-Nintendo Entertainment System F1/home s0 59 4b9d9561
-Nintendo Entertainment System F1/home s1 59 4b9d9561
-Nintendo Entertainment System F1/home s2 59 982ef852
-Nintendo Entertainment System F1/home s3 59 4b9d9561
-Nintendo Entertainment System F1/home s4 59 4b9d9561
-Nintendo Entertainment System F1/home s5 59 34b4ebbd
-Nintendo Entertainment System F1/home s6 59 4b9d9561
-Nintendo Entertainment System F1/home s7 59 982ef852
-Nintendo Entertainment System F1/home s8 59 982ef852
-Nintendo Entertainment System F1/home s9 59 982ef852
-Nintendo Entertainment System F1/home s10 59 4b9d9561
-Nintendo Entertainment System F1/home s11 59 34b4ebbd
-Nintendo Entertainment System F1/home s12 59 34b4ebbd
-Nintendo Entertainment System F1/home s13 59 34b4ebbd
-Nintendo Entertainment System F1/home s14 59 34b4ebbd
-Nintendo Entertainment System F1/home s15 59 4b9d9561
-Nintendo Entertainment System F1/home s16 59 982ef852
-Nintendo Entertainment System F3/browse s0 59 767a6cb6
-Nintendo Entertainment System F3/browse s1 59 2e5067d3
-Nintendo Entertainment System F3/browse s2 59 2590de72
-Nintendo Entertainment System F3/browse s3 59 1fdb153b
-Nintendo Entertainment System F3/browse s4 59 5158403c
-Nintendo Entertainment System F3/browse s5 59 58cf401d
-Nintendo Entertainment System F3/browse s6 59 2e5067d3
-Nintendo Entertainment System F3/browse s7 59 85b76a22
-Nintendo Entertainment System F3/browse s8 59 4ac6b912
-Nintendo Entertainment System F3/browse s9 59 4ac6b912
-Nintendo Entertainment System F3/browse s10 59 a7c4b409
-Nintendo Entertainment System F3/browse s11 59 3acecc95
-Nintendo Entertainment System F3/browse s12 59 f4791c7c
-Nintendo Entertainment System F3/browse s13 59 f68c958c
-Nintendo Entertainment System F3/browse s14 59 c0d3c34f
-Nintendo Entertainment System F3/browse s15 59 9bca48a2
-Nintendo Entertainment System F3/browse s16 59 578714c3
-Nintendo Entertainment System F5/settings s0 59 885cc16a
-Nintendo Entertainment System F5/settings s1 59 f18085dd
-Nintendo Entertainment System F5/settings s2 59 bd5ac43c
-Nintendo Entertainment System F5/settings s3 59 819cf63f
-Nintendo Entertainment System F5/settings s4 59 ca990bf3
-Nintendo Entertainment System F5/settings s5 59 aa60a9dd
-Nintendo Entertainment System F5/settings s6 59 292d830c
-Nintendo Entertainment System F5/settings s7 59 29cc8020
-Nintendo Entertainment System F5/settings s8 59 df83535a
-Nintendo Entertainment System F5/settings s9 59 b73734be
-Nintendo Entertainment System F5/settings s10 59 1721f4fe
-Nintendo Entertainment System F5/settings s11 59 5ceacd47
-Nintendo Entertainment System F5/settings s12 59 ed04f0a4
-Nintendo Entertainment System F5/settings s13 59 726564d7
-Nintendo Entertainment System F5/settings s14 59 76e35c8e
-Nintendo Entertainment System F5/settings s15 59 74c24edc
-Nintendo Entertainment System F5/settings s16 59 b409c788
-Nintendo Entertainment System F7/quick s0 59 44e42ba2
-Nintendo Entertainment System F7/quick s1 59 224aff74
-Nintendo Entertainment System F7/quick s2 59 84b48efa
-Nintendo Entertainment System F7/quick s3 59 44e42ba2
-Nintendo Entertainment System F7/quick s4 59 224aff74
-Nintendo Entertainment System F7/quick s5 59 da24a7b9
-Nintendo Entertainment System F7/quick s6 59 224aff74
-Nintendo Entertainment System F7/quick s7 59 84b48efa
-Nintendo Entertainment System F7/quick s8 59 1d45d2c8
-Nintendo Entertainment System F7/quick s9 59 1d45d2c8
-Nintendo Entertainment System F7/quick s10 59 44e42ba2
-Nintendo Entertainment System F7/quick s11 59 b9184d24
-Nintendo Entertainment System F7/quick s12 59 b9184d24
-Nintendo Entertainment System F7/quick s13 59 b9184d24
-Nintendo Entertainment System F7/quick s14 59 b9184d24
-Nintendo Entertainment System F7/quick s15 59 224aff74
-Nintendo Entertainment System F7/quick s16 59 84b48efa
-Nintendo Entertainment System F8/expert s0 59 1d25dd2a
-Nintendo Entertainment System F8/expert s1 59 941322db
-Nintendo Entertainment System F8/expert s2 59 a36fbcc6
-Nintendo Entertainment System F8/expert s3 59 1d25dd2a
-Nintendo Entertainment System F8/expert s4 59 941322db
-Nintendo Entertainment System F8/expert s5 59 140b564f
-Nintendo Entertainment System F8/expert s6 59 941322db
-Nintendo Entertainment System F8/expert s7 59 a36fbcc6
-Nintendo Entertainment System F8/expert s8 59 6e345f91
-Nintendo Entertainment System F8/expert s9 59 6e345f91
-Nintendo Entertainment System F8/expert s10 59 1d25dd2a
-Nintendo Entertainment System F8/expert s11 59 b373f1e4
-Nintendo Entertainment System F8/expert s12 59 b373f1e4
-Nintendo Entertainment System F8/expert s13 59 b373f1e4
-Nintendo Entertainment System F8/expert s14 59 b373f1e4
-Nintendo Entertainment System F8/expert s15 59 941322db
-Nintendo Entertainment System F8/expert s16 59 a36fbcc6
-Apple IIe F1/home s0 59 b3d42741
-Apple IIe F1/home s1 59 b3d42741
-Apple IIe F1/home s2 59 4496751e
-Apple IIe F1/home s3 59 b3d42741
-Apple IIe F1/home s4 59 b3d42741
-Apple IIe F1/home s5 59 4a596c35
-Apple IIe F1/home s6 59 b3d42741
-Apple IIe F1/home s7 59 4496751e
-Apple IIe F1/home s8 59 4496751e
-Apple IIe F1/home s9 59 4496751e
-Apple IIe F1/home s10 59 b3d42741
-Apple IIe F1/home s11 59 4a596c35
-Apple IIe F1/home s12 59 4a596c35
-Apple IIe F1/home s13 59 4a596c35
-Apple IIe F1/home s14 59 4a596c35
-Apple IIe F1/home s15 59 b3d42741
-Apple IIe F1/home s16 59 4496751e
-Apple IIe F3/browse s0 59 5efba37d
-Apple IIe F3/browse s1 59 ec8e85a0
-Apple IIe F3/browse s2 59 f3dd2ed5
-Apple IIe F3/browse s3 59 74287f28
-Apple IIe F3/browse s4 59 7be1897a
-Apple IIe F3/browse s5 59 98cffc78
-Apple IIe F3/browse s6 59 ec8e85a0
-Apple IIe F3/browse s7 59 1500e787
-Apple IIe F3/browse s8 59 c5d602c3
-Apple IIe F3/browse s9 59 c5d602c3
-Apple IIe F3/browse s10 59 f83f2de3
-Apple IIe F3/browse s11 59 c4609653
-Apple IIe F3/browse s12 59 e193bf65
-Apple IIe F3/browse s13 59 0201aed3
-Apple IIe F3/browse s14 59 e6aeee24
-Apple IIe F3/browse s15 59 99f7939d
-Apple IIe F3/browse s16 59 0f9f6357
-Apple IIe F5/settings s0 59 c6182fac
-Apple IIe F5/settings s1 59 c70bcf28
-Apple IIe F5/settings s2 59 1ba9ebcd
-Apple IIe F5/settings s3 59 cfad749d
-Apple IIe F5/settings s4 59 fee20c5a
-Apple IIe F5/settings s5 59 c798131e
-Apple IIe F5/settings s6 59 6e081dc9
-Apple IIe F5/settings s7 59 47907a66
-Apple IIe F5/settings s8 59 fc9567b2
-Apple IIe F5/settings s9 59 89ecd6e0
-Apple IIe F5/settings s10 59 050c4467
-Apple IIe F5/settings s11 59 fb1a889e
-Apple IIe F5/settings s12 59 4a8d22af
-Apple IIe F5/settings s13 59 fb1a889e
-Apple IIe F5/settings s14 59 4a8d22af
-Apple IIe F5/settings s15 59 efc3e9d8
-Apple IIe F5/settings s16 59 01d6c176
-Apple IIe F7/quick s0 59 7c05d78a
-Apple IIe F7/quick s1 59 0eae530a
-Apple IIe F7/quick s2 59 7aa7fc91
-Apple IIe F7/quick s3 59 7c05d78a
-Apple IIe F7/quick s4 59 0eae530a
-Apple IIe F7/quick s5 59 7c545d9b
-Apple IIe F7/quick s6 59 0eae530a
-Apple IIe F7/quick s7 59 7aa7fc91
-Apple IIe F7/quick s8 59 736c709c
-Apple IIe F7/quick s9 59 736c709c
-Apple IIe F7/quick s10 59 7c05d78a
-Apple IIe F7/quick s11 59 6848c487
-Apple IIe F7/quick s12 59 6848c487
-Apple IIe F7/quick s13 59 6848c487
-Apple IIe F7/quick s14 59 6848c487
-Apple IIe F7/quick s15 59 0eae530a
-Apple IIe F7/quick s16 59 7aa7fc91
-Apple IIe F8/expert s0 59 4cb5d706
-Apple IIe F8/expert s1 59 ed87c2ea
-Apple IIe F8/expert s2 59 7eb5866c
-Apple IIe F8/expert s3 59 4cb5d706
-Apple IIe F8/expert s4 59 ed87c2ea
-Apple IIe F8/expert s5 59 c8ef47bb
-Apple IIe F8/expert s6 59 ed87c2ea
-Apple IIe F8/expert s7 59 7eb5866c
-Apple IIe F8/expert s8 59 02a3ce3b
-Apple IIe F8/expert s9 59 02a3ce3b
-Apple IIe F8/expert s10 59 4cb5d706
-Apple IIe F8/expert s11 59 b61ab681
-Apple IIe F8/expert s12 59 b61ab681
-Apple IIe F8/expert s13 59 b61ab681
-Apple IIe F8/expert s14 59 b61ab681
-Apple IIe F8/expert s15 59 ed87c2ea
-Apple IIe F8/expert s16 59 7eb5866c
-ZX Spectrum 48K / 128K F1/home s0 59 0ace7917
-ZX Spectrum 48K / 128K F1/home s1 59 0ace7917
-ZX Spectrum 48K / 128K F1/home s2 59 b388b786
-ZX Spectrum 48K / 128K F1/home s3 59 0ace7917
-ZX Spectrum 48K / 128K F1/home s4 59 0ace7917
-ZX Spectrum 48K / 128K F1/home s5 59 e3266cba
-ZX Spectrum 48K / 128K F1/home s6 59 0ace7917
-ZX Spectrum 48K / 128K F1/home s7 59 b388b786
-ZX Spectrum 48K / 128K F1/home s8 59 b388b786
-ZX Spectrum 48K / 128K F1/home s9 59 b388b786
-ZX Spectrum 48K / 128K F1/home s10 59 0ace7917
-ZX Spectrum 48K / 128K F1/home s11 59 e3266cba
-ZX Spectrum 48K / 128K F1/home s12 59 e3266cba
-ZX Spectrum 48K / 128K F1/home s13 59 e3266cba
-ZX Spectrum 48K / 128K F1/home s14 59 e3266cba
-ZX Spectrum 48K / 128K F1/home s15 59 0ace7917
-ZX Spectrum 48K / 128K F1/home s16 59 b388b786
-ZX Spectrum 48K / 128K F3/browse s0 59 bb9ba8c6
-ZX Spectrum 48K / 128K F3/browse s1 59 9aa3f39b
-ZX Spectrum 48K / 128K F3/browse s2 59 bfd897c2
-ZX Spectrum 48K / 128K F3/browse s3 59 3d299e41
-ZX Spectrum 48K / 128K F3/browse s4 59 93636acd
-ZX Spectrum 48K / 128K F3/browse s5 59 c326d2bb
-ZX Spectrum 48K / 128K F3/browse s6 59 9aa3f39b
-ZX Spectrum 48K / 128K F3/browse s7 59 6d232d02
-ZX Spectrum 48K / 128K F3/browse s8 59 c22913b0
-ZX Spectrum 48K / 128K F3/browse s9 59 c22913b0
-ZX Spectrum 48K / 128K F3/browse s10 59 ad199464
-ZX Spectrum 48K / 128K F3/browse s11 59 57488d82
-ZX Spectrum 48K / 128K F3/browse s12 59 93dee16b
-ZX Spectrum 48K / 128K F3/browse s13 59 7e7f4aa4
-ZX Spectrum 48K / 128K F3/browse s14 59 f4964cd9
-ZX Spectrum 48K / 128K F3/browse s15 59 a51e3a44
-ZX Spectrum 48K / 128K F3/browse s16 59 85591a64
-ZX Spectrum 48K / 128K F5/settings s0 59 d0fac35e
-ZX Spectrum 48K / 128K F5/settings s1 59 40d15142
-ZX Spectrum 48K / 128K F5/settings s2 59 bcdcfe21
-ZX Spectrum 48K / 128K F5/settings s3 59 2f6ef96a
-ZX Spectrum 48K / 128K F5/settings s4 59 96b60b4d
-ZX Spectrum 48K / 128K F5/settings s5 59 41e153f6
-ZX Spectrum 48K / 128K F5/settings s6 59 0d364d47
-ZX Spectrum 48K / 128K F5/settings s7 59 f3e8efe1
-ZX Spectrum 48K / 128K F5/settings s8 59 c7e0e2ec
-ZX Spectrum 48K / 128K F5/settings s9 59 ded458a7
-ZX Spectrum 48K / 128K F5/settings s10 59 3e62a1b6
-ZX Spectrum 48K / 128K F5/settings s11 59 11cada4b
-ZX Spectrum 48K / 128K F5/settings s12 59 9e8d8d09
-ZX Spectrum 48K / 128K F5/settings s13 59 cd02f9d4
-ZX Spectrum 48K / 128K F5/settings s14 59 7785f67b
-ZX Spectrum 48K / 128K F5/settings s15 59 3414a86a
-ZX Spectrum 48K / 128K F5/settings s16 59 4b32159d
-ZX Spectrum 48K / 128K F7/quick s0 59 aa809c9e
-ZX Spectrum 48K / 128K F7/quick s1 59 55322a50
-ZX Spectrum 48K / 128K F7/quick s2 59 fc26fd30
-ZX Spectrum 48K / 128K F7/quick s3 59 aa809c9e
-ZX Spectrum 48K / 128K F7/quick s4 59 55322a50
-ZX Spectrum 48K / 128K F7/quick s5 59 9bc160fb
-ZX Spectrum 48K / 128K F7/quick s6 59 55322a50
-ZX Spectrum 48K / 128K F7/quick s7 59 fc26fd30
-ZX Spectrum 48K / 128K F7/quick s8 59 4f1f660a
-ZX Spectrum 48K / 128K F7/quick s9 59 4f1f660a
-ZX Spectrum 48K / 128K F7/quick s10 59 aa809c9e
-ZX Spectrum 48K / 128K F7/quick s11 59 0eab188b
-ZX Spectrum 48K / 128K F7/quick s12 59 0eab188b
-ZX Spectrum 48K / 128K F7/quick s13 59 0eab188b
-ZX Spectrum 48K / 128K F7/quick s14 59 0eab188b
-ZX Spectrum 48K / 128K F7/quick s15 59 55322a50
-ZX Spectrum 48K / 128K F7/quick s16 59 fc26fd30
-ZX Spectrum 48K / 128K F8/expert s0 59 c9c42cc2
-ZX Spectrum 48K / 128K F8/expert s1 59 186543aa
-ZX Spectrum 48K / 128K F8/expert s2 59 c888a4bf
-ZX Spectrum 48K / 128K F8/expert s3 59 c9c42cc2
-ZX Spectrum 48K / 128K F8/expert s4 59 186543aa
-ZX Spectrum 48K / 128K F8/expert s5 59 75d4b3b5
-ZX Spectrum 48K / 128K F8/expert s6 59 186543aa
-ZX Spectrum 48K / 128K F8/expert s7 59 c888a4bf
-ZX Spectrum 48K / 128K F8/expert s8 59 46a1b6ec
-ZX Spectrum 48K / 128K F8/expert s9 59 46a1b6ec
-ZX Spectrum 48K / 128K F8/expert s10 59 c9c42cc2
-ZX Spectrum 48K / 128K F8/expert s11 59 a7ff339f
-ZX Spectrum 48K / 128K F8/expert s12 59 a7ff339f
-ZX Spectrum 48K / 128K F8/expert s13 59 a7ff339f
-ZX Spectrum 48K / 128K F8/expert s14 59 a7ff339f
-ZX Spectrum 48K / 128K F8/expert s15 59 186543aa
-ZX Spectrum 48K / 128K F8/expert s16 59 c888a4bf
-Amstrad CPC 464 / 664 / 6128 F1/home s0 59 fc84c71c
-Amstrad CPC 464 / 664 / 6128 F1/home s1 59 fc84c71c
-Amstrad CPC 464 / 664 / 6128 F1/home s2 59 f16a9fdd
-Amstrad CPC 464 / 664 / 6128 F1/home s3 59 fc84c71c
-Amstrad CPC 464 / 664 / 6128 F1/home s4 59 fc84c71c
-Amstrad CPC 464 / 664 / 6128 F1/home s5 59 1d771b3c
-Amstrad CPC 464 / 664 / 6128 F1/home s6 59 fc84c71c
-Amstrad CPC 464 / 664 / 6128 F1/home s7 59 f16a9fdd
-Amstrad CPC 464 / 664 / 6128 F1/home s8 59 f16a9fdd
-Amstrad CPC 464 / 664 / 6128 F1/home s9 59 f16a9fdd
-Amstrad CPC 464 / 664 / 6128 F1/home s10 59 fc84c71c
-Amstrad CPC 464 / 664 / 6128 F1/home s11 59 1d771b3c
-Amstrad CPC 464 / 664 / 6128 F1/home s12 59 1d771b3c
-Amstrad CPC 464 / 664 / 6128 F1/home s13 59 1d771b3c
-Amstrad CPC 464 / 664 / 6128 F1/home s14 59 1d771b3c
-Amstrad CPC 464 / 664 / 6128 F1/home s15 59 fc84c71c
-Amstrad CPC 464 / 664 / 6128 F1/home s16 59 f16a9fdd
-Amstrad CPC 464 / 664 / 6128 F3/browse s0 59 821b2dce
-Amstrad CPC 464 / 664 / 6128 F3/browse s1 59 f472a097
-Amstrad CPC 464 / 664 / 6128 F3/browse s2 59 87a53e70
-Amstrad CPC 464 / 664 / 6128 F3/browse s3 59 dcca31a3
-Amstrad CPC 464 / 664 / 6128 F3/browse s4 59 63895177
-Amstrad CPC 464 / 664 / 6128 F3/browse s5 59 954bdd51
-Amstrad CPC 464 / 664 / 6128 F3/browse s6 59 f472a097
-Amstrad CPC 464 / 664 / 6128 F3/browse s7 59 f62a0d40
-Amstrad CPC 464 / 664 / 6128 F3/browse s8 59 f25be594
-Amstrad CPC 464 / 664 / 6128 F3/browse s9 59 f25be594
-Amstrad CPC 464 / 664 / 6128 F3/browse s10 59 63275529
-Amstrad CPC 464 / 664 / 6128 F3/browse s11 59 82dd1056
-Amstrad CPC 464 / 664 / 6128 F3/browse s12 59 eef81c92
-Amstrad CPC 464 / 664 / 6128 F3/browse s13 59 f47207ea
-Amstrad CPC 464 / 664 / 6128 F3/browse s14 59 3d738b7f
-Amstrad CPC 464 / 664 / 6128 F3/browse s15 59 0ed7d265
-Amstrad CPC 464 / 664 / 6128 F3/browse s16 59 f128cb96
-Amstrad CPC 464 / 664 / 6128 F5/settings s0 59 4ebe82ce
-Amstrad CPC 464 / 664 / 6128 F5/settings s1 59 6cb929a7
-Amstrad CPC 464 / 664 / 6128 F5/settings s2 59 c6ec9073
-Amstrad CPC 464 / 664 / 6128 F5/settings s3 59 b2a6c08c
-Amstrad CPC 464 / 664 / 6128 F5/settings s4 59 b247ccf9
-Amstrad CPC 464 / 664 / 6128 F5/settings s5 59 82806fc7
-Amstrad CPC 464 / 664 / 6128 F5/settings s6 59 96f740cf
-Amstrad CPC 464 / 664 / 6128 F5/settings s7 59 e33aff8d
-Amstrad CPC 464 / 664 / 6128 F5/settings s8 59 ea7f25c6
-Amstrad CPC 464 / 664 / 6128 F5/settings s9 59 06e0c215
-Amstrad CPC 464 / 664 / 6128 F5/settings s10 59 a21ec000
-Amstrad CPC 464 / 664 / 6128 F5/settings s11 59 9e6da4e6
-Amstrad CPC 464 / 664 / 6128 F5/settings s12 59 0d5f1c4f
-Amstrad CPC 464 / 664 / 6128 F5/settings s13 59 7e89b682
-Amstrad CPC 464 / 664 / 6128 F5/settings s14 59 7245173d
-Amstrad CPC 464 / 664 / 6128 F5/settings s15 59 f96eea93
-Amstrad CPC 464 / 664 / 6128 F5/settings s16 59 fa011089
-Amstrad CPC 464 / 664 / 6128 F7/quick s0 59 ed4b6861
-Amstrad CPC 464 / 664 / 6128 F7/quick s1 59 b30e36a7
-Amstrad CPC 464 / 664 / 6128 F7/quick s2 59 76c749bc
-Amstrad CPC 464 / 664 / 6128 F7/quick s3 59 ed4b6861
-Amstrad CPC 464 / 664 / 6128 F7/quick s4 59 b30e36a7
-Amstrad CPC 464 / 664 / 6128 F7/quick s5 59 ce2c6e6d
-Amstrad CPC 464 / 664 / 6128 F7/quick s6 59 b30e36a7
-Amstrad CPC 464 / 664 / 6128 F7/quick s7 59 76c749bc
-Amstrad CPC 464 / 664 / 6128 F7/quick s8 59 1cb848c3
-Amstrad CPC 464 / 664 / 6128 F7/quick s9 59 1cb848c3
-Amstrad CPC 464 / 664 / 6128 F7/quick s10 59 ed4b6861
-Amstrad CPC 464 / 664 / 6128 F7/quick s11 59 ddc3bbd0
-Amstrad CPC 464 / 664 / 6128 F7/quick s12 59 ddc3bbd0
-Amstrad CPC 464 / 664 / 6128 F7/quick s13 59 ddc3bbd0
-Amstrad CPC 464 / 664 / 6128 F7/quick s14 59 ddc3bbd0
-Amstrad CPC 464 / 664 / 6128 F7/quick s15 59 b30e36a7
-Amstrad CPC 464 / 664 / 6128 F7/quick s16 59 76c749bc
-Amstrad CPC 464 / 664 / 6128 F8/expert s0 59 a643a8d5
-Amstrad CPC 464 / 664 / 6128 F8/expert s1 59 d6ab99b9
-Amstrad CPC 464 / 664 / 6128 F8/expert s2 59 91ba0c37
-Amstrad CPC 464 / 664 / 6128 F8/expert s3 59 a643a8d5
-Amstrad CPC 464 / 664 / 6128 F8/expert s4 59 d6ab99b9
-Amstrad CPC 464 / 664 / 6128 F8/expert s5 59 e5c46db8
-Amstrad CPC 464 / 664 / 6128 F8/expert s6 59 d6ab99b9
-Amstrad CPC 464 / 664 / 6128 F8/expert s7 59 91ba0c37
-Amstrad CPC 464 / 664 / 6128 F8/expert s8 59 75b39cf4
-Amstrad CPC 464 / 664 / 6128 F8/expert s9 59 75b39cf4
-Amstrad CPC 464 / 664 / 6128 F8/expert s10 59 a643a8d5
-Amstrad CPC 464 / 664 / 6128 F8/expert s11 59 5151aef4
-Amstrad CPC 464 / 664 / 6128 F8/expert s12 59 5151aef4
-Amstrad CPC 464 / 664 / 6128 F8/expert s13 59 5151aef4
-Amstrad CPC 464 / 664 / 6128 F8/expert s14 59 5151aef4
-Amstrad CPC 464 / 664 / 6128 F8/expert s15 59 d6ab99b9
-Amstrad CPC 464 / 664 / 6128 F8/expert s16 59 91ba0c37
-VIC-20 F1/home s0 59 43e8b7b0
-VIC-20 F1/home s1 59 43e8b7b0
-VIC-20 F1/home s2 59 e834704e
-VIC-20 F1/home s3 59 43e8b7b0
-VIC-20 F1/home s4 59 43e8b7b0
-VIC-20 F1/home s5 59 fb3458df
-VIC-20 F1/home s6 59 43e8b7b0
-VIC-20 F1/home s7 59 e834704e
-VIC-20 F1/home s8 59 e834704e
-VIC-20 F1/home s9 59 e834704e
-VIC-20 F1/home s10 59 43e8b7b0
-VIC-20 F1/home s11 59 fb3458df
-VIC-20 F1/home s12 59 fb3458df
-VIC-20 F1/home s13 59 fb3458df
-VIC-20 F1/home s14 59 fb3458df
-VIC-20 F1/home s15 59 43e8b7b0
-VIC-20 F1/home s16 59 e834704e
-VIC-20 F3/browse s0 59 c7165a3e
-VIC-20 F3/browse s1 59 f1029f15
-VIC-20 F3/browse s2 59 4ee80ef4
-VIC-20 F3/browse s3 59 5bf6a12b
-VIC-20 F3/browse s4 59 afe48739
-VIC-20 F3/browse s5 59 b2487f1d
-VIC-20 F3/browse s6 59 f1029f15
-VIC-20 F3/browse s7 59 1de45b4c
-VIC-20 F3/browse s8 59 a89111ba
-VIC-20 F3/browse s9 59 a89111ba
-VIC-20 F3/browse s10 59 29c5c60d
-VIC-20 F3/browse s11 59 2bce5aee
-VIC-20 F3/browse s12 59 e9ed33ee
-VIC-20 F3/browse s13 59 e1e7a1f1
-VIC-20 F3/browse s14 59 a93f86f3
-VIC-20 F3/browse s15 59 3a94f897
-VIC-20 F3/browse s16 59 363d805e
-VIC-20 F5/settings s0 59 a6c1a186
-VIC-20 F5/settings s1 59 3e55053a
-VIC-20 F5/settings s2 59 6d70def5
-VIC-20 F5/settings s3 59 a1eb3342
-VIC-20 F5/settings s4 59 d5ae7333
-VIC-20 F5/settings s5 59 f1286bcd
-VIC-20 F5/settings s6 59 79b7b53b
-VIC-20 F5/settings s7 59 9ea9863c
-VIC-20 F5/settings s8 59 467b14e0
-VIC-20 F5/settings s9 59 abf9fe9e
-VIC-20 F5/settings s10 59 3956fe48
-VIC-20 F5/settings s11 59 d4b1a9c6
-VIC-20 F5/settings s12 59 fac89a8a
-VIC-20 F5/settings s13 59 1db592ff
-VIC-20 F5/settings s14 59 bb87c3c4
-VIC-20 F5/settings s15 59 b7115291
-VIC-20 F5/settings s16 59 86885ba4
-VIC-20 F7/quick s0 59 aa36e904
-VIC-20 F7/quick s1 59 bfcdd69d
-VIC-20 F7/quick s2 59 6eff1f6a
-VIC-20 F7/quick s3 59 aa36e904
-VIC-20 F7/quick s4 59 bfcdd69d
-VIC-20 F7/quick s5 59 b0c2c39e
-VIC-20 F7/quick s6 59 bfcdd69d
-VIC-20 F7/quick s7 59 6eff1f6a
-VIC-20 F7/quick s8 59 160b4908
-VIC-20 F7/quick s9 59 160b4908
-VIC-20 F7/quick s10 59 aa36e904
-VIC-20 F7/quick s11 59 5366902f
-VIC-20 F7/quick s12 59 5366902f
-VIC-20 F7/quick s13 59 5366902f
-VIC-20 F7/quick s14 59 5366902f
-VIC-20 F7/quick s15 59 bfcdd69d
-VIC-20 F7/quick s16 59 6eff1f6a
-VIC-20 F8/expert s0 59 a060086f
-VIC-20 F8/expert s1 59 45636e89
-VIC-20 F8/expert s2 59 152c62f8
-VIC-20 F8/expert s3 59 a060086f
-VIC-20 F8/expert s4 59 45636e89
-VIC-20 F8/expert s5 59 05fc4440
-VIC-20 F8/expert s6 59 45636e89
-VIC-20 F8/expert s7 59 152c62f8
-VIC-20 F8/expert s8 59 dbee76af
-VIC-20 F8/expert s9 59 dbee76af
-VIC-20 F8/expert s10 59 a060086f
-VIC-20 F8/expert s11 59 f4fa3863
-VIC-20 F8/expert s12 59 f4fa3863
-VIC-20 F8/expert s13 59 f4fa3863
-VIC-20 F8/expert s14 59 f4fa3863
-VIC-20 F8/expert s15 59 45636e89
-VIC-20 F8/expert s16 59 152c62f8
-Commodore 264 (C16, Plus/4) F1/home s0 59 d4df7f62
-Commodore 264 (C16, Plus/4) F1/home s1 59 d4df7f62
-Commodore 264 (C16, Plus/4) F1/home s2 59 33283eb9
-Commodore 264 (C16, Plus/4) F1/home s3 59 d4df7f62
-Commodore 264 (C16, Plus/4) F1/home s4 59 d4df7f62
-Commodore 264 (C16, Plus/4) F1/home s5 59 bb97a690
-Commodore 264 (C16, Plus/4) F1/home s6 59 d4df7f62
-Commodore 264 (C16, Plus/4) F1/home s7 59 33283eb9
-Commodore 264 (C16, Plus/4) F1/home s8 59 33283eb9
-Commodore 264 (C16, Plus/4) F1/home s9 59 33283eb9
-Commodore 264 (C16, Plus/4) F1/home s10 59 d4df7f62
-Commodore 264 (C16, Plus/4) F1/home s11 59 bb97a690
-Commodore 264 (C16, Plus/4) F1/home s12 59 bb97a690
-Commodore 264 (C16, Plus/4) F1/home s13 59 bb97a690
-Commodore 264 (C16, Plus/4) F1/home s14 59 bb97a690
-Commodore 264 (C16, Plus/4) F1/home s15 59 d4df7f62
-Commodore 264 (C16, Plus/4) F1/home s16 59 33283eb9
-Commodore 264 (C16, Plus/4) F3/browse s0 59 2f9d9444
-Commodore 264 (C16, Plus/4) F3/browse s1 59 10d73fad
-Commodore 264 (C16, Plus/4) F3/browse s2 59 a21aa014
-Commodore 264 (C16, Plus/4) F3/browse s3 59 d06998ff
-Commodore 264 (C16, Plus/4) F3/browse s4 59 f5a18067
-Commodore 264 (C16, Plus/4) F3/browse s5 59 06b91a3d
-Commodore 264 (C16, Plus/4) F3/browse s6 59 10d73fad
-Commodore 264 (C16, Plus/4) F3/browse s7 59 f3a0ddf0
-Commodore 264 (C16, Plus/4) F3/browse s8 59 7a204668
-Commodore 264 (C16, Plus/4) F3/browse s9 59 7a204668
-Commodore 264 (C16, Plus/4) F3/browse s10 59 b0e93209
-Commodore 264 (C16, Plus/4) F3/browse s11 59 dc242a9b
-Commodore 264 (C16, Plus/4) F3/browse s12 59 bda223e2
-Commodore 264 (C16, Plus/4) F3/browse s13 59 174afa5f
-Commodore 264 (C16, Plus/4) F3/browse s14 59 734fe193
-Commodore 264 (C16, Plus/4) F3/browse s15 59 7b92b990
-Commodore 264 (C16, Plus/4) F3/browse s16 59 07ef70ce
-Commodore 264 (C16, Plus/4) F5/settings s0 59 4df217e2
-Commodore 264 (C16, Plus/4) F5/settings s1 59 ce56ea5b
-Commodore 264 (C16, Plus/4) F5/settings s2 59 3e6cd8a3
-Commodore 264 (C16, Plus/4) F5/settings s3 59 747c045f
-Commodore 264 (C16, Plus/4) F5/settings s4 59 d44f7b2c
-Commodore 264 (C16, Plus/4) F5/settings s5 59 88fab4d9
-Commodore 264 (C16, Plus/4) F5/settings s6 59 5f6fd093
-Commodore 264 (C16, Plus/4) F5/settings s7 59 52671aff
-Commodore 264 (C16, Plus/4) F5/settings s8 59 0fda1c00
-Commodore 264 (C16, Plus/4) F5/settings s9 59 83b36c5d
-Commodore 264 (C16, Plus/4) F5/settings s10 59 657bfaee
-Commodore 264 (C16, Plus/4) F5/settings s11 59 d3a5fc73
-Commodore 264 (C16, Plus/4) F5/settings s12 59 bf19f024
-Commodore 264 (C16, Plus/4) F5/settings s13 59 d3a5fc73
-Commodore 264 (C16, Plus/4) F5/settings s14 59 bf19f024
-Commodore 264 (C16, Plus/4) F5/settings s15 59 d44f7b2c
-Commodore 264 (C16, Plus/4) F5/settings s16 59 cb12333d
-Commodore 264 (C16, Plus/4) F7/quick s0 59 b3e6b201
-Commodore 264 (C16, Plus/4) F7/quick s1 59 18ac85be
-Commodore 264 (C16, Plus/4) F7/quick s2 59 1d76a007
-Commodore 264 (C16, Plus/4) F7/quick s3 59 b3e6b201
-Commodore 264 (C16, Plus/4) F7/quick s4 59 18ac85be
-Commodore 264 (C16, Plus/4) F7/quick s5 59 46f921e8
-Commodore 264 (C16, Plus/4) F7/quick s6 59 18ac85be
-Commodore 264 (C16, Plus/4) F7/quick s7 59 1d76a007
-Commodore 264 (C16, Plus/4) F7/quick s8 59 e745d1fa
-Commodore 264 (C16, Plus/4) F7/quick s9 59 e745d1fa
-Commodore 264 (C16, Plus/4) F7/quick s10 59 b3e6b201
-Commodore 264 (C16, Plus/4) F7/quick s11 59 8d0033ac
-Commodore 264 (C16, Plus/4) F7/quick s12 59 8d0033ac
-Commodore 264 (C16, Plus/4) F7/quick s13 59 8d0033ac
-Commodore 264 (C16, Plus/4) F7/quick s14 59 8d0033ac
-Commodore 264 (C16, Plus/4) F7/quick s15 59 18ac85be
-Commodore 264 (C16, Plus/4) F7/quick s16 59 1d76a007
-Commodore 264 (C16, Plus/4) F8/expert s0 59 80517b1d
-Commodore 264 (C16, Plus/4) F8/expert s1 59 51cb768f
-Commodore 264 (C16, Plus/4) F8/expert s2 59 04200f0c
-Commodore 264 (C16, Plus/4) F8/expert s3 59 80517b1d
-Commodore 264 (C16, Plus/4) F8/expert s4 59 51cb768f
-Commodore 264 (C16, Plus/4) F8/expert s5 59 95954055
-Commodore 264 (C16, Plus/4) F8/expert s6 59 51cb768f
-Commodore 264 (C16, Plus/4) F8/expert s7 59 04200f0c
-Commodore 264 (C16, Plus/4) F8/expert s8 59 816e7bd6
-Commodore 264 (C16, Plus/4) F8/expert s9 59 816e7bd6
-Commodore 264 (C16, Plus/4) F8/expert s10 59 80517b1d
-Commodore 264 (C16, Plus/4) F8/expert s11 59 744ef0cc
-Commodore 264 (C16, Plus/4) F8/expert s12 59 744ef0cc
-Commodore 264 (C16, Plus/4) F8/expert s13 59 744ef0cc
-Commodore 264 (C16, Plus/4) F8/expert s14 59 744ef0cc
-Commodore 264 (C16, Plus/4) F8/expert s15 59 51cb768f
-Commodore 264 (C16, Plus/4) F8/expert s16 59 04200f0c
-Commodore PET F1/home s0 59 c4579705
-Commodore PET F1/home s1 59 c4579705
-Commodore PET F1/home s2 59 598a6b66
-Commodore PET F1/home s3 59 c4579705
-Commodore PET F1/home s4 59 c4579705
-Commodore PET F1/home s5 59 92859f9f
-Commodore PET F1/home s6 59 c4579705
-Commodore PET F1/home s7 59 598a6b66
-Commodore PET F1/home s8 59 598a6b66
-Commodore PET F1/home s9 59 598a6b66
-Commodore PET F1/home s10 59 c4579705
-Commodore PET F1/home s11 59 92859f9f
-Commodore PET F1/home s12 59 92859f9f
-Commodore PET F1/home s13 59 92859f9f
-Commodore PET F1/home s14 59 92859f9f
-Commodore PET F1/home s15 59 c4579705
-Commodore PET F1/home s16 59 598a6b66
-Commodore PET F3/browse s0 59 2759141d
-Commodore PET F3/browse s1 59 82c5859c
-Commodore PET F3/browse s2 59 9e2884e1
-Commodore PET F3/browse s3 59 00ca7ed6
-Commodore PET F3/browse s4 59 46bc46ac
-Commodore PET F3/browse s5 59 a54c847c
-Commodore PET F3/browse s6 59 82c5859c
-Commodore PET F3/browse s7 59 9f136381
-Commodore PET F3/browse s8 59 f2c16e25
-Commodore PET F3/browse s9 59 f2c16e25
-Commodore PET F3/browse s10 59 0497fbe8
-Commodore PET F3/browse s11 59 65320297
-Commodore PET F3/browse s12 59 f8fddd97
-Commodore PET F3/browse s13 59 e4462667
-Commodore PET F3/browse s14 59 85f90d72
-Commodore PET F3/browse s15 59 fe5a5423
-Commodore PET F3/browse s16 59 09c5d173
-Commodore PET F5/settings s0 59 eca514ce
-Commodore PET F5/settings s1 59 c8116496
-Commodore PET F5/settings s2 59 5393c2a4
-Commodore PET F5/settings s3 59 b8b492aa
-Commodore PET F5/settings s4 59 add1bd52
-Commodore PET F5/settings s5 59 4107bdbe
-Commodore PET F5/settings s6 59 c08d8857
-Commodore PET F5/settings s7 59 10836ee3
-Commodore PET F5/settings s8 59 2cc753c6
-Commodore PET F5/settings s9 59 ae0d3f0c
-Commodore PET F5/settings s10 59 ea30460f
-Commodore PET F5/settings s11 59 42ee418f
-Commodore PET F5/settings s12 59 c78ad7ab
-Commodore PET F5/settings s13 59 bca35eaf
-Commodore PET F5/settings s14 59 09909e42
-Commodore PET F5/settings s15 59 0825617c
-Commodore PET F5/settings s16 59 f9c94bcd
-Commodore PET F7/quick s0 59 3917ef1b
-Commodore PET F7/quick s1 59 6e3e7978
-Commodore PET F7/quick s2 59 040b68f8
-Commodore PET F7/quick s3 59 3917ef1b
-Commodore PET F7/quick s4 59 6e3e7978
-Commodore PET F7/quick s5 59 6c77c6a2
-Commodore PET F7/quick s6 59 6e3e7978
-Commodore PET F7/quick s7 59 040b68f8
-Commodore PET F7/quick s8 59 e7c9708e
-Commodore PET F7/quick s9 59 e7c9708e
-Commodore PET F7/quick s10 59 3917ef1b
-Commodore PET F7/quick s11 59 3fff0c02
-Commodore PET F7/quick s12 59 3fff0c02
-Commodore PET F7/quick s13 59 3fff0c02
-Commodore PET F7/quick s14 59 3fff0c02
-Commodore PET F7/quick s15 59 6e3e7978
-Commodore PET F7/quick s16 59 040b68f8
-Commodore PET F8/expert s0 59 0ace312a
-Commodore PET F8/expert s1 59 98e48808
-Commodore PET F8/expert s2 59 7937a376
-Commodore PET F8/expert s3 59 0ace312a
-Commodore PET F8/expert s4 59 98e48808
-Commodore PET F8/expert s5 59 aea9ce7e
-Commodore PET F8/expert s6 59 98e48808
-Commodore PET F8/expert s7 59 7937a376
-Commodore PET F8/expert s8 59 48d1878d
-Commodore PET F8/expert s9 59 48d1878d
-Commodore PET F8/expert s10 59 0ace312a
-Commodore PET F8/expert s11 59 fbb48c66
-Commodore PET F8/expert s12 59 fbb48c66
-Commodore PET F8/expert s13 59 fbb48c66
-Commodore PET F8/expert s14 59 fbb48c66
-Commodore PET F8/expert s15 59 98e48808
-Commodore PET F8/expert s16 59 7937a376
-Commodore 128 F1/home s0 59 3c445830
-Commodore 128 F1/home s1 59 3c445830
-Commodore 128 F1/home s2 59 ac4f7dc5
-Commodore 128 F1/home s3 59 3c445830
-Commodore 128 F1/home s4 59 3c445830
-Commodore 128 F1/home s5 59 c7bde601
-Commodore 128 F1/home s6 59 3c445830
-Commodore 128 F1/home s7 59 ac4f7dc5
-Commodore 128 F1/home s8 59 ac4f7dc5
-Commodore 128 F1/home s9 59 ac4f7dc5
-Commodore 128 F1/home s10 59 3c445830
-Commodore 128 F1/home s11 59 c7bde601
-Commodore 128 F1/home s12 59 c7bde601
-Commodore 128 F1/home s13 59 c7bde601
-Commodore 128 F1/home s14 59 c7bde601
-Commodore 128 F1/home s15 59 3c445830
-Commodore 128 F1/home s16 59 ac4f7dc5
-Commodore 128 F3/browse s0 59 67189043
-Commodore 128 F3/browse s1 59 f6250656
-Commodore 128 F3/browse s2 59 b59b2cf3
-Commodore 128 F3/browse s3 59 e09114c6
-Commodore 128 F3/browse s4 59 2ebe6f38
-Commodore 128 F3/browse s5 59 dcdf0c4e
-Commodore 128 F3/browse s6 59 f6250656
-Commodore 128 F3/browse s7 59 5a97b49d
-Commodore 128 F3/browse s8 59 27d5f589
-Commodore 128 F3/browse s9 59 27d5f589
-Commodore 128 F3/browse s10 59 1e5977de
-Commodore 128 F3/browse s11 59 bef8a291
-Commodore 128 F3/browse s12 59 cb4da94c
-Commodore 128 F3/browse s13 59 fb3682b9
-Commodore 128 F3/browse s14 59 aa8825f6
-Commodore 128 F3/browse s15 59 9bf0b20f
-Commodore 128 F3/browse s16 59 2cf99bf5
-Commodore 128 F5/settings s0 59 a0211d6d
-Commodore 128 F5/settings s1 59 346879e5
-Commodore 128 F5/settings s2 59 aa71c48b
-Commodore 128 F5/settings s3 59 a4e039b5
-Commodore 128 F5/settings s4 59 bbea04a7
-Commodore 128 F5/settings s5 59 f020b2ba
-Commodore 128 F5/settings s6 59 f77bfa4e
-Commodore 128 F5/settings s7 59 132b0550
-Commodore 128 F5/settings s8 59 444e8be2
-Commodore 128 F5/settings s9 59 00fd2551
-Commodore 128 F5/settings s10 59 675d43b9
-Commodore 128 F5/settings s11 59 c210696d
-Commodore 128 F5/settings s12 59 c210696d
-Commodore 128 F5/settings s13 59 c210696d
-Commodore 128 F5/settings s14 59 c210696d
-Commodore 128 F5/settings s15 59 bbea04a7
-Commodore 128 F5/settings s16 59 1dfcf881
-Commodore 128 F7/quick s0 59 5aad884b
-Commodore 128 F7/quick s1 59 1d570646
-Commodore 128 F7/quick s2 59 77f843a4
-Commodore 128 F7/quick s3 59 5aad884b
-Commodore 128 F7/quick s4 59 1d570646
-Commodore 128 F7/quick s5 59 6bf06726
-Commodore 128 F7/quick s6 59 1d570646
-Commodore 128 F7/quick s7 59 77f843a4
-Commodore 128 F7/quick s8 59 f056772b
-Commodore 128 F7/quick s9 59 f056772b
-Commodore 128 F7/quick s10 59 5aad884b
-Commodore 128 F7/quick s11 59 3124bf19
-Commodore 128 F7/quick s12 59 3124bf19
-Commodore 128 F7/quick s13 59 3124bf19
-Commodore 128 F7/quick s14 59 3124bf19
-Commodore 128 F7/quick s15 59 1d570646
-Commodore 128 F7/quick s16 59 77f843a4
-Commodore 128 F8/expert s0 59 80ad37c7
-Commodore 128 F8/expert s1 59 1f9993db
-Commodore 128 F8/expert s2 59 272cbd30
-Commodore 128 F8/expert s3 59 80ad37c7
-Commodore 128 F8/expert s4 59 1f9993db
-Commodore 128 F8/expert s5 59 6506d948
-Commodore 128 F8/expert s6 59 1f9993db
-Commodore 128 F8/expert s7 59 272cbd30
-Commodore 128 F8/expert s8 59 e254a6f6
-Commodore 128 F8/expert s9 59 e254a6f6
-Commodore 128 F8/expert s10 59 80ad37c7
-Commodore 128 F8/expert s11 59 5046b23a
-Commodore 128 F8/expert s12 59 5046b23a
-Commodore 128 F8/expert s13 59 5046b23a
-Commodore 128 F8/expert s14 59 5046b23a
-Commodore 128 F8/expert s15 59 1f9993db
-Commodore 128 F8/expert s16 59 272cbd30
-C64 with SuperCPU F1/home s0 59 4a0dbcde
-C64 with SuperCPU F1/home s1 59 4a0dbcde
-C64 with SuperCPU F1/home s2 59 031d4c67
-C64 with SuperCPU F1/home s3 59 4a0dbcde
-C64 with SuperCPU F1/home s4 59 4a0dbcde
-C64 with SuperCPU F1/home s5 59 94b8c9a3
-C64 with SuperCPU F1/home s6 59 4a0dbcde
-C64 with SuperCPU F1/home s7 59 031d4c67
-C64 with SuperCPU F1/home s8 59 031d4c67
-C64 with SuperCPU F1/home s9 59 031d4c67
-C64 with SuperCPU F1/home s10 59 4a0dbcde
-C64 with SuperCPU F1/home s11 59 94b8c9a3
-C64 with SuperCPU F1/home s12 59 94b8c9a3
-C64 with SuperCPU F1/home s13 59 94b8c9a3
-C64 with SuperCPU F1/home s14 59 94b8c9a3
-C64 with SuperCPU F1/home s15 59 4a0dbcde
-C64 with SuperCPU F1/home s16 59 031d4c67
-C64 with SuperCPU F3/browse s0 59 bfbbe6a1
-C64 with SuperCPU F3/browse s1 59 54e716b4
-C64 with SuperCPU F3/browse s2 59 fac93ee1
-C64 with SuperCPU F3/browse s3 59 f2fcf1d8
-C64 with SuperCPU F3/browse s4 59 1df1ac92
-C64 with SuperCPU F3/browse s5 59 01ed3e7c
-C64 with SuperCPU F3/browse s6 59 54e716b4
-C64 with SuperCPU F3/browse s7 59 e37f3e03
-C64 with SuperCPU F3/browse s8 59 935a8b9b
-C64 with SuperCPU F3/browse s9 59 935a8b9b
-C64 with SuperCPU F3/browse s10 59 297ef8ff
-C64 with SuperCPU F3/browse s11 59 2803b953
-C64 with SuperCPU F3/browse s12 59 864e58d9
-C64 with SuperCPU F3/browse s13 59 a8e3408f
-C64 with SuperCPU F3/browse s14 59 a2b85970
-C64 with SuperCPU F3/browse s15 59 c647838b
-C64 with SuperCPU F3/browse s16 59 3f8bed27
-C64 with SuperCPU F5/settings s0 59 cc25cb66
-C64 with SuperCPU F5/settings s1 59 305db8de
-C64 with SuperCPU F5/settings s2 59 ebdeff48
-C64 with SuperCPU F5/settings s3 59 3b9bed63
-C64 with SuperCPU F5/settings s4 59 f1cdd348
-C64 with SuperCPU F5/settings s5 59 2fc4811b
-C64 with SuperCPU F5/settings s6 59 8be70386
-C64 with SuperCPU F5/settings s7 59 ae40a573
-C64 with SuperCPU F5/settings s8 59 fdb8321a
-C64 with SuperCPU F5/settings s9 59 fdb8321a
-C64 with SuperCPU F5/settings s10 59 cc25cb66
-C64 with SuperCPU F5/settings s11 59 dc80e3d8
-C64 with SuperCPU F5/settings s12 59 0cc87e4f
-C64 with SuperCPU F5/settings s13 59 dc80e3d8
-C64 with SuperCPU F5/settings s14 59 0cc87e4f
-C64 with SuperCPU F5/settings s15 59 1a1eefa0
-C64 with SuperCPU F5/settings s16 59 ebdeff48
-C64 with SuperCPU F7/quick s0 59 308685a4
-C64 with SuperCPU F7/quick s1 59 0954a786
-C64 with SuperCPU F7/quick s2 59 6a9a232e
-C64 with SuperCPU F7/quick s3 59 308685a4
-C64 with SuperCPU F7/quick s4 59 0954a786
-C64 with SuperCPU F7/quick s5 59 5756fdd3
-C64 with SuperCPU F7/quick s6 59 0954a786
-C64 with SuperCPU F7/quick s7 59 6a9a232e
-C64 with SuperCPU F7/quick s8 59 dd14d6c7
-C64 with SuperCPU F7/quick s9 59 dd14d6c7
-C64 with SuperCPU F7/quick s10 59 308685a4
-C64 with SuperCPU F7/quick s11 59 e9dbb611
-C64 with SuperCPU F7/quick s12 59 e9dbb611
-C64 with SuperCPU F7/quick s13 59 e9dbb611
-C64 with SuperCPU F7/quick s14 59 e9dbb611
-C64 with SuperCPU F7/quick s15 59 0954a786
-C64 with SuperCPU F7/quick s16 59 6a9a232e
-C64 with SuperCPU F8/expert s0 59 f4009e22
-C64 with SuperCPU F8/expert s1 59 ed1e2167
-C64 with SuperCPU F8/expert s2 59 e06c8529
-C64 with SuperCPU F8/expert s3 59 f4009e22
-C64 with SuperCPU F8/expert s4 59 ed1e2167
-C64 with SuperCPU F8/expert s5 59 9942e18d
-C64 with SuperCPU F8/expert s6 59 ed1e2167
-C64 with SuperCPU F8/expert s7 59 e06c8529
-C64 with SuperCPU F8/expert s8 59 88369d39
-C64 with SuperCPU F8/expert s9 59 88369d39
-C64 with SuperCPU F8/expert s10 59 f4009e22
-C64 with SuperCPU F8/expert s11 59 8758292f
-C64 with SuperCPU F8/expert s12 59 8758292f
-C64 with SuperCPU F8/expert s13 59 8758292f
-C64 with SuperCPU F8/expert s14 59 8758292f
-C64 with SuperCPU F8/expert s15 59 ed1e2167
-C64 with SuperCPU F8/expert s16 59 e06c8529
-ZX Spectrum Next F1/home s0 59 8debd1a3
-ZX Spectrum Next F1/home s1 59 8debd1a3
-ZX Spectrum Next F1/home s2 59 655a92c2
-ZX Spectrum Next F1/home s3 59 8debd1a3
-ZX Spectrum Next F1/home s4 59 8debd1a3
-ZX Spectrum Next F1/home s5 59 81681156
-ZX Spectrum Next F1/home s6 59 8debd1a3
-ZX Spectrum Next F1/home s7 59 655a92c2
-ZX Spectrum Next F1/home s8 59 655a92c2
-ZX Spectrum Next F1/home s9 59 655a92c2
-ZX Spectrum Next F1/home s10 59 8debd1a3
-ZX Spectrum Next F1/home s11 59 81681156
-ZX Spectrum Next F1/home s12 59 81681156
-ZX Spectrum Next F1/home s13 59 81681156
-ZX Spectrum Next F1/home s14 59 81681156
-ZX Spectrum Next F1/home s15 59 8debd1a3
-ZX Spectrum Next F1/home s16 59 655a92c2
-ZX Spectrum Next F3/browse s0 59 a471da9a
-ZX Spectrum Next F3/browse s1 59 a9dc8ae9
-ZX Spectrum Next F3/browse s2 59 ca6b7974
-ZX Spectrum Next F3/browse s3 59 43ec6069
-ZX Spectrum Next F3/browse s4 59 c506839b
-ZX Spectrum Next F3/browse s5 59 77ec7f9d
-ZX Spectrum Next F3/browse s6 59 a9dc8ae9
-ZX Spectrum Next F3/browse s7 59 6690678e
-ZX Spectrum Next F3/browse s8 59 7f045e60
-ZX Spectrum Next F3/browse s9 59 7f045e60
-ZX Spectrum Next F3/browse s10 59 90c35e01
-ZX Spectrum Next F3/browse s11 59 358b25c1
-ZX Spectrum Next F3/browse s12 59 851c45e6
-ZX Spectrum Next F3/browse s13 59 832bf161
-ZX Spectrum Next F3/browse s14 59 877adfe9
-ZX Spectrum Next F3/browse s15 59 87e21231
-ZX Spectrum Next F3/browse s16 59 f0e597ea
-ZX Spectrum Next F5/settings s0 59 1cd796bc
-ZX Spectrum Next F5/settings s1 59 153fa26a
-ZX Spectrum Next F5/settings s2 59 c061a46a
-ZX Spectrum Next F5/settings s3 59 4991b8ec
-ZX Spectrum Next F5/settings s4 59 18c3c5d3
-ZX Spectrum Next F5/settings s5 59 dd6d0f4f
-ZX Spectrum Next F5/settings s6 59 a1670dc2
-ZX Spectrum Next F5/settings s7 59 01fb22f6
-ZX Spectrum Next F5/settings s8 59 e6a02c6e
-ZX Spectrum Next F5/settings s9 59 ca3d16be
-ZX Spectrum Next F5/settings s10 59 dceb738e
-ZX Spectrum Next F5/settings s11 59 d277d54d
-ZX Spectrum Next F5/settings s12 59 d606c07b
-ZX Spectrum Next F5/settings s13 59 9e9b5ec5
-ZX Spectrum Next F5/settings s14 59 7cb2c4fe
-ZX Spectrum Next F5/settings s15 59 18c3c5d3
-ZX Spectrum Next F5/settings s16 59 4653adb2
-ZX Spectrum Next F7/quick s0 59 ab8321a7
-ZX Spectrum Next F7/quick s1 59 0852d03f
-ZX Spectrum Next F7/quick s2 59 dc00e94c
-ZX Spectrum Next F7/quick s3 59 ab8321a7
-ZX Spectrum Next F7/quick s4 59 0852d03f
-ZX Spectrum Next F7/quick s5 59 201204ae
-ZX Spectrum Next F7/quick s6 59 0852d03f
-ZX Spectrum Next F7/quick s7 59 dc00e94c
-ZX Spectrum Next F7/quick s8 59 3759312c
-ZX Spectrum Next F7/quick s9 59 3759312c
-ZX Spectrum Next F7/quick s10 59 ab8321a7
-ZX Spectrum Next F7/quick s11 59 df164bed
-ZX Spectrum Next F7/quick s12 59 df164bed
-ZX Spectrum Next F7/quick s13 59 df164bed
-ZX Spectrum Next F7/quick s14 59 df164bed
-ZX Spectrum Next F7/quick s15 59 0852d03f
-ZX Spectrum Next F7/quick s16 59 dc00e94c
-ZX Spectrum Next F8/expert s0 59 6e17d67a
-ZX Spectrum Next F8/expert s1 59 ec0be07c
-ZX Spectrum Next F8/expert s2 59 bd952e60
-ZX Spectrum Next F8/expert s3 59 6e17d67a
-ZX Spectrum Next F8/expert s4 59 ec0be07c
-ZX Spectrum Next F8/expert s5 59 5a48e401
-ZX Spectrum Next F8/expert s6 59 ec0be07c
-ZX Spectrum Next F8/expert s7 59 bd952e60
-ZX Spectrum Next F8/expert s8 59 8d15f2d8
-ZX Spectrum Next F8/expert s9 59 8d15f2d8
-ZX Spectrum Next F8/expert s10 59 6e17d67a
-ZX Spectrum Next F8/expert s11 59 8dcc3f6c
-ZX Spectrum Next F8/expert s12 59 8dcc3f6c
-ZX Spectrum Next F8/expert s13 59 8dcc3f6c
-ZX Spectrum Next F8/expert s14 59 8dcc3f6c
-ZX Spectrum Next F8/expert s15 59 ec0be07c
-ZX Spectrum Next F8/expert s16 59 bd952e60
-Super Nintendo F1/home s0 59 a6a4d531
-Super Nintendo F1/home s1 59 a6a4d531
-Super Nintendo F1/home s2 59 6fd6bce7
-Super Nintendo F1/home s3 59 a6a4d531
-Super Nintendo F1/home s4 59 a6a4d531
-Super Nintendo F1/home s5 59 a3dbd406
-Super Nintendo F1/home s6 59 a6a4d531
-Super Nintendo F1/home s7 59 6fd6bce7
-Super Nintendo F1/home s8 59 6fd6bce7
-Super Nintendo F1/home s9 59 6fd6bce7
-Super Nintendo F1/home s10 59 a6a4d531
-Super Nintendo F1/home s11 59 a3dbd406
-Super Nintendo F1/home s12 59 a3dbd406
-Super Nintendo F1/home s13 59 a3dbd406
-Super Nintendo F1/home s14 59 a3dbd406
-Super Nintendo F1/home s15 59 a6a4d531
-Super Nintendo F1/home s16 59 6fd6bce7
-Super Nintendo F3/browse s0 59 f0ddaf22
-Super Nintendo F3/browse s1 59 b26f50f4
-Super Nintendo F3/browse s2 59 4b1927b5
-Super Nintendo F3/browse s3 59 de75c227
-Super Nintendo F3/browse s4 59 c6837c78
-Super Nintendo F3/browse s5 59 a6463465
-Super Nintendo F3/browse s6 59 b26f50f4
-Super Nintendo F3/browse s7 59 19a30ce8
-Super Nintendo F3/browse s8 59 22901f6d
-Super Nintendo F3/browse s9 59 22901f6d
-Super Nintendo F3/browse s10 59 a38bd4f2
-Super Nintendo F3/browse s11 59 f68b04cd
-Super Nintendo F3/browse s12 59 e221dc3a
-Super Nintendo F3/browse s13 59 34176830
-Super Nintendo F3/browse s14 59 7e1706dc
-Super Nintendo F3/browse s15 59 c429181b
-Super Nintendo F3/browse s16 59 3cafb0f8
-Super Nintendo F5/settings s0 59 12063942
-Super Nintendo F5/settings s1 59 c7748421
-Super Nintendo F5/settings s2 59 51cd7a25
-Super Nintendo F5/settings s3 59 d25d68f6
-Super Nintendo F5/settings s4 59 2643090f
-Super Nintendo F5/settings s5 59 834a4429
-Super Nintendo F5/settings s6 59 62f2220d
-Super Nintendo F5/settings s7 59 fc63d79e
-Super Nintendo F5/settings s8 59 fdaee2d3
-Super Nintendo F5/settings s9 59 0aa3da13
-Super Nintendo F5/settings s10 59 15f9c560
-Super Nintendo F5/settings s11 59 efde54e1
-Super Nintendo F5/settings s12 59 a7b3a372
-Super Nintendo F5/settings s13 59 e3e305c1
-Super Nintendo F5/settings s14 59 05c7b5b5
-Super Nintendo F5/settings s15 59 1a907f01
-Super Nintendo F5/settings s16 59 36315a2a
-Super Nintendo F7/quick s0 59 3a53d3af
-Super Nintendo F7/quick s1 59 32137b28
-Super Nintendo F7/quick s2 59 e15fe826
-Super Nintendo F7/quick s3 59 3a53d3af
-Super Nintendo F7/quick s4 59 32137b28
-Super Nintendo F7/quick s5 59 8e1c8b14
-Super Nintendo F7/quick s6 59 32137b28
-Super Nintendo F7/quick s7 59 e15fe826
-Super Nintendo F7/quick s8 59 57d44fc6
-Super Nintendo F7/quick s9 59 57d44fc6
-Super Nintendo F7/quick s10 59 3a53d3af
-Super Nintendo F7/quick s11 59 de41a0d2
-Super Nintendo F7/quick s12 59 de41a0d2
-Super Nintendo F7/quick s13 59 de41a0d2
-Super Nintendo F7/quick s14 59 de41a0d2
-Super Nintendo F7/quick s15 59 32137b28
-Super Nintendo F7/quick s16 59 e15fe826
-Super Nintendo F8/expert s0 59 cac903c5
-Super Nintendo F8/expert s1 59 c7dbaf1d
-Super Nintendo F8/expert s2 59 9337b94a
-Super Nintendo F8/expert s3 59 cac903c5
-Super Nintendo F8/expert s4 59 c7dbaf1d
-Super Nintendo F8/expert s5 59 6a519598
-Super Nintendo F8/expert s6 59 c7dbaf1d
-Super Nintendo F8/expert s7 59 9337b94a
-Super Nintendo F8/expert s8 59 193103da
-Super Nintendo F8/expert s9 59 193103da
-Super Nintendo F8/expert s10 59 cac903c5
-Super Nintendo F8/expert s11 59 3695238f
-Super Nintendo F8/expert s12 59 3695238f
-Super Nintendo F8/expert s13 59 3695238f
-Super Nintendo F8/expert s14 59 3695238f
-Super Nintendo F8/expert s15 59 c7dbaf1d
-Super Nintendo F8/expert s16 59 9337b94a
-SNK Neo Geo F1/home s0 59 df63c16b
-SNK Neo Geo F1/home s1 59 df63c16b
-SNK Neo Geo F1/home s2 59 d761b023
-SNK Neo Geo F1/home s3 59 df63c16b
-SNK Neo Geo F1/home s4 59 df63c16b
-SNK Neo Geo F1/home s5 59 defea71e
-SNK Neo Geo F1/home s6 59 df63c16b
-SNK Neo Geo F1/home s7 59 d761b023
-SNK Neo Geo F1/home s8 59 d761b023
-SNK Neo Geo F1/home s9 59 d761b023
-SNK Neo Geo F1/home s10 59 df63c16b
-SNK Neo Geo F1/home s11 59 defea71e
-SNK Neo Geo F1/home s12 59 defea71e
-SNK Neo Geo F1/home s13 59 defea71e
-SNK Neo Geo F1/home s14 59 defea71e
-SNK Neo Geo F1/home s15 59 df63c16b
-SNK Neo Geo F1/home s16 59 d761b023
-SNK Neo Geo F3/browse s0 59 e09eaf32
-SNK Neo Geo F3/browse s1 59 7a22e0aa
-SNK Neo Geo F3/browse s2 59 0de5f65b
-SNK Neo Geo F3/browse s3 59 c84fbedf
-SNK Neo Geo F3/browse s4 59 eec16be2
-SNK Neo Geo F3/browse s5 59 ba6e199e
-SNK Neo Geo F3/browse s6 59 7a22e0aa
-SNK Neo Geo F3/browse s7 59 84ef7903
-SNK Neo Geo F3/browse s8 59 9d490096
-SNK Neo Geo F3/browse s9 59 9d490096
-SNK Neo Geo F3/browse s10 59 fbbf347c
-SNK Neo Geo F3/browse s11 59 c4e6e6b9
-SNK Neo Geo F3/browse s12 59 d31b8f4a
-SNK Neo Geo F3/browse s13 59 093eb908
-SNK Neo Geo F3/browse s14 59 cacda2d5
-SNK Neo Geo F3/browse s15 59 2615bb70
-SNK Neo Geo F3/browse s16 59 181fb0af
-SNK Neo Geo F5/settings s0 59 2ae66cb0
-SNK Neo Geo F5/settings s1 59 fa15dc30
-SNK Neo Geo F5/settings s2 59 47f765a0
-SNK Neo Geo F5/settings s3 59 6f5b7570
-SNK Neo Geo F5/settings s4 59 490e7793
-SNK Neo Geo F5/settings s5 59 6812987b
-SNK Neo Geo F5/settings s6 59 39a5d94c
-SNK Neo Geo F5/settings s7 59 a4136748
-SNK Neo Geo F5/settings s8 59 3d841de3
-SNK Neo Geo F5/settings s9 59 630cf802
-SNK Neo Geo F5/settings s10 59 030233f7
-SNK Neo Geo F5/settings s11 59 e4ab36ed
-SNK Neo Geo F5/settings s12 59 9320fb99
-SNK Neo Geo F5/settings s13 59 e4ab36ed
-SNK Neo Geo F5/settings s14 59 9320fb99
-SNK Neo Geo F5/settings s15 59 490e7793
-SNK Neo Geo F5/settings s16 59 b2eabcca
-SNK Neo Geo F7/quick s0 59 18c5f107
-SNK Neo Geo F7/quick s1 59 c8156c8f
-SNK Neo Geo F7/quick s2 59 4871f8cd
-SNK Neo Geo F7/quick s3 59 18c5f107
-SNK Neo Geo F7/quick s4 59 c8156c8f
-SNK Neo Geo F7/quick s5 59 19600e95
-SNK Neo Geo F7/quick s6 59 c8156c8f
-SNK Neo Geo F7/quick s7 59 4871f8cd
-SNK Neo Geo F7/quick s8 59 c9b2537d
-SNK Neo Geo F7/quick s9 59 c9b2537d
-SNK Neo Geo F7/quick s10 59 18c5f107
-SNK Neo Geo F7/quick s11 59 9a205beb
-SNK Neo Geo F7/quick s12 59 9a205beb
-SNK Neo Geo F7/quick s13 59 9a205beb
-SNK Neo Geo F7/quick s14 59 9a205beb
-SNK Neo Geo F7/quick s15 59 c8156c8f
-SNK Neo Geo F7/quick s16 59 4871f8cd
-SNK Neo Geo F8/expert s0 59 549bad14
-SNK Neo Geo F8/expert s1 59 f60e1bef
-SNK Neo Geo F8/expert s2 59 e2dd3dfb
-SNK Neo Geo F8/expert s3 59 549bad14
-SNK Neo Geo F8/expert s4 59 f60e1bef
-SNK Neo Geo F8/expert s5 59 a7413261
-SNK Neo Geo F8/expert s6 59 f60e1bef
-SNK Neo Geo F8/expert s7 59 e2dd3dfb
-SNK Neo Geo F8/expert s8 59 b7a0e999
-SNK Neo Geo F8/expert s9 59 b7a0e999
-SNK Neo Geo F8/expert s10 59 549bad14
-SNK Neo Geo F8/expert s11 59 8dde1554
-SNK Neo Geo F8/expert s12 59 8dde1554
-SNK Neo Geo F8/expert s13 59 8dde1554
-SNK Neo Geo F8/expert s14 59 8dde1554
-SNK Neo Geo F8/expert s15 59 f60e1bef
-SNK Neo Geo F8/expert s16 59 e2dd3dfb
-TRX64U F1/home s0 59 fa863437
-TRX64U F1/home s1 59 b35fdd28
-TRX64U F1/home s2 59 d58ca8f5
-TRX64U F1/home s3 59 665412f8
-TRX64U F1/home s4 59 328ed1f8
-TRX64U F1/home s5 59 a542810b
-TRX64U F1/home s6 59 9eec72f1
-TRX64U F1/home s7 59 2fda7808
-TRX64U F1/home s8 59 634a6814
-TRX64U F1/home s9 59 634a6814
-TRX64U F1/home s10 59 fa863437
-TRX64U F1/home s11 59 634a6814
-TRX64U F1/home s12 59 634a6814
-TRX64U F1/home s13 59 634a6814
-TRX64U F1/home s14 59 634a6814
-TRX64U F1/home s15 59 f51a87a4
-TRX64U F1/home s16 59 9fe4f20c
-TRX64U F2/timeline s0 59 7ad1f337
-TRX64U F2/timeline s1 59 7ad1f337
-TRX64U F2/timeline s2 59 7ad1f337
-TRX64U F2/timeline s3 59 7ad1f337
-TRX64U F2/timeline s4 59 7ad1f337
-TRX64U F2/timeline s5 59 7ad1f337
-TRX64U F2/timeline s6 59 7ad1f337
-TRX64U F2/timeline s7 59 7ad1f337
-TRX64U F2/timeline s8 59 7ad1f337
-TRX64U F2/timeline s9 59 7ad1f337
-TRX64U F2/timeline s10 59 7ad1f337
-TRX64U F2/timeline s11 59 7ad1f337
-TRX64U F2/timeline s12 59 7ad1f337
-TRX64U F2/timeline s13 59 7ad1f337
-TRX64U F2/timeline s14 59 7ad1f337
-TRX64U F2/timeline s15 59 7ad1f337
-TRX64U F2/timeline s16 59 7ad1f337
-TRX64U F3/browse s0 59 539a4a9d
-TRX64U F3/browse s1 59 328ed1f8
-TRX64U F3/browse s2 59 610e03a3
-TRX64U F3/browse s3 59 c110c923
-TRX64U F3/browse s4 59 9eec72f1
-TRX64U F3/browse s5 59 64f57e73
-TRX64U F3/browse s6 59 328ed1f8
-TRX64U F3/browse s7 59 0cf60e65
-TRX64U F3/browse s8 59 cf776f3c
-TRX64U F3/browse s9 59 cf776f3c
-TRX64U F3/browse s10 59 58e72f28
-TRX64U F3/browse s11 59 3df1819d
-TRX64U F3/browse s12 59 0fb03285
-TRX64U F3/browse s13 59 10cabf91
-TRX64U F3/browse s14 59 dbb3b9eb
-TRX64U F3/browse s15 59 976cebcb
-TRX64U F3/browse s16 59 634a6814
-TRX64U F3/search s0 59 2eaef648
-TRX64U F3/search s1 59 d5f43c2f
-TRX64U F3/search s2 59 d5f43c2f
-TRX64U F3/search s3 59 d5f43c2f
-TRX64U F3/search s4 59 265c1e3e
-TRX64U F3/search s5 59 265c1e3e
-TRX64U F3/search s6 59 1a15a707
-TRX64U F3/search s7 59 265c1e3e
-TRX64U F3/search s8 59 265c1e3e
-TRX64U F3/search s9 59 265c1e3e
-TRX64U F3/search s10 59 d366e5d9
-TRX64U F3/search s11 59 265c1e3e
-TRX64U F3/search s12 59 265c1e3e
-TRX64U F3/search s13 59 265c1e3e
-TRX64U F3/search s14 59 265c1e3e
-TRX64U F3/search s15 59 7d835396
-TRX64U F3/search s16 59 265c1e3e
-TRX64U F3/online s0 59 a8a1e6e1
-TRX64U F3/online s1 59 a851abe9
-TRX64U F3/online s2 59 3fb15b16
-TRX64U F3/online s3 59 61006316
-TRX64U F3/online s4 59 7a0c0eb0
-TRX64U F3/online s5 59 92494919
-TRX64U F3/online s6 59 a851abe9
-TRX64U F3/online s7 59 3d443b75
-TRX64U F3/online s8 59 634a6814
-TRX64U F3/online s9 59 634a6814
-TRX64U F3/online s10 59 a8a1e6e1
-TRX64U F3/online s11 59 634a6814
-TRX64U F3/online s12 59 634a6814
-TRX64U F3/online s13 59 634a6814
-TRX64U F3/online s14 59 634a6814
-TRX64U F3/online s15 59 c72597c0
-TRX64U F3/online s16 59 7a0c0eb0
+Atari 800 XL F1/home s0 59 c99b8b22
+Atari 800 XL F1/home s1 59 c99b8b22
+Atari 800 XL F1/home s2 59 9f3c7db3
+Atari 800 XL F1/home s3 59 c99b8b22
+Atari 800 XL F1/home s4 59 c99b8b22
+Atari 800 XL F1/home s5 59 a277c2e0
+Atari 800 XL F1/home s6 59 c99b8b22
+Atari 800 XL F1/home s7 59 9f3c7db3
+Atari 800 XL F1/home s8 59 9f3c7db3
+Atari 800 XL F1/home s9 59 9f3c7db3
+Atari 800 XL F1/home s10 59 c99b8b22
+Atari 800 XL F1/home s11 59 a277c2e0
+Atari 800 XL F1/home s12 59 a277c2e0
+Atari 800 XL F1/home s13 59 a277c2e0
+Atari 800 XL F1/home s14 59 a277c2e0
+Atari 800 XL F1/home s15 59 c99b8b22
+Atari 800 XL F1/home s16 59 9f3c7db3
+Atari 800 XL F3/browse s0 59 223cac35
+Atari 800 XL F3/browse s1 59 4d3e3170
+Atari 800 XL F3/browse s2 59 e22d5293
+Atari 800 XL F3/browse s3 59 4a23e400
+Atari 800 XL F3/browse s4 59 e69e924a
+Atari 800 XL F3/browse s5 59 ff2c25ee
+Atari 800 XL F3/browse s6 59 4d3e3170
+Atari 800 XL F3/browse s7 59 9259cdb3
+Atari 800 XL F3/browse s8 59 cf77d15d
+Atari 800 XL F3/browse s9 59 cf77d15d
+Atari 800 XL F3/browse s10 59 e1929548
+Atari 800 XL F3/browse s11 59 ee43388e
+Atari 800 XL F3/browse s12 59 c07764c7
+Atari 800 XL F3/browse s13 59 16e4af54
+Atari 800 XL F3/browse s14 59 d46ef748
+Atari 800 XL F3/browse s15 59 5e0a007f
+Atari 800 XL F3/browse s16 59 ea6c2559
+Atari 800 XL F5/summary s0 59 d43ae59b
+Atari 800 XL F5/summary s1 59 d43ae59b
+Atari 800 XL F5/summary s2 59 837d364c
+Atari 800 XL F5/summary s3 59 d43ae59b
+Atari 800 XL F5/summary s4 59 d43ae59b
+Atari 800 XL F5/summary s5 59 94ef5c1e
+Atari 800 XL F5/summary s6 59 d43ae59b
+Atari 800 XL F5/summary s7 59 837d364c
+Atari 800 XL F5/summary s8 59 837d364c
+Atari 800 XL F5/summary s9 59 837d364c
+Atari 800 XL F5/summary s10 59 d43ae59b
+Atari 800 XL F5/summary s11 59 94ef5c1e
+Atari 800 XL F5/summary s12 59 94ef5c1e
+Atari 800 XL F5/summary s13 59 94ef5c1e
+Atari 800 XL F5/summary s14 59 94ef5c1e
+Atari 800 XL F5/summary s15 59 d43ae59b
+Atari 800 XL F5/summary s16 59 837d364c
+Atari 800 XL F5/settings s0 59 cfab1499
+Atari 800 XL F5/settings s1 59 2d7a36c3
+Atari 800 XL F5/settings s2 59 8253c7be
+Atari 800 XL F5/settings s3 59 6fde3db0
+Atari 800 XL F5/settings s4 59 ba60da79
+Atari 800 XL F5/settings s5 59 f30756b5
+Atari 800 XL F5/settings s6 59 85a2f46e
+Atari 800 XL F5/settings s7 59 aeb31e6b
+Atari 800 XL F5/settings s8 59 719e4595
+Atari 800 XL F5/settings s9 59 4c383d08
+Atari 800 XL F5/settings s10 59 47efa472
+Atari 800 XL F5/settings s11 59 626d00a3
+Atari 800 XL F5/settings s12 59 97a13960
+Atari 800 XL F5/settings s13 59 d81af266
+Atari 800 XL F5/settings s14 59 0582624c
+Atari 800 XL F5/settings s15 59 0a810def
+Atari 800 XL F5/settings s16 59 5eb3de51
+Atari 800 XL F7/quick s0 59 c3b47c50
+Atari 800 XL F7/quick s1 59 074eeec7
+Atari 800 XL F7/quick s2 59 37e22af4
+Atari 800 XL F7/quick s3 59 c3b47c50
+Atari 800 XL F7/quick s4 59 074eeec7
+Atari 800 XL F7/quick s5 59 c3985a27
+Atari 800 XL F7/quick s6 59 074eeec7
+Atari 800 XL F7/quick s7 59 37e22af4
+Atari 800 XL F7/quick s8 59 b9d29a15
+Atari 800 XL F7/quick s9 59 b9d29a15
+Atari 800 XL F7/quick s10 59 c3b47c50
+Atari 800 XL F7/quick s11 59 67189d6a
+Atari 800 XL F7/quick s12 59 67189d6a
+Atari 800 XL F7/quick s13 59 67189d6a
+Atari 800 XL F7/quick s14 59 67189d6a
+Atari 800 XL F7/quick s15 59 074eeec7
+Atari 800 XL F7/quick s16 59 37e22af4
+Atari 800 XL F8/expert s0 59 1a0e957a
+Atari 800 XL F8/expert s1 59 139ae666
+Atari 800 XL F8/expert s2 59 d0abaf70
+Atari 800 XL F8/expert s3 59 1a0e957a
+Atari 800 XL F8/expert s4 59 139ae666
+Atari 800 XL F8/expert s5 59 1a5f203f
+Atari 800 XL F8/expert s6 59 139ae666
+Atari 800 XL F8/expert s7 59 d0abaf70
+Atari 800 XL F8/expert s8 59 b596424b
+Atari 800 XL F8/expert s9 59 b596424b
+Atari 800 XL F8/expert s10 59 1a0e957a
+Atari 800 XL F8/expert s11 59 0fb06cce
+Atari 800 XL F8/expert s12 59 0fb06cce
+Atari 800 XL F8/expert s13 59 0fb06cce
+Atari 800 XL F8/expert s14 59 0fb06cce
+Atari 800 XL F8/expert s15 59 139ae666
+Atari 800 XL F8/expert s16 59 d0abaf70
+Nintendo Entertainment System F1/home s0 59 b454736d
+Nintendo Entertainment System F1/home s1 59 b454736d
+Nintendo Entertainment System F1/home s2 59 e1bf2b45
+Nintendo Entertainment System F1/home s3 59 b454736d
+Nintendo Entertainment System F1/home s4 59 b454736d
+Nintendo Entertainment System F1/home s5 59 c274271d
+Nintendo Entertainment System F1/home s6 59 b454736d
+Nintendo Entertainment System F1/home s7 59 e1bf2b45
+Nintendo Entertainment System F1/home s8 59 e1bf2b45
+Nintendo Entertainment System F1/home s9 59 e1bf2b45
+Nintendo Entertainment System F1/home s10 59 b454736d
+Nintendo Entertainment System F1/home s11 59 c274271d
+Nintendo Entertainment System F1/home s12 59 c274271d
+Nintendo Entertainment System F1/home s13 59 c274271d
+Nintendo Entertainment System F1/home s14 59 c274271d
+Nintendo Entertainment System F1/home s15 59 b454736d
+Nintendo Entertainment System F1/home s16 59 e1bf2b45
+Nintendo Entertainment System F3/browse s0 59 c2349bf9
+Nintendo Entertainment System F3/browse s1 59 9e96b91b
+Nintendo Entertainment System F3/browse s2 59 97dbe1cd
+Nintendo Entertainment System F3/browse s3 59 5810d9dd
+Nintendo Entertainment System F3/browse s4 59 0c4ad6d0
+Nintendo Entertainment System F3/browse s5 59 1ce1d8df
+Nintendo Entertainment System F3/browse s6 59 9e96b91b
+Nintendo Entertainment System F3/browse s7 59 3cf1434b
+Nintendo Entertainment System F3/browse s8 59 fa555b3e
+Nintendo Entertainment System F3/browse s9 59 fa555b3e
+Nintendo Entertainment System F3/browse s10 59 60503820
+Nintendo Entertainment System F3/browse s11 59 32342c00
+Nintendo Entertainment System F3/browse s12 59 cedad3c2
+Nintendo Entertainment System F3/browse s13 59 2db4bd64
+Nintendo Entertainment System F3/browse s14 59 4a9a78f0
+Nintendo Entertainment System F3/browse s15 59 c4141be5
+Nintendo Entertainment System F3/browse s16 59 480bf5a8
+Nintendo Entertainment System F5/summary s0 59 8f9311a5
+Nintendo Entertainment System F5/summary s1 59 8f9311a5
+Nintendo Entertainment System F5/summary s2 59 695a07d2
+Nintendo Entertainment System F5/summary s3 59 8f9311a5
+Nintendo Entertainment System F5/summary s4 59 8f9311a5
+Nintendo Entertainment System F5/summary s5 59 2bf55d15
+Nintendo Entertainment System F5/summary s6 59 8f9311a5
+Nintendo Entertainment System F5/summary s7 59 695a07d2
+Nintendo Entertainment System F5/summary s8 59 a0e837ff
+Nintendo Entertainment System F5/summary s9 59 a0e837ff
+Nintendo Entertainment System F5/summary s10 59 8f9311a5
+Nintendo Entertainment System F5/summary s11 59 1cd9228c
+Nintendo Entertainment System F5/summary s12 59 1cd9228c
+Nintendo Entertainment System F5/summary s13 59 1cd9228c
+Nintendo Entertainment System F5/summary s14 59 1cd9228c
+Nintendo Entertainment System F5/summary s15 59 8f9311a5
+Nintendo Entertainment System F5/summary s16 59 695a07d2
+Nintendo Entertainment System F5/settings s0 59 cf11ced7
+Nintendo Entertainment System F5/settings s1 59 001b57ae
+Nintendo Entertainment System F5/settings s2 59 bb79c5a5
+Nintendo Entertainment System F5/settings s3 59 875622d7
+Nintendo Entertainment System F5/settings s4 59 e4c27dd1
+Nintendo Entertainment System F5/settings s5 59 2505ebdf
+Nintendo Entertainment System F5/settings s6 59 af26f70f
+Nintendo Entertainment System F5/settings s7 59 cc94fc05
+Nintendo Entertainment System F5/settings s8 59 09215af1
+Nintendo Entertainment System F5/settings s9 59 bf7f0563
+Nintendo Entertainment System F5/settings s10 59 8b9fc786
+Nintendo Entertainment System F5/settings s11 59 4228e030
+Nintendo Entertainment System F5/settings s12 59 d75035e7
+Nintendo Entertainment System F5/settings s13 59 beedf065
+Nintendo Entertainment System F5/settings s14 59 e545c9d6
+Nintendo Entertainment System F5/settings s15 59 a79d97dd
+Nintendo Entertainment System F5/settings s16 59 294fee25
+Nintendo Entertainment System F7/quick s0 59 f4cec93d
+Nintendo Entertainment System F7/quick s1 59 105d3db2
+Nintendo Entertainment System F7/quick s2 59 7a550e56
+Nintendo Entertainment System F7/quick s3 59 f4cec93d
+Nintendo Entertainment System F7/quick s4 59 105d3db2
+Nintendo Entertainment System F7/quick s5 59 025d81c5
+Nintendo Entertainment System F7/quick s6 59 105d3db2
+Nintendo Entertainment System F7/quick s7 59 7a550e56
+Nintendo Entertainment System F7/quick s8 59 ad3945de
+Nintendo Entertainment System F7/quick s9 59 ad3945de
+Nintendo Entertainment System F7/quick s10 59 f4cec93d
+Nintendo Entertainment System F7/quick s11 59 e2932db4
+Nintendo Entertainment System F7/quick s12 59 e2932db4
+Nintendo Entertainment System F7/quick s13 59 e2932db4
+Nintendo Entertainment System F7/quick s14 59 e2932db4
+Nintendo Entertainment System F7/quick s15 59 105d3db2
+Nintendo Entertainment System F7/quick s16 59 7a550e56
+Nintendo Entertainment System F8/expert s0 59 5c35b124
+Nintendo Entertainment System F8/expert s1 59 a533815d
+Nintendo Entertainment System F8/expert s2 59 3c030b9a
+Nintendo Entertainment System F8/expert s3 59 5c35b124
+Nintendo Entertainment System F8/expert s4 59 a533815d
+Nintendo Entertainment System F8/expert s5 59 8d00f8ff
+Nintendo Entertainment System F8/expert s6 59 a533815d
+Nintendo Entertainment System F8/expert s7 59 3c030b9a
+Nintendo Entertainment System F8/expert s8 59 4801a7d4
+Nintendo Entertainment System F8/expert s9 59 4801a7d4
+Nintendo Entertainment System F8/expert s10 59 5c35b124
+Nintendo Entertainment System F8/expert s11 59 a6a1debd
+Nintendo Entertainment System F8/expert s12 59 a6a1debd
+Nintendo Entertainment System F8/expert s13 59 a6a1debd
+Nintendo Entertainment System F8/expert s14 59 a6a1debd
+Nintendo Entertainment System F8/expert s15 59 a533815d
+Nintendo Entertainment System F8/expert s16 59 3c030b9a
+Apple IIe F1/home s0 59 614d1e3b
+Apple IIe F1/home s1 59 614d1e3b
+Apple IIe F1/home s2 59 e8b6b36a
+Apple IIe F1/home s3 59 614d1e3b
+Apple IIe F1/home s4 59 614d1e3b
+Apple IIe F1/home s5 59 01fa1e71
+Apple IIe F1/home s6 59 614d1e3b
+Apple IIe F1/home s7 59 e8b6b36a
+Apple IIe F1/home s8 59 e8b6b36a
+Apple IIe F1/home s9 59 e8b6b36a
+Apple IIe F1/home s10 59 614d1e3b
+Apple IIe F1/home s11 59 01fa1e71
+Apple IIe F1/home s12 59 01fa1e71
+Apple IIe F1/home s13 59 01fa1e71
+Apple IIe F1/home s14 59 01fa1e71
+Apple IIe F1/home s15 59 614d1e3b
+Apple IIe F1/home s16 59 e8b6b36a
+Apple IIe F3/browse s0 59 75a92d8a
+Apple IIe F3/browse s1 59 f7857e1d
+Apple IIe F3/browse s2 59 9e52a722
+Apple IIe F3/browse s3 59 eada10a1
+Apple IIe F3/browse s4 59 fd309a33
+Apple IIe F3/browse s5 59 2cf87c1b
+Apple IIe F3/browse s6 59 f7857e1d
+Apple IIe F3/browse s7 59 ba1c4c46
+Apple IIe F3/browse s8 59 751a275e
+Apple IIe F3/browse s9 59 751a275e
+Apple IIe F3/browse s10 59 6790be6a
+Apple IIe F3/browse s11 59 ce7e96ce
+Apple IIe F3/browse s12 59 23de1581
+Apple IIe F3/browse s13 59 b332dc1b
+Apple IIe F3/browse s14 59 7b2b3b59
+Apple IIe F3/browse s15 59 8f835b75
+Apple IIe F3/browse s16 59 7b433c34
+Apple IIe F5/summary s0 59 21e064ac
+Apple IIe F5/summary s1 59 21e064ac
+Apple IIe F5/summary s2 59 b2e63f01
+Apple IIe F5/summary s3 59 21e064ac
+Apple IIe F5/summary s4 59 21e064ac
+Apple IIe F5/summary s5 59 a3a829c4
+Apple IIe F5/summary s6 59 21e064ac
+Apple IIe F5/summary s7 59 b2e63f01
+Apple IIe F5/summary s8 59 b2e63f01
+Apple IIe F5/summary s9 59 b2e63f01
+Apple IIe F5/summary s10 59 21e064ac
+Apple IIe F5/summary s11 59 a3a829c4
+Apple IIe F5/summary s12 59 a3a829c4
+Apple IIe F5/summary s13 59 a3a829c4
+Apple IIe F5/summary s14 59 a3a829c4
+Apple IIe F5/summary s15 59 21e064ac
+Apple IIe F5/summary s16 59 b2e63f01
+Apple IIe F5/settings s0 59 cda7bf62
+Apple IIe F5/settings s1 59 7b734d79
+Apple IIe F5/settings s2 59 d83020f3
+Apple IIe F5/settings s3 59 0e7b64d3
+Apple IIe F5/settings s4 59 8597025c
+Apple IIe F5/settings s5 59 fc97b823
+Apple IIe F5/settings s6 59 ebb890fb
+Apple IIe F5/settings s7 59 25744bf9
+Apple IIe F5/settings s8 59 eb267cca
+Apple IIe F5/settings s9 59 e1f8dcee
+Apple IIe F5/settings s10 59 c2f25c68
+Apple IIe F5/settings s11 59 406b9df7
+Apple IIe F5/settings s12 59 3e499bf2
+Apple IIe F5/settings s13 59 406b9df7
+Apple IIe F5/settings s14 59 3e499bf2
+Apple IIe F5/settings s15 59 8a3567ee
+Apple IIe F5/settings s16 59 b8ce620e
+Apple IIe F7/quick s0 59 35090146
+Apple IIe F7/quick s1 59 868bbc4e
+Apple IIe F7/quick s2 59 114856d2
+Apple IIe F7/quick s3 59 35090146
+Apple IIe F7/quick s4 59 868bbc4e
+Apple IIe F7/quick s5 59 819e05a2
+Apple IIe F7/quick s6 59 868bbc4e
+Apple IIe F7/quick s7 59 114856d2
+Apple IIe F7/quick s8 59 a0e49aac
+Apple IIe F7/quick s9 59 a0e49aac
+Apple IIe F7/quick s10 59 35090146
+Apple IIe F7/quick s11 59 72fbe4c5
+Apple IIe F7/quick s12 59 72fbe4c5
+Apple IIe F7/quick s13 59 72fbe4c5
+Apple IIe F7/quick s14 59 72fbe4c5
+Apple IIe F7/quick s15 59 868bbc4e
+Apple IIe F7/quick s16 59 114856d2
+Apple IIe F8/expert s0 59 74b3111f
+Apple IIe F8/expert s1 59 c96e6ebe
+Apple IIe F8/expert s2 59 b1754c97
+Apple IIe F8/expert s3 59 74b3111f
+Apple IIe F8/expert s4 59 c96e6ebe
+Apple IIe F8/expert s5 59 84343be8
+Apple IIe F8/expert s6 59 c96e6ebe
+Apple IIe F8/expert s7 59 b1754c97
+Apple IIe F8/expert s8 59 7da69c05
+Apple IIe F8/expert s9 59 7da69c05
+Apple IIe F8/expert s10 59 74b3111f
+Apple IIe F8/expert s11 59 398f85c4
+Apple IIe F8/expert s12 59 398f85c4
+Apple IIe F8/expert s13 59 398f85c4
+Apple IIe F8/expert s14 59 398f85c4
+Apple IIe F8/expert s15 59 c96e6ebe
+Apple IIe F8/expert s16 59 b1754c97
+ZX Spectrum 48K / 128K F1/home s0 59 905c1d3e
+ZX Spectrum 48K / 128K F1/home s1 59 905c1d3e
+ZX Spectrum 48K / 128K F1/home s2 59 1cb08dc5
+ZX Spectrum 48K / 128K F1/home s3 59 905c1d3e
+ZX Spectrum 48K / 128K F1/home s4 59 905c1d3e
+ZX Spectrum 48K / 128K F1/home s5 59 e9e79d4e
+ZX Spectrum 48K / 128K F1/home s6 59 905c1d3e
+ZX Spectrum 48K / 128K F1/home s7 59 1cb08dc5
+ZX Spectrum 48K / 128K F1/home s8 59 1cb08dc5
+ZX Spectrum 48K / 128K F1/home s9 59 1cb08dc5
+ZX Spectrum 48K / 128K F1/home s10 59 905c1d3e
+ZX Spectrum 48K / 128K F1/home s11 59 e9e79d4e
+ZX Spectrum 48K / 128K F1/home s12 59 e9e79d4e
+ZX Spectrum 48K / 128K F1/home s13 59 e9e79d4e
+ZX Spectrum 48K / 128K F1/home s14 59 e9e79d4e
+ZX Spectrum 48K / 128K F1/home s15 59 905c1d3e
+ZX Spectrum 48K / 128K F1/home s16 59 1cb08dc5
+ZX Spectrum 48K / 128K F3/browse s0 59 b04449b5
+ZX Spectrum 48K / 128K F3/browse s1 59 e78b1016
+ZX Spectrum 48K / 128K F3/browse s2 59 fc6fea2d
+ZX Spectrum 48K / 128K F3/browse s3 59 3167586a
+ZX Spectrum 48K / 128K F3/browse s4 59 e21d7d1a
+ZX Spectrum 48K / 128K F3/browse s5 59 686f3870
+ZX Spectrum 48K / 128K F3/browse s6 59 e78b1016
+ZX Spectrum 48K / 128K F3/browse s7 59 18e3c5b5
+ZX Spectrum 48K / 128K F3/browse s8 59 712004ef
+ZX Spectrum 48K / 128K F3/browse s9 59 712004ef
+ZX Spectrum 48K / 128K F3/browse s10 59 55eb113a
+ZX Spectrum 48K / 128K F3/browse s11 59 bb40f0df
+ZX Spectrum 48K / 128K F3/browse s12 59 e8207772
+ZX Spectrum 48K / 128K F3/browse s13 59 576af135
+ZX Spectrum 48K / 128K F3/browse s14 59 c69d4fba
+ZX Spectrum 48K / 128K F3/browse s15 59 a49b22b4
+ZX Spectrum 48K / 128K F3/browse s16 59 e036c3db
+ZX Spectrum 48K / 128K F5/summary s0 59 0807ecdc
+ZX Spectrum 48K / 128K F5/summary s1 59 0807ecdc
+ZX Spectrum 48K / 128K F5/summary s2 59 66a9bbac
+ZX Spectrum 48K / 128K F5/summary s3 59 0807ecdc
+ZX Spectrum 48K / 128K F5/summary s4 59 0807ecdc
+ZX Spectrum 48K / 128K F5/summary s5 59 30a69cb4
+ZX Spectrum 48K / 128K F5/summary s6 59 0807ecdc
+ZX Spectrum 48K / 128K F5/summary s7 59 66a9bbac
+ZX Spectrum 48K / 128K F5/summary s8 59 95411f2d
+ZX Spectrum 48K / 128K F5/summary s9 59 95411f2d
+ZX Spectrum 48K / 128K F5/summary s10 59 0807ecdc
+ZX Spectrum 48K / 128K F5/summary s11 59 ca69f74d
+ZX Spectrum 48K / 128K F5/summary s12 59 ca69f74d
+ZX Spectrum 48K / 128K F5/summary s13 59 ca69f74d
+ZX Spectrum 48K / 128K F5/summary s14 59 ca69f74d
+ZX Spectrum 48K / 128K F5/summary s15 59 0807ecdc
+ZX Spectrum 48K / 128K F5/summary s16 59 66a9bbac
+ZX Spectrum 48K / 128K F5/settings s0 59 1033c2d2
+ZX Spectrum 48K / 128K F5/settings s1 59 803308f2
+ZX Spectrum 48K / 128K F5/settings s2 59 e6f8aff1
+ZX Spectrum 48K / 128K F5/settings s3 59 c99fbf97
+ZX Spectrum 48K / 128K F5/settings s4 59 ccfd1115
+ZX Spectrum 48K / 128K F5/settings s5 59 725a8b4b
+ZX Spectrum 48K / 128K F5/settings s6 59 587a1de6
+ZX Spectrum 48K / 128K F5/settings s7 59 a8c114bc
+ZX Spectrum 48K / 128K F5/settings s8 59 4f93a3c0
+ZX Spectrum 48K / 128K F5/settings s9 59 5662c63a
+ZX Spectrum 48K / 128K F5/settings s10 59 1025e968
+ZX Spectrum 48K / 128K F5/settings s11 59 2de34140
+ZX Spectrum 48K / 128K F5/settings s12 59 88471fbc
+ZX Spectrum 48K / 128K F5/settings s13 59 2daf2761
+ZX Spectrum 48K / 128K F5/settings s14 59 84ad2d78
+ZX Spectrum 48K / 128K F5/settings s15 59 1839f0be
+ZX Spectrum 48K / 128K F5/settings s16 59 3c2cba91
+ZX Spectrum 48K / 128K F7/quick s0 59 52bdd4b5
+ZX Spectrum 48K / 128K F7/quick s1 59 10d5e35c
+ZX Spectrum 48K / 128K F7/quick s2 59 682c31c6
+ZX Spectrum 48K / 128K F7/quick s3 59 52bdd4b5
+ZX Spectrum 48K / 128K F7/quick s4 59 10d5e35c
+ZX Spectrum 48K / 128K F7/quick s5 59 c9e9c6c0
+ZX Spectrum 48K / 128K F7/quick s6 59 10d5e35c
+ZX Spectrum 48K / 128K F7/quick s7 59 682c31c6
+ZX Spectrum 48K / 128K F7/quick s8 59 96ab0e14
+ZX Spectrum 48K / 128K F7/quick s9 59 96ab0e14
+ZX Spectrum 48K / 128K F7/quick s10 59 52bdd4b5
+ZX Spectrum 48K / 128K F7/quick s11 59 9d941219
+ZX Spectrum 48K / 128K F7/quick s12 59 9d941219
+ZX Spectrum 48K / 128K F7/quick s13 59 9d941219
+ZX Spectrum 48K / 128K F7/quick s14 59 9d941219
+ZX Spectrum 48K / 128K F7/quick s15 59 10d5e35c
+ZX Spectrum 48K / 128K F7/quick s16 59 682c31c6
+ZX Spectrum 48K / 128K F8/expert s0 59 e75a77f8
+ZX Spectrum 48K / 128K F8/expert s1 59 4f70caba
+ZX Spectrum 48K / 128K F8/expert s2 59 2d7ef98b
+ZX Spectrum 48K / 128K F8/expert s3 59 e75a77f8
+ZX Spectrum 48K / 128K F8/expert s4 59 4f70caba
+ZX Spectrum 48K / 128K F8/expert s5 59 747cdd68
+ZX Spectrum 48K / 128K F8/expert s6 59 4f70caba
+ZX Spectrum 48K / 128K F8/expert s7 59 2d7ef98b
+ZX Spectrum 48K / 128K F8/expert s8 59 ec3f2777
+ZX Spectrum 48K / 128K F8/expert s9 59 ec3f2777
+ZX Spectrum 48K / 128K F8/expert s10 59 e75a77f8
+ZX Spectrum 48K / 128K F8/expert s11 59 72b9b302
+ZX Spectrum 48K / 128K F8/expert s12 59 72b9b302
+ZX Spectrum 48K / 128K F8/expert s13 59 72b9b302
+ZX Spectrum 48K / 128K F8/expert s14 59 72b9b302
+ZX Spectrum 48K / 128K F8/expert s15 59 4f70caba
+ZX Spectrum 48K / 128K F8/expert s16 59 2d7ef98b
+Amstrad CPC 464 / 664 / 6128 F1/home s0 59 f1ff3a65
+Amstrad CPC 464 / 664 / 6128 F1/home s1 59 f1ff3a65
+Amstrad CPC 464 / 664 / 6128 F1/home s2 59 8c03e59a
+Amstrad CPC 464 / 664 / 6128 F1/home s3 59 f1ff3a65
+Amstrad CPC 464 / 664 / 6128 F1/home s4 59 f1ff3a65
+Amstrad CPC 464 / 664 / 6128 F1/home s5 59 86f3f485
+Amstrad CPC 464 / 664 / 6128 F1/home s6 59 f1ff3a65
+Amstrad CPC 464 / 664 / 6128 F1/home s7 59 8c03e59a
+Amstrad CPC 464 / 664 / 6128 F1/home s8 59 8c03e59a
+Amstrad CPC 464 / 664 / 6128 F1/home s9 59 8c03e59a
+Amstrad CPC 464 / 664 / 6128 F1/home s10 59 f1ff3a65
+Amstrad CPC 464 / 664 / 6128 F1/home s11 59 86f3f485
+Amstrad CPC 464 / 664 / 6128 F1/home s12 59 86f3f485
+Amstrad CPC 464 / 664 / 6128 F1/home s13 59 86f3f485
+Amstrad CPC 464 / 664 / 6128 F1/home s14 59 86f3f485
+Amstrad CPC 464 / 664 / 6128 F1/home s15 59 f1ff3a65
+Amstrad CPC 464 / 664 / 6128 F1/home s16 59 8c03e59a
+Amstrad CPC 464 / 664 / 6128 F3/browse s0 59 8f52c6c6
+Amstrad CPC 464 / 664 / 6128 F3/browse s1 59 bd7b0559
+Amstrad CPC 464 / 664 / 6128 F3/browse s2 59 8a639aec
+Amstrad CPC 464 / 664 / 6128 F3/browse s3 59 6a802361
+Amstrad CPC 464 / 664 / 6128 F3/browse s4 59 adcf4593
+Amstrad CPC 464 / 664 / 6128 F3/browse s5 59 fc2af0d5
+Amstrad CPC 464 / 664 / 6128 F3/browse s6 59 bd7b0559
+Amstrad CPC 464 / 664 / 6128 F3/browse s7 59 42e71b62
+Amstrad CPC 464 / 664 / 6128 F3/browse s8 59 85885dc6
+Amstrad CPC 464 / 664 / 6128 F3/browse s9 59 85885dc6
+Amstrad CPC 464 / 664 / 6128 F3/browse s10 59 5c763888
+Amstrad CPC 464 / 664 / 6128 F3/browse s11 59 8b9b2961
+Amstrad CPC 464 / 664 / 6128 F3/browse s12 59 bab26596
+Amstrad CPC 464 / 664 / 6128 F3/browse s13 59 5c5e0bad
+Amstrad CPC 464 / 664 / 6128 F3/browse s14 59 68938041
+Amstrad CPC 464 / 664 / 6128 F3/browse s15 59 a3161410
+Amstrad CPC 464 / 664 / 6128 F3/browse s16 59 4c30b572
+Amstrad CPC 464 / 664 / 6128 F5/summary s0 59 b6bf5322
+Amstrad CPC 464 / 664 / 6128 F5/summary s1 59 b6bf5322
+Amstrad CPC 464 / 664 / 6128 F5/summary s2 59 0ab02f70
+Amstrad CPC 464 / 664 / 6128 F5/summary s3 59 b6bf5322
+Amstrad CPC 464 / 664 / 6128 F5/summary s4 59 b6bf5322
+Amstrad CPC 464 / 664 / 6128 F5/summary s5 59 a83c03ac
+Amstrad CPC 464 / 664 / 6128 F5/summary s6 59 b6bf5322
+Amstrad CPC 464 / 664 / 6128 F5/summary s7 59 0ab02f70
+Amstrad CPC 464 / 664 / 6128 F5/summary s8 59 0ab02f70
+Amstrad CPC 464 / 664 / 6128 F5/summary s9 59 0ab02f70
+Amstrad CPC 464 / 664 / 6128 F5/summary s10 59 b6bf5322
+Amstrad CPC 464 / 664 / 6128 F5/summary s11 59 a83c03ac
+Amstrad CPC 464 / 664 / 6128 F5/summary s12 59 a83c03ac
+Amstrad CPC 464 / 664 / 6128 F5/summary s13 59 a83c03ac
+Amstrad CPC 464 / 664 / 6128 F5/summary s14 59 a83c03ac
+Amstrad CPC 464 / 664 / 6128 F5/summary s15 59 b6bf5322
+Amstrad CPC 464 / 664 / 6128 F5/summary s16 59 0ab02f70
+Amstrad CPC 464 / 664 / 6128 F5/settings s0 59 d4a101e6
+Amstrad CPC 464 / 664 / 6128 F5/settings s1 59 eaa11cb8
+Amstrad CPC 464 / 664 / 6128 F5/settings s2 59 9a80a499
+Amstrad CPC 464 / 664 / 6128 F5/settings s3 59 1c16f5e3
+Amstrad CPC 464 / 664 / 6128 F5/settings s4 59 facff899
+Amstrad CPC 464 / 664 / 6128 F5/settings s5 59 0c9f57eb
+Amstrad CPC 464 / 664 / 6128 F5/settings s6 59 eddf11e9
+Amstrad CPC 464 / 664 / 6128 F5/settings s7 59 8299142d
+Amstrad CPC 464 / 664 / 6128 F5/settings s8 59 dbde0904
+Amstrad CPC 464 / 664 / 6128 F5/settings s9 59 4c308906
+Amstrad CPC 464 / 664 / 6128 F5/settings s10 59 0b7bc869
+Amstrad CPC 464 / 664 / 6128 F5/settings s11 59 adc9536f
+Amstrad CPC 464 / 664 / 6128 F5/settings s12 59 5184f1cd
+Amstrad CPC 464 / 664 / 6128 F5/settings s13 59 c53f7156
+Amstrad CPC 464 / 664 / 6128 F5/settings s14 59 a51fc219
+Amstrad CPC 464 / 664 / 6128 F5/settings s15 59 a724e2c0
+Amstrad CPC 464 / 664 / 6128 F5/settings s16 59 5f82fe69
+Amstrad CPC 464 / 664 / 6128 F7/quick s0 59 103d7368
+Amstrad CPC 464 / 664 / 6128 F7/quick s1 59 57b836bf
+Amstrad CPC 464 / 664 / 6128 F7/quick s2 59 72ee30d4
+Amstrad CPC 464 / 664 / 6128 F7/quick s3 59 103d7368
+Amstrad CPC 464 / 664 / 6128 F7/quick s4 59 57b836bf
+Amstrad CPC 464 / 664 / 6128 F7/quick s5 59 85dd5dcd
+Amstrad CPC 464 / 664 / 6128 F7/quick s6 59 57b836bf
+Amstrad CPC 464 / 664 / 6128 F7/quick s7 59 72ee30d4
+Amstrad CPC 464 / 664 / 6128 F7/quick s8 59 44987a65
+Amstrad CPC 464 / 664 / 6128 F7/quick s9 59 44987a65
+Amstrad CPC 464 / 664 / 6128 F7/quick s10 59 103d7368
+Amstrad CPC 464 / 664 / 6128 F7/quick s11 59 d7029e76
+Amstrad CPC 464 / 664 / 6128 F7/quick s12 59 d7029e76
+Amstrad CPC 464 / 664 / 6128 F7/quick s13 59 d7029e76
+Amstrad CPC 464 / 664 / 6128 F7/quick s14 59 d7029e76
+Amstrad CPC 464 / 664 / 6128 F7/quick s15 59 57b836bf
+Amstrad CPC 464 / 664 / 6128 F7/quick s16 59 72ee30d4
+Amstrad CPC 464 / 664 / 6128 F8/expert s0 59 1d323579
+Amstrad CPC 464 / 664 / 6128 F8/expert s1 59 612b873e
+Amstrad CPC 464 / 664 / 6128 F8/expert s2 59 bd0fde01
+Amstrad CPC 464 / 664 / 6128 F8/expert s3 59 1d323579
+Amstrad CPC 464 / 664 / 6128 F8/expert s4 59 612b873e
+Amstrad CPC 464 / 664 / 6128 F8/expert s5 59 db294564
+Amstrad CPC 464 / 664 / 6128 F8/expert s6 59 612b873e
+Amstrad CPC 464 / 664 / 6128 F8/expert s7 59 bd0fde01
+Amstrad CPC 464 / 664 / 6128 F8/expert s8 59 91f307ff
+Amstrad CPC 464 / 664 / 6128 F8/expert s9 59 91f307ff
+Amstrad CPC 464 / 664 / 6128 F8/expert s10 59 1d323579
+Amstrad CPC 464 / 664 / 6128 F8/expert s11 59 9868e3d2
+Amstrad CPC 464 / 664 / 6128 F8/expert s12 59 9868e3d2
+Amstrad CPC 464 / 664 / 6128 F8/expert s13 59 9868e3d2
+Amstrad CPC 464 / 664 / 6128 F8/expert s14 59 9868e3d2
+Amstrad CPC 464 / 664 / 6128 F8/expert s15 59 612b873e
+Amstrad CPC 464 / 664 / 6128 F8/expert s16 59 bd0fde01
+VIC-20 F1/home s0 59 b5f38a35
+VIC-20 F1/home s1 59 b5f38a35
+VIC-20 F1/home s2 59 e3cf861a
+VIC-20 F1/home s3 59 b5f38a35
+VIC-20 F1/home s4 59 b5f38a35
+VIC-20 F1/home s5 59 57a631dd
+VIC-20 F1/home s6 59 b5f38a35
+VIC-20 F1/home s7 59 e3cf861a
+VIC-20 F1/home s8 59 e3cf861a
+VIC-20 F1/home s9 59 e3cf861a
+VIC-20 F1/home s10 59 b5f38a35
+VIC-20 F1/home s11 59 57a631dd
+VIC-20 F1/home s12 59 57a631dd
+VIC-20 F1/home s13 59 57a631dd
+VIC-20 F1/home s14 59 57a631dd
+VIC-20 F1/home s15 59 b5f38a35
+VIC-20 F1/home s16 59 e3cf861a
+VIC-20 F3/browse s0 59 4f41bf24
+VIC-20 F3/browse s1 59 2c750b75
+VIC-20 F3/browse s2 59 ff164e72
+VIC-20 F3/browse s3 59 4db1c6e9
+VIC-20 F3/browse s4 59 2ff54a95
+VIC-20 F3/browse s5 59 68ddf06b
+VIC-20 F3/browse s6 59 2c750b75
+VIC-20 F3/browse s7 59 6314f522
+VIC-20 F3/browse s8 59 d3ea1006
+VIC-20 F3/browse s9 59 d3ea1006
+VIC-20 F3/browse s10 59 04cf01c3
+VIC-20 F3/browse s11 59 178f4897
+VIC-20 F3/browse s12 59 20b6e173
+VIC-20 F3/browse s13 59 14cefd45
+VIC-20 F3/browse s14 59 9767f979
+VIC-20 F3/browse s15 59 dca268ab
+VIC-20 F3/browse s16 59 9913f584
+VIC-20 F5/summary s0 59 3cb19b74
+VIC-20 F5/summary s1 59 3cb19b74
+VIC-20 F5/summary s2 59 2f9bd67f
+VIC-20 F5/summary s3 59 3cb19b74
+VIC-20 F5/summary s4 59 3cb19b74
+VIC-20 F5/summary s5 59 31c53725
+VIC-20 F5/summary s6 59 3cb19b74
+VIC-20 F5/summary s7 59 2f9bd67f
+VIC-20 F5/summary s8 59 2f9bd67f
+VIC-20 F5/summary s9 59 2f9bd67f
+VIC-20 F5/summary s10 59 3cb19b74
+VIC-20 F5/summary s11 59 3b994d31
+VIC-20 F5/summary s12 59 3b994d31
+VIC-20 F5/summary s13 59 3b994d31
+VIC-20 F5/summary s14 59 3b994d31
+VIC-20 F5/summary s15 59 3cb19b74
+VIC-20 F5/summary s16 59 2f9bd67f
+VIC-20 F5/settings s0 59 7ad29a9b
+VIC-20 F5/settings s1 59 0ec349f2
+VIC-20 F5/settings s2 59 cd7eb833
+VIC-20 F5/settings s3 59 c8010d84
+VIC-20 F5/settings s4 59 c26f5b56
+VIC-20 F5/settings s5 59 8e7f68fa
+VIC-20 F5/settings s6 59 d8cd3c69
+VIC-20 F5/settings s7 59 f619e9b1
+VIC-20 F5/settings s8 59 380ae335
+VIC-20 F5/settings s9 59 09826ae0
+VIC-20 F5/settings s10 59 d9b057cf
+VIC-20 F5/settings s11 59 60a6dc91
+VIC-20 F5/settings s12 59 6d750eff
+VIC-20 F5/settings s13 59 98d872f5
+VIC-20 F5/settings s14 59 8cc6f312
+VIC-20 F5/settings s15 59 2330664f
+VIC-20 F5/settings s16 59 463b4dad
+VIC-20 F7/quick s0 59 04c435c7
+VIC-20 F7/quick s1 59 015d9ace
+VIC-20 F7/quick s2 59 4737f236
+VIC-20 F7/quick s3 59 04c435c7
+VIC-20 F7/quick s4 59 015d9ace
+VIC-20 F7/quick s5 59 cd5808ad
+VIC-20 F7/quick s6 59 015d9ace
+VIC-20 F7/quick s7 59 4737f236
+VIC-20 F7/quick s8 59 56e9ebeb
+VIC-20 F7/quick s9 59 56e9ebeb
+VIC-20 F7/quick s10 59 04c435c7
+VIC-20 F7/quick s11 59 f168f98c
+VIC-20 F7/quick s12 59 f168f98c
+VIC-20 F7/quick s13 59 f168f98c
+VIC-20 F7/quick s14 59 f168f98c
+VIC-20 F7/quick s15 59 015d9ace
+VIC-20 F7/quick s16 59 4737f236
+VIC-20 F8/expert s0 59 c9c46673
+VIC-20 F8/expert s1 59 80c8c95c
+VIC-20 F8/expert s2 59 ef8f317b
+VIC-20 F8/expert s3 59 c9c46673
+VIC-20 F8/expert s4 59 80c8c95c
+VIC-20 F8/expert s5 59 d3f26593
+VIC-20 F8/expert s6 59 80c8c95c
+VIC-20 F8/expert s7 59 ef8f317b
+VIC-20 F8/expert s8 59 0f6d3edd
+VIC-20 F8/expert s9 59 0f6d3edd
+VIC-20 F8/expert s10 59 c9c46673
+VIC-20 F8/expert s11 59 c16b815a
+VIC-20 F8/expert s12 59 c16b815a
+VIC-20 F8/expert s13 59 c16b815a
+VIC-20 F8/expert s14 59 c16b815a
+VIC-20 F8/expert s15 59 80c8c95c
+VIC-20 F8/expert s16 59 ef8f317b
+Commodore 264 (C16, Plus/4) F1/home s0 59 97703eef
+Commodore 264 (C16, Plus/4) F1/home s1 59 97703eef
+Commodore 264 (C16, Plus/4) F1/home s2 59 7a229e8e
+Commodore 264 (C16, Plus/4) F1/home s3 59 97703eef
+Commodore 264 (C16, Plus/4) F1/home s4 59 97703eef
+Commodore 264 (C16, Plus/4) F1/home s5 59 f1ac39a9
+Commodore 264 (C16, Plus/4) F1/home s6 59 97703eef
+Commodore 264 (C16, Plus/4) F1/home s7 59 7a229e8e
+Commodore 264 (C16, Plus/4) F1/home s8 59 7a229e8e
+Commodore 264 (C16, Plus/4) F1/home s9 59 7a229e8e
+Commodore 264 (C16, Plus/4) F1/home s10 59 97703eef
+Commodore 264 (C16, Plus/4) F1/home s11 59 f1ac39a9
+Commodore 264 (C16, Plus/4) F1/home s12 59 f1ac39a9
+Commodore 264 (C16, Plus/4) F1/home s13 59 f1ac39a9
+Commodore 264 (C16, Plus/4) F1/home s14 59 f1ac39a9
+Commodore 264 (C16, Plus/4) F1/home s15 59 97703eef
+Commodore 264 (C16, Plus/4) F1/home s16 59 7a229e8e
+Commodore 264 (C16, Plus/4) F3/browse s0 59 a9ce4fe6
+Commodore 264 (C16, Plus/4) F3/browse s1 59 736d1101
+Commodore 264 (C16, Plus/4) F3/browse s2 59 c7dc0926
+Commodore 264 (C16, Plus/4) F3/browse s3 59 8717023d
+Commodore 264 (C16, Plus/4) F3/browse s4 59 27fd4973
+Commodore 264 (C16, Plus/4) F3/browse s5 59 5184dd97
+Commodore 264 (C16, Plus/4) F3/browse s6 59 736d1101
+Commodore 264 (C16, Plus/4) F3/browse s7 59 0cac07ca
+Commodore 264 (C16, Plus/4) F3/browse s8 59 87a8d1aa
+Commodore 264 (C16, Plus/4) F3/browse s9 59 87a8d1aa
+Commodore 264 (C16, Plus/4) F3/browse s10 59 d0b083fd
+Commodore 264 (C16, Plus/4) F3/browse s11 59 94dda597
+Commodore 264 (C16, Plus/4) F3/browse s12 59 673fd116
+Commodore 264 (C16, Plus/4) F3/browse s13 59 d9faa688
+Commodore 264 (C16, Plus/4) F3/browse s14 59 07b13f5d
+Commodore 264 (C16, Plus/4) F3/browse s15 59 9715e643
+Commodore 264 (C16, Plus/4) F3/browse s16 59 f4a9e464
+Commodore 264 (C16, Plus/4) F5/summary s0 59 28071981
+Commodore 264 (C16, Plus/4) F5/summary s1 59 28071981
+Commodore 264 (C16, Plus/4) F5/summary s2 59 ce0675b8
+Commodore 264 (C16, Plus/4) F5/summary s3 59 28071981
+Commodore 264 (C16, Plus/4) F5/summary s4 59 28071981
+Commodore 264 (C16, Plus/4) F5/summary s5 59 7829842c
+Commodore 264 (C16, Plus/4) F5/summary s6 59 28071981
+Commodore 264 (C16, Plus/4) F5/summary s7 59 ce0675b8
+Commodore 264 (C16, Plus/4) F5/summary s8 59 ce0675b8
+Commodore 264 (C16, Plus/4) F5/summary s9 59 ce0675b8
+Commodore 264 (C16, Plus/4) F5/summary s10 59 28071981
+Commodore 264 (C16, Plus/4) F5/summary s11 59 7829842c
+Commodore 264 (C16, Plus/4) F5/summary s12 59 7829842c
+Commodore 264 (C16, Plus/4) F5/summary s13 59 7829842c
+Commodore 264 (C16, Plus/4) F5/summary s14 59 7829842c
+Commodore 264 (C16, Plus/4) F5/summary s15 59 28071981
+Commodore 264 (C16, Plus/4) F5/summary s16 59 ce0675b8
+Commodore 264 (C16, Plus/4) F5/settings s0 59 eb813c0e
+Commodore 264 (C16, Plus/4) F5/settings s1 59 4a49e56e
+Commodore 264 (C16, Plus/4) F5/settings s2 59 878c710e
+Commodore 264 (C16, Plus/4) F5/settings s3 59 ac00b0ce
+Commodore 264 (C16, Plus/4) F5/settings s4 59 b6d54cc5
+Commodore 264 (C16, Plus/4) F5/settings s5 59 75c11f60
+Commodore 264 (C16, Plus/4) F5/settings s6 59 107b0979
+Commodore 264 (C16, Plus/4) F5/settings s7 59 3020fb38
+Commodore 264 (C16, Plus/4) F5/settings s8 59 f5e02bfc
+Commodore 264 (C16, Plus/4) F5/settings s9 59 bf4b22a1
+Commodore 264 (C16, Plus/4) F5/settings s10 59 a48aa7f5
+Commodore 264 (C16, Plus/4) F5/settings s11 59 f8c165ba
+Commodore 264 (C16, Plus/4) F5/settings s12 59 b4fd87a9
+Commodore 264 (C16, Plus/4) F5/settings s13 59 f8c165ba
+Commodore 264 (C16, Plus/4) F5/settings s14 59 b4fd87a9
+Commodore 264 (C16, Plus/4) F5/settings s15 59 b6d54cc5
+Commodore 264 (C16, Plus/4) F5/settings s16 59 2d2107f5
+Commodore 264 (C16, Plus/4) F7/quick s0 59 00635750
+Commodore 264 (C16, Plus/4) F7/quick s1 59 16304417
+Commodore 264 (C16, Plus/4) F7/quick s2 59 f53375d1
+Commodore 264 (C16, Plus/4) F7/quick s3 59 00635750
+Commodore 264 (C16, Plus/4) F7/quick s4 59 16304417
+Commodore 264 (C16, Plus/4) F7/quick s5 59 6ecf634f
+Commodore 264 (C16, Plus/4) F7/quick s6 59 16304417
+Commodore 264 (C16, Plus/4) F7/quick s7 59 f53375d1
+Commodore 264 (C16, Plus/4) F7/quick s8 59 804f36b1
+Commodore 264 (C16, Plus/4) F7/quick s9 59 804f36b1
+Commodore 264 (C16, Plus/4) F7/quick s10 59 00635750
+Commodore 264 (C16, Plus/4) F7/quick s11 59 7f038137
+Commodore 264 (C16, Plus/4) F7/quick s12 59 7f038137
+Commodore 264 (C16, Plus/4) F7/quick s13 59 7f038137
+Commodore 264 (C16, Plus/4) F7/quick s14 59 7f038137
+Commodore 264 (C16, Plus/4) F7/quick s15 59 16304417
+Commodore 264 (C16, Plus/4) F7/quick s16 59 f53375d1
+Commodore 264 (C16, Plus/4) F8/expert s0 59 089d6ba3
+Commodore 264 (C16, Plus/4) F8/expert s1 59 cd6e0ef9
+Commodore 264 (C16, Plus/4) F8/expert s2 59 64493698
+Commodore 264 (C16, Plus/4) F8/expert s3 59 089d6ba3
+Commodore 264 (C16, Plus/4) F8/expert s4 59 cd6e0ef9
+Commodore 264 (C16, Plus/4) F8/expert s5 59 f689d3b2
+Commodore 264 (C16, Plus/4) F8/expert s6 59 cd6e0ef9
+Commodore 264 (C16, Plus/4) F8/expert s7 59 64493698
+Commodore 264 (C16, Plus/4) F8/expert s8 59 63831edc
+Commodore 264 (C16, Plus/4) F8/expert s9 59 63831edc
+Commodore 264 (C16, Plus/4) F8/expert s10 59 089d6ba3
+Commodore 264 (C16, Plus/4) F8/expert s11 59 003bd3f3
+Commodore 264 (C16, Plus/4) F8/expert s12 59 003bd3f3
+Commodore 264 (C16, Plus/4) F8/expert s13 59 003bd3f3
+Commodore 264 (C16, Plus/4) F8/expert s14 59 003bd3f3
+Commodore 264 (C16, Plus/4) F8/expert s15 59 cd6e0ef9
+Commodore 264 (C16, Plus/4) F8/expert s16 59 64493698
+Commodore 128 F1/home s0 59 39c60649
+Commodore 128 F1/home s1 59 39c60649
+Commodore 128 F1/home s2 59 484ff75c
+Commodore 128 F1/home s3 59 39c60649
+Commodore 128 F1/home s4 59 39c60649
+Commodore 128 F1/home s5 59 fee28f97
+Commodore 128 F1/home s6 59 39c60649
+Commodore 128 F1/home s7 59 484ff75c
+Commodore 128 F1/home s8 59 484ff75c
+Commodore 128 F1/home s9 59 484ff75c
+Commodore 128 F1/home s10 59 39c60649
+Commodore 128 F1/home s11 59 fee28f97
+Commodore 128 F1/home s12 59 fee28f97
+Commodore 128 F1/home s13 59 fee28f97
+Commodore 128 F1/home s14 59 fee28f97
+Commodore 128 F1/home s15 59 39c60649
+Commodore 128 F1/home s16 59 484ff75c
+Commodore 128 F3/browse s0 59 31768828
+Commodore 128 F3/browse s1 59 1c1b605b
+Commodore 128 F3/browse s2 59 49385338
+Commodore 128 F3/browse s3 59 23c063ab
+Commodore 128 F3/browse s4 59 567efc69
+Commodore 128 F3/browse s5 59 ae7a5539
+Commodore 128 F3/browse s6 59 1c1b605b
+Commodore 128 F3/browse s7 59 9e97a9b4
+Commodore 128 F3/browse s8 59 664d1648
+Commodore 128 F3/browse s9 59 664d1648
+Commodore 128 F3/browse s10 59 0c46aa72
+Commodore 128 F3/browse s11 59 99076054
+Commodore 128 F3/browse s12 59 798bf6b6
+Commodore 128 F3/browse s13 59 fd2b3eb7
+Commodore 128 F3/browse s14 59 53af5e7b
+Commodore 128 F3/browse s15 59 9a1cf08f
+Commodore 128 F3/browse s16 59 75e9f252
+Commodore 128 F5/summary s0 59 f461924a
+Commodore 128 F5/summary s1 59 f461924a
+Commodore 128 F5/summary s2 59 66a9bbac
+Commodore 128 F5/summary s3 59 f461924a
+Commodore 128 F5/summary s4 59 f461924a
+Commodore 128 F5/summary s5 59 db56ba50
+Commodore 128 F5/summary s6 59 f461924a
+Commodore 128 F5/summary s7 59 66a9bbac
+Commodore 128 F5/summary s8 59 6a1e3bd3
+Commodore 128 F5/summary s9 59 6a1e3bd3
+Commodore 128 F5/summary s10 59 f461924a
+Commodore 128 F5/summary s11 59 50858786
+Commodore 128 F5/summary s12 59 50858786
+Commodore 128 F5/summary s13 59 50858786
+Commodore 128 F5/summary s14 59 50858786
+Commodore 128 F5/summary s15 59 f461924a
+Commodore 128 F5/summary s16 59 66a9bbac
+Commodore 128 F5/settings s0 59 a5592a90
+Commodore 128 F5/settings s1 59 448b2e96
+Commodore 128 F5/settings s2 59 f78672e4
+Commodore 128 F5/settings s3 59 45927102
+Commodore 128 F5/settings s4 59 0b1e4e24
+Commodore 128 F5/settings s5 59 dc27949a
+Commodore 128 F5/settings s6 59 8cfd09eb
+Commodore 128 F5/settings s7 59 ce80237e
+Commodore 128 F5/settings s8 59 6ec2b08f
+Commodore 128 F5/settings s9 59 872d8538
+Commodore 128 F5/settings s10 59 f007a05f
+Commodore 128 F5/settings s11 59 7d4d6fdf
+Commodore 128 F5/settings s12 59 7d4d6fdf
+Commodore 128 F5/settings s13 59 7d4d6fdf
+Commodore 128 F5/settings s14 59 7d4d6fdf
+Commodore 128 F5/settings s15 59 0b1e4e24
+Commodore 128 F5/settings s16 59 ea79be70
+Commodore 128 F7/quick s0 59 71968fee
+Commodore 128 F7/quick s1 59 d4facf3c
+Commodore 128 F7/quick s2 59 083e55aa
+Commodore 128 F7/quick s3 59 71968fee
+Commodore 128 F7/quick s4 59 d4facf3c
+Commodore 128 F7/quick s5 59 d312f32b
+Commodore 128 F7/quick s6 59 d4facf3c
+Commodore 128 F7/quick s7 59 083e55aa
+Commodore 128 F7/quick s8 59 52ed4097
+Commodore 128 F7/quick s9 59 52ed4097
+Commodore 128 F7/quick s10 59 71968fee
+Commodore 128 F7/quick s11 59 4d3ab5cd
+Commodore 128 F7/quick s12 59 4d3ab5cd
+Commodore 128 F7/quick s13 59 4d3ab5cd
+Commodore 128 F7/quick s14 59 4d3ab5cd
+Commodore 128 F7/quick s15 59 d4facf3c
+Commodore 128 F7/quick s16 59 083e55aa
+Commodore 128 F8/expert s0 59 0982c0f1
+Commodore 128 F8/expert s1 59 e03d3b47
+Commodore 128 F8/expert s2 59 3aa68e71
+Commodore 128 F8/expert s3 59 0982c0f1
+Commodore 128 F8/expert s4 59 e03d3b47
+Commodore 128 F8/expert s5 59 4d579d94
+Commodore 128 F8/expert s6 59 e03d3b47
+Commodore 128 F8/expert s7 59 3aa68e71
+Commodore 128 F8/expert s8 59 1896ec8c
+Commodore 128 F8/expert s9 59 1896ec8c
+Commodore 128 F8/expert s10 59 0982c0f1
+Commodore 128 F8/expert s11 59 5f8fd737
+Commodore 128 F8/expert s12 59 5f8fd737
+Commodore 128 F8/expert s13 59 5f8fd737
+Commodore 128 F8/expert s14 59 5f8fd737
+Commodore 128 F8/expert s15 59 e03d3b47
+Commodore 128 F8/expert s16 59 3aa68e71
+C64 with SuperCPU F1/home s0 59 39c60649
+C64 with SuperCPU F1/home s1 59 39c60649
+C64 with SuperCPU F1/home s2 59 484ff75c
+C64 with SuperCPU F1/home s3 59 39c60649
+C64 with SuperCPU F1/home s4 59 39c60649
+C64 with SuperCPU F1/home s5 59 fee28f97
+C64 with SuperCPU F1/home s6 59 39c60649
+C64 with SuperCPU F1/home s7 59 484ff75c
+C64 with SuperCPU F1/home s8 59 484ff75c
+C64 with SuperCPU F1/home s9 59 484ff75c
+C64 with SuperCPU F1/home s10 59 39c60649
+C64 with SuperCPU F1/home s11 59 fee28f97
+C64 with SuperCPU F1/home s12 59 fee28f97
+C64 with SuperCPU F1/home s13 59 fee28f97
+C64 with SuperCPU F1/home s14 59 fee28f97
+C64 with SuperCPU F1/home s15 59 39c60649
+C64 with SuperCPU F1/home s16 59 484ff75c
+C64 with SuperCPU F3/browse s0 59 31768828
+C64 with SuperCPU F3/browse s1 59 1c1b605b
+C64 with SuperCPU F3/browse s2 59 49385338
+C64 with SuperCPU F3/browse s3 59 23c063ab
+C64 with SuperCPU F3/browse s4 59 567efc69
+C64 with SuperCPU F3/browse s5 59 ae7a5539
+C64 with SuperCPU F3/browse s6 59 1c1b605b
+C64 with SuperCPU F3/browse s7 59 9e97a9b4
+C64 with SuperCPU F3/browse s8 59 664d1648
+C64 with SuperCPU F3/browse s9 59 664d1648
+C64 with SuperCPU F3/browse s10 59 0c46aa72
+C64 with SuperCPU F3/browse s11 59 99076054
+C64 with SuperCPU F3/browse s12 59 798bf6b6
+C64 with SuperCPU F3/browse s13 59 fd2b3eb7
+C64 with SuperCPU F3/browse s14 59 53af5e7b
+C64 with SuperCPU F3/browse s15 59 9a1cf08f
+C64 with SuperCPU F3/browse s16 59 75e9f252
+C64 with SuperCPU F5/summary s0 59 508c3bc9
+C64 with SuperCPU F5/summary s1 59 508c3bc9
+C64 with SuperCPU F5/summary s2 59 66a9bbac
+C64 with SuperCPU F5/summary s3 59 508c3bc9
+C64 with SuperCPU F5/summary s4 59 508c3bc9
+C64 with SuperCPU F5/summary s5 59 316e2da8
+C64 with SuperCPU F5/summary s6 59 508c3bc9
+C64 with SuperCPU F5/summary s7 59 66a9bbac
+C64 with SuperCPU F5/summary s8 59 7d4fbd1c
+C64 with SuperCPU F5/summary s9 59 7d4fbd1c
+C64 with SuperCPU F5/summary s10 59 508c3bc9
+C64 with SuperCPU F5/summary s11 59 77ca5fad
+C64 with SuperCPU F5/summary s12 59 77ca5fad
+C64 with SuperCPU F5/summary s13 59 77ca5fad
+C64 with SuperCPU F5/summary s14 59 77ca5fad
+C64 with SuperCPU F5/summary s15 59 508c3bc9
+C64 with SuperCPU F5/summary s16 59 66a9bbac
+C64 with SuperCPU F5/settings s0 59 9cdad903
+C64 with SuperCPU F5/settings s1 59 dc6197e0
+C64 with SuperCPU F5/settings s2 59 4e9d0a0c
+C64 with SuperCPU F5/settings s3 59 a4fbb5ae
+C64 with SuperCPU F5/settings s4 59 2ff8838d
+C64 with SuperCPU F5/settings s5 59 1c43a07e
+C64 with SuperCPU F5/settings s6 59 830b6f5b
+C64 with SuperCPU F5/settings s7 59 e6909697
+C64 with SuperCPU F5/settings s8 59 e3d7b1b1
+C64 with SuperCPU F5/settings s9 59 e3d7b1b1
+C64 with SuperCPU F5/settings s10 59 9cdad903
+C64 with SuperCPU F5/settings s11 59 56d80a0e
+C64 with SuperCPU F5/settings s12 59 fda055c1
+C64 with SuperCPU F5/settings s13 59 56d80a0e
+C64 with SuperCPU F5/settings s14 59 fda055c1
+C64 with SuperCPU F5/settings s15 59 4daab86c
+C64 with SuperCPU F5/settings s16 59 4e9d0a0c
+C64 with SuperCPU F7/quick s0 59 71968fee
+C64 with SuperCPU F7/quick s1 59 d4facf3c
+C64 with SuperCPU F7/quick s2 59 3ff7e5c0
+C64 with SuperCPU F7/quick s3 59 71968fee
+C64 with SuperCPU F7/quick s4 59 d4facf3c
+C64 with SuperCPU F7/quick s5 59 d312f32b
+C64 with SuperCPU F7/quick s6 59 d4facf3c
+C64 with SuperCPU F7/quick s7 59 3ff7e5c0
+C64 with SuperCPU F7/quick s8 59 fb782893
+C64 with SuperCPU F7/quick s9 59 fb782893
+C64 with SuperCPU F7/quick s10 59 71968fee
+C64 with SuperCPU F7/quick s11 59 4d3ab5cd
+C64 with SuperCPU F7/quick s12 59 4d3ab5cd
+C64 with SuperCPU F7/quick s13 59 4d3ab5cd
+C64 with SuperCPU F7/quick s14 59 4d3ab5cd
+C64 with SuperCPU F7/quick s15 59 d4facf3c
+C64 with SuperCPU F7/quick s16 59 3ff7e5c0
+C64 with SuperCPU F8/expert s0 59 0982c0f1
+C64 with SuperCPU F8/expert s1 59 e03d3b47
+C64 with SuperCPU F8/expert s2 59 fa117311
+C64 with SuperCPU F8/expert s3 59 0982c0f1
+C64 with SuperCPU F8/expert s4 59 e03d3b47
+C64 with SuperCPU F8/expert s5 59 4d579d94
+C64 with SuperCPU F8/expert s6 59 e03d3b47
+C64 with SuperCPU F8/expert s7 59 fa117311
+C64 with SuperCPU F8/expert s8 59 b7f820ac
+C64 with SuperCPU F8/expert s9 59 b7f820ac
+C64 with SuperCPU F8/expert s10 59 0982c0f1
+C64 with SuperCPU F8/expert s11 59 5f8fd737
+C64 with SuperCPU F8/expert s12 59 5f8fd737
+C64 with SuperCPU F8/expert s13 59 5f8fd737
+C64 with SuperCPU F8/expert s14 59 5f8fd737
+C64 with SuperCPU F8/expert s15 59 e03d3b47
+C64 with SuperCPU F8/expert s16 59 fa117311
+ZX Spectrum Next F1/home s0 59 84b4e7f9
+ZX Spectrum Next F1/home s1 59 84b4e7f9
+ZX Spectrum Next F1/home s2 59 b2b0043a
+ZX Spectrum Next F1/home s3 59 84b4e7f9
+ZX Spectrum Next F1/home s4 59 84b4e7f9
+ZX Spectrum Next F1/home s5 59 b0e5f2e9
+ZX Spectrum Next F1/home s6 59 84b4e7f9
+ZX Spectrum Next F1/home s7 59 b2b0043a
+ZX Spectrum Next F1/home s8 59 b2b0043a
+ZX Spectrum Next F1/home s9 59 b2b0043a
+ZX Spectrum Next F1/home s10 59 84b4e7f9
+ZX Spectrum Next F1/home s11 59 b0e5f2e9
+ZX Spectrum Next F1/home s12 59 b0e5f2e9
+ZX Spectrum Next F1/home s13 59 b0e5f2e9
+ZX Spectrum Next F1/home s14 59 b0e5f2e9
+ZX Spectrum Next F1/home s15 59 84b4e7f9
+ZX Spectrum Next F1/home s16 59 b2b0043a
+ZX Spectrum Next F3/browse s0 59 efe2daba
+ZX Spectrum Next F3/browse s1 59 af91d373
+ZX Spectrum Next F3/browse s2 59 2bb6d684
+ZX Spectrum Next F3/browse s3 59 ce284301
+ZX Spectrum Next F3/browse s4 59 bb91cbf1
+ZX Spectrum Next F3/browse s5 59 298c1ead
+ZX Spectrum Next F3/browse s6 59 af91d373
+ZX Spectrum Next F3/browse s7 59 c0cef37a
+ZX Spectrum Next F3/browse s8 59 a7a03536
+ZX Spectrum Next F3/browse s9 59 a7a03536
+ZX Spectrum Next F3/browse s10 59 357e6304
+ZX Spectrum Next F3/browse s11 59 44394171
+ZX Spectrum Next F3/browse s12 59 569c778c
+ZX Spectrum Next F3/browse s13 59 182037cc
+ZX Spectrum Next F3/browse s14 59 4b8a9591
+ZX Spectrum Next F3/browse s15 59 69459c58
+ZX Spectrum Next F3/browse s16 59 880454be
+ZX Spectrum Next F5/summary s0 59 ddde862b
+ZX Spectrum Next F5/summary s1 59 ddde862b
+ZX Spectrum Next F5/summary s2 59 baad3ca4
+ZX Spectrum Next F5/summary s3 59 ddde862b
+ZX Spectrum Next F5/summary s4 59 ddde862b
+ZX Spectrum Next F5/summary s5 59 35eb26be
+ZX Spectrum Next F5/summary s6 59 ddde862b
+ZX Spectrum Next F5/summary s7 59 baad3ca4
+ZX Spectrum Next F5/summary s8 59 a315faec
+ZX Spectrum Next F5/summary s9 59 a315faec
+ZX Spectrum Next F5/summary s10 59 ddde862b
+ZX Spectrum Next F5/summary s11 59 6a3259c8
+ZX Spectrum Next F5/summary s12 59 6a3259c8
+ZX Spectrum Next F5/summary s13 59 6a3259c8
+ZX Spectrum Next F5/summary s14 59 6a3259c8
+ZX Spectrum Next F5/summary s15 59 ddde862b
+ZX Spectrum Next F5/summary s16 59 baad3ca4
+ZX Spectrum Next F5/settings s0 59 27225e25
+ZX Spectrum Next F5/settings s1 59 feaace3d
+ZX Spectrum Next F5/settings s2 59 9dac4d81
+ZX Spectrum Next F5/settings s3 59 410dbab6
+ZX Spectrum Next F5/settings s4 59 3b0d013c
+ZX Spectrum Next F5/settings s5 59 0e50ed24
+ZX Spectrum Next F5/settings s6 59 0de3333a
+ZX Spectrum Next F5/settings s7 59 dd6032b4
+ZX Spectrum Next F5/settings s8 59 1766ea7a
+ZX Spectrum Next F5/settings s9 59 fa835df7
+ZX Spectrum Next F5/settings s10 59 b7787071
+ZX Spectrum Next F5/settings s11 59 212759d0
+ZX Spectrum Next F5/settings s12 59 4eb39846
+ZX Spectrum Next F5/settings s13 59 601814ce
+ZX Spectrum Next F5/settings s14 59 ad6605cc
+ZX Spectrum Next F5/settings s15 59 3b0d013c
+ZX Spectrum Next F5/settings s16 59 55d913a6
+ZX Spectrum Next F7/quick s0 59 402445a9
+ZX Spectrum Next F7/quick s1 59 64750770
+ZX Spectrum Next F7/quick s2 59 09bd1bb4
+ZX Spectrum Next F7/quick s3 59 402445a9
+ZX Spectrum Next F7/quick s4 59 64750770
+ZX Spectrum Next F7/quick s5 59 601069eb
+ZX Spectrum Next F7/quick s6 59 64750770
+ZX Spectrum Next F7/quick s7 59 09bd1bb4
+ZX Spectrum Next F7/quick s8 59 8bf40961
+ZX Spectrum Next F7/quick s9 59 8bf40961
+ZX Spectrum Next F7/quick s10 59 402445a9
+ZX Spectrum Next F7/quick s11 59 5b24e912
+ZX Spectrum Next F7/quick s12 59 5b24e912
+ZX Spectrum Next F7/quick s13 59 5b24e912
+ZX Spectrum Next F7/quick s14 59 5b24e912
+ZX Spectrum Next F7/quick s15 59 64750770
+ZX Spectrum Next F7/quick s16 59 09bd1bb4
+ZX Spectrum Next F8/expert s0 59 7fbb2f01
+ZX Spectrum Next F8/expert s1 59 64af8b7e
+ZX Spectrum Next F8/expert s2 59 efb742b9
+ZX Spectrum Next F8/expert s3 59 7fbb2f01
+ZX Spectrum Next F8/expert s4 59 64af8b7e
+ZX Spectrum Next F8/expert s5 59 1e924c09
+ZX Spectrum Next F8/expert s6 59 64af8b7e
+ZX Spectrum Next F8/expert s7 59 efb742b9
+ZX Spectrum Next F8/expert s8 59 e4959bc9
+ZX Spectrum Next F8/expert s9 59 e4959bc9
+ZX Spectrum Next F8/expert s10 59 7fbb2f01
+ZX Spectrum Next F8/expert s11 59 7c114c1c
+ZX Spectrum Next F8/expert s12 59 7c114c1c
+ZX Spectrum Next F8/expert s13 59 7c114c1c
+ZX Spectrum Next F8/expert s14 59 7c114c1c
+ZX Spectrum Next F8/expert s15 59 64af8b7e
+ZX Spectrum Next F8/expert s16 59 efb742b9
+Super Nintendo F1/home s0 59 4d8db77d
+Super Nintendo F1/home s1 59 4d8db77d
+Super Nintendo F1/home s2 59 611ce929
+Super Nintendo F1/home s3 59 4d8db77d
+Super Nintendo F1/home s4 59 4d8db77d
+Super Nintendo F1/home s5 59 c2e35684
+Super Nintendo F1/home s6 59 4d8db77d
+Super Nintendo F1/home s7 59 611ce929
+Super Nintendo F1/home s8 59 611ce929
+Super Nintendo F1/home s9 59 611ce929
+Super Nintendo F1/home s10 59 4d8db77d
+Super Nintendo F1/home s11 59 c2e35684
+Super Nintendo F1/home s12 59 c2e35684
+Super Nintendo F1/home s13 59 c2e35684
+Super Nintendo F1/home s14 59 c2e35684
+Super Nintendo F1/home s15 59 4d8db77d
+Super Nintendo F1/home s16 59 611ce929
+Super Nintendo F3/browse s0 59 c70f7b48
+Super Nintendo F3/browse s1 59 7dec0a1b
+Super Nintendo F3/browse s2 59 e53f9338
+Super Nintendo F3/browse s3 59 fee0f7ce
+Super Nintendo F3/browse s4 59 655bed35
+Super Nintendo F3/browse s5 59 cb88eed9
+Super Nintendo F3/browse s6 59 7dec0a1b
+Super Nintendo F3/browse s7 59 85ada611
+Super Nintendo F3/browse s8 59 014640ea
+Super Nintendo F3/browse s9 59 014640ea
+Super Nintendo F3/browse s10 59 bb71642f
+Super Nintendo F3/browse s11 59 738dac9a
+Super Nintendo F3/browse s12 59 b2d9e809
+Super Nintendo F3/browse s13 59 4850de68
+Super Nintendo F3/browse s14 59 8f120ab4
+Super Nintendo F3/browse s15 59 c8947ebe
+Super Nintendo F3/browse s16 59 3bdc64a2
+Super Nintendo F5/summary s0 59 50365d9b
+Super Nintendo F5/summary s1 59 50365d9b
+Super Nintendo F5/summary s2 59 6dbb8e8a
+Super Nintendo F5/summary s3 59 50365d9b
+Super Nintendo F5/summary s4 59 50365d9b
+Super Nintendo F5/summary s5 59 2b6921fe
+Super Nintendo F5/summary s6 59 50365d9b
+Super Nintendo F5/summary s7 59 6dbb8e8a
+Super Nintendo F5/summary s8 59 b84be37f
+Super Nintendo F5/summary s9 59 b84be37f
+Super Nintendo F5/summary s10 59 50365d9b
+Super Nintendo F5/summary s11 59 6e4731a4
+Super Nintendo F5/summary s12 59 6e4731a4
+Super Nintendo F5/summary s13 59 6e4731a4
+Super Nintendo F5/summary s14 59 6e4731a4
+Super Nintendo F5/summary s15 59 50365d9b
+Super Nintendo F5/summary s16 59 6dbb8e8a
+Super Nintendo F5/settings s0 59 74e177fa
+Super Nintendo F5/settings s1 59 117b3d78
+Super Nintendo F5/settings s2 59 43084ef2
+Super Nintendo F5/settings s3 59 35154534
+Super Nintendo F5/settings s4 59 ef181e2d
+Super Nintendo F5/settings s5 59 ce9d4e7a
+Super Nintendo F5/settings s6 59 a9cdc824
+Super Nintendo F5/settings s7 59 0f951e71
+Super Nintendo F5/settings s8 59 cfee0f78
+Super Nintendo F5/settings s9 59 ac8b74bc
+Super Nintendo F5/settings s10 59 ee1724ea
+Super Nintendo F5/settings s11 59 93cb7d80
+Super Nintendo F5/settings s12 59 0b6d55d6
+Super Nintendo F5/settings s13 59 fcef445e
+Super Nintendo F5/settings s14 59 ff0155af
+Super Nintendo F5/settings s15 59 7a6fcdc4
+Super Nintendo F5/settings s16 59 ac2dd8cb
+Super Nintendo F7/quick s0 59 875f70e8
+Super Nintendo F7/quick s1 59 737b159e
+Super Nintendo F7/quick s2 59 7015048a
+Super Nintendo F7/quick s3 59 875f70e8
+Super Nintendo F7/quick s4 59 737b159e
+Super Nintendo F7/quick s5 59 84855601
+Super Nintendo F7/quick s6 59 737b159e
+Super Nintendo F7/quick s7 59 7015048a
+Super Nintendo F7/quick s8 59 bd7ec43c
+Super Nintendo F7/quick s9 59 bd7ec43c
+Super Nintendo F7/quick s10 59 875f70e8
+Super Nintendo F7/quick s11 59 bf88dcd1
+Super Nintendo F7/quick s12 59 bf88dcd1
+Super Nintendo F7/quick s13 59 bf88dcd1
+Super Nintendo F7/quick s14 59 bf88dcd1
+Super Nintendo F7/quick s15 59 737b159e
+Super Nintendo F7/quick s16 59 7015048a
+Super Nintendo F8/expert s0 59 72eef8c7
+Super Nintendo F8/expert s1 59 346a6ded
+Super Nintendo F8/expert s2 59 17efbbc4
+Super Nintendo F8/expert s3 59 72eef8c7
+Super Nintendo F8/expert s4 59 346a6ded
+Super Nintendo F8/expert s5 59 96b4fa41
+Super Nintendo F8/expert s6 59 346a6ded
+Super Nintendo F8/expert s7 59 17efbbc4
+Super Nintendo F8/expert s8 59 73b7bde8
+Super Nintendo F8/expert s9 59 73b7bde8
+Super Nintendo F8/expert s10 59 72eef8c7
+Super Nintendo F8/expert s11 59 3cebafe1
+Super Nintendo F8/expert s12 59 3cebafe1
+Super Nintendo F8/expert s13 59 3cebafe1
+Super Nintendo F8/expert s14 59 3cebafe1
+Super Nintendo F8/expert s15 59 346a6ded
+Super Nintendo F8/expert s16 59 17efbbc4
+SNK Neo Geo F1/home s0 59 d4a1fd18
+SNK Neo Geo F1/home s1 59 d4a1fd18
+SNK Neo Geo F1/home s2 59 fdba2a08
+SNK Neo Geo F1/home s3 59 d4a1fd18
+SNK Neo Geo F1/home s4 59 d4a1fd18
+SNK Neo Geo F1/home s5 59 e9fd8e73
+SNK Neo Geo F1/home s6 59 d4a1fd18
+SNK Neo Geo F1/home s7 59 fdba2a08
+SNK Neo Geo F1/home s8 59 fdba2a08
+SNK Neo Geo F1/home s9 59 fdba2a08
+SNK Neo Geo F1/home s10 59 d4a1fd18
+SNK Neo Geo F1/home s11 59 e9fd8e73
+SNK Neo Geo F1/home s12 59 e9fd8e73
+SNK Neo Geo F1/home s13 59 e9fd8e73
+SNK Neo Geo F1/home s14 59 e9fd8e73
+SNK Neo Geo F1/home s15 59 d4a1fd18
+SNK Neo Geo F1/home s16 59 fdba2a08
+SNK Neo Geo F3/browse s0 59 06698964
+SNK Neo Geo F3/browse s1 59 40ed76a3
+SNK Neo Geo F3/browse s2 59 64e7583b
+SNK Neo Geo F3/browse s3 59 06e44104
+SNK Neo Geo F3/browse s4 59 9ef867e8
+SNK Neo Geo F3/browse s5 59 ac4a4c36
+SNK Neo Geo F3/browse s6 59 40ed76a3
+SNK Neo Geo F3/browse s7 59 d040e362
+SNK Neo Geo F3/browse s8 59 b4a2ea95
+SNK Neo Geo F3/browse s9 59 b4a2ea95
+SNK Neo Geo F3/browse s10 59 a2a3144d
+SNK Neo Geo F3/browse s11 59 965d9cea
+SNK Neo Geo F3/browse s12 59 fab96b79
+SNK Neo Geo F3/browse s13 59 398942e0
+SNK Neo Geo F3/browse s14 59 9e69ba8e
+SNK Neo Geo F3/browse s15 59 e712e6f6
+SNK Neo Geo F3/browse s16 59 0104d2c2
+SNK Neo Geo F5/summary s0 59 99e5447d
+SNK Neo Geo F5/summary s1 59 99e5447d
+SNK Neo Geo F5/summary s2 59 1a24b31e
+SNK Neo Geo F5/summary s3 59 99e5447d
+SNK Neo Geo F5/summary s4 59 99e5447d
+SNK Neo Geo F5/summary s5 59 8713dd75
+SNK Neo Geo F5/summary s6 59 99e5447d
+SNK Neo Geo F5/summary s7 59 1a24b31e
+SNK Neo Geo F5/summary s8 59 1330dddd
+SNK Neo Geo F5/summary s9 59 1330dddd
+SNK Neo Geo F5/summary s10 59 99e5447d
+SNK Neo Geo F5/summary s11 59 b9d2d541
+SNK Neo Geo F5/summary s12 59 b9d2d541
+SNK Neo Geo F5/summary s13 59 b9d2d541
+SNK Neo Geo F5/summary s14 59 b9d2d541
+SNK Neo Geo F5/summary s15 59 99e5447d
+SNK Neo Geo F5/summary s16 59 1a24b31e
+SNK Neo Geo F5/settings s0 59 c70b98b4
+SNK Neo Geo F5/settings s1 59 bd0cdac2
+SNK Neo Geo F5/settings s2 59 b8e9bf8e
+SNK Neo Geo F5/settings s3 59 7aebddd5
+SNK Neo Geo F5/settings s4 59 f4b15a10
+SNK Neo Geo F5/settings s5 59 d6ea38f1
+SNK Neo Geo F5/settings s6 59 ac337f0a
+SNK Neo Geo F5/settings s7 59 599d3258
+SNK Neo Geo F5/settings s8 59 1669fbc7
+SNK Neo Geo F5/settings s9 59 cf3d167c
+SNK Neo Geo F5/settings s10 59 5ab040be
+SNK Neo Geo F5/settings s11 59 5aaa9d57
+SNK Neo Geo F5/settings s12 59 130aef4e
+SNK Neo Geo F5/settings s13 59 5aaa9d57
+SNK Neo Geo F5/settings s14 59 130aef4e
+SNK Neo Geo F5/settings s15 59 f4b15a10
+SNK Neo Geo F5/settings s16 59 1e669d22
+SNK Neo Geo F7/quick s0 59 31bdd9fd
+SNK Neo Geo F7/quick s1 59 7e7e9ea7
+SNK Neo Geo F7/quick s2 59 f2091f96
+SNK Neo Geo F7/quick s3 59 31bdd9fd
+SNK Neo Geo F7/quick s4 59 7e7e9ea7
+SNK Neo Geo F7/quick s5 59 8e76d3d9
+SNK Neo Geo F7/quick s6 59 7e7e9ea7
+SNK Neo Geo F7/quick s7 59 f2091f96
+SNK Neo Geo F7/quick s8 59 cfeac320
+SNK Neo Geo F7/quick s9 59 cfeac320
+SNK Neo Geo F7/quick s10 59 31bdd9fd
+SNK Neo Geo F7/quick s11 59 d508fb6f
+SNK Neo Geo F7/quick s12 59 d508fb6f
+SNK Neo Geo F7/quick s13 59 d508fb6f
+SNK Neo Geo F7/quick s14 59 d508fb6f
+SNK Neo Geo F7/quick s15 59 7e7e9ea7
+SNK Neo Geo F7/quick s16 59 f2091f96
+SNK Neo Geo F8/expert s0 59 4b6fb0dd
+SNK Neo Geo F8/expert s1 59 76b8df11
+SNK Neo Geo F8/expert s2 59 360d9011
+SNK Neo Geo F8/expert s3 59 4b6fb0dd
+SNK Neo Geo F8/expert s4 59 76b8df11
+SNK Neo Geo F8/expert s5 59 fc0112a9
+SNK Neo Geo F8/expert s6 59 76b8df11
+SNK Neo Geo F8/expert s7 59 360d9011
+SNK Neo Geo F8/expert s8 59 5840f5c8
+SNK Neo Geo F8/expert s9 59 5840f5c8
+SNK Neo Geo F8/expert s10 59 4b6fb0dd
+SNK Neo Geo F8/expert s11 59 fa1b1639
+SNK Neo Geo F8/expert s12 59 fa1b1639
+SNK Neo Geo F8/expert s13 59 fa1b1639
+SNK Neo Geo F8/expert s14 59 fa1b1639
+SNK Neo Geo F8/expert s15 59 76b8df11
+SNK Neo Geo F8/expert s16 59 360d9011
+TRX64U F1/home s0 59 5d0e795c
+TRX64U F1/home s1 59 62ee100a
+TRX64U F1/home s2 59 6fb51bfe
+TRX64U F1/home s3 59 8e101dee
+TRX64U F1/home s4 59 62ee100a
+TRX64U F1/home s5 59 695ee816
+TRX64U F1/home s6 59 62ee100a
+TRX64U F1/home s7 59 6fb51bfe
+TRX64U F1/home s8 59 e4678cfa
+TRX64U F1/home s9 59 e4678cfa
+TRX64U F1/home s10 59 5d0e795c
+TRX64U F1/home s11 59 e4678cfa
+TRX64U F1/home s12 59 e4678cfa
+TRX64U F1/home s13 59 e4678cfa
+TRX64U F1/home s14 59 e4678cfa
+TRX64U F1/home s15 59 62ee100a
+TRX64U F1/home s16 59 695ee816
+TRX64U F2/timeline s0 59 5bab07ee
+TRX64U F2/timeline s1 59 5bab07ee
+TRX64U F2/timeline s2 59 5bab07ee
+TRX64U F2/timeline s3 59 5bab07ee
+TRX64U F2/timeline s4 59 5bab07ee
+TRX64U F2/timeline s5 59 5bab07ee
+TRX64U F2/timeline s6 59 5bab07ee
+TRX64U F2/timeline s7 59 5bab07ee
+TRX64U F2/timeline s8 59 5bab07ee
+TRX64U F2/timeline s9 59 5bab07ee
+TRX64U F2/timeline s10 59 5bab07ee
+TRX64U F2/timeline s11 59 5bab07ee
+TRX64U F2/timeline s12 59 5bab07ee
+TRX64U F2/timeline s13 59 5bab07ee
+TRX64U F2/timeline s14 59 5bab07ee
+TRX64U F2/timeline s15 59 5bab07ee
+TRX64U F2/timeline s16 59 5bab07ee
+TRX64U F3/browse s0 59 e1eb47d4
+TRX64U F3/browse s1 59 4dd370e0
+TRX64U F3/browse s2 59 77cabe02
+TRX64U F3/browse s3 59 c5ec8279
+TRX64U F3/browse s4 59 990adf41
+TRX64U F3/browse s5 59 fd2ec8b9
+TRX64U F3/browse s6 59 4dd370e0
+TRX64U F3/browse s7 59 bea6957f
+TRX64U F3/browse s8 59 5711da16
+TRX64U F3/browse s9 59 5711da16
+TRX64U F3/browse s10 59 0e4511ae
+TRX64U F3/browse s11 59 c5ab5b49
+TRX64U F3/browse s12 59 3fee48d5
+TRX64U F3/browse s13 59 07be6221
+TRX64U F3/browse s14 59 264b3b09
+TRX64U F3/browse s15 59 d00ac37e
+TRX64U F3/browse s16 59 3a2e5a90
+TRX64U F3/search s0 59 a0082f74
+TRX64U F3/search s1 59 6d663025
+TRX64U F3/search s2 59 6d663025
+TRX64U F3/search s3 59 6d663025
+TRX64U F3/search s4 59 93e9e814
+TRX64U F3/search s5 59 93e9e814
+TRX64U F3/search s6 59 672f4f19
+TRX64U F3/search s7 59 93e9e814
+TRX64U F3/search s8 59 93e9e814
+TRX64U F3/search s9 59 93e9e814
+TRX64U F3/search s10 59 00b3c673
+TRX64U F3/search s11 59 93e9e814
+TRX64U F3/search s12 59 93e9e814
+TRX64U F3/search s13 59 93e9e814
+TRX64U F3/search s14 59 93e9e814
+TRX64U F3/search s15 59 dc45f97a
+TRX64U F3/search s16 59 93e9e814
+TRX64U F3/online s0 59 7e656885
+TRX64U F3/online s1 59 f033570b
+TRX64U F3/online s2 59 7f71012e
+TRX64U F3/online s3 59 c073c8d8
+TRX64U F3/online s4 59 a17c1528
+TRX64U F3/online s5 59 55276675
+TRX64U F3/online s6 59 f033570b
+TRX64U F3/online s7 59 026ce467
+TRX64U F3/online s8 59 39fa6be5
+TRX64U F3/online s9 59 eb251a8f
+TRX64U F3/online s10 59 7e656885
+TRX64U F3/online s11 59 4b7858a4
+TRX64U F3/online s12 59 98536629
+TRX64U F3/online s13 59 3316580f
+TRX64U F3/online s14 59 27ad2d1a
+TRX64U F3/online s15 59 9e63f9c2
+TRX64U F3/online s16 59 3a080ab8
 TRX64U F4/monitor s0 59 7409e1de
 TRX64U F4/monitor s1 59 7409e1de
 TRX64U F4/monitor s2 59 7409e1de
@@ -1205,666 +1324,666 @@ TRX64U F4/monitor s13 59 7409e1de
 TRX64U F4/monitor s14 59 7409e1de
 TRX64U F4/monitor s15 59 7409e1de
 TRX64U F4/monitor s16 59 7409e1de
-TRX64U F4/diagnostics s0 59 cfd4fc07
-TRX64U F4/diagnostics s1 59 af39dbaa
-TRX64U F4/diagnostics s2 59 fc228847
-TRX64U F4/diagnostics s3 59 87885feb
-TRX64U F4/diagnostics s4 59 af39dbaa
-TRX64U F4/diagnostics s5 59 115bc06e
-TRX64U F4/diagnostics s6 59 af39dbaa
-TRX64U F4/diagnostics s7 59 af39dbaa
-TRX64U F4/diagnostics s8 59 af39dbaa
-TRX64U F4/diagnostics s9 59 af39dbaa
-TRX64U F4/diagnostics s10 59 cfd4fc07
-TRX64U F4/diagnostics s11 59 af39dbaa
-TRX64U F4/diagnostics s12 59 af39dbaa
-TRX64U F4/diagnostics s13 59 af39dbaa
-TRX64U F4/diagnostics s14 59 af39dbaa
-TRX64U F4/diagnostics s15 59 af39dbaa
-TRX64U F4/diagnostics s16 59 af39dbaa
-TRX64U F5/drives s0 59 e970fc7a
-TRX64U F5/drives s1 59 396a6165
-TRX64U F5/drives s2 59 4963a1bc
-TRX64U F5/drives s3 59 740c7947
-TRX64U F5/drives s4 59 e97a03d5
-TRX64U F5/drives s5 59 39aa8034
-TRX64U F5/drives s6 59 1c877946
-TRX64U F5/drives s7 59 d4b9fbc3
-TRX64U F5/drives s8 59 bfbbb1cc
-TRX64U F5/drives s9 59 4963a1bc
-TRX64U F5/drives s10 59 769cb438
-TRX64U F5/drives s11 59 037e3cd6
-TRX64U F5/drives s12 59 02756758
-TRX64U F5/drives s13 59 64b6495a
-TRX64U F5/drives s14 59 39342555
-TRX64U F5/drives s15 59 56ae95a1
-TRX64U F5/drives s16 59 3bad459e
-TRX64U F5/machine s0 59 1a3c9bfc
-TRX64U F5/machine s1 59 0e4ebe85
-TRX64U F5/machine s2 59 c5f409f9
-TRX64U F5/machine s3 59 b525342e
-TRX64U F5/machine s4 59 32f7c07a
-TRX64U F5/machine s5 59 d30bcdc2
-TRX64U F5/machine s6 59 9717730a
-TRX64U F5/machine s7 59 c5f409f9
-TRX64U F5/machine s8 59 a52a6772
-TRX64U F5/machine s9 59 a52a6772
-TRX64U F5/machine s10 59 14814b90
-TRX64U F5/machine s11 59 17e3ec34
-TRX64U F5/machine s12 59 17e3ec34
-TRX64U F5/machine s13 59 17e3ec34
-TRX64U F5/machine s14 59 17e3ec34
-TRX64U F5/machine s15 59 32f7c07a
-TRX64U F5/machine s16 59 aeffcbd1
-TRX64U F5/io s0 59 83687201
-TRX64U F5/io s1 59 3467fde0
-TRX64U F5/io s2 59 b0949bc8
-TRX64U F5/io s3 59 db460a56
-TRX64U F5/io s4 59 4815b0c0
-TRX64U F5/io s5 59 9abbba3a
-TRX64U F5/io s6 59 9a890b7b
-TRX64U F5/io s7 59 309c2a1b
-TRX64U F5/io s8 59 3bd15cff
-TRX64U F5/io s9 59 052d5d03
-TRX64U F5/io s10 59 016568d6
-TRX64U F5/io s11 59 c6cbe435
-TRX64U F5/io s12 59 4168baa6
-TRX64U F5/io s13 59 c6cbe435
-TRX64U F5/io s14 59 4168baa6
-TRX64U F5/io s15 59 ffc6fb70
-TRX64U F5/io s16 59 1f2ccbb6
-TRX64U F5/mediasets s0 59 67e272ef
-TRX64U F5/mediasets s1 59 67e272ef
-TRX64U F5/mediasets s2 59 73dd22e5
-TRX64U F5/mediasets s3 59 73dd22e5
-TRX64U F5/mediasets s4 59 67e272ef
-TRX64U F5/mediasets s5 59 f27f9027
-TRX64U F5/mediasets s6 59 67e272ef
-TRX64U F5/mediasets s7 59 c76d88c2
-TRX64U F5/mediasets s8 59 c76d88c2
-TRX64U F5/mediasets s9 59 c76d88c2
-TRX64U F5/mediasets s10 59 67e272ef
-TRX64U F5/mediasets s11 59 d806adcc
-TRX64U F5/mediasets s12 59 d806adcc
-TRX64U F5/mediasets s13 59 d806adcc
-TRX64U F5/mediasets s14 59 d806adcc
-TRX64U F5/mediasets s15 59 67e272ef
-TRX64U F5/mediasets s16 59 b75aa284
-TRX64U F7/quick s0 59 d89f6a2f
-TRX64U F7/quick s1 59 f6436aa3
-TRX64U F7/quick s2 59 f20b622b
-TRX64U F7/quick s3 59 06b1eb19
-TRX64U F7/quick s4 59 ee324c7b
-TRX64U F7/quick s5 59 b2e31ba4
-TRX64U F7/quick s6 59 f6436aa3
-TRX64U F7/quick s7 59 ef7e53ef
-TRX64U F7/quick s8 59 0c5024ed
-TRX64U F7/quick s9 59 0c5024ed
-TRX64U F7/quick s10 59 d89f6a2f
-TRX64U F7/quick s11 59 c7d3e316
-TRX64U F7/quick s12 59 c7d3e316
-TRX64U F7/quick s13 59 c7d3e316
-TRX64U F7/quick s14 59 c7d3e316
-TRX64U F7/quick s15 59 f6436aa3
-TRX64U F7/quick s16 59 ee324c7b
-TRX64U F7/more s0 59 2e248b03
-TRX64U F7/more s1 59 e4181901
-TRX64U F7/more s2 59 79f2dbf2
-TRX64U F7/more s3 59 79f2dbf2
-TRX64U F7/more s4 59 e4181901
-TRX64U F7/more s5 59 9cd4deeb
-TRX64U F7/more s6 59 e4181901
-TRX64U F7/more s7 59 be7b2be4
-TRX64U F7/more s8 59 be7b2be4
-TRX64U F7/more s9 59 be7b2be4
-TRX64U F7/more s10 59 2e248b03
-TRX64U F7/more s11 59 a117fcbc
-TRX64U F7/more s12 59 a117fcbc
-TRX64U F7/more s13 59 a117fcbc
-TRX64U F7/more s14 59 a117fcbc
-TRX64U F7/more s15 59 e4181901
-TRX64U F7/more s16 59 be7b2be4
-TRX64U F6/trx64 s0 59 e57ac2f1
-TRX64U F6/trx64 s1 59 b3a66908
-TRX64U F6/trx64 s2 59 42a74f17
-TRX64U F6/trx64 s3 59 94128d28
-TRX64U F6/trx64 s4 59 951218cf
-TRX64U F6/trx64 s5 59 4ae61fa4
-TRX64U F6/trx64 s6 59 5a30a67e
-TRX64U F6/trx64 s7 59 764eecd1
-TRX64U F6/trx64 s8 59 281b061b
-TRX64U F6/trx64 s9 59 dd1c8827
-TRX64U F6/trx64 s10 59 8379ee73
-TRX64U F6/trx64 s11 59 e2ab70df
-TRX64U F6/trx64 s12 59 65dd7e12
-TRX64U F6/trx64 s13 59 db26ac7a
-TRX64U F6/trx64 s14 59 c1a44c9f
-TRX64U F6/trx64 s15 59 e55e9514
-TRX64U F6/trx64 s16 59 69ced92d
-TRX64U F6/video s0 59 09219e7a
-TRX64U F6/video s1 59 cc37c6b9
-TRX64U F6/video s2 59 d3b1b912
-TRX64U F6/video s3 59 8c52ef7c
-TRX64U F6/video s4 59 a6f95fed
-TRX64U F6/video s5 59 6f2aa26d
-TRX64U F6/video s6 59 e41046d8
-TRX64U F6/video s7 59 d3b1b912
-TRX64U F6/video s8 59 3f14e45b
-TRX64U F6/video s9 59 1343eb82
-TRX64U F6/video s10 59 52af70f9
-TRX64U F6/video s11 59 18cc8ccf
-TRX64U F6/video s12 59 43857c5e
-TRX64U F6/video s13 59 367cbffa
-TRX64U F6/video s14 59 44273ce1
-TRX64U F6/video s15 59 0a6a0c2e
-TRX64U F6/video s16 59 d3b1b912
-TRX64U F6/audio s0 59 f00aaae6
-TRX64U F6/audio s1 59 7429d88e
-TRX64U F6/audio s2 59 bfa36456
-TRX64U F6/audio s3 59 a447bd40
-TRX64U F6/audio s4 59 1939c2da
-TRX64U F6/audio s5 59 5e234135
-TRX64U F6/audio s6 59 7b5a11c9
-TRX64U F6/audio s7 59 5cccf7cc
-TRX64U F6/audio s8 59 187b1ad7
-TRX64U F6/audio s9 59 69503de0
-TRX64U F6/audio s10 59 6cbbea1a
-TRX64U F6/audio s11 59 89c55f91
-TRX64U F6/audio s12 59 a080a748
-TRX64U F6/audio s13 59 d7311fa5
-TRX64U F6/audio s14 59 e7473072
-TRX64U F6/audio s15 59 ceec15c1
-TRX64U F6/audio s16 59 532a8efb
-TRX64U F6/input s0 59 8799b830
-TRX64U F6/input s1 59 4500463a
-TRX64U F6/input s2 59 9b15902c
-TRX64U F6/input s3 59 4cce191c
-TRX64U F6/input s4 59 24f96473
-TRX64U F6/input s5 59 2ccfe6f1
-TRX64U F6/input s6 59 a54a50b7
-TRX64U F6/input s7 59 0bf1f027
-TRX64U F6/input s8 59 8a3f7d09
-TRX64U F6/input s9 59 ee57d883
-TRX64U F6/input s10 59 1499f2ed
-TRX64U F6/input s11 59 4aa74d05
-TRX64U F6/input s12 59 4ee9fc6b
-TRX64U F6/input s13 59 2ba32d49
-TRX64U F6/input s14 59 44ab7477
-TRX64U F6/input s15 59 cad66f16
-TRX64U F6/input s16 59 1ff80aa0
-TRX64U F6/network s0 59 aad33f4c
-TRX64U F6/network s1 59 49df4092
-TRX64U F6/network s2 59 96bd500e
-TRX64U F6/network s3 59 4c26b839
-TRX64U F6/network s4 59 02d4b55d
-TRX64U F6/network s5 59 2f75405f
-TRX64U F6/network s6 59 936804f4
-TRX64U F6/network s7 59 96bd500e
-TRX64U F6/network s8 59 5aad24a4
-TRX64U F6/network s9 59 5aad24a4
-TRX64U F6/network s10 59 d4c1f1e4
-TRX64U F6/network s11 59 046f9705
-TRX64U F6/network s12 59 f0cbd166
-TRX64U F6/network s13 59 f0cbd166
-TRX64U F6/network s14 59 f0cbd166
-TRX64U F6/network s15 59 02d4b55d
-TRX64U F6/network s16 59 7c36968f
-TRX64U F8/status s0 59 0bcd434f
-TRX64U F8/status s1 59 0bcd434f
-TRX64U F8/status s2 59 06e36e26
-TRX64U F8/status s3 59 06e36e26
-TRX64U F8/status s4 59 0bcd434f
-TRX64U F8/status s5 59 249f176d
-TRX64U F8/status s6 59 0bcd434f
-TRX64U F8/status s7 59 a93b3c8d
-TRX64U F8/status s8 59 a93b3c8d
-TRX64U F8/status s9 59 a93b3c8d
-TRX64U F8/status s10 59 0bcd434f
-TRX64U F8/status s11 59 249f176d
-TRX64U F8/status s12 59 249f176d
-TRX64U F8/status s13 59 249f176d
-TRX64U F8/status s14 59 249f176d
-TRX64U F8/status s15 59 0bcd434f
-TRX64U F8/status s16 59 a93b3c8d
-TRX64U F8/expert s0 59 0a98a839
-TRX64U F8/expert s1 59 7eaa16d4
-TRX64U F8/expert s2 59 acbd3bcb
-TRX64U F8/expert s3 59 99ad50a8
-TRX64U F8/expert s4 59 4680d36e
-TRX64U F8/expert s5 59 fc3edc8b
-TRX64U F8/expert s6 59 c4654281
-TRX64U F8/expert s7 59 4d4f9cb7
-TRX64U F8/expert s8 59 0f1212df
-TRX64U F8/expert s9 59 0c600a24
-TRX64U F8/expert s10 59 0932a24a
-TRX64U F8/expert s11 59 a67e4863
-TRX64U F8/expert s12 59 51f481aa
-TRX64U F8/expert s13 59 b3063776
-TRX64U F8/expert s14 59 ca336be2
-TRX64U F8/expert s15 59 cc9b3086
-TRX64U F8/expert s16 59 6088a08e
-Amiga (OCS/ECS, 68000) F1/home s0 59 2ee8949e
-Amiga (OCS/ECS, 68000) F1/home s1 59 2ee8949e
-Amiga (OCS/ECS, 68000) F1/home s2 59 4a741b2d
-Amiga (OCS/ECS, 68000) F1/home s3 59 2ee8949e
-Amiga (OCS/ECS, 68000) F1/home s4 59 2ee8949e
-Amiga (OCS/ECS, 68000) F1/home s5 59 89c73b94
-Amiga (OCS/ECS, 68000) F1/home s6 59 2ee8949e
-Amiga (OCS/ECS, 68000) F1/home s7 59 4a741b2d
-Amiga (OCS/ECS, 68000) F1/home s8 59 4a741b2d
-Amiga (OCS/ECS, 68000) F1/home s9 59 4a741b2d
-Amiga (OCS/ECS, 68000) F1/home s10 59 2ee8949e
-Amiga (OCS/ECS, 68000) F1/home s11 59 89c73b94
-Amiga (OCS/ECS, 68000) F1/home s12 59 89c73b94
-Amiga (OCS/ECS, 68000) F1/home s13 59 89c73b94
-Amiga (OCS/ECS, 68000) F1/home s14 59 89c73b94
-Amiga (OCS/ECS, 68000) F1/home s15 59 2ee8949e
-Amiga (OCS/ECS, 68000) F1/home s16 59 4a741b2d
-Amiga (OCS/ECS, 68000) F3/browse s0 59 23d7339c
-Amiga (OCS/ECS, 68000) F3/browse s1 59 0fce1ee7
-Amiga (OCS/ECS, 68000) F3/browse s2 59 f7e398a2
-Amiga (OCS/ECS, 68000) F3/browse s3 59 b35daac7
-Amiga (OCS/ECS, 68000) F3/browse s4 59 fdc0d22b
-Amiga (OCS/ECS, 68000) F3/browse s5 59 1bc8839b
-Amiga (OCS/ECS, 68000) F3/browse s6 59 0fce1ee7
-Amiga (OCS/ECS, 68000) F3/browse s7 59 b7d9b1cc
-Amiga (OCS/ECS, 68000) F3/browse s8 59 8e37199e
-Amiga (OCS/ECS, 68000) F3/browse s9 59 8e37199e
-Amiga (OCS/ECS, 68000) F3/browse s10 59 9a951e45
-Amiga (OCS/ECS, 68000) F3/browse s11 59 893211f7
-Amiga (OCS/ECS, 68000) F3/browse s12 59 59702702
-Amiga (OCS/ECS, 68000) F3/browse s13 59 ec152a75
-Amiga (OCS/ECS, 68000) F3/browse s14 59 5d8802a9
-Amiga (OCS/ECS, 68000) F3/browse s15 59 3b4b9d9e
-Amiga (OCS/ECS, 68000) F3/browse s16 59 49524f02
-Amiga (OCS/ECS, 68000) F5/settings s0 59 27dfc234
-Amiga (OCS/ECS, 68000) F5/settings s1 59 3462b4ee
-Amiga (OCS/ECS, 68000) F5/settings s2 59 a67db35b
-Amiga (OCS/ECS, 68000) F5/settings s3 59 690edc1a
-Amiga (OCS/ECS, 68000) F5/settings s4 59 690edc1a
-Amiga (OCS/ECS, 68000) F5/settings s5 59 3e3186a9
-Amiga (OCS/ECS, 68000) F5/settings s6 59 690edc1a
-Amiga (OCS/ECS, 68000) F5/settings s7 59 93dbef70
-Amiga (OCS/ECS, 68000) F5/settings s8 59 6d438edd
-Amiga (OCS/ECS, 68000) F5/settings s9 59 82b1904a
-Amiga (OCS/ECS, 68000) F5/settings s10 59 bd199704
-Amiga (OCS/ECS, 68000) F5/settings s11 59 b88e4792
-Amiga (OCS/ECS, 68000) F5/settings s12 59 f6d0fe48
-Amiga (OCS/ECS, 68000) F5/settings s13 59 5f50d0e9
-Amiga (OCS/ECS, 68000) F5/settings s14 59 5c7335f8
-Amiga (OCS/ECS, 68000) F5/settings s15 59 1d2ebaa1
-Amiga (OCS/ECS, 68000) F5/settings s16 59 79c438af
-Amiga (OCS/ECS, 68000) F5/input s0 59 3b16e69e
-Amiga (OCS/ECS, 68000) F5/input s1 59 4a0a3ff5
-Amiga (OCS/ECS, 68000) F5/input s2 59 5bf1a6b1
-Amiga (OCS/ECS, 68000) F5/input s3 59 1ee47897
-Amiga (OCS/ECS, 68000) F5/input s4 59 7e0b22de
-Amiga (OCS/ECS, 68000) F5/input s5 59 0fc594c4
-Amiga (OCS/ECS, 68000) F5/input s6 59 0304f176
-Amiga (OCS/ECS, 68000) F5/input s7 59 dd791b85
-Amiga (OCS/ECS, 68000) F5/input s8 59 64b04a2b
-Amiga (OCS/ECS, 68000) F5/input s9 59 d52552e2
-Amiga (OCS/ECS, 68000) F5/input s10 59 58320573
-Amiga (OCS/ECS, 68000) F5/input s11 59 2e7f3231
-Amiga (OCS/ECS, 68000) F5/input s12 59 ada894d4
-Amiga (OCS/ECS, 68000) F5/input s13 59 8371da74
-Amiga (OCS/ECS, 68000) F5/input s14 59 646f323b
-Amiga (OCS/ECS, 68000) F5/input s15 59 4328479e
-Amiga (OCS/ECS, 68000) F5/input s16 59 a3bab44d
-Amiga (OCS/ECS, 68000) F7/quick s0 59 495e52ef
-Amiga (OCS/ECS, 68000) F7/quick s1 59 4c36ca55
-Amiga (OCS/ECS, 68000) F7/quick s2 59 be28ed2b
-Amiga (OCS/ECS, 68000) F7/quick s3 59 495e52ef
-Amiga (OCS/ECS, 68000) F7/quick s4 59 4c36ca55
-Amiga (OCS/ECS, 68000) F7/quick s5 59 6d6d5968
-Amiga (OCS/ECS, 68000) F7/quick s6 59 4c36ca55
-Amiga (OCS/ECS, 68000) F7/quick s7 59 be28ed2b
-Amiga (OCS/ECS, 68000) F7/quick s8 59 a2639079
-Amiga (OCS/ECS, 68000) F7/quick s9 59 a2639079
-Amiga (OCS/ECS, 68000) F7/quick s10 59 495e52ef
-Amiga (OCS/ECS, 68000) F7/quick s11 59 bf0d15af
-Amiga (OCS/ECS, 68000) F7/quick s12 59 bf0d15af
-Amiga (OCS/ECS, 68000) F7/quick s13 59 bf0d15af
-Amiga (OCS/ECS, 68000) F7/quick s14 59 bf0d15af
-Amiga (OCS/ECS, 68000) F7/quick s15 59 4c36ca55
-Amiga (OCS/ECS, 68000) F7/quick s16 59 be28ed2b
-Amiga (OCS/ECS, 68000) F8/expert s0 59 a4981224
-Amiga (OCS/ECS, 68000) F8/expert s1 59 899e1b47
-Amiga (OCS/ECS, 68000) F8/expert s2 59 e650dc96
-Amiga (OCS/ECS, 68000) F8/expert s3 59 a4981224
-Amiga (OCS/ECS, 68000) F8/expert s4 59 899e1b47
-Amiga (OCS/ECS, 68000) F8/expert s5 59 f1be9110
-Amiga (OCS/ECS, 68000) F8/expert s6 59 899e1b47
-Amiga (OCS/ECS, 68000) F8/expert s7 59 e650dc96
-Amiga (OCS/ECS, 68000) F8/expert s8 59 d268895f
-Amiga (OCS/ECS, 68000) F8/expert s9 59 d268895f
-Amiga (OCS/ECS, 68000) F8/expert s10 59 a4981224
-Amiga (OCS/ECS, 68000) F8/expert s11 59 65da546f
-Amiga (OCS/ECS, 68000) F8/expert s12 59 65da546f
-Amiga (OCS/ECS, 68000) F8/expert s13 59 65da546f
-Amiga (OCS/ECS, 68000) F8/expert s14 59 65da546f
-Amiga (OCS/ECS, 68000) F8/expert s15 59 899e1b47
-Amiga (OCS/ECS, 68000) F8/expert s16 59 e650dc96
-Amiga 1200 (AGA, 68020) F1/home s0 59 aa92888a
-Amiga 1200 (AGA, 68020) F1/home s1 59 aa92888a
-Amiga 1200 (AGA, 68020) F1/home s2 59 1c788521
-Amiga 1200 (AGA, 68020) F1/home s3 59 aa92888a
-Amiga 1200 (AGA, 68020) F1/home s4 59 aa92888a
-Amiga 1200 (AGA, 68020) F1/home s5 59 7e30e7a8
-Amiga 1200 (AGA, 68020) F1/home s6 59 aa92888a
-Amiga 1200 (AGA, 68020) F1/home s7 59 1c788521
-Amiga 1200 (AGA, 68020) F1/home s8 59 1c788521
-Amiga 1200 (AGA, 68020) F1/home s9 59 1c788521
-Amiga 1200 (AGA, 68020) F1/home s10 59 aa92888a
-Amiga 1200 (AGA, 68020) F1/home s11 59 7e30e7a8
-Amiga 1200 (AGA, 68020) F1/home s12 59 7e30e7a8
-Amiga 1200 (AGA, 68020) F1/home s13 59 7e30e7a8
-Amiga 1200 (AGA, 68020) F1/home s14 59 7e30e7a8
-Amiga 1200 (AGA, 68020) F1/home s15 59 aa92888a
-Amiga 1200 (AGA, 68020) F1/home s16 59 1c788521
-Amiga 1200 (AGA, 68020) F3/browse s0 59 02a4ca58
-Amiga 1200 (AGA, 68020) F3/browse s1 59 68e45083
-Amiga 1200 (AGA, 68020) F3/browse s2 59 5dcfab8e
-Amiga 1200 (AGA, 68020) F3/browse s3 59 36f47ce3
-Amiga 1200 (AGA, 68020) F3/browse s4 59 b3d4f7e7
-Amiga 1200 (AGA, 68020) F3/browse s5 59 17b9283f
-Amiga 1200 (AGA, 68020) F3/browse s6 59 68e45083
-Amiga 1200 (AGA, 68020) F3/browse s7 59 176d43c8
-Amiga 1200 (AGA, 68020) F3/browse s8 59 83d91e82
-Amiga 1200 (AGA, 68020) F3/browse s9 59 83d91e82
-Amiga 1200 (AGA, 68020) F3/browse s10 59 5c243992
-Amiga 1200 (AGA, 68020) F3/browse s11 59 107e4850
-Amiga 1200 (AGA, 68020) F3/browse s12 59 da7764b5
-Amiga 1200 (AGA, 68020) F3/browse s13 59 b2570b6a
-Amiga 1200 (AGA, 68020) F3/browse s14 59 21f467b5
-Amiga 1200 (AGA, 68020) F3/browse s15 59 200f2ed6
-Amiga 1200 (AGA, 68020) F3/browse s16 59 9f57936e
-Amiga 1200 (AGA, 68020) F5/settings s0 59 1644b4d6
-Amiga 1200 (AGA, 68020) F5/settings s1 59 c1d66308
-Amiga 1200 (AGA, 68020) F5/settings s2 59 27eeb2a7
-Amiga 1200 (AGA, 68020) F5/settings s3 59 fa9fd8bd
-Amiga 1200 (AGA, 68020) F5/settings s4 59 fa9fd8bd
-Amiga 1200 (AGA, 68020) F5/settings s5 59 e4be2255
-Amiga 1200 (AGA, 68020) F5/settings s6 59 fa9fd8bd
-Amiga 1200 (AGA, 68020) F5/settings s7 59 d19db331
-Amiga 1200 (AGA, 68020) F5/settings s8 59 a09dc4ab
-Amiga 1200 (AGA, 68020) F5/settings s9 59 97fd656f
-Amiga 1200 (AGA, 68020) F5/settings s10 59 1379fdf2
-Amiga 1200 (AGA, 68020) F5/settings s11 59 f7d68ac8
-Amiga 1200 (AGA, 68020) F5/settings s12 59 94bb85cd
-Amiga 1200 (AGA, 68020) F5/settings s13 59 b6e76882
-Amiga 1200 (AGA, 68020) F5/settings s14 59 96d4f056
-Amiga 1200 (AGA, 68020) F5/settings s15 59 60a15433
-Amiga 1200 (AGA, 68020) F5/settings s16 59 43ca4110
-Amiga 1200 (AGA, 68020) F5/input s0 59 e4216930
-Amiga 1200 (AGA, 68020) F5/input s1 59 5f9aa001
-Amiga 1200 (AGA, 68020) F5/input s2 59 7709993e
-Amiga 1200 (AGA, 68020) F5/input s3 59 3a5fc48e
-Amiga 1200 (AGA, 68020) F5/input s4 59 cd8ddd96
-Amiga 1200 (AGA, 68020) F5/input s5 59 dcbada56
-Amiga 1200 (AGA, 68020) F5/input s6 59 1a01b406
-Amiga 1200 (AGA, 68020) F5/input s7 59 9a3d5293
-Amiga 1200 (AGA, 68020) F5/input s8 59 18c444cd
-Amiga 1200 (AGA, 68020) F5/input s9 59 6951419d
-Amiga 1200 (AGA, 68020) F5/input s10 59 aa8a57e5
-Amiga 1200 (AGA, 68020) F5/input s11 59 01cb91ab
-Amiga 1200 (AGA, 68020) F5/input s12 59 9df2b02b
-Amiga 1200 (AGA, 68020) F5/input s13 59 079305ca
-Amiga 1200 (AGA, 68020) F5/input s14 59 8617deec
-Amiga 1200 (AGA, 68020) F5/input s15 59 18b6036e
-Amiga 1200 (AGA, 68020) F5/input s16 59 c08a6b5b
-Amiga 1200 (AGA, 68020) F7/quick s0 59 c13d1e67
-Amiga 1200 (AGA, 68020) F7/quick s1 59 603d90ab
-Amiga 1200 (AGA, 68020) F7/quick s2 59 b12b2cd4
-Amiga 1200 (AGA, 68020) F7/quick s3 59 c13d1e67
-Amiga 1200 (AGA, 68020) F7/quick s4 59 603d90ab
-Amiga 1200 (AGA, 68020) F7/quick s5 59 6a519a9a
-Amiga 1200 (AGA, 68020) F7/quick s6 59 603d90ab
-Amiga 1200 (AGA, 68020) F7/quick s7 59 b12b2cd4
-Amiga 1200 (AGA, 68020) F7/quick s8 59 8df72f77
-Amiga 1200 (AGA, 68020) F7/quick s9 59 8df72f77
-Amiga 1200 (AGA, 68020) F7/quick s10 59 c13d1e67
-Amiga 1200 (AGA, 68020) F7/quick s11 59 07bdcb7d
-Amiga 1200 (AGA, 68020) F7/quick s12 59 07bdcb7d
-Amiga 1200 (AGA, 68020) F7/quick s13 59 07bdcb7d
-Amiga 1200 (AGA, 68020) F7/quick s14 59 07bdcb7d
-Amiga 1200 (AGA, 68020) F7/quick s15 59 603d90ab
-Amiga 1200 (AGA, 68020) F7/quick s16 59 b12b2cd4
-Amiga 1200 (AGA, 68020) F8/expert s0 59 a4ab9e7a
-Amiga 1200 (AGA, 68020) F8/expert s1 59 88c8b765
-Amiga 1200 (AGA, 68020) F8/expert s2 59 d0c7428e
-Amiga 1200 (AGA, 68020) F8/expert s3 59 a4ab9e7a
-Amiga 1200 (AGA, 68020) F8/expert s4 59 88c8b765
-Amiga 1200 (AGA, 68020) F8/expert s5 59 97e75641
-Amiga 1200 (AGA, 68020) F8/expert s6 59 88c8b765
-Amiga 1200 (AGA, 68020) F8/expert s7 59 d0c7428e
-Amiga 1200 (AGA, 68020) F8/expert s8 59 0ba0f04b
-Amiga 1200 (AGA, 68020) F8/expert s9 59 0ba0f04b
-Amiga 1200 (AGA, 68020) F8/expert s10 59 a4ab9e7a
-Amiga 1200 (AGA, 68020) F8/expert s11 59 22d208e2
-Amiga 1200 (AGA, 68020) F8/expert s12 59 22d208e2
-Amiga 1200 (AGA, 68020) F8/expert s13 59 22d208e2
-Amiga 1200 (AGA, 68020) F8/expert s14 59 22d208e2
-Amiga 1200 (AGA, 68020) F8/expert s15 59 88c8b765
-Amiga 1200 (AGA, 68020) F8/expert s16 59 d0c7428e
-DDT Mandelbrot (mandelbrUlt) F1/home s0 59 a8554167
-DDT Mandelbrot (mandelbrUlt) F1/home s1 59 a8554167
-DDT Mandelbrot (mandelbrUlt) F1/home s2 59 206b8afa
-DDT Mandelbrot (mandelbrUlt) F1/home s3 59 a8554167
-DDT Mandelbrot (mandelbrUlt) F1/home s4 59 a8554167
-DDT Mandelbrot (mandelbrUlt) F1/home s5 59 877733c7
-DDT Mandelbrot (mandelbrUlt) F1/home s6 59 a8554167
-DDT Mandelbrot (mandelbrUlt) F1/home s7 59 206b8afa
-DDT Mandelbrot (mandelbrUlt) F1/home s8 59 206b8afa
-DDT Mandelbrot (mandelbrUlt) F1/home s9 59 206b8afa
-DDT Mandelbrot (mandelbrUlt) F1/home s10 59 a8554167
-DDT Mandelbrot (mandelbrUlt) F1/home s11 59 877733c7
-DDT Mandelbrot (mandelbrUlt) F1/home s12 59 877733c7
-DDT Mandelbrot (mandelbrUlt) F1/home s13 59 877733c7
-DDT Mandelbrot (mandelbrUlt) F1/home s14 59 877733c7
-DDT Mandelbrot (mandelbrUlt) F1/home s15 59 a8554167
-DDT Mandelbrot (mandelbrUlt) F1/home s16 59 206b8afa
-DDT Mandelbrot (mandelbrUlt) F3/browse s0 59 c95114bd
-DDT Mandelbrot (mandelbrUlt) F3/browse s1 59 6aa595d3
-DDT Mandelbrot (mandelbrUlt) F3/browse s2 59 e6e9811f
-DDT Mandelbrot (mandelbrUlt) F3/browse s3 59 53770f1b
-DDT Mandelbrot (mandelbrUlt) F3/browse s4 59 4c8cc0a6
-DDT Mandelbrot (mandelbrUlt) F3/browse s5 59 24f89e82
-DDT Mandelbrot (mandelbrUlt) F3/browse s6 59 6aa595d3
-DDT Mandelbrot (mandelbrUlt) F3/browse s7 59 1df09a1c
-DDT Mandelbrot (mandelbrUlt) F3/browse s8 59 fb61e230
-DDT Mandelbrot (mandelbrUlt) F3/browse s9 59 fb61e230
-DDT Mandelbrot (mandelbrUlt) F3/browse s10 59 f5a45ae5
-DDT Mandelbrot (mandelbrUlt) F3/browse s11 59 fe7b880d
-DDT Mandelbrot (mandelbrUlt) F3/browse s12 59 552ce9fd
-DDT Mandelbrot (mandelbrUlt) F3/browse s13 59 0f2aa1cd
-DDT Mandelbrot (mandelbrUlt) F3/browse s14 59 9a9615fb
-DDT Mandelbrot (mandelbrUlt) F3/browse s15 59 0be740a4
-DDT Mandelbrot (mandelbrUlt) F3/browse s16 59 33266545
-DDT Mandelbrot (mandelbrUlt) F7/quick s0 59 befc9322
-DDT Mandelbrot (mandelbrUlt) F7/quick s1 59 36b61926
-DDT Mandelbrot (mandelbrUlt) F7/quick s2 59 36b61926
-DDT Mandelbrot (mandelbrUlt) F7/quick s3 59 befc9322
-DDT Mandelbrot (mandelbrUlt) F7/quick s4 59 36b61926
-DDT Mandelbrot (mandelbrUlt) F7/quick s5 59 36b61926
-DDT Mandelbrot (mandelbrUlt) F7/quick s6 59 36b61926
-DDT Mandelbrot (mandelbrUlt) F7/quick s7 59 36b61926
-DDT Mandelbrot (mandelbrUlt) F7/quick s8 59 36b61926
-DDT Mandelbrot (mandelbrUlt) F7/quick s9 59 36b61926
-DDT Mandelbrot (mandelbrUlt) F7/quick s10 59 befc9322
-DDT Mandelbrot (mandelbrUlt) F7/quick s11 59 36b61926
-DDT Mandelbrot (mandelbrUlt) F7/quick s12 59 36b61926
-DDT Mandelbrot (mandelbrUlt) F7/quick s13 59 36b61926
-DDT Mandelbrot (mandelbrUlt) F7/quick s14 59 36b61926
-DDT Mandelbrot (mandelbrUlt) F7/quick s15 59 36b61926
-DDT Mandelbrot (mandelbrUlt) F7/quick s16 59 36b61926
-DDT Mandelbrot (mandelbrUlt) F8/expert s0 59 04e79a05
-DDT Mandelbrot (mandelbrUlt) F8/expert s1 59 931edea9
-DDT Mandelbrot (mandelbrUlt) F8/expert s2 59 aabea12d
-DDT Mandelbrot (mandelbrUlt) F8/expert s3 59 04e79a05
-DDT Mandelbrot (mandelbrUlt) F8/expert s4 59 931edea9
-DDT Mandelbrot (mandelbrUlt) F8/expert s5 59 fc1e0712
-DDT Mandelbrot (mandelbrUlt) F8/expert s6 59 931edea9
-DDT Mandelbrot (mandelbrUlt) F8/expert s7 59 aabea12d
-DDT Mandelbrot (mandelbrUlt) F8/expert s8 59 4dcb4530
-DDT Mandelbrot (mandelbrUlt) F8/expert s9 59 4dcb4530
-DDT Mandelbrot (mandelbrUlt) F8/expert s10 59 04e79a05
-DDT Mandelbrot (mandelbrUlt) F8/expert s11 59 34cf35cf
-DDT Mandelbrot (mandelbrUlt) F8/expert s12 59 34cf35cf
-DDT Mandelbrot (mandelbrUlt) F8/expert s13 59 34cf35cf
-DDT Mandelbrot (mandelbrUlt) F8/expert s14 59 34cf35cf
-DDT Mandelbrot (mandelbrUlt) F8/expert s15 59 931edea9
-DDT Mandelbrot (mandelbrUlt) F8/expert s16 59 aabea12d
-DDT Look Ma, No VIC F1/home s0 59 a8554167
-DDT Look Ma, No VIC F1/home s1 59 a8554167
-DDT Look Ma, No VIC F1/home s2 59 206b8afa
-DDT Look Ma, No VIC F1/home s3 59 a8554167
-DDT Look Ma, No VIC F1/home s4 59 a8554167
-DDT Look Ma, No VIC F1/home s5 59 877733c7
-DDT Look Ma, No VIC F1/home s6 59 a8554167
-DDT Look Ma, No VIC F1/home s7 59 206b8afa
-DDT Look Ma, No VIC F1/home s8 59 206b8afa
-DDT Look Ma, No VIC F1/home s9 59 206b8afa
-DDT Look Ma, No VIC F1/home s10 59 a8554167
-DDT Look Ma, No VIC F1/home s11 59 877733c7
-DDT Look Ma, No VIC F1/home s12 59 877733c7
-DDT Look Ma, No VIC F1/home s13 59 877733c7
-DDT Look Ma, No VIC F1/home s14 59 877733c7
-DDT Look Ma, No VIC F1/home s15 59 a8554167
-DDT Look Ma, No VIC F1/home s16 59 206b8afa
-DDT Look Ma, No VIC F3/browse s0 59 c95114bd
-DDT Look Ma, No VIC F3/browse s1 59 6aa595d3
-DDT Look Ma, No VIC F3/browse s2 59 e6e9811f
-DDT Look Ma, No VIC F3/browse s3 59 53770f1b
-DDT Look Ma, No VIC F3/browse s4 59 4c8cc0a6
-DDT Look Ma, No VIC F3/browse s5 59 24f89e82
-DDT Look Ma, No VIC F3/browse s6 59 6aa595d3
-DDT Look Ma, No VIC F3/browse s7 59 1df09a1c
-DDT Look Ma, No VIC F3/browse s8 59 fb61e230
-DDT Look Ma, No VIC F3/browse s9 59 fb61e230
-DDT Look Ma, No VIC F3/browse s10 59 f5a45ae5
-DDT Look Ma, No VIC F3/browse s11 59 fe7b880d
-DDT Look Ma, No VIC F3/browse s12 59 552ce9fd
-DDT Look Ma, No VIC F3/browse s13 59 0f2aa1cd
-DDT Look Ma, No VIC F3/browse s14 59 9a9615fb
-DDT Look Ma, No VIC F3/browse s15 59 0be740a4
-DDT Look Ma, No VIC F3/browse s16 59 33266545
-DDT Look Ma, No VIC F7/quick s0 59 befc9322
-DDT Look Ma, No VIC F7/quick s1 59 36b61926
-DDT Look Ma, No VIC F7/quick s2 59 36b61926
-DDT Look Ma, No VIC F7/quick s3 59 befc9322
-DDT Look Ma, No VIC F7/quick s4 59 36b61926
-DDT Look Ma, No VIC F7/quick s5 59 36b61926
-DDT Look Ma, No VIC F7/quick s6 59 36b61926
-DDT Look Ma, No VIC F7/quick s7 59 36b61926
-DDT Look Ma, No VIC F7/quick s8 59 36b61926
-DDT Look Ma, No VIC F7/quick s9 59 36b61926
-DDT Look Ma, No VIC F7/quick s10 59 befc9322
-DDT Look Ma, No VIC F7/quick s11 59 36b61926
-DDT Look Ma, No VIC F7/quick s12 59 36b61926
-DDT Look Ma, No VIC F7/quick s13 59 36b61926
-DDT Look Ma, No VIC F7/quick s14 59 36b61926
-DDT Look Ma, No VIC F7/quick s15 59 36b61926
-DDT Look Ma, No VIC F7/quick s16 59 36b61926
-DDT Look Ma, No VIC F8/expert s0 59 04e79a05
-DDT Look Ma, No VIC F8/expert s1 59 931edea9
-DDT Look Ma, No VIC F8/expert s2 59 aabea12d
-DDT Look Ma, No VIC F8/expert s3 59 04e79a05
-DDT Look Ma, No VIC F8/expert s4 59 931edea9
-DDT Look Ma, No VIC F8/expert s5 59 fc1e0712
-DDT Look Ma, No VIC F8/expert s6 59 931edea9
-DDT Look Ma, No VIC F8/expert s7 59 aabea12d
-DDT Look Ma, No VIC F8/expert s8 59 4dcb4530
-DDT Look Ma, No VIC F8/expert s9 59 4dcb4530
-DDT Look Ma, No VIC F8/expert s10 59 04e79a05
-DDT Look Ma, No VIC F8/expert s11 59 34cf35cf
-DDT Look Ma, No VIC F8/expert s12 59 34cf35cf
-DDT Look Ma, No VIC F8/expert s13 59 34cf35cf
-DDT Look Ma, No VIC F8/expert s14 59 34cf35cf
-DDT Look Ma, No VIC F8/expert s15 59 931edea9
-DDT Look Ma, No VIC F8/expert s16 59 aabea12d
-Port Diagnostics F1/home s0 59 9580b96f
-Port Diagnostics F1/home s1 59 9580b96f
-Port Diagnostics F1/home s2 59 368bb277
-Port Diagnostics F1/home s3 59 9580b96f
-Port Diagnostics F1/home s4 59 9580b96f
-Port Diagnostics F1/home s5 59 0c7784d6
-Port Diagnostics F1/home s6 59 9580b96f
-Port Diagnostics F1/home s7 59 368bb277
-Port Diagnostics F1/home s8 59 368bb277
-Port Diagnostics F1/home s9 59 368bb277
-Port Diagnostics F1/home s10 59 9580b96f
-Port Diagnostics F1/home s11 59 0c7784d6
-Port Diagnostics F1/home s12 59 0c7784d6
-Port Diagnostics F1/home s13 59 0c7784d6
-Port Diagnostics F1/home s14 59 0c7784d6
-Port Diagnostics F1/home s15 59 9580b96f
-Port Diagnostics F1/home s16 59 368bb277
-Port Diagnostics F3/browse s0 59 7aca1427
-Port Diagnostics F3/browse s1 59 0f40d240
-Port Diagnostics F3/browse s2 59 42c64a59
-Port Diagnostics F3/browse s3 59 884559ac
-Port Diagnostics F3/browse s4 59 56a46bf8
-Port Diagnostics F3/browse s5 59 d6e58f54
-Port Diagnostics F3/browse s6 59 0f40d240
-Port Diagnostics F3/browse s7 59 55759ee3
-Port Diagnostics F3/browse s8 59 de9136a3
-Port Diagnostics F3/browse s9 59 de9136a3
-Port Diagnostics F3/browse s10 59 3742f382
-Port Diagnostics F3/browse s11 59 3ca9efa8
-Port Diagnostics F3/browse s12 59 7373f954
-Port Diagnostics F3/browse s13 59 36317888
-Port Diagnostics F3/browse s14 59 ace5a794
-Port Diagnostics F3/browse s15 59 f5f4602e
-Port Diagnostics F3/browse s16 59 5cea7c0f
-Port Diagnostics F5/settings s0 59 9900837d
-Port Diagnostics F5/settings s1 59 1d8d48e9
-Port Diagnostics F5/settings s2 59 eafbcfb4
-Port Diagnostics F5/settings s3 59 141b96f5
-Port Diagnostics F5/settings s4 59 003cfa3d
-Port Diagnostics F5/settings s5 59 d3d8a7a7
-Port Diagnostics F5/settings s6 59 ed5675b6
-Port Diagnostics F5/settings s7 59 68239eb8
-Port Diagnostics F5/settings s8 59 cea7840e
-Port Diagnostics F5/settings s9 59 76e88d6d
-Port Diagnostics F5/settings s10 59 1c161223
-Port Diagnostics F5/settings s11 59 56cb43b8
-Port Diagnostics F5/settings s12 59 f8bb1a73
-Port Diagnostics F5/settings s13 59 56cb43b8
-Port Diagnostics F5/settings s14 59 f8bb1a73
-Port Diagnostics F5/settings s15 59 ac7c65cb
-Port Diagnostics F5/settings s16 59 7d16d3cf
-Port Diagnostics F7/quick s0 59 33f31f6e
-Port Diagnostics F7/quick s1 59 bfa7e385
-Port Diagnostics F7/quick s2 59 94408d30
-Port Diagnostics F7/quick s3 59 33f31f6e
-Port Diagnostics F7/quick s4 59 bfa7e385
-Port Diagnostics F7/quick s5 59 5e004e7d
-Port Diagnostics F7/quick s6 59 bfa7e385
-Port Diagnostics F7/quick s7 59 94408d30
-Port Diagnostics F7/quick s8 59 0e067cef
-Port Diagnostics F7/quick s9 59 0e067cef
-Port Diagnostics F7/quick s10 59 33f31f6e
-Port Diagnostics F7/quick s11 59 284df64e
-Port Diagnostics F7/quick s12 59 284df64e
-Port Diagnostics F7/quick s13 59 284df64e
-Port Diagnostics F7/quick s14 59 284df64e
-Port Diagnostics F7/quick s15 59 bfa7e385
-Port Diagnostics F7/quick s16 59 94408d30
-Port Diagnostics F8/expert s0 59 66657319
-Port Diagnostics F8/expert s1 59 a748a2a7
-Port Diagnostics F8/expert s2 59 6d32deab
-Port Diagnostics F8/expert s3 59 66657319
-Port Diagnostics F8/expert s4 59 a748a2a7
-Port Diagnostics F8/expert s5 59 1786c8ac
-Port Diagnostics F8/expert s6 59 a748a2a7
-Port Diagnostics F8/expert s7 59 6d32deab
-Port Diagnostics F8/expert s8 59 85219d7f
-Port Diagnostics F8/expert s9 59 85219d7f
-Port Diagnostics F8/expert s10 59 66657319
-Port Diagnostics F8/expert s11 59 3db3528f
-Port Diagnostics F8/expert s12 59 3db3528f
-Port Diagnostics F8/expert s13 59 3db3528f
-Port Diagnostics F8/expert s14 59 3db3528f
-Port Diagnostics F8/expert s15 59 a748a2a7
-Port Diagnostics F8/expert s16 59 6d32deab
+TRX64U F4/diagnostics s0 59 0b288299
+TRX64U F4/diagnostics s1 59 cf745d68
+TRX64U F4/diagnostics s2 59 a8e8c249
+TRX64U F4/diagnostics s3 59 552e7989
+TRX64U F4/diagnostics s4 59 cf745d68
+TRX64U F4/diagnostics s5 59 d4b2a9bc
+TRX64U F4/diagnostics s6 59 cf745d68
+TRX64U F4/diagnostics s7 59 cf745d68
+TRX64U F4/diagnostics s8 59 cf745d68
+TRX64U F4/diagnostics s9 59 cf745d68
+TRX64U F4/diagnostics s10 59 0b288299
+TRX64U F4/diagnostics s11 59 cf745d68
+TRX64U F4/diagnostics s12 59 cf745d68
+TRX64U F4/diagnostics s13 59 cf745d68
+TRX64U F4/diagnostics s14 59 cf745d68
+TRX64U F4/diagnostics s15 59 cf745d68
+TRX64U F4/diagnostics s16 59 cf745d68
+TRX64U F5/drives s0 59 f5069a5e
+TRX64U F5/drives s1 59 cd6698d6
+TRX64U F5/drives s2 59 36a241c5
+TRX64U F5/drives s3 59 5c6b093b
+TRX64U F5/drives s4 59 4dff7a90
+TRX64U F5/drives s5 59 6d11b179
+TRX64U F5/drives s6 59 b86aad19
+TRX64U F5/drives s7 59 ed503e21
+TRX64U F5/drives s8 59 f0ae77b2
+TRX64U F5/drives s9 59 36a241c5
+TRX64U F5/drives s10 59 bcce5e6e
+TRX64U F5/drives s11 59 698574ca
+TRX64U F5/drives s12 59 16aff5cf
+TRX64U F5/drives s13 59 f942bdb0
+TRX64U F5/drives s14 59 300c1a82
+TRX64U F5/drives s15 59 7fc67020
+TRX64U F5/drives s16 59 0fa5bf00
+TRX64U F5/machine s0 59 b5c6a5b7
+TRX64U F5/machine s1 59 65e37804
+TRX64U F5/machine s2 59 e40d0e9c
+TRX64U F5/machine s3 59 a05a39e3
+TRX64U F5/machine s4 59 07bb94bd
+TRX64U F5/machine s5 59 39f8f43d
+TRX64U F5/machine s6 59 f735d081
+TRX64U F5/machine s7 59 e40d0e9c
+TRX64U F5/machine s8 59 243fb567
+TRX64U F5/machine s9 59 243fb567
+TRX64U F5/machine s10 59 12b2d6e1
+TRX64U F5/machine s11 59 92dc75c5
+TRX64U F5/machine s12 59 92dc75c5
+TRX64U F5/machine s13 59 92dc75c5
+TRX64U F5/machine s14 59 92dc75c5
+TRX64U F5/machine s15 59 07bb94bd
+TRX64U F5/machine s16 59 7487645e
+TRX64U F5/io s0 59 113bab47
+TRX64U F5/io s1 59 e0b04074
+TRX64U F5/io s2 59 59d71018
+TRX64U F5/io s3 59 1f670d26
+TRX64U F5/io s4 59 27d37aec
+TRX64U F5/io s5 59 1a86aa55
+TRX64U F5/io s6 59 a5da2ed1
+TRX64U F5/io s7 59 490e40f7
+TRX64U F5/io s8 59 e52e7e6f
+TRX64U F5/io s9 59 aace1dfb
+TRX64U F5/io s10 59 b189a246
+TRX64U F5/io s11 59 1c2578ba
+TRX64U F5/io s12 59 eaee4919
+TRX64U F5/io s13 59 1c2578ba
+TRX64U F5/io s14 59 eaee4919
+TRX64U F5/io s15 59 747e396e
+TRX64U F5/io s16 59 7b82ad54
+TRX64U F5/mediasets s0 59 1e8eb8b2
+TRX64U F5/mediasets s1 59 1e8eb8b2
+TRX64U F5/mediasets s2 59 5207bdce
+TRX64U F5/mediasets s3 59 5207bdce
+TRX64U F5/mediasets s4 59 1e8eb8b2
+TRX64U F5/mediasets s5 59 2a69f399
+TRX64U F5/mediasets s6 59 1e8eb8b2
+TRX64U F5/mediasets s7 59 019eabb9
+TRX64U F5/mediasets s8 59 019eabb9
+TRX64U F5/mediasets s9 59 019eabb9
+TRX64U F5/mediasets s10 59 1e8eb8b2
+TRX64U F5/mediasets s11 59 2a59f5b2
+TRX64U F5/mediasets s12 59 2a59f5b2
+TRX64U F5/mediasets s13 59 2a59f5b2
+TRX64U F5/mediasets s14 59 2a59f5b2
+TRX64U F5/mediasets s15 59 1e8eb8b2
+TRX64U F5/mediasets s16 59 9c338727
+TRX64U F7/quick s0 59 cb8a9bee
+TRX64U F7/quick s1 59 9f9c5015
+TRX64U F7/quick s2 59 d6d70136
+TRX64U F7/quick s3 59 ffdbf0fa
+TRX64U F7/quick s4 59 3cc94a24
+TRX64U F7/quick s5 59 0d8fc15f
+TRX64U F7/quick s6 59 9f9c5015
+TRX64U F7/quick s7 59 6cf7bb0c
+TRX64U F7/quick s8 59 1436cf79
+TRX64U F7/quick s9 59 1436cf79
+TRX64U F7/quick s10 59 cb8a9bee
+TRX64U F7/quick s11 59 f9d65168
+TRX64U F7/quick s12 59 f9d65168
+TRX64U F7/quick s13 59 f9d65168
+TRX64U F7/quick s14 59 f9d65168
+TRX64U F7/quick s15 59 9f9c5015
+TRX64U F7/quick s16 59 3cc94a24
+TRX64U F7/more s0 59 83f3627d
+TRX64U F7/more s1 59 71d320d9
+TRX64U F7/more s2 59 c51424b9
+TRX64U F7/more s3 59 302aafbe
+TRX64U F7/more s4 59 71d320d9
+TRX64U F7/more s5 59 67266ec1
+TRX64U F7/more s6 59 71d320d9
+TRX64U F7/more s7 59 c51424b9
+TRX64U F7/more s8 59 3b6f0353
+TRX64U F7/more s9 59 3b6f0353
+TRX64U F7/more s10 59 83f3627d
+TRX64U F7/more s11 59 89bf1ec8
+TRX64U F7/more s12 59 89bf1ec8
+TRX64U F7/more s13 59 89bf1ec8
+TRX64U F7/more s14 59 89bf1ec8
+TRX64U F7/more s15 59 71d320d9
+TRX64U F7/more s16 59 ca820574
+TRX64U F6/trx64 s0 59 c6d6f841
+TRX64U F6/trx64 s1 59 78a3e232
+TRX64U F6/trx64 s2 59 3d3b727d
+TRX64U F6/trx64 s3 59 084b9b70
+TRX64U F6/trx64 s4 59 bda08e6f
+TRX64U F6/trx64 s5 59 febdf5b8
+TRX64U F6/trx64 s6 59 b52541a4
+TRX64U F6/trx64 s7 59 d65d15d5
+TRX64U F6/trx64 s8 59 734c6c97
+TRX64U F6/trx64 s9 59 ed580c6d
+TRX64U F6/trx64 s10 59 aa37d357
+TRX64U F6/trx64 s11 59 46823743
+TRX64U F6/trx64 s12 59 2376b45c
+TRX64U F6/trx64 s13 59 b595f6c8
+TRX64U F6/trx64 s14 59 1b4ad88f
+TRX64U F6/trx64 s15 59 3b87d3fa
+TRX64U F6/trx64 s16 59 2634ac2f
+TRX64U F6/video s0 59 845c6ae1
+TRX64U F6/video s1 59 435214ba
+TRX64U F6/video s2 59 50eff060
+TRX64U F6/video s3 59 de471c3c
+TRX64U F6/video s4 59 823cb821
+TRX64U F6/video s5 59 393695fb
+TRX64U F6/video s6 59 0a087255
+TRX64U F6/video s7 59 23d013b6
+TRX64U F6/video s8 59 02adadab
+TRX64U F6/video s9 59 9436e3c9
+TRX64U F6/video s10 59 b231d2e4
+TRX64U F6/video s11 59 8a6e243b
+TRX64U F6/video s12 59 60b7df82
+TRX64U F6/video s13 59 c1c27c82
+TRX64U F6/video s14 59 193ea34d
+TRX64U F6/video s15 59 dca50441
+TRX64U F6/video s16 59 8e41182b
+TRX64U F6/audio s0 59 b4fbe546
+TRX64U F6/audio s1 59 e848a64a
+TRX64U F6/audio s2 59 3c5b547a
+TRX64U F6/audio s3 59 14237b44
+TRX64U F6/audio s4 59 bb2d13a8
+TRX64U F6/audio s5 59 98bbbfe5
+TRX64U F6/audio s6 59 8416134d
+TRX64U F6/audio s7 59 3f6c0d7c
+TRX64U F6/audio s8 59 5eacaceb
+TRX64U F6/audio s9 59 c12111a2
+TRX64U F6/audio s10 59 3e45123e
+TRX64U F6/audio s11 59 4bd3f2db
+TRX64U F6/audio s12 59 8d893ec6
+TRX64U F6/audio s13 59 b21411d5
+TRX64U F6/audio s14 59 528d5434
+TRX64U F6/audio s15 59 396b5849
+TRX64U F6/audio s16 59 9ac9599b
+TRX64U F6/input s0 59 c5e9431e
+TRX64U F6/input s1 59 6e7c4074
+TRX64U F6/input s2 59 b65ed3b6
+TRX64U F6/input s3 59 f12cb4b6
+TRX64U F6/input s4 59 35d1acaf
+TRX64U F6/input s5 59 5836694b
+TRX64U F6/input s6 59 46a49f85
+TRX64U F6/input s7 59 cf49c13f
+TRX64U F6/input s8 59 4038969b
+TRX64U F6/input s9 59 b99924ed
+TRX64U F6/input s10 59 94914a01
+TRX64U F6/input s11 59 ef658ca5
+TRX64U F6/input s12 59 5bceb8c3
+TRX64U F6/input s13 59 aed7c095
+TRX64U F6/input s14 59 b79c04df
+TRX64U F6/input s15 59 006d3660
+TRX64U F6/input s16 59 140b662a
+TRX64U F6/network s0 59 c3e426c8
+TRX64U F6/network s1 59 54cbd90e
+TRX64U F6/network s2 59 71b8f906
+TRX64U F6/network s3 59 4dc5757d
+TRX64U F6/network s4 59 3cb9ce3d
+TRX64U F6/network s5 59 1d8feb2b
+TRX64U F6/network s6 59 4b7def8c
+TRX64U F6/network s7 59 71b8f906
+TRX64U F6/network s8 59 6cbd4762
+TRX64U F6/network s9 59 6cbd4762
+TRX64U F6/network s10 59 e695b720
+TRX64U F6/network s11 59 90217713
+TRX64U F6/network s12 59 5fbb5362
+TRX64U F6/network s13 59 5fbb5362
+TRX64U F6/network s14 59 5fbb5362
+TRX64U F6/network s15 59 3cb9ce3d
+TRX64U F6/network s16 59 eeed54d9
+TRX64U F8/status s0 59 f4f0d56e
+TRX64U F8/status s1 59 f4f0d56e
+TRX64U F8/status s2 59 d288dcb7
+TRX64U F8/status s3 59 d288dcb7
+TRX64U F8/status s4 59 f4f0d56e
+TRX64U F8/status s5 59 de4f392e
+TRX64U F8/status s6 59 f4f0d56e
+TRX64U F8/status s7 59 fce92fae
+TRX64U F8/status s8 59 fce92fae
+TRX64U F8/status s9 59 fce92fae
+TRX64U F8/status s10 59 f4f0d56e
+TRX64U F8/status s11 59 de4f392e
+TRX64U F8/status s12 59 de4f392e
+TRX64U F8/status s13 59 de4f392e
+TRX64U F8/status s14 59 de4f392e
+TRX64U F8/status s15 59 f4f0d56e
+TRX64U F8/status s16 59 fce92fae
+TRX64U F8/expert s0 59 bfbde009
+TRX64U F8/expert s1 59 84d79f0e
+TRX64U F8/expert s2 59 3b9d4c94
+TRX64U F8/expert s3 59 80cd3c7d
+TRX64U F8/expert s4 59 b6beafdc
+TRX64U F8/expert s5 59 40c75c95
+TRX64U F8/expert s6 59 3e326eb8
+TRX64U F8/expert s7 59 5715127e
+TRX64U F8/expert s8 59 1af016a0
+TRX64U F8/expert s9 59 d502ce03
+TRX64U F8/expert s10 59 cc3c07fa
+TRX64U F8/expert s11 59 749c71cb
+TRX64U F8/expert s12 59 e7f935b3
+TRX64U F8/expert s13 59 17b6cf11
+TRX64U F8/expert s14 59 45eb877b
+TRX64U F8/expert s15 59 32fc3737
+TRX64U F8/expert s16 59 1235e108
+Amiga (OCS/ECS, 68000) F1/home s0 59 4304d1e9
+Amiga (OCS/ECS, 68000) F1/home s1 59 4304d1e9
+Amiga (OCS/ECS, 68000) F1/home s2 59 353bcada
+Amiga (OCS/ECS, 68000) F1/home s3 59 4304d1e9
+Amiga (OCS/ECS, 68000) F1/home s4 59 4304d1e9
+Amiga (OCS/ECS, 68000) F1/home s5 59 08da192d
+Amiga (OCS/ECS, 68000) F1/home s6 59 4304d1e9
+Amiga (OCS/ECS, 68000) F1/home s7 59 353bcada
+Amiga (OCS/ECS, 68000) F1/home s8 59 353bcada
+Amiga (OCS/ECS, 68000) F1/home s9 59 353bcada
+Amiga (OCS/ECS, 68000) F1/home s10 59 4304d1e9
+Amiga (OCS/ECS, 68000) F1/home s11 59 08da192d
+Amiga (OCS/ECS, 68000) F1/home s12 59 08da192d
+Amiga (OCS/ECS, 68000) F1/home s13 59 08da192d
+Amiga (OCS/ECS, 68000) F1/home s14 59 08da192d
+Amiga (OCS/ECS, 68000) F1/home s15 59 4304d1e9
+Amiga (OCS/ECS, 68000) F1/home s16 59 353bcada
+Amiga (OCS/ECS, 68000) F3/browse s0 59 fe7bdb48
+Amiga (OCS/ECS, 68000) F3/browse s1 59 908953a1
+Amiga (OCS/ECS, 68000) F3/browse s2 59 5bc363f2
+Amiga (OCS/ECS, 68000) F3/browse s3 59 f11fead1
+Amiga (OCS/ECS, 68000) F3/browse s4 59 df5e0269
+Amiga (OCS/ECS, 68000) F3/browse s5 59 756039eb
+Amiga (OCS/ECS, 68000) F3/browse s6 59 908953a1
+Amiga (OCS/ECS, 68000) F3/browse s7 59 9786147a
+Amiga (OCS/ECS, 68000) F3/browse s8 59 b6418346
+Amiga (OCS/ECS, 68000) F3/browse s9 59 b6418346
+Amiga (OCS/ECS, 68000) F3/browse s10 59 1f0ba952
+Amiga (OCS/ECS, 68000) F3/browse s11 59 57b0af40
+Amiga (OCS/ECS, 68000) F3/browse s12 59 2076917d
+Amiga (OCS/ECS, 68000) F3/browse s13 59 1edcce33
+Amiga (OCS/ECS, 68000) F3/browse s14 59 9e700ad9
+Amiga (OCS/ECS, 68000) F3/browse s15 59 cc1e4385
+Amiga (OCS/ECS, 68000) F3/browse s16 59 2f211e68
+Amiga (OCS/ECS, 68000) F5/summary s0 59 d0385ad3
+Amiga (OCS/ECS, 68000) F5/summary s1 59 d0385ad3
+Amiga (OCS/ECS, 68000) F5/summary s2 59 455e425e
+Amiga (OCS/ECS, 68000) F5/summary s3 59 d0385ad3
+Amiga (OCS/ECS, 68000) F5/summary s4 59 d0385ad3
+Amiga (OCS/ECS, 68000) F5/summary s5 59 467a4d0d
+Amiga (OCS/ECS, 68000) F5/summary s6 59 d0385ad3
+Amiga (OCS/ECS, 68000) F5/summary s7 59 455e425e
+Amiga (OCS/ECS, 68000) F5/summary s8 59 455e425e
+Amiga (OCS/ECS, 68000) F5/summary s9 59 455e425e
+Amiga (OCS/ECS, 68000) F5/summary s10 59 d0385ad3
+Amiga (OCS/ECS, 68000) F5/summary s11 59 467a4d0d
+Amiga (OCS/ECS, 68000) F5/summary s12 59 467a4d0d
+Amiga (OCS/ECS, 68000) F5/summary s13 59 467a4d0d
+Amiga (OCS/ECS, 68000) F5/summary s14 59 467a4d0d
+Amiga (OCS/ECS, 68000) F5/summary s15 59 d0385ad3
+Amiga (OCS/ECS, 68000) F5/summary s16 59 455e425e
+Amiga (OCS/ECS, 68000) F5/settings s0 59 d13e2fa9
+Amiga (OCS/ECS, 68000) F5/settings s1 59 aefe5970
+Amiga (OCS/ECS, 68000) F5/settings s2 59 ff138097
+Amiga (OCS/ECS, 68000) F5/settings s3 59 de2bf731
+Amiga (OCS/ECS, 68000) F5/settings s4 59 de2bf731
+Amiga (OCS/ECS, 68000) F5/settings s5 59 a740c4a2
+Amiga (OCS/ECS, 68000) F5/settings s6 59 de2bf731
+Amiga (OCS/ECS, 68000) F5/settings s7 59 db16eea8
+Amiga (OCS/ECS, 68000) F5/settings s8 59 a75adf63
+Amiga (OCS/ECS, 68000) F5/settings s9 59 8f2e2f79
+Amiga (OCS/ECS, 68000) F5/settings s10 59 3deb04d7
+Amiga (OCS/ECS, 68000) F5/settings s11 59 aa1984a9
+Amiga (OCS/ECS, 68000) F5/settings s12 59 7a021f7a
+Amiga (OCS/ECS, 68000) F5/settings s13 59 6e9f4eb7
+Amiga (OCS/ECS, 68000) F5/settings s14 59 4edcdf22
+Amiga (OCS/ECS, 68000) F5/settings s15 59 7e474118
+Amiga (OCS/ECS, 68000) F5/settings s16 59 da821b26
+Amiga (OCS/ECS, 68000) F7/quick s0 59 edc39bbb
+Amiga (OCS/ECS, 68000) F7/quick s1 59 c5c3d45e
+Amiga (OCS/ECS, 68000) F7/quick s2 59 5e4a425e
+Amiga (OCS/ECS, 68000) F7/quick s3 59 edc39bbb
+Amiga (OCS/ECS, 68000) F7/quick s4 59 c5c3d45e
+Amiga (OCS/ECS, 68000) F7/quick s5 59 43177cfe
+Amiga (OCS/ECS, 68000) F7/quick s6 59 c5c3d45e
+Amiga (OCS/ECS, 68000) F7/quick s7 59 5e4a425e
+Amiga (OCS/ECS, 68000) F7/quick s8 59 bd7598ea
+Amiga (OCS/ECS, 68000) F7/quick s9 59 bd7598ea
+Amiga (OCS/ECS, 68000) F7/quick s10 59 edc39bbb
+Amiga (OCS/ECS, 68000) F7/quick s11 59 7baad8c0
+Amiga (OCS/ECS, 68000) F7/quick s12 59 7baad8c0
+Amiga (OCS/ECS, 68000) F7/quick s13 59 7baad8c0
+Amiga (OCS/ECS, 68000) F7/quick s14 59 7baad8c0
+Amiga (OCS/ECS, 68000) F7/quick s15 59 c5c3d45e
+Amiga (OCS/ECS, 68000) F7/quick s16 59 5e4a425e
+Amiga (OCS/ECS, 68000) F8/expert s0 59 ceb661ff
+Amiga (OCS/ECS, 68000) F8/expert s1 59 7c2c3bda
+Amiga (OCS/ECS, 68000) F8/expert s2 59 95c5ff90
+Amiga (OCS/ECS, 68000) F8/expert s3 59 ceb661ff
+Amiga (OCS/ECS, 68000) F8/expert s4 59 7c2c3bda
+Amiga (OCS/ECS, 68000) F8/expert s5 59 ca381bc2
+Amiga (OCS/ECS, 68000) F8/expert s6 59 7c2c3bda
+Amiga (OCS/ECS, 68000) F8/expert s7 59 95c5ff90
+Amiga (OCS/ECS, 68000) F8/expert s8 59 6ab0a9fb
+Amiga (OCS/ECS, 68000) F8/expert s9 59 6ab0a9fb
+Amiga (OCS/ECS, 68000) F8/expert s10 59 ceb661ff
+Amiga (OCS/ECS, 68000) F8/expert s11 59 decf1f2e
+Amiga (OCS/ECS, 68000) F8/expert s12 59 decf1f2e
+Amiga (OCS/ECS, 68000) F8/expert s13 59 decf1f2e
+Amiga (OCS/ECS, 68000) F8/expert s14 59 decf1f2e
+Amiga (OCS/ECS, 68000) F8/expert s15 59 7c2c3bda
+Amiga (OCS/ECS, 68000) F8/expert s16 59 95c5ff90
+Amiga 1200 (AGA, 68020) F1/home s0 59 4304d1e9
+Amiga 1200 (AGA, 68020) F1/home s1 59 4304d1e9
+Amiga 1200 (AGA, 68020) F1/home s2 59 353bcada
+Amiga 1200 (AGA, 68020) F1/home s3 59 4304d1e9
+Amiga 1200 (AGA, 68020) F1/home s4 59 4304d1e9
+Amiga 1200 (AGA, 68020) F1/home s5 59 08da192d
+Amiga 1200 (AGA, 68020) F1/home s6 59 4304d1e9
+Amiga 1200 (AGA, 68020) F1/home s7 59 353bcada
+Amiga 1200 (AGA, 68020) F1/home s8 59 353bcada
+Amiga 1200 (AGA, 68020) F1/home s9 59 353bcada
+Amiga 1200 (AGA, 68020) F1/home s10 59 4304d1e9
+Amiga 1200 (AGA, 68020) F1/home s11 59 08da192d
+Amiga 1200 (AGA, 68020) F1/home s12 59 08da192d
+Amiga 1200 (AGA, 68020) F1/home s13 59 08da192d
+Amiga 1200 (AGA, 68020) F1/home s14 59 08da192d
+Amiga 1200 (AGA, 68020) F1/home s15 59 4304d1e9
+Amiga 1200 (AGA, 68020) F1/home s16 59 353bcada
+Amiga 1200 (AGA, 68020) F3/browse s0 59 fe7bdb48
+Amiga 1200 (AGA, 68020) F3/browse s1 59 908953a1
+Amiga 1200 (AGA, 68020) F3/browse s2 59 5bc363f2
+Amiga 1200 (AGA, 68020) F3/browse s3 59 f11fead1
+Amiga 1200 (AGA, 68020) F3/browse s4 59 df5e0269
+Amiga 1200 (AGA, 68020) F3/browse s5 59 756039eb
+Amiga 1200 (AGA, 68020) F3/browse s6 59 908953a1
+Amiga 1200 (AGA, 68020) F3/browse s7 59 9786147a
+Amiga 1200 (AGA, 68020) F3/browse s8 59 b6418346
+Amiga 1200 (AGA, 68020) F3/browse s9 59 b6418346
+Amiga 1200 (AGA, 68020) F3/browse s10 59 1f0ba952
+Amiga 1200 (AGA, 68020) F3/browse s11 59 57b0af40
+Amiga 1200 (AGA, 68020) F3/browse s12 59 2076917d
+Amiga 1200 (AGA, 68020) F3/browse s13 59 1edcce33
+Amiga 1200 (AGA, 68020) F3/browse s14 59 9e700ad9
+Amiga 1200 (AGA, 68020) F3/browse s15 59 cc1e4385
+Amiga 1200 (AGA, 68020) F3/browse s16 59 2f211e68
+Amiga 1200 (AGA, 68020) F5/summary s0 59 7b9df6f8
+Amiga 1200 (AGA, 68020) F5/summary s1 59 7b9df6f8
+Amiga 1200 (AGA, 68020) F5/summary s2 59 9ea22cfd
+Amiga 1200 (AGA, 68020) F5/summary s3 59 7b9df6f8
+Amiga 1200 (AGA, 68020) F5/summary s4 59 7b9df6f8
+Amiga 1200 (AGA, 68020) F5/summary s5 59 509d7e76
+Amiga 1200 (AGA, 68020) F5/summary s6 59 7b9df6f8
+Amiga 1200 (AGA, 68020) F5/summary s7 59 9ea22cfd
+Amiga 1200 (AGA, 68020) F5/summary s8 59 9ea22cfd
+Amiga 1200 (AGA, 68020) F5/summary s9 59 9ea22cfd
+Amiga 1200 (AGA, 68020) F5/summary s10 59 7b9df6f8
+Amiga 1200 (AGA, 68020) F5/summary s11 59 509d7e76
+Amiga 1200 (AGA, 68020) F5/summary s12 59 509d7e76
+Amiga 1200 (AGA, 68020) F5/summary s13 59 509d7e76
+Amiga 1200 (AGA, 68020) F5/summary s14 59 509d7e76
+Amiga 1200 (AGA, 68020) F5/summary s15 59 7b9df6f8
+Amiga 1200 (AGA, 68020) F5/summary s16 59 9ea22cfd
+Amiga 1200 (AGA, 68020) F5/settings s0 59 ade592fb
+Amiga 1200 (AGA, 68020) F5/settings s1 59 40d0fb07
+Amiga 1200 (AGA, 68020) F5/settings s2 59 4f9a5d5c
+Amiga 1200 (AGA, 68020) F5/settings s3 59 a62f2ddf
+Amiga 1200 (AGA, 68020) F5/settings s4 59 a62f2ddf
+Amiga 1200 (AGA, 68020) F5/settings s5 59 8dc54623
+Amiga 1200 (AGA, 68020) F5/settings s6 59 a62f2ddf
+Amiga 1200 (AGA, 68020) F5/settings s7 59 cab8001f
+Amiga 1200 (AGA, 68020) F5/settings s8 59 e35e9ed8
+Amiga 1200 (AGA, 68020) F5/settings s9 59 468ac713
+Amiga 1200 (AGA, 68020) F5/settings s10 59 4a0f7d91
+Amiga 1200 (AGA, 68020) F5/settings s11 59 01ba6dbd
+Amiga 1200 (AGA, 68020) F5/settings s12 59 cd724306
+Amiga 1200 (AGA, 68020) F5/settings s13 59 6dd7101b
+Amiga 1200 (AGA, 68020) F5/settings s14 59 0e64021c
+Amiga 1200 (AGA, 68020) F5/settings s15 59 b04ddd8d
+Amiga 1200 (AGA, 68020) F5/settings s16 59 37bb1335
+Amiga 1200 (AGA, 68020) F7/quick s0 59 edc39bbb
+Amiga 1200 (AGA, 68020) F7/quick s1 59 c5c3d45e
+Amiga 1200 (AGA, 68020) F7/quick s2 59 8064587f
+Amiga 1200 (AGA, 68020) F7/quick s3 59 edc39bbb
+Amiga 1200 (AGA, 68020) F7/quick s4 59 c5c3d45e
+Amiga 1200 (AGA, 68020) F7/quick s5 59 43177cfe
+Amiga 1200 (AGA, 68020) F7/quick s6 59 c5c3d45e
+Amiga 1200 (AGA, 68020) F7/quick s7 59 8064587f
+Amiga 1200 (AGA, 68020) F7/quick s8 59 734ba4e6
+Amiga 1200 (AGA, 68020) F7/quick s9 59 734ba4e6
+Amiga 1200 (AGA, 68020) F7/quick s10 59 edc39bbb
+Amiga 1200 (AGA, 68020) F7/quick s11 59 7baad8c0
+Amiga 1200 (AGA, 68020) F7/quick s12 59 7baad8c0
+Amiga 1200 (AGA, 68020) F7/quick s13 59 7baad8c0
+Amiga 1200 (AGA, 68020) F7/quick s14 59 7baad8c0
+Amiga 1200 (AGA, 68020) F7/quick s15 59 c5c3d45e
+Amiga 1200 (AGA, 68020) F7/quick s16 59 8064587f
+Amiga 1200 (AGA, 68020) F8/expert s0 59 ceb661ff
+Amiga 1200 (AGA, 68020) F8/expert s1 59 7c2c3bda
+Amiga 1200 (AGA, 68020) F8/expert s2 59 f50514f1
+Amiga 1200 (AGA, 68020) F8/expert s3 59 ceb661ff
+Amiga 1200 (AGA, 68020) F8/expert s4 59 7c2c3bda
+Amiga 1200 (AGA, 68020) F8/expert s5 59 ca381bc2
+Amiga 1200 (AGA, 68020) F8/expert s6 59 7c2c3bda
+Amiga 1200 (AGA, 68020) F8/expert s7 59 f50514f1
+Amiga 1200 (AGA, 68020) F8/expert s8 59 eab6bf6b
+Amiga 1200 (AGA, 68020) F8/expert s9 59 eab6bf6b
+Amiga 1200 (AGA, 68020) F8/expert s10 59 ceb661ff
+Amiga 1200 (AGA, 68020) F8/expert s11 59 decf1f2e
+Amiga 1200 (AGA, 68020) F8/expert s12 59 decf1f2e
+Amiga 1200 (AGA, 68020) F8/expert s13 59 decf1f2e
+Amiga 1200 (AGA, 68020) F8/expert s14 59 decf1f2e
+Amiga 1200 (AGA, 68020) F8/expert s15 59 7c2c3bda
+Amiga 1200 (AGA, 68020) F8/expert s16 59 f50514f1
+DDT Mandelbrot (mandelbrUlt) F1/home s0 59 a4830595
+DDT Mandelbrot (mandelbrUlt) F1/home s1 59 a4830595
+DDT Mandelbrot (mandelbrUlt) F1/home s2 59 2038b3e4
+DDT Mandelbrot (mandelbrUlt) F1/home s3 59 a4830595
+DDT Mandelbrot (mandelbrUlt) F1/home s4 59 a4830595
+DDT Mandelbrot (mandelbrUlt) F1/home s5 59 c5a2f3a1
+DDT Mandelbrot (mandelbrUlt) F1/home s6 59 a4830595
+DDT Mandelbrot (mandelbrUlt) F1/home s7 59 2038b3e4
+DDT Mandelbrot (mandelbrUlt) F1/home s8 59 2038b3e4
+DDT Mandelbrot (mandelbrUlt) F1/home s9 59 2038b3e4
+DDT Mandelbrot (mandelbrUlt) F1/home s10 59 a4830595
+DDT Mandelbrot (mandelbrUlt) F1/home s11 59 c5a2f3a1
+DDT Mandelbrot (mandelbrUlt) F1/home s12 59 c5a2f3a1
+DDT Mandelbrot (mandelbrUlt) F1/home s13 59 c5a2f3a1
+DDT Mandelbrot (mandelbrUlt) F1/home s14 59 c5a2f3a1
+DDT Mandelbrot (mandelbrUlt) F1/home s15 59 a4830595
+DDT Mandelbrot (mandelbrUlt) F1/home s16 59 2038b3e4
+DDT Mandelbrot (mandelbrUlt) F3/browse s0 59 67f7a099
+DDT Mandelbrot (mandelbrUlt) F3/browse s1 59 6179b9c3
+DDT Mandelbrot (mandelbrUlt) F3/browse s2 59 bad6cf9b
+DDT Mandelbrot (mandelbrUlt) F3/browse s3 59 18412d01
+DDT Mandelbrot (mandelbrUlt) F3/browse s4 59 3b8bc0cc
+DDT Mandelbrot (mandelbrUlt) F3/browse s5 59 07cfe8f6
+DDT Mandelbrot (mandelbrUlt) F3/browse s6 59 6179b9c3
+DDT Mandelbrot (mandelbrUlt) F3/browse s7 59 02005626
+DDT Mandelbrot (mandelbrUlt) F3/browse s8 59 a64a205e
+DDT Mandelbrot (mandelbrUlt) F3/browse s9 59 a64a205e
+DDT Mandelbrot (mandelbrUlt) F3/browse s10 59 887455c0
+DDT Mandelbrot (mandelbrUlt) F3/browse s11 59 b34fa718
+DDT Mandelbrot (mandelbrUlt) F3/browse s12 59 789e7cb0
+DDT Mandelbrot (mandelbrUlt) F3/browse s13 59 3594c0e7
+DDT Mandelbrot (mandelbrUlt) F3/browse s14 59 005f3521
+DDT Mandelbrot (mandelbrUlt) F3/browse s15 59 a97ef05f
+DDT Mandelbrot (mandelbrUlt) F3/browse s16 59 591d4f71
+DDT Mandelbrot (mandelbrUlt) F7/quick s0 59 eaa53664
+DDT Mandelbrot (mandelbrUlt) F7/quick s1 59 f687e5d8
+DDT Mandelbrot (mandelbrUlt) F7/quick s2 59 f687e5d8
+DDT Mandelbrot (mandelbrUlt) F7/quick s3 59 eaa53664
+DDT Mandelbrot (mandelbrUlt) F7/quick s4 59 f687e5d8
+DDT Mandelbrot (mandelbrUlt) F7/quick s5 59 f687e5d8
+DDT Mandelbrot (mandelbrUlt) F7/quick s6 59 f687e5d8
+DDT Mandelbrot (mandelbrUlt) F7/quick s7 59 f687e5d8
+DDT Mandelbrot (mandelbrUlt) F7/quick s8 59 f687e5d8
+DDT Mandelbrot (mandelbrUlt) F7/quick s9 59 f687e5d8
+DDT Mandelbrot (mandelbrUlt) F7/quick s10 59 eaa53664
+DDT Mandelbrot (mandelbrUlt) F7/quick s11 59 f687e5d8
+DDT Mandelbrot (mandelbrUlt) F7/quick s12 59 f687e5d8
+DDT Mandelbrot (mandelbrUlt) F7/quick s13 59 f687e5d8
+DDT Mandelbrot (mandelbrUlt) F7/quick s14 59 f687e5d8
+DDT Mandelbrot (mandelbrUlt) F7/quick s15 59 f687e5d8
+DDT Mandelbrot (mandelbrUlt) F7/quick s16 59 f687e5d8
+DDT Mandelbrot (mandelbrUlt) F8/expert s0 59 dced11a3
+DDT Mandelbrot (mandelbrUlt) F8/expert s1 59 f4ccae8b
+DDT Mandelbrot (mandelbrUlt) F8/expert s2 59 54e1c12e
+DDT Mandelbrot (mandelbrUlt) F8/expert s3 59 dced11a3
+DDT Mandelbrot (mandelbrUlt) F8/expert s4 59 f4ccae8b
+DDT Mandelbrot (mandelbrUlt) F8/expert s5 59 2d2c0782
+DDT Mandelbrot (mandelbrUlt) F8/expert s6 59 f4ccae8b
+DDT Mandelbrot (mandelbrUlt) F8/expert s7 59 54e1c12e
+DDT Mandelbrot (mandelbrUlt) F8/expert s8 59 ad0904b2
+DDT Mandelbrot (mandelbrUlt) F8/expert s9 59 ad0904b2
+DDT Mandelbrot (mandelbrUlt) F8/expert s10 59 dced11a3
+DDT Mandelbrot (mandelbrUlt) F8/expert s11 59 0871340c
+DDT Mandelbrot (mandelbrUlt) F8/expert s12 59 0871340c
+DDT Mandelbrot (mandelbrUlt) F8/expert s13 59 0871340c
+DDT Mandelbrot (mandelbrUlt) F8/expert s14 59 0871340c
+DDT Mandelbrot (mandelbrUlt) F8/expert s15 59 f4ccae8b
+DDT Mandelbrot (mandelbrUlt) F8/expert s16 59 54e1c12e
+DDT Look Ma, No VIC F1/home s0 59 a4830595
+DDT Look Ma, No VIC F1/home s1 59 a4830595
+DDT Look Ma, No VIC F1/home s2 59 2038b3e4
+DDT Look Ma, No VIC F1/home s3 59 a4830595
+DDT Look Ma, No VIC F1/home s4 59 a4830595
+DDT Look Ma, No VIC F1/home s5 59 c5a2f3a1
+DDT Look Ma, No VIC F1/home s6 59 a4830595
+DDT Look Ma, No VIC F1/home s7 59 2038b3e4
+DDT Look Ma, No VIC F1/home s8 59 2038b3e4
+DDT Look Ma, No VIC F1/home s9 59 2038b3e4
+DDT Look Ma, No VIC F1/home s10 59 a4830595
+DDT Look Ma, No VIC F1/home s11 59 c5a2f3a1
+DDT Look Ma, No VIC F1/home s12 59 c5a2f3a1
+DDT Look Ma, No VIC F1/home s13 59 c5a2f3a1
+DDT Look Ma, No VIC F1/home s14 59 c5a2f3a1
+DDT Look Ma, No VIC F1/home s15 59 a4830595
+DDT Look Ma, No VIC F1/home s16 59 2038b3e4
+DDT Look Ma, No VIC F3/browse s0 59 67f7a099
+DDT Look Ma, No VIC F3/browse s1 59 6179b9c3
+DDT Look Ma, No VIC F3/browse s2 59 bad6cf9b
+DDT Look Ma, No VIC F3/browse s3 59 18412d01
+DDT Look Ma, No VIC F3/browse s4 59 3b8bc0cc
+DDT Look Ma, No VIC F3/browse s5 59 07cfe8f6
+DDT Look Ma, No VIC F3/browse s6 59 6179b9c3
+DDT Look Ma, No VIC F3/browse s7 59 02005626
+DDT Look Ma, No VIC F3/browse s8 59 a64a205e
+DDT Look Ma, No VIC F3/browse s9 59 a64a205e
+DDT Look Ma, No VIC F3/browse s10 59 887455c0
+DDT Look Ma, No VIC F3/browse s11 59 b34fa718
+DDT Look Ma, No VIC F3/browse s12 59 789e7cb0
+DDT Look Ma, No VIC F3/browse s13 59 3594c0e7
+DDT Look Ma, No VIC F3/browse s14 59 005f3521
+DDT Look Ma, No VIC F3/browse s15 59 a97ef05f
+DDT Look Ma, No VIC F3/browse s16 59 591d4f71
+DDT Look Ma, No VIC F7/quick s0 59 eaa53664
+DDT Look Ma, No VIC F7/quick s1 59 f687e5d8
+DDT Look Ma, No VIC F7/quick s2 59 f687e5d8
+DDT Look Ma, No VIC F7/quick s3 59 eaa53664
+DDT Look Ma, No VIC F7/quick s4 59 f687e5d8
+DDT Look Ma, No VIC F7/quick s5 59 f687e5d8
+DDT Look Ma, No VIC F7/quick s6 59 f687e5d8
+DDT Look Ma, No VIC F7/quick s7 59 f687e5d8
+DDT Look Ma, No VIC F7/quick s8 59 f687e5d8
+DDT Look Ma, No VIC F7/quick s9 59 f687e5d8
+DDT Look Ma, No VIC F7/quick s10 59 eaa53664
+DDT Look Ma, No VIC F7/quick s11 59 f687e5d8
+DDT Look Ma, No VIC F7/quick s12 59 f687e5d8
+DDT Look Ma, No VIC F7/quick s13 59 f687e5d8
+DDT Look Ma, No VIC F7/quick s14 59 f687e5d8
+DDT Look Ma, No VIC F7/quick s15 59 f687e5d8
+DDT Look Ma, No VIC F7/quick s16 59 f687e5d8
+DDT Look Ma, No VIC F8/expert s0 59 dced11a3
+DDT Look Ma, No VIC F8/expert s1 59 f4ccae8b
+DDT Look Ma, No VIC F8/expert s2 59 54e1c12e
+DDT Look Ma, No VIC F8/expert s3 59 dced11a3
+DDT Look Ma, No VIC F8/expert s4 59 f4ccae8b
+DDT Look Ma, No VIC F8/expert s5 59 2d2c0782
+DDT Look Ma, No VIC F8/expert s6 59 f4ccae8b
+DDT Look Ma, No VIC F8/expert s7 59 54e1c12e
+DDT Look Ma, No VIC F8/expert s8 59 ad0904b2
+DDT Look Ma, No VIC F8/expert s9 59 ad0904b2
+DDT Look Ma, No VIC F8/expert s10 59 dced11a3
+DDT Look Ma, No VIC F8/expert s11 59 0871340c
+DDT Look Ma, No VIC F8/expert s12 59 0871340c
+DDT Look Ma, No VIC F8/expert s13 59 0871340c
+DDT Look Ma, No VIC F8/expert s14 59 0871340c
+DDT Look Ma, No VIC F8/expert s15 59 f4ccae8b
+DDT Look Ma, No VIC F8/expert s16 59 54e1c12e
+Port Diagnostics F1/home s0 59 5da95c6f
+Port Diagnostics F1/home s1 59 5da95c6f
+Port Diagnostics F1/home s2 59 a76fb96a
+Port Diagnostics F1/home s3 59 5da95c6f
+Port Diagnostics F1/home s4 59 5da95c6f
+Port Diagnostics F1/home s5 59 fc844fcd
+Port Diagnostics F1/home s6 59 5da95c6f
+Port Diagnostics F1/home s7 59 a76fb96a
+Port Diagnostics F1/home s8 59 a76fb96a
+Port Diagnostics F1/home s9 59 a76fb96a
+Port Diagnostics F1/home s10 59 5da95c6f
+Port Diagnostics F1/home s11 59 fc844fcd
+Port Diagnostics F1/home s12 59 fc844fcd
+Port Diagnostics F1/home s13 59 fc844fcd
+Port Diagnostics F1/home s14 59 fc844fcd
+Port Diagnostics F1/home s15 59 5da95c6f
+Port Diagnostics F1/home s16 59 a76fb96a
+Port Diagnostics F3/browse s0 59 91703a9e
+Port Diagnostics F3/browse s1 59 fd54b841
+Port Diagnostics F3/browse s2 59 19ecd166
+Port Diagnostics F3/browse s3 59 a3789af5
+Port Diagnostics F3/browse s4 59 13379dd7
+Port Diagnostics F3/browse s5 59 785629d7
+Port Diagnostics F3/browse s6 59 fd54b841
+Port Diagnostics F3/browse s7 59 63d21db2
+Port Diagnostics F3/browse s8 59 d945f04a
+Port Diagnostics F3/browse s9 59 d945f04a
+Port Diagnostics F3/browse s10 59 c371a129
+Port Diagnostics F3/browse s11 59 62c71060
+Port Diagnostics F3/browse s12 59 6644d6d0
+Port Diagnostics F3/browse s13 59 96956f76
+Port Diagnostics F3/browse s14 59 c743dcf5
+Port Diagnostics F3/browse s15 59 c2633f5d
+Port Diagnostics F3/browse s16 59 fe836a90
+Port Diagnostics F5/summary s0 59 208f5518
+Port Diagnostics F5/summary s1 59 208f5518
+Port Diagnostics F5/summary s2 59 202b1ccc
+Port Diagnostics F5/summary s3 59 208f5518
+Port Diagnostics F5/summary s4 59 208f5518
+Port Diagnostics F5/summary s5 59 1d92c2a1
+Port Diagnostics F5/summary s6 59 208f5518
+Port Diagnostics F5/summary s7 59 202b1ccc
+Port Diagnostics F5/summary s8 59 202b1ccc
+Port Diagnostics F5/summary s9 59 202b1ccc
+Port Diagnostics F5/summary s10 59 208f5518
+Port Diagnostics F5/summary s11 59 1d92c2a1
+Port Diagnostics F5/summary s12 59 1d92c2a1
+Port Diagnostics F5/summary s13 59 1d92c2a1
+Port Diagnostics F5/summary s14 59 1d92c2a1
+Port Diagnostics F5/summary s15 59 208f5518
+Port Diagnostics F5/summary s16 59 202b1ccc
+Port Diagnostics F7/quick s0 59 3ae65410
+Port Diagnostics F7/quick s1 59 fda2f226
+Port Diagnostics F7/quick s2 59 9798efb3
+Port Diagnostics F7/quick s3 59 3ae65410
+Port Diagnostics F7/quick s4 59 fda2f226
+Port Diagnostics F7/quick s5 59 9798efb3
+Port Diagnostics F7/quick s6 59 fda2f226
+Port Diagnostics F7/quick s7 59 9798efb3
+Port Diagnostics F7/quick s8 59 9de41d98
+Port Diagnostics F7/quick s9 59 9de41d98
+Port Diagnostics F7/quick s10 59 3ae65410
+Port Diagnostics F7/quick s11 59 9de41d98
+Port Diagnostics F7/quick s12 59 9de41d98
+Port Diagnostics F7/quick s13 59 9de41d98
+Port Diagnostics F7/quick s14 59 9de41d98
+Port Diagnostics F7/quick s15 59 fda2f226
+Port Diagnostics F7/quick s16 59 9798efb3
+Port Diagnostics F8/expert s0 59 1772f43f
+Port Diagnostics F8/expert s1 59 c0e1fbc9
+Port Diagnostics F8/expert s2 59 2576fbd7
+Port Diagnostics F8/expert s3 59 1772f43f
+Port Diagnostics F8/expert s4 59 c0e1fbc9
+Port Diagnostics F8/expert s5 59 e3dd0359
+Port Diagnostics F8/expert s6 59 c0e1fbc9
+Port Diagnostics F8/expert s7 59 2576fbd7
+Port Diagnostics F8/expert s8 59 f03fedea
+Port Diagnostics F8/expert s9 59 f03fedea
+Port Diagnostics F8/expert s10 59 1772f43f
+Port Diagnostics F8/expert s11 59 4d054a19
+Port Diagnostics F8/expert s12 59 4d054a19
+Port Diagnostics F8/expert s13 59 4d054a19
+Port Diagnostics F8/expert s14 59 4d054a19
+Port Diagnostics F8/expert s15 59 c0e1fbc9
+Port Diagnostics F8/expert s16 59 2576fbd7

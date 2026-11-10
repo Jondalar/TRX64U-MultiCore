@@ -74,14 +74,6 @@ public:
     // Removes every stored mount; writes the file when there was one.
     bool mounts_clear();
 
-    // T198: a config is a full copy of the settings and the mounts in the text format of the .cfg. export_config writes every item at the value in force and the given mounts
-    // ("Mount DF0" -> spec; null/0: the ones the settings keep) to `path`, never to the settings' own file; false when it could not be written. *nsettings: the items written.
-    bool export_config(const char *path, const char *const *mk, const char *const *mv, int nm, int *nsettings) const;
-    // T198 D4, D5: the settings now live in another file (a config): the core layer, the extras and the mounts are read from it and every later change is written to it. The
-    // file the settings had before is not touched. A missing file leaves everything at the host layer and the defaults.
-    void rebind(const char *path);
-    const char *path() const { return cfg_path_; }
-
     // The one line the screen shows when saving failed, once; "" afterwards (until the next failure after a success).
     const char *take_notice();
     bool saving_possible() const { return cfg_path_[0] != 0 && !save_failed_; }
@@ -111,7 +103,6 @@ private:
     char notice_[160];
 
     bool write_cfg();
-    bool build(char *buf, int max, int *pos, bool all, const char *const *mk, const char *const *mv, int nm) const;
     bool extra_set_mem(const char *key, const char *val);
     bool mount_set_mem(const char *key, const char *val);
     void fail(const char *what);

@@ -550,7 +550,6 @@ public:
                     if (r.value[0]) w.ks("value", r.value);
                     w.kb("enabled", r.enabled);
                     if (r.def) w.kb("default", true);
-                    if (r.configs) w.ki("configs", r.configs);
                     if (!strcmp(pg.list, "entry")) w.kb("startable", r.startable);
                     if (r.marked) w.kb("marked", true);
                     if (acts) {

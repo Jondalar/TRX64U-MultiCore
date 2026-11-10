@@ -15,12 +15,12 @@ enum { NS_RADIO, NS_DHCP, NS_IP, NS_MASK, NS_GW, NS_DNS, NS_N };   // the rows o
 #define HCW_PICK_MAX 32                                            // the scan list holds this many access points
 
 struct HcWifiItem {                                                // one row: SSID | authentication | signal; the choice list has the first only
-    char a[40], b[56], c[16];
+    char a[40], b[24], c[16];
     uint8_t ctone;                                                 // HcTone of c
 };
 
 struct HcWifiPick {                                                // the pick list (access points, authentication)
-    char title[72];                                                // the config overlay: a 47-character entry name + " - start with"
+    char title[40];
     char sub[96];
     uint8_t subtone;
     HcWifiItem item[HCW_PICK_MAX];
@@ -28,7 +28,6 @@ struct HcWifiPick {                                                // the pick l
     char msg[96];
     uint8_t msgtone;
     const char *keys;
-    bool cfgov;                                                    // T198: the config overlay (two-line rows, dimmed page, keys in the screen's key bar)
 };
 
 struct HcWifiEntry {                                               // the text-entry modal

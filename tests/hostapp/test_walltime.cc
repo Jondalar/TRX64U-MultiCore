@@ -40,7 +40,7 @@ int main()
     CHECK(t[0] == 26 && t[1] == 11 && t[2] == 7 && t[3] == 18 && t[4] == 31 && t[5] == 44);
 
     // noise and stale bytes behind the id are no time: a flipped byte, a block of another core, an old host's block (nothing behind the id)
-    for (unsigned i = offsetof(Handover, time_sum); i < offsetof(Handover, config_sum); i++) {      // T198: the config tail behind the time has its own check
+    for (unsigned i = offsetof(Handover, time_sum); i < sizeof(Handover); i++) {
         Handover g = h;
         ((uint8_t *)&g)[i] ^= 0x04;
         int a, b, c, d, e, f;

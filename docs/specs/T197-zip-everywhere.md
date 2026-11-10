@@ -1,6 +1,6 @@
 # T197 — A .zip can be unpacked from the host menu and from every core that has room, through one zip library any application can use
 
-**Status:** PROPOSED (2026-11-09, Alex).
+**Status:** IN PROGRESS (2026-11-10, branch `t197-zip`: P1, P2, P4, P5 built and green natively and for RISC-V; P3 host open).
 **Repo:** TRX64U-MultiCore — `apps/` (the zip library and the unzip application), the loader and service table of T104.1/T104.3
 (`app/sdk/`, `coreapp/src/libload.cc`), the host app (`host-app/software/hostapp/`: an application loader it does not have today).
 **Number:** T197.
@@ -46,11 +46,6 @@ Parts:
 ## §3 Decision
 
 - **D1 (Alex, 2026-11-09):** miniz becomes a library/app any application can use; host yes; cores with room yes.
-- **D2 (Alex, 2026-11-10, translated: "It's ok. Cleaning up memory when it gets too full would be good though"):** a loaded library stays resident
-  for the core session (about 19 KB); when the loader lacks room for an application, it first unloads libraries no running application uses,
-  then decides (a reference count per library). Built after P3.
-- **D3 (Alex, 2026-11-10):** `unzip.u2a` and `miniz.u2a` are part of the release and installed to `/cores/apps`; the tester workaround for
-  main-2bd67963 is on #43. Whether the `.txu` host update also copies them is open.
 - Proposed: P1 as a format-3 library (T104.1 registry, `ops.h`) with a small call table (open zip, list, extract entry to a file, inflate
   buffer); `unzip.u2a` imports it. The host gets the same loader code (shared source, copied per the copies rule where it is gateware-free app
   code that both apps compile).
@@ -62,4 +57,41 @@ Parts:
 
 ## §5 Decisions taken while building
 
-(empty)
+- **D2 (built; how an application reaches a library):** a library's record (`LibRecord`, `libapi.h`) gets two last fields, `exports` / `exports_size`: a call table of
+  function pointers in the library's image (relocated by the loader like any table). `LibApi` gets a last group `lib` (`SvcLib::find(name, min_version, &size)`, base
+  **3.1**, `U2A_BASE_MINOR` 1): it returns the table of a *loaded* library of that name and version or newer, else null. Both are append-only (a library or application
+  built against the old layout reads what it always read). The loader accepts a table only with a size of at least 4 bytes; the layout of a table is the library's own header
+  (`apps/miniz/zip_lib.h`, `ZipLib`, append-only, `ZIPLIB_HAS(t, field)` checks the size the library reports).
+- **D3 (built; the library):** `apps/miniz` = miniz moved out of `apps/unzip/src/miniz` (`git mv`, unchanged), `miniz_lib.cc` = `lib_register`, `zip_lib.h` = the table
+  (reader init/end, number of files, file stat, extract to callback / to memory, locate, inflate to memory). Format 3, **resident**, `needs base>=3.1`. `app/lib/app.mk` got
+  `APP_KIND = lib` and `APP_NEEDS`. `apps/unzip` keeps only `unzip.c`, includes `zip_lib.h`, maps the five miniz calls it uses onto the table (macros), `glue.cc` looks the
+  table up and answers "The zip library (miniz.u2a) is not loaded." when it is not there; `unzip.u2a` has `needs miniz>=1.0`. Sizes on the builder (RISC-V, `-Os`):
+  `unzip.u2a` 10269 bytes (it carried miniz before), `miniz.u2a` 18860 bytes, 8 relocations.
+- **D4 (built; who loads the library):** a library is not an application, so `AppIndex::scan` no longer logs "is a library, not an application" for it: it keeps up to
+  `LIBS_MAX` (4) `LibFile`s (name, version, path, image bytes) of the same apps folders (core's own first, then the shared one). `AppHost::open_now` calls
+  `AppIndex::load_needs` before it loads an application: every non-base need that is not in memory is loaded from that list (version checked by the loader). A library
+  stays loaded afterwards (libraries are resident, `libload.cc` refuses anything else): a core that unzipped once holds 18.9 KB of heap until it stops. Transient libraries
+  are not built (open, see below).
+- **D5 (built; P4, the loader window):** the window is the heap the board can still give: `LibHost::room()` (board: `xPortGetFreeHeapSize()`, the default is unlimited for
+  hosts without a limit). `run.cc` hands it to `AppIndex::set_room` before every menu merge. `AppIndex::fits` = the application's image + bss + alignment, plus every needed
+  library that is not in memory yet (image sizes read from the headers at scan time), plus `APP_WORK_BYTES` (64 KiB: miniz's inflate state and window, the zip directory,
+  buffers - a constant of the base, not measured per application) must be at most the room; a needed library that is missing from the folders or too old does not fit.
+  `contributors()` skips an application that does not fit, so the `.zip` sheet shows no action rather than one that fails after the press. The decision is made at merge time
+  (core start and a stick that comes later), not at the press: the heap may have shrunk since (open).
+- **D6 (built; P5):** `ci/trxapps.sh` builds `miniz.u2a` beside `unzip.u2a` (stage key and the `libapp` key cover `apps/miniz`; the stage fails if `unzip.u2a` is not
+  smaller than the library, S2 on the real image), `ci/package.sh` copies it, `tools/release_mc.sh` requires it and passes it with `--u2a`; the installer
+  (`update_trx.cc`, #43) copies every `.u2a` beside the update file into `<cores>/apps`, so no updater change was needed; `INSTALL.md` lists it and says Unzip needs it.
+- **Evidence:** S1, S2, S4 in `tests/coreapp/test_unzip.cc` (71 checks; the real `LibLoader` loads `miniz.u2a` and `unzip.u2a` fixtures made by the real packer, the Mac builds
+  of `apps/miniz/miniz_lib.cc`, miniz and `apps/unzip` run in place of the RISC-V image): the loader refuses `unzip` with "needs miniz" while the library is not loaded;
+  `load_needs` loads it once; unzip extracts the synthetic zip byte-identical (stored, deflated, nested folders, 100/200 character names, 255 refused and counted); a test
+  `ziplist` application lists the entries through the same table and loads no second copy; S4 room = need - 1 byte: no `.zip` action, room = need: three actions, library
+  missing from the folders: none. `tools/dev.sh riscv` builds both images.
+- **Open: P3, the host (S3).** The host app has no loader. What it needs, read from the tree: `libload.cc`, `libmenu.cc`, `descrec.cc`, `ops.cc` (the closure
+  `tests/loader/run.sh` already builds on its own) into `hostapp` through the existing `VPATH += coreapp/src`; a `LibHost` for the host (FreeRTOS heap, the icache sweep of
+  `libboard.cc`); a `CoreFs` over `hostfs`; the `dlg` group (message, progress, pick) over the host's own note / progress lines; the `.zip` rows in `host_core_rows.cc` /
+  `hostdecl.cc` (a new action id, so `test_hostapi`, the goldens and the ue2emu F3 flow change; `ux-review` before any board test). Not started: it is the largest part and
+  its screen can only be judged in ue2emu.
+- **Open question for Alex (the .txu path):** the `.txu` host update still installs no `.u2a` (#43: INSTALL.md 3a says "copy by hand"). When P3 gives the host a loader, should
+  the `.txu` flow copy `unzip.u2a` and `miniz.u2a` into `<cores>/apps` (the host would then be the installer of applications for cores it does not run)? Not built, no decision.
+- **Open question for Alex (resident library):** the library stays in the heap once loaded. A transient library (freed when the last application using it ends) needs a
+  reference count in `LibLoader` and a second residence rule in the format; not built.

@@ -529,7 +529,7 @@ static std::vector<Prof> profiles()
     return v;
 }
 
-// ---- the menu: the item in F5 (Storage) and the two rows in the media tab (F5) -------------------------------------------------------------------------
+// ---- the menu: the item in F8 and the two rows in the media tab (F5) -------------------------------------------------------------------------
 static bool tree_has(const MenuTree &t, const char *area, EntryKind kind, const char *label)
 {
     for (int a = 0; a < t.nareas; a++) {
@@ -554,13 +554,11 @@ static void menu_rows(const Prof &p)
     for (int i = 0; i < r.desc.nsettings; i++) persist |= persist_is_generic(r.desc.settings[i]);
     CHECK(persist);                                                          // the item is a setting of the core
     // the row: the generic item's label is its key; the C64's record names it (key) the same
-    CHECK(tree_has(t, "F5", EK_SETTING, PERSIST_KEY));
-    CHECK(!tree_has(t, "F6", EK_SETTING, PERSIST_KEY) && !tree_has(t, "F8", EK_SETTING, PERSIST_KEY));
-    // T205 D1: the configs are on Home (the Summary tab is gone); the TRX64U core's record keeps its own media tab in F5
-    CHECK(tree_has(t, p.c64 ? "F5" : "F1", EK_SAVE_SET, "Save as config..."));
-    CHECK(tree_has(t, p.c64 ? "F5" : "F1", EK_LOAD_SET, "Load config..."));
-    CHECK(p.c64 || !tree_has(t, "F5", EK_SAVE_SET, "Save as config..."));
-    CHECK(!tree_has(t, "F8", EK_SAVE_SET, "Save as config..."));
+    CHECK(tree_has(t, "F8", EK_SETTING, PERSIST_KEY));
+    CHECK(!tree_has(t, "F6", EK_SETTING, PERSIST_KEY) && !tree_has(t, "F5", EK_SETTING, PERSIST_KEY));
+    CHECK(tree_has(t, "F5", EK_SAVE_SET, "Save media set..."));
+    CHECK(tree_has(t, "F5", EK_LOAD_SET, "Load media set..."));
+    CHECK(!tree_has(t, "F8", EK_SAVE_SET, "Save media set..."));
 }
 
 // ---- S2 -------------------------------------------------------------------------------------------------------------------------------------
@@ -733,7 +731,7 @@ static void s8_sets(const Prof &p)
     char msg[240];
     FakeFs fs;
     p.world(fs);
-    std::string setdir = p.cfg.substr(0, p.cfg.rfind('/')) + "/configs";
+    std::string setdir = p.cfg.substr(0, p.cfg.rfind('/')) + "/media";
     Run a(fs, p);
     a.set(PERSIST_KEY, "Yes");
     a.boot();
@@ -741,33 +739,32 @@ static void s8_sets(const Prof &p)
     size_t nset = p.cases.size() > 1 ? p.cases.size() - 1 : p.cases.size();
     for (size_t i = 0; i < nset; i++) CHECK_EQ(p.cases[i].mount(a, p.cases[i].a, msg, sizeof(msg)), 0);
     OpIn nm = in_str("name", "Set One");
-    CHECK_EQ(a.op("config.save", &nm, 1, msg, sizeof(msg)), OPE_OK);
-    std::string set = fs.text(setdir + "/Set One.cfg");
+    CHECK_EQ(a.op("media.save_set", &nm, 1, msg, sizeof(msg)), OPE_OK);
+    std::string set = fs.text(setdir + "/Set One.mnt");
     CHECK_EQ(count(set, "Mount "), (int)nset);
     for (size_t i = 0; i < nset; i++) CHECK(has(set, p.cases[i].key + "=" + p.cases[i].pre + p.cases[i].a));
-    CHECK_STR(ops_state(&a.c, "config.count"), "1");
+    CHECK_STR(ops_state(&a.c, "media.sets"), "1");
     // change every slot
     for (size_t i = 0; i < p.cases.size(); i++) CHECK_EQ(p.cases[i].mount(a, p.cases[i].b, msg, sizeof(msg)), 0);
     int releases = g_releases;
-    CHECK_EQ(a.op("config.load", &nm, 1, msg, sizeof(msg)), OPE_OK);
+    CHECK_EQ(a.op("media.load_set", &nm, 1, msg, sizeof(msg)), OPE_OK);
     for (size_t i = 0; i < p.cases.size(); i++) {
         std::string want = i < nset ? p.cases[i].pre + p.cases[i].a : std::string("(empty)");
         CHECK_STR(a.spec((int)i).c_str(), want.c_str());                     // as saved; what the set leaves empty is unmounted
     }
     if (p.game && nset == p.cases.size()) CHECK(strstr(msg, "core reset") != 0);
     CHECK_EQ(g_releases - releases, p.game && nset < p.cases.size() ? 0 : 1);   // the core was reset, once
-    std::string cfg = fs.text(setdir + "/Set One.cfg");                      // T198 D5: the run keeps its mounts in the config it loaded; the core's own .cfg is not written
+    std::string cfg = a.cfg();                                               // persist records what is mounted now
     for (size_t i = 0; i < p.cases.size(); i++) {
         if (i < nset) CHECK(has(cfg, p.cases[i].key + "=" + p.cases[i].pre + p.cases[i].a)); else CHECK(!has(cfg, p.cases[i].key + "="));
     }
     // a set naming a medium that is not there: that slot is empty with a note, the rest is mounted, the core resets
     if (nset > 1) {
-        nm = in_str("name", "Set Two");                                       // the run is in "Set One" (D5): its mounts go into that file, so the state to come back to is another name
-        CHECK_EQ(a.op("config.save", &nm, 1, msg, sizeof(msg)), OPE_OK);
+        CHECK_EQ(a.op("media.save_set", &nm, 1, msg, sizeof(msg)), OPE_OK);
         for (size_t i = 0; i < p.cases.size(); i++) CHECK_EQ(p.cases[i].mount(a, p.cases[i].b, msg, sizeof(msg)), 0);
         fs.files.erase(lower(p.cases[0].a));
         releases = g_releases;
-        CHECK_EQ(a.op("config.load", &nm, 1, msg, sizeof(msg)), OPE_OK);
+        CHECK_EQ(a.op("media.load_set", &nm, 1, msg, sizeof(msg)), OPE_OK);
         CHECK(strstr(msg, "Left empty") && strstr(msg, p.cases[0].key.c_str() + 6));
         CHECK_STR(a.spec(0).c_str(), "(empty)");                              // not what it held before (b)
         for (size_t i = 1; i < nset; i++) CHECK_STR(a.spec((int)i).c_str(), (p.cases[i].pre + p.cases[i].a).c_str());
@@ -776,7 +773,7 @@ static void s8_sets(const Prof &p)
     }
     // no such set
     OpIn none = in_str("name", "Nope");
-    CHECK_EQ(a.op("config.load", &none, 1, msg, sizeof(msg)), OPE_FAILED);
+    CHECK_EQ(a.op("media.load_set", &none, 1, msg, sizeof(msg)), OPE_FAILED);
     CHECK(strstr(msg, "Nope") != 0);
     printf("S8 %s: a set of %d medi%s saved, loaded as saved with %d reset(s), a missing medium left empty\n", p.name.c_str(), (int)nset, nset == 1 ? "um" : "a", 1);
 }
@@ -792,18 +789,18 @@ static void s8_writeback(const Prof &p)
     a.boot();
     for (const Case &k : p.cases) CHECK_EQ(k.mount(a, k.a, msg, sizeof(msg)), 0);
     OpIn nm = in_str("name", "Set Two");
-    CHECK_EQ(a.op("config.save", &nm, 1, msg, sizeof(msg)), OPE_OK);
+    CHECK_EQ(a.op("media.save_set", &nm, 1, msg, sizeof(msg)), OPE_OK);
     for (const Case &k : p.cases) CHECK_EQ(k.mount(a, k.b, msg, sizeof(msg)), 0);
     int releases = g_releases;
     g_flush_fail = true;
     g_flush_calls = 0;
-    CHECK_EQ(a.op("config.load", &nm, 1, msg, sizeof(msg)), OPE_FAILED);
+    CHECK_EQ(a.op("media.load_set", &nm, 1, msg, sizeof(msg)), OPE_FAILED);
     g_flush_fail = false;
     CHECK(g_flush_calls >= 1);                                               // the engines' write-back was asked first
     CHECK(strstr(msg, "forced") != 0);
     for (size_t i = 0; i < p.cases.size(); i++) CHECK_STR(a.spec((int)i).c_str(), (p.cases[i].pre + p.cases[i].b).c_str());   // nothing changed
     CHECK_EQ(g_releases - releases, 0);                                      // and no reset
-    CHECK_EQ(a.op("config.load", &nm, 1, msg, sizeof(msg)), OPE_OK);       // the medium is back: the same call goes through
+    CHECK_EQ(a.op("media.load_set", &nm, 1, msg, sizeof(msg)), OPE_OK);       // the medium is back: the same call goes through
     for (size_t i = 0; i < p.cases.size(); i++) CHECK_STR(a.spec((int)i).c_str(), (p.cases[i].pre + p.cases[i].a).c_str());
     printf("S8 %s: a refused write-back keeps every slot and does not reset\n", p.name.c_str());
 }
@@ -965,18 +962,17 @@ static void game_empty_set(const Prof &p)
     a.set(PERSIST_KEY, "Yes");
     a.boot();
     OpIn empty = in_str("name", "Empty");
-    CHECK_EQ(a.op("config.save", &empty, 1, msg, sizeof(msg)), OPE_OK);       // nothing mounted: an empty set
-    CHECK_EQ(count(fs.text(p.cfg.substr(0, p.cfg.rfind('/')) + "/configs/Empty.cfg"), "Mount "), 0);
+    CHECK_EQ(a.op("media.save_set", &empty, 1, msg, sizeof(msg)), OPE_OK);       // nothing mounted: an empty set
+    CHECK_EQ(count(fs.text(p.cfg.substr(0, p.cfg.rfind('/')) + "/media/Empty.mnt"), "Mount "), 0);
     CHECK_EQ(p.cases[0].mount(a, p.cases[0].a, msg, sizeof(msg)), 0);
     CHECK(a.c.program_loaded);
     int releases = g_releases;
-    CHECK_EQ(a.op("config.load", &empty, 1, msg, sizeof(msg)), OPE_OK);
+    CHECK_EQ(a.op("media.load_set", &empty, 1, msg, sizeof(msg)), OPE_OK);
     CHECK(!a.c.program_loaded);
     CHECK_STR(a.spec(0).c_str(), "(empty)");
     CHECK(strstr(msg, "no program") != 0);
     CHECK_EQ(g_releases - releases, 0);
-    CHECK(!has(fs.text(p.cfg.substr(0, p.cfg.rfind('/')) + "/configs/Empty.cfg"), "Mount Cartridge"));   // D5: the run is in the config now
-    CHECK(has(a.cfg(), "Mount Cartridge"));                                   // D4: the core's own .cfg is as it was
+    CHECK(!has(a.cfg(), "Mount Cartridge"));
     printf("%s: a set with no cartridge leaves the core waiting for a program\n", p.name.c_str());
 }
 

@@ -1,12 +1,13 @@
 # T188 — The Amiga cores can show a PAL frame every output frame at 50 Hz (options for an optional frame lock)
 
-**Status:** IN PROGRESS (2026-11-10, Alex gave the go): D1/D2 built as data in the two Amiga core copies; S1/S2/S4 wait for the board.
+**Status:** PROPOSED, D1-D2 decided (2026-11-06).
 **Repo:** TRX64U-MultiCore — the Amiga cores (`cores/amiga`, `cores/amiga1200`), the host mode table (`host/hdmi_modes.vh`, `tools/hdmi_modes.py`), the core app (`coreapp/cores/amiga*.cc`), the manual.
 **Number:** T188 (registry: `TODO.md`).
 **Origin:** GitHub issue #48 (tester, Pinball Dreams hitch at 1080p); Alex, 2026-11-06: "analyse what is possible for proposal 2" (translated). Proposal 1 of the issue is a manual note, proposal 2 an optional frame lock like the ZX Next's.
 **Depends on:** T107 (A1200 output modes), T85 (Amiga core, `amiga_ce`), T88 D5 (Atari decision, 2026-10-14), T116 §5.1.3 (ZX Next lock), T164 (host table).
 **Milestone:** M2.
 
+**This spec is an analysis: §3 has no decision. §6 lists the options for Alex.**
 
 ---
 
@@ -18,7 +19,7 @@
 
 **The numbers (derived, formula `T_repeat = 1 / |f_out - f_core|`):**
 
-- `f_core` = 28,375,160 Hz / 8 (CCK) / (227 CCK x 312 lines) = **50.0804 Hz** (from the crystal ratio; the code's sys_clk gives 50.080128 Hz, see §5 2026-11-10) (T85 D3: 28.37516 MHz = `sys_clk` x 9/10, `cores/amiga/rtl/trx/amiga_ce.v:46` `+9, fire at >= 10`). The elastic stall is paid back by the debt counter (`amiga_ce.v` header), so the average is this value as long as stalls stay under 10 % of the clocks.
+- `f_core` = 28,375,160 Hz / 8 (CCK) / (227 CCK x 312 lines) = **50.0804 Hz** (T85 D3: 28.37516 MHz = `sys_clk` x 9/10, `cores/amiga/rtl/trx/amiga_ce.v:46` `+9, fire at >= 10`). The elastic stall is paid back by the debt counter (`amiga_ce.v` header), so the average is this value as long as stalls stay under 10 % of the clocks.
 - `f_out` from `python3 tools/hdmi_modes.py table` (A1200 edition, 12 rows):
 
 | mode | f_out Hz | f_out - f_core Hz | repeat every | machine speed that would match |
@@ -89,33 +90,13 @@ Scenario: S5 area and timing
 
 ## §4 Out
 
-Out: a 60 Hz lock (a PAL machine cannot match 60 Hz), interlaced/NTSC Amiga, a core-side scaler (T107 §3 4a).
+Nothing decided yet. Candidates that §6 already excludes: a 60 Hz lock (a PAL machine cannot match 60 Hz), interlaced/NTSC Amiga, a core-side scaler (T107 §3 4a).
 
 ## §5 Decisions taken while building
 
-**2026-11-10 - how D1/D2 are built (read from code, not from the §1/§6 prose):**
-- **Where the row set lives.** `cores/amiga/mono/host/` and `cores/amiga1200/mono/host/` are the cores' own copies of the host files (T164 3a Q1, `FROM`), tied to `c64_type 1'b0` in their `top.v`. So the "second row set used while an Amiga core runs" is the Amiga copies' own `hdmi_modes.vh`: rows 0, 1, 2 (576p, 720p, 1080p at 50 Hz) bent; the host, `host/hdmi_modes.vh`, and the other cores stay byte for byte as they were (D2). No selection logic, no app change, no new gateware logic: the host mode request (0x4F00) already picks rows 0..2 as before.
-- **Better than B1/B2: an exact lock.** The core frame is `dot4x x 9/10 / (8 x 227 x 312)` (`amiga_ce.v` `+9, fire at >= 10`; `top.v` sys_clk = dot4x = 50 MHz x 56.75 / 90), and the TMDS clock is `ref x N/M` with `ref = 125/104 dot4x`: both come from one MMCM. So `gear x htot x vtot x f_core / ref` is a ratio of integers, and for some rasters N <= 4095, M <= 511 holds and the CDCE register rules accept it: the HDMI frame is then exactly the Amiga frame, fixed phase, no beat (not B1's 42 min). Note `f_core` is 50.080128 Hz from the code, not 50.0804 Hz of §1 (that used the crystal ratio 16/9 of the comment: 5.8 ppm apart, which would have been a 3 h beat in the wrong direction).
-- **The rasters** (search over htot -60..+100 and vtot -2..+25 for the smallest deviation from the CEA raster with an exact N/M; `tools/hdmi_modes.py amiga-table`):
-
-| row | raster | change vs CEA/host row | N/M | TMDS clock | pixel clock | f_out | residual beat |
-|---|---|---|---|---|---|---|---|
-| 576p50 (g 5) | 880 x 625 | hfp 12 -> 28 | 825/227 | 137.720353 MHz | 27.544071 MHz | 50.080128 Hz | none (exact) |
-| 720p50 (g 2) | 1960 x 750 | hfp 440 -> 420 | 882/227 | 147.235577 MHz | 73.617788 MHz | 50.080128 Hz | none (exact) |
-| 1080p50 (g 1) | 2640 x 1135 | vfp 4 -> 14 | 99/25 | 150.060096 MHz | 150.060096 MHz | 50.080128 Hz | none (exact) |
-| host rows today | CEA | - | 55/14 (1080p) | 148.869143 MHz | - | 50.1246 Hz | 22.6 s |
-
-  The host table has no 50 Hz PC rows (800x600 / 1024x768 / 1280x1024 50 Hz of §1 were removed by T164 Q5), so there is nothing more to bend; the 60 Hz rows stay (a 50 Hz machine cannot match them). "Exact" is the arithmetic of the clocks; what the machine loses to stalls beyond the debt limit (`st_debt`) is the only remaining difference and is what S2 measures.
-- **Deviations the monitor must accept (S4, board):** 1080p pixel clock +1.05 % against the 148.5 MHz of CEA VIC 31 (today's row is already +0.25 %), vtot 1135 instead of 1125; 720p htot 1960 (-1 %); 576p htot 880. Pixel clocks against CEA: 576p 27.544 MHz (+2.01 % of 27.000), 720p 73.618 MHz (-0.85 % of 74.25), 1080p +1.05 %; 576p is outside the usual +-0.5 % sink tolerance, so S4 checks 576p first (review 2026-11-10). S1/S2 measure a non-interlaced screen (interlace is out). The AVI InfoFrame keeps the VIC of each row (17, 19, 31). If a sink objects to a VIC with a raster of its own, the fallback is VIC 0 for these three rows (aspect kept): not done unless S4 shows it.
-- **Tool:** `tools/hdmi_modes.py amiga-gen | amiga-check | amiga-table` (`check` and `selftest` run it, so lint does); `AMIGA_RAW` holds the three porches. The generated file's lines for rows outside T188 are checked equal to the host's.
-- **Benches:** `host/sim/hdmi_timing/run.sh` and `host/sim/modepath/run.sh` get `-DT188` for `HOSTDIR=cores/amiga*/...` (expected rasters, frame rate 50080, the three PLL byte sets); the Amiga copies are never C64-type, so the `+c64=1` runs are skipped for them.
-- **S1 readout:** the Amiga core app prints every 10 s `[amiga] frames core <n> out <n> at <ms> ms` (core: `amiga_regs` 0x2A / byte 0xAA; output: `pix_layer` n_frames, byte 0x60A6); `tools/t188_measure.py` turns those lines into f_core, f_out and the beat (`tools/trxdbg.sh console follow | tools/t188_measure.py`). No gateware for the readout. Not run on the board (Alex has it).
-- **Results (2026-11-10, no board):** `python3 tools/hdmi_modes.py check` -> `PASS hdmi_modes amiga: rows 0..2 run exactly the Amiga frame 50.080128 Hz`; `... selftest` -> `host selftest: 27 of 27 mutations caught` (two new: one more 1080p line, a 60 Hz row changed in the Amiga copy). Builder, `trx64-sim-env:4`, `HOSTDIR=cores/amiga1200/mono/host sh host/sim/hdmi_timing/run.sh` -> `PASS hdmi_timing (9 modes exact, align on 9 rows, 7 refused)`; `HOSTDIR=cores/amiga1200/mono/host sh host/sim/modepath/run.sh` -> `PASS modepath` (rows 0/1/2 send 33908bad / 37209bed / 06308bee). `tools/dev.sh test --branch t188-framelock` -> `=== apptests ok (tier fast)`; `tools/dev.sh riscv --branch t188-framelock` -> `=== dev.sh riscv: ok`. The `amiga` copy equals the `amiga1200` one (`amiga-check` reads both); only the A1200 copy was simulated.
-- **Needs a Vivado run:** `amiga` and `amiga1200` (their `hdmi_modes.vh` changed). The host and every other core: no change.
+(empty)
 
 ## §6 Options (for Alex)
-
-(Superseded: D1 chose B; it was built as an exact lock in the Amiga copies, see §5 2026-11-10. The options below are the analysis of 2026-11-06.)
 
 **What exists to build on (read from code):**
 - `amiga_ce.v:46` the chipset clock is a **4-bit** accumulator, 9/10 fixed. A lock needs a wider NCO there (A).
@@ -158,5 +139,3 @@ Out: a 60 Hz lock (a PAL machine cannot match 60 Hz), interlaced/NTSC Amiga, a c
 ### Recommendation (analysis only)
 
 S1 first: the derived 22.6 s does not match the tester's ~10 s, and 800x600 should be worse, not better, so the real cause may be elsewhere (stall debt, flip phase). If the beat is as derived: **D now (cheap, honest), A as the lock the issue asked for** (opt-in, per-mode step, no host change, speed change an order of magnitude below the rejected Atari lock); B1 only if Alex wants everyone to get it without a setting and accepts a host change.
-
-2026-11-12 (Alex): S4 is tested by the reporter of #48 (Pinball Dreams at 1080p, then 576p; a hitch about every 23 s = no lock) with the next release; the retest request goes into #48 with Alex's go. S1/S2: the core's frame counter is readable (amiga_regs 0x02A, the large Amiga cores keep JTAG and Ethernet); the host has no output frame counter.

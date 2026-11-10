@@ -23,7 +23,6 @@ struct FileMgr {
     // a row as the views draw it
     struct BrowseRow {
         char name[64], ext[8], sub[120], primary[40], badge[16];       // badge: [A] in drive A, [C] in the port, [P] the last program
-        char value[120];                 // T209: what the row shows at its right edge, one line: the size of a file ("3 KB"), the folder of a search hit; empty for a folder (`sub` is the info panel's text, never a second line)
         bool dir;
         bool marked;                     // SPACE marked it (Manage: copy, move, delete take the marked rows)
         int tone;                        // 0 muted, 1 cyan, 2 violet, 3 amber, 4 coral

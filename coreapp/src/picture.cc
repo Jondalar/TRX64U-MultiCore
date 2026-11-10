@@ -10,7 +10,6 @@
 // The state of the one picture this application owns (one core runs at a time). picture_extend sets it, picture_start / picture_apply /
 // picture_service move it.
 static uint16_t g_mask = EDID_ROW_MASK;              // the rows the screen takes
-static uint16_t g_native = 0;                        // the rows it flags as native
 static int g_msys = VID_SYS_PAL50;                   // the machine's 50 / 60 Hz family (Q6)
 static bool g_gw = false;                            // the gateware takes the mode (status register answered)
 static int g_list[VID_HDMI_COUNT], g_nlist = 0;      // the resolutions the Picture item lists: value n + 1 is g_list[n]
@@ -56,7 +55,6 @@ static int current_sys(void)
 const char *picture_extend(const CoreDesc *d, CoreDesc *out, Setting *store, const PictureEnv *env)
 {
     g_mask = env ? (env->mask & EDID_ROW_MASK) : EDID_ROW_MASK;
-    g_native = env ? env->native : 0;
     g_gw = env ? env->gateware : false;
     g_msys = (env && env->sys >= 0) ? env->sys : current_sys();
     bool scaled = g_gw && d->video.w != 0 && d->nsettings + 3 <= SETTINGS_MAX;             // the frame buffer goes through the scaler (G14); a core with its own picture has no layer to scale
@@ -118,8 +116,6 @@ void picture_env_read(PictureEnv *env, int sys)
         len = 0;
     }
     env->mask = video_modes_offered(edid, len);
-    EdidInfo info;
-    env->native = len > 0 && edid_parse(edid, len, &info) ? (uint16_t)(info.native & env->mask) : 0;
     env->gateware = video_gateware_present();
     env->sys = sys;
 }
@@ -227,28 +223,6 @@ static Pick target(CoreCtx *c, int value, int now)
     return best_pick();
 }
 
-void picture_modes(CoreCtx *c, PictureModes *out)
-{
-    memset(out, 0, sizeof(*out));
-    if (g_nlist == 0) {
-        fill_values();
-    }
-    int now = c->video ? current_hdmi(c) : -1;                  // a rig with no video (a bench) lists the names only
-    int pi = picture_index(c->desc);
-    out->cur = pi >= 0 && c->settings ? c->settings->value(pi) : g_last_value;
-    out->no_edid = g_mask == EDID_LIST_NONE;
-    out->n = 1 + g_nlist;
-    Pick a = { 0, -1 };
-    if (c->video) {
-        a = target(c, 0, now);
-    }
-    for (int i = 0; i < out->n; i++) {
-        int hdmi = i == 0 ? a.hdmi : g_list[i - 1];
-        picmodes_set_row(out, i, g_values[i], hdmi, g_mask, g_native, g_msys, now, out->cur == 0);
-    }
-}
-
-
 // The text of the first value: the mode Auto asks for now, and whose it is. The host's when it is the mode its host.cfg stores, else the screen's (what the core
 // picked from the EDID, or the mode the host had up when it stored none).
 static void auto_label(CoreCtx *c, int now)
@@ -278,28 +252,7 @@ static struct {
     bool active, fresh, end;
     uint32_t t0;
     int prev_sys, prev_hdmi, prev_value;
-    int new_sys, new_hdmi;
 } g_cf;
-static char g_result[80];                          // T187 D4/D5: what the chip says once the question ended ("Picture 1280 x 720", "Picture: back to ...")
-
-static void mode_text(int sys, int hdmi, char *out, int n)
-{
-    picmodes_mode_text(g_mask, g_gw ? (sys ? VID_SYS_NTSC60 : VID_SYS_PAL50) : sys, hdmi, out, n);
-}
-
-void picture_confirm_names(char *now, int nn, char *prev, int pn)
-{
-    mode_text(g_cf.new_sys, g_cf.new_hdmi, now, nn);
-    mode_text(g_cf.prev_sys, g_cf.prev_hdmi, prev, pn);
-}
-
-const char *picture_take_result(void)
-{
-    static char r[80];
-    snprintf(r, sizeof(r), "%s", g_result);
-    g_result[0] = 0;
-    return r[0] ? r : 0;
-}
 
 static uint32_t g_cf_now;                          // the time of the last picture_service
 
@@ -319,9 +272,6 @@ void picture_confirm_key()
     if (g_cf.active) {
         g_cf.active = false;
         g_cf.end = true;
-        char t[48];
-        mode_text(g_cf.new_sys, g_cf.new_hdmi, t, sizeof(t));
-        picmodes_kept_text(t, g_result, sizeof(g_result));
     }
 }
 
@@ -373,8 +323,6 @@ void picture_apply(CoreCtx *c, int value)
         g_cf.prev_sys = nsys;
         g_cf.prev_hdmi = now;
         g_cf.prev_value = g_last_value;
-        g_cf.new_sys = p.sys;
-        g_cf.new_hdmi = p.hdmi;
     }
     g_last_value = value;
 }
@@ -590,9 +538,6 @@ int picture_service(CoreCtx *c)
             c->settings->set(pidx, g_cf.prev_value);
         }
         g_last_value = g_cf.prev_value;
-        char t[48];
-        mode_text(g_cf.prev_sys, g_cf.prev_hdmi, t, sizeof(t));
-        picmodes_back_text(t, g_result, sizeof(g_result));
         ev |= PS_CONFIRM_END | PS_LIST_CHANGED;
     }
     if (g_poll_armed && (int32_t)(now - g_next_poll) < 0) {
@@ -615,8 +560,6 @@ int picture_service(CoreCtx *c)
     g_sig = sig;
     g_have_sig = true;
     uint16_t mask = video_modes_offered(edid, len);
-    EdidInfo ei;
-    g_native = edid_parse(edid, len, &ei) ? (uint16_t)(ei.native & mask) : 0;      // the new screen's native flags, not the last one's
     const char *old[1 + VID_HDMI_COUNT];
     int nold = 1 + g_nlist;
     memcpy(old, g_values, sizeof(old));

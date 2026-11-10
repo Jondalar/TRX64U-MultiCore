@@ -132,9 +132,9 @@ static bool mount_default(CoreCtx *c)
     if (!st->default_told) {
         st->default_told = true;
         if (have_own) {
-            snprintf(c->notice, sizeof(c->notice), "No SD image: put next.img in %s/, or choose a .img in Library (F3), then Reset", own);
+            snprintf(c->notice, sizeof(c->notice), "No SD image: put next.img in %s/, or choose a .img in the Files page, then Reset", own);
         } else {
-            snprintf(c->notice, sizeof(c->notice), "No SD image: put next.img in roms/zxnext on a stick or the card, or choose a .img in Library (F3), then Reset");
+            snprintf(c->notice, sizeof(c->notice), "No SD image: put next.img in roms/zxnext on a stick or the card, or choose a .img in the Files page, then Reset");
         }
         c->notice_pending = true;
     }

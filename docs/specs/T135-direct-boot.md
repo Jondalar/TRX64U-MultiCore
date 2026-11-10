@@ -70,7 +70,7 @@ Scenario: S2 C= held at power-on
   And   the default is not started
 
 Scenario: S3 fire on joystick port 1 held at power-on
-  Same as S2 with the fire button of port 1, also when it stays held for as long as the person likes (Q9: the joystick never drives the host menu).
+  Same as S2 with the fire button of port 1.
 
 Scenario: S4 default missing or refused
   Given direct=1 and the default's file is gone (or changed, or for another host key)
@@ -239,10 +239,6 @@ start, with the reason) as a pure function with a table test; the render bench s
   cancel the start"): the keys are also polled while the start line is shown and the default is being staged, up to the jump;
   a key seen there stops the start and opens the menu. Why: the board log of 2026-10-28 (below, §5) showed the line up only
   0.3 s before the window closed, so a reaction to the line came too late.
-- **Q9** Answered 2026-11-11 (Alex, on issue #69, translated: "We defined it - we navigate in the host by keyboard. So switch that off please."):
-  the joystick does not drive the host menu at all; port-1 fire stays only as the power-on menu key (Q2/Q4/Q4b). Why: a held fire became a
-  RETURN in the menu through Gideon's matrix driver (`keyboard_c64.cc:278`, `joy_mtrx = 0x01`) with key repeat; the fire guard dropped only until
-  the first empty poll (`directboot.cc` `fireguard_drop`, key < 0 = released), so the first repeat after `first_delay` started the default entry.
 - **Q5** Answered 2026-10-27 (Alex: "Yes."): target power-on -> core picture at most 3 s (S1's pass mark); the measured value goes into §5.
 - **Q7** Answered 2026-10-27 (Alex: "Fits. Let's start like that."): "off" = buffers off, no clock, RESET held low; `SLOT_PWR` stays 1 as in Gideon's design (measured 1 with and without a cart, T16 §3 line 119/695) until T16 P0 step g (multimeter on port pin 2/3 with SLOT_PWR 0) shows it switches the +5 V.
 - **Q6** Answered 2026-10-27 (Alex, translated): "Well, b or c. Try what looks good but does not cost too much time." -> D5.
@@ -478,31 +474,3 @@ Cause: `directboot_decide` answered `DB_NOCFG` before it looked at the keys; whe
 mounted late), the held fire/C= was ignored, the countdown was not stopped (`DB_NOCFG` keeps it) and ran once boot.cfg was read later.
 Fix: a held C= or fire wins over `DB_NOCFG` (`directboot.cc`), so the countdown is given up like in S2/S3. Unit table in `test_directboot.cc`.
 Not proven here: that this was the board's cause (the log line `direct boot: decision ... cfg 0` would show it); board step for Alex.
-
-### Q9: the joystick does not drive the host menu (2026-11-11, issue #69)
-
-`host-app/software/io/c64/keyboard_c64.{h,cc}` (the copy both host and core app compile; the vendor copy is not built) got `set_keyboard_only(bool)`, default off so the
-core app is unchanged; with it on, `scan()` skips the whole joystick part (no `KEYB_JOY` read, no other-port peek, no `joy_mtrx`) and reads the matrix only.
-`hostui.cc` sets it right after `new Keyboard_C64` (`matrix_kb->set_keyboard_only(true)`). `FireGuard` (`directboot.{h,cc}`, its arm/drop calls in `hostui.cc`,
-its unit table) is removed: it covered only the first empty poll, nothing else needs it; the power-on fire key stays in `menukeys.cc`, which reads `KEYB_JOY` itself.
-`KEYB_ROW` does not mix the joystick in: `host/ultimate_sys.vhd` builds it from `keys` alone (columns in `KEYB_COL`), `keys` = `kb_keys | bl_keys` in `host/top.v`,
-the joysticks are the separate `joys` bits read through `KEYB_JOY`. Not read: how the keyboard controllers behind `kb_keys` treat a joystick on the real matrix lines.
-Evidence: `emu_t135_direct.sh` S3 now holds port-1 fire for 30 s, never released (menu built, no `step 4: Jump`); control S3 with the pre-Q9 elf must start the default
-(first event, `first_delay`, repeats of the old driver). The matrix keyboard still works: S5/S7 drive the menu with keys. Board step for Alex: hold fire at power-on and keep
-holding 5 s -> the menu stays, nothing starts; then a key on the C64U keyboard still moves in the menu.
-
-Proof run 2026-11-11 (new elf: this branch ce7a820b9 built by `tools/dev.sh riscv`; old elf: e021ede96, the commit before Q9; ue2emu on the Mac; `emu_t135_direct.sh --kit <new> --old-elf <old>`, rc 0):
-
-```
-PASS S3 fire port 1 held for 30 s (never released): menu built, no key from the joystick, nothing starts (Q9: the host menu is keyboard only)
-PASS S3 control: the elf before Q9 starts the default from the repeated RETURN of the held fire (red as it must be)
-PASS S5 return to host with the marker: menu stays, the default is not started again (control: S1, same flash, marker 0, starts)
-PASS S7 F8 "Direct boot" row toggles: boot.cfg read back from the flash image says direct=0 (was direct=1)
-PASS S7 then power-on: as S6 (Direct boot is off, menu, the countdown starts the core)
-```
-
-S1, S2, S4 (3 lines) and S6 also PASS in the same run (11 PASS, 0 FAIL). The S5 key walk was stale after the T187 core menu rework (15 downs in the System tab ran past
-"Return to host menu"; it failed identically with the old elf, so not Q9): it now presses one down from Restart core, as `emu_host.sh` does.
-
-Board 2026-11-11 (Alex, host update `trx64host_update_5cc93ede.txu`, main 5cc93edeb, flashed by Alex): port-1 fire held at power-on, the host
-menu does not move and nothing starts ("Feuerknopf klappt bei mir", translated: "the fire button works for me"). #69 fixed on Alex's board.

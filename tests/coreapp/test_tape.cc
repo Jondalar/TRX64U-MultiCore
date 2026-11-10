@@ -287,31 +287,6 @@ int main()
     CHECK(r.rc == 0 && r.idx.nblocks == TAPE_BLOCKS_MAX && r.idx.truncated);
     CHECK_EQ(r.idx.start[TAPE_BLOCKS_MAX - 1], TAPE_BLOCKS_MAX - 1);
 
-    // (10b) T134: a Commodore .tap (version 1): values of 8 cycles, 0 + 24 bit = a cycle count; each pulse is 100 us low, then high to the falling edge
-    {
-        Bytes c64 = { 'C','6','4','-','T','A','P','E','-','R','A','W', 1, 0, 0, 0 };
-        u32(c64, 8);                                              // data size: 0x30, 0x56, 0 + 70000 cycles (a pause longer than one word)
-        c64.push_back(0x30); c64.push_back(0x56); c64.push_back(0); u24(c64, 70000);
-        Result t = conv(c64, TAPE_C64);
-        CHECK_EQ(t.rc, 0);
-        Words e = { 100, 0x30 * 8 - 100, 100, 0x56 * 8 - 100, 100, 0xFFFF, (70000 - 100 - 16) & 0xFFFF, (70000 - 100 - 16) >> 16, 16 };
-        e.push_back(0);                                           // the end marker, then zeros to a whole line
-        while (e.size() % 8) e.push_back(0);
-        CHECK(t.w == e);
-        CHECK_EQ(t.idx.words, 9);
-        CHECK_EQ(t.idx.nblocks, 1);
-        Bytes bad = c64; bad[0] = 'X';
-        t = conv(bad, TAPE_C64);
-        CHECK(t.rc != 0 && strstr(t.msg, "signature"));
-        Bytes v2 = c64; v2[12] = 2;
-        t = conv(v2, TAPE_C64);
-        CHECK(t.rc != 0 && strstr(t.msg, "version"));
-        Bytes shortp = { 'C','6','4','-','T','A','P','E','-','R','A','W', 1, 0, 0, 0 };
-        u32(shortp, 1); shortp.push_back(0x05);
-        t = conv(shortp, TAPE_C64);
-        CHECK(t.rc != 0);
-    }
-
     // (11) the extension decides
     TapeFormat f;
     CHECK(tape_format_of("/usb0/Game.TAP", &f) && f == TAPE_TAP);

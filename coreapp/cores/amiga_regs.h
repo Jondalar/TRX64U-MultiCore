@@ -20,8 +20,6 @@
 #define AM_RTC_IDX      0x0E2   // T191: W commits AM_RTC_VAL: 0-12 register S1..W, 14 loader hold (VAL b0), 15 zero the second + loaded
 #define AM_RTC_STAT     0x0E3   // T191: R b0 the clock holds the time (a bitstream load clears it)
 #define AM_STATUS       0x0A8   // b6 PAUSED (Freeze)
-#define AM_FRAMES       0x0AA   // T188: 16 bit little endian, the core's frame counter (amiga_fb `frames`, wraps)
-#define PX_NFRAMES      0x60A6  // T188: 16 bit little endian, pix_layer n_frames = HDMI output frames (b31:16 of the status at 0x60A4, wraps)
 #define AM_STAT_SEL     0x0B8   // which counter STAT_VAL shows (amiga_regs.v: 8 audio over/under, 9 fill min/max, 10 fill now, 11 catch-up)
 #define AM_STAT_VAL     0x0BC   // 32 bit, little endian
 #define AM_ST_PAUSED    0x40

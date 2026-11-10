@@ -16,7 +16,6 @@ struct TapeRegs {
     uint16_t status;              // b0 playing, b1 end of tape, b2 stop marker
     uint32_t win_off;             // the stream's place in the DDR2 window (offset from 0x01000000)
     uint8_t slot;                 // T180 D2: the deck's number among the descriptor's MountSlots (mount_notify)
-    uint8_t c64tap;               // T134: 1 = the .tap files are Commodore .tap (TAPE_C64), not the Spectrum's bare blocks
 };
 
 #define TAPE_ST_END  0x02

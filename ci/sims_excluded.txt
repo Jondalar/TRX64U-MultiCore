@@ -24,9 +24,6 @@ cores/apple2/sim/run_rwts.sh|T89.1: its S5 (step away and back) has not finished
 cores/apple2/sim/run_prodos.sh|T89.1 S13: ProDOS 2.4 boot from the HDD, ~30 min per run plus its control; run by hand on the builder
 cores/zx/sim/fsim/run.sh|needs Vivado (synth_design of the ULA / zx_core in vivado-env, heavy.lock): a post-synthesis netlist check, run by hand (T119 5.15)
 cores/c128/sim/run_robots.sh|T140 D27/D28: runs PETSCII Robots, needs the real C128 ROM set (C128_ROMDIR) and the game image (sim/media, never in the repository); `cmp` mode by hand on the builder
-cores/c128/sim/run_cpm.sh|T140 19 (#67): boots the CP/M disk (sim/media) from a simulated 1541 with the real C128 ROMs (C128_ROMDIR); hours of wall time, by hand on the builder
 cores/c64scpu/sim/run_real.sh|T182 step 1: boots the real C64 ROM set (not in the repository) to READY; by hand on the builder, run_base.sh is the CI bench
 cores/c64scpu/sim/run_realscpu.sh|needs the real scpu64.rom and C64 ROMs (C64_ROMDIR), which never go into the repository or CI; local debugging only
 cores/c128/sim/run_vdcreset.sh|needs the real C128 ROMs (C128_ROMDIR), which never go into the repository or CI; local debugging of T140 section 17 only
-cores/pet/sim/run_models.sh|one case of run_boot.sh (pet_boot), which is listed
-cores/pet/sim/run_disk.sh|needs the person's DOS ROMs (ROMDIR)

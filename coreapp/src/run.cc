@@ -18,7 +18,6 @@
 #include "corefolder.h"
 #include "settings.h"
 #include "picture.h"
-#include "menubuild.h"
 #include "hostwifi.h"
 #include "wifinet.h"
 #include "volume.h"
@@ -49,7 +48,6 @@ extern "C" bool rtc_time_valid(void);
 #include "trx_lv_port.h"
 #include "keyboard_usb.h"
 #include "usb_hid.h"
-#include "usb_xinput.h"
 #include "pad.h"
 #include "joystick_output.h"
 #include "keyboard_c64.h"
@@ -411,12 +409,6 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
     STARTLOG("phase core app run: pixel layer");
     ui_open(desc);
     {
-        // T210 P1: the splash is placed for the running mode from its first frame (layer_up writes the place of the first picture).
-        int sys = -1, hdmi = -1;
-        video_unpack(h && handover_valid(h) ? h->video : 0, &sys, &hdmi);
-        video_place_menu(&px, hdmi, sys);
-    }
-    {
         char ver[64];
         snprintf(ver, sizeof(ver), "%s  %s", APP_VERSION_HASH, APP_BUILD_DATE);
         ui_splash_open(desc->cor_name, ver, CS_STEPS);
@@ -433,7 +425,27 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
         video_unpack(h && handover_valid(h) ? h->video : 0, &hsys, &hhdmi);
         picture_env_read(&picture_env, hsys);          // T164 D11a: the screen's EDID and the gateware's status decide what the items list
     }
-    menu_build(desc, &picture_desc, picture_items, &picture_env);       // T187: Picture, Volume, Persist, Home, Hotkeys - the one chain the benches build too
+    const char *why = picture_extend(desc, &picture_desc, picture_items, &picture_env);
+    if (why) {
+        printf("[core] %s: %s\n", desc->cor_name, why);   // desc_check names it in the bench; here the original runs without it
+        picture_desc = *desc;
+    }
+    why = volume_extend(&picture_desc, &picture_desc, picture_items);      // T160 D1: the master volume, after Picture
+    if (why) {
+        printf("[core] %s: %s\n", desc->cor_name, why);
+    }
+    why = persist_extend(&picture_desc, &picture_desc, picture_items);    // T180 D2: "Persist medium mounts", for a core with media slots
+    if (why) {
+        printf("[core] %s: %s\n", desc->cor_name, why);
+    }
+    why = home_extend(&picture_desc, &picture_desc, picture_items);       // T180 D10: "Home Directory" and "Enter Home on Startup", for every core
+    if (why) {
+        printf("[core] %s: %s\n", desc->cor_name, why);
+    }
+    why = hk_extend(&picture_desc, &picture_desc, picture_items);         // T181 D3: the hotkey map (modifier and one key per action), for a core with a default map
+    if (why) {
+        printf("[core] %s: %s\n", desc->cor_name, why);
+    }
     // T104.2 D3: the descriptor names what the machine may have, the board strikes what it lacks. The libraries are refused against the
     // effective list (T104.1 Q10), so a library that needs a drive the board has no answer for is told so by name.
     static const char *eff_caps[16];
@@ -470,7 +482,6 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
         start_core_folder(&ctx, &medium_env);
     }
     start_migrate_cfg(&ctx, board);
-    config_start(&ctx, h && handover_valid(h) ? handover_config(h) : "");                              // T198 D7: the host named a config in the hand-over page: the settings are read from it
     // The machine's stop register lives in the host (C64_CARTREGS_BASE + 1, hw.cc), so it keeps whatever the
     // application before us left in it: a core application that was replaced with its Freeze menu open leaves the
     // machine stopped, and the next one releases its core into a stop nobody can see. Clearing it here is the
@@ -493,11 +504,10 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
     static const UsbPadSink pad_sink = { pad_attach, pad_report, pad_detach };
     pad_set_crit(&mouse_crit);
     usb_hid_set_pad_sink(&pad_sink);
-    usb_xinput_set_sink(&pad_sink, desc_has_capability(desc, "pad"));      // T196 D3, D4: an XInput pad only in a core that names the capability `pad`
     matrix_kb = new Keyboard_C64(&matrix_host, &U64II_KEYB_ROW, &U64II_KEYB_COL, &U64II_KEYB_JOY);
 
     cs_step(0, "Reading the settings");           // step 3: the views are built when the menu opens, none at the first open
-    ctx.settings = new Settings(ctx.desc->settings, ctx.desc->nsettings, desc->store, ctx.fs, ctx_settings_path(&ctx), 0);
+    ctx.settings = new Settings(ctx.desc->settings, ctx.desc->nsettings, desc->store, ctx.fs, ctx.cfg_path, 0);
     ctx.settings->load();
     {                                                   // the "Splash" setting (T153, Alex 2026-10-29): Off takes the start screen away as soon as the settings are known
         int ix = ctx.settings->find("Splash");
@@ -570,7 +580,7 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
         do_merge();
         if (merge.ncontributed_settings || merged_desc.nsettings != desc->nsettings) {
             delete ctx.settings;
-            ctx.settings = new Settings(ctx.desc->settings, ctx.desc->nsettings, desc->store, ctx.fs, ctx_settings_path(&ctx), 0);
+            ctx.settings = new Settings(ctx.desc->settings, ctx.desc->nsettings, desc->store, ctx.fs, ctx.cfg_path, 0);
             ctx.settings->load();
         }
         menu->rebuild();
@@ -639,11 +649,6 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
         {
             int b = dlg->buttons_timed(title, text, SVC_BUTTON_YES | SVC_BUTTON_NO, timeout_s);
             return b == SVC_BUTTON_YES ? 1 : b == SVC_BUTTON_NO ? 0 : b == DLG_TIMEOUT ? -2 : -1;
-        }
-        int choose(const char *title, const char *text, const char *const *items, int n, int timeout_s) override
-        {
-            int b = dlg->choose_timed(title, text, items, n, timeout_s);
-            return b == DLG_TIMEOUT ? -2 : b;
         }
         void notice(const char *title, const char *text) override { dlg->message(title, text); }
         bool pick(const char *start, char *out, int outlen) override { return dlg->pick_file(start, ".toml", out, outlen); }
@@ -725,11 +730,7 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
     bool close_req = false;
     auto give_key = [&](int key) {
         if (picture_confirm_pending()) {
-            if (key == KEY_LEFT || key == KEY_ESCAPE) {
-                picture_confirm_revert();     // T187 D5: LEFT / ESC send the previous mode back at once
-            } else {
-                picture_confirm_key();        // Q7: any other key keeps the mode and is spent on that
-            }
+            picture_confirm_key();            // Q7: any key keeps the mode and is spent on that
             return;
         }
         if (app_host.dialog_open()) {
@@ -840,9 +841,7 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
                 if (!menu_open) {
                     ui_show();                        // Q7: a change made over REST or the web with the menu closed asks on the screen too: the layer comes up over the running picture
                 }
-                char now_t[48], prev_t[48];
-                picture_confirm_names(now_t, sizeof(now_t), prev_t, sizeof(prev_t));
-                ui_picture_question(left, now_t, prev_t);
+                ui_picture_question(left);
                 ui_poll();
                 confirm_shown = left;
             }
@@ -850,9 +849,6 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
         if (ev & PS_CONFIRM_END) {
             confirm_shown = -1;
             ui_message_clear();
-            if (const char *res = picture_take_result()) {
-                menu->say(res);                       // T187 D4/D5: the result is a chip in the top bar, not a card
-            }
             if (menu_open) {
                 ui_menu_visible(true);
             } else if (ctx.paused) {
@@ -909,7 +905,7 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
             app_host.service(false);
             vTaskDelay(1);
         } else {
-            if (!app_host.session() && !menu->learning() && (hotkey_poll() & (1u << HKA_MENU))) {   // T207: not while a key is being learned
+            if (!app_host.session() && (hotkey_poll() & (1u << HKA_MENU))) {
                 uiapp_local_leave();                  // T181: the menu hotkey closes it again (the leave intent; the loop closes below)
                 if (!close_req) {
                     continue;

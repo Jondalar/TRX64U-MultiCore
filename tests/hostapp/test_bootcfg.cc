@@ -15,7 +15,7 @@ int main()
     CHECK(c.def == 0);                                              // the first entry becomes the default
     CHECK(bootcfg_add(&c, "VIC-20", "/Usb1/vc20.cor", "bb"));
     CHECK(!bootcfg_add(&c, "bad|name", "/x.cor", "cc"));
-    CHECK(bootcfg_add(&c, "VIC-20 PAL", "/Usb1/vc20.cor", "dd") && c.n == 2 && !strcmp(c.e[1].name, "VIC-20") && !strcmp(c.e[1].hash, "dd"));   // T198 D17: the name stays
+    CHECK(bootcfg_add(&c, "VIC-20 PAL", "/Usb1/vc20.cor", "dd") && c.n == 2 && !strcmp(c.e[1].name, "VIC-20 PAL"));
     bootcfg_move(&c, 0, +1);
     CHECK(!strcmp(c.e[1].name, "TRX64 (C64)") && c.def == 1);       // the default follows its entry
     char buf[2048];
@@ -33,7 +33,7 @@ int main()
     CHECK(d.n == 3 && d.e[2].size == 777 && d.e[2].mtime == 0x58C12345u && d.e[2].hdr == 0xDEADBEEFu && d.e[1].mtime == 0 && d.e[1].hdr == 0);
     bootcfg_parse(&d, "core=/a.cor|A|aa|10\ncore=/b.cor|B|bb\ncore=/c.cor|C|cc|20|99|0000abcd\n");
     CHECK(d.n == 3 && d.e[0].size == 10 && d.e[0].mtime == 0 && d.e[1].size == 0 && d.e[1].mtime == 0 && d.e[2].mtime == 99 && d.e[2].hdr == 0xabcd);
-    CHECK(bootcfg_add(&d, "A again", "/a.cor", "a2", 11, 5, 6) && d.n == 3 && d.e[0].mtime == 5 && d.e[0].hdr == 6 && strcmp(d.e[0].name, "A again"));
+    CHECK(bootcfg_add(&d, "A again", "/a.cor", "a2", 11, 5, 6) && d.n == 3 && d.e[0].mtime == 5 && d.e[0].hdr == 6 && !strcmp(d.e[0].name, "A again"));
     bootcfg_parse(&d, "# x\r\ncountdown=99\r\ndefault=7\r\ncore=/a|b|c\r\ngarbage\r\ncore=nodelims\r\n");
     CHECK(d.countdown == 60 && d.def == -1 && d.n == 1 && !strcmp(d.e[0].name, "b"));
     bootcfg_parse(&d, "");

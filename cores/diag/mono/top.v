@@ -1,4 +1,4 @@
-// T175 / T201: the Port Diagnostics core's copy of the host copy's top.v (mono/host/top.v; mono/top.v.diff): KBJOY_1_JOY / KBJOY_2_JOY are open-drain pads (diag_pads.v) the probe engine of layer 2 can pull low, layer2 has the two extra ports kbjoy_i / kbjoy_low. T201: the A/V port (AVID_*) is driven from layer 2's three group words (av_ga/gb/gc). Everything else is the host's.
+// T175: the Port Diagnostics core's copy of the host copy's top.v (mono/host/top.v; mono/top.v.diff): KBJOY_1_JOY / KBJOY_2_JOY are open-drain pads (diag_pads.v) the probe engine of layer 2 can pull low, layer2 has the two extra ports kbjoy_i / kbjoy_low. Everything else is the host's.
 // c64_basic: the icepi-zero-c64 C64 core (6502n, vicii-kawari, reDIP SID and
 // CIA) on the C64 Ultimate, with HDMI out and nothing else.
 //
@@ -113,10 +113,7 @@ module top #(
     output wire [0:0]  ddr2_ck_p, ddr2_ck_n, ddr2_cke, ddr2_cs_n, ddr2_odt,
     output wire [1:0]  ddr2_dm,
     output wire        BLING_LED,           // keyboard LEDs, WS2812 chain
-    output wire        LED_DATA, LED_CLOCK, // case LED strip, WS2812 or APA102
-    // T201 (the diag core's A/V test picture): the A/V port's THS8136 DAC, three 8 bit groups from layer 2 (diag_avout.v); balls in avid_pins.xdc
-    output wire [9:2]  AVID_R, AVID_G, AVID_B,
-    output wire        AVID_CLK, AVID_SYNCn, AVID_FB
+    output wire        LED_DATA, LED_CLOCK  // case LED strip, WS2812 or APA102
 );
     // T79 effective decouple (sys_clk): the JTAG bit (dc_jtag, declared below) or the app's request
     // (ultimate_sys 0x10060620 bit 0, cpu_clk, 2-FF synchronised). Every user below uses this one.
@@ -943,7 +940,6 @@ module top #(
     // T175: the joystick pins are open-drain pads; the probe engine of layer 2 (kbjoy_low) is the only one that can pull one low
     wire [4:0] kbj1_i, kbj2_i;
     wire [9:0] l2_kbjoy_low;
-    wire [7:0] av_ga, av_gb, av_gc;          // T201: layer 2's A/V group words
     diag_pads kbjoy_pads (.KBJOY_1_JOY(KBJOY_1_JOY), .KBJOY_2_JOY(KBJOY_2_JOY), .low(l2_kbjoy_low), .decouple(core_decouple), .j1_i(kbj1_i), .j2_i(kbj2_i));
     (* ASYNC_REG = "TRUE" *) reg [10:0] pins_s1, pins_s2;
     always @(posedge sys_clk) begin
@@ -1693,7 +1689,6 @@ module top #(
         .paddle_cmp_i(PADDLE_CMP),
         .kbjoy_i({kbj2_i, kbj1_i}),
         .kbjoy_low(l2_kbjoy_low),
-        .av_ga(av_ga), .av_gb(av_gb), .av_gc(av_gc),
         .paddle_dis_o(l2_paddle_dis_o),
         .paddle_dis_en(l2_paddle_dis_en),
         .paddle_adj_o(l2_paddle_adj_o),
@@ -1884,16 +1879,6 @@ module top #(
         .win_port_wdata(win_port_wdata),
         .win_port_we(win_port_we)
     );
-
-    // T201: the A/V port. Which ball is in which group: the boundary scan's three groups of eight (as cores/c128/mono/c128_avpins.v; the words are MSB first in the order listed).
-    // Which word (Y, C, CVBS) goes to which group and in which bit order is layer 2's register setting (diag_avout.v). The DAC takes the words on CLK, the inverted sys_clk.
-    assign {AVID_G[9], AVID_R[9], AVID_G[7], AVID_G[6], AVID_G[4], AVID_G[3], AVID_B[9], AVID_B[6]} = av_ga;
-    assign {AVID_R[4], AVID_R[3], AVID_B[8], AVID_B[7], AVID_B[5], AVID_B[4], AVID_B[3], AVID_B[2]} = av_gb;
-    assign {AVID_R[8], AVID_R[7], AVID_R[6], AVID_R[5], AVID_R[2], AVID_G[8], AVID_G[5], AVID_G[2]} = av_gc;
-    assign AVID_SYNCn = 1'b1;           // the sync is in the Y and CV words
-    assign AVID_FB    = 1'b0;
-    ODDR #(.DDR_CLK_EDGE("SAME_EDGE")) fwd_avid (.Q(AVID_CLK), .C(sys_clk), .CE(1'b1),
-        .D1(1'b0), .D2(1'b1), .R(1'b0), .S(1'b0));
 
 endmodule
 

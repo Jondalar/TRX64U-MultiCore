@@ -33,13 +33,7 @@ struct Handover {
     uint32_t time_sum;            // handover_time_sum(): date and time mixed with `sum`; 0 = no time
     uint32_t time_date;           // local calendar year << 16 | month << 8 | day
     uint32_t time_time;           // hour << 16 | minute << 8 | second
-    // ---- after the time (T198 D7, 2026-11-10): "start with this config" - the name of a config of the core (<core folder>/configs/<name>.cfg, without the extension).
-    // Outside handover_sum() and every earlier check word like the id and the time: older readers ignore it (plain start), a block of an older host has none.
-    // Read it with handover_config() only.
-    uint32_t config_sum;          // handover_config_sum(): the name mixed with `sum` and `id_sum`; 0 = no config
-    char config[48];              // the config's name, "" = plain start (HANDOVER_CONFIG_MAX characters at most)
 };
-#define HANDOVER_CONFIG_MAX 32    // T198 D11: a config name is at most 32 characters; the field holds 47
 
 uint32_t handover_sum(const Handover *h);
 
@@ -64,12 +58,6 @@ const char *handover_core_id(const Handover *h);
 // check does not hold (noise, a block of an older host) or the date is no plausible one (year 2020..2099).
 void handover_set_time(Handover *h, int year, int mon, int day, int hour, int min, int sec);
 bool handover_time(const Handover *h, int *year, int *mon, int *day, int *hour, int *min, int *sec);
-
-// T198 D7: puts the config's name into a filled block (after handover_fill); a name that is empty or longer than HANDOVER_CONFIG_MAX leaves the block without one
-// and returns false. handover_config() gives it back, "" when the block carries none, the check does not hold (noise, a block of an older host) or the bytes are not a
-// terminated name: never a wrong name, the core then starts plain.
-bool handover_set_config(Handover *h, const char *name);
-const char *handover_config(const Handover *h);
 
 // True when magic, version and sum agree and the path is terminated. DDR2 holds noise after a power-up and the previous
 // core's block after a JTAG start: this tells noise from a block, not a fresh block from a stale one.

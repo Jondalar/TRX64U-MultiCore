@@ -108,15 +108,14 @@ int main()
         n.m->key(KEY_F3);
         CHECK_STR(n.m->title(), "/");
     }
-    {   // T187 D7: both items are F5's Storage (the core's Settings tab here), and F8 does not list them any more
+    {   // F8 lists both items with Persist's page, not the Settings tab
         Rig f(&gd, &world);
         f.menu();
         f.m->key(KEY_F5);
-        f.m->key('1');                                                       // T205 D1: the core's own tab
-        CHECK(f.find_row("Home directory") >= 0 && f.find_row("Enter home on startup") >= 0);
-        CHECK(f.find_row("Storage") >= 0 && f.find_row("Storage") < f.find_row("Home directory"));   // the heading of the routed block
+        f.m->key('2');
+        CHECK(f.find_row("Home directory") < 0);
         f.m->key(KEY_F8);
-        CHECK(f.find_row("Home directory") < 0 && f.find_row("Enter home on startup") < 0);
+        CHECK(f.find_row("Home directory") > 0 && f.find_row("Enter home on startup") > 0);
     }
     DONE("test_home");
 }

@@ -43,7 +43,6 @@ body:
         - diag - Port Diagnostics
         - ddt_novic - DDT Look Ma, No VIC
         - nes - Nintendo Entertainment System
-        - pet - Commodore PET
         - snes - Super Nintendo
         - trx64g - C64 with the Ultimate application
         - trx64u - C64 with the TRX64 application

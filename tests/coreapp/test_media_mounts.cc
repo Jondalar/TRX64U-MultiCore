@@ -15,7 +15,7 @@
 using namespace bench;
 
 #define CFG "/usb0/cores/amiga/amiga.cfg"
-#define SETDIR "/usb0/cores/amiga/configs"
+#define SETDIR "/usb0/cores/amiga/media"
 
 static std::vector<uint8_t> pat(uint32_t seed, size_t n)
 {
@@ -273,7 +273,7 @@ int main()
         }
     }
 
-    // ---- the item in the menu: a row of F5's Storage block (T187 D7; not of F8); RETURN switches it, the next mount is stored
+    // ---- the item in the menu: a row of F8 (not of the Settings tab); RETURN switches it, the next mount is stored
     {
         FakeFs fs;
         world(fs);
@@ -281,9 +281,10 @@ int main()
         a.boot();
         a.open_menu();
         a.m->key(KEY_F5);
-        a.m->key('1');                                                   // T205 D1: the core's own tab (Storage is a block of it)
-        CHECK(a.find_row("Persist medium mounts") > 0 && a.find_row("Chip RAM") >= 0);
-        CHECK(a.find_row("Storage") >= 0 && a.find_row("Storage") < a.find_row("Persist medium mounts"));   // under its heading
+        a.m->key('2');
+        CHECK(a.find_row("Persist medium mounts") < 0 && a.find_row("Chip RAM") >= 0);
+        a.m->key(KEY_F8);
+        CHECK(a.find_row("Persist medium mounts") > 0);
         CHECK_STR(a.right(a.find_row("Persist medium mounts")).c_str(), "No");
         a.go_to("Persist medium mounts");
         a.m->key(KEY_RETURN);
@@ -294,8 +295,6 @@ int main()
         a.m->key(KEY_RETURN);                                            // and off again: the keys go
         CHECK_STR(a.right(a.find_row("Persist medium mounts")).c_str(), "No");
         CHECK(!has(fs.text(CFG), "Mount "));
-        a.m->key(KEY_F8);
-        CHECK(a.find_row("Persist medium mounts") < 0);
     }
 
     // ---- S3: a stored medium that is gone: the slot stays empty with a note, the core starts, the key stays for the next start
@@ -354,27 +353,28 @@ int main()
         CHECK_EQ(sec_mount_folder(a.c(), 0, "/usb0/hd/0.1", msg, sizeof(msg)), 0);
         uint64_t size0 = a.hd_size(0);
         a.open_menu();
-        a.m->key(KEY_F1);                                                // T205 D1: the configs are rows of Home (the Summary tab is gone)
-        CHECK(a.find_row("Save as config...") >= 0 && a.find_row("Load config...") >= 0);
-        CHECK_STR(a.right(a.find_row("Load config...")).c_str(), "none saved");
+        a.m->key(KEY_F5);
+        a.m->key('1');
+        CHECK(a.find_row("Save media set...") >= 0 && a.find_row("Load media set...") >= 0);
+        CHECK_STR(a.right(a.find_row("Load media set...")).c_str(), "none saved");
         // nothing to load yet
-        a.go_to("Load config...");
+        a.go_to("Load media set...");
         CHECK_EQ(a.m->key(KEY_RETURN), MenuCtl::R_REDRAW);
         CHECK(!a.m->picking() && a.m->status_bad());
         // save it: the name prompt of New folder, a name with a space
-        a.go_to("Save as config...");
+        a.go_to("Save media set...");
         a.m->key(KEY_RETURN);
         CHECK(a.m->entering());
         a.type("WB32 Install");
         CHECK_EQ(a.m->key(KEY_RETURN), MenuCtl::R_REDRAW);
         CHECK(!a.m->entering());
         CHECK(!a.m->status_bad() && strstr(a.m->status(), "WB32 Install") && strstr(a.m->status(), "saved"));
-        std::string set = fs.text(SETDIR "/WB32 Install.cfg");
+        std::string set = fs.text(SETDIR "/WB32 Install.mnt");
         CHECK(has(set, "Mount DF0=/usb0/a.adf") && has(set, "Mount DF1=/usb0/b.adf") && has(set, "Mount HD0=folder /usb0/hd, 0.1 GB"));
         CHECK_EQ(count(set, "Mount "), 3);                               // the set holds what is mounted: three slots
-        CHECK_STR(a.right(a.find_row("Load config...")).c_str(), "1 saved");
+        CHECK_STR(a.right(a.find_row("Load media set...")).c_str(), "1 saved");
         // a second name, empty and a bad one are refused
-        a.go_to("Save as config...");
+        a.go_to("Save media set...");
         a.m->key(KEY_RETURN);
         CHECK_EQ(a.m->key(KEY_RETURN), MenuCtl::R_REDRAW);
         CHECK(a.m->status_bad() && strstr(a.m->status(), "name"));
@@ -385,11 +385,9 @@ int main()
         CHECK_EQ(sec_eject(a.c(), 0, msg, sizeof(msg)), 0);
         CHECK_EQ(sec_mount(a.c(), 1, "/usb0/g.hdf", msg, sizeof(msg)), 0);
         int holds = g_holds, releases = g_releases;
-        std::string cfg_plain = fs.text(CFG);                            // T198 D4: the core's own .cfg is not written by a load
-        CHECK(has(set, "[") && count(set, "Persist medium mounts=") == 1);   // D6: the config is a full copy of the settings
         // load it from the list
-        a.go_to("Load config...");
-        CHECK_STR(a.right(a.find_row("Load config...")).c_str(), "1 saved");
+        a.go_to("Load media set...");
+        CHECK_STR(a.right(a.find_row("Load media set...")).c_str(), "1 saved");
         a.m->key(KEY_RETURN);
         CHECK(a.m->picking());
         CHECK_EQ(a.m->rows(), 1);
@@ -405,9 +403,7 @@ int main()
         CHECK_EQ(g_releases - releases, 1);                              // the core was reset, once
         CHECK_EQ(g_holds - holds, 1);
         CHECK(a.m->status_bad() == false && strstr(a.m->status(), "loaded"));
-        CHECK(fs.text(CFG) == cfg_plain);                              // D4: the core's own .cfg is as it was
-        CHECK_STR(a.c()->config, "WB32 Install");                        // D5: from here the settings and the mounts live in the config
-        std::string cfg = fs.text(SETDIR "/WB32 Install.cfg");
+        std::string cfg = fs.text(CFG);                                  // persist records what is mounted now
         CHECK(has(cfg, "Mount DF0=/usb0/a.adf") && has(cfg, "Mount DF1=/usb0/b.adf") && has(cfg, "Mount HD0=folder /usb0/hd, 0.1 GB"));
         CHECK(!has(cfg, "Mount HD1") && !has(cfg, "Mount DF3"));
         printf("S8: saved set loaded: slots as saved, %d reset(s)\n", g_releases - releases);
@@ -415,7 +411,7 @@ int main()
         // a set naming a medium that is not there: that slot is empty with a note, the rest is mounted, the core resets
         CHECK_EQ(win_mount(a.c(), 2, "/usb0/b.adf", msg, sizeof(msg)), 0);
         CHECK_EQ(sec_mount(a.c(), 1, "/usb0/h.hdf", msg, sizeof(msg)), 0);
-        a.go_to("Save as config...");
+        a.go_to("Save media set...");
         a.m->key(KEY_RETURN);
         a.type("Gone");
         a.m->key(KEY_RETURN);
@@ -426,7 +422,7 @@ int main()
         CHECK_EQ(sec_eject(a.c(), 0, msg, sizeof(msg)), 0);
         releases = g_releases;
         OpResult res;
-        CHECK_EQ(ops_call(a.c(), "config.load", name_in("Gone"), 1, &res), OPE_OK);
+        CHECK_EQ(ops_call(a.c(), "media.load_set", name_in("Gone"), 1, &res), OPE_OK);
         CHECK(strstr(res.msg, "DF1") && strstr(res.msg, "DF2") && strstr(res.msg, "Left empty"));
         CHECK(!strstr(res.msg, "DF3"));
         CHECK_STR(a.df(0), "a.adf");
@@ -435,7 +431,7 @@ int main()
         CHECK_STR(a.hd(1), "h.hdf");
         CHECK_EQ(g_releases - releases, 1);
         // no such set; no name
-        CHECK_EQ(ops_call(a.c(), "config.load", name_in("Nope"), 1, &res), OPE_FAILED);
+        CHECK_EQ(ops_call(a.c(), "media.load_set", name_in("Nope"), 1, &res), OPE_FAILED);
         CHECK(strstr(res.msg, "Nope"));
         // a write-back that fails: nothing is changed (not even the slots before the one that cannot be written) and the core is not reset
         fs.put("/usb0/b.adf", pat(2, AM_ADF_SIZE));
@@ -447,7 +443,7 @@ int main()
         CHECK(win_pending(a.c()));
         releases = g_releases;
         fs.sync_fails = true;
-        CHECK_EQ(ops_call(a.c(), "config.load", name_in("WB32 Install"), 1, &res), OPE_FAILED);
+        CHECK_EQ(ops_call(a.c(), "media.load_set", name_in("WB32 Install"), 1, &res), OPE_FAILED);
         CHECK(strstr(res.msg, "DF3") && strstr(res.msg, "stays mounted"));
         CHECK_STR(a.df(0), "a.adf");
         CHECK(!a.mounted_df(1));                                         // the set would have mounted b.adf here

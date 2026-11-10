@@ -59,13 +59,6 @@ int deck_insert(CoreCtx *c, TapeDeck *d, const TapeRegs &r, const char *path, bo
         snprintf(msg, msglen, "%s is not a tape (.tap, .tzx, .cdt)", path);
         return 1;
     }
-    if (r.c64tap) {
-        if (fmt != TAPE_TAP) {
-            snprintf(msg, msglen, "%s is not a tape (.tap)", path);
-            return 1;
-        }
-        fmt = TAPE_C64;
-    }
     CoreFile *f = c->fs->open(path, false);
     if (!f) {
         snprintf(msg, msglen, "cannot open %s", path);

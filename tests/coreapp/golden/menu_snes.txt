@@ -7,16 +7,17 @@ area F1 Home
     info Media
     info ROMs
     info Libraries
-    media Cartridge
-    fixed Save as config...
-    fixed Load config...
 area F3 Library
   tab 1 Browse
     browser Browse
       filetype .sfc: Run
       filetype .smc: Run
 area F5 SNES
-  tab 1 SNES
+  tab 1 Summary
+    media Cartridge
+    fixed Save media set...
+    fixed Load media set...
+  tab 2 Settings
     setting Video standard = Auto (cartridge) | NTSC | PAL (default Auto (cartridge), at next reset)
     setting Pseudo high resolution = Blend | 512 wide (default Blend, at next reset)
     setting Pad map = Default | Custom (default Default, live)
@@ -28,13 +29,9 @@ area F7 Actions
     task Map buttons, pad 1
     task Map buttons, pad 2
 area F8 System (shifted)
-  tab 1 System
-    heading Actions
-    fixed Restart core
-    fixed Return to host menu
-    heading Network
-    fixed WiFi
-    heading Support
-    fixed Bug report
-    heading Reset
+  tab 1 Expert
     fixed Reset to host defaults
+    fixed Restart core
+    fixed Bug report
+    fixed WiFi
+    fixed Return to host menu

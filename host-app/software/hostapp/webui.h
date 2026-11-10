@@ -32,7 +32,6 @@ struct WebSnapshot {
     char name[BOOT_MAX][WEB_NAME_MAX];
     char path[BOOT_MAX][WEB_PATH_MAX];
     char state[BOOT_MAX][16];               // "ok", "changed", "missing", ...
-    int configs[BOOT_MAX];                  // T198 S13: the entry's configs (0 = none, or not a core with a folder)
     bool startable[BOOT_MAX];
     // T162: what the bug report reads besides the above (written by the UI task with the rest, so the report from the menu and the one from
     // REST are made of the same facts)
@@ -53,7 +52,6 @@ enum WebGet { WEBGET_NONE = 0, WEBGET_STATUS, WEBGET_REPORT };
 struct WebCmd {
     WebCmdKind kind;
     int a, b;                               // video: unused, hdmi (-1 = from the screen); boot/remove/default: index; countdown: seconds
-    char config[33];                           // T198 S13: boot: the config to start the entry with ("" = plain)
 };
 
 // The UI task's side.
@@ -61,7 +59,6 @@ void web_publish(const WebSnapshot *s);     // the snapshot the page is rendered
 bool web_take(WebCmd *out);                 // true when a command was waiting; it is cleared
 void web_result(const char *text);          // what the page shows about the last command
 void web_start(void);                       // brings the task up (does nothing twice)
-const char *web_parse_why(void);            // the reason of the last 400 web_parse answered ("" = none); the error body carries it
 bool web_post(const WebCmd *c);             // what a request does: the command goes in the mailbox; false when one is still waiting (the request answers 409)
 void web_copy(WebSnapshot *s, char *note, int notelen);   // the snapshot and the note, taken together (a web task renders from its own copy)
 bool web_has_net(char *ip, int len);        // the web tasks listen only with an address (T106 D6)

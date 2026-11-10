@@ -92,3 +92,20 @@ DbDefault directboot_look(const DbEnv &env, bool removable, uint32_t limit_ms, u
     }
     return d;
 }
+
+void fireguard_arm(FireGuard *g, bool fire_was_held)
+{
+    g->armed = fire_was_held;
+}
+
+bool fireguard_drop(FireGuard *g, int key)
+{
+    if (!g->armed) {
+        return false;
+    }
+    if (key < 0) {
+        g->armed = false;
+        return false;
+    }
+    return true;
+}

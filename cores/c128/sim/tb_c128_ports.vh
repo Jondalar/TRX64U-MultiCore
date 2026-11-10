@@ -184,7 +184,6 @@
     wire vdc_ce;
     wire vdc_hb;
     wire vdc_vb;
-    wire [1:0] vdc_il;
     wire c128_fast;
     wire [2:0] c128_stat;
     reg  [23:0] x_keys = 0;
@@ -204,7 +203,6 @@
     reg  dbg_clr_tgl = 0;
     wire [19:0] fr_min;
     wire [19:0] fr_max;
-    wire [39:0] act_q;
     wire rom_req_tgl;
     wire [12:0] rom_req_line;
     reg  rom_done_tgl = 0;

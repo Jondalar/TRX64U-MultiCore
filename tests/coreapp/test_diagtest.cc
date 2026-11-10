@@ -2,7 +2,6 @@
 // (the files that ship parse; every kind of mistake is refused with its line), the step list (exact words, microseconds to clocks), the FIFO decode,
 // the thresholds, both result files byte for byte, the card that refuses a write (no half result), the refusal of a test whose precondition is not
 // met, the suite, the examples written once. The model has the register map of section 3 and the step-word fields of cores/portdiag_regs.h.
-#include <algorithm>
 #include <functional>
 #include <fstream>
 #include <sstream>
@@ -16,15 +15,6 @@
 struct Ui : DiagUi {
     std::function<int(int)> answer;                    // by prompt index
     std::vector<std::string> prompts, shown, progress_;
-    std::function<int(int, int *)> cans;               // a question with a choice of answers: idx, the index picked -> DUI_*; without it the default (YES = the first)
-    int choice(const char *t, const char *text, int idx, int total, int timeout_s, const char *const *items, int n, int *pick) override
-    {
-        if (!cans) {
-            return DiagUi::choice(t, text, idx, total, timeout_s, items, n, pick);
-        }
-        prompts.push_back(text);
-        return cans(idx, pick);
-    }
     int prompt(const char *, const char *text, int idx, int, int) override
     {
         prompts.push_back(text);
@@ -129,7 +119,7 @@ static void test_parse_shipped()
     CHECK_STR(g_f.suite.tests[1], "stick2.toml");
     // the example tests the app carries are the files of the repository
     Rig r;
-    CHECK_EQ(diag_install_examples(&r.fs, "/SD/cores/diag"), 7);
+    CHECK_EQ(diag_install_examples(&r.fs, "/SD/cores/diag"), 6);
     for (const char *n : names) {
         CHECK_STR(r.fs.text(std::string("/SD/cores/diag/tests/") + n + ".toml").c_str(), slurp(std::string("cores/diag/sd/tests/") + n + ".toml").c_str());
     }
@@ -528,7 +518,7 @@ static void test_cd32_v2()
     Rig w;
     w.fs.put_text("/SD/cores/diag/tests/cd32.toml", slurp("cores/diag/superseded/cd32.v1.toml"));
     w.fs.put_text("/SD/cores/diag/tests/stick2.toml", slurp("cores/diag/superseded/stick2.v1.toml") + "# mine\n");
-    CHECK_EQ(diag_install_examples(&w.fs, "/SD/cores/diag"), 6);                       // cd32 replaced + pins, paddle, joystick, cd32keys, avout written; stick2 edited, kept
+    CHECK_EQ(diag_install_examples(&w.fs, "/SD/cores/diag"), 5);                       // cd32 replaced + pins, paddle, joystick, cd32keys written; stick2 edited, kept
     CHECK_STR(w.fs.text("/SD/cores/diag/tests/cd32.toml").c_str(), slurp("cores/diag/sd/tests/cd32.toml").c_str());
     CHECK(w.fs.text("/SD/cores/diag/tests/stick2.toml").find("# mine") != std::string::npos);
     CHECK_EQ(diag_install_examples(&w.fs, "/SD/cores/diag"), 0);                       // the second start writes nothing
@@ -637,7 +627,7 @@ static void test_engine_errors()
 static void test_examples()
 {
     Rig r;
-    CHECK_EQ(diag_install_examples(&r.fs, "/SD/cores/diag"), 7);
+    CHECK_EQ(diag_install_examples(&r.fs, "/SD/cores/diag"), 6);
     CHECK(r.fs.has("/SD/cores/diag/tests/pins.toml"));
     // the person edits one; the next start leaves it alone and writes only what is missing
     r.fs.put_text("/SD/cores/diag/tests/pins.toml", "# mine\n");
@@ -658,211 +648,6 @@ static void test_examples()
     CHECK_STR(pt, "P1 U0 D1 L1 R1 F1  P2 U1 D1 L1 R1 F0  CMP 1 0 1 0");
 }
 
-// T201 S4, S9, S11: the shipped A/V walk (v2). Each step sets its combination, asks its questions, records YES / NO / MISSED / SKIPPED or the choice's label, the result files carry the combination; the page's values come back at the end.
-static int g_avset[DT_AV_N], g_avcalls, g_avdone;
-static std::vector<std::pair<int, int>> g_avlog;
-static std::vector<int> g_avfrz;
-static int av_get_t(void *, int k) { return dt_av_knobs[k].def; }
-static void av_set_t(void *, int k, int idx) { g_avset[k] = idx; g_avlog.push_back({ k, idx }); g_avcalls++; }
-static void av_done_t(void *) { g_avdone++; }
-static void av_freeze_t(void *, bool on) { g_avfrz.push_back(on ? 1 : 0); }
-static size_t count_of(const std::string &s, const char *needle)
-{
-    size_t n = 0, p = 0, l = strlen(needle);
-    while ((p = s.find(needle, p)) != std::string::npos) {
-        n++;
-        p += l;
-    }
-    return n;
-}
-static void av_hooks(Rig &r)
-{
-    r.env.av_get = av_get_t;
-    r.env.av_set = av_set_t;
-    r.env.av_done = av_done_t;
-    r.env.av_freeze = av_freeze_t;
-}
-static void test_avout()
-{
-    // S11: the shipped v2 file, 36 steps, both questions every time (no gate). Calls come in pairs: step 1: Q1 NO, Q2 other | step 2: Q1 YES, Q2 yellow (good) | step 3: Q1 timeout, Q2 blue
-    // | step 4: Q1 YES, Q2 blue (still, wrong colour: listed, not good) | the rest NO, other
-    Rig r;
-    av_hooks(r);
-    r.fs.put_text("/SD/cores/diag/tests/avout.toml", slurp("cores/diag/sd/tests/avout.toml"));
-    int asks = 0;
-    r.ui.answer = [&](int) {
-        asks++;
-        int step = (asks + 1) / 2;
-        return step == 2 || step == 4 ? DUI_CONTINUE : step == 3 ? DUI_TIMEOUT : DUI_SKIP;
-    };
-    r.ui.cans = [&](int, int *pick) {
-        asks++;
-        int step = (asks + 1) / 2;
-        *pick = step == 2 ? 0 : (step == 3 || step == 4) ? 1 : 2;
-        return DUI_CONTINUE;
-    };
-    g_avlog.clear();
-    g_avfrz.clear();
-    g_avdone = 0;
-    CHECK_EQ(r.run("avout.toml"), 0);
-    CHECK_EQ(asks, 72);                                // 36 steps x 2 questions: nothing is skipped
-    CHECK_EQ(g_avdone, 1);
-    CHECK_EQ(g_avfrz.size(), (size_t)37);              // frozen before each of the 36 steps' questions, released once at the end
-    CHECK_EQ(g_avfrz.front(), 1);
-    CHECK_EQ(g_avfrz.back(), 0);
-    CHECK_EQ(std::count(g_avfrz.begin(), g_avfrz.end(), 1), 36);
-    // the first step sets the whole preset: the base values are what the walk applies, not the NTSC defaults of burst and blank
-    int first[DT_AV_N];
-    for (int k = 0; k < DT_AV_N; k++) first[k] = -1;
-    for (auto &e : g_avlog) if (first[e.first] < 0) first[e.first] = e.second;
-    CHECK_EQ(dt_av_knobs[AVK_STD].val[first[AVK_STD]], 1);
-    CHECK_EQ(dt_av_knobs[AVK_GROUPS].val[first[AVK_GROUPS]], 0);
-    CHECK_EQ(dt_av_knobs[AVK_BITS_A].val[first[AVK_BITS_A]], 0);
-    CHECK_EQ(dt_av_knobs[AVK_BITS_B].val[first[AVK_BITS_B]], 0);
-    CHECK_EQ(dt_av_knobs[AVK_BITS_C].val[first[AVK_BITS_C]], 1);
-    CHECK_EQ(dt_av_knobs[AVK_VSIGN].val[first[AVK_VSIGN]], 0);
-    CHECK_EQ(dt_av_knobs[AVK_TRIM].val[first[AVK_TRIM]], 2);
-    CHECK_EQ(dt_av_knobs[AVK_BSTART].val[first[AVK_BSTART]], 16);
-    CHECK_EQ(dt_av_knobs[AVK_BEND].val[first[AVK_BEND]], 90);
-    CHECK_EQ(dt_av_knobs[AVK_BAMP].val[first[AVK_BAMP]], 32);
-    CHECK_EQ(dt_av_knobs[AVK_GAIN].val[first[AVK_GAIN]], 8);
-    CHECK_EQ(dt_av_knobs[AVK_SYNC].val[first[AVK_SYNC]], 8);
-    CHECK_EQ(dt_av_knobs[AVK_BLANK].val[first[AVK_BLANK]], 88);
-    CHECK_EQ(dt_av_knobs[AVK_WHITE].val[first[AVK_WHITE]], 9);
-    // the sweep knobs: the first step is 263 lines, equalizing off, 3 lines, position 0; the last is 262 lines, on, 6 lines, +4
-    CHECK_EQ(dt_av_knobs[AVK_LINES].val[first[AVK_LINES]], 0);
-    CHECK_EQ(dt_av_knobs[AVK_EQ].val[first[AVK_EQ]], 0);
-    CHECK_EQ(dt_av_knobs[AVK_VLEN].val[first[AVK_VLEN]], 6);
-    CHECK_EQ(dt_av_knobs[AVK_VPOS].val[first[AVK_VPOS]], 0);
-    CHECK_EQ(dt_av_knobs[AVK_LINES].val[g_avset[AVK_LINES]], 1);
-    CHECK_EQ(dt_av_knobs[AVK_EQ].val[g_avset[AVK_EQ]], 1);
-    CHECK_EQ(dt_av_knobs[AVK_VLEN].val[g_avset[AVK_VLEN]], 12);
-    CHECK_EQ(dt_av_knobs[AVK_VPOS].val[g_avset[AVK_VPOS]], 4);
-    CHECK_EQ(r.out.npass, 1);
-    std::string t = r.fs.text("/SD/cores/diag/results/avout_20261102-143015.toml");
-    std::string x = r.fs.text("/SD/cores/diag/results/avout_20261102-143015.txt");
-    CHECK(!t.empty() && !x.empty());
-    CHECK(t.find("version = 2") != std::string::npos);
-    CHECK(t.find("steps_planned = 36") != std::string::npos);
-    CHECK(t.find("Does the picture stand still (no rolling, no jumping)?") != std::string::npos);
-    CHECK(t.find("Which colour is the bar right of the white one?") != std::string::npos);
-    CHECK(t.find("good = [\"YES\", \"yellow\"]") != std::string::npos);
-    CHECK(t.find("[knobs]") != std::string::npos);
-    CHECK(t.find("Standard = \"NTSC 60 Hz\"") != std::string::npos);
-    CHECK(t.find("Groups = \"Y=A, C=B, CVBS=C\"") != std::string::npos);
-    CHECK(t.find("Bits A = \"MSB first\"") != std::string::npos);
-    CHECK(t.find("Bits C = \"Reversed\"") != std::string::npos);
-    CHECK(t.find("V sign = \"Normal\"") != std::string::npos);
-    CHECK(t.find("Subcarrier trim = \"+60 Hz\"") != std::string::npos);
-    CHECK(t.find("Burst start = \"16\"") != std::string::npos);
-    CHECK(t.find("Burst end = \"90\"") != std::string::npos);
-    CHECK(t.find("Burst level = \"100 %\"") != std::string::npos);
-    CHECK(t.find("Chroma gain = \"50 %\"") != std::string::npos);
-    CHECK(t.find("Sync level = \"8\"") != std::string::npos);
-    CHECK(t.find("Blank level = \"88\"") != std::string::npos);
-    CHECK(t.find("White level = \"9/16\"") != std::string::npos);
-    CHECK(t.find("Chroma = ") == std::string::npos);
-    CHECK_EQ(count_of(t, "\n[step."), (size_t)36);
-    CHECK(t.find("[step.36]") != std::string::npos);
-    CHECK(t.find("Equalizing = \"On\"") != std::string::npos);
-    CHECK(t.find("Vsync length = \"2.5 lines\"") != std::string::npos);
-    CHECK(t.find("Vsync position = \"-4\"") != std::string::npos);
-    CHECK(t.find("Lines 60 Hz = \"262\"") != std::string::npos);
-    CHECK(t.find("answers = [\"NO\", \"other\"]") != std::string::npos);
-    CHECK(t.find("answers = [\"YES\", \"yellow\"]") != std::string::npos);
-    CHECK(t.find("answers = [\"MISSED\", \"blue\"]") != std::string::npos);
-    CHECK(t.find("answers = [\"YES\", \"blue\"]") != std::string::npos);
-    CHECK(t.find("status = \"done\"") != std::string::npos);
-    CHECK(t.find("steps_asked = 36") != std::string::npos);
-    CHECK(t.find("steps_first_yes = 2") != std::string::npos);
-    CHECK(t.find("steps_good = 1") != std::string::npos);
-    // the .txt: the two steps whose first answer was YES with the full combination and all answers; only YES + yellow is GOOD
-    CHECK_EQ(count_of(x, "\nStep "), (size_t)2);
-    CHECK(x.find("\nStep 2 GOOD: Standard=NTSC 60 Hz, Groups=Y=A, C=B, CVBS=C, ") != std::string::npos);
-    CHECK(x.find("Equalizing=Off") != std::string::npos);
-    CHECK(x.find("; answers: YES, yellow\n") != std::string::npos);
-    CHECK(x.find("\nStep 4: ") != std::string::npos);
-    CHECK(x.find("; answers: YES, blue\n") != std::string::npos);
-    CHECK(x.find("Step 1:") == std::string::npos && x.find("Step 3:") == std::string::npos);
-    CHECK(x.find("36 combinations walked, 2 with the first answer YES, 1 good.") != std::string::npos);
-    // ESC at a question ends the walk, status aborted, the freeze released, the page's values back
-    Rig e;
-    av_hooks(e);
-    e.fs.put_text("/SD/cores/diag/tests/avout.toml", slurp("cores/diag/sd/tests/avout.toml"));
-    static int asked;
-    asked = 0;
-    e.ui.answer = [](int) { asked++; return DUI_ABORT; };
-    g_avdone = 0;
-    g_avfrz.clear();
-    CHECK_EQ(e.run("avout.toml"), 0);
-    CHECK_EQ(asked, 1);                                 // ESC at question 1: question 2 is not asked
-    CHECK_EQ(g_avdone, 1);
-    CHECK_EQ(g_avfrz.back(), 0);
-    CHECK(e.fs.text("/SD/cores/diag/results/avout_20261102-143015.toml").find("status = \"aborted\"") != std::string::npos);
-    CHECK_EQ(e.out.nerror, 1);
-    // an application without the A/V page refuses
-    Rig n;
-    n.fs.put_text("/SD/cores/diag/tests/avout.toml", slurp("cores/diag/sd/tests/avout.toml"));
-    CHECK_EQ(n.run("avout.toml"), -1);
-    CHECK(std::string(n.out.msg).find("no A/V page") != std::string::npos);
-    // a card that refuses the result writes nothing, and no question is asked
-    Rig w;
-    av_hooks(w);
-    w.fs.put_text("/SD/cores/diag/tests/avout.toml", slurp("cores/diag/sd/tests/avout.toml"));
-    w.fs.read_only = true;
-    CHECK_EQ(w.run("avout.toml"), -1);
-    CHECK_EQ(w.ui.prompts.size(), (size_t)0);
-    // a card that gives up in the middle of the walk: the walk stops, the files hold what was written, an error says so
-    Rig m;
-    av_hooks(m);
-    m.fs.put_text("/SD/cores/diag/tests/avout.toml", slurp("cores/diag/sd/tests/avout.toml"));
-    m.ui.answer = [](int) { return DUI_CONTINUE; };
-    m.ui.cans = [](int, int *pick) { *pick = 0; return DUI_CONTINUE; };
-    m.fs.write_fail_at = 4;                            // the header pair and two pieces, then the card is gone
-    g_avdone = 0;
-    CHECK_EQ(m.run("avout.toml"), -1);
-    CHECK_EQ(g_avdone, 1);
-    CHECK(std::string(m.out.msg).find("cannot go on writing") != std::string::npos);
-
-    // S9: a 384-step walk (4 standards x 6 groups x 2 x 2 x 2 x 2 bit orders / V sign) writes every step: the .toml passes the old 40 KB buffer and ends in [result], the .txt lists every step whose first answer is YES
-    Rig b;
-    av_hooks(b);
-    b.fs.put_text("/SD/cores/diag/tests/long.toml",
-                  "kind = \"avtest\"\n[test]\nname = \"long\"\nid = \"long\"\nversion = 1\n[ask]\nquestions = [\"Colour?\", \"Rolls?\"]\ngood = [\"YES\", \"NO\"]\ntimeout_s = 5\nfirst_gate = true\nstop_after_ok = false\n"
-                  "[sweep]\nstandard = [\"PAL 50 Hz\", \"NTSC 60 Hz\", \"PAL 60 Hz\", \"NTSC 50 Hz\"]\n"
-                  "groups = [\"Y=A, C=B, CVBS=C\", \"Y=A, C=C, CVBS=B\", \"Y=B, C=A, CVBS=C\", \"Y=C, C=A, CVBS=B\", \"Y=B, C=C, CVBS=A\", \"Y=C, C=B, CVBS=A\"]\n"
-                  "bits_a = [\"MSB first\", \"Reversed\"]\nbits_b = [\"MSB first\", \"Reversed\"]\nbits_c = [\"MSB first\", \"Reversed\"]\nv_sign = [\"Normal\", \"Inverted\"]\n");
-    int step = 0, q1yes = 0;
-    b.ui.answer = [&](int idx) {                       // the first question of a step (a new idx): YES at every third step; the second question (the same idx): NO
-        if (idx != step) {
-            step = idx;
-            if (idx % 3 == 0) {
-                q1yes++;
-                return DUI_CONTINUE;
-            }
-            return DUI_SKIP;
-        }
-        return DUI_SKIP;
-    };
-    CHECK_EQ(b.run("long.toml"), 0);
-    std::string lt = b.fs.text("/SD/cores/diag/results/long_20261102-143015.toml");
-    std::string lx = b.fs.text("/SD/cores/diag/results/long_20261102-143015.txt");
-    CHECK(lt.size() > 40 * 1024);                      // longer than the v1 buffer
-    CHECK(b.fs.write_sizes.size() > 10);               // written in pieces
-    CHECK_EQ(count_of(lt, "\n[step."), (size_t)384);
-    CHECK(lt.find("[step.384]") != std::string::npos);
-    CHECK(lt.find("steps_asked = 384") != std::string::npos);
-    CHECK(lt.find("status = \"done\"") != std::string::npos);
-    CHECK(lt.rfind("[result]") > lt.rfind("[step.384]"));
-    CHECK_EQ(q1yes, 128);
-    CHECK_EQ(count_of(lx, "\nStep "), (size_t)128);
-    CHECK(lx.find("\nStep 3 GOOD: ") != std::string::npos);
-    CHECK(lx.find("\nStep 384 GOOD: ") != std::string::npos);
-    CHECK(lx.find("\nStep 2:") == std::string::npos && lx.find("\nStep 2 ") == std::string::npos);
-    CHECK(lx.find("384 combinations walked, 128 with the first answer YES, 128 good.") != std::string::npos);
-    CHECK_EQ(b.out.npass, 1);
-}
-
 int main()
 {
     test_parse_shipped();
@@ -878,6 +663,5 @@ int main()
     test_cd32_v2();
     test_engine_errors();
     test_examples();
-    test_avout();
     DONE("test_diagtest");
 }

@@ -1,7 +1,6 @@
 #include "ops_glue.h"
 #include "exec.h"
 #include "boot.h"
-#include "netops.h"
 #include "picture.h"
 #include "volume.h"
 #include "hotkeys.h"
@@ -50,7 +49,6 @@ void ops_register_base(OpRegistry &r)
     update_register(r);
     wb_register_ops(r);
     pad_register(r);
-    netops_register(r);                                            // T210 D1: WiFi, Ethernet and the streams are the board's, every core has them
     libfiles_register(r);                                          // the Library's file operations belong to the F3 browser, which every core has
 }
 

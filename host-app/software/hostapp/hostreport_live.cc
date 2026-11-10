@@ -2,7 +2,6 @@
 #include "hostreport.h"
 #include "bugreport.h"
 #include "hostfs.h"
-#include "startfile.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -12,7 +11,6 @@ extern "C" bool rtc_time_valid(void);
 // ---- the one work area (the text and the log's tail); the menu and REST run in two tasks, so a second user is told "busy" ------------------
 static char g_text[HOST_REPORT_MAX];
 static char g_tail[BR_LOG_BYTES];
-static char g_slog[HOST_STARTLOG_MAX + 1];
 static volatile bool g_busy;
 
 uint32_t hostreport_fattime(bool *valid)
@@ -30,9 +28,7 @@ const char *hostreport_make(const WebSnapshot *s, int *len)
     bool valid;
     uint32_t ft = hostreport_fattime(&valid);
     int tn = hostlog_tail(g_tail, sizeof(g_tail));
-    int sn = hostfs_load(HOST_REPORT_DIR "/startlog.txt", g_slog, HOST_STARTLOG_MAX);      // T203: the SD card's start log
-    g_slog[sn > 0 ? sn : 0] = 0;
-    *len = host_report_build(s, ft, valid, g_tail, tn, g_text, sizeof(g_text), g_slog);
+    *len = host_report_build(s, ft, valid, g_tail, tn, g_text, sizeof(g_text));
     return g_text;
 }
 
@@ -111,19 +107,4 @@ bool hostreport_write(const WebSnapshot *s, char *name, int namelen, char *why, 
     }
     hostreport_release();
     return ok;
-}
-
-// ---- T203: the start log goes to the SD card through the same file layer as the reports ----------------------------------------------
-static bool sf_make_dir(void *, const char *d) { return hostfs_fo()->make_dir(d); }
-static int sf_load(void *, const char *p, char *b, int m) { return hostfs_load(p, b, m); }
-static bool sf_save(void *, const char *d, const char *n, const void *b, int l) { return hostfs_save(d, n, b, l); }
-
-bool hostreport_startlog_store(const char *app, const char *built)
-{
-    static const StartLogFs fs = { sf_make_dir, sf_load, sf_save, 0 };
-    bool valid;
-    uint32_t ft = hostreport_fattime(&valid);
-    char clk[32];
-    br_date(clk, sizeof(clk), ft, valid);
-    return startfile_store(&fs, app, built, clk);
 }

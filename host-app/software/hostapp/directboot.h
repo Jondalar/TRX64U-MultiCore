@@ -67,4 +67,13 @@ struct DbEnv {
 
 DbDefault directboot_look(const DbEnv &env, bool removable, uint32_t limit_ms, uint32_t grace_ms);
 
+// S3: a fire button held at power-on brings the menu, and Keyboard_C64 reads that same fire as RETURN (vendor/gideon keyboard_c64.cc maps the
+// joystick to keys), which starts the default from the menu the person asked for. The guard drops the matrix keyboard's keys from the moment
+// the menu came for a held fire until the first look at which that keyboard has nothing: the fire has been let go, every later key is real.
+struct FireGuard {
+    bool armed;
+};
+void fireguard_arm(FireGuard *g, bool fire_was_held);
+bool fireguard_drop(FireGuard *g, int key);          // key < 0: the keyboard had nothing; true = drop this key
+
 #endif

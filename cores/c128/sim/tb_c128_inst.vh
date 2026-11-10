@@ -183,7 +183,6 @@
         .vdc_ce(vdc_ce),
         .vdc_hb(vdc_hb),
         .vdc_vb(vdc_vb),
-        .vdc_il(vdc_il),
         .c128_fast(c128_fast),
         .c128_stat(c128_stat),
         .x_keys(x_keys),
@@ -202,5 +201,4 @@
         .chr_q(chr_q),
         .dbg_clr_tgl(dbg_clr_tgl),
         .fr_min(fr_min),
-        .fr_max(fr_max),
-        .act_q(act_q)
+        .fr_max(fr_max)

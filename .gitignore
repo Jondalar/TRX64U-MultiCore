@@ -42,4 +42,3 @@ cores/c64scpu/sim/build_6510/
 cores/c64scpu/sim/build_slow/
 cores/c64scpu/sim/emu_run/
 cores/c64scpu/sim/*.lock
-.gitnexus/

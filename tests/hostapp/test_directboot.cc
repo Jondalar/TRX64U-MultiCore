@@ -189,6 +189,20 @@ int main()
         CHECK(scr[0] == ' ' && scr[OVTEXT_BOX_COLS * OVTEXT_BOX_ROWS - 1] == ' ');
     }
 
+    // S3: the fire that brought the menu reads as RETURN in the menu: dropped while it is held, the first idle look ends it, a later RETURN is real
+    {
+        FireGuard g;
+        fireguard_arm(&g, true);
+        CHECK(fireguard_drop(&g, 13));                  // RETURN from the held fire
+        CHECK(fireguard_drop(&g, 13));                  // ... and its repeat
+        CHECK(!fireguard_drop(&g, -1));                 // let go: nothing from the keyboard
+        CHECK(!fireguard_drop(&g, 13));                 // a new press is a person pressing RETURN
+        fireguard_arm(&g, false);                       // the menu came for another reason (C=, no default, ...): nothing is dropped
+        CHECK(!fireguard_drop(&g, 13) && !fireguard_drop(&g, 's'));
+        fireguard_arm(&g, true);
+        CHECK(!fireguard_drop(&g, -1) && !fireguard_drop(&g, 13));      // fire already released before the first look
+    }
+
     if (fails) {
         printf("%d failed\n", fails);
         return 1;

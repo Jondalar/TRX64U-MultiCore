@@ -39,11 +39,6 @@ uint8_t trx_io_caps(void)
                 id = id && ioRead8(TRX_ID + i) == (uint8_t)trx_io_alt_id[i];
             }
         }
-        if (!id && !trx_io_alt_id) {
-            // T187: not cached. A core application's first look can come before it set trx_io_alt_id (the FatFs time stamp of an early flash
-            // read, rtc_dummy.cc); caching that miss left the pixel layer off for good (seen in ue2emu as the A1200, 2026-11-07).
-            return 0;
-        }
         caps = id ? ioRead8(TRX_CAPS) : 0;
         if (id) {
             printf("[TRX] IO block present, CAPS %02x\n", caps);

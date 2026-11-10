@@ -6,7 +6,6 @@
 #include "webui.h"
 #include "videomode.h"
 #include "hostfs.h"
-#include "startfile.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -57,16 +56,6 @@ struct ModelFo : FoFs {
 };
 FoFs *hostfs_fo(void) { static ModelFo fo; return &fo; }
 bool hostfs_exists(const char *path) { return g_files.count(path) != 0; }
-int hostfs_load(const char *path, char *buf, int max)
-{
-    auto it = g_files.find(path);
-    if (it == g_files.end()) {
-        return -1;
-    }
-    int n = (int)it->second.size() < max ? (int)it->second.size() : max;
-    memcpy(buf, it->second.data(), n);
-    return n;
-}
 bool hostfs_save(const char *dir, const char *name, const void *buf, int len)
 {
     if (!g_save_ok) {
@@ -304,54 +293,6 @@ int main()
         }
         CHECK(br_secret_name("Network Password") && br_secret_name("wifi_key") && br_secret_name("apikey") && br_secret_name("PSK"));
         CHECK(!br_secret_name("Keyboard Layout") && !br_secret_name("Key Repeat") && !br_secret_name("countdown"));
-    }
-    // T203 S6: the start log is in the report, as startfile_store wrote it; without the file the section says so
-    {
-        WebSnapshot s = snap();
-        g_logtext = "x\n";
-        g_files.clear();
-        std::string none = build(s, g_logtext);
-        CHECK(has(none, "== Start log") && has(none, "(no startlog.txt on the SD card)"));
-        StartLogFs fs = { [](void *, const char *) { return true; },
-                       [](void *, const char *p, char *b, int m) { return hostfs_load(p, b, m); },
-                       [](void *, const char *d, const char *n, const void *b, int l) { return hostfs_save(d, n, b, l); }, 0 };
-        DirectIn in;
-        memset(&in, 0, sizeof(in));
-        startrec_init([]() -> uint32_t { return 777; });
-        startrec_key(0xEF, 0xFF);
-        startrec_decide(in, DB_KEY_FIRE);
-        CHECK(startfile_store(&fs, "6a20094", "2026-10-30", "clock not set"));
-        int tl = 0;
-        const char *mk = hostreport_make(&s, &tl);                 // the live path reads the file from the card
-        CHECK(mk != 0);
-        std::string t = mk ? std::string(mk, tl) : std::string();
-        hostreport_release();
-        CHECK(has(t, "== Start log") && has(t, "=== start #1 | host app 6a20094") && has(t, "decision: Menu: fire on port 1 was held"));
-        CHECK(t.find("== Start log") < t.find("== Log"));
-        char name[40], why[64];
-        CHECK(hostreport_write(&s, name, sizeof(name), why, sizeof(why)));
-        CHECK(has(g_files["/SD/report/20261030-140510.txt"], "decision: Menu: fire on port 1 was held"));     // the file a tester attaches carries it
-    }
-    // review fix: log tail and start log both at their maximum - the report plus the HTTP headers fit the web server's output buffer
-    {
-        WebSnapshot s = snap();
-        g_logtext.clear();
-        for (int i = 0; g_logtext.size() < 40000; i++) { char l[160]; snprintf(l, sizeof(l), "log line %05d %080d\n", i, i); g_logtext += l; }
-        g_files.clear();
-        std::string sl;
-        for (int b = 1; sl.size() < HOST_STARTLOG_MAX; b++) { char l[200]; snprintf(l, sizeof(l), "=== start #%d | filler ===\n%0120d\n", b, b); sl += l; }
-        sl.resize(HOST_STARTLOG_MAX);
-        g_files["/SD/report/startlog.txt"] = sl;
-        int tl = 0;
-        const char *mk = hostreport_make(&s, &tl);
-        CHECK(mk != 0 && tl > 24000 && has(std::string(mk, tl), "=== start #1 | filler"));
-        char extra[200];
-        web_report_head(fat(2026, 10, 30, 14, 5, 10), true, extra, sizeof(extra));
-        char head[400];
-        int h = snprintf(head, sizeof(head), "HTTP/1.1 200 OK\r\nServer: TRX64 host\r\n%sContent-Length: %d\r\nConnection: close\r\n\r\n", extra, tl);
-        printf("report %d + head %d of %d\n", tl, h, HOST_REPORT_OUT_MAX);
-        CHECK(tl + h < HOST_REPORT_OUT_MAX);
-        hostreport_release();
     }
     printf("%d checks, %d failed\n", checks, fails);
     return fails != 0;

@@ -219,7 +219,6 @@ module c64_core_c128 #(
     // T113: the C128's extras
     output wire [3:0] vdc_rgbi,             // variant 1 (whole VDC): its pixel stream for the frame writer (clk)
     output wire       vdc_ce, vdc_hb, vdc_vb,
-    output wire [1:0] vdc_il,               // T113 D11: {R8[1:0] == 3, the field being drawn}
     output wire       c128_fast,            // $D030 bit 0: 2 MHz requested
     output wire [2:0] c128_stat,            // {the Z80 has the bus, 2 MHz is on, C64 mode}
     input  wire [23:0] x_keys,              // the extra matrix columns K0-K2 x 8 rows (1 = pressed), quasi-static (cpu_clk)
@@ -580,7 +579,7 @@ module c64_core_c128 #(
         .cram_rdata(cram_rdata),
         .cram_tap_we(), .cram_tap_addr(), .cram_tap_din(), .cram_tap_old(),
         .xkeys(xk[23:0]), .x_capslk(xk[24]), .x_d4080(xk[25]), .x_boot64(xk[26]),
-        .vdc_rgbi(vdc_rgbi), .vdc_ce(vdc_ce), .vdc_hb(vdc_hb), .vdc_vb(vdc_vb), .vdc_il(vdc_il), .c128_fast(c128_fast), .c128_stat(c128_stat),
+        .vdc_rgbi(vdc_rgbi), .vdc_ce(vdc_ce), .vdc_hb(vdc_hb), .vdc_vb(vdc_vb), .c128_fast(c128_fast), .c128_stat(c128_stat),
         .vd_clk(vd_clk), .vd_addr(vd_addr), .vd_we(vd_we), .vd_wdata(vd_wdata), .vd_rdata(vd_rdata)
     );
 

@@ -5,9 +5,6 @@
 #include "partial.h"
 #include "ctx.h"
 #include "keyboard.h"
-#include "picture.h"
-#include "volume.h"
-#include "hotkeys.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -49,8 +46,6 @@ static MenuTab *tab_begin(MenuTree *t, MenuArea *a, const char *name)
     tb->n = (uint8_t)(a->ntabs + 1);
     tb->first = t->n;
     tb->count = 0;
-    tb->page = false;
-    tb->parent = -1;
     return tb;
 }
 
@@ -75,97 +70,23 @@ static void area_end(MenuTree *t, MenuArea *a)
 
 // The entries that belong in a tab that lists groups (settings, tasks, media): with `groups`, those that name one of them; without, those that name no
 // group or a group no tab of the route lists for this widget (a contribution is never lost for want of a tab: it lands where the ungrouped ones are).
-static bool group_in_tab(const Skeleton *sk, uint8_t widget, const SkelTab &tb, const char *g)
+static bool group_in_tab(const MenuMerge *mm, uint8_t widget, const SkelTab &tb, const char *g)
 {
     if (tb.groups) {
         return groups_have(tb.groups, g);
     }
-    if (!g) {
+    if (!g || !mm) {
         return true;
     }
-    for (int a = 0; a < sk->nareas; a++) {
-        for (int t = 0; t < sk->areas[a].ntabs; t++) {
-            const SkelTab &o = sk->areas[a].tabs[t];
+    for (int a = 0; a < mm->skel->nareas; a++) {
+        for (int t = 0; t < mm->skel->areas[a].ntabs; t++) {
+            const SkelTab &o = mm->skel->areas[a].tabs[t];
             if (o.widget == widget && groups_have(o.groups, g)) {
                 return false;
             }
         }
     }
     return true;
-}
-
-static bool skel_has_widget(const Skeleton *sk, uint8_t widget)
-{
-    for (int a = 0; a < sk->nareas; a++) {
-        for (int t = 0; t < sk->areas[a].ntabs; t++) {
-            if (sk->areas[a].tabs[t].widget == widget) {
-                return true;
-            }
-        }
-    }
-    return false;
-}
-
-// ---- T187 D1: where a generic row lands, one table for every core ---------------------------------------------------------------------------
-static const MenuGroupRoute g_routes[] = {
-    { "video",   "F5", "video", "Video",   0,         false, "F6" },
-    { "audio",   "F5", "audio", "Audio",   0,         false, "F6" },
-    { "hotkeys", "F5", "input", "Input",   "Hotkeys", true,  "F6" },
-    { "storage", "F5", "settings", "Storage", 0,      false, 0 },
-    { "menu",    "F5", "settings", "Menu",    0,      false, 0 },       // T205 D1: "Menu opens at" sits with the core's own settings
-};
-
-const MenuGroupRoute *menu_route_of(const Setting &s)
-{
-    const char *g = 0;
-    if (!s.apply) {
-        return 0;
-    }
-    if (!strcmp(s.apply, PICTURE_OP) || !strcmp(s.apply, SCALE_OP) || !strcmp(s.apply, SMOOTH_OP)) {
-        g = "video";
-    } else if (volume_is_generic(s)) {
-        g = "audio";
-    } else if (hk_is_generic(s)) {
-        g = "hotkeys";
-    } else if (home_is_generic(s) && !strcasecmp(s.key, REOPEN_KEY)) {
-        g = "menu";
-    } else if (persist_is_generic(s) || home_is_generic(s)) {
-        g = "storage";
-    }
-    for (unsigned i = 0; g && i < sizeof(g_routes) / sizeof(g_routes[0]); i++) {
-        if (!strcmp(g_routes[i].group, g)) {
-            return &g_routes[i];
-        }
-    }
-    return 0;
-}
-
-// The tab of the route where the rows of `r` are listed: the area's tab of that id, else (a core that has no such tab) its tab "settings"; null when the area has neither,
-// and the rows are then listed where the ungrouped settings are (a contribution is never lost for want of a tab).
-static const SkelTab *route_tab(const Skeleton *sk, const MenuGroupRoute *r)
-{
-    const SkelTab *fb = 0;
-    for (int pass = 0; pass < 2; pass++) {                           // the route's area first, then (a description with a Settings area of its own) the alternative one, by the tab id
-        const char *key = pass ? r->alt_area : r->area;
-        for (int a = 0; key && a < sk->nareas; a++) {
-            if (strcmp(sk->areas[a].key, key)) {
-                continue;
-            }
-            for (int i = 0; i < sk->areas[a].ntabs; i++) {
-                const SkelTab &tb = sk->areas[a].tabs[i];
-                if (tb.widget != TW_SETTINGS) {
-                    continue;
-                }
-                if (tb.id && !strcmp(tb.id, r->tab)) {
-                    return &tb;
-                }
-                if (!pass && tb.id && !strcmp(tb.id, "settings")) {
-                    fb = &tb;
-                }
-            }
-        }
-    }
-    return fb;
 }
 
 static const char *setting_group(const CoreDesc *d, const MenuMerge *mm, int i)
@@ -183,7 +104,7 @@ void menu_build(const CoreDesc *d, MenuTree *t, bool return_host, bool reload_co
         MenuArea *a = area(t, sa.key, sa.name ? sa.name : (d->short_title ? d->short_title : d->cor_name), sa.shifted);
         for (int ti = 0; ti < sa.ntabs; ti++) {
             const SkelTab &st = sa.tabs[ti];
-            MenuTab *tb = tab_begin(t, a, st.name ? st.name : a->name);        // T205 D1: a tab with no name is named after its area (F5: the core)
+            MenuTab *tb = tab_begin(t, a, st.name);
             if (!tb) {
                 continue;
             }
@@ -209,8 +130,6 @@ void menu_build(const CoreDesc *d, MenuTree *t, bool return_host, bool reload_co
             if (nodes_first) {
                 add_nodes();
             }
-            bool nodes_done = false;
-            const MenuGroupRoute *page_route = 0;                       // set when a row of this tab opens a page (T187 D2)
             switch (st.widget) {
             case TW_INFO:
                 if (st.groups) {                                             // a description names the lines of this tab (descrec.h), in its order
@@ -229,144 +148,58 @@ void menu_build(const CoreDesc *d, MenuTree *t, bool return_host, bool reload_co
                 for (int i = 0; menu_info_labels[i]; i++) {
                     add(t, EK_INFO, menu_info_labels[i], i);
                 }
-                // T205 D1: what the F5 Summary tab showed is on Home, under the information lines: the media slots (RETURN ejects) and the configs
-                // (a description that has a media tab of its own keeps them there)
-                if (!skel_has_widget(sk, TW_MEDIA)) {
-                    for (int i = 0; i < d->nmedia; i++) {
-                        add(t, EK_MEDIA, d->media[i].name, i);
-                    }
-                    if (mounts_have_slots(d)) {
-                        add(t, EK_SAVE_SET, "Save as config...", 0);
-                        add(t, EK_LOAD_SET, "Load config...", 0);
-                    }
-                }
                 break;
             case TW_BROWSER:
                 add(t, EK_BROWSER, "Browse", 0);
                 break;
             case TW_MEDIA:
                 for (int i = 0; i < d->nmedia; i++) {
-                    if (group_in_tab(sk, TW_MEDIA, st, d->media[i].group)) {
+                    if (group_in_tab(mm, TW_MEDIA, st, d->media[i].group)) {
                         add(t, EK_MEDIA, d->media[i].name, i);
                     }
                 }
-                if (mounts_have_slots(d)) {                                 // T198 D3: the configs (media and settings) replace the media sets of T180 D5
-                    add(t, EK_SAVE_SET, "Save as config...", 0);
-                    add(t, EK_LOAD_SET, "Load config...", 0);
+                if (mounts_have_slots(d)) {                                 // T180 D5: the sets of media
+                    add(t, EK_SAVE_SET, "Save media set...", 0);
+                    add(t, EK_LOAD_SET, "Load media set...", 0);
                 }
                 break;
-            case TW_SETTINGS: {
-                // the rows the table places in this tab (routed), and the machine's own (the descriptor's groups); with both a heading names each block
-                auto routed_here = [&](int i) -> const MenuGroupRoute * {
-                    const MenuGroupRoute *r = menu_route_of(d->settings[i]);
-                    return r && route_tab(sk, r) == &st ? r : 0;
-                };
-                auto machine_here = [&](int i) -> bool {
-                    const MenuGroupRoute *r = menu_route_of(d->settings[i]);
-                    if (r && route_tab(sk, r)) {
-                        return false;
-                    }
-                    return group_in_tab(sk, TW_SETTINGS, st, setting_group(d, mm, i));
-                };
-                int nmachine = 0, nrouted = 0;
+            case TW_SETTINGS:
                 for (int i = 0; i < d->nsettings; i++) {
-                    if (machine_here(i)) {
-                        nmachine++;
-                    } else if (routed_here(i)) {
-                        nrouted++;
-                    }
-                }
-                // headings only in the catch-all tab of a plain list (the default route's Settings): two blocks are told apart there; a tab that names its groups is one block
-                bool heads = nmachine > 0 && nrouted > 0 && !st.groups && !(st.layout && st.layout[0]);
-                auto add_routed = [&](int i, const MenuGroupRoute *r) {
-                    if (r->page) {                                           // T187 D2: one row opens the page; the page is a tab of its own after this one
-                        if (!page_route) {
-                            page_route = r;
-                            add(t, EK_OPENS, r->label, i);
-                        }
-                    } else {
+                    // Persist medium mounts is F8's: the System tab of the default route lists it; a description's tab lists it by its group ("system")
+                    if (((!persist_is_generic(d->settings[i]) && !home_is_generic(d->settings[i])) || st.groups) && group_in_tab(mm, TW_SETTINGS, st, setting_group(d, mm, i))) {
                         add(t, EK_SETTING, d->settings[i].label ? d->settings[i].label : d->settings[i].key, i);
-                    }
-                };
-                if (heads) {
-                    add(t, EK_HEADING, "Machine", 0);
-                }
-                for (int i = 0; i < d->nsettings; i++) {                     // the descriptor's order; without headings the routed rows keep their place among them
-                    if (machine_here(i)) {
-                        add(t, EK_SETTING, d->settings[i].label ? d->settings[i].label : d->settings[i].key, i);
-                    } else if (!heads && routed_here(i)) {
-                        add_routed(i, routed_here(i));
-                    }
-                }
-                if (heads) {                                                 // one block per route group (Storage, Menu), each under its heading
-                    for (int g = 0; g < (int)(sizeof(g_routes) / sizeof(g_routes[0])); g++) {
-                        bool head_done = false;
-                        for (int i = 0; i < d->nsettings; i++) {
-                            const MenuGroupRoute *r = machine_here(i) ? 0 : routed_here(i);
-                            if (r != &g_routes[g]) {
-                                continue;
-                            }
-                            if (!head_done) {
-                                add(t, EK_HEADING, r->heading, 0);
-                                head_done = true;
-                            }
-                            add_routed(i, r);
-                        }
                     }
                 }
                 break;
-            }
             case TW_TASKS:
                 for (int i = 0; i < d->ntasks; i++) {
-                    if (group_in_tab(sk, TW_TASKS, st, d->tasks[i].group)) {
+                    if (group_in_tab(mm, TW_TASKS, st, d->tasks[i].group)) {
                         add(t, EK_TASK, d->tasks[i].label, i);
                     }
                 }
                 break;
             case TW_SYSTEM:
-                // T187 D8: System actions, Network, Support; what the route contributes to the tab; Reset to host defaults is the last row. The first row that takes the focus is
-                // Restart core (a heading is never selected), not the reset.
-                add(t, EK_HEADING, "Actions", 0);                      // the tab and the title say System already (gate 1)
+                add(t, EK_RESET_HOST, "Reset to host defaults", 0);
                 add(t, EK_RESTART_CORE, reload_core ? "Reload core" : "Restart core", reload_core ? 1 : 0);
+                add(t, EK_BUG_REPORT, "Bug report", 0);
+                add(t, EK_WIFI, "WiFi", 0);
+                for (int i = 0; i < d->nsettings; i++) {
+                    if (persist_is_generic(d->settings[i]) || home_is_generic(d->settings[i])) {   // T180 D2, D10
+                        add(t, EK_SETTING, d->settings[i].label ? d->settings[i].label : d->settings[i].key, i);
+                    }
+                }
                 if (return_host) {
                     add(t, EK_RETURN_HOST, "Return to host menu", 0);
                 }
-                add(t, EK_HEADING, "Network", 0);
-                add(t, EK_WIFI, "WiFi", 0);
-                add(t, EK_HEADING, "Support", 0);
-                add(t, EK_BUG_REPORT, "Bug report", 0);
-                if (!nodes_first) {
-                    add_nodes();
-                    nodes_done = true;
-                }
-                add(t, EK_HEADING, "Reset", 0);
-                add(t, EK_RESET_HOST, "Reset to host defaults", 0);
                 break;
             default:
                 break;
             }
             // what libraries, applications and the description put into this tab, in the merge's order
-            if (!nodes_first && !nodes_done) {
+            if (!nodes_first) {
                 add_nodes();
             }
             tab_end(t, a, tb);
-            if (page_route && tb->count > 0) {                           // the page the row opens: a tab with no number and no place on the strip, back to this tab
-                int parent = a->ntabs - 1;
-                MenuTab *pg = tab_begin(t, a, page_route->label);
-                if (pg) {
-                    pg->id = page_route->group;
-                    pg->n = 0;
-                    pg->page = true;
-                    pg->parent = (int8_t)parent;
-                    for (int i = 0; i < d->nsettings; i++) {
-                        const MenuGroupRoute *r = menu_route_of(d->settings[i]);
-                        if (r && r == page_route && route_tab(sk, r) == &st) {
-                            add(t, EK_SETTING, d->settings[i].label ? d->settings[i].label : d->settings[i].key, i);
-                        }
-                    }
-                    tab_end(t, a, pg);
-                }
-            }
         }
         area_end(t, a);
     }
@@ -415,9 +248,9 @@ static const FixedDef g_fixed[] = {
     { EK_RESTART_CORE, 0, "machine.restart", 0, 0, 0, 0, 0, "Core restarted: ROMs loaded again", "The core did not restart", true },
     { EK_RESTART_CORE, 1, "machine.restart", 0, 0, 0, 0, 0, "Core reloaded: bitstream and ROMs loaded again", "The core did not reload", true },
     { EK_BUG_REPORT, 0, "diag.bug_report", 0, 0, 0, 0, 0, 0, 0, false },
-    { EK_WIFI, 0, "wifi.toggle", 0, "wifi.onoff", "No module", 0, "wifi.line", 0, 0, false },
-    { EK_SAVE_SET, 0, "config.save", 0, 0, 0, 0, 0, 0, 0, false },
-    { EK_LOAD_SET, 0, "config.load", 0, "config.count", "none", " saved", 0, 0, 0, false },
+    { EK_WIFI, 0, "wifi.toggle", 0, "wifi.onoff", "Not set", 0, "wifi.line", 0, 0, false },
+    { EK_SAVE_SET, 0, "media.save_set", 0, 0, 0, 0, 0, 0, 0, false },
+    { EK_LOAD_SET, 0, "media.load_set", 0, "media.sets", "none", " saved", 0, 0, 0, false },
     // T180 D4: the media first; one that cannot be written back keeps the core. The way back is the host's (MenuHost::return_to_host).
     { EK_RETURN_HOST, 0, 0, "media.flush_for_core", 0, 0, 0, 0, 0, 0, false },
 };
@@ -453,8 +286,6 @@ static const char *kind_name(EntryKind k)
     case EK_SAVE_SET: return "fixed";
     case EK_LOAD_SET: return "fixed";
     case EK_NODE: return "node";
-    case EK_HEADING: return "heading";
-    case EK_OPENS: return "opens";
     }
     return "?";
 }
@@ -469,7 +300,7 @@ int menu_dump(const CoreDesc *d, const MenuTree *t, char *out, int max)
         EMIT("area %s %s%s\n", a.key, a.name, a.shifted ? " (shifted)" : "");
         for (int ti = 0; ti < a.ntabs; ti++) {
             const MenuTab &tb = a.tabs[ti];
-            EMIT("  tab %u %s%s\n", (unsigned)tb.n, tb.name, tb.page ? " (a page)" : "");
+            EMIT("  tab %u %s\n", (unsigned)tb.n, tb.name);
             for (int i = tb.first; i < tb.first + tb.count; i++) {
                 const MenuEntry &e = t->e[i];
                 EMIT("    %s %s", kind_name(e.kind), e.label);

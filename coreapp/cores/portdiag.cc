@@ -8,9 +8,6 @@
 #include "portdiag.h"
 #include "diagtest.h"
 #include "corefolder.h"
-#include "picture.h"
-#include "settings_ops.h"
-#include "ops_glue.h"
 #include <stdio.h>
 
 static PdHost *g_host;
@@ -42,107 +39,6 @@ static char g_last[120] = "No test run yet";
 static bool g_busy;
 static const char *st_last(CoreCtx *) { return g_last; }
 
-// ---- the A/V page (T201): one row per knob of the test picture's encoder (gateware cores/diag/rtl/diag_avout.v), live ----------------------------------------------
-// The rows are the descriptor's settings (the "Port Diagnostics Settings" tab), built from the knob table of the test runner (diagtest.cc) so a test file and the page name the same values.
-// A row writes its register at once; its value stays in the core's .cfg like any setting. The standard also sets the System Mode (the clock the subcarrier constant is for), as the C128's does.
-static const uint8_t av_sysfmt[4] = { 0x00, 0x2B, 0x2A, 0x01 };            // C64_VIDEOFORMAT per mode, as cores/c128.cc sysmode_fmt
-
-static void av_put(CoreCtx *c, int k, int idx)
-{
-    const AvKnob &kn = dt_av_knobs[k];
-    if (idx < 0 || idx >= kn.n) {
-        return;
-    }
-    int v = kn.val[idx];
-    CoreIo *io = c->io;
-    switch (k) {
-    case AVK_STD:
-        io->wr(PD_AV_STD, (uint8_t)v);
-        picture_set_system(c, v);
-        io->video_format(av_sysfmt[v & 3]);
-        break;
-    case AVK_GROUPS: io->wr(PD_AV_PERM, (uint8_t)v); break;
-    case AVK_BITS_A: case AVK_BITS_B: case AVK_BITS_C: {
-        int bit = k - AVK_BITS_A;
-        uint8_t r = (uint8_t)((io->rd(PD_AV_REV) & ~(1 << bit)) | (v << bit));
-        io->wr(PD_AV_REV, r);
-        break;
-    }
-    case AVK_VSIGN: io->wr(PD_AV_VINV, (uint8_t)((io->rd(PD_AV_VINV) & ~1) | (v & 1))); break;      // 053 is two bits: V sign, freeze - a write keeps the other one
-    case AVK_TRIM: io->wr(PD_AV_TRIM, (uint8_t)(int8_t)v); break;
-    case AVK_BSTART: io->wr(PD_AV_BSTART, (uint8_t)v); break;
-    case AVK_BEND: io->wr(PD_AV_BEND, (uint8_t)(v & 0xFF)); io->wr(PD_AV_BEND + 1, (uint8_t)(v >> 8)); break;
-    case AVK_BAMP: io->wr(PD_AV_BAMP, (uint8_t)v); break;
-    case AVK_GAIN: io->wr(PD_AV_GAIN, (uint8_t)v); break;
-    case AVK_SYNC: io->wr(PD_AV_SYNC, (uint8_t)v); break;
-    case AVK_BLANK: io->wr(PD_AV_BLANK, (uint8_t)v); break;
-    case AVK_WHITE: io->wr(PD_AV_WHITE, (uint8_t)v); break;
-    case AVK_EQ: io->wr(PD_AV_SYNCB, (uint8_t)((io->rd(PD_AV_SYNCB) & ~1) | (v & 1))); break;          // 05D is two bits: equalizing, 262 lines - a write keeps the other one
-    case AVK_VLEN: io->wr(PD_AV_VLEN, (uint8_t)v); break;
-    case AVK_VPOS: io->wr(PD_AV_VPOS, (uint8_t)(int8_t)v); break;
-    default: io->wr(PD_AV_SYNCB, (uint8_t)((io->rd(PD_AV_SYNCB) & ~2) | ((v & 1) << 1))); break;
-    }
-}
-
-template <int K> static int op_av(CoreCtx *c, const OpArgs &a, OpOut &)
-{
-    av_put(c, K, a.i(0));
-    return OPE_OK;
-}
-static int (*const av_ops[DT_AV_N])(CoreCtx *, const OpArgs &, OpOut &) = {
-    op_av<0>, op_av<1>, op_av<2>, op_av<3>, op_av<4>, op_av<5>, op_av<6>, op_av<7>, op_av<8>, op_av<9>, op_av<10>, op_av<11>, op_av<12>, op_av<13>, op_av<14>, op_av<15>, op_av<16>, op_av<17>
-};
-static const char *const av_op_names[DT_AV_N] = {
-    "pd.av0", "pd.av1", "pd.av2", "pd.av3", "pd.av4", "pd.av5", "pd.av6", "pd.av7", "pd.av8", "pd.av9", "pd.av10", "pd.av11", "pd.av12", "pd.av13", "pd.av14", "pd.av15", "pd.av16", "pd.av17"
-};
-
-static Setting g_av_settings[DT_AV_N];
-static ArgSpec g_av_args[DT_AV_N][1];
-static struct AvInit {
-    AvInit()
-    {
-        for (int k = 0; k < DT_AV_N; k++) {
-            Setting &s = g_av_settings[k];
-            memset(&s, 0, sizeof(s));
-            s.key = dt_av_knobs[k].key;
-            s.values = dt_av_knobs[k].labels;
-            s.nvalues = dt_av_knobs[k].n;
-            s.def = dt_av_knobs[k].def;
-            s.when = WHEN_LIVE;
-            s.apply = av_op_names[k];
-            ArgSpec a = ARG_INT("value", 0, dt_av_knobs[k].n - 1);
-            g_av_args[k][0] = a;
-        }
-    }
-} g_av_init;
-
-// What the test runner reads and writes (diagtest.h DiagEnv): the page's stored index of a knob, a knob straight into the gateware, and the page's own values back.
-static int av_page_idx(CoreCtx *c, int k)
-{
-    if (c->settings) {
-        int i = c->settings->find(dt_av_knobs[k].key);
-        if (i >= 0) {
-            return c->settings->value(i);
-        }
-    }
-    return dt_av_knobs[k].def;
-}
-static int av_get_cb(void *ud, int k) { return av_page_idx((CoreCtx *)ud, k); }
-static void av_set_cb(void *ud, int k, int idx) { av_put((CoreCtx *)ud, k, idx); }
-static void av_freeze_cb(void *ud, bool on)
-{
-    CoreIo *io = ((CoreCtx *)ud)->io;
-    io->wr(PD_AV_VINV, (uint8_t)((io->rd(PD_AV_VINV) & ~2) | (on ? 2 : 0)));
-}
-static void av_done_cb(void *ud)
-{
-    CoreCtx *c = (CoreCtx *)ud;
-    av_freeze_cb(ud, false);
-    for (int k = 0; k < DT_AV_N; k++) {
-        av_put(c, k, av_page_idx(c, k));
-    }
-}
-
 // ---- the run ---------------------------------------------------------------------------------------------------------------------------------
 static CoreCtx *g_ctx;
 static uint32_t env_now(void) { return g_ctx->io->now_ms(); }
@@ -155,12 +51,6 @@ void portdiag_prompt_text(const char *test, const char *text, int idx, int total
     snprintf(x, xn, "%s\n\nYES: done, measure.   NO: skip this step.   ESC: stop the test.", text);
 }
 
-void portdiag_question_text(const char *test, const char *text, int idx, int total, char *t, int tn, char *x, int xn)
-{
-    snprintf(t, tn, "%s  (%d of %d)", test, idx, total);
-    snprintf(x, xn, "%s\n\nYES or NO.   ESC: stop the test.", text);
-}
-
 class PdUi : public DiagUi {
 public:
     int prompt(const char *title, const char *text, int idx, int total, int timeout_s) override
@@ -169,25 +59,6 @@ public:
         portdiag_prompt_text(title, text, idx, total, t, sizeof(t), x, sizeof(x));
         int a = g_host->ask(t, x, timeout_s);
         return a > 0 ? DUI_CONTINUE : a == 0 ? DUI_SKIP : a == -2 ? DUI_TIMEOUT : DUI_ABORT;
-    }
-    int question(const char *title, const char *text, int idx, int total, int timeout_s) override
-    {
-        char t[96], x[400];
-        portdiag_question_text(title, text, idx, total, t, sizeof(t), x, sizeof(x));
-        int a = g_host->ask(t, x, timeout_s);
-        return a > 0 ? DUI_CONTINUE : a == 0 ? DUI_SKIP : a == -2 ? DUI_TIMEOUT : DUI_ABORT;
-    }
-    int choice(const char *title, const char *text, int idx, int total, int timeout_s, const char *const *items, int n, int *pick) override
-    {
-        char t[96], x[400];
-        snprintf(t, sizeof(t), "%s  (%d of %d)", title, idx, total);
-        snprintf(x, sizeof(x), "%s", text);
-        int a = g_host->choose(t, x, items, n, timeout_s);
-        if (a >= 0 && a < n) {
-            *pick = a;
-            return DUI_CONTINUE;
-        }
-        return a == -2 ? DUI_TIMEOUT : DUI_ABORT;
     }
     void progress(const char *) override { }
     void show(const char *title, const char *text) override { g_host->notice(title, text); }
@@ -201,84 +72,6 @@ static void folder_of(CoreCtx *c)
     if (!corefolder_dir(c->cor_path, g_folder, sizeof(g_folder))) {
         snprintf(g_folder, sizeof(g_folder), "/SD/cores/diag");
     }
-}
-
-// The presets: <folder>/presets/<name>.toml, the page's values in user terms. Saving writes the 14 rows; loading sets each row through settings.set (register and .cfg).
-static bool preset_name_ok(const char *n)
-{
-    if (!*n || strlen(n) > 40) {
-        return false;
-    }
-    for (; *n; n++) {
-        if (*n == '/' || *n == '\\' || *n == '"' || *n == ':' || (unsigned char)*n < 0x20) {
-            return false;
-        }
-    }
-    return true;
-}
-static int op_av_save(CoreCtx *c, const OpArgs &a, OpOut &o)
-{
-    const char *name = a.s(0);
-    if (!preset_name_ok(name)) {
-        snprintf(o.msg, o.msglen, "The name is empty, longer than 40 or has / \\ : or a quote");
-        return OPE_ARG;
-    }
-    folder_of(c);
-    static char buf[1600];
-    int n = snprintf(buf, sizeof(buf), "# TRX64U Port Diagnostics A/V preset (T201): the rows of the A/V page in user terms. Load it from the file browser (Load A/V preset).\nkind = \"avpreset\"\n\n[preset]\nname = \"%s\"\n", name);
-    for (int k = 0; k < DT_AV_N && n < (int)sizeof(buf) - 80; k++) {
-        n += snprintf(buf + n, sizeof(buf) - n, "%s = \"%s\"\n", dt_av_knobs[k].key, dt_av_knobs[k].labels[av_page_idx(c, k)]);
-    }
-    char dir[240], path[300];
-    snprintf(dir, sizeof(dir), "%s/presets", g_folder);
-    c->fs->mkdir(g_folder);
-    if (!c->fs->mkdir(dir)) {
-        snprintf(o.msg, o.msglen, "Cannot make %s (read only card?)", dir);
-        return OPE_FAILED;
-    }
-    snprintf(path, sizeof(path), "%s/%s.toml", dir, name);
-    if (!c->fs->save(path, buf, (uint32_t)n)) {
-        snprintf(o.msg, o.msglen, "Cannot write %s (read only card?)", path);
-        return OPE_FAILED;
-    }
-    snprintf(o.msg, o.msglen, "Preset written to %s", path);
-    return OPE_OK;
-}
-static int op_av_load(CoreCtx *c, const OpArgs &a, OpOut &o)
-{
-    static char buf[2048];
-    int n = c->fs->load(a.s(0), buf, sizeof(buf) - 1);
-    if (n < 0) {
-        snprintf(o.msg, o.msglen, "Cannot read %s", a.s(0));
-        return OPE_FAILED;
-    }
-    buf[n] = 0;
-    if (!strstr(buf, "kind = \"avpreset\"")) {
-        snprintf(o.msg, o.msglen, "Not an A/V preset (a test file runs with Run test)");
-        return OPE_ARG;
-    }
-    int done = 0;
-    for (int k = 0; k < DT_AV_N; k++) {                      // standard first (it is the first row): the others do not depend on it
-        char pat[40];
-        snprintf(pat, sizeof(pat), "\n%s = \"", dt_av_knobs[k].key);
-        const char *p = strstr(buf, pat);
-        if (!p) {
-            continue;
-        }
-        p += strlen(pat);
-        char val[48];
-        int j = 0;
-        while (*p && *p != '"' && j < 47) {
-            val[j++] = *p++;
-        }
-        val[j] = 0;
-        OpResult r;
-        if (settings_set(c, dt_av_knobs[k].key, val, &r) == OPE_OK) {
-            done++;
-        }
-    }
-    snprintf(o.msg, o.msglen, "%d of %d rows loaded", done, DT_AV_N);
-    return done == DT_AV_N ? OPE_OK : OPE_FAILED;
 }
 
 static void run_path(CoreCtx *c, const char *path)
@@ -295,11 +88,6 @@ static void run_path(CoreCtx *c, const char *path)
     env.stamp = env_stamp;
     env.core_version = c->core_version;
     env.folder = g_folder;
-    env.av_get = av_get_cb;
-    env.av_set = av_set_cb;
-    env.av_done = av_done_cb;
-    env.av_freeze = av_freeze_cb;
-    env.av_ud = c;
     const char *fn = strrchr(path, '/');
     snprintf(g_last, sizeof(g_last), "running %s", fn ? fn + 1 : path);
     int rc = diag_run_file(&env, path, &out);
@@ -385,19 +173,15 @@ static int pd_release(CoreCtx *c, char *, int)
 }
 
 static const OpBind run_bind[] = { B_FILE("path") };
-static const OpBind load_bind[] = { B_FILE("path") };
-static const OpBind save_bind[] = { B_TEXT("name") };
 static const FileAction toml_actions[] = {
     { "Run test", "pd.run", run_bind, 1, false, 0, 0, 0, 0, 'R' },
-    { "Load A/V preset", "pd.av_load", load_bind, 1, false, 0, 0, 0, 0, 'L' },
 };
 static const FileType filetypes[] = {
-    { ".toml", toml_actions, 2, 0, 0, 0 },
+    { ".toml", toml_actions, 1, 0, 0, 0 },
 };
 static const Task tasks[] = {
     { "Pick a test and run it", "pd.pick", 0, 0, false },
     { "Write the example tests", "pd.install", 0, 0, false },
-    { "Save A/V preset", "pd.av_save", save_bind, 1, false, "Preset name", 0 },
 };
 static const MediaSlot media[] = {
     { "Port 1", "pd.port1", 0, 0, 0, 0 },
@@ -415,13 +199,6 @@ static void pd_register(OpRegistry &r)
     r.add_op("pd.run", run_args, 1, op_run);
     r.add_op("pd.pick", 0, 0, op_pick);
     r.add_op("pd.install", 0, 0, op_install);
-    static const ArgSpec load_args[] = { ARG_PATH("path") };
-    static const ArgSpec save_args[] = { ARG_STRING("name", 41) };
-    r.add_op("pd.av_load", load_args, 1, op_av_load);
-    r.add_op("pd.av_save", save_args, 1, op_av_save);
-    for (int k = 0; k < DT_AV_N; k++) {
-        r.add_op(av_op_names[k], g_av_args[k], 1, av_ops[k]);
-    }
     r.add_state("pd.port1", st_p1);
     r.add_state("pd.port2", st_p2);
     r.add_state("pd.cmp", st_cmp);
@@ -443,8 +220,8 @@ const CoreDesc portdiag_desc = {
     "Port Diagnostics Settings",
     1,
     0, 0,
-    g_av_settings, DT_AV_N,
-    tasks, 3,
+    0, 0,
+    tasks, 2,
     filetypes, 1,
     media, 4,
     { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },              // no picture of its own: the application's screens are all there is

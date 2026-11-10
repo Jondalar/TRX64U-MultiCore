@@ -236,9 +236,8 @@ void answer_owner(bool yes)
 void press(int k)
 {
     if (picture_up()) {
-        bool no = k == KEY_LEFT || k == KEY_ESCAPE;          // T187 D5: LEFT / ESC send the previous mode back at once, any other key keeps this one
-        answer_owner(!no);
-        uic_close(&g_svc, "remote", no ? "no" : "yes");
+        answer_owner(true);                                  // any key keeps the picture
+        uic_close(&g_svc, "remote", "yes");
         return;
     }
     if (dialog_up()) {
@@ -329,7 +328,7 @@ Ctx ctx_of(MenuCtl *m)
     const char *d = m->dialog(t, sizeof(t));
     if (!strcmp(d, "pick")) return C_PICK;
     if (!strcmp(d, "busy") || !strcmp(d, "confirm") || !strcmp(d, "ask") || !strcmp(d, "text") || !strcmp(d, "address") || !strcmp(d, "viewer")) return C_NONE;
-    if (m->picking()) return C_PICK;                  // the folder browser of a task, the file selector of a setting, the list of configs
+    if (m->picking()) return C_PICK;                  // the folder browser of a task, the file selector of a setting, the list of media sets
     if (m->chooser()) return C_SHEET;
     if (m->browsing()) return C_LIBRARY;
     return C_ITEMS;
@@ -1123,18 +1122,23 @@ void entry_done(const char *text) { uic_history_add(&g_svc, text); }
 
 }
 
-// T192.3 D31 (Alex, 2026-11-10): the service is on for every core that runs this application (Gideon's application, trx64g, is a different program and
-// untouched). Only a CoreCtx without a descriptor has none.
+// T192 H3 (Alex, via the coordinator): the service is on for the Amiga 1200 and the TRX64U (the record menu: the T153 suite reads it through the service since the v1 state
+// is gone, Alex 2026-11-09). Every other core (VIC-20, ...) is as it was before the service: no token, no /v1/ui/state, destructive operations run, no remote question.
+static bool g_all_cores;                                  // a bench of the whole core table (test_uicover) turns the gate off
 
 static bool service_core(const CoreCtx *c)
 {
-    return c && c->desc;
+    // by name, not by address: the run loop may hold a merged copy of the descriptor (a library's menu merged in), whose manifest name is the core's
+    if (!c || !c->desc) return false;
+    const char *n = c->desc->cor_name;                // "TRX64U" is the manifest name of trx64u.cor (cores/c64.cc); the benches do not link that file
+    return g_all_cores || (n && ((amiga1200_desc.cor_name && !strcmp(n, amiga1200_desc.cor_name)) || !strcmp(n, "TRX64U")));
 }
 
+void uiapp_allow_all_cores_for_test(bool on) { g_all_cores = on; }
 
 void uiapp_init(CoreCtx *c, const UiAppEnv *env, const UiAppPlatform *plat)
 {
-    g_env = *env;                                     // before the gate: uiapp_local_key calls give_key while the service is not up
+    g_env = *env;                                     // before the gate: uiapp_local_key calls give_key on every core, the service is up on the Amiga 1200 and the TRX64U only
     if (g_up || !service_core(c)) {
         return;
     }
@@ -1212,7 +1216,7 @@ void uiapp_local_key(int key)
             uic_ask(&g_svc, q, 0);
         }
         in.kind = UD_ANSWER;
-        snprintf(in.choice, sizeof(in.choice), (key == KEY_LEFT || key == KEY_ESCAPE) ? "no" : "yes");   // T187 D5
+        snprintf(in.choice, sizeof(in.choice), "yes");
     } else if (dialog_up()) {                                         // an application's dialog: its own key table makes the intent
         DlgIntent di;
         g_env.dialog_key_intent(g_env.user, key, &di);

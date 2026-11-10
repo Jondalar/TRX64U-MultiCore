@@ -7,7 +7,6 @@
 #define PD_CAPS         0x006          // DCAPS (gateware spec 5): b0 the pins are drivable by the top, b1 PADDLE_DIS / PADDLE_ADJ
 #define PD_CAP_PINS     0x01
 #define PD_CAP_PADCTL   0x02
-#define PD_CAP_AV       0x04           // T201: the A/V test encoder (the registers below)
 #define PD_TICKS        0x00C          // 00C-00F, 32 bit little endian: clock ticks per microsecond x 256
 #define PD_CTRL         0x012          // W: b0 RUN (edge), b1 ABORT, b2 GO, b3 CLEAR FIFO
 #define PD_CTRL_RUN     0x01
@@ -26,23 +25,6 @@
 #define PD_FIFO         0x030          // 030-033: the word at the head, byte 0 first; the read of 033 pops it
 #define PD_FIFO_LEVEL   0x034          // 034-035, 16 bit little endian
 #define PD_LIVE         0x040          // 040-041, 16 bit little endian: {PADDLE_CMP[3:0], KBJOY_2[4:0], KBJOY_1[4:0]}, two flip-flop synchronised
-
-// T201: the A/V test encoder (gateware cores/diag/rtl/diag_regs.v 050-05F), all read/write and live. Reset values are the C128's PAL values.
-#define PD_AV_STD       0x050          // 0 PAL, 1 NTSC, 2 PAL-60, 3 NTSC-50 (the sys_clk must be that System Mode's: the application sets both)
-#define PD_AV_PERM      0x051          // 0..5: which of Y, C, CVBS goes to the groups A, B, C (5 = the C128's: CVBS on A, C on B, Y on C)
-#define PD_AV_REV       0x052          // bit n: the bit order of group n (A, B, C) reversed
-#define PD_AV_VINV      0x053          // b0: the V sign inverted; b1: the marker stands still (freeze, set by the test walk while a question is open)
-#define PD_AV_TRIM      0x054          // signed: subcarrier trim in steps of 64 x f_clk / 2^26 (about 31 Hz)
-#define PD_AV_BSTART    0x055          // burst window start, samples after the sync's trailing edge
-#define PD_AV_BEND      0x056          // 056-057, 10 bit little endian: the window's end
-#define PD_AV_BAMP      0x058          // burst amplitude, 32 = the C128's
-#define PD_AV_GAIN      0x059          // chroma gain x 16
-#define PD_AV_SYNC      0x05A          // sync tip level (8 bit code)
-#define PD_AV_BLANK     0x05B          // blanking level
-#define PD_AV_WHITE     0x05C          // white level, x 16 of the luma (11 = the C128's)
-#define PD_AV_SYNCB     0x05D          // b0: equalizing + serrated vsync (0: broad pulses at the line rate); b1: 262 lines per frame at the 60 Hz standards (0: 263)
-#define PD_AV_VLEN      0x05E          // vsync length (each block's with equalizing) in half lines: 6 = 3 lines (reset), 5 = 2.5, 12 = 6
-#define PD_AV_VPOS      0x05F          // signed: the vsync's start in lines against the default (broad pulses from line 244 of the picture at 60 Hz, 280 at 50 Hz)
 
 #define PD_STEPS_MAX    256
 #define PD_FIFO_MAX     512

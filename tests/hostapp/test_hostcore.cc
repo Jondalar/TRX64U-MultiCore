@@ -27,9 +27,9 @@ static int g_fail = 0, g_pass = 0;
 
 static void legends()
 {
-    CHECK_S(hc_foot(HCF_MENU), "UP/DOWN select    RETURN start    RIGHT configs    R check entry    V picture    any key stops the countdown");
-    CHECK_S(hc_foot(HCF_BROWSE), "UP/DOWN select    RETURN open    A add    S start    RIGHT configs    C copy    M move    DEL twice deletes    LEFT up    V picture");
-    CHECK_S(hc_foot(HCF_EDIT), "UP/DOWN select    +/- move    D default    C rename    LEFT/RIGHT config of this core    DEL twice removes");
+    CHECK_S(hc_foot(HCF_MENU), "UP/DOWN select    RETURN start    R check entry    V picture    any key stops the countdown");
+    CHECK_S(hc_foot(HCF_BROWSE), "UP/DOWN select    RETURN open    A add to menu    S start once    C copy    M move    DEL twice deletes    LEFT up    V picture");
+    CHECK_S(hc_foot(HCF_EDIT), "UP/DOWN select    +/- move    D default    C rename    DEL twice removes");
     CHECK_S(hc_foot(HCF_NET), "C colours    V picture");
     CHECK_S(hc_foot(HCF_SET), "UP/DOWN select    LEFT/RIGHT or RETURN change    V picture");
     CHECK_S(hc_foot(HCF_BR_MEDIA), "UP/DOWN select    RETURN open    F format as exFAT    V picture");
@@ -47,11 +47,6 @@ static void legends()
     CHECK_S(hc_foot(HCF_CM_ASK1), "Y continues    RETURN or any other key cancels (No)");
     CHECK_S(hc_foot(HCF_CM_ASK2), "Y deletes the entries listed    RETURN or any other key cancels (No)");
     CHECK_S(hc_foot(HCF_WM), "UP/DOWN select    LEFT/RIGHT or RETURN change    S AP list    M enter AP    L last AP    D disconnect    F forget    ESC back");
-    CHECK_S(hc_foot(HCF_PM), "UP/DOWN select    RETURN use this mode    LEFT back");      // T187 D5: the key bar of the Picture page
-    CHECK(hc_resolve(HCX_PICMODES, KEY_RETURN) == HCA_PM_APPLY && hc_resolve(HCX_PICMODES, KEY_LEFT) == HCA_BACK && hc_resolve(HCX_PICMODES, KEY_ESCAPE) == HCA_BACK
-          && hc_resolve(HCX_PICMODES, KEY_RIGHT) == HCA_NONE && hc_resolve(HCX_PICMODES, 'x') == HCA_NONE);
-    CHECK(hc_resolve(HCX_PICMODES, 'v') == HCA_PICTURE_STEP);                                   // V opens the page; on the page it is the global key again
-    CHECK(hc_resolve(HCX_SET, KEY_LEFT) == HCA_SET_DEC);       // the closed Picture row is a row of the list: LEFT / RIGHT are consumed in settings_key (Q-D5.1)
     CHECK_S(hc_foot(HCF_CM_EMPTY), "UP/DOWN scroll    ESC back");
     CHECK_S(hc_nav_key(0), "F1");
     CHECK_S(hc_nav_key(1), "F3");
@@ -99,13 +94,12 @@ static void resolve()
     CHECK(hc_resolve(HCX_MENU, KEY_F3) == HCA_NAV_BROWSE);
     CHECK(hc_resolve(HCX_COLORS, KEY_F8) == HCA_NAV_SETTINGS);
     CHECK(hc_resolve(HCX_COLORS, 'v') == HCA_PICTURE_STEP && hc_resolve(HCX_COLORS, 'V') == HCA_PICTURE_STEP);       // V is the picture even in the colour test
-    CHECK(hc_resolve(HCX_PICTURE, KEY_F3) == HCA_PICTURE_KEEP && hc_resolve(HCX_PICTURE, KEY_RETURN) == HCA_PICTURE_KEEP && hc_resolve(HCX_PICTURE, 'v') == HCA_PICTURE_KEEP
-          && hc_resolve(HCX_PICTURE, KEY_LEFT) == HCA_PICTURE_REVERT && hc_resolve(HCX_PICTURE, KEY_ESCAPE) == HCA_PICTURE_REVERT);   // T187 D5: LEFT / ESC goes back, V keeps like any key
+    CHECK(hc_resolve(HCX_PICTURE, KEY_F3) == HCA_PICTURE_KEEP && hc_resolve(HCX_PICTURE, KEY_RETURN) == HCA_PICTURE_KEEP && hc_resolve(HCX_PICTURE, 'v') == HCA_PICTURE_STEP);
     // the menu
     CHECK(hc_resolve(HCX_MENU, KEY_RETURN) == HCA_ENTRY_START && hc_resolve(HCX_MENU, 'R') == HCA_ENTRY_RECHECK && hc_resolve(HCX_MENU, 'x') == HCA_NONE);
     // the browser: the normal mode, the pick, the inspect, the question
     CHECK(hc_resolve(HCX_BROWSE, KEY_DELETE) == HCA_BROWSE_DELETE && hc_resolve(HCX_BROWSE, KEY_BACK) == HCA_BROWSE_DELETE);
-    CHECK(hc_resolve(HCX_BROWSE, KEY_RIGHT) == HCA_CONFIG_LIST);                                                // T198: RIGHT lists the configs of a core (a folder opens only in a pick)
+    CHECK(hc_resolve(HCX_BROWSE, KEY_RIGHT) == HCA_NONE);                                                       // RIGHT opens a folder only in a pick
     CHECK(hc_resolve(HCX_BROWSE_PICK, KEY_RIGHT) == HCA_BROWSE_ENTER && hc_resolve(HCX_BROWSE_INSPECT, KEY_RIGHT) == HCA_BROWSE_ENTER);
     CHECK(hc_resolve(HCX_BROWSE_PICK, 'c') == HCA_NONE && hc_resolve(HCX_BROWSE_INSPECT, 'a') == HCA_NONE);           // the copy / add keys do nothing in a pick
     CHECK(hc_resolve(HCX_BROWSE_PICK, KEY_BREAK) == HCA_BROWSE_PICK_CANCEL && hc_resolve(HCX_BROWSE_INSPECT, KEY_ESCAPE) == HCA_BROWSE_PICK_CANCEL);
@@ -405,24 +399,6 @@ static void start_sequence()
     CHECK(!r.jumped && !hc_start_running());
     r = run_seq(false, true, false, HC_START_MENU);
     CHECK(r.jumped);
-    // T198 S6/S5 (D7): a start with a config hands its name over, a plain start hands over "" (never the previous one)
-    {
-        extern std::string stub_start_config;
-        g_h = { h_progress, h_abort_key, h_pause, h_settle, h_lap, h_before, 0 };
-        static BootEntry be2;
-        HcStartEntry e = { "/SD/a.cor", false, &be2, false, "Demo collection" };
-        HcStartOutcome oc;
-        try { hc_start_sequence(e, HC_START_MENU, g_h, &oc); } catch (StubJump &) { }
-        CHECK(stub_start_config == "Demo collection");
-        e.config = "";
-        try { hc_start_sequence(e, HC_START_MENU, g_h, &oc); } catch (StubJump &) { }
-        CHECK(stub_start_config.empty());
-        hc_start_config_set("Games");                      // D8: the countdown / the overlay arm it, the start takes it once
-        try { hc_start_sequence(e, HC_START_MENU, g_h, &oc); } catch (StubJump &) { }
-        CHECK(stub_start_config == "Games");
-        try { hc_start_sequence(e, HC_START_MENU, g_h, &oc); } catch (StubJump &) { }
-        CHECK(stub_start_config.empty());
-    }
 }
 
 // ---- the entries' state and the lazy reader (T101 S10): in the order the loop meant it. The files are not there (a fake file system); the render bench

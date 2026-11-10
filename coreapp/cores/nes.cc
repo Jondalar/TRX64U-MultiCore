@@ -180,7 +180,7 @@ static void nes_register(OpRegistry &r)
 }
 
 // The NES has a cartridge and nothing a drive library could serve (T104.1 Q10).
-static const char *const caps[] = { "cartridge", "pad" };
+static const char *const caps[] = { "cartridge" };
 
 extern const CoreDesc nes_desc;
 const CoreDesc nes_desc = {
@@ -201,9 +201,9 @@ const CoreDesc nes_desc = {
     { NES_STATUS, NES_ST_HELD, 200 },
     nes_init, nes_release, 0, 5,
     "pad.poll", 16, false,
-    "Choose a .nes file in Library (F3)", ".nes",
+    "Choose a .nes file in the Files page", ".nes",
     nes_register,
-    caps, 2,
+    caps, 1,
     false,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,     // id_shared ... own_volume
     &pad_spec,

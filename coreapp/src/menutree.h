@@ -5,8 +5,8 @@
 //
 // Since T104 the tree is a *route* in the prototype's grammar (T104 5.8): a function key picks an area, a number key picks a
 // tab inside it, and published numbers never reorder. The four pages of T93 are the same entries under five areas - Home
-// (the information lines and, since T205, the media slots and configs), Library (the browser), the core (F5: its own settings, Video, Audio, Input),
-// Actions (its tasks), System (the actions). Nothing is added or dropped on the way, which is what the golden files check.
+// (the information lines), Library (the browser), the machine (its media and its settings), Actions (its tasks), System (the
+// two fixed entries). Nothing is added or dropped on the way, which is what the golden files check.
 #ifndef COREAPP_MENUTREE_H
 #define COREAPP_MENUTREE_H
 
@@ -23,11 +23,9 @@ enum EntryKind {
     EK_RETURN_HOST,     // fixed: Return to host menu (D13)
     EK_BUG_REPORT,      // fixed: Bug report - the state dump to /sd/report (T162 P1)
     EK_WIFI,            // fixed, in the system tab (F8) of every core: WiFi On / Off, switched live and not stored; the line under it shows state, network, address (T184 D3)
-    EK_SAVE_SET,        // fixed, in the Summary (media) tab: Save as config... (T198 D3, was Save media set... of T180 D5)
-    EK_LOAD_SET,        // fixed, the same: Load config...
-    EK_NODE,            // a node a library, an application or the description contributed (T104.1 D4, D8); `index` is into MenuTree::nodes
-    EK_HEADING,         // T187 D1: a quiet divider that names the group of the rows below it; never selectable, `label` is its text
-    EK_OPENS            // T187 D2: a row that opens a page (a hidden tab of the same area); `index` is the descriptor setting whose value the row shows
+    EK_SAVE_SET,        // fixed, in the media tab of a core with media slots (window, sector or its own engine): Save media set... (T180 D5)
+    EK_LOAD_SET,        // fixed, the same: Load media set...
+    EK_NODE             // a node a library, an application or the description contributed (T104.1 D4, D8); `index` is into MenuTree::nodes
 };
 
 // What a tab shows of the descriptor (T104.1 D8: the description names, for each tab, the widget). Contributed nodes can join a tab of the kinds
@@ -77,8 +75,6 @@ struct MenuTab {
     uint8_t n;          // the printed number, the stable half of the route
     const char *layout; // how the tab is drawn, "name;key=value;..." (contrib.h ui_attr), or null: the flat list
     int first, count;   // into MenuTree::e
-    bool page;          // T187 D2: a page a row opens (Hotkeys): no place on the tab strip, no number; leaving it returns to `parent`
-    int8_t parent;      // the tab (index in the area) whose row opens this page, -1: none
 };
 
 struct MenuArea {
@@ -127,21 +123,6 @@ void menu_build(const CoreDesc *d, MenuTree *t, bool return_host = true, bool re
 // The tree of a running core application: return_host, reload_core and the merge are the context's (the board, the .cor, the libraries).
 struct CoreCtx;
 void menu_build_for(const CoreCtx *c, MenuTree *t);
-
-// T187 D1: the one table that says where a generic row lands in EVERY core, with or without a description record. A row the application adds to every
-// core (Picture, Scale, Smoothing, Volume, the hotkeys, Persist medium mounts, Home directory, Enter home on startup) is named by what it does (its
-// operation), not by the group a descriptor wrote on it. `area` is the key of the area, `tab` the tab's id there, `heading` the group's name; a core whose
-// route has no such tab (a record without the area) lists the row where the ungrouped settings are.
-struct MenuGroupRoute {
-    const char *group;      // "video", "audio", "hotkeys", "storage", "menu"
-    const char *area;       // "F5" (T205 D1: the core's one settings area)
-    const char *tab;        // "video", "audio", "input", "settings" (a core without that tab lists the row in the area's tab "settings", under the heading)
-    const char *heading;    // the group as a person reads it: "Video", "Audio", "Input", "Storage", "Menu"
-    const char *label;      // a page's row in the tab ("Hotkeys")
-    bool page;              // the rows are not in the tab: one row there opens a page of them (Hotkeys)
-    const char *alt_area;   // a description that keeps its own Settings area (the TRX64U core's F6) is looked at second, by the tab id; null: none
-};
-const MenuGroupRoute *menu_route_of(const Setting &s);
 
 // The area a key selects, or -1. Takes the logical key (KEY_F1..KEY_F8), not a shift state.
 int menu_area_of_key(const MenuTree *t, int key);

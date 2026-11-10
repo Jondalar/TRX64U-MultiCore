@@ -91,10 +91,6 @@ static int op_reset(CoreCtx *c, const OpArgs &, OpOut &o)
         snprintf(o.msg, o.msglen, "The settings are not loaded yet");
         return OPE_FAILED;
     }
-    if (c->config[0]) {                                   // T198: the file is the config; deleting it would lose its mounts and its name from the list
-        snprintf(o.msg, o.msglen, "This run uses the config \"%s\". Reset is for the core's own settings: start the core plain, or change the settings here.", c->config);
-        return OPE_FAILED;
-    }
     bool ok = c->settings->reset_to_host();
     for (int i = 0; i < c->desc->nsettings; i++) {
         if (c->desc->settings[i].when == WHEN_LIVE) {
@@ -139,7 +135,7 @@ static int op_save(CoreCtx *c, const OpArgs &, OpOut &o)
         snprintf(o.msg, o.msglen, "%s", n[0] ? n : "The settings could not be written");
         return OPE_IO;
     }
-    snprintf(o.msg, o.msglen, "Settings written to %s", c->settings->path());
+    snprintf(o.msg, o.msglen, "Settings written to %s", c->cfg_path);
     return OPE_OK;
 }
 

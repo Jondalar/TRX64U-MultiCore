@@ -7,11 +7,6 @@ area F1 Home
     info Media
     info ROMs
     info Libraries
-    media Program
-    media Cartridge
-    media Drive A:
-    fixed Save as config...
-    fixed Load config...
 area F3 Library
   tab 1 Browse
     browser Browse
@@ -23,7 +18,13 @@ area F3 Library
       filetype .g64: Mount Disk | Mount Disk Read Only | Mount Disk Unlinked | Run Disk
       filetype .rom: Set as 1541 ROM
 area F5 C264
-  tab 1 C264
+  tab 1 Summary
+    media Program
+    media Cartridge
+    media Drive A:
+    fixed Save media set...
+    fixed Load media set...
+  tab 2 Settings
     setting Model = C16 / C116 | Plus/4 (default Plus/4, at next reset)
     setting RAM = 16 KB (C16, C116) | 64 KB (default 64 KB, at next reset)
     setting Joystick ports = Joystick 1 = port 1 | Swapped (default Joystick 1 = port 1, at next reset)
@@ -43,13 +44,9 @@ area F7 Actions
     task Save Disk as D64 (asks a name)
     task Save Disk as G64 (asks a name)
 area F8 System (shifted)
-  tab 1 System
-    heading Actions
-    fixed Restart core
-    fixed Return to host menu
-    heading Network
-    fixed WiFi
-    heading Support
-    fixed Bug report
-    heading Reset
+  tab 1 Expert
     fixed Reset to host defaults
+    fixed Restart core
+    fixed Bug report
+    fixed WiFi
+    fixed Return to host menu

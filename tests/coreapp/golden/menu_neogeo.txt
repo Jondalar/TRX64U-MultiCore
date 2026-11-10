@@ -7,15 +7,16 @@ area F1 Home
     info Media
     info ROMs
     info Libraries
-    media Cartridge
-    fixed Save as config...
-    fixed Load config...
 area F3 Library
   tab 1 Browse
     browser Browse
       filetype .neo: Run
 area F5 NEO GEO
-  tab 1 NEO GEO
+  tab 1 Summary
+    media Cartridge
+    fixed Save media set...
+    fixed Load media set...
+  tab 2 Settings
     setting System type = Console (AES) | Arcade (MVS) (default Console (AES), at next reset)
     setting BIOS = Universe BIOS | Original BIOS (default Universe BIOS, at next reset)
     setting Video mode = NTSC | PAL (default NTSC, at next reset)
@@ -33,13 +34,9 @@ area F7 Actions
     task Map buttons, pad 1
     task Map buttons, pad 2
 area F8 System (shifted)
-  tab 1 System
-    heading Actions
-    fixed Restart core
-    fixed Return to host menu
-    heading Network
-    fixed WiFi
-    heading Support
-    fixed Bug report
-    heading Reset
+  tab 1 Expert
     fixed Reset to host defaults
+    fixed Restart core
+    fixed Bug report
+    fixed WiFi
+    fixed Return to host menu

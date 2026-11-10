@@ -81,9 +81,6 @@ bool core_swap(const CorInfo *, const char **why, core_progress_t cb, void *)
     return true;
 }
 
-std::string stub_start_config;                       // T198: what core_set_start_config last got
-void core_set_start_config(const char *name) { stub_start_config = name ? name : ""; }
-
 void core_jump(const CorInfo *)
 {
     stub_calls.push_back("core_jump");

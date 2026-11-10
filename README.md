@@ -17,7 +17,7 @@
 1.A.2 The host starts first. The user adds the cores from a USB stick or an SD card to the boot menu and picks one. The host
 loads it into the FPGA and starts its application.
 
-1.A.3 A core is a complete machine: a C64, a VIC-20, a Commodore PET, 264 or 128, an Amiga, an Atari 800 XL, a NES, a Super Nintendo, a Neo Geo,
+1.A.3 A core is a complete machine: a C64, a VIC-20, a Commodore 264 or 128, an Amiga, an Atari 800 XL, a NES, a Super Nintendo, a Neo Geo,
 an Apple IIe, a ZX Spectrum, a ZX Spectrum Next or an Amstrad CPC. Two further cores are demos of the host, and one (`diag`) is a measuring tool with no machine (5.2).
 
 ### B. Applicability
@@ -160,7 +160,6 @@ full procedure with every screen is in [manual chapter 2](docs/manual/02-install
 |---|---|---|---|---|
 | `trx64` | C64 (TRX64 reference core; `trx64u.cor` with our application, `trx64g.cor` with the Ultimate application) | Large | Works | Board 2026-10-10: update, backup and restore, cartridges EF1, MegaByter, GMod2, EF3 (release candidate of the same gateware). The core is built in the TRX64 Ultimate project; its `.cor` files are packed here |
 | `vc20` | VIC-20 (PAL) | Partial | Testing | Board 2026-11-01 (Alex): runs. Board 2026-10-23: picture, sound, `.d64` on the 1541 with autostart; the start click stays. Floppy LED row on `main` (2026-11-02), not seen on the board |
-| `pet` | Commodore PET (all models, 8032, SuperPET, IEEE drive; large core, experimental) | Large | Testing | Board 2026-11-11 (Alex): starts, demos from zimmers.net run (T134). Models and cassette not checked yet |
 | `c264` | Commodore 264 (C16, Plus/4) | Large | Testing | Board 2026-10-28 (Alex): sound, 64K default, 1541 ROM, F7 reset. Plus/4 model not tested |
 | `c128` | Commodore 128 (large core: flat bitstream) | Large | Testing | Board 2026-10-26: picture and sound in C128 and C64 mode. Board 2026-11-02: black picture with the tester package; fixed on `main` (T140 section 11), board retest open. 1541/1581 drive built. Analogue output (S-video, composite) built, not seen on the board; cartridge port, REU not in the core |
 | `c64scpu` | C64 with SuperCPU (65816, SuperRAM; large core; build only, not in a release) | Large | PoC | T182: the C64 with its 6510 and the core application (ROM check, speed and JiffyDOS settings, drive A) are built and benched; the 65816 is not built yet, no board run. Needs the person's SuperCPU ROM |

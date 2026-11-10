@@ -7,12 +7,6 @@ area F1 Home
     info Media
     info ROMs
     info Libraries
-    media D1:
-    media D2:
-    media S7.1:
-    media S7.2:
-    fixed Save as config...
-    fixed Load config...
 area F3 Library
   tab 1 Browse
     browser Browse
@@ -24,7 +18,14 @@ area F3 Library
       filetype .2mg: Mount D1: and cold start | Mount D1: | Mount D2: | Mount S7 unit 1 and cold start | Mount S7 unit 1 | Mount S7 unit 2
       filetype .hdv: Mount S7 unit 1 and cold start | Mount S7 unit 1 | Mount S7 unit 2
 area F5 APPLE II
-  tab 1 APPLE II
+  tab 1 Summary
+    media D1:
+    media D2:
+    media S7.1:
+    media S7.2:
+    fixed Save media set...
+    fixed Load media set...
+  tab 2 Settings
     setting Display = Colour | Black and white | Green | Amber (default Colour, live)
     setting Palette = Original | IIgs | AppleWin (default Original, live)
     setting Scanlines = Off | On (default Off, live)
@@ -43,13 +44,9 @@ area F7 Actions
     task Eject S7 unit 2
     task Create blank DSK (asks a name)
 area F8 System (shifted)
-  tab 1 System
-    heading Actions
-    fixed Restart core
-    fixed Return to host menu
-    heading Network
-    fixed WiFi
-    heading Support
-    fixed Bug report
-    heading Reset
+  tab 1 Expert
     fixed Reset to host defaults
+    fixed Restart core
+    fixed Bug report
+    fixed WiFi
+    fixed Return to host menu

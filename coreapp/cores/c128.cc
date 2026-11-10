@@ -2,11 +2,11 @@
 // into the ROM line cache's backing store, then ROM_CTRL.b0 flushes the cache. With the setting ROM set = JiffyDOS (T185) the kit files the person selected
 // (one row each in the settings, or the file action in the browser) are written over the C64 and C128 KERNAL parts of that image first, and drive A takes
 // the JiffyDOS DOS ROM of its type. Settings: the 40/80 DISPLAY switch (D4080, taken at reset)
-// and the picture shown (MON_SEL: the VIC-IIe's capture, or the VDC's 640 x 400, or 640 x 480 woven in interlace, both on the pixel layer: Integer, Fit or Fill as for every core), which the
+// and the picture shown (MON_SEL: the VIC-IIe's capture, or the VDC's 640 x 400, both on the pixel layer: Integer, Fit or Fill as for every core), which the
 // Auto switch (T194 D12: on/off, time) moves to the chip that is being used, and a core hotkey (40/80) flips by hand.
 // Drive A is the cbm1541 library with the 1541 and the 1581 (cbm1541_desc.h, CBM1581_*). The register page is c128_regs.h; the extra keys of
-// the USB keyboard are c128_xkey_for (below), delivered by rawkeys.cc in held mode (T141 P2). Run Disk (T206) resets the machine and types the start at
-// READY (c128.type_script, the shared cbm_run job). Not in this descriptor: cartridge port, REU, Run PRG and the inner Mount & Run (no run_op), see T113 section 5.5 "Open".
+// the USB keyboard are c128_xkey_for (below), delivered by rawkeys.cc in held mode (T141 P2). Not in this descriptor: cartridge port, REU, the
+// PRG library / Mount & Run (the C128's keyboard buffer and READY detection), see T113 section 5.5 "Open".
 #include "hk_defaults.h"
 #include "ctx.h"
 #include "boot.h"
@@ -14,7 +14,6 @@
 #include "c128_keys.h"
 #include "cbm1541.h"
 #include "cbm1541_desc.h"
-#include "cbm_run.h"
 #include "cores.h"
 #include "rawkeys.h"
 #include "drive_rom_pick.h"
@@ -32,7 +31,6 @@
 // `put_mode` say what the window holds, so a reset writes the image again only when it differs.
 #define IMG_PART 0x4000u                                // the size of one kit part
 struct C128State {
-    CbmRun run;                                         // T206: Run Disk types LOAD"*",8,1 and RUN at READY (cbm_run.cc)
     int mon_seen;                                       // the MON_SEL value the picture layer follows; -1: none yet
     int auto_seen;                                      // C64 mode: 0 once the VIC has been put up (a flip by hand then stays); -1: not in C64 mode / none yet
     int act_seq;                                        // Auto: the last ACT_SEQ taken in; -1: none yet
@@ -894,7 +892,6 @@ static const RomSpec roms[3] = {
 // ---- control -------------------------------------------------------------------------------------------------------------------
 static int c128_init(CoreCtx *c, char *, int)
 {
-    cbm_run_clear(&c128_state(c)->run);                 // a reset ends a typed start that was still waiting for READY
     c->io->mode_reset(true);
     return 0;
 }
@@ -970,65 +967,20 @@ static void debug_line(CoreCtx *c)
     }
 }
 
-// T206: what the typed start waits for and types into. The C128 in 128 mode (a reset always starts it there: nothing holds the C= key; in C64 mode BASIC's
-// TXTTAB would be $0801 and the start would be dropped with the "did not reach READY" notice): BASIC 7 text starts at $1C01 and TXTTAB is the pointer pair
-// $2D/$2E (VARTAB $2F, ARYTAB $31, STREND $33), the keyboard buffer KEYD is $034A (ten keys) with its count NDX at $D0 - the C128 Programmer's Reference
-// Guide's memory map; no C128 KERNAL source is in this repository to read them from, so they are unverified until the board step. ready_ms is not measured: the first look at READY is
-// taken 2 s after the reset (the 128-mode boot with the 40/80 init and the RAM test is slower than the C64's), 500 ms settle; Alex's board step S3 measures it.
-static CbmRunMachine machine(void)
-{
-    CbmRunMachine m;
-    memset(&m, 0, sizeof(m));
-    m.tag = "c128";
-    m.prg.basic_starts[0] = 0x1C01;
-    m.prg.nbasic_starts = 1;
-    m.prg.txttab = 0x2D; m.prg.txttab_min = 0x1C01; m.prg.txttab_max = 0xBFFF;
-    m.prg.vartab = 0x2F; m.prg.arytab = 0x31; m.prg.strend = 0x33;
-    m.prg.kbd_buffer = 0x034A; m.prg.kbd_count = 0xD0;
-    m.prg.p00_header = 0x1A;
-    m.prg.min_size = 3;
-    m.prg.max_size = 0x1A + 2 + (0x10000 - 0x1C01);
-    m.ready_ms = 2000;
-    m.settle_ms = 500;
-    m.giveup_ms = 6000;
-    return m;
-}
-
-static int op_type(CoreCtx *c, const OpArgs &a, OpOut &o)
-{
-    return cbm_run_queue_script(c, &c128_state(c)->run, machine(), a.s(0), o.msg, o.msglen) ? OPE_FAILED : OPE_OK;
-}
-static const ArgSpec text_arg[] = { ARG_STRING("text", 63) };
-
-
-// T113 D11: the VDC's buffers are 640 x 480, 480 rows when the picture is woven (FB_LATEST b2: the newest complete picture is interlaced), else 400 rows (200 lines doubled).
-// The layer follows the newest picture; the height is the layer's geometry, so the layout (Picture, HDMI mode) is made for it.
-static void c128_rows(CoreCtx *c)
-{
-    uint8_t l = c->io->rd(C128_FB_LATEST);
-    if (l & 0x80) {
-        c->video->set_rows((l & 4) ? 480u : 400u);
-    }
-}
-
 static int op_service(CoreCtx *c, const OpArgs &, OpOut &o)
 {
-    int rc = cbm_run_service(c, &c128_state(c)->run, machine());
     if (c->started) {
         debug_line(c);
         int v = c->io->rd(C128_MON_SEL) & 1;
         if (v != c128_state(c)->mon_seen) {
             follow_picture(c, v);
         }
-        if (c->video && c->video->picture() == 0) {
-            c128_rows(c);
-        }
         if (auto_on(c)) {
             auto_follow(c);
         }
     }
     o.more = cbm1541_service(c);
-    return rc;
+    return OPE_OK;
 }
 
 // ---- menu ----------------------------------------------------------------------------------------------------------------------
@@ -1045,14 +997,30 @@ static const FileAction rom_actions[] = {
     KIT_ACTIONS,
 };
 static const FileAction bin_actions[] = { KIT_ACTIONS };
-// T206: the disk actions are the library's (cbm1541_desc.h): the same names and order as in every core with a drive. No inner Mount & Run / Real Run on
-// the images: the core has no Run PRG (run_op), so Mount & Run would fail.
+// Disk images are mounted and browsed; Run Disk and Mount & Run need a way to type at the C128's READY, which this descriptor does not have
+// (type_op / run_op are null; T113 5.5 "Open").
+static const FileAction d64_actions[] = {
+    { "Mount Disk",           "drive.mount", c1541_bind_rw, 3, true, 0, 0 },
+    { "Mount Disk Read Only", "drive.mount", c1541_bind_ro, 3, true, 0, 0 },
+    { "Mount Disk Unlinked",  "drive.mount", c1541_bind_ul, 3, true, 0, 0 },
+    { "Browse Disk",          "menu.browse", c1541_bind_browse, 1, false, 0, 0 },
+};
+static const FileAction g64_actions[] = {
+    { "Mount Disk",           "drive.mount", c1541_bind_rw, 3, true, 0, 0 },
+    { "Mount Disk Read Only", "drive.mount", c1541_bind_ro, 3, true, 0, 0 },
+    { "Mount Disk Unlinked",  "drive.mount", c1541_bind_ul, 3, true, 0, 0 },
+};
+static const FileAction d81_actions[] = {
+    { "Mount Disk",           "drive.mount", c1541_bind_rw, 3, true, 0, 0 },
+    { "Mount Disk Read Only", "drive.mount", c1541_bind_ro, 3, true, 0, 0 },
+    { "Browse Disk",          "menu.browse", c1541_bind_browse, 1, false, 0, 0 },
+};
 static const FileType filetypes[5] = {
     { ".rom", rom_actions, 6, 0, 0, 0 },
     { ".bin", bin_actions, 4, 0, 0, 0 },
-    { ".d64", c1541_d64_actions, 5, 0, 0, 0 },
-    { ".g64", c1541_g64_actions, 4, 0, 0, 0 },
-    { ".d81", c1581_disk_actions, 4, 0, 0, 0 },
+    { ".d64", d64_actions, 4, 0, 0, 0 },
+    { ".g64", g64_actions, 3, 0, 0, 0 },
+    { ".d81", d81_actions, 3, 0, 0, 0 },
 };
 
 static const Task tasks[2 + CBM1541_NTASKS + CBM1581_NTASKS] = {
@@ -1087,7 +1055,6 @@ static void c128_register(OpRegistry &r)
     r.add_op("c128.set_joy", mon_arg, 1, op_set_joy);
     r.add_op("c128.set_sysmode", sysmode_arg, 1, op_set_sysmode);
     r.add_op("c128.service", 0, 0, op_service);
-    r.add_op("c128.type_script", text_arg, 1, op_type);
     r.add_state("c128.auto_diag", state_auto_diag);
     cbm1541_register(r);
 }
@@ -1109,7 +1076,7 @@ static const VideoDesc c128_vic = { 400, 270, 1, 760, 405, 0, 0, 0, 0, 0, 0, 0, 
 #define HKK_D 18
 static const HkSpec hk_c128 = {
     { HKK_CTRL, HK_NONE, { HK_RESTORE, HKK_PLUS, HKK_MINUS, HKK_R, HKK_J, HKK_P, HKK_D } }, 0, 0, HKO_DIGITS,
-    "c128.toggle_picture", "Hotkey picture 40/80", "Picture 40 / 80" };
+    "c128.toggle_picture", "Hotkey picture 40/80", "Hotkey: picture 40 / 80" };
 
 extern const CoreDesc c128_desc;
 const CoreDesc c128_desc = {
@@ -1125,9 +1092,8 @@ const CoreDesc c128_desc = {
     tasks, 2 + CBM1541_NTASKS + CBM1581_NTASKS,
     filetypes, 5,
     media, 1,
-    // the VDC's picture: 640 x 480 is the largest (interlace woven, T113 D11), shown 2 x 2 (1280 x 960) centred on 1920 x 1080; without interlace the layer shows 400 rows
-    // (c128_rows, 1280 x 800 as before); the buffers are the core's reset values of FB_BASE / FB_STRIDE
-    { 640, 480, 2, 320, 60, C128_FB_ADDR, C128_FB_STRIDE_BYTES, 3, C128_FB_LATEST, C128_FRAME_SEQ, C128_FB_BASE, C128_FB_STRIDE },
+    // the VDC's 640 x 400 shown 2 x 2 (1280 x 800), centred on 1920 x 1080; the buffers are the core's reset values of FB_BASE / FB_STRIDE
+    { 640, 400, 2, 320, 140, C128_FB_ADDR, C128_FB_STRIDE_BYTES, 3, C128_FB_LATEST, C128_FRAME_SEQ, C128_FB_BASE, C128_FB_STRIDE },
     { C128_STATUS, C128_ST_HELD, 200, false },
     c128_init, c128_release, 0, 50,
     "c128.service", 20, false,
@@ -1135,8 +1101,8 @@ const CoreDesc c128_desc = {
     c128_register,
     caps, 2,
     false, false, 0, 0, 0, 0, 0, 0, 0,
-    "c128.type_script",                                 // type_op (T206: Run Disk)
-    0,                                                  // run_op
+    0,
+    0,
     65536,                                              // cold_ram_bytes: RAM block 0, what the RAM window reaches (block 1 and the VDC's RAM it does not)
     // TODO(T113 5.6, coordinator at merge): once CoreDesc has the hook, add  .cold_start = c128_cold_start  here (the descriptor is positional: the new field's slot)
     0, 0, 0, 0,                                // cold_start, id_feat_reg, id_feat_mask, id_feat_val

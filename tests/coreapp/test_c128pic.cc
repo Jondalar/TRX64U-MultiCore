@@ -30,27 +30,14 @@ int main()
     v.init();
     CHECK_EQ(v.picture(), 0);
 
-    // the VDC first (T113 D11: the descriptor is the woven 640 x 480): 1080p Integer = 1280 x 960 at (320, 60), format 1, scale bits 2
+    // the VDC first: 1080p Integer = 1280 x 800 at (320, 140), format 1, scale bits 2
     v.set_mode(VID_HDMI_1080P, VID_SYS_PAL50);
     v.show();
     CHECK_EQ(px.last(PX_CTRL), 0x23u);
-    CHECK_EQ(px.last(PX_SIZE), (480u << 16) | 640u);
-    CHECK_EQ(px.last(PX_STRIDE), 1280u);
-    CHECK_EQ(px.last(PX_OSIZE), (960u << 16) | 1280u);
-    CHECK_EQ(px.last(PX_POS), (60u << 16) | 320u);
-    // a picture that is not interlaced: the layer is cut to 400 rows (1280 x 800 at y 140), and back; the same height again writes nothing
-    v.set_rows(400);
     CHECK_EQ(px.last(PX_SIZE), (400u << 16) | 640u);
+    CHECK_EQ(px.last(PX_STRIDE), 1280u);
     CHECK_EQ(px.last(PX_OSIZE), (800u << 16) | 1280u);
     CHECK_EQ(px.last(PX_POS), (140u << 16) | 320u);
-    int nsz = px.count(PX_SIZE);
-    v.set_rows(400);
-    CHECK_EQ(px.count(PX_SIZE), nsz);
-    v.set_rows(481);                                      // more than the descriptor holds: refused
-    CHECK_EQ(px.last(PX_SIZE), (400u << 16) | 640u);
-    v.set_rows(480);
-    CHECK_EQ(px.last(PX_SIZE), (480u << 16) | 640u);
-    CHECK_EQ(px.last(PX_POS), (60u << 16) | 320u);
     int fronts = px.count(PX_FRONT);
     CHECK(fronts >= 1);
 
@@ -122,7 +109,7 @@ int main()
     v.select_picture(0);
     CHECK_EQ(v.picture(), 0);
     CHECK_EQ(px.last(PX_CTRL), 0x23u);
-    CHECK_EQ(px.last(PX_SIZE), (480u << 16) | 640u);
+    CHECK_EQ(px.last(PX_SIZE), (400u << 16) | 640u);
     CHECK_EQ(px.last(PX_STRIDE), 1280u);
     CHECK_EQ(px.last(PX_OSIZE), (1080u << 16) | 1920u);
     CHECK_EQ(px.last(PX_POS), 0u);
@@ -132,13 +119,13 @@ int main()
     // and again to the VIC and back at Integer: nothing of the VIC's geometry stays in the VDC's
     v.set_scale_mode(VID_SCALE_INTEGER);
     v.set_mode(VID_HDMI_1080P, VID_SYS_NTSC60);
-    CHECK_EQ(px.last(PX_OSIZE), (960u << 16) | 1280u);
-    CHECK_EQ(px.last(PX_POS), (60u << 16) | 320u);
+    CHECK_EQ(px.last(PX_OSIZE), (800u << 16) | 1280u);
+    CHECK_EQ(px.last(PX_POS), (140u << 16) | 320u);
     v.select_picture(1);
     CHECK_EQ(px.last(PX_OSIZE), (960u << 16) | 1600u);
     v.select_picture(0);
-    CHECK_EQ(px.last(PX_OSIZE), (960u << 16) | 1280u);
-    CHECK_EQ(px.last(PX_POS), (60u << 16) | 320u);
+    CHECK_EQ(px.last(PX_OSIZE), (800u << 16) | 1280u);
+    CHECK_EQ(px.last(PX_POS), (140u << 16) | 320u);
     // wanted_hdmi() answers from the descriptor's own picture while the VIC is selected
     int w0 = v.wanted_hdmi();
     v.select_picture(1);

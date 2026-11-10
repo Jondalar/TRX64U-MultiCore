@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <string.h>
 
-int host_report_build(const WebSnapshot *s, uint32_t fattime, bool time_valid, const char *log, int log_len, char *out, int cap, const char *startlog)
+int host_report_build(const WebSnapshot *s, uint32_t fattime, bool time_valid, const char *log, int log_len, char *out, int cap)
 {
     BrOut o;
     br_init(&o, out, cap);
@@ -48,13 +48,6 @@ int host_report_build(const WebSnapshot *s, uint32_t fattime, bool time_valid, c
         } else {
             br_put(&o, "    size and sha256 not recorded\n");
         }
-    }
-
-    br_section(&o, "Start log (startlog.txt on the SD card: the last starts, what the host saw)");
-    if (startlog && *startlog) {
-        br_text(&o, startlog, (int)strlen(startlog));
-    } else {
-        br_put(&o, "(no startlog.txt on the SD card)\n");
     }
 
     br_section(&o, "Log (last lines the host app printed)");

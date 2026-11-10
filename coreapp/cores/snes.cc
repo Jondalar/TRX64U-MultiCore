@@ -492,7 +492,7 @@ static void snes_register(OpRegistry &r)
 }
 
 // A cartridge and nothing a library of another machine's media could serve.
-static const char *const caps[] = { "cartridge", "pad" };
+static const char *const caps[] = { "cartridge" };
 
 extern const CoreDesc snes_desc;
 const CoreDesc snes_desc = {
@@ -513,9 +513,9 @@ const CoreDesc snes_desc = {
     { SNES_STATUS, SNES_ST_HELD, 200 },
     snes_init, snes_release, 0, 5,
     "snes.service", 16, false,
-    "Choose a .sfc or .smc file in Library (F3)", ".sfc",
+    "Choose a .sfc or .smc file in the Files page", ".sfc",
     snes_register,
-    caps, 2,
+    caps, 1,
     false,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,     // id_shared ... own_volume
     &pad_spec,

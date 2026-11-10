@@ -102,8 +102,6 @@ SRCS_CC	 =  u64ii_init.cc \
 			usb_hub.cc \
 			usb_ax88772.cc \
 			usb_hid.cc \
-			usb_xinput.cc \
-			xinput.cc \
 			usb_ms_cbi.cc \
 			keyboard_usb.cc \
 			network_config.cc \
@@ -123,7 +121,6 @@ SRCS_CC	 =  u64ii_init.cc \
 			trx_lv_port.cc \
 			json.cc \
 			handover.cc \
-			configlist.cc \
 			cor.cc \
 			partial.cc \
 			start.cc \
@@ -133,7 +130,6 @@ SRCS_CC	 =  u64ii_init.cc \
 			cfgfile.cc \
 			settings.cc \
 			picture.cc \
-			picmodes.cc \
 			volume.cc \
 			hotkeys.cc \
 			ops.cc \
@@ -171,7 +167,6 @@ SRCS_CC	 =  u64ii_init.cc \
 			sectors.cc \
 			mediamounts.cc \
 			home.cc \
-			menubuild.cc \
 			amiga_ffs.cc \
 			folderhd.cc \
 			folderhd_fold.cc \
@@ -212,7 +207,6 @@ SRCS_CC	 =  u64ii_init.cc \
 			cpc_disk.cc \
 			vc20.cc \
 			c264.cc \
-			pet.cc \
 			c128.cc \
 			c64scpu.cc \
 			ddt_mandel.cc \

@@ -13,14 +13,13 @@ static inline const MenuMerge *lib_merge()
 {
     static const SkelTab t_home[] = { { "home", "Home", 0, TW_INFO, 0, 0 } };
     static const SkelTab t_lib[] = { { "browse", "Browse", 0, TW_BROWSER, 0, "library" } };
-    static const SkelTab t_machine[] = { { "settings", 0, 0, TW_SETTINGS, 0, 0 }, { "video", "Video", 0, TW_SETTINGS, "video", 0 },     // the default route of T205 D1
-                                         { "audio", "Audio", 0, TW_SETTINGS, "audio", 0 }, { "input", "Input", 0, TW_SETTINGS, "input", 0 } };
+    static const SkelTab t_machine[] = { { "summary", "Summary", 0, TW_MEDIA, 0, 0 }, { "settings", "Settings", 0, TW_SETTINGS, 0, 0 } };
     static const SkelTab t_actions[] = { { "quick", "Quick", 0, TW_TASKS, 0, 0 } };
     static const SkelTab t_system[] = { { "expert", "Expert", 0, TW_SYSTEM, 0, 0 } };
     static const SkelArea areas[] = {
         { "F1", "Home", false, t_home, 1 },
         { "F3", "Library", false, t_lib, 1 },
-        { "F5", 0, false, t_machine, 4 },
+        { "F5", 0, false, t_machine, 2 },
         { "F7", "Actions", false, t_actions, 1 },
         { "F8", "System", true, t_system, 1 },
     };

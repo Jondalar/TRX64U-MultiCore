@@ -16,7 +16,7 @@
 
 // ---- the contexts: which part of the keymap the screen takes a key with -------------------------------------------------------------------
 enum HcCtx {
-    HCX_PICTURE = 0,       // a picture change waits for a key: the first key of any view is spent on it (RETURN or any key keeps it, LEFT / ESC goes back)
+    HCX_PICTURE = 0,       // a picture change waits for a key: the first key of any view is spent on it (V steps on)
     HCX_MENU,              // F1
     HCX_BROWSE,            // F3, normal mode
     HCX_BROWSE_PICK,       // F3, the copy / move target pick
@@ -25,13 +25,11 @@ enum HcCtx {
     HCX_EDIT,              // F5
     HCX_SET,               // F8
     HCX_WIFI,              // F8, the WiFi page
-    HCX_PICMODES,          // F8, the Picture page (T187 D5): the modes the screen names
     HCX_CORES,             // F8, Cores and ROMs, the list
     HCX_CORES_ASK1,        // ... the first question
     HCX_CORES_ASK2,        // ... the second question
     HCX_NET,               // F7
     HCX_COLORS,            // the colour test
-    HCX_CFG,               // T198: the config overlay over F1 or F3
     HCX_N,
     HCX_GLOBAL = HCX_N     // the keys of every context (the F keys, V); consulted first (not in HCX_PICTURE)
 };
@@ -42,10 +40,10 @@ enum HcCtx {
 #define HC_ACT_LIST(X) \
     X(NONE, "") \
     X(NAV_MENU, "nav.menu") X(NAV_BROWSE, "nav.browse") X(NAV_EDIT, "nav.edit") X(NAV_NET, "nav.net") X(NAV_SETTINGS, "nav.settings") \
-    X(PICTURE_STEP, "picture.step") X(PICTURE_KEEP, "picture.keep") X(PICTURE_REVERT, "picture.revert") X(PM_APPLY, "picture.apply") \
+    X(PICTURE_STEP, "picture.step") X(PICTURE_KEEP, "picture.keep") \
     X(CURSOR_UP, "cursor.up") X(CURSOR_DOWN, "cursor.down") X(BACK, "back") \
     X(ENTRY_START, "entry.start") X(ENTRY_RECHECK, "entry.recheck") X(ENTRY_MOVE_UP, "entry.move_up") X(ENTRY_MOVE_DOWN, "entry.move_down") \
-    X(ENTRY_DEFAULT, "entry.default") X(ENTRY_REMOVE, "entry.remove") X(ENTRY_RENAME, "entry.rename") X(ENTRY_DEFCFG_PREV, "entry.config_prev") X(ENTRY_DEFCFG_NEXT, "entry.config_next") \
+    X(ENTRY_DEFAULT, "entry.default") X(ENTRY_REMOVE, "entry.remove") X(ENTRY_RENAME, "entry.rename") \
     X(BROWSE_OPEN, "browse.open") X(BROWSE_ENTER, "browse.enter") X(BROWSE_UP, "browse.up") X(BROWSE_PAGE_DOWN, "browse.page_down") X(BROWSE_PAGE_UP, "browse.page_up") \
     X(BROWSE_ADD, "browse.add") X(BROWSE_START, "browse.start") X(BROWSE_COPY, "browse.copy") X(BROWSE_MOVE, "browse.move") X(BROWSE_DELETE, "browse.delete") \
     X(BROWSE_CONVERT, "browse.convert") X(BROWSE_RESTORE, "browse.restore") X(BROWSE_UPDATE, "browse.update") X(BROWSE_FORMAT, "browse.format") \
@@ -55,7 +53,6 @@ enum HcCtx {
     X(WIFI_LAST, "wifi.last") X(WIFI_DISCONNECT, "wifi.disconnect") X(WIFI_FORGET, "wifi.forget") \
     X(CORES_DELETE, "cores.delete") X(CORES_YES, "cores.yes") X(CORES_NO, "cores.no") \
     X(NET_COLORS, "net.colors") \
-    X(CONFIG_LIST, "config.list") X(CONFIG_START, "config.start") X(CONFIG_RENAME, "config.rename") X(CONFIG_DELETE, "config.delete") X(CONFIG_DEFAULT, "config.default") \
     X(WEB_START, "web.start") X(WEB_DEFAULT, "web.default") X(WEB_VIDEO, "web.video") X(WEB_COUNTDOWN, "web.countdown") \
     X(COLORS_REPORT, "colors.report") X(COLORS_SINGLE, "colors.single") X(COLORS_MULTI, "colors.multi") X(COLORS_PATTERN, "colors.pattern") X(COLORS_CLOSE, "colors.close")
 
@@ -98,8 +95,7 @@ void hc_key_name(int ctx, int act, char *out, int cap);
 enum HcFoot {
     HCF_MENU = 0, HCF_BROWSE,                  // HCF_BROWSE: a boot-menu file (the longest of the browser's)
     HCF_BR_MEDIA, HCF_BR_PLAIN, HCF_BR_FILE, HCF_BR_DIR, HCF_BR_PICK_COPY, HCF_BR_PICK_MOVE, HCF_BR_ASK, HCF_BR_BACKUP, HCF_BR_TXU, HCF_BR_INSPECT, HCF_BR_CFW,
-    HCF_EDIT, HCF_NET, HCF_SET, HCF_CM_LIST, HCF_CM_ASK1, HCF_CM_ASK2, HCF_WM, HCF_CM_EMPTY, HCF_PM, HCF_CFG,
-    HCF_MENU_PLAIN, HCF_BROWSE_PLAIN, HCF_CFG_PLAIN,          // T198 D9: the same two without "configs", for a selected row that has none
+    HCF_EDIT, HCF_NET, HCF_SET, HCF_CM_LIST, HCF_CM_ASK1, HCF_CM_ASK2, HCF_WM, HCF_CM_EMPTY,
     HCF_N
 };
 const char *hc_foot(int foot);                 // generated once, kept
@@ -137,8 +133,6 @@ bool hc_cfg_readback_ok(int i);                          // boot.cfg as the boar
 
 int hc_entry_move(int i, int dir);                       // dir -1 up, +1 down; the default follows
 int hc_entry_default(int i);
-int hc_entry_defcfg(int i, const char *name);           // T198 D8: the entry's default config ("" = none); HCR_REFUSED for a name config_name_ok refuses
-void hc_start_config_set(const char *name);             // T198: the config the next hc_start_sequence hands over (one-shot, "" = plain)
 int hc_entry_remove(int i);
 int hc_entry_rename(int i, const char *name);            // HCR_REFUSED: the name cannot be used (nothing changed)
 int hc_entry_add(const char *name, const char *path, const char *hash, unsigned size, unsigned mtime, unsigned hdr);   // HCR_REFUSED: full, or a bad name
@@ -174,7 +168,6 @@ struct HcStartEntry {
     bool full;                      // a .cfw or a large .cor: the full-firmware way, with the flash lock
     const BootEntry *trusted;       // a core: the boot.cfg entry whose stored check stands in for hashing the parts (null: hash everything)
     bool verify;                    // a firmware started once (not from the menu): the image is checked and compared with the flash
-    const char *config;             // T198: a core started with this config (""/null = plain start); handed over in the hand-over page
 };
 struct HcStartHooks {
     core_progress_t progress;                   // stage and swap report here; non-zero asks to abort. The menu paints the steps and polls RUN/STOP, a direct start samples the held keys

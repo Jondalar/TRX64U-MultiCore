@@ -149,34 +149,12 @@ enum { DUI_CONTINUE = 0, DUI_SKIP, DUI_TIMEOUT, DUI_ABORT };
 class DiagUi {
 public:
     virtual ~DiagUi() { }
-    // T201: a question of an A/V test; the answer is DUI_CONTINUE for YES, DUI_SKIP for NO, DUI_TIMEOUT, DUI_ABORT. The default is the prompt.
-    virtual int question(const char *title, const char *text, int idx, int total, int timeout_s) { return prompt(title, text, idx, total, timeout_s); }
-    // T201 v2: a question with a choice of answers (items[0..n-1]); DUI_CONTINUE with *pick = the index, DUI_TIMEOUT, DUI_ABORT. The default asks it as YES / NO: YES picks 0, NO picks the last item.
-    virtual int choice(const char *title, const char *text, int idx, int total, int timeout_s, const char *const *items, int n, int *pick)
-    {
-        (void)items;
-        int a = question(title, text, idx, total, timeout_s);
-        *pick = a == DUI_CONTINUE ? 0 : n - 1;
-        return a;
-    }
     // A prompt of the test; the answer is DUI_*. `timeout_s` 0: waits for ever.
     virtual int prompt(const char *title, const char *text, int idx, int total, int timeout_s) = 0;
     virtual void progress(const char *text) = 0;
     // The readable result; returns when the person has read it.
     virtual void show(const char *title, const char *text) = 0;
 };
-
-// ---- T201: the knobs of the A/V test picture (one row of the A/V page each, one key of an A/V test file each) ----
-#define DT_AV_N 18
-enum { AVK_STD = 0, AVK_GROUPS, AVK_BITS_A, AVK_BITS_B, AVK_BITS_C, AVK_VSIGN, AVK_TRIM, AVK_BSTART, AVK_BEND, AVK_BAMP, AVK_GAIN, AVK_SYNC, AVK_BLANK, AVK_WHITE,
-       AVK_EQ, AVK_VLEN, AVK_VPOS, AVK_LINES };
-struct AvKnob {
-    const char *key;                   // the row's name on the page and in the settings file
-    const char *const *labels;         // the values in user terms, as the page shows them and a test file names them
-    uint8_t n, def;
-    const int16_t *val;                // the register value of each label (the trim: the signed byte)
-};
-extern const AvKnob dt_av_knobs[DT_AV_N];
 
 struct DiagEnv {
     CoreIo *io;
@@ -189,13 +167,6 @@ struct DiagEnv {
     const char *folder;                // "/SD/cores/diag"
     uint32_t run_timeout_ms;           // one test without a prompt open; 0: 60 s
     uint32_t counter;                  // the stamp when there is no RTC
-    // T201, an A/V test: the application's hooks onto the A/V page. av_get: the label index the page holds for a knob; av_set: puts a knob into the gateware (the standard also
-    // sets the System Mode) without touching the page's stored value; av_done: puts the page's own values back after the walk. Null in a run of a probe test.
-    int (*av_get)(void *ud, int knob);
-    void (*av_set)(void *ud, int knob, int idx);
-    void (*av_done)(void *ud);
-    void (*av_freeze)(void *ud, bool on);    // T201 v2: the marker stands still while a question is open (register 053 bit 1); av_done clears it as well. May be null.
-    void *av_ud;
 };
 
 struct DiagOutcome {

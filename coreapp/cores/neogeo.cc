@@ -692,7 +692,7 @@ static void neo_register(OpRegistry &r)
 }
 
 // A cartridge and a memory card.
-static const char *const caps[] = { "cartridge", "pad" };
+static const char *const caps[] = { "cartridge" };
 
 extern const CoreDesc neogeo_desc;
 const CoreDesc neogeo_desc = {
@@ -713,9 +713,9 @@ const CoreDesc neogeo_desc = {
     { NEO_STATUS, NEO_ST_HELD, 200 },
     neo_init, neo_release, 0, 20,
     "neogeo.service", 16, false,
-    "Choose a .neo file in Library (F3), or Load a ROM set from a folder", ".neo",
+    "Choose a .neo file in the Files page, or Load a ROM set from a folder", ".neo",
     neo_register,
-    caps, 2,
+    caps, 1,
     false,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,     // id_shared ... own_volume
     &pad_spec,

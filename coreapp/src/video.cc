@@ -45,21 +45,6 @@ void Video::set_view(uint32_t w, uint32_t h)
     }
 }
 
-void Video::set_rows(uint32_t h)
-{
-    if (own_picture() || pic_ || h == 0 || h > prim_h_max_ || h == d_.h) {
-        return;
-    }
-    d_.h = h;
-    vh_ = h;
-    if (mode_ >= 0) {
-        set_mode(mode_, sys_);                     // the layout for the new height
-    }
-    if (on_) {
-        write_set(true);
-    }
-}
-
 int Video::wanted_hdmi() const
 {
     if (own_picture()) {                           // own picture: no wish
@@ -104,7 +89,7 @@ void Video::set_scale_mode(int m)
 // The menu canvas (trxcanvas.h, T164 D10a) is shown at a whole-number factor only, never fractional and never stretched (Alex, 2026-10-30):
 // 960 x 540 at max(1, active height / 540) in a mode 960 or more wide, the mode's own size at 1 below that (the compact layout). Centred in the
 // mode's active area, the rest black. The canvas is told to the port first (the display is laid out for it), then its place in the output.
-void video_place_menu(PxPort *px, int hdmi, int sys)
+void Video::place_menu(int hdmi, int sys)
 {
     int fw = 0, fh = 0;
     video_active_size(hdmi, sys, &fw, &fh);
@@ -112,13 +97,8 @@ void video_place_menu(PxPort *px, int hdmi, int sys)
         video_active_size(VID_HDMI_1080P, sys, &fw, &fh);
     }
     TrxCanvas c = trx_canvas_for(fw, fh);
-    px->menu_canvas(c.w, c.h);
-    px->menu_place(c.x0, c.y0, c.w * c.factor, c.h * c.factor);
-}
-
-void Video::place_menu(int hdmi, int sys)
-{
-    video_place_menu(px_, hdmi, sys);
+    px_->menu_canvas(c.w, c.h);
+    px_->menu_place(c.x0, c.y0, c.w * c.factor, c.h * c.factor);
 }
 
 // T194: the alternative's height follows the System Mode's family (the VIC frame is 65 x 263 in NTSC and PAL-60: 240 lines of the window, else 270)

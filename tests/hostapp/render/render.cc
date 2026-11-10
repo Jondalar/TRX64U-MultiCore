@@ -105,7 +105,7 @@ static uint32_t g_hv_ms;
 void hv_saved_load(int *h, int *s) { *h = g_saved_hdmi; *s = g_saved_sys; }
 void hv_saved_store(int h, int s) { g_saved_hdmi = h; g_saved_sys = s; g_hv_stores++; }
 static bool fk_hpd(void) { return true; }
-static uint8_t g_fk_edid[256];
+static uint8_t g_fk_edid[128];
 static int g_fk_edid_len;                                     // 0: nobody answers (the Q9 list)
 static bool fk_edid(uint8_t *b, int max, int *len)
 {
@@ -190,9 +190,7 @@ static void fpath(char *out, size_t n, const char *p) { snprintf(out, n, "%s%s",
 
 int hostfs_list(const char *path, HostDirEntry *out, int max, bool only_cor)
 {
-    size_t pl = strlen(path);
-    bool own = (pl > 8 && !strcmp(path + pl - 8, "/configs")) || (pl > 6 && !strcmp(path + pl - 6, "/media"));   // T198 S15: a core's own two folders, read once per generation
-    if (strcmp(path, "/") && !own) g_list_deep++;
+    if (strcmp(path, "/")) g_list_deep++;
     char d[600];
     fpath(d, sizeof(d), path);
     struct dirent **nl;
@@ -453,8 +451,6 @@ bool core_stage(const char *path, CorInfo *, const char **why, core_progress_t c
     return false;
 }
 bool core_swap(const CorInfo *, const char **, core_progress_t, void *) { return false; }
-std::string g_started_cfg = "?";               // T198: what the last core start asked the jump to hand over
-void core_set_start_config(const char *n) { g_started_cfg = n ? n : ""; }
 void core_jump(const CorInfo *) { exit(1); }
 // T115: the firmware start is recorded, not run
 static char g_legacy_path[256];
@@ -724,18 +720,6 @@ static int geom(const char *key)            // "geometry rows_bottom=N note_top=
 static const char *CFG3 = "countdown=5\ndefault=0\ncore=/SD/cores/trx64.cor|TRX64 Ultimate (C64)||0\n"
                           "core=/Usb0/cores/vc20.cor|VC-20 (PAL)||0\ncore=/Usb0/old/trx64-0.9.cor|TRX64 Ultimate (old host)||0\n";
 
-// T187 D5: the Picture page. page_pick opens it with V (from any view), puts the cursor on row `row` (0 Auto, n the n-th resolution of the list) and presses RETURN.
-extern int hostui_test_pm(char *name, int ncap, int *sel, int *rows, char *info, int icap);
-extern bool hostui_test_pm_row(int i, char *name, int nn, char *hz, int hn, char *tag, int tn);
-extern bool hostui_test_pm_geo(int which, int *x1, int *y1, int *x2, int *y2);
-static void page_pick(int row)
-{
-    hostui_test_key('v');
-    for (int i = 0; i < 8; i++) hostui_test_key(KEY_UP);
-    for (int i = 0; i < row; i++) hostui_test_key(KEY_DOWN);
-    hostui_test_key(KEY_RETURN);
-}
-
 static void scenarios(const char *out)
 {
     char p[512];
@@ -768,21 +752,16 @@ static void scenarios(const char *out)
     g_saves = 0;
     int h0 = g_vid_hdmi;
     g_hv_stores = 0;
-    hostui_test_key('v');                                      // T187 D5: V opens the Picture page; browsing it applies nothing
-    CHECK(hostui_test_pm(0, 0, 0, 0, 0, 0) == 1 && g_vid_hdmi == h0 && g_hv_stores == 0);
-    hostui_test_key(KEY_DOWN); hostui_test_key(KEY_DOWN); hostui_test_key(KEY_UP);
-    CHECK(g_vid_hdmi == h0 && g_hv_stores == 0);
-    hostui_test_key(KEY_LEFT);                                 // LEFT closes it, nothing changed
-    CHECK(hostui_test_pm(0, 0, 0, 0, 0, 0) == 0 && g_vid_hdmi == h0 && g_hv_stores == 0);
-    int tgt = h0 == VID_HDMI_480_576 ? VID_HDMI_720P : VID_HDMI_480_576;
-    page_pick(tgt + 1);                                        // the one way to a mode: RETURN on its row
-    CHECK(g_vid_hdmi == tgt && g_hv_stores == 1);              // applied, not only noted, and written to host.cfg
+    hostui_test_key('v');
+    CHECK(g_vid_hdmi != h0);                                   // applied, not only noted
+    CHECK(g_hv_stores == 1);                                   // and written to host.cfg
     CHECK(has("note='Picture:"));
-    page_pick(tgt + 1);                                        // RETURN on the mode in force: nothing to apply
-    CHECK(g_vid_hdmi == tgt && g_hv_stores == 1 && hostui_test_pm(0, 0, 0, 0, 0, 0) == 0);
-    for (int h = 0; h <= VID_HDMI_1080P; h++) {                // only what the screen names (no EDID: 576p, 720p, 1080p), each by its row
-        page_pick(h + 1);
-        CHECK(g_vid_hdmi == h);
+    int h1 = g_vid_hdmi;
+    hostui_test_key('V');                                      // the shifted key is the same key
+    CHECK(g_vid_hdmi != h1);
+    for (int i = 0; i < 2 * VID_HDMI_COUNT; i++) {             // it comes back round, only on what the screen names (no EDID: 576p, 720p, 1080p)
+        hostui_test_key('v');
+        CHECK(g_vid_hdmi >= 0 && g_vid_hdmi <= VID_HDMI_1080P);
     }
 
     // S2 (T101 S10) nothing is searched for: the media hold five bundles, the empty menu stays empty, and no folder is listed
@@ -871,7 +850,7 @@ static void scenarios(const char *out)
         snprintf(txt, sizeof(txt), "%score=/Usb0/cores/vc20.cor|VC-20 (PAL)|%s|%u|%u|%08x\n", head, vhash, vsize, vmtime, vhdr);
         g_list_deep = 0; g_bytes_read = 0; g_saves = 0;
         hostui_test_init(txt);
-        CHECK(has("VC-20 (PAL)|/Usb0/cores/vc20.cor  v0.1|hash ok|default|SEL|tag"));
+        CHECK(has("VC-20 (PAL)|/Usb0/cores/vc20.cor  v0.1|hash ok|default|SEL|img f800"));
         CHECK(g_saves == 0 && g_list_deep == 0);                            // nothing to migrate, nothing listed
         CHECK(g_bytes_read < vsize / 2);                                    // header, manifest and the 2 KB icon, not the 8 KB+ of parts
         printf("start of one entry: %lu of %u bytes read\n", g_bytes_read, vsize);
@@ -909,54 +888,42 @@ static void scenarios(const char *out)
     }
     g_stage_calls = 0;
 
-    // S3 the list scrolls (T209: N entries, N = the menu's rows + 4; the window moves while 2 rows are still hidden below the selection)
-    char many[4096] = "countdown=5\ndefault=0\n";
-    hostui_test_init(many);
-    const int MR = geom("rows=");
-    const int N = MR + 4;
-    for (int i = 1; i <= N; i++) { char l[120]; snprintf(l, sizeof(l), "core=/Usb0/many/m%d.cor|Core number %d||0\n", i, i); strcat(many, l); }
-    hostui_test_init(many);
-    char ex[160];
-    auto pos = [&](int first) { snprintf(ex, sizeof(ex), "pos='%d-%d of %d'", first + 1, first + MR, N); return has(ex); };
-    CHECK(MR >= 5 && N <= 640);
-    snprintf(ex, sizeof(ex), "total=%d", N);
-    CHECK(has(ex) && pos(0));
+    // S3 the list scrolls: 9 entries, every step the selection is in the window, nothing overlaps
+    hostui_test_init("countdown=5\ndefault=0\n"
+        "core=/Usb0/many/m1.cor|Core number 1||0\ncore=/Usb0/many/m2.cor|Core number 2||0\ncore=/Usb0/many/m3.cor|Core number 3||0\n"
+        "core=/Usb0/many/m4.cor|Core number 4||0\ncore=/Usb0/many/m5.cor|Core number 5||0\ncore=/Usb0/many/m6.cor|Core number 6||0\n"
+        "core=/Usb0/many/m7.cor|Core number 7||0\ncore=/Usb0/many/m8.cor|Core number 8||0\ncore=/Usb0/many/m9.cor|Core number 9||0\n");
+    CHECK(hostui_test_cfg_n() == 9);
+    CHECK(has("total=9") && has("pos='1-5 of 9'"));
     bool in_window = true, no_overlap = true;
-    for (int i = 0; i < N - 1; i++) {
+    for (int i = 0; i < 8; i++) {
         hostui_test_key(KEY_DOWN);
         in_window &= has("|SEL|") || strstr(D, "SEL|");
         no_overlap &= geom("rows_bottom=") <= geom("note_top=") && geom("note_top=") < geom("countdown_top=");
     }
     CHECK(in_window && no_overlap);
-    snprintf(ex, sizeof(ex), "sel=%d first=%d total=%d ", N - 1, N - MR, N);
-    CHECK(has(ex) && pos(N - MR));
+    CHECK(has("sel=8 first=4 total=9 ") && has("pos='5-9 of 9'"));
     snprintf(p, sizeof(p), "%s/menu_scroll_end.png", out); png(p, 2);
-    for (int i = 0; i < N - 1; i++) {
+    for (int i = 0; i < 8; i++) {
         hostui_test_key(KEY_UP);
         in_window &= strstr(D, "SEL|") != 0;
     }
-    snprintf(ex, sizeof(ex), "sel=0 first=0 ");
-    CHECK(in_window && has(ex) && pos(0));
+    CHECK(in_window && has("sel=0 first=0 ") && has("pos='1-5 of 9'"));
     // DOWN into the middle, then one UP inside the window must not scroll it
-    for (int i = 0; i < MR + 1; i++) hostui_test_key(KEY_DOWN);             // sel MR+1: 2 rows of margin below it, first 4
-    snprintf(ex, sizeof(ex), "sel=%d first=%d ", MR + 1, 4);
-    CHECK(has(ex));
+    for (int i = 0; i < 6; i++) hostui_test_key(KEY_DOWN);                  // sel 6, first 2
+    CHECK(has("sel=6 first=2 "));
     hostui_test_key(KEY_UP);
-    snprintf(ex, sizeof(ex), "sel=%d first=%d ", MR, 4);
-    CHECK(has(ex));
-    // the editor scrolls too (the same entries)
+    CHECK(has("sel=5 first=2 "));
+    // the editor scrolls too (9 entries)
     hostui_test_view(2);
-    const int ER = geom("rows=");
-    CHECK(ER >= 5);
-    for (int i = 0; i < N; i++) hostui_test_key(KEY_DOWN);
-    snprintf(ex, sizeof(ex), "view=2 sel=%d first=%d total=%d ", N - 1, N - ER > 0 ? N - ER : 0, N);
-    CHECK(has(ex) && geom("rows_bottom=") <= geom("note_top="));
+    for (int i = 0; i < 8; i++) hostui_test_key(KEY_DOWN);
+    CHECK(has("view=2 sel=8 first=4 total=9 ") && has("pos='5-9 of 9'") && geom("rows_bottom=") <= geom("note_top="));
     snprintf(p, sizeof(p), "%s/edit_scroll_end.png", out); png(p, 2);
 
     // S4 icons
     hostui_test_init("countdown=5\ndefault=0\ncore=/Usb0/cores/vc20.cor|VC-20 (PAL)||0\ncore=/SD/cores/trx64.cor|TRX64 Ultimate (C64)||0\n"
                      "core=/Usb0/cores/badicon.cor|Bad icon||0\n");
-    CHECK(has("VC-20 (PAL)|/Usb0/cores/vc20.cor  v0.1|hash ok|default|SEL|tag"));
+    CHECK(has("VC-20 (PAL)|/Usb0/cores/vc20.cor  v0.1|hash ok|default|SEL|img f800"));
     CHECK(has("|TRX64 Ultimate (C64)|/SD/cores/trx64.cor  v1.0-rc1|hash ok||") && has("v1.0-rc1|hash ok|||tag"));
     CHECK(has("Bad icon|/Usb0/cores/badicon.cor  v0.3|changed|||tag"));     // the full check of the older entry finds the icon's SHA-256 wrong: not accepted, no picture
     snprintf(p, sizeof(p), "%s/icons.png", out); png(p, 2);
@@ -964,7 +931,6 @@ static void scenarios(const char *out)
     // S4b T114: the real core logos reach the screen. The bundle's icon is searched in the frame buffer pixel for
     // pixel (drawn 1:1, 32 x 32 RGB565), so a wrong picture, a missing one or a text tile cannot pass.
     {
-        (void)icon_no_bars;
         const char *ids[] = { "amiga", "amiga1200", "apple2", "atari800", "c128", "c264", "c64u", "cpc", "nes", "trx64", "vc20", "zx", "zxnext" };
         const char *ld = getenv("LOGO_DIR");
         CHECK(ld != 0);
@@ -982,11 +948,11 @@ static void scenarios(const char *out)
             CHECK(got);
             snprintf(cfgt, sizeof(cfgt), "countdown=5\ndefault=0\ncore=/Usb0/logos/%s.cor|%s||0\n", id, id);
             hostui_test_init(cfgt);
-            if (got && has("|hash ok|default|SEL|tag") && !find_icon(logo)) drawn++;
-            else printf("FAIL logo %s: row missing or an icon drawn\n", id);
+            if (got && has("|hash ok|default|SEL|img") && find_icon(logo)) drawn++;
+            else printf("FAIL logo %s not drawn\n", id);
         }
         CHECK(drawn == 13);
-        printf("logos: %d of 13 bundles listed, no icon drawn (T209: one-line rows carry none)\n", drawn);
+        printf("logos: %d of 13 real icons found pixel-exact in the frame\n", drawn);
         // the control: the same bundle with a damaged icon record shows the text tile and not the picture
         uint16_t amiga[1024];
         char lp[600];
@@ -995,10 +961,11 @@ static void scenarios(const char *out)
         CHECK(lf && fread(amiga, 2, 1024, lf) == 1024);
         if (lf) fclose(lf);
         hostui_test_init("countdown=5\ndefault=0\ncore=/Usb0/logos/amiga.cor|amiga||0\n");
-        CHECK(!find_icon(amiga));                                                        // T209: one-line rows draw no icon
+        CHECK(find_icon(amiga));                                                         // the control can succeed ...
+        CHECK(icon_no_bars(amiga));                                                      // T114: and sits in no wider box
         hostui_test_init("countdown=5\ndefault=0\ncore=/Usb0/logos/bad_amiga.cor|amiga bad||0\n");
-        CHECK(has("|default|SEL|tag") && !find_icon(amiga));
-
+        CHECK(has("|default|SEL|tag") && !find_icon(amiga));                             // ... and fails on a bad hash
+        printf("logos control: damaged icon -> text tile, picture absent\n");
         hostui_test_init("countdown=5\ndefault=0\ncore=/Usb0/logos/trx64.cor|TRX64 Ultimate (C64)||0\ncore=/Usb0/logos/amiga.cor|Amiga (OCS)||0\n"
                          "core=/Usb0/logos/c64u.cor|C64 Ultimate||0\ncore=/Usb0/logos/vc20.cor|VC-20 (PAL)||0\ncore=/Usb0/logos/c264.cor|Plus/4||0\n");
         snprintf(p, sizeof(p), "%s/logos.png", out); png(p, 2);
@@ -1045,7 +1012,7 @@ static void scenarios(const char *out)
     CHECK(hostui_test_hint_overflow() == 0);                           // the "No cores yet" hint is cut at the right edge when it is one line
     CHECK(hostui_test_foot_overflow() == 0);                           // every footer is one line (board photo 2026-10-21: it wrapped)
     hostui_test_view(2);
-    CHECK(has("foot='UP/DOWN select    +/- move    D default    C rename    LEFT/RIGHT config of this core    DEL twice removes'"));        // T139: no B, no LEFT/RIGHT, no V
+    CHECK(has("foot='UP/DOWN select    +/- move    D default    C rename    DEL twice removes'"));        // T139: no B, no LEFT/RIGHT, no V
     cor_host_key = 0;
     snprintf(p, sizeof(p), "%s/states.png", out); png(p, 2);
 }
@@ -1180,14 +1147,14 @@ static void scenarios_ic(const char *out)
                      "core=/Usb0/cores/wrong.cfw|top 2026/10/10 18:23:21||0\n");
     CHECK(hostui_test_cfg_n() == 5);
     CHECK(has("|/Usb0/cores/gideon_plain.cfw  full firmware|ready|") && has("mystery_design 2026/10/01 10:00:00|/Usb0/cores/mystery.cfw  full firmware"));
-    CHECK(count_icon(gid) == 0);        // gideon_plain.cfw: the built-in logo of Gideon's firmware; gideon.cfw shows its sidecar instead
-    CHECK(count_icon(side) == 0);       // gideon.cfw: the 2048-byte sidecar replaces it
-    CHECK(count_icon(trx) == 0);        // trx64.cfw and wrong.cfw (its 2049-byte sidecar is ignored)
-    CHECK(count_icon(gen) == 0);        // mystery.cfw: a design the host does not know gets the generic firmware logo
+    CHECK(count_icon(gid) == 1);        // gideon_plain.cfw: the built-in logo of Gideon's firmware; gideon.cfw shows its sidecar instead
+    CHECK(count_icon(side) == 1);       // gideon.cfw: the 2048-byte sidecar replaces it
+    CHECK(count_icon(trx) == 2);        // trx64.cfw and wrong.cfw (its 2049-byte sidecar is ignored)
+    CHECK(count_icon(gen) == 1);        // mystery.cfw: a design the host does not know gets the generic firmware logo
     snprintf(p, sizeof(p), "%s/menu_firmware_logos.png", out); png(p, 2);
     // a firmware in the boot menu shows the same logo (the entry's path is the .cfw)
     hostui_test_init("countdown=5\ndefault=0\ncore=/Usb0/cores/trx64.cfw|top 2026/10/10 18:23:21||0\ncore=/Usb0/cores/gideon.cfw|u64_mk2_artix 2026/09/10 11:00:57||0\n");
-    CHECK(count_icon(trx) == 0 && count_icon(side) == 0);   // T209: one-line rows carry no logo
+    CHECK(count_icon(trx) >= 1 && count_icon(side) >= 1);
     snprintf(g_root, sizeof(g_root), "%s", main_root);
 }
 
@@ -1408,7 +1375,7 @@ static void scenarios_media(const char *out)
     CHECK(hostui_test_cfg_n() == 0 && g_saves == 0 && has("note=''") && g_stage_calls == stage0);   // nothing is offered, nothing happens
     hostui_test_browse_keep("/SD/cores");                                            // rows: .. / trx64.cor
     hostui_test_key(KEY_DOWN);
-    CHECK(has("foot='UP/DOWN select    RETURN open    A add    S start    C copy    M move    DEL twice deletes    LEFT up    V picture'"));
+    CHECK(has("foot='UP/DOWN select    RETURN open    A add to menu    S start once    C copy    M move    DEL twice deletes    LEFT up    V picture'"));
     hostui_test_key(KEY_RETURN);                                                     // RETURN no longer adds
     CHECK(hostui_test_cfg_n() == 0 && g_saves == 0);
     hostui_test_key('a');
@@ -1457,11 +1424,11 @@ static void area(const char *name, uint32_t px, uint32_t limit)
 static void areas(void)
 {
     const uint32_t CW_ = 960 - 170 - 40;                      // hostui.cc geometry: content width
-    const uint32_t MROW = CW_ * 30, EROW = CW_ * 24;           // a menu row, an editor row
+    const uint32_t MROW = CW_ * 56, EROW = CW_ * 44;           // a menu row, an editor row
     const uint32_t VIEW = (960 - 170) * (540 - 40 - 30);       // the content container of a view
     // The selection mark of a row: a 2 px frame and a 5 px bar on the left, at most 4 strips of the row's width and 8 of its
     // height. A selection move redraws the old and the new mark and nothing else.
-    const uint32_t MMARK = 4 * CW_ + 8 * 30, EMARK = 4 * CW_ + 8 * 24;   // T209: one-line rows, 30 and 24 px high
+    const uint32_t MMARK = 4 * CW_ + 8 * 56, EMARK = 4 * CW_ + 8 * 44;
     const char *eight =
         "countdown=5\ndefault=0\n"
         "core=/Usb0/many/m1.cor|Core number 1||0\ncore=/Usb0/many/m2.cor|Core number 2||0\ncore=/Usb0/many/m3.cor|Core number 3||0\n"
@@ -1473,8 +1440,8 @@ static void areas(void)
     CHECK(hostui_test_inv_slots() >= 128);
     // F1 boot menu: 9 entries, a window of 5
     hostui_test_init(eight);
-    area("F1 menu: selection move", hostui_test_key(KEY_DOWN), 2 * MMARK + 6u * 1000);   // + the detail line (the selected entry's path and version, T209)
-    area("F1 menu: selection move up", hostui_test_key(KEY_UP), 2 * MMARK + 6u * 1000);
+    area("F1 menu: selection move", hostui_test_key(KEY_DOWN), 2 * MMARK);
+    area("F1 menu: selection move up", hostui_test_key(KEY_UP), 2 * MMARK);
     for (int i = 0; i < 4; i++) hostui_test_key(KEY_DOWN);                 // row 4, the last of the window
     area("F1 menu: page change down", hostui_test_key(KEY_DOWN), 5 * MROW);
     area("F1 menu: scroll one more", hostui_test_key(KEY_DOWN), 5 * MROW);
@@ -1518,16 +1485,16 @@ static void areas(void)
     // F5 editor
     hostui_test_init(eight);
     hostui_test_key(KEY_F5);
-    area("F5 edit: selection move", hostui_test_key(KEY_DOWN), 2 * EMARK + 6u * 1000);
+    area("F5 edit: selection move", hostui_test_key(KEY_DOWN), 2 * EMARK);
     for (int i = 0; i < 3; i++) hostui_test_key(KEY_DOWN);
     area("F5 edit: page change", hostui_test_key(KEY_DOWN), 5 * EROW);
     area("F5 edit: D (default)", hostui_test_key('d'), 3 * EROW);
-    area("F5 edit: RIGHT (default config; a core without configs says so)", hostui_test_key(KEY_RIGHT), 19000);   // T198 D13: the note line is drawn
+    area("F5 edit: RIGHT (no longer the countdown)", hostui_test_key(KEY_RIGHT), 0);
     // F3 browser, a folder of 19
     hostui_test_browse_at("/Usb0/scroll");
     const uint32_t BLW = CW_ / 2 - 8, BPH = 540 - 40 - 30 - 90;
     hostui_test_key(KEY_DOWN);                                              // the first key of a fresh view refills the manifest panel
-    area("F3 browse: selection move", hostui_test_key(KEY_DOWN), 2 * (4 * BLW + 8 * 24) + 6u * 1000 + 19000);   // + the T198 note of the F5 RIGHT before it, cleared by this key
+    area("F3 browse: selection move", hostui_test_key(KEY_DOWN), 2 * (4 * BLW + 8 * 24) + 6u * 1000);
     for (int i = 0; i < 10; i++) hostui_test_key(KEY_DOWN);
     area("F3 browse: scroll one row (13 rows)", hostui_test_key(KEY_DOWN), BLW * BPH);
     area("F3 browse: last row (.cfw)", hostui_test_key(KEY_DOWN), BLW * BPH);
@@ -1540,7 +1507,7 @@ static void areas(void)
     // navigation entries and the footer line
     hostui_test_init(eight);
     area("F3 switch from the menu", hostui_test_key(KEY_F3), VIEW + 35000);
-    area("F5 switch", hostui_test_key(KEY_F5), VIEW + 36000);   // T198: the Default config row
+    area("F5 switch", hostui_test_key(KEY_F5), VIEW + 35000);
     area("F7 switch", hostui_test_key(KEY_F7), VIEW + 35000);
     area("F8 switch", hostui_test_key(KEY_F8), VIEW + 35000);
     hostui_test_key(KEY_F7);
@@ -1916,7 +1883,7 @@ static void api_asked_findings(void)
     r = api_js(js[1]);
     CHECK(r.r == UR_ASKED);
     hostui_test_api_pass();
-    hostui_test_board_key('x');                                      // any other key ends the arm (V opens the Picture page and leaves this one, T187 D5)
+    hostui_test_board_key('v');
     hostui_test_api_pass();
     CHECK(!open_question());
     hostui_test_board_key('f');
@@ -2186,7 +2153,7 @@ static void scenarios_t139(const char *out)
     const char *cfg3 = "countdown=5\ndefault=1\ncore=/SD/cores/a.cor|Alpha||0\ncore=/SD/cores/b.cor|Beta||0\ncore=/SD/cores/c.cor|Gamma||0\n";
     hostui_test_init(cfg3);
     hostui_test_key(KEY_F5);
-    CHECK(has("foot='UP/DOWN select    +/- move    D default    C rename    LEFT/RIGHT config of this core    DEL twice removes'"));
+    CHECK(has("foot='UP/DOWN select    +/- move    D default    C rename    DEL twice removes'"));
     CHECK(hostui_test_sel_row() == 1);                                   // Beta, the default
     g_loadback = true;
     g_saves = 0;
@@ -2222,10 +2189,10 @@ static void scenarios_t139(const char *out)
     CHECK(g_saves == 0);
     fresh_video(VID_SYS_PAL50, -1);
     g_hv_stores = 0;
-    page_pick(2);                                                                   // 720p
+    hostui_test_key('v');
     CHECK(g_hv_stores == 1 && g_vid_hdmi == 1);
     CHECK(g_pl_x == 160 && g_pl_y == 90 && g_pl_w == 960 && g_pl_h == 540);       // 720p: factor 1, centred in 1280 x 720 (T164 WP5 PX_OSIZE)
-    page_pick(3);                                                                   // 1080p
+    hostui_test_key('v');
     CHECK(g_vid_hdmi == 2 && g_pl_x == 0 && g_pl_y == 0 && g_pl_w == 1920 && g_pl_h == 1080);   // 1080p: factor 2, the whole frame
     // ---- S5: the settings page
     CHECK(!strcmp(hostui_test_nav_name(4), "Settings"));
@@ -2262,21 +2229,18 @@ static void scenarios_t139(const char *out)
     hostui_test_settings(se, sizeof(se));
     CHECK(strstr(se, "Picture=from the screen"));
     hostui_test_key(KEY_DOWN); hostui_test_key(KEY_DOWN);
-    int v0 = g_vid_hdmi, st0 = g_hv_stores;
-    hostui_test_key(KEY_RIGHT); hostui_test_key(KEY_LEFT);               // T187 D5 (Q-D5.1): LEFT / RIGHT on the closed Picture row do nothing
-    CHECK(g_vid_hdmi == v0 && g_hv_stores == st0 && hostui_test_pm(0, 0, 0, 0, 0, 0) == 0);
-    hostui_test_key(KEY_RETURN);                                         // RETURN opens the page, the cursor on the choice in force (Auto)
-    { char nm[64]; int sl = -1, rw = 0; CHECK(hostui_test_pm(nm, sizeof(nm), &sl, &rw, 0, 0) == 1 && sl == 0 && rw == 4 && !strncmp(nm, "Auto", 4)); }
-    hostui_test_key(KEY_DOWN); hostui_test_key(KEY_RETURN);              // the first resolution the screen names
+    hostui_test_key(KEY_RIGHT);                                          // the first resolution the screen names
     CHECK(g_vid_hdmi == 0 && g_saved_hdmi == 0);
-    hostui_test_key(KEY_DOWN); hostui_test_key(KEY_RETURN);
+    hostui_test_key(KEY_RIGHT);
     CHECK(g_vid_hdmi == 1 && g_saved_hdmi == 1);
-    page_pick(0);                                                        // Auto: stored as "from the screen" (-1)
+    hostui_test_key(KEY_LEFT); hostui_test_key(KEY_LEFT); hostui_test_key(KEY_LEFT);   // 576p, from the screen, and round to the last one it names
+    CHECK(g_vid_hdmi == VID_HDMI_1080P && g_saved_hdmi == VID_HDMI_1080P);
+    hostui_test_key(KEY_RIGHT);                                          // ... and onwards to "from the screen" (stored -1)
     CHECK(g_saved_hdmi == -1);
     hostui_test_settings(se, sizeof(se));
     CHECK(!strstr(se, "Picture: system"));                               // Q6: no Hz choice in any menu
-    page_pick(3);                                                        // V opens the page from here too
-    CHECK(g_vid_hdmi == VID_HDMI_1080P && g_saved_hdmi == VID_HDMI_1080P);
+    hostui_test_key('v');                                                // V still steps the picture here
+    CHECK(g_vid_hdmi >= 0 && g_vid_hdmi <= VID_HDMI_1080P);
     // the stored file of an older host (countdown only) opens as it did: autostart on, the seconds shown
     hostui_test_init("countdown=12\ndirect=0\ndefault=0\ncore=/SD/cores/trx64.cor|C64||0\n");
     hostui_test_key(KEY_F8);
@@ -2397,7 +2361,6 @@ extern int hostui_test_cm(char *out, int max);
 extern const char *hostui_test_cm_head(void);
 extern const char *hostui_test_cm_note(void);
 extern const char *hostui_test_foot(void);
-extern void hostui_test_oc_geom(int *g);
 static void mkdirs(const char *rel)
 {
     char d[700]; snprintf(d, sizeof(d), "%s%s", g_root, rel);
@@ -2490,228 +2453,6 @@ static void scenarios_t148(const char *out)
     CHECK(strstr(cm, "mode=0 "));
     snprintf(g_root, sizeof(g_root), "%s", main_root);
     printf("T148 scenarios done\n");
-}
-
-// ---- T198: the config overlay (S2-S6, S9, S12, S13, S15, S16) ------------------------------------------------------------------
-#include "host_core_cfgov.h"
-extern const char *hostui_test_oc_title(int *w, int *room);
-void hc_ui_cfgov_draw(bool fresh);
-static void scenarios_t198(const char *out)
-{
-    char p[512], main_root[400];
-    snprintf(main_root, sizeof(main_root), "%s", g_root);
-    snprintf(g_root, sizeof(g_root), "%s_cfg", main_root);
-    mkdir(g_root, 0755);
-    mkdirs("/SD/cores");
-    for (const char *c : { "amiga", "vic", "c64" }) {                      // real bundles (the start refuses a state that is not ok), the bench tree's own
-        char from[600], to[600];
-        snprintf(from, sizeof(from), "%s/SD/cores/trx64.cor", main_root);
-        snprintf(to, sizeof(to), "%s/SD/cores/%s.cor", g_root, c);
-        FILE *a = fopen(from, "rb"), *b = fopen(to, "wb");
-        CHECK(a && b);
-        for (int ch; a && b && (ch = fgetc(a)) != EOF;) fputc(ch, b);
-        if (a) fclose(a);
-        if (b) fclose(b);
-    }
-    putp("/SD/cores/amiga/configs/Demo collection.cfg", 40, 2);
-    putp("/SD/cores/amiga/configs/Games.cfg", 40, 3);
-    putp("/SD/cores/amiga/configs/Workbench.cfg", 40, 4);
-    putp("/SD/cores/amiga/media/old set.mnt", 20, 5);                   // a media set of before T198 (D3)
-    putp("/SD/cores/c64/configs/Only.cfg", 40, 8);
-    hostui_test_init("countdown=0\ndefault=0\ncore=/SD/cores/amiga.cor|Amiga 1200 (AGA, 68020)||0|0|00000000|Games\ncore=/SD/cores/vic.cor|VIC-20||0|0|00000000\ncore=/SD/cores/c64.cor|C64||0|0|00000000\n");
-    // S2/S13: the badge counts the configs of both folders; none for a core without any (D9)
-    HcEntryRow r0, r1, r2;
-    CHECK(hc_row_entry(0, true, &r0) && r0.configs == 4 && !strcmp(r0.cfgbadge, "4 configs"));
-    CHECK(hc_row_entry(1, true, &r1) && r1.configs == 0 && r1.cfgbadge[0] == 0);
-    CHECK(hc_row_entry(2, true, &r2) && r2.configs == 1 && !strcmp(r2.cfgbadge, "1 config"));
-    snprintf(p, sizeof(p), "%s/t198_menu_badges_480.png", out); png(p, 1);
-    snprintf(p, sizeof(p), "%s/t198_menu_badges_1080.png", out); png(p, 2);
-    // D15: the F5 edit rows carry the same badge as the boot menu rows
-    hostui_test_key(KEY_F5);
-    {
-        const char *ed = dump();                                                   // the object dump of the F5 page: what the rows drew
-        CHECK(strstr(ed, "view=2 ") != NULL);
-        CHECK(strstr(ed, "\ncfgbadge 0|4 configs\n") != NULL);                      // the core with 4 configs: the badge is drawn on its F5 row
-        CHECK(strstr(ed, "\ncfgbadge 2|1 config\n") != NULL);                       // 1 config: singular
-        CHECK(strstr(ed, "\ncfgbadge 1|") == NULL);                                  // a core without configs: no badge (D9)
-    }
-    snprintf(p, sizeof(p), "%s/t198_edit_badges_480.png", out); png(p, 1);
-    snprintf(p, sizeof(p), "%s/t198_edit_badges_1080.png", out); png(p, 2);
-    hostui_test_key(KEY_F1);
-    // D9: RIGHT on a core without configs does nothing
-    hostui_test_key(KEY_DOWN);
-    hostui_test_key(KEY_RIGHT);
-    CHECK(!hc_cfgov_is_open());
-    hostui_test_key(KEY_UP);
-    // S3/D2/D14: RIGHT opens the overlay, the cursor on the default config
-    CHECK(!strstr(hostui_test_foot(), "RIGHT configs") == 0);
-    hostui_test_key(KEY_RIGHT);
-    CHECK(hc_cfgov_is_open() && hc_cfgov().l.n == 4 && hc_cfgov().cur == 2 && !strcmp(hc_cfgov_cur_name(), "Games"));
-    CHECK(!strcmp(hc_cfgov().l.name[0], "Demo collection") && !strcmp(hc_cfgov().l.name[2], "old set") && hc_cfgov().l.legacy[2]);
-    CHECK(!strcmp(hostui_test_foot(), "UP/DOWN select    RETURN start    LEFT back    D default    R rename    DEL twice deletes") ||
-          strstr(hostui_test_foot(), "RETURN start"));
-    {   // board 11-11: the title is the whole entry name, not "Amiga 12"; a name too wide for the panel is cut with "..." before the suffix
-        int w, room;
-        const char *t = hostui_test_oc_title(&w, &room);
-        CHECK(!strcmp(t, "Amiga 1200 (AGA, 68020) - start with") && w <= room);
-        hostui_test_key(KEY_LEFT);
-        CHECK(hc_cfgov_open("/SD/cores/amiga.cor", "Amiga 1200 (AGA, 68020) with a very long extra name", 0, false));
-        hc_ui_cfgov_draw(true);
-        t = hostui_test_oc_title(&w, &room);
-        printf("long title: [%s] w=%d room=%d\n", t, w, room);
-        CHECK(strstr(t, "...") && !strcmp(t + strlen(t) - 13, " - start with") && !strncmp(t, "Amiga 1200", 10) && w <= room);
-        snprintf(p, sizeof(p), "%s/t198_overlay_longname_1080.png", out); png(p, 2);
-        hostui_test_key(KEY_LEFT);
-        hostui_test_key(KEY_RIGHT);
-    }
-    snprintf(p, sizeof(p), "%s/t198_overlay_menu_480.png", out); png(p, 1);
-    snprintf(p, sizeof(p), "%s/t198_overlay_menu_1080.png", out); png(p, 2);
-    // LEFT closes; the menu keys work again
-    hostui_test_key(KEY_LEFT);
-    CHECK(!hc_cfgov_is_open());
-    hostui_test_key(KEY_RIGHT); hostui_test_key(KEY_ESCAPE);
-    CHECK(!hc_cfgov_is_open());
-    // S5: RETURN on the row with the overlay closed is a plain start, as before
-    g_started_cfg = "?";
-    hostui_test_key(KEY_RETURN);
-    CHECK(g_started_cfg.empty());
-    // S4/S6: RETURN in the overlay starts with the picked config, once
-    hostui_test_key(KEY_RIGHT);
-    hostui_test_key(KEY_UP);                                             // Demo collection
-    CHECK(!strcmp(hc_cfgov_cur_name(), "Demo collection"));
-    g_started_cfg = "?";
-    hostui_test_key(KEY_RETURN);
-    CHECK(!hc_cfgov_is_open() && g_started_cfg == "Demo collection");
-    hostui_test_key(KEY_RETURN);
-    CHECK(g_started_cfg.empty());                                        // the next start is plain again (one-shot)
-    // "Plain start" (the first row) starts plain too
-    hostui_test_key(KEY_RIGHT); hostui_test_key(KEY_UP); hostui_test_key(KEY_UP);
-    CHECK(hc_cfgov().cur == 0);
-    g_started_cfg = "?";
-    hostui_test_key(KEY_RETURN);
-    CHECK(g_started_cfg.empty());
-    // S9: D marks the default (written to boot.cfg), D again clears it
-    hostui_test_key(KEY_RIGHT);
-    hostui_test_key(KEY_UP);
-    g_saves = 0;
-    hostui_test_key('d');
-    CHECK(g_saves == 1 && strstr(g_last_save, "|Demo collection\n") && !strcmp(hc_cfg().e[0].defcfg, "Demo collection"));
-    hostui_test_key('d');
-    CHECK(!hc_cfg().e[0].defcfg[0] && !strstr(g_last_save, "|Demo collection"));
-    hostui_test_key('d');                                                // set again, then the rename must carry it along
-    // S9: rename
-    kb_push(KEY_CLEAR); kb_type("Demos"); kb_push(KEY_RETURN);
-    hostui_test_key('r');
-    CHECK(kbn == 0 && fsize("/SD/cores/amiga/configs/Demos.cfg") == 40 && fsize("/SD/cores/amiga/configs/Demo collection.cfg") == -1);
-    CHECK(!strcmp(hc_cfg().e[0].defcfg, "Demos") && !strcmp(hc_cfgov_cur_name(), "Demos"));
-    snprintf(p, sizeof(p), "%s/t198_overlay_renamed_1080.png", out); png(p, 2);
-    kb_push(KEY_CLEAR); kb_type("Games"); kb_push(KEY_RETURN);                                // a name that exists: refused, the file stays
-    hostui_test_key('r');
-    CHECK(kbn == 0 && fsize("/SD/cores/amiga/configs/Demos.cfg") == 40);
-    // S9: delete asks twice; any other key between disarms
-    hostui_test_key(KEY_DELETE);
-    CHECK(hc_cfgov().ask == 1 && fsize("/SD/cores/amiga/configs/Demos.cfg") == 40);
-    snprintf(p, sizeof(p), "%s/t198_overlay_delete_1080.png", out); png(p, 2);
-    hostui_test_key(KEY_DOWN);
-    CHECK(hc_cfgov().ask == 0);
-    hostui_test_key(KEY_UP);
-    hostui_test_key(KEY_DELETE); hostui_test_key(KEY_DELETE);
-    CHECK(fsize("/SD/cores/amiga/configs/Demos.cfg") == -1 && hc_cfgov().l.n == 3 && !hc_cfg().e[0].defcfg[0]);
-    // a legacy media set is deleted from media/
-    hostui_test_key(KEY_DOWN);                                           // the cursor stayed on the row of Demos: Games now, old set next
-    CHECK(!strcmp(hc_cfgov_cur_name(), "old set"));
-    hostui_test_key(KEY_DELETE); hostui_test_key(KEY_DELETE);
-    CHECK(fsize("/SD/cores/amiga/media/old set.mnt") == -1 && hc_cfgov().l.n == 2);
-    // Plain start has nothing to delete or rename
-    hostui_test_key(KEY_UP); hostui_test_key(KEY_UP); hostui_test_key(KEY_UP);
-    hostui_test_key(KEY_DELETE); hostui_test_key(KEY_DELETE);
-    CHECK(hc_cfgov().cur == 0 && hc_cfgov().l.n == 2);
-    hostui_test_key(KEY_ESCAPE);
-    // UX 2 of 2026-11-10 (finding 1): the panel follows the visible rows (5..8, then it scrolls); the selected row and the message line lie inside the panel,
-    // the message below the last drawn row and clear of the selected one. Measured on the objects (hostui_test_oc_geom), 6 and 10 configs.
-    CHECK(hostui_test_foot() != nullptr);
-    for (int i = 1; i <= 5; i++) { char nm[80]; snprintf(nm, sizeof(nm), "/SD/cores/c64/configs/Extra %d.cfg", i); putp(nm, 40, 20 + i); }
-    hc_cfgov_forget();
-    hostui_test_key(KEY_DOWN); hostui_test_key(KEY_DOWN);                // the C64 row of the menu
-    hostui_test_key(KEY_RIGHT);
-    CHECK(hc_cfgov_is_open() && hc_cfgov().l.n == 6);
-    hostui_test_key(KEY_DOWN);
-    {
-        int g[8]; hostui_test_oc_geom(g);
-        CHECK(g[0] >= 0 && g[0] + g[1] <= g[7]);                              // the panel inside the dimmer
-        CHECK(g[2] >= 0 && g[3] <= g[1] && g[6] <= g[1] && g[3] <= g[6]);     // the selected row and the last row inside the panel
-        CHECK(g[1] > 0 && g[4] == -1);                                        // no message yet
-    }
-    { HcWifiPick pk; hc_cfgov_pick(&pk); CHECK(strstr(pk.sub, " of ") == nullptr); }                      // 7 rows: no "a-b of n"
-    snprintf(p, sizeof(p), "%s/t198_overlay_6_1080.png", out); png(p, 2);
-    snprintf(p, sizeof(p), "%s/t198_overlay_6_480.png", out); png(p, 1);
-    kb_push(KEY_CLEAR); kb_type("Only"); kb_push(KEY_RETURN);             // a name the list has: the refusal is a message over the full list
-    hostui_test_key('r');
-    {
-        int g[8]; hostui_test_oc_geom(g);
-        CHECK(g[4] >= g[6] && g[5] <= g[1] && g[4] >= g[3]);               // message below the last row, inside the panel, clear of the selection
-    }
-    hostui_test_key(KEY_ESCAPE);
-    for (int i = 6; i <= 10; i++) { char nm[80]; snprintf(nm, sizeof(nm), "/SD/cores/c64/configs/Extra %d.cfg", i); putp(nm, 40, 20 + i); }
-    hc_cfgov_forget();
-    hostui_test_key(KEY_RIGHT);
-    CHECK(hc_cfgov_is_open() && hc_cfgov().l.n == 11);
-    for (int i = 0; i < 12; i++) hostui_test_key(KEY_DOWN);                // the last row: scrolled
-    CHECK(hc_cfgov().cur == 11 && hc_cfgov().top > 0);
-    {
-        int g[8]; hostui_test_oc_geom(g);
-        CHECK(g[2] >= 0 && g[3] <= g[1] && g[6] <= g[1] && g[0] + g[1] <= g[7]);
-    }
-    { HcWifiPick pk; hc_cfgov_pick(&pk); CHECK(strstr(pk.sub, " of 12") != nullptr); }
-    snprintf(p, sizeof(p), "%s/t198_overlay_10_last_1080.png", out); png(p, 2);
-    hostui_test_key(KEY_DELETE);                                           // the ask is a message over the full, scrolled list
-    CHECK(hc_cfgov().ask == 1);
-    {
-        int g[8]; hostui_test_oc_geom(g);
-        CHECK(g[4] >= g[6] && g[5] <= g[1] && g[4] >= g[3]);
-    }
-    snprintf(p, sizeof(p), "%s/t198_overlay_10_msg_1080.png", out); png(p, 2);
-    hostui_test_key(KEY_DOWN);
-    // finding 2: on "Plain start" the key bar names no D / R / DEL
-    for (int i = 0; i < 12; i++) hostui_test_key(KEY_UP);
-    CHECK(hc_cfgov().cur == 0 && !strstr(hostui_test_foot(), "default") && !strstr(hostui_test_foot(), "rename") && !strstr(hostui_test_foot(), "DEL"));
-    CHECK(strstr(hostui_test_foot(), "start") != nullptr);
-    hostui_test_key(KEY_DOWN);
-    CHECK(strstr(hostui_test_foot(), "twice deletes") != nullptr);
-    hostui_test_key(KEY_ESCAPE);
-    hostui_test_key(KEY_UP); hostui_test_key(KEY_UP);
-    // D13: F3 on a .cor: RIGHT opens the same overlay and starts once; a core in the menu keeps its trusted entry
-    hostui_test_browse_keep("/SD/cores");
-    hostui_test_key(KEY_F3);
-    hostui_test_browse_keep("/SD/cores");
-    char st[2048];
-    hostui_test_browse_rows(st, sizeof(st));
-    CHECK(strstr(st, "c64.cor"));
-    for (int i = 0; i < 8 && !strstr(hostui_test_foot(), "configs"); i++) hostui_test_key(KEY_DOWN);
-    int guard = 0;
-    while (guard++ < 12) {                                               // walk to c64.cor
-        hostui_test_key(KEY_RIGHT);
-        if (hc_cfgov_is_open()) break;
-        hostui_test_key(KEY_DOWN);
-    }
-    CHECK(hc_cfgov_is_open() && !strcmp(hc_cfgov().path, "/SD/cores/amiga.cor") || hc_cfgov_is_open());
-    snprintf(p, sizeof(p), "%s/t198_overlay_browse_1080.png", out); png(p, 2);
-    hostui_test_key(KEY_ESCAPE);
-    CHECK(!hc_cfgov_is_open());
-    // F5 (D13): a "Default config" row for the selected entry; LEFT/RIGHT step none / the core's configs
-    hostui_test_key(KEY_F5);
-    for (int i = 0; i < 4; i++) hostui_test_key(KEY_UP);                 // the first entry, the Amiga
-    CHECK(!hc_cfg().e[0].defcfg[0]);
-    hostui_test_key(KEY_RIGHT);
-    CHECK(hc_cfg().e[0].defcfg[0] != 0);              // stepped from "none" to the first config of the core
-    hostui_test_key(KEY_LEFT);
-    CHECK(!hc_cfg().e[0].defcfg[0]);                                     // ... and back to none
-    hostui_test_key(KEY_RIGHT);
-    snprintf(p, sizeof(p), "%s/t198_edit_defcfg_480.png", out); png(p, 1);
-    snprintf(p, sizeof(p), "%s/t198_edit_defcfg_1080.png", out); png(p, 2);
-    // S15: the listing is read once per generation, not per key
-    snprintf(g_root, sizeof(g_root), "%s", main_root);
-    printf("T198 scenarios done\n");
 }
 
 // ---- T146: the saved menu picture ------------------------------------------------------------------------------------------------
@@ -4227,15 +3968,6 @@ static void rows_scenario(const char *out)
         bool same = want == std::string(dump, len);
         if (!same) {
             printf("the row dump differs from %s (written to %s)\n", gp, path);
-            std::string got(dump, len);                                // the first differing lines, so the golden can be updated from the log
-            size_t pw = 0, pg = 0;
-            for (int shown = 0; shown < 12 && (pw < want.size() || pg < got.size()); ) {
-                size_t ew = want.find('\n', pw), eg = got.find('\n', pg);
-                std::string lw = want.substr(pw, ew == std::string::npos ? std::string::npos : ew - pw), lg = got.substr(pg, eg == std::string::npos ? std::string::npos : eg - pg);
-                if (lw != lg) { printf("  want: %s\n  got:  %s\n", lw.c_str(), lg.c_str()); shown++; }
-                pw = ew == std::string::npos ? want.size() : ew + 1;
-                pg = eg == std::string::npos ? got.size() : eg + 1;
-            }
         }
         CHECK(same);
     }
@@ -4256,7 +3988,6 @@ static void rows_scenario(const char *out)
     int sel_now = cores_at;                                        // the cursor is still on the row that opened the page
     char fixed[2000];
     snprintf(fixed, sizeof(fixed), "sel=%d|%s", sel_now, strchr(want_se, '|') + 1);
-    if (strcmp(se, fixed)) { printf("SETROWS screen:   %s\nSETROWS producer: %s\n", se, fixed); }
     CHECK(!strcmp(se, fixed));
     // ... and the boot menu rows
     hostui_test(0, 1, 0, false);
@@ -4271,37 +4002,22 @@ static void rows_scenario(const char *out)
     }
 }
 
-// A fixture EDID: a base block (established timings: bit 0 of `pc` 800 x 600, bit 1 1024 x 768; bit 2 a standard timing 1280 x 1024) and, with `nv` > 0, a CEA block
-// whose video data block holds the VICs as written (bit 7 = native). `bad`: the base block's checksum is wrong.
-static void fk_make_edid(const uint8_t *vics, int nv, unsigned pc, bool bad)
+static void picnote_edid(bool vga)
 {
     memset(g_fk_edid, 0, sizeof(g_fk_edid));
+    g_fk_edid_len = 0;
+    if (!vga) { return; }
     static const uint8_t hdr[8] = { 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00 };
     memcpy(g_fk_edid, hdr, 8);
-    if (pc & 1) { g_fk_edid[35] |= 0x01; }
-    if (pc & 2) { g_fk_edid[36] |= 0x08; }
+    g_fk_edid[35] = 0x01;                                           // established timings: 800 x 600 at 60 Hz
     for (int i = 0; i < 8; i++) { g_fk_edid[38 + 2 * i] = 0x01; g_fk_edid[39 + 2 * i] = 0x01; }
-    if (pc & 4) { g_fk_edid[38] = (uint8_t)(1280 / 8 - 31); g_fk_edid[39] = (uint8_t)(2 << 6); }       // 1280 x 1024 (5:4), 60 Hz
-    g_fk_edid[126] = nv ? 1 : 0;
+    g_fk_edid[38] = (uint8_t)(1280 / 8 - 31); g_fk_edid[39] = (uint8_t)(3 << 6);     // 1280 x 720 (16:9)
+    g_fk_edid[40] = (uint8_t)(1920 / 8 - 31); g_fk_edid[41] = (uint8_t)(3 << 6);     // 1920 x 1080
     unsigned t = 0;
     for (int i = 0; i < 127; i++) { t += g_fk_edid[i]; }
     g_fk_edid[127] = (uint8_t)(0x100 - (t & 0xFF));
-    if (bad) { g_fk_edid[127] ^= 0x5A; }
     g_fk_edid_len = 128;
-    if (nv) {
-        uint8_t *x = g_fk_edid + 128;
-        x[0] = 0x02; x[1] = 0x03;
-        int q = 4;
-        x[q++] = (uint8_t)((2 << 5) | nv);
-        for (int i = 0; i < nv; i++) { x[q++] = vics[i]; }
-        x[2] = (uint8_t)q;
-        unsigned u = 0;
-        for (int i = 0; i < 127; i++) { u += x[i]; }
-        x[127] = (uint8_t)(0x100 - (u & 0xFF));
-        g_fk_edid_len = 256;
-    }
 }
-static void picnote_edid(void) { memset(g_fk_edid, 0, sizeof(g_fk_edid)); g_fk_edid_len = 0; }       // no EDID
 static bool mode_is(int hdmi) { return g_gw_mode == video_mode_index(hdmi, VID_SYS_PAL50) || g_gw_mode == video_mode_index(hdmi, VID_SYS_NTSC60); }
 static bool picnote_kept(void) { char t[200]; note_px(t, sizeof(t)); return !strncmp(t, "Picture kept", 12); }
 // one case: the page `view` (1 File Browser: V; 4 Settings: the Picture row), the screen with / without a list that reaches `want`
@@ -4309,12 +4025,7 @@ static void picnote_case(const char *out, const char *name, int view, int want, 
 {
     char p[512], txt[200];
     g_gw_model = true; g_gw_wr = g_gw_pr = 0; g_gw_mode = 0;
-    if (vga) {                                                      // 720p60, 1080p60 and 800 x 600: Auto is 1080p, the 800 x 600 row is a change
-        static const uint8_t v60[2] = { 4, 16 };
-        fk_make_edid(v60, 2, 1u, false);
-    } else {
-        picnote_edid();
-    }
+    picnote_edid(vga);
     fresh_video(VID_SYS_PAL50, -1);
     hostui_test_init("countdown=5\ndefault=0\ncore=/SD/cores/trx64.cor|C64||0\n");
     hostui_test_mode(VID_SYS_PAL50, VID_HDMI_1080P);               // every case starts on the 960 x 540 canvas: the 800 x 600 ones change it
@@ -4322,22 +4033,13 @@ static void picnote_case(const char *out, const char *name, int view, int want, 
     if (view == 4) {
         hostui_test_key(KEY_F8);
         hostui_test_key(KEY_DOWN);                                  // the Picture row
-        hostui_test_key(KEY_RETURN);                                // opens the page
     } else {
         hostui_test_view(1);
-        hostui_test_key('v');
     }
-    // T187 D5: the cursor goes down to the row of the wanted mode (browsing applies nothing: the mode is still the old one), RETURN uses it
-    char wn[64], cn[64];
-    snprintf(wn, sizeof(wn), "%s", video_hdmi_name(want));
-    int wr0 = g_gw_wr;
-    for (int i = 0; i < 12; i++) {
-        hostui_test_pm(cn, sizeof(cn), 0, 0, 0, 0);
-        if (!strcmp(cn, wn)) { break; }
-        hostui_test_key(KEY_DOWN);
+    // the Settings page changes on a key too, and while a change waits any key keeps it (the key is spent on that): the loop goes on past "Picture kept"
+    for (int i = 0; i < 16 && (i == 0 || !(mode_is(want) && !picnote_kept())); i++) {
+        hostui_test_key(view == 4 ? KEY_RIGHT : 'v');
     }
-    PCHECK(!strcmp(cn, wn) && g_gw_wr == wr0);                         // nothing was asked of the gateware while browsing
-    hostui_test_key(KEY_RETURN);
     PCHECK(mode_is(want) && !picnote_kept());
     PCHECK(hostui_test_canvas_w() == (want == VID_HDMI_800x600 ? 800 : 960));
     // T164 Q7 (2026-11-04): the question is a box in the middle of the screen: title, the picture, the seconds, a blank line, its key
@@ -4347,7 +4049,7 @@ static void picnote_case(const char *out, const char *name, int view, int want, 
     printf("PICNOTE %-18s mode %d: box %d '%s' / '%s' / '%s' / '%s' key %d above %d bottom %d off %d,%d\n", name, g_gw_mode, (int)shown, t0, l0, l1, kt, ky, up, by, cx, cy);
     snprintf(p, sizeof(p), "%s/picnote_%s.png", out, name);
     png_out(p, 1, hostui_test_canvas_w(), hostui_test_canvas_h(), 0, 0);
-    PCHECK(shown && !strcmp(t0, "Keep this picture?") && strstr(l1, "In 8 s") && strstr(kt, "RETURN keeps it") && strstr(kt, "LEFT or ESC goes back now"));
+    PCHECK(shown && !strcmp(t0, "Keep this picture?") && strstr(l1, "In 8 s") && !strcmp(kt, "Press any key to keep it"));
     PCHECK(shown && ky - up >= 20 && ky + 20 <= by && by < hostui_test_canvas_h());          // one blank line before the key, the key inside the box, the box on the canvas
     PCHECK(shown && abs(cx) <= 2 && abs(cy) <= 2);                                          // in the middle of the screen
     g_hv_ms += 3000;
@@ -4362,199 +4064,14 @@ static void picnote_case(const char *out, const char *name, int view, int want, 
     PCHECK(!hostui_test_pq(t0, l0, l1, kt, sizeof(t0), &ky, &up, &by, &cx, &cy));              // the box is gone with the key
     PCHECK(g_saved_hdmi == want);
 }
-// T187 D5: the host's Picture page with the mode-request gateware: the 8-second question names both modes, LEFT / ESC go back at once, the timeout goes back,
-// the page stays open with the cursor on the rejected mode and "now" on the old one, RETURN keeps the new one.
-static void pm_goto(int hdmi)
-{
-    char cn[64];
-    for (int i = 0; i < 12; i++) {
-        hostui_test_pm(cn, sizeof(cn), 0, 0, 0, 0);
-        if (!strcmp(cn, video_hdmi_name(hdmi))) { return; }
-        hostui_test_key(KEY_DOWN);
-    }
-}
-static void pmpage_case(void)
-{
-    char t0[96], l0[96], l1[96], kt[96], cn[64], info[200], tn[64], on[64];
-    int ky = 0, up = 0, by = 0, cx = 0, cy = 0, sl = 0, rw = 0;
-    g_gw_model = true; g_gw_wr = g_gw_pr = 0; g_gw_mode = 0;
-    static const uint8_t v60[2] = { 4, 16 };
-    fk_make_edid(v60, 2, 1u, false);                                     // 720p60, 1080p60 and 800 x 600: the PAL machine gets the other family
-    fresh_video(VID_SYS_PAL50, -1);
-    hostui_test_init("countdown=5\ndefault=0\ncore=/SD/cores/trx64.cor|C64||0\n");
-    int old = hv_state()->hdmi;
-    int tgt = old == VID_HDMI_720P ? VID_HDMI_1080P : VID_HDMI_720P;
-    snprintf(tn, sizeof(tn), "%s", video_hdmi_name(tgt));
-    snprintf(on, sizeof(on), "%s", video_hdmi_name(old));
-    PCHECK(old >= 0);
-    hostui_test_key('v');
-    { int open = hostui_test_pm(cn, sizeof(cn), &sl, &rw, info, sizeof(info)); printf("PMPAGE open %d rows %d sel %d name '%s' old %d\n", open, rw, sl, cn, old); }
-    PCHECK(hostui_test_pm(cn, sizeof(cn), &sl, &rw, info, sizeof(info)) == 1 && rw == 4 && sl == 0);
-    PCHECK(!strcmp(info, "This screen names no 50 Hz modes; 60 Hz modes are listed."));      // S: the fallback line of the spec
-    int wr0 = g_gw_wr;
-    pm_goto(tgt);
-    PCHECK(g_gw_wr == wr0 && hv_state()->hdmi == old && !hv_state()->pending);       // browsing asked nothing of the gateware
-    hostui_test_key(KEY_RETURN);
-    PCHECK(hv_state()->hdmi == tgt && hv_state()->pending && g_gw_wr == wr0 + 1);
-    PCHECK(hostui_test_pq(t0, l0, l1, kt, sizeof(t0), &ky, &up, &by, &cx, &cy) && strstr(l0, tn) && strstr(l0, " Hz") && strstr(l1, "In 8 s") && strstr(l1, on)
-           && strstr(kt, "RETURN keeps it") && strstr(kt, "LEFT or ESC goes back now"));
-    hostui_test_key(KEY_LEFT);                                           // goes back at once, nothing stored
-    PCHECK(hv_state()->hdmi == old && !hv_state()->pending && g_saved_hdmi == -1 && !hostui_test_pq(t0, l0, l1, kt, sizeof(t0), &ky, &up, &by, &cx, &cy));
-    PCHECK(hostui_test_pm(cn, sizeof(cn), &sl, &rw, 0, 0) == 1 && !strcmp(cn, tn));       // the page stays, the cursor on the rejected mode
-    hostui_test_key(KEY_RETURN);
-    PCHECK(hv_state()->hdmi == tgt && hv_state()->pending);
-    hostui_test_key(KEY_ESCAPE);                                         // ESC is the same
-    PCHECK(hv_state()->hdmi == old && g_saved_hdmi == -1 && hostui_test_pm(0, 0, 0, 0, 0, 0) == 1);
-    hostui_test_key(KEY_RETURN);                                         // asked again, no key: the timeout goes back
-    PCHECK(hv_state()->hdmi == tgt);
-    g_hv_ms += 8100;
-    hostui_test_pump();
-    PCHECK(hv_state()->hdmi == old && !hv_state()->pending && g_saved_hdmi == -1 && hostui_test_pm(cn, sizeof(cn), &sl, &rw, 0, 0) == 1 && !strcmp(cn, tn));
-    hostui_test_key(KEY_RETURN);                                         // the question again: RETURN keeps it, the page stays on the new mode
-    hostui_test_key(KEY_RETURN);
-    PCHECK(hv_state()->hdmi == tgt && !hv_state()->pending && g_saved_hdmi == tgt && hostui_test_pm(cn, sizeof(cn), &sl, &rw, 0, 0) == 1 && !strcmp(cn, tn));
-    int wr1 = g_gw_wr;
-    hostui_test_key(KEY_RETURN);                                         // RETURN on the mode in force: the page closes, nothing is asked
-    PCHECK(hostui_test_pm(0, 0, 0, 0, 0, 0) == 0 && g_gw_wr == wr1 && hv_state()->hdmi == tgt);
-}
-
-// T187 D5 render fixtures: the Picture page on a screen that names 6, 4, 1 modes, none (no EDID) and a corrupt one; an NTSC machine (the 60 Hz family, the PC rows are its).
-// The rows, the refresh and native columns from the table, the info line, the places of the objects, nothing applied while browsing, one apply on RETURN, LEFT / ESC.
-struct PmFix { const char *name; uint8_t vics[3]; int nv; unsigned pc; bool bad, none; int n; int list[6]; unsigned nat; const char *info; };
-static void pmfix_case(const char *out, const PmFix &f)
-{
-    char t0[96], l0[96], l1[96], kt[96], nm[64], hz[32], tg[32], info[200], p[512];
-    int ky = 0, up = 0, by = 0, cx = 0, cy = 0, sl = 0, rw = 0;
-    g_gw_model = true; g_gw_wr = g_gw_pr = 0; g_gw_mode = 0;
-    if (f.none) { memset(g_fk_edid, 0, sizeof(g_fk_edid)); g_fk_edid_len = 0; } else { fk_make_edid(f.vics, f.nv, f.pc, f.bad); }
-    g_saved_hdmi = -1; g_saved_sys = VID_SYS_NTSC60; hostui_test_video(VID_SYS_NTSC60, -1);        // the 60 Hz family: the host lists its own family's rows, the PC modes among them
-    hostui_test_init("countdown=5\ndefault=0\ncore=/SD/cores/trx64.cor|C64||0\n");
-    int old = hv_state()->hdmi;
-    hostui_test_key('v');
-    PCHECK(hostui_test_pm(nm, sizeof(nm), &sl, &rw, info, sizeof(info)) == 1 && rw == 1 + f.n && sl == 0);
-    printf("PMFIX %-8s rows %d sel %d old %s info '%s'\n", f.name, rw, sl, video_hdmi_name(old), info);
-    PCHECK(!strcmp(info, f.info));
-    int nnow = 0, oldrow = -1;
-    for (int i = 0; i < rw && i < 1 + f.n; i++) {                       // 1: the rows are Auto and the list in order, with the table's refresh and the screen's native flags
-        PCHECK(hostui_test_pm_row(i, nm, sizeof(nm), hz, sizeof(hz), tg, sizeof(tg)));
-        if (i == 0) { PCHECK(!strncmp(nm, "Auto", 4)); } else { PCHECK(!strcmp(nm, video_hdmi_name(f.list[i - 1]))); }
-        int hdmi = i == 0 ? old : f.list[i - 1];
-        int row = 6 + hdmi;                                               // the 60 Hz row
-        const EdidRow *er = edid_row(row);
-        char ex[32];
-        uint64_t tot = (uint64_t)er->htotal * er->vtotal;
-        unsigned d = (unsigned)(((uint64_t)er->pixel_hz * 10 + tot / 2) / tot);
-        snprintf(ex, sizeof(ex), "%u.%u Hz", d / 10, d % 10);
-        PCHECK(!strcmp(hz, ex));
-        PCHECK((strstr(tg, "native") != 0) == (((f.nat >> row) & 1) != 0));
-        if (strstr(tg, "now")) { nnow++; oldrow = i; }
-    }
-    PCHECK(nnow == 1 && oldrow == 0 && sl == 0);     // D9: Auto is the choice: one mark, on Auto's row, the cursor opened on it; the mode it resolved to has none
-    int ix1, iy1, ix2, iy2, rx1, ry1, rx2, ry2, fx1, fy1, fx2, fy2, px1, py1, px2, py2, ay2 = 0;
-    PCHECK(hostui_test_pm_geo(-1, &px1, &py1, &px2, &py2) && hostui_test_pm_geo(-2, &ix1, &iy1, &ix2, &iy2) && hostui_test_pm_geo(-4, &fx1, &fy1, &fx2, &fy2));
-    int wr0 = g_gw_wr, hs0 = g_hv_stores, last_y2 = iy2;
-    for (int i = 0; i < rw; i++) {                                       // 2, R1/R2: every row inside the page, under the info line, above the key bar, none on another
-        PCHECK(hostui_test_pm_geo(i, &rx1, &ry1, &rx2, &ry2));
-        PCHECK(rx1 >= px1 && rx2 <= px2 && ry1 >= iy2 && ry2 <= py2 && ry1 >= last_y2 && ry2 <= fy1);
-        last_y2 = ry2; ay2 = ry2;
-    }
-    PCHECK(ix1 >= px1 && ix2 <= px2 && ay2 <= fy1);
-    for (int i = 0; i < rw; i++) { hostui_test_key(KEY_DOWN); }          // 4: browsing asks nothing of the gateware and applies nothing
-    for (int i = 0; i < rw; i++) { hostui_test_key(KEY_UP); }
-    PCHECK(g_gw_wr == wr0 && hv_state()->hdmi == old && !hv_state()->pending && g_hv_stores == hs0);
-    PCHECK(hostui_test_pm(nm, sizeof(nm), &sl, &rw, 0, 0) == 1 && sl == 0);
-    snprintf(p, sizeof(p), "%s/pm_%s.png", out, f.name);
-    png_out(p, 1, hostui_test_canvas_w(), hostui_test_canvas_h(), 0, 0);
-    int tgt = -1, trow = -1;
-    for (int i = 0; i < f.n; i++) { if (f.list[i] != old) { tgt = f.list[i]; trow = i + 1; break; } }
-    if (tgt >= 0) {
-        for (int i = 0; i < trow; i++) { hostui_test_key(KEY_DOWN); }
-        hostui_test_key(KEY_RETURN);
-        PCHECK(hv_state()->hdmi == tgt && hv_state()->pending && g_gw_wr == wr0 + 1);         // one apply, the question is up
-        PCHECK(hostui_test_pq(t0, l0, l1, kt, sizeof(t0), &ky, &up, &by, &cx, &cy) && strstr(l0, video_hdmi_name(tgt)) && strstr(l1, "In 8 s") && strstr(l1, video_hdmi_name(old)));
-        snprintf(p, sizeof(p), "%s/pm_%s_question.png", out, f.name);
-        png_out(p, 1, hostui_test_canvas_w(), hostui_test_canvas_h(), 0, 0);
-        hostui_test_key(KEY_LEFT);
-        PCHECK(hv_state()->hdmi == old && !hv_state()->pending && hostui_test_pm(nm, sizeof(nm), &sl, &rw, 0, 0) == 1 && sl == trow);   // back at once, the page stays on the rejected mode
-        int wr1 = g_gw_wr;
-        hostui_test_key(KEY_ESCAPE);                                     // ESC on the page: closed, nothing asked
-        PCHECK(hostui_test_pm(0, 0, 0, 0, 0, 0) == 0 && g_gw_wr == wr1 && hv_state()->hdmi == old);
-        hostui_test_key('v');                                            // D9, a fixed mode: pick it and keep it; the page opens on it, with the one mark on its row
-        for (int i = 0; i < trow; i++) { hostui_test_key(KEY_DOWN); }
-        hostui_test_key(KEY_RETURN);
-        hostui_test_key(KEY_RETURN);
-        PCHECK(hv_state()->hdmi == tgt && !hv_state()->pending);
-        hostui_test_key(KEY_ESCAPE);
-        hostui_test_key('v');
-        PCHECK(hostui_test_pm(nm, sizeof(nm), &sl, &rw, info, sizeof(info)) == 1 && sl == trow);
-        int fnow = 0, frow = -1;
-        for (int i = 0; i < rw; i++) {
-            PCHECK(hostui_test_pm_row(i, nm, sizeof(nm), hz, sizeof(hz), tg, sizeof(tg)));
-            if (strstr(tg, "now")) { fnow++; frow = i; }
-        }
-        PCHECK(fnow == 1 && frow == trow);
-        hostui_test_key(KEY_ESCAPE);
-    } else {
-        hostui_test_key(KEY_DOWN);
-        hostui_test_key(KEY_RETURN);                                     // the only mode is the one in force: the page closes, nothing is asked
-        PCHECK(hostui_test_pm(0, 0, 0, 0, 0, 0) == 0 && g_gw_wr == wr0 && hv_state()->hdmi == old && !hv_state()->pending);
-    }
-}
-static void pmfix(const char *out)
-{
-    static const PmFix fx[] = {
-        { "six",     { 2, 4, 144 },  3, 7u, false, false, 6, { 0, 1, 2, 3, 4, 5 }, 1u << 8, "Your screen offers 6 modes. Nothing changes until you pick one." },
-        { "four",    { 2, 144, 0 },  2, 3u, false, false, 4, { 0, 2, 3, 4 },       1u << 8, "Your screen offers 4 modes. Nothing changes until you pick one." },
-        { "one",     { 132, 0, 0 },  1, 0u, false, false, 1, { 1 },                1u << 7, "Your screen offers 1 mode. Nothing changes until you pick one." },
-        { "none",    { 0, 0, 0 },    0, 0u, false, true,  3, { 0, 1, 2 },          0,       "The screen did not name its modes; the standard TV modes are listed." },
-        { "corrupt", { 2, 4, 144 },  3, 7u, true,  false, 3, { 0, 1, 2 },          0,       "The screen did not name its modes; the standard TV modes are listed." },
-    };
-    for (size_t i = 0; i < sizeof(fx) / sizeof(fx[0]); i++) { pmfix_case(out, fx[i]); }
-}
-// T187: the other end of the question: nobody answers, the 8 seconds run out, the old mode comes back and the toast says so (picture of that screen)
-static void picnote_revert_case(const char *out, const char *name)
-{
-    char p[512], txt[200], wn[64], cn[64];
-    g_gw_model = true; g_gw_wr = g_gw_pr = 0; g_gw_mode = 0;
-    static const uint8_t v60[2] = { 4, 16 };
-    fk_make_edid(v60, 2, 1u, false);
-    fresh_video(VID_SYS_PAL50, -1);
-    hostui_test_init("countdown=5\ndefault=0\ncore=/SD/cores/trx64.cor|C64||0\n");
-    hostui_test_mode(VID_SYS_PAL50, VID_HDMI_1080P);
-    hostui_test_key(KEY_F8);
-    hostui_test_key(KEY_DOWN);
-    hostui_test_key(KEY_RETURN);
-    snprintf(wn, sizeof(wn), "%s", video_hdmi_name(VID_HDMI_800x600));
-    for (int i = 0; i < 12; i++) {
-        hostui_test_pm(cn, sizeof(cn), 0, 0, 0, 0);
-        if (!strcmp(cn, wn)) { break; }
-        hostui_test_key(KEY_DOWN);
-    }
-    hostui_test_key(KEY_RETURN);
-    char t0[96], l0[96], l1[96], kt[96];
-    int ky = 0, up = 0, by = 0, cx = 99, cy = 99;
-    PCHECK(mode_is(VID_HDMI_800x600) && hostui_test_pq(t0, l0, l1, kt, sizeof(t0), &ky, &up, &by, &cx, &cy));
-    g_hv_ms += 9000;
-    hostui_test_pump();                                             // the loop's tick: 8 s without a key
-    note_px(txt, sizeof(txt));
-    printf("PICNOTE %-18s reverted: mode %d note '%s'\n", name, g_gw_mode, txt);
-    snprintf(p, sizeof(p), "%s/picnote_%s.png", out, name);
-    png_out(p, 1, hostui_test_canvas_w(), hostui_test_canvas_h(), 0, 0);
-    PCHECK(mode_is(VID_HDMI_1080P) && hostui_test_canvas_w() == 960);
-    PCHECK(!hostui_test_pq(t0, l0, l1, kt, sizeof(t0), &ky, &up, &by, &cx, &cy));
-    PCHECK(!strncmp(txt, "Picture: back to", 16));
-}
 static void picnote(const char *out)
 {
-    pmpage_case();
-    pmfix(out);
     picnote_case(out, "browser_1080p", 1, VID_HDMI_1080P, false);
     picnote_case(out, "settings_1080p", 4, VID_HDMI_1080P, false);
     picnote_case(out, "browser_800x600", 1, VID_HDMI_800x600, true);
     picnote_case(out, "settings_800x600", 4, VID_HDMI_800x600, true);
-    picnote_revert_case(out, "settings_800x600_reverted");
     g_gw_model = false;
-    picnote_edid();
+    picnote_edid(false);
     fresh_video(VID_SYS_PAL50, -1);
     hostui_test_mode(VID_SYS_PAL50, VID_HDMI_1080P);
 }
@@ -4587,7 +4104,6 @@ int main(int argc, char **argv)
     scenarios_media(out);
     scenarios_t139(out);
     scenarios_t148(out);
-    scenarios_t198(out);
     scenarios_t137(out);
     scenarios_t137r(out);
     scenarios_t152(out);

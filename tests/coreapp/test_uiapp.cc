@@ -156,10 +156,10 @@ int main()
     M = new MenuCtl(&c, &HOST);
     UiAppEnv env = { 0, env_open, env_do_open, env_key, env_intent, env_pic, env_appdlg, env_active };
     env.dialog_key_intent = env_dlg_intent; env.dialog_apply = env_dlg_apply; env.dialog_view = env_dlg_view; env.picture_left_s = env_pic_left;
-    // D31 (Alex, 2026-11-10): every core of the generic application gets the service (token, /v1/ui/state, asking); before D31 only the Amiga 1200 and the TRX64U
+    // H3: a core that is neither the Amiga 1200 nor the TRX64U (another C64 core, VIC-20 ...) gets no service: no token, no /v1/ui/state, no asking
     {
         static CoreDesc other = amiga1200_desc;
-        const char *names[] = { "C64 reference", "C64 SCPU", "VC-20 (PAL)", "NES" };
+        const char *names[] = { "TRX64 Ultimate (C64)", "C64 reference", "C64 SCPU", "VC-20 (PAL)" };
         for (const char *nm : names) {
             other.cor_name = nm;
             CoreCtx oc = c;
@@ -169,23 +169,22 @@ int main()
             g_ui = false;
             int st0 = 0;
             CTX = &oc;
-            CHECK(uiapp_service() != 0 && rest_uic == uiapp_service());
-            http("GET", "/v1/info", "", "", &st0); CHECK_EQ(st0, 401);                  // a token is needed now
-            http("GET", "/v1/ui/hello", "", "", &st0); CHECK_EQ(st0, 200);              // the public route of the service
-            uiapp_reset_for_test();
-        }
-        {   // no descriptor: no service, the board's key still reaches give_key (regression: pc 0 when the env was only kept on a service core)
-            CoreCtx oc = c;
-            oc.desc = 0;
-            UiAppEnv ce = env;
-            ce.give_key = env_key_count;
-            uiapp_init(&oc, &ce, &PLAT);
-            CHECK(uiapp_service() == 0 && rest_uic == 0);
-            g_gk_n = 0;
-            uiapp_local_key(0x41);
-            CHECK_EQ(g_gk_n, 1); CHECK_EQ(g_gk_last, 0x41);
-            char rb[64];
-            CHECK_EQ(uiapp_render(rb, sizeof(rb)), -1);
+            CHECK(uiapp_service() == 0 && rest_uic == 0 && rest_ui_op_destructive == 0 && rest_ui_op_ask == 0);
+            {   // no service: the board's key still reaches give_key (regression: pc 0 when the env was only kept on the Amiga) and render says -1
+                UiAppEnv ce = env;
+                ce.give_key = env_key_count;
+                uiapp_init(&oc, &ce, &PLAT);
+                g_gk_n = 0;
+                uiapp_local_key(0x41);
+                CHECK_EQ(g_gk_n, 1); CHECK_EQ(g_gk_last, 0x41);
+                char rb[64];
+                CHECK_EQ(uiapp_render(rb, sizeof(rb)), -1);
+            }
+            http("GET", "/v1/info", "", "", &st0); CHECK_EQ(st0, 200);                  // no token needed
+            http("GET", "/v1/ui/state", "", "", &st0);
+            CHECK_EQ(st0, 404);                                                          // there is no v1 state any more (T192.3, Alex 2026-11-09)
+            http("GET", "/v1/ui/hello", "", "", &st0); CHECK(st0 == 404 || st0 == 405 || st0 == 501);   // the service's routes are not there
+            http("POST", "/v1/ui/grant", "", "", &st0); CHECK(st0 != 200);
         }
         {   // the TRX64U (the record menu) has the service: the T153 suite reads it through the service
             other.cor_name = "TRX64U";
@@ -486,7 +485,7 @@ int main()
         g_ui = true; uiapp_local_key(KEY_F3); uiapp_pass(false); g_ui = false;       // a page
         g_ui = true; uiapp_local_key(KEY_DOWN); uiapp_pass(false); g_ui = false;     // a focus
         st.set_autosave(0);
-        g_ui = true; M->key(KEY_F5); M->key('1'); g_ui = false;
+        g_ui = true; M->key(KEY_F5); M->key('2'); g_ui = false;
         std::string key0 = c.desc->settings[0].key;
         send("{\"do\":\"set\",\"key\":\"" + key0 + "\",\"value\":\"" + c.desc->settings[0].values[(st.value(0) + 1) % c.desc->settings[0].nvalues] + "\"}");
         g_ui = true; uiapp_pass(false); g_ui = false;                              // a dirty mark

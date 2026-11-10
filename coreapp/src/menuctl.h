@@ -7,7 +7,6 @@
 #ifndef COREAPP_MENUCTL_H
 #define COREAPP_MENUCTL_H
 
-#include "picture.h"
 #include "ctx.h"
 #include "lineedit.h"
 #include "menutree.h"
@@ -16,7 +15,6 @@
 #include "menuflows.h"
 #include "menuvlist.h"
 #include "filemgr.h"
-#include "hotkeys.h"
 
 class MenuHost {
 public:
@@ -63,7 +61,6 @@ public:
     bool pump(bool quiet);
     int progress() const { return busy_ ? c_->job_pct : -1; }
     bool picking() const { return pick_; }
-    bool picking_modes() const { return pick_ && pick_modes_; }          // T187 F6: the Picture page names its path in the top bar
     // T156 D5: the mapping of a pad's buttons ("Map buttons"): the menu asks for the core's buttons one by one and the person presses the pad's
     // button for each. The run loop calls map_tick() each pass while mapping(); true: the screen changed.
     bool mapping() const { return wizard() != 0; }
@@ -76,18 +73,11 @@ public:
     int rows();                                                    // rows of the current view
     int selected() const;
     bool row_reset(int i) const;                                   // T187 D9: row i is a setting that takes effect at the next reset
-    bool ring_listed() const;
-    const char *foot_line();                                 // T187 F4: status, then the ring legend when a ring row is in the list
-    const char *sel_detail();                                      // T209 S3: what the selected row says about itself (why it is greyed, what RETURN does), "" when nothing
+    const char *legend_line() const;                               // reset_legend() when the open list has marked rows and the status row is empty, else ""
     static const char *reset_legend() { return "A ring beside a name: the value is used from the next reset"; }
     // title, description (may be ""), value (may be ""), and whether the row can be activated. The three are the
     // prototype's setting_row: title, description, control (T104 5.8).
     void row(int i, char *left, int ln, char *right, int rn, bool *active, char *sub = 0, int sn = 0);
-    // T187 D1: row i of the flat list is a heading (a quiet divider): never selected, never the last line of the window. T187 rule 5: the first row of a tab's
-    // window is kept per tab, so coming back to a tab (from a page it opened, or from another area) shows the rows where they were.
-    bool heading(int i);
-    int first_hint() const;
-    void note_first(int first);
     static const int NAME_LONG_MAX = 255;                          // a FAT long name: what Rename and New folder take
     static const int ENTRY_VIS = 56;                               // the characters of an entry the row shows; more scroll (the tail stays)
     const char *status() const { return status_; }
@@ -100,7 +90,6 @@ public:
     bool status_bad() const { return status_bad_; }
     bool chooser() const { return chooser_; }
     bool entering() const { return entry_; }                      // a prompt is up (an address, or a name)
-    bool learning() const { return learn_ >= 0; }                 // T207: "Press the new key" is up (entry_ too); the run loop runs no hotkey meanwhile
     const MenuTree &tree() const { return tree_; }
     bool closable() const;
     bool unsaved() const { return c_->settings && c_->settings->dirty(); }
@@ -126,12 +115,12 @@ public:
     struct Item {
         char slot[20];                   // the anchor's group: where the layout puts it ("head", "side", ...); "" = the tab's main list
         char group[28];                  // a setting's group (a heading over the first row of each group when a tab lists several), "" none
-        char title[80], sub[120], chip[40], value[64];   // sub (T209): the foot line while this row is selected - why it is greyed, what RETURN does; never a second line of the row
+        char title[80], sub[120], chip[40], value[64];
         int kind;
         int tone;                        // 0 muted, 1 cyan, 2 violet, 3 amber, 4 coral; -1: by the chip's word
         bool primary, link;
         bool enabled;                    // RETURN does something
-        bool dim;                        // greyed: not usable now; `sub` then says why (in the foot, while the row is selected)
+        bool dim;                        // greyed: not usable now; `sub` then says why
         bool toggle, on;                 // a setting that is a switch
         char bkey;                       // a button's letter on its page, drawn as a keycap before the label (0: none)
         bool hidden;                     // the node says `hide` and its state has a value: it is not drawn and takes no focus
@@ -170,9 +159,7 @@ public:
     const char *chip_name(int i) const { return fm_.chip_name(i); }
     uint8_t chip_flags(int) const { return 0; }                    // the chips only show the open medium (T104.2): none has the focus
     int chip_active() const { return fm_.chip_active(); }
-    void footer_legend(char *out, int n);                          // the line at the foot: the keys of the row under the cursor, or of the screen, then "+/- PAGE" when the list is longer than its window (T209 D4)
-    void note_paged(bool p) { paged_ = p; }
-    bool paged() const { return paged_; }                        // told by the layout that draws the list: it has more rows than its window shows
+    void footer_legend(char *out, int n);                          // the line at the foot: the keys of the row under the cursor, or of the screen
     const char *browse_path() const { return fm_.vmode ? fm_.vlabel : fm_.path; }
     // the viewer (View and Hex View of a file): text lines or 16 bytes a row, drawn by screens.cc instead of the list
     bool viewer() const { return fm_.view; }
@@ -251,9 +238,6 @@ private:
     void begin_pick_file(int idx);                                 // T185 D4: the file selector of a setting of kind 3 (folders and files, "no file" on top)
     void begin_set_save();                                         // T180 D5: the name prompt of "Save media set..."
     void begin_set_load();                                         // T180 D5: the list of the sets of "Load media set..."
-    void begin_pick_modes();                                       // T187 D5: the Picture row's page - the modes the screen names; browsing applies nothing
-    void pick_modes_refresh(bool keep_cursor);
-    bool picture_row(const MenuEntry &e) const;                    // the entry is the Picture setting (RETURN opens the page; LEFT / RIGHT do nothing)
     void pick_status();
     void start_path(char *out, int n) const;                       // where the folder browser starts: the menu's folder, the last disk's, the first stick
     void load_pick();
@@ -287,16 +271,10 @@ private:
     MenuTree tree_;
     int area_, tab_;
     int sel_[MENU_AREAS_MAX][MENU_TABS_MAX];
-    int first_[MENU_AREAS_MAX][MENU_TABS_MAX];                      // the first row of the window each tab last showed
-    void unheading();                                               // the selection is not on a heading
     int last_tab_[MENU_AREAS_MAX];                                  // the tab an area was left on: its key comes back to it
     char status_[200];
     static const uint32_t TOAST_MS = 2000;                          // how long a toast stays
-    char toast_[96] = "";
-    mutable char foot_[240] = "";
-    char detail_[120] = "";
-    bool paged_ = false;
-    void footer_legend_keys(char *out, int n);
+    char toast_[64] = "";
     uint32_t toast_until_ = 0, toast_rev_ = 0;
     bool status_bad_;
     // the file manager: the Library's model and its file operations (filemgr.h)
@@ -320,11 +298,7 @@ private:
     bool entry_text_mode_;
     const Task *entry_task_;
     LineEdit entry_le_;                                            // the text being typed: buffer, cursor, limit and window (app/edit; T180 D8)
-    int learn_ = -1;                                               // T207: >= 0: the hotkey item (setting index) whose key is learned from the physical keys; entry_ is up
-    HkLearn lrn_;
-    void begin_learn(int set);
-    bool learn_poll();                                             // one look at the physical keys while learn_ is up; true: the screen changed
-    const MenuFlow *flow_q_;                                     // the question of a module's flow is up (confirm_q_ holds it)
+    const MenuFlow *flow_q_;                                       // the question of a module's flow is up (confirm_q_ holds it)
     const MenuNode *confirm_node_;
     bool remote_q_ = false;                                        // T192.1: a remote request's confirmation is up (confirm_q_ holds it)
     int remote_ans_ = -1;
@@ -341,9 +315,7 @@ private:
     // T180 D5: the name of a media set being typed (entry_ is up), and the list of the sets (pick_ is up, the rows are the sets, no "Create here")
     bool entry_mset_;
     bool pick_sets_;
-    bool pick_modes_ = false;                                       // T187 D5: pick_ is the page of the screen's modes (pm_ holds the rows; pick_sel_ is the cursor)
-    PictureModes pm_;
-    char sets_[CONFIGS_MAX][CONFIG_NAME_MAX + 1];
+    char sets_[MEDIASETS_MAX][MEDIASET_NAME_MAX + 1];
     // the folder browser of a Create task
     bool pick_;
     const Task *pick_task_;

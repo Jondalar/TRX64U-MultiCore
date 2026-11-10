@@ -7,15 +7,16 @@ area F1 Home
     info Media
     info ROMs
     info Libraries
-    media SD
-    fixed Save as config...
-    fixed Load config...
 area F3 Library
   tab 1 Browse
     browser Browse
       filetype .img: Mount SD image and reset | Mount SD image
 area F5 NEXT
-  tab 1 NEXT
+  tab 1 Summary
+    media SD
+    fixed Save media set...
+    fixed Load media set...
+  tab 2 Settings
     setting Joystick ports = Normal | Swapped (default Normal, live)
     setting Frame lock to 50 Hz = On | Off (default On, live)
     setting Board issue = Auto | Issue 2 | Issue 4 | Issue 5 (default Auto, at next reset)
@@ -27,13 +28,9 @@ area F7 Actions
     task F8: CPU speed
     task NMI: Multiface (M1 button) (closes the menu)
 area F8 System (shifted)
-  tab 1 System
-    heading Actions
-    fixed Restart core
-    fixed Return to host menu
-    heading Network
-    fixed WiFi
-    heading Support
-    fixed Bug report
-    heading Reset
+  tab 1 Expert
     fixed Reset to host defaults
+    fixed Restart core
+    fixed Bug report
+    fixed WiFi
+    fixed Return to host menu

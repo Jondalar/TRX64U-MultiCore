@@ -10,7 +10,6 @@
 #include "txu.h"
 #include "cor.h"
 #include "keyboard.h"
-#include "host_core_cfgov.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -35,12 +34,6 @@ void hc_ui_init(const HcUiEnv *e)
 void hc_ui_changed(void) { g_changed = true; }
 void hc_ui_web_arg(int a) { g_web_arg = a; }
 static bool g_remote_ask;
-static char g_web_cfg_path[200], g_web_cfg_name[CONFIG_NAME_MAX + 1];
-void hc_ui_web_config(const char *path, const char *name)
-{
-    snprintf(g_web_cfg_path, sizeof(g_web_cfg_path), "%s", path ? path : "");
-    snprintf(g_web_cfg_name, sizeof(g_web_cfg_name), "%s", name ? name : "");
-}
 bool hc_ui_remote_ask(void) { return g_remote_ask; }
 const HcUiEnv &hc_ui_env(void) { return g_env; }
 
@@ -89,12 +82,6 @@ void hc_ui_refuse_full(int cfw_res)
 // ---- the view -------------------------------------------------------------------------------------------------------------------------------
 void hc_ui_go(int view)
 {
-    if (hc_cfgov_is_open()) {
-        hc_cfgov_close();
-        if (g_env.wifi && g_env.wifi->pick_end) {
-            g_env.wifi->pick_end(g_env.wifi->ctx);
-        }
-    }
     hc_fo_replace_drop();                     // T139: a pending question ends with the view
     hc_nav_go(view);
     if (g_env.show) {
@@ -107,12 +94,6 @@ int hc_ui_ctx(void)
     const HcNav &v = hc_nav();
     if (hv_state()->pending) {
         return HCX_PICTURE;
-    }
-    if (hc_cfgov_is_open()) {
-        return HCX_CFG;
-    }
-    if (v.view == HCV_SET && v.pm_mode) {
-        return HCX_PICMODES;
     }
     switch (v.view) {
     case HCV_MENU: return HCX_MENU;
@@ -131,8 +112,7 @@ unsigned hc_ui_fingerprint(void)
     const HcNav &v = hc_nav();
     return (unsigned)v.view * 7 + (unsigned)v.sel * 131 + (unsigned)v.bsel * 17 + (unsigned)cfg().n * 977 + (unsigned)(cfg().def + 1) * 31 +
            (unsigned)cfg().countdown * 3571 + (unsigned)v.bn * 53 + (unsigned)strlen(v.bpath) * 11 + (unsigned)v.note[0] + (unsigned)v.cpat +
-           (unsigned)(hc_arm_row() + 1) * 19 + (unsigned)v.br_mode * 23 + (unsigned)hc_fo_replace_pending() * 29 + (unsigned)v.ssel * 41 +
-           (unsigned)hc_cfgov_is_open() * 43 + (unsigned)hc_cfgov().cur * 47 + (unsigned)hc_cfgov().ask * 59 + (unsigned)hc_cfgov().l.n * 61 + (unsigned)strlen(hc_cfgov().msg) * 67 + (unsigned)v.pm_mode * 71 + (unsigned)hc_ui_pm().sel * 73;
+           (unsigned)(hc_arm_row() + 1) * 19 + (unsigned)v.br_mode * 23 + (unsigned)hc_fo_replace_pending() * 29 + (unsigned)v.ssel * 41;
 }
 
 // ---- the browser's pick, delete and add ----------------------------------------------------------------------------------------------------
@@ -275,8 +255,23 @@ void hc_ui_settings_change(int kind, int dir)
         hc_ui_cfg_after(hc_autostart(true, v < 1 ? 1 : v));
         break;
     }
-    case SK_HDMI:                                        // T187 D5 (Q-D5.1): LEFT / RIGHT on the closed row do nothing, RETURN opens the page (settings_key)
+    case SK_HDMI: {
+        // the stored choice steps through: from the screen, then every resolution the screen names
+        const HvState *hs = hv_state();
+        int l[VID_HDMI_COUNT];
+        int n = hv_list(hs->mask, hs->def_sys, l);
+        int at = -1;                                     // index in l of the stored choice; -1 = from the screen
+        for (int i = 0; i < n; i++) {
+            if (l[i] == hs->def_hdmi) {
+                at = i;
+            }
+        }
+        int pos = (at + 1 + dir + n + 1) % (n + 1);      // 0 = from the screen
+        if (g_env.picture_set) {
+            g_env.picture_set(g_env.ctx, pos == 0 ? -1 : l[pos - 1], "saved");
+        }
         break;
+    }
     case SK_PROTECT:
         hc_protect_set(!flashprot_enabled());
         hc_ui_note(flashprot_enabled() ? "Flash protection on: a large core cannot write the host or its app" : "Flash protection off: a large core can write the whole flash", HCT_HOST);
@@ -332,11 +327,6 @@ void settings_key(int act, int rawk)
         g_changed = true;
         return;
     }
-    if (hc_nav().pm_mode) {
-        hc_ui_pm_key(act);
-        g_changed = true;
-        return;
-    }
     if (hc_nav().wm_mode) {
         hc_ui_wifi_key(act, rawk);
         g_changed = true;
@@ -344,8 +334,6 @@ void settings_key(int act, int rawk)
     }
     int kinds[HC_SET_SLOTS], n = hc_set_kinds(kinds);
     if (hc_nav_settings_act(act, n)) {
-    } else if (kinds[hc_nav().ssel] == SK_HDMI && act == HCA_SET_ACTIVATE) {
-        hc_ui_pm_open();
     } else if (act == HCA_SET_DEC || act == HCA_SET_INC || act == HCA_SET_ACTIVATE) {
         hc_ui_settings_change(kinds[hc_nav().ssel], act == HCA_SET_DEC ? -1 : 1);
     }
@@ -389,193 +377,19 @@ void hc_ui_wifi_key(int act, int rawk)
     g_changed = true;
 }
 
-// ---- the Picture page (T187 D5, GitHub #50) ---------------------------------------------------------------------------------------------------
-// F8 > Picture and the V key open the page of the modes the screen names (the rows, texts, cursor and keys are picmodes.cc, the core's page too). Browsing applies
-// nothing; RETURN on another row puts the mode up through the one path (picture_set -> hv_user_set) and starts the 8-second question.
-static PicPage g_pp;
-static int g_pm_list[VID_HDMI_COUNT];                   // the resolution of row n+1, as the page was read
-
-static void pm_fill(PictureModes *pm)
-{
-    const HvState *hs = hv_state();
-    memset(pm, 0, sizeof(*pm));
-    int n = hv_list(hs->mask, hs->def_sys, g_pm_list);
-    pm->n = 1 + n;
-    pm->no_edid = !hs->have_edid || hs->mask == EDID_LIST_NONE;       // no EDID, a corrupt one, or one that names none of our rows: the television rows are listed
-    int choice = hs->pending ? hs->pend_def : hs->def_hdmi;
-    for (int i = 0; i < n; i++) {
-        if (g_pm_list[i] == choice) {
-            pm->cur = i + 1;
-        }
-    }
-    int now = hc_picture_hdmi();
-    int a = hv_auto();
-    char nm[48];
-    snprintf(nm, sizeof(nm), a >= 0 ? "Auto (%s from the screen)" : "Auto", video_hdmi_name(a));
-    picmodes_set_row(pm, 0, nm, a, hs->mask, hs->native, hs->def_sys, now, pm->cur == 0);
-    for (int i = 0; i < n; i++) {
-        picmodes_set_row(pm, i + 1, video_hdmi_name(g_pm_list[i]), g_pm_list[i], hs->mask, hs->native, hs->def_sys, now, pm->cur == 0);
-    }
-}
-
-const PicPage &hc_ui_pm(void) { return g_pp; }
-
-void hc_ui_pm_refresh(bool keep)
-{
-    PictureModes pm;
-    pm_fill(&pm);
-    picpage_refresh(&g_pp, &pm, keep);
-    g_changed = true;
-}
-
-void hc_ui_pm_open(void)
-{
-    PictureModes pm;
-    pm_fill(&pm);
-    picpage_open(&g_pp, &pm);
-    hc_nav_pm_open();
-}
-
-void hc_ui_pm_key(int act)
-{
-    int pk = act == HCA_CURSOR_UP ? PMK_UP : act == HCA_CURSOR_DOWN ? PMK_DOWN : act == HCA_PM_APPLY ? PMK_OK : act == HCA_BACK ? PMK_BACK : PMK_OTHER;
-    switch (pk == PMK_OTHER ? PMA_NONE : picpage_key(&g_pp, pk)) {
-    case PMA_CLOSE:
-        hc_nav_pm_close();
-        break;
-    case PMA_APPLY:
-        if (g_env.picture_set) {
-            int hdmi = g_pp.sel == 0 ? -1 : g_pm_list[g_pp.sel - 1];
-            g_env.picture_set(g_env.ctx, hdmi, "saved");
-        }
-        hc_ui_pm_refresh(true);
-        break;
-    default:
-        break;
-    }
-}
-
-// V: opens the Picture page, from any view (the footer's "V picture"). T187 D5 replaces the blind step through the modes.
+// V: the next mode in the list of what the screen names (with no EDID the six television rows); while a change waits for its key V steps on from the mode that is up.
 bool hc_ui_picture_step(void)
 {
-    if (hc_nav().view != HCV_SET) {
-        hc_ui_go(HCV_SET);
+    const HvState *hs = hv_state();
+    int next = hv_step(hs->mask, hs->def_sys, hc_picture_hdmi(), 1);
+    if (next >= 0 && g_env.picture_set) {
+        g_env.picture_set(g_env.ctx, next, "V steps on, saved");
+        return true;
     }
-    hc_ui_pm_open();
-    return true;
+    return false;
 }
 
 // ---- one input ---------------------------------------------------------------------------------------------------------------------------------
-
-// ---- the config overlay (T198) -----------------------------------------------------------------------------------------------------------------
-void hc_ui_cfgov_draw(bool fresh)
-{
-    if (g_env.wifi && g_env.wifi->draw_pick && hc_cfgov_is_open()) {
-        HcWifiPick p;
-        hc_cfgov_pick(&p);
-        p.keys = hc_foot(hc_cfgov().cur == 0 ? HCF_CFG_PLAIN : HCF_CFG);
-        g_env.wifi->draw_pick(g_env.wifi->ctx, p, fresh);
-    }
-}
-
-namespace {
-void cfgov_close(void)
-{
-    hc_cfgov_close();
-    if (g_env.wifi && g_env.wifi->pick_end) {
-        g_env.wifi->pick_end(g_env.wifi->ctx);
-    }
-}
-
-// RIGHT on a core row (F1) or on a .cor (F3): the overlay opens when the core has configs; otherwise nothing happens (D9).
-void cfgov_open(int ctx, HcUiResult *res)
-{
-    const HcNav &v = hc_nav();
-    char path[200];
-    char title[BOOT_NAME_MAX + 1];
-    int entry = -1;
-    if (ctx == HCX_MENU) {
-        if (v.sel < 0 || v.sel >= cfg().n) {
-            return;
-        }
-        entry = v.sel;
-        snprintf(path, sizeof(path), "%s", cfg().e[entry].path);
-        snprintf(title, sizeof(title), "%s", cfg().e[entry].name);
-    } else {
-        if (hc_browse_at_media() || !hc_browse_sel_bundle(path, sizeof(path))) {
-            return;
-        }
-        entry = hc_in_menu(path);
-        snprintf(title, sizeof(title), "%s", entry >= 0 ? cfg().e[entry].name : v.bl[v.bsel].name);
-        char *dot = strrchr(title, '.');
-        if (entry < 0 && dot) {
-            *dot = 0;
-        }
-    }
-    if (hc_cfgov_open(path, title, entry, ctx != HCX_MENU)) {
-        hc_ui_cfgov_draw(true);
-        res->redraw = true;
-        g_changed = true;
-    }
-}
-
-// The keys of the overlay. True: handled here; false: the key is a global one (F keys, V) and goes on.
-bool cfgov_input(int act, HcUiResult *res)
-{
-    if (act != HCA_CONFIG_DELETE) {
-        hc_cfgov_disarm();
-    }
-    switch (act) {
-    case HCA_CURSOR_UP: hc_cfgov_move(-1); break;
-    case HCA_CURSOR_DOWN: hc_cfgov_move(+1); break;
-    case HCA_BACK:
-        cfgov_close();
-        res->redraw = true;
-        g_changed = true;
-        return true;
-    case HCA_CONFIG_DEFAULT:
-        hc_cfgov_default();
-        break;
-    case HCA_CONFIG_DELETE:
-        if (hc_cfgov_delete() == 2) {
-            hc_ui_changed();
-        }
-        break;
-    case HCA_CONFIG_RENAME:
-        if (hc_cfgov().cur > 0) {
-            g_env.flow(g_env.ctx, HUF_CFGRENAME, "", -2);
-        }
-        return true;
-    case HCA_CONFIG_START: {
-        char path[200], name[CONFIG_NAME_MAX + 1];
-        const HcCfgOv &o = hc_cfgov();
-        const int entry = o.entry;
-        snprintf(path, sizeof(path), "%s", o.path);
-        snprintf(name, sizeof(name), "%s", hc_cfgov_cur_name());
-        char title[96];
-        snprintf(title, sizeof(title), "%s", o.title);
-        cfgov_close();
-        res->redraw = true;
-        g_changed = true;
-        hc_start_config_set(name);
-        if (entry >= 0 && entry < cfg().n && hc_startable(entry)) {
-            g_env.start_any(g_env.ctx, cfg().e[entry].path, cfg().e[entry].name, &cfg().e[entry], true);
-        } else if (entry < 0) {
-            g_env.start_core(g_env.ctx, path, title);
-        }
-        hc_start_config_set("");                      // a start that came back (refused, aborted) leaves nothing armed
-        return true;
-    }
-    default:
-        return false;
-    }
-    hc_ui_cfgov_draw(false);
-    res->redraw = true;
-    g_changed = true;
-    return true;
-}
-}
-
 void hc_ui_input(int k, HcUiResult *res)
 {
     memset(res, 0, sizeof(*res));
@@ -596,41 +410,18 @@ void hc_ui_input(int k, HcUiResult *res)
     } else {
         act = hc_resolve(ctx, k);
     }
-    if (ctx == HCX_PICTURE && act != HCA_PICTURE_REVERT) {
-        act = HCA_PICTURE_KEEP;                             // Q7: the first input of any kind keeps the picture the question was about; it is spent on that (LEFT / ESC goes back, Q-D5.2)
-    }
-    if (act == HCA_PICTURE_REVERT && hv_revert()) {
-        if (g_env.picture_event) {
-            g_env.picture_event(g_env.ctx, HV_REVERTED);
-        }
-        if (hc_nav().pm_mode) {
-            hc_ui_pm_refresh(true);                         // the cursor stays on the rejected mode, "now" is back on the old one
-        }
-        res->redraw = true;
-        g_changed = true;
-        hc_arm_clear_keys();
-        HcKeyArm spent;
-        return;
+    if (ctx == HCX_PICTURE && act != HCA_PICTURE_STEP) {
+        act = HCA_PICTURE_KEEP;                             // Q7: the first input of any kind keeps the picture the question was about; it is spent on that
     }
     if (act == HCA_PICTURE_KEEP && hc_picture_keep()) {
         if (g_env.pq_hide) {
             g_env.pq_hide(g_env.ctx);
         }
         hc_ui_note("Picture kept", HCT_OK);
-        if (hc_nav().pm_mode) {
-            hc_ui_pm_refresh(true);
-        }
         res->redraw = true;
         g_changed = true;
         hc_arm_clear_keys();                // the key is spent on the picture: it ends any arm like every other non-confirming key (an arm survived it before; same on main)
         HcKeyArm spent;
-        return;
-    }
-    if (ctx == HCX_CFG && cfgov_input(act, res)) {
-        return;
-    }
-    if (act == HCA_CONFIG_LIST && (ctx == HCX_MENU || ctx == HCX_BROWSE)) {
-        cfgov_open(ctx, res);
         return;
     }
     int armed = hc_arm_take_row();          // T101 D6: only an unbroken DEL, DEL removes
@@ -648,18 +439,10 @@ void hc_ui_input(int k, HcUiResult *res)
                 g_env.web_result(g_env.ctx, cfw_is_name(cfg().e[v.sel].path) ? "start requested; foreign firmware asks first (answer on the screen or by the service)" : "starting");
             }
             g_remote_ask = true;                         // the question belongs to a remote client: it answers no after 60 s
-            if (g_web_cfg_name[0] && !strcmp(g_web_cfg_path, cfg().e[v.sel].path)) {
-                hc_start_config_set(g_web_cfg_name);     // armed for this entry's start only; start_any is synchronous (the question included)
-            }
-            g_web_cfg_name[0] = 0;
             g_env.start_any(g_env.ctx, cfg().e[v.sel].path, cfg().e[v.sel].name, &cfg().e[v.sel], true);      // D18/D19a: the same question as RETURN, a service question; nothing starts before yes
-            hc_start_config_set("");                     // answered no or refused: nothing stays armed
             g_remote_ask = false;
-        } else {
-            g_web_cfg_name[0] = 0;
-            if (g_env.web_result) {
-                g_env.web_result(g_env.ctx, "that entry cannot be started");
-            }
+        } else if (g_env.web_result) {
+            g_env.web_result(g_env.ctx, "that entry cannot be started");
         }
         res->redraw = true;
         return;
@@ -704,7 +487,6 @@ void hc_ui_input(int k, HcUiResult *res)
     case HCA_PICTURE_STEP:
         hc_arm_take_wifi();                 // this key returns before the WiFi page's keys: it ends the F arm like any other key (the arm's token ends in HcKeyArm)
         hc_ui_picture_step();
-        res->redraw = true;
         return;
     default:
         break;
@@ -827,13 +609,6 @@ void hc_ui_input(int k, HcUiResult *res)
             }
         } else if (act == HCA_ENTRY_DEFAULT && v.sel < cfg().n) {
             hc_ui_cfg_after(hc_entry_default(v.sel));
-        } else if ((act == HCA_ENTRY_DEFCFG_PREV || act == HCA_ENTRY_DEFCFG_NEXT) && v.sel < cfg().n) {
-            char nx[CONFIG_NAME_MAX + 1];
-            if (!hc_cfgov_cycle(cfg().e[v.sel].path, cfg().e[v.sel].defcfg, act == HCA_ENTRY_DEFCFG_PREV ? -1 : +1, nx, sizeof(nx))) {
-                hc_ui_note("This core has no configs.", HCT_MUTED);
-            } else {
-                hc_ui_cfg_after(hc_entry_defcfg(v.sel, nx));
-            }
         } else if (act == HCA_ENTRY_REMOVE && v.sel < cfg().n) {
             if (armed == v.sel) {
                 if (hc_arm_yes()) {
@@ -848,7 +623,6 @@ void hc_ui_input(int k, HcUiResult *res)
         break;
     case HCX_SET:
     case HCX_WIFI:
-    case HCX_PICMODES:
     case HCX_CORES:
     case HCX_CORES_ASK1:
     case HCX_CORES_ASK2:
@@ -932,16 +706,11 @@ private:
 bool RenameJob::run()
 {
     HJ_BEGIN();
-    if (idx == -2 && !(hc_cfgov_is_open() && hc_cfgov().cur > 0)) {
+    if (idx < 0 || idx >= hc_cfg().n) {
         return finish(false);
     }
-    if (idx != -2 && (idx < 0 || idx >= hc_cfg().n)) {
-        return finish(false);
-    }
-    // T198: idx -2 renames the config under the overlay's cursor (the name rules of configlist.h, the file renamed on its folder)
-    le_init(&le, idx == -2 ? hc_cfgov_cur_name() : hc_cfg().e[idx].name, idx == -2 ? CONFIG_NAME_MAX : BOOT_NAME_MAX, "|");
-    snprintf(pg.head, sizeof(pg.head), "%s", idx == -2 ? "Rename config" : "Rename menu entry");
-    snprintf(pg.sub, sizeof(pg.sub), "%s", idx == -2 ? hc_cfgov().title : hc_cfg().e[idx].path);
+    le_init(&le, hc_cfg().e[idx].name, BOOT_NAME_MAX, "|");
+    snprintf(pg.sub, sizeof(pg.sub), "%s", hc_cfg().e[idx].path);
     draw("", true);
     save = false;
     lead = true;
@@ -973,13 +742,6 @@ bool RenameJob::run()
     }
     re.end(re.ctx);
     hc_ui_changed();
-    if (idx == -2) {
-        if (save) {
-            hc_cfgov_rename(le.buf);                 // its message line says how it went
-        }
-        hc_ui_cfgov_draw(true);
-        return finish(save);
-    }
     if (!save) {
         hc_ui_note("Name unchanged", HCT_MUTED);
         return finish(false);

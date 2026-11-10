@@ -2,7 +2,6 @@
 #include "engines.h"
 #include "boot.h"
 #include "cfgfile.h"
-#include "configlist.h"
 #include "ops_glue.h"
 #include <stdio.h>
 #include <string.h>
@@ -37,7 +36,7 @@ const char *persist_extend(const CoreDesc *d, CoreDesc *out, Setting *store)
     p.def = 0;                                     // Alex, 2026-11-04: "off by default, it has to be set actively"
     p.when = WHEN_LIVE;
     p.apply = PERSIST_OP;
-    p.group = "storage";
+    p.group = "system";
     out->settings = store;
     out->nsettings = d->nsettings + 1;
     return 0;
@@ -47,9 +46,6 @@ bool persist_on(CoreCtx *c)
 {
     if (!c->settings) {
         return false;
-    }
-    if (c->config[0]) {
-        return true;                               // T198 D5: a run with a config keeps its mounts in the config
     }
     int i = c->settings->find(PERSIST_KEY);
     return i >= 0 && c->settings->value(i) == 1;
@@ -263,23 +259,13 @@ void mounts_restore(CoreCtx *c, BootUi *ui)
             msg[0] = 0;
             if (mount_spec(c, i, val, ui, msg, sizeof(msg))) {
                 printf("[core] stored medium %s = %s: not mounted: %s\n", name, val, msg);
-                if (c->config[0]) {                                   // T198 D12: the note names the medium that is missing
-                    char why[240];
-                    snprintf(why, sizeof(why), "%s (%s)", val, msg[0] ? msg : "not mounted");
-                    add_note(notes, sizeof(notes), name, why);
-                } else {
-                    add_note(notes, sizeof(notes), name, msg[0] ? msg : "not mounted");
-                }
+                add_note(notes, sizeof(notes), name, msg[0] ? msg : "not mounted");
             } else {
                 printf("[core] stored medium %s = %s: mounted\n", name, val);
             }
         }
         if (notes[0]) {
-            if (c->config[0]) {
-                snprintf(c->notice, sizeof(c->notice), "Config \"%s\": left empty - %s. The config is not changed: put the medium back and load it again", c->config, notes);
-            } else {
-                snprintf(c->notice, sizeof(c->notice), "Stored media not mounted - %s", notes);
-            }
+            snprintf(c->notice, sizeof(c->notice), "Stored media not mounted - %s", notes);
             c->notice_pending = true;
         }
         c->media_restoring = false;
@@ -296,172 +282,109 @@ static int op_persist_apply(CoreCtx *c, const OpArgs &, OpOut &)
     return OPE_OK;
 }
 
-// ---- configs (T198; the media sets of T180 D5 are configs without settings, D3)
-// A config is "<core folder>/configs/<name>.cfg": the text format of the core's own .cfg, a full copy of the settings (D6) and one "Mount <slot>=<spec>" key per mounted
-// slot. A media set of before T198 ("<core folder>/media/<name>.mnt") is listed as a config; the first start or load of one copies it into configs/ (verified, the .mnt stays).
-// A run that started with a config, or loaded one, keeps its settings and its mounts in THAT file (D4, D5): the core's own .cfg is not touched.
-static bool core_folder(CoreCtx *c, char *out, int n)
+// ---- media sets
+bool mediaset_dir(CoreCtx *c, char *out, int n)
 {
     out[0] = 0;
     if (!c->cfg_path[0]) {
         return false;
     }
     const char *slash = strrchr(c->cfg_path, '/');
-    if (!slash || slash == c->cfg_path || (int)(slash - c->cfg_path) + 1 >= n) {
+    if (!slash || slash == c->cfg_path || (int)(slash - c->cfg_path) + 7 >= n) {
         return false;
     }
-    memcpy(out, c->cfg_path, (size_t)(slash - c->cfg_path));
-    out[slash - c->cfg_path] = 0;
+    int dl = (int)(slash - c->cfg_path);
+    memcpy(out, c->cfg_path, (size_t)dl);
+    strcpy(out + dl, "/media");
     return true;
 }
 
-bool configs_dir(CoreCtx *c, char *out, int n)
+static bool name_ok(const char *name)
 {
-    char cf[260];
-    return core_folder(c, cf, sizeof(cf)) && config_dir_path(cf, false, out, n);
-}
-
-static bool config_path(CoreCtx *c, const char *name, bool legacy, char *out, int n)
-{
-    char cf[260];
-    return core_folder(c, cf, sizeof(cf)) && config_file_path(cf, name, legacy, out, n);
-}
-
-enum { SLOTS_ALL = WIN_SLOTS_MAX + SEC_UNITS_MAX + MOUNT_SLOTS_MAX };
-static int s_list_reads;                                   // the directory reads of configs_list (the bench counts them, S15)
-int configs_list_reads(void) { return s_list_reads; }
-
-static void list_dir(CoreCtx *c, const char *dir, bool legacy, ConfigList *l)
-{
-    static FsEntryShort raw[128];
-    s_list_reads++;
-    int n = c->fs->list_short(dir, raw, 128);
-    if (!legacy && n > 0) {
-        // an interrupted save (power loss) is put right before the list is made: X.bak without X.cfg is the old config and comes back, leftovers go
-        struct G { static const char *get(void *ctx, int i, bool *d) { FsEntryShort *e = (FsEntryShort *)ctx; *d = e[i].dir; return e[i].cut ? 0 : e[i].name; } };
-        static ConfigFix fix;
-        configlist_fix_plan(&fix, n, G::get, raw);
-        bool changed = false;
-        for (int i = 0; i < fix.n; i++) {
-            char from[400], to[400];
-            snprintf(from, sizeof(from), "%s/%s", dir, fix.act[i].file);
-            snprintf(to, sizeof(to), "%s/%s", dir, fix.act[i].to);
-            changed |= fix.act[i].recover ? c->fs->rename(from, to) : c->fs->remove(from);
-        }
-        if (changed) {
-            s_list_reads++;
-            n = c->fs->list_short(dir, raw, 128);
+    int l = (int)strlen(name);
+    if (l == 0 || l > MEDIASET_NAME_MAX || name[0] == '.' || name[l - 1] == ' ') {
+        return false;
+    }
+    for (int i = 0; i < l; i++) {
+        unsigned char ch = (unsigned char)name[i];
+        if (ch < 0x20 || ch > 0x7E || strchr("/\\:*?\"<>|", ch)) {
+            return false;
         }
     }
-    for (int i = 0; i < n; i++) {
-        if (!raw[i].cut) {
-            configlist_add(l, raw[i].name, raw[i].dir, legacy);
-        }
-    }
+    return true;
 }
 
-int configs_list(CoreCtx *c, ConfigList *l)
+static bool set_path(CoreCtx *c, const char *name, char *out, int n)
 {
-    configlist_clear(l);
-    char cf[260], d[300];
-    if (!core_folder(c, cf, sizeof(cf))) {
+    char dir[200];
+    if (!mediaset_dir(c, dir, sizeof(dir))) {
+        return false;
+    }
+    return snprintf(out, n, "%s/%s.mnt", dir, name) < n;
+}
+
+int mediaset_list(CoreCtx *c, char names[][MEDIASET_NAME_MAX + 1], int max)
+{
+    char dir[200];
+    if (!mediaset_dir(c, dir, sizeof(dir))) {
         return -1;
     }
-    if (config_dir_path(cf, false, d, sizeof(d))) {
-        list_dir(c, d, false, l);
+    static FsEntryShort raw[128];
+    int n = c->fs->list_short(dir, raw, 128);
+    int k = 0;
+    for (int i = 0; i < n && k < max; i++) {
+        int l = (int)strlen(raw[i].name);
+        if (raw[i].dir || raw[i].cut || l < 5 || l - 4 > MEDIASET_NAME_MAX || strcasecmp(raw[i].name + l - 4, ".mnt")) {
+            continue;
+        }
+        memcpy(names[k], raw[i].name, (size_t)(l - 4));
+        names[k][l - 4] = 0;
+        k++;
     }
-    if (config_dir_path(cf, true, d, sizeof(d))) {
-        list_dir(c, d, true, l);
-    }
-    configlist_sort(l);
-    return l->n;
+    return k;
 }
 
-// The list the menu and the state read: read once and kept until a save, a load or a start changes the folder (S15). The operations below drop it.
-static ConfigList s_cache;
-static bool s_cache_ok;
-static void cache_drop(void) { s_cache_ok = false; }
-int configs_cached(CoreCtx *c, const ConfigList **out)
+int mediaset_save(CoreCtx *c, const char *name, char *msg, int msglen)
 {
-    if (!s_cache_ok) {
-        configs_list(c, &s_cache);
-        s_cache_ok = true;
-    }
-    *out = &s_cache;
-    char cf[260];
-    return core_folder(c, cf, sizeof(cf)) ? s_cache.n : -1;
-}
-
-int config_save(CoreCtx *c, const char *name, char *msg, int msglen)
-{
-    if (!config_name_ok(name)) {
-        snprintf(msg, msglen, "%s", config_name_why(name));
+    if (!mounts_have_slots(c->desc)) {
+        snprintf(msg, msglen, "This core has no media a set can hold.");
         return 1;
     }
-    char dir[300], path[330];
-    if (!configs_dir(c, dir, sizeof(dir)) || !config_path(c, name, false, path, sizeof(path)) || !c->settings) {
-        snprintf(msg, msglen, "This core has no folder of its own (it did not start from a .cor), so it has no configs.");
+    if (!name_ok(name)) {
+        snprintf(msg, msglen, name[0] ? "\"%s\" is not a name for a media set." : "Give the media set a name.", name);
         return 1;
     }
-    ConfigList l;
-    configs_list(c, &l);
-    cache_drop();
-    int at = configlist_find(&l, name);
-    if (at < 0 && (l.n >= CONFIGS_MAX || l.more)) {
-        snprintf(msg, msglen, "A core has at most %d configs - delete one first.", CONFIGS_MAX);
+    char dir[200], path[260];
+    if (!mediaset_dir(c, dir, sizeof(dir)) || !set_path(c, name, path, sizeof(path))) {
+        snprintf(msg, msglen, "This core has no folder of its own (it did not start from a .cor), so there is nowhere to keep a set.");
         return 1;
     }
-    static char mk[SLOTS_ALL][24], mv[SLOTS_ALL][Settings::MOUNT_VAL_LEN];
-    const char *pk[SLOTS_ALL], *pv[SLOTS_ALL];
-    int count = 0;
-    for (int i = 0; i < mounts_slots(c) && i < SLOTS_ALL; i++) {
+    static char buf[4096];
+    int pos = 0, count = 0;
+    bool ok = cfgfile_begin(buf, sizeof(buf), &pos, c->desc->store);
+    for (int i = 0; i < mounts_slots(c) && ok; i++) {
         const char *spec = mounts_slot_spec(c, i);
         if (spec) {
-            key_of(c, i, mk[count], sizeof(mk[count]));
-            snprintf(mv[count], sizeof(mv[count]), "%s", spec);
-            pk[count] = mk[count];
-            pv[count] = mv[count];
+            char key[24];
+            key_of(c, i, key, sizeof(key));
+            ok = cfgfile_item(buf, sizeof(buf), &pos, key, spec);
             count++;
         } else if (slot_mounted(c, i)) {
-            snprintf(msg, msglen, "A medium in slot %d has a path too long for a config.", i);   // mounted, but nothing can be said about it in a file
+            snprintf(msg, msglen, "A medium in slot %d has a path too long for a set.", i);   // mounted, but nothing can be said about it in a file
             return 1;
         }
     }
-    c->fs->mkdir(dir);
-    int ns = 0;
-    // The file is written whole beside the old one and then takes its place: a write that fails midway leaves the old config as it was (the swap is rename old -> .bak,
-    // rename new -> name, delete .bak; FatFs cannot rename over an existing file). A leftover .tmp / .bak is no config (the list takes .cfg only); configs_list puts an interrupted swap right (X.bak without X.cfg comes back).
-    char tmp[340], bak[340];
-    snprintf(tmp, sizeof(tmp), "%s", path);
-    snprintf(bak, sizeof(bak), "%s", path);
-    memcpy(tmp + strlen(tmp) - 4, ".tmp", 5);                                       // path ends in ".cfg" (config_path)
-    memcpy(bak + strlen(bak) - 4, ".bak", 5);
-    const bool replace = at >= 0 && !l.legacy[at];
-    bool restore_failed = false;
-    bool ok = c->settings->export_config(tmp, pk, pv, count, &ns);
-    if (ok && replace) {
-        c->fs->remove(bak);                                                       // a stale .bak (power loss before the last remove): FatFs cannot rename over it
-        ok = c->fs->rename(path, bak);
-    }
-    if (ok) {
-        ok = c->fs->rename(tmp, path);
-        if (!ok && replace) {
-            restore_failed = !c->fs->rename(bak, path);                               // the old config goes back; if not, the list recovers X.bak
-        }
-    }
+    ok = ok && cfgfile_end(buf, sizeof(buf), &pos);
     if (!ok) {
-        c->fs->remove(tmp);
-        if (restore_failed) {
-            snprintf(msg, msglen, "The config \"%s\" cannot be saved and the old one could not be put back (it is kept as %s.bak and returns with the next list).", name, name);
-            return 1;
-        }
-        snprintf(msg, msglen, "The config \"%s\" cannot be saved to %s (medium read only, full or removed).", name, dir);
+        snprintf(msg, msglen, "The media set does not fit its file.");
         return 1;
     }
-    if (replace) {
-        c->fs->remove(bak);
+    c->fs->mkdir(dir);
+    if (!c->fs->save(path, buf, (uint32_t)pos)) {
+        snprintf(msg, msglen, "The media set cannot be saved to %s (medium read only, full or removed).", dir);
+        return 1;
     }
-    snprintf(msg, msglen, "Config \"%s\" saved: %d medi%s, %d settings", name, count, count == 1 ? "um" : "a", ns);
+    snprintf(msg, msglen, "Media set \"%s\" saved: %d medi%s", name, count, count == 1 ? "um" : "a");
     return 0;
 }
 
@@ -487,49 +410,21 @@ static void set_item(void *user, const char *, const char *key, const char *valu
     }
 }
 
-// The file of a config: configs/<name>.cfg; a media set of before T198 is copied there first (verified, the .mnt stays). path is the file to read and to keep writing to;
-// false when the config is not there at all.
-static bool config_resolve_file(CoreCtx *c, const char *name, char *path, int n)
+int mediaset_load(CoreCtx *c, const char *name, char *msg, int msglen)
 {
-    uint64_t size;
-    bool dir;
-    char legacy[330];
-    if (!config_path(c, name, false, path, n)) {
-        return false;
-    }
-    if (c->fs->stat(path, &size, &dir) && !dir) {
-        return true;
-    }
-    if (!config_path(c, name, true, legacy, sizeof(legacy)) || !c->fs->stat(legacy, &size, &dir) || dir || size > 4096) {
-        return false;
-    }
-    static char a[4096], b[4096];
-    int got = c->fs->load(legacy, a, sizeof(a));
-    char cd[300];
-    if (got >= 0 && configs_dir(c, cd, sizeof(cd))) {
-        c->fs->mkdir(cd);
-        if (c->fs->save(path, a, (uint32_t)got) && c->fs->load(path, b, sizeof(b)) == got && !memcmp(a, b, (size_t)got)) {
-            printf("[core] config %s: copied from the media set %s\n", name, legacy);
-            cache_drop();
-            return true;
-        }
-        c->fs->remove(path);
-    }
-    snprintf(path, (size_t)n, "%s", legacy);                 // cannot be copied (read only medium): the set is used where it lies
-    return true;
-}
-
-int config_load(CoreCtx *c, const char *name, char *msg, int msglen)
-{
-    char path[330];
-    if (!config_name_ok(name) || !c->settings || !config_resolve_file(c, name, path, sizeof(path))) {
-        snprintf(msg, msglen, name && name[0] ? "There is no config \"%s\"." : "Give the name of a config.", name ? name : "");
+    if (!mounts_have_slots(c->desc)) {
+        snprintf(msg, msglen, "This core has no media a set can hold.");
         return 1;
     }
-    static char buf[16384];
+    char path[260];
+    if (!name_ok(name) || !set_path(c, name, path, sizeof(path))) {
+        snprintf(msg, msglen, name[0] ? "There is no media set \"%s\"." : "Give the name of a media set.", name);
+        return 1;
+    }
+    static char buf[4096];
     int got = c->fs->load(path, buf, sizeof(buf));
     if (got < 0) {
-        snprintf(msg, msglen, "There is no config \"%s\".", name);
+        snprintf(msg, msglen, "There is no media set \"%s\".", name);
         return 1;
     }
     enum { SLOTS = WIN_SLOTS_MAX + SEC_UNITS_MAX + MOUNT_SLOTS_MAX };
@@ -539,12 +434,12 @@ int config_load(CoreCtx *c, const char *name, char *msg, int msglen)
     memset(has, 0, sizeof(has));
     SetRead r = { c, val, has };
     cfgfile_parse(buf, got, set_item, &r);
-    // D4 of T180: what the machine has pending goes to its media before any of them is let go; one that cannot be written keeps everything as it is, and no reset follows
+    // D4: what the machine has pending goes to its media before any of them is let go; one that cannot be written keeps everything as it is, and no reset follows
     if (media_writeback(c, WB_WHY_RESET, msg, msglen)) {
         return 1;
     }
     bool was_ready = c->mounts_ready;
-    c->mounts_ready = false;                                  // nothing is stored while the slots change: the config's file is what it is (D12)
+    c->mounts_ready = false;                                  // the slots are stored once, when all of them are done
     c->media_restoring = true;                                // the machine is reset once, at the end: a mount does not reset it
     char notes[240];
     notes[0] = 0;
@@ -559,11 +454,9 @@ int config_load(CoreCtx *c, const char *name, char *msg, int msglen)
                 rc = eject_idx(c, i, m, sizeof(m));
             }
         } else if (mount_spec(c, i, val[i], 0, m, sizeof(m))) {
-            char why[200];
-            snprintf(why, sizeof(why), "%s (%s)", val[i], m[0] ? m : "not mounted");
-            add_note(notes, sizeof(notes), slot, why);
+            add_note(notes, sizeof(notes), slot, m[0] ? m : "not mounted");
             if (slot_mounted(c, i)) {
-                rc = eject_idx(c, i, m, sizeof(m));            // the config names a medium that is not there: the slot is empty, not what it held before
+                rc = eject_idx(c, i, m, sizeof(m));            // the set names a medium that is not there: the slot is empty, not what it held before
             }
         } else {
             mounted++;
@@ -574,64 +467,34 @@ int config_load(CoreCtx *c, const char *name, char *msg, int msglen)
     }
     c->media_restoring = false;
     c->mounts_ready = was_ready;
+    if (was_ready) {
+        store_all(c);                                           // D2: what is mounted now is what the next start mounts
+    }
     if (rc) {
         return 1;                                               // a medium that would not be let go: the machine is not reset
     }
-    // D4, D5: from here the settings live in the config's file; the core's own .cfg stays as it was
-    c->settings->rebind(path);
-    snprintf(c->config, sizeof(c->config), "%s", name);
-    snprintf(c->settings_path, sizeof(c->settings_path), "%s", path);
-    cache_drop();
-    boot_apply_settings(c, true);                               // every setting of the config goes in, the live ones too
     char rm[160];
     rm[0] = 0;
-    bool waits = c->desc->needs_program && !c->program_loaded;   // a game cartridge is the program: a config that leaves the slot empty leaves nothing to reset into
+    bool waits = c->desc->needs_program && !c->program_loaded;   // a game cartridge is the program: a set that leaves the slot empty leaves nothing to reset into
     if (!waits && boot_cold_reset(c, rm, sizeof(rm))) {
-        snprintf(msg, msglen, "Config \"%s\" is loaded, but the core did not reset: %s", name, rm);
+        snprintf(msg, msglen, "Media set \"%s\" is mounted, but the core did not reset: %s", name, rm);
         return 1;
     }
-    int w = snprintf(msg, msglen, "Config \"%s\" loaded: %d medi%s, %s", name, mounted, mounted == 1 ? "um" : "a", waits ? "no program: the core waits for one" : "core reset");
+    int w = snprintf(msg, msglen, "Media set \"%s\" loaded: %d medi%s, %s", name, mounted, mounted == 1 ? "um" : "a", waits ? "no program: the core waits for one" : "core reset");
     if (notes[0] && w < msglen) {
-        snprintf(msg + w, msglen - w, ". Left empty - %s. The config is not changed: put the medium back and load it again", notes);
+        snprintf(msg + w, msglen - w, ". Left empty - %s", notes);
     }
     return 0;
 }
 
-// The start (T198 D7, P4): the host named a config in the hand-over page. The settings are read from its file instead of the .cfg, so the first frame already runs with its settings
-// and mounts (mounts_restore, boot_start). A config that is not there, or a core with no folder, starts plain with a line on the screen.
-void config_start(CoreCtx *c, const char *name)
-{
-    cache_drop();
-    c->config[0] = 0;
-    c->settings_path[0] = 0;
-    if (!name || !name[0]) {
-        return;
-    }
-    char path[330];
-    if (!c->cfg_path[0] || !c->fs) {
-        snprintf(c->notice, sizeof(c->notice), "Config \"%s\": this core has no folder of its own, so it started plain.", name);
-        c->notice_pending = true;
-        return;
-    }
-    if (!config_name_ok(name) || !config_resolve_file(c, name, path, sizeof(path))) {
-        snprintf(c->notice, sizeof(c->notice), "The config \"%s\" is not there (any more), so the core started plain.", name);
-        c->notice_pending = true;
-        printf("[core] config %s: not found, plain start\n", name);
-        return;
-    }
-    snprintf(c->config, sizeof(c->config), "%s", name);
-    snprintf(c->settings_path, sizeof(c->settings_path), "%s", path);
-    printf("[core] config %s: %s\n", name, path);
-}
+static int op_save_set(CoreCtx *c, const OpArgs &a, OpOut &o) { return mediaset_save(c, a.s(0), o.msg, o.msglen) ? OPE_FAILED : OPE_OK; }
+static int op_load_set(CoreCtx *c, const OpArgs &a, OpOut &o) { return mediaset_load(c, a.s(0), o.msg, o.msglen) ? OPE_FAILED : OPE_OK; }
 
-static int op_save(CoreCtx *c, const OpArgs &a, OpOut &o) { return config_save(c, a.s(0), o.msg, o.msglen) ? OPE_FAILED : OPE_OK; }
-static int op_load(CoreCtx *c, const OpArgs &a, OpOut &o) { return config_load(c, a.s(0), o.msg, o.msglen) ? OPE_FAILED : OPE_OK; }
-
-static const char *state_count(CoreCtx *c)
+static const char *state_sets(CoreCtx *c)
 {
     static char text[8];
-    const ConfigList *l;
-    int n = configs_cached(c, &l);
+    static char names[MEDIASETS_MAX][MEDIASET_NAME_MAX + 1];
+    int n = mediaset_list(c, names, MEDIASETS_MAX);
     if (n <= 0) {
         return 0;
     }
@@ -639,16 +502,13 @@ static const char *state_count(CoreCtx *c)
     return text;
 }
 
-static const char *state_active(CoreCtx *c) { return c->config[0] ? c->config : 0; }
-
 static const ArgSpec apply_args[] = { ARG_INT("value", 0, 1) };
-static const ArgSpec name_args[] = { ARG_STRING("name", CONFIG_NAME_MAX) };
+static const ArgSpec set_args[] = { ARG_STRING("name", MEDIASET_NAME_MAX) };
 
 void mounts_register(OpRegistry &r)
 {
     r.add_op(PERSIST_OP, apply_args, 1, op_persist_apply);
-    r.add_op("config.save", name_args, 1, op_save);
-    r.add_op("config.load", name_args, 1, op_load);
-    r.add_state("config.count", state_count);
-    r.add_state("config.active", state_active);
+    r.add_op("media.save_set", set_args, 1, op_save_set);
+    r.add_op("media.load_set", set_args, 1, op_load_set);
+    r.add_state("media.sets", state_sets);
 }

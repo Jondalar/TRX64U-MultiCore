@@ -11,16 +11,13 @@ static bool text(const char *s) { return s && s[0]; }
 // ---- the default route (T104 5.8) --------------------------------------------------------------------------------------------
 static const SkelTab t_home[] = { { "home", "Home", 0, TW_INFO, 0 } };
 static const SkelTab t_lib[] = { { "browse", "Browse", 0, TW_BROWSER, 0 } };
-// T205 D1: F5 is the core's one settings area: its own settings first (that tab is named after the core), then Video, Audio, Input; there is no F6. The tab ids
-// are the ones menutree.cc's group table names. What the old Summary tab showed (the media slots, the configs) is on Home.
-static const SkelTab t_machine[] = { { "settings", 0, 0, TW_SETTINGS, 0 }, { "video", "Video", 0, TW_SETTINGS, "video", 0 },
-                                     { "audio", "Audio", 0, TW_SETTINGS, "audio", 0 }, { "input", "Input", 0, TW_SETTINGS, "input", 0 } };
+static const SkelTab t_machine[] = { { "summary", "Summary", 0, TW_MEDIA, 0 }, { "settings", "Settings", 0, TW_SETTINGS, 0 } };
 static const SkelTab t_actions[] = { { "quick", "Quick", 0, TW_TASKS, 0 } };
-static const SkelTab t_system[] = { { "expert", "System", 0, TW_SYSTEM, 0 } };       // T187 D8: named System; the id stays, anchors name it
+static const SkelTab t_system[] = { { "expert", "Expert", 0, TW_SYSTEM, 0 } };
 static const SkelArea default_areas[] = {
     { "F1", "Home", false, t_home, 1 },
     { "F3", "Library", false, t_lib, 1 },
-    { "F5", 0, false, t_machine, 4 },                        // the core's short title
+    { "F5", 0, false, t_machine, 2 },                        // the core's short title
     { "F7", "Actions", false, t_actions, 1 },
     { "F8", "System", true, t_system, 1 },
 };
@@ -693,8 +690,10 @@ static void merge_tabs(const Contributor &c, MenuMerge *mm)
         }
         bool dup = false;
         // a tab without a number is numbered by its place (the menu counts the tabs it shows), an explicit number is the description's own
+        int top = a->ntabs;                                       // the highest printed number in use
         for (int k = 0; k < a->ntabs; k++) {
             dup |= !strcmp(a->tabs[k].id, t.id);
+            top = a->tabs[k].n > top ? a->tabs[k].n : top;
         }
         if (dup) {
             refuse(mm, "%s: area %s has a tab \"%s\" already", c.name, t.area, t.id);
@@ -715,7 +714,7 @@ static void merge_tabs(const Contributor &c, MenuMerge *mm)
         SkelTab &d = mm->own_tabs[a - mm->own_areas][a->ntabs];
         d.id = t.id;
         d.name = t.name;
-        d.n = t.n;                                                // 0: numbered by its place among the tabs shown (empty ones are dropped)
+        d.n = t.n ? t.n : (uint8_t)(top + 1);
         d.widget = t.widget;
         d.groups = text(t.groups) ? t.groups : 0;
         d.layout = 0;

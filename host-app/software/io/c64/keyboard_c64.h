@@ -49,7 +49,6 @@ class Keyboard_C64 : public Keyboard
     uint8_t last_key_mtrx;
     uint8_t last_key_shift;
     uint16_t last_release_ms;
-    bool keyboard_only; // set_keyboard_only(): scan() never reads a joystick line and never makes a key from one (default: off)
     bool report_ctrl; // an app asked for KEY_CTRL_TAP (Keyboard::set_report_ctrl)
     bool ctrl_alone;  // CTRL is down and nothing else has been since it went down
     void *scan_timer;
@@ -72,7 +71,6 @@ public:
     void push_head(int);
     void wait_free(void);
     void clear_buffer(void);
-    void set_keyboard_only(bool on) { keyboard_only = on; }
     void set_report_ctrl(bool on) { report_ctrl = on; ctrl_alone = false; }
 };
 

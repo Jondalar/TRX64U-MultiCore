@@ -101,8 +101,8 @@ int main()
     // the eject task on an empty slot is harmless
     r.go_to("Eject D2:");
     CHECK_EQ(r.m->key(KEY_RETURN), MenuCtl::R_REDRAW);
-    // media rows show what is in them: on Home, under the information lines (T205 D1: the Summary tab is gone)
-    r.m->key(KEY_F1);
+    // media rows show what is in them: the machine area, Summary tab
+    r.m->key(KEY_F5); r.m->key('1');
     CHECK(r.right(r.find_row("D1:")) == "Not set");
 
     // --- the closing keys
@@ -114,7 +114,7 @@ int main()
 
     // --- settings: right/left/return change, the .cfg is written at once, live items apply at once, reset-time items wait
     r.m->open();
-    r.m->key(KEY_F5); r.m->key('1');                              // T205 D1: the core's own tab
+    r.m->key(KEY_F5); r.m->key('2');
     CHECK(r.left(0) == "RAM size");
     CHECK(r.right(0) == "64 KB" && r.sub(0) == "" && r.m->row_reset(0));       // T187 D9: one line, the ring marks it
     r.io.regs[A8_RAM_SEL] = 0;
@@ -144,8 +144,8 @@ int main()
     r.m->key(KEY_F8);
     r.go_to("Reset to host defaults");
     CHECK(r.fs.has("/usb0/cores/atari800.cfg"));                  // arriving on the row does nothing
-    r.m->key(KEY_UP);                                            // (T187 D8: the reset is the last row of F8, so away is up)
     r.m->key(KEY_DOWN);
+    r.m->key(KEY_UP);
     CHECK(r.fs.has("/usb0/cores/atari800.cfg"));                  // and neither does moving away and back
     r.m->key(KEY_RETURN);
     CHECK(!r.fs.has("/usb0/cores/atari800.cfg"));                 // one RETURN is enough

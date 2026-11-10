@@ -5,7 +5,6 @@
 #ifndef HOST_HOSTCORE_UI_H
 #define HOST_HOSTCORE_UI_H
 
-#include "picmodes.h"
 #include <stdint.h>
 #include "host_core.h"
 #include "host_core_nav.h"
@@ -17,7 +16,7 @@
 #include "host_core_job.h"
 #include "lineedit.h"
 
-enum HcUiFlow { HUF_RENAME = 1, HUF_CONVERT, HUF_RESTORE, HUF_UPDATE, HUF_FORMAT, HUF_INSPECT, HUF_CFGRENAME };      // the flows whose pages the screen runs (arg: the path, the medium's name, the entry's index)
+enum HcUiFlow { HUF_RENAME = 1, HUF_CONVERT, HUF_RESTORE, HUF_UPDATE, HUF_FORMAT, HUF_INSPECT };      // the flows whose pages the screen runs (arg: the path, the medium's name, the entry's index)
 enum HcUiColors { HUC_REPORT = 1, HUC_SINGLE, HUC_MULTI };                                              // the colour test's buffer actions
 
 struct HcUiEnv {
@@ -27,7 +26,6 @@ struct HcUiEnv {
     void (*note_out)(void *ctx, const char *text, int tone, bool net);       // a note was set: the console line and the service (net: the WiFi pages' note)
     void (*lazy_reset)(void *ctx);                                           // every entry is read again (icons too)
     void (*lazy_mark)(void *ctx, int i);                                     // entry i is read again
-    void (*picture_event)(void *ctx, int ev);                                // HvEvent: the picture changed by itself or by a key (reverted, followed): sync, box, note
     void (*pq_hide)(void *ctx);                                              // the picture question's box goes
     bool (*picture_set)(void *ctx, int hdmi, const char *how);               // a picture mode is put up and stored; false: the note says why not
     void (*start_any)(void *ctx, const char *path, const char *title, const BootEntry *trusted, bool ask);
@@ -54,7 +52,6 @@ const HcUiEnv &hc_ui_env(void);
 // The modal "Rename menu entry": the entry's path under the title, the typed name with its cursor, a message line. The screen draws the page (and tells the service); the job
 // reads the keys, edits, and at RETURN saves the name into boot.cfg and reads it back (a note says how it went).
 struct HcRenamePage {
-    char head[24];                                // the title: "Rename menu entry" / "Rename config"
     char sub[112];                                // the entry's path
     char typed[LE_MAX + 1];
     int cur;                                      // the cursor's place in `typed`
@@ -70,7 +67,6 @@ HcJob *hc_rename_job(const HcFlowEnv &flow, const HcRenameEnv &re, int entry);
 
 // The argument of the old web page's picture and countdown commands (web.video, web.countdown): set just before the intent is queued.
 void hc_ui_web_arg(int a);
-void hc_ui_web_config(const char *path, const char *name);   // T198 S13: the config a web start hands the entry at `path` (consumed by HCA_WEB_START, "" = plain)
 bool hc_ui_remote_ask(void);                      // true while a remote client's command (web.start) runs: the question it raises times out (D19a)
 
 // What one input leaves for the screen to do.
@@ -87,7 +83,6 @@ void hc_ui_changed(void);                         // something changed that the 
 void hc_ui_go(int view);                          // the view changes (a pending question ends with it) and is shown
 
 // The pieces the screen's own flows and callbacks use.
-void hc_ui_cfgov_draw(bool fresh);                // the config overlay's panel (T198)
 void hc_ui_note(const char *text, int tone);      // the feedback line (and its console line and the service's note)
 void hc_ui_net_note(const char *text, int tone);  // the WiFi pages' note
 void hc_ui_cfg_after(int r);                      // what a command that wrote boot.cfg left: the note when it could not be written
@@ -97,10 +92,6 @@ void hc_ui_pick_end(void);                        // the browser comes back from
 void hc_ui_pick_confirm(void);                    // RETURN in the target pick
 void hc_ui_browse_add(void);                      // A on the selected bundle
 void hc_ui_inspect_pick_start(void);
-const PicPage &hc_ui_pm(void);             // T187 D5: the Picture page's rows and cursor (hc_nav().pm_mode)
-void hc_ui_pm_refresh(bool keep);                 // the rows are read again (a change, a hot-plug); keep: the cursor keeps its mode
-void hc_ui_pm_open(void);                         // the Picture page opens over the settings rows (F8 > Picture, RETURN)
-void hc_ui_pm_key(int act);
 bool hc_ui_picture_step(void);                    // V: the next mode (the stored choice steps through)
 bool hc_ui_stepped_to(int hdmi);
 void hc_ui_settings_change(int kind, int dir);    // dir: -1 LEFT, +1 RIGHT / RETURN

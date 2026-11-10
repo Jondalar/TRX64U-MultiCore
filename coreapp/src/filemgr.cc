@@ -389,10 +389,8 @@ void FileMgr::browse_row(int i, BrowseRow *r, const char *marks_spec) const
     const char *dot = strrchr(f.name, '.');
     snprintf(r->ext, sizeof(r->ext), "%s", dot ? dot + 1 : "");
     snprintf(r->sub, sizeof(r->sub), "%u KB", (unsigned)((f.size + 1023) >> 10));
-    snprintf(r->value, sizeof(r->value), "%s", r->sub);
     if (vmode && i < VROWS) {                                                  // the folder it lies in
         snprintf(r->sub, sizeof(r->sub), "%s", vfull[i]);
-        snprintf(r->value, sizeof(r->value), "%s", vfull[i]);
     }
     const FileType *ft = 0;
     r->tone = 1;

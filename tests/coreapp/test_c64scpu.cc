@@ -490,45 +490,5 @@ int main()
             CHECK_EQ(r.io.vfmt, fmt[m]);
         }
     }
-    // ---- T206 S1: Run Disk. The disk is mounted, the machine reset, and LOAD"*",8,1 / RUN typed piece by piece once BASIC is up (the numbers of the C64).
-    {
-        Rig r;
-        r.all();
-        r.fs.put(OWN "1541.rom", pattern(5, 16384));
-        r.fs.put("/usb0/games/run.d64", Bytes(174848, 0));
-        r.fs.put("/usb0/games/run.d81", Bytes(819200, 0));
-        r.io.dm.multi = true;
-        r.fs.put(OWN "1581.rom", pattern(11, 32768));
-        CHECK(r.boot());
-        CHECK(c64scpu_desc.type_op && !strcmp(c64scpu_desc.type_op, "c64scpu.type_script"));
-        for (const char *ext : { ".d64", ".g64", ".d81" }) {
-            for (int i = 0; i < c64scpu_desc.nfiletypes; i++) {
-                if (strcmp(c64scpu_desc.filetypes[i].ext, ext)) continue;
-                bool run = false;
-                for (int k = 0; k < c64scpu_desc.filetypes[i].nactions; k++) run = run || !strcmp(c64scpu_desc.filetypes[i].actions[k].label, "Run Disk");
-                CHECK(run);
-            }
-        }
-        for (const char *img : { "/usb0/games/run.d64", "/usb0/games/run.d81" }) {
-            r.io.events.clear();
-            r.io.ram[0x2B] = r.io.ram[0x2C] = 0;                              // BASIC is not up yet: nothing may be typed before it is
-            OpIn in[2] = { in_str("slot", "iec:drive_a"), in_str("path", img) };
-            OpResult res;
-            memset(&res, 0, sizeof(res));
-            CHECK_EQ(ops_call(&r.c, "drive.mount_run", in, 2, &res), OPE_OK);
-            CHECK(r.ev("mode_reset") >= 0);
-            std::string typed;
-            r.io.ram[0x2B] = 0x01; r.io.ram[0x2C] = 0x08;                     // BASIC up
-            for (int i = 0; i < 400; i++) {
-                r.io.delay_ms(50);
-                ops_call(&r.c, "c64scpu.service", 0, 0, &res);
-                if (r.io.ram[0xC6]) {
-                    typed += std::string((const char *)&r.io.ram[0x0277], r.io.ram[0xC6]);
-                    r.io.ram[0xC6] = 0;
-                }
-            }
-            CHECK(typed == "LOAD\"*\",8,1\rRUN\r");
-        }
-    }
     DONE("test_c64scpu");
 }

@@ -143,46 +143,8 @@ static void rtc_case(const CoreDesc *desc)
     CHECK(r.io.rtc_nib[11] == 2 && r.io.rtc_nib[10] == 6 && r.io.rtc_nib[9] == 0 && r.io.rtc_nib[8] == 1 && r.io.rtc_nib[7] == 0 && r.io.rtc_nib[6] == 1);   // 2026-01-01
 }
 
-// T206: "Mount DF0 and reset" is on .adf, mounts the file in DF0 and resets the machine; a file that cannot be mounted resets nothing.
-// The reset is counted by the core's reset line (mode_reset).
-static void mount_reset_case(const CoreDesc *desc)
-{
-    FakeFs fs;
-    fs.put("/usb0/a.adf", blob(AM_ADF_SIZE, 3));
-    AmigaRig r(&fs, desc);
-    engines_of(&r.c);
-    boot_apply_settings(&r.c, true);
-    desc->init(&r.c, 0, 0);
-    desc->release(&r.c, 0, 0);
-    int c0 = r.io.reset_asserts;
-    bool has = false;
-    for (int i = 0; i < desc->nfiletypes; i++) {
-        if (strcmp(desc->filetypes[i].ext, ".adf")) continue;
-        const FileType &ft = desc->filetypes[i];
-        CHECK_EQ(ft.nactions, 5);
-        CHECK_STR(ft.actions[0].label, "Mount DF0");
-        CHECK_STR(ft.actions[1].label, "Mount DF0 and reset");                 // the name of the other machines' "... and reset"
-        CHECK_STR(ft.actions[1].op, "amiga.mount_reset");
-        has = true;
-    }
-    CHECK(has);
-    OpResult res;
-    memset(&res, 0, sizeof(res));
-    OpIn miss = in_str("path", "/usb0/none.adf");
-    CHECK_EQ(ops_call(&r.c, "amiga.mount_reset", &miss, 1, &res), OPE_FAILED);
-    CHECK_EQ(r.io.reset_asserts, c0);                                           // nothing mounted, nothing reset
-    OpIn in = in_str("path", "/usb0/a.adf");
-    memset(&res, 0, sizeof(res));
-    CHECK_EQ(ops_call(&r.c, "amiga.mount_reset", &in, 1, &res), OPE_OK);
-    CHECK_EQ(r.io.reset_asserts, c0 + 1);                                       // reset once
-    char msg[100];
-    CHECK_EQ(win_eject(&r.c, 0, msg, sizeof(msg)), 0);
-}
-
 int main()
 {
-    mount_reset_case(&amiga_desc);
-    mount_reset_case(&amiga1200_desc);
     rtc_case(&amiga_desc);
     rtc_case(&amiga1200_desc);
     Decode dec = read_decode(COREAPP_DIR "/../cores/amiga/rtl/trx/amiga_regs.v");

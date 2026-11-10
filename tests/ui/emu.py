@@ -25,16 +25,13 @@ WORK = os.path.join(HERE, "work")
 OUT = os.path.join(HERE, "out")
 
 
-CORES = ("amiga1200", "nes", "vc20", "c128", "atari800", "pet")      # the cores with a profile in tests/coreapp/emu/profiles (no C64 in the machine)
-
-
 class EmuError(Exception):
     pass
 
 
 class Emu:
     def __init__(self, log=None, core="trx64u"):
-        self.core = core                     # "trx64u" (the C64 record), "amiga1200" or "nes" (the profiles of tests/coreapp/emu/profiles)
+        self.core = core                     # "trx64u" (the C64 record) or "amiga1200" (the Amiga 1200 profile of tests/coreapp/emu/profiles)
         self.token = None
         self.proc = None
         self.sock = None
@@ -70,10 +67,9 @@ class Emu:
                "--flash", os.path.join(WORK, "flash.bin"), "--c64-roms", ROMS, "--usb-dir", stick, "--usb-dir-work", os.path.join(WORK, "usbwork"), "--sd", sd_img,
                "--headless", "--speed", "max", "--control", "127.0.0.1:%d" % CTL_PORT, "--net", "user",
                "--hostfwd", "tcp:127.0.0.1:%d:80" % REST_PORT]
-        if self.core in CORES:         # no C64 in the machine; the core folder is on the stick (fixtures.make_stick), the profile answers the gateware's registers
+        if self.core == "amiga1200":                  # no C64 in the machine; the core folder is on the stick (fixtures.make_stick), the profile answers the gateware's registers
             cmd[cmd.index("--c64-roms"):cmd.index("--c64-roms") + 2] = ["--c64", "none"]
-            cmd += ["--core", os.path.join(ROOT, "tests", "coreapp", "emu", "profiles", self.core + ".toml"), "--handover", "video=" + os.environ.get("UI_VIDEO", "720p")]
-        cmd += os.environ.get("UI_EMU_ARGS", "").split()      # e.g. UI_EMU_ARGS="--log io" (T210: the register writes of the first frames)
+            cmd += ["--core", os.path.join(ROOT, "tests", "coreapp", "emu", "profiles", "amiga1200.toml"), "--handover", "video=720p"]
         self.log = open(self.logpath, "w")
         self.proc = subprocess.Popen(cmd, stdout=self.log, stderr=subprocess.STDOUT, cwd=WORK)
         deadline = time.time() + 60
@@ -145,7 +141,7 @@ class Emu:
         last = None
         for _ in range(tries):
             try:
-                if self.core in CORES and not self.token:
+                if self.core == "amiga1200" and not self.token:
                     self._grant()
                 url = "http://127.0.0.1:%d/v1/ui/state" % REST_PORT + ("?t=" + self.token if self.token else "")
                 with urllib.request.urlopen(url, timeout=10) as r:

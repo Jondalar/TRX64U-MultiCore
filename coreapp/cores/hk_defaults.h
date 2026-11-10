@@ -28,12 +28,12 @@ static const HkSpec hk_c264 = {
     { HKK_CTRL, HK_NONE, { HK_RESTORE, HKK_PLUS, HKK_MINUS, HKK_R, HKK_J, HKK_P, HK_NONE } }, 0, "Joystick ports (at next reset)", HKO_DIGITS };
 // Keyboard computers where CTRL is a typing key (Apple II, Atari, ZX, CPC): the modifier is C= + CTRL, which none of them has a function for.
 static const HkSpec hk_typing = {
-    { HKK_CBM, HKK_CTRL, { HK_RESTORE, HKK_PLUS, HKK_MINUS, HKK_R, HKK_J, HKK_P, HK_NONE } }, 0, 0, 0, 0, 0, 0, true };
+    { HKK_CBM, HKK_CTRL, { HK_RESTORE, HKK_PLUS, HKK_MINUS, HKK_R, HKK_J, HKK_P, HK_NONE } }, 0, 0, 0 };
 // The Amiga: CTRL + Amiga + Amiga is its reset, so the modifier is C= + RUN/STOP.
 static const HkSpec hk_amiga = {
-    { HKK_CBM, HKK_STOP, { HK_RESTORE, HKK_PLUS, HKK_MINUS, HKK_R, HKK_J, HKK_P, HK_NONE } }, 0, 0, 0, 0, 0, 0, true };
+    { HKK_CBM, HKK_STOP, { HK_RESTORE, HKK_PLUS, HKK_MINUS, HKK_R, HKK_J, HKK_P, HK_NONE } }, 0, 0, 0 };
 // The consoles take no key of the keyboard: the C64's map does not collide with anything.
 static const HkSpec hk_console = {
-    { HKK_CTRL, HK_NONE, { HK_RESTORE, HKK_PLUS, HKK_MINUS, HKK_R, HKK_J, HKK_P, HK_NONE } }, 0, 0, 0, 0, 0, 0, true };
+    { HKK_CTRL, HK_NONE, { HK_RESTORE, HKK_PLUS, HKK_MINUS, HKK_R, HKK_J, HKK_P, HK_NONE } }, 0, 0, 0 };
 
 #endif

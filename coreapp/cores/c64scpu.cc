@@ -4,14 +4,13 @@
 // in spec T182 section 3); the gateware side is cores/c64scpu/c64scpu_regs.v.
 // Settings: the speed switch (20 MHz / 1 MHz, the cartridge's switch, D4), JiffyDOS (the switch bit the SuperCPU ROM reads, and the JiffyDOS ROM in
 // drive A when it was supplied, D5), the joystick ports, the System Mode. Drive A is the cbm1541 library with the 1541 and the 1581 (T182 D17, as the C128's).
-// Not in this descriptor: the cartridge port and the REU (D6: they need step 7 of the gateware, the pass-through), a Run PRG entry for a PRG file of the stick. Run Disk and the inner Mount & Run / Real Run run or type at READY (T206).
+// Not in this descriptor: the cartridge port and the REU (D6: they need step 7 of the gateware, the pass-through), the PRG library / Mount & Run.
 #include "hk_defaults.h"
 #include "ctx.h"
 #include "boot.h"
 #include "c64scpu_regs.h"
 #include "cbm1541.h"
 #include "cbm1541_desc.h"
-#include "cbm_run.h"
 #include "cores.h"
 #include "drive_rom_pick.h"
 #include "ops_glue.h"
@@ -23,7 +22,6 @@
 // The two drive ROMs the person supplied are kept in `drv` (drive_rom_pick.h): which one the drive holds depends on the JiffyDOS setting, and the
 // setting can change at any time (a put of a ROM and a change of the setting both end in apply_drive_rom).
 struct ScpuState {
-    CbmRun run;                                         // T206: Run Disk types LOAD"*",8,1 and RUN at READY (the C64's BASIC, cbm_run.cc)
     uint8_t fast;                                       // the speed switch: 1 = 20 MHz
     uint8_t jiffy;                                      // the JiffyDOS setting
     DriveRomPick drv, drv81;
@@ -287,7 +285,6 @@ static const RomSpec roms[8] = {
 // ---- control -------------------------------------------------------------------------------------------------------------------
 static int c64scpu_init(CoreCtx *c, char *, int)
 {
-    cbm_run_clear(&scpu_state(c)->run);                 // a reset ends a typed start that was still waiting for READY
     c->io->mode_reset(true);
     return 0;
 }
@@ -324,44 +321,10 @@ static int c64scpu_cold_start(CoreCtx *c, char *msg, int msglen)
     return 0;
 }
 
-// T206: the machine the typed start waits for is the C64's (the SuperCPU changes the CPU, not the KERNAL): BASIC at $0801, TXTTAB $2B, the keyboard
-// buffer at $0277 with its count at $C6, the numbers of c64.cc. ready_ms is the C64 core's 1000 ms; no board has measured it on this core yet.
-static CbmRunMachine machine(void)
-{
-    CbmRunMachine m;
-    memset(&m, 0, sizeof(m));
-    m.tag = "c64scpu";
-    m.prg.basic_starts[0] = 0x0801;
-    m.prg.nbasic_starts = 1;
-    m.prg.txttab = 0x2B; m.prg.txttab_min = 0x0801; m.prg.txttab_max = 0x9FFF;
-    m.prg.vartab = 0x2D; m.prg.arytab = 0x2F; m.prg.strend = 0x31;
-    m.prg.kbd_buffer = 0x0277; m.prg.kbd_count = 0xC6;
-    m.prg.p00_header = 0x1A;
-    m.prg.min_size = 3;
-    m.prg.max_size = 0x1A + 2 + (0x10000 - 0x0801);
-    m.ready_ms = 1000;
-    m.settle_ms = 300;
-    m.giveup_ms = 4000;
-    return m;
-}
-
-static int op_type(CoreCtx *c, const OpArgs &a, OpOut &o)
-{
-    return cbm_run_queue_script(c, &scpu_state(c)->run, machine(), a.s(0), o.msg, o.msglen) ? OPE_FAILED : OPE_OK;
-}
-static const ArgSpec text_arg[] = { ARG_STRING("text", 63) };
-
-// T206: Mount & Run of a PRG inside a disk image reads the file out of the image and runs it (the C64's c64.run_prg): reset, wait for READY, place, RUN or SYS
-static int op_run(CoreCtx *c, const OpArgs &a, OpOut &o)
-{
-    return cbm_run_queue(c, &scpu_state(c)->run, machine(), a.s(0), o.msg, o.msglen) ? OPE_FAILED : OPE_OK;
-}
-
 static int op_service(CoreCtx *c, const OpArgs &, OpOut &o)
 {
-    int rc = cbm_run_service(c, &scpu_state(c)->run, machine());
     o.more = cbm1541_service(c);
-    return rc;
+    return OPE_OK;
 }
 
 // ---- menu ----------------------------------------------------------------------------------------------------------------------
@@ -369,12 +332,27 @@ static const OpBind file_bind[] = { B_FILE("path") };
 static const FileAction rom_actions[] = {
     { "Set as 1541 ROM", "c64scpu.set_drive_rom", file_bind, 1, false, 0, 0 },
 };
-// T206: the disk actions are the library's (cbm1541_desc.h): the same names and order as in every core with a drive
+static const FileAction d64_actions[] = {
+    { "Mount Disk",           "drive.mount", c1541_bind_rw, 3, true, 0, 0 },
+    { "Mount Disk Read Only", "drive.mount", c1541_bind_ro, 3, true, 0, 0 },
+    { "Mount Disk Unlinked",  "drive.mount", c1541_bind_ul, 3, true, 0, 0 },
+    { "Browse Disk",          "menu.browse", c1541_bind_browse, 1, false, 0, 0 },
+};
+static const FileAction g64_actions[] = {
+    { "Mount Disk",           "drive.mount", c1541_bind_rw, 3, true, 0, 0 },
+    { "Mount Disk Read Only", "drive.mount", c1541_bind_ro, 3, true, 0, 0 },
+    { "Mount Disk Unlinked",  "drive.mount", c1541_bind_ul, 3, true, 0, 0 },
+};
+static const FileAction d81_actions[] = {
+    { "Mount Disk",           "drive.mount", c1541_bind_rw, 3, true, 0, 0 },
+    { "Mount Disk Read Only", "drive.mount", c1541_bind_ro, 3, true, 0, 0 },
+    { "Browse Disk",          "menu.browse", c1541_bind_browse, 1, false, 0, 0 },
+};
 static const FileType filetypes[4] = {
     { ".rom", rom_actions, 1, 0, 0, 0 },
-    { ".d64", c1541_d64_actions, 5, ".prg", c1541_inner_actions, 2 },     // the files inside: Mount & Run (run_op) and Real Run (type_op)
-    { ".g64", c1541_g64_actions, 4, 0, 0, 0 },
-    { ".d81", c1581_disk_actions, 4, ".prg", c1541_inner_actions, 2 },
+    { ".d64", d64_actions, 4, 0, 0, 0 },
+    { ".g64", g64_actions, 3, 0, 0, 0 },
+    { ".d81", d81_actions, 3, 0, 0, 0 },
 };
 
 static const Task tasks[2 + CBM1541_NTASKS + CBM1581_NTASKS] = {
@@ -405,8 +383,6 @@ static void c64scpu_register(OpRegistry &r)
     r.add_op("c64scpu.set_joy", bit_arg, 1, op_set_joy);
     r.add_op("c64scpu.set_sysmode", sysmode_arg, 1, op_set_sysmode);
     r.add_op("c64scpu.service", 0, 0, op_service);
-    r.add_op("c64scpu.type_script", text_arg, 1, op_type);
-    r.add_op("c64scpu.run_prg", path_arg, 1, op_run);
     cbm1541_register(r);
 }
 
@@ -435,8 +411,8 @@ const CoreDesc c64scpu_desc = {
     c64scpu_register,
     caps, 2,
     false, false, 0, 0, 0, 0, 0, 0, 0,
-    "c64scpu.type_script",                              // type_op (T206: Run Disk)
-    "c64scpu.run_prg",                                  // run_op (T206: Mount & Run of a file inside a disk image)
+    0,
+    0,
     65536,                                              // cold_ram_bytes: the RAM block the RAM window reaches (SRAM and SuperRAM are not cleared by the restart yet)
     c64scpu_cold_start, 0, 0, 0,                        // cold_start, id_feat_reg, id_feat_mask, id_feat_val
     0, 0,                                               // menu_rec, menu_rec_n

@@ -49,7 +49,7 @@ int main()
         Rig f(&gd);
         CHECK(!home_reopen_last(&f.c));
         f.menu();
-        f.m->key(KEY_F5); f.m->key('1');                            // T205 D1: the core's own tab (it was F8)
+        f.m->key(KEY_F8);
         CHECK(f.find_row("Menu opens at") > 0);
         f.set("Last screen");
         CHECK(home_reopen_last(&f.c));
@@ -58,7 +58,7 @@ int main()
     {   // Home (F1), the default: the menu opens on Home wherever it was left
         Rig h(&gd);
         h.menu();
-        h.m->key(KEY_F5); h.m->key('1');
+        h.m->key(KEY_F5); h.m->key('2');
         h.go_to("Chipset");
         h.close();
         h.m->open();
@@ -69,9 +69,9 @@ int main()
         Rig l(&gd);
         l.set("Last screen");
         l.menu();
-        l.m->key(KEY_F5); l.m->key('1');
+        l.m->key(KEY_F5); l.m->key('2');
         int area = l.m->area(), tab = l.m->tab();
-        CHECK(area != 0 && tab == 0);
+        CHECK(area != 0 && tab == 1);
         l.go_to("Chipset");
         l.m->key(KEY_RIGHT);                                        // a setting changed: a status line stands
         CHECK(l.m->status()[0]);
@@ -88,7 +88,7 @@ int main()
         l.m->open();
         CHECK_EQ(l.m->area(), 0);
         // switched off again: Home
-        l.m->key(KEY_F5); l.m->key('1');
+        l.m->key(KEY_F5); l.m->key('2');
         l.set("Home (F1)");
         l.close();
         l.m->open();
@@ -98,7 +98,7 @@ int main()
         Rig s(&gd);
         s.set("Last screen");
         s.menu();
-        s.m->key(KEY_F5); s.m->key('1');
+        s.m->key(KEY_F5); s.m->key('2');
         s.go_to("Chipset");
         s.m->note_scroll(3);
         uint32_t rev = s.m->scroll_rev();

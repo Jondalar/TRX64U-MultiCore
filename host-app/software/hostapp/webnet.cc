@@ -302,11 +302,6 @@ static int serve_with(const HttpReq &q, View *v, char *out, int cap, bool *ws)
             }
             return send_page(out, cap, v, "accepted - the menu applies it in a moment");
         }
-        if (status == 400 && web_parse_why()[0]) {
-            char msg[160];
-            int n = snprintf(msg, sizeof(msg), "{\"error\":400,\"reason\":\"%s\"}\n", web_parse_why());
-            return respond(out, cap, "400 Bad Request", "application/json", msg, n);
-        }
         return respond_error(out, cap, status);
     }
     return respond_error(out, cap, 404);

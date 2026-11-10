@@ -12,10 +12,8 @@ hd=$root/${HOSTDIR:-host}
 out=$here/build$(echo "${HOSTDIR:-}" | tr / _)
 mkdir -p "$out"
 dut=$hd/hdmi_timing.v
-# T188: the Amiga copies carry the Amiga edition of hdmi_modes.vh (rows 0..2 bent to the Amiga frame)
-def=""; case "${HOSTDIR:-}" in cores/amiga/*|cores/amiga1200/*) def="-DT188";; esac
 run() {   # <name> <dut.v> [+only=N]
-  nice -n 15 iverilog -g2012 $def -I"$hd" -o "$out/$1.vvp" -s tb "$here/tb_hdmi_timing.v" "$2"
+  nice -n 15 iverilog -g2012 -I"$hd" -o "$out/$1.vvp" -s tb "$here/tb_hdmi_timing.v" "$2"
   timeout 1500 nice -n 15 vvp -n "$out/$1.vvp" $3 > "$out/$1.log" 2>&1 || true
 }
 run all "$dut"

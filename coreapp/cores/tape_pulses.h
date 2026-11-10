@@ -19,10 +19,7 @@
 #define TAPE_STOP 0xFFFEu
 #define TAPE_GAP 0xFFFFu
 
-// TAPE_C64: a Commodore .tap ("C64-TAPE-RAW", versions 0-2; the PET's tapes are the same files). The tick is one microsecond (the PET's 1 MHz clock): a value is
-// the time between two falling edges (8 cycles per unit, version 1/2 value 0 = a 24 bit cycle count follows, version 0 value 0 = 2048 cycles), made
-// into the line the datasette gives: low for a fixed 100 us (half a short pulse), then high until the next falling edge. Version 2 half waves are not read.
-enum TapeFormat { TAPE_TAP = 0, TAPE_TZX = 1, TAPE_C64 = 2 };
+enum TapeFormat { TAPE_TAP = 0, TAPE_TZX = 1 };
 
 // Receives the words in order. Returns false when it cannot take them (the DDR2 write is the caller's, a bench keeps a vector).
 class TapeOut {

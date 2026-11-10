@@ -13,7 +13,6 @@
 #include "keyboard.h"
 #include "desc_check.h"
 #include "picture.h"
-#include "picmodes.h"
 #include "videomode.h"
 
 // videomode.cc is built without the board (VIDEOMODE_NO_BOARD); this bench brings the one function it needs.
@@ -242,7 +241,7 @@ static void runtime_change()
 
 static void through_the_menu()
 {
-    // the person's way: F5, Video, the Picture row, a key (T187 D1, T205 D1: Video is a tab of F5) - applied live and written to the .cfg beside the .cor
+    // the person's way: F5, Settings, the Picture row, a key - applied live and written to the .cfg beside the .cor
     struct Host : MenuHost {
         void info(int, char *out, int) { out[0] = 0; }
         bool return_to_host(char *, int) { return false; }
@@ -259,132 +258,14 @@ static void through_the_menu()
     CHECK(row >= 0);
     while (m.selected() < row) m.key(KEY_DOWN);
     g_applied.clear();
-    m.key(KEY_RIGHT);                                          // T187 D5: the closed row is no stepper
-    CHECK(g_applied.empty());
-    m.key(KEY_RETURN);                                         // the page of the modes opens; browsing applies nothing
-    CHECK(std::string(m.title()) == "Picture");
-    CHECK_EQ(m.selected(), 0);
-    m.key(KEY_DOWN);
-    CHECK(g_applied.empty());
-    m.key(KEY_UP); m.key(KEY_DOWN);
-    CHECK(g_applied.empty());
-    m.key(KEY_RETURN);                                         // Auto -> 576p / 480p
+    m.key(KEY_RIGHT);                                          // Auto -> 576p / 480p
     CHECK(g_applied.size() == 1 && g_applied[0] == std::make_pair((int)VID_SYS_PAL50, (int)VID_HDMI_480_576));
-    CHECK_STR(m.toast_text(), "Picture 576p / 480p");                  // T187 D4: the result is the chip in the top bar, named by the row
     CHECK(pos_is(r, 3, 576, 204));
     CHECK(r.fs.text("/usb0/cores/nes.cfg").find("Picture") != std::string::npos);
     CHECK(r.fs.text("/usb0/cores/nes.cfg").find("576p / 480p") != std::string::npos);
     char l[100], rr[100]; bool a;
-    m.row(1, l, 100, rr, 100, &a);                             // the page: the applied mode carries the "now" tag
-    CHECK(std::string(l).find("576p") != std::string::npos && std::string(rr).find("now") != std::string::npos);
-    m.key(KEY_LEFT);                                           // back to the Video list; its row names the mode in force
     m.row(row, l, 100, rr, 100, &a);
     CHECK(std::string(rr).find("576p") != std::string::npos);
-}
-
-// T187 D5: the shared page logic (picmodes.cc) - the info line wording of the spec, the tags, the cursor rule that never applies on a move
-static void picmodes_shared()
-{
-    PictureModes pm;
-    memset(&pm, 0, sizeof(pm));
-    char b[200];
-    pm.n = 5;
-    picmodes_info(&pm, b, sizeof(b));
-    CHECK_STR(b, "Your screen offers 4 modes. Nothing changes until you pick one.");
-    pm.n = 2;
-    picmodes_info(&pm, b, sizeof(b));
-    CHECK_STR(b, "Your screen offers 1 mode. Nothing changes until you pick one.");
-    pm.fallback = true;
-    picmodes_info(&pm, b, sizeof(b));
-    CHECK_STR(b, "This screen names no 50 Hz modes; 60 Hz modes are listed.");
-    pm.sys60 = true;
-    picmodes_info(&pm, b, sizeof(b));
-    CHECK_STR(b, "This screen names no 60 Hz modes; 50 Hz modes are listed.");
-    pm.no_edid = true;
-    picmodes_info(&pm, b, sizeof(b));
-    CHECK_STR(b, "The screen did not name its modes; the standard TV modes are listed.");
-    pm.n = 3; pm.cur = 1;
-    pm.row[1].now = true; pm.row[1].native = true; pm.row[2].native = true; pm.row[1].refresh_dhz = 500;
-    picmodes_tag_text(&pm, 1, b, sizeof(b));
-    CHECK_STR(b, "now  native");
-    picmodes_tag_text(&pm, 2, b, sizeof(b));
-    CHECK_STR(b, "native");
-    picmodes_tag_text(&pm, 0, b, sizeof(b));
-    CHECK_STR(b, "");
-    picmodes_refresh_text(&pm, 1, b, sizeof(b));
-    CHECK_STR(b, "50.0 Hz");
-    picmodes_refresh_text(&pm, 0, b, sizeof(b));
-    CHECK_STR(b, "");
-    int sel = 1;                                               // browsing moves the cursor and asks for nothing; RETURN on the mode in force closes, on another applies
-    CHECK(picmodes_key(&sel, 3, 1, PMK_DOWN) == PMA_REDRAW && sel == 2);
-    CHECK(picmodes_key(&sel, 3, 1, PMK_DOWN) == PMA_REDRAW && sel == 2);
-    CHECK(picmodes_key(&sel, 3, 1, PMK_OK) == PMA_APPLY);
-    CHECK(picmodes_key(&sel, 3, 2, PMK_OK) == PMA_CLOSE);
-    CHECK(picmodes_key(&sel, 3, 1, PMK_BACK) == PMA_CLOSE);
-    sel = 1;
-    CHECK(picmodes_key(&sel, 2, 0, PMK_OK) == PMA_CLOSE);          // one mode: Auto and the mode are one picture, RETURN on either closes (D5 edge case 1)
-    sel = 0;
-    CHECK(picmodes_key(&sel, 2, 0, PMK_OK) == PMA_CLOSE);
-    sel = 2;
-    CHECK(picmodes_key(&sel, 3, 1, PMK_OTHER) == PMA_NONE);
-    PictureModes q;                                            // a PC mode has only a 60 Hz row: listed beside the 50 Hz television rows it is no fallback; a television row of the other family is
-    memset(&q, 0, sizeof(q));
-    picmodes_set_row(&q, 1, "576p / 480p", VID_HDMI_480_576, (uint16_t)((1u << 0) | (1u << 9)), 0, VID_SYS_PAL50, -1, true);
-    picmodes_set_row(&q, 2, "800 x 600", VID_HDMI_800x600, (uint16_t)((1u << 0) | (1u << 9)), 0, VID_SYS_PAL50, -1, true);
-    CHECK(!q.fallback);
-    picmodes_set_row(&q, 3, "1280 x 720", VID_HDMI_720P, (uint16_t)(1u << 7), 0, VID_SYS_PAL50, -1, true);
-    CHECK(q.fallback);
-    picmodes_confirm(8, "1280 x 720, 50.0 Hz", "1920 x 1080, 50.0 Hz", b, sizeof(b));
-    CHECK_STR(b, "1280 x 720, 50.0 Hz\nIn 8 s 1920 x 1080, 50.0 Hz comes back.\n\nRETURN keeps it      LEFT or ESC goes back now");
-    picmodes_kept_text("1280 x 720", b, sizeof(b));                // the D4 chip after the question: kept, or the mode that came back
-    CHECK_STR(b, "Picture 1280 x 720");
-    picmodes_back_text("1920 x 1080", b, sizeof(b));
-    CHECK(strstr(b, "Picture") && strstr(b, "back to 1920 x 1080"));
-    // T187 D9: one "now" mark, on the chosen row. Auto chosen: Auto's row, the row of the mode it resolved to has none; a fixed mode: its row only; the cursor opens on it
-    for (int cur = 0; cur < 3; cur++) {
-        PictureModes d;
-        memset(&d, 0, sizeof(d));
-        d.n = 3; d.cur = cur;
-        const int hd[3] = { VID_HDMI_720P, VID_HDMI_1080P, VID_HDMI_720P };           // Auto resolved to 720p (the same as row 2)
-        for (int i = 0; i < 3; i++) {
-            picmodes_set_row(&d, i, "x", hd[i], 0xFFFF, 0, VID_SYS_PAL50, hd[cur], cur == 0);
-        }
-        int nm = 0;
-        for (int i = 0; i < 3; i++) {
-            nm += d.row[i].now;
-            CHECK(d.row[i].now == (i == cur));
-        }
-        CHECK_EQ(nm, 1);
-        PicPage dp;
-        picpage_open(&dp, &d);
-        CHECK_EQ(dp.sel, cur);
-    }
-    CHECK(strstr(picmodes_confirm_keys(), "RETURN keeps it") && !strstr(picmodes_confirm_keys(), "mode"));
-    // hot-plug (PS_LIST_CHANGED): the list is rebuilt; the cursor keeps its mode by name, and goes to the mode in force when that mode is gone
-    PictureModes a;
-    memset(&a, 0, sizeof(a));
-    a.n = 4; a.cur = 1;
-    snprintf(a.row[0].name, sizeof(a.row[0].name), "Auto");
-    snprintf(a.row[1].name, sizeof(a.row[1].name), "576p / 480p");
-    snprintf(a.row[2].name, sizeof(a.row[2].name), "1280 x 720");
-    snprintf(a.row[3].name, sizeof(a.row[3].name), "1920 x 1080");
-    PicPage pg;
-    picpage_open(&pg, &a);
-    CHECK_EQ(pg.sel, 1);                                           // starts on the mode in force
-    CHECK(picpage_key(&pg, PMK_DOWN) == PMA_REDRAW && pg.sel == 2);
-    CHECK(picpage_key(&pg, PMK_DOWN) == PMA_REDRAW && pg.sel == 3);
-    PictureModes b2 = a;                                           // the screen now names fewer modes: 1920 x 1080 moves to row 2
-    b2.n = 3;
-    snprintf(b2.row[2].name, sizeof(b2.row[2].name), "1920 x 1080");
-    picpage_refresh(&pg, &b2, true);
-    CHECK_EQ(pg.sel, 2);
-    PictureModes b3 = a;                                           // the mode under the cursor is gone: the cursor goes to the mode in force
-    b3.n = 2;
-    picpage_refresh(&pg, &b3, true);
-    CHECK_EQ(pg.sel, 1);
-    picpage_open(&pg, &a);
-    CHECK(picpage_key(&pg, PMK_OK) == PMA_CLOSE);                  // RETURN on the mode in force applies nothing
-    CHECK(picpage_key(&pg, PMK_BACK) == PMA_CLOSE);
 }
 
 // T104.2 D5: a core that draws its own picture has no wish. Auto leaves the screen in the mode it is in; a chosen mode is still applied.
@@ -573,6 +454,5 @@ int main()
     own_picture();
     host_auto();
     through_the_menu();
-    picmodes_shared();
     DONE("test_picture");
 }

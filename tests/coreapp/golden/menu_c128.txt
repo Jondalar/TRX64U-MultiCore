@@ -7,19 +7,20 @@ area F1 Home
     info Media
     info ROMs
     info Libraries
-    media Drive A:
-    fixed Save as config...
-    fixed Load config...
 area F3 Library
   tab 1 Browse
     browser Browse
       filetype .rom: Load as system ROM image (72 KiB) | Set as 1541 ROM | Use as JiffyDOS C128 ROM | Use as JiffyDOS C64 ROM | Use as JiffyDOS 1541 ROM | Use as JiffyDOS 1581 ROM
       filetype .bin: Use as JiffyDOS C128 ROM | Use as JiffyDOS C64 ROM | Use as JiffyDOS 1541 ROM | Use as JiffyDOS 1581 ROM
-      filetype .d64: Mount Disk | Mount Disk Read Only | Mount Disk Unlinked | Run Disk | Browse Disk
-      filetype .g64: Mount Disk | Mount Disk Read Only | Mount Disk Unlinked | Run Disk
-      filetype .d81: Mount Disk | Mount Disk Read Only | Run Disk | Browse Disk
+      filetype .d64: Mount Disk | Mount Disk Read Only | Mount Disk Unlinked | Browse Disk
+      filetype .g64: Mount Disk | Mount Disk Read Only | Mount Disk Unlinked
+      filetype .d81: Mount Disk | Mount Disk Read Only | Browse Disk
 area F5 C128
-  tab 1 C128
+  tab 1 Summary
+    media Drive A:
+    fixed Save media set...
+    fixed Load media set...
+  tab 2 Settings
     setting 40/80 DISPLAY = 40 columns | 80 columns (default 40 columns, at next reset)
     setting Picture shown = 40 columns (VIC-IIe) | 80 columns (VDC) (default 40 columns (VIC-IIe), live)
     setting Auto switch = Off | On (default On, live)
@@ -47,13 +48,9 @@ area F7 Actions
     task Save Disk as G64 (asks a name)
     task Create blank D81 (asks a name)
 area F8 System (shifted)
-  tab 1 System
-    heading Actions
-    fixed Restart core
-    fixed Return to host menu
-    heading Network
-    fixed WiFi
-    heading Support
-    fixed Bug report
-    heading Reset
+  tab 1 Expert
     fixed Reset to host defaults
+    fixed Restart core
+    fixed Bug report
+    fixed WiFi
+    fixed Return to host menu

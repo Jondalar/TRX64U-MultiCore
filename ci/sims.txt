@@ -45,9 +45,6 @@
 1|c264_pixw|900|sh cores/c264/sim/run_pixw.sh
 1|c264_colors|300|sh cores/c264/sim/run_colors.sh
 1|c264_tedsnd|900|sh cores/c264/sim/run_tedsnd.sh
-1|pet_boot|900|sh cores/pet/sim/run_boot.sh
-1|pet_spet|900|sh cores/pet/sim/run_spet.sh
-1|pet_tape|900|sh cores/pet/sim/run_tape.sh
 1|eth|900|sh host/sim/eth/run.sh
 # T103 pktport (iverilog, about 1 min on the Mac): video, audio and MAC frames through the generic packet port against the senders wired
 # straight to the arbiter, byte for byte, and a core swap in the middle of a frame (host/pktport_host.v, the real host file).
@@ -256,7 +253,6 @@
 # T113 5.6 / 5.7 (first board run): the Z80 and BA after a machine reset, the arbiter's VIC side in a reset, the VIC frame length while the CPU takes ROM misses,
 # the character ROM store, the cold start, the register page's registers (the real-ROM sequence, run_realrom_reset.sh, is local like run_realrom.sh)
 1|c128_z80ba|1500|sh cores/c128/sim/run_z80ba.sh
-1|c128_z80vdc|1500|sh cores/c128/sim/run_z80vdc.sh
 1|c128_reset|1500|sh cores/c128/sim/run_reset.sh
 1|c128_cold|3000|sh cores/c128/sim/run_cold.sh
 1|c128_phase|2400|sh cores/c128/sim/run_phase.sh
@@ -310,10 +306,6 @@
 1|diag_pins|300|sh cores/diag/sim/pins/run.sh
 # T175 co-check: the step words the core application compiles from the four example tests run on the real probe engine (iverilog), the FIFO words / PCs / STATUS go to a file the application's own runner decodes (tests/coreapp/diag_co.cc); the result file is compared with the peripheral model
 1|diag_co|1500|sh cores/diag/sim/co/run.sh
-# T201 S1: the diag core's A/V test picture encoder (diag_avout.v + diag_yc.v) word for word against the unedited copy of the C128 encoder, four standards
-1|diag_avenc|600|sh cores/diag/sim/avenc/run.sh
-# T201 S2, S10: every A/V knob register (0x50-0x5F of diag_regs.v) changes the encoder words as specified, live; the sync knobs (D4) give the specified csync (tb_avsync, a second top of tb_avregs.v, run beside it)
-1|diag_avregs|1500|sh cores/diag/sim/avregs/run.sh
 # T159 (iverilog + wiring check, seconds): the 1541 drive LEDs reach drive_leds_n through cores/c1541/drive_leds_map.v (motor alone: floppy lit, hard disk dark), per core
 1|c1541leds_c128|120|sh cores/c1541/sim/run_leds.sh c128
 1|c1541leds_c264|120|sh cores/c1541/sim/run_leds.sh c264
@@ -339,8 +331,6 @@
 1|c64scpu_mirror|5400|sh cores/c64scpu/sim/run_mirror.sh
 # T182 step 6: the interrupt / vector bench (spec T182 S9 and the native-mode part of S3, 5.8): handler counts after 100,000 PHI2 cycles for CIA / VIC / RESTORE sources in emulation and native mode, with and without the vector reroute, BRK / COP, and a native 16-bit program in SuperRAM against the model. Controls: NOREROUTE, EMUONLY.
 1|c64scpu_irq|7200|sh cores/c64scpu/sim/run_irq.sh
-# T208 S1-S3 (Metal Dust): synthetic SuperCPU ROMs of our own (tools/gen_c64scpu_mdust.py) drive the game's write stream (mirror queue vs the VIC's copy, n_wlost), the HUD IRQ's I/O write spacing (cold and warm code, against a port of the VICE accounting) the crack menu's raster IRQ at 20 and 1 MHz (once per frame), and the code cache's next-line prefetch (S5: the HUD stage stays at writes + 1 with its code evicted every frame; self-modifying code that stores into the line being prefetched).
-1|c64scpu_mdust|3600|sh cores/c64scpu/sim/run_mdust.sh
 # T194 S1/S2 (the C128's 40 columns through the pixel layer, cores/c128/mono/host/pix_layer.v format 3): the VIC capture with 13-word rows and three slots; the picture
 # at Integer / Fit / Fill in 1080p and 720p, 50 and 60 Hz. T140 section 18: c128_act.v (which chip is being used) and its registers.
 1|c128_vicpic|1800|sh cores/c128/sim/run_vicpic.sh

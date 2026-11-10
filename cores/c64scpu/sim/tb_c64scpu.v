@@ -80,7 +80,7 @@ module tb_c64scpu;
     end
     // T182 step 3d: the DDR2 model covers 0x01C00000-0x03BFFFFF (32 MiB): the C64 ROM and RAM as before, SuperRAM at 0x02000000, the SRAM at 0x03000000, the SuperCPU ROM at
     // 0x03080000. The SuperCPU ROM image (mem/scpu_rom.mem, one byte per line, 128 KiB, tools/gen_c64scpu_map.py) goes in when the file exists. The application's registers
-    // are driven here: ROM_VALID (+ROMVALID=0 holds the CPU), SROM_LOG2 = 17 unless +SROMLOG2 says 16 (64 KiB) or 17 (128 KiB).
+    // are driven here: ROM_VALID (+ROMVALID=0 holds the CPU), SROM_LOG2 = 17.
     integer sfd, sn, sk, rvp;
     reg [7:0] simg [0:131071];
     initial begin
@@ -92,7 +92,7 @@ module tb_c64scpu;
                 for (sk = 0; sk < 16; sk = sk + 1) ddr.mem[32'h148000 + sn][8 * sk +: 8] = simg[sn * 16 + sk];
         end
         scpu_srom_log2 = 5'd17;
-        if ($value$plusargs("SROMLOG2=%d", rvp)) scpu_srom_log2 = rvp[4:0];     // run_realscpu.sh: 16 for a 64 KiB file, 17 for 128 KiB
+        if ($value$plusargs("SROMLOG2=%d", rvp)) scpu_srom_log2 = rvp[4:0];     // 16 = the 64 KiB ROM of VICE (run_realscpu.sh)
         rvp = 1;
         if ($value$plusargs("ROMVALID=%d", rvp)) ;
         scpu_rom_valid = rvp != 0;
@@ -181,18 +181,12 @@ module tb_c64scpu;
     // T182 step 4: the markers of the speed benches (run_speed.sh): a completed 65816 write to 24-bit $00:0B00-$00:0B03 (SRAM, never on the C64 bus) prints the PHI2 cycle it completed in
     always @(posedge clk2x_r) if (!rst && dut.c64.cpu_0.core_ce && dut.c64.cpu_0.bus_cyc && dut.c64.cpu_0.wr_cyc && dut.c64.cpu_0.a_out[23:2] == 22'h0002C0)
         $display("mark|%0d|%0d|frame %0d", dut.c64.cpu_0.a_out[1:0], cyc, fr_n);
-    // T182 step 6 (run_irq.sh, S9): with +RESTOREHOOK a completed 65816 write to $00:0B08 pulses the RESTORE input (ext_restore, 8 us at the 1 MHz clock enable's rate: well over two PHI2 cycles)
+    // T182 step 6 (run_irq.sh, S9): a completed 65816 write to $00:0B08 pulses the RESTORE input (ext_restore, 8 us at the 1 MHz clock enable's rate: well over two PHI2 cycles)
     integer rst_cnt = 0;
     always @(posedge clk2x_r) begin
-        if ($test$plusargs("RESTOREHOOK") && !rst && dut.c64.cpu_0.core_ce && dut.c64.cpu_0.bus_cyc && dut.c64.cpu_0.wr_cyc && dut.c64.cpu_0.a_out == 24'h000B08) rst_cnt <= 400;
+        if (!rst && dut.c64.cpu_0.core_ce && dut.c64.cpu_0.bus_cyc && dut.c64.cpu_0.wr_cyc && dut.c64.cpu_0.a_out == 24'h000B08) rst_cnt <= 400;
         else if (rst_cnt != 0) rst_cnt <= rst_cnt - 1;
         restore <= rst_cnt != 0;
-    end
-    // +NMIDBG: the sources of the C64's NMI line at its first rising edge ("nmi|time|cia2_irq|kbd_restore_toggle|cart_nmi|ext_restore")
-    reg nmi_dbg_q = 1'b0;
-    always @(posedge clk2x_r) if ($test$plusargs("NMIDBG")) begin
-        nmi_dbg_q <= dut.c64.cpu_nmi;
-        if (dut.c64.cpu_nmi && !nmi_dbg_q) $display("nmi|%0t|%b|%b|%b|%b", $time, dut.c64.cia2_irq, dut.c64.kbd_restore_toggle, dut.c64.cart_nmi, dut.c64.ext_restore);
     end
     // +TRACE816: every bus cycle the 65816 completes (its own address, 24 bit): "c816|n|aaaaaa|R/W|data"
     integer c816 = 0;
@@ -331,99 +325,6 @@ module tb_c64scpu;
     reg [8*4096-1:0] dexp_s;
     reg [31:0] dacc;
     integer ms = 100, nbad = 0, p;
-`ifndef C64SCPU_CPU6510
-    // ---- T208 (run_mdust.sh): the Metal Dust benches -------------------------------------------------------------------------------------------------
-    // +IOW: "irq|cyc|..." at every rising edge of the VIC's IRQ line, "vec|..." at the first vector pull after it, "iow|addr|data|..." for every completed 65816 write to $D000-$D03F / $DD00 with the
-    // PHI2 cycles (`dirq`) and clk2x cycles (`dclk`) since that edge and the pixel position the capture shows.
-    // +MIRCHK: a shadow of every mirrored write the 65816 completed (smem.mir_fast at its enable), compared with the VIC's own copy (the ramd slot, block RAM) once the write is older than 400 clk2x
-    // and the queue has had time; mismatches are printed ("mm|...") and counted; at the end the DDR2 truth is compared too and ram_n_wlost printed.
-    integer c2x = 0;
-    always @(posedge clk2x_r) c2x = c2x + 1;
-    reg irq_q = 1'b0, vec_arm = 1'b0;
-    integer irq_c = 0, irq_c2 = 0;
-    always @(posedge clk2x_r) if (!rst) begin
-        irq_q <= dut.c64.vic_irq;
-        if (dut.c64.vic_irq && !irq_q) begin
-            irq_c = cyc; irq_c2 = c2x; vec_arm = 1'b1;
-            if ($test$plusargs("IOW")) $display("irq|%0d|y %0d|x %0d|fr %0d", cyc, pix_y, pix_x, fr_n);
-        end
-        if (vec_arm && dut.c64.cpu_0.core_ce && dut.c64.cpu_0.bus_cyc && !dut.c64.cpu_0.vpb) begin
-            vec_arm = 1'b0;
-            if ($test$plusargs("IOW")) $display("vec|%04x|dirq %0d|dclk %0d", dut.c64.cpu_0.a_out[15:0], cyc - irq_c, c2x - irq_c2);
-        end
-        if ($test$plusargs("IOW") && dut.c64.cpu_0.core_ce && dut.c64.cpu_0.bus_cyc && dut.c64.cpu_0.wr_cyc &&
-            (dut.c64.cpu_0.a_out[23:6] == 18'h00340 || dut.c64.cpu_0.a_out == 24'h00DD00))
-            $display("iow|%04x|%02x|dirq %0d|dclk %0d|cyc %0d|y %0d|x %0d", dut.c64.cpu_0.a_out[15:0], dut.c64.cpu_0.d_out, cyc - irq_c, c2x - irq_c2, cyc, pix_y, pix_x);
-        if ($test$plusargs("IOW") && dut.c64.cpu_0.core_ce && dut.c64.cpu_0.bus_cyc && !dut.c64.cpu_0.wr_cyc && dut.c64.cpu_0.a_out[23:0] >= 24'h00D011 && dut.c64.cpu_0.a_out[23:0] <= 24'h00D019)
-            $display("ior|%04x|%02x|dirq %0d|dclk %0d|cyc %0d|y %0d|x %0d", dut.c64.cpu_0.a_out[15:0], dut.c64.cpu_0.d_in, cyc - irq_c, c2x - irq_c2, cyc, pix_y, pix_x);
-    end
-    // +ARMDBG (T208 S2): the PHI2 position (clk2x cycles since the start of the cycle) of every address arming of a synchronous 65816 cycle and of every completed synchronous cycle
-    always @(posedge clk2x_r) if (!rst && $test$plusargs("ARMDBG")) begin
-        if (dut.c64.cpu_0.smem.arm_go) $display("arm|%0d|ph %0d|skip %0d|past_n %0d|a %04x", c2x, dut.c64.cpu_0.smem.ph, dut.c64.cpu_0.smem.skip_now, dut.c64.cpu_0.smem.past_n, dut.c64.cpu_0.a_out[15:0]);
-        if (dut.c64.cpu_0.core_ce) $display("sce|%0d|ph %0d|a %04x|%s|bus %0d|sync %0d|acc %0d|wb %0d", c2x, dut.c64.cpu_0.smem.ph, dut.c64.cpu_0.a_out[15:0], dut.c64.cpu_0.wr_cyc ? "W" : "R", dut.c64.cpu_0.bus_cyc, dut.c64.cpu_0.smem.sync_cyc, dut.c64.cpu_0.smem.acc, dut.c64.cpu_0.smem.wb_st);
-    end
-    // +PFDBG (T208 S5): a CPU write (wr_go) to line stream + 1 in the very clock a next-line prefetch would start (the condition of scpu_cache.v pgo without its !wr_go): printed as pfcoin|.
-    // No bench program reached it (0 in the smc bench; the CPU enables are at least 3 clk2x apart); tb_scpu_cache.v drives that race on the module's ports
-    always @(posedge clk2x_r) if (!rst && $test$plusargs("PFDBG")) begin
-        if (dut.c64.cpu_0.smem.cache.pf_pend && !dut.c64.cpu_0.smem.cache.f_go && !dut.c64.cpu_0.smem.cache.st_wait && !dut.c64.cpu_0.smem.cache.flushing && !dut.c64.cpu_0.smem.cache.wb
-            && dut.c64.cpu_0.smem.cache.quiet == 3'd0 && dut.c64.cpu_0.smem.cache.wr_go && dut.c64.cpu_0.smem.cache.w_p[24:4] == dut.c64.cpu_0.smem.cache.stream_nx)
-            $display("pfcoin|%0d|stream %0x", c2x, dut.c64.cpu_0.smem.cache.stream);
-    end
-    reg [7:0] sh_d [0:65535];
-    reg       sh_in [0:65535];
-    integer   sh_t [0:65535];
-    reg [15:0] dl_a [0:65535];
-    integer nd = 0, mm_n = 0, mm_chk = 0, mm_w = 0, di, dj, mm_ddr = 0;
-    initial for (di = 0; di < 65536; di = di + 1) sh_in[di] = 1'b0;
-    function [7:0] slot_b(input [15:0] a);
-        reg [12:0] wi;
-        begin
-            wi = a[13:1];
-            case (a[15:14])
-                2'd0: slot_b = a[0] ? dut.mem.ramd.gb[0].hi[wi] : dut.mem.ramd.gb[0].lo[wi];
-                2'd1: slot_b = a[0] ? dut.mem.ramd.gb[1].hi[wi] : dut.mem.ramd.gb[1].lo[wi];
-                2'd2: slot_b = a[0] ? dut.mem.ramd.gb[2].hi[wi] : dut.mem.ramd.gb[2].lo[wi];
-                default: slot_b = a[0] ? dut.mem.ramd.gb[3].hi[wi] : dut.mem.ramd.gb[3].lo[wi];
-            endcase
-        end
-    endfunction
-    reg mc_on;
-    initial mc_on = $test$plusargs("MIRCHK");
-    always @(posedge clk2x_r) if (mc_on && !rst) begin
-        if (dut.c64.cpu_0.smem.core_ce && dut.c64.cpu_0.smem.mir_fast) begin
-            mm_w = mm_w + 1;
-            sh_d[dut.c64.cpu_0.smem.a16] = dut.c64.cpu_0.smem.b_d;
-            sh_t[dut.c64.cpu_0.smem.a16] = c2x;
-            if (!sh_in[dut.c64.cpu_0.smem.a16]) begin sh_in[dut.c64.cpu_0.smem.a16] = 1'b1; dl_a[nd] = dut.c64.cpu_0.smem.a16; nd = nd + 1; end
-        end
-        if (c2x[9:0] == 10'd0) begin
-            dj = 0;
-            for (di = 0; di < nd; di = di + 1) begin
-                if (c2x - sh_t[dl_a[di]] > 400 && !dut.c64.cpu_0.smem.mir_busy) begin
-                    mm_chk = mm_chk + 1;
-                    if (slot_b(dl_a[di]) !== sh_d[dl_a[di]]) begin
-                        mm_n = mm_n + 1;
-                        if (mm_n <= 16) $display("mm|cyc %0d|fr %0d|%04x|cpu %02x|vic slot %02x|ddr %02x", cyc, fr_n, dl_a[di], sh_d[dl_a[di]], slot_b(dl_a[di]), ram_byte(dl_a[di]));
-                    end
-                    sh_in[dl_a[di]] = 1'b0;
-                end else begin dl_a[dj] = dl_a[di]; dj = dj + 1; end
-            end
-            nd = dj;
-        end
-    end
-    task mir_report;
-        integer ai;
-        begin
-            if (mc_on) begin
-                for (ai = 0; ai < 65536; ai = ai + 1)
-                    if (sh_in[ai] === 1'b0 && sh_t[ai] != 0 && ram_byte(ai[15:0]) !== sh_d[ai]) mm_ddr = mm_ddr + 1;
-                $display("mchk|%0d mirrored writes seen, %0d addresses checked against the VIC slot, %0d wrong, %0d wrong in the DDR2 at the end, n_wlost %0d", mm_w, mm_chk, mm_n, mm_ddr, ram_n_wlost);
-                if (mm_n != 0 || mm_ddr != 0 || ram_n_wlost != 0) nbad = nbad + 1;
-            end
-        end
-    endtask
-`endif
-
     reg [63:0] keyv = 64'd0;
     reg [15:0] acc;
     reg  [7:0] vacc;
@@ -488,9 +389,6 @@ module tb_c64scpu;
         $display("scpu|hits %0d|misses %0d|dev_cyc %0d|boot %0d|hw %0d|dos %0d", scpu_n_hit, scpu_n_miss, scpu_dev_cyc, scpu_bootmap, scpu_hwenable, scpu_dosext);
         $display("romc|%0d|%0d|%0d|%0d|bad %0d", dut.mem.romc.n_hit, dut.mem.romc.n_miss, dut.mem.romc.n_wait, dut.mem.romc.fill_max, rc_bad);
         if (rc_bad != 0) nbad = nbad + 1;
-`ifndef C64SCPU_CPU6510
-        mir_report;
-`endif
 `ifndef C64SCPU_CPU6510
         $display("bus|%0d PHI2 cycles looked at, %0d with the address or R/W changing inside the high phase", bs_n, bs_bad);
         if (bs_bad != 0 && $test$plusargs("BUSCHK")) nbad = nbad + 1;      // +BUSCHK: run_speed.sh (the 20 MHz bench); the 1 MHz benches do not look
