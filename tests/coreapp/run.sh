@@ -61,14 +61,15 @@ LOADERS="$ROOT/app/loaders"
 VIDEO="$ROOT/app/video"
 LIB1541="$ROOT/app/lib/cbm1541"
 EDIT="$ROOT/app/edit"
+MZ_APP="$ROOT/apps/miniz"   # T197: the zip library, one source for the board image and for this test
 UZ_APP="$ROOT/apps/unzip"   # T180 D9: the application's own C files are compiled for the Mac by test_unzip (build: .c files go through cc)
-find_src() { for d in "${MUTDIR:-/nonexistent}" "$SRC" "$CORES" "$LOADERS" "$VIDEO" "$LIB1541" "$EDIT" "$HA" "$UZ_APP/src" "$UZ_APP/src/miniz" "$UZ_APP" "$ROOT/app/sdk" "$ROOT/uicore" "$TST"; do [ -f "$d/$1" ] && { echo "$d/$1"; return; }; done; echo "missing source $1" >&2; exit 2; }
+find_src() { for d in "${MUTDIR:-/nonexistent}" "$SRC" "$CORES" "$LOADERS" "$VIDEO" "$LIB1541" "$EDIT" "$HA" "$UZ_APP/src" "$MZ_APP/src" "$MZ_APP" "$UZ_APP" "$ROOT/app/sdk" "$ROOT/uicore" "$TST"; do [ -f "$d/$1" ] && { echo "$d/$1"; return; }; done; echo "missing source $1" >&2; exit 2; }
 INC=(-DGOLDEN_DIR=\"$TST/golden\" -DCOREAPP_DIR=\"$ROOT/coreapp\" -I"$ROOT/host-app/software/io/c64" -DVIDEOMODE_NO_BOARD=1 -I"$SRC" -I"$ROOT/uicore" -I"$CORES" -I"$LOADERS" -I"$VIDEO" -I"$LIB1541" -I"$EDIT" -I"$HA" -I"$TST" -I"$TST/ftpstub" -I"$TST/hidstub" -I"$ROOT/host-app/software/io/usb")
 build() {
   local out="$1" test="$2"; shift 2
   local files=()
   local more=() f o
-  case "$test" in *test_unzip.cc) more=(-I"$ROOT/app/sdk" -I"$UZ_APP/src" -I"$UZ_APP/src/miniz");; esac
+  case "$test" in *test_unzip.cc) more=(-I"$ROOT/app/sdk" -I"$UZ_APP/src" -I"$MZ_APP/src" -I"$MZ_APP");; esac
   for s in "$@"; do
     f="$(find_src "$s")"
     case "$f" in
@@ -823,8 +824,8 @@ PASS=$((PASS + 1))
 # and the Mac build of apps/unzip runs inside the real loader over the FakeFs; the test needs no RISC-V instruction.
 python3 -I "$TST/gen_unzip.py" "$T/unzipfx" "$ROOT"
 UZ="$T/unzipfx"; ATARI_NOSTUB="${ATARI/appindex_stub.cc/appindex.cc}"   # the real index instead of the stub the base links
-UZSRC="descrec.cc libmenu.cc bundle.cc libload.cc libscan.cc unzip.c miniz.c miniz_tinfl.c miniz_zip.c u2p_compat.c glue.cc desc_check.cc menutree.cc menuctl.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc $ATARI_NOSTUB nes.cc ines.cc $C64"
-CC_EXTRA="$UZ/unzip.u2a $UZ/unzip2.u2a $UZ/t.zip $UZ/manifest.txt"
+UZSRC="descrec.cc libmenu.cc bundle.cc libload.cc libscan.cc unzip.c miniz.c miniz_tinfl.c miniz_zip.c miniz_lib.cc u2p_compat.c glue.cc desc_check.cc menutree.cc menuctl.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc $ATARI_NOSTUB nes.cc ines.cc $C64"
+CC_EXTRA="$UZ/unzip.u2a $UZ/unzip2.u2a $UZ/miniz.u2a $UZ/ziplist.u2a $UZ/t.zip $UZ/manifest.txt"
 CARGS="$UZ" RARGS="$UZ"
 run unzip test_unzip.cc $UZSRC
 

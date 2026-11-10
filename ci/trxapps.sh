@@ -3,6 +3,7 @@
 #   host-app/  -> hostapp.app / hostapp.elf   the boot menu that loads a core from a .cor (T101)
 #   coreapp/   -> coreapp.bin / coreapp.elf   the blueprint a core runs (T93), one image for every core,
 #                 and a copy per blueprint core under coreapps/<core>.app, the name pack_cores_mc.sh wants
+#   apps/miniz      -> miniz.u2a      the zip library unzip.u2a imports (T197), shipped beside it
 #   apps/unzip      -> unzip.u2a      Unzip to folder / Unzip here / Extract one file on .zip (T104.3, T180 D9): shipped in the package and the release, the
 #                 one copy every core reads from <root>/cores/apps/ (coreapp/src/appindex.h)
 #   app/lib/testlib -> testlib.u2a            the board's test library (T104.1 D10): a .u2a of format 3, built with the
@@ -39,7 +40,7 @@ out="$(stage_dir trxapps)"
 # the shell would be served out of the cache and never reach the board.
 key=""; cache=""
 if [ -z "$inplace" ]; then
-  key="$(cd "$ROOT" && git rev-parse HEAD:host-app HEAD:coreapp HEAD:uicore HEAD:app HEAD:apps/unzip HEAD:cores/apple2/rtl/roms HEAD:vendor/gideon/software HEAD:vendor/gideon/tools HEAD:vendor/gideon/target HEAD:vendor/gideon/roms | tr -d '\n')"
+  key="$(cd "$ROOT" && git rev-parse HEAD:host-app HEAD:coreapp HEAD:uicore HEAD:app HEAD:apps/unzip HEAD:apps/miniz HEAD:cores/apple2/rtl/roms HEAD:vendor/gideon/software HEAD:vendor/gideon/tools HEAD:vendor/gideon/target HEAD:vendor/gideon/roms | tr -d '\n')"
   key="$(printf '%s' "$key" | sha256sum | cut -c1-16)"
   cache="${CI_TRXAPPS_CACHE:-/cache/trxapps}/$key"
 fi
@@ -137,7 +138,7 @@ else
   # instead of building and cleaning every run (the stage key above is coarser: any change in app/ or coreapp/ rebuilds the stage, but not these two).
   libapp() {   # libapp DIR NAME.u2a : DIR relative to the tree
     local d="$1" n="$2" k c
-    k="$( (cd "$ROOT" && git ls-files -- "$d" app/lib/app.mk app/sdk coreapp/src tools/u2a_pack.py | { git hash-object --stdin-paths | paste -d' ' - <(git ls-files -- "$d" app/lib/app.mk app/sdk coreapp/src tools/u2a_pack.py); }; riscv32-unknown-elf-gcc --version | head -1; echo "$d $n") | sha256sum | cut -c1-16)"
+    k="$( (cd "$ROOT" && git ls-files -- "$d" apps/miniz app/lib/app.mk app/sdk coreapp/src tools/u2a_pack.py | { git hash-object --stdin-paths | paste -d' ' - <(git ls-files -- "$d" apps/miniz app/lib/app.mk app/sdk coreapp/src tools/u2a_pack.py); }; riscv32-unknown-elf-gcc --version | head -1; echo "$d $n") | sha256sum | cut -c1-16)"
     c="${CI_TRXAPPS_CACHE:-/cache/trxapps}/lib-apps/$k"
     if [ -f "$c/$n" ]; then echo "=== trxapps $n: from cache $c (key $k)"; cp "$c/$n" "$out/"; return 0; fi
     nice -n 15 make -j"$J" -C "$B/$d" RV_PREFIX=riscv32-unknown-elf- "$n"
@@ -148,6 +149,12 @@ else
   libapp app/lib/testlib testlib.u2a
   # T180 D9: Unzip, an application of several C files (app/lib/app.mk); same compiler, built beside its sources and cleaned again
   libapp apps/unzip unzip.u2a
+  # T197 P1: the zip code is the library (apps/miniz, resident, format 3); unzip.u2a imports it and carries none of it. S2: the size shows it - an application
+  # that linked its own miniz would be as large as the library.
+  libapp apps/miniz miniz.u2a
+  uz=$(wc -c < "$out/unzip.u2a"); mz=$(wc -c < "$out/miniz.u2a")
+  echo "=== trxapps: unzip.u2a $uz bytes, miniz.u2a $mz bytes"
+  [ "$uz" -lt "$mz" ] || { echo "trxapps: unzip.u2a ($uz bytes) is not smaller than the zip library ($mz): it carries its own miniz (T197 S2)" >&2; exit 1; }
   mkdir -p "$out/coreapps"
   # The .bin, never the .app: cor_pack puts the image at app_load as it is and jumps to app_entry, so an
   # .app's 12-byte header would sit on the entry point - that is what shipped on 2026-10-15 and left the
@@ -172,7 +179,7 @@ fi
 printf '%s\n' "${key:-inplace}" > "$out/trxapps_key"
 ( cd "$ROOT" && git rev-parse HEAD 2>/dev/null || echo inplace ) > "$out/trxapps_commit"
 ls -l "$out" "$out/coreapps"
-sha256sum "$out/hostapp.app" "$out/coreapp.bin" "$out/testlib.u2a" "$out/unzip.u2a"; [ ! -f "$out/coreapp.app" ] || sha256sum "$out/coreapp.app"   # an older cache entry has no .app
+sha256sum "$out/hostapp.app" "$out/coreapp.bin" "$out/testlib.u2a" "$out/unzip.u2a" "$out/miniz.u2a"; [ ! -f "$out/coreapp.app" ] || sha256sum "$out/coreapp.app"   # an older cache entry has no .app
 : > "$out/DONE"
 echo "=== trxapps done in $(lap)"
 

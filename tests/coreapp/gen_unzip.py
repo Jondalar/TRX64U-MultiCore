@@ -18,11 +18,18 @@ os.makedirs(os.path.join(out, "files"), exist_ok=True)
 
 elf = open(os.path.join(root, "tests/loader/fixtures/testlib.at0.elf"), "rb").read()
 assert elf.count(b"lib_register\0") == 1
+open(os.path.join(out, "testlib_fix.elf"), "wb").write(elf)
 open(os.path.join(out, "fix.elf"), "wb").write(elf.replace(b"lib_register\0", b"app_main\0\0\0\0\0"))
+needs = ["--needs", "base>=3.1", "--needs", "miniz>=1.0"]      # as apps/unzip/Makefile (T197)
 for name, ver in (("unzip.u2a", "1"), ("unzip2.u2a", "2")):
     subprocess.check_call([sys.executable, os.path.join(root, "tools/u2a_pack.py"), os.path.join(out, "fix.elf"), "-o", os.path.join(out, name),
-                           "--kind", "app", "--residence", "transient", "--name", "unzip", "--version", ver,
-                           "--menu", os.path.join(root, "apps/unzip/app.toml")], stdout=subprocess.DEVNULL)
+                           "--kind", "app", "--residence", "transient", "--name", "unzip", "--version", ver] + needs +
+                          ["--menu", os.path.join(root, "apps/unzip/app.toml")], stdout=subprocess.DEVNULL)
+# a second application that uses the library (S2) and the library itself: the fixture image under the real names, the code is the Mac build of the sources
+subprocess.check_call([sys.executable, os.path.join(root, "tools/u2a_pack.py"), os.path.join(out, "fix.elf"), "-o", os.path.join(out, "ziplist.u2a"),
+                       "--kind", "app", "--residence", "transient", "--name", "ziplist", "--version", "1"] + needs, stdout=subprocess.DEVNULL)
+subprocess.check_call([sys.executable, os.path.join(root, "tools/u2a_pack.py"), os.path.join(out, "testlib_fix.elf"), "-o", os.path.join(out, "miniz.u2a"),
+                       "--kind", "lib", "--name", "miniz", "--version", "1", "--needs", "base>=3.1"], stdout=subprocess.DEVNULL)
 
 
 def blob(seed, n):

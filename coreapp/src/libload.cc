@@ -32,6 +32,8 @@ LibLoader::LibLoader(LibHost *host, OpRegistry *reg, uint16_t base_minor)
     ops_.size = sizeof(ops_);
     ops_.call = svc_call;
     ops_.state = svc_state;
+    lib_.size = sizeof(lib_);
+    lib_.find = svc_lib_find;
     fs_.size = sizeof(fs_);
     fs_.open = svc_open;
     fs_.read = svc_fread;
@@ -60,6 +62,7 @@ LibLoader::LibLoader(LibHost *host, OpRegistry *reg, uint16_t base_minor)
     api_.trx = 0;
     api_.net = 0;
     api_.c64 = 0;
+    api_.lib = &lib_;
 }
 
 LibLoader::~LibLoader()
@@ -153,6 +156,18 @@ int LibLoader::svc_call(const char *name, const OpIn *in, int nin, OpResult *r)
         return OPE_UNSUPPORTED;
     }
     return L->reg_->call(L->ctx_, name, in, nin, r);
+}
+
+const void *LibLoader::svc_lib_find(const char *name, uint32_t min_version, uint32_t *table_size)
+{
+    const Slot *s = name ? s_ld->find(name) : 0;
+    if (!s || s->info.kind != U2A3_KIND_LIB || s->info.version < min_version || !s->info.record.exports) {
+        return 0;
+    }
+    if (table_size) {
+        *table_size = s->info.record.exports_size;
+    }
+    return s->info.record.exports;
 }
 
 const char *LibLoader::svc_state(const char *name, uint32_t *rev)
@@ -652,6 +667,8 @@ int LibLoader::load(LibSource *src, int *handle, char *err, int errlen)
         } else if (rec.nops < 0 || rec.nstates < 0 || rec.nevents < 0 || (rec.nops && !rec.ops) || (rec.nstates && !rec.states) ||
                    (rec.nevents && !rec.events)) {
             bad = fail(LIB_REGISTER, err, errlen, "Library \"%s\" returned a record with a count and no list.", name);
+        } else if (rec.exports && rec.exports_size < sizeof(uint32_t)) {
+            bad = fail(LIB_REGISTER, err, errlen, "Library \"%s\" returned a call table with no size.", name);
         } else {
             reg_->contributor(s.info.name);
             int r = OPE_OK;

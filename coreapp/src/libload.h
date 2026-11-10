@@ -45,6 +45,7 @@ public:
         (void)e; (void)api; (void)ctx;
         return LIB_HOST_CANNOT_RUN;
     }
+    virtual uint32_t room() { return 0xFFFFFFFFu; }
     virtual uint32_t now_ms() { return 0; }
     virtual void delay_ms(uint32_t ms) { (void)ms; }
     // The lists of an application's blocks and files are touched by its tasks and the base's: a host with tasks gives a critical section.
@@ -109,6 +110,8 @@ public:
     void set_trx(const SvcTrx *t) { api_.trx = t; }
     void set_net(const SvcNet *t) { api_.net = t; }
     void set_c64(const SvcC64 *t) { api_.c64 = t; }
+    // The bytes the heap can still give (the loader window of a board); a host with no such limit says "all". AppIndex asks it (T197 P4).
+    uint32_t room() const { return host_->room(); }
     void set_sys_extra(int (*flash_read)(uint32_t, void *, int), void (*handover)(void)) { sys_.flash_read = flash_read; sys_.machine_handover = handover; }
     // Whose account the allocations and files of api->mem / api->fs go to from now on: the application whose tasks run (-1: nobody's). run() sets it
     // for the call; the base sets it for as long as an application's screens or jobs are up.
@@ -155,6 +158,7 @@ private:
     SvcSys sys_;
     SvcMem mem_;
     SvcOps ops_;
+    SvcLib lib_;
     SvcFs fs_;
     SvcFile *files_[LIB_MAX + 1];         // the open files of api->fs, one list per slot as acct_
 
@@ -163,6 +167,7 @@ private:
     static void *svc_realloc(void *p, uint32_t n);
     static int svc_call(const char *name, const OpIn *in, int nin, OpResult *r);
     static const char *svc_state(const char *name, uint32_t *rev);
+    static const void *svc_lib_find(const char *name, uint32_t min_version, uint32_t *table_size);
     static void svc_log(const char *text);
     static uint32_t svc_ms(void);
     static void svc_sleep(uint32_t ms);

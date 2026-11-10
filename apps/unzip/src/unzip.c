@@ -15,7 +15,17 @@
  */
 
 #include "u2p_app.h"
-#include "miniz.h"
+#include "zip_lib.h"
+
+/* The zip code is the library "miniz" (T197): the entry (glue.cc) looks its table up and hands it over; nothing of miniz is linked into this file. */
+static const ZipLib *zl;
+#define mz_zip_reader_init zl->reader_init
+#define mz_zip_reader_end zl->reader_end
+#define mz_zip_reader_get_num_files zl->get_num_files
+#define mz_zip_reader_file_stat zl->file_stat
+#define mz_zip_reader_extract_to_callback zl->extract_to_callback
+
+void unzip_set_zip(const ZipLib *t) { zl = t; }
 
 #define PATH_MAX_LEN 256
 #define FOLDER_TRIES 99

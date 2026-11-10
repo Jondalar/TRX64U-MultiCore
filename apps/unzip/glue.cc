@@ -1,8 +1,10 @@
 // Unzip on ABI 3 (T104.3 D9): the entry the base calls and the context of ABI 2 that src/unzip.c was written against. The application has no screens of
 // its own; what it asks of the person is the base's dialogs and the bar (the compat layer maps the old calls onto them).
 #include "glue.h"
+#include "zip_lib.h"
 
 extern "C" int unzip_main(const u2p_api_t *api, const u2p_app_context_t *ctx);
+extern "C" void unzip_set_zip(const ZipLib *t);
 
 static AppCtx *g_base;
 static int reply_fn(const char *text) { return u2p_reply_into(g_base, text); }
@@ -10,6 +12,13 @@ static int reply_fn(const char *text) { return u2p_reply_into(g_base, text); }
 extern "C" int app_main(const LibApi *api, AppCtx *ctx)
 {
     g_base = ctx;
+    uint32_t zsize = 0;
+    const ZipLib *zt = api->lib ? static_cast<const ZipLib *>(api->lib->find(ZIPLIB_NAME, ZIPLIB_VERSION, &zsize)) : 0;
+    if (!zt || zsize < sizeof(uint32_t) || !ZIPLIB_HAS(zt, extract_to_callback)) {
+        u2p_reply_into(ctx, "The zip library (miniz.u2a) is not loaded.");
+        return 1;
+    }
+    unzip_set_zip(zt);
     const u2p_api_t *u = u2p_compat_init(reinterpret_cast<const LibApi *>(api));
     char path[200];
     if (!ctx->file[0]) {                                  // the entry of the Tools area names no file: ask for one
