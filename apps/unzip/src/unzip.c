@@ -278,9 +278,9 @@ static int new_folder(archive_t *a, char *dest)
 
 static void report(const counts_t *c, const char *where)
 {
-    char msg[160] = "Extracted ";
+    char msg[PATH_MAX_LEN + 96] = "Extracted ";
     append_number(msg, c->files, sizeof(msg));
-    append(msg, " file(s) to ", sizeof(msg));
+    append(msg, c->files == 1 ? " file into " : " files into ", sizeof(msg));
     append(msg, where, sizeof(msg));
     if (c->skipped) {
         append(msg, "\nSkipped ", sizeof(msg));
@@ -329,7 +329,7 @@ static void pick_one(archive_t *a)
     } else {
         c.failed = 1;
     }
-    report(&c, "this folder");
+    report(&c, a->dir);
 }
 
 int unzip_main(const u2p_api_t *api_in, const u2p_app_context_t *ctx)
@@ -352,21 +352,12 @@ int unzip_main(const u2p_api_t *api_in, const u2p_app_context_t *ctx)
         pick_one(&a);
     } else if (!strcmp(action, "here")) {
         extract_all(&a, a.dir, &c);
-        report(&c, "this folder");
+        report(&c, a.dir);
     } else {
         char dest[PATH_MAX_LEN];
         if (new_folder(&a, dest)) {
             extract_all(&a, dest, &c);
-            const char *last = dest;
-            for (const char *p = dest; *p; p++) {
-                if (*p == '/') {
-                    last = p + 1;
-                }
-            }
-            char where[PATH_MAX_LEN];
-            copy(where, last, PATH_MAX_LEN);
-            append(where, "/", PATH_MAX_LEN);
-            report(&c, where);
+            report(&c, dest);
         } else {
             api->ui->popup("Unzip", "Cannot create the folder.");
         }

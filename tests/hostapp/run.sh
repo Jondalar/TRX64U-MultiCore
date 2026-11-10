@@ -507,6 +507,9 @@ cc_block txu t_txu
 # capture of the flow before it was cut into steps; a job that asks writes nothing until it is answered (run_hostjobs.sh)
 t_hostjobs() { bash "$ROOT/tests/hostapp/run_hostjobs.sh" "$T"; }
 cc_block hostjobs t_hostjobs
+# T197 P3 / S3: Unzip in the File Browser: the job over the loader of coreapp/src and the Mac build of unzip + miniz (run_hostzip.sh)
+t_hostzip() { bash "$ROOT/tests/hostapp/run_hostzip.sh" "$T/hostzip"; }
+cc_block hostzip t_hostzip
 
 # T192.2-S10 (no radio): the WiFi page's modal actions as jobs: blocking call and stepped job equal the golden capture of the old flows (run_hostwifi.sh)
 t_hostwifi() { bash "$ROOT/tests/hostapp/run_hostwifi.sh" "$T"; }

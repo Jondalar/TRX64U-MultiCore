@@ -13,6 +13,7 @@
 #include "discover.h"
 #include "cfw.h"
 #include "txu.h"
+#include "host_core_flow.h"
 #include "cor.h"
 #include <stdio.h>
 #include <string.h>
@@ -296,7 +297,7 @@ const char *hc_browse_foot(void)
     if (v.bsel >= 0 && v.bsel < v.bn && v.bl[v.bsel].dir) {
         return strcmp(v.bl[v.bsel].name, "..") ? hc_foot(HCF_BR_DIR) : hc_foot(HCF_BR_PLAIN);
     }
-    return v.bsel >= 0 && v.bsel < v.bn ? (txu_is_name(v.bl[v.bsel].name) ? hc_foot(HCF_BR_TXU) : hc_foot(HCF_BR_FILE)) : hc_foot(HCF_BR_PLAIN);
+    return v.bsel >= 0 && v.bsel < v.bn ? (txu_is_name(v.bl[v.bsel].name) ? hc_foot(HCF_BR_TXU) : (hc_is_zip_name(v.bl[v.bsel].name) ? hc_foot(HCF_BR_ZIP) : hc_foot(HCF_BR_FILE))) : hc_foot(HCF_BR_PLAIN);
 }
 
 // the panel's probe cache: keyed by the row and the generation of the list
@@ -548,6 +549,8 @@ void hc_browse_panel(HcPanel *p)
             ui_size_text(sz, sizeof(sz), v.bl[v.bsel].size64);
             if (txu_is_name(v.bl[v.bsel].name)) {                   // T152: a MultiCore update says what it is and how it is installed
                 txu_panel(v.bl[v.bsel].name, sz, t, sizeof(t));
+            } else if (hc_is_zip_name(v.bl[v.bsel].name)) {
+                snprintf(t, sizeof(t), "%s\nZip archive. Z unpacks it into this folder or into a folder named after it.", sz);
             } else {
                 snprintf(t, sizeof(t), "%s\nNot a boot menu file: the boot menu takes .cor bundles and .cfw firmware.", sz);
             }

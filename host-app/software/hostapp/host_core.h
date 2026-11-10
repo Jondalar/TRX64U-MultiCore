@@ -46,7 +46,7 @@ enum HcCtx {
     X(ENTRY_DEFAULT, "entry.default") X(ENTRY_REMOVE, "entry.remove") X(ENTRY_RENAME, "entry.rename") \
     X(BROWSE_OPEN, "browse.open") X(BROWSE_ENTER, "browse.enter") X(BROWSE_UP, "browse.up") X(BROWSE_PAGE_DOWN, "browse.page_down") X(BROWSE_PAGE_UP, "browse.page_up") \
     X(BROWSE_ADD, "browse.add") X(BROWSE_START, "browse.start") X(BROWSE_COPY, "browse.copy") X(BROWSE_MOVE, "browse.move") X(BROWSE_DELETE, "browse.delete") \
-    X(BROWSE_CONVERT, "browse.convert") X(BROWSE_RESTORE, "browse.restore") X(BROWSE_UPDATE, "browse.update") X(BROWSE_FORMAT, "browse.format") \
+    X(BROWSE_CONVERT, "browse.convert") X(BROWSE_RESTORE, "browse.restore") X(BROWSE_UPDATE, "browse.update") X(BROWSE_FORMAT, "browse.format") X(BROWSE_UNZIP, "browse.unzip") \
     X(BROWSE_PICK_CANCEL, "browse.pick_cancel") X(BROWSE_REPLACE, "browse.replace") X(BROWSE_REPLACE_CANCEL, "browse.replace_cancel") \
     X(SET_DEC, "set.dec") X(SET_INC, "set.inc") X(SET_ACTIVATE, "set.activate") \
     X(WIFI_DEC, "wifi.dec") X(WIFI_INC, "wifi.inc") X(WIFI_ACTIVATE, "wifi.activate") X(WIFI_SCAN, "wifi.scan") X(WIFI_MANUAL, "wifi.manual") \
@@ -95,7 +95,7 @@ void hc_key_name(int ctx, int act, char *out, int cap);
 enum HcFoot {
     HCF_MENU = 0, HCF_BROWSE,                  // HCF_BROWSE: a boot-menu file (the longest of the browser's)
     HCF_BR_MEDIA, HCF_BR_PLAIN, HCF_BR_FILE, HCF_BR_DIR, HCF_BR_PICK_COPY, HCF_BR_PICK_MOVE, HCF_BR_ASK, HCF_BR_BACKUP, HCF_BR_TXU, HCF_BR_INSPECT, HCF_BR_CFW,
-    HCF_EDIT, HCF_NET, HCF_SET, HCF_CM_LIST, HCF_CM_ASK1, HCF_CM_ASK2, HCF_WM, HCF_CM_EMPTY,
+    HCF_EDIT, HCF_NET, HCF_SET, HCF_CM_LIST, HCF_CM_ASK1, HCF_CM_ASK2, HCF_WM, HCF_CM_EMPTY, HCF_BR_ZIP,
     HCF_N
 };
 const char *hc_foot(int foot);                 // generated once, kept

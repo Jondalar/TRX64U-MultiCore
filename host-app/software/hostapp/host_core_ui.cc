@@ -8,6 +8,7 @@
 #include "discover.h"
 #include "cfw.h"
 #include "txu.h"
+#include "host_core_flow.h"
 #include "cor.h"
 #include "keyboard.h"
 #include <stdio.h>
@@ -572,6 +573,10 @@ void hc_ui_input(int k, HcUiResult *res)
         } else if (act == HCA_BROWSE_UPDATE) {
             if (!hc_browse_at_media() && !env_busy() && hc_browse_sel_file(path, sizeof(path)) && txu_is_name(v.bl[v.bsel].name)) {     // T152: U installs a .txu
                 g_env.flow(g_env.ctx, HUF_UPDATE, path, 0);
+            }
+        } else if (act == HCA_BROWSE_UNZIP) {
+            if (!hc_browse_at_media() && !env_busy() && hc_browse_sel_file(path, sizeof(path)) && hc_is_zip_name(v.bl[v.bsel].name)) {     // T197: Z unpacks a .zip
+                g_env.flow(g_env.ctx, HUF_UNZIP, path, 0);
             }
         } else if (act == HCA_BROWSE_FORMAT && hc_browse_at_media() && v.bsel < v.bn) {
             g_env.flow(g_env.ctx, HUF_FORMAT, v.bl[v.bsel].name, 0);

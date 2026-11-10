@@ -75,7 +75,7 @@ Built and benched; what is left is a step on the board (Alex, 2026-10-28, transl
 | T194 | 2 | 📅 | C128 40 columns through the pixel layer: Integer/Fit/Fill as every core (#63) | Built on c128-scale; D12 (40/80, Auto time, hotkey) app built; CI Vivado + board open | [T194](docs/specs/T194-c128-40col-scaling.md) |
 | T195 | 2 | 📅 | Board buttons UI_BUTTON[2:0] (header reset as on the U64 Elite) in host and every core | Built locally 11-09 (L/M=menu, R=reset); CI + board open | [T195](docs/specs/T195-board-buttons.md) |
 | T196 | 2 | 📅 | XInput (Xbox) pads on a USB cable, console cores only (#55) | Spec 11-09; D2 GIP + 360, D3 consoles | [T196](docs/specs/T196-xinput-pads.md) |
-| T197 | 2 | 🔨 | Zip library: P1/P2/P4/P5 built (t197-zip); P3 host F3 open | Spec 11-09 (Alex D1) | [T197](docs/specs/T197-zip-everywhere.md) |
+| T197 | 2 | 🔨 | Zip library: P1-P5 built (t197-zip); board test open | Spec 11-09 (Alex D1) | [T197](docs/specs/T197-zip-everywhere.md) |
 | T175 | 3 | 🔨 | Diag core: a timed probe engine plus TOML tests measure the joystick/paddle ports, results to SD | Gateware + core app merged (t175-diag); Vivado run + engine/board steps open | [T175](docs/todo/T175.md) |
 | T176 | 3 | 📅 | Core menus on the screen at once from a saved picture (split out of T146 P5, issue #4) | Deferred (Alex 11-02): split out of T146 P5; not started | [T176](docs/todo/T176.md) |
 | T177 | 3 | 📅 | Recovery boot: a key held at power-on starts a recovery image, even with a black host menu | Spec PROPOSED (Alex 11-02); Decided (Alex 11-02): app, RESTORE+F1, recovery.cor/backup, no flash, LED; build open | [T177](docs/todo/T177.md) |

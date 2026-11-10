@@ -2749,6 +2749,189 @@ static void scenarios_t137(const char *out)
     snprintf(g_root, sizeof(g_root), "%s", main_root);
 }
 
+// ---- T197 P3: Unzip in the File Browser. The job is the board's (host_core_flow_zip.cc over the loader of coreapp/src); what stands in for the machine is a CoreFs over the bench's
+// tree and a LibHost whose "application" asks what unzip asks (the bar, one page). The real unzip + miniz run in tests/hostapp/test_hostzip.cc (S3); this part judges the screens.
+#include "host_core_flow_zip.h"
+#include "hostzip_board.h"
+class BenchMemFile : public CoreFile {
+public:
+    std::string d;
+    uint64_t size() { return d.size(); }
+    bool writable() { return false; }
+    bool read(uint64_t off, void *buf, uint32_t len) { if (off + len > d.size()) return false; memcpy(buf, d.data() + off, len); return true; }
+    bool write(uint64_t, const void *, uint32_t) { return false; }
+    bool sync() { return true; }
+};
+class BenchZipFs : public CoreFs {
+public:
+    int list(const char *dir, FsEntry *out, int max)
+    {
+        HostDirEntry *h = (HostDirEntry *)malloc(sizeof(HostDirEntry) * 64);
+        int n = hostfs_list(dir, h, 64, false);
+        for (int i = 0; i < n && i < max; i++) {
+            memset(&out[i], 0, sizeof(out[i]));
+            snprintf(out[i].name, sizeof(out[i].name), "%s", h[i].name);
+            out[i].dir = h[i].dir;
+            out[i].size = h[i].size64;
+        }
+        free(h);
+        return n < max ? n : max;
+    }
+    bool stat(const char *path, uint64_t *size, bool *dir) { char d[700]; fpath(d, sizeof(d), path); struct stat st; if (::stat(d, &st)) return false; if (size) *size = st.st_size; if (dir) *dir = S_ISDIR(st.st_mode); return true; }
+    int load(const char *, void *, uint32_t) { return -1; }
+    bool save(const char *, const void *, uint32_t) { return false; }
+    bool remove(const char *) { return false; }
+    CoreFile *open(const char *path, bool rw)
+    {
+        if (rw) return 0;
+        char d[700]; fpath(d, sizeof(d), path);
+        FILE *f = fopen(d, "rb");
+        if (!f) return 0;
+        BenchMemFile *m = new BenchMemFile;
+        char b[4096]; size_t n;
+        while ((n = fread(b, 1, sizeof(b), f)) > 0) m->d.append(b, n);
+        fclose(f);
+        return m;
+    }
+    void close(CoreFile *f) { delete f; }
+};
+extern const char *hostui_test_browse_sub(void);
+static bool g_zip_one, g_zip_refuse_pic;                                                    // the bench's application plays the one-file picker
+class BenchLibHost : public LibHost {
+public:
+    void *alloc(uint32_t n) { return malloc(n); }
+    void release(void *p) { free(p); }
+    uint32_t addr_of(const void *p) { return (uint32_t)(uintptr_t)p; }
+    void sync_code(void *, uint32_t) { }
+    bool has_capability(const char *) { return false; }
+    const char *core_name() { return "host"; }
+    int call_register(const Entry &, const LibApi *, LibRecord *) { return 0; }
+    int call_main(const Entry &, const LibApi *api, AppCtx *ctx)         // what unzip does on screen: a bar, then its page
+    {
+        if (g_zip_one) {
+            const char *items[3] = { "readme.txt", "sub/data.bin", "sub/deep/more.bin" };
+            if (api->dlg->choose("Unzip set.zip", items, 3, 0) < 0) return 0;
+            api->dlg->message("Unzip", "Extracted 1 file into /Usb0/zip");
+            return 0;
+        }
+        void *bar = api->dlg->progress_open("Unzipping", 3);
+        const char *names[3] = { "readme.txt", "sub/data.bin", "sub/deep/more.bin" };
+        for (int i = 1; i <= 3; i++) api->dlg->progress_set(bar, i, names[i - 1]);
+        api->dlg->progress_close(bar);
+        api->dlg->message("Unzip", "Extracted 3 files into /Usb0/zip/set");   // the hook presses the key once the page is up
+        (void)ctx;
+        return 0;
+    }
+};
+HcZipEnv *hostzip_env(const HcFlowEnv *base)
+{
+    static BenchZipFs fs;
+    static BenchLibHost host;
+    static HcZipEnv env;
+    if (!env.base) { env.base = base; env.fs = &fs; env.libhost = &host; env.rig = 0; }
+    return &env;
+}
+static int g_zip_pics;
+static const char *g_zip_out;
+static void zip_hook(int phase, uint64_t done, uint64_t total)
+{
+    if (phase == -2) {                                                   // the question "into a folder, here, one file" is up
+        lv_refr_now(NULL);
+        char pp[600]; snprintf(pp, sizeof(pp), "%s/unzip_ask.png", g_zip_out); png(pp, 2);
+        g_zip_pics++;
+        kb_push(g_zip_one ? 'o' : 'f');
+    } else if (phase == -3 || phase == -4) {                              // the application's page / its list is up: the footer is the page's key line
+        lv_refr_now(NULL);
+        CHECK(phase == -4 ? has("foot='UP/DOWN select    RETURN takes it    ESC cancels'") : has("foot='any key continues'"));
+        char pp[600]; snprintf(pp, sizeof(pp), "%s/%s.png", g_zip_out, phase == -4 ? "unzip_one" : (g_zip_one ? "unzip_one_done" : "unzip_done")); png(pp, 2);
+        g_zip_pics++;
+        kb_push(KEY_RETURN);
+    } else if (phase == -1) {
+        if (g_zip_refuse_pic) {                                           // the refusal is up: its key line is the footer
+            g_zip_refuse_pic = false;
+            lv_refr_now(NULL);
+            CHECK(has("foot='any key returns to the File Browser'"));
+            char pp[600]; snprintf(pp, sizeof(pp), "%s/unzip_refused.png", g_zip_out); png(pp, 2);
+        }
+        kb_push('x');
+    }
+    (void)done; (void)total;
+}
+static void copyfile(const std::string &from, const std::string &to)
+{
+    FILE *a = fopen(from.c_str(), "rb"), *b = fopen(to.c_str(), "wb");
+    char buf[4096]; size_t n;
+    if (a && b) { while ((n = fread(buf, 1, sizeof(buf), a)) > 0) fwrite(buf, 1, n, b); }
+    if (a) fclose(a);
+    if (b) fclose(b);
+}
+static void scenarios_t197(const char *out)
+{
+    char p[512], pg[2048], rows[2048];
+    const char *fx = getenv("ZIP_FIXDIR");
+    if (!fx) { printf("T197: no ZIP_FIXDIR, the unzip pictures are skipped\n"); return; }
+    std::string apps = std::string(g_root) + "/SD/cores/apps", zdir = std::string(g_root) + "/Usb0/zip";
+    mkdir(apps.c_str(), 0755);
+    mkdir(zdir.c_str(), 0755);
+    copyfile(std::string(fx) + "/unzip.u2a", apps + "/unzip.u2a");
+    copyfile(std::string(fx) + "/miniz.u2a", apps + "/miniz.u2a");
+    FILE *f = fopen((zdir + "/set.zip").c_str(), "wb"); fputs("PK dummy: the bench's application does not read it\n", f); fclose(f);
+    f = fopen((zdir + "/notes.txt").c_str(), "wb"); fputs("x\n", f); fclose(f);
+    g_zip_out = out;
+    g_saves = 0;
+    hostui_test_init(0);
+    hostui_cv_hook = zip_hook;
+    hostui_test_browse_keep("/Usb0/zip");                                    // rows: .. / notes.txt / set.zip
+    hostui_test_browse_rows(rows, sizeof(rows));
+    printf("t197 rows: %s\n", rows);
+    CHECK(strstr(rows, "set.zip|") && strstr(rows, "notes.txt|"));
+    hostui_test_key(KEY_DOWN);                                               // notes.txt: Z does nothing on a file that is no zip
+    CHECK(!has("Z unzip") && !strstr(hostui_test_browse_sub(), "Z unzip"));
+    hostui_test_fm_keep(true);
+    hostui_test_key('z');
+    hostui_test_fm_page(pg, sizeof(pg));
+    CHECK(!hostui_test_fmt_active() && !strstr(pg, "title=Unzip"));
+    hostui_test_fm_keep(false);
+    hostui_test_key(KEY_DOWN);                                               // set.zip
+    {
+        char rp[900];
+        hostui_test_browse_right(rp, sizeof(rp));
+        CHECK(strstr(rp, "title=set.zip|") && strstr(rp, "Zip archive. Z unpacks it into this folder or into a folder named after it.") && !strstr(rp, "Not a boot menu"));
+        CHECK((printf("t197 sub: %s\n", hostui_test_browse_sub()), strstr(hostui_test_browse_sub(), "F format, Z unzip.")));
+    }
+    CHECK(has("foot='UP/DOWN select    Z unzip    C copy    M move    DEL twice deletes    LEFT up a folder    V picture'"));
+    lv_refr_now(NULL);
+    snprintf(p, sizeof(p), "%s/unzip_browse.png", out); png(p, 2);
+    // ---- the flow: question, bar, the application's page; the picture of each
+    hostui_test_fm_keep(true);
+    hostui_test_key('z');
+    hostui_test_fm_page(pg, sizeof(pg));
+    printf("t197 page: %s\n", pg);
+    CHECK(g_zip_pics == 2 && strstr(pg, "title=Unzip|") && strstr(pg, "l0=Extracted 3 files into /Usb0/zip/set|"));
+    CHECK(!hostui_test_fmt_active() && has("note='Unzipped'"));
+    // ---- O: the one-file picker, then the singular page
+    g_zip_one = true;
+    hostui_test_key('z');
+    hostui_test_fm_page(pg, sizeof(pg));
+    printf("t197 page: %s\n", pg);
+    CHECK(g_zip_pics == 5 && strstr(pg, "l0=Extracted 1 file into /Usb0/zip|"));
+    g_zip_one = false;
+    // ---- no application on the card: a page that says so, nothing else happens
+    unlink((apps + "/unzip.u2a").c_str());
+    g_zip_refuse_pic = true;
+    hostui_test_key('z');
+    hostui_test_fm_page(pg, sizeof(pg));
+    printf("t197 page: %s\n", pg);
+    CHECK(strstr(pg, "title=Cannot unzip set.zip|") && strstr(pg, "l0=Unzip is not installed.|") && strstr(pg, "Nothing was unpacked.") && !g_zip_refuse_pic && !hostui_test_fmt_active());
+    hostui_test_fm_keep(false);
+    unlink((apps + "/miniz.u2a").c_str());
+    rmdir(apps.c_str());
+    unlink((zdir + "/set.zip").c_str());
+    unlink((zdir + "/notes.txt").c_str());
+    rmdir(zdir.c_str());
+    hostui_cv_hook = 0;
+}
+
 
 // T137 P2/P3 at the UI: R in the File Browser restores the original firmware. The rules are benched in tests/hostapp/test_fwrestore.cc (the check, the order of
 // the write, the two confirmations); what is under test here is the UI around them: which files get the key, which pages come in which order, that a refusal
@@ -4106,6 +4289,7 @@ int main(int argc, char **argv)
     scenarios_t148(out);
     scenarios_t137(out);
     scenarios_t137r(out);
+    scenarios_t197(out);
     scenarios_t152(out);
     scenarios_t184(out);
     picnote(out);

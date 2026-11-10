@@ -16,7 +16,7 @@
 #include "host_core_job.h"
 #include "lineedit.h"
 
-enum HcUiFlow { HUF_RENAME = 1, HUF_CONVERT, HUF_RESTORE, HUF_UPDATE, HUF_FORMAT, HUF_INSPECT };      // the flows whose pages the screen runs (arg: the path, the medium's name, the entry's index)
+enum HcUiFlow { HUF_RENAME = 1, HUF_CONVERT, HUF_RESTORE, HUF_UPDATE, HUF_FORMAT, HUF_INSPECT, HUF_UNZIP };      // the flows whose pages the screen runs (arg: the path, the medium's name, the entry's index)
 enum HcUiColors { HUC_REPORT = 1, HUC_SINGLE, HUC_MULTI };                                              // the colour test's buffer actions
 
 struct HcUiEnv {

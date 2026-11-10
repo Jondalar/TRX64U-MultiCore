@@ -249,7 +249,7 @@ int main(int argc, char **argv)
                 }
             }
             CHECK(ok >= 4);
-            CHECK(g_msg.find("Extracted " + std::to_string(ok) + " file(s) to this folder") != std::string::npos);
+            CHECK(g_msg.find("Extracted " + std::to_string(ok) + " files into /sd/games") != std::string::npos);
             if (absent) CHECK(g_msg.find("Failed: " + std::to_string(absent)) != std::string::npos);
             CHECK(fs.files.find("/sd/games/t.zip") != fs.files.end());
             CHECK(fs.files.find("/sd/t.zip") == fs.files.end());          // nothing next to the wrong folder
