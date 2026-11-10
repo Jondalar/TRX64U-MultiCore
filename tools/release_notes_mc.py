@@ -396,6 +396,8 @@ def render(a, cors, bit_len, alen, dest):
     if u2as:
         w("    apps/                    applications every core reads (T180 D9), from this bundle; never a core's folder:")
         w("        unzip.u2a            Unzip here / Unzip to folder / Extract one file, on a .zip in the F3 browser")
+        if "miniz.u2a" in u2as:
+            w("        miniz.u2a            the zip library Unzip loads (T197); it has no menu entry, and any application that reads a .zip can use it")
     w("    <name>/                  one folder per core, made by the core at its first start; never part of a release:")
     w("        <name>.cfg           its settings")
     w("        roms/                its ROM files (section 5)")
@@ -414,6 +416,8 @@ def render(a, cors, bit_len, alen, dest):
         w("- **Unzip (all cores):** the installer (section 3) writes `unzip.u2a` to `/cores/apps/unzip.u2a`; after the update in 3a, or by hand, copy it there yourself; every core finds it there, no copy per core folder. A `unzip.u2a`")
         w("  in a core's own `/cores/<name>/apps/` wins over that one. Then ENTER on a `.zip` in the File Browser (F3) offers **Unzip here**, **Unzip to folder**")
         w("  and **Extract one file**.")
+        if "miniz.u2a" in u2as:
+            w("  Unzip needs the zip library `miniz.u2a` in the same folder (`/cores/apps/` or the core's own `apps/`); copy both.")
     w("- **Media** (disks, games, images) can lie anywhere; you browse to them from the core's menu.")
     w("- **Settings:** the cores on the common application (Amiga, Amiga 1200, Atari 800 XL, NES, Apple IIe, ZX Spectrum, Amstrad CPC, ZX Spectrum Next, VIC-20, Commodore 264) keep")
     w("  them in `<name>.cfg` in the core's folder, `/cores/<name>/<name>.cfg`.")
