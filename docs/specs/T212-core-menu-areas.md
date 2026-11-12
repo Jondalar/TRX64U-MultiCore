@@ -59,6 +59,10 @@ Status: PROPOSED 2026-11-12, Alex (board photos of the A1200 core app: F1, F5, F
 - D14 (Alex 11-12): "Enter home on startup" shows No/Yes in the core; the host's Disabled/Enabled is translated internally so the host
   value still works as the default (D2).
 
+- D15 (Alex 11-12): the machine-info line comes from the core's .toml, not from C code in the app. Architecture rule (Alex):
+  "bitstream <-> API to app; .toml == glue between a bitstream and the app; app = generic". Every capability lives in the generic app
+  (hotkeys, info line, drive lists, ...); a core only declares in its .toml what it has.
+
 ## §4 Out
 - Anything on F1 beyond D3 until new users' feedback.
 
