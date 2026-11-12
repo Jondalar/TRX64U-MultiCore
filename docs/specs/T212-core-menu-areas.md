@@ -11,7 +11,23 @@ Status: PROPOSED 2026-11-12, Alex (board photos of the A1200 core app: F1, F5, F
   opens at); hotkeys sit under F5 Input; the zip behaviour of T202 needs a place.
 
 ## §2 Scenarios
-(to be written with the design; every one names its ue2emu picture or test)
+Proof column: T = core app test (`tests/coreapp`, menu goldens), U = ue2emu picture via `tests/ui` (A1200, C128, VC-20; 480p, 720p, 1080p).
+
+| # | Scenario | Proof |
+|---|----------|-------|
+| S1 | F1 Home has no STATUS box; the cursor walks the Reset / Reload rows and the drive rows, every one does something on RETURN | T (golden of F1: no `info` rows, `media`/`task` rows), U (F1) |
+| S2 | RETURN on a mounted drive row ejects it (toast "<slot> ejected") | T (key walk), U |
+| S3 | RETURN on an empty drive row mounts from the Library / creates a blank, per core with the ops the core has - OPEN, see §5 Q1 | T, U |
+| S4 | Reset and Reload on top of F1 are the core's own reset ops ("Reset Amiga", "Reload Kickstart, Reset"); they close the menu | T, U |
+| S5 | Save as config / Load config stay on F1 | T |
+| S6 | A machine-info line on F1 from existing setting values (A1200: chipset, RAM, video mode); a core without the values shows none | T, U |
+| S7 | F7 is the app settings area (label OPEN, §5 Q2) and holds Storage (persist mounts, enter home on startup, home directory), Menu (opens at), Hotkeys; the Quick list is gone | T (golden), U (F7) |
+| S8 | F5 holds machine settings only: tab 1 MACHINE, Video, Audio, Input without hotkeys | T (golden), U (F5) |
+| S9 | A setting that exists in the host app takes the host's value on "Reset to host defaults" in F7 too; no new host setting | T |
+| S10 | F8 shows Build version, ROMs, Libraries below the existing rows, the rest unchanged | T, U (F8) |
+| S11 | Keys and the foot legend of F1 / F7 match what the keys do | T (legend), U |
+| S12 | One line per row, no overlap, selection visible, long names cut, at 480p / 720p / 1080p (UX R1, R2, R5, R7) | U + ux-review |
+| S13 | Zip behaviour (T202): NOT built here (T202 has no build yet) | - |
 
 ## §3 Decisions
 - D1 (Alex 2026-11-12, "proposal for you and the UX agent"): F5 = machine (core) settings; F7 = menu-app settings; F1 = quick actions
@@ -74,3 +90,6 @@ Status: PROPOSED 2026-11-12, Alex (board photos of the A1200 core app: F1, F5, F
 - Anything on F1 beyond D3 until new users' feedback.
 
 ## §5 Build notes
+- 2026-11-12 (agent, stopped before code, nothing built): questions that are not in D1-D3 - Q1 what RETURN does on an empty drive row and where
+  the tasks that fit no drive row go (Reset Drive, Save Disk as D64/G64, Mount folder as HD0/HD1, Create blank D64/G64/D81 on C128); Q2 the F7
+  label ("APP" proposed, no name in code or ux skill); Q3 the Core / Network / Media info lines (not named in D3).
