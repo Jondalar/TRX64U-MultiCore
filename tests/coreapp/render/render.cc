@@ -435,8 +435,8 @@ static void areas_core(void)
     area_case("Settings: value change (first of a session)", key_px(c, KEY_RIGHT), 30000, &c);
     area_case("Settings: value change again", key_px(c, KEY_LEFT), 30000, &c);
     area_case("tab 1 machine", key_px(c, '1'), PANE + 15000, &c);
-    area_case("F7 actions", key_px(c, KEY_F7), PANE + 45000, &c);              // 397,576 px measured 2026-10-29 (see F5)
-    area_case("F8 system", key_px(c, KEY_F8), PANE + 40000, &c);
+    area_case("F7 actions", key_px(c, KEY_F7), SCREEN, &c);                    // T212 D12: APP has no tab strip, so the pane's height changes and the whole screen is built (518,400 px measured 2026-11-12)
+    area_case("F8 system", key_px(c, KEY_F8), SCREEN, &c);                     // T212 D12: back from the strip-less APP area: the pane changes height again
     area_case("F1 home", key_px(c, KEY_F1), PANE + 40000, &c);
     // the browser: into a folder and back
     c.m->key(KEY_F3);

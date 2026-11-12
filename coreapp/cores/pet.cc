@@ -674,4 +674,6 @@ const CoreDesc pet_desc = {
     pet_media_flush, pet_media_pending,           // T180 D4: the drive's write-back
     &mount_slots,                                 // T180 D2, D5: Drive 8, Drive 8.1 and Tape
     &hk_console,
+    0,                                     // alt_video
+    "Model,RAM",                               // T212 D13: machine_info
 };

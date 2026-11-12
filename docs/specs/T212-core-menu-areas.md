@@ -86,3 +86,8 @@ Proof column: T = core app test (`tests/coreapp`, menu goldens), U = ue2emu pict
   there already), "machine" = F5's first tab (zxnext 50 / 60 Hz, CPU speed), "input" = F5 Input (pad maps of snes, nes, neogeo). `MediaSlot::eject_closes` makes the
   list's Eject close the menu (atari cartridge; the task "Remove cartridge, cold start" is gone). D9 and D10 lists (snes/neogeo cartridge, cpc/zx/pet tape) were
   already in the descriptors; test_desc now pins them. D14: the core shows No/Yes, `Settings::load` reads the host's Disabled/Enabled as No/Yes.
+- 2026-11-12 (D12, D13 built): D12: `ui.cc build_route` draws no tab strip for the F7 area when it has one visible tab (the framework did not hide single-tab strips anywhere
+  else; Home and Library keep theirs, D12 names only APP); the route heading "Keys" is now "Hotkeys"; the drive list's title was already the slot name (`open_drive`).
+  D13: `CoreDesc::machine_info` set per core, from existing settings only: PET Model,RAM; VIC-20 Memory Expansion; C264 Model,RAM; C128 "40/80 DISPLAY";
+  SCPU "SuperCPU speed"; Amiga Chipset + RAMs; Atari RAM size,Video standard; CPC Model; ZX Model; NES Console type; Neo Geo System type,BIOS. No line: Apple IIe,
+  ZX Next, SNES (no model or memory setting), TRX64U (C64 cores untouched). Open: C128 C64 mode and SCPU SuperRAM are no settings (core state). test_desc pins the table.

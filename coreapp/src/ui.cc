@@ -225,6 +225,9 @@ static void build_route(const MenuTree &tr, bool app_mode)
             tabs[a][nv].arg = 0;
             nv++;
         }
+        if (nv == 1 && !strcmp(tr.a[a].key, "F7")) {             // T212 D12: the APP area with one tab shows its sections directly; a strip of one tab carries no information
+            nv = 0;
+        }
         areas[a].key = tr.a[a].key;
         areas[a].title = tr.a[a].name;
         areas[a].tabs = tabs[a];

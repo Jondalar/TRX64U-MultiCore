@@ -364,4 +364,6 @@ const CoreDesc cpc_desc = {
     cpc_media_flush, cpc_media_pending,        // T180 D4: the FDC's chunks and the sync
     &mount_slots,                              // T180 D2, D5: A, B, Tape
     &hk_typing,                            // T181: the default hotkey map (hk_defaults.h)
+    0,                                     // alt_video
+    "Model",                                   // T212 D13: machine_info
 };

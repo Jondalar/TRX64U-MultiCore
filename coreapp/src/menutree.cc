@@ -112,7 +112,7 @@ static bool skel_has_widget(const Skeleton *sk, uint8_t widget)
 static const MenuGroupRoute g_routes[] = {
     { "video",   "F5", "video", "Video",   0,         false, "F6" },
     { "audio",   "F5", "audio", "Audio",   0,         false, "F6" },
-    { "hotkeys", "F7", "settings", "Keys",    "Hotkeys", true, 0 },        // T212 D1/D6: the app's settings stand on F7 (APP), not in the machine's F5
+    { "hotkeys", "F7", "settings", "Hotkeys", "Hotkeys", true, 0 },        // T212 D1/D6: the app's settings stand on F7 (APP), not in the machine's F5
     { "storage", "F7", "settings", "Storage", 0,      false, 0 },
     { "menu",    "F7", "settings", "Menu",    0,      false, 0 },
 };

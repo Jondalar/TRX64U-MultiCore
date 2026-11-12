@@ -332,4 +332,6 @@ const CoreDesc c264_desc = {
     cbm1541_media_flush, cbm1541_media_pending,   // T180 D4: the drive's write-back
     &mount_slots,                              // T180 D2, D5: Drive A and Cartridge
     &hk_c264,                              // T181: the default hotkey map (hk_defaults.h)
+    0,                                     // alt_video
+    "Model,RAM",                               // T212 D13: machine_info
 };

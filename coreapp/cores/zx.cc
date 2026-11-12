@@ -360,4 +360,6 @@ const CoreDesc zx_desc = {
     0, 0,                                      // media_flush, media_pending
     &mount_slots,                              // T180 D2, D5: Tape
     &hk_typing,                            // T181: the default hotkey map (hk_defaults.h)
+    0,                                     // alt_video
+    "Model",                                   // T212 D13: machine_info
 };

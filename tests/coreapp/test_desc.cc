@@ -159,6 +159,42 @@ int main()
     }
     CHECK(!desc_check_table(core_table));
 
+    // T212 D13: the machine line of Home names settings the core has; the cores that have a model/version or a memory setting get one, the others none
+    {
+        struct Mi { const char *cor; const char *info; };
+        static const Mi want[] = {
+            { "Commodore PET", "Model,RAM" }, { "VIC-20", "Memory Expansion" }, { "Commodore 264 (C16, Plus/4)", "Model,RAM" },
+            { "Commodore 128", "40/80 DISPLAY" }, { "C64 with SuperCPU", "SuperCPU speed" }, { "Amiga 1200 (AGA, 68020)", "Chipset,Chip RAM,Slow RAM,Fast RAM" },
+            { "Atari 800 XL", "RAM size,Video standard" }, { "Amstrad CPC 464 / 664 / 6128", "Model" }, { "ZX Spectrum 48K / 128K", "Model" },
+            { "Nintendo Entertainment System", "Console type" }, { "SNK Neo Geo", "System type,BIOS" },
+        };
+        static const char *const none[] = { "Apple IIe", "ZX Spectrum Next", "Super Nintendo", "TRX64U" };
+        int found = 0, nones = 0;
+        for (const CoreDesc *const *p = core_table; *p; p++) {
+            const CoreDesc *d = *p;
+            for (const Mi &w : want) {
+                if (strcmp(d->cor_name, w.cor)) continue;
+                found++;
+                CHECK(d->machine_info && !strcmp(d->machine_info, w.info));
+                for (const char *q = d->machine_info; d->machine_info && *q;) {          // every name is a choice setting of the core
+                    const char *e = strchr(q, ',');
+                    int l = e ? (int)(e - q) : (int)strlen(q), hit = 0;
+                    for (int i = 0; i < d->nsettings; i++) {
+                        const char *nm = d->settings[i].label ? d->settings[i].label : d->settings[i].key;
+                        hit += !d->settings[i].kind && (int)strlen(nm) == l && !strncasecmp(nm, q, l);
+                    }
+                    if (hit != 1) printf("T212 D13: %s: machine_info names '%.*s' (%d settings)\n", d->cor_name, l, q, hit);
+                    CHECK_EQ(hit, 1);
+                    if (!e) break;
+                    q = e + 1;
+                }
+            }
+            for (const char *nn : none) if (!strcmp(d->cor_name, nn)) { nones++; CHECK(!d->machine_info); }
+        }
+        CHECK_EQ(found, (int)(sizeof(want) / sizeof(want[0])));
+        CHECK_EQ(nones, 4);
+    }
+
     // T206 S1, S2: wherever a disk image is mounted the same "Run Disk" is offered beside "Mount Disk", with the same names in the same order in every core.
     // The CBM drive images (d64, g64, d81) have one reference table each; "Run Disk" needs the core to be able to type at READY (type_op). The machines with
     // other disks offer their own mount-and-start (Atari, Apple, CPC, ZX Next: "... and cold start / and reset"; the Amiga's ADF: "Mount DF0 and

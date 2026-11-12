@@ -211,4 +211,6 @@ const CoreDesc nes_desc = {
     0, 0,                                      // media_flush, media_pending
     &mount_slots,                              // T180 D2, D5: Cartridge
     &hk_console,                           // T181: the default hotkey map (hk_defaults.h)
+    0,                                     // alt_video
+    "Console type",                            // T212 D13: machine_info
 };
