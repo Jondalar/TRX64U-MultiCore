@@ -158,5 +158,3 @@ Out: a 60 Hz lock (a PAL machine cannot match 60 Hz), interlaced/NTSC Amiga, a c
 ### Recommendation (analysis only)
 
 S1 first: the derived 22.6 s does not match the tester's ~10 s, and 800x600 should be worse, not better, so the real cause may be elsewhere (stall debt, flip phase). If the beat is as derived: **D now (cheap, honest), A as the lock the issue asked for** (opt-in, per-mode step, no host change, speed change an order of magnitude below the rejected Atari lock); B1 only if Alex wants everyone to get it without a setting and accepts a host change.
-
-2026-11-12 (Alex): S4 is tested by the reporter of #48 (Pinball Dreams at 1080p, then 576p; a hitch about every 23 s = no lock) with the next release; the retest request goes into #48 with Alex's go. S1/S2: the core's frame counter is readable (amiga_regs 0x02A, the large Amiga cores keep JTAG and Ethernet); the host has no output frame counter.

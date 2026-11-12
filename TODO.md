@@ -72,7 +72,7 @@ Built and benched; what is left is a step on the board (Alex, 2026-10-28, transl
 | T192.5 | 3 | 📅 | Text UI for both apps: local on HDMI and remote over ws:// | Spec PROPOSED 11-07 (open questions in §6); after the MVP (D20) | [T192.5](docs/specs/T192.5-text-ui.md) |
 | T192.6 | 3 | 📅 | Key/interface bundles (TOML) and safe mode C=+S | Spec PROPOSED 11-07 (open questions in §6); after the MVP (D20) | [T192.6](docs/specs/T192.6-bundles-safe-mode.md) |
 | T193 | 3 | 📅 | Further CI simplification: generated run.yml per push, Gitea shows the children as a graph | Spec PROPOSED 11-08 (idea only) | [T193](docs/specs/T193-further-ci-simplification.md) |
-| T194 | 2 | ✅ | C128 40 columns through the pixel layer: Integer/Fit/Fill as every core (#63) | In main since 11-09 (4d7c8b30f), #63 done; D12 Auto switch missed PETSCII Robots title (open) | [T194](docs/specs/T194-c128-40col-scaling.md) |
+| T194 | 2 | 📅 | C128 40 columns through the pixel layer: Integer/Fit/Fill as every core (#63) | Built on c128-scale; D12 (40/80, Auto time, hotkey) app built; CI Vivado + board open | [T194](docs/specs/T194-c128-40col-scaling.md) |
 | T195 | 2 | 📅 | Board buttons UI_BUTTON[2:0] (header reset as on the U64 Elite) in host and every core | Built locally 11-09 (L/M=menu, R=reset); CI + board open | [T195](docs/specs/T195-board-buttons.md) |
 | T196 | 2 | 🔨 | XInput (Xbox) pads on a USB cable, console cores only (#55) | Built, tests green; S5 board (Alex), S6 tester open | [T196](docs/specs/T196-xinput-pads.md) |
 | T197 | 2 | 📅 | Zip library (miniz) for any app; unzip in host F3 and cores with room | Spec 11-09 (Alex D1) | [T197](docs/specs/T197-zip-everywhere.md) |
@@ -91,7 +91,6 @@ Built and benched; what is left is a step on the board (Alex, 2026-10-28, transl
 | T210 | 2 | 🔨 | Core app: splash placed for 480p/720p from the first frame; F8 WiFi real state in every core | Board: splash at 480p, F8 WiFi in a non-C64 core (S3); P3 is T209 | [T210](docs/specs/T210-coreapp-modes-wifi.md) |
 | T211 | 2 | 📅 | Host UI: own key names, F keys as navigation (no PAGEUP=F1 aliasing) | Alex 11-12 | [T211](docs/specs/T211-own-key-names.md) |
 | T212 | 2 | 📅 | Core app areas: F1 quick actions, F5 machine, F7 app settings (host value as default), status to F8 | Alex 11-12 | [T212](docs/specs/T212-core-menu-areas.md) |
-| T213 | 2 | 📅 | Epic: bitstream API (a) - API TOML per core, C modules in the service, child spec per core | Alex 11-12 | [T213](docs/specs/T213-bitstream-api.md) |
 | T175 | 3 | 🔨 | Diag core: a timed probe engine plus TOML tests measure the joystick/paddle ports, results to SD | Gateware + core app merged (t175-diag); Vivado run + engine/board steps open | [T175](docs/todo/T175.md) |
 | T176 | 3 | 📅 | Core menus on the screen at once from a saved picture (split out of T146 P5, issue #4) | Deferred (Alex 11-02): split out of T146 P5; not started | [T176](docs/todo/T176.md) |
 | T177 | 3 | 📅 | Recovery boot: a key held at power-on starts a recovery image, even with a black host menu | Spec PROPOSED (Alex 11-02); Decided (Alex 11-02): app, RESTORE+F1, recovery.cor/backup, no flash, LED; build open | [T177](docs/todo/T177.md) |

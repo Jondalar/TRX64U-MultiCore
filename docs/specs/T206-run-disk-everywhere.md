@@ -28,10 +28,6 @@
 
 - **D1 (Alex, 2026-11-11):** wherever a disk is mounted, "Run Disk" is offered too; the same names in every core.
 
-- SCPU (Alex 2026-11-12, board: Run Disk ends at READY with nothing typed): the app's poke of the keyboard buffer lands in C64 RAM, the
-  SuperCPU reads bank 0 from its own SRAM (scpu_mem.v 178-181; T182 step 7b open). Decision A (Alex): type through the core's keyboard
-  matrix like a real keyboard instead of writing memory - app only, no new bitstream.
-
 ## §4 Out
 
 - The PET core (T134, experimental) gets Run Disk too: Alex 2026-11-12, "the PET too please, run disk, yes" (translated). Built on `t206-pet-run` (see §5).

@@ -50,11 +50,7 @@ the R1/R2 geometry asserts.
 - D8 (Alex 2026-11-12): the boot menu shows no path; the path shows in the editor view (F5), "because there it makes sense to see where it comes from" (translated). In every editor row (Alex 11-12: "in every row"); the editor row is the pre-T209 boot menu row copied without the logo: name, the path smaller under it (Alex 11-12: "smaller under the name as before in the boot menu, just copy that, only without logo").
 - D9 (Alex 2026-11-12, asked whether two editor rows at 480p are acceptable): "leave it like this for now" (translated).
 - D10 (Alex 2026-11-12): boot menu row: version far right; a pictogram instead of the wide badge box ("hash ok"/"not verified"). Three groups: green = usable (hash ok, ready, backup, foreign), yellow = check with R (changed, not read yet "?"), red = not usable (missing, unusable, contract N != M, other host, damaged). The exact word goes into the status line at the bottom for the selected row ("details gladly"). Pictograms (Alex: "exactly that"): green filled circle with a check mark, yellow circle with a question mark, red circle with a cross, all the same size.
-- D11 (Alex 2026-11-12): the boot menu marker "default" reads "auto"; only the text changes ("no, simply auto, just swap the text", translated). Extended (Alex 11-12): "if we call the function autoboot, then 'auto' everywhere" (translated) - the config overlay's "default" badge reads "auto" too.
-- D12 (Alex 2026-11-12, "yes"): the editor (F5) uses the same green/yellow/red grouping as the boot menu (D10). Form: minimal - "the editor is for shifting entries back and forth ... keep it minimal" (translated): the same pictogram as the boot menu, no word box in the row.
-- D13 (Alex 2026-11-12): "auto" everywhere it means the autoboot entry/config ("D auto", "Auto core", "Auto config", "Make auto", the subtitle, the messages, the report lines); only the web API's JSON key stays `default`.
-- D14 (Alex 11-12, "yes"): the editor shows the exact state word of the selected row in its status line, like the boot menu; the row keeps only the pictogram.
-- D15 (Alex 11-12, "yes"): a core without a logo gets a text tile with a short name that fits (e.g. "VIC", "C128", "PET"), declared by the core in its .toml (manifest); without one the app takes the first letters without punctuation. No hard cut like "VIC-".
+- D11 (Alex 2026-11-12): the boot menu marker "default" reads "auto"; only the text changes ("no, simply auto, just swap the text", translated).
 
 ## §4 Out
 

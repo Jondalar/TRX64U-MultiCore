@@ -259,7 +259,6 @@ MEDIA = {
 }
 
 KNOWN = {
-    "_scpu": "**C64 with SuperCPU (large core, experimental):** *Run Disk* does not work yet (fix pending); *Metal Dust* still flickers while scrolling. A large core replaces the whole FPGA: power off and on to come back.",
     "atari800": "**Atari 800 XL:** a mounted `.atr` boots. Some executables (the trainer demo) show a broken scroller and ignore input.",
     "apple2": "**Apple IIe:** swapping the disk in D1: while a game runs is not tested on the board yet.",
     "pet": "**Commodore PET (large core, experimental):** starts on the board and runs demos (2026-11-11); the models and the cassette are not checked yet. Needs your own PET ROMs. A large core replaces the whole FPGA: power off and on to come back.",
@@ -267,7 +266,7 @@ KNOWN = {
     "nes": "**NES:** the picture does not fill as much of the screen as it could.",
     "zx": "**ZX Spectrum:** 128K shows a picture on the board; **48K stays black** (the fix is being built). Tapes with pulses shorter than 16 T-states (turbo loaders) are refused; there is no tape SAVE.",
     "amiga1200": "**Amiga 1200 (large core):** AmigaVision runs on the board with sound. A large core replaces the whole FPGA: to come back to the boot menu, switch the power off and on.",
-    "c128": "**Commodore 128 (large core):** C128 and C64 mode with picture and sound on the board. A large core replaces the whole FPGA: power off and on to come back. *Busted Boulders* stops after the title screen (the left column is missing).",
+    "c128": "**Commodore 128 (large core):** C128 and C64 mode with picture and sound on the board. A large core replaces the whole FPGA: power off and on to come back.",
     "cpc": "**Amstrad CPC:** never on the board. The picture position (720 x 540 at scale 2) is an estimate; there is no tape SAVE and no snapshot.",
     "neogeo": "**SNK Neo Geo (large core):** never on the board. The machine is held while a sprite or fix word is late from the DDR2 (about 210,000 words in a 320 ms bench run); whether that is visible is open. A large core replaces the whole FPGA: power off and on to come back.",
     "zxnext": "**ZX Spectrum Next:** never on the board; the CPU runs from the DDR2 behind a cache and waits on a miss, so the speed of a program that does not fit the cache is below the real machine's. 128K, +3 and Pentagon timing run 1.5 to 2.7 % fast (frame lock); no Sega 6-button pad, no SD pass-through.",
@@ -522,8 +521,6 @@ def render(a, cors, bit_len, alen, dest):
     for c in present:
         if c["id"] in KNOWN:
             w("- " + KNOWN[c["id"]])
-    if any("supercpu" in m["name"].lower() for _, m in cors):    # c64scpu has no CORES line yet (unknown above)
-        w("- " + KNOWN["_scpu"])
     if any(c["id"] == "nes" for c in present):
         w("- The NES reads the C64's own hardware: joystick 1 and 2 give the directions and A, **space** is B")
         w("  (right shift on port 2), **F3** is Select (F7), **F1** is Start (F5). No USB pad yet.")
