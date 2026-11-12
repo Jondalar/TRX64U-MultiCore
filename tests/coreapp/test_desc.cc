@@ -60,11 +60,11 @@ static void every_item_once(const CoreDesc *d0)
     for (int a = 0; a < t.nareas; a++) {
         for (int b = 0; b < t.a[a].ntabs; b++) {
             const MenuTab &tb = t.a[a].tabs[b];
-            CHECK(tb.count > 0);                       // an empty tab is never published
+            CHECK(tb.count > 0 || tb.drive_page);      // an empty tab is never published (the drive list is filled when a drive row opens it)
             if (d0 != &c64_desc) {
                 CHECK(tb.page || tb.n == b + 1);                  // the printed number is the tab's place, and stable (a record names its published numbers: Drives is 3)
             }
-            in_tabs += tb.count;
+            in_tabs += tb.drive_page ? DRIVE_PAGE_ROWS : tb.count;      // T212 D5: the drive list's reserved rows
             for (int i = tb.first; i < tb.first + tb.count; i++) {
                 switch (t.e[i].kind) {
                 case EK_TASK: seen_task++; break;
@@ -93,15 +93,17 @@ static void every_item_once(const CoreDesc *d0)
         CHECK(t.n > 100);
         return;
     }
-    CHECK_EQ(seen_task, d->ntasks);
+    int claimed = 0;                                   // T212 D5: a task that a drive's list reaches is not a row of any tab
+    for (int i = 0; i < d->ntasks; i++) {
+        claimed += menu_task_claimed(d, i) ? 1 : 0;
+    }
+    CHECK_EQ(seen_task + claimed, d->ntasks);
     CHECK_EQ(seen_media, d->nmedia);
     CHECK_EQ(seen_set, d->nsettings);
     CHECK_EQ(seen_browser, 1);
     CHECK_EQ(seen_fixed, 5);                           // Reset to host defaults, Restart core, Bug report, WiFi, Return to host menu
     CHECK_EQ(seen_mset, mounts_have_slots(d) ? 2 : 0);   // T180 D5: the media tab of a core with media slots has the two config rows, no other tab does
-    int info = 0;
-    while (menu_info_labels[info]) { info++; }
-    CHECK_EQ(seen_info, info);                         // the C64's six lines are spread over two tabs, each once (Home: Core Media Network; Status: the rest)
+    CHECK_EQ(seen_info, 3);                            // T212 D7: Build, ROMs, Libraries stand in F8 (Core, Network and Media are dropped)
 }
 
 // T180 D2, D5: the slots of a core's own media engine are keys of the .cfg

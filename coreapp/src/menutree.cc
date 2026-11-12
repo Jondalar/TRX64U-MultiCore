@@ -177,7 +177,7 @@ static const char *setting_group(const CoreDesc *d, const MenuMerge *mm, int i)
 }
 
 // T212 D5: a task belongs to a drive when a media slot names it in its lists, or when it is that slot's eject (the list's own Eject row does that).
-static bool task_claimed(const CoreDesc *d, int ti)
+bool menu_task_claimed(const CoreDesc *d, int ti)
 {
     const Task &t = d->tasks[ti];
     for (int m = 0; m < d->nmedia; m++) {
@@ -253,8 +253,9 @@ void menu_build(const CoreDesc *d, MenuTree *t, bool return_host, bool reload_co
                 // T212 D1/D5/D7: Home is the session and its quick actions, no information lines. The core's reset tasks (they close the menu) stand on top, then
                 // the drive rows (RETURN opens the list of that drive), the tasks no drive claims, and the configs.
                 tb->home = true;
-                for (int i = 0; i < d->ntasks; i++) {
-                    if (d->tasks[i].closes_menu && !task_claimed(d, i)) {
+                const bool tasks_here = !skel_has_widget(sk, TW_TASKS);        // a description with a tasks tab of its own keeps its tasks there
+                for (int i = 0; tasks_here && i < d->ntasks; i++) {
+                    if (d->tasks[i].closes_menu && !menu_task_claimed(d, i)) {
                         add(t, EK_TASK, d->tasks[i].label, i);
                     }
                 }
@@ -263,8 +264,8 @@ void menu_build(const CoreDesc *d, MenuTree *t, bool return_host, bool reload_co
                         add(t, EK_MEDIA, d->media[i].name, i);
                         drive_page_wanted |= menu_slot_is_drive(d->media[i]);
                     }
-                    for (int i = 0; i < d->ntasks; i++) {
-                        if (!d->tasks[i].closes_menu && !task_claimed(d, i)) {
+                    for (int i = 0; tasks_here && i < d->ntasks; i++) {
+                        if (!d->tasks[i].closes_menu && !menu_task_claimed(d, i)) {
                             add(t, EK_TASK, d->tasks[i].label, i);
                         }
                     }

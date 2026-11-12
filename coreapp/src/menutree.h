@@ -68,6 +68,8 @@ struct FixedDef {
 const FixedDef *menu_fixed(EntryKind kind, int variant);
 // T212 D5: the slot is a drive (it can be ejected or a file can be mounted into it); other slots only show a state.
 bool menu_slot_is_drive(const MediaSlot &m);
+// T212 D5: the task is reached from a drive's list (named by a media slot, or that slot's eject), so Home does not list it.
+bool menu_task_claimed(const CoreDesc *d, int task);
 
 struct MenuEntry {
     EntryKind kind;

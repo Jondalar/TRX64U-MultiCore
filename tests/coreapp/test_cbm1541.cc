@@ -1108,10 +1108,15 @@ int main()
 
         // ---- the name prompt of Create and Save ----
         r.io.stop(false);
-        m->key(KEY_F7);
+        // T212 D5: Create and Save are rows of the drive's list on Home: Create with the drive empty, Save with a disk in it
+        auto drive_list = [&]() { m->key(KEY_F1); CHECK(pick("Drive A:")); m->key(KEY_RETURN); };
+        auto drive_empty = [&]() { CHECK_EQ(r.op("drive.eject", { in_str("slot", "iec:drive_a") }), OPE_OK); };
+        auto drive_full = [&]() { CHECK_EQ(r.op("drive.mount", { in_str("slot", "iec:drive_a"), in_str("path", "/usb0/games/t.d64"), in_str("mode", "rw") }), OPE_OK); };
+        drive_empty();
         // Create opens the folder browser first (T122 §5); the browser of the library is inside t.d64, which is no folder, so it starts on the
         // first stick and the test walks to games/. The write runs in steps, one tick of the run loop each.
         auto create = [&](const char *label) {
+            drive_list();
             CHECK(pick(label));
             CHECK(!m->entering());
             m->key(KEY_RETURN);
@@ -1169,6 +1174,8 @@ int main()
         finish();
         CHECK(r.fs.has("/usb0/games/blank.g64"));
         // Save: the start is the disk's own name with _saved
+        drive_full();
+        drive_list();
         CHECK(pick("Save Disk as D64"));
         m->key(KEY_RETURN);
         {
@@ -1182,13 +1189,14 @@ int main()
         CHECK(r.fs.has("/usb0/games/t_saved.d64"));
         // (the browser is inside t.d64 for all of the above: no folder there, so the folder of the last disk took every new image)
         // a function key leaves the prompt
+        drive_list();
         CHECK(pick("Save Disk as G64"));
         m->key(KEY_RETURN);
         CHECK(m->entering());
         m->key(KEY_F5);
         CHECK(!m->entering());
         // the length of a name is limited
-        m->key(KEY_F7);
+        drive_empty();
         create("Create blank D64");
         for (int i = 0; i < 12; i++) m->key(KEY_BACK);
         for (int i = 0; i < 40; i++) m->key('a');
