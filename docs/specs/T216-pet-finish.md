@@ -37,14 +37,15 @@ A tester (2026-11-12) ran main-736c16d9 on the board. Working, to keep: internal
   8096 and SuperPET. The keyboard follows the model, not the CRTC (`pet_core.v:280` `.bus(m_crtc)` changes).
 - **D3 (Alex, 2026-11-12, "answer 2" = documentation only; answers Q2):** the app does not join or double the 4040 ROMs; INSTALL.md
   §5 gets a guide: `901466-04.bin` (2 KiB) written twice into `ctl4040.bin`, plus `dos4040.bin` (S4 becomes the doc check, S5).
+- **D4 (Alex, 2026-11-12, "b"; answers Q3):** P4 (game mode, direction keys on the digits) is not built in the PET; it comes with the
+  key bundles of the generic app (decision 6 of `docs/generic-app-requirements.md`), built with the UI epic, last. Out of T216 (§4).
 
 Open, one at a time, unanswered:
-- **Q3** P4: game mode now, or together with the key bundles of the generic app (decision 6 in `docs/generic-app-requirements.md`)?
 - **Q4** P5: which ROM files and names?
 
 ## §4 Out
 
-Nothing is decided out yet beyond D1; P3 to P5 are open, not dropped.
+P4 (game mode): moved to the generic app's key bundles (D4). P5 is open, not dropped.
 
 ## §5 Decisions taken while building
 
