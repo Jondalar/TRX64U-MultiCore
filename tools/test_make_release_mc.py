@@ -233,7 +233,7 @@ class InstallNotesTest(unittest.TestCase):
         self.assertIn("**F3**, open `trx64host_update_x.txu`", on)
 
     def test_txu_text_tells_where_unzip_goes(self):
-        # #43 (JM-Internet, main-2bd67963: no "Unzip here"): the .txu copies no file, the 3a text must say where unzip.u2a goes; the installer (section 3) does it itself
+        # #43 (a tester, main-2bd67963: no "Unzip here"): the .txu copies no file, the 3a text must say where unzip.u2a goes; the installer (section 3) does it itself
         meta = {"name": "Nintendo Entertainment System", "version": "1", "partial_size": 1, "app_size": 1}
         cord = os.path.join(self.d, "withapp")
         os.makedirs(cord)

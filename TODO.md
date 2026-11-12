@@ -92,6 +92,7 @@ Built and benched; what is left is a step on the board (Alex, 2026-10-28, transl
 | T211 | 2 | 📅 | Host UI: own key names, F keys as navigation (no PAGEUP=F1 aliasing) | Alex 11-12 | [T211](docs/specs/T211-own-key-names.md) |
 | T212 | 2 | 📅 | Core app areas: F1 quick actions, F5 machine, F7 app settings (host value as default), status to F8 | Alex 11-12 | [T212](docs/specs/T212-core-menu-areas.md) |
 | T213 | 2 | 📅 | Epic: bitstream API (a) - API TOML per core, C modules in the service, child spec per core | Alex 11-12 | [T213](docs/specs/T213-bitstream-api.md) |
+| T216 | 3 | 📅 | PET finish: business keyboard per model, SuperPET row only there, 4040 ROM guide | Alex 11-12 | [T216](docs/specs/T216-pet-finish.md) |
 | T175 | 3 | 🔨 | Diag core: a timed probe engine plus TOML tests measure the joystick/paddle ports, results to SD | Gateware + core app merged (t175-diag); Vivado run + engine/board steps open | [T175](docs/todo/T175.md) |
 | T176 | 3 | 📅 | Core menus on the screen at once from a saved picture (split out of T146 P5, issue #4) | Deferred (Alex 11-02): split out of T146 P5; not started | [T176](docs/todo/T176.md) |
 | T177 | 3 | 📅 | Recovery boot: a key held at power-on starts a recovery image, even with a black host menu | Spec PROPOSED (Alex 11-02); Decided (Alex 11-02): app, RESTORE+F1, recovery.cor/backup, no flash, LED; build open | [T177](docs/todo/T177.md) |
@@ -112,7 +113,7 @@ Built and benched; what is left is a step on the board (Alex, 2026-10-28, transl
 | T130 | 3 | 📅 | Atari ST core | Planned; candidate MiSTeryNano has no licence file (authors to be asked); spec not written | [T130](docs/todo/T130.md) |
 | T131 | 3 | 📅 | App API description and SDK for outside developers | Planned (Alex 10-26): foreign apps load (T104.3 Q3); API doc and SDK not written | [T131](docs/todo/T131.md) |
 | T132 | 3 | 🔨 | Updater bugs from the 1.1.0 install: title off-centre, SD not taken for the flash backup | Both fixed in apps/ultimate `t135-installer`, proven in ue2emu; board check, submodule pin | [T132](docs/todo/T132.md) |
-| T134 | 3 | ✅ | Commodore PET core | Board start 11-11, demos run; as is (Alex 11-11): no more work, models/tape unchecked | [T134](docs/todo/T134.md) |
+| T134 | 3 | ✅ | Commodore PET core | Board start 11-11, demos run; as is (Alex 11-11); reopened 11-12 for T216 | [T134](docs/todo/T134.md) |
 | T135 | 3 | 🔨 | Direct boot of the default core, menu on a held key | S1-S7 proven in ue2emu; open: S8, S10, S12, B1, B2; board S1/S3/S8/S9/S13/B2 | [T135](docs/todo/T135.md) |
 | T136 | 3 | 🔨 | A1200 in full AGA colour (24 bit to HDMI) | S1-S5 passed (board: frame buffer holds 8-bit colour, WNS +0.380); open: merge to main | [T136](docs/todo/T136.md) |
 | T137 | 3 | 🔨 | Host app: convert .cfw/.ue2 to .cor (built), restore original firmware (R, built), update | Restore passed; D11 look passed on the board (11-02); D10 restart built (T152 D11), board step open; P board step | [T137](docs/todo/T137.md) |
