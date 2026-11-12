@@ -157,8 +157,6 @@ public:
             *(volatile uint8_t *)(U64_AUDIO_MIXER + 0x60 + i) = r[i];
         }
     }
-    // T181: the matrix as the menu's scan reads it (Keyboard_C64::scan_keyboard), whole in one critical section so that the matrix timer's scan cannot
-    // move the column in between; a column is settled when two reads agree.
     // T206: MATRIX_KEYB bytes 0-7 (host-app/software/system/u2p.h): byte = column, bit = row
     void matrix_keys(const uint8_t m[8])
     {
@@ -166,6 +164,8 @@ public:
             *(volatile uint8_t *)(U2P_IO_BASE + 0x0300 + i) = m[i];
         }
     }
+    // T181: the matrix as the menu's scan reads it (Keyboard_C64::scan_keyboard), whole in one critical section so that the matrix timer's scan cannot
+    // move the column in between; a column is settled when two reads agree.
     bool keys_read(uint8_t m[8], bool *restore)
     {
         taskENTER_CRITICAL();
