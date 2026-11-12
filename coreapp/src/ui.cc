@@ -284,6 +284,8 @@ static bool g_status_bad;
 static lv_obj_t *g_home[UI_HOME_MAX];                // the Home panel's status rows, kept so a selection move there restyles two of them
 static int g_homen, g_homesel = -1;
 static uint32_t g_homesig;
+static uint32_t g_homehead, g_homerowh[UI_HOME_MAX];   // what Home shows besides its rows, and per row what it shows: a row whose text moved is retexted in place (T212: a job runs from Home)
+static int g_homecw;                                   // the width of a Home row's content
 static bool g_homelist;
 static uint32_t g_rowh[UI_ROWS_MAX];               // per kept row: what it shows (text, selection, dim), to retext only the ones that moved
 static uint32_t g_shape;                           // the pane's structure: title, status, row count, window size, row kinds
@@ -384,6 +386,30 @@ static uint32_t list_signature(MenuCtl &m)
         h = (h ^ (uint32_t)active ^ ((uint32_t)m.row_reset(w.first + i) << 4)) * 16777619u;
     }
     return h;
+}
+
+// Home's frame: the title, the session, video and machine lines - everything but the rows.
+static uint32_t home_head_sig(MenuCtl &m)
+{
+    uint32_t h = 2166136261u;
+    char l[120];
+    h = sig_str(h, m.title());
+    h = (h ^ (uint32_t)m.closable()) * 16777619u;
+    m.session_line(l, sizeof(l));
+    h = sig_str(h, l);
+    m.video_line(l, sizeof(l));
+    h = sig_str(h, l);
+    m.machine_line(l, sizeof(l));
+    return sig_str(h, l);
+}
+static uint32_t home_row_sig(MenuCtl &m, int i)
+{
+    char l[120], r[120];
+    bool active;
+    m.row(i, l, sizeof(l), r, sizeof(r), &active, 0, 0);
+    uint32_t h = sig_str(2166136261u, l);
+    h = sig_str(h, r);
+    return (h ^ (uint32_t)active) * 16777619u;
 }
 
 // Everything Home shows except which row is selected.
@@ -594,6 +620,34 @@ void ui_menu_render(MenuCtl &m)
         }
         return;
     }
+    if (g_homelist && m.is_home() && trx_shell_same(scr, info, route, m.area(), ui_shell_tab(m)) && m.rows() == g_homen && m.selected() == g_homesel &&
+        home_head_sig(m) == g_homehead) {
+        // T212: a job runs from Home (a drive's list, "Create blank"): only the text of a row moves (the percentage); the rows that differ are retexted, the panel stands
+        bool ok = true;
+        for (int i = 0; ok && i < g_homen; i++) {
+            if (home_row_sig(m, i) == g_homerowh[i]) {
+                continue;
+            }
+            char l[120], r[120];
+            bool active;
+            m.row(i, l, sizeof(l), r, sizeof(r), &active, 0, 0);
+            TrxRow row;
+            memset(&row, 0, sizeof(row));
+            row.label = l;
+            row.value = r[0] ? r : 0;
+            row.selected = row.strong = (i == m.selected());
+            row.dim = !active;
+            ok = trx_row_retext(g_home[i], row, g_homecw);
+            if (ok) {
+                g_homerowh[i] = home_row_sig(m, i);
+            }
+        }
+        if (ok) {
+            g_homesig = home_signature(m);
+            g_inplace++;
+            return;
+        }
+    }
     if (g_rowlist && !m.is_home() && trx_shell_same(scr, info, route, m.area(), ui_shell_tab(m))) {
         int sel = m.selected();
         int o = g_rowsel - g_rowfirst, nw = sel - g_rowfirst;
@@ -801,6 +855,11 @@ static void ui_home(lv_obj_t *c, MenuCtl &m, int x, int y)
         }
     }
     g_homelist = g_homen == n;                     // every row kept: a selection move needs no build
+    g_homehead = home_head_sig(m);
+    g_homecw = left_w - 2 * t.space_lg;
+    for (int i = 0; i < g_homen; i++) {
+        g_homerowh[i] = home_row_sig(m, i);
+    }
     g_homesel = m.selected();
     g_homesig = home_signature(m);
 }
