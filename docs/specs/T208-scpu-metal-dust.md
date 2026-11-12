@@ -122,3 +122,5 @@ S5 (2026-11-11, `scpu_cache.v`, `scpu_mem.v`, `cpu65816_c64scpu.v`): next-line p
   immune to data sweeps, which the prefetch does not (a jump into a stage that the sweep evicted still pays one refill, before its first write in the bench). (3) a 2-way data cache of the same 8 KiB:
   256 sets x 2 ways, the same 2 RAMB36 but a way mux over 128 bits (+~130 LUT), LRU bits, two tag compares in the multicycle path of `hit`; it keeps a code line against a single conflicting data line
   but not against a sweep (both ways are evicted by 8 KiB of data), so it helps less than (2) for this game.
+
+S4 board 2026-11-12 (Alex, c64scpu.cor of main-736c16d9 with the S5 prefetch): FAIL, "the flicker artefacts are still there, fix attempt (1) did not help with Metal Dust" (translated). Next: measure on the board which stage misses before choosing option 2/3 or another cause.

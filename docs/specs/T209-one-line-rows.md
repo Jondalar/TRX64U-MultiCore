@@ -50,7 +50,8 @@ the R1/R2 geometry asserts.
 - D8 (Alex 2026-11-12): the boot menu shows no path; the path shows in the editor view (F5), "because there it makes sense to see where it comes from" (translated). In every editor row (Alex 11-12: "in every row"); the editor row is the pre-T209 boot menu row copied without the logo: name, the path smaller under it (Alex 11-12: "smaller under the name as before in the boot menu, just copy that, only without logo").
 - D9 (Alex 2026-11-12, asked whether two editor rows at 480p are acceptable): "leave it like this for now" (translated).
 - D10 (Alex 2026-11-12): boot menu row: version far right; a pictogram instead of the wide badge box ("hash ok"/"not verified"). Three groups: green = usable (hash ok, ready, backup, foreign), yellow = check with R (changed, not read yet "?"), red = not usable (missing, unusable, contract N != M, other host, damaged). The exact word goes into the status line at the bottom for the selected row ("details gladly"). Pictograms (Alex: "exactly that"): green filled circle with a check mark, yellow circle with a question mark, red circle with a cross, all the same size.
-- D11 (Alex 2026-11-12): the boot menu marker "default" reads "auto"; only the text changes ("no, simply auto, just swap the text", translated).
+- D11 (Alex 2026-11-12): the boot menu marker "default" reads "auto"; only the text changes ("no, simply auto, just swap the text", translated). Extended (Alex 11-12): "if we call the function autoboot, then 'auto' everywhere" (translated) - the config overlay's "default" badge reads "auto" too.
+- D12 (Alex 2026-11-12, "yes"): the editor (F5) uses the same green/yellow/red grouping as the boot menu (D10). Form: minimal - "the editor is for shifting entries back and forth ... keep it minimal" (translated): the same pictogram as the boot menu, no word box in the row.
 
 ## §4 Out
 
