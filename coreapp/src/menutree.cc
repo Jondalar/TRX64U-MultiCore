@@ -236,7 +236,7 @@ void menu_build(const CoreDesc *d, MenuTree *t, bool return_host, bool reload_co
             bool drive_page_wanted = false;                              // T212 D5: Home has drive rows that open a list
             const MenuGroupRoute *page_route = 0;                       // set when a row of this tab opens a page (T187 D2)
             switch (st.widget) {
-            case TW_INFO:
+            case TW_INFO: {
                 if (st.groups) {                                             // a description names the lines of this tab (descrec.h), in its order
                     for (const char *p = st.groups; *p;) {
                         const char *e = strchr(p, ',');
@@ -275,6 +275,7 @@ void menu_build(const CoreDesc *d, MenuTree *t, bool return_host, bool reload_co
                     }
                 }
                 break;
+            }
             case TW_BROWSER:
                 add(t, EK_BROWSER, "Browse", 0);
                 break;
