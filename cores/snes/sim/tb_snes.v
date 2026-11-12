@@ -90,7 +90,6 @@ module tb_snes;
 
     reg [7:0] img [0:8388607];
     reg [7:0] ipl [0:63];
-    reg [7:0] fwb [0:8191];                                   // T218: the DSP-n firmware (+FW)
     integer fd, n, i;
     reg [1023:0] fname;
     reg [63:0] h;
@@ -203,13 +202,6 @@ module tb_snes;
         cw_wr(17'h0D8, rom_mask[7:0]); cw_wr(17'h0D9, rom_mask[15:8]); cw_wr(17'h0DA, rom_mask[23:16]);
         cw_wr(17'h0DC, ram_mask[7:0]); cw_wr(17'h0DD, ram_mask[15:8]); cw_wr(17'h0DE, ram_mask[23:16]);
         for (i = 0; i < 64; i = i + 1) begin cw_wr(17'h100 + i, ipl[i]); repeat (10) @(posedge cpu_clk); end
-        if ($value$plusargs("FW=%s", fname)) begin                    // T218: the DSP-n firmware as the application writes it (registers 0x140 rewind, 0x141 the bytes)
-            fd = $fopen(fname, "rb");
-            n = $fread(fwb, fd);
-            $fclose(fd);
-            cw_wr(17'h140, 8'h00);
-            for (i = 0; i < 8192; i = i + 1) begin cw_wr(17'h141, fwb[i]); repeat (10) @(posedge cpu_clk); end
-        end
         repeat (20) @(posedge cpu_clk);
         if ($test$plusargs("APPPAD")) begin                           // T156 (named so: $test$plusargs matches by prefix and "PAD" would be true for +PADAPP): the application's USB pads, written the way it writes them (low byte, then the high byte that commits)
             cw_wr(17'h0F4, 8'h85); cw_wr(17'h0F5, 8'h0A);             // PAD1 = $0A85: B Select Right X R
@@ -292,7 +284,6 @@ module tb_snes;
         // ------------------------------------------------ the hashes
         h = 64'hCBF29CE484222325;
         for (i = 0; i < 131072; i = i + 1) h = fnv(h, ddr_byte(32'h800000 + i));
-        $display("SNES dsp %02h %02h %02h %02h %02h %02h %02h %02h", ddr_byte(32'h800200), ddr_byte(32'h800201), ddr_byte(32'h800202), ddr_byte(32'h800203), ddr_byte(32'h800204), ddr_byte(32'h800205), ddr_byte(32'h800206), ddr_byte(32'h800207));
         $display("SNES wram %016h", h);
         h = 64'hCBF29CE484222325;
         for (i = 0; i < 32768; i = i + 1) h = fnv(h, dut.vram1[i]);

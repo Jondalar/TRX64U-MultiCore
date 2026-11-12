@@ -1627,7 +1627,6 @@ bool MenuCtl::tick()
         set_status(r.msg[0] ? r.msg : "failed", true);
         if (is_browser()) {
             fm_.load_dir();
-            fm_.up_while_gone();
         }
         return true;
     }
@@ -1642,7 +1641,6 @@ bool MenuCtl::tick()
     c_->lib.nmarked = 0;                                            // a job used the marks up
     if (is_browser()) {
         fm_.load_dir();
-        fm_.up_while_gone();
     }
     char s[240];
     if (r.msg[0]) {
@@ -2107,12 +2105,12 @@ MenuCtl::Result MenuCtl::activate(bool primary, bool all)
         fm_.full_path(fm_.sel, full, sizeof(full));
         bool up = !strcmp(f.name, "..");
         bool plain = cur().id && !strcmp(cur().id, "browse");               // the Library's own tab: not the online listing, not a search
-        if (f.dir && primary && fm_.image_ft < 0 && f.name[0] != '[' && up && plain) {      // RIGHT on a folder enters it (GitHub #90, T219); RIGHT on ".." is the sheet of the folder the browser is in (GitHub #42: a folder without a subfolder had none)
+        if (f.dir && primary && fm_.image_ft < 0 && f.name[0] != '[' && (!up || plain)) {      // RIGHT on a folder: its sheet; on ".." the sheet of the folder the browser is in (GitHub #42: a folder without a subfolder had none)
             int n = 0, nuni, nitems;
             const FileAction *uni = FileMgr::universal(&nuni);
             const FileAction *items = FileMgr::folder_items(&nitems);
-            bool inside = strrchr(fm_.path, '/') != fm_.path && !fm_.vmode;     // a folder below a medium's top: what is done to a folder applies to it (the top of a medium and "/" are no folder to rename or delete)
-            if (inside) {
+            if (!up) {
+                chooser_buf_[n++] = *FileMgr::folder_open();
                 for (int k = 2; k < nuni; k++) {
                     chooser_buf_[n++] = uni[k];
                 }
@@ -2129,7 +2127,7 @@ MenuCtl::Result MenuCtl::activate(bool primary, bool all)
             chooser_ft_ = 0;
             chooser_sel_ = 0;
             folder_sheet_ = true;
-            snprintf(chooser_file_, sizeof(chooser_file_), "%s", fm_.path);
+            snprintf(chooser_file_, sizeof(chooser_file_), "%s", up ? fm_.path : full);
             return R_REDRAW;
         }
         if (f.dir) {
@@ -2541,11 +2539,7 @@ void MenuCtl::footer_legend_keys(char *out, int n)
         } else if (media_level()) {                                    // as the host's File Browser at "/": the keys that do something
             snprintf(out, n, "UP/DOWN  SELECT   RETURN  OPEN IT   / SEEK");
         } else if (fm_.sel < fm_.nlist && fm_.list[fm_.sel].dir) {
-            if (!strcmp(fm_.list[fm_.sel].name, "..") && cur().id && !strcmp(cur().id, "browse")) {
-                snprintf(out, n, "RETURN  UP   RIGHT  FOLDER ACTIONS   SPACE  MARK   <- UP   / SEEK");
-            } else {
-                snprintf(out, n, "RETURN  OPEN   RIGHT  OPEN   SPACE  MARK   <- UP   / SEEK");
-            }
+            snprintf(out, n, "RETURN  OPEN   RIGHT  FOLDER ACTIONS   SPACE  MARK   <- UP   / SEEK");
         } else if (fm_.sel < fm_.nlist) {
             BrowseRow r;
             browse_row(fm_.sel, &r);

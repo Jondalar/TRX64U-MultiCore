@@ -23,6 +23,6 @@ itself is still not extended.
 
 ## Links
 
-- [T36](../specs/README.md#belonged-to-trx64-ultimate)
+- [T36](../../docs/specs/T24-ui-wiring.md#t36)
 - [T52](../../docs/todo/T52.md)
-- [T24-ui-wiring.md](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/T24-ui-wiring.md)
+- [docs/specs/T24-ui-wiring.md](../../docs/specs/T24-ui-wiring.md)

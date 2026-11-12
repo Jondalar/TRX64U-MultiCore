@@ -1,6 +1,6 @@
 # T179 — A USB trace shows why a core on a USB stick is slow or missing at power-on
 
-**Status:** DECIDED (Q1-Q4 answered 2026-11-04); nothing built (no usb trace code in main; 2026-11-15 sync: confirmed, the syslog setting in coreapp/src/netops.cc is Gideon's stock one).
+**Status:** PROPOSED (2026-11-04, Alex).
 **Repo:** TRX64U-MultiCore — host app (`host-app/software/hostapp/`, the USB stack it compiles from `vendor/gideon/software/io/usb/`),
 the T162 report, a board test script in `tools/`.
 **Number:** T179.

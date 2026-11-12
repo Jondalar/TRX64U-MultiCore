@@ -41,7 +41,7 @@ jobs:
     name: Simulations
     runs-on: ${{ vars.CI_RUNNER || 'builder' }}
     container:
-      image: trx64-sim-env:5
+      image: trx64-sim-env:4
       options: --init
       volumes:
         - /srv/trx64-build/cache:/cache

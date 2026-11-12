@@ -30,7 +30,7 @@
 // The application binary interface the base offers, as major.minor. A file carries the majors it knows (abi_min .. abi_max); the
 // minor is a dependency like any other: `needs base >= 3.1` (D11). Version numbers are major << 16 | minor.
 #define U2A_ABI_MAJOR 3
-#define U2A_BASE_MINOR 1                /* 3.1 (T197): api->lib, the call tables libraries export */
+#define U2A_BASE_MINOR 0
 #define U2A3_VERSION(major, minor) ((uint32_t)(((major) << 16) | (minor)))
 
 // Limits the loader enforces before it allocates anything.

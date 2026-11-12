@@ -446,7 +446,7 @@ int main()
         CHECK_STR(c264_desc.cor_name, "Commodore 264 (C16, Plus/4)");
         CHECK_EQ(c264_desc.nroms, 5);                                   // KERNAL, BASIC, two function ROMs and the 1541's (cbm1541, optional)
         CHECK(!c264_desc.roms[4].required);
-        CHECK_EQ(c264_desc.nsettings, 9);                               // four of the core (the Datasette port, T214), the four of the drive and the LED Load Indicator (T159)
+        CHECK_EQ(c264_desc.nsettings, 8);                               // three of the core, the four of the drive and the LED Load Indicator (T159)
         CHECK(c264_desc.tasks[0].closes_menu && c264_desc.tasks[1].closes_menu && c264_desc.tasks[2].closes_menu);
         CHECK(desc_has_capability(&c264_desc, "drive_a") && desc_has_capability(&c264_desc, "iec"));
         CHECK(!desc_has_capability(&c264_desc, "tape") && !desc_has_capability(&c264_desc, "sid_sockets"));

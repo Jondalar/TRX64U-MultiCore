@@ -47,7 +47,6 @@ public:
         app_main_fn fn = (app_main_fn)(uintptr_t)e.entry_addr;                   // image + app_main's offset (T104.3 D2)
         return fn(api, ctx);
     }
-    uint32_t room() { return (uint32_t)xPortGetFreeHeapSize(); }
     uint32_t now_ms() { return (uint32_t)(xTaskGetTickCount() * portTICK_PERIOD_MS); }
     void delay_ms(uint32_t ms) { vTaskDelay(ms >= 5 ? pdMS_TO_TICKS(ms) + 1 : 1); }
     void enter() { portENTER_CRITICAL(); }

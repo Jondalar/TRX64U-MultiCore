@@ -44,15 +44,12 @@ struct HcCell {
 };
 
 // ---- the boot menu entries (menu and editor) -----------------------------------------------------------------------------------------------------
-enum { HCP_OK, HCP_CHECK, HCP_BAD };
 struct HcEntryRow {
     char name[96];
-    char tile[8];                                 // what the icon tile says while the row has no picture: the core's short name, "FW", or the first four letters and digits of the name
-    char ver[24];                                 // the menu row's right-aligned version: "v1.0", "full firmware", "" while unknown
-    char sub[140];                                // the path
+    char tile[8];                                 // what the icon tile says while the row has no picture: "FW" or the first four letters
+    char sub[140];                                // the path (and the version, in the menu)
     char badge[32];
     uint8_t badge_tone;
-    uint8_t pic;                                  // T209 D10: the boot menu pictogram: HCP_OK (usable), HCP_CHECK (check with R), HCP_BAD (not usable)
     bool def;
     bool full;
     bool ok_state;                                // the entry's state is OK or CHANGED (an icon may be read)
@@ -60,7 +57,6 @@ struct HcEntryRow {
     char cfgbadge[16];                            // "3 configs", "" for none
 };
 bool hc_row_entry(int i, bool menu_style, HcEntryRow *r);
-void hc_entry_ver(int i, char *out, size_t n);          // the displayed version of entry i (T209 D16), empty for none
 
 // The menu page: the line under the title, the hint while there are no entries, the position, the countdown line and its bar.
 #define HC_NO_CORES_HINT "No cores yet. Press F3, open a folder on SD or USB\nand press A on a .cor bundle or a .cfw firmware."
@@ -77,10 +73,12 @@ struct HcCountdownTexts {
     int pct;
 };
 void hc_countdown_texts(HcCountdownTexts *t);
-// The editor page's info box (T209 D19: two lines) and the position. Countdown and direct boot are F8 settings, not here.
+// The editor page: the countdown, the direct boot and the default entry, and the position.
 struct HcEditTexts {
-    char autol[200];                              // "Auto: <auto core> (<its auto config>)"; "Auto: (none)" with no auto core; no parenthesis without a config
-    char menu[40];                                // "Menu: /Flash/boot.cfg"
+    char countdown[24];
+    char direct[56];
+    char def[96];
+    char defcfg[96];                              // T198 D13: the selected entry's default config
     char pos[24];
 };
 void hc_edit_texts(int first, HcEditTexts *t);
@@ -95,7 +93,6 @@ struct HcBrowseRow {
 void hc_browse_title(char *out, int n);           // the folder, or "Copy to: <folder>" while a target is picked
 void hc_browse_empty_text(char *out, int n);      // "", "(empty)" or "No media found"
 bool hc_browse_row(int k, HcBrowseRow *r);
-const char *hc_edit_foot(void);                   // the editor footer for its selected row: "LEFT/RIGHT config of this core" only while that core has configs
 const char *hc_menu_foot(void);                   // the boot menu's footer for its selected row (T198 D9); hc_foot_of_view(0) is the general one
 const char *hc_browse_foot(void);                 // the footer for what is selected (T111)
 bool hc_browse_sel_file(char *path, int n);       // the selected row is a file: its path

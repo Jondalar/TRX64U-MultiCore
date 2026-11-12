@@ -8,7 +8,6 @@
 #include "discover.h"
 #include "cfw.h"
 #include "txu.h"
-#include "host_core_flow.h"
 #include "cor.h"
 #include "keyboard.h"
 #include "host_core_cfgov.h"
@@ -265,7 +264,7 @@ void hc_ui_settings_change(int kind, int dir)
     switch (kind) {
     case SK_DIRECT:
         hc_ui_cfg_after(hc_direct_toggle());
-        hc_ui_note(cfg().direct ? "Direct boot on: the auto core starts at power-on" : "Direct boot off: the menu comes up first", HCT_HOST);
+        hc_ui_note(cfg().direct ? "Direct boot on: the default starts at power-on" : "Direct boot off: the menu comes up first", HCT_HOST);
         break;
     case SK_AUTO:
         hc_ui_cfg_after(hc_autostart(cfg().countdown == 0, 0));
@@ -630,17 +629,11 @@ void hc_ui_input(int k, HcUiResult *res)
     if (ctx == HCX_CFG && cfgov_input(act, res)) {
         return;
     }
-    if (act == HCA_CONFIG_LIST && ctx == HCX_BROWSE && hc_nav().bsel < hc_nav().bn && hc_nav().bl[hc_nav().bsel].dir) {
-        act = HCA_BROWSE_OPEN;              // GitHub #90 (T219): RIGHT on a folder goes in, as RETURN does; ".." goes up like RETURN
-    } else if (act == HCA_CONFIG_LIST && (ctx == HCX_MENU || ctx == HCX_BROWSE)) {
+    if (act == HCA_CONFIG_LIST && (ctx == HCX_MENU || ctx == HCX_BROWSE)) {
         cfgov_open(ctx, res);
         return;
     }
     int armed = hc_arm_take_row();          // T101 D6: only an unbroken DEL, DEL removes
-    if (armed < 0 && ctx == HCX_EDIT && v.note[0]) {
-        hc_note_clear();                        // the editor's note (Renamed to ...) lasts until the next key; this key's own outcome sets a new one after this
-        g_changed = true;
-    }
     HcKeyArm key_arm;                       // T192 D21: the arm ends with this key (yes when it is the confirming one)
     switch (act) {
     case HCA_NAV_MENU: hc_ui_go(HCV_MENU); res->redraw = true; return;
@@ -706,7 +699,8 @@ void hc_ui_input(int k, HcUiResult *res)
         res->redraw = true;
         return;
     }
-    // The way back from a black screen: V opens the Picture page from any view (hc_ui_picture_step); RETURN or SPACE on a mode applies it and asks "Keep this picture?" (T105, T187 D5).
+    // The way back from a black screen (T105): V steps through the resolutions, applies each one at once and writes it to boot.cfg, so a screen that cannot take the mode we came
+    // up in is one blind keypress away from one it can. It is in the footer legend, and in INSTALL.md for the reader who has no picture to read it on.
     case HCA_PICTURE_STEP:
         hc_arm_take_wifi();                 // this key returns before the WiFi page's keys: it ends the F arm like any other key (the arm's token ends in HcKeyArm)
         hc_ui_picture_step();
@@ -796,10 +790,6 @@ void hc_ui_input(int k, HcUiResult *res)
         } else if (act == HCA_BROWSE_UPDATE) {
             if (!hc_browse_at_media() && !env_busy() && hc_browse_sel_file(path, sizeof(path)) && txu_is_name(v.bl[v.bsel].name)) {     // T152: U installs a .txu
                 g_env.flow(g_env.ctx, HUF_UPDATE, path, 0);
-            }
-        } else if (act == HCA_BROWSE_UNZIP) {
-            if (!hc_browse_at_media() && !env_busy() && hc_browse_sel_file(path, sizeof(path)) && hc_is_zip_name(v.bl[v.bsel].name)) {     // T197: Z unpacks a .zip
-                g_env.flow(g_env.ctx, HUF_UNZIP, path, 0);
             }
         } else if (act == HCA_BROWSE_FORMAT && hc_browse_at_media() && v.bsel < v.bn) {
             g_env.flow(g_env.ctx, HUF_FORMAT, v.bl[v.bsel].name, 0);

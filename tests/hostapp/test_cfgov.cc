@@ -113,7 +113,7 @@ int main()
     CHECK(o.cur == 3 && !strcmp(hc_cfgov_cur_name(), "Games"));
     HcWifiPick pk;
     hc_cfgov_pick(&pk);
-    CHECK(pk.n == 6 && !strcmp(pk.item[0].a, "Plain start") && !strcmp(pk.item[3].a, "Games") && !strcmp(pk.item[3].c, "auto") && pk.sel == 3);
+    CHECK(pk.n == 6 && !strcmp(pk.item[0].a, "Plain start") && !strcmp(pk.item[3].a, "Games") && !strcmp(pk.item[3].c, "default") && pk.sel == 3);
     CHECK(pk.cfgov && !pk.item[0].b[0] && !pk.item[3].b[0] && !strcmp(pk.sub, "5 configs"));
     hc_cfgov_close();
     CHECK(hc_cfgov_open("/SD/cores/amiga.cor", "Amiga", -1, true));

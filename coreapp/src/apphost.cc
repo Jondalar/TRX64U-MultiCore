@@ -185,14 +185,6 @@ void AppHost::open_now()
     }
     int h = ld_->handle_of(e->name);
     if (h < 0) {
-        char derr[LIB_ERR_MAX] = "";
-        lock_->lock();                                  // the libraries it needs (T197: miniz), from the same folders; they stay loaded; the loader counts them as used by every image that needs them
-        bool deps = idx_->prepare_open(c_->fs, ld_, *e, derr, sizeof(derr));
-        lock_->unlock();
-        if (!deps) {
-            post_status(derr[0] ? derr : "A library the application needs did not load.", true);
-            return;
-        }
         CoreFile *f = c_->fs->open(e->path, false);
         if (!f) {
             char m[240];

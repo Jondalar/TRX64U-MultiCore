@@ -49,10 +49,10 @@ const char *directboot_text(DbReason r)
     case DB_KEY_FIRE: return "Menu: fire on port 1 was held";
     case DB_OFF: return "Direct boot is off";
     case DB_NOCFG: return "boot.cfg could not be read";
-    case DB_NODEFAULT: return "No auto core is set";
-    case DB_MISSING: return "Auto core: file missing";
-    case DB_CHANGED: return "Auto core: file changed (press R to check it)";
-    case DB_REFUSED: return "Auto core: refused (see its badge)";
+    case DB_NODEFAULT: return "No default core is set";
+    case DB_MISSING: return "Default core: file missing";
+    case DB_CHANGED: return "Default core: file changed (press R to check it)";
+    case DB_REFUSED: return "Default core: refused (see its badge)";
     default: return "";
     }
 }

@@ -11,12 +11,6 @@ Checked before (C, 11-04): `.txu`, `.cfw` and `.ue2` match `SHA256SUMS`; the `.t
 `c64_basic.bit`) and the host app of 867 812 B; `tools/check_release_flash.py`: `.cfw` and `.ue2` byte-equal to the
 `.txu`, both probes fail as they must.
 
-## Session 2026-11-14 (Alex: "Das messen wir hoffentlich heute mal", translated: "we hope to measure that today")
-
-| # | Who | Do | See | From |
-|---|---|---|---|---|
-| D.1 | A | T140 analogue picture: S-Video and composite on the A/V port, PAL and NTSC, on a core that has the AV out (C128). | Picture is stable and the colours are right in all four combinations; record the findings in `docs/todo/T140.md`. | T140 (stays open) |
-
 ## Package main-b8b6bcf7 (2026-11-06, CI run 1185 green) - WiFi (#45), home folder (#40), hotkeys (T181), C128 JiffyDOS (#46)
 
 Not yet installed: C installs it over FTP (`.txu` to `/SD/txu/`, the `.cor` files to `/SD/cores/`, the 11-05 ones to an archive folder) and checks

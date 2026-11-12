@@ -17,15 +17,7 @@
 //
 // For the encoder: sx_e = g * B (first active TMDS clock of the line), fw_m1 = g * htot - 1, sy = Bv, ey = Bv + vact = vtot, and the
 // phase ph_e: clocks since the pixel registers last changed, so that g * cx + ph_e is the position in TMDS clocks.
-// T188 D3 (the Amiga copies only, FOLLOW = 1): on the 50 Hz rows (m 0..2) the frame length follows the core. core_tgl is a toggle of the core's
-// frame-complete event (sys_clk domain, crossed here). At every frame start the phase (lines since the last core event, `age`) is compared with the
-// set point S = 21/32 of the frame (13 ms of 20: after the application's flip latency, before the next core frame) and the frame gets
-// E = -(age - S) / 4 lines (rounded, limits EMIN -8 .. EMAX +16, T188 D5): E > 0 lines repeated at the last front porch line before the sync pulse, E < 0 lines taken
-// out of the back porch, right after the sync pulse. A phase that runs away (output faster than the core) shortens the next frame, a lagging one lengthens it. No core event for three frames, a 60 Hz
-// row or FOLLOW = 0: E = 0, the frame of the table. cy values of the active area, cy = 0 and cy = 1 are never repeated or skipped.
-module hdmi_timing #(
-    parameter FOLLOW = 0
-) (
+module hdmi_timing (
     input  wire        clk,
     input  wire        rst,             // sync to clk; mode is taken while it is high
     input  wire [3:0]  mode,            // family * 6 + hdmi (hdmi_modes.vh)
@@ -51,9 +43,7 @@ module hdmi_timing #(
     output reg  [10:0] sy_e,
     output reg  [10:0] ey_e,
     output reg  [2:0]  ph_e,
-    output wire [3:0]  mode_q,          // the mode this generator runs (JTAG read-out)
-    input  wire        core_tgl,        // T188 D3: toggle, one per complete core frame (any clock domain; crossed here). Unused with FOLLOW = 0
-    output wire signed [5:0] follow_e   // T188 D3: the lines the frame has more (+) or fewer (-) than the table's, for the readout and the bench
+    output wire [3:0]  mode_q           // the mode this generator runs (JTAG read-out)
 );
 `include "hdmi_modes.vh"
 
@@ -81,7 +71,6 @@ module hdmi_timing #(
     reg  [11:0] hfp, hs0, hs1, htot_m1;      // hs0 .. hs1 - 1: the sync pulse
     reg         hpol, vpol;
     reg  [10:0] vfp_r, vs0, vs1, vtot_m1;
-    reg  [10:0] vs0m1, vs1m1;                // last front porch line before the sync pulse, last sync line
     reg  [3:0]  wait_n = 4'd0;
     wire [12:0] htot = {1'b0, htot_m1} + 13'd1;
     always @(posedge clk) begin
@@ -92,7 +81,6 @@ module hdmi_timing #(
         xact0 <= r_hfp + r_hsync + r_hbp;
         htot_m1 <= r_hfp + r_hsync + r_hbp + r_hact - 12'd1;
         vs0 <= r_vfp; vs1 <= r_vfp + r_vsync;
-        vs0m1 <= r_vfp - 11'd1; vs1m1 <= r_vfp + r_vsync - 11'd1;
         yact0 <= r_vfp + r_vsync + r_vbp;
         vtot_m1 <= r_vfp + r_vsync + r_vbp + r_vact - 11'd1;
         sy_e <= r_vfp + r_vsync + r_vbp;
@@ -113,44 +101,6 @@ module hdmi_timing #(
         fw_m1 <= times_g(htot_m1 + 12'd1, gear) - 13'd1;
     end
 
-    // ---- T188 D3: the frame follows the core (see the header)
-    localparam signed [5:0] EMIN = -6'sd8, EMAX = 6'sd16;
-    reg  [15:0] s_a = 16'd0;                 // 21 x vtot, two stages after the row (m is stable long before running)
-    reg  [10:0] s_set = 11'd0;               // the set point (lines)
-    always @(posedge clk) begin
-        s_a   <= {ey_e, 4'd0} + {3'd0, ey_e, 2'd0} + {5'd0, ey_e};
-        s_set <= s_a[15:5];
-    end
-    wire        fol_en = (FOLLOW != 0) && (m < 4'd3);
-    (* ASYNC_REG = "TRUE" *) reg [2:0] cs = 3'd0;
-    always @(posedge clk) cs <= {cs[1:0], core_tgl};
-    wire        cev = cs[2] ^ cs[1];
-    reg         cseen = 1'b0;                // a core frame event since the last line end
-    reg         fr_seen = 1'b0;              // ... since the frame start
-    reg  [11:0] age = 12'd0;                 // lines since the last core event (saturates)
-    reg  [1:0]  miss = 2'd3;                 // frames without a core event (3 = none for three frames: the core is not running)
-    reg  signed [5:0] fe = 6'sd0;
-    reg  [4:0]  pad = 5'd0, skip = 5'd0;
-    assign follow_e = fe;
-    wire [11:0] age_n = cseen ? 12'd0 : (&age ? age : age + 12'd1);
-    wire        alive_n = fr_seen || cseen || (miss != 2'd3);
-    // Run 1788 (-2.043 ns, age -> skip, 11 levels): the law is pipelined. age is stable for the whole line, so the
-    // three stages settle long before the frame's last line ends; the one input that can still change in that line,
-    // cseen, only selects between two registered candidates (age_n = 0 or age + 1).
-    wire [11:0] age_i = &age ? age : age + 12'd1;
-    reg  signed [12:0] err_a = 13'sd0, err_c = 13'sd0;             // stage 1: age_n - S for age_n = age + 1 / 0
-    reg  signed [12:0] tg_a  = 13'sd0, tg_c  = 13'sd0;             // stage 2: proportional, a quarter of the phase error in lines, rounded
-    reg  signed [5:0]  cl_a  = 6'sd0,  cl_c  = 6'sd0;              // stage 3: clamped to EMIN .. EMAX
-    always @(posedge clk) begin
-        err_a <= $signed({1'b0, age_i}) - $signed({2'b0, s_set});
-        err_c <= -$signed({2'b0, s_set});
-        tg_a  <= -((err_a + 13'sd2) >>> 2);
-        tg_c  <= -((err_c + 13'sd2) >>> 2);
-        cl_a  <= (tg_a > $signed({7'd0, EMAX})) ? EMAX : (tg_a < $signed(-{7'd0, -EMIN})) ? EMIN : tg_a[5:0];
-        cl_c  <= (tg_c > $signed({7'd0, EMAX})) ? EMAX : (tg_c < $signed(-{7'd0, -EMIN})) ? EMIN : tg_c[5:0];
-    end
-    wire signed [5:0] fe_n = !(fol_en && alive_n) ? 6'sd0 : cseen ? cl_c : cl_a;
-
     // ---- pixel phase and counters
     reg  [2:0]  ph = 3'd0;
     wire [2:0]  ph_n = (ph == gear[2:0] - 3'd1) ? 3'd0 : ph + 3'd1;
@@ -158,9 +108,7 @@ module hdmi_timing #(
     reg  [10:0] vc = 11'd0;
     wire last_h = hc == htot_m1;
     always @(posedge clk) begin
-        if (cev) cseen <= 1'b1;
         if (rst) begin
-            fe <= 6'sd0; pad <= 5'd0; skip <= 5'd0; age <= 12'd0; miss <= 2'd3; cseen <= 1'b0; fr_seen <= 1'b0;
             running <= 1'b0; aligned <= 1'b0; wait_n <= 4'd0; ph <= 3'd0; ce <= 1'b0; ph_e <= 3'd0;
             hc <= 12'd0; vc <= 11'd0; de <= 1'b0; hs <= 1'b0; vs <= 1'b0; cx <= 12'd0; cy <= 11'd0; rgb <= 24'd0;
         end else if (!running) begin
@@ -180,20 +128,7 @@ module hdmi_timing #(
                     hc <= xact0; vc <= yact0; aligned <= 1'b1;
                 end else if (last_h) begin
                     hc <= 12'd0;
-                    // T188 D3: pad lines repeat the last front porch line, skipped lines are taken from the start of the back porch
-                    if (fol_en && vc == vs0m1 && pad != 5'd0) begin
-                        pad <= pad - 5'd1;
-                    end else if (fol_en && vc == vs1m1 && skip != 5'd0) begin
-                        vc <= vc + 11'd1 + {6'd0, skip}; skip <= 5'd0;
-                    end else
-                        vc <= (vc == vtot_m1) ? 11'd0 : vc + 11'd1;
-                    age <= age_n; cseen <= cev;
-                    if (vc == vtot_m1) begin             // the next line starts a frame: phase against the set point, the length of this frame
-                        fe <= fe_n; fr_seen <= 1'b0;
-                        miss <= (fr_seen || cseen) ? 2'd0 : (miss == 2'd3 ? miss : miss + 2'd1);
-                        pad  <= (fe_n > 6'sd0) ? fe_n[4:0] : 5'd0;
-                        skip <= (fe_n < 6'sd0) ? -fe_n[4:0] : 5'd0;
-                    end else if (cseen) fr_seen <= 1'b1;
+                    vc <= (vc == vtot_m1) ? 11'd0 : vc + 11'd1;
                 end else
                     hc <= hc + 12'd1;
             end

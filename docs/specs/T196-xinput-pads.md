@@ -1,6 +1,6 @@
 # T196 — An Xbox-style (XInput) controller on a USB cable works in the console cores (NES, SNES, Neo Geo), as a HID gamepad does
 
-**Status:** BUILT, merged to main (3887b1dbf); S1-S4 native tests; S5 board PASS 2026-11-10 (Series Pro pad on a USB cable; HID pad and keyboard beside it not checked); S6 (third-party pad, X mode, #55) tester open, so not DONE. 2026-11-15 sync: the old 'BUILDING ... S5/S6 open' text removed.
+**Status:** BUILDING (app code and native tests on branch t196-xinput, 2026-11-10; S5/S6 open).
 **Repo:** TRX64U-MultiCore — the USB host driver the apps compile (`host-app/software/io/usb/`, our copy with patches) and the core app's pad
 service (`coreapp/src/pad.cc`, `hidpad.cc`). No gateware. Host app: nothing (the host menu takes no gamepad).
 **Number:** T196.

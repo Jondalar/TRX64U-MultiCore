@@ -1,6 +1,6 @@
 # T207 — A hotkey is set by pressing the key, not by stepping through the keyboard
 
-**Status:** BUILT, S5 board step open (2026-11-11). Corrected 2026-11-13 (status check): merged to main (00bc8d41e, with T205); S1-S4 proven (§5); S5 board open.
+**Status:** BUILT, S5 board step open (2026-11-11).
 **Repo:** TRX64U-MultiCore — the generic core app's hotkey page (T187 D2: "Hotkeys >" in Input; `test_hotkeys`), every core.
 **Number:** T207.
 **Origin:** Alex, 2026-11-11, at the board (SCPU core, hotkey rows with LEFT/RIGHT values), translated: "We wanted to *learn* the hotkeys; now you can

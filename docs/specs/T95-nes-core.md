@@ -1,6 +1,10 @@
 # T95 — An NES core in the host/core split: NES_MiSTer (GPL v3), cycle accurate, with the mappers
 
-**Status:** BUILT, ROUTED, ON THE BOARD (2026-11-15 sync; the first text of 2026-10-15 said "built and simulated, not routed, no board, no application, no controller" and is outdated). Alex decided on `M` (NES_MiSTer, GPL v3): D12. The core routed in CI run 44 (§5.17), the controller was built in §5.18/5.19 (run 46), the application exists (`coreapp/cores/nes.cc`, `ines.cc`; pads T196), the core ran on the board (Alex 2026-10-18, Sam's Journey). Open: the picture, NES switches to 720p and fills about 93 % of the height - the mode switch and Scale of T107 D7/D8 are built in T164, but no board retest of the NES picture is recorded; no S-scenario proof table was checked in this sync (not DONE).
+**Status:** BUILT AND SIMULATED, NOT ROUTED (2026-10-15). Alex decided on `M` (NES_MiSTer, GPL v3) after the first build: D12, and the core is
+built on it: the machine, the 6502 converted by GHDL, the cartridge in the DDR2 behind line caches, eleven mapper families with a bench
+each, the layer-2 edge, all in Verilator with negative controls (5.8-5.10). **No Vivado has seen it**: the first build (`fpga_nes`) routed in
+CI run 39 and missed timing (5.5), so there has never been an `nes_partial.bit`, and the area of the PPU is not known (5.10). No board,
+no application window (T93), no controller (section 4).
 **Repo:** TRX64U-MultiCore (gateware under `cores/nes/`, vendoring and generator in `tools/`, benches in `cores/nes/sim`).
 **Number:** T95 (the row of `TODO.md`; the NES was put on the core list on 2026-10-13).
 **Origin:** Alex, 2026-10-13: "put NES on the core list, and SNES too if it works, though the buttons need looking at there, or USB

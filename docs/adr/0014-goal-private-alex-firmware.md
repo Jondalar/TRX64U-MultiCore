@@ -18,4 +18,4 @@ Replaced the same night by the ADR-0016 decision (struck through in the TODO ove
 
 ## Links
 
-- [T51](../specs/README.md#belonged-to-trx64-ultimate)
+- [T51](../../docs/specs/T51-ef3.md#status-and-history)

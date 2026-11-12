@@ -1,8 +1,7 @@
 // ---------------------------------------------------------------------------
 // T182 step 2 (T2, T3): the 65C816 in place of the 6510 - a drop-in for vendor/icepi/cpu6510.v in c64_top_c64scpu.v (same ports where the top uses them).
 // The CPU is cores/c64scpu/cpu (s816_cpu, the MiSTer 65C816); the 6510's port $00/$01 is scpu_pport; this module is the bus adaptor to the PHI2 path:
-//   - the CPU's clock enable is scpu_mem's core_ce (on clk2x): in 1 MHz mode one step per PHI2 cycle (ce_raw = g_edge && phi2_l, the edge the 6510 core took);
-//     in 20 MHz mode (step 4) the rate accumulator's pend (scpu_mem.v, 1/20,000,000 units against PHI2), in both modes held back until the memory is ready (core_ce = tick && ok);
+//   - the CPU takes one step per PHI2 cycle on clk2x (clock enable g_edge && phi2_l, the edge the 6510 core took), 1 MHz as the C64's bus; no 20 MHz yet (step 4);
 //   - D_IN is the byte the bus left at the last PHI2 fall (din_r), RDY / IRQ / NMI are sampled at the PHI2 fall like the 6510's wrapper did;
 //   - RDY: a read cycle with rdy low is repeated (the s816_cpu stops its state on RDY_IN low); a write cycle is not held (the 6510 and the BA rule of the C64:
 //     the CPU may finish writes), so rdy_in = rdy | write;

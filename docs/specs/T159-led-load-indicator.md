@@ -1,6 +1,6 @@
 # T159 — case LED 1 as a floppy LED (D2; D1 was a slow blinker), switchable in the menu, tried in the A1200 first
 
-**Status:** ACCEPTED (2026-10-29), asked by Alex; D2 (2026-10-30) replaced the blinker. Status check 2026-11-13: built and merged (ecc69ebfb, 34cff5f46); board 11-04 pass A500, Atari, Apple II, CPC, C128; C264 and VC-20 not seen. 2026-11-15 sync: the pointer 'T163 D3 rework' in D5 was wrong (T163 D3 is order/scope); the host lamp is T164 and is in `host/bling_io.v`. C264/VC-20 board still not recorded (maps built: `cores/c1541/drive_leds_map.v`).
+**Status:** ACCEPTED (2026-10-29), asked by Alex; D2 (2026-10-30) replaced the blinker.
 **Repo:** TRX64U-MultiCore — the generic core application (`coreapp/src`): a setting that writes the case LED selector once; since D2 also the A1200's own
 gateware that drives the source (no host change). D1 was application-only. The host already wires case LED 1 to `case_leds` (`host/top.v:1541-1549`), selected by
 `U64_CASELED_SELECT` (`host-app/software/system/u64.h:80`; the core app writes it already, `coreapp/src/u64cfg.cc:568`).
@@ -84,7 +84,7 @@ Scenario: S5 lamp colours (D4; replaces D3's green / yellow / red)
   (wins over activity, as D3's red did); a floppy drive's activity flickers the red off; hard disk activity flickers blue. Off as before.
 - **D5 (Alex, 2026-10-30, translated):** "And that then for all cores as far as it fits ... except TRX64 and Gideon/Commodore 1.1.0."
   The large cores (own `top.v`: A1200, C128, ZX Next) get it in their fork; the cores routed against the host need the lamp logic in the
-  host's `bling_io.v` (host frozen, `contract/host_pin.txt`), so they get it with the next host package (T164 lamp, built: `host/bling_io.v` `hd_act`/`drive_act`; not T163), each core feeding
+  host's `bling_io.v` (host frozen, `contract/host_pin.txt`), so they get it with the next host package (T163 D3 rework), each core feeding
   its floppy / hard disk activity through the contract.
 
 

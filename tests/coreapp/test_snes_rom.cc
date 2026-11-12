@@ -105,7 +105,7 @@ int main()
     // --- S12: a header that names a coprocessor the core does not have is refused, with the chip in the sentence
     {
         struct { uint8_t chipset; const char *word; } chips[] = {
-            { 0x13, "Super FX" }, { 0x15, "Super FX" }, { 0x34, "SA-1" }, { 0x35, "SA-1" }, { 0x43, "S-DD1" }, { 0x45, "S-DD1" },
+            { 0x03, "DSP" }, { 0x05, "DSP" }, { 0x13, "Super FX" }, { 0x15, "Super FX" }, { 0x34, "SA-1" }, { 0x35, "SA-1" }, { 0x43, "S-DD1" }, { 0x45, "S-DD1" },
             { 0xE3, "add-on" }, { 0xF3, "Cx4" }, { 0xF5, "SPC7110" }, { 0xF9, "SPC7110" }, { 0xF6, "ST010" } };
         for (auto &c : chips) {
             Img i(0x200000, SNES_HDR_LO, 0x20, c.chipset, 0x0B, 0x03, 0x00);
@@ -113,26 +113,6 @@ int main()
             CHECK(!r.ok);
             CHECK(strstr(r.err, c.word) != 0);
         }
-    }
-    // --- T218: a DSP-n cartridge is accepted (the firmware is the application's business): chipset 3..6, which chip by the title, mapper byte 0x80 | chip << 4 | mapping
-    {
-        struct { const char *title; uint8_t dsp; } t[] = { { "SUPER MARIO KART", 1 }, { "DUNGEON MASTER", 2 }, { "SD GUNDAM GX", 3 }, { "TOP GEAR 3000", 4 } };
-        for (auto &x : t) {
-            Img i(0x80000, SNES_HDR_LO, 0x20, 0x03, 0x09, 0x00, 0x01, false, x.title);
-            SnesInfo r = i.parse();
-            CHECK(r.ok);
-            CHECK_EQ(r.dsp, x.dsp);
-            CHECK_EQ(r.rom_type, 0x80 | ((x.dsp - 1) << 4));
-        }
-        Img hi(0x100000, SNES_HDR_HI, 0x21, 0x05, 0x0A, 0x01, 0x01);
-        SnesInfo r = hi.parse();
-        CHECK(r.ok);
-        CHECK_EQ(r.rom_type, 0x81);
-        CHECK(r.battery);
-        Img ex(0x500000, SNES_HDR_EX, 0x25, 0x03, 0x0C, 0x00, 0x01);
-        CHECK(!ex.parse().ok);
-        Img plain(0x80000, SNES_HDR_LO, 0x20, 0x00, 0x09, 0x00, 0x01);
-        CHECK_EQ(plain.parse().dsp, 0);
     }
     // --- the region: 50 Hz countries are PAL, Japan, USA, Korea, Canada, Brazil NTSC
     {

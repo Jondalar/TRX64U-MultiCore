@@ -1,6 +1,6 @@
 # T167 — A changing progress bar or number inside an overlay never shows what lies behind the overlay
 
-**Status:** BUILDING (2026-10-31). Status check 2026-11-13: BUILDING stays: merged (157716f3e, 070f87198); 5.10 passed on the board 11-02; 5.8 and 5.9 board re-check open.
+**Status:** BUILDING (2026-10-31).
 **Repo:** TRX64U-MultiCore — host app (`host-app/software/hostapp/hostui.cc`), core app (`coreapp/src/ui.cc`), shared view layer
 (`app/view/trxview.*`), benches (`tests/hostapp/render`, `tests/coreapp/render`, `tests/view`).
 **Number:** T167 (registry: the table in `TODO.md`).

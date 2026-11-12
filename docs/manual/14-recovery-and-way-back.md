@@ -5,7 +5,7 @@
 | You want | Use | Needs |
 |---|---|---|
 | The vendor firmware back in the flash, as before the install | R in the File Browser (14.2) | The host starts. A backup `.cor` of the install, or an official `.cfw` or `.ue2` |
-| The previous flash content with the settings | The restore bundle `TRXBK_<date>_nnn.CFW` (14.3) | A firmware whose file browser offers **Run Update** and takes a `.cfw` (the Commodore firmware 1.1.0 takes only a `.ue2`, 2.1.1) |
+| The previous flash content with the settings | The restore bundle `TRXBK_<date>_nnn.CFW` (14.3) | A firmware whose file browser offers **Run Update** |
 | The multi-core host again, after a vendor updater replaced it | The installer of the release (14.4) | A firmware whose file browser offers **Run Update** |
 | Back from a full firmware that you started from the host | Power off and on (13.2.7) | Nothing |
 | A board that does not start | The cable (14.5) | A USB-Blaster |
@@ -37,9 +37,9 @@ that the bundle holds, `settings included`, and it checks the package (`Package 
 - `No`: the settings of the board stay as they are now. The bitstream and the application are restored.
 - `Yes`: the saved configuration pages are written back too, after the bitstream and the application.
 
-14.3.4 Before it writes, the updater takes a **fresh backup** of the present state to the root of the first medium that has room. It shows the size
+14.3.4 Before it writes, the updater takes a **fresh backup** of the present state to the first medium that has room. It shows the size
 that it needs (`Backing up the flash (x.y MB) to USB/SD..`). If no medium has room, it asks `No USB/SD with x.y MB free. Insert one. Retry?`. With **No** it
-stops with `No backup, no update. Nothing written.` If the host started the updater and the flash holds MultiCore, it makes no backup (2.4.9).
+stops and writes nothing.
 
 14.3.5 The updater writes the application, then the bitstream, then (with `Yes`) the settings. It verifies each part and repeats a failed
 write up to three times. It shows `Restore OK, installed <id>` (with `Yes`: `Restore OK, installed <id> with settings`) and switches the board off.
@@ -59,12 +59,12 @@ as in chapter 2.
 
 14.5.1 You need a USB-Blaster. The cable is the way back when the board does not start.
 
-14.5.2 The flash holds the bitstream at `0x000000` (the host with the null core) and the host application at `0x220000`. The release has no separate files for them: they are the two parts of the installer, `trx64host_update_<id>.ue2`. Write them with `openFPGALoader`:
+14.5.2 The flash holds the bitstream at `0x000000` and the host application at `0x220000`. Write them with `openFPGALoader`:
 
 ```
 openFPGALoader -c usb-blaster --fpga-part xc7a50tfgg484 -f <bitstream>
 openFPGALoader -c usb-blaster --fpga-part xc7a50tfgg484 -f --offset 0x220000 --file-type bin <application>
 ```
 
-14.5.3 `--fpga-part` loads a bridge into the FPGA first. After the write the FPGA runs this bridge until the next power cycle. Unplug the cable, then switch the
+14.5.3 `--fpga-part` loads a bridge into the FPGA first. After the write the FPGA runs this bridge until the next power cycle. Switch the
 power off and on after the write.

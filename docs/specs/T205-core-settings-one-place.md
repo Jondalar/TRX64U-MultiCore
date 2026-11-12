@@ -1,6 +1,6 @@
 # T205 — Every core has its settings in one place: F5 (core settings first, then Video, Audio, Input)
 
-**Status:** PROPOSED (2026-11-11). Corrected 2026-11-13 (status check): BUILT, merged to main (00bc8d41e); ux-review PASS on emulator pictures; S6 board open. 2026-11-15 sync: checked against code, consistent; the TRX64U core's own F6 (`coreapp/cores/trx64u/menu.toml`) is still there (§4 open).
+**Status:** PROPOSED (2026-11-11).
 **Repo:** TRX64U-MultiCore — the generic core app (`coreapp/src/menutree.*`, the area/tab tables), so every core (T192.3 D31: the menu is in every core).
 **Number:** T205.
 **Origin:** Alex, 2026-11-11, at the board in the VC-20 core (photos of F5, F6, F8), translated: "what kind of UX mess is that? 3 times settings ...
@@ -50,7 +50,7 @@ media/config rows are on Home (session panel); "Menu opens at" in the core tab. 
 |---|---|
 | S1, S2, S3 | `tools/dev.sh test` rc=0, all groups incl. amiga; `test_contrib`, `test_configs`, `test_uiapp` updated; keywalk/ids/menu goldens regenerated (grep: F6 and F5/summary gone, `F1/home` gains media + config rows) |
 | S4 | render bench `ui_list_probe` (row y/height/name/value per drawn row, 5166 selection states, 18 cores, 480p/720p/1080p): 0 failed. It does not reproduce Alex's "value one row low" (P3): the cause on the board is NOT explained by the bench; in-place path `trx_row_retext` read once, nothing found |
-| S5 | pictures `ux-{a1200,vc20,c128,atari}-F1/F5/F8-*` (render bench, 1080p + 480p) exist; ux-review round 1 FAIL, round 2 (emulator pictures) PASS, see below |
+| S5 | pictures `ux-{a1200,vc20,c128,atari}-F1/F5/F8-*` (render bench, 1080p + 480p) exist; ux-review verdict FAIL, see below |
 | S6 | Alex at the board, open |
 
 ux-review round 1 FAIL (render-bench pictures), fixed: long Home values are cut in the middle (`fit_value`, label keeps up to 45% of the row); the stale F5 label

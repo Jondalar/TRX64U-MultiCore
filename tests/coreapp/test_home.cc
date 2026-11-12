@@ -66,7 +66,7 @@ int main()
     FakeFs world;
     world.put("/usb0/games/sub/x.adf", std::vector<uint8_t>(10, 1));
     world.put("/usb0/other/y.adf", std::vector<uint8_t>(10, 2));
-    {   // Set as home folder: the ".." sheet, in /usb0/games
+    {   // Set as home folder: the sheet of a folder row, in /usb0/games
         Rig a(&gd, &world);
         a.menu();
         a.m->key(KEY_F3);
@@ -74,8 +74,8 @@ int main()
         a.go_to("usb0/"); a.m->key(KEY_RETURN);
         a.go_to("games/"); a.m->key(KEY_RETURN);
         CHECK_STR(a.m->title(), "/usb0/games");
-        a.go_to("../");
-        a.m->key(KEY_RIGHT);                                         // the sheet of the folder the Library is in (RIGHT on a folder row enters it)
+        a.go_to("sub/");
+        a.m->key(KEY_RIGHT);                                         // the sheet of the folder
         CHECK(a.m->chooser());
         a.go_to("Set as home folder");
         a.m->key(KEY_RETURN);

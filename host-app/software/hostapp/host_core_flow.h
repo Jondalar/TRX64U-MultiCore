@@ -52,8 +52,6 @@ struct HcFlowEnv {
     void *ctx;
 };
 
-bool hc_is_zip_name(const char *name);                    // T197: ".zip" in any case (host_core_flow_zip.cc)
-
 // ---- the MultiCore update from a .txu (T152 D3/D5): refuse pages, the check, the questions, the write, the result ---------------------------------------------
 // Returns true when something was written and verified. Every refusal is a page of its own and returns false.
 bool hc_update_run(const HcFlowEnv &env, const char *path);

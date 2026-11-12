@@ -56,7 +56,7 @@ static const char *const drive_names[] = { "Off", "4040 (D64)", "8250 (D80, D82)
 static const uint8_t drive_bytes[3] = { 0, 3, 1 };     // PET_DRV_CTL: b0 device 8 on, b1 4040
 static const RegBind b_drive = { PET_DRV_CTL, 0, 3, drive_bytes };
 static const char *const dset_names[] = { "Off (file only)", "External datasette" };
-static const uint8_t dset_bytes[2] = { 0x00, 0x11 };    // PET_TAPE_PIN: b0 motor pin driven, b4 READ / SENSE pins are the PET's inputs (proven by a real datasette LOAD, GitHub #26); b1 WRITE out stays 0 until a SAVE on real tape is proven (T214)
+static const uint8_t dset_bytes[2] = { 0x00, 0x11 };    // PET_TAPE_PIN: b0 motor pin driven, b4 READ / SENSE pins are the PET's inputs (provisional until the board session of 2026-11-14)
 static const RegBind b_dset = { PET_TAPE_PIN, 0, 0x1F, dset_bytes };
 static const char *const spcpu_names[] = { "6502", "6809", "Program ($EFF8)" };   // PROG: the 6502 starts and hands over by writing $EFF8 b0 = 0
 static const RegBind b_spcpu = { PET_SP_CPU, 0, 3, 0 };
@@ -72,7 +72,7 @@ static const Setting settings[9] = {
     { "RAM (at next reset)",   ram_names,   3, 2, WHEN_RESET, 0, &b_ram,   0, 0, 0, 0, "RAM" },   // the CRTC models always have 32 KiB
     { "Drive 8 (at next reset)", drive_names, 3, 0, WHEN_RESET, 0, &b_drive, 0, 0, 0, 0, "Drive" },   // the dual unit of ieee_drive: drives 0 and 1
     { "Datasette port",        dset_names,  2, 0, WHEN_LIVE,  0, &b_dset,  0, 0, 0, 0, 0 },
-    { "SuperPET CPU (at next reset)", spcpu_names, 3, 0, WHEN_RESET, 0, &b_spcpu, 0, 0, 0, "pet.superpet", "SPCPU" },   // T216 P2: listed only while the model is the SuperPET (the only one that looks at it); default 6502 as in VICE
+    { "SuperPET CPU (at next reset)", spcpu_names, 3, 0, WHEN_RESET, 0, &b_spcpu, 0, 0, 0, 0, "SPCPU" },   // only the SuperPET model looks at it; default 6502 as in VICE
 };
 static int pet_model(CoreCtx *c) { return c->settings->value(PET_S_MODEL); }
 static bool pet_hz50(CoreCtx *c) { return c->settings->value(PET_S_HZ) == 1; }
@@ -599,8 +599,6 @@ static const MediaSlot media[] = {
 static const MemRegion pet_mem_regions[] = { { 0, 0x8000, MK_RAM, 0, 0, "RAM" } };
 static const MemMap pet_mem = { pet_mem_regions, 1, true, 0 };
 
-static const char *superpet_state(CoreCtx *c) { return pet_model(c) == PET_M_SUPERPET ? "yes" : 0; }
-
 static void pet_register(OpRegistry &r)
 {
     r.contributor("pet");
@@ -635,7 +633,6 @@ static void pet_register(OpRegistry &r)
     r.add_op("pet.type_script", text_arg, 1, op_type);
     r.add_state("pet.program", prg_name);
     r.add_state("pet.pending", prg_pending);
-    r.add_state("pet.superpet", superpet_state);
     r.add_state("pet.drive8", drv_name0);
     r.add_state("pet.drive81", drv_name1);
     r.add_state("pet.tape.image", tape_image);

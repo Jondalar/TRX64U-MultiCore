@@ -22,8 +22,6 @@
 #define APP_SHARED_FOLDER "apps"          // T180 D9: "<dir of the .cor>/apps" (else "<root>/cores/apps"), read by every core after its own folder; the first of a name counts, so the core's own wins
 #define APP_FOLDERS_MAX 12                // the core's own folders and the shared ones: one of each per root
 #define APP_PATH_MAX 200
-#define LIBS_MAX 4                        // T197: libraries found in the same folders (miniz), kept as a name, a version, a path and a size
-#define APP_WORK_BYTES (64u * 1024u)      // T197 P4: what a running application needs from the heap beside its image (miniz's inflate state and window, a zip directory, buffers)
 #define APP_AREA "APP"                    // the key of the area an application's own route is made of
 
 struct AppEntry {
@@ -38,22 +36,11 @@ struct AppEntry {
     LibRecord screens;                    // the application's own nodes, anchored in "APP"
     LibNodeDecl *nodes;                   // both halves of the node list, host first
     bool has_screens;                     // the record gives the application a route of its own
-    uint32_t image_bytes;                 // T197: what the image takes from the heap (image + bss + alignment)
-    uint8_t nneeds;                       // the libraries it needs (not "base"), by name and minimum version
-    U2a3Need needs[U2A3_NEEDS_MAX];
-};
-
-// A library file of the apps folders (T197): not an application, so no entry in the menu; applications that need it load it from here.
-struct LibFile {
-    char path[APP_PATH_MAX];
-    char name[U2A3_NAME_MAX];
-    uint32_t version;
-    uint32_t image_bytes;
 };
 
 class AppIndex {
 public:
-    AppIndex() : nlibs_(0), room_(0xFFFFFFFFu), room_ld_(0), n_(0), sig_(0), has_extra_(false) { memset(app_, 0, sizeof(app_)); memset(&extra_, 0, sizeof(extra_)); memset(libs_, 0, sizeof(libs_)); }
+    AppIndex() : n_(0), sig_(0), has_extra_(false) { memset(app_, 0, sizeof(app_)); memset(&extra_, 0, sizeof(extra_)); }
     ~AppIndex() { clear(); }
 
     // The folders of this core's apps on the media: from the .cor path, else one per root. Returns how many (at most `max`).
@@ -73,35 +60,11 @@ public:
     const AppEntry *adhoc(CoreFs *fs, const char *path, LibLog *log);
     uint32_t signature() const { return sig_; }
 
-    // ---- libraries of the apps folders (T197)
-    int nlibs() const { return nlibs_; }
-    const LibFile *find_lib(const char *name, uint32_t min_version = 0) const;
-    // Does an application fit the loader window (the heap the board can give, `room`) with the libraries it needs that `loaded` does not have yet, plus
-    // APP_WORK_BYTES? Missing or too old a library: no. `ld` (may be null) says which libraries are in memory already.
-    bool fits(const AppEntry &a, uint32_t room, const LibLoader *ld) const;
-    // Are the application and every library it needs there (loaded in `ld`, or a file in the folders, new enough)? The menu lists the actions of such an
-    // application whatever the room is (D9); the memory is checked at the press, by prepare_open.
-    bool available(const AppEntry &a, const LibLoader *ld) const;
-    // The bytes `a` takes from the heap now: image + APP_WORK_BYTES + the libraries not in memory. False: a library is missing or too old (*need is not set).
-    bool need_bytes(const AppEntry &a, const LibLoader *ld, uint64_t *need) const;
-    // The room and loader the menu merge sees (D9: only the loader matters now, for which libraries are in memory; the room no longer hides anything).
-    void set_room(uint32_t room, const LibLoader *ld) { room_ = room; room_ld_ = ld; }
-    // Loads the libraries `a` needs that are not in memory (the base ones excepted), in the order it lists them; false and a sentence in err if one is missing,
-    // too old or refused. A library stays loaded (libraries are resident).
-    bool load_needs(CoreFs *fs, LibLoader *ld, const AppEntry &a, char *err, int errlen) const;
-    // T197 D8, at the press: when `a` does not fit `ld->room()`, every loaded library nothing uses (no loaded application, no loaded library; LibLoader::use) and `a` does not need is unloaded, then the
-    // room is asked again; still too small: false and "Not enough memory for <app> (needs N KB, M KB free)." in err. Then load_needs.
-    bool prepare_open(CoreFs *fs, LibLoader *ld, const AppEntry &a, char *err, int errlen) const;
-
     // The contributors for the menu merge: one per application whose record has something for the core's menu (rank CR_APP, by name).
     int contributors(Contributor *out, int max) const;
 
 private:
-    bool read_file(CoreFs *fs, const char *path, AppEntry &a, LibLog *log, LibFile *lib = 0);
-    LibFile libs_[LIBS_MAX];
-    int nlibs_;
-    uint32_t room_;
-    const LibLoader *room_ld_;
+    bool read_file(CoreFs *fs, const char *path, AppEntry &a, LibLog *log);
     AppEntry app_[APPS_MAX];
     int n_;
     uint32_t sig_;

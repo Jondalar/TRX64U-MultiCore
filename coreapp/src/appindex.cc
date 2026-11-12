@@ -112,7 +112,7 @@ static bool is_screen_node(const LibNodeDecl &nd)
 }
 
 // One file: its header and its menu record into `a`. False (and a line in the log) when it is not an application this base can use.
-bool AppIndex::read_file(CoreFs *fs, const char *path, AppEntry &a, LibLog *log, LibFile *lib)
+bool AppIndex::read_file(CoreFs *fs, const char *path, AppEntry &a, LibLog *log)
 {
     CoreFile *cf = fs->open(path, false);
     if (!cf) {
@@ -132,13 +132,6 @@ bool AppIndex::read_file(CoreFs *fs, const char *path, AppEntry &a, LibLog *log,
     h.name[U2A3_NAME_MAX - 1] = 0;
     if (h.kind != U2A3_KIND_APP) {
         fs->close(cf);
-        if (lib && h.kind == U2A3_KIND_LIB) {                       // T197: a library of the folder, kept for the applications that need it; not an entry
-            snprintf(lib->path, sizeof(lib->path), "%s", path);
-            memcpy(lib->name, h.name, sizeof(lib->name));
-            lib->version = h.version;
-            lib->image_bytes = h.payload_size + h.bss_size + h.align;
-            return false;
-        }
         say(log, "[app] %s: \"%s\" is a library, not an application", path, h.name);
         return false;
     }
@@ -148,16 +141,6 @@ bool AppIndex::read_file(CoreFs *fs, const char *path, AppEntry &a, LibLog *log,
     a.version = h.version;
     a.residence = h.residence;
     a.fsize = fsize;
-    a.image_bytes = h.payload_size + h.bss_size + h.align;
-    for (int k = 0; k < h.needs_count && k < U2A3_NEEDS_MAX; k++) {
-        U2a3Need nd;
-        if (src.read(h.needs_offset + k * U2A3_NEED_SIZE, &nd, sizeof(nd))) {
-            nd.name[U2A3_NAME_MAX - 1] = 0;
-            if (strcmp(nd.name, "base")) {
-                a.needs[a.nneeds++] = nd;
-            }
-        }
-    }
     if (h.flags & U2A3_FLAG_MENU) {
         char why[160];
         if (libmenu_read(&src, fsize, h.reserved, &a.menu, &a.menu_bytes, why, sizeof(why), true) != 0) {
@@ -209,8 +192,6 @@ static void free_entry(AppEntry &a)
 void AppIndex::scan(CoreFs *fs, char folders[][APP_PATH_MAX], int nf, LibLog *log)
 {
     clear();
-    nlibs_ = 0;
-    memset(libs_, 0, sizeof(libs_));
     sig_ = signature(fs, folders, nf);
     FsEntry *e = (FsEntry *)malloc(sizeof(FsEntry) * LIB_LIST_MAX);        // 17 KB for this scan, not for good
     if (!e) {
@@ -229,12 +210,7 @@ void AppIndex::scan(CoreFs *fs, char folders[][APP_PATH_MAX], int nf, LibLog *lo
             }
             snprintf(path, sizeof(path), "%s/%s", folders[f], e[i].name);
             AppEntry tmp;
-            LibFile lf;
-            memset(&lf, 0, sizeof(lf));
-            if (!read_file(fs, path, tmp, log, &lf)) {
-                if (lf.name[0] && nlibs_ < LIBS_MAX && !find_lib(lf.name)) {      // the first of a name counts, as for applications
-                    libs_[nlibs_++] = lf;
-                }
+            if (!read_file(fs, path, tmp, log)) {
                 continue;
             }
             if (find(tmp.name)) {
@@ -285,114 +261,11 @@ const AppEntry *AppIndex::find(const char *name) const
     return 0;
 }
 
-const LibFile *AppIndex::find_lib(const char *name, uint32_t min_version) const
-{
-    for (int i = 0; name && i < nlibs_; i++) {
-        if (!strcasecmp(libs_[i].name, name) && libs_[i].version >= min_version) {
-            return &libs_[i];
-        }
-    }
-    return 0;
-}
-
-bool AppIndex::need_bytes(const AppEntry &a, const LibLoader *ld, uint64_t *need) const
-{
-    uint64_t n = (uint64_t)a.image_bytes + APP_WORK_BYTES;
-    for (int k = 0; k < a.nneeds; k++) {
-        int h = ld ? ld->handle_of(a.needs[k].name) : -1;
-        const LibInfo *li = h >= 0 ? ld->info(h) : 0;
-        if (li) {
-            if (li->version < a.needs[k].min_version) {
-                return false;
-            }
-            continue;                                                // in memory: its bytes are gone from the room already
-        }
-        const LibFile *lf = find_lib(a.needs[k].name, a.needs[k].min_version);
-        if (!lf) {
-            return false;
-        }
-        n += lf->image_bytes;
-    }
-    *need = n;
-    return true;
-}
-
-bool AppIndex::available(const AppEntry &a, const LibLoader *ld) const
-{
-    uint64_t n;
-    return need_bytes(a, ld, &n);
-}
-
-bool AppIndex::fits(const AppEntry &a, uint32_t room, const LibLoader *ld) const
-{
-    uint64_t need;
-    return need_bytes(a, ld, &need) && need <= room;
-}
-
-bool AppIndex::prepare_open(CoreFs *fs, LibLoader *ld, const AppEntry &a, char *err, int errlen) const
-{
-    uint64_t need;
-    if (need_bytes(a, ld, &need) && need > ld->room()) {
-        for (bool again = true; again;) {                            // a library only an unloaded library used is free on the next pass
-            again = false;
-            for (int h = 0; h < LIB_MAX; h++) {
-                const LibInfo *li = ld->info(h);
-                if (!li || li->kind != U2A3_KIND_LIB || ld->uses(h) > 0) {
-                    continue;
-                }
-                bool wanted = false;
-                for (int k = 0; k < a.nneeds; k++) {
-                    wanted |= !strcasecmp(a.needs[k].name, li->name);
-                }
-                if (!wanted && ld->unload(h, 0, 0) == LIB_OK) {
-                    again = true;
-                }
-            }
-        }
-        if (!need_bytes(a, ld, &need) || need > ld->room()) {
-            // Rule: needs is rounded UP, free is rounded DOWN, so the two figures can never read equal on a refusal (need > room gives ceil(need) > floor(room)).
-            snprintf(err, errlen, "Not enough memory for %s (needs %u KB, %u KB free).", a.name, (unsigned)((need + 1023) / 1024), (unsigned)(ld->room() / 1024));
-            return false;
-        }
-    }
-    return load_needs(fs, ld, a, err, errlen);
-}
-
-bool AppIndex::load_needs(CoreFs *fs, LibLoader *ld, const AppEntry &a, char *err, int errlen) const
-{
-    for (int k = 0; k < a.nneeds; k++) {
-        const char *name = a.needs[k].name;
-        int h = ld->handle_of(name);
-        if (h >= 0) {
-            continue;                                                // loaded; the loader checks the version of the one in memory
-        }
-        const LibFile *lf = find_lib(name, a.needs[k].min_version);
-        if (!lf) {
-            snprintf(err, errlen, "%s needs the library \"%s\" %u.%u, which is not in the apps folder.", a.name, name, (unsigned)(a.needs[k].min_version >> 16),
-                     (unsigned)(a.needs[k].min_version & 0xFFFF));
-            return false;
-        }
-        CoreFile *f = fs->open(lf->path, false);
-        if (!f) {
-            snprintf(err, errlen, "%s: the file cannot be opened.", lf->path);
-            return false;
-        }
-        CoreFileSource src(f);
-        int lh = -1;
-        int rc = ld->load(&src, &lh, err, errlen);
-        fs->close(f);
-        if (rc != LIB_OK) {
-            return false;
-        }
-    }
-    return true;
-}
-
 int AppIndex::contributors(Contributor *out, int max) const
 {
     int k = 0;
     for (int i = 0; i < n_ && k < max; i++) {
-        if (app_[i].menu && available(app_[i], room_ld_)) {
+        if (app_[i].menu) {
             out[k].name = app_[i].name;
             out[k].rank = CR_APP;
             out[k].rec = &app_[i].host;

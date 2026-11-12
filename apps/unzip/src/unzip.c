@@ -15,17 +15,7 @@
  */
 
 #include "u2p_app.h"
-#include "zip_lib.h"
-
-/* The zip code is the library "miniz" (T197): the entry (glue.cc) looks its table up and hands it over; nothing of miniz is linked into this file. */
-static const ZipLib *zl;
-#define mz_zip_reader_init zl->reader_init
-#define mz_zip_reader_end zl->reader_end
-#define mz_zip_reader_get_num_files zl->get_num_files
-#define mz_zip_reader_file_stat zl->file_stat
-#define mz_zip_reader_extract_to_callback zl->extract_to_callback
-
-void unzip_set_zip(const ZipLib *t) { zl = t; }
+#include "miniz.h"
 
 #define PATH_MAX_LEN 256
 #define FOLDER_TRIES 99
@@ -278,9 +268,9 @@ static int new_folder(archive_t *a, char *dest)
 
 static void report(const counts_t *c, const char *where)
 {
-    char msg[PATH_MAX_LEN + 96] = "Extracted ";
+    char msg[160] = "Extracted ";
     append_number(msg, c->files, sizeof(msg));
-    append(msg, c->files == 1 ? " file into " : " files into ", sizeof(msg));
+    append(msg, " file(s) to ", sizeof(msg));
     append(msg, where, sizeof(msg));
     if (c->skipped) {
         append(msg, "\nSkipped ", sizeof(msg));
@@ -329,7 +319,7 @@ static void pick_one(archive_t *a)
     } else {
         c.failed = 1;
     }
-    report(&c, a->dir);
+    report(&c, "this folder");
 }
 
 int unzip_main(const u2p_api_t *api_in, const u2p_app_context_t *ctx)
@@ -352,12 +342,21 @@ int unzip_main(const u2p_api_t *api_in, const u2p_app_context_t *ctx)
         pick_one(&a);
     } else if (!strcmp(action, "here")) {
         extract_all(&a, a.dir, &c);
-        report(&c, a.dir);
+        report(&c, "this folder");
     } else {
         char dest[PATH_MAX_LEN];
         if (new_folder(&a, dest)) {
             extract_all(&a, dest, &c);
-            report(&c, dest);
+            const char *last = dest;
+            for (const char *p = dest; *p; p++) {
+                if (*p == '/') {
+                    last = p + 1;
+                }
+            }
+            char where[PATH_MAX_LEN];
+            copy(where, last, PATH_MAX_LEN);
+            append(where, "/", PATH_MAX_LEN);
+            report(&c, where);
         } else {
             api->ui->popup("Unzip", "Cannot create the folder.");
         }

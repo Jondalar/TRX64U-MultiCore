@@ -8,7 +8,7 @@ collections and file actions is:
 
 - [`../gideon-menu-tree.md`](../gideon-menu-tree.md)
 - [`../lvgl_ui_project/UI-COVERAGE.md`](../lvgl_ui_project/UI-COVERAGE.md)
-- [`T24-ui-wiring.md` (TRX64-Ultimate)](../specs/README.md#belonged-to-trx64-ultimate)
+- [`../specs/T24-ui-wiring.md`](../specs/T24-ui-wiring.md)
 
 The filenames in `screens/` intentionally match the primary project one for
 one. Coverage checks should fail when either project gains or loses a screen

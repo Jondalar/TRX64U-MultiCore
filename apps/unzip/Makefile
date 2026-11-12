@@ -3,8 +3,7 @@ APP_NAME = unzip
 APP_VERSION = 1.0
 APP_RES = transient
 APP_MENU = app.toml
-APP_NEEDS = base>=3.1 miniz>=1.0
-APP_CSRCS = src/unzip.c
+APP_CSRCS = src/unzip.c src/miniz/miniz.c src/miniz/miniz_tinfl.c src/miniz/miniz_zip.c
 APP_CCSRCS = glue.cc
-APP_INC = -Isrc -I../miniz -I../miniz/src
+APP_INC = -Isrc -Isrc/miniz
 include ../../app/lib/app.mk

@@ -133,7 +133,7 @@ int main()
         CHECK(has(t, "== Settings =="));
         CHECK(has(t, "countdown=5") && has(t, "video=0,2"));
         CHECK(has(t, "== Boot menu"));
-        CHECK(has(t, "0 (auto) TRX64 Ultimate | /SD/cores/trx64.cor | ok"));
+        CHECK(has(t, "0 (default) TRX64 Ultimate | /SD/cores/trx64.cor | ok"));
         CHECK(has(t, "size 1234567, sha256 ab12cd34ef56"));
         CHECK(has(t, "Atari 800 XL") && has(t, "size and sha256 not recorded"));
         CHECK(has(t, "== Log"));

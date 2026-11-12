@@ -121,24 +121,6 @@ module tb_pet_models;
     reg [3:0] kr = 0;
     pet_keys kx_b (.keys(kk), .bus(1'b1), .keyrow(kr), .keyin(kb));
     pet_keys kx_g (.keys(kk), .bus(1'b0), .keyrow(kr), .keyin(kg));
-    // T216 S1/S2: one C64 key (cbm = C= held) must pull exactly one bit, at the row and column VICE gives, and no other row or bit
-    integer kerr = 0, kn = 0, kri;
-    task kcheck(input bus, input integer key, input integer cbm, input integer row, input integer col);
-        begin
-            kk = 64'd0; kk[key] = 1'b1; kk[61] = (cbm != 0) | kk[61];
-            for (kri = 0; kri < 10; kri = kri + 1) begin
-                kr = kri; #10;
-                if ((bus ? kb : kg) !== ((kri == row) ? ~(8'd1 << col) : 8'hFF)) begin
-                    $display("FAIL %s key %0d cbm %0d: row %0d reads %h, wanted row %0d column %0d", bus ? "business" : "graphics", key, cbm, kri, bus ? kb : kg, row, col);
-                    kerr = kerr + 1;
-                end
-            end
-            kn = kn + 1;
-        end
-    endtask
-    task bchk(input integer key, input integer cbm, input integer row, input integer col); kcheck(1'b1, key, cbm, row, col); endtask
-    task gchk(input integer key, input integer cbm, input integer row, input integer col); kcheck(1'b0, key, cbm, row, col); endtask
-`include "keys_expect.vh"
     initial begin
         #30000000;
         if (mode == 0) begin
@@ -164,9 +146,6 @@ module tb_pet_models;
             kk = 64'd0; kk[56] = 1; kr = 1; #10; if (kb !== 8'hFE) begin $display("FAIL business 1 %h", kb); errs = errs + 1; end
             kk = 64'd0; kk[56] = 1; kk[61] = 1; kr = 1; #10; if (kb !== 8'hFF) begin $display("FAIL business C=+1 on the digit row %h", kb); errs = errs + 1; end
             kr = 8; #10; if (kb !== 8'h7F) begin $display("FAIL business keypad 1 %h", kb); errs = errs + 1; end
-            bchk_all; gchk_all;
-            errs = errs + kerr;
-            $display("keys: %0d key checks (business + graphics) against VICE, %0d errors", kn, kerr);
         end else if (mode == 1) begin
             if (dut.mem.ram.mem[16'h0208] !== 8'hA5) begin $display("FAIL marker %h", dut.mem.ram.mem[16'h0208]); errs = errs + 1; end
             for (k = 0; k < 8; k = k + 1) $write("%h ", dut.mem.ram.mem[16'h0200 + k]); $write("\n");

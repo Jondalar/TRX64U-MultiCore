@@ -1,6 +1,6 @@
 # T211 - Own key names in the host UI (F keys are the navigation)
 
-Status: PROPOSED 2026-11-12, Alex. 2026-11-15 sync: not built (`map_key` in `hostui.cc:213-220` still folds KEY_PAGEUP/HELP/TASKS/PAGEDOWN into F keys).
+Status: PROPOSED 2026-11-12, Alex.
 
 ## §1 The problem
 - P1: the host app takes Gideon's keymapper codes: F1/F3/F5/F7 arrive as KEY_PAGEUP/KEY_HELP/KEY_TASKS/KEY_PAGEDOWN and
@@ -19,6 +19,6 @@ Status: PROPOSED 2026-11-12, Alex. 2026-11-15 sync: not built (`map_key` in `hos
 - D1 (Alex 11-12): F keys are the main navigation; our UI uses its own key names, Gideon's naming is translated at the edge.
 
 ## §4 Out
-- Open with Alex: paging keys in the host editor (none; editor +/- moves an entry). The boot menu pages with +/- since T209 D7 (`host_core.cc:47`); real Page Up/Down still arrive as F1/F7.
+- Open with Alex: paging keys in the host boot menu and editor (none exist; editor +/- moves an entry).
 
 ## §5 Build notes

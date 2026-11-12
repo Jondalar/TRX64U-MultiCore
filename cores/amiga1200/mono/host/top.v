@@ -1411,7 +1411,6 @@ module top #(
         .pix_color(pix_color), .pix_x(pix_x), .pix_y(pix_y), .v60(v60), .scanlines(scanlines),
         .pal_we(pal_we), .pal_addr(pal_addr), .pal_wdata(pal_wdata), .x_text(x_text),
         .snd_hold(snd_hold), .snd_tgl(snd_tgl),
-        .core_fr_tgl(drive_dbg[255]),                // T188 D3: the Amiga core's frame event (layer2_amiga.v drive_dbg[255])
         .gt_ready(gt_ready), .video_locked_s(video_locked_s), .hdmi_meas(hdmi_meas_s)
     );
 

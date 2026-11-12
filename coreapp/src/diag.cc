@@ -131,7 +131,7 @@ const char *diag_text(int kind, int *n)
             "Letters         each core names a few: E eject, X remove cartridge, P pause, R reset, T Timewarp, M monitor\n\n"
             "THE LIBRARY (F3)\n\n"
             "RETURN          the actions of the file; on a folder: open it\n"
-            "RIGHT           the first action of the file; on a folder: open it; on ..: the actions of this folder\n"
+            "RIGHT           the first action of the file; on a folder: its actions\n"
             "A letter        in the sheet runs the item with that letter\n"
             "SPACE           marks a file; C= A marks all, C= N none, C= C copies, C= V pastes\n"
             "/               quick seek: type the name, ? is any character\n"

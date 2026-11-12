@@ -25,7 +25,6 @@ area F5 VIC-20
     setting Memory Expansion = Unexpanded | +3K | +8K | +16K | +24K | +3K +24K | +3K +24K +8K at $A000 (default Unexpanded, at next reset)
     setting Block 5 ($A000), when expanded = RAM | ROM (read only) (default RAM, at next reset)
     setting JiffyDOS = Off | On (default Off, at next reset)
-    setting Datasette port = Off (file only) | External datasette (default Off (file only), live)
     setting Drive = Disabled | Enabled (default Enabled, live)
     setting Drive Bus ID = 8 | 9 | 10 | 11 (default 8, live)
     setting Extra RAM = Disabled | Enabled (default Disabled, live)

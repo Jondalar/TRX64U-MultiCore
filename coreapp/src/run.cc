@@ -556,7 +556,6 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
     static LogStdout say_out;
     const CoreDesc *merge_base = ctx.desc;
     auto do_merge = [&]() {
-        app_index.set_room(lib_board_loader() ? lib_board_loader()->room() : 0xFFFFFFFFu, lib_board_loader());   // T197 P4: the loader window of this moment
         int refused = bundle_merge(&ctx, merge_base, &bundle, lib_board_loader(), &say_out, &merged_desc, &merge, &app_index);
         lib_board_menu_note(refused);
         ctx.desc = &merged_desc;

@@ -230,7 +230,6 @@ zxnext_pins: cores/zxnext/layer2_zxnext.v cores/zxnext/sim/run_pins.sh tools/che
 @snesrtl = cores/snes/gen cores/snes/trx cores/snes/sim/run.sh cores/snes/sim/tb_snes.v cores/snes/sim/ddr2_model.v cores/snes/sim/snes_mem_ref.v tools/snes_asm.py tools/snes_expect.py
 snes_boot: @snesrtl :(glob)cores/snes/sim/prog/boot.* :(glob)cores/snes/sim/prog/mvn.*
 snes_mem: @snesrtl :(glob)cores/snes/sim/prog/mem.*
-snes_dsp: @snesrtl :(glob)cores/snes/sim/prog/dsp.* tools/snes_dsp_fw.py
 snes_video: @snesrtl :(glob)cores/snes/sim/prog/video.*
 snes_pad: @snesrtl cores/snes/sim/tb_pad.v :(glob)cores/snes/sim/prog/pad.*
 snes_audio: @snesrtl :(glob)cores/snes/sim/prog/audio* coreapp/cores/snes.cc

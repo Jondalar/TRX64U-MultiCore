@@ -420,7 +420,7 @@ int main()
         CHECK_STR(vc20_desc.cor_name, "VIC-20");
         CHECK_EQ(vc20_desc.nroms, 6);                                   // BASIC, KERNAL, CHAR, the 1541's and the two JiffyDOS rows (T199), all three last optional
         CHECK(!vc20_desc.roms[3].required && !vc20_desc.roms[4].required && !vc20_desc.roms[5].required);
-        CHECK_EQ(vc20_desc.nsettings, 9);                               // four of the core (the Datasette port, T214) (two expansion, JiffyDOS), the four of the drive and the LED Load Indicator (T159)
+        CHECK_EQ(vc20_desc.nsettings, 8);                               // three of the core (two expansion, JiffyDOS), the four of the drive and the LED Load Indicator (T159)
         CHECK_EQ(vc20_desc.ntasks, 7);                                  // Reset, Reload, and the drive's Reset / Create x2 / Save x2
         CHECK_STR(vc20_desc.tasks[0].label, "Reset");
         CHECK_STR(vc20_desc.tasks[1].label, "Reload ROMs, reset");

@@ -1,5 +1,5 @@
 -- T142: the machine as the core wants it: the SNES (rtl/SNES.vhd: S-CPU, S-PPU, S-SMP, S-DSP, WRAM controller) and the plain cartridge mapper
--- (rtl/chip/DSP/DSP_LHRomMap.vhd: LoROM, HiROM, ExHiROM, SpecialLoROM, 96 Mbit; with the S-RTC and OBC-1 blocks and, on since T218, the DSP-n
+-- (rtl/chip/DSP/DSP_LHRomMap.vhd: LoROM, HiROM, ExHiROM, SpecialLoROM, 96 Mbit; with the S-RTC and OBC-1 blocks and, off in this build, the DSP-n
 -- core), joined the way SNES_MiSTer's rtl/main.v joins them for the plain-cartridge branch (USE_DLH): the mapper's DO and IRQ_N feed the S-CPU, the mapper
 -- sees the S-CPU's bus, ROM/BSRAM/WRAM/VRAM/ARAM are ports. Everything else of main.v is out (T142 section 4): the other coprocessors and their address
 -- multiplexer, MSU-1, the save-state engine, the Game Genie. One entity so that the converter (tools/snes_gen.py) has one top. Ours, GPL v3 as the core.
@@ -79,12 +79,7 @@ entity snes_sys is
     -- the S-SMP's boot ROM, written by the application while the machine is held (tools/snes_gen.py, T142 D9)
     IPL_WR       : in  std_logic;
     IPL_WA       : in  std_logic_vector(5 downto 0);
-    IPL_WD       : in  std_logic_vector(7 downto 0);
-    -- the DSP-n coprocessor's firmware (T218): written by the application while the machine is held; FW_SEL 0 = program word FW_A (24 bit), 1 = data word FW_A(9:0) (16 bit)
-    FW_WR        : in  std_logic;
-    FW_SEL       : in  std_logic;
-    FW_A         : in  std_logic_vector(10 downto 0);
-    FW_D         : in  std_logic_vector(23 downto 0)
+    IPL_WD       : in  std_logic_vector(7 downto 0)
   );
 end entity;
 
@@ -137,7 +132,7 @@ begin
       IPL_WR => IPL_WR, IPL_WA => IPL_WA, IPL_WD => IPL_WD);
 
   dlh_i : entity work.DSP_LHRomMap
-    generic map (USE_DSPn => '1')
+    generic map (USE_DSPn => '0')
     port map (
       MCLK => MCLK, RST_N => RST_N, ENABLE => '1',
       CA => CA, DI => DO, DO => DLH_DO, CPURD_N => CPURD_N, CPUWR_N => CPUWR_N,
@@ -148,8 +143,7 @@ begin
       BSRAM_ADDR => BSRAM_ADDR, BSRAM_D => BSRAM_D, BSRAM_Q => BSRAM_Q, BSRAM_CE_N => BSRAM_CE_N, BSRAM_OE_N => BSRAM_OE_N, BSRAM_WE_N => BSRAM_WE_N,
       MAP_ACTIVE => MAP_ACTIVE, MAP_CTRL => ROM_TYPE, ROM_MASK => ROM_MASK, BSRAM_MASK => RAM_MASK,
       EXT_RTC => EXT_RTC, CC_DIP => x"10",
-      SS_BUSY => '0', SS_RAM_A => (others => '0'), SS_DSPN_RAM_SEL => '0', SS_DSPN_REGS_SEL => '0', SS_DI => (others => '0'), SS_DO => DLH_SS_DO,
-      FW_WR => FW_WR, FW_SEL => FW_SEL, FW_A => FW_A, FW_D => FW_D);
+      SS_BUSY => '0', SS_RAM_A => (others => '0'), SS_DSPN_RAM_SEL => '0', SS_DSPN_REGS_SEL => '0', SS_DI => (others => '0'), SS_DO => DLH_SS_DO);
 
   SYSCLKF_CE <= CLKF;
   SYSCLKR_CE <= CLKR;

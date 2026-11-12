@@ -16,7 +16,6 @@
 #define C128_D4080       C128_REG(0x021)              // b0: the 40/80 DISPLAY switch as $D505 bit 7 reads it (1 = 80 columns); reset 0
 #define C128_CAPSLK      C128_REG(0x022)              // b0: the CAPS LOCK latch
 #define C128_JOY         C128_REG(0x024)              // b0: the host's joystick ports 1 and 2 are swapped before the core (T157); live; back to 0 by COLD
-#define C128_PIN_CTRL  0x078                        // c64u_io PIN_CTRL (page 0): b0 MOTOR out, b1 WRITE out, b4 READ / SENSE pins feed the machine; b2 (streamer drives READ) and b3 (SENSE pull) stay 0 with an external datasette (T214)
 #define C128_XKEYS       C128_REG(0x028)              // 24 bits, 028-02A: byte n = extra matrix column Kn, bit r = row r, 1 = pressed
 #define C128_XSPECIAL    C128_REG(0x02B)              // levels, the core acts on the rising edge
 #define C128_XS_CAPSLK   0x01

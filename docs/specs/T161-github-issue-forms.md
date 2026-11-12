@@ -1,6 +1,6 @@
 # T161 — a bug report on GitHub cannot be sent without version, core, steps, photos and the T162 report file
 
-**Status:** ACCEPTED (2026-10-30), asked by Alex. Status check 2026-11-13: built: forms and lint in main (778289484), on GitHub; S3 (Alex looks) open.
+**Status:** ACCEPTED (2026-10-30), asked by Alex.
 **Repo:** TRX64U-MultiCore — `.github/ISSUE_TEMPLATE/` (issue forms), carried to GitHub by `tools/github_snapshot.py`. No gateware, no app.
 **Number:** T161.
 **Origin:** Alex, 2026-10-30 (translated): "Can we build templates into the GitHub issues? What I would like are photos, the boot config,
@@ -63,4 +63,3 @@ Scenario: S3 GitHub
   carry one.
 - **2026-10-30, GitHub (Alex):** "The forms to GitHub is ok and I will look at them there" (translated): the snapshot goes out with
   them; S3 is his look.
-- 2026-11-14 (Alex: "ja", translated "yes", to cutting the list): the bug form names only the supported areas (host, official firmware, generic core application, trx64u, trx64g; CONTRIBUTING.md, discussion #66); tools/check_issue_forms.py checks that list.

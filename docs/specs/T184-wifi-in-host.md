@@ -1,6 +1,6 @@
 # T184 — The host menu and the core applications are on the network over WiFi as well as over Ethernet
 
-**Status:** DECIDED (2026-11-05); BUILT and merged (416278312): D1-D5; board 2026-11-07 S1 works (Alex); S2-S4 (power cycle, static address, boot without WiFi) not stepped, so not DONE. 2026-11-15 sync: 'build open' removed.
+**Status:** DECIDED (2026-11-05), build open.
 **Repo:** TRX64U-MultiCore — host app (`host-app/`, network page), core app (`coreapp/`, same network stack), the copy of Gideon's
 WiFi driver under `vendor/gideon`; no gateware change expected (the ESP32 UART is in `host/ultimate_sys.vhd`, the two control pins in
 `host/esp_ctl.v` since T152).

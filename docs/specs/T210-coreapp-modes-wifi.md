@@ -1,6 +1,6 @@
 # T210 — The core app is placed for the running HDMI mode from its first frame, and F8 WiFi shows the real state in every core
 
-**Status:** BUILT in ue2emu (2026-11-12), S3 board pending; was PROPOSED (2026-11-12, found by the ue2emu S45 check; release batch of Alex's "build it, integrate", 2026-11-11). Corrected 2026-11-13 (status check): merged to main (b1d5ab019); ue2emu proofs in §5; S3 board open.
+**Status:** BUILT in ue2emu (2026-11-12), S3 board pending; was PROPOSED (2026-11-12, found by the ue2emu S45 check; release batch of Alex's "build it, integrate", 2026-11-11).
 **Repo:** TRX64U-MultiCore — core app (`coreapp/src/run.cc`, `video.cc`, `netops.cc`, `coreapp/cores/*.cc`), port (`host-app/software/lvgl_port/trx_lv_port.cc`).
 **Number:** T210.
 **Origin:** ue2emu S45 (the MultiCore host's HDMI modes in the emulator, C64U_emu 2026-11-11) run against the core app at 480p and 720p.

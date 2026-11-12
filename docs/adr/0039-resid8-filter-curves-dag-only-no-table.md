@@ -20,4 +20,4 @@ Built 2026-10-07 (t25-resid8-dag + app t25-resid8-dag-app, merged into integ-m1)
 
 - [T25](../../docs/todo/T25.md)
 - [T69](../../docs/todo/T69.md)
-- [T25.5-resid8-menus.md](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/T25.5-resid8-menus.md)
+- [docs/specs/T25.5-resid8-menus.md](../../docs/specs/T25.5-resid8-menus.md)

@@ -23,8 +23,8 @@ flash (W25Q128). Nothing written."
 
 1.3.2 A USB stick or an SD card, formatted FAT32 or exFAT. The installer needs free space on it for the backup (2.3.1).
 
-1.3.3 An HDMI screen. The picture is HDMI. The analogue output (S-video, composite) is built into the C128 core. Its board check is open: the colours and the picture position are not confirmed (3.6.5). The core menu of `trx64u` has the row
-`Analog video mode`. The other cores have no analogue picture.
+1.3.3 An HDMI screen. The picture is HDMI. Composite and S-video stay black, except in the C128 core, which has an analogue output in
+development (3.6.4).
 
 1.3.4 A PC to prepare the stick.
 
@@ -43,8 +43,7 @@ flash (W25Q128). Nothing written."
 > **WARNING.** The raw backup and the restore bundle that the installer writes hold the configuration pages of the flash. Keep the
 > medium safe.
 
-> **WARNING.** FTP, the web page and the JSON status of the host ask for no password. The remote-control routes (`/v1/ui/...`) need a token. The first client that asks while no token exists gets it, and the
-> board keeps it in a file (`/Flash/trx/ui.token` for the host). Use the board only in a network that you trust.
+> **WARNING.** FTP and the web page of the host ask for no password. Use the board only in a network that you trust.
 
 > **CAUTION.** A `.cor` fits only the host it was built for. Use the `.cor` files of the same release as the
 > update package.
@@ -53,5 +52,7 @@ flash (W25Q128). Nothing written."
 
 ## 1.5 Limits
 
-1.5.1 Every core is experimental (`experimental = true` in its `core.toml`) except the Apple IIe. The TRX64 core comes from the TRX64 Ultimate project and has no descriptor here. The table in the README of the project gives the state of each core and
-the evidence. This manual follows `main` as of 2026-11-13.
+1.5.1 Every core except TRX64 is experimental (`experimental = true` in its `core.toml`). The table in the README of the project gives the state of each core and
+the evidence. This manual follows main as of 2026-11-02 (host package `t164-c83a83c2`).
+
+1.5.2 The shipped bitstreams are the debug build. reSID8, UCI, streams, REU, sampler and turbo are off in them.

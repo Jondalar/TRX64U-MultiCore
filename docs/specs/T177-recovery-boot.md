@@ -1,6 +1,6 @@
 # T177 — A key held at power-on starts a recovery image, even when the installed host shows no picture
 
-**Status:** DECIDED (2026-11-02, Q1-Q4 answered by Alex); build not started (2026-11-15 sync: confirmed, no recovery code in host-app or host).
+**Status:** DECIDED (2026-11-02, Q1-Q4 answered by Alex); build not started.
 **Repo:** TRX64U-MultiCore — the host boot application (`host-app/software/hostapp/`), possibly the boot ROM in the host bitstream
 (`host/`), the installer/update tools (`tools/`), the manual.
 **Number:** T177.

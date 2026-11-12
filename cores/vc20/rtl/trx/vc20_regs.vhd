@@ -10,7 +10,6 @@
 --   0A0 CTRL     RW   b0 reset hold, b1 halt (b2 had the identity palette of the old scaler path; it does nothing since T119)
 --   0A1 RAM_EXT  RW   b0 3K at $0400, b1 8K at $2000, b2 8K at $4000, b3 8K at $6000, b4 8K at $A000
 --   0A2 RAM_RO   RW   the same bits: the block is read only (b4: a cartridge image)
---   0B0 TAPE_PIN RW   b0 MOTOR pin driven, b1 WRITE pin driven, b4 the datasette's READ and SENSE pins are the VIC-20's inputs (reset 0 = every pin released), as PET_TAPE_PIN
 --   0A4 STATUS   R    b0 machine in reset, b1 halted
 --   0A8-0A9 FRAMES    R   frame counter (low 16 bits)
 --   0AC-0AD CPUADDR   R   the CPU's address bus (a sample, read twice to be sure)
@@ -50,7 +49,6 @@ entity vc20_regs is
     ram_ro   : out std_logic_vector(4 downto 0);
     fb_base  : out std_logic_vector(31 downto 0);
     fb_stride : out std_logic_vector(31 downto 0);
-    tape_pin : out std_logic_vector(7 downto 0);
     status   : in  std_logic_vector(7 downto 0);
     frames   : in  std_logic_vector(15 downto 0);
     cpuaddr  : in  std_logic_vector(15 downto 0);
@@ -63,7 +61,6 @@ end entity;
 architecture rtl of vc20_regs is
   signal ctrl_r   : std_logic_vector(7 downto 0) := x"00";
   signal ext_r    : std_logic_vector(4 downto 0) := (others => '0');
-  signal tpin_r   : std_logic_vector(7 downto 0) := (others => '0');
   signal ro_r     : std_logic_vector(4 downto 0) := (others => '0');
   signal base_r   : std_logic_vector(31 downto 0) := x"01D00000";
   signal stride_r : std_logic_vector(31 downto 0) := x"00100000";
@@ -92,7 +89,6 @@ begin
   px_re <= re and not win when page = x"6" else '0';
   ctrl    <= ctrl_r;
   ram_ext <= ext_r;
-  tape_pin <= tpin_r;
   ram_ro  <= ro_r;
   fb_base <= base_r;
   fb_stride <= stride_r;
@@ -122,7 +118,6 @@ begin
           when x"014" => cause <= (cause and not wdata) or ev;
           when x"0A0" => ctrl_r <= wdata;
           when x"0A1" => ext_r <= wdata(4 downto 0);
-          when x"0B0" => tpin_r <= wdata;
           when x"0A2" => ro_r <= wdata(4 downto 0);
           when x"0C4" => base_r(7 downto 0) <= wdata;
           when x"0C5" => base_r(15 downto 8) <= wdata;
@@ -162,7 +157,6 @@ begin
           when x"027" => q <= ddr_cal(63 downto 56);
           when x"0A0" => q <= ctrl_r;
           when x"0A1" => q <= "000" & ext_r;
-          when x"0B0" => q <= tpin_r;
           when x"0A2" => q <= "000" & ro_r;
           when x"0A4" => q <= s_q;
           when x"0A8" => q <= f_q(7 downto 0);

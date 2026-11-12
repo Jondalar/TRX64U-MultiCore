@@ -49,7 +49,7 @@ jobs:
     name: parent (wait for older pipelines, plan, dispatch the children, wait, table)
     runs-on: nas
     container:
-      image: trx64-sim-env:5
+      image: trx64-sim-env:4
       options: --init
       volumes:
         - /srv/trx64-build/cache:/cache

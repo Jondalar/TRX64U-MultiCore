@@ -4,9 +4,6 @@
 # depends on the host) but NOT the OOC key; two clones with the same content have the same keys
 # whatever their branch is called; the build options land where D3/D4 say.
 set -euo pipefail
-# T215: this test moves keys by appending a comment line to a source; it tests the plumbing (stage flow, plan, layer keys), not the normaliser, so keys are
-# the raw content hash here (the normaliser has its own test: ci/test_code_hash.py).
-export CODE_HASH=raw
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 W="$(mktemp -d)"; trap 'rm -rf "${W:?}"' EXIT
 git clone -q . "$W/a" 2>/dev/null

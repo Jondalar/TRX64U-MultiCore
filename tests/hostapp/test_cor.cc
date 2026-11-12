@@ -75,15 +75,6 @@ int main(int argc, char **argv)
         CHECK(cor_probe(h2, ci) == COR_OK);
         cor_host_key = 0x820eded2;
     }
-    // T209 D15: the text tile's short name is optional: none in good.cor, "PET" in short.cor
-    {
-        CorInfo c0, c1;
-        MemSrc sh;
-        CHECK(cor_probe(s, c0) == COR_OK && c0.shortn[0] == 0);
-        if (argc > 5 && load(sh, argv[5])) {
-            CHECK(cor_probe(sh, c1) == COR_OK && !strcmp(c1.shortn, "PET"));
-        }
-    }
     // a manifest without the field is not a bundle any more
     {
         MemSrc nk = s;

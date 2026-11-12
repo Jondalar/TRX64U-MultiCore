@@ -33,10 +33,10 @@ module tb;
         e[10][0]=0; e[10][1]=2; e[10][2]=1024; e[10][3]=24;  e[10][4]=136; e[10][5]=160; e[10][6]=0; e[10][7]=768;  e[10][8]=3;  e[10][9]=6; e[10][10]=29; e[10][11]=0; e[10][12]=60000;
         e[11][0]=0; e[11][1]=1; e[11][2]=1280; e[11][3]=48;  e[11][4]=112; e[11][5]=248; e[11][6]=1; e[11][7]=1024; e[11][8]=1;  e[11][9]=3; e[11][10]=24; e[11][11]=1; e[11][12]=60001;
 `ifdef T188
-        // T188 D4: the Amiga copies (cores/amiga*/mono/host) hold rows 0..2 bent to the 313-line Amiga frame, 49.920 Hz (tools/hdmi_modes.py amiga-gen)
-        e[0][3]=15;  e[0][12]=49920;
-        e[1][3]=438; e[1][8]=4; e[1][12]=49920;
-        e[2][3]=526; e[2][12]=49920;
+        // T188: the Amiga copies (cores/amiga*/mono/host) hold rows 0..2 bent to the Amiga frame, 50.0801 Hz (tools/hdmi_modes.py amiga-gen)
+        e[0][3]=28;  e[0][12]=50080;
+        e[1][3]=420; e[1][12]=50080;
+        e[2][8]=14;  e[2][12]=50080;
 `endif
     end
 

@@ -2,7 +2,7 @@
 
 Date: 2026-10-21
 
-Status: Accepted (amends [0055](0055-cores-load-through-icap-not-the-esp32.md) and [T84](../specs/done/T84-boot-chain.md) D7/Q3; the work is [T115](../specs/done/T115-full-bitstream-cores.md))
+Status: Accepted (amends [0055](0055-cores-load-through-icap-not-the-esp32.md) and [T84](../specs/T84-boot-chain.md) D7/Q3; the work is [T115](../specs/T115-full-bitstream-cores.md))
 
 ## Context
 

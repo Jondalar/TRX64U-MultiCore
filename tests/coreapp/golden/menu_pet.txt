@@ -32,7 +32,7 @@ area F5 PET
     setting RAM = 8 KiB | 16 KiB | 32 KiB (default 32 KiB, at next reset)
     setting Drive = Off | 4040 (D64) | 8250 (D80, D82) (default Off, at next reset)
     setting Datasette port = Off (file only) | External datasette (default Off (file only), live)
-    setting SPCPU = 6502 | 6809 | Program ($EFF8) (default 6502, at next reset) [listed while pet.superpet]
+    setting SPCPU = 6502 | 6809 | Program ($EFF8) (default 6502, at next reset)
 area F7 Actions
   tab 1 Quick
     task Reset (closes the menu)

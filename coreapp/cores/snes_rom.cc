@@ -45,27 +45,11 @@ static int score_header(const uint8_t *h, int expect, uint64_t rom_bytes)
     return s;
 }
 
-// T218: which DSP-n a DSP cartridge has. The header only says "a DSP"; the four chips differ in their firmware and the known games are DSP-2 Dungeon Master,
-// DSP-3 SD Gundam GX, DSP-4 Top Gear 3000, every other one a DSP-1.
-static uint8_t dsp_of_title(const char *title)
-{
-    char t[22];
-    int i = 0;
-    for (; title[i] && i < 21; i++) {
-        t[i] = (title[i] >= 'a' && title[i] <= 'z') ? (char)(title[i] - 32) : title[i];
-    }
-    t[i] = 0;
-    if (strstr(t, "DUNGEON MASTER")) return 2;
-    if (strstr(t, "SD GUNDAM GX")) return 3;
-    if (strstr(t, "TOP GEAR 3000") || strstr(t, "TG3000")) return 4;
-    return 1;
-}
-
 static const char *chip_name(uint8_t chipset)
 {
     uint8_t hi = chipset >> 4, lo = chipset & 0x0F;
     if (hi == 0) {
-        return 0;                           // 0..2: no chip; 3..6: DSP-n (T218: the application looks for the firmware), above 6 the check below
+        return lo <= 2 ? 0 : "a DSP-n coprocessor (DSP-1, 2, 3 or 4: its firmware is not in the core)";
     }
     switch (hi) {
     case 1: return "the Super FX (GSU)";
@@ -141,14 +125,6 @@ SnesInfo snes_parse(const uint8_t *const hdr[3], uint64_t file_size)
     }
     r.battery = (lo == 2 || lo == 5 || lo == 6);
     r.rom_type = r.mapping;
-    if (hi == 0 && lo >= 3) {               // DSP-n: LoROM or HiROM (DSP_LHRomMap.vhd decodes its registers there), mapper byte bit 7 = a chip, bits 5:4 = which (VER)
-        if (r.mapping == 2) {
-            snprintf(r.err, sizeof(r.err), "\"%s\": a DSP cartridge that is ExHiROM; the core maps a DSP-n in LoROM and HiROM only.", r.title);
-            return r;
-        }
-        r.dsp = dsp_of_title(r.title);
-        r.rom_type = (uint8_t)(0x80 | ((r.dsp - 1) << 4) | r.mapping);
-    }
     if (hi == 2) {                          // OBC-1: LoROM only
         if (r.mapping != 0) {
             snprintf(r.err, sizeof(r.err), "\"%s\": an OBC-1 cartridge that is not LoROM.", r.title);

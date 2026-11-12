@@ -1,10 +1,8 @@
 # T99 — Two SIDs, each with its own of Dag's filter settings
 
 **Status:** PROPOSED (2026-10-14).
-**Status check 2026-11-13:** Unchanged: PROPOSED, nothing built (no commit besides the spec, 865f6d642); TODO row T99 planned.
-**2026-11-15 sync:** still nothing built: `sid_multi.sv:82` still computes the engine as `u = i >> 2`; paths in the Repo line repointed to `cores/c64u` (cores/trx64 was deleted).
 **Repo:** TRX64U-MultiCore — `vendor/icepi/c64_redip_sid/sid_multi.sv` (our wrapper around Dag Lem's
-`sid_core`), `cores/c64u/trx_sid/rtl/trx_sid_c64u.v` (where it is instantiated; the old `cores/trx64` is deleted, T115 D12).
+`sid_core`), `cores/trx64/trx_sid/rtl/trx_sid.v` (where it is instantiated), `cores/trx64/core.toml`.
 **Number:** T99 (registry: the table in `TODO.md`).
 **Origin:** Alex, 2026-10-14, after seeing Gideon's UltiSID menu on our core: "I want the reSID
 filters, not more than 2 SIDs" and "why are the filters tied to the number of SIDs??? we use Dag's

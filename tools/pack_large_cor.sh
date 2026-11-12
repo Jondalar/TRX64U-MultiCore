@@ -2,7 +2,7 @@
 # Pack the .cor of one LARGE core (a full 50T bitstream started by IPROG; T115 section 7 "The large .cor").
 #
 #   tools/pack_large_cor.sh --id <core id> --name "<menu name>" --version <v> --bit <id>_mono.bit --app-bin <coreapp.bin> \
-#       [--icon cores/<id>/logo/icon.rgb565] [--short <tile text>] [--bit-commit <sha>] [--app-commit <sha>] [--origin trx|foreign|backup] [--flash-id <chip>] [--out <dir>] [--desc menu.toml --ops ops.txt]
+#       [--icon cores/<id>/logo/icon.rgb565] [--bit-commit <sha>] [--app-commit <sha>] [--origin trx|foreign|backup] [--flash-id <chip>] [--out <dir>] [--desc menu.toml --ops ops.txt]
 #
 # The same two inputs as tools/pack_cfw_mc.sh (the flat bitstream of ci/bitstream_mono.sh and the generic core application coreapp.bin,
 # the raw image linked to 0x30000), packed with tools/cor_pack.py pack-large instead of into an updater: no container image, no
@@ -12,7 +12,7 @@
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
-ID="" NAME="" VER="" BIT="" APPBIN="" ICON="" BITC="" APPC="" OUT="$ROOT/dist" DESC="" OPS="" ORIGIN="" FLASHID="" SHORT=""
+ID="" NAME="" VER="" BIT="" APPBIN="" ICON="" BITC="" APPC="" OUT="$ROOT/dist" DESC="" OPS="" ORIGIN="" FLASHID=""
 usage() { sed -n '2,12p' "$0"; exit 2; }
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -22,7 +22,6 @@ while [ $# -gt 0 ]; do
         --bit) BIT="$2"; shift 2;;
         --app-bin) APPBIN="$2"; shift 2;;
         --icon) ICON="$2"; shift 2;;
-        --short) SHORT="$2"; shift 2;;
         --bit-commit) BITC="$2"; shift 2;;
         --app-commit) APPC="$2"; shift 2;;
         --origin) ORIGIN="$2"; shift 2;;
@@ -40,7 +39,6 @@ done
 mkdir -p "$OUT"
 args=(--id "$ID" --name "$NAME" --version "$VER" --bit "$BIT" --app "$APPBIN")
 [ -z "$ICON" ] || args+=(--icon "$ICON")
-[ -z "$SHORT" ] || args+=(--short "$SHORT")
 [ -z "$BITC" ] || args+=(--bit-commit "$BITC")
 [ -z "$APPC" ] || args+=(--app-commit "$APPC")
 [ -z "$DESC" ] || args+=(--desc "$DESC")

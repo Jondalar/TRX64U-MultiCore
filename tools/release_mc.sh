@@ -24,9 +24,6 @@
 #      every file of the bundle;
 #   5. with --publish: tools/publish_release_mc.sh, which attaches all of them, the zip included.
 #
-# A GitHub release of the same bundle (by hand, Alex's go) takes its --target from the history export (T120 D-history):
-#   gh release create trx64mc-<version> --target "$(tools/github_snapshot.py --map-lookup <the Gitea commit of the release>)" ...
-# The Gitea sha is what the manifest and the tag here name; release/github_map.txt maps it to the GitHub commit once it is exported.
 # The token comes from GITEA_TOKEN or tea's config and is never printed.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -67,7 +64,7 @@ files=$(curl -sf -H "Authorization: token $TOKEN" \
     | python3 -c 'import sys, json
 want = [f["name"] for f in json.load(sys.stdin)
         if f["name"].endswith(".cor") or f["name"].startswith("trx64host_update_") or f["name"].endswith("_mono.bit")
-        or f["name"] in ("c64_basic.bit", "manifest.json", "hostapp.app", "coreapp.bin", "unzip.u2a", "miniz.u2a")]
+        or f["name"] in ("c64_basic.bit", "manifest.json", "hostapp.app", "coreapp.bin", "unzip.u2a")]
 print(" ".join(want))') || { echo "package $VER not found" >&2; exit 1; }
 [ -n "$files" ] || { echo "package $VER holds no .cor" >&2; exit 1; }
 for f in $files; do
@@ -110,8 +107,7 @@ for b in "$PKG"/*_mono.bit; do
     [ "$(python3 "$ROOT/tools/core_toml.py" get "$id" build_only)" = "true" ] && { echo "    $id is build_only: left out"; continue; }
     [ -s "$PKG/coreapp.bin" ] || { echo "FAIL $id: the package has no coreapp.bin for the large .cor" >&2; exit 1; }
     bash "$ROOT/tools/pack_large_cor.sh" --id "$id" --name "$(python3 "$ROOT/tools/core_toml.py" get "$id" name)" \
-        --version "$(python3 "$ROOT/tools/core_toml.py" get "$id" version)" \
-        --short "$(python3 "$ROOT/tools/core_toml.py" get "$id" short)" --bit "$b" --app-bin "$PKG/coreapp.bin" \
+        --version "$(python3 "$ROOT/tools/core_toml.py" get "$id" version)" --bit "$b" --app-bin "$PKG/coreapp.bin" \
         --bit-commit "$BIT_COMMIT" --app-commit "$APP_COMMIT" --out "$PKG/large" > /dev/null || { echo "FAIL packing $id" >&2; exit 1; }
 done
 CORARGS=()
@@ -152,10 +148,8 @@ TXU="$(ls "$PKG"/trx64host_update_*.txu 2>/dev/null | head -1 || true)"
 
 # T180 D9: Unzip ships with the bundle, one copy for every core (/SD/cores/apps/unzip.u2a, INSTALL.md says so)
 [ -s "$PKG/unzip.u2a" ] || { echo "package $VER has no unzip.u2a" >&2; exit 1; }
-# T197 P5: the zip library Unzip loads rides beside it (the updater copies every .u2a beside the update file into <cores>/apps)
-[ -s "$PKG/miniz.u2a" ] || { echo "package $VER has no miniz.u2a (the zip library unzip.u2a needs)" >&2; exit 1; }
 
-bash "$ROOT/tools/make_release_mc.sh" --u2a "$PKG/unzip.u2a" --u2a "$PKG/miniz.u2a" --txu "$TXU" --id "$VER" --bit "${NULL_FULL:-$PKG/c64_basic.bit}" --app "$APP" \
+bash "$ROOT/tools/make_release_mc.sh" --u2a "$PKG/unzip.u2a" --txu "$TXU" --id "$VER" --bit "${NULL_FULL:-$PKG/c64_basic.bit}" --app "$APP" \
     --bit-commit "$BIT_COMMIT" --app-commit "$APP_COMMIT" --out "$OUT" ${UPDARGS[@]+"${UPDARGS[@]}"} "${CORARGS[@]}"
 
 D="$OUT/trx64mc-$VER"

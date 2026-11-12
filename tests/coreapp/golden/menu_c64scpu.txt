@@ -24,7 +24,6 @@ area F5 SCPU
     setting SuperCPU speed = 20 MHz | 1 MHz (default 20 MHz, live)
     setting JiffyDOS = Off | On (default Off, live)
     setting Joystick ports = Normal | Swapped (default Normal, live)
-    setting Datasette port = Off (file only) | External datasette (default Off (file only), live)
     setting System Mode = PAL | NTSC | PAL-60 | NTSC-50 (default PAL, live)
     setting Drive = Disabled | Enabled (default Enabled, live)
     setting Drive Bus ID = 8 | 9 | 10 | 11 (default 8, live)

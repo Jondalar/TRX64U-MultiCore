@@ -16,7 +16,7 @@ module tb_c264_pause;
     `define CORE(name, hold, ea, ec, een, ed, em, ew, hl) c264_core name ( \
         .sys_clk(sys_clk), .sys_rst(sys_rst), .cpu_clk(cpu_clk), .mclk(mclk), .ui_clk(ui_clk), .ui_rst(1'b0), \
         .reset_req(reset_req), .halt_req(hold), .halted(hl), .running(), .keys(64'd0), .joy1(5'd0), .joy2(5'd0), .restore(1'b0), \
-        .tp_read_pin(1'b1), .tp_sense_pin(1'b1), .iec_atn_i(1'b1), .iec_clk_i(1'b1), .iec_data_i(1'b1), .iec_atn_o(), .iec_clk_o(), .iec_data_o(), \
+        .iec_atn_i(1'b1), .iec_clk_i(1'b1), .iec_data_i(1'b1), .iec_atn_o(), .iec_clk_o(), .iec_data_o(), \
         .dma_req_tgl(1'b0), .dma_addr(16'd0), .dma_we(1'b0), .dma_wdata(8'd0), .dma_rom(1'b0), .dma_done_tgl(), .dma_rdata(), .dbg_busy(1'b0), \
         .win_port_use(), .win_port_addr(), .win_port_rom(), .win_port_we(), .win_port_wdata(), \
         .port_req(1'b0), .port_addr(16'd0), .port_rom(1'b0), .port_we(1'b0), .port_wdata(8'd0), .ram_rdata(), \

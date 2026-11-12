@@ -1,14 +1,14 @@
 # T108 — the Atari 800 XL starts what you give it: a disk, an executable or a cartridge
 
-**Status:** IN PROGRESS. D1 built and green 2026-10-17 (S1, S2, S4 and their controls, §5); S3, S5-S8 open. 2026-10-28 (Alex): the cartridge works on the board; S8 still needs a game from D1: and a .xex. **2026-11-15 sync:** the application stop of 5.6 (2026-10-23) is overtaken: the Atari application ran on the board on 2026-11-01 (`.atr` boots, README of 11-02) and its menu row (floppy LED) passed on 2026-11-04 (T159, 76ad599fa); the native tests for S5-S7 exist (`tests/coreapp/test_atari_xex.cc`, `test_atari_media.cc`, `test_atari_sio.cc`) but this sync did not re-check that each §2 scenario has its proof, and S3 (OPTION/BASIC off) and S8 (a .xex, a game from D1: with a photo) have no recorded pass; not DONE. The row's "recheck the 10-23 app stop" is outdated.
+**Status:** IN PROGRESS. D1 built and green 2026-10-17 (S1, S2, S4 and their controls, §5); S3, S5-S8 open. 2026-10-28 (Alex): the cartridge works on the board; S8 still needs a game from D1: and a .xex.
 **Repo:** TRX64U-MultiCore — the core application (`coreapp/cores/atari_*.cc`), the core's SIO and console
 inputs (`cores/atari800/trx/`), a new simulation under `cores/atari800/sim/`, `ci/sims.txt`.
 **Number:** T108 (registry: the table in `TODO.md`).
 **Origin:** Alex at the board, 2026-10-16, after Boulder Dash would not start: "Hm ... Spec ? ATARI 800
 sollte mit Disks, ATR, xex, und Cartidges starten bitte" (translated: the Atari 800 should start from
 disks, ATR, xex and cartridges).
-**Depends on:** [T88](done/T88-atari800-core.md) (the core itself, on the board since 2026-10-15),
-[T93](../todo/T93.md) (the application blueprint), [T104](done/T104-generic-core-app.md) (the file actions and
+**Depends on:** [T88](T88-atari800-core.md) (the core itself, on the board since 2026-10-15),
+[T93](../todo/T93.md) (the application blueprint), [T104](T104-generic-core-app.md) (the file actions and
 the media slots it describes).
 **Milestone:** M3.
 

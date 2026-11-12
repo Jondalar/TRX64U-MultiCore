@@ -40,7 +40,6 @@ struct LibApi {
     const SvcTrx *trx;
     const SvcNet *net;
     const SvcC64 *c64;
-    const SvcLib *lib;                    // base 3.1: the call tables of loaded libraries
 };
 // The app ABI: SvcFsEntry is frozen at 72 bytes (a 56 byte name); FsEntry carries the whole long name and the bridge (LibLoader::svc_list) converts.
 typedef char svc_fsentry_layout_check[(sizeof(SvcFsEntry) == 72 && sizeof(((SvcFsEntry *)0)->name) == 56) ? 1 : -1];
@@ -139,10 +138,6 @@ struct LibRecord {
     const LibSettingDecl *settings;       int nsettings;
     LibPollDecl poll;
     const LibTabDecl *tabs;               int ntabs;
-    // T197 (base 3.1): the call table of a library an application calls through api->lib->find; a table of function pointers in the image, its layout the
-    // library's own header. Null: none. Last in the record, so a library built before it (zero here) is read as it was.
-    const void *exports;
-    uint32_t exports_size;
 };
 
 typedef int (*lib_register_fn)(const LibApi *api, LibRecord *out);

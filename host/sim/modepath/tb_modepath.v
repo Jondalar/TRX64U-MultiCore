@@ -39,7 +39,7 @@ module tb;
     initial begin
         want[0] = 864*625*5;   want[1] = 1980*750*2;  want[2] = 2640*1125;   want[3] = 0;  want[4] = 0;   want[5] = 0;
 `ifdef T188
-        want[0] = 867*625*5;   want[1] = 1978*749*2;  want[2] = 2638*1125;   // T188: the Amiga copies (rows 0..2 bent to the Amiga frame)
+        want[0] = 880*625*5;   want[1] = 1960*750*2;  want[2] = 2640*1135;   // T188: the Amiga copies (rows 0..2 bent to the Amiga frame)
 `endif
         want[6] = 800*525*5;   want[7] = 1650*750*2;  want[8] = 2200*1125;   want[9] = 1052*650*3;  want[10] = 1344*806*2;  want[11] = 1688*1052;
     end
@@ -50,7 +50,7 @@ module tb;
         pll_fb[8] = 32'h2A416BED; pll_fb[9] = 32'h00D0034C; pll_fb[10] = 32'h10F11B6D; pll_fb[11] = 32'h0EF152CC;
         pll_lock[2] = 32'h037033ED; pll_lock[8] = 32'h3DE0F3CD;
 `ifdef T188
-        pll_fb[0] = 32'h0E81238D; pll_fb[1] = 32'h2AF143ED; pll_fb[2] = 32'h2B418BED; pll_lock[2] = 32'h0;   // no C64-type use of the Amiga copy
+        pll_fb[0] = 32'h33908BAD; pll_fb[1] = 32'h37209BED; pll_fb[2] = 32'h06308BEE; pll_lock[2] = 32'h0;   // no C64-type use of the Amiga copy
 `endif
     end
 

@@ -1,6 +1,6 @@
 # T189 — every core has a tone preset (Flat / Bass boost / Treble boost) beside the master volume, applied in the host
 
-**Status:** DECIDED (2026-11-07), D1-D7; build open (2026-11-15 sync: confirmed, no tone filter in host/ or coreapp/).
+**Status:** DECIDED (2026-11-07), D1-D7; build open.
 **Repo:** TRX64U-MultiCore — host gateware (a shelf filter before the T160 gain), the generic core application (setting, register write), `.cfg`.
 **Number:** T189 (`TODO.md`).
 **Origin:** GitHub issue #49 (a user of the C64U, 2026-11-05): "On small or TV speakers the Amiga cores sound thin in the low end. A simple choice of

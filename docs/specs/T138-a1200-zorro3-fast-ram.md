@@ -1,6 +1,6 @@
 # T138 — The A1200 has 32 MB Zorro III fast RAM
 
-**Status:** BUILT and merged (2026-11-15 sync: the first words "PROPOSED, building on t136-a1200-colour" were outdated; benches green and CI run 1027 WNS +0.107 ns, todo 2026-10-28), board S5 half passed, rest open. Original: PROPOSED (2026-10-28). 2026-11-13 status check: merged to main (Merge t136-a1200-colour into t148-core-folder); board S5 half: avail shows 32 MB (Alex 10-31); Deep Meet not tried (as row).
+**Status:** PROPOSED (2026-10-28), building on branch `t136-a1200-colour`.
 **Repo:** TRX64U-MultiCore — the A1200 large core (`cores/amiga1200/`), its benches, the core application (`coreapp/cores/amiga.cc`).
 **Number:** T138.
 **Origin:** Alex, 2026-10-28, at the board: the AGA demo "Deep Meet" (2024) runs on the Analogue Pocket's Amiga core, which "kommt aber

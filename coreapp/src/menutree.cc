@@ -485,9 +485,6 @@ int menu_dump(const CoreDesc *d, const MenuTree *t, char *out, int max)
                     if (s.kind != 3) {
                         EMIT(" (default %s, %s)", s.values[s.def], s.when == WHEN_RESET ? "at next reset" : "live");
                     }
-                    if (s.show_state) {
-                        EMIT(" [listed while %s]", s.show_state);          // T216 S3: a row that depends on a state is told in the dump
-                    }
                 } else if (e.kind == EK_TASK) {
                     EMIT("%s%s", d->tasks[e.index].closes_menu ? " (closes the menu)" : "", d->tasks[e.index].ask ? " (asks a name)" : "");
                 } else if (e.kind == EK_NODE) {

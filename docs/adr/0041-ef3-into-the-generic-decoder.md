@@ -18,8 +18,8 @@ Full emulation parked at tags park/ef3-full and park/ef3-full-app ("keep it in g
 
 ## Links
 
-- [T51](../specs/README.md#belonged-to-trx64-ultimate)
-- [T33](../specs/README.md#belonged-to-trx64-ultimate)
-- [T57](../specs/README.md#belonged-to-trx64-ultimate)
-- [T51-ef3.md](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/T51-ef3.md)
-- [PROP-002-cartridge-mapping-descriptor.md](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/PROP-002-cartridge-mapping-descriptor.md)
+- [T51](../../docs/specs/T51-ef3.md#status-and-history)
+- [T33](../../docs/specs/T33-generic-cart-decoder.md#status-and-history)
+- [T57](../../docs/specs/T57-trex-crt-both-cores.md#status-and-history)
+- [docs/specs/T51-ef3.md](../../docs/specs/T51-ef3.md)
+- [docs/specs/PROP-002-cartridge-mapping-descriptor.md](../../docs/specs/PROP-002-cartridge-mapping-descriptor.md)

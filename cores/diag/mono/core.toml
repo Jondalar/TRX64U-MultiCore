@@ -4,7 +4,6 @@
 # ci/bitstream_mono.sh find the core by cores/diag/mono/core.toml, lane large-diag. Network on (no NO_NET): Alex 2026-11-02 "WiFi, FTP etc. on in this core".
 id           = "diag"
 name         = "Port Diagnostics"
-short        = "DIAG"                 # T209 D15: no logo, the boot menu's text tile says this
 version      = "0.1.0"
 contract     = 2
 app          = "blueprint"     # the T104 generic core application; the descriptor coreapp/cores/portdiag.cc is the other half of T175

@@ -169,18 +169,6 @@ SRCS_CC	 =  u64ii_init.cc \
 			host_core_flow_esp.cc \
 			host_core_flow_fileops.cc \
 			host_core_flow_wifi.cc \
-			host_core_flow_zip.cc \
-			hostzip_board.cc \
-			appindex.cc \
-			libload.cc \
-			libscan.cc \
-			libmenu.cc \
-			descrec.cc \
-			ops.cc \
-			corefolder.cc \
-			fm_fs.cc \
-			fm_medium.cc \
-			fastseek.cc \
 			host_core_nav.cc \
 			host_core_cm.cc \
 			host_core_cfgov.cc \

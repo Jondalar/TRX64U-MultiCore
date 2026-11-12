@@ -41,7 +41,7 @@ All routes use `screen_create_event` only to make the UX clickable in LVGL Pro.
 They do not imply firmware execution. `settings_page`, file action sheets, and
 the complete action catalogue are runtime templates rather than handwritten
 copies of the firmware registries. In step 2, the adapters in
-`T24-ui-wiring.md` (TRX64-Ultimate) populate them and dispatch actual commands while
+`../../specs/T24-ui-wiring.md` populate them and dispatch actual commands while
 the screen hierarchy stays the same. See [`../UI-COVERAGE.md`](../UI-COVERAGE.md).
 
 Focus order follows document order. The ASCII footer uses `[CRSR]` for movement,

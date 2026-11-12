@@ -83,8 +83,7 @@ module amiga_core #(
     input  wire [31:0]  build,
     input  wire [63:0]  ddr_cal,
     output wire         drv_led,                    // T159 D2: a drive motor runs, or the hard disk is accessed (sys_clk)
-    output wire         drv_hd,                     // T159 D4: the hard disk access alone (sys_clk)
-    output wire         frame_done_o                // T188 D3: a toggle (sys_clk) when a frame is complete in the DDR2 (amiga_fb frame_done_tgl); the host's output follows it
+    output wire         drv_hd                      // T159 D4: the hard disk access alone (sys_clk)
 );
     parameter [26:0] BASE = 27'h0800000;           // DDR2 byte 0x1000000 (16-bit word address)
 
@@ -323,5 +322,4 @@ module amiga_core #(
     assign running = ~hold;
     assign drv_led = motor_led;
     assign drv_hd = motor_hd;
-    assign frame_done_o = fd_tgl;
 endmodule

@@ -1,7 +1,8 @@
 # The core-application blueprint (T93)
 
 One application on the lean base (LVGL, Freeze only) that every core without Gideon's Ultimate application runs. This
-build serves every core whose `core.toml` says `app = "blueprint"`: the A500 and the A1200 (Amiga), atari800, nes, apple2, zx, zxnext, cpc, vc20, c264, c128, pet, snes, neogeo, c64scpu, diag and the two DDT demos. Only the C64 reference core (`trx64g.cor`) runs Gideon's Ultimate application; `trx64u.cor` runs our own application (the VC-20 and the C16/Plus/4 left Gideon's application on 2026-10-22, Alex; the A500 uses the blueprint since T93).
+build serves **atari800**, **nes**, **apple2**, **zx**, **cpc**, **zxnext**, **vc20**, **c264** and the A1200 (spec section 5.3; T89, T91, T92, T116, T83 and T90 section 5); the A500 Amiga keeps its
+Gideon-base application, the C64 reference core (`trx64`) and `c64u` keep the full Ultimate app (the VC-20 and the C16/Plus/4 left it on 2026-10-22, Alex).
 
 - `src/` the shared services: start and identity (`start.cc`), the hand-over (`host-app/software/hostapp/handover.*`), settings
   and the `.cfg` format (`settings.cc`, `cfgfile.cc`), the ROM manager (`romfind.cc`, `boot.cc`), the whitelist menu (`menutree.cc`,

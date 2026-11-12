@@ -1,6 +1,6 @@
 # T170 — The C128 core works with real drives on the board's serial (IEC) port, 1541 and 1571 with fast serial
 
-**Status:** PROPOSED (2026-10-31, Alex). Status check 2026-11-13: PROPOSED stays; D1/D2 decided (Alex 10-31); nothing built (cores/c128/c64_top_c128.v ties CIA sp_in/cnt_in high). 2026-11-15 sync: re-checked against the code, still nothing built (c64_top_c128.v:934,936,991,993 tie sp_in/cnt_in to 1; mono/top.v:742 ties IEC_SRQ_O to 0; no IEC_SRQ_I port). Line cites in §2 are of the 2026-10-31 file.
+**Status:** PROPOSED (2026-10-31, Alex).
 **Repo:** TRX64U-MultiCore — `cores/c128/` (large core), `cores/common/` (IEC bus).
 **Number:** T170 (TODO table).
 **Origin:** Alex, 2026-10-31, at the Sony TV: "we should support the analogue ports for the floppies (serial port)" (translated); the room for it

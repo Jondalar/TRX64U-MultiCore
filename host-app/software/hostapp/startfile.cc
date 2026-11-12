@@ -137,7 +137,7 @@ void startrec_decide(const DirectIn &in, DbReason why)
     }
     put("input: cfg %d, direct %d, cores %d, default %d, marker %d, C= %d, fire %d, default file %d\n", in.cfg_loaded, in.direct, in.n, in.def,
         in.marker, in.key_cbm, in.key_fire, (int)in.dstate);
-    put("t=%6u ms decision: %s%s\n", (unsigned)t, why == DB_START ? "START the auto core" : directboot_text(why),
+    put("t=%6u ms decision: %s%s\n", (unsigned)t, why == DB_START ? "START the default core" : directboot_text(why),
         why == DB_START ? "" : directboot_stops_countdown(why) ? " (countdown stopped)" : " (countdown runs)");
     if (why == DB_START) {
         g_reserve = 0;

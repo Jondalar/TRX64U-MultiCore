@@ -20,5 +20,5 @@ Overturned the next day by decision 9.
 
 ## Links
 
-- [T29](../specs/README.md#belonged-to-trx64-ultimate)
+- [T29](../../docs/specs/T29-turbo.md#status-and-history)
 - [docs/architecture-reset-2026-10-05.md](../../docs/architecture-reset-2026-10-05.md)

@@ -1,6 +1,6 @@
 # T140 — The board puts out an analogue picture: S-Video (Y/C) and composite, PAL and NTSC
 
-**Status:** PROPOSED (2026-10-28), asked by Alex. C128 build and bench done 2026-10-30 (branch t140-c128-av, §5); no Vivado run, no board. 2026-11-13 status check: built in part and merged (C128 AV, #19/#21 fixed 11-09, #67 board pass 11-11); open: hang after warm reset, load stop, T170 SRQ (as row). 'no Vivado run, no board' above is outdated. 2026-11-15 sync: re-read against the code - D23 (menu on the analogue picture) is still not built (`cores/c128/mono/top.v:1424-1431` feeds `c128_avout` only the VIC's `pix_color`; no overlay or pixel layer reaches `AVID_*`); T170 SRQ still not wired (`c64_top_c128.v:934-936,991-993`, `mono/top.v:742`; the line cites in items 6/10 are of 2026-10-31); S-Video/composite PAL+NTSC board measurement is on the 11-14 session list, no result recorded.
+**Status:** PROPOSED (2026-10-28), asked by Alex. C128 build and bench done 2026-10-30 (branch t140-c128-av, §5); no Vivado run, no board.
 **Repo:** TRX64U-MultiCore — the host (`host/`: the encoder and the pins; a host change, Alex approves it, `host_pin` in
 the same commit), the host app (T139 settings page, D5), large cores (their copy of `top.v`).
 **Number:** T140.

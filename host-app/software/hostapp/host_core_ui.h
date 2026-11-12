@@ -17,7 +17,7 @@
 #include "host_core_job.h"
 #include "lineedit.h"
 
-enum HcUiFlow { HUF_RENAME = 1, HUF_CONVERT, HUF_RESTORE, HUF_UPDATE, HUF_FORMAT, HUF_INSPECT, HUF_CFGRENAME, HUF_UNZIP };      // the flows whose pages the screen runs (arg: the path, the medium's name, the entry's index)
+enum HcUiFlow { HUF_RENAME = 1, HUF_CONVERT, HUF_RESTORE, HUF_UPDATE, HUF_FORMAT, HUF_INSPECT, HUF_CFGRENAME };      // the flows whose pages the screen runs (arg: the path, the medium's name, the entry's index)
 enum HcUiColors { HUC_REPORT = 1, HUC_SINGLE, HUC_MULTI };                                              // the colour test's buffer actions
 
 struct HcUiEnv {
@@ -101,7 +101,7 @@ const PicPage &hc_ui_pm(void);             // T187 D5: the Picture page's rows a
 void hc_ui_pm_refresh(bool keep);                 // the rows are read again (a change, a hot-plug); keep: the cursor keeps its mode
 void hc_ui_pm_open(void);                         // the Picture page opens over the settings rows (F8 > Picture, RETURN)
 void hc_ui_pm_key(int act);
-bool hc_ui_picture_step(void);                    // V: opens the Picture page
+bool hc_ui_picture_step(void);                    // V: the next mode (the stored choice steps through)
 bool hc_ui_stepped_to(int hdmi);
 void hc_ui_settings_change(int kind, int dir);    // dir: -1 LEFT, +1 RIGHT / RETURN
 void hc_ui_wifi_key(int act, int rawk);           // the WiFi page's keys

@@ -15,7 +15,6 @@ enum HMode { HMODE_NORMAL = 0, HMODE_PICK, HMODE_INSPECT };
 struct HRow {
     char ident[96];                       // what the row IS: the id is made from it
     char title[96], sub[140], badge[28], value[40];
-    char ver[24];                         // T209 D16: an entry's version as the menu shows it (no leading v), "" while unknown
     bool dir, def, startable, enabled, marked;
     int configs;                          // T198 S13: an entry's configs (0 = none)
 };

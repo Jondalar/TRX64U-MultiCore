@@ -1,10 +1,10 @@
 # T107 — the person can choose the picture of every core application, and the picture follows
 
-**Status:** IN PROGRESS (2026-10-16): built and benched on the Mac, board step open. 2026-11-13 status check: still IN PROGRESS. **2026-11-15 sync:** D7/D8/D11 are BUILT in T164 (host/pix_layer.v phase accumulator and SMOOTH, `hdmi_out #(.SMOOTH(1))` at host/top.v:1400, EDID filter `video_modes_offered` in coreapp/src/picture.cc:120; T164 merged, package main-b8b6bcf7) and seen on the board 2026-11-02..04 (host V key, A1200, C128 picture, Auto = host mode, T164 todo); the 720-wide UI is built as the compact layout (T164 D10a); a revert question exists (T164 Q7, board seen 11-04), so §4's "no confirm timer" is overtaken. Sony cause found (§5.9, pixel repetition). Not recorded: a board retest of the NES picture at 720p (the original board step).
+**Status:** IN PROGRESS (2026-10-16): built and benched on the Mac, board step open.
 **Repo:** TRX64U-MultiCore — the core application (`coreapp/src`), the shared video library (`app/video`), benches in `tests/coreapp`.
 **Number:** T107 (table in `TODO.md`).
 **Origin:** Alex at the board, 2026-10-16 (translated): "Wait .. then surely the HOST and CORE apps should each be allowed to CHOOSE the mode. The Gideon-based U1541FW apps do it that way too." Then: "Where is the resolution? That built for hours." and, on the Atari, "No resolution on the Atari either." And: "Gideon's apps can switch the screen, in mode and in resolution - please let all the other cores do that too. Scaling must then adapt." And: "also for the Atari 800 ... the resolution is the same as with the NES, there too we should be able to take 720p etc."
-**Depends on:** [ADR-0057](../adr/0057-every-application-owns-the-video-mode.md) (the application owns the mode), [T105](done/T105-video-mode.md) (the mode machinery: EDID, `video_apply`, the hand-over), T104 (the generic application and its settings).
+**Depends on:** [ADR-0057](../adr/0057-every-application-owns-the-video-mode.md) (the application owns the mode), [T105](T105-video-mode.md) (the mode machinery: EDID, `video_apply`, the hand-over), T104 (the generic application and its settings).
 **Milestone:** M1.
 
 ---

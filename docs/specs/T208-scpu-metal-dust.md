@@ -1,6 +1,6 @@
 # T208 — Metal Dust runs on the C64SCPU core without picture faults
 
-**Status:** BUILT in simulation (2026-11-11): S1-S3 and S5 proven in sim (review fixes of the same day included); S4 (board) is open and Alex's. Corrected 2026-11-13 (status check): sims S1-S3 and S5 pass, merged to main (2d1458ef2); S4 board FAIL 2026-11-12 (Alex: flicker remains with the prefetch), cause open; branches t208-smc (benches, no bug found) and t208-trace (debug core, never merge) are not in main. 2026-11-15 sync: verified in main (prefetch `scpu_cache.v` `pf_pend`, bench `c64scpu_mdust` `ci/sims.txt:344`); no branch t208-smc exists locally or on origin any more; `scpu-ba-hold` (BA hold of I/O writes, `ba_q` in `scpu_mem.v`) and `t208-trace` (origin) are unmerged: main has no `ba_q`.
+**Status:** BUILT in simulation (2026-11-11): S1-S3 and S5 proven in sim (review fixes of the same day included); S4 (board) is open and Alex's.
 **Repo:** TRX64U-MultiCore — `cores/c64scpu/` (scpu_mem.v mirror queue, cpu65816 IRQ, c64scpu_ramd.v).
 **Number:** T208.
 **Origin:** Alex, 2026-11-11 (board, CMD ROM 1.4 + JiffyDOS): Metal Dust starts; still pictures fine; while it scrolls the asteroid sprites are cut and
@@ -122,5 +122,3 @@ S5 (2026-11-11, `scpu_cache.v`, `scpu_mem.v`, `cpu65816_c64scpu.v`): next-line p
   immune to data sweeps, which the prefetch does not (a jump into a stage that the sweep evicted still pays one refill, before its first write in the bench). (3) a 2-way data cache of the same 8 KiB:
   256 sets x 2 ways, the same 2 RAMB36 but a way mux over 128 bits (+~130 LUT), LRU bits, two tag compares in the multicycle path of `hit`; it keeps a code line against a single conflicting data line
   but not against a sweep (both ways are evicted by 8 KiB of data), so it helps less than (2) for this game.
-
-S4 board 2026-11-12 (Alex, c64scpu.cor of main-736c16d9 with the S5 prefetch): FAIL, "the flicker artefacts are still there, fix attempt (1) did not help with Metal Dust" (translated). Next: measure on the board which stage misses before choosing option 2/3 or another cause.

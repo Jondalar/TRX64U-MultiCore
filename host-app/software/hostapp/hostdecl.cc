@@ -30,27 +30,25 @@ const HAction ACTIONS[] = {
     KEYS("entry.start", "Start", HVW_MENU, "entry", HAF_ROW | HAF_FLOW, 0, -1, "a startable entry; foreign firmware asks first"),
     // ---- the old web page's commands (T106) as intents of the service: from any view, the screen stays where it is; the question for foreign firmware is not asked (nobody there can answer it)
     KEYS("web.start", "Start (web page)", -1, "entry", HAF_ROW | HAF_FLOW, 0, -1, "the T106 page's start: as Start, with no question"),
-    KEYS("web.default", "Make auto (web page)", -1, "entry", HAF_ROW, 0, -1, "the T106 page's default"),
+    KEYS("web.default", "Make default (web page)", -1, "entry", HAF_ROW, 0, -1, "the T106 page's default"),
     KEYS("web.video", "Picture (web page)", -1, 0, 0, 0, -1, "the T106 page's picture: the argument is the mode"),
     KEYS("web.countdown", "Countdown (web page)", -1, 0, 0, 0, -1, "the T106 page's countdown: the argument is the seconds, 0 is off"),
-    KEYS("config.list", "Configs", HVW_MENU, "entry", HAF_ROW, 0, -1, "a core with configs: opens the list, the cursor on its auto config; none: nothing happens"),
+    KEYS("config.list", "Configs", HVW_MENU, "entry", HAF_ROW, 0, -1, "a core with configs: opens the list, the cursor on its default config; none: nothing happens"),
     KEYS("config.start", "Start with the config", -1, 0, 0, 0, -1, "while the config list is open: the config under the cursor (the first row is the plain start)"),
     KEYS("config.rename", "Rename the config", -1, 0, HAF_FLOW, 0, -1, "while the config list is open: opens the name field"),
     KEYS("config.delete", "Delete the config", -1, 0, HAF_DESTRUCTIVE | HAF_FLOW, "Delete this config?", -1, "while the config list is open: the screen arms with DEL and deletes with the second DEL"),
-    KEYS("config.default", "Make the auto config", -1, 0, 0, 0, -1, "while the config list is open: marks the config under the cursor as the entry's auto config, again clears it"),
+    KEYS("config.default", "Make the default config", -1, 0, 0, 0, -1, "while the config list is open: marks the config under the cursor as the entry's default, again clears it"),
     KEYS("entry.recheck", "Check again", HVW_MENU, "entry", HAF_ROW, 0, -1, "the full check of the entry, stored anew"),
     KEYS("entry.move_up", "Move up", HVW_EDIT, "entry", HAF_ROW, 0, -1, "the editor"),
     KEYS("entry.move_down", "Move down", HVW_EDIT, "entry", HAF_ROW, 0, -1, "the editor"),
-    KEYS("entry.default", "Make auto", HVW_EDIT, "entry", HAF_ROW, 0, -1, "the editor"),
+    KEYS("entry.default", "Make default", HVW_EDIT, "entry", HAF_ROW, 0, -1, "the editor"),
     KEYS("entry.remove", "Remove from the menu", HVW_EDIT, "entry", HAF_ROW | HAF_DESTRUCTIVE, "Remove this entry from the boot menu?", -1, "the editor: the screen arms with DEL and removes with the second DEL"),
-    KEYS("entry.config_prev", "Auto config, previous", HVW_EDIT, "entry", HAF_ROW, 0, -1, "the editor: none / the core's configs, backwards"),
-    KEYS("entry.config_next", "Auto config, next", HVW_EDIT, "entry", HAF_ROW, 0, -1, "the editor: none / the core's configs, forwards"),
+    KEYS("entry.config_prev", "Default config, previous", HVW_EDIT, "entry", HAF_ROW, 0, -1, "the editor: none / the core's configs, backwards"),
+    KEYS("entry.config_next", "Default config, next", HVW_EDIT, "entry", HAF_ROW, 0, -1, "the editor: none / the core's configs, forwards"),
     KEYS("entry.rename", "Rename", HVW_EDIT, "entry", HAF_ROW | HAF_FLOW | HAF_TEXT, 0, -1, "the editor: opens the name field; `value` is the new name"),
     // ---- the File Browser (F3) ---------------------------------------------------------------------------------------------------------
     KEYS("browse.open", "Open", HVW_BROWSE, "file", HAF_ROW | HAF_FLOW, 0, -1, "a folder opens; in the pick modes RETURN is the pick"),
     KEYS("browse.up", "Parent folder", HVW_BROWSE, 0, 0, 0, -1, "not at the media level"),
-    KEYS("menu.page_down", "Page down", HVW_MENU, 0, 0, 0, -1, "one page of rows"),
-    KEYS("menu.page_up", "Page up", HVW_MENU, 0, 0, 0, -1, "one page of rows"),
     KEYS("browse.page_down", "Page down", HVW_BROWSE, 0, 0, 0, -1, "one page of rows"),
     KEYS("browse.page_up", "Page up", HVW_BROWSE, 0, 0, 0, -1, "one page of rows"),
     KEYS("browse.add", "Add to the boot menu", HVW_BROWSE, "file", HAF_ROW, 0, HMODE_NORMAL, "a .cor bundle or a .cfw firmware"),
@@ -61,7 +59,6 @@ const HAction ACTIONS[] = {
     KEYS("browse.convert", "Convert a firmware", HVW_BROWSE, "file", HAF_ROW | HAF_FLOW, 0, HMODE_NORMAL, "a .cfw / .ue2 file"),
     KEYS("browse.restore", "Restore a firmware", HVW_BROWSE, "file", HAF_ROW | HAF_FLOW, 0, HMODE_NORMAL, "a .cfw file or a backup .cor; asks before any write"),
     KEYS("browse.update", "Install an update", HVW_BROWSE, "file", HAF_ROW | HAF_FLOW, 0, HMODE_NORMAL, "a .txu file; asks before any write"),
-    KEYS("browse.unzip", "Unzip", HVW_BROWSE, "file", HAF_ROW | HAF_FLOW, 0, HMODE_NORMAL, "a .zip file; asks into a folder, here or one file"),
     KEYS("browse.format", "Format the medium", HVW_BROWSE, "file", HAF_ROW | HAF_FLOW, 0, HMODE_NORMAL, "at the media level; its pages ask for the medium's name"),
     KEYS("browse.pick_cancel", "Cancel the pick", HVW_BROWSE, 0, 0, 0, -1, "copy / move target pick, firmware inspection pick"),
     ACT("browse.pick_here", "Use this folder", HA_FIELD, HVW_BROWSE, 0, "pick.here", 1, HAF_FLOW, 0, HMODE_PICK, "the folder the browser shows is the target of the copy or move"),
@@ -138,7 +135,7 @@ const HPage PAGES[] = {
 const char *const ROW_ENTRY[] = { "entry.start", "config.list", "entry.recheck", 0 };
 const char *const ROW_EDIT[] = { "entry.move_up", "entry.move_down", "entry.default", "entry.config_prev", "entry.config_next", "entry.rename", "entry.remove", 0 };
 const char *const ROW_FILE[] = { "browse.open", "browse.add", "browse.start", "browse.copy", "browse.move", "browse.delete", "browse.convert", "browse.restore",
-                                 "browse.update", "browse.unzip", "browse.format", 0 };
+                                 "browse.update", "browse.format", 0 };
 
 const HostDecl DECL = {
     PAGES, (int)(sizeof(PAGES) / sizeof(PAGES[0])), ITEMS, (int)(sizeof(ITEMS) / sizeof(ITEMS[0])), ACTIONS, (int)(sizeof(ACTIONS) / sizeof(ACTIONS[0])),

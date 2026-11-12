@@ -2,7 +2,7 @@
 
 Date: 2026-10-16
 
-Status: Accepted (answers the first open question of [T104](../specs/done/T104-generic-core-app.md) §5.7)
+Status: Accepted (answers the first open question of [T104](../specs/T104-generic-core-app.md) §5.7)
 
 ## Context
 
@@ -48,7 +48,7 @@ disk inserted).
   rebuilt and uploaded. Done the same day: fork commit `c116767e`, package version **2** with all seven
   applications, and `ci/package.sh` defaults to that version. The rule itself is `amiga_ks.c` with the
   host bench `target/pc/linux/amigakstest` (26 checks, control `amigakscontrol` red).
-- For the generic application ([T104](../specs/done/T104-generic-core-app.md)) this is a property of the
+- For the generic application ([T104](../specs/T104-generic-core-app.md)) this is a property of the
   `rom_set` entry, not of a core module: a ROM set may be chosen by a **field inside the file**, not only
   by extension and size (§5.2), and the media slots of §5.2 have no auto-mount.
 - The AmigaVision set keeps working: its Kickstart is 3.1, so the AGA core picks it. Which of two 3.1
@@ -56,5 +56,5 @@ disk inserted).
 
 ## Links
 
-- [T104](../specs/done/T104-generic-core-app.md) §5.7, [T85](../todo/T85.md), [T102](../todo/T102.md),
+- [T104](../specs/T104-generic-core-app.md) §5.7, [T85](../todo/T85.md), [T102](../todo/T102.md),
   [T97](../todo/T97.md)

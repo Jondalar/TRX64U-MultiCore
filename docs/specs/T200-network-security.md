@@ -1,6 +1,6 @@
 # T200 — Nothing on the LAN changes the board, starts code or reads the machine without the token the person granted on the board
 
-**Status:** PROPOSED (2026-11-10, Alex: "make a security spec out of it; we can tackle it step by step", translated). Nothing decided yet. 2026-11-15 sync: no P1-P7 build exists; F4 and F6 were checked on a tree from before T192.3 D31 (`bfcd0211c`, 2026-11-10 21:06, 22 min after the 3887b1dbf check): the token gate now runs in every core of the generic app, see the F4/F6 rows.
+**Status:** PROPOSED (2026-11-10, Alex: "make a security spec out of it; we can tackle it step by step", translated). Nothing decided yet.
 **Repo:** TRX64U-MultiCore — host app (`host-app/software/hostapp/`: `webnet.cc`, `webui.{h,cc}`, `host_core_flow.cc`, `txu.cc`), core app
 (`coreapp/src/`: `rest.cc`, `uiapp.cc`, `monsrv.{h,cc}`, `update.cc`), the shared UI service (`uicore/`), release tooling (`tools/github_snapshot.py`,
 `tools/release_mc.sh`).
@@ -24,12 +24,12 @@
 | F1 | Host web routes change the board without a token: `/v1/boot`, `/v1/menu/remove`, `/v1/default`, `/v1/countdown`, `/v1/video` | open | `host-app/software/hostapp/webui.cc:340-372`; `webnet.cc:93-96` gates only paths under `/v1/ui/` |
 | F2 | The header of the host web UI says the opposite ("nothing here touches the menu, the settings or the picture") | open, wrong comment | `host-app/software/hostapp/webui.h:8` |
 | F3 | `POST /v1/ui/grant` is public: on a board with no token yet, the first LAN client that calls it gets the token | open (new with T192) | `uicore/uic_svc.cc:413-430` (refused only when a token or token file exists) |
-| F4 | The token gate of the core app existed only for the Amiga 1200 and TRX64U | built since by T192.3 D31 (2026-11-10): `service_core` is true for every core with a descriptor; still no token (auth off) for a core with no core folder (`uiapp.cc` `file_save = 0`); S3 has no recorded test | `coreapp/src/uiapp.cc:1129-1132`, `:1146-1147`, `coreapp/src/rest.cc:527` |
+| F4 | The token gate of the core app exists only for the Amiga 1200 and TRX64U; every other core's REST and WebSocket run with no token, destructive operations without a question | open (T192 H3 scope) | `coreapp/src/uiapp.cc:1124-1135` (`service_core`), `coreapp/src/rest.cc:527` (gate only when `rest_uic` is set) |
 | F5 | The monitor RPC on TCP 4312 has no token; while the UI service runs only some methods are refused (`monitor/exec`, `checkpoint/restore`, `transport/goto`, `mark/goto`, `runtime/reverse_step`, `media/*`, `sandbox/*`); memory read/write is not in that list (the full method list of `trxmon/tm_rpc.c` not yet read) | partly | `coreapp/src/monsrv.cc:171-200`, `monsrv.h:27-35` |
-| F6 | `update.run_record` runs a `.cfw` with no signature (fingerprint, product family, product and record bounds only); behind the token and an on-screen question in every core with a core folder (D31); the host app's own `.txu` route was not re-checked | partly | `coreapp/src/update.cc:60-100`, `coreapp/src/uiapp.cc:153` |
+| F6 | `update.run_record` runs a `.cfw` with no signature (fingerprint, product family, product and record bounds only); now behind the token and an on-screen question for the cores of F4, open for the others | partly | `coreapp/src/update.cc:60-100`, `coreapp/src/uiapp.cc:153` |
 | F7 | The "Network Password" setting of the vendor code protects none of our REST/WebSocket routes (no `X-Password` check in `coreapp/` or `host-app/`) | open, by design since T192 (the token replaces it) | grep; `vendor/gideon/.../network_config.cc:18` |
 | F8 | The `.txu` host update writes the flash with no backup first | open | `host-app/software/hostapp/host_core_flow.cc` (~740-773, `fw_write_parts`, no backup step) |
-| F9 | A release names a commit (`trx64_commit` in the manifest) under its Gitea sha; on GitHub it is the commit `release/github_map.txt` maps it to (T120 D-history; the public history is the filtered replay of Gitea's); `SHA256SUMS` comes from the same release, nothing is signed | open, by design (T120) | `tools/release_mc.sh`, `tools/github_snapshot.py --map-lookup` |
+| F9 | A release names a commit (`trx64_commit` in the manifest) that does not exist on GitHub: the public tree is one parentless snapshot commit; `SHA256SUMS` comes from the same release, nothing is signed | open, by design (T120) | `tools/release_mc.sh:86`, `tools/github_snapshot.py:120-127` |
 | F10 | FTP: the review says any user with an empty password is accepted | not checked yet | — |
 
 Not a finding: an app-only `.txu` skips the IDCODE check (`txu.cc:216-221`) because it carries no bitstream to check.

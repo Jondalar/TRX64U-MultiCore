@@ -1,6 +1,6 @@
 # T178 — The JTAG tools (trxdbg, load, jtag_stat, partial load) work through an FT232H as well as the USB-Blaster
 
-**Status:** DECIDED (2026-11-03, Q1-Q3 answered by Alex); build not started (2026-11-15 sync: confirmed, no --cable/FT232H code in tools/).
+**Status:** DECIDED (2026-11-03, Q1-Q3 answered by Alex); build not started.
 **Repo:** TRX64U-MultiCore — `tools/` (JTAG tools), `docs/board-tooling.md`; the cable layer comes from
 `chrisgleissner/1541ultimate-tools` (our fork `Jondalar/1541ultimate-tools`, Gitea `TREX/1541ultimate-tools`).
 **Number:** T178.

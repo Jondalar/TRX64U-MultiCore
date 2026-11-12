@@ -102,7 +102,6 @@ static const uint32_t autot_ms[] = { 500, 1000, 2000, 3000 };
 #define AUTOT_DEF 1
 
 static const char *const joy_names[]   = { "Normal", "Swapped" };
-static const char *const dset_names[]  = { "Off (file only)", "External datasette" };
 // T140 D24: the System Mode, the four the C64 Ultimate offers (menu.toml sysmodes): the VIC's line and frame, the machine's clock and the colour standard of the
 // analogue output (cores/c128/mono/c128_avout.v) follow it. Values in the order of t_video_mode.
 #define KEY_SYSMODE "System Mode"
@@ -111,13 +110,12 @@ static const char *const sysmode_names[] = { "PAL", "NTSC", "PAL-60", "NTSC-50" 
 // takes {b5 != b0, b0} as the mode: PAL 63 cycles 0, NTSC 65 cycles 1, PAL-60 65 cycles 2, NTSC-50 63 cycles 3.
 static const uint8_t sysmode_fmt[4] = { 0x00, 0x2B, 0x2A, 0x01 };
 
-static const Setting settings[12 + CBM1541_NSETTINGS] = {
+static const Setting settings[11 + CBM1541_NSETTINGS] = {
     { KEY_D4080, d4080_names, 2, 0, WHEN_RESET, "c128.set_d4080", 0, 0, 0, 0, 0, "40/80 DISPLAY" },
     { KEY_MON,   mon_names,   2, 0, WHEN_LIVE, "c128.set_monitor", 0 },
     { KEY_AUTO,  onoff_names, 2, 1, WHEN_LIVE, "c128.set_auto", 0 },
     { KEY_AUTOT, autot_names, 4, AUTOT_DEF, WHEN_LIVE, "c128.set_auto_time", 0 },
     { "Joystick ports", joy_names, 2, 0, WHEN_LIVE, "c128.set_joy", 0 },
-    { "Datasette port", dset_names, 2, 0, WHEN_LIVE, "c128.set_dset", 0 },
     { KEY_SYSMODE, sysmode_names, 4, 0, WHEN_LIVE, "c128.set_sysmode", 0 },
     { KEY_ROMSET, romset_names, 2, 0, WHEN_RESET, "c128.set_romset", 0 },
     { KEY_JF_C128, kit_none, 1, 0, WHEN_RESET, "c128.use_jiffy_c128", 0, 0, 0, 3 },
@@ -406,14 +404,6 @@ static int op_toggle_picture(CoreCtx *c, const OpArgs &, OpOut &o)
     int w = 1 - (c->io->rd(C128_MON_SEL) & 1);
     auto_set(c, w, c->io->now_ms());
     snprintf(o.msg, (size_t)o.msglen, "Picture %s", w ? "80 columns" : "40 columns");
-    return OPE_OK;
-}
-
-// T214: an external datasette on the C2N port (same device as on the PET, GitHub #26). PIN_CTRL b0 MOTOR and b1 WRITE driven, b4 READ / SENSE are inputs (0x13);
-// b2 / b3 stay off (the file streamer must not drive READ or pull SENSE then). Off releases every pin. WRITE out is not proven by a SAVE on real tape yet.
-static int op_set_dset(CoreCtx *c, const OpArgs &a, OpOut &)
-{
-    c->io->wr(C128_PIN_CTRL, (uint8_t)(a.i(0) ? 0x13 : 0x00));
     return OPE_OK;
 }
 
@@ -1095,7 +1085,6 @@ static void c128_register(OpRegistry &r)
     r.add_op("c128.toggle_picture", 0, 0, op_toggle_picture);
     r.add_op("c128.set_d4080", mon_arg, 1, op_set_d4080);
     r.add_op("c128.set_joy", mon_arg, 1, op_set_joy);
-    r.add_op("c128.set_dset", mon_arg, 1, op_set_dset);
     r.add_op("c128.set_sysmode", sysmode_arg, 1, op_set_sysmode);
     r.add_op("c128.service", 0, 0, op_service);
     r.add_op("c128.type_script", text_arg, 1, op_type);
@@ -1132,7 +1121,7 @@ const CoreDesc c128_desc = {
     "C128 Settings",
     1,
     roms, 3,
-    settings, 12 + CBM1541_NSETTINGS,
+    settings, 11 + CBM1541_NSETTINGS,
     tasks, 2 + CBM1541_NTASKS + CBM1581_NTASKS,
     filetypes, 5,
     media, 1,

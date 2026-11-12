@@ -8,7 +8,7 @@ are not reconstructed mockups. The screenshots were captured on 10 October
 The prototype uses preview data and currently documents hierarchy, focus,
 status, navigation, and confirmation flows. Firmware actions are connected in
 step 2 through the adapters in
-[`T24-ui-wiring.md` (TRX64-Ultimate)](../specs/README.md#belonged-to-trx64-ultimate).
+[`../specs/T24-ui-wiring.md`](../specs/T24-ui-wiring.md).
 
 ![Overview of the terminal UI journey](screenshots/00-overview.jpg)
 
@@ -184,5 +184,5 @@ complete stable sequence and automation contract is in
 - [`TERMINAL-UI.md`](TERMINAL-UI.md) — visual grammar and layout rules
 - [`UI-COVERAGE.md`](UI-COVERAGE.md) — coverage of all 30 XML routes
 - [`../gideon-menu-tree.md`](../gideon-menu-tree.md) — source feature inventory
-- [`T24-lvgl-ui.md` (TRX64-Ultimate)](../specs/README.md#belonged-to-trx64-ultimate) — UI scope and architecture
-- [`T24-ui-wiring.md` (TRX64-Ultimate)](../specs/README.md#belonged-to-trx64-ultimate) — later firmware adapter work
+- [`../specs/T24-lvgl-ui.md`](../specs/T24-lvgl-ui.md) — UI scope and architecture
+- [`../specs/T24-ui-wiring.md`](../specs/T24-ui-wiring.md) — later firmware adapter work

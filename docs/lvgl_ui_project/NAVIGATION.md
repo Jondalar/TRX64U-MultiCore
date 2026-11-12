@@ -42,7 +42,7 @@ new tabs append to an area and do not silently reorder existing sequences.
 
 | Key | Meaning |
 | --- | --- |
-| Cursor keys | Move focus and navigate lists/tabs; in a file browser RIGHT enters the selected folder (as Return), LEFT goes up a folder |
+| Cursor keys | Move focus and navigate lists/tabs |
 | Return | Select or activate the focused item |
 | C64 left-arrow | Back; at the root, leave the UI |
 | R/S | Close the UI immediately |

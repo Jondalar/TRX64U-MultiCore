@@ -1,6 +1,6 @@
 # T212 - Core menu areas: F1 quick actions, F5 machine, F7 app settings
 
-Status: PROPOSED 2026-11-12, Alex (board photos of the A1200 core app: F1, F5, F7). Corrected 2026-11-13 (status check): decisions D1-D17 taken (Alex); built on branch t212-core-areas (b7077f8b1), not merged to main.
+Status: PROPOSED 2026-11-12, Alex (board photos of the A1200 core app: F1, F5, F7).
 
 ## §1 The problem
 - P1: F1 Home is information only; the cursor walks the STATUS box without any action. Alex: "I can't do ANYTHING here, only info.
@@ -51,40 +51,6 @@ Proof column: T = core app test (`tests/coreapp`, menu goldens), U = ue2emu pict
 
 - D7 (Alex 11-12, "yes"): the STATUS rows Core, Network and Media are dropped (Core is in the top bar and on Home, Network is the
   WiFi row in F8 and the top bar, Media is the top bar and the drive rows); Build, ROMs, Libraries move to F8 (D3).
-
-- D8 (Alex 11-12, "yes"): tasks that fit no drive: "Map buttons pad 1/2" (snes, nes, neogeo) -> F5 Input; "50 / 60 Hz" and
-  "CPU speed" (zxnext) -> F5 (machine); "Sound check" (snes) and "NMI: Multiface" (zxnext) stay as actions on top of F1 beside Reset.
-
-- D9 (Alex 11-12, "yes"): "Save the battery RAM now" (snes) and "Save the memory card and backup RAM now" (neogeo) belong to the
-  mounted cartridge slot; neogeo "Load a ROM set from a folder" is a mount path of the cartridge slot: beside "Mount from Library..."
-  (empty) and "Replace..." (mounted), not a separate third row.
-
-- D10 (Alex 11-12): tape controls (Play, Stop, Rewind, Prev/Next block; cpc, zx, pet) are in the mounted Tape slot's list; "Play closes
-  the menu as before, just like 'load and run' on disks" (translated); the other tape keys keep the menu open.
-
-- D11 (Alex 11-12, "yes"): atari "Remove cartridge, cold start" moves into the cartridge slot's list under "Eject" and closes the
-  menu there; the top of F1 holds only the machine's resets.
-
-- D12 (Alex 11-12, "yes"): F7 APP has no single "Settings" tab (one tab carries no information, R11); it shows its sections directly.
-  "Keys"/"Hotkeys" become one section "Hotkeys". The drive list's title is the slot name (DF0, Drive 8).
-
-- D13 (Alex 11-12): the F1 machine-info line shows each core's model/version and memory from its existing settings: "yes, for the
-  PET the version, for the VIC20 the memory, for the C264 too, and so on" (translated). C128: the running mode (C128 80 columns / C64);
-  SCPU: speed and SuperCPU RAM; Amiga: chipset and RAM; every core with such settings gets the line.
-
-- D14 (Alex 11-12): "Enter home on startup" shows No/Yes in the core; the host's Disabled/Enabled is translated internally so the host
-  value still works as the default (D2).
-
-- D15 (Alex 11-12): the machine-info line comes from the core's .toml, not from C code in the app. Architecture rule (Alex):
-  "bitstream <-> API to app; .toml == glue between a bitstream and the app; app = generic". Every capability lives in the generic app
-  (hotkeys, info line, drive lists, ...); a core only declares in its .toml what it has.
-
-- D16 (Alex 11-12, "Ja", shown the C128 480p ue2emu pictures): every list area's foot reads like the drive page:
-  "UP/DOWN CHOOSE  RETURN DO IT  ESC BACK". Before, Home/Library/F7/F8 showed a bare "RETURN" and "<- BACK". No "F1-F8 AREA":
-  what the left rail shows is not repeated in the foot (Alex 10-21, confirmed 11-12 "Ja bitte").
-
-- D17 (Alex 11-12, "Ja", shown A1200 and C128 Home at 480p): the reset rows read the same on every core, sentence case:
-  "Reset" and "Reload <ROM name>, reset"; only the ROM name ("Kickstart", "ROMs") comes from the core's .toml.
 
 ## §4 Out
 - Anything on F1 beyond D3 until new users' feedback.

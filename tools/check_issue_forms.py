@@ -7,8 +7,8 @@ Checks (no YAML library, the forms are written in the narrow shape GitHub docume
   - every form has name, description and a body; every input, dropdown and textarea has an id, a label and required: true
     (except the field "more" of the bug form), ids are unique, dropdowns have options;
   - config.yml switches blank issues off;
-  - the bug form's area dropdown names exactly the supported areas (Alex 2026-11-14, CONTRIBUTING.md, discussion #66): host,
-    official firmware, generic core application, trx64u and trx64g; every other core has no support and no issue.
+  - the bug form's core dropdown names exactly the shipped cores: cores/*/core.toml without build_only and not null, the large
+    cores (cores/*/mono), the two C64 cores trx64u and trx64g, and "host".
 --selftest runs the checks against broken copies (a field without id, a core missing from the form) and fails if they pass.
 """
 import glob, os, re, sys
@@ -16,7 +16,7 @@ import glob, os, re, sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DIR = os.path.join(ROOT, ".github", "ISSUE_TEMPLATE")
 OPTIONAL = {("bug.yml", "more")}
-SUPPORTED = {"host", "firmware", "coreapp", "trx64u", "trx64g"}
+EXTRA = {"host", "trx64u", "trx64g"}
 
 
 def fields(text):
@@ -32,7 +32,18 @@ def fields(text):
 
 
 def shipped():
-    return set(SUPPORTED)
+    ids = set(EXTRA)
+    for t in glob.glob(os.path.join(ROOT, "cores", "*", "core.toml")):
+        s = open(t).read()
+        cid = re.search(r'^id\s*=\s*"([^"]+)"', s, re.M).group(1)
+        if cid != "null" and not re.search(r"^build_only\s*=\s*true", s, re.M):
+            ids.add(cid)
+    for m in glob.glob(os.path.join(ROOT, "cores", "*", "mono")):
+        d = os.path.join(m, "core.toml")
+        if os.path.exists(d) and re.search(r"^build_only\s*=\s*true", open(d).read(), re.M):
+            continue
+        ids.add(os.path.basename(os.path.dirname(m)))
+    return ids
 
 
 def check(forms, config, cores):
@@ -60,9 +71,9 @@ def check(forms, config, cores):
             if name == "bug.yml" and fid == "core":
                 got = {o.split(" - ", 1)[0] for o in opts}
                 for c in sorted(cores - got):
-                    errs.append("bug.yml: supported area %s is not in the form" % c)
+                    errs.append("bug.yml: core %s ships but is not in the form" % c)
                 for c in sorted(got - cores):
-                    errs.append("bug.yml: %s is in the form but is not a supported area" % c)
+                    errs.append("bug.yml: core %s is in the form but does not ship" % c)
     return errs
 
 

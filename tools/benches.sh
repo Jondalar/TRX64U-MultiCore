@@ -39,7 +39,7 @@ rm -f "$bundle"
 # the container runs as root and removes its own tree (--rm); /cache is the builder's cache, as in the CI sims job
 # the outer limit follows the slowest selected bench's own limit (ci/sims.txt column 3: hdmi_out has 9000 s), plus 10 min for clone and set-up
 lim=$(awk -F'|' -v want=" $benches " 'index(want, " " $2 " ") && $3 + 0 > m { m = $3 + 0 } END { print (m > 0 ? m : 4800) + 600 }' ci/sims.txt)
-ssh builder "nice -n 15 timeout $lim docker run --rm --init -v /var/tmp:/t -v /srv/trx64-build/cache:/cache -e PYTHONDONTWRITEBYTECODE=1 trx64-sim-env:5 sh -c '
+ssh builder "nice -n 15 timeout $lim docker run --rm --init -v /var/tmp:/t -v /srv/trx64-build/cache:/cache -e PYTHONDONTWRITEBYTECODE=1 trx64-sim-env:4 sh -c '
   git -c init.defaultBranch=main clone -q /t/benches-$$.bundle /src && cd /src && git -c advice.detachedHead=false checkout -q $rev &&
   ci/sims.sh -t 2 -j 8 $force $benches; echo rc=\$?'; rm -f $tmp.bundle" > "$log" 2>&1 || true
 sed -n '/^=== summary/,$p' "$log" | grep -v '^=== sims done' || true

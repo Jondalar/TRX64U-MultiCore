@@ -176,8 +176,8 @@ int main()
     // New folder: the folder sheet's "Create folder here"
     r.fs.mkdir("/usb0/games/sub");
     r.m->key(KEY_F3);
-    r.go_to("../");
-    r.m->key(KEY_RIGHT);                                           // the sheet of the folder the Library is in (RIGHT on a folder row enters it, GitHub #90)
+    r.go_to("sub/");
+    r.m->key(KEY_RIGHT);                                           // the sheet of a folder
     CHECK(r.m->chooser());
     r.enter("Create folder here");
     CHECK(r.m->entering());
@@ -191,15 +191,15 @@ int main()
     r.m->key(KEY_SPACE);
     r.m->key(KEY_SPACE);                                           // a.atr and b.ATR
     CHECK_EQ(r.c.lib.nmarked, 2);
-    r.go_to("../");
+    r.go_to("sub/");
     r.m->key(KEY_RIGHT);
     r.enter("Mark none");
     CHECK_EQ(r.c.lib.nmarked, 0);
-    r.go_to("../");
+    r.go_to("sub/");
     r.m->key(KEY_RIGHT);
     r.enter("Mark all");
     CHECK(r.c.lib.nmarked >= 4);                                   // every file and folder here (never "..")
-    r.go_to("../");
+    r.go_to("sub/");
     r.m->key(KEY_RIGHT);
     r.enter("Mark none");
     CHECK_EQ(r.c.lib.nmarked, 0);
@@ -251,8 +251,8 @@ int main()
     CHECK_EQ(r.c.lib.nclip, 1);
     r.fs.mkdir("/usb0/games/dest1/inner");
     r.enter("dest1/");
-    r.go_to("../");
-    r.m->key(KEY_RIGHT);                                           // the ".." sheet: Paste here puts the clipboard into the folder the Library is in
+    r.go_to("inner/");
+    r.m->key(KEY_RIGHT);                                           // the folder sheet: Paste here puts the clipboard into the folder the Library is in
     r.enter("Paste here");
     r.run_job();
     CHECK(r.has("/usb0/games/dest1/p.xex") && r.has("/usb0/games/p.xex"));
@@ -315,14 +315,8 @@ int main()
         q.fs.put("/usb0/flat/fresh/in.dat", bytes(7, 4));
         q.m->key(KEY_F3);
         q.go_to("fresh/");
-        q.m->key(KEY_RIGHT);                                       // RIGHT enters fresh; the ".." sheet there acts on fresh
-        CHECK_STR(q.m->title(), "/usb0/flat/fresh");
-        q.go_to("../");
         q.m->key(KEY_RIGHT);
         q.enter("Copy to clipboard");
-        q.go_to("../");
-        q.m->key(KEY_RETURN);                                      // up to /usb0/flat
-        CHECK_STR(q.m->title(), "/usb0/flat");
         q.go_to("../");
         q.m->key(KEY_RIGHT);
         q.enter("Paste here");

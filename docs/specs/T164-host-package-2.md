@@ -1,6 +1,7 @@
 # T164 — the next host package: one list of everything that waits for the host
 
-**Status:** BUILT and merged (t164-* merges incl. ee2a77410; package main-b8b6bcf7 with testers), board tests open as listed in `docs/todo/T164.md`. Design complete 2026-10-31 (design, budget and plan: §3b-§3d); the §3a answers are recorded in the todo. Proposed 2026-10-30, asked by Alex. Go on 2026-10-31 (translated): "I want us to get to HDMI and the scaler in the host... it takes too long for me because too much hangs on it." Then: "OK, then spec, plan, refinement, ADRs, and go." 2026-11-15 sync: the 2026-11-13 status check had cut this quote in two; header rewritten, the outdated 'waiting for Alex's answers' removed.
+**Status:** DESIGN COMPLETE (2026-10-31), waiting for Alex's answers to §3a (design, budget and plan: §3b-§3d, `docs/todo/T164.md`). Proposed 2026-10-30, asked by Alex. Go on 2026-10-31 (translated): "I want us to get to HDMI and the
+scaler in the host... it takes too long for me because too much hangs on it." Then: "OK, then spec, plan, refinement, ADRs, and go."
 **Repo:** TRX64U-MultiCore — `host/` (gateware, layer 1), `host-app/`, `contract/` where a core feeds the host.
 **Number:** T164.
 **Origin:** Alex, 2026-10-30 (translated): "We have to touch the host again anyway, don't we? Do we have the overview of what else?" Then:
@@ -348,7 +349,7 @@ Asked one at a time when Alex answers; each has my recommendation. Nothing below
    goes without them, the HDMI board work needs them (`hdmi_meas`, `trxdbg`). *Recommendation:* the first T164 host keeps them, the host of the
    release set after the Sony / Samsung steps is built without (`NO_JTAG_DBG`), which lowers the boundary move of Q1 to about 430 LUT.
    **Decided (Alex, 2026-10-31): "Yes."** (translated)
-3. **Q3 - smoothing (bilinear for Fit and Fill, +350-650 LUT, 6 DSP, no block RAM).** Decided for the A1200 (D9) but not built (2026-11-15 sync: built in the host since, `host/top.v:1400` `SMOOTH(1)`; see the decision below); in the host it would put
+3. **Q3 - smoothing (bilinear for Fit and Fill, +350-650 LUT, 6 DSP, no block RAM).** Decided for the A1200 (D9) but not built; in the host it would put
    `pb_l1` at about 90 %. *Recommendation:* not in the first host build; built and benched in the A1200 first (as you said), then added to the
    host as a second step once the density of the first build is known (WP20).
    **Decided (Alex, 2026-10-31), against the recommendation:** "No, build it in, I want to know what the cut between host + partial vs
@@ -530,7 +531,7 @@ T133).
 | T152 ESP32 pins `esp_ctl` | +60 | +40 | 0 | 0 | estimate 40-80 (the module is in another repository) |
 | T107 D9 SID out of c64ref, T120, rvlite fix | 0 | 0 | 0 | 0 | none in `pb_l1`; `pb_l2` side below |
 | **Package total, without smoothing** | **+1,076** | **+518** | **0** | **+2** | **12,089 LUT = 85.1 %** (range 11,800-12,400) |
-| bilinear smoothing for Fit and Fill (Q3) | +350..+650 | +450..+800 | 0 | +6 | T107 §5.7 estimate 4b (2026-11-15 sync: now built in the host, `SMOOTH(1)`) |
+| bilinear smoothing for Fit and Fill (Q3) | +350..+650 | +450..+800 | 0 | +6 | T107 §5.7 estimate 4b, not built anywhere |
 | with smoothing | about 12,590 | | | | 88.7 % |
 | lever: host without `jtag_dbg` + `rv_dbg` (Q2) | -734 | | | | measured, run 1104 hier |
 

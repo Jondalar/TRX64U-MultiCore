@@ -10,7 +10,7 @@ The boot-chain concept (2026-10-01) let the ESP32 shift full guest bitstreams in
 
 ## Decision
 
-Alex, 2026-10-12: "the ESP32 can go as an access path, now with ICAP and DFX we don't need it any more." Cores come as `.cor` bundles from USB or SD; the host loads their partial bitstream through ICAP and softboots their application ([T84](../specs/done/T84-boot-chain.md)). The golden stub of ADR-0005 is the full bitstream at 0x0 with the host and the null core.
+Alex, 2026-10-12: "the ESP32 can go as an access path, now with ICAP and DFX we don't need it any more." Cores come as `.cor` bundles from USB or SD; the host loads their partial bitstream through ICAP and softboots their application ([T84](../specs/T84-boot-chain.md)). The golden stub of ADR-0005 is the full bitstream at 0x0 with the host and the null core.
 
 ## Consequences
 
@@ -18,4 +18,4 @@ No new ESP32 firmware, no transfer over the WiFi UART, no JTAG sharing between E
 
 ## Links
 
-- [T84](../specs/done/T84-boot-chain.md), [T79](../todo/T79.md), [T81](../todo/T81.md), [T26](../todo/T26.md)
+- [T84](../specs/T84-boot-chain.md), [T79](../todo/T79.md), [T81](../todo/T81.md), [T26](../todo/T26.md)

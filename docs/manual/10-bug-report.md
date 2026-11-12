@@ -50,12 +50,11 @@ report reads `clock not set`. The host never replaces an older report.
 | Header | `TRX64 bug report (host app)`, the date |
 | Versions | Host application and build date, host key of the bitstream, board, core (`none running`) |
 | Network and storage | Network state and address, SD card, USB, the media text |
-| Settings | `Direct boot`, `Autostart countdown` and its state, `Auto entry` (index), `Picture`, `Library attempt under way`, then the stored settings (the text of `boot.cfg`) |
-| Boot menu | One line per entry: index, `(auto)`, name, path and state; then size and SHA-256 as stored when the entry was added |
-| Start log | The text of `startlog.txt` on the SD card (the last starts and what the host saw), or `(no startlog.txt on the SD card)` |
+| Settings | Direct boot, autostart delay and state, default entry, picture, library attempt, the stored settings of `boot.cfg` without the `core=` lines |
+| Boot menu | One line per entry: index, `(default)`, name, path and state; then size and SHA-256 as stored when the entry was added |
 | Log | The last lines that the host application printed: up to 200 lines or 16 KB, whichever is smaller |
 
-10.5.2 The report holds up to 32 KB. A report that does not fit ends with `[report cut: it did not fit]`.
+10.5.2 The report holds up to 24 KB.
 
 ## 10.6 Withheld data
 

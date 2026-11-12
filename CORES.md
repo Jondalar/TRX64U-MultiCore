@@ -41,6 +41,6 @@ done.
 | SNES | Super Nintendo | Games run, sound, USB pad, no ROM needed | - | runs | done |
 | Neo Geo | SNK Neo Geo MVS / AES | Playable, sound, USB pad, saves | - | runs | n/a |
 | DDT demos | mandelbrUlt and Look Ma, No VIC as showcase cores | Both run | No media, demo only | good | n/a |
-| Port Diagnostics | No machine: measures joystick/paddle ports from TOML test files | Built and benched | Not on the board yet; packed into the release like every large core that is not build only (experimental) | alpha | in progress |
+| Port Diagnostics | No machine: measures joystick/paddle ports from TOML test files | Built and benched | Not on the board yet, in no release | alpha | in progress |
 
 Corrections welcome in the replies, with the bundle name and a photo.

@@ -684,7 +684,7 @@ Diese Fragen sollten vor dem visuellen Design entschieden werden:
 ## 12. Quellen im aktuellen Quellstand
 
 - M2-Aufgaben: [`../TODO.md`](../TODO.md)
-- T24-Spezifikation: [`T24-lvgl-ui.md` (TRX64-Ultimate)](specs/README.md#belonged-to-trx64-ultimate)
+- T24-Spezifikation: [`specs/T24-lvgl-ui.md`](specs/T24-lvgl-ui.md)
 - Auswahl Ultimate-/Commodore-Startoberfläche:
   [`../software/ultimate-app/software/application/ultimate/ultimate.cc`](../software/ultimate-app/software/application/ultimate/ultimate.cc)
 - Commodore-Hauptmenü:
