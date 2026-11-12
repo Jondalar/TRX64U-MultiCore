@@ -47,10 +47,16 @@ static const RegBind b_model = { C264_MODEL, 0, 1, 0 };
 static const RegBind b_ram   = { C264_RAM_SIZE, 0, 1, 0 };
 static const RegBind b_joy   = { C264_JOY_SWAP, 0, 1, 0 };
 
-static const Setting settings[3 + CBM1541_NSETTINGS] = {
+// T214: an external datasette on the C2N port (same device as on the PET, GitHub #26): TAPE_PIN b0 MOTOR and b1 WRITE driven (WRITE out is not proven by a SAVE on real tape yet),
+// b4 READ / SENSE are the machine's inputs. Off releases every pin.
+static const char *const dset_names[] = { "Off (file only)", "External datasette" };
+static const uint8_t dset_bytes[2] = { 0x00, 0x13 };
+static const RegBind b_dset = { C264_TAPE_PIN, 0, 0x13, dset_bytes };
+static const Setting settings[4 + CBM1541_NSETTINGS] = {
     { KEY_MODEL, model_names, 2, 1, WHEN_RESET, 0, &b_model, 0, 0, 0, 0, "Model" },
     { KEY_RAM,   ram_names,   2, 1, WHEN_RESET, 0, &b_ram, 0, 0, 0, 0, "RAM" },
     { KEY_JOY,   joy_names,   2, 0, WHEN_RESET, 0, &b_joy, 0, 0, 0, 0, "Joystick ports" },
+    { "Datasette port", dset_names, 2, 0, WHEN_LIVE, 0, &b_dset },
     CBM1541_SETTINGS,
 };
 
@@ -308,7 +314,7 @@ const CoreDesc c264_desc = {
     "C16 Settings",
     1,
     roms, 5,
-    settings, 3 + CBM1541_NSETTINGS,
+    settings, 4 + CBM1541_NSETTINGS,
     tasks, 3 + CBM1541_NTASKS,
     filetypes, 3 + CBM1541_NFILETYPES,
     media, 3,

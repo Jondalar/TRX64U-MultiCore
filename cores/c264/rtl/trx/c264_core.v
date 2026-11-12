@@ -89,7 +89,14 @@ module c264_core #(
     input  wire        e_rdy,
     output wire [127:0] e_wdf_data,
     output wire [15:0] e_wdf_mask,
-    output wire        e_wdf_wren
+    output wire        e_wdf_wren,
+
+    // the cassette port (T214): the pins' levels in (any clock), the machine's motor and write lines and the app's pin register out (sys_clk)
+    input  wire        tp_read_pin,
+    input  wire        tp_sense_pin,
+    output wire        tp_motor_on,
+    output wire        tp_write,
+    output wire [7:0]  tp_pin
 );
     // ---------------------------------------------------------------- the app's settings (cpu_clk) into sys_clk
     wire [7:0]  ctrl;
@@ -97,13 +104,20 @@ module c264_core #(
     wire [2:0]  r_sel;
     wire [1:0]  r_cart;
     wire [31:0] fb_base, fb_stride;
+    wire [7:0]  r_tpin;
     (* ASYNC_REG = "TRUE" *) reg [7:0] ctrl_s1 = 8'd0, ctrl_s2 = 8'd0;
     (* ASYNC_REG = "TRUE" *) reg [7:0] set_s1 = 8'd0, set_s2 = 8'd0;
+    (* ASYNC_REG = "TRUE" *) reg [7:0] tpn_s1 = 8'd0, tpn_s2 = 8'd0;
+    (* ASYNC_REG = "TRUE" *) reg [1:0] rdp_s = 2'b11, snp_s = 2'b11;
     always @(posedge sys_clk) begin
         ctrl_s1 <= ctrl;
         ctrl_s2 <= ctrl_s1;
         set_s1 <= {r_cart, r_sel, r_swap, r_ram64, r_model};
         set_s2 <= set_s1;
+        tpn_s1 <= r_tpin;
+        tpn_s2 <= tpn_s1;
+        rdp_s <= {rdp_s[0], tp_read_pin};
+        snp_s <= {snp_s[0], tp_sense_pin};
     end
     wire       model_s   = set_s2[0];
     wire       ram64_s   = set_s2[1];
@@ -204,7 +218,7 @@ module c264_core #(
     wire openbus_sel = (cpu_addr[15:5] == {8'hFD, 3'b111});          // $FDE0-$FDFF
     wire [7:0] openbus_data = openbus_sel ? c16_datalatch : 8'hFF;
     assign c16_addr = (~mux) ? c16_addrlatch : (cpu_addr & ted_addr);
-    assign c16_data = (mux) ? c16_datalatch : (cpu_data & ted_data & c16_din & keyport_data & openbus_data);
+    assign c16_data = (mux) ? c16_datalatch : (cpu_data & ted_data & c16_din & keyport_data & sense_data & openbus_data);
     always @(posedge sys_clk) begin
         if (ted_en) begin
             c16_datalatch <= c16_data;
@@ -216,7 +230,14 @@ module c264_core #(
     reg [1:0] ic_s = 2'b11, id_s = 2'b11;
     always @(posedge sys_clk) begin ic_s <= {ic_s[0], iec_clk_i}; id_s <= {id_s[0], iec_data_i}; end
     assign {port_in[5], port_in[3:0]} = {port_out[5], port_out[3:0]};
-    assign port_in[4] = 1'b1;                                         // no cassette sense
+    // the cassette (T214): port bit 3 WRITE out, bit 4 READ in, bit 5 MOTOR out (low = on, as the C64's P5); the datasette's SENSE key reads at $FD10 bit 2
+    // (low = pressed). Both inputs come from the pins only while TAPE_PIN b4 says an external datasette is there, else idle high.
+    assign port_in[4] = tpn_s2[4] ? rdp_s[1] : 1'b1;
+    assign tp_motor_on = ~port_out[5];
+    assign tp_write = port_out[3];
+    assign tp_pin = tpn_s2;
+    wire sense_rd = (c16_addr[15:4] == 12'hFD1) & rnw;
+    wire [7:0] sense_data = (sense_rd & tpn_s2[4] & ~snp_s[1]) ? 8'hFB : 8'hFF;
     assign port_in[6] = ~port_out[1] & ic_s[1];
     assign port_in[7] = ~port_out[0] & id_s[1];
     assign iec_data_o = ~port_out[0];
@@ -342,7 +363,7 @@ module c264_core #(
         .clk(cpu_clk), .we(cw_we), .re(cw_re), .addr(cw_addr), .wdata(cw_wdata), .rdata(cw_rdata), .ack(cw_ack), .irq(cw_irq),
         .build(build), .ddr_cal(ddr_cal), .px_we(px_we), .px_re(px_re), .px_rdata(px_rdata),
         .ev_vsync(px_ev_vsync), .ev_flip(px_ev_flip), .ev_frame(ev_frame),
-        .ctrl(ctrl), .model(r_model), .ram64(r_ram64), .joy_swap(r_swap), .rom_sel(r_sel), .cart(r_cart),
+        .ctrl(ctrl), .model(r_model), .ram64(r_ram64), .joy_swap(r_swap), .rom_sel(r_sel), .cart(r_cart), .tape_pin(r_tpin),
         .fb_base(fb_base), .fb_stride(fb_stride),
         .status(status), .frames(frames), .cpuaddr(c16_addr),
         .fb_latest(fb_latest), .fb_seq(fb_seq), .fb_over(fb_over)

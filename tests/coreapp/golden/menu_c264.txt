@@ -27,6 +27,7 @@ area F5 C264
     setting Model = C16 / C116 | Plus/4 (default Plus/4, at next reset)
     setting RAM = 16 KB (C16, C116) | 64 KB (default 64 KB, at next reset)
     setting Joystick ports = Joystick 1 = port 1 | Swapped (default Joystick 1 = port 1, at next reset)
+    setting Datasette port = Off (file only) | External datasette (default Off (file only), live)
     setting Drive = Disabled | Enabled (default Enabled, live)
     setting Drive Bus ID = 8 | 9 | 10 | 11 (default 8, live)
     setting Extra RAM = Disabled | Enabled (default Disabled, live)
