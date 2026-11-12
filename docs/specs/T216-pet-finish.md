@@ -49,4 +49,13 @@ P4 (game mode): moved to the generic app's key bundles (D4). P5: documentation o
 
 ## §5 Decisions taken while building
 
-Empty.
+- **Keyboard select already follows the model (2026-11-12).** `m_crtc` is `model_l >= 3`, i.e. 8032, 8096, SuperPET; the 4032 is model 2 and already reads the
+  graphics matrix. So §1's "the 4032 included" does not hold in the code and D2 needs no RTL change; `.bus(m_crtc)` stays.
+- **The business matrix is right (S1).** Checked against VICE `data/PET/gtk3_buuk_pos.vkm` (fetched from the VICE svn mirror on GitHub,
+  `VICE-Team/svn-mirror`, `vice/data/PET/`) and, independently, against the key-decode table inside the VICE editor ROMs `edit-4-80-b-60Hz.901474-03.bin` and
+  `-50Hz.901474-04.bin` (rows 0-9 at $06F5 descending, 8 bytes per row, stored right to left): Q is row 5 column 0 in all three, S is row 2 column 1, so the
+  matrix cannot make Q type S. In the graphics matrix S is row 5 column 0, the position of the business Q: "Q types S" is what a business-ROM machine
+  reads through the graphics matrix. The cause on the board is therefore not found by reading; open for the board session (S1 board line).
+- **S1/S2 bench:** `sim/gen_key_expect.py` writes `sim/keys_expect.vh` from copies of VICE's `gtk3_buuk_pos.vkm` / `gtk3_grus_pos.vkm` (`sim/vice/`); `tb_pet_models`
+  mode 0 presses every business key (letters, digits, keypad digits via C=, punctuation, cursor, ESC/TAB/REPEAT/RVS-off stand-ins, both shifts) and the graphics
+  letters/digits/RETURN/SPACE and requires exactly one bit at VICE's row and column, nothing on the other rows.
