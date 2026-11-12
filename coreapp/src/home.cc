@@ -3,7 +3,7 @@
 #include "settings.h"
 #include <strings.h>
 
-static const char *const enter_values[] = { "No", "Yes" };
+static const char *const enter_values[] = { "Disabled", "Enabled" };         // the host's own labels (CFG_USERIF_START_HOME, en_dis): its value is the default here
 static const char *const dir_default[] = { "" };
 static const char *const reopen_values[] = { "Home (F1)", "Last screen" };
 

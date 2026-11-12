@@ -1,15 +1,12 @@
 core ZXSP ZX Spectrum 48K / 128K
 area F1 Home
   tab 1 Home
-    info Core
-    info Application
-    info Network
-    info Media
-    info ROMs
-    info Libraries
+    task Reset (closes the menu)
+    task Reload ROMs, reset (closes the menu)
     media Tape
     fixed Save as config...
     fixed Load config...
+  tab 0 Drive (a page)
 area F3 Library
   tab 1 Browse
     browser Browse
@@ -23,16 +20,6 @@ area F5 SPECTRUM
     setting Joystick port 1 = None | Kempston | Sinclair 1 (keys 6-0) | Sinclair 2 (keys 1-5) | Cursor (5 6 7 8 0) (default None, live)
     setting Joystick port 2 = None | Kempston | Sinclair 1 (keys 6-0) | Sinclair 2 (keys 1-5) | Cursor (5 6 7 8 0) (default Kempston, live)
     setting Tape sound = Off | On (default Off, live)
-area F7 Actions
-  tab 1 Quick
-    task Reset (closes the menu)
-    task Reload ROMs, reset (closes the menu)
-    task Tape: Play (closes the menu)
-    task Tape: Stop
-    task Tape: Rewind
-    task Tape: Previous block
-    task Tape: Next block
-    task Tape: Eject
 area F8 System (shifted)
   tab 1 System
     heading Actions
@@ -44,3 +31,7 @@ area F8 System (shifted)
     fixed Bug report
     heading Reset
     fixed Reset to host defaults
+    heading Status
+    info Build
+    info ROMs
+    info Libraries

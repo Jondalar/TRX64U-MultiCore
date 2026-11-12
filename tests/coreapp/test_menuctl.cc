@@ -73,9 +73,11 @@ int main()
         CHECK_EQ(r.m->key(key), MenuCtl::R_REDRAW);
         CHECK_EQ(r.m->area(), a);
         for (int b = 0; b < r.m->tree().a[a].ntabs; b++) {
+            if (r.m->tree().a[a].tabs[b].page) continue;             // T212: a page (the drive list) has no number
             CHECK_EQ(r.m->key('1' + b), MenuCtl::R_REDRAW);
             CHECK_EQ(r.m->tab(), b);
             const MenuTab &tb = r.m->tree().a[a].tabs[b];
+            if (tb.page) continue;                                   // T212: a page (the drive list) has no number
             bool browser = tb.count == 1 && r.m->tree().e[tb.first].kind == EK_BROWSER;
             if (!browser) CHECK_EQ(r.m->rows(), tb.count);
         }
@@ -84,8 +86,8 @@ int main()
     CHECK_EQ(r.m->key(KEY_F2), MenuCtl::R_NONE);
     CHECK_EQ(r.m->key(KEY_F4), MenuCtl::R_NONE);
     CHECK_EQ(r.m->key('6'), MenuCtl::R_NONE);
-    // --- tasks: Reset closes the menu and resets; a refused task keeps it open with the reason
-    r.m->key(KEY_F7);
+    // --- tasks: Reset closes the menu and resets; a refused task keeps it open with the reason (T212 D7: the reset tasks stand on Home)
+    r.m->key(KEY_F1);
     r.io.events.clear();
     r.go_to("Reset");
     CHECK_EQ(r.m->key(KEY_RETURN), MenuCtl::R_CLOSE);
@@ -98,12 +100,14 @@ int main()
     CHECK(r.m->status_bad() && strstr(r.m->status(), "ATARIXL.ROM") != 0);
     CHECK(r.io.events.empty());                                  // and the machine was not touched
     r.fs.put_size("/usb0/roms/atari800/atarixl.rom", 16384);
-    // the eject task on an empty slot is harmless
-    r.go_to("Eject D2:");
-    CHECK_EQ(r.m->key(KEY_RETURN), MenuCtl::R_REDRAW);
-    // media rows show what is in them: on Home, under the information lines (T205 D1: the Summary tab is gone)
+    // RETURN on an empty drive row opens its list (T212 D5), it is no task
     r.m->key(KEY_F1);
-    CHECK(r.right(r.find_row("D1:")) == "Not set");
+    r.go_to("D2:");
+    CHECK_EQ(r.m->key(KEY_RETURN), MenuCtl::R_REDRAW);
+    r.m->key(KEY_ESCAPE);
+    // media rows show what is in them: on Home, below the reset tasks
+    r.m->key(KEY_F1);
+    CHECK(r.right(r.find_row("D1:")).find("Empty") == 0);
 
     // --- the closing keys
     for (int k : { KEY_BREAK, KEY_ESCAPE, KEY_F10, KEY_SCRLOCK, KEY_MENU }) {
@@ -151,10 +155,11 @@ int main()
     CHECK(!r.fs.has("/usb0/cores/atari800.cfg"));                 // one RETURN is enough
     CHECK_EQ(r.st->value(0), 0);
     CHECK_EQ(r.io.regs[A8_THROTTLE], 1);
-    // info rows are not selectable actions, and they are Home's (T104 5.8)
+    // T212 D7: Home has no information lines any more (Core, Network, Media went; Build, ROMs, Libraries stand in F8)
     r.m->key(KEY_F1);
-    CHECK(!r.active(r.find_row("Core")));
-    CHECK(r.right(r.find_row("Core")) == "value 0");
+    CHECK(r.find_row("Core") < 0 && r.find_row("Media") < 0);
+    r.m->key(KEY_F8);
+    CHECK(!r.active(r.find_row("Build")));
     // Return to host menu: asks the application; a failure stays on screen
     r.m->key(KEY_F8);
     r.go_to("Return to host menu");

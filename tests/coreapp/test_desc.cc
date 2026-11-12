@@ -261,7 +261,7 @@ int main()
                 }
             }
             CHECK(act == 1 && ret == 1 && wifi == 1 && bug == 1 && rst == 1);
-            // S3: Home keeps the information lines first, then every media slot of the core, then the configs when the core has slots
+            // T212 D7: Home has no information lines: the media slots of the core, then the configs when the core has slots
             const MenuTab &h = t.a[f1].tabs[0];
             int nmedia = 0, ninfo = 0, saves = 0;
             bool info_first = true;
@@ -271,7 +271,7 @@ int main()
                 nmedia += e.kind == EK_MEDIA;
                 saves += e.kind == EK_SAVE_SET || e.kind == EK_LOAD_SET;
             }
-            CHECK(ninfo == 6 && info_first && nmedia == d->nmedia);
+            CHECK(ninfo == 0 && info_first && nmedia == d->nmedia);
         }
         CHECK(n205 >= 18);
     }
@@ -712,10 +712,10 @@ int main()
             const MenuEntry &e = t.e[i];
             bool own = false;
             switch (e.kind) {
-            case EK_TASK: own = e.label == (*p)->tasks[e.index].label; break;
+            case EK_TASK: own = e.label == (*p)->tasks[e.index].label || !e.label[0]; break;   // T212 D5: an empty label = a row reserved for the drive list (its tab lists none)
             case EK_MEDIA: own = e.label == (*p)->media[e.index].name; break;
             case EK_SETTING: own = e.label == ((*p)->settings[e.index].label ? (*p)->settings[e.index].label : (*p)->settings[e.index].key); break;
-            case EK_INFO: own = e.label == menu_info_labels[e.index]; break;
+            case EK_INFO: own = e.label == menu_info_labels[e.index] || !strcmp(e.label, "Build") || !strcmp(e.label, "ROMs") || !strcmp(e.label, "Libraries"); break;
             case EK_BROWSER: own = !strcmp(e.label, "Browse"); break;
             case EK_RESET_HOST: own = !strcmp(e.label, "Reset to host defaults"); break;
             case EK_RESTART_CORE: own = !strcmp(e.label, "Restart core"); break;
@@ -725,10 +725,12 @@ int main()
             case EK_SAVE_SET: own = !strcmp(e.label, "Save as config..."); break;
             case EK_LOAD_SET: own = !strcmp(e.label, "Load config..."); break;
             case EK_HEADING: own = !strcmp(e.label, "Machine") || !strcmp(e.label, "Storage") || !strcmp(e.label, "Actions") || !strcmp(e.label, "Network") ||
-                                   !strcmp(e.label, "Support") || !strcmp(e.label, "Reset"); break;
-            case EK_OPENS: own = !strcmp(e.label, "Hotkeys"); break;
+                                   !strcmp(e.label, "Support") || !strcmp(e.label, "Reset") || !strcmp(e.label, "Status"); break;
+            case EK_DRIVE_MOUNT: case EK_DRIVE_EJECT: own = true; break;      // T212 D5: the drive list's own rows
+            case EK_OPENS: own = !strcmp(e.label, "Hotkeys") || !strcmp(e.label, "Storage") || !strcmp(e.label, "Menu") || !strcmp(e.label, "Keys"); break;
             case EK_NODE: own = false; break;
             }
+            if (!own) printf("not own: kind %d label [%s] idx %d core %s i %d\n", (int)e.kind, e.label, e.index, (*p)->id, i);
             CHECK(own);
             for (int f = 0; forbidden[f]; f++) {
                 if (!strcmp(forbidden[f], "Tape") && desc_has_capability(*p, "tape")) continue;   // a Spectrum or a CPC has a tape (T91, T92); the C64's datasette is not theirs

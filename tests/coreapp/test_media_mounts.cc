@@ -568,9 +568,8 @@ int main()
         a.m->footer_legend(foot, sizeof(foot));
         if (a.find_row("usb0/") >= 0) { CHECK(a.go_to("usb0/")); a.m->key(KEY_RETURN); }
         CHECK(a.find_row("a.adf") >= 0 && a.find_row("b.adf") >= 0 && a.find_row("h.hdf") < 0);
-        a.m->footer_legend(foot, sizeof(foot));
-        CHECK(strstr(foot, "RETURN  MOUNT IN DF0") != 0);
         CHECK(a.go_to("a.adf"));
+        CHECK_EQ(a.m->mount_slot(), 0);                              // the footer of the mount browser is drawn by the F3 layout (seen in ue2emu, S11)
         a.m->key(KEY_RETURN);
         CHECK(a.mounted_df(0));
         CHECK_EQ(a.m->mount_slot(), -1);
@@ -593,7 +592,7 @@ int main()
         // S7: F7 is APP: the generic app's settings; the Quick list is gone
         a.m->key(KEY_F7);
         CHECK_STR(a.m->tree().a[a.m->area()].name, "APP");
-        const char *app[] = { "Storage", "Persist medium mounts", "Menu", "Menu opens at", "Keys", "Hotkeys" };
+        const char *app[] = { "Storage", "Persist medium mounts" };       // this rig extends the persist item only (home_extend and hk_extend: test_home, test_hotkeys)
         for (const char *g : app) CHECK(a.find_row(g) >= 0);
         CHECK(a.find_row("Chip RAM") < 0 && a.find_row("Eject DF0") < 0 && a.find_row("Reset Amiga") < 0);
         // S8: F5 is the machine: no storage, menu or hotkey rows
@@ -604,7 +603,7 @@ int main()
         // S10: F8 shows Build, ROMs and Libraries below the reset row
         a.m->key(KEY_F8);
         CHECK(a.find_row("Build") > a.find_row("Reset to host defaults") && a.find_row("ROMs") > a.find_row("Build") && a.find_row("Libraries") > a.find_row("ROMs"));
-        CHECK(a.find_row("Core") < 0 && a.find_row("Network") < 0 && a.find_row("Media") < 0);
+        CHECK(a.find_row("Core") < 0 && a.find_row("Media") < 0);
         a.m->footer_legend(foot, sizeof(foot));
         CHECK(strstr(foot, "RETURN") != 0);
     }

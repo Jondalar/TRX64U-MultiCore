@@ -19,7 +19,7 @@ Settings::Settings(const Setting *items, int n, const char *store, CoreFs *fs, c
     memset(mnt_, 0, sizeof(mnt_));
     for (int i = 0; i < SETTINGS_MAX; i++) {
         host_[i] = core_[i] = -1;
-        tix_[i] = -1;
+        tix_[i] = hix_[i] = -1;
     }
 }
 
@@ -98,12 +98,19 @@ void Settings::load()
     ntext_ = 0;
     memset(extra_, 0, sizeof(extra_));
     memset(mnt_, 0, sizeof(mnt_));
+    int nh = 0;
     for (int i = 0; i < n_; i++) {
         host_[i] = core_[i] = -1;
-        tix_[i] = -1;
+        tix_[i] = hix_[i] = -1;
         char val[96];
         if (flash_ && flash_->get(store_, items_[i].key, val, sizeof(val))) {
-            host_[i] = (int16_t)label_index(i, val);
+            if (!items_[i].kind) {
+                host_[i] = (int16_t)label_index(i, val);
+            } else if (val[0] && nh < HTEXT_N) {                           // T212 S9: a text the host has (Home Directory) is this core's default
+                snprintf(hpool_[nh], TEXT_LEN, "%s", val);
+                hix_[i] = (int8_t)nh++;
+                host_[i] = 0;
+            }
         }
     }
     if (!cfg_path_[0]) {
@@ -255,7 +262,10 @@ const char *Settings::text(int i) const
     if (i < 0 || i >= n_ || !items_[i].kind) {
         return "";
     }
-    return core_[i] >= 0 && tix_[i] >= 0 ? tpool_[tix_[i]] : (items_[i].values ? items_[i].values[0] : "");
+    if (core_[i] >= 0 && tix_[i] >= 0) {
+        return tpool_[tix_[i]];
+    }
+    return hix_[i] >= 0 ? hpool_[hix_[i]] : (items_[i].values ? items_[i].values[0] : "");
 }
 
 bool Settings::set_text(int i, const char *s)

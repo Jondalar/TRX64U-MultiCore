@@ -1,15 +1,12 @@
 core C128 Commodore 128
 area F1 Home
   tab 1 Home
-    info Core
-    info Application
-    info Network
-    info Media
-    info ROMs
-    info Libraries
+    task Reset (closes the menu)
+    task Reload ROMs, reset (closes the menu)
     media Drive A:
     fixed Save as config...
     fixed Load config...
+  tab 0 Drive (a page)
 area F3 Library
   tab 1 Browse
     browser Browse
@@ -36,16 +33,6 @@ area F5 C128
     setting Extra RAM = Disabled | Enabled (default Disabled, live)
     setting Disk swap delay = 100 ms | 200 ms | 300 ms | 400 ms | 500 ms | 600 ms | 700 ms | 800 ms | 900 ms | 1000 ms (default 100 ms, live)
     setting LED Load Indicator = On | Off (default On, live)
-area F7 Actions
-  tab 1 Quick
-    task Reset (closes the menu)
-    task Reload ROMs, reset (closes the menu)
-    task Reset Drive
-    task Create blank D64 (asks a name)
-    task Create blank G64 (asks a name)
-    task Save Disk as D64 (asks a name)
-    task Save Disk as G64 (asks a name)
-    task Create blank D81 (asks a name)
 area F8 System (shifted)
   tab 1 System
     heading Actions
@@ -57,3 +44,7 @@ area F8 System (shifted)
     fixed Bug report
     heading Reset
     fixed Reset to host defaults
+    heading Status
+    info Build
+    info ROMs
+    info Libraries
