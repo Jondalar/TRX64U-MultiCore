@@ -13,6 +13,7 @@
 #include "d1541_fs.h"
 #include "regset.h"
 #include "cbm1541.h"
+#include "cbm_run.h"
 #include "d1541_drive.h"
 #include <stdio.h>
 
