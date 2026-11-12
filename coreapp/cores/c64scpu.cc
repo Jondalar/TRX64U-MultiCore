@@ -54,15 +54,17 @@ static void write_sw(CoreCtx *c)
 static const char *const speed_names[] = { "20 MHz", "1 MHz" };
 static const char *const jiffy_names[] = { "Off", "On" };
 static const char *const joy_names[]   = { "Normal", "Swapped" };
+static const char *const dset_names[]  = { "Off (file only)", "External datasette" };
 #define KEY_SYSMODE "System Mode"
 static const char *const sysmode_names[] = { "PAL", "NTSC", "PAL-60", "NTSC-50" };
 // C64_VIDEOFORMAT per mode, as in the C128 descriptor: the host's mode controller (host/mode_ctl.v) is the same file.
 static const uint8_t sysmode_fmt[4] = { 0x00, 0x2B, 0x2A, 0x01 };
 
-static const Setting settings[4 + CBM1541_NSETTINGS] = {
+static const Setting settings[5 + CBM1541_NSETTINGS] = {
     { KEY_SPEED, speed_names, 2, 0, WHEN_LIVE, "c64scpu.set_speed", 0 },
     { KEY_JIFFY, jiffy_names, 2, 0, WHEN_LIVE, "c64scpu.set_jiffy", 0 },
     { "Joystick ports", joy_names, 2, 0, WHEN_LIVE, "c64scpu.set_joy", 0 },
+    { "Datasette port", dset_names, 2, 0, WHEN_LIVE, "c64scpu.set_dset", 0 },
     { KEY_SYSMODE, sysmode_names, 4, 0, WHEN_LIVE, "c64scpu.set_sysmode", 0 },
     CBM1541_SETTINGS,
 };
@@ -88,6 +90,14 @@ static int op_set_jiffy(CoreCtx *c, const OpArgs &a, OpOut &o)
     scpu_state(c)->jiffy = a.i(0) ? 1 : 0;
     write_sw(c);                                        // the switch bit follows the setting whether or not the file is there
     apply_drive_rom(c, o.msg, o.msglen);
+    return OPE_OK;
+}
+
+// T214: an external datasette on the C2N port (same device as on the PET, GitHub #26). PIN_CTRL b0 MOTOR and b1 WRITE driven, b4 READ / SENSE are inputs (0x13);
+// b2 / b3 stay off (the file streamer must not drive READ or pull SENSE then). Off releases every pin. WRITE out is not proven by a SAVE on real tape yet.
+static int op_set_dset(CoreCtx *c, const OpArgs &a, OpOut &)
+{
+    c->io->wr(SCPU_PIN_CTRL, (uint8_t)(a.i(0) ? 0x13 : 0x00));
     return OPE_OK;
 }
 
@@ -403,6 +413,7 @@ static void c64scpu_register(OpRegistry &r)
     r.add_op("c64scpu.set_speed", bit_arg, 1, op_set_speed);
     r.add_op("c64scpu.set_jiffy", bit_arg, 1, op_set_jiffy);
     r.add_op("c64scpu.set_joy", bit_arg, 1, op_set_joy);
+    r.add_op("c64scpu.set_dset", bit_arg, 1, op_set_dset);
     r.add_op("c64scpu.set_sysmode", sysmode_arg, 1, op_set_sysmode);
     r.add_op("c64scpu.service", 0, 0, op_service);
     r.add_op("c64scpu.type_script", text_arg, 1, op_type);
@@ -422,7 +433,7 @@ const CoreDesc c64scpu_desc = {
     "C64SCPU Settings",
     1,
     roms, 8,
-    settings, 4 + CBM1541_NSETTINGS,
+    settings, 5 + CBM1541_NSETTINGS,
     tasks, 2 + CBM1541_NTASKS + CBM1581_NTASKS,
     filetypes, 4,
     media, 1,

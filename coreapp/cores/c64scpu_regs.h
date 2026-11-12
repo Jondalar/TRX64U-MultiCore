@@ -12,6 +12,7 @@
 #define SCPU_ID0         0x000                        // page 0: "SCPU" (the host's ID block, bytes S C P U)
 #define SCPU_CAPS        SCPU_REG(0x004)              // 0x01: this page, layout version 1 (step 1); 0x02: with the SuperCPU registers below (steps 2-4)
 #define SCPU_JOY         SCPU_REG(0x024)              // b0: the host's joystick ports 1 and 2 are swapped before the core (T157); live; back to 0 by COLD
+#define SCPU_PIN_CTRL  0x078                        // c64u_io PIN_CTRL (page 0): b0 MOTOR out, b1 WRITE out, b4 READ / SENSE pins feed the machine; b2 (streamer drives READ) and b3 (SENSE pull) stay 0 with an external datasette (T214)
 #define SCPU_STATUS      SCPU_REG(0x030)              // b3 held (Freeze), b4 PAL; b0 SuperCPU ROM valid, b1 20 MHz in effect, b2 emulation mode (E flag)
 #define SCPU_ST_HELD     0x08
 #define SCPU_ROM_CTRL    SCPU_REG(0x040)              // W b0: flush the ROM line caches (the C64 image's and the SuperCPU ROM's); R b0: a flush is running
