@@ -44,6 +44,7 @@ struct HcCell {
 };
 
 // ---- the boot menu entries (menu and editor) -----------------------------------------------------------------------------------------------------
+enum { HCP_OK, HCP_CHECK, HCP_BAD };
 struct HcEntryRow {
     char name[96];
     char tile[8];                                 // what the icon tile says while the row has no picture: "FW" or the first four letters
@@ -51,6 +52,7 @@ struct HcEntryRow {
     char sub[140];                                // the path (and the version, in the menu)
     char badge[32];
     uint8_t badge_tone;
+    uint8_t pic;                                  // T209 D10: the boot menu pictogram: HCP_OK (usable), HCP_CHECK (check with R), HCP_BAD (not usable)
     bool def;
     bool full;
     bool ok_state;                                // the entry's state is OK or CHANGED (an icon may be read)

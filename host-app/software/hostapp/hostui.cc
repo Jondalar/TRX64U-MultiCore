@@ -835,6 +835,7 @@ static void row_style(Row &r, bool on)
 #define LROW_H 38                                  // 32 px logo + 3 px above and below inside the 1 px frame
 #define LROW_P (LROW_H + 2)
 #define LROW_TX 70                                 // the name starts right of the 48 px logo tile (as before T209)
+#define PIC_D (COMPACT ? 20 : 22)                  // T209 D10: the pictogram circle
 #define LROW_VER_W (COMPACT ? 96 : 104)           // the version column ("v1.0-rc1", "full firmware")
 static void build_mrow(Row &r, lv_obj_t *par, int x, int y, int w, int h)
 {
@@ -853,10 +854,13 @@ static void build_mrow(Row &r, lv_obj_t *par, int x, int y, int w, int h)
     lv_obj_set_style_text_align(r.b, LV_TEXT_ALIGN_RIGHT, 0);
     const int by = (h - 2 - BADGE_H) / 2;
     const int bty = (BADGE_H - 2 - lv_font_get_line_height(F_SMALL)) / 2;
-    r.stb = box(r.box, w - 10 - BADGE_W, by, BADGE_W, BADGE_H, C_PANEL2, 1, C_OK);
-    r.stl = fit1(txt(r.stb, 6, bty, "", F_SMALL, C_OK, BADGE_W - 12), BADGE_W - 12);
+    // T209 D10: the state is a round pictogram (filled circle + glyph), all the same size; x is set by fill_mrow
+    r.stb = box(r.box, w - 10 - LROW_VER_W - 8 - PIC_D, (h - 2 - PIC_D) / 2, PIC_D, PIC_D, C_OK, 0);
+    lv_obj_set_style_radius(r.stb, LV_RADIUS_CIRCLE, 0);
+    r.stl = txt(r.stb, 0, (PIC_D - lv_font_get_line_height(F_SMALL)) / 2, LV_SYMBOL_OK, F_SMALL, C_BG, PIC_D);
+    lv_obj_set_style_text_align(r.stl, LV_TEXT_ALIGN_CENTER, 0);
     r.defb = box(r.box, w - 10 - BADGE_W - DEF_W - 6, by, DEF_W, BADGE_H, C_HOST, 0);
-    r.defl = txt(r.defb, 0, bty + 1, "default", F_SMALL, C_BG, DEF_W);
+    r.defl = txt(r.defb, 0, bty + 1, "auto", F_SMALL, C_BG, DEF_W);
     lv_obj_set_style_text_align(r.defl, LV_TEXT_ALIGN_CENTER, 0);
     r.cfb = box(r.box, w - 10 - BADGE_W - CFG_W - 6, by, CFG_W, BADGE_H, C_PANEL2, 1, C_HOST);
     r.cfl = fit1(txt(r.cfb, 6, bty, "", F_SMALL, C_HOST, CFG_W - 12), CFG_W - 12);
@@ -896,31 +900,38 @@ static void fill_mrow(Row &r, int i)
     if (lv_obj_get_style_width(r.ic, LV_PART_MAIN) != iw) {
         lv_obj_set_width(r.ic, iw);
     }
-    // the badges that show take the right end of the row: status, then "N configs", then "default"; the version column ends left of them, the name left of the version
-    const int bleft = r.w - 10 - BADGE_W - (v.cfgbadge[0] ? CFG_W + 6 : 0) - (v.def ? DEF_W + 6 : 0);
-    const int vx = bleft - 10 - LROW_VER_W;
+    // from the right: version (far right), pictogram, "auto", "N configs"; the name takes what is left
+    const int vx = r.w - 10 - LROW_VER_W;
     if (lv_obj_get_x(r.b) != vx) {
         lv_obj_set_x(r.b, vx);
     }
-    const int want = vx - 8 - LROW_TX;
+    const int px = vx - 8 - PIC_D;
+    if (lv_obj_get_x(r.stb) != px) {
+        lv_obj_set_x(r.stb, px);
+    }
+    const int dx = px - 6 - DEF_W;
+    const int cx = (v.def ? dx : px) - 6 - CFG_W;
+    const int nleft = (v.cfgbadge[0] ? cx : v.def ? dx : px) - 8;
+    if (lv_obj_get_x(r.defb) != dx) {
+        lv_obj_set_x(r.defb, dx);
+    }
+    if (lv_obj_get_x(r.cfb) != cx) {
+        lv_obj_set_x(r.cfb, cx);
+    }
+    const int want = nleft - LROW_TX;
     if (want != (int)(intptr_t)lv_obj_get_user_data(r.a)) {
         lv_obj_set_width(r.a, want);
         lv_obj_set_user_data(r.a, (void *)(intptr_t)want);
     }
     set_txt_mid(r.a, v.name);
     set_txt(r.b, v.ver);
-    set_txt(r.stl, v.badge);
-    uint32_t col = tone_col(v.badge_tone);
-    set_col(r.stl, col);
-    lv_color_t bc = lv_color_hex(col), bo = lv_obj_get_style_border_color(r.stb, LV_PART_MAIN);
+    const uint32_t col = v.pic == HCP_OK ? C_OK : v.pic == HCP_CHECK ? C_WARN : C_BAD;
+    set_txt(r.stl, v.pic == HCP_OK ? LV_SYMBOL_OK : v.pic == HCP_CHECK ? "?" : LV_SYMBOL_CLOSE);
+    lv_color_t bc = lv_color_hex(col), bo = lv_obj_get_style_bg_color(r.stb, LV_PART_MAIN);
     if (bo.red != bc.red || bo.green != bc.green || bo.blue != bc.blue) {
-        lv_obj_set_style_border_color(r.stb, bc, 0);
+        lv_obj_set_style_bg_color(r.stb, bc, 0);
     }
     set_hidden(r.defb, !v.def);
-    const int dx = r.w - 10 - BADGE_W - DEF_W - 6 - (v.cfgbadge[0] ? CFG_W + 6 : 0);
-    if (lv_obj_get_x(r.defb) != dx) {
-        lv_obj_set_x(r.defb, dx);
-    }
     set_txt(r.cfl, v.cfgbadge);
     set_hidden(r.cfb, !v.cfgbadge[0]);
 }
@@ -1102,6 +1113,19 @@ static void build_menu(void)
     lv_obj_set_style_radius(cd_bar_obj, 0, LV_PART_INDICATOR);
 }
 
+// T209 D10: the boot menu's status line (the note slot) shows the selected row's state word while there is no note
+static void menu_status(void)
+{
+    HcEntryRow v;
+    if (nv.note[0] || !hc_row_entry(nv.sel, true, &v)) {
+        set_txt(m_note, nv.note);
+        set_col(m_note, note_color());
+        return;
+    }
+    set_txt(m_note, v.badge);
+    set_col(m_note, tone_col(v.badge_tone));
+}
+
 static void update_menu(void)
 {
     int total = cfg.n;
@@ -1118,8 +1142,7 @@ static void update_menu(void)
             row_style(mrow[i], nv.mfirst + i == nv.sel);
         }
     }
-    set_txt(m_note, nv.note);
-    set_col(m_note, note_color());
+    menu_status();
     if (!hc_cfgov_is_open()) {
         set_foot(foot_label, hc_menu_foot());              // T198 D9: "RIGHT configs" only while the selected row has configs
     }
@@ -3397,9 +3420,12 @@ static void apply_updates(void)
             const int cnt = nv.view == V_MENU ? MROWS : EROWS;
             if (o >= 0 && o < cnt) row_style(rows[o], false);
             if (n >= 0 && n < cnt) row_style(rows[n], true);
-            lv_obj_t *nl = nv.view == V_MENU ? m_note : e_note;
-            set_txt(nl, nv.note);
-            set_col(nl, note_color());
+            if (nv.view == V_MENU) {
+                menu_status();
+            } else {
+                set_txt(e_note, nv.note);
+                set_col(e_note, note_color());
+            }
             if (nv.view == V_MENU && !hc_cfgov_is_open()) {
                 set_foot(foot_label, hc_menu_foot());       // T198 D9: the hint follows the selected row
             } else if (nv.view == V_EDIT) {
@@ -4487,8 +4513,18 @@ int hostui_test_dump(char *out, int max)
         if (nv.view != V_EDIT && !lv_obj_has_flag(rows[r].img, LV_OBJ_FLAG_HIDDEN)) {
             snprintf(ic, sizeof(ic), "img %04x", rows[r].dsc.data ? ((const uint16_t *)rows[r].dsc.data)[0] : 0);
         }
-        n += snprintf(out + n, max - n, "row %d|%s|%s|%s|%s|%s|%s\n", first + r, lv_label_get_text(rows[r].a), sub, lv_label_get_text(rows[r].stl),
+        HcEntryRow er;
+        const char *word = lv_label_get_text(rows[r].stl);     // the state word; the menu row draws a pictogram instead (T209 D10), its word is the status line's
+        if (nv.view != V_EDIT && hc_row_entry(first + r, true, &er)) {
+            word = er.badge;
+        }
+        n += snprintf(out + n, max - n, "row %d|%s|%s|%s|%s|%s|%s\n", first + r, lv_label_get_text(rows[r].a), sub, word,
                       lv_obj_has_flag(rows[r].defb, LV_OBJ_FLAG_HIDDEN) ? "" : "default", first + r == nv.sel ? "SEL" : "", ic);
+        if (nv.view != V_EDIT) {                                           // T209 D10/D11: the pictogram as drawn (glyph, fill colour) and the marker's text
+            const lv_color_t pc = lv_obj_get_style_bg_color(rows[r].stb, LV_PART_MAIN);
+            n += snprintf(out + n, max - n, "pic %d|%s|%06x|%dx%d|%s\n", first + r, lv_label_get_text(rows[r].stl), (unsigned)lv_color_to_u32(pc) & 0xffffff,
+                          (int)lv_obj_get_width(rows[r].stb), (int)lv_obj_get_height(rows[r].stb), lv_label_get_text(rows[r].defl));
+        }
         if (!lv_obj_has_flag(rows[r].cfb, LV_OBJ_FLAG_HIDDEN)) {           // T198 D15: the "N configs" badge as drawn, a line of its own (the row line above is matched by prefix)
             n += snprintf(out + n, max - n, "cfgbadge %d|%s\n", first + r, lv_label_get_text(rows[r].cfl));
         }

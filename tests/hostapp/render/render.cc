@@ -4298,6 +4298,35 @@ static void rows_scenario(const char *out)
         char want_row[400];
         snprintf(want_row, sizeof(want_row), "row %d|%s|%s|%s|%s|%s|", i, r.name, r.ver, r.badge, r.def ? "default" : "", i == 1 ? "SEL" : "");
         CHECK(strstr(md, want_row) != NULL);
+        // T209 D10/D11: one pictogram per group (glyph + fill), all the same size; the marker reads "auto"
+        const char *glyph = r.pic == HCP_OK ? LV_SYMBOL_OK : r.pic == HCP_CHECK ? "?" : LV_SYMBOL_CLOSE;
+        char want_pic[200];
+        snprintf(want_pic, sizeof(want_pic), "\npic %d|%s|", i, glyph);
+        CHECK(strstr(md, want_pic) != NULL);
+        CHECK(strstr(md, "|auto\n") != NULL);
+    }
+    // the pictogram groups of the words (D10)
+    {
+        HcEntryRow r;
+        int seen[3] = { 0, 0, 0 };
+        for (int i = 0; i < hostui_test_cfg_n(); i++) {
+            CHECK(hc_row_entry(i, true, &r));
+            seen[r.pic]++;
+            bool ok = !strcmp(r.badge, "hash ok") || !strcmp(r.badge, "ready") || !strcmp(r.badge, "backup") || !strcmp(r.badge, "foreign");
+            bool chk = !strcmp(r.badge, "changed") || !strcmp(r.badge, "?");
+            CHECK(r.pic == (ok ? HCP_OK : chk ? HCP_CHECK : HCP_BAD));
+        }
+        CHECK(seen[HCP_OK] + seen[HCP_CHECK] + seen[HCP_BAD] == hostui_test_cfg_n());
+        CHECK(strstr(md, "|22x22\n") != NULL || strstr(md, "|20x20\n") != NULL);
+        // the status line shows the selected row's word while no note stands; no path anywhere in the menu rows
+        HcEntryRow sel;
+        CHECK(hc_row_entry(1, true, &sel));
+        char want_det[160];
+        snprintf(want_det, sizeof(want_det), "note='' ");
+        if (strstr(md, want_det)) {
+            snprintf(want_det, sizeof(want_det), "detail='%s'", sel.badge);
+            CHECK(strstr(md, want_det) != NULL);
+        }
     }
 }
 

@@ -152,6 +152,7 @@ bool hc_row_entry(int i, bool menu_style, HcEntryRow *r)
         snprintf(r->sub, sizeof(r->sub), "%s", cfg.e[i].path);
     }
     badge_text(st, full, hc_einfo(i).origin, (unsigned)hc_einfo(i).contract, r->badge, sizeof(r->badge), &r->badge_tone);
+    r->pic = st == ES_OK ? HCP_OK : (st == ES_CHANGED || st == ES_UNKNOWN) ? HCP_CHECK : HCP_BAD;      // T209 D10: hash ok, ready, backup, foreign / changed, not read yet / the rest
     r->def = i == cfg.def;
     r->full = full;
     r->ok_state = ok;
