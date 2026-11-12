@@ -34,8 +34,8 @@
 //     078      PIN_CTRL   RW   reset 0 = every pin released and ignored. b0 drive MOTOR with the machine's motor bit, b1 drive WRITE with
 //                              the machine's write line, b2 drive READ with the streamer's line, b3 SENSE pulled low while the streamer or the
 //                              recorder ask for it, b4 the SENSE and READ pins feed the machine (an external datasette), b5 drive PADDLE_DIS with
-//                              the SID's discharge phase. C2N: MOTOR out, READ and SENSE in (a real datasette LOADs on the PET, GitHub #26), WRITE out (no SAVE
-//                              on real tape proven yet, T214); the PADDLE pin direction is not measured. Nothing is driven until the app sets these bits.
+//                              the SID's discharge phase. The direction of the C2N and PADDLE pins is not known from any source (T103 §5): nothing
+//                              is driven until a board session sets these bits.
 //     088-094  SOCK_*     RW   T37, the SID sockets, at Gideon's C64_IO_BASE offsets + 0x80 (system/u64.h): 088/089 SID1/2_BASE
 //                              (A11..A4, reset 0x01 = unmapped), 08C/08D SID1/2_MASK (reset 0xFE), 091/092 SID1/2_EN (b0), 094
 //                              STEREO_ADDRSEL (0 off, 1-5: A5-A9 is the sockets' SID_ADDR). Quasi-static; the C64 side takes

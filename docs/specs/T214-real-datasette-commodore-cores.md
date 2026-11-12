@@ -56,3 +56,6 @@ Scenario: S6 the gateware builds
 ## §5 Built
 
 - 2026-11-12: comments fixed (S1); C128/SCPU setting; VC-20 and C264 gateware and setting. Not measured: C16/Plus4 motor polarity (P3), the WRITE-on-P1 sharing and the $FD10 bit 2 sense come from the sources in D3, not from a measurement in this repo - S4 on the board decides.
+- 2026-11-12 (Alex: "A comment should trigger NO build at all"): the comment-only fixes in gateware of cores whose gateware does not
+  change otherwise (c128, c64scpu, c64u, pet layer2/io and the 13 `mono/host/top.v` copies except c264) are taken back, so the push
+  builds only VC-20 and C264. Those stale "direction unknown" comments are corrected with the next real change of each file.
