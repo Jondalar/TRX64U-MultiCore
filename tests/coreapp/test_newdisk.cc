@@ -283,6 +283,15 @@ struct CoreRig {
     }
 };
 
+// T212 D5: the blank medium is a row of the empty drive's list on Home: the first drive, RETURN, then the task
+static bool pick_create(CoreRig &r, const char *label)
+{
+    r.m->key(KEY_F1);
+    if (!r.pick(r.c.desc->media[0].name)) return false;
+    r.m->key(KEY_RETURN);
+    return r.pick(label);
+}
+
 // the run loop's part: one tick is one chunk; returns the ticks it took
 static int finish(CoreRig &r)
 {
@@ -378,8 +387,7 @@ static void run_case(const Case &k)
         CHECK(r.pick("games/"));
         r.m->key(KEY_RETURN);
         CHECK_STR(r.m->title(), "/usb0/games");
-        r.m->key(KEY_F7);
-        CHECK(r.pick(k.label));
+        CHECK(pick_create(r, k.label));
         CHECK(!r.m->entering());
         r.m->key(KEY_RETURN);
         CHECK(r.m->picking());                                            // Create asks for the folder first: it starts where the menu is
@@ -400,7 +408,7 @@ static void run_case(const Case &k)
         CHECK(!r.fs.has("/usb0/Tmp" + ext));
         check_image(k.fmt, bytes_of(r.fs, "/usb0/games/Tmp" + ext), "Tmp");
         // again: refused, and the status says so
-        CHECK(r.pick(k.label));
+        CHECK(pick_create(r, k.label));
         r.m->key(KEY_RETURN);
         r.m->key(KEY_RETURN);
         for (int i = 0; i < 12; i++) r.m->key(KEY_BACK);
@@ -410,7 +418,7 @@ static void run_case(const Case &k)
         CHECK(r.m->status_bad());
         CHECK(strstr(r.m->status(), "exists") != 0);
         // the prompt of the next one starts with the free name of that folder
-        CHECK(r.pick(k.label));
+        CHECK(pick_create(r, k.label));
         r.m->key(KEY_RETURN);
         r.m->key(KEY_RETURN);
         CHECK_STR(r.prompt_text().c_str(), (std::string(k.prompt) + "|blank_").c_str());
@@ -419,8 +427,7 @@ static void run_case(const Case &k)
         r.m->key(KEY_F3);
         CHECK(lib_nowhere(r.m));
         CHECK_STR(r.m->title(), "/");
-        r.m->key(KEY_F7);
-        CHECK(r.pick(k.label));
+        CHECK(pick_create(r, k.label));
         r.m->key(KEY_RETURN);
         CHECK_STR(r.m->title(), "/usb0");
         r.m->key(KEY_RETURN);

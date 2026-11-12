@@ -137,8 +137,8 @@ static const MediaSlot media[] = {
     { "DF1", "amiga.df1.image", "window.eject", df1, 1, 0, ".adf", "Mount DF1", "Create blank ADF", 0 },
     { "DF2", "amiga.df2.image", "window.eject", df2, 1, 0, ".adf", "Mount DF2", "Create blank ADF", 0 },
     { "DF3", "amiga.df3.image", "window.eject", df3, 1, 0, ".adf", "Mount DF3", "Create blank ADF", 0 },
-    { "HD0", "amiga.hd0.image", "sectors.eject", hd0, 1, 0, ".hdf", "Mount HD0", "Mount folder as HD0", 0 },
-    { "HD1", "amiga.hd1.image", "sectors.eject", hd1, 1, 0, ".hdf", "Mount HD1", "Mount folder as HD1", 0 },
+    { "HD0", "amiga.hd0.image", "sectors.eject", hd0, 1, 0, ".hdf", "Mount HD0", "Mount folder as HD0", "Mount folder as HD0" },
+    { "HD1", "amiga.hd1.image", "sectors.eject", hd1, 1, 0, ".hdf", "Mount HD1", "Mount folder as HD1", "Mount folder as HD1" },
 };
 
 // The contributor: the names of the slots as state values. Nothing else is the core's own.

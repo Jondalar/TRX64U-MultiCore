@@ -85,8 +85,8 @@ static const LibNodeDecl alpha_nodes[] = {
     { "F5/settings", LN_OP, "Beep", "zl.beep", 0, 20 },
     { "F5/settings", LN_OP, "Mode fast", "zl.mode", 0, 10, 0, 0, 0, b_fast, 1 },
     { "F5/settings", LN_STATE, "State", 0, "zl.state", 30 },
-    { "F7/quick", LN_OP, "Quick beep", "zl.beep", 0, 5, "zl.state != empty", 0, 0, 0, 0, true },
-    { "F7/quick", LN_OP, "Only when busy", "zl.beep", 0, 6, "zl.state == busy" },
+    { "F7/settings", LN_OP, "Quick beep", "zl.beep", 0, 5, "zl.state != empty", 0, 0, 0, 0, true },
+    { "F7/settings", LN_OP, "Only when busy", "zl.beep", 0, 6, "zl.state == busy" },
     { "F5/settings/audio", LN_GROUP, "Audio", 0, 0, 1 },
 };
 static const LibFileActionDecl alpha_fa[] = {
@@ -209,7 +209,7 @@ int main(int argc, char **argv)
         CHECK_EQ(r.merged.nsettings, testcore::desc.nsettings);
         CHECK_EQ(r.merged.nfiletypes, testcore::desc.nfiletypes);
         CHECK_STR(join(r.tab("F5", "settings")).c_str(), "Sound | Speed");
-        CHECK_STR(join(r.tab("F7", "quick")).c_str(), "Do it");
+        CHECK_STR(join(r.tab("F1", "home")).c_str(), "Do it | Slot");          // T212: the core's tasks stand on Home, below them the drive rows
     }
 
     // ---- the nodes of a library, an application and a second library at one anchor
@@ -474,7 +474,7 @@ int main(int argc, char **argv)
         CHECK_EQ(r.m->key(KEY_RETURN), MenuCtl::R_NONE);
         CHECK_EQ(g_beeps, 0);
         // a condition: "Only when busy" works while the state says so
-        r.m->key(KEY_F7);
+        r.m->key(KEY_F7);                                              // T212 D6: the library's buttons stand in the APP area (the Quick tab is gone)
         int ob = r.find_row("Only when busy");
         CHECK(ob >= 0 && r.active(ob));
         g_state = "idle";
@@ -609,7 +609,7 @@ int main(int argc, char **argv)
         const MenuTree &t2 = r2.m->tree();
         int a7 = -1;
         for (int a = 0; a < t2.nareas; a++) if (!strcmp(t2.a[a].key, "F7")) a7 = a;
-        CHECK_EQ(t2.a[a7].ntabs, 2); CHECK_EQ(t2.a[a7].tabs[1].n, 2);
+        CHECK_EQ(t2.a[a7].ntabs, 1); CHECK_EQ(t2.a[a7].tabs[0].n, 1);      // T212: the empty APP settings tab is left out, "More" is the one tab
         delete dr;
     }
 
