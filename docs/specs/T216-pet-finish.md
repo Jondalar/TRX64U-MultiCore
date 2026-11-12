@@ -33,9 +33,10 @@ A tester (2026-11-12) ran main-736c16d9 on the board. Working, to keep: internal
 ## §3 Decision
 
 - **D1 (Alex, 2026-11-12):** P1 and P2 are fixed ("spec, plan it in, let's get the PET round, more or less", translated).
+- **D2 (Alex, 2026-11-12, "ja" to the proposal; answers Q1):** graphics keyboard on 2001, 3032 and 4032; business keyboard on 8032,
+  8096 and SuperPET. The keyboard follows the model, not the CRTC (`pet_core.v:280` `.bus(m_crtc)` changes).
 
-Open, one at a time, all unanswered:
-- **Q1** Which models get the business keyboard?
+Open, one at a time, unanswered:
 - **Q2** P3: does the app double a 2 KiB `901466-04` itself and accept the VICE file names, or documentation only?
 - **Q3** P4: game mode now, or together with the key bundles of the generic app (decision 6 in `docs/generic-app-requirements.md`)?
 - **Q4** P5: which ROM files and names?
