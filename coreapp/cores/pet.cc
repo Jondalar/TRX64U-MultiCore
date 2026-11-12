@@ -56,7 +56,7 @@ static const char *const drive_names[] = { "Off", "4040 (D64)", "8250 (D80, D82)
 static const uint8_t drive_bytes[3] = { 0, 3, 1 };     // PET_DRV_CTL: b0 device 8 on, b1 4040
 static const RegBind b_drive = { PET_DRV_CTL, 0, 3, drive_bytes };
 static const char *const dset_names[] = { "Off (file only)", "External datasette" };
-static const uint8_t dset_bytes[2] = { 0x00, 0x11 };    // PET_TAPE_PIN: b0 motor pin driven, b4 READ / SENSE pins are the PET's inputs (provisional until the board session of 2026-11-14)
+static const uint8_t dset_bytes[2] = { 0x00, 0x11 };    // PET_TAPE_PIN: b0 motor pin driven, b4 READ / SENSE pins are the PET's inputs (proven by a real datasette LOAD, GitHub #26); b1 WRITE out stays 0 until a SAVE on real tape is proven (T214)
 static const RegBind b_dset = { PET_TAPE_PIN, 0, 0x1F, dset_bytes };
 static const char *const spcpu_names[] = { "6502", "6809", "Program ($EFF8)" };   // PROG: the 6502 starts and hands over by writing $EFF8 b0 = 0
 static const RegBind b_spcpu = { PET_SP_CPU, 0, 3, 0 };

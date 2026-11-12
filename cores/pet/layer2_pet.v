@@ -280,7 +280,7 @@ module layer2_pet #(
         .c_addr(c_addr), .c_cmd(c_cmd), .c_en(c_en), .c_rdy(c_rdy), .c_rd_data(c_rd_data), .c_rd_valid(c_rd_valid),
         .tp_read_pin(c2n_read_i), .tp_sense_pin(c2n_sense_i), .tp_motor_on(tp_motor_on), .tp_write(tp_write), .tp_sense_pull(tp_sense_pull), .tp_pin(tp_pin)
     );
-    // the cassette port: every pin is released until TAPE_PIN says otherwise (the direction on the real board is measured on 2026-11-14)
+    // the cassette port: every pin is released until TAPE_PIN says otherwise (MOTOR out, READ and SENSE in: proven by a real datasette LOAD on the board, GitHub #26; WRITE out, not proven by a SAVE yet; T214)
     reg r_mot = 1'b0, r_wr = 1'b1, r_sn = 1'b0;
     always @(posedge sys_clk) begin r_mot <= tp_motor_on; r_wr <= tp_write; r_sn <= tp_sense_pull; end
     assign c2n_motor_o = r_mot;

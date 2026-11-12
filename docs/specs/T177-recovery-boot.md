@@ -19,7 +19,7 @@ T49 (update packages).
   the pixel layer; the log says `no pixel layer in this bitstream: the menu runs on the console only`).
 - **What they want:** get back to a working firmware without a USB-Blaster, without a PC and without seeing anything on the screen.
 - **What happens today:** without C= the default entry starts (here the old firmware, so the testers could reinstall from it). With
-  C= the menu runs blind; Elrondo46 counted DOWN 11 times to start an entry he could not see. If the default entry were not a
+  C= the menu runs blind; a tester counted DOWN 11 times to start an entry he could not see. If the default entry were not a
   working firmware, or the host app itself did not start, only the Blaster is left (INSTALL.md "The way back").
 
 Parts:

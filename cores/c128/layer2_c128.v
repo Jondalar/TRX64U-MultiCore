@@ -547,7 +547,7 @@ module layer2_c128 #(
         trd_s <= {trd_s[0], rd_line};
         tsn_s <= {tsn_s[0], !sense_low};
     end
-    // pins: released until PIN_CTRL says otherwise (T103 §5: the direction of the C2N pins is not known from any source)
+    // pins: released until PIN_CTRL says otherwise. Directions (same board, same C2N pins in every core): MOTOR out, READ and SENSE in (proven: a real datasette LOADs on the PET, GitHub #26, 2026-11-12), WRITE out (not proven by a SAVE on real tape yet; T214)
     reg r_mot_o = 1'b0, r_wr_o = 1'b1, r_rd_o = 1'b1, r_sn_o = 1'b0;
     always @(posedge cpu_clk) begin
         r_mot_o <= motor_on; r_wr_o <= wr_s[1]; r_rd_o <= c2n_rd_o; r_sn_o <= sense_pull;
