@@ -385,7 +385,7 @@ static const Task tasks[2 + CBM1541_NTASKS + CBM1581_NTASKS] = {
 };
 
 static const MediaSlot media[] = {
-    CBM1541_MEDIA,
+    CBM1541_1581_MEDIA,
 };
 
 static void c64scpu_register(OpRegistry &r)

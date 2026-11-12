@@ -290,9 +290,9 @@ static const FileType filetypes[] = {
 };
 
 static const MediaSlot media[] = {
-    { "A:",   "cpc.a.image",    "cpc.eject",      drive0, 1 },
-    { "B:",   "cpc.b.image",    "cpc.eject",      drive1, 1 },
-    { "Tape", "cpc.tape.image", "cpc.tape_eject", 0, 0 },
+    { "A:",   "cpc.a.image",    "cpc.eject",      drive0, 1, 0, ".dsk", "Mount A:", "Create blank DSK", 0 },
+    { "B:",   "cpc.b.image",    "cpc.eject",      drive1, 1, 0, ".dsk", "Mount B:", "Create blank DSK", 0 },
+    { "Tape", "cpc.tape.image", "cpc.tape_eject", 0, 0, 0, ".cdt", "Insert tape", 0, "Tape: Play,Tape: Stop,Tape: Rewind,Tape: Previous block,Tape: Next block" },
 };
 
 static const MemRegion cpc_mem_regions[] = { { 0, 0x20000, MK_RAMPAGE, 0, CPC_WIN_PAGE, "RAM (128 KB)" } };

@@ -318,4 +318,6 @@ const CoreDesc vc20_desc = {
     cbm1541_media_flush, cbm1541_media_pending,   // T180 D4: the drive's write-back
     &cbm1541_mount_slots,                      // T180 D2, D5: Drive A
     &hk_cbm,                               // T181: the default hotkey map (hk_defaults.h)
+    0,                                     // alt_video
+    "Memory Expansion",                    // T212 D3: machine_info
 };

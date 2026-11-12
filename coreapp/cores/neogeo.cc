@@ -634,7 +634,7 @@ static const char *cart_name(CoreCtx *c)
     NeoState *st = neo_state(c);
     return st->loaded ? st->name : 0;
 }
-static const MediaSlot media[] = { { "Cartridge", "neogeo.cartridge.image", 0, 0, 0 } };
+static const MediaSlot media[] = { { "Cartridge", "neogeo.cartridge.image", 0, 0, 0, 0, ".neo", "Run", "Load a ROM set from a folder", "Load a ROM set from a folder,Save the memory card and backup RAM now" } };
 
 // T180 D2, D5: the cartridge for the stored mounts and the media sets: the .neo file's path, or "folder <folder>/<set name>" for a ROM set. Emptying the slot
 // writes the saves back, holds the machine and leaves it with no program (the start waits for one, as at a first start).

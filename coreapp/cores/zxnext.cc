@@ -278,7 +278,7 @@ static const FileAction img_actions[] = {
 static const FileType filetypes[] = { { ".img", img_actions, 2 } };
 
 static const MediaSlot media[] = {
-    { "SD", "zxnext.sd.image", "sectors.eject", sd0, 1 },
+    { "SD", "zxnext.sd.image", "sectors.eject", sd0, 1, 0, ".img", "Mount SD image", 0, 0 },
 };
 
 static const MemRegion zxnext_mem_regions[] = { { 0, 0x200000, MK_DDR, ZXN_W_RAM, 0, "RAM (2 MB)" } };

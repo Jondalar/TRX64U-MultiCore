@@ -51,6 +51,8 @@ static MenuTab *tab_begin(MenuTree *t, MenuArea *a, const char *name)
     tb->count = 0;
     tb->page = false;
     tb->parent = -1;
+    tb->home = false;
+    tb->drive_page = false;
     return tb;
 }
 
@@ -110,9 +112,9 @@ static bool skel_has_widget(const Skeleton *sk, uint8_t widget)
 static const MenuGroupRoute g_routes[] = {
     { "video",   "F5", "video", "Video",   0,         false, "F6" },
     { "audio",   "F5", "audio", "Audio",   0,         false, "F6" },
-    { "hotkeys", "F5", "input", "Input",   "Hotkeys", true,  "F6" },
-    { "storage", "F5", "settings", "Storage", 0,      false, 0 },
-    { "menu",    "F5", "settings", "Menu",    0,      false, 0 },       // T205 D1: "Menu opens at" sits with the core's own settings
+    { "hotkeys", "F7", "settings", "Keys",    "Hotkeys", true, 0 },        // T212 D1/D6: the app's settings stand on F7 (APP), not in the machine's F5
+    { "storage", "F7", "settings", "Storage", 0,      false, 0 },
+    { "menu",    "F7", "settings", "Menu",    0,      false, 0 },
 };
 
 const MenuGroupRoute *menu_route_of(const Setting &s)
@@ -174,6 +176,27 @@ static const char *setting_group(const CoreDesc *d, const MenuMerge *mm, int i)
     return g ? g : d->settings[i].group;
 }
 
+// T212 D5: a task belongs to a drive when a media slot names it in its lists, or when it is that slot's eject (the list's own Eject row does that).
+static bool task_claimed(const CoreDesc *d, int ti)
+{
+    const Task &t = d->tasks[ti];
+    for (int m = 0; m < d->nmedia; m++) {
+        const MediaSlot &s = d->media[m];
+        if (groups_have(s.empty_tasks, t.label) || groups_have(s.mounted_tasks, t.label)) {
+            return true;
+        }
+        if (s.eject_op && t.op && !strcmp(t.op, s.eject_op) && strstr(t.label, "Eject")) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool menu_slot_is_drive(const MediaSlot &m)
+{
+    return m.eject_op || m.mount || m.empty_tasks || m.mounted_tasks;
+}
+
 void menu_build(const CoreDesc *d, MenuTree *t, bool return_host, bool reload_core, const MenuMerge *mm)
 {
     memset(t, 0, sizeof(*t));
@@ -210,6 +233,7 @@ void menu_build(const CoreDesc *d, MenuTree *t, bool return_host, bool reload_co
                 add_nodes();
             }
             bool nodes_done = false;
+            bool drive_page_wanted = false;                              // T212 D5: Home has drive rows that open a list
             const MenuGroupRoute *page_route = 0;                       // set when a row of this tab opens a page (T187 D2)
             switch (st.widget) {
             case TW_INFO:
@@ -226,14 +250,23 @@ void menu_build(const CoreDesc *d, MenuTree *t, bool return_host, bool reload_co
                     }
                     break;
                 }
-                for (int i = 0; menu_info_labels[i]; i++) {
-                    add(t, EK_INFO, menu_info_labels[i], i);
+                // T212 D1/D5/D7: Home is the session and its quick actions, no information lines. The core's reset tasks (they close the menu) stand on top, then
+                // the drive rows (RETURN opens the list of that drive), the tasks no drive claims, and the configs.
+                tb->home = true;
+                for (int i = 0; i < d->ntasks; i++) {
+                    if (d->tasks[i].closes_menu && !task_claimed(d, i)) {
+                        add(t, EK_TASK, d->tasks[i].label, i);
+                    }
                 }
-                // T205 D1: what the F5 Summary tab showed is on Home, under the information lines: the media slots (RETURN ejects) and the configs
-                // (a description that has a media tab of its own keeps them there)
                 if (!skel_has_widget(sk, TW_MEDIA)) {
                     for (int i = 0; i < d->nmedia; i++) {
                         add(t, EK_MEDIA, d->media[i].name, i);
+                        drive_page_wanted |= menu_slot_is_drive(d->media[i]);
+                    }
+                    for (int i = 0; i < d->ntasks; i++) {
+                        if (!d->tasks[i].closes_menu && !task_claimed(d, i)) {
+                            add(t, EK_TASK, d->tasks[i].label, i);
+                        }
                     }
                     if (mounts_have_slots(d)) {
                         add(t, EK_SAVE_SET, "Save as config...", 0);
@@ -277,7 +310,9 @@ void menu_build(const CoreDesc *d, MenuTree *t, bool return_host, bool reload_co
                     }
                 }
                 // headings only in the catch-all tab of a plain list (the default route's Settings): two blocks are told apart there; a tab that names its groups is one block
-                bool heads = nmachine > 0 && nrouted > 0 && !st.groups && !(st.layout && st.layout[0]);
+                // T212: the APP tab (groups "app") holds nothing but routed rows, each block under its heading
+                bool app_tab = st.groups && groups_have(st.groups, "app");
+                bool heads = nrouted > 0 && ((nmachine > 0 && !st.groups && !(st.layout && st.layout[0])) || app_tab);
                 auto add_routed = [&](int i, const MenuGroupRoute *r) {
                     if (r->page) {                                           // T187 D2: one row opens the page; the page is a tab of its own after this one
                         if (!page_route) {
@@ -288,7 +323,7 @@ void menu_build(const CoreDesc *d, MenuTree *t, bool return_host, bool reload_co
                         add(t, EK_SETTING, d->settings[i].label ? d->settings[i].label : d->settings[i].key, i);
                     }
                 };
-                if (heads) {
+                if (heads && nmachine > 0) {
                     add(t, EK_HEADING, "Machine", 0);
                 }
                 for (int i = 0; i < d->nsettings; i++) {                     // the descriptor's order; without headings the routed rows keep their place among them
@@ -341,6 +376,11 @@ void menu_build(const CoreDesc *d, MenuTree *t, bool return_host, bool reload_co
                 }
                 add(t, EK_HEADING, "Reset", 0);
                 add(t, EK_RESET_HOST, "Reset to host defaults", 0);
+                // T212 D7/D3: what Home's Status box showed and still has a place: the build, the ROMs and the libraries (Core, Network and Media are elsewhere already)
+                add(t, EK_HEADING, "Status", 0);
+                add(t, EK_INFO, "Build", 1);
+                add(t, EK_INFO, "ROMs", 4);
+                add(t, EK_INFO, "Libraries", 5);
                 break;
             default:
                 break;
@@ -350,6 +390,22 @@ void menu_build(const CoreDesc *d, MenuTree *t, bool return_host, bool reload_co
                 add_nodes();
             }
             tab_end(t, a, tb);
+            if (drive_page_wanted && tb->count > 0) {                    // T212 D5: the drive list: a page of this area, its rows are made by MenuCtl when a drive row is opened
+                int parent = a->ntabs - 1;
+                MenuTab *pg = tab_begin(t, a, "Drive");
+                if (pg) {
+                    pg->id = "drive";
+                    pg->n = 0;
+                    pg->page = true;
+                    pg->drive_page = true;
+                    pg->parent = (int8_t)parent;
+                    for (int i = 0; i < DRIVE_PAGE_ROWS; i++) {
+                        add(t, EK_TASK, "", 0);
+                    }
+                    tab_end(t, a, pg);
+                    pg->count = 0;                                       // the rows are reserved, not listed: MenuCtl::open_drive sets the count
+                }
+            }
             if (page_route && tb->count > 0) {                           // the page the row opens: a tab with no number and no place on the strip, back to this tab
                 int parent = a->ntabs - 1;
                 MenuTab *pg = tab_begin(t, a, page_route->label);

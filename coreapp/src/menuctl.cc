@@ -163,7 +163,7 @@ bool MenuCtl::is_browser() const
 bool MenuCtl::is_home() const
 {
     const MenuTab &tb = cur();
-    return tb.count > 0 && tree_.e[tb.first].kind == EK_INFO;
+    return tb.home;
 }
 
 // The dominant line of the Home panel: the program the machine is running, or what it is waiting for.
@@ -215,6 +215,9 @@ void MenuCtl::go(int area, int tab)
         return;
     }
     bool moved = area != area_ || tab != tab_;
+    if (mount_slot_ >= 0 && tab_ >= 0 && !(tree_.a[area].ntabs > tab && tab >= 0 && tree_.a[area].tabs[tab].count == 1 && tree_.e[tree_.a[area].tabs[tab].first].kind == EK_BROWSER)) {
+        end_mount();                                                // T212: the Library mount ends when the person leaves the Library
+    }
     area_ = area;
     tab_ = (tab >= 0 && tab < tree_.a[area].ntabs) ? tab : 0;
     last_tab_[area] = cur().page && cur().parent >= 0 ? cur().parent : tab_;      // the key of the area comes back to the tab, not to the page it opened
@@ -263,7 +266,9 @@ bool MenuCtl::heading(int i)
     if (busy_ || wizard() || pick_ || entry_ || is_browser() || i < 0 || i >= cur().count) {
         return false;
     }
-    return tree_.e[cur().first + i].kind == EK_HEADING;
+    const MenuEntry &e = tree_.e[cur().first + i];
+    // T212 R10: a row that only shows (a heading, an information line, a media slot that is no drive) takes no focus
+    return e.kind == EK_HEADING || e.kind == EK_INFO || (e.kind == EK_MEDIA && !menu_slot_is_drive(c_->desc->media[e.index]));
 }
 
 int MenuCtl::first_hint() const
@@ -739,8 +744,9 @@ void MenuCtl::row(int i, char *left, int ln, char *right, int rn, bool *active, 
         break;
     case EK_MEDIA: {
         const char *w = ops_state(c_, c_->desc->media[e.index].state);
-        snprintf(right, rn, "%s", w ? w : "Not set");
-        *active = c_->desc->media[e.index].eject_op != 0 && w != 0;
+        const bool drive = menu_slot_is_drive(c_->desc->media[e.index]);
+        snprintf(right, rn, "%s", w ? w : (c_->desc->media[e.index].mount ? "Empty - RETURN to mount" : (drive ? "Empty" : "Not set")));      // T212 R11: an empty drive says how to fill it
+        *active = drive;
         break;
     }
     case EK_SETTING: {
@@ -2190,6 +2196,14 @@ MenuCtl::Result MenuCtl::activate(bool primary, bool all)
         } else {
             ft = 0;
         }
+        if (mount_slot_ >= 0 && fm_.image_ft < 0 && c_->desc->media[mount_slot_].mount) {      // T212 D5: the drive's own mount action, whichever way the file was chosen
+            for (int k = 0; k < nacts; k++) {
+                if (!strcmp(acts[k].label, c_->desc->media[mount_slot_].mount)) {
+                    end_mount();
+                    return start_action(acts[k], full);
+                }
+            }
+        }
         if (fm_.image_ft >= 0) {
             if (nacts == 1 || primary) {
                 return start_action(acts[0], full);
@@ -2219,7 +2233,25 @@ MenuCtl::Result MenuCtl::activate(bool primary, bool all)
         snprintf(chooser_file_, sizeof(chooser_file_), "%s", full);
         return R_REDRAW;
     }
-    const MenuEntry &e = tree_.e[cur().first + sel_[area_][tab_]];
+    const MenuEntry &e0 = tree_.e[cur().first + sel_[area_][tab_]];
+    if (cur().drive_page) {                                           // T212 D5: a row of the drive list: back to Home first, then it does its work
+        MenuEntry copy = e0;
+        go(area_, cur().parent);
+        if (copy.kind == EK_TASK) {
+            const Task &t = c_->desc->tasks[copy.index];
+            if (t.ask && t.pick_dir) {
+                begin_pick(t);
+                return R_REDRAW;
+            }
+            if (t.ask) {
+                begin_text(t);
+                return R_REDRAW;
+            }
+            return run_task(t, 0);
+        }
+        return drive_row(copy);
+    }
+    const MenuEntry &e = e0;
     char msg[240];
     msg[0] = 0;
     switch (e.kind) {
@@ -2235,17 +2267,11 @@ MenuCtl::Result MenuCtl::activate(bool primary, bool all)
         }
         return run_task(t, 0);
     }
-    case EK_MEDIA: {
-        const MediaSlot &m = c_->desc->media[e.index];
-        if (m.eject_op && ops_state(c_, m.state)) {
-            OpResult r;
-            int rc = ops_run_bound(c_, m.eject_op, m.eject_bind, m.neject_bind, 0, &r);
-            char s[120];
-            snprintf(s, sizeof(s), rc ? "%s: cannot eject. %s" : "%s ejected", m.name, r.msg);
-            set_status(s, rc != 0);
-        }
-        return R_REDRAW;
-    }
+    case EK_MEDIA:
+        return open_drive(e.index);
+    case EK_DRIVE_MOUNT:
+    case EK_DRIVE_EJECT:
+        return drive_row(e);
     case EK_SETTING:
         if (picture_row(e)) {
             begin_pick_modes();
@@ -2288,6 +2314,132 @@ MenuCtl::Result MenuCtl::activate(bool primary, bool all)
         return run_fixed(e);
     }
     return R_NONE;
+}
+
+// T212 D3: the machine line of Home, from the values of the settings the core names (CoreDesc::machine_info).
+void MenuCtl::machine_line(char *out, int n) const
+{
+    out[0] = 0;
+    const CoreDesc *d = c_->desc;
+    if (!d->machine_info) {
+        return;
+    }
+    int w = 0;
+    for (const char *p = d->machine_info; *p;) {
+        const char *e = strchr(p, ',');
+        int l = e ? (int)(e - p) : (int)strlen(p);
+        for (int i = 0; i < d->nsettings; i++) {
+            const Setting &s = d->settings[i];
+            const char *name = s.label ? s.label : s.key;
+            if (s.kind || (int)strlen(name) != l || strncasecmp(name, p, l)) {
+                continue;
+            }
+            const char *v = s.values[c_->settings->value(i)];
+            if (!strcasecmp(v, "None")) {
+                break;
+            }
+            bool ram = strstr(name, "RAM") || strstr(name, "Memory");
+            w += snprintf(out + w, n - w, "%s%s%s%s", w ? " - " : "", ram ? name : "", ram ? " " : "", v);
+            break;
+        }
+        if (!e || w >= n - 1) {
+            break;
+        }
+        p = e + 1;
+    }
+}
+
+// ---- T212 D5: the drive list ----------------------------------------------------------------------------------------------------------------------
+// RETURN on a drive row of Home opens a short page of what belongs to that drive: an empty one is filled from the Library or with a blank medium, a mounted
+// one is ejected, saved, reset. The rows are the page's reserved entries (menutree.cc), made again each time from the slot's state and its lists.
+MenuCtl::Result MenuCtl::open_drive(int slot)
+{
+    const CoreDesc *d = c_->desc;
+    const MediaSlot &m = d->media[slot];
+    int pg = -1;
+    for (int b = 0; b < tree_.a[area_].ntabs; b++) {
+        if (tree_.a[area_].tabs[b].drive_page) {
+            pg = b;
+        }
+    }
+    if (pg < 0 || !menu_slot_is_drive(m)) {
+        return R_NONE;
+    }
+    MenuTab &tb = tree_.a[area_].tabs[pg];
+    const bool mounted = ops_state(c_, m.state) != 0;
+    int n = 0;
+    auto put = [&](EntryKind k, const char *label, int index) {
+        if (n < DRIVE_PAGE_ROWS) {
+            tree_.e[tb.first + n].kind = k;
+            tree_.e[tb.first + n].label = label;
+            tree_.e[tb.first + n].index = index;
+            n++;
+        }
+    };
+    if (mounted && m.eject_op) {
+        put(EK_DRIVE_EJECT, "Eject", slot);
+    }
+    if (m.mount) {
+        put(EK_DRIVE_MOUNT, mounted ? "Replace from Library..." : "Mount from Library...", slot);
+    }
+    const char *list = mounted ? m.mounted_tasks : m.empty_tasks;
+    for (int i = 0; i < d->ntasks; i++) {
+        if (groups_have(list, d->tasks[i].label)) {
+            put(EK_TASK, d->tasks[i].label, i);
+        }
+    }
+    if (n == 0) {
+        return R_NONE;
+    }
+    tb.count = n;
+    drive_slot_ = slot;
+    snprintf(drive_title_, sizeof(drive_title_), "%s", m.name);
+    tb.name = drive_title_;
+    sel_[area_][pg] = 0;
+    first_[area_][pg] = 0;
+    go(area_, pg);
+    return R_REDRAW;
+}
+
+MenuCtl::Result MenuCtl::drive_row(const MenuEntry &e)
+{
+    const MediaSlot &m = c_->desc->media[e.index];
+    if (e.kind == EK_DRIVE_EJECT) {
+        if (m.eject_op && ops_state(c_, m.state)) {
+            OpResult r;
+            int rc = ops_run_bound(c_, m.eject_op, m.eject_bind, m.neject_bind, 0, &r);
+            char s[120];
+            snprintf(s, sizeof(s), rc ? "%s: cannot eject. %s" : "%s ejected", m.name, r.msg);
+            set_status(s, rc != 0);
+            if (!rc) {
+                toast(s);
+            }
+        }
+        return R_REDRAW;
+    }
+    // EK_DRIVE_MOUNT: the Library, listing the types of this slot; RETURN on a file runs the slot's mount action
+    for (int a = 0; a < tree_.nareas; a++) {
+        for (int b = 0; b < tree_.a[a].ntabs; b++) {
+            const MenuTab &tb = tree_.a[a].tabs[b];
+            if (tb.count == 1 && tree_.e[tb.first].kind == EK_BROWSER) {
+                mount_slot_ = e.index;
+                fm_.ext_filter = m.exts;
+                go(a, b);
+                char s[120];
+                snprintf(s, sizeof(s), "Choose a file for %s - RETURN mounts it", m.name);
+                set_status(s, false);
+                return R_REDRAW;
+            }
+        }
+    }
+    set_status("There is no Library on this core", true);
+    return R_REDRAW;
+}
+
+void MenuCtl::end_mount()
+{
+    mount_slot_ = -1;
+    fm_.ext_filter = 0;
 }
 
 // A fixed entry (menutree.cc FixedDef): the operation it names, the way its answer is told; "Return to host menu" first has the media written back and then asks the host.
@@ -2540,6 +2692,13 @@ void MenuCtl::footer_legend_keys(char *out, int n)
             snprintf(out, n, "UP/DOWN  SELECT   RETURN  OPEN IT   / SEEK");
         } else if (fm_.sel < fm_.nlist && fm_.list[fm_.sel].dir) {
             snprintf(out, n, "RETURN  OPEN   RIGHT  FOLDER ACTIONS   SPACE  MARK   <- UP   / SEEK");
+        } else if (mount_slot_ >= 0 && fm_.sel < fm_.nlist) {
+            snprintf(out, n, "RETURN  MOUNT IN %s   <- UP   / SEEK   F1  HOME", c_->desc->media[mount_slot_].name);
+            for (char *p = out; *p; p++) {
+                if (*p >= 'a' && *p <= 'z') {
+                    *p = (char)(*p - 32);
+                }
+            }
         } else if (fm_.sel < fm_.nlist) {
             BrowseRow r;
             browse_row(fm_.sel, &r);
@@ -2552,6 +2711,10 @@ void MenuCtl::footer_legend_keys(char *out, int n)
         } else {
             snprintf(out, n, "<- UP   / SEEK   F3  AREA");
         }
+        return;
+    }
+    if (cur().drive_page) {                                           // T212 D5: the drive list
+        snprintf(out, n, "UP/DOWN  CHOOSE   RETURN  DO IT   ESC  BACK");
         return;
     }
     if (cur().page) {                                                 // T187 D2: a page a row opened; gate 1: its way back is worded as every list's

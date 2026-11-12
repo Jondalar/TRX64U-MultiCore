@@ -111,6 +111,26 @@ bool FileMgr::visible_ext(const char *name, const FileType **ft) const
     return false;
 }
 
+bool FileMgr::ext_wanted(const char *name) const
+{
+    if (!ext_filter || !*ext_filter) {
+        return true;
+    }
+    int l = (int)strlen(name);
+    for (const char *p = ext_filter; *p;) {
+        const char *e = strchr(p, ',');
+        int n = e ? (int)(e - p) : (int)strlen(p);
+        if (l > n && !strncasecmp(name + l - n, p, n)) {
+            return true;
+        }
+        if (!e) {
+            break;
+        }
+        p = e + 1;
+    }
+    return false;
+}
+
 // the listing of the browser's directory, folders and then the files whose extension some action of the descriptor wants
 void FileMgr::load_dir()
 {
@@ -141,7 +161,7 @@ void FileMgr::load_dir()
             int l = (int)strlen(fe.name), e = (int)strlen(ie);
             want = !fe.dir && l > e && !strcasecmp(fe.name + l - e, ie);
         } else {
-            want = true;                                           // every file is listed: the ones no action knows still have View, Copy, Rename, Delete
+            want = fe.dir || ext_wanted(fe.name);                  // every file is listed (T212: or only the types of the drive that mounts from here): the ones no action knows still have View, Copy, Rename, Delete
         }
         if (want) {
             if (nlist != up + i) {

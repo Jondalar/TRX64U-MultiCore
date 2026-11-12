@@ -132,9 +132,13 @@ static const FileAction hdf_actions[] = {
 static const FileType filetypes[] = { { ".adf", adf_actions, 5 }, { ".hdf", hdf_actions, 2 } };
 
 static const MediaSlot media[] = {
-    { "DF0", "amiga.df0.image", "window.eject", df0, 1 }, { "DF1", "amiga.df1.image", "window.eject", df1, 1 },
-    { "DF2", "amiga.df2.image", "window.eject", df2, 1 }, { "DF3", "amiga.df3.image", "window.eject", df3, 1 },
-    { "HD0", "amiga.hd0.image", "sectors.eject", hd0, 1 }, { "HD1", "amiga.hd1.image", "sectors.eject", hd1, 1 },
+    // T212 D5: name, state, eject, group, the types and the action that mounts them, the tasks of an empty / a mounted slot
+    { "DF0", "amiga.df0.image", "window.eject", df0, 1, 0, ".adf", "Mount DF0", "Create blank ADF", 0 },
+    { "DF1", "amiga.df1.image", "window.eject", df1, 1, 0, ".adf", "Mount DF1", "Create blank ADF", 0 },
+    { "DF2", "amiga.df2.image", "window.eject", df2, 1, 0, ".adf", "Mount DF2", "Create blank ADF", 0 },
+    { "DF3", "amiga.df3.image", "window.eject", df3, 1, 0, ".adf", "Mount DF3", "Create blank ADF", 0 },
+    { "HD0", "amiga.hd0.image", "sectors.eject", hd0, 1, 0, ".hdf", "Mount HD0", "Mount folder as HD0", 0 },
+    { "HD1", "amiga.hd1.image", "sectors.eject", hd1, 1, 0, ".hdf", "Mount HD1", "Mount folder as HD1", 0 },
 };
 
 // The contributor: the names of the slots as state values. Nothing else is the core's own.
@@ -324,6 +328,7 @@ static CoreDesc make(int v)
     d.tasks = tasks; d.ntasks = 11;
     d.filetypes = filetypes; d.nfiletypes = 2;
     d.media = media; d.nmedia = 6;
+    d.machine_info = "Chipset,Chip RAM,Slow RAM,Fast RAM";
     // 720 x 540 at scale 2 on 1920 x 1080; the three buffers are gateware parameters (FB_BUFS, FB_BYTE0): no FB_BASE / FB_STRIDE register
     d.video = { 720, 540, 2, 240, 0, 0x01000000u + AM_W_FB, 0x100000u, 3, AM_FB_LATEST, AM_FRAME_SEQ, 0, 0, 2 };
     if (a.rgb32) {                               // T136 D3: outside the window (the application cannot clear them: Video::init skips them)

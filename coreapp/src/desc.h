@@ -153,6 +153,13 @@ struct MediaSlot {
     const char *eject_op;                 // optional; filled from eject_bind like a task
     const OpBind *eject_bind; int neject_bind;
     const char *group;                    // T104.2 D10: as Task::group
+    // T212 D5: what belongs to this drive. RETURN on its row in Home opens a short list: `mount` is the label of the file action that puts a file of `exts`
+    // (".d64,.g64") into this slot (the list's "Mount from Library..." jumps to the Library showing those types and runs that action on RETURN); the task
+    // labels (comma separated) are listed for an empty slot / a mounted one. The slot's eject is the list's "Eject". All null: the row only shows its state.
+    const char *exts;
+    const char *mount;
+    const char *empty_tasks;
+    const char *mounted_tasks;
 };
 
 // ---- video, freeze (D9) -------------------------------------------------------------------------------------------------
@@ -319,6 +326,9 @@ struct CoreDesc {
     // T194: a second picture of the core on the same layer (the C128's VIC-IIe next to the VDC): Video::select_picture() switches to it; the Picture, HDMI mode and
     // Smoothing settings reach both. Null: one picture. Last in the record, so the positional initialisers stay as they are.
     const VideoDesc *alt_video;
+    // T212 D3: the settings (by label, else key; comma separated) whose values make the one line of Home that says what machine this is ("AGA - Chip RAM 2M").
+    // A value "None" is left out. Null: Home has no such line. Last in the record, so the positional initialisers stay as they are.
+    const char *machine_info;
 };
 
 static inline bool desc_has_capability(const CoreDesc *d, const char *cap)

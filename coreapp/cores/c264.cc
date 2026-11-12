@@ -268,7 +268,7 @@ static const Task tasks[3 + CBM1541_NTASKS] = {
 
 static const MediaSlot media[] = {
     { "Program", "c264.program", 0, 0, 0 },
-    { "Cartridge", "c264.cartridge", 0, 0, 0 },
+    { "Cartridge", "c264.cartridge", 0, 0, 0, 0, ".bin", "Load as cartridge (Plus/4)", 0, "Eject cartridge, reset" },
     CBM1541_MEDIA,
 };
 

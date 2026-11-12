@@ -441,7 +441,7 @@ static const char *cart_name(CoreCtx *c)
     SnesState *st = snes_state(c);
     return c->program_loaded ? st->name : 0;
 }
-static const MediaSlot media[] = { { "Cartridge", "snes.cartridge.image", 0, 0, 0 } };
+static const MediaSlot media[] = { { "Cartridge", "snes.cartridge.image", 0, 0, 0, 0, ".sfc,.smc", "Run", 0, "Save the battery RAM now" } };
 
 // T180 D2, D5: the cartridge for the stored mounts and the media sets: the game's path. Emptying the slot writes the save back, holds the machine and leaves it
 // with no program (the start waits for one, as at a first start).

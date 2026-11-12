@@ -295,7 +295,7 @@ static const FileType filetypes[] = {
 };
 
 static const MediaSlot media[] = {
-    { "Tape", "zx.tape.image", "zx.tape_eject", 0, 0 },
+    { "Tape", "zx.tape.image", "zx.tape_eject", 0, 0, 0, ".tap,.tzx", "Insert tape", 0, "Tape: Play,Tape: Stop,Tape: Rewind,Tape: Previous block,Tape: Next block" },
 };
 
 static const ArgSpec insert_args[] = { ARG_PATH("path"), ARG_INT("play", 0, 1) };

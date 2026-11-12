@@ -395,6 +395,8 @@ static uint32_t home_signature(MenuCtl &m)
     h = sig_str(h, l);
     m.video_line(l, sizeof(l));
     h = sig_str(h, l);
+    m.machine_line(l, sizeof(l));
+    h = sig_str(h, l);
     int n = m.rows();
     h = (h ^ (uint32_t)n) * 16777619u;
     for (int i = 0; i < n; i++) {
@@ -744,8 +746,7 @@ static void ui_home(lv_obj_t *c, MenuCtl &m, int x, int y)
 {
     const TrxTheme &t = trx_theme();
     int h = trx_content_h() - y - t.space_md;
-    int right_w = trx_compact() ? 200 : 250;                 // T205: the compact canvas gives the session panel the room for "Load config..." with its value
-    int left_w = trx_content_w() - 2 * x - right_w - t.space_lg;
+    int left_w = trx_content_w() - 2 * x;                    // T212 D7: no Status panel any more; the session panel is the whole of Home
 
     lv_obj_t *left = trx_panel(c, x, y, left_w, h, trx_compact() ? "Session" : "Current session",
                                m.session_word(false), t.ok);
@@ -767,44 +768,36 @@ static void ui_home(lv_obj_t *c, MenuCtl &m, int x, int y)
     m.video_line(mode, sizeof(mode));
     lv_label_set_long_mode(trx_txt(left, t.space_lg, cy + d_what + d_mode, trx_fit_mid(mode, left_w - 2 * t.space_lg - 4, t.caption, mfit, sizeof(mfit)), t.caption, t.muted,
                                    left_w - 2 * t.space_lg), LV_LABEL_LONG_MODE_CLIP);
-    trx_button(left, t.space_md, h - 28, 0, "F7  Actions", false);
-
-    lv_obj_t *right = trx_panel(c, x + left_w + t.space_lg, y, right_w, h, "Status", 0, 0);
-    int ry = trx_panel_top();
+    trx_button(left, t.space_md, h - 28, 0, "F3  Library", false);
     int n = m.rows();
     char l[120], r[120];
     bool active;
     g_homen = 0;
-    // T205 D1: the information lines are the Status panel; the media slots and configs (what the F5 Summary tab was) stand in the session panel under the video line,
-    // as the same rows a list draws. The rows are in the tab's order (the information first), g_home keeps one object per row either way.
-    const MenuTab &tb = m.tree().a[m.area()].tabs[m.tab()];
+    // T212: the rows of the Home tab (reset, drives, configs) stand in the session panel under the video line, as the same rows a list draws; g_home keeps one object per row.
     int ly = cy + d_what + d_mode + d_rows;
-    bool clipped = false;
+    char mach[96];
+    m.machine_line(mach, sizeof(mach));                       // T212 D3: what machine this is, from the core's own setting values
+    if (mach[0]) {
+        char mfit2[96];
+        lv_label_set_long_mode(trx_txt(left, t.space_lg, cy + d_what + d_mode + (cp ? 20 : 22), trx_fit_mid(mach, left_w - 2 * t.space_lg - 4, t.caption, mfit2, sizeof(mfit2)),
+                                       t.caption, t.muted, left_w - 2 * t.space_lg), LV_LABEL_LONG_MODE_CLIP);
+        ly += cp ? 18 : 20;
+    }
     for (int i = 0; i < n; i++) {
         m.row(i, l, sizeof(l), r, sizeof(r), &active, 0, 0);
-        lv_obj_t *ar;
-        if (m.tree().e[tb.first + i].kind == EK_INFO) {
-            if (ry >= h - 30) {
-                clipped = true;                              // a row that does not fit is not drawn: no cheap selection path then
-                continue;
-            }
-            ar = trx_action_row_at(right, t.space_md, ry, right_w - 2 * t.space_md, l, r, 0, 0, i == m.selected(), &ry);
-        } else {
-            TrxRow row;
-            memset(&row, 0, sizeof(row));
-            row.label = l;
-            row.value = r[0] ? r : 0;
-            row.selected = row.strong = (i == m.selected());
-            row.dim = !active;
-            ar = trx_row_at(left, t.space_lg, ly, left_w - 2 * t.space_lg, row, &ly);
-        }
+        TrxRow row;
+        memset(&row, 0, sizeof(row));
+        row.label = l;
+        row.value = r[0] ? r : 0;
+        row.selected = row.strong = (i == m.selected());
+        row.dim = !active;
+        lv_obj_t *ar = trx_row_at(left, t.space_lg, ly, left_w - 2 * t.space_lg, row, &ly);
         if (i < UI_HOME_MAX) {
             g_home[i] = ar;
             g_homen = i + 1;
         }
     }
-    trx_button(right, t.space_md, h - 28, right_w - 2 * t.space_md, "F3  Library", false);
-    g_homelist = !clipped && g_homen == n;                     // every row kept: a selection move needs no build
+    g_homelist = g_homen == n;                     // every row kept: a selection move needs no build
     g_homesel = m.selected();
     g_homesig = home_signature(m);
 }
