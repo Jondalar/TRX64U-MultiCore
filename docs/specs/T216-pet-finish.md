@@ -39,13 +39,13 @@ A tester (2026-11-12) ran main-736c16d9 on the board. Working, to keep: internal
   §5 gets a guide: `901466-04.bin` (2 KiB) written twice into `ctl4040.bin`, plus `dos4040.bin` (S4 becomes the doc check, S5).
 - **D4 (Alex, 2026-11-12, "b"; answers Q3):** P4 (game mode, direction keys on the digits) is not built in the PET; it comes with the
   key bundles of the generic app (decision 6 of `docs/generic-app-requirements.md`), built with the UI epic, last. Out of T216 (§4).
+- **D5 (Alex, 2026-11-12, "passt"; answers Q4):** P5 needs no code: the app already picks the editor by model and picture rate and the
+  character ROM by the VICE names (`coreapp/cores/pet_models.h:26-48`). INSTALL.md §5 lists which VICE PET files go into `pet/roms`.
 
-Open, one at a time, unanswered:
-- **Q4** P5: which ROM files and names?
 
 ## §4 Out
 
-P4 (game mode): moved to the generic app's key bundles (D4). P5 is open, not dropped.
+P4 (game mode): moved to the generic app's key bundles (D4). P5: documentation only (D5).
 
 ## §5 Decisions taken while building
 
