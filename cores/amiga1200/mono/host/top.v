@@ -73,7 +73,7 @@ module top #(
     output wire       SPEAKER_DATA,         // I2S data to the speaker amplifier (same BCLK/LRCK)
     input  wire       AUDIO_SDO,            // codec ADC data (the SID sockets' audio), passed to the core (T103)
     // pins only for the cores (T103): the cassette port, the POT comparators of the joystick ports, the SID sockets' selects
-    inout  wire       C2N_MOTOR, C2N_SENSE, C2N_READ, C2N_WRITE,    // direction of MOTOR unknown: released unless the core enables it; SENSE open drain; READ and WRITE released unless enabled
+    inout  wire       C2N_MOTOR, C2N_SENSE, C2N_READ, C2N_WRITE,    // MOTOR out, READ and SENSE in (a real datasette LOADs on the PET, #26), WRITE out (no SAVE proven yet); all released unless the core enables them; SENSE open drain
     input  wire [3:0] PADDLE_CMP,           // 1.8 V
     output wire       PADDLE_DIS, PADDLE_ADJ,            // high-Z unless the core enables them
     output wire       UART_TXD,             // RISC-V console, 115200 8N1

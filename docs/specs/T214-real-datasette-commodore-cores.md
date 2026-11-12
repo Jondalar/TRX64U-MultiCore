@@ -45,7 +45,7 @@ Scenario: S6 the gateware builds
 
 **D2 Bits.** C128/SCPU use the existing c64u `PIN_CTRL`: b0 MOTOR, b1 WRITE, b4 READ+SENSE inputs = 0x13. b2 (the streamer drives READ) and b3 (SENSE pulled) stay 0 with an external datasette. (PET writes 0x11: its WRITE bit stays 0 until a SAVE is proven; the other cores wire WRITE as D1 says.)
 
-**D3 VC-20 and C16/Plus4 follow the PET pattern:** a `TAPE_PIN` register (VC-20 0x0B0, C264 0x0B2, same bits as PET_TAPE_PIN), inputs through two flip-flops, outputs registered in sys_clk, every pin released at 0. No file streamer in these two, so READ and SENSE are never driven. VC-20: `cass_read` -> VIA2 CA1, `cass_sw` -> VIA1 PA6, `cass_motor` = CA2 (low = on), `cass_write` = VIA2 PB3. C16/Plus4: 7501 port b3 WRITE, b4 READ, b5 MOTOR (low = on); SENSE read at $FD10 b2 (low = pressed).
+**D3 VC-20 and C16/Plus4 follow the PET pattern:** a `TAPE_PIN` register (VC-20 0x0B0, C264 0x0B2, same bits as PET_TAPE_PIN), inputs through two flip-flops, outputs registered in sys_clk, every pin released at 0. No file streamer in these two, so READ and SENSE are never driven. VC-20: `cass_read` -> VIA2 CA1, `cass_sw` -> VIA1 PA6, `cass_motor` = CA2 (low = on), `cass_write` = VIA2 PB3. C16/Plus4 (7501, sources: MJK 7501 page ist.uwaterloo.ca/~schepers/MJK/7501.html, zimmers 264memnio.txt): P3 MOTOR out (low = on, KERNAL convention, unmeasured), P4 READ in, cassette WRITE shares P1 with the serial CLK out (unproven), P5 not externally accessible; SENSE read at $FD10 b2 (6529 CST sense, low = pressed).
 
 ## §4 Out
 
@@ -55,4 +55,4 @@ Scenario: S6 the gateware builds
 
 ## §5 Built
 
-- 2026-11-12: comments fixed (S1); C128/SCPU setting; VC-20 and C264 gateware and setting. Not measured: C16/Plus4 motor polarity and the $FD10 bit 2 sense are taken from the 7501/6529 convention, not from a measurement in this repo - S4 on the board decides.
+- 2026-11-12: comments fixed (S1); C128/SCPU setting; VC-20 and C264 gateware and setting. Not measured: C16/Plus4 motor polarity (P3), the WRITE-on-P1 sharing and the $FD10 bit 2 sense come from the sources in D3, not from a measurement in this repo - S4 on the board decides.
