@@ -26,6 +26,14 @@ Feature: Pictures of the T212 areas of the amiga1200 core: F1 with its drive lis
     And I press RETURN
     Then I save the picture "t212-amiga1200-f1-drive-mounted"
 
+  Scenario: Eject from the drive list: Home with the toast
+    Given the menu is open on F1
+    When I move to "DF0"
+    And I press RETURN
+    And I move to "Eject"
+    And I press RETURN
+    Then I save the picture "t212-amiga1200-f1-ejected"
+
   Scenario: F5, F7 and F8
     Given the menu is open on F5
     Then I save the picture "t212-amiga1200-f5"

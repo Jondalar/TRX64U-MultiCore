@@ -273,6 +273,7 @@ static void ui_home(lv_obj_t *c, MenuCtl &m, int x, int y);
 static lv_obj_t *g_row[UI_ROWS_MAX];
 static int g_rown, g_rowfirst, g_rowsel = -1;
 static uint32_t g_rowsig;
+static bool g_rowtitle[24];                          // per kept row: it is a heading proper, not an information line (the bench's probe: no window ends on one)
 static bool g_rowhead[24];                           // per kept row: it is a heading (the bench's probe)
 static bool g_rowlist;                             // the kept rows belong to a list, not to Home
 static uint32_t g_inplace;                         // window moves and value changes served by retexting the rows
@@ -322,7 +323,7 @@ static TrxWindow list_window(MenuCtl &m, int *room_out)
     *room_out = room;
     int first = (g_last_area != m.area() || g_last_tab != m.tab()) ? m.first_hint() : g_first;     // T187 rule 5: a tab comes back with the window it had
     TrxWindow w = trx_window_h(m.rows(), m.selected(), first, room, list_row_h, &m);
-    while (w.count > 1 && m.heading(w.first + w.count - 1)) {          // T187 rule 3: a heading is never the last line of a window
+    while (w.count > 1 && m.title_row(w.first + w.count - 1)) {         // T187 rule 3: a heading is never the last line of a window (an information line is a row: it ends one)
         w.count--;
     }
     m.note_first(w.first);
@@ -537,7 +538,7 @@ bool ui_list_probe(UiListProbe *p)
             p->val_off_max = off > p->val_off_max ? off : p->val_off_max;
         }
         if (i == g_rown - 1) {
-            p->last_heading = g_rowhead[i];
+            p->last_heading = g_rowtitle[i];
         }
         if (g_rowfirst + i == g_rowsel) {
             p->sel_heading = g_rowhead[i];
@@ -687,7 +688,7 @@ void ui_menu_render(MenuCtl &m)
                     r.selected = r.strong = (w.first + i == m.selected());
                     r.dim = !active;
                     r.mark = m.row_reset(w.first + i);
-                    r.heading = m.heading(w.first + i);
+                    r.heading = m.title_row(w.first + i);                // an information line is a row with its value, only a heading proper is drawn quiet
                     ok = trx_row_retext(g_row[i], r, cw);
                 }
                 if (ok) {
@@ -760,12 +761,13 @@ void ui_menu_render(MenuCtl &m)
         r.strong = (idx == sel);
         r.dim = !active;
         r.mark = m.row_reset(idx);
-        r.heading = m.heading(idx);
-        r.selected = r.strong = r.selected && !r.heading;
+        r.heading = m.title_row(idx);                         // an information line is a row with its value (it takes no focus), only a heading proper is drawn quiet
+        r.selected = r.strong = r.selected && !m.heading(idx);
         lv_obj_t *row = trx_row_at(c, x, y, trx_content_w() - 2 * x, r, &y);
         if (i < UI_ROWS_MAX) {                               // kept for the cheap path of the next key
             g_row[i] = row;
-            g_rowhead[i] = r.heading;
+            g_rowhead[i] = m.heading(idx);
+            g_rowtitle[i] = m.title_row(idx);
         }
     }
     g_rown = w.count <= UI_ROWS_MAX ? w.count : 0;           // a window larger than the store: no cheap path
@@ -797,7 +799,7 @@ void ui_menu_render(MenuCtl &m)
     }
 }
 
-// home.xml: CURRENT SESSION on the left (compact: core, what is in it, the video mode; no picture area, T24.1 is not built), STATUS on the right with one action
+// home.xml: SESSION on the left (compact: core, what is in it, the video mode; no picture area, T24.1 is not built), STATUS on the right with one action
 // row per information line, and the Quick Actions button under them.
 static void ui_home(lv_obj_t *c, MenuCtl &m, int x, int y)
 {
@@ -805,7 +807,7 @@ static void ui_home(lv_obj_t *c, MenuCtl &m, int x, int y)
     int h = trx_content_h() - y - t.space_md;
     int left_w = trx_content_w() - 2 * x;                    // T212 D7: no Status panel any more; the session panel is the whole of Home
 
-    lv_obj_t *left = trx_panel(c, x, y, left_w, h, trx_compact() ? "Session" : "Current session",
+    lv_obj_t *left = trx_panel(c, x, y, left_w, h, "Session",
                                m.session_word(false), t.ok);
     int iy = trx_panel_top();
 #ifdef UI_HOME_PICTURE_BOX                       // the bench's control: the empty box of home.xml's picture-in-picture (T24.1, not built) comes back

@@ -86,6 +86,7 @@ public:
     // T187 D1: row i of the flat list is a heading (a quiet divider): never selected, never the last line of the window. T187 rule 5: the first row of a tab's
     // window is kept per tab, so coming back to a tab (from a page it opened, or from another area) shows the rows where they were.
     bool heading(int i);
+    bool title_row(int i);                       // only a heading proper (not an information line): the one a window never ends on
     int first_hint() const;
     void note_first(int first);
     static const int NAME_LONG_MAX = 255;                          // a FAT long name: what Rename and New folder take

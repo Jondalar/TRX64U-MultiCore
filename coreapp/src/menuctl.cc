@@ -271,6 +271,14 @@ bool MenuCtl::heading(int i)
     return e.kind == EK_HEADING || e.kind == EK_INFO || (e.kind == EK_MEDIA && !menu_slot_is_drive(c_->desc->media[e.index]));
 }
 
+bool MenuCtl::title_row(int i)
+{
+    if (!heading(i)) {
+        return false;
+    }
+    return tree_.e[cur().first + i].kind == EK_HEADING;
+}
+
 int MenuCtl::first_hint() const
 {
     return is_browser() ? 0 : first_[area_][tab_];
@@ -2394,6 +2402,9 @@ MenuCtl::Result MenuCtl::open_drive(int slot)
     tb.count = n;
     drive_slot_ = slot;
     snprintf(drive_title_, sizeof(drive_title_), "%s", m.name);
+    for (size_t k = strlen(drive_title_); k > 0 && drive_title_[k - 1] == ':'; k--) {      // the slot's own name, without the colon some descriptors keep in it ("Drive A:")
+        drive_title_[k - 1] = 0;
+    }
     tb.name = drive_title_;
     sel_[area_][pg] = 0;
     first_[area_][pg] = 0;

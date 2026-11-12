@@ -309,7 +309,7 @@ static void same_as_scratch(const char *name, Rig &c)
     if (diff) printf("AREA %s: the shown buffer differs from one built from scratch in %zu px, in x %d..%d y %d..%d\n", name, diff, x0, x1, y0, y1);
     CHECK(diff == 0);
 }
-// The Home page's "Current session" panel has no picture area (Alex 2026-10-29: the picture-in-picture, T24.1, is not built): no large empty box with the screen's
+// The Home page's "Session" panel has no picture area (Alex 2026-10-29: the picture-in-picture, T24.1, is not built): no large empty box with the screen's
 // background and a hairline border anywhere in it. UI_HOME_PICTURE_BOX puts the box back (the bench's control).
 static int big_empty_boxes(lv_obj_t *o)
 {

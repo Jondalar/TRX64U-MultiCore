@@ -360,16 +360,16 @@ Amstrad CPC 464 / 664 / 6128 F1/home s1 59 84209d41
 Amstrad CPC 464 / 664 / 6128 F1/home s2 59 fffd5e12
 Amstrad CPC 464 / 664 / 6128 F1/home s3 59 dae0ba11
 Amstrad CPC 464 / 664 / 6128 F1/home s4 59 84209d41
-Amstrad CPC 464 / 664 / 6128 F1/home s5 59 651ee358
+Amstrad CPC 464 / 664 / 6128 F1/home s5 59 7f1fd4c9
 Amstrad CPC 464 / 664 / 6128 F1/home s6 59 84209d41
 Amstrad CPC 464 / 664 / 6128 F1/home s7 59 fffd5e12
 Amstrad CPC 464 / 664 / 6128 F1/home s8 59 cf290bb0
 Amstrad CPC 464 / 664 / 6128 F1/home s9 59 cf290bb0
 Amstrad CPC 464 / 664 / 6128 F1/home s10 59 dae0ba11
-Amstrad CPC 464 / 664 / 6128 F1/home s11 59 079f95f4
-Amstrad CPC 464 / 664 / 6128 F1/home s12 59 079f95f4
-Amstrad CPC 464 / 664 / 6128 F1/home s13 59 079f95f4
-Amstrad CPC 464 / 664 / 6128 F1/home s14 59 079f95f4
+Amstrad CPC 464 / 664 / 6128 F1/home s11 59 38d7ae54
+Amstrad CPC 464 / 664 / 6128 F1/home s12 59 38d7ae54
+Amstrad CPC 464 / 664 / 6128 F1/home s13 59 38d7ae54
+Amstrad CPC 464 / 664 / 6128 F1/home s14 59 38d7ae54
 Amstrad CPC 464 / 664 / 6128 F1/home s15 59 84209d41
 Amstrad CPC 464 / 664 / 6128 F1/home s16 59 fffd5e12
 Amstrad CPC 464 / 664 / 6128 F1/drive s0 59 8a8886d7
@@ -383,10 +383,10 @@ Amstrad CPC 464 / 664 / 6128 F1/drive s7 59 fffd5e12
 Amstrad CPC 464 / 664 / 6128 F1/drive s8 59 cf290bb0
 Amstrad CPC 464 / 664 / 6128 F1/drive s9 59 cf290bb0
 Amstrad CPC 464 / 664 / 6128 F1/drive s10 59 8a8886d7
-Amstrad CPC 464 / 664 / 6128 F1/drive s11 59 079f95f4
-Amstrad CPC 464 / 664 / 6128 F1/drive s12 59 079f95f4
-Amstrad CPC 464 / 664 / 6128 F1/drive s13 59 079f95f4
-Amstrad CPC 464 / 664 / 6128 F1/drive s14 59 079f95f4
+Amstrad CPC 464 / 664 / 6128 F1/drive s11 59 38d7ae54
+Amstrad CPC 464 / 664 / 6128 F1/drive s12 59 38d7ae54
+Amstrad CPC 464 / 664 / 6128 F1/drive s13 59 38d7ae54
+Amstrad CPC 464 / 664 / 6128 F1/drive s14 59 38d7ae54
 Amstrad CPC 464 / 664 / 6128 F1/drive s15 59 84209d41
 Amstrad CPC 464 / 664 / 6128 F1/drive s16 59 fffd5e12
 Amstrad CPC 464 / 664 / 6128 F3/browse s0 59 b4f125b2
@@ -445,16 +445,16 @@ VIC-20 F1/home s1 59 f867b330
 VIC-20 F1/home s2 59 b44d678a
 VIC-20 F1/home s3 59 3e30fee2
 VIC-20 F1/home s4 59 f867b330
-VIC-20 F1/home s5 59 286ac123
+VIC-20 F1/home s5 59 a864c2b9
 VIC-20 F1/home s6 59 f867b330
 VIC-20 F1/home s7 59 b44d678a
 VIC-20 F1/home s8 59 fddf469f
 VIC-20 F1/home s9 59 fddf469f
 VIC-20 F1/home s10 59 3e30fee2
-VIC-20 F1/home s11 59 f313c112
-VIC-20 F1/home s12 59 f313c112
-VIC-20 F1/home s13 59 f313c112
-VIC-20 F1/home s14 59 f313c112
+VIC-20 F1/home s11 59 d99f308a
+VIC-20 F1/home s12 59 d99f308a
+VIC-20 F1/home s13 59 d99f308a
+VIC-20 F1/home s14 59 d99f308a
 VIC-20 F1/home s15 59 f867b330
 VIC-20 F1/home s16 59 b44d678a
 VIC-20 F1/drive s0 59 f2fdbf4b
@@ -468,10 +468,10 @@ VIC-20 F1/drive s7 59 b44d678a
 VIC-20 F1/drive s8 59 fddf469f
 VIC-20 F1/drive s9 59 fddf469f
 VIC-20 F1/drive s10 59 f2fdbf4b
-VIC-20 F1/drive s11 59 f313c112
-VIC-20 F1/drive s12 59 f313c112
-VIC-20 F1/drive s13 59 f313c112
-VIC-20 F1/drive s14 59 f313c112
+VIC-20 F1/drive s11 59 d99f308a
+VIC-20 F1/drive s12 59 d99f308a
+VIC-20 F1/drive s13 59 d99f308a
+VIC-20 F1/drive s14 59 d99f308a
 VIC-20 F1/drive s15 59 f867b330
 VIC-20 F1/drive s16 59 b44d678a
 VIC-20 F3/browse s0 59 e7a95c64
@@ -700,16 +700,16 @@ Commodore 128 F1/home s1 59 697fc876
 Commodore 128 F1/home s2 59 053862c7
 Commodore 128 F1/home s3 59 972eb7db
 Commodore 128 F1/home s4 59 697fc876
-Commodore 128 F1/home s5 59 c458e4b6
+Commodore 128 F1/home s5 59 a8a8fd3b
 Commodore 128 F1/home s6 59 697fc876
 Commodore 128 F1/home s7 59 053862c7
 Commodore 128 F1/home s8 59 a091c7e9
 Commodore 128 F1/home s9 59 a091c7e9
 Commodore 128 F1/home s10 59 972eb7db
-Commodore 128 F1/home s11 59 5549489e
-Commodore 128 F1/home s12 59 5549489e
-Commodore 128 F1/home s13 59 5549489e
-Commodore 128 F1/home s14 59 5549489e
+Commodore 128 F1/home s11 59 f50ffaa2
+Commodore 128 F1/home s12 59 f50ffaa2
+Commodore 128 F1/home s13 59 f50ffaa2
+Commodore 128 F1/home s14 59 f50ffaa2
 Commodore 128 F1/home s15 59 697fc876
 Commodore 128 F1/home s16 59 053862c7
 Commodore 128 F1/drive s0 59 34911c71
@@ -723,10 +723,10 @@ Commodore 128 F1/drive s7 59 053862c7
 Commodore 128 F1/drive s8 59 a091c7e9
 Commodore 128 F1/drive s9 59 a091c7e9
 Commodore 128 F1/drive s10 59 34911c71
-Commodore 128 F1/drive s11 59 5549489e
-Commodore 128 F1/drive s12 59 5549489e
-Commodore 128 F1/drive s13 59 5549489e
-Commodore 128 F1/drive s14 59 5549489e
+Commodore 128 F1/drive s11 59 f50ffaa2
+Commodore 128 F1/drive s12 59 f50ffaa2
+Commodore 128 F1/drive s13 59 f50ffaa2
+Commodore 128 F1/drive s14 59 f50ffaa2
 Commodore 128 F1/drive s15 59 697fc876
 Commodore 128 F1/drive s16 59 053862c7
 Commodore 128 F3/browse s0 59 b715158a
@@ -785,16 +785,16 @@ C64 with SuperCPU F1/home s1 59 91fc14dd
 C64 with SuperCPU F1/home s2 59 12eee2ad
 C64 with SuperCPU F1/home s3 59 44f32215
 C64 with SuperCPU F1/home s4 59 91fc14dd
-C64 with SuperCPU F1/home s5 59 64142a14
+C64 with SuperCPU F1/home s5 59 fd7c0ca9
 C64 with SuperCPU F1/home s6 59 91fc14dd
 C64 with SuperCPU F1/home s7 59 12eee2ad
 C64 with SuperCPU F1/home s8 59 e15a2cdc
 C64 with SuperCPU F1/home s9 59 e15a2cdc
 C64 with SuperCPU F1/home s10 59 44f32215
-C64 with SuperCPU F1/home s11 59 6e1a8179
-C64 with SuperCPU F1/home s12 59 6e1a8179
-C64 with SuperCPU F1/home s13 59 6e1a8179
-C64 with SuperCPU F1/home s14 59 6e1a8179
+C64 with SuperCPU F1/home s11 59 b4bed335
+C64 with SuperCPU F1/home s12 59 b4bed335
+C64 with SuperCPU F1/home s13 59 b4bed335
+C64 with SuperCPU F1/home s14 59 b4bed335
 C64 with SuperCPU F1/home s15 59 91fc14dd
 C64 with SuperCPU F1/home s16 59 12eee2ad
 C64 with SuperCPU F1/drive s0 59 1a28414b
@@ -808,10 +808,10 @@ C64 with SuperCPU F1/drive s7 59 12eee2ad
 C64 with SuperCPU F1/drive s8 59 e15a2cdc
 C64 with SuperCPU F1/drive s9 59 e15a2cdc
 C64 with SuperCPU F1/drive s10 59 1a28414b
-C64 with SuperCPU F1/drive s11 59 6e1a8179
-C64 with SuperCPU F1/drive s12 59 6e1a8179
-C64 with SuperCPU F1/drive s13 59 6e1a8179
-C64 with SuperCPU F1/drive s14 59 6e1a8179
+C64 with SuperCPU F1/drive s11 59 b4bed335
+C64 with SuperCPU F1/drive s12 59 b4bed335
+C64 with SuperCPU F1/drive s13 59 b4bed335
+C64 with SuperCPU F1/drive s14 59 b4bed335
 C64 with SuperCPU F1/drive s15 59 91fc14dd
 C64 with SuperCPU F1/drive s16 59 12eee2ad
 C64 with SuperCPU F3/browse s0 59 47108a44
