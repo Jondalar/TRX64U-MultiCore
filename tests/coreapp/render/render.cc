@@ -531,6 +531,21 @@ static void a1200_menu(const char *out)
             ui_menu_render(*r.m);
             lv_timer_handler();
             CHECK(txt_overlaps(k == 0 ? "a1200 home 480p" : "a1200 home") == 0);
+            {   // T212 (the drive rows and the machine line lengthen Home): the last row of Home stands inside the panel that holds it, at 480p and at the full canvas
+                char l[120], v[120]; bool ap;
+                int nr = r.m->rows();
+                r.m->row(nr - 1, l, sizeof(l), v, sizeof(v), &ap);
+                lv_obj_t *lb = find_label(lv_screen_active(), l);
+                CHECK(lb != 0);
+                if (lb) {
+                    lv_area_t ra, pa;
+                    lv_obj_t *row = lv_obj_get_parent(lb), *panel = lv_obj_get_parent(row);
+                    lv_obj_get_coords(row, &ra);
+                    lv_obj_get_coords(panel, &pa);
+                    printf("HOME %s: %d rows, last row \"%s\" y %d..%d, panel y %d..%d\n", k == 0 ? "480p" : "full", nr, l, (int)ra.y1, (int)ra.y2, (int)pa.y1, (int)pa.y2);
+                    CHECK(ra.y2 <= pa.y2);
+                }
+            }
             if (k == 0) {
                 TrxCanvas full = trx_canvas_for(1920, 1080);
                 trx_canvas_set(full.w, full.h);
