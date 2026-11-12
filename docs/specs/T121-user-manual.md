@@ -2,7 +2,7 @@
 
 **Status:** DECIDED (2026-10-23, Alex).
 **Repo:** TRX64U-MultiCore — `README.md`, `docs/manual/`, `docs/img/`, the architecture site `.claude/trx64-site/`
-(published artifact https://claude.ai/artifact/KCbyXiW4GcnNVbQJcWcpXf).
+(published artifact (internal page)).
 **Number:** T121 (TODO table).
 **Origin:** Alex, 2026-10-23, after the first GitHub snapshot: "The README makes no sense like this any more, does
 it? It is even from before the fork. Make a new one. Goal: MultiCore FPGA firmware for the Ultimate Elite II (and so
