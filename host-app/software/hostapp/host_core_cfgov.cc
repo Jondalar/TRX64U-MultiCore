@@ -355,7 +355,7 @@ void hc_cfgov_pick(HcWifiPick *p)
         } else {
             snprintf(it.a, sizeof(it.a), "%s", g_ov.l.name[r - 1]);
             if (g_ov.def[0] && !strcmp(g_ov.def, g_ov.l.name[r - 1])) {
-                snprintf(it.c, sizeof(it.c), "default");
+                snprintf(it.c, sizeof(it.c), "auto");
                 it.ctone = HCT_HOST;
             }
         }

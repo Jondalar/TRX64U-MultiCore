@@ -871,7 +871,7 @@ static void scenarios(const char *out)
         snprintf(txt, sizeof(txt), "%score=/Usb0/cores/vc20.cor|VC-20 (PAL)|%s|%u|%u|%08x\n", head, vhash, vsize, vmtime, vhdr);
         g_list_deep = 0; g_bytes_read = 0; g_saves = 0;
         hostui_test_init(txt);
-        CHECK(has("VC-20 (PAL)|v0.1|hash ok|default|SEL|img f800"));
+        CHECK(has("VC-20 (PAL)|v0.1|hash ok|auto|SEL|img f800"));
         CHECK(g_saves == 0 && g_list_deep == 0);                            // nothing to migrate, nothing listed
         CHECK(g_bytes_read < vsize / 2);                                    // header, manifest and the 2 KB icon, not the 8 KB+ of parts
         printf("start of one entry: %lu of %u bytes read\n", g_bytes_read, vsize);
@@ -883,26 +883,26 @@ static void scenarios(const char *out)
         CHECK(g_stage_calls == 1 && g_stage_trusted != 0 && strstr(hostui_test_start_err(), "bench: no hardware. Press R") != 0);
         snprintf(txt, sizeof(txt), "%score=/Usb0/cores/vc20.cor|VC-20 (PAL)|%s|%u|%u|%08x\n", head, vhash, vsize, vmtime + 2, vhdr);
         hostui_test_init(txt);
-        CHECK(has("v0.1|changed|default|SEL") && hostui_test_cfg_n() == 1);   // (a) another mtime
+        CHECK(has("v0.1|changed|auto|SEL") && hostui_test_cfg_n() == 1);   // (a) another mtime
         snprintf(txt, sizeof(txt), "%score=/Usb0/cores/vc20.cor|VC-20 (PAL)|%s|%u|%u|%08x\n", head, vhash, vsize + 1, vmtime, vhdr);
         hostui_test_init(txt);
-        CHECK(has("v0.1|changed|default|SEL"));                              // (a) another size
+        CHECK(has("v0.1|changed|auto|SEL"));                              // (a) another size
         snprintf(txt, sizeof(txt), "%score=/Usb0/cores/vc20.cor|VC-20 (PAL)|%s|%u|%u|%08x\n", head, vhash, vsize, vmtime, vhdr ^ 1);
         hostui_test_init(txt);
-        CHECK(has("v0.1|changed|default|SEL"));                              // (b) another header digest
+        CHECK(has("v0.1|changed|auto|SEL"));                              // (b) another header digest
         CHECK(hostui_test_startable(0));                                     // marked, still startable (the start checks every part)
         // R on it: the full check again, the new state stored, the mark gone
         g_saves = 0; g_bytes_read = 0;
         hostui_test_key('r');
-        CHECK(has("v0.1|hash ok|default|SEL") && g_saves == 1 && g_bytes_read > 8000 && strstr(g_last_save, vline));
+        CHECK(has("v0.1|hash ok|auto|SEL") && g_saves == 1 && g_bytes_read > 8000 && strstr(g_last_save, vline));
         // an entry of an older boot.cfg (no mtime, no hash): the full check runs once at the start and is stored
         g_saves = 0; g_bytes_read = 0;
         hostui_test_init("countdown=5\ndefault=0\ncore=/Usb0/cores/vc20.cor|VC-20 (PAL)||0\n");
-        CHECK(has("v0.1|hash ok|default|SEL") && g_saves == 1 && g_bytes_read > 8000 && strstr(g_last_save, vline));
+        CHECK(has("v0.1|hash ok|auto|SEL") && g_saves == 1 && g_bytes_read > 8000 && strstr(g_last_save, vline));
         const char *olds = strdup(g_last_save);
         g_saves = 0; g_bytes_read = 0;
         hostui_test_init(olds);
-        CHECK(has("v0.1|hash ok|default|SEL") && g_saves == 0 && g_bytes_read < vsize / 2);   // and never again
+        CHECK(has("v0.1|hash ok|auto|SEL") && g_saves == 0 && g_bytes_read < vsize / 2);   // and never again
         // a file that is gone: marked missing, kept in the menu
         hostui_test_init("countdown=5\ndefault=0\ncore=/Usb0/cores/gone.cor|Gone|ab|10|5|00000001\n");
         CHECK(has("Gone||missing") && hostui_test_cfg_n() == 1);
@@ -976,7 +976,7 @@ static void scenarios(const char *out)
     // S4 icons
     hostui_test_init("countdown=5\ndefault=0\ncore=/Usb0/cores/vc20.cor|VC-20 (PAL)||0\ncore=/SD/cores/trx64.cor|TRX64 Ultimate (C64)||0\n"
                      "core=/Usb0/cores/badicon.cor|Bad icon||0\n");
-    CHECK(has("VC-20 (PAL)|v0.1|hash ok|default|SEL|img f800"));
+    CHECK(has("VC-20 (PAL)|v0.1|hash ok|auto|SEL|img f800"));
     CHECK(has("|TRX64 Ultimate (C64)|v1.0-rc1|hash ok||") && has("v1.0-rc1|hash ok|||tag"));
     CHECK(has("Bad icon|v0.3|changed|||tag"));     // the full check of the older entry finds the icon's SHA-256 wrong: not accepted, no picture
     snprintf(p, sizeof(p), "%s/icons.png", out); png(p, 2);
@@ -1001,7 +1001,7 @@ static void scenarios(const char *out)
             CHECK(got);
             snprintf(cfgt, sizeof(cfgt), "countdown=5\ndefault=0\ncore=/Usb0/logos/%s.cor|%s||0\n", id, id);
             hostui_test_init(cfgt);
-            if (got && has("|hash ok|default|SEL|img") && find_icon(logo)) drawn++;
+            if (got && has("|hash ok|auto|SEL|img") && find_icon(logo)) drawn++;
             else printf("FAIL logo %s not drawn\n", id);
         }
         CHECK(drawn == 13);
@@ -1017,7 +1017,7 @@ static void scenarios(const char *out)
         CHECK(find_icon(amiga));                                                         // the control can succeed ...
         CHECK(icon_no_bars(amiga));                                                      // T114: and sits in no wider box
         hostui_test_init("countdown=5\ndefault=0\ncore=/Usb0/logos/bad_amiga.cor|amiga bad||0\n");
-        CHECK(has("|default|SEL|tag") && !find_icon(amiga));                             // ... and fails on a bad hash
+        CHECK(has("|auto|SEL|tag") && !find_icon(amiga));                             // ... and fails on a bad hash
         printf("logos control: damaged icon -> text tile, picture absent\n");
         hostui_test_init("countdown=5\ndefault=0\ncore=/Usb0/logos/trx64.cor|TRX64 Ultimate (C64)||0\ncore=/Usb0/logos/amiga.cor|Amiga (OCS)||0\n"
                          "core=/Usb0/logos/c64u.cor|C64 Ultimate||0\ncore=/Usb0/logos/vc20.cor|VC-20 (PAL)||0\ncore=/Usb0/logos/c264.cor|Plus/4||0\n");
@@ -1050,7 +1050,7 @@ static void scenarios(const char *out)
     cor_host_key = 0x820eded2;
     hostui_test_init("countdown=5\ndefault=0\ncore=/SD/cores/trx64.cor|A||0\ncore=/SD/cores/trx64.cor.x|B||0\ncore=/Usb0/old/trx64-0.9.cor|C||0\n"
                      "core=/Usb0/old/h2.cor|D||0\ncore=/Usb0/old/garbage.cor|E||0\ncore=/Usb0/cores/vc20.cor|F|0000|0\n");
-    CHECK(has("A|v1.0-rc1|hash ok|default|SEL"));
+    CHECK(has("A|v1.0-rc1|hash ok|auto|SEL"));
     CHECK(has("B||missing"));
     CHECK(has("C||contract 3 != 2"));
     CHECK(has("D||other host"));
@@ -1100,7 +1100,7 @@ static void scenarios_fw(const char *out)
     unsigned fsz = 0, fmt = 0, fhd = 9;
     { const char *tail = strstr(fwline, "||"); CHECK(tail && sscanf(tail + 2, "%u|%u|%x", &fsz, &fmt, &fhd) == 3 && fsz > 0 && fmt != 0 && fhd == 0); }
     hostui_test_view(0);
-    CHECK(has("|full firmware|ready|default|SEL"));
+    CHECK(has("|full firmware|ready|auto|SEL"));
     snprintf(p, sizeof(p), "%s/menu_firmware.png", out); png(p, 2);
     // the start check of a firmware: the directory entry only, no bitstream walked (size or mtime another: marked, the parse decides)
     {
@@ -1108,15 +1108,15 @@ static void scenarios_fw(const char *out)
         snprintf(txt, sizeof(txt), "countdown=5\ndefault=0\n%s\n", fwline);
         g_bytes_read = 0; g_list_deep = 0;
         hostui_test_init(txt);
-        CHECK(has("full firmware|ready|default|SEL") && g_bytes_read == 0 && g_list_deep == 0);
+        CHECK(has("full firmware|ready|auto|SEL") && g_bytes_read == 0 && g_list_deep == 0);
         snprintf(txt, sizeof(txt), "countdown=5\ndefault=0\ncore=/Usb0/cores/gideon.cfw|u64_mk2_artix 2026/09/10 11:00:57||%u|%u|00000000\n", fsz, fmt + 1);
         hostui_test_init(txt);
-        CHECK(has("full firmware|changed|default|SEL") && hostui_test_cfg_n() == 1 && hostui_test_startable(0));
+        CHECK(has("full firmware|changed|auto|SEL") && hostui_test_cfg_n() == 1 && hostui_test_startable(0));
         // an older entry (no mtime) gets its size and mtime once; one that is not a usable firmware stays and says so
         g_saves = 0;
         hostui_test_init("countdown=5\ndefault=0\ncore=/Usb0/cores/gideon.cfw|G||0\ncore=/Usb0/cores/only100.cfw|only100.cfw||0\n");
         CHECK(g_saves == 1 && strstr(g_last_save, "core=/Usb0/cores/gideon.cfw|G||") && !strstr(g_last_save, "gideon.cfw|G||0|0|"));
-        CHECK(has("G|full firmware|ready|default|SEL") && has("only100.cfw||unusable"));
+        CHECK(has("G|full firmware|ready|auto|SEL") && has("only100.cfw||unusable"));
     }
     hostui_test_init(fwline[0] ? (snprintf(R, sizeof(R), "countdown=5\ndefault=0\n%s\ncore=/Usb0/cores/vc20.cor|VC-20 (PAL)||0\n", fwline), R) : 0);
     int calls = g_legacy_calls;
@@ -1245,7 +1245,7 @@ static void scenarios_lc(const char *out)
     hostui_test_key('a');
     CHECK(hostui_test_cfg_n() == 1 && g_saves == 1 && strstr(g_last_save, "core=/Usb0/cores/amiga1200.cor|Amiga 1200 (AGA)|"));
     hostui_test_view(0);
-    CHECK(has("Amiga 1200 (AGA)|full firmware|ready|default|SEL"));
+    CHECK(has("Amiga 1200 (AGA)|full firmware|ready|auto|SEL"));
     calls = g_legacy_calls;
     hostui_test_key(KEY_RETURN);                                                           // RETURN on the large .cor row: no dialog, started
     CHECK(hostui_test_confirms() == conf && g_legacy_calls == calls + 1 && !g_legacy_verify && g_stage_calls == stage);
@@ -2365,6 +2365,12 @@ static void scenarios_t139(const char *out)
         hostui_test_key('+');                                            // Gamma above Beta
         hostui_test_key('+');                                            // and above Alpha
         CHECK(has("row 0|Gamma|") && has("row 1|Alpha|") && has("row 2|Beta|") && has("row 3|Delta|") && has("def=1"));
+        for (int r = 0; r < 4; r++) {                                    // T209 D12: the editor row draws the boot menu's pictogram (22 x 22), no word box
+            char pic[48];
+            snprintf(pic, sizeof(pic), "\npic %d|", r);
+            CHECK(has(pic));
+        }
+        CHECK(strstr(dump(), "|22x22|auto\n") != 0 || strstr(dump(), "|20x20|auto\n") != 0);
         hostui_test_lazy_pass(0, 5000, 0);                               // the lazy reader runs between the keys
         hostui_test_key(KEY_F1);
         for (int r = 0; r < 4; r++) {
@@ -2372,7 +2378,7 @@ static void scenarios_t139(const char *out)
             snprintf(row, sizeof(row), "row %d|%s|", r, names[r]);       // the menu row names the entry; the path is not in the row (T209 D8)
             CHECK(has(row));
         }
-        CHECK(strstr(strstr(dump(), "row 1|Alpha|"), "default") != 0);   // the default badge went with Alpha
+        CHECK(strstr(strstr(dump(), "row 1|Alpha|"), "auto") != 0);   // the auto badge went with Alpha
         for (int want = 0; want < 4; want++) {                           // every row: RETURN starts the entry that row shows
             hostui_test_init_lazy(c4);
             hostui_test_key(KEY_F5);
@@ -4296,7 +4302,7 @@ static void rows_scenario(const char *out)
         HcEntryRow r;
         CHECK(hc_row_entry(i, true, &r));
         char want_row[400];
-        snprintf(want_row, sizeof(want_row), "row %d|%s|%s|%s|%s|%s|", i, r.name, r.ver, r.badge, r.def ? "default" : "", i == 1 ? "SEL" : "");
+        snprintf(want_row, sizeof(want_row), "row %d|%s|%s|%s|%s|%s|", i, r.name, r.ver, r.badge, r.def ? "auto" : "", i == 1 ? "SEL" : "");
         CHECK(strstr(md, want_row) != NULL);
         // T209 D10/D11: one pictogram per group (glyph + fill), all the same size; the marker reads "auto"
         const char *glyph = r.pic == HCP_OK ? "ok" : r.pic == HCP_CHECK ? "check" : "bad";      // the dump names the group the glyph drew

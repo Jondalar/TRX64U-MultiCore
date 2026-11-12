@@ -914,7 +914,7 @@ static void fill_mrow(Row &r, int i)
     set_hidden(r.icl, icon != 0);
     // a picture sits in a box of exactly its size (the 48 wide box is the text tile's); the text column stays where it is
     const int ix = icon ? 10 + (ICON_TILE_W - ICON_W) / 2 : 10, iw = icon ? ICON_W : ICON_TILE_W;
-    const int iy = (lv_obj_get_height(r.box) - 2 - ICON_W) / 2;
+    const int iy = (LROW_H - 2 - ICON_W) / 2;       // not the live height: a row hidden at its first fill has none yet, which put the tile 17 px above the row
     if (lv_obj_get_x(r.ic) != ix) {
         lv_obj_set_pos(r.ic, ix, iy);
     }
@@ -969,12 +969,20 @@ static void build_erow(Row &r, lv_obj_t *par, int x, int y, int w, int h)
     r.a = fit1(txt(r.box, tx, 6, "", F_TEXT, C_INK, room), room);
     r.b = fit1(txt(r.box, tx, 30, "", F_SMALL, C_MUTED, room), room);
     const int by = 17;
-    r.stb = box(r.box, w - 10 - BADGE_W, by, BADGE_W, 22, C_PANEL2, 1, C_OK);
-    r.stl = fit1(txt(r.stb, 6, 2, "", F_SMALL, C_OK, BADGE_W - 12), BADGE_W - 12);
-    r.defb = box(r.box, w - 10 - BADGE_W - DEF_W - 6, by, DEF_W, 22, C_HOST, 0);
-    r.defl = txt(r.defb, 0, 2, "default", F_SMALL, C_BG, DEF_W);
+    // T209 D12: the state is the boot menu's pictogram, at the right end, no word box
+    pic_init();
+    r.stb = lv_image_create(r.box);
+    lv_obj_set_pos(r.stb, w - 10 - PIC_D, (h - 2 - PIC_D) / 2);
+    lv_obj_set_size(r.stb, PIC_D, PIC_D);
+    lv_image_set_src(r.stb, &pic_buf[HCP_OK]);
+    lv_obj_set_style_image_recolor_opa(r.stb, LV_OPA_COVER, 0);
+    lv_obj_set_style_image_recolor(r.stb, lv_color_hex(PIC_GREEN), 0);
+    r.pcs = HCP_OK;
+    r.stl = NULL;
+    r.defb = box(r.box, w - 10 - PIC_D - DEF_W - 6, by, DEF_W, 22, C_HOST, 0);
+    r.defl = txt(r.defb, 0, 2, "auto", F_SMALL, C_BG, DEF_W);
     lv_obj_set_style_text_align(r.defl, LV_TEXT_ALIGN_CENTER, 0);
-    r.cfb = box(r.box, w - 10 - BADGE_W - CFG_W - 6, by, CFG_W, 22, C_PANEL2, 1, C_HOST);
+    r.cfb = box(r.box, w - 10 - PIC_D - CFG_W - 6, by, CFG_W, 22, C_PANEL2, 1, C_HOST);
     r.cfl = fit1(txt(r.cfb, 6, 2, "", F_SMALL, C_HOST, CFG_W - 12), CFG_W - 12);
     marks_build(r.mk, r.box, -1, -1, w, h);          // last: on top of the row's own widgets
 }
@@ -999,16 +1007,14 @@ static void fill_erow(Row &r, int i)
     }
     set_txt_mid(r.a, v.name);
     set_txt(r.b, v.sub);
-    set_txt(r.stl, v.badge);
-    uint32_t col = tone_col(v.badge_tone);
-    set_col(r.stl, col);
-    lv_color_t bc = lv_color_hex(col), bo = lv_obj_get_style_border_color(r.stb, LV_PART_MAIN);
-    if (bo.red != bc.red || bo.green != bc.green || bo.blue != bc.blue) {
-        lv_obj_set_style_border_color(r.stb, bc, 0);
+    if (r.pcs != v.pic) {
+        lv_image_set_src(r.stb, &pic_buf[v.pic]);
+        lv_obj_set_style_image_recolor(r.stb, lv_color_hex(pic_col(v.pic)), 0);
+        r.pcs = v.pic;
     }
     set_hidden(r.defb, !v.def);
-    {   // the default badge is the first of the badges: it moves left by the width of the "N configs" badge when that one shows
-        const int dx = r.w - 10 - BADGE_W - DEF_W - 6 - (v.cfgbadge[0] ? CFG_W + 6 : 0);
+    {   // the "auto" badge is the first of the badges: it moves left by the width of the "N configs" badge when that one shows
+        const int dx = r.w - 10 - PIC_D - DEF_W - 6 - (v.cfgbadge[0] ? CFG_W + 6 : 0);
         if (lv_obj_get_x(r.defb) != dx) {
             lv_obj_set_x(r.defb, dx);
         }
@@ -2007,8 +2013,8 @@ static void build_wifi_panels(void)
             int y = oc_hdr + i * oc_rp;
             marks_build(oc_mk[i], oc_panel, 12, y, ow - 24, oc_rp - 2);
             oc_a[i] = fit1(txt(oc_panel, 24, y + oc_ay, "", F_TEXT, C_INK, ow - 48 - DEF_W - 8), ow - 48 - DEF_W - 8);
-            oc_df[i] = box(oc_panel, ow - 24 - DEF_W, y + (oc_rp - 2 - 22) / 2, DEF_W, 22, C_HOST, 0);      // the boot menu row's "default" badge
-            lv_obj_set_style_text_align(txt(oc_df[i], 0, 2, "default", F_SMALL, C_BG, DEF_W), LV_TEXT_ALIGN_CENTER, 0);
+            oc_df[i] = box(oc_panel, ow - 24 - DEF_W, y + (oc_rp - 2 - 22) / 2, DEF_W, 22, C_HOST, 0);      // the boot menu row's "auto" badge
+            lv_obj_set_style_text_align(txt(oc_df[i], 0, 2, "auto", F_SMALL, C_BG, DEF_W), LV_TEXT_ALIGN_CENTER, 0);
             set_hidden(oc_df[i], true);
         }
         oc_msg = fit1(txt(oc_panel, 20, oc_hdr + OC_MIN * oc_rp + 6, "", F_SMALL, C_WARN, ow - 40), ow - 40);
@@ -4534,13 +4540,13 @@ int hostui_test_dump(char *out, int max)
             snprintf(ic, sizeof(ic), "img %04x", rows[r].dsc.data ? ((const uint16_t *)rows[r].dsc.data)[0] : 0);
         }
         HcEntryRow er;
-        const char *word = lv_label_get_text(rows[r].stl);     // the state word; the menu row draws a pictogram instead (T209 D10), its word is the status line's
-        if (nv.view != V_EDIT && hc_row_entry(first + r, true, &er)) {
+        const char *word = "";                                 // the state word; both lists draw a pictogram instead (T209 D10/D12)
+        if (hc_row_entry(first + r, true, &er)) {
             word = er.badge;
         }
         n += snprintf(out + n, max - n, "row %d|%s|%s|%s|%s|%s|%s\n", first + r, lv_label_get_text(rows[r].a), sub, word,
-                      lv_obj_has_flag(rows[r].defb, LV_OBJ_FLAG_HIDDEN) ? "" : "default", first + r == nv.sel ? "SEL" : "", ic);
-        if (nv.view != V_EDIT) {                                           // T209 D10/D11: the pictogram as drawn (group, tint, size) and the marker's text
+                      lv_obj_has_flag(rows[r].defb, LV_OBJ_FLAG_HIDDEN) ? "" : "auto", first + r == nv.sel ? "SEL" : "", ic);
+        {                                                                  // T209 D10/D11/D12: the pictogram as drawn (group, tint, size) and the marker's text
             n += snprintf(out + n, max - n, "pic %d|%s|%06x|%dx%d|%s\n", first + r, rows[r].pcs == HCP_OK ? "ok" : rows[r].pcs == HCP_CHECK ? "check" : "bad",
                           (unsigned)lv_color_to_u32(lv_obj_get_style_image_recolor(rows[r].stb, LV_PART_MAIN)) & 0xffffff,
                           (int)lv_obj_get_width(rows[r].stb), (int)lv_obj_get_height(rows[r].stb), lv_label_get_text(rows[r].defl));
