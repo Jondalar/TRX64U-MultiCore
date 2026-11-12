@@ -72,6 +72,9 @@ Proof column: T = core app test (`tests/coreapp`, menu goldens), U = ue2emu pict
   PET the version, for the VIC20 the memory, for the C264 too, and so on" (translated). C128: the running mode (C128 80 columns / C64);
   SCPU: speed and SuperCPU RAM; Amiga: chipset and RAM; every core with such settings gets the line.
 
+- D14 (Alex 11-12): "Enter home on startup" shows No/Yes in the core; the host's Disabled/Enabled is translated internally so the host
+  value still works as the default (D2).
+
 ## §4 Out
 - Anything on F1 beyond D3 until new users' feedback.
 
