@@ -297,6 +297,13 @@ bool hc_browse_row(int k, HcBrowseRow *r)
     return true;
 }
 
+const char *hc_edit_foot(void)
+{
+    const HcNav &v = hc_nav();
+    const bool has = v.sel >= 0 && v.sel < hc_cfg().n && hc_cfgov_count(hc_cfg().e[v.sel].path) > 0;
+    return hc_foot(has ? HCF_EDIT : HCF_EDIT_PLAIN);
+}
+
 // The footer of the boot menu: "RIGHT configs" only while the selected row has configs (T198 D9, mock-up (a)).
 const char *hc_menu_foot(void)
 {
@@ -1031,7 +1038,7 @@ int dump_edit(char *out, int cap)
     const BootCfg &cfg = hc_cfg();
     HcEditTexts t;
     hc_edit_texts(hc_nav().efirst, &t);
-    o.add("page edit|%s|%s\n", hc_page_title("edit"), hc_foot(HCF_EDIT));
+    o.add("page edit|%s|%s\n", hc_page_title("edit"), hc_edit_foot());
     o.add("  countdown|%s\n  direct|%s\n  default|%s\n  defcfg|%s\n  pos|%s\n", t.countdown, t.direct, t.def, t.defcfg, t.pos);
     for (int i = 0; i < cfg.n; i++) {
         HcEntryRow r;

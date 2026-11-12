@@ -99,7 +99,7 @@ enum HcFoot {
     HCF_MENU = 0, HCF_BROWSE,                  // HCF_BROWSE: a boot-menu file (the longest of the browser's)
     HCF_BR_MEDIA, HCF_BR_PLAIN, HCF_BR_FILE, HCF_BR_DIR, HCF_BR_PICK_COPY, HCF_BR_PICK_MOVE, HCF_BR_ASK, HCF_BR_BACKUP, HCF_BR_TXU, HCF_BR_INSPECT, HCF_BR_CFW,
     HCF_EDIT, HCF_NET, HCF_SET, HCF_CM_LIST, HCF_CM_ASK1, HCF_CM_ASK2, HCF_WM, HCF_CM_EMPTY, HCF_PM, HCF_CFG,
-    HCF_MENU_PLAIN, HCF_BROWSE_PLAIN, HCF_CFG_PLAIN,          // T198 D9: the same two without "configs", for a selected row that has none
+    HCF_MENU_PLAIN, HCF_BROWSE_PLAIN, HCF_CFG_PLAIN, HCF_EDIT_PLAIN,          // T198 D9: the same two without "configs", for a selected row that has none
     HCF_N
 };
 const char *hc_foot(int foot);                 // generated once, kept

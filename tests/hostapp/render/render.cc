@@ -1065,7 +1065,7 @@ static void scenarios(const char *out)
     CHECK(hostui_test_hint_overflow() == 0);                           // the "No cores yet" hint is cut at the right edge when it is one line
     CHECK(hostui_test_foot_overflow() == 0);                           // every footer is one line (board photo 2026-10-21: it wrapped)
     hostui_test_view(2);
-    CHECK(has("foot='UP/DOWN select    +/- move    D default    C rename    LEFT/RIGHT config of this core    DEL twice removes'"));        // T139: no B, no LEFT/RIGHT, no V
+    CHECK(has("foot='UP/DOWN select    +/- move    D default    C rename    DEL twice removes'"));        // T139: no B, no LEFT/RIGHT, no V
     cor_host_key = 0;
     snprintf(p, sizeof(p), "%s/states.png", out); png(p, 2);
 }
@@ -2206,7 +2206,7 @@ static void scenarios_t139(const char *out)
     const char *cfg3 = "countdown=5\ndefault=1\ncore=/SD/cores/a.cor|Alpha||0\ncore=/SD/cores/b.cor|Beta||0\ncore=/SD/cores/c.cor|Gamma||0\n";
     hostui_test_init(cfg3);
     hostui_test_key(KEY_F5);
-    CHECK(has("foot='UP/DOWN select    +/- move    D default    C rename    LEFT/RIGHT config of this core    DEL twice removes'"));
+    CHECK(has("foot='UP/DOWN select    +/- move    D default    C rename    DEL twice removes'"));
     CHECK(hostui_test_sel_row() == 1);                                   // Beta, the default
     g_loadback = true;
     g_saves = 0;
@@ -2216,6 +2216,9 @@ static void scenarios_t139(const char *out)
     CHECK(has("row 1|New Amiga 1200|") && has("row 0|Alpha|") && has("row 2|Gamma|") && has("def=1"));    // order and default as they were
     CHECK(strstr(g_last_save, "core=/SD/cores/b.cor|New Amiga 1200||") && strstr(g_last_save, "default=1\n"));
     CHECK(has("note='Renamed to New Amiga 1200 (boot.cfg read back)'"));
+    hostui_test_key(KEY_DOWN);                                           // the next key: the note is gone, it does not stay under the list
+    CHECK(!has("note='Renamed") && !strstr(dump(), "Renamed to"));
+    hostui_test_key(KEY_UP);
     hostui_test_key(KEY_F1);                                             // the menu shows the new name
     CHECK(has("row 1|New Amiga 1200|"));
     hostui_test_key(KEY_F5);
@@ -2555,6 +2558,13 @@ static void scenarios_t198(const char *out)
         CHECK(strstr(ed, "\ncfgbadge 2|1 config\n") != NULL);                       // 1 config: singular
         CHECK(strstr(ed, "\ncfgbadge 1|") == NULL);                                  // a core without configs: no badge (D9)
     }
+    // the F5 foot offers LEFT/RIGHT config only on a row whose core has configs (row 0: 4, row 1: none)
+    CHECK(strstr(hostui_test_foot(), "LEFT/RIGHT config of this core") != NULL);
+    hostui_test_key(KEY_DOWN);
+    CHECK(strstr(hostui_test_foot(), "LEFT/RIGHT") == NULL && strstr(hostui_test_foot(), "DEL twice removes") != NULL);
+    CHECK(strstr(dump(), "LEFT/RIGHT config of this core") == NULL);
+    hostui_test_key(KEY_UP);
+    CHECK(strstr(hostui_test_foot(), "LEFT/RIGHT config of this core") != NULL);
     snprintf(p, sizeof(p), "%s/t198_edit_badges_480.png", out); png(p, 1);
     snprintf(p, sizeof(p), "%s/t198_edit_badges_1080.png", out); png(p, 2);
     hostui_test_key(KEY_F1);

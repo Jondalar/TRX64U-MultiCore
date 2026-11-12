@@ -1175,6 +1175,7 @@ static void update_edit(void)
     }
     set_txt(e_note, nv.note);
     set_col(e_note, note_color());
+    set_foot(foot_label, hc_edit_foot());              // the hint follows the selected row (config of this core only if it has configs)
 }
 
 static void build_browse(void)
@@ -2240,7 +2241,7 @@ static void show_view(View v)
     }
     update_nav();
     if (v != V_COLORS && v != V_BROWSE) {
-        set_foot(foot_label, v == V_MENU ? hc_menu_foot() : hc_foot_of_view((int)v));
+        set_foot(foot_label, v == V_MENU ? hc_menu_foot() : v == V_EDIT ? hc_edit_foot() : hc_foot_of_view((int)v));
     }
     refresh_current();
 }
@@ -3401,6 +3402,8 @@ static void apply_updates(void)
             set_col(nl, note_color());
             if (nv.view == V_MENU && !hc_cfgov_is_open()) {
                 set_foot(foot_label, hc_menu_foot());       // T198 D9: the hint follows the selected row
+            } else if (nv.view == V_EDIT) {
+                set_foot(foot_label, hc_edit_foot());
             }
         } else if (nv.view == V_BROWSE) {
             int first = bfirst;

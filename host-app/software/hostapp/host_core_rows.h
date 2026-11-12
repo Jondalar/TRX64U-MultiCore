@@ -94,6 +94,7 @@ struct HcBrowseRow {
 void hc_browse_title(char *out, int n);           // the folder, or "Copy to: <folder>" while a target is picked
 void hc_browse_empty_text(char *out, int n);      // "", "(empty)" or "No media found"
 bool hc_browse_row(int k, HcBrowseRow *r);
+const char *hc_edit_foot(void);                   // the editor footer for its selected row: "LEFT/RIGHT config of this core" only while that core has configs
 const char *hc_menu_foot(void);                   // the boot menu's footer for its selected row (T198 D9); hc_foot_of_view(0) is the general one
 const char *hc_browse_foot(void);                 // the footer for what is selected (T111)
 bool hc_browse_sel_file(char *path, int n);       // the selected row is a file: its path

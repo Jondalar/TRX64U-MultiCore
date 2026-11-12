@@ -634,6 +634,10 @@ void hc_ui_input(int k, HcUiResult *res)
         return;
     }
     int armed = hc_arm_take_row();          // T101 D6: only an unbroken DEL, DEL removes
+    if (armed < 0 && ctx == HCX_EDIT && v.note[0]) {
+        hc_note_clear();                        // the editor's note (Renamed to ...) lasts until the next key; this key's own outcome sets a new one after this
+        g_changed = true;
+    }
     HcKeyArm key_arm;                       // T192 D21: the arm ends with this key (yes when it is the confirming one)
     switch (act) {
     case HCA_NAV_MENU: hc_ui_go(HCV_MENU); res->redraw = true; return;

@@ -104,3 +104,5 @@ T209 + T210 together: `tools/dev.sh test`, `riscv`, `integrate` rc 0 (tests/ui 1
 state in `sub` = foot while selected; 480p picture checked). The remaining printf precision cuts on the board path (`cfw.cc` `%.20s %.10s %.8s`, `host_core_rows.cc` `%.4s`) are cut by hand too.
 
 Lint fix (2026-11-12): `screens.cc` no longer calls `ui_shell_info_now` (T192.3 rule, check_no_v1_ui); on a page-state flip `screens_render` returns early with a flag, `ui.cc` makes the foot again and renders once more (foot still shows "+/- PAGE" on the same frame). `descrec.py` parse_desc accepts an unnamed tab (T205 D1) and decoded_to_doc omits the empty name.
+
+Editor fixes (2026-11-12, t209-d6-bootmenu): the F5 note ("Renamed to ...") stayed until a view change - `host_core_ui.cc` cleared a note only after an armed DEL (older than T209, same condition on main); the next editor key now clears it first. The F5 foot offers "LEFT/RIGHT config of this core" only when the selected core has configs (`hc_edit_foot()`, `HCF_EDIT_PLAIN`, like the boot menu foot); render bench asserts both.

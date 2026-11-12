@@ -19,7 +19,7 @@ page browse|File Browser|UP/DOWN select    RETURN open    F format as exFAT    V
   kv 3|Access||
   kv 4|Format|needs a medium|
   msg|RETURN opens it|muted
-page edit|Edit menu|UP/DOWN select    +/- move    D default    C rename    LEFT/RIGHT config of this core    DEL twice removes
+page edit|Edit menu|UP/DOWN select    +/- move    D default    C rename    DEL twice removes
   countdown|5 s
   direct|on (C= or fire at power-on: menu)
   default|TRX64 Ultimate (C64)

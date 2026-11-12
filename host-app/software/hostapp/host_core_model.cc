@@ -377,7 +377,7 @@ public:
         }
         if (!strcmp(what, "footer")) {
             const char *sf = g_env.footer ? g_env.footer(g_env.ctx) : 0;
-            const char *f = sf ? sf : (nv.view == HCV_MENU ? hc_menu_foot() : (nv.view < HCV_COLORS ? hc_foot_of_view(nv.view) : ""));
+            const char *f = sf ? sf : (nv.view == HCV_MENU ? hc_menu_foot() : (nv.view == HCV_EDIT ? hc_edit_foot() : nv.view < HCV_COLORS ? hc_foot_of_view(nv.view) : ""));
             snprintf(out, n, "%s", f ? f : "");
             return true;
         }

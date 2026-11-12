@@ -219,6 +219,8 @@ static const Seg F_BR_CFW[] = { SEL, S1("% add", BROWSE_ADD), S1("% start", BROW
                                 S1("% copy", BROWSE_COPY), S1("% move", BROWSE_MOVE), S1("% twice deletes", BROWSE_DELETE), S1("% up", BROWSE_UP), PIC };
 static const Seg F_EDIT[] = { SEL, S2("%/% move", ENTRY_MOVE_UP, ENTRY_MOVE_DOWN), S1("% default", ENTRY_DEFAULT), S1("% rename", ENTRY_RENAME),
                               S2("%/% config of this core", ENTRY_DEFCFG_PREV, ENTRY_DEFCFG_NEXT), S1("% twice removes", ENTRY_REMOVE) };
+static const Seg F_EDIT_PLAIN[] = { SEL, S2("%/% move", ENTRY_MOVE_UP, ENTRY_MOVE_DOWN), S1("% default", ENTRY_DEFAULT), S1("% rename", ENTRY_RENAME),
+                                    S1("% twice removes", ENTRY_REMOVE) };   // the same without "config of this core", for a selected row that has none
 static const Seg F_NET[] = { S1("% colours", NET_COLORS), PIC };
 static const Seg F_SET[] = { SEL, S3("%/% or % change", SET_DEC, SET_INC, SET_ACTIVATE), PIC };
 static const Seg F_CM_LIST[] = { S2("%/% scroll", CURSOR_UP, CURSOR_DOWN), S1("% delete the files that belong to no core", CORES_DELETE), S1("% back", BACK) };
@@ -239,7 +241,7 @@ static const Foot FOOTS[HCF_N] = {
     FT(HCX_BROWSE_PICK, F_BR_PICK_COPY), FT(HCX_BROWSE_PICK, F_BR_PICK_MOVE), FT(HCX_BROWSE_ASK, F_BR_ASK), FT(HCX_BROWSE, F_BR_BACKUP), FT(HCX_BROWSE, F_BR_TXU),
     FT(HCX_BROWSE_INSPECT, F_BR_INSPECT), FT(HCX_BROWSE, F_BR_CFW), FT(HCX_EDIT, F_EDIT), FT(HCX_NET, F_NET), FT(HCX_SET, F_SET), FT(HCX_CORES, F_CM_LIST),
     FT(HCX_CORES_ASK1, F_CM_ASK1), FT(HCX_CORES_ASK2, F_CM_ASK2), FT(HCX_WIFI, F_WM), FT(HCX_CORES, F_CM_EMPTY), FT(HCX_PICMODES, F_PM), FT(HCX_CFG, F_CFG),
-    FT(HCX_MENU, F_MENU_PLAIN), FT(HCX_BROWSE, F_BROWSE_PLAIN), FT(HCX_CFG, F_CFG_PLAIN),
+    FT(HCX_MENU, F_MENU_PLAIN), FT(HCX_BROWSE, F_BROWSE_PLAIN), FT(HCX_CFG, F_CFG_PLAIN), FT(HCX_EDIT, F_EDIT_PLAIN),
 };
 
 #define FOOT_MAX 240
