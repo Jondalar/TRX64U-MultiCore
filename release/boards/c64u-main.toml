@@ -1,0 +1,6 @@
+# Alex's own board: a C64U (the U64 Elite II mainboard with the bling board).
+board   = "c64u-main"
+address = "192.0.2.189"      # FTP, reachable from the Mac (curl, not python ftplib)
+set     = "rel-1"                # the set this board is supposed to run (not built yet)
+target  = "ftp"                  # "ftp" or "dir:<path>" for a dry run
+prune   = false                  # a .cor that is not in the set is listed, not deleted

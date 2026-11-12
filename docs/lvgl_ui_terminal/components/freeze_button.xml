@@ -1,0 +1,6 @@
+<component>
+    <view extends="base_box" width="32" height="16" flex_flow="row"
+          style_flex_main_place="center" style_flex_cross_place="center">
+        <lv_label text="[FRZ]" style_text_font="font_caption" style_text_color="#color_muted" />
+    </view>
+</component>

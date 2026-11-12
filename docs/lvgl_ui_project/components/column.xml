@@ -1,0 +1,13 @@
+<component>
+    <api>
+        <prop name="pad" type="int" default="0" />
+        <prop name="gap" type="int" default="0" />
+        <prop name="grow" type="int" default="0" />
+        <prop name="horizontal_align" type="enum:lv_flex_align" default="start" />
+        <prop name="vertical_align" type="enum:lv_flex_align" default="start" />
+    </api>
+
+    <view extends="box" flow="column" pad="$pad" gap="$gap" grow="$grow"
+          style_flex_cross_place="$horizontal_align"
+          style_flex_main_place="$vertical_align" />
+</component>

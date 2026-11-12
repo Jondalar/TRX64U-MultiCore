@@ -1,0 +1,55 @@
+Drive 6502: the opcode fetch (sync) on bit 31 of cpu_part_1541's debug
+stream, for the drive's debug comparator and step (designs/c64_basic/drv_dbg.v).
+
+--- a/fpga/1541/vhdl_source/cpu_part_1541.vhd
++++ b/fpga/1541/vhdl_source/cpu_part_1541.vhd
+@@ -107,6 +107,7 @@ architecture structural of cpu_part_1541 is
+     signal via2_irq         : std_logic;
+     signal io_select        : std_logic;
+     signal cpu_clk_en       : std_logic;
++    signal cpu_sync         : std_logic;
+     signal cpu_rising       : std_logic;
+     type   t_mem_state  is (idle, newcycle, extcycle);
+     signal mem_state    : t_mem_state;
+@@ -146,7 +147,8 @@ begin
+         IRQn        => cpu_irqn, -- IRQ interrupt (level sensitive)
+         NMIn        => '1',
+     
+-        SOn         => so_n );
++        SOn         => so_n,
++        sync        => cpu_sync );
+ 
+     -- Generate an output stream to debug internal operation of 1541 CPU
+     process(clock)
+@@ -154,7 +156,7 @@ begin
+         if rising_edge(clock) then
+             debug_valid <= '0';
+             if cpu_clk_en = '1' then
+-                debug_data  <= '0' & atn_i & data_i & clk_i & sync & so_n & cpu_irqn & not cpu_write & cpu_rdata & cpu_addr(15 downto 0);
++                debug_data  <= cpu_sync & atn_i & data_i & clk_i & sync & so_n & cpu_irqn & not cpu_write & cpu_rdata & cpu_addr(15 downto 0);
+                 debug_valid <= '1';
+                 if cpu_write = '1' then
+                     debug_data(23 downto 16) <= cpu_wdata;
+--- a/fpga/6502n/vhdl_source/cpu6502.vhd
++++ b/fpga/6502n/vhdl_source/cpu6502.vhd
+@@ -20,7 +20,9 @@ port (
+     IRQn        : in  std_logic; -- IRQ interrupt (level sensitive)
+     NMIn        : in  std_logic; -- NMI interrupt (edge sensitive)
+ 
+-    SOn         : in  std_logic -- set Overflow flag
++    SOn         : in  std_logic; -- set Overflow flag
++
++    sync        : out std_logic  -- opcode fetch cycle (debug)
+ );
+ end cpu6502;
+ 
+@@ -47,7 +49,8 @@ begin
+         addr_out     => cpu_addr,
+         data_in      => cpu_rdata,
+         data_out     => cpu_wdata,
+-        read_write_n => read_write_n );
++        read_write_n => read_write_n,
++        sync_out     => sync );
+ 
+     cpu_write <= not read_write_n;
+ 

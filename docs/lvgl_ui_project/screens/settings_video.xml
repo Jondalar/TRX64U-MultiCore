@@ -1,0 +1,79 @@
+<screen>
+    <view>
+        <style name="style_screen" />
+        <app_shell active_settings="true" active_tab="2">
+            <app_shell-content>
+                <column width="100%" height="100%" pad="#space_lg" gap="#space_md">
+                    <row width="100%">
+                        <column grow="1" gap="#space_xs">
+                            <lv_label text="SETTINGS / VIDEO" style_text_font="font_caption"
+                                      style_text_color="#color_muted" />
+                            <lv_label text="Video &amp; overlay" style_text_font="font_title"
+                                      style_text_color="#color_ink" />
+                        </column>
+                        <status_chip label="LIVE PREVIEW" tone="#color_violet" />
+                    </row>
+
+                    <row width="100%" grow="1" gap="#space_lg" vertical_align="start">
+                        <panel grow="1" height="100%" gap="0">
+                            <setting_row title="Overlay opacity">
+                                <setting_row-control>
+                                    <ui_slider subject="subject_overlay_opacity" width="150" />
+                                    <lv_label bind_text="subject_overlay_opacity" bind_text-fmt="%d%%"
+                                              style_text_font="font_caption" style_text_color="#color_violet" />
+                                </setting_row-control>
+                            </setting_row>
+                            <setting_row title="Menu backdrop">
+                                <setting_row-control>
+                                    <lv_label text="LIVE C64" style_text_font="font_caption"
+                                              style_text_color="#color_cyan" />
+                                </setting_row-control>
+                            </setting_row>
+                            <setting_row title="Safe area">
+                                <setting_row-control>
+                                    <lv_label text="4%" style_text_font="font_body"
+                                              style_text_color="#color_ink" />
+                                </setting_row-control>
+                            </setting_row>
+                            <setting_row title="Output mode">
+                                <setting_row-control>
+                                    <lv_label text="PAL 50" style_text_font="font_body"
+                                              style_text_color="#color_ink" />
+                                </setting_row-control>
+                            </setting_row>
+                            <box grow="1" />
+                        </panel>
+
+                        <box width="250" height="100%" pad="#space_md" gap="#space_sm"
+                             style_bg_color="#color_bg" style_bg_opa="100%"
+                             style_border_width="0" style_radius="#radius_md">
+                            <lv_label text="PREVIEW" style_text_font="font_caption"
+                                      style_text_color="#color_muted" />
+                            <box grow="1" />
+                            <lv_label text="LIVE C64" style_text_font="font_display"
+                                      style_text_color="#color_muted" />
+                            <panel width="100%" raised="true" style_opa="82%">
+                                <status_chip label="UI OVERLAY" tone="#color_violet" />
+                                <lv_label text="Opacity preview" style_text_font="font_body"
+                                          style_text_color="#color_ink" />
+                            </panel>
+                            <box grow="1" />
+                        </box>
+                    </row>
+
+                    <row width="100%" gap="#space_sm">
+                        <lv_label text="←  ALL SETTINGS" style_text_font="font_caption"
+                                  style_text_color="#color_muted" />
+                        <box grow="1" />
+                        <ui_button label="ALL VIDEO OPTIONS">
+                            <screen_create_event screen="settings_page" anim_type="fade_in" duration="120" />
+                        </ui_button>
+                        <ui_button label="RESET FROM FLASH" />
+                        <ui_button label="SAVE TO FLASH" bg_color="#color_violet"
+                                   border_color="#color_violet" text_color="#color_bg" />
+                    </row>
+                </column>
+            </app_shell-content>
+        </app_shell>
+    </view>
+</screen>

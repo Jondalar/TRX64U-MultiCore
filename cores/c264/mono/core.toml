@@ -1,0 +1,13 @@
+# The Commodore 264 core (T90): C16, C116 and Plus/4, C16Nano in cores/c264/rtl.
+id           = "c264"
+name         = "Commodore 264 (C16, Plus/4)"
+version      = "0.1.0"
+contract     = 2
+app          = "blueprint"     # the T104 generic application (coreapp/cores/c264.cc); Alex 2026-10-22: "apart from trx64 and c64u, switch everything to the generic core app for now". Supersedes T84 D12; no 1541 drive until the cbm1541 library exists (T90 section 5)
+order        = 7
+delivery     = "cfw"           # a LARGE core since 2026-11-01 (T164 Q1: pb_l2 is X0-49 rows 0-99 with 40 block RAM tiles, this core needs 43; Alex: "whatever does not fit becomes a
+                               # large core"): this file is the only descriptor, no DFX lane; cores/c264/mono/build_mono.tcl, lane large-c264
+mono_env     = ["TRX_FEATURES=jtag"]   # the host features are the DFX build's (jtag on, UCI and UDP streams off)
+experimental = true            # routes and boots on the board; until it is in a release set (D8)
+sources      = ["cores/c264", ":(exclude)cores/c264/sim", "cores/c1541", ":(exclude)cores/c1541/sim"]
+roms         = ["c16 kernal", "c16 basic", "plus4 3plus1"]

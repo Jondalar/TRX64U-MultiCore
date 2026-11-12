@@ -1,0 +1,59 @@
+<screen>
+    <view>
+        <style name="style_screen" />
+        <app_shell active_c64="true" active_tab="3">
+            <app_shell-content>
+                <column width="100%" height="100%" pad="#space_lg" gap="#space_md">
+                    <row width="100%">
+                        <column grow="1" gap="#space_xs">
+                            <lv_label text="C64 / DRIVES" style_text_font="font_caption"
+                                      style_text_color="#color_muted" />
+                            <lv_label text="Drive A and B" style_text_font="font_title"
+                                      style_text_color="#color_ink" />
+                        </column>
+                        <status_chip label="D8 ACTIVE / D9 EMPTY" tone="#color_cyan" />
+                    </row>
+
+                    <row width="100%" gap="#space_sm">
+                        <ui_button label="DRIVE A / 8" border_color="#color_violet" />
+                        <ui_button label="DRIVE B / 9" />
+                        <box grow="1" />
+                        <ui_button label="SWAP A &lt;-&gt; B" />
+                    </row>
+
+                    <row width="100%" grow="1" gap="#space_lg" vertical_align="start">
+                        <panel grow="1" height="100%" gap="0">
+                            <action_row title="Last Ninja 2.d64" subtitle="Mounted read/write"
+                                        meta="CLEAN" tone="#color_cyan">
+                                <screen_create_event screen="library_actions" anim_type="fade_in" duration="120" />
+                            </action_row>
+                            <action_row title="Eject" subtitle="Warns when modified"
+                                        meta="MEDIA" tone="#color_amber" />
+                            <action_row title="Save image" subtitle="Binary or GCR representation"
+                                        meta="SAVE" tone="#color_muted" />
+                            <action_row title="Insert blank" subtitle="Choose supported image type"
+                                        meta="NEW" tone="#color_muted" />
+                            <box grow="1" />
+                        </panel>
+
+                        <panel width="270" height="100%" gap="0" raised="true">
+                            <lv_label text="DRIVE CONTROL" style_text_font="font_caption"
+                                      style_text_color="#color_muted" style_pad_all="#space_sm" />
+                            <action_row title="Drive" subtitle="Enabled"
+                                        meta="ON" tone="#color_cyan" />
+                            <action_row title="Reset drive" meta="RESET" tone="#color_amber" />
+                            <action_row title="Drive mode" subtitle="1541 / IEC address 8"
+                                        meta="MODE" tone="#color_muted" />
+                            <action_row title="Unlink image" subtitle="Keep the backing file untouched"
+                                        meta="UNLINK" tone="#color_muted" />
+                            <box grow="1" />
+                            <ui_button label="DRIVE SETTINGS" width="100%">
+                                <screen_create_event screen="settings_peripherals" anim_type="fade_in" duration="120" />
+                            </ui_button>
+                        </panel>
+                    </row>
+                </column>
+            </app_shell-content>
+        </app_shell>
+    </view>
+</screen>

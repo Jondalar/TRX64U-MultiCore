@@ -1,0 +1,33 @@
+SNK Neo Geo (MVS/AES) core: the chip models of MiSTer's NeoGeo core, GPL v2 or later (the Sean Gonsalves files), FX68K and jt10 / jt49 GPL v3,
+T80 BSD-style.
+Rights holders who see a problem with any part listed here: please contact us, and we remove the part concerned.
+
+What is here. These files are the parts of https://github.com/MiSTer-devel/NeoGeo_MiSTer (commit ffaab14, 2026-09-01, "Update README.md") that the
+core uses, copied unchanged by tools/vendor_neogeo.sh (SHA256SUMS lists them):
+  neogeo.sv           the upstream top (the MiSTer "emu" module). Kept as the reference our cores/neogeo/trx/neo_core.v derives from; it is NOT built.
+  cells/, io/, video/ the chip models of the MVS/AES board: NEO-C1, D0, E0, F0, G0, B1, ZMC, ZMC2, LSPC2-A2, the cartridge chips (NEO-PVC, NEO-SMA,
+                      NEO-CMC), the system latch, the uPD4990 clock, the watchdog and the cell library. Sean 'Furrtek' Gonsalves, copyright 2018;
+                      the headers say GNU GPL "version 2 of the License, or (at your option) any later version" (io, mem) and "version 3 ... or any
+                      later version" (cells, most of video). register.v (four lines) has no header.
+  cpu/                cpu_68k.v, cpu_z80.v (the wrappers, GPL v3 and v2 or later), FX68K (Jorge Cwik, copyright 2018; fx68k.txt carries the GPL
+                      "version 3 ... or (at your option) any later version" text for the directory; fx68k.sv itself names the copyright only;
+                      microrom.mem and nanorom.mem are the 68000 core's own microcode tables), T80 (Daniel Wallner, MikeJ, Sorgelig: BSD-style
+                      redistribution conditions in the headers, kept).
+  jt12/hdl, jt49/hdl the YM2610 (jt10) and YM2149 (jt49) cores of Jose Tejada, as jt10.qip / jt49.qip list them; GPL v3 (own LICENSE files,
+                      headers "version 3 ... or any later version"). jt12_pcm.v has no header. The manuals of the upstream tree are not copied.
+  LICENSE             the upstream repository's top-level licence text (GNU GPL version 2).
+
+What is not here: sys/ (the MiSTer framework: HPS, scaler, OSD), pll/, the Neo Geo CD (rtl/cd: the CD controller, the drive model, CDDA and the
+CEGen clock helper, spec T143 D4a), mem/ (dpram.v with altsyncram, ddram.sv, sdram.sv and sdram_mux.sv by Sorgelig, memcard.v and backup.v by Sean Gonsalves: replaced by cores/neogeo/trx/neo_ram.v, neo_mux.v, neo_mem.v, neo_memcard.v and neo_bk.v, which keep the interfaces),
+the Quartus projects, releases/ (the upstream bitstreams), DEV_NOTES.md and xml.md (read for the file layout only, nothing copied), the romsets.xml
+set lists. No ROM, BIOS, game or ROM-set file is here or ever goes into this repository, a bench, a package or a .cfw: the BIOS (sp-s2.sp1,
+uni-bios.rom or neo-epo.sp1), 000-lo.lo and sfix.sfix, and the games are the user's own and arrive from the user's SD card or the core folder.
+
+What is built from them is these files plus cores/neogeo/trx/neo_core.v, which is cores/neogeo/rtl/neogeo.sv with the MiSTer framework, the
+Neo Geo CD, the SDRAM / DDR3 controllers and the altsyncram memories taken out and the DDR2 memory service and the TRX register block put in
+(the changes are marked "TRX" there). rtl/ itself is never edited: tools/check_neogeo_tree.py keeps it on SHA256SUMS.
+
+What the licence means here. GPL v3 or later covers the gateware of this core and everything linked into its bitstream (every group above is
+"v3" or "v2 or later"; T80's BSD notice stays with it). A .cfw of this core that is given to a third party has to come with its corresponding
+source: that is this directory (the upstream copy), cores/neogeo/trx and cores/neogeo/layer2_neogeo.v (our glue), cores/neogeo/mono (the build
+recipe) and tools/vendor_neogeo.sh - all of it is in this repository. The host and the other cores are separate works and are not covered.

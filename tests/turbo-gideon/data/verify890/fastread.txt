@@ -1,0 +1,31 @@
+1 2 ram 2.0558 d012 2.0558 sidw 2.0558 colw 2.0558 | extra cyc: d012 -0.00 sidw -0.00 colw -0.00
+2 3 ram 1.3704 d012 1.3704 sidw 1.3704 colw 1.3704 | extra cyc: d012 0.00 sidw 0.00 colw 0.00
+3 4 ram 1.0278 d012 1.0278 sidw 1.0278 colw 1.0278 | extra cyc: d012 0.00 sidw 0.00 colw 0.00
+4 6 ram 0.6852 d012 0.6852 sidw 0.6852 colw 0.6852 | extra cyc: d012 0.00 sidw 0.00 colw 0.00
+5 8 ram 0.5140 d012 0.5140 sidw 0.5140 colw 0.5140 | extra cyc: d012 0.00 sidw 0.00 colw 0.00
+6 10 ram 0.4111 d012 0.4111 sidw 0.4111 colw 0.4111 | extra cyc: d012 0.00 sidw 0.00 colw 0.00
+7 12 ram 0.3426 d012 0.3426 sidw 0.3426 colw 0.3426 | extra cyc: d012 0.00 sidw 0.00 colw 0.00
+8 14 ram 0.2937 d012 0.2937 sidw 0.2937 colw 0.2937 | extra cyc: d012 0.00 sidw 0.00 colw 0.00
+9 16 ram 0.2570 d012 0.2570 sidw 0.2570 colw 0.2570 | extra cyc: d012 0.00 sidw 0.00 colw 0.00
+10 20 ram 0.2056 d012 0.2056 sidw 0.2056 colw 0.2056 | extra cyc: d012 0.00 sidw 0.00 colw 0.00
+11 24 ram 0.1714 d012 0.1714 sidw 0.1714 colw 0.1714 | extra cyc: d012 0.00 sidw 0.00 colw 0.00
+12 32 ram 0.1285 d012 0.1290 sidw 0.1290 colw 0.1285 | extra cyc: d012 0.02 sidw 0.02 colw 0.00
+13 40 ram 0.1028 d012 0.1271 sidw 0.1271 colw 0.1028 | extra cyc: d012 0.97 sidw 0.97 colw 0.00
+14 47 ram 0.0875 d012 0.0994 sidw 0.0994 colw 0.0875 | extra cyc: d012 0.56 sidw 0.56 colw 0.00
+15 63 ram 0.0653 d012 0.0818 sidw 0.0818 colw 0.0653 | extra cyc: d012 1.04 sidw 1.04 colw 0.00
+32 filler 0 extra cyc 0.02
+32 filler 1 extra cyc 0.02
+32 filler 2 extra cyc 0.02
+32 filler 3 extra cyc 0.02
+40 filler 0 extra cyc 0.97
+40 filler 1 extra cyc 0.66
+40 filler 2 extra cyc 0.41
+40 filler 3 extra cyc 0.05
+47 filler 0 extra cyc 0.56
+47 filler 1 extra cyc 0.27
+47 filler 2 extra cyc 0.81
+47 filler 3 extra cyc 0.61
+63 filler 0 extra cyc 1.04
+63 filler 1 extra cyc 1.00
+63 filler 2 extra cyc 1.00
+63 filler 3 extra cyc 1.02

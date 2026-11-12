@@ -1,0 +1,28 @@
+--- vendor/icepi/hdmi/audio_clock_regeneration_packet.sv
++++ host/hdmi_enc/audio_clock_regeneration_packet.sv
+@@ -8,6 +8,7 @@
+ )
+ (
+     input logic clk_pixel,
++    input logic ce,                     // T164 WP4: clk_pixel is the TMDS clock; the CTS counts pixel clocks (ce), audio_sample_en is read on ce
+     input logic reset,
+     input logic audio_sample_en,
+     output logic clk_audio_counter_wrap,
+@@ -38,7 +39,7 @@
+ logic [19:0] cycle_time_stamp;
+ logic [CYCLE_TIME_STAMP_COUNTER_WIDTH-1:0] cycle_time_stamp_counter;
+ 
+-always_ff @(posedge clk_pixel)
++always_ff @(posedge clk_pixel) if (ce)
+ begin
+     if (reset)
+     begin
+@@ -69,7 +70,7 @@
+ end
+ 
+ // "An HDMI Sink shall ignore bytes HB1 and HB2 of the Audio Clock Regeneration Packet header."
+-assign header = {8'dX, 8'dX, 8'd1};
++assign header = {8'd0, 8'd0, 8'd1};   // T164 WP4: 0, not X (the sink ignores them; the bench decodes the ECC)
+ 
+ // "The four Subpackets each contain the same Audio Clock regeneration Subpacket."
+ genvar i;

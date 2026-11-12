@@ -1,0 +1,7 @@
+# Softboot (T104.3 D6): an update image runs from RAM without being flashed. A file type, and a row in the Tools area that asks for the image.
+
+[[file_action]]
+ext = [".cfw", ".ue2", ".u64"]
+label = "Run as Softboot"
+app = "softboot"
+action = "run"

@@ -1,0 +1,19 @@
+<component>
+    <api>
+        <prop name="title" type="string" default="Setting" />
+        <prop name="description" type="string" default="" />
+        <slot name="control" />
+    </api>
+
+    <view extends="box" flow="row" width="100%" height="54" gap="#space_md"
+          style_flex_cross_place="center" style_pad_hor="#space_sm"
+          style_border_side="bottom" style_border_color="#color_line"
+          style_border_width="1">
+        <column grow="1" gap="#space_2xs">
+            <lv_label text="$title" style_text_font="font_body" style_text_color="#color_ink" />
+            <lv_label text="$description" hidden="{!description}" long_mode="wrap" width="100%"
+                      style_text_font="font_caption" style_text_color="#color_muted" />
+        </column>
+        <box name="control" flow="row" gap="#space_sm" />
+    </view>
+</component>

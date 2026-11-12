@@ -1,0 +1,38 @@
+VC-20 core: vendored from VIC20Nano. The partial bitstream of this core is published as a `.cor` together with this
+source; no ROM is in this repository.
+Rights holders who see a problem with any part listed here: please contact us, and we remove the part concerned.
+
+Three of the files below carry additional restrictions that are not GPL compatible. Their
+headers are kept as they came; the clauses are
+
+  m6561.vhd, vic20.vhd, vic20_clocks.vhd
+      (c) 2003-2009 MikeJ (FPGAArcade), (c) 2011-2015 WoS (Wolfgang Scherr):
+      "any commercial use is forbidden as well. This code must be run on Replay hardware only."
+
+What is here, and where it comes from. Upstream: https://github.com/MiSTle-Dev/VIC20Nano
+(commit 9089828d8a21ea3075c0df9c87418b42766ab289, 2026-03-21), GPL-3.0 as a repository; the
+files' own headers decide, not the repository licence.
+
+  src/m6561.vhd        6561 VIC (MikeJ/WoS, voices after Viznut/pwp and Lance Ewing).
+                       Changed: output O_COLOUR (the colour index behind O_VIDEO_*).
+  src/vic20.vhd        the machine (MikeJ/WoS). Changed: memories are vc20_ram (inferred block RAM,
+                       host window as second port) instead of the Gowin blocks and ram_conf_*;
+                       ports: host window conf_*, RESTORE, O_COLOUR, O_CADDR; the PS/2 key input, the
+                       Gowin CLKDIV component and the rom_std input are removed; entity via6522
+                       renamed vc20_via6522.
+  src/vic20_clocks.vhd clock enable and reset delay (MikeJ/WoS). Changed: initial value of div_cnt
+                       (simulation only; the FPGA starts at 0).
+  src/vc20_via6522.vhd 6522 VIA, Gideon Zweijtzer, GPL 3.0 ("Free to use, distribute and change").
+                       Renamed from via6522 (our drive carries Gideon's 1541 via6522 under that
+                       name); content unchanged.
+  src/vic20_keyboard.vhd  key matrix glue (no header; MiSTeryNano / Till Harbaum lineage), unchanged.
+  src/t65/*            T65 6502 core (Daniel Wallner, 2002-2015; T65(b) fixes by FPGAARCADE, WoS,
+                       SzGy), BSD-style header, unchanged.
+
+Not taken from upstream: the Gowin primitives and IP, ram_conf_*.vhd (Wolfgang Scherr, "only
+allowed on Replay hardware"), the loader, the HDMI/OSD/MCU/SD/SDRAM parts, the c1541 (our drive_unit
+is the 1541), c1530 (tape) and megacart.v (M2, later).
+
+trx/ is ours (GPL-3.0-or-later like the rest of the project) and has no upstream code. The Commodore
+ROMs (BASIC, KERNAL, CHAR) are not in the repository and not in any bitstream; the app writes them
+into the machine at run time.

@@ -1,0 +1,21 @@
+[options]
+mode prove
+depth 3
+
+[engines]
+smtbmc boolector
+
+[script]
+plugin -i slang
+read_slang --top miter c64u_keyboard_old.v c64u_keyboard.v miter.sv
+prep -top miter -nordff
+flatten
+memory_map
+opt -fast
+setundef -zero -init
+setundef -anyseq
+
+[files]
+../../sim/kb_equiv/c64u_keyboard_old.v
+../../c64u_keyboard.v
+miter.sv

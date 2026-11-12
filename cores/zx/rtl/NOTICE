@@ -1,0 +1,28 @@
+ZX Spectrum core: GPL v3 for the core as a whole.
+Rights holders who see a problem with any part listed here: please contact us, and we remove the part concerned.
+
+
+What is here. These files are MiSTer-devel/ZX-Spectrum_MiSTer (https://github.com/MiSTer-devel/ZX-Spectrum_MiSTer), commit 33774ad
+(2026-10-12), copied by tools/vendor_zx_mister.sh, unchanged except ula.sv, which gets tools/zx_ula.patch (the HBlank / HSync
+statements of the 48K and the 128K in one pair, T119 5.15; the file says so at the place; SHA256SUMS lists the files as built). The terms are the ones written in each file's header:
+
+  ula.sv            GPL v3 or later (Sorgelig, 2016)                       built with that one change (Timex, ULA+, Pentagon and the snow effect are
+                                                                            tied off by the instance in cores/zx/trx/zx_core.v)
+  ym2149.sv         BSD wording (MikeJ 2005, Sorgelig 2016-2019), no extra clause     built as it is
+  T80/*.vhd         BSD wording (Daniel Wallner 2001-2002, MikeJ, Sorgelig 2018), no extra clause   source of cores/zx/gen/t80pa.v (below)
+
+Not here, on purpose: rtl/keyboard.sv (its header adds "License is granted for non-commercial use only"), tape.sv, tzxplayer.vhd,
+pzxplayer.sv, snap_loader.sv, turbosound.sv, the disk, SDRAM and sound extras, the MiSTer framework (sys/), and every ROM. The Spectrum's
+48K and 128K ROMs are Amstrad's and never go into this repository, a bench, a package or a .cor: the app reads them at core start from the
+user's files (roms: zx 48.rom, zx 128.rom), the benches from a path outside the tree or run a program written in the bench itself.
+
+What is built is NOT only these files. cores/zx/gen/t80pa.v is what tools/zx_gen.sh makes of T80/ with GHDL (--synth --out=verilog, in a
+container), plus two counted renames (the VHDL port name `do` is a SystemVerilog keyword; the instance `alu` and the signal ALU_Q would
+collide in the Verilog), so that Verilator and Vivado read the same source. The BSD wording asks that the copyright notice and the
+disclaimer are kept: they are in the VHDL in rtl/T80, which ships with the source, and in gen/t80pa.v's header.
+
+What the licence means here. GPL v3 covers the gateware of this core and everything linked into its partial bitstream. A .cor or partial
+bitstream of this core that is given to a third party has to come with its corresponding source: that is this directory (the upstream copy),
+cores/zx/gen, cores/zx/trx, cores/zx/shared and cores/zx/layer2_zx.v (our glue), tools/vendor_zx_mister.sh, tools/zx_gen.sh and
+tools/zxcpc_keys.py, and the build recipe cores/zx/mono/build_mono.tcl - all of it is in this repository. The host (layer 1), the other cores and the applications are separate works in separate partial bitstreams,
+link nothing of this core and are not covered; host/ is not part of this core's build.

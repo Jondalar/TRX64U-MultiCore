@@ -1,0 +1,26 @@
+C264 core (C16, C116, Plus/4): vendored from C16Nano. The licence of the files allows redistribution (GPL v3 or later,
+see below). The partial bitstream of this core is published as a `.cor` together with this source.
+Rights holders who see a problem with any part listed here: please contact us, and we remove the part concerned.
+
+What comes from upstream. Upstream: https://github.com/MiSTle-Dev/C16Nano, commit 82fed408f899509c4b569c02c1bc4bcf23017276
+(2026-10-08), GPL-3.0 as a repository; the files' own headers decide. tools/vendor_c16nano.sh copies exactly these files,
+unchanged, into src/ and refuses any other commit or any changed byte:
+
+  src/ted.v            MOS 8360 TED, FPGATED (c) 2013-2026 Istvan Hegedus, "GNU General Public License ... version 3, or (at your
+                       option) any later version" (ted.v:3-16). Version 1.9. Takes the clock enable clk_en on every process.
+  src/colors_to_rgb.v  the 121-entry 12 bit colour table (values by Jozsef Laszlo, per its header), same GPL header.
+  src/t65/*.vhd        T65 6502 (Daniel Wallner 2002-2015; fixes by MikeJ, WoS, FPGAARCADE, SzGy and others), BSD-style wording,
+                       no further clause; GPL compatible.
+  LICENSE              the GPL v3 text of the repository.
+
+No file of this list carries a "Replay hardware only" or no-commercial clause (the script greps for it).
+
+Not taken from upstream: uart6551/* (no licence text; the 6551 is out), c1530.vhd (tape, out), every c1541/* and iec_drive/*
+(no licence text or MiSTer-specific; our drive_unit is the 1541), the gowin_* IP, hdmi/, misc/ (OSD, SD, MCU, flash,
+scandoubler), tang/*, pll_init.v, loader_sd_card.sv, sdram8.sv (board glue), c16.v / mos8501.v / mos6529.v / c16_keymatrix.v
+(read, and written again in our own text: trx/c264_core.v, c264_cpu.v, c264_keys.v, the 6529 inside c264_core.v; the
+behaviour is theirs, the matrix tables and the port logic were checked against them).
+
+trx/ is ours (GPL-3.0-or-later like the rest of the project) and has no upstream text in it. The Commodore ROMs (KERNAL, BASIC,
+function ROM, cartridge images) are not in the repository and not in any bitstream; the app writes them into the core from
+/flash/roms/c16 (or a USB stick / SD card) at start.

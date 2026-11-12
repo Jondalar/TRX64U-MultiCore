@@ -1,0 +1,11 @@
+--- orig/io/wifi/esp32.h
++++ host-app/software/io/wifi/esp32.h
+@@ -12,8 +12,6 @@
+ #include "task.h"
+ #include "semphr.h"
+ 
+-#include "menu.h"
+-
+ extern "C" {
+     #include "cmd_buffer.h"
+ }

@@ -1,0 +1,2 @@
+# sims: negative controls kept under T174 D5.4 (Alex 2026-11-08: flash operations and persistence operations only)
+cores/apple2/sim/(lib|run_hdd|run_rwts|run_woz)\.sh : (ctl-output|PROT|ctl_app|ctl_core|NOKEEP|NOWRITE)   # persistence - Apple II disk image write-back: writes, write protect, keep-old-track and nibble gaps must reach the image

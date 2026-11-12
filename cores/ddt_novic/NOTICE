@@ -1,0 +1,31 @@
+DDT "Look Ma, No VIC" core: our glue is GPL v3; DDT's scroller and text screen in rtl/ are CC BY 4.0.
+Rights holders who see a problem with any part listed here: please contact us, and we remove the part concerned.
+
+What is here. The files in rtl/ are from https://github.com/0x444454/look_ma_no_vic (author: DDT, github.com/0x444454), commit 1002b7f070e9a9b89cc47e49413523e269a9d382
+(2026-09-24), under Creative Commons Attribution 4.0 International (CC BY 4.0, https://creativecommons.org/licenses/by/4.0/legalcode). The licence is stated in the
+repository's README.md ("Creative Commons, CC BY ... Please add a link to this github project."); the repository has no LICENSE file and the GitHub licence field is empty, and
+the source files carry no licence header. The link to the project that his licence note asks for: https://github.com/0x444454/look_ma_no_vic
+
+  rtl/scroller.v         the 2048 character scroller with the zoom envelope (its text is in C64 screen codes)    copied unchanged
+  rtl/screen_matrix.v    the 44 x 25 text screen                                                                   copied unchanged
+  rtl/video_pattern.v    the picture: zoomed XOR luma, hue ramp, text overlay, the PAL subcarrier                   copied unchanged; NOT built (see below)
+
+CHANGED (CC BY 4.0 asks that changes are marked):
+  trx/ddt_novic_video.v  his video_pattern.v with the analogue back end replaced: his luma, his hue ramp and his saturation (44) become an RGB colour (the colour that a PAL receiver
+                         with the nominal burst shows for them) instead of luma + a modulated 4.43 MHz subcarrier with burst, sync, blanking and line alternation; the sample coordinate is
+                         the pixel column times two (his line counted 704 samples, two to a pixel); the vertical position is the picture line. The zoom background with its two dividers,
+                         the text overlay, the hue ramp and the scroller connection are as he wrote them. rtl/video_pattern.v.diff is the difference.
+
+NOT here, on purpose: top.v, video_timing.v, clock_gen_rmii_to_13m5.v (the MMCM, the THS8136 interface and the PAL raster are replaced by trx/); c64_chargen_ucg.hex and c64_font_rom.sv
+(the C64 character ROM is Commodore's and never goes into this repository, a bench, a package or a .cor; the Mandelbrot core's trx/c64_font_rom.v keeps the module's name and ports and reads
+Gideon's overlay font that the host already carries, host/mem/ovl_font8.mem; the glyphs look like that font, not like the C64's); C64U.xdc (Gideon's pin constraints); the .bit file, the
+video and the images of his repository.
+
+What is ours (GPL v3, as the rest of this repository): layer2_ddt_novic.v, trx/ (ddt_novic_core.v, ddt_novic_video.v) and sim/; the register block, raster, frame writer and font module are
+the Mandelbrot core's trx/ (cores/ddt_mandel/NOTICE).
+
+What the licence means here. His files stay under CC BY 4.0 with this notice, his name and the link above. CC BY 4.0 has no share-alike clause and no field-of-use limit and the GPL
+adds no restriction to his files, so they may be part of a work that is distributed under the GPL v3 as a whole; his files are not relicensed. A .cor or partial bitstream of this core
+that is given to a third party has to come with its corresponding source: this directory, cores/ddt_mandel/trx and the build recipe core_sources.tcl - all of it is in this repository. The
+host (layer 1), the other cores and the applications are separate works in separate partial bitstreams and are not covered. (The Creative Commons licences are not recommended for software
+by their publisher; the choice of licence is DDT's. Nothing here is legal advice.)

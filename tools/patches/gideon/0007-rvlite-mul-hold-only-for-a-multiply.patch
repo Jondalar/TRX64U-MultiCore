@@ -1,0 +1,24 @@
+rvlite: a multiply is held in execute only when it is a multiply (patch 0006 fix).
+
+The interrupt dummy (decode_comb.vhd, procedure irq) and the illegal-instruction dummy clear
+reg_write but keep the reg_write_sel of the instruction they replace. Patch 0006 keyed the
+two-cycle hold on reg_write_sel alone, so a dummy over a MUL/MULH/MULHSU/MULHU was held in
+execute, and csr.vhd applied its trap (ena_i = wb_ready = 1) in each of the hold cycles: the
+second time with MIE already 0, MPIE := 0. The handler saved mstatus with MPIE = 0, its mret
+restored MIE = 0, and the task ran on with interrupts off. The hold now also needs
+reg_write = 1, which every real multiply has and both dummies clear.
+
+--- a/fpga/cpu_unit/rvlite/vhdl_source/execute.vhd
++++ b/fpga/cpu_unit/rvlite/vhdl_source/execute.vhd
+@@ -105,7 +105,10 @@
+     inst_valid <= exec_i.valid and not flush;
+ 
+     mul_capture <= '1' when mul_cnt = 0 else '0';
+-    mul_inst <= '1' when g_mult and inst_valid = '1' and
++    -- reg_write: the interrupt (and illegal-instruction) dummy keeps the reg_write_sel of the
++    -- instruction it replaced but clears reg_write; without this term a dummy over a MUL held the
++    -- stage for two cycles while its trap was applied to the CSR in each of them (T97 5.13)
++    mul_inst <= '1' when g_mult and inst_valid = '1' and exec_i.reg_write = '1' and
+                          (exec_i.reg_write_sel = WB_MUL_L or exec_i.reg_write_sel = WB_MUL_H) else '0';
+     mul_hold <= '1' when mul_inst = '1' and mul_cnt /= c_mul_hold else '0';
+ 

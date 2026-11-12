@@ -1,0 +1,12 @@
+# trx64g.cor (T104.2 Q5): the same monolith bitstream with Gideon's Ultimate application, both taken from the TRX64-Ultimate CI package
+# trx64-ultimate/<PKG_VERSION> (read only). APP_FILE is the .app (12-byte record header + image); the packer strips it and refuses a file whose
+# SHA-256 is not APP_SHA256.
+ID=trx64g
+NAME="TRX64 Ultimate (Gideon app)"
+VERSION=cad182c4
+PKG_VERSION=t66-cad182c4
+BIT_FILE=c64_basic.bit
+BIT_SHA256=0e021b62dfc5be02f2920e3c5b999191e04102185edd3e8108b9e3c905c941e2
+APP_FILE=ultimate.app
+APP_SHA256=fe855d856cca7df349f2405f8660e3ab046299573ea2527775ca7a448a9b6465
+ICON=tools/core_logos/trx64/icon.rgb565

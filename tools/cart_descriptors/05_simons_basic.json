@@ -1,0 +1,46 @@
+{
+ "cart_type": "0x05",
+ "crt_type": 4,
+ "name": "Simons Basic",
+ "note": "VICE simonsbasic.c: a read of IO1 gives 8K, a write 16K; starts 16K.",
+ "regs": {
+  "R0": 0,
+  "R1": 0
+ },
+ "rules": [
+  {
+   "area": "IO1",
+   "match": "0x00",
+   "mask": "0x00",
+   "on": "READ",
+   "target": "R0",
+   "src": "CONST",
+   "value": 1
+  },
+  {
+   "area": "IO1",
+   "match": "0x00",
+   "mask": "0x00",
+   "on": "WRITE",
+   "target": "R0",
+   "src": "CONST",
+   "value": 0
+  }
+ ],
+ "mode": {
+  "reg": "R0",
+  "lsb": 0,
+  "width": 1
+ },
+ "table": [
+  {
+   "exrom": 0,
+   "game": 0
+  },
+  {
+   "exrom": 0,
+   "game": 1
+  }
+ ],
+ "layout": "L16"
+}

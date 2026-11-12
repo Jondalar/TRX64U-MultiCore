@@ -1,0 +1,14 @@
+# The Amiga core (T85), NanoMig/Minimig-AGA in cores/amiga/rtl. Licences: its NOTICE.
+id           = "amiga"
+name         = "Amiga (OCS/ECS, 68000)"
+version      = "0.2.0"
+contract     = 2
+app          = "blueprint"     # T93: the core-application blueprint, Amiga first
+order        = 3
+delivery     = "cfw"           # a LARGE core since 2026-11-01 (T164 Q1 "Second cut": pb_l2 shrank to 13,200 LUT, the A500 is 14,298 LUT and no longer fits; Alex 2026-10-27:
+                               # "VC20 usw - was nicht mehr DFX sein kann wird large Core. Einfach bauen.", translated: "VC20 etc. - whatever can no longer be DFX becomes a
+                               # large core. Just build."): this file is the only descriptor, no DFX lane; cores/amiga/mono/build_mono.tcl, lane large-amiga
+experimental = true
+mono_env     = ["TRX_FEATURES=jtag"]   # the host features are the DFX build's (jtag on, UCI and UDP streams off)
+sources      = ["cores/amiga", ":(exclude)cores/amiga/sim"]
+roms         = ["Kickstart 1.3"]

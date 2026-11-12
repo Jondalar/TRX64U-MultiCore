@@ -1,0 +1,46 @@
+--- vendor/icepi/hdmi/tmds_channel.sv
++++ host/hdmi_enc/tmds_channel.sv
+@@ -9,6 +9,7 @@
+ )
+ (
+     input logic clk_pixel,
++    input logic ce,                     // T164 WP4: every register (the disparity too) changes only when ce is high (one pixel)
+     input logic [7:0] video_data_in,
+     input logic [3:0] data_island_data_in,
+     input logic [1:0] control_data_in,
+@@ -23,7 +24,7 @@
+ logic [3:0] data_island_data = 4'd0;
+ logic [1:0] control_data = 2'd0;
+ logic [2:0] mode = 3'd0;
+-always_ff @(posedge clk_pixel)
++always_ff @(posedge clk_pixel) if (ce)
+ begin
+     data_island_data <= data_island_data_in;
+     control_data <= control_data_in;
+@@ -63,7 +64,7 @@
+     endcase
+ end
+ 
+-always_ff @(posedge clk_pixel)
++always_ff @(posedge clk_pixel) if (ce)
+ begin
+     q_m <= q_m_c;
+     N1q_m07 <= N1q_m07_c;
+@@ -122,7 +123,7 @@
+     end
+ end
+ 
+-always_ff @(posedge clk_pixel) acc <= mode != 3'd1 ? 5'sd0 : acc + acc_add;
++always_ff @(posedge clk_pixel) if (ce) acc <= mode != 3'd1 ? 5'sd0 : acc + acc_add;
+ 
+ // See Section 5.4.2
+ logic [9:0] control_coding;
+@@ -182,7 +183,7 @@
+ endgenerate
+ 
+ // Apply selected mode.
+-always @(posedge clk_pixel)
++always @(posedge clk_pixel) if (ce)
+ begin
+     case (mode)
+         3'd0: tmds <= control_coding;

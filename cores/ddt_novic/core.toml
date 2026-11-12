@@ -1,0 +1,10 @@
+# DDT's look_ma_no_vic (T168): the demo of github.com/0x444454/look_ma_no_vic as a partial core, its picture on the host's HDMI. Licences: cores/ddt_novic/NOTICE.
+id           = "ddt_novic"
+name         = "DDT Look Ma, No VIC"
+version      = "0.1.0"
+contract     = 2
+app          = "blueprint"     # the T104 generic application (coreapp/cores/ddt_novic.cc)
+order        = 21
+experimental = true            # built, benched, application written; not routed, no board test
+sources      = ["cores/ddt_novic", "cores/ddt_mandel/trx"]
+                               # the register block, raster, frame writer and font of the Mandelbrot core's trx/ are read by both (a file in two cores' sources and one owner passes ci/layers_check.sh)

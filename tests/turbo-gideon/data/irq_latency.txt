@@ -1,0 +1,21 @@
+D031=00 line=35 latency(PHI2 from poll-seen line start to 1st IRQ read): {3524: 36, 3525: 3, 3527: 19, 3530: 2, 3533: 4}  D012@entry: {53: 64}
+D031=00 line=33 latency(PHI2 from poll-seen line start to 1st IRQ read): {3310: 26, 3311: 1, 3569: 1, 3572: 8, 3575: 27, 3576: 1}  D012@entry: {52: 64}
+D031=00 line=FA latency(PHI2 from poll-seen line start to 1st IRQ read): {0: 3, 2: 37, 3: 6, 5: 4, 19652: 6, 19655: 8}  D012@entry: {250: 64}
+D031=80 line=35 latency(PHI2 from poll-seen line start to 1st IRQ read): {3273: 20, 3274: 2, 3276: 1, 3523: 11, 3526: 17, 3527: 2, 3529: 9, 3532: 2}  D012@entry: {53: 64}
+D031=80 line=33 latency(PHI2 from poll-seen line start to 1st IRQ read): {3523: 3, 3526: 29, 3527: 2, 3529: 29, 3532: 1}  D012@entry: {51: 64}
+D031=80 line=FA latency(PHI2 from poll-seen line start to 1st IRQ read): {1: 20, 4: 10, 5: 4, 19651: 5, 19654: 18, 19655: 7}  D012@entry: {250: 64}
+D031=81 line=35 latency(PHI2 from poll-seen line start to 1st IRQ read): {3526: 5, 3527: 9, 3529: 5, 3530: 45}  D012@entry: {53: 64}
+D031=81 line=33 latency(PHI2 from poll-seen line start to 1st IRQ read): {3526: 4, 3527: 9, 3529: 6, 3530: 45}  D012@entry: {51: 64}
+D031=81 line=FA latency(PHI2 from poll-seen line start to 1st IRQ read): {0: 2, 1: 31, 2: 22, 19654: 6, 19655: 3}  D012@entry: {250: 64}
+D031=85 line=35 latency(PHI2 from poll-seen line start to 1st IRQ read): {3528: 64}  D012@entry: {53: 64}
+D031=85 line=33 latency(PHI2 from poll-seen line start to 1st IRQ read): {3528: 64}  D012@entry: {51: 64}
+D031=85 line=FA latency(PHI2 from poll-seen line start to 1st IRQ read): {0: 62, 19655: 2}  D012@entry: {250: 64}
+D031=89 line=35 latency(PHI2 from poll-seen line start to 1st IRQ read): {3528: 31, 3529: 33}  D012@entry: {53: 64}
+D031=89 line=33 latency(PHI2 from poll-seen line start to 1st IRQ read): {3528: 31, 3529: 33}  D012@entry: {51: 64}
+D031=89 line=FA latency(PHI2 from poll-seen line start to 1st IRQ read): {0: 32, 1: 32}  D012@entry: {250: 64}
+D031=8F line=35 latency(PHI2 from poll-seen line start to 1st IRQ read): {3528: 64}  D012@entry: {53: 64}
+D031=8F line=33 latency(PHI2 from poll-seen line start to 1st IRQ read): {3528: 64}  D012@entry: {51: 64}
+D031=8F line=FA latency(PHI2 from poll-seen line start to 1st IRQ read): {0: 64}  D012@entry: {250: 64}
+D031=0F line=35 latency(PHI2 from poll-seen line start to 1st IRQ read): {3528: 64}  D012@entry: {53: 64}
+D031=0F line=33 latency(PHI2 from poll-seen line start to 1st IRQ read): {0: 1, 3528: 63}  D012@entry: {51: 64}
+D031=0F line=FA latency(PHI2 from poll-seen line start to 1st IRQ read): {0: 64}  D012@entry: {250: 64}

@@ -1,0 +1,70 @@
+# Amiga CD32 pad in port 2: load/mode low, then eight clock pulses on pin 6, the data line sampled after each. Needs the pins test to have shown
+# that pin 6 can be driven; otherwise it stops without running.
+kind = "test"
+
+[test]
+name = "CD32 pad read, port 2"
+id = "cd32"
+version = 1
+needs = ["CD32 pad"]
+requires = ["pins.drivable"]
+
+[[prompt]]
+id = "plug"
+text = "Plug the CD32 pad into port 2 and HOLD the red button (button 1). Then press RETURN."
+timeout_s = 120
+
+[[step]]
+op = "wait_user"
+prompt = "plug"
+
+[[step]]
+op = "padctl"
+dis = 0
+adj = 0
+
+[[step]]
+op = "wait"
+us = 40
+
+[[step]]
+op = "sample"
+into = "mode"
+
+[[step]]
+op = "loop"
+count = 8
+body = 5
+
+[[step]]
+op = "drive"
+pins = ["p2_fire"]
+level = "low"
+
+[[step]]
+op = "wait"
+us = 10
+
+[[step]]
+op = "sample"
+into = "bits"
+
+[[step]]
+op = "drive"
+pins = ["p2_fire"]
+level = "release"
+
+[[step]]
+op = "wait"
+us = 10
+
+[[eval]]
+id = "eight"
+value = "bits.flags"
+each = true
+min = 0
+verdict = "eight bits shifted out"
+fail = "the bits were not read"
+
+[result]
+format = "toml"

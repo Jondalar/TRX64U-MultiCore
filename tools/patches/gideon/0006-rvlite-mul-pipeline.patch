@@ -1,0 +1,136 @@
+rvlite: the multiply gets its own pipeline; the instruction waits two cycles in execute.
+
+The product was formed in execute straight from the register file block RAM
+(gprf clock-to-out, sign-extension LUT, the cascaded DSP48s into exec_r.mul_result)
+and missed 100 MHz whenever placement moved (docs/specs/OPT-rvmul.md). Now the
+operands go into registers (the DSP A/B registers), the product into a second
+register (M register), and exec_r.mul_result takes it two cycles later. A MUL,
+MULH, MULHSU or MULHU holds in execute for those cycles: mul_hold hands a
+bubble on, rdy_o is low, decode and fetch wait, the register file output is
+not re-read. Every other instruction is as before; the program sees the same
+results, two cycles later per multiply (designs/c64_basic/sim/rvmul).
+
+--- a/fpga/cpu_unit/rvlite/vhdl_source/execute.vhd
++++ b/fpga/cpu_unit/rvlite/vhdl_source/execute.vhd
+@@ -50,6 +50,15 @@
+     signal target_pc    : std_logic_vector(31 downto 0);
+     signal do_jump      : std_logic;
+     signal inst_valid   : std_logic;
++    -- TRX64: a multiply stays in this stage for c_mul_hold cycles; the
++    -- operands are captured in the first, the product is formed from the
++    -- registered operands, and the result is taken into exec_r in the last.
++    constant c_mul_hold : natural := 2;
++    signal mul_cnt      : natural range 0 to c_mul_hold := 0;
++    signal mul_capture  : std_logic;
++    signal mul_inst     : std_logic;
++    signal mul_hold     : std_logic;
++    signal bubble       : t_execute_out;
+ begin
+     with exec_i.alu_src_b select alu_data_2 <=
+         gprf_i.dat_b_o   when ALU_SRC_REGB,
+@@ -69,6 +78,8 @@
+     r_mul: if g_mult generate
+         i_mul: entity work.multiply
+         port map (
++            clock        => clock,
++            capture      => mul_capture,
+             data_1       => gprf_i.dat_a_o,
+             data_2       => gprf_i.dat_b_o,
+             oper         => exec_i.alu_operation,
+@@ -92,6 +103,32 @@
+         X"00000000"    when others;
+ 
+     inst_valid <= exec_i.valid and not flush;
++
++    mul_capture <= '1' when mul_cnt = 0 else '0';
++    mul_inst <= '1' when g_mult and inst_valid = '1' and
++                         (exec_i.reg_write_sel = WB_MUL_L or exec_i.reg_write_sel = WB_MUL_H) else '0';
++    mul_hold <= '1' when mul_inst = '1' and mul_cnt /= c_mul_hold else '0';
++
++    -- what the stage hands on while a multiply is held: nothing, but the PC
++    -- of the held instruction stays visible (dbg_pc)
++    process(exec_i)
++    begin
++        bubble <= c_execute_nop;
++        bubble.program_counter <= exec_i.program_counter;
++    end process;
++
++    process(clock)
++    begin
++        if rising_edge(clock) then
++            if reset = '1' or mul_inst = '0' then
++                mul_cnt <= 0;
++            elsif mul_cnt /= c_mul_hold then
++                mul_cnt <= mul_cnt + 1;
++            elsif rdy_i = '1' or exec_r.valid = '0' then
++                mul_cnt <= 0;
++            end if;
++        end if;
++    end process;
+     
+     -- Port to CSR
+     csr_req.address <= exec_i.imm_value(11 downto 0);
+@@ -134,7 +171,12 @@
+             if reset = '1' then
+                 exec_r <= c_execute_nop; 
+             elsif rdy_i = '1' or exec_r.valid = '0' then
+-                exec_r <= exec_c;
++                if mul_hold = '1' then
++                    exec_r <= bubble;
++                else
++                    exec_r <= exec_c;
++                end if;
++                exec_r.mul_result <= exec_c.mul_result;
+             end if;
+ -- synthesis translate_off
+ -- synopsis translate_off
+@@ -154,6 +196,6 @@
+     end process;
+ 
+     exec_o <= exec_r;
+-    rdy_o <= rdy_i or not exec_r.valid;
++    rdy_o <= (rdy_i or not exec_r.valid) and not mul_hold;
+ 
+ end architecture;
+--- a/fpga/cpu_unit/rvlite/vhdl_source/multiply.vhd
++++ b/fpga/cpu_unit/rvlite/vhdl_source/multiply.vhd
+@@ -21,6 +21,8 @@
+ 
+ entity multiply is
+ port (
++    clock       : in  std_logic;
++    capture     : in  std_logic; -- take rs1/rs2/oper into the operand registers
+     data_1      : in  std_logic_vector(31 downto 0); -- register rs1
+     data_2      : in  std_logic_vector(31 downto 0); -- register rs2
+     oper        : in  std_logic_vector(2 downto 0);
+@@ -31,6 +33,8 @@
+ architecture gideon of multiply is
+     signal sext_a   : signed(32 downto 0);
+     signal sext_b   : signed(32 downto 0);
++    signal a_r      : signed(32 downto 0);
++    signal b_r      : signed(32 downto 0);
+     signal result   : signed(65 downto 0);
+ begin
+     sext_a(31 downto 0) <= signed(data_1);
+@@ -45,7 +49,20 @@
+         end if;
+     end process;
+ 
+-    result <= sext_a * sext_b;
++    -- TRX64: the operands are registered (the DSP48 A/B registers), the product
++    -- is registered behind the multiplier (M register). The instruction is held
++    -- in the execute stage for the cycles this takes (execute.vhd), so the
++    -- register file block RAM no longer feeds the DSP combinationally.
++    process(clock)
++    begin
++        if rising_edge(clock) then
++            if capture = '1' then
++                a_r <= sext_a;
++                b_r <= sext_b;
++            end if;
++            result <= a_r * b_r;
++        end if;
++    end process;
+ 
+     data_out <= std_logic_vector(result(63 downto 0));
+     -- data_out <= std_logic_vector(result(31 downto 0)) when oper(1 downto 0) = "00"

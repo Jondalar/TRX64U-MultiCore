@@ -1,0 +1,38 @@
+--- /private/tmp/claude-501/-Users-alex-Development-TRX64U-MultiCore/0ca06245-af10-4231-a6a6-09d268feb49b/scratchpad/ult/software/filesystem/blockdev_flash.cc	2026-10-30 20:35:49
++++ host-app/software/filesystem/blockdev_flash.cc	2026-10-30 20:36:16
+@@ -84,20 +84,23 @@
+         
+     int page = first_page + (sector * pages_per_sector);
+     sector += first_sector;
+-    if (requires_erase) {
+-        if(!chip->erase_sector(sector)) {
+-            printf("Erase Error\n");
+-            return RES_ERROR;
++    // every sector of the range is erased right before its pages are programmed (FatFS hands over runs of sectors)
++    for(int n=0; n < count; n++) {
++        if (requires_erase) {
++            if(!chip->erase_sector(sector + n)) {
++                printf("Erase Error\n");
++                return RES_ERROR;
++            }
+         }
++        for(int i=0; i < pages_per_sector; i++) {
++            if (!chip->write_page(page, buffer)) {
++                printf("Write Error\n");
++                return RES_ERROR;
++            }
++            buffer += page_size;
++            page++;
++        }
+     }
+-    for(int i=0; i < pages_per_sector * count; i++) {
+-    	if (!chip->write_page(page, buffer)) {
+-            printf("Write Error\n");
+-    		return RES_ERROR;
+-    	}
+-    	buffer += page_size;
+-    	page++;
+-    }
+     return RES_OK;
+ }
+ 

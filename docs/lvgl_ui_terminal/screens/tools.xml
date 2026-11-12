@@ -1,0 +1,49 @@
+<screen>
+    <view>
+        <style name="style_screen" />
+        <app_shell active_tools="true">
+            <app_shell-content>
+                <column width="100%" height="100%" pad="#space_lg" gap="#space_lg">
+                    <row width="100%">
+                        <lv_label text="Tools" style_text_font="font_title"
+                                  style_text_color="#color_ink" />
+                        <box grow="1" />
+                        <status_chip label="IDLE" tone="#color_violet" />
+                    </row>
+
+                    <panel width="100%" grow="1" gap="0">
+                        <action_row title="Monitor" subtitle="Inspect memory and CPU state"
+                                    meta="OPEN" tone="#color_violet">
+                            <screen_create_event screen="monitor" anim_type="fade_in" duration="120" />
+                        </action_row>
+                        <action_row title="Trace" subtitle="Capture and export execution evidence"
+                                    meta="READY" tone="#color_cyan">
+                            <screen_create_event screen="tools_diagnostics" anim_type="fade_in" duration="120" />
+                        </action_row>
+                        <action_row title="Apps" subtitle="Launch installed utilities"
+                                    meta="12" tone="#color_amber">
+                            <screen_create_event screen="tools_apps" anim_type="fade_in" duration="120" />
+                        </action_row>
+                        <action_row title="Streams" subtitle="Video and audio endpoints"
+                                    meta="OFF" tone="#color_muted">
+                            <screen_create_event screen="tools_streams" anim_type="fade_in" duration="120" />
+                        </action_row>
+                        <action_row title="System" subtitle="Information, logs, and updates"
+                                    meta="HEALTHY" tone="#color_cyan">
+                            <screen_create_event screen="system" anim_type="fade_in" duration="120" />
+                        </action_row>
+                        <box grow="1" />
+                    </panel>
+
+                    <row width="100%">
+                        <lv_label text="One foreground command at a time"
+                                  style_text_font="font_caption" style_text_color="#color_muted" />
+                        <box grow="1" />
+                        <lv_label text="F7  RECENT ACTIVITY" style_text_font="font_caption"
+                                  style_text_color="#color_muted" />
+                    </row>
+                </column>
+            </app_shell-content>
+        </app_shell>
+    </view>
+</screen>

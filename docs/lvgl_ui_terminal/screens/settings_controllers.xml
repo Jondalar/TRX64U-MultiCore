@@ -1,0 +1,41 @@
+<screen>
+    <view>
+        <style name="style_screen" />
+        <app_shell active_settings="true" active_tab="4">
+            <app_shell-content>
+                <column width="100%" height="100%" pad="#space_lg" gap="#space_md">
+                    <row width="100%">
+                        <column grow="1" gap="#space_xs">
+                            <lv_label text="SETTINGS / CONTROLLERS" style_text_font="font_caption"
+                                      style_text_color="#color_muted" />
+                            <lv_label text="Input" style_text_font="font_title"
+                                      style_text_color="#color_ink" />
+                        </column>
+                        <status_chip label="12 OPTIONS" tone="#color_cyan" />
+                    </row>
+
+                    <panel width="100%" grow="1" gap="0">
+                        <action_row title="Joystick ports" subtitle="Port routing, swap, and emulation"
+                                    meta="PORTS" tone="#color_cyan">
+                            <screen_create_event screen="settings_page" anim_type="fade_in" duration="120" />
+                        </action_row>
+                        <action_row title="Paddles and mouse" subtitle="Analog and mouse behavior"
+                                    meta="POINTER" tone="#color_muted">
+                            <screen_create_event screen="settings_page" anim_type="fade_in" duration="120" />
+                        </action_row>
+                        <action_row title="USB controllers" subtitle="Detected devices and assignments"
+                                    meta="USB" tone="#color_violet">
+                            <screen_create_event screen="settings_page" anim_type="fade_in" duration="120" />
+                        </action_row>
+                        <action_row title="Keyboard shortcuts" subtitle="Reference for global and boot-time keys"
+                                    meta="HELP" tone="#color_muted" />
+                        <box grow="1" />
+                    </panel>
+
+                    <lv_label text="C=J swaps joystick ports; boot shortcuts remain available before the UI starts"
+                              style_text_font="font_caption" style_text_color="#color_muted" />
+                </column>
+            </app_shell-content>
+        </app_shell>
+    </view>
+</screen>

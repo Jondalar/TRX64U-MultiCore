@@ -1,0 +1,56 @@
+core A8XL Atari 800 XL
+area F1 Home
+  tab 1 Home
+    info Core
+    info Application
+    info Network
+    info Media
+    info ROMs
+    info Libraries
+    media D1:
+    media D2:
+    media D3:
+    media D4:
+    media Cartridge
+    fixed Save as config...
+    fixed Load config...
+area F3 Library
+  tab 1 Browse
+    browser Browse
+      filetype .atr: Mount D1: and cold start | Mount D1: | Mount D2: | Mount D3: | Mount D4:
+      filetype .xfd: Mount D1: and cold start | Mount D1: | Mount D2: | Mount D3: | Mount D4:
+      filetype .xex: Run (boot disk in D1:, cold start)
+      filetype .obx: Run (boot disk in D1:, cold start)
+      filetype .com: Run (boot disk in D1:, cold start)
+      filetype .car: Insert cartridge, cold start
+      filetype .rom: Insert cartridge, cold start
+      filetype .bin: Insert cartridge, cold start
+area F5 ATARI
+  tab 1 ATARI
+    setting RAM size = 64 KB | 128 KB | 320 KB Compy Shop | 320 KB Rambo | 576 KB Compy Shop | 576 KB Rambo | 1088 KB Rambo (default 64 KB, at next reset)
+    setting Video standard = PAL | NTSC (default PAL, at next reset)
+    setting Joystick ports = Normal | Swapped (default Normal, live)
+    setting CPU speed = 1x | 2x | 4x | 8x (default 1x, live)
+    setting LED Load Indicator = On | Off (default On, live)
+area F7 Actions
+  tab 1 Quick
+    task Reset (closes the menu)
+    task Cold start (closes the menu)
+    task Reload ROMs, cold start (closes the menu)
+    task Remove cartridge, cold start (closes the menu)
+    task Eject D1:
+    task Eject D2:
+    task Eject D3:
+    task Eject D4:
+    task Create blank ATR (asks a name)
+area F8 System (shifted)
+  tab 1 System
+    heading Actions
+    fixed Restart core
+    fixed Return to host menu
+    heading Network
+    fixed WiFi
+    heading Support
+    fixed Bug report
+    heading Reset
+    fixed Reset to host defaults

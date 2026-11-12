@@ -1,0 +1,18 @@
+<component>
+    <api>
+        <prop name="subject" type="subject" />
+        <prop name="min" type="int" default="0" />
+        <prop name="max" type="int" default="100" />
+        <prop name="tone" type="color" default="#color_violet" />
+    </api>
+
+    <view extends="lv_slider" width="190" height="16"
+          min_value="$min" max_value="$max" bind_value="$subject"
+          style_bg_opa="0%" style_bg_opa-indicator="0%"
+          style_bg_opa-knob="0%" style_pad_all-knob="0">
+        <style name="style_focus" selector="focused" />
+        <style name="style_focus" selector="focus_key" />
+        <lv_label text="[==========|---------]"
+                  style_text_font="font_caption" style_text_color="$tone" />
+    </view>
+</component>

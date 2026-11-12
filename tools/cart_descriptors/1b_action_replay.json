@@ -1,0 +1,7 @@
+{
+ "cart_type": "0x1B",
+ "crt_type": 1,
+ "name": "Action Replay",
+ "note": "A freezer: the dedicated Action Replay block (PROP-002 sec. 2), no mapping fields.",
+ "ar": true
+}

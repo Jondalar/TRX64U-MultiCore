@@ -1,0 +1,31 @@
+ZX Spectrum Next core: GPL v3 or later.
+Rights holders who see a problem with any part listed here: please contact us, and we remove the part concerned.
+
+
+What is here. These files are the ZX Spectrum Next FPGA source (https://gitlab.com/SpectrumNext/ZX_Spectrum_Next_FPGA, directory
+cores/zxnext/src), commit b047011 (2025-11-06, "CORE VERSION 3.02.03 (Issue 2 untested)"), copied unchanged by tools/vendor_zxnext.sh
+(SHA256SUMS lists them): zxnext.vhd and the directories audio, cpu (the Z80N), device (DMA, Copper, CTC, DivMMC, Multiface, interrupt
+controller), rom, serial, misc and video (ULA, Layer 2, LoRes, sprites, tilemap). The copyright lines of Alvin Albrecht, Victor Trucco,
+Fabio Belavenuto, Garry Lancaster, Charlie Ingley and the others, and the "GNU General Public License ... version 3 of the License, or (at your
+option) any later version" headers, are in the files; COPYING is the licence text, GNU GPL version 3, as the upstream repository ships it.
+
+What is not here: the board tops and pin files (zxnext_top_issue*.vhd, *.xdc, *.ucf), the PLLs, the PS/2 keyboard and mouse blocks, the flash-boot
+blocks, the HDMI and VGA stages, the Xilinx IP cores (which the upstream keeps as .xcix files outside its source tree) and rtl/ram (written
+again in cores/zxnext/ip/zxn_ip.vhd, ours). Neither a ROM nor any NextZXOS content is here or ever goes into this repository, a bench, a package
+or a .cor: the Next's ROMs and its operating system arrive on the user's own SD card image (T116 Q4).
+
+rom/bootrom.vhd is the one binary-like file: the 8 KB boot ROM of the FPGA core, machine generated VHDL data ("generated with romgen v3.0 by
+MikeJ"), the code the Z80N runs at power on to find the card and load TBBLUE.FW from it. The file carries no licence header of its own; it is part
+of the upstream repository's source tree under the repository's GPL v3 COPYING (cores/zxnext/COPYING), which is why it stays. It is not NextZXOS and
+not a Spectrum ROM; tools/check_zxnext_tree.py knows it by hash (SHA256SUMS) and refuses any other image-like file under cores/zxnext.
+
+What is built from them is NOT these files. cores/zxnext/gen is what tools/zxnext_gen.py makes of them: three edits to the VHDL in a scratch copy
+(rtl/ is never edited; each one is a place the converter does not accept, counted by the generator), the conversion by GHDL to one Verilog file, and
+every clocked process put into the clock-enable form (the machine's five related clocks become enables on the partition's 100 MHz clock).
+tools/zxnext_gen.py --check keeps rtl/ on SHA256SUMS and gen/ on rtl/.
+
+What the licence means here. GPL v3 covers the gateware of this core and everything linked into its partial bitstream. A .cor of this core that is
+given to a third party has to come with its corresponding source: that is this directory (the upstream copy), cores/zxnext/gen (the generated
+source), cores/zxnext/ip, cores/zxnext/trx and cores/zxnext/layer2_zxnext.v (our glue), tools/zxnext_gen.py and tools/vendor_zxnext.sh (the
+generator), and the build recipe cores/zxnext/core_sources.tcl - all of it is in this repository. The host (layer 1), the other cores and the applications are separate works in separate partial bitstreams, link nothing of this
+core and are not covered; host/ is not part of this core's build.

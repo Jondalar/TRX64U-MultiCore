@@ -1,0 +1,26 @@
+<component>
+    <api>
+        <prop name="label" type="string" default="ITEM" />
+        <prop name="shortcut" type="string" default="" />
+        <prop name="active" type="bool" default="false" />
+    </api>
+
+    <view extends="lv_button" width="100%" height="34" flex_flow="row"
+          style_flex_cross_place="center" style_pad_hor="#space_sm"
+          style_pad_column="#space_sm" style_radius="#radius_sm"
+          style_border_width="0" style_shadow_width="0"
+          style_bg_color="#color_surface_2"
+          style_bg_opa="{active ? 255 : 0}">
+        <style name="style_focus" selector="focused" />
+        <style name="style_focus" selector="focus_key" />
+        <style name="style_pressed" selector="pressed" />
+        <lv_obj width="2" height="16" hidden="{!active}"
+                style_bg_color="#color_violet" style_bg_opa="100%"
+                style_border_width="0" style_radius="2" />
+        <lv_label text="$label" style_text_font="font_body"
+                  style_text_color="{active ? color_ink : color_muted}" />
+        <box grow="1" />
+        <lv_label text="$shortcut" hidden="{!shortcut}"
+                  style_text_font="font_caption" style_text_color="#color_muted" />
+    </view>
+</component>

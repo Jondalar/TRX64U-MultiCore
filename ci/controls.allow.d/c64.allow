@@ -1,0 +1,3 @@
+# C64 cores untouched (Alex, 2026-11-08: the C64 cores - c64u, c64ref, c64scpu and coreapp/cores/trx64u - are never changed; they keep every control incl. their sim controls)
+cores/(c64u|c64ref|c64scpu)/.* : .*   # C64 cores untouched (Alex)
+ci/sims\.txt : .*(c64u|c64scpu|c64ref).*   # C64 cores untouched (Alex)

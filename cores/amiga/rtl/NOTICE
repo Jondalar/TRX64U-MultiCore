@@ -1,0 +1,18 @@
+Amiga (Minimig) core: vendored from NanoMig.
+
+The partial bitstream of this core is published as a `.cor` together with this source. No Kickstart, Workbench or other
+ROM is in this repository or in any package.
+Rights holders who see a problem with any part listed here: please contact us, and we remove the part concerned.
+
+Upstream: https://github.com/MiSTle-Dev/NanoMig, commit a19604a19a6100033a29281d2be3287b65bc9c0e (2026-10-11).
+The repository has no LICENSE file. The files' own headers decide; they are kept as they came.
+
+  src/minimig-aga/*.v   Minimig-AGA chipset (Dennis van Weeren, Jakub Bednarski, Rok Krajnc, Alexey Melnikov, Tobias
+                        Gubener and others). Most headers: GPL v3 or later. About 40 files carry no licence text;
+                        ide.v is BSD-3-clause (Alexey Melnikov). cpu_cache_new.v and denise_colortable_ram_mf.v are not
+                        taken. Changes of ours are marked "TRX" in the files.
+  src/fx68k/*           FX68K 68000 core, Jorge Cwik; directory LICENSE: GPL v3.
+  src/nanomig.v         Wrapper of NanoMig (Till Harbaum et al.), no licence text in the header.
+
+Not taken: TG68K, the Tang tops, Gowin IP, HDMI, MCU/SD/OSD glue, SDRAM controller (all replaced by host services and
+cores/amiga/rtl/trx). Kickstart and Workbench are not in this repository.

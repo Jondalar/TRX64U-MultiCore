@@ -1,0 +1,14 @@
+# The menu record of the library "gamma" in the bundle fixtures (tests/coreapp/gen_bundle.py): a node and a file action, no poll - so the packer merges it
+# into the description (T104.2 D10), where alpha, which declares a poll, keeps its menu for the run time.
+[[node]]
+anchor = "F5/tools"
+kind = "op"
+label = "Gamma menu"
+op = "gamma.go"
+order = 4
+
+[[file_action]]
+ext = [".gam"]
+label = "Play gamma"
+op = "gamma.play"
+bind = [ { arg = "path", file = true } ]

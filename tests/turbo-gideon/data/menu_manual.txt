@@ -1,0 +1,7 @@
+{'errors': []}
+Manual speed= 1 badline=Enabled outer=1411 x=0.94 d031=FF d030=FF cia2_hz=985971 fps=50.0
+Manual speed= 1 badline=Disabled outer=1492 x=1.00 d031=FF d030=FF cia2_hz=985292 fps=50.0
+Manual speed=16 badline=Enabled outer=1446 x=15.12 d031=FF d030=FF cia2_hz=985910 fps=50.5
+Manual speed=16 badline=Disabled outer=1529 x=15.99 d031=FF d030=FF cia2_hz=985550 fps=50.0
+Manual speed=64 badline=Enabled outer=1425 x=59.54 d031=FF d030=FF cia2_hz=985431 fps=50.0
+Manual speed=64 badline=Disabled outer=1506 x=62.93 d031=FF d030=FF cia2_hz=985472 fps=50.5

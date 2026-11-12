@@ -1,0 +1,105 @@
+name: Bug report
+description: Something does not work on the board. Every field marked required has to be filled in.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for testing. A report we can reproduce gets fixed; a report without release, steps and photos usually
+        cannot be checked. Never attach ROMs or disk images, only their names and where they came from.
+  - type: input
+    id: release
+    attributes:
+      label: Release
+      description: The release or pre-release name from the GitHub release page.
+      placeholder: trx64mc-main-922deb78
+    validations:
+      required: true
+  - type: dropdown
+    id: board
+    attributes:
+      label: Board
+      options:
+        - C64 Ultimate (C64U)
+        - Ultimate 64 Elite II
+    validations:
+      required: true
+  - type: dropdown
+    id: core
+    attributes:
+      label: Core
+      description: The core that was running when it happened.
+      options:
+        - host - boot menu or host application
+        - amiga - Amiga 500 (OCS/ECS)
+        - amiga1200 - Amiga 1200 (AGA)
+        - apple2 - Apple IIe
+        - atari800 - Atari 800 XL
+        - c128 - Commodore 128
+        - c264 - Commodore 16 / Plus/4
+        - cpc - Amstrad CPC
+        - neogeo - SNK Neo Geo
+        - ddt_mandel - DDT Mandelbrot (mandelbrUlt)
+        - diag - Port Diagnostics
+        - ddt_novic - DDT Look Ma, No VIC
+        - nes - Nintendo Entertainment System
+        - pet - Commodore PET
+        - snes - Super Nintendo
+        - trx64g - C64 with the Ultimate application
+        - trx64u - C64 with the TRX64 application
+        - vc20 - VIC-20
+        - zx - ZX Spectrum 48K / 128K
+        - zxnext - ZX Spectrum Next
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps
+      description: From switching on, what you did, one step per line (menus, keys, files).
+      placeholder: |
+        1. Boot menu, choose Amiga 1200
+        2. F1, Library, USB0/Games/Turrican.adf, Insert DF0
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: input
+    id: media
+    attributes:
+      label: Images used
+      description: File names and where they came from (site, collection, version). Never the file itself.
+      placeholder: Turrican.adf from the TOSEC set 2023-01, or "none"
+    validations:
+      required: true
+  - type: textarea
+    id: photos
+    attributes:
+      label: Photos or video of the screen
+      description: Drag the photos or a short video in here. Show the fault and the menu settings.
+    validations:
+      required: true
+  - type: textarea
+    id: report
+    attributes:
+      label: Report and configuration files
+      description: |
+        Attach the bug report file of the host application (F8, "Bug report": /SD/report/<date>.txt, or http://<board>/v1/report)
+        once your release has it. Until then attach the core's configuration /SD/cores/<core>.cfg.
+    validations:
+      required: true
+  - type: textarea
+    id: more
+    attributes:
+      label: Anything else

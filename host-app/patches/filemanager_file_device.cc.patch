@@ -1,0 +1,59 @@
+--- a/file_device.cc
++++ b/file_device.cc
+@@ -1,7 +1,10 @@
+ #include "file_device.h"
+ #include "file_partition.h"
+ #include <stdio.h>
++#include <strings.h>
+ 
++static FileDevice *device_list;     // T111
++
+ FileDevice :: FileDevice(BlockDevice *b, const char *n, const char *dn) : CachedTreeNode(NULL, n)
+ {
+     initialized = false;
+@@ -13,6 +16,8 @@
+     info.attrib = AM_DIR; // ;-)
+     info.name_format = NAME_FORMAT_DIRECT;
+     isFloppy = false;
++    next_device = device_list;
++    device_list = this;
+     //printf("FileDevice Created. This = %p, Disk = %p, blk = %p, name = %s, disp = %s, info = %p\n", this, disk, b, n, dn, get_file_info());
+ }
+ 
+@@ -23,8 +28,36 @@
+ 	if(info.fs) {
+ 		delete info.fs;
+     }
++    for(FileDevice **pp = &device_list; *pp; pp = &(*pp)->next_device) {
++        if(*pp == this) {
++            *pp = next_device;
++            break;
++        }
++    }
+ }
+ 
++FileDevice *FileDevice :: find(const char *name)
++{
++    for(FileDevice *d = device_list; d; d = d->next_device) {
++        if(!strcasecmp(d->get_name(), name)) {
++            return d;
++        }
++    }
++    return NULL;
++}
++
++// T111: unmount the volume probe() mounted (the FileSystemFAT's destructor does f_unmount and frees the drive slot) and forget it.
++// Call it before detach_disk(): the volume reads through the Partition that the disk owns.
++void FileDevice :: release_volume(void)
++{
++    if(info.fs) {
++        delete info.fs;
++        info.fs = NULL;
++    }
++    info.cluster = 0;
++    initialized = false;
++}
++
+ void FileDevice :: attach_disk(int block_size)
+ {
+     //printf("&&& ATTACH %p &&&\n", disk);

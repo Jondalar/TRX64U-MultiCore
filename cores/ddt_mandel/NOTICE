@@ -1,0 +1,43 @@
+DDT Mandelbrot core (mandelbrUlt): our glue is GPL v3; DDT's Mandelbrot engines in rtl/ are CC BY 4.0.
+Rights holders who see a problem with any part listed here: please contact us, and we remove the part concerned.
+
+What is here. The files in rtl/ are from https://github.com/0x444454/mandelbrUlt (author: DDT, github.com/0x444454), commit 93aee1cc6ae33ff927a32012b5696f1dee1619a1
+(2026-09-24), under Creative Commons Attribution 4.0 International (CC BY 4.0, https://creativecommons.org/licenses/by/4.0/legalcode). The licence is stated in the
+repository's README.md ("Creative Commons, CC BY ... Please add a link to this github project."), in sources/README.md and in the header of sources/src/top.v; the
+repository has no LICENSE file and the GitHub licence field is empty. The link to the project that his licence note asks for: https://github.com/0x444454/mandelbrUlt
+
+  rtl/pixel_gen_mandelbrot.sv   one Mandelbrot engine (6 DSP48E1, a CARRY4 escape test, Q3.22)                  copied unchanged; NOT built (see below)
+  rtl/fb_scanline_writer.sv     the scheduler of the engines and the two-line retire buffer                     copied unchanged; NOT built (see below)
+  rtl/fb_bram_dma.sv            the commit of finished lines into the BRAM frame buffer                         copied unchanged
+  rtl/linebuf_iter8.sv          the two-line buffer (xpm_memory_tdpram)                                         copied unchanged
+  rtl/framebuffer_bram.sv       the 352 x 256 x 8 bit frame buffer (xpm_memory_tdpram)                          copied unchanged
+  rtl/joystick_buttons.sv       debounce and the pan / zoom / iterations / reset pulses of the joystick         copied unchanged
+  rtl/palette_yuv_256.hex       the 256 colours as {Y, U, V} for his PAL modulator; NOT built, read by tools/ddt_palette.py   copied unchanged
+  rtl/screen_matrix.v           the 44 x 25 splash text screen                                                  copied unchanged; NOT built (see below)
+
+CHANGED (CC BY 4.0 asks that changes are marked):
+  trx/screen_matrix.v           his screen_matrix.v with one line changed: row 2 reads " 8 HARDWARE MANDEL ENGINES" instead of "20 ..." (this partition has 8 engines; the
+                                TODO in his file asks for the actual count). rtl/screen_matrix.v.diff is the difference. This is the file that is built.
+  trx/pixel_gen_mandelbrot.sv   his engine, pipelined: his single clock (two 25 x 25 products, the 50 bit sum, the compare and the update of z in one path) missed 100 MHz by 2.3 ns on the
+                                XC7A50T. Now three registered stages and two pixels per engine take turns in the loop (an iteration of one pixel every second clock, one of the engine every clock);
+                                the escape decision of an iteration is made one clock later, off the loop. The arithmetic, the add_u50_carry4 module and the result per pixel (iter8) are his.
+                                rtl/pixel_gen_mandelbrot.sv.diff is the difference. This is the file that is built.
+  trx/fb_scanline_writer.sv     his scheduler with the engines' two pixel contexts: it keeps its bookkeeping for NCORES * 2 pixels and instantiates NCORES engines of the file above;
+                                otherwise as he wrote it. rtl/fb_scanline_writer.sv.diff is the difference. This is the file that is built.
+  mem/palette_rgb565_256.hex    made by tools/ddt_palette.py from the RGB colours his palette_yuv_256.hex was converted from (named in its line comments); the tool checks
+                                his YUV words against those colours. Replaces palette_rom_256x28.sv.
+
+NOT here, on purpose: top.v, video_timing.v, mandel_video_pattern.v, clock_gen_rmii_to_13m5.v, palette_rom_256x28.sv, debounce_btn.sv, c64_font_rom.sv (below), build.tcl, report_dsp_usage.tcl, the Vivado project (their analogue video back end, the MMCM and the
+board pins are replaced by trx/); c64_chargen_ucg.hex and c64_font_rom.sv (the C64 character ROM is Commodore's and never goes into this repository, a bench, a package or a
+.cor; trx/c64_font_rom.v reads Gideon's overlay font that the host already carries, host/mem/ovl_font8.mem); C64U.xdc (Gideon's pin constraints); the .bit files, the video and the
+images of his repository.
+
+What is ours (GPL v3, as the rest of this repository): layer2_ddt_mandel.v, trx/ (ddt_regs.v, ddt_dots.v, ddt_pixw.v, ddt_palette.v, ddt_mandel_core.v, ddt_mandel_video.v,
+c64_font_rom.v, ddt_clk_load.v) and sim/. ddt_mandel_core.v contains blocks of his top.v as he wrote them (marked "top.v" in the file); ddt_mandel_video.v contains the palette
+rotation, the palette index and the text overlay of his mandel_video_pattern.v as he wrote them.
+
+What the licence means here. His files stay under CC BY 4.0 with this notice, his name and the link above. CC BY 4.0 has no share-alike clause and no field-of-use limit and the GPL
+adds no restriction to his files, so they may be part of a work that is distributed under the GPL v3 as a whole; his files are not relicensed. A .cor or partial bitstream of this core
+that is given to a third party has to come with its corresponding source: this directory, the Mandelbrot core's trx/ and the build recipe core_sources.tcl - all of it is in this
+repository. The host (layer 1), the other cores and the applications are separate works in separate partial bitstreams and are not covered. (The Creative Commons licences are not
+recommended for software by their publisher; the choice of licence is DDT's. Nothing here is legal advice.)

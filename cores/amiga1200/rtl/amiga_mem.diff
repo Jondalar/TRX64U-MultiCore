@@ -1,0 +1,120 @@
+19a20,21
+> // T138 (A1200 copy, amiga_mem.diff): the fast RAM port also carries the Zorro III board of 32 MB, p2_addr[24] = 1 and p2_addr[23:0] its
+> // word address; it lives at DDR2 word address Z3_BASE + a (byte 0x6000000), outside the window. The cache keys on the 25 bits.
+22c24,25
+<     parameter [26:0] BASE = 27'h0800000          // DDR2 byte 0x1000000
+---
+>     parameter [26:0] BASE = 27'h0800000,         // DDR2 byte 0x1000000
+>     parameter [26:0] Z3_BASE = 27'h3000000       // DDR2 byte 0x6000000
+44c47
+<     input  wire [21:0] p2_addr,
+---
+>     input  wire [24:0] p2_addr,                    // [24] the Zorro III board, [23:0] its word address (else [21:0] as the chip port)
+89c92
+<     reg [21:0] r_a = 22'd0;
+---
+>     reg [24:0] r_a = 25'd0;
+117,118c120,121
+<     wire [21:0] c_a_live = go_chip_live ? addr : (go_chip_q ? q_a : p2_addr);
+<     wire [21:0] idx_a = (st == S_IDLE) ? c_a_live : r_a;           // address the cache is read with
+---
+>     wire [24:0] c_a_live = go_chip_live ? {3'b000, addr} : (go_chip_q ? {3'b000, q_a} : p2_addr);
+>     wire [24:0] idx_a = (st == S_IDLE) ? c_a_live : r_a;           // address the cache is read with
+120,121c123,124
+<     function [IW-1:0] hidx(input [18:0] line);
+<         reg [18:0] h, f;
+---
+>     function [IW-1:0] hidx(input [21:0] line);
+>         reg [21:0] h, f;
+128,129c131,132
+<     wire [IW-1:0] idx   = hidx(idx_a[21:3]);
+<     wire [18:0]   idx_nl = idx_a[21:3] + 19'd1;                  // the line after the one the cache is read with
+---
+>     wire [IW-1:0] idx   = hidx(idx_a[24:3]);
+>     wire [21:0]   idx_nl = idx_a[24:3] + 22'd1;                  // the line after the one the cache is read with
+133c136
+<     localparam TW = 1 + 19 - IW;                                   // valid + the line bits above the index
+---
+>     localparam TW = 1 + 22 - IW;                                   // valid + the line bits above the index
+144c147
+<     reg [18:0] fill_line = 19'd0;
+---
+>     reg [21:0] fill_line = 22'd0;
+147c150
+<     wire       dirty_now = fill_dirty | ((st == S_LOOK) & r_we & (fill_line == r_a[21:3]));
+---
+>     wire       dirty_now = fill_dirty | ((st == S_LOOK) & r_we & (fill_line == r_a[24:3]));
+152c155
+<     reg [18:0] ins_line = 19'd0;
+---
+>     reg [21:0] ins_line = 22'd0;
+170c173
+<     reg  [41:0] cf_wdata = 42'd0;
+---
+>     reg  [44:0] cf_wdata = 45'd0;
+172c175
+<     wire [41:0] cf_rdata;
+---
+>     wire [44:0] cf_rdata;
+175c178
+<     trx_afifo #(.W(42), .AW(3)) cmdf (
+---
+>     trx_afifo #(.W(45), .AW(3)) cmdf (
+182c185
+<     wire [TW-2:0] want_tag = r_a[21:3+IW];
+---
+>     wire [TW-2:0] want_tag = r_a[24:3+IW];
+189c192
+<     wire [18:0] nxt_line = r_a[21:3] + 19'd1;
+---
+>     wire [21:0] nxt_line = r_a[24:3] + 22'd1;
+191c194
+<     wire [TW-2:0] nxt_tag = nxt_line[18:IW];
+---
+>     wire [TW-2:0] nxt_tag = nxt_line[21:IW];
+193c196
+<     wire        nxt_valid_addr = ~(r_a[21:3] == 19'h7FFFF);
+---
+>     wire        nxt_valid_addr = ~(r_a[24] ? (r_a[23:3] == 21'h1FFFFF) : (r_a[21:3] == 19'h7FFFF));   // the line after the last one of a region is none
+212c215
+<                 st_stall_info <= {1'b1, r_we, r_src, st, fill_inflight, cf_full, cf_empty, crit_valid, r_a};
+---
+>                 st_stall_info <= {1'b1, r_we, r_src, st, fill_inflight, cf_full, cf_empty, crit_valid, r_a[21:0]};
+259c262
+<             tw_val <= dirty_now ? {TW{1'b0}} : {1'b1, fill_line[18:IW]};
+---
+>             tw_val <= dirty_now ? {TW{1'b0}} : {1'b1, fill_line[21:IW]};
+296c299
+<                         cf_wdata <= {2'b00, r_a[21:3], r_a[2:0], r_din, r_be};
+---
+>                         cf_wdata <= {2'b00, r_a[24:3], r_a[2:0], r_din, r_be};
+302,304c305,307
+<                         if (fill_inflight && fill_line == r_a[21:3]) fill_dirty <= 1'b1;
+<                         if ((ins1 || ins2) && ins_line == r_a[21:3]) begin
+<                             tw_en <= 1'b1; tw_idx <= hidx(r_a[21:3]); tw_val <= 0;
+---
+>                         if (fill_inflight && fill_line == r_a[24:3]) fill_dirty <= 1'b1;
+>                         if ((ins1 || ins2) && ins_line == r_a[24:3]) begin
+>                             tw_en <= 1'b1; tw_idx <= hidx(r_a[24:3]); tw_val <= 0;
+326,328c329,331
+<                         cf_wdata <= {2'b01, r_a[21:3], r_a[2:0], 16'd0, 2'b00};
+<                         fill_inflight <= 1'b1; fill_line <= r_a[21:3]; fill_dirty <= 1'b0; fill_pf <= 1'b0; crit_valid <= 1'b0;
+<                         tw_en <= 1'b1; tw_idx <= hidx(r_a[21:3]); tw_val <= 0;
+---
+>                         cf_wdata <= {2'b01, r_a[24:3], r_a[2:0], 16'd0, 2'b00};
+>                         fill_inflight <= 1'b1; fill_line <= r_a[24:3]; fill_dirty <= 1'b0; fill_pf <= 1'b0; crit_valid <= 1'b0;
+>                         tw_en <= 1'b1; tw_idx <= hidx(r_a[24:3]); tw_val <= 0;
+358c361
+<     reg  [41:0] u_cmd = 42'd0;
+---
+>     reg  [44:0] u_cmd = 45'd0;
+370,371c373,374
+<     wire [1:0]  u_kind = u_cmd[41:40];
+<     wire [18:0] u_line = u_cmd[39:21];
+---
+>     wire [1:0]  u_kind = u_cmd[44:43];
+>     wire [21:0] u_line = u_cmd[42:21];
+388c391
+<             c_addr <= BASE + {5'd0, u_line, 3'd0};
+---
+>             c_addr <= u_line[21] ? (Z3_BASE + {3'd0, u_line[20:0], 3'd0}) : (BASE + {5'd0, u_line[18:0], 3'd0});

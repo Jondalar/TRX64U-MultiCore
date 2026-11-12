@@ -1,0 +1,69 @@
+<component>
+    <api>
+        <prop name="title" type="string" default="TREX CRT" />
+        <prop name="state" type="string" default="READY" />
+        <prop name="tone" type="color" default="#color_cyan" />
+        <prop name="active_tab" type="int" default="1" />
+        <prop name="f1" type="string" default="" />
+        <prop name="f3" type="string" default="" />
+        <prop name="f5" type="string" default="" />
+        <prop name="f7" type="string" default="" />
+        <prop name="close_label" type="string" default="CLOSE" />
+        <slot name="content" />
+    </api>
+
+    <view extends="base_box" width="100%" height="100%" flex_flow="column"
+          style_bg_color="#color_bg" style_bg_opa="100%">
+        <row width="100%" height="#topbar_height" pad="#space_sm" gap="#space_sm"
+             style_border_side="bottom" style_border_color="#color_line" style_border_width="1">
+            <lv_label text="TRX64" style_text_font="font_heading" style_text_color="#color_ink" />
+            <lv_label text="/ APP" style_text_font="font_caption" style_text_color="#color_muted" />
+            <lv_label text="$title" style_text_font="font_body" style_text_color="#color_ink"
+                      style_pad_left="#space_md" />
+            <box grow="1" />
+            <status_chip label="$state" tone="$tone" />
+        </row>
+
+        <row width="100%" height="38" pad="#space_sm" gap="#space_xs"
+             style_border_side="bottom" style_border_color="#color_line" style_border_width="1">
+            <tab_item number="1" label="HOME" active="{active_tab == 1}">
+                <screen_create_event screen="crt_home" anim_type="fade_in" duration="100" />
+            </tab_item>
+            <tab_item number="2" label="DUMP" active="{active_tab == 2}">
+                <screen_create_event screen="crt_dump" anim_type="fade_in" duration="100" />
+            </tab_item>
+            <tab_item number="3" label="FLASH" active="{active_tab == 3}">
+                <screen_create_event screen="crt_flash" anim_type="fade_in" duration="100" />
+            </tab_item>
+            <tab_item number="4" label="INSPECT" active="{active_tab == 4}">
+                <screen_create_event screen="crt_inspector" anim_type="fade_in" duration="100" />
+            </tab_item>
+            <box grow="1" />
+            <lv_label text="APP MODE" style_text_font="font_caption" style_text_color="#color_muted" />
+        </row>
+
+        <column name="content" width="100%" grow="1" />
+
+        <row width="100%" height="#footer_height" pad="#space_xs" gap="#space_xs"
+             style_border_side="top" style_border_color="#color_line" style_border_width="1">
+            <keycap glyph="↕" />
+            <keycap glyph="↔" />
+            <lv_label text="NAVIGATE" style_text_font="font_caption" style_text_color="#color_muted" />
+            <return_keycap />
+            <lv_label text="SELECT" style_text_font="font_caption" style_text_color="#color_muted" />
+            <keycap glyph="←" />
+            <lv_label text="BACK" style_text_font="font_caption" style_text_color="#color_muted" />
+            <box grow="1" />
+            <lv_label text="F1" hidden="{!f1}" style_text_font="font_caption" style_text_color="#color_violet" />
+            <lv_label text="$f1" hidden="{!f1}" style_text_font="font_caption" style_text_color="#color_muted" />
+            <lv_label text="F3" hidden="{!f3}" style_text_font="font_caption" style_text_color="#color_violet" />
+            <lv_label text="$f3" hidden="{!f3}" style_text_font="font_caption" style_text_color="#color_muted" />
+            <lv_label text="F5" hidden="{!f5}" style_text_font="font_caption" style_text_color="#color_violet" />
+            <lv_label text="$f5" hidden="{!f5}" style_text_font="font_caption" style_text_color="#color_muted" />
+            <lv_label text="F7" hidden="{!f7}" style_text_font="font_caption" style_text_color="#color_violet" />
+            <lv_label text="$f7" hidden="{!f7}" style_text_font="font_caption" style_text_color="#color_muted" />
+            <runstop_keycap />
+            <lv_label text="$close_label" style_text_font="font_caption" style_text_color="#color_muted" />
+        </row>
+    </view>
+</component>

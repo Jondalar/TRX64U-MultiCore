@@ -1,0 +1,4 @@
+PROVENANCE: every file here is a copy of vendor/gideon/apps/trxmon/src (the trxmon application of the TRX64 line, GPL-3.0) at the pinned submodule commit, unchanged except the
+file names of the C sources (prefix tm_, so that the object names do not meet the application's own json.o, ring.o, ui.o): asm6502, cond, dis6502, hw_trx, json, mach, mlib, mon, ring, rpc,
+spans, trace, ui and ws, and trx_lens.c/h from vendor/gideon/software/io/c64. main.c is not here: coreapp/src/monitor.cc is what it gave the engine (the trx table of the firmware's
+app API, the platform calls, the screen session). The engine is linked into the core application and drives F4 1 Monitor; its TCP 4312 server is coreapp/src/monsrv.cc (the network half of trxmon's main.c), started with the application and polled by mon_serve in the main loop; the engine is claimed when a client sends a command.

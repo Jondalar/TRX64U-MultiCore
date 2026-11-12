@@ -1,0 +1,21 @@
+--- a/keyboard_c64.h
++++ b/keyboard_c64.h
+@@ -12,7 +12,8 @@
+ // redraw, so such a tap was missed outright or, with the release unseen, read
+ // as the previous key still held. On those builds the scan runs from a timer
+ // instead, at this period in ticks, and getch() only drains the buffer.
+-#if !U64 && !RECOVERYAPP && !defined(NO_FILE_ACCESS)
++// TRX host boot app: the matrix is scanned from the timer as well (modified copy, see PROVENANCE.md)
++#if (!U64 || defined(TRX_HOSTAPP)) && !RECOVERYAPP && !defined(NO_FILE_ACCESS)
+ #define KEYBOARD_C64_TIMER_SCAN 1
+ #define KEYBOARD_C64_SCAN_PERIOD_TICKS 2
+ #else
+@@ -65,6 +66,8 @@
+     bool scans_from_timer(void) const { return scan_timer != 0; }
+     void set_delays(int, int);
+     int  getch(void);
++    // TRX host boot app: the queued key, or -1, without the scan and without the 4-tick sleep of getch()
++    int  getch_nowait(void) { if (key_head == key_tail) return -1; int k = key_buffer[key_tail]; key_tail = (key_tail + 1) % KEY_BUFFER_SIZE; return k; }
+     void push_head(int);
+     void wait_free(void);
+     void clear_buffer(void);

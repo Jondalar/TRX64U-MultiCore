@@ -1,0 +1,45 @@
+.DS_Store
+*.jou
+*.log
+*.str
+.Xil/
+build/
+*.cache/
+*.runs/
+*.hw/
+*.ip_user_files/
+designs/*/build/
+designs/*/sim/*/build_full/
+designs/*/sim/*.vvp
+.cache/
+designs/*/sim/*.vcd
+designs/*/ip/
+__pycache__/
+# build products inside our copy of Gideon's software (tools, the updater): not sources
+vendor/gideon/tools/hex2bin
+vendor/gideon/tools/checksum
+vendor/gideon/tools/swap
+vendor/gideon/target/**/output/
+vendor/gideon/target/**/result/
+out/
+out-ue2/
+dist/
+.ci/
+build_100t/
+host-app/tools/hex2bin
+host-app/tools/checksum
+host-app/target/**/output/
+host-app/target/**/result/
+
+# agent worktrees (Claude Code creates them here; they are checkouts, not content)
+.claude/worktrees/
+host-app/target/u64ii/riscv/coreapp/python_out_nano
+tests/ui/work/
+tests/ui/build/
+tests/ui/out/
+# T182 step 2: the emulation-mode bench builds two more machines and writes its runs here
+cores/c64scpu/sim/build_6510/
+cores/c64scpu/sim/build_slow/
+cores/c64scpu/sim/emu_run/
+cores/c64scpu/sim/*.lock
+.gitnexus/

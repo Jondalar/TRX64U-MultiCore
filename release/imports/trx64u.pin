@@ -1,0 +1,12 @@
+# trx64u.cor: the large TRX64 .cor that runs OUR generic core application (T104.2): the monolith bitstream of TREX/TRX64-Ultimate (read only, never built
+# here) plus coreapp.bin of stage trxapps, packed by tools/pack_import_cor.sh in ci/package.sh. A new bitstream = a new pin, reviewed.
+# Shell variables; the bitstream is a file of the TRX64-Ultimate CI generic package trx64-ultimate/<PKG_VERSION>.
+ID=trx64u
+NAME="TRX64U"
+VERSION=cad182c4
+PKG_VERSION=t66-cad182c4
+BIT_FILE=c64_basic.bit
+BIT_SHA256=0e021b62dfc5be02f2920e3c5b999191e04102185edd3e8108b9e3c905c941e2
+ICON=tools/core_logos/trx64/icon.rgb565
+DESC=coreapp/cores/trx64u/menu.toml
+OPS=tests/coreapp/golden/ops_trx64u.txt

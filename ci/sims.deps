@@ -1,0 +1,316 @@
+# What each bench of ci/sims.txt reads (T31 §Per-bench cache, ci/sims.sh).
+#
+#   @name = spec ...      a macro, replaced wherever @name appears further down
+#   bench: spec ...       the inputs of bench <bench>; an indented line goes on
+#
+# A spec is a git pathspec from the repository root: a file, a directory (every
+# tracked file below it), a :(glob) or an :(exclude). Only tracked files count, so
+# build/ directories and generated files never do. ci/sims.sh adds the bench's line of
+# ci/sims.txt, the versions of iverilog/ghdl/verilator and its own `driver=<n>` to the key -
+# not the content of ci/sims.sh, which would make every edit of the driver cost all 46 benches
+# (T100 D5).
+#
+# A bench without a line here keeps the key of the whole tree (designs cores tools
+# roms ci): any change in those reruns it, nothing is ever skipped wrongly.
+# A spec that matches no tracked file makes the bench fall back the same way.
+#
+# Keep a line COMPLETE: what a bench reads and this list lacks is a change that does
+# not rerun it. ci/sims.sh --check-deps NAME runs the bench in a copy that holds only
+# these files, so a missing input fails there; the iverilog benches are also checked
+# on every run (the compiler's own list of files it read, ci/sim_iv.sh).
+
+# Gideon's VHDL: vendor/gideon is our own copy, in git (tools/gideon_sources.sh renews it); the benches read the VHDL and the files beside it,
+# not the software of the two applications that lives in the same tree
+@gideon = vendor/gideon/fpga vendor/gideon/target/simulation vendor/gideon/LICENSE.txt vendor/gideon/software/io/usb/nano_minimal.nan vendor/gideon/software/portable/riscv/bootloader_u64ii.c vendor/gideon/tools/parse_nano.py tools/gideon_sources.sh tools/vendor_gideon.sh tools/patches/gideon
+# build.tcl's VHDL list is what eth and input compile besides Gideon's files
+@bt_vhdl = host/gideon_vhdl.tcl cores/common/drive_l2.vhd host/bootrom_pkg.vhd host/usb_dpram.vhd host/pseudo_dpram_8x32_x7.vhd cores/common/drive_mem.vhd cores/common/drive_unit.vhd host/uci_unit.vhd host/flash_gate.vhd host/ultimate_sys.vhd host/sim/usb/unisim_sim.vhd host/sim/usb/tl_string_util_pkg.vhd
+# the shared MIG UI model and DDR2 port
+@mig = host/ddr2_port.v host/sim/mig_ui_model.v
+# ddr2_lean, its calibration sequencer, the DDR2 and Xilinx primitive models, the run script (OPT-ddr2)
+@ddr2 = host/ddr2_lean.v host/cal_seq.v designs/ddr2_test/sim/xilinx_models.v designs/ddr2_test/sim/ddr2_model.v designs/ddr2_test/sim/run.sh
+
+trx_io: host/sim/trx_io cores/common/trx_io.v cores/common/trx_sys.v
+cart_unit: host/sim/cart_unit cores/c64ref/cart_slot_c64ref.v host/cart_fill.v cores/common/trx_io.v
+host_hdmi_timing: host/sim/hdmi_timing host/hdmi_timing.v host/hdmi_modes.vh
+host_modepath: host/sim/modepath host/mode_req.v host/cdce_mode.v host/hdmi_timing.v host/hdmi_modes.vh
+  tools/gen_cart_descriptors.py tools/cart_descriptors
+  vendor/icepi/c64_cartridge.v vendor/icepi/c64_flash_amd.v vendor/icepi/c64_eeprom_93c86.v vendor/icepi/c64_action_replay
+ring_f4: host/sim/ring/run_f4.sh host/sim/ring/tb_eng_f4.v cores/common/trx_engine.v
+
+# rvlite multiply (opt-rvmul): Gideon's rvlite as vendored and patched, run under GHDL against gen.py's model
+rvmul: host/sim/rvmul host/sim/usb/tl_string_util_pkg.vhd @gideon
+
+# rvlite trap/mret under interrupts with wait states (T97 5.13): the vendored core with a monitor spliced in
+rvtrap: host/sim/rvtrap host/sim/usb/tl_string_util_pkg.vhd host/bootrom_pkg.vhd @gideon
+
+# T133 host data cache: the cache alone against a bus model (dcache), and the core with the cache under interrupts (rvtrap_dc)
+rvtrap_dc: host/sim/rvtrap host/sim/usb/tl_string_util_pkg.vhd host/bootrom_pkg.vhd host/cache_cfg_pkg.vhd host/rv_dcache.vhd host/rv_icache.vhd host/rvlite_wrapper_dc.vhd @gideon
+dcache: host/sim/dcache host/rv_dcache.vhd @gideon
+
+keyboard: @reads
+app_i2c: ci/sim_iv.sh host/sim/tb_app_i2c.v host/app_i2c.v host/c64u_keyboard.v
+bling: ci/sim_iv.sh host/sim/tb_bling.v host/bling_keyboard.v
+bling_io: ci/sim_iv.sh host/sim/tb_bling_io.v host/bling_io.v host/bling_keyboard.v
+bling_lamp: host/sim/bling host/bling_io.v host/top.v
+esp_ctl: host/sim/esp_ctl host/esp_ctl.v host/top.v host/ultimate_sys.vhd host/pins.xdc
+case_leds: ci/sim_iv.sh host/sim/tb_case_leds.v host/case_leds.v
+ui_buttons: host/sim/ui_buttons host/sim/tb_ui_buttons.v host/ui_buttons.v host/top.v host/ultimate_sys.vhd host/pins.xdc
+portlock: host/sim/portlock host/portlock_clk.v
+host_gain: host/sim/gain host/trx_gain.v host/top.v host/ultimate_sys.vhd
+mig_arb: ci/sim_iv.sh host/sim/tb_mig_arb.v @mig
+reu_map: ci/sim_iv.sh host/sim/tb_reu_map.v host/reu_ddr_map.v @mig
+udp_audio: ci/sim_iv.sh host/sim/tb_udp_audio.v host/udp_stream.v host/udp_audio.v host/stream_mux.v
+pktport: host/sim/pktport host/pktport_host.v host/udp_stream.v host/udp_audio.v host/stream_mux.v
+scaler: ci/sim_iv.sh host/sim/tb_scaler.v host/vic_scaler.v host/pal_ram.v
+
+tmds_rep: host/sim/tmds_rep/run.sh host/sim/tmds_rep/tb_tmds_rep.v host/tmds_rep.v
+pixlayer: host/sim/pixlayer/run.sh host/sim/pixlayer/tb_pixlayer.v host/sim/pixlayer/tgl_client.v host/pix_layer.v cores/common/trx_io.v @mig
+still60: host/sim/pixlayer/run_still.sh host/sim/pixlayer/tb_still.v host/sim/pixlayer/tgl_client.v host/pix_layer.v @mig
+ovl_geom: host/sim/ovl_geom host/overlay.v host/c64_text.v host/pal_ram.v host/hdmi_modes.vh host/mem/ovl_font8.mem host/mem/ovl_font12.mem
+ovl_hold: host/sim/ovl_hold host/overlay.v host/c64_text.v host/pal_ram.v host/hdmi_modes.vh host/mem/ovl_font8.mem host/mem/ovl_font12.mem
+
+drive_mem: host/sim/drive_mem cores/common/drive_mem.vhd @mig @gideon
+uci: host/sim/uci/run.sh host/sim/uci/tb_uci.vhd host/uci_unit.vhd @gideon
+flash_gate: host/sim/flash_gate host/flash_gate.vhd host/bootrom_pkg.vhd host/sim/usb/tl_string_util_pkg.vhd
+  tools/flashgate_test.py tools/flashgate @gideon
+flash_boot: host/sim/flash_boot host/bootrom_pkg.vhd host/sim/usb/tl_string_util_pkg.vhd @gideon
+eth: host/sim/eth @bt_vhdl @gideon
+input: host/sim/input host/app_input.v @bt_vhdl @gideon
+hotkey: host/sim/hotkey host/app_input.v
+
+# T16 Q8: ultimate_sys under GHDL with a bus-functional rvlite, the files build.tcl lists
+dma_bus: host/sim/dma_bus host/sim/usb/unisim_sim.vhd @bt_vhdl @gideon
+# T83: the VC-20 core boots a hand-written test program under GHDL
+vc20: cores/vc20/sim cores/vc20/rtl
+vc20_pixw: cores/vc20/sim cores/vc20/rtl
+# T118: the VC-20 stream and the A1200 raster into the host's scaler
+hdmigeom: cores/vc20/sim cores/vc20/rtl host/vic_scaler.v host/pal_ram.v
+c264_glue: cores/c264/sim cores/c264/rtl
+c264_pixw: cores/c264/sim cores/c264/rtl
+c264_colors: cores/c264/sim cores/c264/rtl
+c264_tedsnd: cores/c264/sim cores/c264/rtl
+pet_boot: cores/pet/sim cores/pet/rtl
+pet_spet: cores/pet/sim cores/pet/rtl
+pet_tape: cores/pet/sim cores/pet/rtl
+# G06 and T29: c64_core under Verilator
+# T12 §14.8: c64_core with trx_dbg, dma_win, trx_sys and the cartridge's DDR2 side under Verilator
+# (had no line: the whole-tree key reran its 7.5 minutes on every push)
+# trx_engine.v's trace former under iverilog
+ring_trace: host/sim/ring/run_trace.sh host/sim/ring/tb_eng_trace.v cores/common/trx_engine.v
+
+ddr2_cal: @ddr2 designs/ddr2_test/sim/tb_ddr2_lean.v
+ddr2_refresh: @ddr2 designs/ddr2_test/sim/tb_ddr2_lean.v
+ddr2_ctrl: @ddr2 host/ddr2_ctrl.v designs/ddr2_test/sim/tb_ddr2_ctrl.v
+cal_equiv: host/cal_seq.v designs/ddr2_test/sim/cal_seq_ref.v designs/ddr2_test/sim/tb_cal_equiv.v designs/ddr2_test/sim/run.sh
+ddr2_traffic: @ddr2 designs/ddr2_test/sim/tb_ddr2_lean.v
+ddr2_arb: @ddr2 designs/ddr2_test/sim/tb_mig_arb_lean.v host/ddr2_port.v
+ddr2_test: @ddr2 designs/ddr2_test/sim/tb_ddr2_test.v designs/ddr2_test/top.v designs/ddr2_test/ddr2_tester.v host/jtag_dbg.v
+redip_new: vendor/icepi/c64_redip_sid host/sim/redip
+amiga_equiv: cores/amiga/sim cores/amiga/rtl
+amiga_mem: cores/amiga/sim cores/amiga/rtl host/sim/mig_ui_model.v
+amiga_rate: cores/amiga/sim cores/amiga/rtl host/sim/mig_ui_model.v
+amiga_l2: cores/amiga/sim cores/amiga/rtl host/sim/mig_ui_model.v cores/amiga/mono/host/ddr2_port.v
+amiga1200_l2: cores/amiga/sim cores/amiga/rtl cores/amiga1200 host/sim/mig_ui_model.v cores/amiga/mono/host/ddr2_port.v
+amiga_fuzz: cores/amiga/sim cores/amiga/rtl/trx host/sim/mig_ui_model.v
+amiga_wide: cores/amiga/sim cores/amiga/rtl/trx host/sim/mig_ui_model.v
+amiga_sdc: cores/amiga/sim cores/amiga/rtl/trx cores/amiga/rtl/a500/trx_afifo_rr.v host/sim/mig_ui_model.v cores/amiga/mono/host/ddr2_port.v
+amiga1200_sdc: cores/amiga/sim cores/amiga/rtl/trx cores/amiga1200/rtl/amiga_sdc.v cores/amiga1200/rtl/trx_afifo_rr.v host/sim/mig_ui_model.v cores/amiga1200/mono/host/ddr2_port.v
+amiga_input: cores/amiga/sim cores/amiga/rtl/trx
+amiga_dskchg: cores/amiga/sim cores/amiga/rtl/src/minimig-aga cores/amiga/rtl/a500 cores/amiga1200/tools
+amiga1200_dskchg: cores/amiga/sim cores/amiga/rtl/src/minimig-aga cores/amiga1200/rtl cores/amiga1200/tools
+amiga_cfg: cores/amiga/sim cores/amiga/rtl cores/amiga1200 host/sim/mig_ui_model.v cores/amiga/mono/host/ddr2_port.v
+amiga_cpu020: cores/amiga/sim cores/amiga/rtl cores/amiga1200 host/sim/mig_ui_model.v cores/amiga/mono/host/ddr2_port.v
+sd_spi: cores/amiga1200/sim/sd_spi cores/amiga1200/sd/sd_spi.vhd @gideon
+amiga1200_fifo: cores/amiga1200/sim/fifo cores/amiga1200/rtl/paula_floppy_fifo.v cores/amiga/rtl/src/minimig-aga/paula_floppy_fifo.v
+amiga1200_floppybuf: cores/amiga1200/sim/floppybuf cores/amiga1200/rtl/paula_floppy.v cores/amiga1200/rtl/paula_floppy_fifo.v cores/amiga/rtl/src/minimig-aga/paula_floppy.v
+amiga1200_afifo: cores/amiga1200/sim/afifo cores/amiga1200/rtl/trx_afifo_rr.v cores/amiga/rtl/trx/trx_afifo.v
+amiga_rawkey: cores/amiga/sim/tb_rawkey.v cores/amiga/sim/run_rawkey.sh cores/amiga/rtl/trx/amiga_input.v
+amiga_fastpat: cores/amiga/sim cores/amiga/rtl cores/amiga1200 host/sim/mig_ui_model.v
+amiga_fbwin: cores/amiga/sim cores/amiga/rtl cores/amiga1200 host/sim/mig_ui_model.v
+amiga_z3: cores/amiga/sim cores/amiga/rtl cores/amiga1200 host/sim/mig_ui_model.v
+pixscale: host/sim/pixscale/run.sh host/sim/pixscale/tb_pixscale.v host/sim/pixscale/model.py host/sim/pixscale/mutate.py host/pix_layer.v host/sim/pixlayer/tgl_client.v cores/common/trx_io.v @mig
+amiga1200_hdmi_timing: host/sim/hdmi_timing cores/amiga1200/mono/host/hdmi_timing.v cores/amiga1200/mono/host/hdmi_modes.vh
+c128_hdmi_timing: host/sim/hdmi_timing cores/c128/mono/host/hdmi_timing.v cores/c128/mono/host/hdmi_modes.vh
+hdmi_enc: host/sim/hdmi_enc host/hdmi_enc host/hdmi_modes.vh vendor/icepi/hdmi
+amiga_audio: cores/amiga/sim cores/amiga/rtl/trx/amiga_audio.v
+amiga_rtc: cores/amiga/sim/tb_rtc.sv cores/amiga/sim/run_rtc.sh cores/amiga/rtl/trx/amiga_rtc.v
+amiga_lat: cores/amiga/sim cores/amiga/rtl/trx designs/ddr2_test/sim cores/amiga/mono/host/cal_seq.v cores/amiga/mono/host/ddr2_lean.v cores/amiga/mono/host/ddr2_port.v
+# T88: the Atari core under GHDL: Watson's files as vendored (rtl) and as the core builds them (gen), ours (trx), the 6502 (vendor/icepi)
+@a8 = cores/atari800 vendor/icepi tools/atari800_gen.sh tools/atari800_ce28.py tools/patches/atari800
+atari_gate: @a8
+atari_machine: @reads
+# T108: the disk bench also compiles the application's SIO responder and what it includes
+@a8disk = @a8 coreapp/cores/atari_sio.cc coreapp/cores/atari_sio.h coreapp/cores/atari_atr.cc coreapp/cores/atari_atr.h coreapp/cores/atari_disk.h coreapp/cores/atari800_regs.h coreapp/src/fsif.h coreapp/src/io.h
+atari_disk: @a8disk
+atari_disk_ghost: @a8disk
+atari_disk_nobaud: @a8disk
+atari_disk_slow: @a8disk
+# the NES benches compile cores/nes (gen/ = the machine as tools/nes_gen.py made it, trx/ = our glue, sim/ = the benches and their cartridge
+# generator) and nothing of the host: the DDR2 port is modelled in cores/nes/sim/ddr2c_model.v, not read from host/. `rtl/` (the pristine
+# upstream copy) and the generator are lint's, not the benches'.
+nes: cores/nes
+nes_maps: cores/nes
+nes_l2: cores/nes
+nes_padswap: cores/nes
+null_regs: cores/null
+c64u_cw: cores/c64u/sim cores/c64u/c64u_io.v cores/c64u/c64u_sys.v cores/c64u/c64u_cw.vh
+c64u_sock: cores/c64u host/i2s_out.v
+c64u_dp_arb: cores/c64u/sim cores/c64u/c64u_dp_arb.v
+c64u_pktport: cores/c64u/sim cores/c64u/pktport_core_c64u.v cores/c64u/udp_stream_c64u.v cores/c64u/udp_audio_c64u.v cores/c64u/stream_mux_c64u.v host/sim/pktport/tb_pktport.v host/pktport_host.v host/udp_stream.v host/udp_audio.v host/stream_mux.v
+# T89: the Apple //e benches read cores/apple2 (rtl, sim, asm), the assembler wrapper and the contract version; nothing of the host
+@apple2 = cores/apple2 tools/64tass.sh contract/VERSION
+apple2_clk: @apple2
+apple2_video: @apple2
+apple2_video_text: @apple2
+apple2_video_flip: @apple2
+apple2_auxlc: @apple2
+apple2_keys: @apple2
+apple2_pdl: @apple2
+apple2_spk: @apple2
+apple2_win: @apple2
+apple2_pause: @apple2
+apple2_woz: @apple2
+apple2_hdd: @apple2
+apple2_mouse: @apple2
+apple2_pins: cores/apple2 host/top.v
+apple2_stall: @apple2
+
+
+# T91: the ZX Spectrum benches build zx_core under Verilator from cores/zx/rtl (the ULA and the AY as MiSTer-devel publishes them), gen/ (the Z80 as
+# Verilog), shared/ and trx/ (our parts) with tb_zx.v and the DDR2 model of cores/zx/sim; of the host only the scaler (zx_video) and, for the host-port bench pixwhost, host/ddr2_port.v with the MIG model. Each bench reads its own programs
+# (cores/zx/sim/prog/<name>.*, made by tools/zx_progs.py, which no bench runs) and the tools its modes call; the modes are the ones of its line in
+# ci/sims.txt, the programs the ones cores/zx/sim/run.sh names for them.
+@zxrtl = cores/zx/rtl cores/zx/gen cores/zx/shared cores/zx/trx cores/zx/sim/run.sh cores/zx/sim/tb_zx.v cores/zx/sim/ddr2c_model.v cores/zx/mono/host/ddr2_port.v cores/zx/mono/host/vic_scaler.v cores/zx/mono/host/pal_ram.v host/sim/mig_ui_model.v
+zx_cpu: @zxrtl :(glob)cores/zx/sim/prog/z80s.* :(glob)cores/zx/sim/prog/page48.* :(glob)cores/zx/sim/prog/page128.*
+zx_machine: @zxrtl :(glob)cores/zx/sim/prog/cont48.* :(glob)cores/zx/sim/prog/cont128.* tools/zx_contend.py
+zx_video: @zxrtl :(glob)cores/zx/sim/prog/video48.* :(glob)cores/zx/sim/prog/shadow128.*
+zx_io: @zxrtl :(glob)cores/zx/sim/prog/audio128.* :(glob)cores/zx/sim/prog/keys48.* :(glob)cores/zx/sim/prog/tape48.* tools/zxcpc_keys.py
+zx_snap: @zxrtl :(glob)cores/zx/sim/prog/page48.* :(glob)cores/zx/sim/prog/snap48.* tools/zx_snap.py tools/zx_asm.py
+zx_pause: @zxrtl :(glob)cores/zx/sim/prog/pause48.* :(glob)cores/zx/sim/prog/tape48.*
+zx_pixw: @zxrtl :(glob)cores/zx/sim/prog/video48.* :(glob)cores/zx/sim/prog/shadow128.*
+zx_switch: @zxrtl :(glob)cores/zx/sim/prog/video48.* :(glob)cores/zx/sim/prog/shadow128.*
+# the pin check reads the wrapper and the host's decoupler list (host/top.v), as apple2_pins does
+zx_pins: cores/zx/layer2_zx.v cores/zx/sim/run_pins.sh tools/check_layer2_pins.py cores/zx/mono/host/top.v
+
+# T92: the CPC benches build cpc_core under Verilator from cores/cpc/rtl (Gate Array, CRTC, PPI, MMU and ink table as Amstrad_MiSTer publishes
+# them), gen/ (the FDC as one file) and trx/ (our parts) and the Spectrum core's AY, Z80 (gen/t80pa.v) and shared parts, with tb_cpc.v. The
+# Spectrum core's programs z80s and tape48 are read as they are. The tools: cpc_slots.py checks the contention bench, cpc_progs.py makes the
+# disk image's DDR2 file, zxcpc_keys.py the key vectors.
+@cpcrtl = cores/cpc/rtl cores/cpc/gen cores/cpc/trx cores/cpc/sim/run.sh cores/cpc/sim/tb_cpc.v cores/cpc/sim/hw_rgb.vh cores/cpc/sim/ddr2c_model.v cores/zx/rtl/ym2149.sv cores/zx/gen/t80pa.v cores/zx/shared
+cpc_cpu: @cpcrtl :(glob)cores/cpc/sim/prog/page.* :(glob)cores/cpc/sim/prog/page664.* :(glob)cores/cpc/sim/prog/page464.* :(glob)cores/cpc/sim/prog/slots.*
+  :(glob)cores/zx/sim/prog/z80s.* tools/cpc_slots.py
+cpc_video: @cpcrtl :(glob)cores/cpc/sim/prog/clk.* :(glob)cores/cpc/sim/prog/video.* :(glob)cores/cpc/sim/prog/bars.*
+cpc_io: @cpcrtl :(glob)cores/cpc/sim/prog/audio.* :(glob)cores/cpc/sim/prog/keys.* tools/zxcpc_keys.py
+cpc_media: @cpcrtl :(glob)cores/cpc/sim/prog/tape.* :(glob)cores/cpc/sim/prog/disk.* :(glob)cores/zx/sim/prog/tape48.* tools/cpc_progs.py
+cpc_fdcscan: @cpcrtl cores/cpc/sim/tb_fdcscan.v tools/cpc_progs.py
+cpc_pause: @cpcrtl :(glob)cores/cpc/sim/prog/anim.*
+cpc_pins: cores/cpc/layer2_cpc.v cores/cpc/sim/run_pins.sh tools/check_layer2_pins.py cores/cpc/mono/host/top.v
+
+# T116: the Next benches build zxn_core under Verilator from cores/zxnext/gen (the original's VHDL as Verilog, made by tools/zxnext_gen.py from rtl/), trx/ (our parts)
+# and the Spectrum core's key table, with tb_zxn.v and the DDR2 model of cores/zxnext/sim; every bench reads the programs its modes name and the tools that make
+# the image (tools/zxnext_progs.py with the assembler and the FAT writer).
+@zxnrtl = cores/zxnext/gen cores/zxnext/trx cores/zxnext/sim/run.sh cores/zxnext/sim/tb_zxn.v cores/zxnext/sim/ddr2_model.v cores/zx/trx/zx_keys.v cores/zx/shared tools/zxnext_progs.py tools/zxnext_asm.py tools/zxnext_img.py
+zxnext_boot: @zxnrtl :(glob)cores/zxnext/sim/prog/boot.*
+zxnext_noimg: @zxnrtl :(glob)cores/zxnext/sim/prog/boot.*
+zxnext_sd: @zxnrtl :(glob)cores/zxnext/sim/prog/sd.* :(glob)cores/zxnext/sim/prog/boot.*
+zxnext_sd_fast: @zxnrtl :(glob)cores/zxnext/sim/prog/sdfast.* :(glob)cores/zxnext/sim/prog/sdmulti.* :(glob)cores/zxnext/sim/prog/boot.*
+zxnext_sd_hold: @zxnrtl :(glob)cores/zxnext/sim/prog/fwdrv.* :(glob)cores/zxnext/sim/prog/boot.*
+zxnext_mem_a: @zxnrtl cores/zxnext/sim/zxn_mem_sram.v :(glob)cores/zxnext/sim/prog/mem.*
+zxnext_mem_b: @zxnrtl cores/zxnext/sim/zxn_mem_sram.v :(glob)cores/zxnext/sim/prog/mem.*
+zxnext_video: @zxnrtl :(glob)cores/zxnext/sim/prog/video.*
+zxnext_keys: @zxnrtl :(glob)cores/zxnext/sim/prog/keys.*
+zxnext_clk: @zxnrtl :(glob)cores/zxnext/sim/prog/clk.*
+zxnext_freeze: @zxnrtl :(glob)cores/zxnext/sim/prog/freeze.*
+zxnext_audio: @zxnrtl :(glob)cores/zxnext/sim/prog/audio.*
+zxnext_boardid: @zxnrtl :(glob)cores/zxnext/sim/prog/boardid.*
+zxnext_pins: cores/zxnext/layer2_zxnext.v cores/zxnext/sim/run_pins.sh tools/check_layer2_pins.py cores/zxnext/mono/host/top.v
+
+# T142: the SNES benches build snes_core under Verilator from cores/snes/gen (SNES_MiSTer's VHDL as Verilog, made by tools/snes_gen.py from rtl/), trx/ (our parts), with
+# tb_snes.v, the DDR2 model and the reference memory of cores/snes/sim; every bench assembles the programs its modes name with tools/snes_asm.py.
+@snesrtl = cores/snes/gen cores/snes/trx cores/snes/sim/run.sh cores/snes/sim/tb_snes.v cores/snes/sim/ddr2_model.v cores/snes/sim/snes_mem_ref.v tools/snes_asm.py tools/snes_expect.py
+snes_boot: @snesrtl :(glob)cores/snes/sim/prog/boot.* :(glob)cores/snes/sim/prog/mvn.*
+snes_mem: @snesrtl :(glob)cores/snes/sim/prog/mem.*
+snes_video: @snesrtl :(glob)cores/snes/sim/prog/video.*
+snes_pad: @snesrtl cores/snes/sim/tb_pad.v :(glob)cores/snes/sim/prog/pad.*
+snes_audio: @snesrtl :(glob)cores/snes/sim/prog/audio* coreapp/cores/snes.cc
+snes_audio_q: @snesrtl :(glob)cores/snes/sim/prog/audio.* tools/snes_audio_q.py
+snes_brr: @snesrtl :(glob)cores/snes/sim/prog/audio.* tools/snes_brr.py
+snes_pins: cores/snes/layer2_snes.v cores/snes/sim/run_pins.sh tools/check_layer2_pins.py cores/snes/mono/host/top.v
+
+# T113: the C128 benches read cores/c128 (its sources and benches), the icepi and c64u files the core reads in place, and the program tools
+@c128 = cores/c128 :(exclude)cores/c128/mono vendor/icepi cores/c64u :(exclude)cores/c64u/sim tools/gen_c128_test.py tools/c128asm.py tools/zx_asm.py tools/check_c128_tree.py cores/nes/sim/ddr2c_model.v
+c128_machine: @c128
+c128_keys: cores/c128 :(exclude)cores/c128/mono
+c128_pause: @c128
+c128_scan: cores/c128 :(exclude)cores/c128/mono/reports tools/check_c128_tree.py
+c128_vdc: cores/c128 :(exclude)cores/c128/mono
+c128_pixw: cores/c128 :(exclude)cores/c128/mono
+c128_romc: cores/c128 :(exclude)cores/c128/mono cores/nes/sim/ddr2c_model.v
+c128_ramd: cores/c128 :(exclude)cores/c128/mono cores/nes/sim/ddr2c_model.v
+c128_z80ba: @c128
+c128_z80vdc: @c128
+c128_reset: @c128
+c128_ramddr: @c128
+c128_vicblk: @c128
+c128_vicrom: @c128
+c128_vicbus: @c128
+c128_cold: @c128
+c128_phase: @c128
+c128_chr: @c128
+c128_regs: cores/c128 :(exclude)cores/c128/mono
+@neogeo = cores/neogeo :(exclude)cores/neogeo/mono :(exclude)cores/neogeo/core.toml
+neogeo_mover: @neogeo
+neogeo_p68k: @neogeo
+neogeo_video: @neogeo
+neogeo_dl: @neogeo
+neogeo_audio: @neogeo
+neogeo_speed: @neogeo
+neogeo_sprites: @neogeo tools/neogeo_sprites.py tools/neogeo_layout.py
+neogeo_pad: @reads
+neogeo_pixw: @neogeo
+c128_avpins: cores/c128/mono/c128_avpins.v cores/c128/mono/top.v cores/c128/mono/avid_pins.xdc cores/c128/sim/run_avpins.sh cores/c128/sim/tb_c128_avpins.v cores/c128/sim/check_avpins.py
+c128_variant: cores/c128/mono/core.toml cores/c128/mono/build.sh cores/c128/mono/build_mono.tcl cores/c128/mono/top.v cores/c128/sim/run_variant.sh
+c128_avout: cores/c128/mono/c128_avout.v cores/c128/mono/c128_yc.v cores/c128/sim/run_avout.sh cores/c128/sim/tb_c128_avout.sv cores/c128/mono/host/pal_ram.v
+c128_nonet: cores/c128/sim/nonet cores/c128/mono/core.toml cores/c128/mono/host/ultimate_sys.vhd cores/c128/mono/top.v cores/c128/mono/host/gideon_vhdl.tcl :(glob)cores/c128/mono/host/*.vhd @gideon cores/common/drive_l2.vhd cores/common/drive_mem.vhd cores/common/drive_unit.vhd host/sim/usb/unisim_sim.vhd host/sim/usb/tl_string_util_pkg.vhd
+amiga1200_motorled: cores/amiga1200/sim/motorled cores/amiga1200/rtl/minimig.v cores/amiga/layer2_amiga.v cores/amiga1200/mono/build_mono.tcl
+amiga1200_bling: cores/amiga1200/sim/bling cores/amiga1200/mono/host/bling_io.v cores/amiga1200/mono/host/top.v
+amiga1200_motorpath: cores/amiga1200/sim/motorpath cores/amiga/sim cores/amiga/rtl cores/amiga1200 host/sim/mig_ui_model.v
+amiga1200_motorwire: cores/amiga1200/sim/motorwire cores/amiga1200/mono/host/bling_io.v cores/amiga1200/mono/host/top.v cores/amiga1200/mono/build_mono.tcl cores/amiga/layer2_amiga.v cores/amiga1200/mono/host/case_leds.v
+amiga_motorpath: cores/amiga/sim cores/amiga/rtl cores/amiga/layer2_amiga.v host/sim/mig_ui_model.v cores/amiga/mono/host/ddr2_port.v
+atari_led: @reads
+amiga1200_modepath: host/sim/modepath cores/amiga1200/mono/host/mode_req.v cores/amiga1200/mono/host/cdce_mode.v cores/amiga1200/mono/host/hdmi_timing.v cores/amiga1200/mono/host/hdmi_modes.vh
+
+# T168: the DDT Mandelbrot benches build layer2_ddt_mandel under Verilator from cores/ddt_mandel (DDT's engines in rtl/, our glue in trx/, the models of CARRY4 and
+# xpm_memory_tdpram in sim/) and read the host's overlay font; the model (mandel_model.py) reads the palette colours, the text screen and the font.
+ddt_mandel_pix: cores/ddt_mandel host/mem/ovl_font8.mem
+ddt_mandel_joy: cores/ddt_mandel host/mem/ovl_font8.mem
+# the pin check reads the wrapper and the host's decoupler list (host/top.v), as zx_pins does
+ddt_mandel_pins: cores/ddt_mandel/layer2_ddt_mandel.v cores/ddt_mandel/sim/run_pins.sh tools/check_layer2_pins.py host/top.v
+ddt_novic_pix: cores/ddt_novic cores/ddt_mandel/trx cores/ddt_mandel/sim host/mem/ovl_font8.mem
+ddt_novic_pins: cores/ddt_novic/layer2_ddt_novic.v cores/ddt_mandel/sim/run_pins.sh tools/check_layer2_pins.py host/top.v
+hdmi_out: host/sim/hdmi_out host/sim/mig_ui_model.v host/hdmi_out.v host/hdmi_timing.v host/mode_req.v host/cdce_mode.v host/tmds_rep.v host/vic_scaler.v host/pal_ram.v host/overlay.v host/pix_layer.v host/c64_text.v host/dfx_decouple.v host/hdmi_enc host/hdmi_modes.vh vendor/icepi/hdmi
+vicscale: host/sim/vicscale host/hdmi_timing.v host/vic_scaler.v host/pal_ram.v host/hdmi_modes.vh
+diag_probe: cores/diag/rtl/probe.v cores/diag/rtl/diag_regs.v cores/diag/sim/tb_probe.v cores/diag/sim/probe/run.sh
+diag_pins: cores/diag/rtl/diag_pads.v cores/diag/sim/tb_pads.v cores/diag/sim/unisim_stub.v cores/diag/sim/pins/run.sh cores/diag/mono/top.v cores/diag/mono/layer2_diag.v cores/diag/mono/host/pins.xdc
+diag_co: cores/diag/rtl cores/diag/sim/tb_co.v cores/diag/sim/co cores/diag/sd/tests coreapp/src coreapp/cores tests/coreapp/diag_co.cc tests/coreapp/fakes.h app/loaders app/video app/lib/cbm1541 host-app/software/hostapp host-app/software/io/c64
+diag_avenc: cores/diag/rtl/diag_avout.v cores/diag/rtl/diag_yc.v cores/diag/sim/av/c128_yc_ref.v cores/diag/sim/tb_avenc.v cores/diag/sim/avenc/run.sh
+diag_avregs: cores/diag/rtl/diag_regs.v cores/diag/rtl/diag_avout.v cores/diag/rtl/diag_yc.v cores/diag/sim/tb_avregs.v cores/diag/sim/avregs/run.sh
+c1541leds_c128: cores/c1541 cores/c128/layer2_c128.v cores/c128/mono/top.v
+c1541leds_c264: cores/c1541 cores/c264/layer2_c264.v cores/c264/mono/host/top.v
+c1541leds_vc20: cores/c1541 cores/vc20/layer2_vc20.v host/top.v
+
+# T182: the C64SCPU boot bench reads cores/c64scpu (its sources and bench), the icepi and c64u files the core reads in place, and the program tools
+c64scpu_base: cores/c64scpu :(exclude)cores/c64scpu/mono :(exclude)cores/c64scpu/trial vendor/icepi cores/c64u :(exclude)cores/c64u/sim tools/gen_c64scpu_test.py tools/c128asm.py cores/nes/sim/ddr2c_model.v
+# T182 step 2: the emulation-mode bench: the same sources (the 65C816 copy is in cores/c64scpu/cpu) and its own program/model tool
+c64scpu_emu: cores/c64scpu :(exclude)cores/c64scpu/mono :(exclude)cores/c64scpu/trial vendor/icepi cores/c64u :(exclude)cores/c64u/sim tools/gen_c64scpu_emu.py tools/c128asm.py cores/nes/sim/ddr2c_model.v
+# T182 step 3d: the memory-map bench: the same sources, its own program tool
+c64scpu_map: cores/c64scpu :(exclude)cores/c64scpu/mono :(exclude)cores/c64scpu/trial vendor/icepi cores/c64u :(exclude)cores/c64u/sim tools/gen_c64scpu_map.py tools/scpu_cfgtab.py cores/nes/sim/ddr2c_model.v
+# T182 step 4: the speed and register benches: the same sources and the program/model generator
+c64scpu_speed: cores/c64scpu :(exclude)cores/c64scpu/mono :(exclude)cores/c64scpu/trial vendor/icepi cores/c64u :(exclude)cores/c64u/sim tools/gen_c64scpu_speed.py cores/nes/sim/ddr2c_model.v
+c64scpu_mirror: cores/c64scpu :(exclude)cores/c64scpu/mono :(exclude)cores/c64scpu/trial vendor/icepi cores/c64u :(exclude)cores/c64u/sim tools/gen_c64scpu_mirror.py cores/nes/sim/ddr2c_model.v
+c64scpu_irq: cores/c64scpu :(exclude)cores/c64scpu/mono :(exclude)cores/c64scpu/trial vendor/icepi cores/c64u :(exclude)cores/c64u/sim tools/gen_c64scpu_irq.py cores/nes/sim/ddr2c_model.v
+c64scpu_mdust: cores/c64scpu :(exclude)cores/c64scpu/mono :(exclude)cores/c64scpu/trial vendor/icepi cores/c64u :(exclude)cores/c64u/sim tools/gen_c64scpu_mdust.py cores/nes/sim/ddr2c_model.v
+c128_vicpic: cores/c128/mono/host/pix_layer.v cores/c128/mono/host/pal_ram.v cores/c128/mono/host/ddr2_port.v host/sim/pixlayer/tgl_client.v host/sim/mig_ui_model.v cores/c128/sim/run_vicpic.sh cores/c128/sim/tb_vicpic.v
+c128_vicshow: cores/c128/mono/host/pix_layer.v cores/c128/mono/host/pal_ram.v cores/c128/mono/host/ddr2_port.v host/sim/pixlayer/tgl_client.v host/sim/mig_ui_model.v cores/c128/sim/pixscale/model.py cores/common/trx_io.v cores/c128/sim/run_vicshow.sh cores/c128/sim/job_vicshow.sh cores/c128/sim/tb_vicshow.v
+c128_act: cores/c128/c128_act.v cores/c128/sim/run_act.sh cores/c128/sim/tb_act.v
+c128_vicpic_tear: cores/c128/mono/host/pix_layer.v cores/c128/mono/host/pal_ram.v cores/c128/mono/host/ddr2_port.v host/sim/pixlayer/tgl_client.v host/sim/mig_ui_model.v cores/common/trx_io.v cores/c128/sim/run_vicpic_tear.sh cores/c128/sim/job_tear.sh cores/c128/sim/tb_vicpic_tear.v

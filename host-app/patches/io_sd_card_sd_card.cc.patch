@@ -1,0 +1,226 @@
+--- /path/to/Development/TRX64U-MultiCore/apps/ultimate/software/io/sd_card/sd_card.cc	2026-10-14 06:38:03
++++ host-app/software/io/sd_card/sd_card.cc	2026-10-28 16:52:02
+@@ -32,10 +32,17 @@
+ #define TXT printf
+ #define DBG(x) x
+ 
++/* SPI rate divider written to SDIO_SPEED after card init: SCK = CLOCK_FREQ / (2 * (RW_SPEED + 1)).
++   RW_SPEED: 3 = 12.5 MHz at 100 MHz, for the host gateware and the DFX cores (the SD pins have no IOB flop and no timing
++   constraint, MISO is sampled in the cycle that raises SCK; T139: 25 MHz gave wrong bytes after T133's floorplan).
++   RW_SPEED_IOB: 1 = 25 MHz, only where the gateware reports the T149 block (SDIO_CAP_IOB in the control register, read by
++   sdio_set_rw_speed): the flat builds of amiga1200 and zxnext, which have IOB flops on the SD pins and constrain them. */
+ #if CLOCK_FREQ > 50000000
+-#define RW_SPEED  1
++#define RW_SPEED      3
++#define RW_SPEED_IOB  1
+ #else
+-#define RW_SPEED  0
++#define RW_SPEED      0
++#define RW_SPEED_IOB  0
+ #endif
+ 
+ 
+@@ -183,7 +190,12 @@
+         }
+     }
+ 
+-	sdio_set_speed(RW_SPEED); 
++	int rw_speed = sdio_set_rw_speed(RW_SPEED, RW_SPEED_IOB);
++#ifdef CLOCK_FREQ
++	printf("SD read/write speed: divider %d, SCK %d kHz%s\n", rw_speed, (int)(CLOCK_FREQ / (2 * (rw_speed + 1)) / 1000), (rw_speed == RW_SPEED) ? "" : " (IOB gateware)");
++#else
++	printf("SD read/write speed: divider %d\n", rw_speed);
++#endif
+ 
+ 	printf("Setting initialized to true.. %p\n", this);
+     initialized = true;
+@@ -234,15 +246,27 @@
+  * 		DATA
+  * 		CHKS (2B)
+  */
++
++/* one try: CMD17 and the data block; 0 = ok, else the card's response / token, 0xFF timeout, SDIO_ERR_CRC data CRC16 mismatch */
++uint8_t SdCard :: read_once(uint8_t* buf, uint32_t address)
++{
++	uint8_t cardresp;
++	uint32_t place = (sdhc) ? (address) : (address << 9);
+ 
++	ENTER_SAFE_SECTION
++	sdio_send_command(CMDREAD, (uint16_t) (place >> 16), (uint16_t) place);
++	cardresp = Resp8b(); /* Card response */
++	if (cardresp == 0x00) {
++		cardresp = sdio_read_block(buf);
++	}
++	LEAVE_SAFE_SECTION
++	return cardresp;
++}
++
+ DRESULT SdCard :: read(uint8_t* buf, uint32_t address, int sectors)
+ {
+ 	uint8_t cardresp;
+-	uint8_t firstblock;
+-	uint32_t place;
+ 
+-//    printf("Trying to read sectors %d-%d to %p.\n", address, address+sectors-1, buf);
+-
+ /*
+     if (!xSemaphoreTake(mutex, 5000)) {
+     	printf("SdCard unavailable.\n");
+@@ -252,28 +276,25 @@
+     DRESULT res = RES_OK;
+ 
+     for(int j=0;j<sectors;j++) {
+-    	place=(sdhc)?(address):(address<<9);
+-
+-    	ENTER_SAFE_SECTION
+-    	sdio_send_command(CMDREAD, (uint16_t) (place >> 16), (uint16_t) place);
+-    	
+-    	cardresp=Resp8b(); /* Card response */ 
+-    
+-    	if (cardresp != 0x00) {
+-    		Resp8bError(cardresp);
+-    		LEAVE_SAFE_SECTION
++    	int tries = 0;
++    	for(;;) {
++    		cardresp = read_once(buf, address);
++    		if (cardresp != SDIO_ERR_CRC || tries >= SD_READ_RETRIES)
++    			break;
++    		tries++;
++    		printf("[sd] block %d: data CRC error, read again (try %d)\n", (int)address, tries);
++    	}
++    	if (cardresp == SDIO_ERR_CRC) {
++    		sdio_crc_giveups++;
++    		printf("[sd] block %d: data CRC error, giving up\n", (int)address);
+     		res = RES_ERROR;
+     		break;
+     	}
+-    	cardresp = sdio_read_block(buf);
+-
+-		if (cardresp != 0x00) {
+-        	Resp8bError(cardresp);
+-    		LEAVE_SAFE_SECTION
++    	if (cardresp != 0x00) {
++    		Resp8bError(cardresp);
+     		res = RES_ERROR;
+     		break;
+     	}
+-		LEAVE_SAFE_SECTION
+     	
+     	address ++;
+     	buf += SD_SECTOR_SIZE;
+@@ -573,10 +594,60 @@
+ */
+ #define SD_DRIVE_SIZE
+ #ifdef SD_DRIVE_SIZE
++
++/* CID / CSD: command, wait for the data token, 16 bytes, CRC16; read again when the token is missing or the CRC is wrong */
++bool SdCard :: read_register(uint8_t cmd, const char *name, uint8_t *iob)
++{
++	for(int tries = 0; ; ) {
++		uint8_t cardresp;
++		int q = 200;
++		bool got = false;
++		uint16_t rx_crc = 0;
+ 
++		ENTER_SAFE_SECTION
++		sdio_send_command(cmd, 0, 0);
++		do {
++			cardresp = Resp8b();
++			q--;
++		} while ((cardresp != 0xFE) && (q));
++		if (cardresp == 0xFE) {
++			for(int i=0; i<16; i++) {
++				iob[i] = SDIO_DATA;
++			}
++			rx_crc = (uint16_t)(SDIO_DATA << 8);
++			rx_crc |= SDIO_DATA;
++			got = true;
++		}
++		LEAVE_SAFE_SECTION
++
++#ifndef SDIO_NO_CRC_CHECK
++		if (got && sdio_crc16(iob, 16) != rx_crc) {
++			sdio_crc_errors++;
++			got = false;
++			if (tries < SD_READ_RETRIES) {
++				tries++;
++				printf("[sd] %s: data CRC error, read again (try %d)\n", name, tries);
++				continue;
++			}
++			sdio_crc_giveups++;
++			printf("[sd] %s: data CRC error, giving up\n", name);
++			return false;
++		}
++#else
++		(void)rx_crc;
++#endif
++		if (got)
++			return true;
++		if (tries >= SD_READ_RETRIES)
++			return false;
++		tries++;
++		printf("[sd] %s: no data token, read again (try %d)\n", name, tries);
++	}
++}
++
+ DRESULT SdCard :: get_drive_size(uint32_t* drive_size)
+ {
+-	uint8_t cardresp, i, by, q;
++	uint8_t i, by;
+ 	uint8_t iob[16];
+ 	uint16_t c_size;
+     int sector_power;
+@@ -587,23 +658,7 @@
+     	return RES_NOTRDY;
+     }
+ */
+-    ENTER_SAFE_SECTION
+-    sdio_send_command(CMDREADCID, 0, 0);
+-	
+-    q = 200;
+-	do {
+-		cardresp = Resp8b();
+-		q--;
+-	} while ((cardresp != 0xFE) && (q));
+-
+-    if(q) {
+-    	for( i=0; i<16; i++) {
+-    		iob[i] = SDIO_DATA;
+-    	}
+-    }
+-    LEAVE_SAFE_SECTION
+-
+-	if (q) {
++    if (read_register(CMDREADCID, "CID", iob)) {
+ 		printf("CID: ");
+ 		for(i=0; i < 16; i++) {
+ 			printf(" %02x", iob[i]);
+@@ -612,27 +667,7 @@
+         printf("Failed to read Card ID.\n");
+     }
+ 
+-
+-    ENTER_SAFE_SECTION
+-	sdio_send_command(CMDREADCSD, 0, 0);
+-	
+-    q = 200;
+-	do {
+-		cardresp = Resp8b();
+-		q--;
+-	} while ((cardresp != 0xFE) && (q));
+-
+-    if(q) {
+-    	for( i=0; i<16; i++) {
+-    		iob[i] = SDIO_DATA;
+-    	}
+-    }
+-	SDIO_DATA = 0xff;
+-	SDIO_DATA = 0xff;
+-
+-	LEAVE_SAFE_SECTION
+-
+-    if(q) {
++    if (read_register(CMDREADCSD, "CSD", iob)) {
+         printf("CSD:");
+     	for( i=0; i<16; i++) {
+     		printf(" %02x", iob[i]);

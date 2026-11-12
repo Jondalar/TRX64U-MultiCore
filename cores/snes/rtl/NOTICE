@@ -1,0 +1,32 @@
+SNES core: GPL v3.
+Rights holders who see a problem with any part listed here: please contact us, and we remove the part concerned.
+
+
+What is here. These files are the machine of SNES_MiSTer (https://github.com/MiSTer-devel/SNES_MiSTer, GPL-3.0, commit bdcd33c5, 2026-10-23, a cycle accurate Super
+Nintendo by srg320 for the MiSTer platform), copied by tools/vendor_snes.sh (SHA256SUMS lists them) from its directory rtl/: the S-CPU (CPU.vhd, 65C816/), the S-PPU
+(PPU.vhd, PPU_PKG.vhd), the S-SMP with the SPC700 (SMP.vhd, SPC700/), the S-DSP (DSP.vhd, DSP_PKG.vhd), the work RAM controller (SWRAM.vhd), the clock enable
+generator (CEGen.vhd), the machine's top (SNES.vhd) and the plain cartridge mapper with the S-RTC, the OBC-1 and the DSP-n core (chip/DSP/DSP_LHRomMap.vhd,
+DSPn.vhd, OBC1.vhd, chip/SRTC.vhd, chip/RTC4513.vhd). The upstream files carry no licence header of their own; they are covered by the repository's LICENSE, the GNU
+General Public License version 3 of 29 June 2007 (COPYING here). The files name no author; the upstream repository's copyright lines (srg320, Sorgelig) are in the
+files of its MiSTer shell, which is not used here.
+
+What is not here: the MiSTer shell (SNES.sv, main.v, the SDRAM and DDRAM controllers, HPS, UART, save states, cheats, light gun, SNI, PLL: replaced by our glue,
+cores/snes/trx and cores/snes/ip/snes_sys.vhd), the Altera megafunction wrappers (bram.vhd, mlab.vhd, cx4cache.vhd, SA1MULT.vhd, SPC7110_FIFO.vhd, pll*: "subject to
+the terms and conditions of the Altera Program License Subscription Agreement", written again in cores/snes/ip/snes_ip.vhd), the coprocessors SA-1, Super FX, Cx4,
+SPC7110, S-DD1, BSX, Sufami Turbo and MSU-1 (T142 section 4: not in this core), and every .mif of the upstream (dumps of the chip ROMs of the DSP-1B, the Cx4 and the
+BSX: DSPn.vhd names them, the core has them neither here nor in its bitstream; the DSP-n core is not built, USE_DSPn is off). Neither a game nor a chip ROM
+is here or ever goes into this repository, a bench, a package or a .cor.
+
+One cut in a file: SMP.vhd, constant IPLROM. It was the 64 byte boot ROM of the S-SMP, a dump of Nintendo's chip ROM; tools/vendor_snes.sh leaves the bytes out and
+SHA256SUMS describes the file as it is here (T142 D9; Q3, decided 2026-10-29: the bytes are embedded in the application, as the Atari OS ROM is, not here). The core
+takes the 64 bytes from the application (coreapp/cores/snes.cc, table spc_ipl): it writes them into a small RAM of the S-SMP while the machine is held
+(tools/snes_gen.py turns the constant into that RAM).
+
+What is built is NOT these files. cores/snes/gen is what tools/snes_gen.py makes of them: edits to the VHDL in a scratch copy (rtl/ is never edited; each one is a place
+the converter does not accept, counted by the generator), the conversion by GHDL to one Verilog file, and every clocked process put into the clock-enable form (the
+machine's 21.477 MHz clock becomes an enable on the host's 100 MHz clock). tools/snes_gen.py --check keeps rtl/ on SHA256SUMS and gen/ on rtl/.
+
+What the licence means here. GPL v3 covers the gateware of this core and everything linked into its bitstream. A .cfw or .cor of this core that is given to a third
+party has to come with its corresponding source: that is this directory (the upstream copy), cores/snes/gen (the generated source), cores/snes/ip, cores/snes/trx and
+cores/snes/layer2_snes.v (our glue), tools/snes_gen.py and tools/vendor_snes.sh (the generator), and the build recipe cores/snes/mono/build_mono.tcl - all of it is in this
+repository. Because this is a large core (host and core in one bitstream), the host's sources (host/, vendor/) are part of that bitstream as well and go with it.

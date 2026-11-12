@@ -1,0 +1,41 @@
+<screen>
+    <view>
+        <style name="style_screen" />
+        <app_shell active_tools="true" active_tab="4">
+            <app_shell-content>
+                <column width="100%" height="100%" pad="#space_lg" gap="#space_md">
+                    <row width="100%">
+                        <column grow="1" gap="#space_xs">
+                            <lv_label text="TOOLS / APPS" style_text_font="font_caption"
+                                      style_text_color="#color_muted" />
+                            <lv_label text="Installed utilities" style_text_font="font_title"
+                                      style_text_color="#color_ink" />
+                        </column>
+                        <status_chip label="12 INSTALLED" tone="#color_amber" />
+                    </row>
+
+                    <panel width="100%" grow="1" gap="0">
+                        <action_row title="TRX Monitor" subtitle="Resident monitor and RPC service"
+                                    meta="RUNNING" tone="#color_cyan">
+                            <screen_create_event screen="monitor" anim_type="fade_in" duration="120" />
+                        </action_row>
+                        <action_row title="C64RE tools" subtitle="Snapshot inspection and conversion"
+                                    meta="APP" tone="#color_violet" />
+                        <action_row title="Cartridge tools" subtitle="TREX CRT and manifest-provided actions"
+                                    meta="APP" tone="#color_amber" />
+                        <action_row title="Softboot" subtitle="Launch a packaged application environment"
+                                    meta="APP" tone="#color_muted" />
+                        <action_row title="Unzip" subtitle="Archive extraction actions"
+                                    meta="APP" tone="#color_muted" />
+                        <action_row title="Run application file" subtitle="U2A and app-manifest actions"
+                                    meta="U2A" tone="#color_muted" />
+                        <box grow="1" />
+                    </panel>
+
+                    <lv_label text="The app registry supplies tasks and compatible file actions at runtime"
+                              style_text_font="font_caption" style_text_color="#color_muted" />
+                </column>
+            </app_shell-content>
+        </app_shell>
+    </view>
+</screen>

@@ -1,0 +1,39 @@
+{
+ "cart_type": "0x88",
+ "crt_type": 17,
+ "name": "Dinamic",
+ "note": "PROP-002 sec. 8 row 17: the address of an IO1 read is the bank.",
+ "regs": {
+  "R0": 0,
+  "R1": 0
+ },
+ "rules": [
+  {
+   "area": "IO1",
+   "match": "0x00",
+   "mask": "0x00",
+   "on": "READ",
+   "target": "R0",
+   "src": "ADDR"
+  }
+ ],
+ "bank": [
+  {
+   "reg": "R0",
+   "lsb": 0,
+   "width": 4
+  }
+ ],
+ "mode": {
+  "reg": "R0",
+  "lsb": 0,
+  "width": 0
+ },
+ "table": [
+  {
+   "exrom": 0,
+   "game": 1
+  }
+ ],
+ "layout": "L8"
+}

@@ -1,0 +1,213 @@
+--- apps/ultimate/software/lvgl_port/trx_lv_port.cc
++++ host-app/software/lvgl_port/trx_lv_port.cc
+@@ -23,8 +23,9 @@
+ #define PX_POS         (TRX_IO_BASE + 0x6098)
+ #define PX_GALPHA      (TRX_IO_BASE + 0x609C)
+ #define PX_KEY         (TRX_IO_BASE + 0x60A0)
+-#define PX_CTRL_OFF    0x22 // RGB565, scale 2, disabled
+-#define PX_CTRL_ON     0x23
++#define PX_OSIZE       (TRX_IO_BASE + 0x60A8)
++#define PX_CTRL_OFF    0x02 // RGB565, nearest sampling (b6 smoothing off), disabled; the size is PX_OSIZE (b5:4 are not read any more, T164 WP5)
++#define PX_CTRL_ON     (PX_CTRL_OFF | 1)
+ 
+ #define STRIDE         (TRX_LV_W * 2)
+ #define BUF_BYTES      (STRIDE * TRX_LV_H)
+@@ -39,6 +40,10 @@
+ static uint16_t *buf[2];             // 16-byte aligned
+ static bool layer_on;                // LVGL switched the layer on
+ static volatile bool taken;          // trx_lv_yield_layer() since trx_lv_open()
++static volatile bool suspended;      // T93 D9: trx_lv_suspend(): the layer belongs to a core's picture for now
++static bool place_set;               // T107 5.9: trx_lv_set_place() was called; the menu has its own position and output size
++static uint32_t place_pos, place_osize;
++static uint32_t key_reg;             // PX_KEY as last asked for (b16 on, b15:0 the RGB565 colour); written with the first picture and when it changes
+ 
+ bool trx_lv_available(void)
+ {
+@@ -75,6 +80,26 @@
+     (void)*(volatile const uint16_t *)last;
+ }
+ 
++// First picture: shown opaque over everything, the whole output. With the lock held.
++static void layer_up(const uint16_t *fb)
++{
++    trx_io_write32(PX_CTRL, PX_CTRL_OFF);
++    trx_io_write32(PX_SIZE, (uint32_t(TRX_LV_H) << 16) | TRX_LV_W);
++    trx_io_write32(PX_STRIDE, STRIDE);
++    if (place_set) {
++        trx_io_write32(PX_POS, place_pos);
++        trx_io_write32(PX_OSIZE, place_osize);
++    } else {
++        trx_io_write32(PX_POS, (uint32_t(TRX_LV_Y0) << 16) | TRX_LV_X0);
++        trx_io_write32(PX_OSIZE, (uint32_t(TRX_LV_H * TRX_LV_SCALE) << 16) | (uint32_t)(TRX_LV_W * TRX_LV_SCALE));   // the host's pix_layer scales to this size
++    }
++    trx_io_write32(PX_GALPHA, 255);
++    trx_io_write32(PX_KEY, key_reg);
++    trx_io_write32(PX_FRONT, (uint32_t)fb);
++    trx_io_write32(PX_CTRL, PX_CTRL_ON);
++    layer_on = true;
++}
++
+ // Called by LVGL from trx_lv_handler(), so with the lock held.
+ static void flush_cb(lv_display_t *d, const lv_area_t *area, uint8_t *px_map)
+ {
+@@ -85,16 +110,7 @@
+         return;
+     }
+     if (!layer_on) {
+-        // First picture: shown opaque over everything, the whole output.
+-        trx_io_write32(PX_CTRL, PX_CTRL_OFF);
+-        trx_io_write32(PX_SIZE, (uint32_t(TRX_LV_H) << 16) | TRX_LV_W);
+-        trx_io_write32(PX_STRIDE, STRIDE);
+-        trx_io_write32(PX_POS, 0);
+-        trx_io_write32(PX_GALPHA, 255);
+-        trx_io_write32(PX_KEY, 0);
+-        trx_io_write32(PX_FRONT, (uint32_t)fb);
+-        trx_io_write32(PX_CTRL, PX_CTRL_ON);
+-        layer_on = true;
++        layer_up(fb);
+     } else {
+         xSemaphoreTake(flip_sem, 0); // drop a stale give
+         ioWrite8(TRX_IRQ_CAUSE, TRX_IRQ_FLIP);
+@@ -137,6 +153,7 @@
+ 
+     xSemaphoreTake(lock, portMAX_DELAY);
+     taken = false;
++    suspended = false;
+     layer_on = false;
+     lv_init();
+     lv_tick_set_cb(tick_ms);
+@@ -170,10 +187,29 @@
+     xSemaphoreGive(lock);
+ }
+ 
++void trx_lv_buffers(uint16_t **a, uint16_t **b)
++{
++    *a = buf[0];
++    *b = buf[1];
++}
++
++bool trx_lv_show_picture(const uint16_t *fb)
++{
++    bool ok = false;
++    xSemaphoreTake(lock, portMAX_DELAY);
++    if (disp && !taken && !layer_on && (fb == buf[0] || fb == buf[1])) {
++        stores_done(fb + TRX_LV_W * TRX_LV_H - 1);
++        layer_up(fb);
++        ok = true;
++    }
++    xSemaphoreGive(lock);
++    return ok;
++}
++
+ int trx_lv_handler(void)
+ {
+     xSemaphoreTake(lock, portMAX_DELAY);
+-    uint32_t ms = taken ? 0 : lv_timer_handler();
++    uint32_t ms = taken ? 0 : (suspended ? MAX_SLEEP_MS : lv_timer_handler());
+     bool gone = taken;
+     xSemaphoreGive(lock);
+     if (gone) {
+@@ -182,6 +218,15 @@
+     return (ms > MAX_SLEEP_MS) ? MAX_SLEEP_MS : int(ms);
+ }
+ 
++void trx_lv_refresh_now(void)
++{
++    xSemaphoreTake(lock, portMAX_DELAY);
++    if (!taken && !suspended) {
++        lv_refr_now(NULL);
++    }
++    xSemaphoreGive(lock);
++}
++
+ bool trx_lv_set_alpha(uint8_t alpha)
+ {
+     xSemaphoreTake(lock, portMAX_DELAY);
+@@ -191,6 +236,25 @@
+     }
+     xSemaphoreGive(lock);
+     return ok;
++}
++
++// The colour key (pix_layer.v PX_KEY: b16 on, b15:0 the RGB565 colour whose pixels are transparent). The layer's registers are write only, so
++// the value is kept here; it takes effect at once when the layer is up, else with the first picture.
++void trx_lv_set_key(bool on, uint16_t rgb565)
++{
++    uint32_t v = on ? (0x10000u | rgb565) : 0;
++    if (!lock) {
++        key_reg = v;
++        return;
++    }
++    xSemaphoreTake(lock, portMAX_DELAY);
++    if (v != key_reg) {
++        key_reg = v;
++        if (layer_on && !taken && !suspended) {
++            trx_io_write32(PX_KEY, key_reg);
++        }
++    }
++    xSemaphoreGive(lock);
+ }
+ 
+ void trx_lv_close(void)
+@@ -230,3 +294,61 @@
+     }
+     xSemaphoreGive(lock);
+ }
++
++// T93 D9 (Freeze menu on the one pixel layer): a core application shows its core's picture on the same layer. suspend()
++// switches the layer off and keeps LVGL, its views and its buffers; the caller writes the core's layer registers. resume()
++// is the other way: the next render writes the registers of the menu again (as for a first picture) and the whole screen
++// is redrawn. The layer registers are write-only, so nothing here reads them back (T93 R2).
++void trx_lv_suspend(void)
++{
++    if (!lock) {
++        return;
++    }
++    xSemaphoreTake(lock, portMAX_DELAY);
++    if (disp && !taken && !suspended) {
++        if (layer_on) {
++            trx_io_write32(PX_CTRL, PX_CTRL_OFF);
++            trx_io_write32(PX_GALPHA, 255);
++            layer_on = false;
++        }
++        suspended = true;
++    }
++    xSemaphoreGive(lock);
++}
++
++void trx_lv_resume(void)
++{
++    if (!lock) {
++        return;
++    }
++    xSemaphoreTake(lock, portMAX_DELAY);
++    if (disp && !taken && suspended) {
++        suspended = false;
++        layer_on = false;
++        lv_obj_invalidate(lv_screen_active());
++    }
++    xSemaphoreGive(lock);
++}
++
++// T107 5.9: the menu's place in the output. The registers are written with the layer off when it is up (a layer whose geometry changes under a
++// shown frame tears), and not at all while the layer belongs to a core's picture (suspended): the next opening writes them in layer_up().
++void trx_lv_set_place(int x, int y, int w, int h)
++{
++    if (!lock) {
++        return;
++    }
++    xSemaphoreTake(lock, portMAX_DELAY);
++    uint32_t pos = ((uint32_t)(y & 0xFFFF) << 16) | (uint32_t)(x & 0xFFFF);
++    uint32_t osize = ((uint32_t)(h & 0xFFFF) << 16) | (uint32_t)(w & 0xFFFF);
++    bool same = place_set && pos == place_pos && osize == place_osize;
++    place_set = true;
++    place_pos = pos;
++    place_osize = osize;
++    if (!same && layer_on && !taken && !suspended) {
++        trx_io_write32(PX_CTRL, PX_CTRL_OFF);
++        trx_io_write32(PX_POS, place_pos);
++        trx_io_write32(PX_OSIZE, place_osize);
++        trx_io_write32(PX_CTRL, PX_CTRL_ON);
++    }
++    xSemaphoreGive(lock);
++}

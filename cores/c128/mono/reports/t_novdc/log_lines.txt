@@ -1,0 +1,4 @@
+=== T113 mono: defines MONO NO_JTAG_DBG NO_TURBO RAM_P2 ROM_P2 SID2 SID_REDIP SOCK_AUDIO TAPE Z80
+=== T29: cpu_rdy paths to clk2x timed with two clk2x periods
+=== impl pass 1 (ExtraTimingOpt): WNS 0.342 ns
+=== bitstream: build_t_novdc/c128_mono.bit 1767545 bytes

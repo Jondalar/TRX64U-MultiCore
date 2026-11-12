@@ -1,0 +1,3053 @@
+# The menu of TRX64U (T104.2 D10): areas, tabs and everything in them. C++ supplies only the operations, the state values and the settings store the names
+# below refer to. tools/descrec.py compiles this file (and checks every name and binding against what the application exports,
+# tests/coreapp/golden/ops_trx64u.txt); the packer puts the result into the .cor as record 6, and coreapp/cores/trx64u/menu_rec.inc carries the same bytes
+# for a start without a .cor (JTAG, ue2emu). Regenerate it with `tools/gen_menu_rec.py`; the lint stage compares.
+#
+# The structure is the UX concept's (TRX64-Ultimate docs/lvgl_ui_project: NAVIGATION.md, components/app_shell.xml) as T104.2 section 5 decides it (P4): F1 Home,
+# F3 Library, F5 C64, F7 Actions and F2 Timewarp, F4 Tools, F6 Settings, F8 System. The tab numbers of an area are consecutive, 1 .. n in the order written here (they
+# replace the concept's published numbers: no gaps, no number a tab does not carry). A tab whose function does not exist is not listed, so it is not shown; an area
+# without a tab is not on the rail.
+
+# How a tab is drawn (T104.2 D10, the UX concept's screens): `layout` = desk | split | settings | status | library | timeline | terminal, `ui` its parameters (crumb, title, side, chip);
+# the nodes put into a tab name their place by the group of their anchor ("F1/home/head"), and `ui` says how one is shown (coreapp/src/screens.h).
+# A function that does not exist here is not drawn (hidden); one that cannot work now is drawn greyed with its reason (`off`).
+
+[[area]]
+key = "F1"
+name = "Home"
+  [[area.tab]]
+  id = "home"
+  name = "Home"
+  widget = "nodes"
+  layout = "desk"
+  n = 1
+
+[[area]]
+key = "F2"
+name = "Timewarp"
+shifted = true
+  [[area.tab]]
+  id = "timeline"
+  name = "Timeline"
+  widget = "nodes"
+  layout = "timeline"
+  ui = { pos = "@tw.pos", info = "@tw.info", glyph = "@tw.glyph", track = "@tw.track", hint = "RETURN jump  <- cancel" }
+  n = 1
+
+[[area]]
+key = "F3"
+name = "Library"
+  [[area.tab]]
+  id = "browse"
+  name = "Browse"
+  widget = "browser"
+  layout = "library"
+  ui = { title = "Library", sheet = "Drive A|@drive.drive_a.mode", sheetx = ".crt|Port|@c64.cartridge|No cartridge", marks = "A=drive.drive_a.path,C=c64.cartridge_path,P=c64.program_path" }
+  n = 1
+  [[area.tab]]
+  id = "search"
+  name = "Search"
+  widget = "browser"
+  layout = "library"
+  ui = { title = "Search" }
+  n = 2
+  [[area.tab]]
+  id = "online"
+  name = "Online"
+  widget = "nodes"
+  layout = "split"
+  ui = { title = "Assembly64 and CommoServe", side = "Search" }
+  n = 3
+
+[[area]]
+key = "F4"
+name = "Tools"
+shifted = true
+  [[area.tab]]
+  id = "monitor"
+  name = "Monitor"
+  widget = "nodes"
+  layout = "terminal"
+  n = 1
+  [[area.tab]]
+  id = "diagnostics"
+  name = "Diagnostics"
+  widget = "nodes"
+  layout = "split"
+  ui = { title = "Diagnostics", side = "Now" }
+  n = 2
+
+[[area]]
+key = "F5"                       # the core's short title ("C64") names it
+  [[area.tab]]
+  id = "drives"
+  name = "Drive A"
+  widget = "settings"
+  groups = ["drives", "more"]
+  layout = "split"
+  ui = { title = "Drive A", side = "Disk in drive A" }
+  n = 1
+  [[area.tab]]
+  id = "machine"
+  name = "Machine"
+  widget = "settings"
+  groups = ["machine"]
+  layout = "split"
+  ui = { title = "Machine", side = "Machine now" }
+  n = 2
+  [[area.tab]]
+  id = "io"
+  name = "I/O"
+  widget = "settings"
+  groups = ["io"]
+  layout = "split"
+  ui = { title = "Memory and I/O", side = "Expansion port" }
+  n = 3
+  # T180 D5: the media sets (Save media set..., Load media set...): the rows the media tab of every other core has; the C64's media are Drive A and the cartridge port
+  [[area.tab]]
+  id = "mediasets"
+  name = "Media sets"
+  widget = "media"
+  layout = "settings"
+  ui = { title = "Media sets" }
+  n = 4
+
+[[area]]
+key = "F7"
+name = "Actions"
+  [[area.tab]]
+  id = "quick"
+  name = "Quick"
+  widget = "nodes"
+  layout = "split"
+  ui = { title = "Do the next thing" }
+  n = 1
+  [[area.tab]]
+  id = "more"
+  name = "More"
+  widget = "tasks"
+  groups = ["c64", "files"]
+  layout = "split"
+  ui = { title = "More actions", nodes_first = true }
+  n = 2
+
+[[area]]
+key = "F6"
+name = "Settings"
+shifted = true
+  [[area.tab]]
+  id = "trx64"
+  name = "TRX64"
+  widget = "settings"
+  groups = ["trx64"]
+  layout = "settings"
+  ui = { title = "TRX64 behavior" }
+  n = 1
+  [[area.tab]]
+  id = "video"
+  name = "Video"
+  widget = "settings"
+  groups = ["video", "video_hardware"]
+  layout = "settings"
+  ui = { title = "Video" }
+  n = 2
+  [[area.tab]]
+  id = "audio"
+  name = "Audio"
+  widget = "settings"
+  groups = ["mixer", "sid_sockets", "ultisid"]
+  layout = "settings"
+  ui = { title = "Audio and SID" }
+  n = 3
+  [[area.tab]]
+  id = "input"
+  name = "Input"
+  widget = "settings"
+  groups = ["input"]
+  layout = "settings"
+  ui = { title = "Controllers" }
+  n = 4
+  [[area.tab]]
+  id = "network"
+  name = "Network"
+  widget = "settings"
+  groups = ["ethernet", "network", "time", "streams", "ftp"]
+  layout = "settings"
+  ui = { title = "Network" }
+  n = 5
+
+[[area]]
+key = "F8"
+name = "System"
+shifted = true
+  [[area.tab]]
+  id = "status"
+  name = "Status"
+  widget = "nodes"
+  layout = "split"
+  ui = { title = "System" }
+  n = 1
+  [[area.tab]]
+  id = "expert"
+  name = "Expert"
+  widget = "settings"
+  groups = ["expert", "system"]
+  layout = "settings"
+  ui = { title = "Expert settings" }
+  n = 2
+
+# ---- the screens' own items: buttons, status rows, values -------------------------------------------------------------------------------------
+# F1 Home, the media desk: a row for each medium (RETURN opens the Library on its folder), the machine, and the resources it is configured with
+[[node]]
+anchor = "F1/home/media"
+kind = "op"
+label = "Disk"
+op = "lib.show"
+bind = [ { arg = "state", str = "drive.drive_a.path" } ]
+order = 10
+capability = "drive_a"
+ui = { goto = "F3", sub = "@drive.drive_a.image", none = "@drive.drive_a.image", empty = "No disk", chip = "[E]", tone = "cyan" }
+
+[[node]]
+anchor = "F1/home/media"
+kind = "op"
+label = "Cartridge"
+op = "lib.show"
+bind = [ { arg = "state", str = "c64.cartridge_path" } ]
+order = 20
+ui = { goto = "F3", sub = "@c64.cartridge", none = "@c64.cartridge", empty = "No cartridge", chip = "[X]", tone = "cyan" }
+
+[[node]]
+anchor = "F1/home/media"
+kind = "op"
+label = "Program"
+op = "lib.show"
+bind = [ { arg = "state", str = "c64.program_path" } ]
+order = 30
+ui = { goto = "F3", sub = "@c64.program", none = "@c64.program", empty = "No program", tone = "violet" }
+
+[[node]]
+anchor = "F1/home/machine"
+kind = "op"
+label = "Pause / resume"
+op = "machine.pause_toggle"
+order = 10
+closes_menu = true
+ui = { sub = "Stops or continues the machine", chip = "[P]", tone = "cyan" }
+
+[[node]]
+anchor = "F1/home/machine"
+kind = "op"
+label = "Reset"
+op = "machine.cold_reset"
+order = 20
+closes_menu = true
+ui = { confirm = "Reset the machine?", sub = "Restarts the machine", chip = "[R]", tone = "cyan" }
+
+[[node]]
+anchor = "F1/home/machine"
+kind = "op"
+label = "Settings"
+order = 40
+ui = { goto = "F6", sub = "@settings.saved" }
+
+[[node]]
+anchor = "F1/home/machine"
+kind = "state"
+label = "RAM expansion"
+order = 50
+ui = { sub = "@set.RAM Expansion Unit" }
+
+[[node]]
+anchor = "F1/home/machine"
+kind = "state"
+label = "Turbo"
+order = 60
+ui = { sub = "@set.Turbo Control" }
+
+[[node]]
+anchor = "F1/home/machine"
+kind = "state"
+label = "Video"
+order = 70
+ui = { sub = "@set.System Mode" }
+
+# F5 Machine (c64_machine.xml): the session and power rows, the save-state panel; Fast Reset, the ROM files and the DMA id are the settings below
+# F5 I/O: the cartridge in the port
+[[node]]
+anchor = "F5/machine/side"
+kind = "state"
+label = "Machine"
+order = 10
+ui = { sub = "@machine.state" }
+
+[[node]]
+anchor = "F5/machine/side"
+kind = "state"
+label = "Video"
+order = 20
+ui = { sub = "@set.System Mode" }
+
+[[node]]
+anchor = "F5/machine/side"
+kind = "state"
+label = "Turbo"
+order = 30
+ui = { sub = "@set.Turbo Control" }
+
+[[node]]
+anchor = "F5/io/side"
+kind = "state"
+label = "Cartridge"
+order = 10
+ui = { sub = "@c64.cartridge|None" }
+
+# F5 Drives (c64_drives.xml): the drive's settings are the rows; DRIVE CONTROL is this.
+[[node]]
+anchor = "F5/drives/side"
+kind = "state"
+label = "Disk"
+order = 10
+ui = { sub = "@drive.drive_a.image|No disk" }
+
+[[node]]
+anchor = "F5/drives/side"
+kind = "op"
+label = "Eject disk"
+op = "drive.eject"
+bind = [ { arg = "slot", str = "iec:drive_a" } ]
+order = 20
+when_state = "drive.drive_a.mode != empty"
+capability = "drive_a"
+ui = { bkey = "E", why = "There is no disk in the drive" }
+
+[[node]]
+anchor = "F5/drives/side"
+kind = "op"
+label = "Reset drive"
+op = "drive.reset"
+bind = [ { arg = "slot", str = "iec:drive_a" } ]
+order = 30
+capability = "drive_a"
+ui = { bkey = "R" }
+
+[[node]]
+anchor = "F7/more"
+kind = "group"
+label = "Machine"
+order = 200
+
+[[node]]
+anchor = "F7/more"
+kind = "group"
+label = "Power"
+order = 400
+
+[[node]]
+anchor = "F7/more"
+kind = "group"
+label = "Timewarp"
+order = 300
+
+[[node]]
+anchor = "F7/more"
+kind = "group"
+label = "Disk and files"
+order = 100
+
+[[node]]
+anchor = "F7/more"
+kind = "op"
+label = "Insert blank disk"
+op = "drive.insert_blank"
+order = 101
+capability = "drive_a"
+ui = { sub = "A new empty D64 that is not linked to a file" }
+
+[[node]]
+anchor = "F7/more"
+kind = "op"
+label = "Unlink disk"
+op = "drive.unlink"
+order = 102
+when_state = "drive.drive_a.mode != empty"
+capability = "drive_a"
+ui = { why = "There is no disk in the drive", sub = "Keeps the disk in the drive, stops writing the file" }
+
+[[node]]
+anchor = "F7/quick"
+kind = "op"
+label = "Swap disk"
+op = "drive.swap"
+order = 17
+when_state = "drive.drive_a.mode != empty"
+capability = "drive_a"
+ui = { why = "There is no disk in the drive", sub = "Puts the next disk image of the folder in the drive" }
+
+# F7 Quick (quick_actions.xml): the five things done most, each one key and RETURN away
+[[node]]
+anchor = "F7/quick"
+kind = "op"
+label = "Reset"
+op = "machine.cold_reset"
+order = 10
+closes_menu = true
+ui = { key = "R", confirm = "Reset the machine?", sub = "Restarts the machine and closes the menu" }
+
+[[node]]
+anchor = "F7/quick"
+kind = "op"
+label = "Pause"
+op = "machine.pause_toggle"
+order = 15
+closes_menu = true
+ui = { key = "P", label = "@machine.pause_label", sub = "Stops the machine, the picture stays" }
+
+[[node]]
+anchor = "F7/quick"
+kind = "op"
+label = "Eject disk"
+op = "drive.eject"
+bind = [ { arg = "slot", str = "iec:drive_a" } ]
+order = 18
+when_state = "drive.drive_a.mode != empty"
+capability = "drive_a"
+ui = { key = "E", why = "There is no disk in the drive", sub = "Takes the disk out of drive A" }
+
+[[node]]
+anchor = "F7/quick"
+kind = "op"
+label = "Reload ROMs"
+op = "machine.reload_roms"
+order = 35
+closes_menu = true
+ui = { sub = "Reads the ROM files again and restarts" }
+
+[[node]]
+anchor = "F7/quick"
+kind = "op"
+label = "Reset drive"
+op = "drive.reset"
+bind = [ { arg = "slot", str = "iec:drive_a" } ]
+order = 30
+capability = "drive_a"
+ui = { sub = "Resets the 1541, the disk stays in it" }
+
+[[node]]
+anchor = "F7/quick"
+kind = "op"
+label = "Remove cartridge"
+op = "c64.remove_cart"
+order = 19
+closes_menu = true
+when_state = "c64.cartridge"
+ui = { key = "X", why = "There is no cartridge in the port", sub = "Takes the cartridge out of the port and restarts" }
+
+# F7 C64: tasks (the disk saves) and the machine's own actions
+[[node]]
+anchor = "F7/more"
+kind = "op"
+label = "Reboot, clear memory"
+op = "machine.clear_reboot"
+order = 201
+closes_menu = true
+ui = { confirm = "Clear the C64's memory and start again?", sub = "Clears the memory and starts again" }
+
+[[node]]
+anchor = "F7/more"
+kind = "op"
+label = "Power cycle"
+op = "u64.power_cycle"
+order = 401
+ui = { confirm = "Power cycle the board? Everything in memory is lost.", sub = "Switches the board off and on" }
+
+[[node]]
+anchor = "F7/more"
+kind = "op"
+label = "Power off"
+op = "u64.power_off"
+order = 402
+ui = { confirm = "Power off the board?", sub = "Switches the board off" }
+
+[[node]]
+anchor = "F7/more"
+kind = "op"
+label = "Save C64 memory"
+op = "machine.save_ram"
+bind = [ { arg = "name", text = true } ]
+order = 202
+ui = { ask = "Save the C64's 64 KB as (name)", ask_state = "machine.suggest.ram", sub = "The 64 KB of RAM as a file" }
+
+[[node]]
+anchor = "F7/more"
+kind = "op"
+label = "Save REU memory"
+op = "machine.save_reu"
+bind = [ { arg = "name", text = true } ]
+order = 203
+ui = { ask = "Save the REU's memory as (name)", ask_state = "machine.suggest.reu", sub = "The REU's memory as a file" }
+
+[[node]]
+anchor = "F7/more"
+kind = "op"
+label = "Save cartridge"
+op = "machine.save_cart"
+bind = [ { arg = "name", text = true } ]
+order = 204
+when_state = "c64.cartridge"
+ui = { ask = "Save the cartridge as (name)", ask_state = "machine.suggest.cart", why = "There is no cartridge in the port", sub = "The cartridge in the port as a .crt" }
+
+# The bar of every settings page: what the store can do (the core's .cfg goes, the host's values show again; defaults; write now when Auto Save Config holds changes back)
+[[node]]
+anchor = "F6/trx64/bar"
+kind = "op"
+label = "Discard"
+op = "settings.discard"
+order = 10
+when_state = "settings.unsaved"
+ui = { bkey = "D", why = "Nothing to discard: a change is written at once unless Auto Save Config holds it back" }
+
+[[node]]
+anchor = "F6/trx64/bar"
+kind = "op"
+label = "Defaults"
+op = "settings.reset_defaults"
+order = 20
+ui = { bkey = "F", confirm = "Set every setting of this core to its default?" }
+
+[[node]]
+anchor = "F6/trx64/bar"
+kind = "op"
+label = "Save"
+op = "settings.save"
+order = 30
+when_state = "settings.unsaved"
+ui = { bkey = "S", primary = true, why = "Nothing to save: a change is written at once unless Auto Save Config is Off or Ask" }
+
+[[node]]
+anchor = "F6/video/bar"
+kind = "op"
+label = "Discard"
+op = "settings.discard"
+order = 10
+when_state = "settings.unsaved"
+ui = { bkey = "D", why = "Nothing to discard: a change is written at once unless Auto Save Config holds it back" }
+
+[[node]]
+anchor = "F6/video/bar"
+kind = "op"
+label = "Defaults"
+op = "settings.reset_defaults"
+order = 20
+ui = { bkey = "F", confirm = "Set every setting of this core to its default?" }
+
+[[node]]
+anchor = "F6/video/bar"
+kind = "op"
+label = "Save"
+op = "settings.save"
+order = 30
+when_state = "settings.unsaved"
+ui = { bkey = "S", primary = true, why = "Nothing to save: a change is written at once unless Auto Save Config is Off or Ask" }
+
+[[node]]
+anchor = "F6/audio/bar"
+kind = "op"
+label = "Discard"
+op = "settings.discard"
+order = 10
+when_state = "settings.unsaved"
+ui = { bkey = "D", why = "Nothing to discard: a change is written at once unless Auto Save Config holds it back" }
+
+[[node]]
+anchor = "F6/audio/bar"
+kind = "op"
+label = "Defaults"
+op = "settings.reset_defaults"
+order = 20
+ui = { bkey = "F", confirm = "Set every setting of this core to its default?" }
+
+[[node]]
+anchor = "F6/audio/bar"
+kind = "op"
+label = "Save"
+op = "settings.save"
+order = 30
+when_state = "settings.unsaved"
+ui = { bkey = "S", primary = true, why = "Nothing to save: a change is written at once unless Auto Save Config is Off or Ask" }
+
+[[node]]
+anchor = "F6/input/bar"
+kind = "op"
+label = "Discard"
+op = "settings.discard"
+order = 10
+when_state = "settings.unsaved"
+ui = { bkey = "D", why = "Nothing to discard: a change is written at once unless Auto Save Config holds it back" }
+
+[[node]]
+anchor = "F6/input/bar"
+kind = "op"
+label = "Defaults"
+op = "settings.reset_defaults"
+order = 20
+ui = { bkey = "F", confirm = "Set every setting of this core to its default?" }
+
+[[node]]
+anchor = "F6/input/bar"
+kind = "op"
+label = "Save"
+op = "settings.save"
+order = 30
+when_state = "settings.unsaved"
+ui = { bkey = "S", primary = true, why = "Nothing to save: a change is written at once unless Auto Save Config is Off or Ask" }
+
+[[node]]
+anchor = "F8/expert/bar"
+kind = "op"
+label = "Restart core"
+op = "machine.restart"
+order = 5
+closes_menu = true
+ui = { bkey = "A", confirm = "Restart the core? The ROMs are loaded again and the machine starts from the beginning." }
+
+[[node]]
+anchor = "F8/expert/bar"
+kind = "op"
+label = "Clear config"
+op = "settings.clear"
+order = 6
+ui = { bkey = "C", confirm = "Delete this core's settings file (every setting you changed is lost)?" }
+
+[[node]]
+anchor = "F8/expert/bar"
+kind = "op"
+label = "Discard"
+op = "settings.discard"
+order = 10
+when_state = "settings.unsaved"
+ui = { bkey = "D", why = "Nothing to discard: a change is written at once unless Auto Save Config holds it back" }
+
+[[node]]
+anchor = "F8/expert/bar"
+kind = "op"
+label = "Defaults"
+op = "settings.reset_defaults"
+order = 20
+ui = { bkey = "F", confirm = "Set every setting of this core to its default?" }
+
+[[node]]
+anchor = "F8/expert/bar"
+kind = "op"
+label = "Save"
+op = "settings.save"
+order = 30
+when_state = "settings.unsaved"
+ui = { bkey = "S", primary = true, why = "Nothing to save: a change is written at once unless Auto Save Config is Off or Ask" }
+
+[[node]]
+anchor = "F7/more"
+kind = "op"
+label = "Create folder"
+op = "files.mkdir"
+bind = [ { arg = "name", text = true } ]
+order = 103
+when_state = "files.in_media"
+ui = { ask = "Name of the new folder", why = "Open a folder on a medium in Library first", sub = "Makes a folder in the Library's folder" }
+
+# F2 Timewarp: the keys are the layout's (menuctl.cc timeline_key); this node is what RETURN does, and the tab needs an entry to exist
+[[node]]
+anchor = "F2/timeline/bar"
+kind = "op"
+label = "Resume here"
+op = "tw.resume"
+order = 10
+closes_menu = true
+ui = { primary = true }
+
+# F7 Timewarp: the same operations as the keys of F2, by name, and the files (.c64re)
+[[node]]
+anchor = "F7/more"
+kind = "op"
+label = "Start recording"
+op = "ring.start"
+order = 301
+when_state = "tw.stopped"
+ui = { why = "The ring is recording already, or there is none", sub = "Starts the frame ring again, the old frames go" }
+
+[[node]]
+anchor = "F7/more"
+kind = "op"
+label = "Stop recording"
+op = "ring.stop"
+order = 302
+when_state = "tw.running"
+ui = { why = "The ring is not recording", sub = "The frames stay until it starts again" }
+
+[[node]]
+anchor = "F7/more"
+kind = "op"
+label = "Marker here"
+op = "tw.mark"
+order = 303
+when_state = "tw.present"
+ui = { why = "This bitstream has no frame ring", sub = "Marks the frame Timewarp shows" }
+
+[[node]]
+anchor = "F7/more"
+kind = "op"
+label = "Clear markers"
+op = "tw.clear_marks"
+order = 304
+when_state = "tw.present"
+ui = { why = "This bitstream has no frame ring", sub = "Forgets every marker" }
+
+[[node]]
+anchor = "F7/more"
+kind = "op"
+label = "Back to live"
+op = "tw.live"
+order = 305
+when_state = "tw.present"
+ui = { why = "This bitstream has no frame ring", sub = "The newest frame again" }
+
+[[node]]
+anchor = "F7/more"
+kind = "op"
+label = "Save frame"
+op = "tw.dump"
+bind = [ { arg = "name", text = true } ]
+order = 306
+when_state = "tw.present"
+ui = { ask = "Save the shown frame as (name)", ask_state = "machine.suggest.tw", why = "This bitstream has no frame ring", sub = "The machine's state at the shown frame" }
+
+[[node]]
+anchor = "F7/more"
+kind = "op"
+label = "Save the ring"
+op = "tw.ringdump"
+bind = [ { arg = "name", text = true } ]
+order = 307
+when_state = "tw.present"
+ui = { ask = "Save the last seconds as (name)", ask_state = "machine.suggest.ring", why = "This bitstream has no frame ring", sub = "Up to 30 seconds, one frame in five" }
+
+# F4 Overview: where the tools are, and the monitor's bookmarks (each one runs `m` in the monitor and goes there)
+# F4 Diagnostics (tools_diagnostics.xml)
+[[node]]
+anchor = "F4/diagnostics"
+kind = "op"
+label = "Debug log"
+op = "diag.nop"
+order = 10
+ui = { view = "log", sub = "What the application printed, newest at the end", chip = "@diag.log", tone = "cyan" }
+
+[[node]]
+anchor = "F4/diagnostics"
+kind = "op"
+label = "Clear debug log"
+op = "diag.clear_log"
+order = 20
+ui = { chip = "Clear", tone = "amber" }
+
+[[node]]
+anchor = "F4/diagnostics"
+kind = "op"
+label = "Save debug log"
+op = "diag.save_log"
+bind = [ { arg = "name", text = true } ]
+order = 30
+ui = { ask = "Save the debug log as (name)", ask_state = "diag.suggest.log", chip = "File", tone = "violet" }
+
+[[node]]
+anchor = "F4/diagnostics"
+kind = "op"
+label = "Bug report"
+op = "diag.bug_report"
+order = 35
+ui = { sub = "Writes report/<date-time>.txt on the SD card, else on a USB stick: versions, settings, registers, log", chip = "File", tone = "violet" }
+
+[[node]]
+anchor = "F4/diagnostics"
+kind = "op"
+label = "Screen EDID"
+op = "diag.nop"
+order = 40
+ui = { view = "edid", sub = "What the screen says about itself (hex)", chip = "EDID", tone = "cyan" }
+
+[[node]]
+anchor = "F4/diagnostics"
+kind = "op"
+label = "Save EDID"
+op = "diag.save_edid"
+bind = [ { arg = "name", text = true } ]
+order = 50
+ui = { ask = "Save the EDID as (name)", ask_state = "diag.suggest.edid", chip = "File", tone = "violet" }
+
+[[node]]
+anchor = "F4/diagnostics"
+kind = "op"
+label = "Instruction trace"
+op = "diag.nop"
+order = 60
+ui = { view = "trace", sub = "The last 64 instructions (Settings F6 > TRX64 > Instruction Trace)", chip = "@diag.trace", tone = "cyan" }
+
+[[node]]
+anchor = "F4/diagnostics"
+kind = "op"
+label = "System information"
+op = "diag.nop"
+order = 70
+ui = { view = "info", sub = "Board, heap, debug register", chip = "Info", tone = "cyan" }
+
+[[node]]
+anchor = "F4/diagnostics/side"
+kind = "state"
+label = "Board"
+order = 10
+ui = { sub = "@diag.board" }
+
+[[node]]
+anchor = "F4/diagnostics/side"
+kind = "state"
+label = "Up for"
+order = 20
+ui = { sub = "@diag.uptime" }
+
+[[node]]
+anchor = "F4/diagnostics/side"
+kind = "state"
+label = "Heap"
+order = 30
+ui = { sub = "@diag.heap" }
+
+[[node]]
+anchor = "F4/diagnostics/side"
+kind = "state"
+label = "Debug register"
+order = 40
+ui = { sub = "@diag.debugreg" }
+
+# F4 Monitor: the terminal is the layout; this entry is what the tab needs to exist
+[[node]]
+anchor = "F4/monitor/bar"
+kind = "op"
+label = "Help"
+op = "mon.run"
+bind = [ { arg = "line", str = "?" } ]
+order = 10
+
+# F3 Online: the query form of the Assembly64 / CommoServe search (a64_assembly.cc, online.cc); the results are the Library's folder "Online"
+[[node]]
+anchor = "F3/online"
+kind = "op"
+label = "Library"
+op = "online.library"
+order = 10
+ui = { chip = "@online.library", sub = "RETURN switches the library", tone = "violet" }
+
+[[node]]
+anchor = "F3/online"
+kind = "op"
+label = "Name"
+op = "online.set"
+bind = [ { arg = "field", str = "name" }, { arg = "text", text = true } ]
+order = 20
+ui = { ask = "Part of the title", ask_state = "online.v.name", chip = "@online.name", tone = "cyan" }
+
+[[node]]
+anchor = "F3/online"
+kind = "op"
+label = "Group"
+op = "online.set"
+bind = [ { arg = "field", str = "group" }, { arg = "text", text = true } ]
+order = 21
+ui = { ask = "The group or the publisher", ask_state = "online.v.group", chip = "@online.group", tone = "cyan" }
+
+[[node]]
+anchor = "F3/online"
+kind = "op"
+label = "Handle"
+op = "online.set"
+bind = [ { arg = "field", str = "handle" }, { arg = "text", text = true } ]
+order = 22
+ui = { ask = "The scener's handle", ask_state = "online.v.handle", chip = "@online.handle", tone = "cyan" }
+
+[[node]]
+anchor = "F3/online"
+kind = "op"
+label = "Event"
+op = "online.set"
+bind = [ { arg = "field", str = "event" }, { arg = "text", text = true } ]
+order = 23
+ui = { ask = "The party or the event", ask_state = "online.v.event", chip = "@online.event", tone = "cyan" }
+
+[[node]]
+anchor = "F3/online"
+kind = "op"
+label = "Choices"
+op = "online.presets"
+order = 30
+ui = { sub = "Fetch the choices from the server", chip = "Load", tone = "amber", hide = "@online.loaded" }
+
+[[node]]
+anchor = "F3/online"
+kind = "op"
+label = "Choice 1"
+op = "online.cycle"
+bind = [ { arg = "slot", int = 0 } ]
+order = 40
+ui = { label = "@online.p0.title", chip = "@online.p0.value", sub = "RETURN: the next value", tone = "cyan", hide = "@online.p0.hide" }
+
+[[node]]
+anchor = "F3/online"
+kind = "op"
+label = "Choice 2"
+op = "online.cycle"
+bind = [ { arg = "slot", int = 1 } ]
+order = 41
+ui = { label = "@online.p1.title", chip = "@online.p1.value", sub = "RETURN: the next value", tone = "cyan", hide = "@online.p1.hide" }
+
+[[node]]
+anchor = "F3/online"
+kind = "op"
+label = "Choice 3"
+op = "online.cycle"
+bind = [ { arg = "slot", int = 2 } ]
+order = 42
+ui = { label = "@online.p2.title", chip = "@online.p2.value", sub = "RETURN: the next value", tone = "cyan", hide = "@online.p2.hide" }
+
+[[node]]
+anchor = "F3/online"
+kind = "op"
+label = "Choice 4"
+op = "online.cycle"
+bind = [ { arg = "slot", int = 3 } ]
+order = 43
+ui = { label = "@online.p3.title", chip = "@online.p3.value", sub = "RETURN: the next value", tone = "cyan", hide = "@online.p3.hide" }
+
+[[node]]
+anchor = "F3/online"
+kind = "op"
+label = "Choice 5"
+op = "online.cycle"
+bind = [ { arg = "slot", int = 4 } ]
+order = 44
+ui = { label = "@online.p4.title", chip = "@online.p4.value", sub = "RETURN: the next value", tone = "cyan", hide = "@online.p4.hide" }
+
+[[node]]
+anchor = "F3/online"
+kind = "op"
+label = "Choice 6"
+op = "online.cycle"
+bind = [ { arg = "slot", int = 5 } ]
+order = 45
+ui = { label = "@online.p5.title", chip = "@online.p5.value", sub = "RETURN: the next value", tone = "cyan", hide = "@online.p5.hide" }
+
+[[node]]
+anchor = "F3/online"
+kind = "op"
+label = "Choice 7"
+op = "online.cycle"
+bind = [ { arg = "slot", int = 6 } ]
+order = 46
+ui = { label = "@online.p6.title", chip = "@online.p6.value", sub = "RETURN: the next value", tone = "cyan", hide = "@online.p6.hide" }
+
+[[node]]
+anchor = "F3/online"
+kind = "op"
+label = "Choice 8"
+op = "online.cycle"
+bind = [ { arg = "slot", int = 7 } ]
+order = 47
+ui = { label = "@online.p7.title", chip = "@online.p7.value", sub = "RETURN: the next value", tone = "cyan", hide = "@online.p7.hide" }
+
+[[node]]
+anchor = "F3/online"
+kind = "op"
+label = "Choice 9"
+op = "online.cycle"
+bind = [ { arg = "slot", int = 8 } ]
+order = 48
+ui = { label = "@online.p8.title", chip = "@online.p8.value", sub = "RETURN: the next value", tone = "cyan", hide = "@online.p8.hide" }
+
+[[node]]
+anchor = "F3/online"
+kind = "op"
+label = "Choice 10"
+op = "online.cycle"
+bind = [ { arg = "slot", int = 9 } ]
+order = 49
+ui = { label = "@online.p9.title", chip = "@online.p9.value", sub = "RETURN: the next value", tone = "cyan", hide = "@online.p9.hide" }
+
+[[node]]
+anchor = "F3/online"
+kind = "op"
+label = "Choice 11"
+op = "online.cycle"
+bind = [ { arg = "slot", int = 10 } ]
+order = 50
+ui = { label = "@online.p10.title", chip = "@online.p10.value", sub = "RETURN: the next value", tone = "cyan", hide = "@online.p10.hide" }
+
+[[node]]
+anchor = "F3/online"
+kind = "op"
+label = "Choice 12"
+op = "online.cycle"
+bind = [ { arg = "slot", int = 11 } ]
+order = 51
+ui = { label = "@online.p11.title", chip = "@online.p11.value", sub = "RETURN: the next value", tone = "cyan", hide = "@online.p11.hide" }
+
+[[node]]
+anchor = "F3/online"
+kind = "op"
+label = "Search"
+op = "online.search"
+order = 5
+closes_menu = false
+ui = { primary = true, goto = "F3", chip = "@online.results", sub = "Results open in Browse", tone = "violet" }
+
+[[node]]
+anchor = "F3/online"
+kind = "op"
+label = "Clear the form"
+op = "online.clear"
+order = 110
+ui = { confirm = "Empty every field of the form?", tone = "muted" }
+
+# F4 Apps (T104.3): applications of the core's folder (<core folder>/apps/*.u2a), opened by app.open; each is loaded when it is opened and freed when it ends. An
+# application that is not on the medium answers with a sentence saying so.
+[[node]]
+anchor = "F4/diagnostics"
+kind = "op"
+label = "Cartridge dumper"
+order = 20
+app = "trex_crt"
+action = "dump"
+ui = { sub = "Scan the cartridge in the port and save a CRT image", chip = "APP", tone = "violet" }
+
+[[node]]
+anchor = "F4/diagnostics"
+kind = "op"
+label = "Cartridge inspector"
+order = 30
+app = "trex_crt"
+action = "inspect"
+ui = { sub = "Browse the memory, the banks and the registers of the cartridge", chip = "APP", tone = "cyan" }
+
+[[node]]
+anchor = "F4/diagnostics"
+kind = "op"
+label = "Flash cartridge"
+order = 40
+app = "trex_crt"
+action = "flash"
+ui = { sub = "Write and verify a CRT image on a flash cartridge", chip = "APP", tone = "amber" }
+
+[[node]]
+anchor = "F4/diagnostics"
+kind = "op"
+label = "Softboot"
+order = 50
+app = "softboot"
+action = "pick"
+ui = { sub = "Run an update image from RAM without flashing it", chip = "APP", tone = "violet" }
+
+[[node]]
+anchor = "F4/diagnostics"
+kind = "op"
+label = "Unzip"
+order = 60
+app = "unzip"
+action = "folder"
+ui = { sub = "Unpack a .zip into a new folder", chip = "APP", tone = "violet" }
+
+# F6 Network: the interface now, the Wi-Fi state (read only; the host sets it, the WiFi row of F8 switches it, T184 D3) and what the streams do
+[[node]]
+anchor = "F6/network"
+kind = "state"
+label = "Ethernet status"
+order = 10
+ui = { sub = "@net.eth_status", chip = "@net.eth_ip" }
+
+[[node]]
+anchor = "F6/network"
+kind = "state"
+label = "Interface MAC"
+order = 20
+ui = { sub = "@net.eth_mac" }
+
+[[node]]
+anchor = "F6/network"
+kind = "state"
+label = "Wi-Fi status"
+order = 30
+ui = { sub = "@wifi.state" }
+
+[[node]]
+anchor = "F6/network"
+kind = "state"
+label = "Wi-Fi network"
+order = 31
+ui = { sub = "@wifi.ssid" }
+
+[[node]]
+anchor = "F6/network"
+kind = "state"
+label = "Wi-Fi address"
+order = 32
+ui = { sub = "@wifi.ip" }
+
+[[node]]
+anchor = "F6/network"
+kind = "op"
+label = "Start VIC stream"
+op = "stream.start"
+bind = [ { arg = "id", int = 0 } ]
+order = 50
+when_state = "stream.vic_off"
+ui = { sub = "@stream.vic", chip = "Stream", tone = "cyan", why = "The VIC stream runs already" }
+
+[[node]]
+anchor = "F6/network"
+kind = "op"
+label = "Stop VIC stream"
+op = "stream.stop"
+bind = [ { arg = "id", int = 0 } ]
+order = 51
+when_state = "stream.vic_on"
+ui = { chip = "Stream", tone = "amber", why = "The VIC stream is not running" }
+
+[[node]]
+anchor = "F6/network"
+kind = "op"
+label = "Start audio stream"
+op = "stream.start"
+bind = [ { arg = "id", int = 1 } ]
+order = 52
+when_state = "stream.audio_off"
+ui = { sub = "@stream.audio", chip = "Stream", tone = "cyan", why = "The audio stream runs already" }
+
+[[node]]
+anchor = "F6/network"
+kind = "op"
+label = "Stop audio stream"
+op = "stream.stop"
+bind = [ { arg = "id", int = 1 } ]
+order = 53
+when_state = "stream.audio_on"
+ui = { chip = "Stream", tone = "amber", why = "The audio stream is not running" }
+
+[[node]]
+anchor = "F6/network"
+kind = "op"
+label = "Start debug stream"
+op = "stream.start"
+bind = [ { arg = "id", int = 2 } ]
+order = 54
+when_state = "stream.debug_off"
+ui = { sub = "@stream.debug", chip = "Stream", tone = "cyan", why = "The debug stream runs already" }
+
+[[node]]
+anchor = "F6/network"
+kind = "op"
+label = "Stop debug stream"
+op = "stream.stop"
+bind = [ { arg = "id", int = 2 } ]
+order = 55
+when_state = "stream.debug_on"
+ui = { chip = "Stream", tone = "amber", why = "The debug stream is not running" }
+
+[[node]]
+anchor = "F6/network/bar"
+kind = "op"
+label = "Discard"
+op = "settings.discard"
+order = 10
+when_state = "settings.unsaved"
+ui = { bkey = "D", why = "Nothing to discard: a change is written at once unless Auto Save Config holds it back" }
+
+[[node]]
+anchor = "F6/network/bar"
+kind = "op"
+label = "Defaults"
+op = "settings.reset_defaults"
+order = 20
+ui = { bkey = "F", confirm = "Set every setting of this core to its default?" }
+
+[[node]]
+anchor = "F6/network/bar"
+kind = "op"
+label = "Save"
+op = "settings.save"
+order = 30
+when_state = "settings.unsaved"
+ui = { bkey = "S", primary = true, why = "Nothing to save: a change is written at once unless Auto Save Config is Off or Ask" }
+
+# F8 System status: the application, what it runs on, the media and what is plugged in
+[[node]]
+anchor = "F8/status"
+kind = "state"
+label = "Core"
+order = 10
+ui = { chip = "@info.Core" }
+
+[[node]]
+anchor = "F8/status"
+kind = "state"
+label = "Application"
+order = 20
+ui = { chip = "@info.Application" }
+
+[[node]]
+anchor = "F8/status"
+kind = "state"
+label = "ROMs"
+order = 30
+ui = { chip = "@info.ROMs" }
+
+[[node]]
+anchor = "F8/status"
+kind = "state"
+label = "Libraries"
+order = 40
+ui = { chip = "@info.Libraries" }
+
+[[node]]
+anchor = "F8/status"
+kind = "state"
+label = "Board"
+order = 50
+ui = { chip = "@diag.board" }
+
+[[node]]
+anchor = "F8/status"
+kind = "state"
+label = "Uptime"
+order = 51
+ui = { chip = "@diag.uptime" }
+
+[[node]]
+anchor = "F8/status"
+kind = "state"
+label = "SD card"
+order = 60
+ui = { chip = "@media.sd" }
+
+[[node]]
+anchor = "F8/status"
+kind = "state"
+label = "USB stick 0"
+order = 61
+ui = { chip = "@media.usb0" }
+
+[[node]]
+anchor = "F8/status"
+kind = "state"
+label = "USB stick 1"
+order = 62
+ui = { chip = "@media.usb1" }
+
+[[node]]
+anchor = "F8/status"
+kind = "state"
+label = "Flash"
+order = 63
+ui = { chip = "@media.flash" }
+
+[[node]]
+anchor = "F8/status"
+kind = "state"
+label = "USB mouse"
+order = 70
+ui = { chip = "@usb.mouse" }
+
+[[node]]
+anchor = "F8/status"
+kind = "state"
+label = "USB keyboard"
+order = 71
+ui = { chip = "@usb.keyboard" }
+
+# T184 D3: the one WiFi row of a core (the same row is F8's of every other core, EK_WIFI): On / Off, switched live and not stored; the host sets the rest
+[[node]]
+anchor = "F8/status"
+kind = "op"
+label = "WiFi"
+op = "wifi.toggle"
+order = 72
+ui = { sub = "@wifi.line", chip = "@wifi.onoff" }
+
+[[node]]
+anchor = "F8/status"
+kind = "op"
+label = "Keys and help"
+op = "diag.nop"
+order = 80
+ui = { view = "help", chip = "Help", tone = "violet" }
+
+# ---- tasks -------------------------------------------------------------------------------------------------------------------------------------------
+[[task]]
+group = "c64"
+label = "Save Disk as D64"
+op = "drive.save"
+bind = [ { arg = "slot", str = "iec:drive_a" }, { arg = "path", text = true }, { arg = "format", str = "d64" } ]
+ask = "Save as D64, name"
+ask_state = "drive.suggest.save_d64"
+
+[[task]]
+group = "c64"
+label = "Save Disk as G64"
+op = "drive.save"
+bind = [ { arg = "slot", str = "iec:drive_a" }, { arg = "path", text = true }, { arg = "format", str = "g64" } ]
+ask = "Save as G64, name"
+ask_state = "drive.suggest.save_g64"
+
+[[task]]
+group = "files"
+label = "Create blank D64"
+op = "drive.create"
+bind = [ { arg = "path", text = true }, { arg = "format", str = "d64" }, { arg = "name", str = "" } ]
+ask = "Name of the new D64"
+ask_state = "drive.suggest.d64"
+pick_dir = true
+
+[[task]]
+group = "files"
+label = "Create blank G64"
+op = "drive.create"
+bind = [ { arg = "path", text = true }, { arg = "format", str = "g64" }, { arg = "name", str = "" } ]
+ask = "Name of the new G64"
+ask_state = "drive.suggest.g64"
+pick_dir = true
+
+# ---- media -------------------------------------------------------------------------------------------------------------------------------------------
+[[media]]
+name = "Program"
+state = "c64.program"
+
+[[media]]
+name = "Drive A:"
+state = "drive.drive_a.image"
+eject_op = "drive.eject"
+eject_bind = [ { arg = "slot", str = "iec:drive_a" } ]
+
+# ---- file types --------------------------------------------------------------------------------------------------------------------------------------
+[[filetype]]
+ext = ".prg"
+  [[filetype.action]]
+  label = "Run PRG"
+  key = "R"
+  op = "c64.run_prg"
+  bind = [ { arg = "path", file = true } ]
+  closes_menu = true
+  [[filetype.action]]
+  label = "Load PRG and start from"
+  key = "L"
+  op = "c64.load_prg"
+  bind = [ { arg = "path", file = true }, { arg = "start", ask = true } ]
+  closes_menu = true
+  ask = "Start address"
+  [[filetype.action]]
+  label = "DMA (load, do not run)"
+  key = "A"
+  op = "c64.dma_prg"
+  bind = [ { arg = "path", file = true } ]
+
+[[filetype]]
+ext = ".p00"
+  [[filetype.action]]
+  label = "Run PRG"
+  key = "R"
+  op = "c64.run_prg"
+  bind = [ { arg = "path", file = true } ]
+  closes_menu = true
+  [[filetype.action]]
+  label = "Load PRG and start from"
+  key = "L"
+  op = "c64.load_prg"
+  bind = [ { arg = "path", file = true }, { arg = "start", ask = true } ]
+  closes_menu = true
+  ask = "Start address"
+  ask_off = 26                   # the 0x1A bytes of a .P00 header come before the load address
+  [[filetype.action]]
+  label = "DMA (load, do not run)"
+  key = "A"
+  op = "c64.dma_prg"
+  bind = [ { arg = "path", file = true } ]
+
+[[filetype]]
+ext = ".u2a"
+  [[filetype.action]]
+  label = "Run app"
+  key = "R"
+  op = "app.open"
+  bind = [ { arg = "app", str = "" }, { arg = "action", str = "" }, { arg = "file", file = true } ]
+  closes_menu = false
+
+[[filetype]]
+ext = ".cfw"
+  [[filetype.action]]
+  label = "Run Update"
+  key = "R"
+  op = "update.run_record"
+  bind = [ { arg = "path", file = true } ]
+  closes_menu = true
+
+[[filetype]]
+ext = ".d64"
+inner_ext = ".prg"
+  [[filetype.action]]
+  label = "Mount Disk"
+  key = "M"
+  op = "drive.mount"
+  bind = [ { arg = "slot", str = "iec:drive_a" }, { arg = "path", file = true }, { arg = "mode", str = "rw" } ]
+  closes_menu = true
+  [[filetype.action]]
+  label = "Mount Disk Read Only"
+  key = "O"
+  op = "drive.mount"
+  bind = [ { arg = "slot", str = "iec:drive_a" }, { arg = "path", file = true }, { arg = "mode", str = "ro" } ]
+  closes_menu = true
+  [[filetype.action]]
+  label = "Mount Disk Unlinked"
+  key = "U"
+  op = "drive.mount"
+  bind = [ { arg = "slot", str = "iec:drive_a" }, { arg = "path", file = true }, { arg = "mode", str = "unlinked" } ]
+  closes_menu = true
+  [[filetype.action]]
+  label = "Run Disk"
+  key = "R"
+  op = "drive.mount_run"
+  bind = [ { arg = "slot", str = "iec:drive_a" }, { arg = "path", file = true } ]
+  closes_menu = true
+  [[filetype.action]]
+  label = "Browse Disk"
+  key = "B"
+  op = "menu.browse"
+  bind = [ { arg = "path", file = true } ]
+  [[filetype.inner]]
+  label = "Mount & Run"
+  key = "R"
+  op = "drive.mount_run_file"
+  bind = [ { arg = "slot", str = "iec:drive_a" }, { arg = "path", file = true }, { arg = "how", str = "dma" } ]
+  closes_menu = true
+  [[filetype.inner]]
+  label = "Real Run"
+  key = "L"
+  op = "drive.mount_run_file"
+  bind = [ { arg = "slot", str = "iec:drive_a" }, { arg = "path", file = true }, { arg = "how", str = "load" } ]
+  closes_menu = true
+
+[[filetype]]
+ext = ".g64"
+  [[filetype.action]]
+  label = "Mount Disk"
+  key = "M"
+  op = "drive.mount"
+  bind = [ { arg = "slot", str = "iec:drive_a" }, { arg = "path", file = true }, { arg = "mode", str = "rw" } ]
+  closes_menu = true
+  [[filetype.action]]
+  label = "Mount Disk Read Only"
+  key = "O"
+  op = "drive.mount"
+  bind = [ { arg = "slot", str = "iec:drive_a" }, { arg = "path", file = true }, { arg = "mode", str = "ro" } ]
+  closes_menu = true
+  [[filetype.action]]
+  label = "Mount Disk Unlinked"
+  key = "U"
+  op = "drive.mount"
+  bind = [ { arg = "slot", str = "iec:drive_a" }, { arg = "path", file = true }, { arg = "mode", str = "unlinked" } ]
+  closes_menu = true
+  [[filetype.action]]
+  label = "Run Disk"
+  key = "R"
+  op = "drive.mount_run"
+  bind = [ { arg = "slot", str = "iec:drive_a" }, { arg = "path", file = true } ]
+  closes_menu = true
+
+# a ROM file picked in the browser (16 or 32 KB, the operation checks): the drive takes it for this session
+[[filetype]]
+ext = ".rom"
+  [[filetype.action]]
+  label = "Set as 1541 ROM"
+  key = "S"
+  op = "drive.set_rom"
+  bind = [ { arg = "slot", str = "iec:drive_a" }, { arg = "path", file = true } ]
+
+# A cartridge stays in the port until "Remove Cartridge": the Reset task starts it again (c64_cart.cc)
+[[filetype]]
+ext = ".crt"
+  [[filetype.action]]
+  label = "Run Cartridge"
+  key = "R"
+  op = "c64.run_crt"
+  bind = [ { arg = "path", file = true } ]
+  closes_menu = true
+
+
+[[filetype]]
+ext = ".reu"
+  [[filetype.action]]
+  label = "Load into REU"
+  op = "reu.load"
+  bind = [ { arg = "path", file = true } ]
+  key = "L"
+  [[filetype.action]]
+  label = "Preload on Startup"
+  op = "reu.preload"
+  bind = [ { arg = "path", file = true } ]
+  key = "P"
+
+[[filetype]]
+ext = ".t64"
+  [[filetype.action]]
+  label = "Enter"
+  op = "menu.t64"
+  bind = [ { arg = "path", file = true } ]
+  key = "E"
+
+[[filetype]]
+ext = ".cfg"
+  [[filetype.action]]
+  label = "Load Settings"
+  key = "L"
+  op = "settings.load_file"
+  bind = [ { arg = "path", file = true } ]
+
+[[filetype]]
+ext = ".vpl"
+  [[filetype.action]]
+  label = "Apply Palette"
+  key = "A"
+  op = "u64.apply_palette"
+  bind = [ { arg = "name", file = true } ]
+  [[filetype.action]]
+  label = "Set as Default"
+  key = "S"
+  op = "u64.set_palette"
+  bind = [ { arg = "name", file = true } ]
+
+[[filetype]]
+ext = ".bin"
+  [[filetype.action]]
+  label = "Set as Kernal ROM"
+  key = "K"
+  op = "c64.set_rom"
+  bind = [ { arg = "path", file = true }, { arg = "which", int = 0 } ]
+  size_in = [8192]
+  [[filetype.action]]
+  label = "Set as BASIC ROM"
+  key = "B"
+  op = "c64.set_rom"
+  bind = [ { arg = "path", file = true }, { arg = "which", int = 1 } ]
+  size_in = [8192]
+  [[filetype.action]]
+  label = "Set as Char ROM"
+  key = "G"
+  op = "c64.set_rom"
+  bind = [ { arg = "path", file = true }, { arg = "which", int = 2 } ]
+  size_in = [4096]
+
+[[filetype]]
+ext = ".64c"
+  [[filetype.action]]
+  label = "Set as Kernal ROM"
+  key = "K"
+  op = "c64.set_rom"
+  bind = [ { arg = "path", file = true }, { arg = "which", int = 0 } ]
+  size_in = [8192]
+
+[[filetype]]
+ext = ".c64re"
+  [[filetype.action]]
+  label = "Load Timewarp state"
+  key = "L"
+  op = "tw.load"
+  bind = [ { arg = "path", file = true } ]
+  closes_menu = true
+
+# ---- settings ----------------------------------------------------------------------------------------------------------------------------------------
+# GATE_CTRL b0 (trx_sys.v): with it the app's C64_STOP pauses the whole machine - the picture stands still under our menu - without it only the CPU.
+[[core_setting]]
+group = "trx64"
+key = "Freeze mode"
+values = ["Whole machine", "CPU only"]
+default = 0
+when = "reset"
+apply = "c64.set_freeze_mode"
+
+# The names and the defaults of the drive are Gideon's (c1541.cc): drive on, bus ID 8, no extra RAM, 100 ms swap delay.
+[[core_setting]]
+group = "drives"
+key = "Drive"
+label = "Drive enable"
+values = ["Disabled", "Enabled"]
+default = 1
+apply = "drive.set_power"
+
+[[core_setting]]
+group = "drives"
+key = "Drive Bus ID"
+label = "Drive bus ID"
+values = ["8", "9", "10", "11"]
+default = 0
+apply = "drive.set_bus_id"
+
+[[core_setting]]
+group = "drives"
+key = "Disk swap delay"
+values = ["100 ms", "200 ms", "300 ms", "400 ms", "500 ms", "600 ms", "700 ms", "800 ms", "900 ms", "1000 ms"]
+default = 0
+apply = "drive.set_swap_delay"
+
+# T180 D2: "Persist medium mounts" (coreapp/src/mediamounts.cc): the disk in Drive A and the cartridge in the port are mounted again at the next start. The Drive A page (F5) lists the group (T187 D7).
+[[core_setting]]
+group = "drives"
+key = "Persist medium mounts"
+list = "yes_no"
+default = 0
+when = "live"
+apply = "media.persist_apply"
+
+[lists]
+scanres_auto = ["Auto", "SD (480p/576p)", "HD (720p)", "FullHD (1080p)", "PC 800 x 600", "PC 1024 x 768", "PC 1280 x 1024"]
+zones = ["US Baker Island (UTC -12)", "America Samoa (UTC -11)", "Hawaii (UTC -10)", "French Polynesia (UTC -9:30)", "Alaska (UTC -9)", "Los Angeles (UTC -8)", "Denver, Colorado (UTC -7)", "Phoenix, Arizona (UTC -7)", "Chicago, Illinois (UTC -6)", "New York (UTC -5)", "Argentina (UTC -3)", "Newfoundland (UTC -2:30)", "Greenland (UTC -2)", "Cabo Verde (UTC -1)", "Iceland (UTC 0)", "UK (UTC +1)", "Western Europe (UTC +2)", "Greece (UTC +3)", "Azerbaijan (UTC +4)", "Iran (UTC +4:30)", "Pakistan (UTC +5)", "India (UTC +5:30)", "Nepal (UTC +5:45)", "Bangladesh (UTC +6)", "Myanmar (UTC +6:30)", "Indonesia (UTC +7)", "China (UTC +8)", "Western Australia (UTC +8:45)", "Japan (UTC +9)", "Central Australia (UTC +9:30)", "Eastern Australia (UTC +10)", "Lord Howe Island (UTC +10:30)", "Solomon Islands (UTC +11)", "New Zealand (UTC +12)", "Chatham Islands (UTC +12:45)", "Tonga (UTC +13)", "Christmas Island (UTC +14)"]
+streammodes = ["6510 Only", "VIC Only", "6510 & VIC", "1541 Only", "6510 & 1541", "6510 w/IEC", "6510 & VIC w/IEC"]
+en_dis = ["Disabled", "Enabled"]
+yes_no = ["No", "Yes"]
+menu_opens = ["Home (F1)", "Last screen"]
+off_ask_auto = ["Off", "Ask", "Auto"]
+vols = ["OFF", "-42 dB", "-36 dB", "-30 dB", "-27 dB", "-24 dB", "-18 dB", "-17 dB", "-16 dB", "-15 dB", "-14 dB", "-13 dB", "-12 dB", "-11 dB", "-10 dB", "-9 dB", "-8 dB", "-7 dB", "-6 dB", "-5 dB", "-4 dB", "-3 dB", "-2 dB", "-1 dB", "0 dB", "+1 dB", "+2 dB", "+3 dB", "+4 dB", "+5 dB", "+6 dB"]
+pans = ["Left 5", "Left 4", "Left 3", "Left 2", "Left 1", "Center", "Right 1", "Right 2", "Right 3", "Right 4", "Right 5"]
+sysmodes = ["PAL", "NTSC", "PAL-60", "NTSC-50", "PAL-60/L", "NTSC-50/L"]
+scanres = ["SD (480p/576p)", "HD (720p)", "FullHD (1080p)", "PC 800 x 600", "PC 1024 x 768", "PC 1280 x 1024"]
+analog = ["CVBS + SVideo", "RGB"]
+digital = ["Auto", "HDMI", "DVI"]
+sidbase = ["Unmapped", "$D400", "$D420", "$D440", "$D460", "$D480", "$D4A0", "$D4C0", "$D4E0", "$D500", "$D520", "$D540", "$D560", "$D580", "$D5A0", "$D5C0", "$D5E0", "$D600", "$D620", "$D640", "$D660", "$D680", "$D6A0", "$D6C0", "$D6E0", "$D700", "$D720", "$D740", "$D760", "$D780", "$D7A0", "$D7C0", "$D7E0", "$DE00", "$DE20", "$DE40", "$DE60", "$DE80", "$DEA0", "$DEC0", "$DEE0", "$DF00", "$DF20", "$DF40", "$DF60", "$DF80", "$DFA0", "$DFC0", "$DFE0"]
+stereo = ["Off", "A5", "A6", "A7", "A8", "A9"]
+split = ["Off", "1/2 (A5)", "1/2 (A6)", "1/2 (A7)", "1/2 (A8)", "1/4 (A5,A6)", "1/4 (A5,A8)", "1/4 (A7,A8)"]
+sidtypes = ["None", "6581", "8580", "FPGASID", "SwinSID Ultimate", "ARMSID", "ARM2SID", "SidFx", "FPGASID Dukestah", "PDsid", "SIDKick (Teensy)", "SIDKick Pico"]
+onoff = ["Off", "On"]
+splash = ["Off", "On"]
+caps = ["470 pF", "22 nF"]
+filters = ["8580 Lo", "8580 Hi", "6581", "6581 Alt", "U2 Low", "U2 Mid", "U2 High"]
+reslist = ["Low", "High"]
+waves = ["6581", "8580"]
+digis = ["Off", "Low", "Medium", "High"]
+joyswaps = ["Normal", "Swapped", "WASD Port 2", "WASD Port 1", "WASD P2 No KB", "WASD P1 No KB"]
+mousemodes = ["Cursor", "Mouse", "Mouse + Cursor", "Mouse + Wheel"]
+mouseacc = ["Off", "Adaptive"]
+wheeldir = ["Normal", "Reversed"]
+iecmodes = ["All Connected", "C64 <-> Internal", "Ext. <-> Int.", "C64 <-> External"]
+burst = ["Off", "CIA1", "CIA2"]
+turbo = ["Off", "Manual", "U64 Turbo Registers", "TurboEnable Bit"]
+speeds = ["1", "2", "3", "4", "6", "8", "10", "12", "14", "16", "20", "24", "32", "40", "48", "64"]
+poweron = ["Off", "On", "Last State"]
+ledsel = ["On", "Off", "Drive A Pwr", "DrvAPwr + DrvBPwr", "Drive A Act", "DrvAAct + DrvBAct", "DrvAPwr ^ DrvAAct", "USB Activity", "Any Activity", "!(DrvAAct)", "!(DrvAAct+DrvBAct)", "!(USB Act)", "!(Any Act)", "IRQ Line", "!(IRQ Line)", "Drive B Act"]
+alpha = ["0 %", "25 %", "50 %", "75 %"]
+schemes = ["Standard Blue", "Ultimate Black", "C128 Style", "Commodore Blue", "Commodore 1", "Commodore 2", "Commodore 3"]
+squeeze = ["None", "Beginning", "Middle", "End"]
+cartmodes = ["Auto", "Internal", "External", "Manual"]
+busmodes = ["Quiet", "Writes", "Dynamic", "Dyn. & Writes", "Compatibility"]
+sharing = ["Internal", "External", "Both"]
+gameexrom = ["On", "Off"]
+geo = ["Disabled", "Enabled", "GeoRAM Mode"]
+reusize = ["128 KB", "256 KB", "512 KB", "1 MB", "2 MB", "4 MB", "8 MB", "16 MB"]
+reuoffs = ["0 KB", "128 KB", "256 KB", "512 KB", "1 MB", "2 MB", "4 MB", "8 MB", "16 MB"]
+geos = ["None", "Gaps", "Track 36", "Both"]
+
+# ---- generated from the item tables of Gideon's stores (u64_config.cc, c64.cc, userinterface.cc, c1541.cc) -------
+[[core_setting]]
+group = "video"
+key = "System Mode"
+label = "System mode"
+list = "sysmodes"
+default = 0
+when = "live"
+apply = "u64.fx_video"
+
+[[core_setting]]
+group = "video"
+key = "HDMI Scan Resolution"
+label = "HDMI scan resolution"
+list = "scanres_auto"
+default = 0
+when = "live"
+apply = "picture.apply"
+
+[[core_setting]]
+group = "video"
+key = "HDMI Scan lines"
+label = "HDMI scan lines"
+list = "en_dis"
+default = 1
+when = "live"
+apply = "u64.fx_video"
+
+[[core_setting]]
+group = "video"
+key = "Analog Video Mode"
+label = "Analog video mode"
+list = "analog"
+default = 0
+when = "live"
+apply = "u64.fx_video"
+
+[[core_setting]]
+group = "video"
+key = "Digital Video Mode"
+label = "Digital video mode"
+list = "digital"
+default = 0
+when = "live"
+apply = "u64.fx_video"
+
+[[core_setting]]
+group = "video_hardware"
+key = "Adjust Color Clock"
+label = "Adjust color clock"
+range = [-100, 100]
+unit = " ppm"
+default = 0
+apply = "u64.fx_video"
+
+[[core_setting]]
+group = "hidden"
+key = "Palette Definition"
+text = true
+default = ""
+maxlen = 60
+apply = "u64.fx_video"
+
+[[core_setting]]
+group = "mixer"
+key = "Vol Master"
+label = "Volume master"
+list = "vols"
+default = 24
+when = "live"
+apply = "u64.fx_audio"
+
+[[core_setting]]
+group = "mixer"
+key = "Vol UltiSid 1"
+label = "Volume UltiSID 1"
+list = "vols"
+default = 24
+when = "live"
+apply = "u64.fx_audio"
+
+[[core_setting]]
+group = "mixer"
+key = "Vol UltiSid 2"
+label = "Volume UltiSID 2"
+list = "vols"
+default = 24
+when = "live"
+apply = "u64.fx_audio"
+
+[[core_setting]]
+group = "mixer"
+key = "Vol Socket 1"
+label = "Volume socket 1"
+list = "vols"
+default = 24
+when = "live"
+apply = "u64.fx_audio"
+
+[[core_setting]]
+group = "mixer"
+key = "Vol Socket 2"
+label = "Volume socket 2"
+list = "vols"
+default = 24
+when = "live"
+apply = "u64.fx_audio"
+
+[[core_setting]]
+group = "mixer"
+key = "Vol Sampler L"
+label = "Volume sampler L"
+list = "vols"
+default = 24
+when = "live"
+apply = "u64.fx_audio"
+
+[[core_setting]]
+group = "mixer"
+key = "Vol Sampler R"
+label = "Volume sampler R"
+list = "vols"
+default = 24
+when = "live"
+apply = "u64.fx_audio"
+
+[[core_setting]]
+group = "mixer"
+key = "Vol Drive 1"
+label = "Volume drive"
+list = "vols"
+default = 11
+when = "live"
+apply = "u64.fx_audio"
+
+[[core_setting]]
+group = "mixer"
+key = "Pan UltiSID 1"
+list = "pans"
+default = 5
+when = "live"
+apply = "u64.fx_audio"
+
+[[core_setting]]
+group = "mixer"
+key = "Pan UltiSID 2"
+list = "pans"
+default = 5
+when = "live"
+apply = "u64.fx_audio"
+
+[[core_setting]]
+group = "mixer"
+key = "Pan Socket 1"
+label = "Pan socket 1"
+list = "pans"
+default = 2
+when = "live"
+apply = "u64.fx_audio"
+
+[[core_setting]]
+group = "mixer"
+key = "Pan Socket 2"
+label = "Pan socket 2"
+list = "pans"
+default = 8
+when = "live"
+apply = "u64.fx_audio"
+
+[[core_setting]]
+group = "mixer"
+key = "Pan Sampler L"
+label = "Pan sampler L"
+list = "pans"
+default = 2
+when = "live"
+apply = "u64.fx_audio"
+
+[[core_setting]]
+group = "mixer"
+key = "Pan Sampler R"
+label = "Pan sampler R"
+list = "pans"
+default = 8
+when = "live"
+apply = "u64.fx_audio"
+
+[[core_setting]]
+group = "mixer"
+key = "Pan Drive 1"
+label = "Pan drive"
+list = "pans"
+default = 3
+when = "live"
+apply = "u64.fx_audio"
+
+[[core_setting]]
+group = "mixer"
+key = "Speaker Enable"
+label = "Speaker enable"
+list = "en_dis"
+default = 1
+when = "live"
+apply = "u64.fx_audio"
+
+[[core_setting]]
+group = "mixer"
+key = "Spk Vol UltiSid 1"
+label = "Speaker volume UltiSID 1"
+list = "vols"
+default = 0
+when = "live"
+apply = "u64.fx_audio"
+
+[[core_setting]]
+group = "mixer"
+key = "Spk Vol UltiSid 2"
+label = "Speaker volume UltiSID 2"
+list = "vols"
+default = 0
+when = "live"
+apply = "u64.fx_audio"
+
+[[core_setting]]
+group = "mixer"
+key = "Spk Vol Socket 1"
+label = "Speaker volume socket 1"
+list = "vols"
+default = 0
+when = "live"
+apply = "u64.fx_audio"
+
+[[core_setting]]
+group = "mixer"
+key = "Spk Vol Socket 2"
+label = "Speaker volume socket 2"
+list = "vols"
+default = 0
+when = "live"
+apply = "u64.fx_audio"
+
+[[core_setting]]
+group = "mixer"
+key = "Spk Vol Sampler L"
+label = "Speaker volume sampler L"
+list = "vols"
+default = 0
+when = "live"
+apply = "u64.fx_audio"
+
+[[core_setting]]
+group = "mixer"
+key = "Spk Vol Sampler R"
+label = "Speaker volume sampler R"
+list = "vols"
+default = 0
+when = "live"
+apply = "u64.fx_audio"
+
+[[core_setting]]
+group = "mixer"
+key = "Spk Vol Drive 1"
+label = "Speaker volume drive"
+list = "vols"
+default = 9
+when = "live"
+apply = "u64.fx_audio"
+
+[[core_setting]]
+group = "sid_sockets"
+key = "SID Socket 1"
+label = "Socket 1 enable"
+list = "en_dis"
+default = 0
+when = "live"
+apply = "u64.fx_sid"
+
+[[core_setting]]
+group = "sid_sockets"
+key = "SID Socket 2"
+label = "Socket 2 enable"
+list = "en_dis"
+default = 0
+when = "live"
+apply = "u64.fx_sid"
+
+[[core_setting]]
+group = "sid_sockets"
+key = "SID Socket 1 1K Ohm Resistor"
+label = "Socket 1 1K ohm resistor"
+list = "onoff"
+default = 0
+when = "live"
+apply = "u64.fx_sid"
+
+[[core_setting]]
+group = "sid_sockets"
+key = "SID Socket 2 1K Ohm Resistor"
+label = "Socket 2 1K ohm resistor"
+list = "onoff"
+default = 0
+when = "live"
+apply = "u64.fx_sid"
+
+[[core_setting]]
+group = "sid_sockets"
+key = "SID Socket 1 Capacitors"
+label = "Socket 1 capacitors"
+list = "caps"
+default = 0
+when = "live"
+apply = "u64.fx_sid"
+
+[[core_setting]]
+group = "sid_sockets"
+key = "SID Socket 2 Capacitors"
+label = "Socket 2 capacitors"
+list = "caps"
+default = 0
+when = "live"
+apply = "u64.fx_sid"
+
+[[core_setting]]
+group = "sid_sockets"
+key = "SID Socket 1 Address"
+label = "Socket 1 address"
+list = "sidbase"
+default = 1
+when = "live"
+apply = "u64.fx_sid"
+
+[[core_setting]]
+group = "sid_sockets"
+key = "SID Socket 2 Address"
+label = "Socket 2 address"
+list = "sidbase"
+default = 1
+when = "live"
+apply = "u64.fx_sid"
+
+[[core_setting]]
+group = "sid_sockets"
+key = "Ext DualSID Range Split"
+label = "Extended DualSID range split"
+list = "stereo"
+default = 0
+when = "live"
+apply = "u64.fx_sid"
+
+[[core_setting]]
+group = "sid_sockets"
+key = "UltiSID 1 Address"
+label = "UltiSID 1 address"
+list = "sidbase"
+default = 1
+when = "live"
+apply = "u64.fx_sid"
+
+[[core_setting]]
+group = "sid_sockets"
+key = "UltiSID 2 Address"
+label = "UltiSID 2 address"
+list = "sidbase"
+default = 1
+when = "live"
+apply = "u64.fx_sid"
+
+[[core_setting]]
+group = "sid_sockets"
+key = "UltiSID Range Split"
+label = "UltiSID range split"
+list = "split"
+default = 0
+when = "live"
+apply = "u64.fx_sid"
+
+[[core_setting]]
+group = "sid_sockets"
+key = "Paddle Override"
+label = "Paddle override"
+list = "en_dis"
+default = 1
+when = "live"
+apply = "u64.fx_sid"
+
+[[core_setting]]
+group = "sid_sockets"
+key = "Auto Address Mirroring"
+label = "Auto address mirroring"
+list = "en_dis"
+default = 1
+when = "live"
+apply = "u64.fx_sid"
+
+[[core_setting]]
+group = "ultisid"
+key = "UltiSID 1 Filter Curve"
+label = "UltiSID 1 filter curve"
+list = "filters"
+default = 0
+when = "live"
+apply = "u64.fx_sid"
+
+[[core_setting]]
+group = "ultisid"
+key = "UltiSID 2 Filter Curve"
+label = "UltiSID 2 filter curve"
+list = "filters"
+default = 0
+when = "live"
+apply = "u64.fx_sid"
+
+[[core_setting]]
+group = "ultisid"
+key = "UltiSID 1 Filter Resonance"
+label = "UltiSID 1 filter resonance"
+list = "reslist"
+default = 0
+when = "live"
+apply = "u64.fx_sid"
+
+[[core_setting]]
+group = "ultisid"
+key = "UltiSID 2 Filter Resonance"
+label = "UltiSID 2 filter resonance"
+list = "reslist"
+default = 0
+when = "live"
+apply = "u64.fx_sid"
+
+[[core_setting]]
+group = "ultisid"
+key = "UltiSID 1 Combined Waveforms"
+label = "UltiSID 1 combined waveforms"
+list = "waves"
+default = 0
+when = "live"
+apply = "u64.fx_sid"
+
+[[core_setting]]
+group = "ultisid"
+key = "UltiSID 2 Combined Waveforms"
+label = "UltiSID 2 combined waveforms"
+list = "waves"
+default = 0
+when = "live"
+apply = "u64.fx_sid"
+
+[[core_setting]]
+group = "ultisid"
+key = "UltiSID 1 Digis Level"
+label = "UltiSID 1 digi level"
+list = "digis"
+default = 2
+when = "live"
+apply = "u64.fx_sid"
+
+[[core_setting]]
+group = "ultisid"
+key = "UltiSID 2 Digis Level"
+label = "UltiSID 2 digi level"
+list = "digis"
+default = 2
+when = "live"
+apply = "u64.fx_sid"
+
+[[core_setting]]
+group = "input"
+key = "Joystick Input"
+label = "Joystick input"
+list = "joyswaps"
+default = 0
+when = "live"
+apply = "u64.fx_misc"
+
+[[core_setting]]
+group = "input"
+key = "Mouse Mode"
+label = "Mouse mode"
+list = "mousemodes"
+default = 1
+when = "live"
+apply = "u64.fx_input"
+
+[[core_setting]]
+group = "input"
+key = "Mouse Sensitivity"
+label = "Mouse sensitivity"
+range = [1, 16]
+unit = ""
+default = 8
+apply = "u64.fx_input"
+
+[[core_setting]]
+group = "input"
+key = "Mouse Acceleration"
+label = "Mouse acceleration"
+list = "mouseacc"
+default = 0
+when = "live"
+apply = "u64.fx_input"
+
+[[core_setting]]
+group = "input"
+key = "Mouse Wheel Sensitivity"
+label = "Mouse wheel sensitivity"
+range = [1, 16]
+unit = ""
+default = 8
+apply = "u64.fx_input"
+
+[[core_setting]]
+group = "input"
+key = "Mouse Wheel Direction"
+label = "Mouse wheel direction"
+list = "wheeldir"
+default = 0
+when = "live"
+apply = "u64.fx_input"
+
+[[core_setting]]
+group = "trx64"
+key = "Overlay Transparency"
+label = "Overlay transparency"
+list = "alpha"
+default = 1
+when = "live"
+apply = "ui.fx"
+
+[[core_setting]]
+group = "trx64"
+key = "Splash"
+list = "splash"
+default = 1
+when = "live"
+apply = "settings.noop"
+
+[[core_setting]]
+group = "trx64"
+key = "Save Changed Cartridge"
+label = "Save changed cartridge"
+list = "off_ask_auto"
+default = 1
+when = "live"
+apply = "writeback.mode"
+
+[[core_setting]]
+group = "trx64"
+key = "Auto Save Config"
+label = "Auto save config"
+list = "off_ask_auto"
+default = 2
+when = "live"
+apply = "settings.autosave"
+
+[[core_setting]]
+group = "trx64"
+key = "Turbo Control"
+label = "Turbo control"
+list = "turbo"
+default = 0
+when = "live"
+apply = "u64.fx_misc"
+
+[[core_setting]]
+group = "trx64"
+key = "CPU Speed"
+label = "CPU speed"
+list = "speeds"
+default = 0
+when = "live"
+apply = "u64.fx_misc"
+
+[[core_setting]]
+group = "machine"
+key = "Fast Reset"
+label = "Fast reset"
+list = "en_dis"
+default = 0
+when = "live"
+apply = "c64.fx_io"
+
+[[core_setting]]
+group = "machine"
+key = "Kernal ROM"
+text = true
+empty = "Built-in"
+default = ""
+maxlen = 60
+apply = "c64.fx_roms"
+
+[[core_setting]]
+group = "machine"
+key = "Basic ROM"
+text = true
+empty = "Built-in"
+default = ""
+maxlen = 60
+apply = "c64.fx_roms"
+
+[[core_setting]]
+group = "machine"
+key = "Char ROM"
+text = true
+empty = "Built-in"
+default = ""
+maxlen = 60
+apply = "c64.fx_roms"
+
+[[core_setting]]
+group = "expert"
+key = "DMA Load Mimics ID"
+label = "DMA load mimics ID"
+range = [8, 31]
+unit = ""
+default = 8
+apply = "c64.fx_io"
+
+[[core_setting]]
+group = "drives"
+key = "Resets when C64 resets"
+label = "Reset drive with C64"
+list = "yes_no"
+default = 1
+when = "live"
+apply = "drive.fx_misc"
+
+[[core_setting]]
+group = "drives"
+key = "Freezes in menu"
+label = "Freeze drive in menu"
+list = "yes_no"
+default = 1
+when = "live"
+apply = "drive.fx_misc"
+
+[[core_setting]]
+group = "drives"
+key = "Leave Menu on Mount"
+label = "Leave menu on mount"
+list = "yes_no"
+default = 0
+when = "live"
+apply = "drive.fx_misc"
+
+[[core_setting]]
+group = "more"
+key = "Extra RAM"
+label = "Drive extra RAM"
+values = ["Disabled", "Enabled"]
+default = 0
+apply = "drive.set_ram"
+
+[[core_setting]]
+group = "more"
+key = "GCR Save Align Tracks"
+label = "GCR save align tracks"
+list = "yes_no"
+default = 1
+when = "live"
+apply = "drive.fx_misc"
+
+[[core_setting]]
+group = "more"
+key = "D64 Geos Copy Protection"
+label = "D64 geos copy protection"
+list = "geos"
+default = 0
+when = "live"
+apply = "drive.fx_misc"
+
+[[core_setting]]
+group = "more"
+key = "Track Twist"
+label = "Track twist"
+range = [0, 40]
+unit = ""
+default = 27
+apply = "drive.fx_misc"
+
+[[core_setting]]
+group = "more"
+key = "SpeedDOS Parallel Cable"
+label = "SpeedDOS parallel cable"
+list = "en_dis"
+default = 0
+when = "live"
+apply = "u64.fx_misc"
+
+[[core_setting]]
+group = "more"
+key = "ROM for 1541 mode"
+text = true
+default = "1541.rom"
+maxlen = 60
+apply = "drive.fx_misc"
+
+[[core_setting]]
+group = "io"
+key = "Cartridge Preference"
+label = "Cartridge preference"
+list = "cartmodes"
+default = 0
+when = "live"
+apply = "c64.fx_io"
+
+[[core_setting]]
+group = "io"
+key = "RAM Expansion Unit"
+label = "RAM expansion unit"
+list = "geo"
+default = 0
+when = "live"
+apply = "c64.fx_io"
+
+[[core_setting]]
+group = "io"
+key = "REU Size"
+label = "REU size"
+list = "reusize"
+default = 4
+when = "live"
+apply = "c64.fx_io"
+show_state = "reu.on"
+
+[[core_setting]]
+group = "io"
+key = "REU Preload"
+label = "REU preload"
+list = "en_dis"
+default = 0
+when = "live"
+apply = "c64.fx_io"
+show_state = "reu.on"
+
+[[core_setting]]
+group = "io"
+key = "REU Preload Image"
+label = "REU preload image"
+text = true
+default = "/usb0/preload.reu"
+maxlen = 60
+apply = "settings.noop"
+show_state = "reu.on"
+
+[[core_setting]]
+group = "io"
+key = "REU Preload Offset"
+label = "REU preload offset"
+list = "reuoffs"
+default = 0
+when = "live"
+apply = "settings.noop"
+show_state = "reu.on"
+
+[[core_setting]]
+group = "io"
+key = "Map Ultimate Audio $DF20-DFFF"
+label = "Ultimate audio at $DF20-$DFFF"
+list = "en_dis"
+default = 0
+when = "live"
+apply = "c64.fx_io"
+
+[[core_setting]]
+group = "io"
+key = "Command Interface (UCI)"
+label = "Command interface (UCI)"
+list = "en_dis"
+default = 0
+when = "live"
+apply = "c64.fx_io"
+
+[[core_setting]]
+group = "expert"
+key = "Bus Operation Mode"
+label = "Bus operation mode"
+list = "busmodes"
+default = 0
+when = "live"
+apply = "c64.fx_io"
+
+[[core_setting]]
+group = "expert"
+key = "Bus Sharing - ROMs"
+label = "Bus sharing - ROMs"
+list = "sharing"
+default = 2
+when = "live"
+apply = "c64.fx_io"
+
+[[core_setting]]
+group = "expert"
+key = "Bus Sharing - I/O1"
+label = "Bus sharing - I/O1"
+list = "sharing"
+default = 2
+when = "live"
+apply = "c64.fx_io"
+
+[[core_setting]]
+group = "expert"
+key = "Bus Sharing - I/O2"
+label = "Bus sharing - I/O2"
+list = "sharing"
+default = 2
+when = "live"
+apply = "c64.fx_io"
+
+[[core_setting]]
+group = "expert"
+key = "Bus Sharing - Interrupts"
+label = "Bus sharing - interrupts"
+list = "sharing"
+default = 2
+when = "live"
+apply = "c64.fx_io"
+
+[[core_setting]]
+group = "expert"
+key = "GAME/EXROM"
+list = "gameexrom"
+default = 0
+when = "live"
+apply = "c64.fx_io"
+
+[[core_setting]]
+group = "expert"
+key = "Burst Mode Patch"
+label = "Burst mode patch"
+list = "burst"
+default = 0
+when = "live"
+apply = "u64.fx_misc"
+
+[[core_setting]]
+group = "expert"
+key = "Serial Bus Mode"
+label = "Serial bus mode"
+list = "iecmodes"
+default = 0
+when = "live"
+apply = "u64.fx_misc"
+
+[[core_setting]]
+group = "expert"
+key = "Badline Timing"
+label = "Badline timing"
+list = "en_dis"
+default = 1
+when = "live"
+apply = "u64.fx_misc"
+
+[[core_setting]]
+group = "expert"
+key = "SuperCPU Detect (D0BC)"
+label = "SuperCPU detect (D0BC)"
+list = "en_dis"
+default = 0
+when = "live"
+apply = "u64.fx_misc"
+
+[[core_setting]]
+group = "expert"
+key = "UserPort Power Enable"
+label = "UserPort power enable"
+list = "en_dis"
+default = 1
+when = "live"
+apply = "u64.fx_misc"
+
+[[core_setting]]
+group = "expert"
+key = "Power On After Power Loss"
+label = "Power on after power loss"
+list = "poweron"
+default = 0
+when = "live"
+apply = "u64.fx_power"
+
+[[core_setting]]
+group = "expert"
+key = "Wake On Wi-Fi"
+label = "Wake on Wi-Fi"
+list = "en_dis"
+default = 0
+when = "live"
+apply = "u64.fx_power"
+
+[[core_setting]]
+group = "expert"
+key = "LED Select Top"
+label = "LED select top"
+list = "ledsel"
+default = 0
+when = "live"
+apply = "u64.fx_misc"
+
+[[core_setting]]
+group = "expert"
+key = "LED Select Bot"
+label = "LED select bottom"
+list = "ledsel"
+default = 4
+when = "live"
+apply = "u64.fx_misc"
+
+[[core_setting]]
+group = "expert"
+key = "Color Scheme"
+label = "Color scheme"
+list = "schemes"
+default = 1
+when = "live"
+apply = "ui.fx"
+
+[[core_setting]]
+group = "expert"
+key = "Enter Home on Startup"
+label = "Enter home on startup"
+list = "en_dis"
+default = 0
+when = "live"
+apply = "settings.noop"
+
+[[core_setting]]
+group = "expert"
+key = "Menu opens at"
+label = "Menu opens at"
+list = "menu_opens"
+default = 0
+when = "live"
+apply = "settings.noop"
+
+[[core_setting]]
+group = "expert"
+key = "Home Directory"
+label = "Home directory"
+text = true
+default = ""
+maxlen = 60
+apply = "settings.noop"
+
+[[core_setting]]
+group = "expert"
+key = "Filename overflow squeeze"
+list = "squeeze"
+default = 0
+when = "live"
+apply = "ui.fx"
+
+[[core_setting]]
+group = "trx64"
+key = "Timewarp Ring"
+label = "Timewarp ring"
+list = "onoff"
+default = 1
+when = "live"
+apply = "ring.fx"
+
+[[core_setting]]
+group = "trx64"
+key = "Instruction Trace"
+label = "Instruction trace"
+list = "onoff"
+default = 0
+when = "live"
+apply = "ring.fx"
+
+[[core_setting]]
+group = "ethernet"
+key = "Use DHCP"
+list = "en_dis"
+default = 1
+when = "live"
+apply = "net.fx"
+
+[[core_setting]]
+group = "ethernet"
+key = "Static IP"
+show_state = "net.static"
+text = true
+default = "192.168.2.64"
+maxlen = 15
+apply = "net.fx"
+
+[[core_setting]]
+group = "ethernet"
+key = "Static Netmask"
+label = "Static netmask"
+show_state = "net.static"
+text = true
+default = "255.255.255.0"
+maxlen = 15
+apply = "net.fx"
+
+[[core_setting]]
+group = "ethernet"
+key = "Static Gateway"
+label = "Static gateway"
+show_state = "net.static"
+text = true
+default = "192.168.2.1"
+maxlen = 15
+apply = "net.fx"
+
+[[core_setting]]
+group = "ethernet"
+key = "Static DNS"
+show_state = "net.static"
+text = true
+default = "8.8.8.8"
+maxlen = 15
+apply = "net.fx"
+
+[[core_setting]]
+group = "network"
+key = "Host Name"
+label = "Host name"
+text = true
+default = ""
+maxlen = 31
+apply = "net.fx"
+
+[[core_setting]]
+group = "network"
+key = "Unique ID"
+text = true
+default = "Default"
+maxlen = 16
+apply = "net.fx"
+
+[[core_setting]]
+group = "network"
+key = "Network Password"
+label = "Network password"
+empty = "Not set"
+secret = true
+default = ""
+maxlen = 31
+apply = "net.fx"
+
+[[core_setting]]
+group = "network"
+key = "Ultimate Ident Service"
+label = "Ultimate ident service"
+list = "en_dis"
+default = 1
+when = "live"
+apply = "net.fx"
+
+[[core_setting]]
+group = "network"
+key = "Ultimate DMA Service"
+label = "Ultimate DMA service"
+list = "en_dis"
+default = 1
+when = "live"
+apply = "net.fx"
+
+[[core_setting]]
+group = "network"
+key = "Telnet Remote Menu Service"
+label = "Telnet remote menu service"
+list = "en_dis"
+default = 1
+when = "live"
+apply = "net.fx"
+
+[[core_setting]]
+group = "network"
+key = "FTP File Service"
+label = "FTP file service"
+list = "en_dis"
+default = 1
+when = "live"
+apply = "net.fx"
+
+[[core_setting]]
+group = "network"
+key = "Web Remote Control Service"
+label = "Web remote control service"
+list = "en_dis"
+default = 1
+when = "live"
+apply = "net.fx"
+
+[[core_setting]]
+group = "network"
+key = "Log to Syslog Server"
+label = "Log to syslog server"
+text = true
+default = ""
+maxlen = 31
+apply = "net.fx"
+
+[[core_setting]]
+group = "time"
+key = "SNTP Enable"
+label = "SNTP enable"
+list = "en_dis"
+default = 1
+when = "live"
+apply = "net.fx"
+
+[[core_setting]]
+group = "time"
+key = "TimeZone"
+label = "Time zone"
+list = "zones"
+default = 16
+when = "live"
+apply = "net.fx"
+
+[[core_setting]]
+group = "time"
+key = "Time Server 1"
+label = "Time server 1"
+text = true
+default = ""
+maxlen = 31
+apply = "net.fx"
+
+[[core_setting]]
+group = "time"
+key = "Time Server 2"
+label = "Time server 2"
+text = true
+default = ""
+maxlen = 31
+apply = "net.fx"
+
+[[core_setting]]
+group = "time"
+key = "Time Server 3"
+label = "Time server 3"
+text = true
+default = ""
+maxlen = 31
+apply = "net.fx"
+
+[[core_setting]]
+group = "streams"
+key = "Stream VIC to"
+text = true
+default = "239.0.1.64:11000"
+maxlen = 36
+apply = "settings.noop"
+
+[[core_setting]]
+group = "streams"
+key = "Stream Audio to"
+label = "Stream audio to"
+text = true
+default = "239.0.1.65:11001"
+maxlen = 36
+apply = "settings.noop"
+
+[[core_setting]]
+group = "streams"
+key = "Stream Debug to"
+label = "Stream debug to"
+text = true
+default = "239.0.1.66:11002"
+maxlen = 36
+apply = "settings.noop"
+
+[[core_setting]]
+group = "streams"
+key = "Debug Stream Mode"
+label = "Debug stream mode"
+list = "streammodes"
+default = 0
+when = "live"
+apply = "settings.noop"
+
+[[core_setting]]
+group = "ftp"
+key = "FTP 1 Alias"
+label = "FTP 1 alias"
+text = true
+default = ""
+maxlen = 40
+apply = "settings.noop"
+
+[[core_setting]]
+group = "ftp"
+key = "FTP 1 Host"
+label = "FTP 1 host"
+text = true
+default = ""
+maxlen = 60
+apply = "settings.noop"
+
+[[core_setting]]
+group = "ftp"
+key = "FTP 1 Port"
+label = "FTP 1 port"
+text = true
+default = "21"
+maxlen = 5
+apply = "settings.noop"
+
+[[core_setting]]
+group = "ftp"
+key = "FTP 1 User"
+label = "FTP 1 user"
+text = true
+default = "anonymous"
+maxlen = 30
+apply = "settings.noop"
+
+[[core_setting]]
+group = "ftp"
+key = "FTP 1 Password"
+label = "FTP 1 password"
+empty = "Not set"
+secret = true
+default = ""
+maxlen = 30
+apply = "settings.noop"
+
+[[core_setting]]
+group = "ftp"
+key = "FTP 1 Folder"
+label = "FTP 1 folder"
+text = true
+default = "/"
+maxlen = 60
+apply = "settings.noop"
+
+[[core_setting]]
+group = "ftp"
+key = "FTP 2 Alias"
+label = "FTP 2 alias"
+text = true
+default = ""
+maxlen = 40
+apply = "settings.noop"
+
+[[core_setting]]
+group = "ftp"
+key = "FTP 2 Host"
+label = "FTP 2 host"
+text = true
+default = ""
+maxlen = 60
+apply = "settings.noop"
+
+[[core_setting]]
+group = "ftp"
+key = "FTP 2 Port"
+label = "FTP 2 port"
+text = true
+default = "21"
+maxlen = 5
+apply = "settings.noop"
+
+[[core_setting]]
+group = "ftp"
+key = "FTP 2 User"
+label = "FTP 2 user"
+text = true
+default = "anonymous"
+maxlen = 30
+apply = "settings.noop"
+
+[[core_setting]]
+group = "ftp"
+key = "FTP 2 Password"
+label = "FTP 2 password"
+empty = "Not set"
+secret = true
+default = ""
+maxlen = 30
+apply = "settings.noop"
+
+[[core_setting]]
+group = "ftp"
+key = "FTP 2 Folder"
+label = "FTP 2 folder"
+text = true
+default = "/"
+maxlen = 60
+apply = "settings.noop"
+
+[[core_setting]]
+group = "ftp"
+key = "FTP 3 Alias"
+label = "FTP 3 alias"
+text = true
+default = ""
+maxlen = 40
+apply = "settings.noop"
+
+[[core_setting]]
+group = "ftp"
+key = "FTP 3 Host"
+label = "FTP 3 host"
+text = true
+default = ""
+maxlen = 60
+apply = "settings.noop"
+
+[[core_setting]]
+group = "ftp"
+key = "FTP 3 Port"
+label = "FTP 3 port"
+text = true
+default = "21"
+maxlen = 5
+apply = "settings.noop"
+
+[[core_setting]]
+group = "ftp"
+key = "FTP 3 User"
+label = "FTP 3 user"
+text = true
+default = "anonymous"
+maxlen = 30
+apply = "settings.noop"
+
+[[core_setting]]
+group = "ftp"
+key = "FTP 3 Password"
+label = "FTP 3 password"
+empty = "Not set"
+secret = true
+default = ""
+maxlen = 30
+apply = "settings.noop"
+
+[[core_setting]]
+group = "ftp"
+key = "FTP 3 Folder"
+label = "FTP 3 folder"
+text = true
+default = "/"
+maxlen = 60
+apply = "settings.noop"
+
+[[core_setting]]
+group = "ftp"
+key = "FTP 4 Alias"
+label = "FTP 4 alias"
+text = true
+default = ""
+maxlen = 40
+apply = "settings.noop"
+
+[[core_setting]]
+group = "ftp"
+key = "FTP 4 Host"
+label = "FTP 4 host"
+text = true
+default = ""
+maxlen = 60
+apply = "settings.noop"
+
+[[core_setting]]
+group = "ftp"
+key = "FTP 4 Port"
+label = "FTP 4 port"
+text = true
+default = "21"
+maxlen = 5
+apply = "settings.noop"
+
+[[core_setting]]
+group = "ftp"
+key = "FTP 4 User"
+label = "FTP 4 user"
+text = true
+default = "anonymous"
+maxlen = 30
+apply = "settings.noop"
+
+[[core_setting]]
+group = "ftp"
+key = "FTP 4 Password"
+label = "FTP 4 password"
+empty = "Not set"
+secret = true
+default = ""
+maxlen = 30
+apply = "settings.noop"
+
+[[core_setting]]
+group = "ftp"
+key = "FTP 4 Folder"
+label = "FTP 4 folder"
+text = true
+default = "/"
+maxlen = 60
+apply = "settings.noop"

@@ -1,0 +1,118 @@
+{
+ "cart_type": "0x31",
+ "crt_type": 232,
+ "name": "EasyFlashXl",
+ "note": "PROP-002 sec. 8.3 (TRX64 cart.rs): EasyFlash with an 8-bit bank and two 2 MB chips; a 4 MB image.",
+ "regs": {
+  "R0": 0,
+  "R1": 0
+ },
+ "wmask": {
+  "R0": "0xFF",
+  "R1": "0x87"
+ },
+ "rules": [
+  {
+   "area": "IO1",
+   "match": "0x00",
+   "mask": "0x02",
+   "on": "WRITE",
+   "target": "R0",
+   "src": "DATA"
+  },
+  {
+   "area": "IO1",
+   "match": "0x02",
+   "mask": "0x02",
+   "on": "WRITE",
+   "target": "R1",
+   "src": "DATA"
+  }
+ ],
+ "bank": [
+  {
+   "reg": "R0",
+   "lsb": 0,
+   "width": 8
+  }
+ ],
+ "mode": {
+  "reg": "R1",
+  "lsb": 0,
+  "width": 3
+ },
+ "table": [
+  {
+   "exrom": 1,
+   "game": 0,
+   "w": 1
+  },
+  {
+   "exrom": 1,
+   "game": 0,
+   "w": 1
+  },
+  {
+   "exrom": 0,
+   "game": 0
+  },
+  {
+   "exrom": 0,
+   "game": 0
+  },
+  {
+   "off": 1
+  },
+  {
+   "exrom": 1,
+   "game": 0,
+   "w": 1
+  },
+  {
+   "exrom": 0,
+   "game": 1
+  },
+  {
+   "exrom": 0,
+   "game": 0
+  }
+ ],
+ "layout": "SPLIT",
+ "io1": {
+  "read": "OPEN",
+  "write": [
+   "RULES"
+  ]
+ },
+ "io2": {
+  "read": "RAM",
+  "write": [
+   "RAM"
+  ]
+ },
+ "flash": {
+  "part": "AM29F040B XL x2",
+  "chips": 2,
+  "magic1": "0x555",
+  "magic2": "0x2AA",
+  "mask": "0x7FF",
+  "id": [
+   "0x01",
+   "0xA4"
+  ],
+  "id_ofs": 1,
+  "size": "2M",
+  "sectors": [
+   {
+    "count": 32,
+    "size": "64K"
+   }
+  ],
+  "select": [
+   "ROML_R",
+   "ROML_W",
+   "ROMH_R",
+   "ROMH_W"
+  ]
+ }
+}

@@ -1,0 +1,61 @@
+name: Cor
+
+# T174 D4: a child of the push pipeline (ci/children.txt; the parent .gitea/workflows/pipeline.yml dispatches it with sha, parent, target and plan),
+# also runnable alone (workflow_dispatch: everything is named). It checks out inputs.sha and runs ci/child.sh, which is red at once with its reason.
+# Concern: one core's .cor on a feature branch (ci/cor.sh), published into this commit's package version.
+run-name: "cor ${{ inputs.target }} @${{ inputs.sha }} (parent ${{ inputs.parent }})"
+
+on:
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: 'the commit (the parent passes its own; empty = the branch head)'
+        type: string
+        default: ''
+      parent:
+        description: 'run id of the parent pipeline (empty = run alone)'
+        type: string
+        default: ''
+      target:
+        description: 'core:<id> or large:<id>'
+        type: string
+        default: ''
+      plan:
+        description: 'plan.json of the parent (ci/plan.py); empty = run alone: everything is named'
+        type: string
+        default: ''
+
+jobs:
+  cor:
+    name: Single .cor
+    runs-on: ${{ vars.CI_RUNNER || 'builder' }}
+    container:
+      image: u64-build-env:ci
+      options: --init
+      volumes:
+        - /srv/trx64-build/cache:/cache
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Fetch the commit
+        env:
+          TOKEN: ${{ secrets.GITEA_TOKEN || secrets.GITHUB_TOKEN }}
+          SHA: ${{ inputs.sha || github.sha }}
+        run: |
+          set -eu
+          SERVER="${GITHUB_SERVER_URL#*://}"
+          git init -q src
+          git -C src remote add origin "http://actions:${TOKEN}@${SERVER}/${GITHUB_REPOSITORY}.git"
+          git -C src fetch -q --depth 1 origin "$SHA"
+          git -C src checkout -q --detach FETCH_HEAD
+          git -C src log --oneline -1
+      - name: Pack
+        env:
+          PARENT: ${{ inputs.parent }}
+          PLAN_JSON: ${{ inputs.plan }}
+          CI_SHA: ${{ inputs.sha || github.sha }}
+          CI_STATUS_TOKEN: ${{ secrets.GITEA_TOKEN || secrets.GITHUB_TOKEN }}
+          PACKAGE_TOKEN: ${{ secrets.PACKAGE_TOKEN }}
+        run: src/ci/child.sh cor "${{ inputs.target }}"

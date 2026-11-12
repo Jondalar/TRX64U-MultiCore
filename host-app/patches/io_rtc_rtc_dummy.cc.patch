@@ -1,0 +1,12 @@
+--- /path/to/Development/TRX64U-MultiCore/apps/ultimate/software/io/rtc/rtc_dummy.cc
++++ host-app/software/io/rtc/rtc_dummy.cc	2026-10-30 19:27:41
+@@ -120,6 +120,9 @@
+ {
+     int y, M, D, wd, h, m, s;
+     get_time(y, M, D, wd, h, m, s);
++    if (y < 0) { // the clock is not set (1970): FAT counts from 1980, a negative year would wrap into 2097
++        y = 0; M = 1; D = 1; h = 0; m = 0; s = 0;
++    }
+ 
+     uint32_t result = 0;
+     result |= (y << 25);

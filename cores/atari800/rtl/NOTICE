@@ -1,0 +1,14 @@
+Atari 800 XL core: Mark Watson's Atari800 core (https://github.com/MiSTer-devel/Atari800_MiSTer), commit 1440e41,
+copied unchanged by tools/vendor_atari800.sh. Watson's file headers state: "happy for anyone to use this for
+non-commercial use ... contact me for explicit permission" (scrameta@gmail.com). Any commercial use needs his permission
+first. Every file keeps its own copyright header; the LGPL files (cart_logic, pbi_rom, freezer_logic) stay LGPL with their
+headers. The partial bitstream of this core is published as a `.cor` together with this source, without ROM images.
+Rights holders who see a problem with any part listed here: please contact us, and we remove the part concerned.
+
+Not copied, on purpose: cpu.vhd and cpu_65xx.vhd (ours is cores/atari800/cpu.vhd on vendor/icepi's proc_core, §5),
+vbxe* (Q7), pokeymax/ (Q8), ultime.vhdl, ps2_to_atari800.vhdl and ps2_keyboard.vhdl (D6: the C64U matrix instead),
+internalromram.vhd (the app writes RAM and ROM, D4), sdram_statemachine.vhdl and large_bram.vhdl (the host's DDR2
+path instead), tape_handler.vhdl with fifo_tape.vhd (only if Q6 asks for tape), the Atari 5200 files, the Altera
+specific files (bram.vhd, pll*, hps_ext.v) and everything the host provides (video mixer, SD, HDMI, SPI, PLLs).
+
+ROMs are not part of the published source: the Atari OS (atarixl.rom), BASIC and cartridge images come from the stick at run time.

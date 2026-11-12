@@ -1,0 +1,17 @@
+# The ZX Spectrum core (T91): 48K and 128K, ULA/Z80/AY of MiSTer-devel/ZX-Spectrum_MiSTer in cores/zx/rtl, the Z80 converted by
+# tools/zx_gen.sh into gen/, our glue in trx/, the parts the CPC core (T92) reads too in shared/. Licences: cores/zx/rtl/NOTICE.
+id           = "zx"
+name         = "ZX Spectrum 48K / 128K"
+version      = "0.0.1"
+contract     = 2
+app          = "blueprint"     # the T104 generic application (coreapp/cores/zx.cc), not Gideon's base (T91 §5 2026-10-22; supersedes D11)
+order        = 11              # after the Apple IIe (10); the T79 core list put the Spectrum at position 8, which the NES took
+delivery     = "cfw"           # a LARGE core since 2026-11-01 (T164 Q1: pb_l2 is X0-49 rows 0-99 with 40 block RAM tiles, this core needs 42; Alex: "whatever does not fit becomes a
+                               # large core"): this file is the only descriptor, no DFX lane; cores/zx/mono/build_mono.tcl, lane large-zx
+mono_env     = ["TRX_FEATURES=jtag"]   # the host features are the DFX build's (jtag on, UCI and UDP streams off)
+experimental = true            # built, benched, application written; not routed, no board test; the flat build has not run yet
+sources      = ["cores/zx"]
+                               # rtl/ula.sv and rtl/ym2149.sv are built as they are; the VHDL of the Z80 (rtl/T80) is the source of gen/t80pa.v
+                               # (tools/zx_gen.sh; the lint stage checks the Verilog against it), so it stays in the key. sim/ is in the key too:
+                               # host/layers.txt (the host's, not ours to edit) lists the other cores' sim/ directories under ignore:, not this one's
+roms         = ["zx 48.rom", "zx 128.rom"]

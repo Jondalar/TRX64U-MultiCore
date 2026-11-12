@@ -1,0 +1,59 @@
+core C128 Commodore 128
+area F1 Home
+  tab 1 Home
+    info Core
+    info Application
+    info Network
+    info Media
+    info ROMs
+    info Libraries
+    media Drive A:
+    fixed Save as config...
+    fixed Load config...
+area F3 Library
+  tab 1 Browse
+    browser Browse
+      filetype .rom: Load as system ROM image (72 KiB) | Set as 1541 ROM | Use as JiffyDOS C128 ROM | Use as JiffyDOS C64 ROM | Use as JiffyDOS 1541 ROM | Use as JiffyDOS 1581 ROM
+      filetype .bin: Use as JiffyDOS C128 ROM | Use as JiffyDOS C64 ROM | Use as JiffyDOS 1541 ROM | Use as JiffyDOS 1581 ROM
+      filetype .d64: Mount Disk | Mount Disk Read Only | Mount Disk Unlinked | Run Disk | Browse Disk
+      filetype .g64: Mount Disk | Mount Disk Read Only | Mount Disk Unlinked | Run Disk
+      filetype .d81: Mount Disk | Mount Disk Read Only | Run Disk | Browse Disk
+area F5 C128
+  tab 1 C128
+    setting 40/80 DISPLAY = 40 columns | 80 columns (default 40 columns, at next reset)
+    setting Picture shown = 40 columns (VIC-IIe) | 80 columns (VDC) (default 40 columns (VIC-IIe), live)
+    setting Auto switch = Off | On (default On, live)
+    setting Auto switch time = 0.5 s | 1 s | 2 s | 3 s (default 1 s, live)
+    setting Joystick ports = Normal | Swapped (default Normal, live)
+    setting System Mode = PAL | NTSC | PAL-60 | NTSC-50 (default PAL, live)
+    setting ROM set = Standard | JiffyDOS (default Standard, at next reset)
+    setting JiffyDOS C128 ROM = a file the person selects (none by default, at next reset)
+    setting JiffyDOS C64 ROM = a file the person selects (none by default, at next reset)
+    setting JiffyDOS 1541 ROM = a file the person selects (none by default, at next reset)
+    setting JiffyDOS 1581 ROM = a file the person selects (none by default, at next reset)
+    setting Drive = Disabled | Enabled (default Enabled, live)
+    setting Drive Bus ID = 8 | 9 | 10 | 11 (default 8, live)
+    setting Extra RAM = Disabled | Enabled (default Disabled, live)
+    setting Disk swap delay = 100 ms | 200 ms | 300 ms | 400 ms | 500 ms | 600 ms | 700 ms | 800 ms | 900 ms | 1000 ms (default 100 ms, live)
+    setting LED Load Indicator = On | Off (default On, live)
+area F7 Actions
+  tab 1 Quick
+    task Reset (closes the menu)
+    task Reload ROMs, reset (closes the menu)
+    task Reset Drive
+    task Create blank D64 (asks a name)
+    task Create blank G64 (asks a name)
+    task Save Disk as D64 (asks a name)
+    task Save Disk as G64 (asks a name)
+    task Create blank D81 (asks a name)
+area F8 System (shifted)
+  tab 1 System
+    heading Actions
+    fixed Restart core
+    fixed Return to host menu
+    heading Network
+    fixed WiFi
+    heading Support
+    fixed Bug report
+    heading Reset
+    fixed Reset to host defaults

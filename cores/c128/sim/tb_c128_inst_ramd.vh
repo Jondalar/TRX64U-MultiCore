@@ -1,0 +1,13 @@
+        .ram_m_req_tgl(ram_m_req_tgl),
+        .ram_m_req_line(ram_m_req_line),
+        .ram_m_done_tgl(ram_m_done_tgl),
+        .ram_w_req_tgl(ram_w_req_tgl),
+        .ram_w_req_addr(ram_w_req_addr),
+        .ram_w_req_data(ram_w_req_data),
+        .ram_w_done_tgl(ram_w_done_tgl),
+        .dbg_ack(dbg_ack),
+        .ram_n_vic_miss(ram_n_vic_miss),
+        .ram_n_cpu_wait(ram_n_cpu_wait),
+        .ram_n_fetch(ram_n_fetch),
+        .ram_n_wlost(ram_n_wlost),
+        .ram_n_vic_blk1(ram_n_vic_blk1)

@@ -1,0 +1,17 @@
+<component>
+    <api>
+        <prop name="glyph" type="string" default="?" />
+        <prop name="width" type="int" default="24" />
+        <prop name="tone" type="color" default="#color_line" />
+        <prop name="text_color" type="color" default="#color_ink" />
+    </api>
+
+    <view extends="base_box" width="$width" height="18" flex_flow="row"
+          style_flex_main_place="center" style_flex_cross_place="center"
+          style_bg_color="#color_surface_2" style_bg_opa="100%"
+          style_border_color="$tone" style_border_width="1"
+          style_radius="#radius_sm" style_pad_hor="#space_xs">
+        <lv_label text="$glyph" style_text_font="font_caption"
+                  style_text_color="$text_color" />
+    </view>
+</component>

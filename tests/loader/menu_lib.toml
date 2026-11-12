@@ -1,0 +1,30 @@
+# The menu record of the made-up library in tests/loader (T104.1 D9: a library's own nodes, settings, file actions, tab and poll as TOML).
+[[tab]]
+area = "F5"
+id = "lib"
+name = "Library"
+widget = "nodes"
+
+[poll]
+op = "test.poll"
+period_ms = 20
+
+[[node]]
+anchor = "F5/lib"
+kind = "op"
+label = "Pulse"
+op = "test.echo"
+bind = [ { arg = "text", str = "pulse" } ]
+order = 1
+
+[[file_action]]
+ext = [".tlb"]
+label = "Echo it"
+op = "test.echo"
+bind = [ { arg = "text", str = "file" } ]
+
+[[setting]]
+key = "Level"
+range = [0, 3]
+default = 1
+apply = "test.set_level"

@@ -1,0 +1,40 @@
+247a248
+> 	output [40-1:0] diw_o,    // T97 5.10 (A1200 copy): the display window as the register writes set it, {vdiwstop, vdiwstrt, hdiwstop, hdiwstrt}
+330a332,354
+> 
+> // T97 5.10 (A1200 copy, minimig.diff): the display window, snooped from the register bus the way agnus_bitplanedma.v decodes it
+> // (CPU and copper writes both arrive on reg_address / custom_data_in); read by the application, so it must not touch the chipset.
+> reg [10:0] w_vstrt, w_vstop;
+> reg  [8:0] w_hstrt, w_hstop;
+> wire       w_ecs = |chipset_config[4:3];
+> always @(posedge clk) if (ce28 && clk7_en) begin
+> 	if (reg_address == 8'h47) begin                          // DIWSTRT $08E
+> 		w_vstrt <= {3'b000, custom_data_in[15:8]};
+> 		w_hstrt <= {1'b0, custom_data_in[7:0]};
+> 	end else if (reg_address == 8'hF2 && w_ecs) begin        // DIWHIGH $1E4
+> 		w_vstrt[10:8] <= custom_data_in[2:0];
+> 		w_hstrt[8]    <= custom_data_in[5];
+> 	end
+> 	if (reg_address == 8'h48) begin                          // DIWSTOP $090
+> 		w_vstop <= {2'b00, ~custom_data_in[15], custom_data_in[15:8]};
+> 		w_hstop <= {1'b1, custom_data_in[7:0]};
+> 	end else if (reg_address == 8'hF2 && w_ecs) begin
+> 		w_vstop[10:8] <= custom_data_in[10:8];
+> 		w_hstop[8]    <= custom_data_in[13];
+> 	end
+> end
+> assign diw_o = {w_vstop, w_vstrt, w_hstop, w_hstrt};
+942a967,972
+> `ifndef GATEMATE
+>  `ifndef LATTICE
+>   `default_nettype wire
+>  `endif
+> `endif
+> 
+975,980d1004
+< 
+< `ifndef GATEMATE
+<  `ifndef LATTICE
+<   `default_nettype wire
+<  `endif
+< `endif

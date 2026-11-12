@@ -1,0 +1,57 @@
+<screen>
+    <view>
+        <style name="style_screen" />
+        <app_shell active_system="true" active_tab="1">
+            <app_shell-content>
+                <column width="100%" height="100%" pad="#space_lg" gap="#space_md">
+                    <row width="100%">
+                        <column grow="1" gap="#space_xs">
+                            <lv_label text="SETTINGS / SYSTEM" style_text_font="font_caption"
+                                      style_text_color="#color_muted" />
+                            <lv_label text="System" style_text_font="font_title"
+                                      style_text_color="#color_ink" />
+                        </column>
+                        <status_chip label="HEALTHY" tone="#color_cyan" />
+                    </row>
+
+                    <row width="100%" gap="#space_lg">
+                        <lv_label text="M2 DEV" style_text_font="font_display"
+                                  style_text_color="#color_ink" />
+                        <lv_label text="FPGA  TRX64" style_text_font="font_body"
+                                  style_text_color="#color_muted" />
+                        <lv_label text="STORAGE  68% FREE" style_text_font="font_body"
+                                  style_text_color="#color_muted" />
+                    </row>
+
+                    <panel width="100%" grow="1" gap="0">
+                        <row width="100%" pad="#space_sm">
+                            <lv_label text="RECENT LOG" style_text_font="font_caption"
+                                      style_text_color="#color_muted" />
+                            <box grow="1" />
+                            <lv_label text="NO ERRORS" style_text_font="font_caption"
+                                      style_text_color="#color_cyan" />
+                        </row>
+                        <action_row title="14:33:04" subtitle="Drive 8 image mounted"
+                                    meta="INFO" tone="#color_cyan" />
+                        <action_row title="14:32:55" subtitle="Cartridge writeback completed"
+                                    meta="INFO" tone="#color_cyan" />
+                        <action_row title="14:31:18" subtitle="Wi-Fi connected to StudioNet"
+                                    meta="INFO" tone="#color_cyan" />
+                        <box grow="1" />
+                    </panel>
+
+                    <row width="100%" gap="#space_sm">
+                        <lv_label text="&lt;-  ALL SETTINGS" style_text_font="font_caption"
+                                  style_text_color="#color_muted" />
+                        <box grow="1" />
+                        <ui_button label="FULL LOG" />
+                        <ui_button label="CHECK FOR UPDATE" />
+                        <ui_button label="EXPORT DIAGNOSTICS" />
+                        <lv_label text="F7  RESET" style_text_font="font_caption"
+                                  style_text_color="#color_coral" />
+                    </row>
+                </column>
+            </app_shell-content>
+        </app_shell>
+    </view>
+</screen>

@@ -1,0 +1,50 @@
+<screen>
+    <view>
+        <style name="style_screen" />
+        <app_shell active_library="true" active_tab="2">
+            <app_shell-content>
+                <column width="100%" height="100%" pad="#space_lg" gap="#space_md">
+                    <row width="100%">
+                        <column grow="1" gap="#space_xs">
+                            <lv_label text="LIBRARY / SEARCH" style_text_font="font_caption"
+                                      style_text_color="#color_muted" />
+                            <lv_label text="Find software" style_text_font="font_title"
+                                      style_text_color="#color_ink" />
+                        </column>
+                        <status_chip label="LOCAL + ASSEMBLY64" tone="#color_violet" />
+                    </row>
+
+                    <row width="100%" gap="#space_sm">
+                        <ui_button label="LOCAL" border_color="#color_violet" />
+                        <ui_button label="ASSEMBLY64" />
+                        <ui_button label="RECENT" />
+                    </row>
+
+                    <panel width="100%" grow="1" gap="0">
+                        <row width="100%" pad="#space_sm" gap="#space_md">
+                            <lv_label text="QUERY" style_text_font="font_caption"
+                                      style_text_color="#color_muted" />
+                            <lv_label text="last ninja ?" style_text_font="font_body"
+                                      style_text_color="#color_ink" />
+                            <box grow="1" />
+                            <ui_button label="SEARCH" bg_color="#color_violet"
+                                       border_color="#color_violet" text_color="#color_bg" />
+                        </row>
+                        <action_row title="Last Ninja 2.d64" subtitle="SD:/Games/N"
+                                    meta="LOCAL" tone="#color_cyan">
+                            <screen_create_event screen="library_actions" anim_type="fade_in" duration="120" />
+                        </action_row>
+                        <action_row title="Last Ninja Remix" subtitle="Assembly64 / downloadable"
+                                    meta="REMOTE" tone="#color_violet" />
+                        <action_row title="The Last Ninja.sid" subtitle="USB:/Music/Hubbard"
+                                    meta="SID" tone="#color_muted" />
+                        <box grow="1" />
+                    </panel>
+
+                    <lv_label text="Typing performs quick-seek; ? matches one character"
+                              style_text_font="font_caption" style_text_color="#color_muted" />
+                </column>
+            </app_shell-content>
+        </app_shell>
+    </view>
+</screen>

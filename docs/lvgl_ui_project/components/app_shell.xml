@@ -1,0 +1,219 @@
+<component>
+    <api>
+        <prop name="active_home" type="bool" default="false" />
+        <prop name="active_library" type="bool" default="false" />
+        <prop name="active_c64" type="bool" default="false" />
+        <prop name="active_actions" type="bool" default="false" />
+        <prop name="active_timewarp" type="bool" default="false" />
+        <prop name="active_tools" type="bool" default="false" />
+        <prop name="active_settings" type="bool" default="false" />
+        <prop name="active_system" type="bool" default="false" />
+        <prop name="active_tab" type="int" default="1" />
+        <slot name="content" />
+    </api>
+
+    <view extends="base_box" width="100%" height="100%" flex_flow="column"
+          style_bg_color="#color_bg" style_bg_opa="100%">
+        <row width="100%" height="#topbar_height" pad="#space_sm" gap="#space_sm"
+             style_bg_color="#color_bg" style_bg_opa="100%"
+             style_border_side="bottom" style_border_color="#color_line" style_border_width="1">
+            <lv_label text="TRX64" style_text_font="font_heading" style_text_color="#color_ink" />
+            <lv_label text="/ UI" style_text_font="font_caption" style_text_color="#color_muted" />
+            <box grow="1" />
+            <status_chip label="C64" tone="#color_cyan" />
+            <status_chip label="D8" tone="#color_cyan" />
+            <box flow="row" gap="#space_xs">
+                <lv_obj width="4" height="4" style_bg_color="#color_violet" style_bg_opa="100%"
+                        style_border_width="0" style_radius="2" />
+                <lv_label bind_text="subject_activity" style_text_font="font_caption"
+                          style_text_color="#color_muted" />
+            </box>
+        </row>
+
+        <row width="100%" grow="1" gap="0" vertical_align="start">
+            <column width="#sidebar_width" height="100%" pad="#space_sm" gap="#space_2xs"
+                    style_bg_color="#color_surface" style_bg_opa="100%"
+                    style_border_side="right" style_border_color="#color_line" style_border_width="1">
+                <lv_label text="DIRECT" style_text_font="font_caption" style_text_color="#color_muted" />
+                <nav_item label="HOME" shortcut="F1" active="$active_home">
+                    <screen_create_event screen="home" anim_type="fade_in" duration="120" />
+                </nav_item>
+                <nav_item label="LIBRARY" shortcut="F3" active="$active_library">
+                    <screen_create_event screen="library" anim_type="fade_in" duration="120" />
+                </nav_item>
+                <nav_item label="C64" shortcut="F5" active="$active_c64">
+                    <screen_create_event screen="c64" anim_type="fade_in" duration="120" />
+                </nav_item>
+                <nav_item label="ACTIONS" shortcut="F7" active="$active_actions">
+                    <screen_create_event screen="quick_actions" anim_type="fade_in" duration="120" />
+                </nav_item>
+
+                <lv_label text="SHIFTED" style_text_font="font_caption" style_text_color="#color_muted"
+                          style_pad_top="#space_sm" />
+                <nav_item label="TIMEWARP" shortcut="F2" active="$active_timewarp">
+                    <screen_create_event screen="timewarp" anim_type="fade_in" duration="120" />
+                </nav_item>
+                <nav_item label="TOOLS" shortcut="F4" active="$active_tools">
+                    <screen_create_event screen="tools" anim_type="fade_in" duration="120" />
+                </nav_item>
+                <nav_item label="SETTINGS" shortcut="F6" active="$active_settings">
+                    <screen_create_event screen="settings" anim_type="fade_in" duration="120" />
+                </nav_item>
+                <nav_item label="SYSTEM" shortcut="F8" active="$active_system">
+                    <screen_create_event screen="system" anim_type="fade_in" duration="120" />
+                </nav_item>
+
+                <box grow="1" />
+                <row width="100%" gap="#space_xs">
+                    <runstop_keycap />
+                    <freeze_button />
+                    <lv_label text="CLOSE" style_text_font="font_caption"
+                              style_text_color="#color_muted" />
+                </row>
+            </column>
+
+            <column grow="1" height="100%" gap="0">
+                <row width="100%" height="38" pad="#space_sm" gap="#space_xs"
+                     hidden="{!active_home}" style_border_side="bottom"
+                     style_border_color="#color_line" style_border_width="1">
+                    <tab_item number="1" label="HOME" active="{active_tab == 1}">
+                        <screen_create_event screen="home" anim_type="fade_in" duration="100" />
+                    </tab_item>
+                </row>
+
+                <row width="100%" height="38" pad="#space_sm" gap="#space_xs"
+                     hidden="{!active_library}" style_border_side="bottom"
+                     style_border_color="#color_line" style_border_width="1">
+                    <tab_item number="1" label="BROWSE" active="{active_tab == 1}">
+                        <screen_create_event screen="library" anim_type="fade_in" duration="100" />
+                    </tab_item>
+                    <tab_item number="2" label="SEARCH" active="{active_tab == 2}">
+                        <screen_create_event screen="library_search" anim_type="fade_in" duration="100" />
+                    </tab_item>
+                    <tab_item number="3" label="MANAGE" active="{active_tab == 3}">
+                        <screen_create_event screen="library_manage" anim_type="fade_in" duration="100" />
+                    </tab_item>
+                </row>
+
+                <row width="100%" height="38" pad="#space_sm" gap="#space_xs"
+                     hidden="{!active_c64}" style_border_side="bottom"
+                     style_border_color="#color_line" style_border_width="1">
+                    <tab_item number="1" label="SUMMARY" active="{active_tab == 1}">
+                        <screen_create_event screen="c64" anim_type="fade_in" duration="100" />
+                    </tab_item>
+                    <tab_item number="2" label="MACHINE" active="{active_tab == 2}">
+                        <screen_create_event screen="c64_machine" anim_type="fade_in" duration="100" />
+                    </tab_item>
+                    <tab_item number="3" label="DRIVES" active="{active_tab == 3}">
+                        <screen_create_event screen="c64_drives" anim_type="fade_in" duration="100" />
+                    </tab_item>
+                    <tab_item number="4" label="I/O" active="{active_tab == 4}">
+                        <screen_create_event screen="c64_peripherals" anim_type="fade_in" duration="100" />
+                    </tab_item>
+                </row>
+
+                <row width="100%" height="38" pad="#space_sm" gap="#space_xs"
+                     hidden="{!active_actions}" style_border_side="bottom"
+                     style_border_color="#color_line" style_border_width="1">
+                    <tab_item number="1" label="QUICK" active="{active_tab == 1}">
+                        <screen_create_event screen="quick_actions" anim_type="fade_in" duration="100" />
+                    </tab_item>
+                    <tab_item number="2" label="C64" active="{active_tab == 2}">
+                        <screen_create_event screen="action_catalog" anim_type="fade_in" duration="100" />
+                    </tab_item>
+                    <tab_item number="3" label="TIMEWARP" active="{active_tab == 3}">
+                        <screen_create_event screen="timewarp_actions" anim_type="fade_in" duration="100" />
+                    </tab_item>
+                    <tab_item number="4" label="LIBRARY" active="{active_tab == 4}">
+                        <screen_create_event screen="library_actions" anim_type="fade_in" duration="100" />
+                    </tab_item>
+                </row>
+
+                <row width="100%" height="38" pad="#space_sm" gap="#space_xs"
+                     hidden="{!active_timewarp}" style_border_side="bottom"
+                     style_border_color="#color_line" style_border_width="1">
+                    <tab_item number="1" label="TIMELINE" active="{active_tab == 1}">
+                        <screen_create_event screen="timewarp" anim_type="fade_in" duration="100" />
+                    </tab_item>
+                </row>
+
+                <row width="100%" height="38" pad="#space_sm" gap="#space_xs"
+                     hidden="{!active_tools}" style_border_side="bottom"
+                     style_border_color="#color_line" style_border_width="1">
+                    <tab_item number="1" label="OVERVIEW" active="{active_tab == 1}">
+                        <screen_create_event screen="tools" anim_type="fade_in" duration="100" />
+                    </tab_item>
+                    <tab_item number="2" label="MONITOR" active="{active_tab == 2}">
+                        <screen_create_event screen="monitor" anim_type="fade_in" duration="100" />
+                    </tab_item>
+                    <tab_item number="3" label="DIAG" active="{active_tab == 3}">
+                        <screen_create_event screen="tools_diagnostics" anim_type="fade_in" duration="100" />
+                    </tab_item>
+                    <tab_item number="4" label="APPS" active="{active_tab == 4}">
+                        <screen_create_event screen="tools_apps" anim_type="fade_in" duration="100" />
+                    </tab_item>
+                    <tab_item number="5" label="STREAMS" active="{active_tab == 5}">
+                        <screen_create_event screen="tools_streams" anim_type="fade_in" duration="100" />
+                    </tab_item>
+                </row>
+
+                <row width="100%" height="38" pad="#space_sm" gap="#space_xs"
+                     hidden="{!active_settings}" style_border_side="bottom"
+                     style_border_color="#color_line" style_border_width="1">
+                    <tab_item number="1" label="TRX64" active="{active_tab == 1}">
+                        <screen_create_event screen="settings_trx64" anim_type="fade_in" duration="100" />
+                    </tab_item>
+                    <tab_item number="2" label="VIDEO" active="{active_tab == 2}">
+                        <screen_create_event screen="settings_video" anim_type="fade_in" duration="100" />
+                    </tab_item>
+                    <tab_item number="3" label="AUDIO" active="{active_tab == 3}">
+                        <screen_create_event screen="settings_audio" anim_type="fade_in" duration="100" />
+                    </tab_item>
+                    <tab_item number="4" label="INPUT" active="{active_tab == 4}">
+                        <screen_create_event screen="settings_controllers" anim_type="fade_in" duration="100" />
+                    </tab_item>
+                    <tab_item number="5" label="NETWORK" active="{active_tab == 5}">
+                        <screen_create_event screen="settings_network" anim_type="fade_in" duration="100" />
+                    </tab_item>
+                </row>
+
+                <row width="100%" height="38" pad="#space_sm" gap="#space_xs"
+                     hidden="{!active_system}" style_border_side="bottom"
+                     style_border_color="#color_line" style_border_width="1">
+                    <tab_item number="1" label="STATUS" active="{active_tab == 1}">
+                        <screen_create_event screen="system" anim_type="fade_in" duration="100" />
+                    </tab_item>
+                    <tab_item number="2" label="I/O" active="{active_tab == 2}">
+                        <screen_create_event screen="settings_peripherals" anim_type="fade_in" duration="100" />
+                    </tab_item>
+                    <tab_item number="3" label="EXPERT" active="{active_tab == 3}">
+                        <screen_create_event screen="settings_advanced" anim_type="fade_in" duration="100" />
+                    </tab_item>
+                    <tab_item number="4" label="PAGE" active="{active_tab == 4}">
+                        <screen_create_event screen="settings_page" anim_type="fade_in" duration="100" />
+                    </tab_item>
+                </row>
+
+                <column name="content" grow="1" width="100%" />
+            </column>
+        </row>
+
+        <row width="100%" height="#footer_height" pad="#space_xs" gap="#space_xs"
+             style_bg_color="#color_bg" style_bg_opa="100%"
+             style_border_side="top" style_border_color="#color_line" style_border_width="1">
+            <keycap glyph="↕" />
+            <keycap glyph="↔" />
+            <lv_label text="NAVIGATE" style_text_font="font_caption" style_text_color="#color_muted" />
+            <return_keycap />
+            <lv_label text="SELECT" style_text_font="font_caption" style_text_color="#color_muted" />
+            <keycap glyph="←" />
+            <lv_label text="BACK / EXIT" style_text_font="font_caption" style_text_color="#color_muted" />
+            <box grow="1" />
+            <lv_label text="F1-F8  AREA" style_text_font="font_caption" style_text_color="#color_violet" />
+            <lv_label text="1-5  TAB" style_text_font="font_caption" style_text_color="#color_cyan" />
+            <runstop_keycap />
+            <freeze_button />
+            <lv_label text="CLOSE" style_text_font="font_caption" style_text_color="#color_muted" />
+        </row>
+    </view>
+</component>

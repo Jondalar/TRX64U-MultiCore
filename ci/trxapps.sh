@@ -1,0 +1,178 @@
+#!/usr/bin/env bash
+# Stage `trxapps`: our own two RISC-V applications, built here instead of on the Mac (T94 P6).
+#   host-app/  -> hostapp.app / hostapp.elf   the boot menu that loads a core from a .cor (T101)
+#   coreapp/   -> coreapp.bin / coreapp.elf   the blueprint a core runs (T93), one image for every core,
+#                 and a copy per blueprint core under coreapps/<core>.app, the name pack_cores_mc.sh wants
+#   apps/unzip      -> unzip.u2a      Unzip to folder / Unzip here / Extract one file on .zip (T104.3, T180 D9): shipped in the package and the release, the
+#                 one copy every core reads from <root>/cores/apps/ (coreapp/src/appindex.h)
+#   app/lib/testlib -> testlib.u2a            the board's test library (T104.1 D10): a .u2a of format 3, built with the
+#                 image's riscv32-unknown-elf compiler; copied to <stick>/trx/lib/ it is loaded at the next core start
+#
+# Until this stage existed the core applications came from the generic package trx64-coreapps, uploaded
+# by hand from a Mac, and the host app for an update file was whatever lay in a local result/ directory.
+# Alex, 2026-10-15: "Bau bitte per Pipeline, das sind laute manuelle krücken gerade" (translated: build it
+# with the pipeline, these are loud manual crutches). So: same image and toolchain as the app stage had (removed 2026-11-01), same
+# ccache, and the result is cached by the content of the trees plus the vendor/gideon software tree - the
+# third-party parts (lwip, lvgl, FreeRTOS, chan_fat, httpd) are links into our copy of Gideon's software, so its
+# tree belongs in the key.
+#
+# T174 D1: this stage BUILDS images and nothing else - minutes, and package and update wait for it. The host tests, the render benches and the
+# 64 bit file benches are the stage `render` (ci/render.sh) with a key of its own; they no longer sit in front of the package.
+# Incremental: the build runs in a persistent tree per branch (/cache/multicore/build/ci-<branch>, tools/treesync.py copies only the files whose
+# content changed, so make rebuilds only what changed); the heavy slot is let go as soon as the images are built (R1c).
+#
+#   ci/trxapps.sh [--clean] [--compile-only]
+#                                --clean (or CI_BUILD_CLEAN=1) empties the persistent tree first: a build from scratch
+#                                --compile-only: compile and link the two applications and stop (tools/dev.sh build): no images, no stage result
+#   TRX_BUILD_INPLACE=1          build in this very tree (tools/dev.sh: the tree is the synced working tree; no image cache, no slot, no sync)
+set -euo pipefail
+source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+
+clean="${CI_BUILD_CLEAN:-}" compile_only=""
+for a in "$@"; do case "$a" in --clean) clean=1 ;; --compile-only) compile_only=1 ;; *) echo "ci/trxapps.sh: unknown argument $a" >&2; exit 2 ;; esac; done
+inplace="${TRX_BUILD_INPLACE:-}"
+
+out="$(stage_dir trxapps)"
+# T174 D2.2/D4 (Alex, 2026-11-07: the app is built and tested natively first, RISC-V last): the parent starts this child only after `apptests` is green.
+# The trees, not the commit: a documentation commit must not cost a rebuild. app/ is in the key because
+# the shared view layer lives there and both applications compile it (T104 D8) - without it a change to
+# the shell would be served out of the cache and never reach the board.
+key=""; cache=""
+if [ -z "$inplace" ]; then
+  key="$(cd "$ROOT" && git rev-parse HEAD:host-app HEAD:coreapp HEAD:uicore HEAD:app HEAD:apps/unzip HEAD:cores/apple2/rtl/roms HEAD:vendor/gideon/software HEAD:vendor/gideon/tools HEAD:vendor/gideon/target HEAD:vendor/gideon/roms | tr -d '\n')"
+  key="$(printf '%s' "$key" | sha256sum | cut -c1-16)"
+  cache="${CI_TRXAPPS_CACHE:-/cache/trxapps}/$key"
+fi
+
+# The blueprint cores: a descriptor in coreapp/src/table.cc, so the one image serves them (T93 D14).
+# The table also holds the C64 ("TRX2", T104.2), but `trx64` is not in this list: its core.toml says app = "ultimate", the host runs Gideon's
+# application for it, and the C64 descriptor is for the TRX64 Ultimate monolith (coreapp.bin from this stage, staged over JTAG).
+# Every core whose core.toml says blueprint is in the list below. The A1200 runs the generic image since 2026-10-20 (T104, Alex: "Yes of
+# course ... A1200 with the new app in a core please", translated), vc20 and c264 since 2026-10-22 (Alex: "apart from trx64 and c64u,
+# switch everything to the generic core app for now", translated), the A500 (`amiga`) since 2026-10-24 (Alex: "the app must also be switched
+# to generic!", translated). amiga1200 has no descriptor since T97 (not built); coreapp/cores/amiga.cc is the amiga source. coreapp/cores/vc20.cc and c264.cc
+# replace the machine code of the fork branch t90-c16app.
+BLUEPRINT_CORES="${BLUEPRINT_CORES:-atari800 nes apple2 zx cpc zxnext snes neogeo vc20 c264 pet amiga ddt_mandel ddt_novic diag}"
+
+if [ -n "$cache" ] && [ -f "$cache/DONE" ]; then
+  echo "=== trxapps $key: from cache $cache"
+  cp -r "$cache"/. "$out/"
+  rm -f "$out/DONE"
+else
+  [ -n "$inplace" ] || heavy_lock
+  # B = where the build runs. CI: the persistent tree of this branch, synced from the checkout; in place: this tree.
+  B="$ROOT"
+  if [ -z "$inplace" ] && [ -d /cache/multicore ] && [ -w /cache/multicore ]; then
+    B="${CI_BUILD_TREE:-/cache/multicore/build/ci-$(branch_slug)}"
+    echo "=== trxapps $key: building in the persistent tree $B${clean:+ (clean)}"
+    python3 -I "$ROOT/tools/treesync.py" "$ROOT" "$B" ${clean:+--clean}
+    # the version stamps (rules.mk gitinfo) come from the checkout this run is for, not from the tree
+    export GIT_DIR="$ROOT/.git" GIT_WORK_TREE="$ROOT"
+  else
+    echo "=== trxapps ${key:-in place}: building in $B"
+  fi
+  app="$B/vendor/gideon"
+  _t_b=$SECONDS
+  if [ -f /opt/esp/esp-idf/export.sh ]; then
+    set +u; . /opt/esp/esp-idf/export.sh >/dev/null; set -u
+  fi
+  if command -v ccache >/dev/null; then
+    export CCACHE_DIR="${CCACHE_DIR:-/ccache}" CCACHE_MAXSIZE=5G CCACHE_BASEDIR="$B"
+    mkdir -p "$CCACHE_DIR" /tmp/ccache-shim-trx
+    for t in riscv32-unknown-elf-gcc riscv32-unknown-elf-g++ riscv32-unknown-elf-c++; do
+      real="$(command -v "$t" || true)"
+      [ -n "$real" ] || continue
+      printf '#!/bin/sh\nexec ccache %s "$@"\n' "$real" > "/tmp/ccache-shim-trx/$t"
+      chmod +x "/tmp/ccache-shim-trx/$t"
+    done
+    export PATH="/tmp/ccache-shim-trx:$PATH"
+  fi
+  # hex2bin writes the {dest, length, run} record of an .app; built once for this image, as the local
+  # scripts do it, and reached through host-app/tools (TOOLS in target/common/environment.mk).
+  if ! { [ -x "$app/tools/hex2bin" ] && head -c4 "$app/tools/hex2bin" | grep -q ELF; }; then
+    make -C "$app/tools" hex2bin checksum swap >/dev/null
+  fi
+  mkdir -p "$B/host-app/tools"
+  for t in hex2bin checksum; do ln -sfn "$app/tools/$t" "$B/host-app/tools/$t"; done
+  git config --global --add safe.directory "$ROOT" || true
+  git config --global --add safe.directory "$B" || true
+
+  # one make parallelism for the whole stage: the libraries and each application (CI_BUILD_JOBS, default: the cores; the objects of one application are
+  # independent, only `gitinfo` must not run beside them)
+  J="${CI_BUILD_JOBS:-$(nproc)}"
+  H="$B/host-app/target"
+  for lib in lwip lvgl; do nice -n 15 make -j"$J" -C "$H/libs/riscv/$lib"; done
+  # `gitinfo` first and alone: `all` has it beside the compile targets and in parallel the rule rewrites gitinfo.h while a source that
+  # includes it is compiled (T93 5.15)
+  for a in hostapp coreapp; do
+    make -C "$H/u64ii/riscv/$a" gitinfo
+    nice -n 15 make -j"$J" -C "$H/u64ii/riscv/$a"
+  done
+
+  if [ -n "$compile_only" ]; then
+    echo "=== trxapps --compile-only: both applications compile and link ($((SECONDS - _t_b))s)"
+    size "$H/u64ii/riscv/hostapp/result/hostapp.elf" "$H/u64ii/riscv/coreapp/result/coreapp.elf" 2>/dev/null || ls -l "$H/u64ii/riscv/hostapp/result/" "$H/u64ii/riscv/coreapp/result/"
+    exit 0
+  fi
+
+  # T104.2 S12: the boot ROM starts an application from the slot at 0x220000 and takes at most 0x1E0000 - 12 bytes of it; an image that
+  # does not fit would build, flash and not start. The number goes in the log on every build.
+  python3 -I "$B/tools/check_app_size.py" "$H/u64ii/riscv/coreapp/result/coreapp.app"
+  cp "$H/u64ii/riscv/hostapp/result/hostapp.app" "$H/u64ii/riscv/hostapp/result/hostapp.elf" "$out/"
+  cp "$H/u64ii/riscv/coreapp/result/coreapp.bin" "$H/u64ii/riscv/coreapp/result/coreapp.elf" "$H/u64ii/riscv/coreapp/result/coreapp.app" "$out/"   # the .app: what ue2emu and tools/trxdbg.sh boot staged take (T104.2)
+  # T174 D2.8: the host app for the emulator (tests/hostapp/emu_host.sh): the same sources with HOSTAPP_EMU_FLASH, which only flashfw.cc reads (the emulated
+  # flash chip is accepted). Rebuilt from that one object and the link, then the tree is put back to the board build (touch + make again) so a later
+  # incremental build and the images above stay what the board gets. Never packed, never flashed: it lives in this stage's hand-over as hostapp_emu.*.
+  hdir="$H/u64ii/riscv/hostapp"
+  touch "$B/host-app/software/hostapp/flashfw.cc"
+  nice -n 15 make -j"$J" -C "$hdir" HOSTAPP_EXTRA=-DHOSTAPP_EMU_FLASH
+  cp "$hdir/result/hostapp.elf" "$out/hostapp_emu.elf"; cp "$hdir/result/hostapp.app" "$out/hostapp_emu.app"
+  touch "$B/host-app/software/hostapp/flashfw.cc"
+  nice -n 15 make -j"$J" -C "$hdir"
+  cmp -s "$hdir/result/hostapp.app" "$out/hostapp.app" || { echo "trxapps: the board build of the host app changed while the emulator build was made" >&2; exit 1; }
+  # The library build path (app/lib/lib.mk) with the compiler of this image. app/ is in the key above, so a change to it rebuilds the stage.
+  # Built beside its sources (the outputs are gitignored) and cleaned again - which also keeps the tree equal to the checkout for the next sync.
+  # T174 D3: the two library applications are keyed by the content of what they read (their folder, the library makefile, the SDK, the core application
+  # headers they include with -I, the packer) and the compiler's version line: an unchanged key copies the .u2a from $CI_TRXAPPS_CACHE/lib-apps/<key>
+  # instead of building and cleaning every run (the stage key above is coarser: any change in app/ or coreapp/ rebuilds the stage, but not these two).
+  libapp() {   # libapp DIR NAME.u2a : DIR relative to the tree
+    local d="$1" n="$2" k c
+    k="$( (cd "$ROOT" && git ls-files -- "$d" app/lib/app.mk app/sdk coreapp/src tools/u2a_pack.py | { git hash-object --stdin-paths | paste -d' ' - <(git ls-files -- "$d" app/lib/app.mk app/sdk coreapp/src tools/u2a_pack.py); }; riscv32-unknown-elf-gcc --version | head -1; echo "$d $n") | sha256sum | cut -c1-16)"
+    c="${CI_TRXAPPS_CACHE:-/cache/trxapps}/lib-apps/$k"
+    if [ -f "$c/$n" ]; then echo "=== trxapps $n: from cache $c (key $k)"; cp "$c/$n" "$out/"; return 0; fi
+    nice -n 15 make -j"$J" -C "$B/$d" RV_PREFIX=riscv32-unknown-elf- "$n"
+    cp "$B/$d/$n" "$out/"
+    make -C "$B/$d" RV_PREFIX=riscv32-unknown-elf- clean
+    mkdir -p "$c.tmp$$" 2>/dev/null && cp "$out/$n" "$c.tmp$$/$n" && rm -rf "$c" && mv "$c.tmp$$" "$c" || true
+  }
+  libapp app/lib/testlib testlib.u2a
+  # T180 D9: Unzip, an application of several C files (app/lib/app.mk); same compiler, built beside its sources and cleaned again
+  libapp apps/unzip unzip.u2a
+  mkdir -p "$out/coreapps"
+  # The .bin, never the .app: cor_pack puts the image at app_load as it is and jumps to app_entry, so an
+  # .app's 12-byte header would sit on the entry point - that is what shipped on 2026-10-15 and left the
+  # Atari and the NES executing their own load address (T93 5.12).
+  for c in $BLUEPRINT_CORES; do cp "$H/u64ii/riscv/coreapp/result/coreapp.bin" "$out/coreapps/$c.app"; done
+  command -v ccache >/dev/null && ccache --show-stats | head -8 || true
+  echo "=== trxapps: images built in $((SECONDS - _t_b))s"
+
+  # T174 R1c: the RISC-V build is done and this stage holds nothing else that needs Vivado's slot: let it go before the cache entry is written
+  # (heavy_lock keeps its lock on fd 9 and HEAVY_SLOT; Alex, T100 D14 open item 2). Run 1133 held slot 0 for 36 minutes of tests.
+  if [ -n "${HEAVY_SLOT:-}" ]; then exec 9>&-; echo "heavy slot $HEAVY_SLOT released after the build"; unset HEAVY_SLOT; fi
+
+  if [ -n "$cache" ]; then
+    mkdir -p "$cache.tmp.$$"
+    cp -r "$out"/. "$cache.tmp.$$/"
+    : > "$cache.tmp.$$/DONE"
+    rm -rf "$cache"
+    mv "$cache.tmp.$$" "$cache"
+  fi
+fi
+
+printf '%s\n' "${key:-inplace}" > "$out/trxapps_key"
+( cd "$ROOT" && git rev-parse HEAD 2>/dev/null || echo inplace ) > "$out/trxapps_commit"
+ls -l "$out" "$out/coreapps"
+sha256sum "$out/hostapp.app" "$out/coreapp.bin" "$out/testlib.u2a" "$out/unzip.u2a"; [ ! -f "$out/coreapp.app" ] || sha256sum "$out/coreapp.app"   # an older cache entry has no .app
+: > "$out/DONE"
+echo "=== trxapps done in $(lap)"
+

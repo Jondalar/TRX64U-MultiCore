@@ -1,0 +1,28 @@
+--- vendor/icepi/hdmi/packet_assembler.sv
++++ host/hdmi_enc/packet_assembler.sv
+@@ -3,6 +3,7 @@
+ 
+ module packet_assembler (
+     input logic clk_pixel,
++    input logic ce,                     // T164 WP4: every register changes only when ce is high (one pixel)
+     input logic reset,
+     input logic data_island_period,
+     input logic [23:0] header, // See Table 5-8 Packet Types
+@@ -15,7 +16,7 @@
+ );
+ 
+ // 32 pixel wrap-around counter. See Section 5.2.3.4 for further information.
+-always_ff @(posedge clk_pixel)
++always_ff @(posedge clk_pixel) if (ce)
+ begin
+     if (reset)
+         counter <= 5'd0;
+@@ -81,7 +82,7 @@
+     end
+ endgenerate
+ 
+-always_ff @(posedge clk_pixel)
++always_ff @(posedge clk_pixel) if (ce)
+ begin
+     if (reset) begin
+         parity[0] <= 0;

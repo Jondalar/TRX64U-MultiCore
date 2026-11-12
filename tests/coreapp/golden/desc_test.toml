@@ -1,0 +1,121 @@
+# The description of the made-up core "Test Machine" (tests/coreapp/test_core.h), as a core would ship it in record 6 of its .cor (T104.1 D9).
+# The route is the default route plus two tabs: F5 gets "Drives" (the settings of the groups drive_a and drive_b) and "Tools" (only contributions).
+
+hide = ["lib_hidden"]
+
+[[area]]
+key = "F1"
+name = "Home"
+  [[area.tab]]
+  id = "home"
+  name = "Home"
+  widget = "info"
+
+[[area]]
+key = "F3"
+name = "Library"
+  [[area.tab]]
+  id = "browse"
+  name = "Browse"
+  widget = "browser"
+
+[[area]]
+key = "F5"
+  [[area.tab]]
+  id = "summary"
+  name = "Summary"
+  widget = "media"
+  [[area.tab]]
+  id = "settings"
+  name = "Settings"
+  widget = "settings"
+  [[area.tab]]
+  id = "drives"
+  name = "Drives"
+  widget = "settings"
+  groups = ["drive_a", "drive_b"]
+  n = 4
+  [[area.tab]]
+  id = "tools"
+  name = "Tools"
+  widget = "nodes"
+  n = 3
+
+[[area]]
+key = "F7"
+name = "Actions"
+  [[area.tab]]
+  id = "quick"
+  name = "Quick"
+  widget = "tasks"
+
+[[area]]
+key = "F8"
+name = "System"
+shifted = true
+  [[area.tab]]
+  id = "expert"
+  name = "Expert"
+  widget = "system"
+
+[[tab]]
+area = "F7"
+id = "more"
+name = "More"
+widget = "nodes"
+
+[poll]
+op = "test.task"
+period_ms = 250
+
+[[node]]
+anchor = "F7/more"
+kind = "op"
+label = "Again"
+op = "test.task"
+order = 1
+
+[[node]]
+anchor = "F5/tools"
+kind = "op"
+label = "Run self test"
+op = "test.task"
+id = "selftest"
+order = 5
+
+[[node]]
+anchor = "F5/tools/info"
+kind = "state"
+label = "Slot"
+state = "test.slot"
+order = 10
+
+[[node]]
+anchor = "F5/drives/drive_a"
+kind = "group"
+label = "Drive A"
+order = -10
+
+[[file_action]]
+ext = [".tst2", ".TST3"]
+label = "Mount other"
+op = "test.mount"
+bind = [ { arg = "path", file = true } ]
+closes_menu = true
+
+[[setting]]
+group = "drive_a"
+key = "Drive Bus ID"
+range = [8, 11]
+default = 9
+apply = "test.set_bus"
+
+[[setting]]
+key = "Shape"
+values = ["Round", "Square", "Odd"]
+default = 2
+apply = "test.set_shape"
+
+[[rename]]
+id = "lib_renamed"
+label = "Renamed by the description"

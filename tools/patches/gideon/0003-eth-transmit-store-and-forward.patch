@@ -1,0 +1,33 @@
+eth_transmit: send a frame only when it is completely in the FIFO.
+
+The transmitter started a frame once 800 bytes were in the FIFO and then
+needs the DMA to stay ahead of the wire (12.5 MB/s). Our DMA reads DDR2
+through cpu_mem_bridge/mig_arb one word at a time, behind the CPU, at about
+5 MB/s: every frame longer than about 1376 bytes ran the FIFO empty, the
+RMII transmitter dropped the frame there (rmii_transceiver data0 without
+valid) and sent the rest as fragments. TCP then lost every full-size
+segment, retransmissions included (FTP RETR, large HTTP replies stalled).
+The FIFO now holds 2048 bytes and the early start is at 1536 bytes, beyond
+any Ethernet frame (1514), so frames go out store-and-forward whatever the
+memory latency. designs/c64_basic/sim/eth/run.sh checks it.
+
+--- a/fpga/io/rmii/vhdl_source/eth_transmit.vhd	2026-10-02 02:47:24
++++ b/fpga/io/rmii/vhdl_source/eth_transmit.vhd	2026-10-02 02:47:24
+@@ -85,7 +85,7 @@
+     generic map (
+         --g_fast       => true,
+         g_data_width => 9,
+-        g_depth_bits => 10
++        g_depth_bits => 11  -- a whole frame (1514) fits: it goes out only when complete
+     )
+     port map (
+         wr_clock     => clock,
+@@ -253,7 +253,7 @@
+                         wr_din(8) <= '0';
+                     end if; 
+     
+-                    if up_count = 800 then -- this level has to be insanely high because of the insanely slow memory interface
++                    if up_count = 1536 then -- only a frame longer than any Ethernet frame starts before its end
+                         trigger <= '1';
+                         trigger_sent <= '1';
+                     end if;

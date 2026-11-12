@@ -1,0 +1,204 @@
+# The walk list of tests/hostapp/emu/parity_walk.py (T192.2 S11, S12, S16; epic S1). `step NAME [layout]`, then control-language lines (S44 syntax).
+# `layout` = the screen is listed as layout-unchanged (0 differing pixels required, epic D19b); every other step: the texts must be equal, pixels are reported.
+# The stick: cores/vc20.cor, cores/vc20/ (roms), docs/{both.txu (host + app), not_txu.cfw, notes.md, readme.txt}, games/game{1,2,3}.prg.
+# The flash image has no boot.cfg at the start: the boot menu is empty, so no countdown runs (it needs a startable default); every key stops one anyway,
+# and the walk's first key comes before an entry exists. Navigation facts the lines rely on (read from the dumps): a folder opens with the cursor on "..",
+# LEFT goes up with the cursor on the first row, the media level is SD, Flash, USB0; ESC is the C64 key `runstop`.
+# Nothing here writes outside what the app itself keeps (boot.cfg, host.cfg in the flash copy); no copy, move or delete is carried out (they are armed or picked
+# and cancelled: a copy job has a progress number that is not a state of the screen), no flash lock, no format, no bug report (a file named by the time).
+
+step boot-empty layout
+step f3-media layout
+  key f3
+step media-flash
+  key down
+step media-usb0
+  key down
+step usb0-root
+  key return
+step usb0-cores-dir
+  key down
+step cores-open
+  key return
+step cores-vc20-dir
+  key down
+step cores-cor-selected
+  key down
+step cores-up-to-usb0
+  key left
+step docs-open
+  key down
+  key down
+  key return
+step docs-txu-selected
+  key down
+step docs-txu-update-asked
+  key u
+  wait 1500
+step docs-txu-update-cancelled
+  key runstop
+step docs-cfw-selected
+  key down
+step docs-plain-selected
+  key down
+step docs-plain-last
+  key down
+step docs-del-armed
+  key del
+step docs-del-cancelled
+  key up
+step docs-copy-pick
+  key c
+step docs-copy-pick-up
+  key left
+step docs-copy-cancelled
+  key runstop
+step docs-up-to-usb0
+  key left
+step games-open
+  key down
+  key down
+  key down
+  key return
+step games-file-1
+  key down
+step games-file-3
+  key down
+  key down
+step games-up
+  key left
+step usb0-up-to-media
+  key left
+step flash-open
+  key down
+  key return
+step flash-dir-1
+  key down
+step flash-up
+  key left
+step media-usb0-again
+  key down
+  key down
+step cores-again
+  key return
+  key down
+  key return
+step cor-again
+  key down
+  key down
+step cor-add
+  key a
+  wait 7000
+step cor-add-twice
+  key a
+  wait 7000
+step menu-with-entry
+  key f1
+step menu-cursor-down
+  key down
+step menu-recheck
+  key r
+  wait 7000
+step edit-menu
+  key f5
+step edit-default
+  key d
+step edit-rename-open
+  key c
+step edit-rename-typed
+  type Vic
+step edit-rename-done
+  key return
+step edit-rename-cancelled
+  key c
+  key runstop
+step edit-del-armed
+  key del
+step edit-del-cancelled
+  key up
+step net-page
+  key f7
+step net-colours
+  key c
+step settings-page
+  key f8
+step settings-row-2
+  key down
+step settings-row-3
+  key down
+step settings-row-4
+  key down
+step settings-row-5
+  key down
+step settings-row-6
+  key down
+step settings-row-7
+  key down
+step settings-row-8
+  key down
+step settings-up-to-wifi
+  key up
+  key up
+  key up
+  key up
+step wifi-page-open
+  key return
+  wait 1500
+step wifi-page-row-2
+  key down
+step wifi-page-row-3
+  key down
+step wifi-page-closed
+  key runstop
+step settings-cores-roms-open
+  key down
+  key down
+  key down
+  key return
+  wait 1500
+step settings-cores-roms-scrolled
+  key down
+step settings-cores-roms-closed
+  key runstop
+step settings-esp-pick-open
+  key up
+  key return
+  wait 1500
+step settings-esp-pick-cancelled
+  key runstop
+step settings-direct-toggled
+  key up
+  key up
+  key up
+  key up
+  key up
+  key return
+step settings-direct-back
+  key return
+step settings-ftp-toggled
+  key down
+  key down
+  key down
+  key down
+  key return
+step settings-ftp-back
+  key return
+step picture-asked
+  key v
+step picture-kept
+  key space
+step picture-asked-again
+  key v
+step picture-reverted
+  wait 9500
+step picture-from-editor
+  key f5
+  key v
+step picture-kept-in-editor
+  key space
+step edit-del-twice-removes
+  key del
+  key del
+  wait 1500
+step menu-empty-again
+  key f1

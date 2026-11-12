@@ -1,0 +1,51 @@
+<screen>
+    <view>
+        <style name="style_screen" />
+        <app_shell active_actions="true" active_tab="2">
+            <app_shell-content>
+                <column width="100%" height="100%" pad="#space_lg" gap="#space_md">
+                    <row width="100%">
+                        <column grow="1" gap="#space_xs">
+                            <lv_label text="ACTIONS / COMPLETE CATALOG" style_text_font="font_caption"
+                                      style_text_color="#color_muted" />
+                            <lv_label text="All current functions" style_text_font="font_title"
+                                      style_text_color="#color_ink" />
+                        </column>
+                        <status_chip label="LIVE CATALOG" tone="#color_cyan" />
+                    </row>
+
+                    <panel width="100%" grow="1" gap="0">
+                        <action_row title="Machine" subtitle="Reset, reboot, power, memory, cartridge, REU"
+                                    meta="C64" tone="#color_violet">
+                            <screen_create_event screen="c64_machine" anim_type="fade_in" duration="120" />
+                        </action_row>
+                        <action_row title="Drives" subtitle="Drive A/B state, media, mode, blank and save"
+                                    meta="D8 / D9" tone="#color_cyan">
+                            <screen_create_event screen="c64_drives" anim_type="fade_in" duration="120" />
+                        </action_row>
+                        <action_row title="Peripherals" subtitle="SoftIEC, partitions, UltiCopy, tape, printer"
+                                    meta="I/O" tone="#color_muted">
+                            <screen_create_event screen="c64_peripherals" anim_type="fade_in" duration="120" />
+                        </action_row>
+                        <action_row title="Files and creation" subtitle="Manage files, folders, and disk images"
+                                    meta="LIBRARY" tone="#color_muted">
+                            <screen_create_event screen="library_manage" anim_type="fade_in" duration="120" />
+                        </action_row>
+                        <action_row title="Configuration" subtitle="Save, restore, defaults, and clear flash config"
+                                    meta="SETTINGS" tone="#color_amber">
+                            <screen_create_event screen="settings_advanced" anim_type="fade_in" duration="120" />
+                        </action_row>
+                        <action_row title="Apps and developer tools" subtitle="Installed app tasks and build-specific actions"
+                                    meta="TOOLS" tone="#color_muted">
+                            <screen_create_event screen="tools_apps" anim_type="fade_in" duration="120" />
+                        </action_row>
+                        <box grow="1" />
+                    </panel>
+
+                    <lv_label text="Rows come from TasksCollection; hidden and disabled state stays authoritative"
+                              style_text_font="font_caption" style_text_color="#color_muted" />
+                </column>
+            </app_shell-content>
+        </app_shell>
+    </view>
+</screen>

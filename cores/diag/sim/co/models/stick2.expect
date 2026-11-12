@@ -1,0 +1,15 @@
+# port 2 under the four prompts of the model: idle, button 1 (pin 6 low), button 2 (port 2 up low, comparator 2 high), released
+meta.status = "done"
+prompt.idle = "OK"
+prompt.b1 = "OK"
+prompt.b2 = "OK"
+prompt.rel = "OK"
+slot.idle.pins = [1023]
+slot.idle.cmp = [0]
+slot.b1.pins = [511]
+slot.b2.pins = [991]
+slot.b2.cmp = [4]
+slot.rel.pins = [1023]
+slot.rel.cmp = [0]
+eval.b1_pin6 ~ PASS
+eval.b2_moves ~ PASS

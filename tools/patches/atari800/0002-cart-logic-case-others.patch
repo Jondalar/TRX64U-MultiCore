@@ -1,0 +1,13 @@
+--- a/a8core/cart_logic.vhd
++++ b/a8core/cart_logic.vhd
+@@ -595,8 +595,8 @@
+ 						when "00" =>
+ 							-- banks 0 or 1
+ 							oss_bank <= "00" & a(2);
+-						when "11" =>
+-							-- bank 2
++						when others =>
++							-- bank 2 ("11")
+ 							oss_bank <= "010";
+ 						end case;
+ 					end if;

@@ -1,0 +1,53 @@
+core DIAG Port Diagnostics
+area F1 Home
+  tab 1 Home
+    info Core
+    info Application
+    info Network
+    info Media
+    info ROMs
+    info Libraries
+    media Port 1
+    media Port 2
+    media Comparators
+    media Last test
+area F3 Library
+  tab 1 Browse
+    browser Browse
+      filetype .toml: Run test | Load A/V preset
+area F5 DIAG
+  tab 1 DIAG
+    setting Standard = PAL 50 Hz | NTSC 60 Hz | PAL 60 Hz | NTSC 50 Hz (default PAL 50 Hz, live)
+    setting Groups = Y=A, C=B, CVBS=C | Y=A, C=C, CVBS=B | Y=B, C=A, CVBS=C | Y=C, C=A, CVBS=B | Y=B, C=C, CVBS=A | Y=C, C=B, CVBS=A (default Y=C, C=B, CVBS=A, live)
+    setting Bits A = MSB first | Reversed (default MSB first, live)
+    setting Bits B = MSB first | Reversed (default MSB first, live)
+    setting Bits C = MSB first | Reversed (default MSB first, live)
+    setting V sign = Normal | Inverted (default Inverted, live)
+    setting Subcarrier trim = -480 Hz | -450 Hz | -420 Hz | -390 Hz | -360 Hz | -330 Hz | -300 Hz | -270 Hz | -240 Hz | -210 Hz | -180 Hz | -150 Hz | -120 Hz | -90 Hz | -60 Hz | -30 Hz | 0 Hz | +30 Hz | +60 Hz | +90 Hz | +120 Hz | +150 Hz | +180 Hz | +210 Hz | +240 Hz | +270 Hz | +300 Hz | +330 Hz | +360 Hz | +390 Hz | +420 Hz | +450 Hz | +480 Hz (default 0 Hz, live)
+    setting Burst start = 16 | 18 | 20 | 22 | 24 | 26 | 28 | 30 | 32 | 36 | 40 (default 28, live)
+    setting Burst end = 90 | 94 | 96 | 98 | 99 | 100 | 102 | 104 | 106 | 110 (default 99, live)
+    setting Burst level = 0 % | 50 % | 75 % | 100 % | 125 % | 150 % (default 100 %, live)
+    setting Chroma gain = 0 % | 50 % | 75 % | 100 % | 125 % | 150 % | 190 % (default 100 %, live)
+    setting Sync level = 0 | 8 | 16 | 24 | 32 (default 0, live)
+    setting Blank level = 64 | 68 | 73 | 77 | 80 | 84 | 88 (default 77, live)
+    setting White level = 8/16 | 9/16 | 10/16 | 11/16 | 12/16 | 13/16 | 14/16 | 15/16 | 16/16 (default 11/16, live)
+    setting Equalizing = Off | On (default Off, live)
+    setting Vsync length = 3 lines | 2.5 lines | 6 lines (default 3 lines, live)
+    setting Vsync position = -8 | -4 | 0 | +4 | +8 (default 0, live)
+    setting Lines 60 Hz = 263 | 262 (default 263, live)
+area F7 Actions
+  tab 1 Quick
+    task Pick a test and run it
+    task Write the example tests
+    task Save A/V preset (asks a name)
+area F8 System (shifted)
+  tab 1 System
+    heading Actions
+    fixed Restart core
+    fixed Return to host menu
+    heading Network
+    fixed WiFi
+    heading Support
+    fixed Bug report
+    heading Reset
+    fixed Reset to host defaults

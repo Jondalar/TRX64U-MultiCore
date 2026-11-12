@@ -1,0 +1,53 @@
+<screen>
+    <view>
+        <style name="style_screen" />
+        <app_shell active_tools="true" active_tab="2">
+            <app_shell-content>
+                <column width="100%" height="100%" pad="#space_lg" gap="#space_md">
+                    <row width="100%">
+                        <lv_label text="Monitor" style_text_font="font_title"
+                                  style_text_color="#color_ink" />
+                        <status_chip label="PAUSED" tone="#color_amber" />
+                        <box grow="1" />
+                        <lv_label text="&lt;-  BACK TO TOOLS" style_text_font="font_caption"
+                                  style_text_color="#color_muted" />
+                    </row>
+
+                    <box width="100%" grow="1" pad="#space_md" gap="#space_xs"
+                         style_bg_color="#color_bg" style_bg_opa="100%"
+                         style_border_width="0" style_radius="0">
+                        <lv_label text="TRX64 MONITOR / C64 CPU" style_text_font="font_caption"
+                                  style_text_color="#color_violet" />
+                        <lv_label text="PC   A  X  Y  SP  NV-BDIZC" style_text_font="font_body"
+                                  style_text_color="#color_muted" />
+                        <lv_label text="C000 3A 04 10 F7  00100100" style_text_font="font_body"
+                                  style_text_color="#color_ink" />
+                        <lv_label text="&gt; d c000 c020" style_text_font="font_body"
+                                  style_text_color="#color_cyan" />
+                        <lv_label text="C000  A9 00 8D 20 D0 A9 0B 8D 21 D0 58 4C 2A C0"
+                                  style_text_font="font_body" style_text_color="#color_ink" />
+                        <lv_label text="C010  00 00 00 00 00 00 00 00 00 00 00 00 00 00"
+                                  style_text_font="font_body" style_text_color="#color_ink" />
+                        <lv_label text="&gt; dis c000" style_text_font="font_body"
+                                  style_text_color="#color_cyan" />
+                        <lv_label text=".C000  LDA #$00     .C002  STA $D020     .C005  LDA #$0B"
+                                  style_text_font="font_body" style_text_color="#color_ink" />
+                        <box grow="1" />
+                        <lv_label text="&gt; _" style_text_font="font_body"
+                                  style_text_color="#color_cyan" />
+                    </box>
+
+                    <row width="100%" gap="#space_sm">
+                        <ui_button label="CONTINUE" bg_color="#color_violet"
+                                   border_color="#color_violet" text_color="#color_bg" />
+                        <ui_button label="STEP" />
+                        <ui_button label="STEP OVER" />
+                        <box grow="1" />
+                        <lv_label text="F7  QUICK VIEWS" style_text_font="font_caption"
+                                  style_text_color="#color_muted" />
+                    </row>
+                </column>
+            </app_shell-content>
+        </app_shell>
+    </view>
+</screen>

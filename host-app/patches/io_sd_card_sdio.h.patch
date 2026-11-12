@@ -1,0 +1,33 @@
+--- /path/to/Development/TRX64U-MultiCore/apps/ultimate/software/io/sd_card/sdio.h	2026-10-14 06:38:03
++++ host-app/software/io/sd_card/sdio.h	2026-10-28 16:52:02
+@@ -4,13 +4,18 @@
+ #include "integer.h"
+ #include "iomap.h"
+ 
++#ifndef SDIO_EXTERNAL_REGS /* a native test supplies its own register objects */
+ #define SDIO_DATA     *((volatile uint8_t *)(SDCARD_BASE + 0x00))
+ #define SDIO_DATA_32  *((volatile uint32_t*)(SDCARD_BASE + 0x00))
+ #define SDIO_SPEED    *((volatile uint8_t *)(SDCARD_BASE + 0x04))
+ #define SDIO_CTRL     *((volatile uint8_t *)(SDCARD_BASE + 0x08))
+ #define SDIO_CRC      *((volatile uint8_t *)(SDCARD_BASE + 0x0C))
+ #define SDIO_SWITCH   *((volatile uint8_t *)(SDCARD_BASE + 0x08))
++#endif
+ 
++#define SDIO_CAP_IOB  0x80 /* SDIO_CTRL bit 7: the gateware's SD block has IOB flops and a constrained MISO sample (T149); 0 in Gideon's block */
++#define SDIO_ERR_CRC  0xFD /* sdio_read_block: data CRC16 mismatch (not a card token) */
++
+ #define SPI_FORCE_SS 0x01
+ #define SPI_LEVEL_SS 0x02
+ 
+@@ -22,7 +27,11 @@
+ void sdio_init(void);
+ void sdio_send_command(uint8_t, uint16_t, uint16_t);
+ void sdio_set_speed(int);
++int  sdio_set_rw_speed(int safe, int iob); /* writes the divider for after card init: iob if SDIO_CAP_IOB reads 1, else safe; returns it */
+ uint8_t sdio_read_block(uint8_t *);
++uint16_t sdio_crc16(const uint8_t *, int);
++extern uint32_t sdio_crc_errors;  /* data CRC mismatches seen (blocks, CID, CSD) */
++extern uint32_t sdio_crc_giveups; /* reads that failed after all retries */
+ bool sdio_write_block(const uint8_t *);
+ 
+ #endif

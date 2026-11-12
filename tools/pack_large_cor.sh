@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+# Pack the .cor of one LARGE core (a full 50T bitstream started by IPROG; T115 section 7 "The large .cor").
+#
+#   tools/pack_large_cor.sh --id <core id> --name "<menu name>" --version <v> --bit <id>_mono.bit --app-bin <coreapp.bin> \
+#       [--icon cores/<id>/logo/icon.rgb565] [--bit-commit <sha>] [--app-commit <sha>] [--origin trx|foreign|backup] [--flash-id <chip>] [--out <dir>] [--desc menu.toml --ops ops.txt]
+#
+# The same two inputs as tools/pack_cfw_mc.sh (the flat bitstream of ci/bitstream_mono.sh and the generic core application coreapp.bin,
+# the raw image linked to 0x30000), packed with tools/cor_pack.py pack-large instead of into an updater: no container image, no
+# make_update.sh, python3 only. Output: <out>/<id>.cor, read back with `cor_pack.py check` (the host's checks: IDCODE, hashes, map).
+# The icon defaults to cores/<id>/logo/icon.rgb565 when that is 2048 bytes. The pipeline calls this after the bit-mono stage
+# (cores/<id>/mono/build.sh --pack-cor forwards here).
+set -euo pipefail
+HERE="$(cd "$(dirname "$0")" && pwd)"
+ROOT="$(cd "$HERE/.." && pwd)"
+ID="" NAME="" VER="" BIT="" APPBIN="" ICON="" BITC="" APPC="" OUT="$ROOT/dist" DESC="" OPS="" ORIGIN="" FLASHID=""
+usage() { sed -n '2,12p' "$0"; exit 2; }
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --id) ID="$2"; shift 2;;
+        --name) NAME="$2"; shift 2;;
+        --version) VER="$2"; shift 2;;
+        --bit) BIT="$2"; shift 2;;
+        --app-bin) APPBIN="$2"; shift 2;;
+        --icon) ICON="$2"; shift 2;;
+        --bit-commit) BITC="$2"; shift 2;;
+        --app-commit) APPC="$2"; shift 2;;
+        --origin) ORIGIN="$2"; shift 2;;
+        --flash-id) FLASHID="$2"; shift 2;;
+        --out) OUT="$2"; shift 2;;
+        --desc) DESC="$2"; shift 2;;
+        --ops) OPS="$2"; shift 2;;
+        -h|--help) usage;;
+        *) echo "unknown option $1" >&2; usage;;
+    esac
+done
+[ -n "$ID" ] && [ -n "$NAME" ] && [ -n "$VER" ] && [ -n "$BIT" ] && [ -n "$APPBIN" ] || usage
+[ -s "$BIT" ] && [ -s "$APPBIN" ] || { echo "input file missing or empty" >&2; exit 1; }
+[ -n "$ICON" ] || { [ "$(wc -c < "$ROOT/cores/$ID/logo/icon.rgb565" 2>/dev/null | tr -d ' ')" = 2048 ] && ICON="$ROOT/cores/$ID/logo/icon.rgb565" || true; }
+mkdir -p "$OUT"
+args=(--id "$ID" --name "$NAME" --version "$VER" --bit "$BIT" --app "$APPBIN")
+[ -z "$ICON" ] || args+=(--icon "$ICON")
+[ -z "$BITC" ] || args+=(--bit-commit "$BITC")
+[ -z "$APPC" ] || args+=(--app-commit "$APPC")
+[ -z "$DESC" ] || args+=(--desc "$DESC")
+[ -z "$OPS" ] || args+=(--ops "$OPS")
+[ -z "$ORIGIN" ] || args+=(--origin "$ORIGIN")
+[ -z "$FLASHID" ] || args+=(--flash-id "$FLASHID")
+python3 "$HERE/cor_pack.py" pack-large -o "$OUT/$ID.cor" "${args[@]}"
+python3 "$HERE/cor_pack.py" check "$OUT/$ID.cor" > /dev/null
+ls -l "$OUT/$ID.cor"
+shasum -a 256 "$OUT/$ID.cor" 2>/dev/null || sha256sum "$OUT/$ID.cor"

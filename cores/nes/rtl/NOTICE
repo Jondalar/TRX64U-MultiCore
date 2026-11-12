@@ -1,0 +1,36 @@
+NES core: GPL v3.
+Rights holders who see a problem with any part listed here: please contact us, and we remove the part concerned.
+
+
+What is here. These files are MiSTer-devel/NES_MiSTer (https://github.com/MiSTer-devel/NES_MiSTer), commit 49a0a66
+(2026-09-30), copied unchanged by tools/vendor_nes_mister.sh (SHA256SUMS lists them): the machine (nes.v, ppu.sv, apu.sv,
+cart.sv), the mapper files (mappers/), the package of savestate register constants (regs_savestates.sv) and the VHDL 6502 (t65/,
+T65 by Daniel Wallner and others, with the MiSTer changes). Ludvig Strigeus' copyright and the "This program is GPL Licensed"
+headers are in the files; COPYING is the licence text, GNU GPL version 3.
+
+What is built from them is NOT these files. cores/nes/gen is what tools/nes_gen.py makes of them, and only gen/ goes into the
+bitstream. Every change the generator makes is mechanical and counted (the generator fails when upstream stops matching):
+a clock enable on every clocked process, the MiSTer savestate registers replaced by their default values, the wired-or
+(tri0/tri1) nets of cart.sv made an explicit OR/AND over the mappers that are built, the mappers that are not built left out,
+and the 6502 converted from VHDL to Verilog by GHDL (so that Verilator and Vivado read the same source).
+
+What the licence means here. GPL v3 covers the gateware of this core and everything linked into its partial bitstream
+(nes_partial.bit). A .cor or partial bitstream of this core that is given to a third party has to come with its corresponding
+source: that is this directory (the upstream copy), cores/nes/gen (the generated source), cores/nes/trx and
+cores/nes/layer2_nes.v (our glue: frame writer, registers, DDR2 window and line caches, audio, the partition's edge),
+tools/nes_gen.py and tools/vendor_nes_mister.sh (the generator), and the build recipe cores/nes/mono/build_mono.tcl with
+cores/nes/nes_timing.tcl - all of it is in this repository. The
+host (layer 1), the other cores and the applications are separate works in separate partial bitstreams, link nothing of this
+core and are not covered; host/ is not part of this core's build.
+
+cores/nes/trx/nes_regs.v decodes an iNES header into the machine's mapper_flags word the way GameLoader in NES_MiSTer's NES.sv
+(same commit; NES.sv itself is not vendored, it is the board top) does, so that part is derived from GPL v3 code and carries the
+same licence.
+
+NES software is copyrighted by others. No cartridge image (ROM) is in this repository, in a bench, in a package or in a .cor,
+ever; the benches run a program that is written in the bench itself.
+
+Not copied, on purpose: the MiSTer framework and board parts (sys/, sdram.sv, ddram.sv, pll*,
+video.sv, composite_*, miracle.sv, keyboard.sv, zapper.sv, dsp.v, cheatcodes.sv, EEPROM_24C0x.sv), the savestate framework
+(savestates.vhd, statemanager.vhd, bus_savestates.vhd, savestate_ui.sv, the eReg_SavestateV register), the .mif/.chr/.bin/.asm
+data files, the Quartus project files and NES.sv.

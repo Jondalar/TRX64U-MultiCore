@@ -1,0 +1,48 @@
+32d31
+< //   1C4 RAWKEY (W: {release, raw code} of one Amiga key event, queued in amiga_input; R b0 = room for 8 more events -- write only while it is 1)  (T141, FEATURES b4)
+34a34,40
+> //   1C4 RAWKEY (W: {release, raw code} of one Amiga key event, queued in amiga_input; R b0 = room for 8 more events -- write only while it is 1)  (T141, FEATURES b4)
+> //   T97 5.10 (this file is the A1200's own copy, cores/amiga1200/rtl/amiga_regs.diff):
+> //   0C0-0C3 DIW_H (R)  {7'd0, HDIWSTOP[8:0], 7'd0, HDIWSTRT[8:0]}   0C4-0C7 DIW_V (R)  {5'd0, VDIWSTOP[10:0], 5'd0, VDIWSTRT[10:0]}
+> //         the decoded display window (DIWSTRT/DIWSTOP/DIWHIGH as Agnus holds them: lores pixels, lines), live
+> //   0D0-0D1 FB_SKIP_X (W only, 9 bit, hires pixels after hblank)  0D2 FB_SKIP_Y (W, 8 bit, lines after vblank)
+> //   0D4 FB_COLS_W (W, 7 bit, words of 8 hires pixels, <= 90)  0D6-0D7 FB_LINES (W, 9 bit, <= 270)
+> //         the cropped window (it lands at the top left of the 720 x 540 buffer; the application positions the pixel layer); defaults 36, 10, 90, 270
+102a109,110
+>     input  wire [39:0] diw,                          // {vdiwstop[10:0], vdiwstrt[10:0], hdiwstop[8:0], hdiwstrt[8:0]} (sys_clk, live)
+>     output wire [32:0] fbwin,                        // {lines[8:0], cols_w[6:0], skip_y[7:0], skip_x[8:0]}
+116d123
+<     (* ASYNC_REG = "TRUE" *) reg [1:0] rr_s = 2'b00;
+122d128
+<         rr_s <= {rr_s[0], rk_room};
+132a139
+>     reg [39:0] d_a, d_q;                            // the display window, two flops deep (it changes on a register write; the application reads it twice)
+133a141
+>     (* ASYNC_REG = "TRUE" *) reg [1:0] rr_s = 2'b00;
+139a148,149
+>         d_a <= diw; d_q <= d_a;
+>         rr_s <= {rr_s[0], rk_room};
+168a179,183
+>     reg [8:0] w_skx = 9'd36;
+>     reg [7:0] w_sky = 8'd10;
+>     reg [6:0] w_cols = 7'd90;
+>     reg [8:0] w_lines = 9'd270;
+>     assign fbwin = {w_lines, w_cols, w_sky, w_skx};
+218a234,239
+>             12'h0D0: begin w_skx[7:0] <= wdata; cfg_tgl <= ~cfg_tgl; end
+>             12'h0D1: begin w_skx[8] <= wdata[0]; cfg_tgl <= ~cfg_tgl; end
+>             12'h0D2: begin w_sky <= wdata; cfg_tgl <= ~cfg_tgl; end
+>             12'h0D4: begin w_cols <= wdata[6:0]; cfg_tgl <= ~cfg_tgl; end
+>             12'h0D6: begin w_lines[7:0] <= wdata; cfg_tgl <= ~cfg_tgl; end
+>             12'h0D7: begin w_lines[8] <= wdata[0]; cfg_tgl <= ~cfg_tgl; end
+241c262
+<             10'h003: wq <= {27'd0, 1'b1, 1'b0, 1'b1, 1'b1, HDF_SECT != 0};   // b4: RAWKEY (1C4)
+---
+>             10'h003: wq <= {27'd0, 1'b1, 1'b1, 1'b1, 1'b1, HDF_SECT != 0};   // b3: the display window (0C0) and crop window (0D0) registers, b4: RAWKEY (1C4)
+253a275,276
+>             10'h030: wq <= {7'd0, d_q[17:9], 7'd0, d_q[8:0]};
+>             10'h031: wq <= {5'd0, d_q[39:29], 5'd0, d_q[28:18]};
+262d284
+<             10'h071: wq <= {31'd0, rr_s[1]};
+263a286
+>             10'h071: wq <= {31'd0, rr_s[1]};

@@ -1,0 +1,20 @@
+# The Amiga 1200 as a LARGE core (T97 5.14, Alex 2026-10-25: "Kannst auch einen Agent losjagen, der ihn dann als single core umbaut
+# schon und später müssen wir dann die pipeline dafür klären", translated: "you can also send an agent that already rebuilds it as a single
+# core; the pipeline for it we settle later"). One full bitstream of the XC7A50T, host and core flat in ONE design, no partition:
+# cores/amiga1200/mono/build_mono.tcl, started by the host as a .cfw (T115 §7, the C128's flow of T113 Q12).
+# NOT read by the pipeline: tools/core_toml.py lists, sources and the stages read cores/<id>/core.toml only (the partial descriptor of
+# the same core, until the pipeline decision), --check validates this file, and get/env read it when TRX_CORE_DESC names it
+# (cores/amiga1200/mono/build.sh sets that). When the pipeline takes the core as a large one this file becomes cores/amiga1200/core.toml.
+id           = "amiga1200"
+name         = "Amiga 1200 (AGA, 68020)"
+version      = "0.3.0"
+contract     = 2
+app          = "blueprint"     # the generic core application; the A1200 is a record in coreapp/cores/amiga.cc (amiga1200_desc)
+delivery     = "cfw"
+order        = 5
+experimental = true
+# The variant of build_mono.tcl: the host features are the DFX build's (jtag on, UCI and UDP streams off).
+mono_env     = ["TRX_FEATURES=jtag", "TRX_DEFS=NO_C64VIDEO"]   # T164 WP18: no VIC path, no C64 text (hdmi_out); Ethernet stays
+sources      = ["cores/amiga1200", "cores/amiga", ":(exclude)cores/amiga/sim", ":(exclude)cores/amiga/mono"]
+top          = "cores/amiga/layer2_amiga.v"
+roms         = ["Kickstart 3.1"]

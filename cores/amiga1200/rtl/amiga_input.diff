@@ -1,0 +1,8 @@
+5c5
+< // the C64 has not got are not on the matrix (Q6: C64 matrix only); the application sends them as raw key events (T141, rk_*; the A1200 has its own copy, cores/amiga1200/rtl/amiga_input.v); LEFT ARROW is Escape (Alex). Table: KEYMAP below.
+---
+> // the C64 has not got are not on the matrix (Q6: C64 matrix only); the application sends them as raw key events (T141, rk_*); LEFT ARROW is Escape (Alex). Table: KEYMAP below.
+10c10
+< // T141 (the A500's file; the A1200 has its own copy): rk_data / rk_tgl / rk_room, a queue of 16 raw key events
+---
+> // T141 (the A1200's own copy of cores/amiga/rtl/trx/amiga_input.v, Alex 2026-11-08: "copies, not links"): rk_data / rk_tgl / rk_room, a queue of 16 raw key events

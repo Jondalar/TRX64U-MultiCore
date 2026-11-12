@@ -1,0 +1,111 @@
+<globals>
+    <api>
+        <!-- Project-wide enums can be added here when the adapter contract is fixed. -->
+    </api>
+
+    <consts>
+        <!-- Geometry: tuned for the 960 x 540 M2 target. -->
+        <int name="space_2xs" value="2" />
+        <int name="space_xs" value="4" />
+        <int name="space_sm" value="6" />
+        <int name="space_md" value="10" />
+        <int name="space_lg" value="18" />
+        <int name="space_xl" value="28" />
+        <int name="radius_sm" value="2" />
+        <int name="radius_md" value="4" />
+        <int name="sidebar_width" value="148" />
+        <int name="topbar_height" value="36" />
+        <int name="footer_height" value="28" />
+
+        <!-- Palette sampled from https://trex64-dev.github.io. The interface is
+             deliberately monochrome; these colors are reserved for focus and state. -->
+        <color name="color_bg" value="0x070A12" />
+        <color name="color_surface" value="0x0D1220" />
+        <color name="color_surface_2" value="0x111827" />
+        <color name="color_line" value="0x273047" />
+        <color name="color_ink" value="0xF4F2FB" />
+        <color name="color_muted" value="0x9DA6BD" />
+        <color name="color_violet" value="0x8376FF" />
+        <color name="color_cyan" value="0x6DE7FF" />
+        <color name="color_amber" value="0xFFC15A" />
+        <color name="color_coral" value="0xFF7A72" />
+    </consts>
+
+    <subjects>
+        <!-- Preview data. Step 2 will bind these subjects to the C++ adapters in
+             T24-ui-wiring.md instead of duplicating behavior in the UI. -->
+        <string name="subject_activity" value="IDLE" />
+        <int name="subject_timewarp_position" value="68" min_value="0" max_value="100" />
+        <int name="subject_overlay_opacity" value="82" min_value="20" max_value="100" />
+        <int name="subject_freeze_on_menu" value="0" min_value="0" max_value="1" />
+        <int name="subject_writeback_enabled" value="1" min_value="0" max_value="1" />
+        <int name="subject_turbo_mode" value="0" min_value="0" max_value="1" />
+        <int name="subject_wifi_enabled" value="1" min_value="0" max_value="1" />
+        <int name="subject_crt_progress" value="43" min_value="0" max_value="100" />
+    </subjects>
+
+    <images>
+        <!-- Intentionally text-first for now: no icon atlas, no bitmap dependency. -->
+    </images>
+
+    <fonts>
+        <!-- Reuse LVGL's vendored Liberation Sans so this prototype does not add
+             another font binary to the repository. The small arrow range supports
+             the C64 keycap pictograms in the global footer. -->
+        <bin name="font_caption" size="11" bpp="4"
+             range="0x20-0x7F,0x2190,0x2194-0x2195"
+             src_path="fonts/LiberationSans-Regular.ttf"
+             as_file="false" />
+        <bin name="font_body" size="13" bpp="4"
+             range="0x20-0x7F,0x2190,0x2194-0x2195"
+             src_path="fonts/LiberationSans-Regular.ttf"
+             as_file="false" />
+        <bin name="font_heading" size="15" bpp="4" range="0x20-0x7F"
+             src_path="fonts/LiberationSans-Regular.ttf"
+             as_file="false" />
+        <bin name="font_display" size="18" bpp="4" range="0x20-0x7F"
+             src_path="fonts/LiberationSans-Regular.ttf"
+             as_file="false" />
+        <bin name="font_title" size="21" bpp="4" range="0x20-0x7F"
+             src_path="fonts/LiberationSans-Regular.ttf"
+             as_file="false" />
+    </fonts>
+
+    <styles>
+        <style name="style_screen"
+               bg_color="#color_bg" bg_opa="100%"
+               text_color="#color_ink" text_font="font_body"
+               border_width="0" radius="0" pad_all="0" />
+
+        <style name="style_panel"
+               bg_color="#color_surface" bg_opa="100%"
+               border_color="#color_line" border_width="0"
+               radius="#radius_md" pad_all="#space_md" />
+        <style name="style_panel_raised"
+               bg_color="#color_surface_2" bg_opa="100%"
+               border_color="#color_line" border_width="0"
+               radius="#radius_md" pad_all="#space_md" />
+
+        <style name="style_title" text_color="#color_ink" text_font="font_title" />
+        <style name="style_display" text_color="#color_ink" text_font="font_display" />
+        <style name="style_heading" text_color="#color_ink" text_font="font_heading" />
+        <style name="style_body" text_color="#color_ink" text_font="font_body" />
+        <style name="style_caption" text_color="#color_muted" text_font="font_caption" />
+        <style name="style_kicker" text_color="#color_muted" text_font="font_caption" />
+        <style name="style_warning_text" text_color="#color_amber" />
+        <style name="style_danger_text" text_color="#color_coral" />
+
+        <style name="style_focus"
+               outline_color="#color_violet" outline_width="2" outline_pad="0" />
+        <style name="style_pressed" bg_color="#color_line" bg_opa="100%" />
+        <style name="style_scrollbar"
+               width="3" bg_color="#color_muted" bg_opa="55%" radius="2" />
+
+        <style name="style_slider_track"
+               bg_color="#color_line" bg_opa="100%" radius="20" />
+        <style name="style_slider_indicator"
+               bg_color="#color_violet" bg_opa="100%" radius="20" />
+        <style name="style_slider_knob"
+               bg_color="#color_ink" bg_opa="100%" radius="20" pad_all="4" />
+    </styles>
+</globals>

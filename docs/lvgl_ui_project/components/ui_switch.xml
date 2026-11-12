@@ -1,0 +1,16 @@
+<component>
+    <api>
+        <prop name="subject" type="subject" />
+        <prop name="tone" type="color" default="#color_violet" />
+    </api>
+
+    <view extends="lv_switch" width="42" height="22" bind_checked="$subject"
+          style_bg_color="#color_line" style_bg_opa="100%"
+          style_bg_color-indicator-checked="$tone"
+          style_bg_opa-indicator-checked="100%"
+          style_bg_color-knob="#color_ink" style_bg_opa-knob="100%"
+          style_pad_all-knob="-2" style_radius="20" style_radius-knob="20">
+        <style name="style_focus" selector="focused" />
+        <style name="style_focus" selector="focus_key" />
+    </view>
+</component>

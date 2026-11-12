@@ -1,0 +1,19 @@
+--- /path/to/Development/TRX64U-MultiCore/apps/ultimate/software/io/sd_card/sd_card.h	2026-10-14 06:38:03
++++ host-app/software/io/sd_card/sd_card.h	2026-10-28 13:00:02
+@@ -21,6 +21,7 @@
+ #define CMDREADOCR   58
+ 
+ #define SD_SECTOR_SIZE 512
++#define SD_READ_RETRIES 3 /* a block (or CID/CSD) whose data CRC or read failed is read again this many times */
+ 
+ class SdCard : public BlockDevice
+ {
+@@ -37,6 +38,8 @@
+     void    Resp8bError(uint8_t value);
+     DRESULT verify(const uint8_t* buf, uint32_t address );
+     DRESULT get_drive_size(uint32_t* drive_size);
++    uint8_t read_once(uint8_t *buf, uint32_t address);
++    bool    read_register(uint8_t cmd, const char *name, uint8_t *iob);
+ 
+ public: /* block device api */
+     SdCard();

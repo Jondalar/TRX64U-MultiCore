@@ -1,0 +1,68 @@
+
+------------------------------------------------------------------------------------------------
+| Design Timing Summary
+| ---------------------
+------------------------------------------------------------------------------------------------
+
+    WNS(ns)      TNS(ns)  TNS Failing Endpoints  TNS Total Endpoints      WHS(ns)      THS(ns)  THS Failing Endpoints  THS Total Endpoints     WPWS(ns)     TPWS(ns)  TPWS Failing Endpoints  TPWS Total Endpoints  
+    -------      -------  ---------------------  -------------------      -------      -------  ---------------------  -------------------     --------     --------  ----------------------  --------------------  
+      0.167        0.000                      0                52485        0.053        0.000                      0                52485        0.000        0.000                       0                 23746  
+
+
+All user specified timing constraints are met.
+
+
+------------------------------------------------------------------------------------------------
+| Clock Summary
+| -------------
+------------------------------------------------------------------------------------------------
+
+Clock                                                                             Waveform(ns)         Period(ns)      Frequency(MHz)
+-----                                                                             ------------         ----------      --------------
+hdmi_refclk                                                                       {0.000 3.293}        6.585           151.860         
+hout/gtp/core/inst/gt_hdmi_init_i/gt_hdmi_i/gt0_gt_hdmi_i/gtpe2_i/RXOUTCLKFABRIC  {0.000 3.333}        6.667           149.992         
+hout/gtp/core/inst/gt_hdmi_init_i/gt_hdmi_i/gt0_gt_hdmi_i/gtpe2_i/TXOUTCLK        {0.000 6.667}        13.334          74.996          
+  pfb                                                                             {0.000 6.667}        13.334          74.996          
+  pix_mmcm                                                                        {0.000 3.333}        6.667           149.992         
+hout/gtp/core/inst/gt_hdmi_init_i/gt_hdmi_i/gt0_gt_hdmi_i/gtpe2_i/TXOUTCLKFABRIC  {0.000 3.333}        6.667           149.992         
+hout/gtp/core/inst/gt_hdmi_init_i/gt_hdmi_i/gt1_gt_hdmi_i/gtpe2_i/RXOUTCLKFABRIC  {0.000 3.333}        6.667           149.992         
+hout/gtp/core/inst/gt_hdmi_init_i/gt_hdmi_i/gt1_gt_hdmi_i/gtpe2_i/TXOUTCLK        {0.000 6.667}        13.334          74.996          
+hout/gtp/core/inst/gt_hdmi_init_i/gt_hdmi_i/gt1_gt_hdmi_i/gtpe2_i/TXOUTCLKFABRIC  {0.000 3.333}        6.667           149.992         
+hout/gtp/core/inst/gt_hdmi_init_i/gt_hdmi_i/gt2_gt_hdmi_i/gtpe2_i/RXOUTCLKFABRIC  {0.000 3.333}        6.667           149.992         
+hout/gtp/core/inst/gt_hdmi_init_i/gt_hdmi_i/gt2_gt_hdmi_i/gtpe2_i/TXOUTCLK        {0.000 6.667}        13.334          74.996          
+hout/gtp/core/inst/gt_hdmi_init_i/gt_hdmi_i/gt2_gt_hdmi_i/gtpe2_i/TXOUTCLKFABRIC  {0.000 3.333}        6.667           149.992         
+hout/gtp/core/inst/gt_hdmi_init_i/gt_hdmi_i/gt3_gt_hdmi_i/gtpe2_i/RXOUTCLKFABRIC  {0.000 3.333}        6.667           149.992         
+hout/gtp/core/inst/gt_hdmi_init_i/gt_hdmi_i/gt3_gt_hdmi_i/gtpe2_i/TXOUTCLK        {0.000 6.667}        13.334          74.996          
+hout/gtp/core/inst/gt_hdmi_init_i/gt_hdmi_i/gt3_gt_hdmi_i/gtpe2_i/TXOUTCLKFABRIC  {0.000 3.333}        6.667           149.992         
+rmii_clock                                                                        {0.000 10.000}       20.000          50.000          
+  clk200_mmcm                                                                     {0.000 2.500}        5.000           200.000         
+    pll_300                                                                       {0.000 1.667}        3.333           300.000         
+    pll_75                                                                        {0.000 6.667}        13.333          75.000          
+    pll_fb                                                                        {0.000 2.500}        5.000           200.000         
+  cpu_mmcm                                                                        {0.000 5.000}        10.000          100.000         
+  fb                                                                              {0.000 10.000}       20.000          50.000          
+  fb1                                                                             {0.000 30.000}       60.000          16.667          
+  fb3                                                                             {0.000 10.000}       20.000          50.000          
+  mclk_mmcm                                                                       {0.000 40.687}       81.375          12.289          
+  ref24_pll                                                                       {0.000 20.833}       41.667          24.000          
+  sid2x_mmcm                                                                      {0.000 7.930}        15.859          63.056          
+  sys_mmcm                                                                        {0.000 15.859}       31.718          31.528          
+    fb2                                                                           {0.000 15.859}       31.718          31.528          
+    ref_mmcm                                                                      {0.000 13.195}       26.389          37.894          
+ulpi_clock                                                                        {0.000 8.250}        16.500          60.606          
+
+
+------------------------------------------------------------------------------------------------
+| Intra Clock Table
+| -----------------
+------------------------------------------------------------------------------------------------
+
+Clock                                                                           WNS(ns)      TNS(ns)  TNS Failing Endpoints  TNS Total Endpoints      WHS(ns)      THS(ns)  THS Failing Endpoints  THS Total Endpoints     WPWS(ns)     TPWS(ns)  TPWS Failing Endpoints  TPWS Total Endpoints  
+-----                                                                           -------      -------  ---------------------  -------------------      -------      -------  ---------------------  -------------------     --------     --------  ----------------------  --------------------  
+hdmi_refclk                                                                       4.999        0.000                      0                    7        0.215        0.000                      0                    7        2.312        0.000                       0                    12  
+hout/gtp/core/inst/gt_hdmi_init_i/gt_hdmi_i/gt0_gt_hdmi_i/gtpe2_i/TXOUTCLK       10.463        0.000                      0                   80        0.102        0.000                      0                   80        3.667        0.000                       0                    75  
+  pfb                                                                                                                                                                                                                        11.179        0.000                       0                     3  
+  pix_mmcm                                                                        0.167        0.000                      0                 7346        0.058        0.000                      0                 7346        2.353        0.000                       0                  3432  
+rmii_clock                                                                        6.661        0.000                      0                 1936        0.054        0.000                      0                 1936        7.000        0.000                       0                   876  
+  clk200_mmcm                                                                                                                                                                                                                 0.264        0.000                       0                     4  
+    pll_300                                                                                                                                                                                                                   1.178        0.000                       0                    82  

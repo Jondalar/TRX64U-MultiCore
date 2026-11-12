@@ -1,0 +1,12 @@
+# The Commodore PET core (T134): 2001, 3032, 4032, 8032, 8096, SuperPET (6809: Greg Miller's mc6809is), Skibo's Pet2001_Arty CPU/PIA/VIA in cores/pet/rtl/src.
+id           = "pet"
+name         = "Commodore PET"
+version      = "0.1.0"
+contract     = 2
+app          = "blueprint"     # the T104 generic application (coreapp/cores/pet.cc)
+order        = 18              # after the Neo Geo (17)
+delivery     = "cfw"           # a LARGE core (T134 Q1, Alex 2026-11-10): this file is the only descriptor, cores/pet/mono/build_mono.tcl, lane large-pet
+mono_env     = ["TRX_FEATURES=jtag"]   # the host features are the DFX build's (jtag on, UCI and UDP streams off)
+experimental = true            # first board start 2026-11-11 (T134); in the test release as experimental (Alex)
+sources      = ["cores/pet", ":(exclude)cores/pet/sim"]
+roms         = ["pet basic", "pet editor", "pet kernal", "pet characters"]

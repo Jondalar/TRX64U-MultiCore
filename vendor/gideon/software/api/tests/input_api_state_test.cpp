@@ -1,0 +1,1238 @@
+#include "../../io/usb/tests/host_test/host_test.h"
+#include "../../io/c64/keyboard_c64.h"
+#include "../../io/usb/keyboard_usb.h"
+#include "../../io/c64/joystick_output.h"
+#include "../input_api.h"
+#include "../route_input_menu.h"
+
+#include <initializer_list>
+
+// Drives Keyboard_C64::wait_free(), which busy-waits through wait_ms(). Letting
+// the stub count calls and let go of the keys makes the wait deterministic.
+struct WaitFreeProbe {
+    int calls;
+    int release_usb_at;          // 0 = never
+    volatile uint8_t *row_register;
+    int release_row_at;          // 0 = never
+};
+
+static WaitFreeProbe wait_free_probe = { 0, 0, 0, 0 };
+
+extern "C" void wait_ms(int)
+{
+    wait_free_probe.calls++;
+    if (wait_free_probe.release_usb_at && (wait_free_probe.calls >= wait_free_probe.release_usb_at)) {
+        uint8_t release[USB_DATA_SIZE] = { 0 };
+        wait_free_probe.release_usb_at = 0;
+        system_usb_keyboard.process_data(release); // the user lets go of the USB key
+    }
+    if (wait_free_probe.release_row_at && (wait_free_probe.calls >= wait_free_probe.release_row_at)) {
+        wait_free_probe.release_row_at = 0;
+        *wait_free_probe.row_register = 0xFF;      // ... and of the C64 key
+    }
+}
+
+namespace {
+
+RouteInputMenuKeyboardState route_input_test_menu_state;
+
+void route_input_reset_menu_keyboard_state_for_test(void)
+{
+    route_input_test_menu_state.reset();
+}
+
+int route_input_apply_menu_keyboard_event_for_test(const InputParsedEvent &event,
+    bool matrix_enabled, uint8_t *keys, int max_keys, int initial_repeat_delay)
+{
+    bool menu_active = !matrix_enabled;
+    route_input_test_menu_state.sync(menu_active);
+    if (!menu_active) {
+        return 0;
+    }
+    return route_input_test_menu_state.applyKeyboardEvent(event, keys, max_keys, initial_repeat_delay);
+}
+
+int route_input_menu_repeat_tick_for_test(bool matrix_enabled, uint8_t *keys, int max_keys, int repeat_speed)
+{
+    bool menu_active = !matrix_enabled;
+    route_input_test_menu_state.sync(menu_active);
+    if (!menu_active) {
+        return 0;
+    }
+    return route_input_test_menu_state.repeatTick(keys, max_keys, repeat_speed);
+}
+
+void route_input_menu_snapshot_for_test(uint8_t matrix[8])
+{
+    route_input_test_menu_state.snapshot(matrix);
+}
+
+void route_input_release_all_for_test(void)
+{
+    route_input_test_menu_state.clear();
+}
+
+const InputKeyboardMapEntry *find_keyboard_entry(const char *name)
+{
+    const InputKeyboardMapEntry *keyboard_map = input_api_keyboard_map();
+    for (int i = 0; i < input_api_keyboard_map_count(); i++) {
+        if (strcmp(keyboard_map[i].name, name) == 0) {
+            return &keyboard_map[i];
+        }
+    }
+    return 0;
+}
+
+int find_keyboard_index(const char *name)
+{
+    const InputKeyboardMapEntry *keyboard_map = input_api_keyboard_map();
+    for (int i = 0; i < input_api_keyboard_map_count(); i++) {
+        if (strcmp(keyboard_map[i].name, name) == 0) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+InputParsedEvent keyboard_event(InputParsedTransition transition, std::initializer_list<const char *> names)
+{
+    InputParsedEvent event;
+    memset(&event, 0, sizeof(event));
+    event.kind = INPUT_PARSED_KEYBOARD;
+    event.transition = transition;
+
+    for (const char *name : names) {
+        ASSERT_TRUE(event.keyboard_count < INPUT_API_MAX_KEYBOARD_INPUTS);
+        int index = find_keyboard_index(name);
+        ASSERT_TRUE(index >= 0);
+        event.keyboard_index[event.keyboard_count++] = index;
+    }
+    return event;
+}
+
+int collect_menu_keys(InputParsedTransition transition, std::initializer_list<const char *> names, uint8_t keys[INPUT_API_MAX_KEYBOARD_INPUTS])
+{
+    InputParsedEvent event = keyboard_event(transition, names);
+    return RouteInputMenuKeyboardState::collectKeys(event, keys, INPUT_API_MAX_KEYBOARD_INPUTS);
+}
+
+int collect_menu_keys_with_state(InputParsedTransition transition, std::initializer_list<const char *> names, uint8_t keys[INPUT_API_MAX_KEYBOARD_INPUTS], uint8_t &held_modifier_flags)
+{
+    InputParsedEvent event = keyboard_event(transition, names);
+    return RouteInputMenuKeyboardState::collectKeys(event, keys, INPUT_API_MAX_KEYBOARD_INPUTS, &held_modifier_flags);
+}
+
+bool key_active(const uint8_t matrix[8], const char *name)
+{
+    const InputKeyboardMapEntry *entry = find_keyboard_entry(name);
+    if (!entry) {
+        return false;
+    }
+    return (matrix[entry->row] & (1 << entry->col)) != 0;
+}
+
+void add_key_to_matrix(uint8_t matrix[8], const char *name)
+{
+    const InputKeyboardMapEntry *entry = find_keyboard_entry(name);
+    ASSERT_TRUE(entry != 0);
+    matrix[entry->row] |= (1 << entry->col);
+}
+
+void reset_joystick_output(void)
+{
+    JoystickOutput::instance().setUsbPort1(0x1F);
+    JoystickOutput::instance().setRestMousePort1(0x1F);
+    JoystickOutput::instance().clearMousePosition();
+    JoystickOutput::instance().releaseAllRest();
+}
+
+} // namespace
+
+TEST(RestKeyboardStateTest, TapOverlayAutoReleasesWithoutClearingPersistentKey)
+{
+    Keyboard_USB keyboard;
+    uint8_t matrix[8];
+    bool restore = false;
+
+    const InputKeyboardMapEntry *shift = find_keyboard_entry("left_shift");
+    const InputKeyboardMapEntry *a = find_keyboard_entry("a");
+    ASSERT_TRUE(shift != 0);
+    ASSERT_TRUE(a != 0);
+
+    keyboard.restPress(shift->row, shift->col);
+    keyboard.restTap(a->row, a->col, 1);
+    keyboard.restSnapshot(matrix, restore);
+    EXPECT_TRUE(key_active(matrix, "left_shift"));
+    EXPECT_TRUE(key_active(matrix, "a"));
+    EXPECT_FALSE(restore);
+
+    keyboard.tickRestOverlays();
+    keyboard.restSnapshot(matrix, restore);
+    EXPECT_TRUE(key_active(matrix, "left_shift"));
+    EXPECT_FALSE(key_active(matrix, "a"));
+    EXPECT_FALSE(restore);
+}
+
+TEST(RestKeyboardStateTest, ReleaseDoesNotCancelTapOverlay)
+{
+    Keyboard_USB keyboard;
+    uint8_t matrix[8];
+    bool restore = false;
+
+    const InputKeyboardMapEntry *a = find_keyboard_entry("a");
+    ASSERT_TRUE(a != 0);
+
+    keyboard.restTap(a->row, a->col, 1);
+    keyboard.restRelease(a->row, a->col);
+    keyboard.restSnapshot(matrix, restore);
+    EXPECT_TRUE(key_active(matrix, "a"));
+
+    keyboard.tickRestOverlays();
+    keyboard.restSnapshot(matrix, restore);
+    EXPECT_FALSE(key_active(matrix, "a"));
+}
+
+TEST(RestKeyboardStateTest, RestoreTapIsTemporaryAndNotPersistent)
+{
+    Keyboard_USB keyboard;
+    uint8_t matrix[8];
+    bool restore = false;
+    bool persistent_restore = true;
+
+    keyboard.restTapRestore(1);
+    keyboard.restSnapshot(matrix, restore);
+    EXPECT_TRUE(restore);
+    keyboard.restPersistentSnapshot(matrix, persistent_restore);
+    EXPECT_FALSE(persistent_restore);
+
+    keyboard.tickRestOverlays();
+    keyboard.restSnapshot(matrix, restore);
+    EXPECT_FALSE(restore);
+}
+
+// A queued tap carrying both matrix keys and `restore` is what one
+// `machine:input` request for C= plus RESTORE turns into. The C64 only reads
+// the combination as C= plus RESTORE if the CBM column is already down in the
+// matrix when the NMI edge arrives, so this asserts the hardware registers
+// rather than the REST snapshot: applyMatrixState() writes matrix[0..7] before
+// it writes the restore register at matrix[9], and the same tick sets both.
+TEST(RestKeyboardStateTest, QueuedTapDrivesMatrixAndRestoreTogether)
+{
+    Keyboard_USB keyboard;
+    volatile uint8_t hardware_matrix[11] = { 0 };
+    uint8_t combo[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
+
+    const InputKeyboardMapEntry *cbm = find_keyboard_entry("commodore");
+    ASSERT_TRUE(cbm != 0);
+    add_key_to_matrix(combo, "commodore");
+
+    keyboard.setMatrix(hardware_matrix);
+    keyboard.enableMatrix(true);
+    ASSERT_TRUE(keyboard.restQueueTap(combo, true, 2));
+
+    EXPECT_TRUE((hardware_matrix[cbm->row] & (1 << cbm->col)) == 0);
+    EXPECT_TRUE((hardware_matrix[9] & 1) == 0);
+
+    keyboard.tickRestOverlays();
+    EXPECT_TRUE((hardware_matrix[cbm->row] & (1 << cbm->col)) != 0);
+    EXPECT_TRUE((hardware_matrix[9] & 1) != 0);
+
+    keyboard.tickRestOverlays();
+    EXPECT_TRUE((hardware_matrix[cbm->row] & (1 << cbm->col)) != 0);
+    EXPECT_TRUE((hardware_matrix[9] & 1) != 0);
+
+    keyboard.tickRestOverlays();
+    EXPECT_TRUE((hardware_matrix[cbm->row] & (1 << cbm->col)) == 0);
+    EXPECT_TRUE((hardware_matrix[9] & 1) == 0);
+}
+
+TEST(RestKeyboardStateTest, QueuedTapPreservesChordAndOrder)
+{
+    Keyboard_USB keyboard;
+    uint8_t matrix[8];
+    bool restore = false;
+    uint8_t shift_a[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
+    uint8_t b_only[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
+
+    add_key_to_matrix(shift_a, "left_shift");
+    add_key_to_matrix(shift_a, "a");
+    add_key_to_matrix(b_only, "b");
+
+    ASSERT_TRUE(keyboard.restQueueTap(shift_a, false, 1));
+    ASSERT_TRUE(keyboard.restQueueTap(b_only, false, 1));
+
+    keyboard.restSnapshot(matrix, restore);
+    EXPECT_FALSE(key_active(matrix, "left_shift"));
+    EXPECT_FALSE(key_active(matrix, "a"));
+    EXPECT_FALSE(key_active(matrix, "b"));
+
+    keyboard.tickRestOverlays();
+    keyboard.restSnapshot(matrix, restore);
+    EXPECT_TRUE(key_active(matrix, "left_shift"));
+    EXPECT_TRUE(key_active(matrix, "a"));
+    EXPECT_FALSE(key_active(matrix, "b"));
+
+    // The tick that releases the first tap also starts the gap and spends its
+    // first tick, so REST_TAP_GAP_TICKS - 1 further idle ticks follow before
+    // the queued "b" may start. Ticked from the constant rather than from a
+    // number written out again, so changing the rate cannot silently change
+    // what this proves.
+    keyboard.tickRestOverlays();
+    keyboard.restSnapshot(matrix, restore);
+    EXPECT_FALSE(key_active(matrix, "left_shift"));
+    EXPECT_FALSE(key_active(matrix, "a"));
+    EXPECT_FALSE(key_active(matrix, "b"));
+
+    for (int gap = 1; gap < REST_TAP_GAP_TICKS; gap++) {
+        keyboard.tickRestOverlays();
+        keyboard.restSnapshot(matrix, restore);
+        EXPECT_FALSE(key_active(matrix, "left_shift"));
+        EXPECT_FALSE(key_active(matrix, "a"));
+        EXPECT_FALSE(key_active(matrix, "b"));
+    }
+
+    keyboard.tickRestOverlays();
+    keyboard.restSnapshot(matrix, restore);
+    EXPECT_TRUE(key_active(matrix, "b"));
+    EXPECT_FALSE(key_active(matrix, "left_shift"));
+    EXPECT_FALSE(key_active(matrix, "a"));
+
+    keyboard.tickRestOverlays();
+    keyboard.restSnapshot(matrix, restore);
+    EXPECT_FALSE(key_active(matrix, "b"));
+    EXPECT_FALSE(key_active(matrix, "left_shift"));
+    EXPECT_FALSE(key_active(matrix, "a"));
+}
+
+TEST(RestKeyboardStateTest, QueuedTapStagesModifiersAroundChordKey)
+{
+    Keyboard_USB keyboard;
+    uint8_t matrix[8];
+    bool restore = false;
+    uint8_t shift_a[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
+    uint8_t setup[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
+
+    add_key_to_matrix(shift_a, "left_shift");
+    add_key_to_matrix(shift_a, "a");
+    add_key_to_matrix(setup, "left_shift");
+
+    ASSERT_TRUE(keyboard.restQueueTap(shift_a, setup, false, 2));
+
+    keyboard.tickRestOverlays();
+    keyboard.restSnapshot(matrix, restore);
+    EXPECT_TRUE(key_active(matrix, "left_shift"));
+    EXPECT_FALSE(key_active(matrix, "a"));
+
+    keyboard.tickRestOverlays();
+    keyboard.restSnapshot(matrix, restore);
+    EXPECT_TRUE(key_active(matrix, "left_shift"));
+    EXPECT_TRUE(key_active(matrix, "a"));
+
+    keyboard.tickRestOverlays();
+    keyboard.restSnapshot(matrix, restore);
+    EXPECT_TRUE(key_active(matrix, "left_shift"));
+    EXPECT_TRUE(key_active(matrix, "a"));
+
+    keyboard.tickRestOverlays();
+    keyboard.restSnapshot(matrix, restore);
+    EXPECT_TRUE(key_active(matrix, "left_shift"));
+    EXPECT_FALSE(key_active(matrix, "a"));
+
+    keyboard.tickRestOverlays();
+    keyboard.restSnapshot(matrix, restore);
+    EXPECT_FALSE(key_active(matrix, "left_shift"));
+    EXPECT_FALSE(key_active(matrix, "a"));
+}
+
+TEST(RestKeyboardStateTest, ReleaseAllClearsPersistentAndOverlayState)
+{
+    Keyboard_USB keyboard;
+    uint8_t matrix[8];
+    bool restore = false;
+
+    const InputKeyboardMapEntry *shift = find_keyboard_entry("left_shift");
+    const InputKeyboardMapEntry *a = find_keyboard_entry("a");
+    ASSERT_TRUE(shift != 0);
+    ASSERT_TRUE(a != 0);
+
+    keyboard.restPress(shift->row, shift->col);
+    keyboard.restTap(a->row, a->col, 2);
+    keyboard.restPressRestore();
+    keyboard.restReleaseAll();
+    keyboard.restSnapshot(matrix, restore);
+    EXPECT_FALSE(key_active(matrix, "left_shift"));
+    EXPECT_FALSE(key_active(matrix, "a"));
+    EXPECT_FALSE(restore);
+}
+
+TEST(RestKeyboardStateTest, RestMatrixOutputSurvivesUsbMatrixDisable)
+{
+    Keyboard_USB keyboard;
+    volatile uint8_t hardware_matrix[11] = { 0 };
+
+    const InputKeyboardMapEntry *b = find_keyboard_entry("b");
+    ASSERT_TRUE(b != 0);
+
+    keyboard.setMatrix(hardware_matrix);
+    keyboard.enableMatrix(true);
+    keyboard.restPress(b->row, b->col);
+    EXPECT_TRUE((hardware_matrix[b->row] & (1 << b->col)) != 0);
+
+    keyboard.enableMatrix(false);
+    EXPECT_TRUE((hardware_matrix[b->row] & (1 << b->col)) != 0);
+
+    keyboard.restPressRestore();
+    EXPECT_TRUE((hardware_matrix[9] & 1) != 0);
+
+    keyboard.restRelease(b->row, b->col);
+    EXPECT_FALSE((hardware_matrix[b->row] & (1 << b->col)) != 0);
+
+    keyboard.restReleaseRestore();
+    EXPECT_FALSE((hardware_matrix[9] & 1) != 0);
+}
+
+TEST(KeyboardC64StateTest, SoftwareJoystickDoesNotBlockKeyboardScan)
+{
+    EXPECT_FALSE(Keyboard_C64::joystick_blocks_keyboard(0x0E, 0x0E));
+    EXPECT_TRUE(Keyboard_C64::joystick_blocks_keyboard(0x0E, 0x1F));
+    EXPECT_TRUE(Keyboard_C64::joystick_blocks_keyboard(0x0C, 0x0E));
+}
+
+TEST(KeyboardC64StateTest, MatrixLookupTranslatesUiKeyCodes)
+{
+    struct KeyCase {
+        const char *name;
+        uint8_t shift_flag;
+        uint8_t expected_key;
+    };
+    const KeyCase cases[] = {
+        { "cursor_up_down", 0x00, KEY_DOWN },
+        { "cursor_up_down", 0x01, KEY_UP },
+        { "cursor_left_right", 0x00, KEY_RIGHT },
+        { "cursor_left_right", 0x01, KEY_LEFT },
+        { "return", 0x00, KEY_RETURN },
+        { "f1", 0x00, KEY_F1 },
+        { "f1", 0x01, KEY_F2 },
+        { "a", 0x00, 'a' },
+        { "a", 0x01, 'A' },
+        // C=+R and Ctrl+R are the monitor's reset shortcut. They must not
+        // resolve to KEY_DOWN, which is what the ASCII control code for R
+        // (0x12) is: the monitor tests the reset shortcut before it reaches
+        // its cursor-key handling, so a shared code would make cursor-down
+        // reset the machine. 0x02 is the C= modifier flag and 0x04 is Ctrl.
+        { "r", 0x00, 'r' },
+        { "r", 0x02, KEY_CTRL_R },
+        { "r", 0x04, KEY_CTRL_R },
+    };
+    EXPECT_TRUE(KEY_CTRL_R != KEY_DOWN);
+
+    for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
+        const InputKeyboardMapEntry *entry = find_keyboard_entry(cases[i].name);
+        ASSERT_TRUE(entry != 0);
+        EXPECT_EQ(cases[i].expected_key, Keyboard_C64::matrixToKeyCode(entry->row, entry->col, cases[i].shift_flag));
+    }
+
+    const InputKeyboardMapEntry *shift = find_keyboard_entry("left_shift");
+    const InputKeyboardMapEntry *commodore = find_keyboard_entry("commodore");
+    const InputKeyboardMapEntry *ctrl = find_keyboard_entry("ctrl");
+    ASSERT_TRUE(shift != 0);
+    ASSERT_TRUE(commodore != 0);
+    ASSERT_TRUE(ctrl != 0);
+    EXPECT_EQ(0x01, Keyboard_C64::matrixModifierFlag(shift->row, shift->col));
+    EXPECT_EQ(0x02, Keyboard_C64::matrixModifierFlag(commodore->row, commodore->col));
+    EXPECT_EQ(0x04, Keyboard_C64::matrixModifierFlag(ctrl->row, ctrl->col));
+    EXPECT_EQ(0x00, Keyboard_C64::matrixModifierFlag(8, 0));
+    EXPECT_EQ(0x00, Keyboard_C64::matrixToKeyCode(8, 0, 0));
+}
+
+// USB HID usage 0x29 (escape) maps to C64 matrix row 7, column 7: RUN/STOP.
+static const uint8_t USB_KEY_ESCAPE = 0x29;
+static const int MATRIX_RUNSTOP_ROW = 7;
+static const uint8_t MATRIX_RUNSTOP_BIT = 0x80;
+
+// Must outlive every test: the global keyboard keeps writing through this
+// pointer once setMatrix() has been handed it.
+static volatile uint8_t menu_exit_matrix[11] = { 0 };
+
+namespace {
+
+class AccessibleHost : public GenericHost
+{
+public:
+    bool exists(void) { return true; }
+    bool is_accessible(void) { return true; }
+};
+
+// system_usb_keyboard is global: never leave keys held for the next test.
+void release_usb_keys(void)
+{
+    uint8_t release[USB_DATA_SIZE] = { 0x00 };
+    system_usb_keyboard.process_data(release);
+}
+
+// The menu owns the keyboard and ESC is still held down: the state the firmware
+// is in at the moment the user leaves the menu.
+void arm_menu_with_escape_held(void)
+{
+    uint8_t escape[USB_DATA_SIZE] = { 0x00, 0x00, USB_KEY_ESCAPE, 0x00, 0x00, 0x00, 0x00, 0x00 };
+
+    release_usb_keys();
+    system_usb_keyboard.setMatrix(menu_exit_matrix);
+    system_usb_keyboard.enableMatrix(false);
+    system_usb_keyboard.process_data(escape);
+
+    wait_free_probe.calls = 0;
+    wait_free_probe.release_usb_at = 0;
+    wait_free_probe.row_register = 0;
+    wait_free_probe.release_row_at = 0;
+}
+
+} // namespace
+
+// Why the wait exists: the matrix mirrors the live USB report, so a key that is
+// still held when the menu gives the matrix back lands on the C64 right away.
+// ESC is RUN/STOP, and the SID player returns to the menu on RUN/STOP.
+TEST(KeyboardC64StateTest, HeldUsbEscapeIsRunStopOnTheC64Matrix)
+{
+    arm_menu_with_escape_held();
+    EXPECT_EQ(0x00, menu_exit_matrix[MATRIX_RUNSTOP_ROW]);
+
+    system_usb_keyboard.enableMatrix(true); // menu hands the matrix back
+    EXPECT_EQ(MATRIX_RUNSTOP_BIT, menu_exit_matrix[MATRIX_RUNSTOP_ROW]);
+
+    release_usb_keys();
+}
+
+TEST(KeyboardC64StateTest, MenuExitWaitsForHeldUsbKeyToBeReleased)
+{
+    Keyboard_C64 keyboard(NULL, NULL, NULL, NULL); // no host: only the USB wait runs
+
+    arm_menu_with_escape_held();
+    EXPECT_TRUE(system_usb_keyboard.anyKeyPressed());
+
+    wait_free_probe.release_usb_at = 5;
+    keyboard.wait_free();
+    EXPECT_EQ(5, wait_free_probe.calls); // it really waited the exit key out
+    EXPECT_FALSE(system_usb_keyboard.anyKeyPressed());
+
+    system_usb_keyboard.enableMatrix(true);
+    EXPECT_EQ(0x00, menu_exit_matrix[MATRIX_RUNSTOP_ROW]); // no phantom RUN/STOP
+
+    release_usb_keys();
+}
+
+// Neither keyboard may cut the other's wait short: the added USB wait must not
+// consume the budget the C64 matrix scan has always had.
+TEST(KeyboardC64StateTest, MenuExitWaitsForBothKeyboards)
+{
+    AccessibleHost host;
+    volatile uint8_t row_register = 0x7F; // a C64 key is down too
+    volatile uint8_t col_register = 0xFF;
+    Keyboard_C64 keyboard(&host, &row_register, &col_register, NULL);
+
+    arm_menu_with_escape_held();
+    wait_free_probe.row_register = &row_register;
+    wait_free_probe.release_usb_at = 5;
+    wait_free_probe.release_row_at = 9;
+
+    keyboard.wait_free();
+    EXPECT_EQ(9, wait_free_probe.calls); // waited past the USB release for the matrix
+    EXPECT_EQ(0xFF, col_register);       // rows deselected again
+
+    release_usb_keys();
+}
+
+TEST(KeyboardC64StateTest, MenuExitWaitIsBoundedWhenTheKeysAreNeverReleased)
+{
+    AccessibleHost host;
+    volatile uint8_t row_register = 0x7F;
+    volatile uint8_t col_register = 0xFF;
+    Keyboard_C64 keyboard(&host, &row_register, &col_register, NULL);
+
+    arm_menu_with_escape_held(); // both keys stay down forever
+
+    keyboard.wait_free();
+    // Worst case: each keyboard gets its own full budget, and no more.
+    EXPECT_EQ(2 * KEYBOARD_WAIT_FREE_TIMEOUT_MS, wait_free_probe.calls);
+    EXPECT_EQ(0xFF, col_register);
+
+    release_usb_keys();
+}
+
+TEST(RouteInputMenuTranslationTest, CollectsMenuKeysWithModifiers)
+{
+    uint8_t keys[INPUT_API_MAX_KEYBOARD_INPUTS];
+
+    EXPECT_EQ(1, collect_menu_keys(INPUT_PARSED_TAP, { "cursor_up_down" }, keys));
+    EXPECT_EQ(KEY_DOWN, keys[0]);
+
+    EXPECT_EQ(1, collect_menu_keys(INPUT_PARSED_TAP, { "left_shift", "cursor_up_down" }, keys));
+    EXPECT_EQ(KEY_UP, keys[0]);
+
+    EXPECT_EQ(1, collect_menu_keys(INPUT_PARSED_TAP, { "cursor_left_right" }, keys));
+    EXPECT_EQ(KEY_RIGHT, keys[0]);
+
+    EXPECT_EQ(1, collect_menu_keys(INPUT_PARSED_TAP, { "left_shift", "cursor_left_right" }, keys));
+    EXPECT_EQ(KEY_LEFT, keys[0]);
+
+    EXPECT_EQ(1, collect_menu_keys(INPUT_PARSED_TAP, { "return" }, keys));
+    EXPECT_EQ(KEY_RETURN, keys[0]);
+
+    EXPECT_EQ(1, collect_menu_keys(INPUT_PARSED_TAP, { "f1" }, keys));
+    EXPECT_EQ(KEY_F1, keys[0]);
+
+    EXPECT_EQ(1, collect_menu_keys(INPUT_PARSED_TAP, { "left_shift", "f1" }, keys));
+    EXPECT_EQ(KEY_F2, keys[0]);
+
+    EXPECT_EQ(1, collect_menu_keys(INPUT_PARSED_TAP, { "a" }, keys));
+    EXPECT_EQ('a', keys[0]);
+
+    EXPECT_EQ(1, collect_menu_keys(INPUT_PARSED_TAP, { "left_shift", "a" }, keys));
+    EXPECT_EQ('A', keys[0]);
+}
+
+TEST(RouteInputMenuTranslationTest, IgnoresReleaseRestoreAndModifierOnlyEvents)
+{
+    uint8_t keys[INPUT_API_MAX_KEYBOARD_INPUTS];
+
+    EXPECT_EQ(0, collect_menu_keys(INPUT_PARSED_RELEASE, { "a" }, keys));
+    EXPECT_EQ(0, collect_menu_keys(INPUT_PARSED_TAP, { "restore" }, keys));
+    EXPECT_EQ(0, collect_menu_keys(INPUT_PARSED_TAP, { "left_shift" }, keys));
+}
+
+TEST(RouteInputMenuTranslationTest, PreservesNonModifierOrder)
+{
+    uint8_t keys[INPUT_API_MAX_KEYBOARD_INPUTS];
+
+    EXPECT_EQ(2, collect_menu_keys(INPUT_PARSED_PRESS, { "left_shift", "a", "cursor_left_right" }, keys));
+    EXPECT_EQ('A', keys[0]);
+    EXPECT_EQ(KEY_LEFT, keys[1]);
+}
+
+TEST(RouteInputMenuTranslationTest, AppliesOrderedBatchModifierState)
+{
+    uint8_t keys[INPUT_API_MAX_KEYBOARD_INPUTS];
+    uint8_t held_modifier_flags = 0;
+
+    EXPECT_EQ(0, collect_menu_keys_with_state(INPUT_PARSED_PRESS, { "left_shift" }, keys, held_modifier_flags));
+    EXPECT_EQ(0x01, held_modifier_flags);
+
+    EXPECT_EQ(1, collect_menu_keys_with_state(INPUT_PARSED_PRESS, { "cursor_up_down" }, keys, held_modifier_flags));
+    EXPECT_EQ(KEY_UP, keys[0]);
+
+    EXPECT_EQ(1, collect_menu_keys_with_state(INPUT_PARSED_PRESS, { "cursor_left_right" }, keys, held_modifier_flags));
+    EXPECT_EQ(KEY_LEFT, keys[0]);
+
+    EXPECT_EQ(1, collect_menu_keys_with_state(INPUT_PARSED_PRESS, { "f1" }, keys, held_modifier_flags));
+    EXPECT_EQ(KEY_F2, keys[0]);
+
+    EXPECT_EQ(0, collect_menu_keys_with_state(INPUT_PARSED_RELEASE, { "left_shift" }, keys, held_modifier_flags));
+    EXPECT_EQ(0x00, held_modifier_flags);
+
+    EXPECT_EQ(1, collect_menu_keys_with_state(INPUT_PARSED_PRESS, { "cursor_up_down" }, keys, held_modifier_flags));
+    EXPECT_EQ(KEY_DOWN, keys[0]);
+}
+
+TEST(RouteInputMenuStateTest, PersistsModifiersAcrossSeparateEvents)
+{
+    uint8_t keys[INPUT_API_MAX_KEYBOARD_INPUTS];
+    uint8_t held_matrix[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
+
+    route_input_reset_menu_keyboard_state_for_test();
+
+    EXPECT_EQ(0, route_input_apply_menu_keyboard_event_for_test(
+        keyboard_event(INPUT_PARSED_PRESS, { "left_shift" }), false, keys, INPUT_API_MAX_KEYBOARD_INPUTS, 16));
+    route_input_menu_snapshot_for_test(held_matrix);
+    EXPECT_TRUE(key_active(held_matrix, "left_shift"));
+
+    EXPECT_EQ(1, route_input_apply_menu_keyboard_event_for_test(
+        keyboard_event(INPUT_PARSED_PRESS, { "a" }), false, keys, INPUT_API_MAX_KEYBOARD_INPUTS, 16));
+    EXPECT_EQ('A', keys[0]);
+    route_input_menu_snapshot_for_test(held_matrix);
+    EXPECT_TRUE(key_active(held_matrix, "left_shift"));
+    EXPECT_TRUE(key_active(held_matrix, "a"));
+
+    EXPECT_EQ(0, route_input_apply_menu_keyboard_event_for_test(
+        keyboard_event(INPUT_PARSED_RELEASE, { "a" }), false, keys, INPUT_API_MAX_KEYBOARD_INPUTS, 16));
+    EXPECT_EQ(0, route_input_apply_menu_keyboard_event_for_test(
+        keyboard_event(INPUT_PARSED_RELEASE, { "left_shift" }), false, keys, INPUT_API_MAX_KEYBOARD_INPUTS, 16));
+    route_input_menu_snapshot_for_test(held_matrix);
+    EXPECT_FALSE(key_active(held_matrix, "left_shift"));
+    EXPECT_FALSE(key_active(held_matrix, "a"));
+}
+
+TEST(RouteInputMenuStateTest, UsesHeldModifiersForTapEvents)
+{
+    uint8_t keys[INPUT_API_MAX_KEYBOARD_INPUTS];
+    uint8_t held_matrix[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
+
+    route_input_reset_menu_keyboard_state_for_test();
+
+    EXPECT_EQ(0, route_input_apply_menu_keyboard_event_for_test(
+        keyboard_event(INPUT_PARSED_PRESS, { "left_shift" }), false, keys, INPUT_API_MAX_KEYBOARD_INPUTS, 16));
+    EXPECT_EQ(1, route_input_apply_menu_keyboard_event_for_test(
+        keyboard_event(INPUT_PARSED_TAP, { "a" }), false, keys, INPUT_API_MAX_KEYBOARD_INPUTS, 16));
+    EXPECT_EQ('A', keys[0]);
+
+    route_input_menu_snapshot_for_test(held_matrix);
+    EXPECT_TRUE(key_active(held_matrix, "left_shift"));
+    EXPECT_FALSE(key_active(held_matrix, "a"));
+}
+
+TEST(RouteInputMenuStateTest, RepeatsHeldKeysUntilReleased)
+{
+    uint8_t keys[INPUT_API_MAX_KEYBOARD_INPUTS];
+
+    route_input_reset_menu_keyboard_state_for_test();
+
+    EXPECT_EQ(0, route_input_apply_menu_keyboard_event_for_test(
+        keyboard_event(INPUT_PARSED_PRESS, { "left_shift" }), false, keys, INPUT_API_MAX_KEYBOARD_INPUTS, 2));
+    EXPECT_EQ(1, route_input_apply_menu_keyboard_event_for_test(
+        keyboard_event(INPUT_PARSED_PRESS, { "cursor_up_down" }), false, keys, INPUT_API_MAX_KEYBOARD_INPUTS, 2));
+    EXPECT_EQ(KEY_UP, keys[0]);
+
+    EXPECT_EQ(0, route_input_menu_repeat_tick_for_test(false, keys, INPUT_API_MAX_KEYBOARD_INPUTS, 1));
+    EXPECT_EQ(0, route_input_menu_repeat_tick_for_test(false, keys, INPUT_API_MAX_KEYBOARD_INPUTS, 1));
+    EXPECT_EQ(1, route_input_menu_repeat_tick_for_test(false, keys, INPUT_API_MAX_KEYBOARD_INPUTS, 1));
+    EXPECT_EQ(KEY_UP, keys[0]);
+
+    EXPECT_EQ(0, route_input_apply_menu_keyboard_event_for_test(
+        keyboard_event(INPUT_PARSED_RELEASE, { "cursor_up_down" }), false, keys, INPUT_API_MAX_KEYBOARD_INPUTS, 2));
+    EXPECT_EQ(0, route_input_menu_repeat_tick_for_test(false, keys, INPUT_API_MAX_KEYBOARD_INPUTS, 1));
+}
+
+TEST(RouteInputMenuStateTest, PreservesStateAcrossMenuPollCycles)
+{
+    uint8_t keys[INPUT_API_MAX_KEYBOARD_INPUTS];
+
+    route_input_reset_menu_keyboard_state_for_test();
+
+    EXPECT_EQ(0, route_input_apply_menu_keyboard_event_for_test(
+        keyboard_event(INPUT_PARSED_PRESS, { "left_shift" }), false, keys, INPUT_API_MAX_KEYBOARD_INPUTS, 2));
+    EXPECT_EQ(1, route_input_apply_menu_keyboard_event_for_test(
+        keyboard_event(INPUT_PARSED_PRESS, { "a" }), false, keys, INPUT_API_MAX_KEYBOARD_INPUTS, 2));
+    EXPECT_EQ('A', keys[0]);
+
+    EXPECT_EQ(0, route_input_menu_repeat_tick_for_test(false, keys, INPUT_API_MAX_KEYBOARD_INPUTS, 1));
+    EXPECT_EQ(0, route_input_menu_repeat_tick_for_test(false, keys, INPUT_API_MAX_KEYBOARD_INPUTS, 1));
+    EXPECT_EQ(1, route_input_menu_repeat_tick_for_test(false, keys, INPUT_API_MAX_KEYBOARD_INPUTS, 1));
+    EXPECT_EQ('A', keys[0]);
+}
+
+TEST(RouteInputMenuStateTest, ClearsStateWhenMenuOwnershipEnds)
+{
+    uint8_t keys[INPUT_API_MAX_KEYBOARD_INPUTS];
+    uint8_t held_matrix[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
+
+    route_input_reset_menu_keyboard_state_for_test();
+
+    EXPECT_EQ(0, route_input_apply_menu_keyboard_event_for_test(
+        keyboard_event(INPUT_PARSED_PRESS, { "left_shift" }), false, keys, INPUT_API_MAX_KEYBOARD_INPUTS, 16));
+    EXPECT_EQ(1, route_input_apply_menu_keyboard_event_for_test(
+        keyboard_event(INPUT_PARSED_PRESS, { "a" }), false, keys, INPUT_API_MAX_KEYBOARD_INPUTS, 16));
+    EXPECT_EQ('A', keys[0]);
+
+    EXPECT_EQ(0, route_input_apply_menu_keyboard_event_for_test(
+        keyboard_event(INPUT_PARSED_PRESS, { "a" }), true, keys, INPUT_API_MAX_KEYBOARD_INPUTS, 16));
+    route_input_menu_snapshot_for_test(held_matrix);
+    EXPECT_FALSE(key_active(held_matrix, "left_shift"));
+    EXPECT_FALSE(key_active(held_matrix, "a"));
+
+    EXPECT_EQ(1, route_input_apply_menu_keyboard_event_for_test(
+        keyboard_event(INPUT_PARSED_PRESS, { "a" }), false, keys, INPUT_API_MAX_KEYBOARD_INPUTS, 16));
+    EXPECT_EQ('a', keys[0]);
+}
+
+TEST(RouteInputMenuStateTest, ReleaseAllClearsHeldMenuSnapshot)
+{
+    uint8_t keys[INPUT_API_MAX_KEYBOARD_INPUTS];
+    uint8_t held_matrix[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
+
+    route_input_reset_menu_keyboard_state_for_test();
+    EXPECT_EQ(0, route_input_apply_menu_keyboard_event_for_test(
+        keyboard_event(INPUT_PARSED_PRESS, { "left_shift" }), false, keys, INPUT_API_MAX_KEYBOARD_INPUTS, 16));
+    EXPECT_EQ(1, route_input_apply_menu_keyboard_event_for_test(
+        keyboard_event(INPUT_PARSED_PRESS, { "a" }), false, keys, INPUT_API_MAX_KEYBOARD_INPUTS, 16));
+
+    route_input_release_all_for_test();
+    route_input_menu_snapshot_for_test(held_matrix);
+    EXPECT_FALSE(key_active(held_matrix, "left_shift"));
+    EXPECT_FALSE(key_active(held_matrix, "a"));
+    EXPECT_EQ(0, route_input_menu_repeat_tick_for_test(false, keys, INPUT_API_MAX_KEYBOARD_INPUTS, 1));
+}
+
+TEST(RestJoystickStateTest, TapOverlayAutoReleasesWithoutClearingPersistentInput)
+{
+    reset_joystick_output();
+    uint8_t hold[7] = { 0, 0, 0, 0, 1, 1, 1 };
+    uint8_t port1 = 0;
+    uint8_t port2 = 0;
+
+    JoystickOutput::instance().setRestPort2Persistent(0x5E);
+    JoystickOutput::instance().armRestPort2Overlay(0x0F, hold);
+    JoystickOutput::instance().snapshot(port1, port2);
+    EXPECT_EQ(0x7F, port1);
+    EXPECT_EQ(0x0E, port2);
+
+    JoystickOutput::instance().tickOverlays();
+    JoystickOutput::instance().snapshot(port1, port2);
+    EXPECT_EQ(0x5E, port2);
+}
+
+TEST(RestJoystickStateTest, ReleaseAllClearsBothPorts)
+{
+    reset_joystick_output();
+    uint8_t hold[7] = { 1, 0, 0, 0, 0, 1, 1 };
+    uint8_t port1 = 0;
+    uint8_t port2 = 0;
+
+    JoystickOutput::instance().setRestPort1Persistent(0x2F);
+    JoystickOutput::instance().setRestPort2Persistent(0x5E);
+    JoystickOutput::instance().armRestPort1Overlay(0x1E, hold);
+    JoystickOutput::instance().releaseAllRest();
+    JoystickOutput::instance().snapshot(port1, port2);
+    EXPECT_EQ(0x7F, port1);
+    EXPECT_EQ(0x7F, port2);
+}
+
+TEST(RestJoystickStateTest, Fire2AndFire3PersistAndReleaseIndependently)
+{
+    reset_joystick_output();
+    uint8_t port1 = 0;
+    uint8_t port2 = 0;
+
+    JoystickOutput::instance().setRestPort1Persistent(0x1F);
+    JoystickOutput::instance().snapshot(port1, port2);
+    EXPECT_EQ(0x1F, port1);
+
+    JoystickOutput::instance().setRestPort1Persistent(0x3F);
+    JoystickOutput::instance().snapshot(port1, port2);
+    EXPECT_EQ(0x3F, port1);
+
+    JoystickOutput::instance().setRestPort1Persistent(0x5F);
+    JoystickOutput::instance().snapshot(port1, port2);
+    EXPECT_EQ(0x5F, port1);
+}
+
+TEST(RestJoystickStateTest, ReleaseCancelsInFlightTapOverlayImmediately)
+{
+    // Tap then release of the same input, as route_input.cc applies them.
+    reset_joystick_output();
+    uint8_t hold[7] = { 0, 0, 0, 0, 0, 1, 0 };  // fire2 (bit 5) tapped
+    uint8_t port1 = 0;
+    uint8_t port2 = 0;
+
+    // Tap shows fire2 pressed.
+    JoystickOutput::instance().armRestPort1Overlay(0x7F & ~0x20, hold);
+    JoystickOutput::instance().snapshot(port1, port2);
+    EXPECT_EQ(0x5F, port1);
+
+    // Release must take effect immediately, not wait for the tap to expire.
+    JoystickOutput::instance().setRestPort1Persistent(0x7F);
+    JoystickOutput::instance().cancelRestPort1Overlay(0x20);
+    JoystickOutput::instance().snapshot(port1, port2);
+    EXPECT_EQ(0x7F, port1);
+}
+
+TEST(RestJoystickStateTest, CancelOverlayLeavesOtherBitsAlone)
+{
+    reset_joystick_output();
+    uint8_t hold[7] = { 0, 0, 0, 0, 0, 1, 1 };  // fire2 and fire3 both tapped
+    uint8_t port1 = 0;
+    uint8_t port2 = 0;
+
+    JoystickOutput::instance().armRestPort1Overlay(0x7F & ~0x60, hold);
+    JoystickOutput::instance().cancelRestPort1Overlay(0x20);  // cancel fire2 only
+    JoystickOutput::instance().snapshot(port1, port2);
+    EXPECT_EQ(0x3F, port1);  // fire2 (bit 5) released, fire3 (bit 6) still mid-tap
+
+    JoystickOutput::instance().tickOverlays();
+    JoystickOutput::instance().snapshot(port1, port2);
+    EXPECT_EQ(0x7F, port1);  // fire3's own countdown still auto-releases normally
+}
+
+TEST(RestJoystickStateTest, Fire2MapsToPotXAndFire3MapsToPotY)
+{
+    reset_joystick_output();
+    uint8_t port1 = 0;
+    uint8_t port2 = 0;
+    uint8_t pot1x = 0;
+    uint8_t pot1y = 0;
+    uint8_t pot2x = 0;
+    uint8_t pot2y = 0;
+
+    JoystickOutput::instance().setRestPort2Persistent(0x5F);
+    JoystickOutput::instance().outputSnapshot(port1, port2, pot1x, pot1y, pot2x, pot2y);
+    EXPECT_EQ(0x1F, port1);
+    EXPECT_EQ(0x1F, port2);
+    EXPECT_EQ(0x00, pot2x);
+    EXPECT_EQ(0x80, pot2y);
+
+    JoystickOutput::instance().setRestPort2Persistent(0x3F);
+    JoystickOutput::instance().outputSnapshot(port1, port2, pot1x, pot1y, pot2x, pot2y);
+    EXPECT_EQ(0x80, pot2x);
+    EXPECT_EQ(0x00, pot2y);
+}
+
+static void port1_pots(uint8_t &potx, uint8_t &poty)
+{
+    uint8_t port1, port2, pot2x, pot2y;
+    JoystickOutput::instance().outputSnapshot(port1, port2, potx, poty, pot2x, pot2y);
+}
+
+// Issue #909: in Mouse + Wheel mode the wheel pulses port 1's left and right
+// lines. A line update must keep the mouse position on the POT lines instead of
+// writing the released joystick value.
+TEST(MouseJoystickOutputTest, MousePositionSurvivesPort1LineUpdates)
+{
+    reset_joystick_output();
+    uint8_t potx = 0;
+    uint8_t poty = 0;
+    JoystickOutput::instance().setMousePosition(0x15, 0x2A);
+    JoystickOutput::instance().setUsbPort1(0x1B);
+    JoystickOutput::instance().setRestMousePort1(0x1E);
+    port1_pots(potx, poty);
+    EXPECT_EQ(0x15, potx);
+    EXPECT_EQ(0x2A, poty);
+}
+
+TEST(MouseJoystickOutputTest, RestExtraButtonOwnsThePotLinesWhileHeld)
+{
+    reset_joystick_output();
+    uint8_t potx = 0;
+    uint8_t poty = 0;
+    JoystickOutput::instance().setMousePosition(0x15, 0x2A);
+    JoystickOutput::instance().setRestPort1Persistent(0x5F);    // fire2 held
+    port1_pots(potx, poty);
+    EXPECT_EQ(0x00, potx);
+    EXPECT_EQ(0x80, poty);
+    JoystickOutput::instance().setRestPort1Persistent(0x7F);
+    port1_pots(potx, poty);
+    EXPECT_EQ(0x15, potx);
+    EXPECT_EQ(0x2A, poty);
+}
+
+TEST(MouseJoystickOutputTest, ClearingTheMouseRestoresTheReleasedPotValues)
+{
+    reset_joystick_output();
+    uint8_t potx = 0;
+    uint8_t poty = 0;
+    JoystickOutput::instance().setMousePosition(0x15, 0x2A);
+    JoystickOutput::instance().clearMousePosition();
+    port1_pots(potx, poty);
+    EXPECT_EQ(0x80, potx);
+    EXPECT_EQ(0x80, poty);
+}
+
+TEST(MouseJoystickOutputTest, RestMouseLinesAreASourceOfTheirOwn)
+{
+    reset_joystick_output();
+    uint8_t port1 = 0;
+    uint8_t port2 = 0;
+    JoystickOutput::instance().setRestMousePort1(0x0F);          // left button
+    JoystickOutput::instance().setUsbPort1(0x1E);
+    JoystickOutput::instance().setUsbPort1(0x1F);                // a USB mouse lets go
+    JoystickOutput::instance().snapshot(port1, port2);
+    EXPECT_EQ(0x7F, port1);                                      // REST joystick state only
+    uint8_t out1, out2, pot1x, pot1y, pot2x, pot2y;
+    JoystickOutput::instance().outputSnapshot(out1, out2, pot1x, pot1y, pot2x, pot2y);
+    EXPECT_EQ(0x0F, out1);
+}
+
+TEST(MousePotPacerTest, MovementThatFitsGoesOutAtOnce)
+{
+    MousePotPacer pacer;
+    pacer.reset(0, 0, 1000);
+    pacer.setTarget(30, -63);
+    EXPECT_TRUE(pacer.advance(1000 + MousePotPacer::WINDOW_MS));
+    EXPECT_EQ(30, pacer.potX());
+    EXPECT_EQ(0x7F & -63, pacer.potY());
+    EXPECT_FALSE(pacer.isBehind());
+}
+
+// The regression this guards against: a mouse reporting one count every 20ms
+// must move the lines by one count at each report, not by two counts half as
+// often.
+TEST(MousePotPacerTest, EverySmallMoveGoesOutInTheMillisecondItArrives)
+{
+    MousePotPacer pacer;
+    pacer.reset(0, 0, 0);
+    int position = 0;
+    for (int report = 1; report <= 50; report++) {
+        uint16_t now = (uint16_t)(MousePotPacer::WINDOW_MS + 20 * report);
+        uint8_t before = pacer.potX();
+        position++;
+        pacer.setTarget((int16_t)position, 0);
+        EXPECT_TRUE(pacer.advance(now));
+        EXPECT_EQ(1, (int)(uint8_t)(pacer.potX() - before));
+        EXPECT_FALSE(pacer.isBehind());
+    }
+}
+
+// Several small moves inside one window go out as they arrive, as long as they
+// add up to no more than one window's worth.
+TEST(MousePotPacerTest, SmallMovesInOneWindowAllGoOutAtOnce)
+{
+    MousePotPacer pacer;
+    pacer.reset(0, 0, 0);
+    int position = 0;
+    for (int report = 1; report <= 12; report++) {
+        position += 5;
+        pacer.setTarget((int16_t)position, 0);
+        EXPECT_TRUE(pacer.advance((uint16_t)(MousePotPacer::WINDOW_MS + report)));
+        EXPECT_EQ(5 * report, pacer.potX());
+    }
+    EXPECT_FALSE(pacer.isBehind());
+}
+
+TEST(MousePotPacerTest, WhatOverflowsTheWindowWaitsForRoomInIt)
+{
+    MousePotPacer pacer;
+    pacer.reset(0, 0, 0);
+    pacer.setTarget(100, 0);
+    EXPECT_FALSE(pacer.advance(1));                             // the reset spent the window
+    EXPECT_TRUE(pacer.advance(MousePotPacer::WINDOW_MS));
+    EXPECT_EQ(63, pacer.potX());                                // a window's worth of it
+    EXPECT_FALSE(pacer.advance(2 * MousePotPacer::WINDOW_MS - 1));
+    EXPECT_TRUE(pacer.advance(2 * MousePotPacer::WINDOW_MS));
+    EXPECT_EQ(100, pacer.potX());
+    EXPECT_FALSE(pacer.isBehind());
+}
+
+TEST(MousePotPacerTest, WaitingMovementIsCappedSoThePointerStopsSoon)
+{
+    MousePotPacer pacer;
+    pacer.reset(0, 0, 0);
+    pacer.setTarget(1000, -1000);
+    int changes = 0;
+    for (int now = MousePotPacer::WINDOW_MS; pacer.isBehind(); now += MousePotPacer::WINDOW_MS) {
+        EXPECT_TRUE(pacer.advance((uint16_t)now));
+        changes++;
+    }
+    EXPECT_EQ(MousePotPacer::MAX_BEHIND / MousePotPacer::MAX_STEP, changes);
+    EXPECT_EQ(MousePotPacer::MAX_BEHIND & 0x7F, pacer.potX());
+    EXPECT_EQ(0x7F & -MousePotPacer::MAX_BEHIND, pacer.potY());
+}
+
+TEST(MousePotPacerTest, AReversalCancelsMovementThatWaits)
+{
+    MousePotPacer pacer;
+    pacer.reset(0, 0, 0);
+    pacer.setTarget(90, 0);
+    pacer.setTarget(0, 0);
+    EXPECT_FALSE(pacer.isBehind());
+    EXPECT_FALSE(pacer.advance(1000));
+    EXPECT_EQ(0, pacer.potX());
+}
+
+TEST(MousePotPacerTest, TheClockWrapNeverLetsAChangeOutEarly)
+{
+    MousePotPacer pacer;
+    pacer.reset(0, 0, 65530);
+    pacer.setTarget(10, 0);
+    EXPECT_FALSE(pacer.advance((uint16_t)(65530 + MousePotPacer::WINDOW_MS - 1)));
+    EXPECT_TRUE(pacer.advance((uint16_t)(65530 + MousePotPacer::WINDOW_MS)));
+}
+
+TEST(MousePotPacerTest, ThePositionMayWrapPastInt16)
+{
+    MousePotPacer pacer;
+    pacer.reset(32760, 0, 0);
+    pacer.setTarget((int16_t)-32766, 0);                         // +10 counts
+    EXPECT_TRUE(pacer.advance(MousePotPacer::WINDOW_MS));
+    EXPECT_EQ((uint8_t)((32760 + 10) & 0x7F), pacer.potX());
+}
+
+namespace {
+
+// The firmware and a C64 mouse driver in microseconds. Reports come every 20ms
+// and are handled up to `handling_us` late; the pacing timer ticks every 5ms,
+// up to 2ms late; each report is handed to the pacer as the firmware does. The
+// driver reads the POT line once per frame, up to 0.52ms (SID) plus 2.5ms
+// (interrupt) late. A read is backward when the 7-bit change it sees is not the
+// change the pointer made since the previous read.
+struct PacedMouseRun {
+    unsigned seed;
+    int backward;
+    int dropped;
+    int longest_catch_up_ms;
+    int reports;
+    int largest_change;                                          // biggest single change of the line
+    int latest_report_ms;                                        // longest a report waited to be shown
+    int reads_that_moved;
+    int reads;
+    int reports_that_moved;
+
+    int random(int limit)
+    {
+        seed = seed * 1103515245u + 12345u;
+        return (int)((seed >> 8) % (unsigned)limit);
+    }
+
+    PacedMouseRun(unsigned run_seed, int gap_ms, int frame_us, int max_step, int handling_us, int seconds)
+        : seed(run_seed), backward(0), dropped(0), longest_catch_up_ms(0), reports(0),
+          largest_change(0), latest_report_ms(0), reads_that_moved(0), reads(0), reports_that_moved(0)
+    {
+        MousePotPacer pacer(gap_ms);
+        const int end_us = seconds * 1000000;
+        int position = 0;
+        int shown = 0;                                           // unwrapped position on the line
+        int last_seen = 0;
+        pacer.reset(0, 0, 0);
+        // The jump a reset makes spends its window, so reporting starts after it.
+        const int settle_us = MousePotPacer::WINDOW_MS * 1000;
+        int next_report = settle_us + 20000;
+        int report_count = 0;
+        int next_tick = 5000;
+        int next_read = random(frame_us) + random(3020);
+        int frame_start = next_read;
+        int last_report_us = 0;
+        int waiting_since_us = -1;                               // when the line fell behind
+        bool reporting = true;
+        for (int now_us = 0; now_us < end_us + 500000; now_us += 100) {
+            uint16_t now_ms = (uint16_t)(now_us / 1000);
+            bool changed = false;
+            uint8_t before = pacer.potX();
+            if (reporting && (now_us >= next_report)) {
+                int step = random(2 * max_step + 1) - max_step;
+                if (step) {
+                    reports_that_moved++;
+                }
+                position += step;
+                pacer.setTarget((int16_t)position, 0);
+                changed = pacer.advance(now_ms);
+                last_report_us = now_us;
+                if (pacer.isBehind() && (waiting_since_us < 0)) {
+                    waiting_since_us = now_us;
+                }
+                report_count++;
+                next_report = settle_us + 20000 * (report_count + 1) + random(handling_us + 1);
+                if (next_report >= end_us) {
+                    reporting = false;
+                }
+            }
+            if (now_us >= next_tick) {
+                changed |= pacer.advance(now_ms);
+                next_tick += 5000 + random(2001);
+            }
+            if (changed) {
+                int step = (int)(int8_t)((uint8_t)(pacer.potX() - before) << 1) >> 1;
+                shown += step;
+                int size = (step < 0) ? -step : step;
+                if (size > largest_change) {
+                    largest_change = size;
+                }
+                if (!pacer.isBehind() && (waiting_since_us >= 0)) {
+                    int waited_ms = (now_us - waiting_since_us) / 1000;
+                    if (waited_ms > latest_report_ms) {
+                        latest_report_ms = waited_ms;
+                    }
+                    waiting_since_us = -1;
+                }
+            }
+            if (now_us >= next_read) {
+                int seen = (int)(int8_t)((uint8_t)((shown - last_seen) & 0x7F) << 1) >> 1;
+                if (seen != shown - last_seen) {
+                    backward++;
+                }
+                reads++;
+                if (shown != last_seen) {
+                    reads_that_moved++;
+                }
+                last_seen = shown;
+                frame_start += frame_us;
+                next_read = frame_start + random(3020);
+            }
+            if (!reporting && !pacer.isBehind() && last_report_us) {
+                int catch_up_ms = (now_us - last_report_us) / 1000;
+                if (catch_up_ms > longest_catch_up_ms) {
+                    longest_catch_up_ms = catch_up_ms;
+                }
+                last_report_us = 0;
+            }
+        }
+        reports = report_count;
+        dropped = position - shown;
+        if (dropped < 0) {
+            dropped = -dropped;
+        }
+    }
+};
+
+const int PAL_FRAME_US = 19950;
+const int NTSC_FRAME_US = 16715;
+
+} // namespace
+
+TEST(MousePotPacerTest, NoDriverReadSeesThePointerMoveBackward)
+{
+    for (unsigned seed = 1; seed <= 40; seed++) {
+        for (int frame_us : { PAL_FRAME_US, NTSC_FRAME_US }) {
+            // Full-speed reports, bunched by late handling, with a wheel on top.
+            PacedMouseRun run(seed, MousePotPacer::WINDOW_MS, frame_us, 126, 15000, 10);
+            EXPECT_EQ(0, run.backward);
+            // What waits goes out in MAX_BEHIND / MAX_STEP changes, one per window.
+            EXPECT_TRUE(run.longest_catch_up_ms <=
+                (MousePotPacer::MAX_BEHIND / MousePotPacer::MAX_STEP + 1) * (MousePotPacer::WINDOW_MS + 6));
+        }
+    }
+}
+
+// The same runs with changes allowed closer together than a frame: the check
+// above would fail, so it can tell.
+TEST(MousePotPacerTest, AShorterGapLetsReadsSeeThePointerMoveBackward)
+{
+    int backward = 0;
+    for (unsigned seed = 1; seed <= 40; seed++) {
+        PacedMouseRun run(seed, 15, PAL_FRAME_US, 126, 15000, 10);
+        backward += run.backward;
+    }
+    EXPECT_TRUE(backward > 0);
+}
+
+TEST(MousePotPacerTest, HandMovementArrivesExactly)
+{
+    for (unsigned seed = 1; seed <= 40; seed++) {
+        for (int frame_us : { PAL_FRAME_US, NTSC_FRAME_US }) {
+            PacedMouseRun run(seed, MousePotPacer::WINDOW_MS, frame_us, 31, 15000, 10);
+            EXPECT_EQ(0, run.backward);
+            EXPECT_EQ(0, run.dropped);
+        }
+    }
+}
+
+// Slow and precise movement, the case a pointer is judged by: every report
+// reaches the lines in the millisecond it arrives, in the step the mouse made,
+// and nearly every frame a driver reads shows that step. A pacer that let the
+// lines change only once per window would bunch these into steps of two, half
+// as often.
+TEST(MousePotPacerTest, PreciseMovementIsShownStepForStep)
+{
+    for (unsigned seed = 1; seed <= 20; seed++) {
+        for (int frame_us : { PAL_FRAME_US, NTSC_FRAME_US }) {
+            for (int counts : { 1, 2 }) {
+                // Reports as the firmware hands them over, without bunching.
+                PacedMouseRun run(seed, MousePotPacer::WINDOW_MS, frame_us, counts, 2000, 10);
+                EXPECT_EQ(0, run.dropped);
+                EXPECT_EQ(0, run.backward);
+                EXPECT_EQ(0, run.latest_report_ms);
+                EXPECT_TRUE(run.largest_change <= counts);
+                EXPECT_TRUE(run.reads_that_moved * 10 >= run.reports_that_moved * 8);
+            }
+        }
+    }
+}
+
+// A minute of reports at the rate the lines carry, of which there are thousands:
+// every count arrives.
+TEST(MousePotPacerTest, NothingIsLostInALongRunWithinWhatTheLinesCarry)
+{
+    for (unsigned seed = 1; seed <= 10; seed++) {
+        for (int frame_us : { PAL_FRAME_US, NTSC_FRAME_US }) {
+            PacedMouseRun run(seed, MousePotPacer::WINDOW_MS, frame_us, 31, 15000, 60);
+            EXPECT_TRUE(run.reports >= 2500);
+            EXPECT_EQ(0, run.backward);
+            EXPECT_EQ(0, run.dropped);
+        }
+    }
+}

@@ -1,0 +1,50 @@
+core CPC_ Amstrad CPC 464 / 664 / 6128
+area F1 Home
+  tab 1 Home
+    info Core
+    info Application
+    info Network
+    info Media
+    info ROMs
+    info Libraries
+    media A:
+    media B:
+    media Tape
+    fixed Save as config...
+    fixed Load config...
+area F3 Library
+  tab 1 Browse
+    browser Browse
+      filetype .dsk: Mount A: and reset | Mount A: | Mount B:
+      filetype .cdt: Insert tape | Insert tape and play
+area F5 CPC
+  tab 1 CPC
+    setting Model = CPC 464 | CPC 664 | CPC 6128 (default CPC 6128, at next reset)
+    setting CRTC type = Type 0 (HD6845S, UM6845) | Type 1 (UM6845R) (default Type 1 (UM6845R), at next reset)
+    setting Joystick ports = Normal | Swapped (default Normal, live)
+    setting Disks write protected = No | Yes (default No, live)
+    setting LED Load Indicator = On | Off (default On, live)
+area F7 Actions
+  tab 1 Quick
+    task Reset (closes the menu)
+    task Reload ROMs, reset (closes the menu)
+    task Tape: Play (closes the menu)
+    task Tape: Stop
+    task Tape: Rewind
+    task Tape: Previous block
+    task Tape: Next block
+    task Tape: Eject
+    task Eject A:
+    task Eject B:
+    task Create blank DSK (asks a name)
+area F8 System (shifted)
+  tab 1 System
+    heading Actions
+    fixed Restart core
+    fixed Return to host menu
+    heading Network
+    fixed WiFi
+    heading Support
+    fixed Bug report
+    heading Reset
+    fixed Reset to host defaults

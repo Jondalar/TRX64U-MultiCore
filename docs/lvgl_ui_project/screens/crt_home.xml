@@ -1,0 +1,72 @@
+<screen>
+    <view>
+        <style name="style_screen" />
+        <crt_shell active_tab="1" state="PORT READY" tone="#color_cyan">
+            <crt_shell-content>
+                <column width="100%" height="100%" pad="#space_lg" gap="#space_md">
+                    <row width="100%">
+                        <column grow="1" gap="#space_xs">
+                            <lv_label text="C64 / CARTRIDGE TOOLS" style_text_font="font_caption"
+                                      style_text_color="#color_muted" />
+                            <lv_label text="TREX CRT" style_text_font="font_title"
+                                      style_text_color="#color_ink" />
+                        </column>
+                        <lv_label text="Choose one focused task" style_text_font="font_caption"
+                                  style_text_color="#color_muted" />
+                    </row>
+
+                    <row width="100%" grow="1" gap="#space_lg" vertical_align="start">
+                        <panel grow="1" height="100%" gap="0">
+                            <action_row title="Inspect cartridge" subtitle="Browse memory, banks, and cartridge registers"
+                                        meta="READ ONLY" tone="#color_cyan">
+                                <screen_create_event screen="crt_inspector" anim_type="fade_in" duration="120" />
+                            </action_row>
+                            <action_row title="Dump cartridge" subtitle="Scan the cartridge and save a CRT image"
+                                        meta="SAVE FILE" tone="#color_violet">
+                                <screen_create_event screen="crt_dump" anim_type="fade_in" duration="120" />
+                            </action_row>
+                            <action_row title="Flash cartridge" subtitle="Write and verify a selected CRT image"
+                                        meta="WRITES CART" tone="#color_amber">
+                                <screen_create_event screen="crt_flash" anim_type="fade_in" duration="120" />
+                            </action_row>
+                            <box grow="1" />
+                            <lv_label text="Opening a .crt from Library starts Flash with that file already selected."
+                                      width="100%" long_mode="wrap" style_text_font="font_caption"
+                                      style_text_color="#color_muted" />
+                        </panel>
+
+                        <panel width="286" height="100%" gap="#space_md" raised="true">
+                            <lv_label text="CURRENT TARGET" style_text_font="font_caption"
+                                      style_text_color="#color_muted" />
+                            <row width="100%">
+                                <lv_label text="Cartridge" style_text_font="font_caption" style_text_color="#color_muted" />
+                                <box grow="1" />
+                                <lv_label text="EasyFlash 3" style_text_font="font_body" style_text_color="#color_ink" />
+                            </row>
+                            <row width="100%">
+                                <lv_label text="Slot" style_text_font="font_caption" style_text_color="#color_muted" />
+                                <box grow="1" />
+                                <lv_label text="2 / SAM'S JOURNEY" style_text_font="font_caption"
+                                          style_text_color="#color_cyan" />
+                            </row>
+                            <row width="100%">
+                                <lv_label text="Port" style_text_font="font_caption" style_text_color="#color_muted" />
+                                <box grow="1" />
+                                <status_chip label="ENABLED" tone="#color_cyan" />
+                            </row>
+                            <row width="100%">
+                                <lv_label text="Write gate" style_text_font="font_caption" style_text_color="#color_muted" />
+                                <box grow="1" />
+                                <status_chip label="SAFE" tone="#color_amber" />
+                            </row>
+                            <box grow="1" />
+                            <lv_label text="The app shows what it will read or change before starting an operation."
+                                      width="100%" long_mode="wrap" style_text_font="font_caption"
+                                      style_text_color="#color_muted" />
+                        </panel>
+                    </row>
+                </column>
+            </crt_shell-content>
+        </crt_shell>
+    </view>
+</screen>

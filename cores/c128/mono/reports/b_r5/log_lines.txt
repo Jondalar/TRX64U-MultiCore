@@ -1,0 +1,26 @@
+=== c128 variant: VDC whole
+=== T113 mono: defines MONO NO_TURBO RAM_P2 ROM_CACHE SID2 SID_REDIP SOCK_AUDIO TAPE VDC64 VDC_WHOLE Z80
+=== ip gt_hdmi: built into /tmp/trxcache/ip_gt_hdmi_5929f78ef718de5e
+=== T113 mono: synthesis done
+opt_design: Time (s): cpu = 00:00:39 ; elapsed = 00:00:25 . Memory (MB): peak = 4011.031 ; gain = 426.910 ; free physical = 9491 ; free virtual = 45730
+opt_design: Time (s): cpu = 00:00:13 ; elapsed = 00:00:10 . Memory (MB): peak = 4011.031 ; gain = 0.000 ; free physical = 9496 ; free virtual = 45735
+=== T29: cpu_rdy paths to clk2x timed with two clk2x periods
+place_design: Time (s): cpu = 00:03:53 ; elapsed = 00:02:53 . Memory (MB): peak = 4011.031 ; gain = 0.000 ; free physical = 9341 ; free virtual = 45617
+phys_opt_design: Time (s): cpu = 00:01:29 ; elapsed = 00:00:47 . Memory (MB): peak = 4011.031 ; gain = 0.000 ; free physical = 9338 ; free virtual = 45653
+route_design: Time (s): cpu = 00:06:16 ; elapsed = 00:03:25 . Memory (MB): peak = 4011.031 ; gain = 0.000 ; free physical = 9709 ; free virtual = 45679
+phys_opt_design: Time (s): cpu = 00:01:24 ; elapsed = 00:00:51 . Memory (MB): peak = 4011.031 ; gain = 0.000 ; free physical = 9186 ; free virtual = 45267
+phys_opt_design: Time (s): cpu = 00:01:08 ; elapsed = 00:00:39 . Memory (MB): peak = 4011.031 ; gain = 0.000 ; free physical = 9584 ; free virtual = 45690
+=== post-route phys_opt AlternateReplication: WNS -0.048 ns
+phys_opt_design: Time (s): cpu = 00:01:15 ; elapsed = 00:00:42 . Memory (MB): peak = 4011.031 ; gain = 0.000 ; free physical = 9369 ; free virtual = 45675
+=== post-route phys_opt AggressiveFanoutOpt: WNS -0.048 ns
+=== impl pass 1 (ExtraTimingOpt): WNS -0.048 ns
+place_design: Time (s): cpu = 00:03:38 ; elapsed = 00:02:44 . Memory (MB): peak = 4011.031 ; gain = 0.000 ; free physical = 5733 ; free virtual = 42077
+phys_opt_design: Time (s): cpu = 00:01:39 ; elapsed = 00:00:51 . Memory (MB): peak = 4011.031 ; gain = 0.000 ; free physical = 5809 ; free virtual = 42145
+route_design: Time (s): cpu = 00:06:35 ; elapsed = 00:03:34 . Memory (MB): peak = 4178.852 ; gain = 167.820 ; free physical = 5306 ; free virtual = 41731
+phys_opt_design: Time (s): cpu = 00:01:31 ; elapsed = 00:00:54 . Memory (MB): peak = 4178.852 ; gain = 0.000 ; free physical = 4671 ; free virtual = 41160
+=== impl pass (AltSpreadLogic_high): WNS 0.014 ns
+=== kept: build_mono_c128/routed_alt.dcp (WNS 0.014 ns)
+=== T113 mono: reports written
+write_bitstream: Time (s): cpu = 00:00:32 ; elapsed = 00:00:25 . Memory (MB): peak = 4841.395 ; gain = 451.648 ; free physical = 8173 ; free virtual = 44791
+=== bitstream: build_mono_c128/c128_mono.bit 1764741 bytes
+INFO: [Common 17-206] Exiting Vivado at Sat Oct 24 14:48:20 2026...

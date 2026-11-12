@@ -1,0 +1,12 @@
+<component>
+    <api>
+        <prop name="flow" type="enum:lv_flex_flow" default="column" />
+        <prop name="pad" type="int" default="0" />
+        <prop name="gap" type="int" default="0" />
+        <prop name="grow" type="int" default="0" />
+    </api>
+
+    <view extends="base_box"
+          flex_flow="$flow" flex_grow="$grow"
+          style_pad_all="$pad" style_pad_row="$gap" style_pad_column="$gap" />
+</component>

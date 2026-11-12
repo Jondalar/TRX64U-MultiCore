@@ -1,0 +1,11 @@
+{'errors': []}
+NTSC Manual 16 {'changed': True, 'ticks': 4194236, 'secs': 4.257035792003638, 'outers': 2942, 'first_delta': 1359, 'last_delta': 91, 'alive': 136}
+NTSC Manual 16 {'changed': True, 'ticks': 4194236, 'secs': 4.257035792003638, 'outers': 2942, 'first_delta': 1359, 'last_delta': 91, 'alive': 3}
+{'errors': []}
+NTSC Manual 64 {'changed': True, 'ticks': 4194166, 'secs': 4.256964743902043, 'outers': 2942, 'first_delta': 27, 'last_delta': 27, 'alive': 20}
+{'errors': []}
+PAL Manual 64 {'changed': True, 'ticks': 4194166, 'secs': 4.256964743902043, 'outers': 2942, 'first_delta': 27, 'last_delta': 27, 'alive': 141}
+{'errors': []}
+NTSC {'frames': 100, 'cia2_ticks': 1704592, 'frames_per_s': 50.0, 'cia2_hz': 852296.0} PHI2 per frame 17045.92
+{'errors': []}
+PAL {'frames': 100, 'cia2_ticks': 1970551, 'frames_per_s': 50.0, 'cia2_hz': 985275.5} PHI2 per frame 19705.51

@@ -1,0 +1,45 @@
+<screen>
+    <view>
+        <style name="style_screen" />
+        <app_shell active_c64="true" active_tab="4">
+            <app_shell-content>
+                <column width="100%" height="100%" pad="#space_lg" gap="#space_md">
+                    <row width="100%">
+                        <column grow="1" gap="#space_xs">
+                            <lv_label text="C64 / PERIPHERALS" style_text_font="font_caption"
+                                      style_text_color="#color_muted" />
+                            <lv_label text="Direct I/O" style_text_font="font_title"
+                                      style_text_color="#color_ink" />
+                        </column>
+                        <status_chip label="IEC READY" tone="#color_cyan" />
+                    </row>
+
+                    <panel width="100%" grow="1" gap="0">
+                        <action_row title="Software IEC" subtitle="On/off, reset, partitions, set and save"
+                                    meta="IEC" tone="#color_cyan" />
+                        <action_row title="IEC partitions" subtitle="Show, add, edit, remove, and load IPR"
+                                    meta="PARTITIONS" tone="#color_muted" />
+                        <action_row title="UltiCopy" subtitle="Copy between devices 8, 9, 10, and 11"
+                                    meta="COPY" tone="#color_violet" />
+                        <action_row title="Tape" subtitle="Pause, resume, stop, sample, capture, finish"
+                                    meta="TAPE" tone="#color_amber" />
+                        <action_row title="Printer" subtitle="Flush, eject, reset, enable, disable"
+                                    meta="PRINTER" tone="#color_muted" />
+                        <action_row title="Modem" subtitle="Status and connection configuration"
+                                    meta="MODEM" tone="#color_muted" />
+                        <box grow="1" />
+                    </panel>
+
+                    <row width="100%">
+                        <lv_label text="Character-grid tools open inside the LVGL terminal surface"
+                                  style_text_font="font_caption" style_text_color="#color_muted" />
+                        <box grow="1" />
+                        <ui_button label="PERIPHERAL SETTINGS">
+                            <screen_create_event screen="settings_peripherals" anim_type="fade_in" duration="120" />
+                        </ui_button>
+                    </row>
+                </column>
+            </app_shell-content>
+        </app_shell>
+    </view>
+</screen>

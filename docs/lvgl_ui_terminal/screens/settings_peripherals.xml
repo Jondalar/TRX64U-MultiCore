@@ -1,0 +1,48 @@
+<screen>
+    <view>
+        <style name="style_screen" />
+        <app_shell active_system="true" active_tab="2">
+            <app_shell-content>
+                <column width="100%" height="100%" pad="#space_lg" gap="#space_md">
+                    <row width="100%">
+                        <column grow="1" gap="#space_xs">
+                            <lv_label text="SETTINGS / DRIVES &amp; PERIPHERALS" style_text_font="font_caption"
+                                      style_text_color="#color_muted" />
+                            <lv_label text="Storage I/O" style_text_font="font_title"
+                                      style_text_color="#color_ink" />
+                        </column>
+                        <status_chip label="DYNAMIC" tone="#color_cyan" />
+                    </row>
+
+                    <panel width="100%" grow="1" gap="0">
+                        <action_row title="Drive A settings" subtitle="14 registered parameters"
+                                    meta="14" tone="#color_cyan">
+                            <screen_create_event screen="settings_page" anim_type="fade_in" duration="120" />
+                        </action_row>
+                        <action_row title="Drive B settings" subtitle="14 registered parameters"
+                                    meta="14" tone="#color_cyan">
+                            <screen_create_event screen="settings_page" anim_type="fade_in" duration="120" />
+                        </action_row>
+                        <action_row title="Software IEC" subtitle="Drive and bus configuration"
+                                    meta="2" tone="#color_muted">
+                            <screen_create_event screen="settings_page" anim_type="fade_in" duration="120" />
+                        </action_row>
+                        <action_row title="Tape" subtitle="Streamer behavior"
+                                    meta="1" tone="#color_amber">
+                            <screen_create_event screen="settings_page" anim_type="fade_in" duration="120" />
+                        </action_row>
+                        <action_row title="Printer" subtitle="Output, emulation, paper, and color"
+                                    meta="11" tone="#color_muted">
+                            <screen_create_event screen="settings_page" anim_type="fade_in" duration="120" />
+                        </action_row>
+                        <action_row title="Modem" subtitle="Connection and emulation"
+                                    meta="16" tone="#color_muted">
+                            <screen_create_event screen="settings_page" anim_type="fade_in" duration="120" />
+                        </action_row>
+                        <box grow="1" />
+                    </panel>
+                </column>
+            </app_shell-content>
+        </app_shell>
+    </view>
+</screen>

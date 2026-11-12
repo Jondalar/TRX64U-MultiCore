@@ -1,0 +1,102 @@
+name: Pipeline
+
+on:
+  push:
+    branches: ['**']
+    tags: ['v*']
+    # A NEW branch is judged by its head commit alone: its first push with a documentation-only head commit starts no run (t174-d4, 2026-11-08).
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      # not 'tests/**': the host tests of the applications live there (T100 D12, ci/apptests.sh); a push that only touched them
+      # built nothing (t115-hostnext, 2026-10-26). The plan (T100 D9) keeps such a run short.
+      - '.claude/**'  # session material and the documentation site; nothing here is a build input
+                      # (checked: no script under ci/, tools/ or .gitea reads it). The site pages are
+                      # .html, so '**.md' did not cover them and a documentation commit built the
+                      # whole pipeline (run 808).
+  workflow_dispatch:
+    inputs:
+      ue2:
+        description: 'Also build the Ultimate 64 Elite II (XC7A100T) bitstream, after the package'
+        type: boolean
+        default: false
+      bundle:
+        description: 'Build and publish the board installer (.cfw/.ue2) of this branch as <branch>-<sha8> (T172; or put [bundle] in the head commit message)'
+        type: boolean
+        default: false
+      update:
+        description: 'Build the .cfw/.ue2 update files on this branch too (always built on integ-m1, main, v* tags)'
+        type: boolean
+        default: false
+      sims:
+        description: 'Run the benches of the changed owners too (Alex 2026-11-08: sims only on demand; always on integ-* branches)'
+        type: boolean
+        default: false
+
+# T174 D4 (Alex, 2026-11-08, translated: "I want B, I want it done right, and separation of concerns in the CI too"; then "fix the workflow, make
+# the CI lean"): this is the PARENT. One job on the NAS runner: it waits for its turn, plans what changed (ci/plan.sh), dispatches only the children
+# the plan asks for (ci/children.txt, ci/orchestrate.py; each child is its own workflow with one concern), runs the lint meanwhile, waits for them and
+# ends with one table: child, run, result, time, reason. A red child turns the parent red; its dependents are not started. Docs only: no child.
+#
+# One pipeline at a time, in push order, none cancelled (T87 D1): no `concurrency:` group (a group keeps one waiting entry and a newer push cancels
+# it, runs 382, 764-766); the parent first waits until every older run of this workflow is completed (ci/wait_turn.sh). It runs on the NAS pool and
+# the children on the builder, so a waiting parent never takes a slot a child needs; the lint is a step here for the same reason (a lint child queued
+# behind two waiting parents on the NAS's two slots would never start). The label is written out: an organisation variable is not visible in a
+# job-level expression of this Gitea (1.27.3; runs 791-798).
+
+jobs:
+  parent:
+    name: parent (wait for older pipelines, plan, dispatch the children, wait, table)
+    runs-on: nas
+    container:
+      image: trx64-sim-env:4
+      options: --init
+      volumes:
+        - /srv/trx64-build/cache:/cache
+    # the wait counts: a long Vivado run ahead may take hours
+    timeout-minutes: 1440
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Fetch the source (whole history)
+        env:
+          TOKEN: ${{ secrets.GITEA_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          set -eu
+          SERVER="${GITHUB_SERVER_URL#*://}"
+          git clone --branch "${GITHUB_REF_NAME}" "http://actions:${TOKEN}@${SERVER}/${GITHUB_REPOSITORY}.git" src
+          # the commit this run is for, not the branch head: a push during the run must not change what the children build
+          if [ -n "${GITHUB_SHA:-}" ] && [ "$(git -C src rev-parse HEAD)" != "$GITHUB_SHA" ]; then
+            git -C src fetch -q origin "$GITHUB_SHA"
+            git -C src checkout -q --detach FETCH_HEAD
+          fi
+          git -C src log --oneline -1
+      - name: Wait for my turn
+        env:
+          RUN_ID: ${{ github.run_id }}
+          WORKFLOW: pipeline.yml
+          TOKEN: ${{ secrets.GITEA_TOKEN || secrets.GITHUB_TOKEN }}
+        run: src/ci/wait_turn.sh
+      - name: Plan
+        env:
+          TOKEN: ${{ secrets.GITEA_TOKEN || secrets.GITHUB_TOKEN }}
+          RUN_ID: ${{ github.run_id }}
+          WORKFLOW: pipeline.yml
+        run: |
+          set -eu
+          src/ci/plan.sh --out plan.json
+          cat plan.json.files >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
+      - name: Children
+        env:
+          ORCH_TOKEN: ${{ secrets.PACKAGE_TOKEN }}
+          ORCH_TOKEN2: ${{ secrets.GITEA_TOKEN || secrets.GITHUB_TOKEN }}
+          UE2_INPUT: ${{ github.event.inputs.ue2 }}
+          UPDATE_FORCE: ${{ github.event.inputs.update }}
+          BUNDLE_INPUT: ${{ github.event.inputs.bundle }}
+          SIMS_INPUT: ${{ github.event.inputs.sims }}
+        run: |
+          set -eu
+          cd src
+          python3 ci/orchestrate.py run ../plan.json --tier "$(ci/select.sh sims-tier)" --update "$(ci/select.sh update)" \
+            --ue2 "$(ci/select.sh ue2)" --lint ci/lint.sh

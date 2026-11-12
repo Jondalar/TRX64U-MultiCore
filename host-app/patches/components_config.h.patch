@@ -1,0 +1,25 @@
+--- /path/to/Development/TRX64U-MultiCore/apps/ultimate/software/components/config.h	2026-10-14 06:38:03
++++ host-app/software/components/config.h	2026-10-30 20:19:09
+@@ -83,7 +83,22 @@
+ #define CFG_TYPE_END     0xFF
+ 
+ class UserInterface;
++class ConfigStore;
+ 
++// T163: where a store's values live. No backend (the default, and the core application): the SPI flash config pages, as in the
++// original. With a backend (the host application): the backend, and the flash pages are only ever READ, once per store, to take
++// them over while the backend's file is new (D2); ConfigPage::write and write_config_page are never reached.
++#define CFG_LOAD_FILE      1    // the store's section was in the backend's file and has been applied
++#define CFG_LOAD_TAKEOVER  0    // the backend's file is new in this boot: take the store over from the flash page, then save
++#define CFG_LOAD_DEFAULT  -1    // the file exists but has no section for this store: the defaults stay
++struct ConfigBackend
++{
++    int  (*load)(ConfigStore *s);
++    void (*save)(ConfigStore *s);
++};
++void config_set_backend(const ConfigBackend *b);
++const ConfigBackend *config_get_backend(void);
++
+ struct t_cfg_definition
+ {
+     uint8_t id;

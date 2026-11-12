@@ -1,0 +1,35 @@
+Copyright 1986-2022 Xilinx, Inc. All Rights Reserved. Copyright 2022-2024 Advanced Micro Devices, Inc. All Rights Reserved.
+---------------------------------------------------------------------------------------------------------------------------------------------
+| Tool Version : Vivado v.2024.1 (lin64) Build 5076996 Wed May 22 18:36:09 MDT 2024
+| Date         : Wed Nov  4 21:49:58 2026
+| Host         : d95db0b869cb running 64-bit Ubuntu 22.04.5 LTS
+| Command      : report_utilization -hierarchical -hierarchical_depth 3 -file build_trial_ooc_lut/utilization_hier_ooc.rpt
+| Design       : scpu_cpu
+| Device       : xc7a50tfgg484-1
+| Speed File   : -1
+| Design State : Synthesized
+---------------------------------------------------------------------------------------------------------------------------------------------
+
+Utilization Design Information
+
+Table of Contents
+-----------------
+1. Utilization by Hierarchy
+
+1. Utilization by Hierarchy
+---------------------------
+
++---------------+-------------+------------+------------+---------+------+-----+--------+--------+------------+
+|    Instance   |    Module   | Total LUTs | Logic LUTs | LUTRAMs | SRLs | FFs | RAMB36 | RAMB18 | DSP Blocks |
++---------------+-------------+------------+------------+---------+------+-----+--------+--------+------------+
+| scpu_cpu      |       (top) |       1714 |       1690 |      24 |    0 | 346 |      2 |      1 |          0 |
+|   (scpu_cpu)  |       (top) |         30 |          6 |      24 |    0 |  77 |      2 |      1 |          0 |
+|   cpu816      | scpu_cpu816 |       1684 |       1684 |       0 |    0 | 269 |      0 |      0 |          0 |
+|     (cpu816)  | scpu_cpu816 |          2 |          2 |       0 |    0 |   0 |      0 |      0 |          0 |
+|     u         |     P65C816 |       1682 |       1682 |       0 |    0 | 269 |      0 |      0 |          0 |
+|       (u)     |     P65C816 |         33 |         33 |       0 |    0 | 150 |      0 |      0 |          0 |
+|       AddrGen |     AddrGen |        190 |        190 |       0 |    0 |  66 |      0 |      0 |          0 |
+|       MCode   |       MCode |       1459 |       1459 |       0 |    0 |  53 |      0 |      0 |          0 |
++---------------+-------------+------------+------------+---------+------+-----+--------+--------+------------+
+
+

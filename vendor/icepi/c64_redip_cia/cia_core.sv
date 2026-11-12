@@ -1,0 +1,354 @@
+// ----------------------------------------------------------------------------
+// This file is part of reDIP CIA, a MOS 6526/8520/8521 FPGA emulation platform.
+// Copyright (C) 2025  Dag Lem <resid@nimrod.no>
+//
+// This source describes Open Hardware and is licensed under the CERN-OHL-S v2.
+//
+// You may redistribute and modify this source and make products using it under
+// the terms of the CERN-OHL-S v2 (https://ohwr.org/cern_ohl_s_v2.txt).
+//
+// This source is distributed WITHOUT ANY EXPRESS OR IMPLIED WARRANTY,
+// INCLUDING OF MERCHANTABILITY, SATISFACTORY QUALITY AND FITNESS FOR A
+// PARTICULAR PURPOSE. Please see the CERN-OHL-S v2 for applicable conditions.
+//
+// Source location: https://github.com/daglem/reDIP-CIA
+// ----------------------------------------------------------------------------
+
+// ----------------------------------------------------------------------------
+// this file is based on reDIP-CIA cia_core.sv
+// with changes to remove SystemVerilog-specific
+// code in module I/O section and adapted so it can be
+// used with rest of FPGA implementation of Icepi Zero C64
+// by m1nl
+// ----------------------------------------------------------------------------
+
+// (vendor) `default_nettype none
+
+module cia_core (
+    input  wire       clk,
+    input  wire       rst,
+    input  wire       phi2_up,
+    input  wire       phi2_dn,
+    input  wire       cia_model,
+    input  wire       bus_i_phi2,
+    input  wire       bus_i_res_n,
+    input  wire       bus_i_cs_n,
+    input  wire       bus_i_r_w_n,
+    input  wire [3:0] bus_i_addr,
+    input  wire [7:0] bus_i_data,
+    input  wire [7:0] bus_i_pa,
+    input  wire [7:0] bus_i_pb,
+    input  wire       bus_i_flag_n,
+    input  wire       bus_i_tod,
+    input  wire       bus_i_cnt,
+    input  wire       bus_i_sp,
+    output wire [7:0] bus_o_data,
+    output wire [7:0] bus_o_ports_pra,
+    output wire [7:0] bus_o_ports_prb,
+    output wire [7:0] bus_o_ports_ddra,
+    output wire [7:0] bus_o_ports_ddrb,
+    output wire       bus_o_pc_n,
+    output wire       bus_o_cnt,
+    output wire       bus_o_sp,
+    output wire       bus_o_irq_n,
+    // the 16 registers as a read returns them, register 0 in bits 127:120,
+    // without a read strobe (state bus, c64_core.v)
+    output wire [127:0] sb_regs,
+    // every flip-flop of the CIA as one vector (state access, c64_core.v):
+    // 0 phi2_prev, 1 res, 4:2 CNT and 7:5 /FLAG edge detectors, 42:8 ports,
+    // 82:43 timer A, 122:83 timer B, 243:123 TOD, 286:244 serial port,
+    // 316:287 interrupt control, 326:317 CRA, 336:327 CRB (layouts in the
+    // modules); sb_ld loads all of them from sb_stg on the next clock
+    input  wire         sb_ld,
+    input  wire [336:0] sb_stg,
+    output wire [336:0] sb_cur
+`ifdef VERILATOR
+    ,
+    output wire [7:0] icr
+`endif
+);
+
+`ifdef VM_TRACE
+    initial begin
+        $dumpfile("cia_core.fst");
+        $dumpvars;
+    end
+`endif
+
+    cia::model_t model;
+    cia::bus_i_t bus_i;
+    cia::bus_o_t bus_o;
+
+    assign model = cia_model ? cia::MOS8521 : cia::MOS6526;
+    assign bus_i.phi2 = bus_i_phi2;
+    assign bus_i.res_n = bus_i_res_n;
+    assign bus_i.cs_n = bus_i_cs_n;
+    assign bus_i.r_w_n = bus_i_r_w_n;
+    assign bus_i.addr = bus_i_addr;
+    assign bus_i.data = bus_i_data;
+    assign bus_i.pa = bus_i_pa;
+    assign bus_i.pb = bus_i_pb;
+    assign bus_i.flag_n = bus_i_flag_n;
+    assign bus_i.tod = bus_i_tod;
+    assign bus_i.cnt = bus_i_cnt;
+    assign bus_i.sp = bus_i_sp;
+
+    assign bus_o_data = bus_o.data;
+    assign bus_o_ports_pra = bus_o.ports.pra;
+    assign bus_o_ports_prb = bus_o.ports.prb;
+    assign bus_o_ports_ddra = bus_o.ports.ddra;
+    assign bus_o_ports_ddrb = bus_o.ports.ddrb;
+    assign bus_o_pc_n = bus_o.pc_n;
+    assign bus_o_cnt = bus_o.cnt;
+    assign bus_o_sp = bus_o.sp;
+    assign bus_o_irq_n = bus_o.irq_n;
+
+    logic phi2_prev;
+    logic res;       // Reset signal
+    logic rd;        // Read enable
+    logic we;        // Write enable
+    logic cnt_up;    // CNT edge detector
+    logic flag_int;  // /FLAG edge detector interrupt
+    logic alrm_int;  // Time Of Day interrupt
+    logic sp_int;    // Serial Port interrupt
+    cia::one_shot_t ta_one_shot;  // CRA control inputs for one-shot timer
+    cia::one_shot_t tb_one_shot;  // CRB control inputs for one-shot timer
+    logic ta_int;    // Timer A interrupt
+    logic tb_int;    // Timer B interrupt
+    logic ta_pb;     // Timer A PB output
+    logic tb_pb;     // Timer B PB output
+
+    // Timer control signals.
+    cia::tctrl_t ta_ctrl;
+    cia::tctrl_t tb_ctrl;
+
+    // Register map.
+    cia::registers_t regs;
+    assign sb_regs = regs;
+
+    always_comb begin
+        // The signals are delayed by one FPGA cycle (using phi2_prev instead of phi2).
+        rd = phi2_prev & ~bus_i.cs_n &  bus_i.r_w_n;
+        we = phi2_prev & ~bus_i.cs_n & ~bus_i.r_w_n;
+
+        // Output addressed value.
+        bus_o.data = regs[{ ~bus_i.addr, 3'b000 } +: 8];
+
+`ifdef VERILATOR
+        icr = regs.icr;
+`endif
+    end
+
+    always_ff @(posedge clk) begin
+        phi2_prev <= bus_i.phi2;
+
+        // Combine FPGA and CIA bus resets.
+        res <= rst | ~bus_i.res_n;
+`ifdef SB_FULL  // else they take the live values on the load edge
+        if (sb_ld) {res, phi2_prev} <= sb_stg[1:0];
+`endif
+    end
+    assign sb_cur[1:0] = {res, phi2_prev};
+
+    // CNT edge detector.
+    cia_edgedet cnt_posedge (
+        .clk       (clk),
+        .res       (1'b0),
+        .phi2_dn   (phi2_dn),
+`ifdef VERILATOR
+        // Emulate open drain pad otherwise handled in cia_io.sv
+        .pad_i     (bus_i.cnt & bus_o.cnt),
+`else
+        .pad_i     (bus_i.cnt),
+`endif
+        .posedge_o (cnt_up),
+        .sb_ld     (sb_ld),
+        .sb_stg    (sb_stg[4:2]),
+        .sb_cur    (sb_cur[4:2])
+    );
+
+    // /FLAG edge detector.
+    cia_edgedet flag_negedge (
+        .clk       (clk),
+        .res       (1'b0),
+        .phi2_dn   (phi2_dn),
+        .pad_i     (~bus_i.flag_n),  // Inverted signal for posedge
+        .posedge_o (flag_int),
+        .sb_ld     (sb_ld),
+        .sb_stg    (sb_stg[7:5]),
+        .sb_cur    (sb_cur[7:5])
+    );
+
+    // I/O ports.
+    cia_ports ports (
+        .clk     (clk),
+        .phi2_up (phi2_up),
+        .phi2_dn (phi2_dn),
+        .res     (res),
+        .rd      (rd),
+        .we      (we),
+        .addr    (bus_i.addr),
+        .data    (bus_i.data),
+        .pa      (bus_i.pa),
+        .pb      (bus_i.pb),
+        .ta_pb   (ta_pb),
+        .tb_pb   (tb_pb),
+        .ta_pbon (regs.cra.pbon),
+        .tb_pbon (regs.crb.pbon),
+        .regs    (regs.ports),
+        .pads    (bus_o.ports),
+        .pc_n    (bus_o.pc_n),
+        .sb_ld     (sb_ld),
+        .sb_stg    (sb_stg[42:8]),
+        .sb_cur    (sb_cur[42:8])
+    );
+
+    // Timer A.
+    cia_timer timer_a (
+        .clk      (clk),
+        .phi2_dn  (phi2_dn),
+        .res      (res),
+        .lo_w     (we && bus_i.addr == 'h4),
+        .hi_w     (we && bus_i.addr == 'h5),
+        .data     (bus_i.data),
+        .ctrl     (ta_ctrl),
+        .regs     (regs.ta),
+        .one_shot (ta_one_shot),
+        .intr     (ta_int),
+        .pb       (ta_pb),
+        .sb_ld     (sb_ld),
+        .sb_stg    (sb_stg[82:43]),
+        .sb_cur    (sb_cur[82:43])
+    );
+
+    // Timer B.
+    cia_timer timer_b (
+        .clk      (clk),
+        .phi2_dn  (phi2_dn),
+        .res      (res),
+        .lo_w     (we && bus_i.addr == 'h6),
+        .hi_w     (we && bus_i.addr == 'h7),
+        .data     (bus_i.data),
+        .ctrl     (tb_ctrl),
+        .regs     (regs.tb),
+        .one_shot (tb_one_shot),
+        .intr     (tb_int),
+        .pb       (tb_pb),
+        .sb_ld     (sb_ld),
+        .sb_stg    (sb_stg[122:83]),
+        .sb_cur    (sb_cur[122:83])
+    );
+
+    // Time Of Day (MOS 6526/8521).
+    cia::tod_t tod_regs;
+    logic      tod_int;
+    cia_tod tod (
+        .clk     (clk),
+        .phi2    (bus_i.phi2),
+        .phi2_up (phi2_up),
+        .phi2_dn (phi2_dn),
+        .res     (res),
+        .rd      (rd),
+        .we      (we),
+        .addr    (bus_i.addr),
+        .data    (bus_i.data),
+        .tod     (bus_i.tod),
+        .tod50hz (regs.cra.todin),
+        .w_alarm (regs.crb.alarm),
+        .regs    (tod_regs),
+        .tod_int (tod_int),
+        .sb_ld     (sb_ld),
+        .sb_stg    (sb_stg[243:123]),
+        .sb_cur    (sb_cur[243:123])
+    );
+
+    always_comb begin
+        regs.tod = tod_regs;
+        alrm_int = tod_int;
+    end
+
+    // Serial Port.
+    cia_serial serial (
+        .clk     (clk),
+        .phi2_up (phi2_up),
+        .phi2_dn (phi2_dn),
+        .res     (res),
+        .we      (we),
+        .addr    (bus_i.addr),
+        .data    (bus_i.data),
+        .txmode  (regs.cra.spmode),
+        .ta_int  (ta_int),
+        .cnt_up  (cnt_up),
+`ifdef VERILATOR
+        // Emulate open drain pad otherwise handled in cia_io.sv
+        .sp_in   (bus_i.sp & bus_o.sp),
+`else
+        .sp_in   (bus_i.sp),
+`endif
+        .regs    (regs.sdr),
+        .cnt_out (bus_o.cnt),
+        .sp_out  (bus_o.sp),
+        .sp_int  (sp_int),
+        .sb_ld     (sb_ld),
+        .sb_stg    (sb_stg[286:244]),
+        .sb_cur    (sb_cur[286:244])
+    );
+
+    // Interrupt Control.
+    cia_interrupt interrupt (
+        .model   (model),
+        .icr65   ('0),
+        .clk     (clk),
+        .phi2_up (phi2_up),
+        .phi2_dn (phi2_dn),
+        .res     (res),
+        .rd      (rd),
+        .we      (we),
+        .addr    (bus_i.addr),
+        .data    (bus_i.data),
+        .sources ({ flag_int, sp_int, alrm_int, tb_int, ta_int }),
+        .regs    (regs.icr),
+        .irq_n   (bus_o.irq_n),
+        .sb_ld     (sb_ld),
+        .sb_stg    (sb_stg[316:287]),
+        .sb_cur    (sb_cur[316:287])
+    );
+
+    // Control Register A.
+    cia_control #(0) control_a (
+        .model    (model),
+        .clk      (clk),
+        .phi2_dn  (phi2_dn),
+        .res      (res),
+        .cr_w     (we && bus_i.addr == 'hE),
+        .data     (bus_i.data),
+        .cnt_up   (cnt_up),
+        .t0_int   ('0),  // Not used by CRA
+        .cnt      ('0),  // Not used by CRA
+        .one_shot (ta_one_shot),
+        .regs     (regs.cra),
+        .t_ctrl   (ta_ctrl),
+        .sb_ld     (sb_ld),
+        .sb_stg    (sb_stg[326:317]),
+        .sb_cur    (sb_cur[326:317])
+    );
+
+    // Control Register B.
+    cia_control #(1) control_b (
+        .model    (model),
+        .clk      (clk),
+        .phi2_dn  (phi2_dn),
+        .res      (res),
+        .cr_w     (we && bus_i.addr == 'hF),
+        .data     (bus_i.data),
+        .cnt_up   (cnt_up),
+        .t0_int   (ta_int),
+        .cnt      (bus_i.cnt),
+        .one_shot (tb_one_shot),
+        .regs     (regs.crb),
+        .t_ctrl   (tb_ctrl),
+        .sb_ld     (sb_ld),
+        .sb_stg    (sb_stg[336:327]),
+        .sb_cur    (sb_cur[336:327])
+    );
+endmodule

@@ -1,0 +1,200 @@
+// T190 (GitHub #51): the Amiga cores' "Mouse sensitivity" and "Mouse acceleration". The USB driver scales every report with the two values it reads
+// through u64_get_usb_hid_config_value (usb_hid.cc process_mouse_report) and hands the result to the mouse sink; this test runs that driver sequence
+// on the real HidMouseInterpreter (host-app/.../hid_decoder.h, its containers stubbed in tests/coreapp/hidstub), with the values the application
+// answers (mouse_sink_scaling), into the Amiga's counters. tests/coreapp/test_mousescale.py reads usb_hid.cc / u64cfg.cc for the parts that cannot be built here.
+#include "check.h"
+#include "amiga_model.h"
+#include "engines.h"
+#include "regset.h"
+#include "ops_glue.h"
+#include "hid_decoder.h"
+
+extern const CoreDesc c64_desc;
+
+// usb_hid_get_config_value(key, default) as the driver sees it: the application's answer, else the default
+static int cfg_value(int key, int def)
+{
+    int v;
+    return mouse_sink_scaling(key, &v) ? v : def;
+}
+
+// The sequence of process_mouse_report for one report (lines "int sensitivity = ..." to the sink call), usb_hid_apply_pointer_sensitivity /
+// usb_hid_apply_pointer_acceleration inlined from usb_hid.cc.
+struct Driver {
+    int sens_setting = -1, rem_x = 0, rem_y = 0, ema = 0, scale = HidMouseInterpreter::ADAPTIVE_ACCELERATION_FALLBACK_SCALE;
+    void report(int raw_x, int raw_y, int *ox, int *oy)
+    {
+        int sensitivity = cfg_value(0x5D, 8);              // CFG_MOUSE_SENSITIVITY
+        int acceleration = cfg_value(0x5E, 0);             // CFG_MOUSE_ACCELERATION
+        int mx = raw_x, my = raw_y;
+        if (sens_setting != sensitivity) { rem_x = rem_y = 0; sens_setting = sensitivity; }
+        mx = HidMouseInterpreter::clampDelta(HidMouseInterpreter::scaleFixedWithRemainder(raw_x, HidMouseInterpreter::computeSensitivityScaleFactor(sensitivity), rem_x), 63);
+        my = HidMouseInterpreter::clampDelta(HidMouseInterpreter::scaleFixedWithRemainder(raw_y, HidMouseInterpreter::computeSensitivityScaleFactor(sensitivity), rem_y), 63);
+        if (acceleration == 1) {                           // MOUSE_ACCELERATION_ADAPTIVE
+            ema = HidMouseInterpreter::updateAdaptiveAccelerationEma(ema, raw_x, raw_y);
+            scale = HidMouseInterpreter::limitScaleStep(scale, HidMouseInterpreter::computeAdaptiveAccelerationScale(ema), 32);
+            mx = HidMouseInterpreter::clampDelta(HidMouseInterpreter::scaleFixed(mx, scale), 63);
+            my = HidMouseInterpreter::clampDelta(HidMouseInterpreter::scaleFixed(my, scale), 63);
+        } else {
+            ema = 0;
+            scale = HidMouseInterpreter::ADAPTIVE_ACCELERATION_FALLBACK_SCALE;
+        }
+        *ox = mx; *oy = my;
+        CHECK(mouse_sink_usb_report(mx, my, 0));
+    }
+};
+
+// What the core's counters received for the reports since the last call.
+static int core_dx(AmigaRig &r)
+{
+    int sx = 0;
+    size_t from = 0;
+    for (int i = 0; i < 100; i++) {
+        r.io.delay_ms(2);
+        if (!mouse_sink_pace(&r.c)) break;
+    }
+    for (size_t i = from; i < r.io.log.size(); i++) if (r.io.log[i].reg == AM_MOUSE_DX) sx += (int8_t)r.io.log[i].v;
+    r.io.log.clear();
+    return sx;
+}
+
+static void set_value(AmigaRig &r, const char *key, int idx)
+{
+    int i = r.st->find(key);
+    CHECK(i >= 0);
+    r.st->set(i, idx);
+    regset_apply_setting(&r.c, i);                         // what the menu does for a WHEN_LIVE item
+}
+
+static int one_report(AmigaRig &r, int dx)
+{
+    mouse_sink_reset();
+    r.io.log.clear();
+    Driver d;
+    int ox, oy;
+    d.report(dx, 0, &ox, &oy);
+    CHECK_EQ(core_dx(r), ox);                              // the sink passes on exactly what the driver scaled
+    return ox;
+}
+
+int main()
+{
+    const CoreDesc *both[2] = { &amiga_desc, &amiga1200_desc };
+
+    // ---- S1: the rows, in both Amiga cores, group "input", Gideon's range and defaults; no other core has them
+    for (int k = 0; k < 2; k++) {
+        const CoreDesc *d = both[k];
+        int ns = -1, na = -1;
+        for (int i = 0; i < d->nsettings; i++) {
+            if (!strcmp(d->settings[i].key, "Mouse Sensitivity")) ns = i;
+            if (!strcmp(d->settings[i].key, "Mouse Acceleration")) na = i;
+        }
+        CHECK(ns >= 0 && na >= 0);
+        if (ns < 0 || na < 0) continue;
+        const Setting &s = d->settings[ns], &a = d->settings[na];
+        CHECK_EQ(s.nvalues, 16);
+        CHECK_STR(s.values[0], "1");
+        CHECK_STR(s.values[15], "16");
+        CHECK_STR(s.values[s.def], "8");                   // default 8 = 1:1
+        CHECK_EQ(s.base, 1);
+        CHECK_STR(s.group, "input");
+        CHECK_STR(s.apply, "mouse.sens");
+        CHECK_EQ(s.when, WHEN_LIVE);
+        CHECK_EQ(a.nvalues, 2);
+        CHECK_STR(a.values[0], "Off");
+        CHECK_STR(a.values[1], "Adaptive");
+        CHECK_EQ(a.def, 0);
+        CHECK_STR(a.group, "input");
+        CHECK_STR(a.apply, "mouse.accel");
+        CHECK_EQ(a.when, WHEN_LIVE);
+    }
+    for (int i = 0; i < c64_desc.nsettings; i++) {
+        CHECK(strcmp(c64_desc.settings[i].key, "Mouse Sensitivity") != 0 && strcmp(c64_desc.settings[i].key, "Mouse Acceleration") != 0);
+    }
+
+    // ---- S2: a model report of +10 counts arrives as each setting says
+    {
+        FakeFs fs;
+        AmigaRig r(&fs);
+        mouse_sink_scaling_forget();
+        regset_apply(&r.c, true);                          // the start: the defaults go in
+        CHECK_EQ(one_report(r, 10), 10);                   // 8 = 1.0
+        set_value(r, "Mouse Sensitivity", 15);             // 16 = 2.0
+        CHECK_EQ(one_report(r, 10), 20);
+        set_value(r, "Mouse Sensitivity", 3);              // 4 = 0.5
+        CHECK_EQ(one_report(r, 10), 5);
+        set_value(r, "Mouse Sensitivity", 0);              // 1 = 0.125: 1.25 counts, the remainder is kept
+        CHECK_EQ(one_report(r, 10), 1);
+        {
+            mouse_sink_reset();
+            Driver d;
+            int ox, oy, sum = 0;
+            for (int i = 0; i < 8; i++) { d.report(1, 0, &ox, &oy); sum += ox; }
+            CHECK_EQ(sum, 1);                              // 8 slow counts at 0.125 are one count, not lost
+        }
+        set_value(r, "Mouse Sensitivity", 7);
+        // acceleration: Off leaves a fast stream as it is, Adaptive does not
+        mouse_sink_reset();
+        r.io.log.clear();
+        Driver off, on;
+        int ox, oy, sum_off = 0, sum_on = 0;
+        for (int i = 0; i < 12; i++) { off.report(30, 0, &ox, &oy); sum_off += ox; }
+        CHECK_EQ(sum_off, 360);
+        set_value(r, "Mouse Acceleration", 1);
+        for (int i = 0; i < 12; i++) { on.report(30, 0, &ox, &oy); sum_on += ox; }
+        CHECK(sum_on != sum_off);
+        set_value(r, "Mouse Acceleration", 0);
+        Driver off2;
+        sum_off = 0;
+        for (int i = 0; i < 12; i++) { off2.report(30, 0, &ox, &oy); sum_off += ox; }
+        CHECK_EQ(sum_off, 360);                            // and Off again is Off
+    }
+
+    // ---- the library clamps what a caller hands it to the driver's range (1 .. 16, acceleration 0 / 1)
+    {
+        int v;
+        mouse_sink_set_sensitivity(40);
+        CHECK(mouse_sink_scaling(0x5D, &v) && v == 16);
+        mouse_sink_set_sensitivity(-3);
+        CHECK(mouse_sink_scaling(0x5D, &v) && v == 1);
+        mouse_sink_set_acceleration(7);
+        CHECK(mouse_sink_scaling(0x5E, &v) && v == 1);
+        CHECK(!mouse_sink_scaling(0x55, &v));              // another key is not the library's
+        mouse_sink_scaling_forget();
+    }
+
+    // ---- S2b: both cores answer the driver from their own settings through the same operations
+    for (int k = 0; k < 2; k++) {
+        FakeFs fs;
+        AmigaRig r(&fs, both[k]);
+        mouse_sink_scaling_forget();
+        regset_apply(&r.c, true);
+        set_value(r, "Mouse Sensitivity", 11);             // 12 = 1.5
+        CHECK_EQ(one_report(r, 10), 15);
+    }
+
+    // ---- S3: the restart applies the stored values (a new process: nothing set, the .cfg read, the start applies every setting)
+    for (int k = 0; k < 2; k++) {
+        const CoreDesc *d = both[k];
+        FakeFs fs;
+        {
+            Settings s1(d->settings, d->nsettings, d->store, &fs, "/sd/cores/amiga.cfg", 0);
+            s1.load();
+            CHECK(s1.set(s1.find("Mouse Sensitivity"), 3));       // 4
+            CHECK(s1.set(s1.find("Mouse Acceleration"), 1));
+        }
+        mouse_sink_scaling_forget();
+        int v;
+        CHECK(!mouse_sink_scaling(0x5D, &v));              // the new process knows nothing yet
+        Settings s2(d->settings, d->nsettings, d->store, &fs, "/sd/cores/amiga.cfg", 0);
+        s2.load();
+        AmigaIo io;
+        CoreCtx c;
+        memset(&c, 0, sizeof(c));
+        c.desc = d; c.io = &io; c.fs = &fs; c.settings = &s2;
+        regset_apply(&c, true);
+        CHECK(mouse_sink_scaling(0x5D, &v) && v == 4);
+        CHECK(mouse_sink_scaling(0x5E, &v) && v == 1);
+    }
+    DONE("mousescale");
+}

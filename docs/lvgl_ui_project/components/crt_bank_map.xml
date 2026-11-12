@@ -1,0 +1,41 @@
+<component>
+    <api>
+        <prop name="title" type="string" default="ROML" />
+        <prop name="detail" type="string" default="64 BANKS" />
+        <prop name="tone" type="color" default="#color_cyan" />
+    </api>
+
+    <view extends="column" width="100%" gap="#space_xs" style_pad_all="#space_sm">
+        <row width="100%">
+            <lv_label text="$title" style_text_font="font_heading" style_text_color="#color_ink" />
+            <box grow="1" />
+            <lv_label text="$detail" style_text_font="font_caption" style_text_color="$tone" />
+        </row>
+        <lv_label text="     0 1 2 3 4 5 6 7 8 9 A B C D E F"
+                  style_text_font="font_caption" style_text_color="#color_muted" />
+        <row width="100%" gap="#space_xs">
+            <lv_label text="00" width="24" style_text_font="font_caption" style_text_color="#color_muted" />
+            <lv_obj width="252" height="8" style_bg_color="$tone" style_bg_opa="100%"
+                    style_border_color="#color_line" style_border_width="1" style_radius="0" />
+        </row>
+        <row width="100%" gap="#space_xs">
+            <lv_label text="10" width="24" style_text_font="font_caption" style_text_color="#color_muted" />
+            <lv_obj width="252" height="8" style_bg_color="$tone" style_bg_opa="100%"
+                    style_border_color="#color_line" style_border_width="1" style_radius="0" />
+        </row>
+        <row width="100%" gap="#space_xs">
+            <lv_label text="20" width="24" style_text_font="font_caption" style_text_color="#color_muted" />
+            <lv_obj width="252" height="8" style_bg_color="$tone" style_bg_opa="75%"
+                    style_border_color="#color_line" style_border_width="1" style_radius="0" />
+        </row>
+        <row width="100%" gap="#space_xs">
+            <lv_label text="30" width="24" style_text_font="font_caption" style_text_color="#color_muted" />
+            <row width="252" height="8" gap="2">
+                <lv_obj width="184" height="8" style_bg_color="$tone" style_bg_opa="65%"
+                        style_border_width="0" style_radius="0" />
+                <lv_obj grow="1" height="8" style_bg_color="#color_line" style_bg_opa="100%"
+                        style_border_width="0" style_radius="0" />
+            </row>
+        </row>
+    </view>
+</component>

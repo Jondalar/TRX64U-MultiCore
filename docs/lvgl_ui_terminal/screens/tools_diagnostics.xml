@@ -1,0 +1,41 @@
+<screen>
+    <view>
+        <style name="style_screen" />
+        <app_shell active_tools="true" active_tab="3">
+            <app_shell-content>
+                <column width="100%" height="100%" pad="#space_lg" gap="#space_md">
+                    <row width="100%">
+                        <column grow="1" gap="#space_xs">
+                            <lv_label text="TOOLS / DIAGNOSTICS" style_text_font="font_caption"
+                                      style_text_color="#color_muted" />
+                            <lv_label text="Inspect and export" style_text_font="font_title"
+                                      style_text_color="#color_ink" />
+                        </column>
+                        <status_chip label="IDLE" tone="#color_cyan" />
+                    </row>
+
+                    <panel width="100%" grow="1" gap="0">
+                        <action_row title="Trace" subtitle="Capture and export execution evidence"
+                                    meta="READY" tone="#color_cyan" />
+                        <action_row title="Debug log" subtitle="Show, save, or clear"
+                                    meta="LOG" tone="#color_muted" />
+                        <action_row title="Text viewer" subtitle="Open text and generated reports"
+                                    meta="VIEW" tone="#color_muted" />
+                        <action_row title="Hex viewer" subtitle="Files up to 256 KiB"
+                                    meta="HEX" tone="#color_violet" />
+                        <action_row title="System information" subtitle="Firmware, FPGA, storage, and health"
+                                    meta="INFO" tone="#color_cyan">
+                            <screen_create_event screen="system" anim_type="fade_in" duration="120" />
+                        </action_row>
+                        <action_row title="Save EDID" subtitle="Export display identification data"
+                                    meta="FILE" tone="#color_muted" />
+                        <box grow="1" />
+                    </panel>
+
+                    <lv_label text="Legacy text surfaces use the LVGL terminal widget until replaced natively"
+                              style_text_font="font_caption" style_text_color="#color_muted" />
+                </column>
+            </app_shell-content>
+        </app_shell>
+    </view>
+</screen>

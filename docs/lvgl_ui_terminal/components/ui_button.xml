@@ -1,0 +1,21 @@
+<component>
+    <api>
+        <prop name="label" type="string" default="ACTION" />
+        <prop name="bg_color" type="color" default="#color_bg" />
+        <prop name="border_color" type="color" default="#color_line" />
+        <prop name="text_color" type="color" default="#color_ink" />
+    </api>
+
+    <view extends="lv_button" height="22" width="content" flex_flow="row"
+          style_flex_main_place="center" style_flex_cross_place="center"
+          style_pad_hor="#space_xs" style_pad_ver="0"
+          style_bg_color="#color_bg" style_bg_opa="100%"
+          style_border_width="0" style_radius="0" style_shadow_width="0">
+        <style name="style_focus" selector="focused" />
+        <style name="style_focus" selector="focus_key" />
+        <style name="style_pressed" selector="pressed" />
+        <lv_label text="[ " style_text_font="font_caption" style_text_color="$text_color" />
+        <lv_label text="$label" style_text_font="font_caption" style_text_color="$text_color" />
+        <lv_label text=" ]" style_text_font="font_caption" style_text_color="$text_color" />
+    </view>
+</component>

@@ -1,0 +1,106 @@
+{
+ "cart_type": "0x68",
+ "crt_type": 88,
+ "name": "C64MegaCart (2 MiB board V4.3)",
+ "note": "PROP-002 sec. 8.2 and footnote 8 (Piper's VICE fork, TRX64): mode 01 holds the lines, mode 11 is Ultimax only for CPU writes to $8000-$FFFF.",
+ "regs": {
+  "R0": 0,
+  "R1": 0
+ },
+ "rules": [
+  {
+   "area": "IO1",
+   "match": "0x00",
+   "mask": "0x00",
+   "on": "WRITE",
+   "target": "R0",
+   "src": "DATA"
+  },
+  {
+   "area": "IO2",
+   "match": "0x00",
+   "mask": "0x00",
+   "on": "WRITE",
+   "target": "R1",
+   "src": "DATA"
+  }
+ ],
+ "bank": [
+  {
+   "reg": "R0",
+   "lsb": 0,
+   "width": 8
+  }
+ ],
+ "mode": {
+  "reg": "R1",
+  "lsb": 6,
+  "width": 2
+ },
+ "table": [
+  {
+   "exrom": 0,
+   "game": 1
+  },
+  {
+   "hold": 1
+  },
+  {
+   "off": 1
+  },
+  {
+   "exrom": 1,
+   "game": 1,
+   "gamew": 0,
+   "w": 1
+  }
+ ],
+ "layout": "L8_MIRROR",
+ "io1": {
+  "read": "OPEN",
+  "write": [
+   "RULES"
+  ]
+ },
+ "io2": {
+  "read": "OPEN",
+  "write": [
+   "RULES"
+  ]
+ },
+ "flash": {
+  "part": "M29F160FT",
+  "magic1": "0xAAA",
+  "magic2": "0x555",
+  "mask": "0xFFF",
+  "id": [
+   "0x01",
+   "0xD2"
+  ],
+  "id_ofs": 2,
+  "size": "2M",
+  "sectors": [
+   {
+    "count": 31,
+    "size": "64K"
+   },
+   {
+    "count": 1,
+    "size": "32K"
+   },
+   {
+    "count": 2,
+    "size": "8K"
+   },
+   {
+    "count": 1,
+    "size": "16K"
+   }
+  ],
+  "select": [
+   "ROML_R",
+   "ROMH_R",
+   "ROMH_W"
+  ]
+ }
+}

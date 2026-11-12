@@ -1,0 +1,7 @@
+// cd32.toml (v2): phase 1 = prompt "none" answered: the data line (comparator 3) high; phase 2 = "red" held: it reads low; phase 3 = let go: high again.
+// A pad that mirrors red on pin 9 whatever the lever: every setting then passes "reads", which the engine, the compile and the decode must get right.
+4
+3ff 0 0 0 0 0
+3ff 8 0 0 0 0
+3ff 0 0 0 0 0
+3ff 8 0 0 0 0

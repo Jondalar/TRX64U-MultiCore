@@ -1,0 +1,14 @@
+# The Port Diagnostics core (T175): no machine. A generic timed probe engine (cores/diag/rtl/probe.v) measures the joystick / paddle ports from step lists the core
+# application compiles out of TOML test files; the results go back to the SD card as TOML and text. Spec docs/specs/T175-port-diag-core.md.
+# A LARGE core (own flat bitstream, own top mono/top.v: the joystick pins are open-drain outputs); this file is the only descriptor (no DFX lane): ci/plan.py, ci/lanes.py and
+# ci/bitstream_mono.sh find the core by cores/diag/mono/core.toml, lane large-diag. Network on (no NO_NET): Alex 2026-11-02 "WiFi, FTP etc. on in this core".
+id           = "diag"
+name         = "Port Diagnostics"
+version      = "0.1.0"
+contract     = 2
+app          = "blueprint"     # the T104 generic core application; the descriptor coreapp/cores/portdiag.cc is the other half of T175
+order        = 17              # after the Neo Geo (16)
+delivery     = "cfw"
+experimental = true            # Alex 2026-11-02 (T175 Q5): experimental first
+mono_env     = ["TRX_FEATURES=jtag"]
+sources      = ["cores/diag", ":(exclude)cores/diag/sim"]

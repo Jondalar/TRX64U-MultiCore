@@ -1,0 +1,36 @@
+##   puts "=== T87: boundary nets are kept real by the l2_keep buffers in layer2_trx64.v (no DONT_TOUCH on the nets)"
+##   puts "=== T87 ($when): [llength $const] layer-2 output pins on a constant net: $const"
+##         puts "=== ip $name: built into $dir"
+##         puts "=== ip $name: from cache $dir"
+##         puts "=== ooc $top: synthesized into $dcp"
+##         puts "=== ooc $top: from cache $dcp"
+##         puts "=== T84 D5b: USR_ACCESS = host key 0x$::env(TRX_HOST_KEY8)"
+##         puts "=== T84 D5b: TRX_HOST_KEY8 is not set, USR_ACCESS stays as host/pins.xdc set it"
+## puts "=== c128 variant: VDC $vdcmode"
+=== c128 variant: VDC whole
+# puts "=== T113 mono: defines $defs"
+=== T113 mono: defines MONO NO_TURBO RAM_P2 ROM_CACHE SID2 SID_REDIP SOCK_AUDIO TAPE VDC64 VDC_WHOLE Z80
+=== ip gt_hdmi: from cache /w/.cache/ip_gt_hdmi_5929f78ef718de5e
+#     puts "=== T113 mono: host block $m stubbed"
+# puts "=== T113 mono: synthesis done"
+=== T113 mono: synthesis done
+opt_design: Time (s): cpu = 00:00:37 ; elapsed = 00:00:24 . Memory (MB): peak = 3864.570 ; gain = 369.473 ; free physical = 14583 ; free virtual = 46462
+opt_design: Time (s): cpu = 00:00:13 ; elapsed = 00:00:10 . Memory (MB): peak = 3864.570 ; gain = 0.000 ; free physical = 14632 ; free virtual = 46515
+#   puts "=== T29: cpu_rdy paths to clk2x timed with two clk2x periods"
+#   puts "=== T29: WARNING cpu_rdy net not found ([llength $rdy_nets]), no multicycle path"
+=== T29: cpu_rdy paths to clk2x timed with two clk2x periods
+#     puts "=== post-route phys_opt $d: WNS [get_property SLACK $p] ns"
+place_design: Time (s): cpu = 00:03:51 ; elapsed = 00:02:46 . Memory (MB): peak = 3864.570 ; gain = 0.000 ; free physical = 14227 ; free virtual = 46366
+phys_opt_design: Time (s): cpu = 00:01:21 ; elapsed = 00:00:45 . Memory (MB): peak = 3864.570 ; gain = 0.000 ; free physical = 14249 ; free virtual = 46428
+route_design: Time (s): cpu = 00:07:19 ; elapsed = 00:03:58 . Memory (MB): peak = 3864.570 ; gain = 0.000 ; free physical = 14007 ; free virtual = 46428
+phys_opt_design: Time (s): cpu = 00:00:16 ; elapsed = 00:00:08 . Memory (MB): peak = 3864.570 ; gain = 0.000 ; free physical = 13978 ; free virtual = 46406
+# puts "=== impl pass 1 (ExtraTimingOpt): WNS $wns ns"
+=== impl pass 1 (ExtraTimingOpt): WNS 0.058 ns
+#     puts "=== impl pass ($dir): WNS $w ns"
+#   puts "=== kept: $best_dcp (WNS $best ns)"
+# puts "=== T113 mono: reports written"
+=== T113 mono: reports written
+#   puts "=== bitstream: $bdir/c128_mono.bit [file size $bdir/c128_mono.bit] bytes"
+write_bitstream: Time (s): cpu = 00:00:26 ; elapsed = 00:00:22 . Memory (MB): peak = 3864.570 ; gain = 0.000 ; free physical = 13807 ; free virtual = 46353
+=== bitstream: bm_r4/c128_mono.bit 1733313 bytes
+INFO: [Common 17-206] Exiting Vivado at Fri Oct 23 21:06:46 2026...

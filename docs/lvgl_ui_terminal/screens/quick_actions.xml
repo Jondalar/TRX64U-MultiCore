@@ -1,0 +1,48 @@
+<screen>
+    <view>
+        <style name="style_screen" />
+        <app_shell active_actions="true" active_tab="1">
+            <app_shell-content>
+                <column width="100%" height="100%" pad="#space_lg" gap="#space_md">
+                    <row width="100%">
+                        <column grow="1" gap="#space_xs">
+                            <lv_label text="HOME / QUICK ACTIONS" style_text_font="font_caption"
+                                      style_text_color="#color_muted" />
+                            <lv_label text="Do the next thing" style_text_font="font_title"
+                                      style_text_color="#color_ink" />
+                        </column>
+                        <status_chip label="CONTEXTUAL" tone="#color_violet" />
+                    </row>
+
+                    <panel width="100%" grow="1" gap="0">
+                        <action_row title="Pause C64" subtitle="Keep media and machine state"
+                                    meta="RETURN" tone="#color_violet" />
+                        <action_row title="Swap disk" subtitle="Exchange Drive 8 and Drive 9 media"
+                                    meta="D8 / D9" tone="#color_cyan" />
+                        <action_row title="Open Timewarp" subtitle="Preview recent machine history"
+                                    meta="F2" tone="#color_violet">
+                            <screen_create_event screen="timewarp" anim_type="fade_in" duration="120" />
+                        </action_row>
+                        <action_row title="Reset" subtitle="Soft reset; destructive variants stay one level deeper"
+                                    meta="C64" tone="#color_amber">
+                            <screen_create_event screen="c64_machine" anim_type="fade_in" duration="120" />
+                        </action_row>
+                        <action_row title="All available actions" subtitle="Complete runtime task catalogue"
+                                    meta="CATALOG" tone="#color_muted">
+                            <screen_create_event screen="action_catalog" anim_type="fade_in" duration="120" />
+                        </action_row>
+                        <box grow="1" />
+                    </panel>
+
+                    <row width="100%">
+                        <lv_label text="Only valid actions appear; unavailable actions explain why"
+                                  style_text_font="font_caption" style_text_color="#color_muted" />
+                        <box grow="1" />
+                        <lv_label text="&lt;-  HOME" style_text_font="font_caption"
+                                  style_text_color="#color_muted" />
+                    </row>
+                </column>
+            </app_shell-content>
+        </app_shell>
+    </view>
+</screen>

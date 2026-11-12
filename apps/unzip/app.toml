@@ -1,0 +1,20 @@
+# Unzip (T104.3 D6): what the application adds to the core's menu. Nothing of it is code: a file type, three actions on it. The application is opened by
+# app.open with the action; src/unzip.c's app_main reads the action and the file.
+
+[[file_action]]
+ext = [".zip"]
+label = "Unzip to folder"
+app = "unzip"
+action = "folder"
+
+[[file_action]]
+ext = [".zip"]
+label = "Unzip here"
+app = "unzip"
+action = "here"
+
+[[file_action]]
+ext = [".zip"]
+label = "Extract one file"
+app = "unzip"
+action = "one"

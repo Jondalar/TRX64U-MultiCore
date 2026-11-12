@@ -1,0 +1,39 @@
+--- a/a8core/address_decoder.vhdl
++++ b/a8core/address_decoder.vhdl
+@@ -351,6 +351,7 @@
+ 	signal bank0next : std_logic_vector(1 downto 0);
+ 	signal bank1reg : std_logic_vector(1 downto 0);
+ 	signal bank1next : std_logic_vector(1 downto 0);
++	signal bank_plus1 : std_logic_vector(4 downto 0);
+ 
+ BEGIN
+ 	-- register
+@@ -1003,6 +1004,7 @@
+ 
+ end generate;
+ 
++	bank_plus1 <= std_logic_vector(unsigned('0' & bank1next & bank0next)+1);
+ 	memac_address <= addr_next(15 downto 0);
+ 	memac_write_enable <= write_enable_next;
+ 	memac_cpu_access <= cpu_fetch_real_next;
+@@ -1066,7 +1068,7 @@
+ 		SDRAM_CART_ADDR,
+ 		SDRAM_OS_ROM_ADDR,
+ 
+-		cart_select,bank0reg,bank1reg,bank0next,bank1next,cart_flash_status,emu_cart_write_enable,
++		cart_select,bank0reg,bank1reg,bank0next,bank1next,bank_plus1,cart_flash_status,emu_cart_write_enable,
+ 
+ 		freezer_enable, freezer_disable_atari, freezer_access_type,
+ 		freezer_dout, freezer_request_complete,
+@@ -1685,9 +1687,9 @@
+ 						end if;
+ 						if bank0next(0) = '1' then
+ 							SDRAM_ADDR(15) <= not(addr_next(15));
+-							SDRAM_ADDR(19 downto 16) <= std_logic_vector(unsigned('0' & bank1next & bank0next)+1)(4 downto 1);
++							SDRAM_ADDR(19 downto 16) <= bank_plus1(4 downto 1);
+ 							RAM_ADDR(15) <= not(addr_next(15));
+-							RAM_ADDR(18 downto 16) <= std_logic_vector(unsigned('0' & bank1next & bank0next)+1)(3 downto 1);
++							RAM_ADDR(18 downto 16) <= bank_plus1(3 downto 1);
+ 						else
+ 							SDRAM_ADDR(19 downto 16) <= '0' & bank1next & bank0next(1);
+ 							RAM_ADDR(18 downto 16) <= bank1next & bank0next(1);

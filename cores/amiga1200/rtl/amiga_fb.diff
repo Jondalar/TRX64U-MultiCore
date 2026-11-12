@@ -1,0 +1,137 @@
+1c1
+< // T85: the Amiga picture into a frame buffer in the DDR2 for the host's pixel layer (RGB565, 720 x 540 source
+---
+> // T85: the Amiga picture into a frame buffer in the DDR2 for the host's pixel layer (this copy: 32 bit per pixel, T136; 720 x 540 source
+4c4
+< // Input: the raw 15 kHz stream of Denise (12 bit RGB per 28 MHz tick, hblank, vblank, lace, field1); every
+---
+> // Input: the raw 15 kHz stream of Denise (this copy: 24 bit RGB per 28 MHz tick, hblank, vblank, lace, field1); every
+10c10
+< // Pixels are packed little endian, 8 pixels to a 128-bit word, 90 words to a row. A line is assembled in a
+---
+> // Pixels are packed little endian (this copy: see T136 below for the packing). A line is assembled in a
+13a14,20
+> // T97 5.10 (this file is the A1200's own copy, cores/amiga1200/rtl/amiga_fb.diff): the crop window is not fixed. Where it starts (skip_x hires
+> // pixels after hblank, skip_y lines after vblank) and how big it is (cols_w words of 8 pixels, lines) are registers the application writes
+> // (it lands at the top left of the 720 x 540 buffer; the application sizes and positions the pixel layer) (amiga_regs 0D0..), quasi static in sys_clk; their defaults are the numbers of
+> // the fixed window, so a core application that writes none sees the Amiga core's picture. Nothing outside the window is written: the application
+> // clears the buffers when it moves the window. A line the source ends before the window is full is padded with black.
+> // T136 (this copy): Lisa's 8 bits per channel, one 32-bit pixel {8'h00, R, G, B} (the A1200 pixel layer's format 2), 4 pixels to a
+> // 128-bit word, 180 words to a row of 720 (cols_w stays in units of 8 pixels: two words); the line buffer holds two rows of up to 256 words.
+22a30,33
+>     input  wire [8:0]  skip_x,
+>     input  wire [7:0]  skip_y,
+>     input  wire [6:0]  cols_w,
+>     input  wire [8:0]  lines,
+26,28c37,39
+<     input  wire [3:0]  r,
+<     input  wire [3:0]  g,
+<     input  wire [3:0]  b,
+---
+>     input  wire [7:0]  r,
+>     input  wire [7:0]  g,
+>     input  wire [7:0]  b,
+59,60c70,71
+<     reg [2:0]  pk = 3'd0;
+<     reg [6:0]  grp = 7'd0;
+---
+>     reg [1:0]  pk = 2'd0;
+>     reg [7:0]  grp = 8'd0;
+62c73
+<     reg [127:0] lb [0:255];
+---
+>     reg [127:0] lb [0:511];
+65a77
+>     reg [7:0]  ln_last = 8'd179;
+73c85
+<     wire [15:0] rgb565 = {r, r[3], g, g[3:2], b, b[3]};
+---
+>     wire [31:0] px32 = {8'h00, r, g, b};
+77,78c89,95
+<     wire        win_new = in_frame & ~vblank & (ly_new >= SKIP_Y) & (ly_new < SKIP_Y + LINES);
+<     wire        in_col = (xcnt >= SKIP_X) && (xcnt < SKIP_X + COLS);
+---
+>     wire [9:0]  y_end = {2'd0, skip_y} + {1'b0, lines};
+>     wire        win_new = in_frame & ~vblank & (ly_new >= {2'd0, skip_y}) & (ly_new < y_end);
+>     wire [11:0] x_end = {3'd0, skip_x} + {2'd0, cols_w, 3'd0};
+>     wire        in_col = (xcnt >= {3'd0, skip_x}) && (xcnt < x_end);
+>     wire [7:0]  grp_n = grp + 8'd1;
+>     wire [7:0]  words = {cols_w, 1'b0};               // words of 4 pixels in the window
+>     wire        row_full = (pk == 2'd0) && (grp == words);    // the window is complete
+93c110
+<                 xcnt <= 12'd0; phase <= 1'b0; pk <= 3'd0; grp <= 7'd0;
+---
+>                 xcnt <= 12'd0; phase <= 1'b0; pk <= 2'd0; grp <= 8'd0; tail <= 1'b0;
+98,102c115,120
+<                 acc <= {acc[127:112], acc[127:16]};
+<                 pk <= pk + 3'd1;
+<                 if (pk == 3'd7) begin
+<                     lb[{half, grp}] <= {acc[127:112], acc[127:16]};
+<                     tail <= 1'b0;
+---
+>                 acc <= {32'h0000, acc[127:32]};
+>                 pk <= pk + 2'd1;
+>                 if (pk == 2'd3) begin
+>                     lb[{half, grp}] <= {32'h0000, acc[127:32]};
+>                     grp <= grp_n;
+>                     if (grp_n == words) tail <= 1'b0;
+108,112c126,130
+<                     acc <= {rgb565, acc[127:16]};
+<                     pk <= pk + 3'd1;
+<                     if (pk == 3'd7) begin
+<                         lb[{half, grp}] <= {rgb565, acc[127:16]};
+<                         grp <= grp + 7'd1;
+---
+>                     acc <= {px32, acc[127:32]};
+>                     pk <= pk + 2'd1;
+>                     if (pk == 2'd3) begin
+>                         lb[{half, grp}] <= {px32, acc[127:32]};
+>                         grp <= grp + 8'd1;
+118,120c136,138
+<                 if (pk != 3'd0) tail <= 1'b1;         // the window is wider than the line (the Minimig's line holds 753 hires
+<             end                                       // pixels after its blanking, the window needs 756): never leave a word unwritten
+<             if ((le && cap && pk == 3'd0) || (tail && hblank && pk == 3'd7)) begin   // line complete: hand it to the ui side
+---
+>                 if (!row_full) tail <= 1'b1;          // the window reaches past the line (the Minimig's line holds 753 hires
+>             end                                       // pixels after its blanking): pad it with black, never leave a word unwritten
+>             if ((le && cap && row_full) || (tail && hblank && pk == 2'd3 && grp_n == words)) begin   // line complete: hand it to the ui side
+123c141
+<                 ln_row <= {cap_ly - SKIP_Y[9:0], 1'b0} + ((lace && field1) ? 10'd1 : 10'd0);
+---
+>                 ln_row <= {cap_ly - {2'd0, skip_y}, 1'b0} + ((lace && field1) ? 10'd1 : 10'd0);
+124a143
+>                 ln_last <= (cols_w == 7'd0) ? 8'd0 : words - 8'd1;
+142c161
+<     reg [7:0]  rd_a = 8'd0;
+---
+>     reg [8:0]  rd_a = 9'd0;
+144c163
+<     reg [6:0]  ug = 7'd0;
+---
+>     reg [7:0]  ug = 8'd0;
+148a168
+>     reg [7:0]  u_last = 8'd179;
+154,155c174,175
+<     // 720 words per row: 512 + 128 + 64 + 16
+<     wire [26:0] row_w = ({17'd0, cur_row} << 9) + ({17'd0, cur_row} << 7) + ({17'd0, cur_row} << 6) + ({17'd0, cur_row} << 4);
+---
+>     // 1,440 16-bit words per row (720 pixels of 4 bytes): 1024 + 256 + 128 + 32
+>     wire [26:0] row_w = ({17'd0, cur_row} << 10) + ({17'd0, cur_row} << 8) + ({17'd0, cur_row} << 7) + ({17'd0, cur_row} << 5);
+164c184
+<             u_row <= ln_row; u_wb <= ln_wb; u_half <= ln_half; rep <= 1'b0; ug <= 7'd0;
+---
+>             u_row <= ln_row; u_wb <= ln_wb; u_half <= ln_half; u_last <= ln_last; rep <= 1'b0; ug <= 8'd0;
+171c191
+<                 a_data <= lb_q; a_addr <= buf_w + row_w + {17'd0, ug, 3'd0}; a_valid <= 1'b1; us <= U_PUT;
+---
+>                 a_data <= lb_q; a_addr <= buf_w + row_w + {16'd0, ug, 3'd0}; a_valid <= 1'b1; us <= U_PUT;
+176,177c196,197
+<             if (ug == 7'd89) begin
+<                 ug <= 7'd0;
+---
+>             if (ug == u_last) begin
+>                 ug <= 8'd0;
+180c200
+<             end else begin ug <= ug + 7'd1; us <= U_RD; end
+---
+>             end else begin ug <= ug + 8'd1; us <= U_RD; end

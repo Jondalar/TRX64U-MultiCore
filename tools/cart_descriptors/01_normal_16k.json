@@ -1,0 +1,51 @@
+{
+ "cart_type": "0x01",
+ "crt_type": 0,
+ "name": "Normal 16K",
+ "note": "Lines from the CRT header (the app picks the CART_TYPE variant). $40 written to $DFFF (bits 7:6 = 01) switches the cartridge off until reset: the Ultimate's own boot cartridge does that. IO2 writes reach the cartridge whenever its lines are low (bus arbiter), so io2_we_valid stays off as before.",
+ "regs": {
+  "R0": 0,
+  "R1": 0
+ },
+ "rules": [
+  {
+   "area": "IO2",
+   "match": "0xFF",
+   "mask": "0xFF",
+   "on": "WRITE",
+   "target": "R1",
+   "src": "DATA"
+  }
+ ],
+ "mode": {
+  "reg": "R1",
+  "lsb": 6,
+  "width": 2
+ },
+ "table": [
+  {
+   "exrom": 0,
+   "game": 0
+  },
+  {
+   "off": 1,
+   "kill": 1
+  },
+  {
+   "exrom": 0,
+   "game": 0
+  },
+  {
+   "exrom": 0,
+   "game": 0
+  }
+ ],
+ "layout": "L16",
+ "io2": {
+  "read": "OPEN",
+  "write": [
+   "RULES"
+  ],
+  "we_valid": false
+ }
+}

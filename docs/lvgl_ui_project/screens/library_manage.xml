@@ -1,0 +1,53 @@
+<screen>
+    <view>
+        <style name="style_screen" />
+        <app_shell active_library="true" active_tab="3">
+            <app_shell-content>
+                <column width="100%" height="100%" pad="#space_lg" gap="#space_md">
+                    <row width="100%">
+                        <column grow="1" gap="#space_xs">
+                            <lv_label text="LIBRARY / MANAGE" style_text_font="font_caption"
+                                      style_text_color="#color_muted" />
+                            <lv_label text="Files and creation" style_text_font="font_title"
+                                      style_text_color="#color_ink" />
+                        </column>
+                        <status_chip label="3 SELECTED" tone="#color_violet" />
+                    </row>
+
+                    <row width="100%" grow="1" gap="#space_lg" vertical_align="start">
+                        <panel grow="1" height="100%" gap="0">
+                            <lv_label text="SELECTION" style_text_font="font_caption"
+                                      style_text_color="#color_muted" style_pad_all="#space_sm" />
+                            <action_row title="Copy to..." subtitle="Choose destination folder"
+                                        meta="COPY" tone="#color_cyan" />
+                            <action_row title="Move to..." subtitle="Available on writable sources"
+                                        meta="MOVE" tone="#color_muted" />
+                            <action_row title="Rename" subtitle="Single selection only"
+                                        meta="EDIT" tone="#color_muted" />
+                            <action_row title="Delete selection" subtitle="Confirmation includes target and data loss"
+                                        meta="DELETE" tone="#color_coral" />
+                            <action_row title="Run with app" subtitle="Compatible installed applications"
+                                        meta="APP" tone="#color_amber" />
+                            <box grow="1" />
+                        </panel>
+
+                        <panel width="255" height="100%" gap="0" raised="true">
+                            <lv_label text="CREATE" style_text_font="font_caption"
+                                      style_text_color="#color_muted" style_pad_all="#space_sm" />
+                            <action_row title="Directory" meta="DIR" tone="#color_muted" />
+                            <action_row title="Disk image" subtitle="D64, G64, D71, G71, D81, DNP"
+                                        meta="IMAGE" tone="#color_violet" />
+                            <action_row title="Set as home" subtitle="Return here with HOME"
+                                        meta="HOME" tone="#color_muted" />
+                            <box grow="1" />
+                            <lv_label text="SPACE select  C=A all  C=N none"
+                                      style_text_font="font_caption" style_text_color="#color_muted" />
+                            <lv_label text="C=C copy  C=V paste  INST delete"
+                                      style_text_font="font_caption" style_text_color="#color_muted" />
+                        </panel>
+                    </row>
+                </column>
+            </app_shell-content>
+        </app_shell>
+    </view>
+</screen>

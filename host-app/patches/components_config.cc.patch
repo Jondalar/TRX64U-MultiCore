@@ -1,0 +1,115 @@
+--- /path/to/Development/TRX64U-MultiCore/apps/ultimate/software/components/config.cc	2026-10-14 06:38:03
++++ host-app/software/components/config.cc	2026-10-30 20:22:13
+@@ -31,6 +31,10 @@
+ #include "u64.h"
+ #endif
+ 
++static const ConfigBackend *cfg_backend = NULL;
++void config_set_backend(const ConfigBackend *b) { cfg_backend = b; }
++const ConfigBackend *config_get_backend(void) { return cfg_backend; }
++
+ /*** CONFIGURATION MANAGER ***/
+ ConfigManager :: ConfigManager() : stores(16, NULL), pages(16, NULL)
+ {
+@@ -123,8 +127,8 @@
+     }
+ 
+     bool write = false;
+-    // Try to find the page in Flash
+-    if (!page) {
++    // Try to find the page in Flash (T163: not with a backend; the one read of a page is the take-over in ConfigStore::read)
++    if (!page && !cfg_backend) {
+         uint32_t id;
+         for(int i=0;i<num_pages;i++) {
+             flash->read_config_page(i, 4, &id);
+@@ -136,8 +140,8 @@
+         }
+     }
+ 
+-    // Not found in config pages, maybe it's on the flash storage itself?
+-    if (!page) {
++    // Not found in config pages, maybe it's on the flash storage itself? (T163: not with a backend, those files are the original's)
++    if (!page && !cfg_backend) {
+         char fn[20];
+         sprintf(fn, "page_%08x.bin", page_id);
+         File *df;
+@@ -151,8 +155,8 @@
+         }
+     }
+ 
+-    // if still no luck, try to create a page in flash
+-    if (!page) {
++    // if still no luck, try to create a page in flash (T163: never with a backend)
++    if (!page && !cfg_backend) {
+         uint32_t id;
+         for(int i=0;i<num_pages;i++) {
+             flash->read_config_page(i, 4, &id);
+@@ -170,7 +174,7 @@
+     if (!page) {
+         page = new ConfigPage(NULL, page_id, -1, page_size);
+         pages.append(page);
+-        write = true; // write to disk
++        write = !cfg_backend; // write to disk (T163: a backend keeps the values itself)
+     }
+     ConfigStore *s = new ConfigStore(page, name, defs, ob);
+     stores.append(s);
+@@ -346,6 +350,11 @@
+     
+ void ConfigStore :: write()
+ {
++    if (cfg_backend) {
++        cfg_backend->save(this);
++        staleFlash = false;
++        return;
++    }
+ 	printf("Writing config store '%s' to flash..", store_name.c_str());
+ 	if(page) {
+ 	    page->write();
+@@ -365,6 +374,9 @@
+ 
+ void ConfigPage :: write()
+ {
++    if (cfg_backend) {
++        return; // T163: the flash pages are not ours any more
++    }
+ 	int size = pack();
+ 
+     if (flash_page < 0) {
+@@ -433,6 +445,9 @@
+ void ConfigPage :: read(bool ignoreData)
+ {
+     if (flash_page < 0) {
++        if (cfg_backend) {
++            return; // T163: no page of ours in the flash, and the files of the original's fallback are not read
++        }
+         char fn[20];
+         sprintf(fn, "page_%08x.bin", id);
+         File *df;
+@@ -454,7 +469,26 @@
+ 
+ void ConfigStore :: read(bool ignore)
+ {
+-	if(page) {
++	if(page && cfg_backend) {
++	    // T163: our file first. The flash page of the original's is read only when the file is new, to take its values over once.
++	    if (!ignore) {
++	        int r = cfg_backend->load(this);
++	        if (r == CFG_LOAD_TAKEOVER) {
++	            Flash *fl = ConfigManager :: getConfigManager()->get_flash_access();
++	            for (int i = 0; fl && i < fl->get_number_of_config_pages(); i++) {
++	                uint32_t id = 0;
++	                fl->read_config_page(i, 4, &id);
++	                if (id == page->get_id()) {
++	                    ConfigPage old(fl, id, i, fl->get_config_page_size());   // only ever read
++	                    old.read(false);
++	                    old.unpack(this);
++	                    break;
++	                }
++	            }
++	            cfg_backend->save(this);
++	        }
++	    }
++	} else if(page) {
+ 	    page->read(ignore);
+ 	    page->unpack(this);
+ 	}

@@ -1,0 +1,32 @@
+# Simulation scripts that are deliberately not in ci/sims.txt, with the reason (T109 D4).
+#
+# ci/lint.sh refuses a bench that is in neither file. The point is that leaving a bench out becomes a
+# decision somebody wrote down, not an oversight: two cores went silent on the board while the benches
+# that measure sound sat here unrun since the day they were written.
+#
+# Format: <path>|<reason>
+cores/amiga/sim/run_fuzz.sh|one case of run_fuzz_suite.sh, which is listed
+cores/amiga/sim/run_ideal.sh|the reference model run_equiv.sh and run_membench.sh build on, not a bench
+cores/amiga/sim/run_l2.sh|the single-case form of run_l2check.sh, which is listed
+cores/amiga/sim/run_mem.sh|one case of run_membench.sh, which is listed
+cores/amiga/sim/run_pause.sh|T85 Freeze: minutes of wall clock for one case; run by hand before a board session
+cores/c264/sim/run_boot.sh|needs the C16 ROM set, which is not in the repository
+cores/c264/sim/run_pause.sh|builds on run_boot.sh and needs the same ROMs
+cores/vc20/sim/run_boot.sh|needs the VC-20 ROM set, which is not in the repository
+cores/vc20/sim/run_pause.sh|builds on run_boot.sh and needs the same ROMs
+cores/atari800/sim/atari/run.sh|the sub-unit benches of Watson's tree; the gate bench covers the same logic
+cores/atari800/sim/cpu/run.sh|the 6502 instruction sweep; minutes per run, kept for a CPU change
+cores/apple2/sim/run_boot.sh|needs the Apple //e ROM images (system ROM, character ROM), which are not in the repository: A2_ROMS=<dir> by hand
+cores/amiga/sim/run_aga.sh|T97 stripe diagnosis: renders AGA frames for aga_view.py by eye, no pass/fail; tb_wide and the width check in tb_l2 guard the fix
+cores/c128/sim/run_realrom.sh|needs the real C128 ROM set, which is not in the repository: C128_ROMDIR=<dir> by hand (T113)
+cores/c128/sim/run_realrom_reset.sh|builds on run_realrom.sh and needs the same ROMs (T113)
+cores/apple2/sim/run_rwts.sh|T89.1: its S5 (step away and back) has not finished a run yet (>70 min on a loaded builder); goes into sims.txt after one green run (T89.1 §5)
+cores/apple2/sim/run_prodos.sh|T89.1 S13: ProDOS 2.4 boot from the HDD, ~30 min per run plus its control; run by hand on the builder
+cores/zx/sim/fsim/run.sh|needs Vivado (synth_design of the ULA / zx_core in vivado-env, heavy.lock): a post-synthesis netlist check, run by hand (T119 5.15)
+cores/c128/sim/run_robots.sh|T140 D27/D28: runs PETSCII Robots, needs the real C128 ROM set (C128_ROMDIR) and the game image (sim/media, never in the repository); `cmp` mode by hand on the builder
+cores/c128/sim/run_cpm.sh|T140 19 (#67): boots the CP/M disk (sim/media) from a simulated 1541 with the real C128 ROMs (C128_ROMDIR); hours of wall time, by hand on the builder
+cores/c64scpu/sim/run_real.sh|T182 step 1: boots the real C64 ROM set (not in the repository) to READY; by hand on the builder, run_base.sh is the CI bench
+cores/c64scpu/sim/run_realscpu.sh|needs the real scpu64.rom and C64 ROMs (C64_ROMDIR), which never go into the repository or CI; local debugging only
+cores/c128/sim/run_vdcreset.sh|needs the real C128 ROMs (C128_ROMDIR), which never go into the repository or CI; local debugging of T140 section 17 only
+cores/pet/sim/run_models.sh|one case of run_boot.sh (pet_boot), which is listed
+cores/pet/sim/run_disk.sh|needs the person's DOS ROMs (ROMDIR)

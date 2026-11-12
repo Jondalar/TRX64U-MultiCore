@@ -1,0 +1,87 @@
+{
+ "cart_type": "0x48",
+ "crt_type": 60,
+ "name": "GMod2",
+ "note": "PROP-002 sec. 8.2 (VICE gmod2.c); the flash is written through $E000 in Ultimax, read at $8000.",
+ "regs": {
+  "R0": 0,
+  "R1": 0
+ },
+ "rules": [
+  {
+   "area": "IO1",
+   "match": "0x00",
+   "mask": "0x00",
+   "on": "WRITE",
+   "target": "R0",
+   "src": "DATA"
+  }
+ ],
+ "bank": [
+  {
+   "reg": "R0",
+   "lsb": 0,
+   "width": 6
+  }
+ ],
+ "mode": {
+  "reg": "R0",
+  "lsb": 6,
+  "width": 2
+ },
+ "table": [
+  {
+   "exrom": 0,
+   "game": 1
+  },
+  {
+   "off": 1
+  },
+  {
+   "exrom": 0,
+   "game": 1
+  },
+  {
+   "exrom": 1,
+   "game": 0,
+   "w": 1
+  }
+ ],
+ "layout": "L8_MIRROR",
+ "io1": {
+  "read": "DEV",
+  "write": [
+   "RULES"
+  ]
+ },
+ "eeprom": {
+  "part": "93C86",
+  "cs": 6,
+  "clk": 5,
+  "di": 4,
+  "do": 7
+ },
+ "flash": {
+  "part": "AM29F040",
+  "magic1": "0x5555",
+  "magic2": "0x2AAA",
+  "mask": "0x7FFF",
+  "id": [
+   "0x01",
+   "0xA4"
+  ],
+  "id_ofs": 1,
+  "size": "512K",
+  "sectors": [
+   {
+    "count": 8,
+    "size": "64K"
+   }
+  ],
+  "select": [
+   "ROML_R",
+   "ROMH_R",
+   "ROMH_W"
+  ]
+ }
+}

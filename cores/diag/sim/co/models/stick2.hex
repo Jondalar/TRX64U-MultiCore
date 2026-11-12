@@ -1,0 +1,7 @@
+// stick2.toml: phase 1 idle, 2 button 1 held (port 2 pin 6 = live bit 9 low), 3 button 2 held (port 2 up = live bit 5 low and comparator 2 high), 4 released
+5
+3ff 0 0 0 0 0
+3ff 0 0 0 0 0
+1ff 0 0 0 0 0
+3df 4 0 0 0 0
+3ff 0 0 0 0 0

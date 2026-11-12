@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>T198 Config overlay mock-up</title>
+<style>
+:root {
+  --page: #e9edf1; --page-ink: #1b2430; --page-muted: #5d6874;
+  --scr-bg: #070a12; --scr-panel: #0d1220; --scr-panel2: #111827; --scr-line: #273047;
+  --scr-ink: #f4f2fb; --scr-muted: #9da6bd; --host: #8376ff; --host-soft: #1c1a3f;
+  --ok: #6de7ff; --warn: #ffc15a; --bad: #ff7a72;
+  --f-display: "Sixtyfour", "IBM Plex Mono", ui-monospace, monospace;
+  --f-scr: Inter, "IBM Plex Sans", system-ui, sans-serif;
+  --f-body: "IBM Plex Sans", system-ui, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root { --page: #10151a; --page-ink: #e2e8ed; --page-muted: #94a2ae; } }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--page-ink); font-family: var(--f-body); padding: 24px 16px 40px; }
+.wrap { max-width: 1000px; margin: 0 auto; display: grid; gap: 22px; }
+h1 { font-size: 1.4rem; margin: 0; }
+h2 { font-size: 1rem; margin: 0 0 6px; }
+.lead, .cap { color: var(--page-muted); margin: 0; line-height: 1.5; max-width: 75ch; font-size: .93rem; }
+.mocknote { font-size: .8rem; letter-spacing: .06em; text-transform: uppercase; color: #b67a00; font-weight: 600; }
+.tv { background: #05080a; border-radius: 10px; padding: 10px; container-type: inline-size; }
+/* 960 x 540 canvas: 1cqw of the screen = 9.6 px; base type 15 px at full width */
+.screen { aspect-ratio: 16/9; background: var(--scr-bg); color: var(--scr-ink); font-family: var(--f-scr); border-radius: 4px; overflow: hidden; display: grid; grid-template-rows: auto 1fr auto; font-size: 1.5625cqw; position: relative; container-type: inline-size; }
+.topbar { display: flex; align-items: center; gap: 1.2em; padding: .7em 1.2em; background: var(--scr-panel); border-bottom: 1px solid var(--scr-line); }
+.brand { font-family: var(--f-display); font-weight: 700; font-size: .95em; }
+.brand span { color: var(--ok); }
+.chips { margin-left: auto; display: flex; gap: .6em; }
+.chip { font-family: var(--f-mono); font-size: .78em; padding: .15em .55em; border-radius: 3px; background: var(--scr-panel2); color: var(--scr-muted); border: 1px solid var(--scr-line); }
+.chip.ok { color: var(--ok); }
+.body { display: grid; grid-template-columns: 13em 1fr; min-height: 0; }
+.nav { background: var(--scr-panel); border-right: 1px solid var(--scr-line); padding: .8em 0; display: flex; flex-direction: column; gap: .15em; }
+.nav div { padding: .55em 1.2em; color: var(--scr-muted); display: flex; gap: .6em; align-items: center; }
+.nav .k { font-family: var(--f-mono); font-size: .75em; border: 1px solid var(--scr-line); border-radius: 3px; padding: 0 .35em; }
+.nav .cur { color: var(--scr-ink); background: var(--host-soft); box-shadow: inset 3px 0 0 var(--host); }
+.main { padding: 1em 1.3em; min-height: 0; overflow: hidden; display: grid; align-content: start; gap: .8em; }
+.main h3 { font-family: var(--f-display); font-size: 1.15em; margin: 0; font-weight: 600; }
+.sub { color: var(--scr-muted); font-size: .85em; margin: -.4em 0 0; }
+.entries { display: grid; gap: .45em; }
+.entry { display: grid; grid-template-columns: 3.2em 1fr auto; gap: 1em; align-items: center; padding: .6em .9em; background: var(--scr-panel); border: 1px solid var(--scr-line); border-radius: 4px; }
+.entry.sel { border-color: var(--host); background: var(--host-soft); }
+.icon { width: 3.2em; height: 2.2em; border-radius: 3px; display: grid; place-items: center; font-family: var(--f-mono); font-size: .85em; }
+.ic-c64 { background: #3d3fb0; color: #a7a8ff; } .ic-vic { background: #e8e4d8; color: #2a2a2a; }
+.e-name { font-weight: 600; }
+.e-meta { font-family: var(--f-mono); font-size: .8em; color: var(--scr-muted); margin-top: .15em; }
+.badges { display: flex; gap: .4em; align-items: center; }
+.badge { font-size: .72em; padding: .15em .5em; border-radius: 3px; font-weight: 600; letter-spacing: .03em; }
+.b-def { background: var(--host); color: #070a12; }
+.b-ok { background: rgba(109,231,255,.12); color: var(--ok); }
+.b-cfg { background: rgba(131,118,255,.18); color: #b9b2ff; }
+.hint { font-family: var(--f-mono); font-size: .72em; color: var(--scr-muted); }
+.hint b { font-weight: 500; color: var(--scr-ink); border: 1px solid var(--scr-line); border-radius: 3px; padding: 0 .3em; }
+.countdown { color: var(--scr-muted); font-size: .9em; }
+.foot { position: relative; z-index: 2; display: flex; gap: 1.4em; padding: .55em 1.2em; background: var(--scr-panel); border-top: 1px solid var(--scr-line); font-size: .8em; color: var(--scr-muted); white-space: nowrap; overflow: hidden; }
+.foot b { font-family: var(--f-mono); font-weight: 500; color: var(--scr-ink); border: 1px solid var(--scr-line); border-radius: 3px; padding: 0 .35em; margin-right: .3em; }
+/* overlay: dims the list, keeps the nav and top bar */
+.dim { position: absolute; inset: 0; background: rgba(5,8,14,.72); display: grid; place-items: center; }
+.ov { width: 56%; background: var(--scr-panel); border: 1px solid var(--host); border-radius: 6px; display: grid; }
+.ov-h { padding: .8em 1.1em; border-bottom: 1px solid var(--scr-line); display: flex; align-items: baseline; gap: .8em; }
+.ov-h h3 { font-size: 1.05em; }
+.ov-h .pos { margin-left: auto; font-family: var(--f-mono); font-size: .75em; color: var(--scr-muted); }
+.ov-l { padding: .6em; display: grid; gap: .3em; }
+.ov-r { display: grid; grid-template-columns: 1fr auto; gap: 1em; align-items: center; padding: .5em .7em; border-radius: 3px; border: 1px solid transparent; }
+.ov-r.sel { background: var(--host-soft); border-color: var(--host); }
+.ov-r.sep { border-top: 1px solid var(--scr-line); border-radius: 0; margin-top: .25em; padding-top: .7em; }
+.ov-f { display: flex; gap: 1.2em; padding: .55em 1.1em; border-top: 1px solid var(--scr-line); font-size: .8em; color: var(--scr-muted); white-space: nowrap; }
+.ov-f b { font-family: var(--f-mono); font-weight: 500; color: var(--scr-ink); border: 1px solid var(--scr-line); border-radius: 3px; padding: 0 .35em; margin-right: .3em; }
+/* core menu rows */
+.tabs { display: flex; gap: 1.6em; border-bottom: 1px solid var(--scr-line); font-size: .9em; color: var(--scr-muted); }
+.tabs span { padding: .3em 0 .5em; } .tabs .cur { color: var(--scr-ink); box-shadow: inset 0 -2px 0 var(--host); }
+.tabs i { font-style: normal; font-family: var(--f-mono); font-size: .8em; margin-right: .4em; color: var(--scr-muted); }
+.rows { display: grid; gap: .15em; }
+.sr { display: grid; grid-template-columns: 1fr auto; padding: .45em .8em; border-radius: 3px; font-size: .95em; }
+.sr.sel { background: var(--host-soft); box-shadow: inset 3px 0 0 var(--host); }
+.sr .v { font-family: var(--f-mono); font-size: .85em; color: var(--scr-muted); }
+.sr .v.on { color: var(--ok); }
+.sec { font-size: .72em; letter-spacing: .08em; text-transform: uppercase; color: var(--scr-muted); padding: .7em .8em .2em; }
+.toast { font-size: .85em; color: var(--ok); }
+.notes { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+.note { border-top: 2px solid #8a96a3; padding-top: 8px; font-size: .9rem; line-height: 1.5; }
+.note p { margin: 0; color: var(--page-muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="mocknote">T198 mock-up - figure with example data, not operable</div>
+  <h1>Start a core with a saved config</h1>
+  <p class="lead">Decision D1 (Alex, 2026-11-10): RETURN on a core row stays "start". The configs of that core open in an overlay; the cursor picks one. RIGHT opens it (D2); "Plain start" is the first row (D14); the cursor opens on the default config (D8).</p>
+
+  <section>
+    <h2>(a) Boot menu - Amiga 1200 selected, configs exist</h2>
+    <div class="tv"><div class="screen">
+      <div class="topbar"><div class="brand">TRX64 <span>host</span></div>
+        <div class="chips"><span class="chip">0.2.0+a1b2c3d4</span><span class="chip">contract 2</span><span class="chip ok">SD</span><span class="chip ok">USB</span><span class="chip ok">192.168.1.50</span></div></div>
+      <div class="body">
+        <nav class="nav"><div class="cur"><span class="k">F1</span>Boot menu</div><div><span class="k">F3</span>File Browser</div><div><span class="k">F5</span>Edit menu</div><div><span class="k">F7</span>Network</div></nav>
+        <section class="main">
+          <h3>Boot menu</h3><p class="sub">Pick a core. The default starts when the countdown ends.</p>
+          <div class="entries">
+            <div class="entry"><div class="icon ic-vic">VC20</div><div><div class="e-name">VIC-20</div><div class="e-meta">/USB1/cores/vc20.cor  v0.9.0</div></div><div class="badges"><span class="badge b-def">default</span><span class="badge b-ok">hash ok</span></div></div>
+            <div class="entry sel"><div class="icon ic-c64">A120</div><div><div class="e-name">Amiga 1200 (AGA, 68020)</div><div class="e-meta">/USB1/cores/amiga1200.cor  large core  v0.3.0</div></div><div class="badges"><span class="badge b-cfg">3 configs</span><span class="badge b-ok">ready</span></div></div>
+            <div class="entry"><div class="icon ic-c64">C64</div><div><div class="e-name">C64 (TRX64)</div><div class="e-meta">/SD/cores/trx64u.cor  v0.4.1</div></div><div class="badges"><span class="badge b-cfg">1 config</span><span class="badge b-ok">hash ok</span></div></div>
+          </div>
+          <div class="countdown">Countdown stopped</div>
+        </section>
+      </div>
+      <div class="foot"><span><b>UP/DOWN</b>select</span><span><b>RETURN</b>start</span><span><b>RIGHT</b>configs</span><span><b>R</b>check entry</span><span><b>V</b>picture</span></div>
+    </div></div>
+    <p class="cap">RETURN starts plain, as today. The "RIGHT configs" hint and badge show only on the selected row and only when configs exist; a row without configs shows neither.</p>
+  </section>
+
+  <section>
+    <h2>(b) The overlay open over it</h2>
+    <div class="tv"><div class="screen">
+      <div class="topbar"><div class="brand">TRX64 <span>host</span></div>
+        <div class="chips"><span class="chip">0.2.0+a1b2c3d4</span><span class="chip">contract 2</span><span class="chip ok">SD</span><span class="chip ok">USB</span><span class="chip ok">192.168.1.50</span></div></div>
+      <div class="body">
+        <nav class="nav"><div class="cur"><span class="k">F1</span>Boot menu</div><div><span class="k">F3</span>File Browser</div><div><span class="k">F5</span>Edit menu</div><div><span class="k">F7</span>Network</div></nav>
+        <section class="main">
+          <h3>Boot menu</h3><p class="sub">Pick a core. The default starts when the countdown ends.</p>
+          <div class="entries">
+            <div class="entry"><div class="icon ic-vic">VC20</div><div><div class="e-name">VIC-20</div><div class="e-meta">/USB1/cores/vc20.cor  v0.9.0</div></div><div class="badges"><span class="badge b-def">default</span><span class="badge b-ok">hash ok</span></div></div>
+            <div class="entry sel"><div class="icon ic-c64">A120</div><div><div class="e-name">Amiga 1200 (AGA, 68020)</div><div class="e-meta">/USB1/cores/amiga1200.cor  large core  v0.3.0</div></div><div class="badges"><span class="badge b-cfg">3 configs</span><span class="badge b-ok">ready</span></div></div>
+            <div class="entry"><div class="icon ic-c64">C64</div><div><div class="e-name">C64 (TRX64)</div><div class="e-meta">/SD/cores/trx64u.cor  v0.4.1</div></div><div class="badges"><span class="badge b-cfg">1 config</span><span class="badge b-ok">hash ok</span></div></div>
+          </div>
+        </section>
+      </div>
+      <div class="foot"><span><b>UP/DOWN</b>pick</span><span><b>RETURN</b>start</span><span><b>LEFT</b>back</span><span><b>D</b>default</span><span><b>R</b>rename</span><span><b>DEL</b>delete</span></div>
+      <div class="dim"><div class="ov">
+        <div class="ov-h"><h3>Amiga 1200 - start with</h3><span class="pos">3 configs</span></div>
+        <div class="ov-l">
+          <div class="ov-r"><div><div class="e-name">Plain start</div><div class="e-meta">as last left, no config applied</div></div></div>
+          <div class="ov-r sel sep"><div><div class="e-name">Workbench 3.1 HD</div><div class="e-meta">DF0 empty  HD0 DH0_WB31  all settings</div></div><span class="badge b-def">default</span></div>
+          <div class="ov-r"><div><div class="e-name">Demo collection</div><div class="e-meta">DF0 Demos1.adf  HD0 Demos  all settings</div></div></div>
+          <div class="ov-r"><div><div class="e-name">Blank (no media)</div><div class="e-meta">no media  all settings</div></div></div>
+        </div>
+      </div></div>
+    </div></div>
+    <p class="cap">The overlay owns the keys while it is open, so the screen's key bar changes to its keys. The list and the bars behind are dimmed, not hidden; the key bar stays bright. LEFT or ESC closes it.</p>
+  </section>
+
+  <section>
+    <h2>(c) Core menu, F5 Summary - save the current state as a config</h2>
+    <div class="tv"><div class="screen">
+      <div class="topbar"><div class="brand">Amiga <span>1200</span></div>
+        <div class="chips"><span class="chip">core 0.3.0</span><span class="chip ok">SD</span><span class="chip ok">USB</span></div></div>
+      <div class="body">
+        <nav class="nav"><div><span class="k">F1</span>Home</div><div><span class="k">F3</span>Library</div><div class="cur"><span class="k">F5</span>Amiga</div><div><span class="k">F7</span>Actions</div></nav>
+        <section class="main">
+          <div class="tabs"><span class="cur"><i>1</i>Summary</span><span><i>2</i>Machine</span><span><i>3</i>Drives</span><span><i>4</i>I/O</span></div>
+          <div class="rows">
+            <div class="sec">Media</div>
+            <div class="sr"><span>DF0</span><span class="v on">Install.adf</span></div>
+            <div class="sr"><span>HD0</span><span class="v on">folder DH0_WB31</span></div>
+            <div class="sec">Config</div>
+            <div class="sr sel"><span>Save as config...</span><span class="v"></span></div>
+            <div class="sr"><span>Load config...</span><span class="v">3 saved</span></div>
+            <div class="sec">Machine</div>
+            <div class="sr"><span>Reset</span><span class="v"></span></div>
+          </div>
+                  </section>
+      </div>
+      <div class="foot"><span><b>UP/DOWN</b>select</span><span><b>RETURN</b>open</span><span><b>1-4</b>tab</span><span><b>F7</b>more</span></div>
+    </div></div>
+    <p class="cap">"Save as config..." asks for a name; "Load config..." lists the same configs the boot menu shows and applies one (with the reset the load needs). These two rows replace "Save media set..." / "Load media set..." (question Q2).</p>
+  </section>
+
+  <div class="notes">
+    <div class="note"><h2>Keys</h2><p>RIGHT opens the overlay on a core row with configs (proposed). RETURN on the row starts plain. In the overlay: RETURN starts the picked config, LEFT or ESC closes.</p></div>
+    <div class="note"><h2>Wording</h2><p>One word: "config". "Plain start" is the pick that equals RETURN on the row.</p></div>
+    <div class="note"><h2>Not drawn</h2><p>Delete and rename prompts, the start progress overlay (unchanged, title reads "Starting Amiga 1200 - Demo collection"), a list longer than the window.</p></div>
+  </div>
+</div>
+</body>
+</html>

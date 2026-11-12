@@ -1,0 +1,41 @@
+# T100 D9 (build by change): what a changed path means for the pipeline. Read by ci/plan.py (job `plan`), and the
+# time limits by the Vivado stages. Nothing else decides which target is built.
+#
+# Derived, not listed here (they follow the descriptors, so a new core needs no line):
+#   host        host/layers.txt: the files of `host:` and `shared:` and the sources of the reference core
+#               (ci/lib.sh host_key reads the same set)
+#   dfx:<core>  cores/<core>/core.toml `sources` (every core with a core_sources.tcl except the reference core)
+#   large:<core> cores/<core>/mono/core.toml `sources` (its copy of the host files included) and the shared: files that are not host/, without the core's sim/ and
+#               mono/reports/ (ci/lib.sh mono_key); host/ itself does not plan it
+#   simscope:<core> cores/<core>/sim/**: the bench of a core runs when its bench changed, no build needed
+#
+# limit <kind> <minutes>: one Vivado run of that kind may take at most this long; on expiry it is stopped, that target
+# is red and the stage goes on with the next (Alex, 2026-10-25: "Ich denk zu lange. Aber lass mal so starten.").
+# host = the host routed with the reference core, core = one DFX core against the host, large = one flat build.
+limit host  150
+limit core  45
+limit large 120
+
+# <pathspec> -> <target>...      (git pathspec from the repository root; a path matches every row it fits)
+host-app        -> app:host
+coreapp         -> app:core
+cores/apple2/rtl/roms -> app:core
+app             -> app:host app:core
+vendor/gideon/software -> app:host app:core
+vendor/gideon/tools    -> app:host app:core
+vendor/gideon/target   -> app:host app:core
+vendor/gideon/roms     -> app:host app:core
+designs         -> aux
+constraints     -> aux
+host/sim        -> simscope:host
+ci/sim_iv.sh    -> simscope:host
+
+# expand <target> -> <target>...   (consumers; `*` = every one of that kind)
+# Alex, 2026-10-25: host -> host + reference + every DFX core. A large core is NOT a consumer of the host any more (T164 3a Q1, Alex 2026-11-01: "Copies instead.": its flat build reads its
+# own copy cores/<id>/mono/host, which is in its sources; T133 had made every large core one). An app -> every consumer of it, i.e. every .cor and every large-core package, their bitstreams from the cache.
+expand host     -> dfx:* package:cor:*
+expand app:host -> package:cor:* package:cfw:*
+expand app:core -> package:cor:* package:cfw:*
+expand app:ultimate -> package:cor:* package:cfw:*
+expand dfx:*    -> package:cor:*
+expand large:*  -> package:cfw:*

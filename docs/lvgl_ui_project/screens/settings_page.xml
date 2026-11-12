@@ -1,0 +1,45 @@
+<screen>
+    <view>
+        <style name="style_screen" />
+        <app_shell active_system="true" active_tab="4">
+            <app_shell-content>
+                <column width="100%" height="100%" pad="#space_lg" gap="#space_md">
+                    <row width="100%">
+                        <column grow="1" gap="#space_xs">
+                            <lv_label text="SETTINGS / RUNTIME PAGE" style_text_font="font_caption"
+                                      style_text_color="#color_muted" />
+                            <lv_label text="Drive A settings" style_text_font="font_title"
+                                      style_text_color="#color_ink" />
+                        </column>
+                        <status_chip label="1 UNSAVED" tone="#color_amber" />
+                    </row>
+
+                    <panel width="100%" grow="1" gap="0">
+                        <action_row title="Drive" subtitle="Enumeration from ConfigItem metadata"
+                                    meta="ENABLED" tone="#color_cyan" />
+                        <action_row title="Drive type" subtitle="Enumeration: 1541 / 1571 / 1581 variants"
+                                    meta="1541" tone="#color_muted" />
+                        <action_row title="Drive bus ID" subtitle="Numeric range 8-11"
+                                    meta="8" tone="#color_violet" />
+                        <action_row title="ROM selection" subtitle="String or preset-backed value"
+                                    meta="DEFAULT" tone="#color_muted" />
+                        <action_row title="Device-specific command" subtitle="Function item opens its own flow"
+                                    meta="OPEN" tone="#color_amber" />
+                        <action_row title="Runtime information" subtitle="Read-only info item"
+                                    meta="INFO" tone="#color_muted" />
+                        <box grow="1" />
+                    </panel>
+
+                    <row width="100%" gap="#space_sm">
+                        <lv_label text="Rows are created from ConfigStore + ConfigGroupCollection"
+                                  style_text_font="font_caption" style_text_color="#color_muted" />
+                        <box grow="1" />
+                        <ui_button label="RESET FROM FLASH" />
+                        <ui_button label="SAVE TO FLASH" bg_color="#color_violet"
+                                   border_color="#color_violet" text_color="#color_bg" />
+                    </row>
+                </column>
+            </app_shell-content>
+        </app_shell>
+    </view>
+</screen>

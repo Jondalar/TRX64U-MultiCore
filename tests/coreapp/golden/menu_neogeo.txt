@@ -1,0 +1,45 @@
+core NEO_ SNK Neo Geo
+area F1 Home
+  tab 1 Home
+    info Core
+    info Application
+    info Network
+    info Media
+    info ROMs
+    info Libraries
+    media Cartridge
+    fixed Save as config...
+    fixed Load config...
+area F3 Library
+  tab 1 Browse
+    browser Browse
+      filetype .neo: Run
+area F5 NEO GEO
+  tab 1 NEO GEO
+    setting System type = Console (AES) | Arcade (MVS) (default Console (AES), at next reset)
+    setting BIOS = Universe BIOS | Original BIOS (default Universe BIOS, at next reset)
+    setting Video mode = NTSC | PAL (default NTSC, at next reset)
+    setting Memory card = Plugged | Unplugged (default Plugged, at next reset)
+    setting [DIP] Settings menu = Off | On (default Off, live)
+    setting [DIP] Free play = Off | On (default Off, live)
+    setting [DIP] Freeze = Off | On (default Off, live)
+    setting Joystick ports = Normal | Swapped (default Normal, live)
+    setting Pad map = Default | Custom (default Default, live)
+area F7 Actions
+  tab 1 Quick
+    task Reset (closes the menu)
+    task Load a ROM set from a folder (closes the menu) (asks a name)
+    task Save the memory card and backup RAM now
+    task Map buttons, pad 1
+    task Map buttons, pad 2
+area F8 System (shifted)
+  tab 1 System
+    heading Actions
+    fixed Restart core
+    fixed Return to host menu
+    heading Network
+    fixed WiFi
+    heading Support
+    fixed Bug report
+    heading Reset
+    fixed Reset to host defaults

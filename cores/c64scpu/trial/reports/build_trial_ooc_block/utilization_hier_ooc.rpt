@@ -1,0 +1,36 @@
+Copyright 1986-2022 Xilinx, Inc. All Rights Reserved. Copyright 2022-2024 Advanced Micro Devices, Inc. All Rights Reserved.
+---------------------------------------------------------------------------------------------------------------------------------------------
+| Tool Version : Vivado v.2024.1 (lin64) Build 5076996 Wed May 22 18:36:09 MDT 2024
+| Date         : Wed Nov  4 21:49:09 2026
+| Host         : 84041685af60 running 64-bit Ubuntu 22.04.5 LTS
+| Command      : report_utilization -hierarchical -hierarchical_depth 3 -file build_trial_ooc_block/utilization_hier_ooc.rpt
+| Design       : scpu_cpu
+| Device       : xc7a50tfgg484-1
+| Speed File   : -1
+| Design State : Synthesized
+---------------------------------------------------------------------------------------------------------------------------------------------
+
+Utilization Design Information
+
+Table of Contents
+-----------------
+1. Utilization by Hierarchy
+
+1. Utilization by Hierarchy
+---------------------------
+
++---------------+-------------+------------+------------+---------+------+-----+--------+--------+------------+
+|    Instance   |    Module   | Total LUTs | Logic LUTs | LUTRAMs | SRLs | FFs | RAMB36 | RAMB18 | DSP Blocks |
++---------------+-------------+------------+------------+---------+------+-----+--------+--------+------------+
+| scpu_cpu      |       (top) |       1242 |       1218 |      24 |    0 | 293 |      2 |     17 |          0 |
+|   (scpu_cpu)  |       (top) |         30 |          6 |      24 |    0 |  77 |      2 |      1 |          0 |
+|   cpu816      | scpu_cpu816 |       1212 |       1212 |       0 |    0 | 216 |      0 |     16 |          0 |
+|     (cpu816)  | scpu_cpu816 |          3 |          3 |       0 |    0 |   0 |      0 |      0 |          0 |
+|     u         |     P65C816 |       1209 |       1209 |       0 |    0 | 216 |      0 |     16 |          0 |
+|       (u)     |     P65C816 |         40 |         40 |       0 |    0 | 150 |      0 |      0 |          0 |
+|       ALU     |         ALU |          0 |          0 |       0 |    0 |   0 |      0 |      0 |          0 |
+|       AddrGen |     AddrGen |        208 |        208 |       0 |    0 |  66 |      0 |      0 |          0 |
+|       MCode   |       MCode |        961 |        961 |       0 |    0 |   0 |      0 |     16 |          0 |
++---------------+-------------+------------+------------+---------+------+-----+--------+--------+------------+
+
+

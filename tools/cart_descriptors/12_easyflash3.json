@@ -1,0 +1,57 @@
+{
+ "cart_type": "0x12",
+ "crt_type": 90,
+ "name": "EasyFlash 3",
+ "note": "T51 / PROP-002 sec. 8.4 and 8.5: 8 MiB, CRT type 90. Banking only (Alex 2026-10-07: no menu, no KERNAL mode, no freezers): $DE00 bank (bank_hi/bank_lo, 6 bit), $DE01 slot (3 bit, reads back), $DE02 control as the EasyFlash, IO2 RAM; bank = {slot, bank}, 9 bit. MX29LV640EBT: 8 x 8 KiB boot sectors at the bottom, 127 x 64 KiB; byte-mode unlock $AAA/$555, IDs $C2/$CB at 0/2. The flash address is the chip's own order {slot, bank_hi, ROMH, bank_lo, A12-A0} (flash_split 3: the app permutes it into the image). The slot after a reset is R2's reset value (0 here).",
+ "regs": {
+  "R0": 0,
+  "R1": 0,
+  "R2": 0
+ },
+ "wmask": {
+  "R0": "0x3F",
+  "R1": "0x87",
+  "R2": "0x07"
+ },
+ "rules": [
+  {"area": "IO1", "match": "0x00", "mask": "0xFF", "on": "WRITE", "target": "R0", "src": "DATA"},
+  {"area": "IO1", "match": "0x02", "mask": "0xFF", "on": "WRITE", "target": "R1", "src": "DATA"},
+  {"area": "IO1", "match": "0x01", "mask": "0xFF", "on": "WRITE", "target": "R2", "src": "DATA"}
+ ],
+ "bank9": true,
+ "bank": [
+  {"reg": "R2", "lsb": 0, "width": 3},
+  {"reg": "R0", "lsb": 0, "width": 6}
+ ],
+ "read_r2": {"match": "0x01", "mask": "0xFF"},
+ "flash_split": 3,
+ "mode": {"reg": "R1", "lsb": 0, "width": 3},
+ "table": [
+  {"exrom": 1, "game": 0, "w": 1},
+  {"exrom": 1, "game": 0, "w": 1},
+  {"exrom": 0, "game": 0},
+  {"exrom": 0, "game": 0},
+  {"off": 1},
+  {"exrom": 1, "game": 0, "w": 1},
+  {"exrom": 0, "game": 1},
+  {"exrom": 0, "game": 0}
+ ],
+ "layout": "L16",
+ "io1": {"read": "OPEN", "write": ["RULES"]},
+ "io2": {"read": "RAM", "write": ["RAM"]},
+ "flash": {
+  "part": "MX29LV640EBT",
+  "chips": 1,
+  "magic1": "0xAAA",
+  "magic2": "0x555",
+  "mask": "0xFFF",
+  "id": ["0xC2", "0xCB"],
+  "id_ofs": 2,
+  "size": "8M",
+  "sectors": [
+   {"count": 8, "size": "8K"},
+   {"count": 127, "size": "64K"}
+  ],
+  "select": ["ROML_R", "ROML_W", "ROMH_R", "ROMH_W"]
+ }
+}

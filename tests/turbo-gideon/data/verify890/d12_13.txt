@@ -1,0 +1,13 @@
+registers mode, menu 16/Disabled
+D03A write after 85: ['FF', '85'] (7.998, '85', 'FF')
+D0BA write after 85: ['FF', '85'] (7.998, '85', 'FF')
+D0FA write after 85: ['FF', '00'] (0.999, '00', 'FF')
+D03B write after 85: ['FF', '85'] (7.998, '85', 'FF')
+D0BB write after 85: ['FF', '85'] (7.998, '85', 'FF')
+D0FB write after 85: ['FF', '89'] (15.972, '89', 'FF')
+{'errors': []}
+TE, D030=0: ['FE', '00'] (0.999, '00', 'FE')
+{'errors': []}
+TE, D030=0, menu 32: ['FF', '8C'] (31.945, '8C', 'FF')
+then D030=1: ['FF', '8C'] (31.993, '8C', 'FF')
+{'errors': []}

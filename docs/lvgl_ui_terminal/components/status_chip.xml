@@ -1,0 +1,12 @@
+<component>
+    <api>
+        <prop name="label" type="string" default="READY" />
+        <prop name="tone" type="color" default="#color_cyan" />
+    </api>
+
+    <view extends="box" flow="row" gap="0">
+        <lv_label text="[" style_text_font="font_caption" style_text_color="$tone" />
+        <lv_label text="$label" style_text_font="font_caption" style_text_color="$tone" />
+        <lv_label text="]" style_text_font="font_caption" style_text_color="$tone" />
+    </view>
+</component>

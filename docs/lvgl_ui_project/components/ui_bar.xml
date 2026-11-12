@@ -1,0 +1,14 @@
+<component>
+    <api>
+        <prop name="subject" type="subject" />
+        <prop name="min" type="int" default="0" />
+        <prop name="max" type="int" default="100" />
+        <prop name="tone" type="color" default="#color_violet" />
+    </api>
+
+    <view extends="lv_bar" width="100%" height="4"
+          min_value="$min" max_value="$max" bind_value="$subject"
+          style_bg_color="#color_line" style_bg_opa="100%" style_radius="20"
+          style_bg_color-indicator="$tone" style_bg_opa-indicator="100%"
+          style_radius-indicator="20" />
+</component>

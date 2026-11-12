@@ -1,0 +1,10 @@
+# tests/hostapp: negative controls kept under T174 D5.4 (Alex 2026-11-08: flash operations and persistence operations only)
+tests/hostapp/run\.sh : bootcfg_dropattempt   # persistence - boot.cfg save must keep the core application's lib_attempt crash marker
+tests/hostapp/run\.sh : sv_unchecked   # flash - a part read for a flash write is checked (srcverify) before it is written
+tests/hostapp/run\.sh : fat_(gap_allowed|odd_entry|long_chain)   # flash - FAT chain walker that finds the contiguous run of the flash file
+tests/hostapp/run\.sh : cm_(saves_deleted|folder_with_saves)   # persistence - the Cores and ROMs clean-up must never delete saves
+tests/hostapp/run\.sh : cm_(flash_scanned|flash_deletable)   # flash - the flash medium is not scanned or cleaned up as a bundle store
+tests/hostapp/run\.sh : cm_(apps_orphan|apps_deletable)   # persistence - the clean-up never deletes the shared applications folder /cores/apps (#43)
+tests/hostapp/render/run\.sh : (t137r_no_equal_check|t137r_unknown_taken_official)   # flash - firmware restore: skip-if-equal and official-only gate before the flash write
+tests/hostapp/render/run\.sh : (t152_no_lock|t152_lock_failure_ignored|t152_all_parts_written|t152_equal_part_rewritten|t152_protect_does_not_flip)   # flash - flash lock, parts written and flash protection of the update
+tests/hostapp/render/run\.sh : \$name   # flash - t137_ctl wrapper, called only by the flash entries above

@@ -1,0 +1,856 @@
+diff --git a/vendor/gideon/software/io/network/network_esp32.cc b/vendor/gideon/software/io/network/network_esp32.cc
+index e1f3c6fad..7c23151e8 100644
+--- a/vendor/gideon/software/io/network/network_esp32.cc
++++ b/vendor/gideon/software/io/network/network_esp32.cc
+@@ -1,3 +1,4 @@
++// T184 D4: reply slots, timeouts, scan decode and connect feedback ported from https://github.com/omnicron-c64/ultimate-community-edition @ f7f665ab (GPL-3.0)
+ /*
+  * network_esp32.c
+  *
+@@ -13,6 +14,7 @@
+ #include "subsys.h"
+ #include "userinterface.h"
+ #include "tree_browser.h"
++#include "lwip/dhcp.h"
+ // Concept:
+ // 1) Take buffer from cmd buffer free queue (may block)
+ // 2) Fill buffer with command and task and sequence code
+@@ -262,7 +264,7 @@ SubsysResultCode_e NetworkLWIP_WiFi :: manual_connect(SubsysCommand *cmd)
+         return SSRET_NO_USER_INTERFACE;
+     
+     char ssid[36];
+-    char password[64];
++    char password[65];
+     int authmode = 0;
+     int ret;
+     ssid[0] = 0;
+@@ -278,12 +280,12 @@ SubsysResultCode_e NetworkLWIP_WiFi :: manual_connect(SubsysCommand *cmd)
+         return SSRET_ABORTED_BY_USER;
+     }
+     if (authmode > 0) { // for anything except "Open", ask for password
+-        ret = cmd->user_interface->string_box("Password", password, 62);
++        ret = cmd->user_interface->string_box("Password", password, 64);
+         if (ret < 0) { // allow empty string (ret == 1)
+             return SSRET_ABORTED_BY_USER;
+         }
+     }
+-    wifi_wifi_connect(ssid, password, authmode);
++    wifi.connectWithFeedback(cmd->user_interface, ssid, password, authmode);
+     return SSRET_OK;
+ }
+ 
+@@ -325,7 +327,7 @@ void NetworkLWIP_WiFi :: cfg_conn_last(UserInterface *intf, ConfigItem *it)
+         intf->popup("Can only connect when active", BUTTON_OK);
+         return;
+     }
+-    wifi_wifi_autoconnect();    
++    wifi_wifi_autoconnect();
+ }
+ 
+ void NetworkLWIP_WiFi :: cfg_disconn(UserInterface *intf, ConfigItem *it)
+@@ -397,3 +399,11 @@ IndexedList<Browsable *> *BrowsableWifiAPList :: getSubItems(int &error)
+     return &children;
+ }
+ 
++
++// Do not report an old cached DHCP address as a newly acquired lease.
++bool NetworkLWIP_WiFi :: hasUsableAddress()
++{
++    return if_up && !ip_addr_isany(&my_net_if.ip_addr) &&
++        (!dhcp_enable || dhcp_supplied_address(&my_net_if));
++}
++
+diff --git a/vendor/gideon/software/io/network/network_esp32.h b/vendor/gideon/software/io/network/network_esp32.h
+index 8fc84ed18..cbf7f9d98 100644
+--- a/vendor/gideon/software/io/network/network_esp32.h
++++ b/vendor/gideon/software/io/network/network_esp32.h
+@@ -1,3 +1,4 @@
++// T184 D4: reply slots, timeouts, scan decode and connect feedback ported from https://github.com/omnicron-c64/ultimate-community-edition @ f7f665ab (GPL-3.0)
+ /*
+  * network_esp32.h
+  *
+@@ -63,6 +64,7 @@ public:
+     // from ConfigurableObject
+     void effectuate_settings(void);
+     void on_edit(void);
++    bool hasUsableAddress();
+ };
+ 
+ class BrowsableWifiAPList : public Browsable
+diff --git a/vendor/gideon/software/io/wifi/wifi.cc b/vendor/gideon/software/io/wifi/wifi.cc
+index 5d3f0c5d8..48cc86774 100644
+--- a/vendor/gideon/software/io/wifi/wifi.cc
++++ b/vendor/gideon/software/io/wifi/wifi.cc
+@@ -1,3 +1,4 @@
++// T184 D4: reply slots, timeouts, scan decode and connect feedback ported from https://github.com/omnicron-c64/ultimate-community-edition @ f7f665ab (GPL-3.0)
+ /*
+  * wifi.cc
+  *
+@@ -31,6 +32,12 @@ WiFi :: WiFi()
+ {
+     runModeTask = NULL;
+     state = eWifi_Off;
++    lastDisconnectReason = 0;
++    connectionFeedback.finish();
++    scanReturnState = eWifi_NotConnected;
++    scanAttempted = false;
++    scanResult = 0;
++    last_ap[0] = 0;
+     bzero(my_mac, 6);
+     wifi_aps.num_records  = 0;
+     my_ip = 0;
+@@ -112,6 +119,12 @@ void WiFi :: Terminate()
+     netstack->stop(); // remove from list with available network stacks
+     uart->ResetReceiveCallback();
+     state = eWifi_Off;
++    lastDisconnectReason = 0;
++    connectionFeedback.finish();
++    scanReturnState = eWifi_NotConnected;
++    scanAttempted = false;
++    scanResult = 0;
++    last_ap[0] = 0;
+     RefreshRoot();
+ }
+ 
+@@ -285,9 +298,9 @@ void WiFi :: RunModeThread()
+             break;
+ 
+         case eWifi_Scanning:
+-            wifi_aps.num_records = 0;
+-            wifi_scan(&wifi_aps);
+-            state = eWifi_NotConnected;
++            scanResult = wifi_scan(&wifi_aps);
++            scanAttempted = true;
++            state = scanReturnState;
+             RefreshRoot();
+             RefreshAPs();
+             break;
+@@ -303,7 +316,8 @@ void WiFi :: RunModeThread()
+             switch(hdr->command) {
+             case EVENT_RESCAN: // requested from user interface
+                 uart->FreeBuffer(buf);
+-                netstack->link_down();
++                // A scan does not disconnect the radio: preserve the host link/DHCP lease.
++                scanReturnState = state;
+                 state = eWifi_Scanning;
+                 RefreshRoot();
+                 break;
+@@ -317,7 +331,12 @@ void WiFi :: RunModeThread()
+ 
+             case EVENT_CONNECTED:
+                 ev2 = (event_pkt_connected *)buf->data;
++                if (buf->size < sizeof(event_pkt_connected)) {
++                    uart->FreeBuffer(buf);
++                    break;
++                }
+                 memcpy(last_ap, ev2->ssid, 32);
++                last_ap[32] = 0;
+                 uart->FreeBuffer(buf);
+                 if (state == eWifi_Connected) { // already connected!
+                     netstack->link_down();
+@@ -326,11 +345,14 @@ void WiFi :: RunModeThread()
+                 state = eWifi_Connected;
+                 uart->txDebug = false;
+                 netstack->link_up();
++                connectionFeedback.connected(last_ap);
+ 
+                 RefreshRoot();
+                 break;
+ 
+             case EVENT_DISCONNECTED:
++                lastDisconnectReason = wifi_disconnect_reason(buf->data, buf->size);
++                connectionFeedback.disconnected(lastDisconnectReason);
+                 uart->FreeBuffer(buf);
+                 state = eWifi_NotConnected;
+                 if(netstack) {
+@@ -411,9 +433,15 @@ void WiFi :: freeBuffer(command_buf_t *buf)
+ int WiFi ::getAccessPointItems(Browsable *parent, IndexedList<Browsable *> &list)
+ {
+     ultimate_ap_records_t *aps = &wifi_aps;
+-    if (aps->num_records == 0) {
+-        list.append(new BrowsableStatic("Scanning..."));
+-        return 0;
++    if (aps->num_records == 0 || aps->num_records > DEFAULT_SCAN_LIST_SIZE) {
++        const char *message = "Scanning...";
++        if (state != eWifi_Scanning && scanAttempted)
++            message = scanResult ? "Scan failed; use Rescan" : "No networks; use Rescan";
++        list.append(new BrowsableStatic(message));
++        // Only the initial browse requests a scan; failures must not loop forever.
++        bool request = !scanAttempted && state != eWifi_Scanning;
++        scanAttempted = true;
++        return request ? 0 : 1;
+     }
+     ENTER_SAFE_SECTION;
+     for (int i = 0; i < aps->num_records; i++) {
+@@ -431,29 +459,26 @@ void BrowsableWifiAP :: fetch_context_items(IndexedList<Action *>&items)
+ 
+ SubsysResultCode_e BrowsableWifiAP :: connect_ap(SubsysCommand *cmd)
+ {
+-    char password[64] = { 0 };
++    char password[65] = { 0 }; // string_box takes 64 characters plus the terminator
+     BrowsableWifiAP *bap = (BrowsableWifiAP *)cmd->functionID;
+     if (bap->auth) {
+-        if(cmd->user_interface) {
+-            cmd->user_interface->string_box("Enter password", password, 64);
+-        }
+-    }
+-    int result = wifi_wifi_connect(bap->ssid, password, bap->auth);
+-    printf("Connect result: %d\n", result);
+-    if (result == 0) {
+-        //wifi.sendEvent(EVENT_CONNECTED);
+-        wifi.sendConnectEvent(bap->ssid, password, bap->auth);
++        if (!cmd->user_interface) return SSRET_NO_USER_INTERFACE;
++        if (cmd->user_interface->string_box("Enter password", password, 64) < 0)
++            return SSRET_ABORTED_BY_USER;
+     }
++    wifi.connectWithFeedback(cmd->user_interface, bap->ssid, password, bap->auth);
++    // Only the module's real EVENT_CONNECTED may bring up the host link.
++    // The RPC result means request accepted, not association/password success.
+     return SSRET_OK;
+ }
+ 
+ err_t wifi_tx_packet(void *driver, void *buffer, int length)
+ {
+-    if (wifi.getState() != eWifi_Connected) {
++    if (!wifi.canTransmit()) {
+         return ERR_CONN;
+     }
+     
+-    BUFARGS(send_eth, CMD_SEND_PACKET);
++    BUFARGS_NOREPLY(send_eth, CMD_SEND_PACKET, ERR_MEM); // the module does not answer frames
+ 
+     uint32_t chunkSize = length;
+     if (chunkSize > CMD_BUF_PAYLOAD) {
+@@ -482,4 +507,70 @@ extern "C" {
+     {
+         wifi.PrintUartStatus();
+     }
+-}
+\ No newline at end of file
++}
++int WiFi :: connectWithFeedback(UserInterface *ui, const char *ssid, const char *password, uint8_t auth)
++{
++    if (!ui) return wifi_wifi_connect(ssid, password, auth);
++    ENTER_SAFE_SECTION;
++    connectionFeedback.begin(ssid);
++    LEAVE_SAFE_SECTION;
++    ui->show_progress("Connecting to WiFi...", 1);
++    int result;
++    result = wifi_wifi_connect(ssid, password, auth);
++    char message[128];
++    if (result != 0) {
++        sprintf(message, "%s\nError: %d", wifi_connection_request_failure(result), result);
++    } else {
++        // Give association and host DHCP separate bounded waits. The UI task
++        // yields; module events and the network stack keep running normally.
++        int association_wait = 0, address_wait = 0;
++        bool showed_ip = false;
++        for (;;) {
++            WifiConnectionFeedback::Phase phase = connectionFeedback.phase;
++            if (phase == WifiConnectionFeedback::Failed) {
++                sprintf(message, "%s\nReason: %d", wifi_connection_failure(connectionFeedback.reason), (int)connectionFeedback.reason);
++                result = -1;
++                break;
++            }
++            if (phase == WifiConnectionFeedback::WaitingForIP) {
++                if (!showed_ip) {
++                    ui->update_progress("WiFi up; waiting for IP...", 0);
++                    showed_ip = true;
++                }
++                if (state == eWifi_Connected && netstack && netstack->hasUsableAddress()) {
++                    char ip[16];
++                    char display[33];
++                    for (int i = 0; i < 32; ++i) {
++                        unsigned char c = connectionFeedback.target[i];
++                        display[i] = (c && (c < 32 || c >= 127)) ? '?' : c;
++                    }
++                    display[32] = 0;
++                    sprintf(message, "Connected to:\n%s\nIP: %s", display, netstack->getIpAddrString(ip, sizeof(ip)));
++                    result = 0;
++                    break;
++                }
++                if (++address_wait > 300) {
++                    strcpy(message, "WiFi connected, but no IP yet.\nCheck DHCP / network settings.");
++                    result = -1;
++                    break;
++                }
++            } else if (++association_wait > 300) {
++                strcpy(message, "Connection timed out.\nCheck AP, password and signal.\nConnection may still complete.");
++                result = -1;
++                break;
++            }
++            vTaskDelay(pdMS_TO_TICKS(100));
++        }
++    }
++    ENTER_SAFE_SECTION;
++    connectionFeedback.finish();
++    LEAVE_SAFE_SECTION;
++    ui->hide_progress();
++    ui->popup(message, BUTTON_OK);
++    return result;
++}
++
++bool WiFi :: hasUsableAddress()
++{
++    return netstack && netstack->hasUsableAddress();
++}
+diff --git a/vendor/gideon/software/io/wifi/wifi.h b/vendor/gideon/software/io/wifi/wifi.h
+index 517cf0fe7..fc825df99 100644
+--- a/vendor/gideon/software/io/wifi/wifi.h
++++ b/vendor/gideon/software/io/wifi/wifi.h
+@@ -1,3 +1,4 @@
++// T184 D4: reply slots, timeouts, scan decode and connect feedback ported from https://github.com/omnicron-c64/ultimate-community-edition @ f7f665ab (GPL-3.0)
+ /*
+  * wifi.h
+  *
+@@ -17,6 +18,7 @@
+ #include "size_str.h"
+ //#include "network_esp32.h"
+ #include "wifi_cmd.h"
++#include "wifi_connection_feedback.h"
+ 
+ // This class provides an interface to the WiFi module, to manage and program it
+ typedef enum {
+@@ -41,7 +43,12 @@ class WiFi : public Esp32Application
+     NetworkLWIP_WiFi *netstack;
+ 
+     WifiState_t state;
+-    char    last_ap[32];
++    volatile unsigned lastDisconnectReason;
++    WifiConnectionFeedback connectionFeedback;
++    WifiState_t scanReturnState;
++    bool scanAttempted;
++    int scanResult;
++    char    last_ap[33];
+     char    moduleName[34];
+     char    moduleType[24];
+     uint8_t my_mac[6];
+@@ -63,13 +70,22 @@ public:
+     BaseType_t doRequestEcho(void);
+ 
+     WifiState_t getState(void) { return state; }
+-    const char *getLastAP(void) { return (state == eWifi_Connected) ? last_ap : "-"; }
++    bool canTransmit(void) { return state == eWifi_Connected ||
++        (state == eWifi_Scanning && scanReturnState == eWifi_Connected); }
++    const char *getLastAP(void) { return canTransmit() ? last_ap : "-"; }
+     const char *getModuleName(void) { return moduleName; }
+     const char *getModuleType(void) { return moduleType; }
+     void  getMacAddr(uint8_t *target) { memcpy(target, my_mac, 6); }
+     char *getIpAddrString(char *buf, int max) { sprintf(buf, "%d.%d.%d.%d", (my_ip >> 0) & 0xff, (my_ip >> 8) & 0xff, (my_ip >> 16) & 0xff, (my_ip >> 24) & 0xff); return buf; }
+ 
+     void sendEvent(uint8_t code);
++    int connectWithFeedback(UserInterface *ui, const char *ssid, const char *password, uint8_t auth);
++    unsigned getDisconnectReason() const { return lastDisconnectReason; }
++    WifiConnectionFeedback &getConnectionFeedback() { return connectionFeedback; }
++    bool isScanning() { return state == eWifi_Scanning; }
++    bool scanTried() { return scanAttempted; }
++    int  scanStatus() { return scanResult; } // 0 = ok, else the module's error or -1 for no / a bad reply
++    bool hasUsableAddress();
+     void sendConnectEvent(const char *ssid, const char *pass, uint8_t auth);
+     void freeBuffer(command_buf_t *buf);
+     int  getAccessPointItems(Browsable *parent, IndexedList<Browsable *> &list);
+@@ -96,19 +112,25 @@ extern WiFi wifi;
+ class BrowsableWifiAP : public Browsable
+ {
+     Browsable *parent;
+-    char ssid[32];
++    char ssid[33];
+     int8_t dbm;
+     uint8_t auth;
+ public:
+     BrowsableWifiAP(Browsable *parent, char *ssid, int8_t dbm, uint8_t auth) {
+         this->parent = parent;
+         strncpy(this->ssid, ssid, 32);
++        this->ssid[32] = 0;
+         this->dbm = dbm;
+         this->auth = auth;
+     }
+ 
+     void getDisplayString(char *buffer, int width, UserInterface *ui) {
+-        sprintf(buffer, "%#s%5d", 31, ssid, dbm);
++        char display[33];
++        for (int i = 0; i < 33; ++i) {
++            unsigned char c = ssid[i];
++            display[i] = (c && (c < 32 || c == 127)) ? '?' : c;
++        }
++        sprintf(buffer, "%#s%5d", 31, display, dbm);
+     }
+ 
+     void fetch_context_items(IndexedList<Action *>&items);
+diff --git a/vendor/gideon/software/io/wifi/wifi_cmd.cc b/vendor/gideon/software/io/wifi/wifi_cmd.cc
+index 594a97664..f840fbefc 100644
+--- a/vendor/gideon/software/io/wifi/wifi_cmd.cc
++++ b/vendor/gideon/software/io/wifi/wifi_cmd.cc
+@@ -1,9 +1,11 @@
++// T184 D4: reply slots, timeouts, scan decode and connect feedback ported from https://github.com/omnicron-c64/ultimate-community-edition @ f7f665ab (GPL-3.0)
+ #include "wifi_cmd.h"
+ #include "dump_hex.h"
++#include "wifi_scan_result.h"
+ 
+ /// C like functions to 'talk' with the WiFi Module
+-uint16_t sequence_nr = 0;
+-TaskHandle_t tasksWaitingForReply[NUM_TX_BUFFERS];
++static uint16_t sequence_nr = 0;
++static wifi_reply_slot_t replySlots[WIFI_REPLY_SLOTS];
+ 
+ void hex(uint8_t h)
+ {
+@@ -14,12 +16,14 @@ void hex(uint8_t h)
+ 
+ BaseType_t wifi_rx_isr(command_buf_context_t *context, command_buf_t *buf, BaseType_t *w)
+ {
++    if (buf->size < sizeof(rpc_header_t) || buf->size > CMD_BUF_SIZE) {
++        return cmd_buffer_free_isr(context, buf, w);
++    }
+     rpc_header_t *hdr = (rpc_header_t *)buf->data;
+     BaseType_t res;
+ 
+-    if ((hdr->thread < NUM_TX_BUFFERS) && (tasksWaitingForReply[hdr->thread])) {
+-        TaskHandle_t thread = tasksWaitingForReply[hdr->thread];
+-        tasksWaitingForReply[hdr->thread] = NULL;
++    TaskHandle_t thread = (TaskHandle_t)wifi_reply_take(replySlots, hdr->thread, hdr->sequence);
++    if (thread) {
+         ioWrite8(UART_DATA, 'N');
+         res = xTaskNotifyFromISR(thread, (uint32_t)buf, eSetValueWithOverwrite, w);
+     } else {
+@@ -29,8 +33,61 @@ BaseType_t wifi_rx_isr(command_buf_context_t *context, command_buf_t *buf, BaseT
+     return res;
+ }
+ 
++int wifi_reply_register(rpc_header_t *hdr)
++{
++    wifi_reply_tag_t tag;
++    ENTER_SAFE_SECTION;
++    int ok = wifi_reply_claim(replySlots, &sequence_nr, xTaskGetCurrentTaskHandle(), &tag);
++    LEAVE_SAFE_SECTION;
++    if (ok) {
++        hdr->thread = tag.thread;
++        hdr->sequence = tag.sequence;
++    }
++    return ok;
++}
++
++// The request buffer is freed by the UART once sent, so the tag is read first.
++command_buf_t *wifi_transmit(command_buf_t *buf, int timeout_ms)
++{
++    rpc_header_t hdr = *(rpc_header_t *)buf->data;
++    esp32.uart->TransmitPacket(buf);
++    command_buf_t *reply = wifi_wait_reply(hdr, timeout_ms);
++    if (reply) {
++        rpc_header_t *answer = (rpc_header_t *)reply->data;
++        if (reply->size < sizeof(rpc_header_t) || reply->size > CMD_BUF_SIZE ||
++            answer->command != hdr.command || answer->thread != hdr.thread || answer->sequence != hdr.sequence) {
++            esp32.uart->FreeBuffer(reply);
++            return NULL;
++        }
++    }
++    return reply;
++}
++
++command_buf_t *wifi_wait_reply(rpc_header_t hdr, int timeout_ms)
++{
++    command_buf_t *reply = NULL;
++    if (xTaskNotifyWait(0, 0, (uint32_t *)&reply, pdMS_TO_TICKS(timeout_ms)) == pdTRUE) {
++        return reply;
++    }
++    wifi_reply_tag_t tag = { hdr.thread, hdr.sequence };
++    ENTER_SAFE_SECTION;
++    wifi_reply_abandon(replySlots, &tag);
++    LEAVE_SAFE_SECTION;
++    // The reply may have been delivered just before the slot was released
++    if (xTaskNotifyWait(0, 0, (uint32_t *)&reply, 0) == pdTRUE) {
++        return reply;
++    }
++    return NULL;
++}
++
+ void wifi_command_init(void)
+ {
++    // A task that was deleted while it waited must not be notified later
++    ENTER_SAFE_SECTION;
++    for (int i = 0; i < WIFI_REPLY_SLOTS; i++) {
++        replySlots[i].task = NULL;
++    }
++    LEAVE_SAFE_SECTION;
+ #if (CLOCK_FREQ == 66666667)
+     esp32.uart->SetBaudRate(6666666);
+ #else
+@@ -52,6 +109,7 @@ int wifi_setbaud(int baudrate, uint8_t flowctrl)
+     args->flowctrl = flowctrl;
+     args->inversions = 0;
+ 
++    rpc_header_t hdr = args->hdr;
+     vTaskDelay(1000);
+ 
+     esp32.uart->TransmitPacket(buf);
+@@ -59,25 +117,30 @@ int wifi_setbaud(int baudrate, uint8_t flowctrl)
+     esp32.uart->SetBaudRate(baudrate);
+     esp32.uart->FlowControl(flowctrl != 0);
+ 
+-    BaseType_t success = xTaskNotifyWait(0, 0, (uint32_t *)&buf, 1000); // 5 seconds
+-    if (success == pdTRUE) {
++    buf = wifi_wait_reply(hdr, 5000);
++    if (buf) {
+         // copy results
+         rpc_espcmd_resp *result = (rpc_espcmd_resp *)buf->data;
++        int retval = result->esp_err;
+         esp32.uart->FreeBuffer(buf);
+-        tasksWaitingForReply[result->hdr.thread] = NULL;
+-        return result->esp_err;
++        return retval;
+     }
+     return -1;
+ }
+ 
+ BaseType_t wifi_detect(uint16_t *major, uint16_t *minor, char *str, int maxlen)
+ {
+-    BUFARGS(identify, CMD_IDENTIFY);
++    BUFARGS_NOREPLY(identify, CMD_IDENTIFY, pdFALSE); // the result is a success flag here
++    if (!wifi_reply_register(&args->hdr)) {
++        esp32.uart->FreeBuffer(buf);
++        printf(no_wifi_slot);
++        return pdFALSE;
++    }
+ 
+-    esp32.uart->TransmitPacket(buf);
+     // now block thread for reply
+     printf("Get ident...");
+-    BaseType_t success = xTaskNotifyWait(0, 0, (uint32_t *)&buf, 100); // .5 seconds
++    buf = wifi_transmit(buf, 500);
++    BaseType_t success = (buf) ? pdTRUE : pdFALSE;
+     if (success == pdTRUE) {
+         // From this moment on, "buf" points to the receive buffer!!
+         // copy results
+@@ -87,10 +150,9 @@ BaseType_t wifi_detect(uint16_t *major, uint16_t *minor, char *str, int maxlen)
+         strncpy(str, &result->string, maxlen);
+         str[maxlen-1] = 0;
+         printf("Identify: %s\n", str);
++        esp32.uart->FreeBuffer(buf);
+     } else {
+         printf("No reply...\n");
+-        // 'buf' still points to the transmit buffer.
+-        // It is freed by the TxIRQ, so the content is invalid
+         // Let's try to get messages from the receive buffer to see what has been received.
+         // printf("Receive queue:\n");
+         while (esp32.uart->ReceivePacket(&buf, 0) == pdTRUE) {
+@@ -220,12 +282,17 @@ int wifi_scan(void *a)
+ {
+     ultimate_ap_records_t *aps = (ultimate_ap_records_t *)a;
+ 
++    if (!aps) return -1;
++    ENTER_SAFE_SECTION;
++    memset(aps, 0, sizeof(*aps));
++    LEAVE_SAFE_SECTION;
+     BUFARGS(identify, CMD_WIFI_SCAN);
+-    TRANSMIT(scan);
++    TRANSMIT_T(scan, WIFI_SLOW_TIMEOUT_MS);
+     ENTER_SAFE_SECTION;
+-    memcpy(aps, &(result->rec), sizeof(ultimate_ap_records_t));
++    int status = wifi_decode_scan(buf->data, buf->size, aps);
+     LEAVE_SAFE_SECTION;
+-    RETURN_ESP;
++    esp32.uart->FreeBuffer(buf);
++    return status;
+ }
+ 
+ int wifi_wifi_connect(const char *ssid, const char *password, uint8_t auth)
+@@ -238,14 +305,14 @@ int wifi_wifi_connect(const char *ssid, const char *password, uint8_t auth)
+     strncpy(args->password, password, 64);
+     args->auth_mode = auth;
+ 
+-    TRANSMIT(scan);
++    TRANSMIT_T(espcmd, WIFI_SLOW_TIMEOUT_MS);
+     RETURN_ESP;
+ }
+ 
+ int wifi_wifi_autoconnect()
+ {
+     BUFARGS(identify, CMD_WIFI_AUTOCONNECT);
+-    TRANSMIT(espcmd);
++    TRANSMIT_T(espcmd, WIFI_SLOW_TIMEOUT_MS);
+     RETURN_ESP;
+ }
+ 
+@@ -318,4 +385,5 @@ int wifi_modem_enable(bool enable)
+ }
+ 
+ const char *no_wifi_buf = "*** NO BUFFER TO TRANSMIT ANYTHING.\n";
++const char *no_wifi_slot = "*** NO REPLY SLOT FOR THE WIFI MODULE.\n";
+ 
+diff --git a/vendor/gideon/software/io/wifi/wifi_cmd.h b/vendor/gideon/software/io/wifi/wifi_cmd.h
+index 6c9e4acab..612b0fa7b 100644
+--- a/vendor/gideon/software/io/wifi/wifi_cmd.h
++++ b/vendor/gideon/software/io/wifi/wifi_cmd.h
+@@ -1,3 +1,4 @@
++// T184 D4: reply slots, timeouts, scan decode and connect feedback ported from https://github.com/omnicron-c64/ultimate-community-edition @ f7f665ab (GPL-3.0)
+ /*
+  * wifi_cmd.h
+  *
+@@ -14,6 +15,7 @@
+ #include "task.h"
+ #include "semphr.h"
+ #include "rpc_calls.h"
++#include "wifi_reply.h"
+ extern "C" {
+     #include "cmd_buffer.h"
+ }
+@@ -60,37 +62,43 @@ int wifi_get_power_mode(uint8_t *mode, uint8_t *last_state);
+ int wifi_set_wake_on_wifi(uint8_t enabled);
+ int wifi_get_wake_on_wifi(uint8_t *enabled);
+ 
+-extern uint16_t sequence_nr;
+-extern TaskHandle_t tasksWaitingForReply[NUM_TX_BUFFERS];
++// Registers the calling task as the waiter for the reply to this request
++int wifi_reply_register(rpc_header_t *hdr);
++// Sends the request and waits for its reply; NULL if there is none in time
++command_buf_t *wifi_transmit(command_buf_t *buf, int timeout_ms);
++command_buf_t *wifi_wait_reply(rpc_header_t hdr, int timeout_ms);
+ extern "C" { void print_uart_status(); }
+ extern const char *no_wifi_buf;
++extern const char *no_wifi_slot;
+ 
+-#define BUFARGS(x, cmd)     command_buf_t *buf; \
++#define WIFI_REPLY_TIMEOUT_MS   10000
++#define WIFI_SLOW_TIMEOUT_MS    60000 // scan and connect
++
++// For requests that are not answered, such as network frames. 'failed' is what
++// the caller returns when there is no TX buffer: not 0 where that reads as success.
++#define BUFARGS_NOREPLY(x, cmd, failed) command_buf_t *buf; \
+                             BaseType_t gotbuf = esp32.uart->GetBuffer(&buf, 1000); \
+-                            if (gotbuf == pdFALSE) { printf(no_wifi_buf); /*print_uart_status();*/ return pdFALSE; } \
++                            if (gotbuf == pdFALSE) { printf(no_wifi_buf); /*print_uart_status();*/ return failed; } \
+                             rpc_ ## x ## _req *args = (rpc_ ## x ## _req *)buf->data; \
+                             args->hdr.command = cmd; \
+-                            args->hdr.sequence = sequence_nr++; \
+-                            args->hdr.thread = (uint8_t)buf->bufnr; \
+-                            buf->size = sizeof(rpc_ ## x ## _req); \
+-                            tasksWaitingForReply[buf->bufnr] = xTaskGetCurrentTaskHandle();
++                            args->hdr.sequence = 0; \
++                            args->hdr.thread = 0xFF; \
++                            buf->size = sizeof(rpc_ ## x ## _req);
++
++#define BUFARGS(x, cmd)     BUFARGS_NOREPLY(x, cmd, -1) \
++                            if (!wifi_reply_register(&args->hdr)) { esp32.uart->FreeBuffer(buf); printf(no_wifi_slot); return -1; }
+ 
++#define TRANSMIT_T(x, ms)   buf = wifi_transmit(buf, ms); \
++                            if (!buf) { printf("*** NO REPLY FROM WIFI MODULE.\n"); return -1; } \
++                            rpc_ ## x ## _resp *result = (rpc_ ## x ## _resp *)buf->data;
+ 
+-#define TRANSMIT(x)         esp32.uart->TransmitPacket(buf); \
+-                            xTaskNotifyWait(0, 0, (uint32_t *)&buf, portMAX_DELAY); \
+-                            rpc_ ## x ## _resp *result = (rpc_ ## x ## _resp *)buf->data; \
+-                            if(result->hdr.thread < NUM_TX_BUFFERS) { \
+-                                tasksWaitingForReply[result->hdr.thread] = NULL; \
+-                            }
++#define TRANSMIT(x)         TRANSMIT_T(x, WIFI_REPLY_TIMEOUT_MS)
+ 
+ #define TRANSMITDBG(x)      printf("Transmitting %b:\n", buf->bufnr); dump_hex_relative(buf->data, buf->size);\
+-                            esp32.uart->TransmitPacket(buf); \
+-                            xTaskNotifyWait(0, 0, (uint32_t *)&buf, portMAX_DELAY); \
++                            buf = wifi_transmit(buf, WIFI_REPLY_TIMEOUT_MS); \
++                            if (!buf) { printf("*** NO REPLY FROM WIFI MODULE.\n"); return -1; } \
+                             printf("Received %b:\n", buf->bufnr); dump_hex_relative(buf->data, buf->size);\
+-                            rpc_ ## x ## _resp *result = (rpc_ ## x ## _resp *)buf->data; \
+-                            if(result->hdr.thread < NUM_TX_BUFFERS) { \
+-                                tasksWaitingForReply[result->hdr.thread] = NULL; \
+-                            }
++                            rpc_ ## x ## _resp *result = (rpc_ ## x ## _resp *)buf->data;
+ 
+ #define RETURN_STD          errno = result->xerrno; \
+                             int retval = result->retval; \
+diff --git a/vendor/gideon/software/io/wifi/wifi_connection_feedback.h b/vendor/gideon/software/io/wifi/wifi_connection_feedback.h
+new file mode 100644
+index 000000000..f957e0a16
+--- /dev/null
++++ b/vendor/gideon/software/io/wifi/wifi_connection_feedback.h
+@@ -0,0 +1,72 @@
++// T184 D4: from https://github.com/omnicron-c64/ultimate-community-edition @ f7f665ab (GPL-3.0, like the rest of this tree)
++#ifndef WIFI_CONNECTION_FEEDBACK_H
++#define WIFI_CONNECTION_FEEDBACK_H
++#include <stdint.h>
++#include <stddef.h>
++#include <string.h>
++
++// Reason numbers follow ESP-IDF v5.3.1 esp_wifi_types_generic.h.
++static inline const char *wifi_connection_failure(unsigned reason)
++{
++    switch (reason) {
++    case 2: case 15: case 204:
++        return "WiFi handshake timed out.\nCheck password or signal.";
++    case 202: case 23:
++        return "Authentication failed.\nCheck password / AP settings.";
++    case 201:
++        return "Access point not found.\nCheck AP power and range.";
++    case 210: case 211:
++        return "No AP with matching security.\nCheck AP security settings.";
++    case 212: case 200:
++        return "WiFi signal lost or too weak.\nCheck range and signal.";
++    case 203: case 5:
++        return "Association failed.\nCheck AP settings / capacity.";
++    default:
++        return "WiFi connection failed.\nCheck AP, password and signal.";
++    }
++}
++
++// ESP-IDF esp_wifi.h request errors (ESP_ERR_WIFI_BASE = 0x3000).
++static inline const char *wifi_connection_request_failure(int error)
++{
++    switch (error) {
++    case 0x300B: return "Invalid password format.\nCheck password length / format.";
++    case 0x300A: return "Invalid access point name.\nRescan and select the AP again.";
++    case 0x102: return "Invalid connection settings.\nCheck AP name / security.";
++    case 0x101: return "WiFi module is busy.\nWait, then retry Connect.";
++    case -1: return "No valid reply from WiFi module.\nWait, then retry Connect.";
++    default: return "Connection request failed.\nCheck WiFi / network settings.";
++    }
++}
++
++static inline unsigned wifi_disconnect_reason(const void *packet, size_t size)
++{
++    // Legacy modules send only the 4-byte RPC header: reason is unavailable.
++    if (!packet || size < 6) return 0;
++    uint16_t reason;
++    memcpy(&reason, (const unsigned char *)packet + 4, sizeof(reason));
++    return reason;
++}
++
++struct WifiConnectionFeedback {
++    enum Phase { Idle, Connecting, WaitingForIP, Failed };
++    volatile Phase phase;
++    volatile unsigned reason;
++    char target[33];
++    WifiConnectionFeedback() : phase(Idle), reason(0) { target[0] = 0; }
++    void begin(const char *ssid) {
++        strncpy(target, ssid, 32); target[32] = 0;
++        reason = 0; phase = Connecting;
++    }
++    void connected(const char *ssid) {
++        if (phase == Connecting && strncmp(target, ssid, 32) == 0) phase = WaitingForIP;
++    }
++    void disconnected(unsigned code) {
++        if (phase == Idle || phase == Failed) return;
++        // Replacing an existing connection deliberately disconnects it first.
++        if (phase == Connecting && code == 8) return;
++        reason = code; phase = Failed;
++    }
++    void finish() { phase = Idle; }
++};
++#endif
+diff --git a/vendor/gideon/software/io/wifi/wifi_reply.h b/vendor/gideon/software/io/wifi/wifi_reply.h
+new file mode 100644
+index 000000000..b52830a9b
+--- /dev/null
++++ b/vendor/gideon/software/io/wifi/wifi_reply.h
+@@ -0,0 +1,59 @@
++// T184 D4: from https://github.com/omnicron-c64/ultimate-community-edition @ f7f665ab (GPL-3.0, like the rest of this tree)
++#ifndef WIFI_REPLY_H_
++#define WIFI_REPLY_H_
++
++#include <stdint.h>
++#include <stddef.h>
++
++// Reply table of the WiFi command channel. The tag the module echoes in
++// hdr.thread is a slot of this table, not a TX buffer number (a TX buffer is
++// freed when it has been sent, long before the reply is there). A reply is
++// delivered only if its sequence is the one the slot was claimed with.
++// The functions are not locked: callers hold a critical section.
++
++#define WIFI_REPLY_SLOTS    12
++
++typedef struct {
++    void *task;
++    uint16_t sequence;
++} wifi_reply_slot_t;
++
++typedef struct {
++    uint8_t thread;
++    uint16_t sequence;
++} wifi_reply_tag_t;
++
++// Registers 'task' as the waiter of a free slot. Returns 0 if all are in use.
++static inline int wifi_reply_claim(wifi_reply_slot_t *slots, uint16_t *next_sequence, void *task, wifi_reply_tag_t *tag)
++{
++    for (int i = 0; i < WIFI_REPLY_SLOTS; i++) {
++        if (!slots[i].task) {
++            slots[i].task = task;
++            slots[i].sequence = (*next_sequence)++;
++            tag->thread = (uint8_t)i;
++            tag->sequence = slots[i].sequence;
++            return 1;
++        }
++    }
++    return 0;
++}
++
++// Returns the waiter of this reply and releases its slot, or NULL if there is
++// none: the slot is free, or it belongs to another request.
++static inline void *wifi_reply_take(wifi_reply_slot_t *slots, uint8_t thread, uint16_t sequence)
++{
++    if (thread >= WIFI_REPLY_SLOTS || !slots[thread].task || slots[thread].sequence != sequence) {
++        return NULL;
++    }
++    void *task = slots[thread].task;
++    slots[thread].task = NULL;
++    return task;
++}
++
++// Gives up waiting. Returns 0 if the reply was taken in the meantime.
++static inline int wifi_reply_abandon(wifi_reply_slot_t *slots, const wifi_reply_tag_t *tag)
++{
++    return wifi_reply_take(slots, tag->thread, tag->sequence) != NULL;
++}
++
++#endif /* WIFI_REPLY_H_ */
+diff --git a/vendor/gideon/software/io/wifi/wifi_scan_result.h b/vendor/gideon/software/io/wifi/wifi_scan_result.h
+new file mode 100644
+index 000000000..5328e1614
+--- /dev/null
++++ b/vendor/gideon/software/io/wifi/wifi_scan_result.h
+@@ -0,0 +1,30 @@
++// T184 D4: from https://github.com/omnicron-c64/ultimate-community-edition @ f7f665ab (GPL-3.0, like the rest of this tree)
++#ifndef WIFI_SCAN_RESULT_H
++#define WIFI_SCAN_RESULT_H
++#include <stddef.h>
++#include <string.h>
++#include "rpc_calls.h"
++
++// Decode the compact wire reply. Never interpret a failed/truncated reply as APs.
++static inline int wifi_decode_scan(const void *data, size_t size, ultimate_ap_records_t *aps)
++{
++    memset(aps, 0, sizeof(*aps));
++    const size_t prefix = offsetof(rpc_scan_resp, rec);
++    if (!data || size < prefix) return -1;
++    rpc_header_t hdr;
++    int status;
++    memcpy(&hdr, data, sizeof(hdr));
++    memcpy(&status, (const unsigned char *)data + offsetof(rpc_scan_resp, esp_err), sizeof(status));
++    if (hdr.command != CMD_WIFI_SCAN) return -1;
++    if (status) return status;
++    const size_t records = prefix + offsetof(ultimate_ap_records_t, aps);
++    if (size < records) return -1;
++    const unsigned char *bytes = (const unsigned char *)data;
++    unsigned count = bytes[prefix + offsetof(ultimate_ap_records_t, num_records)];
++    if (count > DEFAULT_SCAN_LIST_SIZE || size < records + count * sizeof(ultimate_ap_record_t)) return -1;
++    memcpy(aps->aps, bytes + records, count * sizeof(ultimate_ap_record_t));
++    for (unsigned i = 0; i < count; ++i) aps->aps[i].ssid[32] = 0;
++    aps->num_records = count;
++    return 0;
++}
++#endif
+diff --git a/vendor/gideon/software/u64ctrl/main/rpc_calls.h b/vendor/gideon/software/u64ctrl/main/rpc_calls.h
+index f7d5d79d1..c45ce000b 100644
+--- a/vendor/gideon/software/u64ctrl/main/rpc_calls.h
++++ b/vendor/gideon/software/u64ctrl/main/rpc_calls.h
+@@ -182,6 +182,12 @@ typedef struct {
+     uint8_t ssid[32];
+ } event_pkt_connected;
+ 
++// T184 D4: optional extension to EVENT_DISCONNECTED (https://github.com/omnicron-c64/ultimate-community-edition @ f7f665ab); a module that sends only the header gives reason 0.
++typedef struct {
++    rpc_header_t hdr;
++    uint16_t reason;
++} event_pkt_disconnected;
++
+ #define CMD_ECHO              0x01
+ #define CMD_IDENTIFY          0x02
+ #define CMD_SET_BAUD          0x03

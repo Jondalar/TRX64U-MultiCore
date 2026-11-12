@@ -1,0 +1,11 @@
+# The null core (T123): the flash filler. The host update file (.cfw) writes a full bitstream with this in the core partition, so the
+# flash holds the host and no machine. Not a core a user starts: flash_filler keeps it out of every .cor list, release set and boot menu.
+id           = "null"
+name         = "Null core (flash filler)"
+version      = "1.0.0"
+contract     = 2
+app          = "none"
+order        = 1               # right after the host (Alex, 2026-10-25): the flash image (host + null) is what the board needs first
+experimental = false           # it gates the pipeline: the host update file is built from its image
+flash_filler = true
+sources      = ["cores/null"]

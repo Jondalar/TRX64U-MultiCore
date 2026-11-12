@@ -1,0 +1,29 @@
+CPC core: GPL for the core as a whole.
+Rights holders who see a problem with any part listed here: please contact us, and we remove the part concerned.
+
+
+What is here. These files are MiSTer-devel/Amstrad_MiSTer (https://github.com/MiSTer-devel/Amstrad_MiSTer), commit 6c2c39b (2026-06-03), copied
+unchanged by tools/vendor_amstrad_mister.sh (SHA256SUMS lists them). The terms are the ones written in each file's header:
+
+  GA40010/ga40010.sv, video.sv, casgen_sync.v, syncgen_sync.v   GPL v2 or later (Gyorgy Szombathelyi, 2020)   the Gate Array
+  GA40010/rslatch.v                                             no licence text (the Gate Array's own latch cell)
+  UM6845R.v, i8255.v                                            GPL v2 or later (Sorgelig, 2018)              the CRTC and the PPI
+  color_mix.sv                                                  GPL v2+ (Sorgelig, 2018)                      the ink table
+  Amstrad_MMU.v                                                 "(C) 2018 Sorgelig", CoreAmstrad r004, no licence text
+  u765/u765.sv                                                  GPL v2 or later (Gyorgy Szombathelyi, 2017-2020) the FDC
+
+The Z80 (T80pa) and the AY (YM2149) are the Spectrum core's (cores/zx/rtl, gen; BSD wording, T91 D2): shared, read through this core's core.toml, never
+copied. The two files without licence text are kept as they came, with their credit lines. Not here,
+on purpose: Amstrad.sv (the board top), Amstrad_motherboard.v (cores/cpc/trx/cpc_board.v is written from it and says so), hid.sv and the mouse
+modules, crt_filter, sdram, tzxplayer, progressbar, playcity, dandanator, the MiSTer framework (sys/), and every ROM. The CPC's OS, BASIC and AMSDOS
+ROMs are Amstrad's and never go into this repository, a bench, a package or a .cor: the app reads them at core start from the user's files
+(roms: cpc os6128, basic6128, amsdos, os664, basic664, os464, basic464), the benches run programs written in the bench itself.
+
+What is built is NOT only these files. cores/cpc/gen/u765.sv is what tools/cpc_gen.py makes of u765/u765.sv: one counted change (an initialiser that
+depends on a function's arguments becomes an assignment per call, which Verilator needs and which is the authors' intent).
+
+What the licence means here. GPL covers the gateware of this core and everything linked into its partial bitstream. A .cor or partial bitstream of
+this core that is given to a third party has to come with its corresponding source: that is this directory (the upstream copy), cores/cpc/gen,
+cores/cpc/trx, cores/cpc/layer2_cpc.v (our glue), the Spectrum core's files that this core reads (cores/zx/rtl, gen, shared), tools/vendor_amstrad_mister.sh,
+tools/cpc_gen.py and tools/zxcpc_keys.py, and the build recipe cores/cpc/mono/build_mono.tcl - all of it is in this repository. The host (layer 1), the other cores and the applications are separate works in separate partial
+bitstreams, link nothing of this core and are not covered; host/ is not part of this core's build.

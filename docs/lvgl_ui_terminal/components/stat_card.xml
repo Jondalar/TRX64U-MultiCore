@@ -1,0 +1,18 @@
+<component>
+    <api>
+        <prop name="label" type="string" default="STATUS" />
+        <prop name="value" type="string" default="--" />
+        <prop name="detail" type="string" default="" />
+        <prop name="accent" type="color" default="#color_violet" />
+    </api>
+
+    <view extends="box" width="100%" pad="#space_xs" gap="#space_2xs">
+        <row width="100%" gap="#space_xs">
+            <lv_label text="$label" style_text_font="font_caption" style_text_color="#color_muted" />
+            <lv_label text=":" style_text_font="font_caption" style_text_color="#color_muted" />
+            <lv_label text="$value" style_text_font="font_body" style_text_color="$accent" />
+        </row>
+        <lv_label text="$detail" hidden="{!detail}" long_mode="wrap" width="100%"
+                  style_text_font="font_caption" style_text_color="#color_muted" />
+    </view>
+</component>

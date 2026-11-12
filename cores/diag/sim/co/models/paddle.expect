@@ -1,0 +1,12 @@
+# the charge times the model gives (K clocks, the TTF reports exactly K for a comparator that flips K clocks after PADDLE_DIS is let go)
+meta.status = "done"
+slot.t_left_x1.values = [5000]
+slot.t_left_y1.values = [6000]
+slot.t_left_x2.values = [7000]
+slot.t_left_y2.values = [8000]
+slot.t_right_x1.values = [200000]
+slot.t_right_y1.values = [250000]
+slot.t_right_x2.values = [300000]
+slot.t_right_y2.values = [350000]
+prompt.left = "OK"
+prompt.right = "OK"

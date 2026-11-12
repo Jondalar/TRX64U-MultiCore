@@ -1,0 +1,31 @@
+<screen>
+    <view>
+        <style name="style_screen" />
+        <app_shell active_actions="true" active_tab="4">
+            <app_shell-content>
+                <column width="100%" height="100%" pad="#space_xl"
+                        horizontal_align="center" vertical_align="center">
+                    <panel width="560" gap="#space_lg" raised="true"
+                           style_border_color="#color_amber" style_border_width="1">
+                        <status_chip label="DRIVE 8 / CLEAN" tone="#color_cyan" />
+                        <lv_label text="Eject Last Ninja 2.d64?" style_text_font="font_title"
+                                  style_text_color="#color_ink" />
+                        <lv_label text="The drive stops before the image is released. No data will be lost."
+                                  width="100%" long_mode="wrap" style_text_font="font_body"
+                                  style_text_color="#color_muted" />
+                        <lv_label text="SD:/Games/N/Last Ninja 2.d64"
+                                  style_text_font="font_caption" style_text_color="#color_muted" />
+                        <row width="100%" gap="#space_md" horizontal_align="end">
+                            <lv_label text="←  CANCEL" style_text_font="font_caption"
+                                      style_text_color="#color_muted" />
+                            <ui_button label="EJECT" bg_color="#color_amber"
+                                       border_color="#color_amber" text_color="#color_bg">
+                                <screen_create_event screen="home" anim_type="fade_in" duration="120" />
+                            </ui_button>
+                        </row>
+                    </panel>
+                </column>
+            </app_shell-content>
+        </app_shell>
+    </view>
+</screen>

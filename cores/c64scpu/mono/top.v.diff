@@ -1,0 +1,35 @@
+0a1
+> // T140 D1 / T164 WP18: this large core's copy of the host copy's top.v (first made for the C128 core) (mono/host/top.v; mono/top.v.diff): the A/V port (AVID_*) driven by c64scpu_avout.v and c64_type 1 (a C64-type core: held to the System Mode's family and the VIC-locked rows). Built with NO_NET (no Ethernet MAC, the WiFi UART stays). Everything else is the host's.
+115c116,120
+<     output wire        LED_DATA, LED_CLOCK  // case LED strip, WS2812 or APA102
+---
+>     output wire        LED_DATA, LED_CLOCK, // case LED strip, WS2812 or APA102
+>     // T140 D1: the A/V port's THS8136 DAC, S-Video and composite out of c64scpu_avout. Three 8 bit words, MSB first
+>     // (balls and channel assignment from the boundary scan of 2026-09-30, bit order inside a channel not yet measured: avid_pins.xdc)
+>     output wire [9:2]  AVID_R, AVID_G, AVID_B,
+>     output wire        AVID_CLK, AVID_SYNCn, AVID_FB
+1394c1399
+<     // GTPs. c64_type 0: no DFX core ships on the VIC path (T164 Q4), so the request is not held to the System Mode's family.
+---
+>     // GTPs. c64_type 1 (a C64-type core): the request is held to the System Mode's family and to the VIC-locked rows.
+1398c1403
+<         .cdce_rst(por_rst | ~clocks_ok), .gt_rst(gt_rst), .c64_type(1'b0), .fam_v60(mc_cdce_v60), .core_decouple(core_decouple),
+---
+>         .cdce_rst(por_rst | ~clocks_ok), .gt_rst(gt_rst), .c64_type(1'b1), .fam_v60(mc_cdce_v60), .core_decouple(core_decouple),
+1414a1420,1428
+>     );
+> 
+>     // T140 D1: the VIC's native picture as S-Video and composite on the A/V port (HDMI and analogue at the same time). The DAC words
+>     // change on sys_clk's rising edge, the DAC takes them on its CLK, the inverted sys_clk, half a clock later.
+>     wire [7:0] av_y, av_c, av_cv;
+>     c64scpu_avout avout (
+>         .clk(sys_clk), .vmode(vmode_sys), .pix(pix_color), .px(pix_x), .py(pix_y),
+>         .pal_clk(cpu_clk), .pal_we(pal_we), .pal_addr(pal_addr), .pal_wdata(pal_wdata),
+>         .y_o(av_y), .c_o(av_c), .cv_o(av_cv)
+1415a1430,1435
+>     // which word goes to which ball: c64scpu_avpins.v (T140 D24: the luma pin carries the Y word, the board found Y and CV on the wrong groups)
+>     c64scpu_avpins avpins (.y(av_y), .c(av_c), .cv(av_cv), .AVID_R(AVID_R), .AVID_G(AVID_G), .AVID_B(AVID_B));
+>     assign AVID_SYNCn = 1'b1;           // the sync is in the Y and CV words
+>     assign AVID_FB    = 1'b0;
+>     ODDR #(.DDR_CLK_EDGE("SAME_EDGE")) fwd_avid (.Q(AVID_CLK), .C(sys_clk), .CE(1'b1),
+>         .D1(1'b0), .D2(1'b1), .R(1'b0), .S(1'b0));

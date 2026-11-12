@@ -1,0 +1,89 @@
+113,116c113,115
+< reg [4:0] z3ram_base0;
+< reg [3:0] z3ram_base1;
+< reg       z3ram_ena0;
+< reg       z3ram_ena1;
+---
+> // T138: one Zorro III RAM board of 32 MB (the OS writes its base to register 0x44 of the autoconfig space, A31..A25 are the compare)
+> reg [6:0] z3ram_base;
+> reg       z3ram_ena;
+118,119c117
+< wire sel_z3ram0 = (cpu_addr[31:27] == z3ram_base0) && z3ram_ena0;
+< wire sel_z3ram1 = (cpu_addr[31:28] == z3ram_base1) && z3ram_ena1;
+---
+> wire sel_z3ram  = (cpu_addr[31:25] == z3ram_base) && z3ram_ena;
+121c119
+< wire sel_zram   = sel_z3ram0 | sel_z3ram1 | sel_z2ram;
+---
+> wire sel_zram   = sel_z3ram | sel_z2ram;
+136a135,137
+> // T138: FAST_CFG bit 2 = the Zorro III board (and no Zorro II cards). This core's CPU register is 0 (tg68k_020.v ties the kernel to the 68020),
+> // so cpucfg is not part of it.
+> wire cfg_z3 = fastramcfg_d[2];
+211c212,214
+< assign ramaddr[28:24] = 5'b0;
+---
+> // T138: bit 28 tells the Zorro III board (its word address is ramaddr[24:1], 32 MB), the others as before
+> assign ramaddr[28:25] = {sel_z3ram, 3'b000};
+> assign ramaddr[24]    = sel_z3ram & cpu_addr[24];
+219c222,223
+< assign ramaddr[23:21] = (cpu_addr[23:21] == 3'b011) ? 3'b011 :	// $600000-$7FFFFF -> $600000-$7F0000 (stolen SlowRAM)
+---
+> assign ramaddr[23:21] = sel_z3ram ? cpu_addr[23:21] :
+> 			(cpu_addr[23:21] == 3'b011) ? 3'b011 :	// $600000-$7FFFFF -> $600000-$7F0000 (stolen SlowRAM)
+280c284
+< 		cpu_addr     = { 8'h00, cpu_addr_p[23:0] };
+---
+> 		cpu_addr     = { cpu_addr_p[31:24] & {8{cfg_z3}}, cpu_addr_p[23:0] };   // T138: 32 bits with the Zorro III board, 24 bits as before without
+397c401,406
+< assign cpu_clkena = (~cpu_req & tg68_armed) | chipready | ramready
+---
+> // T97 step 2 (one of the changes against cores/amiga/rtl/src/minimig-aga/cpu_wrapper.v, see ../tools/check_wrapper_fork.sh):
+> // the kernel is clocked by sys_clk, but this core's ce28 is a one-clock pulse nine times in ten (amiga_ce.v) and chipready /
+> // ramready are registers that only change on ce28, so they stay high across a missing ce28 and the kernel would take the
+> // enable twice (and run one step too far: wrong addresses, repeated words). NanoMig's own clock is the 28 MHz itself, ce28
+> // is always 1 there. Taking the enable only on a ce28 tick makes the kernel a ce28-clocked CPU, as everything else here.
+> assign cpu_clkena = ((~cpu_req & tg68_armed) | chipready | ramready
+401c410
+< ;
+---
+> ) & ce28;
+536,542d544
+< `ifdef ENABLE_RAM32
+< wire cfg_z3 = fastramcfg_d[2] & cpucfg[1];
+< `else
+< // Zorro III does not make sense for devices with 8MiB of SDRAM
+< wire cfg_z3 = 0;
+< `endif
+< 
+594c596
+< 			// Zorro III RAM 128MB/256MB
+---
+> 			// Zorro III RAM 32MB
+597c599
+< 				6'b000001: autocfg_data = autocfg_card[1] ? 4'b0011 : 4'b0100;	// 128MB or 256MB, extended
+---
+> 				6'b000001: autocfg_data = 4'b0001;	// 32MB, extended
+621,624c623,624
+< 		z3ram_ena0 <= 0;
+< 		z3ram_ena1 <= 0;
+< 		z3ram_base0 <= 1;
+< 		z3ram_base1 <= 1;
+---
+> 		z3ram_ena <= 0;
+> 		z3ram_base <= 0;
+655,664c655,657
+< 			if (autocfg_card == 2'b01) begin
+< 				z3ram_base1 <= cpu_dout[15:12];
+< 				z3ram_ena1 <= 1;
+< 				autocfg_card <= {fastramcfg_d[0], 1'b0};
+< 			end
+< 			else begin
+< 				z3ram_base0 <= cpu_dout[15:11];
+< 				z3ram_ena0 <= 1;
+< 				autocfg_card <= 2'b00;
+< 			end
+---
+> 			z3ram_base <= cpu_dout[15:9];
+> 			z3ram_ena <= 1;
+> 			autocfg_card <= 2'b00;

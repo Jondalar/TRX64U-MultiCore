@@ -1,0 +1,148 @@
+// T93 S1: the application finds its core, and refuses a core it has no description for or one the bundle does not name.
+#include <string.h>
+#include "check.h"
+#include "start.h"
+#include "handover.h"
+#include "fakes.h"
+#include "amiga_regs.h"
+
+static const CoreDesc a = { {'A', '8', 'X', 'L'}, "Atari 800 XL", "Atari", "atari800", "Atari 800 XL Settings" };
+static CoreDesc n = { {'N', 'E', 'S', '_'}, "Nintendo Entertainment System", "NES", "nes", "NES Settings" };
+extern const CoreDesc c64_desc, amiga_desc, amiga1200_desc;
+const CoreDesc *const core_table[] = { &a, &n, &c64_desc, &amiga_desc, &amiga1200_desc, 0 };
+
+int main()
+{
+    char msg[300];
+    const CoreDesc *d = 0;
+    Handover h;
+    handover_fill(&h, "/USB1/cores/atari800.cor", "Atari 800 XL", "0.0.1", 0x1234u);
+
+    CHECK_EQ(start_identify((const uint8_t *)"A8XL", &h, &d, msg, sizeof(msg)), START_OK);
+    CHECK(d == &a);
+    CHECK_STR(msg, "[core] A8XL Atari 800 XL, cor /USB1/cores/atari800.cor");
+
+    handover_fill(&h, "/SD/nes.cor", "Nintendo Entertainment System", "0.0.1", 0x1234u);
+    CHECK_EQ(start_identify((const uint8_t *)"NES_", &h, &d, msg, sizeof(msg)), START_OK);
+    CHECK(d == &n);
+
+    // an ID block that matches no descriptor, in every byte position
+    CHECK_EQ(start_identify((const uint8_t *)"A8XM", &h, &d, msg, sizeof(msg)), START_NO_DESCRIPTOR);
+    CHECK(d == 0);
+    CHECK(strstr(msg, "A8XM") != 0 && strstr(msg, "stays held") != 0);
+    CHECK_EQ(start_identify((const uint8_t *)"B8XL", &h, &d, msg, sizeof(msg)), START_NO_DESCRIPTOR);
+    CHECK_EQ(start_identify((const uint8_t *)"\0\0\0\0", &h, &d, msg, sizeof(msg)), START_NO_DESCRIPTOR);
+    CHECK(strstr(msg, "????") != 0);                  // unprintable bytes are shown as ?, not as terminal noise
+
+    // a descriptor other than the one the .cor manifest names
+    handover_fill(&h, "/USB1/cores/amiga.cor", "Amiga", "0.0.1", 0x1234u);
+    CHECK_EQ(start_identify((const uint8_t *)"A8XL", &h, &d, msg, sizeof(msg)), START_COR_MISMATCH);
+    CHECK(d == 0);
+    CHECK(strstr(msg, "Amiga") != 0 && strstr(msg, "Atari 800 XL") != 0);
+
+    // T104 5.5: the Amiga and the A1200 are one gateware with one ID word - the bundle's name tells the descriptors apart
+    handover_fill(&h, "/SD/amiga1200.cor", "Amiga 1200 (AGA, 68020)", "0.0.1", 0x1234u);
+    CHECK_EQ(start_identify((const uint8_t *)"AMIG", &h, &d, msg, sizeof(msg)), START_OK);
+    CHECK(d == &amiga1200_desc);
+    CHECK(strstr(msg, "Amiga 1200") != 0);
+    handover_fill(&h, "/SD/amiga.cor", "Amiga (OCS/ECS, 68000)", "0.0.1", 0x1234u);
+    CHECK_EQ(start_identify((const uint8_t *)"AMIG", &h, &d, msg, sizeof(msg)), START_OK);
+    CHECK(d == &amiga_desc);
+    // a bundle of another machine on this gateware: refused, the message names the bundle and both candidates
+    handover_fill(&h, "/SD/nes.cor", "Nintendo Entertainment System", "0.0.1", 0x1234u);
+    CHECK_EQ(start_identify((const uint8_t *)"AMIG", &h, &d, msg, sizeof(msg)), START_COR_MISMATCH);
+    CHECK(d == 0);
+    CHECK(strstr(msg, "Nintendo") && strstr(msg, "Amiga 1200") && strstr(msg, "Amiga (OCS"));
+    // T115 7 H2, I1-I5: the core's id picks, the display name is only the fallback
+    handover_fill(&h, "/SD/amiga1200.cor", "Amiga 1200 (AGA)", "0.3.0", 0, 0, "amiga1200");        // the board's case: a name that is not the descriptor's
+    CHECK_EQ(start_identify((const uint8_t *)"AMIG", &h, &d, msg, sizeof(msg)), START_OK);
+    CHECK(d == &amiga1200_desc);
+    handover_fill(&h, "/SD/amiga.cor", "Amiga", "0.2.0", 0, 0, "amiga");
+    CHECK_EQ(start_identify((const uint8_t *)"AMIG", &h, &d, msg, sizeof(msg)), START_OK);
+    CHECK(d == &amiga_desc);
+    handover_fill(&h, "/SD/amiga1200.cor", "Amiga 1200 (AGA, 68020)", "0.3.0", 0, 0, "AMIGA");          // id and name disagree: the id wins (case does not matter)
+    CHECK_EQ(start_identify((const uint8_t *)"AMIG", &h, &d, msg, sizeof(msg)), START_OK);
+    CHECK(d == &amiga_desc);
+    handover_fill(&h, "/SD/x.cor", "Amiga 1200 (AGA, 68020)", "0.3.0", 0, 0, "nes");                  // an id that fits no candidate: refused, whatever the name says
+    CHECK_EQ(start_identify((const uint8_t *)"AMIG", &h, &d, msg, sizeof(msg)), START_COR_MISMATCH);
+    CHECK(d == 0 && strstr(msg, "stays held"));
+    handover_fill(&h, "/SD/x.cor", "", "0.3.0", 0, 0, "amiga1200");                                   // an id alone is enough
+    CHECK_EQ(start_identify((const uint8_t *)"AMIG", &h, &d, msg, sizeof(msg)), START_OK);
+    CHECK(d == &amiga1200_desc);
+    handover_fill(&h, "/SD/x.cor", "", "0.3.0", 0, 0, "nes");                                           // an id alone that fits nothing is a mismatch, not "no bundle"
+    CHECK_EQ(start_identify((const uint8_t *)"AMIG", &h, &d, msg, sizeof(msg)), START_COR_MISMATCH);
+    CHECK(strstr(msg, "\"nes\"") != 0);
+    // a descriptor with a core_id that is not shared: the id decides there too
+    n.core_id = "nes";
+    handover_fill(&h, "/SD/nes.cor", "NES (renamed)", "1", 0, 0, "nes");
+    CHECK_EQ(start_identify((const uint8_t *)"NES_", &h, &d, msg, sizeof(msg)), START_OK);
+    CHECK(d == &n);
+    handover_fill(&h, "/SD/nes.cor", "Nintendo Entertainment System", "1", 0, 0, "atari800");           // the name fits, the id says another core
+    CHECK_EQ(start_identify((const uint8_t *)"NES_", &h, &d, msg, sizeof(msg)), START_COR_MISMATCH);
+    CHECK(d == 0 && strstr(msg, "stays held"));
+    handover_fill(&h, "/SD/nes.cor", "Nintendo Entertainment System", "1", 0, 0);                         // no id (older host): the name, as before
+    CHECK_EQ(start_identify((const uint8_t *)"NES_", &h, &d, msg, sizeof(msg)), START_OK);
+    n.core_id = 0;
+    // no bundle to choose by: nothing is guessed (the policy for a real mismatch of the ID block is not decided here)
+    CHECK_EQ(start_identify((const uint8_t *)"AMIG", 0, &d, msg, sizeof(msg)), START_AMBIGUOUS);
+    CHECK(d == 0);
+    CHECK(strstr(msg, "Amiga 1200") && strstr(msg, "Amiga (OCS") && strstr(msg, "stays held"));
+    handover_fill(&h, "/SD/x.cor", "", "0.0.1", 0x1234u);
+    CHECK_EQ(start_identify((const uint8_t *)"AMIG", &h, &d, msg, sizeof(msg)), START_AMBIGUOUS);
+    // T115 D9: no bundle name (a .cfw), but the gateware's feature bits tell the A1200 (AM_FEAT_FBWIN) from the A500
+    {
+        FakeIo io;
+        io.regs[AM_FEAT] = AM_FEAT_FBWIN | 0x01;
+        CHECK_EQ(start_identify((const uint8_t *)"AMIG", 0, &d, msg, sizeof(msg), &io), START_OK);
+        CHECK(d == &amiga1200_desc);
+        io.regs[AM_FEAT] = 0x00;
+        CHECK_EQ(start_identify((const uint8_t *)"AMIG", &h, &d, msg, sizeof(msg), &io), START_OK);   // the empty name: the bits decide
+        CHECK(d == &amiga_desc);
+        handover_fill(&h, "/SD/nes.cor", "Nintendo Entertainment System", "0.0.1", 0x1234u);
+        io.regs[AM_FEAT] = AM_FEAT_FBWIN;
+        CHECK_EQ(start_identify((const uint8_t *)"AMIG", &h, &d, msg, sizeof(msg), &io), START_COR_MISMATCH);   // a name that is wrong stays wrong
+        handover_fill(&h, "/SD/x.cor", "", "0.0.1", 0x1234u);
+    }
+
+    // no hand-over (JTAG or developer start): runs, without a path and so without a .cfg
+    Handover bad;
+    memset(&bad, 0xAA, sizeof(bad));
+    CHECK_EQ(start_identify((const uint8_t *)"A8XL", &bad, &d, msg, sizeof(msg)), START_OK);
+    CHECK(strstr(msg, "no hand-over") != 0);
+    CHECK_EQ(start_identify((const uint8_t *)"A8XL", 0, &d, msg, sizeof(msg)), START_OK);
+    CoreCtx c;
+    memset(&c, 0, sizeof(c));
+    start_paths(&c, &bad);
+    CHECK_STR(c.cor_path, "");
+    CHECK_STR(c.cfg_path, "");
+    handover_fill(&h, "/SD/cores/atari800.cor", "Atari 800 XL", "0.0.7", 1);
+    start_paths(&c, &h);
+    CHECK_STR(c.cor_path, "/SD/cores/atari800.cor");
+    CHECK_STR(c.cfg_path, "/SD/cores/atari800/atari800.cfg");        // T148 D1: in the core folder
+    CHECK_STR(c.core_version, "0.0.7");
+    // a path that is not a .cor has no .cfg place
+    handover_fill(&h, "/SD/dev.bin", "Atari 800 XL", "0.0.7", 1);
+    start_paths(&c, &h);
+    CHECK_STR(c.cfg_path, "");
+    // T104.2 S3: "TRX2" is the C64 - on the monolith without any hand-over, on the MultiCore host with the manifest of the trx64 core
+    CHECK_EQ(start_identify((const uint8_t *)"TRX2", 0, &d, msg, sizeof(msg)), START_OK);
+    CHECK(d == &c64_desc);
+    CHECK_STR(msg, "[core] TRX2 TRX64U, cor (no hand-over)");
+    handover_fill(&h, "/usb1/cores/trx64u.cor", "TRX64U", "1.0.0", 0x1234u);
+    CHECK_EQ(start_identify((const uint8_t *)"TRX2", &h, &d, msg, sizeof(msg)), START_OK);
+    CHECK_STR(msg, "[core] TRX2 TRX64U, cor /usb1/cores/trx64u.cor");
+    // the manifest name of trx64u.cor is "TRX64U" (T104.2 Q5): the Ultimate application's bundle of the same machine, named otherwise, does not start this one
+    handover_fill(&h, "/usb1/cores/trx64g.cor", "TRX64 Ultimate (Gideon app)", "1.0.0", 0x1234u);
+    CHECK_EQ(start_identify((const uint8_t *)"TRX2", &h, &d, msg, sizeof(msg)), START_COR_MISMATCH);
+    handover_fill(&h, "/usb1/cores/atari800.cor", "Atari 800 XL", "1.0.0", 0x1234u);
+    CHECK_EQ(start_identify((const uint8_t *)"TRX2", &h, &d, msg, sizeof(msg)), START_COR_MISMATCH);
+    // a fifth ID that begins like it is not it, and the text names the ID it found; so does the ID block of an older bitstream
+    CHECK_EQ(start_identify((const uint8_t *)"TRX3", 0, &d, msg, sizeof(msg)), START_NO_DESCRIPTOR);
+    CHECK(d == 0 && strstr(msg, "TRX3") != 0 && strstr(msg, "stays held") != 0);
+    CHECK_EQ(start_identify((const uint8_t *)"TRX\0", 0, &d, msg, sizeof(msg)), START_NO_DESCRIPTOR);
+    CHECK_EQ(start_identify((const uint8_t *)"RTX2", 0, &d, msg, sizeof(msg)), START_NO_DESCRIPTOR);
+    CHECK(core_find_by_name("trx64u") == &c64_desc);
+    CHECK(core_find_by_name("atari 800 xl") == &a);
+    CHECK(core_find_by_name("Amiga") == 0);
+    DONE("test_start");
+}

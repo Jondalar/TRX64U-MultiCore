@@ -1,0 +1,38 @@
+--- vendor/gideon/software/io/network/network_esp32.h	2026-11-06 02:33:57
++++ host-app/software/io/network/network_esp32.h	2026-11-06 02:34:56
+@@ -39,6 +39,7 @@
+     bool is_wireless() { return true; }
+     void attach_config();
+ 
++#ifndef TRX_HOSTAPP // T184: the tree browser, popups and string boxes of the Ultimate menu; the host page is hostapp/wifinet.cc
+     // User Interface
+     void getDisplayString(int index, char *buffer, int width);
+     void getSubItems(Browsable *parent, IndexedList<Browsable *> &list, int &error);
+@@ -53,8 +54,11 @@
+     static SubsysResultCode_e auto_connect(SubsysCommand *cmd);
+ 
+     // From Config menu
++#endif
++#ifndef TRX_HOSTAPP
+     static void cfg_show_aps(UserInterface *intf, ConfigItem *it);
+     static void cfg_enter_ap(UserInterface *intf, ConfigItem *it);
++#endif
+     static void cfg_conn_last(UserInterface *intf, ConfigItem *it);
+     static void cfg_disconn(UserInterface *intf, ConfigItem *it);
+     static void cfg_enable(UserInterface *intf, ConfigItem *it);
+@@ -67,6 +71,7 @@
+     bool hasUsableAddress();
+ };
+ 
++#ifndef TRX_HOSTAPP
+ class BrowsableWifiAPList : public Browsable
+ {
+ public:
+@@ -75,6 +80,7 @@
+     IndexedList<Browsable *> *getSubItems(int &error);
+     const char *getName() { return "BrowsableWiFiAPList"; }
+ };
++#endif
+ 
+ 
+ 

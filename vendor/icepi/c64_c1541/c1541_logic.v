@@ -1,0 +1,381 @@
+//-------------------------------------------------------------------------------
+//
+// Reworked and adapted to MiSTer by Sorgelig@MiSTer (07.09.2018)
+//
+//-------------------------------------------------------------------------------
+
+// Heavily reworked by m1nl for Icepi Zero C64 project
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+// (vendor) `default_nettype none
+`timescale 1 ns / 1 ps
+module c1541_logic #(
+  parameter CPU_MODEL = 1,
+  parameter VIA_MODEL = 0
+) (
+  input wire clk,
+  input wire reset,
+
+  input wire ph2,
+  input wire ph2_r,
+  input wire ph2_f,
+
+  // serial bus
+  input  wire iec_clk_in,
+  input  wire iec_data_in,
+  input  wire iec_atn_in,
+  output wire iec_clk_out,
+  output wire iec_data_out,
+
+  input wire ext_en,
+
+  output wire [14:0] rom_addr,
+  input  wire [ 7:0] rom_data,
+  output reg         rom_cs,
+
+  // parallel bus
+  input  wire [7:0] par_data_in,
+  input  wire       par_stb_in,
+  output wire [7:0] par_data_out,
+  output wire       par_stb_out,
+
+  // drive-side interface
+  input  wire [1:0] ds,            // device select
+  input  wire [7:0] din,           // disk read data
+  output wire [7:0] dout,          // disk write data
+  output wire       mode,          // read/write
+  output wire [1:0] stp,           // stepper motor control
+  output wire       mtr,           // spindle motor on/off
+  output wire [1:0] freq,          // motor frequency
+  input  wire       sync_n,        // reading SYNC bytes
+  input  wire       byte_n,        // byte ready
+  input  wire       wps_n,         // write-protect sense
+  input  wire       tr00_sense_n,  // track 0 sense
+  output wire       act            // activity LED
+);
+
+wire [15:0] cpu_a;
+reg  [ 7:0] cpu_di;
+wire [ 7:0] cpu_do;
+wire        cpu_rwn;
+wire        cpu_irq_n;
+wire        cpu_so_n;
+
+assign cpu_irq_n = ~(uc1_irq | uc3_irq);
+assign cpu_so_n  = byte_n | ~soe;
+
+wire [7:0] ram_do;
+reg        ram_cs;
+
+wire [7:0] extram_do;
+reg        extram_cs;
+
+wire [7:0] rom_do;
+
+wire [7:0] uc1_do;
+wire       uc1_irq;
+reg        uc1_cs;
+
+wire [7:0] uc3_do;
+wire       uc3_irq;
+reg        uc3_cs;
+
+always @(*) begin
+  ram_cs    = 0;
+  uc1_cs    = 0;
+  uc3_cs    = 0;
+  extram_cs = 0;
+  rom_cs    = 0;
+
+  cpu_di = 8'hff;
+
+  casez (cpu_a[15:10])
+    6'b100zzz: begin
+      if (ext_en) begin
+        cpu_di    = extram_do;
+        extram_cs = 1;
+
+      end else begin
+        cpu_di = rom_do;
+        rom_cs = 1;
+      end
+    end
+    6'b1zzzzz: begin
+      cpu_di = rom_do;
+      rom_cs = 1;
+    end
+    6'b0zz00z: begin
+      cpu_di = ram_do;
+      ram_cs = 1;
+    end
+    6'b0zz110: begin
+      cpu_di = uc1_do;
+      uc1_cs = 1;
+    end
+    6'b0zz111: begin
+      cpu_di = uc3_do;
+      uc3_cs = 1;
+    end
+    default: ;
+  endcase
+
+  if (!cpu_rwn)
+    cpu_di = cpu_do;
+end
+
+generate
+  if (CPU_MODEL) begin : CPU_6502
+    proc_core cpu (
+      .clock(clk),
+      .clock_en(ph2_f),
+      .reset(reset),
+      .ready(1'b1),
+      .irq_n(cpu_irq_n),
+      .nmi_n(1'b1),
+      .so_n(cpu_so_n),
+      .addr_out(cpu_a),
+      .data_in(cpu_di),
+      .data_out(cpu_do),
+      .read_write_n(cpu_rwn),
+      .interrupt_ack(),
+      .pc_out()
+    );
+  end else begin : CPU_T65
+    T65 cpu (
+      .Mode(2'b00),
+      .Res_n(~reset),
+      .Enable(ph2_f),
+      .Clk(clk),
+      .Rdy(1'b1),
+      .Abort_n(1'b1),
+      .IRQ_n(cpu_irq_n),
+      .NMI_n(1'b1),
+      .SO_n(cpu_so_n),
+      .R_W_n(cpu_rwn),
+      .A(cpu_a),
+      .DI(cpu_di),
+      .DO(cpu_do)
+    );
+  end
+endgenerate
+
+assign rom_addr = cpu_a[14:0];
+assign rom_do   = rom_data;
+
+iecdrv_ram #(
+  .DW(8),
+  .AW(11)
+) ram (
+  .clk(clk),
+  .we(ph2_r & ~cpu_rwn & ram_cs),
+  .addr(cpu_a[10:0]),
+  .din(cpu_do),
+  .dout(ram_do)
+);
+
+iecdrv_ram #(
+  .DW(8),
+  .AW(13)
+) extram (
+  .clk(clk),
+  .we(ph2_r & ~cpu_rwn & extram_cs),
+  .addr(cpu_a[12:0]),
+  .din(cpu_do),
+  .dout(extram_do)
+);
+
+// UC1 (VIA6522) signals
+wire [7:0] uc1_pa_o;
+wire [7:0] uc1_pa_oe;
+wire       uc1_ca2_o;
+wire       uc1_ca2_oe;
+wire [7:0] uc1_pb_o;
+wire [7:0] uc1_pb_oe;
+wire       uc1_cb1_o;
+wire       uc1_cb1_oe;
+wire       uc1_cb2_o;
+wire       uc1_cb2_oe;
+
+assign iec_data_out = ~(uc1_pb_o[1] | ~uc1_pb_oe[1]) & ~((uc1_pb_o[4] | ~uc1_pb_oe[4]) ^ ~iec_atn_in);
+assign iec_clk_out  = ~(uc1_pb_o[3] | ~uc1_pb_oe[3]);
+
+assign par_stb_out  = ext_en ? (uc1_ca2_o | ~uc1_ca2_oe) : 1'b1;
+assign par_data_out = ext_en ? (uc1_pa_o | ~uc1_pa_oe)   : 8'hff;
+
+generate
+  if (VIA_MODEL) begin : UC1_REDIP
+    c64_redip_via uc1 (
+      .clk(clk),
+      .reset(reset),
+      .clk_phi(ph2),
+      .cen(~uc1_cs),
+      .we(~cpu_rwn),
+
+      .addr(cpu_a[3:0]),
+      .din(cpu_do),
+      .dout(uc1_do),
+
+      .pa_in((ext_en ? par_data_in : {7'h7f, tr00_sense_n}) & (uc1_pa_o | ~uc1_pa_oe)),
+      .pa_out(uc1_pa_o),
+      .ddra(uc1_pa_oe),
+
+      .pb_in({~iec_atn_in, ds, 2'b11, ~iec_clk_in, 1'b1, ~iec_data_in} & (uc1_pb_o | ~uc1_pb_oe)),
+      .pb_out(uc1_pb_o),
+      .ddrb(uc1_pb_oe),
+
+      .ca1_in(~iec_atn_in),
+      .ca2_in(uc1_ca2_o | ~uc1_ca2_oe),
+      .ca2_out(uc1_ca2_o),
+
+      .cb1_in((ext_en ? par_stb_in : 1'b1) & (uc1_cb1_o | ~uc1_cb1_oe)),
+      .cb1_out(uc1_cb1_o),
+      .ddrcb1(uc1_cb1_oe),
+
+      .cb2_in(uc1_cb2_o | ~uc1_cb2_oe),
+      .cb2_out(uc1_cb2_o),
+      .ddrcb2(uc1_cb2_oe),
+
+      .irq(uc1_irq)
+    );
+    assign uc1_ca2_oe = 1'b1;
+  end else begin : UC1_VIA6522
+    iecdrv_via6522 uc1 (
+      .clock(clk),
+      .rising(ph2_r),
+      .falling(ph2_f),
+      .reset(reset),
+
+      .addr(cpu_a[3:0]),
+      .wen(~cpu_rwn & uc1_cs),
+      .ren(cpu_rwn & uc1_cs),
+      .data_in(cpu_do),
+      .data_out(uc1_do),
+
+      .port_a_o(uc1_pa_o),
+      .port_a_t(uc1_pa_oe),
+      .port_a_i((ext_en ? par_data_in : {7'h7f, tr00_sense_n}) & (uc1_pa_o | ~uc1_pa_oe)),
+
+      .port_b_o(uc1_pb_o),
+      .port_b_t(uc1_pb_oe),
+      .port_b_i({~iec_atn_in, ds, 2'b11, ~iec_clk_in, 1'b1, ~iec_data_in} & (uc1_pb_o | ~uc1_pb_oe)),
+
+      .ca1_i(~iec_atn_in),
+
+      .ca2_o(uc1_ca2_o),
+      .ca2_t(uc1_ca2_oe),
+      .ca2_i(uc1_ca2_o | ~uc1_ca2_oe),
+
+      .cb1_o(uc1_cb1_o),
+      .cb1_t(uc1_cb1_oe),
+      .cb1_i((ext_en ? par_stb_in : 1'b1) & (uc1_cb1_o | ~uc1_cb1_oe)),
+
+      .cb2_o(uc1_cb2_o),
+      .cb2_t(uc1_cb2_oe),
+      .cb2_i(uc1_cb2_o | ~uc1_cb2_oe),
+
+      .irq(uc1_irq)
+    );
+  end
+endgenerate
+
+// UC3 (VIA6522) signals
+wire [7:0] uc3_pa_o;
+wire [7:0] uc3_pa_oe;
+wire       uc3_ca2_o;
+wire       uc3_ca2_oe;
+wire [7:0] uc3_pb_o;
+wire [7:0] uc3_pb_oe;
+wire       uc3_cb1_o;
+wire       uc3_cb1_oe;
+wire       uc3_cb2_o;
+wire       uc3_cb2_oe;
+wire       soe;
+
+assign soe  = uc3_ca2_o | ~uc3_ca2_oe;
+assign dout = uc3_pa_o | ~uc3_pa_oe;
+assign mode = uc3_cb2_o | ~uc3_cb2_oe;
+
+assign stp  = uc3_pb_o[1:0] | ~uc3_pb_oe[1:0];
+assign mtr  = uc3_pb_o[2] | ~uc3_pb_oe[2];
+assign act  = uc3_pb_o[3] | ~uc3_pb_oe[3];
+assign freq = uc3_pb_o[6:5] | ~uc3_pb_oe[6:5];
+
+generate
+  if (VIA_MODEL) begin : UC3_REDIP
+    c64_redip_via uc3 (
+      .clk(clk),
+      .reset(reset),
+      .clk_phi(ph2),
+      .cen(~uc3_cs),
+      .we(~cpu_rwn),
+
+      .addr(cpu_a[3:0]),
+      .din(cpu_do),
+      .dout(uc3_do),
+
+      .pa_in(din & (uc3_pa_o | ~uc3_pa_oe)),
+      .pa_out(uc3_pa_o),
+      .ddra(uc3_pa_oe),
+
+      .pb_in({sync_n, 2'b11, wps_n, 4'b1111} & (uc3_pb_o | ~uc3_pb_oe)),
+      .pb_out(uc3_pb_o),
+      .ddrb(uc3_pb_oe),
+
+      .ca1_in(cpu_so_n),
+      .ca2_in(uc3_ca2_o | ~uc3_ca2_oe),
+      .ca2_out(uc3_ca2_o),
+
+      .cb1_in(uc3_cb1_o | ~uc3_cb1_oe),
+      .cb1_out(uc3_cb1_o),
+      .ddrcb1(uc3_cb1_oe),
+
+      .cb2_in(uc3_cb2_o | ~uc3_cb2_oe),
+      .cb2_out(uc3_cb2_o),
+      .ddrcb2(uc3_cb2_oe),
+
+      .irq(uc3_irq)
+    );
+    assign uc3_ca2_oe = 1'b1;
+  end else begin : UC3_VIA6522
+    iecdrv_via6522 uc3 (
+      .clock  (clk),
+      .rising (ph2_r),
+      .falling(ph2_f),
+      .reset  (reset),
+
+      .addr(cpu_a[3:0]),
+      .wen(~cpu_rwn & uc3_cs),
+      .ren(cpu_rwn & uc3_cs),
+      .data_in(cpu_do),
+      .data_out(uc3_do),
+
+      .port_a_o(uc3_pa_o),
+      .port_a_t(uc3_pa_oe),
+      .port_a_i(din & (uc3_pa_o | ~uc3_pa_oe)),
+
+      .port_b_o(uc3_pb_o),
+      .port_b_t(uc3_pb_oe),
+      .port_b_i({sync_n, 2'b11, wps_n, 4'b1111} & (uc3_pb_o | ~uc3_pb_oe)),
+
+      .ca1_i(cpu_so_n),
+
+      .ca2_o(uc3_ca2_o),
+      .ca2_t(uc3_ca2_oe),
+      .ca2_i(uc3_ca2_o | ~uc3_ca2_oe),
+
+      .cb1_o(uc3_cb1_o),
+      .cb1_t(uc3_cb1_oe),
+      .cb1_i(uc3_cb1_o | ~uc3_cb1_oe),
+
+      .cb2_o(uc3_cb2_o),
+      .cb2_t(uc3_cb2_oe),
+      .cb2_i(uc3_cb2_o | ~uc3_cb2_oe),
+
+      .irq(uc3_irq)
+    );
+  end
+endgenerate
+
+endmodule
+`default_nettype wire
+// vim:ts=2 sw=2 tw=120 et

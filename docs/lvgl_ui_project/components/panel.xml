@@ -1,0 +1,14 @@
+<component>
+    <api>
+        <prop name="flow" type="enum:lv_flex_flow" default="column" />
+        <prop name="pad" type="int" default="#space_md" />
+        <prop name="gap" type="int" default="#space_sm" />
+        <prop name="grow" type="int" default="0" />
+        <prop name="raised" type="bool" default="false" />
+    </api>
+
+    <view extends="box" flow="$flow" pad="$pad" gap="$gap" grow="$grow"
+          style_bg_color="{raised ? color_surface_2 : color_surface}"
+          style_bg_opa="100%" style_border_color="#color_line"
+          style_border_width="0" style_radius="#radius_md" />
+</component>

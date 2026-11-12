@@ -1,0 +1,52 @@
+<screen>
+    <view>
+        <style name="style_screen" />
+        <app_shell active_settings="true" active_tab="5">
+            <app_shell-content>
+                <column width="100%" height="100%" pad="#space_lg" gap="#space_md">
+                    <row width="100%">
+                        <column grow="1" gap="#space_xs">
+                            <lv_label text="SETTINGS / NETWORK" style_text_font="font_caption"
+                                      style_text_color="#color_muted" />
+                            <lv_label text="Network" style_text_font="font_title"
+                                      style_text_color="#color_ink" />
+                        </column>
+                        <status_chip label="ONLINE / 192.168.1.64" tone="#color_cyan" />
+                    </row>
+
+                    <panel width="100%" grow="1" gap="0">
+                        <row width="100%" pad="#space_sm">
+                            <lv_label text="WI-FI" style_text_font="font_caption"
+                                      style_text_color="#color_muted" />
+                            <box grow="1" />
+                            <ui_switch subject="subject_wifi_enabled" state="ON" tone="#color_cyan" />
+                        </row>
+                        <action_row title="StudioNet" subtitle="WPA2 / 5 GHz / excellent"
+                                    meta="CONNECTED" tone="#color_cyan" />
+                        <action_row title="C64-Lab" subtitle="WPA2 / 2.4 GHz / good"
+                                    meta="AVAILABLE" tone="#color_violet" />
+                        <action_row title="Guest" subtitle="Open / weak"
+                                    meta="AVAILABLE" tone="#color_muted" />
+                        <box grow="1" />
+                        <row width="100%" pad="#space_sm">
+                            <lv_label text="WEB  ON     FTP  OFF     TELNET  OFF"
+                                      style_text_font="font_caption" style_text_color="#color_muted" />
+                            <box grow="1" />
+                            <ui_button label="F7  ALL NETWORK OPTIONS">
+                                <screen_create_event screen="settings_page" anim_type="fade_in" duration="120" />
+                            </ui_button>
+                        </row>
+                    </panel>
+
+                    <row width="100%" gap="#space_sm">
+                        <lv_label text="&lt;-  ALL SETTINGS" style_text_font="font_caption"
+                                  style_text_color="#color_muted" />
+                        <box grow="1" />
+                        <ui_button label="RESCAN" />
+                        <ui_button label="ADD NETWORK" />
+                    </row>
+                </column>
+            </app_shell-content>
+        </app_shell>
+    </view>
+</screen>

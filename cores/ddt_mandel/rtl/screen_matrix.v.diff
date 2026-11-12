@@ -1,0 +1,17 @@
+--- rtl/screen_matrix.v (upstream)
++++ trx/screen_matrix.v
+@@ -1,4 +1,4 @@
+-// screen_matrix.v
++// screen_matrix.v - CHANGED by T168 (one line, row 2: the engine count; see rtl/screen_matrix.v.diff), otherwise DDT's file (CC BY 4.0)
+ // 
+ // Implements a 44x25 character screen matrix (C64 screen codes).
+ // Each character is rendered as an 8x8 glyph.
+@@ -56,7 +56,7 @@
+ 
+     // Row 2, column 0: "20 HARDWARE MANDEL ENGINES"
+     idx = 2*W;
+-    mem[idx +  0] = 8'd50; mem[idx +  1] = 8'd48; mem[idx +  2] = 8'd32;
++    mem[idx +  0] = 8'd32; mem[idx +  1] = 8'd56; mem[idx +  2] = 8'd32;   // T168: " 8" for his "20": this partition has 8 engines (his TODO asks for the actual count)
+     mem[idx +  3] = 8'd8;  mem[idx +  4] = 8'd1;  mem[idx +  5] = 8'd18;
+     mem[idx +  6] = 8'd4;  mem[idx +  7] = 8'd23; mem[idx +  8] = 8'd1;
+     mem[idx +  9] = 8'd18; mem[idx + 10] = 8'd5; mem[idx + 11] = 8'd32;

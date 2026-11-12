@@ -1,0 +1,72 @@
+Copy of the host files cores/c128/mono/build_mono.tcl reads, taken from host/ at commit aa45528c2 (branch t164, T164 hdmi_timing fix included).
+T164 3a Q1 (Alex, 2026-11-01): "Copies instead." A change in host/ does not move this core's cache key or its build; a host fix reaches
+this core only by copying it in here on purpose, then update this line. The files need not equal host/ (no lint compares them).
+Edits to the copies: gideon_vhdl.tcl: the local VHDL names carry $hd/ (set by build_mono.tcl); overlay.v: the two $readmemh paths point into this folder (mem/). hdmi_enc/* and hdmi_out.v (2026-11-01, run 1134): the six forked encoder modules are renamed trx_* (hdmi -> trx_hdmi ...), because the C128 core's vicii_kawari.v instantiates the unforked vendor hdmi and both live in one flat design.
+hdmi_timing.v (2026-11-02, T164 5 'C128 vtot_m1'): vtot_m1 is computed from the registered yact0 / vact (one clock after them) instead of the four-term sum of the row; run 1142 failed timing only here (WNS -0.095 ns, pix_mmcm, hout/mtim/row_reg[13] -> vtot_m1_reg[8]). The behaviour is the same: vtot_m1 is first read a frame line after running starts.
+T194 (2026-11-09): pix_layer.v (format 3, the VIC's capture with 13-word rows and three slots, a two-port palette, new ports pal_*) and hdmi_out.v (NO_VIC_SCALER: no vic_scaler in the build, pal_* to the pixel layer) are this core's own; vic_scaler.v stays in the folder for the other branch of hdmi_out.v and is not elaborated.
+top.v is the base of this core's fork mono/top.v (mono/top.v.diff); the build reads mono/top.v. ultimate_sys.vhd is read with g_net = 0 (define NO_NET, T140 Q2b); the C128 fork of it is gone.
+T195 (2026-11-09): ui_buttons.v added (copied from host/); top.v, ultimate_sys.vhd and pins.xdc carry the same UI_BUTTON change as host/ (Menu: left and middle, Reset: right, ITU bit 5/7 move).
+
+Files:
+app_i2c.v
+app_input.v
+bling_io.v
+bling_keyboard.v
+bootrom_pkg.vhd
+c64_text.v
+c64u_keyboard.v
+cache_cfg_pkg.vhd
+cal_seq.v
+cart_fill.v
+case_leds.v
+cdce_mode.v
+con_ring.v
+ddr2_ctrl.v
+ddr2_lean.v
+ddr2_pins.xdc
+ddr2_port.v
+dfx_decouple.v
+esp_ctl.v
+flash_gate.vhd
+gideon_vhdl.tcl
+gtp_pins.xdc
+hdmi_enc/LICENSE-APACHE
+hdmi_enc/LICENSE-MIT
+hdmi_enc/audio_clock_regeneration_packet.sv
+hdmi_enc/auxiliary_video_information_info_frame.sv
+hdmi_enc/hdmi.v
+hdmi_enc/packet_assembler.sv
+hdmi_enc/packet_picker.sv
+hdmi_enc/tmds_channel.sv
+hdmi_gtp.v
+hdmi_modes.vh
+hdmi_out.v
+hdmi_timing.v
+i2s_out.v
+jtag_dbg.v
+mem/ovl_font12.mem
+mem/ovl_font8.mem
+mode_ctl.v
+mode_req.v
+overlay.v
+pal_ram.v
+pins.xdc
+pix_layer.v
+pktport_host.v
+portlock_clk.v
+pseudo_dpram_8x32_x7.vhd
+reu_ddr_map.v
+rv_dbg.v
+rv_dcache.vhd
+rv_icache.vhd
+rvlite_wrapper_dc.vhd
+tmds_rep.v
+top.v
+trx_gain.v
+uci_unit.vhd
+ui_buttons.v
+ultimate_sys.vhd
+usb_dpram.vhd
+usb_phy.v
+usb_pins.xdc
+vic_scaler.v

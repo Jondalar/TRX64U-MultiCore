@@ -1,0 +1,84 @@
+<screen>
+    <view>
+        <style name="style_screen" />
+        <app_shell active_c64="true">
+            <app_shell-content>
+                <column width="100%" height="100%" pad="#space_lg" gap="#space_lg">
+                    <row width="100%" gap="#space_sm">
+                        <lv_label text="C64 &amp; media" style_text_font="font_title"
+                                  style_text_color="#color_ink" />
+                        <status_chip label="RUNNING" tone="#color_cyan" />
+                        <box grow="1" />
+                        <ui_button label="PAUSE" />
+                        <ui_button label="MACHINE ACTIONS">
+                            <screen_create_event screen="c64_machine" anim_type="fade_in" duration="120" />
+                        </ui_button>
+                    </row>
+
+                    <row width="100%" grow="1" gap="#space_lg" vertical_align="start">
+                        <panel grow="1" height="100%" gap="0">
+                            <lv_label text="MEDIA" style_text_font="font_caption"
+                                      style_text_color="#color_muted" />
+                            <action_row title="Drive 8" subtitle="Last Ninja 2.d64" meta="CLEAN"
+                                        tone="#color_cyan">
+                                <screen_create_event screen="c64_drives" anim_type="fade_in" duration="120" />
+                            </action_row>
+                            <action_row title="Drive 9" subtitle="No image" meta="EMPTY"
+                                        tone="#color_muted">
+                                <screen_create_event screen="c64_drives" anim_type="fade_in" duration="120" />
+                            </action_row>
+                            <action_row title="Cartridge &amp; REU" subtitle="Sam's Journey.crt / 16 MB"
+                                        meta="ACTIVE" tone="#color_amber">
+                                <screen_create_event screen="writeback_warning" anim_type="fade_in" duration="120" />
+                            </action_row>
+                            <action_row title="Tape, IEC &amp; printer" subtitle="Direct peripherals and transfer tools"
+                                        meta="I/O" tone="#color_muted">
+                                <screen_create_event screen="c64_peripherals" anim_type="fade_in" duration="120" />
+                            </action_row>
+                            <box grow="1" />
+                            <ui_button label="F7  ALL C64 ACTIONS" width="100%">
+                                <screen_create_event screen="action_catalog" anim_type="fade_in" duration="120" />
+                            </ui_button>
+                        </panel>
+
+                        <panel width="260" height="100%" gap="#space_md" raised="true">
+                            <lv_label text="MACHINE" style_text_font="font_caption"
+                                      style_text_color="#color_muted" />
+                            <row width="100%">
+                                <lv_label text="Video" style_text_font="font_body"
+                                          style_text_color="#color_muted" />
+                                <box grow="1" />
+                                <lv_label text="PAL / 50.12 Hz" style_text_font="font_body"
+                                          style_text_color="#color_ink" />
+                            </row>
+                            <row width="100%">
+                                <lv_label text="CPU" style_text_font="font_body"
+                                          style_text_color="#color_muted" />
+                                <box grow="1" />
+                                <lv_label text="1.00 MHz" style_text_font="font_body"
+                                          style_text_color="#color_ink" />
+                            </row>
+                            <row width="100%">
+                                <lv_label text="Expansion" style_text_font="font_body"
+                                          style_text_color="#color_muted" />
+                                <box grow="1" />
+                                <lv_label text="CRT + REU" style_text_font="font_body"
+                                          style_text_color="#color_amber" />
+                            </row>
+                            <row width="100%">
+                                <lv_label text="Controls" style_text_font="font_body"
+                                          style_text_color="#color_muted" />
+                                <box grow="1" />
+                                <lv_label text="Mouse + Joystick" style_text_font="font_body"
+                                          style_text_color="#color_ink" />
+                            </row>
+                            <box grow="1" />
+                            <lv_label text="F2  OPEN TIMEWARP" style_text_font="font_caption"
+                                      style_text_color="#color_violet" />
+                        </panel>
+                    </row>
+                </column>
+            </app_shell-content>
+        </app_shell>
+    </view>
+</screen>

@@ -1,0 +1,2 @@
+# tests/uicore: negative controls kept under T174 D5.4 (persistence only)
+tests/uicore/run\.sh : nosave|regrant|tokpoll   # persistence - the API token file on the medium: written at grant, re-read at start, a deleted file ends the grant (T192.1 Q5)

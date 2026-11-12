@@ -1,0 +1,7 @@
+{'errors': []}
+regs, D031=83: ['FF', '83'] (3.998, '83', 'FF')
+seq 44
+{'errors': []}
+after NTSC: READY A5 seq 44 PC-ish mem C000.. 0000000b0a043520ffff0000ffffa52c
+NTSC:  ['FF', '89']
+(15.972, '89', 'FF')

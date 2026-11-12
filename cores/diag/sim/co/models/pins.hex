@@ -1,0 +1,4 @@
+// pins.toml: nothing plugged, every pin follows the engine's drive (open-drain loop-back), no comparator moves
+// first word: the phases; per phase: external pins (1 = high), comparator bits forced, K0 K1 K2 K3
+1
+3ff 0 0 0 0 0

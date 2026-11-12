@@ -1,0 +1,441 @@
+# TREX CRT (T104.3 D0, D9.1): what the application adds to the core's menu and the screens it brings. Nothing here is code. The screens are the eight states of
+# docs/lvgl_ui_project/TREX-CRT-UI.md: Home (the chooser), Dump, Flash, the write confirmation, the whole-EF3 erase confirmation, the progress, the result and
+# the Inspector. Four of them are on the tab strip (1 .. 4); the other four are tabs that are not on it (`hidden`): the application shows them (`follow`) and
+# RUN/STOP stays locked while a step cannot stop (`lock`). Every value is a state of glue.cc (cart.*), every button an operation of it.
+
+# ---- the core's menu: Write to Cartridge on .crt, and the Tools rows (the core's menu.toml names them) -----------------------------------------------------
+[[file_action]]
+ext = [".crt"]
+label = "Write to Cartridge"
+app = "trex_crt"
+action = "write"
+
+# ---- the screens ----------------------------------------------------------------------------------------------------------------------------------------
+[[area]]
+key = "APP"
+name = "TREX CRT"
+
+  [[area.tab]]
+  id = "home"
+  name = "Home"
+  widget = "nodes"
+  n = 1
+  layout = "app"
+  ui = { crumb = "C64 / CARTRIDGE TOOLS", title = "TREX CRT", chip = "@cart.chip", side = "CURRENT TARGET", enter = "cart.enter_home", follow = "cart.screen", lock = "cart.lock", note = "Opening a .crt from the Library starts Flash with that file already selected. The app shows what it will read or change before it starts." }
+
+  [[area.tab]]
+  id = "dump"
+  name = "Dump"
+  widget = "nodes"
+  n = 2
+  layout = "app"
+  ui = { crumb = "TREX CRT / DUMP", title = "Dump cartridge", chip = "@cart.chip", enter = "cart.enter_dump", lock = "cart.lock", back = "home", status = "cart.status", map1 = "ROML", map1_s = "cart.map_lo", map1_d = "cart.map_lo_d", map1_t = "cyan", map2 = "ROMH", map2_s = "cart.map_hi", map2_d = "cart.map_hi_d", map2_t = "violet" }
+
+  [[area.tab]]
+  id = "flash"
+  name = "Flash"
+  widget = "nodes"
+  n = 3
+  layout = "app"
+  ui = { crumb = "TREX CRT / FLASH", title = "Flash cartridge", chip = "@cart.chip", enter = "cart.enter_flash", lock = "cart.lock", back = "home", status = "cart.status", map1 = "ROML", map1_s = "cart.map_lo", map1_d = "cart.map_lo_d", map1_t = "amber", map2 = "ROMH", map2_s = "cart.map_hi", map2_d = "cart.map_hi_d", map2_t = "amber" }
+
+  [[area.tab]]
+  id = "inspect"
+  name = "Inspect"
+  widget = "nodes"
+  n = 4
+  layout = "grid"
+  ui = { crumb = "TREX CRT / INSPECT", title = "Cart Inspector", chip = "@cart.chip", enter = "cart.enter_inspect", lock = "cart.lock", back = "home", keys = "cart.inspect.key", grid = "cart.grid", lines = "17", side = "CARTRIDGE STATE", note = "UP/DOWN scrolls the memory, LEFT/RIGHT changes the bank." }
+
+  [[area.tab]]
+  id = "confirm"
+  name = "Write"
+  widget = "nodes"
+  n = 91
+  layout = "app"
+  ui = { hidden = true, under = "flash", crumb = "TREX CRT / FLASH", title = "Write this cartridge?", chip = "ERASES FIRST", lock = "cart.lock", back = "flash", note = "cart.scope" }
+
+  [[area.tab]]
+  id = "erase"
+  name = "Erase"
+  widget = "nodes"
+  n = 92
+  layout = "app"
+  ui = { hidden = true, under = "flash", crumb = "TREX CRT / FLASH / MAINTENANCE", title = "Erase the whole EasyFlash 3?", chip = "DESTROYS ALL", lock = "cart.lock", back = "flash", note = "A chip erase cannot be taken back. After it the cartridge does not start until a type 90 system image is written to it, which needs the whole-cartridge write of the Flash screen." }
+
+  [[area.tab]]
+  id = "progress"
+  name = "Progress"
+  widget = "nodes"
+  n = 93
+  layout = "app"
+  ui = { hidden = true, crumb = "TREX CRT", title = "@cart.title", chip = "WORKING", lock = "cart.lock", status = "cart.status", pct = "cart.pct", pct_label = "cart.phase", pct_note = "cart.count", note = "cart.note", map1 = "ROML", map1_s = "cart.map_lo", map1_d = "cart.map_lo_d", map1_t = "amber", map2 = "ROMH", map2_s = "cart.map_hi", map2_d = "cart.map_hi_d", map2_t = "amber" }
+
+  [[area.tab]]
+  id = "result"
+  name = "Result"
+  widget = "nodes"
+  n = 94
+  layout = "app"
+  ui = { hidden = true, crumb = "TREX CRT", title = "@cart.title", chip = "@cart.chip", lock = "cart.lock", back = "home", status = "cart.status", map1 = "ROML", map1_s = "cart.map_lo", map1_d = "cart.map_lo_d", map1_t = "cyan", map2 = "ROMH", map2_s = "cart.map_hi", map2_d = "cart.map_hi_d", map2_t = "violet" }
+
+# ---- Home: the chooser and the current target -----------------------------------------------------------------------------------------------------------
+[[node]]
+anchor = "APP/home"
+kind = "op"
+label = "Inspect cartridge"
+order = 10
+ui = { sub = "Browse memory, banks, and cartridge registers", chip = "READ ONLY", tone = "cyan", goto = "APP/inspect" }
+
+[[node]]
+anchor = "APP/home"
+kind = "op"
+label = "Dump cartridge"
+order = 20
+ui = { sub = "Scan the cartridge and save a CRT image", chip = "SAVE FILE", tone = "violet", goto = "APP/dump" }
+
+[[node]]
+anchor = "APP/home"
+kind = "op"
+label = "Flash cartridge"
+order = 30
+ui = { sub = "Write and verify a selected CRT image", chip = "WRITES CART", tone = "amber", goto = "APP/flash" }
+
+[[node]]
+anchor = "APP/home/side"
+kind = "state"
+label = "Cartridge"
+state = "cart.type"
+order = 10
+
+[[node]]
+anchor = "APP/home/side"
+kind = "state"
+label = "Slot"
+state = "cart.slot_short"
+order = 20
+
+[[node]]
+anchor = "APP/home/side"
+kind = "state"
+label = "Port"
+state = "cart.port"
+order = 30
+
+[[node]]
+anchor = "APP/home/side"
+kind = "state"
+label = "Write gate"
+state = "cart.gate"
+order = 40
+
+# ---- Dump -----------------------------------------------------------------------------------------------------------------------------------------------
+[[node]]
+anchor = "APP/dump"
+kind = "state"
+label = "Target"
+order = 10
+ui = { sub = "@cart.target", chip = "@cart.banks_chip", tone = "cyan" }
+
+[[node]]
+anchor = "APP/dump"
+kind = "op"
+label = "Save as"
+op = "cart.dest.choose"
+order = 20
+ui = { sub = "@cart.dest", chip = "CHANGE", tone = "violet" }
+
+[[node]]
+anchor = "APP/dump/bar"
+kind = "op"
+label = "Scan"
+op = "cart.scan"
+bind = [ { arg = "tool", int = 1 } ]
+order = 10
+ui = { key = "F1" }
+
+[[node]]
+anchor = "APP/dump/bar"
+kind = "op"
+label = "Inspect"
+order = 20
+ui = { key = "F5", goto = "APP/inspect" }
+
+[[node]]
+anchor = "APP/dump/bar"
+kind = "op"
+label = "Slot"
+op = "cart.ef3.choose_target_or_erase"
+bind = [ { arg = "tool", int = 1 } ]
+order = 30
+ui = { key = "F7", hide = "@cart.not_ef3", legend = "SLOT" }
+
+[[node]]
+anchor = "APP/dump/bar"
+kind = "op"
+label = "Dump to file"
+op = "cart.dump.start"
+order = 40
+ui = { key = "F3", primary = true, legend = "DUMP" }
+
+# ---- Flash ----------------------------------------------------------------------------------------------------------------------------------------------
+[[node]]
+anchor = "APP/flash"
+kind = "op"
+label = "Source"
+op = "cart.source.choose"
+order = 10
+ui = { sub = "@cart.src", chip = "@cart.src_type", tone = "cyan" }
+
+[[node]]
+anchor = "APP/flash"
+kind = "state"
+label = "Target"
+order = 20
+ui = { sub = "@cart.target", chip = "@cart.banks_chip", tone = "amber", hide = "@cart.is_ef3" }
+
+[[node]]
+anchor = "APP/flash"
+kind = "op"
+label = "Target"
+op = "cart.ef3.choose_target_or_erase"
+bind = [ { arg = "tool", int = 2 } ]
+order = 21
+ui = { sub = "@cart.target", chip = "CHANGE SLOT", tone = "amber", hide = "@cart.not_ef3" }
+
+[[node]]
+anchor = "APP/flash"
+kind = "op"
+label = "Maintenance"
+op = "cart.ef3.ask_erase"
+order = 30
+ui = { sub = "EasyFlash 3 whole-cartridge operations", chip = "ERASE WHOLE EF3...", tone = "coral", hide = "@cart.not_ef3" }
+
+[[node]]
+anchor = "APP/flash/bar"
+kind = "op"
+label = "Scan"
+op = "cart.scan"
+bind = [ { arg = "tool", int = 2 } ]
+order = 10
+ui = { key = "F1" }
+
+[[node]]
+anchor = "APP/flash/bar"
+kind = "op"
+label = "Verify"
+op = "cart.verify.start"
+order = 20
+ui = { key = "F5" }
+
+[[node]]
+anchor = "APP/flash/bar"
+kind = "op"
+label = "Slot / erase"
+op = "cart.ef3.choose_target_or_erase"
+bind = [ { arg = "tool", int = 2 } ]
+order = 30
+ui = { key = "F7", hide = "@cart.not_ef3", legend = "SLOT / ERASE" }
+
+[[node]]
+anchor = "APP/flash/bar"
+kind = "op"
+label = "Write cartridge"
+op = "cart.write.confirm"
+order = 40
+ui = { key = "F3", primary = true, legend = "WRITE" }
+
+# ---- the write confirmation -----------------------------------------------------------------------------------------------------------------------------
+[[node]]
+anchor = "APP/confirm"
+kind = "state"
+label = "Source"
+order = 10
+ui = { sub = "@cart.src", chip = "@cart.src_type", tone = "cyan" }
+
+[[node]]
+anchor = "APP/confirm"
+kind = "state"
+label = "Target"
+order = 20
+ui = { sub = "@cart.target", chip = "@cart.banks_chip", tone = "amber" }
+
+[[node]]
+anchor = "APP/confirm/bar"
+kind = "op"
+label = "Cancel"
+order = 10
+ui = { goto = "APP/flash" }
+
+[[node]]
+anchor = "APP/confirm/bar"
+kind = "op"
+label = "Write cartridge"
+op = "cart.write.start"
+order = 20
+ui = { primary = true }
+
+# ---- the whole-EF3 erase confirmation -------------------------------------------------------------------------------------------------------------------
+[[node]]
+anchor = "APP/erase"
+kind = "state"
+label = "System area"
+order = 10
+ui = { sub = "The menu, the KERNALs, EasyProg and the freezers go", chip = "ERASED", tone = "coral" }
+
+[[node]]
+anchor = "APP/erase"
+kind = "state"
+label = "EF-Directory"
+order = 20
+ui = { sub = "The slot names go", chip = "ERASED", tone = "coral" }
+
+[[node]]
+anchor = "APP/erase"
+kind = "state"
+label = "Every slot"
+order = 30
+ui = { sub = "All 8 MB, slots 1 to 7 included", chip = "ERASED", tone = "coral" }
+
+[[node]]
+anchor = "APP/erase"
+kind = "state"
+label = "Way back"
+order = 40
+ui = { sub = "Only a type 90 image written to the cartridge makes it start again", chip = "TYPE 90", tone = "amber" }
+
+[[node]]
+anchor = "APP/erase/bar"
+kind = "op"
+label = "Cancel"
+order = 10
+ui = { goto = "APP/flash" }
+
+[[node]]
+anchor = "APP/erase/bar"
+kind = "op"
+label = "Erase whole EF3"
+op = "cart.ef3.erase_all"
+order = 20
+ui = { primary = true }
+
+# ---- the result -----------------------------------------------------------------------------------------------------------------------------------------
+[[node]]
+anchor = "APP/result"
+kind = "state"
+label = "Done"
+order = 10
+ui = { sub = "@cart.res_prog", chip = "WRITE", tone = "cyan" }
+
+[[node]]
+anchor = "APP/result"
+kind = "state"
+label = "Checked"
+order = 20
+ui = { sub = "@cart.res_verify", chip = "READ BACK", tone = "cyan" }
+
+[[node]]
+anchor = "APP/result"
+kind = "state"
+label = "Where"
+order = 30
+ui = { sub = "@cart.res_extra", chip = "NOTE", tone = "muted" }
+
+[[node]]
+anchor = "APP/result/bar"
+kind = "op"
+label = "Verify again"
+op = "cart.verify.start"
+order = 10
+ui = { key = "F5" }
+
+[[node]]
+anchor = "APP/result/bar"
+kind = "op"
+label = "Another slot"
+op = "cart.ef3.choose_target_or_erase"
+bind = [ { arg = "tool", int = 2 } ]
+order = 20
+ui = { key = "F7", hide = "@cart.not_ef3" }
+
+[[node]]
+anchor = "APP/result/bar"
+kind = "op"
+label = "Done"
+order = 30
+ui = { primary = true, goto = "APP/home" }
+
+# ---- the Inspector --------------------------------------------------------------------------------------------------------------------------------------
+[[node]]
+anchor = "APP/inspect/side"
+kind = "state"
+label = "Type"
+state = "cart.i_type"
+order = 10
+
+[[node]]
+anchor = "APP/inspect/side"
+kind = "state"
+label = "Slot"
+state = "cart.i_slot"
+order = 20
+
+[[node]]
+anchor = "APP/inspect/side"
+kind = "state"
+label = "Bank"
+state = "cart.i_bank"
+order = 30
+
+[[node]]
+anchor = "APP/inspect/side"
+kind = "state"
+label = "$01"
+state = "cart.i_cpu"
+order = 40
+
+[[node]]
+anchor = "APP/inspect/side"
+kind = "state"
+label = "$DE00"
+state = "cart.i_de00"
+order = 50
+
+[[node]]
+anchor = "APP/inspect/side"
+kind = "state"
+label = "GAME / EXROM"
+state = "cart.i_pins"
+order = 60
+
+[[node]]
+anchor = "APP/inspect/bar"
+kind = "op"
+label = "Go to"
+op = "cart.inspect.goto"
+order = 10
+ui = { key = "F1", legend = "GO TO" }
+
+[[node]]
+anchor = "APP/inspect/bar"
+kind = "op"
+label = "Write byte"
+op = "cart.inspect.write"
+order = 20
+ui = { key = "F3", legend = "WRITE BYTE" }
+
+[[node]]
+anchor = "APP/inspect/bar"
+kind = "op"
+label = "Set $01"
+op = "cart.inspect.set01"
+order = 30
+ui = { key = "F5", legend = "SET $01" }
+
+[[node]]
+anchor = "APP/inspect/bar"
+kind = "op"
+label = "Set $DE00"
+op = "cart.inspect.setde00"
+order = 40
+ui = { key = "F7", legend = "SET $DE00" }

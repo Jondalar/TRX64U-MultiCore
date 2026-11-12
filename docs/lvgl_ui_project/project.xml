@@ -1,0 +1,7 @@
+<project name="trx64_ui" theme="simple" lvgl_version="9.5.0">
+    <targets>
+        <target name="m2_panel">
+            <display width="960" height="540"/>
+        </target>
+    </targets>
+</project>

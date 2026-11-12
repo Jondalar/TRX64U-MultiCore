@@ -1,0 +1,12 @@
+# Threads a bench keeps busy at once (T174, sims red): ci/sims.sh counts them against its core budget. One line per bench, "<bench>: <n>";
+# no line = 1. The number is what the bench's own command starts and keeps running (xargs -P / JOBS / background jobs + wait), read
+# from its script - not the short -j of a Verilator build that only the first minutes use. A bench wider than the whole budget runs alone.
+hdmi_out: 8
+vicscale: 5
+pixscale: 12
+ovl_geom: 4
+ovl_hold: 4
+hdmi_enc: 4
+apple2_woz: 3
+apple2_hdd: 3
+diag_co: 4

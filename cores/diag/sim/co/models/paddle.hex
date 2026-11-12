@@ -1,0 +1,5 @@
+// paddle.toml: phase 1 = all four paddles at the left end (charge 50, 60, 70, 80 us), phase 2 = the right end (2.0, 2.5, 3.0, 3.5 ms); K in 10 ns clocks
+3
+3ff 0 0 0 0 0
+3ff 0 1388 1770 1b58 1f40
+3ff 0 30d40 3d090 493e0 55730

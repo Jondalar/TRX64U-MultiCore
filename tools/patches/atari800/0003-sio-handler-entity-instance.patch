@@ -1,0 +1,11 @@
+--- a/sioemu/sio_handler.vhdl
++++ b/sioemu/sio_handler.vhdl
+@@ -337,7 +337,7 @@
+ --	);
+ 
+ 
+-transmit_fifo : work.fifo_transmit
++transmit_fifo : entity work.fifo_transmit
+ 	PORT MAP
+ 	(
+ 		clock		=> clk,

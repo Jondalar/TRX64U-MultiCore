@@ -1,0 +1,20 @@
+tests/coreapp/run.sh : noflash_.*|board_bootcfg|board_cfg_dir|cart_flash_banks   # flash - nothing but the one config path may be written to /flash; boot config and bank geometry of the flash
+tests/coreapp/run.sh : wb_.*|longnames_side   # flash - write-back of a cartridge's flash writes (EF3/S6 program, erase, EEPROM) to the .crt and the .bak side file
+tests/coreapp/run.sh : mwb_.*|wbm_.*   # persistence - media write-back before reset, eject, replace and return to the host
+tests/coreapp/run.sh : set_writes_all|set_loses_value|set_reset_keeps|set_case|scale_store|pad_cfgkeys|pad_wiz_not_saved|pad_wiz_saved_lie|rs_setop|home_not_stored   # persistence - settings written to the .cfg and read back
+tests/coreapp/run.sh : mnt_not_stored|mnt_off_acts|mnt_off_keys_stay|mnt_eject_not_stored|mnt_set_writeback|mme_.*   # persistence - the mounted media stored in the .cfg and restored
+tests/coreapp/run.sh : a2d_no_flush|a2d_flush_ignored|a2d_sync_ignored|a2d_kept_dropped|a2d_kept_retry|a2d_saving|a2d_hdd_sync_ignored   # persistence - Apple II disk write-back
+tests/coreapp/run.sh : cpc_disk_take|cpc_disk_idle|cpc_disk_maxdirty|cpc_disk_short|cpc_disk_eject|cpc_disk_retry|cpc_disk_mountflush|cpc_disk_marks|cpc_unsynced_forgotten|cpc_mount_poll|cpc_disk_flushinit|cpc_hook_engine   # persistence - CPC disk write-back
+tests/coreapp/run.sh : win_idle|win_maxdirty|win_eject_flush|win_overflow|fh_swap_sync|sec_stage_write|sec_idle|sec_eject_sync   # persistence - window and sector media write-back to the image file
+tests/coreapp/run.sh : drv_flush|drv_discard|drv_unsaved|drv_unsaved_ignored|drv_failed_forgotten|drv_unlinked_stops|drv_eject_settle|drv_mount_settle|drv_busy|drv_hook_engine   # persistence - 1541 drive write-back of a changed disk
+tests/coreapp/run.sh : a8_hook_engine|a8_flush_ignored|sio_nowrite   # persistence - Atari disk sector write and write-back
+tests/coreapp/run.sh : snes_changed|snes_flush_init|snes_replace_flush|snes_flush_fails|snes_retry|snes_dir|snes_load   # persistence - SNES battery save file
+tests/coreapp/run.sh : neo_save_read|neo_save_load|neo_own_save|neo_old_save|neo_leaving_flush|neo_failed_forgotten|neo_unchanged_stops   # persistence - Neo Geo backup RAM save file
+tests/coreapp/run.sh : fh_nopatch|fh_consistent|fh_nofold|fh_rename|fh_delete|fh_content|fh_mkdir|fh_sidecar|fh_scratch|fh_link|fh_abort|fh_bmflag|fh_limbo|fh_inplace|fh_repair|fh_absent|fh_slice   # persistence - folder disk: writes folded back into the folder's files
+tests/coreapp/run.sh : board_migrate_overwrite|board_migrate_move|board_cfg_path|board_cfg_named_by_store|cf_start_cfg|handover_cfgext|cf_cfg_keep_old|cf_cfg_overwrite|cf_cfg_noverify|cf_copy_noverify|cf_copy_keepbad|cf_no_saves|cf_overwrite   # persistence - the config file and saves moved and copied into the core folder
+tests/coreapp/run.sh : guard_.*   # persistence - the library-load guard marker written and cleared on the volume
+tests/coreapp/run.sh : drv_exists|drv_bare|nd_exists|nd_bare|cf_remove|cf_chunk   # persistence - creating a new disk image file: no overwrite, no half file left
+tests/coreapp/run.sh : diagtest_overwrite|diagtest_halffile   # persistence - the diag test's file writing: no overwrite, no half file
+tests/coreapp/run.sh : cr_overwrite|cr_no_folder   # persistence - the core report file written to the USB stick
+tests/loader/run.sh : fs_flash_save|fs_flash_rename|fs_flash_open   # flash - an application may not write, rename or open for writing in /flash
+tests/coreapp/run.sh : cfg_save_inplace|cfg_save_no_swap|cfg_load_rebind|cfg_no_recovery   # persistence - T198 config files: save via temp + swap, load rebinds the settings file, recovery after a power loss

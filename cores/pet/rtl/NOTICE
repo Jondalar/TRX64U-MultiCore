@@ -1,0 +1,50 @@
+cores/pet/rtl - licences and origin (T134)
+
+src/ (vendored, unmodified)
+  Origin: https://github.com/skibo/Pet2001_Arty , commit 684988fa8ca36e355c3499c3ae9cd68c3ff18746 (2025-06-23), fetched 2026-11-10 from master.
+  Licence: BSD 2-clause (the licence text sits in the head of each file: "Redistribution and use in source and binary forms ...").
+  cpu6502.v        Pet2001_Arty.srcs/source_1/cpu6502/cpu6502.v           Copyright (c) 2022-2023 Thomas Skibo
+  pia6520.v        Pet2001_Arty.srcs/source_1/pet2001hw/pia6520.v         Copyright (C) 2011 Thomas Skibo
+  via6522.v        Pet2001_Arty.srcs/source_1/pet2001hw/via6522.v         Copyright (C) 2011 Thomas Skibo
+  pet2001io.v      Pet2001_Arty.srcs/source_1/pet2001hw/pet2001io.v       Copyright (C) 2011 Thomas Skibo
+  The PET machine itself (bus, memories, CRTC, picture, keyboard, registers) in trx/ is written for this project and follows pet2001hw.v in what the
+  hardware does; no line of it is copied.
+
+Not vendored (no ROM bytes in this repository): the PET ROMs (BASIC, editor, KERNAL, character set) are the person's files, put through the
+core application at run time (Commodore ROMs, clean room).
+
+trx/pet_spet.v (the SuperPET board registers, Q13) is written for this project from the behaviour of VICE's pet/petmem.c (read as the reference, no code copied).
+
+trx/pet_pixw.v, pet_win.v, pet_regs.v, pet_audio.v are derived from the C264 core's modules of the same author (cores/c264/rtl/trx, T90).
+
+ieee_drive/ (vendored from https://github.com/MiSTer-devel/PET2001_MiSTer , rtl/ieee_drive/; blob hashes compared 2026-11-11 with `git hash-object` against the history)
+  Upstream HEAD cc95c2975649c2b878c5d46e50c48d01dc7a97f7 (Release 20260603). The fetch commit was not recorded; the matches below are by content.
+  ieee_drive.sv      identical to upstream ed5262657d445f1d032664f1e096c259ab7a0384 (2025-07-07). GPL-2 or later, Copyright (C) 2024 Erik Scheffers
+  ieeedrv_drv.sv     identical to ed5262657d44 (same). GPL-2 or later, Scheffers
+  ieeedrv_step.sv    identical to ed5262657d44 (same). GPL-2 or later, Scheffers
+  ieeedrv_track.sv  MODIFIED: output kinds for Vivado (drv_act, ltrack, sd_lba, sd_blk_cnt declared `output logic`); otherwise identical to ed5262657d44. GPL-2 or later, Scheffers
+  ieeedrv_trkgen.sv  MODIFIED: output kinds for Vivado (id_wr, id_hdr, byte_n, brdy_n, error, sync_rd_n, byte_rd declared `output logic`); otherwise identical to ed5262657d44. GPL-2 or later, Scheffers
+  types.sv           identical to upstream 1d8d0e384ce28615f89a98d23be9bfeb834646e0 (2025-05-07, also at ed5262657d44). No licence text in the file; the repository is GPL-2 or later.
+  M6532.sv           identical to 1d8d0e384ce2 except modified: output kinds for Vivado (d_out declared `output reg`). Header: "k7800 (c) by Jamie Blanks", Creative Commons Attribution-NonCommercial 4.0 - NOT GPL;
+                     TREX-internal use only, must not reach a public release without a decision by Alex.
+  ieee_misc.sv       MODIFIED (no upstream blob matches). Base ed5262657d44; TREX change: the two altsyncram wrappers replaced by inferred true dual port
+                     block RAMs, INITFILE (.mif ROMs) dropped; also modified: output kinds for Vivado (rom_addr declared `output reg`). GPL-2 or later, Scheffers.
+  ieeedrv_logic.sv   MODIFIED (no upstream blob matches). Base ed5262657d44; TREX change: T65 address port wire named (no truncation), small port edits. GPL-2 or later, Scheffers.
+  ieeedrv_via6522.v  MODIFIED copy of upstream rtl/via6522.v (HEAD cc95c29...; the fetch commit unknown): differs only in the module name (via6522 -> ieeedrv_via6522).
+                     BSD 2-clause style (head: "Redistributions of source code must retain the above copyright"), Copyright (C) 2011 Thomas Skibo.
+  The upstream roms/*.mif (Commodore DOS / controller ROMs) are NOT vendored.
+
+src/t65/ (vendored, unmodified)
+  Origin: https://github.com/MiSTer-devel/T65 . All four files are byte-identical to commit d8718fd4e4f5389a6238ded1301f4ac3ab93159d (2020-05-18).
+  Upstream HEAD 9bd3a25fa95a5bab4e4ee86e0c9c76967f11775e (2020-07-21) differs in T65.vhd only (2 lines); the other three are identical there too.
+  Licence: the T65 licence in the head of T65.vhd (BSD-style: "Redistribution and use in source and synthezised forms ... must retain the above
+  copyright notice"), Copyright (c) 2002 Daniel Wallner, 2002-2015 FPGAARCADE.
+  Files: T65.vhd T65_ALU.vhd T65_MCode.vhd T65_Pack.vhd (all four: BSD-style, Wallner / FPGAARCADE)
+
+src/mc6809/ (vendored, unmodified)
+  Origin: https://github.com/MiSTer-devel/Vectrex_MiSTer , commit 33a82999e2ffaede20e50693db469bf9b0f57705 (2026-11-04), rtl/mc6809is.v, fetched 2026-11-11.
+  This is Greg Miller's cycle-accurate MC6809 (https://github.com/cavnex/mc6809 , commit 17e94a6ef163be8b79a9b15b2e814847b6062f0f) in Sorgelig's synchronous
+  form with Videodr0me's fixes (NMI arming, reset interrupt state, SEX flags). Copyright (c) 2016, Greg Miller.
+  Licence: the author offers the stock BSD 3-clause licence for source redistribution (documentation/LICENSE.md of his repository, copied here as
+  src/mc6809/LICENSE.md); the source header names no licence text itself. We take the BSD option. Not GPL: the Vectrex repository's own files are, this one is not.
+  Used by trx/pet_core.v for the SuperPET's 6809 (ports used: CLK, fallE_en, fallQ_en, D, DOut, ADDR, RnW, nIRQ, nFIRQ, nNMI, nRESET).

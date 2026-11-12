@@ -1,0 +1,56 @@
+<screen>
+    <view>
+        <style name="style_screen" />
+        <crt_shell active_tab="3" state="COMPLETE" tone="#color_cyan"
+                   f1="SCAN" f3="WRITE" f5="VERIFY" f7="SLOT">
+            <crt_shell-content>
+                <column width="100%" height="100%" pad="#space_lg" gap="#space_lg">
+                    <row width="100%">
+                        <column grow="1" gap="#space_xs">
+                            <lv_label text="TREX CRT / RESULT" style_text_font="font_caption"
+                                      style_text_color="#color_muted" />
+                            <lv_label text="Write complete" style_text_font="font_title"
+                                      style_text_color="#color_ink" />
+                        </column>
+                        <status_chip label="VERIFIED" tone="#color_cyan" />
+                    </row>
+
+                    <row width="100%" grow="1" gap="#space_lg" vertical_align="start">
+                        <panel grow="1" height="100%" gap="#space_lg" raised="true">
+                            <lv_label text="SAM'S JOURNEY" style_text_font="font_display"
+                                      style_text_color="#color_ink" />
+                            <lv_label text="EasyFlash 3 / Slot 2" style_text_font="font_body"
+                                      style_text_color="#color_muted" />
+                            <lv_obj width="100%" height="2" style_bg_color="#color_cyan"
+                                    style_bg_opa="100%" style_border_width="0" />
+                            <row width="100%"><lv_label text="Programmed" style_text_font="font_caption" style_text_color="#color_muted" /><box grow="1" /><lv_label text="64 banks" style_text_font="font_body" style_text_color="#color_ink" /></row>
+                            <row width="100%"><lv_label text="Verified" style_text_font="font_caption" style_text_color="#color_muted" /><box grow="1" /><lv_label text="64 / 64 OK" style_text_font="font_body" style_text_color="#color_cyan" /></row>
+                            <row width="100%"><lv_label text="EEPROM" style_text_font="font_caption" style_text_color="#color_muted" /><box grow="1" /><lv_label text="Not present" style_text_font="font_body" style_text_color="#color_ink" /></row>
+                            <row width="100%"><lv_label text="Slot name" style_text_font="font_caption" style_text_color="#color_muted" /><box grow="1" /><lv_label text="Updated" style_text_font="font_body" style_text_color="#color_ink" /></row>
+                            <box grow="1" />
+                            <lv_label text="The cartridge is back in read mode. Leaving the tool resets the C64 and starts the cartridge."
+                                      width="100%" long_mode="wrap" style_text_font="font_caption"
+                                      style_text_color="#color_muted" />
+                        </panel>
+
+                        <panel width="292" height="100%" gap="0">
+                            <action_row title="Verify again" subtitle="Read every programmed bank"
+                                        meta="F5" tone="#color_cyan" />
+                            <action_row title="Write another slot" subtitle="Choose a new target first"
+                                        meta="F7" tone="#color_amber">
+                                <screen_create_event screen="crt_flash" anim_type="fade_in" duration="100" />
+                            </action_row>
+                            <action_row title="Back to cartridge tools" subtitle="Keep the cartridge selected"
+                                        meta="BACK" tone="#color_muted">
+                                <screen_create_event screen="crt_home" anim_type="fade_in" duration="100" />
+                            </action_row>
+                            <box grow="1" />
+                            <lv_label text="R/S closes TREX CRT" style_text_font="font_caption"
+                                      style_text_color="#color_muted" />
+                        </panel>
+                    </row>
+                </column>
+            </crt_shell-content>
+        </crt_shell>
+    </view>
+</screen>

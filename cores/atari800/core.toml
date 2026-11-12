@@ -1,0 +1,13 @@
+# The Atari 800 XL core (T88), Mark Watson's Atari800 machine (gen/, patched, with a clock enable), our glue in trx/,
+# the 6502 replacement cpu.vhd on proc_core_a8 (a copy of vendor/icepi/6502n's, whose sub-units it still reads).
+# Passes its GHDL bench with a test OS and routes inside pb_l2 (run 26); no board yet (experimental).
+id           = "atari800"
+name         = "Atari 800 XL"
+version      = "0.0.1"
+contract     = 2
+app          = "blueprint"     # T84 D12 / T93: the blueprint, not Gideon's application
+order        = 4               # core order of docs/todo/T79.md
+experimental = true            # routes (run 26: 7020 LUT, 29.5 BRAM), application built (T93), never on a board
+sources      = ["cores/atari800", ":(exclude)cores/atari800/sim", ":(exclude)cores/atari800/roms",
+                "vendor/icepi/6502n"]   # the ROM images are the benches' and the board's, not the gateware's
+roms         = ["atarixl.rom"] # never in the repository, the CI or a .cor; from the stick

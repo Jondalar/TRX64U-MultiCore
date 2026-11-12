@@ -1,0 +1,7 @@
+# A U64 Elite II without the bling board. Same mainboard and same XC7A50T as the C64U, so one
+# host and one set of partials serve both (Alex, T94 Q5) - no second build matrix.
+board   = "u64e2"
+address = ""                     # no such board here yet; filled in when a tester's board exists
+set     = "rel-1"
+target  = "ftp"
+prune   = false

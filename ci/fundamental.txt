@@ -1,0 +1,39 @@
+# T174 D2.6 (Alex, 2026-11-07: "benches only when something fundamental was touched, otherwise at night"): THE one list of fundamental paths. Touching one
+# on a feature branch escalates the checks of that section; main, integration/release branches and tags always run everything. One git pathspec per line,
+# three sections, read by ci/plan.py (`plan.py fundamental benches|apptests` prints the lines for shell):
+#   [benches]   the full benches of a push - the render benches, the 64 bit file benches and every negative control (ci/render.sh, plan.json `fundamental`)
+#   [apptests]  ci/apptests.sh escalates its tier from fast to integration (controls, render benches, emulator scripts)
+#   [all]       both of the above
+# Everything else runs the benches at night on main (nightly.yml) and by hand (tools/dev.sh integrate).
+[all]
+coreapp/src/desc.h          # the descriptor every core app and every blueprint core reads
+app/view                    # the shared view layer both applications draw with
+ci/apptests.sh              # the host-test harness
+
+[benches]
+cores/common                # IEC bus and 1541, read by several cores
+host                        # the host gateware floorplan, boot ROM, core.tcl
+ci/render.sh                # the render/file bench harness itself
+tests/coreapp/render        # the render bench source
+:(glob)**/Makefile          # build system
+:(glob)**/*.mk
+vendor/gideon/software      # LVGL, FatFS, FreeRTOS, lwip: every application compiles them
+
+[apptests]
+coreapp/src/desc_check.h
+coreapp/src/descrec.h
+coreapp/src/ctx.h
+coreapp/src/ui.h
+app/video
+app/lib
+host-app/software/hostapp/lv_conf.h
+host-app/software/lvgl_port
+vendor/gideon/software/lvgl
+tests/ctlcache.sh
+tests/ctlcache.py
+tests/readlog.c
+tests/parallel.sh
+tests/lvgl_objs.sh
+ci/lib.sh
+host-app/target/u64ii/riscv/coreapp/Makefile
+host-app/target/u64ii/riscv/hostapp/Makefile

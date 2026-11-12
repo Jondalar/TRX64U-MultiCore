@@ -1,0 +1,10 @@
+        .rom_req_tgl(rom_req_tgl),
+        .rom_req_line(rom_req_line),
+        .rom_done_tgl(rom_done_tgl),
+        .rom_fill(rom_fill),
+        .rom_n_hit(rom_n_hit),
+        .rom_n_miss(rom_n_miss),
+        .rom_n_wait(rom_n_wait),
+        .rom_fill_max(rom_fill_max),
+        .rom_flush_tgl(rom_flush_tgl),
+        .rom_busy(rom_busy)

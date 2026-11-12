@@ -1,0 +1,18 @@
+--- a/trx_io.h
++++ b/trx_io.h
+@@ -1,4 +1,4 @@
+-// The TRX64 Ultimate bitstream's IO block (TRX64-Ultimate designs/c64_basic/trx_io.v,
++// The TRX64 Ultimate bitstream's IO block (TRX64-Ultimate repo, trx_io.v,
+ // docs/specs/ARCH-lean-state-access.md §10, §15.3): detection, the 32-bit register
+ // rule and the one interrupt line all its users share.
+ //
+@@ -62,6 +62,9 @@
+ #define TRX_IRQ_VSYNC      0x40
+ #define TRX_IRQ_FLIP       0x80
+ 
++// T93: the ID a core application accepts besides "TRX2" (four bytes, set before the first trx_io_caps()); null in the host app.
++extern const char *trx_io_alt_id;
++
+ // CAPS of the block, 0 without it ("TRX2" not at ID). Read once, then cached.
+ uint8_t trx_io_caps(void);
+ 

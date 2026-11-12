@@ -1,0 +1,52 @@
+<screen>
+    <view>
+        <style name="style_screen" />
+        <app_shell active_c64="true" active_tab="2">
+            <app_shell-content>
+                <column width="100%" height="100%" pad="#space_lg" gap="#space_md">
+                    <row width="100%">
+                        <column grow="1" gap="#space_xs">
+                            <lv_label text="C64 / MACHINE" style_text_font="font_caption"
+                                      style_text_color="#color_muted" />
+                            <lv_label text="Session and power" style_text_font="font_title"
+                                      style_text_color="#color_ink" />
+                        </column>
+                        <status_chip label="RUNNING" tone="#color_cyan" />
+                    </row>
+
+                    <row width="100%" grow="1" gap="#space_lg" vertical_align="start">
+                        <panel grow="1" height="100%" gap="0">
+                            <action_row title="Pause / resume" subtitle="Preserve the complete machine state"
+                                        meta="SESSION" tone="#color_violet" />
+                            <action_row title="Soft reset" subtitle="Reset the C64 without cycling power"
+                                        meta="RESET" tone="#color_amber" />
+                            <action_row title="Reboot Ultimate" subtitle="Restart firmware and machine"
+                                        meta="REBOOT" tone="#color_amber" />
+                            <action_row title="Clear C64 memory" subtitle="Confirmation required"
+                                        meta="CLEAR" tone="#color_coral" />
+                            <action_row title="Power cycle" subtitle="Turn off and restart the machine"
+                                        meta="POWER" tone="#color_coral" />
+                            <action_row title="Power off" subtitle="Leaves the board in its off state"
+                                        meta="OFF" tone="#color_coral" />
+                            <box grow="1" />
+                        </panel>
+
+                        <panel width="260" height="100%" gap="0" raised="true">
+                            <lv_label text="SAVE STATE TO FILE" style_text_font="font_caption"
+                                      style_text_color="#color_muted" style_pad_all="#space_sm" />
+                            <action_row title="C64 memory" meta="RAM" tone="#color_muted" />
+                            <action_row title="REU memory" meta="REU" tone="#color_muted" />
+                            <action_row title="Cartridge" meta="CRT" tone="#color_amber" />
+                            <action_row title="MP3 RAM drives" subtitle="Drive A, B, C, or D"
+                                        meta="MP3" tone="#color_muted" />
+                            <box grow="1" />
+                            <lv_label text="Target folder follows the Library context"
+                                      width="100%" long_mode="wrap"
+                                      style_text_font="font_caption" style_text_color="#color_muted" />
+                        </panel>
+                    </row>
+                </column>
+            </app_shell-content>
+        </app_shell>
+    </view>
+</screen>

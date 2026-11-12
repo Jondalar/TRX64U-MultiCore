@@ -1,0 +1,224 @@
+case scan_escape
+module|rescan
+pick|Access points|3 access points found, connected to Home WLAN|muted|n=3 sel=0 first=0|msg=warn:|keys=UP/DOWN   RETURN connect   R rescan   M manual   D disconnect   F forget   ESC close|fresh=1|[Home WLAN;WPA2 PSK;-48 dBm;ok][Cafe Lumiere;Open;-71 dBm;ink][Neighbour;WPA PSK;-83 dBm;warn]
+pick_end
+result|0|keys_left=0|esc_fallback=0
+case scan_open_ap
+module|rescan
+pick|Access points|3 access points found, connected to Home WLAN|muted|n=3 sel=0 first=0|msg=warn:|keys=UP/DOWN   RETURN connect   R rescan   M manual   D disconnect   F forget   ESC close|fresh=1|[Home WLAN;WPA2 PSK;-48 dBm;ok][Cafe Lumiere;Open;-71 dBm;ink][Neighbour;WPA PSK;-83 dBm;warn]
+pick|Access points|3 access points found, connected to Home WLAN|muted|n=3 sel=1 first=0|msg=warn:|keys=UP/DOWN   RETURN connect   R rescan   M manual   D disconnect   F forget   ESC close|fresh=0|[Home WLAN;WPA2 PSK;-48 dBm;ok][Cafe Lumiere;Open;-71 dBm;ink][Neighbour;WPA PSK;-83 dBm;warn]
+module|connect|ssid=Cafe Lumiere|pass=|auth=0|list=1
+pick_end
+result|0|keys_left=0|esc_fallback=0
+case scan_wpa_password
+module|rescan
+pick|Access points|3 access points found, connected to Home WLAN|muted|n=3 sel=0 first=0|msg=warn:|keys=UP/DOWN   RETURN connect   R rescan   M manual   D disconnect   F forget   ESC close|fresh=1|[Home WLAN;WPA2 PSK;-48 dBm;ok][Cafe Lumiere;Open;-71 dBm;ink][Neighbour;WPA PSK;-83 dBm;warn]
+entry|Password|Home WLAN    WPA2 PSK|keys=RETURN connects    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=|row=_|msg=|secret=1|first=1
+entry|Password|Home WLAN    WPA2 PSK|keys=RETURN connects    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=********|row=*_|msg=|secret=1|first=0
+entry|Password|Home WLAN    WPA2 PSK|keys=RETURN connects    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=********|row=**_|msg=|secret=1|first=0
+entry|Password|Home WLAN    WPA2 PSK|keys=RETURN connects    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=********|row=***_|msg=|secret=1|first=0
+entry|Password|Home WLAN    WPA2 PSK|keys=RETURN connects    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=********|row=****_|msg=|secret=1|first=0
+entry|Password|Home WLAN    WPA2 PSK|keys=RETURN connects    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=********|row=*****_|msg=|secret=1|first=0
+entry|Password|Home WLAN    WPA2 PSK|keys=RETURN connects    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=********|row=******_|msg=|secret=1|first=0
+entry_end|list_was_up=1
+module|connect|ssid=Home WLAN|pass=secret|auth=3|list=1
+pick_end
+result|0|keys_left=0|esc_fallback=0
+case scan_wpa_password_cancel
+module|rescan
+pick|Access points|3 access points found, connected to Home WLAN|muted|n=3 sel=0 first=0|msg=warn:|keys=UP/DOWN   RETURN connect   R rescan   M manual   D disconnect   F forget   ESC close|fresh=1|[Home WLAN;WPA2 PSK;-48 dBm;ok][Cafe Lumiere;Open;-71 dBm;ink][Neighbour;WPA PSK;-83 dBm;warn]
+entry|Password|Home WLAN    WPA2 PSK|keys=RETURN connects    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=|row=_|msg=|secret=1|first=1
+entry|Password|Home WLAN    WPA2 PSK|keys=RETURN connects    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=********|row=*_|msg=|secret=1|first=0
+entry|Password|Home WLAN    WPA2 PSK|keys=RETURN connects    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=********|row=**_|msg=|secret=1|first=0
+entry|Password|Home WLAN    WPA2 PSK|keys=RETURN connects    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=********|row=***_|msg=|secret=1|first=0
+entry_end|list_was_up=1
+pick|Access points|3 access points found, connected to Home WLAN|muted|n=3 sel=0 first=0|msg=warn:|keys=UP/DOWN   RETURN connect   R rescan   M manual   D disconnect   F forget   ESC close|fresh=0|[Home WLAN;WPA2 PSK;-48 dBm;ok][Cafe Lumiere;Open;-71 dBm;ink][Neighbour;WPA PSK;-83 dBm;warn]
+pick_end
+result|0|keys_left=0|esc_fallback=0
+case scan_rescan_then_esc
+module|rescan
+pick|Access points|3 access points found, connected to Home WLAN|muted|n=3 sel=0 first=0|msg=warn:|keys=UP/DOWN   RETURN connect   R rescan   M manual   D disconnect   F forget   ESC close|fresh=1|[Home WLAN;WPA2 PSK;-48 dBm;ok][Cafe Lumiere;Open;-71 dBm;ink][Neighbour;WPA PSK;-83 dBm;warn]
+module|rescan
+pick|Access points|No access point found. R scans again.|muted|n=0 sel=0 first=0|msg=muted:Scanning again ...|keys=UP/DOWN   RETURN connect   R rescan   M manual   D disconnect   F forget   ESC close|fresh=0|
+pick|Access points|No access point found. R scans again.|muted|n=0 sel=0 first=0|msg=muted:|keys=UP/DOWN   RETURN connect   R rescan   M manual   D disconnect   F forget   ESC close|fresh=0|
+pick_end
+result|0|keys_left=0|esc_fallback=0
+case scan_paging
+module|rescan
+pick|Access points|3 access points found, connected to Home WLAN|muted|n=3 sel=0 first=0|msg=warn:|keys=UP/DOWN   RETURN connect   R rescan   M manual   D disconnect   F forget   ESC close|fresh=1|[Home WLAN;WPA2 PSK;-48 dBm;ok][Cafe Lumiere;Open;-71 dBm;ink][Neighbour;WPA PSK;-83 dBm;warn]
+pick|Access points|3 access points found, connected to Home WLAN|muted|n=3 sel=2 first=0|msg=warn:|keys=UP/DOWN   RETURN connect   R rescan   M manual   D disconnect   F forget   ESC close|fresh=0|[Home WLAN;WPA2 PSK;-48 dBm;ok][Cafe Lumiere;Open;-71 dBm;ink][Neighbour;WPA PSK;-83 dBm;warn]
+pick|Access points|3 access points found, connected to Home WLAN|muted|n=3 sel=0 first=0|msg=warn:|keys=UP/DOWN   RETURN connect   R rescan   M manual   D disconnect   F forget   ESC close|fresh=0|[Home WLAN;WPA2 PSK;-48 dBm;ok][Cafe Lumiere;Open;-71 dBm;ink][Neighbour;WPA PSK;-83 dBm;warn]
+pick|Access points|3 access points found, connected to Home WLAN|muted|n=3 sel=0 first=0|msg=warn:|keys=UP/DOWN   RETURN connect   R rescan   M manual   D disconnect   F forget   ESC close|fresh=0|[Home WLAN;WPA2 PSK;-48 dBm;ok][Cafe Lumiere;Open;-71 dBm;ink][Neighbour;WPA PSK;-83 dBm;warn]
+pick|Access points|3 access points found, connected to Home WLAN|muted|n=3 sel=1 first=0|msg=warn:|keys=UP/DOWN   RETURN connect   R rescan   M manual   D disconnect   F forget   ESC close|fresh=0|[Home WLAN;WPA2 PSK;-48 dBm;ok][Cafe Lumiere;Open;-71 dBm;ink][Neighbour;WPA PSK;-83 dBm;warn]
+pick|Access points|3 access points found, connected to Home WLAN|muted|n=3 sel=2 first=0|msg=warn:|keys=UP/DOWN   RETURN connect   R rescan   M manual   D disconnect   F forget   ESC close|fresh=0|[Home WLAN;WPA2 PSK;-48 dBm;ok][Cafe Lumiere;Open;-71 dBm;ink][Neighbour;WPA PSK;-83 dBm;warn]
+pick|Access points|3 access points found, connected to Home WLAN|muted|n=3 sel=2 first=0|msg=warn:|keys=UP/DOWN   RETURN connect   R rescan   M manual   D disconnect   F forget   ESC close|fresh=0|[Home WLAN;WPA2 PSK;-48 dBm;ok][Cafe Lumiere;Open;-71 dBm;ink][Neighbour;WPA PSK;-83 dBm;warn]
+pick_end
+result|0|keys_left=0|esc_fallback=0
+case scan_disconnect
+module|rescan
+pick|Access points|3 access points found, connected to Home WLAN|muted|n=3 sel=0 first=0|msg=warn:|keys=UP/DOWN   RETURN connect   R rescan   M manual   D disconnect   F forget   ESC close|fresh=1|[Home WLAN;WPA2 PSK;-48 dBm;ok][Cafe Lumiere;Open;-71 dBm;ink][Neighbour;WPA PSK;-83 dBm;warn]
+module|disconnect
+pick_end
+result|0|keys_left=0|esc_fallback=0
+case scan_forget_armed
+module|rescan
+pick|Access points|3 access points found, connected to Home WLAN|muted|n=3 sel=0 first=0|msg=warn:|keys=UP/DOWN   RETURN connect   R rescan   M manual   D disconnect   F forget   ESC close|fresh=1|[Home WLAN;WPA2 PSK;-48 dBm;ok][Cafe Lumiere;Open;-71 dBm;ink][Neighbour;WPA PSK;-83 dBm;warn]
+pick|Access points|3 access points found, connected to Home WLAN|muted|n=3 sel=0 first=0|msg=warn:F again forgets all stored access points (any other key cancels)|keys=UP/DOWN   RETURN connect   R rescan   M manual   D disconnect   F forget   ESC close|fresh=0|[Home WLAN;WPA2 PSK;-48 dBm;ok][Cafe Lumiere;Open;-71 dBm;ink][Neighbour;WPA PSK;-83 dBm;warn]
+module|forget
+pick_end
+result|0|keys_left=0|esc_fallback=0
+case scan_forget_cancelled
+module|rescan
+pick|Access points|3 access points found, connected to Home WLAN|muted|n=3 sel=0 first=0|msg=warn:|keys=UP/DOWN   RETURN connect   R rescan   M manual   D disconnect   F forget   ESC close|fresh=1|[Home WLAN;WPA2 PSK;-48 dBm;ok][Cafe Lumiere;Open;-71 dBm;ink][Neighbour;WPA PSK;-83 dBm;warn]
+pick|Access points|3 access points found, connected to Home WLAN|muted|n=3 sel=0 first=0|msg=warn:F again forgets all stored access points (any other key cancels)|keys=UP/DOWN   RETURN connect   R rescan   M manual   D disconnect   F forget   ESC close|fresh=0|[Home WLAN;WPA2 PSK;-48 dBm;ok][Cafe Lumiere;Open;-71 dBm;ink][Neighbour;WPA PSK;-83 dBm;warn]
+pick|Access points|3 access points found, connected to Home WLAN|muted|n=3 sel=1 first=0|msg=warn:|keys=UP/DOWN   RETURN connect   R rescan   M manual   D disconnect   F forget   ESC close|fresh=0|[Home WLAN;WPA2 PSK;-48 dBm;ok][Cafe Lumiere;Open;-71 dBm;ink][Neighbour;WPA PSK;-83 dBm;warn]
+pick_end
+result|0|keys_left=0|esc_fallback=0
+case scan_manual_wpa2
+module|rescan
+pick|Access points|3 access points found, connected to Home WLAN|muted|n=3 sel=0 first=0|msg=warn:|keys=UP/DOWN   RETURN connect   R rescan   M manual   D disconnect   F forget   ESC close|fresh=1|[Home WLAN;WPA2 PSK;-48 dBm;ok][Cafe Lumiere;Open;-71 dBm;ink][Neighbour;WPA PSK;-83 dBm;warn]
+entry|Enter access point|The name of the network (SSID)|keys=RETURN next    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=|row=_|msg=|secret=0|first=1
+entry|Enter access point|The name of the network (SSID)|keys=RETURN next    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=G|row=G_|msg=|secret=0|first=0
+entry|Enter access point|The name of the network (SSID)|keys=RETURN next    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=Gu|row=Gu_|msg=|secret=0|first=0
+entry|Enter access point|The name of the network (SSID)|keys=RETURN next    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=Gue|row=Gue_|msg=|secret=0|first=0
+entry|Enter access point|The name of the network (SSID)|keys=RETURN next    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=Gues|row=Gues_|msg=|secret=0|first=0
+entry|Enter access point|The name of the network (SSID)|keys=RETURN next    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=Guest|row=Guest_|msg=|secret=0|first=0
+entry|Enter access point|The name of the network (SSID)|keys=RETURN next    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=Guest |row=Guest _|msg=|secret=0|first=0
+entry|Enter access point|The name of the network (SSID)|keys=RETURN next    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=Guest n|row=Guest n_|msg=|secret=0|first=0
+entry|Enter access point|The name of the network (SSID)|keys=RETURN next    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=Guest ne|row=Guest ne_|msg=|secret=0|first=0
+entry|Enter access point|The name of the network (SSID)|keys=RETURN next    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=Guest net|row=Guest net_|msg=|secret=0|first=0
+entry_end|list_was_up=1
+history|Guest net
+pick|Authentication|Guest net|muted|n=9 sel=3 first=0|msg=warn:|keys=UP/DOWN select    RETURN choose    ESC cancels|fresh=1|[Open;;;ink][WEP;;;ink][WPA PSK;;;ink][WPA2 PSK;;;ink][WPA/WPA2 PSK;;;ink][WPA2 Enterprise;;;ink][WPA3 PSK;;;ink][WPA2/WPA3 PSK;;;ink][WAPI PSK;;;ink]
+pick|Authentication|Guest net|muted|n=9 sel=4 first=0|msg=warn:|keys=UP/DOWN select    RETURN choose    ESC cancels|fresh=0|[Open;;;ink][WEP;;;ink][WPA PSK;;;ink][WPA2 PSK;;;ink][WPA/WPA2 PSK;;;ink][WPA2 Enterprise;;;ink][WPA3 PSK;;;ink][WPA2/WPA3 PSK;;;ink][WAPI PSK;;;ink]
+pick|Authentication|Guest net|muted|n=9 sel=5 first=0|msg=warn:|keys=UP/DOWN select    RETURN choose    ESC cancels|fresh=0|[Open;;;ink][WEP;;;ink][WPA PSK;;;ink][WPA2 PSK;;;ink][WPA/WPA2 PSK;;;ink][WPA2 Enterprise;;;ink][WPA3 PSK;;;ink][WPA2/WPA3 PSK;;;ink][WAPI PSK;;;ink]
+pick|Authentication|Guest net|muted|n=9 sel=5 first=0|msg=warn:|keys=UP/DOWN select    RETURN choose    ESC cancels|fresh=0|[Open;;;ink][WEP;;;ink][WPA PSK;;;ink][WPA2 PSK;;;ink][WPA/WPA2 PSK;;;ink][WPA2 Enterprise;;;ink][WPA3 PSK;;;ink][WPA2/WPA3 PSK;;;ink][WAPI PSK;;;ink]
+pick_end
+entry|Password|Guest net    WPA2 Enterprise|keys=RETURN connects    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=|row=_|msg=|secret=1|first=1
+entry|Password|Guest net    WPA2 Enterprise|keys=RETURN connects    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=********|row=*_|msg=|secret=1|first=0
+entry|Password|Guest net    WPA2 Enterprise|keys=RETURN connects    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=********|row=**_|msg=|secret=1|first=0
+entry|Password|Guest net    WPA2 Enterprise|keys=RETURN connects    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=********|row=***_|msg=|secret=1|first=0
+entry|Password|Guest net    WPA2 Enterprise|keys=RETURN connects    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=********|row=****_|msg=|secret=1|first=0
+entry|Password|Guest net    WPA2 Enterprise|keys=RETURN connects    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=********|row=*****_|msg=|secret=1|first=0
+entry|Password|Guest net    WPA2 Enterprise|keys=RETURN connects    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=********|row=******_|msg=|secret=1|first=0
+entry|Password|Guest net    WPA2 Enterprise|keys=RETURN connects    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=********|row=*******_|msg=|secret=1|first=0
+entry_end|list_was_up=0
+module|connect|ssid=Guest net|pass=hunter2|auth=5|list=0
+pick_end
+result|0|keys_left=0|esc_fallback=0
+case scan_manual_cancel
+module|rescan
+pick|Access points|3 access points found, connected to Home WLAN|muted|n=3 sel=0 first=0|msg=warn:|keys=UP/DOWN   RETURN connect   R rescan   M manual   D disconnect   F forget   ESC close|fresh=1|[Home WLAN;WPA2 PSK;-48 dBm;ok][Cafe Lumiere;Open;-71 dBm;ink][Neighbour;WPA PSK;-83 dBm;warn]
+entry|Enter access point|The name of the network (SSID)|keys=RETURN next    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=|row=_|msg=|secret=0|first=1
+entry|Enter access point|The name of the network (SSID)|keys=RETURN next    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=G|row=G_|msg=|secret=0|first=0
+entry|Enter access point|The name of the network (SSID)|keys=RETURN next    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=Gu|row=Gu_|msg=|secret=0|first=0
+entry|Enter access point|The name of the network (SSID)|keys=RETURN next    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=Gue|row=Gue_|msg=|secret=0|first=0
+entry|Enter access point|The name of the network (SSID)|keys=RETURN next    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=Gues|row=Gues_|msg=|secret=0|first=0
+entry|Enter access point|The name of the network (SSID)|keys=RETURN next    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=Guest|row=Guest_|msg=|secret=0|first=0
+entry_end|list_was_up=1
+pick|Access points|3 access points found, connected to Home WLAN|muted|n=3 sel=0 first=0|msg=warn:|keys=UP/DOWN   RETURN connect   R rescan   M manual   D disconnect   F forget   ESC close|fresh=0|[Home WLAN;WPA2 PSK;-48 dBm;ok][Cafe Lumiere;Open;-71 dBm;ink][Neighbour;WPA PSK;-83 dBm;warn]
+pick_end
+result|0|keys_left=0|esc_fallback=0
+case scan_no_ap_then_rescan
+module|rescan
+pick|Access points|3 access points found, connected to Home WLAN|muted|n=3 sel=0 first=0|msg=warn:|keys=UP/DOWN   RETURN connect   R rescan   M manual   D disconnect   F forget   ESC close|fresh=1|[Home WLAN;WPA2 PSK;-48 dBm;ok][Cafe Lumiere;Open;-71 dBm;ink][Neighbour;WPA PSK;-83 dBm;warn]
+module|rescan
+pick|Access points|No access point found. R scans again.|muted|n=0 sel=0 first=0|msg=muted:Scanning again ...|keys=UP/DOWN   RETURN connect   R rescan   M manual   D disconnect   F forget   ESC close|fresh=0|
+pick_end
+result|0|keys_left=0|esc_fallback=0
+case manual_open_network
+entry|Enter access point|The name of the network (SSID)|keys=RETURN next    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=|row=_|msg=|secret=0|first=1
+entry|Enter access point|The name of the network (SSID)|keys=RETURN next    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=C|row=C_|msg=|secret=0|first=0
+entry|Enter access point|The name of the network (SSID)|keys=RETURN next    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=Ca|row=Ca_|msg=|secret=0|first=0
+entry|Enter access point|The name of the network (SSID)|keys=RETURN next    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=Caf|row=Caf_|msg=|secret=0|first=0
+entry|Enter access point|The name of the network (SSID)|keys=RETURN next    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=Cafe|row=Cafe_|msg=|secret=0|first=0
+entry_end|list_was_up=0
+history|Cafe
+pick|Authentication|Cafe|muted|n=9 sel=3 first=0|msg=warn:|keys=UP/DOWN select    RETURN choose    ESC cancels|fresh=1|[Open;;;ink][WEP;;;ink][WPA PSK;;;ink][WPA2 PSK;;;ink][WPA/WPA2 PSK;;;ink][WPA2 Enterprise;;;ink][WPA3 PSK;;;ink][WPA2/WPA3 PSK;;;ink][WAPI PSK;;;ink]
+pick|Authentication|Cafe|muted|n=9 sel=2 first=0|msg=warn:|keys=UP/DOWN select    RETURN choose    ESC cancels|fresh=0|[Open;;;ink][WEP;;;ink][WPA PSK;;;ink][WPA2 PSK;;;ink][WPA/WPA2 PSK;;;ink][WPA2 Enterprise;;;ink][WPA3 PSK;;;ink][WPA2/WPA3 PSK;;;ink][WAPI PSK;;;ink]
+pick|Authentication|Cafe|muted|n=9 sel=1 first=0|msg=warn:|keys=UP/DOWN select    RETURN choose    ESC cancels|fresh=0|[Open;;;ink][WEP;;;ink][WPA PSK;;;ink][WPA2 PSK;;;ink][WPA/WPA2 PSK;;;ink][WPA2 Enterprise;;;ink][WPA3 PSK;;;ink][WPA2/WPA3 PSK;;;ink][WAPI PSK;;;ink]
+pick|Authentication|Cafe|muted|n=9 sel=0 first=0|msg=warn:|keys=UP/DOWN select    RETURN choose    ESC cancels|fresh=0|[Open;;;ink][WEP;;;ink][WPA PSK;;;ink][WPA2 PSK;;;ink][WPA/WPA2 PSK;;;ink][WPA2 Enterprise;;;ink][WPA3 PSK;;;ink][WPA2/WPA3 PSK;;;ink][WAPI PSK;;;ink]
+pick|Authentication|Cafe|muted|n=9 sel=0 first=0|msg=warn:|keys=UP/DOWN select    RETURN choose    ESC cancels|fresh=0|[Open;;;ink][WEP;;;ink][WPA PSK;;;ink][WPA2 PSK;;;ink][WPA/WPA2 PSK;;;ink][WPA2 Enterprise;;;ink][WPA3 PSK;;;ink][WPA2/WPA3 PSK;;;ink][WAPI PSK;;;ink]
+pick_end
+module|connect|ssid=Cafe|pass=|auth=0|list=0
+result|0|keys_left=0|esc_fallback=0
+case manual_blank_name_refused
+entry|Enter access point|The name of the network (SSID)|keys=RETURN next    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=|row=_|msg=|secret=0|first=1
+entry|Enter access point|The name of the network (SSID)|keys=RETURN next    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=|row=_|msg=The name of the access point is needed.|secret=0|first=0
+entry|Enter access point|The name of the network (SSID)|keys=RETURN next    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=X|row=X_|msg=|secret=0|first=0
+entry_end|list_was_up=0
+history|X
+pick|Authentication|X|muted|n=9 sel=3 first=0|msg=warn:|keys=UP/DOWN select    RETURN choose    ESC cancels|fresh=1|[Open;;;ink][WEP;;;ink][WPA PSK;;;ink][WPA2 PSK;;;ink][WPA/WPA2 PSK;;;ink][WPA2 Enterprise;;;ink][WPA3 PSK;;;ink][WPA2/WPA3 PSK;;;ink][WAPI PSK;;;ink]
+pick|Authentication|X|muted|n=9 sel=3 first=0|msg=warn:|keys=UP/DOWN select    RETURN choose    ESC cancels|fresh=0|[Open;;;ink][WEP;;;ink][WPA PSK;;;ink][WPA2 PSK;;;ink][WPA/WPA2 PSK;;;ink][WPA2 Enterprise;;;ink][WPA3 PSK;;;ink][WPA2/WPA3 PSK;;;ink][WAPI PSK;;;ink]
+pick_end
+entry|Password|X    WPA2 PSK|keys=RETURN connects    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=|row=_|msg=|secret=1|first=1
+entry|Password|X    WPA2 PSK|keys=RETURN connects    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=********|row=*_|msg=|secret=1|first=0
+entry|Password|X    WPA2 PSK|keys=RETURN connects    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=********|row=**_|msg=|secret=1|first=0
+entry_end|list_was_up=0
+result|0|keys_left=0|esc_fallback=1
+case manual_escape
+entry|Enter access point|The name of the network (SSID)|keys=RETURN next    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=|row=_|msg=|secret=0|first=1
+entry_end|list_was_up=0
+result|0|keys_left=0|esc_fallback=0
+case manual_auth_cancel
+entry|Enter access point|The name of the network (SSID)|keys=RETURN next    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=|row=_|msg=|secret=0|first=1
+entry|Enter access point|The name of the network (SSID)|keys=RETURN next    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=N|row=N_|msg=|secret=0|first=0
+entry|Enter access point|The name of the network (SSID)|keys=RETURN next    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=Ne|row=Ne_|msg=|secret=0|first=0
+entry|Enter access point|The name of the network (SSID)|keys=RETURN next    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=Net|row=Net_|msg=|secret=0|first=0
+entry_end|list_was_up=0
+history|Net
+pick|Authentication|Net|muted|n=9 sel=3 first=0|msg=warn:|keys=UP/DOWN select    RETURN choose    ESC cancels|fresh=1|[Open;;;ink][WEP;;;ink][WPA PSK;;;ink][WPA2 PSK;;;ink][WPA/WPA2 PSK;;;ink][WPA2 Enterprise;;;ink][WPA3 PSK;;;ink][WPA2/WPA3 PSK;;;ink][WAPI PSK;;;ink]
+pick|Authentication|Net|muted|n=9 sel=3 first=0|msg=warn:|keys=UP/DOWN select    RETURN choose    ESC cancels|fresh=0|[Open;;;ink][WEP;;;ink][WPA PSK;;;ink][WPA2 PSK;;;ink][WPA/WPA2 PSK;;;ink][WPA2 Enterprise;;;ink][WPA3 PSK;;;ink][WPA2/WPA3 PSK;;;ink][WAPI PSK;;;ink]
+pick_end
+result|0|keys_left=0|esc_fallback=0
+case addr_valid
+entry|Static IP|Static IP, used when DHCP is disabled|keys=RETURN saves    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=192.168.2.64|row=192.168.2.64_|msg=|secret=0|first=1
+entry|Static IP|Static IP, used when DHCP is disabled|keys=RETURN saves    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=192.168.2.64|row=192.168.2.64_|msg=|secret=0|first=0
+entry|Static IP|Static IP, used when DHCP is disabled|keys=RETURN saves    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=192.168.2.6|row=192.168.2.6_|msg=|secret=0|first=0
+entry|Static IP|Static IP, used when DHCP is disabled|keys=RETURN saves    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=192.168.2.|row=192.168.2._|msg=|secret=0|first=0
+entry|Static IP|Static IP, used when DHCP is disabled|keys=RETURN saves    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=192.168.2.9|row=192.168.2.9_|msg=|secret=0|first=0
+entry|Static IP|Static IP, used when DHCP is disabled|keys=RETURN saves    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=192.168.2.99|row=192.168.2.99_|msg=|secret=0|first=0
+entry_end|list_was_up=0
+history|192.168.2.99
+module|cfg_set|dhcp=0|ip=192.168.2.99|mask=255.255.255.0|gw=192.168.2.1|dns=8.8.8.8
+note|ok|Static IP is 192.168.2.99 (saved)
+result|0|keys_left=0|esc_fallback=0
+case addr_invalid_then_fixed
+entry|Static Gateway|Static Gateway, used when DHCP is disabled|keys=RETURN saves    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=192.168.2.1|row=192.168.2.1_|msg=|secret=0|first=1
+entry|Static Gateway|Static Gateway, used when DHCP is disabled|keys=RETURN saves    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=192.168.2.1|row=192.168.2.1_|msg=|secret=0|first=0
+entry|Static Gateway|Static Gateway, used when DHCP is disabled|keys=RETURN saves    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=192.168.2.|row=192.168.2._|msg=|secret=0|first=0
+entry|Static Gateway|Static Gateway, used when DHCP is disabled|keys=RETURN saves    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=192.168.2.|row=192.168.2._|msg=Four numbers from 0 to 255 with dots, like 192.168.2.64.|secret=0|first=0
+entry|Static Gateway|Static Gateway, used when DHCP is disabled|keys=RETURN saves    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=192.168.2|row=192.168.2_|msg=|secret=0|first=0
+entry|Static Gateway|Static Gateway, used when DHCP is disabled|keys=RETURN saves    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=192.168.|row=192.168._|msg=|secret=0|first=0
+entry|Static Gateway|Static Gateway, used when DHCP is disabled|keys=RETURN saves    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=192.168|row=192.168_|msg=|secret=0|first=0
+entry|Static Gateway|Static Gateway, used when DHCP is disabled|keys=RETURN saves    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=192.16|row=192.16_|msg=|secret=0|first=0
+entry|Static Gateway|Static Gateway, used when DHCP is disabled|keys=RETURN saves    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=192.1|row=192.1_|msg=|secret=0|first=0
+entry|Static Gateway|Static Gateway, used when DHCP is disabled|keys=RETURN saves    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=192.|row=192._|msg=|secret=0|first=0
+entry|Static Gateway|Static Gateway, used when DHCP is disabled|keys=RETURN saves    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=192|row=192_|msg=|secret=0|first=0
+entry|Static Gateway|Static Gateway, used when DHCP is disabled|keys=RETURN saves    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=19|row=19_|msg=|secret=0|first=0
+entry|Static Gateway|Static Gateway, used when DHCP is disabled|keys=RETURN saves    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=1|row=1_|msg=|secret=0|first=0
+entry|Static Gateway|Static Gateway, used when DHCP is disabled|keys=RETURN saves    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=|row=_|msg=|secret=0|first=0
+entry|Static Gateway|Static Gateway, used when DHCP is disabled|keys=RETURN saves    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=|row=_|msg=|secret=0|first=0
+entry|Static Gateway|Static Gateway, used when DHCP is disabled|keys=RETURN saves    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=|row=_|msg=|secret=0|first=0
+entry|Static Gateway|Static Gateway, used when DHCP is disabled|keys=RETURN saves    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=|row=_|msg=|secret=0|first=0
+entry|Static Gateway|Static Gateway, used when DHCP is disabled|keys=RETURN saves    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=|row=_|msg=|secret=0|first=0
+entry|Static Gateway|Static Gateway, used when DHCP is disabled|keys=RETURN saves    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=|row=_|msg=|secret=0|first=0
+entry|Static Gateway|Static Gateway, used when DHCP is disabled|keys=RETURN saves    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=|row=_|msg=|secret=0|first=0
+entry|Static Gateway|Static Gateway, used when DHCP is disabled|keys=RETURN saves    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=1|row=1_|msg=|secret=0|first=0
+entry|Static Gateway|Static Gateway, used when DHCP is disabled|keys=RETURN saves    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=10|row=10_|msg=|secret=0|first=0
+entry|Static Gateway|Static Gateway, used when DHCP is disabled|keys=RETURN saves    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=10.|row=10._|msg=|secret=0|first=0
+entry|Static Gateway|Static Gateway, used when DHCP is disabled|keys=RETURN saves    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=10.0|row=10.0_|msg=|secret=0|first=0
+entry|Static Gateway|Static Gateway, used when DHCP is disabled|keys=RETURN saves    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=10.0.|row=10.0._|msg=|secret=0|first=0
+entry|Static Gateway|Static Gateway, used when DHCP is disabled|keys=RETURN saves    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=10.0.0|row=10.0.0_|msg=|secret=0|first=0
+entry|Static Gateway|Static Gateway, used when DHCP is disabled|keys=RETURN saves    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=10.0.0.|row=10.0.0._|msg=|secret=0|first=0
+entry|Static Gateway|Static Gateway, used when DHCP is disabled|keys=RETURN saves    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=10.0.0.1|row=10.0.0.1_|msg=|secret=0|first=0
+entry_end|list_was_up=0
+history|10.0.0.1
+module|cfg_set|dhcp=0|ip=192.168.2.64|mask=255.255.255.0|gw=10.0.0.1|dns=8.8.8.8
+note|ok|Static Gateway is 10.0.0.1 (saved)
+result|0|keys_left=0|esc_fallback=0
+case addr_cancel
+entry|Static DNS|Static DNS, used when DHCP is disabled|keys=RETURN saves    ESC cancels    LEFT/RIGHT HOME END move    INS blank|shown=8.8.8.8|row=8.8.8.8_|msg=|secret=0|first=1
+entry_end|list_was_up=0
+note|muted|Unchanged
+result|0|keys_left=0|esc_fallback=0

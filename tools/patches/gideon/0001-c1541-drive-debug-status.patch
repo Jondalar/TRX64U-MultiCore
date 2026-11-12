@@ -1,0 +1,29 @@
+c1541_drive: a status output for debugging (half track, step phase, motor,
+mode, write protect, inserted, power, reset, byte ready).
+
+--- a/fpga/1541/vhdl_source/c1541_drive.vhd	2026-10-01 17:48:27
++++ b/fpga/1541/vhdl_source/c1541_drive.vhd	2026-10-01 17:48:27
+@@ -69,8 +69,12 @@
+     dirty_led_n     : out std_logic;
+ 
+     -- audio out
+-    audio_sample    : out signed(12 downto 0) );
++    audio_sample    : out signed(12 downto 0);
+ 
++    -- status for debugging: half track (7), step phase (2), motor, mode,
++    -- write_prot_n, inserted, power, drive reset, byte ready
++    dbg_status      : out std_logic_vector(15 downto 0) );
++
+ end c1541_drive;
+ 
+ architecture structural of c1541_drive is
+@@ -369,6 +373,9 @@
+ 			end if;
+         end if;
+     end process;
++
++    dbg_status <= std_logic_vector(track) & step & motor_on & mode & write_prot_n & floppy_inserted &
++                  power & drv_reset & byte_ready;
+ 
+ 	led_intensity <= "00" when power='0' else
+ 					 "01" when floppy_inserted='0' else

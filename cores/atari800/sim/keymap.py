@@ -1,0 +1,183 @@
+#!/usr/bin/env python3
+"""T88 D7 / Q10: the host's C64 key matrix into the Atari 800 XL keyboard. The table is written from the two machines'
+keyboards (the Atari key codes are the XL/XE hardware codes POKEY's scanner reads, not Watson's PS/2 decoder):
+
+  host   keys[col * 8 + row], 1 = down (CIA 1: port A = column, port B = row), the C64U matrix
+  Atari  pressed[code]: the 6-bit key code (KBCODE low bits); POKEY scans a counter n and asks for the key with code ~n.
+         shift / control / break are three more lines, console keys START / SELECT / OPTION three more.
+
+The mapping is positional (the same legend is the same key) with these decisions (D7, Q10 answered "a" by Alex):
+  <- = ESC, RUN/STOP = BREAK, C= = the inverse-video key, CLR/HOME = CLEAR (Shift + <), INST/DEL = DELETE BACK S (the
+  host shift makes it INSERT), F1/F3/F5 = START/SELECT/OPTION, F7 = HELP, RESTORE = RESET (a separate input, not here).
+  Taken without a question, because the C64 cursor keys have no Atari key: CRSR down/right = Control + '=' / '*' (the Atari
+  cursor down / right), with Shift Control + '-' / '+' (up / left); the host shift is not passed on while a cursor key is down.
+  ':' is Shift + ';', '@' is Shift + '8', POUND is Shift + '+' (the backslash), UP-ARROW is Shift + '*' (the caret): the
+  Atari legends of those characters; the key forces the Atari shift line while it is down.
+  TAB and CAPS have no C64 key (Q10): unreachable.
+
+  keymap.py vhdl > cores/atari800/trx/a8_keys.vhd      the generated entity
+  keymap.py vectors                                    the expectations for the bench (VHDL package on stdout)
+"""
+import sys
+
+C64 = [  # per column, rows 0..7
+    ["DEL", "RETURN", "CRSR_R", "F7", "F1", "F3", "F5", "CRSR_D"],
+    ["3", "W", "A", "4", "Z", "S", "E", "LSHIFT"],
+    ["5", "R", "D", "6", "C", "F", "T", "X"],
+    ["7", "Y", "G", "8", "B", "H", "U", "V"],
+    ["9", "I", "J", "0", "M", "K", "O", "N"],
+    ["+", "P", "L", "-", ".", ":", "@", ","],
+    ["POUND", "*", ";", "HOME", "RSHIFT", "=", "UARROW", "/"],
+    ["1", "LARROW", "CTRL", "2", "SPACE", "C=", "Q", "STOP"],
+]
+
+# Atari XL/XE keyboard codes (KBCODE bits 5..0)
+ATARI = {
+    "L": 0x00, "J": 0x01, ";": 0x02, "F1": 0x03, "F2": 0x04, "K": 0x05, "+": 0x06, "*": 0x07, "O": 0x08, "P": 0x0A,
+    "U": 0x0B, "RETURN": 0x0C, "I": 0x0D, "-": 0x0E, "=": 0x0F, "V": 0x10, "HELP": 0x11, "C": 0x12, "F3": 0x13,
+    "F4": 0x14, "B": 0x15, "X": 0x16, "Z": 0x17, "4": 0x18, "3": 0x1A, "6": 0x1B, "ESC": 0x1C, "5": 0x1D, "2": 0x1E,
+    "1": 0x1F, ",": 0x20, "SPACE": 0x21, ".": 0x22, "N": 0x23, "M": 0x25, "/": 0x26, "INVERSE": 0x27, "R": 0x28,
+    "E": 0x2A, "Y": 0x2B, "TAB": 0x2C, "T": 0x2D, "W": 0x2E, "Q": 0x2F, "9": 0x30, "0": 0x32, "7": 0x33,
+    "BACKSPACE": 0x34, "8": 0x35, "<": 0x36, ">": 0x37, "F": 0x38, "H": 0x39, "D": 0x3A, "CAPS": 0x3C, "G": 0x3D,
+    "S": 0x3E, "A": 0x3F,
+}
+
+# host key -> (Atari key name, force shift, force control); the keys handled by hand are not here
+PLAIN = {
+    "DEL": ("BACKSPACE", 0, 0), "RETURN": ("RETURN", 0, 0), "F7": ("HELP", 0, 0),
+    "+": ("+", 0, 0), "-": ("-", 0, 0), ".": (".", 0, 0), ",": (",", 0, 0), "*": ("*", 0, 0), ";": (";", 0, 0),
+    "=": ("=", 0, 0), "/": ("/", 0, 0), "SPACE": ("SPACE", 0, 0), "C=": ("INVERSE", 0, 0), "LARROW": ("ESC", 0, 0),
+    ":": (";", 1, 0), "@": ("8", 1, 0), "POUND": ("+", 1, 0), "UARROW": ("*", 1, 0), "HOME": ("<", 1, 0),
+}
+for _c in "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789":
+    PLAIN[_c] = (_c, 0, 0)
+CONSOL = {"F1": "start", "F3": "select", "F5": "option"}
+FLAGS = {"LSHIFT": "shift", "RSHIFT": "shift", "CTRL": "ctrl", "STOP": "brk"}
+
+
+def pos64(name):
+    for c, col in enumerate(C64):
+        if name in col:
+            return c * 8 + col.index(name)
+    raise KeyError(name)
+
+
+def translate(down):
+    """set of host key names -> (set of Atari key names, dict of the lines shift/ctrl/brk/start/select/option)"""
+    out, lines = set(), dict(shift=0, ctrl=0, brk=0, start=0, select=0, option=0)
+    host_shift = "LSHIFT" in down or "RSHIFT" in down
+    cur = "CRSR_D" in down or "CRSR_R" in down
+    for k in down:
+        if k in PLAIN:
+            a, fs, fc = PLAIN[k]
+            out.add(a)
+            lines["shift"] |= fs
+            lines["ctrl"] |= fc
+        elif k in CONSOL:
+            lines[CONSOL[k]] = 1
+        elif k in FLAGS and k not in ("LSHIFT", "RSHIFT"):
+            lines[FLAGS[k]] = 1
+    if "CRSR_D" in down:
+        out.add("-" if host_shift else "=")
+    if "CRSR_R" in down:
+        out.add("+" if host_shift else "*")
+    if cur:
+        lines["ctrl"] = 1
+    if host_shift and not cur:
+        lines["shift"] = 1
+    return out, lines
+
+
+def vhdl():
+    o = []
+    w = o.append
+    w("-- SPDX-License-Identifier: GPL-3.0-or-later")
+    w("-- T88 D7: the host's C64 key matrix (keys[col*8+row], 1 = down) into the Atari 800 XL keyboard: pressed(code) for the 64 key")
+    w("-- codes POKEY scans, and the shift / control / break / START / SELECT / OPTION lines. Generated by cores/atari800/sim/keymap.py;")
+    w("-- do not edit by hand. The decisions of the mapping are in that file's header and in docs/specs/T88-atari800-core.md D7.")
+    w("library ieee;")
+    w("use ieee.std_logic_1164.all;")
+    w("")
+    w("entity a8_keys is")
+    w("  port (")
+    w("    keys    : in  std_logic_vector(63 downto 0);")
+    w("    pressed : out std_logic_vector(63 downto 0);   -- indexed by the Atari key code")
+    w("    shift   : out std_logic;")
+    w("    ctrl    : out std_logic;")
+    w("    brk     : out std_logic;")
+    w("    cstart  : out std_logic;                        -- 1 = down")
+    w("    cselect : out std_logic;")
+    w("    coption : out std_logic);")
+    w("end entity;")
+    w("")
+    w("architecture rtl of a8_keys is")
+    w("  signal host_shift, cur_d, cur_r, cur : std_logic;")
+    w("begin")
+    w("  host_shift <= keys(%d) or keys(%d);   -- LSHIFT, RSHIFT" % (pos64("LSHIFT"), pos64("RSHIFT")))
+    w("  cur_d <= keys(%d);   -- CRSR down" % pos64("CRSR_D"))
+    w("  cur_r <= keys(%d);   -- CRSR right" % pos64("CRSR_R"))
+    w("  cur   <= cur_d or cur_r;")
+    by_code = {}
+    for host, (a, fs, fc) in PLAIN.items():
+        by_code.setdefault(ATARI[a], []).append("keys(%d)" % pos64(host))
+    by_code.setdefault(ATARI["="], []).append("(cur_d and not host_shift)")
+    by_code.setdefault(ATARI["-"], []).append("(cur_d and host_shift)")
+    by_code.setdefault(ATARI["*"], []).append("(cur_r and not host_shift)")
+    by_code.setdefault(ATARI["+"], []).append("(cur_r and host_shift)")
+    names = {v: k for k, v in ATARI.items()}
+    for code in range(64):
+        if code in by_code:
+            w("  pressed(%d) <= %s;   -- %s" % (code, " or ".join(sorted(by_code[code])), names[code]))
+        else:
+            w("  pressed(%d) <= '0';%s" % (code, ("   -- %s (no host key)" % names[code]) if code in names else ""))
+    forced = [pos64(h) for h, (a, fs, fc) in PLAIN.items() if fs]
+    w("  shift   <= (host_shift and not cur) or %s;" % " or ".join("keys(%d)" % p for p in sorted(forced)))
+    w("  ctrl    <= keys(%d) or cur;   -- CTRL, or a cursor key" % pos64("CTRL"))
+    w("  brk     <= keys(%d);   -- RUN/STOP" % pos64("STOP"))
+    w("  cstart  <= keys(%d);   -- F1" % pos64("F1"))
+    w("  cselect <= keys(%d);   -- F3" % pos64("F3"))
+    w("  coption <= keys(%d);   -- F5" % pos64("F5"))
+    w("end architecture;")
+    return "\n".join(o) + "\n"
+
+
+def vectors():
+    """one case per single host key, and the combinations that matter: shift + cursor, shift + a letter, two keys"""
+    names = [n for col in C64 for n in col]
+    cases = [{n} for n in names] + [
+        {"LSHIFT", "CRSR_D"}, {"RSHIFT", "CRSR_R"}, {"LSHIFT", "A"}, {"CTRL", "A"}, {"CRSR_D", "CRSR_R"},
+        {"LSHIFT", ":"}, {"A", "B", "C"}, {"F1", "F3", "F5"}, {"RSHIFT", "DEL"}, set(),
+    ]
+    o = []
+    w = o.append
+    w("-- generated by cores/atari800/sim/keymap.py vectors: the expected Atari lines for a host key set")
+    w("library ieee;")
+    w("use ieee.std_logic_1164.all;")
+    w("package a8_keys_vec is")
+    w("  constant N : integer := %d;" % len(cases))
+    w("  type vec64_t is array (0 to N - 1) of std_logic_vector(63 downto 0);")
+    w("  type lines_t is array (0 to N - 1) of std_logic_vector(5 downto 0);   -- shift ctrl brk start select option")
+    w("  constant host_k : vec64_t := (")
+    w(",\n".join('    x"%016X"' % sum(1 << pos64(n) for n in c) for c in cases))
+    w("  );")
+    w("  constant exp_p : vec64_t := (")
+    exp = []
+    for c in cases:
+        out, lines = translate(c)
+        exp.append('    x"%016X"' % sum(1 << ATARI[a] for a in out))
+    w(",\n".join(exp))
+    w("  );")
+    w("  constant exp_l : lines_t := (")
+    el = []
+    for c in cases:
+        out, l = translate(c)
+        el.append('    "%d%d%d%d%d%d"' % (l["shift"], l["ctrl"], l["brk"], l["start"], l["select"], l["option"]))
+    w(",\n".join(el))
+    w("  );")
+    w("end package;")
+    return "\n".join(o) + "\n"
+
+
+if __name__ == "__main__":
+    mode = sys.argv[1] if len(sys.argv) > 1 else "vhdl"
+    sys.stdout.write(vhdl() if mode == "vhdl" else vectors())

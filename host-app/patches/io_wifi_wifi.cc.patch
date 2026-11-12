@@ -1,0 +1,53 @@
+--- vendor/gideon/software/io/wifi/wifi.cc	2026-11-06 02:34:47
++++ host-app/software/io/wifi/wifi.cc	2026-11-06 02:35:39
+@@ -15,7 +15,7 @@
+ #include "rpc_calls.h"
+ #include "filemanager.h"
+ #include "network_esp32.h"
+-#if U64 == 2
++#if U64 == 2 && !defined(TRX_HOSTAPP) // T184: no power-mode store in the host or the core app
+ #include "u64_config.h"
+ #endif
+ #include "init_function.h"
+@@ -264,7 +264,7 @@
+             if (wifi_detect(&major, &minor, moduleName, 32)) {
+                 state = eWifi_AppDetected;
+ 
+-#if U64 == 2
++#if U64 == 2 && !defined(TRX_HOSTAPP) // T184: low-input-voltage message and the module-NVS power settings belong to the Ultimate app
+                 memset(&voltages, 0, sizeof(voltages));
+                 result = wifi_get_voltages(&voltages);
+                 printf("Result get voltages: %d %d %d %d %d %d %d %d\n", result, voltages.vbus, voltages.vaux, voltages.v50, voltages.v33, voltages.v18, voltages.v10, voltages.vusb);
+@@ -430,6 +430,7 @@
+     uart->FreeBuffer(buf);
+ }
+ 
++#ifndef TRX_HOSTAPP // T184: the host app lists the scan result itself (hostapp/wifinet.cc), from wifi_aps
+ int WiFi ::getAccessPointItems(Browsable *parent, IndexedList<Browsable *> &list)
+ {
+     ultimate_ap_records_t *aps = &wifi_aps;
+@@ -472,6 +473,8 @@
+     return SSRET_OK;
+ }
+ 
++#endif // !TRX_HOSTAPP
++
+ err_t wifi_tx_packet(void *driver, void *buffer, int length)
+ {
+     if (!wifi.canTransmit()) {
+@@ -508,6 +511,7 @@
+         wifi.PrintUartStatus();
+     }
+ }
++#ifndef TRX_HOSTAPP // T184: see wifi.h
+ int WiFi :: connectWithFeedback(UserInterface *ui, const char *ssid, const char *password, uint8_t auth)
+ {
+     if (!ui) return wifi_wifi_connect(ssid, password, auth);
+@@ -569,6 +573,7 @@
+     ui->popup(message, BUTTON_OK);
+     return result;
+ }
++#endif // !TRX_HOSTAPP
+ 
+ bool WiFi :: hasUsableAddress()
+ {

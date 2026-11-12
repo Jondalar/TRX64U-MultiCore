@@ -1,0 +1,54 @@
+# The default route of T104 5.8, written as a description (no contributions): the menu it builds must be the menu the application builds without one.
+[[area]]
+key = "F1"
+name = "Home"
+  [[area.tab]]
+  id = "home"
+  name = "Home"
+  widget = "info"
+
+[[area]]
+key = "F3"
+name = "Library"
+  [[area.tab]]
+  id = "browse"
+  name = "Browse"
+  widget = "browser"
+
+[[area]]
+key = "F5"
+  [[area.tab]]
+  id = "settings"
+  widget = "settings"
+  [[area.tab]]
+  id = "video"
+  name = "Video"
+  widget = "settings"
+  groups = ["video"]
+  [[area.tab]]
+  id = "audio"
+  name = "Audio"
+  widget = "settings"
+  groups = ["audio"]
+  [[area.tab]]
+  id = "input"
+  name = "Input"
+  widget = "settings"
+  groups = ["input"]
+
+[[area]]
+key = "F7"
+name = "Actions"
+  [[area.tab]]
+  id = "quick"
+  name = "Quick"
+  widget = "tasks"
+
+[[area]]
+key = "F8"
+name = "System"
+shifted = true
+  [[area.tab]]
+  id = "expert"
+  name = "System"
+  widget = "system"

@@ -1,0 +1,24 @@
+name: Nightly
+
+# T100 D7 replaced (Alex, 2026-10-30): the benches are not in the push pipeline. Once a night every tier-2 bench of ci/sims.txt runs on
+# main (schedule runs on the default branch), also on demand (so do the render benches, below). No plan: ci/sims.sh considers every bench and the per-bench PASS markers
+# in /cache/sims-ok skip the ones whose inputs did not change; tools/benches.sh shares the same markers. A red nightly is reported, nothing else.
+on:
+  schedule:
+    - cron: '0 1 * * *'
+  workflow_dispatch:
+
+jobs:
+  sims:
+    name: Benches (tier 2, all)
+    uses: ./.gitea/workflows/sim.yml
+    with:
+      target: all
+      tier: '2'
+    secrets: inherit
+  # T174 D2.6: the render benches and file benches of the applications also run once a night on main (a push of a branch runs them only when a fundamental
+  # file is touched, ci/fundamental.txt); the stage's own PASS marker skips them when nothing they read changed.
+  apptests:
+    name: Application tests, render and file benches
+    uses: ./.gitea/workflows/apptests.yml
+    secrets: inherit

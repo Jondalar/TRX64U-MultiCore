@@ -1,0 +1,52 @@
+rvlite: dbg_pc, the PC of the instruction the execute stage handed on last.
+
+A register (exec_o.program_counter) out of core and rvlite_wrapper for a
+debug tap (designs/c64_basic/rv_dbg.v, `trxdbg.sh rvpc`): a hung application
+cannot be located otherwise, the RISC-V has no debug port.
+
+--- a/fpga/cpu_unit/rvlite/vhdl_source/core.vhd	2026-10-03 23:06:06
++++ b/fpga/cpu_unit/rvlite/vhdl_source/core.vhd	2026-10-03 23:06:24
+@@ -28,7 +28,8 @@
+     imem_req    : out t_imem_req;
+     imem_resp   : in  t_imem_resp;
+     dmem_req    : out t_dmem_req;
+-    dmem_resp   : in  t_dmem_resp
++    dmem_resp   : in  t_dmem_resp;
++    dbg_pc      : out std_logic_vector(31 downto 0)
+ );
+ end entity;
+ 
+@@ -145,6 +146,9 @@
+         csr_i => csr_req,
+         csr_o => csr_resp
+     );
++
++    -- the instruction last handed on by the execute stage (a register)
++    dbg_pc <= exec_o.program_counter;
+ 
+     i_wb: entity work.writeback
+     port map (
+--- a/fpga/cpu_unit/rvlite/vhdl_source/rvlite_wrapper.vhd	2026-10-03 23:06:06
++++ b/fpga/cpu_unit/rvlite/vhdl_source/rvlite_wrapper.vhd	2026-10-03 23:06:24
+@@ -34,8 +34,10 @@
+     io_busy         : out   std_logic;
+     
+     mem_req         : out   t_mem_req_32;
+-    mem_resp        : in    t_mem_resp_32 );
++    mem_resp        : in    t_mem_resp_32;
+ 
++    dbg_pc          : out   std_logic_vector(31 downto 0) );
++
+ end entity;
+ 
+ architecture arch of rvlite_wrapper is
+@@ -69,7 +71,8 @@
+         imem_req  => cimem_o,
+         imem_resp => cimem_i,
+         dmem_req  => dmem_o,
+-        dmem_resp => dmem_i
++        dmem_resp => dmem_i,
++        dbg_pc    => dbg_pc
+     );
+ 
+     r_icache: if g_icache generate

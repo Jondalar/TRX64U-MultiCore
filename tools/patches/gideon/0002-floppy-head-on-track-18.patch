@@ -1,0 +1,15 @@
+floppy_stream: the head starts on track 18 (half track 34) after reset, as
+VICE and the TRX64 emulator start a 1541; the DOS sets the speed zone for
+track 18 before its first read.
+
+--- a/fpga/1541/vhdl_source/floppy_stream.vhd	2026-10-01 17:48:08
++++ b/fpga/1541/vhdl_source/floppy_stream.vhd	2026-10-01 17:48:08
+@@ -266,7 +266,7 @@
+             end if;
+                             
+             if reset='1' then
+-                track_i <= "0000000";
++                track_i <= to_unsigned(34, track_i'length); -- track 18, as a drive comes up
+             end if;            
+         end if;
+     end process;

@@ -1,0 +1,27 @@
+# The Commodore 128 core (T113): C128 and C128D mode, 8502 + Z80, MMU, VDC 8563, CIAs, SID, drive A, REU, tape - cores/c128.
+# TREX-internal. It does not fit layer 2 (T113 Q12, Alex 2026-10-22: "Monolithic and entirely its own. That is fine", translated):
+# host and core flat in ONE bitstream (cores/c128/mono/build_mono.tcl, T113 Q13 (a)), started by the host as a .cfw (T115).
+# A LARGE core (T100 D9, T115 section 7; Alex 2026-10-26: "C128 als large core nach Main", translated: "the C128 as a large core onto main"): this file is the
+# only descriptor, there is no DFX lane; ci/plan.py, ci/lanes.py and ci/bitstream_mono.sh find the core by cores/c128/mono/core.toml, lane large-c128.
+id           = "c128"
+name         = "Commodore 128"
+version      = "0.1.0"
+contract     = 2
+app          = "blueprint"     # the T104 generic application with a C128 descriptor (T113 Q10/Q13): the .cfw's application is coreapp.bin of stage trxapps
+delivery     = "cfw"           # no partial, no .cor: ci/bitstream_mono.sh builds the full bitstream, tools/pack_cfw_mc.sh makes c128.cfw
+order        = 14
+experimental = true            # since T100 D9.6 a failed flat build turns the run red too (T94 D8's exemption is gone); the flag keeps the bench rows soft
+# All of cores/c128 plus what the core's sources read in place: the c64u source tree (no descriptor, never built) and icepi.
+# The flat build's own key (ci/lib.sh mono_key) leaves sim/ and mono/reports/ out again.
+sources      = ["cores/c128", "cores/c1541", ":(exclude)cores/c1541/sim", "cores/c64u", ":(exclude)cores/c64u/sim", "vendor/icepi", "vendor/mister"]
+# The variant of the routed measurement r_v1 (T113 5.4): VDC whole 64 KiB, Z80, tape, REU, two SIDs + sockets' audio, ROM in the DDR2
+# behind the line cache; the defines come to MONO NO_TURBO RAM_P2 ROM_CACHE SID2 SID_REDIP SOCK_AUDIO TAPE VDC64 VDC_WHOLE Z80.
+# 5.7: the host's menu overlay (mono/host/overlay.v, 3.5 block RAM tiles) is stubbed out (cores/c128/mono/stubs/overlay_stub.v): the generic core application draws on the pixel
+# layer and never writes the overlay's registers; the tiles go to the character ROM store (c128_chr.v, 2 tiles).
+# T140 Q2b: NO_NET = no Ethernet MAC (ultimate_sys g_net 0), the WiFi UART stays.
+# T140 D24 item 4: the release build has no JTAG debug master (TRX_TOP_OFF=NO_JTAG_DBG: jtag_dbg, the debug registers, the console read-out and the JTAG
+# DDR2 port fall away, about 690 LUT). A dev build that needs tools/trxdbg.sh builds with `cores/c128/mono/build.sh --jtag`.
+mono_env     = ["TRX_VDC=whole", "TRX_Z80=1", "TRX_REU=1", "TRX_DEFS=VDC64 ROM_CACHE RAM_DDR2 SID2 SOCK_AUDIO TAPE NO_NET NO_VIC_SCALER", "TRX_STUB=overlay", "TRX_TOP_OFF=NO_JTAG_DBG"]
+# The one file the user supplies: the 72 KiB system ROM in the layout of the MiSTer core's boot0.rom (T113 5.5): C64 BASIC+KERNAL 16 KiB,
+# C128 editor+Z80 BIOS+KERNAL 16 KiB, C128 BASIC 32 KiB, character ROMs 8 KiB. Never in the repository, a release or a .cfw.
+roms         = ["boot0.rom"]

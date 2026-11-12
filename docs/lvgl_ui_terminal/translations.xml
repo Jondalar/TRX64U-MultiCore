@@ -1,0 +1,18 @@
+<!-- English-only in M2, as decided in T24-ui-wiring.md. These stable terms can
+     later be consumed by the firmware label adapter or extended with languages. -->
+<translations languages="en">
+    <translation tag="nav_home" en="HOME" />
+    <translation tag="nav_library" en="LIBRARY" />
+    <translation tag="nav_c64" en="C64" />
+    <translation tag="nav_timewarp" en="TIMEWARP" />
+    <translation tag="nav_tools" en="TOOLS" />
+    <translation tag="nav_settings" en="SETTINGS" />
+    <translation tag="action_back" en="BACK" />
+    <translation tag="action_cancel" en="CANCEL" />
+    <translation tag="key_cursor_vertical" en="CRSR-UP/DOWN" />
+    <translation tag="key_cursor_horizontal" en="CRSR-LEFT/RIGHT" />
+    <translation tag="key_return" en="RET" />
+    <translation tag="key_back" en="&lt;-" />
+    <translation tag="action_save_flash" en="SAVE TO FLASH" />
+    <translation tag="action_reset_flash" en="RESET FROM FLASH" />
+</translations>

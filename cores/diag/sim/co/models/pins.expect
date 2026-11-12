@@ -1,0 +1,12 @@
+# the open-drain loop-back model: a driven pin reads low, the rest high; the first sample is 50 us + the PADCTL and WAIT op overhead after RUN
+meta.status = "done"
+slot.base.pins = [1023]
+slot.base.ts = [5005]
+slot.d_p1_up.pins = [1022]
+slot.d_p1_down.pins = [1021]
+slot.d_p1_left.pins = [1019]
+slot.d_p1_right.pins = [1015]
+slot.d_p1_fire.pins = [1007]
+slot.d_p2_up.pins = [991]
+slot.d_p2_fire.pins = [511]
+eval.drivable ~ PASS

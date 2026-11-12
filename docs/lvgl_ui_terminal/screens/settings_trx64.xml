@@ -1,0 +1,62 @@
+<screen>
+    <view>
+        <style name="style_screen" />
+        <app_shell active_settings="true">
+            <app_shell-content>
+                <column width="100%" height="100%" pad="#space_lg" gap="#space_md">
+                    <row width="100%">
+                        <column grow="1" gap="#space_xs">
+                            <lv_label text="SETTINGS / TRX64" style_text_font="font_caption"
+                                      style_text_color="#color_muted" />
+                            <lv_label text="TRX64 behavior" style_text_font="font_title"
+                                      style_text_color="#color_ink" />
+                        </column>
+                        <status_chip label="SAVED" tone="#color_cyan" />
+                    </row>
+
+                    <panel width="100%" grow="1" gap="0">
+                        <setting_row title="Freeze C64 while menu is open"
+                                     description="Off keeps the live machine visible.">
+                            <setting_row-control>
+                                <ui_switch subject="subject_freeze_on_menu" state="OFF" />
+                            </setting_row-control>
+                        </setting_row>
+                        <setting_row title="Cartridge writeback"
+                                     description="Warn before modified persistent data is ejected.">
+                            <setting_row-control>
+                                <ui_switch subject="subject_writeback_enabled" state="ON" tone="#color_amber" />
+                            </setting_row-control>
+                        </setting_row>
+                        <setting_row title="Timewarp history">
+                            <setting_row-control>
+                                <lv_label text="8 s" style_text_font="font_body"
+                                          style_text_color="#color_ink" />
+                            </setting_row-control>
+                        </setting_row>
+                        <setting_row title="Splash behavior">
+                            <setting_row-control>
+                                <lv_label text="STATUS" style_text_font="font_caption"
+                                          style_text_color="#color_ink" />
+                            </setting_row-control>
+                        </setting_row>
+                        <setting_row title="C64 turbo mode">
+                            <setting_row-control>
+                                <ui_switch subject="subject_turbo_mode" state="OFF" />
+                            </setting_row-control>
+                        </setting_row>
+                        <box grow="1" />
+                    </panel>
+
+                    <row width="100%" gap="#space_sm">
+                        <lv_label text="&lt;-  ALL SETTINGS" style_text_font="font_caption"
+                                  style_text_color="#color_muted" />
+                        <box grow="1" />
+                        <ui_button label="RESET FROM FLASH" />
+                        <ui_button label="SAVE TO FLASH" bg_color="#color_violet"
+                                   border_color="#color_violet" text_color="#color_bg" />
+                    </row>
+                </column>
+            </app_shell-content>
+        </app_shell>
+    </view>
+</screen>

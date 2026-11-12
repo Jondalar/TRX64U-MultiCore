@@ -1,0 +1,29 @@
+idle $5C refresh $11 ptr $22  $DE00 write-first 0: FF:256                                           -> constant $FF (a device answers)
+idle $5C refresh $11 ptr $22  $DE00 write-first 1: FF:256                                           -> constant $FF (a device answers)
+idle $5C refresh $11 ptr $22  $DEFF write-first 0: 11:20 22:32 5C:203 DE:1                          -> other
+idle $5C refresh $11 ptr $22  $DEFF write-first 1: DE:256                                           -> constant $DE (a device answers)
+idle $5C refresh $11 ptr $22  $DF00 write-first 0: 11:20 22:32 5C:203 DF:1                          -> other
+idle $5C refresh $11 ptr $22  $DF00 write-first 1: DF:256                                           -> constant $DF (a device answers)
+idle $5C refresh $11 ptr $22  $DF0B write-first 0: 11:20 22:32 5C:203 DF:1                          -> other
+idle $5C refresh $11 ptr $22  $DF0B write-first 1: DF:256                                           -> constant $DF (a device answers)
+idle $5C refresh $11 ptr $22  $DF80 write-first 0: 11:20 22:36 5C:200                               -> VIC byte
+idle $5C refresh $11 ptr $22  $DF80 write-first 1: DF:256                                           -> constant $DF (a device answers)
+idle $5C refresh $11 ptr $22  $DFFF write-first 0: 11:20 22:32 5C:203 DF:1                          -> other
+idle $5C refresh $11 ptr $22  $DFFF write-first 1: DF:256                                           -> constant $DF (a device answers)
+idle $5C refresh $11 ptr $22  $D800 write-first 0: 1E:3 2E:3 5E:26 DE:224                           -> upper nibble NOT the VIC byte (other)
+idle $5C refresh $11 ptr $22  $D800 write-first 1: 15:5 25:8 55:51 D5:192                           -> upper nibble NOT the VIC byte (other)
+idle $C3 refresh $4E ptr $77  $DE00 write-first 0: FF:256                                           -> constant $FF (a device answers)
+idle $C3 refresh $4E ptr $77  $DE00 write-first 1: FF:256                                           -> constant $FF (a device answers)
+idle $C3 refresh $4E ptr $77  $DEFF write-first 0: 4E:19 77:36 C3:201                               -> VIC byte
+idle $C3 refresh $4E ptr $77  $DEFF write-first 1: DE:256                                           -> constant $DE (a device answers)
+idle $C3 refresh $4E ptr $77  $DF00 write-first 0: 4E:20 77:32 C3:203 DF:1                          -> other
+idle $C3 refresh $4E ptr $77  $DF00 write-first 1: DF:256                                           -> constant $DF (a device answers)
+idle $C3 refresh $4E ptr $77  $DF0B write-first 0: 4E:20 77:32 C3:203 DF:1                          -> other
+idle $C3 refresh $4E ptr $77  $DF0B write-first 1: DF:256                                           -> constant $DF (a device answers)
+idle $C3 refresh $4E ptr $77  $DF80 write-first 0: 4E:20 77:32 C3:203 DF:1                          -> other
+idle $C3 refresh $4E ptr $77  $DF80 write-first 1: DF:256                                           -> constant $DF (a device answers)
+idle $C3 refresh $4E ptr $77  $DFFF write-first 0: 4E:20 77:32 C3:203 DF:1                          -> other
+idle $C3 refresh $4E ptr $77  $DFFF write-first 1: DF:256                                           -> constant $DF (a device answers)
+idle $C3 refresh $4E ptr $77  $D800 write-first 0: 45:4 75:3 C5:25 D5:224                           -> upper nibble NOT the VIC byte (other)
+idle $C3 refresh $4E ptr $77  $D800 write-first 1: D5:256                                           -> upper nibble NOT the VIC byte (other)
+openbus: 26 case(s) are not the VIC byte

@@ -1,0 +1,42 @@
+--- a/usb_hid.h
++++ b/usb_hid.h
+@@ -17,6 +17,29 @@
+ 
+ void usb_hid_get_status_snapshot(t_usb_hid_status_snapshot& snapshot);
+ 
++// T104.1 5.6: the mouse library's hook. One call per mouse report, with the motion after sensitivity and acceleration and the buttons in
++// HID order (1 left, 2 right, 4 middle). A sink that returns true has consumed the report: the driver then does no port-1 output, no cursor
++// keys and no menu navigation for it. Null (the default, and the host app): the driver handles the report itself, as before.
++typedef bool (*usb_hid_mouse_sink_t)(int dx, int dy, uint8_t buttons);
++void usb_hid_set_mouse_sink(usb_hid_mouse_sink_t sink);
++// T141: the keyboard's hook. One call per combined keyboard report (modifiers, reserved, six usages), on the USB task, before the driver's own
++// handling, which goes on as before (menus, the C64 matrix). Null (the default, and the host app): nothing changes.
++typedef void (*usb_hid_keyboard_sink_t)(const uint8_t report[8]);
++void usb_hid_set_keyboard_sink(usb_hid_keyboard_sink_t sink);
++// T156: the gamepad library's hook. An interface whose report descriptor is not a keyboard or a mouse is offered to the sink: attach() returns true
++// when its descriptor holds a gamepad, and the driver then reads the interface's reports and hands every one to report() (the bytes as the
++// endpoint delivered them), until the interface goes away: detach(). `key` is the interface's identity. Null (the default, and the host app):
++// such an interface stays unread, as before.
++struct UsbPadSink {
++    bool (*attach)(const void *key, const char *name, uint16_t vid, uint16_t pid, const uint8_t *desc, int len);
++    void (*report)(const void *key, const uint8_t *data, int len);
++    void (*detach)(const void *key);
++};
++void usb_hid_set_pad_sink(const UsbPadSink *sink);
++// The driver's 1351 and port-1 output, for a sink that drives them (the C64 backend of the library).
++void usb_hid_set_mouse1_position(int16_t mouse_x, int16_t mouse_y);
++void usb_hid_set_joy1_output(uint8_t active_low_mask);
++
+ class UsbHidDriver : public UsbDriver
+ {
+ 	int  irq_transaction;
+@@ -29,7 +52,8 @@
+     UsbInterface *interface;
+     int  irq_in;
+     bool keyboard;
+-    bool mouse;
++    bool mouse;
++    bool pad;                   // T156: the interface is a gamepad of the pad sink
+     bool descriptor_keyboard;
+     bool descriptor_mouse;
+     bool rest_source;

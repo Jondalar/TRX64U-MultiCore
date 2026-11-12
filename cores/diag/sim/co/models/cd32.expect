@@ -1,0 +1,16 @@
+# three prompts; the data line high with nothing held, low with red held, high again: the sample before the first clock and the nine after it
+meta.status = "done"
+prompt.none = "OK"
+prompt.red = "OK"
+prompt.off = "OK"
+slot.n0_rel.cmp = [8]
+slot.r0_rel.cmp = [0]
+slot.n_d1.cmp = [8, 8, 8, 8, 8, 8, 8, 8, 8]
+slot.r_d1.cmp = [0, 0, 0, 0, 0, 0, 0, 0, 0]
+slot.n0_d1a1.cmp = [8]
+eval.d1_pin5 ~ PASS
+eval.d1_idle ~ PASS
+eval.d1_reads ~ PASS
+eval.d1_ok ~ PASS
+eval.d1_id ~ FAIL
+eval.d1a1_ok ~ PASS

@@ -1,0 +1,28 @@
+# The C64SCPU core (T182): a C64 with a SuperCPU (65816, SuperRAM) - cores/c64scpu. Step 1 of the plan (docs/todo/T182.md): the C64 with its 6510, forked
+# from the C128 core and cut down; the 65816 comes with the next steps. TREX-internal.
+# A LARGE core (T182 D7, T100 D9, T115 section 7): host and core flat in ONE bitstream (cores/c64scpu/mono/build_mono.tcl), started by the host as a .cfw. This file is the
+# only descriptor, there is no DFX lane; ci/plan.py, ci/lanes.py and ci/bitstream_mono.sh find the core by cores/c64scpu/mono/core.toml, lane large-c64scpu.
+id           = "c64scpu"
+name         = "C64 with SuperCPU"
+version      = "0.1.0"
+contract     = 2
+app          = "blueprint"     # the T104 generic application with the C64SCPU descriptor (coreapp/cores/c64scpu.cc, T182 step 8): the .cfw's application is coreapp.bin of stage trxapps
+delivery     = "cfw"           # no partial, no .cor: ci/bitstream_mono.sh builds the full bitstream, tools/pack_cfw_mc.sh makes c64scpu.cfw
+order        = 15
+build_only   = true            # Alex 2026-11-05 ("yes, I want to see it locally"): in the Gitea package for the board, never in a release or the bug form, until the 65816 runs
+experimental = true            # since T100 D9.6 a failed flat build turns the run red too (T94 D8's exemption is gone); the flag keeps the bench rows soft
+# All of cores/c64scpu (the area trial in cores/c64scpu/trial left out: it is no input of the build) plus what the core's sources read in place:
+# the c64u source tree (no descriptor, never built), icepi, the 1541's drive LEDs.
+# The flat build's own key (ci/lib.sh mono_key) leaves sim/ and mono/reports/ out again.
+sources      = ["cores/c64scpu", ":(exclude)cores/c64scpu/trial", "cores/c1541", ":(exclude)cores/c1541/sim", "cores/c64u", ":(exclude)cores/c64u/sim", "vendor/icepi", "vendor/mister"]
+# The variant: the C64 with one SID block (two SIDs), the sockets' audio, the REU and the ROM and the RAM in the DDR2 behind their caches (no switch for that: it is the only memory path).
+# The defines come to MONO NO_TURBO SID_REDIP SID2 SOCK_AUDIO TAPE NO_NET.
+# The host's menu overlay (mono/host/overlay.v, 3.5 block RAM tiles) is stubbed out (cores/c64scpu/mono/stubs/overlay_stub.v): the generic core application draws on the pixel
+# layer and never writes the overlay's registers.
+# NO_NET = no Ethernet MAC (ultimate_sys g_net 0), the WiFi UART stays.
+# The release build has no JTAG debug master (TRX_TOP_OFF=NO_JTAG_DBG: jtag_dbg, the debug registers, the console read-out and the JTAG
+# DDR2 port fall away, about 690 LUT). A dev build that needs tools/trxdbg.sh builds with `cores/c64scpu/mono/build.sh --jtag`.
+mono_env     = ["TRX_REU=1", "TRX_DEFS=SID2 SOCK_AUDIO TAPE NO_NET", "TRX_STUB=overlay", "TRX_TOP_OFF=NO_JTAG_DBG"]
+# The files the person supplies (names only, never files; clean room): the SuperCPU ROM (64, 128 or 256 KiB; without it the core does not start, T182 D2),
+# the C64's KERNAL, BASIC and character ROM, and optionally the 1541 drive ROM and a JiffyDOS 1541 ROM. In /SD/cores/c64scpu/roms/. Never in the repository, a release or a .cfw.
+roms         = ["scpu64.rom", "kernal-901227-03.bin", "basic-901226-01.bin", "chargen-901225-01.bin", "1541 drive", "JiffyDOS 1541 ROM"]

@@ -1,0 +1,18 @@
+# The SNES core (T142): MiSTer-devel/SNES_MiSTer (GPL v3; srg320's S-CPU, S-PPU, S-SMP, S-DSP in VHDL) in cores/snes/rtl, built from cores/snes/gen
+# (tools/snes_gen.py: GHDL conversion to Verilog, every clock an enable on cpu_clk), our glue in trx/ (the cartridge ROM, work RAM and battery RAM in the
+# DDR2 behind line caches that hold the machine on a miss, the frame writer, the clock enables, the register block, the pads on the C64 joysticks and
+# keyboard, the sound). A LARGE core (one flat bitstream, host and core together, T115): this file is the only descriptor, no DFX lane;
+# cores/snes/mono/build_mono.tcl, lane large-snes. GPL v3 (cores/snes/rtl/NOTICE).
+id           = "snes"
+name         = "Super Nintendo"
+version      = "0.0.1"
+contract     = 2
+app          = "blueprint"     # the T104 generic application (coreapp/cores/snes.cc)
+delivery     = "cfw"           # a LARGE core (Alex, 2026-10-28, translated: "let 2 agents build the two cores for the SNES and the Neo Geo in parallel,
+                               # for real, so that they go onto the large-core list")
+order        = 14              # after the ZX Spectrum Next (13)
+experimental = true            # built, benched, application written; no board test; the flag keeps the bench rows soft
+mono_env     = ["TRX_FEATURES=jtag", "TRX_DEFS=NO_NET NO_C64VIDEO"]   # host features as the DFX build's (jtag on, UCI and UDP streams off); T164: no Ethernet, no VIC path, no C64 text
+sources      = ["cores/snes", ":(exclude)cores/snes/sim", ":(exclude)cores/snes/rtl"]
+                               # rtl/ is the pristine upstream copy (but for the 64 bytes tools/vendor_snes.sh leaves out of SMP.vhd, see rtl/NOTICE); what is built is
+                               # gen/ (tracked), which tools/snes_gen.py makes from it and ci/lint.sh checks.

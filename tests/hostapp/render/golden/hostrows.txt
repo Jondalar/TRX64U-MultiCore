@@ -1,0 +1,72 @@
+page menu|Boot menu|UP/DOWN select    RETURN start    RIGHT configs    R check entry    V picture    any key stops the countdown
+  sub|Pick a core. The default starts when the countdown ends.
+  hint|No cores yet. Press F3, open a folder on SD or USB
+and press A on a .cor bundle or a .cfw firmware.|hidden
+  pos|
+  countdown|Countdown stopped|hidden|0
+  row 0|TRX64 Ultimate (C64)|/SD/cores/trx64.cor  v1.0-rc1|hash ok|ok|default|TRX6|SEL
+  row 1|VC-20 (PAL)|/Usb0/cores/vc20.cor  v0.1|hash ok|ok||VC-2|
+  row 2|TRX64 Ultimate (old host)|/Usb0/old/trx64-0.9.cor|contract 3 != 2|warn||TRX6|
+page browse|File Browser|UP/DOWN select    RETURN open    F format as exFAT    V picture
+  path|/
+  empty|
+  row 0|>|..||SEL
+  panel|keys 1
+  title|..|ink
+  kv 0|Size||
+  kv 1|Contents|not a medium|
+  kv 2|Boot menu||
+  kv 3|Access||
+  kv 4|Format|needs a medium|
+  msg|RETURN opens it|muted
+page edit|Edit menu|UP/DOWN select    +/- move    D default    C rename    LEFT/RIGHT config of this core    DEL twice removes
+  countdown|5 s
+  direct|on (C= or fire at power-on: menu)
+  default|TRX64 Ultimate (C64)
+  defcfg|(none: this core has no configs)
+  pos|
+  row 0|TRX64 Ultimate (C64)|/SD/cores/trx64.cor|hash ok|ok|default|SEL
+  row 1|VC-20 (PAL)|/Usb0/cores/vc20.cor|hash ok|ok||
+  row 2|TRX64 Ultimate (old host)|/Usb0/old/trx64-0.9.cor|contract 3 != 2|warn||
+page net|Network|C colours    V picture
+  Ethernet|link up, 192.0.2.189|ok
+  FTP|on, port 21, no password|-
+  Media|/Flash  /SD  /Usb0  |-
+  REST|off|-
+  State|Forgetting the stored access points ...|warn
+  Connected to|(none)|muted
+  IP address|waiting for an address|muted
+  MAC|a0:76:4e:12:34:56    ESP32 WiFi Bridge V1.14|-
+  note|The WiFi is set under F8 (Settings, WiFi).|muted
+page settings|Settings|UP/DOWN select    LEFT/RIGHT or RETURN change    V picture
+  settings.direct|Direct boot|on|The default core starts at power-on without the menu. C= or fire on port 1 at power-on shows the menu.|
+  settings.hdmi|Picture|from the screen: 1920 x 1080|Only what the screen names is offered. A change asks for a key within 8 s, else it goes back. RETURN opens the modes the screen names; V opens them from every view. Nothing is applied while you browse.|
+  settings.protect|Protect Flash from updates|on|On: a large core gets the machine with the host and its app (flash 0x000000-0x3FFFFF) locked until power-off. Flash chip ef4018: status registers SR1 34, SR2 01 now.|
+  settings.wifi|WiFi|open|Use DHCP or static addresses, the access point list, enter an access point, connect to the last one, disconnect, forget. The cores show the WiFi and switch it on and off.|
+  settings.ftp|FTP service|on, port 21, no password|Switches the FTP file service. Stored in host.cfg; the listener follows at once, a connection that is already open ends with its session.|
+  settings.esp|Inspect .cfw/.ue2 for ESP32|open|Looks into a firmware file for its ESP32 image set and version. RETURN opens the File Browser; pick the file there. Reads the file only, writes nothing.|
+  settings.cores|Cores and ROMs|open|Each core's folder, its ROM files and saves; what belongs to no core and what is there twice. Deletes the files that belong to no core.|SEL
+  settings.report|Bug report|20261030-140510.txt|RETURN writes report/<date-time>.txt on the SD card, else on a USB stick: versions, settings, the cores in the menu and the last log lines. No passwords or keys. The same text is at /v1/report.|
+page settings/wifi|WiFi|UP/DOWN select    LEFT/RIGHT or RETURN change    S AP list    M enter AP    L last AP    D disconnect    F forget    ESC back
+  State|Forgetting the stored access points ...|warn
+  Connected to|(none)|muted
+  IP address|waiting for an address|muted
+  wifi.radio|WiFi|On|ink|
+  wifi.dhcp|Use DHCP|Enabled|ink|
+  wifi.ip|Static IP|192.168.2.64|muted|dim SEL
+  wifi.mask|Static Netmask|255.255.255.0|muted|dim 
+  wifi.gw|Static Gateway|192.168.2.1|muted|dim 
+  wifi.dns|Static DNS|8.8.8.8|muted|dim 
+  note||warn
+page settings/cores|Cores and ROMs|UP/DOWN scroll    ESC back
+  head|Every core keeps its settings, ROM files and saves in a folder of its own beside its .cor.|muted
+  line 0|Cores (folder beside the .cor, its ROM files, its saves)|host
+  line 1|SD    trx64.cor              no folder yet (made at the first start)|muted
+  line 2|Usb0  badicon.cor            no folder yet (made at the first start)|muted
+  line 3|Usb0  c2.cor                 no folder yet (made at the first start)|muted
+  line 4|Usb0  vc20.cor               no folder yet (made at the first start)|muted
+  line 5|Belong to no core: nothing|host
+  msg||muted
+page colors|Colour test|
+  text|Colour test (RGB565 from LVGL). r g b k solid, v h stripes, p buffers, x/X 1/2 buffers, Esc returns.
+  pattern|-

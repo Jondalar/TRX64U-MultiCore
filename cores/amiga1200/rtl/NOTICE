@@ -1,0 +1,23 @@
+Amiga 1200 core: the third-party CPU of this core. Read cores/amiga/rtl/NOTICE for the terms of the rest of the Amiga
+gateware. No ROM is in this repository.
+Rights holders who see a problem with any part listed here: please contact us, and we remove the part concerned.
+
+TG68K - the 68020 of the Amiga 1200 core
+  Upstream   https://github.com/MiSTle-Dev/NanoMig, commit a19604a19a6100033a29281d2be3287b65bc9c0e (the commit cores/amiga/rtl/NOTICE
+             names), src/tg68k/ and sim/. TG68K.C by Tobias Gubener (opencores), patches by MikeJ, Till Harbaum, Rok Krajnc and others.
+  Licence    GNU Lesser General Public License, version 3 or (at your option) any later version. Read from the headers of the files
+             themselves ("Copyright (c) 2009-2020 Tobias Gubener ... GNU Lesser General Public License ... either version 3 of the
+             License, or (at your option) any later version", the same text in all three VHDL files). NanoMig's repository has no
+             LICENSE file. (The sentence "GNU General Public License for more details" in the header is the boilerplate of the LGPL notice, not a second licence.)
+  Taken      rtl/tg68k/TG68K_Pack.vhd, TG68K_ALU.vhd and TG68KdotC_Kernel.vhd, unchanged except that the kernel's entity is renamed
+             TG68KdotC_Kernel -> TG68KdotC_Kernel_core (three lines, tools/vendor_tg68k.sh does it): rtl/tg68k_020.v (ours) takes
+             the old name because cpu_wrapper.v instantiates it, and ties the kernel's CPU input to 11 (68020).
+             sim/tg68k/TG68KdotC_Kernel.v: NanoMig's sim/TG68KdotC_Kernel.v byte for byte, the tool-generated Verilog translation
+             of the same kernel that Verilator needs (no VHDL there). A derivative of the LGPL VHDL, so LGPL. Simulation only.
+  Not taken  TG68K.vhd (the 68000 bus top, nothing instantiates it), src/tg68k/verilog/ (an unfinished AI translation that upstream
+             says fails in the first instruction), the cache (cpu_cache_new.v).
+  Linking    The LGPL case that matters: the kernel is a separate design unit with its own entity and is not modified beyond the rename,
+             so a user can replace it.
+
+rtl/cpu_wrapper.v is cores/amiga/rtl/src/minimig-aga/cpu_wrapper.v (Minimig-AGA, GPL v3 or later, see cores/amiga/rtl/NOTICE) with
+one change, rtl/cpu_wrapper.diff; tools/check_wrapper_fork.sh fails when either side moves. rtl/tg68k_020.v is ours.

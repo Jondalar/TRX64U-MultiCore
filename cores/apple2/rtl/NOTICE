@@ -1,0 +1,68 @@
+Apple //e core: vendored from NanoApple2.
+
+No Apple ROM content is in this directory or anywhere in the repository, the CI artefacts or a .cor (tools/check_no_roms.sh
+checks it): the system ROM, the character ROM, the Disk II boot ROM and the AppleMouse card ROMs are written by the
+application through the DMA window from files on the stick (core.toml `roms`, names only).
+
+Licence position: the machine logic (apple2.vhd, timing_generator.vhd, video_generator.vhd, disk_ii.vhd, drive_ii.vhd)
+carries only credit lines, no licence text in the file (Szombathelyi Gyorgy, based on Stephen A. Edwards' Apple ][+,
+Columbia University); the repository NanoApple2 declares GPL v3 as a whole (its LICENSE). We treat the files as GPL v3 as
+declared by the repository and keep the credit lines in every file.
+Rights holders who see a problem with any part listed here: please contact us, and we remove the part concerned.
+
+Upstream: https://github.com/MiSTle-Dev/NanoApple2 (commit 4977e0494235cb2f812d71ce78f5ab2cf675747a, 2026-03-21). Files, their header
+terms as written in the file, what was changed (sha256 of the pristine upstream file in brackets):
+
+  src/apple2.vhd              Szombathelyi Gyorgy / Stephen A. Edwards; no licence text.  [572e24832d4feae96bc7d4eabcfaa60dadba49b8882427285fe4d1722b2c2245]
+  src/timing_generator.vhd    the same.  [56b7e3799e8ce63ccdd416c1b4e17d0f084541c2e87104c2c621f4c73cae8ed0]
+  src/video_generator.vhd     the same.  [0c4bd2da2534d25b7d70dc074c8e0bb3fb5af9737ae772c02783df876d953cbc]
+  src/disk_ii.vhd             Stephen A. Edwards; write and 2 disks support (c)2022 Gyorgy Szombathelyi; no licence text.  [403b63b588cfbb689e856cff68095f25b889b8b0a2482fde908a465628796c75]
+  src/drive_ii.vhd            the same.  [0d9ac4e67ae73e2d91f1aafb689a50e34231b9e62ed4e5d0603b5885fc8994bb]
+      T89.1: disk_ii.vhd keeps upstream's soft switch decoding and spin-down and drive_ii.vhd keeps upstream's stepper process (`update_phase`); the
+      rest of drive_ii.vhd is new: the byte ring of pre-nibblized bytes is a bit engine (cell clock, shift register, latch, quarter track head, write
+      by read-modify-write, weak bits, random flux), see PROVENANCE below. apple2.vhd gained the output CPU_STEP.
+      Changed in these five (each file says so in its header): every clocked process runs on CLK_14M with the enable CE_14M (the
+      machine counts 14.318 MHz enables of the host's sys_clk); no Gowin block and no ROM contents: the system ROM, the character ROM
+      and the Disk II boot ROM are ports (rom_addr/rom_out, video_rom_addr/video_rom_out, ROM_ADDR/ROM_DOUT), filled by the app; no
+      ioctl download port; one CPU (the 65C02, R65C02) instead of T65 and R65C02 behind a `cpu` pin; new outputs Q3_RISE (the enable cycle in
+      which the 2 MHz clock rises: the moment the synchronous RAM of Edwards' design takes its address), FLOAT_BUS and the soft switches
+      COL80/ALTCHAR/HIRES/PAGE2/MIXED/STORE80/DHIRES. Every signal has an initial value (a Xilinx flip-flop starts at 0; the simulator's 'U' never leaves
+      a toggle flip-flop).
+  src/R65Cx2.vhd             table driven 65Cx2 core by A. Daly, a derivative of Peter Wendrich's FPGA64 (Copyright 2005-2008 Peter
+                              Wendrich, pwsoft@syntiac.com); NO TERMS in the file.  [593aac4d1a70b4fd6afbd2a6dae56b960152406dca8795e2cd41388093811251]  Changed only by initial values of the registers (simulation: a Xilinx flip-flop starts at 0) and by RTI taking its high byte from the stack address wrapped inside page 1 (T89.1 S13). T65 (which the VC-20 core
+                              carries) cannot be used: its 65C02 mode misses BRA, the (zp) addressing of ORA/LDA/CMP/SBC..., TSB, TRB, STZ,
+                              BIT #, JMP (abs,x) (T65.vhd header), and the Enhanced //e ROM uses them. R65C02 passes Klaus Dormann's 65C02
+                              extended opcodes test with the Rockwell/WDC groups (BBR/BBS/RMB/SMB) and the undefined-NOP groups left out
+                              (sim/run_cpu65c02.sh). The file states no terms.
+  mouse/applemouse.vhd        (c)2025 Gyorgy Szombathelyi; no licence text; uses jt6805 and pia6821.  Changed (header says so): enables instead of a clock, the two
+                              ROMs (the card's and the MCU's: Apple's code) as ports.  [e780a619adbd1672ee6eba5fd8d3968172c7b2ac784ab8aec90b55c9aa4de490]
+  mouse/pia6821.vhd           John E. Kent 2004 ("adheres to the GNU public license"), changes by DarFpga and Slingshot.  Changed: both clock edges as the enables
+                              ce_r / ce_f of sys_clk.  [1ca96f105f29c5181730e7906736d4737e3d03110779ee64b19682756ac87836]
+  mouse/jt6805/*.v, *.vh      jt6805 6805 MCU, Jose Tejada (jotego), GPL v3, "This file is part of JTCORES / JTFRAME" with the licence text in every file.
+                              6805.uc is its microcode (binary text, 4096 x 39 bits), read with $readmemb. Changed: jtframe_6805mcu.v (an inferred RAM for the
+                              Gowin block; pc_ddr is reset, upstream resets pa_ddr twice and never pc_ddr) and 6805.vh (an inferred microcode ROM for the Gowin pROM gowin_prom_uc.v), jt6805_ctrl.v (the declarations of jsr_sel, halt, swi, ni moved above the include of 6805.vh: iverilog 14 refuses the use before the declaration).
+                              [jt6805.v 1e55fb96..., jt6805_alu.v 816889e0..., jt6805_ctrl.v 72f68416..., jt6805_regs.v 99c874d6..., jtframe_6805mcu.v 2bb88e32...]
+  rtl/trx/a2_palette_pkg.vhd  DERIVED from src/vga_controller.vhd (Szombathelyi/Edwards; colour theory of Linards Ticmanis and Newsdee; no terms
+                              in the file; [45e2c5ed898c605af16ab7cb4f1103b3ccf75a302463a940b6146c8d01399ed3]): the three built-in 16 colour palettes as a table instead of a case, and the
+                              colour decode of a2_pix.vhd (a2_pixc) follows the same logic.
+  rtl/trx/a2_hdd.vhd          T89.1, written for this project. PROVENANCE: the register set and the status codes follow rtl/hdd.v of Apple-IIgs_MiSTer (below),
+                              re-implemented in VHDL without its bus DMA and sector buffer (the application moves the block).
+  rtl/roms/hdd.a65            PROVENANCE: https://github.com/MiSTer-devel/Apple-IIgs_MiSTer, commit 9adbba8622f378253765b7d438b6cbcc4d03fc57, path rtl/roms/hdd.a65.
+                              The AppleWin hard disk controller firmware (Robert Hoem 2005, Tom Charlesworth and others; GPL v2 or later; this repository is
+                              GPL v3 or later), source text in the file's own header. The only change is two comment lines at the top. NOT Apple code. The
+                              256 bytes it assembles to are generated by tools/build_hdd_rom.sh into rtl/roms/hdd_rom.h (the application embeds them) and are
+                              byte-identical to the donor's rtl/roms/hdd.hex (2026-10-29).
+  rtl/trx/*.vhd (other)       written for this project, no upstream code. Where a block follows a circuit of another core in this
+                              repository (a2_pix.vhd: nes_pixw.v; a2_win.vhd: nes_win.v / vc20_win; a2_regs.vhd: nes_regs.v), the file says so.
+
+Not used from upstream (on purpose): floppy_track.sv (LGPL v3, Sorgelig; the track window is a2_trk.vhd), sdram*.v, the hdmi/ and misc/ board parts,
+hdd.vhd (the hard disk card is a2_hdd.vhd, T89.1), ssc.vhd (out, T89 section 4), gen_uart.v / uart6551 (SSC), mockingboard/ (phase 2, Q7; via6522.vhd carries "do not copy without written permission"
+and is never to be used), keyboard.vhd (USB scan codes; the C64 matrix table is a2_keys), gowin_* wrappers, roms/*.mi and every ROM-carrying
+VHDL file (disk_ii_rom.vhd, hdd_rom.vhd, ssc_rom.vhd, applemouse_rom.vhd, applemouse_mcu_rom.vhd).
+Not used from Apple-II_MiSTer (github.com/MiSTer-devel/Apple-II_MiSTer): nothing (T89 Q2: no composite decoder).
+
+Apple-IIgs_MiSTer (https://github.com/MiSTer-devel/Apple-IIgs_MiSTer, commit 9adbba8622f378253765b7d438b6cbcc4d03fc57, 2026-07-12; GPL v3 or later, the
+README lists rtl/hdd.v and rtl/roms/hdd.a65 as GPL v2 or later AppleWin code; T89.1). Taken: rtl/roms/hdd.a65 (above). Behaviours read from rtl/hdd.v
+(a2_hdd.vhd) and rtl/flux_drive.v (drive_ii.vhd: the 56 clock bit cell, the quarter track head, the position that wraps at the bit count, the weak bit rule of the
+MC3470, random flux on an unformatted track, bits written by read-modify-write) and re-implemented, no text copied. Not used: iwm_flux.v, iwm_woz.v,
+woz_floppy_controller.sv, smartport_dev.v (an IWM chip model, WOZ parsing in gateware, 3.5" and SmartPort: T89.1 section 3 says why).

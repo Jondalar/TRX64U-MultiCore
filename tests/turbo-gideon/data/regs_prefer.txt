@@ -1,0 +1,6 @@
+regs, no reset, menu 16/Disabled: outer=1529 x=15.99 d031_read=89 d030=FF
+regs, after reset, menu 16/Disabled: outer=91 x=0.95 d031_read=00 d030=FF
+regs, no reset, menu 16/Enabled: outer=1445 x=15.11 d031_read=09 d030=FF
+regs, after reset, menu 16/Enabled: outer=91 x=0.95 d031_read=00 d030=FF
+regs, no reset, menu 64/Disabled: outer=6007 x=62.82 d031_read=8F d030=FF
+regs, after reset, menu 64/Disabled: outer=91 x=0.95 d031_read=00 d030=FF

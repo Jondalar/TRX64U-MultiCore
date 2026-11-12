@@ -1,0 +1,10 @@
+--- a/a8core/address_decoder.vhdl
++++ b/a8core/address_decoder.vhdl
+@@ -853,7 +853,6 @@
+ 	SDRAM_REQUEST <= sdram_chip_select;
+ 	--SDRAM_REQUEST <= sdram_request_next;
+ 	SDRAM_READ_EN <= not(write_enable_next);
+-	SDRAM_WRITE_EN <= write_enable_next;
+ 	
+ 	WIDTH_8bit_ACCESS <= width_8bit_next;
+ 	WIDTH_16bit_ACCESS <= width_16bit_next;

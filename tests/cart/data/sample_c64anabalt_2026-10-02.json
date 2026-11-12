@@ -1,0 +1,1890 @@
+{
+ "entity": "XC7A50T_FGG484",
+ "time": 1790941790.2981,
+ "count": 300,
+ "pins": [
+  {
+   "ball": "A1",
+   "port": "IO_A1",
+   "in": 0,
+   "out": 0,
+   "oe": 1
+  },
+  {
+   "ball": "A8",
+   "port": "MGTPRXN0_216",
+   "in": 1,
+   "out": null,
+   "oe": null
+  },
+  {
+   "ball": "A10",
+   "port": "MGTPRXN2_216",
+   "in": 1,
+   "out": null,
+   "oe": null
+  },
+  {
+   "ball": "A13",
+   "port": "IO_A13",
+   "in": 0,
+   "out": 1,
+   "oe": 0
+  },
+  {
+   "ball": "A14",
+   "port": "IO_A14",
+   "in": 0,
+   "out": 1,
+   "oe": 0
+  },
+  {
+   "ball": "A15",
+   "port": "IO_A15",
+   "in": 0,
+   "out": 1,
+   "oe": 0
+  },
+  {
+   "ball": "A16",
+   "port": "IO_A16",
+   "in": 0,
+   "out": 0,
+   "oe": 1
+  },
+  {
+   "ball": "A18",
+   "port": "IO_A18",
+   "in": 1,
+   "out": "T",
+   "oe": 1
+  },
+  {
+   "ball": "A19",
+   "port": "IO_A19",
+   "in": 1,
+   "out": "T",
+   "oe": 1
+  },
+  {
+   "ball": "A20",
+   "port": "IO_A20",
+   "in": 1,
+   "out": "T",
+   "oe": 1
+  },
+  {
+   "ball": "A21",
+   "port": "IO_A21",
+   "in": 1,
+   "out": "T",
+   "oe": 1
+  },
+  {
+   "ball": "B1",
+   "port": "IO_B1",
+   "in": 0,
+   "out": 0,
+   "oe": 1
+  },
+  {
+   "ball": "B2",
+   "port": "IO_B2",
+   "in": 1,
+   "out": "T",
+   "oe": 1
+  },
+  {
+   "ball": "B4",
+   "port": "MGTPTXP0_216",
+   "in": null,
+   "out": 0,
+   "oe": null
+  },
+  {
+   "ball": "B6",
+   "port": "MGTPTXP2_216",
+   "in": null,
+   "out": 0,
+   "oe": null
+  },
+  {
+   "ball": "B8",
+   "port": "MGTPRXP0_216",
+   "in": 1,
+   "out": null,
+   "oe": null
+  },
+  {
+   "ball": "B10",
+   "port": "MGTPRXP2_216",
+   "in": 1,
+   "out": null,
+   "oe": null
+  },
+  {
+   "ball": "B13",
+   "port": "IO_B13",
+   "in": 0,
+   "out": 0,
+   "oe": 1
+  },
+  {
+   "ball": "B15",
+   "port": "IO_B15",
+   "in": 0,
+   "out": 0,
+   "oe": 1
+  },
+  {
+   "ball": "B16",
+   "port": "IO_B16",
+   "in": 0,
+   "out": 0,
+   "oe": 1
+  },
+  {
+   "ball": "B17",
+   "port": "IO_B17",
+   "in": "T",
+   "out": 1,
+   "oe": 0
+  },
+  {
+   "ball": "B18",
+   "port": "IO_B18",
+   "in": 1,
+   "out": "T",
+   "oe": 1
+  },
+  {
+   "ball": "B20",
+   "port": "IO_B20",
+   "in": 1,
+   "out": "T",
+   "oe": 1
+  },
+  {
+   "ball": "B21",
+   "port": "IO_B21",
+   "in": 1,
+   "out": "T",
+   "oe": 1
+  },
+  {
+   "ball": "B22",
+   "port": "IO_B22",
+   "in": "T",
+   "out": "T",
+   "oe": 1
+  },
+  {
+   "ball": "C2",
+   "port": "IO_C2",
+   "in": 1,
+   "out": "T",
+   "oe": 1
+  },
+  {
+   "ball": "C9",
+   "port": "MGTPRXN3_216",
+   "in": 1,
+   "out": null,
+   "oe": null
+  },
+  {
+   "ball": "C11",
+   "port": "MGTPRXN1_216",
+   "in": 1,
+   "out": null,
+   "oe": null
+  },
+  {
+   "ball": "C13",
+   "port": "IO_C13",
+   "in": 0,
+   "out": 1,
+   "oe": 0
+  },
+  {
+   "ball": "C14",
+   "port": "IO_C14",
+   "in": 0,
+   "out": 1,
+   "oe": 0
+  },
+  {
+   "ball": "C15",
+   "port": "IO_C15",
+   "in": 1,
+   "out": 1,
+   "oe": 0
+  },
+  {
+   "ball": "C17",
+   "port": "IO_C17",
+   "in": 1,
+   "out": "T",
+   "oe": 1
+  },
+  {
+   "ball": "C18",
+   "port": "IO_C18",
+   "in": 1,
+   "out": "T",
+   "oe": 1
+  },
+  {
+   "ball": "C19",
+   "port": "IO_C19",
+   "in": 1,
+   "out": "T",
+   "oe": 1
+  },
+  {
+   "ball": "C20",
+   "port": "IO_C20",
+   "in": "T",
+   "out": "T",
+   "oe": 1
+  },
+  {
+   "ball": "C22",
+   "port": "IO_C22",
+   "in": 1,
+   "out": "T",
+   "oe": 1
+  },
+  {
+   "ball": "D1",
+   "port": "IO_D1",
+   "in": 1,
+   "out": "T",
+   "oe": 1
+  },
+  {
+   "ball": "D2",
+   "port": "IO_D2",
+   "in": 1,
+   "out": "T",
+   "oe": 1
+  },
+  {
+   "ball": "D5",
+   "port": "MGTPTXP1_216",
+   "in": null,
+   "out": 0,
+   "oe": null
+  },
+  {
+   "ball": "D7",
+   "port": "MGTPTXP3_216",
+   "in": null,
+   "out": 0,
+   "oe": null
+  },
+  {
+   "ball": "D9",
+   "port": "MGTPRXP3_216",
+   "in": 1,
+   "out": null,
+   "oe": null
+  },
+  {
+   "ball": "D11",
+   "port": "MGTPRXP1_216",
+   "in": 1,
+   "out": null,
+   "oe": null
+  },
+  {
+   "ball": "D14",
+   "port": "IO_D14",
+   "in": 1,
+   "out": 0,
+   "oe": 0
+  },
+  {
+   "ball": "D15",
+   "port": "IO_D15",
+   "in": 1,
+   "out": 1,
+   "oe": 1
+  },
+  {
+   "ball": "D16",
+   "port": "IO_D16",
+   "in": 0,
+   "out": 0,
+   "oe": 1
+  },
+  {
+   "ball": "D17",
+   "port": "IO_D17",
+   "in": 1,
+   "out": "T",
+   "oe": 1
+  },
+  {
+   "ball": "D19",
+   "port": "IO_D19",
+   "in": 1,
+   "out": "T",
+   "oe": 1
+  },
+  {
+   "ball": "D20",
+   "port": "IO_D20",
+   "in": 1,
+   "out": "T",
+   "oe": 1
+  },
+  {
+   "ball": "D21",
+   "port": "IO_D21",
+   "in": "T",
+   "out": "T",
+   "oe": 1
+  },
+  {
+   "ball": "D22",
+   "port": "IO_D22",
+   "in": 1,
+   "out": "T",
+   "oe": 1
+  },
+  {
+   "ball": "E1",
+   "port": "IO_E1",
+   "in": 1,
+   "out": "T",
+   "oe": 1
+  },
+  {
+   "ball": "E2",
+   "port": "IO_E2",
+   "in": 1,
+   "out": "T",
+   "oe": 1
+  },
+  {
+   "ball": "E3",
+   "port": "IO_E3",
+   "in": 1,
+   "out": "T",
+   "oe": 1
+  },
+  {
+   "ball": "E13",
+   "port": "IO_E13",
+   "in": 1,
+   "out": 1,
+   "oe": 0
+  },
+  {
+   "ball": "E14",
+   "port": "IO_E14",
+   "in": 0,
+   "out": 1,
+   "oe": 0
+  },
+  {
+   "ball": "E16",
+   "port": "IO_E16",
+   "in": 0,
+   "out": 1,
+   "oe": 0
+  },
+  {
+   "ball": "E17",
+   "port": "IO_E17",
+   "in": 1,
+   "out": 1,
+   "oe": 0
+  },
+  {
+   "ball": "E18",
+   "port": "IO_E18",
+   "in": 1,
+   "out": 1,
+   "oe": 1
+  },
+  {
+   "ball": "E19",
+   "port": "IO_E19",
+   "in": 1,
+   "out": "T",
+   "oe": 1
+  },
+  {
+   "ball": "E21",
+   "port": "IO_E21",
+   "in": 1,
+   "out": "T",
+   "oe": 1
+  },
+  {
+   "ball": "E22",
+   "port": "IO_E22",
+   "in": "T",
+   "out": "T",
+   "oe": 1
+  },
+  {
+   "ball": "F1",
+   "port": "IO_F1",
+   "in": 1,
+   "out": "T",
+   "oe": 1
+  },
+  {
+   "ball": "F3",
+   "port": "IO_F3",
+   "in": 1,
+   "out": "T",
+   "oe": 1
+  },
+  {
+   "ball": "F4",
+   "port": "IO_F4",
+   "in": 0,
+   "out": 0,
+   "oe": 1
+  },
+  {
+   "ball": "F13",
+   "port": "IO_F13",
+   "in": 1,
+   "out": 1,
+   "oe": 1
+  },
+  {
+   "ball": "F14",
+   "port": "IO_F14",
+   "in": 1,
+   "out": 1,
+   "oe": 1
+  },
+  {
+   "ball": "F15",
+   "port": "IO_F15",
+   "in": 1,
+   "out": 1,
+   "oe": 1
+  },
+  {
+   "ball": "F16",
+   "port": "IO_F16",
+   "in": 1,
+   "out": 1,
+   "oe": 1
+  },
+  {
+   "ball": "F18",
+   "port": "IO_F18",
+   "in": 1,
+   "out": "T",
+   "oe": 1
+  },
+  {
+   "ball": "F19",
+   "port": "IO_F19",
+   "in": 1,
+   "out": "T",
+   "oe": 1
+  },
+  {
+   "ball": "F20",
+   "port": "IO_F20",
+   "in": 1,
+   "out": "T",
+   "oe": 1
+  },
+  {
+   "ball": "F21",
+   "port": "IO_F21",
+   "in": "T",
+   "out": "T",
+   "oe": 1
+  },
+  {
+   "ball": "G1",
+   "port": "IO_G1",
+   "in": 1,
+   "out": "T",
+   "oe": 1
+  },
+  {
+   "ball": "G2",
+   "port": "IO_G2",
+   "in": 1,
+   "out": "T",
+   "oe": 1
+  },
+  {
+   "ball": "G3",
+   "port": "IO_G3",
+   "in": 1,
+   "out": "T",
+   "oe": 1
+  },
+  {
+   "ball": "G4",
+   "port": "IO_G4",
+   "in": 0,
+   "out": 0,
+   "oe": 1
+  },
+  {
+   "ball": "G11",
+   "port": "DONE_G11",
+   "in": 1,
+   "out": 1,
+   "oe": 1
+  },
+  {
+   "ball": "G13",
+   "port": "IO_G13",
+   "in": 0,
+   "out": 0,
+   "oe": 1
+  },
+  {
+   "ball": "G15",
+   "port": "IO_G15",
+   "in": 1,
+   "out": 1,
+   "oe": 0
+  },
+  {
+   "ball": "G16",
+   "port": "IO_G16",
+   "in": 0,
+   "out": 0,
+   "oe": 1
+  },
+  {
+   "ball": "G17",
+   "port": "IO_G17",
+   "in": 1,
+   "out": 1,
+   "oe": 1
+  },
+  {
+   "ball": "G18",
+   "port": "IO_G18",
+   "in": 1,
+   "out": 1,
+   "oe": 1
+  },
+  {
+   "ball": "G20",
+   "port": "IO_G20",
+   "in": "T",
+   "out": "T",
+   "oe": 1
+  },
+  {
+   "ball": "G21",
+   "port": "IO_G21",
+   "in": 1,
+   "out": "T",
+   "oe": 1
+  },
+  {
+   "ball": "G22",
+   "port": "IO_G22",
+   "in": "T",
+   "out": 0,
+   "oe": 1
+  },
+  {
+   "ball": "H2",
+   "port": "IO_H2",
+   "in": 1,
+   "out": "T",
+   "oe": 1
+  },
+  {
+   "ball": "H3",
+   "port": "IO_H3",
+   "in": 1,
+   "out": 1,
+   "oe": 1
+  },
+  {
+   "ball": "H4",
+   "port": "IO_H4",
+   "in": 1,
+   "out": 1,
+   "oe": 1
+  },
+  {
+   "ball": "H5",
+   "port": "IO_H5",
+   "in": 1,
+   "out": "T",
+   "oe": 1
+  },
+  {
+   "ball": "H13",
+   "port": "IO_H13",
+   "in": 1,
+   "out": 1,
+   "oe": 1
+  },
+  {
+   "ball": "H14",
+   "port": "IO_H14",
+   "in": 0,
+   "out": 0,
+   "oe": 1
+  },
+  {
+   "ball": "H15",
+   "port": "IO_H15",
+   "in": 1,
+   "out": 0,
+   "oe": 0
+  },
+  {
+   "ball": "H17",
+   "port": "IO_H17",
+   "in": 0,
+   "out": 0,
+   "oe": 1
+  },
+  {
+   "ball": "H18",
+   "port": "IO_H18",
+   "in": 1,
+   "out": 1,
+   "oe": 0
+  },
+  {
+   "ball": "H19",
+   "port": "IO_H19",
+   "in": 1,
+   "out": 1,
+   "oe": 1
+  },
+  {
+   "ball": "H20",
+   "port": "IO_H20",
+   "in": 0,
+   "out": 0,
+   "oe": 1
+  },
+  {
+   "ball": "H22",
+   "port": "IO_H22",
+   "in": "T",
+   "out": "T",
+   "oe": 1
+  },
+  {
+   "ball": "J1",
+   "port": "IO_J1",
+   "in": 1,
+   "out": "T",
+   "oe": 1
+  },
+  {
+   "ball": "J2",
+   "port": "IO_J2",
+   "in": 1,
+   "out": 0,
+   "oe": 1
+  },
+  {
+   "ball": "J4",
+   "port": "IO_J4",
+   "in": "T",
+   "out": 0,
+   "oe": "T"
+  },
+  {
+   "ball": "J5",
+   "port": "IO_J5",
+   "in": 1,
+   "out": "T",
+   "oe": 1
+  },
+  {
+   "ball": "J6",
+   "port": "IO_J6",
+   "in": "T",
+   "out": 0,
+   "oe": "T"
+  },
+  {
+   "ball": "J14",
+   "port": "IO_J14",
+   "in": 0,
+   "out": 1,
+   "oe": 0
+  },
+  {
+   "ball": "J15",
+   "port": "IO_J15",
+   "in": 0,
+   "out": 1,
+   "oe": 0
+  },
+  {
+   "ball": "J16",
+   "port": "IO_J16",
+   "in": 1,
+   "out": 1,
+   "oe": 0
+  },
+  {
+   "ball": "J17",
+   "port": "IO_J17",
+   "in": 0,
+   "out": 0,
+   "oe": 1
+  },
+  {
+   "ball": "J19",
+   "port": "IO_J19",
+   "in": 1,
+   "out": 0,
+   "oe": 0
+  },
+  {
+   "ball": "J20",
+   "port": "IO_J20",
+   "in": 1,
+   "out": 1,
+   "oe": 1
+  },
+  {
+   "ball": "J21",
+   "port": "IO_J21",
+   "in": 1,
+   "out": 0,
+   "oe": 0
+  },
+  {
+   "ball": "J22",
+   "port": "IO_J22",
+   "in": 1,
+   "out": 1,
+   "oe": 1
+  },
+  {
+   "ball": "K1",
+   "port": "IO_K1",
+   "in": 1,
+   "out": "T",
+   "oe": 1
+  },
+  {
+   "ball": "K2",
+   "port": "IO_K2",
+   "in": 1,
+   "out": "T",
+   "oe": 1
+  },
+  {
+   "ball": "K3",
+   "port": "IO_K3",
+   "in": "T",
+   "out": 0,
+   "oe": "T"
+  },
+  {
+   "ball": "K4",
+   "port": "IO_K4",
+   "in": "T",
+   "out": 0,
+   "oe": "T"
+  },
+  {
+   "ball": "K6",
+   "port": "IO_K6",
+   "in": "T",
+   "out": 0,
+   "oe": "T"
+  },
+  {
+   "ball": "K13",
+   "port": "IO_K13",
+   "in": 0,
+   "out": 1,
+   "oe": 0
+  },
+  {
+   "ball": "K14",
+   "port": "IO_K14",
+   "in": 0,
+   "out": 1,
+   "oe": 0
+  },
+  {
+   "ball": "K16",
+   "port": "IO_K16",
+   "in": 1,
+   "out": 0,
+   "oe": 0
+  },
+  {
+   "ball": "K17",
+   "port": "IO_K17",
+   "in": 0,
+   "out": 0,
+   "oe": 1
+  },
+  {
+   "ball": "K18",
+   "port": "IO_K18",
+   "in": 1,
+   "out": 0,
+   "oe": 0
+  },
+  {
+   "ball": "K19",
+   "port": "IO_K19",
+   "in": 1,
+   "out": 0,
+   "oe": 0
+  },
+  {
+   "ball": "K21",
+   "port": "IO_K21",
+   "in": 1,
+   "out": 1,
+   "oe": 1
+  },
+  {
+   "ball": "K22",
+   "port": "IO_K22",
+   "in": 1,
+   "out": 0,
+   "oe": 0
+  },
+  {
+   "ball": "L1",
+   "port": "IO_L1",
+   "in": "T",
+   "out": 1,
+   "oe": 0
+  },
+  {
+   "ball": "L3",
+   "port": "IO_L3",
+   "in": "T",
+   "out": 0,
+   "oe": "T"
+  },
+  {
+   "ball": "L4",
+   "port": "IO_L4",
+   "in": 0,
+   "out": 1,
+   "oe": 0
+  },
+  {
+   "ball": "L5",
+   "port": "IO_L5",
+   "in": "T",
+   "out": 0,
+   "oe": "T"
+  },
+  {
+   "ball": "L6",
+   "port": "IO_L6",
+   "in": 0,
+   "out": 1,
+   "oe": 0
+  },
+  {
+   "ball": "L12",
+   "port": "CCLK_L12",
+   "in": 0,
+   "out": 0,
+   "oe": 1
+  },
+  {
+   "ball": "L13",
+   "port": "IO_L13",
+   "in": 0,
+   "out": 0,
+   "oe": 1
+  },
+  {
+   "ball": "L14",
+   "port": "IO_L14",
+   "in": 0,
+   "out": 1,
+   "oe": 0
+  },
+  {
+   "ball": "L15",
+   "port": "IO_L15",
+   "in": 1,
+   "out": 1,
+   "oe": 1
+  },
+  {
+   "ball": "L16",
+   "port": "IO_L16",
+   "in": 0,
+   "out": 1,
+   "oe": 0
+  },
+  {
+   "ball": "L18",
+   "port": "IO_L18",
+   "in": 0,
+   "out": 0,
+   "oe": 1
+  },
+  {
+   "ball": "L19",
+   "port": "IO_L19",
+   "in": 1,
+   "out": 1,
+   "oe": 1
+  },
+  {
+   "ball": "L20",
+   "port": "IO_L20",
+   "in": 1,
+   "out": 0,
+   "oe": 0
+  },
+  {
+   "ball": "L21",
+   "port": "IO_L21",
+   "in": 1,
+   "out": 0,
+   "oe": 0
+  },
+  {
+   "ball": "M1",
+   "port": "IO_M1",
+   "in": "T",
+   "out": "T",
+   "oe": "T"
+  },
+  {
+   "ball": "M2",
+   "port": "IO_M2",
+   "in": "T",
+   "out": 0,
+   "oe": "T"
+  },
+  {
+   "ball": "M3",
+   "port": "IO_M3",
+   "in": 1,
+   "out": 1,
+   "oe": 1
+  },
+  {
+   "ball": "M5",
+   "port": "IO_M5",
+   "in": "T",
+   "out": 0,
+   "oe": "T"
+  },
+  {
+   "ball": "M6",
+   "port": "IO_M6",
+   "in": "T",
+   "out": 0,
+   "oe": "T"
+  },
+  {
+   "ball": "M13",
+   "port": "IO_M13",
+   "in": 0,
+   "out": 0,
+   "oe": 1
+  },
+  {
+   "ball": "M15",
+   "port": "IO_M15",
+   "in": 0,
+   "out": 0,
+   "oe": 1
+  },
+  {
+   "ball": "M16",
+   "port": "IO_M16",
+   "in": 1,
+   "out": 1,
+   "oe": 0
+  },
+  {
+   "ball": "M17",
+   "port": "IO_M17",
+   "in": 1,
+   "out": 0,
+   "oe": 0
+  },
+  {
+   "ball": "M18",
+   "port": "IO_M18",
+   "in": 0,
+   "out": 0,
+   "oe": 1
+  },
+  {
+   "ball": "M20",
+   "port": "IO_M20",
+   "in": 1,
+   "out": 1,
+   "oe": 1
+  },
+  {
+   "ball": "M21",
+   "port": "IO_M21",
+   "in": 1,
+   "out": 0,
+   "oe": 0
+  },
+  {
+   "ball": "M22",
+   "port": "IO_M22",
+   "in": 1,
+   "out": 0,
+   "oe": 0
+  },
+  {
+   "ball": "N2",
+   "port": "IO_N2",
+   "in": "T",
+   "out": 0,
+   "oe": "T"
+  },
+  {
+   "ball": "N3",
+   "port": "IO_N3",
+   "in": "T",
+   "out": 0,
+   "oe": "T"
+  },
+  {
+   "ball": "N4",
+   "port": "IO_N4",
+   "in": 1,
+   "out": 1,
+   "oe": 1
+  },
+  {
+   "ball": "N5",
+   "port": "IO_N5",
+   "in": 0,
+   "out": 1,
+   "oe": 0
+  },
+  {
+   "ball": "N13",
+   "port": "IO_N13",
+   "in": 1,
+   "out": 1,
+   "oe": 0
+  },
+  {
+   "ball": "N14",
+   "port": "IO_N14",
+   "in": 0,
+   "out": 0,
+   "oe": 1
+  },
+  {
+   "ball": "N15",
+   "port": "IO_N15",
+   "in": 1,
+   "out": 1,
+   "oe": 1
+  },
+  {
+   "ball": "N17",
+   "port": "IO_N17",
+   "in": "T",
+   "out": "T",
+   "oe": 1
+  },
+  {
+   "ball": "N18",
+   "port": "IO_N18",
+   "in": 1,
+   "out": 1,
+   "oe": 0
+  },
+  {
+   "ball": "N19",
+   "port": "IO_N19",
+   "in": 0,
+   "out": 0,
+   "oe": 1
+  },
+  {
+   "ball": "N20",
+   "port": "IO_N20",
+   "in": 1,
+   "out": 1,
+   "oe": 1
+  },
+  {
+   "ball": "N22",
+   "port": "IO_N22",
+   "in": "T",
+   "out": "T",
+   "oe": 1
+  },
+  {
+   "ball": "P1",
+   "port": "IO_P1",
+   "in": "T",
+   "out": 0,
+   "oe": "T"
+  },
+  {
+   "ball": "P2",
+   "port": "IO_P2",
+   "in": "T",
+   "out": 0,
+   "oe": "T"
+  },
+  {
+   "ball": "P4",
+   "port": "IO_P4",
+   "in": "T",
+   "out": 1,
+   "oe": 0
+  },
+  {
+   "ball": "P5",
+   "port": "IO_P5",
+   "in": "T",
+   "out": "T",
+   "oe": "T"
+  },
+  {
+   "ball": "P6",
+   "port": "IO_P6",
+   "in": "T",
+   "out": 0,
+   "oe": "T"
+  },
+  {
+   "ball": "P14",
+   "port": "IO_P14",
+   "in": 1,
+   "out": 1,
+   "oe": 1
+  },
+  {
+   "ball": "P15",
+   "port": "IO_P15",
+   "in": 1,
+   "out": 1,
+   "oe": 0
+  },
+  {
+   "ball": "P16",
+   "port": "IO_P16",
+   "in": "T",
+   "out": "T",
+   "oe": 1
+  },
+  {
+   "ball": "P17",
+   "port": "IO_P17",
+   "in": 1,
+   "out": 1,
+   "oe": 0
+  },
+  {
+   "ball": "P19",
+   "port": "IO_P19",
+   "in": 1,
+   "out": 0,
+   "oe": 0
+  },
+  {
+   "ball": "P20",
+   "port": "IO_P20",
+   "in": 0,
+   "out": 1,
+   "oe": 0
+  },
+  {
+   "ball": "P21",
+   "port": "IO_P21",
+   "in": "T",
+   "out": "T",
+   "oe": 1
+  },
+  {
+   "ball": "P22",
+   "port": "IO_P22",
+   "in": 1,
+   "out": 1,
+   "oe": 1
+  },
+  {
+   "ball": "R1",
+   "port": "IO_R1",
+   "in": "T",
+   "out": 0,
+   "oe": "T"
+  },
+  {
+   "ball": "R2",
+   "port": "IO_R2",
+   "in": "T",
+   "out": 0,
+   "oe": 1
+  },
+  {
+   "ball": "R3",
+   "port": "IO_R3",
+   "in": 1,
+   "out": 1,
+   "oe": 1
+  },
+  {
+   "ball": "R4",
+   "port": "IO_R4",
+   "in": 1,
+   "out": "T",
+   "oe": 1
+  },
+  {
+   "ball": "R6",
+   "port": "IO_R6",
+   "in": 1,
+   "out": 1,
+   "oe": 1
+  },
+  {
+   "ball": "R14",
+   "port": "IO_R14",
+   "in": "T",
+   "out": "T",
+   "oe": 1
+  },
+  {
+   "ball": "R16",
+   "port": "IO_R16",
+   "in": "T",
+   "out": "T",
+   "oe": 1
+  },
+  {
+   "ball": "R17",
+   "port": "IO_R17",
+   "in": 1,
+   "out": 0,
+   "oe": 0
+  },
+  {
+   "ball": "R18",
+   "port": "IO_R18",
+   "in": 1,
+   "out": 1,
+   "oe": 0
+  },
+  {
+   "ball": "R19",
+   "port": "IO_R19",
+   "in": 1,
+   "out": 1,
+   "oe": 0
+  },
+  {
+   "ball": "R21",
+   "port": "IO_R21",
+   "in": 1,
+   "out": 0,
+   "oe": 0
+  },
+  {
+   "ball": "R22",
+   "port": "IO_R22",
+   "in": 1,
+   "out": 1,
+   "oe": 0
+  },
+  {
+   "ball": "T1",
+   "port": "IO_T1",
+   "in": 0,
+   "out": 1,
+   "oe": 0
+  },
+  {
+   "ball": "T3",
+   "port": "IO_T3",
+   "in": 1,
+   "out": 1,
+   "oe": "T"
+  },
+  {
+   "ball": "T4",
+   "port": "IO_T4",
+   "in": 1,
+   "out": 1,
+   "oe": "T"
+  },
+  {
+   "ball": "T5",
+   "port": "IO_T5",
+   "in": 1,
+   "out": 1,
+   "oe": "T"
+  },
+  {
+   "ball": "T6",
+   "port": "IO_T6",
+   "in": 1,
+   "out": "T",
+   "oe": 1
+  },
+  {
+   "ball": "T18",
+   "port": "IO_T18",
+   "in": 1,
+   "out": 1,
+   "oe": 1
+  },
+  {
+   "ball": "T19",
+   "port": "IO_T19",
+   "in": 1,
+   "out": 1,
+   "oe": 1
+  },
+  {
+   "ball": "T20",
+   "port": "IO_T20",
+   "in": 1,
+   "out": 1,
+   "oe": 0
+  },
+  {
+   "ball": "T21",
+   "port": "IO_T21",
+   "in": 1,
+   "out": 1,
+   "oe": 0
+  },
+  {
+   "ball": "U1",
+   "port": "IO_U1",
+   "in": 0,
+   "out": 0,
+   "oe": 1
+  },
+  {
+   "ball": "U2",
+   "port": "IO_U2",
+   "in": 0,
+   "out": 1,
+   "oe": 0
+  },
+  {
+   "ball": "U3",
+   "port": "IO_U3",
+   "in": 1,
+   "out": 1,
+   "oe": "T"
+  },
+  {
+   "ball": "U5",
+   "port": "IO_U5",
+   "in": 1,
+   "out": 1,
+   "oe": "T"
+  },
+  {
+   "ball": "U6",
+   "port": "IO_U6",
+   "in": 1,
+   "out": 1,
+   "oe": 1
+  },
+  {
+   "ball": "U7",
+   "port": "IO_U7",
+   "in": "T",
+   "out": 0,
+   "oe": "T"
+  },
+  {
+   "ball": "U8",
+   "port": "CFGBVS_U8",
+   "in": 1,
+   "out": null,
+   "oe": null
+  },
+  {
+   "ball": "U9",
+   "port": "M2_U9",
+   "in": 0,
+   "out": null,
+   "oe": null
+  },
+  {
+   "ball": "U10",
+   "port": "M1_U10",
+   "in": 0,
+   "out": null,
+   "oe": null
+  },
+  {
+   "ball": "U11",
+   "port": "M0_U11",
+   "in": 1,
+   "out": null,
+   "oe": null
+  },
+  {
+   "ball": "U12",
+   "port": "INIT_B_U12",
+   "in": 1,
+   "out": 0,
+   "oe": 0
+  },
+  {
+   "ball": "U17",
+   "port": "IO_U17",
+   "in": 1,
+   "out": 1,
+   "oe": 1
+  },
+  {
+   "ball": "U18",
+   "port": "IO_U18",
+   "in": "T",
+   "out": 0,
+   "oe": "T"
+  },
+  {
+   "ball": "U20",
+   "port": "IO_U20",
+   "in": 1,
+   "out": 1,
+   "oe": 1
+  },
+  {
+   "ball": "U21",
+   "port": "IO_U21",
+   "in": 1,
+   "out": 1,
+   "oe": 0
+  },
+  {
+   "ball": "U22",
+   "port": "IO_U22",
+   "in": 1,
+   "out": 1,
+   "oe": 0
+  },
+  {
+   "ball": "V2",
+   "port": "IO_V2",
+   "in": 0,
+   "out": 0,
+   "oe": 1
+  },
+  {
+   "ball": "V3",
+   "port": "IO_V3",
+   "in": 0,
+   "out": 0,
+   "oe": 1
+  },
+  {
+   "ball": "V4",
+   "port": "IO_V4",
+   "in": "T",
+   "out": 1,
+   "oe": 0
+  },
+  {
+   "ball": "V5",
+   "port": "IO_V5",
+   "in": 1,
+   "out": 1,
+   "oe": "T"
+  },
+  {
+   "ball": "V7",
+   "port": "IO_V7",
+   "in": 1,
+   "out": 1,
+   "oe": 1
+  },
+  {
+   "ball": "V8",
+   "port": "IO_V8",
+   "in": 1,
+   "out": 1,
+   "oe": 1
+  },
+  {
+   "ball": "V9",
+   "port": "IO_V9",
+   "in": 1,
+   "out": 1,
+   "oe": 0
+  },
+  {
+   "ball": "V17",
+   "port": "IO_V17",
+   "in": 0,
+   "out": 1,
+   "oe": 0
+  },
+  {
+   "ball": "V18",
+   "port": "IO_V18",
+   "in": 1,
+   "out": 1,
+   "oe": 1
+  },
+  {
+   "ball": "V19",
+   "port": "IO_V19",
+   "in": 1,
+   "out": 1,
+   "oe": 1
+  },
+  {
+   "ball": "V20",
+   "port": "IO_V20",
+   "in": 1,
+   "out": 0,
+   "oe": 0
+  },
+  {
+   "ball": "V22",
+   "port": "IO_V22",
+   "in": 1,
+   "out": 1,
+   "oe": 0
+  },
+  {
+   "ball": "W1",
+   "port": "IO_W1",
+   "in": 0,
+   "out": 0,
+   "oe": 1
+  },
+  {
+   "ball": "W2",
+   "port": "IO_W2",
+   "in": 1,
+   "out": 1,
+   "oe": "T"
+  },
+  {
+   "ball": "W4",
+   "port": "IO_W4",
+   "in": 1,
+   "out": 1,
+   "oe": "T"
+  },
+  {
+   "ball": "W5",
+   "port": "IO_W5",
+   "in": 1,
+   "out": 1,
+   "oe": 1
+  },
+  {
+   "ball": "W6",
+   "port": "IO_W6",
+   "in": "T",
+   "out": 0,
+   "oe": "T"
+  },
+  {
+   "ball": "W7",
+   "port": "IO_W7",
+   "in": 1,
+   "out": "T",
+   "oe": 1
+  },
+  {
+   "ball": "W9",
+   "port": "IO_W9",
+   "in": 1,
+   "out": 1,
+   "oe": 1
+  },
+  {
+   "ball": "W17",
+   "port": "IO_W17",
+   "in": 0,
+   "out": 1,
+   "oe": 0
+  },
+  {
+   "ball": "W19",
+   "port": "IO_W19",
+   "in": 1,
+   "out": 1,
+   "oe": 0
+  },
+  {
+   "ball": "W20",
+   "port": "IO_W20",
+   "in": 1,
+   "out": 0,
+   "oe": 0
+  },
+  {
+   "ball": "W21",
+   "port": "IO_W21",
+   "in": 1,
+   "out": 1,
+   "oe": 0
+  },
+  {
+   "ball": "W22",
+   "port": "IO_W22",
+   "in": 1,
+   "out": 1,
+   "oe": 0
+  },
+  {
+   "ball": "Y1",
+   "port": "IO_Y1",
+   "in": 0,
+   "out": 0,
+   "oe": 1
+  },
+  {
+   "ball": "Y2",
+   "port": "IO_Y2",
+   "in": 0,
+   "out": 0,
+   "oe": 1
+  },
+  {
+   "ball": "Y3",
+   "port": "IO_Y3",
+   "in": 1,
+   "out": "T",
+   "oe": 1
+  },
+  {
+   "ball": "Y4",
+   "port": "IO_Y4",
+   "in": "T",
+   "out": 1,
+   "oe": 0
+  },
+  {
+   "ball": "Y6",
+   "port": "IO_Y6",
+   "in": 1,
+   "out": 1,
+   "oe": 1
+  },
+  {
+   "ball": "Y7",
+   "port": "IO_Y7",
+   "in": 1,
+   "out": 1,
+   "oe": 1
+  },
+  {
+   "ball": "Y8",
+   "port": "IO_Y8",
+   "in": 1,
+   "out": 1,
+   "oe": 1
+  },
+  {
+   "ball": "Y9",
+   "port": "IO_Y9",
+   "in": 1,
+   "out": "T",
+   "oe": 1
+  },
+  {
+   "ball": "Y18",
+   "port": "IO_Y18",
+   "in": 1,
+   "out": 1,
+   "oe": 0
+  },
+  {
+   "ball": "Y19",
+   "port": "IO_Y19",
+   "in": 0,
+   "out": 0,
+   "oe": 1
+  },
+  {
+   "ball": "Y21",
+   "port": "IO_Y21",
+   "in": 1,
+   "out": 1,
+   "oe": 0
+  },
+  {
+   "ball": "Y22",
+   "port": "IO_Y22",
+   "in": 1,
+   "out": 1,
+   "oe": 0
+  },
+  {
+   "ball": "AA1",
+   "port": "IO_AA1",
+   "in": 0,
+   "out": 0,
+   "oe": 1
+  },
+  {
+   "ball": "AA3",
+   "port": "IO_AA3",
+   "in": 1,
+   "out": "T",
+   "oe": 1
+  },
+  {
+   "ball": "AA4",
+   "port": "IO_AA4",
+   "in": 1,
+   "out": "T",
+   "oe": 1
+  },
+  {
+   "ball": "AA5",
+   "port": "IO_AA5",
+   "in": 1,
+   "out": 1,
+   "oe": 1
+  },
+  {
+   "ball": "AA6",
+   "port": "IO_AA6",
+   "in": 1,
+   "out": 1,
+   "oe": 1
+  },
+  {
+   "ball": "AA8",
+   "port": "IO_AA8",
+   "in": 1,
+   "out": "T",
+   "oe": 1
+  },
+  {
+   "ball": "AA18",
+   "port": "IO_AA18",
+   "in": 1,
+   "out": 1,
+   "oe": 1
+  },
+  {
+   "ball": "AA19",
+   "port": "IO_AA19",
+   "in": 1,
+   "out": 1,
+   "oe": 1
+  },
+  {
+   "ball": "AA20",
+   "port": "IO_AA20",
+   "in": 1,
+   "out": 1,
+   "oe": 0
+  },
+  {
+   "ball": "AA21",
+   "port": "IO_AA21",
+   "in": 1,
+   "out": 1,
+   "oe": 0
+  },
+  {
+   "ball": "AB1",
+   "port": "IO_AB1",
+   "in": 0,
+   "out": 0,
+   "oe": 1
+  },
+  {
+   "ball": "AB2",
+   "port": "IO_AB2",
+   "in": 1,
+   "out": "T",
+   "oe": 1
+  },
+  {
+   "ball": "AB3",
+   "port": "IO_AB3",
+   "in": "T",
+   "out": 1,
+   "oe": 0
+  },
+  {
+   "ball": "AB5",
+   "port": "IO_AB5",
+   "in": 1,
+   "out": "T",
+   "oe": 1
+  },
+  {
+   "ball": "AB6",
+   "port": "IO_AB6",
+   "in": 0,
+   "out": 0,
+   "oe": 1
+  },
+  {
+   "ball": "AB7",
+   "port": "IO_AB7",
+   "in": 1,
+   "out": 1,
+   "oe": 1
+  },
+  {
+   "ball": "AB8",
+   "port": "IO_AB8",
+   "in": 1,
+   "out": 1,
+   "oe": 1
+  },
+  {
+   "ball": "AB18",
+   "port": "IO_AB18",
+   "in": 0,
+   "out": 0,
+   "oe": 1
+  },
+  {
+   "ball": "AB20",
+   "port": "IO_AB20",
+   "in": 1,
+   "out": 0,
+   "oe": 0
+  },
+  {
+   "ball": "AB21",
+   "port": "IO_AB21",
+   "in": 1,
+   "out": 1,
+   "oe": 0
+  },
+  {
+   "ball": "AB22",
+   "port": "IO_AB22",
+   "in": 1,
+   "out": 1,
+   "oe": 0
+  }
+ ]
+}

@@ -1,0 +1,65 @@
+<screen>
+    <view>
+        <style name="style_screen" />
+        <app_shell active_system="true" active_tab="3">
+            <app_shell-content>
+                <column width="100%" height="100%" pad="#space_lg" gap="#space_md">
+                    <row width="100%">
+                        <column grow="1" gap="#space_xs">
+                            <lv_label text="SETTINGS / SYSTEM &amp; EXPERT" style_text_font="font_caption"
+                                      style_text_color="#color_muted" />
+                            <lv_label text="Advanced" style_text_font="font_title"
+                                      style_text_color="#color_ink" />
+                        </column>
+                        <status_chip label="EXPERT" tone="#color_amber" />
+                    </row>
+
+                    <row width="100%" grow="1" gap="#space_lg" vertical_align="start">
+                        <panel grow="1" height="100%" gap="0">
+                            <action_row title="User interface" subtitle="Theme, behavior, home, and menu mode"
+                                        meta="12" tone="#color_violet">
+                                <screen_create_event screen="settings_page" anim_type="fade_in" duration="120" />
+                            </action_row>
+                            <action_row title="Memory configuration" subtitle="REU, RAM, and startup memory"
+                                        meta="15" tone="#color_muted">
+                                <screen_create_event screen="settings_page" anim_type="fade_in" duration="120" />
+                            </action_row>
+                            <action_row title="C64 and cartridge" subtitle="ROMs, cartridges, and machine behavior"
+                                        meta="21" tone="#color_amber">
+                                <screen_create_event screen="settings_page" anim_type="fade_in" duration="120" />
+                            </action_row>
+                            <action_row title="Turbo" subtitle="CPU speed and timing"
+                                        meta="4" tone="#color_cyan">
+                                <screen_create_event screen="settings_page" anim_type="fade_in" duration="120" />
+                            </action_row>
+                            <action_row title="Machine tweaks and power" subtitle="Low-level compatibility and U64-II power"
+                                        meta="6" tone="#color_muted">
+                                <screen_create_event screen="settings_page" anim_type="fade_in" duration="120" />
+                            </action_row>
+                        </panel>
+
+                        <panel width="270" height="100%" gap="0" raised="true">
+                            <action_row title="LED lighting" subtitle="Case, keyboard, and power outputs"
+                                        meta="LIGHT" tone="#color_violet">
+                                <screen_create_event screen="settings_page" anim_type="fade_in" duration="120" />
+                            </action_row>
+                            <action_row title="Monitor bookmarks" subtitle="11 stored addresses"
+                                        meta="11" tone="#color_muted">
+                                <screen_create_event screen="settings_page" anim_type="fade_in" duration="120" />
+                            </action_row>
+                            <action_row title="Hardware-only items" subtitle="Four options without a Gideon menu route"
+                                        meta="4" tone="#color_amber">
+                                <screen_create_event screen="settings_page" anim_type="fade_in" duration="120" />
+                            </action_row>
+                            <action_row title="System information" subtitle="Versions, health, logs, update"
+                                        meta="INFO" tone="#color_cyan">
+                                <screen_create_event screen="system" anim_type="fade_in" duration="120" />
+                            </action_row>
+                            <box grow="1" />
+                        </panel>
+                    </row>
+                </column>
+            </app_shell-content>
+        </app_shell>
+    </view>
+</screen>

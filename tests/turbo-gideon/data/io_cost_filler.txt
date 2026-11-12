@@ -1,0 +1,38 @@
+64 MHz ($8F), display off: PHI2 per (access + filler NOPs); RAM same pattern for reference
+filler  0 NOP (  0 cyc): RAM 0.0672 | CIA1 rd 1.0002 | CIA1 wr 1.0002 | VIC rd D012 0.0835
+filler  4 NOP (  8 cyc): RAM 0.1942 | CIA1 rd 1.0002 | CIA1 wr 1.0002 | VIC rd D012 0.2103
+filler  8 NOP ( 16 cyc): RAM 0.3211 | CIA1 rd 1.0002 | CIA1 wr 1.0002 | VIC rd D012 0.3370
+filler 16 NOP ( 32 cyc): RAM 0.5751 | CIA1 rd 1.0002 | CIA1 wr 1.0002 | VIC rd D012 0.5913
+filler 24 NOP ( 48 cyc): RAM 0.8291 | CIA1 rd 1.0003 | CIA1 wr 2.0002 | VIC rd D012 0.8456
+filler 28 NOP ( 56 cyc): RAM 0.9561 | CIA1 rd 1.0314 | CIA1 wr 2.0002 | VIC rd D012 0.9720
+filler 29 NOP ( 58 cyc): RAM 0.9878 | CIA1 rd 1.0314 | CIA1 wr 2.0002 | VIC rd D012 1.0037
+filler 30 NOP ( 60 cyc): RAM 1.0195 | CIA1 rd 2.0002 | CIA1 wr 2.0002 | VIC rd D012 1.0355
+filler 31 NOP ( 62 cyc): RAM 1.0513 | CIA1 rd 2.0002 | CIA1 wr 2.0002 | VIC rd D012 1.0674
+filler 32 NOP ( 64 cyc): RAM 1.0830 | CIA1 rd 2.0002 | CIA1 wr 2.0002 | VIC rd D012 1.0992
+filler 40 NOP ( 80 cyc): RAM 1.3370 | CIA1 rd 2.0002 | CIA1 wr 2.0002 | VIC rd D012 1.3533
+filler 60 NOP (120 cyc): RAM 1.9719 | CIA1 rd 2.0314 | CIA1 wr 3.0002 | VIC rd D012 2.0002
+display on ($1B), badline stalls on/off:
+ D031=8F RAM          0.0653
+ D031=8F CIA1 rd      1.0001
+ D031=8F VIC rd D012  0.0818
+ D031=8F VIC wr D020  0.0654
+ D031=8F UCI rd       1.0001
+ D031=0F RAM          0.0719
+ D031=0F CIA1 rd      1.0611
+ D031=0F VIC rd D012  0.0897
+ D031=0F VIC wr D020  0.0686
+ D031=0F UCI rd       1.0605
+refine, 64 MHz, per_block 32:
+filler 17 (38 cyc per access incl. 4-cycle op): CIA1 rd 1.0002 | CIA1 wr 1.0003 | SID wr 0.6230
+filler 18 (40 cyc per access incl. 4-cycle op): CIA1 rd 1.0002 | CIA1 wr 1.0003 | SID wr 0.6549
+filler 19 (42 cyc per access incl. 4-cycle op): CIA1 rd 1.0002 | CIA1 wr 1.0003 | SID wr 0.6863
+filler 20 (44 cyc per access incl. 4-cycle op): CIA1 rd 1.0002 | CIA1 wr 1.0003 | SID wr 0.7180
+filler 21 (46 cyc per access incl. 4-cycle op): CIA1 rd 1.0002 | CIA1 wr 1.0314 | SID wr 0.7502
+filler 22 (48 cyc per access incl. 4-cycle op): CIA1 rd 1.0002 | CIA1 wr 1.0314 | SID wr 0.7815
+filler 23 (50 cyc per access incl. 4-cycle op): CIA1 rd 1.0003 | CIA1 wr 1.0314 | SID wr 0.8134
+filler 24 (52 cyc per access incl. 4-cycle op): CIA1 rd 1.0003 | CIA1 wr 2.0002 | SID wr 0.8456
+filler 25 (54 cyc per access incl. 4-cycle op): CIA1 rd 1.0003 | CIA1 wr 2.0002 | SID wr 0.8773
+filler 26 (56 cyc per access incl. 4-cycle op): CIA1 rd 1.0314 | CIA1 wr 2.0002 | SID wr 0.9087
+filler 27 (58 cyc per access incl. 4-cycle op): CIA1 rd 1.0314 | CIA1 wr 2.0002 | SID wr 0.9407
+filler 28 (60 cyc per access incl. 4-cycle op): CIA1 rd 1.0314 | CIA1 wr 2.0002 | SID wr 0.9720
+filler 29 (62 cyc per access incl. 4-cycle op): CIA1 rd 1.0314 | CIA1 wr 2.0002 | SID wr 1.0037

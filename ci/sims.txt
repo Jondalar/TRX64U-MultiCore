@@ -1,0 +1,349 @@
+# tier|name|timeout in seconds|command (bash, from the repository root)
+# Tier 1 (minutes) and tier 2 run nightly on main (nightly.yml, T100 D7 replaced) and by hand (tools/benches.sh before a merge); the push pipeline runs no bench.
+# NOT here: turbo, reu, reu_map, uci, udp_audio: their benches live in TRX64-Ultimate. The old trx64 core is deleted (T115 section 5); cores/c64ref has
+# TRX_FEATURES = jtag only; cores/c64u builds turbo (its own copy c64_turbo_c64u.v) and the others, without a bench here. Run 32 died on
+# turbo's timeout (the reason they left). Alex, 2026-10-30: turbo is in the large core and works on the board.
+# A bench counts when its exit status or a PASS line decides (ci/sims.sh).
+#
+# Not listed, and why:
+#  cart_equiv, lat   compare against old commits with `git show`; a shallow clone has none of them
+#  lorenz            needs the Lorenz suite from outside the repository
+#  sid               fetches libresidfp from the internet and reports, it does not decide
+#  redip (equiv)     run_equiv2.sh / run_equiv8.sh / run_trx.sh of host/sim/redip compare
+#                    with the original reDIP, taken with `git show` from a pinned commit (no shallow clone)
+1|trx_io|120|sh host/sim/trx_io/run.sh
+1|cart_unit|300|sh host/sim/cart_unit/run.sh
+1|host_hdmi_timing|1800|sh host/sim/hdmi_timing/run.sh
+1|host_modepath|3000|sh host/sim/modepath/run.sh
+1|ring_f4|300|sh host/sim/ring/run_f4.sh
+1|ring_trace|300|sh host/sim/ring/run_trace.sh
+1|keyboard|600|ci/sim_iv.sh tb_keyboard.v
+1|rvmul|900|sh host/sim/rvmul/run.sh
+1|rvtrap|1800|sh host/sim/rvtrap/run.sh
+1|rvtrap_dc|1800|RV_DC=1 sh host/sim/rvtrap/run.sh
+1|dcache|900|sh host/sim/dcache/run.sh
+2|app_i2c|600|ci/sim_iv.sh tb_app_i2c.v
+1|bling|600|ci/sim_iv.sh tb_bling.v
+1|bling_io|600|ci/sim_iv.sh tb_bling_io.v
+# T164 WP12 / T159 D5: the power lamp (LED 71) of host/bling_io.v for every core: WS2812 decode, floppy / HD flicker, priorities
+1|bling_lamp|900|sh host/sim/bling/run.sh
+# T164 WP13 / T152 S8: host/esp_ctl.v (ESP32 BOOT / DIS pins): high-Z until armed, modes OFF/BOOT/RUN, ROM-loader sequence, polarity, reset; wiring in top.v, ultimate_sys.vhd, pins.xdc
+1|esp_ctl|900|sh host/sim/esp_ctl/run.sh
+1|case_leds|600|ci/sim_iv.sh tb_case_leds.v
+1|portlock|120|sh host/sim/portlock/run.sh
+# T164 WP11 / T160 S1: the host's master volume for every core (host/trx_gain.v): unity exact, 0 silent, half, saturation
+1|host_gain|300|sh host/sim/gain/run.sh
+1|mig_arb|600|ci/sim_iv.sh tb_mig_arb.v host/ddr2_port.v host/sim/mig_ui_model.v
+1|drive_mem|600|sh host/sim/drive_mem/run.sh
+2|flash_gate|900|sh host/sim/flash_gate/run.sh
+2|flash_boot|900|sh host/sim/flash_boot/run.sh
+1|dma_bus|600|sh host/sim/dma_bus/run.sh
+1|vc20|900|sh cores/vc20/sim/run.sh
+1|vc20_pixw|1200|sh cores/vc20/sim/run_pixw.sh
+2|hdmigeom|1500|sh cores/vc20/sim/run_hdmigeom.sh
+1|c264_glue|600|sh cores/c264/sim/run_glue.sh
+1|c264_pixw|900|sh cores/c264/sim/run_pixw.sh
+1|c264_colors|300|sh cores/c264/sim/run_colors.sh
+1|c264_tedsnd|900|sh cores/c264/sim/run_tedsnd.sh
+1|pet_boot|900|sh cores/pet/sim/run_boot.sh
+1|pet_spet|900|sh cores/pet/sim/run_spet.sh
+1|pet_tape|900|sh cores/pet/sim/run_tape.sh
+1|eth|900|sh host/sim/eth/run.sh
+# T103 pktport (iverilog, about 1 min on the Mac): video, audio and MAC frames through the generic packet port against the senders wired
+# straight to the arbiter, byte for byte, and a core swap in the middle of a frame (host/pktport_host.v, the real host file).
+1|pktport|600|sh host/sim/pktport/run.sh
+2|input|1200|JOBS=3 sh host/sim/input/run.sh
+1|hotkey|300|sh host/sim/hotkey/run.sh
+1|scaler|900|ci/sim_iv.sh tb_scaler.v
+1|ui_buttons|300|sh host/sim/ui_buttons/run.sh
+2|still60|2400|sh host/sim/pixlayer/run_still.sh
+2|pixlayer|2400|sh host/sim/pixlayer/run.sh
+1|tmds_rep|600|sh host/sim/tmds_rep/run.sh
+2|ovl_geom|3000|sh host/sim/ovl_geom/run.sh
+2|ovl_hold|1800|sh host/sim/ovl_hold/run.sh
+1|ddr2_cal|1200|sh designs/ddr2_test/sim/run.sh cal
+1|ddr2_arb|900|sh designs/ddr2_test/sim/run.sh arb
+1|ddr2_refresh|1200|sh designs/ddr2_test/sim/run.sh refresh
+1|ddr2_ctrl|900|sh designs/ddr2_test/sim/run.sh ctrl
+1|cal_equiv|900|sh designs/ddr2_test/sim/run.sh equiv
+2|ddr2_traffic|3000|sh designs/ddr2_test/sim/run.sh traffic
+2|ddr2_test|3000|sh designs/ddr2_test/sim/run.sh test
+2|redip_new|600|sh host/sim/redip/run_new.sh
+# T85 (Amiga core): the iverilog benches in tier 1; the Verilator benches in tier 2 until the CI image has run them once
+# T100 D10: a bench belongs to one core (ci/sims.lane); run_sdc.sh / run_dskchg.sh / run_l2check.sh take a500 or a1200
+1|amiga_sdc|900|sh cores/amiga/sim/run_sdc.sh a500
+1|amiga1200_sdc|900|sh cores/amiga/sim/run_sdc.sh a1200
+1|amiga_input|600|sh cores/amiga/sim/run_input.sh
+# T191: the Amiga's MSM6242B clock (amiga_rtc.v): time load, ticks and carries, HOLD, Test Kit's probe, the enable
+1|amiga_rtc|600|sh cores/amiga/sim/run_rtc.sh
+# T85 disk change: /DSKCHG as Kickstart's poll reads it, shared paula_floppy.v and the A1200 copy
+1|amiga_dskchg|300|sh cores/amiga/sim/run_dskchg.sh a500
+1|amiga1200_dskchg|300|sh cores/amiga/sim/run_dskchg.sh a1200
+1|amiga_lat|1200|sh cores/amiga/sim/run_lat.sh 4000 1
+2|amiga_equiv|900|sh cores/amiga/sim/run_equiv.sh
+2|amiga_mem|1800|sh cores/amiga/sim/run_membench.sh
+2|amiga_rate|3000|sh cores/amiga/sim/run_rate.sh
+2|amiga_l2|3000|sh cores/amiga/sim/run_l2check.sh a500
+# T109: the A1200 power-up configuration (AGA, 2 MB chip RAM, HDF sizes in sectors) through the same ROMs: tone, disk DMA, Gayle IDE, disk change
+2|amiga1200_l2|2400|sh cores/amiga/sim/run_l2check.sh a1200
+2|amiga_cfg|3600|sh cores/amiga/sim/run_cfg.sh
+# T97 step 2: the Amiga 1200 core's CPU runs 68020-only code; the fx68k build of the same ROM must fail
+2|amiga_cpu020|1800|sh cores/amiga/sim/run_cpu020.sh
+1|amiga1200_fifo|300|sh cores/amiga1200/sim/fifo/run.sh
+1|sd_spi|600|sh cores/amiga1200/sim/sd_spi/run.sh
+1|amiga1200_floppybuf|300|sh cores/amiga1200/sim/floppybuf/run.sh
+1|amiga1200_afifo|300|sh cores/amiga1200/sim/afifo/run.sh
+# T141: the raw key queue in amiga_input (the A500's file; the A1200 copy is checked equal by check_wrapper_fork.sh) (a USB keyboard's Amiga key events), the matrix and the queue together
+1|amiga_rawkey|300|sh cores/amiga/sim/run_rawkey.sh
+# T97 5.9: 5.5 MB fast RAM under the TG68K beside AGA DMA; the slow RAM the cards took is not served twice
+2|amiga_fastpat|3600|sh cores/amiga/sim/run_fastpat.sh
+# T138 S1: the Zorro III board of 32 MB (FAST_CFG 4): AutoConfig, patterns over the whole board, the DDR2 model at 0x6000000
+2|amiga_z3|3600|sh cores/amiga/sim/run_z3.sh
+# T97 5.10: the A1200 crop window is registers (amiga_fb fork), the display window reads back
+2|amiga_fbwin|2400|sh cores/amiga/sim/run_fbwin.sh
+# T164 S7 (replaces T107 D8's A1200 bench): the host's pixel layer scales Integer / Fit / Fill / 3/4 of two sources in 4 HDMI modes (1080p, 720p, 576p, 480p) at their gear, nearest exact and bilinear within 1 LSB (Python model), formats 1 and 2, the SMOOTH 0 build
+2|pixscale|7200|sh host/sim/pixscale/run.sh
+# T164 WP18: the mode timing generator and the mode request path as the A1200 builds them (cores/amiga1200/mono/host, its copy of the host files): host_hdmi_timing / host_modepath with HOSTDIR
+1|amiga1200_hdmi_timing|1800|HOSTDIR=cores/amiga1200/mono/host sh host/sim/hdmi_timing/run.sh
+1|c128_hdmi_timing|1800|HOSTDIR=cores/c128/mono/host sh host/sim/hdmi_timing/run.sh
+1|amiga1200_modepath|3000|HOSTDIR=cores/amiga1200/mono/host sh host/sim/modepath/run.sh
+# T164 WP4 (S4): the host HDMI encoder fork (host/hdmi_enc: ce, runtime frame, AVI, ACR, 3 packets) decoded in the 9 rows of hdmi_modes.vh on 576p
+1|hdmi_enc|3000|sh host/sim/hdmi_enc/run.sh
+2|amiga_fuzz|900|sh cores/amiga/sim/run_fuzz_suite.sh
+# T97: AGA wide fetch (FMODE 1..3) through amiga_mem: dout48 / p2_dout48 against a known 64-bit pattern, miss and hit
+2|amiga_wide|300|sh cores/amiga/sim/run_wide.sh
+# T109 D1: the audio FIFO with rate adaption. It existed since 2026-10-13 and nothing ever ran it, which
+# is why two cores could go silent on the board without a single red line anywhere.
+1|amiga_audio|900|sh cores/amiga/sim/run_audio.sh
+# T88 (Atari 800 XL core): GHDL benches of cores/atari800/sim
+1|atari_gate|600|sh cores/atari800/sim/gate/run.sh
+# T109 D1: the whole machine under GHDL - picture, keys, joystick and the zero crossings of audio_l
+# while a tone plays (tb_a8_machine.vhd audio_mon). The one measurement that can say whether the Atari
+# is silent before the partition or after it. Tier 2 and an hour of rope: measured on the builder on
+# 2026-10-16 it had burned 21 min 41 s of CPU after 1,302 s of wall clock and was still going, so the
+# 1,800 s it first got were not enough and every push is the wrong place for it.
+# T95 (NES core, GPL v3 NES_MiSTer, cores/nes): Verilator benches of cores/nes/sim (a cartridge of our own, no ROM image). A build of the
+# whole core is ~25 s, a bench 3-40 s on the Mac; every mutant is a build of its own. Machine, window, instruction set and Freeze in `nes`
+# (about 2 min on the Mac), the eleven mapper families through the cache in `nes_maps` (about 2 min);
+2|nes|1800|sh cores/nes/sim/run.sh frame pal norender nonmi tone win cpu inv pause
+2|nes_maps|1800|sh cores/nes/sim/run.sh banks2 banks3 mmc1 mmc2 mmc3 mmc4 vrc24 mmc66 mmc34 mmc71 mmc79
+2|atari_machine|5400|sh cores/atari800/sim/machine/run.sh boot
+# T108 D1: the real XL OS boots a disk through the application's own SIO responder (coreapp/cores/atari_sio.cc compiled into the
+# simulator). Measured on the Mac in a container of 2 cores, two benches at a time: the boot 64 min (2.3 s of simulated time). The empty D1: that has to end at READY needs
+# 6.6 s of simulated time and is not here: it is the one mode run by hand (T108 5.3).
+# Tier 3 = never in the pipeline (Alex, 2026-10-17: "Raus ... Nur auf Knopfdruck"): four of these at 46-65 min
+# each would push the sims stage past its 120 min and stop every release. They run on the NAS when somebody
+# starts the workflow Sims (long) by hand (.gitea/workflows/sims-long.yml).
+3|atari_disk|7200|sh cores/atari800/sim/disk/run.sh disk
+3|atari_disk_ghost|5400|sh cores/atari800/sim/disk/run.sh ghost
+3|atari_disk_nobaud|7200|sh cores/atari800/sim/disk/run.sh nobaud
+3|atari_disk_slow|7200|sh cores/atari800/sim/disk/run.sh slow
+2|nes_l2|900|sh cores/nes/sim/run_l2.sh
+1|nes_padswap|300|sh cores/nes/sim/run_padswap.sh
+# T123 S1 (iverilog, seconds): the null core answers what the host boot app reads
+1|null_regs|300|sh cores/null/sim/run.sh
+# T103 c64u (iverilog, seconds): the core's cw_* window (c64u_io + c64u_sys, the cartridge descriptor included); its mutation controls must end in FAIL.
+1|c64u_cw|300|sh cores/c64u/sim/run_cw.sh
+# T103 c64u_pktport (iverilog, about 1 min): the core's copies of the UDP senders against the host's originals, frame by frame; control NEG_CORRUPT must fail.
+1|c64u_pktport|600|sh cores/c64u/sim/run_pktport.sh
+# T103/T37 c64u_sock (iverilog, about 2 min): the SID sockets on the port's bus (select window, routed read, SID_ADDR) and their
+# audio from the codec's ADC (host/i2s_out.v as the codec model); its six mutation controls must end in FAIL.
+1|c64u_sock|600|sh cores/c64u/sim/run_sock.sh
+# T89 (Apple //e core, NanoApple2 as changed, cores/apple2): GHDL benches on a synthetic system ROM (our own 6502 programs, cores/apple2/sim/asm)
+# and a synthetic character ROM - no Apple ROM, no Apple code. Minutes each on the Mac; the real-ROM boot bench (run_boot.sh) is local, see ci/sims_excluded.txt.
+2|apple2_clk|900|sh cores/apple2/sim/run_clk.sh
+# apple2_video measured 2129 s alone (2026-10-23): split in four, each 400-800 s alone (run_video.sh PROGS / EXTRA)
+2|apple2_video|2400|PROGS="text80 dhgr" sh cores/apple2/sim/run_video.sh
+2|apple2_video_text|1800|PROGS="text hgr lores" sh cores/apple2/sim/run_video.sh
+2|apple2_video_flip|1800|PROGS=flip EXTRA=scan sh cores/apple2/sim/run_video.sh
+2|apple2_auxlc|2400|sh cores/apple2/sim/run_auxlc.sh
+2|apple2_keys|2400|sh cores/apple2/sim/run_keys.sh
+2|apple2_pdl|1800|sh cores/apple2/sim/run_pdl.sh
+2|apple2_spk|1800|sh cores/apple2/sim/run_spk.sh
+2|apple2_win|900|sh cores/apple2/sim/run_win.sh
+2|apple2_pause|2400|sh cores/apple2/sim/run_pause.sh
+# T89.1: the Disk II as a bit engine (bits, wrap, weak bits, quarter tracks, writes, the counters) and the ProDOS card of slot 7 (ROM assembled from the donor's source);
+# our 6502 programs and synthetic tracks, no disk image. T89 (continued): the AppleMouse card on its own (GHDL netlist of the card + the
+# Verilog 6805 in iverilog, a stand-in MCU program of ours)
+2|apple2_woz|5400|sh cores/apple2/sim/run_woz.sh
+2|apple2_hdd|5400|sh cores/apple2/sim/run_hdd.sh
+2|apple2_mouse|900|sh cores/apple2/sim/run_mouse.sh
+# T89 S13: the wrapper drives nothing on the slot and the IEC bus (reads host/top.v's decoupler list and layer2_apple2.v; no simulator)
+1|apple2_pins|120|sh cores/apple2/sim/run_pins.sh
+# T89 Q4: what the aux RAM in the DDR2 costs in machine time (a measurement with a limit; six runs of 40 ms)
+2|apple2_stall|3600|sh cores/apple2/sim/run_stall.sh
+
+
+# T91 (ZX Spectrum core, ULA/Z80/AY of ZX-Spectrum_MiSTer, cores/zx): Verilator benches of cores/zx/sim, programs of our own (tools/zx_progs.py,
+# tools/zx_snap.py), no ROM. A build is ~10 s, a frame of simulation ~1.4 s on the Mac. The long Z80 run (`z80`, 430 frames,
+# ZEXALL-style) is not here: run it by hand (`sh cores/zx/sim/run.sh z80`, about 10 minutes).
+2|zx_cpu|1800|sh cores/zx/sim/run.sh z80s page48 page128 model
+2|zx_machine|1800|sh cores/zx/sim/run.sh clk48 clk128 cont48 cont128
+2|zx_video|2400|sh cores/zx/sim/run.sh video48 shadow128 scaler scaler128
+2|zx_io|2400|sh cores/zx/sim/run.sh audio128 keys48 tape48
+2|zx_snap|1800|sh cores/zx/sim/run.sh snap48_sna snap48_z80 snapint snap128_sna snap128_z80
+2|zx_pause|1800|sh cores/zx/sim/run.sh pause
+# T119 S2: the picture is a frame buffer in the DDR2 (zx_pixw); pixwhost (board black,
+# 2026-10-23): the same through the host's mig_arb and a MIG model, the application's way in and the register bus
+2|zx_pixw|3600|sh cores/zx/sim/run.sh pixw pixw128 pixwhost
+# T119 5.10 (board 2026-10-24, 48K): the model changes at a reset in the middle of a run (128K -> 48K and back); the ULA has to start lines and the
+# writer to finish frames afterwards.
+2|zx_switch|3000|sh cores/zx/sim/run.sh sw48 sw128 swapp48 coldapp48
+# T91 S12: the wrapper drives nothing on the slot and the IEC bus (reads host/top.v's decoupler list and layer2_zx.v; no simulator)
+1|zx_pins|120|sh cores/zx/sim/run_pins.sh
+
+# T92 (Amstrad CPC core, Gate Array/CRTC/PPI/MMU/FDC of Amstrad_MiSTer, cores/cpc; the Z80 and the AY from cores/zx): Verilator benches of cores/cpc/sim,
+# programs of our own (tools/cpc_progs.py, tools/cpc_slots.py), no ROM.
+2|cpc_cpu|1800|sh cores/cpc/sim/run.sh z80s page page664 page464 model slots
+2|cpc_video|2400|sh cores/cpc/sim/run.sh clk video bars
+# cpc_io ran into its 2400 s in run 128 with all seven modes; the media modes are their own bench now
+2|cpc_io|2400|sh cores/cpc/sim/run.sh audio keys
+2|cpc_media|3600|sh cores/cpc/sim/run.sh tape disk
+2|cpc_fdcscan|900|sh cores/cpc/sim/run.sh fdcscan
+2|cpc_pause|1800|sh cores/cpc/sim/run.sh pause
+# T92 S12: the same for layer2_cpc.v
+1|cpc_pins|120|sh cores/cpc/sim/run_pins.sh
+# T116 (ZX Spectrum Next core, the original's VHDL at b047011 as Verilog in cores/zxnext/gen, glue in cores/zxnext/trx): Verilator benches of cores/zxnext/sim.
+# The machine starts from its own boot ROM and a FAT image tools/zxnext_progs.py makes around a program of ours (tools/zxnext_asm.py), no ROM, no NextZXOS.
+# The SD bench and the memory benches are long: a Next boots
+# a card at 5 ms a sector, and the equivalence runs ten million machine cycles at four speeds twice.
+2|zxnext_boot|1800|sh cores/zxnext/sim/run.sh boot
+2|zxnext_noimg|4800|sh cores/zxnext/sim/run.sh noimg
+2|zxnext_sd|2400|sh cores/zxnext/sim/run.sh sd
+2|zxnext_sd_fast|4800|sh cores/zxnext/sim/run.sh sdfast sdmulti
+2|zxnext_sd_hold|4800|sh cores/zxnext/sim/run.sh fwdrv fwslow
+2|zxnext_mem_a|5400|sh cores/zxnext/sim/run.sh mem_ref0 mem0 mem_ref1 mem1
+2|zxnext_mem_b|5400|sh cores/zxnext/sim/run.sh mem_ref2 mem2 mem_ref3 mem3
+2|zxnext_video|3800|sh cores/zxnext/sim/run.sh video0 video1 video2
+2|zxnext_keys|2400|sh cores/zxnext/sim/run.sh keys
+2|zxnext_clk|4800|sh cores/zxnext/sim/run.sh clk1 clk2 clk3 clk4
+2|zxnext_freeze|2400|sh cores/zxnext/sim/run.sh freeze_ref freeze
+2|zxnext_audio|3000|sh cores/zxnext/sim/run.sh audio
+2|zxnext_boardid|2400|sh cores/zxnext/sim/run.sh boardid boardid0 boardid2
+# T116 S2: the same for layer2_zxnext.v
+1|zxnext_pins|120|sh cores/zxnext/sim/run_pins.sh
+
+# T142 (Super Nintendo core, SNES_MiSTer's VHDL at bdcd33c5 as Verilog in cores/snes/gen, glue in cores/snes/trx): Verilator benches of cores/snes/sim. Programs of our own
+# (tools/snes_asm.py) and a boot ROM stub of our own for the S-SMP, no ROM, no game. `mem` runs the core twice: behind the caches (snes_mem.v) and behind a
+# memory that is never late (sim/snes_mem_ref.v); the machines must end equal, and the program's own checksums must be those of tools/snes_expect.py.
+2|snes_boot|3600|sh cores/snes/sim/run.sh boot mvn
+2|snes_mem|3600|sh cores/snes/sim/run.sh mem
+2|snes_video|3600|sh cores/snes/sim/run.sh video
+2|snes_pad|7200|sh cores/snes/sim/run.sh pad padapp padmod
+2|snes_audio|3600|sh cores/snes/sim/run.sh audio
+2|snes_audio_q|3600|sh cores/snes/sim/run.sh audio_q
+2|snes_brr|3600|sh cores/snes/sim/run.sh brr
+1|snes_pins|120|sh cores/snes/sim/run_pins.sh
+
+# T113 (Commodore 128 core, cores/c128): the whole machine under Verilator on a synthetic system ROM of our own (tools/gen_c128_test.py,
+# tools/c128asm.py; no ROM byte): S4 Z80 start and hand-over, S5 MMU banking, S7 extra key lines, S3 2 MHz, S6 C64 mode
+# ("ctl| " lines, a mutated build or input that has to fail). Keys (S10), Freeze (S12), the tree scan (S1), VDC (S8) and frame writer (S9),
+# the ROM line cache (5.4) are benches of their own. The real-ROM boot (run_realrom.sh) is local: the ROMs are outside the repository.
+1|c128_machine|1800|sh cores/c128/sim/run_machine.sh
+1|c128_keys|300|sh cores/c128/sim/run_keys.sh
+1|c128_pause|900|sh cores/c128/sim/run_pause.sh
+1|c128_scan|120|sh cores/c128/sim/run_scan.sh
+1|c128_vdc|1800|sh cores/c128/sim/run_vdc.sh
+1|c128_pixw|1800|sh cores/c128/sim/run_pixw.sh
+1|c128_romc|300|sh cores/c128/sim/run_romc.sh
+1|c128_ramd|900|sh cores/c128/sim/run_ramd.sh
+1|c128_ramddr|3600|sh cores/c128/sim/run_ramddr.sh
+# T140 D28 (the fifth VIC slot, RAM block 1): the same bitmap picture in block 0 and in block 1 must give the same pixels in the DDR2 build as in the block RAM build, the residual
+# $FF reads only while the slot is swept
+1|c128_vicblk|3600|sh cores/c128/sim/run_vicblk.sh
+1|c128_vicrom|3600|sh cores/c128/sim/run_vicrom.sh
+1|c128_vicbus|3600|sh cores/c128/sim/run_vicbus.sh
+# T113 5.6 / 5.7 (first board run): the Z80 and BA after a machine reset, the arbiter's VIC side in a reset, the VIC frame length while the CPU takes ROM misses,
+# the character ROM store, the cold start, the register page's registers (the real-ROM sequence, run_realrom_reset.sh, is local like run_realrom.sh)
+1|c128_z80ba|1500|sh cores/c128/sim/run_z80ba.sh
+1|c128_z80vdc|1500|sh cores/c128/sim/run_z80vdc.sh
+1|c128_reset|1500|sh cores/c128/sim/run_reset.sh
+1|c128_cold|3000|sh cores/c128/sim/run_cold.sh
+1|c128_phase|2400|sh cores/c128/sim/run_phase.sh
+1|c128_chr|2400|sh cores/c128/sim/run_chr.sh
+1|c128_regs|300|sh cores/c128/sim/run_regs.sh
+# T143 (Neo Geo large core, MiSTer NeoGeo_MiSTer ffaab14 in cores/neogeo/rtl, glue in cores/neogeo/trx): Verilator benches of cores/neogeo/sim, generated bytes, no BIOS, no game.
+2|neogeo_mover|1800|sh cores/neogeo/sim/run.sh mover
+2|neogeo_p68k|3600|sh cores/neogeo/sim/run.sh p68k
+2|neogeo_video|4800|sh cores/neogeo/sim/run.sh video
+2|neogeo_dl|5400|sh cores/neogeo/sim/run.sh dl
+2|neogeo_audio|1800|sh cores/neogeo/sim/run.sh audio
+2|neogeo_speed|5400|sh cores/neogeo/sim/run.sh speed
+2|neogeo_sprites|5400|sh cores/neogeo/sim/run.sh sprites
+1|neogeo_pad|300|sh cores/neogeo/sim/run.sh pad
+1|neogeo_pixw|300|sh cores/neogeo/sim/run.sh pixw
+# T140 S2 (the C128's analogue output, c128_avout.v and c128_yc.v, MiSTer yc_out.sv numbers): sync, blanking, burst, bars, PAL alternation in the four System Modes
+1|c128_avout|900|sh cores/c128/sim/run_avout.sh
+# T140 D24 item 1 (c128_avpins.v): every ball of the A/V port carries the bit of the word the board says (Y on the luma pin's group)
+1|c128_avpins|120|sh cores/c128/sim/run_avpins.sh
+# T140 D24 item 4: the C128 release build without the JTAG debug master, a dev build with --jtag (source guards)
+1|c128_variant|60|sh cores/c128/sim/run_variant.sh
+# T140 Q2b/Q2c (the C128 large core without Ethernet, WiFi UART kept: its copy of ultimate_sys.vhd with g_net = 0 by NO_NET): the Ethernet window acks, reads 0, eth pins/irq/dma idle under noise; guards: Ethernet inside the g_eth generate, uart_dma outside, core.toml NO_NET, top.v NET_ON = 0
+1|c128_nonet|900|sh cores/c128/sim/nonet/run.sh
+# T159 S4/D4: the A1200 case LED 1 source + hd output (trx_motor_led in minimig.v): motor of a present drive + hard disk, reset
+1|amiga1200_motorled|300|sh cores/amiga1200/sim/motorled/run.sh
+# T159 D4: the A1200's power lamp (mono/host/bling_io.v, LED 71 of the keyboard chain): WS2812 frame decoded; red / floppy flicker / HD blue flicker / SHIFT LOCK yellow, Off = dark + amber
+1|amiga1200_bling|900|sh cores/amiga1200/sim/bling/run.sh
+# T159 S4b: the motor path through the chipset (full A1200 core, test ROM: motor on + select DF0 -> amiga_core drv_led)
+2|amiga1200_motorpath|2400|sh cores/amiga1200/sim/motorpath/run.sh
+# T159 S4c/D4: drv_led -> drive_leds_n[0] -> case LED 1 + bling drive_act, drv_hd -> drive_leds_n[1] -> bling hd_act (layer2 as build_mono.tcl edits it)
+1|amiga1200_motorwire|300|sh cores/amiga1200/sim/motorwire/run.sh
+# T159 D-all: the same motor path through the A500 core (fx68k, shared minimig.v / amiga_core.v, test ROM: motor on + select DF0 -> drv_led)
+2|amiga_motorpath|2400|sh cores/amiga/sim/run_motorpath.sh
+# T159 D-all: the Atari core's case LED 1 (trx_sio_led in layer2_atari800.v): lit by the SIO command frame and the bytes of the answer, held ~95 ms, off after reset with the command line low
+1|atari_led|300|sh cores/atari800/sim/led/run.sh
+# T168 (DDT's mandelbrUlt as a partial core, cores/ddt_mandel): Verilator benches of cores/ddt_mandel/sim at the partition's real edge. The picture in the DDR2 buffer is compared
+# pixel for pixel with an independent Python model written from DDT's code (mandel_model.py). Tier 1: the wrapper drives nothing on the slot and the IEC bus (reads host/top.v and the wrapper; no simulator).
+2|ddt_mandel_pix|1800|sh cores/ddt_mandel/sim/run.sh pix
+2|ddt_mandel_joy|1800|sh cores/ddt_mandel/sim/run.sh joy
+1|ddt_mandel_pins|120|sh cores/ddt_mandel/sim/run_pins.sh ddt_mandel
+# T168 (DDT's look_ma_no_vic as a partial core, cores/ddt_novic): three pictures of the buffer in the DDR2 against novic_model.py (written from his code)
+2|ddt_novic_pix|1800|sh cores/ddt_novic/sim/run.sh pix
+1|ddt_novic_pins|120|sh cores/ddt_mandel/sim/run_pins.sh ddt_novic
+# T164 WP8 (G1): host/hdmi_out.v end to end, the GTP words decoded back to pixels and InfoFrames in 1080p50 (VIC path) and 576p50 (gear 5, pixel layer)
+2|hdmi_out|9000|sh host/sim/hdmi_out/run.sh
+# T164 WP8 (S8): the VIC raster stays locked in 1080p (vic_scaler on hdmi_timing's counters, PAL and NTSC model, FRAMES frames each, default 100)
+2|vicscale|9000|sh host/sim/vicscale/run.sh
+# T175 S1: the probe engine of the Port Diagnostics core through its register window against a loop-back model (exact WAIT / timestamps / pin pulse, EDGES at the window's edge, time-to-flip, FIFO overflow, LOOP, GO, release at END / ABORT, live pins)
+1|diag_probe|900|sh cores/diag/sim/probe/run.sh
+# T175 D2: the open-drain joystick pads (released = the old pure input, 1024 combinations; drive low only; decouple) and their wiring in mono/top.v, layer2_diag.v, pins.xdc
+1|diag_pins|300|sh cores/diag/sim/pins/run.sh
+# T175 co-check: the step words the core application compiles from the four example tests run on the real probe engine (iverilog), the FIFO words / PCs / STATUS go to a file the application's own runner decodes (tests/coreapp/diag_co.cc); the result file is compared with the peripheral model
+1|diag_co|1500|sh cores/diag/sim/co/run.sh
+# T201 S1: the diag core's A/V test picture encoder (diag_avout.v + diag_yc.v) word for word against the unedited copy of the C128 encoder, four standards
+1|diag_avenc|600|sh cores/diag/sim/avenc/run.sh
+# T201 S2, S10: every A/V knob register (0x50-0x5F of diag_regs.v) changes the encoder words as specified, live; the sync knobs (D4) give the specified csync (tb_avsync, a second top of tb_avregs.v, run beside it)
+1|diag_avregs|1500|sh cores/diag/sim/avregs/run.sh
+# T159 (iverilog + wiring check, seconds): the 1541 drive LEDs reach drive_leds_n through cores/c1541/drive_leds_map.v (motor alone: floppy lit, hard disk dark), per core
+1|c1541leds_c128|120|sh cores/c1541/sim/run_leds.sh c128
+1|c1541leds_c264|120|sh cores/c1541/sim/run_leds.sh c264
+1|c1541leds_vc20|120|sh cores/c1541/sim/run_leds.sh vc20
+
+# T182 step 1 (C64SCPU core, cores/c64scpu): the C64 with its 6510 still in boots a synthetic system ROM of our own (tools/gen_c64scpu_test.py; no ROM byte) under
+# Verilator to the power-on screen with READY.: in RAM and, read back through the character ROM, in the VIC's own picture; controls: no BASIC (no READY.), no
+# character ROM (no glyphs). The boot with the real C64 ROMs (run_real.sh) is local: the ROMs are outside the repository.
+1|c64scpu_base|1200|sh cores/c64scpu/sim/run_base.sh
+# T182 step 2: the 65C816 (E = 1, 1 MHz) replaces the 6510; a program of our own (tools/gen_c64scpu_emu.py) runs in the whole machine and its RAM bytes and the PHI2 cycles between markers equal a Python
+# interpreter's (documented cycle table); the same NMOS routine on the step-1 machine (6510) takes the same PHI2 cycles. Controls: the CPU steps every second PHI2 cycle (cycles), SBC for ADC (RAM bytes).
+# Four Verilator builds of the machine (65816, 6510, two mutations), so the long timeout. Every run also asserts that the CPU's clock enables are >= 3 clk2x cycles apart (the premise
+# of the multicycle constraints, T182 5.4; control ctl_ce2).
+1|c64scpu_emu|3000|sh cores/c64scpu/sim/run_emu.sh
+# T182 step 3d: the SuperCPU memory map (scpu_mem, scpu_cache, the DDR2 jobs S/SW): S1 (reset vector from the ROM image at 0x03080000, boot map, $D07E/$D0B6, run from SRAM; +ROMVALID=0 holds the CPU) and
+# S6 (244 bank tags, the hwenable gate and the alias at $F6/$F7, the 128 KiB ROM repeated in $F8-$FF) against absolute DDR2 bytes computed in tools/gen_c64scpu_map.py. Controls: NOBOOTMAP, NOVALID, NOALIAS,
+# ADDR23 (five Verilator builds of the machine, so the long timeout).
+1|c64scpu_map|3600|sh cores/c64scpu/sim/run_map.sh
+# T182 step 4: the speed and register benches (spec T182 S4, S10, S11): a synthetic SuperCPU ROM of our own (tools/gen_c64scpu_speed.py) runs timed loops at 20 MHz and 1 MHz with the display on and off
+# and 1,000 I/O reads, and reads $D0B0-$D0BF in four register states against the model written from scpu64mem.c. Controls: NOFAST, NOSYNC, BASTALL, NOHWGATE (four more Verilator builds).
+1|c64scpu_speed|3600|sh cores/c64scpu/sim/run_speed.sh
+# T182 step 5: the mirroring bench (spec T182 S5, 5.7): the 65816 at 20 MHz writes screen / probe pages in nine optimisation modes; the C64 RAM, the VIC's picture and the PHI2 cycles of the loops against the VICE model. Controls: NOMIRROR, MIRRWIN, WBALL, NORETRY.
+1|c64scpu_mirror|5400|sh cores/c64scpu/sim/run_mirror.sh
+# T182 step 6: the interrupt / vector bench (spec T182 S9 and the native-mode part of S3, 5.8): handler counts after 100,000 PHI2 cycles for CIA / VIC / RESTORE sources in emulation and native mode, with and without the vector reroute, BRK / COP, and a native 16-bit program in SuperRAM against the model. Controls: NOREROUTE, EMUONLY.
+1|c64scpu_irq|7200|sh cores/c64scpu/sim/run_irq.sh
+# T208 S1-S3 (Metal Dust): synthetic SuperCPU ROMs of our own (tools/gen_c64scpu_mdust.py) drive the game's write stream (mirror queue vs the VIC's copy, n_wlost), the HUD IRQ's I/O write spacing (cold and warm code, against a port of the VICE accounting) the crack menu's raster IRQ at 20 and 1 MHz (once per frame), and the code cache's next-line prefetch (S5: the HUD stage stays at writes + 1 with its code evicted every frame; self-modifying code that stores into the line being prefetched).
+1|c64scpu_mdust|3600|sh cores/c64scpu/sim/run_mdust.sh
+# T194 S1/S2 (the C128's 40 columns through the pixel layer, cores/c128/mono/host/pix_layer.v format 3): the VIC capture with 13-word rows and three slots; the picture
+# at Integer / Fit / Fill in 1080p and 720p, 50 and 60 Hz. T140 section 18: c128_act.v (which chip is being used) and its registers.
+1|c128_vicpic|1800|sh cores/c128/sim/run_vicpic.sh
+1|c128_vicshow|7200|sh cores/c128/sim/run_vicshow.sh
+1|c128_act|120|sh cores/c128/sim/run_act.sh
+1|c128_vicpic_tear|3600|sh cores/c128/sim/run_vicpic_tear.sh

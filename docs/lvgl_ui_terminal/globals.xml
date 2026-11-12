@@ -1,0 +1,98 @@
+<globals>
+    <api>
+        <!-- Runtime adapters are shared with the primary M2 UI. -->
+    </api>
+
+    <consts>
+        <!-- 640 px at 12 px IBM Plex Mono is roughly an 80-column terminal. -->
+        <int name="terminal_width" value="640" />
+        <int name="space_2xs" value="1" />
+        <int name="space_xs" value="2" />
+        <int name="space_sm" value="4" />
+        <int name="space_md" value="6" />
+        <int name="space_lg" value="10" />
+        <int name="space_xl" value="16" />
+        <int name="radius_sm" value="0" />
+        <int name="radius_md" value="0" />
+        <int name="terminal_frame_width" value="772" />
+        <int name="terminal_sidebar_width" value="124" />
+        <int name="sidebar_width" value="124" />
+        <int name="topbar_height" value="24" />
+        <int name="footer_height" value="22" />
+
+        <!-- Pure black plus phosphor green and neutral grey. Legacy accent names
+             remain as semantic aliases so all 30 shared screens stay compatible. -->
+        <color name="color_bg" value="0x000000" />
+        <color name="color_surface" value="0x000000" />
+        <color name="color_surface_2" value="0x0A170D" />
+        <color name="color_line" value="0x17351D" />
+        <color name="color_ink" value="0xA7F3B4" />
+        <color name="color_muted" value="0x7A837C" />
+        <color name="color_violet" value="0x72E58A" />
+        <color name="color_cyan" value="0x91C99B" />
+        <color name="color_amber" value="0xA9B2AB" />
+        <color name="color_coral" value="0xC5CCC7" />
+    </consts>
+
+    <subjects>
+        <string name="subject_activity" value="IDLE" />
+        <int name="subject_timewarp_position" value="68" min_value="0" max_value="100" />
+        <int name="subject_overlay_opacity" value="82" min_value="20" max_value="100" />
+        <int name="subject_freeze_on_menu" value="0" min_value="0" max_value="1" />
+        <int name="subject_writeback_enabled" value="1" min_value="0" max_value="1" />
+        <int name="subject_turbo_mode" value="0" min_value="0" max_value="1" />
+        <int name="subject_wifi_enabled" value="1" min_value="0" max_value="1" />
+    </subjects>
+
+    <images>
+        <!-- Deliberately empty: this variant is text-only. -->
+    </images>
+
+    <fonts>
+        <bin name="font_caption" size="10" bpp="2" range="0x20-0x7F"
+             src_path="fonts/IBMPlexMono-Regular.ttf" as_file="false" />
+        <bin name="font_body" size="12" bpp="2" range="0x20-0x7F"
+             src_path="fonts/IBMPlexMono-Regular.ttf" as_file="false" />
+        <bin name="font_heading" size="12" bpp="2" range="0x20-0x7F"
+             src_path="fonts/IBMPlexMono-Regular.ttf" as_file="false" />
+        <bin name="font_display" size="14" bpp="2" range="0x20-0x7F"
+             src_path="fonts/IBMPlexMono-Regular.ttf" as_file="false" />
+        <bin name="font_title" size="14" bpp="2" range="0x20-0x7F"
+             src_path="fonts/IBMPlexMono-Regular.ttf" as_file="false" />
+    </fonts>
+
+    <styles>
+        <style name="style_screen"
+               bg_color="#color_bg" bg_opa="100%"
+               text_color="#color_ink" text_font="font_body"
+               border_width="0" radius="0" pad_all="0" />
+
+        <style name="style_panel"
+               bg_color="#color_bg" bg_opa="100%"
+               border_width="0" radius="0" pad_all="#space_md" />
+        <style name="style_panel_raised"
+               bg_color="#color_bg" bg_opa="100%"
+               border_width="0" radius="0" pad_all="#space_md" />
+
+        <style name="style_title" text_color="#color_ink" text_font="font_title" />
+        <style name="style_display" text_color="#color_ink" text_font="font_display" />
+        <style name="style_heading" text_color="#color_ink" text_font="font_heading" />
+        <style name="style_body" text_color="#color_ink" text_font="font_body" />
+        <style name="style_caption" text_color="#color_muted" text_font="font_caption" />
+        <style name="style_kicker" text_color="#color_muted" text_font="font_caption" />
+        <style name="style_warning_text" text_color="#color_amber" />
+        <style name="style_danger_text" text_color="#color_coral" />
+
+        <!-- Focus is terminal-style inverse video, not a drawn outline. -->
+        <style name="style_focus"
+               bg_color="#color_line" bg_opa="100%"
+               outline_width="0" />
+        <style name="style_pressed" bg_color="#color_surface_2" bg_opa="100%" />
+        <style name="style_scrollbar"
+               width="2" bg_color="#color_muted" bg_opa="45%" radius="0" />
+
+        <style name="style_slider_track" bg_opa="0%" radius="0" />
+        <style name="style_slider_indicator" bg_opa="0%" radius="0" />
+        <style name="style_slider_knob" bg_opa="0%" radius="0" pad_all="0" />
+    </styles>
+</globals>

@@ -1,0 +1,204 @@
+<component>
+    <api>
+        <prop name="active_home" type="bool" default="false" />
+        <prop name="active_library" type="bool" default="false" />
+        <prop name="active_c64" type="bool" default="false" />
+        <prop name="active_actions" type="bool" default="false" />
+        <prop name="active_timewarp" type="bool" default="false" />
+        <prop name="active_tools" type="bool" default="false" />
+        <prop name="active_settings" type="bool" default="false" />
+        <prop name="active_system" type="bool" default="false" />
+        <prop name="active_tab" type="int" default="1" />
+        <slot name="content" />
+    </api>
+
+    <view extends="base_box" width="100%" height="100%" flex_flow="row"
+          style_flex_main_place="center" style_bg_color="#color_bg" style_bg_opa="100%">
+        <row width="#terminal_frame_width" height="100%" gap="#space_md"
+             vertical_align="start">
+            <column width="#terminal_sidebar_width" height="100%" gap="#space_2xs"
+                    style_pad_top="#space_xs" style_pad_right="#space_md"
+                    style_border_side="right" style_border_color="#color_line"
+                    style_border_width="1">
+                <lv_label text="DIRECT" style_text_font="font_caption"
+                          style_text_color="#color_muted" />
+                <nav_item label="HOME" shortcut="F1" active="$active_home">
+                    <screen_create_event screen="home" anim_type="fade_in" duration="80" />
+                </nav_item>
+                <nav_item label="LIBRARY" shortcut="F3" active="$active_library">
+                    <screen_create_event screen="library" anim_type="fade_in" duration="80" />
+                </nav_item>
+                <nav_item label="C64" shortcut="F5" active="$active_c64">
+                    <screen_create_event screen="c64" anim_type="fade_in" duration="80" />
+                </nav_item>
+                <nav_item label="ACTIONS" shortcut="F7" active="$active_actions">
+                    <screen_create_event screen="quick_actions" anim_type="fade_in" duration="80" />
+                </nav_item>
+
+                <lv_label text="SHIFTED" style_text_font="font_caption"
+                          style_text_color="#color_muted" style_pad_top="#space_sm" />
+                <nav_item label="TIMEWARP" shortcut="F2" active="$active_timewarp">
+                    <screen_create_event screen="timewarp" anim_type="fade_in" duration="80" />
+                </nav_item>
+                <nav_item label="TOOLS" shortcut="F4" active="$active_tools">
+                    <screen_create_event screen="tools" anim_type="fade_in" duration="80" />
+                </nav_item>
+                <nav_item label="SETTINGS" shortcut="F6" active="$active_settings">
+                    <screen_create_event screen="settings" anim_type="fade_in" duration="80" />
+                </nav_item>
+                <nav_item label="SYSTEM" shortcut="F8" active="$active_system">
+                    <screen_create_event screen="system" anim_type="fade_in" duration="80" />
+                </nav_item>
+
+                <box grow="1" />
+                <lv_label text="[&lt;-] BACK/EXIT" style_text_font="font_caption"
+                          style_text_color="#color_ink" />
+                <lv_label text="[R/S] CLOSE" style_text_font="font_caption"
+                          style_text_color="#color_muted" />
+                <lv_label text="[FRZ] TOGGLE" style_text_font="font_caption"
+                          style_text_color="#color_muted" />
+            </column>
+
+            <column width="#terminal_width" height="100%" gap="0">
+                <row width="100%" height="#topbar_height" gap="#space_sm">
+                    <lv_label text="TRX64/OS" style_text_font="font_heading"
+                              style_text_color="#color_ink" />
+                    <lv_label text="M2 TERMINAL" style_text_font="font_caption"
+                              style_text_color="#color_muted" />
+                    <box grow="1" />
+                    <status_chip label="C64:RUN" tone="#color_cyan" />
+                    <status_chip label="D8:ON" tone="#color_cyan" />
+                    <lv_label bind_text="subject_activity" style_text_font="font_caption"
+                              style_text_color="#color_muted" />
+                </row>
+
+                <lv_label text="--------------------------------------------------------------------------------"
+                          style_text_font="font_caption" style_text_color="#color_line" />
+
+                <row width="100%" height="24" gap="#space_xs" hidden="{!active_home}">
+                    <tab_item number="1" label="HOME" active="{active_tab == 1}">
+                        <screen_create_event screen="home" anim_type="fade_in" duration="80" />
+                    </tab_item>
+                </row>
+
+                <row width="100%" height="24" gap="#space_xs" hidden="{!active_library}">
+                    <tab_item number="1" label="BROWSE" active="{active_tab == 1}">
+                        <screen_create_event screen="library" anim_type="fade_in" duration="80" />
+                    </tab_item>
+                    <tab_item number="2" label="SEARCH" active="{active_tab == 2}">
+                        <screen_create_event screen="library_search" anim_type="fade_in" duration="80" />
+                    </tab_item>
+                    <tab_item number="3" label="MANAGE" active="{active_tab == 3}">
+                        <screen_create_event screen="library_manage" anim_type="fade_in" duration="80" />
+                    </tab_item>
+                </row>
+
+                <row width="100%" height="24" gap="#space_xs" hidden="{!active_c64}">
+                    <tab_item number="1" label="SUMMARY" active="{active_tab == 1}">
+                        <screen_create_event screen="c64" anim_type="fade_in" duration="80" />
+                    </tab_item>
+                    <tab_item number="2" label="MACHINE" active="{active_tab == 2}">
+                        <screen_create_event screen="c64_machine" anim_type="fade_in" duration="80" />
+                    </tab_item>
+                    <tab_item number="3" label="DRIVES" active="{active_tab == 3}">
+                        <screen_create_event screen="c64_drives" anim_type="fade_in" duration="80" />
+                    </tab_item>
+                    <tab_item number="4" label="I/O" active="{active_tab == 4}">
+                        <screen_create_event screen="c64_peripherals" anim_type="fade_in" duration="80" />
+                    </tab_item>
+                </row>
+
+                <row width="100%" height="24" gap="#space_xs" hidden="{!active_actions}">
+                    <tab_item number="1" label="QUICK" active="{active_tab == 1}">
+                        <screen_create_event screen="quick_actions" anim_type="fade_in" duration="80" />
+                    </tab_item>
+                    <tab_item number="2" label="C64" active="{active_tab == 2}">
+                        <screen_create_event screen="action_catalog" anim_type="fade_in" duration="80" />
+                    </tab_item>
+                    <tab_item number="3" label="TIMEWARP" active="{active_tab == 3}">
+                        <screen_create_event screen="timewarp_actions" anim_type="fade_in" duration="80" />
+                    </tab_item>
+                    <tab_item number="4" label="LIBRARY" active="{active_tab == 4}">
+                        <screen_create_event screen="library_actions" anim_type="fade_in" duration="80" />
+                    </tab_item>
+                </row>
+
+                <row width="100%" height="24" gap="#space_xs" hidden="{!active_timewarp}">
+                    <tab_item number="1" label="TIMELINE" active="{active_tab == 1}">
+                        <screen_create_event screen="timewarp" anim_type="fade_in" duration="80" />
+                    </tab_item>
+                </row>
+
+                <row width="100%" height="24" gap="#space_xs" hidden="{!active_tools}">
+                    <tab_item number="1" label="OVERVIEW" active="{active_tab == 1}">
+                        <screen_create_event screen="tools" anim_type="fade_in" duration="80" />
+                    </tab_item>
+                    <tab_item number="2" label="MONITOR" active="{active_tab == 2}">
+                        <screen_create_event screen="monitor" anim_type="fade_in" duration="80" />
+                    </tab_item>
+                    <tab_item number="3" label="DIAG" active="{active_tab == 3}">
+                        <screen_create_event screen="tools_diagnostics" anim_type="fade_in" duration="80" />
+                    </tab_item>
+                    <tab_item number="4" label="APPS" active="{active_tab == 4}">
+                        <screen_create_event screen="tools_apps" anim_type="fade_in" duration="80" />
+                    </tab_item>
+                    <tab_item number="5" label="STREAMS" active="{active_tab == 5}">
+                        <screen_create_event screen="tools_streams" anim_type="fade_in" duration="80" />
+                    </tab_item>
+                </row>
+
+                <row width="100%" height="24" gap="#space_xs" hidden="{!active_settings}">
+                    <tab_item number="1" label="TRX64" active="{active_tab == 1}">
+                        <screen_create_event screen="settings_trx64" anim_type="fade_in" duration="80" />
+                    </tab_item>
+                    <tab_item number="2" label="VIDEO" active="{active_tab == 2}">
+                        <screen_create_event screen="settings_video" anim_type="fade_in" duration="80" />
+                    </tab_item>
+                    <tab_item number="3" label="AUDIO" active="{active_tab == 3}">
+                        <screen_create_event screen="settings_audio" anim_type="fade_in" duration="80" />
+                    </tab_item>
+                    <tab_item number="4" label="INPUT" active="{active_tab == 4}">
+                        <screen_create_event screen="settings_controllers" anim_type="fade_in" duration="80" />
+                    </tab_item>
+                    <tab_item number="5" label="NETWORK" active="{active_tab == 5}">
+                        <screen_create_event screen="settings_network" anim_type="fade_in" duration="80" />
+                    </tab_item>
+                </row>
+
+                <row width="100%" height="24" gap="#space_xs" hidden="{!active_system}">
+                    <tab_item number="1" label="STATUS" active="{active_tab == 1}">
+                        <screen_create_event screen="system" anim_type="fade_in" duration="80" />
+                    </tab_item>
+                    <tab_item number="2" label="I/O" active="{active_tab == 2}">
+                        <screen_create_event screen="settings_peripherals" anim_type="fade_in" duration="80" />
+                    </tab_item>
+                    <tab_item number="3" label="EXPERT" active="{active_tab == 3}">
+                        <screen_create_event screen="settings_advanced" anim_type="fade_in" duration="80" />
+                    </tab_item>
+                    <tab_item number="4" label="PAGE" active="{active_tab == 4}">
+                        <screen_create_event screen="settings_page" anim_type="fade_in" duration="80" />
+                    </tab_item>
+                </row>
+
+                <lv_label text="--------------------------------------------------------------------------------"
+                          style_text_font="font_caption" style_text_color="#color_line" />
+
+                <column name="content" width="100%" grow="1" />
+
+                <lv_label text="--------------------------------------------------------------------------------"
+                          style_text_font="font_caption" style_text_color="#color_line" />
+                <row width="100%" height="#footer_height" gap="#space_sm">
+                    <lv_label text="[CRSR] MOVE" style_text_font="font_caption"
+                              style_text_color="#color_muted" />
+                    <lv_label text="[RET] SELECT" style_text_font="font_caption"
+                              style_text_color="#color_muted" />
+                    <lv_label text="[&lt;-] BACK/EXIT" style_text_font="font_caption"
+                              style_text_color="#color_ink" />
+                    <box grow="1" />
+                    <lv_label text="[1-5] TAB" style_text_font="font_caption"
+                              style_text_color="#color_ink" />
+                </row>
+            </column>
+        </row>
+    </view>
+</component>

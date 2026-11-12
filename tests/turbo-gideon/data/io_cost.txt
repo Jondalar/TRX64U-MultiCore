@@ -1,0 +1,73 @@
+current DC03 DD03 D018 D800 D015: ['0x0', '0x0', '0x15', '0xe', '0x0', '0x0']
+--- D031=8F (display off)
+RAM read $C0F0            0.0654 PHI2/access
+RAM write $C0F0           0.0653 PHI2/access
+CIA1 read $DC00           1.0001 PHI2/access
+CIA1 write $DC03          1.0001 PHI2/access
+CIA2 read $DD00           1.0001 PHI2/access
+CIA2 write $DD03          1.0001 PHI2/access
+SID read $D41B            0.0818 PHI2/access
+SID write $D418           0.0818 PHI2/access
+VIC read $D011            0.0818 PHI2/access
+VIC read $D012            0.0818 PHI2/access
+VIC read $D019            0.0818 PHI2/access
+VIC write $D015           0.0653 PHI2/access
+VIC write $D018           0.0653 PHI2/access
+VIC write $D020           0.0653 PHI2/access
+VIC write $D021           0.0653 PHI2/access
+VIC read $D020            0.0818 PHI2/access
+ColRAM read $D800         0.0818 PHI2/access
+ColRAM write $D800        0.0653 PHI2/access
+UCI read $DF1C            1.0001 PHI2/access
+IO1 read $DE00            1.0001 PHI2/access
+turbo read $D031          0.0818 PHI2/access
+BASIC ROM read $A000      0.0653 PHI2/access
+KERNAL ROM read $E000     0.0653 PHI2/access
+--- D031=89 (display off)
+RAM read $C0F0            0.2570 PHI2/access
+RAM write $C0F0           0.2570 PHI2/access
+CIA1 read $DC00           1.0002 PHI2/access
+CIA1 write $DC03          1.0002 PHI2/access
+CIA2 read $DD00           1.0002 PHI2/access
+CIA2 write $DD03          1.0002 PHI2/access
+SID read $D41B            0.2570 PHI2/access
+SID write $D418           0.2570 PHI2/access
+VIC read $D011            0.2570 PHI2/access
+VIC read $D012            0.2570 PHI2/access
+VIC read $D019            0.2570 PHI2/access
+VIC write $D015           0.2570 PHI2/access
+VIC write $D018           0.2570 PHI2/access
+VIC write $D020           0.2570 PHI2/access
+VIC write $D021           0.2570 PHI2/access
+VIC read $D020            0.2570 PHI2/access
+ColRAM read $D800         0.2570 PHI2/access
+ColRAM write $D800        0.2570 PHI2/access
+UCI read $DF1C            1.0157 PHI2/access
+IO1 read $DE00            1.0157 PHI2/access
+turbo read $D031          0.2570 PHI2/access
+BASIC ROM read $A000      0.2570 PHI2/access
+KERNAL ROM read $E000     0.2570 PHI2/access
+--- D031=80 (display off)
+RAM read $C0F0            4.1115 PHI2/access
+RAM write $C0F0           4.1115 PHI2/access
+CIA1 read $DC00           4.1115 PHI2/access
+CIA1 write $DC03          4.1122 PHI2/access
+CIA2 read $DD00           4.1115 PHI2/access
+CIA2 write $DD03          4.1115 PHI2/access
+SID read $D41B            4.1115 PHI2/access
+SID write $D418           4.1115 PHI2/access
+VIC read $D011            4.1115 PHI2/access
+VIC read $D012            4.1115 PHI2/access
+VIC read $D019            4.1115 PHI2/access
+VIC write $D015           4.1113 PHI2/access
+VIC write $D018           4.1115 PHI2/access
+VIC write $D020           4.1115 PHI2/access
+VIC write $D021           4.1115 PHI2/access
+VIC read $D020            4.1115 PHI2/access
+ColRAM read $D800         4.1115 PHI2/access
+ColRAM write $D800        4.1115 PHI2/access
+UCI read $DF1C            4.1115 PHI2/access
+IO1 read $DE00            4.1113 PHI2/access
+turbo read $D031          4.1113 PHI2/access
+BASIC ROM read $A000      4.1115 PHI2/access
+KERNAL ROM read $E000     4.1115 PHI2/access

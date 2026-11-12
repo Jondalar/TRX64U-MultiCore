@@ -1,0 +1,16 @@
+# The Amstrad CPC core (T92): CPC 464, 664 and 6128. Gate Array, CRTC, PPI, MMU, FDC and ink table of MiSTer-devel/Amstrad_MiSTer in rtl/ (the FDC through
+# gen/ by tools/cpc_gen.py), the Z80 and the AY from the Spectrum core (cores/zx: shared, T91 D1), our glue in trx/. Licences: rtl/NOTICE.
+id           = "cpc"
+name         = "Amstrad CPC 464 / 664 / 6128"
+version      = "0.0.1"
+contract     = 2
+app          = "blueprint"     # the T104 generic application (coreapp/cores/cpc.cc), not Gideon's base (T92 §5 2026-10-22; supersedes D11)
+order        = 12              # after the ZX Spectrum (11); the T79 core list put the CPC with the Spectrum at position 8
+delivery     = "cfw"           # a LARGE core since 2026-11-01 (T164 Q1: pb_l2 is X0-49 rows 0-99 with 40 block RAM tiles, this core needs 46.5; Alex: "whatever does not fit becomes a
+                               # large core"): this file is the only descriptor, no DFX lane; cores/cpc/mono/build_mono.tcl, lane large-cpc
+mono_env     = ["TRX_FEATURES=jtag"]   # the host features are the DFX build's (jtag on, UCI and UDP streams off)
+experimental = true            # built, benched, application written; not routed, no board test; the flat build has not run yet
+sources      = ["cores/cpc", "cores/zx/rtl", "cores/zx/gen", "cores/zx/shared"]
+                               # the Z80 (rtl/T80, gen/t80pa.v), the AY (rtl/ym2149.sv) and shared/ are the Spectrum core's files: read here, never copied;
+                               # a change to them rebuilds both cores. rtl/ula.sv is the Spectrum's alone but sits in the same directory and goes along.
+roms         = ["cpc os6128", "cpc basic6128", "cpc amsdos", "cpc os664", "cpc basic664", "cpc os464", "cpc basic464"]

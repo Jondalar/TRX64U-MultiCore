@@ -1,0 +1,145 @@
+// What a library or an application sees of the base, and what it hands back (T104.1 D4, D10.2; T104.3 D2). A library's entry is
+//
+//     extern "C" int lib_register(const LibApi *api, LibRecord *out);
+//
+// It fills `out` and returns 0; anything else refuses the load and nothing of it stays. The record's pointers point into the image
+// (relocated by then) or at the base; the loader copies the record, so `out` may live on the stack. A library is native code
+// compiled against this header: the record's struct_size has to match the loader's, or the load is refused.
+//
+// An application's entry is
+//
+//     extern "C" int app_main(const LibApi *api, AppCtx *ctx);
+//
+// The base calls it on a task of its own, with the action and the file of the menu entry that opened the application; when it returns, a transient
+// application with no screen open is freed with everything it still holds from api->mem. An application that brings screens (its menu record has a
+// route of its own, T104.3 D0) also has `lib_register`, which registers the operations and state values its screens bind to; the base calls it first,
+// and takes the registrations back when the application is freed.
+//
+// Of the six lists of D4 the loader registers operations, state values and events (the three the registry has). Menu nodes, file actions
+// and settings are merged into the menu by contrib.h (D8); the poll of a library is declared here and kept, and not served yet.
+#ifndef COREAPP_LIBAPI_H
+#define COREAPP_LIBAPI_H
+
+#include <stdint.h>
+#include "ops.h"
+#include "fsif.h"
+#include "svctab.h"
+
+// The service tables (svctab.h, T104.3 D2) are plain structs; LibApi is the root a library or an application gets. A group the base or the core does not
+// have is a null pointer.
+struct LibApi {
+    uint32_t struct_size;
+    uint16_t abi_major, abi_minor;
+    void (*log)(const char *text);
+    const SvcSys *sys;
+    const SvcMem *mem;
+    const SvcOps *ops;
+    const SvcFs *fs;
+    const SvcDlg *dlg;
+    const SvcJob *job;
+    const SvcTrx *trx;
+    const SvcNet *net;
+    const SvcC64 *c64;
+};
+// The app ABI: SvcFsEntry is frozen at 72 bytes (a 56 byte name); FsEntry carries the whole long name and the bridge (LibLoader::svc_list) converts.
+typedef char svc_fsentry_layout_check[(sizeof(SvcFsEntry) == 72 && sizeof(((SvcFsEntry *)0)->name) == 56) ? 1 : -1];
+
+// What an application is opened with (T104.3 D6): the action of the menu entry and the file it was on, and room for one line it may
+// leave as its result (the screen's status line, or a transport's answer).
+struct AppCtx {
+    uint32_t struct_size;
+    const char *action;                   // "" when none
+    const char *file;                     // "" when none
+    char *reply;
+    int reply_len;
+};
+
+typedef int (*app_main_fn)(const LibApi *api, AppCtx *ctx);
+
+struct LibOpDecl {
+    const char *name;
+    const ArgSpec *args;
+    int nargs;
+    op_fn fn;
+};
+struct LibStateDecl {
+    const char *name;
+    state_fn get;
+};
+struct LibEventDecl {
+    const char *name;
+    const ArgSpec *payload;               // null: none
+};
+
+enum LibNodeKind { LN_OP = 0, LN_SETTING = 1, LN_STATE = 2, LN_WIDGET = 3, LN_GROUP = 4 };
+struct LibNodeDecl {
+    const char *anchor;                   // "F5/drives/drive_a": area key / tab id / group (D8)
+    uint8_t kind;
+    const char *label;
+    const char *op;                       // the operation a button calls
+    const char *state;                    // the state value a line shows
+    int16_t order;
+    const char *when_state;               // "drive.drive_a.mode != empty": the row is offered only while it holds (contrib.h cond_holds)
+    const char *capability;
+    // The tail was added with the menu merge (T104.1 D8); a record that leaves it zero has no id of its own (the id is then the operation or the
+    // state), binds nothing and does not close the menu.
+    const char *id;                       // what the description hides or renames the node by
+    const OpBind *bind;                   // an op node fills every argument of its operation from these (no $file: a node has no file)
+    int nbind;
+    bool closes_menu;
+    // T104.2 D10 (screens): how the node is shown, "key;key=value;..." (ui_attr in contrib.h): primary, link, goto=<F3 or F5/drives>, sub=<value>,
+    // chip=<value>, tone=<muted|cyan|violet|amber|coral>, off=<the reason it is greyed>, why=<the reason while its when_state does not hold>. Null: a plain row. The anchor's group names the slot of the tab's layout.
+    const char *attr;
+};
+struct LibFileActionDecl {
+    const char *const *ext;               // ".d64", ".g64"
+    int next;
+    const char *label;
+    const char *op;
+    const OpBind *bind;
+    int nbind;
+    const uint32_t *size_in;              // optional set of sizes
+    int nsize_in;
+    bool closes_menu;
+};
+struct LibSettingDecl {
+    const char *group;
+    const char *key;
+    const char *const *values;            // a list of labels, or null with lo..hi
+    int nvalues;
+    int32_t lo, hi;
+    int32_t def;
+    const char *apply;                    // the operation that takes `value`
+};
+struct LibPollDecl {
+    const char *op;                       // null: no poll
+    uint16_t period_ms;
+    bool when_frozen;
+};
+
+// A tab a contributor adds to an area of the route (T104.1 D8, Alex 2026-10-26): appended after the tabs the area has, with the next free printed number
+// unless `n` says one; a refusal by name when the area is not on the route, the id is taken, or the area has six tabs. `widget` is a TabWidget of menutree.h.
+struct LibTabDecl {
+    const char *area;                     // "F5"
+    const char *id;                       // lower case, [a-z0-9_]
+    const char *name;
+    uint8_t widget;
+    const char *groups;                   // widget settings: the settings groups it lists, comma separated; else null
+    uint8_t n;                            // 0: the next free number
+};
+
+struct LibRecord {
+    uint32_t struct_size;
+    const LibOpDecl *ops;                 int nops;
+    const LibStateDecl *states;           int nstates;
+    const LibEventDecl *events;           int nevents;
+    const LibNodeDecl *nodes;             int nnodes;
+    const LibFileActionDecl *file_actions; int nfile_actions;
+    const LibSettingDecl *settings;       int nsettings;
+    LibPollDecl poll;
+    const LibTabDecl *tabs;               int ntabs;
+};
+
+typedef int (*lib_register_fn)(const LibApi *api, LibRecord *out);
+
+#endif

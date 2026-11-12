@@ -1,0 +1,31 @@
+--- rtl/video/lspc2_a2.v
++++ fix/lspc2_a2.v
+@@ -62,6 +62,8 @@
+ 	output LSPC_4M,
+ 	output LSPC_EN_4M_P,
+ 	output LSPC_EN_4M_N,
++	output [23:0] TRX_C_CAND,			// TRX: {SPR_TILE[19:16], SPR_LINE, SPR_TILE[15:3], SPR_TILE_AA}, what PCK1 latches from the P bus
++	output [15:0] TRX_S_CAND,			// TRX: {PIXELC[2], RASTERC[2:1], FLIP, FIX_TILE}, what PCK2 latches
+ 	
+ 	output [14:0] SVRAM_ADDR,
+ 	input [31:0] SVRAM_DATA_IN,
+@@ -535,7 +537,9 @@
+ 	assign CHG = CHG_r;
+ 	
+ 	// SS1/2 outputs, periodic
+-	wire nFLIP, nCHG_D = ~CHG_D, R15_QD;
++	// TRX: Vivado refuses a declaration list that mixes initialised and plain identifiers: split in two
++	wire nFLIP, R15_QD;
++	wire nCHG_D = ~CHG_D;
+ 	reg S48_nQ;
+ 	
+ 	// Latch nFLIP at pixel 264 (O62_Q). That will make the line buffers switch at pixel 267.
+@@ -715,6 +719,8 @@
+ 	videosync_sync VS_SYNC(CLK, CLK_EN_24M_P, CLK_EN_24M_N, LSPC_3M, LSPC_1_5M, LSPC_EN_1_5M_P, LSPC_EN_1_5M_N, nRESETP, VMODE, PIXELC, RASTERC, HSYNC, VSYNC, BNK,
+ 						BNKB, CHBL, R15_QD, FLIP, nFLIP, P50_CO);
+ 
++	assign TRX_C_CAND = {SPR_TILE[19:16], SPR_TILE[15:8], SPR_TILE[7:3], SPR_TILE_AA, SPR_LINE};
++	assign TRX_S_CAND = {FIX_TILE[11:8], FIX_TILE[7:0], PIXELC[2], RASTERC[2:1], FLIP};
+ 	wire CLK_24M = ~CLK_24MB;
+ 	wire Q53_CO;
+ 	lspc2_clk_sync LSPCCLK_SYNC(CLK, CLK_EN_24M_P, CLK_EN_24M_N, nRESETP, CLK_24MB, LSPC_12M, LSPC_8M, LSPC_6M, LSPC_4M, LSPC_3M, LSPC_1_5M, Q53_CO,

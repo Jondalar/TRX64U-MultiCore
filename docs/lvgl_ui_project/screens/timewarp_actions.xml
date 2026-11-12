@@ -1,0 +1,39 @@
+<screen>
+    <view>
+        <style name="style_screen" />
+        <app_shell active_actions="true" active_tab="3">
+            <app_shell-content>
+                <column width="100%" height="100%" pad="#space_lg" gap="#space_md">
+                    <row width="100%">
+                        <column grow="1" gap="#space_xs">
+                            <lv_label text="TIMEWARP / ACTIONS" style_text_font="font_caption"
+                                      style_text_color="#color_muted" />
+                            <lv_label text="Markers and snapshots" style_text_font="font_title"
+                                      style_text_color="#color_ink" />
+                        </column>
+                        <status_chip label="-2.7 s PREVIEW" tone="#color_violet" />
+                    </row>
+
+                    <panel width="100%" grow="1" gap="0">
+                        <action_row title="Add marker here" subtitle="Name the selected frame"
+                                    meta="MARK" tone="#color_violet" />
+                        <action_row title="Previous / next marker" subtitle="Move without changing the live session"
+                                    meta="SEEK" tone="#color_muted" />
+                        <action_row title="Save snapshot" subtitle="Write the selected state as .c64re"
+                                    meta="DUMP" tone="#color_cyan" />
+                        <action_row title="Save complete ring" subtitle="Archive the available history"
+                                    meta="RING" tone="#color_cyan" />
+                        <action_row title="Load snapshot" subtitle="Replace the current session from .c64re"
+                                    meta="LOAD" tone="#color_amber" />
+                        <action_row title="Start / stop capture" subtitle="Control the in-memory history ring"
+                                    meta="CAPTURE" tone="#color_muted" />
+                        <box grow="1" />
+                    </panel>
+
+                    <lv_label text="Load and resume are confirmed because they replace live state"
+                              style_text_font="font_caption" style_text_color="#color_muted" />
+                </column>
+            </app_shell-content>
+        </app_shell>
+    </view>
+</screen>

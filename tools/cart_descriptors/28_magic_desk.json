@@ -1,0 +1,42 @@
+{
+ "cart_type": "0x28",
+ "crt_type": 19,
+ "name": "Magic Desk, Domark, HES Australia",
+ "note": "PROP-002 sec. 8.2 (VICE magicdesk.c).",
+ "regs": {
+  "R0": 0,
+  "R1": 0
+ },
+ "rules": [
+  {
+   "area": "IO1",
+   "match": "0x00",
+   "mask": "0x00",
+   "on": "WRITE",
+   "target": "R0",
+   "src": "DATA"
+  }
+ ],
+ "bank": [
+  {
+   "reg": "R0",
+   "lsb": 0,
+   "width": 7
+  }
+ ],
+ "mode": {
+  "reg": "R0",
+  "lsb": 7,
+  "width": 1
+ },
+ "table": [
+  {
+   "exrom": 0,
+   "game": 1
+  },
+  {
+   "off": 1
+  }
+ ],
+ "layout": "L8"
+}
