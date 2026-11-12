@@ -4522,7 +4522,7 @@ int hostui_test_dump(char *out, int max)
                       lv_obj_has_flag(rows[r].defb, LV_OBJ_FLAG_HIDDEN) ? "" : "default", first + r == nv.sel ? "SEL" : "", ic);
         if (nv.view != V_EDIT) {                                           // T209 D10/D11: the pictogram as drawn (glyph, fill colour) and the marker's text
             const lv_color_t pc = lv_obj_get_style_bg_color(rows[r].stb, LV_PART_MAIN);
-            n += snprintf(out + n, max - n, "pic %d|%s|%06x|%dx%d|%s\n", first + r, lv_label_get_text(rows[r].stl), (unsigned)lv_color_to_u32(pc) & 0xffffff,
+            n += snprintf(out + n, max - n, "pic %d|%s|%06x|%dx%d|%s\n", first + r, lv_label_get_text(rows[r].stl)[0] == '?' ? "check" : strstr(lv_label_get_text(rows[r].stl), LV_SYMBOL_OK) ? "ok" : "bad", (unsigned)lv_color_to_u32(pc) & 0xffffff,
                           (int)lv_obj_get_width(rows[r].stb), (int)lv_obj_get_height(rows[r].stb), lv_label_get_text(rows[r].defl));
         }
         if (!lv_obj_has_flag(rows[r].cfb, LV_OBJ_FLAG_HIDDEN)) {           // T198 D15: the "N configs" badge as drawn, a line of its own (the row line above is matched by prefix)
