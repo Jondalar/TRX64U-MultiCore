@@ -59,3 +59,10 @@ P4 (game mode): moved to the generic app's key bundles (D4). P5: documentation o
 - **S1/S2 bench:** `sim/gen_key_expect.py` writes `sim/keys_expect.vh` from copies of VICE's `gtk3_buuk_pos.vkm` / `gtk3_grus_pos.vkm` (`sim/vice/`); `tb_pet_models`
   mode 0 presses every business key (letters, digits, keypad digits via C=, punctuation, cursor, ESC/TAB/REPEAT/RVS-off stand-ins, both shifts) and the graphics
   letters/digits/RETURN/SPACE and requires exactly one bit at VICE's row and column, nothing on the other rows.
+- **P2 (S3):** the row uses the existing `Setting::show_state` (the REU rows of the TRX64U use it); the PET registers the state `pet.superpet`, which has a
+  value only while the Model setting is SuperPET, so the row appears as soon as the model is chosen, not after the reset. The menu dump (`menutree.cc`) now
+  prints `[listed while <state>]` for such rows, so the golden `menu_pet.txt` records the condition; `menu_c64.txt` changed with it (its REU and static-IP rows).
+- **P3/P5 (S5):** INSTALL.md is generated; the PET text is `tools/release_notes_mc.py` (section 5). It lists the VICE files per model and picture rate from
+  `pet_models.h` and the 4040 guide (`cat` / `copy /b`). **Open:** D3 says `901466-04.bin` is 2 KiB, written twice; the core takes `ctl4040.bin` only at exactly
+  2,048 bytes (`pet.cc` `op_put_ctl4040`, `rom_scan` matches sizes exactly), so a 2 KiB file doubled (4 KiB) would be refused. The guide says the result must be 2,048 bytes;
+  Alex or the tester to confirm the size of the source file (S4 board).
