@@ -2413,6 +2413,9 @@ MenuCtl::Result MenuCtl::drive_row(const MenuEntry &e)
             set_status(s, rc != 0);
             if (!rc) {
                 toast(s);
+                if (m.eject_closes) {
+                    return R_CLOSE;
+                }
             }
         }
         return R_REDRAW;

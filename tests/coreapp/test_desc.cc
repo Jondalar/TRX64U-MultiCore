@@ -50,6 +50,41 @@ static void golden(const CoreDesc *d0, const char *name)
 // declared (T104 5.8: the route is a regrouping of T93's four pages, never a filter). This is the check
 // that would catch an area or a tab quietly swallowing a setting, which a golden file alone would only
 // show as a diff somebody has to read.
+// T212 D8-D11: the place of a task in the built tree, "F1/home" style, or "" when no tab lists it (a drive's list is no tab: see slot_lists)
+static std::string task_place(const CoreDesc *d, const char *label)
+{
+    MenuTree t;
+    menu_build(d, &t, true, false, 0);
+    for (int a = 0; a < t.nareas; a++) {
+        for (int b = 0; b < t.a[a].ntabs; b++) {
+            const MenuTab &tb = t.a[a].tabs[b];
+            for (int i = 0; !tb.drive_page && i < tb.count; i++) {
+                const MenuEntry &e = t.e[tb.first + i];
+                if (e.kind == EK_TASK && !strcmp(d->tasks[e.index].label, label)) {
+                    return std::string(t.a[a].key) + "/" + (tb.id ? tb.id : "") + "#" + std::to_string(i);
+                }
+            }
+        }
+    }
+    return "";
+}
+static bool slot_lists(const CoreDesc *d, const char *slot, bool mounted, const char *label)
+{
+    for (int i = 0; i < d->nmedia; i++) {
+        if (!strcmp(d->media[i].name, slot)) {
+            return groups_have(mounted ? d->media[i].mounted_tasks : d->media[i].empty_tasks, label);
+        }
+    }
+    return false;
+}
+static const Task *find_task(const CoreDesc *d, const char *label)
+{
+    for (int i = 0; i < d->ntasks; i++) {
+        if (!strcmp(d->tasks[i].label, label)) return &d->tasks[i];
+    }
+    return 0;
+}
+
 static void every_item_once(const CoreDesc *d0)
 {
     const CoreDesc *d = menu_desc(d0);
@@ -786,5 +821,54 @@ int main()
     CHECK_EQ(ops_run_bound(&mc, "test.nothing", 0, 0, 0, &res), OPE_NOT_FOUND);
     CHECK_EQ(testcore::g_mounted, 1);
     CHECK(ops_state(&mc, "test.slot") == 0);
+    // T212 D8: tasks that fit no drive. Pad maps stand in F5 Input, 50 / 60 Hz and CPU speed in F5's machine tab, Sound check and the NMI on top of Home with the resets
+    {
+        for (const CoreDesc *d : { &snes_desc, &nes_desc, &neogeo_desc }) {
+            CHECK(task_place(d, "Map buttons, pad 1").rfind("F5/input#", 0) == 0);
+            CHECK(task_place(d, "Map buttons, pad 2").rfind("F5/input#", 0) == 0);
+        }
+        CHECK(task_place(&zxnext_desc, "F3: 50 / 60 Hz").rfind("F5/settings#", 0) == 0);
+        CHECK(task_place(&zxnext_desc, "F8: CPU speed").rfind("F5/settings#", 0) == 0);
+        CHECK_STR(task_place(&snes_desc, "Reset").c_str(), "F1/home#0");
+        CHECK_STR(task_place(&snes_desc, "Sound check").c_str(), "F1/home#1");           // beside Reset, before the drive rows
+        CHECK_STR(task_place(&zxnext_desc, "Reset").c_str(), "F1/home#0");
+        CHECK_STR(task_place(&zxnext_desc, "NMI: Multiface (M1 button)").c_str(), "F1/home#1");
+        for (const char *tk : { "Map buttons, pad 1", "Sound check" }) CHECK(task_place(&snes_desc, tk).find("#") != std::string::npos);
+        CHECK_STR(task_place(&snes_desc, "Save the battery RAM now").c_str(), "");     // no task is under the drive rows any more: D9 puts it in the list
+    }
+    // T212 D9: the saves and the ROM set folder belong to the cartridge slot's list
+    {
+        CHECK(slot_lists(&snes_desc, "Cartridge", true, "Save the battery RAM now") && !slot_lists(&snes_desc, "Cartridge", false, "Save the battery RAM now"));
+        CHECK(slot_lists(&neogeo_desc, "Cartridge", true, "Save the memory card and backup RAM now"));
+        CHECK(slot_lists(&neogeo_desc, "Cartridge", false, "Load a ROM set from a folder") && slot_lists(&neogeo_desc, "Cartridge", true, "Load a ROM set from a folder"));
+        CHECK_STR(task_place(&neogeo_desc, "Load a ROM set from a folder").c_str(), "");
+        CHECK_STR(task_place(&neogeo_desc, "Save the memory card and backup RAM now").c_str(), "");
+    }
+    // T212 D10: the tape keys are in the mounted Tape list; Play closes the menu, the others do not
+    {
+        struct T { const CoreDesc *d; const char *keys[5]; };
+        const T tapes[] = { { &cpc_desc, { "Tape: Play", "Tape: Stop", "Tape: Rewind", "Tape: Previous block", "Tape: Next block" } },
+                            { &zx_desc, { "Tape: Play", "Tape: Stop", "Tape: Rewind", "Tape: Previous block", "Tape: Next block" } },
+                            { &pet_desc, { "Tape: Play", "Tape: Stop", "Tape: Rewind", 0, 0 } } };
+        for (const T &tp : tapes) {
+            for (const char *k : tp.keys) {
+                if (!k) continue;
+                CHECK(slot_lists(tp.d, "Tape", true, k) && !slot_lists(tp.d, "Tape", false, k));
+                CHECK_STR(task_place(tp.d, k).c_str(), "");
+                const Task *t = find_task(tp.d, k);
+                CHECK(t && t->closes_menu == !strcmp(k, "Tape: Play"));
+            }
+        }
+    }
+    // T212 D11: the Atari's cartridge removal is the slot's Eject (cold start, closes the menu), no task on top of Home
+    {
+        CHECK(find_task(&atari800_desc, "Remove cartridge, cold start") == 0);
+        const MediaSlot *cs = 0;
+        for (int i = 0; i < atari800_desc.nmedia; i++) if (!strcmp(atari800_desc.media[i].name, "Cartridge")) cs = &atari800_desc.media[i];
+        CHECK(cs && cs->eject_op && !strcmp(cs->eject_op, "atari800.remove_cart") && cs->eject_closes);
+        for (int i = 0; i < atari800_desc.nmedia; i++) if (&atari800_desc.media[i] != cs) CHECK(!atari800_desc.media[i].eject_closes);
+        CHECK_STR(task_place(&atari800_desc, "Reset").c_str(), "F1/home#0");
+        CHECK_STR(task_place(&atari800_desc, "Reload ROMs, cold start").c_str(), "F1/home#2");
+    }
     DONE("test_desc");
 }

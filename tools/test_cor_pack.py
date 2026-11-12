@@ -501,7 +501,7 @@ class MergedMenusTest(unittest.TestCase):
     def setUp(self):
         import descrec
         self.d = descrec
-        self.menu = descrec.compile_text('[[node]]\nanchor = "F7/quick"\nkind = "op"\nlabel = "Gamma"\nop = "gamma.go"\n')
+        self.menu = descrec.compile_text('[[node]]\nanchor = "F7/settings"\nkind = "op"\nlabel = "Gamma"\nop = "gamma.go"\n')
 
     def test_the_menu_is_in_record_6_and_the_library_is_named(self):
         blob, _ = make(desc=desc_record(), libs=[lib_with_menu("gamma", self.menu)])
@@ -521,7 +521,7 @@ class MergedMenusTest(unittest.TestCase):
         self.assertEqual(C.parse(blob)[1][C.T_DESC], desc_record())
 
     def test_a_library_with_a_poll_keeps_its_menu_for_the_run_time(self):
-        poll = self.d.compile_text('[[node]]\nanchor = "F7/quick"\nkind = "op"\nlabel = "P"\nop = "p.go"\n[poll]\nop = "p.go"\nperiod_ms = 10\n')
+        poll = self.d.compile_text('[[node]]\nanchor = "F7/settings"\nkind = "op"\nlabel = "P"\nop = "p.go"\n[poll]\nop = "p.go"\nperiod_ms = 10\n')
         blob, _ = make(desc=desc_record(), libs=[lib_with_menu("poller", poll)])
         self.assertEqual(C.parse(blob)[1][C.T_DESC], desc_record())
 

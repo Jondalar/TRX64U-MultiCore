@@ -105,7 +105,13 @@ void Settings::load()
         char val[96];
         if (flash_ && flash_->get(store_, items_[i].key, val, sizeof(val))) {
             if (!items_[i].kind) {
-                host_[i] = (int16_t)label_index(i, val);
+                int hv = label_index(i, val);
+                if (hv < 0 && !strcasecmp(val, "Disabled")) {                // T212 D14: the host says Disabled/Enabled where the core shows No/Yes
+                    hv = label_index(i, "No");
+                } else if (hv < 0 && !strcasecmp(val, "Enabled")) {
+                    hv = label_index(i, "Yes");
+                }
+                host_[i] = (int16_t)hv;
             } else if (val[0] && nh < HTEXT_N) {                           // T212 S9: a text the host has (Home Directory) is this core's default
                 snprintf(hpool_[nh], TEXT_LEN, "%s", val);
                 hix_[i] = (int8_t)nh++;

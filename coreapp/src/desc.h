@@ -160,6 +160,8 @@ struct MediaSlot {
     const char *mount;
     const char *empty_tasks;
     const char *mounted_tasks;
+    // T212 D11: the list's "Eject" closes the menu (the eject restarts the machine: the Atari's cartridge removal is a cold start)
+    bool eject_closes;
 };
 
 // ---- video, freeze (D9) -------------------------------------------------------------------------------------------------

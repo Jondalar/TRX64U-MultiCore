@@ -623,8 +623,8 @@ static const Task tasks[] = {
     { "Reset",                                   "machine.cold_reset", 0, 0, true },
     { "Load a ROM set from a folder",            "neogeo.run_dir",     dir_bind, 1, true, "Set name (romsets.xml)", "neogeo.set.offer", true, "Use this folder" },
     { "Save the memory card and backup RAM now", "neogeo.save_now",    0, 0, false },
-    { "Map buttons, pad 1",                      "menu.pad_map_1",     0, 0, false },
-    { "Map buttons, pad 2",                      "menu.pad_map_2",     0, 0, false },
+    { "Map buttons, pad 1",                      "menu.pad_map_1",     0, 0, false, 0, 0, false, 0, "input" },
+    { "Map buttons, pad 2",                      "menu.pad_map_2",     0, 0, false, 0, 0, false, 0, "input" },
 };
 static const FileAction neo_actions[] = { { "Run", "neogeo.run", run_bind, 1, true } };
 static const FileType filetypes[] = { { ".neo", neo_actions, 1 } };

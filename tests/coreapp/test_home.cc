@@ -89,9 +89,9 @@ int main()
         Rig b(&gd, &world);
         CHECK_STR(b.st->text(b.st->find(HOME_DIR_KEY)), "/usb0/games");
         OpResult r;
-        OpIn in[2] = { in_str("key", HOME_ENTER_KEY), in_str("value", "Enabled") };
+        OpIn in[2] = { in_str("key", HOME_ENTER_KEY), in_str("value", "Yes") };
         CHECK_EQ(ops_call(&b.c, "settings.set", in, 2, &r), OPE_OK);
-        CHECK(b.fs.text(CFG).find("Enter Home on Startup=Enabled") != std::string::npos);
+        CHECK(b.fs.text(CFG).find("Enter Home on Startup=Yes") != std::string::npos);
         b.menu();
         b.m->key(KEY_F3);
         CHECK_STR(b.m->title(), "/usb0/games");
@@ -101,7 +101,7 @@ int main()
     {   // negative control: with No the value is still stored, and F3 opens on "/"
         Rig n(&gd, &world);
         OpResult r;
-        OpIn in[2] = { in_str("key", HOME_ENTER_KEY), in_str("value", "Disabled") };
+        OpIn in[2] = { in_str("key", HOME_ENTER_KEY), in_str("value", "No") };
         CHECK_EQ(ops_call(&n.c, "settings.set", in, 2, &r), OPE_OK);
         CHECK_STR(n.st->text(n.st->find(HOME_DIR_KEY)), "/usb0/games");
         n.menu();
@@ -134,7 +134,8 @@ int main()
         int di = hst.find(HOME_DIR_KEY), ei = hst.find(HOME_ENTER_KEY), ri = hst.find(REOPEN_KEY);
         CHECK(di >= 0 && ei >= 0 && ri >= 0);
         CHECK_STR(hst.text(di), "/usb0/host");
-        CHECK_EQ(hst.value(ei), 1);
+        CHECK_EQ(hst.value(ei), 1);                                  // T212 D14: the host's Enabled is the core's Yes
+        CHECK_STR(hst.item(ei).values[hst.value(ei)], "Yes");
         CHECK(hst.layer(di) == Settings::L_HOST && hst.layer(ei) == Settings::L_HOST && hst.layer(ri) == Settings::L_DEFAULT);
         CHECK_EQ(hst.value(ri), 0);
         CHECK(hst.set_text(di, "/usb0/own"));                          // the core's own value wins, and Reset to host defaults brings the host's back

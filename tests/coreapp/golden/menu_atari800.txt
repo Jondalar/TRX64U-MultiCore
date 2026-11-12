@@ -4,7 +4,6 @@ area F1 Home
     task Reset (closes the menu)
     task Cold start (closes the menu)
     task Reload ROMs, cold start (closes the menu)
-    task Remove cartridge, cold start (closes the menu)
     media D1:
     media D2:
     media D3:

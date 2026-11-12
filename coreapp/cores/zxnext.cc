@@ -266,8 +266,8 @@ static const OpBind mnt[] = { B_FILE("path"), B_INT("unit", 0) };
 static const Task tasks[] = {
     { "Reset",                        "machine.cold_reset", 0,  0, true },
     { "Eject the SD image",           "sectors.eject",      sd0, 1, false },
-    { "F3: 50 / 60 Hz",               "zxnext.fkey",        f3, 1, false },
-    { "F8: CPU speed",                "zxnext.fkey",        f8, 1, false },
+    { "F3: 50 / 60 Hz",               "zxnext.fkey",        f3, 1, false, 0, 0, false, 0, "machine" },
+    { "F8: CPU speed",                "zxnext.fkey",        f8, 1, false, 0, 0, false, 0, "machine" },
     { "NMI: Multiface (M1 button)",   "zxnext.nmi_m1",      0,  0, true },
 };
 

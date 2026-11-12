@@ -130,7 +130,6 @@ static const Task tasks[] = {
     { "Reset",                      "machine.warm_reset",   0, 0,        true },
     { "Cold start",                 "machine.cold_reset",   0, 0,        true },
     { "Reload ROMs, cold start",    "machine.reload_roms",  0, 0,        true },
-    { "Remove cartridge, cold start", "atari800.remove_cart", 0, 0,      true },
     { "Eject D1:",                  "atari800.eject",       drive0, 1,   false },
     { "Eject D2:",                  "atari800.eject",       drive1, 1,   false },
     { "Eject D3:",                  "atari800.eject",       drive2, 1,   false },
@@ -175,7 +174,7 @@ static const MediaSlot media[] = {
     { "D2:", "atari800.d2.image", "atari800.eject", drive1, 1, 0, ".atr,.xfd", "Mount D2:", "Create blank ATR", 0 },
     { "D3:", "atari800.d3.image", "atari800.eject", drive2, 1, 0, ".atr,.xfd", "Mount D3:", "Create blank ATR", 0 },
     { "D4:", "atari800.d4.image", "atari800.eject", drive3, 1, 0, ".atr,.xfd", "Mount D4:", "Create blank ATR", 0 },
-    { "Cartridge", "atari800.cartridge.image", "atari800.remove_cart", 0, 0, 0, ".car,.rom,.bin", "Insert cartridge, cold start", 0, 0 },
+    { "Cartridge", "atari800.cartridge.image", "atari800.remove_cart", 0, 0, 0, ".car,.rom,.bin", "Insert cartridge, cold start", 0, 0, true },
 };
 
 // T180 D2, D5: the five slots for the stored mounts and the media sets (atari_media.cc): D1..D4, then the cartridge
@@ -224,7 +223,7 @@ const CoreDesc atari800_desc = {
     1,
     roms, 2,
     settings, S_COUNT,
-    tasks, 9,
+    tasks, 8,
     filetypes, 8,
     media, 5,
     // 384 x 288 at scale 3 is 1152 x 864 on the 1920 x 1080 output (T88 D5); x0 = 384 centres the window, +42 (14 hires pixels

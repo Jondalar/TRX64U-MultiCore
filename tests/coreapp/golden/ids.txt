@@ -1,14 +1,13 @@
 Atari 800 XL F1/home 0 task:Reset
 Atari 800 XL F1/home 1 task:Cold start
 Atari 800 XL F1/home 2 task:Reload ROMs, cold start
-Atari 800 XL F1/home 3 task:Remove cartridge, cold start
-Atari 800 XL F1/home 4 media:atari800.d1.image
-Atari 800 XL F1/home 5 media:atari800.d2.image
-Atari 800 XL F1/home 6 media:atari800.d3.image
-Atari 800 XL F1/home 7 media:atari800.d4.image
-Atari 800 XL F1/home 8 media:atari800.cartridge.image
-Atari 800 XL F1/home 9 fixed:10:Save as config...
-Atari 800 XL F1/home 10 fixed:11:Load config...
+Atari 800 XL F1/home 3 media:atari800.d1.image
+Atari 800 XL F1/home 4 media:atari800.d2.image
+Atari 800 XL F1/home 5 media:atari800.d3.image
+Atari 800 XL F1/home 6 media:atari800.d4.image
+Atari 800 XL F1/home 7 media:atari800.cartridge.image
+Atari 800 XL F1/home 8 fixed:10:Save as config...
+Atari 800 XL F1/home 9 fixed:11:Load config...
 Atari 800 XL F5/settings 0 set:RAM size
 Atari 800 XL F5/settings 1 set:Video standard
 Atari 800 XL F5/settings 2 set:Joystick ports
@@ -29,13 +28,13 @@ Atari 800 XL F8/expert 11 info:ROMs
 Atari 800 XL F8/expert 12 info:Libraries
 Nintendo Entertainment System F1/home 0 task:Reset
 Nintendo Entertainment System F1/home 1 media:nes.cartridge.image
-Nintendo Entertainment System F1/home 2 task:Map buttons, pad 1
-Nintendo Entertainment System F1/home 3 task:Map buttons, pad 2
-Nintendo Entertainment System F1/home 4 fixed:10:Save as config...
-Nintendo Entertainment System F1/home 5 fixed:11:Load config...
+Nintendo Entertainment System F1/home 2 fixed:10:Save as config...
+Nintendo Entertainment System F1/home 3 fixed:11:Load config...
 Nintendo Entertainment System F5/settings 0 set:Console type
 Nintendo Entertainment System F5/settings 1 set:Joystick ports
 Nintendo Entertainment System F5/settings 2 set:Pad map
+Nintendo Entertainment System F5/input 0 task:Map buttons, pad 1
+Nintendo Entertainment System F5/input 1 task:Map buttons, pad 2
 Nintendo Entertainment System F8/expert 0 fixed:13:Actions
 Nintendo Entertainment System F8/expert 1 fixed:6:Restart core
 Nintendo Entertainment System F8/expert 2 fixed:7:Return to host menu
@@ -275,13 +274,13 @@ C64 with SuperCPU F8/expert 12 info:Libraries
 ZX Spectrum Next F1/home 0 task:Reset
 ZX Spectrum Next F1/home 1 task:NMI: Multiface (M1 button)
 ZX Spectrum Next F1/home 2 media:zxnext.sd.image
-ZX Spectrum Next F1/home 3 task:F3: 50 / 60 Hz
-ZX Spectrum Next F1/home 4 task:F8: CPU speed
-ZX Spectrum Next F1/home 5 fixed:10:Save as config...
-ZX Spectrum Next F1/home 6 fixed:11:Load config...
+ZX Spectrum Next F1/home 3 fixed:10:Save as config...
+ZX Spectrum Next F1/home 4 fixed:11:Load config...
 ZX Spectrum Next F5/settings 0 set:Joystick ports
 ZX Spectrum Next F5/settings 1 set:Frame lock to 50 Hz
 ZX Spectrum Next F5/settings 2 set:Board issue
+ZX Spectrum Next F5/settings 3 task:F3: 50 / 60 Hz
+ZX Spectrum Next F5/settings 4 task:F8: CPU speed
 ZX Spectrum Next F8/expert 0 fixed:13:Actions
 ZX Spectrum Next F8/expert 1 fixed:6:Restart core
 ZX Spectrum Next F8/expert 2 fixed:7:Return to host menu
@@ -296,15 +295,15 @@ ZX Spectrum Next F8/expert 10 info:Build
 ZX Spectrum Next F8/expert 11 info:ROMs
 ZX Spectrum Next F8/expert 12 info:Libraries
 Super Nintendo F1/home 0 task:Reset
-Super Nintendo F1/home 1 media:snes.cartridge.image
-Super Nintendo F1/home 2 task:Sound check
-Super Nintendo F1/home 3 task:Map buttons, pad 1
-Super Nintendo F1/home 4 task:Map buttons, pad 2
-Super Nintendo F1/home 5 fixed:10:Save as config...
-Super Nintendo F1/home 6 fixed:11:Load config...
+Super Nintendo F1/home 1 task:Sound check
+Super Nintendo F1/home 2 media:snes.cartridge.image
+Super Nintendo F1/home 3 fixed:10:Save as config...
+Super Nintendo F1/home 4 fixed:11:Load config...
 Super Nintendo F5/settings 0 set:Video standard
 Super Nintendo F5/settings 1 set:Pseudo high resolution
 Super Nintendo F5/settings 2 set:Pad map
+Super Nintendo F5/input 0 task:Map buttons, pad 1
+Super Nintendo F5/input 1 task:Map buttons, pad 2
 Super Nintendo F8/expert 0 fixed:13:Actions
 Super Nintendo F8/expert 1 fixed:6:Restart core
 Super Nintendo F8/expert 2 fixed:7:Return to host menu
@@ -320,10 +319,8 @@ Super Nintendo F8/expert 11 info:ROMs
 Super Nintendo F8/expert 12 info:Libraries
 SNK Neo Geo F1/home 0 task:Reset
 SNK Neo Geo F1/home 1 media:neogeo.cartridge.image
-SNK Neo Geo F1/home 2 task:Map buttons, pad 1
-SNK Neo Geo F1/home 3 task:Map buttons, pad 2
-SNK Neo Geo F1/home 4 fixed:10:Save as config...
-SNK Neo Geo F1/home 5 fixed:11:Load config...
+SNK Neo Geo F1/home 2 fixed:10:Save as config...
+SNK Neo Geo F1/home 3 fixed:11:Load config...
 SNK Neo Geo F5/settings 0 set:System type
 SNK Neo Geo F5/settings 1 set:BIOS
 SNK Neo Geo F5/settings 2 set:Video mode
@@ -333,6 +330,8 @@ SNK Neo Geo F5/settings 5 set:[DIP] Free play
 SNK Neo Geo F5/settings 6 set:[DIP] Freeze
 SNK Neo Geo F5/settings 7 set:Joystick ports
 SNK Neo Geo F5/settings 8 set:Pad map
+SNK Neo Geo F5/input 0 task:Map buttons, pad 1
+SNK Neo Geo F5/input 1 task:Map buttons, pad 2
 SNK Neo Geo F8/expert 0 fixed:13:Actions
 SNK Neo Geo F8/expert 1 fixed:6:Restart core
 SNK Neo Geo F8/expert 2 fixed:7:Return to host menu

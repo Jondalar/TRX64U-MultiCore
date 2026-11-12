@@ -238,6 +238,20 @@ int main()
     CHECK_EQ(r.m->rows(), 1 + 8);
     CHECK_EQ(r.m->key(KEY_RETURN), MenuCtl::R_CLOSE);
     CHECK_STR(r.io.events.back().c_str(), "mode_unreset");
+    {   // T212 D11: the mounted cartridge's list has Eject first; it removes the cartridge with a cold start and closes the menu (no task on Home for it)
+        a8_state(&r.c)->cart_mode = 0x21;                           // a cartridge is in (its insertion is test_atari_media)
+        snprintf(a8_state(&r.c)->cart_name, sizeof(a8_state(&r.c)->cart_name), "g.car");
+        r.m->open(); r.m->key(KEY_F1);
+        CHECK(r.find_row("Remove cartridge, cold start") < 0);
+        r.go_to("Cartridge");
+        CHECK_EQ(r.m->key(KEY_RETURN), MenuCtl::R_REDRAW);
+        CHECK_STR(r.m->tab_id(), "drive");
+        CHECK(r.left(0) == "Eject");
+        r.io.events.clear();
+        CHECK_EQ(r.m->key(KEY_RETURN), MenuCtl::R_CLOSE);
+        CHECK(a8_state(&r.c)->cart_mode == 0);
+        CHECK(!r.io.events.empty());                               // the cold start touched the machine
+    }
     // a refused file: the reason, the menu stays (the Library opens again in the folder of the last file)
     r.fs.put("/usb0/games/junk.car", std::vector<uint8_t>(5000, 0));
     r.m->open(); r.m->key(KEY_F3);

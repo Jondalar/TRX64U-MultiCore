@@ -427,9 +427,9 @@ static const ArgSpec run_args[] = { ARG_PATH("path") };
 static const Task tasks[] = {
     { "Reset",                     "machine.cold_reset", 0, 0, true },
     { "Save the battery RAM now",  "snes.save",          0, 0, false },
-    { "Sound check",               "snes.sound",         0, 0, false },
-    { "Map buttons, pad 1",        "menu.pad_map_1",     0, 0, false },
-    { "Map buttons, pad 2",        "menu.pad_map_2",     0, 0, false },
+    { "Sound check",               "snes.sound",         0, 0, false, 0, 0, false, 0, "top" },
+    { "Map buttons, pad 1",        "menu.pad_map_1",     0, 0, false, 0, 0, false, 0, "input" },
+    { "Map buttons, pad 2",        "menu.pad_map_2",     0, 0, false, 0, 0, false, 0, "input" },
 };
 
 static const OpBind run_bind[] = { B_FILE("path") };

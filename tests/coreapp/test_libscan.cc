@@ -124,7 +124,7 @@ static int index_of(const std::vector<std::string> &v, const char *s)
 int main()
 {
     // the real descriptors are well formed and name their capabilities (desc_check is the one of the product)
-    for (const CoreDesc *const *p = core_table; *p; p++) { CHECK(!desc_check(*p)); }
+    for (const CoreDesc *const *p = core_table; *p; p++) { const char *why = desc_check(*p); if (why) printf("%s: %s\n", (*p)->cor_name, why); CHECK(!why); }
     CHECK(!desc_check_table(core_table));
 
     // ---- a missing folder is not an error

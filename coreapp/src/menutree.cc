@@ -192,6 +192,11 @@ bool menu_task_claimed(const CoreDesc *d, int ti)
     return false;
 }
 
+// T212 D8: where a task of the default route stands besides Home's reset block: group "top" = on top of Home beside the resets, "machine" = F5's first tab,
+// "input" = F5's Input tab. A description with a tasks tab of its own keeps every task there (the callers check that).
+static bool task_in_group(const Task &t, const char *g) { return t.group && !strcmp(t.group, g); }
+static bool task_on_f5(const Task &t) { return task_in_group(t, "machine") || task_in_group(t, "input"); }
+
 bool menu_slot_is_drive(const MediaSlot &m)
 {
     return m.eject_op || m.mount || m.empty_tasks || m.mounted_tasks;
@@ -255,7 +260,7 @@ void menu_build(const CoreDesc *d, MenuTree *t, bool return_host, bool reload_co
                 tb->home = true;
                 const bool tasks_here = !skel_has_widget(sk, TW_TASKS);        // a description with a tasks tab of its own keeps its tasks there
                 for (int i = 0; tasks_here && i < d->ntasks; i++) {
-                    if (d->tasks[i].closes_menu && !menu_task_claimed(d, i)) {
+                    if ((d->tasks[i].closes_menu || task_in_group(d->tasks[i], "top")) && !menu_task_claimed(d, i) && !task_on_f5(d->tasks[i])) {
                         add(t, EK_TASK, d->tasks[i].label, i);
                     }
                 }
@@ -265,7 +270,7 @@ void menu_build(const CoreDesc *d, MenuTree *t, bool return_host, bool reload_co
                         drive_page_wanted |= menu_slot_is_drive(d->media[i]);
                     }
                     for (int i = 0; tasks_here && i < d->ntasks; i++) {
-                        if (!d->tasks[i].closes_menu && !menu_task_claimed(d, i)) {
+                        if (!d->tasks[i].closes_menu && !task_in_group(d->tasks[i], "top") && !menu_task_claimed(d, i) && !task_on_f5(d->tasks[i])) {
                             add(t, EK_TASK, d->tasks[i].label, i);
                         }
                     }
@@ -349,6 +354,13 @@ void menu_build(const CoreDesc *d, MenuTree *t, bool return_host, bool reload_co
                             }
                             add_routed(i, r);
                         }
+                    }
+                }
+                // T212 D8: the tasks that are the machine's own settings (Map buttons, 50 / 60 Hz, CPU speed) stand below the settings of the tab named for their group
+                for (int i = 0; !skel_has_widget(sk, TW_TASKS) && i < d->ntasks; i++) {
+                    if (st.groups ? (groups_have(st.groups, "input") && task_in_group(d->tasks[i], "input"))
+                                  : (st.id && !strcmp(st.id, "settings") && task_in_group(d->tasks[i], "machine"))) {
+                        add(t, EK_TASK, d->tasks[i].label, i);
                     }
                 }
                 break;

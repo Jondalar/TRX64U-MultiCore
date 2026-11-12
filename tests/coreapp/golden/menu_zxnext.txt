@@ -4,8 +4,6 @@ area F1 Home
     task Reset (closes the menu)
     task NMI: Multiface (M1 button) (closes the menu)
     media SD
-    task F3: 50 / 60 Hz
-    task F8: CPU speed
     fixed Save as config...
     fixed Load config...
   tab 0 Drive (a page)
@@ -18,6 +16,8 @@ area F5 NEXT
     setting Joystick ports = Normal | Swapped (default Normal, live)
     setting Frame lock to 50 Hz = On | Off (default On, live)
     setting Board issue = Auto | Issue 2 | Issue 4 | Issue 5 (default Auto, at next reset)
+    task F3: 50 / 60 Hz
+    task F8: CPU speed
 area F8 System (shifted)
   tab 1 System
     heading Actions

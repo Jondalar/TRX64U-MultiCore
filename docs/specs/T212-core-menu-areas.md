@@ -82,3 +82,7 @@ Proof column: T = core app test (`tests/coreapp`, menu goldens), U = ue2emu pict
 - 2026-11-12 (agent, stopped before code, nothing built): questions that are not in D1-D3 - Q1 what RETURN does on an empty drive row and where
   the tasks that fit no drive row go (Reset Drive, Save Disk as D64/G64, Mount folder as HD0/HD1, Create blank D64/G64/D81 on C128); Q2 the F7
   label ("APP" proposed, no name in code or ux skill); Q3 the Core / Network / Media info lines (not named in D3).
+- 2026-11-12 (D8-D11, D14 built): a Task's `group` places it in the default route: "top" = Home beside the resets (snes Sound check; the NMI closes the menu and is
+  there already), "machine" = F5's first tab (zxnext 50 / 60 Hz, CPU speed), "input" = F5 Input (pad maps of snes, nes, neogeo). `MediaSlot::eject_closes` makes the
+  list's Eject close the menu (atari cartridge; the task "Remove cartridge, cold start" is gone). D9 and D10 lists (snes/neogeo cartridge, cpc/zx/pet tape) were
+  already in the descriptors; test_desc now pins them. D14: the core shows No/Yes, `Settings::load` reads the host's Disabled/Enabled as No/Yes.

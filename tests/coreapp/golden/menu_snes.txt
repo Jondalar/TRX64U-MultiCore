@@ -2,10 +2,8 @@ core SNES Super Nintendo
 area F1 Home
   tab 1 Home
     task Reset (closes the menu)
-    media Cartridge
     task Sound check
-    task Map buttons, pad 1
-    task Map buttons, pad 2
+    media Cartridge
     fixed Save as config...
     fixed Load config...
   tab 0 Drive (a page)
@@ -19,6 +17,9 @@ area F5 SNES
     setting Video standard = Auto (cartridge) | NTSC | PAL (default Auto (cartridge), at next reset)
     setting Pseudo high resolution = Blend | 512 wide (default Blend, at next reset)
     setting Pad map = Default | Custom (default Default, live)
+  tab 2 Input
+    task Map buttons, pad 1
+    task Map buttons, pad 2
 area F8 System (shifted)
   tab 1 System
     heading Actions
