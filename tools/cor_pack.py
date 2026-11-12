@@ -10,7 +10,8 @@ One file per core. Little endian throughout:
 Records (type: value):
   1 manifest   compact JSON, keys sorted, flat:
                name, version, contract, fpga, partial_size, partial_sha256, app_size, app_load,
-               app_entry, app_sha256, icon_size, icon_sha256 (icon_* only with an icon)
+               app_entry, app_sha256, icon_size, icon_sha256 (icon_* only with an icon),
+               short (optional: the boot menu's text tile, 1 to 5 of A-Z a-z 0-9 + / .; T209 D15)
   2 partial    the configuration data of layer 2's partial bitstream (Xilinx .bit header
                stripped; the words start at the bytes the ICAP gets, file order)
   3 app        the application image (raw binary, copied to app_load, started at app_entry)
@@ -51,6 +52,7 @@ manifest names the FPGA by IDCODE (`idcode`, 8 hex); the host refuses another on
 import argparse
 import hashlib
 import json
+import re
 import struct
 import os
 import sys
@@ -284,7 +286,19 @@ def host_key_from_bit(data):
     raise CorError("bitstream: no USR_ACCESS (AXSS) word; it was built without a host key")
 
 
-def pack(name, version, partial, app, load, entry, host_key, contract=CONTRACT, fpga="xc7a50t", icon=None, desc=None, libs=None):
+SHORT_RE = re.compile(r"[A-Za-z0-9+/.]{1,5}")
+
+
+def put_short(m, short):
+    """T209 D15: the optional short name of the boot menu's text tile (manifest `short`, from the core's core.toml); no key when none."""
+    if short in (None, ""):
+        return
+    if not SHORT_RE.fullmatch(short):
+        raise CorError("short: 1 to 5 letters, digits, + / . (got %r)" % short)
+    m["short"] = short
+
+
+def pack(name, version, partial, app, load, entry, host_key, contract=CONTRACT, fpga="xc7a50t", icon=None, desc=None, libs=None, short=None):
     partial = bit_config_data(partial)
     check_partial(partial)
     if not app:
@@ -308,6 +322,7 @@ def pack(name, version, partial, app, load, entry, host_key, contract=CONTRACT, 
          "host_key": host_key,
          "partial_size": len(partial), "partial_sha256": sha(partial),
          "app_size": len(app), "app_load": load, "app_entry": entry, "app_sha256": sha(app)}
+    put_short(m, short)
     if icon is not None:
         m.update(icon_size=len(icon), icon_sha256=sha(icon))
     extra = optional_records(m, desc, libs)
@@ -386,6 +401,8 @@ def parse(blob, contract=None, host_key=None):
         m = json.loads(recs[T_MANIFEST])
     except ValueError as e:
         raise CorError("manifest is not JSON: %s" % e)
+    if "short" in m and not (isinstance(m["short"], str) and SHORT_RE.fullmatch(m["short"])):
+        raise CorError("manifest: short %r is not 1 to 5 of A-Z a-z 0-9 + / ." % (m["short"],))
     for k in ("name", "version", "contract", "fpga", "host_key", "partial_size", "partial_sha256",
               "app_size", "app_load", "app_entry", "app_sha256"):
         if k not in m:
@@ -453,7 +470,7 @@ FLASH_ID_MAX = 40
 
 
 def pack_large(cid, name, version, bit, app, icon=None, map_kind="auto", bit_commit=None, app_commit=None,
-               fpga="xc7a50t", desc=None, libs=None, origin=None, flash_id=None):
+               fpga="xc7a50t", desc=None, libs=None, origin=None, flash_id=None, short=None):
     """A .cor that carries a LARGE core: the full bitstream and the application (see the docstring).
     origin (T137 D1): None or "trx" writes no key (the bytes of every .cor before T137); "foreign" and "backup" write `origin`; a backup also
     writes flash_bit, flash_app and flash_id (D2: the chip the parts were read from, so they are written back only to the layout they came from)."""
@@ -485,6 +502,7 @@ def pack_large(cid, name, version, bit, app, icon=None, map_kind="auto", bit_com
          "idcode": "%08x" % idcode, "map": map_kind,
          "bit_size": len(bit), "bit_sha256": sha(bit),
          "app_size": len(app), "app_load": LARGE_APP_ADDR, "app_entry": LARGE_APP_ADDR, "app_sha256": sha(app)}
+    put_short(m, short)
     if icon is not None:
         m.update(icon_size=len(icon), icon_sha256=sha(icon))
     if bit_commit:
@@ -597,6 +615,7 @@ def main(argv=None):
     p.add_argument("--host-key", required=True, help="the host this partial was routed against, 8 hex")
     p.add_argument("--fpga", default="xc7a50t")
     p.add_argument("--icon")
+    p.add_argument("--short", help="T209 D15: the text tile's short name (core.toml `short`)")
     p.add_argument("--desc", help="the menu description (TOML, tools/descrec.py): record 6")
     p.add_argument("--ops", help="the operations and states the application exports (tests/coreapp/golden/ops_trx64u.txt): every name and binding of --desc is checked against it")
     p.add_argument("--lib", action="append", default=[], help="a library (.u2a of format 3) this core needs: record 7; repeat for more")
@@ -608,6 +627,7 @@ def main(argv=None):
     g.add_argument("--bit", required=True, help="the full bitstream (.bit, header included)")
     g.add_argument("--app", required=True, help="the application image (coreapp.bin, raw, linked to 0x30000)")
     g.add_argument("--icon")
+    g.add_argument("--short", help="T209 D15: the text tile's short name (core.toml `short`)")
     g.add_argument("--desc", help="the menu description (TOML): record 6")
     g.add_argument("--ops", help="what the application exports (tests/coreapp/golden/ops_trx64u.txt): every name and binding of --desc is checked against it")
     g.add_argument("--lib", action="append", default=[], help="a library (.u2a) this core needs: record 7")
@@ -632,13 +652,13 @@ def main(argv=None):
             entry = a.load if a.entry is None else a.entry
             blob = pack(a.name, a.version, open(a.partial, "rb").read(), open(a.app, "rb").read(),
                         a.load, entry, a.host_key, a.contract, a.fpga,
-                        load_icon(a.icon) if a.icon else None, *read_extras(a))
+                        load_icon(a.icon) if a.icon else None, *read_extras(a), short=a.short)
             open(a.out, "wb").write(blob)
             print("%s: %d bytes" % (a.out, len(blob)))
         elif a.cmd == "pack-large":
             blob = pack_large(a.id, a.name, a.version, open(a.bit, "rb").read(), open(a.app, "rb").read(),
                               load_icon(a.icon) if a.icon else None, a.map, a.bit_commit, a.app_commit, "xc7a50t", *read_extras(a),
-                              origin=a.origin, flash_id=a.flash_id)
+                              origin=a.origin, flash_id=a.flash_id, short=a.short)
             open(a.out, "wb").write(blob)
             print("%s: %d bytes" % (a.out, len(blob)))
         elif a.cmd == "replace-app":

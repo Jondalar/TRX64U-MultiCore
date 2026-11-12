@@ -264,7 +264,7 @@ void hc_ui_settings_change(int kind, int dir)
     switch (kind) {
     case SK_DIRECT:
         hc_ui_cfg_after(hc_direct_toggle());
-        hc_ui_note(cfg().direct ? "Direct boot on: the default starts at power-on" : "Direct boot off: the menu comes up first", HCT_HOST);
+        hc_ui_note(cfg().direct ? "Direct boot on: the auto core starts at power-on" : "Direct boot off: the menu comes up first", HCT_HOST);
         break;
     case SK_AUTO:
         hc_ui_cfg_after(hc_autostart(cfg().countdown == 0, 0));

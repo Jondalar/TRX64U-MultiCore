@@ -159,6 +159,36 @@ def make_large(**kw):
     return C.pack_large(**args)
 
 
+class ShortTest(unittest.TestCase):
+    """T209 D15: the optional `short` of the boot menu's text tile."""
+
+    def test_no_short_keeps_the_bytes_and_the_key_away(self):
+        a, _ = make()
+        b, _ = make(short=None)
+        self.assertEqual(a, b)
+        m, _ = C.parse(a, C.CONTRACT)
+        self.assertNotIn("short", m)
+
+    def test_short_round_trips_in_both_kinds(self):
+        blob, _ = make(short="PET")
+        m, _ = C.parse(blob, C.CONTRACT)
+        self.assertEqual(m["short"], "PET")
+        m, _ = C.parse(C.pack_large(cid="x", name="X", version="1", bit=full_bit(), app=APP, short="C128"))
+        self.assertEqual(m["short"], "C128")
+
+    def test_bad_short_refused(self):
+        for bad in ("SIXSIX", "A B", "VIC-", "\u00e4"):
+            with self.assertRaises(C.CorError):
+                make(short=bad)
+
+    def test_check_refuses_a_bad_short_in_a_made_file(self):
+        blob, _ = make(short="PET")
+        bad = blob.replace(b'"short":"PET"', b'"short":"P T"')
+        self.assertEqual(len(bad), len(blob))
+        with self.assertRaises(C.CorError):
+            C.parse(bad, C.CONTRACT)
+
+
 class OriginTest(unittest.TestCase):
     """T137 D1/D2: `origin` and the flash fields of a backup."""
 

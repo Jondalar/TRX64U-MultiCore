@@ -47,7 +47,7 @@ struct HcCell {
 enum { HCP_OK, HCP_CHECK, HCP_BAD };
 struct HcEntryRow {
     char name[96];
-    char tile[8];                                 // what the icon tile says while the row has no picture: "FW" or the first four letters
+    char tile[8];                                 // what the icon tile says while the row has no picture: the core's short name, "FW", or the first four letters and digits of the name
     char ver[24];                                 // the menu row's right-aligned version: "v1.0", "full firmware", "" while unknown
     char sub[140];                                // the path (and the version, in the menu)
     char badge[32];

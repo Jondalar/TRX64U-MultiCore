@@ -1065,7 +1065,7 @@ static void scenarios(const char *out)
     CHECK(hostui_test_hint_overflow() == 0);                           // the "No cores yet" hint is cut at the right edge when it is one line
     CHECK(hostui_test_foot_overflow() == 0);                           // every footer is one line (board photo 2026-10-21: it wrapped)
     hostui_test_view(2);
-    CHECK(has("foot='UP/DOWN select    +/- move    D default    C rename    DEL twice removes'"));        // T139: no B, no LEFT/RIGHT, no V
+    CHECK(has("foot='UP/DOWN select    +/- move    D auto    C rename    DEL twice removes'"));        // T139: no B, no LEFT/RIGHT, no V
     cor_host_key = 0;
     snprintf(p, sizeof(p), "%s/states.png", out); png(p, 2);
 }
@@ -2206,7 +2206,7 @@ static void scenarios_t139(const char *out)
     const char *cfg3 = "countdown=5\ndefault=1\ncore=/SD/cores/a.cor|Alpha||0\ncore=/SD/cores/b.cor|Beta||0\ncore=/SD/cores/c.cor|Gamma||0\n";
     hostui_test_init(cfg3);
     hostui_test_key(KEY_F5);
-    CHECK(has("foot='UP/DOWN select    +/- move    D default    C rename    DEL twice removes'"));
+    CHECK(has("foot='UP/DOWN select    +/- move    D auto    C rename    DEL twice removes'"));
     CHECK(hostui_test_sel_row() == 1);                                   // Beta, the default
     g_loadback = true;
     g_saves = 0;
@@ -2525,6 +2525,8 @@ static void scenarios_t148(const char *out)
 #include "host_core_cfgov.h"
 extern const char *hostui_test_oc_title(int *w, int *room);
 void hc_ui_cfgov_draw(bool fresh);
+static int note_px(char *text, int tn);
+extern bool hostui_test_tile(int i, char *text, int tn, int *lx1, int *lx2, int *tx1, int *tx2);
 static void scenarios_t198(const char *out)
 {
     char p[512], main_root[400];
@@ -2571,6 +2573,16 @@ static void scenarios_t198(const char *out)
     CHECK(strstr(dump(), "LEFT/RIGHT config of this core") == NULL);
     hostui_test_key(KEY_UP);
     CHECK(strstr(hostui_test_foot(), "LEFT/RIGHT config of this core") != NULL);
+    {   // T209 D13/D14: "auto" in the words; the editor's status line says the selected row's state word, coloured like the boot menu
+        HcEntryRow sr;
+        char nt[200];
+        CHECK(hc_row_entry(0, true, &sr) && sr.badge[0]);
+        CHECK(note_px(nt, sizeof(nt)) > 0 && !strcmp(nt, sr.badge));                  // row 0 selected: its word, no note
+        CHECK(strstr(hostui_test_foot(), "D auto") != NULL && strstr(hostui_test_foot(), "default") == NULL);
+        hostui_test_key(KEY_DOWN);
+        CHECK(hc_row_entry(1, true, &sr) && note_px(nt, sizeof(nt)) > 0 && !strcmp(nt, sr.badge));   // follows the selection
+        hostui_test_key(KEY_UP);
+    }
     snprintf(p, sizeof(p), "%s/t198_edit_badges_480.png", out); png(p, 1);
     snprintf(p, sizeof(p), "%s/t198_edit_badges_1080.png", out); png(p, 2);
     hostui_test_key(KEY_F1);
@@ -2584,7 +2596,7 @@ static void scenarios_t198(const char *out)
     hostui_test_key(KEY_RIGHT);
     CHECK(hc_cfgov_is_open() && hc_cfgov().l.n == 4 && hc_cfgov().cur == 2 && !strcmp(hc_cfgov_cur_name(), "Games"));
     CHECK(!strcmp(hc_cfgov().l.name[0], "Demo collection") && !strcmp(hc_cfgov().l.name[2], "old set") && hc_cfgov().l.legacy[2]);
-    CHECK(!strcmp(hostui_test_foot(), "UP/DOWN select    RETURN start    LEFT back    D default    R rename    DEL twice deletes") ||
+    CHECK(!strcmp(hostui_test_foot(), "UP/DOWN select    RETURN start    LEFT back    D auto    R rename    DEL twice deletes") ||
           strstr(hostui_test_foot(), "RETURN start"));
     {   // board 11-11: the title is the whole entry name, not "Amiga 12"; a name too wide for the panel is cut with "..." before the suffix
         int w, room;
@@ -2710,7 +2722,7 @@ static void scenarios_t198(const char *out)
     hostui_test_key(KEY_DOWN);
     // finding 2: on "Plain start" the key bar names no D / R / DEL
     for (int i = 0; i < 12; i++) hostui_test_key(KEY_UP);
-    CHECK(hc_cfgov().cur == 0 && !strstr(hostui_test_foot(), "default") && !strstr(hostui_test_foot(), "rename") && !strstr(hostui_test_foot(), "DEL"));
+    CHECK(hc_cfgov().cur == 0 && !strstr(hostui_test_foot(), "auto") && !strstr(hostui_test_foot(), "rename") && !strstr(hostui_test_foot(), "DEL"));
     CHECK(strstr(hostui_test_foot(), "start") != nullptr);
     hostui_test_key(KEY_DOWN);
     CHECK(strstr(hostui_test_foot(), "twice deletes") != nullptr);
@@ -2748,6 +2760,39 @@ static void scenarios_t198(const char *out)
     // S15: the listing is read once per generation, not per key
     snprintf(g_root, sizeof(g_root), "%s", main_root);
     printf("T198 scenarios done\n");
+}
+
+// ---- T209 D13/D15: the text tile of a logo-less core (manifest short name, else the first letters without punctuation), always inside its tile; "auto" in the words
+static void scenarios_t209_tiles(const char *out)
+{
+    char p[512];
+    hostui_test_init("countdown=0\ndefault=0\ncore=/Usb0/tiles/pet.cor|Commodore PET||0\ncore=/Usb0/tiles/wide.cor|Wide tile||0\n"
+                     "core=/Usb0/tiles/plain.cor|VIC-20 (PAL)||0\ncore=/Usb0/tiles/plain.cor|Commodore 64||0\ncore=/Usb0/tiles/plain.cor|!!||0\n");
+    hostui_test_pump();
+    const char *want[] = { "PET", "MMMMM", "VIC2", "Comm", "!!" };
+    HcEntryRow r;
+    for (int i = 0; i < 5; i++) {
+        CHECK(hc_row_entry(i, true, &r));
+        if (i == 1) {
+            CHECK(!strcmp(r.tile, "MMMMM"));                                  // the data layer keeps the whole short name ...
+        } else {
+            CHECK(!strcmp(r.tile, want[i]));
+        }
+        char tx[16];
+        int lx1, lx2, tx1, tx2;
+        if (!hostui_test_tile(i, tx, sizeof(tx), &lx1, &lx2, &tx1, &tx2)) {
+            CHECK(r.tile[0] == 0 || false);                                   // ... and every tile with text is on the screen
+            continue;
+        }
+        CHECK(!strstr(tx, "..."));                                            // never cut to dots
+        CHECK(lx1 >= tx1 && lx2 <= tx2);                                      // inside its tile
+        CHECK(tx[0] && !strncmp(tx, r.tile, strlen(tx)));                     // a whole-letter prefix of the tile text, not a mangled one
+        printf("T209 D15 tile %d: '%s' (row says '%s') label %d..%d in tile %d..%d\n", i, tx, r.tile, lx1, lx2, tx1, tx2);
+    }
+    CHECK(strstr(dump(), "|auto|") != NULL);                                  // D13: the dump's marker of the auto entry
+    snprintf(p, sizeof(p), "%s/t209_tiles_480.png", out); png(p, 1);
+    snprintf(p, sizeof(p), "%s/t209_tiles_1080.png", out); png(p, 2);
+    printf("T209 tiles done\n");
 }
 
 // ---- T146: the saved menu picture ------------------------------------------------------------------------------------------------
@@ -4653,6 +4698,7 @@ int main(int argc, char **argv)
     scenarios_t139(out);
     scenarios_t148(out);
     scenarios_t198(out);
+    scenarios_t209_tiles(out);
     scenarios_t137(out);
     scenarios_t137r(out);
     scenarios_t152(out);

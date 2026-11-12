@@ -31,7 +31,7 @@ int host_report_build(const WebSnapshot *s, uint32_t fattime, bool time_valid, c
     br_section(&o, "Settings");
     br_kv(&o, "Direct boot", "%s", s->direct ? "on" : "off");
     br_kv(&o, "Autostart countdown", "%d s (switched %s)", s->autostart_s, s->countdown > 0 ? "on" : "off");
-    br_kv(&o, "Default entry", "%d", s->def);
+    br_kv(&o, "Auto entry", "%d", s->def);
     br_kv(&o, "Picture", "%s, %s", video_sys_name(s->vid_sys), s->vid_hdmi < 0 ? "from the screen" : video_hdmi_name(s->vid_hdmi));
     br_kv(&o, "Library attempt under way", "%s", s->lib_attempt ? "yes" : "no");
     br_put(&o, "Stored settings:\n");
@@ -42,7 +42,7 @@ int host_report_build(const WebSnapshot *s, uint32_t fattime, bool time_valid, c
         br_put(&o, "(empty)\n");
     }
     for (int i = 0; i < s->n; i++) {
-        br_put(&o, "%d%s %s | %s | %s\n", i, i == s->def ? " (default)" : "", s->name[i], s->path[i], s->state[i]);
+        br_put(&o, "%d%s %s | %s | %s\n", i, i == s->def ? " (auto)" : "", s->name[i], s->path[i], s->state[i]);
         if (s->hash[i][0]) {
             br_put(&o, "    size %u, sha256 %s\n", s->size[i], s->hash[i]);
         } else {

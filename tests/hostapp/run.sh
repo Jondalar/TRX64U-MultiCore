@@ -30,6 +30,8 @@ open(t + "/app.bin", "wb").write(app)
 open(t + "/good.cor", "wb").write(C.pack('VIC-20 "test"', "0.1", bit, app, 0x30000, 0x30010,
                                          "820eded2", icon=bytes(2048)))
 open(t + "/c2.cor", "wb").write(C.pack("x", "1", bit, app, 0x30000, 0x30000, "820eded2", contract=3))
+# T209 D15: a bundle with the text tile's short name
+open(t + "/short.cor", "wb").write(C.pack("Commodore PET", "0.1", bit, app, 0x30000, 0x30010, "820eded2", short="PET"))
 # T84 D5b: a bundle routed against another host
 open(t + "/h2.cor", "wb").write(C.pack("x", "1", bit, app, 0x30000, 0x30000, "9ae17385"))
 PY
@@ -106,7 +108,7 @@ PY
 cc -c -Wall -I"$H" -o "$T/sha256.o" "$H/sha256.c"
 t_test_cor() {
   c++ -std=gnu++11 -Wall -I"$H" -o "$T/test_cor" "$ROOT/tests/hostapp/test_cor.cc" "$H/cor.cc" "$T/sha256.o" 2>&1 | head -30
-  "$T/test_cor" "$T/good.cor" "$T/c2.cor" "$T/app.bin" "$T/h2.cor"
+  "$T/test_cor" "$T/good.cor" "$T/c2.cor" "$T/app.bin" "$T/h2.cor" "$T/short.cor"
   return 0   # a closing "cmd && {...}" that did not fire is no failure of the unit
 }
 cc_block test_cor t_test_cor

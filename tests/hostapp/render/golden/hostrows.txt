@@ -1,10 +1,10 @@
 page menu|Boot menu|UP/DOWN select    RETURN start    RIGHT configs    R check entry    V picture    any key stops the countdown
-  sub|Pick a core. The default starts when the countdown ends.
+  sub|Pick a core. The auto entry starts when the countdown ends.
   hint|No cores yet. Press F3, open a folder on SD or USB
 and press A on a .cor bundle or a .cfw firmware.|hidden
   pos|
   countdown|Countdown stopped|hidden|0
-  row 0|TRX64 Ultimate (C64)|/SD/cores/trx64.cor  v1.0-rc1|hash ok|ok|default|TRX6|SEL
+  row 0|TRX64 Ultimate (C64)|/SD/cores/trx64.cor  v1.0-rc1|hash ok|ok|auto|TRX6|SEL
   row 1|VC-20 (PAL)|/Usb0/cores/vc20.cor  v0.1|hash ok|ok||VC-2|
   row 2|TRX64 Ultimate (old host)|/Usb0/old/trx64-0.9.cor|contract 3 != 2|warn||TRX6|
 page browse|File Browser|UP/DOWN select    RETURN open    F format as exFAT    V picture
@@ -19,13 +19,13 @@ page browse|File Browser|UP/DOWN select    RETURN open    F format as exFAT    V
   kv 3|Access||
   kv 4|Format|needs a medium|
   msg|RETURN opens it|muted
-page edit|Edit menu|UP/DOWN select    +/- move    D default    C rename    DEL twice removes
+page edit|Edit menu|UP/DOWN select    +/- move    D auto    C rename    DEL twice removes
   countdown|5 s
   direct|on (C= or fire at power-on: menu)
   default|TRX64 Ultimate (C64)
   defcfg|(none: this core has no configs)
   pos|
-  row 0|TRX64 Ultimate (C64)|/SD/cores/trx64.cor|hash ok|ok|default|SEL
+  row 0|TRX64 Ultimate (C64)|/SD/cores/trx64.cor|hash ok|ok|auto|SEL
   row 1|VC-20 (PAL)|/Usb0/cores/vc20.cor|hash ok|ok||
   row 2|TRX64 Ultimate (old host)|/Usb0/old/trx64-0.9.cor|contract 3 != 2|warn||
 page net|Network|C colours    V picture
@@ -39,7 +39,7 @@ page net|Network|C colours    V picture
   MAC|a0:76:4e:12:34:56    ESP32 WiFi Bridge V1.14|-
   note|The WiFi is set under F8 (Settings, WiFi).|muted
 page settings|Settings|UP/DOWN select    LEFT/RIGHT or RETURN change    V picture
-  settings.direct|Direct boot|on|The default core starts at power-on without the menu. C= or fire on port 1 at power-on shows the menu.|
+  settings.direct|Direct boot|on|The auto core starts at power-on without the menu. C= or fire on port 1 at power-on shows the menu.|
   settings.hdmi|Picture|from the screen: 1920 x 1080|Only what the screen names is offered. A change asks for a key within 8 s, else it goes back. RETURN opens the modes the screen names; V opens them from every view. Nothing is applied while you browse.|
   settings.protect|Protect Flash from updates|on|On: a large core gets the machine with the host and its app (flash 0x000000-0x3FFFFF) locked until power-off. Flash chip ef4018: status registers SR1 34, SR2 01 now.|
   settings.wifi|WiFi|open|Use DHCP or static addresses, the access point list, enter an access point, connect to the last one, disconnect, forget. The cores show the WiFi and switch it on and off.|

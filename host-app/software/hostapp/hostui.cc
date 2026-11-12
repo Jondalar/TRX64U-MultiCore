@@ -898,7 +898,18 @@ static void fill_mrow(Row &r, int i)
     }
     set_hidden(r.box, false);
     const uint16_t *icon = icon_c_ok[i] ? icon_c[i] : 0;
-    set_txt(r.icl, v.tile);
+    {   // T209 D15: the tile text is centred in the tile and shortened by whole letters until it fits (never cut by dots)
+        char tl[sizeof(v.tile)];
+        snprintf(tl, sizeof(tl), "%s", v.tile);
+        lv_point_t tsz = { 0, 0 };
+        for (int n = (int)strlen(tl); n > 0; n--) {
+            lv_text_get_size(&tsz, tl, F_SMALL, 0, 0, LV_COORD_MAX, LV_TEXT_FLAG_NONE);
+            if (tsz.x + 4 <= 40) break;           // the label box is 40 wide (set_txt adds 4)
+            tl[n - 1] = 0;
+        }
+        set_txt(r.icl, tl);
+        lv_obj_set_x(r.icl, (ICON_TILE_W - tsz.x - 4) / 2);
+    }
     if (icon) {
         if (r.ip != icon || r.gen != icons_gen) {
             lv_draw_buf_init(&r.dsc, 32, 32, LV_COLOR_FORMAT_RGB565, 64, (void *)icon, ICON_PX * 2);
@@ -1139,18 +1150,19 @@ static void build_menu(void)
     lv_obj_set_style_radius(cd_bar_obj, 0, LV_PART_INDICATOR);
 }
 
-// T209 D10: the boot menu's status line (the note slot) shows the selected row's state word while there is no note
-static void menu_status(void)
+// T209 D10/D14: the status line (the note slot) of the boot menu and of the editor shows the selected row's state word while there is no note
+static void state_status(lv_obj_t *slot)
 {
     HcEntryRow v;
     if (nv.note[0] || !hc_row_entry(nv.sel, true, &v)) {
-        set_txt(m_note, nv.note);
-        set_col(m_note, note_color());
+        set_txt(slot, nv.note);
+        set_col(slot, note_color());
         return;
     }
-    set_txt(m_note, v.badge);
-    set_col(m_note, pic_col(v.pic));
+    set_txt(slot, v.badge);
+    set_col(slot, pic_col(v.pic));
 }
+static void menu_status(void) { state_status(m_note); }
 
 static void update_menu(void)
 {
@@ -1179,7 +1191,7 @@ static void build_edit(void)
 {
     lv_obj_t *p = view_box(V_EDIT);
     txt(p, CX0, COMPACT ? 8 : 14, page_title("edit"), F_TITLE, C_INK);
-    sub1(p, "Order, default entry and names (boot.cfg on the flash disk). Countdown and direct boot: F8.", "Order, default entry and names (boot.cfg). Countdown: F8.");
+    sub1(p, "Order, auto entry and names (boot.cfg on the flash disk). Countdown and direct boot: F8.", "Order, auto entry and names (boot.cfg). Countdown: F8.");
     e_pos = txt(p, CX0 + CW - 200, COMPACT ? 14 : 22, "", F_SMALL, C_MUTED, 200);
     lv_obj_set_style_text_align(e_pos, LV_TEXT_ALIGN_RIGHT, 0);
     lv_obj_t *pn = box(p, CX0, COMPACT ? 64 : 74, CW, ED_PN_H, C_PANEL, 1);
@@ -1194,11 +1206,11 @@ static void build_edit(void)
         e_dir = txt(pn, 440, 8, "", F_SMALL, C_INK);
     }
     int dy = COMPACT ? 22 : 0;
-    txt(pn, 12, 30 + dy, "Default core", F_SMALL, C_MUTED);
+    txt(pn, 12, 30 + dy, "Auto core", F_SMALL, C_MUTED);
     e_def = fit1(txt(pn, vx, 30 + dy, "", F_SMALL, C_INK, CW - vx - 12), CW - vx - 12);
     txt(pn, 12, 52 + dy, "Menu file", F_SMALL, C_MUTED);
     txt(pn, vx, 52 + dy, "Flash:/boot.cfg", F_SMALL, C_INK);
-    txt(pn, 12, 74 + dy, "Default config", F_SMALL, C_MUTED);
+    txt(pn, 12, 74 + dy, "Auto config", F_SMALL, C_MUTED);
     e_dcfg = fit1(txt(pn, vx, 74 + dy, "", F_SMALL, C_INK, CW - vx - 12), CW - vx - 12);
     for (int i = 0; i < EROWS; i++) {
         build_erow(erow[i], p, CX0, (COMPACT ? 64 : 74) + ED_PN_H + 12 + i * EROW_P, CW, EROW_H);
@@ -1222,8 +1234,7 @@ static void update_edit(void)
             row_style(erow[i], nv.efirst + i == nv.sel);
         }
     }
-    set_txt(e_note, nv.note);
-    set_col(e_note, note_color());
+    state_status(e_note);
     set_foot(foot_label, hc_edit_foot());              // the hint follows the selected row (config of this core only if it has configs)
 }
 
@@ -3449,8 +3460,7 @@ static void apply_updates(void)
             if (nv.view == V_MENU) {
                 menu_status();
             } else {
-                set_txt(e_note, nv.note);
-                set_col(e_note, note_color());
+                state_status(e_note);
             }
             if (nv.view == V_MENU && !hc_cfgov_is_open()) {
                 set_foot(foot_label, hc_menu_foot());       // T198 D9: the hint follows the selected row
@@ -4291,6 +4301,20 @@ bool hostui_test_pq(char *title, char *l0, char *l1, char *key, int n, int *key_
     *box_y2 = a.y2;
     *cx_off = (a.x1 + a.x2) / 2 - SW / 2;
     *cy_off = (a.y1 + a.y2) / 2 - SH / 2;
+    return true;
+}
+// T209 D15: the text tile of boot menu row i (a visible row): its label's text and both rectangles (label, tile), as drawn
+bool hostui_test_tile(int i, char *text, int tn, int *lx1, int *lx2, int *tx1, int *tx2)
+{
+    const int r = i - nv.mfirst;
+    if (nv.view != V_MENU || r < 0 || r >= MROWS || lv_obj_has_flag(mrow[r].icl, LV_OBJ_FLAG_HIDDEN)) {
+        return false;
+    }
+    lv_area_t a, b;
+    lv_obj_get_coords(mrow[r].icl, &a);
+    lv_obj_get_coords(mrow[r].ic, &b);
+    *lx1 = a.x1; *lx2 = a.x2; *tx1 = b.x1; *tx2 = b.x2;
+    snprintf(text, tn, "%s", lv_label_get_text(mrow[r].icl));
     return true;
 }
 bool hostui_test_note_rect(int *x1, int *y1, int *x2, int *y2, char *text, int tn)

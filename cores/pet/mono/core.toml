@@ -1,6 +1,7 @@
 # The Commodore PET core (T134): 2001, 3032, 4032, 8032, 8096, SuperPET (6809: Greg Miller's mc6809is), Skibo's Pet2001_Arty CPU/PIA/VIA in cores/pet/rtl/src.
 id           = "pet"
 name         = "Commodore PET"
+short        = "PET"                  # T209 D15: no logo yet, the boot menu's text tile says this
 version      = "0.1.0"
 contract     = 2
 app          = "blueprint"     # the T104 generic application (coreapp/cores/pet.cc)

@@ -1,5 +1,6 @@
 // The rows of every page, as data (host_core_rows.h). The code of hostui.cc's fill_row, update_menu / edit / browse / net / settings, the manifest panel, the chips and the
 // WiFi page's value lines, moved with its texts unchanged; what stayed in hostui.cc is the drawing.
+#include <ctype.h>
 #include "host_core_rows.h"
 #include "host_core_cfgov.h"
 #include "host_core_nav_rw.h"
@@ -131,12 +132,20 @@ bool hc_row_entry(int i, bool menu_style, HcEntryRow *r)
     const char *ver = ok ? hc_einfo(i).version : "";
     bool full = hc_efull(i);
     snprintf(r->name, sizeof(r->name), "%s", cfg.e[i].name);
-    {   // the board's printf ignores a precision: the 4-character tile is cut by hand
-        const char *tn = full ? "FW" : cfg.e[i].name;
+    {   // T209 D15: the tile says the core's own short name (manifest "short"); without one the first four letters/digits of the entry name,
+        // punctuation and blanks left out ("VIC-20" reads "VIC2", not "VIC-"). The board's printf ignores a precision: cut by hand.
+        const char *tn = full ? "FW" : (ok && hc_einfo(i).shortn[0] ? hc_einfo(i).shortn : cfg.e[i].name);
+        const bool own = full || (ok && hc_einfo(i).shortn[0]);
         size_t k = 0;
-        while (k < 4 && k + 1 < sizeof(r->tile) && tn[k]) {
-            r->tile[k] = tn[k];
-            k++;
+        for (; *tn && k + 1 < sizeof(r->tile) && (own || k < 4); tn++) {
+            if (own || isalnum((unsigned char)*tn)) {
+                r->tile[k++] = *tn;
+            }
+        }
+        if (!k) {                                                    // a name of nothing but punctuation: its first characters, as they are
+            for (tn = cfg.e[i].name; *tn && k < 4; tn++) {
+                r->tile[k++] = *tn;
+            }
         }
         r->tile[k] = 0;
     }
@@ -173,7 +182,7 @@ void hc_pos_text(char *b, int n, int first, int total, int rows)
 
 void hc_menu_texts(int first, int total, HcMenuTexts *t)
 {
-    snprintf(t->sub, sizeof(t->sub), "Pick a core. The default starts when the countdown ends.");
+    snprintf(t->sub, sizeof(t->sub), "Pick a core. The auto entry starts when the countdown ends.");
     t->hint_on = total == 0;
     snprintf(t->hint, sizeof(t->hint), "%s", HC_NO_CORES_HINT);
     hc_pos_text(t->pos, sizeof(t->pos), first, total, hc_nav_menu_rows());
@@ -189,7 +198,7 @@ void hc_countdown_texts(HcCountdownTexts *t)
     t->visible = true;
 #endif
     if (!hc_cd_running()) {
-        snprintf(t->text, sizeof(t->text), "%s", hc_cd_dead() ? "Countdown stopped" : (cfg.countdown && cfg.def >= 0 ? "Waiting for the default core's medium" : "No countdown"));
+        snprintf(t->text, sizeof(t->text), "%s", hc_cd_dead() ? "Countdown stopped" : (cfg.countdown && cfg.def >= 0 ? "Waiting for the auto core's medium" : "No countdown"));
     } else {
         int left = (int)(hc_cd_left_ms(hc_now_ms()) + 999) / 1000;
         if (left < 0) {
@@ -829,13 +838,13 @@ void hc_set_row_text(int kind, const char *&name, char (&v)[64], const char *&he
     case SK_DIRECT:
         name = hc_set_name(SK_DIRECT);
         snprintf(v, sizeof(v), "%s", cfg.direct ? "on" : "off");
-        help = cfg.direct ? "The default core starts at power-on without the menu. C= or fire on port 1 at power-on shows the menu."
-                          : "The menu comes up first; the autostart below decides whether it starts the default.";
+        help = cfg.direct ? "The auto core starts at power-on without the menu. C= or fire on port 1 at power-on shows the menu."
+                          : "The menu comes up first; the autostart below decides whether it starts the auto core.";
         break;
     case SK_AUTO:
         name = hc_set_name(SK_AUTO);
         snprintf(v, sizeof(v), "%s", cfg.countdown > 0 ? "on" : "off");
-        help = "On: the menu starts the default core by itself after the delay. Any key stops the countdown.";
+        help = "On: the menu starts the auto core by itself after the delay. Any key stops the countdown.";
         break;
     case SK_SECS:
         name = hc_set_name(SK_SECS);
@@ -1027,7 +1036,7 @@ int dump_menu(char *out, int cap)
     for (int i = 0; i < cfg.n; i++) {
         HcEntryRow r;
         if (hc_row_entry(i, true, &r)) {
-            o.add("  row %d|%s|%s|%s|%s|%s|%s|%s%s%s\n", i, r.name, r.sub, r.badge, tone_name(r.badge_tone), r.def ? "default" : "", r.tile, i == hc_nav().sel ? "SEL" : "", r.cfgbadge[0] ? "|cfg " : "", r.cfgbadge);
+            o.add("  row %d|%s|%s|%s|%s|%s|%s|%s%s%s\n", i, r.name, r.sub, r.badge, tone_name(r.badge_tone), r.def ? "auto" : "", r.tile, i == hc_nav().sel ? "SEL" : "", r.cfgbadge[0] ? "|cfg " : "", r.cfgbadge);
         }
     }
     return o.n;
@@ -1044,7 +1053,7 @@ int dump_edit(char *out, int cap)
     for (int i = 0; i < cfg.n; i++) {
         HcEntryRow r;
         if (hc_row_entry(i, false, &r)) {
-            o.add("  row %d|%s|%s|%s|%s|%s|%s%s%s\n", i, r.name, r.sub, r.badge, tone_name(r.badge_tone), r.def ? "default" : "", i == hc_nav().sel ? "SEL" : "", r.cfgbadge[0] ? "|cfg " : "", r.cfgbadge);
+            o.add("  row %d|%s|%s|%s|%s|%s|%s%s%s\n", i, r.name, r.sub, r.badge, tone_name(r.badge_tone), r.def ? "auto" : "", i == hc_nav().sel ? "SEL" : "", r.cfgbadge[0] ? "|cfg " : "", r.cfgbadge);
         }
     }
     return o.n;
