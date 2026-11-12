@@ -14,6 +14,7 @@
 #include "host_core_nav.h"
 #include "host_core_cm.h"
 #include "host_core_rows.h"
+#include "menu_pictos.h"
 #include "host_core_ui.h"
 #include "host_core_model.h"
 #include "bootcfg.h"
@@ -668,6 +669,7 @@ struct Row {
     lv_draw_buf_t dsc;                          // the icon image's source (T101 D5)
     const uint16_t *ip;
     int gen;
+    int pcs;                                    // the boot menu row's pictogram group (HCP_*) as drawn
 };
 
 static lv_obj_t *vwin[6];                       // one container per view, VIEW order
@@ -835,7 +837,21 @@ static void row_style(Row &r, bool on)
 #define LROW_H 38                                  // 32 px logo + 3 px above and below inside the 1 px frame
 #define LROW_P (LROW_H + 2)
 #define LROW_TX 70                                 // the name starts right of the 48 px logo tile (as before T209)
-#define PIC_D (COMPACT ? 20 : 22)                  // T209 D10: the pictogram circle
+#define PIC_D 22                                    // T209 D10: the pictogram (menu_pictos.h, 22 x 22)
+#define PIC_GREEN 0x35C25F
+#define PIC_YELLOW 0xF2B01E
+#define PIC_RED 0xE5484D
+static lv_draw_buf_t pic_buf[3];
+static void pic_init(void)
+{
+    static const uint8_t *const d[3] = { PICTO_OK, PICTO_CHECK, PICTO_BAD };
+    if (!pic_buf[0].data) {
+        for (int k = 0; k < 3; k++) {
+            lv_draw_buf_init(&pic_buf[k], PIC_D, PIC_D, LV_COLOR_FORMAT_A8, 24, (void *)d[k], 24 * PIC_D);
+        }
+    }
+}
+static uint32_t pic_col(int g) { return g == HCP_OK ? PIC_GREEN : g == HCP_CHECK ? PIC_YELLOW : PIC_RED; }
 #define LROW_VER_W (COMPACT ? 96 : 104)           // the version column ("v1.0-rc1", "full firmware")
 static void build_mrow(Row &r, lv_obj_t *par, int x, int y, int w, int h)
 {
@@ -854,11 +870,16 @@ static void build_mrow(Row &r, lv_obj_t *par, int x, int y, int w, int h)
     lv_obj_set_style_text_align(r.b, LV_TEXT_ALIGN_RIGHT, 0);
     const int by = (h - 2 - BADGE_H) / 2;
     const int bty = (BADGE_H - 2 - lv_font_get_line_height(F_SMALL)) / 2;
-    // T209 D10: the state is a round pictogram (filled circle + glyph), all the same size; x is set by fill_mrow
-    r.stb = box(r.box, w - 10 - LROW_VER_W - 8 - PIC_D, (h - 2 - PIC_D) / 2, PIC_D, PIC_D, C_OK, 0);
-    lv_obj_set_style_radius(r.stb, LV_RADIUS_CIRCLE, 0);
-    r.stl = txt(r.stb, 0, (PIC_D - lv_font_get_line_height(F_SMALL)) / 2, LV_SYMBOL_OK, F_SMALL, C_BG, PIC_D);
-    lv_obj_set_style_text_align(r.stl, LV_TEXT_ALIGN_CENTER, 0);
+    // T209 D10: the state is a round pictogram (A8 mask, tinted: a disc with the glyph cut out), all the same size; x is set by fill_mrow
+    pic_init();
+    r.stb = lv_image_create(r.box);
+    lv_obj_set_pos(r.stb, w - 10 - LROW_VER_W - 8 - PIC_D, (h - 2 - PIC_D) / 2);
+    lv_obj_set_size(r.stb, PIC_D, PIC_D);
+    lv_image_set_src(r.stb, &pic_buf[HCP_OK]);
+    lv_obj_set_style_image_recolor_opa(r.stb, LV_OPA_COVER, 0);
+    lv_obj_set_style_image_recolor(r.stb, lv_color_hex(PIC_GREEN), 0);
+    r.pcs = HCP_OK;
+    r.stl = NULL;
     r.defb = box(r.box, w - 10 - BADGE_W - DEF_W - 6, by, DEF_W, BADGE_H, C_HOST, 0);
     r.defl = txt(r.defb, 0, bty + 1, "auto", F_SMALL, C_BG, DEF_W);
     lv_obj_set_style_text_align(r.defl, LV_TEXT_ALIGN_CENTER, 0);
@@ -925,11 +946,10 @@ static void fill_mrow(Row &r, int i)
     }
     set_txt_mid(r.a, v.name);
     set_txt(r.b, v.ver);
-    const uint32_t col = v.pic == HCP_OK ? C_OK : v.pic == HCP_CHECK ? C_WARN : C_BAD;
-    set_txt(r.stl, v.pic == HCP_OK ? LV_SYMBOL_OK : v.pic == HCP_CHECK ? "?" : LV_SYMBOL_CLOSE);
-    lv_color_t bc = lv_color_hex(col), bo = lv_obj_get_style_bg_color(r.stb, LV_PART_MAIN);
-    if (bo.red != bc.red || bo.green != bc.green || bo.blue != bc.blue) {
-        lv_obj_set_style_bg_color(r.stb, bc, 0);
+    if (r.pcs != v.pic) {
+        lv_image_set_src(r.stb, &pic_buf[v.pic]);
+        lv_obj_set_style_image_recolor(r.stb, lv_color_hex(pic_col(v.pic)), 0);
+        r.pcs = v.pic;
     }
     set_hidden(r.defb, !v.def);
     set_txt(r.cfl, v.cfgbadge);
@@ -1123,7 +1143,7 @@ static void menu_status(void)
         return;
     }
     set_txt(m_note, v.badge);
-    set_col(m_note, tone_col(v.badge_tone));
+    set_col(m_note, pic_col(v.pic));
 }
 
 static void update_menu(void)
@@ -4520,9 +4540,9 @@ int hostui_test_dump(char *out, int max)
         }
         n += snprintf(out + n, max - n, "row %d|%s|%s|%s|%s|%s|%s\n", first + r, lv_label_get_text(rows[r].a), sub, word,
                       lv_obj_has_flag(rows[r].defb, LV_OBJ_FLAG_HIDDEN) ? "" : "default", first + r == nv.sel ? "SEL" : "", ic);
-        if (nv.view != V_EDIT) {                                           // T209 D10/D11: the pictogram as drawn (glyph, fill colour) and the marker's text
-            const lv_color_t pc = lv_obj_get_style_bg_color(rows[r].stb, LV_PART_MAIN);
-            n += snprintf(out + n, max - n, "pic %d|%s|%06x|%dx%d|%s\n", first + r, lv_label_get_text(rows[r].stl)[0] == '?' ? "check" : strstr(lv_label_get_text(rows[r].stl), LV_SYMBOL_OK) ? "ok" : "bad", (unsigned)lv_color_to_u32(pc) & 0xffffff,
+        if (nv.view != V_EDIT) {                                           // T209 D10/D11: the pictogram as drawn (group, tint, size) and the marker's text
+            n += snprintf(out + n, max - n, "pic %d|%s|%06x|%dx%d|%s\n", first + r, rows[r].pcs == HCP_OK ? "ok" : rows[r].pcs == HCP_CHECK ? "check" : "bad",
+                          (unsigned)lv_color_to_u32(lv_obj_get_style_image_recolor(rows[r].stb, LV_PART_MAIN)) & 0xffffff,
                           (int)lv_obj_get_width(rows[r].stb), (int)lv_obj_get_height(rows[r].stb), lv_label_get_text(rows[r].defl));
         }
         if (!lv_obj_has_flag(rows[r].cfb, LV_OBJ_FLAG_HIDDEN)) {           // T198 D15: the "N configs" badge as drawn, a line of its own (the row line above is matched by prefix)
