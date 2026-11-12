@@ -858,7 +858,7 @@ static void build_mrow(Row &r, lv_obj_t *par, int x, int y, int w, int h)
     r.box = box(par, x, y, w, h, C_PANEL, 1, C_LINE);
     r.w = w;
     r.ic = box(r.box, 10, (h - 2 - ICON_W) / 2, ICON_TILE_W, ICON_W, C_PANEL2, 0);
-    r.icl = txt(r.ic, 4, (ICON_W - lv_font_get_line_height(F_SMALL)) / 2, "", F_SMALL, C_MUTED, 40);
+    r.icl = fit1(txt(r.ic, 4, (ICON_W - lv_font_get_line_height(F_SMALL)) / 2, "", F_SMALL, C_MUTED, 40), 40);
     r.img = lv_image_create(r.ic);
     lv_obj_set_pos(r.img, 0, 0);
     lv_obj_set_size(r.img, ICON_W, ICON_W);       // the picture's own size: no bars, no fractional zoom

@@ -5,7 +5,7 @@ and press A on a .cor bundle or a .cfw firmware.|hidden
   pos|
   countdown|Countdown stopped|hidden|0
   row 0|TRX64 Ultimate (C64)|/SD/cores/trx64.cor  v1.0-rc1|hash ok|ok|auto|TRX6|SEL
-  row 1|VC-20 (PAL)|/Usb0/cores/vc20.cor  v0.1|hash ok|ok||VC-2|
+  row 1|VC-20 (PAL)|/Usb0/cores/vc20.cor  v0.1|hash ok|ok||VC20|
   row 2|TRX64 Ultimate (old host)|/Usb0/old/trx64-0.9.cor|contract 3 != 2|warn||TRX6|
 page browse|File Browser|UP/DOWN select    RETURN open    F format as exFAT    V picture
   path|/
