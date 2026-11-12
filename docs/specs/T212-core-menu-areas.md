@@ -91,3 +91,9 @@ Proof column: T = core app test (`tests/coreapp`, menu goldens), U = ue2emu pict
   D13: `CoreDesc::machine_info` set per core, from existing settings only: PET Model,RAM; VIC-20 Memory Expansion; C264 Model,RAM; C128 "40/80 DISPLAY";
   SCPU "SuperCPU speed"; Amiga Chipset + RAMs; Atari RAM size,Video standard; CPC Model; ZX Model; NES Console type; Neo Geo System type,BIOS. No line: Apple IIe,
   ZX Next, SNES (no model or memory setting), TRX64U (C64 cores untouched). Open: C128 C64 mode and SCPU SuperRAM are no settings (core state). test_desc pins the table.
+- 2026-11-12 (render bench, R8, pictures): the core render bench follows the layout (Reset on F1, storage/menu rows in F7 under Storage/Menu, hotkey page "Settings > Hotkeys",
+  F8 closes with Status: Build, ROMs, Libraries behind the Reset section, "Create blank" through the drive list; each check asserts the new place). A job started from a drive
+  list runs on Home: Home now retexts a changed row in place (`ui.cc`, as the lists do) - without it every tick rebuilt the panel (T167 probe: 119k foreign pixels). Home's last
+  row is checked inside its panel at 480p (A1200, 10 rows: y 423 of 443). R8: entering/leaving F7 redraws 518,400 px (strip hidden, pane height changes) = about 1.1 s at the
+  board's 2.2 ms per 1,000 px, against 396,219 px (about 0.87 s) for any other area switch: +0.27 s on two transitions. Pictures: tests/ui/features_*/t212_*.feature.
+  UX review (A1200, C128, VC-20; 720p mostly): FAIL until F8 Status is seen in a picture and Home after mount/eject is pictured; polish list in the report.

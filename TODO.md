@@ -90,7 +90,7 @@ Built and benched; what is left is a step on the board (Alex, 2026-10-28, transl
 | T209 | 2 | 📅 | Host + core app: one line per row (no sublines), closer rows, scroll before the edge, paging keys in the foot | Spec 11-11 (Alex D1-D4); in this test release (D5) | [T209](docs/specs/T209-one-line-rows.md) |
 | T210 | 2 | 🔨 | Core app: splash placed for 480p/720p from the first frame; F8 WiFi real state in every core | Board: splash at 480p, F8 WiFi in a non-C64 core (S3); P3 is T209 | [T210](docs/specs/T210-coreapp-modes-wifi.md) |
 | T211 | 2 | 📅 | Host UI: own key names, F keys as navigation (no PAGEUP=F1 aliasing) | Alex 11-12 | [T211](docs/specs/T211-own-key-names.md) |
-| T212 | 2 | 📅 | Core app areas: F1 quick actions, F5 machine, F7 app settings (host value as default), status to F8 | Alex 11-12 | [T212](docs/specs/T212-core-menu-areas.md) |
+| T212 | 2 | 🔨 | Core app areas: F1 quick actions, F5 machine, F7 app settings (host value as default), status to F8 | Alex 11-12 | [T212](docs/specs/T212-core-menu-areas.md) |
 | T175 | 3 | 🔨 | Diag core: a timed probe engine plus TOML tests measure the joystick/paddle ports, results to SD | Gateware + core app merged (t175-diag); Vivado run + engine/board steps open | [T175](docs/todo/T175.md) |
 | T176 | 3 | 📅 | Core menus on the screen at once from a saved picture (split out of T146 P5, issue #4) | Deferred (Alex 11-02): split out of T146 P5; not started | [T176](docs/todo/T176.md) |
 | T177 | 3 | 📅 | Recovery boot: a key held at power-on starts a recovery image, even with a black host menu | Spec PROPOSED (Alex 11-02); Decided (Alex 11-02): app, RESTORE+F1, recovery.cor/backup, no flash, LED; build open | [T177](docs/todo/T177.md) |
