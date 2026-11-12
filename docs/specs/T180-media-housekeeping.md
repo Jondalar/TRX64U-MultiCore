@@ -421,7 +421,7 @@ Alex, 2026-11-04 (translated): "well, for all cores if at all". Every core that 
     - *What unzip does today (read, not changed):* "here" and "one" write with `fopen "wb"`, which empties an existing file - **it overwrites silently** (the test pins it). An existing folder entry is success (`mkdir`).
       Paths are joined into 256 bytes (`PATH_MAX_LEN`): `<folder>/<entry>` of 256 or more is refused and counted "Failed", never cut - a 255 character entry name cannot be written (the test pins it; 200 characters are); the
       glue takes the zip path in 199. Open (Alex): overwrite policy; 255 character names.
-  - **§5 D9 fix (#43 reopened, branch `fix-unzip-43`, 2026-11-10):** JM-Internet, release main-2bd67963: "If I press enter on a .zip file there is no 'Unzip here' option." Cause, read from the code
+  - **§5 D9 fix (#43 reopened, branch `fix-unzip-43`, 2026-11-10):** a tester, release main-2bd67963: "If I press enter on a .zip file there is no 'Unzip here' option." Cause, read from the code
     and the board: the lookup is right (`AppIndex::folders` + `scan` at core start, `tests/coreapp/test_unzip.cc`), the file was never where it looks. The release ships `unzip.u2a` loose beside the `.cor`
     files; the updater (`vendor/gideon/software/application/update_u2p/update_trx.cc`, `find_bundle`) copied only `.cor` and `.cfw` into `<medium>/cores`, the `.txu` path (INSTALL.md 3a) copies nothing,
     so `/cores/apps/unzip.u2a` existed only after a manual copy that INSTALL.md section 4 mentioned in one bullet (the test board has no `/SD/cores/apps` at all, read by FTP 2026-11-10). Second hole:
@@ -445,7 +445,7 @@ Alex, 2026-11-04 (translated): "well, for all cores if at all". Every core that 
       (slot 1,966,068); `ci/apptests.sh` hostapp, coreapp (419 s, 690 units ran) and loader PASS; render benches: core app 250 checks, 0 failed, host app 1219 checks, 0 failed. The first build failed
       at the link step ("undefined reference to `home_dir`"): the RISC-V source list (`host-app/target/u64ii/riscv/coreapp/Makefile`) names every file, `home.cc` was missing there.
 
-### P4 file operations: GitHub #42 findings (branch `fix-files-42`, 2026-11-10; tester JM-Internet on release main-2bd67963)
+### P4 file operations: GitHub #42 findings (branch `fix-files-42`, 2026-11-10; a tester on release main-2bd67963)
 - **§5 New folder (#42: "It's not possible to create a folder"):** cause `coreapp/src/menuctl.cc` `activate()`: "Create folder here" and "Paste here" live only in the sheet of a
   folder row (RIGHT on a folder, `filemgr.cc` `g_folder_items`); a folder with no subfolder has no such row, and the sheet of a file does not carry them. Fix: RIGHT on the ".." row opens
   the same folder sheet without "Open" and without the per-item entries (Create folder here, Paste here when the clipboard holds something, Mark all / none, Set as home folder act on the

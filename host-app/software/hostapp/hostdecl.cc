@@ -49,6 +49,8 @@ const HAction ACTIONS[] = {
     // ---- the File Browser (F3) ---------------------------------------------------------------------------------------------------------
     KEYS("browse.open", "Open", HVW_BROWSE, "file", HAF_ROW | HAF_FLOW, 0, -1, "a folder opens; in the pick modes RETURN is the pick"),
     KEYS("browse.up", "Parent folder", HVW_BROWSE, 0, 0, 0, -1, "not at the media level"),
+    KEYS("menu.page_down", "Page down", HVW_MENU, 0, 0, 0, -1, "one page of rows"),
+    KEYS("menu.page_up", "Page up", HVW_MENU, 0, 0, 0, -1, "one page of rows"),
     KEYS("browse.page_down", "Page down", HVW_BROWSE, 0, 0, 0, -1, "one page of rows"),
     KEYS("browse.page_up", "Page up", HVW_BROWSE, 0, 0, 0, -1, "one page of rows"),
     KEYS("browse.add", "Add to the boot menu", HVW_BROWSE, "file", HAF_ROW, 0, HMODE_NORMAL, "a .cor bundle or a .cfw firmware"),

@@ -92,11 +92,12 @@ the core app greys no Eject row of an empty slot, trx64u does).
 hostui.cc MROW_H/MROW_P, build_row/fill_row without icon, row_detail (path and version in the note slot), set_txt_mid (middle ellipsis),
 set_foot (compact break between keys); layout_counts computes menu and editor rows separately (erows_n, hc_nav_geometry(..., edit_rows))
 and runs before build_ui at start; listwin.h LISTWIN_MARGIN 2; hc_browse_foot appends '+/- PAGE' when bn > rows.
-The row icons (core logos, firmware logos) are gone from the boot menu and editor rows: a 32 px picture does not fit a 24/30 px line. The
-render bench asserts "no icon drawn" for them (S4/S4b/scenarios_ic) and `hostui_test_dump` lists `rows=` and `detail=`; the scroll scenario
-builds menu rows + 4 entries instead of 9. Selection-move area limits carry the detail line (+6000 px).
+The editor rows (F5) carry no icon: a 32 px picture does not fit a 24 px line (the boot menu is restored by D6, below). `hostui_test_dump` lists `rows=` and `detail=`; the scroll scenario
+builds menu rows + 4 entries instead of 9. Selection-move area limits of the editor carry the detail line (+6000 px).
 The config overlay scrolls through listwin_fix too (host_core_cfgov.cc window(): it had its own window without the margin). The two `%.*s`/`%.40s` snprintf cuts in hostui.cc/host_core_cfgov.cc are hand joins (the RISC-V printf ignores a precision; set_txt_mid already was one).
-Open: host menu/editor paging keys (Alex), the row icons (Alex: gone for good, or a place for them), S8 board.
+Open: host menu/editor paging keys (Alex), S8 board.
+
+D6/D7/D8 built (2026-11-12, branch t209-d6-bootmenu). Boot menu row (hostui.cc `build_mrow`/`fill_mrow`): the mock-up row, 38 px high, 40 px pitch: the logo at its pre-T209 size (32 x 32 in the 48 px tile, text tile while there is no picture), the name (F_TEXT, middle ellipsis), the version right-aligned (`HcEntryRow.ver`: `v0.9.0`, `full firmware`, empty while unknown; column 104 px, 96 compact), then the badges; no path anywhere in the menu, note slot = `nv.note` as before. Row count = what fits (`(CH - MENU_ROW0 - 80 + 2) / 40`: 7 on the 960x540 canvas, 6 at 480p). D7: `+`/`-` page the menu (`HCA_MENU_PAGE_DOWN/UP`, `hc_nav_act` HCX_MENU, a page = `g_mrows`, stops at the ends); `hc_menu_foot` appends `+/- PAGE` when the menu is longer than its window; render bench S3 walks the keys. D8: the editor row (`build_erow`/`fill_erow`) is the pre-T209 menu row (fcd8abd9a^1) without the logo: name F_TEXT at y 6, subline F_SMALL at y 30 (the old subline = path + `  v<version>` or `  full firmware`, from `hc_row_entry(i, true)`), badges at y 17, row 56 high, pitch 62; the editor holds what fits under its panel: 4 rows on the 960x540 canvas, 2 at 480p (the row count gives, not the row). The editor keeps `+`/`-` for moving an entry. Kept: margin 2, middle ellipsis, `set_foot`, title-line position, layout_counts before build_ui, the hand joins. Restored: the T101/T114 logo asserts (S4, S4b, scenarios_ic) and the MROW area limits. Open with Alex: where the path of a boot menu entry may show (none for now).
 
 ### Integration check of main (2026-11-12)
 T209 + T210 together: `tools/dev.sh test`, `riscv`, `integrate` rc 0 (tests/ui 138 passed), no golden changed. The F8 WiFi row of the A1200 profile is one line (value On/Off right,

@@ -648,12 +648,7 @@ static int brows_n = 13;
 // the pitch of the menu rows and the editor rows, and where the editor's panel ends (compact: its settings take a line each)
 #define ED_PN_H (COMPACT ? 126 : 104)
 #define ED_ROW0 (ED_PN_H + 86)
-// the width a row's text may take: the row less the icon, the badge and the default badge
-// T209 D1/D2: one line per row. The row is MROW_H high, the next starts MROW_P below it (2 px apart).
-#define MROW_H (COMPACT ? 24 : 30)
-#define MROW_P (MROW_H + 2)
-#define BADGE_H (COMPACT ? 20 : 22)
-#define ROW_RIGHT (10 + BADGE_W + 6 + CFG_W + 6 + DEF_W + 8)       // what the three badges and their gaps take at the right of a row (the name's room is the rest)
+#define BADGE_H (COMPACT ? 20 : 22)                // the badges of the boot menu's row (T209 D6)
 
 // The page's explanatory line under the title: its width is the column's in the compact layout (a line that does not fit ends in dots, never in the edge of the canvas).
 static lv_obj_t *sub1(lv_obj_t *p, const char *text, const char *compact_text = 0)
@@ -835,29 +830,41 @@ static void row_style(Row &r, bool on)
 #define DEF_W (COMPACT ? 70 : 78)
 #define CFG_W (COMPACT ? 84 : 98)          // T198: the "N configs" badge, between the status and the default badge (mock-up order: default, N configs, status)
 
-static void build_row(Row &r, lv_obj_t *par, int x, int y, int w, int h, bool menu)
+// T209 D6 (Alex 2026-11-12): the boot menu row is the mock-up's: the logo at its full size (32 x 32, as before T209) on the left, then the name, then the
+// version right-aligned on the same line, then the badges. No path in the row (it is the detail line under the list). The row is as high as the logo needs.
+#define LROW_H 38                                  // 32 px logo + 3 px above and below inside the 1 px frame
+#define LROW_P (LROW_H + 2)
+#define LROW_TX 70                                 // the name starts right of the 48 px logo tile (as before T209)
+#define LROW_VER_W (COMPACT ? 96 : 104)           // the version column ("v1.0-rc1", "full firmware")
+static void build_mrow(Row &r, lv_obj_t *par, int x, int y, int w, int h)
 {
     r.box = box(par, x, y, w, h, C_PANEL, 1, C_LINE);
     r.w = w;
-    const int tx = 12;
-    const lv_font_t *f = menu && !COMPACT ? F_TEXT : F_SMALL;
-    const int ty = (h - 2 - lv_font_get_line_height(f)) / 2;
-    const int room = w - tx - ROW_RIGHT;
-    r.a = fit1(txt(r.box, tx, ty, "", f, C_INK, room), room);
+    r.ic = box(r.box, 10, (h - 2 - ICON_W) / 2, ICON_TILE_W, ICON_W, C_PANEL2, 0);
+    r.icl = txt(r.ic, 4, (ICON_W - lv_font_get_line_height(F_SMALL)) / 2, "", F_SMALL, C_MUTED, 40);
+    r.img = lv_image_create(r.ic);
+    lv_obj_set_pos(r.img, 0, 0);
+    lv_obj_set_size(r.img, ICON_W, ICON_W);       // the picture's own size: no bars, no fractional zoom
+    lv_image_set_scale(r.img, 256);               // 1:1 in the 960 x 540 layer; the pixel layer's own x2 (PX_CTRL 0x22) is whole
+    set_hidden(r.img, true);
+    const int ty = (h - 2 - lv_font_get_line_height(F_TEXT)) / 2;
+    r.a = fit1(txt(r.box, LROW_TX, ty, "", F_TEXT, C_INK, w - LROW_TX - 10), w - LROW_TX - 10);
+    r.b = txt(r.box, w - 10, (h - 2 - lv_font_get_line_height(F_SMALL)) / 2, "", F_SMALL, C_MUTED, LROW_VER_W);       // the version; x is set by fill_mrow
+    lv_obj_set_style_text_align(r.b, LV_TEXT_ALIGN_RIGHT, 0);
     const int by = (h - 2 - BADGE_H) / 2;
     const int bty = (BADGE_H - 2 - lv_font_get_line_height(F_SMALL)) / 2;
     r.stb = box(r.box, w - 10 - BADGE_W, by, BADGE_W, BADGE_H, C_PANEL2, 1, C_OK);
     r.stl = fit1(txt(r.stb, 6, bty, "", F_SMALL, C_OK, BADGE_W - 12), BADGE_W - 12);
     r.defb = box(r.box, w - 10 - BADGE_W - DEF_W - 6, by, DEF_W, BADGE_H, C_HOST, 0);
     r.defl = txt(r.defb, 0, bty + 1, "default", F_SMALL, C_BG, DEF_W);
-    lv_obj_set_style_text_align(r.defl, LV_TEXT_ALIGN_CENTER, 0);                 // centred in the badge
+    lv_obj_set_style_text_align(r.defl, LV_TEXT_ALIGN_CENTER, 0);
     r.cfb = box(r.box, w - 10 - BADGE_W - CFG_W - 6, by, CFG_W, BADGE_H, C_PANEL2, 1, C_HOST);
     r.cfl = fit1(txt(r.cfb, 6, bty, "", F_SMALL, C_HOST, CFG_W - 12), CFG_W - 12);
     marks_build(r.mk, r.box, -1, -1, w, h);          // last: on top of the row's own widgets
 }
 
-// Row i of the menu or of the editor (the same entries): the name and the badges. The path and the version of the selected row are the page's detail line.
-static void fill_row(Row &r, int i)
+// Row i of the boot menu: logo (or the text tile), name, version, badges.
+static void fill_mrow(Row &r, int i)
 {
     HcEntryRow v;
     if (!hc_row_entry(i, true, &v)) {
@@ -865,14 +872,102 @@ static void fill_row(Row &r, int i)
         return;
     }
     set_hidden(r.box, false);
-    {   // the name's room is what the badges that show leave (T198: the "N configs" badge, T209: the "default" badge too)
-        const int want = r.w - 12 - ROW_RIGHT + (v.cfgbadge[0] ? 0 : CFG_W + 6) + (v.def ? 0 : DEF_W + 6);
+    const uint16_t *icon = icon_c_ok[i] ? icon_c[i] : 0;
+    set_txt(r.icl, v.tile);
+    if (icon) {
+        if (r.ip != icon || r.gen != icons_gen) {
+            lv_draw_buf_init(&r.dsc, 32, 32, LV_COLOR_FORMAT_RGB565, 64, (void *)icon, ICON_PX * 2);
+            lv_image_set_src(r.img, &r.dsc);
+            lv_obj_invalidate(r.img);
+            r.ip = icon;
+            r.gen = icons_gen;
+        }
+    } else {
+        r.ip = 0;
+    }
+    set_hidden(r.img, !icon);
+    set_hidden(r.icl, icon != 0);
+    // a picture sits in a box of exactly its size (the 48 wide box is the text tile's); the text column stays where it is
+    const int ix = icon ? 10 + (ICON_TILE_W - ICON_W) / 2 : 10, iw = icon ? ICON_W : ICON_TILE_W;
+    const int iy = (lv_obj_get_height(r.box) - 2 - ICON_W) / 2;
+    if (lv_obj_get_x(r.ic) != ix) {
+        lv_obj_set_pos(r.ic, ix, iy);
+    }
+    if (lv_obj_get_style_width(r.ic, LV_PART_MAIN) != iw) {
+        lv_obj_set_width(r.ic, iw);
+    }
+    // the badges that show take the right end of the row: status, then "N configs", then "default"; the version column ends left of them, the name left of the version
+    const int bleft = r.w - 10 - BADGE_W - (v.cfgbadge[0] ? CFG_W + 6 : 0) - (v.def ? DEF_W + 6 : 0);
+    const int vx = bleft - 10 - LROW_VER_W;
+    if (lv_obj_get_x(r.b) != vx) {
+        lv_obj_set_x(r.b, vx);
+    }
+    const int want = vx - 8 - LROW_TX;
+    if (want != (int)(intptr_t)lv_obj_get_user_data(r.a)) {
+        lv_obj_set_width(r.a, want);
+        lv_obj_set_user_data(r.a, (void *)(intptr_t)want);
+    }
+    set_txt_mid(r.a, v.name);
+    set_txt(r.b, v.ver);
+    set_txt(r.stl, v.badge);
+    uint32_t col = tone_col(v.badge_tone);
+    set_col(r.stl, col);
+    lv_color_t bc = lv_color_hex(col), bo = lv_obj_get_style_border_color(r.stb, LV_PART_MAIN);
+    if (bo.red != bc.red || bo.green != bc.green || bo.blue != bc.blue) {
+        lv_obj_set_style_border_color(r.stb, bc, 0);
+    }
+    set_hidden(r.defb, !v.def);
+    const int dx = r.w - 10 - BADGE_W - DEF_W - 6 - (v.cfgbadge[0] ? CFG_W + 6 : 0);
+    if (lv_obj_get_x(r.defb) != dx) {
+        lv_obj_set_x(r.defb, dx);
+    }
+    set_txt(r.cfl, v.cfgbadge);
+    set_hidden(r.cfb, !v.cfgbadge[0]);
+}
+
+// T209 D8 (Alex 2026-11-12): the editor row is the boot menu's row as it was before T209 (fcd8abd9a^1), copied, without the logo: the name (F_TEXT), under it the
+// path and the version (F_SMALL), the badges at the right. Same row height (56) and pitch (62) as that row.
+#define EROW_H 56
+#define EROW_P 62
+#define EROW_RESERVE (COMPACT ? 386 : 440)   // as the old row: the room the text lines leave (logo offset 70 included); the text starts at 12 here, the right end is unchanged
+static void build_erow(Row &r, lv_obj_t *par, int x, int y, int w, int h)
+{
+    r.box = box(par, x, y, w, h, C_PANEL, 1, C_LINE);
+    r.w = w;
+    const int tx = 12, room = w - EROW_RESERVE + (70 - tx);
+    r.a = fit1(txt(r.box, tx, 6, "", F_TEXT, C_INK, room), room);
+    r.b = fit1(txt(r.box, tx, 30, "", F_SMALL, C_MUTED, room), room);
+    const int by = 17;
+    r.stb = box(r.box, w - 10 - BADGE_W, by, BADGE_W, 22, C_PANEL2, 1, C_OK);
+    r.stl = fit1(txt(r.stb, 6, 2, "", F_SMALL, C_OK, BADGE_W - 12), BADGE_W - 12);
+    r.defb = box(r.box, w - 10 - BADGE_W - DEF_W - 6, by, DEF_W, 22, C_HOST, 0);
+    r.defl = txt(r.defb, 0, 2, "default", F_SMALL, C_BG, DEF_W);
+    lv_obj_set_style_text_align(r.defl, LV_TEXT_ALIGN_CENTER, 0);
+    r.cfb = box(r.box, w - 10 - BADGE_W - CFG_W - 6, by, CFG_W, 22, C_PANEL2, 1, C_HOST);
+    r.cfl = fit1(txt(r.cfb, 6, 2, "", F_SMALL, C_HOST, CFG_W - 12), CFG_W - 12);
+    marks_build(r.mk, r.box, -1, -1, w, h);          // last: on top of the row's own widgets
+}
+
+// Row i of the editor: the same entries as the menu, the subline is the path and the version (what the pre-T209 menu row said under the name).
+static void fill_erow(Row &r, int i)
+{
+    HcEntryRow v;
+    if (!hc_row_entry(i, true, &v)) {
+        set_hidden(r.box, true);
+        return;
+    }
+    set_hidden(r.box, false);
+    {   // T198: the "N configs" badge takes its room from the two text lines only on a row that shows it
+        const int want = r.w - EROW_RESERVE + (70 - 12) + (v.cfgbadge[0] ? 0 : CFG_W + 12);
         if (want != (int)(intptr_t)lv_obj_get_user_data(r.a)) {
             lv_obj_set_width(r.a, want);
             lv_obj_set_user_data(r.a, (void *)(intptr_t)want);
+            lv_obj_set_width(r.b, want);
+            lv_obj_set_user_data(r.b, (void *)(intptr_t)want);
         }
     }
     set_txt_mid(r.a, v.name);
+    set_txt(r.b, v.sub);
     set_txt(r.stl, v.badge);
     uint32_t col = tone_col(v.badge_tone);
     set_col(r.stl, col);
@@ -889,19 +984,6 @@ static void fill_row(Row &r, int i)
     }
     set_txt(r.cfl, v.cfgbadge);
     set_hidden(r.cfb, !v.cfgbadge[0]);
-}
-
-// The detail line under a list: the note when there is one, else the selected entry's path and version (T209 S4).
-static void row_detail(lv_obj_t *l)
-{
-    HcEntryRow v;
-    if (nv.note[0] || nv.sel < 0 || !hc_row_entry(nv.sel, true, &v)) {
-        set_txt_mid(l, nv.note);
-        set_col(l, note_color());
-        return;
-    }
-    set_txt_mid(l, v.sub);
-    set_col(l, C_MUTED);
 }
 
 // ---- header chips: rebuilt only when their text changed --------------------------------------------------------
@@ -1003,7 +1085,7 @@ static void build_menu(void)
     lv_obj_set_style_text_align(m_pos, LV_TEXT_ALIGN_RIGHT, 0);
     m_hint = txt(p, CX0, 100, HC_NO_CORES_HINT, F_TEXT, C_MUTED);
     for (int i = 0; i < MROWS; i++) {
-        build_row(mrow[i], p, CX0, MENU_ROW0 + i * MROW_P, CW, MROW_H, true);
+        build_mrow(mrow[i], p, CX0, MENU_ROW0 + i * LROW_P, CW, LROW_H);
     }
     m_note = fit1(txt(p, CX0, CH - 74, "", F_SMALL, C_MUTED, CW), CW);
     m_cdbox = box(p, CX0, CH - 44, CW, 32, C_BG, 0);
@@ -1031,12 +1113,13 @@ static void update_menu(void)
     set_txt(m_sub, t.sub);
     set_txt(m_pos, t.pos);
     for (int i = 0; i < MROWS; i++) {
-        fill_row(mrow[i], nv.mfirst + i);
+        fill_mrow(mrow[i], nv.mfirst + i);
         if (nv.mfirst + i < total) {
             row_style(mrow[i], nv.mfirst + i == nv.sel);
         }
     }
-    row_detail(m_note);
+    set_txt(m_note, nv.note);
+    set_col(m_note, note_color());
     if (!hc_cfgov_is_open()) {
         set_foot(foot_label, hc_menu_foot());              // T198 D9: "RIGHT configs" only while the selected row has configs
     }
@@ -1069,7 +1152,7 @@ static void build_edit(void)
     txt(pn, 12, 74 + dy, "Default config", F_SMALL, C_MUTED);
     e_dcfg = fit1(txt(pn, vx, 74 + dy, "", F_SMALL, C_INK, CW - vx - 12), CW - vx - 12);
     for (int i = 0; i < EROWS; i++) {
-        build_row(erow[i], p, CX0, (COMPACT ? 64 : 74) + ED_PN_H + 12 + i * MROW_P, CW, MROW_H, false);
+        build_erow(erow[i], p, CX0, (COMPACT ? 64 : 74) + ED_PN_H + 12 + i * EROW_P, CW, EROW_H);
     }
     e_note = fit1(txt(p, CX0, CH - 26, "", F_SMALL, C_MUTED, CW), CW);
 }
@@ -1085,12 +1168,13 @@ static void update_edit(void)
     set_txt(e_dcfg, t.defcfg);
     set_txt(e_pos, t.pos);
     for (int i = 0; i < EROWS; i++) {
-        fill_row(erow[i], nv.efirst + i);
+        fill_erow(erow[i], nv.efirst + i);
         if (nv.efirst + i < cfg.n) {
             row_style(erow[i], nv.efirst + i == nv.sel);
         }
     }
-    row_detail(e_note);
+    set_txt(e_note, nv.note);
+    set_col(e_note, note_color());
 }
 
 static void build_browse(void)
@@ -1562,10 +1646,11 @@ static void overlay_state_forget(void);             // what the overlay panels r
 static void layout_counts(void)
 {
     hc_rows_set_compact(COMPACT);
-    // T209: one line per row, 2 px apart: the menu holds what fits between the list's top and its detail line, the editor between its panel and its detail line
-    int m = (CH - MENU_ROW0 - 80 + 2) / MROW_P;
-    int e = (CH - 26 - ((COMPACT ? 64 : 74) + ED_PN_H + 12) + 2) / MROW_P;
+    // T209 D8: the editor holds what fits between its panel and its note, at the pitch of the boot menu's old row.
+    // T209 D6: the boot menu keeps its full-size logo (LROW_H high, LROW_P pitch); both canvases hold what fits between the list's top and its detail line - the row count gives, not the logo.
+    int m = (CH - MENU_ROW0 - 80 + 2) / LROW_P;
     mrows_n = m < 1 ? 1 : (m > MROWS_MAX ? MROWS_MAX : m);
+    int e = (CH - 26 - ((COMPACT ? 64 : 74) + ED_PN_H + 12) + 6) / EROW_P;
     erows_n = e < 1 ? 1 : (e > MROWS_MAX ? MROWS_MAX : e);
     if (!COMPACT) {
         brows_n = 13;
@@ -3311,7 +3396,9 @@ static void apply_updates(void)
             const int cnt = nv.view == V_MENU ? MROWS : EROWS;
             if (o >= 0 && o < cnt) row_style(rows[o], false);
             if (n >= 0 && n < cnt) row_style(rows[n], true);
-            row_detail(nv.view == V_MENU ? m_note : e_note);      // T209: the selected entry's path and version
+            lv_obj_t *nl = nv.view == V_MENU ? m_note : e_note;
+            set_txt(nl, nv.note);
+            set_col(nl, note_color());
             if (nv.view == V_MENU && !hc_cfgov_is_open()) {
                 set_foot(foot_label, hc_menu_foot());       // T198 D9: the hint follows the selected row
             }
@@ -4392,10 +4479,13 @@ int hostui_test_dump(char *out, int max)
         }
         int b = lv_obj_get_y(rows[r].box) + lv_obj_get_height(rows[r].box);
         if (b > bottom) bottom = b;
-        HcEntryRow v;                                   // T209: the rows draw no icon and no path; the path and version (v.sub) are the detail line of the selected row
-        const char *sub = hc_row_entry(first + r, true, &v) ? v.sub : "";
-        n += snprintf(out + n, max - n, "row %d|%s|%s|%s|%s|%s|tag\n", first + r, lv_label_get_text(rows[r].a), sub, lv_label_get_text(rows[r].stl),
-                      lv_obj_has_flag(rows[r].defb, LV_OBJ_FLAG_HIDDEN) ? "" : "default", first + r == nv.sel ? "SEL" : "");
+        char ic[24] = "tag";                            // the menu's rows carry the logo (T209 D6), the editor's rows none
+        const char *sub = lv_label_get_text(rows[r].b);   // the menu: the version; the editor: the path and the version
+        if (nv.view != V_EDIT && !lv_obj_has_flag(rows[r].img, LV_OBJ_FLAG_HIDDEN)) {
+            snprintf(ic, sizeof(ic), "img %04x", rows[r].dsc.data ? ((const uint16_t *)rows[r].dsc.data)[0] : 0);
+        }
+        n += snprintf(out + n, max - n, "row %d|%s|%s|%s|%s|%s|%s\n", first + r, lv_label_get_text(rows[r].a), sub, lv_label_get_text(rows[r].stl),
+                      lv_obj_has_flag(rows[r].defb, LV_OBJ_FLAG_HIDDEN) ? "" : "default", first + r == nv.sel ? "SEL" : "", ic);
         if (!lv_obj_has_flag(rows[r].cfb, LV_OBJ_FLAG_HIDDEN)) {           // T198 D15: the "N configs" badge as drawn, a line of its own (the row line above is matched by prefix)
             n += snprintf(out + n, max - n, "cfgbadge %d|%s\n", first + r, lv_label_get_text(rows[r].cfl));
         }

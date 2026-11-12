@@ -43,7 +43,7 @@ enum HcCtx {
     X(NONE, "") \
     X(NAV_MENU, "nav.menu") X(NAV_BROWSE, "nav.browse") X(NAV_EDIT, "nav.edit") X(NAV_NET, "nav.net") X(NAV_SETTINGS, "nav.settings") \
     X(PICTURE_STEP, "picture.step") X(PICTURE_KEEP, "picture.keep") X(PICTURE_REVERT, "picture.revert") X(PM_APPLY, "picture.apply") \
-    X(CURSOR_UP, "cursor.up") X(CURSOR_DOWN, "cursor.down") X(BACK, "back") \
+    X(CURSOR_UP, "cursor.up") X(CURSOR_DOWN, "cursor.down") X(MENU_PAGE_DOWN, "menu.page_down") X(MENU_PAGE_UP, "menu.page_up") X(BACK, "back") \
     X(ENTRY_START, "entry.start") X(ENTRY_RECHECK, "entry.recheck") X(ENTRY_MOVE_UP, "entry.move_up") X(ENTRY_MOVE_DOWN, "entry.move_down") \
     X(ENTRY_DEFAULT, "entry.default") X(ENTRY_REMOVE, "entry.remove") X(ENTRY_RENAME, "entry.rename") X(ENTRY_DEFCFG_PREV, "entry.config_prev") X(ENTRY_DEFCFG_NEXT, "entry.config_next") \
     X(BROWSE_OPEN, "browse.open") X(BROWSE_ENTER, "browse.enter") X(BROWSE_UP, "browse.up") X(BROWSE_PAGE_DOWN, "browse.page_down") X(BROWSE_PAGE_UP, "browse.page_up") \

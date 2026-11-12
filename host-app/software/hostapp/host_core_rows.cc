@@ -140,6 +140,10 @@ bool hc_row_entry(int i, bool menu_style, HcEntryRow *r)
         }
         r->tile[k] = 0;
     }
+    snprintf(r->ver, sizeof(r->ver), "%s", full && ok ? "full firmware" : "");
+    if (!full && ver[0]) {
+        snprintf(r->ver, sizeof(r->ver), "v%s", ver);
+    }
     if (menu_style && full && ok) {
         snprintf(r->sub, sizeof(r->sub), "%s  full firmware", cfg.e[i].path);
     } else if (menu_style && ver[0]) {
@@ -298,7 +302,16 @@ const char *hc_menu_foot(void)
 {
     const HcNav &v = hc_nav();
     const bool has = v.sel >= 0 && v.sel < hc_cfg().n && hc_cfgov_count(hc_cfg().e[v.sel].path) > 0;
-    return hc_foot(has ? HCF_MENU : HCF_MENU_PLAIN);
+    const char *base = hc_foot(has ? HCF_MENU : HCF_MENU_PLAIN);
+    if (hc_cfg().n <= hc_nav_menu_rows()) {
+        return base;
+    }
+    static char buf[320];                                     // T209 D7: a menu longer than its window names its paging keys
+    char dn[16], up[16];
+    hc_key_name(HCX_MENU, HCA_MENU_PAGE_DOWN, dn, sizeof(dn));
+    hc_key_name(HCX_MENU, HCA_MENU_PAGE_UP, up, sizeof(up));
+    snprintf(buf, sizeof(buf), "%s    %s/%s PAGE", base, dn, up);
+    return buf;
 }
 
 static const char *browse_foot_base(void)

@@ -473,7 +473,7 @@ RISC-V (builder, `u64-build-env:ci`, CI cache mounted, `ci/trxapps.sh` on the co
 
 ### Issue #69: fire held, countdown still ran (2026-11-10)
 
-Report (OldMan2525, main-2bd67963, C64U): power on with joystick 1 fire held, the menu comes up, then the default auto-loads, keys do not stop it.
+Report (a tester, main-2bd67963, C64U): power on with joystick 1 fire held, the menu comes up, then the default auto-loads, keys do not stop it.
 Cause: `directboot_decide` answered `DB_NOCFG` before it looked at the keys; when boot.cfg was not readable within the decision (flash disk
 mounted late), the held fire/C= was ignored, the countdown was not stopped (`DB_NOCFG` keeps it) and ran once boot.cfg was read later.
 Fix: a held C= or fire wins over `DB_NOCFG` (`directboot.cc`), so the countdown is given up like in S2/S3. Unit table in `test_directboot.cc`.
