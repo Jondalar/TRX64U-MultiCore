@@ -92,6 +92,7 @@ Built and benched; what is left is a step on the board (Alex, 2026-10-28, transl
 | T211 | 2 | 📅 | Host UI: own key names, F keys as navigation (no PAGEUP=F1 aliasing) | Alex 11-12 | [T211](docs/specs/T211-own-key-names.md) |
 | T212 | 2 | 📅 | Core app areas: F1 quick actions, F5 machine, F7 app settings (host value as default), status to F8 | Alex 11-12 | [T212](docs/specs/T212-core-menu-areas.md) |
 | T213 | 2 | 📅 | Epic: bitstream API (a) - API TOML per core, C modules in the service, child spec per core | Alex 11-12 | [T213](docs/specs/T213-bitstream-api.md) |
+| T215 | 2 | 🔨 | CI keys and the plan hash code only: a comment moves no key and starts no build | Spec PROPOSED (Alex 11-12); t215-code-hash, not merged; image + key_alias step open | [T215](docs/specs/T215-ci-hash-code-only.md) |
 | T175 | 3 | 🔨 | Diag core: a timed probe engine plus TOML tests measure the joystick/paddle ports, results to SD | Gateware + core app merged (t175-diag); Vivado run + engine/board steps open | [T175](docs/todo/T175.md) |
 | T176 | 3 | 📅 | Core menus on the screen at once from a saved picture (split out of T146 P5, issue #4) | Deferred (Alex 11-02): split out of T146 P5; not started | [T176](docs/todo/T176.md) |
 | T177 | 3 | 📅 | Recovery boot: a key held at power-on starts a recovery image, even with a black host menu | Spec PROPOSED (Alex 11-02); Decided (Alex 11-02): app, RESTORE+F1, recovery.cor/backup, no flash, LED; build open | [T177](docs/todo/T177.md) |

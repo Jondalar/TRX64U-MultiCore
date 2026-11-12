@@ -4,7 +4,7 @@
 **Repo:** TRX64U-MultiCore — host app (`host-app/software/hostapp/`: boot menu rows, `host_core*`, `hostdecl.cc`, `handover.{h,cc}`,
 `coreboot.cc`), core app (`coreapp/src/`: `mediamounts.cc`, `menutree.cc`, `menuctl.cc`, `settings.*`), mock-up `docs/mockups/T198-config-overlay.html`.
 **Number:** T198 (registry: `TODO.md`).
-**Origin:** GitHub issue #58 "Per core configurations" (Alex's own proposal, dabbler77: "a quick way to launch a pre-defined config on a
+**Origin:** GitHub issue #58 "Per core configurations" (Alex's own proposal, a tester: "a quick way to launch a pre-defined config on a
 sub menu of a core"); Alex, 2026-11-10 (D1).
 **Depends on:** T180 D5 (media sets, built), T148 (core folder and `.cfg`), T135 (direct boot, hand-over page), T192.1/T192.2 (intents; the host
 UI is a client of `host_core`). Nothing is blocked.

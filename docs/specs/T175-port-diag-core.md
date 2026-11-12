@@ -3,7 +3,7 @@
 **Status:** SPECIFIED (all §6 questions answered 2026-11-02); was PROPOSED (2026-11-02).
 **Repo:** TRX64U-MultiCore — a LARGE core `cores/diag/` (own flat bitstream, own top in `cores/diag/mono/`, host copy per T164), its core app descriptor in `coreapp/cores/portdiag.cc` (the host's `coreapp/src/diag.cc` is taken), test files in `cores/diag/sd/tests/*.toml`.
 **Number:** T175 (TODO.md table).
-**Origin:** Alex, 2026-11-02, after GitHub issue 22 (Elrondo46: second/third fire button and the Amiga CD32 pad in the A1200): "Could one check the ports programmatically? A kind of diag core? 'Plug in a paddle', 'plug in a CD32 pad', and then the program measures things and writes out a file? That would then be usable for development later." Then: "a large-core measuring part would be good. Must the measurement be in the core or could one put the measurements in toml for the app to load?" Then, on the split below: "Spec that. The UI must then load measurements from the file system (.toml) and save [results]. WiFi, FTP etc. on in this core."
+**Origin:** Alex, 2026-11-02, after GitHub issue 22 (a tester: second/third fire button and the Amiga CD32 pad in the A1200): "Could one check the ports programmatically? A kind of diag core? 'Plug in a paddle', 'plug in a CD32 pad', and then the program measures things and writes out a file? That would then be usable for development later." Then: "a large-core measuring part would be good. Must the measurement be in the core or could one put the measurements in toml for the app to load?" Then, on the split below: "Spec that. The UI must then load measurements from the file system (.toml) and save [results]. WiFi, FTP etc. on in this core."
 **Depends on:** T164 (host copy with network, `cores/*/mono/host/`), T104 (generic core app), T112/T148 (core folder on `/SD/cores/<id>/`). T47 §4.6 for the paddle hypothesis.
 **Milestone:** M3.
 
@@ -240,7 +240,7 @@ Entries the app half needed (done in the merge branch t175-diag): `tools/build_c
 3. Should the diag core also boot the screen with the live pin state (all 10 pins and 4 CMP bits updating) as its idle page, so you can see a button work before any test?
    **Answered (Alex, 2026-11-02): "Yes."** The idle page is the live state of the 10 port pins and the 4 comparator bits.
 4. Which ports hardware do you have for S4-S6 beyond the Competition Pro (paddles, a CD32 pad, a 1351)?
-   **Answered (Alex, 2026-11-02): "Only joysticks."** Alex proves the pin, drive and 2-button tests on his board; paddle, CD32 and mouse tests ship as `.toml` files for testers who own the hardware (e.g. Elrondo46, issue 22) and come back as result files.
+   **Answered (Alex, 2026-11-02): "Only joysticks."** Alex proves the pin, drive and 2-button tests on his board; paddle, CD32 and mouse tests ship as `.toml` files for testers who own the hardware (e.g. a tester, issue 22) and come back as result files.
 5. Core id and menu name: `diag` / "Port Diagnostics", experimental first?
    **Answered (Alex, 2026-11-02): "Yes."** Id `diag`, menu name "Port Diagnostics", `experimental = true` first.
 6. Does the core need the C64 at all (the ports are the C64U's, but the 6510 side idle), or is it a bare "no machine" core with the host menu only?

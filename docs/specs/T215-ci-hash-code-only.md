@@ -1,0 +1,54 @@
+# T215 — A comment never moves a CI key or triggers a build: plan and cache keys hash code only
+
+**Status:** PROPOSED (2026-11-12), implemented on branch `t215-code-hash`, not merged.
+**Repo:** TRX64U-MultiCore — CI (`ci/plan.py`, `ci/lib.sh`, new `ci/code_hash.py`).
+**Number:** T215.
+**Origin:** Alex, 2026-11-12: "A comment should trigger NO build at all." / "Yes. The hash should only concern code. Always. It simply cannot be that a comment triggers everything." (translated). A comment-only fix in the 13 `cores/*/mono/host/top.v` copies would have started Vivado for 13 cores.
+**Depends on:** T174 (plan/keys), T100 D2.1 (documentation triggers nothing).
+**Milestone:** M2.
+
+---
+
+## §1 The problem
+
+- **Who:** the CI. `ci/plan.py` names targets from `git diff --name-only` of source pathspecs; `ci/lib.sh` keys the cache (`tree_key`, `files_key`) over the git blob hashes of the same files. Both see raw bytes.
+- **Today:** any byte in a `.v`/`.vhd`/`.c`/`.tcl`... file, a comment included, names the target and moves its key, so Vivado runs for a comment.
+- **Parts:** P1 the "changed" decision of the plan; P2 the content keys of the cache; P3 the two must not drift; P4 moving the keys must not invalidate the cache (hours of Vivado); P5 tool availability on the runners.
+
+## §2 Scenarios
+
+| # | Scenario | Proof |
+|---|---|---|
+| a | Comment-only change in a `.v/.sv/.vh/.vhd` file: the plan schedules no vivado/cor child, the keys are unchanged | `ci/test_code_hash.py` (a); plan.py on a constructed base/head pair (comment added to two `top.v` copies: large cores none) ; `files_key` equal before/after a comment edit of `top.v` |
+| b | A real code change in the same file: scheduled, key changes | `ci/test_code_hash.py` (b); same pair with an operator changed: `large cores: amiga c128` |
+| c | Same for app sources `.c/.cc/.h/.cpp` | `ci/test_code_hash.py` (c) |
+| d | `#` comments in Tcl/XDC/sh/py/toml | `ci/test_code_hash.py` (d) |
+| e | A comment marker inside a string literal is not a comment (`"http://..."` in C, `--` in a VHDL string, `#` in a shell/py/toml string) | `ci/test_code_hash.py` (e) |
+| f | Negative control: a stripper that mis-classifies code as comment is caught | `ci/test_code_hash.py` (f): a regex stripper without string knowledge equates the (e) pairs, so the (e) checks would fail on it; every single-character mutation of a code line changes the hash. The tree-sitter lexer itself does this inside parse errors (`"a//b"` lexed as a comment), which is why D2 has the error rule below |
+| g | Migration: after `ci/key_alias.sh` the entries of the old keys answer to the new keys, nothing is rebuilt | `ci/key_alias.sh` run on the tree against a fake cache dir: old `mono-nes-<raw>` copied to `mono-nes-<norm>` |
+| h | `CODE_HASH=raw` reproduces the old keys bit for bit | old `lib.sh` and new `lib.sh` with `CODE_HASH=raw`: `tree_key` and `files_key` equal |
+
+## §3 Decision
+
+**D1 (Alex 2026-11-12, translated): "Yes. The hash should only concern code. Always. It simply cannot be that a comment triggers everything."** One normaliser, `ci/code_hash.py`; `ci/plan.py` (`code_differs`, used by `changed_in`: a file counts as changed only if its normalised content differs between base and head, an added or deleted file always counts) and `ci/lib.sh` (`tree_key` pipes `git ls-files -s` through `code_hash.py index`, the vendor/gideon files through `code_hash.py sha256`, `files_key` through `code_hash.py hash-paths`) both call it, so they cannot drift. Normalising: comments cut out, trailing blanks and blank lines dropped, indentation untouched; a file of an unknown type (`.txt`, `.md`, layers files, pdf, binaries...) is hashed raw. `--no-renames` on the diff so a renamed file is a deletion plus an addition.
+
+**D2 (Alex 2026-11-12, after asking whether tools exist: "Then let's build that in", translated): tree-sitter, not hand-written stripping.** Python `tree-sitter` 0.26.1 + `tree-sitter-language-pack` 1.25.0 (`ci/codehash-requirements.txt`; exact pins, because they decide the hash). Grammars: verilog (`.v .sv .vh .svh`), vhdl, c (`.c`), cpp (`.cc .cpp .h .hpp ...`), python, tcl (`.tcl .xdc .sdc`), bash, toml; every node whose type contains `comment` is cut (a shebang stays). Tcl, bash and toml are in the pack, so there is no hand-written `#` stripper. Findings that shaped the rule on parse errors (measured on this tree):
+- The Verilog grammar has errors on real code (concatenation after `<=`, `top.v` among them): 17 of 1097 `.v`, 25 of 152 `.sv` fall under the rule below; the Tcl grammar errors on 44 of 62 `.tcl`; bash on 6 of 340.
+- Inside an error the lexer takes `"a//b"` for a comment (verified: `$display("a//b", x);` outside a module loses everything after `a`). So a tree with errors is **not** trusted blindly: (1) Tcl, bash, python, toml with errors are hashed raw and logged (`code_hash: <file>: parse errors, hashed raw` on stderr); (2) C-like languages with errors are accepted only if no cut comment starts inside a string (an independent line scan; strings of these languages end with their line), else raw + log; (3) for every file the text without comments must parse to the same sequence of non-comment tokens as the original, else raw + log. Consequence: a comment-only edit in a Tcl file whose grammar errors still triggers; that is the price of never dropping code. (A rule "any parse error: raw" was tried first by the brief; it would have left `top.v` itself raw and the trigger case unsolved.)
+- Install: the plan runs in `trx64-sim-env` (`ci/sim/Dockerfile` now pip-installs the two pins and pre-downloads the grammars; **the image needs a rebuild and a tag bump, not done here**). The vivado/package children run in `vivado-env:2024.1` (a very large image, not touched) and the `u64-build-env` children: they take the pinned install from the builder's cache, `ci/install_codehash.sh` (default `/cache/multicore/pylibs`, on the path of `code_hash.py` as `CODE_HASH_LIBS`; grammars in `<dir>/grammars` via `TREE_SITTER_LANGUAGE_PACK_CACHE_DIR`). A missing install is an error (exit 2), never a silent raw hash, because that would move the keys differently on different machines. An upgrade of either pin changes the normalised text of some files and so every key: run `ci/key_alias.sh` with the old pins' keys (`CODE_HASH=raw` no longer applies to a pin change; do the upgrade in a branch whose first commit only bumps the pins and run the alias step against the previous install) - decide that with Alex when it happens.
+- Cost: normalising the whole tree takes about 16 s (two parses per file, ~3000 source files); a key over a core's sources is a fraction of that. No memo yet.
+
+**D3 Migration without a rebuild (P4).** Changing the key function moves every key, so the cache would miss everywhere. `ci/key_alias.sh` (run once on the builder in the T215 checkout, before its first push, cache mounted) computes for the current tree every entry name with `CODE_HASH=raw` (identical to the old function, scenario h) and with the new function (`host-<H>`, `aux-<K>`, `core-<id>-<C>`, `mono-<id>-<K>`; core keys chain through the host key, so both chains are computed whole), and copies the old entry to the new name where only the old exists. Nothing is built or deleted; re-running is harmless. Valid only if the checkout's gateware content equals the last green build's; entries that do not exist build as before. Not migrated: apptests/render/sims/trxapps result caches (cheap, re-run once).
+
+**D4 App version string.** `gitinfo.h` derives from the commit (T174 D2). A comment-only commit builds nothing new (no key moved, the cached app stays), so the version shown stays the one of the cached build; it is not hacked around. A commit that changes code builds from its own commit as before.
+
+## §4 Out
+
+- No memo/cache of normalised hashes; no new CI stage; test caches are not migrated.
+- Languages without a pack grammar in use (Makefiles, `.txt` layers/targets lists, `.md` already inert, JSON, assembly) stay raw.
+- Tcl comments whose file the grammar cannot parse stay triggers (D2).
+
+## §5 Decisions taken while building
+
+- Error rule of D2 chosen from the measured lexer behaviour above instead of "error: raw", after Alex's brief stated the latter; flagged in the hand-over.
+- `.h` is parsed as C++ (a superset; `tree-sitter-c` made 276 of 477 headers fail).
