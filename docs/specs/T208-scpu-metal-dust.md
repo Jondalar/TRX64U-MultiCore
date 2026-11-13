@@ -1,6 +1,6 @@
 # T208 — Metal Dust runs on the C64SCPU core without picture faults
 
-**Status:** BUILT in simulation (2026-11-11): S1-S3 and S5 proven in sim (review fixes of the same day included); S4 (board) is open and Alex's.
+**Status:** BUILT in simulation (2026-11-11): S1-S3 and S5 proven in sim (review fixes of the same day included); S4 (board) is open and Alex's. Corrected 2026-11-13 (status check): sims S1-S3 and S5 pass, merged to main (2d1458ef2); S4 board FAIL 2026-11-12 (Alex: flicker remains with the prefetch), cause open; branches t208-smc (benches, no bug found) and t208-trace (debug core, never merge) are not in main.
 **Repo:** TRX64U-MultiCore — `cores/c64scpu/` (scpu_mem.v mirror queue, cpu65816 IRQ, c64scpu_ramd.v).
 **Number:** T208.
 **Origin:** Alex, 2026-11-11 (board, CMD ROM 1.4 + JiffyDOS): Metal Dust starts; still pictures fine; while it scrolls the asteroid sprites are cut and

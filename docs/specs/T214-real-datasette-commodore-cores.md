@@ -1,6 +1,6 @@
 # T214 — A real datasette works in every Commodore core that has a C2N port (C128, SuperCPU, VC-20, C16/Plus4), as it does on the PET
 
-**Status:** PROPOSED (2026-11-12).
+**Status:** PROPOSED (2026-11-12). Corrected 2026-11-13 (status check): BUILT, merged to main (fc77f0d8b, run 871 green); S4 board LOAD per core open; C16/Plus4 motor polarity not measured.
 **Repo:** TRX64U-MultiCore — cores (`c128`, `c64scpu`, `vc20`, `c264` gateware), the core app (`coreapp/cores/*`), comments in `pet` and `c64u`.
 **Number:** T214.
 **Origin:** Alex, 2026-11-12, after the PET result (GitHub #26): "nobody needs to do that any more if it already works with the PET. Same device." / "Then fix the comment. Build the cores that way." (translated)

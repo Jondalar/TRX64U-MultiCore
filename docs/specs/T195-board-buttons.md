@@ -1,6 +1,6 @@
 # T195 — The board's three buttons (UI_BUTTON[2:0], the header for a case button) work in the host and every core
 
-**Status:** BUILT, merged to main 2026-11-09 (CI of the main run, board proof by testers with a header button, S4).
+**Status:** BUILT, merged to main 2026-11-09 (CI of the main run, board proof by testers with a header button, S4). Corrected 2026-11-13 (status check): BUILT, merged to main; S1 bench pass, S2 rests on code reading (no unit test), S3 Vivado line not recorded, S4 board (header button) open.
 **Repo:** TRX64U-MultiCore — host gateware (`host/top.v`, an approved host change: `contract/host_pin.txt` is updated), every large
 core's own `top.v` copy, the host app and the core app (what a press does).
 **Number:** T195.

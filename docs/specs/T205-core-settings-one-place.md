@@ -1,6 +1,6 @@
 # T205 — Every core has its settings in one place: F5 (core settings first, then Video, Audio, Input)
 
-**Status:** PROPOSED (2026-11-11).
+**Status:** PROPOSED (2026-11-11). Corrected 2026-11-13 (status check): BUILT, merged to main (00bc8d41e); ux-review PASS on emulator pictures; S6 board open.
 **Repo:** TRX64U-MultiCore — the generic core app (`coreapp/src/menutree.*`, the area/tab tables), so every core (T192.3 D31: the menu is in every core).
 **Number:** T205.
 **Origin:** Alex, 2026-11-11, at the board in the VC-20 core (photos of F5, F6, F8), translated: "what kind of UX mess is that? 3 times settings ...

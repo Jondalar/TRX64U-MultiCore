@@ -1,6 +1,6 @@
 # T191 — The Amiga cores can have a battery-backed clock at $DC0000 whose time the board sets
 
-**Status:** DECIDED (2026-11-06).
+**Status:** DECIDED (2026-11-06). Corrected 2026-11-13 (status check): BUILT, merged to main (f326c0a44); S8 board PASS 2026-11-08 (A1200 date, 6994e6482); S7 has only the yosys figure (248 LUT, 97 FF), no Vivado per-module line.
 **Repo:** TRX64U-MultiCore — gateware in `cores/amiga` (shared with the A1200 copy in `cores/amiga1200/rtl`), the core app in `coreapp/cores/amiga.cc`.
 **Number:** T191 (registry: `TODO.md`).
 **Origin:** GitHub issue #52 (a tester, Amiga Test Kit v1.21 reports "No Clock Detected"). Alex (2026-11-06, translated): "write the spec, set the TODO, start".
