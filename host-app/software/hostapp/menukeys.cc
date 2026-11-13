@@ -1,6 +1,7 @@
 #include "menukeys.h"
 #include "u64.h"
 #include "u2p.h"
+#include "startfile.h"
 
 // keyboard_c64.cc: the joystick port the matrix line reads (0 = port 2, 1 = port 1). Writing U64II_KEYB_JOY selects the port, reading it returns the joystick.
 extern uint8_t keyb_joy_select;
@@ -38,6 +39,7 @@ void menukeys_sample(void)
     if (!(r & 0x20)) {
         latch_cbm = true;
     }
+    startrec_key(j, r);
     U64II_KEYB_COL = 0xFF;
     BLING_RX_FLAGS = 0x00;
     MATRIX_WASD_TO_JOY = wasd_to_joy;

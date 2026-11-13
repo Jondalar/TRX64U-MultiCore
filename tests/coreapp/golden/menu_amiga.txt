@@ -7,22 +7,21 @@ area F1 Home
     info Media
     info ROMs
     info Libraries
-area F3 Library
-  tab 1 Browse
-    browser Browse
-      filetype .adf: Mount DF0 | Mount DF1 | Mount DF2 | Mount DF3
-      filetype .hdf: Mount HD0 | Mount HD1
-area F5 AMIGA
-  tab 1 Summary
     media DF0
     media DF1
     media DF2
     media DF3
     media HD0
     media HD1
-    fixed Save media set...
-    fixed Load media set...
-  tab 2 Settings
+    fixed Save as config...
+    fixed Load config...
+area F3 Library
+  tab 1 Browse
+    browser Browse
+      filetype .adf: Mount DF0 | Mount DF0 and reset | Mount DF1 | Mount DF2 | Mount DF3
+      filetype .hdf: Mount HD0 | Mount HD1
+area F5 AMIGA
+  tab 1 AMIGA
     setting Kickstart file = Auto (1.3 first) | - | - | - | - | - | - | - | - (default Auto (1.3 first), at next reset)
     setting Chip RAM = 512K | 1M | 1.5M | 2M (default 512K, at next reset)
     setting Slow RAM = None | 512K | 1M | 1.5M (default 512K, at next reset)
@@ -33,6 +32,7 @@ area F5 AMIGA
     setting Real-time clock = Off | On (default Off, at next reset)
     setting Joystick ports = Normal | Swapped (default Normal, live)
     setting LED Load Indicator = On | Off (default On, live)
+  tab 2 Input
     setting Mouse sensitivity = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 (default 8, live)
     setting Mouse acceleration = Off | Adaptive (default Off, live)
 area F7 Actions
@@ -49,9 +49,13 @@ area F7 Actions
     task Mount folder as HD0 (asks a name)
     task Mount folder as HD1 (asks a name)
 area F8 System (shifted)
-  tab 1 Expert
-    fixed Reset to host defaults
+  tab 1 System
+    heading Actions
     fixed Restart core
-    fixed Bug report
-    fixed WiFi
     fixed Return to host menu
+    heading Network
+    fixed WiFi
+    heading Support
+    fixed Bug report
+    heading Reset
+    fixed Reset to host defaults

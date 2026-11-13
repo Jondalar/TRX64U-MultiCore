@@ -4,6 +4,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <strings.h>
+#include "configlist.h"
 
 // ---- the intents' names ------------------------------------------------------------------------------------------------------------------
 static const char *const ACT_NAME[] = {
@@ -39,12 +40,16 @@ static const HcKey KEYMAP[] = {
     LET(HCX_GLOBAL, 'v', PICTURE_STEP),
     // the old web page's commands (T106): intents no key reaches; the service queues them from the page's form (web.start / default: the row is focused first; video / countdown: the argument is hc_ui_web_arg)
     K(HCX_GLOBAL, HC_KEY_NONE, WEB_START), K(HCX_GLOBAL, HC_KEY_NONE - 1, WEB_DEFAULT), K(HCX_GLOBAL, HC_KEY_NONE - 2, WEB_VIDEO), K(HCX_GLOBAL, HC_KEY_NONE - 3, WEB_COUNTDOWN),
-    // a picture change waits: V steps on, any other key keeps it (and is spent on that)
-    LET(HCX_PICTURE, 'v', PICTURE_STEP), K(HCX_PICTURE, HC_KEY_ANY, PICTURE_KEEP),
+    // a picture change waits: LEFT / ESC goes back at once (T187 D5, Q-D5.2), any other key keeps it (and is spent on that)
+    K(HCX_PICTURE, KEY_LEFT, PICTURE_REVERT), K(HCX_PICTURE, KEY_ESCAPE, PICTURE_REVERT), K(HCX_PICTURE, KEY_BREAK, PICTURE_REVERT), K(HCX_PICTURE, HC_KEY_ANY, PICTURE_KEEP),
     // F1
     K(HCX_MENU, KEY_UP, CURSOR_UP), K(HCX_MENU, KEY_DOWN, CURSOR_DOWN), K(HCX_MENU, KEY_RETURN, ENTRY_START), LET(HCX_MENU, 'r', ENTRY_RECHECK),
+    K(HCX_MENU, KEY_RIGHT, CONFIG_LIST),
+    // the config overlay (T198): UP/DOWN pick, RETURN start, LEFT/ESC close, D default, R rename, DEL delete (twice)
+    K(HCX_CFG, KEY_UP, CURSOR_UP), K(HCX_CFG, KEY_DOWN, CURSOR_DOWN), K(HCX_CFG, KEY_RETURN, CONFIG_START), K(HCX_CFG, KEY_LEFT, BACK), K(HCX_CFG, KEY_ESCAPE, BACK),
+    K(HCX_CFG, KEY_BREAK, BACK), LET(HCX_CFG, 'd', CONFIG_DEFAULT), LET(HCX_CFG, 'r', CONFIG_RENAME), K(HCX_CFG, KEY_DELETE, CONFIG_DELETE), K(HCX_CFG, KEY_BACK, CONFIG_DELETE),
     // F3
-    K(HCX_BROWSE, KEY_UP, CURSOR_UP), K(HCX_BROWSE, KEY_DOWN, CURSOR_DOWN), K(HCX_BROWSE, '+', BROWSE_PAGE_DOWN), K(HCX_BROWSE, '-', BROWSE_PAGE_UP),
+    K(HCX_BROWSE, KEY_RIGHT, CONFIG_LIST), K(HCX_BROWSE, KEY_UP, CURSOR_UP), K(HCX_BROWSE, KEY_DOWN, CURSOR_DOWN), K(HCX_BROWSE, '+', BROWSE_PAGE_DOWN), K(HCX_BROWSE, '-', BROWSE_PAGE_UP),
     K(HCX_BROWSE, KEY_LEFT, BROWSE_UP), K(HCX_BROWSE, KEY_RETURN, BROWSE_OPEN), K(HCX_BROWSE, KEY_DELETE, BROWSE_DELETE), K(HCX_BROWSE, KEY_BACK, BROWSE_DELETE),
     LET(HCX_BROWSE, 'c', BROWSE_COPY), LET(HCX_BROWSE, 'm', BROWSE_MOVE), LET(HCX_BROWSE, 'a', BROWSE_ADD), LET(HCX_BROWSE, 'p', BROWSE_CONVERT),
     LET(HCX_BROWSE, 'r', BROWSE_RESTORE), LET(HCX_BROWSE, 'u', BROWSE_UPDATE), LET(HCX_BROWSE, 'f', BROWSE_FORMAT), LET(HCX_BROWSE, 'z', BROWSE_UNZIP), LET(HCX_BROWSE, 's', BROWSE_START),
@@ -60,7 +65,7 @@ static const HcKey KEYMAP[] = {
     K(HCX_BROWSE_ASK, KEY_RETURN, BROWSE_REPLACE), K(HCX_BROWSE_ASK, HC_KEY_ANY, BROWSE_REPLACE_CANCEL),
     // F5
     K(HCX_EDIT, KEY_UP, CURSOR_UP), K(HCX_EDIT, KEY_DOWN, CURSOR_DOWN), K(HCX_EDIT, '+', ENTRY_MOVE_UP), K(HCX_EDIT, '=', ENTRY_MOVE_UP), K(HCX_EDIT, '-', ENTRY_MOVE_DOWN),
-    LET(HCX_EDIT, 'd', ENTRY_DEFAULT), K(HCX_EDIT, KEY_DELETE, ENTRY_REMOVE), K(HCX_EDIT, KEY_BACK, ENTRY_REMOVE), LET(HCX_EDIT, 'c', ENTRY_RENAME),
+    LET(HCX_EDIT, 'd', ENTRY_DEFAULT), K(HCX_EDIT, KEY_DELETE, ENTRY_REMOVE), K(HCX_EDIT, KEY_BACK, ENTRY_REMOVE), LET(HCX_EDIT, 'c', ENTRY_RENAME), K(HCX_EDIT, KEY_LEFT, ENTRY_DEFCFG_PREV), K(HCX_EDIT, KEY_RIGHT, ENTRY_DEFCFG_NEXT),
     // F8
     K(HCX_SET, KEY_UP, CURSOR_UP), K(HCX_SET, KEY_DOWN, CURSOR_DOWN), K(HCX_SET, KEY_LEFT, SET_DEC), K(HCX_SET, KEY_RIGHT, SET_INC), K(HCX_SET, KEY_RETURN, SET_ACTIVATE),
     K(HCX_SET, KEY_SPACE, SET_INC),
@@ -68,6 +73,9 @@ static const HcKey KEYMAP[] = {
     K(HCX_WIFI, KEY_ESCAPE, BACK), K(HCX_WIFI, KEY_BREAK, BACK), K(HCX_WIFI, KEY_UP, CURSOR_UP), K(HCX_WIFI, KEY_DOWN, CURSOR_DOWN),
     K(HCX_WIFI, KEY_LEFT, WIFI_DEC), K(HCX_WIFI, KEY_RIGHT, WIFI_INC), K(HCX_WIFI, KEY_RETURN, WIFI_ACTIVATE), K(HCX_WIFI, KEY_SPACE, WIFI_INC),
     LET(HCX_WIFI, 's', WIFI_SCAN), LET(HCX_WIFI, 'm', WIFI_MANUAL), LET(HCX_WIFI, 'l', WIFI_LAST), LET(HCX_WIFI, 'd', WIFI_DISCONNECT), LET(HCX_WIFI, 'f', WIFI_FORGET),
+    // F8, the Picture page (T187 D5): browsing applies nothing, RETURN uses the mode under the cursor
+    K(HCX_PICMODES, KEY_UP, CURSOR_UP), K(HCX_PICMODES, KEY_DOWN, CURSOR_DOWN), K(HCX_PICMODES, KEY_RETURN, PM_APPLY), K(HCX_PICMODES, KEY_SPACE, PM_APPLY),
+    K(HCX_PICMODES, KEY_LEFT, BACK), K(HCX_PICMODES, KEY_ESCAPE, BACK), K(HCX_PICMODES, KEY_BREAK, BACK),
     // F8, Cores and ROMs: the list, then the two questions (Y is yes; RETURN and every other key is no)
     K(HCX_CORES, KEY_UP, CURSOR_UP), K(HCX_CORES, KEY_DOWN, CURSOR_DOWN), K(HCX_CORES, KEY_ESCAPE, BACK), K(HCX_CORES, KEY_BREAK, BACK), K(HCX_CORES, KEY_LEFT, BACK),
     K(HCX_CORES, KEY_DELETE, CORES_DELETE), K(HCX_CORES, KEY_BACK, CORES_DELETE),
@@ -185,8 +193,11 @@ struct Foot {
 #define SEL S2("%/% select", CURSOR_UP, CURSOR_DOWN)
 #define PIC S1("% picture", PICTURE_STEP)
 
-static const Seg F_MENU[] = { SEL, S1("% start", ENTRY_START), S1("% check entry", ENTRY_RECHECK), PIC, SX("any key stops the countdown") };
-static const Seg F_BROWSE[] = { SEL, S1("% open", BROWSE_OPEN), S1("% add to menu", BROWSE_ADD), S1("% start once", BROWSE_START), S1("% copy", BROWSE_COPY),
+static const Seg F_MENU[] = { SEL, S1("% start", ENTRY_START), S1("% configs", CONFIG_LIST), S1("% check entry", ENTRY_RECHECK), PIC, SX("any key stops the countdown") };
+static const Seg F_MENU_PLAIN[] = { SEL, S1("% start", ENTRY_START), S1("% check entry", ENTRY_RECHECK), PIC, SX("any key stops the countdown") };
+static const Seg F_BROWSE_PLAIN[] = { SEL, S1("% open", BROWSE_OPEN), S1("% add", BROWSE_ADD), S1("% start", BROWSE_START), S1("% copy", BROWSE_COPY),
+                                      S1("% move", BROWSE_MOVE), S1("% twice deletes", BROWSE_DELETE), S1("% up", BROWSE_UP), PIC };
+static const Seg F_BROWSE[] = { SEL, S1("% open", BROWSE_OPEN), S1("% add", BROWSE_ADD), S1("% start", BROWSE_START), S1("% configs", CONFIG_LIST), S1("% copy", BROWSE_COPY),
                                 S1("% move", BROWSE_MOVE), S1("% twice deletes", BROWSE_DELETE), S1("% up", BROWSE_UP), PIC };
 static const Seg F_BR_MEDIA[] = { SEL, S1("% open", BROWSE_OPEN), S1("% format as exFAT", BROWSE_FORMAT), PIC };
 static const Seg F_BR_PLAIN[] = { SEL, S1("% open folder", BROWSE_OPEN), S1("% up a folder", BROWSE_UP), PIC };
@@ -209,7 +220,7 @@ static const Seg F_BR_INSPECT[] = { SEL, S1("% open folder", BROWSE_ENTER), S1("
 static const Seg F_BR_CFW[] = { SEL, S1("% add", BROWSE_ADD), S1("% start", BROWSE_START), S1("% package", BROWSE_CONVERT), S1("% restore", BROWSE_RESTORE),
                                 S1("% copy", BROWSE_COPY), S1("% move", BROWSE_MOVE), S1("% twice deletes", BROWSE_DELETE), S1("% up", BROWSE_UP), PIC };
 static const Seg F_EDIT[] = { SEL, S2("%/% move", ENTRY_MOVE_UP, ENTRY_MOVE_DOWN), S1("% default", ENTRY_DEFAULT), S1("% rename", ENTRY_RENAME),
-                              S1("% twice removes", ENTRY_REMOVE) };
+                              S2("%/% config of this core", ENTRY_DEFCFG_PREV, ENTRY_DEFCFG_NEXT), S1("% twice removes", ENTRY_REMOVE) };
 static const Seg F_NET[] = { S1("% colours", NET_COLORS), PIC };
 static const Seg F_SET[] = { SEL, S3("%/% or % change", SET_DEC, SET_INC, SET_ACTIVATE), PIC };
 static const Seg F_CM_LIST[] = { S2("%/% scroll", CURSOR_UP, CURSOR_DOWN), S1("% delete the files that belong to no core", CORES_DELETE), S1("% back", BACK) };
@@ -218,13 +229,19 @@ static const Seg F_CM_ASK1[] = { S1("% continues", CORES_YES), S1("% or any othe
 static const Seg F_CM_ASK2[] = { S1("% deletes the entries listed", CORES_YES), S1("% or any other key cancels (No)", CORES_NO) };
 static const Seg F_WM[] = { SEL, S3("%/% or % change", WIFI_DEC, WIFI_INC, WIFI_ACTIVATE), S1("% AP list", WIFI_SCAN), S1("% enter AP", WIFI_MANUAL), S1("% last AP", WIFI_LAST),
                             S1("% disconnect", WIFI_DISCONNECT), S1("% forget", WIFI_FORGET), S1("% back", BACK) };
+static const Seg F_PM[] = { SEL, S1("% use this mode", PM_APPLY), S1("% back", BACK) };
+
+static const Seg F_CFG[] = { S2("%/% pick", CURSOR_UP, CURSOR_DOWN), S1("% start", CONFIG_START), S1("% back", BACK), S1("% default", CONFIG_DEFAULT), S1("% rename", CONFIG_RENAME), S1("% twice deletes", CONFIG_DELETE) };
+
+static const Seg F_CFG_PLAIN[] = { S2("%/% pick", CURSOR_UP, CURSOR_DOWN), S1("% start", CONFIG_START), S1("% back", BACK) };   // "Plain start": nothing to default, rename or delete
 
 #define FT(ctx, arr) { ctx, arr, (uint8_t)(sizeof(arr) / sizeof(arr[0])) }
 static const Foot FOOTS[HCF_N] = {
     FT(HCX_MENU, F_MENU), FT(HCX_BROWSE, F_BROWSE), FT(HCX_BROWSE, F_BR_MEDIA), FT(HCX_BROWSE, F_BR_PLAIN), FT(HCX_BROWSE, F_BR_FILE), FT(HCX_BROWSE, F_BR_DIR),
     FT(HCX_BROWSE_PICK, F_BR_PICK_COPY), FT(HCX_BROWSE_PICK, F_BR_PICK_MOVE), FT(HCX_BROWSE_ASK, F_BR_ASK), FT(HCX_BROWSE, F_BR_BACKUP), FT(HCX_BROWSE, F_BR_TXU),
     FT(HCX_BROWSE_INSPECT, F_BR_INSPECT), FT(HCX_BROWSE, F_BR_CFW), FT(HCX_EDIT, F_EDIT), FT(HCX_NET, F_NET), FT(HCX_SET, F_SET), FT(HCX_CORES, F_CM_LIST),
-    FT(HCX_CORES_ASK1, F_CM_ASK1), FT(HCX_CORES_ASK2, F_CM_ASK2), FT(HCX_WIFI, F_WM), FT(HCX_CORES, F_CM_EMPTY), FT(HCX_BROWSE, F_BR_ZIP),
+    FT(HCX_CORES_ASK1, F_CM_ASK1), FT(HCX_CORES_ASK2, F_CM_ASK2), FT(HCX_WIFI, F_WM), FT(HCX_CORES, F_CM_EMPTY), FT(HCX_PICMODES, F_PM), FT(HCX_CFG, F_CFG), FT(HCX_BROWSE, F_BR_ZIP),
+    FT(HCX_MENU, F_MENU_PLAIN), FT(HCX_BROWSE, F_BROWSE_PLAIN), FT(HCX_CFG, F_CFG_PLAIN),
 };
 
 #define FOOT_MAX 240
@@ -396,6 +413,20 @@ int hc_entry_default(int i)
     return hc_cfg_save();
 }
 
+int hc_entry_defcfg(int i, const char *name)
+{
+    if (!bootcfg_set_defcfg(&g_cfg, i, name)) {
+        return HCR_REFUSED;
+    }
+    return hc_cfg_save();
+}
+
+static char g_start_cfg[CONFIG_NAME_MAX + 1];
+void hc_start_config_set(const char *name)
+{
+    snprintf(g_start_cfg, sizeof(g_start_cfg), "%s", name ? name : "");
+}
+
 int hc_entry_remove(int i)
 {
     bootcfg_remove(&g_cfg, i);
@@ -504,6 +535,9 @@ const char *hc_start_sequence(const HcStartEntry &e, int mode, const HcStartHook
         out = &local;
     }
     out->staged = false;
+    char cfgname[CONFIG_NAME_MAX + 1];
+    snprintf(cfgname, sizeof(cfgname), "%s", e.config && e.config[0] ? e.config : g_start_cfg);
+    g_start_cfg[0] = 0;                                         // one-shot: a start that fails leaves nothing behind for the next one
     StartGuard guard;
     if (!guard.own) {
         return HC_START_BUSY;
@@ -544,6 +578,7 @@ const char *hc_start_sequence(const HcStartEntry &e, int mode, const HcStartHook
         h.before_jump(h.ctx, true);
         legacy_jump(&plan);
     }
+    core_set_start_config(cfgname);                             // T198 D7: every core start sets what the jump hands over ("" = plain)
     CorInfo ci;
     if (!core_stage(e.path, &ci, &why, h.progress, h.ctx, e.trusted, direct)) {
         return why;

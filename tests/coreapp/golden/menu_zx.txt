@@ -7,6 +7,9 @@ area F1 Home
     info Media
     info ROMs
     info Libraries
+    media Tape
+    fixed Save as config...
+    fixed Load config...
 area F3 Library
   tab 1 Browse
     browser Browse
@@ -15,11 +18,7 @@ area F3 Library
       filetype .tap: Insert tape | Insert tape and play
       filetype .tzx: Insert tape | Insert tape and play
 area F5 SPECTRUM
-  tab 1 Summary
-    media Tape
-    fixed Save media set...
-    fixed Load media set...
-  tab 2 Settings
+  tab 1 SPECTRUM
     setting Model = 48K | 128K (default 48K, at next reset)
     setting Joystick port 1 = None | Kempston | Sinclair 1 (keys 6-0) | Sinclair 2 (keys 1-5) | Cursor (5 6 7 8 0) (default None, live)
     setting Joystick port 2 = None | Kempston | Sinclair 1 (keys 6-0) | Sinclair 2 (keys 1-5) | Cursor (5 6 7 8 0) (default Kempston, live)
@@ -35,9 +34,13 @@ area F7 Actions
     task Tape: Next block
     task Tape: Eject
 area F8 System (shifted)
-  tab 1 Expert
-    fixed Reset to host defaults
+  tab 1 System
+    heading Actions
     fixed Restart core
-    fixed Bug report
-    fixed WiFi
     fixed Return to host menu
+    heading Network
+    fixed WiFi
+    heading Support
+    fixed Bug report
+    heading Reset
+    fixed Reset to host defaults

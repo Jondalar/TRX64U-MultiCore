@@ -2,6 +2,7 @@
 #include "hostfs.h"
 #include "startcheck.h"
 #include "handover.h"
+#include "configlist.h"
 #include "videomode.h"
 #include "FreeRTOS.h"
 #include "task.h"
@@ -35,6 +36,7 @@ struct StageCtx {
 };
 
 static bool stage_aborted;
+static char start_config[CONFIG_NAME_MAX + 1];  // T198 D7: the config the jump hands over
 static char staged_path[HANDOVER_PATH_MAX];      // T93 D11: the bundle the staged application belongs to
 static void part_progress(uint32_t done, uint32_t total, void *c)
 {
@@ -226,6 +228,12 @@ __asm__(".pushsection .text.tb_copy, \"ax\", @progbits\n"
         "tb_copy_end:\n"
         ".popsection\n");
 
+void core_set_start_config(const char *name)
+{
+    strncpy(start_config, name ? name : "", sizeof(start_config) - 1);
+    start_config[sizeof(start_config) - 1] = 0;
+}
+
 void core_jump(const CorInfo *ci)
 {
     uint32_t load = ci->app_load, entry = ci->app_entry;
@@ -250,6 +258,7 @@ void core_jump(const CorInfo *ci)
     // T93 D11: the application reads this page first (path of the .cor for its .cfg, the manifest's name and version).
     // It lies outside the application's load range, the staging areas and the trampoline, so the copy below leaves it alone.
     handover_fill((Handover *)HANDOVER_ADDR, staged_path, ci->name, ci->version, cor_host_key, video_current, ci->id);
+    handover_set_config((Handover *)HANDOVER_ADDR, start_config);
     if (rtc_time_valid()) {                          // T191: the core application has no SNTP; it sets its clock from this
         int wd, y, mo, d, h, mi, sec;
         get_current_time(wd, y, mo, d, h, mi, sec);

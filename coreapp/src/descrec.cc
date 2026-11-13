@@ -193,7 +193,10 @@ int descrec_parse(const uint8_t *rec, uint32_t n, DescRecord *out, char *why, in
         s.groups = r.str(W(e, 4), &bad);
         uint32_t lo = W(e, 5);
         s.layout = lo ? r.str(lo, &bad) : 0;                              // 0: none (offset 0 is the empty string)
-        if (bad || !id_ok(s.id) || !s.name || !s.name[0] || nn > 99 || widget > TW_NODES || (s.layout && !s.layout[0])) {
+        if (s.name && !s.name[0]) {
+            s.name = 0;                                                    // T205 D1: no name = named after the area (F5: the core)
+        }
+        if (bad || !id_ok(s.id) || nn > 99 || widget > TW_NODES || (s.layout && !s.layout[0])) {
             return r.fail("description record: tab %u has a bad id, name, number or widget", (unsigned)i);
         }
         s.n = (uint8_t)nn;

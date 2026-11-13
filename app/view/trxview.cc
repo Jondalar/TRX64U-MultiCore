@@ -69,7 +69,7 @@ const TrxTheme &trx_theme(void) { return g_skin == TRX_SKIN_TERMINAL ? k_termina
 // The shell's measures of the two layouts. Compact: a narrower rail, thinner bars; the fonts stay, they are the readable ones.
 static void metrics_apply(TrxTheme &t, bool compact)
 {
-    t.sidebar_w = compact ? 108 : 148;
+    t.sidebar_w = compact ? 124 : 148;                  // T187 gate 1: SETTINGS and its key (and the shifted keys) fit the compact rail with a gap
     t.topbar_h = compact ? 34 : 36;
     t.tabbar_h = compact ? 34 : 38;
     t.footer_h = compact ? 26 : 28;
@@ -156,6 +156,8 @@ static const char *shout(const char *s)
     return b;
 }
 
+#define RAIL_GAP 4
+
 static lv_obj_t *nav_item(lv_obj_t *par, int y, const char *label, const char *key, bool active)
 {
     const TrxTheme &t = trx_theme();
@@ -165,8 +167,8 @@ static lv_obj_t *nav_item(lv_obj_t *par, int y, const char *label, const char *k
     if (active) {
         trx_box(row, 0, 0, 2, 17, t.accent);
     }
-    trx_txt(row, t.space_sm, 2, label, t.caption, active ? t.ink : t.muted, w - 26);
     int kw = trx_text_w(key, t.caption);
+    trx_txt(row, t.space_sm, 2, label, t.caption, active ? t.ink : t.muted, w - kw - t.space_xs - t.space_sm - RAIL_GAP);   // a gap between the label and the key
     trx_txt(row, w - kw - t.space_xs, 2, key, t.caption, active ? t.accent : t.muted);
     return row;
 }
@@ -211,6 +213,13 @@ static uint32_t static_key(const TrxShellInfo &i, const TrxRoute &r)
     h = fnv(h, i.footer_left);
     h = (h ^ (uint32_t)r.nareas) * 16777619u;
     h = (h ^ (uint32_t)(uintptr_t)r.areas) * 16777619u;
+    for (int a = 0; a < r.nareas && a < TRX_AREAS_MAX; a++) {       // the same array can hold another route (a core's name, its tabs): the rail and the strip show these texts
+        h = fnv(h, r.areas[a].key);
+        h = fnv(h, r.areas[a].title);
+        for (int k = 0; k < r.areas[a].ntabs && k < TRX_TABS_MAX; k++) {
+            h = fnv(h, r.areas[a].tabs[k].title);
+        }
+    }
     h = (h ^ (uint32_t)r.app_mode) * 16777619u;
     h = (h ^ (uint32_t)trx_skin()) * 16777619u;
     return h;
@@ -308,6 +317,35 @@ static void draw_strip(const TrxRoute &route, int area, int tab)
         g_tab_x[i] = tx;
         tx += tab_item(g_strip, tx, 9, a.tabs[i].n, a.tabs[i].title, i == tab, &g_tabw[i]) + t.space_xs;
     }
+}
+
+// The bench's look at the rail: where the label's text ends and where the key begins, in the rail item i (false: no such item).
+bool trx_nav_probe(int i, int *label_end, int *label_room, int *key_x)
+{
+    if (i < 0 || i >= TRX_AREAS_MAX || !g_nav[i]) {
+        return false;
+    }
+    uint32_t n = lv_obj_get_child_count(g_nav[i]);
+    if (n < 2) {
+        return false;
+    }
+    lv_obj_t *lab = lv_obj_get_child(g_nav[i], (int32_t)n - 2), *key = lv_obj_get_child(g_nav[i], (int32_t)n - 1);
+    lv_obj_update_layout(g_nav[i]);
+    *label_end = lv_obj_get_x(lab) + trx_text_w(lv_label_get_text(lab), trx_theme().caption);
+    *label_room = lv_obj_get_x(lab) + lv_obj_get_width(lab);
+    *key_x = lv_obj_get_x(key);
+    return true;
+}
+
+// The bench's look at the foot: the legend as drawn and how wide its text is (the line the canvas holds ends at the margin).
+bool trx_foot_probe(char *txt, int n, int *text_w)
+{
+    if (!g_foot_lbl) {
+        return false;
+    }
+    snprintf(txt, (size_t)n, "%s", lv_label_get_text(g_foot_lbl));
+    *text_w = trx_text_w(txt, trx_theme().caption);
+    return true;
 }
 
 static void draw_nav(const TrxRoute &route, int i, bool active)
@@ -480,8 +518,9 @@ lv_obj_t *trx_shell(lv_obj_t *scr, const TrxShellInfo &info, const TrxRoute &rou
 }
 
 // ---- rows --------------------------------------------------------------------------------------------
-// 14 px text: a one-line row is 2 + 14 + 4, a two-line row adds the 11 px caption under it.
-int trx_row_h(bool two_line) { return two_line ? 34 : 20; }
+// T209 D1/D2: every row is one line, 1 + 14 + 3 px, and the rows sit 1 px apart (a pitch of 19).
+#define ROW_TOP 1
+int trx_row_h(void) { return 18; }
 
 int trx_kicker(lv_obj_t *par, int x, int y, const char *s)
 {
@@ -553,33 +592,106 @@ static int value_y(const TrxTheme &t)
     return 4;
 #endif
     int d = (lv_font_get_line_height(t.body) - lv_font_get_line_height(t.caption)) / 2;
-    return 2 + (d > 0 ? d : 0);
+    return ROW_TOP + (d > 0 ? d : 0);
 }
 
-lv_obj_t *trx_row_at(lv_obj_t *par, int x, int y, int w, const TrxRow &r, int *next_y)
+// "start...end" by hand: "%.*s" in the RISC-V image printed "......" and then the whole name (ue2emu, 2026-11-12), so no printf precision here.
+static void join_mid(char *buf, int n, const char *s, int a, int b)
+{
+    int len = (int)strlen(s), o = 0;
+    for (int i = 0; i < a && o < n - 1; i++) {
+        buf[o++] = s[i];
+    }
+    for (int i = 0; i < 3 && o < n - 1; i++) {
+        buf[o++] = '.';
+    }
+    for (int i = b; i < len && o < n - 1; i++) {
+        buf[o++] = s[i];
+    }
+    buf[o] = 0;
+}
+
+const char *trx_fit_mid(const char *s, int w, const lv_font_t *font, char *buf, int n)
+{
+    if (!s || trx_text_w(s, font) <= w) {
+        return s;
+    }
+    int len = (int)strlen(s);
+    if (len >= n) {
+        len = n - 1;
+    }
+    for (int drop = 1; drop < len; drop++) {                    // drop characters around the middle until "start...end" fits
+        int keep_l = (len - drop + 1) / 2, keep_r = len - drop - keep_l;
+        int a = keep_l, b = len - keep_r;
+        while (a > 0 && ((uint8_t)s[a] & 0xC0) == 0x80) {
+            a--;
+        }
+        while (b < len && ((uint8_t)s[b] & 0xC0) == 0x80) {
+            b++;
+        }
+        join_mid(buf, n, s, a, b);
+        if (trx_text_w(buf, font) <= w) {
+            return buf;
+        }
+    }
+    if (len > 8) {                                              // nothing fits: still the first and last two characters (the label clips), never a bare "..."
+        int a = 2, b = len - 2;
+        while (b < len && ((uint8_t)s[b] & 0xC0) == 0x80) {
+            b++;
+        }
+        join_mid(buf, n, s, a, b);
+        return buf;
+    }
+    snprintf(buf, n, "...");
+    return buf;
+}
+
+// A value that would squeeze its label is cut in the middle (a file name keeps its start and its extension): the label keeps its own width up to 45% of the row's room.
+static const char *fit_value(const char *label, const char *val, int w, char *buf, int n)
 {
     const TrxTheme &t = trx_theme();
-    bool two = r.sub && *r.sub;
-    int h = trx_row_h(two);
+    if (!val) {
+        return 0;
+    }
+    int room = w - 2 * t.space_md;
+    int lab = trx_text_w(label ? label : "", t.body) + 4;
+    int keep = room * 45 / 100;
+    int vmax = room - (lab < keep ? lab : keep) - t.space_md;
+    return trx_fit_mid(val, vmax, t.caption, buf, n);
+}
+
+lv_obj_t *trx_row_at(lv_obj_t *par, int x, int y, int w, const TrxRow &r_in, int *next_y)
+{
+    TrxRow r = r_in;
+    char vbuf[160];
+    const TrxTheme &t = trx_theme();
+    int h = trx_row_h();
     if (!w) {
         w = g_content_w - 2 * x;
     }
     lv_obj_t *row = trx_box(par, x, y, w, h, t.bg);
     row_marks(row, w, h, r.selected);
+    if (r.heading) {                                            // T187 D1: the group's name, quiet; the same children as every row (marks hidden, the label), so a window move needs no special case
+        const char *hl = shout(r.label);
+        set_label_w(trx_txt(row, t.space_md, 3, hl, t.caption, t.muted, w - 2 * t.space_md), hl, t.caption, w - 2 * t.space_md);
+        lv_obj_set_user_data(row, (void *)(uintptr_t)ROW_DIM);
+        if (next_y) {
+            *next_y = y + h + 1;
+        }
+        return row;
+    }
+    r.value = fit_value(r.label, r.value, w, vbuf, sizeof(vbuf));
     uint32_t ink = r.dim ? t.muted : t.ink;
     int vw = r.value ? trx_text_w(r.value, t.caption) : 0;
     int lw = w - 2 * t.space_md - (vw ? vw + t.space_md : 0);
-    lv_obj_t *lab = trx_txt(row, t.space_md, 2, r.label, t.body, ink, lw - (r.mark ? RESET_MARK_D + t.space_sm : 0));
+    lv_obj_t *lab = trx_txt(row, t.space_md, ROW_TOP, r.label, t.body, ink, lw - (r.mark ? RESET_MARK_D + t.space_sm : 0));
     set_label_w(lab, r.label, t.body, lw - (r.mark ? RESET_MARK_D + t.space_sm : 0));
-    if (two) {
-        set_label_w(trx_txt(row, t.space_md, 19, r.sub, t.caption, t.muted, lw), r.sub, t.caption, lw);
-    }
     if (r.mark) {
         int lwid = trx_text_w(r.label, t.body) + 4;
         if (lwid > lw - RESET_MARK_D - t.space_sm) {
             lwid = lw - RESET_MARK_D - t.space_sm;
         }
-        trx_reset_mark(row, t.space_md + lwid + t.space_sm, 2 + (lv_font_get_line_height(t.body) - RESET_MARK_D) / 2 + 1, t.muted, t.bg);
+        trx_reset_mark(row, t.space_md + lwid + t.space_sm, ROW_TOP + (lv_font_get_line_height(t.body) - RESET_MARK_D) / 2 + 1, t.muted, t.bg);
     }
     if (r.value) {
         trx_txt(row, w - vw - t.space_md, value_y(t), r.value, t.caption, r.strong ? t.accent : t.muted);
@@ -625,23 +737,67 @@ void trx_row_select(lv_obj_t *row, bool on)
     }
 }
 
+// The bench's P4b probe (T187): the vertical middle of the row's label and of its value (the last child), as LVGL has them laid out. False: the row has no value.
+bool trx_row_value_cy(lv_obj_t *row, int *lab_cy, int *val_cy)
+{
+    uintptr_t ud = row ? (uintptr_t)lv_obj_get_user_data(row) : 0;
+    uint32_t n = row ? lv_obj_get_child_count(row) : 0;
+    if (!(ud & ROW_VAL) || n < (uint32_t)(ROW_MARKS + 2)) {
+        return false;
+    }
+    lv_obj_t *lab = lv_obj_get_child(row, ROW_MARKS), *val = lv_obj_get_child(row, (int32_t)n - 1);
+    *lab_cy = lv_obj_get_y(lab) + lv_obj_get_height(lab) / 2;
+    *val_cy = lv_obj_get_y(val) + lv_obj_get_height(val) / 2;
+    return true;
+}
+
+// The bench's T205 P3 probe: the texts the row's label and value objects really hold (value "" when the row has none). False: not a row of trx_row_at().
+bool trx_row_texts(lv_obj_t *row, char *lab, char *val, int n)
+{
+    uintptr_t ud = row ? (uintptr_t)lv_obj_get_user_data(row) : 0;
+    uint32_t cnt = row ? lv_obj_get_child_count(row) : 0;
+    if (cnt < (uint32_t)(ROW_MARKS + 1)) {
+        return false;
+    }
+    snprintf(lab, n, "%s", lv_label_get_text(lv_obj_get_child(row, ROW_MARKS)));
+    val[0] = 0;
+    if (ud & ROW_VAL) {
+        snprintf(val, n, "%s", lv_label_get_text(lv_obj_get_child(row, (int32_t)cnt - 1)));
+    }
+    return true;
+}
+
 // Give an existing row new content without building it again. The structure has to be the same one trx_row_at() made (a sub line
 // or not, a value or not) - otherwise false and the caller builds the row. Only what differs is written, so LVGL invalidates the
 // labels whose text moved and nothing else: a window that scrolls by one row changes the text of the rows, not their objects.
-bool trx_row_retext(lv_obj_t *row, const TrxRow &r, int w)
+bool trx_row_retext(lv_obj_t *row, const TrxRow &r_in, int w)
 {
+    TrxRow r = r_in;
+    char vbuf[160];
     const TrxTheme &t = trx_theme();
-    bool two = r.sub && *r.sub;
+    if (r.heading) {                                            // the pane's shape holds the kinds; a heading in the same place may be another group's (a window that moved by pages)
+        if (!row || lv_obj_get_child_count(row) != (uint32_t)(ROW_MARKS + 1)) {
+            return false;
+        }
+        lv_obj_t *hl = lv_obj_get_child(row, ROW_MARKS);
+        const char *txt = shout(r.label);
+        if (strcmp(lv_label_get_text(hl), txt)) {
+            lv_label_set_text(hl, txt);
+            set_label_w(hl, txt, t.caption, lv_obj_get_width(row) - 2 * t.space_md);
+        }
+        return true;
+    }
     uintptr_t ud = row ? (uintptr_t)lv_obj_get_user_data(row) : 0;
     bool has_val = (ud & ROW_VAL) != 0;
     bool has_mark = (ud & ROW_MARK) != 0;
-    if (!row || has_mark != r.mark || lv_obj_get_height(row) != trx_row_h(two) ||
-        lv_obj_get_child_count(row) != (uint32_t)(ROW_MARKS + 1 + (two ? 1 : 0) + (has_mark ? 1 : 0) + (has_val ? 1 : 0))) {
+    if (!row || has_mark != r.mark || lv_obj_get_height(row) != trx_row_h() ||
+        lv_obj_get_child_count(row) != (uint32_t)(ROW_MARKS + 1 + (has_mark ? 1 : 0) + (has_val ? 1 : 0))) {
         return false;
     }
     if (!w) {
         w = g_content_w - 2 * lv_obj_get_x(row);
     }
+    r.value = fit_value(r.label, r.value, w, vbuf, sizeof(vbuf));
     // a value that the row did not have is made, one that it no longer has is removed (a folder row has no size, a file row has one)
     if (has_val && !r.value) {
         lv_obj_delete(lv_obj_get_child(row, (int32_t)lv_obj_get_child_count(row) - 1));
@@ -667,7 +823,7 @@ bool trx_row_retext(lv_obj_t *row, const TrxRow &r, int w)
     }
     set_label_w(lab, r.label, t.body, lw - (has_mark ? RESET_MARK_D + t.space_sm : 0));
     if (has_mark) {
-        lv_obj_t *mk = lv_obj_get_child(row, ROW_MARKS + 1 + (two ? 1 : 0));
+        lv_obj_t *mk = lv_obj_get_child(row, ROW_MARKS + 1);
         int lwid = trx_text_w(r.label, t.body) + 4;
         if (lwid > lw - RESET_MARK_D - t.space_sm) {
             lwid = lw - RESET_MARK_D - t.space_sm;
@@ -680,13 +836,6 @@ bool trx_row_retext(lv_obj_t *row, const TrxRow &r, int w)
     if (((ud & ROW_DIM) != 0) != r.dim) {
         lv_obj_set_style_text_color(lab, lv_color_hex(r.dim ? t.muted : t.ink), 0);
         ud = r.dim ? (ud | ROW_DIM) : (ud & ~(uintptr_t)ROW_DIM);
-    }
-    if (two) {
-        lv_obj_t *sub = lv_obj_get_child(row, ROW_MARKS + 1);
-        if (strcmp(lv_label_get_text(sub), r.sub)) {
-            lv_label_set_text(sub, r.sub);
-        }
-        set_label_w(sub, r.sub, t.caption, lw);
     }
     if (has_val) {
         lv_obj_t *val = lv_obj_get_child(row, (int32_t)lv_obj_get_child_count(row) - 1);
@@ -746,13 +895,15 @@ lv_obj_t *trx_action_row_at(lv_obj_t *par, int x, int y, int w, const char *titl
 {
     const TrxTheme &t = trx_theme();
     // action_row.xml: transparent on its panel, separated by a line under it; the selection is the row's marks (trx_row_select)
-    int h = sub && *sub ? 30 : 20;
+    int h = sub && *sub ? 36 : 20;                  // T187 F7: the value line had no room above the separator, the selection box clipped it
     lv_obj_t *row = trx_box(par, x, y, w, h, t.surface, 1, t.line, LV_BORDER_SIDE_BOTTOM);
     row_marks(row, w, h, selected);
     int mw = meta && *meta ? trx_text_w(shout(meta), t.caption) : 0;
-    trx_txt(row, t.space_sm, 1, title, t.body, t.ink, w - 2 * t.space_sm - (mw ? mw + t.space_sm : 0));
+    const int room = w - 2 * t.space_sm - (mw ? mw + t.space_sm : 0);
+    char tb[160], sb[160];                           // T209: each is one line, cut in the middle to the room (a label of automatic height wraps into the line below)
+    lv_label_set_long_mode(trx_txt(row, t.space_sm, 1, trx_fit_mid(title, room, t.body, tb, sizeof(tb)), t.body, t.ink, room), LV_LABEL_LONG_MODE_CLIP);
     if (sub && *sub) {
-        trx_txt(row, t.space_sm, 16, sub, t.caption, t.muted, w - 2 * t.space_sm - (mw ? mw + t.space_sm : 0));
+        lv_label_set_long_mode(trx_txt(row, t.space_sm, 17, trx_fit_mid(sub, room, t.caption, sb, sizeof(sb)), t.caption, t.muted, room), LV_LABEL_LONG_MODE_CLIP);
     }
     if (mw) {
         trx_txt(row, w - mw - t.space_sm, 3, shout(meta), t.caption, tone ? tone : t.muted);
@@ -850,15 +1001,17 @@ int trx_head(lv_obj_t *par, int x, int y, int w, const char *crumb, const char *
         ty += 18;
     }
     int tw = chip ? w - trx_state_chip_w(chip) - 2 * t.space_lg : w;
-    trx_txt(par, x, ty, title, t.title, t.ink, tw);
+    char tb[160];
+    lv_obj_t *tl = trx_txt(par, x, ty, trx_fit_mid(title, tw - 4, t.title, tb, sizeof(tb)), t.title, t.ink, tw);   // T209: one line, a long title is cut in the middle
+    lv_label_set_long_mode(tl, LV_LABEL_LONG_MODE_CLIP);
     if (chip) {
         trx_state_chip(par, x + w - trx_state_chip_w(chip), crumb ? y + 18 : y + 8, chip, chip_tone);
     }
     return ty + 34;
 }
 
-int trx_status_row_h(bool two_line) { return two_line ? 40 : 28; }
-int trx_setting_row_h(bool two_line) { return two_line ? 46 : 35; }
+int trx_status_row_h(void) { return 22; }
+int trx_setting_row_h(void) { return 28; }
 
 static uint32_t dimmer(const TrxTheme &t)
 {
@@ -869,21 +1022,25 @@ static uint32_t dimmer(const TrxTheme &t)
 lv_obj_t *trx_status_row(lv_obj_t *par, int x, int y, int w, const TrxStatusRow &r, int *next_y)
 {
     const TrxTheme &t = trx_theme();
-    bool two = r.sub && *r.sub;
-    int h = trx_status_row_h(two);
+    int h = trx_status_row_h();
     lv_obj_t *row = trx_box(par, x, y, w, h, t.surface, 1, t.line, LV_BORDER_SIDE_BOTTOM);
     row_marks(row, w, h - 1, r.selected);
     const char *meta = r.meta && *r.meta ? r.meta : 0;                   // values read in sentence case; a chip the author wrote in capitals stays so
-    int mw = meta ? trx_text_w(meta, t.caption) : 0;
     int tx = t.space_sm + 4 + t.space_md;
-    int room = w - tx - t.space_sm - (mw ? mw + t.space_md : 0);
-    trx_box(row, t.space_sm + 2, two ? 10 : 12, 4, 4, r.dim ? t.line : trx_tone_color(r.tone));
-    trx_txt(row, tx, 3, r.title, t.body, r.dim ? dimmer(t) : t.ink, room);
-    if (two) {
-        trx_txt(row, tx, 21, r.sub, t.caption, r.dim ? dimmer(t) : t.muted, room);       // the reason of a greyed row reads below an active subline
+    char mbuf[160];
+    if (meta) {                                                          // T209 R5: a long value is cut in the middle and never takes more than the title's share below 45% of the row
+        int lab = trx_text_w(r.title ? r.title : "", t.body) + 4;
+        int keep = (w - tx) * 45 / 100;
+        meta = trx_fit_mid(meta, w - tx - t.space_sm - t.space_md - (lab < keep ? lab : keep), t.caption, mbuf, sizeof(mbuf));
     }
+    int mw = meta ? trx_text_w(meta, t.caption) : 0;
+    int room = w - tx - t.space_sm - (mw ? mw + t.space_md : 0);
+    trx_box(row, t.space_sm + 2, 9, 4, 4, r.dim ? t.line : trx_tone_color(r.tone));
+    char tbuf[160];
+    const char *ttl = r.title ? trx_fit_mid(r.title, room, t.body, tbuf, sizeof(tbuf)) : r.title;
+    lv_label_set_long_mode(trx_txt(row, tx, 2, ttl, t.body, r.dim ? (r.selected ? t.muted : dimmer(t)) : t.ink, room), LV_LABEL_LONG_MODE_CLIP);
     if (meta) {
-        trx_txt(row, w - mw - t.space_sm, two ? 11 : 5, meta, t.caption, r.dim ? t.muted : trx_tone_color(r.tone));
+        trx_txt(row, w - mw - t.space_sm, 2 + (lv_font_get_line_height(t.body) - lv_font_get_line_height(t.caption)) / 2, meta, t.caption, r.dim ? t.muted : trx_tone_color(r.tone));
     }
     lv_obj_set_user_data(row, (void *)(uintptr_t)(r.selected ? ROW_SEL | ROW_STRONG : 0u));
     if (next_y) {
@@ -895,28 +1052,31 @@ lv_obj_t *trx_status_row(lv_obj_t *par, int x, int y, int w, const TrxStatusRow 
 lv_obj_t *trx_setting_row(lv_obj_t *par, int x, int y, int w, const TrxSettingRow &r, int *next_y)
 {
     const TrxTheme &t = trx_theme();
-    bool two = r.desc && *r.desc;
-    int h = trx_setting_row_h(two);
+    int h = trx_setting_row_h();
     lv_obj_t *row = trx_box(par, x, y, w, h, t.surface, 1, t.line, LV_BORDER_SIDE_BOTTOM);
     row_marks(row, w, h - 1, r.selected);
-    int cw = r.toggle ? 42 : (r.value ? trx_text_w(r.value, t.body) : 0);
-    int room = w - 2 * t.space_md - (cw ? cw + t.space_lg : 0);
-    lv_obj_t *tl = trx_txt(row, t.space_md, two ? 5 : 9, r.title, t.body, r.dim ? t.muted : t.ink, room - (r.reset ? RESET_MARK_D + t.space_sm : 0));
-    if (two) {
-        trx_txt(row, t.space_md, 24, r.desc, t.caption, t.muted, room);
+    char vbuf[160];
+    const char *val = r.toggle ? 0 : r.value;
+    if (val) {                                                           // T209 R5: a long value is cut in the middle, the label keeps up to 45% of the row
+        int lab = trx_text_w(r.title ? r.title : "", t.body) + 4;
+        int keep = (w - 2 * t.space_md) * 45 / 100;
+        val = trx_fit_mid(val, w - 2 * t.space_md - t.space_lg - (lab < keep ? lab : keep), t.body, vbuf, sizeof(vbuf));
     }
-    if (r.reset) {                                               // T187 D9: the ring beside the label
+    int cw = r.toggle ? 34 : (val ? trx_text_w(val, t.body) : 0);
+    int room = w - 2 * t.space_md - (cw ? cw + t.space_lg : 0);
+    const int ty = (h - 1 - lv_font_get_line_height(t.body)) / 2;
+    trx_txt(row, t.space_md, ty, r.title, t.body, r.dim ? t.muted : t.ink, room - (r.reset ? RESET_MARK_D + t.space_sm : 0));
+    if (r.reset) {                                                       // T187 D9: the ring beside the label
         int tw = trx_text_w(r.title, t.body) + 2;
         int lwid = tw < room - RESET_MARK_D - t.space_sm ? tw : room - RESET_MARK_D - t.space_sm;
-        trx_reset_mark(row, t.space_md + lwid + t.space_sm, (two ? 5 : 9) + (lv_font_get_line_height(t.body) - RESET_MARK_D) / 2 + 1, t.muted, t.surface);
-        (void)tl;
+        trx_reset_mark(row, t.space_md + lwid + t.space_sm, ty + (lv_font_get_line_height(t.body) - RESET_MARK_D) / 2 + 1, t.muted, t.surface);
     }
     if (r.toggle) {
         uint32_t on_col = r.tone == TT_MUTED ? t.accent : trx_tone_color(r.tone);
-        lv_obj_t *tr = trx_box(row, w - 42 - t.space_md, two ? 12 : 6, 42, 22, r.on ? on_col : t.line);
-        lv_obj_t *kn = trx_box(tr, r.on ? 42 - 20 : 2, 2, 18, 18, t.ink);
-    } else if (r.value) {
-        trx_txt(row, w - cw - t.space_md, two ? 14 : 9, r.value, t.body, r.dim ? t.muted : t.ink);
+        lv_obj_t *tr = trx_box(row, w - 34 - t.space_md, (h - 1 - 18) / 2, 34, 18, r.on ? on_col : t.line);
+        trx_box(tr, r.on ? 34 - 16 : 2, 2, 14, 14, t.ink);
+    } else if (val) {
+        trx_txt(row, w - cw - t.space_md, ty, val, t.body, r.dim ? t.muted : t.ink);
     }
     lv_obj_set_user_data(row, (void *)(uintptr_t)(r.selected ? ROW_SEL | ROW_STRONG : 0u));
     if (next_y) {
@@ -1028,11 +1188,12 @@ TrxWindow trx_window(int total, int sel, int first, int rows)
     if (rows < 1) {
         rows = 1;
     }
-    if (first > sel) {
-        first = sel;
+    int mg = (rows - 1) / 2 < TRX_SCROLL_MARGIN ? (rows - 1) / 2 : TRX_SCROLL_MARGIN;   // T209 D3: rows kept below and above the selection; a window of 1-2 rows has none
+    if (first > sel - mg) {
+        first = sel - mg;
     }
-    if (sel >= first + rows) {
-        first = sel - rows + 1;
+    if (sel > first + rows - 1 - mg) {
+        first = sel - rows + 1 + mg;
     }
     if (first > total - rows) {
         first = total - rows;
@@ -1046,6 +1207,53 @@ TrxWindow trx_window(int total, int sel, int first, int rows)
         w.count = 0;
     }
     w.total = total;
+    return w;
+}
+
+TrxWindow trx_window_h(int total, int sel, int first, int room, int (*h)(int idx, void *ctx), void *ctx)
+{
+    TrxWindow w;
+    w.total = total;
+    w.first = 0;
+    w.count = 0;
+    if (total < 1) {
+        return w;
+    }
+    if (sel < 0) {
+        sel = 0;
+    }
+    if (sel > total - 1) {
+        sel = total - 1;
+    }
+    if (first > sel - TRX_SCROLL_MARGIN) {               // T209 D3: the window scrolls up while TRX_SCROLL_MARGIN rows still lie above the selection
+        first = sel - TRX_SCROLL_MARGIN;
+    }
+    if (first < 0) {
+        first = 0;
+    }
+    int below = sel + TRX_SCROLL_MARGIN < total - 1 ? sel + TRX_SCROLL_MARGIN : total - 1;   // ... and down while that many lie below it, as far as the room holds them
+    int sum = 0;
+    for (int i = first; i <= below; i++) {
+        sum += h(i, ctx);
+    }
+    while (sum > room && first < sel) {                  // the selected row has to lie whole inside: the window starts later (the margin below gives way first)
+        sum -= h(first, ctx);
+        first++;
+    }
+    int count = 0, used = 0;
+    while (first + count < total && (count == 0 || used + h(first + count, ctx) <= room)) {
+        used += h(first + count, ctx);
+        count++;
+    }
+    if (first + count == total) {                        // the list's end: the room is filled from the back
+        while (first > 0 && used + h(first - 1, ctx) <= room) {
+            first--;
+            used += h(first, ctx);
+            count++;
+        }
+    }
+    w.first = first;
+    w.count = count;
     return w;
 }
 

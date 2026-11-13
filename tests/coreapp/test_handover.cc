@@ -98,5 +98,54 @@ int main()
     CHECK(!handover_cfg_path("/USB1/cores/.cor", out, sizeof(out)) || strcmp(out, "/USB1/cores/.cfg") == 0);
     CHECK(!handover_cfg_path("", out, sizeof(out)));
     CHECK(!handover_cfg_path("/a/b.cor", out, 8));       // does not fit: refused, not cut
+
+    // T198 S7, D7: "start with this config" is a tail field behind the time; the version-1 bytes and the older checks do not move
+    {
+        Handover c;
+        handover_fill(&c, "/SD/amiga1200.cor", "Amiga 1200 (AGA)", "0.3.0", 0, 0, "amiga1200");
+        CHECK_STR(handover_config(&c), "");                              // a block without one starts plain
+        uint32_t sum0 = c.sum;
+        CHECK(handover_set_config(&c, "Workbench 3.1 HD"));
+        CHECK_STR(handover_config(&c), "Workbench 3.1 HD");
+        CHECK_EQ(c.sum, sum0);                                           // outside handover_sum(): an old reader still accepts the block
+        CHECK(handover_valid(&c));
+        CHECK_STR(handover_core_id(&c), "amiga1200");
+        CHECK(offsetof(Handover, config_sum) > offsetof(Handover, time_time));
+        CHECK(sizeof(c.config) > HANDOVER_CONFIG_MAX);
+        // an old reader: it computes the sum over the same 360 bytes, whatever follows
+        Handover o = c;
+        memset((uint8_t *)&o + offsetof(Handover, config_sum), 0, sizeof(Handover) - offsetof(Handover, config_sum));
+        CHECK(handover_valid(&o));
+        CHECK_STR(handover_config(&o), "");                              // a block of an older host: no config, plain start
+        // names: empty, too long, and the longest that fits
+        CHECK(!handover_set_config(&c, ""));
+        CHECK_STR(handover_config(&c), "");
+        CHECK(!handover_set_config(&c, "0123456789012345678901234567890123"));
+        CHECK_STR(handover_config(&c), "");
+        CHECK(handover_set_config(&c, "01234567890123456789012345678901"));
+        CHECK_EQ(strlen(handover_config(&c)), 32);
+        // a damaged or stale tail is never read as a name: every flipped bit is a plain start or the very name
+        CHECK(handover_set_config(&c, "Demo collection"));
+        int wrongc = 0;
+        for (unsigned i = offsetof(Handover, config_sum); i < sizeof(c); i++) {
+            for (int bit = 0; bit < 8; bit++) {
+                Handover x = c;
+                ((uint8_t *)&x)[i] ^= (uint8_t)(1 << bit);
+                wrongc += strcmp(handover_config(&x), "") != 0;
+            }
+        }
+        CHECK_EQ(wrongc, 0);
+        // a config left in the page by another start (the other block has another path, hence another sum) is not this block's
+        Handover n2;
+        handover_fill(&n2, "/SD/other.cor", "Other", "1.0", 0, 0, "other");
+        memcpy(n2.config, c.config, sizeof(c.config));
+        n2.config_sum = c.config_sum;
+        CHECK_STR(handover_config(&n2), "");
+        // the time field does not disturb it
+        handover_set_time(&c, 2026, 11, 10, 12, 0, 0);
+        CHECK_STR(handover_config(&c), "Demo collection");
+        int y, mo, d, hh, mm, ss;
+        CHECK(handover_time(&c, &y, &mo, &d, &hh, &mm, &ss));
+    }
     DONE("test_handover");
 }

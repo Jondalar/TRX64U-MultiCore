@@ -39,6 +39,9 @@ c264_glue: large:c264
 c264_pixw: large:c264
 c264_colors: large:c264
 c264_tedsnd: large:c264
+pet_boot: large:pet
+pet_spet: large:pet
+pet_tape: large:pet
 eth: host
 pktport: host
 input: host
@@ -171,6 +174,7 @@ c128_vicblk: large:c128
 c128_vicrom: large:c128
 c128_vicbus: large:c128
 c128_z80ba: large:c128
+c128_z80vdc: large:c128
 c128_reset: large:c128
 c128_cold: large:c128
 c128_phase: large:c128
@@ -206,6 +210,8 @@ vicscale: host
 diag_probe: large:diag
 diag_pins: large:diag
 diag_co: large:diag
+diag_avenc: large:diag
+diag_avregs: large:diag
 c1541leds_c128: large:c128
 c1541leds_c264: large:c264
 c1541leds_vc20: core:vc20
@@ -217,6 +223,7 @@ c64scpu_map: large:c64scpu
 c64scpu_speed: large:c64scpu
 c64scpu_mirror: large:c64scpu
 c64scpu_irq: large:c64scpu
+c64scpu_mdust: large:c64scpu
 c128_vicpic: large:c128
 c128_vicshow: large:c128
 c128_act: large:c128

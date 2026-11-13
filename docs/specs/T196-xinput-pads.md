@@ -1,6 +1,6 @@
 # T196 — An Xbox-style (XInput) controller on a USB cable works in the console cores (NES, SNES, Neo Geo), as a HID gamepad does
 
-**Status:** PROPOSED (2026-11-09, Alex).
+**Status:** BUILDING (app code and native tests on branch t196-xinput, 2026-11-10; S5/S6 open).
 **Repo:** TRX64U-MultiCore — the USB host driver the apps compile (`host-app/software/io/usb/`, our copy with patches) and the core app's pad
 service (`coreapp/src/pad.cc`, `hidpad.cc`). No gateware. Host app: nothing (the host menu takes no gamepad).
 **Number:** T196.
@@ -78,4 +78,31 @@ Parts:
 
 ## §5 Decisions taken while building
 
-(empty)
+- **Where the code lives (deviates from D1's "in our USB copy"):** `tools/hostapp_vendor.py copy` deletes every folder of `host-app/software/` and
+  rebuilds it from `vendor.list`, so a new file in `io/usb/` would vanish at the next vendor run. The pure protocol is `coreapp/src/xinput.{h,cc}` (no
+  USB, tested natively), the USB driver `coreapp/src/usb_xinput.{h,cc}` (class `UsbXinputDriver`, registered with the same `FactoryRegistrator` on
+  `UsbInterface::getUsbDriverFactory()`), both in the coreapp Makefile only; the host app does not link them (D3 holds by construction there).
+  `usb_hid.cc` / `usb_hid.h` are not touched.
+- **Capability gate (D3, D4):** `run.cc` calls `usb_xinput_set_sink(&pad_sink, desc_has_capability(desc, "pad"))`; `test_driver` returns null unless both
+  hold (`xinput_claim`). `pad` added to the caps of NES, SNES, Neo Geo (the three descriptors with a `PadSpec`); the test checks `pad` == has a `PadSpec`
+  for the linked descriptors. D4's "loadable library or compiled in": compiled in, gated by the capability (about 1 KB of code; no library
+  machinery for it).
+- **Synthetic report (D1):** 5 bytes, 16 buttons + hat + X/Y (xinput.cc `synth_desc`). Button numbers = the generic numbering of pad.h: 1 A, 2 B, 3 X,
+  4 Y, 5 LB, 6 RB, 7 Back, 8 Start, 9 L3, 10 R3, 11 Guide, 12 LT, 13 RT. A pad that enumerates as an Xbox pad therefore needs no `PadNumbering` entry.
+  The left stick goes through X/Y (hidpad's 40 % deadzone), the D-pad through the hat (opposite directions cancel), triggers are buttons from 25 %
+  (360: 64 of 255, GIP: 256 of 1023). The right stick is not used.
+- **Output writes are queued:** the IN callback runs in the USB input task, which must not wait for the USB engine; the session's writes (power-on, LED,
+  acks) go into a 4-entry queue that `install()` and `poll()` send with `UsbBase::bulk_out` on the interrupt OUT endpoint.
+- **Byte values NOT verified on a pad (from the public descriptions named in xinput.h, to be proven at S5/S6):** the 360 LED pattern `0x06 + player`
+  (xpad.c names 0x06-0x09 as "LED 1-4 on"); the GIP acknowledge layout `01 20 <seq> 09 00 <cmd> <opt without ack bit> <payload len lo> <hi> 00 00 00 00`;
+  that the Series controller needs nothing beyond `05 20 00 01 00`; that `bulk_out` works on an interrupt OUT endpoint (it only builds an OUT
+  transaction with the pipe's split control; nothing in `usb_base.cc` is bulk-specific, but no board has run it). A pad that needs more init packets
+  (some third-party GIP pads do) is not handled.
+- **360 start = `ukp.s xinput_init` (vendor/icepi):** the LED packet `01 03 02` on the OUT endpoint, then the vendor control read `C1 01 0100 0000 0014`
+  (reply ignored; "some third-party pads need it", per its comment citing xpad.c). Both are sent (the control read in `install()` of the driver, setup
+  bytes `xinput_360_magic`, tested as a constant only); the LED value is `0x06 + player` instead of icepi's 0x02 (steady lamp for the player; unproven).
+- **Checked against Linux `drivers/input/joystick/xpad.c` (master, 2026-11-10, coordinator):** the GIP power-on `05 20 00 01 00`, the acknowledge layout (`xpadone_ack_mode_report`: `01 20 <seq> 09 00 07 20 02 00 00 00 00 00` for the guide message, the general form above), the 0x20 offsets (buttons bytes 4-5, triggers 6/8 LE16, left stick 10/12, Y inverted by xpad), the 360 LED commands `01 03 06..09` = player 1-4 steady: all as built. Added from it: xpad sends every One/Series pad (vendor 0x0000 entries of `xboxone_init_packets`) also the guide LED on `0A 20 <n> 03 00 01 14` and authentication done `06 20 <n> 02 01 00`, byte 2 counting up per packet; `XiSession::start` now sends all three. Still to prove on the board (S5): that the Series pad answers with input after these three.
+- **Not done here:** nothing of S5/S6; no board run; `tools/dev.sh emu` not run (no screen changes).
+- **Board pass S5 (2026-11-10):** Alex: "Xbox Series Pro controller via USB works 1A" (translated), on a USB cable. Build: branch
+  `t196-xinput` 1035cb05a with main merged (0e320374f), core app packed with the `main-038d80c1` mono bitstreams into `nes.cor`,
+  `snes.cor`, `neogeo.cor` (`tools/pack_large_cor.sh`, read back identical on the SD). Not checked separately: a HID pad and a keyboard beside it.

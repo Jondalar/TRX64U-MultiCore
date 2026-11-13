@@ -39,6 +39,7 @@ module vdc_signals_v (
 	output reg [4:0] line,           // current row line
 
 	output reg       vVisible,       // visible line
+	output           field,          // T113 D11: the field of the frame being drawn (0 first)
 
 	output           vsync,          // vertical sync
 
@@ -50,6 +51,7 @@ module vdc_signals_v (
 reg  [7:0] crow, srow;
 reg  [5:0] ncline, nsline;
 reg        cfield, ncfield;
+assign field = cfield;
 reg        newsrow;
 
 wire [7:0] vd = 8'(reg_vd - (|reg_vss ? 0 : 1));
@@ -128,7 +130,11 @@ always @(posedge clk) begin
 					newsrow <= 1;
 
 					frameFetched <= 0;
-					if (~&reg_im || cfield || !reg_text)
+					// T113 D11: interlaced bitmap (R8 = 3, R25[7] = 1): the field that starts here (cfield 0, the second of the pair)
+					// carries on at the memory line after the last one of the field before; only the bottom prefetch below (ncfield)
+					// sends the first field of a pair back to the start address (VICE vdc.c: the pointers are reset after an odd
+					// frame only)
+					if (~&reg_im || !reg_text)
 						fetchFrame <= ~frameFetched;
 
 					fetchLine <= cfield & reg_text & |ctv;

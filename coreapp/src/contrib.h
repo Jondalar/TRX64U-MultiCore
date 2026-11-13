@@ -61,7 +61,7 @@ struct Overrides {
     const NodeRename *rename; int nrename;
 };
 
-const Skeleton *contrib_default_skeleton();       // T104 5.8's five areas
+const Skeleton *contrib_default_skeleton();       // T104 5.8's areas; T187 D1 added the Settings area
 
 // ---- the result -------------------------------------------------------------------------------------------------------------
 #define CONTRIB_SETTINGS_MAX 16           // settings contributed by all together

@@ -50,4 +50,7 @@ bool core_swap(const CorInfo *ci, const char **why, core_progress_t cb, void *ct
 // Hands the machine over and starts the staged application. Does not return.
 void core_jump(const CorInfo *ci) __attribute__((noreturn));
 
+// T198 D7: the config the next core_jump hands over ("" or null = a plain start). One-shot: set before the start, the jump reads it.
+void core_set_start_config(const char *name);
+
 #endif

@@ -6,7 +6,9 @@
 #include "ctx.h"
 #include "memops.h"
 #include "cores.h"
+#include "boot.h"
 #include "engines.h"
+#include "winslot.h"
 #include "newdisk.h"
 #include "picture.h"
 #include "amiga_regs.h"
@@ -118,14 +120,16 @@ static const Task tasks[] = {
     { "Mount folder as HD1", "sectors.mount_folder", mfold1, 2, false, "Size of the disk in GB", "sectors.folder.offer", true, "Use this folder" },
 };
 
+static const OpBind rdf0[] = { B_FILE("path") };
 static const FileAction adf_actions[] = {
-    { "Mount DF0", "window.mount", mdf0, 2, false }, { "Mount DF1", "window.mount", mdf1, 2, false },
+    { "Mount DF0", "window.mount", mdf0, 2, false }, { "Mount DF0 and reset", "amiga.mount_reset", rdf0, 1, true },
+    { "Mount DF1", "window.mount", mdf1, 2, false },
     { "Mount DF2", "window.mount", mdf2, 2, false }, { "Mount DF3", "window.mount", mdf3, 2, false },
 };
 static const FileAction hdf_actions[] = {
     { "Mount HD0", "sectors.mount", mhd0, 2, false }, { "Mount HD1", "sectors.mount", mhd1, 2, false },
 };
-static const FileType filetypes[] = { { ".adf", adf_actions, 4 }, { ".hdf", hdf_actions, 2 } };
+static const FileType filetypes[] = { { ".adf", adf_actions, 5 }, { ".hdf", hdf_actions, 2 } };
 
 static const MediaSlot media[] = {
     { "DF0", "amiga.df0.image", "window.eject", df0, 1 }, { "DF1", "amiga.df1.image", "window.eject", df1, 1 },
@@ -151,6 +155,11 @@ static int op_am_poll(CoreCtx *c, const OpArgs &, OpOut &o)
     if (c->started && !c->frozen && now - last >= 10000) {
         last = now;
         uint8_t feat = c->io->rd(AM_FEAT);
+        // T188 S1/S2: the core's frame counter (amiga_regs 0x2A, 16 bit) and the HDMI output's (pix_layer n_frames, b31:16 of its 0xA4 status), read
+        // back to back with the clock, for tools/t188_measure.py (f_core, f_out, the beat); both wrap at 65536
+        uint32_t fc = (uint32_t)c->io->rd(AM_FRAMES) | ((uint32_t)c->io->rd(AM_FRAMES + 1) << 8);
+        uint32_t fo = (uint32_t)c->io->rd(PX_NFRAMES) | ((uint32_t)c->io->rd(PX_NFRAMES + 1) << 8);
+        printf("[amiga] frames core %u out %u at %u ms\n", (unsigned)fc, (unsigned)fo, (unsigned)now);
         if (feat & 0x02) {
             uint32_t ou = am_stat(c, 8), mm = am_stat(c, 9), fill = am_stat(c, 10), cu = (feat & 0x04) ? am_stat(c, 11) : 0;
             printf("[amiga] audio over %u under %u, fill now %u min %u max %u (target 480), catch-up lost %u ticks, deepest debt %u\n",
@@ -161,6 +170,17 @@ static int op_am_poll(CoreCtx *c, const OpArgs &, OpOut &o)
     return OPE_OK;
 }
 
+// T206: "Mount DF0 and reset" - the disk goes into DF0 and the machine is reset, so the Kickstart boots from it (the Kickstart asks DF0 for a bootable disk
+// at start). The mount is the base's (window.mount); the reset is boot_cold_reset, as "Reset Amiga" (it reloads the Kickstart when the choice names another file).
+static int op_mount_reset(CoreCtx *c, const OpArgs &a, OpOut &o)
+{
+    if (win_mount(c, 0, a.s(0), o.msg, o.msglen)) {
+        return OPE_FAILED;
+    }
+    return boot_cold_reset(c, o.msg, o.msglen) ? OPE_FAILED : OPE_OK;
+}
+static const ArgSpec mount_reset_arg[] = { ARG_PATH("path") };
+
 static const MemMap amiga_mem = { 0, 0, false, "The Amiga's chip and slow RAM are the core's own SDRAM; no window of the application reaches them" };
 
 static void amiga_register(OpRegistry &r)
@@ -168,6 +188,7 @@ static void amiga_register(OpRegistry &r)
     r.contributor("amiga");
     MEM_OPS(r, amiga_mem, 0xFFFFFF);
     r.add_op("amiga.poll", 0, 0, op_am_poll);
+    r.add_op("amiga.mount_reset", mount_reset_arg, 1, op_mount_reset);
     r.add_state("amiga.df0.image", win_state<0>);
     r.add_state("amiga.df1.image", win_state<1>);
     r.add_state("amiga.df2.image", win_state<2>);

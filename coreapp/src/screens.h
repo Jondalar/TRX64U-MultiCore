@@ -20,7 +20,11 @@
 bool screens_wanted(MenuCtl &m);
 
 // Draws the screen of the open tab - or, when only the selection moved, moves it. Returns false when the tab has none.
-bool screens_render(lv_obj_t *scr, const TrxShellInfo &info, const TrxRoute &route, MenuCtl &m);
+bool screens_repage_take();                                       // the last screens_render saw the page state flip and drew nothing: make the foot again, render again
+bool screens_render(lv_obj_t *scr, TrxShellInfo &info, const TrxRoute &route, MenuCtl &m);
+
+// The bench: the headings of the open tab's main column in order (written by the record or made by a change of group); how many were stored.
+int screens_headings(char out[][40], int max);
 
 // The pane was cleaned behind its back.
 void screens_forget(void);

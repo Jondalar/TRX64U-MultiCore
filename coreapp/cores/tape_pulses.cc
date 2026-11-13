@@ -216,6 +216,54 @@ int convert_tap(Conv &c, char *msg, int msglen)
     return c.failed() ? finish_error(c, false, msg, msglen) : 0;
 }
 
+#define C64TAP_LOW 100                                   // us the line is low in every pulse (the falling edges are the tape's information)
+
+int convert_c64tap(Conv &c, char *msg, int msglen)
+{
+    uint8_t h[20];
+    for (int i = 0; i < 20; i++) {
+        if (!c.byte_at(i, &h[i])) {
+            reason(msg, msglen, "not a C64 .tap (too short)");
+            return 1;
+        }
+    }
+    if (memcmp(h, "C64-TAPE-RAW", 12) != 0) {
+        reason(msg, msglen, "not a Commodore .tap (no C64-TAPE-RAW signature)");
+        return 1;
+    }
+    if (h[12] > 1) {
+        reason(msg, msglen, "this .tap version is not read (0 and 1 only)");
+        return 1;
+    }
+    uint32_t len = (uint32_t)h[16] | ((uint32_t)h[17] << 8) | ((uint32_t)h[18] << 16) | ((uint32_t)h[19] << 24);
+    c.pos = 20;
+    uint64_t end = c.size < 20u + (uint64_t)len ? c.size : 20u + (uint64_t)len;
+    c.block_start();
+    while (c.pos < end && !c.failed()) {
+        uint32_t v;
+        c.u8(&v);
+        uint32_t ticks = v * 8;
+        if (v == 0) {
+            if (h[12] == 0) {
+                ticks = 256 * 8;
+            } else {
+                uint32_t cyc;
+                if (end - c.pos < 3 || !c.un(3, &cyc)) {
+                    return finish_error(c, true, msg, msglen);
+                }
+                ticks = cyc;
+            }
+        }
+        if (ticks < C64TAP_LOW + TAPE_MIN_PULSE) {
+            c.short_pulse = true;
+            break;
+        }
+        c.pulse(C64TAP_LOW);                              // low, then the toggle to high
+        c.pulse(ticks - C64TAP_LOW);                      // high until the falling edge
+    }
+    return c.failed() ? finish_error(c, false, msg, msglen) : 0;
+}
+
 int convert_tzx(Conv &c, bool stop48, char *msg, int msglen)
 {
     static const char sig[] = "ZXTape!\x1a";
@@ -409,7 +457,7 @@ int tape_convert(CoreFile *f, TapeFormat fmt, bool stop48, TapeOut *out, TapeInd
     c.size = f->size();
     c.out = out;
     c.idx = idx;
-    int rc = fmt == TAPE_TAP ? convert_tap(c, msg, msglen) : convert_tzx(c, stop48, msg, msglen);
+    int rc = fmt == TAPE_C64 ? convert_c64tap(c, msg, msglen) : fmt == TAPE_TAP ? convert_tap(c, msg, msglen) : convert_tzx(c, stop48, msg, msglen);
     if (rc) {
         return rc;
     }

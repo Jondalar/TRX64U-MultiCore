@@ -1,6 +1,7 @@
 # T187 — Every core's menu is laid out the same way, keeps the selection visible and never covers its rows
 
 **Status:** PROPOSED (2026-11-06), D1-D8 decided; questions open (§6).
+**Superseded in part by T205 (2026-11-11):** F6 is gone; the settings of a core are in F5 (core tab, Video, Audio, Input), F8 holds actions only. Where this text says F6, read F5.
 **Repo:** TRX64U-MultiCore — core app (`coreapp/src/menutree.cc`, `ui.cc`, `menuctl.cc`, the extend functions), its render bench;
 the host app's WiFi page (T184 D3 amended) is reviewed with the same rules.
 **Number:** T187.
@@ -58,6 +59,10 @@ of the same day: `docs/todo/T187-ux-review-2026-11-06.md` (findings, layout prop
   100 % amplify (quiet cores such as SID or Paula get louder, loud passages may clip).
 - **D7 (Alex, 2026-11-07: "A", translated):** Home directory, Enter home on startup and Persist medium mounts move from F8 to F5 Settings,
   group Storage (amends T180 D2/D10 placement); F8 keeps system actions, WiFi, Bug report and Reset to host defaults as the last row.
+- **D9 (Alex, 2026-11-11, on the picture page with "now" on both Auto and 1920 x 1080: "the now twice is nonsense. The currently chosen
+  mode should have NOW or a * and already be selected on opening", translated):** one mark only, on the row that is chosen (Auto when
+  Auto is set, its resolved mode stays in brackets; otherwise the fixed mode); the cursor starts on that row. Host F8 Picture and the core
+  app's picture page alike.
 - **D8 (Alex, 2026-11-07: "A", translated):** F8 is named "System" (not "Expert"), grouped: System actions (Restart core, Return to host
   menu), Network (WiFi On/Off and line), Support (Bug report), and Reset to host defaults as the last row; the first focus is not destructive.
 - **Finding (board photo, A1200 F1 Home, 2026-11-06):** the top bar shows 192.0.2.18 while Status > Network shows 192.0.2.189;
@@ -89,7 +94,98 @@ the hotkey rows and a second time in the status line over the last row (P2). Bui
 - ux-review 2026-11-09: PASS. Finding fixed: the volume text no longer shows twice (status row and foot line): `status_line` / `hint_text` leave out a status that equals the toast. Open, low: c128 says "next start" where the legend says "reset" (a ROM message of the C128 core).
 - Pictures changed: the A1200/A500/Atari/C128/NES settings pages, the Picture-row mode pictures and the seven volume-toast pictures (28 of 99); the other 71 are identical.
 
-### D5 design (ux-specialist proposal, 2026-11-06; not yet decided by Alex)
+### Part 1 built (2026-11-07, branch t187-ux): S1, D3, the shared menu chain
+
+- **One chain:** `menu_build` (`coreapp/src/menubuild.cc`) holds picture, volume, persist, home, hk; `run.cc` and every render case that shows
+  what the board shows (`board_desc()` in `tests/coreapp/render/render.cc`: areas, a1200, modes, rtc, ddt, c128 kit, main Atari, toast, job) call it.
+  Tests of one extend in isolation stay (`test_picture`, `test_volume`, `test_home`, `test_hotkeys`, the hk pixel diff).
+  The render bench uses the board's own `core_table` (`table.cc`, 18 cores), no short copy.
+- **P1:** `trx_window_h` (`app/view/trxview.cc`) takes the rows' real heights; `list_window` (`ui.cc`) is the one call of build, signature and in-place
+  pass. The position label sits on the title line and says "3-20 of 23 (2 above, 3 below)".
+- **D3:** superseded by D9 (the ring and `legend_line()` above, from main); the `*` marker and the extra legend line of this first cut were dropped in the rebase of 2026-11-10.
+- **S1 bench** (`list_rules`, `tests/coreapp/render/render.cc`): every core of the table x 480p/720p/1080p canvas x every flat list x every selection
+  index (walk down and up with the keys; files get a path so some rows are two lines). Checks: selected row whole inside the rows' room, sum of drawn rows
+  <= room, position label above the first row and naming what is hidden, no "next reset" second line, legend exactly when a row is marked.
+- **Red first** (commit 10a9b3fdd, old window logic, builder): `S1 context: Amiga 1200 (AGA, 68020) 480p ... selected row 10 of 23 at y 358-378, the
+  rows' room is 36-362 (drawn 15 rows)`; 226 such lines, `S1 list rules: 18 cores, 201 lists, 5349 selection states, 6036 rows with a second line,
+  0 marked rows, 0 legends, 7489 failed`.
+- **Green** (builder, `ci/trxapps.sh`, rc 0, 43m50s): `S1 list rules: 18 cores, 201 lists, 5349 selection states, 708 rows with a second line, 5328
+  marked rows, 1626 legends, 0 failed`; `coreapp render: 87690 checks, 0 failed`. Control `UI_LIST_ONE_LINE_ROWS` (in `tests/coreapp/render/run.sh`):
+  `coreapp render: 87690 checks, 193 failed`, `test control_UI_LIST_ONE_LINE_ROWS: PASS`. Sizes: coreapp.app 1,710,668 bytes (slot 1,966,068), hostapp.app 901,884.
+- **ue2emu for a non-C64 core:** not possible today. The ID block of ue2emu is the constant "TRX2" (`trx.rs:43`), so the core app always takes the
+  TRX64U descriptor; see the interim note to the coordinator (core id, hand-over page, shared-ID feature register).
+- Not in part 1: S2 (toast), S3 (groups), S4, S5, S6, D1/D2/D4-D8.
+
+### Part 2 built (2026-11-07/08, branch t187-ux): D1, D2, D7, D8, S1 headings, S3, S4, P4b (parts 2, 2b, 2c)
+
+- **Routing table** (`menu_route_of`, `g_routes[]`, `coreapp/src/menutree.cc`): a generic row (Picture/Scale/Smoothing -> video, Volume -> audio, hotkey map ->
+  hotkeys, Persist/Home -> storage) lands in the same area and tab in every core: F6 Settings (Video, Audio, Input), F5 Storage. A core without such a tab lists the
+  rows in the area's tab "settings"; a heading ("Machine", "Storage") tells two blocks apart there. The descriptor group `system` of Persist/Home was renamed
+  `storage` (D7: F8 keeps the system actions). C64: the firmware's record keeps Storage in its tab "Drive A" (F5) and Home directory / Enter home on startup in F8 "Expert".
+- **D1 headings:** `EK_HEADING` (a quiet divider, never selected: `MenuCtl::heading/unheading/move/settle`; never the last line of a window: `list_window`).
+- **D2:** the seven hotkey items are one row "Hotkeys >" in F6 Input (`EK_OPENS`, a hidden page tab of the area); RETURN or RIGHT opens the page (modifier + six keys),
+  ESC returns to the same tab with the same selection and first row (rule 5, `first_` kept per tab).
+- **D8:** F8 "System": System (Restart/Reload core, Return to host menu), Network (WiFi), Support (Bug report), core nodes, Reset (Reset to host defaults, last row);
+  the first focus is Restart core.
+- **Assertion changes of part 2b (old -> new):** Picture/Volume tests `F5 / tab 2` -> `F6 / tab 1`; Amiga mouse rows F5 tab 2 -> F6 tab 3 (Input); Persist/Home
+  `F8 present` -> `F5 present, under the heading "Storage"` (`test_home`, `test_media_mounts*`, `test_desc`); `!F6/!F5 Persist` -> `!F6/!F8`; tab number check
+  `tb.n == b + 1` -> `tb.page || tb.n == b + 1`; Reset test moves with KEY_UP (reset is last); desc check accepts EK_HEADING, EK_OPENS, EK_NODE; goldens `menu_*.txt` follow.
+- **Part 2c bench** (`tests/coreapp/render/render.cc`): (1) S1 walk expects the rows minus the headings and asserts `!sel_heading`, `!last_heading` per state;
+  (2) `ux_rules`: D2 per core with a hotkey map (exactly one "Hotkeys >" row, no hotkey item outside the page, page = 7 rows, ESC back to tab/selection/first row),
+  S3 (every generic row of the routing table in the F-key and group the table names, checked against the C64's own F6 tab names; page entries "Input > Hotkeys"; the
+  three storage rows in F5 Storage - the C64 record is not their yardstick), S4 (F8 first focus neither heading nor Reset, Reset last), P4b (the value's middle is the
+  label's middle in every drawn row, S1 walk = window moves and in-place retext, plus a value change in every F5/F6 list); (3) the hotkeys pixel check compares the
+  core's Input tab with its opened Hotkeys page. Controls added to `tests/coreapp/render/run.sh`: `UI_HOTKEYS_SEVEN_ROWS`, `TRX_FOCUS_ROW0`,
+  `TRX_HEADING_SELECTABLE`, `TRX_VALUE_ROW_OFF`.
+- **P4b (Apple II F8, 11-06: value one row below its label):** not reproduced in the bench at 480p/720p/1080p: no value deviates more than 2 px from its label's middle
+  (see the report lines); the control `TRX_VALUE_ROW_OFF` turns it red. Open for the board: the photo may be an older build.
+- **UX pictures** (`ux_shots`, 1080p and 480p, `ux-<core>-<state>-<res>.png`): A1200 F5 Settings top/end, F6 Video/Audio/Input, Hotkeys page, F8 System; C128 F5 end;
+  Atari F5; Apple II F8; C64 F5 Drive A.
+- **Report lines:** builder, commit 5bfa5017b, `ci/apptests.sh coreapp hostapp`: `tests/coreapp: 103 test programs passed, 1521 parallel controls (JOBS=14), every negative control failed as it must`
+  (620 s), hostapp PASS; `ci/trxapps.sh` rc 0 (29m03s): `S1 list rules: 18 cores, 252 lists, 5670 selection states, 564 rows with a second line, 3840 marked rows, 1170 legends, 0 failed`;
+  `UX rules: 18 cores, 15 with a hotkey map, 170 generic rows compared with the C64 (0 not in the C64), 51 storage rows in F5 (51 where the C64 record differs), 18 F8 focuses, 1317 value changes, 0 failed`;
+  `coreapp render: 90694 checks, 0 failed`. Controls (all `fails as it must`): UI_HOTKEYS_SEVEN_ROWS 31 failed, TRX_FOCUS_ROW0 82, TRX_HEADING_SELECTABLE 1083, TRX_VALUE_ROW_OFF 5855.
+  Sizes: coreapp.app 1,714,316 bytes (slot 1,966,068), hostapp.app 901,884. Before 2c the render was red: 96 x `render.cc:1126 v == n` (the walk counted headings).
+- **Open (C64 record, firmware side):** Home directory and Enter home on startup stay in the C64's F8 "Expert", Persist medium mounts in "Drive A"; D7 is not applied to the
+  firmware's record (change only with both sides, handover contract). A core whose F5 Settings holds only the storage rows shows them with no "Storage" heading (group = tab name).
+
+### Part 3 (2026-11-10, branch t187-ux): D5 core part built; state of D1-D9
+
+`tools/dev.sh test --branch t187-ux` rc 0 (518 s), `riscv` rc 0, `emu` rc 0 (host flow PASS, `tests/coreapp/emu` all scenarios, `tests/ui` 90 passed, 0 failed);
+`check_menuctl_gate` ok, `check_no_v1_ui` 0 findings. Not run: `ci/render.sh` (render bench, goldens of the pictures) and the board.
+
+| D | Built where | Evidence |
+|---|---|---|
+| D1 | `menu_route_of` / `g_routes[]` (`menutree.cc`): F6 Video, Audio, Input in every core | Part 2 report lines; `test_desc`, `menu_*.txt`, `tests/ui` A1200 F6 |
+| D2 | `EK_OPENS` row "Hotkeys >", hidden page tab | Part 2; `test_hotkeys` (nes now sets `WIN / CMD + ESC`, the non-C64 names) |
+| D3 | superseded by D9 | - |
+| D4 | `MenuCtl::say` / `toast` chip in the top bar; D5 result goes there (`picture_take_result` in `run.cc`) | `test_picture` (status/chip not asserted) |
+| D5 core | `picture_modes` (`picture.cc`), `begin_pick_modes` / `pick_key` (`menuctl.cc`), key bar, confirm text with both modes (`ui_picture_question`), LEFT/ESC revert (`run.cc`) | `test_picture` `through_the_menu`: RIGHT does nothing, RETURN opens "Picture", browsing applies nothing, RETURN applies via `settings.set` (same path as REST), "now" tag, LEFT closes |
+| D6 | volume to 200 % (Part 2/main) | `test_volume` |
+| D7 | Persist/Home dir/Enter home on F5 Storage; C64 record: Persist in "Drive A" (`menu.toml` group `drives`, `menu_rec.inc` regenerated, `menu_c64.txt` golden); "Menu opens at" stays on System (D30) | `test_media_mounts_engines`, `test_reopen`, `tests/ui` settings.feature |
+| D8 | F8 "System" with headings, Reset last, first focus Restart core | `keywalk.txt` / `ids.txt` goldens regenerated (headings are rows now); `tests/hostapp/emu_host.sh` goes one down to "Return to host menu" |
+| D9 | reset pictogram (main) | unchanged |
+
+Fixes on the way: a heading entry was a "fixed" item of the UI service and answered "takes no focus" in the cover test (`MenuCtl::item` gives `IK_HEADING`);
+`picture_modes` needs no video object (benches); `PictureEnv` initialisers got the `native` field; "Menu opens at" no longer shows in F5 Machine as well.
+**Not built (D5):** the host's F8 Picture row and its `V` key as the same page (`hostui.cc`, shared `app/view` page), the shared confirm text in `pq_root`;
+`PictureEnv::native` is read from the EDID but the render fixtures (6, 4, 1 modes, none, corrupt) and the §D5 render assertions are not written; the info line
+for "60 Hz modes listed" differs from the spec wording; hot-plug rebuild is wired (`rebuild()`) but has no test; no ux-specialist run, no pictures of the page yet.
+
+### Part 4 (2026-11-11, branch t187-ux): D5 host part (built; verified in Parts 5-6, merged into main 2026-11-11)
+
+- `tools/dev.sh riscv --branch t187-ux` at 7b0bf4c7e: rc 0, host app and core app link (`hostapp.app`, `coreapp.bin` produced).
+- The F8 Picture row, the `V` key and the confirm box (`pq_root`) use `coreapp/src/picmodes.*`; host render bench cases exist in `tests/hostapp/render/render.cc`
+  (`page_pick`, `picnote_kept`, the 8-second question with both modes).
+- Changed in this step: the fallback and no-EDID info lines now read exactly as the D5 spec ("This screen names no 50 Hz modes; 60 Hz modes are listed.");
+  `test_picture` gained the D4 chip texts (`picmodes_kept_text` / `picmodes_back_text`) and the hot-plug rebuild of `PicPage` (cursor by name, fallback to the mode in force).
+- 2026-11-11 results at 9fa756af5 + golden commit: `tools/dev.sh test --branch t187-ux` first run red (`test_keywalk` : VIC-20 F5/summary, the changed fallback info line);
+  golden `tests/coreapp/golden/keywalk.txt` regenerated (38 lines, all VIC-20 F5 probes; no other golden changed), then `test` rc 0 (262 s), `emu` rc 0 (host flow PASS,
+  `tests/coreapp/emu` all scenarios, `tests/ui` 90 passed, 0 failed).
+- Not run: `ci/render.sh` (the host render bench `tests/hostapp/render` with the D5 cases is compiled and run only there, not in `apptests --tier fast`), the render fixtures
+  6/4/1/none/corrupt EDID, ue2emu pictures of the picture page (core and host), the ux-specialist run, the board.
+
+### D5 design (ux-specialist proposal, 2026-11-06; decided by Alex 2026-11-07: Q-D5.1-4 all "A", answers at the end of this section)
 
 Read first: the UX concept (README, NAVIGATION, UI-COVERAGE; "settings change live when the user leaves a page", flat lists, one
 dominant task per screen), `gideon-menu-tree.md`, GitHub #50, ADR-0062. Facts from the code: the Picture item is value 0 = Auto and
@@ -194,4 +290,39 @@ at once, any other key keeps; Q-D5.3 after keep the page stays open on the new m
 
 ## §6 Open questions (one at a time; full list in the review document)
 
-none open after D8 (D5's mode list design by the ux-specialist pending).
+none open (the D5 design is decided: Alex, 2026-11-07, Q-D5.1-4 all "A").
+
+### Part 5 (2026-11-11, branch t187-ux at 1f523e3b9): verification
+
+- `tools/dev.sh integrate --branch t187-ux`: rc 0 (tests/coreapp/emu "all scenarios passed, every control failed as it must"; host emu flow PASS `host->vc20->menu->host`; tests/ui "100 passed, 0 failed, 0 errors").
+- `tools/dev.sh emu --branch t187-ux`: rc 0; tests/ui "100 passed, 0 failed, 0 errors (226 s)".
+- PNGs in `/tmp/t187emu/` (copied from `tests/ui/out/`, 28 files: `a1200-picture-{browse,page,question,reverted}`, `a1200-f6-video`, `nes-picture-{browse,page,question,reverted}`, `amiga1200-f1/f5/f6/f8*`, `nes-f1/f5/f6/f8*`; host emu `.ci/dev/t187-ux/emu/` as `host-*`: `core-menu`, `host-back`, `host-start`).
+- Opened: `a1200-picture-page.png` (core Settings > Video, Picture list, "now" marks, hint line: correct), `amiga1200-f5-settings.png` (core F5 Settings: correct), `host-host-start.png` (host boot menu, hint "V picture").
+- Not covered: the host emu flow writes no picture of the host F8 Picture page. The only host picture PNGs on the builder (`.dev-out/ha/picnote_*`) are from the older render run (app 0.2.0+85acf2b, old info text), not this commit; `ci/render.sh` not run.
+
+### Part 6 (2026-11-11, branch t187-ux): UX review findings F1-F7 fixed
+
+Review on the ue2emu pictures of Part 5 (`/tmp/t187emu/`); fixes in `6000baa83`, the render-bench follow-up and the in-place question text.
+
+| Finding | Fix | Evidence |
+|---|---|---|
+| F1 HIGH: NES "Keep this picture?" panel empty | Cause: the question is rebuilt (clean + build) every second, and in the same pass the NES waiting menu's `ui_menu_render` painted over it; the capture caught an empty pane. `ui_picture_question` now sets the text of the existing label in place; `ui_menu_render` returns while the question stands (`pq_up`, cleared by `ui_message_clear`). Text size `t.heading`, panel height follows the text. | new step `the picture "x" has text in the box` (bright pixels in the panel, `tests/ui/steps.py`) in both picture features: tests/ui 100 passed; `nes-picture-question.png` opened: title, mode line, countdown line, key line drawn |
+| F2 HIGH: chip cut at 31 characters | `chip_say[96]`, `toast_[96]` (the longest result is 17 + 48 characters) | render bench `ui_chip_say_text()` equals the whole result "Picture: back to ..." after the revert; not asserted in ue2emu: the emulator runs at ~30x real time (idle skipped), the 2 s toast is gone before a REST poll |
+| F3 MED: Hz column shifts | tags stand left of the Hz in the right-aligned value, the Hz is the right edge on every row (the tags are not a fixed column: one value string per row) | `a1200-picture-page.png` opened; render bench expects `now native   50.1 Hz` |
+| F4 MED: ring row without legend when a status shows | `MenuCtl::foot_line()`: status, then the ring legend on the same line when the list has a ring row (`ui.cc`, `screens.cc`) | `tests/coreapp/golden/keywalk.txt` regenerated (hashes of the F5 rows); no dedicated assert of the joined line |
+| F5 MED: "Files page" | "Library (F3)" in nes, snes, neogeo, zxnext | `nes-f5-first-tab.png`, `nes-f1-home.png` opened: "Choose a .nes file in Library (F3)" |
+| F6 MED: 60 Hz modes without a word, no path | info line "Your screen offers N modes. The 60 Hz ones are listed too: the core runs at 50 Hz." when a listed row is of the other rate family (PC modes have only a 60 Hz row, so the old fallback line never fired); chip "Settings > Video" on the page (replaces the media chip: the bar holds 4 chips) | `a1200-picture-page.png` opened: path chip and info line; render bench fixtures six/four |
+| F7 LOW: Home two-line rows | `trx_action_row_at`: two-line row 36 px (was 30), value line at y 17 | not looked at in a picture (the Home status list of the host/core F1 page is not among the saved PNGs of the emu run) |
+
+Runs on the builder, final tree: `dev.sh test`, `riscv`, `integrate` (render benches, tests/coreapp/emu, tests/ui 100 passed), `emu` (tests/ui 100 passed): all rc 0. Pictures refreshed in `/tmp/t187emu/` (34 PNGs from `tests/ui/out/`).
+
+Host pictures (2026-11-11): `tests/hostapp/emu_host.sh` now also runs the host Picture flow in ue2emu (home with one entry = two-line row, F8 list, V page, applied mode; four different screens asserted, PNGs `host-*.png`). The emulator has no mode request register (`hv_gateware()` false), so the 8 s question and the revert exist only in the render bench: `picnote_settings_1080p.png` (question) and the new `picnote_revert_case` -> `picnote_settings_800x600_reverted.png` (mode back, toast "Picture: back to 1920 x 1080").
+
+D9 built (2026-11-11): `picmodes_set_row` marks only the chosen row (Auto's row, else the fixed mode's; the resolved mode keeps none), both apps' special case removed; the page already opened on `cur`. Question keys: the key bar shows `picmodes_confirm_keys()` while the question is up (host `pm_update`, core `footer_legend`). LOW (b) "trying ..." is not in the code: the note already reads "Picture: 1920 x 1080". Evidence: `test_picture` (one mark and cursor per Auto/fixed), both render benches (host with a fixed-mode round trip), `dev.sh test`/`riscv`/`emu` rc 0; core render bench: 2 WiFi "No module" failures not from this change.
+
+### Part 7 (2026-11-11): merged into main
+
+D9 (one "now" mark, cursor on it, the question's keys in the key bar) built in 654dfe650; `tools/dev.sh integrate` rc 0 after the main merge (the
+WiFi row fallback "No module" lost in that merge restored, keywalk golden regenerated: 170 F8 hash lines of the 16 cores with a WiFi row).
+Evidence limits: in ue2emu the host has no mode request register, so the 8-second question and the revert are proven by the render bench
+(`picnote_*`, `picnote_revert_case`), not by the emulator flow. Still open: S2, S5, S6.

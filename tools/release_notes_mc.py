@@ -59,6 +59,10 @@ CORES = [
          files="one system ROM image of 73,728 bytes: `boot0.rom`, `c128.rom`, `c128-system.rom` or `c128_system.rom`",
          needed="the system ROM image",
          sources="coreapp/cores/c128.cc:168-172 (roms[]); coreapp/cores/c128_regs.h:50 (C128_ROM_BYTES)"),
+    dict(id="pet", match=("commodore pet",), title="Commodore PET", folder="pet",
+         files="per model: BASIC (8,192 or 12,288), Editor (2,048), KERNAL (4,096), Characters (2,048 or 4,096) bytes, VICE's file names (`basic-4.901465-23-20-21.bin`, `edit-4-40-n-60Hz.901499-01.bin`, `kernal-4.901465-22.bin`, `characters.901640-01.bin` and the 2 / 1 / 8032 variants) or `basic.bin`, `edit.bin`, `kernal.bin`, `chargen.bin`; optional: disk drive DOS and controller ROMs, SuperPET Waterloo ROMs",
+         needed="BASIC, Editor, KERNAL and Characters of the chosen model; the drive and Waterloo ROMs only for those features",
+         sources="coreapp/cores/pet.cc (roms[], names and sizes)"),
     dict(id="amiga", match=("amiga (ocs", "amiga 500"), title="Amiga (OCS/ECS, 68000)", folder="amiga",
          files="any `.rom` of 262,144 or 524,288 bytes (Kickstart); Auto takes 1.3", needed="one Kickstart",
          sources="coreapp/cores/amiga.cc:32,148-154,181; coreapp/src/romset.cc:39-126; app/loaders/kickstart.cc:11-58"),
@@ -102,6 +106,7 @@ TREE = {
     "c128": "boot0.rom (73,728 bytes, the system ROM image)",
     "vc20": "kernal.bin  basic.bin  char.bin",
     "c16": "kernal.bin  basic.bin  3plus1lo.bin  3plus1hi.bin",
+    "pet": "basic*.bin  edit*.bin  kernal*.bin  characters*.bin (VICE names) or basic.bin edit.bin kernal.bin chargen.bin",
     "amiga": "any name.rom, 256 KB or 512 KB (Kickstart)",
     "atari800": "ATARIXL.ROM  BASIC.ROM",
     "apple2": "apple2e.rom  apple2e-video.rom  diskii.rom",
@@ -137,6 +142,34 @@ PARAS = {
         "Where to get them: the VICE distribution (%s) holds the Commodore ROM images in `data/VIC20/`." % VICE,
         "Copy the PAL Kernal `901486-07`, Basic `901486-01` and the character ROM `901460-03` and rename them as",
         "above. If the core does not take a file, tell us the message it shows.",
+    ],
+    "pet": [
+        "Needs four ROM files per model in `cores/pet/roms/`: BASIC, Editor, KERNAL and the character ROM. VICE's file names are taken",
+        "(`basic-4.901465-23-20-21.bin`, `edit-4-40-n-60Hz.901499-01.bin`, `kernal-4.901465-22.bin`, `characters.901640-01.bin`, and the",
+        "BASIC 2 / BASIC 1 / 8032 variants in the same folder), or the generic names `basic.bin`, `edit.bin`, `kernal.bin`, `chargen.bin`.",
+        "Optional: the disk drive's DOS and controller ROMs (`dos4040.bin`, `ctl4040.bin`, `dos1001` or `dos8250.bin`, `ctl8250.bin`) and the six SuperPET",
+        "`waterloo-*.bin` ROMs. Where to get them: the VICE distribution (%s), folder `data/PET/`." % VICE,
+        "",
+        "**VICE files per model** (in `cores/pet/roms/`, the names are the ones the core looks for; the picture-rate setting chooses the 50 or 60 Hz editor):",
+        "",
+        "| Model | BASIC | Editor 60 Hz | Editor 50 Hz | KERNAL | Characters |",
+        "|---|---|---|---|---|---|",
+        "| 2001 | `basic-1.901439-09-05-02-06.bin` | `edit-1-n.901439-03.bin` | same | `kernal-1.901439-04-07.bin` | `characters-1.901447-08.bin` |",
+        "| 3032 | `basic-2.901465-01-02.bin` | `edit-2-n.901447-24.bin` | same | `kernal-2.901465-03.bin` | `characters-2.901447-10.bin` |",
+        "| 4032 | `basic-4.901465-23-20-21.bin` | `edit-4-40-n-60Hz.901499-01.bin` | `edit-4-40-n-50Hz.901498-01.bin` | `kernal-4.901465-22.bin` | `characters-2.901447-10.bin` |",
+        "| 8032, 8096, SuperPET | `basic-4.901465-23-20-21.bin` | `edit-4-80-b-60Hz.901474-03.bin` | `edit-4-80-b-50Hz.901474-04.bin` (or `edit-4-80-b-50Hz.901474-04_.bin`) | `kernal-4.901465-22.bin` | `characters.901640-01.bin` (or `characters-2.901447-10.bin`) |",
+        "",
+        "**The 4040 drive** (setting Drive = 4040) needs two files in the same folder, both of exactly these sizes (the core refuses any other size):",
+        "",
+        "- `dos4040.bin`, 12,288 bytes (also accepted as `dos4040-901468-14-16.bin`): the drive's DOS ROMs.",
+        "- `ctl4040.bin`, 2,048 bytes: the controller ROM `901466-04.bin` written twice into one file, one copy after the other. The result must be 2,048 bytes.",
+        "",
+        "Join the controller ROM with the command of your system, in the folder that holds `901466-04.bin`, then check the size of `ctl4040.bin`:",
+        "",
+        "```",
+        "macOS, Linux:   cat 901466-04.bin 901466-04.bin > ctl4040.bin",
+        "Windows:        copy /b 901466-04.bin+901466-04.bin ctl4040.bin",
+        "```",
     ],
     "c264": [
         "Needs `kernal.bin` and `basic.bin` (16,384 bytes each, PAL) in `cores/c264/roms/`.",
@@ -230,6 +263,7 @@ MEDIA = {
     "amiga1200": "`.adf` (Mount DF0 ... DF3), `.hdf` (Mount HD0, HD1), or a folder as a hard disk (Mount folder as HD0/HD1).",
     "c128": "`.d64` `.g64` on drive 8 (the 1541), `.d81` on the 1581; `.rom` loads a system ROM image.",
     "vc20": "`.prg` `.p00` (Run PRG: reset and run; Load PRG: into the running machine, nothing typed). The RAM expansion is a setting in F5. No disk drive yet.",
+    "pet": "`.prg` `.p00` (Run PRG, Load PRG), `.d64` on the 4040, `.d80` `.d82` on the 8250, `.tap` (Datasette).",
     "c264": "`.prg` `.p00` (Run PRG, Load PRG), `.bin` of 16 or 32 KB (Load as cartridge: the Plus/4 model). No disk drive yet.",
     "amiga": "`.adf` (Mount DF0 ... DF3) and `.hdf` (Mount HD0, HD1) from the **F3 Library**.",
     "atari800": "`.atr` `.xfd` (Mount D1: ... D4:; the first entry also cold-starts), `.xex` `.obx` `.com` (Run), `.car` `.rom` `.bin` (cartridge).",
@@ -246,13 +280,15 @@ MEDIA = {
 }
 
 KNOWN = {
+    "_scpu": "**C64 with SuperCPU (large core, experimental):** *Run Disk* does not work yet (fix pending); *Metal Dust* still flickers while scrolling. A large core replaces the whole FPGA: power off and on to come back.",
     "atari800": "**Atari 800 XL:** a mounted `.atr` boots. Some executables (the trainer demo) show a broken scroller and ignore input.",
     "apple2": "**Apple IIe:** swapping the disk in D1: while a game runs is not tested on the board yet.",
+    "pet": "**Commodore PET (large core, experimental):** starts on the board and runs demos (2026-11-11); the models and the cassette are not checked yet. Needs your own PET ROMs. A large core replaces the whole FPGA: power off and on to come back.",
     "c264": "**Commodore 264:** runs on the board with sound (Plus/4). Cartridges are not tested. The 1541 disk drive is not there yet.",
     "nes": "**NES:** the picture does not fill as much of the screen as it could.",
     "zx": "**ZX Spectrum:** 128K shows a picture on the board; **48K stays black** (the fix is being built). Tapes with pulses shorter than 16 T-states (turbo loaders) are refused; there is no tape SAVE.",
     "amiga1200": "**Amiga 1200 (large core):** AmigaVision runs on the board with sound. A large core replaces the whole FPGA: to come back to the boot menu, switch the power off and on.",
-    "c128": "**Commodore 128 (large core):** C128 and C64 mode with picture and sound on the board. A large core replaces the whole FPGA: power off and on to come back.",
+    "c128": "**Commodore 128 (large core):** C128 and C64 mode with picture and sound on the board. A large core replaces the whole FPGA: power off and on to come back. *Busted Boulders* stops after the title screen (the left column is missing).",
     "cpc": "**Amstrad CPC:** never on the board. The picture position (720 x 540 at scale 2) is an estimate; there is no tape SAVE and no snapshot.",
     "neogeo": "**SNK Neo Geo (large core):** never on the board. The machine is held while a sprite or fix word is late from the DDR2 (about 210,000 words in a 320 ms bench run); whether that is visible is open. A large core replaces the whole FPGA: power off and on to come back.",
     "zxnext": "**ZX Spectrum Next:** never on the board; the CPU runs from the DDR2 behind a cache and waits on a miss, so the speed of a program that does not fit the cache is below the real machine's. 128K, +3 and Pentagon timing run 1.5 to 2.7 % fast (frame lock); no Sega 6-button pad, no SD pass-through.",
@@ -511,6 +547,8 @@ def render(a, cors, bit_len, alen, dest):
     for c in present:
         if c["id"] in KNOWN:
             w("- " + KNOWN[c["id"]])
+    if any("supercpu" in m["name"].lower() for _, m in cors):    # c64scpu has no CORES line yet (unknown above)
+        w("- " + KNOWN["_scpu"])
     if any(c["id"] == "nes" for c in present):
         w("- The NES reads the C64's own hardware: joystick 1 and 2 give the directions and A, **space** is B")
         w("  (right shift on port 2), **F3** is Select (F7), **F1** is Start (F5). No USB pad yet.")

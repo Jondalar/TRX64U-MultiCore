@@ -53,7 +53,7 @@ fi
 # switch everything to the generic core app for now", translated), the A500 (`amiga`) since 2026-10-24 (Alex: "the app must also be switched
 # to generic!", translated). amiga1200 has no descriptor since T97 (not built); coreapp/cores/amiga.cc is the amiga source. coreapp/cores/vc20.cc and c264.cc
 # replace the machine code of the fork branch t90-c16app.
-BLUEPRINT_CORES="${BLUEPRINT_CORES:-atari800 nes apple2 zx cpc zxnext snes neogeo vc20 c264 amiga ddt_mandel ddt_novic diag}"
+BLUEPRINT_CORES="${BLUEPRINT_CORES:-atari800 nes apple2 zx cpc zxnext snes neogeo vc20 c264 pet amiga ddt_mandel ddt_novic diag}"
 
 if [ -n "$cache" ] && [ -f "$cache/DONE" ]; then
   echo "=== trxapps $key: from cache $cache"

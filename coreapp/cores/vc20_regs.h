@@ -11,6 +11,7 @@
 #define VC20_CTRL       0x0A0          // b0 reset hold, b1 halt (b2, the old identity palette, does nothing since T119); the application writes none
 #define VC20_RAM_EXT    0x0A1          // b0 3K at $0400, b1 8K at $2000, b2 8K at $4000, b3 8K at $6000, b4 8K at $A000; taken from the register at once
 #define VC20_RAM_RO     0x0A2          // the same bits: the block is read only (b4: the $A000 block as a ROM)
+#define VC20_TAPE_PIN   0x0B0          // b0 MOTOR pin driven, b1 WRITE pin driven, b4 READ / SENSE pins are the VIC-20's inputs (reset 0: every pin released)
 #define VC20_STATUS     0x0A4          // b0 the machine is in reset, b1 held (Freeze)
 #define VC20_ST_HELD    0x02
 #define VC20_FB_LATEST  0x0C0          // b7 valid, b1:0 the buffer of the newest complete frame

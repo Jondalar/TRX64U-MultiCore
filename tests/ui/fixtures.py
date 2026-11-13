@@ -47,22 +47,53 @@ def make_d64(name, prg_name, prg_bytes):
 HELLO_PRG = bytes([0x01, 0x08, 0x0B, 0x08, 0x0A, 0x00, 0x99, 0x22, 0x48, 0x49, 0x22, 0x00, 0x00, 0x00])
 
 
+ROMFILES = {"vc20": (("basic.bin", 8192), ("kernal.bin", 8192), ("char.bin", 4096)), "c128": (("c128.rom", 73728),),
+            "atari800": (("ATARIXL.ROM", 16384), ("BASIC.ROM", 8192)),
+            "pet": (("basic.bin", 12288), ("edit.bin", 2048), ("kernal.bin", 4096), ("chargen.bin", 4096), ("dos4040.bin", 12288), ("ctl4040.bin", 2048))}
+
+
+def _big(stick, ext):
+    """T209: a long list with long real names (the Library's rows, the cut, the scroll margin)."""
+    os.makedirs(os.path.join(stick, "big"))
+    for n in ("Turrican_II_The_Final_Fight_Director_Cut_Disk_1_of_3_Fixed", "Last_Ninja_Remix_(1990)(System_3)[cr Fairlight][t +3]",
+              "Impossible_Mission_II_(1988)(Epyx)(Side_A)", "Wizball", "Zak_McKracken_and_the_Alien_Mindbenders_Disk_1_Side_A"):
+        with open(os.path.join(stick, "big", n + "." + ext), "wb") as f:
+            f.write(make_d64("DISK", "HELLO", HELLO_PRG) if ext == "d64" else bytes(901120))
+    for i in range(1, 25):
+        with open(os.path.join(stick, "big", "game%02d.prg" % i), "wb") as f:
+            f.write(HELLO_PRG)
+
+
 def make_stick(stick, roms_dir, core="trx64u"):
     """The USB stick of the test machine: games/ with two disks and a program, roms/c64/ with the three ROMs of the emulator's firmware tree."""
     shutil.rmtree(stick, ignore_errors=True)
     os.makedirs(os.path.join(stick, "games"))
-    if core == "amiga1200":
+    if core in ("amiga1200", "vc20", "c128", "atari800", "pet"):
         # the core folder (a blank Kickstart image stands in: no ROM is in the repository), two floppies and a program
-        os.makedirs(os.path.join(stick, "cores", "amiga1200", "roms"))
-        with open(os.path.join(stick, "cores", "amiga1200", "roms", "kick31.rom"), "wb") as f:
+        os.makedirs(os.path.join(stick, "cores", core, "roms"))
+        with open(os.path.join(stick, "cores", core, "roms", "kick31.rom"), "wb") as f:
             f.write(bytes(524288))
-        for n, b in (("alpha.adf", 1), ("beta.adf", 2)):
+        for n, b in ROMFILES.get(core, ()):          # the ROMs the core wants (blank images stand in: no ROM is in the repository), else it waits for them and the UI service stays down
+            with open(os.path.join(stick, "cores", core, "roms", n), "wb") as f:
+                f.write(bytes([0xA5]) * b if core == "pet" else bytes(b))       # PET: a pattern, so the read-back of the ROM aperture proves something
+        for n, b in (("alpha.adf", 1), ("beta.adf", 2), ("Turrican_II_The_Final_Fight_Director_Cut_Disk_1_of_3_Fixed.adf", 3)):
             with open(os.path.join(stick, "games", n), "wb") as f:
                 f.write(bytes([b]) * 901120)
         with open(os.path.join(stick, "games", "hello.prg"), "wb") as f:
             f.write(HELLO_PRG)
+        if core == "pet":                            # T206: a disk to run (the PET core mounts .d64)
+            with open(os.path.join(stick, "games", "alpha.d64"), "wb") as f:
+                f.write(make_d64("ALPHA", "hello", HELLO_PRG))
+        _big(stick, "adf")
+        return
+    if core == "nes":
+        # a core with no drives and no ROM set: the core folder holds nothing, the games folder one cartridge image (iNES header, 16 KiB PRG, 8 KiB CHR of zeros)
+        os.makedirs(os.path.join(stick, "cores", "nes"))
+        with open(os.path.join(stick, "games", "blank.nes"), "wb") as f:
+            f.write(b"NES\x1a\x01\x01" + bytes(10) + bytes(16384 + 8192))
         return
     os.makedirs(os.path.join(stick, "roms", "c64"))
+    _big(stick, "d64")
     with open(os.path.join(stick, "games", "alpha.d64"), "wb") as f:
         f.write(make_d64("ALPHA", "HELLO", HELLO_PRG))
     with open(os.path.join(stick, "games", "beta.d64"), "wb") as f:

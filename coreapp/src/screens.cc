@@ -104,7 +104,7 @@ static void hint_text(MenuCtl &m, char *out, int n, bool *bad)
         *bad = false;
         return;
     }
-    snprintf(out, n, "%s", m.status() && m.status()[0] ? (strcmp(m.status(), m.toast_text()) ? m.status() : "") : m.legend_line());
+    snprintf(out, n, "%s", m.foot_line());
     *bad = m.status_bad();
 }
 
@@ -183,9 +183,9 @@ static void group_title(const char *g, char *out, int n)
 static int unit_h(const Item &it)
 {
     if (it.kind == MenuCtl::IK_SETTING) {
-        return trx_setting_row_h(it.sub[0] != 0) + 1;
+        return trx_setting_row_h() + 1;
     }
-    return trx_status_row_h(it.sub[0] != 0 || ((it.kind == MenuCtl::IK_MEDIA) && it.sub[0])) + 1;
+    return trx_status_row_h() + 1;
 }
 
 static int units(const char *slot)
@@ -230,6 +230,18 @@ static int units(const char *slot)
     return n;
 }
 
+// The bench's look at the headings of the open tab's main column, in order (the ones the record names and the ones a change of group makes): how many, up to `max`.
+int screens_headings(char out[][40], int max)
+{
+    int n = units("main"), k = 0;
+    for (int i = 0; i < n && k < max; i++) {
+        if (g_u[i].heading) {
+            snprintf(out[k++], 40, "%s", g_u[i].title);
+        }
+    }
+    return k;
+}
+
 // The first unit of the window that holds the selected item and as many units around it as fit in `avail` pixels; `first` is where the last one began.
 static int window_first(int n, int sel, int first, int avail)
 {
@@ -252,14 +264,23 @@ static int window_first(int n, int sel, int first, int avail)
             avail -= HEAD_H;
         }
     }
-    if (first > su) {
-        first = su;
+    int above = su, below = su;                                        // T209 D3: TRX_SCROLL_MARGIN selectable rows stay above and below the selection (headings between them do not count)
+    for (int k = su - 1, c = 0; k >= 0 && c < TRX_SCROLL_MARGIN; k--) {
+        above = k;
+        c += !g_u[k].heading;
+    }
+    for (int k = su + 1, c = 0; k < n && c < TRX_SCROLL_MARGIN; k++) {
+        below = k;
+        c += !g_u[k].heading;
+    }
+    if (first > above) {
+        first = above;
     }
     int sum = 0;
-    for (int k = first; k <= su; k++) {
+    for (int k = first; k <= below; k++) {
         sum += g_u[k].h;
     }
-    while (sum > avail && first < su) {
+    while (sum > avail && first < su) {                                // the margin below gives way before the selection does
         sum -= g_u[first].h;
         first++;
     }
@@ -324,10 +345,10 @@ static int rows_of(lv_obj_t *card, int x, int y, int w, const char *slot, int se
         bool focus = it.kind != MenuCtl::IK_INFO && it.kind != MenuCtl::IK_VALUE;         // a line that only shows something takes no focus
         lv_obj_t *o;
         if (it.kind == MenuCtl::IK_SETTING) {
-            TrxSettingRow r = { it.title, it.sub[0] ? it.sub : 0, it.toggle ? 0 : it.value, it.toggle, it.on, focus && i == sel, it.dim, it.reset, TT_MUTED };
+            TrxSettingRow r = { it.title, it.toggle ? 0 : it.value, it.toggle, it.on, focus && i == sel, it.dim, it.reset, TT_MUTED };
             o = trx_setting_row(card, x, y, w, r, &y);
         } else {
-            TrxStatusRow r = { it.title, it.sub[0] ? it.sub : 0, it.chip[0] ? it.chip : (it.value[0] ? it.value : 0), tone_of(it), focus && i == sel, it.dim };
+            TrxStatusRow r = { it.title, it.kind == MenuCtl::IK_MEDIA ? (it.value[0] ? it.value : 0) : (it.chip[0] ? it.chip : (it.value[0] ? it.value : 0)), tone_of(it), focus && i == sel, it.dim };
             o = trx_status_row(card, x, y, w, r, &y);
         }
         g_obj[i] = focus ? o : 0;
@@ -632,8 +653,8 @@ static int lib_rows(bool sheet)
 {
     const TrxTheme &t = trx_theme();
     int H = trx_content_h();
-    int rows = sheet ? (H - 30 - (12 + 18 + 34) - 2 * t.space_sm) / (trx_status_row_h(false) + 1)
-                     : (H - 30 - (12 + 34 + 32) - 30 - t.space_sm) / (trx_status_row_h(true) + 1);
+    int rows = sheet ? (H - 30 - (12 + 18 + 34) - 2 * t.space_sm) / (trx_status_row_h() + 1)
+                     : (H - 30 - (12 + 34 + 32) - 30 - t.space_sm) / (trx_status_row_h() + 1);
     return rows < 1 ? 1 : (rows > MAXW ? MAXW : rows);
 }
 
@@ -699,9 +720,9 @@ static void draw_selpan(MenuCtl &m, int sel)
     } else if (dot && dot != name) {
         *dot = 0;
     }
-    lv_obj_t *tl = trx_txt(g_selpan, t.space_md, 30, name, t.display, t.ink, w - 2 * t.space_md);
-    lv_label_set_long_mode(tl, LV_LABEL_LONG_MODE_WRAP);
-    lv_obj_set_width(tl, w - 2 * t.space_md);
+    char nfit[80];                                                 // T209: the name is one line, cut in the middle (the meta line below is never overprinted)
+    lv_obj_t *tl = trx_txt(g_selpan, t.space_md, 30, trx_fit_mid(name, w - 2 * t.space_md - 4, t.display, nfit, sizeof(nfit)), t.display, t.ink, w - 2 * t.space_md);
+    lv_label_set_long_mode(tl, LV_LABEL_LONG_MODE_CLIP);
     if (r.dir) {
         snprintf(sub, sizeof(sub), "%s", r.sub);
     } else {
@@ -764,10 +785,14 @@ static void build_library(lv_obj_t *c, MenuCtl &m, int sel)
             g_win[k] = trx_row_at(card, t.space_md, ry, lw - 2 * t.space_md, mr, &ry);
             continue;
         }
-        char title[80];
-        snprintf(title, sizeof(title), "%s%s%s%s%s", r.marked ? "* " : "", r.name, r.dir && strcmp(r.name, "..") ? "/" : "", r.badge[0] ? "  " : "", r.badge);
-        char ux[12];
-        TrxStatusRow row = { title, r.sub, upper(ux, sizeof(ux), r.ext), (TrxTone)r.tone, w.first + k == sel, false };
+        char title[100], nm[64];
+        const char *dirsl = r.dir && strcmp(r.name, "..") ? "/" : "";
+        const int lw_row = lw - 2 * t.space_md;                      // T209 R5: a long name is cut in the middle ("start...end.ext"), the size stays whole at the right
+        const int vw = r.value[0] ? trx_text_w(r.value, t.caption) + t.space_md : 0;
+        const int fixed = (r.marked ? trx_text_w("* ", t.body) : 0) + trx_text_w(dirsl, t.body) + (r.badge[0] ? trx_text_w("  ", t.body) + trx_text_w(r.badge, t.body) : 0);
+        const int tx = t.space_sm + 4 + t.space_md + t.space_sm;
+        snprintf(title, sizeof(title), "%s%s%s%s%s", r.marked ? "* " : "", trx_fit_mid(r.name, lw_row - tx - vw - fixed - 4, t.body, nm, sizeof(nm)), dirsl, r.badge[0] ? "  " : "", r.badge);
+        TrxStatusRow row = { title, r.value[0] ? r.value : 0, (TrxTone)r.tone, w.first + k == sel, false };
         g_win[k] = trx_status_row(card, t.space_md, ry, lw - 2 * t.space_md, row, &ry);
     }
     g_selpan_w = LIB_SIDE_W;
@@ -941,7 +966,7 @@ static void build_sheet(lv_obj_t *c, MenuCtl &m, int sel)
     for (int k = 0; k < w.count; k++) {
         int i = w.first + k;
         char kc[4] = { m.chooser_key(i), 0, 0, 0 };
-        TrxStatusRow row = { m.chooser_label(i), 0, kc[0] ? kc : (i == 0 ? "Default" : 0), i == 0 ? TT_VIOLET : TT_MUTED, i == sel, false };
+        TrxStatusRow row = { m.chooser_label(i), kc[0] ? kc : (i == 0 ? "Default" : 0), i == 0 ? TT_VIOLET : TT_MUTED, i == sel, false };
         g_win[k] = trx_status_row(card, t.space_md, ry, lw - 2 * t.space_md, row, &ry);
     }
     lv_obj_t *sp = trx_card(c, X0 + lw + t.space_lg, y, SIDE_W, bottom - y, true);
@@ -1390,7 +1415,16 @@ static void apply_selection(MenuCtl &m, int sel, bool sheet)
     g_cheap++;
 }
 
-bool screens_render(lv_obj_t *scr, const TrxShellInfo &info, const TrxRoute &route, MenuCtl &m)
+static bool g_repage = false;
+
+bool screens_repage_take()
+{
+    bool r = g_repage;
+    g_repage = false;
+    return r;
+}
+
+bool screens_render(lv_obj_t *scr, TrxShellInfo &info, const TrxRoute &route, MenuCtl &m)
 {
     if (!m.screen()) {
         return false;
@@ -1457,6 +1491,7 @@ bool screens_render(lv_obj_t *scr, const TrxShellInfo &info, const TrxRoute &rou
     bool lib = m.layout_is("library");
     bool sheet = lib && m.chooser();
     int sel = m.selected();
+    bool paged = false;                                           // T209 D4: the list is longer than its window: the foot names the paging keys
     g_n = 0;
     if (!lib) {
         int n = m.rows();
@@ -1476,6 +1511,7 @@ bool screens_render(lv_obj_t *scr, const TrxShellInfo &info, const TrxRoute &rou
             g_lib_first = m.scroll_first();
         }
         m.set_page_rows(lib_rows(false));                         // T180 D7: a page of the F3 browser is the rows this window shows
+        paged = (sheet ? m.chooser_count() : m.rows()) > lib_rows(sheet);
         g_lib_first = trx_window(sheet ? m.chooser_count() : m.rows(), sel, g_lib_first, lib_rows(sheet)).first;
         m.note_scroll(g_lib_first);
     }
@@ -1493,8 +1529,19 @@ bool screens_render(lv_obj_t *scr, const TrxShellInfo &info, const TrxRoute &rou
         if (scroll_back) {
             g_mfirst = m.scroll_first();
         }
-        g_mfirst = window_first(n, sel, g_mfirst, status ? main_avail(false, true) : split_avail(items_in("bar") > 0));
+        const int avail = status ? main_avail(false, true) : split_avail(items_in("bar") > 0);
+        g_mfirst = window_first(n, sel, g_mfirst, avail);
         m.note_scroll(g_mfirst);
+        int tot = 0;
+        for (int k = 0; k < n; k++) {
+            tot += g_u[k].h;
+        }
+        paged = tot > avail;
+    }
+    if (paged != m.paged()) {                                     // the caller made the foot from the last frame's answer
+        m.note_paged(paged);
+        g_repage = true;                                          // ui.cc makes the foot again and calls this once more
+        return true;
     }
     uint32_t sig = signature(m);
     if (g_valid && g_area == m.area() && g_tab == m.tab() && trx_shell_same(scr, info, route, m.area(), ui_shell_tab(m)) && sig == g_sig) {

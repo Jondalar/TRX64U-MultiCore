@@ -19,6 +19,9 @@ bool hostreport_write(const WebSnapshot *s, char *name, int namelen, char *why, 
 // The clock the report is stamped with (the same one the file names use); *valid false: the clock was never set.
 uint32_t hostreport_fattime(bool *valid);
 
+// T203: writes the start log's block (startfile.h) to STARTFILE_DIR on the SD card; false when nothing could be written (no SD card, read-only).
+bool hostreport_startlog_store(const char *app, const char *built);
+
 // What the board calls itself (getProductString); hostlog.cc, which only the firmware links, as a bench brings its own.
 const char *hostreport_board(void);
 

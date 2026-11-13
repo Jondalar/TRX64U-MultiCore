@@ -9,6 +9,8 @@ state that never came, an emulator that ended) is a StepError, which is an error
 """
 import json
 import os
+import struct
+import zlib
 import subprocess
 import sys
 import tempfile
@@ -40,7 +42,7 @@ def step(pattern):
 # The C64 keys the control port knows (emu.py), by the name a feature uses.
 KEYS = {"left-arrow": "larrow", "up-arrow": "uparrow", "run/stop": "runstop", "return": "return", "space": "space", "cursor-left": "left",
         "cursor-right": "right", "cursor-up": "up", "cursor-down": "down", "home": "home", "del": "del", "ctrl+a": "ctrl+a", "ctrl+c": "ctrl+c",
-        "ctrl+v": "ctrl+v", "ctrl+n": "ctrl+n"}
+        "ctrl+v": "ctrl+v", "ctrl+n": "ctrl+n", "+": "+", "-": "-"}
 
 
 def key_of(name):
@@ -116,6 +118,8 @@ class Ctx:
         if s['menu_open']:
             self.press("RUN/STOP")
             s = self.refresh()
+            if s['menu_open'] and self.emu.core == "nes":     # the NES with no cartridge loaded keeps its menu (the top bar says WAITING): that is the state the scenario starts from
+                return self.settle()
             if s['menu_open']:
                 raise AssertionFailed("RUN/STOP did not close the menu")
         for _ in range(12):
@@ -208,6 +212,64 @@ def i_press(c, key):
 def i_press_n(c, key, n):
     for _ in range(int(n)):
         c.press(key)
+
+
+@step(r'I save the picture "([^"]+)"')
+def i_save_picture(c, name):
+    """The emulator's screen as a PNG (tests/ui/out/NAME.png): for the person who looks at the page; nothing is asserted on pixels."""
+    c.emu.wait(400)
+    c.emu.png(name)
+
+
+def _png_bright(path, x0, y0, x1, y1, lum=140):
+    """The count of bright pixels in a rectangle of an 8-bit RGB/RGBA PNG (standard library only)."""
+    d = open(path, "rb").read()
+    pos, idat, w, h, ct = 8, b"", 0, 0, 2
+    while pos < len(d):
+        ln, typ = struct.unpack(">I4s", d[pos:pos + 8])
+        body = d[pos + 8:pos + 8 + ln]
+        if typ == b"IHDR":
+            w, h, bd, ct = struct.unpack(">IIBB", body[:10])
+            if bd != 8 or ct not in (2, 6):
+                raise StepError("the picture is not an 8-bit RGB PNG")
+        elif typ == b"IDAT":
+            idat += body
+        pos += 12 + ln
+    bpp = 3 if ct == 2 else 4
+    raw, stride, prev, rows = zlib.decompress(idat), w * bpp, bytearray(w * bpp), []
+    for y in range(h):
+        f = raw[y * (stride + 1)]
+        cur = bytearray(raw[y * (stride + 1) + 1:(y + 1) * (stride + 1)])
+        for i in range(stride):
+            a = cur[i - bpp] if i >= bpp else 0
+            b = prev[i]
+            c = prev[i - bpp] if i >= bpp else 0
+            if f == 1:
+                cur[i] = (cur[i] + a) & 255
+            elif f == 2:
+                cur[i] = (cur[i] + b) & 255
+            elif f == 3:
+                cur[i] = (cur[i] + ((a + b) >> 1)) & 255
+            elif f == 4:
+                pa, pb, pc = abs(b - c), abs(a - c), abs(a + b - 2 * c)
+                cur[i] = (cur[i] + (a if pa <= pb and pa <= pc else (b if pb <= pc else c))) & 255
+        rows.append(cur)
+        prev = cur
+    n = 0
+    for y in range(y0, min(y1, h)):
+        r = rows[y]
+        for x in range(x0, min(x1, w)):
+            if max(r[x * bpp], r[x * bpp + 1], r[x * bpp + 2]) >= lum:
+                n += 1
+    return n
+
+
+@step(r'the picture "([^"]+)" has text in the box')
+def then_picture_text(c, name):
+    """T187 F1: the confirm panel (x 176-932, y 96-316 on the canvas) holds drawn text, not an empty box. The count of bright pixels, not a reading of them."""
+    n = _png_bright(os.path.join(emu_mod.OUT, name + ".png"), 176, 96, 932, 316)
+    if n < 300:
+        raise AssertionFailed("the panel of %s shows %d bright pixels: the text is not drawn" % (name, n))
 
 
 @step(r'I move to "([^"]+)"')

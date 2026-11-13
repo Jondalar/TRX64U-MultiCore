@@ -4,13 +4,13 @@ Atari 800 XL F1/home 2 info:Network
 Atari 800 XL F1/home 3 info:Media
 Atari 800 XL F1/home 4 info:ROMs
 Atari 800 XL F1/home 5 info:Libraries
-Atari 800 XL F5/summary 0 media:atari800.d1.image
-Atari 800 XL F5/summary 1 media:atari800.d2.image
-Atari 800 XL F5/summary 2 media:atari800.d3.image
-Atari 800 XL F5/summary 3 media:atari800.d4.image
-Atari 800 XL F5/summary 4 media:atari800.cartridge.image
-Atari 800 XL F5/summary 5 fixed:10:Save media set...
-Atari 800 XL F5/summary 6 fixed:11:Load media set...
+Atari 800 XL F1/home 6 media:atari800.d1.image
+Atari 800 XL F1/home 7 media:atari800.d2.image
+Atari 800 XL F1/home 8 media:atari800.d3.image
+Atari 800 XL F1/home 9 media:atari800.d4.image
+Atari 800 XL F1/home 10 media:atari800.cartridge.image
+Atari 800 XL F1/home 11 fixed:10:Save as config...
+Atari 800 XL F1/home 12 fixed:11:Load config...
 Atari 800 XL F5/settings 0 set:RAM size
 Atari 800 XL F5/settings 1 set:Video standard
 Atari 800 XL F5/settings 2 set:Joystick ports
@@ -25,43 +25,51 @@ Atari 800 XL F7/quick 5 task:Eject D2:
 Atari 800 XL F7/quick 6 task:Eject D3:
 Atari 800 XL F7/quick 7 task:Eject D4:
 Atari 800 XL F7/quick 8 task:Create blank ATR
-Atari 800 XL F8/expert 0 fixed:5:Reset to host defaults
+Atari 800 XL F8/expert 0 fixed:13:Actions
 Atari 800 XL F8/expert 1 fixed:6:Restart core
-Atari 800 XL F8/expert 2 fixed:8:Bug report
-Atari 800 XL F8/expert 3 fixed:9:WiFi
-Atari 800 XL F8/expert 4 fixed:7:Return to host menu
+Atari 800 XL F8/expert 2 fixed:7:Return to host menu
+Atari 800 XL F8/expert 3 fixed:13:Network
+Atari 800 XL F8/expert 4 fixed:9:WiFi
+Atari 800 XL F8/expert 5 fixed:13:Support
+Atari 800 XL F8/expert 6 fixed:8:Bug report
+Atari 800 XL F8/expert 7 fixed:13:Reset
+Atari 800 XL F8/expert 8 fixed:5:Reset to host defaults
 Nintendo Entertainment System F1/home 0 info:Core
 Nintendo Entertainment System F1/home 1 info:Application
 Nintendo Entertainment System F1/home 2 info:Network
 Nintendo Entertainment System F1/home 3 info:Media
 Nintendo Entertainment System F1/home 4 info:ROMs
 Nintendo Entertainment System F1/home 5 info:Libraries
-Nintendo Entertainment System F5/summary 0 media:nes.cartridge.image
-Nintendo Entertainment System F5/summary 1 fixed:10:Save media set...
-Nintendo Entertainment System F5/summary 2 fixed:11:Load media set...
+Nintendo Entertainment System F1/home 6 media:nes.cartridge.image
+Nintendo Entertainment System F1/home 7 fixed:10:Save as config...
+Nintendo Entertainment System F1/home 8 fixed:11:Load config...
 Nintendo Entertainment System F5/settings 0 set:Console type
 Nintendo Entertainment System F5/settings 1 set:Joystick ports
 Nintendo Entertainment System F5/settings 2 set:Pad map
 Nintendo Entertainment System F7/quick 0 task:Reset
 Nintendo Entertainment System F7/quick 1 task:Map buttons, pad 1
 Nintendo Entertainment System F7/quick 2 task:Map buttons, pad 2
-Nintendo Entertainment System F8/expert 0 fixed:5:Reset to host defaults
+Nintendo Entertainment System F8/expert 0 fixed:13:Actions
 Nintendo Entertainment System F8/expert 1 fixed:6:Restart core
-Nintendo Entertainment System F8/expert 2 fixed:8:Bug report
-Nintendo Entertainment System F8/expert 3 fixed:9:WiFi
-Nintendo Entertainment System F8/expert 4 fixed:7:Return to host menu
+Nintendo Entertainment System F8/expert 2 fixed:7:Return to host menu
+Nintendo Entertainment System F8/expert 3 fixed:13:Network
+Nintendo Entertainment System F8/expert 4 fixed:9:WiFi
+Nintendo Entertainment System F8/expert 5 fixed:13:Support
+Nintendo Entertainment System F8/expert 6 fixed:8:Bug report
+Nintendo Entertainment System F8/expert 7 fixed:13:Reset
+Nintendo Entertainment System F8/expert 8 fixed:5:Reset to host defaults
 Apple IIe F1/home 0 info:Core
 Apple IIe F1/home 1 info:Application
 Apple IIe F1/home 2 info:Network
 Apple IIe F1/home 3 info:Media
 Apple IIe F1/home 4 info:ROMs
 Apple IIe F1/home 5 info:Libraries
-Apple IIe F5/summary 0 media:apple2.d1.image
-Apple IIe F5/summary 1 media:apple2.d2.image
-Apple IIe F5/summary 2 media:apple2.s71.image
-Apple IIe F5/summary 3 media:apple2.s72.image
-Apple IIe F5/summary 4 fixed:10:Save media set...
-Apple IIe F5/summary 5 fixed:11:Load media set...
+Apple IIe F1/home 6 media:apple2.d1.image
+Apple IIe F1/home 7 media:apple2.d2.image
+Apple IIe F1/home 8 media:apple2.s71.image
+Apple IIe F1/home 9 media:apple2.s72.image
+Apple IIe F1/home 10 fixed:10:Save as config...
+Apple IIe F1/home 11 fixed:11:Load config...
 Apple IIe F5/settings 0 set:Display
 Apple IIe F5/settings 1 set:Palette
 Apple IIe F5/settings 2 set:Scanlines
@@ -77,20 +85,24 @@ Apple IIe F7/quick 4 task:Eject D2:
 Apple IIe F7/quick 5 task:Eject S7 unit 1
 Apple IIe F7/quick 6 task:Eject S7 unit 2
 Apple IIe F7/quick 7 task:Create blank DSK
-Apple IIe F8/expert 0 fixed:5:Reset to host defaults
+Apple IIe F8/expert 0 fixed:13:Actions
 Apple IIe F8/expert 1 fixed:6:Restart core
-Apple IIe F8/expert 2 fixed:8:Bug report
-Apple IIe F8/expert 3 fixed:9:WiFi
-Apple IIe F8/expert 4 fixed:7:Return to host menu
+Apple IIe F8/expert 2 fixed:7:Return to host menu
+Apple IIe F8/expert 3 fixed:13:Network
+Apple IIe F8/expert 4 fixed:9:WiFi
+Apple IIe F8/expert 5 fixed:13:Support
+Apple IIe F8/expert 6 fixed:8:Bug report
+Apple IIe F8/expert 7 fixed:13:Reset
+Apple IIe F8/expert 8 fixed:5:Reset to host defaults
 ZX Spectrum 48K / 128K F1/home 0 info:Core
 ZX Spectrum 48K / 128K F1/home 1 info:Application
 ZX Spectrum 48K / 128K F1/home 2 info:Network
 ZX Spectrum 48K / 128K F1/home 3 info:Media
 ZX Spectrum 48K / 128K F1/home 4 info:ROMs
 ZX Spectrum 48K / 128K F1/home 5 info:Libraries
-ZX Spectrum 48K / 128K F5/summary 0 media:zx.tape.image
-ZX Spectrum 48K / 128K F5/summary 1 fixed:10:Save media set...
-ZX Spectrum 48K / 128K F5/summary 2 fixed:11:Load media set...
+ZX Spectrum 48K / 128K F1/home 6 media:zx.tape.image
+ZX Spectrum 48K / 128K F1/home 7 fixed:10:Save as config...
+ZX Spectrum 48K / 128K F1/home 8 fixed:11:Load config...
 ZX Spectrum 48K / 128K F5/settings 0 set:Model
 ZX Spectrum 48K / 128K F5/settings 1 set:Joystick port 1
 ZX Spectrum 48K / 128K F5/settings 2 set:Joystick port 2
@@ -103,22 +115,26 @@ ZX Spectrum 48K / 128K F7/quick 4 task:Tape: Rewind
 ZX Spectrum 48K / 128K F7/quick 5 task:Tape: Previous block
 ZX Spectrum 48K / 128K F7/quick 6 task:Tape: Next block
 ZX Spectrum 48K / 128K F7/quick 7 task:Tape: Eject
-ZX Spectrum 48K / 128K F8/expert 0 fixed:5:Reset to host defaults
+ZX Spectrum 48K / 128K F8/expert 0 fixed:13:Actions
 ZX Spectrum 48K / 128K F8/expert 1 fixed:6:Restart core
-ZX Spectrum 48K / 128K F8/expert 2 fixed:8:Bug report
-ZX Spectrum 48K / 128K F8/expert 3 fixed:9:WiFi
-ZX Spectrum 48K / 128K F8/expert 4 fixed:7:Return to host menu
+ZX Spectrum 48K / 128K F8/expert 2 fixed:7:Return to host menu
+ZX Spectrum 48K / 128K F8/expert 3 fixed:13:Network
+ZX Spectrum 48K / 128K F8/expert 4 fixed:9:WiFi
+ZX Spectrum 48K / 128K F8/expert 5 fixed:13:Support
+ZX Spectrum 48K / 128K F8/expert 6 fixed:8:Bug report
+ZX Spectrum 48K / 128K F8/expert 7 fixed:13:Reset
+ZX Spectrum 48K / 128K F8/expert 8 fixed:5:Reset to host defaults
 Amstrad CPC 464 / 664 / 6128 F1/home 0 info:Core
 Amstrad CPC 464 / 664 / 6128 F1/home 1 info:Application
 Amstrad CPC 464 / 664 / 6128 F1/home 2 info:Network
 Amstrad CPC 464 / 664 / 6128 F1/home 3 info:Media
 Amstrad CPC 464 / 664 / 6128 F1/home 4 info:ROMs
 Amstrad CPC 464 / 664 / 6128 F1/home 5 info:Libraries
-Amstrad CPC 464 / 664 / 6128 F5/summary 0 media:cpc.a.image
-Amstrad CPC 464 / 664 / 6128 F5/summary 1 media:cpc.b.image
-Amstrad CPC 464 / 664 / 6128 F5/summary 2 media:cpc.tape.image
-Amstrad CPC 464 / 664 / 6128 F5/summary 3 fixed:10:Save media set...
-Amstrad CPC 464 / 664 / 6128 F5/summary 4 fixed:11:Load media set...
+Amstrad CPC 464 / 664 / 6128 F1/home 6 media:cpc.a.image
+Amstrad CPC 464 / 664 / 6128 F1/home 7 media:cpc.b.image
+Amstrad CPC 464 / 664 / 6128 F1/home 8 media:cpc.tape.image
+Amstrad CPC 464 / 664 / 6128 F1/home 9 fixed:10:Save as config...
+Amstrad CPC 464 / 664 / 6128 F1/home 10 fixed:11:Load config...
 Amstrad CPC 464 / 664 / 6128 F5/settings 0 set:Model
 Amstrad CPC 464 / 664 / 6128 F5/settings 1 set:CRTC type
 Amstrad CPC 464 / 664 / 6128 F5/settings 2 set:Joystick ports
@@ -135,28 +151,34 @@ Amstrad CPC 464 / 664 / 6128 F7/quick 7 task:Tape: Eject
 Amstrad CPC 464 / 664 / 6128 F7/quick 8 task:Eject A:
 Amstrad CPC 464 / 664 / 6128 F7/quick 9 task:Eject B:
 Amstrad CPC 464 / 664 / 6128 F7/quick 10 task:Create blank DSK
-Amstrad CPC 464 / 664 / 6128 F8/expert 0 fixed:5:Reset to host defaults
+Amstrad CPC 464 / 664 / 6128 F8/expert 0 fixed:13:Actions
 Amstrad CPC 464 / 664 / 6128 F8/expert 1 fixed:6:Restart core
-Amstrad CPC 464 / 664 / 6128 F8/expert 2 fixed:8:Bug report
-Amstrad CPC 464 / 664 / 6128 F8/expert 3 fixed:9:WiFi
-Amstrad CPC 464 / 664 / 6128 F8/expert 4 fixed:7:Return to host menu
+Amstrad CPC 464 / 664 / 6128 F8/expert 2 fixed:7:Return to host menu
+Amstrad CPC 464 / 664 / 6128 F8/expert 3 fixed:13:Network
+Amstrad CPC 464 / 664 / 6128 F8/expert 4 fixed:9:WiFi
+Amstrad CPC 464 / 664 / 6128 F8/expert 5 fixed:13:Support
+Amstrad CPC 464 / 664 / 6128 F8/expert 6 fixed:8:Bug report
+Amstrad CPC 464 / 664 / 6128 F8/expert 7 fixed:13:Reset
+Amstrad CPC 464 / 664 / 6128 F8/expert 8 fixed:5:Reset to host defaults
 VIC-20 F1/home 0 info:Core
 VIC-20 F1/home 1 info:Application
 VIC-20 F1/home 2 info:Network
 VIC-20 F1/home 3 info:Media
 VIC-20 F1/home 4 info:ROMs
 VIC-20 F1/home 5 info:Libraries
-VIC-20 F5/summary 0 media:vc20.program
-VIC-20 F5/summary 1 media:drive.drive_a.image
-VIC-20 F5/summary 2 fixed:10:Save media set...
-VIC-20 F5/summary 3 fixed:11:Load media set...
+VIC-20 F1/home 6 media:vc20.program
+VIC-20 F1/home 7 media:drive.drive_a.image
+VIC-20 F1/home 8 fixed:10:Save as config...
+VIC-20 F1/home 9 fixed:11:Load config...
 VIC-20 F5/settings 0 set:Memory Expansion (at next reset)
 VIC-20 F5/settings 1 set:Block 5 ($A000), when expanded
-VIC-20 F5/settings 2 set:Drive
-VIC-20 F5/settings 3 set:Drive Bus ID
-VIC-20 F5/settings 4 set:Extra RAM
-VIC-20 F5/settings 5 set:Disk swap delay
-VIC-20 F5/settings 6 set:LED Load Indicator
+VIC-20 F5/settings 2 set:JiffyDOS
+VIC-20 F5/settings 3 set:Datasette port
+VIC-20 F5/settings 4 set:Drive
+VIC-20 F5/settings 5 set:Drive Bus ID
+VIC-20 F5/settings 6 set:Extra RAM
+VIC-20 F5/settings 7 set:Disk swap delay
+VIC-20 F5/settings 8 set:LED Load Indicator
 VIC-20 F7/quick 0 task:Reset
 VIC-20 F7/quick 1 task:Reload ROMs, reset
 VIC-20 F7/quick 2 task:Reset Drive
@@ -164,30 +186,35 @@ VIC-20 F7/quick 3 task:Create blank D64
 VIC-20 F7/quick 4 task:Create blank G64
 VIC-20 F7/quick 5 task:Save Disk as D64
 VIC-20 F7/quick 6 task:Save Disk as G64
-VIC-20 F8/expert 0 fixed:5:Reset to host defaults
+VIC-20 F8/expert 0 fixed:13:Actions
 VIC-20 F8/expert 1 fixed:6:Restart core
-VIC-20 F8/expert 2 fixed:8:Bug report
-VIC-20 F8/expert 3 fixed:9:WiFi
-VIC-20 F8/expert 4 fixed:7:Return to host menu
+VIC-20 F8/expert 2 fixed:7:Return to host menu
+VIC-20 F8/expert 3 fixed:13:Network
+VIC-20 F8/expert 4 fixed:9:WiFi
+VIC-20 F8/expert 5 fixed:13:Support
+VIC-20 F8/expert 6 fixed:8:Bug report
+VIC-20 F8/expert 7 fixed:13:Reset
+VIC-20 F8/expert 8 fixed:5:Reset to host defaults
 Commodore 264 (C16, Plus/4) F1/home 0 info:Core
 Commodore 264 (C16, Plus/4) F1/home 1 info:Application
 Commodore 264 (C16, Plus/4) F1/home 2 info:Network
 Commodore 264 (C16, Plus/4) F1/home 3 info:Media
 Commodore 264 (C16, Plus/4) F1/home 4 info:ROMs
 Commodore 264 (C16, Plus/4) F1/home 5 info:Libraries
-Commodore 264 (C16, Plus/4) F5/summary 0 media:c264.program
-Commodore 264 (C16, Plus/4) F5/summary 1 media:c264.cartridge
-Commodore 264 (C16, Plus/4) F5/summary 2 media:drive.drive_a.image
-Commodore 264 (C16, Plus/4) F5/summary 3 fixed:10:Save media set...
-Commodore 264 (C16, Plus/4) F5/summary 4 fixed:11:Load media set...
+Commodore 264 (C16, Plus/4) F1/home 6 media:c264.program
+Commodore 264 (C16, Plus/4) F1/home 7 media:c264.cartridge
+Commodore 264 (C16, Plus/4) F1/home 8 media:drive.drive_a.image
+Commodore 264 (C16, Plus/4) F1/home 9 fixed:10:Save as config...
+Commodore 264 (C16, Plus/4) F1/home 10 fixed:11:Load config...
 Commodore 264 (C16, Plus/4) F5/settings 0 set:Model (at next reset)
 Commodore 264 (C16, Plus/4) F5/settings 1 set:RAM (at next reset)
 Commodore 264 (C16, Plus/4) F5/settings 2 set:Joystick ports (at next reset)
-Commodore 264 (C16, Plus/4) F5/settings 3 set:Drive
-Commodore 264 (C16, Plus/4) F5/settings 4 set:Drive Bus ID
-Commodore 264 (C16, Plus/4) F5/settings 5 set:Extra RAM
-Commodore 264 (C16, Plus/4) F5/settings 6 set:Disk swap delay
-Commodore 264 (C16, Plus/4) F5/settings 7 set:LED Load Indicator
+Commodore 264 (C16, Plus/4) F5/settings 3 set:Datasette port
+Commodore 264 (C16, Plus/4) F5/settings 4 set:Drive
+Commodore 264 (C16, Plus/4) F5/settings 5 set:Drive Bus ID
+Commodore 264 (C16, Plus/4) F5/settings 6 set:Extra RAM
+Commodore 264 (C16, Plus/4) F5/settings 7 set:Disk swap delay
+Commodore 264 (C16, Plus/4) F5/settings 8 set:LED Load Indicator
 Commodore 264 (C16, Plus/4) F7/quick 0 task:Reset
 Commodore 264 (C16, Plus/4) F7/quick 1 task:Reload ROMs, reset
 Commodore 264 (C16, Plus/4) F7/quick 2 task:Eject cartridge, reset
@@ -196,36 +223,77 @@ Commodore 264 (C16, Plus/4) F7/quick 4 task:Create blank D64
 Commodore 264 (C16, Plus/4) F7/quick 5 task:Create blank G64
 Commodore 264 (C16, Plus/4) F7/quick 6 task:Save Disk as D64
 Commodore 264 (C16, Plus/4) F7/quick 7 task:Save Disk as G64
-Commodore 264 (C16, Plus/4) F8/expert 0 fixed:5:Reset to host defaults
+Commodore 264 (C16, Plus/4) F8/expert 0 fixed:13:Actions
 Commodore 264 (C16, Plus/4) F8/expert 1 fixed:6:Restart core
-Commodore 264 (C16, Plus/4) F8/expert 2 fixed:8:Bug report
-Commodore 264 (C16, Plus/4) F8/expert 3 fixed:9:WiFi
-Commodore 264 (C16, Plus/4) F8/expert 4 fixed:7:Return to host menu
+Commodore 264 (C16, Plus/4) F8/expert 2 fixed:7:Return to host menu
+Commodore 264 (C16, Plus/4) F8/expert 3 fixed:13:Network
+Commodore 264 (C16, Plus/4) F8/expert 4 fixed:9:WiFi
+Commodore 264 (C16, Plus/4) F8/expert 5 fixed:13:Support
+Commodore 264 (C16, Plus/4) F8/expert 6 fixed:8:Bug report
+Commodore 264 (C16, Plus/4) F8/expert 7 fixed:13:Reset
+Commodore 264 (C16, Plus/4) F8/expert 8 fixed:5:Reset to host defaults
+Commodore PET F1/home 0 info:Core
+Commodore PET F1/home 1 info:Application
+Commodore PET F1/home 2 info:Network
+Commodore PET F1/home 3 info:Media
+Commodore PET F1/home 4 info:ROMs
+Commodore PET F1/home 5 info:Libraries
+Commodore PET F1/home 6 media:pet.program
+Commodore PET F1/home 7 media:pet.drive8
+Commodore PET F1/home 8 media:pet.drive81
+Commodore PET F1/home 9 media:pet.tape.image
+Commodore PET F1/home 10 fixed:10:Save as config...
+Commodore PET F1/home 11 fixed:11:Load config...
+Commodore PET F5/settings 0 set:Model (at next reset)
+Commodore PET F5/settings 1 set:CPU speed
+Commodore PET F5/settings 2 set:Diag (at next reset)
+Commodore PET F5/settings 3 set:Picture rate
+Commodore PET F5/settings 4 set:Phosphor
+Commodore PET F5/settings 5 set:RAM (at next reset)
+Commodore PET F5/settings 6 set:Drive 8 (at next reset)
+Commodore PET F5/settings 7 set:Datasette port
+Commodore PET F5/settings 8 set:SuperPET CPU (at next reset)
+Commodore PET F7/quick 0 task:Reset
+Commodore PET F7/quick 1 task:Reload ROMs, reset
+Commodore PET F7/quick 2 task:Tape: Play
+Commodore PET F7/quick 3 task:Tape: Stop
+Commodore PET F7/quick 4 task:Tape: Rewind
+Commodore PET F7/quick 5 task:Tape: Eject
+Commodore PET F8/expert 0 fixed:13:Actions
+Commodore PET F8/expert 1 fixed:6:Restart core
+Commodore PET F8/expert 2 fixed:7:Return to host menu
+Commodore PET F8/expert 3 fixed:13:Network
+Commodore PET F8/expert 4 fixed:9:WiFi
+Commodore PET F8/expert 5 fixed:13:Support
+Commodore PET F8/expert 6 fixed:8:Bug report
+Commodore PET F8/expert 7 fixed:13:Reset
+Commodore PET F8/expert 8 fixed:5:Reset to host defaults
 Commodore 128 F1/home 0 info:Core
 Commodore 128 F1/home 1 info:Application
 Commodore 128 F1/home 2 info:Network
 Commodore 128 F1/home 3 info:Media
 Commodore 128 F1/home 4 info:ROMs
 Commodore 128 F1/home 5 info:Libraries
-Commodore 128 F5/summary 0 media:drive.drive_a.image
-Commodore 128 F5/summary 1 fixed:10:Save media set...
-Commodore 128 F5/summary 2 fixed:11:Load media set...
+Commodore 128 F1/home 6 media:drive.drive_a.image
+Commodore 128 F1/home 7 fixed:10:Save as config...
+Commodore 128 F1/home 8 fixed:11:Load config...
 Commodore 128 F5/settings 0 set:40/80 DISPLAY (at next reset)
 Commodore 128 F5/settings 1 set:Picture shown
 Commodore 128 F5/settings 2 set:Auto switch
 Commodore 128 F5/settings 3 set:Auto switch time
 Commodore 128 F5/settings 4 set:Joystick ports
-Commodore 128 F5/settings 5 set:System Mode
-Commodore 128 F5/settings 6 set:ROM set
-Commodore 128 F5/settings 7 set:JiffyDOS C128 ROM
-Commodore 128 F5/settings 8 set:JiffyDOS C64 ROM
-Commodore 128 F5/settings 9 set:JiffyDOS 1541 ROM
-Commodore 128 F5/settings 10 set:JiffyDOS 1581 ROM
-Commodore 128 F5/settings 11 set:Drive
-Commodore 128 F5/settings 12 set:Drive Bus ID
-Commodore 128 F5/settings 13 set:Extra RAM
-Commodore 128 F5/settings 14 set:Disk swap delay
-Commodore 128 F5/settings 15 set:LED Load Indicator
+Commodore 128 F5/settings 5 set:Datasette port
+Commodore 128 F5/settings 6 set:System Mode
+Commodore 128 F5/settings 7 set:ROM set
+Commodore 128 F5/settings 8 set:JiffyDOS C128 ROM
+Commodore 128 F5/settings 9 set:JiffyDOS C64 ROM
+Commodore 128 F5/settings 10 set:JiffyDOS 1541 ROM
+Commodore 128 F5/settings 11 set:JiffyDOS 1581 ROM
+Commodore 128 F5/settings 12 set:Drive
+Commodore 128 F5/settings 13 set:Drive Bus ID
+Commodore 128 F5/settings 14 set:Extra RAM
+Commodore 128 F5/settings 15 set:Disk swap delay
+Commodore 128 F5/settings 16 set:LED Load Indicator
 Commodore 128 F7/quick 0 task:Reset
 Commodore 128 F7/quick 1 task:Reload ROMs, reset
 Commodore 128 F7/quick 2 task:Reset Drive
@@ -234,29 +302,34 @@ Commodore 128 F7/quick 4 task:Create blank G64
 Commodore 128 F7/quick 5 task:Save Disk as D64
 Commodore 128 F7/quick 6 task:Save Disk as G64
 Commodore 128 F7/quick 7 task:Create blank D81
-Commodore 128 F8/expert 0 fixed:5:Reset to host defaults
+Commodore 128 F8/expert 0 fixed:13:Actions
 Commodore 128 F8/expert 1 fixed:6:Restart core
-Commodore 128 F8/expert 2 fixed:8:Bug report
-Commodore 128 F8/expert 3 fixed:9:WiFi
-Commodore 128 F8/expert 4 fixed:7:Return to host menu
+Commodore 128 F8/expert 2 fixed:7:Return to host menu
+Commodore 128 F8/expert 3 fixed:13:Network
+Commodore 128 F8/expert 4 fixed:9:WiFi
+Commodore 128 F8/expert 5 fixed:13:Support
+Commodore 128 F8/expert 6 fixed:8:Bug report
+Commodore 128 F8/expert 7 fixed:13:Reset
+Commodore 128 F8/expert 8 fixed:5:Reset to host defaults
 C64 with SuperCPU F1/home 0 info:Core
 C64 with SuperCPU F1/home 1 info:Application
 C64 with SuperCPU F1/home 2 info:Network
 C64 with SuperCPU F1/home 3 info:Media
 C64 with SuperCPU F1/home 4 info:ROMs
 C64 with SuperCPU F1/home 5 info:Libraries
-C64 with SuperCPU F5/summary 0 media:drive.drive_a.image
-C64 with SuperCPU F5/summary 1 fixed:10:Save media set...
-C64 with SuperCPU F5/summary 2 fixed:11:Load media set...
+C64 with SuperCPU F1/home 6 media:drive.drive_a.image
+C64 with SuperCPU F1/home 7 fixed:10:Save as config...
+C64 with SuperCPU F1/home 8 fixed:11:Load config...
 C64 with SuperCPU F5/settings 0 set:SuperCPU speed
 C64 with SuperCPU F5/settings 1 set:JiffyDOS
 C64 with SuperCPU F5/settings 2 set:Joystick ports
-C64 with SuperCPU F5/settings 3 set:System Mode
-C64 with SuperCPU F5/settings 4 set:Drive
-C64 with SuperCPU F5/settings 5 set:Drive Bus ID
-C64 with SuperCPU F5/settings 6 set:Extra RAM
-C64 with SuperCPU F5/settings 7 set:Disk swap delay
-C64 with SuperCPU F5/settings 8 set:LED Load Indicator
+C64 with SuperCPU F5/settings 3 set:Datasette port
+C64 with SuperCPU F5/settings 4 set:System Mode
+C64 with SuperCPU F5/settings 5 set:Drive
+C64 with SuperCPU F5/settings 6 set:Drive Bus ID
+C64 with SuperCPU F5/settings 7 set:Extra RAM
+C64 with SuperCPU F5/settings 8 set:Disk swap delay
+C64 with SuperCPU F5/settings 9 set:LED Load Indicator
 C64 with SuperCPU F7/quick 0 task:Reset
 C64 with SuperCPU F7/quick 1 task:Reload ROMs, reset
 C64 with SuperCPU F7/quick 2 task:Reset Drive
@@ -265,20 +338,24 @@ C64 with SuperCPU F7/quick 4 task:Create blank G64
 C64 with SuperCPU F7/quick 5 task:Save Disk as D64
 C64 with SuperCPU F7/quick 6 task:Save Disk as G64
 C64 with SuperCPU F7/quick 7 task:Create blank D81
-C64 with SuperCPU F8/expert 0 fixed:5:Reset to host defaults
+C64 with SuperCPU F8/expert 0 fixed:13:Actions
 C64 with SuperCPU F8/expert 1 fixed:6:Restart core
-C64 with SuperCPU F8/expert 2 fixed:8:Bug report
-C64 with SuperCPU F8/expert 3 fixed:9:WiFi
-C64 with SuperCPU F8/expert 4 fixed:7:Return to host menu
+C64 with SuperCPU F8/expert 2 fixed:7:Return to host menu
+C64 with SuperCPU F8/expert 3 fixed:13:Network
+C64 with SuperCPU F8/expert 4 fixed:9:WiFi
+C64 with SuperCPU F8/expert 5 fixed:13:Support
+C64 with SuperCPU F8/expert 6 fixed:8:Bug report
+C64 with SuperCPU F8/expert 7 fixed:13:Reset
+C64 with SuperCPU F8/expert 8 fixed:5:Reset to host defaults
 ZX Spectrum Next F1/home 0 info:Core
 ZX Spectrum Next F1/home 1 info:Application
 ZX Spectrum Next F1/home 2 info:Network
 ZX Spectrum Next F1/home 3 info:Media
 ZX Spectrum Next F1/home 4 info:ROMs
 ZX Spectrum Next F1/home 5 info:Libraries
-ZX Spectrum Next F5/summary 0 media:zxnext.sd.image
-ZX Spectrum Next F5/summary 1 fixed:10:Save media set...
-ZX Spectrum Next F5/summary 2 fixed:11:Load media set...
+ZX Spectrum Next F1/home 6 media:zxnext.sd.image
+ZX Spectrum Next F1/home 7 fixed:10:Save as config...
+ZX Spectrum Next F1/home 8 fixed:11:Load config...
 ZX Spectrum Next F5/settings 0 set:Joystick ports
 ZX Spectrum Next F5/settings 1 set:Frame lock to 50 Hz
 ZX Spectrum Next F5/settings 2 set:Board issue
@@ -287,20 +364,24 @@ ZX Spectrum Next F7/quick 1 task:Eject the SD image
 ZX Spectrum Next F7/quick 2 task:F3: 50 / 60 Hz
 ZX Spectrum Next F7/quick 3 task:F8: CPU speed
 ZX Spectrum Next F7/quick 4 task:NMI: Multiface (M1 button)
-ZX Spectrum Next F8/expert 0 fixed:5:Reset to host defaults
+ZX Spectrum Next F8/expert 0 fixed:13:Actions
 ZX Spectrum Next F8/expert 1 fixed:6:Restart core
-ZX Spectrum Next F8/expert 2 fixed:8:Bug report
-ZX Spectrum Next F8/expert 3 fixed:9:WiFi
-ZX Spectrum Next F8/expert 4 fixed:7:Return to host menu
+ZX Spectrum Next F8/expert 2 fixed:7:Return to host menu
+ZX Spectrum Next F8/expert 3 fixed:13:Network
+ZX Spectrum Next F8/expert 4 fixed:9:WiFi
+ZX Spectrum Next F8/expert 5 fixed:13:Support
+ZX Spectrum Next F8/expert 6 fixed:8:Bug report
+ZX Spectrum Next F8/expert 7 fixed:13:Reset
+ZX Spectrum Next F8/expert 8 fixed:5:Reset to host defaults
 Super Nintendo F1/home 0 info:Core
 Super Nintendo F1/home 1 info:Application
 Super Nintendo F1/home 2 info:Network
 Super Nintendo F1/home 3 info:Media
 Super Nintendo F1/home 4 info:ROMs
 Super Nintendo F1/home 5 info:Libraries
-Super Nintendo F5/summary 0 media:snes.cartridge.image
-Super Nintendo F5/summary 1 fixed:10:Save media set...
-Super Nintendo F5/summary 2 fixed:11:Load media set...
+Super Nintendo F1/home 6 media:snes.cartridge.image
+Super Nintendo F1/home 7 fixed:10:Save as config...
+Super Nintendo F1/home 8 fixed:11:Load config...
 Super Nintendo F5/settings 0 set:Video standard
 Super Nintendo F5/settings 1 set:Pseudo high resolution
 Super Nintendo F5/settings 2 set:Pad map
@@ -309,20 +390,24 @@ Super Nintendo F7/quick 1 task:Save the battery RAM now
 Super Nintendo F7/quick 2 task:Sound check
 Super Nintendo F7/quick 3 task:Map buttons, pad 1
 Super Nintendo F7/quick 4 task:Map buttons, pad 2
-Super Nintendo F8/expert 0 fixed:5:Reset to host defaults
+Super Nintendo F8/expert 0 fixed:13:Actions
 Super Nintendo F8/expert 1 fixed:6:Restart core
-Super Nintendo F8/expert 2 fixed:8:Bug report
-Super Nintendo F8/expert 3 fixed:9:WiFi
-Super Nintendo F8/expert 4 fixed:7:Return to host menu
+Super Nintendo F8/expert 2 fixed:7:Return to host menu
+Super Nintendo F8/expert 3 fixed:13:Network
+Super Nintendo F8/expert 4 fixed:9:WiFi
+Super Nintendo F8/expert 5 fixed:13:Support
+Super Nintendo F8/expert 6 fixed:8:Bug report
+Super Nintendo F8/expert 7 fixed:13:Reset
+Super Nintendo F8/expert 8 fixed:5:Reset to host defaults
 SNK Neo Geo F1/home 0 info:Core
 SNK Neo Geo F1/home 1 info:Application
 SNK Neo Geo F1/home 2 info:Network
 SNK Neo Geo F1/home 3 info:Media
 SNK Neo Geo F1/home 4 info:ROMs
 SNK Neo Geo F1/home 5 info:Libraries
-SNK Neo Geo F5/summary 0 media:neogeo.cartridge.image
-SNK Neo Geo F5/summary 1 fixed:10:Save media set...
-SNK Neo Geo F5/summary 2 fixed:11:Load media set...
+SNK Neo Geo F1/home 6 media:neogeo.cartridge.image
+SNK Neo Geo F1/home 7 fixed:10:Save as config...
+SNK Neo Geo F1/home 8 fixed:11:Load config...
 SNK Neo Geo F5/settings 0 set:System type
 SNK Neo Geo F5/settings 1 set:BIOS
 SNK Neo Geo F5/settings 2 set:Video mode
@@ -337,11 +422,15 @@ SNK Neo Geo F7/quick 1 task:Load a ROM set from a folder
 SNK Neo Geo F7/quick 2 task:Save the memory card and backup RAM now
 SNK Neo Geo F7/quick 3 task:Map buttons, pad 1
 SNK Neo Geo F7/quick 4 task:Map buttons, pad 2
-SNK Neo Geo F8/expert 0 fixed:5:Reset to host defaults
+SNK Neo Geo F8/expert 0 fixed:13:Actions
 SNK Neo Geo F8/expert 1 fixed:6:Restart core
-SNK Neo Geo F8/expert 2 fixed:8:Bug report
-SNK Neo Geo F8/expert 3 fixed:9:WiFi
-SNK Neo Geo F8/expert 4 fixed:7:Return to host menu
+SNK Neo Geo F8/expert 2 fixed:7:Return to host menu
+SNK Neo Geo F8/expert 3 fixed:13:Network
+SNK Neo Geo F8/expert 4 fixed:9:WiFi
+SNK Neo Geo F8/expert 5 fixed:13:Support
+SNK Neo Geo F8/expert 6 fixed:8:Bug report
+SNK Neo Geo F8/expert 7 fixed:13:Reset
+SNK Neo Geo F8/expert 8 fixed:5:Reset to host defaults
 TRX64U F1/home 0 node:lib.show:drive.drive_a.path
 TRX64U F1/home 1 node:machine.pause_toggle
 TRX64U F1/home 2 node:lib.show:c64.cartridge_path
@@ -393,18 +482,19 @@ TRX64U F4/diagnostics 16 node:diag.nop
 TRX64U F5/drives 0 set:Drive
 TRX64U F5/drives 1 set:Drive Bus ID
 TRX64U F5/drives 2 set:Disk swap delay
-TRX64U F5/drives 3 set:Resets when C64 resets
-TRX64U F5/drives 4 set:Freezes in menu
-TRX64U F5/drives 5 set:Leave Menu on Mount
-TRX64U F5/drives 6 set:Extra RAM
-TRX64U F5/drives 7 set:GCR Save Align Tracks
-TRX64U F5/drives 8 set:D64 Geos Copy Protection
-TRX64U F5/drives 9 set:Track Twist
-TRX64U F5/drives 10 set:SpeedDOS Parallel Cable
-TRX64U F5/drives 11 set:ROM for 1541 mode
-TRX64U F5/drives 12 node::Disk
-TRX64U F5/drives 13 node:drive.eject:iec:drive_a
-TRX64U F5/drives 14 node:drive.reset:iec:drive_a
+TRX64U F5/drives 3 set:Persist medium mounts
+TRX64U F5/drives 4 set:Resets when C64 resets
+TRX64U F5/drives 5 set:Freezes in menu
+TRX64U F5/drives 6 set:Leave Menu on Mount
+TRX64U F5/drives 7 set:Extra RAM
+TRX64U F5/drives 8 set:GCR Save Align Tracks
+TRX64U F5/drives 9 set:D64 Geos Copy Protection
+TRX64U F5/drives 10 set:Track Twist
+TRX64U F5/drives 11 set:SpeedDOS Parallel Cable
+TRX64U F5/drives 12 set:ROM for 1541 mode
+TRX64U F5/drives 13 node::Disk
+TRX64U F5/drives 14 node:drive.eject:iec:drive_a
+TRX64U F5/drives 15 node:drive.reset:iec:drive_a
 TRX64U F5/machine 0 set:Fast Reset
 TRX64U F5/machine 1 set:Kernal ROM
 TRX64U F5/machine 2 set:Basic ROM
@@ -423,8 +513,8 @@ TRX64U F5/io 7 set:Command Interface (UCI)
 TRX64U F5/io 8 node::Cartridge
 TRX64U F5/mediasets 0 media:c64.program
 TRX64U F5/mediasets 1 media:drive.drive_a.image
-TRX64U F5/mediasets 2 fixed:10:Save media set...
-TRX64U F5/mediasets 3 fixed:11:Load media set...
+TRX64U F5/mediasets 2 fixed:10:Save as config...
+TRX64U F5/mediasets 3 fixed:11:Load config...
 TRX64U F7/quick 0 node:machine.cold_reset
 TRX64U F7/quick 1 node:machine.pause_toggle
 TRX64U F7/quick 2 node:drive.swap
@@ -609,47 +699,46 @@ TRX64U F8/status 10 node::USB mouse
 TRX64U F8/status 11 node::USB keyboard
 TRX64U F8/status 12 node:wifi.toggle
 TRX64U F8/status 13 node:diag.nop
-TRX64U F8/expert 0 set:Persist medium mounts
-TRX64U F8/expert 1 set:DMA Load Mimics ID
-TRX64U F8/expert 2 set:Bus Operation Mode
-TRX64U F8/expert 3 set:Bus Sharing - ROMs
-TRX64U F8/expert 4 set:Bus Sharing - I/O1
-TRX64U F8/expert 5 set:Bus Sharing - I/O2
-TRX64U F8/expert 6 set:Bus Sharing - Interrupts
-TRX64U F8/expert 7 set:GAME/EXROM
-TRX64U F8/expert 8 set:Burst Mode Patch
-TRX64U F8/expert 9 set:Serial Bus Mode
-TRX64U F8/expert 10 set:Badline Timing
-TRX64U F8/expert 11 set:SuperCPU Detect (D0BC)
-TRX64U F8/expert 12 set:UserPort Power Enable
-TRX64U F8/expert 13 set:Power On After Power Loss
-TRX64U F8/expert 14 set:Wake On Wi-Fi
-TRX64U F8/expert 15 set:LED Select Top
-TRX64U F8/expert 16 set:LED Select Bot
-TRX64U F8/expert 17 set:Color Scheme
-TRX64U F8/expert 18 set:Enter Home on Startup
-TRX64U F8/expert 19 set:Menu opens at
-TRX64U F8/expert 20 set:Home Directory
-TRX64U F8/expert 21 set:Filename overflow squeeze
-TRX64U F8/expert 22 node:machine.restart
-TRX64U F8/expert 23 node:settings.clear
-TRX64U F8/expert 24 node:settings.discard
-TRX64U F8/expert 25 node:settings.reset_defaults
-TRX64U F8/expert 26 node:settings.save
+TRX64U F8/expert 0 set:DMA Load Mimics ID
+TRX64U F8/expert 1 set:Bus Operation Mode
+TRX64U F8/expert 2 set:Bus Sharing - ROMs
+TRX64U F8/expert 3 set:Bus Sharing - I/O1
+TRX64U F8/expert 4 set:Bus Sharing - I/O2
+TRX64U F8/expert 5 set:Bus Sharing - Interrupts
+TRX64U F8/expert 6 set:GAME/EXROM
+TRX64U F8/expert 7 set:Burst Mode Patch
+TRX64U F8/expert 8 set:Serial Bus Mode
+TRX64U F8/expert 9 set:Badline Timing
+TRX64U F8/expert 10 set:SuperCPU Detect (D0BC)
+TRX64U F8/expert 11 set:UserPort Power Enable
+TRX64U F8/expert 12 set:Power On After Power Loss
+TRX64U F8/expert 13 set:Wake On Wi-Fi
+TRX64U F8/expert 14 set:LED Select Top
+TRX64U F8/expert 15 set:LED Select Bot
+TRX64U F8/expert 16 set:Color Scheme
+TRX64U F8/expert 17 set:Enter Home on Startup
+TRX64U F8/expert 18 set:Menu opens at
+TRX64U F8/expert 19 set:Home Directory
+TRX64U F8/expert 20 set:Filename overflow squeeze
+TRX64U F8/expert 21 node:machine.restart
+TRX64U F8/expert 22 node:settings.clear
+TRX64U F8/expert 23 node:settings.discard
+TRX64U F8/expert 24 node:settings.reset_defaults
+TRX64U F8/expert 25 node:settings.save
 Amiga (OCS/ECS, 68000) F1/home 0 info:Core
 Amiga (OCS/ECS, 68000) F1/home 1 info:Application
 Amiga (OCS/ECS, 68000) F1/home 2 info:Network
 Amiga (OCS/ECS, 68000) F1/home 3 info:Media
 Amiga (OCS/ECS, 68000) F1/home 4 info:ROMs
 Amiga (OCS/ECS, 68000) F1/home 5 info:Libraries
-Amiga (OCS/ECS, 68000) F5/summary 0 media:amiga.df0.image
-Amiga (OCS/ECS, 68000) F5/summary 1 media:amiga.df1.image
-Amiga (OCS/ECS, 68000) F5/summary 2 media:amiga.df2.image
-Amiga (OCS/ECS, 68000) F5/summary 3 media:amiga.df3.image
-Amiga (OCS/ECS, 68000) F5/summary 4 media:amiga.hd0.image
-Amiga (OCS/ECS, 68000) F5/summary 5 media:amiga.hd1.image
-Amiga (OCS/ECS, 68000) F5/summary 6 fixed:10:Save media set...
-Amiga (OCS/ECS, 68000) F5/summary 7 fixed:11:Load media set...
+Amiga (OCS/ECS, 68000) F1/home 6 media:amiga.df0.image
+Amiga (OCS/ECS, 68000) F1/home 7 media:amiga.df1.image
+Amiga (OCS/ECS, 68000) F1/home 8 media:amiga.df2.image
+Amiga (OCS/ECS, 68000) F1/home 9 media:amiga.df3.image
+Amiga (OCS/ECS, 68000) F1/home 10 media:amiga.hd0.image
+Amiga (OCS/ECS, 68000) F1/home 11 media:amiga.hd1.image
+Amiga (OCS/ECS, 68000) F1/home 12 fixed:10:Save as config...
+Amiga (OCS/ECS, 68000) F1/home 13 fixed:11:Load config...
 Amiga (OCS/ECS, 68000) F5/settings 0 set:Kickstart file (at reload)
 Amiga (OCS/ECS, 68000) F5/settings 1 set:Chip RAM (at next reset)
 Amiga (OCS/ECS, 68000) F5/settings 2 set:Slow RAM (at next reset)
@@ -660,8 +749,8 @@ Amiga (OCS/ECS, 68000) F5/settings 6 set:Floppy write protect (next reset)
 Amiga (OCS/ECS, 68000) F5/settings 7 set:Real-time clock (at next reset)
 Amiga (OCS/ECS, 68000) F5/settings 8 set:Joystick ports
 Amiga (OCS/ECS, 68000) F5/settings 9 set:LED Load Indicator
-Amiga (OCS/ECS, 68000) F5/settings 10 set:Mouse Sensitivity
-Amiga (OCS/ECS, 68000) F5/settings 11 set:Mouse Acceleration
+Amiga (OCS/ECS, 68000) F5/input 0 set:Mouse Sensitivity
+Amiga (OCS/ECS, 68000) F5/input 1 set:Mouse Acceleration
 Amiga (OCS/ECS, 68000) F7/quick 0 task:Reset Amiga
 Amiga (OCS/ECS, 68000) F7/quick 1 task:Reload Kickstart, Reset
 Amiga (OCS/ECS, 68000) F7/quick 2 task:Eject DF0
@@ -673,25 +762,29 @@ Amiga (OCS/ECS, 68000) F7/quick 7 task:Eject HD1
 Amiga (OCS/ECS, 68000) F7/quick 8 task:Create blank ADF
 Amiga (OCS/ECS, 68000) F7/quick 9 task:Mount folder as HD0
 Amiga (OCS/ECS, 68000) F7/quick 10 task:Mount folder as HD1
-Amiga (OCS/ECS, 68000) F8/expert 0 fixed:5:Reset to host defaults
+Amiga (OCS/ECS, 68000) F8/expert 0 fixed:13:Actions
 Amiga (OCS/ECS, 68000) F8/expert 1 fixed:6:Restart core
-Amiga (OCS/ECS, 68000) F8/expert 2 fixed:8:Bug report
-Amiga (OCS/ECS, 68000) F8/expert 3 fixed:9:WiFi
-Amiga (OCS/ECS, 68000) F8/expert 4 fixed:7:Return to host menu
+Amiga (OCS/ECS, 68000) F8/expert 2 fixed:7:Return to host menu
+Amiga (OCS/ECS, 68000) F8/expert 3 fixed:13:Network
+Amiga (OCS/ECS, 68000) F8/expert 4 fixed:9:WiFi
+Amiga (OCS/ECS, 68000) F8/expert 5 fixed:13:Support
+Amiga (OCS/ECS, 68000) F8/expert 6 fixed:8:Bug report
+Amiga (OCS/ECS, 68000) F8/expert 7 fixed:13:Reset
+Amiga (OCS/ECS, 68000) F8/expert 8 fixed:5:Reset to host defaults
 Amiga 1200 (AGA, 68020) F1/home 0 info:Core
 Amiga 1200 (AGA, 68020) F1/home 1 info:Application
 Amiga 1200 (AGA, 68020) F1/home 2 info:Network
 Amiga 1200 (AGA, 68020) F1/home 3 info:Media
 Amiga 1200 (AGA, 68020) F1/home 4 info:ROMs
 Amiga 1200 (AGA, 68020) F1/home 5 info:Libraries
-Amiga 1200 (AGA, 68020) F5/summary 0 media:amiga.df0.image
-Amiga 1200 (AGA, 68020) F5/summary 1 media:amiga.df1.image
-Amiga 1200 (AGA, 68020) F5/summary 2 media:amiga.df2.image
-Amiga 1200 (AGA, 68020) F5/summary 3 media:amiga.df3.image
-Amiga 1200 (AGA, 68020) F5/summary 4 media:amiga.hd0.image
-Amiga 1200 (AGA, 68020) F5/summary 5 media:amiga.hd1.image
-Amiga 1200 (AGA, 68020) F5/summary 6 fixed:10:Save media set...
-Amiga 1200 (AGA, 68020) F5/summary 7 fixed:11:Load media set...
+Amiga 1200 (AGA, 68020) F1/home 6 media:amiga.df0.image
+Amiga 1200 (AGA, 68020) F1/home 7 media:amiga.df1.image
+Amiga 1200 (AGA, 68020) F1/home 8 media:amiga.df2.image
+Amiga 1200 (AGA, 68020) F1/home 9 media:amiga.df3.image
+Amiga 1200 (AGA, 68020) F1/home 10 media:amiga.hd0.image
+Amiga 1200 (AGA, 68020) F1/home 11 media:amiga.hd1.image
+Amiga 1200 (AGA, 68020) F1/home 12 fixed:10:Save as config...
+Amiga 1200 (AGA, 68020) F1/home 13 fixed:11:Load config...
 Amiga 1200 (AGA, 68020) F5/settings 0 set:Kickstart file (at reload)
 Amiga 1200 (AGA, 68020) F5/settings 1 set:Chip RAM (at next reset)
 Amiga 1200 (AGA, 68020) F5/settings 2 set:Slow RAM (at next reset)
@@ -702,8 +795,8 @@ Amiga 1200 (AGA, 68020) F5/settings 6 set:Floppy write protect (next reset)
 Amiga 1200 (AGA, 68020) F5/settings 7 set:Real-time clock (at next reset)
 Amiga 1200 (AGA, 68020) F5/settings 8 set:Joystick ports
 Amiga 1200 (AGA, 68020) F5/settings 9 set:LED Load Indicator
-Amiga 1200 (AGA, 68020) F5/settings 10 set:Mouse Sensitivity
-Amiga 1200 (AGA, 68020) F5/settings 11 set:Mouse Acceleration
+Amiga 1200 (AGA, 68020) F5/input 0 set:Mouse Sensitivity
+Amiga 1200 (AGA, 68020) F5/input 1 set:Mouse Acceleration
 Amiga 1200 (AGA, 68020) F7/quick 0 task:Reset Amiga
 Amiga 1200 (AGA, 68020) F7/quick 1 task:Reload Kickstart, Reset
 Amiga 1200 (AGA, 68020) F7/quick 2 task:Eject DF0
@@ -715,11 +808,15 @@ Amiga 1200 (AGA, 68020) F7/quick 7 task:Eject HD1
 Amiga 1200 (AGA, 68020) F7/quick 8 task:Create blank ADF
 Amiga 1200 (AGA, 68020) F7/quick 9 task:Mount folder as HD0
 Amiga 1200 (AGA, 68020) F7/quick 10 task:Mount folder as HD1
-Amiga 1200 (AGA, 68020) F8/expert 0 fixed:5:Reset to host defaults
+Amiga 1200 (AGA, 68020) F8/expert 0 fixed:13:Actions
 Amiga 1200 (AGA, 68020) F8/expert 1 fixed:6:Restart core
-Amiga 1200 (AGA, 68020) F8/expert 2 fixed:8:Bug report
-Amiga 1200 (AGA, 68020) F8/expert 3 fixed:9:WiFi
-Amiga 1200 (AGA, 68020) F8/expert 4 fixed:7:Return to host menu
+Amiga 1200 (AGA, 68020) F8/expert 2 fixed:7:Return to host menu
+Amiga 1200 (AGA, 68020) F8/expert 3 fixed:13:Network
+Amiga 1200 (AGA, 68020) F8/expert 4 fixed:9:WiFi
+Amiga 1200 (AGA, 68020) F8/expert 5 fixed:13:Support
+Amiga 1200 (AGA, 68020) F8/expert 6 fixed:8:Bug report
+Amiga 1200 (AGA, 68020) F8/expert 7 fixed:13:Reset
+Amiga 1200 (AGA, 68020) F8/expert 8 fixed:5:Reset to host defaults
 DDT Mandelbrot (mandelbrUlt) F1/home 0 info:Core
 DDT Mandelbrot (mandelbrUlt) F1/home 1 info:Application
 DDT Mandelbrot (mandelbrUlt) F1/home 2 info:Network
@@ -727,11 +824,15 @@ DDT Mandelbrot (mandelbrUlt) F1/home 3 info:Media
 DDT Mandelbrot (mandelbrUlt) F1/home 4 info:ROMs
 DDT Mandelbrot (mandelbrUlt) F1/home 5 info:Libraries
 DDT Mandelbrot (mandelbrUlt) F7/quick 0 task:Reset
-DDT Mandelbrot (mandelbrUlt) F8/expert 0 fixed:5:Reset to host defaults
+DDT Mandelbrot (mandelbrUlt) F8/expert 0 fixed:13:Actions
 DDT Mandelbrot (mandelbrUlt) F8/expert 1 fixed:6:Restart core
-DDT Mandelbrot (mandelbrUlt) F8/expert 2 fixed:8:Bug report
-DDT Mandelbrot (mandelbrUlt) F8/expert 3 fixed:9:WiFi
-DDT Mandelbrot (mandelbrUlt) F8/expert 4 fixed:7:Return to host menu
+DDT Mandelbrot (mandelbrUlt) F8/expert 2 fixed:7:Return to host menu
+DDT Mandelbrot (mandelbrUlt) F8/expert 3 fixed:13:Network
+DDT Mandelbrot (mandelbrUlt) F8/expert 4 fixed:9:WiFi
+DDT Mandelbrot (mandelbrUlt) F8/expert 5 fixed:13:Support
+DDT Mandelbrot (mandelbrUlt) F8/expert 6 fixed:8:Bug report
+DDT Mandelbrot (mandelbrUlt) F8/expert 7 fixed:13:Reset
+DDT Mandelbrot (mandelbrUlt) F8/expert 8 fixed:5:Reset to host defaults
 DDT Look Ma, No VIC F1/home 0 info:Core
 DDT Look Ma, No VIC F1/home 1 info:Application
 DDT Look Ma, No VIC F1/home 2 info:Network
@@ -739,25 +840,52 @@ DDT Look Ma, No VIC F1/home 3 info:Media
 DDT Look Ma, No VIC F1/home 4 info:ROMs
 DDT Look Ma, No VIC F1/home 5 info:Libraries
 DDT Look Ma, No VIC F7/quick 0 task:Reset
-DDT Look Ma, No VIC F8/expert 0 fixed:5:Reset to host defaults
+DDT Look Ma, No VIC F8/expert 0 fixed:13:Actions
 DDT Look Ma, No VIC F8/expert 1 fixed:6:Restart core
-DDT Look Ma, No VIC F8/expert 2 fixed:8:Bug report
-DDT Look Ma, No VIC F8/expert 3 fixed:9:WiFi
-DDT Look Ma, No VIC F8/expert 4 fixed:7:Return to host menu
+DDT Look Ma, No VIC F8/expert 2 fixed:7:Return to host menu
+DDT Look Ma, No VIC F8/expert 3 fixed:13:Network
+DDT Look Ma, No VIC F8/expert 4 fixed:9:WiFi
+DDT Look Ma, No VIC F8/expert 5 fixed:13:Support
+DDT Look Ma, No VIC F8/expert 6 fixed:8:Bug report
+DDT Look Ma, No VIC F8/expert 7 fixed:13:Reset
+DDT Look Ma, No VIC F8/expert 8 fixed:5:Reset to host defaults
 Port Diagnostics F1/home 0 info:Core
 Port Diagnostics F1/home 1 info:Application
 Port Diagnostics F1/home 2 info:Network
 Port Diagnostics F1/home 3 info:Media
 Port Diagnostics F1/home 4 info:ROMs
 Port Diagnostics F1/home 5 info:Libraries
-Port Diagnostics F5/summary 0 media:pd.port1
-Port Diagnostics F5/summary 1 media:pd.port2
-Port Diagnostics F5/summary 2 media:pd.cmp
-Port Diagnostics F5/summary 3 media:pd.last
+Port Diagnostics F1/home 6 media:pd.port1
+Port Diagnostics F1/home 7 media:pd.port2
+Port Diagnostics F1/home 8 media:pd.cmp
+Port Diagnostics F1/home 9 media:pd.last
+Port Diagnostics F5/settings 0 set:Standard
+Port Diagnostics F5/settings 1 set:Groups
+Port Diagnostics F5/settings 2 set:Bits A
+Port Diagnostics F5/settings 3 set:Bits B
+Port Diagnostics F5/settings 4 set:Bits C
+Port Diagnostics F5/settings 5 set:V sign
+Port Diagnostics F5/settings 6 set:Subcarrier trim
+Port Diagnostics F5/settings 7 set:Burst start
+Port Diagnostics F5/settings 8 set:Burst end
+Port Diagnostics F5/settings 9 set:Burst level
+Port Diagnostics F5/settings 10 set:Chroma gain
+Port Diagnostics F5/settings 11 set:Sync level
+Port Diagnostics F5/settings 12 set:Blank level
+Port Diagnostics F5/settings 13 set:White level
+Port Diagnostics F5/settings 14 set:Equalizing
+Port Diagnostics F5/settings 15 set:Vsync length
+Port Diagnostics F5/settings 16 set:Vsync position
+Port Diagnostics F5/settings 17 set:Lines 60 Hz
 Port Diagnostics F7/quick 0 task:Pick a test and run it
 Port Diagnostics F7/quick 1 task:Write the example tests
-Port Diagnostics F8/expert 0 fixed:5:Reset to host defaults
+Port Diagnostics F7/quick 2 task:Save A/V preset
+Port Diagnostics F8/expert 0 fixed:13:Actions
 Port Diagnostics F8/expert 1 fixed:6:Restart core
-Port Diagnostics F8/expert 2 fixed:8:Bug report
-Port Diagnostics F8/expert 3 fixed:9:WiFi
-Port Diagnostics F8/expert 4 fixed:7:Return to host menu
+Port Diagnostics F8/expert 2 fixed:7:Return to host menu
+Port Diagnostics F8/expert 3 fixed:13:Network
+Port Diagnostics F8/expert 4 fixed:9:WiFi
+Port Diagnostics F8/expert 5 fixed:13:Support
+Port Diagnostics F8/expert 6 fixed:8:Bug report
+Port Diagnostics F8/expert 7 fixed:13:Reset
+Port Diagnostics F8/expert 8 fixed:5:Reset to host defaults

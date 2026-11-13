@@ -12,7 +12,7 @@ Source (TOML; every key is checked, an unknown one is an error - a typo must not
     shifted = false
       [[area.tab]]
       id = "drives"                # lower case, [a-z0-9_]: what an anchor names
-      name = "Drives"
+      name = "Drives"              # optional: none = named after the area (T205 D1)
       widget = "settings"          # info | browser | media | settings | tasks | system | nodes
       groups = ["drive_a"]         # settings groups the tab lists (widget settings)
       n = 3                        # the printed number; 0 or absent: the next free one
@@ -540,7 +540,7 @@ def compile_desc(doc, merged=()):
             if layout is not None:
                 params = _ui_string(tb.get("ui"), UI_TAB_KEYS, "tab " + tid)
                 lay = layout + (";" + params if params else "")
-            t["tab"].append((st.add(tid), st.add(_need(tb, "name", str, "tab " + tid)), n, WIDGETS.index(widget),
+            t["tab"].append((st.add(tid), st.add(_opt(tb, "name", str, "tab " + tid, "")), n, WIDGETS.index(widget),
                              st.add(",".join(groups)) if groups else NONE, st.add(lay) if lay else 0))
         t["area"].append((st.add(key), st.add(_opt(a, "name", str, "area " + key, None)), 1 if _opt(a, "shifted", bool, "area", False) else 0,
                           first, len(tabs)))
@@ -907,7 +907,7 @@ def parse_desc(blob):
     out["tab"] = []
     for tid, name, nn, w, groups, lay in tabs["tab"]:
         layout = s(lay) if lay else None
-        if not re.fullmatch(r"[a-z0-9_]{1,31}", s(tid) or "") or not s(name) or nn > 99 or w >= len(WIDGETS) or (lay and not layout):
+        if not re.fullmatch(r"[a-z0-9_]{1,31}", s(tid) or "") or s(name) is None or nn > 99 or w >= len(WIDGETS) or (lay and not layout):
             raise DescError("description record: a bad tab")
         g = s(groups)
         if g == "":
@@ -1021,7 +1021,9 @@ def decoded_to_doc(rec):
         for a in rec["area"]:
             tabs = []
             for tb in rec["tab"][used:used + len(a["tabs"])]:
-                d = {"id": tb["id"], "name": tb["name"], "widget": tb["widget"], "n": tb["n"]}
+                d = {"id": tb["id"], "widget": tb["widget"], "n": tb["n"]}
+                if tb["name"]:                                  # T205 D1: no name = named after the area
+                    d["name"] = tb["name"]
                 if tb["groups"]:
                     d["groups"] = tb["groups"].split(",")
                 if tb.get("lines"):

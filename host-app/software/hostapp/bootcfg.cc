@@ -65,6 +65,7 @@ void bootcfg_parse(BootCfg *c, const char *text)
                 const char *b3 = b2 ? (const char *)memchr(b2 + 1, '|', end - b2 - 1) : 0;
                 const char *b4 = b3 ? (const char *)memchr(b3 + 1, '|', end - b3 - 1) : 0;
                 const char *b5 = b4 ? (const char *)memchr(b4 + 1, '|', end - b4 - 1) : 0;
+                const char *b6 = b5 ? (const char *)memchr(b5 + 1, '|', end - b5 - 1) : 0;
                 if (b1 && b2) {
                     BootEntry *be = &c->e[c->n++];
                     copy(be->path, sizeof(be->path), a, b1 - a);
@@ -73,6 +74,14 @@ void bootcfg_parse(BootCfg *c, const char *text)
                     be->size = b3 ? (unsigned)strtoul(b3 + 1, 0, 10) : 0;
                     be->mtime = b4 ? (unsigned)strtoul(b4 + 1, 0, 10) : 0;      // absent = an entry from before the start check (T101 S10)
                     be->hdr = b5 ? (unsigned)strtoul(b5 + 1, 0, 16) : 0;
+                    be->defcfg[0] = 0;
+                    if (b6) {
+                        char nm[CONFIG_NAME_MAX + 2];
+                        copy(nm, sizeof(nm), b6 + 1, end - b6 - 1);
+                        if (config_name_ok(nm)) {
+                            strcpy(be->defcfg, nm);
+                        }
+                    }
                 }
             }
         }
@@ -99,8 +108,14 @@ int bootcfg_format(const BootCfg *c, char *out, int max)
         n += snprintf(out + n, max - n, "lib_attempt=%d\n", c->lib_attempt);
     }
     for (int i = 0; i < c->n && n >= 0 && n < max; i++) {
-        n += snprintf(out + n, max - n, "core=%s|%s|%s|%u|%u|%08x\n", c->e[i].path, c->e[i].name, c->e[i].hash, c->e[i].size,
+        n += snprintf(out + n, max - n, "core=%s|%s|%s|%u|%u|%08x", c->e[i].path, c->e[i].name, c->e[i].hash, c->e[i].size,
                        c->e[i].mtime, c->e[i].hdr);
+        if (n >= 0 && n < max && c->e[i].defcfg[0]) {
+            n += snprintf(out + n, max - n, "|%s", c->e[i].defcfg);
+        }
+        if (n >= 0 && n < max) {
+            n += snprintf(out + n, max - n, "\n");
+        }
     }
     return (n < 0 || n >= max) ? -1 : n;
 }
@@ -108,8 +123,7 @@ int bootcfg_format(const BootCfg *c, char *out, int max)
 bool bootcfg_add(BootCfg *c, const char *name, const char *path, const char *hash, unsigned size, unsigned mtime, unsigned hdr)
 {
     for (int i = 0; i < c->n; i++) {
-        if (!strcmp(c->e[i].path, path)) {           // the same bundle again: refresh its name and hash
-            copy(c->e[i].name, sizeof(c->e[i].name), name, strlen(name));
+        if (!strcmp(c->e[i].path, path)) {           // the same bundle again: refresh its hash; the name stays (the person names entries, T198 D17)
             copy(c->e[i].hash, sizeof(c->e[i].hash), hash, strlen(hash));
             c->e[i].size = size;
             c->e[i].mtime = mtime;
@@ -127,9 +141,19 @@ bool bootcfg_add(BootCfg *c, const char *name, const char *path, const char *has
     b->size = size;
     b->mtime = mtime;
     b->hdr = hdr;
+    b->defcfg[0] = 0;
     if (c->def < 0) {
         c->def = c->n - 1;
     }
+    return true;
+}
+
+bool bootcfg_set_defcfg(BootCfg *c, int i, const char *name)
+{
+    if (i < 0 || i >= c->n || !name || (name[0] && !config_name_ok(name))) {
+        return false;
+    }
+    strcpy(c->e[i].defcfg, name);
     return true;
 }
 

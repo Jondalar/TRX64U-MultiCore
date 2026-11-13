@@ -89,6 +89,9 @@ c264_glue: cores/c264/sim cores/c264/rtl
 c264_pixw: cores/c264/sim cores/c264/rtl
 c264_colors: cores/c264/sim cores/c264/rtl
 c264_tedsnd: cores/c264/sim cores/c264/rtl
+pet_boot: cores/pet/sim cores/pet/rtl
+pet_spet: cores/pet/sim cores/pet/rtl
+pet_tape: cores/pet/sim cores/pet/rtl
 # G06 and T29: c64_core under Verilator
 # T12 §14.8: c64_core with trx_dbg, dma_win, trx_sys and the cartridge's DDR2 side under Verilator
 # (had no line: the whole-tree key reran its 7.5 minutes on every push)
@@ -245,6 +248,7 @@ c128_pixw: cores/c128 :(exclude)cores/c128/mono
 c128_romc: cores/c128 :(exclude)cores/c128/mono cores/nes/sim/ddr2c_model.v
 c128_ramd: cores/c128 :(exclude)cores/c128/mono cores/nes/sim/ddr2c_model.v
 c128_z80ba: @c128
+c128_z80vdc: @c128
 c128_reset: @c128
 c128_ramddr: @c128
 c128_vicblk: @c128
@@ -289,6 +293,8 @@ vicscale: host/sim/vicscale host/hdmi_timing.v host/vic_scaler.v host/pal_ram.v 
 diag_probe: cores/diag/rtl/probe.v cores/diag/rtl/diag_regs.v cores/diag/sim/tb_probe.v cores/diag/sim/probe/run.sh
 diag_pins: cores/diag/rtl/diag_pads.v cores/diag/sim/tb_pads.v cores/diag/sim/unisim_stub.v cores/diag/sim/pins/run.sh cores/diag/mono/top.v cores/diag/mono/layer2_diag.v cores/diag/mono/host/pins.xdc
 diag_co: cores/diag/rtl cores/diag/sim/tb_co.v cores/diag/sim/co cores/diag/sd/tests coreapp/src coreapp/cores tests/coreapp/diag_co.cc tests/coreapp/fakes.h app/loaders app/video app/lib/cbm1541 host-app/software/hostapp host-app/software/io/c64
+diag_avenc: cores/diag/rtl/diag_avout.v cores/diag/rtl/diag_yc.v cores/diag/sim/av/c128_yc_ref.v cores/diag/sim/tb_avenc.v cores/diag/sim/avenc/run.sh
+diag_avregs: cores/diag/rtl/diag_regs.v cores/diag/rtl/diag_avout.v cores/diag/rtl/diag_yc.v cores/diag/sim/tb_avregs.v cores/diag/sim/avregs/run.sh
 c1541leds_c128: cores/c1541 cores/c128/layer2_c128.v cores/c128/mono/top.v
 c1541leds_c264: cores/c1541 cores/c264/layer2_c264.v cores/c264/mono/host/top.v
 c1541leds_vc20: cores/c1541 cores/vc20/layer2_vc20.v host/top.v
@@ -303,6 +309,7 @@ c64scpu_map: cores/c64scpu :(exclude)cores/c64scpu/mono :(exclude)cores/c64scpu/
 c64scpu_speed: cores/c64scpu :(exclude)cores/c64scpu/mono :(exclude)cores/c64scpu/trial vendor/icepi cores/c64u :(exclude)cores/c64u/sim tools/gen_c64scpu_speed.py cores/nes/sim/ddr2c_model.v
 c64scpu_mirror: cores/c64scpu :(exclude)cores/c64scpu/mono :(exclude)cores/c64scpu/trial vendor/icepi cores/c64u :(exclude)cores/c64u/sim tools/gen_c64scpu_mirror.py cores/nes/sim/ddr2c_model.v
 c64scpu_irq: cores/c64scpu :(exclude)cores/c64scpu/mono :(exclude)cores/c64scpu/trial vendor/icepi cores/c64u :(exclude)cores/c64u/sim tools/gen_c64scpu_irq.py cores/nes/sim/ddr2c_model.v
+c64scpu_mdust: cores/c64scpu :(exclude)cores/c64scpu/mono :(exclude)cores/c64scpu/trial vendor/icepi cores/c64u :(exclude)cores/c64u/sim tools/gen_c64scpu_mdust.py cores/nes/sim/ddr2c_model.v
 c128_vicpic: cores/c128/mono/host/pix_layer.v cores/c128/mono/host/pal_ram.v cores/c128/mono/host/ddr2_port.v host/sim/pixlayer/tgl_client.v host/sim/mig_ui_model.v cores/c128/sim/run_vicpic.sh cores/c128/sim/tb_vicpic.v
 c128_vicshow: cores/c128/mono/host/pix_layer.v cores/c128/mono/host/pal_ram.v cores/c128/mono/host/ddr2_port.v host/sim/pixlayer/tgl_client.v host/sim/mig_ui_model.v cores/c128/sim/pixscale/model.py cores/common/trx_io.v cores/c128/sim/run_vicshow.sh cores/c128/sim/job_vicshow.sh cores/c128/sim/tb_vicshow.v
 c128_act: cores/c128/c128_act.v cores/c128/sim/run_act.sh cores/c128/sim/tb_act.v

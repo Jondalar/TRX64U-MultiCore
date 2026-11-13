@@ -7,22 +7,24 @@ area F1 Home
     info Media
     info ROMs
     info Libraries
+    media Drive A:
+    fixed Save as config...
+    fixed Load config...
 area F3 Library
   tab 1 Browse
     browser Browse
       filetype .rom: Set as 1541 ROM
-      filetype .d64: Mount Disk | Mount Disk Read Only | Mount Disk Unlinked | Browse Disk
-      filetype .g64: Mount Disk | Mount Disk Read Only | Mount Disk Unlinked
-      filetype .d81: Mount Disk | Mount Disk Read Only | Browse Disk
+      filetype .d64: Mount Disk | Mount Disk Read Only | Mount Disk Unlinked | Run Disk | Browse Disk
+        inside .prg: Mount & Run | Real Run
+      filetype .g64: Mount Disk | Mount Disk Read Only | Mount Disk Unlinked | Run Disk
+      filetype .d81: Mount Disk | Mount Disk Read Only | Run Disk | Browse Disk
+        inside .prg: Mount & Run | Real Run
 area F5 SCPU
-  tab 1 Summary
-    media Drive A:
-    fixed Save media set...
-    fixed Load media set...
-  tab 2 Settings
+  tab 1 SCPU
     setting SuperCPU speed = 20 MHz | 1 MHz (default 20 MHz, live)
     setting JiffyDOS = Off | On (default Off, live)
     setting Joystick ports = Normal | Swapped (default Normal, live)
+    setting Datasette port = Off (file only) | External datasette (default Off (file only), live)
     setting System Mode = PAL | NTSC | PAL-60 | NTSC-50 (default PAL, live)
     setting Drive = Disabled | Enabled (default Enabled, live)
     setting Drive Bus ID = 8 | 9 | 10 | 11 (default 8, live)
@@ -40,9 +42,13 @@ area F7 Actions
     task Save Disk as G64 (asks a name)
     task Create blank D81 (asks a name)
 area F8 System (shifted)
-  tab 1 Expert
-    fixed Reset to host defaults
+  tab 1 System
+    heading Actions
     fixed Restart core
-    fixed Bug report
-    fixed WiFi
     fixed Return to host menu
+    heading Network
+    fixed WiFi
+    heading Support
+    fixed Bug report
+    heading Reset
+    fixed Reset to host defaults

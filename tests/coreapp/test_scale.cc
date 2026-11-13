@@ -90,7 +90,7 @@ struct Rig {
         memset(&c, 0, sizeof(c));
         g_gw_row = 2;
         g_gw_ok = true;
-        PictureEnv env = { mask, gateware, sys };
+        PictureEnv env = { mask, 0, gateware, sys };
         why = picture_extend(d, &ext, items, &env);
         c.desc = &ext; c.io = &io; c.fs = &fs;
         st = new Settings(ext.settings, ext.nsettings, d->store, &fs, "/usb0/cores/x.cfg", 0);

@@ -31,6 +31,7 @@ struct HkSpec {
     const char *core_op;
     const char *core_key;
     const char *core_label;
+    bool pc_keys;                         // the core is no C64 family keyboard: the items name the keys of the USB keyboard (WIN / CMD, ESC, F12), not the C64's keycaps
 };
 
 // The names of the keys, for the F8 items and the tables: hk_key_name(i), i = 0..64.
@@ -75,6 +76,32 @@ struct HkKeys {
 };
 
 bool hk_modifier_held(const HkMap &m, const HkKeys &keys);
+// The physical keys now: the USB keyboard's raw matrix plus CoreIo::keys_read (what HkLoop::poll looks at).
+HkKeys hk_read_keys(CoreCtx *c);
+
+// ---- learning a key by pressing it (T207) -----------------------------------------------------------------------------------------------
+#define HK_LEARN_SETTLE_MS 350
+// Watches the physical keys after the prompt is up. Keys already down when it starts are ignored until they are up (the RETURN that opened the
+// prompt). An action key is taken at once (the lowest key index when several arrive together); a modifier is the set of keys held, taken when it
+// has not changed for HK_LEARN_SETTLE_MS or when the keys are released.
+class HkLearn {
+public:
+    void begin(const HkKeys &now, bool modifier, uint32_t t_ms);
+    bool poll(const HkKeys &now, uint32_t t_ms, HkKeys *got);
+private:
+    uint64_t ign_k_ = 0, peak_k_ = 0, last_k_ = 0;
+    bool ign_r_ = false, peak_r_ = false, last_r_ = false, mod_ = false;
+    uint32_t since_ = 0;
+};
+// What the key(s) `got` mean for the setting `set` (index in c->desc->settings, a hotkey item of hk_extend). Returns the setting's new value (index into its
+// values), or -1 with the reason in `line` (the key is the modifier or another hotkey's, or the keys are no modifier of the list).
+int hk_learn_value(CoreCtx *c, int set, const HkKeys &got, char *line, int n);
+// T207 D2 for LEFT / RIGHT: true when value `v` of hotkey item `set` would collide (another hotkey's key, the modifier's key); `line` names the other.
+bool hk_value_refused(CoreCtx *c, int set, int v, char *line, int n);
+// True: the setting is the modifier (learned as a set of held keys); false: an action key item or no hotkey item.
+bool hk_learn_is_modifier(const CoreCtx *c, int set);
+// True: the setting is a hotkey item of the page (modifier or action key) and RETURN on its row learns.
+bool hk_learn_item(const CoreCtx *c, int set);
 
 // One poll: returns the actions (bit HKA_x) to perform now. An action fires when its key goes down while the whole modifier is held, or the modifier
 // completes while the key is down (the host hides the key from the core in both cases); holding does not repeat, except the volume keys.

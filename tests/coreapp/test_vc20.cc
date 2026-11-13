@@ -4,6 +4,9 @@
 // RUN or SYS typed) and loaded without a reset, Freeze's PAUSED bit. The descriptor and its operations are the real ones.
 #include <algorithm>
 #include "cbm_rig.h"
+#include "drive_model.h"
+#include "regset.h"
+#include "cbm1541.h"
 
 // The register file as the bench reads cores/vc20/rtl/trx/vc20_regs.vhd - literal numbers on purpose, so that a wrong constant in the product's
 // own header is not shared with the model
@@ -27,12 +30,19 @@ static uint32_t reg32(Vc20Io &io, uint32_t r);
 
 struct Vc20Io : CbmIo {
     Bytes basic, kernal, chr;
+    DriveModel dm;                           // drive A, to read back the ROM it holds (T199)
     uint8_t ext_latched = 0;
     bool deaf = false;                       // the aperture takes no writes (a core that is not there, or a window that is shut)
     Vc20Io() : CbmIo(T20_STATUS, T20_KBD_COUNT), basic(8192, 0), kernal(8192, 0), chr(4096, 0)
     {
         taken_in_reset = { T20_RAM_EXT, T20_RAM_RO };
     }
+    void drv_wr(uint32_t off, uint8_t v) { dm.wr(off, v); }
+    bool drv_present() { return dm.present; }
+    uint8_t drv_rd(uint32_t off) { return dm.rd(off); }
+    void ddr_abs_write(uint32_t addr, const void *p, uint32_t n) { dm.abs_write(addr, p, n); }
+    void ddr_abs_read(uint32_t addr, void *p, uint32_t n) { dm.abs_read(addr, p, n); }
+    uint8_t *drv_buffer(uint32_t bytes, uint32_t *phys) { return dm.buffer(bytes, phys); }
     void latch() { ext_latched = regs[T20_RAM_EXT]; }
     // BASIC's start pointer follows what is expanded: the 3K alone moves it to $0401, an 8K block to $1201, nothing leaves $1001
     uint16_t boot_txttab() { return (ext_latched & 0x0E) ? 0x1201 : (ext_latched & 0x01) ? 0x0401 : 0x1001; }
@@ -408,9 +418,9 @@ int main()
     {
         CHECK_STR(vc20_desc.folder, "vc20");
         CHECK_STR(vc20_desc.cor_name, "VIC-20");
-        CHECK_EQ(vc20_desc.nroms, 4);                                   // BASIC, KERNAL, CHAR and the 1541's (cbm1541, optional)
-        CHECK(!vc20_desc.roms[3].required);
-        CHECK_EQ(vc20_desc.nsettings, 7);                               // two of the core, the four of the drive and the LED Load Indicator (T159)
+        CHECK_EQ(vc20_desc.nroms, 6);                                   // BASIC, KERNAL, CHAR, the 1541's and the two JiffyDOS rows (T199), all three last optional
+        CHECK(!vc20_desc.roms[3].required && !vc20_desc.roms[4].required && !vc20_desc.roms[5].required);
+        CHECK_EQ(vc20_desc.nsettings, 9);                               // four of the core (the Datasette port, T214) (two expansion, JiffyDOS), the four of the drive and the LED Load Indicator (T159)
         CHECK_EQ(vc20_desc.ntasks, 7);                                  // Reset, Reload, and the drive's Reset / Create x2 / Save x2
         CHECK_STR(vc20_desc.tasks[0].label, "Reset");
         CHECK_STR(vc20_desc.tasks[1].label, "Reload ROMs, reset");
@@ -419,6 +429,84 @@ int main()
         CHECK(!desc_has_capability(&vc20_desc, "tape") && !desc_has_capability(&vc20_desc, "cartridge") && !desc_has_capability(&vc20_desc, "sid_sockets"));
         CHECK_EQ(vc20_desc.freeze.reg_status, T20_STATUS);
         CHECK_EQ(vc20_desc.freeze.mask, T20_ST_HELD);
+    }
+    // ---- T199 JiffyDOS: synthetic bytes only (clean room)
+    {
+        const char *D = "/usb0/roms/vc20";
+        const Bytes stock_d = pattern(5, 32768), jiffy_d = pattern(7, 32768), jiffy_k = pattern(9, 8192);
+        auto put_jk = [&](Rig &r) { r.fs.put(std::string(D) + "/jiffydos-vc20.bin", jiffy_k); };
+        auto put_jd = [&](Rig &r) { r.fs.put(std::string(D) + "/jiffydos-1541.bin", jiffy_d); };
+        auto put_sd = [&](Rig &r) { r.fs.put(std::string(D) + "/1541.rom", stock_d); };
+        auto cold = [&](Rig &r) { OpResult x; return ops_call(&r.c, "machine.cold_reset", 0, 0, &x); };
+        CHECK_STR(vc20_desc.roms[4].role, "JiffyDOS VC-20 KERNAL");
+        CHECK_STR(vc20_desc.roms[5].role, "JiffyDOS 1541 ROM");
+        CHECK_STR(vc20_desc.roms[4].names[0], "jiffydos-vc20.bin");
+        CHECK_STR(vc20_desc.roms[5].names[0], "jiffydos-1541.bin");
+        // S1: without the files: stock start, no error; the setting On changes nothing either
+        {
+            Rig r;
+            r.roms(); put_sd(r);
+            CHECK(r.boot());
+            CHECK(r.io.kernal == want_k);
+            CHECK(r.io.dm.rom() == stock_d);
+            r.st->set(r.st->find("JiffyDOS"), 1);
+            CHECK(cold(r) == 0);
+            CHECK(r.io.kernal == want_k && r.io.dm.rom() == stock_d);
+        }
+        // S2 + S4: On with both files: after the reset the KERNAL and drive A hold the JiffyDOS bytes; Off: stock again
+        {
+            Rig r;
+            r.roms(); put_sd(r); put_jk(r); put_jd(r);
+            CHECK(r.boot());
+            CHECK(r.io.kernal == want_k && r.io.dm.rom() == stock_d);          // Off (default): stock, though the files are there
+            r.st->set(r.st->find("JiffyDOS"), 1);
+            CHECK(r.io.kernal == want_k);                                       // taken at the reset, not live
+            CHECK_EQ(cold(r), 0);
+            CHECK(r.io.kernal == jiffy_k);
+            CHECK(r.io.dm.rom() == jiffy_d);
+            CHECK(r.io.basic == want_b && r.io.chr == want_c);                  // nothing else moved
+            r.st->set(r.st->find("JiffyDOS"), 0);
+            CHECK_EQ(cold(r), 0);
+            CHECK(r.io.kernal == want_k);
+            CHECK(r.io.dm.rom() == stock_d);
+        }
+        // S2: the start itself with On (a boot, whatever the order the files came in)
+        {
+            Rig r;
+            r.roms(); put_sd(r); put_jk(r); put_jd(r);
+            r.st->set(r.st->find("JiffyDOS"), 1);
+            CHECK(r.boot());
+            CHECK(r.io.kernal == jiffy_k && r.io.dm.rom() == jiffy_d);
+        }
+        // S3: only one of the pair: both stay stock, one line names the missing file
+        {
+            Rig r;
+            r.roms(); put_sd(r); put_jk(r);
+            r.st->set(r.st->find("JiffyDOS"), 1);
+            CHECK(r.boot());
+            CHECK(r.io.kernal == want_k && r.io.dm.rom() == stock_d);
+            OpResult x; OpIn in = in_int("value", 1);
+            CHECK_EQ(ops_call(&r.c, "vc20.set_jiffy", &in, 1, &x), OPE_OK);
+            CHECK(std::string(x.msg).find("JiffyDOS 1541 ROM not supplied") != std::string::npos);
+            Rig q;
+            q.roms(); put_sd(q); put_jd(q);
+            q.st->set(q.st->find("JiffyDOS"), 1);
+            CHECK(q.boot());
+            CHECK(q.io.kernal == want_k && q.io.dm.rom() == stock_d);
+            OpResult y; OpIn in2 = in_int("value", 1);
+            CHECK_EQ(ops_call(&q.c, "vc20.set_jiffy", &in2, 1, &y), OPE_OK);
+            CHECK(std::string(y.msg).find("JiffyDOS VC-20 KERNAL not supplied") != std::string::npos);
+        }
+        // S5: the setting survives a restart of the core (.cfg)
+        {
+            Rig r;
+            r.roms();
+            r.st->set(r.st->find("JiffyDOS"), 1);
+            CHECK(r.st->save());
+            Settings back(vc20_desc.settings, vc20_desc.nsettings, vc20_desc.store, &r.fs, "/sd/cores/vc20.cfg", 0);
+            back.load();
+            CHECK_EQ(back.value(back.find("JiffyDOS")), 1);
+        }
     }
     DONE("test_vc20");
 }

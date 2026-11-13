@@ -1600,9 +1600,9 @@ values = ["100 ms", "200 ms", "300 ms", "400 ms", "500 ms", "600 ms", "700 ms", 
 default = 0
 apply = "drive.set_swap_delay"
 
-# T180 D2: "Persist medium mounts" (coreapp/src/mediamounts.cc): the disk in Drive A and the cartridge in the port are mounted again at the next start. The F8 Expert page lists the group.
+# T180 D2: "Persist medium mounts" (coreapp/src/mediamounts.cc): the disk in Drive A and the cartridge in the port are mounted again at the next start. The Drive A page (F5) lists the group (T187 D7).
 [[core_setting]]
-group = "system"
+group = "drives"
 key = "Persist medium mounts"
 list = "yes_no"
 default = 0

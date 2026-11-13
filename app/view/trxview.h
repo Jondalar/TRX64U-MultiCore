@@ -105,26 +105,30 @@ void trx_shell_forget(void);
 
 int trx_content_w(void);
 int trx_content_h(void);
+bool trx_nav_probe(int i, int *label_end, int *label_room, int *key_x);   // bench: the rail item i's label text end, the label's room, the key's x
+bool trx_foot_probe(char *txt, int n, int *text_w);                      // bench: the legend as drawn and its text's width
 
 // ---- rows: the flat list both prototypes use everywhere ----------------------------------------------
 struct TrxRow {
     const char *label;
-    const char *sub;                 // second line, muted; null for a one-line row
     const char *value;               // right-aligned, accent when `strong`
     bool selected;
     bool strong;
     bool dim;
     bool mark;                       // T187 D9: a small ring beside the label (a setting that takes effect at the next reset)
+    bool heading;                    // T187 D1: a quiet divider that names the group below it: small muted capitals, never selected
 };
 
 // y of the next row. `w` 0 = the full content width. The object is returned by `trx_row_at` so a
 // caller can keep it and move the selection without building the row again.
 int trx_row(lv_obj_t *par, int x, int y, int w, const TrxRow &r);
 lv_obj_t *trx_row_at(lv_obj_t *par, int x, int y, int w, const TrxRow &r, int *next_y);
-int trx_row_h(bool two_line);
+int trx_row_h(void);                     // T209 D1: every row is one line; the height without the 1 px gap
 // The ring of T187 D9 (a value that takes effect at the next reset): one object at x, y of `par`, in the colour `col`; `bg` is what is behind it.
 lv_obj_t *trx_reset_mark(lv_obj_t *par, int x, int y, uint32_t col, uint32_t bg);
 int trx_reset_mark_w(void);
+// T209: `s` cut in the middle ("start...end.ext") until it is at most `w` pixels wide in `font`; `buf` holds the result (s itself when it fits).
+const char *trx_fit_mid(const char *s, int w, const lv_font_t *font, char *buf, int n);
 
 // Select or deselect a row that already exists: its four selection strips and the value's colour,
 // nothing rebuilt. A key that only moves the selection must not redraw the pane (T104, board 2026-10-16:
@@ -134,6 +138,8 @@ void trx_row_select(lv_obj_t *row, bool on);
 // New text, colours and selection for a row that exists, for a list whose window scrolled or whose value changed. False when the
 // row's structure differs (sub line, value): then it has to be built again.
 bool trx_row_retext(lv_obj_t *row, const TrxRow &r, int w);
+bool trx_row_value_cy(lv_obj_t *row, int *lab_cy, int *val_cy);   // the bench's probe: false when the row has no value
+bool trx_row_texts(lv_obj_t *row, char *lab, char *val, int n);    // the bench's T205 P3 probe: the texts the row's label and value objects hold
 
 // Would trx_shell() keep the frame it has, for this screen and this route? Then the caller may update
 // the content pane in place instead of letting trx_shell clean it.
@@ -180,25 +186,25 @@ int trx_state_chip_w(const char *label);
 // The page head: "SETTINGS / TRX64" over the title, a state chip at the right of both. `crumb` may be null. Returns the y below it.
 int trx_head(lv_obj_t *par, int x, int y, int w, const char *crumb, const char *title, const char *chip, TrxTone chip_tone);
 
-// action_row.xml: a tone dot, the title, a muted sub line, the meta word at the right in the tone. A line under it. `dim` is the greyed
-// row of a function that cannot be used now (the sub line then says why).
+// action_row.xml, one line (T209 D1): a tone dot, the title, the meta word at the right in the tone (cut in the middle when it would squeeze the title). A line
+// under it. `dim` is the greyed row of a function that cannot be used now (the foot line says why).
 struct TrxStatusRow {
-    const char *title, *sub, *meta;
+    const char *title, *meta;
     TrxTone tone;
     bool selected, dim;
 };
 lv_obj_t *trx_status_row(lv_obj_t *par, int x, int y, int w, const TrxStatusRow &r, int *next_y);
-int trx_status_row_h(bool two_line);
+int trx_status_row_h(void);
 
 // setting_row.xml with its control: a switch (`toggle`, on/off) or the value as text. Returns the row.
 struct TrxSettingRow {
-    const char *title, *desc, *value;
+    const char *title, *value;
     bool toggle, on, selected, dim;
     bool reset;                      // T187 D9: the ring beside the label (the value takes effect at the next reset)
     TrxTone tone;                    // the switch's colour when on (violet; amber for a risky setting)
 };
 lv_obj_t *trx_setting_row(lv_obj_t *par, int x, int y, int w, const TrxSettingRow &r, int *next_y);
-int trx_setting_row_h(bool two_line);          // the row with a description line is taller; the height without the 1 px gap
+int trx_setting_row_h(void);                  // the height without the 1 px gap
 
 // A label at the left, a value at the right (the MACHINE panel of the C64 screen). Returns the y of the next one.
 int trx_kv_row(lv_obj_t *par, int x, int y, int w, const char *label, const char *value, TrxTone tone);
@@ -223,7 +229,13 @@ lv_obj_t *trx_live_box(lv_obj_t *par, int x, int y, int w, int h);
 
 // ---- the window: which rows fit, with the selection inside it ----------------------------------------
 struct TrxWindow { int first, count, total; };
+// T209 D3: the window scrolls before the selection reaches its edge: TRX_SCROLL_MARGIN rows stay below (above) the selection, except where the list ends.
+#define TRX_SCROLL_MARGIN 2
 TrxWindow trx_window(int total, int sel, int first, int rows);
+// T187: the window of a list whose rows differ in height. h(i, ctx) is the pixels row i takes in the pane (its gap included); room is the pane's
+// height for rows. The selected row is always whole inside the window, the window keeps `first` while it can, and at the end of the list it fills
+// the room from the back. A row taller than the room is shown alone.
+TrxWindow trx_window_h(int total, int sel, int first, int room, int (*h)(int idx, void *ctx), void *ctx);
 
 // T167: a progress bar of two boxes (track, fill); trx_pbar_set() changes only the fill. Not lv_bar: see trxview.cc.
 lv_obj_t *trx_pbar(lv_obj_t *par, int x, int y, int w, int h, uint32_t track, uint32_t fill);

@@ -12,9 +12,11 @@ root=$(cd "$here/../../.." && pwd)
 hd=$root/${HOSTDIR:-host}
 out=$here/build$(echo "${HOSTDIR:-}" | tr / _)
 mkdir -p "$out"
+# T188: the Amiga copies carry the Amiga edition of hdmi_modes.vh (rows 0..2 bent to the Amiga frame, no lock bytes for row 2); they are never C64-type cores
+def=""; amiga=0; case "${HOSTDIR:-}" in cores/amiga/*|cores/amiga1200/*) def="-DT188"; amiga=1;; esac
 run() {   # <name> <mode_req.v> <cdce_mode.v> [vvp args]
   n=$1; req=$2; cdce=$3; shift 3
-  nice -n 15 iverilog -g2012 -I"$hd" -o "$out/$n.vvp" -s tb "$here/tb_modepath.v" "$req" "$cdce" "$hd/hdmi_timing.v"
+  nice -n 15 iverilog -g2012 $def -I"$hd" -o "$out/$n.vvp" -s tb "$here/tb_modepath.v" "$req" "$cdce" "$hd/hdmi_timing.v"
   timeout 3000 nice -n 15 vvp -n "$out/$n.vvp" "$@" > "$out/$n.log" 2>&1 || true
 }
 good() {   # <name> <args> <PASS line start> <label>
@@ -23,9 +25,9 @@ good() {   # <name> <args> <PASS line start> <label>
 }
 good all "+c64=0" "c64=0 path" "frame-buffer path"
 grep -m3 '^request' "$out/all.log"
-good all_c64 "+c64=1" "c64=1 path" "C64-type path"
-grep '^family bit' "$out/all_c64.log"
+[ $amiga = 1 ] || good all_c64 "+c64=1" "c64=1 path" "C64-type path"
+[ $amiga = 1 ] || grep '^family bit' "$out/all_c64.log"
 good i2c "+c64=0 +i2c" "c64=0 i2c" "frame-buffer i2c"
-good i2c_c64 "+c64=1 +i2c" "c64=1 i2c" "C64-type i2c"
-grep -h '^i2c row' "$out/i2c.log" "$out/i2c_c64.log"
+[ $amiga = 1 ] || good i2c_c64 "+c64=1 +i2c" "c64=1 i2c" "C64-type i2c"
+if [ $amiga = 1 ]; then grep -h '^i2c row' "$out/i2c.log"; else grep -h '^i2c row' "$out/i2c.log" "$out/i2c_c64.log"; fi
 echo "PASS modepath (fb and C64-type paths, i2c bytes of 9 + 2 rows, status register)"

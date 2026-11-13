@@ -16,6 +16,7 @@
 #define C128_D4080       C128_REG(0x021)              // b0: the 40/80 DISPLAY switch as $D505 bit 7 reads it (1 = 80 columns); reset 0
 #define C128_CAPSLK      C128_REG(0x022)              // b0: the CAPS LOCK latch
 #define C128_JOY         C128_REG(0x024)              // b0: the host's joystick ports 1 and 2 are swapped before the core (T157); live; back to 0 by COLD
+#define C128_PIN_CTRL  0x078                        // c64u_io PIN_CTRL (page 0): b0 MOTOR out, b1 WRITE out, b4 READ / SENSE pins feed the machine; b2 (streamer drives READ) and b3 (SENSE pull) stay 0 with an external datasette (T214)
 #define C128_XKEYS       C128_REG(0x028)              // 24 bits, 028-02A: byte n = extra matrix column Kn, bit r = row r, 1 = pressed
 #define C128_XSPECIAL    C128_REG(0x02B)              // levels, the core acts on the rising edge
 #define C128_XS_CAPSLK   0x01
@@ -27,7 +28,7 @@
 #define C128_ROM_HITS    C128_REG(0x044)
 #define C128_ROM_MISSES  C128_REG(0x048)
 #define C128_ROM_BASE    C128_REG(0x050)              // 32 bit, little endian: the DDR2 byte address of the system ROM image
-#define C128_FB_LATEST   C128_REG(0x060)              // b7 valid, b1:0 the buffer of the newest complete VDC frame
+#define C128_FB_LATEST   C128_REG(0x060)              // b7 valid, b2 the picture is woven (interlace, 480 rows; else 400), b1:0 the buffer of the newest complete VDC picture
 #define C128_FRAME_SEQ   C128_REG(0x061)
 #define C128_FB_OVERRUNS C128_REG(0x062)
 #define C128_FB_BASE     C128_REG(0x064)              // 32 bit, reset 0x01D00000
@@ -58,7 +59,7 @@
 #define C128_ROM_DDR_ADDR   0x01C00000u               // = ROM_BASE, a DDR2 byte address
 #define C128_ROM_WIN_OFF    0x00C00000u               // = C128_ROM_DDR_ADDR - 0x01000000, the offset inside the application's DDR2 window
 
-// the picture: three buffers of 640 x 400 RGB565 at the core's reset values of FB_BASE / FB_STRIDE
+// the picture: three buffers of 640 x 480 RGB565 (614,400 bytes; a frame that is not interlaced uses rows 0..399) at the core's reset values of FB_BASE / FB_STRIDE
 #define C128_FB_ADDR          0x01D00000u
 #define C128_FB_STRIDE_BYTES  0x00100000u
 

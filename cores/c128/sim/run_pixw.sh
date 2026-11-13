@@ -22,7 +22,7 @@ run() { # run <build> <tag> [plusargs]
   ( cd "$out" && nice -n 15 "$b/Vtb_c128_pixw" "$@" ) > "$out/$t.log" 2>&1 || { tail -5 "$out/$t.log"; echo "FAIL run $t"; exit 1; }
 }
 echo "== S9 (VDC -> frame writer -> DDR2 model)"
-run main main
+run main main $PIXW_ARGS
 grep -vE "^ok " "$out/main.log"
 grep -E "^ok " "$out/main.log" | sort | uniq -c | sed 's/^ *\([0-9]*\) ok  /     \1 x ok /'
 grep -q "^PASS tb_c128_pixw" "$out/main.log" || fail=1

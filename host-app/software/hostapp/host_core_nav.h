@@ -29,6 +29,7 @@ struct HcNav {
     uint32_t gen;                       // counts the times the list was read anew: what is cached per row is stale when it changes
     int br_mode;                        // HcBrMode
     int wm_mode;                        // 1: the WiFi page is up over the settings rows
+    int pm_mode;                        // 1: the Picture page (T187 D5, the modes the screen names) is up over the settings rows
     int cm_mode;                        // HcCmMode
     int cm_top;                         // the first visible line of the Cores and ROMs page
     char cpat;                          // the colour test: r g b k v h, 0 = swatches
@@ -41,8 +42,9 @@ struct HcNav {
 const HcNav &hc_nav(void);
 
 // The window sizes the canvas that is up holds (the screen tells; they change with the canvas).
-void hc_nav_geometry(int menu_rows, int browse_rows, int cores_rows);
+void hc_nav_geometry(int menu_rows, int browse_rows, int cores_rows, int edit_rows = 0);   // edit_rows 0: as many as the menu (T209: the editor's panel takes room the menu does not need)
 int hc_nav_menu_rows(void);
+int hc_nav_edit_rows(void);
 int hc_nav_browse_rows(void);
 int hc_nav_cores_rows(void);
 
@@ -106,6 +108,8 @@ int hc_nav_act(int ctx, int act);
 bool hc_nav_settings_act(int act, int n);                        // UP / DOWN; the slot is brought into 0..n-1 first
 void hc_nav_clamp_ssel(int n);
 bool hc_nav_wifi_act(int act, int rows);                         // UP / DOWN
+void hc_nav_pm_open(void);                                       // T187 D5: the Picture page opens over the settings rows (the caller is in HCV_SET)
+void hc_nav_pm_close(void);
 void hc_nav_wifi_open(void);                                     // the WiFi page opens over the settings rows
 void hc_nav_wifi_close(void);                                    // ESC on it
 void hc_nav_clamp_nsel(int rows);

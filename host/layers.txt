@@ -128,6 +128,7 @@ cores/diag
 cores/amiga
 cores/nes
 cores/c264
+cores/pet
 cores/zx
 cores/cpc
 cores/c64scpu

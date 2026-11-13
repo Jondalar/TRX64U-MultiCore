@@ -11,6 +11,8 @@
 #include "cores.h"
 #include "desc_check.h"
 #include "menutree.h"
+#include "home.h"
+#include "keyboard.h"
 #include "boot.h"
 #include "ops_glue.h"
 #include "engines.h"
@@ -18,7 +20,7 @@
 #include "amiga_regs.h"
 #include "trx64u_menu.h"
 
-const CoreDesc *const core_table[] = { &atari800_desc, &nes_desc, &c64_desc, &apple2_desc, &zx_desc, &cpc_desc, &zxnext_desc, &snes_desc, &neogeo_desc, &vc20_desc, &c264_desc, &c128_desc, &c64scpu_desc, &amiga_desc, &amiga1200_desc, &ddt_mandel_desc, &ddt_novic_desc, &portdiag_desc, &testcore::desc, 0 };
+const CoreDesc *const core_table[] = { &atari800_desc, &nes_desc, &c64_desc, &apple2_desc, &zx_desc, &cpc_desc, &zxnext_desc, &snes_desc, &neogeo_desc, &vc20_desc, &c264_desc, &pet_desc, &c128_desc, &c64scpu_desc, &amiga_desc, &amiga1200_desc, &ddt_mandel_desc, &ddt_novic_desc, &portdiag_desc, &testcore::desc, 0 };
 
 static std::string slurp(const std::string &p) { std::ifstream f(p); std::stringstream s; s << f.rdbuf(); return s.str(); }
 
@@ -60,7 +62,7 @@ static void every_item_once(const CoreDesc *d0)
             const MenuTab &tb = t.a[a].tabs[b];
             CHECK(tb.count > 0);                       // an empty tab is never published
             if (d0 != &c64_desc) {
-                CHECK(tb.n == b + 1);                  // the printed number is the tab's place, and stable (a record names its published numbers: Drives is 3)
+                CHECK(tb.page || tb.n == b + 1);                  // the printed number is the tab's place, and stable (a record names its published numbers: Drives is 3)
             }
             in_tabs += tb.count;
             for (int i = tb.first; i < tb.first + tb.count; i++) {
@@ -72,6 +74,7 @@ static void every_item_once(const CoreDesc *d0)
                 case EK_BROWSER: seen_browser++; break;
                 case EK_RESET_HOST: case EK_RESTART_CORE: case EK_RETURN_HOST: case EK_BUG_REPORT: case EK_WIFI: seen_fixed++; break;
                 case EK_SAVE_SET: case EK_LOAD_SET: seen_mset++; break;
+                case EK_HEADING: case EK_OPENS: case EK_NODE: break;
                 }
             }
         }
@@ -82,7 +85,7 @@ static void every_item_once(const CoreDesc *d0)
         // What the record names is checked where it is compiled (test_descrec, tools/descrec.py, gen_menu_rec.py --check) and the whole tree is the golden menu_c64.txt.
         CHECK_EQ(seen_task, d->ntasks);                // the four disk tasks stay tables of the record
         CHECK_EQ(seen_media, d->nmedia);               // the media lines are nodes, except the record's two media rows of the Media sets tab (T180 D5)
-        CHECK_EQ(seen_mset, 2);                        // ... which has the two media set rows, no other tab does
+        CHECK_EQ(seen_mset, 2);                        // ... which has the two config rows, no other tab does
         CHECK(seen_set > 100 && seen_set <= d->nsettings);   // the record's settings, less those the route hides
         CHECK(seen_browser >= 1);                      // the Library's Browse tab
         CHECK_EQ(seen_info, 0);
@@ -95,7 +98,7 @@ static void every_item_once(const CoreDesc *d0)
     CHECK_EQ(seen_set, d->nsettings);
     CHECK_EQ(seen_browser, 1);
     CHECK_EQ(seen_fixed, 5);                           // Reset to host defaults, Restart core, Bug report, WiFi, Return to host menu
-    CHECK_EQ(seen_mset, mounts_have_slots(d) ? 2 : 0);   // T180 D5: the media tab of a core with media slots has the two media set rows, no other tab does
+    CHECK_EQ(seen_mset, mounts_have_slots(d) ? 2 : 0);   // T180 D5: the media tab of a core with media slots has the two config rows, no other tab does
     int info = 0;
     while (menu_info_labels[info]) { info++; }
     CHECK_EQ(seen_info, info);                         // the C64's six lines are spread over two tabs, each once (Home: Core Media Network; Status: the rest)
@@ -118,6 +121,51 @@ int main()
         every_item_once(*p);
     }
     CHECK(!desc_check_table(core_table));
+
+    // T206 S1, S2: wherever a disk image is mounted the same "Run Disk" is offered beside "Mount Disk", with the same names in the same order in every core.
+    // The CBM drive images (d64, g64, d81) have one reference table each; "Run Disk" needs the core to be able to type at READY (type_op). The machines with
+    // other disks offer their own mount-and-start (Atari, Apple, CPC, ZX Next: "... and cold start / and reset"; the Amiga's ADF: "Mount DF0 and
+    // reset"). No core is exempt (T206 D1): a core that mounts a disk and has no such action fails here.
+    {
+        static const char *const ref_d64[] = { "Mount Disk", "Mount Disk Read Only", "Mount Disk Unlinked", "Run Disk", "Browse Disk" };
+        static const char *const ref_g64[] = { "Mount Disk", "Mount Disk Read Only", "Mount Disk Unlinked", "Run Disk" };
+        static const char *const ref_d81[] = { "Mount Disk", "Mount Disk Read Only", "Run Disk", "Browse Disk" };
+        struct Ref { const char *ext; const char *const *names; int n; };
+        static const Ref refs[] = { { ".d64", ref_d64, 5 }, { ".g64", ref_g64, 4 }, { ".d81", ref_d81, 4 } };
+        int seen_cbm = 0, seen_other = 0;
+        for (const CoreDesc *const *p = core_table; *p; p++) {
+            const CoreDesc *d = menu_desc(*p);
+            for (int i = 0; i < d->nfiletypes; i++) {
+                const FileType &ft = d->filetypes[i];
+                bool mounts = false, runs = false, starts = false;
+                for (int k = 0; k < ft.nactions; k++) {
+                    const FileAction &a = ft.actions[k];
+                    mounts = mounts || !strncmp(a.label, "Mount", 5);
+                    runs = runs || (a.op && (!strcmp(a.op, "drive.mount_run") || (!strcmp(a.label, "Run Disk") && !strcmp(a.op, "pet.mount_run"))));
+                    starts = starts || strstr(a.label, "and cold start") || strstr(a.label, "and reset");
+                }
+                if (!mounts || !strcmp(ft.ext, ".hdf") || *p == &testcore::desc) continue;     // a hard disk image has nothing to run; the made-up core is no machine
+                const Ref *ref = 0;
+                bool pet = !strcmp(d->cor_name, "Commodore PET");           // T206: two drives of one unit (Mount in Drive 8 / 8.1, Run Disk = pet.mount_run), no reference table
+                for (const Ref &r : refs) if (!pet && !strcmp(ft.ext, r.ext)) ref = &r;
+                if (ref) {                                          // a CBM drive image
+                    seen_cbm++;
+                    bool same = ft.nactions == ref->n;
+                    for (int k = 0; same && k < ft.nactions; k++) same = !strcmp(ft.actions[k].label, ref->names[k]);
+                    if (!same || !runs || !d->type_op) printf("T206: %s %s: names/order differ, or no Run Disk, or the core cannot type\n", d->cor_name, ft.ext);
+                    CHECK(same);
+                    CHECK(runs);
+                    CHECK(d->type_op != 0);
+                } else {
+                    seen_other++;
+                    if (!runs && !starts) printf("T206: %s %s: Mount without a run\n", d->cor_name, ft.ext);
+                    CHECK(runs || starts);
+                }
+            }
+        }
+        printf("T206: walked %d CBM image types, %d others\n", seen_cbm, seen_other);
+        CHECK(seen_cbm >= 8 && seen_other >= 8);                    // the walk saw the cores (c64u record, vc20, c264, c64scpu, c128; atari, apple, cpc, zxnext ...)
+    }
 
     // T184 D3: the WiFi is set in the host. A core keeps no WiFi key of its own (no "WiFi ...", no "Wi-Fi SSID" / "Wi-Fi Password": the host's settings are the store's)
     // and shows exactly one row WiFi: the fixed row of the system tab (EK_WIFI) of a classic core, the node of the TRX64U's record; whatever else the record has of
@@ -144,6 +192,86 @@ int main()
         }
         if (rows != 1) printf("%s: %d WiFi rows\n", (*p)->cor_name, rows);
         CHECK_EQ(rows, 1);
+    }
+
+    // T205 D1 (S1, S2, S3): every core on the default route has ONE settings area. F5 is named after the core and its tabs are the core's own settings (named after the
+    // core), Video, Audio, Input; there is no F6 (nor a key for it); "Menu opens at" sits in the core's tab; F8 holds only actions (Reload/Restart core, Return to host menu,
+    // Bug report, WiFi, Reset to host defaults) and no setting; the Summary tab is gone, and the media slots and the configs it showed are on Home. A description with a route
+    // of its own (the TRX64U core's record) keeps its areas; it is not on the default route.
+    {
+        int n205 = 0;
+        for (const CoreDesc *const *p = core_table; *p; p++) {
+            const MenuMerge *mm = menu_merge(*p);
+            if (mm && mm->skel) continue;
+            const CoreDesc *d = menu_desc(*p);
+            MenuTree t;
+            menu_build(d, &t, true, false, mm);
+            n205++;
+            int f5 = -1, f8 = -1, f1 = -1;
+            for (int a = 0; a < t.nareas; a++) {
+                if (!strcmp(t.a[a].key, "F5")) f5 = a;
+                if (!strcmp(t.a[a].key, "F8")) f8 = a;
+                if (!strcmp(t.a[a].key, "F1")) f1 = a;
+                CHECK(strcmp(t.a[a].key, "F6"));                                       // S2: F6 is gone from the rail ...
+            }
+            CHECK(menu_area_of_key(&t, KEY_F6) == -1);                              // ... and from the keys
+            if (f5 < 0 || f8 < 0 || f1 < 0) printf("%s: F1 %d F5 %d F8 %d (%d settings)\n", (*p)->cor_name, f1, f5, f8, d->nsettings);
+            CHECK(f8 >= 0 && f1 >= 0 && (f5 >= 0 || d->nsettings == 0));         // a core with no setting has no F5 (an area with no tab is dropped)
+            if (f5 < 0 || f8 < 0 || f1 < 0) continue;
+            // S1: the tabs of F5, in this order; the first is named like the area (the core)
+            const MenuArea &a5 = t.a[f5];
+            CHECK(a5.ntabs >= 1 && a5.tabs[0].id && !strcmp(a5.tabs[0].id, "settings") && !strcmp(a5.tabs[0].name, a5.name));
+            static const char *const want[] = { "Video", "Audio", "Input" };
+            int w = 0;
+            for (int i = 1; i < a5.ntabs; i++) {
+                if (a5.tabs[i].page) continue;
+                while (w < 3 && strcmp(a5.tabs[i].name, want[w])) w++;
+                CHECK(w < 3);                                                          // only Video, Audio, Input follow, in this order
+                w++;
+            }
+            bool menu_opens = false, summary = false;
+            for (int i = 0; i < a5.ntabs; i++) {
+                summary |= !strcasecmp(a5.tabs[i].name, "Summary");
+                for (int k = a5.tabs[i].first; k < a5.tabs[i].first + a5.tabs[i].count; k++) {
+                    const MenuEntry &e = t.e[k];
+                    CHECK(e.kind != EK_MEDIA && e.kind != EK_SAVE_SET && e.kind != EK_LOAD_SET);   // S3: what Summary showed is not in F5
+                    if (e.kind == EK_SETTING && !strcasecmp(d->settings[e.index].key, REOPEN_KEY)) {
+                        menu_opens = i == 0;                                           // S2: "Menu opens at" is in the core's tab
+                    }
+                }
+            }
+            CHECK(!summary);
+            bool has_reopen = false;
+            for (int i = 0; i < d->nsettings; i++) has_reopen |= !strcasecmp(d->settings[i].key, REOPEN_KEY);
+            CHECK(!has_reopen || menu_opens);
+            // S2: F8 is actions: no setting, no media
+            int act = 0, wifi = 0, bug = 0, ret = 0, rst = 0;
+            const MenuArea &a8 = t.a[f8];
+            for (int i = 0; i < a8.ntabs; i++) {
+                for (int k = a8.tabs[i].first; k < a8.tabs[i].first + a8.tabs[i].count; k++) {
+                    const MenuEntry &e = t.e[k];
+                    CHECK(e.kind != EK_SETTING && e.kind != EK_MEDIA);
+                    act += e.kind == EK_RESTART_CORE;
+                    ret += e.kind == EK_RETURN_HOST;
+                    wifi += e.kind == EK_WIFI;
+                    bug += e.kind == EK_BUG_REPORT;
+                    rst += e.kind == EK_RESET_HOST;
+                }
+            }
+            CHECK(act == 1 && ret == 1 && wifi == 1 && bug == 1 && rst == 1);
+            // S3: Home keeps the information lines first, then every media slot of the core, then the configs when the core has slots
+            const MenuTab &h = t.a[f1].tabs[0];
+            int nmedia = 0, ninfo = 0, saves = 0;
+            bool info_first = true;
+            for (int k = h.first; k < h.first + h.count; k++) {
+                const MenuEntry &e = t.e[k];
+                if (e.kind == EK_INFO) { ninfo++; info_first &= nmedia == 0 && saves == 0; }
+                nmedia += e.kind == EK_MEDIA;
+                saves += e.kind == EK_SAVE_SET || e.kind == EK_LOAD_SET;
+            }
+            CHECK(ninfo == 6 && info_first && nmedia == d->nmedia);
+        }
+        CHECK(n205 >= 18);
     }
 
     // T180 D4: a core that keeps media of its own (an engine the base does not know: the Apple's and the Atari's drives, the CPC's FDC, the drive library of the
@@ -559,6 +687,7 @@ int main()
     golden(&neogeo_desc, "neogeo");
     golden(&vc20_desc, "vc20");
     golden(&c264_desc, "c264");
+    golden(&pet_desc, "pet");
     golden(&c128_desc, "c128");
     golden(&c64scpu_desc, "c64scpu");
     golden(&amiga_desc, "amiga");
@@ -591,8 +720,12 @@ int main()
             case EK_RETURN_HOST: own = !strcmp(e.label, "Return to host menu"); break;
             case EK_BUG_REPORT: own = !strcmp(e.label, "Bug report"); break;
             case EK_WIFI: own = !strcmp(e.label, "WiFi"); break;
-            case EK_SAVE_SET: own = !strcmp(e.label, "Save media set..."); break;
-            case EK_LOAD_SET: own = !strcmp(e.label, "Load media set..."); break;
+            case EK_SAVE_SET: own = !strcmp(e.label, "Save as config..."); break;
+            case EK_LOAD_SET: own = !strcmp(e.label, "Load config..."); break;
+            case EK_HEADING: own = !strcmp(e.label, "Machine") || !strcmp(e.label, "Storage") || !strcmp(e.label, "Actions") || !strcmp(e.label, "Network") ||
+                                   !strcmp(e.label, "Support") || !strcmp(e.label, "Reset"); break;
+            case EK_OPENS: own = !strcmp(e.label, "Hotkeys"); break;
+            case EK_NODE: own = false; break;
             }
             CHECK(own);
             for (int f = 0; forbidden[f]; f++) {

@@ -10,6 +10,8 @@
 #include "portdiag_regs.h"
 #include "diagtest.h"
 #include "diag_engine.h"
+#include "settings_ops.h"
+#include "settings.h"
 #include <fstream>
 #include <sstream>
 #include <vector>
@@ -29,6 +31,7 @@ struct Host : PdHost {
     bool spawn(void (*f)(void *), void *a) override { spawned++; fn = f; arg = a; return true; }
     std::vector<int> answers, timeouts;                 // scripted answers of ask() (1 yes, 0 no, -1 stop, -2 time ran out), the timeout_s each question carried
     int ask(const char *, const char *, int timeout_s) override { timeouts.push_back(timeout_s); return asks < (int)answers.size() ? answers[asks++] : (asks++, 1); }
+    int choose(const char *, const char *, const char *const *, int, int timeout_s) override { timeouts.push_back(timeout_s); return 0; }
     void notice(const char *, const char *) override { notices++; }
     bool pick(const char *, char *out, int) override { picks++; strcpy(out, "/SD/cores/diag/tests/pins.toml"); return true; }
     bool stamp(char out[16]) override { strcpy(out, "20261102-143015"); return true; }
@@ -44,7 +47,7 @@ int main()
     CHECK_EQ((int)d.video.w, 0);                       // no picture of its own
     CHECK(d.menu_first);
     CHECK_EQ((int)d.live_ms, 250);
-    CHECK_EQ(d.nsettings, 0);
+    CHECK_EQ(d.nsettings, DT_AV_N);               // T201: the A/V page
     CHECK_EQ(d.nroms, 0);
     CHECK_EQ(d.nmedia, 4);
     CHECK_STR(d.media[0].state, "pd.port1");
@@ -152,6 +155,138 @@ int main()
         CHECK_EQ(reg.call(&c2, "pd.run", &in2, 1, &r2), OPE_OK);
         h3.fn(h3.arg);
         CHECK(fs2.text("/SD/cores/diag/results/stick2_20261102-143015.toml").find("status = \"aborted\"") != std::string::npos);
+    }
+    // ---- T201 S3: each row of the A/V page writes its register (settings.set is what a click does), every value of every row, and the page reads back what the register holds
+    {
+        FakeIo io3;
+        FakeFs fs3;
+        CoreCtx c3;
+        memset(&c3, 0, sizeof(c3));
+        c3.desc = &d;
+        c3.io = &io3;
+        c3.fs = &fs3;
+        snprintf(c3.core_version, sizeof(c3.core_version), "0.1.0");
+        snprintf(c3.cor_path, sizeof(c3.cor_path), "/SD/cores/diag.cor");
+        OpRegistry reg3;
+        d.register_ops(reg3);
+        settings_register(reg3);
+        c3.ops = &reg3;
+        Settings st3(d.settings, d.nsettings, d.store, &fs3, "/SD/cores/diag.cfg", 0);
+        st3.load();
+        c3.settings = &st3;
+        CHECK_EQ(d.nsettings, DT_AV_N);
+        const uint8_t sysfmt[4] = { 0x00, 0x2B, 0x2A, 0x01 };
+        OpResult r3;
+        int rows = 0;
+        for (int k = 0; k < DT_AV_N; k++) {
+            const AvKnob &kn = dt_av_knobs[k];
+            CHECK_STR(d.settings[k].key, kn.key);
+            for (int i = 0; i < kn.n; i++) {
+                CHECK_EQ(settings_set(&c3, kn.key, kn.labels[i], &r3), OPE_OK);
+                int v = kn.val[i];
+                switch (k) {
+                case AVK_STD: CHECK_EQ(io3.regs[PD_AV_STD], v); CHECK_EQ(io3.vfmt, sysfmt[v]); break;
+                case AVK_GROUPS: CHECK_EQ(io3.regs[PD_AV_PERM], v); break;
+                case AVK_BITS_A: case AVK_BITS_B: case AVK_BITS_C: CHECK_EQ((io3.regs[PD_AV_REV] >> (k - AVK_BITS_A)) & 1, v); break;
+                case AVK_VSIGN: CHECK_EQ(io3.regs[PD_AV_VINV] & 1, v); break;
+                case AVK_TRIM: CHECK_EQ((int8_t)io3.regs[PD_AV_TRIM], v); break;
+                case AVK_BSTART: CHECK_EQ(io3.regs[PD_AV_BSTART], v); break;
+                case AVK_BEND: CHECK_EQ(io3.regs[PD_AV_BEND] | (io3.regs[PD_AV_BEND + 1] << 8), v); break;
+                case AVK_BAMP: CHECK_EQ(io3.regs[PD_AV_BAMP], v); break;
+                case AVK_GAIN: CHECK_EQ(io3.regs[PD_AV_GAIN], v); break;
+                case AVK_SYNC: CHECK_EQ(io3.regs[PD_AV_SYNC], v); break;
+                case AVK_BLANK: CHECK_EQ(io3.regs[PD_AV_BLANK], v); break;
+                case AVK_WHITE: CHECK_EQ(io3.regs[PD_AV_WHITE], v); break;
+                case AVK_EQ: CHECK_EQ(io3.regs[PD_AV_SYNCB] & 1, v); break;
+                case AVK_VLEN: CHECK_EQ(io3.regs[PD_AV_VLEN], v); break;
+                case AVK_VPOS: CHECK_EQ((int8_t)io3.regs[PD_AV_VPOS], v); break;
+                default: CHECK_EQ((io3.regs[PD_AV_SYNCB] >> 1) & 1, v); break;
+                }
+                rows++;
+            }
+            settings_set(&c3, kn.key, kn.labels[kn.def], &r3);
+        }
+        CHECK(rows > 100);
+        // register 053 holds two bits (V sign, freeze) and 05D two (equalizing, 262 lines): a row changes its own and leaves the other
+        settings_set(&c3, "V sign", "Normal", &r3);
+        CHECK_EQ(io3.regs[PD_AV_VINV], 0);
+        io3.regs[PD_AV_VINV] |= 2;                         // the walk's freeze
+        settings_set(&c3, "V sign", "Inverted", &r3);
+        CHECK_EQ(io3.regs[PD_AV_VINV], 3);
+        io3.regs[PD_AV_VINV] &= ~2;
+        settings_set(&c3, "Equalizing", "On", &r3);
+        settings_set(&c3, "Lines 60 Hz", "262", &r3);
+        CHECK_EQ(io3.regs[PD_AV_SYNCB], 3);
+        settings_set(&c3, "Equalizing", "Off", &r3);
+        CHECK_EQ(io3.regs[PD_AV_SYNCB], 2);
+        settings_set(&c3, "Lines 60 Hz", "263", &r3);
+        CHECK_EQ(io3.regs[PD_AV_SYNCB], 0);
+        settings_set(&c3, "Vsync length", "2.5 lines", &r3);
+        settings_set(&c3, "Vsync position", "-8", &r3);
+        CHECK_EQ(io3.regs[PD_AV_VLEN], 5);
+        CHECK_EQ(io3.regs[PD_AV_VPOS], 0xF8);
+        settings_set(&c3, "Vsync length", "3 lines", &r3);
+        settings_set(&c3, "Vsync position", "0", &r3);
+        // the bit orders of A, B and C are three bits of one register: setting one leaves the others
+        settings_set(&c3, "Bits A", "Reversed", &r3);
+        settings_set(&c3, "Bits C", "Reversed", &r3);
+        CHECK_EQ(io3.regs[PD_AV_REV], 5);
+        settings_set(&c3, "Bits A", "MSB first", &r3);
+        CHECK_EQ(io3.regs[PD_AV_REV], 4);
+        settings_set(&c3, "Bits C", "MSB first", &r3);
+
+        // ---- T201 S6: a preset is written, the application restarts (new objects over the same card, the .cfg of the page is read again), the preset loads and the registers hold the same values
+        settings_set(&c3, "Standard", "NTSC 60 Hz", &r3);
+        settings_set(&c3, "Groups", "Y=B, C=A, CVBS=C", &r3);
+        settings_set(&c3, "Bits B", "Reversed", &r3);
+        settings_set(&c3, "V sign", "Normal", &r3);
+        settings_set(&c3, "Subcarrier trim", "-90 Hz", &r3);
+        settings_set(&c3, "Burst end", "106", &r3);
+        settings_set(&c3, "Chroma gain", "150 %", &r3);
+        settings_set(&c3, "White level", "14/16", &r3);
+        uint8_t want[0x60];
+        memcpy(want, io3.regs, sizeof(want));
+        OpIn nm = in_str("name", "tester1");
+        CHECK_EQ(reg3.call(&c3, "pd.av_save", &nm, 1, &r3), OPE_OK);
+        CHECK(fs3.has("/SD/cores/diag/presets/tester1.toml"));
+        std::string pt = fs3.text("/SD/cores/diag/presets/tester1.toml");
+        CHECK(pt.find("Standard = \"NTSC 60 Hz\"") != std::string::npos);
+        CHECK(pt.find("Subcarrier trim = \"-90 Hz\"") != std::string::npos);
+        OpIn bad = in_str("name", "a/b");
+        CHECK_EQ(reg3.call(&c3, "pd.av_save", &bad, 1, &r3), OPE_ARG);
+        // restart 1: the page's own file keeps the values
+        {
+            Settings again(d.settings, d.nsettings, d.store, &fs3, "/SD/cores/diag.cfg", 0);
+            again.load();
+            CHECK_EQ(again.value(again.find("Standard")), 1);
+            CHECK_EQ(again.value(again.find("Burst end")), 8);
+        }
+        // restart 2: a fresh gateware (reset values) and fresh page, then the preset
+        FakeIo io4;
+        CoreCtx c4;
+        memset(&c4, 0, sizeof(c4));
+        c4.desc = &d;
+        c4.io = &io4;
+        c4.fs = &fs3;
+        OpRegistry reg4;
+        d.register_ops(reg4);
+        settings_register(reg4);
+        c4.ops = &reg4;
+        fs3.remove("/SD/cores/diag.cfg");
+        Settings st4(d.settings, d.nsettings, d.store, &fs3, "/SD/cores/diag.cfg", 0);
+        st4.load();
+        c4.settings = &st4;
+        CHECK_EQ(io4.regs[PD_AV_STD], 0);
+        OpIn pth = in_str("path", "/SD/cores/diag/presets/tester1.toml");
+        CHECK_EQ(reg4.call(&c4, "pd.av_load", &pth, 1, &r3), OPE_OK);
+        CHECK(!memcmp(io4.regs + PD_AV_STD, want + PD_AV_STD, 0x60 - PD_AV_STD));
+        CHECK_EQ(io4.vfmt, 0x2B);
+        OpIn notp = in_str("path", "/SD/cores/diag/tests/pins.toml");
+        fs3.put_text("/SD/cores/diag/tests/pins.toml", "kind = \"probe\"\n");
+        CHECK_EQ(reg4.call(&c4, "pd.av_load", &notp, 1, &r3), OPE_ARG);       // a test file is not a preset
+        fs3.read_only = true;
+        CHECK_EQ(reg4.call(&c4, "pd.av_save", &nm, 1, &r3), OPE_FAILED);       // a read only card says so
+        fs3.read_only = false;
     }
     DONE("test_portdiag");
 }

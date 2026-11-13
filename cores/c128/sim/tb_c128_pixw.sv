@@ -1,12 +1,17 @@
 // T113 S9 "both pictures reach the host": the C128's VDC (c128_x -DVDC_WHOLE -DVDC64) -> c128_rgbi -> c128_pixw -> a model of the host's
 // e_ port (a command is taken when e_en and e_rdy are both high; DDR2 as 128-bit words). The bench shadows the VDC's own stream
 // (pixel_ce / active_h / active_v / rgbi) frame by frame and checks, for every frame the writer reports:
-//   - the buffer named in `latest` holds that frame: 640 x 400 RGB565, source line y in rows 2y and 2y+1 (the palette is this
+//   - the buffer named in `latest` holds that frame: 640 x 400 RGB565 (phase 1; phase 2 uses 640 x 480 buffers), source line y in rows 2y and 2y+1 (the palette is this
 //     bench's own copy of the 16 entries), 1280 bytes a row, buffers fb_stride apart
 //   - frame_tgl comes once per VDC frame, seq counts them, the buffers go round 0, 1, 2, no line was late (overruns == 0)
 //   - after the run the last three frames are still in their buffers, and nothing was written outside the three buffers
+// Phase 2 (T113 D11): the VDC is put into interlace sync and video (R8 = 3, Busted Boulders' registers: 10-line glyphs, 48 rows, 240 lines a
+// field) with a synthetic 10-line font, text first, then a bitmap; every picture the writer reports as woven (latest b2) is compared with a
+// model that takes field 0 of the picture to rows 2y and field 1 to rows 2y+1 (the fields are the bench's shadow of the VDC's stream and its
+// own field flag), and the glyphs are read back whole from the woven rows (text). +dump=<file> writes the first woven picture after
+// settling as a PPM.
 `timescale 1ns / 1ps
-module tb_c128_pixw #(parameter integer REPEAT = 2);
+module tb_c128_pixw;
     reg clk = 1'b0, ui_clk = 1'b0;
     always #15.859 clk = ~clk;                        // sys_clk 31.5278 MHz
     always #6.667 ui_clk = ~ui_clk;
@@ -14,9 +19,10 @@ module tb_c128_pixw #(parameter integer REPEAT = 2);
     wire [7:0] dout;
     wire [3:0] rgbi;
     wire ce, hb, vb;
+    wire [1:0] vdc_il;
     c128_x dut (.clk(clk), .rst(rst), .bus_en(bus_en), .vdc_cs(cs), .vdc_we(we), .vdc_rs(rs), .vdc_din(din), .vdc_dout(dout),
         .vicie_cs(1'b0), .vicie_we(1'b0), .vicie_a0(1'b0), .vicie_din(8'd0), .vicie_dout(), .k_sel(), .fast(),
-        .vdc_rgbi(rgbi), .vdc_ce(ce), .vdc_hb(hb), .vdc_vb(vb),
+        .vdc_rgbi(rgbi), .vdc_ce(ce), .vdc_hb(hb), .vdc_vb(vb), .vdc_il(vdc_il),
         .vd_clk(1'b0), .vd_addr(16'd0), .vd_we(1'b0), .vd_wdata(8'd0), .vd_rdata());
 `include "vdc_bus.svh"
 
@@ -34,8 +40,8 @@ module tb_c128_pixw #(parameter integer REPEAT = 2);
     wire [127:0] e_wdf_data;
     wire [15:0] e_wdf_mask;
     reg e_rdy = 1'b1;
-    c128_pixw #(.X0(0), .Y0(0), .COLS(640), .LINES(200), .REPEAT(REPEAT)) pw (
-        .sys_clk(clk), .sys_rst(rst), .dotst(ce & wr_en), .rgb565(px), .hblank(hb), .vblank(vb),
+    c128_pixw #(.X0(0), .Y0(0), .COLS(640), .LINES(200), .LINES_IL(240)) pw (
+        .sys_clk(clk), .sys_rst(rst), .dotst(ce & wr_en), .rgb565(px), .hblank(hb), .vblank(vb), .il(vdc_il[1]), .field(vdc_il[0]),
         .quiet(quiet), .frame_tgl(frame_tgl), .latest(latest), .seq(seq), .overruns(overruns),
         .fb_base(fb_base), .fb_stride(fb_stride), .ui_clk(ui_clk), .ui_rst(1'b0),
         .e_addr(e_addr), .e_cmd(e_cmd), .e_en(e_en), .e_rdy(e_rdy), .e_wdf_data(e_wdf_data),
@@ -44,7 +50,7 @@ module tb_c128_pixw #(parameter integer REPEAT = 2);
     // ---- the host's e_ port: DDR2 as 128-bit words, a bit set per word written
     localparam integer NW = 262144;                   // 4 MiB
     localparam integer BW = 65536;                    // the bench expects buffers 0x100000 bytes apart = 65536 words
-    localparam integer BUFWORDS = 400 * 80;           // 640 x 400 x 2 bytes / 16
+    localparam integer BUFWORDS = 480 * 80;           // 640 x 480 x 2 bytes / 16
     reg [127:0] ddr [0:NW-1];
     reg wrote [0:NW-1];
     integer writes = 0, bad_cmd = 0, bad_addr = 0;
@@ -74,14 +80,17 @@ module tb_c128_pixw #(parameter integer REPEAT = 2);
     integer vf = 0;                                   // VDC frames started since the writer was switched on
     integer vdone = 0;                                // ... and finished
     integer sln = 0, sxx = 0;
-    localparam integer FS = 640 * 200;
+    localparam integer FS = 640 * 240;
     reg [3:0] sh [0:4*FS-1];                          // four shadow slots, frame f in slot f % 4
+    reg       sfld [0:3];                             // the VDC's field flag of that frame
+    reg       sil  [0:3];                             // its interlace flag
+    integer   scnt [0:3];                             // lines it had
     always @(posedge clk) if (ce && wr_en) begin
-        if (av && !av_prev) begin vf = vf + 1; sln = -1; end
+        if (av && !av_prev) begin vf = vf + 1; sln = -1; sfld[vf % 4] = vdc_il[0]; sil[vf % 4] = vdc_il[1]; scnt[vf % 4] = 0; end
         if (!av && av_prev) vdone = vdone + 1;
         if (av) begin
-            if (ah && !ah_prev) begin sln = sln + 1; sxx = 0; end
-            if (ah && sln >= 0 && sln < 200 && sxx < 640) sh[(vf % 4) * FS + sln * 640 + sxx] = rgbi;
+            if (ah && !ah_prev) begin sln = sln + 1; sxx = 0; scnt[vf % 4] = sln + 1; end
+            if (ah && sln >= 0 && sln < 240 && sxx < 640) sh[(vf % 4) * FS + sln * 640 + sxx] = rgbi;
             if (ah) sxx = sxx + 1;
         end
         av_prev <= av; ah_prev <= ah;
@@ -122,14 +131,139 @@ module tb_c128_pixw #(parameter integer REPEAT = 2);
         end
     endtask
 
+    // does buffer b hold the woven picture whose field 1 is VDC frame fr (field 0 = frame fr-1): row 2y = line y of the field 0, row 2y+1 = line y
+    // of the field 1, for the lines both fields had? returns the mismatch count in `bad`, the number of rows compared in `nrows`
+    integer wv_bad = 0, nrows = 0, s0, s1, nl;
+    reg fld_ok;
+    task cmp_woven(input integer b, input integer fr);
+        begin
+            bad = 0; nrows = 0; first_r = -1;
+            s0 = (fr + 3) % 4; s1 = fr % 4;
+            fld_ok = (sfld[s0] === 1'b0) && (sfld[s1] === 1'b1) && sil[s0] && sil[s1];
+            nl = scnt[s0] < scnt[s1] ? scnt[s0] : scnt[s1];
+            for (r = 0; r < 2 * nl; r = r + 1)
+                for (c = 0; c < 640; c = c + 1) begin
+                    word = ddr[b * BW + r * 80 + c / 8];
+                    got = word >> ((c % 8) * 16);
+                    exp = pal(sh[((r % 2) ? s1 : s0) * FS + (r / 2) * 640 + c]);
+                    if (got !== exp) begin
+                        if (bad == 0) begin first_r = r; $display("     woven row %0d col %0d: %h, expected %h (frame %0d buffer %0d)", r, c, got, exp, fr, b); end
+                        bad = bad + 1;
+                    end
+                    if (c == 0) nrows = nrows + 1;
+                end
+        end
+    endtask
+
+    integer il_n = 0, il_buf_bad = 0, il_prev = -1, il_fld_bad = 0, il_cmp = 0, il_glyph_bad = 0, il_cmp_bad = 0, il_rows_min = 100000, il_seq_bad = 0, il_stale_bad = 0;
+    integer il_skip = 4;                                 // pairs to let go by before comparing (the VDC is being reprogrammed; C needs more: the picture after B is B's)
+    reg [7:0] il_seq_prev = 8'd0;
+    integer ph = 1;                                     // 1: not interlaced, 2: text, 3: bitmap
+    integer gk, gr, gc, gpat, glyph_chk;
+    // a glyph read back from the woven buffer: text row tr (of 10 lines), column cell cc: line k must show the font's line k
+    function [7:0] font_line(input integer chr, input integer k);
+        begin font_line = ((8'h80 >> ((k + chr) % 8)) | ((k == 0 || k == 9) ? 8'hFF : 8'h00)); end
+    endfunction
+    // glyphs read back whole from the woven buffer: text row tr, a column in the middle of the line: the buffer row tr * 10 + k must show the font's
+    // line k (white = lit). The first lit pixel of line 1 (one pixel per cell) gives the cell's x, which is the same for the other lines.
+    integer glyph_rows = 0;
+    integer gl_n = 10, gd_n = 9;                        // character lines of the picture (R9 + 1) and the lines that show the glyph (R23 + 1)
+    task glyph_check(input integer b);
+        integer tr, k, px2, xs;
+        reg [7:0] want;
+        reg [15:0] pv;
+        begin
+            glyph_chk = 0;
+            for (tr = 5; tr <= 6; tr = tr + 1) begin
+                xs = -1;
+                for (px2 = 24; px2 < 56 && xs < 0; px2 = px2 + 1) begin
+                    word = ddr[b * BW + (tr * gl_n + 1) * 80 + px2 / 8];
+                    pv = word >> ((px2 % 8) * 16);
+                    if (pv == 16'hFFFF) xs = px2 - ((1 + 8'h40 + (tr % 8)) % 8);
+                end
+                if (xs < 0) glyph_chk = glyph_chk + 100;
+                else for (k = 0; k < gl_n; k = k + 1) begin
+                    want = (k < gd_n) ? font_line(8'h40 + (tr % 8), k) : 8'h00;
+                    glyph_rows = glyph_rows + 1;
+                    for (px2 = 0; px2 < 8; px2 = px2 + 1) begin
+                        word = ddr[b * BW + (tr * gl_n + k) * 80 + (xs + px2) / 8];
+                        pv = word >> (((xs + px2) % 8) * 16);
+                        if ((pv == 16'hFFFF) != want[7 - px2]) glyph_chk = glyph_chk + 1;
+                    end
+                end
+            end
+        end
+    endtask
+
+    // the bitmap test picture: memory line y holds y & 255 in bytes 0..39 and y >> 8 in bytes 40..79; R25 low nibble 7, so byte j is exactly pixels 8j .. 8j+7
+    function integer bm_id(input integer b, input integer row);
+        integer j, p2, lo, hi;
+        reg [15:0] pv2;
+        reg [127:0] w2;
+        begin
+            lo = 0; hi = 0;
+            for (p2 = 0; p2 < 8; p2 = p2 + 1) begin
+                w2 = ddr[b * BW + row * 80 + (10 * 8 + p2) / 8]; pv2 = w2 >> (((10 * 8 + p2) % 8) * 16); lo = lo | ((pv2 == 16'hFFFF) ? (128 >> p2) : 0);
+                w2 = ddr[b * BW + row * 80 + (50 * 8 + p2) / 8]; pv2 = w2 >> (((50 * 8 + p2) % 8) * 16); hi = hi | ((pv2 == 16'hFFFF) ? (128 >> p2) : 0);
+            end
+            bm_id = lo + 256 * hi;
+        end
+    endfunction
+    integer bmn, bm_n = 0, bm_abad = 0, bm_bbad = 0;
+    reg [8*200-1:0] dumpf = "", dumpf2 = "", dumpf3 = "";
+    task dump_ppm(input integer b);
+        integer fd, rr, cc;
+        reg [15:0] p;
+        begin
+            fd = $fopen(dumpcur, "wb");
+            $fwrite(fd, "P6\n640 480\n255\n");
+            for (rr = 0; rr < 480; rr = rr + 1)
+                for (cc = 0; cc < 640; cc = cc + 1) begin
+                    word = ddr[b * BW + rr * 80 + cc / 8];
+                    p = word >> ((cc % 8) * 16);
+                    $fwrite(fd, "%c%c%c", {p[15:11], p[15:13]}, {p[10:5], p[10:9]}, {p[4:0], p[4:2]});
+                end
+            $fclose(fd);
+        end
+    endtask
+
     reg armed = 1'b0;                                 // the event at time 0 (initial value of frame_tgl) is not a report
     always @(frame_tgl) if (armed) begin
         nrep = nrep + 1;
         lat_k[nrep % 16] = latest;
         if (seq != nrep[7:0]) seq_bad = seq_bad + 1;
         if (latest[7] !== 1'b1) lat_bad = lat_bad + 1;
-        if (latest[1:0] != (nrep - 1) % 3) buf_bad = buf_bad + 1;
-        if (nrep <= 8) begin
+        if (ph == 1 && latest[1:0] != (nrep - 1) % 3) buf_bad = buf_bad + 1;
+        if (ph == 1 && latest[2]) lat_bad = lat_bad + 1;                      // not interlaced: never reported as woven
+        if (ph == 2 && vdc_il[1]) begin
+            il_n = il_n + 1;
+            if (latest[1:0] > 2 || latest[1:0] == il_prev) il_buf_bad = il_buf_bad + 1;
+            il_prev = latest[1:0];
+            if (seq != il_seq_prev + 8'd1 && il_n > 1) il_seq_bad = il_seq_bad + 1;
+            il_seq_prev = seq;
+            if (il_n >= il_skip && il_cmp < 6) begin
+                il_cmp = il_cmp + 1;
+                cmp_woven(latest[1:0], vf);
+                if (nrows < il_rows_min) il_rows_min = nrows;
+                if (nrows < (latest[2] ? 480 : 400) || latest[2] != (exp_rows == 480)) il_stale_bad = il_stale_bad + 1;   // the app is told 480 rows only when 480 were written
+                if (!fld_ok) il_fld_bad = il_fld_bad + 1;
+                if (bad != 0) il_cmp_bad = il_cmp_bad + 1;
+                if (bmmode) glyph_chk = 0; else glyph_check(latest[1:0]);   // the glyph check reads text
+                if (glyph_chk != 0) il_glyph_bad = il_glyph_bad + 1;
+                $display("     woven picture %0d: buffer %0d, frame %0d, %0d rows compared, %0d pixel mismatches, glyph mismatches %0d", il_cmp, latest[1:0], vf, nrows, bad, glyph_chk);
+                if (il_cmp == 4 && dumpcur != "") dump_ppm(latest[1:0]);
+                if (bmmode) begin
+                    // field 0 (even rows) shows memory lines 0, 1, 2 ..., field 1 carries on after them: line 240 + (R5 + 1) / 2 = 244 (the 4 lines the
+                    // second field takes in the top vertical adjust); the 5th line of every 5-line cell is blank (R23 = 8: 9 of the 10 lines show)
+                    for (bmn = 0; bmn < 240; bmn = bmn + 1) begin
+                        if (bm_id(latest[1:0], 2 * bmn) != bmn) bm_abad = bm_abad + 1;
+                        if (bm_id(latest[1:0], 2 * bmn + 1) != ((bmn % 5 == 4 || bmn >= 236) ? 0 : 244 + bmn)) bm_bbad = bm_bbad + 1;
+                    end
+                    bm_n = bm_n + 1;
+                end
+            end
+        end
+        if (ph == 1 && nrep <= 8) begin
             cmp_frame(latest[1:0], nrep);
             check(bad == 0, "S9 report: every pixel of the reported frame is in its buffer, both rows of every source line");
             check(dbl_bad == 0, "S9 report: row 2y+1 equals row 2y (lines doubled)");
@@ -179,11 +313,76 @@ module tb_c128_pixw #(parameter integer REPEAT = 2);
         end
     endtask
 
+    // ---- phase 2: interlace sync and video, Busted Boulders' registers, a synthetic 10-line font (code 0x40 + i, line k: a diagonal and bars), text
+    task automatic program_il_text(input [4:0] ctv, input [7:0] rows, input [7:0] r23);
+        integer ch, kk, ri;
+        reg [7:0] regs_il [0:29];
+        begin
+            regs_il[0]=8'h7E; regs_il[1]=8'h50; regs_il[2]=8'h66; regs_il[3]=8'h49; regs_il[4]=8'h33; regs_il[5]=8'd7; regs_il[6]=rows; regs_il[7]=8'h32;
+            regs_il[8]=8'd3; regs_il[9]={3'd0, ctv}; regs_il[10]=8'h20; regs_il[11]=8'd9; regs_il[12]=8'h00; regs_il[13]=8'h00; regs_il[14]=8'h00; regs_il[15]=8'h00;
+            regs_il[20]=8'h10; regs_il[21]=8'h00; regs_il[22]=8'h78; regs_il[23]=r23; regs_il[24]=8'h00; regs_il[25]=8'h40; regs_il[26]=8'hF0; regs_il[27]=8'd0; regs_il[28]=8'h30; regs_il[29]=8'd7;
+            fill(16'h2000, 8'h00, 4096);
+            for (ch = 0; ch < 8; ch = ch + 1) begin
+                set_ua(16'h2000 + (8'h40 + ch) * 16);
+                for (kk = 0; kk < 16; kk = kk + 1) put(kk <= ctv ? font_line(8'h40 + ch, kk) : 8'h00);
+            end
+            for (ri = 0; ri < rows; ri = ri + 1) fill(ri * 80, 8'h40 + (ri % 8), 80);
+            fill(16'h1000, 8'h0F, rows * 80);
+            gl_n = ctv + 1; gd_n = r23 + 1;
+            for (ri = 0; ri < 30; ri = ri + 1) if ((ri < 16) || (ri >= 20)) wr_reg(ri[7:0], regs_il[ri]);
+        end
+    endtask
+
+    task automatic program_il_bitmap;
+        integer yy;
+        reg [7:0] regs_il [0:29];
+        begin
+            regs_il[0]=8'h7E; regs_il[1]=8'h50; regs_il[2]=8'h66; regs_il[3]=8'h49; regs_il[4]=8'h33; regs_il[5]=8'd7; regs_il[6]=8'h30; regs_il[7]=8'h32;
+            regs_il[8]=8'd3; regs_il[9]=8'd9; regs_il[10]=8'h20; regs_il[11]=8'd9; regs_il[12]=8'h40; regs_il[13]=8'h00; regs_il[14]=8'h00; regs_il[15]=8'h00;
+            regs_il[20]=8'h10; regs_il[21]=8'h00; regs_il[22]=8'h78; regs_il[23]=8'd8; regs_il[24]=8'h00; regs_il[25]=8'h87; regs_il[26]=8'hF0; regs_il[27]=8'd0; regs_il[28]=8'h30; regs_il[29]=8'd7;
+            for (yy = 0; yy < 480; yy = yy + 1) begin fill(16'h4000 + yy * 80, yy[7:0], 40); fill(16'h4000 + yy * 80 + 40, yy >> 8, 40); end
+            for (yy = 0; yy < 30; yy = yy + 1) if ((yy < 16) || (yy >= 20)) wr_reg(yy[7:0], regs_il[yy]);
+        end
+    endtask
+    integer exp_rows = 480, cfg_n = 0;
+    reg bmmode = 1'b0;
+    reg [8*200-1:0] dumpcur = "";
+    task automatic run_il(input integer cfg);
+        integer nn, nstray, kq;
+        begin
+            ph = 2; il_n = 0; il_cmp = 0; il_buf_bad = 0; il_fld_bad = 0; il_glyph_bad = 0; il_cmp_bad = 0; il_rows_min = 100000; il_seq_bad = 0; il_stale_bad = 0; il_prev = -1;
+            glyph_rows = 0; il_skip = (cfg == 2) ? 7 : 4;
+            dumpcur = (cfg == 0) ? dumpf : dumpf2;
+            if (cfg == 0) begin program_il_text(5'd9, 8'h30, 8'd8); exp_rows = 480; end         // Busted Boulders: 10-line characters, 48 rows, R23 = 8
+            else if (cfg == 1) begin program_il_text(5'd7, 8'h32, 8'd7); exp_rows = 400; end
+            else          begin program_il_text(5'd9, 8'h2C, 8'd8); exp_rows = 400; end         // C: 44 rows x 10 = 220 lines a field: not 240, so 400 rows are shown (440 written)         // 8-line characters, 50 rows: 640 x 400 interlaced
+            nn = 0;
+            while (il_cmp < 6 && nn < 60000000) begin @(posedge clk); nn = nn + 1; end
+            repeat (30000) @(posedge clk);
+            check(il_cmp >= 6, cfg == 0 ? "S9 interlace A: six woven pictures were reported (latest b2, one per field pair)" : "S9 interlace B: six woven pictures were reported (latest b2, one per field pair)");
+            check(il_fld_bad == 0, cfg == 0 ? "S9 interlace A: every picture is field 0 followed by field 1 (the field flag alternates)" : "S9 interlace B: every picture is field 0 followed by field 1 (the field flag alternates)");
+            check(il_cmp_bad == 0, cfg == 0 ? "S9 interlace A: row 2y = line y of field 0, row 2y+1 = line y of field 1, every pixel" : "S9 interlace B: row 2y = line y of field 0, row 2y+1 = line y of field 1, every pixel");
+            check(il_rows_min >= exp_rows, cfg == 0 ? "S9 interlace A: 240 lines a field = 480 rows compared" : "S9 interlace B: 200 lines a field = 400 rows compared");
+            check(il_stale_bad == 0, cfg == 0 ? "S9 interlace A: reports b2 = 1 (480 rows) and all 480 rows are this picture" : "S9 interlace B/C (after the taller A): reports b2 = 0 (400 rows), rows 400..479 hold the older picture and are not shown");
+            check(il_glyph_bad == 0, cfg == 0 ? "S9 interlace A: a 10-line glyph is whole in the woven rows (lines 0..9 in order, R23 = 8)" : "S9 interlace B: an 8-line glyph is whole in the woven rows (lines 0..7 in order)");
+            check(il_buf_bad == 0 && il_seq_bad == 0, cfg == 0 ? "S9 interlace A: one report per field pair, the buffers go round, seq +1 each" : "S9 interlace B: one report per field pair, the buffers go round, seq +1 each");
+            check(overruns == 16'd0, cfg == 0 ? "S9 interlace A: no late line (overruns == 0)" : "S9 interlace B: no late line (overruns == 0)");
+            nstray = 0;
+            for (kq = 0; kq < NW; kq = kq + 1)
+                if (wrote[kq] && !((kq % BW) < BUFWORDS && (kq / BW) < 3)) nstray = nstray + 1;
+            check(nstray == 0 && bad_cmd == 0 && bad_addr == 0, "S9 interlace: nothing outside the three 640 x 480 buffers, every command a plain write");
+            $display("     config %0d: %0d woven pictures, %0d glyph rows checked, %0d reports in all, seq %0d, overruns %0d", cfg, il_n, glyph_rows, nrep, seq, overruns);
+        end
+    endtask
+
     integer maxcyc, nf, n;
     integer stray, last3_bad, distinct, ndist, kk2;
     reg [15:0] seen_mask;
     initial begin
-        if (!$value$plusargs("maxcyc=%d", maxcyc)) maxcyc = 40000000;
+        if (!$value$plusargs("maxcyc=%d", maxcyc)) maxcyc = 160000000;
+        if (!$value$plusargs("dump=%s", dumpf)) dumpf = "";
+        if (!$value$plusargs("dump2=%s", dumpf2)) dumpf2 = "";
+        if (!$value$plusargs("dump3=%s", dumpf3)) dumpf3 = "";
         nf = 6;
         repeat (16) @(posedge clk);
         rst <= 1'b0;
@@ -220,7 +419,7 @@ module tb_c128_pixw #(parameter integer REPEAT = 2);
             stray = 0;
             for (k = 0; k < NW; k = k + 1)
                 if (wrote[k] && !((k % BW) < BUFWORDS && (k / BW) < 3)) stray = stray + 1;
-            check(stray == 0, "S9 no word written outside the three 640 x 400 buffers");
+            check(stray == 0, "S9 no word written outside the three buffers (BUFWORDS = 640 x 480)");
             check(bad_cmd == 0 && bad_addr == 0, "S9 every command is a plain write: cmd 0, data with it, mask 0, 16 byte aligned");
             // the picture carried colours
             seen_mask = 16'd0;
@@ -230,6 +429,30 @@ module tb_c128_pixw #(parameter integer REPEAT = 2);
             $display("     %0d frames, %0d writes, %0d distinct colours in the last frame, seq %0d, overruns %0d", nrep, writes, ndist, seq, overruns);
             check(ndist >= 8, "S9 the test picture carries at least 8 colours");
         end
+        // ---- phase 2: interlace (text), two configurations
+        stray = 0;
+        for (k = 0; k < NW; k = k + 1) if (wrote[k] && (k % BW) >= 400 * 80) stray = stray + 1;
+        check(stray == 0, "S9 a frame that is not interlaced writes rows 0..399 only (nothing in rows 400..479)");
+        run_il(0);
+        run_il(1);
+        run_il(2);
+        // phase 3: the interlaced bitmap (R25[7] = 1, R8 = 3), the memory line of every woven row
+        bmmode = 1'b1;
+        dumpcur = dumpf3;
+        program_il_bitmap;
+        exp_rows = 480; il_stale_bad = 0;
+        ph = 2; il_n = 0; il_cmp = 0; il_prev = -1; il_cmp_bad = 0; il_buf_bad = 0; il_fld_bad = 0; il_seq_bad = 0;
+        n = 0;
+        while (il_cmp < 6 && n < 60000000) begin @(posedge clk); n = n + 1; end
+        repeat (30000) @(posedge clk);
+        check(il_cmp >= 6 && bm_n >= 3, "S9 interlaced bitmap: six woven pictures were reported");
+        check(il_fld_bad == 0 && il_buf_bad == 0 && il_seq_bad == 0, "S9 interlaced bitmap: field 0 then field 1, one report per pair, buffers go round, seq +1");
+        check(il_cmp_bad == 0, "S9 interlaced bitmap: row 2y = line y of field 0, row 2y+1 = line y of field 1, every pixel");
+        check(bm_abad == 0, "S9 interlaced bitmap: field 0 shows memory lines 0..239 in order (VICE: the pointer starts at the screen address)");
+        check(bm_bbad == 0, "S9 interlaced bitmap: field 1 carries on after field 0 (line 244 + y, VICE: the pointer is reset after an odd frame only)");
+        check(il_stale_bad == 0, "S9 interlaced bitmap: b2 = 1 and all 480 rows are this picture");
+        check(overruns == 16'd0, "S9 interlaced bitmap: no late line (overruns == 0)");
+        $display("     bitmap: %0d woven pictures checked, field 0 mismatches %0d, field 1 mismatches %0d", bm_n, bm_abad, bm_bbad);
         if (fails == 0) $display("PASS tb_c128_pixw"); else $display("FAILED tb_c128_pixw: %0d", fails);
         $finish;
     end

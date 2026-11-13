@@ -27,18 +27,22 @@ int main()
                     CHECK(sel >= first && sel < first + rows);
                     CHECK(first >= 0 && first + rows <= (total > rows ? total : rows));
                     CHECK(ch == (first != before));
-                    if (before <= sel && sel < before + rows && before + rows <= total) CHECK(!ch);   // never moves a window that holds it
+                    int m = (rows - 1) / 2 < 2 ? (rows - 1) / 2 : 2;                                  // T209 D3: 2 rows of margin, except at the list's ends
+                    CHECK(first == 0 || sel >= first + m);
+                    CHECK(first + rows >= total || sel < first + rows - m);
                 }
             }
         }
     }
     int first = 0;
-    CHECK(!listwin_fix(4, 12, 5, &first) && first == 0);
-    CHECK(listwin_fix(5, 12, 5, &first) && first == 1);
+    CHECK(!listwin_fix(2, 12, 5, &first) && first == 0);   // 5 rows, margin 2: rows 0..2 are the selection's room at the top
+    CHECK(listwin_fix(3, 12, 5, &first) && first == 1);    // the window moves while 2 rows are still hidden below
     CHECK(!listwin_fix(3, 12, 5, &first) && first == 1);
-    CHECK(listwin_fix(0, 12, 5, &first) && first == 0);
+    CHECK(listwin_fix(2, 12, 5, &first) && first == 0);    // and up likewise
+    CHECK(listwin_fix(11, 12, 5, &first) && first == 7);   // the end of the list: the window ends at n
+    CHECK(!listwin_fix(11, 12, 5, &first) && first == 7);
     first = 9;                                              // the list got shorter
-    CHECK(listwin_fix(2, 6, 5, &first) && first == 1);
+    CHECK(listwin_fix(2, 6, 5, &first) && first == 0);
     printf(fails ? "test_discover: %d FAILED\n" : "test_discover: ok\n", fails);
     return fails != 0;
 }

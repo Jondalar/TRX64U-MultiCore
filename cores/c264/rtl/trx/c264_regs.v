@@ -16,6 +16,7 @@
 //   0B0 ROM_SEL  RW   b2:0 the array behind the app's 16 KB ROM aperture: 0 KERNAL, 1 BASIC, 2 function low, 3 function high,
 //                     4 cartridge low, 5 cartridge high
 //   0B1 CART     RW   b0 a cartridge low image is loaded, b1 a cartridge high image is loaded (the machine sees them at $FDD0 bank 1)
+//   0B2 TAPE_PIN RW   b0 MOTOR pin driven, b1 WRITE pin driven, b4 the datasette's READ and SENSE pins are the machine's inputs (reset 0 = every pin released), as PET_TAPE_PIN
 //   0C0 FB_LATEST R   b7 valid, b1:0 the buffer of the newest complete frame
 //   0C1 FRAME_SEQ R   8 bit counter that changes with every complete frame
 //   0C2-0C3 FB_OVERRUNS R   lines that could not be handed to the DDR2 side in time
@@ -50,6 +51,7 @@ module c264_regs #(
     output wire        joy_swap,
     output wire [2:0]  rom_sel,
     output wire [1:0]  cart,
+    output wire [7:0]  tape_pin,
     output wire [31:0] fb_base,
     output wire [31:0] fb_stride,
     input  wire [7:0]  status,
@@ -63,6 +65,7 @@ module c264_regs #(
     reg        model_r = 1'b0, ram64_r = 1'b0, swap_r = 1'b0;
     reg [2:0]  sel_r = 3'd0;
     reg [1:0]  cart_r = 2'd0;
+    reg [7:0]  tpin_r = 8'd0;
     reg [31:0] base_r = 32'h01D00000;
     reg [31:0] stride_r = 32'h00100000;
     reg [7:0]  irq_en = 8'd0, cause = 8'd0;
@@ -88,6 +91,7 @@ module c264_regs #(
     assign joy_swap = swap_r;
     assign rom_sel = sel_r;
     assign cart = cart_r;
+    assign tape_pin = tpin_r;
     assign fb_base = base_r;
     assign fb_stride = stride_r;
     assign ack = ack_r;
@@ -119,6 +123,7 @@ module c264_regs #(
                 12'h0A3: swap_r <= wdata[0];
                 12'h0B0: sel_r <= wdata[2:0];
                 12'h0B1: cart_r <= wdata[1:0];
+                12'h0B2: tpin_r <= wdata;
                 12'h0C4: base_r[7:0] <= wdata;
                 12'h0C5: base_r[15:8] <= wdata;
                 12'h0C6: base_r[23:16] <= wdata;
@@ -165,6 +170,7 @@ module c264_regs #(
                 12'h0AD: q <= c_q[15:8];
                 12'h0B0: q <= {5'd0, sel_r};
                 12'h0B1: q <= {6'd0, cart_r};
+                12'h0B2: q <= tpin_r;
                 12'h0C0: q <= l_q;
                 12'h0C1: q <= n_q;
                 12'h0C2: q <= o_q[7:0];

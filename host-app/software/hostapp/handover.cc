@@ -52,6 +52,36 @@ bool handover_time(const Handover *h, int *year, int *mon, int *day, int *hour, 
     return *year >= 2020 && *year <= 2099 && *mon >= 1 && *mon <= 12 && *day >= 1 && *day <= 31 && *hour < 24 && *min < 60 && *sec < 60;
 }
 
+static uint32_t handover_config_sum(const Handover *h)
+{
+    uint32_t s = 0x2C1B3C6Du ^ h->sum ^ h->id_sum;
+    for (unsigned i = 0; i < sizeof(h->config); i++) {
+        s = ((s << 5) | (s >> 27)) ^ (uint8_t)h->config[i];
+    }
+    return s ? s : 1u;
+}
+
+bool handover_set_config(Handover *h, const char *name)
+{
+    memset(h->config, 0, sizeof(h->config));
+    h->config_sum = 0;
+    if (!name || !name[0] || strlen(name) > HANDOVER_CONFIG_MAX) {
+        return false;
+    }
+    strcpy(h->config, name);
+    h->config_sum = handover_config_sum(h);
+    return true;
+}
+
+const char *handover_config(const Handover *h)
+{
+    if (!h->config[0] || h->config[sizeof(h->config) - 1] != 0 || strlen(h->config) > HANDOVER_CONFIG_MAX ||
+        h->config_sum != handover_config_sum(h)) {
+        return "";
+    }
+    return h->config;
+}
+
 static void put(char *dst, int cap, const char *src)
 {
     memset(dst, 0, cap);

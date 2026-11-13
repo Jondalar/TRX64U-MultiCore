@@ -29,7 +29,7 @@ rc=0
 run() { # run <label> <build>
   d="$work/$1"; mkdir -p "$d"; cp -a "$2/run/." "$d/"
   exp=$(python3 "$root/tools/gen_c64scpu_irq.py" "$d") || { echo "FAIL $1: generator"; exit 1; }
-  (cd "$d" && "$2/obj/tb_c64scpu" +MS=800 +DUMP=0330 $exp) > "$d/log" 2>&1
+  (cd "$d" && "$2/obj/tb_c64scpu" +MS=800 +RESTOREHOOK +DUMP=0330 $exp) > "$d/log" 2>&1
 }
 ok() { grep -q "^PASS tb_c64scpu" "$work/$1/log" && echo PASS || echo FAIL; }
 report() { # report <label> <prefix>

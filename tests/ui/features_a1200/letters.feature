@@ -27,7 +27,7 @@ Feature: Letters on the Amiga 1200: the menu claims few letters, a letter nobody
     Then the footer shows "F1-F8 AREA"
     And the footer does not show "TAB"
     When I press F5
-    Then the footer shows "1-2 TAB"
+    Then the footer shows "1-4 TAB"
     When I press F3
     Then the footer does not show "TAB"
 

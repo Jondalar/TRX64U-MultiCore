@@ -1,5 +1,6 @@
 // The host application's picture, see hostvideo.h (T164 WP17).
 #include "hostvideo.h"
+#include "edid.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -49,6 +50,8 @@ static bool read_screen(void)
     uint32_t sig = ok ? digest(edid_buf, len) : 0xFFFFFFFFu;     // "nobody answered" is a state of its own
     st.have_edid = ok;
     st.mask = video_modes_offered(edid_buf, edid_len);
+    EdidInfo info;
+    st.native = ok && edid_parse(edid_buf, edid_len, &info) ? (uint16_t)(info.native & st.mask) : 0;     // T187 D5: the rows the screen flags as native
     bool changed = !st.sig_valid || sig != st.sig;
     st.sig = sig;
     st.sig_valid = true;
@@ -214,6 +217,27 @@ bool hv_keep(void)
     st.pending = false;
     st.def_hdmi = st.pend_def;
     hv_saved_store(st.def_hdmi, st.def_sys);
+    return true;
+}
+
+int hv_auto(void)
+{
+    ensure();
+    int sys;
+    return pick(false, &sys);
+}
+
+bool hv_revert(void)
+{
+    ensure();
+    if (!st.pending) {
+        return false;
+    }
+    printf("[video] reverted by the key: back to %s\n", video_hdmi_name(st.prev_hdmi));
+    st.pending = false;
+    if (!apply(st.prev_sys, st.prev_hdmi)) {
+        st.hdmi = -1;
+    }
     return true;
 }
 

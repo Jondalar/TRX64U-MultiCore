@@ -18,13 +18,23 @@ name = "Library"
 [[area]]
 key = "F5"
   [[area.tab]]
-  id = "summary"
-  name = "Summary"
-  widget = "media"
-  [[area.tab]]
   id = "settings"
-  name = "Settings"
   widget = "settings"
+  [[area.tab]]
+  id = "video"
+  name = "Video"
+  widget = "settings"
+  groups = ["video"]
+  [[area.tab]]
+  id = "audio"
+  name = "Audio"
+  widget = "settings"
+  groups = ["audio"]
+  [[area.tab]]
+  id = "input"
+  name = "Input"
+  widget = "settings"
+  groups = ["input"]
 
 [[area]]
 key = "F7"
@@ -40,5 +50,5 @@ name = "System"
 shifted = true
   [[area.tab]]
   id = "expert"
-  name = "Expert"
+  name = "System"
   widget = "system"

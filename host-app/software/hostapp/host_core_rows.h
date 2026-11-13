@@ -53,6 +53,8 @@ struct HcEntryRow {
     bool def;
     bool full;
     bool ok_state;                                // the entry's state is OK or CHANGED (an icon may be read)
+    int configs;                                  // T198: the core's configs (menu rows of a .cor; 0 = no badge, D9)
+    char cfgbadge[16];                            // "3 configs", "" for none
 };
 bool hc_row_entry(int i, bool menu_style, HcEntryRow *r);
 
@@ -76,6 +78,7 @@ struct HcEditTexts {
     char countdown[24];
     char direct[56];
     char def[96];
+    char defcfg[96];                              // T198 D13: the selected entry's default config
     char pos[24];
 };
 void hc_edit_texts(int first, HcEditTexts *t);
@@ -90,6 +93,7 @@ struct HcBrowseRow {
 void hc_browse_title(char *out, int n);           // the folder, or "Copy to: <folder>" while a target is picked
 void hc_browse_empty_text(char *out, int n);      // "", "(empty)" or "No media found"
 bool hc_browse_row(int k, HcBrowseRow *r);
+const char *hc_menu_foot(void);                   // the boot menu's footer for its selected row (T198 D9); hc_foot_of_view(0) is the general one
 const char *hc_browse_foot(void);                 // the footer for what is selected (T111)
 bool hc_browse_sel_file(char *path, int n);       // the selected row is a file: its path
 bool hc_browse_sel_bundle(char *path, int n);     // ... and the boot menu takes it (.cor, .cfw)

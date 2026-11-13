@@ -1,7 +1,7 @@
 // T113 5.5 on the generic application: the Commodore 128 descriptor (coreapp/cores/c128.cc) against a model of the core's register page E
 // (byte offsets 0xE000 + off from the core window, T113 section 5.5) and of the DDR2 window. The 72 KiB system ROM image at window offset
 // 0x00C00000 and the flush of the ROM line cache behind it, D4080 taken only in the hold, MON_SEL live and the pixel layer that follows it,
-// the picture (640 x 400, 2 x 2, three buffers), Freeze's held bit, the menu (1541 and 1581 pieces), and the USB keyboard's extra keys.
+// the picture (640 x 400 or woven 640 x 480 by FB_LATEST b2, 2 x 2, three buffers), Freeze's held bit, the menu (1541 and 1581 pieces), and the USB keyboard's extra keys.
 // The descriptor is the real one. Offsets are literal numbers on purpose: this is the bench's own reading of the table in the spec.
 #include <algorithm>
 #include "cbm_rig.h"
@@ -214,17 +214,29 @@ int main()
         CHECK_EQ(r.px.last(PX_STRIDE), 208u);
         CHECK_EQ(r.px.last(PX_CTRL) & 0x0Fu, 7u);                           // format 3, on (the scale bits are the old host's layout, not read by the gateware)
         CHECK_EQ(r.px.count(PX_FRONT), 0);
-        // 80 columns: the layer set up for the VDC's 640 x 400 at 2 x 2 (1280 x 800) on 1920 x 1080
+        // 80 columns: the layer set up for the VDC's picture at 2 x 2 on 1920 x 1080: 640 x 400 (1280 x 800) when FB_LATEST b2 is clear, woven 640 x 480 when set
         // three buffers: buffer 2 is flipped to (layer on first), buffer 3 does not exist
         r.set("Picture shown", 1);
         r.apply("Picture shown");
         CHECK(r.vid->visible());
         CHECK_EQ(r.vid->picture(), 0);
-        CHECK_EQ(r.px.last(PX_SIZE), (400u << 16) | 640u);
+        // T113 D11: before the core has reported a picture the layer is the descriptor's 640 x 480 (the woven picture), at 2 x 2 (1280 x 960) centred on 1080 lines
+        CHECK_EQ(r.px.last(PX_SIZE), (480u << 16) | 640u);
         CHECK_EQ(r.px.last(PX_STRIDE), 1280u);
-        CHECK_EQ(r.px.last(PX_POS), (140u << 16) | 320u);
+        CHECK_EQ(r.px.last(PX_POS), (60u << 16) | 320u);
         CHECK_EQ(r.px.last(PX_FRONT), T_FB_ADDR);
         CHECK_EQ(r.px.last(PX_CTRL), Video::ctrl_value(2, true));
+        {   // the service follows the newest picture: FB_LATEST b2 clear = 400 rows (1280 x 800, y 140), set = 480 rows woven (y 60)
+            r.io.e[0x60] = 0x82;
+            CHECK_EQ(ops_call(&r.c, "c128.service", 0, 0, &res), OPE_OK);
+            CHECK_EQ(r.px.last(PX_SIZE), (400u << 16) | 640u);
+            CHECK_EQ(r.px.last(PX_POS), (140u << 16) | 320u);
+            r.io.e[0x60] = 0x86;
+            CHECK_EQ(ops_call(&r.c, "c128.service", 0, 0, &res), OPE_OK);
+            CHECK_EQ(r.px.last(PX_SIZE), (480u << 16) | 640u);
+            CHECK_EQ(r.px.last(PX_POS), (60u << 16) | 320u);
+            CHECK_EQ(r.px.last(PX_CTRL), Video::ctrl_value(2, true));
+        }
         r.io.e[0x60] = 0x82; r.io.e[0x61] = 5;
         CHECK(r.vid->poll());
         CHECK_EQ(r.px.last(PX_BACK), T_FB_ADDR + 2 * T_FB_STRIDE_BYTES);
@@ -582,7 +594,7 @@ int main()
         int k = -1;
         for (int i = 0; i < o.nsettings; i++) if (!strcmp(o.settings[i].key, "Hotkey picture 40/80")) k = i;
         CHECK(k >= 0);
-        if (k >= 0) { CHECK_EQ(o.settings[k].def, 19); CHECK(!strcmp(o.settings[k].label, "Hotkey: picture 40 / 80")); }   // matrix key D (18) + 1
+        if (k >= 0) { CHECK_EQ(o.settings[k].def, 19); CHECK(!strcmp(o.settings[k].label, "Picture 40 / 80")); }   // matrix key D (18) + 1
         uint8_t regs[HK_NREGS]; hk_regs(c128_desc.hotkeys->def, regs);
         CHECK(regs[2 + 18 / 8] & (1u << (18 % 8)));
         Run u; u.start(1);
@@ -1264,6 +1276,66 @@ int main()
         m.key(KEY_ESCAPE);
         CHECK(!m.picking());
         CHECK_STR(r.st->text(r.st->find("JiffyDOS 1581 ROM")), "");
+    }
+
+    // ---- T206 S1: Run Disk. The disk is mounted, the machine reset, and LOAD"*",8,1 / RUN typed once BASIC 7 is up ($1C01 in TXTTAB $2D/$2E), into
+    // the C128's keyboard buffer KEYD $034A with its count NDX $D0 (ten keys at most per piece) - not into the C64's $0277 / $C6.
+    {
+        Rig r;
+        r.io.dm.multi = true;
+        r.image();
+        r.fs.put("/usb0/run.d64", Bytes(174848, 0));
+        r.fs.put("/usb0/run.d81", Bytes(819200, 0));
+        r.fs.put("/usb0/roms/c128/1541.rom", pattern(5, 32768));
+        r.fs.put("/usb0/roms/c128/1581.rom", pattern(6, 32768));
+        CHECK(r.boot());
+        CHECK(c128_desc.type_op && !strcmp(c128_desc.type_op, "c128.type_script"));
+        for (const char *ext : { ".d64", ".g64", ".d81" }) {
+            for (int i = 0; i < c128_desc.nfiletypes; i++) {
+                if (strcmp(c128_desc.filetypes[i].ext, ext)) continue;
+                bool run = false;
+                for (int k = 0; k < c128_desc.filetypes[i].nactions; k++) run = run || !strcmp(c128_desc.filetypes[i].actions[k].label, "Run Disk");
+                CHECK(run);
+            }
+        }
+        // two machines: BASIC 7 (the RAM already holds TXTTAB $1C01 from the run before, so nothing may be typed before the 2 s of ready_ms), and the
+        // machine in C64 mode (TXTTAB $0801: the READY of another BASIC, nothing is typed, the notice says so)
+        for (int machine = 0; machine < 2; machine++) {
+            for (const char *img : { "/usb0/run.d64", "/usb0/run.d81" }) {
+                r.io.events.clear();
+                r.io.ram[0x2D] = 0x01; r.io.ram[0x2E] = (uint8_t)(machine ? 0x08 : 0x1C);
+                r.io.ram[0xD0] = 0;
+                r.io.ram[0xC6] = 0;
+                OpIn in[2] = { in_str("slot", "iec:drive_a"), in_str("path", img) };
+                OpResult res;
+                memset(&res, 0, sizeof(res));
+                CHECK_EQ(ops_call(&r.c, "drive.mount_run", in, 2, &res), OPE_OK);
+                bool reset = false;
+                for (auto &e : r.io.events) reset = reset || e == "mode_reset";
+                CHECK(reset);
+                std::string typed;
+                uint32_t t0 = r.io.now_ms();
+                bool early = false;
+                for (int i = 0; i < 400; i++) {
+                    r.io.delay_ms(50);
+                    ops_call(&r.c, "c128.service", 0, 0, &res);
+                    if (r.io.ram[0xD0]) {
+                        if (r.io.now_ms() - t0 < 2000) early = true;
+                        typed += std::string((const char *)&r.io.ram[0x034A], r.io.ram[0xD0]);
+                        r.io.ram[0xD0] = 0;
+                    }
+                }
+                CHECK(!early);                                                   // not before ready_ms, even with a pointer that already says BASIC
+                CHECK_EQ(r.io.ram[0xC6], 0);                                      // the C64's buffer is not used
+                if (machine == 1) {
+                    CHECK(typed.empty());                                         // TXTTAB $0801: not the C128's BASIC 7
+                    CHECK(r.c.notice_pending && strstr(r.c.notice, "did not reach READY"));
+                    r.c.notice_pending = false;
+                } else {
+                    CHECK(typed == "LOAD\"*\",8,1\rRUN\r");
+                }
+            }
+        }
     }
 
     DONE("test_c128");

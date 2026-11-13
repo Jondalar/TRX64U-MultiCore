@@ -590,7 +590,6 @@ static void c64_register(OpRegistry &r)
     monitor_register(r);
     online_register(r);
     diag_register(r);
-    netops_register(r);
     trx64u_register(r);
 }
 

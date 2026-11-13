@@ -6,6 +6,8 @@
 #include "contrib.h"
 #include "menuvlist.h"
 #include "menuflows.h"
+#include "picmodes.h"
+#include "picture.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -33,6 +35,7 @@ MenuCtl::MenuCtl(CoreCtx *c, MenuHost *h) : c_(c), h_(h), fm_(c, FileMgr::Port{ 
     entry_rename_ = false;
     entry_mset_ = false;
     pick_sets_ = false;
+    pick_modes_ = false;
     rename_path_[0] = 0;
     confirm_node_ = 0;
     confirm_q_[0] = 0;
@@ -101,7 +104,13 @@ void MenuCtl::rebuild()
         tab_ = 0;
     }
     memset(sel_, 0, sizeof(sel_));
+    memset(first_, 0, sizeof(first_));
     memset(last_tab_, 0, sizeof(last_tab_));
+    unheading();
+    if (pick_modes_) {                                               // T187 D5: the screen changed under the page: the rows are made again, the cursor keeps its mode
+        pick_modes_refresh(true);
+        pick_n_ = pm_.n;
+    }
 }
 
 bool MenuCtl::closable() const
@@ -208,15 +217,17 @@ void MenuCtl::go(int area, int tab)
     bool moved = area != area_ || tab != tab_;
     area_ = area;
     tab_ = (tab >= 0 && tab < tree_.a[area].ntabs) ? tab : 0;
-    last_tab_[area] = tab_;
+    last_tab_[area] = cur().page && cur().parent >= 0 ? cur().parent : tab_;      // the key of the area comes back to the tab, not to the page it opened
     if (moved && cur().layout && cur().layout[0]) {                  // a screen shows its own state: a message of the tab before it is not about this one
         status_[0] = 0;
         status_bad_ = false;
     }
     chooser_ = false;
     entry_ = false;
+    learn_ = -1;
     pick_ = false;
     pick_sets_ = false;
+    pick_modes_ = false;
     fm_.view = false;
     search_edit_ = false;
     entry_rename_ = false;
@@ -247,15 +258,59 @@ void MenuCtl::go(int area, int tab)
     settle();
 }
 
+bool MenuCtl::heading(int i)
+{
+    if (busy_ || wizard() || pick_ || entry_ || is_browser() || i < 0 || i >= cur().count) {
+        return false;
+    }
+    return tree_.e[cur().first + i].kind == EK_HEADING;
+}
+
+int MenuCtl::first_hint() const
+{
+    return is_browser() ? 0 : first_[area_][tab_];
+}
+
+void MenuCtl::note_first(int first)
+{
+    if (!is_browser() && !pick_ && !busy_ && !wizard() && !entry_) {
+        first_[area_][tab_] = first;
+    }
+}
+
+// A flat list that opens (or is built again) with a heading selected: the next row that takes the focus, else the one before.
+void MenuCtl::unheading()
+{
+    int n = rows();
+    int &s = sel_[area_][tab_];
+    if (!heading(s)) {
+        return;
+    }
+    int k = s;
+    while (k < n && heading(k)) {
+        k++;
+    }
+    if (k >= n) {
+        k = s;
+        while (k >= 0 && heading(k)) {
+            k--;
+        }
+    }
+    if (k >= 0 && k < n) {
+        s = k;
+    }
+}
+
 void MenuCtl::settle()
 {
+    unheading();
     if (!screen() || is_browser() || rows() == 0) {
         return;
     }
     Item it;
     for (int tries = 0; tries < rows(); tries++) {                  // the first row that takes focus: not a value line, not hidden, not greyed
         item(sel_[area_][tab_], &it);
-        if (!(it.kind == IK_VALUE || it.kind == IK_HEADING || it.kind == IK_INFO || it.hidden || it.dim)) {
+        if (!(it.kind == IK_VALUE || it.kind == IK_HEADING || it.kind == IK_INFO || it.hidden)) {
             break;
         }
         int before = sel_[area_][tab_];
@@ -293,6 +348,7 @@ void MenuCtl::open()
 {
     chooser_ = false;
     entry_ = false;
+    learn_ = -1;
     area_ = 0;
     tab_ = 0;
     if (!closable()) {                      // a core that waits for a program opens in the browser
@@ -423,7 +479,7 @@ void MenuCtl::reopen_restore()
 const char *MenuCtl::title() const
 {
     if (pick_) {
-        return pick_sets_ ? "Load media set" : pick_path_;
+        return pick_modes_ ? "Picture" : pick_sets_ ? "Load config" : pick_path_;
     }
     if (busy_) {
         return job_task_->label;
@@ -467,7 +523,7 @@ int MenuCtl::rows()
         return 1;
     }
     if (pick_) {
-        return pick_sets_ ? pick_n_ : 1 + pick_n_;
+        return pick_modes_ ? pm_.n : pick_sets_ ? pick_n_ : 1 + pick_n_;
     }
     if (entry_ && entry_text_mode_) {
         return 1;
@@ -534,6 +590,21 @@ void MenuCtl::row(int i, char *left, int ln, char *right, int rn, bool *active, 
         }
         return;
     }
+    if (pick_ && pick_modes_) {                                      // T187 D5: name, then the refresh and the tags
+        *active = true;
+        if (i < pm_.n) {
+            const PictureModeRow &m = pm_.row[i];
+            snprintf(left, ln, "%s", m.name);
+            if (right && rn) {
+                char hz[20] = "";
+                if (m.refresh_dhz) {
+                    snprintf(hz, sizeof(hz), "%u.%u Hz", (unsigned)(m.refresh_dhz / 10), (unsigned)(m.refresh_dhz % 10));
+                }
+                snprintf(right, rn, "%s%s%s%s%s", m.now ? "now" : "", m.now && m.native ? " " : "", m.native ? "native" : "", hz[0] && (m.now || m.native) ? "   " : "", hz);   // T187 F3: the tags stand left of the Hz so the Hz column is the right edge on every row
+            }
+        }
+        return;
+    }
     if (pick_ && pick_sets_) {
         if (i < pick_n_) {
             snprintf(left, ln, "%s", sets_[i]);
@@ -579,6 +650,15 @@ void MenuCtl::row(int i, char *left, int ln, char *right, int rn, bool *active, 
         return;
     }
     if (entry_ && entry_text_mode_) {
+        if (learn_ >= 0) {                                                        // T207: the row being learned says what it waits for
+            const Setting &ls = c_->desc->settings[learn_];
+            snprintf(left, ln, "%s", hk_learn_is_modifier(c_, learn_) ? "Press the new modifier key" : "Press the new key");
+            snprintf(right, rn, "ESC cancels");
+            if (sub && sn) {
+                snprintf(sub, sn, "For %s", ls.label);
+            }
+            return;
+        }
         if (confirm_node_ || confirm_task_ || flow_q_ || remote_q_) {             // a question: RETURN does it, ESC does not
             snprintf(left, ln, "%s", confirm_q_);
             snprintf(right, rn, "RETURN yes   <- no");
@@ -588,7 +668,7 @@ void MenuCtl::row(int i, char *left, int ln, char *right, int rn, bool *active, 
             return;
         }
         if (entry_mset_) {
-            snprintf(left, ln, "Save media set as");
+            snprintf(left, ln, "Save config as");
             entry_row(right, rn);
             if (sub && sn) {
                 snprintf(sub, sn, "What is mounted now, in the core's media folder - DEL deletes, RETURN saves, <- cancels");
@@ -691,6 +771,10 @@ void MenuCtl::row(int i, char *left, int ln, char *right, int rn, bool *active, 
             }
             break;
         }
+        if (s.apply && !strcmp(s.apply, PICTURE_OP)) {                  // T187 D5: the row opens the page of the modes; its value is the mode in force
+            snprintf(right, rn, "%s >", s.values[v]);
+            break;
+        }
         snprintf(right, rn, "%s", s.values[v]);                          // T187 D3/D9: a setting that takes effect at the next reset has no second line; row_reset() says it, the row draws a mark
         break;
     }
@@ -712,6 +796,14 @@ void MenuCtl::row(int i, char *left, int ln, char *right, int rn, bool *active, 
                 snprintf(sub, sn, "Not available now");
             }
         }
+        break;
+    }
+    case EK_HEADING:
+        *active = false;
+        break;
+    case EK_OPENS: {                                                // T187 D2: a row that opens a page; its value is the page's first setting (the Hotkeys' modifier), then ">"
+        const Setting &s = c_->desc->settings[e.index];
+        snprintf(right, rn, "%s >", s.kind ? "" : s.values[c_->settings->value(e.index)]);
         break;
     }
     default: {                                                          // the fixed entries: what a row shows is data (FixedDef)
@@ -742,17 +834,53 @@ bool MenuCtl::row_reset(int i) const
 }
 
 // The line that explains the mark: shown at the foot of a list that has marked rows while the status row says nothing else.
-const char *MenuCtl::legend_line() const
+bool MenuCtl::ring_listed() const
 {
-    if (status_[0] || busy_ || wizard() || pick_ || entry_ || is_browser()) {
-        return "";
-    }
     for (int i = 0; i < cur().count; i++) {
         if (row_reset(i)) {
-            return reset_legend();
+            return true;
         }
     }
-    return "";
+    return false;
+}
+
+// T209 S3 (R5): a row has one line; what else it has to say - the reason it is greyed, what RETURN does, the path behind a file name - is said here and shown
+// in the foot while the row is selected. A screen's item says it in `sub`, a flat list's row in the same word.
+const char *MenuCtl::sel_detail()
+{
+    detail_[0] = 0;
+    int n = rows(), s = selected();
+    if (n <= 0 || s < 0 || s >= n || (is_browser() && !chooser_)) {
+        return detail_;
+    }
+    if (screen() && !is_browser()) {
+        Item it;
+        item(s, &it);
+        snprintf(detail_, sizeof(detail_), "%s", it.sub);
+        return detail_;
+    }
+    char l[120], r[120];
+    bool active;
+    row(s, l, sizeof(l), r, sizeof(r), &active, detail_, sizeof(detail_));
+    return detail_;
+}
+
+// T187 F4 / T209: the foot line. The status says its word, else the selected row says its own; when a row of the list carries the ring, the legend of the ring follows on
+// the same line (a status used to push the legend out, and the ring stood unexplained). A status the toast chip already says is not repeated.
+const char *MenuCtl::foot_line()
+{
+    if (status_[0] && !strcmp(status_, toast_)) {
+        return "";
+    }
+    const char *what = status_[0] ? status_ : sel_detail();
+    if (busy_ || wizard() || pick_ || entry_ || is_browser() || !ring_listed()) {
+        return what;
+    }
+    if (!what[0]) {
+        return reset_legend();
+    }
+    snprintf(foot_, sizeof(foot_), "%s   %s", what, reset_legend());
+    return foot_;
 }
 
 void MenuCtl::move(int d)
@@ -766,13 +894,26 @@ void MenuCtl::move(int d)
     s += d;
     if (s < 0) s = 0;
     if (s >= n) s = n - 1;
+    if (!is_browser() && heading(s)) {                              // T187: a heading takes no focus: the next row that does in the direction of the key, else the other way
+        int dir = d < 0 ? -1 : 1, k = s;
+        while (k >= 0 && k < n && heading(k)) {
+            k += dir;
+        }
+        if (k < 0 || k >= n) {
+            k = s;
+            while (k >= 0 && k < n && heading(k)) {
+                k -= dir;
+            }
+        }
+        s = (k >= 0 && k < n) ? k : was;
+    }
     // On a screen the lines that only show a value or a heading take no focus: the next one that does is the target (a step of one; a page jumps).
     if (screen() && !is_browser() && (d == 1 || d == -1)) {
         int step = d, k = s;
         while (k >= 0 && k < n) {
             Item it;
             item(k, &it);
-            if (it.kind != IK_VALUE && it.kind != IK_HEADING && it.kind != IK_INFO && !it.hidden && !it.dim) {
+            if (it.kind != IK_VALUE && it.kind != IK_HEADING && it.kind != IK_INFO && !it.hidden) {
                 s = k;
                 return;
             }
@@ -943,6 +1084,57 @@ void MenuCtl::begin_confirm_job(const Task *t, const char *question)
     set_status("RETURN confirms, <- cancels", false);
 }
 
+// T207: the prompt of a hotkey row. The keys are read from the physical keys (the USB keyboard's raw matrix and the C64 keyboard), not from the menu's key
+// codes, so a key the menu itself uses (F1-F8, cursor keys, RETURN) can be learned; ESC (RUN/STOP) cancels.
+void MenuCtl::begin_learn(int set)
+{
+    entry_ = true;
+    entry_text_mode_ = true;
+    entry_task_ = 0;
+    entry_set_ = -1;
+    ask_node_ = 0;
+    confirm_node_ = 0;
+    confirm_task_ = 0;
+    learn_ = set;
+    lrn_.begin(hk_read_keys(c_), hk_learn_is_modifier(c_, set), c_->io->now_ms());
+    status_[0] = 0;                                                  // the row and the foot already say it
+    status_bad_ = false;
+}
+
+bool MenuCtl::learn_poll()
+{
+    if (learn_ < 0) {
+        return false;
+    }
+    HkKeys got;
+    if (!lrn_.poll(hk_read_keys(c_), c_->io->now_ms(), &got)) {
+        return false;
+    }
+    const int set = learn_;
+    learn_ = -1;
+    entry_ = false;
+    if ((got.k >> 63) & 1) {                                        // RUN/STOP is the USB keyboard's ESC: it cancels
+        set_status("Cancelled", false);
+        return true;
+    }
+    char line[96];
+    const int v = hk_learn_value(c_, set, got, line, sizeof(line));
+    if (v < 0) {
+        set_status(line, true);
+        return true;
+    }
+    const Setting &s = c_->desc->settings[set];
+    OpResult r;
+    int rc = settings_set(c_, s.key, s.values[v], &r);
+    if (rc) {
+        set_status(r.msg, true);
+    } else {
+        snprintf(line, sizeof(line), "%s: %s", s.label, s.values[v]);
+        set_status(line, false);
+    }
+    return true;
+}
+
 void MenuCtl::begin_confirm(const MenuNode *n, const char *question)
 {
     entry_ = true;
@@ -1101,7 +1293,7 @@ void MenuCtl::begin_pick(const Task &t)
     pick_status();
 }
 
-// T180 D5: "Save media set..." asks for a name like New folder does; the list of "Load media set..." is the pick screen with the sets as its rows.
+// T198 (T180 D5): "Save as config..." asks for a name like New folder does; the list of "Load config..." is the pick screen with the configs as its rows.
 void MenuCtl::begin_set_save()
 {
     entry_ = true;
@@ -1112,20 +1304,24 @@ void MenuCtl::begin_set_save()
     confirm_node_ = 0;
     entry_rename_ = false;
     entry_mset_ = true;
-    entry_load("", MEDIASET_NAME_MAX);
-    set_status("Type the name of the set; RETURN saves what is mounted now, <- cancels", false);
+    entry_load("", CONFIG_NAME_MAX);
+    set_status("Type the name of the config; RETURN saves the media and the settings, <- cancels", false);
 }
 
 void MenuCtl::begin_set_load()
 {
-    int n = mediaset_list(c_, sets_, MEDIASETS_MAX);
+    const ConfigList *cl = 0;
+    int n = configs_cached(c_, &cl);
     if (n < 0) {
-        set_status("This core has no folder of its own, so it has no media sets", true);
+        set_status("This core has no folder, so no configs", true);
         return;
     }
     if (n == 0) {
-        set_status("No media set saved yet - \"Save media set...\" makes one", true);
+        set_status("No config saved yet - \"Save as config...\" makes one", true);
         return;
+    }
+    for (int i = 0; i < n; i++) {
+        snprintf(sets_[i], sizeof(sets_[i]), "%s", cl->name[i]);
     }
     pick_ = true;
     pick_sets_ = true;
@@ -1133,7 +1329,7 @@ void MenuCtl::begin_set_load()
     pick_n_ = n;
     pick_sel_ = 0;
     pick_path_[0] = 0;
-    set_status("Choose the set; RETURN loads it and resets the core, <- cancels", false);
+    set_status("Choose the config; RETURN loads it and resets the core, <- cancels", false);
 }
 
 // The file the selector took ("" clears): the setting's operation checks it; refused, the selector stays up and the status says why; kept, it closes.
@@ -1153,8 +1349,100 @@ MenuCtl::Result MenuCtl::pick_take(const char *path)
     return R_REDRAW;
 }
 
+bool MenuCtl::picture_row(const MenuEntry &e) const
+{
+    return e.kind == EK_SETTING && c_->desc->settings[e.index].apply && !strcmp(c_->desc->settings[e.index].apply, PICTURE_OP);
+}
+
+// T187 D5 (GitHub #50): the Picture row opens the modes the screen names. Browsing applies nothing; RETURN on another row applies it through the setting's
+// operation (the one REST and the web call) and starts the confirm of picture_service; RETURN on the mode in force, <- and ESC close it with no change.
+void MenuCtl::pick_modes_refresh(bool keep_cursor)
+{
+    char keep[48] = "";
+    if (keep_cursor && pick_sel_ < pm_.n) {
+        snprintf(keep, sizeof(keep), "%s", pm_.row[pick_sel_].name);
+    }
+    picture_modes(c_, &pm_);
+    if (keep[0]) {
+        for (int i = 0; i < pm_.n; i++) {                            // the cursor keeps its mode by name; a mode that is gone: the one in force
+            if (!strcmp(pm_.row[i].name, keep)) {
+                pick_sel_ = i;
+                return;
+            }
+        }
+        pick_sel_ = pm_.cur;
+    }
+    if (pick_sel_ >= pm_.n) {
+        pick_sel_ = pm_.n - 1;
+    }
+}
+
+void MenuCtl::begin_pick_modes()
+{
+    pick_ = true;
+    pick_modes_ = true;
+    pick_sets_ = false;
+    pick_set_ = -1;
+    pick_task_ = 0;
+    pick_path_[0] = 0;
+    picture_modes(c_, &pm_);
+    pick_n_ = pm_.n;
+    pick_sel_ = pm_.cur < pm_.n ? pm_.cur : 0;
+    char s[160];
+    picmodes_info(&pm_, s, sizeof(s));
+    set_status(s, false);
+}
+
 bool MenuCtl::pick_key(int k, Result *out)
 {
+    if (pick_modes_) {
+        int pk = k == KEY_UP ? PMK_UP : k == KEY_DOWN ? PMK_DOWN : k == KEY_HOME ? PMK_HOME : k == KEY_END ? PMK_END
+               : k == KEY_RETURN || k == KEY_SPACE ? PMK_OK : k == KEY_LEFT || k == KEY_ESCAPE ? PMK_BACK : PMK_OTHER;
+        switch (pk == PMK_OTHER ? PMA_NONE : picmodes_key(&pick_sel_, pm_.n, pm_.cur, pk)) {
+        case PMA_REDRAW:
+            *out = R_REDRAW;
+            return true;
+        case PMA_CLOSE:
+            pick_ = pick_modes_ = false;
+            set_status("", false);
+            *out = R_REDRAW;
+            return true;
+        case PMA_APPLY: {
+            int pi = picture_index(c_->desc);
+            if (pi < 0) {
+                pick_ = pick_modes_ = false;
+                set_status("", false);
+                *out = R_REDRAW;
+                return true;
+            }
+            const Setting &s = c_->desc->settings[pi];
+            OpResult r;
+            int rc = settings_set(c_, s.key, s.values[pick_sel_], &r);
+            pick_modes_refresh(true);
+            if (rc) {
+                set_status(r.msg[0] ? r.msg : "The mode was not taken", true);
+            } else {
+                char m[96];
+                picmodes_kept_text(pm_.row[pick_sel_].name, m, sizeof(m));
+                toast(m);                                            // T187 D4: the chip in the top bar
+                set_status("", false);
+            }
+            *out = R_REDRAW;
+            return true;
+        }
+        default:
+            break;
+        }
+        switch (k) {
+        case KEY_F1: case KEY_F2: case KEY_F3: case KEY_F4: case KEY_F5: case KEY_F6: case KEY_F7: case KEY_F8:
+        case KEY_BREAK: case KEY_F10: case KEY_SCRLOCK: case KEY_MENU:
+            pick_ = pick_modes_ = false;
+            return false;
+        default:
+            *out = R_NONE;
+            return true;
+        }
+    }
     if (pick_sets_) {
         switch (k) {
         case KEY_UP: if (pick_sel_ > 0) pick_sel_--; *out = R_REDRAW; return true;
@@ -1366,6 +1654,17 @@ bool MenuCtl::tick()
 
 bool MenuCtl::text_key(int k, Result *out)
 {
+    if (learn_ >= 0) {                                                // T207: every key is the answer, read from the physical keys (learn_poll); only ESC cancels
+        if (k == KEY_ESCAPE) {
+            learn_ = -1;
+            entry_ = false;
+            set_status("Cancelled", false);
+            *out = R_REDRAW;
+        } else {
+            *out = R_NONE;
+        }
+        return true;
+    }
     if (remote_q_) {                                                  // T192.1 MVP: a confirmation a remote request asked; the screen answers it like any other
         switch (k) {
         case KEY_RETURN:
@@ -1682,12 +1981,39 @@ MenuCtl::Result MenuCtl::change_setting(int dir)
     if (e.kind != EK_SETTING) {
         return R_NONE;
     }
+    if (picture_row(e)) {                                            // T187 D5: stepping would apply a mode; the page is the way
+        return R_NONE;
+    }
     const Setting &s = c_->desc->settings[e.index];
     int v = (c_->settings->value(e.index) + dir + s.nvalues) % s.nvalues;
+    char first[96];
+    first[0] = 0;
+    if (hk_learn_item(c_, e.index)) {                                // T207 D2: stepping skips a key another hotkey uses; when only the current one is left, it stays
+        char why[96];
+        why[0] = 0;
+        int hops = 0;
+        while (hops < s.nvalues && hk_value_refused(c_, e.index, v, why, sizeof(why))) {
+            if (!first[0]) {
+                snprintf(first, sizeof(first), "%s", why);
+            }
+            v = (v + dir + s.nvalues) % s.nvalues;
+            hops++;
+        }
+        if (hops >= s.nvalues) {
+            set_status(first, true);
+            return R_REDRAW;
+        }
+    }
     // the same operation a REST or WS client calls (T104.1 D3)
     OpResult r;
     int rc = settings_set(c_, s.key, s.values[v], &r);
-    set_status(r.msg, rc != 0);
+    if (!rc && first[0]) {                                           // the key(s) stepped over are named
+        char l2[128];
+        snprintf(l2, sizeof(l2), "%s: %s (%s)", s.label, s.values[v], first);
+        set_status(l2, false);
+    } else {
+        set_status(r.msg, rc != 0);
+    }
     return R_REDRAW;
 }
 
@@ -1707,6 +2033,10 @@ bool MenuCtl::pump(bool quiet)
             nk++;
             changed = true;
         }
+    }
+    if (nk == 0 && learn_poll()) {                                   // T207: the key the person pressed for a hotkey row
+        nk++;
+        changed = true;
     }
     uint32_t now = c_->io->now_ms();
     char ln[24];
@@ -1917,6 +2247,14 @@ MenuCtl::Result MenuCtl::activate(bool primary, bool all)
         return R_REDRAW;
     }
     case EK_SETTING:
+        if (picture_row(e)) {
+            begin_pick_modes();
+            return R_REDRAW;
+        }
+        if (hk_learn_item(c_, e.index)) {                              // T207 D1: RETURN on a hotkey row asks for the key; LEFT / RIGHT still step
+            begin_learn(e.index);
+            return R_REDRAW;
+        }
         if (c_->desc->settings[e.index].kind == 3) {
             begin_pick_file(e.index);
             return R_REDRAW;
@@ -1932,8 +2270,17 @@ MenuCtl::Result MenuCtl::activate(bool primary, bool all)
     case EK_LOAD_SET:
         begin_set_load();
         return R_REDRAW;
+    case EK_OPENS:                                                  // T187 D2: the page this row opens is the hidden tab of this area that names this tab as its parent
+        for (int b = 0; b < tree_.a[area_].ntabs; b++) {
+            if (tree_.a[area_].tabs[b].page && tree_.a[area_].tabs[b].parent == tab_) {
+                go(area_, b);
+                return R_REDRAW;
+            }
+        }
+        return R_NONE;
     case EK_NODE:
         return run_node(tree_.nodes[e.index], e.label);
+    case EK_HEADING:
     case EK_BROWSER:
     case EK_INFO:
         return R_NONE;
@@ -2095,15 +2442,37 @@ MenuCtl::Result MenuCtl::hotkey(int k)
     return R_NONE;
 }
 
-// The line at the foot: in the Library the keys of the row under the cursor, elsewhere the keys of the screen and the letters of the core.
+// T209 D4: the same words in the host and the core application: "+/- PAGE" names the keys of a list that is longer than its window. Not in a text entry or a job.
 void MenuCtl::footer_legend(char *out, int n)
+{
+    footer_legend_keys(out, n);
+    if (paged_ && !entry_ && !busy_ && !wizard() && !fm_.view && !(app_mode_ && layout_is("terminal"))) {
+        int p = (int)strlen(out);
+        snprintf(out + p, n - p, "  +/- PAGE");
+    }
+}
+
+// The line at the foot: in the Library the keys of the row under the cursor, elsewhere the keys of the screen and the letters of the core.
+void MenuCtl::footer_legend_keys(char *out, int n)
 {
     if (confirm_node_ || confirm_task_ || flow_q_ || remote_q_) {
         snprintf(out, n, "RETURN  YES   <-  NO");
         return;
     }
+    if (learn_ >= 0) {
+        snprintf(out, n, "PRESS A KEY   ESC  CANCEL");
+        return;
+    }
     if (entry_) {                                                      // a text has the keys: no hotkey of the menu runs here
         snprintf(out, n, "TYPE   DEL  DELETE   RETURN  OK   <-  CANCEL");
+        return;
+    }
+    if (pick_ && pick_modes_ && picture_confirm_pending()) {           // T187 D9: the question is up: its keys, not the page's
+        snprintf(out, n, "%s", picmodes_confirm_keys());
+        return;
+    }
+    if (pick_ && pick_modes_) {
+        snprintf(out, n, "UP/DOWN  BROWSE   RETURN  USE THIS MODE   <-  BACK");
         return;
     }
     if (pick_ && pick_sets_) {
@@ -2185,6 +2554,12 @@ void MenuCtl::footer_legend(char *out, int n)
         }
         return;
     }
+    if (cur().page) {                                                 // T187 D2: a page a row opened; gate 1: its way back is worded as every list's
+        const int sel = cur().count > 0 ? sel_[area_][tab_] : -1;
+        const bool learn_row = sel >= 0 && tree_.e[cur().first + sel].kind == EK_SETTING && hk_learn_item(c_, tree_.e[cur().first + sel].index);
+        snprintf(out, n, "%s", learn_row ? "UP/DOWN  CHOOSE   RETURN  LEARN KEY   <- ->  CHANGE   ESC  BACK" : "UP/DOWN  CHOOSE   <- ->  CHANGE   ESC  BACK");
+        return;
+    }
     int nmax = 1;
     const MenuArea &ar = tree_.a[area_];
     for (int b = 0; b < ar.ntabs; b++) {
@@ -2261,6 +2636,9 @@ bool MenuCtl::tab_is_hidden(int area, int tab) const
 {
     if (area < 0 || area >= tree_.nareas || tab < 0 || tab >= tree_.a[area].ntabs) {
         return false;
+    }
+    if (tree_.a[area].tabs[tab].page) {                                 // T187 D2: a page a row opens
+        return true;
     }
     const char *l = tree_.a[area].tabs[tab].layout;
     const char *w = l ? strchr(l, ';') : 0;
@@ -2487,10 +2865,14 @@ const char *MenuCtl::dialog(char *text, int n) const
         return "busy";
     }
     if (pick_) {
-        snprintf(text, n, "%s", pick_sets_ ? sets_[pick_sel_] : pick_path_);
+        snprintf(text, n, "%s", pick_modes_ ? pm_.row[pick_sel_].name : pick_sets_ ? sets_[pick_sel_] : pick_path_);
         return "pick";
     }
     if (entry_) {
+        if (learn_ >= 0) {
+            snprintf(text, n, "%s", c_->desc->settings[learn_].label);
+            return "learn";
+        }
         if (confirm_node_ || confirm_task_ || remote_q_ || flow_q_) {
             snprintf(text, n, "%s", confirm_q_);
             return "confirm";
@@ -2560,8 +2942,8 @@ void MenuCtl::item(int i, Item *it)
     case EK_MEDIA: {
         it->kind = IK_MEDIA;
         const char *w = ops_state(c_, c_->desc->media[e.index].state);
-        snprintf(it->sub, sizeof(it->sub), "%s", w ? w : (c_->desc->media[e.index].eject_op ? "No image" : "Nothing loaded"));
-        snprintf(it->chip, sizeof(it->chip), "%s", !w ? "empty" : (c_->desc->media[e.index].eject_op ? "mounted" : "loaded"));
+        snprintf(it->value, sizeof(it->value), "%s", w ? w : (c_->desc->media[e.index].eject_op ? "No image" : "Nothing loaded"));        // T209 S2: the mounted file is the row's value
+        snprintf(it->chip, sizeof(it->chip), "%s", !w ? "empty" : (c_->desc->media[e.index].eject_op ? "mounted" : "loaded"));            // the word only colours the row's dot (tone_of)
         it->enabled = active;
         break;
     }
@@ -2586,9 +2968,13 @@ void MenuCtl::item(int i, Item *it)
         it->tone = 0;
         break;
     }
+    case EK_HEADING:                                                  // T187 S1: a heading names a block; it takes no focus
+        it->kind = IK_HEADING;
+        it->enabled = false;
+        break;
     case EK_INFO:
         it->kind = IK_INFO;
-        snprintf(it->sub, sizeof(it->sub), "%s", right);
+        snprintf(it->value, sizeof(it->value), "%s", right);
         it->enabled = false;
         break;
     case EK_NODE: {
@@ -2643,7 +3029,7 @@ void MenuCtl::item(int i, Item *it)
             if (!t[0]) {
                 it->dim = true;
                 char em[40];
-                snprintf(it->sub, sizeof(it->sub), "%s", ui_attr(n.attr, "empty", em, sizeof(em)) ? em : "none");
+                snprintf(it->value, sizeof(it->value), "%s", ui_attr(n.attr, "empty", em, sizeof(em)) ? em : "none");
                 it->chip[0] = 0;                                              // nothing to eject or remove: no hotkey shown
             }
         }
@@ -3011,6 +3397,7 @@ MenuCtl::Result MenuCtl::run_intent(const MenuIntent &in, bool *took)
         return R_NONE;
     case MI_RIGHT:
         if (on_setting()) return change_setting(1);
+        if (!is_browser() && !screen() && cur().count > 0 && tree_.e[cur().first + sel_[area_][tab_]].kind == EK_OPENS) { return activate(); }
         if (is_browser() && !chooser_) { return activate(true); }          // the file's first action, without the list
         if (screen() && !is_browser()) { move(1); return R_REDRAW; }
         return R_NONE;
@@ -3080,6 +3467,10 @@ MenuCtl::Result MenuCtl::run_intent(const MenuIntent &in, bool *took)
                     fm_.parent_dir();
                     return R_REDRAW;
                 }
+            }
+            if (cur().page && cur().parent >= 0) {                          // T187 D2: a page goes back to the tab whose row opened it; that tab shows the row it had
+                go(area_, cur().parent);
+                return R_REDRAW;
             }
             if (tab_ != 0) {
                 go(area_, 0);

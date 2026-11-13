@@ -10,6 +10,7 @@ const CoreDesc *const core_table[] = {
     &cpc_desc,
     &vc20_desc,
     &c264_desc,
+    &pet_desc,
     &c128_desc,
     &c64scpu_desc,
     &zxnext_desc,

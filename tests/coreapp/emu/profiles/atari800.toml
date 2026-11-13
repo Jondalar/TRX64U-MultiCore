@@ -1,0 +1,13 @@
+# The Atari 800 XL core of TRX64U-MultiCore as the core application sees it (the layout of amiga1200.toml). Tests only (T205 emulator pictures).
+name = "atari800"
+id = "A8XL"
+board = "multicore"
+
+[regs]
+0x0A0 = 0x01                 # CTRL: b0 HOLD
+
+[handover]
+core = "Atari 800 XL"
+id = "atari800"
+path = "/Usb0/cores/atari800.cor"
+video = "1080p"

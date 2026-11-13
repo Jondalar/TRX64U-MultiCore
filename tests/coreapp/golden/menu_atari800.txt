@@ -7,6 +7,13 @@ area F1 Home
     info Media
     info ROMs
     info Libraries
+    media D1:
+    media D2:
+    media D3:
+    media D4:
+    media Cartridge
+    fixed Save as config...
+    fixed Load config...
 area F3 Library
   tab 1 Browse
     browser Browse
@@ -19,15 +26,7 @@ area F3 Library
       filetype .rom: Insert cartridge, cold start
       filetype .bin: Insert cartridge, cold start
 area F5 ATARI
-  tab 1 Summary
-    media D1:
-    media D2:
-    media D3:
-    media D4:
-    media Cartridge
-    fixed Save media set...
-    fixed Load media set...
-  tab 2 Settings
+  tab 1 ATARI
     setting RAM size = 64 KB | 128 KB | 320 KB Compy Shop | 320 KB Rambo | 576 KB Compy Shop | 576 KB Rambo | 1088 KB Rambo (default 64 KB, at next reset)
     setting Video standard = PAL | NTSC (default PAL, at next reset)
     setting Joystick ports = Normal | Swapped (default Normal, live)
@@ -45,9 +44,13 @@ area F7 Actions
     task Eject D4:
     task Create blank ATR (asks a name)
 area F8 System (shifted)
-  tab 1 Expert
-    fixed Reset to host defaults
+  tab 1 System
+    heading Actions
     fixed Restart core
-    fixed Bug report
-    fixed WiFi
     fixed Return to host menu
+    heading Network
+    fixed WiFi
+    heading Support
+    fixed Bug report
+    heading Reset
+    fixed Reset to host defaults

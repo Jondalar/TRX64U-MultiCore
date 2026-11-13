@@ -690,7 +690,7 @@ module layer2_c128 #(
         .tape_read(trd_s_1), .tape_sense_n(tsn_s_1), .tape_motor_n(tape_motor_n), .tape_write(tape_write),
         .pot_cmp(pc_s2), .pot_dis(pot_dis),
         .x_keys(xk_layer), .x_capslk(rg_capslk), .x_d4080(rg_d4080), .x_boot64(rg_boot64),
-        .vdc_rgbi(vdc_rgbi), .vdc_ce(vdc_ce), .vdc_hb(vdc_hb), .vdc_vb(vdc_vb), .c128_fast(c128_fast), .c128_stat(c128_stat),
+        .vdc_rgbi(vdc_rgbi), .vdc_ce(vdc_ce), .vdc_hb(vdc_hb), .vdc_vb(vdc_vb), .vdc_il(vdc_il), .c128_fast(c128_fast), .c128_stat(c128_stat),
         .vd_clk(cpu_clk), .vd_addr(vd_addr_t), .vd_we(vd_we_t), .vd_wdata(vd_wdata_t), .vd_rdata(vd_rdata_k),
         .chr_wclk(cpu_clk), .chr_we(chr_we_w), .chr_a(chr_a_w), .chr_d(chr_d_w), .chr_q(chr_q_w),
         .dbg_clr_tgl(dbg_clr_w), .fr_min(fr_min_w), .fr_max(fr_max_w), .act_q(act_w)
@@ -708,6 +708,7 @@ module layer2_c128 #(
     // ---- T113: the VDC's picture and the application's window ---------------------------------------------------------------
     wire [3:0]  vdc_rgbi;
     wire        vdc_ce, vdc_hb, vdc_vb, c128_fast;
+    wire  [1:0] vdc_il;
     wire  [7:0] vd_rdata_k;
     // variant 2: the application's window into the VDC (VRAM, registers, dirty bits): driven from flops that cannot be folded
     // (the real window is a cw page; its adapter is estimated, not written)
@@ -715,14 +716,14 @@ module layer2_c128 #(
     c128_tie_ff #(.W(25)) tie_vd (.clk(cpu_clk), .o({vd_addr_t, vd_we_t, vd_wdata_t}));
     c128_keep #(.W(8)) keep_vd (.i(vd_rdata_k), .o());
 `ifdef VDC_WHOLE
-    // variant 1: the frame writer of the C264 core (cores/c264/rtl/trx/c264_pixw.v, unchanged) fed with the VDC's pixels
-    // as RGB565, 640 x 200, into the e_* port of the host's DDR2 arbiter; the buffer address registers are the app's (quasi-static)
+    // variant 1: the frame writer c128_pixw.v (a copy of the C264 core's c264_pixw.v with il/field ports: non-interlaced frames doubled to 640 x 400, interlaced ones woven into 640 x 480) fed with the VDC's pixels
+    // as RGB565, 640 x 200 a frame or field, into the e_* port of the host's DDR2 arbiter; the buffer address registers are the app's (quasi-static)
     wire [15:0] vdc_rgb565;
     c128_rgbi rgbi_i (.rgbi(vdc_rgbi), .rgb565(vdc_rgb565));
     wire pw_quiet;
-    c128_pixw #(.X0(0), .Y0(0), .COLS(640), .LINES(200)) pixw (
+    c128_pixw #(.X0(0), .Y0(0), .COLS(640), .LINES(200), .LINES_IL(240)) pixw (
         .sys_clk(sys_clk), .sys_rst(sys_rst), .dotst(vdc_ce && c64_ce && rg_vdc_en), .rgb565(vdc_rgb565),
-        .hblank(vdc_hb), .vblank(vdc_vb), .quiet(pw_quiet), .frame_tgl(pw_ftgl), .latest(pw_latest), .seq(pw_seq),
+        .hblank(vdc_hb), .vblank(vdc_vb), .il(vdc_il[1]), .field(vdc_il[0]), .quiet(pw_quiet), .frame_tgl(pw_ftgl), .latest(pw_latest), .seq(pw_seq),
         .overruns(pw_over), .fb_base(rg_fb_base), .fb_stride(rg_fb_stride),
         .ui_clk(ui_clk), .ui_rst(ui_rst || !ddr_calib),
 `ifdef ROM_CACHE

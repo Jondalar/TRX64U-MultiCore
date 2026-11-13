@@ -2,6 +2,7 @@
 #include "hostdomain.h"
 #include "hostdecl.h"
 #include "host_core.h"
+#include "host_core_cfgov.h"
 #include "host_core_flow.h"
 #include "host_core_flow_restore.h"
 #include "host_core_flow_format.h"
@@ -57,8 +58,10 @@
 #include "trxcanvas.h"
 #include "videomode.h"
 #include "hostvideo.h"
+#include "picmodes.h"
 #include "directboot.h"
 #include "menukeys.h"
+#include "startfile.h"
 #include "ovtext.h"
 #include "handover.h"
 #include "webui.h"
@@ -172,10 +175,11 @@ static inline uint32_t note_color(void) { return tone_col(hc_nav().note_tone); }
 static uint16_t icon_c[BOOT_MAX][ICON_PX] __attribute__((aligned(64)));
 static bool icon_c_ok[BOOT_MAX];
 static int icons_gen;                     // bumped when icon buffers are rewritten, so a row redraws its image
-#define MROWS_MAX 8
+#define MROWS_MAX 12
 #define MENU_ROW0 (COMPACT ? 66 : 76)
 #define MROWS (mrows_n)                         // rows that fit above the note and the countdown (T101 D4): 5 on the full canvas, from the height below it
-static int mrows_n = 5;
+static int mrows_n = 5, erows_n = 5;          // T209: the editor's panel above its list takes room: its list is shorter than the menu's
+#define EROWS (erows_n)
 static bool need_full = true;             // the render flag
 // T192 D21: the arm of a destructive row action that takes its key twice (DEL DEL in the editor and the browser, F F on the WiFi page) is the core's (host_core_nav.h:
 // hc_arm_*, HcKeyArm); the core says what the first key shows (the note) and runs what the second one confirms.
@@ -216,8 +220,6 @@ static int map_key(int k)
     return k;
 }
 
-static FireGuard fire_guard;     // S3: the fire that brought the menu is not a RETURN in it (directboot.h)
-
 // T192 D21: every key reaches the handlers through the service's key path (hostdomain.h): the board's own key enters as a `key` intent, a remote one is
 // queued by its intent, and what comes out of the queue is what on_key and the modal waits read. Nothing here changes what a key does.
 static int host_getch_nowait(void)
@@ -229,9 +231,6 @@ static int host_getch_nowait(void)
     int k = system_usb_keyboard.getch();
     if (k < 0 && matrix_kb) {
         k = matrix_kb->getch_nowait();
-        if (fireguard_drop(&fire_guard, k)) {
-            k = -1;
-        }
     }
     k = map_key(k);
     if (k >= 0) {
@@ -251,9 +250,6 @@ static int host_getch(void)
     int k = system_usb_keyboard.getch();
     if (k < 0 && matrix_kb) {
         k = matrix_kb->getch();
-        if (fireguard_drop(&fire_guard, k)) {
-            k = -1;
-        }
     }
     k = map_key(k);
     if (k >= 0) {
@@ -542,6 +538,7 @@ static void cfg_after(int r);
 static void lazy_reset(void)
 {
     hc_lazy_reset();
+    hc_cfgov_forget();                       // T198: the badges are counted again
     for (int i = 0; i < BOOT_MAX; i++) {
         icon_c_ok[i] = false;
     }
@@ -559,7 +556,7 @@ static bool row_visible(int i)
         return false;
     }
     int first = nv.view == V_MENU ? nv.mfirst : nv.efirst;
-    return i >= first && i < first + MROWS;
+    return i >= first && i < first + (nv.view == V_MENU ? MROWS : EROWS);
 }
 
 // One unit of the lazy read: one phase of one entry, or (last, when quiet) one migration. Returns whether it did anything.
@@ -651,10 +648,14 @@ static int in_menu(const char *path) { return hc_in_menu(path); }
 #define BROWS (brows_n)                         // browser rows: 13 on the full canvas, from the height below it
 static int brows_n = 13;
 // the pitch of the menu rows and the editor rows, and where the editor's panel ends (compact: its settings take a line each)
-#define ED_PN_H (COMPACT ? 104 : 82)
+#define ED_PN_H (COMPACT ? 126 : 104)
 #define ED_ROW0 (ED_PN_H + 86)
 // the width a row's text may take: the row less the icon, the badge and the default badge
-#define ROW_RESERVE (COMPACT ? 290 : 330)
+// T209 D1/D2: one line per row. The row is MROW_H high, the next starts MROW_P below it (2 px apart).
+#define MROW_H (COMPACT ? 24 : 30)
+#define MROW_P (MROW_H + 2)
+#define BADGE_H (COMPACT ? 20 : 22)
+#define ROW_RIGHT (10 + BADGE_W + 6 + CFG_W + 6 + DEF_W + 8)       // what the three badges and their gaps take at the right of a row (the name's room is the rest)
 
 // The page's explanatory line under the title: its width is the column's in the compact layout (a line that does not fit ends in dots, never in the edge of the canvas).
 static lv_obj_t *sub1(lv_obj_t *p, const char *text, const char *compact_text = 0)
@@ -668,7 +669,8 @@ static lv_obj_t *sub1(lv_obj_t *p, const char *text, const char *compact_text = 
 
 
 struct Row {
-    lv_obj_t *box, *a, *b, *ic, *icl, *img, *defb, *defl, *stb, *stl;
+    lv_obj_t *box, *a, *b, *ic, *icl, *img, *defb, *defl, *stb, *stl, *cfb, *cfl;
+    int w;                                      // the row's width (T198: the text lines' room depends on the badge)
     lv_obj_t *mk[4];                            // the selection mark: top, bottom, left bar, right (T101 areas)
     lv_draw_buf_t dsc;                          // the icon image's source (T101 D5)
     const uint16_t *ip;
@@ -681,7 +683,7 @@ static char chips_sig[64];
 static int nav_shown = -1;                      // the navigation entry that is drawn as the current one
 static Row mrow[MROWS_MAX], erow[MROWS_MAX];
 static lv_obj_t *m_hint, *m_sub, *m_pos, *m_note, *m_cdbox;
-static lv_obj_t *e_cd, *e_dir, *e_def, *e_note, *e_pos;
+static lv_obj_t *e_cd, *e_dir, *e_def, *e_dcfg, *e_note, *e_pos;
 static lv_obj_t *b_left, *b_path, *b_empty, *b_note, *b_right, *b_sub;
 static lv_obj_t *b_hl[4];                       // the selection mark of the list (4 strips, see marks_build)
 static lv_obj_t *b_mark[BROWS_MAX], *b_name[BROWS_MAX], *b_size[BROWS_MAX];
@@ -707,6 +709,80 @@ static void set_txt(lv_obj_t *l, const char *s)
         }
         lv_label_set_text(l, s);
     }
+}
+
+// T209: a text that is wider than the label is cut in the middle ("Long na...me.cor"): the head and the end both stay readable. The label's room is
+// its fit1 width; the cut text goes through set_txt.
+static void set_txt_mid(lv_obj_t *l, const char *s)
+{
+    static char buf[256];
+    const lv_font_t *f = lv_obj_get_style_text_font(l, LV_PART_MAIN);
+    const int room = (int)(intptr_t)lv_obj_get_user_data(l) - 4;
+    lv_point_t sz;
+    lv_text_get_size(&sz, s, f, 0, 0, LV_COORD_MAX, LV_TEXT_FLAG_NONE);
+    if (room <= 0 || sz.x <= room || strlen(s) >= sizeof(buf) - 4) {
+        set_txt(l, s);
+        return;
+    }
+    const int n = (int)strlen(s);
+    int head = n / 2, tail = n - head;                 // start from the whole text and take one character off the longer side per step
+    for (;;) {
+        int h = head, t = tail;
+        while (h > 0 && ((unsigned char)s[h] & 0xC0) == 0x80) {
+            h--;                                       // never cut inside a UTF-8 sequence
+        }
+        while (t < n && ((unsigned char)s[n - t] & 0xC0) == 0x80) {
+            t--;
+        }
+        memcpy(buf, s, (size_t)h);
+        memcpy(buf + h, "...", 3);
+        memcpy(buf + h + 3, s + n - t, (size_t)t);
+        buf[h + 3 + t] = 0;
+        lv_text_get_size(&sz, buf, f, 0, 0, LV_COORD_MAX, LV_TEXT_FLAG_NONE);
+        if (sz.x <= room || h + t <= 2) {
+            break;
+        }
+        if (head >= tail) {
+            head--;
+        } else {
+            tail--;
+        }
+    }
+    set_txt(l, buf);
+}
+
+// T209: the key legend. The compact foot has two lines; a line breaks between two keys, never inside a phrase.
+static void set_foot(lv_obj_t *l, const char *s)
+{
+    static char buf[256];
+    if (!COMPACT || strlen(s) >= sizeof(buf)) {
+        set_txt(l, s);
+        return;
+    }
+    const lv_font_t *f = lv_obj_get_style_text_font(l, LV_PART_MAIN);
+    lv_point_t sz;
+    lv_text_get_size(&sz, s, f, 0, 0, LV_COORD_MAX, LV_TEXT_FLAG_NONE);
+    if (sz.x <= SW - 24) {
+        set_txt(l, s);
+        return;
+    }
+    snprintf(buf, sizeof(buf), "%s", s);
+    char *cut = 0;
+    for (char *c = strstr(buf, "    "); c; c = strstr(c + 4, "    ")) {
+        char keep = *c;
+        *c = 0;
+        lv_text_get_size(&sz, buf, f, 0, 0, LV_COORD_MAX, LV_TEXT_FLAG_NONE);
+        *c = keep;
+        if (sz.x > SW - 24) {
+            break;
+        }
+        cut = c;
+    }
+    if (cut) {
+        *cut = '\n';
+        memmove(cut + 1, cut + 4, strlen(cut + 4) + 1);
+    }
+    set_txt(l, buf);
 }
 
 static void set_col(lv_obj_t *l, uint32_t col)
@@ -759,67 +835,46 @@ static void row_style(Row &r, bool on)
 
 #define BADGE_W (COMPACT ? 112 : 150)
 #define DEF_W (COMPACT ? 70 : 78)
+#define CFG_W (COMPACT ? 84 : 98)          // T198: the "N configs" badge, between the status and the default badge (mock-up order: default, N configs, status)
 
-static void build_row(Row &r, lv_obj_t *par, int x, int y, int w, int h, bool icon)
+static void build_row(Row &r, lv_obj_t *par, int x, int y, int w, int h, bool menu)
 {
     r.box = box(par, x, y, w, h, C_PANEL, 1, C_LINE);
-    int tx = 12;
-    if (icon) {
-        r.ic = box(r.box, 10, 12, ICON_TILE_W, 32, C_PANEL2, 0);
-        r.icl = txt(r.ic, 4, 8, "", F_SMALL, C_MUTED, 40);
-        r.img = lv_image_create(r.ic);
-        lv_obj_set_pos(r.img, 0, 0);
-        lv_obj_set_size(r.img, ICON_W, ICON_W);       // the picture's own size: no bars, no fractional zoom
-        lv_image_set_scale(r.img, 256);               // 1:1 in the 960 x 540 layer; the pixel layer's own x2 (PX_CTRL 0x22) is whole
-        set_hidden(r.img, true);
-        tx = 70;
-    }
-    r.a = fit1(txt(r.box, tx, icon ? 6 : 4, "", icon ? F_TEXT : F_SMALL, C_INK, w - ROW_RESERVE), w - ROW_RESERVE);
-    r.b = fit1(txt(r.box, tx, icon ? 30 : 23, "", F_SMALL, C_MUTED, w - ROW_RESERVE), w - ROW_RESERVE);
-    int by = icon ? 17 : 11;
-    r.stb = box(r.box, w - 10 - BADGE_W, by, BADGE_W, 22, C_PANEL2, 1, C_OK);
-    r.stl = fit1(txt(r.stb, 6, 2, "", F_SMALL, C_OK, BADGE_W - 12), BADGE_W - 12);
-    r.defb = box(r.box, w - 10 - BADGE_W - DEF_W - 6, by, DEF_W, 22, C_HOST, 0);
-    r.defl = txt(r.defb, COMPACT ? 6 : 8, 2, "default", F_SMALL, C_BG);
+    r.w = w;
+    const int tx = 12;
+    const lv_font_t *f = menu && !COMPACT ? F_TEXT : F_SMALL;
+    const int ty = (h - 2 - lv_font_get_line_height(f)) / 2;
+    const int room = w - tx - ROW_RIGHT;
+    r.a = fit1(txt(r.box, tx, ty, "", f, C_INK, room), room);
+    const int by = (h - 2 - BADGE_H) / 2;
+    const int bty = (BADGE_H - 2 - lv_font_get_line_height(F_SMALL)) / 2;
+    r.stb = box(r.box, w - 10 - BADGE_W, by, BADGE_W, BADGE_H, C_PANEL2, 1, C_OK);
+    r.stl = fit1(txt(r.stb, 6, bty, "", F_SMALL, C_OK, BADGE_W - 12), BADGE_W - 12);
+    r.defb = box(r.box, w - 10 - BADGE_W - DEF_W - 6, by, DEF_W, BADGE_H, C_HOST, 0);
+    r.defl = txt(r.defb, 0, bty + 1, "default", F_SMALL, C_BG, DEF_W);
+    lv_obj_set_style_text_align(r.defl, LV_TEXT_ALIGN_CENTER, 0);                 // centred in the badge
+    r.cfb = box(r.box, w - 10 - BADGE_W - CFG_W - 6, by, CFG_W, BADGE_H, C_PANEL2, 1, C_HOST);
+    r.cfl = fit1(txt(r.cfb, 6, bty, "", F_SMALL, C_HOST, CFG_W - 12), CFG_W - 12);
     marks_build(r.mk, r.box, -1, -1, w, h);          // last: on top of the row's own widgets
 }
 
-// Row i of the menu or, with menu_style false, of the editor (the same entries).
-static void fill_row(Row &r, int i, bool menu_style)
+// Row i of the menu or of the editor (the same entries): the name and the badges. The path and the version of the selected row are the page's detail line.
+static void fill_row(Row &r, int i)
 {
     HcEntryRow v;
-    if (!hc_row_entry(i, menu_style, &v)) {
+    if (!hc_row_entry(i, true, &v)) {
         set_hidden(r.box, true);
         return;
     }
     set_hidden(r.box, false);
-    if (menu_style) {
-        const uint16_t *icon = icon_c_ok[i] ? icon_c[i] : 0;
-        set_txt(r.icl, v.tile);
-        if (icon) {
-            if (r.ip != icon || r.gen != icons_gen) {
-                lv_draw_buf_init(&r.dsc, 32, 32, LV_COLOR_FORMAT_RGB565, 64, (void *)icon, ICON_PX * 2);
-                lv_image_set_src(r.img, &r.dsc);
-                lv_obj_invalidate(r.img);
-                r.ip = icon;
-                r.gen = icons_gen;
-            }
-        } else {
-            r.ip = 0;
-        }
-        set_hidden(r.img, !icon);
-        set_hidden(r.icl, icon != 0);
-        // a picture sits in a box of exactly its size (the 48 wide box is the text tile's); the text column stays where it is
-        int ix = icon ? 10 + (ICON_TILE_W - ICON_W) / 2 : 10, iw = icon ? ICON_W : ICON_TILE_W;
-        if (lv_obj_get_x(r.ic) != ix) {
-            lv_obj_set_pos(r.ic, ix, 12);
-        }
-        if (lv_obj_get_style_width(r.ic, LV_PART_MAIN) != iw) {
-            lv_obj_set_width(r.ic, iw);
+    {   // the name's room is what the badges that show leave (T198: the "N configs" badge, T209: the "default" badge too)
+        const int want = r.w - 12 - ROW_RIGHT + (v.cfgbadge[0] ? 0 : CFG_W + 6) + (v.def ? 0 : DEF_W + 6);
+        if (want != (int)(intptr_t)lv_obj_get_user_data(r.a)) {
+            lv_obj_set_width(r.a, want);
+            lv_obj_set_user_data(r.a, (void *)(intptr_t)want);
         }
     }
-    set_txt(r.a, v.name);
-    set_txt(r.b, v.sub);
+    set_txt_mid(r.a, v.name);
     set_txt(r.stl, v.badge);
     uint32_t col = tone_col(v.badge_tone);
     set_col(r.stl, col);
@@ -828,6 +883,27 @@ static void fill_row(Row &r, int i, bool menu_style)
         lv_obj_set_style_border_color(r.stb, bc, 0);
     }
     set_hidden(r.defb, !v.def);
+    {   // the default badge is the first of the badges: it moves left by the width of the "N configs" badge when that one shows
+        const int dx = r.w - 10 - BADGE_W - DEF_W - 6 - (v.cfgbadge[0] ? CFG_W + 6 : 0);
+        if (lv_obj_get_x(r.defb) != dx) {
+            lv_obj_set_x(r.defb, dx);
+        }
+    }
+    set_txt(r.cfl, v.cfgbadge);
+    set_hidden(r.cfb, !v.cfgbadge[0]);
+}
+
+// The detail line under a list: the note when there is one, else the selected entry's path and version (T209 S4).
+static void row_detail(lv_obj_t *l)
+{
+    HcEntryRow v;
+    if (nv.note[0] || nv.sel < 0 || !hc_row_entry(nv.sel, true, &v)) {
+        set_txt_mid(l, nv.note);
+        set_col(l, note_color());
+        return;
+    }
+    set_txt_mid(l, v.sub);
+    set_col(l, C_MUTED);
 }
 
 // ---- header chips: rebuilt only when their text changed --------------------------------------------------------
@@ -907,6 +983,7 @@ static void cd_update(void)
 #define foot_cm_ask1 hc_foot(HCF_CM_ASK1)
 #define foot_cm_ask2 hc_foot(HCF_CM_ASK2)
 #define foot_wm hc_foot(HCF_WM)
+#define foot_pm hc_foot(HCF_PM)
 static const int foot_all[] = { HCF_MENU, HCF_BROWSE, HCF_EDIT, HCF_NET, HCF_SET, HCF_BR_TXU, HCF_BR_ZIP, HCF_BR_INSPECT, HCF_BR_CFW, HCF_BR_BACKUP, HCF_BR_MEDIA, HCF_BR_PLAIN, HCF_BR_FILE,
                                 HCF_BR_DIR, HCF_BR_PICK_COPY, HCF_BR_PICK_MOVE, HCF_BR_ASK, HCF_CM_LIST, HCF_CM_EMPTY, HCF_CM_ASK1, HCF_CM_ASK2, HCF_WM };
 
@@ -924,12 +1001,12 @@ static void build_menu(void)
 {
     lv_obj_t *p = view_box(V_MENU);
     txt(p, CX0, COMPACT ? 8 : 14, page_title("menu"), F_TITLE, C_INK);
-    m_sub = fit1(txt(p, CX0, COMPACT ? 38 : 46, "", F_SMALL, C_MUTED, CW - 220), CW - 220);
-    m_pos = txt(p, CX0 + CW - 200, COMPACT ? 40 : 52, "", F_SMALL, C_MUTED, 200);
+    m_sub = fit1(txt(p, CX0, COMPACT ? 38 : 46, "", F_SMALL, C_MUTED, CW), CW);
+    m_pos = txt(p, CX0 + CW - 200, COMPACT ? 14 : 22, "", F_SMALL, C_MUTED, 200);      // T209: on the title's line, so the subtitle has the whole column
     lv_obj_set_style_text_align(m_pos, LV_TEXT_ALIGN_RIGHT, 0);
     m_hint = txt(p, CX0, 100, HC_NO_CORES_HINT, F_TEXT, C_MUTED);
     for (int i = 0; i < MROWS; i++) {
-        build_row(mrow[i], p, CX0, MENU_ROW0 + i * 62, CW, 56, true);
+        build_row(mrow[i], p, CX0, MENU_ROW0 + i * MROW_P, CW, MROW_H, true);
     }
     m_note = fit1(txt(p, CX0, CH - 74, "", F_SMALL, C_MUTED, CW), CW);
     m_cdbox = box(p, CX0, CH - 44, CW, 32, C_BG, 0);
@@ -957,13 +1034,15 @@ static void update_menu(void)
     set_txt(m_sub, t.sub);
     set_txt(m_pos, t.pos);
     for (int i = 0; i < MROWS; i++) {
-        fill_row(mrow[i], nv.mfirst + i, true);
+        fill_row(mrow[i], nv.mfirst + i);
         if (nv.mfirst + i < total) {
             row_style(mrow[i], nv.mfirst + i == nv.sel);
         }
     }
-    set_txt(m_note, nv.note);
-    set_col(m_note, note_color());
+    row_detail(m_note);
+    if (!hc_cfgov_is_open()) {
+        set_foot(foot_label, hc_menu_foot());              // T198 D9: "RIGHT configs" only while the selected row has configs
+    }
     cd_update();
 }
 
@@ -972,10 +1051,10 @@ static void build_edit(void)
     lv_obj_t *p = view_box(V_EDIT);
     txt(p, CX0, COMPACT ? 8 : 14, page_title("edit"), F_TITLE, C_INK);
     sub1(p, "Order, default entry and names (boot.cfg on the flash disk). Countdown and direct boot: F8.", "Order, default entry and names (boot.cfg). Countdown: F8.");
-    e_pos = txt(p, CX0 + CW - 200, COMPACT ? 40 : 52, "", F_SMALL, C_MUTED, 200);
+    e_pos = txt(p, CX0 + CW - 200, COMPACT ? 14 : 22, "", F_SMALL, C_MUTED, 200);
     lv_obj_set_style_text_align(e_pos, LV_TEXT_ALIGN_RIGHT, 0);
     lv_obj_t *pn = box(p, CX0, COMPACT ? 64 : 74, CW, ED_PN_H, C_PANEL, 1);
-    int vx = COMPACT ? 110 : 140;
+    int vx = COMPACT ? 128 : 140;
     txt(pn, 12, 8, "Countdown", F_SMALL, C_MUTED);
     e_cd = txt(pn, vx, 8, "", F_SMALL, C_INK);
     if (COMPACT) {                                    // the compact page has one setting a line: "Direct boot" and its words do not fit beside the countdown
@@ -986,12 +1065,14 @@ static void build_edit(void)
         e_dir = txt(pn, 440, 8, "", F_SMALL, C_INK);
     }
     int dy = COMPACT ? 22 : 0;
-    txt(pn, 12, 30 + dy, "Default", F_SMALL, C_MUTED);
+    txt(pn, 12, 30 + dy, "Default core", F_SMALL, C_MUTED);
     e_def = fit1(txt(pn, vx, 30 + dy, "", F_SMALL, C_INK, CW - vx - 12), CW - vx - 12);
     txt(pn, 12, 52 + dy, "Menu file", F_SMALL, C_MUTED);
     txt(pn, vx, 52 + dy, "Flash:/boot.cfg", F_SMALL, C_INK);
-    for (int i = 0; i < MROWS; i++) {
-        build_row(erow[i], p, CX0, (COMPACT ? 64 : 74) + ED_PN_H + 12 + i * 50, CW, 44, false);
+    txt(pn, 12, 74 + dy, "Default config", F_SMALL, C_MUTED);
+    e_dcfg = fit1(txt(pn, vx, 74 + dy, "", F_SMALL, C_INK, CW - vx - 12), CW - vx - 12);
+    for (int i = 0; i < EROWS; i++) {
+        build_row(erow[i], p, CX0, (COMPACT ? 64 : 74) + ED_PN_H + 12 + i * MROW_P, CW, MROW_H, false);
     }
     e_note = fit1(txt(p, CX0, CH - 26, "", F_SMALL, C_MUTED, CW), CW);
 }
@@ -1004,15 +1085,15 @@ static void update_edit(void)
     set_txt(e_cd, t.countdown);
     set_txt(e_dir, t.direct);
     set_txt(e_def, t.def);
+    set_txt(e_dcfg, t.defcfg);
     set_txt(e_pos, t.pos);
-    for (int i = 0; i < MROWS; i++) {
-        fill_row(erow[i], nv.efirst + i, false);
+    for (int i = 0; i < EROWS; i++) {
+        fill_row(erow[i], nv.efirst + i);
         if (nv.efirst + i < cfg.n) {
             row_style(erow[i], nv.efirst + i == nv.sel);
         }
     }
-    set_txt(e_note, nv.note);
-    set_col(e_note, note_color());
+    row_detail(e_note);
 }
 
 static void build_browse(void)
@@ -1124,7 +1205,12 @@ static void browse_mark(void)
 }
 
 // The footer of the File Browser for what is selected (T111).
-static void browse_foot(void) { set_txt(foot_label, hc_browse_foot()); }
+static void browse_foot(void)
+{
+    if (!hc_cfgov_is_open()) {                            // T198: the overlay's keys are the footer while it is open
+        set_foot(foot_label, hc_browse_foot());
+    }
+}
 
 // The key line under the title; with a .zip selected it names Z too, when the longer sentence still fits the column whole (T197).
 static void browse_sub_update(void)
@@ -1153,7 +1239,7 @@ static void update_browse(void)
     browse_sub_update();
     hc_browse_title(t, sizeof(t));
     set_txt(b_path, t);
-    bfirst = nv.bsel >= BROWS ? nv.bsel - BROWS + 1 : 0;
+    listwin_fix(nv.bsel, nv.bn, BROWS, &bfirst);          // T209 D3: scrolls while 2 rows are still hidden ahead of the selection
     hc_browse_empty_text(t, sizeof(t));
     set_txt(b_empty, t);
     for (int i = 0; i < BROWS; i++) {
@@ -1166,7 +1252,7 @@ static void update_browse(void)
             continue;
         }
         set_txt(b_mark[i], r.mark);
-        set_txt(b_name[i], r.name);
+        set_txt_mid(b_name[i], r.name);                       // T209: a long name is cut in the middle
         set_txt(b_size[i], r.size);
     }
     browse_mark();
@@ -1295,7 +1381,7 @@ static void cm_update(void)
 {
     set_hidden(cm_root, nv.cm_mode == CMM_OFF);
     if (nv.cm_mode == CMM_OFF) {
-        set_txt(foot_label, hc_foot(HCF_SET));
+        set_foot(foot_label, hc_foot(HCF_SET));
         return;
     }
     hc_cm_clamp_top();
@@ -1314,7 +1400,7 @@ static void cm_update(void)
     const char *m = hc_cm_msg(&mt);
     set_txt(cm_note, nv.cm_mode == CMM_LIST ? m : "");
     set_col(cm_note, tone_col(mt));
-    set_txt(foot_label, hc_cm_foot());
+    set_foot(foot_label, hc_cm_foot());
 }
 
 // ---- T184 D3: the WiFi page of the settings (F8) ------------------------------------------------------------------------------
@@ -1366,7 +1452,59 @@ static void wm_update(void)
         marks_show(n_smk[i], i == nv.nsel);
     }
     put_cell(wm_note, t.note);
-    set_txt(foot_label, foot_wm);
+    set_foot(foot_label, foot_wm);
+}
+
+// ---- T187 D5: the Picture page of the settings (F8 > Picture, the V key) ----------------------------------------------------------------------
+// The modes the screen names, one row each (Auto first): name, refresh, and at the end the tags "now" / "native". The same rows, texts, cursor and keys as the core's
+// page (picmodes.cc). Browsing applies nothing; RETURN uses the mode under the cursor and the 8-second question comes up (pq_*).
+#define PM_ROWS (1 + VID_HDMI_COUNT)
+static lv_obj_t *pm_root, *pm_info, *pm_note;
+static lv_obj_t *pm_box[PM_ROWS], *pm_name[PM_ROWS], *pm_hz[PM_ROWS], *pm_tag[PM_ROWS], *pm_mk[PM_ROWS][4];
+
+static void build_pm(lv_obj_t *p)
+{
+    pm_root = box(p, 0, 0, SW - NAV_W, CH, C_BG, 0);
+    set_hidden(pm_root, true);
+    txt(pm_root, CX0, COMPACT ? 8 : 14, "Settings > Picture", F_TITLE, C_INK);
+    pm_info = txt(pm_root, CX0, COMPACT ? 40 : 48, "", F_SMALL, C_MUTED, CW);
+    int sh = COMPACT ? 24 : 30, sp = sh + (COMPACT ? 3 : 4), y0 = COMPACT ? 76 : 96;
+    int nw = COMPACT ? 250 : 330, hx = 14 + nw + 10, hw = COMPACT ? 90 : 120, tx = hx + hw + 10;
+    for (int i = 0; i < PM_ROWS; i++) {
+        pm_box[i] = box(pm_root, CX0, y0 + i * sp, CW, sh, C_PANEL, 1, C_LINE);
+        pm_name[i] = fit1(txt(pm_box[i], 14, COMPACT ? 2 : 4, "", F_TEXT, C_INK, nw), nw);
+        pm_hz[i] = fit1(txt(pm_box[i], hx, COMPACT ? 2 : 4, "", F_TEXT, C_MUTED, hw), hw);
+        pm_tag[i] = fit1(txt(pm_box[i], tx, COMPACT ? 2 : 4, "", F_TEXT, C_HOST, CW - tx - 16), CW - tx - 16);
+        marks_build(pm_mk[i], pm_box[i], 0, 0, CW, sh);
+    }
+    pm_note = fit1(txt(pm_root, CX0, CH - 26, "", F_SMALL, C_MUTED, CW), CW);      // where the settings rows put theirs
+}
+
+static void pm_update(void)
+{
+    set_hidden(pm_root, !nv.pm_mode);
+    if (!nv.pm_mode) {
+        return;
+    }
+    const PicPage &pp = hc_ui_pm();
+    char s[160], hz[24], tag[24];
+    picmodes_info(&pp.pm, s, sizeof(s));
+    set_txt(pm_info, s);
+    for (int i = 0; i < PM_ROWS; i++) {
+        set_hidden(pm_box[i], i >= pp.pm.n);
+        if (i >= pp.pm.n) {
+            continue;
+        }
+        picmodes_refresh_text(&pp.pm, i, hz, sizeof(hz));
+        picmodes_tag_text(&pp.pm, i, tag, sizeof(tag));
+        set_txt(pm_name[i], pp.pm.row[i].name);
+        set_txt(pm_hz[i], hz);
+        set_txt(pm_tag[i], tag);
+        marks_show(pm_mk[i], i == pp.sel);
+    }
+    set_txt(pm_note, nv.note);
+    set_col(pm_note, note_color());
+    set_foot(foot_label, hv_state()->pending ? picmodes_confirm_keys() : foot_pm);       // T187 D9: while the question is up the bar says its keys
 }
 
 static void build_settings(void)
@@ -1397,6 +1535,7 @@ static void build_settings(void)
     s_note = fit1(txt(p, CX0, CH - 26, "", F_SMALL, C_MUTED, CW), CW);
     build_cm(p);
     build_wm(p);
+    build_pm(p);
 }
 
 static void update_settings(void)
@@ -1406,7 +1545,8 @@ static void update_settings(void)
         return;
     }
     wm_update();
-    if (nv.wm_mode) {
+    pm_update();
+    if (nv.wm_mode || nv.pm_mode) {
         return;
     }
     int k[SET_SLOTS], n = hc_set_kinds(k);
@@ -1447,22 +1587,22 @@ static void overlay_state_forget(void);             // what the overlay panels r
 static void layout_counts(void)
 {
     hc_rows_set_compact(COMPACT);
+    // T209: one line per row, 2 px apart: the menu holds what fits between the list's top and its detail line, the editor between its panel and its detail line
+    int m = (CH - MENU_ROW0 - 80 + 2) / MROW_P;
+    int e = (CH - 26 - ((COMPACT ? 64 : 74) + ED_PN_H + 12) + 2) / MROW_P;
+    mrows_n = m < 1 ? 1 : (m > MROWS_MAX ? MROWS_MAX : m);
+    erows_n = e < 1 ? 1 : (e > MROWS_MAX ? MROWS_MAX : e);
     if (!COMPACT) {
-        mrows_n = 5;
         brows_n = 13;
         cm_rows_n = 17;
-        hc_nav_geometry(mrows_n, brows_n, cm_rows_n);
+        hc_nav_geometry(mrows_n, brows_n, cm_rows_n, erows_n);
         return;
     }
-    int m = (CH - MENU_ROW0 - 80 + 6) / 62;
-    int e = (CH - 26 - ((COMPACT ? 64 : 74) + ED_PN_H + 12) + 6) / 50;
-    mrows_n = m < e ? m : e;
     brows_n = (CH - 74 - 40) / 26;
     cm_rows_n = (CH - 26 - 60) / 20;
-    mrows_n = mrows_n < 1 ? 1 : (mrows_n > MROWS_MAX ? MROWS_MAX : mrows_n);
     brows_n = brows_n < 1 ? 1 : (brows_n > BROWS_MAX ? BROWS_MAX : brows_n);
     cm_rows_n = cm_rows_n < 1 ? 1 : (cm_rows_n > CM_ROWS_MAX ? CM_ROWS_MAX : cm_rows_n);
-    hc_nav_geometry(mrows_n, brows_n, cm_rows_n);
+    hc_nav_geometry(mrows_n, brows_n, cm_rows_n, erows_n);
 }
 
 // The canvas changed (a mode below 960 wide, or back): the view, the port and the display take it, every widget is built again for it and drawn at
@@ -1543,25 +1683,39 @@ static void pq_update(void)
         pq_hide();
         return;
     }
-    char a[120];
+    char now[64], prev[64], body[240], l0[96], l1[96], keys[96];
+    const HvState *hs = hv_state();
     int w = SW - 40 < 560 ? SW - 40 : 560;
     int h = 58 + 4 * PQ_P + 14;
     bool fresh = lv_obj_has_flag(pq_root, LV_OBJ_FLAG_HIDDEN);
+    picmodes_mode_text(hs->mask, hs->def_sys, hc_picture_hdmi(), now, sizeof(now));
+    picmodes_mode_text(hs->mask, hs->def_sys, hs->prev_hdmi, prev, sizeof(prev));
+    picmodes_confirm(hv_seconds_left(), now, prev, body, sizeof(body));     // T187 D5: the text both apps show; its lines: the mode, the seconds, a blank, the keys
+    const char *p1 = strchr(body, '\n');
+    const char *p2 = p1 ? strchr(p1 + 1, '\n') : 0;
+    {   // the RISC-V image's printf ignores "%.*s": the lines are cut by hand
+        size_t n0 = p1 ? (size_t)(p1 - body) : 0, n1 = p2 ? (size_t)(p2 - p1 - 1) : 0;
+        n0 = n0 < sizeof(l0) - 1 ? n0 : sizeof(l0) - 1;
+        n1 = n1 < sizeof(l1) - 1 ? n1 : sizeof(l1) - 1;
+        memcpy(l0, body, n0);
+        l0[n0] = 0;
+        if (n1) {
+            memcpy(l1, p1 + 1, n1);
+        }
+        l1[n1] = 0;
+    }
+    snprintf(keys, sizeof(keys), "%s", p2 && p2[1] == '\n' ? p2 + 2 : "");
     if (fresh) {
         TrxPage page(pq_root);
         lv_obj_set_size(pq_root, w, h);
         lv_obj_set_pos(pq_root, (SW - w) / 2, (SH - h) / 2);
         set_txt(pq_title, "Keep this picture?");
-        snprintf(a, sizeof(a), "Picture: %s", video_hdmi_name(hc_picture_hdmi()));
-        set_txt(pq_l0, a);
-        snprintf(a, sizeof(a), "In %d s the previous picture comes back.", hv_seconds_left());
-        set_txt(pq_l1, a);
-        set_txt(pq_key, "Press any key to keep it");
+        set_txt(pq_l0, l0);
+        set_txt(pq_l1, l1);
+        set_txt(pq_key, keys);
     } else {
-        snprintf(a, sizeof(a), "Picture: %s", video_hdmi_name(hc_picture_hdmi()));
-        set_txt(pq_l0, a);
-        snprintf(a, sizeof(a), "In %d s the previous picture comes back.", hv_seconds_left());
-        set_txt(pq_l1, a);
+        set_txt(pq_l0, l0);
+        set_txt(pq_l1, l1);
     }
     trx_lv_handler();
 }
@@ -1591,12 +1745,9 @@ static bool picture_set(int hdmi, const char *how)
 }
 
 // The loop's side of the picture: Q7's countdown and the hot-plug follow (D11b).
-static void picture_tick(void)
+// A picture event (the loop's tick, or a key: HV_REVERTED): the mirror follows, the question's box goes, the note says what came up.
+static void picture_event(HvEvent e)
 {
-    HvEvent e = hc_picture_tick();
-    if (e == HV_NONE) {
-        return;
-    }
     picture_sync();
     char m[112];
     if (e == HV_FOLLOWED || e == HV_REVERTED) {
@@ -1609,7 +1760,7 @@ static void picture_tick(void)
         need_full = true;
     } else if (e == HV_REVERTED) {
         video_current = video_pack(hc_picture_sys(), hc_picture_hdmi());
-        snprintf(m, sizeof(m), "No key: the picture went back to %s", video_hdmi_name(hc_picture_hdmi()));
+        picmodes_back_text(video_hdmi_name(hc_picture_hdmi()), m, sizeof(m));
         set_note(m, HCT_HOST);
         need_full = true;
     } else if (e == HV_CONFIRM_TICK) {
@@ -1619,12 +1770,25 @@ static void picture_tick(void)
             pq_update();
         }
     }
+    if (nv.pm_mode && (e == HV_FOLLOWED || e == HV_REVERTED)) {
+        hc_ui_pm_refresh(e == HV_REVERTED || e == HV_FOLLOWED);     // the page follows: a hot-plug list, or the old mode back; the cursor keeps its mode by name
+        need_full = true;
+    }
+}
+static void ue_picture_event(void *, int ev) { picture_event((HvEvent)ev); }
+
+static void picture_tick(void)
+{
+    HvEvent e = hc_picture_tick();
+    if (e != HV_NONE) {
+        picture_event(e);
+    }
 }
 
 static void go(View v);
 
 // ---- T139 D3: rename an entry ---------------------------------------------------------------------------------------------
-static lv_obj_t *rn_root, *rn_sub, *rn_in, *rn_cur, *rn_msg;
+static lv_obj_t *rn_root, *rn_head, *rn_sub, *rn_in, *rn_cur, *rn_msg;
 static char rn_for_path[sizeof(((BootEntry *)0)->path)];      // the entry being renamed, for the service's entry modal
 
 static void build_rename(void)
@@ -1632,7 +1796,7 @@ static void build_rename(void)
     int w = SW - 40 < 700 ? SW - 40 : 700;
     rn_root = box(trx_overlay(), (SW - w) / 2, 150 + (SH - 540) / 2, w, 220, C_PANEL, 3, C_HOST);
     trx_page_hide(rn_root);
-    txt(rn_root, 20, 12, "Rename menu entry", F_TITLE, C_INK, w - 40);
+    rn_head = txt(rn_root, 20, 12, "Rename menu entry", F_TITLE, C_INK, w - 40);
     rn_sub = fit1(txt(rn_root, 20, 46, "", F_SMALL, C_MUTED, w - 40), w - 40);
     lv_obj_t *inbox = box(rn_root, 20, 76, w - 40, 40, C_BG, 1, C_LINE);
     rn_in = fit1(txt(inbox, 10, 10, "", F_TEXT, C_INK, w - 80), w - 80);
@@ -1644,7 +1808,8 @@ static void build_rename(void)
 // The modal itself is the core's (host_core_ui.cc, RenameJob); this draws its page.
 static void rename_set(const HcRenamePage &p)
 {
-    hostapi_entry("Rename menu entry", rn_for_path, p.typed, "RETURN saves    ESC cancels    LEFT/RIGHT HOME END move    INS blank");
+    set_txt(rn_head, p.head);
+    hostapi_entry(p.head, rn_for_path, p.typed, "RETURN saves    ESC cancels    LEFT/RIGHT HOME END move    INS blank");
     set_txt(rn_in, p.typed);
     char left[LE_MAX + 1];
     memcpy(left, p.typed, p.cur);
@@ -1688,6 +1853,11 @@ static const HcRenameEnv rename_env = { rn_draw, rn_end, rn_history, 0 };
 #define WL_APS 32
 static lv_obj_t *wl_root, *wl_title, *wl_sub, *wl_a[WL_MAX], *wl_b[WL_MAX], *wl_c[WL_MAX], *wl_msg, *wl_keys;
 static lv_obj_t *wl_mk[WL_MAX][4];
+// T198: the config overlay - its own panel (two-line rows, a height that follows the row count) under a dimmer that covers the page but not the key bar
+#define OC_MAX HC_CFGOV_ROWS
+#define OC_MIN 5
+static lv_obj_t *oc_root, *oc_panel, *oc_title, *oc_sub, *oc_msg, *oc_a[OC_MAX], *oc_df[OC_MAX], *oc_mk[OC_MAX][4];
+static int oc_rp, oc_hdr, oc_ftr, oc_h, oc_ay;           // oc_ay: the name's offset inside its row (centred)
 static int wl_rows;                               // the rows this canvas holds
 static lv_obj_t *we_root, *we_title, *we_sub, *we_in, *we_msg, *we_keys;
 
@@ -1715,6 +1885,30 @@ static void build_wifi_panels(void)
     wl_msg = fit1(txt(wl_root, 20, yb, "", F_SMALL, C_WARN, w - 40), w - 40);
     wl_keys = line1(txt(wl_root, 20, yb + 22, "", F_SMALL, C_MUTED, w - 40));
 
+    {   // T198: the config overlay. The dimmer comes first (below the panel); it stops above the key bar, which shows the overlay's keys and stays bright.
+        const int ow = SW - 40 < 600 ? SW - 40 : 600;
+        oc_hdr = 76;
+        oc_ftr = 34;
+        oc_rp = (SH - FOOT_H - 24 - oc_hdr - oc_ftr) / OC_MAX;
+        oc_rp = oc_rp > (COMPACT ? 26 : 32) ? (COMPACT ? 26 : 32) : oc_rp;            // one line per row (T198 D16), T209 D2: closer
+        oc_ay = (oc_rp - 2 - lv_font_get_line_height(F_TEXT)) / 2;
+        oc_h = oc_hdr + OC_MIN * oc_rp + oc_ftr;
+        oc_root = box(trx_overlay(), 0, 0, SW, SH - FOOT_H, 0x05080e, 0);        // the dimmer is the page's root: one TrxPage shows both
+        lv_obj_set_style_bg_opa(oc_root, 184, 0);                                 // 72 %, as the mock-up's dimmer
+        trx_page_hide(oc_root);
+        oc_panel = box(oc_root, (SW - ow) / 2, (SH - FOOT_H - oc_h) / 2, ow, oc_h, C_PANEL, 3, C_HOST);
+        oc_title = fit1(txt(oc_panel, 20, 12, "", F_TITLE, C_INK, ow - 40), ow - 40);
+        oc_sub = fit1(txt(oc_panel, 20, 46, "", F_SMALL, C_MUTED, ow - 40), ow - 40);
+        for (int i = 0; i < OC_MAX; i++) {
+            int y = oc_hdr + i * oc_rp;
+            marks_build(oc_mk[i], oc_panel, 12, y, ow - 24, oc_rp - 2);
+            oc_a[i] = fit1(txt(oc_panel, 24, y + oc_ay, "", F_TEXT, C_INK, ow - 48 - DEF_W - 8), ow - 48 - DEF_W - 8);
+            oc_df[i] = box(oc_panel, ow - 24 - DEF_W, y + (oc_rp - 2 - 22) / 2, DEF_W, 22, C_HOST, 0);      // the boot menu row's "default" badge
+            lv_obj_set_style_text_align(txt(oc_df[i], 0, 2, "default", F_SMALL, C_BG, DEF_W), LV_TEXT_ALIGN_CENTER, 0);
+            set_hidden(oc_df[i], true);
+        }
+        oc_msg = fit1(txt(oc_panel, 20, oc_hdr + OC_MIN * oc_rp + 6, "", F_SMALL, C_WARN, ow - 40), ow - 40);
+    }
     we_root = box(trx_overlay(), (SW - w) / 2, 150 + (SH - 540) / 2, w, 220, C_PANEL, 3, C_HOST);
     trx_page_hide(we_root);
     we_title = fit1(txt(we_root, 20, 12, "", F_TITLE, C_INK, w - 40), w - 40);
@@ -1752,6 +1946,55 @@ static void wl_fill(const HcWifiPick &p)
     set_txt(wl_keys, p.keys);
 }
 
+// T198: the config overlay's page. Rows: one line (the name), the "default" badge right; the panel is as high as its rows (OC_MIN..OC_MAX).
+static void oc_fill(const HcWifiPick &p)
+{
+    const int rows = p.n < OC_MIN ? OC_MIN : (p.n > OC_MAX ? OC_MAX : p.n);
+    const int h = oc_hdr + rows * oc_rp + oc_ftr;
+    if (h != oc_h) {
+        oc_h = h;
+        lv_obj_set_height(oc_panel, h);
+        lv_obj_set_y(oc_panel, (SH - FOOT_H - h) / 2);
+        lv_obj_set_y(oc_msg, oc_hdr + rows * oc_rp + 6);
+    }
+    {
+        // the title is "<entry name> - start with": a name that does not fit is cut with "..." in front of the suffix, the suffix stays
+        char t[sizeof(p.title)];
+        snprintf(t, sizeof(t), "%s", p.title);
+        const char *suf = strstr(p.title, " - start with");
+        const lv_font_t *f = lv_obj_get_style_text_font(oc_title, LV_PART_MAIN);
+        const int room = (int)(intptr_t)lv_obj_get_user_data(oc_title) - 4;
+        char *dots = t + (suf ? suf - p.title : (int)strlen(t));
+        for (;;) {
+            lv_point_t sz;
+            lv_text_get_size(&sz, t, f, 0, 0, LV_COORD_MAX, LV_TEXT_FLAG_NONE);
+            if (sz.x <= room || dots - t <= 1) {
+                break;
+            }
+            dots--;                                                         // drop one more character of the name (UTF-8 continuation bytes with it)
+            while (dots > t + 1 && ((unsigned char)*dots & 0xC0) == 0x80) {
+                dots--;
+            }
+            snprintf(dots, sizeof(t) - (size_t)(dots - t), "...%s", suf ? suf : "");
+        }
+        set_txt(oc_title, t);
+    }
+    set_txt(oc_sub, p.sub);
+    set_col(oc_sub, tone_col(p.subtone));
+    for (int i = 0; i < OC_MAX; i++) {
+        const bool on = i < p.n;
+        set_hidden(oc_a[i], !on);
+        marks_show(oc_mk[i], on && i == p.sel);
+        set_hidden(oc_df[i], !(on && p.item[i].c[0]));
+        if (on) {
+            set_txt(oc_a[i], p.item[i].a);
+        }
+    }
+    set_txt(oc_msg, p.msg);
+    set_col(oc_msg, tone_col(p.msgtone));
+    set_foot(foot_label, p.keys);                          // one key line: the screen's, as the mock-up
+}
+
 // The pick list as the screen draws it and tells the service (fresh: the panel opens).
 static void wifi_pick_show(const HcWifiPick &p, bool fresh)
 {
@@ -1760,6 +2003,15 @@ static void wifi_pick_show(const HcWifiPick &p, bool fresh)
         labels[i] = p.item[i].a;
     }
     hostapi_pick(p.title, labels, p.n < HCW_PICK_MAX ? p.n : HCW_PICK_MAX, p.sel, p.sub);
+    if (p.cfgov) {
+        if (fresh) {
+            TrxPage page(oc_root);
+            oc_fill(p);
+        } else {
+            oc_fill(p);
+        }
+        return;
+    }
     if (fresh) {
         TrxPage page(wl_root);
         wl_fill(p);
@@ -1928,7 +2180,7 @@ static void show_view(View v)
     }
     update_nav();
     if (v != V_COLORS && v != V_BROWSE) {
-        set_txt(foot_label, hc_foot_of_view((int)v));
+        set_foot(foot_label, v == V_MENU ? hc_menu_foot() : hc_foot_of_view((int)v));
     }
     refresh_current();
 }
@@ -2278,10 +2530,27 @@ static bool confirm_full(const char *title)
     return k == KEY_RETURN;
 }
 
+// ---- T203: the start log (startfile.h) ---------------------------------------------------------------------------------------
+// The record is kept in RAM during the start and written once, when the decision is made; a later event (a countdown, a key or the network
+// starting a core) adds its line and writes the block again. No SD card or a read-only one: nothing is written, the next call tries again.
+static void slog_flush(void)
+{
+    if (startrec_decided()) {
+        hostreport_startlog_store(APP_VERSION_HASH, APP_BUILD_DATE);
+    }
+}
+static const char *start_origin = "menu (key or network request)";
+static void slog_started(void)
+{
+    startrec_event("started by: %s", start_origin);
+    slog_flush();
+}
+
 // A start from the menu: a .cfw goes the full-firmware way, a .cor the core way. ask: the person pressed RETURN or S
 // (a countdown has no one to ask; a network request asks the same question, which is a service question).
 static void start_any(const char *path, const char *title, const BootEntry *trusted, bool ask)
 {
+    slog_started();
     if (is_full(path)) {
         // Alex 2026-10-28: "We don't need this requester before the start of a large core." Only foreign firmware (.cfw / .ue2) asks.
         if (!ask || !cfw_is_name(path) || confirm_full(title)) {
@@ -2448,7 +2717,7 @@ static void fm_draw(const FmPage &pg, bool force = true)
         snprintf(fm_foot_saved, sizeof(fm_foot_saved), "%s", lv_label_get_text(foot_label));
     }
     if (strcmp(lv_label_get_text(foot_label), pg.hint)) {
-        set_txt(foot_label, pg.hint);
+        set_foot(foot_label, pg.hint);
         if (newpage) {
             trx_lv_handler();                           // the footer is its own small refresh, so that the page change below stays one area
         }
@@ -2479,7 +2748,7 @@ static void fm_close(void)
     if (fm_root) {
         trx_page_hide(fm_root);
         if (fm_up) {
-            set_txt(foot_label, fm_foot_saved);
+            set_foot(foot_label, fm_foot_saved);
         }
         fm_up = false;
         trx_lv_handler();
@@ -2603,7 +2872,7 @@ static const HcFlowEnv &flow_env_ref(void) { return flow_env; }
 // ---- the WiFi page's actions and modals: the screen's side (host_core_flow_wifi.cc runs them) ----
 static void ww_note(void *, const char *text, int tone) { net_note(text, tone); }
 static const char *ww_set_name(void *, int row) { return hc_wifi_net_set_name(row); }
-static bool ww_panels(void *) { return wl_root && we_root; }
+static bool ww_panels(void *) { return wl_root && we_root && oc_root; }
 static int ww_pick_rows(void *) { return wl_rows; }
 static int ww_entry_vis(void *) { return wifi_entry_vis(); }
 static bool ww_list_up(void *) { return wl_root && !lv_obj_has_flag(wl_root, LV_OBJ_FLAG_HIDDEN); }
@@ -2616,6 +2885,7 @@ static void ww_pick_end(void *)
 {
     hostapi_pick_end();
     trx_page_hide(wl_root);
+    trx_page_hide(oc_root);
     trx_lv_handler();
     hc_ui_changed();
 }
@@ -2945,7 +3215,9 @@ static void fill_snapshot(WebSnapshot *wp)
         snprintf(w.path[i], WEB_PATH_MAX, "%s", cfg.e[i].path);
         HcEntryRow v;
         char t[24];
+        w.configs[i] = 0;
         if (hc_row_entry(i, true, &v)) {
+            w.configs[i] = v.configs;
             snprintf(t, sizeof(t), "%s", v.badge);
             snprintf(w.state[i], sizeof(w.state[i]), "%s", t);
         }
@@ -2965,7 +3237,7 @@ static void web_snapshot(void)
 // The old web page's commands (T106) go in as intents of the service (hostdomain.h: hostapi_apply), the same dispatcher a remote client's `entry.default` takes: the row is
 // focused, the intent is queued with the keys, and the screen acts on it in the core (host_core_ui.cc, web.*), which also sets the answer the page shows (ue_web_result).
 // What the service refuses (a flow or a question owns the keys; the row is not there) is the answer here.
-static void web_apply(const char *action, int row, const char *always_text)
+static bool web_apply(const char *action, int row, const char *always_text)
 {
     UicIntent in;
     memset(&in, 0, sizeof(in));
@@ -2978,8 +3250,11 @@ static void web_apply(const char *action, int row, const char *always_text)
     hostapi_apply(in, &r);
     if (r.r != UR_TAKEN) {
         web_result(always_text ? always_text : (r.why[0] ? r.why : "not done"));
+        return false;
     }
+    return true;
 }
+
 
 static void web_pump(void)
 {
@@ -2992,9 +3267,22 @@ static void web_pump(void)
             hc_ui_web_arg(c.b);
             web_apply("web.video", -1, 0);
             break;
-        case WEB_BOOT:
-            web_apply("web.start", c.a, "that entry cannot be started");
+        case WEB_BOOT: {
+            // T198 S13: the intent only queues keys (hostapi_pass), the start runs a few passes later in HCA_WEB_START, which arms the name for that entry's start
+            // alone (path-bound, around the synchronous start_any, question included) and clears it when the start returns, yes or no, started or refused.
+            // The name is set on every web start (also ""), so one that never reached HCA_WEB_START is overwritten by the next.
+            const char *wpath = c.a >= 0 && c.a < cfg.n ? cfg.e[c.a].path : "";
+            hc_ui_web_config(wpath, c.config);
+            if (c.config[0] && !hc_cfgov_exists(wpath, c.config)) {
+                hc_ui_web_config("", "");
+                web_result("that entry has no config of that name");
+                break;
+            }
+            if (!web_apply("web.start", c.a, "that entry cannot be started")) {
+                hc_ui_web_config("", "");                // refused by the service: nothing stays armed
+            }
             break;
+        }
         case WEB_REMOVE:                                          // D19a: the page's remove is a question (webnet.cc); no path removes unasked
             web_result("a removal asks first: answer the question on the page");
             break;
@@ -3058,10 +3346,16 @@ static void apply_updates(void)
             Row *rows = nv.view == V_MENU ? mrow : erow;
             int first = nv.view == V_MENU ? nv.mfirst : nv.efirst;
             int o = sel_old - first, n = nv.sel - first;
-            if (o >= 0 && o < MROWS) row_style(rows[o], false);
-            if (n >= 0 && n < MROWS) row_style(rows[n], true);
+            const int cnt = nv.view == V_MENU ? MROWS : EROWS;
+            if (o >= 0 && o < cnt) row_style(rows[o], false);
+            if (n >= 0 && n < cnt) row_style(rows[n], true);
+            row_detail(nv.view == V_MENU ? m_note : e_note);      // T209: the selected entry's path and version
+            if (nv.view == V_MENU && !hc_cfgov_is_open()) {
+                set_foot(foot_label, hc_menu_foot());       // T198 D9: the hint follows the selected row
+            }
         } else if (nv.view == V_BROWSE) {
-            int first = nv.bsel >= BROWS ? nv.bsel - BROWS + 1 : 0;
+            int first = bfirst;
+            listwin_fix(nv.bsel, nv.bn, BROWS, &first);
             if (first != bfirst) {
                 update_browse();                    // the list scrolls: refill the 13 rows
             } else {
@@ -3108,6 +3402,9 @@ static bool try_load_cfg(void)
         cfg_after(sr);
     }
     STARTLOG("[host] %s: %d cores, default %d, countdown %d", BOOTCFG_PATH, cfg.n, cfg.def, cfg.countdown);
+    if (startrec_cfg(cfg.n, cfg.def, cfg.direct, cfg.countdown)) {
+        slog_flush();                                    // a read after the decision (the menu's retry) is a line of its own
+    }
     return true;
 }
 
@@ -3201,7 +3498,7 @@ static const HcStartHooks direct_start_hooks = { dr_progress, dr_no_key, dr_no_p
 static const char *direct_run(void)
 {
     const BootEntry &e = cfg.e[cfg.def];
-    const HcStartEntry entry = { e.path, hc_efull(cfg.def), hc_efull(cfg.def) ? NULL : &e, false };
+    const HcStartEntry entry = { e.path, hc_efull(cfg.def), hc_efull(cfg.def) ? NULL : &e, false, e.defcfg };
     const char *why = hc_start_sequence(entry, HC_START_DIRECT, direct_start_hooks, NULL);
     return why ? why : "failed";
 }
@@ -3211,6 +3508,8 @@ static void direct_phase(void)
     uint32_t t_begin = now_ms();
     DirectIn in;
     memset(&in, 0, sizeof(in));
+    startrec_init(now_ms);
+    startrec_window_open(DIRECT_KEY_WINDOW_MS);
     STARTLOG("direct boot: decision begins");
     while (!try_load_cfg() && now_ms() - t_begin < DIRECT_CFG_WAIT_MS) {
         menukeys_sample();
@@ -3238,6 +3537,7 @@ static void direct_phase(void)
         vTaskDelay(pdMS_TO_TICKS(10));
     }
     menukeys_sample();
+    startrec_window_close();
     in.key_cbm = menukeys_cbm();
     in.key_fire = menukeys_fire();
     if (directboot_needs_file(in)) {
@@ -3248,7 +3548,8 @@ static void direct_phase(void)
         in.key_fire = menukeys_fire();
     }
     DbReason why = directboot_decide(in);
-    fireguard_arm(&fire_guard, why != DB_START && menukeys_fire());
+    startrec_decide(in, why);
+    slog_flush();                                                // on the SD card before the core is loaded
     STARTLOG("direct boot: decision %s (cfg %d, direct %d, marker %d, C= %d, fire %d, %u key samples)", why == DB_START ? "START" : directboot_text(why),
              in.cfg_loaded, in.direct, in.marker, in.key_cbm, in.key_fire, (unsigned)menukeys_samples());
     if (why == DB_START) {
@@ -3257,10 +3558,13 @@ static void direct_phase(void)
         if (fail == CORE_ABORTED || !strcmp(fail, CORE_ABORTED)) {    // Q4b: a key during the staging, the start is cancelled
             DbReason k = menukeys_cbm() ? DB_KEY_CBM : DB_KEY_FIRE;
             STARTLOG("direct boot: cancelled, %s (%u key samples)", directboot_text(k), (unsigned)menukeys_samples());
+            startrec_event("direct start cancelled: %s", directboot_text(k));
+            slog_flush();
             set_note(directboot_text(k), HCT_WARN);
-            fireguard_arm(&fire_guard, menukeys_fire());
         } else {
             printf("[host] direct boot failed: %s\n", fail);
+            startrec_event("direct start failed: %s", fail);
+            slog_flush();
             char nb[96];
             snprintf(nb, sizeof(nb), "Direct start failed: %s", fail);
             set_note(nb, HCT_BAD);
@@ -3449,12 +3753,14 @@ static void startup(void)
 {
     STARTLOG("phase UI task starts");
     hc_init(&core_plat);
+    hc_cfgov_io(hostfs_cm(), hostfs_fo());
     hc_nav_init(&nav_plat);
     hc_rows_init(&rows_plat);
     hc_ui_init(&ui_env_ref());
     hc_cfg_clear();
     direct_phase();                                  // T135: a direct start never returns; otherwise the menu below, with the reason in its note
     matrix_kb = new Keyboard_C64(&matrix_host, &U64II_KEYB_ROW, &U64II_KEYB_COL, &U64II_KEYB_JOY);
+    matrix_kb->set_keyboard_only(true);                 // T135 Q9: the joystick never drives the host menu; port-1 fire is only the power-on key (menukeys.cc)
 
     have_ui = trx_lv_open();
     if (have_ui) {
@@ -3492,6 +3798,7 @@ static void startup(void)
     hc_countdown_boot(now_ms());
     hs_step(2, "Building the menu");   // the last label: what follows only builds objects, drawn once by draw()
     if (have_ui) {
+        layout_counts();                             // T209: the rows of the full canvas are computed too (one line per row), not only after a canvas change
         build_ui();
         build_start();
         ui_built = true;
@@ -3538,11 +3845,12 @@ static void ue_lazy_mark(void *, int i) { lazy_mark(i); }
 static void ue_pq_hide(void *) { pq_hide(); }
 static bool ue_picture_set(void *, int hdmi, const char *how) { return picture_set(hdmi, how); }
 static void ue_start_any(void *, const char *path, const char *title, const BootEntry *trusted, bool ask) { start_any(path, title, trusted, ask); }
-static void ue_start_core(void *, const char *path, const char *title) { start_core(path, title); }
+static void ue_start_core(void *, const char *path, const char *title) { slog_started(); start_core(path, title); }
 static void ue_flow(void *, int kind, const char *arg, int index)
 {
     switch (kind) {
-    case HUF_RENAME: sj_start(SJ_RENAME, "", index); break;
+    case HUF_RENAME:
+    case HUF_CFGRENAME: sj_start(SJ_RENAME, "", index); break;
     case HUF_CONVERT: sj_start(SJ_CONVERT, arg); break;
     case HUF_RESTORE: sj_start(SJ_RESTORE, arg); break;
     case HUF_UPDATE: sj_start(SJ_UPDATE, arg); break;
@@ -3584,6 +3892,7 @@ static const HcUiEnv &ui_env_ref(void)
     env.lazy_mark = ue_lazy_mark;
     env.pq_hide = ue_pq_hide;
     env.picture_set = ue_picture_set;
+    env.picture_event = ue_picture_event;
     env.start_any = ue_start_any;
     env.start_core = ue_start_core;
     env.flow = ue_flow;
@@ -3699,7 +4008,11 @@ void hostui_run(void)
             need_full = true;
         }
         if (cdev & HCC_EXPIRED) {
+            hc_start_config_set(cfg.e[cfg.def].defcfg);          // T198 D8: the countdown starts the entry with its default config
+            start_origin = "countdown";
             start_any(cfg.e[cfg.def].path, cfg.e[cfg.def].name, &cfg.e[cfg.def], false);
+            start_origin = "menu (key or network request)";
+            hc_start_config_set("");
             go(V_MENU);
         } else if (hc_cd_running() && nv.view == V_MENU && have_ui) {
             cd_update();
@@ -3738,6 +4051,13 @@ int hostui_test_up_writes(void) { return hc_update_writes(); }
 const char *hostui_test_up_why(void) { return last_up_why; }
 const char *hostui_test_esp_line(void) { return hc_inspect_line(); }
 int hostui_test_esp_writes(void) { return hc_esp_writes(); }
+const char *hostui_test_oc_title(int *w, int *room)       // T198: what the overlay's title label shows, its box width, the width it may use
+{
+    lv_obj_update_layout(oc_title);
+    *w = (int)lv_obj_get_width(oc_title);
+    *room = (int)(intptr_t)lv_obj_get_user_data(oc_title);
+    return lv_label_get_text(oc_title);
+}
 bool hostui_test_inspect(void) { return nv.br_mode == BM_INSPECT; }
 const char *hostui_test_fw_why(void) { return last_fw_why; }
 void hostui_test_direct_video(bool done) { direct_video_done = done; }      // T164 boot720: the direct phase has put the picture up (and left)
@@ -3814,6 +4134,7 @@ void hostui_test_init_lazy(const char *cfgtext)
 {
     test_open();
     hc_init(&core_plat);
+    hc_cfgov_io(hostfs_cm(), hostfs_fo());
     hc_nav_init(&nav_plat);
     hc_rows_init(&rows_plat);
     hc_ui_init(&ui_env_ref());
@@ -3872,7 +4193,7 @@ bool hostui_test_pq(char *title, char *l0, char *l1, char *key, int n, int *key_
 }
 bool hostui_test_note_rect(int *x1, int *y1, int *x2, int *y2, char *text, int tn)
 {
-    lv_obj_t *o = nv.view == V_MENU ? m_note : nv.view == V_BROWSE ? b_note : nv.view == V_EDIT ? e_note : nv.view == V_SET ? s_note : NULL;
+    lv_obj_t *o = nv.view == V_MENU ? m_note : nv.view == V_BROWSE ? b_note : nv.view == V_EDIT ? e_note : nv.view == V_SET ? (nv.pm_mode ? pm_note : s_note) : NULL;
     if (!o) {
         return false;
     }
@@ -3906,6 +4227,7 @@ void hostui_test_panels_hide(void)
     trx_page_hide(cf_root);
     trx_page_hide(rn_root);
     trx_page_hide(wl_root);
+    trx_page_hide(oc_root);
     trx_page_hide(we_root);
     trx_page_hide(pq_root);
     lv_refr_now(NULL);
@@ -4098,24 +4420,25 @@ int hostui_test_dump(char *out, int max)
     Row *rows = nv.view == V_EDIT ? erow : mrow;
     int first = nv.view == V_EDIT ? nv.efirst : nv.mfirst;
     int total = nv.view == V_EDIT ? cfg.n : cfg.n;
-    int n = snprintf(out, max, "view=%d sel=%d first=%d total=%d entries=%d def=%d pos='%s' sub='%s' note='%s' foot='%s'\n",
+    int n = snprintf(out, max, "view=%d sel=%d first=%d total=%d entries=%d def=%d pos='%s' sub='%s' note='%s' foot='%s' rows=%d detail='%s'\n",
                      (int)nv.view, nv.sel, first, total, cfg.n, cfg.def,
                      nv.view == V_EDIT ? lv_label_get_text(e_pos) : lv_label_get_text(m_pos), lv_label_get_text(m_sub), nv.note,
-                     lv_label_get_text(foot_label));
+                     lv_label_get_text(foot_label), nv.view == V_EDIT ? erows_n : mrows_n,
+                     lv_label_get_text(nv.view == V_EDIT ? e_note : m_note));
     int bottom = 0;
-    for (int r = 0; r < MROWS; r++) {
+    for (int r = 0; r < (nv.view == V_EDIT ? EROWS : MROWS); r++) {
         if (lv_obj_has_flag(rows[r].box, LV_OBJ_FLAG_HIDDEN)) {
             continue;
         }
         int b = lv_obj_get_y(rows[r].box) + lv_obj_get_height(rows[r].box);
         if (b > bottom) bottom = b;
-        char ic[24] = "tag";
-        if (nv.view != V_EDIT && !lv_obj_has_flag(rows[r].img, LV_OBJ_FLAG_HIDDEN)) {
-            snprintf(ic, sizeof(ic), "img %04x", rows[r].dsc.data ? ((const uint16_t *)rows[r].dsc.data)[0] : 0);
+        HcEntryRow v;                                   // T209: the rows draw no icon and no path; the path and version (v.sub) are the detail line of the selected row
+        const char *sub = hc_row_entry(first + r, true, &v) ? v.sub : "";
+        n += snprintf(out + n, max - n, "row %d|%s|%s|%s|%s|%s|tag\n", first + r, lv_label_get_text(rows[r].a), sub, lv_label_get_text(rows[r].stl),
+                      lv_obj_has_flag(rows[r].defb, LV_OBJ_FLAG_HIDDEN) ? "" : "default", first + r == nv.sel ? "SEL" : "");
+        if (!lv_obj_has_flag(rows[r].cfb, LV_OBJ_FLAG_HIDDEN)) {           // T198 D15: the "N configs" badge as drawn, a line of its own (the row line above is matched by prefix)
+            n += snprintf(out + n, max - n, "cfgbadge %d|%s\n", first + r, lv_label_get_text(rows[r].cfl));
         }
-        n += snprintf(out + n, max - n, "row %d|%s|%s|%s|%s|%s|%s\n", first + r, lv_label_get_text(rows[r].a), lv_label_get_text(rows[r].b),
-                      lv_label_get_text(rows[r].stl), lv_obj_has_flag(rows[r].defb, LV_OBJ_FLAG_HIDDEN) ? "" : "default",
-                      first + r == nv.sel ? "SEL" : "", ic);
     }
     int note_y = lv_obj_get_y(nv.view == V_EDIT ? e_note : m_note);
     n += snprintf(out + n, max - n, "geometry rows_bottom=%d note_top=%d countdown_top=%d\n", bottom, note_y, lv_obj_get_y(m_cdbox));
@@ -4172,6 +4495,27 @@ int hostui_test_cm(char *out, int max)
 const char *hostui_test_cm_head(void) { return lv_label_get_text(cm_head); }
 const char *hostui_test_cm_note(void) { return lv_label_get_text(cm_note); }
 const char *hostui_test_foot(void) { return lv_label_get_text(foot_label); }
+// T198: the overlay's geometry in panel coordinates (render bench): g[0..1] panel y/h, g[2..3] the selected row's top/bottom (-1 none), g[4..5] the message's
+// top/bottom (-1 empty), g[6] last drawn row's bottom, g[7] the dimmer's height. Read from the objects, not from the layout variables.
+void hostui_test_oc_geom(int *g)
+{
+    g[0] = lv_obj_get_y(oc_panel);
+    g[1] = lv_obj_get_style_height(oc_panel, LV_PART_MAIN);
+    g[2] = g[3] = g[6] = -1;
+    for (int i = 0; i < OC_MAX; i++) {
+        if (!lv_obj_has_flag(oc_a[i], LV_OBJ_FLAG_HIDDEN)) {
+            g[6] = lv_obj_get_y(oc_a[i]) - oc_ay + oc_rp - 2;
+        }
+        if (!lv_obj_has_flag(oc_mk[i][0], LV_OBJ_FLAG_HIDDEN)) {
+            g[2] = lv_obj_get_y(oc_mk[i][0]);
+            g[3] = lv_obj_get_y(oc_mk[i][1]) + lv_obj_get_style_height(oc_mk[i][1], LV_PART_MAIN);
+        }
+    }
+    const bool m = lv_label_get_text(oc_msg)[0] != 0;
+    g[4] = m ? lv_obj_get_y(oc_msg) : -1;
+    g[5] = m ? g[4] + lv_font_get_line_height(F_SMALL) : -1;
+    g[7] = lv_obj_get_style_height(oc_root, LV_PART_MAIN);
+}
 int hostui_test_settings(char *out, int max)
 {
     int n = snprintf(out, max, "sel=%d|", nv.ssel);
@@ -4232,6 +4576,7 @@ void hostui_test_wifi_panel(int what, int sel_)
 {
     if (what == 0) {
         trx_page_hide(wl_root);
+        trx_page_hide(oc_root);
         trx_page_hide(we_root);
         lv_refr_now(NULL);
         return;
@@ -4381,6 +4726,53 @@ bool hostui_test_fmt_active(void) { return fmt_active; }
 void hostui_test_fm_keep(bool on) { fm_keep = on; if (!on) { fm_close(); } }
 const char *hostui_test_nav_name(int i) { return nav_title(i); }
 const char *hostui_test_set_name(int k) { return k >= 0 && k < 10 ? hc_set_name(k) : 0; }
+// T187 D5: the Picture page as the bench reads it: open (1/0), the cursor, the name under it, the rows and the info line
+int hostui_test_pm(char *name, int ncap, int *sel, int *rows, char *info, int icap)
+{
+    const PicPage &pp = hc_ui_pm();
+    if (name && ncap > 0) {
+        snprintf(name, ncap, "%s", pp.sel < pp.pm.n ? pp.pm.row[pp.sel].name : "");
+    }
+    if (sel) {
+        *sel = pp.sel;
+    }
+    if (rows) {
+        *rows = pp.pm.n;
+    }
+    if (info && icap > 0) {
+        picmodes_info(&pp.pm, info, icap);
+    }
+    return nv.pm_mode;
+}
+// The page's texts and places for the render bench: row i (name, refresh, tag), and the rectangles of row i (which >= 0), the page (-1), the info line (-2), the note (-3), the key bar (-4).
+bool hostui_test_pm_row(int i, char *name, int nn, char *hz, int hn, char *tag, int tn)
+{
+    const PicPage &pp = hc_ui_pm();
+    if (i < 0 || i >= pp.pm.n) {
+        return false;
+    }
+    snprintf(name, nn, "%s", pp.pm.row[i].name);
+    picmodes_refresh_text(&pp.pm, i, hz, hn);
+    picmodes_tag_text(&pp.pm, i, tag, tn);
+    return true;
+}
+bool hostui_test_pm_geo(int which, int *x1, int *y1, int *x2, int *y2)
+{
+    lv_obj_t *o = which == -1 ? pm_root : which == -2 ? pm_info : which == -3 ? pm_note : which == -4 ? foot_label : (which >= 0 && which < PM_ROWS) ? pm_box[which] : NULL;
+    if (!o) {
+        return false;
+    }
+    for (lv_obj_t *q = o; q; q = lv_obj_get_parent(q)) {
+        if (lv_obj_has_flag(q, LV_OBJ_FLAG_HIDDEN)) {
+            return false;
+        }
+    }
+    lv_obj_update_layout(o);
+    lv_area_t a;
+    lv_obj_get_coords(o, &a);
+    *x1 = a.x1; *y1 = a.y1; *x2 = a.x2; *y2 = a.y2;
+    return true;
+}
 void hostui_test_pump(void) { web_pump(); picture_tick(); apply_updates(); lv_refr_now(NULL); }
 // The browser's rows as the person reads them: "name|size" per visible row.
 int hostui_test_browse_rows(char *out, int max)

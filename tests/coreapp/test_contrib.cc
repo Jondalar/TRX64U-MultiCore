@@ -372,8 +372,8 @@ int main(int argc, char **argv)
         CHECK_STR(b.values[0], "8"); CHECK_STR(b.values[3], "11");
         CHECK_EQ(r.st->value(bus), 2);                              // the default, 10
         r.m->open();
-        r.m->key(KEY_F5); r.m->key('2');
-        CHECK_STR(r.m->title(), "Settings");
+        r.m->key(KEY_F5); r.m->key('1');
+        CHECK_STR(r.m->title(), "TEST");
         r.go_to("Bus");
         CHECK_STR(r.right(r.m->selected()).c_str(), "10");
         g_bus = -1;
@@ -449,7 +449,7 @@ int main(int argc, char **argv)
         Contributor cs[] = { alpha, zapp };
         Rig r(cs, 2);
         r.m->open();
-        r.m->key(KEY_F5); r.m->key('2');
+        r.m->key(KEY_F5); r.m->key('1');
         int beep = r.find_row("Beep");
         CHECK(beep >= 0);
         CHECK(r.active(beep));
@@ -541,18 +541,18 @@ int main(int argc, char **argv)
         CHECK(dr->has_route);
         Rig plain(0, 0), described(0, 0, &dr->skel, 0);
         CHECK(plain.dump() == described.dump());
-        CHECK(plain.dump().find("tab 2 Settings") != std::string::npos);
+        CHECK(plain.dump().find("tab 1 TEST") != std::string::npos);
         delete dr;
     }
 
     // ---- contributed tabs (T104.1 D8, Alex 2026-10-26): appended after the area's own, the next free number, refused by name
     {
         static const LibTabDecl tabs[] = {
+            { "F5", "late", "Late", TW_NODES, 0, 2 },                          // 2 is Video's number (checked while the strip still has room)
             { "F5", "extras", "Extras", TW_NODES, 0, 0 },
-            { "F5", "audio", "Audio", TW_SETTINGS, "audio", 0 },
+            { "F5", "special", "Special", TW_SETTINGS, "special", 0 },
             { "F9", "nowhere", "Nowhere", TW_NODES, 0, 0 },
             { "F5", "extras", "Again", TW_NODES, 0, 0 },                      // the id is taken
-            { "F5", "late", "Late", TW_NODES, 0, 2 },                          // 2 is Settings' number
             { "F5", "fifth", "Fifth", TW_NODES, 0, 0 },
             { "F5", "sixth", "Sixth", TW_NODES, 0, 0 },
             { "F5", "seventh", "Seventh", TW_NODES, 0, 0 },                    // the strip has room for six
@@ -560,10 +560,10 @@ int main(int argc, char **argv)
         };
         static const LibNodeDecl nodes[] = {
             { "F5/extras", LN_OP, "In extras", "zl.beep", 0, 1 },
-            { "F5/audio", LN_OP, "In audio", "zl.beep", 0, 1 },
+            { "F5/special", LN_OP, "In special", "zl.beep", 0, 1 },
             { "F5/seventh", LN_OP, "In the seventh", "zl.beep", 0, 1 },
         };
-        static const LibSettingDecl sets[] = { { "audio", "Volume", beeper_values, 2, 0, 0, 0, "zl.set_beeper" }, { 0, "Plain", beeper_values, 2, 0, 0, 0, "zl.set_beeper" } };
+        static const LibSettingDecl sets[] = { { "special", "Volume", beeper_values, 2, 0, 0, 0, "zl.set_beeper" }, { 0, "Plain", beeper_values, 2, 0, 0, 0, "zl.set_beeper" } };
         LibRecord rec;
         memset(&rec, 0, sizeof(rec));
         rec.tabs = tabs; rec.ntabs = 9;
@@ -577,9 +577,9 @@ int main(int argc, char **argv)
         std::string order;
         for (int b = 0; b < t.a[a5].ntabs; b++) order += std::string(b ? "," : "") + t.a[a5].tabs[b].id + ":" + std::to_string(t.a[a5].tabs[b].n);
         // the area's own tabs keep their places and numbers; the new ones follow with the next free numbers
-        CHECK_STR(order.c_str(), "summary:1,settings:2,extras:3,audio:4");
+        CHECK_STR(order.c_str(), "settings:1,extras:2,special:3");
         CHECK_STR(join(r.tab("F5", "extras")).c_str(), "In extras");
-        CHECK_STR(join(r.tab("F5", "audio")).c_str(), "Volume | In audio");          // the setting of the group is in the new tab ...
+        CHECK_STR(join(r.tab("F5", "special")).c_str(), "Volume | In special");          // the setting of the group is in the new tab ...
         CHECK(join(r.tab("F5", "settings")).find("Volume") == std::string::npos);
         CHECK(join(r.tab("F5", "settings")).find("Plain") != std::string::npos);     // ... the ungrouped one is not
         CHECK(r.has_err("area F9, which the route does not have"));
@@ -592,10 +592,10 @@ int main(int argc, char **argv)
         // the number key reaches a contributed tab
         r.m->open();
         r.m->key(KEY_F5);
-        r.m->key('4');
-        CHECK_STR(r.m->title(), "Audio");
+        r.m->key('3');
+        CHECK_STR(r.m->title(), "Special");
         g_beeps = 0;
-        r.go_to("In audio");
+        r.go_to("In special");
         r.m->key(KEY_RETURN);
         CHECK_EQ(g_beeps, 1);
         // the contribution of a description: its F7 tab, "More"
@@ -667,7 +667,7 @@ int main(int argc, char **argv)
         CHECK_EQ(r.refused, 0);
         // each instance has its own binding, state and condition
         r.m->open();
-        r.m->key(KEY_F5); r.m->key('2');
+        r.m->key(KEY_F5); r.m->key('1');
         g_slot_called.clear();
         r.go_to("Reset drive_b");
         CHECK(!r.active(r.find_row("Reset drive_b")));                    // drive_b has no image (state null = empty): the condition holds for != empty only when there is one

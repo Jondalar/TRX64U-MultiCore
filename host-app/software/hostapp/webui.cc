@@ -2,6 +2,8 @@
 #include "videomode.h"
 #include "hostvideo.h"
 #include "bugreport.h"
+#include "hostreport.h"
+#include "configlist.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -117,6 +119,9 @@ static const char *esc(const char *s)
 }
 
 // One field out of "a=1&b=2". Returns false when the key is not there.
+static char g_parse_why[96];                 // why the last web_parse said 400 ("" = no reason)
+const char *web_parse_why(void) { return g_parse_why; }
+
 static bool field(const char *body, const char *key, char *out, int max)
 {
     int kl = (int)strlen(key);
@@ -270,8 +275,8 @@ int web_json(const WebSnapshot *s, const char *note, char *out, int max)
          jesc(note ? note : ""));
     for (int i = 0; i < s->n; i++) {
         EMIT("%s{\"name\":\"%s\"", i ? "," : "", jesc(s->name[i]));
-        EMIT(",\"path\":\"%s\",\"state\":\"%s\",\"startable\":%s}",
-             jesc(s->path[i]), s->state[i], s->startable[i] ? "true" : "false");
+        EMIT(",\"path\":\"%s\",\"state\":\"%s\",\"startable\":%s,\"configs\":%d}",
+             jesc(s->path[i]), s->state[i], s->startable[i] ? "true" : "false", s->configs[i]);
     }
     EMIT("]");
     if (s->q_text[0]) {
@@ -309,6 +314,7 @@ int web_report_head(uint32_t fattime, bool time_valid, char *out, int max)
 bool web_parse(const char *uri, const char *body, WebCmd *cmd, const WebSnapshot *s, int *status)
 {
     memset(cmd, 0, sizeof(*cmd));
+    g_parse_why[0] = 0;
     *status = 404;
     if (!uri) {
         return false;
@@ -349,6 +355,22 @@ bool web_parse(const char *uri, const char *body, WebCmd *cmd, const WebSnapshot
         }
         cmd->kind = WEB_BOOT;
         cmd->a = i;
+        cmd->config[0] = 0;
+        char cfgname[96];
+        if (field(body, "config", cfgname, sizeof(cfgname)) && cfgname[0]) {                 // T198 S13: the same start as the overlay's RETURN on a config; absent = plain
+            const char *why = config_name_why(cfgname);                       // a name that is not a config name is refused, never cut to 32 characters
+            if (why[0]) {
+                snprintf(g_parse_why, sizeof(g_parse_why), "%s", why);
+                for (char *q = g_parse_why; *q; q++) {
+                    if (*q == '"' || *q == '\\') {
+                        *q = '\'';                                             // the reason goes into a JSON string as it is
+                    }
+                }
+                *status = 400;
+                return false;
+            }
+            snprintf(cmd->config, sizeof(cmd->config), "%s", cfgname);
+        }
         *status = 202;
         return true;
     }
@@ -470,7 +492,7 @@ void web_start(void)
     cfg.port = WEB_PORT;
     cfg.clients_max = 4;                     // a browser opens several connections at once
     cfg.ws_max = 2;                          // the other two slots stay for plain requests
-    cfg.out_max = 28672;                     // the bug report (HOST_REPORT_MAX) goes out in one piece with its headers
+    cfg.out_max = HOST_REPORT_OUT_MAX;                   // the bug report (HOST_REPORT_MAX) goes out in one piece with its headers
     cfg.share_out = true;                    // ... in one buffer for all clients
     cfg.stack_words = 2 * configMINIMAL_STACK_SIZE;
     cfg.ws_msg_max = 12288;                  // the UI service's snapshot goes out in one message

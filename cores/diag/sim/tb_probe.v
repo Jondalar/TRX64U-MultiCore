@@ -380,7 +380,7 @@ module tb_probe;
         begin
             rd32(12'h000, v); check(v == 32'h47414944, "I: ID reads DIAG");
             rd(12'h004, b); check(b == 8'hC0, "I: CAPS 0xC0 (pixel layer)");
-            rd(12'h006, b); check(b == 8'h03, "I: DCAPS pins + paddle");
+            rd(12'h006, b); check(b == 8'h07, "I: DCAPS pins + paddle + A/V");
             rd32(12'h008, v); check(v == 32'hCAFE0001, "I: BUILD");
             rd32(12'h00C, v); check(v == 32'h00006400, "I: ticks per us x 256 = 100 MHz");
             // STEP_ADDR auto increment

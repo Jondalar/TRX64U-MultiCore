@@ -104,6 +104,7 @@ enum HvEvent { HV_NONE = 0, HV_FOLLOWED, HV_REVERTED, HV_CONFIRM_TICK };
 struct HvState {
     bool     gw;             // the host answers the mode request
     uint16_t mask;           // the rows the screen offers now
+    uint16_t native;         // T187 D5: the rows of mask its short video descriptors flag as native
     bool     have_edid;      // an EDID that read and parsed (false: nobody answered, the Q9 list)
     uint32_t sig;            // a digest of the EDID bytes last looked at; 0 with none
     bool     sig_valid;
@@ -138,6 +139,10 @@ void hv_start(bool use_saved, int *used_sys, int *used_hdmi);
 bool hv_user_set(int hdmi, char *why, int why_n);
 // Any key during the question: keeps the mode and stores it. True when there was a question (the key is consumed).
 bool hv_keep(void);
+// The resolution "from the screen" asks for now (what hv_user_set(-1) would put up).
+int hv_auto(void);
+// LEFT / ESC during the question: back to the previous mode at once (T187 D5, Q-D5.2). True when there was a question.
+bool hv_revert(void);
 // Called from the UI loop: the hot-plug follow (D11b) and the revert timer (Q7). The event says what the screen did.
 HvEvent hv_tick(void);
 int hv_seconds_left(void);

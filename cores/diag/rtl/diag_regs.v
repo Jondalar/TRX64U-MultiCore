@@ -3,7 +3,7 @@
 //   000-003 ID        "DIAG"
 //   004 CAPS 0xC0     b6 page 6 (the host's pixel layer), b7 the pixel layer is RGB565 (the host's meaning; the diag bits are DCAPS)
 //   005 CAPS2 0x02    b1 BUILD is there
-//   006 DCAPS         b0 the joystick pins are open-drain outputs in the top, b1 PADDLE_DIS / PADDLE_ADJ are driven by the engine
+//   006 DCAPS         b0 the joystick pins are open-drain outputs in the top, b1 PADDLE_DIS / PADDLE_ADJ are driven by the engine, b2 the A/V test encoder (T201, 050-05F)
 //   008-00B BUILD     the bitstream's build stamp (USR_ACCESS)
 //   00C-00F TICKS_US  R  engine clocks per microsecond x 256 (cpu_clk 100 MHz: 0x00006400)
 //   010 IRQ_EN RW, 014 IRQ_CAUSE R/W1C   b7 page flip done, b6 video frame start, b5 the engine stopped or waits for the user
@@ -16,6 +16,10 @@
 //   034-035 FIFO_LEVEL R words in the FIFO (0..512)
 //   040-041 LIVE      R  {2'b0, PADDLE_CMP[3:0], KBJOY_2[4:0], KBJOY_1[4:0]} synchronised, high = pin high
 //   042-043 DRV       R  {6'b0, drive-low mask[9:0]}: the pins the engine drives low now (bit order of LIVE without the CMP bits)
+//   050-05F A/V test encoder (T201, diag_avout.v; all RW, live, a read gives what was written; reset = the C128's PAL values)
+//     050 STD b1:0 (0 PAL, 1 NTSC, 2 PAL-60, 3 NTSC-50)   051 PERM b2:0 (0..5, 5)   052 REV b2:0 (bit n: group n bit order reversed, 0)   053 VINV b0 (1), FRZ b1 (0: the marker stands still)
+//     054 TRIM s8 (0)   055 BSTART b6:0 (28)   056-057 BEND b9:0 (99)   058 BAMP b5:0 (32)   059 GAIN b4:0 (16)   05A SYNC (0)   05B BLANK (77)   05C WHITE b4:0 (11)
+//     05D b0 EQ (0: broad vsync pulses only; 1: equalizing + serrated vsync), b1 L262 (0: 263 lines per frame at the 60 Hz standards; 1: 262)   05E VLEN b4:0 (6: the vsync / each block's length in half lines; 5 = 2.5 lines, 12 = 6)   05F VPOS s8 (0: the vsync's start in lines against the default)
 //   page 6 (0x6000-0x6FFF)  forwarded to the host's pixel layer (px_we, px_re, px_rdata)
 `timescale 1ns / 1ps
 module diag_regs #(
@@ -47,11 +51,21 @@ module diag_regs #(
     input  wire [9:0]  fifo_level,
     output wire        fifo_rd,
     input  wire [13:0] live,
-    input  wire [9:0]  drv_low
+    input  wire [9:0]  drv_low,
+    output wire [81:0] av_cfg                       // T201: the A/V encoder's knobs (diag_avout.v lists the fields)
 );
     reg [7:0]  irq_en = 8'd0, cause = 8'd0;
     reg [7:0]  q = 8'd0;
     reg        q_p6 = 1'b0, ack_r = 1'b0;
+    reg [1:0]  av_std = 2'd0;
+    reg [2:0]  av_perm = 3'd5, av_rev = 3'd0;
+    reg        av_vinv = 1'b1, av_frz = 1'b0, av_eq = 1'b0, av_l262 = 1'b0;
+    reg [7:0]  av_vpos = 8'd0, av_trim = 8'd0, av_sync = 8'd0, av_blank = 8'd77;
+    reg [6:0]  av_bs = 7'd28;
+    reg [9:0]  av_be = 10'd99;
+    reg [5:0]  av_bamp = 6'd32;
+    reg [4:0]  av_gain = 5'd16, av_white = 5'd11, av_vlen = 5'd6;
+    assign av_cfg = {av_vpos, av_vlen, av_l262, av_eq, av_frz, av_white, av_blank, av_sync, av_gain, av_bamp, av_be, av_bs, av_trim, av_vinv, av_rev, av_perm, av_std};
     reg [7:0]  saddr = 8'd0;
     reg [31:0] sdata = 32'd0;
     wire        win  = addr[16];
@@ -87,6 +101,22 @@ module diag_regs #(
                 12'h022: sdata[23:16] <= wdata;
                 12'h023: begin sdata[31:24] <= wdata; st_we <= 1'b1; end    // the RAM write is in the next clock; saddr moves on then
                 12'h024: saddr <= wdata;
+                12'h050: av_std <= wdata[1:0];
+                12'h051: av_perm <= (wdata[2:0] > 3'd5) ? 3'd5 : wdata[2:0];
+                12'h052: av_rev <= wdata[2:0];
+                12'h053: begin av_vinv <= wdata[0]; av_frz <= wdata[1]; end
+                12'h054: av_trim <= wdata;
+                12'h055: av_bs <= wdata[6:0];
+                12'h056: av_be[7:0] <= wdata;
+                12'h057: av_be[9:8] <= wdata[1:0];
+                12'h058: av_bamp <= wdata[5:0];
+                12'h059: av_gain <= wdata[4:0];
+                12'h05A: av_sync <= wdata;
+                12'h05B: av_blank <= wdata;
+                12'h05C: av_white <= wdata[4:0];
+                12'h05D: begin av_eq <= wdata[0]; av_l262 <= wdata[1]; end
+                12'h05E: av_vlen <= wdata[4:0];
+                12'h05F: av_vpos <= wdata;
                 default: ;
             endcase
         end
@@ -100,7 +130,7 @@ module diag_regs #(
                 12'h003: q <= 8'h47;                // "G"
                 12'h004: q <= 8'hC0;
                 12'h005: q <= 8'h02;
-                12'h006: q <= 8'h03;
+                12'h006: q <= 8'h07;
                 12'h008: q <= build[7:0];
                 12'h009: q <= build[15:8];
                 12'h00A: q <= build[23:16];
@@ -124,6 +154,22 @@ module diag_regs #(
                 12'h041: q <= {2'b00, live[13:8]};
                 12'h042: q <= drv_low[7:0];
                 12'h043: q <= {6'd0, drv_low[9:8]};
+                12'h050: q <= {6'd0, av_std};
+                12'h051: q <= {5'd0, av_perm};
+                12'h052: q <= {5'd0, av_rev};
+                12'h053: q <= {6'd0, av_frz, av_vinv};
+                12'h054: q <= av_trim;
+                12'h055: q <= {1'b0, av_bs};
+                12'h056: q <= av_be[7:0];
+                12'h057: q <= {6'd0, av_be[9:8]};
+                12'h058: q <= {2'd0, av_bamp};
+                12'h059: q <= {3'd0, av_gain};
+                12'h05A: q <= av_sync;
+                12'h05B: q <= av_blank;
+                12'h05C: q <= {3'd0, av_white};
+                12'h05D: q <= {6'd0, av_l262, av_eq};
+                12'h05E: q <= {3'd0, av_vlen};
+                12'h05F: q <= av_vpos;
                 default: ;
             endcase
         end

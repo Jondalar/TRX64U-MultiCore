@@ -13,6 +13,7 @@
 #include "d1541_fs.h"
 #include "regset.h"
 #include "cbm1541.h"
+#include "cbm_run.h"
 #include "d1541_drive.h"
 #include <stdio.h>
 
@@ -488,6 +489,129 @@ int main()
             r.set("System Mode", m);
             r.apply("System Mode");
             CHECK_EQ(r.io.vfmt, fmt[m]);
+        }
+    }
+    // ---- T206 S1: Run Disk. The disk is mounted, the machine reset, and LOAD"*",8,1 / RUN pressed on the key matrix (not poked into the keyboard buffer:
+    // the 65816 reads bank 0 from the SuperCPU's SRAM, scpu_mem.v mir_tab) once the screen shows the prompt. A model of the KERNAL's side: it decodes the
+    // matrix writes as the scan would (a key counts when it is down at the 50 Hz scan, with L SHIFT) and answers a RETURN with a LOAD that ends 3 s later.
+    {
+        Rig r;
+        r.all();
+        r.fs.put(OWN "1541.rom", pattern(5, 16384));
+        r.fs.put("/usb0/games/run.d64", Bytes(174848, 0));
+        r.fs.put("/usb0/games/run.d81", Bytes(819200, 0));
+        r.io.dm.multi = true;
+        r.fs.put(OWN "1581.rom", pattern(11, 32768));
+        CHECK(r.boot());
+        CHECK(c64scpu_desc.type_op && !strcmp(c64scpu_desc.type_op, "c64scpu.type_script"));
+        for (const char *ext : { ".d64", ".g64", ".d81" }) {
+            for (int i = 0; i < c64scpu_desc.nfiletypes; i++) {
+                if (strcmp(c64scpu_desc.filetypes[i].ext, ext)) continue;
+                bool run = false;
+                for (int k = 0; k < c64scpu_desc.filetypes[i].nactions; k++) run = run || !strcmp(c64scpu_desc.filetypes[i].actions[k].label, "Run Disk");
+                CHECK(run);
+            }
+        }
+        // the inverse of cbm_key_for over the characters the script uses
+        auto decode = [](const uint8_t m[8], char *ch, bool *only_shift) {
+            int down[3], n = 0;
+            for (int idx = 0; idx < 64; idx++) if (m[idx / 8] & (1u << (idx % 8))) down[n < 3 ? n++ : 2] = idx;
+            bool shift = false;
+            int key = -1;
+            for (int k = 0; k < n; k++) { if (down[k] == 15) shift = true; else key = down[k]; }
+            *only_shift = n == 1 && shift;
+            *ch = 0;
+            if (key < 0) return;
+            for (int c = 1; c < 256; c++) {
+                CbmKey ck;
+                if (cbm_key_for((uint8_t)c, &ck) && ck.idx == key && ck.shift == shift) { *ch = (char)c; return; }
+            }
+        };
+        auto put_row = [&](Rig &rr, int row, const char *text) {            // screen codes: A-Z 1-26, '.' 46, others as ASCII, rest blank
+            for (int i = 0; i < 40; i++) rr.io.ram[0x0400 + row * 40 + i] = 32;
+            for (int i = 0; text[i]; i++) rr.io.ram[0x0400 + row * 40 + i] = text[i] >= 'A' && text[i] <= 'Z' ? (uint8_t)(text[i] - 'A' + 1) : (uint8_t)text[i];
+        };
+        for (const char *img : { "/usb0/games/run.d64", "/usb0/games/run.d81" }) {
+            r.io.events.clear();
+            r.io.mx_log.clear();
+            for (int i = 0; i < 1000; i++) r.io.ram[0x0400 + i] = 32;
+            for (int i = 0; i < 0x100; i++) r.io.ram[i] = 0;                  // page 0 of the C64 RAM stays zero: BASIC's pointers and $C6 are not what READY is read from
+            put_row(r, 3, "**** COMMODORE 64 BASIC V2 ****");                 // a boot screen without the prompt yet: nothing may be pressed
+            OpIn in[2] = { in_str("slot", "iec:drive_a"), in_str("path", img) };
+            OpResult res;
+            memset(&res, 0, sizeof(res));
+            CHECK_EQ(ops_call(&r.c, "drive.mount_run", in, 2, &res), OPE_OK);
+            CHECK(r.ev("mode_reset") >= 0);
+            std::string typed;
+            uint32_t load_done = 0, t0 = r.io.t;
+            size_t seen = 0;
+            for (int i = 0; i < 700; i++) {
+                if (i == 40) put_row(r, 5, "READY.");                         // 2 s: the prompt appears
+                if (i < 40) CHECK_EQ(r.io.mx_log.size(), 0u);                  // nothing before READY
+                r.io.delay_ms(50);
+                ops_call(&r.c, "c64scpu.service", 0, 0, &res);
+                for (; seen < r.io.mx_log.size(); seen++) {
+                    char ch; bool only_shift;
+                    decode(r.io.mx_log[seen].m, &ch, &only_shift);
+                    if (ch) typed += ch;
+                    if (ch == '\r') {                                           // RETURN down: the KERNAL takes the line, LOAD runs and the prompt returns 3 s after the key is up
+                        put_row(r, 6, "SEARCHING FOR *");
+                        load_done = 0xFFFFFFFFu;
+                    }
+                }
+                if (load_done == 0xFFFFFFFFu && seen == r.io.mx_log.size() && (r.io.mx_log.back().m[0] | r.io.mx_log.back().m[1] | r.io.mx_log.back().m[2] | r.io.mx_log.back().m[3]) == 0 &&
+                    r.io.mx_log.back().m[4] == 0) load_done = r.io.mx_log.back().t + 3000;
+                if (load_done && load_done != 0xFFFFFFFFu && r.io.t >= load_done) { put_row(r, 8, "READY."); load_done = 0; }
+            }
+            (void)t0;
+            CHECK(typed == "LOAD\"*\",8,1\rRUN\r");
+            CHECK_EQ(r.io.ram[0xC6], 0);                                       // the keyboard buffer was never poked
+            CHECK_EQ(r.io.ram[0x0277], 0);
+            CHECK_EQ(r.io.mx_log.back().t > 0, true);
+            for (int k = 0; k < 8; k++) CHECK_EQ(r.io.mx_log.back().m[k], 0);  // every key let go at the end
+            // timing: a key (with its L SHIFT) is down >= 90 ms, up >= 90 ms before the next press, L SHIFT leads its key by >= 40 ms
+            for (size_t k = 0; k < r.io.mx_log.size(); k++) {
+                char ch; bool only_shift;
+                decode(r.io.mx_log[k].m, &ch, &only_shift);
+                bool zero = true;
+                for (int b = 0; b < 8; b++) zero = zero && r.io.mx_log[k].m[b] == 0;
+                if (zero || k + 1 >= r.io.mx_log.size()) continue;
+                uint32_t held = r.io.mx_log[k + 1].t - r.io.mx_log[k].t;
+                if (only_shift) CHECK(held >= 40);
+                else CHECK(held >= 90);
+                if (!only_shift && k + 2 < r.io.mx_log.size() && ch != 0) {
+                    bool z1 = true;
+                    for (int b = 0; b < 8; b++) z1 = z1 && r.io.mx_log[k + 1].m[b] == 0;
+                    if (z1) CHECK(r.io.mx_log[k + 2].t - r.io.mx_log[k + 1].t >= 90);
+                }
+            }
+            // the quote is SHIFT + 2: the log holds L SHIFT alone first, then L SHIFT with the 2 (col 7, row 3 = index 59)
+            bool lead = false, quote = false;
+            for (size_t k = 0; k + 1 < r.io.mx_log.size(); k++) {
+                const uint8_t *a = r.io.mx_log[k].m, *b = r.io.mx_log[k + 1].m;
+                bool a_shift_only = a[1] == 0x80 && !a[0] && !a[2] && !a[3] && !a[4] && !a[5] && !a[6] && !a[7];
+                if (a_shift_only && b[1] == 0x80 && b[7] == 0x08) { lead = true; quote = true; }
+            }
+            CHECK(lead && quote);
+        }
+        // ---- the other cores keep the buffer: the method is chosen by CbmRunMachine::screen (the SuperCPU sets it, the C64U-family descriptors do not)
+        {
+            CbmRunMachine m;
+            memset(&m, 0, sizeof(m));
+            CHECK_EQ(m.screen, 0);
+        }
+        // ---- the characters of a name: letters, digits, the shifted symbols, SHIFT + letter; a graphic character has no key
+        {
+            CbmKey k;
+            CHECK(cbm_key_for('"', &k) && k.shift && k.idx == 59);
+            CHECK(cbm_key_for(',', &k) && !k.shift && k.idx == 47);
+            CHECK(cbm_key_for('*', &k) && !k.shift && k.idx == 49);
+            CHECK(cbm_key_for('A', &k) && !k.shift && k.idx == 10);
+            CHECK(cbm_key_for(0xC1, &k) && k.shift && k.idx == 10);
+            CHECK(cbm_key_for('?', &k) && k.shift && k.idx == 55);
+            CHECK(cbm_key_for('\r', &k) && !k.shift && k.idx == 1);
+            CHECK(!cbm_key_for(0x00, &k));
+            CHECK(!cbm_key_for(0xA0, &k));
         }
     }
     DONE("test_c64scpu");

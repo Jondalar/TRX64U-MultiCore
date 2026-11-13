@@ -15,6 +15,7 @@ module c128_x (
     output wire        fast,
     output wire  [3:0] vdc_rgbi,
     output wire        vdc_ce, vdc_hb, vdc_vb,
+    output wire  [1:0] vdc_il,                   // T113 D11: {R8[1:0] == 3, the field being drawn}
     input  wire        vd_clk,
     input  wire [15:0] vd_addr,
     input  wire        vd_we,
@@ -52,7 +53,7 @@ module c128_x (
         .version(1'b0), .ram64k(V64), .initRam(1'b1), .debug(1'b0),
         .clk(clk), .enableBus(bus_en), .reset(rst), .ctl_reset(warm), .init(1'b0),
         .cs(vdc_cs), .rs(vdc_rs), .we(vdc_we), .db_in(vdc_din), .db_out(vdc_dout),
-        .lp_n(1'b1), .vsync(), .hsync(), .pixel_ce(vdc_ce), .active_h(act_h), .active_v(act_v), .rgbi(vdc_rgbi));
+        .lp_n(1'b1), .vsync(), .hsync(), .pixel_ce(vdc_ce), .active_h(act_h), .active_v(act_v), .rgbi(vdc_rgbi), .ilace(vdc_il));
     assign vdc_hb = !act_h;
     assign vdc_vb = !act_v;
     assign vd_rdata = 8'd0;
@@ -60,9 +61,9 @@ module c128_x (
     vdc_cpu #(.RAM_BITS(`VCPU_BITS)) vdc (
         .clk(clk), .rst(rst), .bus_en(bus_en), .cs(vdc_cs), .rs(vdc_rs), .we(vdc_we), .db_in(vdc_din), .db_out(vdc_dout),
         .vd_clk(vd_clk), .vd_addr(vd_addr), .vd_we(vd_we), .vd_wdata(vd_wdata), .vd_rdata(vd_rdata));
-    assign vdc_rgbi = 4'd0; assign vdc_ce = 1'b0; assign vdc_hb = 1'b1; assign vdc_vb = 1'b1;
+    assign vdc_rgbi = 4'd0; assign vdc_ce = 1'b0; assign vdc_hb = 1'b1; assign vdc_vb = 1'b1; assign vdc_il = 2'b00;
 `else
     assign vdc_dout = 8'hFF; assign vd_rdata = 8'd0;
-    assign vdc_rgbi = 4'd0; assign vdc_ce = 1'b0; assign vdc_hb = 1'b1; assign vdc_vb = 1'b1;
+    assign vdc_rgbi = 4'd0; assign vdc_ce = 1'b0; assign vdc_hb = 1'b1; assign vdc_vb = 1'b1; assign vdc_il = 2'b00;
 `endif
 endmodule

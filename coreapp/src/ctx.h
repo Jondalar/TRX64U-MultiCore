@@ -40,6 +40,8 @@ struct CoreCtx {
     char cor_path[HANDOVER_PATH_MAX];     // "" when the application started without a hand-over (JTAG, developer)
     char cfg_path[HANDOVER_PATH_MAX];     // "" when there is no .cor path: then there is no .cfg either
     char core_version[24];
+    char config[48];                      // T198: the config this run started with or has loaded (configs/<name>.cfg), "" = the core's own .cfg
+    char settings_path[HANDOVER_PATH_MAX];   // T198: the file the settings are read from and written to: the config's, or "" = cfg_path
     uint32_t host_key;                    // the host build the .cor was routed against, from the hand-over (8 hex digits); 0: none named
     PartialPort *partial;                 // the host's ICAP loader and decoupler (partial.h); null: nothing to reload a partial with
     void *state;                          // the descriptor's own state (mounted disks, loaded program)
@@ -82,6 +84,9 @@ struct CoreCtx {
     // reset or release the machine (boot_cold_reset applies the reset-time settings and returns, boot_finish does nothing), the caller does it once.
     bool media_restoring;
 };
+
+// T198: the file the settings live in - the config of this run, else the core's own .cfg.
+static inline const char *ctx_settings_path(const CoreCtx *c) { return c->settings_path[0] ? c->settings_path : c->cfg_path; }
 
 static inline void mount_notify(CoreCtx *c, int slot)
 {

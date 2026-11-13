@@ -53,11 +53,56 @@ module tb_c128;
     // asserted (+NODEV: no device on the bus, so the KERNAL's boot attempt ends; run_robots.sh uses it)
     reg nodev = 1'b0;
     reg dv_on = 1'b0, dv_clk = 1'b1, dv_data = 1'b1;       // +DEV8: the bus-level device below instead of the stub; its line drivers (1 = released)
+    wire drv_clk_o, drv_data_o;
+    reg  drv_on = 1'b0;                                     // -DSIM_DRIVE: the real 1541 below is on the bus instead of the stub (+DRIVE)
     always @(*) begin
         iec_atn_i  = iec_atn_o;
-        iec_clk_i  = iec_clk_o & dv_clk;
-        iec_data_i = iec_data_o & dv_data & (dv_on | nodev | iec_atn_o);
+        iec_clk_i  = iec_clk_o & dv_clk & drv_clk_o;
+        iec_data_i = iec_data_o & dv_data & drv_data_o & (dv_on | nodev | drv_on | iec_atn_o);
     end
+`ifdef SIM_DRIVE
+    // T140 5.19 (issue #67): a real 1541 (vendor/icepi c64_c1541: its 6502, VIAs and GCR head) with the 1541 ROM (mem/d1541.mem, 32 KiB, 16 KiB mirrored)
+    // and the disk image as raw .d64 bytes (mem/disk.mem, tools/c128_mem_from_bin.py); the track "SD" side is this memory: block_lba is the first sector of
+    // the track (start_sectors.mem), buff_addr = {sector, byte}. Read only. +DRIVE puts it on the bus.
+    reg [7:0] d_rom [0:32767];
+    reg [7:0] d_img [0:262143];
+    wire [14:0] drv_ra; wire drv_re;
+    wire [31:0] drv_blba; wire [5:0] drv_bcnt; wire drv_brd, drv_bwr;
+    wire [12:0] drv_ba; wire [7:0] drv_bdin; wire drv_bwe, drv_ben, drv_led, drv_busy, drv_mtr;
+    reg  [7:0] drv_rq = 8'h00, drv_bq = 8'h00;
+    reg        drv_ack = 1'b0, drv_mnt = 1'b0;
+    reg  [7:0] drv_ackc = 8'd0;
+    reg  [9:0] drv_lba = 10'd0;
+    initial begin
+        $readmemh("mem/d1541.mem", d_rom);
+        $readmemh("mem/disk.mem", d_img);
+        if ($test$plusargs("DRIVE")) drv_on = 1'b1;
+        #3000000 drv_mnt = 1'b1; #200 drv_mnt = 1'b0;
+    end
+    always @(posedge clk_r) begin
+        if (drv_re) drv_rq <= d_rom[drv_ra];
+        drv_bq <= d_img[{drv_lba, 8'd0} + {5'd0, drv_ba}];
+        drv_ack <= 1'b0;
+        if (drv_brd || drv_bwr) begin
+            if (drv_ackc == 8'd40) begin drv_ack <= 1'b1; drv_lba <= drv_blba[9:0]; drv_ackc <= 8'd0; end
+            else drv_ackc <= drv_ackc + 8'd1;
+        end else drv_ackc <= 8'd0;
+    end
+    wire drv_clk_w, drv_data_w;
+    assign drv_clk_o  = drv_on ? drv_clk_w  : 1'b1;
+    assign drv_data_o = drv_on ? drv_data_w : 1'b1;
+    c64_c1541 #(.NTSC(0), .DRIVE_NUM(0), .EXTERNAL_ROM(1)) drive (
+        .clk(clk_r), .reset(rst || !drv_on), .stall(1'b0),
+        .img_id(16'h0000), .img_readonly(1'b1), .img_present(1'b1), .img_mounted(drv_mnt),
+        .led(drv_led), .busy(drv_busy), .mtr(drv_mtr),
+        .iec_atn_i(iec_atn_i), .iec_data_i(iec_data_i), .iec_clk_i(iec_clk_i), .iec_data_o(drv_data_w), .iec_clk_o(drv_clk_w),
+        .par_data_i(8'hFF), .par_stb_i(1'b1), .par_data_o(), .par_stb_o(), .ext_en(1'b0),
+        .block_lba(drv_blba), .block_cnt(drv_bcnt), .block_rd(drv_brd), .block_wr(drv_bwr), .block_ack(drv_ack),
+        .buff_addr(drv_ba), .buff_dout(drv_bq), .buff_din(drv_bdin), .buff_we(drv_bwe), .buff_en(drv_ben),
+        .ext_rom_en(drv_re), .ext_rom_addr(drv_ra), .ext_rom_dout(drv_rq));
+`else
+    assign drv_clk_o = 1'b1; assign drv_data_o = 1'b1;
+`endif
 
     // +DEV8 (T140 D31, bench only): device 8 on the serial bus, written from the C128 KERNAL's routines (ROM 318020-05: LISTEN/CIOUT $E343-$E412, TKSA $E4E0, ACPTR $E43E,
     // UNLSN $E515). It answers ATN with DATA low, takes the command bytes (LISTEN $28, SECOND, TALK $48, TKSA, UNLISTEN, UNTALK) and the name, and serves ONE file (mem/devfile.mem,
@@ -298,6 +343,35 @@ module tb_c128;
             end
         end
     endtask
+    // +VDCPROBE (T140 5.19): every CPU write into the VDC (cw), what the VDC's RAM interface did with it (rw = a RAM write, DROP = a pending CPU action was
+    // replaced before the RAM saw it), and the Z80's own writes to $D6xx at the latch (zw), to count Z80 writes against VDC strobes. act: 0 idle 1 read 2 write 3 fill 4/5 copy.
+    reg vprobe = 1'b0;
+    initial vprobe = $test$plusargs("VDCPROBE");
+    reg zl_q = 1'b0; reg rw_q = 1'b0;
+    integer vp_n = 0;
+    time vp_from = 0; integer vp_fromus;
+    initial if ($value$plusargs("VPFROM=%d", vp_fromus)) vp_from = vp_fromus * 1000;     // +VPFROM=<us>: no rw lines before that time (the 64 KiB power-up erase)
+    reg [15:0] ua_q = 16'd0; reg [2:0] ca_q = 3'd0; reg [2:0] ra_q = 3'd0;
+    always @(posedge clk_r) if (vprobe) begin
+        ua_q <= dut.c64.x.vdc.reg_ua; ca_q <= vp_act; ra_q <= dut.c64.x.vdc.ram.ramAction;
+        if (dut.c64.x.vdc.reg_ua != ua_q || vp_act != ca_q) $display("vp|%0t|st|ua%04x|ca%0d>%0d|ra%0d|col%0d", $time, dut.c64.x.vdc.reg_ua, ca_q, vp_act, dut.c64.x.vdc.ram.ramAction, dut.c64.x.vdc.ram.col);
+        if (dut.c64.x.vdc.enableBus && dut.c64.x.vdc.cs && !dut.c64.x.vdc.we && dut.c64.x.vdc.rs) $display("vp|%0t|cr|r%0d", $time, dut.c64.x.vdc.regSel);
+    end
+    always #100000000 if (vprobe) begin $display("hb|%0t|vdc busy %b ram_addr %04x act %0d rst %b status %02x", $time, dut.c64.x.vdc.ram.busy, dut.c64.x.vdc.ram.ram_addr, dut.c64.x.vdc.ram.cpuAction, dut.c64.x.vdc.reset, dut.c64.x.vdc.db_out); $fflush; end
+    wire [2:0] vp_act = dut.c64.x.vdc.ram.cpuAction;
+    wire       vp_cw  = dut.c64.x.vdc.enableBus && dut.c64.x.vdc.cs && dut.c64.x.vdc.we;
+    wire       vp_set = vp_cw && (dut.c64.x.vdc.rs ? (dut.c64.x.vdc.regSel == 6'd18 || dut.c64.x.vdc.regSel == 6'd19 || dut.c64.x.vdc.regSel == 6'd30 || dut.c64.x.vdc.regSel == 6'd31) : 1'b0);
+    always @(posedge clk_r) if (vprobe) begin
+        if (vp_cw) begin
+            $display("vp|%0t|cw|rs%b|r%0d|d%02x|act%0d%s|ua%04x|z80 %b", $time, dut.c64.x.vdc.rs, dut.c64.x.vdc.regSel, dut.c64.x.vdc.db_in, vp_act,
+                (vp_set && vp_act != 3'd0) ? " DROP-PENDING" : "", dut.c64.x.vdc.reg_ua, dut.c64.z80_act);
+            vp_n = vp_n + 1;
+        end
+        rw_q <= dut.c64.x.vdc.ram.ram_we;
+        if (dut.c64.x.vdc.ram.ram_we && !rw_q && $time > vp_from) $display("vp|%0t|rw|a%04x|d%02x", $time, dut.c64.x.vdc.ram.ram_addr, dut.c64.x.vdc.ram.ram_di);
+        zl_q <= dut.c64.z80_lat;
+        if (dut.c64.z80_lat && dut.c64.z80_we && dut.c64.z80_act && dut.c64.z80_addr[15:8] == 8'hD6) $display("vp|%0t|zw|a%04x|d%02x", $time, dut.c64.z80_addr, dut.c64.z80_dout);
+    end
     task snap;
         integer a; reg [31:0] h;
         begin
@@ -719,6 +793,14 @@ module tb_c128;
         if (ph_frame >= 0 && ph_lines) for (pli = 0; pli < 512; pli = pli + 1) $display("pixline|%0d|%08x", pli, pl_h[pli]);
         if ($test$plusargs("SCREEN")) dump_screen();
         if ($test$plusargs("VDCSCREEN")) dump_vdc();
+        if ($test$plusargs("VRAM")) begin : vram_dump          // +VRAM: 64 bytes of the VDC's RAM at $4000 / $4100 / $4200 ("vram|addr|bytes"), z80vdc
+            integer vb, vi;
+            for (vb = 16'h4000; vb <= 16'h4300; vb = vb + 16'h100) begin
+                $write("vram|%04x|", vb);
+                for (vi = 0; vi < 64; vi = vi + 1) $write("%02x", dut.c64.x.vdc.ram.ram.m[vb + vi]);
+                $write("\n");
+            end
+        end
         if (nbad == 0) $display("PASS tb_c128"); else $display("FAIL tb_c128: %0d bytes wrong", nbad);
         $finish;
     end

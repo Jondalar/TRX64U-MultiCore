@@ -26,6 +26,7 @@ done.
 |---|---|---|---|---|---|
 | TRX64 (`trx64u` / `trx64g`) | C64 with our TRX64 gateware; `trx64u` with our menu, `trx64g` with the Ultimate application | Update/backup/restore, cartridges (EF1, EF3, MegaByter, GMod2), Ultimate menu in `trx64g` | - | good | in progress |
 | VIC-20 | VIC-20 (PAL) | Picture, sound, `.d64` on the 1541 with autostart | Start click stays | runs | n/a |
+| PET | Commodore PET (2001, 3032, 4032, 8032, SuperPET) | Starts on the board, demos run; IEEE disk drive; needs your own PET ROMs | Provided as is: no further work planned. Models and cassette not checked | beta | n/a |
 | C264 | Commodore 16 / Plus/4 | 64K, 1541 drive, PRG and cartridges | Plus/4 model not tested | runs | n/a |
 | C128 | Commodore 128, C128 and C64 mode, Z80 | 40 and 80 columns, JiffyDOS, 1541/1581, C128 extra keys on USB and C64 keyboard; #19/#21 fixed on `main` | No cartridge port, no REU; Fill/Fit in 40 columns not yet (#63) | beta | in progress |
 | C64 + SuperCPU | C64 with 65816 and SuperRAM | Real SuperCPU ROM boots to READY in simulation | Not in releases; REU with SuperCPU not finished; needs your own SuperCPU ROM | alpha | in progress |

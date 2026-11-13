@@ -35,6 +35,7 @@ static WebSnapshot snap(void)
     snprintf(s.path[0], WEB_PATH_MAX, "/Usb1/cores/trx64.cor");
     snprintf(s.state[0], 16, "ok");
     s.startable[0] = true;
+    s.configs[0] = 3;                       // T198 S13
     snprintf(s.name[1], WEB_NAME_MAX, "Atari 800 XL");
     snprintf(s.path[1], WEB_PATH_MAX, "/Usb1/cores/atari800.cor");
     snprintf(s.state[1], 16, "missing");
@@ -124,6 +125,7 @@ int main(int argc, char **argv)
     CHECK(strstr(buf, "\"offered\":[0,1,2]") != 0 && strstr(buf, "\"default\":-1") != 0);
     CHECK(strstr(buf, "\"startable\":true") != 0 && strstr(buf, "\"startable\":false") != 0);
     CHECK(strstr(buf, "\"state\":\"missing\"") != 0);
+    CHECK(strstr(buf, "\"configs\":3}") != 0 && strstr(buf, "\"configs\":0}") != 0);     // T198 S13: the count of the first entry, 0 for the other
     CHECK(strstr(buf, "\"note\":\"hello\"") != 0);
     CHECK(strstr(buf, "\"found\"") == 0);
     {   // a quote in a name must not break the document
@@ -147,6 +149,8 @@ int main(int argc, char **argv)
     // --- S3 starting an entry, and refusing one that cannot start
     CHECK(web_parse("/v1/boot", "index=0", &c, &s, &status));
     CHECK(status == 202 && c.kind == WEB_BOOT && c.a == 0);
+    CHECK(web_parse("/v1/boot", "index=0&config=Demo%20collection", &c, &s, &status) && c.kind == WEB_BOOT && !strcmp(c.config, "Demo collection"));   // T198 S13
+    CHECK(web_parse("/v1/boot", "index=0", &c, &s, &status) && c.config[0] == 0);
     CHECK(!web_parse("/v1/boot", "index=1", &c, &s, &status));
     CHECK(status == 409);                                                // in the menu, not startable
     CHECK(!web_parse("/v1/boot", "index=7", &c, &s, &status) && status == 400);

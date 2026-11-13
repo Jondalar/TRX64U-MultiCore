@@ -108,7 +108,6 @@ static bool is_op_name(const char *n) { return n && n[0] && strncmp(n, "ui.", 3)
 int main()
 {
     setvbuf(stdout, 0, _IONBF, 0);
-    uiapp_allow_all_cores_for_test(true);                    // the board runs the service for the Amiga 1200 only (T192 H3); this bench is the whole table
     std::vector<Cov> table;
     for (const CoreDesc *const *pd = core_table; *pd; pd++) {
         const CoreDesc *d = *pd;

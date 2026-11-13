@@ -29,6 +29,7 @@ module scpu_mem (
     input  wire  [7:0]  d_out,
     input  wire         e_flag,
     input  wire         vpb,                    // 0 = the cycle is a vector pull ($FFE4-$FFFE of bank 0)
+    input  wire         vpa,                    // the cycle fetches the program stream (opcode or operand byte)
     input  wire  [2:0]  pport,
     input  wire         exrom_pin,              // the cartridge lines as pins: 1 = not pulled
     input  wire         game_pin,
@@ -113,8 +114,8 @@ module scpu_mem (
     scpu_area ar (.page(a_out[15:8]), .area(area));
     wire [7:0] cfg_idx = {boot, dos, hw, ~game_pin, ~exrom_pin, pport};
     scpu_cfgtab tab (.clk(clk2x), .a({area, cfg_idx}), .q(cls));
-    reg b_vpb = 1'b1;
-    always @(posedge clk2x) begin b_vpb <= vpb; b_a <= a_out; b_bus <= bus_cyc; b_wr <= wr_cyc; b_d <= d_out; end
+    reg b_vpb = 1'b1, b_vpa = 1'b0;
+    always @(posedge clk2x) begin b_vpb <= vpb; b_vpa <= vpa; b_a <= a_out; b_bus <= bus_cyc; b_wr <= wr_cyc; b_d <= d_out; end
     reg [1:0] age = 2'd0;                               // clocks since the CPU's enable (saturates at 2); the lookup shows the new cycle from 2 on
     wire settled = age[1];
     always @(posedge clk2x) if (core_ce || rst) age <= 2'd0; else if (!age[1]) age <= age + 2'd1;
@@ -262,13 +263,14 @@ module scpu_mem (
     // ---- the cache -----------------------------------------------------------------------------------------------------------------------
     wire         wbusy, flushing;
     wire [140:0] cq;
-    reg          wr_go = 1'b0, rd_done = 1'b0;
+    reg          wr_go = 1'b0, rd_done = 1'b0, rd_if = 1'b0;
+    reg  [20:0]  rd_ln = 21'd0;
     reg  [24:0]  w_p = 25'd0;
     reg   [7:0]  w_d = 8'd0;
     wire         hit = cq[140] && cq[139:128] == d_rp[24:13] && !flushing;
     wire         f_go = need_rd && !hit;
     scpu_cache cache (
-        .clk(clk2x), .flush(flush), .ix(a_out[12:4]), .cq_o(cq), .f_go(f_go), .f_line(d_rp[24:4]), .rd_done(rd_done),
+        .clk(clk2x), .flush(flush), .ix(a_out[12:4]), .cq_o(cq), .f_go(f_go), .f_if(b_vpa), .f_line(d_rp[24:4]), .rd_done(rd_done), .rd_if(rd_if), .rd_ln(rd_ln),
         .wr_go(wr_go), .w_p(w_p), .wr_d(w_d), .wbusy(wbusy), .flushing_o(flushing),
         .s_req_tgl(s_req_tgl), .s_req_line(s_req_line), .s_done_tgl(s_done_tgl), .fill(fill),
         .sw_req_tgl(sw_req_tgl), .sw_req_addr(sw_req_addr), .sw_req_data(sw_req_data), .sw_done_tgl(sw_done_tgl),
@@ -399,6 +401,8 @@ module scpu_mem (
         if (core_ce && fast && is_sup) simm_cell <= cell_a;
         wr_go   <= core_ce && need_wr;
         rd_done <= core_ce && need_rd;
+        rd_if   <= core_ce && need_rd && b_vpa;
+        if (core_ce) rd_ln <= d_rp[24:4];
         if (core_ce) begin w_p <= d_wp; w_d <= b_d; end
         if (rst) begin
             boot <= BOOT_RST; dos <= 1'b0; hw <= 1'b0; sys1 <= 1'b0; soft1 <= 1'b0; optim <= 8'hC7; simm <= 8'd4;

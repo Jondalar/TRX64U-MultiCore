@@ -2,10 +2,10 @@
 # T135 S1-S7 of the direct boot in ue2emu, the host's whole flow: boot.cfg on the emulated flash, the real hostapp_emu.elf, a VIC-20 .cor on an emulated stick,
 # the core's own application (coreapp.elf) for the way back. Not part of CI: the emulator lives in ../u64-emulator (UE2EMU_DIR), macOS only.
 #
-#   tests/hostapp/emu_t135_direct.sh --kit <dir> [--old-elf <hostapp_emu.elf of a build before the fire guard>] [--keep]
+#   tests/hostapp/emu_t135_direct.sh --kit <dir> [--old-elf <hostapp_emu.elf of a build before T135 Q9 (joystick keys in the host menu)>] [--keep]
 #
 # --kit holds hostapp_emu.elf (a build of this tree with HOSTAPP_EXTRA=-DHOSTAPP_EMU_FLASH), coreapp.elf + coreapp.app (same build) and vc20.cor (and amiga1200.cor, which only fills the stick).
-# --old-elf is the red case of S3 (Keyboard_C64 turned the fire button of port 1 into a RETURN, which the menu then replayed: the default started anyway); it must FAIL there.
+# --old-elf is the red case of S3 (Keyboard_C64 turned the held fire button of port 1 into a repeated RETURN in the menu: the default started anyway); it must FAIL there.
 # Prints one PASS or FAIL line per scenario; the exit code is the number of FAILs. Every assertion reads the console log the host wrote, or boot.cfg read back from the flash image
 # (FAT at 0x580000, tests/updater/fatread.py), never a picture.
 set -uo pipefail
@@ -92,14 +92,14 @@ s2() {
     bash -c "grep -aq 'decision Menu: C= was held' s2.log && grep -aq 'phase Building the menu' s2.log && ! grep -aq 'direct boot: jump' s2.log && ! grep -aq 'step 4: Jump' s2.log && ! grep -aq 'VIC-20 released' s2.log && grep -aq 'direct boot: jump' s1.log"
 }
 s3() {
-  printf 'joy-hold 1 fire\nwait 3000\njoy-release 1\nwait 25000\nquit\n' > s3.ctl; emu s3 "$NEW" $P stick
-  check "S3 fire port 1 held: menu built, nothing starts after the release (FireGuard)" \
+  printf 'joy-hold 1 fire\nwait 30000\nquit\n' > s3.ctl; emu s3 "$NEW" $P stick
+  check "S3 fire port 1 held for 30 s (never released): menu built, no key from the joystick, nothing starts (Q9: the host menu is keyboard only)" \
     bash -c "grep -aq 'decision Menu: fire on port 1 was held' s3.log && grep -aq 'phase Building the menu' s3.log && ! grep -aq 'step 4: Jump' s3.log && ! grep -aq 'VIC-20 released' s3.log"
 }
 s3old() {
   [[ -n "$old" && -f "$old" ]] || { fail "S3 control: --old-elf missing, the red case did not run"; return; }
   cp s3.ctl s3old.ctl; emu s3old "$old" $P stick
-  check "S3 control: the elf before the fire guard starts the default after the release (red as it must be)" \
+  check "S3 control: the elf before Q9 starts the default from the repeated RETURN of the held fire (red as it must be)" \
     bash -c "grep -aq 'decision Menu: fire on port 1 was held' s3old.log && grep -aq 'step 4: Jump' s3old.log"
 }
 s4() {
@@ -117,9 +117,9 @@ s4() {
     bash -c "grep -aq 'decision Default core: refused' s4r.log && ! grep -aq 'step 4: Jump' s4r.log && ! grep -aq 'direct boot: jump' s4r.log"
 }
 s5() {
-  # the core runs (S1), its hotkey (CTRL+RESTORE) opens the core's menu, F8, the last entry "Return to host menu": IPROG WBSTAR 0 with the marker
+  # the core runs (S1), its hotkey (CTRL+RESTORE) opens the core's menu, F8 (System tab, first focus Restart core), one down to "Return to host menu" (T187 D8): IPROG WBSTAR 0 with the marker
   printf 'wait 30000\nhold ctrl\nwait 300\nrestore\nwait 300\nrelease ctrl\nwait 2000\nkey f8\nwait 1500\n' > s5.ctl
-  for _ in $(seq 15); do printf 'key down\nwait 300\n' >> s5.ctl; done
+  printf 'key down\nwait 300\n' >> s5.ctl
   printf 'key return\nwait 40000\nquit\n' >> s5.ctl
   emu s5 "$NEW" $P stick
   check "S5 return to host with the marker: menu stays, the default is not started again (control: S1, same flash, marker 0, starts)" \

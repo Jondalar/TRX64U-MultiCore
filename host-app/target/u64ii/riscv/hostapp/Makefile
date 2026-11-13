@@ -111,6 +111,7 @@ SRCS_CC	 =  u64ii_init.cc \
 			srcverify.cc \
 			legacy_tramp.cc \
 			handover.cc \
+			configlist.cc \
 			hostfs.cc \
 			mbr.cc \
 			mediasniff.cc \
@@ -142,6 +143,7 @@ SRCS_CC	 =  u64ii_init.cc \
 			lineedit.cc \
 			directboot.cc \
 			menukeys.cc \
+			startfile.cc \
 			ovtext.cc \
 			discover.cc \
 			startcheck.cc \
@@ -155,6 +157,7 @@ SRCS_CC	 =  u64ii_init.cc \
 			webui.cc \
 			webnet.cc \
 			httpreq.cc \
+			picmodes.cc \
 			wsproto.cc \
 			svcjson.cc \
 			nettransport.cc \
@@ -180,6 +183,7 @@ SRCS_CC	 =  u64ii_init.cc \
 			fastseek.cc \
 			host_core_nav.cc \
 			host_core_cm.cc \
+			host_core_cfgov.cc \
 			host_core_rows.cc \
 			host_core_ui.cc \
 			host_core_model.cc \

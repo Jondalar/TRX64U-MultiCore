@@ -49,6 +49,7 @@ module vdc_signals (
 
 	output reg       hVisible,       // visible column
 	output reg       vVisible,       // visible line
+	output           field,          // T113 D11: the field being drawn
 	output reg       hdispen,        // horizontal display enable
 	output reg [1:0] blink,          // blink state. blink[0]=1/16, blink[1]=1/30
 
@@ -133,6 +134,7 @@ vdc_signals_v signals_v (
 	.line(line),
 
 	.vVisible(vVisible),
+	.field(field),
 
 	.vsync(vsync),
 

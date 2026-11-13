@@ -16,8 +16,8 @@ op	mouse.accel	value:enum:0:1:0:Off|Adaptive
 op	media.poll
 op	media.flush_for_core
 op	media.persist_apply	value:int:0:1:0:
-op	media.save_set	name:string:0:0:24:
-op	media.load_set	name:string:0:0:24:
+op	config.save	name:string:0:0:32:
+op	config.load	name:string:0:0:32:
 op	picture.apply	value:int:0:6:0:
 op	scale.apply	value:int:0:2:0:
 op	smooth.apply	value:int:0:1:0:
@@ -50,6 +50,10 @@ op	pad.map.cancel
 op	pad.map.tick
 op	menu.pad_map_1
 op	menu.pad_map_2
+op	net.fx	value:int:-2000:2000:0:
+op	wifi.toggle
+op	stream.start	id:int:0:2:0:
+op	stream.stop	id:int:0:2:0:
 op	files.copy_job
 op	files.move_job
 op	files.delete_job
@@ -66,9 +70,11 @@ op	lib.show	state:string:0:0:60:
 op	machine.read_mem	address:int:0:16777215:0:	length:int:1:256:0:
 op	machine.write_mem	address:int:0:16777215:0:	data:string:0:0:254:
 op	amiga.poll
+op	amiga.mount_reset	path:path:0:0:519:
 op	disk.create	path:string:0:0:255:	format:enum:0:3:0:apple2_dsk|adf|atr|cpc_dsk	name:string:0:0:24:
 state	sectors.folder.offer
-state	media.sets
+state	config.count
+state	config.active
 state	video.line
 state	settings.saved
 state	settings.unsaved
@@ -82,6 +88,24 @@ state	pad.1
 state	pad.2
 state	pad.1.descriptor
 state	pad.2.descriptor
+state	net.eth_status
+state	net.eth_ip
+state	net.eth_mac
+state	wifi.state
+state	wifi.ssid
+state	wifi.ip
+state	wifi.onoff
+state	wifi.line
+state	net.static
+state	stream.vic
+state	stream.audio
+state	stream.debug
+state	stream.vic_on
+state	stream.audio_on
+state	stream.debug_on
+state	stream.vic_off
+state	stream.audio_off
+state	stream.debug_off
 state	files.folder
 state	files.marked
 state	files.clipboard

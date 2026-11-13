@@ -104,14 +104,12 @@ static void draw_rows(lv_obj_t *c, int sel)
 {
     const char *names[] = { "Memory Expansion", "Block 5 ($A000), when expanded", "Interface Type", "Colour Scheme" };
     const char *vals[]  = { "+24K", "RAM", "Freeze", "Violet" };
-    const char *subs[]  = { "at next reset", "at next reset", "how the menu opens", 0 };
     int y = trx_theme().space_md;
     y = trx_kicker(c, trx_theme().space_lg, y, "MEMORY");
     for (int i = 0; i < 4; i++) {
         TrxRow r;
         memset(&r, 0, sizeof(r));
         r.label = names[i];
-        r.sub = subs[i];
         r.value = vals[i];
         r.selected = (i == sel);
         r.strong = (i == sel);
@@ -191,7 +189,7 @@ int main(int argc, char **argv)
     TrxWindow w = trx_window(14, 0, 0, 9);
     CHECK(w.first == 0 && w.count == 9 && w.total == 14);
     w = trx_window(14, 11, 0, 9);
-    CHECK(w.first == 3 && w.count == 9);
+    CHECK(w.first == 5 && w.count == 9);                  // T209 D3: two rows stay below the selection (11 + 2 = the window's last row 13)
     w = trx_window(14, 13, 3, 9);
     CHECK(w.first == 5 && w.count == 9);
     w = trx_window(4, 0, 0, 9);

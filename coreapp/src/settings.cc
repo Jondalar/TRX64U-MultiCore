@@ -148,17 +148,14 @@ void Settings::fail(const char *what)
     save_failed_ = true;
 }
 
-bool Settings::write_cfg()
+// The text of the file: the items the core layer holds (all = every item, at the value in force: a config is a full copy, T198 D6), the extras, and the
+// mounts (those the settings keep, or `mk`/`mv` when a caller brings the live ones).
+bool Settings::build(char *buf, int max, int *pos, bool all, const char *const *mk, const char *const *mv, int nm) const
 {
-    if (!cfg_path_[0]) {
-        return false;
-    }
-    static char buf[16384];
-    int pos = 0;
-    bool ok = cfgfile_begin(buf, sizeof(buf), &pos, store_);
+    bool ok = cfgfile_begin(buf, max, pos, store_);
     for (int i = 0; i < n_ && ok; i++) {
-        if (core_[i] >= 0) {
-            const char *val = items_[i].kind ? tpool_[tix_[i]] : items_[i].values[core_[i]];
+        if (core_[i] >= 0 || all) {
+            const char *val = items_[i].kind ? (core_[i] >= 0 && tix_[i] >= 0 ? tpool_[tix_[i]] : text(i)) : items_[i].values[value(i)];
             char head[96];
             if (!items_[i].kind && items_[i].apply && !strcmp(items_[i].apply, "picture.apply")) {   // the Picture item's Auto carries a display note that goes stale with the host's mode: the file keeps the label
                 snprintf(head, sizeof(head), "%s", val);
@@ -168,21 +165,36 @@ bool Settings::write_cfg()
                 }
                 val = head;
             }
-            ok = cfgfile_item(buf, sizeof(buf), &pos, items_[i].key, val);
+            ok = cfgfile_item(buf, max, pos, items_[i].key, val);
         }
     }
     for (int i = 0; i < EXTRA_MAX && ok; i++) {
         if (extra_[i].used) {
-            ok = cfgfile_item(buf, sizeof(buf), &pos, extra_[i].key, extra_[i].val);
+            ok = cfgfile_item(buf, max, pos, extra_[i].key, extra_[i].val);
         }
     }
-    for (int i = 0; i < MOUNT_MAX && ok; i++) {
-        if (mnt_[i].used) {
-            ok = cfgfile_item(buf, sizeof(buf), &pos, mnt_[i].key, mnt_[i].val);
+    if (mk) {
+        for (int i = 0; i < nm && ok; i++) {
+            ok = cfgfile_item(buf, max, pos, mk[i], mv[i]);
+        }
+    } else {
+        for (int i = 0; i < MOUNT_MAX && ok; i++) {
+            if (mnt_[i].used) {
+                ok = cfgfile_item(buf, max, pos, mnt_[i].key, mnt_[i].val);
+            }
         }
     }
-    ok = ok && cfgfile_end(buf, sizeof(buf), &pos);
-    if (!ok || !fs_->save(cfg_path_, buf, pos)) {
+    return ok && cfgfile_end(buf, max, pos);
+}
+
+bool Settings::write_cfg()
+{
+    if (!cfg_path_[0]) {
+        return false;
+    }
+    static char buf[16384];
+    int pos = 0;
+    if (!build(buf, sizeof(buf), &pos, false, 0, 0, 0) || !fs_->save(cfg_path_, buf, pos)) {
         fail("The settings cannot be saved (medium read only, full or removed)");
         return false;
     }
@@ -190,6 +202,29 @@ bool Settings::write_cfg()
     dirty_ = false;
     memset(held_, 0, sizeof(held_));
     return true;
+}
+
+bool Settings::export_config(const char *path, const char *const *mk, const char *const *mv, int nm, int *nsettings) const
+{
+    static char buf[16384];
+    int pos = 0;
+    if (!build(buf, sizeof(buf), &pos, true, mk, mv, nm) || !fs_->save(path, buf, (uint32_t)pos)) {
+        return false;
+    }
+    if (nsettings) {
+        *nsettings = n_;
+    }
+    return true;
+}
+
+void Settings::rebind(const char *path)
+{
+    snprintf(cfg_path_, sizeof(cfg_path_), "%s", path ? path : "");
+    save_failed_ = false;
+    notice_pending_ = false;
+    dirty_ = false;
+    memset(held_, 0, sizeof(held_));
+    load();
 }
 
 bool Settings::save()

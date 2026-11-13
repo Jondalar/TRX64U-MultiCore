@@ -277,6 +277,15 @@ T192.2 and T192.3 may run in parallel after T192.1; T192.4-.6 after both (or per
   Widened (Alex, 2026-11-09, translated: "the tests into the A1200 menu please, that one goes to the testers with it. If they are *also* in trx64u, that does
   no harm"): the service stays on for the Amiga 1200 and the TRX64U (T192.3 section 5); the 49 scenarios of T153 run on both.
 
+- **D24 (Alex, 2026-11-12, translated, "that is what we discussed at the weekend"; drawing: Core UI <-> Core-Service <-> BitStream):**
+  three layers. (1) Bitstream: different per core, but the same "function language" and naming for every core; described by its API
+  TOML ("API definition between bitstream and the outside world (.toml)"). (2) Service including modules: strongly generalised; the
+  modules (1541, media formats, tape, machine specifics such as c128/pet/neogeo) are C inside the service, chosen and parametrised by the
+  API TOML (option B, Alex: "B"). (3) Client (UI): works only from declarations - the UI TOML (menu, keys) plus bitstream + service; the
+  UI never names a core. Consequence: per-core data in `coreapp/cores/*.cc` (slots, settings, tasks, info lines) moves to TOML; new
+  per-core data in C is refused (lint gate, to be built). Migration of the existing cores: own spec. Recorded late: the weekend talk
+  was not written down at this sharpness, and T205/T212 added per-core C data since.
+
 ## §4 Out
 
 - A Rust backend (D1).

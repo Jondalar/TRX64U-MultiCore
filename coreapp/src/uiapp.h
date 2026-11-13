@@ -51,8 +51,6 @@ const UiAppPlatform *uiapp_board_platform();     // uiapp_board.cc: FreeRTOS
 // Registers the domain and starts the service. The snapshot buffer lives inside. Call before restsrv_start serves anyone (or soon after: REST answers
 // 404 for the /v1/ui routes until then).
 void uiapp_init(CoreCtx *c, const UiAppEnv *env, const UiAppPlatform *plat);
-// A bench that walks every core of the table starts the service for each (the board does for the Amiga 1200 and the TRX64U only, T192 H3, D24).
-void uiapp_allow_all_cores_for_test(bool on);
 // The service of the core app; null before uiapp_init.
 UicService *uiapp_service();
 // The menu task, once per pass: `changed` says the screen was redrawn or a key was taken (the revision grows), then the service runs.

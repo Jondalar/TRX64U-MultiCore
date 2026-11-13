@@ -120,6 +120,7 @@ Keyboard_C64 :: Keyboard_C64(GenericHost *h, volatile uint8_t *row, volatile uin
     last_key_shift = 0xFF;
     last_release_ms = 0;
     report_ctrl = false;
+    keyboard_only = false;
     ctrl_alone = false;
 #if KEYBOARD_C64_TIMER_SCAN
     // The repeat delays count scans. getch() scanned every 4 ticks; this
@@ -261,43 +262,46 @@ void Keyboard_C64 :: scan(void)
     *row_register = 0xFF;
     *row_register = 0xFF;
 
-    // Scan Joystick Port 2 first
-    *col_register = 0xFF; // deselect keyboard for pure joystick scan
-    *col_register = 0XFF; // delay
+    if (!keyboard_only) {
+        // Scan Joystick Port 2 first
+        *col_register = 0xFF; // deselect keyboard for pure joystick scan
+        *col_register = 0XFF; // delay
 
-    row = *joy_register;
-    row = *joy_register;
-#if U64 && !RECOVERYAPP
-    JoystickOutput::instance().snapshot(injected_joy1, injected_joy2);
-#endif
-    if((row & 0x1F) != 0x1F) {
-        if     (!(row & 0x01)) { joy_shift_flag = 0x01; joy_mtrx = 0x07; }
-        else if(!(row & 0x02)) { joy_shift_flag = 0x00; joy_mtrx = 0x07; }
-        else if(!(row & 0x04)) { joy_shift_flag = 0x01; joy_mtrx = 0x02; }
-        else if(!(row & 0x08)) { joy_shift_flag = 0x00; joy_mtrx = 0x02; }
-        else if(!(row & 0x10)) { joy_shift_flag = 0x00; joy_mtrx = 0x01; }
+        row = *joy_register;
+        row = *joy_register;
+    #if U64 && !RECOVERYAPP
+        JoystickOutput::instance().snapshot(injected_joy1, injected_joy2);
+    #endif
+        if((row & 0x1F) != 0x1F) {
+            if     (!(row & 0x01)) { joy_shift_flag = 0x01; joy_mtrx = 0x07; }
+            else if(!(row & 0x02)) { joy_shift_flag = 0x00; joy_mtrx = 0x07; }
+            else if(!(row & 0x04)) { joy_shift_flag = 0x01; joy_mtrx = 0x02; }
+            else if(!(row & 0x08)) { joy_shift_flag = 0x00; joy_mtrx = 0x02; }
+            else if(!(row & 0x10)) { joy_shift_flag = 0x00; joy_mtrx = 0x01; }
 
-        // The overlay's line reads port 1 when the swap setting selects it
-        // (keyb_joy_select), so REST input for that port is what to compare
-        // against; the C64's own CIA port A is always port 2.
-#if U64 == 2
-        bool line_reads_port1 = (joy_register == &U64II_KEYB_JOY) && (keyb_joy_select & 1);
-        software_joy_only = !joystick_blocks_keyboard(row, line_reads_port1 ? injected_joy1 : injected_joy2);
-#else
-        software_joy_only = !joystick_blocks_keyboard(row, injected_joy2);
-#endif
-        if (!software_joy_only) {
-            joy = true;
-            shift_flag = joy_shift_flag;
-            mtrx = joy_mtrx;
+            // The overlay's line reads port 1 when the swap setting selects it
+            // (keyb_joy_select), so REST input for that port is what to compare
+            // against; the C64's own CIA port A is always port 2.
+    #if U64 == 2
+            bool line_reads_port1 = (joy_register == &U64II_KEYB_JOY) && (keyb_joy_select & 1);
+            software_joy_only = !joystick_blocks_keyboard(row, line_reads_port1 ? injected_joy1 : injected_joy2);
+    #else
+            software_joy_only = !joystick_blocks_keyboard(row, injected_joy2);
+    #endif
+            if (!software_joy_only) {
+                joy = true;
+                shift_flag = joy_shift_flag;
+                mtrx = joy_mtrx;
+            }
         }
+
     }
 
 #if U64 == 2 && !RECOVERYAPP
     // A joystick in the other port drives the menu as well (doc/specs/SPEC-07):
     // while the port the line reads is idle, look at the other one for a
     // moment, then give the line back to the port the setting chose.
-    if (!joy && !software_joy_only) {
+    if (!keyboard_only && !joy && !software_joy_only) {
         uint8_t other;
         uint8_t other_injected;
         if (joy_register == &U64II_KEYB_JOY) {

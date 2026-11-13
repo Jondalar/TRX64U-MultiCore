@@ -8,7 +8,7 @@
 // "<dir>/<name>.cor" -> "<dir>/<name>". False (out empty) when the path is empty, relative, has no ".cor" extension, has no folder below a
 // medium ("/x.cor"), or does not fit (refused, never cut).
 bool corefolder_dir(const char *cor_path, char *out, int outlen);
-// "<dir>/<name>/<sub>" for sub = "roms" or "saves".
+// "<dir>/<name>/<sub>" for sub = "roms", "saves" or "configs".
 bool corefolder_sub(const char *cor_path, const char *sub, char *out, int outlen);
 // "<dir>/<name>/<name>.cfg" (D1).
 bool corefolder_cfg(const char *cor_path, char *out, int outlen);
@@ -20,7 +20,7 @@ bool corefolder_old_roms(const char *cor_path, char *out, int outlen);
 // is empty or holds a slash, or nothing fits.
 bool corefolder_save_path(const char *cor_path, const char *file, char *out, int outlen);
 
-// D1, D5: makes the folder, roms/ and saves/ (what exists stays). False when one of them cannot be made (a read only medium).
+// D1, D5, T198 D10: makes the folder, roms/, saves/ and configs/ (what exists stays). False when one of them cannot be made (a read only medium).
 bool corefolder_ensure(CoreFs *fs, const char *cor_path);
 
 // D1: the settings of an older layout move into the folder once: "<dir>/<name>.cfg" is copied to the new place, read back and compared,

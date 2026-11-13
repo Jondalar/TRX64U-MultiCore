@@ -5,7 +5,7 @@
 // Taken out of vendor/icepi/cpu6510.v (Copyright 2026 Mateusz Nalewajski, GPL-3.0-or-later) with its behaviour kept: reset (direction 0, latch $FF), the bits 3, 6, 7 that float
 // while they are inputs and read back the level last driven (6 and 7 fall to 0 after FALL_OFF_CYCLES, T3), bit 5 reading low as an input, the app's DMA write while the CPU is held
 // (dp_*, T16 Q8: the first write of a hold saves the port, dp_restore puts it back). Cut: the turbo engine's t_mode paths and the state-bus load (sb_*).
-// The port registers are written in the write cycle while PHI2 is high (clk_phi) on the clk2x edge that run2 passes.
+// Difference to the 6510: pout[2:0] / pout3_q ignore the direction register (see pout). The port registers are written in the write cycle while PHI2 is high (clk_phi) on the clk2x edge that run2 passes.
 // ---------------------------------------------------------------------------
 `timescale 1 ns / 1 ps
 module scpu_pport #(
@@ -46,7 +46,8 @@ reg [18:0] fall7 = 19'd0;
 wire [7:0] pread = (pout_i & pdir) | ({pfloat[7:6], 1'b0, pin_r[4], pfloat[3], pin_r[2:0]} & ~pdir);
 
 assign rdata    = sel_pdir ? pdir : pread;
-assign pout     = (pout_i[5:0] & pdir[5:0]) | (pin_r & ~pdir[5:0]);
+// bits 2:0 (the memory configuration lines) are the latch alone: the SuperCPU ignores $00 there (VICE scpu64mem.c:230-236, 273: mem_pport = value & 7, reset 7)
+assign pout     = {(pout_i[5:3] & pdir[5:3]) | (pin_r[5:3] & ~pdir[5:3]), pout_i[2:0]};
 assign st_pdir  = pdir;
 assign st_pout  = pout_i;
 assign st_pread = pread;
@@ -58,7 +59,7 @@ wire       port_wr = clk_phi && run2 && we && access_io;
 wire [7:0] pdir_n  = reset ? 8'h00 : (port_wr && sel_pdir)  ? wdata : pdir;
 wire [7:0] pout_n  = reset ? 8'hFF : (port_wr && !sel_pdir) ? wdata : pout_i;
 always @(posedge clk2x)
-  pout3_q <= (pout_n[2:0] & pdir_n[2:0]) | (pin_r[2:0] & ~pdir_n[2:0]);
+  pout3_q <= pout_n[2:0];
 
 // the app's DMA while the CPU is held: dp_we / dp_restore come from the gclk domain, so they count only on the clk2x edges a gclk edge passes (g_edge)
 reg         pt_valid = 1'b0;

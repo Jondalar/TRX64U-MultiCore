@@ -30,7 +30,7 @@ typedef int (*core_hook_t)(CoreCtx *c, char *msg, int msglen);
 // ---- ROMs (D5) -----------------------------------------------------------------------------------------------------
 #define ROM_NAMES_MAX 10
 #define ROM_SIZES_MAX 3
-#define ROMS_MAX 10                           // the most ROMs one descriptor lists: the scan's result arrays (RomResult[ROMS_MAX]) hold this many; desc_check refuses more
+#define ROMS_MAX 14                           // the most ROMs one descriptor lists: the scan's result arrays (RomResult[ROMS_MAX]) hold this many; desc_check refuses more
 struct RomSpec {
     const char *role;                     // "XL OS", for the screen
     const char *names[ROM_NAMES_MAX];     // first match wins, case-insensitive, null-terminated list

@@ -46,6 +46,11 @@ Parts:
 ## §3 Decision
 
 - **D1 (Alex, 2026-11-09):** miniz becomes a library/app any application can use; host yes; cores with room yes.
+- **D2 (Alex, 2026-11-10, translated: "It's ok. Cleaning up memory when it gets too full would be good though"):** a loaded library stays resident
+  for the core session (about 19 KB); when the loader lacks room for an application, it first unloads libraries no running application uses,
+  then decides (a reference count per library). Built after P3.
+- **D3 (Alex, 2026-11-10):** `unzip.u2a` and `miniz.u2a` are part of the release and installed to `/cores/apps`; the tester workaround for
+  main-2bd67963 is on #43. Whether the `.txu` host update also copies them is open.
 - Proposed: P1 as a format-3 library (T104.1 registry, `ops.h`) with a small call table (open zip, list, extract entry to a file, inflate
   buffer); `unzip.u2a` imports it. The host gets the same loader code (shared source, copied per the copies rule where it is gateware-free app
   code that both apps compile).

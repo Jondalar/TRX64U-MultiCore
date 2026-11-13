@@ -11,7 +11,7 @@
  static int caps = -1; // not looked yet
  static uint8_t irq_en;
  static struct {
-@@ -29,6 +33,12 @@
+@@ -29,6 +33,17 @@
      if (caps < 0) {
          bool id = (ioRead8(TRX_ID + 0) == 'T') && (ioRead8(TRX_ID + 1) == 'R') &&
                    (ioRead8(TRX_ID + 2) == 'X') && (ioRead8(TRX_ID + 3) == '2');
@@ -20,6 +20,11 @@
 +            for (int i = 0; i < 4; i++) {
 +                id = id && ioRead8(TRX_ID + i) == (uint8_t)trx_io_alt_id[i];
 +            }
++        }
++        if (!id && !trx_io_alt_id) {
++            // T187: not cached. A core application's first look can come before it set trx_io_alt_id (the FatFs time stamp of an early flash
++            // read, rtc_dummy.cc); caching that miss left the pixel layer off for good (seen in ue2emu as the A1200, 2026-11-07).
++            return 0;
 +        }
          caps = id ? ioRead8(TRX_CAPS) : 0;
          if (id) {

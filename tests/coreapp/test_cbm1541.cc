@@ -1424,11 +1424,11 @@ int main()
         RomResult dr[8];
         f.put("/usb1/roms/vc20/kernal.bin", pattern(2, 8192));
         CHECK_EQ(rom_scan(&f, vc20_desc.folder, vc20_desc.roms, vc20_desc.nroms, dr, summary, sizeof(summary), 0), ROM_FOUND);
-        CHECK_EQ(dr[vc20_desc.nroms - 1].status, ROM_ABSENT);
+        CHECK_EQ(dr[3].status, ROM_ABSENT);
         f.put("/usb1/roms/1541.bin", pattern(5, 16384));
         rom_scan(&f, vc20_desc.folder, vc20_desc.roms, vc20_desc.nroms, dr, summary, sizeof(summary), 0);
-        CHECK_EQ(dr[vc20_desc.nroms - 1].status, ROM_FOUND);
-        CHECK_STR(dr[vc20_desc.nroms - 1].hit.dir, "/usb1/roms");
+        CHECK_EQ(dr[3].status, ROM_FOUND);
+        CHECK_STR(dr[3].hit.dir, "/usb1/roms");
     }
 
     // F8 Restart core: the start path again - a drive ROM that appeared after the start is put, the media stay

@@ -387,6 +387,7 @@ module c64_top_c128 #(
   input  wire         x_boot64,         // the machine starts like a C64 (MMU reset state C64 mode on the 8502)
   output wire   [3:0] vdc_rgbi,
   output wire         vdc_ce, vdc_hb, vdc_vb,
+  output wire   [1:0] vdc_il,
   output wire         c128_fast,
   output wire   [2:0] c128_stat,
   input  wire         vd_clk,
@@ -645,6 +646,21 @@ cpu_z80 z80_0 (
   .clk(clk), .enable(z80_ce), .latch(z80_lat), .reset(cpu_reset), .irq_n(~cpu_irq),
   .io(z80_io), .busrq_n(!z80_n_mmu), .busak_n(z80_busak_n), .m1(z80_m1),
   .di(cpu_din), .dout(z80_dout), .addr(z80_addr), .rd(z80_rd), .we(z80_we));
+// T140 5.19 (issue #67): ONE strobe per Z80 bus cycle for the chips whose access has a side effect (the VDC: R31 write/read moves UA and starts a RAM action).
+// cpu_z80 holds addr/rd/we until the next latch and an IN/OUT cycle spans two latch periods (T80: IORQ for T2-T3 and the wait state), while bus_en
+// (phi2_n) is a strobe at every 1 MHz cycle: every OUT to the VDC's data register was followed by a second strobe at the same address with we = 0 - a READ of
+// R31, which moves UA again and replaces the pending write (a character cell never reaches the RAM). z80_fire is set once when a cycle is latched (every write;
+// a read whose address, direction or IORQ differs from the previous latch) and taken by the next strobe. It also ends the repeats while ce is withheld (BA low).
+reg         z80_lat_q = 1'b0, z80_fire = 1'b0, zp_rd = 1'b0, zp_io = 1'b0;
+reg  [15:0] zp_a = 16'd0;
+always @(posedge clk) begin
+  z80_lat_q <= z80_lat;
+  if (z80_lat_q) begin
+    zp_a <= z80_addr; zp_rd <= z80_rd; zp_io <= z80_io;
+    if (z80_we || (z80_rd && !(zp_rd && zp_a == z80_addr && zp_io == z80_io))) z80_fire <= 1'b1;
+  end else if (vic_phi2_n && !vic_stall) z80_fire <= 1'b0;
+end
+wire        x_bus_en = vic_phi2_n && !vic_stall && (!z80_act || z80_fire);
 assign cpu_addr = z80_act ? z80_addr : c8502_addr;
 assign cpu_dout = z80_act ? z80_dout : c8502_dout;
 assign cpu_we   = z80_act ? z80_we   : c8502_we;
@@ -652,6 +668,7 @@ wire z80_io_a = z80_act && z80_io;
 `else
 wire z80_act = 1'b0;
 wire z80_io_a = 1'b0;
+wire x_bus_en = vic_phi2_n && !vic_stall;
 assign cpu_addr = c8502_addr;
 assign cpu_dout = c8502_dout;
 assign cpu_we   = c8502_we;
@@ -1540,11 +1557,16 @@ wire        ram_bank;
 wire        ram_color_a10;
 wire        vdc_cen, vdc_we_a, vdc_rs, vicie_cen, vicie_we_a, vicie_a0;
 wire  [7:0] vdc_din, vdc_dout, vicie_din, vicie_dout;
+// T140 5.19: db_out of the VDC follows its registers while cs is held (DA moves on as soon as the RAM action of a data-register read is done, ~0.5 us after
+// the strobe). The 8502 takes the byte in the strobe's cycle; the Z80 takes it a T-state later and must get the one the strobe saw: held at the strobe.
+reg   [7:0] z80_vdc_q = 8'h00;
+always @(posedge clk) if (x_bus_en && !vdc_cen) z80_vdc_q <= vdc_dout;
+wire  [7:0] vdc_dout_a = z80_act ? z80_vdc_q : vdc_dout;
 c64_bus_arbiter_c128 c64_bus_arbiter_0 (
   .mmu_en(vic_phi2_n && !vic_stall), .ram_bank(ram_bank), .ram_vic(mem_cmd_vic), .vic_bank_tag(mem_vic_tag), .c128_n(c128_n), .z80_n(z80_n_mmu),
   .z80io(z80_io_a), .z80_act(z80_act), .fast_lcyc(fast_lcyc), .io_class(io_class), .d4080_n(!x_d4080), .boot64(x_boot64),
   .ram_color_a10(ram_color_a10),
-  .vdc_cen(vdc_cen), .vdc_we(vdc_we_a), .vdc_rs(vdc_rs), .vdc_din(vdc_din), .vdc_dout(vdc_dout),
+  .vdc_cen(vdc_cen), .vdc_we(vdc_we_a), .vdc_rs(vdc_rs), .vdc_din(vdc_din), .vdc_dout(vdc_dout_a),
   .vicie_cen(vicie_cen), .vicie_we(vicie_we_a), .vicie_a0(vicie_a0), .vicie_din(vicie_din), .vicie_dout(vicie_dout),
   .vic_clk_dot4x  (clk),
   .vic_reset      (vic_reset_req || rst),
@@ -2066,11 +2088,11 @@ c128_act act (
 );
 
 c128_x x (
-  .clk(clk), .rst(rst), .warm(cpu_reset_i), .bus_en(vic_phi2_n && !vic_stall),
+  .clk(clk), .rst(rst), .warm(cpu_reset_i), .bus_en(x_bus_en),
   .vdc_cs(!vdc_cen), .vdc_we(vdc_we_a), .vdc_rs(vdc_rs), .vdc_din(vdc_din), .vdc_dout(vdc_dout),
   .vicie_cs(!vicie_cen), .vicie_we(vicie_we_a), .vicie_a0(vicie_a0), .vicie_din(vicie_din), .vicie_dout(vicie_dout),
   .k_sel(k_sel), .fast(c128_fast),
-  .vdc_rgbi(vdc_rgbi), .vdc_ce(vdc_ce), .vdc_hb(vdc_hb), .vdc_vb(vdc_vb),
+  .vdc_rgbi(vdc_rgbi), .vdc_ce(vdc_ce), .vdc_hb(vdc_hb), .vdc_vb(vdc_vb), .vdc_il(vdc_il),
   .vd_clk(vd_clk), .vd_addr(vd_addr), .vd_we(vd_we), .vd_wdata(vd_wdata), .vd_rdata(vd_rdata)
 );
 

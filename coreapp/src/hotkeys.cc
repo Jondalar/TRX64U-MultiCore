@@ -27,14 +27,22 @@ static const char *const g_keys[HK_NKEYS] = {
 // the value labels of an action key item: "Off", then the 65 keys
 static const char *g_vals[HK_NKEYS + 1];
 static bool g_vals_made;
+// T187 gate 1 (R6): a core that is not a C64 family keyboard names the three keys the person presses on a USB keyboard that make C=, RUN/STOP and RESTORE
+// (keyboard_usb.cc: a GUI key, ESC, F12), not the C64's keycaps.
+static const char *g_pc_vals[HK_NKEYS + 1];
+static const char *pc_name(int i)
+{
+    return i == K_CBM ? "WIN / CMD" : i == K_STOP ? "ESC" : i == HK_RESTORE ? "F12" : g_keys[i];
+}
 static void make_vals()
 {
     if (g_vals_made) {
         return;
     }
-    g_vals[0] = "Off";
+    g_vals[0] = g_pc_vals[0] = "Off";
     for (int i = 0; i < HK_NKEYS; i++) {
         g_vals[i + 1] = g_keys[i];
+        g_pc_vals[i + 1] = pc_name(i);
     }
     g_vals_made = true;
 }
@@ -58,6 +66,27 @@ static const Preset g_pre[] = {
 };
 #define NPRE ((int)(sizeof(g_pre) / sizeof(g_pre[0])))
 static const char *g_pre_names[NPRE];
+static const char *g_pc_pre_names[NPRE];
+static char g_pc_pre_buf[NPRE][24];
+static bool g_pc_pre_made;
+static void make_pc_pre()
+{
+    if (g_pc_pre_made) {
+        return;
+    }
+    for (int i = 0; i < NPRE; i++) {
+        const Preset &p = g_pre[i];
+        if (p.a == HK_NONE) {
+            snprintf(g_pc_pre_buf[i], sizeof(g_pc_pre_buf[i]), "%s", p.name);
+        } else if (p.b == HK_NONE) {
+            snprintf(g_pc_pre_buf[i], sizeof(g_pc_pre_buf[i]), "%s", pc_name(p.a));
+        } else {
+            snprintf(g_pc_pre_buf[i], sizeof(g_pc_pre_buf[i]), "%s + %s", pc_name(p.a), pc_name(p.b));
+        }
+        g_pc_pre_names[i] = g_pc_pre_buf[i];
+    }
+    g_pc_pre_made = true;
+}
 int hk_modifier_presets() { return NPRE; }
 const char *hk_modifier_name(int i) { return i >= 0 && i < NPRE ? g_pre[i].name : "?"; }
 
@@ -270,14 +299,16 @@ void hk_usb_report_filter(const uint8_t in[8], uint8_t out[8])
 }
 
 // ---- the settings ------------------------------------------------------------------------------------------------------------------------
+#define HKL(s) s                                    // the page that lists them is called Hotkeys (T187 R6): no prefix
+#define HK_MOD_LABEL "Modifier"
 struct ItemDef { const char *key, *label; };
 static const ItemDef g_items[HK_NACT] = {
-    { "Hotkey menu", "Hotkey: menu open / close" },
-    { "Hotkey volume up", "Hotkey: volume up" },
-    { "Hotkey volume down", "Hotkey: volume down" },
-    { "Hotkey reset", "Hotkey: reset" },
-    { "Hotkey swap joystick", "Hotkey: swap joystick ports" },
-    { "Hotkey picture mode", "Hotkey: picture mode" },
+    { "Hotkey menu", HKL("Menu open / close") },
+    { "Hotkey volume up", HKL("Volume up") },
+    { "Hotkey volume down", HKL("Volume down") },
+    { "Hotkey reset", HKL("Reset") },
+    { "Hotkey swap joystick", HKL("Swap joystick ports") },
+    { "Hotkey picture mode", HKL("Picture mode") },
     { 0, 0 },                                              // HKA_CORE: named by the descriptor's HkSpec
 };
 static ItemDef item_of(const HkSpec *sp, int a)
@@ -321,6 +352,8 @@ const char *hk_extend(const CoreDesc *d, CoreDesc *out, Setting *store)
     for (int i = 0; i < NPRE; i++) {
         g_pre_names[i] = g_pre[i].name;
     }
+    make_pc_pre();
+    const bool pc = sp->pc_keys;
     if (store != d->settings) {
         for (int i = 0; i < d->nsettings; i++) {
             store[i] = d->settings[i];
@@ -330,8 +363,8 @@ const char *hk_extend(const CoreDesc *d, CoreDesc *out, Setting *store)
     Setting &m = store[n++];
     m = Setting();
     m.key = HK_KEY_MOD;
-    m.label = "Hotkey modifier";
-    m.values = g_pre_names;
+    m.label = HK_MOD_LABEL;
+    m.values = pc ? g_pc_pre_names : g_pre_names;
     m.nvalues = NPRE;
     m.def = preset_of(sp->def);
     m.when = WHEN_LIVE;
@@ -342,7 +375,7 @@ const char *hk_extend(const CoreDesc *d, CoreDesc *out, Setting *store)
         s = Setting();
         s.key = item_of(sp, a).key;
         s.label = item_of(sp, a).label;
-        s.values = g_vals;
+        s.values = pc ? g_pc_vals : g_vals;
         s.nvalues = HK_NKEYS + 1;
         s.def = val_of_key(sp->def.act[a]);
         s.when = WHEN_LIVE;
@@ -501,16 +534,221 @@ uint32_t HkLoop::poll(CoreCtx *c)
         return 0;
     }
     last_ms = now;
+    return det.poll(hm, hk_read_keys(c), now);
+}
+
+HkKeys hk_read_keys(CoreCtx *c)
+{
     HkKeys keys = hk_usb_keys();
     uint8_t mt[8];
     bool rs = false;
-    if (c->io->keys_read(mt, &rs)) {
+    if (c->io && c->io->keys_read(mt, &rs)) {
         for (int i = 0; i < 8; i++) {
             keys.k |= (uint64_t)mt[i] << (8 * i);
         }
         keys.restore = keys.restore || rs;
     }
-    return det.poll(hm, keys, now);
+    return keys;
+}
+
+// ---- learning (T207) ---------------------------------------------------------------------------------------------------------------------
+void HkLearn::begin(const HkKeys &now, bool modifier, uint32_t t)
+{
+    ign_k_ = now.k;
+    ign_r_ = now.restore;
+    peak_k_ = last_k_ = 0;
+    peak_r_ = last_r_ = false;
+    mod_ = modifier;
+    since_ = t;
+}
+
+bool HkLearn::poll(const HkKeys &now, uint32_t t, HkKeys *got)
+{
+    ign_k_ &= now.k;
+    ign_r_ = ign_r_ && now.restore;
+    const uint64_t ck = now.k & ~ign_k_;
+    const bool cr = now.restore && !ign_r_;
+    if (!ck && !cr) {
+        if (mod_ && (peak_k_ || peak_r_)) {                // released before it settled: the keys that were held
+            got->k = peak_k_;
+            got->restore = peak_r_;
+            return true;
+        }
+        return false;
+    }
+    if (!mod_) {
+        got->k = 0;
+        got->restore = false;
+        if (ck) {
+            got->k = ck & (~ck + 1);                       // the lowest key index
+        } else {
+            got->restore = true;
+        }
+        return true;
+    }
+    peak_k_ |= ck;
+    peak_r_ = peak_r_ || cr;
+    if (ck != last_k_ || cr != last_r_) {
+        last_k_ = ck;
+        last_r_ = cr;
+        since_ = t;
+        return false;
+    }
+    if (t - since_ >= HK_LEARN_SETTLE_MS) {
+        got->k = ck;
+        got->restore = cr;
+        return true;
+    }
+    return false;
+}
+
+static const char *key_label(const HkSpec *sp, int i)
+{
+    return sp && sp->pc_keys ? pc_name(i) : g_keys[i];
+}
+// The key in a sentence: a one-character name is quoted ("-" is already Volume down), a longer one stands as it is.
+static const char *key_say(const HkSpec *sp, int i, char *buf)
+{
+    const char *k = key_label(sp, i);
+    if (strlen(k) == 1) {
+        snprintf(buf, 8, "\"%s\"", k);
+        return buf;
+    }
+    return k;
+}
+
+// The action a hotkey item stands for, -1: the setting is the modifier or no hotkey item.
+static int action_of(const CoreCtx *c, int set)
+{
+    const HkSpec *sp = spec_of(c->desc);
+    if (!sp || set < 0 || set >= c->desc->nsettings || !hk_is_generic(c->desc->settings[set])) {
+        return -1;
+    }
+    for (int a = 0; a < n_items(sp); a++) {
+        const char *k = item_of(sp, a).key;
+        if (k && !strcasecmp(k, c->desc->settings[set].key)) {
+            return a;
+        }
+    }
+    return -1;
+}
+
+bool hk_learn_is_modifier(const CoreCtx *c, int set)
+{
+    return set >= 0 && set < c->desc->nsettings && hk_is_generic(c->desc->settings[set]) && !strcasecmp(c->desc->settings[set].key, HK_KEY_MOD);
+}
+
+bool hk_learn_item(const CoreCtx *c, int set)
+{
+    return hk_learn_is_modifier(c, set) || action_of(c, set) >= 0;
+}
+
+int hk_learn_value(CoreCtx *c, int set, const HkKeys &got, char *line, int n)
+{
+    const HkSpec *sp = spec_of(c->desc);
+    const HkMap m = hk_map_of(c);
+    line[0] = 0;
+    int keys[3], nk = 0;                                    // the keys pressed (a modifier may be two)
+    for (int i = 0; i < 64 && nk < 3; i++) {
+        if ((got.k >> i) & 1) {
+            keys[nk++] = i;
+        }
+    }
+    if (got.restore && nk < 3) {
+        keys[nk++] = HK_RESTORE;
+    }
+    if (nk == 0) {
+        snprintf(line, n, "No key");
+        return -1;
+    }
+    if (hk_learn_is_modifier(c, set)) {
+        for (int p = 1; p < NPRE; p++) {
+            const bool one = g_pre[p].b == HK_NONE;
+            if ((one ? 1 : 2) != nk) {
+                continue;
+            }
+            bool a = false, b = one;
+            for (int j = 0; j < nk; j++) {
+                a = a || keys[j] == g_pre[p].a;
+                b = b || keys[j] == g_pre[p].b;
+            }
+            if (!a || !b) {
+                continue;
+            }
+            for (int act = 0; sp && act < n_items(sp); act++) {                 // a modifier key may not be the key of a hotkey
+                if (m.act[act] == g_pre[p].a || m.act[act] == g_pre[p].b) {
+                    { char kb[8]; snprintf(line, n, "%s is already %s", key_say(sp, m.act[act], kb), item_of(sp, act).label); }
+                    return -1;
+                }
+            }
+            return p;
+        }
+        if (nk == 1) {
+            { char kb[8]; snprintf(line, n, "%s is not a modifier here", key_say(sp, keys[0], kb)); }
+        } else {
+            snprintf(line, n, "%s + %s is not one of the modifier pairs", key_label(sp, keys[0]), key_label(sp, keys[1]));
+        }
+        return -1;
+    }
+    const int act = action_of(c, set);
+    if (act < 0) {
+        snprintf(line, n, "Not a hotkey");
+        return -1;
+    }
+    if (nk != 1) {
+        snprintf(line, n, "Press one key");
+        return -1;
+    }
+    const int k = keys[0];
+    if (k == m.mod_a || k == m.mod_b) {
+        { char kb[8]; snprintf(line, n, "%s is the modifier", key_say(sp, k, kb)); }
+        return -1;
+    }
+    for (int a = 0; a < n_items(sp); a++) {
+        if (a != act && m.act[a] == k) {
+            { char kb[8]; snprintf(line, n, "%s is already %s", key_say(sp, k, kb), item_of(sp, a).label); }
+            return -1;
+        }
+    }
+    return val_of_key(k);
+}
+
+bool hk_value_refused(CoreCtx *c, int set, int v, char *line, int n)
+{
+    const HkSpec *sp = spec_of(c->desc);
+    const HkMap m = hk_map_of(c);
+    line[0] = 0;
+    if (!sp || v <= 0) {                                       // Off / no key collides with nothing
+        return false;
+    }
+    if (hk_learn_is_modifier(c, set)) {
+        if (v >= NPRE) {
+            return false;
+        }
+        for (int act = 0; act < n_items(sp); act++) {
+            if (m.act[act] != HK_NONE && (m.act[act] == g_pre[v].a || m.act[act] == g_pre[v].b)) {
+                { char kb[8]; snprintf(line, n, "%s is already %s", key_say(sp, m.act[act], kb), item_of(sp, act).label); }
+                return true;
+            }
+        }
+        return false;
+    }
+    const int act = action_of(c, set);
+    if (act < 0 || v > HK_NKEYS) {
+        return false;
+    }
+    const int k = v - 1;
+    if (k == m.mod_a || k == m.mod_b) {
+        { char kb[8]; snprintf(line, n, "%s is the modifier", key_say(sp, k, kb)); }
+        return true;
+    }
+    for (int a = 0; a < n_items(sp); a++) {
+        if (a != act && m.act[a] == k) {
+            { char kb[8]; snprintf(line, n, "%s is already %s", key_say(sp, k, kb), item_of(sp, a).label); }
+            return true;
+        }
+    }
+    return false;
 }
 
 bool HkLoop::perform(CoreCtx *c, uint32_t f, char *line, int n)

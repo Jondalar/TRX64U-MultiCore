@@ -129,6 +129,13 @@ t_test_directboot() {
   return 0   # a closing "cmd && {...}" that did not fire is no failure of the unit
 }
 cc_block test_directboot t_test_directboot
+# T203 (#69): the start log - the block per start, the file on the SD card (last 10, no SD / read-only), the late boot.cfg read, the late "started by".
+t_test_startfile() {
+c++ -std=gnu++11 -Wall -I"$H" -o "$T/test_startfile" "$ROOT/tests/hostapp/test_startfile.cc" "$H/startfile.cc" "$H/directboot.cc" 2>&1
+"$T/test_startfile"
+return 0   # a closing "cmd && {...}" that did not fire is no failure of the unit
+}
+cc_block test_startfile t_test_startfile
 # T135 B1/B2: "ours" is the stamp AND the word TRX64 in the application; the updater's copy of ourfw.h is the same file
 t_test_ourfw() {
   cmp -s "$H/ourfw.h" "$ROOT/vendor/gideon/software/application/update_u2p/ourfw.h" || { echo "FAIL: ourfw.h differs between host-app and vendor/gideon (update_trx.cc)" >&2; exit 1; }
@@ -216,6 +223,15 @@ t_test_hostcore() {
   return 0   # a closing "cmd && {...}" that did not fire is no failure of the unit
 }
 cc_block test_hostcore t_test_hostcore
+
+# T198 (S2, S3, S9, S12, S15): the config overlay's state over a fake file system. No negative control (T174 D5.4: not a flash operation).
+t_test_cfgov() {
+  c++ -std=gnu++11 -Wall -Wextra -I"$H" -I"$LE" -I"$KBD" -I"$ROOT/app/video" -I"$ROOT/host-app/software/io/c64" -o "$T/test_cfgov" "$ROOT/tests/hostapp/test_cfgov.cc" "$ROOT/tests/hostapp/hostcore_stubs.cc" \
+    "$H/host_core.cc" "$H/host_core_cfgov.cc" "$H/configlist.cc" "$H/startcheck.cc" "$H/cor.cc" "$H/cfw.cc" "$H/handover.cc" "$H/bootcfg.cc" "$T/sha256.o" 2>&1
+  "$T/test_cfgov"
+  return 0
+}
+cc_block test_cfgov t_test_cfgov
 
 # T192 D23: the gate. hostui.cc changes no state outside host_core, acts on no key itself and carries no hand-written legend; what is not cut is the ledger.
 t_check_host_cut() {
@@ -541,7 +557,7 @@ cc_block wifireply t_wifireply
 RPT_SRCS=(hostreport.cc hostreport_live.cc bugreport.cc webui.cc)
 rpt_build() {   # dir (holds the sources, mutated or not), out
   c++ -std=gnu++11 -w -DWEBUI_NO_BOARD=1 -DVIDEOMODE_NO_BOARD=1 -I"$1" -I"$H" -I"$ROOT/app/video" -o "$2" "$ROOT/tests/hostapp/test_report.cc" \
-    "$1/hostreport.cc" "$1/hostreport_live.cc" "$1/bugreport.cc" "$1/webui.cc" "$ROOT/app/video/videomode.cc" 2>&1
+    "$1/hostreport.cc" "$1/hostreport_live.cc" "$1/bugreport.cc" "$1/webui.cc" "$H/startfile.cc" "$H/directboot.cc" "$ROOT/app/video/videomode.cc" 2>&1
 }
 t_rpt_ok() {
   mkdir -p "$T/rpt_ok"

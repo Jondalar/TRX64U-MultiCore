@@ -16,6 +16,7 @@ struct HRow {
     char ident[96];                       // what the row IS: the id is made from it
     char title[96], sub[140], badge[28], value[40];
     bool dir, def, startable, enabled, marked;
+    int configs;                          // T198 S13: an entry's configs (0 = none)
 };
 
 // One named field: a row of the settings page, of the WiFi page, or a line of the network page.

@@ -100,6 +100,22 @@ int AppDlg::choose(const char *title, const char *const *items, int n, int sel, 
     return ask(r);
 }
 
+int AppDlg::choose_timed(const char *title, const char *text, const char *const *items, int n, int timeout_s)
+{
+    if (n <= 0 || n > DLG_TIMEOUT || !items) {
+        return -1;
+    }
+    Req r;
+    memset(&r, 0, sizeof(r));
+    r.kind = DK_CHOOSE;
+    r.title = title;
+    r.text = text;
+    r.items = items;
+    r.nitems = n;
+    r.timeout_s = timeout_s > 0 ? timeout_s : 0;
+    return ask(r);
+}
+
 bool AppDlg::text(const char *title, char *buf, int max)
 {
     if (!buf || max < 2) {

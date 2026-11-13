@@ -19,8 +19,10 @@ const HAction ACTIONS[] = {
     KEYS("nav.edit", "Edit menu", -1, 0, HAF_GLOBAL, 0, -1, "any screen"),
     KEYS("nav.net", "Network", -1, 0, HAF_GLOBAL, 0, -1, "any screen"),
     KEYS("nav.settings", "Settings", -1, 0, HAF_GLOBAL, 0, -1, "any screen"),
-    KEYS("picture.step", "Next picture mode", -1, 0, HAF_GLOBAL, 0, -1, "any screen: V steps the resolution; the change asks for a key within 8 s"),
-    KEYS("picture.keep", "Keep the picture", -1, 0, HAF_GLOBAL, 0, -1, "while the picture question is up"),
+    KEYS("picture.step", "Next picture mode", -1, 0, HAF_GLOBAL, 0, -1, "any screen: V opens the Picture page, the modes the screen names; nothing is applied while browsing"),
+    KEYS("picture.keep", "Keep the picture", -1, 0, HAF_GLOBAL, 0, -1, "while the picture question is up: RETURN or any key but LEFT / ESC"),
+    KEYS("picture.revert", "Go back to the previous picture", -1, 0, HAF_GLOBAL, 0, -1, "while the picture question is up: LEFT or ESC"),
+    KEYS("picture.apply", "Use the picture mode under the cursor", -1, 0, 0, 0, -1, "the Picture page: asks for a key within 8 s"),
     KEYS("cursor.up", "Up", -1, 0, 0, 0, -1, "the row above"),
     KEYS("cursor.down", "Down", -1, 0, 0, 0, -1, "the row below"),
     KEYS("back", "Back", -1, 0, 0, 0, -1, "ESC of the page"),
@@ -31,11 +33,18 @@ const HAction ACTIONS[] = {
     KEYS("web.default", "Make default (web page)", -1, "entry", HAF_ROW, 0, -1, "the T106 page's default"),
     KEYS("web.video", "Picture (web page)", -1, 0, 0, 0, -1, "the T106 page's picture: the argument is the mode"),
     KEYS("web.countdown", "Countdown (web page)", -1, 0, 0, 0, -1, "the T106 page's countdown: the argument is the seconds, 0 is off"),
+    KEYS("config.list", "Configs", HVW_MENU, "entry", HAF_ROW, 0, -1, "a core with configs: opens the list, the cursor on its default config; none: nothing happens"),
+    KEYS("config.start", "Start with the config", -1, 0, 0, 0, -1, "while the config list is open: the config under the cursor (the first row is the plain start)"),
+    KEYS("config.rename", "Rename the config", -1, 0, HAF_FLOW, 0, -1, "while the config list is open: opens the name field"),
+    KEYS("config.delete", "Delete the config", -1, 0, HAF_DESTRUCTIVE | HAF_FLOW, "Delete this config?", -1, "while the config list is open: the screen arms with DEL and deletes with the second DEL"),
+    KEYS("config.default", "Make the default config", -1, 0, 0, 0, -1, "while the config list is open: marks the config under the cursor as the entry's default, again clears it"),
     KEYS("entry.recheck", "Check again", HVW_MENU, "entry", HAF_ROW, 0, -1, "the full check of the entry, stored anew"),
     KEYS("entry.move_up", "Move up", HVW_EDIT, "entry", HAF_ROW, 0, -1, "the editor"),
     KEYS("entry.move_down", "Move down", HVW_EDIT, "entry", HAF_ROW, 0, -1, "the editor"),
     KEYS("entry.default", "Make default", HVW_EDIT, "entry", HAF_ROW, 0, -1, "the editor"),
     KEYS("entry.remove", "Remove from the menu", HVW_EDIT, "entry", HAF_ROW | HAF_DESTRUCTIVE, "Remove this entry from the boot menu?", -1, "the editor: the screen arms with DEL and removes with the second DEL"),
+    KEYS("entry.config_prev", "Default config, previous", HVW_EDIT, "entry", HAF_ROW, 0, -1, "the editor: none / the core's configs, backwards"),
+    KEYS("entry.config_next", "Default config, next", HVW_EDIT, "entry", HAF_ROW, 0, -1, "the editor: none / the core's configs, forwards"),
     KEYS("entry.rename", "Rename", HVW_EDIT, "entry", HAF_ROW | HAF_FLOW | HAF_TEXT, 0, -1, "the editor: opens the name field; `value` is the new name"),
     // ---- the File Browser (F3) ---------------------------------------------------------------------------------------------------------
     KEYS("browse.open", "Open", HVW_BROWSE, "file", HAF_ROW | HAF_FLOW, 0, -1, "a folder opens; in the pick modes RETURN is the pick"),
@@ -124,8 +133,8 @@ const HPage PAGES[] = {
     { "colors", "Colour test", HVW_COLORS, 0, 0, 0, 0 },
 };
 
-const char *const ROW_ENTRY[] = { "entry.start", "entry.recheck", 0 };
-const char *const ROW_EDIT[] = { "entry.move_up", "entry.move_down", "entry.default", "entry.rename", "entry.remove", 0 };
+const char *const ROW_ENTRY[] = { "entry.start", "config.list", "entry.recheck", 0 };
+const char *const ROW_EDIT[] = { "entry.move_up", "entry.move_down", "entry.default", "entry.config_prev", "entry.config_next", "entry.rename", "entry.remove", 0 };
 const char *const ROW_FILE[] = { "browse.open", "browse.add", "browse.start", "browse.copy", "browse.move", "browse.delete", "browse.convert", "browse.restore",
                                  "browse.update", "browse.unzip", "browse.format", 0 };
 

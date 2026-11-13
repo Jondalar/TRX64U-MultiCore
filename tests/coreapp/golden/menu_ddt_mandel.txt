@@ -15,9 +15,13 @@ area F7 Actions
   tab 1 Quick
     task Reset (closes the menu)
 area F8 System (shifted)
-  tab 1 Expert
-    fixed Reset to host defaults
+  tab 1 System
+    heading Actions
     fixed Restart core
-    fixed Bug report
-    fixed WiFi
     fixed Return to host menu
+    heading Network
+    fixed WiFi
+    heading Support
+    fixed Bug report
+    heading Reset
+    fixed Reset to host defaults

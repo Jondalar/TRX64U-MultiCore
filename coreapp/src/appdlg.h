@@ -60,6 +60,8 @@ public:
     int buttons_timed(const char *title, const char *text, int buttons, int timeout_s);
     bool confirm(const char *title, const char *text);
     int choose(const char *title, const char *const *items, int n, int sel, const char *keys);
+    // As choose() with a text under the title, and a timer as buttons_timed(): the index picked, -1 cancelled, DLG_TIMEOUT when the time ran out (so at most DLG_TIMEOUT items).
+    int choose_timed(const char *title, const char *text, const char *const *items, int n, int timeout_s);
     bool text(const char *title, char *buf, int max);
     bool pick_file(const char *start, const char *ext, char *out, int outlen);
     bool pick_folder(const char *start, char *out, int outlen);

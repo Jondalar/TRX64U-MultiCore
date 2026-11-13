@@ -7,6 +7,7 @@
 #include "desc.h"
 #include "ctx.h"
 #include "edid.h"
+#include "picmodes.h"
 
 // The operation behind the Picture item (the base contributor registers it, picture_register).
 #define PICTURE_OP "picture.apply"
@@ -16,6 +17,7 @@
 // T164 G11-G14: what the application knows about the screen and the gateware when it builds the items.
 struct PictureEnv {
     uint16_t mask;            // the rows the screen takes (video_modes_offered(), EDID_ROW_MASK when nobody asked)
+    uint16_t native;          // T187 D5: the rows its short video descriptors flag as native (0: none known)
     bool gateware;            // the host's status register answered (video_gateware_present()): Scale and Smoothing, the exact mode, the 1 s status wait
     int sys;                  // the machine's 50/60 Hz family (VID_SYS_*), -1: what video_current says
 };
@@ -28,6 +30,10 @@ struct PictureEnv {
 const char *picture_extend(const CoreDesc *d, CoreDesc *out, Setting *store, const PictureEnv *env = 0);
 // The board's answer, for run.cc: reads the EDID and probes the gateware.
 void picture_env_read(PictureEnv *env, int sys);
+
+// T187 D5: what the mode list of the Picture page shows (PictureModes, picmodes.h; the host fills the same struct): row 0 Auto, row n the n-th resolution
+// of the Picture list (the order of the item's values).
+void picture_modes(CoreCtx *c, PictureModes *out);
 
 // Index of the Picture item in c->desc->settings, -1 when the descriptor is not an extended one.
 int picture_index(const CoreDesc *d);
@@ -68,6 +74,8 @@ int picture_service(CoreCtx *c);
 bool picture_confirm_pending();
 int picture_confirm_left_s();   // whole seconds left
 void picture_confirm_key();     // any key keeps the mode
+void picture_confirm_names(char *now, int nn, char *prev, int pn);   // T187 D5: "1280 x 720, 50.0 Hz" (the mode that came up) and the mode that comes back
+const char *picture_take_result(void);   // T187 D4: the chip text once the question ended (kept / back to ...), null when there is none; read once
 void picture_confirm_revert();  // the previous mode comes back now (the answer "no" of the service)
 
 

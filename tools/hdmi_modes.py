@@ -328,6 +328,16 @@ CEA = {1: (640, 480, 800, 525, 1), 17: (720, 576, 864, 625, 1), 4: (1280, 720, 1
 HOST_MODES = {key(f, h): MODES[(f, h)] + (CEA.get(MODES[(f, h)][0], (0,) * 5)[4],) for f in (0, 1) for h in range(6)}   # + aspect (0 = none: PC rows)
 HOST_NAMES = ("vic", "pclk", "ha", "hfp", "hs", "hbp", "hpol", "va", "vfp", "vs", "vbp", "vpol", "gear", "asp")
 
+# T188 D1/D2: the Amiga edition. The Amiga cores (cores/amiga, cores/amiga1200) carry their own copy of the host files (T164 3a Q1), so their
+# copy of hdmi_modes.vh can hold other timings in the 50 Hz television rows 0..2 without touching the host or any other core. The rows are
+# bent so that the HDMI frame is EXACTLY the Amiga frame: f_core = dot4x x 9/10 (amiga_ce.v: 9 ticks in 10 clocks) / (8 x 227 x 312) (the 28 MHz
+# tick / 8 = CCK, 227 CCK per line, 312 lines non-interlaced). The TMDS clock is the CDCE ratio N/M of the reference (125/104 of dot4x), so
+# gear x htot x vtot x f_core / REF is a ratio of integers; `cdce_exact` takes the first N/M <= 4095/511 the register rules accept. Then the
+# output frame and the core frame come from the same MMCM and have a fixed phase: no beat, ever. The porches below are the ones of smallest
+# deviation from the CEA raster that have an exact N/M (searched over htot +-60..100 and vtot -2..+25); the check re-proves each of them.
+AMIGA_RAW = {0: {"hfp": 28}, 1: {"hfp": 420}, 2: {"vfp": 14}}   # row -> the changed porch (576p: htot 880, 720p: htot 1960, 1080p: vtot 1135)
+F_CORE = DOT4X * F(9, 10) / (8 * 227 * 312)
+
 def cdce_exact(ratio, ref):
     """CDCE setting for exactly N/M = ratio (scaled by k = 1, 2, ... while N <= 4095 and M <= 511): the first the register rules accept."""
     for k in range(1, 512):
@@ -346,18 +356,32 @@ def lock_for(fam, gear, htot, vtot):
     V dot4x clocks; f_t = REF x N/M = dot4x x 125/104 x N/M, so C / f_t = V / dot4x needs N/M = C / V x 104/125, exactly (Fractions)."""
     return cdce_exact(F(gear * htot * vtot, VIC_FRAME[fam]) / REF_PER_DOT4X, REF_OF[fam])
 
-def host_compute():
+def amiga_mode(m):
+    """HOST_MODES[m] with the T188 porch of row m (50 Hz rows 0..2 only); the pixel clock is the one of the Amiga frame."""
+    vic, pclk, ha, hfp, hs, hbp, hpol, va, vfp, vs, vbp, vpol, gear, asp = HOST_MODES[m]
+    ch = AMIGA_RAW[m]
+    hfp, vfp = ch.get("hfp", hfp), ch.get("vfp", vfp)
+    pclk = int(round(float(F_CORE * (ha + hfp + hs + hbp) * (va + vfp + vs + vbp))))
+    return (vic, pclk, ha, hfp, hs, hbp, hpol, va, vfp, vs, vbp, vpol, gear, asp)
+
+def host_compute(amiga=False):
     rows = []
     for m in sorted(HOST_SET):
         fam, h = divmod(m, 6)
-        vic, pclk, ha, hfp, hs, hbp, hpol, va, vfp, vs, vbp, vpol, gear, asp = HOST_MODES[m]
-        c = cdce_for(pclk * gear, strict=False)
-        f_t = c["fvco"]
+        am = amiga and m in AMIGA_RAW
+        vic, pclk, ha, hfp, hs, hbp, hpol, va, vfp, vs, vbp, vpol, gear, asp = amiga_mode(m) if am else HOST_MODES[m]
         htot, vtot = ha + hfp + hs + hbp, va + vfp + vs + vbp
-        lk = lock_for(fam, gear, htot, vtot)
+        if am:
+            c = cdce_exact(F_CORE * gear * htot * vtot / REF, REF)
+            if c is None: raise SystemExit("amiga row %d: no exact CDCE setting for %dx%d" % (m, htot, vtot))
+            c.update(err=0.0, mode_ratio=(c["N"], c["M"]))
+        else:
+            c = cdce_for(pclk * gear, strict=False)
+        f_t = c["fvco"]
+        lk = None if am else lock_for(fam, gear, htot, vtot)
         rows.append(dict(idx=m, fam=fam, h=h, name=HDMI_NAMES[h], vic=vic, asp=asp, ha=ha, hfp=hfp, hs=hs, hbp=hbp, hpol=hpol, va=va, vfp=vfp,
                          vs=vs, vbp=vbp, vpol=vpol, gear=gear, pclk=pclk, ft_target=pclk * gear, c=c, f_t=f_t, rate=int(round(float(f_t / gear))),
-                         htot=htot, vtot=vtot, locked=m in LOCK_ROWS, lk=lk,
+                         htot=htot, vtot=vtot, locked=m in LOCK_ROWS, lk=lk, amiga=am,
                          lk_rate=None if lk is None else int(round(float(lk["fvco"] / gear)))))
     return rows
 
@@ -383,12 +407,13 @@ def host_limits(rows):
             g = CEA.get(r["vic"])
             if g is None: bad.append("%s: VIC %d is not in the CEA table of this tool" % (n, r["vic"]))
             else:
-                if (r["ha"], r["va"], r["htot"], r["vtot"]) != g[:4]: bad.append("%s: raster %dx%d (total %dx%d) is not CEA VIC %d %s" % (n, r["ha"], r["va"], r["htot"], r["vtot"], r["vic"], g[:4]))
+                if (r["ha"], r["va"], r["htot"], r["vtot"]) != g[:4] and not r.get("amiga"): bad.append("%s: raster %dx%d (total %dx%d) is not CEA VIC %d %s" % (n, r["ha"], r["va"], r["htot"], r["vtot"], r["vic"], g[:4]))
                 if r["asp"] != g[4]: bad.append("%s: AVI aspect %d, VIC %d wants %d (Q10: 4:3 for 576p/480p)" % (n, r["asp"], r["vic"], g[4]))
         elif r["asp"] != 0: bad.append("%s: a PC row (VIC 0) carries no aspect" % n)
         if r["locked"]:
             if r["ha"] != 1920: bad.append("%s: locked, but Q4 keeps the VIC raster path at 1080p" % n)
-            if r["lk"] is None: bad.append("%s: locked, but no CDCE setting makes the frame exactly the VIC frame (cannot lock)" % n)
+            if r.get("amiga"): pass         # T188: the Amiga frame is the reference of this row, not the VIC frame (proved in amiga_limits)
+            elif r["lk"] is None: bad.append("%s: locked, but no CDCE setting makes the frame exactly the VIC frame (cannot lock)" % n)
             else:
                 C, V = r["gear"] * r["htot"] * r["vtot"], VIC_FRAME[r["fam"]]
                 got = F(r["lk"]["N"], r["lk"]["M"]) * REF_PER_DOT4X * V
@@ -404,9 +429,13 @@ def host_chip_limits(rows):
             bad += chip_check(dict(ft_target=r["lk"]["fvco"]), r["lk"]["bytes"], n + " (lock)", REF_OF[r["fam"]])[0]
     return bad
 
-def host_vh(rows):
+def host_vh(rows, amiga=False):
     def nm(r): return "  // %s %d Hz" % (r["name"], 50 if r["fam"] == 0 else 60)
-    L = ["// GENERATED by tools/hdmi_modes.py host-gen - do not edit. T164 WP1: the 9 HDMI modes of the host (all cores).",
+    L = ["// GENERATED by tools/hdmi_modes.py %s - do not edit. T164 WP1: the 9 HDMI modes of the host (all cores)." % ("amiga-gen" if amiga else "host-gen")]
+    if amiga:
+        L += ["// T188 edition (cores/amiga, cores/amiga1200 only): rows 0, 1, 2 (576p, 720p, 1080p at 50 Hz) have the raster and the CDCE ratio at which one HDMI",
+              "// frame is exactly one Amiga frame (dot4x x 9/10 / (8 x 227 x 312)): no beat. Row 2 has no hm_cdce_lock (a frame-buffer core's row)."]
+    L += [
          "// mode index m = family * 6 + hdmi: family 0 = 50 Hz, 1 = 60 Hz; hdmi 0 576p/480p, 1 720p, 2 1080p, 3 800x600, 4 1024x768, 5 1280x1024",
          "// the 50 Hz PC rows (3, 4, 5) do not exist (Q5): hm_valid is 0 and every other function answers 0 for them",
          "// hm_row: {vic[6:0], gear[3:0], hact[11:0], hfp[11:0], hsync[11:0], hbp[11:0], hpol, vact[10:0], vfp[10:0], vsync[10:0], vbp[10:0], vpol}",
@@ -445,7 +474,7 @@ def host_table(rows):
               (r["idx"], r["name"], 50 if r["fam"] == 0 else 60, r["vic"], r["asp"], r["gear"], float(r["f_t"]) / 1e6, r["rate"] / 1e6, c["N"], c["M"], c["P"], c["Q"], c["R"],
                c["err"], " ".join("%02X" % b for b in c["bytes"]), 10 * float(r["f_t"]) / 1e9, "yes" if r["locked"] else "no", lk))
 
-def host_decode(text):
+def host_decode(text, amiga=False):
     """What the gateware reads from host/hdmi_modes.vh, decoded from the file alone: per valid row the CDCE bytes -> TMDS clock, hm_rate must be
     that clock / gear, the frame rate of gear x htot x vtot clocks must be the family's, hm_aspect / hm_locked / lock bytes read back, and a locked
     row's lock bytes must give exactly the VIC frame (rational). Returns the failures."""
@@ -476,10 +505,16 @@ def host_decode(text):
         want = 50.0 if fam == 0 else 60.0
         if abs(hz - want) / want > 0.005 and not (fam == 1 and abs(hz - want * 1000 / 1001) / want < 0.005):
             bad.append("%s: the CDCE gives %.3f MHz, the row runs %d clocks per frame = %.3f Hz, not %g Hz (the PLL bytes of another mode?)" % (n, float(ft) / 1e6, gear * htot * vtot, hz, want))
+        if amiga and m in AMIGA_RAW and ft / (gear * htot * vtot) != F_CORE:
+            bad.append("%s: Amiga edition, the row runs %s Hz, not exactly the Amiga frame %s Hz" % (n, float(ft / (gear * htot * vtot)), float(F_CORE)))
+        if amiga and m not in AMIGA_RAW and f != [int(x) for x in re.findall(r"\d+'[db](\d+)", HOST_ROWTXT.get(m, ""))]:
+            bad.append("%s: Amiga edition, a row outside T188 differs from the host's" % n)
         if f[0] and num(asp[m]) != CEA.get(f[0], (0, 0, 0, 0, -1))[4]: bad.append("%s: hm_aspect does not match VIC %d" % (n, f[0]))
         islk = "1'b1" in locked[m]
         if islk != (m in LOCK_ROWS): bad.append("%s: hm_locked %s, Q4 locks rows %s" % (n, islk, sorted(LOCK_ROWS)))
-        if islk:
+        if islk and amiga and m in AMIGA_RAW:
+            if m in lcd or m in lrt: bad.append("%s: Amiga row carries lock values of the VIC frame" % n)
+        elif islk:
             if m not in lcd or m not in lrt: bad.append("%s: locked, no hm_cdce_lock / hm_rate_lock" % n); continue
             lnm = dec(hx(lcd[m]))
             if lnm is None: bad.append("%s: hm_cdce_lock gives no integer M" % n); continue
@@ -489,6 +524,26 @@ def host_decode(text):
             if num(lrt[m]) != lrate: bad.append("%s: hm_rate_lock is not the pixel clock %d of the lock setting" % (n, lrate))
         elif m in lcd or m in lrt: bad.append("%s: not locked but has lock values" % n)
     return bad
+
+AMIGA_VH = [os.path.join(ROOT, "cores/amiga/mono/host/hdmi_modes.vh"), os.path.join(ROOT, "cores/amiga1200/mono/host/hdmi_modes.vh")]
+HOST_ROWTXT = {}
+
+def amiga_check():
+    """T188: the two Amiga copies are what `amiga-gen` writes, every T188 row is exactly the Amiga frame, every other row is the host's."""
+    global HOST_ROWTXT
+    import re
+    HOST_ROWTXT = {int(m): v for m, v in re.findall(r"4'd(\d+): hm_row = \{([^}]*)\}", host_vh(host_compute()))}
+    rows = host_compute(amiga=True)
+    bad = host_limits(rows) + host_chip_limits(rows)
+    want = host_vh(rows, amiga=True)
+    for path in AMIGA_VH:
+        try: cur = open(path).read()
+        except OSError: cur = ""
+        bad += host_decode(cur, amiga=True)
+        if cur != want: bad.append("%s is not what `amiga-gen` writes" % os.path.relpath(path, ROOT))
+    for b in bad: print("FAIL:", b)
+    if not bad: print("PASS hdmi_modes amiga: rows 0..2 run exactly the Amiga frame %.6f Hz (exact CDCE ratio, decoded from both core copies), the other 6 rows are the host's" % float(F_CORE))
+    return 1 if bad else 0
 
 def host_check():
     rows = host_compute()
@@ -574,6 +629,14 @@ def host_selftest():
     try: ok = any(got != want for _, _, got, want in known_blobs())
     finally: regs = good
     report("regs() with Q and R swapped", ok)
+    global HOST_ROWTXT
+    import re
+    HOST_ROWTXT = {int(m): v for m, v in re.findall(r"4'd(\d+): hm_row = \{([^}]*)\}", host_vh(host_compute()))}
+    atxt = host_vh(host_compute(amiga=True), amiga=True)
+    tests += 1                                     # T188: one more line in the Amiga 1080p frame breaks the exact frame
+    report("T188 vtot of 1080p one line more", bool(host_decode(atxt.replace("11'd14, 11'd5, 11'd36", "11'd15, 11'd5, 11'd36"), amiga=True)) and not host_decode(atxt, amiga=True))
+    tests += 1                                     # T188: a row outside T188 changed in the Amiga copy
+    report("T188 60 Hz row changed in the Amiga copy", bool(host_decode(atxt.replace("12'd88, 12'd44, 12'd148", "12'd90, 12'd44, 12'd148"), amiga=True)))
     print("host selftest: %d of %d mutations caught" % (caught, tests))
     return 0 if caught == tests else 1
 
@@ -583,7 +646,11 @@ if __name__ == "__main__":
     elif cmd == "host-table": host_table(host_compute())
     elif cmd == "host-gen":
         open(HOST_VH, "w").write(host_vh(host_compute())); print("wrote", HOST_VH)
-    elif cmd == "check": sys.exit(check() | host_check())
+    elif cmd == "amiga-table": host_table(host_compute(amiga=True))
+    elif cmd == "amiga-gen":
+        for pth in AMIGA_VH: open(pth, "w").write(host_vh(host_compute(amiga=True), amiga=True)); print("wrote", pth)
+    elif cmd == "amiga-check": sys.exit(amiga_check())
+    elif cmd == "check": sys.exit(check() | host_check() | amiga_check())
     elif cmd == "selftest": sys.exit(selftest() | host_selftest())
     elif cmd == "host-check": sys.exit(host_check())
     elif cmd == "host-selftest": sys.exit(host_selftest())

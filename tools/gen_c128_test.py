@@ -666,6 +666,68 @@ idle:   jmp idle
     return img, "2010:02,2001:%02x,2002:%02x" % (ssum, ssum)
 
 
+def prog_z80vdc():
+    """T140 5.19 (issue #67, causes 1/2 of 5.19 item 19): the Z80 writes 64 bytes each into the VDC's RAM in three ways with IN/OUT (the I/O cycles the CP/M BIOS
+    uses; a memory access to $D6xx in Z80 mode reaches RAM, not the VDC), the VIC's display on (badlines hold the Z80: DEN is set by the Z80 itself) and the VDC set up
+    for 80 x 25 text: A = polls the status bit 7 before every access (the KERNAL's way), B = polls once, then writes R31 back to back (a software race: informational, the VDC takes one write at a time), C = sets R18/R19 and R31
+    for every cell, polling before every access (a BIOS that addresses every cell). D = reads the 64 bytes of A back with IN and writes them to $4300. Pattern value $40 + i at $4000 / $4100 / $4200 / $4300 + i. The bench (+VRAM) prints the VDC RAM at the end; the probe
+    (+VDCPROBE) counts the Z80's writes to $D6xx against the VDC's strobes."""
+    img = blank()
+    regs = [(0, 0x7E), (1, 0x50), (2, 0x66), (3, 0x49), (4, 0x20), (5, 0xE0), (6, 0x19), (7, 0x1D), (8, 0), (9, 0x07), (10, 0x20), (11, 0x07),
+            (12, 0), (13, 0), (14, 0), (15, 0), (20, 0x08), (21, 0), (22, 0x78), (23, 0x08), (24, 0x20), (25, 0x40), (26, 0xF0), (27, 0),
+            (28, 0x30), (29, 0x07)]
+    t = [" org 0", " di", " ld sp,$2000", " ld bc,$D011", " ld a,$1B", " out (c),a"]
+
+    def sel(reg):
+        t.extend([" ld bc,$D600", " ld a,%d" % reg, " out (c),a"])
+
+    def dat(val):
+        t.extend([" ld bc,$D601", " ld a,%d" % val, " out (c),a"])
+
+    def wr(reg, val):
+        t.append(" call wait")
+        sel(reg)
+        t.append(" call wait")
+        dat(val)
+    for r, v in regs:
+        wr(r, v)
+    for base, mode in ((0x4000, "A"), (0x4100, "B"), (0x4200, "C")):
+        if mode in "AB":
+            wr(18, base >> 8)
+            wr(19, base & 255)
+            t.append(" call wait")
+            sel(31)
+            t.extend([" call wait", " ld hl,pat", " ld e,64", " ld bc,$D601"])
+            t.append("t%s:" % mode)
+            if mode == "A":
+                t.extend([" call wait", " ld bc,$D601"])
+            t.extend([" ld a,(hl)", " out (c),a", " inc hl", " dec e", " jr nz,t%s" % mode])
+        else:
+            t.extend([" call wait", " ld hl,pat", " ld e,64", " ld d,0", "tC:"])
+            for rs_, src in ((0, "18"), (1, "%d" % (base >> 8)), (0, "19"), (1, "d"), (0, "31"), (1, "(hl)")):
+                t.extend([" call wait", " ld bc,$D60%d" % rs_, " ld a,%s" % src, " out (c),a"])
+            t.extend([" inc hl", " inc d", " dec e", " jr nz,tC"])
+        t.extend([" call wait", " call wait"])
+    # D: read 64 bytes back from $4000 with IN (R31 reads: UA must move once per read) into Z80 RAM at $3000, then write them with polling to $4300
+    wr(18, 0x40)
+    wr(19, 0)
+    t.append(" call wait")
+    sel(31)
+    t.extend([" call wait", " ld hl,$3000", " ld e,64", "tD:", " call wait", " ld bc,$D601", " in a,(c)", " ld (hl),a", " inc hl", " dec e", " jr nz,tD"])
+    wr(18, 0x43)
+    wr(19, 0)
+    t.append(" call wait")
+    sel(31)
+    t.extend([" call wait", " ld hl,$3000", " ld e,64", "tE:", " call wait", " ld bc,$D601", " ld a,(hl)", " out (c),a", " inc hl", " dec e", " jr nz,tE"])
+    t.extend([" call wait", " call wait"])
+    t.extend(["done: jr done", "wait: ld bc,$D600", " in a,(c)", " rla", " jr nc,wait", " ret", "pat:"])
+    t.append(" db " + ",".join(str(0x40 + i) for i in range(64)))
+    code = zx_asm.assemble("\n".join(t))
+    assert len(code) < 0x1000
+    img[ROM4 + 0x1000:ROM4 + 0x1000 + len(code)] = code
+    return img, ""
+
+
 def prog_chrshow():
     """T113 5.7 (the character store): C128 mode, the VIC shows a text screen of all 256 screen codes in the C128 character ROM (set at $1000 of the
     VIC's bank: $D018 = $14, the CPU port with CHAREN low), colours 1 on 6; then idle. The bench compares the hash of one frame of the pixel stream
@@ -1154,7 +1216,7 @@ lp:     ldy #$00
     return img, "0301:a5"
 
 
-PROGS = {"vicrom0": lambda: prog_vicrom(0), "vicrom1": lambda: prog_vicrom(1), "vicblk0": lambda: prog_vicblk(0), "vicblk1": lambda: prog_vicblk(1), "vicmmu": lambda: prog_vicblk(0, True), "vicstress": prog_vicstress, "chrshow": prog_chrshow, "z80ba": prog_z80ba, "romwalk": prog_romwalk, "coldprog": prog_coldprog, "z80back": prog_z80back, "z80noback": prog_z80noback, "iec": prog_iec, "pause": prog_pause, "boot": prog_boot, "nocpubit": prog_nocpubit, "mmu": prog_mmu, "xkeys": prog_xkeys, "fast": prog_fast, "fast0": prog_fast0, "c64mode": prog_c64mode}
+PROGS = {"vicrom0": lambda: prog_vicrom(0), "vicrom1": lambda: prog_vicrom(1), "vicblk0": lambda: prog_vicblk(0), "vicblk1": lambda: prog_vicblk(1), "vicmmu": lambda: prog_vicblk(0, True), "vicstress": prog_vicstress, "chrshow": prog_chrshow, "z80ba": prog_z80ba, "z80vdc": prog_z80vdc, "romwalk": prog_romwalk, "coldprog": prog_coldprog, "z80back": prog_z80back, "z80noback": prog_z80noback, "iec": prog_iec, "pause": prog_pause, "boot": prog_boot, "nocpubit": prog_nocpubit, "mmu": prog_mmu, "xkeys": prog_xkeys, "fast": prog_fast, "fast0": prog_fast0, "c64mode": prog_c64mode}
 
 
 def write_mem(img, path):

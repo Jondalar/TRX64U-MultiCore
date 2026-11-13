@@ -49,7 +49,7 @@ CXX="${CXX:-c++}"
 FLAGS="-std=gnu++11 -Wall -Wno-unused-function -fno-exceptions -pthread"
 PASS=0
 # the shared base every core application links, and the one descriptor each blueprint core adds to it
-BASEL="board_stubs.cc appindex_stub.cc t64.cc boot.cc partial.cc cor.cc sha256_cc.cc contrib.cc bindcheck.cc settings_ops.cc memops.cc romfind.cc corefolder.cc settings.cc cfgfile.cc video.cc videomode.cc edid.cc picture.cc volume.cc hotkeys.cc home.cc ops.cc ops_glue.cc update.cc exec.cc video_stub.cc regset.cc engines.cc ledload.cc winslot.cc sectors.cc mediamounts.cc amiga_ffs.cc folderhd.cc folderhd_fold.cc romset.cc mousesink.cc rawkeys.cc pad.cc hidpad.cc pad_ops.cc padwiz.cc fbwin.cc kickstart.cc newfile.cc newdisk.cc writeback.cc writeback_crt.cc"
+BASEL="configlist.cc board_stubs.cc appindex_stub.cc t64.cc boot.cc partial.cc cor.cc sha256_cc.cc contrib.cc bindcheck.cc settings_ops.cc memops.cc romfind.cc corefolder.cc settings.cc cfgfile.cc video.cc videomode.cc edid.cc picture.cc picmodes.cc volume.cc hotkeys.cc home.cc ops.cc ops_glue.cc update.cc exec.cc video_stub.cc regset.cc engines.cc ledload.cc winslot.cc sectors.cc mediamounts.cc amiga_ffs.cc folderhd.cc folderhd_fold.cc romset.cc mousesink.cc rawkeys.cc pad.cc hidpad.cc pad_ops.cc padwiz.cc fbwin.cc kickstart.cc newfile.cc newdisk.cc writeback.cc writeback_crt.cc"
 ATARI="atari800.cc atari_media.cc atari_sio.cc atari_atr.cc atari_xex.cc atari_cart.cc $BASEL"
 # the cbm1541 library (T104.1 D15): the drive logic (app/lib/cbm1541) and its contributor; every descriptor with a drive links them
 DRV="cbm1541.cc d1541_drive.cc d1541_gcr.cc d1541_wd.cc d1541_fs.cc"
@@ -201,13 +201,15 @@ run video test_video.cc amiga.cc $ATARI nes.cc ines.cc $C64
 
 run settings test_settings.cc $ATARI
 control set_loses_value settings.cc '/^bool Settings::set(int i, int v)/,/^}/s/    return write_cfg();/    { bool ok_ = write_cfg(); if (!ok_) core_[i] = -1; return ok_; }/' test_settings.cc $ATARI
-control set_writes_all settings.cc 's/^        if (core_\[i\] >= 0) {/        if (true) {/;s/items_\[i\].values\[core_\[i\]\];/items_[i].values[value(i)];/' test_settings.cc $ATARI
+control set_writes_all settings.cc 's/^        if (core_\[i\] >= 0 || all) {/        if (true) {/' test_settings.cc $ATARI
 control set_reset_keeps settings.cc 's/if (fs_->remove(cfg_path_) || write_cfg())/if (false)/' test_settings.cc $ATARI
 control set_case cfgfile.cc 's/strncasecmp(a, b, la) == 0/strncmp(a, b, la) == 0/' test_settings.cc $ATARI
 
 ca_in shared && if command -v 64tass >/dev/null; then "$ROOT/tools/gen_xexboot.sh" --check; else echo "(64tass not installed: the xexboot.asm / xexboot_bin.h drift check is skipped)"; fi
 # T104 5.6 item 1: the CBM BASIC loader, library code the VC-20 and the C16 will share
 run cbm_prg test_cbm_prg.cc cbm_prg.cc
+# T134: the PET models' ROM names and the PRG loader numbers for BASIC 1
+run pet_models test_pet_models.cc cbm_prg.cc
 
 run atari_xex test_atari_xex.cc atari_xex.cc
 
@@ -248,14 +250,14 @@ control guard_write_in_begin libguard.cc 's/    out->armed = false;             
 WAITSRC="libscan.cc libload.cc libmenu.cc descrec.cc ops.cc"
 run libwait test_libwait.cc $WAITSRC
 
-run desc test_desc.cc desc_check.cc menutree.cc amiga.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zx.cc zx_snap.cc tape_pulses.cc tape_deck.cc cpc.cc cpc_disk.cc zxnext.cc snes.cc neogeo.cc snes_rom.cc neoset.cc vc20.cc c264.cc c128.cc c64scpu.cc ddt_mandel.cc ddt_novic.cc portdiag.cc diagtest.cc cbm_run.cc $C64 descrec.cc
+run desc test_desc.cc desc_check.cc menutree.cc amiga.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zx.cc zx_snap.cc tape_pulses.cc tape_deck.cc cpc.cc cpc_disk.cc zxnext.cc snes.cc neogeo.cc snes_rom.cc neoset.cc vc20.cc c264.cc pet.cc c128.cc c64scpu.cc ddt_mandel.cc ddt_novic.cc portdiag.cc diagtest.cc cbm_run.cc $C64 descrec.cc
 # T104.1 D14: the checker refuses by name what the registry cannot serve
 # T157: the "Joystick ports" setting of every core that has the swap: there once, applied to the core's register, kept in the .cfg
-run joyswap test_joyswap.cc amiga.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zx.cc zx_snap.cc tape_pulses.cc tape_deck.cc cpc.cc cpc_disk.cc zxnext.cc snes.cc snes_rom.cc vc20.cc c264.cc c128.cc ddt_mandel.cc ddt_novic.cc portdiag.cc diagtest.cc cbm_run.cc $C64 descrec.cc
-run ledcores test_ledcores.cc amiga.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zx.cc zx_snap.cc tape_pulses.cc tape_deck.cc cpc.cc cpc_disk.cc zxnext.cc snes.cc snes_rom.cc vc20.cc c264.cc c128.cc ddt_mandel.cc ddt_novic.cc portdiag.cc diagtest.cc cbm_run.cc $C64 descrec.cc
+run joyswap test_joyswap.cc amiga.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zx.cc zx_snap.cc tape_pulses.cc tape_deck.cc cpc.cc cpc_disk.cc zxnext.cc snes.cc snes_rom.cc vc20.cc c264.cc pet.cc c128.cc ddt_mandel.cc ddt_novic.cc portdiag.cc diagtest.cc cbm_run.cc $C64 descrec.cc
+run ledcores test_ledcores.cc amiga.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zx.cc zx_snap.cc tape_pulses.cc tape_deck.cc cpc.cc cpc_disk.cc zxnext.cc snes.cc snes_rom.cc vc20.cc c264.cc pet.cc c128.cc ddt_mandel.cc ddt_novic.cc portdiag.cc diagtest.cc cbm_run.cc $C64 descrec.cc
 # T181: the hotkeys while a core runs (hotkeys.h): the mask registers, S1 within 100 ms, S2 a non-hotkey changes nothing, S3 held = once (volume repeats), the USB keyboard's filter,
 # S5 the default of every core is no key use of that core
-run hotkeys test_hotkeys.cc menuctl.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc amiga.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zx.cc zx_snap.cc tape_pulses.cc tape_deck.cc cpc.cc cpc_disk.cc zxnext.cc snes.cc snes_rom.cc vc20.cc c264.cc c128.cc ddt_mandel.cc ddt_novic.cc portdiag.cc diagtest.cc cbm_run.cc $C64 descrec.cc c64scpu.cc neogeo.cc neoset.cc
+run hotkeys test_hotkeys.cc menuctl.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc amiga.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zx.cc zx_snap.cc tape_pulses.cc tape_deck.cc cpc.cc cpc_disk.cc zxnext.cc snes.cc snes_rom.cc vc20.cc c264.cc pet.cc c128.cc ddt_mandel.cc ddt_novic.cc portdiag.cc diagtest.cc cbm_run.cc $C64 descrec.cc c64scpu.cc neogeo.cc neoset.cc
 # T181 D4: a hotkey action while the menu is closed draws nothing (no ui_show, no toast, no layer)
 ca_in shared && python3 "$ROOT/tools/check_hotkey_nooverlay.py"
 ca_in shared && python3 "$ROOT/tools/check_hotkey_nooverlay.py" --selftest
@@ -426,13 +428,13 @@ C264="c264.cc cbm_run.cc cbm_prg.cc freeze.cc $DRV $BASEL"
 run c264 test_c264.cc $C264
 
 # T113 5.5 (the Commodore 128 on the generic application): the descriptor against a model of register page E and the DDR2 window; the extra keys are pure
-C128="c128.cc freeze.cc $DRV $BASEL"
+C128="c128.cc cbm_run.cc cbm_prg.cc freeze.cc $DRV $BASEL"
 C128X="$C128 menuctl.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc nes.cc ines.cc libfiles.cc"   # T185 D4: the bench also drives the file selector of the settings rows
 run c128 test_c128.cc $C128X
 # T194 S3: the C128's two pictures on the one layer (the VDC, and the VIC-IIe's capture in format 3): Integer / Fit / Fill, 1080p and 720p, 50 and 60 Hz family, Smoothing, the switch both ways
 run c128pic test_c128pic.cc $C128X
 # T182 step 8: the C64SCPU descriptor - S2 (no SuperCPU ROM, no start; refused files; the gate) and S7 (speed and JiffyDOS reach SCPU_SW; the drive's ROM)
-C64SCPU="c64scpu.cc freeze.cc $DRV $BASEL"
+C64SCPU="c64scpu.cc cbm_run.cc cbm_prg.cc freeze.cc $DRV $BASEL"
 run c64scpu test_c64scpu.cc $C64SCPU
 # T140 D24 item 3: the C128's System Mode (four values, format byte, host PLL call, kept across a Picture change)
 # T185 D4: the JiffyDOS kit files are selected by the person, never searched: content check, overlay offsets (16 KiB part at +0x0000, the 8 KiB KERNAL at +0x2000),
@@ -471,6 +473,13 @@ control mwb_saving engines.h 's/if (c_ \&\& c_->saving_depth++ == 0) {/if (false
 # note; a media set is the same keys in <core folder>/media/<name>.mnt, loaded with a write-back first and one reset. The A1200 record again, a .cfg and a core folder in the fake file system.
 MNT="test_media_mounts.cc menuctl.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc $AM"
 run media_mounts $MNT
+# T198 S1, S7, S8, S10, S11, S14, S15: the configs (save, start with one, load, legacy media sets, no folder, many files)
+run configs test_configs.cc menuctl.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc $AM
+CFG="test_configs.cc menuctl.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc $AM"
+control cfg_save_inplace mediamounts.cc 's/export_config(tmp, pk, pv, count, &ns)/export_config(path, pk, pv, count, \&ns)/' test_configs.cc ${CFG#test_configs.cc }
+control cfg_save_no_swap mediamounts.cc 's/        ok = c->fs->rename(tmp, path);/        ok = true;/' test_configs.cc ${CFG#test_configs.cc }
+control cfg_no_recovery mediamounts.cc 's/        configlist_fix_plan(&fix, n, G::get, raw);/        fix.n = 0;/' test_configs.cc ${CFG#test_configs.cc }
+control cfg_load_rebind mediamounts.cc 's/    c->settings->rebind(path);/    (void)path;/' test_configs.cc ${CFG#test_configs.cc }
 control mnt_not_stored mediamounts.cc 's/    if (!c->mounts_ready || !persist_on(c)) {/    if (true) {/' $MNT
 control mnt_off_acts mediamounts.cc 's/    if (c->settings \&\& persist_on(c)) {/    if (c->settings) {/' $MNT
 control mnt_off_keys_stay mediamounts.cc 's/    if (!persist_on(c)) {/    if (false) {/' $MNT
@@ -482,7 +491,7 @@ control mnt_set_writeback mediamounts.cc 's/    if (media_writeback(c, WB_WHY_RE
 # engine writes back before it lets the medium go (eject, replacement, reset, reload, restart), completely, and keeps the medium when it cannot
 control mwb_hook_flush engines.cc 's/if (d \&\& d->media_flush \&\& d->media_flush(c, m, sizeof(m)) \&\& !bad++) {/if (false) {/' $MWB
 control mwb_hook_pending engines.cc 's/ || (d \&\& d->media_pending \&\& d->media_pending(c))//' $MWB
-DESCL="test_desc.cc desc_check.cc menutree.cc amiga.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zx.cc zx_snap.cc tape_pulses.cc tape_deck.cc cpc.cc cpc_disk.cc zxnext.cc snes.cc neogeo.cc snes_rom.cc neoset.cc vc20.cc c264.cc c128.cc c64scpu.cc ddt_mandel.cc ddt_novic.cc portdiag.cc diagtest.cc cbm_run.cc $C64 descrec.cc"
+DESCL="test_desc.cc desc_check.cc menutree.cc amiga.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zx.cc zx_snap.cc tape_pulses.cc tape_deck.cc cpc.cc cpc_disk.cc zxnext.cc snes.cc neogeo.cc snes_rom.cc neoset.cc vc20.cc c264.cc pet.cc c128.cc c64scpu.cc ddt_mandel.cc ddt_novic.cc portdiag.cc diagtest.cc cbm_run.cc $C64 descrec.cc"
 # Apple II: the eject and the replacement stop on a flush that fails, the sync is not forgotten, a track the file did not take is kept and written again
 control a2d_flush_ignored apple2_disk.cc 's/if (a2_flush(c, drive, msg, msglen)) {/if (a2_flush(c, drive, msg, msglen) \&\& false) {/' test_apple2_disk.cc $A2D
 control a2d_sync_ignored apple2_disk.cc 's/if (!d->file->sync()) {/if (!d->file->sync() \&\& false) {/' test_apple2_disk.cc $A2D
@@ -623,7 +632,7 @@ PASS=$((PASS + 1))
 run romset test_romset.cc $AM
 
 # the descriptor checks of the new records
-DESCS="desc_check.cc menutree.cc amiga.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zx.cc zx_snap.cc tape_pulses.cc tape_deck.cc cpc.cc cpc_disk.cc zxnext.cc snes.cc neogeo.cc snes_rom.cc neoset.cc vc20.cc c264.cc c128.cc c64scpu.cc ddt_mandel.cc ddt_novic.cc portdiag.cc diagtest.cc cbm_run.cc $C64 descrec.cc"
+DESCS="desc_check.cc menutree.cc amiga.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zx.cc zx_snap.cc tape_pulses.cc tape_deck.cc cpc.cc cpc_disk.cc zxnext.cc snes.cc neogeo.cc snes_rom.cc neoset.cc vc20.cc c264.cc pet.cc c128.cc c64scpu.cc ddt_mandel.cc ddt_novic.cc portdiag.cc diagtest.cc cbm_run.cc $C64 descrec.cc"
 
 # T104 5.15: the Amiga 500 runs the generic application; its record against the register decode of the A500 gateware
 run amiga500 test_amiga500.cc $AM
@@ -743,11 +752,11 @@ unset CARGS RARGS
 run rest test_rest.cc $RESTSRC
 # T192.1 MVP: the UI service on the real menu - ids, intents through the key path, questions, the token on the routes
 # T192.1 D21: the API is generated from the declaration; this walks the declaration of every core and asserts every row, setting value and operation is reachable
-run uicover test_uicover.cc uiapp.cc menuctl.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc table.cc amiga.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zx.cc zx_snap.cc tape_pulses.cc tape_deck.cc cpc.cc cpc_disk.cc zxnext.cc snes.cc neogeo.cc snes_rom.cc neoset.cc vc20.cc c264.cc c128.cc c64scpu.cc ddt_mandel.cc ddt_novic.cc portdiag.cc diagtest.cc cbm_run.cc $C64 descrec.cc $SVC
+run uicover test_uicover.cc uiapp.cc menuctl.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc table.cc amiga.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zx.cc zx_snap.cc tape_pulses.cc tape_deck.cc cpc.cc cpc_disk.cc zxnext.cc snes.cc neogeo.cc snes_rom.cc neoset.cc vc20.cc c264.cc pet.cc c128.cc c64scpu.cc ddt_mandel.cc ddt_novic.cc portdiag.cc diagtest.cc cbm_run.cc $C64 descrec.cc $SVC
 # T192.3 S6 / S15: every key of the menu on every core of the table: one hash per (core, tab, start state), the golden made before the intent cut; the controller as a client of the key table reproduces it
-run keywalk test_keywalk.cc menuctl.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc table.cc amiga.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zx.cc zx_snap.cc tape_pulses.cc tape_deck.cc cpc.cc cpc_disk.cc zxnext.cc snes.cc neogeo.cc snes_rom.cc neoset.cc vc20.cc c264.cc c128.cc c64scpu.cc ddt_mandel.cc ddt_novic.cc portdiag.cc diagtest.cc cbm_run.cc $C64 descrec.cc
+run keywalk test_keywalk.cc menuctl.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc table.cc amiga.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zx.cc zx_snap.cc tape_pulses.cc tape_deck.cc cpc.cc cpc_disk.cc zxnext.cc snes.cc neogeo.cc snes_rom.cc neoset.cc vc20.cc c264.cc pet.cc c128.cc c64scpu.cc ddt_mandel.cc ddt_novic.cc portdiag.cc diagtest.cc cbm_run.cc $C64 descrec.cc
 # T192.3: Timewarp's and the monitor's keys of the record menu are operations, the file manager module on its own, DEL deletes nothing, the neighbour takes a vanished row's place, the table is whole
-run cut test_cut.cc menuctl.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc table.cc amiga.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zx.cc zx_snap.cc tape_pulses.cc tape_deck.cc cpc.cc cpc_disk.cc zxnext.cc snes.cc neogeo.cc snes_rom.cc neoset.cc vc20.cc c264.cc c128.cc c64scpu.cc ddt_mandel.cc ddt_novic.cc portdiag.cc diagtest.cc cbm_run.cc $C64 descrec.cc
+run cut test_cut.cc menuctl.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc table.cc amiga.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zx.cc zx_snap.cc tape_pulses.cc tape_deck.cc cpc.cc cpc_disk.cc zxnext.cc snes.cc neogeo.cc snes_rom.cc neoset.cc vc20.cc c264.cc pet.cc c128.cc c64scpu.cc ddt_mandel.cc ddt_novic.cc portdiag.cc diagtest.cc cbm_run.cc $C64 descrec.cc
 run uiapp test_uiapp.cc uiapp.cc menuctl.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc amiga.cc nes.cc ines.cc libfiles.cc $SVC $ATARI
 
 # T162: the core application's bug report - sections, the descriptor's named registers (and no others), the file, GET /v1/report, no secrets
@@ -767,6 +776,7 @@ run memops test_memops.cc $MEMSRC
 PADSRC="snes.cc snes_rom.cc nes.cc ines.cc neogeo.cc neoset.cc $ATARI"
 run hidpad test_hidpad.cc hidpad.cc
 run pad test_pad.cc $PADSRC
+run xinput test_xinput.cc xinput.cc $PADSRC     # T196: XInput pads (claim, 360 and GIP reports through the pad service, start sequences)
 control pad_cfgkeys settings.cc 's/if (!strncasecmp(key, "Pad ", 4)) {/if (false) {/' test_pad.cc $PADSRC
 run padmenu test_padmenu.cc menuctl.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc $PADSRC
 # T192.3 leak 1 (persistence): the wizard module saves the map through pad_save_map and tells the truth about it

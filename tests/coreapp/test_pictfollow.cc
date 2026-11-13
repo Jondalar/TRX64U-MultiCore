@@ -12,6 +12,8 @@
 #include "boot.h"
 #include "regset.h"
 #include "picture.h"
+#include "menuctl.h"
+#include "keyboard.h"
 #include "videomode.h"
 
 // ---- the faked host ------------------------------------------------------------------------------------------------------------------
@@ -434,6 +436,9 @@ static void q7_confirm()
       CHECK_EQ(g_gw.size(), 2u);
       CHECK(g_gw.size() == 2 && g_gw[1] == std::make_pair((int)VID_SYS_PAL50, (int)VID_HDMI_1080P));
       CHECK_EQ(r.vid->mode(), VID_HDMI_1080P);
+      { const char *chip = picture_take_result();                                          // T187 D4/D5: the chip says which mode came back
+        CHECK(chip && std::string(chip).rfind("Picture: back to 1920 x 1080", 0) == 0);
+        CHECK(!picture_take_result()); }                                                 // read once
       CHECK_EQ(g_gw_row, 2);
       CHECK_EQ(r.st->value(r.pic()), 3);                                                 // the item says what is up again, and the .cfg too
       CHECK(r.fs.text("/usb0/cores/x.cfg").find(L1080) != std::string::npos);
@@ -542,6 +547,73 @@ static void d10c_host_auto()
     tv50();
 }
 
+// T187 D5: the open Picture page follows a hot-plug. The loop calls MenuCtl::rebuild() on PS_LIST_CHANGED (run.cc): the rows are made again from the new list,
+// the cursor keeps its mode by name, and a mode that is gone puts it on the one in force.
+static void d5_page_rebuild()
+{
+    struct Host : MenuHost {
+        void info(int, char *out, int) { out[0] = 0; }
+        bool return_to_host(char *, int) { return false; }
+    } host;
+    g_attached = true;
+    tv50();
+    Rig r(&atari800_desc);
+    picture_start(&r.c, VID_SYS_PAL50, VID_HDMI_1080P);
+    CHECK(r.st->set(r.pic(), 3));                                                        // 1080p stored and up
+    MenuCtl m(&r.c, &host);
+    m.open();
+    m.key(KEY_F5); m.key('2');                                                           // T205 D1: the core, Video: the second tab of F5
+    int row = -1;
+    for (int i = 0; i < m.rows(); i++) { char l[100], rr[100]; bool a; m.row(i, l, 100, rr, 100, &a); if (!strcmp(l, "Picture")) row = i; }
+    CHECK(row >= 0);
+    while (m.selected() < row) m.key(KEY_DOWN);
+    m.key(KEY_RETURN);
+    CHECK(std::string(m.title()) == "Picture");
+    CHECK_EQ(m.rows(), 4);                                                               // Auto, 576p, 720p, 1080p
+    CHECK_EQ(m.selected(), 3);                                                           // the cursor starts on the mode in force
+    m.key(KEY_UP);                                                                       // 720p
+    CHECK_EQ(m.selected(), 2);
+    // a screen without 1080p: the list shrinks, 720p keeps the cursor by name
+    g_attached = false;
+    r.io.advance(500000);
+    picture_service(&r.c);
+    tv50_no1080(10);
+    r.io.advance(500000);
+    int ev = picture_service(&r.c);
+    CHECK(ev & PS_LIST_CHANGED);
+    m.rebuild();
+    CHECK(std::string(m.title()) == "Picture");
+    CHECK_EQ(m.rows(), 3);
+    CHECK_EQ(m.selected(), 2);
+    char l[100], rr[100]; bool a;
+    m.row(m.selected(), l, 100, rr, 100, &a);
+    CHECK(std::string(l).find("720") != std::string::npos);
+    // back to the full screen, the cursor on 1080p, then a screen without it: the cursor goes to the mode in force
+    g_attached = false;
+    r.io.advance(500000);
+    picture_service(&r.c);
+    tv50(11);
+    r.io.advance(500000);
+    ev = picture_service(&r.c);
+    CHECK(ev & PS_LIST_CHANGED);
+    m.rebuild();
+    CHECK_EQ(m.rows(), 4);
+    m.key(KEY_DOWN);                                                                     // 1080p
+    m.row(m.selected(), l, 100, rr, 100, &a);
+    CHECK(std::string(l).find("1080") != std::string::npos);
+    g_attached = false;
+    r.io.advance(500000);
+    picture_service(&r.c);
+    tv50_no1080(12);
+    r.io.advance(500000);
+    ev = picture_service(&r.c);
+    CHECK(ev & PS_LIST_CHANGED);
+    m.rebuild();
+    CHECK_EQ(m.rows(), 3);
+    m.row(m.selected(), l, 100, rr, 100, &a);
+    CHECK(std::string(rr).find("now") != std::string::npos);                             // 1080p is gone: the cursor is on the mode that is up
+}
+
 int main()
 {
     s10_lists();
@@ -551,5 +623,6 @@ int main()
     q7_confirm();
     start_from_status();
     d10c_host_auto();
+    d5_page_rebuild();
     DONE("pictfollow");
 }

@@ -4,6 +4,16 @@
 #include <strings.h>
 #include <stdio.h>
 
+static void cut_copy(char *out, size_t outlen, const char *s, size_t n)
+{
+    size_t i = 0;
+    while (i < n && i + 1 < outlen && s[i]) {
+        out[i] = s[i];
+        i++;
+    }
+    out[i] = 0;
+}
+
 const char *cfw_result_str(cfw_result_t r)
 {
     switch (r) {
@@ -390,7 +400,11 @@ cfw_result_t cfw_probe(CorSource &src, uint32_t running_idcode, CfwInfo &ci)
     if (semi) {
         *semi = 0;
     }
-    snprintf(ci.name, sizeof(ci.name), "%.20s %.10s %.8s", design, best.f[2], best.f[3]);
+    char d20[21], v10[11], v8[9];   // the board's printf ignores a precision: cut by hand
+    cut_copy(d20, sizeof(d20), design, 20);
+    cut_copy(v10, sizeof(v10), best.f[2], 10);
+    cut_copy(v8, sizeof(v8), best.f[3], 8);
+    snprintf(ci.name, sizeof(ci.name), "%s %s %s", d20, v10, v8);
     strncpy(ci.part, best.f[1], sizeof(ci.part) - 1);
     return CFW_OK;
 }

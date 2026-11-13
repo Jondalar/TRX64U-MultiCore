@@ -1,0 +1,54 @@
+core PET1 Commodore PET
+area F1 Home
+  tab 1 Home
+    info Core
+    info Application
+    info Network
+    info Media
+    info ROMs
+    info Libraries
+    media Program
+    media Drive 8
+    media Drive 8.1
+    media Tape
+    fixed Save as config...
+    fixed Load config...
+area F3 Library
+  tab 1 Browse
+    browser Browse
+      filetype .prg: Load | Load + run
+      filetype .p00: Load | Load + run
+      filetype .d64: Mount in Drive 8 | Mount in Drive 8.1 | Run Disk
+      filetype .d80: Mount in Drive 8 | Mount in Drive 8.1 | Run Disk
+      filetype .d82: Mount in Drive 8 | Mount in Drive 8.1 | Run Disk
+      filetype .tap: Insert tape | Insert tape and play
+area F5 PET
+  tab 1 PET
+    setting Model = 2001 | 3032 | 4032 | 8032 | 8096 | SuperPET (default 4032, at next reset)
+    setting CPU speed = x1 | x2 | x3 | x4 | x5 | x6 | x7 | x8 (default x1, live)
+    setting Diag = Off | On (DIAG jumper) (default Off, at next reset)
+    setting Picture rate = 60 Hz | 50 Hz (default 60 Hz, live)
+    setting Phosphor = Green | Amber | White (default Green, live)
+    setting RAM = 8 KiB | 16 KiB | 32 KiB (default 32 KiB, at next reset)
+    setting Drive = Off | 4040 (D64) | 8250 (D80, D82) (default Off, at next reset)
+    setting Datasette port = Off (file only) | External datasette (default Off (file only), live)
+    setting SPCPU = 6502 | 6809 | Program ($EFF8) (default 6502, at next reset) [listed while pet.superpet]
+area F7 Actions
+  tab 1 Quick
+    task Reset (closes the menu)
+    task Reload ROMs, reset (closes the menu)
+    task Tape: Play (closes the menu)
+    task Tape: Stop
+    task Tape: Rewind
+    task Tape: Eject
+area F8 System (shifted)
+  tab 1 System
+    heading Actions
+    fixed Restart core
+    fixed Return to host menu
+    heading Network
+    fixed WiFi
+    heading Support
+    fixed Bug report
+    heading Reset
+    fixed Reset to host defaults

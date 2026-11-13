@@ -137,3 +137,7 @@ follows the setting as in the SuperCPU core (`c64scpu.cc` stock / JiffyDOS drive
   sizes and offsets of the kit files checked against real files; (b) needs nothing but a second RomSpec.
 - **Q2 Drive ROMs** (answered, D2: both): JiffyDOS for the 1541 only, or for the 1581 as well (drive A takes both types).
 - **Q3 Placement** (answered, D3: F5): F5 Settings tab (proposal) or the F8 System page next to "System Mode".
+
+Board 2026-11-11 (Alex, c128.cor of branch c128-cpm67; files selected with "Use as JiffyDOS ... ROM" from `/SD/cores/c128/roms/`, ROM set = JiffyDOS,
+reset): JiffyDOS works, loads feel faster ("JiffyDOS works, it is 'faster', is my impression", translated). J.1/J.2 PASS by hand; J.3 (timed against
+Standard) not measured.
