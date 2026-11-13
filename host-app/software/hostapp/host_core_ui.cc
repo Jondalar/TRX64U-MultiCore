@@ -704,8 +704,7 @@ void hc_ui_input(int k, HcUiResult *res)
         res->redraw = true;
         return;
     }
-    // The way back from a black screen (T105): V steps through the resolutions, applies each one at once and writes it to boot.cfg, so a screen that cannot take the mode we came
-    // up in is one blind keypress away from one it can. It is in the footer legend, and in INSTALL.md for the reader who has no picture to read it on.
+    // The way back from a black screen: V opens the Picture page from any view (hc_ui_picture_step); RETURN or SPACE on a mode applies it and asks "Keep this picture?" (T105, T187 D5).
     case HCA_PICTURE_STEP:
         hc_arm_take_wifi();                 // this key returns before the WiFi page's keys: it ends the F arm like any other key (the arm's token ends in HcKeyArm)
         hc_ui_picture_step();

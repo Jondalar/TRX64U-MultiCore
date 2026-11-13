@@ -179,7 +179,7 @@ full procedure with every screen is in [manual chapter 2](docs/manual/02-install
 | `ddt_mandel`, `ddt_novic` | DDT's C64U demos (mandelbrUlt, Look Ma No VIC) as showcase cores | Partial | Testing | Board 2026-10-31 (Alex): both run |
 | `diag` | Port Diagnostics: no machine; a timed probe engine measures the joystick and paddle ports from TOML test files on the SD card and writes the results back | Large | PoC | Merged on `main` (T175): gateware, core application, benches; with the A/V test of T201 the Vivado run 1686 is green and `diag.cor` is on the board's SD card. The board steps (S7, S8) are open |
 
-5.2 The core `diag` (Port Diagnostics, T175, A/V test T201) is merged on `main` and experimental. The board steps are open. A second C64 core with the feature set of the original firmware (`c64u`) was dropped (T103).
+5.2 The core `diag` (Port Diagnostics, T175, A/V test T201) is merged on `main` and experimental; the release packing (`tools/release_mc.sh`) includes it, as it does every large core that is not build only. The board steps are open. A second C64 core with the feature set of the original firmware (`c64u`) was dropped (T103).
 
 5.3 The core logos:
 

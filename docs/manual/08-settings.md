@@ -84,7 +84,7 @@ possible modes are, in this order:
 | 4 | `1024 x 768` |
 | 5 | `1280 x 1024` |
 
-8.4.3 **RETURN** on the row `Picture` (or **V**) opens the page `Settings > Picture`. The first row is `Auto (<mode> from the screen)`: the host selects the best mode of the screen: `1920 x 1080`, else `1280 x 720`, else `576p / 480p`, else a PC mode (`1024 x 768` first). The other rows are the modes that the screen names, each with its refresh rate (`50.1 Hz`) and the tags `now` (the mode that is chosen) and `native`. The line under the title reads `Your screen offers <n> modes. Nothing changes until you pick one.` **UP**, **DOWN** select and apply nothing. **RETURN** uses the mode under the cursor and asks as in 8.4.8. **LEFT** or **ESC** closes the page. The row `Picture` shows the mode, or `from the screen: <mode>`.
+8.4.3 **RETURN** on the row `Picture` (or **V**) opens the page `Settings > Picture`. The first row is `Auto (<mode> from the screen)`: the host selects the best mode of the screen: `1920 x 1080`, else `1280 x 720`, else `576p / 480p`, else a PC mode (`1024 x 768` first). The other rows are the modes that the screen names, each with its refresh rate (`50.1 Hz`) and the tags `now` (the mode that is chosen) and `native`. The line under the title reads `Your screen offers <n> modes. Nothing changes until you pick one.` **UP**, **DOWN** select and apply nothing. **RETURN** or **SPACE** uses the mode under the cursor and asks as in 8.4.8. **LEFT** or **ESC** closes the page. The row `Picture` shows the mode, or `from the screen: <mode>`.
 
 ![The Picture page: Auto and three modes, 50.1 Hz, the tag now on Auto](img/host-picture-page.png)
 
