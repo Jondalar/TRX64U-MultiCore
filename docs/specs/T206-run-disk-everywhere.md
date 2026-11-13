@@ -1,6 +1,6 @@
 # T206 — Every core that mounts a disk also offers "Run Disk" (mount and run), with the same action names
 
-**Status:** PROPOSED (2026-11-11).
+**Status:** PROPOSED (2026-11-11). Corrected 2026-11-13 (status check): BUILT, merged to main (475cdbcfe); S1, S2 proven by test_desc; PET added 2026-11-12; S3 board (SCPU Run Disk) open.
 **Repo:** TRX64U-MultiCore — the generic core app, the file actions of the cores (`coreapp/cores/c64scpu.cc`, `c128.cc`, `cbm1541_desc.h`, ...).
 **Number:** T206.
 **Origin:** Alex, 2026-11-11, at the board in the SCPU core (F3 Library on a disk: Mount Disk, Mount Disk Read Only, Browse Disk, ... no run), translated:

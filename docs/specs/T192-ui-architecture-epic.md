@@ -1,6 +1,6 @@
 # T192 — Epic: one functional core, many user interfaces (host app and generic core app)
 
-**Status:** PROPOSED (2026-11-07), asked by Alex. Epic: spec and architecture only; no build while the finish plan
+**Status:** PROPOSED (2026-11-07), asked by Alex. Epic: spec and architecture only; no build while the finish plan Corrected 2026-11-13 (status check): MVP (D20) built and merged to main through integ-1 (0c5612d2d); child specs T192.1-T192.6 carry their own state; the epic stays open.
 (`docs/todo/finish-plan-2026-11-07.md`) is open, unless Alex says so. MVP build released by D20 (2026-11-08).
 **Repo:** TRX64U-MultiCore — host app (`host-app/software/hostapp/`), generic core app (`coreapp/`), view layer (`app/view/`),
 REST/WS (`coreapp/src/rest.cc`, `wsproto.cc`).

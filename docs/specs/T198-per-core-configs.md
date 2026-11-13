@@ -1,6 +1,6 @@
 # T198 — A core can be started from the boot menu with a saved config (media set + settings), picked in a small overlay
 
-**Status:** IN PROGRESS (2026-11-10, Alex: "agent losstarten, code bauen" - build go). D1-D14 decided; Q13 open (centred overlay stands).
+**Status:** IN PROGRESS (2026-11-10, Alex: "agent losstarten, code bauen" - build go). D1-D14 decided; Q13 open (centred overlay stands). Corrected 2026-11-13 (status check): BUILT, merged to main (b390802b3 and earlier); emulator and bench evidence plus ux-review PASS in §5; S17 board (save, overlay, start, power cycle) open; Q13 stands as is.
 **Repo:** TRX64U-MultiCore — host app (`host-app/software/hostapp/`: boot menu rows, `host_core*`, `hostdecl.cc`, `handover.{h,cc}`,
 `coreboot.cc`), core app (`coreapp/src/`: `mediamounts.cc`, `menutree.cc`, `menuctl.cc`, `settings.*`), mock-up `docs/mockups/T198-config-overlay.html`.
 **Number:** T198 (registry: `TODO.md`).

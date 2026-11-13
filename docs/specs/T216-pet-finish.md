@@ -1,6 +1,6 @@
 # T216 — The PET core works on every model with the right keyboard and menu, and its drive ROMs are documented
 
-**Status:** PROPOSED (2026-11-12).
+**Status:** PROPOSED (2026-11-12). Corrected 2026-11-13 (status check): merged to main (81fdcf008); S1, S2 bench, S3 golden, S5 guide built; S4 board and the board cause of S1 open.
 **Repo:** TRX64U-MultiCore — `cores/pet/` (keys, model select), `coreapp/cores/pet.cc` (menu), `INSTALL.md` (docs).
 **Number:** T216 (registry: the table in `TODO.md`).
 **Origin:** Alex, 2026-11-12, after a tester's report (2026-11-12): "spec, plan it in, let's get the PET round, more or less" (translated). Reopens T134 (closed "as is" 11-11).
