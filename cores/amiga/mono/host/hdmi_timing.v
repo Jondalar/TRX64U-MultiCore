@@ -133,10 +133,23 @@ module hdmi_timing #(
     reg  [4:0]  pad = 5'd0, skip = 5'd0;
     assign follow_e = fe;
     wire [11:0] age_n = cseen ? 12'd0 : (&age ? age : age + 12'd1);
-    wire signed [12:0] err = $signed({1'b0, age_n}) - $signed({2'b0, s_set});
     wire        alive_n = fr_seen || cseen || (miss != 2'd3);
-    wire signed [12:0] tgt = -((err + 13'sd2) >>> 2);              // proportional: a quarter of the phase error in lines, rounded; the frame's lines follow the phase
-    wire signed [5:0] fe_n = !(fol_en && alive_n) ? 6'sd0 : (tgt > $signed({7'd0, EMAX})) ? EMAX : (tgt < $signed(-{7'd0, -EMIN})) ? EMIN : tgt[5:0];
+    // Run 1788 (-2.043 ns, age -> skip, 11 levels): the law is pipelined. age is stable for the whole line, so the
+    // three stages settle long before the frame's last line ends; the one input that can still change in that line,
+    // cseen, only selects between two registered candidates (age_n = 0 or age + 1).
+    wire [11:0] age_i = &age ? age : age + 12'd1;
+    reg  signed [12:0] err_a = 13'sd0, err_c = 13'sd0;             // stage 1: age_n - S for age_n = age + 1 / 0
+    reg  signed [12:0] tg_a  = 13'sd0, tg_c  = 13'sd0;             // stage 2: proportional, a quarter of the phase error in lines, rounded
+    reg  signed [5:0]  cl_a  = 6'sd0,  cl_c  = 6'sd0;              // stage 3: clamped to EMIN .. EMAX
+    always @(posedge clk) begin
+        err_a <= $signed({1'b0, age_i}) - $signed({2'b0, s_set});
+        err_c <= -$signed({2'b0, s_set});
+        tg_a  <= -((err_a + 13'sd2) >>> 2);
+        tg_c  <= -((err_c + 13'sd2) >>> 2);
+        cl_a  <= (tg_a > $signed({7'd0, EMAX})) ? EMAX : (tg_a < $signed(-{7'd0, -EMIN})) ? EMIN : tg_a[5:0];
+        cl_c  <= (tg_c > $signed({7'd0, EMAX})) ? EMAX : (tg_c < $signed(-{7'd0, -EMIN})) ? EMIN : tg_c[5:0];
+    end
+    wire signed [5:0] fe_n = !(fol_en && alive_n) ? 6'sd0 : cseen ? cl_c : cl_a;
 
     // ---- pixel phase and counters
     reg  [2:0]  ph = 3'd0;
