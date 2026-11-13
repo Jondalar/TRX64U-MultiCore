@@ -72,7 +72,7 @@ static const Setting settings[9] = {
     { "RAM (at next reset)",   ram_names,   3, 2, WHEN_RESET, 0, &b_ram,   0, 0, 0, 0, "RAM" },   // the CRTC models always have 32 KiB
     { "Drive 8 (at next reset)", drive_names, 3, 0, WHEN_RESET, 0, &b_drive, 0, 0, 0, 0, "Drive" },   // the dual unit of ieee_drive: drives 0 and 1
     { "Datasette port",        dset_names,  2, 0, WHEN_LIVE,  0, &b_dset,  0, 0, 0, 0, 0 },
-    { "SuperPET CPU (at next reset)", spcpu_names, 3, 0, WHEN_RESET, 0, &b_spcpu, 0, 0, 0, 0, "SPCPU" },   // only the SuperPET model looks at it; default 6502 as in VICE
+    { "SuperPET CPU (at next reset)", spcpu_names, 3, 0, WHEN_RESET, 0, &b_spcpu, 0, 0, 0, "pet.superpet", "SPCPU" },   // T216 P2: listed only while the model is the SuperPET (the only one that looks at it); default 6502 as in VICE
 };
 static int pet_model(CoreCtx *c) { return c->settings->value(PET_S_MODEL); }
 static bool pet_hz50(CoreCtx *c) { return c->settings->value(PET_S_HZ) == 1; }
@@ -599,6 +599,8 @@ static const MediaSlot media[] = {
 static const MemRegion pet_mem_regions[] = { { 0, 0x8000, MK_RAM, 0, 0, "RAM" } };
 static const MemMap pet_mem = { pet_mem_regions, 1, true, 0 };
 
+static const char *superpet_state(CoreCtx *c) { return pet_model(c) == PET_M_SUPERPET ? "yes" : 0; }
+
 static void pet_register(OpRegistry &r)
 {
     r.contributor("pet");
@@ -633,6 +635,7 @@ static void pet_register(OpRegistry &r)
     r.add_op("pet.type_script", text_arg, 1, op_type);
     r.add_state("pet.program", prg_name);
     r.add_state("pet.pending", prg_pending);
+    r.add_state("pet.superpet", superpet_state);
     r.add_state("pet.drive8", drv_name0);
     r.add_state("pet.drive81", drv_name1);
     r.add_state("pet.tape.image", tape_image);
