@@ -177,7 +177,7 @@ class ShortTest(unittest.TestCase):
         self.assertEqual(m["short"], "C128")
 
     def test_bad_short_refused(self):
-        for bad in ("SIXSIX", "A B", "VIC-", "\u00e4"):
+        for bad in ("FIVE5", "SIXSIX", "A B", "VIC-", "\u00e4"):
             with self.assertRaises(C.CorError):
                 make(short=bad)
 

@@ -871,7 +871,7 @@ static void scenarios(const char *out)
         snprintf(txt, sizeof(txt), "%score=/Usb0/cores/vc20.cor|VC-20 (PAL)|%s|%u|%u|%08x\n", head, vhash, vsize, vmtime, vhdr);
         g_list_deep = 0; g_bytes_read = 0; g_saves = 0;
         hostui_test_init(txt);
-        CHECK(has("VC-20 (PAL)|v0.1|hash ok|auto|SEL|img f800"));
+        CHECK(has("VC-20 (PAL)|0.1|hash ok|auto|SEL|img f800"));
         CHECK(g_saves == 0 && g_list_deep == 0);                            // nothing to migrate, nothing listed
         CHECK(g_bytes_read < vsize / 2);                                    // header, manifest and the 2 KB icon, not the 8 KB+ of parts
         printf("start of one entry: %lu of %u bytes read\n", g_bytes_read, vsize);
@@ -883,26 +883,26 @@ static void scenarios(const char *out)
         CHECK(g_stage_calls == 1 && g_stage_trusted != 0 && strstr(hostui_test_start_err(), "bench: no hardware. Press R") != 0);
         snprintf(txt, sizeof(txt), "%score=/Usb0/cores/vc20.cor|VC-20 (PAL)|%s|%u|%u|%08x\n", head, vhash, vsize, vmtime + 2, vhdr);
         hostui_test_init(txt);
-        CHECK(has("v0.1|changed|auto|SEL") && hostui_test_cfg_n() == 1);   // (a) another mtime
+        CHECK(has("0.1|changed|auto|SEL") && hostui_test_cfg_n() == 1);   // (a) another mtime
         snprintf(txt, sizeof(txt), "%score=/Usb0/cores/vc20.cor|VC-20 (PAL)|%s|%u|%u|%08x\n", head, vhash, vsize + 1, vmtime, vhdr);
         hostui_test_init(txt);
-        CHECK(has("v0.1|changed|auto|SEL"));                              // (a) another size
+        CHECK(has("0.1|changed|auto|SEL"));                              // (a) another size
         snprintf(txt, sizeof(txt), "%score=/Usb0/cores/vc20.cor|VC-20 (PAL)|%s|%u|%u|%08x\n", head, vhash, vsize, vmtime, vhdr ^ 1);
         hostui_test_init(txt);
-        CHECK(has("v0.1|changed|auto|SEL"));                              // (b) another header digest
+        CHECK(has("0.1|changed|auto|SEL"));                              // (b) another header digest
         CHECK(hostui_test_startable(0));                                     // marked, still startable (the start checks every part)
         // R on it: the full check again, the new state stored, the mark gone
         g_saves = 0; g_bytes_read = 0;
         hostui_test_key('r');
-        CHECK(has("v0.1|hash ok|auto|SEL") && g_saves == 1 && g_bytes_read > 8000 && strstr(g_last_save, vline));
+        CHECK(has("0.1|hash ok|auto|SEL") && g_saves == 1 && g_bytes_read > 8000 && strstr(g_last_save, vline));
         // an entry of an older boot.cfg (no mtime, no hash): the full check runs once at the start and is stored
         g_saves = 0; g_bytes_read = 0;
         hostui_test_init("countdown=5\ndefault=0\ncore=/Usb0/cores/vc20.cor|VC-20 (PAL)||0\n");
-        CHECK(has("v0.1|hash ok|auto|SEL") && g_saves == 1 && g_bytes_read > 8000 && strstr(g_last_save, vline));
+        CHECK(has("0.1|hash ok|auto|SEL") && g_saves == 1 && g_bytes_read > 8000 && strstr(g_last_save, vline));
         const char *olds = strdup(g_last_save);
         g_saves = 0; g_bytes_read = 0;
         hostui_test_init(olds);
-        CHECK(has("v0.1|hash ok|auto|SEL") && g_saves == 0 && g_bytes_read < vsize / 2);   // and never again
+        CHECK(has("0.1|hash ok|auto|SEL") && g_saves == 0 && g_bytes_read < vsize / 2);   // and never again
         // a file that is gone: marked missing, kept in the menu
         hostui_test_init("countdown=5\ndefault=0\ncore=/Usb0/cores/gone.cor|Gone|ab|10|5|00000001\n");
         CHECK(has("Gone||missing") && hostui_test_cfg_n() == 1);
@@ -976,9 +976,9 @@ static void scenarios(const char *out)
     // S4 icons
     hostui_test_init("countdown=5\ndefault=0\ncore=/Usb0/cores/vc20.cor|VC-20 (PAL)||0\ncore=/SD/cores/trx64.cor|TRX64 Ultimate (C64)||0\n"
                      "core=/Usb0/cores/badicon.cor|Bad icon||0\n");
-    CHECK(has("VC-20 (PAL)|v0.1|hash ok|auto|SEL|img f800"));
-    CHECK(has("|TRX64 Ultimate (C64)|v1.0-rc1|hash ok||") && has("v1.0-rc1|hash ok|||tag"));
-    CHECK(has("Bad icon|v0.3|changed|||tag"));     // the full check of the older entry finds the icon's SHA-256 wrong: not accepted, no picture
+    CHECK(has("VC-20 (PAL)|0.1|hash ok|auto|SEL|img f800"));
+    CHECK(has("|TRX64 Ultimate (C64)|1.0-rc1|hash ok||") && has("1.0-rc1|hash ok|||tag"));
+    CHECK(has("Bad icon|0.3|changed|||tag"));     // the full check of the older entry finds the icon's SHA-256 wrong: not accepted, no picture
     snprintf(p, sizeof(p), "%s/icons.png", out); png(p, 2);
 
     // S4b T114: the real core logos reach the screen. The bundle's icon is searched in the frame buffer pixel for
@@ -1050,7 +1050,7 @@ static void scenarios(const char *out)
     cor_host_key = 0x820eded2;
     hostui_test_init("countdown=5\ndefault=0\ncore=/SD/cores/trx64.cor|A||0\ncore=/SD/cores/trx64.cor.x|B||0\ncore=/Usb0/old/trx64-0.9.cor|C||0\n"
                      "core=/Usb0/old/h2.cor|D||0\ncore=/Usb0/old/garbage.cor|E||0\ncore=/Usb0/cores/vc20.cor|F|0000|0\n");
-    CHECK(has("A|v1.0-rc1|hash ok|auto|SEL"));
+    CHECK(has("A|1.0-rc1|hash ok|auto|SEL"));
     CHECK(has("B||missing"));
     CHECK(has("C||contract 3 != 2"));
     CHECK(has("D||other host"));
@@ -1060,7 +1060,7 @@ static void scenarios(const char *out)
     hostui_test_key(KEY_DOWN);
     hostui_test_key(KEY_DOWN);
     hostui_test_key(KEY_DOWN);                                              // 6 rows: F is row 5, off the 5-row window
-    CHECK(has("F|v0.1|changed"));
+    CHECK(has("F|0.1|changed"));
     CHECK(has("foot='UP/DOWN select    RETURN start    R check entry    V picture    any key stops the countdown'"));
     CHECK(hostui_test_hint_overflow() == 0);                           // the "No cores yet" hint is cut at the right edge when it is one line
     CHECK(hostui_test_foot_overflow() == 0);                           // every footer is one line (board photo 2026-10-21: it wrapped)
@@ -2769,12 +2769,12 @@ static void scenarios_t209_tiles(const char *out)
     hostui_test_init("countdown=0\ndefault=0\ncore=/Usb0/tiles/pet.cor|Commodore PET||0\ncore=/Usb0/tiles/wide.cor|Wide tile||0\n"
                      "core=/Usb0/tiles/plain.cor|VIC-20 (PAL)||0\ncore=/Usb0/tiles/plain.cor|Commodore 64||0\ncore=/Usb0/tiles/plain.cor|!!||0\n");
     hostui_test_pump();
-    const char *want[] = { "PET", "MMMMM", "VIC2", "Comm", "!!" };
+    const char *want[] = { "PET", "MMMM", "VIC2", "Comm", "!!" };
     HcEntryRow r;
     for (int i = 0; i < 5; i++) {
         CHECK(hc_row_entry(i, true, &r));
         if (i == 1) {
-            CHECK(!strcmp(r.tile, "MMMMM"));                                  // the data layer keeps the whole short name ...
+            CHECK(!strcmp(r.tile, "MMMM"));                                  // the data layer keeps the whole short name ...
         } else {
             CHECK(!strcmp(r.tile, want[i]));
         }

@@ -17,9 +17,9 @@ a key on the C64 keyboard and in the navigation bar on the left of the screen:
 
 4.1.3 The key **V** works in every view. It steps to the next HDMI mode that the screen names (4.4.3).
 
-4.1.4 The host application starts without the menu when direct boot is on and a default core is set (8.2, 4.7). The menu
+4.1.4 The host application starts without the menu when direct boot is on and an auto core is set (8.2, 4.7). The menu
 shows when direct boot is off, when you hold **C=** or the fire button of joystick port 1 during the start, when a core
-asks for it, or when the default core cannot start.
+asks for it, or when the auto core cannot start.
 
 4.1.5 The header shows six chips. Left to right:
 
@@ -34,22 +34,26 @@ asks for it, or when the default core cannot start.
 
 ## 4.2 Page layout
 
-4.2.1 The page shows five entries at a time. The title bar shows the position (`1-5 of 12`) when the list is longer than
+4.2.1 The page shows as many entries as fit; **+** and **-** page through a longer list. The title bar shows the position (`1-5 of 12`) when the list is longer than
 the window.
 
-![The boot menu with three entries: the first is the default, the second starts, the third is for another host contract](img/host-boot-menu.png)
+![The boot menu with three entries: the first is the auto entry, the second starts, the third is for another host contract](img/host-boot-menu.png)
 
 *Figure 4-1. F1 Boot menu with three entries. The countdown runs (`Starting ... in 5 s`).*
 
-4.2.2 Each entry has:
+4.2.2 Each entry is one line. From the left:
 
 | Part | Content |
 |---|---|
-| Picture | The 32 x 32 logo of the core. Without a logo: the first four letters of the name, or `FW` for a full firmware |
-| Name | The name stored in `boot.cfg` (6.3) |
-| Second line | The file path, then `vX.Y` (version of a `.cor`) or `full firmware` |
-| `default` | The entry that starts at the end of the countdown and in direct boot |
-| Badge | State of the file (4.3) |
+| Picture | The 32 x 32 logo of the core. Without a logo: the core's short name (`short` in its `core.toml`, at most 4 characters), else the first four letters and digits of the name, or `FW` for a full firmware |
+| Name | The name stored in `boot.cfg` (6.3). A name that does not fit is cut in the middle with `...` |
+| `N configs` | The core has configs (the **RIGHT** key opens them) |
+| `auto` | The entry that starts at the end of the countdown and in direct boot. Only that row shows it |
+| Pictogram | The state of the file (4.3): a green circle with a check mark, a yellow circle with a question mark, or a red circle with a cross |
+| Version | The version of a `.cor` (`0.9.0`, without a leading `v`) or `full firmware`. The pictogram stands directly beside it |
+
+4.2.2a The word of the state of the selected entry (4.3) shows in the status line under the list. The path of an entry shows in
+the Edit menu (6.1), not here.
 
 4.2.3 The note line shows the result of the last action. The countdown line and its bar are below it (4.6).
 
@@ -61,7 +65,7 @@ the window.
 
 ## 4.3 Badges
 
-4.3.1 The badge shows the state of the file of the entry. The host checks the files one entry at a time, in the
+4.3.1 The state of the file of the entry shows as a pictogram in the row (green: usable, yellow: check it with **R**, red: not usable) and as the word below in the status line. The word is the badge. The host checks the files one entry at a time, in the
 background. A badge shows `?` until the host has looked at the entry.
 
 | Badge | Colour | Meaning | Starts |
@@ -150,23 +154,23 @@ protected (...); nothing was started`.
 
 ## 4.6 Countdown
 
-4.6.1 The countdown starts the default entry after the delay set in the Settings (8.3). It runs only when:
+4.6.1 The countdown starts the auto entry after the delay set in the Settings (8.3). It runs only when:
 
 - direct boot is off, or `boot.cfg` could not be read at the start (4.7),
 - autostart is on (the delay is not 0),
-- a default entry is set and its file can be started.
+- an auto entry is set and its file can be started.
 
 4.6.2 The countdown line shows:
 
 | Text | Meaning |
 |---|---|
 | `Starting <name> in <n> s` | The countdown runs. The bar shows the time left |
-| `Waiting for the default core's medium` | The default file is not there yet. The host waits up to 30 s after the start of the application |
-| `Countdown stopped` | You pressed a key, or the delay is 0, or no default is set, or the default cannot start, or the host waited 30 s |
+| `Waiting for the auto core's medium` | The auto file is not there yet. The host waits up to 30 s after the start of the application |
+| `Countdown stopped` | You pressed a key, or the delay is 0, or no auto entry is set, or the auto entry cannot start, or the host waited 30 s |
 
 4.6.3 Any key in any view stops the countdown.
 
-4.6.4 A countdown start has no question. A `.cfw` or `.ue2` default starts without `Start full firmware?`.
+4.6.4 A countdown start has no question. A `.cfw` or `.ue2` auto entry starts without `Start full firmware?`.
 
 ## 4.7 Direct boot
 
@@ -180,20 +184,20 @@ protected (...); nothing was started`.
 | 3 | **C=** held | Menu, no countdown |
 | 4 | Fire on joystick port 1 held | Menu, no countdown |
 | 5 | Direct boot is off | Menu with countdown |
-| 6 | No default entry | Menu, no countdown |
-| 7 | The default file is missing | Menu, no countdown |
-| 8 | The default file changed | Menu, no countdown |
-| 9 | The default is refused (contract, host, no bundle) | Menu, no countdown |
-| 10 | None of the above | The default starts at once |
+| 6 | No auto entry | Menu, no countdown |
+| 7 | The auto file is missing | Menu, no countdown |
+| 8 | The auto file changed | Menu, no countdown |
+| 9 | The auto entry is refused (contract, host, no bundle) | Menu, no countdown |
+| 10 | None of the above | The auto entry starts at once |
 
 4.7.2 The menu shows a note for the rules 6 to 9:
 
 | Rule | Note |
 |---|---|
-| 6 | `No default core is set` |
-| 7 | `Default core: file missing` |
-| 8 | `Default core: file changed (press R to check it)` |
-| 9 | `Default core: refused (see its badge)` |
+| 6 | `No auto core is set` |
+| 7 | `Auto core: file missing` |
+| 8 | `Auto core: file changed (press R to check it)` |
+| 9 | `Auto core: refused (see its badge)` |
 
 The rules 1 to 5 show no note. If **C=** or fire stops a start during the staging, the note reads `Menu: C= was held` or
 `Menu: fire on port 1 was held`. If a direct start fails, the note reads `Direct start failed: <reason>`.
@@ -201,8 +205,8 @@ The rules 1 to 5 show no note. If **C=** or fire stops a start during the stagin
 4.7.3 The keys are read for 500 ms from the start of the decision. Hold **C=** or the fire button from power-on. The keys
 are read again during the staging up to the jump. A key then stops the start before anything is loaded.
 
-4.7.4 While the host decides, the screen shows one line with the name of the default core. A direct start
-does not start the graphics of the menu. A default file on SD or USB that is not there yet is waited for up to 30 s
+4.7.4 While the host decides, the screen shows one line with the name of the auto core. A direct start
+does not start the graphics of the menu. An auto file on SD or USB that is not there yet is waited for up to 30 s
 (a USB stick can take that long).
 
 4.7.5 A direct start does not check the file again (SHA-256 and flash compare). It uses the check made when the entry was
@@ -218,7 +222,7 @@ saved picture at once, while the menu is built. Keys pressed meanwhile are kept 
 - the Boot menu is open,
 - no countdown runs and the countdown is stopped,
 - the note line is empty and no entry is being checked,
-- the first entry is at the top and the default (or the first) entry is selected.
+- the first entry is at the top and the auto (or the first) entry is selected.
 
 4.8.3 The host shows the saved picture only if it matches the current state: the text of `boot.cfg`, the picture mode and
 the build of the host application. Otherwise the host ignores the file. A picture of more than 1 MiB is not saved.

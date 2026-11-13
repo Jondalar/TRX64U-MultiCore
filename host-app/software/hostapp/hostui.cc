@@ -649,7 +649,7 @@ static int in_menu(const char *path) { return hc_in_menu(path); }
 #define BROWS (brows_n)                         // browser rows: 13 on the full canvas, from the height below it
 static int brows_n = 13;
 // the pitch of the menu rows and the editor rows, and where the editor's panel ends (compact: its settings take a line each)
-#define ED_PN_H (COMPACT ? 126 : 104)
+#define ED_PN_H 56                              // T209 D19: the editor's info box is two lines
 #define ED_ROW0 (ED_PN_H + 86)
 #define BADGE_H (COMPACT ? 20 : 22)                // the badges of the boot menu's row (T209 D6)
 
@@ -665,7 +665,7 @@ static lv_obj_t *sub1(lv_obj_t *p, const char *text, const char *compact_text = 
 
 
 struct Row {
-    lv_obj_t *box, *a, *b, *ic, *icl, *img, *defb, *defl, *stb, *stl, *cfb, *cfl;
+    lv_obj_t *box, *a, *b, *ic, *icl, *img, *defb, *defl, *stb, *stl, *cfb, *cfl, *vl;   // vl: the editor row's version (the menu row's is b)
     int w;                                      // the row's width (T198: the text lines' room depends on the badge)
     lv_obj_t *mk[4];                            // the selection mark: top, bottom, left bar, right (T101 areas)
     lv_draw_buf_t dsc;                          // the icon image's source (T101 D5)
@@ -680,7 +680,7 @@ static char chips_sig[64];
 static int nav_shown = -1;                      // the navigation entry that is drawn as the current one
 static Row mrow[MROWS_MAX], erow[MROWS_MAX];
 static lv_obj_t *m_hint, *m_sub, *m_pos, *m_note, *m_cdbox;
-static lv_obj_t *e_cd, *e_dir, *e_def, *e_dcfg, *e_note, *e_pos;
+static lv_obj_t *e_def, *e_menu, *e_note, *e_pos;
 static lv_obj_t *b_left, *b_path, *b_empty, *b_note, *b_right, *b_sub;
 static lv_obj_t *b_hl[4];                       // the selection mark of the list (4 strips, see marks_build)
 static lv_obj_t *b_mark[BROWS_MAX], *b_name[BROWS_MAX], *b_size[BROWS_MAX];
@@ -854,7 +854,18 @@ static void pic_init(void)
     }
 }
 static uint32_t pic_col(int g) { return g == HCP_OK ? PIC_GREEN : g == HCP_CHECK ? PIC_YELLOW : PIC_RED; }
-#define LROW_VER_W (COMPACT ? 96 : 104)           // the version column ("v1.0-rc1", "full firmware")
+#define LROW_VER_W (COMPACT ? 96 : 104)           // the version's widest label ("1.0-rc1", "full firmware"); the label is as wide as its text (T209 D16)
+#define RGRP_GAP 6                                // between the version and the pictogram
+// T209 D16: the width the version text takes (label width as set_txt would give it), 0 for none
+static int ver_w(const char *s)
+{
+    if (!s[0]) {
+        return 0;
+    }
+    lv_point_t sz;
+    lv_text_get_size(&sz, s, F_SMALL, 0, 0, LV_COORD_MAX, LV_TEXT_FLAG_NONE);
+    return sz.x + 4 < LROW_VER_W ? sz.x + 4 : LROW_VER_W;
+}
 static void build_mrow(Row &r, lv_obj_t *par, int x, int y, int w, int h)
 {
     r.box = box(par, x, y, w, h, C_PANEL, 1, C_LINE);
@@ -868,14 +879,14 @@ static void build_mrow(Row &r, lv_obj_t *par, int x, int y, int w, int h)
     set_hidden(r.img, true);
     const int ty = (h - 2 - lv_font_get_line_height(F_TEXT)) / 2;
     r.a = fit1(txt(r.box, LROW_TX, ty, "", F_TEXT, C_INK, w - LROW_TX - 10), w - LROW_TX - 10);
-    r.b = txt(r.box, w - 10, (h - 2 - lv_font_get_line_height(F_SMALL)) / 2, "", F_SMALL, C_MUTED, LROW_VER_W);       // the version; x is set by fill_mrow
+    r.b = fit1(txt(r.box, w - 10, (h - 2 - lv_font_get_line_height(F_SMALL)) / 2, "", F_SMALL, C_MUTED, LROW_VER_W), LROW_VER_W);       // the version; x is set by fill_mrow
     lv_obj_set_style_text_align(r.b, LV_TEXT_ALIGN_RIGHT, 0);
     const int by = (h - 2 - BADGE_H) / 2;
     const int bty = (BADGE_H - 2 - lv_font_get_line_height(F_SMALL)) / 2;
     // T209 D10: the state is a round pictogram (A8 mask, tinted: a disc with the glyph cut out), all the same size; x is set by fill_mrow
     pic_init();
     r.stb = lv_image_create(r.box);
-    lv_obj_set_pos(r.stb, w - 10 - LROW_VER_W - 8 - PIC_D, (h - 2 - PIC_D) / 2);
+    lv_obj_set_pos(r.stb, w - 10 - PIC_D, (h - 2 - PIC_D) / 2);             // x is set by fill_mrow
     lv_obj_set_size(r.stb, PIC_D, PIC_D);
     lv_image_set_src(r.stb, &pic_buf[HCP_OK]);
     lv_obj_set_style_image_recolor_opa(r.stb, LV_OPA_COVER, 0);
@@ -934,12 +945,13 @@ static void fill_mrow(Row &r, int i)
     if (lv_obj_get_style_width(r.ic, LV_PART_MAIN) != iw) {
         lv_obj_set_width(r.ic, iw);
     }
-    // from the right: version (far right), pictogram, "auto", "N configs"; the name takes what is left
-    const int vx = r.w - 10 - LROW_VER_W;
+    // from the right (T209 D16): version (far right, as wide as its text), the pictogram directly beside it, "auto", "N configs"; the name takes what is left
+    const int vw = ver_w(v.ver);
+    const int vx = r.w - 10 - vw;
     if (lv_obj_get_x(r.b) != vx) {
         lv_obj_set_x(r.b, vx);
     }
-    const int px = vx - 8 - PIC_D;
+    const int px = vx - (vw ? RGRP_GAP : 0) - PIC_D;
     if (lv_obj_get_x(r.stb) != px) {
         lv_obj_set_x(r.stb, px);
     }
@@ -959,6 +971,9 @@ static void fill_mrow(Row &r, int i)
     }
     set_txt_mid(r.a, v.name);
     set_txt(r.b, v.ver);
+    if (vw && lv_obj_get_style_width(r.b, LV_PART_MAIN) != vw) {
+        lv_obj_set_width(r.b, vw);
+    }
     if (r.pcs != v.pic) {
         lv_image_set_src(r.stb, &pic_buf[v.pic]);
         lv_obj_set_style_image_recolor(r.stb, lv_color_hex(pic_col(v.pic)), 0);
@@ -970,17 +985,19 @@ static void fill_mrow(Row &r, int i)
 }
 
 // T209 D8 (Alex 2026-11-12): the editor row is the boot menu's row as it was before T209 (fcd8abd9a^1), copied, without the logo: the name (F_TEXT), under it the
-// path and the version (F_SMALL), the badges at the right. Same row height (56) and pitch (62) as that row.
+// path (F_SMALL), the version, the pictogram and the badges at the right (D16). Same row height (56) and pitch (62) as that row.
 #define EROW_H 56
 #define EROW_P 62
-#define EROW_RESERVE (COMPACT ? 386 : 440)   // as the old row: the room the text lines leave (logo offset 70 included); the text starts at 12 here, the right end is unchanged
+#define EROW_TX 12                            // the text starts at 12 (no logo)
 static void build_erow(Row &r, lv_obj_t *par, int x, int y, int w, int h)
 {
     r.box = box(par, x, y, w, h, C_PANEL, 1, C_LINE);
     r.w = w;
-    const int tx = 12, room = w - EROW_RESERVE + (70 - tx);
+    const int tx = EROW_TX, room = w - tx - 10;        // the widest the name can be; fill_erow sets what the right group leaves (T209 D16)
     r.a = fit1(txt(r.box, tx, 6, "", F_TEXT, C_INK, room), room);
     r.b = fit1(txt(r.box, tx, 30, "", F_SMALL, C_MUTED, room), room);
+    r.vl = fit1(txt(r.box, w - 10, (h - 2 - lv_font_get_line_height(F_SMALL)) / 2, "", F_SMALL, C_MUTED, LROW_VER_W), LROW_VER_W);   // x set by fill_erow
+    lv_obj_set_style_text_align(r.vl, LV_TEXT_ALIGN_RIGHT, 0);
     const int by = 17;
     // T209 D12: the state is the boot menu's pictogram, at the right end, no word box
     pic_init();
@@ -1000,7 +1017,8 @@ static void build_erow(Row &r, lv_obj_t *par, int x, int y, int w, int h)
     marks_build(r.mk, r.box, -1, -1, w, h);          // last: on top of the row's own widgets
 }
 
-// Row i of the editor: the same entries as the menu, the subline is the path and the version (what the pre-T209 menu row said under the name).
+// Row i of the editor: the same entries as the menu, the subline is the path. Right group as in the menu (T209 D16): version (far right), the pictogram directly
+// beside it, "auto", "N configs"; the name and the path take what is left of the row.
 static void fill_erow(Row &r, int i)
 {
     HcEntryRow v;
@@ -1009,8 +1027,14 @@ static void fill_erow(Row &r, int i)
         return;
     }
     set_hidden(r.box, false);
-    {   // T198: the "N configs" badge takes its room from the two text lines only on a row that shows it
-        const int want = r.w - EROW_RESERVE + (70 - 12) + (v.cfgbadge[0] ? 0 : CFG_W + 12);
+    const int vw = ver_w(v.ver);
+    const int vx = r.w - 10 - vw;
+    const int px = vx - (vw ? RGRP_GAP : 0) - PIC_D;
+    const int dx = px - 6 - DEF_W;
+    const int cx = (v.def ? dx : px) - 6 - CFG_W;
+    const int nleft = (v.cfgbadge[0] ? cx : v.def ? dx : px) - 8;
+    {
+        const int want = nleft - EROW_TX;
         if (want != (int)(intptr_t)lv_obj_get_user_data(r.a)) {
             lv_obj_set_width(r.a, want);
             lv_obj_set_user_data(r.a, (void *)(intptr_t)want);
@@ -1020,17 +1044,27 @@ static void fill_erow(Row &r, int i)
     }
     set_txt_mid(r.a, v.name);
     set_txt(r.b, v.sub);
+    set_txt(r.vl, v.ver);
+    if (vw && lv_obj_get_style_width(r.vl, LV_PART_MAIN) != vw) {
+        lv_obj_set_width(r.vl, vw);
+    }
+    if (lv_obj_get_x(r.vl) != vx) {
+        lv_obj_set_x(r.vl, vx);
+    }
+    if (lv_obj_get_x(r.stb) != px) {
+        lv_obj_set_x(r.stb, px);
+    }
     if (r.pcs != v.pic) {
         lv_image_set_src(r.stb, &pic_buf[v.pic]);
         lv_obj_set_style_image_recolor(r.stb, lv_color_hex(pic_col(v.pic)), 0);
         r.pcs = v.pic;
     }
     set_hidden(r.defb, !v.def);
-    {   // the "auto" badge is the first of the badges: it moves left by the width of the "N configs" badge when that one shows
-        const int dx = r.w - 10 - PIC_D - DEF_W - 6 - (v.cfgbadge[0] ? CFG_W + 6 : 0);
-        if (lv_obj_get_x(r.defb) != dx) {
-            lv_obj_set_x(r.defb, dx);
-        }
+    if (lv_obj_get_x(r.defb) != dx) {
+        lv_obj_set_x(r.defb, dx);
+    }
+    if (lv_obj_get_x(r.cfb) != cx) {
+        lv_obj_set_x(r.cfb, cx);
     }
     set_txt(r.cfl, v.cfgbadge);
     set_hidden(r.cfb, !v.cfgbadge[0]);
@@ -1198,23 +1232,9 @@ static void build_edit(void)
     e_pos = txt(p, CX0 + CW - 200, COMPACT ? 14 : 22, "", F_SMALL, C_MUTED, 200);
     lv_obj_set_style_text_align(e_pos, LV_TEXT_ALIGN_RIGHT, 0);
     lv_obj_t *pn = box(p, CX0, COMPACT ? 64 : 74, CW, ED_PN_H, C_PANEL, 1);
-    int vx = COMPACT ? 128 : 140;
-    txt(pn, 12, 8, "Countdown", F_SMALL, C_MUTED);
-    e_cd = txt(pn, vx, 8, "", F_SMALL, C_INK);
-    if (COMPACT) {                                    // the compact page has one setting a line: "Direct boot" and its words do not fit beside the countdown
-        txt(pn, 12, 30, item_title("settings", "direct"), F_SMALL, C_MUTED);
-        e_dir = fit1(txt(pn, vx, 30, "", F_SMALL, C_INK, CW - vx - 12), CW - vx - 12);
-    } else {
-        txt(pn, 330, 8, item_title("settings", "direct"), F_SMALL, C_MUTED);
-        e_dir = txt(pn, 440, 8, "", F_SMALL, C_INK);
-    }
-    int dy = COMPACT ? 22 : 0;
-    txt(pn, 12, 30 + dy, "Auto core", F_SMALL, C_MUTED);
-    e_def = fit1(txt(pn, vx, 30 + dy, "", F_SMALL, C_INK, CW - vx - 12), CW - vx - 12);
-    txt(pn, 12, 52 + dy, "Menu file", F_SMALL, C_MUTED);
-    txt(pn, vx, 52 + dy, "Flash:/boot.cfg", F_SMALL, C_INK);
-    txt(pn, 12, 74 + dy, "Auto config", F_SMALL, C_MUTED);
-    e_dcfg = fit1(txt(pn, vx, 74 + dy, "", F_SMALL, C_INK, CW - vx - 12), CW - vx - 12);
+    // T209 D19 (Alex 2026-11-13): two lines, the auto core with its auto config and the file of the menu; countdown and direct boot are F8 settings
+    e_def = fit1(txt(pn, 12, 8, "", F_SMALL, C_INK, CW - 24), CW - 24);
+    e_menu = fit1(txt(pn, 12, 30, "", F_SMALL, C_INK, CW - 24), CW - 24);
     for (int i = 0; i < EROWS; i++) {
         build_erow(erow[i], p, CX0, (COMPACT ? 64 : 74) + ED_PN_H + 12 + i * EROW_P, CW, EROW_H);
     }
@@ -1226,10 +1246,8 @@ static void update_edit(void)
     hc_nav_edit_first(cfg.n);
     HcEditTexts t;
     hc_edit_texts(nv.efirst, &t);
-    set_txt(e_cd, t.countdown);
-    set_txt(e_dir, t.direct);
-    set_txt(e_def, t.def);
-    set_txt(e_dcfg, t.defcfg);
+    set_txt_mid(e_def, t.autol);
+    set_txt(e_menu, t.menu);
     set_txt(e_pos, t.pos);
     for (int i = 0; i < EROWS; i++) {
         fill_erow(erow[i], nv.efirst + i);
@@ -4599,7 +4617,12 @@ int hostui_test_dump(char *out, int max)
         int b = lv_obj_get_y(rows[r].box) + lv_obj_get_height(rows[r].box);
         if (b > bottom) bottom = b;
         char ic[24] = "tag";                            // the menu's rows carry the logo (T209 D6), the editor's rows none
-        const char *sub = lv_label_get_text(rows[r].b);   // the menu: the version; the editor: the path and the version
+        char subb[200];
+        const char *sub = lv_label_get_text(rows[r].b);   // the menu: the version; the editor: the path, then its right group's version (D16)
+        if (nv.view == V_EDIT && lv_label_get_text(rows[r].vl)[0]) {
+            snprintf(subb, sizeof(subb), "%s  %s", sub, lv_label_get_text(rows[r].vl));
+            sub = subb;
+        }
         if (nv.view != V_EDIT && !lv_obj_has_flag(rows[r].img, LV_OBJ_FLAG_HIDDEN)) {
             snprintf(ic, sizeof(ic), "img %04x", rows[r].dsc.data ? ((const uint16_t *)rows[r].dsc.data)[0] : 0);
         }

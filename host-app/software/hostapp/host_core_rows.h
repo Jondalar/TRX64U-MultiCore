@@ -49,7 +49,7 @@ struct HcEntryRow {
     char name[96];
     char tile[8];                                 // what the icon tile says while the row has no picture: the core's short name, "FW", or the first four letters and digits of the name
     char ver[24];                                 // the menu row's right-aligned version: "v1.0", "full firmware", "" while unknown
-    char sub[140];                                // the path (and the version, in the menu)
+    char sub[140];                                // the path
     char badge[32];
     uint8_t badge_tone;
     uint8_t pic;                                  // T209 D10: the boot menu pictogram: HCP_OK (usable), HCP_CHECK (check with R), HCP_BAD (not usable)
@@ -76,12 +76,10 @@ struct HcCountdownTexts {
     int pct;
 };
 void hc_countdown_texts(HcCountdownTexts *t);
-// The editor page: the countdown, the direct boot and the default entry, and the position.
+// The editor page's info box (T209 D19: two lines) and the position. Countdown and direct boot are F8 settings, not here.
 struct HcEditTexts {
-    char countdown[24];
-    char direct[56];
-    char def[96];
-    char defcfg[96];                              // T198 D13: the selected entry's default config
+    char autol[200];                              // "Auto: <auto core> (<its auto config>)"; "Auto: (none)" with no auto core; no parenthesis without a config
+    char menu[40];                                // "Menu: /Flash/boot.cfg"
     char pos[24];
 };
 void hc_edit_texts(int first, HcEditTexts *t);

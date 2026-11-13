@@ -11,7 +11,7 @@ Records (type: value):
   1 manifest   compact JSON, keys sorted, flat:
                name, version, contract, fpga, partial_size, partial_sha256, app_size, app_load,
                app_entry, app_sha256, icon_size, icon_sha256 (icon_* only with an icon),
-               short (optional: the boot menu's text tile, 1 to 5 of A-Z a-z 0-9 + / .; T209 D15)
+               short (optional: the boot menu's text tile, 1 to 4 of A-Z a-z 0-9 + / .; T209 D15)
   2 partial    the configuration data of layer 2's partial bitstream (Xilinx .bit header
                stripped; the words start at the bytes the ICAP gets, file order)
   3 app        the application image (raw binary, copied to app_load, started at app_entry)
@@ -286,7 +286,7 @@ def host_key_from_bit(data):
     raise CorError("bitstream: no USR_ACCESS (AXSS) word; it was built without a host key")
 
 
-SHORT_RE = re.compile(r"[A-Za-z0-9+/.]{1,5}")
+SHORT_RE = re.compile(r"[A-Za-z0-9+/.]{1,4}")
 
 
 def put_short(m, short):
@@ -294,7 +294,7 @@ def put_short(m, short):
     if short in (None, ""):
         return
     if not SHORT_RE.fullmatch(short):
-        raise CorError("short: 1 to 5 letters, digits, + / . (got %r)" % short)
+        raise CorError("short: 1 to 4 letters, digits, + / . (got %r)" % short)
     m["short"] = short
 
 
@@ -402,7 +402,7 @@ def parse(blob, contract=None, host_key=None):
     except ValueError as e:
         raise CorError("manifest is not JSON: %s" % e)
     if "short" in m and not (isinstance(m["short"], str) and SHORT_RE.fullmatch(m["short"])):
-        raise CorError("manifest: short %r is not 1 to 5 of A-Z a-z 0-9 + / ." % (m["short"],))
+        raise CorError("manifest: short %r is not 1 to 4 of A-Z a-z 0-9 + / ." % (m["short"],))
     for k in ("name", "version", "contract", "fpga", "host_key", "partial_size", "partial_sha256",
               "app_size", "app_load", "app_entry", "app_sha256"):
         if k not in m:

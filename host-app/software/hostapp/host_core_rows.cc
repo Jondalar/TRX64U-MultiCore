@@ -150,17 +150,14 @@ bool hc_row_entry(int i, bool menu_style, HcEntryRow *r)
         }
         r->tile[k] = 0;
     }
+    // T209 D16 (Alex 2026-11-13): the version shows without its leading "v" (one v/V is stripped from the displayed string only); the editor row carries it in
+    // its right group too, so the path line is the path alone.
     snprintf(r->ver, sizeof(r->ver), "%s", full && ok ? "full firmware" : "");
     if (!full && ver[0]) {
-        snprintf(r->ver, sizeof(r->ver), "v%s", ver);
+        snprintf(r->ver, sizeof(r->ver), "%s", ver[0] == 'v' || ver[0] == 'V' ? ver + 1 : ver);
     }
-    if (menu_style && full && ok) {
-        snprintf(r->sub, sizeof(r->sub), "%s  full firmware", cfg.e[i].path);
-    } else if (menu_style && ver[0]) {
-        snprintf(r->sub, sizeof(r->sub), "%s  v%s", cfg.e[i].path, ver);
-    } else {
-        snprintf(r->sub, sizeof(r->sub), "%s", cfg.e[i].path);
-    }
+    (void)menu_style;
+    snprintf(r->sub, sizeof(r->sub), "%s", cfg.e[i].path);
     badge_text(st, full, hc_einfo(i).origin, (unsigned)hc_einfo(i).contract, r->badge, sizeof(r->badge), &r->badge_tone);
     r->pic = st == ES_OK ? HCP_OK : (st == ES_CHANGED || st == ES_UNKNOWN) ? HCP_CHECK : HCP_BAD;      // T209 D10: hash ok, ready, backup, foreign / changed, not read yet / the rest
     r->def = i == cfg.def;
@@ -217,21 +214,17 @@ void hc_countdown_texts(HcCountdownTexts *t)
 void hc_edit_texts(int first, HcEditTexts *t)
 {
     const BootCfg &cfg = hc_cfg();
-    if (cfg.countdown) {
-        snprintf(t->countdown, sizeof(t->countdown), "%d s", cfg.countdown);
+    if (cfg.def >= 0 && cfg.def < cfg.n) {                                  // T209 D19: the auto core and, in brackets, its auto config
+        const BootEntry &e = cfg.e[cfg.def];
+        if (e.defcfg[0]) {
+            snprintf(t->autol, sizeof(t->autol), "Auto: %s (%s)", e.name, e.defcfg);
+        } else {
+            snprintf(t->autol, sizeof(t->autol), "Auto: %s", e.name);
+        }
     } else {
-        snprintf(t->countdown, sizeof(t->countdown), "off");
+        snprintf(t->autol, sizeof(t->autol), "Auto: (none)");
     }
-    snprintf(t->direct, sizeof(t->direct), "%s", cfg.direct ? "on (C= or fire at power-on: menu)" : "off (menu, then the countdown)");
-    snprintf(t->def, sizeof(t->def), "%s", cfg.def >= 0 ? cfg.e[cfg.def].name : "(none)");
-    int sel = hc_nav().sel;
-    if (sel < 0 || sel >= cfg.n) {
-        snprintf(t->defcfg, sizeof(t->defcfg), "(no entry)");
-    } else if (cfg.e[sel].defcfg[0]) {
-        snprintf(t->defcfg, sizeof(t->defcfg), "%s", cfg.e[sel].defcfg);
-    } else {
-        snprintf(t->defcfg, sizeof(t->defcfg), hc_cfgov_count(cfg.e[sel].path) > 0 ? "(none: plain start)" : "(none: this core has no configs)");
-    }
+    snprintf(t->menu, sizeof(t->menu), "Menu: %s", BOOTCFG_PATH);
     hc_pos_text(t->pos, sizeof(t->pos), first, cfg.n, hc_nav_edit_rows());
 }
 
@@ -1039,7 +1032,7 @@ int dump_menu(char *out, int cap)
     for (int i = 0; i < cfg.n; i++) {
         HcEntryRow r;
         if (hc_row_entry(i, true, &r)) {
-            o.add("  row %d|%s|%s|%s|%s|%s|%s|%s%s%s\n", i, r.name, r.sub, r.badge, tone_name(r.badge_tone), r.def ? "auto" : "", r.tile, i == hc_nav().sel ? "SEL" : "", r.cfgbadge[0] ? "|cfg " : "", r.cfgbadge);
+            o.add("  row %d|%s|%s|%s|%s|%s|%s|%s|%s%s%s\n", i, r.name, r.sub, r.ver, r.badge, tone_name(r.badge_tone), r.def ? "auto" : "", r.tile, i == hc_nav().sel ? "SEL" : "", r.cfgbadge[0] ? "|cfg " : "", r.cfgbadge);
         }
     }
     return o.n;
@@ -1052,11 +1045,11 @@ int dump_edit(char *out, int cap)
     HcEditTexts t;
     hc_edit_texts(hc_nav().efirst, &t);
     o.add("page edit|%s|%s\n", hc_page_title("edit"), hc_edit_foot());
-    o.add("  countdown|%s\n  direct|%s\n  default|%s\n  defcfg|%s\n  pos|%s\n", t.countdown, t.direct, t.def, t.defcfg, t.pos);
+    o.add("  auto|%s\n  menu|%s\n  pos|%s\n", t.autol, t.menu, t.pos);
     for (int i = 0; i < cfg.n; i++) {
         HcEntryRow r;
         if (hc_row_entry(i, false, &r)) {
-            o.add("  row %d|%s|%s|%s|%s|%s|%s%s%s\n", i, r.name, r.sub, r.badge, tone_name(r.badge_tone), r.def ? "auto" : "", i == hc_nav().sel ? "SEL" : "", r.cfgbadge[0] ? "|cfg " : "", r.cfgbadge);
+            o.add("  row %d|%s|%s|%s|%s|%s|%s|%s%s%s\n", i, r.name, r.sub, r.ver, r.badge, tone_name(r.badge_tone), r.def ? "auto" : "", i == hc_nav().sel ? "SEL" : "", r.cfgbadge[0] ? "|cfg " : "", r.cfgbadge);
         }
     }
     return o.n;

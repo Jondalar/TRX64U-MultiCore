@@ -4,9 +4,9 @@ page menu|Boot menu|UP/DOWN select    RETURN start    RIGHT configs    R check e
 and press A on a .cor bundle or a .cfw firmware.|hidden
   pos|
   countdown|Countdown stopped|hidden|0
-  row 0|TRX64 Ultimate (C64)|/SD/cores/trx64.cor  v1.0-rc1|hash ok|ok|auto|TRX6|SEL
-  row 1|VC-20 (PAL)|/Usb0/cores/vc20.cor  v0.1|hash ok|ok||VC20|
-  row 2|TRX64 Ultimate (old host)|/Usb0/old/trx64-0.9.cor|contract 3 != 2|warn||TRX6|
+  row 0|TRX64 Ultimate (C64)|/SD/cores/trx64.cor|1.0-rc1|hash ok|ok|auto|TRX6|SEL
+  row 1|VC-20 (PAL)|/Usb0/cores/vc20.cor|0.1|hash ok|ok||VC20|
+  row 2|TRX64 Ultimate (old host)|/Usb0/old/trx64-0.9.cor||contract 3 != 2|warn||TRX6|
 page browse|File Browser|UP/DOWN select    RETURN open    F format as exFAT    V picture
   path|/
   empty|
@@ -20,14 +20,12 @@ page browse|File Browser|UP/DOWN select    RETURN open    F format as exFAT    V
   kv 4|Format|needs a medium|
   msg|RETURN opens it|muted
 page edit|Edit menu|UP/DOWN select    +/- move    D auto    C rename    DEL twice removes
-  countdown|5 s
-  direct|on (C= or fire at power-on: menu)
-  default|TRX64 Ultimate (C64)
-  defcfg|(none: this core has no configs)
+  auto|Auto: TRX64 Ultimate (C64)
+  menu|Menu: /Flash/boot.cfg
   pos|
-  row 0|TRX64 Ultimate (C64)|/SD/cores/trx64.cor|hash ok|ok|auto|SEL
-  row 1|VC-20 (PAL)|/Usb0/cores/vc20.cor|hash ok|ok||
-  row 2|TRX64 Ultimate (old host)|/Usb0/old/trx64-0.9.cor|contract 3 != 2|warn||
+  row 0|TRX64 Ultimate (C64)|/SD/cores/trx64.cor|1.0-rc1|hash ok|ok|auto|SEL
+  row 1|VC-20 (PAL)|/Usb0/cores/vc20.cor|0.1|hash ok|ok||
+  row 2|TRX64 Ultimate (old host)|/Usb0/old/trx64-0.9.cor||contract 3 != 2|warn||
 page net|Network|C colours    V picture
   Ethernet|link up, 192.0.2.189|ok
   FTP|on, port 21, no password|-
