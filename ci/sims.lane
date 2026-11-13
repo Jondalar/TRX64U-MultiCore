@@ -159,6 +159,7 @@ snes_audio: large:snes
 snes_audio_q: large:snes
 snes_brr: large:snes
 snes_pins: large:snes
+snes_dsp: large:snes
 
 # T113 (the C128, a large core): every c128_* bench proves its flat build
 c128_machine: large:c128

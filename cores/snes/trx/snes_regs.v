@@ -35,6 +35,8 @@
 //   0FC-0FD HANDS     R   16 bit, free running: pairs handed over to the host (one per host audio frame taken, 48 kHz)
 //   100-13F IPL       W   the S-SMP's 64 byte boot ROM (the application's spc_ipl table, coreapp/cores/snes.cc), byte n at 100+n; written while CTRL.b0 holds the reset. The write
 //                         strobe to the machine stays high for 8 clocks so that a machine tick (every 4th or 5th clock) is in it
+//   140       W   DSP-n firmware: any write rewinds the stream. 141 W: the next byte of the 8192 byte firmware (2048 x 3 byte program words, 1024 x 2 byte data words, low byte first,
+//                         ares/higan order); a word's last byte strobes it into the chip for 8 clocks. The application writes with 2 us between bytes while CTRL.b0 holds the reset
 //   page 6 (0x6000-0x6FFF)   forwarded to the host's pixel layer (px_we, px_re, px_rdata)
 //   everything else reads 0 and is acknowledged; the EEPROM window (addr[16]) is not here.
 // The controller reads the contract's joystick and keyboard lines itself (snes_pad.v) and, since T156, the PAD1 / PAD2 registers.
@@ -70,6 +72,10 @@ module snes_regs #(
     output wire        ipl_wr,
     output wire [5:0]  ipl_wa,
     output wire [7:0]  ipl_wd,
+    output wire        fw_wr,
+    output wire        fw_sel,
+    output wire [10:0] fw_a,
+    output wire [23:0] fw_d,
     input  wire [31:0] st_miss_rom,
     input  wire [31:0] st_miss_wram,
     input  wire [31:0] st_miss_bs,
@@ -126,6 +132,20 @@ module snes_regs #(
     assign ipl_wr = (ipl_c != 4'd0);
     assign ipl_wa = ipl_a;
     assign ipl_wd = ipl_d;
+    // DSP-n firmware stream (T218): 0x140 (write, any value) rewinds, every write to 0x141 is the next byte of the 8192 byte file: 2048 program words of 3 bytes and then
+    // 1024 data words of 2 bytes, low byte first. A word is complete with its last byte and goes to the machine as a strobe of 8 clocks (a machine tick is in it).
+    reg [3:0]  fw_c = 4'd0;
+    reg        fw_s = 1'b0;
+    reg [10:0] fw_ar = 11'd0;
+    reg [23:0] fw_dr = 24'd0;
+    reg [13:0] fw_i = 14'd0;
+    reg [1:0]  fw_ph = 2'd0;
+    reg [7:0]  fw_b0 = 8'd0, fw_b1 = 8'd0;
+    reg [10:0] fw_wa = 11'd0;
+    assign fw_wr = (fw_c != 4'd0);
+    assign fw_sel = fw_s;
+    assign fw_a = fw_ar;
+    assign fw_d = fw_dr;
     assign ack = ack_r;
     assign pk_clr = we & ~win & (page == 4'h0) & (off == 12'h0F8);
     assign irq = |(irq_en & cause);
@@ -136,6 +156,7 @@ module snes_regs #(
     always @(posedge clk) begin
         cause <= cause | ev;
         if (ipl_c != 4'd0) ipl_c <= ipl_c - 4'd1;
+        if (fw_c != 4'd0) fw_c <= fw_c - 4'd1;
         ack_r <= 1'b0;
         if (re | we) ack_r <= 1'b1;
         q_p6 <= 1'b0;
@@ -179,6 +200,18 @@ module snes_regs #(
                 12'h0F5: pad1_r <= {wdata, pad1_lo};
                 12'h0F6: pad2_lo <= wdata;
                 12'h0F7: pad2_r <= {wdata, pad2_lo};
+                12'h140: begin fw_i <= 14'd0; fw_ph <= 2'd0; fw_wa <= 11'd0; end
+                12'h141: if (fw_i < 14'd8192) begin
+                    fw_i <= fw_i + 14'd1;
+                    if (fw_i < 14'd6144) begin                       // program: 3 bytes
+                        if (fw_ph == 2'd0) begin fw_b0 <= wdata; fw_ph <= 2'd1; end
+                        else if (fw_ph == 2'd1) begin fw_b1 <= wdata; fw_ph <= 2'd2; end
+                        else begin fw_dr <= {wdata, fw_b1, fw_b0}; fw_ar <= fw_wa; fw_s <= 1'b0; fw_c <= 4'd8; fw_wa <= fw_wa + 11'd1; fw_ph <= 2'd0; end
+                    end else begin                                   // data: 2 bytes (the word counter restarts: 2048 words of program wrapped the 11 bits)
+                        if (fw_ph == 2'd0) begin fw_b0 <= wdata; fw_ph <= 2'd1; end
+                        else begin fw_dr <= {8'd0, wdata, fw_b0}; fw_ar <= fw_wa; fw_s <= 1'b1; fw_c <= 4'd8; fw_wa <= fw_wa + 11'd1; fw_ph <= 2'd0; end
+                    end
+                end
                 default: if (off[11:6] == 6'b0001_00) begin ipl_a <= off[5:0]; ipl_d <= wdata; ipl_c <= 4'd8; end
             endcase
         end

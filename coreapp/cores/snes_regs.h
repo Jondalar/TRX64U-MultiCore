@@ -33,6 +33,8 @@
 #define SNES_PAD1        0x0F4          // 16 bit, low byte first, the high byte commits: the USB pad of player 1 (T156), bit n is serial bit n (B Y Select Start Up Down Left Right A X L R)
 #define SNES_PAD2        0x0F6
 #define SNES_IPL         0x100          // 64 bytes: the S-SMP's boot ROM, written while the reset is held
+#define SNES_DSPFW_REWIND 0x140         // T218: any write rewinds the DSP-n firmware stream
+#define SNES_DSPFW       0x141          // T218: the next byte of the 8192 byte firmware (SNES_DSP_FW_BYTES), written while the reset is held
 
 // DDR2 window offsets (from 0x01000000)
 #define SNES_W_ROM       0x000000u

@@ -228,6 +228,7 @@
 # memory that is never late (sim/snes_mem_ref.v); the machines must end equal, and the program's own checksums must be those of tools/snes_expect.py.
 2|snes_boot|3600|sh cores/snes/sim/run.sh boot mvn
 2|snes_mem|3600|sh cores/snes/sim/run.sh mem
+2|snes_dsp|3600|sh cores/snes/sim/run.sh dsp
 2|snes_video|3600|sh cores/snes/sim/run.sh video
 2|snes_pad|7200|sh cores/snes/sim/run.sh pad padapp padmod
 2|snes_audio|3600|sh cores/snes/sim/run.sh audio
