@@ -242,6 +242,8 @@ image into the memory of the board. Battery RAM is written back to `cores/snes/s
 
 11.15.2 The controllers are the C64 joysticks and the keyboard, or USB gamepads (11.1.10). State: games run on the board (2026-10-29 to 10-31). On 2026-11-02 the sound was correct after the fix of the sign in the sound processor, and the USB pad worked. Open: the verdict text of the menu.
 
+11.15.3 **DSP-n cartridges** (DSP-1/1B, DSP-2, DSP-3, DSP-4; T218): these run when the chip's firmware is found, for example Super Mario Kart and Pilotwings (DSP-1). The firmware is not part of the core; you supply it (files and places in 12.4.9). The core takes the chip from the header's title: Dungeon Master is a DSP-2, SD Gundam GX a DSP-3, Top Gear 3000 a DSP-4, every other DSP cartridge a DSP-1. Without the firmware the game is refused and the message names the chip, the file(s) and the folder, for example `"SUPER MARIO KART" needs the DSP-1 coprocessor and its firmware (8192 bytes) is missing: put dsp1b.bin or dsp1.bin in <core folder>/roms/ (or roms/snes/ on a drive), or append it to the .sfc.` A DSP-n cartridge in ExHiROM is refused. The other chips (SA-1, Super FX, Cx4, S-DD1, SPC7110, ST010/ST011) are still refused. State: built and proved in simulation with a firmware of our own; not yet run on the board with a real firmware.
+
 ## 11.16 SNK Neo Geo
 
 11.16.1 Files in `cores/neogeo/roms/`: a BIOS (`sp-s2.sp1` for the MVS, `neo-epo.sp1` for the AES, or `uni-bios.rom`, 131,072 bytes each), the zoom table `000-lo.lo` (65,536 or 131,072 bytes) and the fix ROM

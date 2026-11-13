@@ -57,7 +57,7 @@ deletes the files that belong to no core. It never deletes a `.cor`, saves or an
 | ZX Spectrum Next | `cores/zxnext/roms/` (else `roms/zxnext/` of a medium) | `next.img`: a whole SD card image (FAT, MBR). The image is used where it lies, it is not copied | The image |
 | SNK Neo Geo | `cores/neogeo/roms/` | `sp-s2.sp1` or `neo-epo.sp1` or `uni-bios.rom` (131,072 each); `000-lo.lo` 65,536 (or 131,072); `sfix.sfix` 131,072; `romsets.xml` (the file list of the game sets); the games as `.neo` files or folders | A BIOS, the zoom table and the fix ROM |
 | Commodore 128 | `cores/c128/roms/` | `boot0.rom` (or `c128.rom`, `c128-system.rom`, `c128_system.rom`), 73,728 bytes; the drives: `1541.rom`, `1581.rom`; JiffyDOS (optional, files you select yourself, 11.14.4) | The system ROM; the drive ROMs and the JiffyDOS files are optional |
-| Super Nintendo | - | none (the `.sfc` or `.smc` game is the media) | Nothing |
+| Super Nintendo | `cores/snes/roms/` (else `roms/snes/` of a medium) | none, except for DSP-n games: `dsp1b.bin` or `dsp1.bin`, `dsp2.bin`, `dsp3.bin`, `dsp4.bin`, 8,192 bytes each (12.4.9) | Nothing; a DSP-n game needs its firmware |
 | Showcase demos, Port Diagnostics | - | none | Nothing |
 | Amstrad CPC | `cores/cpc/roms/` | `os464.rom`, `basic464.rom`; `os664.rom`, `basic664.rom`, `amsdos.rom`; `os6128.rom`, `basic6128.rom`, `amsdos.rom` (16,384 each) | The files of one model |
 
@@ -111,3 +111,5 @@ the C128 KERNAL chip (U35), 16,384 bytes, replaces the second 16 KiB of the imag
 The core checks the size and the content (not empty, a reset vector at $E000 or above, the C64 part holds the C64 BASIC or, as the 8 KiB KERNAL, the C64 cold start $FCE2, and the C128 part does not hold the C64 BASIC). A file that fails is not taken and the reason is shown. This layout is not yet checked against real kit files.
 
 12.4.8 **Neo Geo.** The BIOS files are 131,072 bytes. `romsets.xml` is your file: it names the files of each game set. A game as a `.neo` file needs the entry of the same name in it.
+
+12.4.9 **Super Nintendo, DSP-n firmware (T218).** Games with a DSP-n coprocessor need the chip's firmware, 8,192 bytes (2,048 program words of 3 bytes and 1,024 data words of 2 bytes, low byte first). Nothing is shipped; use the firmware of your own cartridge. Two ways, and the first that the core finds wins: (1) **appended to the `.sfc`**: a file whose size (without a 512-byte copier header) is a power of two, 32 KiB or more, plus 8,192 bytes; the last 8,192 bytes are the firmware; (2) **a separate file** in `cores/snes/roms/`, else in `roms/snes/` of a medium: `dsp1b.bin` (or `dsp1.bin`) for a DSP-1, `dsp2.bin` for Dungeon Master, `dsp3.bin` for SD Gundam GX, `dsp4.bin` for Top Gear 3000. A file of another size is not taken. A firmware appended to the game is used even when a file exists.

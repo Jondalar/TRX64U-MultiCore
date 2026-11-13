@@ -186,6 +186,36 @@ def patched_vhdl():
     files[dsp] = sub1(files[dsp], "shift_right((0-P0), 5)", "shift_right((-P0), 5)", "DSP: BRR filter 1 sign")
     files[dsp] = sub1(files[dsp], "shift_right(0 - (P0 + (P0*2)),6)", "shift_right(-(P0 + (P0*2)),6)", "DSP: BRR filter 2 sign")
     files[dsp] = sub1(files[dsp], "shift_right(0 - (P0 + (P0*4) + (P0*8)),7)", "shift_right(-(P0 + (P0*4) + (P0*8)),7)", "DSP: BRR filter 3 sign")
+    # T218: the DSP-n coprocessor (DSPn.vhd). The original keeps all firmwares in one 8096 x 24 program ROM and 7168 x 16 data ROM (the .mif are chip dumps, not in this
+    # tree); here the chip has the one firmware the application writes (2048 x 24 program, 1024 x 16 data, written through FW_*; block RAM, 3 tiles with the data RAM).
+    # Only DSP-1/1B/2/3/4 (VER < 4); ST010/ST011 (VER(2) = 1: 11 bit data pointer) are not built, so their 8 deep stack and wide data RAM stay in the source and are never selected.
+    dn = "rtl_chip_DSP_DSPn.vhd"
+    files[dn] = sub1(files[dn], "\t\tSS_DO\t\t\t: out std_logic_vector(7 downto 0)\n\t);\nend DSPn;",
+                     "\t\tSS_DO\t\t\t: out std_logic_vector(7 downto 0);\n\t\tFW_WR\t\t: in std_logic;\n\t\tFW_SEL\t\t: in std_logic;\n"
+                     "\t\tFW_A\t\t: in std_logic_vector(10 downto 0);\n\t\tFW_D\t\t: in std_logic_vector(23 downto 0)\n\t);\nend DSPn;", "DSPn: firmware write port")
+    a = files[dn].index('\tPROG_ROM_ADDR <= std_logic_vector(unsigned(PC) + ("0"&x"000"))')
+    b0 = '\t\tq\t\t\t=> PROG_ROM_Q\n\t);\n'
+    b = files[dn].index(b0, a) + len(b0)
+    files[dn] = files[dn][:a] + (
+        "\tPROG_ROM_ADDR <= \"00\" & FW_A when FW_WR = '1' else \"00\" & PC;\n"
+        "\tPROG_ROM : entity work.spram_sz generic map(11, 24, 2048)\n\tport map(\n\t\tclock\t\t=> CLK,\n\t\taddress\t=> PROG_ROM_ADDR(10 downto 0),\n"
+        "\t\tdata\t\t=> FW_D,\n\t\twren\t\t=> FW_WR and not FW_SEL,\n\t\tq\t\t\t=> PROG_ROM_Q\n\t);\n") + files[dn][b:]
+    count("DSPn: program ROM -> 2048 x 24 firmware RAM")
+    a = files[dn].index('\tDATA_ROM_ADDR <= std_logic_vector(unsigned(RP( 9 downto 0)) + ("0"&x"000"))')
+    b0 = '\t\tq\t\t\t=> DATA_ROM_Q\n\t);\n'
+    b = files[dn].index(b0, a) + len(b0)
+    files[dn] = files[dn][:a] + (
+        "\tDATA_ROM_ADDR <= \"000\" & FW_A(9 downto 0) when FW_WR = '1' else \"000\" & RP(9 downto 0);\n"
+        "\tDATA_ROM : entity work.spram_sz generic map(10, 16, 1024)\n\tport map(\n\t\tclock\t\t=> CLK,\n\t\taddress\t=> DATA_ROM_ADDR(9 downto 0),\n"
+        "\t\tdata\t\t=> FW_D(15 downto 0),\n\t\twren\t\t=> FW_WR and FW_SEL,\n\t\tq\t\t\t=> DATA_ROM_Q\n\t);\n") + files[dn][b:]
+    count("DSPn: data ROM -> 1024 x 16 firmware RAM")
+    files[dn] = sub1(files[dn], 'DATA_RAM_ADDR_A or x"40";', 'DATA_RAM_ADDR_A or ("000" & x"40");', "DSPn: 8 bit literal or-ed to an 11 bit address (GHDL refuses the lengths)")
+    files[lh] = sub1(files[lh], "\t\tSS_DO\t\t\t: out std_logic_vector(7 downto 0)\n\t);\nend DSP_LHRomMap;",
+                     "\t\tSS_DO\t\t\t: out std_logic_vector(7 downto 0);\n\t\tFW_WR\t\t: in std_logic;\n\t\tFW_SEL\t\t: in std_logic;\n"
+                     "\t\tFW_A\t\t: in std_logic_vector(10 downto 0);\n\t\tFW_D\t\t: in std_logic_vector(23 downto 0)\n\t);\nend DSP_LHRomMap;", "LHRomMap: firmware port")
+    files[lh] = sub1(files[lh], "\t\tSS_DI\t\t\t=> SS_DI,\n\t\tSS_DO\t\t\t=> SS_DO\n\t);\n\tend generate;",
+                     "\t\tSS_DI\t\t\t=> SS_DI,\n\t\tSS_DO\t\t\t=> SS_DO,\n\t\tFW_WR\t\t=> FW_WR,\n\t\tFW_SEL\t\t=> FW_SEL,\n"
+                     "\t\tFW_A\t\t=> FW_A,\n\t\tFW_D\t\t=> FW_D\n\t);\n\tend generate;", "LHRomMap: firmware port map")
     files["snes_ip.vhd"] = open(IP).read()
     files["snes_sys.vhd"] = open(SYS).read()
     return files
