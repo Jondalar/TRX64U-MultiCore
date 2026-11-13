@@ -21,12 +21,12 @@ port 1) from the power-on until the menu shows (4.7.3).
 | **F7** | Network | 7 |
 | **F8** (**SHIFT** + **F7**) | Settings | 8 |
 
-3.2.3 The header shows the version of the host application (`app`, for example `0.2.0+1a2b3c4d`; a test build shows `<branch>@<commit>`), the host
-contract (`contract`), whether an SD card and a USB stick are present, and the address of the board (or `no network`) (4.1.5).
+3.2.3 The header shows the address of the board (`LAN <address>` or `WiFi <address>`, the cable first; `no network` without an address), whether a USB stick (`USB`) and an SD card (`SD`) are present, the host
+contract (`contract`), the key of the host bitstream (`host <key>`) and the version of the host application (`app`, for example `0.2.0+1a2b3c4d`; a test build shows `<branch>@<commit>`) (4.1.5).
 
-![The boot menu: three entries, the first is the default, the countdown runs](img/host-boot-menu.png)
+![The boot menu: three entries, the first has the tag auto](img/first-start-boot-menu.png)
 
-*Figure 3-1. F1 Boot menu with three entries. The header chip `app` shows the version of the host application.*
+*Figure 3-1. F1 Boot menu with three entries. The first has the tag `auto`: direct boot starts it at power-on. The header chips (here from the emulator, which has no version stamp and no host key: `app` shows no text, `host` is absent) are explained in 3.2.3.*
 
 ## 3.3 Add a core
 
@@ -61,24 +61,26 @@ there (chapter 12). The core looks again and starts by itself.
 
 ## 3.6 No picture
 
-3.6.1 The host asks the screen for its modes (EDID) at the start and puts up the best one (8.4.3). If the screen shows nothing, press **V**:
-it steps to the next mode that the screen names, or through 576p / 480p, 1280 x 720 and 1920 x 1080 when the screen gives no EDID (4.4.3).
-A mode that the screen does not take goes back by itself after 8 s without a key (8.4.8).
+3.6.1 The host asks the screen for its modes (EDID) at the start and puts up the stored mode if the screen names it, else the best mode that the screen names (8.4.3). If the screen shows nothing, press **V**:
+the Picture page of **F8** opens. It lists `Auto` and the modes that the screen names, or the standard television modes (576p / 480p, 1280 x 720, 1920 x 1080 and the others of the host) when the screen gives no EDID.
+The cursor starts on the mode in force. **UP** and **DOWN** move the cursor and change nothing. **RETURN** or **SPACE** puts up the mode under the cursor. Without a picture, press **V**, **DOWN**, **RETURN**.
 
-3.6.2 A mode that you keep is stored in `/Flash/trx/host.cfg` (8.4.1). Without a stored mode, the host asks the screen what it can do (8.4.3).
+3.6.2 After a new mode comes up, the host waits 8 s for a key. Any key keeps the mode (the first key is spent on that). **LEFT**, **ESC** or no key within 8 s puts the previous mode back (8.4.8).
+
+3.6.3 A mode that you keep is stored in `/Flash/trx/host.cfg` (8.4.1). Without a stored mode, the host asks the screen what it can do (8.4.3).
 When you connect another screen, the host follows within about a second (8.4.7).
 
-3.6.3 A mode that is narrower than 960 pixels (576p / 480p and 800 x 600) gets a compact layout of the host menu and of the menu of every core:
+3.6.4 A mode that is narrower than 960 pixels (576p / 480p and 800 x 600) gets a compact layout of the host menu and of the menu of every core:
 the same pages, narrower side bar, a footer of two lines where the key list is long, a shorter list. Nothing is cut at the right (4.10).
 
-3.6.4 The host menu is HDMI only. Only the C128 core has an analogue output (S-video and composite, T140). It is built and benched, but it has not been seen on a
-board yet. With every other core the analogue output stays black.
+3.6.5 The host menu is HDMI only. The C128 core has an analogue output (S-video and composite, T140). It is built and benched. Its board check is open: the colours and the picture position are not confirmed. The core menu
+of `trx64u` has the row `Analog video mode`. With every other core the analogue output stays black.
 
 ## 3.7 Back to the host
 
 3.7.1 In the menu of a core on the common application: **F8** System (on the C64 keyboard **SHIFT** + **F7**), `Return to host menu`. No power
-cycle is needed. The entry is there only when the core can give the FPGA back to the host (the board has the loader for it). If it is not on the System page, use 3.7.2.
+cycle is needed. The core first writes its media back; a medium that cannot be written back keeps the core. The entry is there only when the core application finds the ICAP loader of the host (the board has the loader for it). If it is not on the System page, use 3.7.2.
 
-3.7.2 A core without this entry (the TRX64 core): switch the power off and on (11.2.4). Hold **C=** to get the menu.
+3.7.2 A core without this entry (the TRX64 cores `trx64u` and `trx64g`): switch the power off and on (11.2.4). Hold **C=** to get the menu.
 
 3.7.3 A full firmware (`.cfw`) replaces the host until the next power cycle (13.2).
