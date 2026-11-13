@@ -1,6 +1,7 @@
 # T92 — An Amstrad/Schneider CPC core, ported from the MiSTer core, run as a swappable core in the T79 host/core split
 
 **Status:** BUILT, benched, application written (2026-10-22, §5); decided 2026-10-13 (Q1-Q5 answered, §3 end). Not routed, not on a board.
+**Status check 2026-11-13:** IN WORK, board partly proven: on the board since 2026-10-24; 2026-11-02 CAT works and a game starts with sound (GitHub #17); open: floppy LED (T159). The line "not on a board" above is out of date.
 **Repo:** TRX64-Ultimate (gateware under new `designs/cpc/` plus the shared parts under `cores/zxcpc/` that T91 builds, the
 core's application on Gideon's base as for the VC-20 and the Amiga, tools). The sources are read from outside
 (MiSTer-devel); nothing is copied into this repo by this spec.

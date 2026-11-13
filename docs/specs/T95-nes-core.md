@@ -5,6 +5,7 @@ built on it: the machine, the 6502 converted by GHDL, the cartridge in the DDR2 
 each, the layer-2 edge, all in Verilator with negative controls (5.8-5.10). **No Vivado has seen it**: the first build (`fpga_nes`) routed in
 CI run 39 and missed timing (5.5), so there has never been an `nes_partial.bit`, and the area of the PPU is not known (5.10). No board,
 no application window (T93), no controller (section 4).
+**Status check 2026-11-13:** IN WORK, board proof partly open: the core ran on the board (Alex 2026-10-18, Sam's Journey); open is the picture, NES switches to 720p and fills about 93 % of the height (T107). "No board" / "not routed" above is out of date.
 **Repo:** TRX64U-MultiCore (gateware under `cores/nes/`, vendoring and generator in `tools/`, benches in `cores/nes/sim`).
 **Number:** T95 (the row of `TODO.md`; the NES was put on the core list on 2026-10-13).
 **Origin:** Alex, 2026-10-13: "put NES on the core list, and SNES too if it works, though the buttons need looking at there, or USB

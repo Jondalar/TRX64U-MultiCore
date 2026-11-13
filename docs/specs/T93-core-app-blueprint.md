@@ -1,6 +1,7 @@
 # T93 — One core-application blueprint on the lean base serves the Amiga, Atari 800, Apple II, Spectrum and CPC cores
 
 **Status:** BUILDING (2026-10-15, M1 of 5 for atari800 + nes, 5.3-5.5): all 5 open questions answered by Alex on 2026-10-13, the place decided on 2026-10-15 (§5.1).
+**Status check 2026-11-13:** CLOSED with reduced scope (Alex 2026-10-18): the per-core blueprint app is superseded by the one generic application of T104; REST, net and the board check moved to T104 (docs/todo/T93.md). Not "BUILDING" any more.
 **Repo:** TRX64U-MultiCore, `coreapp/` (Alex, 2026-10-15; the line said TRX64-Ultimate `software/coreapp/` until then).
 The lean base it shares is in this repository too: `host-app/software/hostapp` (LVGL, `cor.cc`, `discover.cc`, `bootcfg.cc` from
 T84/T101) and the services under `host-app/software/`, so nothing has to be copied across repositories.

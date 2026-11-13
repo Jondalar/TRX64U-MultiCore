@@ -1,6 +1,7 @@
 # T90 — A Commodore 264 core (C16, and the Plus/4 in the same core), ported from C16Nano, runs as a core in the T79 host/core split
 
 **Status:** DECIDED (2026-10-13): all 4 open questions answered by Alex; not built.
+**Status check 2026-11-13:** DONE (board confirmed by Alex 2026-10-28, 448c6f613): Lykia, sound, 64 KB default, 1541 ROM, F7 reset; no longer "not built".
 **Repo:** TRX64-Ultimate (gateware under a new `cores/c16nano/` + `designs/c64_basic/layer2_c264.v`, app side, tools). The
 source is read from outside (MiSTle-Dev/C16Nano); nothing is copied into this repo by this spec.
 **Number:** T90.

@@ -4,6 +4,7 @@
 with a test OS (5.8), routes inside `pb_l2` against the host (5.9) and its Freeze bench passes for a reason (5.10). Since
 2026-10-14 the real XL OS and BASIC are in the repository (`cores/atari800/roms/`, Alex allowed it) and `run.sh os` boots
 them (5.11). Not on the board yet, and the application has no Atari window (T93).
+**Status check 2026-11-13:** DONE (closed by Alex 2026-10-28, 448c6f613): the core runs on the board; the disk/.xex/cartridge media path continues in T108. Untested on hardware: sound, keyboard layout, PAL/NTSC switch (docs/todo/T88.md, last section).
 **Repo:** TRX64-Ultimate (gateware under `cores/atari800/` and `host/layer2_atari.v`, app side, tools). The
 sources are read from outside; nothing is copied into this repo by this spec.
 **Number:** T88.

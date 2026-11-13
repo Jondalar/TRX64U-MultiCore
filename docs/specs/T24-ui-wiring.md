@@ -1,6 +1,7 @@
 # T24 wiring: how the LVGL UI reaches every function of the app
 
 **Status:** concept 2026-10-03, nothing built. **Tasks:** TODO.md T24 (LVGL UI), T32 (own settings), T36 (own API).
+**Status check 2026-11-13:** DROPPED in this repository (TODO rows T24, T32, T36 are dropped/merged, 2026-10-16): covered by T101, T104 and T106; this file is history of the M2 line from TRX64-Ultimate.
 **Builds on:** `docs/specs/T24-lvgl-ui.md` (phase 1 built; LVGL v9.6.0; pixel layer), the coverage check
 `docs/gideon-menu-tree.md` §13 (what the UI must reach), `docs/specs/T21-monitor.md` §7.4 (the API contract).
 **Shares with:** T12 (one owner of the pixel layer, T24 §7), T20 (ring), T21 (monitor).

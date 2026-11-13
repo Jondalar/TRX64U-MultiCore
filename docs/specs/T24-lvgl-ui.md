@@ -3,6 +3,7 @@
 **Status:** spec 2026-10-02; phase 1 (LVGL in the build, display driver, boot splash) built on
 branch `t24/lvgl-splash` of `software/ultimate-app` (two commits on top of `trx64/main`
 b9c91b98, to be merged by the main session). Not yet on the board.
+**Status check 2026-11-13:** DROPPED in this repository (TODO row T24, status dropped/merged, 2026-10-16): covered by T101 (host UI) and T104 (core apps); this file is history of the M2 line from TRX64-Ultimate and builds nothing here.
 **Task:** TODO.md T24. **Builds on:** the pixel layer of T12 P4 / ARCH §7.5, §15.3
 page 6 (`pix_layer.v`). **Shares with:** T12 (one owner of the layer at a time, §7), T26
 (the host firmware uses the same port, §10).

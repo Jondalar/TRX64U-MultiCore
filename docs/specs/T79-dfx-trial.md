@@ -2,6 +2,8 @@
 
 Milestone M2. Status: **trial started 2026-10-11** (branch `dfx-trial`). Not a feature yet: the trial answers whether it fits, closes timing and what it costs.
 
+**Status check 2026-11-13:** DONE as a trial and as the architecture: cores swap through ICAP and return to the host by IPROG on the board (Atari, NES), merge 185ccc6fe (2026-10-18); TODO row T79 done.
+
 ## Why
 
 A full bitstream load clears the whole Artix (T26.2: the data must come from outside, ESP32 JTAG or MultiBoot from flash). With partial reconfiguration (Vivado Dynamic Function eXchange) a static part keeps running and loads the rest itself through ICAP, from SD, USB or DDR2, in milliseconds; the app keeps running with its state. Alex, 2026-10-11, model: "layer 1 with USB, SD, flash, DDR2 access / layer 2 our C64 part etc. / layer 3 app".
