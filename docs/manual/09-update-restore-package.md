@@ -97,9 +97,9 @@ file says which. The host compares each part with the flash and writes only the 
 | Not written again | `Not written again, the flash holds it already: <part>.` Only when the file holds a host and a host application and one of them is the same as in the flash |
 | Flash chip | `Flash chip: <chip>. Nothing has been written yet.` |
 
-![Question 1 of an update of the host and the host app: red frame, version, the effect on the cores, the flash chip](img/host-update-ask1.png)
+![Question 1 of an update of the host app: red frame, version, the effect on the cores, the flash chip](img/host-update-ask1.png)
 
-*Figure 9-3. Question 1 of an update of the host and the host app. The page names the effect on the cores. The footer holds the keys of the page.*
+*Figure 9-3. Question 1 of an update of the host app. The page names the effect on the cores. The footer holds the keys of the page.* The pictures of the update and the restore were made in the emulator: its flash chip shows as `Infineon S25FL128L`, a board shows `Winbond W25Q128`.
 
 ![Question 2 of the update: Last question, the erase sentence, no key stops the write, the footer counts the seconds](img/host-update-ask2.png)
 
@@ -116,9 +116,9 @@ file says which. The host compares each part with the flash and writes only the 
 | `the update file does not come from TRX` | The file has another origin |
 | `The app in this package needs host interface <n>; the running host provides <m>.` (and similar) | The host application and the host do not fit. The page adds `This package does not fit the host it would run on.` and `Use the update that matches this system.` |
 
-![Refusal of an update that does not fit: amber frame, the reason, Nothing was written](img/host-update-refuse.png)
+![Refusal of an update file that is cut: amber frame, the reason, Nothing was written](img/host-update-refuse.png)
 
-*Figure 9-5. Refusal of a package with a wrong host interface.*
+*Figure 9-5. Refusal of an update file that is cut off (`cut.txu`): `The update file is damaged or incomplete.` A package with a wrong host interface shows the amber page the same way (9.3.4).*
 
 9.3.5 The lines of question 1 for the cores:
 
@@ -133,16 +133,16 @@ file says which. The host compares each part with the flash and writes only the 
 9.3.6 The write page shows the phases (`Check the file`, `Write the host app`, `Write the host`, `Read back and compare`) with `done` for those that are over (`...` for the one that runs), the step as a line below (`Erasing sector <n> of <m>`, `Programming sector <n> of <m>`) and one
 bar with its percent. The title is `Updating <what>`. The footer reads `No key stops this    do not switch the power off`.
 
-![The write page of an update: the phases, the sector that is programmed, 43 %](img/host-update-progress.png)
+![The write page of an update: the phases, the sector that is programmed, 37 %](img/host-update-progress.png)
 
-*Figure 9-5a. The write page. The host app is written; the host is being programmed.*
+*Figure 9-5a. The write page. The host app is written (sector 198 of 265); the host is `not needed, unchanged`.*
 
 9.3.7 The result page `Update written` shows `Written and verified: <part>.`, then, when it applies, `Not written again, the flash held it already: <part>.` and (only when the host key changes) the effect on the cores: `<n> partial core(s) need(s) a rebuild for the new host. Large cores are not affected.` or `No core on the media needs a rebuild.` Then it shows the countdown `Restarting in <n> s to start the new version.` (9.2.6) and
 `Took <n> s. Boot menu, cores and settings were not touched.`
 
-![The result page of an update: Written and verified, switch the power off and on](img/host-update-done.png)
+![The result page of an update: Written and verified, the restart countdown](img/host-update-done.png)
 
-*Figure 9-6. Result of an update of the host and the host app.*
+*Figure 9-6. Result of an update of the host app. The page counts down `Restarting in <n> s to start the new version.`*
 
 ## 9.4 Restore (R)
 
@@ -178,7 +178,7 @@ vendor.
 
 ![Question 1 of a restore: This replaces the running firmware, the name and sizes, the way back to MultiCore](img/host-restore-ask1.png)
 
-*Figure 9-6a. Question 1 of a restore of `Commodore 1.1.0`.*
+*Figure 9-6a. Question 1 of a restore of `Commodore 64 Ultimate 1.1.0`.* The flash chip line shows the emulator's chip.
 
 Question 1 shows `Restore <name>?` (for an official file the name is vendor, name and version, for example `Restore Gideon Ultimate firmware 3.14?`; for a backup the name of the `.cor`, else `the backup of <date>`), `This replaces the running firmware.`, the name and the sizes, `Official release. The file is complete and intact.` (or `The backup is complete and intact.`),
 `To come back to MultiCore, run the MultiCore update file from that firmware's update menu.`, `Your cores and settings stay on the flash drive.` and

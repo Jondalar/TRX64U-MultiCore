@@ -18,9 +18,9 @@ The host applies every change at once. The note line shows the result.
 | **LEFT**, **RIGHT**, **RETURN**, **SPACE** | Change the value. On the rows `WiFi`, `Inspect .cfw/.ue2 for ESP32`, `Cores and ROMs` and `Bug report` only **RIGHT**, **RETURN** and **SPACE** act. On `Picture` only **RETURN** acts: it opens the Picture page |
 | **V** | Open the Picture page (4.4.3) |
 
-![The Settings page with direct boot on: six rows, the help text of the selected row at the bottom](img/host-settings.png)
+![The Settings page with direct boot on: eight rows, the help text of the selected row at the bottom](img/host-settings.png)
 
-*Figure 8-1. F8 Settings with direct boot on.*
+*Figure 8-1. F8 Settings with direct boot on. The row `Protect Flash from updates` exists only in a build with the flash lock.*
 
 8.1.5 Rows:
 
@@ -37,7 +37,7 @@ The host applies every change at once. The note line shows the result.
 | `Cores and ROMs` | `open` | none | 8.7 |
 | `Bug report` | `write to SD/USB`, or the name of the last report file | none | 8.8 |
 
-8.1.6 The host stores the settings of 8.2 and 8.3 in `Flash:/boot.cfg` (8.9). It stores `Picture` (8.4) and `Protect Flash from updates` in its own
+8.1.6 The host stores the settings of 8.2 and 8.3 in `Flash:/boot.cfg` (8.9). It stores `Picture` (8.4), `Protect Flash from updates` and `FTP service` in its own
 settings store, `Flash:/trx/host.cfg`, not in `boot.cfg`.
 
 ![The Settings page with direct boot off: the two autostart rows show](img/host-settings-autostart.png)
@@ -85,6 +85,10 @@ possible modes are, in this order:
 | 5 | `1280 x 1024` |
 
 8.4.3 **RETURN** on the row `Picture` (or **V**) opens the page `Settings > Picture`. The first row is `Auto (<mode> from the screen)`: the host selects the best mode of the screen: `1920 x 1080`, else `1280 x 720`, else `576p / 480p`, else a PC mode (`1024 x 768` first). The other rows are the modes that the screen names, each with its refresh rate (`50.1 Hz`) and the tags `now` (the mode that is chosen) and `native`. The line under the title reads `Your screen offers <n> modes. Nothing changes until you pick one.` **UP**, **DOWN** select and apply nothing. **RETURN** uses the mode under the cursor and asks as in 8.4.8. **LEFT** or **ESC** closes the page. The row `Picture` shows the mode, or `from the screen: <mode>`.
+
+![The Picture page: Auto and three modes, 50.1 Hz, the tag now on Auto](img/host-picture-page.png)
+
+*Figure 8-2a. Settings > Picture (the same page opens with V from every view).*
 
 8.4.4 There is no choice of 50 Hz or 60 Hz. The host uses 50 Hz modes (PAL). Only when the screen names no 50 Hz mode does the host use
 the 60 Hz modes of the screen, without a message. A host that started with a `video=` line in `boot.cfg` keeps the system of that
@@ -147,7 +151,7 @@ status registers, and the firmware starts without protection.
 
 ![The result of the inspection of a firmware file without an ESP32 part](img/host-inspect-result.png)
 
-*Figure 8-3. Result for a file without an ESP32 part (the file is `plain.cfw`).*
+*Figure 8-3. Result for a file without an ESP32 part (the file is `plain.cfw`). The page is titled `ESP32 in <file>`.*
 
 8.6.3 Results:
 
@@ -179,7 +183,7 @@ there twice. It deletes the files that belong to no core.
 
 ![The page Cores and ROMs: one line per core with its ROMs and saves, then the files that belong to no core, then the doubles](img/host-cores-page.png)
 
-*Figure 8-4. Cores and ROMs. The folder `ghost` holds a save and stays. `junk.txt` belongs to no core. `/SD/roms/atari800/atarixl.rom` is an old copy of a file that a core folder holds.*
+*Figure 8-4. Cores and ROMs. The folder `ghost` holds a save and stays. `junk.txt` and `old-notes.txt` belong to no core. `/USB0/cores/roms/kernal.bin` is an old copy of a file that the folder of `vc20.cor` holds.*
 
 8.7.3 The list has up to three blocks:
 
@@ -208,9 +212,9 @@ them only when a core folder holds a copy with the same bytes (12.2.3).
 2. Press **Y**. The page asks `Really delete <n> entries? This cannot be undone. Press Y once more; any other key is No.`
 3. Press **Y**.
 
-![The first question of the delete: the three entries that go are listed, Y continues](img/host-cores-delete.png)
+![The first question of the delete: the entries that go are listed, Y continues](img/host-cores-delete.png)
 
-*Figure 8-5. First question of the delete.*
+*Figure 8-5. First question of the delete: `junk.txt`, `old-notes.txt` and the old copy `kernal.bin` go.*
 
 8.7.7 Any other key at a question cancels (`Cancelled. Nothing was deleted.`). After the delete the note reads `Deleted <n> entries
 (<size>)`, with `, some could not be deleted` when a delete failed.
@@ -249,3 +253,7 @@ it copies the system and the mode to `[Video]` in `Flash:/trx/host.cfg` and writ
 ## 8.10 WiFi
 
 8.10.1 **RETURN** on the row `WiFi` opens the WiFi page. It shows `State`, `Connected to`, `IP address` and the rows `WiFi` (radio), `Use DHCP`, `Static IP`, `Static Netmask`, `Static Gateway` and `Static DNS` (the static rows count with DHCP off). Keys: **UP**, **DOWN** select, **LEFT**, **RIGHT**, **RETURN**, **SPACE** change a row, **S** list of access points, **M** enter an access point, **L** connect to the last access point, **D** disconnect, **F** **F** forget the stored access points, **ESC** back.
+
+![The WiFi page: State, Connected to, IP address, then the radio, DHCP and the static addresses; the footer lists the keys](img/host-wifi-page.png)
+
+*Figure 8-6. F8 WiFi. The radio is on, DHCP is on, the board has no link yet.*

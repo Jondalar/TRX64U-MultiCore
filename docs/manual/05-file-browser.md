@@ -191,7 +191,7 @@ as in 4.5. A `.cfw` or `.ue2` asks `Start full firmware?` first. A refused file 
 
 ![The target pick for a copy: the path line reads Copy to, the footer lists the keys of the pick](img/host-copy-pick.png)
 
-*Figure 5-4. Target pick for a copy (picture pending: shows the older footer).*
+*Figure 5-4. Target pick for a copy. The path line reads `Copy to: /USB0/firmware`. The footer does not list **RIGHT**, which also opens a folder.*
 
 5.6.4 The host writes the data to `<name>.part`, reads it back, compares the SHA-256 of both files, and renames the file.
 The note line shows `Copying <name>: <n>%    ESC cancels` and then `Reading back <name>: <n>%    ESC cancels`. A move to the same medium renames the file. A move to
@@ -246,16 +246,18 @@ than 2 TiB, or without 512-byte sectors. The note reads `cannot format <name>: <
 5.8.3 To format a medium:
 
 1. Go to the first level (path `/`). Select the medium.
-2. Press **F**. The red page `Format <name> as exFAT?` shows the size, the file system, the number of boot menu rows on the medium
-   and the result: `one exFAT partition from 4 MiB to the end`.
-3. Type the name of the medium as the list shows it (for example `USB0`). Letter case does not matter.
-4. Press **RETURN**. A wrong name shows `That is not the name of the medium. Nothing was written.`
-5. The page shows `The name is right. This is the last question.` Press **RETURN** again within 10 s. The second **RETURN**
+2. Press **F**. The red page `Format <name> as exFAT?` shows `ALL DATA ON <name> WILL BE ERASED.`, the size and the file system (`256.0 MiB  -  FAT32  'STICK'`), the number of boot menu rows on the medium
+   (`no boot menu row lives here`, or `<n> boot menu row(s) live(s) here; they show 'missing' until their files are copied back.`)
+   and the result: `Result: one exFAT partition from 4 MiB to the end. Files of 4 GiB and more fit.` It adds `Until the first write you can leave with ESC, and nothing has changed.` and
+   `To go on, type the name of the medium (<name>) and press RETURN:`.
+3. Type the name of the medium as the list shows it (for example `USB0`). Letter case does not matter. **BACKSPACE** deletes a character.
+4. Press **RETURN**. A wrong name shows `That is not the name of the medium. Nothing was written.`, an empty line `Type the name of the medium first.`
+5. The page shows `The name is right. This is the last question.` and `Press RETURN once more within <n> s to erase <name>.` (10 s). The second **RETURN**
    counts only 1 s after the first.
 
 ![The format question: the page asks to type the name of the medium; a wrong name is refused](img/host-format-ask.png)
 
-*Figure 5-5. Format, first question (picture pending: not renewed).*
+*Figure 5-5. Format, first question. The page asks to type the name of the medium; the cursor stands in the field.*
 
 ![The last format question: RETURN once more within 10 seconds erases the medium](img/host-format-armed.png)
 
@@ -265,11 +267,13 @@ than 2 TiB, or without 512-byte sectors. The note reads `cannot format <name>: <
 while you type, when you press no key for 60 s, or when you remove the medium. The note reads
 `format of <name> cancelled, nothing was written`.
 
-5.8.5 The page shows the progress (steps, bytes written) and `Do not remove the medium.` **ESC** or **RUN/STOP** cancels until the partition
+5.8.5 The page `Formatting <name>` shows the step (`Releasing the old volume`, `Clearing the old partition table`, `Writing the exFAT structures`, `Writing the partition table`, `Flushing the medium`, `Reading it back, mounting it`) with its percent and the bytes written, and `Do not remove the medium.` **ESC** or **RUN/STOP** cancels until the partition
 table is written. Then the medium is blank. When the table is written, the format cannot be stopped.
 
-5.8.6 The result page shows `<name> is formatted` with the size, the file system and the free space, or the reason for a
-refusal or failure. Press any key to return.
+5.8.6 The result page `<name> is formatted` shows the size and the file system, `The host has mounted it: <size> free, no files yet.` and the boot menu rows:
+`Boot menu: no row points here.` or `Boot menu: <n> row(s) point(s) here, 0 found. Copy the cores back and they turn ready.` A refusal or a failure shows the page `<name> was not formatted`, `Format of <name> cancelled` or `Format of <name> failed`, the reason and
+what is left: `Nothing was written. The medium is as it was.`, `The medium is blank now: no partition table, no volume.` (with `Press F in the File Browser to format it again.`) or
+`The format was written but could not be checked. Take the medium out and put it in again.` Press any key to return.
 
 5.8.7 The cluster size follows the size of the medium: 4 KiB up to 256 MiB, 32 KiB up to 32 GiB, 128 KiB above.
 
@@ -291,5 +295,9 @@ refusal or failure. Press any key to return.
 | **H** | Unpack here, next to the `.zip` |
 | **O** | Extract one file of the archive (a list: **UP**, **DOWN**, **RETURN**, **ESC**) |
 | Any other key | Cancel. The note reads `Not unpacked. Nothing was changed.` |
+
+![The page Unzip demo.zip: F, H and O, any other key cancels](img/host-unzip-page.png)
+
+*Figure 5-7. Z on `demo.zip`. The footer reads `F, H or O    any other key cancels`.*
 
 5.10.3 A bar shows `unpacking    no key stops it`. The page `Unzipped` shows the result. A failure shows `Unzip did not finish`, `Files unpacked so far are in the folder. The .zip is untouched.` Without the application the page `Cannot unzip <file>` says `Unzip is not installed.` and `Nothing was unpacked.`

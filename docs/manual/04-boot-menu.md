@@ -112,6 +112,10 @@ release. Remove the old entry (6.2).
 
 4.4.3 **V** opens the Picture page (`Settings > Picture`, 8.4) from every view. The page lists `Auto` and the modes that the screen names, each with its refresh rate and the tags `now` and `native`. Browsing applies nothing. **RETURN** on a mode puts it up and starts the question `Keep this picture?`: **RETURN** or any key keeps the mode and stores it as the default, **LEFT** or **ESC** goes back at once, 8 s without a key goes back (8.4.8). **LEFT** or **ESC** closes the page.
 
+![The Picture page: Auto and the modes that the screen names, each with its refresh rate and the tag now](img/host-picture-page.png)
+
+*Figure 4-1a. The Picture page (V). The screen of this picture offers three modes.*
+
 ## 4.5 Start an entry
 
 4.5.1 To start an entry:
@@ -256,7 +260,7 @@ the mode and never cut: **576p** (720 x 576), **480p** (640 x 480) and **800 x 6
 
 ![The boot menu at 800 x 600](img/host-compact-800-menu.png)
 
-*Figure 4-4. F1 Boot menu at 800 x 600. The list holds six entries; the first name is cut with dots.*
+*Figure 4-4. F1 Boot menu at 800 x 600 with three entries. The footer has two lines.*
 
 ![The File Browser at 800 x 600](img/host-compact-800-browser.png)
 
@@ -266,9 +270,9 @@ the mode and never cut: **576p** (720 x 576), **480p** (640 x 480) and **800 x 6
 
 *Figure 4-6. F1 Boot menu at 480p. The footer wraps at the key `any key stops the countdown`.*
 
-![The Settings page at 576p: the names in the rows are cut with dots](img/host-compact-576-settings.png)
+![The Settings page at 576p: the compact layout with the short value of the Picture row](img/host-compact-576-settings.png)
 
-*Figure 4-7. F8 Settings at 576p (720 x 576). A name or a value that does not fit ends in dots.*
+*Figure 4-7. F8 Settings at 576p (720 x 576). The value of `Picture` is the short form `screen: 576p / 480p`. A name or a value that does not fit ends in dots.*
 
 ## 4.11 Configs of a core
 
@@ -284,5 +288,9 @@ the mode and never cut: **576p** (720 x 576), **480p** (640 x 480) and **800 x 6
 | **R** | Rename the config |
 | **DEL**, **DEL** | Delete the config file |
 | **LEFT**, **ESC** | Close the list |
+
+![The list of configs of the VIC-20 entry: Plain start and three configs, the footer with the keys of a config](img/host-config-overlay.png)
+
+*Figure 4-8. RIGHT on the VIC-20 entry opens its configs. The second row is selected: the footer shows D, R and DEL.*
 
 4.11.3 The Edit menu shows the auto config (6.1.3) and sets it with **LEFT** and **RIGHT** (6.2).
