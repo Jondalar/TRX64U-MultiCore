@@ -1,6 +1,6 @@
 # T103 — A second C64 core that is Gideon's set, not ours
 
-**Status:** PROPOSED (2026-10-15); analysis written 2026-10-16; Q1, Q4 answered 2026-10-16, Q3 2026-10-17; D1-D5 open.
+**Status:** PROPOSED (2026-10-15); analysis written 2026-10-16; Q1, Q4 answered 2026-10-16, Q3 2026-10-17; D1-D5 open. 2026-11-13 status check: DROPPED (row and todo: large cores start from the menu, a vanilla C64 on the MultiCore host is not needed); D1-D5 not built.
 **Repo:** TRX64U-MultiCore — a new `cores/c64u/` (descriptor and `core_sources.tcl`), the blocks it
 switches on come from `vendor/icepi` and `vendor/gideon`; the application side leans on the
 **`trex/main` branch of `1541ultimate_fw`** (Alex, 2026-10-15). **Whether `host/` stays untouched is Q1/Q2 below.** Not because UCI or the streams belong to layer 1 - their

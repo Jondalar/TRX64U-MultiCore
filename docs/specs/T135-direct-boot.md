@@ -1,6 +1,6 @@
 # T135 — The default core starts at power-on without the menu; a held key or fire button brings the menu
 
-**Status:** BUILDING (2026-10-27): Q1-Q7 answered; installer (D8, D8a, D9) built 2026-10-29, board open.
+**Status:** BUILDING (2026-10-27): Q1-Q7 answered; installer (D8, D8a, D9) built 2026-10-29, board open. 2026-11-13 status check: state confirmed: BUILDING, merged in waves (w1-t135); S1-S7 in ue2emu, board S1/S3/S8/S9/S13/B2 open (as row).
 **Repo:** TRX64U-MultiCore — host application (`host-app/software/hostapp/`), the core application's "Return to host
 menu" (`coreapp/`), boot.cfg (`bootcfg.cc`); no gateware change planned (open: Q3).
 **Number:** T135 (registry: `TODO.md`).

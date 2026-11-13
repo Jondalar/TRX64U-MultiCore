@@ -1,6 +1,6 @@
 # T104 — every core, the C64 too (D9), runs one generic application that its own bundle describes
 
-**Status:** IN PROGRESS (PROPOSED 2026-10-15, consolidated 2026-10-20). What holds, what is built and what is open: the Current Contract below.
+**Status:** IN PROGRESS (PROPOSED 2026-10-15, consolidated 2026-10-20). What holds, what is built and what is open: the Current Contract below. 2026-11-13 status check: DONE: todo and row say done (generic app on every DFX core; Reload core and fast seek seen on the board, Alex); T104.1/.2/.3 keep their own rows.
 **Repo:** TRX64U-MultiCore — the shared base and the two binaries in `app/`, the descriptor format in
 `tools/cor_pack.py` and `coreapp/`, the per-core data in `cores/<name>/`, the build in `ci/trxapps.sh`.
 **Number:** T104 (registry: the table in `TODO.md`; T103 was the highest in use).

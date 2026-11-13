@@ -1,6 +1,6 @@
 # T104 — the Amiga and the A1200 on the generic application: build notes
 
-**Status:** BUILT on branch `t104-amiga` (2026-10-20), benched on the Mac, **not built for RISC-V and not run on a board.**
+**Status:** BUILT on branch `t104-amiga` (2026-10-20), benched on the Mac, **not built for RISC-V and not run on a board.** 2026-11-13 status check: history of branch `t104-amiga`; merged into main (generic app on every DFX core), see T104 (done) and the status at the top of T104-generic-core-app.md.
 **Why this file:** a docs-only consolidation of T104 / T104.1 / T104.2 runs in parallel (coordinator, 2026-10-20), so the text that would
 have been T104 §5.11 lives here; the consolidation can fold it in. **Origin:** Alex, 2026-10-20: "Yes, but please follow the architecture!
 So library for what is core specific, app for what makes sense as an app, and so on" (translated: the Amiga and the A1200 move onto the

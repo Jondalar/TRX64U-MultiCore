@@ -1,6 +1,6 @@
 # T133 — The host RISC-V has a write-through data cache, so the LVGL host application builds and renders faster
 
-**Status:** DONE (2026-10-28, merged to main; BUILDING since 2026-10-26), from branch `t133-dcache`.
+**Status:** DONE (2026-10-28, merged to main; BUILDING since 2026-10-26), from branch `t133-dcache`. 2026-11-13 status check: state confirmed: merged to main 2026-10-28, row/todo done.
 **Repo:** TRX64U-MultiCore — host (`host/`: new `rv_dcache.vhd`, our `rvlite_wrapper_dc.vhd`, `ultimate_sys.vhd`, `top.v`,
 `ddr2_port.v` `mig_arb`), bench `host/sim/dcache/`, CI (trial lane filter).
 **Number:** T133 (registry: the table in `TODO.md`).

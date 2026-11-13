@@ -1,6 +1,6 @@
 # T111 — A stick or SD card is formatted as exFAT on the board, from the host app, so an image above 4 GiB can be used
 
-**Status:** BUILT 2026-10-26, benches green on the builder (S1-S8, the cancel, the checker, S3 route scan, the render bench); open: S9 (link, §5) is measured, the board steps B1-B4 are Alex's. Decided 2026-10-26 (Q1-Q7 answered or taken as proposed, §4 settled with Alex).
+**Status:** BUILT 2026-10-26, benches green on the builder (S1-S8, the cancel, the checker, S3 route scan, the render bench); open: S9 (link, §5) is measured, the board steps B1-B4 are Alex's. Decided 2026-10-26 (Q1-Q7 answered or taken as proposed, §4 settled with Alex). 2026-11-13 status check: merged to main (Merge t111-spec); state as in row: built, board B1-B4 are Alex's.
 **Repo:** TRX64U-MultiCore — host app only (`host-app/software/hostapp/`, `host-app/software/filesystem/` stays as it is); tests in `tests/hostapp/`. No core, no gateware, no change to the core app.
 **Number:** T111 (registry: the table in `TODO.md`).
 **Origin:** Alex, 2026-10-18, while trying T97 S5: "no .. does not work because SD card and USB are formatted wrong ... damn. Then we will build ourselves an app that can format exFAT, later .. take that as a todo. It can then run in the host" (translated).

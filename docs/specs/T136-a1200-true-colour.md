@@ -1,6 +1,6 @@
 # T136 — The A1200 shows AGA's full 24-bit colour on HDMI
 
-**Status:** PROPOSED (2026-10-28), building on branch `t136-a1200-colour`.
+**Status:** PROPOSED (2026-10-28), building on branch `t136-a1200-colour`. 2026-11-13 status check: DONE: S1-S5 passed (S5 measured on the board, S4 WNS +0.380 ns run 1017), merged to main (Merge t148-core-folder, 6dc840362).
 **Repo:** TRX64U-MultiCore — the A1200 large core only (`cores/amiga1200/`), its own copy of the pixel layer
 (`cores/amiga1200/mono/pix_layer.v`), the core application (`coreapp/`). The host is not touched.
 **Number:** T136.

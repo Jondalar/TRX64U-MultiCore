@@ -1,6 +1,6 @@
 # T114 — every shipped core has a recognisable logo in the TRX64 LVGL theme
 
-**Status:** DONE (2026-10-26); S1-S4 green for all current shipped and external core identities.
+**Status:** DONE (2026-10-26); S1-S4 green for all current shipped and external core identities. 2026-11-13 status check: state confirmed: merged, row and todo done.
 **Repo:** TRX64U-MultiCore — visual assets and their deterministic renderer/validator; no gateware or application behaviour.
 **Number:** T114 (registry: the table in `TODO.md`; T113 was the highest in use).
 **Origin:** Alex, 2026-10-20: "Can you create a PNG or SVG logo for every core which corresponds to the original logo and looks cool in the LVGL theme?" (translated).

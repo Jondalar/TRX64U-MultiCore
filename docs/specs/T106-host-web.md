@@ -1,6 +1,6 @@
 # T106 — the host application answers a browser, and answers us in JSON
 
-**Status:** IN PROGRESS (2026-10-16). Alex, 2026-10-16: "Ggfs sollten wir auch ein Browser Menü
+**Status:** IN PROGRESS (2026-10-16). Alex, 2026-10-16: "Ggfs sollten wir auch ein Browser Menü 2026-11-13 status check: DONE (Alex, 2026-10-23, §5: 'Browser geht und ist geil!'); the picture setting on the page waits on T105 (overtaken by T107/T139).
 erlauben noch? Oder Rest api in der Host App." — and, asked whether to build it: "Ja mach."
 
 ---

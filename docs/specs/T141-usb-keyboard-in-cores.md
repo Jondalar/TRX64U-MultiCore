@@ -1,6 +1,6 @@
 # T141 — A USB keyboard types into every core, not only into the menus
 
-**Status:** BUILDING (2026-10-31, A1200 first, D4), PROPOSED 2026-10-28, asked by Alex.
+**Status:** BUILDING (2026-10-31, A1200 first, D4), PROPOSED 2026-10-28, asked by Alex. 2026-11-13 status check: merged in parts (w1-a500, w1-t141); A1200 board ok; A500 and C128 built, Vivado + board open (as row).
 **Repo:** TRX64U-MultiCore — the core application (`coreapp/`), the cores' keyboard inputs (`cores/c128`, `cores/amiga`,
 `cores/amiga1200`), possibly the host's keyboard block (a host change needs Alex's approval).
 **Number:** T141.
