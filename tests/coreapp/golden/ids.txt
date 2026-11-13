@@ -385,6 +385,7 @@ Super Nintendo F1/home 8 fixed:11:Load config...
 Super Nintendo F5/settings 0 set:Video standard
 Super Nintendo F5/settings 1 set:Pseudo high resolution
 Super Nintendo F5/settings 2 set:Pad map
+Super Nintendo F5/settings 3 set:DSP firmware
 Super Nintendo F7/quick 0 task:Reset
 Super Nintendo F7/quick 1 task:Save the battery RAM now
 Super Nintendo F7/quick 2 task:Sound check
