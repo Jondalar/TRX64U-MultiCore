@@ -7,7 +7,7 @@ host writes every change to `Flash:/boot.cfg` at once.
 
 6.1.2 The page does not change the countdown or direct boot. These are on the Settings page (8.2, 8.3).
 
-6.1.3 The page shows an info box of two lines and the list of the entries. The title bar shows the position (`1-5 of 12`) when the
+6.1.3 The page shows an info box of two lines and the list of the entries (4 at 960 x 540). The footer reads `UP/DOWN select    +/- move    D auto    C rename    DEL twice removes`, with `LEFT/RIGHT config of this core` for a core with configs. The title bar shows the position (`1-5 of 12`) when the
 list is longer than the window. Each entry shows its name, under it its path, and at the right the `N configs` and `auto`
 markers, the pictogram of its state (4.3) and its version (without a leading `v`), the pictogram directly beside the version. The word of the
 state of the selected entry shows in the status line.
@@ -29,9 +29,10 @@ state of the selected entry shows in the status line.
 | **+** (or **=**) | Move the entry up one place |
 | **-** | Move the entry down one place |
 | **D** | Make the selected entry the auto entry |
+| **LEFT**, **RIGHT** | Auto config of the entry: none, then the configs of its core, backwards or forwards. `This core has no configs.` when it has none |
 | **C** | Rename the entry (6.3) |
 | **DEL**, **DEL** | Remove the entry from the menu (6.4) |
-| **V** | Next HDMI mode (4.4.3) |
+| **V** | Open the Picture page (4.4.3) |
 
 6.2.1 A moved auto entry stays the auto entry.
 
