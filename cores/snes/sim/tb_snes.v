@@ -292,7 +292,7 @@ module tb_snes;
         // ------------------------------------------------ the hashes
         h = 64'hCBF29CE484222325;
         for (i = 0; i < 131072; i = i + 1) h = fnv(h, ddr_byte(32'h800000 + i));
-        $display("SNES dsp %02h %02h", ddr_byte(32'h800200), ddr_byte(32'h800201));
+        $display("SNES dsp %02h %02h %02h %02h %02h %02h %02h %02h", ddr_byte(32'h800200), ddr_byte(32'h800201), ddr_byte(32'h800202), ddr_byte(32'h800203), ddr_byte(32'h800204), ddr_byte(32'h800205), ddr_byte(32'h800206), ddr_byte(32'h800207));
         $display("SNES wram %016h", h);
         h = 64'hCBF29CE484222325;
         for (i = 0; i < 32768; i = i + 1) h = fnv(h, dut.vram1[i]);

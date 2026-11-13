@@ -299,6 +299,25 @@ int main()
             CHECK(strstr(msg, "dsp3.bin") != 0);
             CHECK(r.io.log.empty());
         }
+        {
+            FakeFs fs;                                                                    // S7: the setting "DSP firmware" (index 3) overrides the title for every DSP cartridge, not for others
+            fs.put("/sd/games/mk.sfc", image(0x80000, 0x03, 0x09, 0x00, 0x01, "SUPER MARIO KART"));
+            fs.put("/sd/games/plain.sfc", image(0x80000, 0x00, 0x09, 0x00, 0x01));
+            SnesRig r(&fs);
+            r.st->set(3, 3);                                                              // DSP-3
+            char msg[300];
+            CHECK(run(r, "/sd/games/mk.sfc", msg, sizeof(msg)) != OPE_OK);
+            CHECK(strstr(msg, "dsp3.bin") != 0 && strstr(msg, "DSP-3") != 0 && strstr(msg, "dsp1b.bin") == 0);
+            CHECK(r.io.log.empty());
+            fs.put("/sd/cores/snes/roms/dsp3.bin", fwb);
+            CHECK_EQ(run(r, "/sd/games/mk.sfc"), OPE_OK);
+            CHECK(fw_stream(r) == fwb);
+            CHECK_EQ(count_writes(r, SNES_ROM_TYPE, 0xA0), 1);
+            r.io.log.clear();
+            CHECK_EQ(run(r, "/sd/games/plain.sfc"), OPE_OK);
+            CHECK(fw_stream(r).empty());
+            CHECK_EQ(count_writes(r, SNES_ROM_TYPE, 0x00), 1);
+        }
     }
     // --- an image whose size is not a power of two: the part of the window the mask reaches is the cartridge's mirror (1.5 MiB: 1.5-2 MiB repeat 1-1.5 MiB)
     {

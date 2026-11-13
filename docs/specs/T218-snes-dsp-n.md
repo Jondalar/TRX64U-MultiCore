@@ -30,6 +30,7 @@ Read from the code (2026-11-13): `snes_sys.vhd` instantiates `DSP_LHRomMap` with
 | S4 | P3 | DSP-2/3/4 games pick `dsp2.bin`/`dsp3.bin`/`dsp4.bin` and mapper byte 0x90/0xA0/0xB0; a file of the wrong size is not taken | `test_snes_rom.cc` (title -> chip, rom_type; ExHiROM + DSP refused), `test_snes.cc` | CI apptests; board for each game (none owned: open) |
 | S5 | P5 | Non-DSP games unchanged: `boot` bench real == ref; SA-1/Super FX/... refused as before | sims `snes_boot` etc.; `test_snes.cc` S12 | CI sims, apptests |
 | S6 | P6 | The flat build routes and meets timing with the chip | `utilization.rpt` / `timing.rpt` of the pipeline run (lane large-snes) | CI vivado (after the coordinator's push) |
+| S7 | P3 | The menu setting "DSP firmware" (Auto, DSP-1..DSP-4): a fixed choice replaces the title rule for every DSP cartridge (mapper byte and firmware file follow, the refusal names the chosen chip's file); non-DSP cartridges are unaffected | `test_snes.cc` | CI apptests; board |
 
 ## §3 Decisions
 
@@ -40,9 +41,12 @@ Read from the code (2026-11-13): `snes_sys.vhd` instantiates `DSP_LHRomMap` with
 - **D3 Refusal:** only when no firmware is found; the text names the file(s) and the folder. SA-1, Super FX, Cx4, S-DD1, SPC7110, ST010/011, add-ons stay refused as in T142 S12.
 - **D4 One firmware at a time:** the vendored `DSPn.vhd` holds all chips' firmware in an 8096 x 24 and a 7168 x 16 ROM; `tools/snes_gen.py` (counted edits, "T218") replaces them by a 2048 x 24 and a 1024 x 16 RAM with the write port `FW_*`. ST010/ST011 (VER bit 2) are not built (they would need a bigger data RAM and a 10 MHz clock).
 
+- **D4 (Alex, 2026-11-13: "A setting in the menu for the firmware choice does make sense. Auto / 1.2.3.4", translated):** the SNES core setting `DSP firmware`: `Auto`, `DSP-1`, `DSP-2`, `DSP-3`, `DSP-4`, default `Auto` = the title rule of D2b, taken at the next reset (`WHEN_RESET`, op `snes.set_dspfw`). A fixed choice replaces the chip for every DSP cartridge (the mapper byte's chip bits and the firmware file follow); cartridges without a DSP are unaffected. Declared like the other SNES settings (in `coreapp/cores/snes.cc`; the core's `.toml` carries no settings).
+- **D5 (review):** `DSP_LHRomMap`'s `DSPn` reset is gated by mapper bit 7 (`snes_gen.py`: `RST_N and MAP_CTRL(7) and ...`), because `MAP_DSP_SEL` is also true for plain mapper bytes; a plain cartridge never runs the chip.
+
 ## §4 Out (decided with Alex beforehand)
 
-SA-1, Super FX, Cx4, S-DD1, SPC7110, ST010/ST011, BSX, Sufami, MSU-1 (T142 §4, unchanged). Save states. A DSP-n in ExHiROM (no such cartridge; refused). A firmware chooser setting (not asked).
+SA-1, Super FX, Cx4, S-DD1, SPC7110, ST010/ST011, BSX, Sufami, MSU-1 (T142 §4, unchanged). Save states. A DSP-n in ExHiROM (no such cartridge; refused).
 
 ## §5 Filled in while building (2026-11-13, branch t218-snes-dsp)
 
@@ -50,9 +54,12 @@ SA-1, Super FX, Cx4, S-DD1, SPC7110, ST010/ST011, BSX, Sufami, MSU-1 (T142 §4, 
 - **Expected area [E, not measured]:** block RAM: program 2048 x 24 (3 x RAMB18), data ROM 1024 x 16 (1 x RAMB18), data RAM 2 x 2048 x 8 true dual port (2 x RAMB18) = 6 RAMB18 = **3 tiles**: 71 + 3 = **74 of 75**; one tile of slack, the pipeline decides (S6). LUT: the chip's ALU, multiplier (1 DSP slice class) and decode, order of 1.0-1.5 k LUT [E]. If the build does not fit, stop and report; no feature is dropped. The `USE_DSPn` hierarchy is also not removed from timing: the chip runs on the machine's enable (`DSP_CE`, 7.6 MHz).
 - **Application:** `snes_rom.cc` (chip 3..6 accepted, title -> chip, rom_type), `snes.cc` (firmware search, appended before file, `write_dsp_fw`, message), `snes_regs.h` (0x140/0x141). The RISC-V .bss was full (overflow 9,408 bytes with a static firmware buffer): the firmware shares the 32 KiB scratch buffer with the image copy.
 - **Bench `dsp` (sim, builder, Verilator in `trx64-sim-env:4`):** `SNES PASS dsp: real == ref` and `SNES PASS dsp: the chip ran the firmware written by the register block (DR = 1234)`: type 0x80, a firmware of our own (LDI DR, $1234; JP self) goes through registers 0x140/0x141, the 65816 program polls `$30:C000` bit 7 and reads `$30:8000` twice: `34 12`. `boot` still passes (real == ref). This proves the register stream, the byte order of our own writer, the chip map for a LoROM DSP-1 under 1 MiB, the read path. It does **not** prove any real firmware, HiROM or >= 1 MiB DSP maps, DSP-2/3/4, or a game.
+- **Bench `dsp`, strengthened:** the firmware of our own loads four values into DR, each after the 65816 took the previous one: data word 5, data word 1023 (last), data word 0 (first, directly after the 6144 program bytes: a wrong split or a wrong word counter wrap gives another value), and `$BEEF` from program word 2046, reached by a jump from word 9, with word 2047 (the last program word, bytes 6141..6143) a JRQM loop. The bench expects `47 29 fd 4f 34 12 ef be` and passes; `boot` passes (real == ref, with the chip gated). The wrong-split failure is by construction (the values differ), not run as a mutant.
+- **Defaults, unverified on board:** Q2 firmware byte order (low byte first, program then data) is per the ares/bsnes loader (`readl(3)` / `readl(2)`), not verified against a real file; Q3 the appended rule (power of two >= 32 KiB + 8192, copier header ignored); Q4 folders and names (the core's own `roms/`, then `<root>/roms/snes/`; `dsp1b.bin` before `dsp1.bin`). They stay as built unless Alex says otherwise.
+- **Loader detail:** the separate firmware file is read with the image's handle closed (opened again afterwards), so the real file system is never asked for two files at once.
 - **Not run (rules of this repo):** the app tests (CI only); Vivado (pipeline); the board.
 
 ## Open questions
 
-- Title list for DSP-2/3/4 (D2b): other titles with those chips (alternate names, hacks) would load the DSP-1 firmware; a firmware chooser or the header's map/ROM size could refine it.
-- Firmware byte order is from ares; the first real firmware file proves it (S1 board).
+- Title list for DSP-2/3/4 (D2b): other titles with those chips (alternate names, hacks) load the DSP-1 firmware under Auto; the setting (D4) is the way round it.
+- Firmware byte order is per the ares/bsnes loader, unverified on board; the first real firmware file proves it (S1 board).

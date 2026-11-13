@@ -6,7 +6,7 @@
 # stall are transparent (S2).
 #   sh cores/snes/sim/run.sh [mode ...]        default: all modes; SNES_REBUILD=1 rebuilds the binaries
 #   modes: boot  mvn  mem  video (S5: known pixels in the frame buffer)  pad (S8: the buttons in $4218..$421B)  padapp (T156: the application's pad registers)  padmod (T156: tb_pad.v, all twelve buttons)  audio (a voice reaches audio_l/r: stub and the application's real boot ROM; the register block's peaks PEAK_DSP / PEAK_OUT / HANDS must agree with the port)  audio_q (1 kHz resampling quality)
-#   dsp (T218: the DSP-n coprocessor runs a firmware written through the register block)  brr (the S-DSP BRR decoder, filters 0..3, against tools/snes_brr.py)  dsplog (measurement: ENV of a voice per S-DSP sample)
+#   dsp (T218: the DSP-n coprocessor runs a firmware written through the register block: data ROM words 5, 1023, 0 and the program's words 2046/2047 through the 3 byte / 2 byte split)  brr (the S-DSP BRR decoder, filters 0..3, against tools/snes_brr.py)  dsplog (measurement: ENV of a voice per S-DSP sample)
 set -e
 here=$(cd "$(dirname "$0")" && pwd)
 root=$(cd "$here/../../.." && pwd)
@@ -135,8 +135,10 @@ for m in $modes; do
     dsp)  # T218: a DSP-1 cartridge (type $80, LoROM) with the firmware written through the register block: the chip's DR reads $1234 (low byte first); the real and ref builds equal
       python3 "$root/tools/snes_dsp_fw.py" "$here/build/dsp_fw.bin"
       PADARG="+TYPE=128 +FW=$here/build/dsp_fw.bin" both dsp 100 1 || rc=1
-      got=$(line dsp_real dsp); [ "$got" = "34 12" ] || { rc=1; echo "SNES FAIL dsp: DR read '$got', the firmware puts 1234 there (bytes 34 12)"; }
-      [ "$got" != "34 12" ] || echo "SNES PASS dsp: the chip ran the firmware written by the register block (DR = 1234)";;
+      got=$(line dsp_real dsp); want=$(python3 "$root/tools/snes_dsp_fw.py" --expect)
+      [ "$got" = "$want" ] || { rc=1; echo "SNES FAIL dsp: DR read '$got', the firmware puts '$want' there (data words 5, 1023, 0 and the program's last words)"; }
+      [ "$got" != "$want" ] || echo "SNES PASS dsp: the chip ran the firmware written by the register block (data ROM words 5, 1023, 0; program words 2046, 2047: $got)"
+      ;;
     mvn)  both mvn 60 1 || rc=1;;
     video) both video 200 2 || rc=1;;
     pad)  PADARG=+PAD both pad 200 1 || rc=1;;

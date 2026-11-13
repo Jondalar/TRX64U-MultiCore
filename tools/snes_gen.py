@@ -210,6 +210,8 @@ def patched_vhdl():
         "\t\tdata\t\t=> FW_D(15 downto 0),\n\t\twren\t\t=> FW_WR and FW_SEL,\n\t\tq\t\t\t=> DATA_ROM_Q\n\t);\n") + files[dn][b:]
     count("DSPn: data ROM -> 1024 x 16 firmware RAM")
     files[dn] = sub1(files[dn], 'DATA_RAM_ADDR_A or x"40";', 'DATA_RAM_ADDR_A or ("000" & x"40");', "DSPn: 8 bit literal or-ed to an 11 bit address (GHDL refuses the lengths)")
+    # the chip runs only for a cartridge that has one: MAP_DSP_SEL is also true for the plain mapper bytes (bit 7 clear, bits 5:4 = 0), so bit 7 gates it
+    files[lh] = sub1(files[lh], "RST_N\t\t\t=> RST_N and (MAP_DSP_SEL or MAP_CC_SEL),", "RST_N\t\t\t=> RST_N and MAP_CTRL(7) and (MAP_DSP_SEL or MAP_CC_SEL),", "LHRomMap: DSPn runs only with mapper bit 7")
     files[lh] = sub1(files[lh], "\t\tSS_DO\t\t\t: out std_logic_vector(7 downto 0)\n\t);\nend DSP_LHRomMap;",
                      "\t\tSS_DO\t\t\t: out std_logic_vector(7 downto 0);\n\t\tFW_WR\t\t: in std_logic;\n\t\tFW_SEL\t\t: in std_logic;\n"
                      "\t\tFW_A\t\t: in std_logic_vector(10 downto 0);\n\t\tFW_D\t\t: in std_logic_vector(23 downto 0)\n\t);\nend DSP_LHRomMap;", "LHRomMap: firmware port")
