@@ -85,6 +85,7 @@ module hdmi_out #(
     // audio: the samples held in the mclk domain, a toggle per sample
     input  wire [47:0] snd_hold,
     input  wire        snd_tgl,
+    input  wire        core_fr_tgl,                // T188 D3: toggle of the core's frame-complete event (sys_clk), steers hdmi_timing FOLLOW
 
     // status
     output wire        gt_ready,
@@ -129,11 +130,12 @@ module hdmi_out #(
     wire  [3:0] m_gear;
     wire  [6:0] m_vic;
     wire [31:0] m_rate;
-    hdmi_timing mtim (
+    // T188 D3 (the Amiga copies): the core's frame event steers the frame length of the 50 Hz rows (hdmi_timing FOLLOW)
+    hdmi_timing #(.FOLLOW(1)) mtim (
         .clk(pix_clk), .rst(pix_rst), .mode(mode_pix), .align(align), .valid(), .aligned(),
         .ce(pce), .rgb(t_rgb), .de(t_de), .hs(t_hs), .vs(t_vs), .cx(t_cx), .cy(t_cy), .running(running),
         .hact(m_hact), .vact(m_vact), .xact0(m_xact0), .yact0(m_yact0), .gear(m_gear), .vic(m_vic), .rate(m_rate),
-        .sx_e(), .fw_m1(), .sy_e(), .ey_e(), .ph_e(), .mode_q(m_mode)
+        .sx_e(), .fw_m1(), .sy_e(), .ey_e(), .ph_e(), .mode_q(m_mode), .core_tgl(core_fr_tgl), .follow_e()
     );
     wire        vic_row = hm_locked(m_mode);       // static while running
     wire [1:0]  m_aspect = hm_aspect(m_mode);
