@@ -1,6 +1,7 @@
 # T89 — An Apple IIe core, ported from NanoApple2, runs as a core in the T79 host/core split
 
 **Status:** DECIDED (2026-10-13): all 10 open questions answered by Alex; not built.
+**Status check 2026-11-13:** DONE (Alex 2026-10-30), no longer "not built": the Apple IIe .cor runs on the board, Wasteland boots (2026-10-20), `cores/apple2/core.toml` experimental = false; rest open to contributors.
 **Repo:** TRX64-Ultimate (gateware under a new `designs/apple2/` and `cores/apple2/`, app side, tools). The sources are read from
 outside (MiSTle-Dev/NanoApple2, MiSTer-devel/Apple-II_MiSTer); nothing is copied into this repo by this spec.
 **Number:** T89 (registry: the TODO table in `TODO.md`).
