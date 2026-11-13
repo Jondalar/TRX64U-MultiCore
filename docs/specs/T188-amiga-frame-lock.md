@@ -91,6 +91,8 @@ Scenario: S5 area and timing
   (`cores/amiga/mono/host/`, `cores/amiga1200/mono/host/`, both large/mono cores); the frozen host (`host/`) is not touched.
 - **D4 (Alex, 2026-11-13, "Ja" to: "the three Amiga modes are recomputed for 313 lines (49.92 Hz) before Vivado runs, so the follow only swings around 0-1 line", translated):** the Amiga rows 0..2 (576p50, 720p50, 1080p50) of both Amiga copies' `hdmi_modes.vh` target the non-interlaced PAL Amiga frame, 227 x 313 CCK (`cores/amiga/rtl/src/minimig-aga/agnus_beamcounter.v` `long_frame`), instead of 227 x 312. Answers question (a) of §5 2026-11-13 (later).
 
+- **D5 (Alex, 2026-11-13, "Ja" to: "the lower limit goes from -4 to -8 lines so that games that switch to 312 lines (50.08 Hz, about -3.6 lines per frame at 1080p) are covered safely", translated):** the follow's limits are -8 / +16 lines per frame (`EMIN`/`EMAX` of both Amiga copies' `hdmi_timing.v`); the upper limit stays. Answers open question (b) of §5 2026-11-13 (later) and of the D4 entry.
+
 ## §4 Out
 
 Out: a 60 Hz lock (a PAL machine cannot match 60 Hz), interlaced/NTSC Amiga, a core-side scaler (T107 §3 4a).
