@@ -29,7 +29,7 @@
 | F6 | `update.run_record` runs a `.cfw` with no signature (fingerprint, product family, product and record bounds only); now behind the token and an on-screen question for the cores of F4, open for the others | partly | `coreapp/src/update.cc:60-100`, `coreapp/src/uiapp.cc:153` |
 | F7 | The "Network Password" setting of the vendor code protects none of our REST/WebSocket routes (no `X-Password` check in `coreapp/` or `host-app/`) | open, by design since T192 (the token replaces it) | grep; `vendor/gideon/.../network_config.cc:18` |
 | F8 | The `.txu` host update writes the flash with no backup first | open | `host-app/software/hostapp/host_core_flow.cc` (~740-773, `fw_write_parts`, no backup step) |
-| F9 | A release names a commit (`trx64_commit` in the manifest) that does not exist on GitHub: the public tree is one parentless snapshot commit; `SHA256SUMS` comes from the same release, nothing is signed | open, by design (T120) | `tools/release_mc.sh:86`, `tools/github_snapshot.py:120-127` |
+| F9 | A release names a commit (`trx64_commit` in the manifest) under its Gitea sha; on GitHub it is the commit `release/github_map.txt` maps it to (T120 D-history; the public history is the filtered replay of Gitea's); `SHA256SUMS` comes from the same release, nothing is signed | open, by design (T120) | `tools/release_mc.sh`, `tools/github_snapshot.py --map-lookup` |
 | F10 | FTP: the review says any user with an empty password is accepted | not checked yet | — |
 
 Not a finding: an app-only `.txu` skips the IDCODE check (`txu.cc:216-221`) because it carries no bitstream to check.
