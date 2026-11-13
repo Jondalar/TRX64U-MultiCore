@@ -18,7 +18,8 @@ case "$target" in
     [ -f "$mono/${core}_mono.bit" ] || { echo "ci/cor.sh: no ${core}_mono.bit in $mono" >&2; exit 1; }
     desc="$ROOT/cores/$core/mono/core.toml"
     "$ROOT/tools/pack_large_cor.sh" --id "$core" --name "$(TRX_CORE_DESC="$desc" python3 "$ROOT/tools/core_toml.py" get "$core" name)" \
-      --version "$(TRX_CORE_DESC="$desc" python3 "$ROOT/tools/core_toml.py" get "$core" version)" --bit "$mono/${core}_mono.bit" \
+      --version "$(TRX_CORE_DESC="$desc" python3 "$ROOT/tools/core_toml.py" get "$core" version)" \
+      --short "$(TRX_CORE_DESC="$desc" python3 "$ROOT/tools/core_toml.py" get "$core" short)" --bit "$mono/${core}_mono.bit" \
       --app-bin "$trxapps/coreapp.bin" --bit-commit "$(git -C "$ROOT" rev-parse --short=8 HEAD)" \
       --app-commit "$(cut -c1-8 "$trxapps/trxapps_commit")" --out "$out" ;;
   *) echo "ci/cor.sh: target core:<id> or large:<id>, not $target" >&2; exit 2 ;;

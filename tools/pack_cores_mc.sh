@@ -87,7 +87,7 @@ for c in "${CORES[@]}"; do
     fi
     python3 "$HERE/cor_pack.py" pack --host-key "$HK" --contract "$CV" -o "$OUT/$c.cor" \
         --name "$name" --version "$ver" --partial "$part" --app "$app" \
-        --load 0x30000 --entry 0x30000 ${icon[@]+"${icon[@]}"} > /dev/null
+        --load 0x30000 --entry 0x30000 ${icon[@]+"${icon[@]}"} --short "$(python3 "$HERE/core_toml.py" get "$c" short)" > /dev/null
     python3 "$HERE/cor_pack.py" check --contract "$CV" --host-key "$HK" "$OUT/$c.cor" > /dev/null
     printf '    %-9s %-28s %8d bytes  %s\n' "$c" "$name" "$(wc -c < "$OUT/$c.cor")" "$ver"
     n=$((n + 1))

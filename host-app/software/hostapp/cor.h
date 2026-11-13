@@ -36,6 +36,7 @@ public:
 
 struct CorInfo {
     char name[48];
+    char shortn[8];                    // T209 D15: the text tile's short name (manifest "short", optional; "" = none)
     char version[24];
     char fpga[16];
     uint32_t contract;

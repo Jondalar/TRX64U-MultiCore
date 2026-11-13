@@ -30,6 +30,9 @@ CORES = os.path.join(ROOT, "cores")
 SCHEMA = {
     "id":           ("str",  True),
     "name":         ("str",  True),
+    # T209 D15: the boot menu's text tile for a core without a logo, 1 to 4 of A-Z a-z 0-9 + / . (cor_pack.py --short); the app falls back to
+    # the first 4 letters of the name when a core says none; "name" is at most 30 characters (D17)
+    "short":        ("str",  False),
     "version":      ("str",  True),
     "contract":     ("int",  True),
     "app":          ("str",  True),     # "blueprint" | "ultimate" | "none"
@@ -159,6 +162,10 @@ def check():
         for key in t:
             if key not in SCHEMA:
                 bad += err("%s is not a field of the format" % key)
+        if isinstance(t.get("name"), str) and len(t["name"]) > 30:
+            bad += err("name %r is %d characters, at most 30 (T209 D17: it is the row's text in the boot menu)" % (t["name"], len(t["name"])))
+        if "short" in t and not re.fullmatch(r"[A-Za-z0-9+/.]{1,4}", str(t["short"])):
+            bad += err("short %r is not 1 to 4 of A-Z a-z 0-9 + / ." % (t["short"],))
         if t.get("id") != name:
             bad += err("id %r is not the directory name %r" % (t.get("id"), name))
         if t.get("app") not in APPS and "app" in t:

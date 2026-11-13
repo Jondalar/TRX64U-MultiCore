@@ -100,7 +100,7 @@ int main()
         CHECK(run_start({ 0xFFFFFFFF, 0xFFFFFFFF, 0, 1 }) == DB_START);
         CHECK(store());
         std::string f = file();
-        CHECK(has(f, "decision: START the default core"));
+        CHECK(has(f, "decision: START the auto core"));
         CHECK(has(f, "started by: direct start"));
         CHECK(has(f, "fire: never seen") && has(f, "C=: never seen"));
         CHECK(has(f, "boot.cfg read: cores 3, default 1, direct 1, countdown 5\n"));

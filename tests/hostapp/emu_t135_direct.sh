@@ -106,15 +106,15 @@ s4() {
   rm -rf st4; cp -R stick st4; rm st4/cores/vc20.cor
   printf 'wait 40000\nquit\n' > s4.ctl; emu s4 "$NEW" $P st4
   check "S4 default missing: reason on the row, no jump, one decision (no restart loop)" \
-    bash -c "grep -aq 'decision Default core: file missing' s4.log && ! grep -aq 'step 4: Jump' s4.log && ! grep -aq 'direct boot: jump' s4.log && [ \$(grep -ac 'direct boot: decision begins' s4.log) = 1 ] && grep -aq 'phase Building the menu' s4.log"
+    bash -c "grep -aq 'decision Auto core: file missing' s4.log && ! grep -aq 'step 4: Jump' s4.log && ! grep -aq 'direct boot: jump' s4.log && [ \$(grep -ac 'direct boot: decision begins' s4.log) = 1 ] && grep -aq 'phase Building the menu' s4.log"
   rm -rf st4c; cp -R stick st4c; touch -t 202001010000 st4c/cores/vc20.cor
   printf 'wait 40000\nquit\n' > s4c.ctl; emu s4c "$NEW" $P st4c
   check "S4 default changed (same bytes, other time stamp): reason, no jump" \
-    bash -c "grep -aq 'decision Default core: file changed' s4c.log && ! grep -aq 'step 4: Jump' s4c.log && ! grep -aq 'direct boot: jump' s4c.log"
+    bash -c "grep -aq 'decision Auto core: file changed' s4c.log && ! grep -aq 'step 4: Jump' s4c.log && ! grep -aq 'direct boot: jump' s4c.log"
   rm -rf st4r; cp -R stick st4r; head -c 4096 /dev/urandom >> st4r/cores/vc20.cor
   printf 'wait 40000\nquit\n' > s4r.ctl; emu s4r "$NEW" $P st4r
   check "S4 default refused (file grown, no longer a bundle): reason, no jump" \
-    bash -c "grep -aq 'decision Default core: refused' s4r.log && ! grep -aq 'step 4: Jump' s4r.log && ! grep -aq 'direct boot: jump' s4r.log"
+    bash -c "grep -aq 'decision Auto core: refused' s4r.log && ! grep -aq 'step 4: Jump' s4r.log && ! grep -aq 'direct boot: jump' s4r.log"
 }
 s5() {
   # the core runs (S1), its hotkey (CTRL+RESTORE) opens the core's menu, F8 (System tab, first focus Restart core), one down to "Return to host menu" (T187 D8): IPROG WBSTAR 0 with the marker

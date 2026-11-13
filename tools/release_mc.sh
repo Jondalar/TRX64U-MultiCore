@@ -107,7 +107,8 @@ for b in "$PKG"/*_mono.bit; do
     [ "$(python3 "$ROOT/tools/core_toml.py" get "$id" build_only)" = "true" ] && { echo "    $id is build_only: left out"; continue; }
     [ -s "$PKG/coreapp.bin" ] || { echo "FAIL $id: the package has no coreapp.bin for the large .cor" >&2; exit 1; }
     bash "$ROOT/tools/pack_large_cor.sh" --id "$id" --name "$(python3 "$ROOT/tools/core_toml.py" get "$id" name)" \
-        --version "$(python3 "$ROOT/tools/core_toml.py" get "$id" version)" --bit "$b" --app-bin "$PKG/coreapp.bin" \
+        --version "$(python3 "$ROOT/tools/core_toml.py" get "$id" version)" \
+        --short "$(python3 "$ROOT/tools/core_toml.py" get "$id" short)" --bit "$b" --app-bin "$PKG/coreapp.bin" \
         --bit-commit "$BIT_COMMIT" --app-commit "$APP_COMMIT" --out "$PKG/large" > /dev/null || { echo "FAIL packing $id" >&2; exit 1; }
 done
 CORARGS=()

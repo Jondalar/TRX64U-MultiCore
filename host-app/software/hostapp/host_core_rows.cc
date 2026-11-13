@@ -1,5 +1,6 @@
 // The rows of every page, as data (host_core_rows.h). The code of hostui.cc's fill_row, update_menu / edit / browse / net / settings, the manifest panel, the chips and the
 // WiFi page's value lines, moved with its texts unchanged; what stayed in hostui.cc is the drawing.
+#include <ctype.h>
 #include "host_core_rows.h"
 #include "host_core_cfgov.h"
 #include "host_core_nav_rw.h"
@@ -121,6 +122,25 @@ static void badge_text(EState st, bool full, int origin, unsigned contract, char
     }
 }
 
+// T209 D16 (Alex 2026-11-13): the version shows without its leading "v" (one v/V is stripped from the displayed string only); the editor row carries it in
+// its right group too, so the path line is the path alone. Cheap (no directory read): the list's version column width (D20) is taken from it for every entry.
+void hc_entry_ver(int i, char *out, size_t n)
+{
+    out[0] = 0;
+    const BootCfg &cfg = hc_cfg();
+    if (i < 0 || i >= cfg.n) {
+        return;
+    }
+    EState st = hc_est(i);
+    bool ok = st == ES_OK || st == ES_CHANGED;
+    const char *ver = ok ? hc_einfo(i).version : "";
+    if (hc_efull(i)) {
+        snprintf(out, n, "%s", ok ? "full firmware" : "");
+    } else if (ver[0]) {
+        snprintf(out, n, "%s", ver[0] == 'v' || ver[0] == 'V' ? ver + 1 : ver);
+    }
+}
+
 bool hc_row_entry(int i, bool menu_style, HcEntryRow *r)
 {
     const BootCfg &cfg = hc_cfg();
@@ -129,26 +149,30 @@ bool hc_row_entry(int i, bool menu_style, HcEntryRow *r)
     }
     EState st = hc_est(i);
     bool ok = st == ES_OK || st == ES_CHANGED;
-    const char *ver = ok ? hc_einfo(i).version : "";
     bool full = hc_efull(i);
     snprintf(r->name, sizeof(r->name), "%s", cfg.e[i].name);
-    {   // the board's printf ignores a precision: the 4-character tile is cut by hand
-        const char *tn = full ? "FW" : cfg.e[i].name;
+    {   // T209 D15: the tile says the core's own short name (manifest "short"); without one the first four letters/digits of the entry name,
+        // punctuation and blanks left out ("VIC-20" reads "VIC2", not "VIC-"). The board's printf ignores a precision: cut by hand.
+        const char *tn = full ? "FW" : (ok && hc_einfo(i).shortn[0] ? hc_einfo(i).shortn : cfg.e[i].name);
+        const bool own = full || (ok && hc_einfo(i).shortn[0]);
         size_t k = 0;
-        while (k < 4 && k + 1 < sizeof(r->tile) && tn[k]) {
-            r->tile[k] = tn[k];
-            k++;
+        for (; *tn && k + 1 < sizeof(r->tile) && (own || k < 4); tn++) {
+            if (own || isalnum((unsigned char)*tn)) {
+                r->tile[k++] = *tn;
+            }
+        }
+        if (!k) {                                                    // a name of nothing but punctuation: its first characters, as they are
+            for (tn = cfg.e[i].name; *tn && k < 4; tn++) {
+                r->tile[k++] = *tn;
+            }
         }
         r->tile[k] = 0;
     }
-    if (menu_style && full && ok) {
-        snprintf(r->sub, sizeof(r->sub), "%s  full firmware", cfg.e[i].path);
-    } else if (menu_style && ver[0]) {
-        snprintf(r->sub, sizeof(r->sub), "%s  v%s", cfg.e[i].path, ver);
-    } else {
-        snprintf(r->sub, sizeof(r->sub), "%s", cfg.e[i].path);
-    }
+    hc_entry_ver(i, r->ver, sizeof(r->ver));
+    (void)menu_style;
+    snprintf(r->sub, sizeof(r->sub), "%s", cfg.e[i].path);
     badge_text(st, full, hc_einfo(i).origin, (unsigned)hc_einfo(i).contract, r->badge, sizeof(r->badge), &r->badge_tone);
+    r->pic = st == ES_OK ? HCP_OK : (st == ES_CHANGED || st == ES_UNKNOWN) ? HCP_CHECK : HCP_BAD;      // T209 D10: hash ok, ready, backup, foreign / changed, not read yet / the rest
     r->def = i == cfg.def;
     r->full = full;
     r->ok_state = ok;
@@ -169,7 +193,7 @@ void hc_pos_text(char *b, int n, int first, int total, int rows)
 
 void hc_menu_texts(int first, int total, HcMenuTexts *t)
 {
-    snprintf(t->sub, sizeof(t->sub), "Pick a core. The default starts when the countdown ends.");
+    snprintf(t->sub, sizeof(t->sub), "Pick a core. The auto entry starts when the countdown ends.");
     t->hint_on = total == 0;
     snprintf(t->hint, sizeof(t->hint), "%s", HC_NO_CORES_HINT);
     hc_pos_text(t->pos, sizeof(t->pos), first, total, hc_nav_menu_rows());
@@ -185,7 +209,7 @@ void hc_countdown_texts(HcCountdownTexts *t)
     t->visible = true;
 #endif
     if (!hc_cd_running()) {
-        snprintf(t->text, sizeof(t->text), "%s", hc_cd_dead() ? "Countdown stopped" : (cfg.countdown && cfg.def >= 0 ? "Waiting for the default core's medium" : "No countdown"));
+        snprintf(t->text, sizeof(t->text), "%s", hc_cd_dead() ? "Countdown stopped" : (cfg.countdown && cfg.def >= 0 ? "Waiting for the auto core's medium" : "No countdown"));
     } else {
         int left = (int)(hc_cd_left_ms(hc_now_ms()) + 999) / 1000;
         if (left < 0) {
@@ -203,21 +227,17 @@ void hc_countdown_texts(HcCountdownTexts *t)
 void hc_edit_texts(int first, HcEditTexts *t)
 {
     const BootCfg &cfg = hc_cfg();
-    if (cfg.countdown) {
-        snprintf(t->countdown, sizeof(t->countdown), "%d s", cfg.countdown);
+    if (cfg.def >= 0 && cfg.def < cfg.n) {                                  // T209 D19: the auto core and, in brackets, its auto config
+        const BootEntry &e = cfg.e[cfg.def];
+        if (e.defcfg[0]) {
+            snprintf(t->autol, sizeof(t->autol), "Auto: %s (%s)", e.name, e.defcfg);
+        } else {
+            snprintf(t->autol, sizeof(t->autol), "Auto: %s", e.name);
+        }
     } else {
-        snprintf(t->countdown, sizeof(t->countdown), "off");
+        snprintf(t->autol, sizeof(t->autol), "Auto: (none)");
     }
-    snprintf(t->direct, sizeof(t->direct), "%s", cfg.direct ? "on (C= or fire at power-on: menu)" : "off (menu, then the countdown)");
-    snprintf(t->def, sizeof(t->def), "%s", cfg.def >= 0 ? cfg.e[cfg.def].name : "(none)");
-    int sel = hc_nav().sel;
-    if (sel < 0 || sel >= cfg.n) {
-        snprintf(t->defcfg, sizeof(t->defcfg), "(no entry)");
-    } else if (cfg.e[sel].defcfg[0]) {
-        snprintf(t->defcfg, sizeof(t->defcfg), "%s", cfg.e[sel].defcfg);
-    } else {
-        snprintf(t->defcfg, sizeof(t->defcfg), hc_cfgov_count(cfg.e[sel].path) > 0 ? "(none: plain start)" : "(none: this core has no configs)");
-    }
+    snprintf(t->menu, sizeof(t->menu), "Menu: %s", BOOTCFG_PATH);
     hc_pos_text(t->pos, sizeof(t->pos), first, cfg.n, hc_nav_edit_rows());
 }
 
@@ -294,12 +314,28 @@ bool hc_browse_row(int k, HcBrowseRow *r)
     return true;
 }
 
+const char *hc_edit_foot(void)
+{
+    const HcNav &v = hc_nav();
+    const bool has = v.sel >= 0 && v.sel < hc_cfg().n && hc_cfgov_count(hc_cfg().e[v.sel].path) > 0;
+    return hc_foot(has ? HCF_EDIT : HCF_EDIT_PLAIN);
+}
+
 // The footer of the boot menu: "RIGHT configs" only while the selected row has configs (T198 D9, mock-up (a)).
 const char *hc_menu_foot(void)
 {
     const HcNav &v = hc_nav();
     const bool has = v.sel >= 0 && v.sel < hc_cfg().n && hc_cfgov_count(hc_cfg().e[v.sel].path) > 0;
-    return hc_foot(has ? HCF_MENU : HCF_MENU_PLAIN);
+    const char *base = hc_foot(has ? HCF_MENU : HCF_MENU_PLAIN);
+    if (hc_cfg().n <= hc_nav_menu_rows()) {
+        return base;
+    }
+    static char buf[320];                                     // T209 D7: a menu longer than its window names its paging keys
+    char dn[16], up[16];
+    hc_key_name(HCX_MENU, HCA_MENU_PAGE_DOWN, dn, sizeof(dn));
+    hc_key_name(HCX_MENU, HCA_MENU_PAGE_UP, up, sizeof(up));
+    snprintf(buf, sizeof(buf), "%s    %s/%s PAGE", base, dn, up);
+    return buf;
 }
 
 static const char *browse_foot_base(void)
@@ -811,13 +847,13 @@ void hc_set_row_text(int kind, const char *&name, char (&v)[64], const char *&he
     case SK_DIRECT:
         name = hc_set_name(SK_DIRECT);
         snprintf(v, sizeof(v), "%s", cfg.direct ? "on" : "off");
-        help = cfg.direct ? "The default core starts at power-on without the menu. C= or fire on port 1 at power-on shows the menu."
-                          : "The menu comes up first; the autostart below decides whether it starts the default.";
+        help = cfg.direct ? "The auto core starts at power-on without the menu. C= or fire on port 1 at power-on shows the menu."
+                          : "The menu comes up first; the autostart below decides whether it starts the auto core.";
         break;
     case SK_AUTO:
         name = hc_set_name(SK_AUTO);
         snprintf(v, sizeof(v), "%s", cfg.countdown > 0 ? "on" : "off");
-        help = "On: the menu starts the default core by itself after the delay. Any key stops the countdown.";
+        help = "On: the menu starts the auto core by itself after the delay. Any key stops the countdown.";
         break;
     case SK_SECS:
         name = hc_set_name(SK_SECS);
@@ -1009,7 +1045,7 @@ int dump_menu(char *out, int cap)
     for (int i = 0; i < cfg.n; i++) {
         HcEntryRow r;
         if (hc_row_entry(i, true, &r)) {
-            o.add("  row %d|%s|%s|%s|%s|%s|%s|%s%s%s\n", i, r.name, r.sub, r.badge, tone_name(r.badge_tone), r.def ? "default" : "", r.tile, i == hc_nav().sel ? "SEL" : "", r.cfgbadge[0] ? "|cfg " : "", r.cfgbadge);
+            o.add("  row %d|%s|%s|%s|%s|%s|%s|%s|%s%s%s\n", i, r.name, r.sub, r.ver, r.badge, tone_name(r.badge_tone), r.def ? "auto" : "", r.tile, i == hc_nav().sel ? "SEL" : "", r.cfgbadge[0] ? "|cfg " : "", r.cfgbadge);
         }
     }
     return o.n;
@@ -1021,12 +1057,12 @@ int dump_edit(char *out, int cap)
     const BootCfg &cfg = hc_cfg();
     HcEditTexts t;
     hc_edit_texts(hc_nav().efirst, &t);
-    o.add("page edit|%s|%s\n", hc_page_title("edit"), hc_foot(HCF_EDIT));
-    o.add("  countdown|%s\n  direct|%s\n  default|%s\n  defcfg|%s\n  pos|%s\n", t.countdown, t.direct, t.def, t.defcfg, t.pos);
+    o.add("page edit|%s|%s\n", hc_page_title("edit"), hc_edit_foot());
+    o.add("  auto|%s\n  menu|%s\n  pos|%s\n", t.autol, t.menu, t.pos);
     for (int i = 0; i < cfg.n; i++) {
         HcEntryRow r;
         if (hc_row_entry(i, false, &r)) {
-            o.add("  row %d|%s|%s|%s|%s|%s|%s%s%s\n", i, r.name, r.sub, r.badge, tone_name(r.badge_tone), r.def ? "default" : "", i == hc_nav().sel ? "SEL" : "", r.cfgbadge[0] ? "|cfg " : "", r.cfgbadge);
+            o.add("  row %d|%s|%s|%s|%s|%s|%s|%s%s%s\n", i, r.name, r.sub, r.ver, r.badge, tone_name(r.badge_tone), r.def ? "auto" : "", i == hc_nav().sel ? "SEL" : "", r.cfgbadge[0] ? "|cfg " : "", r.cfgbadge);
         }
     }
     return o.n;

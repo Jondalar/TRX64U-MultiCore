@@ -43,7 +43,7 @@ enum HcCtx {
     X(NONE, "") \
     X(NAV_MENU, "nav.menu") X(NAV_BROWSE, "nav.browse") X(NAV_EDIT, "nav.edit") X(NAV_NET, "nav.net") X(NAV_SETTINGS, "nav.settings") \
     X(PICTURE_STEP, "picture.step") X(PICTURE_KEEP, "picture.keep") X(PICTURE_REVERT, "picture.revert") X(PM_APPLY, "picture.apply") \
-    X(CURSOR_UP, "cursor.up") X(CURSOR_DOWN, "cursor.down") X(BACK, "back") \
+    X(CURSOR_UP, "cursor.up") X(CURSOR_DOWN, "cursor.down") X(MENU_PAGE_DOWN, "menu.page_down") X(MENU_PAGE_UP, "menu.page_up") X(BACK, "back") \
     X(ENTRY_START, "entry.start") X(ENTRY_RECHECK, "entry.recheck") X(ENTRY_MOVE_UP, "entry.move_up") X(ENTRY_MOVE_DOWN, "entry.move_down") \
     X(ENTRY_DEFAULT, "entry.default") X(ENTRY_REMOVE, "entry.remove") X(ENTRY_RENAME, "entry.rename") X(ENTRY_DEFCFG_PREV, "entry.config_prev") X(ENTRY_DEFCFG_NEXT, "entry.config_next") \
     X(BROWSE_OPEN, "browse.open") X(BROWSE_ENTER, "browse.enter") X(BROWSE_UP, "browse.up") X(BROWSE_PAGE_DOWN, "browse.page_down") X(BROWSE_PAGE_UP, "browse.page_up") \
@@ -99,7 +99,7 @@ enum HcFoot {
     HCF_MENU = 0, HCF_BROWSE,                  // HCF_BROWSE: a boot-menu file (the longest of the browser's)
     HCF_BR_MEDIA, HCF_BR_PLAIN, HCF_BR_FILE, HCF_BR_DIR, HCF_BR_PICK_COPY, HCF_BR_PICK_MOVE, HCF_BR_ASK, HCF_BR_BACKUP, HCF_BR_TXU, HCF_BR_INSPECT, HCF_BR_CFW,
     HCF_EDIT, HCF_NET, HCF_SET, HCF_CM_LIST, HCF_CM_ASK1, HCF_CM_ASK2, HCF_WM, HCF_CM_EMPTY, HCF_PM, HCF_CFG, HCF_BR_ZIP,
-    HCF_MENU_PLAIN, HCF_BROWSE_PLAIN, HCF_CFG_PLAIN,          // T198 D9: the same two without "configs", for a selected row that has none
+    HCF_MENU_PLAIN, HCF_BROWSE_PLAIN, HCF_CFG_PLAIN, HCF_EDIT_PLAIN,          // T198 D9: the same without "configs", for a selected row that has none
     HCF_N
 };
 const char *hc_foot(int foot);                 // generated once, kept
