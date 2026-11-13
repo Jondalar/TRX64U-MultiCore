@@ -149,6 +149,27 @@ PARAS = {
         "BASIC 2 / BASIC 1 / 8032 variants in the same folder), or the generic names `basic.bin`, `edit.bin`, `kernal.bin`, `chargen.bin`.",
         "Optional: the disk drive's DOS and controller ROMs (`dos4040.bin`, `ctl4040.bin`, `dos1001` or `dos8250.bin`, `ctl8250.bin`) and the six SuperPET",
         "`waterloo-*.bin` ROMs. Where to get them: the VICE distribution (%s), folder `data/PET/`." % VICE,
+        "",
+        "**VICE files per model** (in `cores/pet/roms/`, the names are the ones the core looks for; the picture-rate setting chooses the 50 or 60 Hz editor):",
+        "",
+        "| Model | BASIC | Editor 60 Hz | Editor 50 Hz | KERNAL | Characters |",
+        "|---|---|---|---|---|---|",
+        "| 2001 | `basic-1.901439-09-05-02-06.bin` | `edit-1-n.901439-03.bin` | same | `kernal-1.901439-04-07.bin` | `characters-1.901447-08.bin` |",
+        "| 3032 | `basic-2.901465-01-02.bin` | `edit-2-n.901447-24.bin` | same | `kernal-2.901465-03.bin` | `characters-2.901447-10.bin` |",
+        "| 4032 | `basic-4.901465-23-20-21.bin` | `edit-4-40-n-60Hz.901499-01.bin` | `edit-4-40-n-50Hz.901498-01.bin` | `kernal-4.901465-22.bin` | `characters-2.901447-10.bin` |",
+        "| 8032, 8096, SuperPET | `basic-4.901465-23-20-21.bin` | `edit-4-80-b-60Hz.901474-03.bin` | `edit-4-80-b-50Hz.901474-04.bin` (or `edit-4-80-b-50Hz.901474-04_.bin`) | `kernal-4.901465-22.bin` | `characters.901640-01.bin` (or `characters-2.901447-10.bin`) |",
+        "",
+        "**The 4040 drive** (setting Drive = 4040) needs two files in the same folder, both of exactly these sizes (the core refuses any other size):",
+        "",
+        "- `dos4040.bin`, 12,288 bytes (also accepted as `dos4040-901468-14-16.bin`): the drive's DOS ROMs.",
+        "- `ctl4040.bin`, 2,048 bytes: the controller ROM `901466-04.bin` written twice into one file, one copy after the other. The result must be 2,048 bytes.",
+        "",
+        "Join the controller ROM with the command of your system, in the folder that holds `901466-04.bin`, then check the size of `ctl4040.bin`:",
+        "",
+        "```",
+        "macOS, Linux:   cat 901466-04.bin 901466-04.bin > ctl4040.bin",
+        "Windows:        copy /b 901466-04.bin+901466-04.bin ctl4040.bin",
+        "```",
     ],
     "c264": [
         "Needs `kernal.bin` and `basic.bin` (16,384 bytes each, PAL) in `cores/c264/roms/`.",
@@ -259,6 +280,7 @@ MEDIA = {
 }
 
 KNOWN = {
+    "_scpu": "**C64 with SuperCPU (large core, experimental):** *Run Disk* does not work yet (fix pending); *Metal Dust* still flickers while scrolling. A large core replaces the whole FPGA: power off and on to come back.",
     "atari800": "**Atari 800 XL:** a mounted `.atr` boots. Some executables (the trainer demo) show a broken scroller and ignore input.",
     "apple2": "**Apple IIe:** swapping the disk in D1: while a game runs is not tested on the board yet.",
     "pet": "**Commodore PET (large core, experimental):** starts on the board and runs demos (2026-11-11); the models and the cassette are not checked yet. Needs your own PET ROMs. A large core replaces the whole FPGA: power off and on to come back.",
@@ -266,7 +288,7 @@ KNOWN = {
     "nes": "**NES:** the picture does not fill as much of the screen as it could.",
     "zx": "**ZX Spectrum:** 128K shows a picture on the board; **48K stays black** (the fix is being built). Tapes with pulses shorter than 16 T-states (turbo loaders) are refused; there is no tape SAVE.",
     "amiga1200": "**Amiga 1200 (large core):** AmigaVision runs on the board with sound. A large core replaces the whole FPGA: to come back to the boot menu, switch the power off and on.",
-    "c128": "**Commodore 128 (large core):** C128 and C64 mode with picture and sound on the board. A large core replaces the whole FPGA: power off and on to come back.",
+    "c128": "**Commodore 128 (large core):** C128 and C64 mode with picture and sound on the board. A large core replaces the whole FPGA: power off and on to come back. *Busted Boulders* stops after the title screen (the left column is missing).",
     "cpc": "**Amstrad CPC:** never on the board. The picture position (720 x 540 at scale 2) is an estimate; there is no tape SAVE and no snapshot.",
     "neogeo": "**SNK Neo Geo (large core):** never on the board. The machine is held while a sprite or fix word is late from the DDR2 (about 210,000 words in a 320 ms bench run); whether that is visible is open. A large core replaces the whole FPGA: power off and on to come back.",
     "zxnext": "**ZX Spectrum Next:** never on the board; the CPU runs from the DDR2 behind a cache and waits on a miss, so the speed of a program that does not fit the cache is below the real machine's. 128K, +3 and Pentagon timing run 1.5 to 2.7 % fast (frame lock); no Sega 6-button pad, no SD pass-through.",
@@ -395,6 +417,8 @@ def render(a, cors, bit_len, alen, dest):
     if u2as:
         w("    apps/                    applications every core reads (T180 D9), from this bundle; never a core's folder:")
         w("        unzip.u2a            Unzip here / Unzip to folder / Extract one file, on a .zip in the F3 browser")
+        if "miniz.u2a" in u2as:
+            w("        miniz.u2a            the zip library Unzip loads (T197); it has no menu entry, and any application that reads a .zip can use it")
     w("    <name>/                  one folder per core, made by the core at its first start; never part of a release:")
     w("        <name>.cfg           its settings")
     w("        roms/                its ROM files (section 5)")
@@ -413,6 +437,8 @@ def render(a, cors, bit_len, alen, dest):
         w("- **Unzip (all cores):** the installer (section 3) writes `unzip.u2a` to `/cores/apps/unzip.u2a`; after the update in 3a, or by hand, copy it there yourself; every core finds it there, no copy per core folder. A `unzip.u2a`")
         w("  in a core's own `/cores/<name>/apps/` wins over that one. Then ENTER on a `.zip` in the File Browser (F3) offers **Unzip here**, **Unzip to folder**")
         w("  and **Extract one file**.")
+        if "miniz.u2a" in u2as:
+            w("  Unzip needs the zip library `miniz.u2a` in the same folder (`/cores/apps/` or the core's own `apps/`); copy both.")
     w("- **Media** (disks, games, images) can lie anywhere; you browse to them from the core's menu.")
     w("- **Settings:** the cores on the common application (Amiga, Amiga 1200, Atari 800 XL, NES, Apple IIe, ZX Spectrum, Amstrad CPC, ZX Spectrum Next, VIC-20, Commodore 264) keep")
     w("  them in `<name>.cfg` in the core's folder, `/cores/<name>/<name>.cfg`.")
@@ -521,6 +547,8 @@ def render(a, cors, bit_len, alen, dest):
     for c in present:
         if c["id"] in KNOWN:
             w("- " + KNOWN[c["id"]])
+    if any("supercpu" in m["name"].lower() for _, m in cors):    # c64scpu has no CORES line yet (unknown above)
+        w("- " + KNOWN["_scpu"])
     if any(c["id"] == "nes" for c in present):
         w("- The NES reads the C64's own hardware: joystick 1 and 2 give the directions and A, **space** is B")
         w("  (right shift on port 2), **F3** is Select (F7), **F1** is Start (F5). No USB pad yet.")

@@ -64,7 +64,7 @@ files=$(curl -sf -H "Authorization: token $TOKEN" \
     | python3 -c 'import sys, json
 want = [f["name"] for f in json.load(sys.stdin)
         if f["name"].endswith(".cor") or f["name"].startswith("trx64host_update_") or f["name"].endswith("_mono.bit")
-        or f["name"] in ("c64_basic.bit", "manifest.json", "hostapp.app", "coreapp.bin", "unzip.u2a")]
+        or f["name"] in ("c64_basic.bit", "manifest.json", "hostapp.app", "coreapp.bin", "unzip.u2a", "miniz.u2a")]
 print(" ".join(want))') || { echo "package $VER not found" >&2; exit 1; }
 [ -n "$files" ] || { echo "package $VER holds no .cor" >&2; exit 1; }
 for f in $files; do
@@ -149,8 +149,10 @@ TXU="$(ls "$PKG"/trx64host_update_*.txu 2>/dev/null | head -1 || true)"
 
 # T180 D9: Unzip ships with the bundle, one copy for every core (/SD/cores/apps/unzip.u2a, INSTALL.md says so)
 [ -s "$PKG/unzip.u2a" ] || { echo "package $VER has no unzip.u2a" >&2; exit 1; }
+# T197 P5: the zip library Unzip loads rides beside it (the updater copies every .u2a beside the update file into <cores>/apps)
+[ -s "$PKG/miniz.u2a" ] || { echo "package $VER has no miniz.u2a (the zip library unzip.u2a needs)" >&2; exit 1; }
 
-bash "$ROOT/tools/make_release_mc.sh" --u2a "$PKG/unzip.u2a" --txu "$TXU" --id "$VER" --bit "${NULL_FULL:-$PKG/c64_basic.bit}" --app "$APP" \
+bash "$ROOT/tools/make_release_mc.sh" --u2a "$PKG/unzip.u2a" --u2a "$PKG/miniz.u2a" --txu "$TXU" --id "$VER" --bit "${NULL_FULL:-$PKG/c64_basic.bit}" --app "$APP" \
     --bit-commit "$BIT_COMMIT" --app-commit "$APP_COMMIT" --out "$OUT" ${UPDARGS[@]+"${UPDARGS[@]}"} "${CORARGS[@]}"
 
 D="$OUT/trx64mc-$VER"

@@ -63,6 +63,13 @@ Status: PROPOSED 2026-11-12, Alex (board photos of the A1200 core app: F1, F5, F
   "bitstream <-> API to app; .toml == glue between a bitstream and the app; app = generic". Every capability lives in the generic app
   (hotkeys, info line, drive lists, ...); a core only declares in its .toml what it has.
 
+- D16 (Alex 11-12, "Ja", shown the C128 480p ue2emu pictures): every list area's foot reads like the drive page:
+  "UP/DOWN CHOOSE  RETURN DO IT  ESC BACK". Before, Home/Library/F7/F8 showed a bare "RETURN" and "<- BACK". No "F1-F8 AREA":
+  what the left rail shows is not repeated in the foot (Alex 10-21, confirmed 11-12 "Ja bitte").
+
+- D17 (Alex 11-12, "Ja", shown A1200 and C128 Home at 480p): the reset rows read the same on every core, sentence case:
+  "Reset" and "Reload <ROM name>, reset"; only the ROM name ("Kickstart", "ROMs") comes from the core's .toml.
+
 ## §4 Out
 - Anything on F1 beyond D3 until new users' feedback.
 

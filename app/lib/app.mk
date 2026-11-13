@@ -2,6 +2,7 @@
 # without a dynamic linker, linked at 0 and relocated by the loader), for an application written as C files against app/sdk/u2p_app.h with a C++ glue.
 #
 #   APP_NAME = unzip          APP_VERSION = 1.0           APP_RES = transient | resident        APP_MENU = app.toml (optional)
+#   APP_KIND = lib            a library (T197): resident, entry lib_register, no u2p_compat; APP_NEEDS = "base>=3.1" "other>=1.0" (space separated, quoted)
 #   APP_REG = 1               an application with screens: it has lib_register, the operations and state values they bind to
 #   APP_CSRCS = src/unzip.c ...                           APP_CCSRCS = glue.cc                  APP_INC = -Isrc/miniz
 #   include <repo>/app/lib/app.mk
@@ -14,7 +15,8 @@ CC_RV    ?= $(RV_PREFIX)gcc
 CXX_RV   ?= $(RV_PREFIX)g++
 LD_RV    ?= $(RV_PREFIX)ld
 APP_VERSION ?= 1
-APP_RES  ?= transient
+APP_KIND ?= app
+APP_RES  ?= $(if $(filter lib,$(APP_KIND)),resident,transient)
 APP_OUT  ?= $(APP_NAME).u2a
 SDK      := $(REPO)/app/sdk
 CORE_SRC := $(REPO)/coreapp/src
@@ -22,7 +24,7 @@ COMMON   = -march=rv32im -mabi=ilp32 -mno-div -Os -ffreestanding -fPIE -mcmodel=
            -fvisibility=hidden -include $(SDK)/hidden.h -Wall -I$(SDK) -I$(CORE_SRC) $(APP_INC)
 CFLAGS_RV   = $(COMMON) -fno-builtin -fno-asynchronous-unwind-tables
 CXXFLAGS_RV = $(COMMON) -std=gnu++11 -fno-exceptions -fno-rtti -fno-threadsafe-statics -fno-asynchronous-unwind-tables
-OBJS     = $(addprefix obj/,$(APP_CSRCS:.c=.o) $(APP_CCSRCS:.cc=.o) sdk/u2p_compat.o sdk/libc.o)
+OBJS     = $(addprefix obj/,$(APP_CSRCS:.c=.o) $(APP_CCSRCS:.cc=.o) $(if $(filter lib,$(APP_KIND)),,sdk/u2p_compat.o) sdk/libc.o)
 DEPMENU  = $(if $(APP_MENU),$(APP_MENU))
 
 all: $(APP_OUT)
@@ -40,10 +42,10 @@ obj/sdk/%.o: $(SDK)/%.c
 	$(CC_RV) $(CFLAGS_RV) -c $< -o $@
 
 $(APP_NAME).elf: $(OBJS) $(APP_DIR)lib.ld
-	$(LD_RV) -m elf32lriscv --emit-relocs --gc-sections -e app_main $(if $(APP_REG),-u lib_register) -T $(APP_DIR)lib.ld $(OBJS) -o $@
+	$(LD_RV) -m elf32lriscv --emit-relocs --gc-sections -e $(if $(filter lib,$(APP_KIND)),lib_register,app_main) $(if $(APP_REG),-u lib_register) -T $(APP_DIR)lib.ld $(OBJS) -o $@
 
 $(APP_OUT): $(APP_NAME).elf $(DEPMENU)
-	python3 $(REPO)/tools/u2a_pack.py $< -o $@ --kind app --residence $(APP_RES) --name $(APP_NAME) --version $(APP_VERSION) $(if $(APP_MENU),--menu $(APP_MENU))
+	python3 $(REPO)/tools/u2a_pack.py $< -o $@ --kind $(APP_KIND) --residence $(APP_RES) --name $(APP_NAME) --version $(APP_VERSION) $(foreach n,$(APP_NEEDS),--needs '$(n)') $(if $(APP_MENU),--menu $(APP_MENU))
 
 clean:
 	rm -rf obj $(APP_NAME).elf $(APP_OUT)

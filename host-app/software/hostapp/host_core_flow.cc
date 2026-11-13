@@ -12,6 +12,12 @@
 #include <strings.h>
 
 // ---- the job base (host_core_job.h) ----------------------------------------------------------------------------------------------------------------
+bool hc_is_zip_name(const char *name)
+{
+    size_t l = name ? strlen(name) : 0;
+    return l > 4 && !strcasecmp(name + l - 4, ".zip");
+}
+
 namespace {
 HcJob *g_cur_job;
 }

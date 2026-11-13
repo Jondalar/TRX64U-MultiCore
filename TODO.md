@@ -72,10 +72,10 @@ Built and benched; what is left is a step on the board (Alex, 2026-10-28, transl
 | T192.5 | 3 | 📅 | Text UI for both apps: local on HDMI and remote over ws:// | Spec PROPOSED 11-07 (open questions in §6); after the MVP (D20) | [T192.5](docs/specs/T192.5-text-ui.md) |
 | T192.6 | 3 | 📅 | Key/interface bundles (TOML) and safe mode C=+S | Spec PROPOSED 11-07 (open questions in §6); after the MVP (D20) | [T192.6](docs/specs/T192.6-bundles-safe-mode.md) |
 | T193 | 3 | 📅 | Further CI simplification: generated run.yml per push, Gitea shows the children as a graph | Spec PROPOSED 11-08 (idea only) | [T193](docs/specs/T193-further-ci-simplification.md) |
-| T194 | 2 | 📅 | C128 40 columns through the pixel layer: Integer/Fit/Fill as every core (#63) | Built on c128-scale; D12 (40/80, Auto time, hotkey) app built; CI Vivado + board open | [T194](docs/specs/T194-c128-40col-scaling.md) |
+| T194 | 2 | ✅ | C128 40 columns through the pixel layer: Integer/Fit/Fill as every core (#63) | In main since 11-09 (4d7c8b30f), #63 done; D12 Auto switch missed PETSCII Robots title (open) | [T194](docs/specs/T194-c128-40col-scaling.md) |
 | T195 | 2 | 📅 | Board buttons UI_BUTTON[2:0] (header reset as on the U64 Elite) in host and every core | Built locally 11-09 (L/M=menu, R=reset); CI + board open | [T195](docs/specs/T195-board-buttons.md) |
 | T196 | 2 | 🔨 | XInput (Xbox) pads on a USB cable, console cores only (#55) | Built, tests green; S5 board (Alex), S6 tester open | [T196](docs/specs/T196-xinput-pads.md) |
-| T197 | 2 | 📅 | Zip library (miniz) for any app; unzip in host F3 and cores with room | Spec 11-09 (Alex D1) | [T197](docs/specs/T197-zip-everywhere.md) |
+| T197 | 2 | 🔨 | Zip library (miniz) for any app; unzip in host F3 and cores with room | Built, merged main 11-13; open: S5 board | [T197](docs/specs/T197-zip-everywhere.md) |
 | T198 | 2 | 🔨 | Per-core configs: boot menu overlay starts a core with a saved config (#58) | Spec 11-10 (Alex D1); Qs §6 | [T198](docs/specs/T198-per-core-configs.md) |
 | T199 | 2 | 🔨 | VC-20: JiffyDOS setting switches KERNAL and 1541 ROM together (#59) | Spec+build 11-10 (Alex) | [T199](docs/specs/T199-vc20-jiffydos.md) |
 | T200 | 2 | 📅 | Network security: token on every changing route, grant, all cores, monitor, update (review) | Spec 11-10 (Alex), step by step | [T200](docs/specs/T200-network-security.md) |
@@ -91,6 +91,10 @@ Built and benched; what is left is a step on the board (Alex, 2026-10-28, transl
 | T210 | 2 | 🔨 | Core app: splash placed for 480p/720p from the first frame; F8 WiFi real state in every core | Board: splash at 480p, F8 WiFi in a non-C64 core (S3); P3 is T209 | [T210](docs/specs/T210-coreapp-modes-wifi.md) |
 | T211 | 2 | 📅 | Host UI: own key names, F keys as navigation (no PAGEUP=F1 aliasing) | Alex 11-12 | [T211](docs/specs/T211-own-key-names.md) |
 | T212 | 2 | 📅 | Core app areas: F1 quick actions, F5 machine, F7 app settings (host value as default), status to F8 | Alex 11-12 | [T212](docs/specs/T212-core-menu-areas.md) |
+| T213 | 2 | 📅 | Epic: bitstream API (a) - API TOML per core, C modules in the service, child spec per core | Alex 11-12 | [T213](docs/specs/T213-bitstream-api.md) |
+| T214 | 2 | 🔨 | Real datasette in C128, SCPU, VC-20, C16/Plus4 as on the PET | Merged to main (run 871 green); board LOAD per core (S4) | [T214](docs/specs/T214-real-datasette-commodore-cores.md) |
+| T216 | 3 | 🔨 | PET finish: business keyboard per model, SuperPET row only there, 4040 ROM guide | Merged to main; S1 cause, S4 board open | [T216](docs/specs/T216-pet-finish.md) |
+| T217 | 2 | 📅 | SCPU: Mount & Run of a PRG in a disk image reaches the 65816 (page 0 in SCPU SRAM) | Alex 11-12 | [T217](docs/specs/T217-scpu-mount-run-prg.md) |
 | T175 | 3 | 🔨 | Diag core: a timed probe engine plus TOML tests measure the joystick/paddle ports, results to SD | Gateware + core app merged (t175-diag); Vivado run + engine/board steps open | [T175](docs/todo/T175.md) |
 | T176 | 3 | 📅 | Core menus on the screen at once from a saved picture (split out of T146 P5, issue #4) | Deferred (Alex 11-02): split out of T146 P5; not started | [T176](docs/todo/T176.md) |
 | T177 | 3 | 📅 | Recovery boot: a key held at power-on starts a recovery image, even with a black host menu | Spec PROPOSED (Alex 11-02); Decided (Alex 11-02): app, RESTORE+F1, recovery.cor/backup, no flash, LED; build open | [T177](docs/todo/T177.md) |
@@ -111,7 +115,7 @@ Built and benched; what is left is a step on the board (Alex, 2026-10-28, transl
 | T130 | 3 | 📅 | Atari ST core | Planned; candidate MiSTeryNano has no licence file (authors to be asked); spec not written | [T130](docs/todo/T130.md) |
 | T131 | 3 | 📅 | App API description and SDK for outside developers | Planned (Alex 10-26): foreign apps load (T104.3 Q3); API doc and SDK not written | [T131](docs/todo/T131.md) |
 | T132 | 3 | 🔨 | Updater bugs from the 1.1.0 install: title off-centre, SD not taken for the flash backup | Both fixed in apps/ultimate `t135-installer`, proven in ue2emu; board check, submodule pin | [T132](docs/todo/T132.md) |
-| T134 | 3 | ✅ | Commodore PET core | Board start 11-11, demos run; as is (Alex 11-11): no more work, models/tape unchecked | [T134](docs/todo/T134.md) |
+| T134 | 3 | ✅ | Commodore PET core | Board start 11-11, demos run; as is (Alex 11-11); reopened 11-12 for T216 | [T134](docs/todo/T134.md) |
 | T135 | 3 | 🔨 | Direct boot of the default core, menu on a held key | S1-S7 proven in ue2emu; open: S8, S10, S12, B1, B2; board S1/S3/S8/S9/S13/B2 | [T135](docs/todo/T135.md) |
 | T136 | 3 | 🔨 | A1200 in full AGA colour (24 bit to HDMI) | S1-S5 passed (board: frame buffer holds 8-bit colour, WNS +0.380); open: merge to main | [T136](docs/todo/T136.md) |
 | T137 | 3 | 🔨 | Host app: convert .cfw/.ue2 to .cor (built), restore original firmware (R, built), update | Restore passed; D11 look passed on the board (11-02); D10 restart built (T152 D11), board step open; P board step | [T137](docs/todo/T137.md) |

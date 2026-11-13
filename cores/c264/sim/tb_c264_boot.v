@@ -40,7 +40,7 @@ module tb_c264_boot;
         .sys_clk(sys_clk), .sys_rst(sys_rst), .cpu_clk(cpu_clk), .mclk(mclk), .ui_clk(ui_clk), .ui_rst(1'b0),
         .reset_req(reset_req), .halt_req(halt_req), .halted(halted), .running(running),
         .keys(keys), .joy1(5'd0), .joy2(5'd0), .restore(1'b0),
-        .iec_atn_i(1'b1), .iec_clk_i(1'b1), .iec_data_i(1'b1), .iec_atn_o(iec_atn_o), .iec_clk_o(iec_clk_o), .iec_data_o(iec_data_o),
+        .tp_read_pin(1'b1), .tp_sense_pin(1'b1), .iec_atn_i(1'b1), .iec_clk_i(1'b1), .iec_data_i(1'b1), .iec_atn_o(iec_atn_o), .iec_clk_o(iec_clk_o), .iec_data_o(iec_data_o),
         .dma_req_tgl(dma_req_tgl), .dma_addr(dma_addr), .dma_we(dma_we), .dma_wdata(dma_wdata), .dma_rom(dma_rom),
         .dma_done_tgl(dma_done_tgl), .dma_rdata(dma_rdata), .dbg_busy(1'b0),
         .win_port_use(win_use), .win_port_addr(win_addr), .win_port_rom(win_rom), .win_port_we(win_we), .win_port_wdata(win_wd),

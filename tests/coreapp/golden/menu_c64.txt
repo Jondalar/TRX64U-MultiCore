@@ -121,10 +121,10 @@ area F5 C64
   tab 3 I/O
     setting Cartridge preference = Auto | Internal | External | Manual (default Auto, live)
     setting RAM expansion unit = Disabled | Enabled | GeoRAM Mode (default Disabled, live)
-    setting REU size = 128 KB | 256 KB | 512 KB | 1 MB | 2 MB | 4 MB | 8 MB | 16 MB (default 2 MB, live)
-    setting REU preload = Disabled | Enabled (default Disabled, live)
-    setting REU preload image = /usb0/preload.reu (default /usb0/preload.reu, live)
-    setting REU preload offset = 0 KB | 128 KB | 256 KB | 512 KB | 1 MB | 2 MB | 4 MB | 8 MB | 16 MB (default 0 KB, live)
+    setting REU size = 128 KB | 256 KB | 512 KB | 1 MB | 2 MB | 4 MB | 8 MB | 16 MB (default 2 MB, live) [listed while reu.on]
+    setting REU preload = Disabled | Enabled (default Disabled, live) [listed while reu.on]
+    setting REU preload image = /usb0/preload.reu (default /usb0/preload.reu, live) [listed while reu.on]
+    setting REU preload offset = 0 KB | 128 KB | 256 KB | 512 KB | 1 MB | 2 MB | 4 MB | 8 MB | 16 MB (default 0 KB, live) [listed while reu.on]
     setting Ultimate audio at $DF20-$DFFF = Disabled | Enabled (default Disabled, live)
     setting Command interface (UCI) = Disabled | Enabled (default Disabled, live)
     node Cartridge = state in group side from description
@@ -252,10 +252,10 @@ area F6 Settings (shifted)
     node Save = button calls settings.save when settings.unsaved in group bar from description
   tab 5 Network
     setting Use DHCP = Disabled | Enabled (default Enabled, live)
-    setting Static IP = 192.168.2.64 (default 192.168.2.64, live)
-    setting Static netmask = 255.255.255.0 (default 255.255.255.0, live)
-    setting Static gateway = 192.168.2.1 (default 192.168.2.1, live)
-    setting Static DNS = 8.8.8.8 (default 8.8.8.8, live)
+    setting Static IP = 192.168.2.64 (default 192.168.2.64, live) [listed while net.static]
+    setting Static netmask = 255.255.255.0 (default 255.255.255.0, live) [listed while net.static]
+    setting Static gateway = 192.168.2.1 (default 192.168.2.1, live) [listed while net.static]
+    setting Static DNS = 8.8.8.8 (default 8.8.8.8, live) [listed while net.static]
     setting Host name =   (default  , live)
     setting Unique ID = Default (default Default, live)
     setting Network password =   | Not set (default  , live)

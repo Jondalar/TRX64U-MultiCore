@@ -353,6 +353,9 @@ public:
     uint8_t hk_regs_now[11] = {};       // T181: the host's hotkey mask registers as the application wrote them last (hotkey_regs), and how many times
     int hk_writes = 0;
     void hotkey_regs(const uint8_t r[11]) { memcpy(hk_regs_now, r, 11); hk_writes++; }
+    struct MxWr { uint8_t m[8]; uint32_t t; };
+    std::vector<MxWr> mx_log;           // T206: every write of the application's keys in the core's matrix (matrix_keys), with the virtual time
+    void matrix_keys(const uint8_t m[8]) { MxWr w; memcpy(w.m, m, 8); w.t = t; mx_log.push_back(w); }
     uint8_t kb[8] = {};                 // T181: the physical keys the bench holds down (bit = row of the column), and the RESTORE level
     bool kb_restore = false;
     bool keys_read(uint8_t m[8], bool *r) { memcpy(m, kb, 8); *r = kb_restore; return true; }
