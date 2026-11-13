@@ -8,7 +8,7 @@ the host application only. A core has its own network functions.
 | Row | Content |
 |---|---|
 | Ethernet | `link up, <address>` (green), or `no link or no address yet` (amber) |
-| FTP | `on, port 21, no password`, or `waiting for the network` |
+| FTP | `on, port 21, no password`, `on, port 21, password set`, `waiting for the network` or `off` (the switch under F8, 8.2) |
 | Media | The media that the host has mounted, for example `/SD  /Flash  /Usb0`, or `(none)` |
 | REST | `on, port 80, token required` (or `... token required, none granted yet`), `on, port 80, no token`, `waiting for the network`, or `off` |
 
@@ -51,7 +51,7 @@ start.
 | Boot menu | One row per entry with name, path and state. The button `start` starts the entry (for a startable entry). The button `remove` asks first: the page shows the question with `Yes` and `No`, and the entry goes only after `Yes` (60 s without an answer cancel). A field `countdown` and the button `set` set the countdown |
 | Picture | One list (`from the screen` and the HDMI modes that the screen names) and the button `apply`. A change goes back after 8 s unless a key is pressed on the host (8.4.8) |
 | Media | `USB`, `SD` and the media text |
-| Also | A link to `/v1/status` |
+| Also | The text `FTP is open on port 21 for files.` and a link to `/v1/status`. With no entry the Boot menu part reads `empty - nothing starts by itself` |
 
 7.3.3 The page cannot add an entry and cannot make an entry the default entry. It cannot format, copy or update.
 
@@ -112,7 +112,7 @@ open it. The page shows 19 colour fields with their RGB values.
 
 7.5.3 A pattern stays until you press another key of the table. A key repeat does not end the page.
 
-> **NOTE** The key **V** does not show the pattern of vertical lines. **V** steps the HDMI mode in every view (4.4.3), and the
-> host takes the key before the colour test sees it. This is a known defect.
+> **NOTE** The colour page's own text names the key **v** for vertical lines, but the key table of the page has no **V**: **V**
+> opens the Picture page in every view (4.4.3), and the pattern of vertical lines cannot be started. This is a known defect.
 
 > **NOTE** The keys **P**, **x** and **X** are for service. They change nothing that is stored.

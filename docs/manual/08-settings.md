@@ -2,7 +2,7 @@
 
 ## 8.1 General
 
-8.1.1 The Settings page sets direct boot, the autostart, the picture and the flash protection. It opens the pages `Inspect
+8.1.1 The Settings page sets direct boot, the autostart, the picture, the flash protection and the FTP service. It opens the pages `WiFi`, `Inspect
 .cfw/.ue2 for ESP32` and `Cores and ROMs`, and writes the bug report.
 
 8.1.2 On the C64 keyboard, **F8** is **SHIFT** + **F7**.
@@ -15,7 +15,7 @@ The host applies every change at once. The note line shows the result.
 | Key | Action |
 |---|---|
 | **UP**, **DOWN** | Select a row |
-| **LEFT**, **RIGHT**, **RETURN**, **SPACE** | Change the value. On the rows `WiFi`, `Inspect`, `Cores and ROMs` and `Bug report` only **RIGHT**, **RETURN** and **SPACE** act. On `Picture` only **RETURN** acts: it opens the Picture page |
+| **LEFT**, **RIGHT**, **RETURN**, **SPACE** | Change the value. On the rows `WiFi`, `Inspect .cfw/.ue2 for ESP32`, `Cores and ROMs` and `Bug report` only **RIGHT**, **RETURN** and **SPACE** act. On `Picture` only **RETURN** acts: it opens the Picture page |
 | **V** | Open the Picture page (4.4.3) |
 
 ![The Settings page with direct boot on: six rows, the help text of the selected row at the bottom](img/host-settings.png)
@@ -31,10 +31,10 @@ The host applies every change at once. The note line shows the result.
 | `Autostart delay` | `1 s` to `60 s` | `5 s` | 8.3. Shown only with direct boot `off` and autostart `on` |
 | `Picture` | `from the screen: <mode>` or a mode that the screen names; **RETURN** opens the Picture page | `from the screen` | 8.4 |
 | `Protect Flash from updates` | `on`, `off` | `off` | 8.5 |
+| `WiFi` | `open` | none | 8.10 |
+| `FTP service` | the state of the FTP row of the Network page (`on, port 21, no password`, `waiting for the network`, `off`); every change key toggles it. The note reads `FTP service on` or `FTP service off` | on | 7.2 |
 | `Inspect .cfw/.ue2 for ESP32` | `open` | none | 8.6 |
 | `Cores and ROMs` | `open` | none | 8.7 |
-| `FTP service` | the state of the FTP row of the Network page; toggles | on | 7.2 |
-| `WiFi` | `open` | none | 8.10 |
 | `Bug report` | `write to SD/USB`, or the name of the last report file | none | 8.8 |
 
 8.1.6 The host stores the settings of 8.2 and 8.3 in `Flash:/boot.cfg` (8.9). It stores `Picture` (8.4) and `Protect Flash from updates` in its own
@@ -90,13 +90,14 @@ possible modes are, in this order:
 the 60 Hz modes of the screen, without a message. A host that started with a `video=` line in `boot.cfg` keeps the system of that
 line (8.9.5).
 
-8.4.5 If the screen gives no EDID or an EDID with errors, the host lists `576p / 480p`, `1280 x 720` and `1920 x 1080` and
-selects `576p / 480p`. A screen without a CEA block gets the one PC mode that its EDID names, or `1024 x 768` if it names none.
+8.4.5 If the screen gives no EDID or an EDID with errors (wrong header or a block whose checksum is wrong), the host lists `576p / 480p`, `1280 x 720` and `1920 x 1080` and
+selects `576p / 480p`. The same list and choice apply to a good EDID with a CEA block that names none of the six modes. A good EDID
+without a CEA block (a DVI screen) lists the PC modes that its EDID names (`800 x 600`, `1024 x 768`, `1280 x 1024`), or only `1024 x 768` if it names none.
 
 8.4.6 When the stored mode is not in the list of the screen, the host keeps the stored mode, shows `<mode> (not offered, <mode> up)`
 and puts up the best mode of the screen. When a screen that names the stored mode is connected, the host puts it up again.
 
-8.4.7 The host checks the HDMI plug and the EDID about every 500 ms. If the mode that is up is not in the list of a new screen, the host
+8.4.7 The host checks the HDMI plug and the EDID about every 500 ms, and only while the plug is in and no `Keep this picture?` question is open. If the mode that is up is not in the list of a new screen, the host
 puts up the stored mode if the screen names it, else the best mode. It does this once for each EDID. The note reads `The screen
 changed: Picture <mode>`.
 
@@ -128,21 +129,21 @@ included.
 8.5.6 The host sets the protection only on a Winbond W25Q128JV (JEDEC ID `EF 40 18`). On another chip the host does not touch the
 status registers, and the firmware starts without protection.
 
-8.5.7 The help text of the row shows the state of the status registers (`Flash chip <id>: status registers SR1 <xx>, SR2 <xx> now.`).
+8.5.7 The help text of the row shows the state of the status registers (`Flash chip <id>: status registers SR1 <xx>, SR2 <xx> now.`) or, on another chip, `Flash chip <id>: not a W25Q128JV, its status registers are not touched.` The note after a change reads `Flash protection on: a large core cannot write the host or its app` or `Flash protection off: a large core can write the whole flash`. The reasons in the refusal of 8.5.5 are `status register protect bit would not clear: lock-down not attempted` and `the flash status registers do not read back as set`.
 
 > **NOTE** The setting never sets the one-time-programmable lock of the chip. The host clears the bit for it in every write.
 
 ## 8.6 Inspect .cfw/.ue2 for ESP32
 
-8.6.1 The function reads a firmware file and shows the ESP32 image set in it and its version. It writes nothing.
+8.6.1 The function reads a firmware file, shows the ESP32 image set in it and its version, and can write that image set into the ESP32 of the board (8.6.5). The inspection writes nothing.
 
 8.6.2 To inspect a file:
 
 1. Select the row `Inspect .cfw/.ue2 for ESP32`. Press **RETURN**. The File Browser opens in the pick mode. The note reads
    `Pick a .cfw or .ue2 and press RETURN. ESC goes back to the settings.`
 2. Select the file. **RIGHT** opens a folder, **LEFT** goes up.
-3. Press **RETURN** on the file. A file of another type shows `That is not a .cfw or .ue2 file`.
-4. Read the result. Press any key to return to the File Browser. Press **ESC** to go back to the Settings page.
+3. Press **RETURN** on the file. A file of another type shows `That is not a .cfw or .ue2 file`. While the host reads the file the page `Looking into <file>` shows `Searching the file for an ESP32 image set`.
+4. Read the result page `ESP32 in <file>`. For a file without a whole image set any key returns to the File Browser. Press **ESC** there to go back to the Settings page.
 
 ![The result of the inspection of a firmware file without an ESP32 part](img/host-inspect-result.png)
 
@@ -152,13 +153,22 @@ status registers, and the firmware starts without protection.
 
 | Line | Meaning |
 |---|---|
-| `ESP32 firmware <version>` and `Bootloader, partition table and the application <name>; its SHA-256 matches.` | A complete image set |
-| `An ESP32 application is in this file, but not a whole image set.` | The bootloader or the partition table is missing |
+| `ESP32 firmware <version>` and `Bootloader, partition table and the application <name>; its SHA-256 matches.` | A complete image set. The hint reads `U writes it into the ESP32    any other key returns` |
+| `An ESP32 application is in this file, but not a whole image set.` and `ESP32 firmware <version>; the bootloader or the partition table is missing.` | The bootloader or the partition table is missing |
 | `The ESP32 application in this file is damaged (SHA-256 differs).` | The file is damaged |
 | `This file has no ESP32 part.` | The file has no ESP32 image |
+| `Cancelled while reading the file.` | You stopped the read |
+| `The file cannot be read.` | The file could not be opened or read |
 
-8.6.4 The page ends with `The ESP32 on this board: its version is not known to the host (no WiFi link).` and `Nothing was written.
-Flashing the ESP32 is not part of the host yet.`
+8.6.4 Every result page ends with the line `Nothing was written.`
+
+8.6.5 On the page of a complete image set, **U** writes the image set into the ESP32. Any other key returns. The write:
+
+1. The host asks `Update the ESP32?`: `Writes ESP32 firmware <version> from <file>.`, `Bootloader, partition table and application. The board's flash is not touched.`, `WiFi and the control module are off while it runs, up to a minute.` and `Do not switch the power off.` **Y** writes. Any other key cancels (`ESP32 not updated. Nothing was written.`).
+2. The page `Updating the ESP32` shows the stage (`Starting the ESP32's ROM loader`, `Connecting to the ROM loader`, `Setting up the ESP32's flash`, `Writing the bootloader`, `Writing the partition table`, `Writing the application`, `Starting the new firmware and asking its version`), the blocks of 1 KiB written and a bar. No key stops it.
+3. The result page: `ESP32 updated` (the module reports the version of the file: `The module reports V<major>.<minor>, the version in the file.`), `ESP32 written` (the module did not report its version yet, or the file has no version text), `Nothing was written` (the write could not start: `The ESP32's flash is as it was.`) or `The ESP32 may not start` / `The ESP32 reports another version` (the write began and failed or the version differs: `The ESP32's flash holds a part of the firmware. Writing it again repairs that:`). After such a failure **RETURN** writes again and **ESC** or **LEFT** leaves. The chip's ROM loader cannot be damaged by a failed write. A successful write ends with `The board's flash was not touched.`
+
+8.6.6 The note after the write reads `ESP32 updated.` or `ESP32 written. It did not report its version yet.`
 
 ## 8.7 Cores and ROMs
 
@@ -225,9 +235,9 @@ them only when a core folder holds a copy with the same bytes (12.2.3).
 | `autostart_s=<n>` | The delay that the countdown takes when the autostart is switched on again. Range 1 to 60 | 5 |
 | `direct=<0\|1>` | Direct boot. A line that is missing means 1 | 1 |
 | `default=<n>` | Index of the default entry, from 0. -1 is none. An index above the last entry counts as -1 | -1 |
-| `video=<system>,<hdmi>` | Read once (8.9.5). System 0 PAL 50 Hz, 1 NTSC 60 Hz. HDMI 0 to 5 as in 8.4.2. -1 is not chosen. A value out of range counts as -1 | `-1,-1` |
+| `video=<system>,<hdmi>` | Read once (8.9.5). System 0 PAL 50 Hz, 1 NTSC 60 Hz (0 to 5 are read). HDMI 0 to 5 as in 8.4.2. -1 is not chosen. A value out of range counts as -1 | `-1,-1` |
 | `lib_attempt=<n>` | A counter of the host. The host writes the line only when n is above 0. Do not edit | 0 |
-| `core=<path>\|<name>\|<sha256>\|<size>\|<date>\|<header>` | One entry. The last three fields are optional. The file stores the SHA-256 of the first part for a `.cor` and nothing for a firmware | |
+| `core=<path>\|<name>\|<sha256>\|<size>\|<date>\|<header>\|<config>` | One entry. The last four fields are optional. The file stores the SHA-256 of the first part for a `.cor` and nothing for a firmware. `<header>` is 8 hex digits. `<config>` is the auto config of the entry (4.11, 6.1.3); it is read only when it is a valid config name (4.11.1) | |
 
 8.9.3 The menu holds up to 16 `core=` lines. A name holds up to 47 characters and no `|`.
 
