@@ -87,7 +87,7 @@ Built and benched; what is left is a step on the board (Alex, 2026-10-28, transl
 | T206 | 2 | 🔨 | Core app: "Run Disk" beside every "Mount Disk" (SCPU, C128, Amiga, PET built; S3 board) | Alex D1 11-11 | [T206](docs/specs/T206-run-disk-everywhere.md) |
 | T207 | 2 | 🔨 | Core app: hotkeys learned by pressing the key, not stepped through with LEFT/RIGHT | Built; S1-S4 proofs in §5; S5 board (Alex) | [T207](docs/specs/T207-hotkey-learn.md) |
 | T208 | 2 | 📅 | SCPU: Metal Dust picture faults while scrolling, menu speed (mirror queue / IRQ timing) | Benches 11-11: mirror queue clean, IRQ once/frame; S5 next-line code prefetch built, sims run; board S4 open | [T208](docs/specs/T208-scpu-metal-dust.md) |
-| T209 | 2 | 📅 | Host + core app: one line per row (no sublines), closer rows, scroll before the edge, paging keys in the foot | Spec 11-11 (Alex D1-D4); in this test release (D5) | [T209](docs/specs/T209-one-line-rows.md) |
+| T209 | 2 | 📅 | Host + core app: one line per row (no sublines), closer rows, scroll before the edge, paging keys in the foot | Built D1-D15, riscv ok; tests via pipeline; open: board S8, UX nits | [T209](docs/specs/T209-one-line-rows.md) |
 | T210 | 2 | 🔨 | Core app: splash placed for 480p/720p from the first frame; F8 WiFi real state in every core | Board: splash at 480p, F8 WiFi in a non-C64 core (S3); P3 is T209 | [T210](docs/specs/T210-coreapp-modes-wifi.md) |
 | T211 | 2 | 📅 | Host UI: own key names, F keys as navigation (no PAGEUP=F1 aliasing) | Alex 11-12 | [T211](docs/specs/T211-own-key-names.md) |
 | T212 | 2 | 📅 | Core app areas: F1 quick actions, F5 machine, F7 app settings (host value as default), status to F8 | Alex 11-12 | [T212](docs/specs/T212-core-menu-areas.md) |
