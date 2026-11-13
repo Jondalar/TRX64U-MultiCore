@@ -3,10 +3,10 @@
 # Shell variables; the bitstream is a file of the TRX64-Ultimate CI generic package trx64-ultimate/<PKG_VERSION>.
 ID=trx64u
 NAME="TRX64U"
-VERSION=7a9c5bb4
-PKG_VERSION=t66-7a9c5bb4
+VERSION=8f1dc184
+PKG_VERSION=main-8f1dc184
 BIT_FILE=c64_basic.bit
-BIT_SHA256=5c472985c3fa6baccbc402b2e04e914fe8729703aff57df728bfa472b320e82c
+BIT_SHA256=1180391a81a4cf6ff73d68b648031a960f346b26ca31ab936bfa540201014f45
 ICON=tools/core_logos/trx64/icon.rgb565
 DESC=coreapp/cores/trx64u/menu.toml
 OPS=tests/coreapp/golden/ops_trx64u.txt
