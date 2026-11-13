@@ -89,6 +89,7 @@ Scenario: S5 area and timing
 - **D3 (Alex, 2026-11-13: "Hm ... Ja", translated; after the board S1 of §5 2026-11-13 showed the core at 49.90 Hz, not 50.0801 Hz):** option O3 -
   the output follows the core's frame instead of the fixed exact lock of D1. It is built in the Amiga cores' own copies of the host files
   (`cores/amiga/mono/host/`, `cores/amiga1200/mono/host/`, both large/mono cores); the frozen host (`host/`) is not touched.
+- **D4 (Alex, 2026-11-13, "Ja" to: "the three Amiga modes are recomputed for 313 lines (49.92 Hz) before Vivado runs, so the follow only swings around 0-1 line", translated):** the Amiga rows 0..2 (576p50, 720p50, 1080p50) of both Amiga copies' `hdmi_modes.vh` target the non-interlaced PAL Amiga frame, 227 x 313 CCK (`cores/amiga/rtl/src/minimig-aga/agnus_beamcounter.v` `long_frame`), instead of 227 x 312. Answers question (a) of §5 2026-11-13 (later).
 
 ## §4 Out
 
