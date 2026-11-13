@@ -181,6 +181,20 @@ Report line (Alex's board, A1200 with the stall readout, Pinball Dreams scrollin
 - **Results:** `python3 tools/hdmi_modes.py check` -> `PASS hdmi_modes amiga: rows 0..2 run the Amiga frame 49.920128 Hz within 1 ppm`; `selftest` -> `host selftest: 27 of 27 mutations caught`; `PASS hdmi_timing follow (no repeat, no skip at 49.60 .. 50.08 Hz, limits kept, control shows the beat)` + `PASS hdmi_timing (9 modes exact, align on 9 rows, 7 refused)` (modes 0..2: 867x625 / 1978x749 / 2638x1125, 49.920 Hz) and `PASS modepath` (rows 0/1/2 send the bytes above) for both cores. No Vivado, no board.
 - **Open for Alex:** (a) accept residual <= 1 ppm (beat 8-17 h, which the follow loop absorbs) instead of an exact N/M, or look for an exact one with other rasters (e.g. wider porch changes, 576p at htot 1135 is the only exact N/M found) - and the ranking criterion; (b) the follow limits -4 / +16 (a 312-line machine at 1080p now needs -3.6); (c) 720p -0.394 % against CEA.
 
+**2026-11-13 (D5) - follow lower limit -8 lines (limits -8 / +16); benched on both cores.**
+- **Built:** `EMIN = -6'sd8` in both `hdmi_timing.v` (one text, still equal); `host/sim/hdmi_timing/run.sh` accepts follow_e -8 .. 16 and has 50.20 Hz back in the pass list. `tools/hdmi_modes.py amiga-check` reads `EMIN`/`EMAX` from the file (no change): it needs back porch - 2 >= 8 and front porch >= 3 per row; the smallest back porch is 720p50 with 20 (576p 39, 1080p 36), so every follow row can take the full 8 skipped lines. Widths: `fe` 6 bit signed (-8 fits), `skip`/`pad` 5 bit. `tb_follow.v` has no limit constant (unchanged).
+- **Bench** (builder, `trx64-sim-env:4`, `HOSTDIR=cores/amiga1200/mono/host` and `cores/amiga/mono/host`, identical lines):
+  `fc=49.900 mode=2 follow=1 repeats=0 skips=0 fe=[-1..2] fe_end=1 len_bad=0/838`
+  `fc=49.920 mode=2 follow=1 repeats=0 skips=0 fe=[-1..1] fe_end=0 len_bad=0/838` (pure 313)
+  `fc=50.080 mode=2 follow=1 repeats=0 skips=0 fe=[-5..-2] fe_end=-3 len_bad=0/838` (pure 312)
+  `fc=50.200 mode=2 follow=1 repeats=0 skips=0 fe=[-8..-5] fe_end=-6 len_bad=0/838` (reaches the -8 limit: no margin left at 1080p)
+  `fc=49.600 mode=2 follow=1 repeats=0 skips=0 fe=[6..9] fe_end=7 len_bad=0/838`
+  `mix 14 % 312-line frames: fc=49.920 mode=2 ... fe=[-3..1] fe_end=0` / `mix 50 % ...: mode=0 ... fe=[-2..1] fe_end=-1`, all repeats=0 skips=0 len_bad=0
+  `fc=49.900 mode=0 fe=[-1..1]`, `mode=1 fe=[-1..1]`, repeats=0 skips=0
+  `control (follow off): fc=49.600 mode=2 repeats=43 skips=38`, `fc=50.200 mode=2 repeats=27 skips=31` (the beat stays)
+  verdicts: `PASS hdmi_timing follow (no repeat, no skip at 49.60 .. 50.20 Hz, limits kept, control shows the beat)`, `PASS hdmi_timing (9 modes exact, align on 9 rows, 7 refused)`, `PASS modepath` for both cores; `python3 tools/hdmi_modes.py check` PASS, `selftest` 27 of 27. Note: the 60 Hz row 8 line (not followed, fe=[0..0]) shows repeats=2 skips=2 at a 49.90 Hz core; run.sh only checks fe stays 0 there.
+- **Cost:** none measured; a constant changed (EMIN -4 -> -8), widths unchanged, so LUT/FF should be unchanged (yosys not rerun). Vivado: not run, no board.
+
 ## §6 Options (for Alex)
 
 (Superseded: D1 chose B; it was built as an exact lock in the Amiga copies, see §5 2026-11-10. The options below are the analysis of 2026-11-06.)

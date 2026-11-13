@@ -20,7 +20,7 @@
 // T188 D3 (the Amiga copies only, FOLLOW = 1): on the 50 Hz rows (m 0..2) the frame length follows the core. core_tgl is a toggle of the core's
 // frame-complete event (sys_clk domain, crossed here). At every frame start the phase (lines since the last core event, `age`) is compared with the
 // set point S = 21/32 of the frame (13 ms of 20: after the application's flip latency, before the next core frame) and the frame gets
-// E = -(age - S) / 4 lines (rounded, limits EMIN .. EMAX): E > 0 lines repeated at the last front porch line before the sync pulse, E < 0 lines taken
+// E = -(age - S) / 4 lines (rounded, limits EMIN -8 .. EMAX +16, T188 D5): E > 0 lines repeated at the last front porch line before the sync pulse, E < 0 lines taken
 // out of the back porch, right after the sync pulse. A phase that runs away (output faster than the core) shortens the next frame, a lagging one lengthens it. No core event for three frames, a 60 Hz
 // row or FOLLOW = 0: E = 0, the frame of the table. cy values of the active area, cy = 0 and cy = 1 are never repeated or skipped.
 module hdmi_timing #(
@@ -114,7 +114,7 @@ module hdmi_timing #(
     end
 
     // ---- T188 D3: the frame follows the core (see the header)
-    localparam signed [5:0] EMIN = -6'sd4, EMAX = 6'sd16;
+    localparam signed [5:0] EMIN = -6'sd8, EMAX = 6'sd16;
     reg  [15:0] s_a = 16'd0;                 // 21 x vtot, two stages after the row (m is stable long before running)
     reg  [10:0] s_set = 11'd0;               // the set point (lines)
     always @(posedge clk) begin

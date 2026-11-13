@@ -44,11 +44,11 @@ PYEOF
   fl() {   # <vvp> <plusargs...>: one run, the result line
     v=$1; shift; timeout 1500 nice -n 15 vvp -n "$out/$v.vvp" "$@" 2>&1 | grep "^fc=" || echo "FAIL follow: no result line ($v $*)"
   }
-  # follow on: no repeat, no skip, follow_e inside -4 .. 16, every frame as long as the table says plus follow_e
-  for fc in 49.90 49.920128 50.080128 49.60; do   # 50.20 Hz is outside the follow range since D4 (centre 49.92 Hz, lower limit -4 lines = 50.08 Hz at 1080p): not a pass case
+  # follow on: no repeat, no skip, follow_e inside -8 .. 16, every frame as long as the table says plus follow_e
+  for fc in 49.90 49.920128 50.080128 50.20 49.60; do   # T188 D5: lower limit -8 lines covers 50.20 Hz (about -6 lines at 1080p)
     r=$(fl follow1 +fc=$fc +mode=2 +frames=700); echo "follow| $r"
     echo "$r" | grep -q " repeats=0 skips=0 .*len_bad=0/" || { echo "FAIL follow: $r"; exit 1; }
-    echo "$r" | sed 's/.*fe=\[\(-*[0-9]*\)\.\.\([0-9-]*\)\].*/\1 \2/' | awk '{ exit !($1 >= -4 && $2 <= 16) }' || { echo "FAIL follow: follow_e outside -4 .. 16: $r"; exit 1; }
+    echo "$r" | sed 's/.*fe=\[\(-*[0-9]*\)\.\.\([0-9-]*\)\].*/\1 \2/' | awk '{ exit !($1 >= -8 && $2 <= 16) }' || { echo "FAIL follow: follow_e outside -8 .. 16: $r"; exit 1; }
   done
   # T188 board 2026-11-13 / D4: the table's rate is the 313-line frame; the Amiga frame is 313 lines (49.92 Hz) with 312-line frames mixed in (measured 49.943 Hz = about 14 % short frames)
   r=$(fl follow1 +fc=49.920 +mix=0.14 +mode=2 +frames=700); echo "follow| mix 14 % 312-line frames: $r"
@@ -67,6 +67,6 @@ PYEOF
   echo "$r" | grep -q " repeats=0 " && { echo "FAIL follow control: no repeat without the follow: $r"; exit 1; }
   r=$(fl follow0 +fc=50.20 +mode=2 +frames=700); echo "control| $r"
   echo "$r" | grep -q " skips=0 " && { echo "FAIL follow control: no skip without the follow: $r"; exit 1; }
-  echo "PASS hdmi_timing follow (no repeat, no skip at 49.60 .. 50.08 Hz, limits kept, control shows the beat)"
+  echo "PASS hdmi_timing follow (no repeat, no skip at 49.60 .. 50.20 Hz, limits kept, control shows the beat)"
 fi
 echo "PASS hdmi_timing (9 modes exact, align on 9 rows, 7 refused)"
