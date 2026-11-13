@@ -31,6 +31,8 @@ prog[9] = jp(JMP, 2046)
 prog[2046] = ldi(0xBEEF, 6)
 prog[2047] = jp(JRQM, 2047)
 vals = [d(5), d(1023), d(0), 0xBEEF]
+if len(sys.argv) < 2:
+    sys.exit(__doc__ or "usage: snes_dsp_fw.py --expect | OUT")
 if sys.argv[1] == "--expect":
     print(" ".join("%02x %02x" % (v & 255, v >> 8) for v in vals))
     sys.exit(0)
