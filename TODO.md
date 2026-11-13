@@ -75,7 +75,7 @@ Built and benched; what is left is a step on the board (Alex, 2026-10-28, transl
 | T194 | 2 | ✅ | C128 40 columns through the pixel layer: Integer/Fit/Fill as every core (#63) | In main since 11-09 (4d7c8b30f), #63 done; D12 Auto switch missed PETSCII Robots title (open) | [T194](docs/specs/T194-c128-40col-scaling.md) |
 | T195 | 2 | 📅 | Board buttons UI_BUTTON[2:0] (header reset as on the U64 Elite) in host and every core | Built locally 11-09 (L/M=menu, R=reset); CI + board open | [T195](docs/specs/T195-board-buttons.md) |
 | T196 | 2 | 🔨 | XInput (Xbox) pads on a USB cable, console cores only (#55) | Built, tests green; S5 board (Alex), S6 tester open | [T196](docs/specs/T196-xinput-pads.md) |
-| T197 | 2 | 🔨 | Zip library (miniz) for any app; unzip in host F3 and cores with room | Built, merged main 11-13; open: S5 board, 2 questions | [T197](docs/specs/T197-zip-everywhere.md) |
+| T197 | 2 | 🔨 | Zip library (miniz) for any app; unzip in host F3 and cores with room | Built, merged main 11-13; open: S5 board, D8 eviction | [T197](docs/specs/T197-zip-everywhere.md) |
 | T198 | 2 | 🔨 | Per-core configs: boot menu overlay starts a core with a saved config (#58) | Spec 11-10 (Alex D1); Qs §6 | [T198](docs/specs/T198-per-core-configs.md) |
 | T199 | 2 | 🔨 | VC-20: JiffyDOS setting switches KERNAL and 1541 ROM together (#59) | Spec+build 11-10 (Alex) | [T199](docs/specs/T199-vc20-jiffydos.md) |
 | T200 | 2 | 📅 | Network security: token on every changing route, grant, all cores, monitor, update (review) | Spec 11-10 (Alex), step by step | [T200](docs/specs/T200-network-security.md) |
