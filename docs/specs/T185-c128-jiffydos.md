@@ -1,6 +1,6 @@
 # T185 — The C128 core starts with the standard ROMs or with JiffyDOS, chosen in its settings
 
-**Status:** BUILT in the code and the Mac tests (2026-11-06), D1-D4 (D4: files selected, never searched); RISC-V build, kit-file layout and S6 (board) open.
+**Status:** BUILT in the code and the Mac tests (2026-11-06), D1-D4 (D4: files selected, never searched); RISC-V build, kit-file layout and S6 (board) open. Status check 2026-11-13: BUILT and merged (b99192658); board 2026-11-11 works, faster; J.3 timing not measured; kit-file layout open.
 **Repo:** TRX64U-MultiCore — core app only (`coreapp/cores/c128.cc`, shared drive-ROM logic with `coreapp/cores/c64scpu.cc`); no
 gateware change expected (the image goes through the existing ROM window and cache flush, `c128_regs.h` `C128_ROM_*`).
 **Number:** T185.

@@ -1,6 +1,6 @@
 # T172 — Any branch can get a board installer on demand, named so that its origin is visible
 
-**Status:** PROPOSED (2026-11-01).
+**Status:** PROPOSED (2026-11-01). Status check 2026-11-13: BUILT: D1-D6 (trigger, VERSION, version stamp) and S5 bundle check (98598b5a1, 11-07), merged 6ca31918f; S2-S4 proof not recorded.
 **Repo:** TRX64U-MultiCore — CI (`.gitea/workflows/`, `ci/`), the installer (`.ue2`/`.cfw`/`.txu`), the version string the host app shows.
 **Number:** T172.
 **Origin:** Alex, 2026-11-01, after run 1122 (branch `t164`) built everything but gave no installer for the board test: "Maybe a 'create

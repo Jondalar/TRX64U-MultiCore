@@ -1,6 +1,6 @@
 # T160 — every core has a master volume, set in the menu with SHIFT+ / SHIFT-, applied in the host
 
-**Status:** ACCEPTED (2026-10-29), asked by Alex.
+**Status:** ACCEPTED (2026-10-29), asked by Alex. Status check 2026-11-13: built and merged: A1200 trial (board S3 pass 10-31), host gain T164 WP11; board S3 on another core open.
 **Repo:** TRX64U-MultiCore — host gateware (a gain on the core's audio before HDMI and I2S), the generic core application (setting,
 keys), the host application (its own menu, if wanted). Trial first in the A1200's own files (§3 D2).
 **Number:** T160.

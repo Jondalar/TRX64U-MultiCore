@@ -1,6 +1,6 @@
 # T188 — The Amiga cores can show a PAL frame every output frame at 50 Hz (options for an optional frame lock)
 
-**Status:** IN PROGRESS (2026-11-10, Alex gave the go): D1/D2 built as data in the two Amiga core copies; D3 (O3, output follows the core, 2026-11-13) built and benched, D4 rows recomputed for 313 lines and benched, no Vivado run yet; S1/S2/S4 wait for the board.
+**Status:** IN PROGRESS (2026-11-10, Alex gave the go): D1/D2 built as data in the two Amiga core copies; D3 (O3, output follows the core, 2026-11-13) built and benched, D4 rows recomputed for 313 lines and benched, no Vivado run yet; S1/S2/S4 wait for the board. Status check 2026-11-13: BUILT and merged 2026-11-13 (eba7f582f; run 1796 green per TODO row); board S1/S2/S4 open (S4 with the reporter of #48).
 **Repo:** TRX64U-MultiCore — the Amiga cores (`cores/amiga`, `cores/amiga1200`), the host mode table (`host/hdmi_modes.vh`, `tools/hdmi_modes.py`), the core app (`coreapp/cores/amiga*.cc`), the manual.
 **Number:** T188 (registry: `TODO.md`).
 **Origin:** GitHub issue #48 (tester, Pinball Dreams hitch at 1080p); Alex, 2026-11-06: "analyse what is possible for proposal 2" (translated). Proposal 1 of the issue is a manual note, proposal 2 an optional frame lock like the ZX Next's.
