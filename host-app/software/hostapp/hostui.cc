@@ -10,6 +10,8 @@
 #include "host_core_flow_esp.h"
 #include "host_core_flow_fileops.h"
 #include "host_core_flow_wifi.h"
+#include "host_core_flow_zip.h"
+#include "hostzip_board.h"
 #include "host_core_job.h"
 #include "host_core_nav.h"
 #include "host_core_cm.h"
@@ -682,7 +684,7 @@ static int nav_shown = -1;                      // the navigation entry that is 
 static Row mrow[MROWS_MAX], erow[MROWS_MAX];
 static lv_obj_t *m_hint, *m_sub, *m_pos, *m_note, *m_cdbox;
 static lv_obj_t *e_cd, *e_dir, *e_def, *e_dcfg, *e_note, *e_pos;
-static lv_obj_t *b_left, *b_path, *b_empty, *b_note, *b_right;
+static lv_obj_t *b_left, *b_path, *b_empty, *b_note, *b_right, *b_sub;
 static lv_obj_t *b_hl[4];                       // the selection mark of the list (4 strips, see marks_build)
 static lv_obj_t *b_mark[BROWS_MAX], *b_name[BROWS_MAX], *b_size[BROWS_MAX];
 static lv_obj_t *r_title, *r_key[7], *r_val[7], *r_msg, *r_err;
@@ -976,12 +978,13 @@ static void cd_update(void)
 #define foot_br_txu hc_foot(HCF_BR_TXU)
 #define foot_br_inspect hc_foot(HCF_BR_INSPECT)
 #define foot_br_cfw hc_foot(HCF_BR_CFW)
+#define foot_br_zip hc_foot(HCF_BR_ZIP)
 #define foot_cm_list hc_foot(HCF_CM_LIST)
 #define foot_cm_ask1 hc_foot(HCF_CM_ASK1)
 #define foot_cm_ask2 hc_foot(HCF_CM_ASK2)
 #define foot_wm hc_foot(HCF_WM)
 #define foot_pm hc_foot(HCF_PM)
-static const int foot_all[] = { HCF_MENU, HCF_BROWSE, HCF_EDIT, HCF_NET, HCF_SET, HCF_BR_TXU, HCF_BR_INSPECT, HCF_BR_CFW, HCF_BR_BACKUP, HCF_BR_MEDIA, HCF_BR_PLAIN, HCF_BR_FILE,
+static const int foot_all[] = { HCF_MENU, HCF_BROWSE, HCF_EDIT, HCF_NET, HCF_SET, HCF_BR_TXU, HCF_BR_ZIP, HCF_BR_INSPECT, HCF_BR_CFW, HCF_BR_BACKUP, HCF_BR_MEDIA, HCF_BR_PLAIN, HCF_BR_FILE,
                                 HCF_BR_DIR, HCF_BR_PICK_COPY, HCF_BR_PICK_MOVE, HCF_BR_ASK, HCF_CM_LIST, HCF_CM_EMPTY, HCF_CM_ASK1, HCF_CM_ASK2, HCF_WM };
 
 static lv_obj_t *view_box(int v)
@@ -1097,7 +1100,7 @@ static void build_browse(void)
 {
     lv_obj_t *p = view_box(V_BROWSE);
     txt(p, CX0, COMPACT ? 8 : 14, page_title("browse"), F_TITLE, C_INK);
-    sub1(p, "Media and files. A adds to the menu, C copy, M move, DEL delete, F format a medium.", "A adds to the menu, C copy, M move, DEL delete, F format.");
+    b_sub = sub1(p, "Media and files. A adds to the menu, C copy, M move, DEL delete, F format a medium.", "A adds to the menu, C copy, M move, DEL delete, F format.");
     // the list on the left, the file's panel on the right; the compact layout gives the panel less (a third) and the list the rest
     int rw = COMPACT ? (CW - 16) / 2 : CW / 2 - 8;
     int lw = COMPACT ? CW - 16 - rw : CW / 2 - 8;
@@ -1209,9 +1212,31 @@ static void browse_foot(void)
     }
 }
 
+// The key line under the title; with a .zip selected it names Z too, when the longer sentence still fits the column whole (T197).
+static void browse_sub_update(void)
+{
+    static const char *const base_full = "Media and files. A adds to the menu, C copy, M move, DEL delete, F format a medium.";
+    static const char *const zip_full = "Media and files. A adds to the menu, C copy, M move, DEL delete, F format, Z unzip.";
+    static const char *const base_compact = "A adds to the menu, C copy, M move, DEL delete, F format.";
+    static const char *const zip_compact = "A adds to the menu, C copy, M move, DEL delete, F format, Z unzip.";
+    HcBrowseRow sel;
+    bool zip = hc_browse_row(nv.bsel, &sel) && sel.mark[0] != '>' && hc_is_zip_name(sel.name) && !hc_browse_at_media();
+    const char *t = COMPACT ? base_compact : base_full;
+    if (zip) {
+        const char *z = COMPACT ? zip_compact : zip_full;
+        lv_point_t sz;
+        lv_text_get_size(&sz, z, F_SMALL, 0, 0, LV_COORD_MAX, LV_TEXT_FLAG_NONE);
+        if (sz.x <= CW) {
+            t = z;
+        }
+    }
+    set_txt(b_sub, t);
+}
+
 static void update_browse(void)
 {
     char t[200];
+    browse_sub_update();
     hc_browse_title(t, sizeof(t));
     set_txt(b_path, t);
     listwin_fix(nv.bsel, nv.bn, BROWS, &bfirst);          // T209 D3: scrolls while 2 rows are still hidden ahead of the selection
@@ -2980,7 +3005,7 @@ static const HcEspEnv esp_env = { &flow_env, ese_yes_key, 0 };
 // ue_flow starts a job and returns; the loop steps it (sj_pump) instead of reading keys, so the UI task is never inside a flow: a flow waits where it asks and the loop
 // goes round. While a job runs nothing else of the UI runs (no countdown, no key starts a core: fmt_active), as when the flows were one modal call each; what the person
 // sees and presses is the same. sj_finish is what each flow's function did after the call.
-enum { SJ_RESTORE = 1, SJ_UPDATE, SJ_CONVERT, SJ_INSPECT, SJ_FORMAT, SJ_RENAME, SJ_WIFI };
+enum { SJ_RESTORE = 1, SJ_UPDATE, SJ_CONVERT, SJ_INSPECT, SJ_FORMAT, SJ_RENAME, SJ_WIFI, SJ_UNZIP };
 static struct {
     HcJob *job;
     FlowScope *scope;
@@ -3030,6 +3055,13 @@ static void sj_finish(void)
     case SJ_INSPECT:
         fm_close();
         fmt_active = false;
+        break;
+    case SJ_UNZIP:
+        fmt_active = false;
+        if (ok) {
+            set_note("Unzipped", HCT_OK);
+        }
+        browse_load();                                     // the folder holds what was unpacked
         break;
     case SJ_RENAME:
     case SJ_WIFI:
@@ -3106,6 +3138,12 @@ static void sj_start(int kind, const char *arg, int index = 0)
         fmt_active = true;
         hc_ui_changed();
         sj.job = hc_inspect_job(esp_env, sj.arg);
+        break;
+    case SJ_UNZIP:
+        sj.scope = new FlowScope("unzip", base_of(sj.arg), true);
+        fmt_active = true;
+        hc_ui_changed();
+        sj.job = hc_zip_job(*hostzip_env(&flow_env), sj.arg);
         break;
     case SJ_RENAME:
         if (rn_root) {                                              // the panel exists (a build with no pixel layer has none)
@@ -3324,6 +3362,7 @@ static void apply_updates(void)
                 browse_mark();
                 browse_right_update();
                 browse_foot();
+                browse_sub_update();
             }
         }
     }
@@ -3817,6 +3856,7 @@ static void ue_flow(void *, int kind, const char *arg, int index)
     case HUF_UPDATE: sj_start(SJ_UPDATE, arg); break;
     case HUF_FORMAT: sj_start(SJ_FORMAT, arg); break;
     case HUF_INSPECT: sj_start(SJ_INSPECT, arg); break;
+    case HUF_UNZIP: sj_start(SJ_UNZIP, arg); break;
     }
 }
 static void ue_colors(void *, int what)
@@ -4429,6 +4469,8 @@ void hostui_test_start_panel_full(void)
     start_screen_update(true);
     lv_refr_now(NULL);
 }
+
+const char *hostui_test_browse_sub(void) { return lv_label_get_text(b_sub); }
 
 int hostui_test_browse_right(char *out, int max)
 {

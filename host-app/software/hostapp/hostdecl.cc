@@ -59,6 +59,7 @@ const HAction ACTIONS[] = {
     KEYS("browse.convert", "Convert a firmware", HVW_BROWSE, "file", HAF_ROW | HAF_FLOW, 0, HMODE_NORMAL, "a .cfw / .ue2 file"),
     KEYS("browse.restore", "Restore a firmware", HVW_BROWSE, "file", HAF_ROW | HAF_FLOW, 0, HMODE_NORMAL, "a .cfw file or a backup .cor; asks before any write"),
     KEYS("browse.update", "Install an update", HVW_BROWSE, "file", HAF_ROW | HAF_FLOW, 0, HMODE_NORMAL, "a .txu file; asks before any write"),
+    KEYS("browse.unzip", "Unzip", HVW_BROWSE, "file", HAF_ROW | HAF_FLOW, 0, HMODE_NORMAL, "a .zip file; asks into a folder, here or one file"),
     KEYS("browse.format", "Format the medium", HVW_BROWSE, "file", HAF_ROW | HAF_FLOW, 0, HMODE_NORMAL, "at the media level; its pages ask for the medium's name"),
     KEYS("browse.pick_cancel", "Cancel the pick", HVW_BROWSE, 0, 0, 0, -1, "copy / move target pick, firmware inspection pick"),
     ACT("browse.pick_here", "Use this folder", HA_FIELD, HVW_BROWSE, 0, "pick.here", 1, HAF_FLOW, 0, HMODE_PICK, "the folder the browser shows is the target of the copy or move"),
@@ -135,7 +136,7 @@ const HPage PAGES[] = {
 const char *const ROW_ENTRY[] = { "entry.start", "config.list", "entry.recheck", 0 };
 const char *const ROW_EDIT[] = { "entry.move_up", "entry.move_down", "entry.default", "entry.config_prev", "entry.config_next", "entry.rename", "entry.remove", 0 };
 const char *const ROW_FILE[] = { "browse.open", "browse.add", "browse.start", "browse.copy", "browse.move", "browse.delete", "browse.convert", "browse.restore",
-                                 "browse.update", "browse.format", 0 };
+                                 "browse.update", "browse.unzip", "browse.format", 0 };
 
 const HostDecl DECL = {
     PAGES, (int)(sizeof(PAGES) / sizeof(PAGES[0])), ITEMS, (int)(sizeof(ITEMS) / sizeof(ITEMS[0])), ACTIONS, (int)(sizeof(ACTIONS) / sizeof(ACTIONS[0])),

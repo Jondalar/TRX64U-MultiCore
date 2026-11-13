@@ -220,6 +220,13 @@ typedef struct SvcNet {
     int (*peer)(int h, char *buf, int len);
 } SvcNet;
 
+// The call tables libraries export (T197 P1, base 3.1): find() hands back the table a loaded library put in its record (LibRecord::exports), when a library
+// of that name is loaded at that version or newer; `size` is how many bytes of table the library has. The layout of a table is the library's header.
+typedef struct SvcLib {
+    uint32_t size;
+    const void *(*find)(const char *name, uint32_t min_version, uint32_t *table_size);
+} SvcLib;
+
 #ifdef __cplusplus
 }
 #endif
@@ -240,6 +247,7 @@ typedef struct LibApi {
     const SvcTrx *trx;
     const SvcNet *net;
     const SvcC64 *c64;
+    const SvcLib *lib;
 } LibApi;
 #endif
 
