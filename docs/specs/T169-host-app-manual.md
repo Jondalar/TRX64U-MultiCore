@@ -1,6 +1,6 @@
 # T169 — The user manual describes the host application as it is today, menu by menu, with emulator screenshots
 
-**Status:** DECIDED (2026-10-31, Alex).
+**Status:** DECIDED (2026-10-31, Alex). Status check 2026-11-13: BUILT and merged 2026-10-31 (d98c1fac2), kept current by later commits; §5 open points (11 items) and S2/S3 review record not seen.
 **Repo:** TRX64U-MultiCore — `docs/manual/`, `docs/img/`.
 **Number:** T169 (TODO table).
 **Origin:** Alex, 2026-10-31: "look at the manual in TRX64-Ultimate, we need something like it for the host app too. NOT for

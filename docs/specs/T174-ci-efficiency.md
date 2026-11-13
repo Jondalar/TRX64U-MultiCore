@@ -1,6 +1,6 @@
 # T174 — The CI spends its hours on what changed: bitstream-input keys, one test cache, early red, and the NAS runner doing the cheap jobs
 
-**Status:** PROPOSED (2026-11-01).
+**Status:** PROPOSED (2026-11-01). Status check 2026-11-13: BUILT and merged: D1-D5 (baf37fb2f 11-08; T192 controls out 11-09); §2 proof rows not checked.
 **Repo:** TRX64U-MultiCore — CI only (`.gitea/workflows/`, `ci/`, the key helpers in `ci/lib.sh`, `host/layers.txt`, the runner configs on the builder and the NAS). No gateware, no app code.
 **Number:** T174 (registry: the table in `TODO.md`).
 **Origin:** Alex, 2026-11-01, after runs 1133/1134 rebuilt the host for a change that did not touch the bitstream: "write a spec how the CI can become more efficient ... important to me: include the NAS runner too." (translated)

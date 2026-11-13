@@ -1,6 +1,6 @@
 # T180 — Media housekeeping in every core: a mount replaces what is mounted, mounts can persist, the library keeps up
 
-**Status:** DECIDED (2026-11-04, Alex; D1-D7, all questions answered), D1 + D4 built on t180-d4-writeback and t180-d4-drives (§5, every engine), D2 + D5 on t180-persist (window and sector media) and t180-persist-all (every engine, §5), the rest not built.
+**Status:** DECIDED (2026-11-04, Alex; D1-D7, all questions answered), D1 + D4 built on t180-d4-writeback and t180-d4-drives (§5, every engine), D2 + D5 on t180-persist (window and sector media) and t180-persist-all (every engine, §5), the rest not built. Status check 2026-11-13: BUILT and merged: D1-D10 (commits to 2026-11-10 on main); open: media-set rows, +/- hint, names >127, board test. The header's 'rest not built' is outdated.
 **Repo:** TRX64U-MultiCore — the core app (`coreapp/src/`: media slots, settings, library), every core's descriptor, the host File Browser
 for P5.
 **Number:** T180.

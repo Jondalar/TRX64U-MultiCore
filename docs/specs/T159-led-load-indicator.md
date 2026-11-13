@@ -1,6 +1,6 @@
 # T159 — case LED 1 as a floppy LED (D2; D1 was a slow blinker), switchable in the menu, tried in the A1200 first
 
-**Status:** ACCEPTED (2026-10-29), asked by Alex; D2 (2026-10-30) replaced the blinker.
+**Status:** ACCEPTED (2026-10-29), asked by Alex; D2 (2026-10-30) replaced the blinker. Status check 2026-11-13: built and merged (ecc69ebfb, 34cff5f46); board 11-04 pass A500, Atari, Apple II, CPC, C128; C264 and VC-20 not seen.
 **Repo:** TRX64U-MultiCore — the generic core application (`coreapp/src`): a setting that writes the case LED selector once; since D2 also the A1200's own
 gateware that drives the source (no host change). D1 was application-only. The host already wires case LED 1 to `case_leds` (`host/top.v:1541-1549`), selected by
 `U64_CASELED_SELECT` (`host-app/software/system/u64.h:80`; the core app writes it already, `coreapp/src/u64cfg.cc:568`).

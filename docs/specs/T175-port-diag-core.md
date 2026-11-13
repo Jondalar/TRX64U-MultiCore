@@ -1,6 +1,6 @@
 # T175 — A diag core measures the joystick/paddle ports from TOML test files and writes the result to the SD card
 
-**Status:** SPECIFIED (all §6 questions answered 2026-11-02); was PROPOSED (2026-11-02).
+**Status:** SPECIFIED (all §6 questions answered 2026-11-02); was PROPOSED (2026-11-02). Status check 2026-11-13: BUILT and merged (dd8dbb966); diag v2 with testers 11-04 (#30); S4-S8 open (wave 2).
 **Repo:** TRX64U-MultiCore — a LARGE core `cores/diag/` (own flat bitstream, own top in `cores/diag/mono/`, host copy per T164), its core app descriptor in `coreapp/cores/portdiag.cc` (the host's `coreapp/src/diag.cc` is taken), test files in `cores/diag/sd/tests/*.toml`.
 **Number:** T175 (TODO.md table).
 **Origin:** Alex, 2026-11-02, after GitHub issue 22 (a tester: second/third fire button and the Amiga CD32 pad in the A1200): "Could one check the ports programmatically? A kind of diag core? 'Plug in a paddle', 'plug in a CD32 pad', and then the program measures things and writes out a file? That would then be usable for development later." Then: "a large-core measuring part would be good. Must the measurement be in the core or could one put the measurements in toml for the app to load?" Then, on the split below: "Spec that. The UI must then load measurements from the file system (.toml) and save [results]. WiFi, FTP etc. on in this core."
