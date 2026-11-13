@@ -92,6 +92,7 @@ Built and benched; what is left is a step on the board (Alex, 2026-10-28, transl
 | T211 | 2 | 📅 | Host UI: own key names, F keys as navigation (no PAGEUP=F1 aliasing) | Alex 11-12 | [T211](docs/specs/T211-own-key-names.md) |
 | T212 | 2 | 📅 | Core app areas: F1 quick actions, F5 machine, F7 app settings (host value as default), status to F8 | Alex 11-12 | [T212](docs/specs/T212-core-menu-areas.md) |
 | T213 | 2 | 📅 | Epic: bitstream API (a) - API TOML per core, C modules in the service, child spec per core | Alex 11-12 | [T213](docs/specs/T213-bitstream-api.md) |
+| T214 | 2 | 🔨 | Real datasette in C128, SCPU, VC-20, C16/Plus4 as on the PET | Merged to main (run 871 green); board LOAD per core (S4) | [T214](docs/specs/T214-real-datasette-commodore-cores.md) |
 | T216 | 3 | 🔨 | PET finish: business keyboard per model, SuperPET row only there, 4040 ROM guide | Merged to main; S1 cause, S4 board open | [T216](docs/specs/T216-pet-finish.md) |
 | T217 | 2 | 📅 | SCPU: Mount & Run of a PRG in a disk image reaches the 65816 (page 0 in SCPU SRAM) | Alex 11-12 | [T217](docs/specs/T217-scpu-mount-run-prg.md) |
 | T175 | 3 | 🔨 | Diag core: a timed probe engine plus TOML tests measure the joystick/paddle ports, results to SD | Gateware + core app merged (t175-diag); Vivado run + engine/board steps open | [T175](docs/todo/T175.md) |
