@@ -2,7 +2,7 @@
 
 ## 7.1 Network page
 
-7.1.1 The Network page shows the state of the Ethernet link and the services of the host application. The services run in
+7.1.1 The Network page shows the state of the Ethernet link, the services of the host application and (second box) the WiFi: `State`, `Connected to`, `IP address`, `MAC` (the address and the module). The WiFi is set under F8 (8.10). The note line reads `The WiFi is set under F8 (Settings, WiFi).` The services run in
 the host application only. A core has its own network functions.
 
 | Row | Content |
@@ -10,7 +10,7 @@ the host application only. A core has its own network functions.
 | Ethernet | `link up, <address>` (green), or `no link or no address yet` (amber) |
 | FTP | `on, port 21, no password`, or `waiting for the network` |
 | Media | The media that the host has mounted, for example `/SD  /Flash  /Usb0`, or `(none)` |
-| REST | `on, port 80, token required` (or `... token required, none granted yet`), `waiting for the network`, or `off` |
+| REST | `on, port 80, token required` (or `... token required, none granted yet`), `on, port 80, no token`, `waiting for the network`, or `off` |
 
 ![The Network page: Ethernet link and address, FTP, the media and the REST line](img/host-network.png)
 
@@ -21,7 +21,7 @@ the host application only. A core has its own network functions.
 | Key | Action |
 |---|---|
 | **C** | Open the colour test (7.5) |
-| **V** | Next HDMI mode (4.4.3) |
+| **V** | Open the Picture page (4.4.3) |
 
 7.1.3 The address shows on this page and in the header chip.
 
@@ -47,7 +47,8 @@ start.
 | Part | Content |
 |---|---|
 | Header | Build of the host application, host key, address |
-| Boot menu | One row per entry with name, path and state. The button `start` starts the entry (for a startable entry). The button `remove` removes the entry. A field `countdown` and the button `set` set the countdown |
+| Question | A question that the page raised (remove), with `Yes` and `No` |
+| Boot menu | One row per entry with name, path and state. The button `start` starts the entry (for a startable entry). The button `remove` asks first: the page shows the question with `Yes` and `No`, and the entry goes only after `Yes` (60 s without an answer cancel). A field `countdown` and the button `set` set the countdown |
 | Picture | One list (`from the screen` and the HDMI modes that the screen names) and the button `apply`. A change goes back after 8 s unless a key is pressed on the host (8.4.8) |
 | Media | `USB`, `SD` and the media text |
 | Also | A link to `/v1/status` |
@@ -70,8 +71,10 @@ menu is idle. During a format, a copy, a package, a restore or an update, the ho
 | `/v1/status` | GET | none | The state as JSON: app, host key, network, address, picture (the mode that is up, the stored default, the list of the modes the screen names), media, countdown, default, note, and the menu with name, path, state, startable |
 | `/v1/report` | GET | none | The text of the bug report (10.4) |
 | `/v1/video` | POST | `hdmi` -1 to 5 | Set the picture. -1 is `from the screen`. A mode that the screen does not name is refused. A change goes back after 8 s unless a key is pressed on the host (8.4.8); the answer says so |
-| `/v1/boot` | POST | `index` | Start the entry |
-| `/v1/menu/remove` | POST | `index` | Remove the entry |
+| `/v1/boot` | POST | `index`, optional `config` | Start the entry, with the named config (4.11) |
+| `/v1/menu/remove` | POST | `index` | Ask to remove the entry; the answer is the page with the question |
+| `/v1/answer` | POST | `q`, `choice` (`yes` or `no`) | Answer the question that the page raised |
+| `/v1/ui/...`, `/v1/ui/ws` | | token | The UI service (state, intents, WebSocket). A token is granted once by `POST /v1/ui/grant` and kept in `Flash:/trx/ui.token` |
 | `/v1/default` | POST | `index` | Make the entry the default entry |
 | `/v1/countdown` | POST | `seconds` 0 to 60 | Set the countdown. 0 switches autostart off |
 
@@ -79,7 +82,7 @@ menu is idle. During a format, a copy, a package, a restore or an update, the ho
 
 | Code | Meaning |
 |---|---|
-| 200 | The page, with the note `accepted - the menu applies it in a moment` |
+| 200 | The page, with the note `accepted - the menu applies it in a moment` (`202` for the routes that raise a question) |
 | 400 | A field is missing or out of range (`{"error":400}`) |
 | 409 | `/v1/boot`: the entry is in the menu but cannot be started (`{"error":409}`) |
 | 404 | Unknown route |

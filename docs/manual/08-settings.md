@@ -15,8 +15,8 @@ The host applies every change at once. The note line shows the result.
 | Key | Action |
 |---|---|
 | **UP**, **DOWN** | Select a row |
-| **LEFT**, **RIGHT**, **RETURN**, **SPACE** | Change the value. On the rows `Inspect`, `Cores and ROMs` and `Bug report` only **RIGHT**, **RETURN** and **SPACE** act |
-| **V** | Next HDMI mode that the screen names (4.4.3) |
+| **LEFT**, **RIGHT**, **RETURN**, **SPACE** | Change the value. On the rows `WiFi`, `Inspect`, `Cores and ROMs` and `Bug report` only **RIGHT**, **RETURN** and **SPACE** act. On `Picture` only **RETURN** acts: it opens the Picture page |
+| **V** | Open the Picture page (4.4.3) |
 
 ![The Settings page with direct boot on: six rows, the help text of the selected row at the bottom](img/host-settings.png)
 
@@ -29,10 +29,12 @@ The host applies every change at once. The note line shows the result.
 | `Direct boot` | `on`, `off` | `on` | 8.2 |
 | `Autostart from menu` | `on`, `off` | `on` | 8.3. Shown only with direct boot `off` |
 | `Autostart delay` | `1 s` to `60 s` | `5 s` | 8.3. Shown only with direct boot `off` and autostart `on` |
-| `Picture` | `from the screen` and the modes that the screen names | `from the screen` | 8.4 |
-| `Protect Flash from updates` | `on`, `off` | `on` | 8.5 |
+| `Picture` | `from the screen: <mode>` or a mode that the screen names; **RETURN** opens the Picture page | `from the screen` | 8.4 |
+| `Protect Flash from updates` | `on`, `off` | `off` | 8.5 |
 | `Inspect .cfw/.ue2 for ESP32` | `open` | none | 8.6 |
 | `Cores and ROMs` | `open` | none | 8.7 |
+| `FTP service` | the state of the FTP row of the Network page; toggles | on | 7.2 |
+| `WiFi` | `open` | none | 8.10 |
 | `Bug report` | `write to SD/USB`, or the name of the last report file | none | 8.8 |
 
 8.1.6 The host stores the settings of 8.2 and 8.3 in `Flash:/boot.cfg` (8.9). It stores `Picture` (8.4) and `Protect Flash from updates` in its own
@@ -49,7 +51,7 @@ joystick port 1 during the start to get the menu. The rules of the decision are 
 
 8.2.2 With direct boot `off`, the menu comes up first. The autostart (8.3) decides whether the menu starts the default core.
 
-8.2.3 The note reads `Direct boot on: the default starts at power-on` or `Direct boot off: the menu comes up first`.
+8.2.3 The note reads `Direct boot on: the auto core starts at power-on` or `Direct boot off: the menu comes up first`.
 
 8.2.4 A core can ask for the menu with `Return to host menu`. The menu then shows, whatever the setting is.
 
@@ -70,7 +72,7 @@ switch the countdown off, set `Autostart from menu` to `off`.
 `[Video]`, items `Mode` and `System`) and hands it to the core it starts. The note reads `Picture: <mode> (saved)`.
 
 8.4.2 The row lists only the modes that the screen names in its EDID (the screen's own list of the modes it takes). A mode that the screen
-does not name is neither listed nor applied: **LEFT**, **RIGHT** and **V** skip it, and the web page and the REST route refuse it. The
+does not name is neither listed nor applied: the Picture page does not list it, and the web page and the REST route refuse it. The
 possible modes are, in this order:
 
 | Mode | Name on the page |
@@ -82,9 +84,7 @@ possible modes are, in this order:
 | 4 | `1024 x 768` |
 | 5 | `1280 x 1024` |
 
-8.4.3 **RIGHT** steps through `from the screen` and then the listed modes; **LEFT** steps the other way. `from the screen` is the state
-of a new host. The host then selects the best mode of the screen: `1920 x 1080`, else `1280 x 720`, else `576p / 480p`, else a PC mode
-(`1024 x 768` first). The page shows the mode that is up after the colon: `from the screen: 1920 x 1080`.
+8.4.3 **RETURN** on the row `Picture` (or **V**) opens the page `Settings > Picture`. The first row is `Auto (<mode> from the screen)`: the host selects the best mode of the screen: `1920 x 1080`, else `1280 x 720`, else `576p / 480p`, else a PC mode (`1024 x 768` first). The other rows are the modes that the screen names, each with its refresh rate (`50.1 Hz`) and the tags `now` (the mode that is chosen) and `native`. The line under the title reads `Your screen offers <n> modes. Nothing changes until you pick one.` **UP**, **DOWN** select and apply nothing. **RETURN** uses the mode under the cursor and asks as in 8.4.8. **LEFT** or **ESC** closes the page. The row `Picture` shows the mode, or `from the screen: <mode>`.
 
 8.4.4 There is no choice of 50 Hz or 60 Hz. The host uses 50 Hz modes (PAL). Only when the screen names no 50 Hz mode does the host use
 the 60 Hz modes of the screen, without a message. A host that started with a `video=` line in `boot.cfg` keeps the system of that
@@ -100,19 +100,17 @@ and puts up the best mode of the screen. When a screen that names the stored mod
 puts up the stored mode if the screen names it, else the best mode. It does this once for each EDID. The note reads `The screen
 changed: Picture <mode>`.
 
-8.4.8 A change from **LEFT**, **RIGHT**, **V** or the web page is not final at once. The note reads `Picture: <mode>. Press any key to
-keep it (8 s), else it goes back.` Any key keeps the mode and stores it; the key does nothing else. **V** during the question steps on
-to the next mode. If no key is pressed for 8 s, the host goes back to the last mode that was kept, and stores nothing. The question
+8.4.8 A change from the Picture page or the web page is not final at once. A box `Keep this picture?` shows the mode, `In <n> s <mode> comes back.` and `RETURN keeps it      LEFT or ESC goes back now`. Any key but **LEFT** and **ESC** keeps the mode and stores it; the key does nothing else. **LEFT** or **ESC** goes back at once. If no key is pressed for 8 s, the host goes back to the last mode that was kept, and stores nothing. The question
 exists only on a host that drives the mode itself; on an older host the host stores the change at once.
 
 > **CAUTION** A core starts in the stored mode, or in the best mode of the screen when the choice is `from the screen`. If the screen cannot take the mode, the
-> core's picture stays black: return to the host menu (3.7) or switch the power off and on, and select another mode with **V**. A mode that
+> core's picture stays black: return to the host menu (3.7) or switch the power off and on, and select another mode with **V** (the page opens at once). A mode that
 > you change in the menu of a core (`Picture`) is asked for 8 s as in 8.4.8 (11.1.8).
 
 ## 8.5 Protect Flash from updates
 
 8.5.1 The setting protects the first 4 MiB of the flash (`0x000000` to `0x3FFFFF`: the host and the host application) against
-writes while a full firmware runs. The default is `on`.
+writes while a full firmware runs. The default is `off` (the row exists only in a build with the flash lock).
 
 8.5.2 With `on`, the host sets the write protection of the flash chip before the handover to a full firmware (a `.cfw`, a
 `.ue2`, or a large `.cor`). The lock holds until the power is switched off. A full firmware cannot change the host or the host
@@ -237,3 +235,7 @@ them only when a core folder holds a copy with the same bytes (12.2.3).
 
 8.9.5 The host reads the line `video=` once. When it finds a choice there (not `-1,-1`) and `host.cfg` holds no mode (`Mode=From the screen`),
 it copies the system and the mode to `[Video]` in `Flash:/trx/host.cfg` and writes `video=-1,-1` to `boot.cfg`. After that the line has no effect.
+
+## 8.10 WiFi
+
+8.10.1 **RETURN** on the row `WiFi` opens the WiFi page. It shows `State`, `Connected to`, `IP address` and the rows `WiFi` (radio), `Use DHCP`, `Static IP`, `Static Netmask`, `Static Gateway` and `Static DNS` (the static rows count with DHCP off). Keys: **UP**, **DOWN** select, **LEFT**, **RIGHT**, **RETURN**, **SPACE** change a row, **S** list of access points, **M** enter an access point, **L** connect to the last access point, **D** disconnect, **F** **F** forget the stored access points, **ESC** back.

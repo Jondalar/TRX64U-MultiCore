@@ -50,8 +50,7 @@ result.` The footer reads `No key stops this    do not switch the power off`.
 W25Q128 flash chip. This board has <chip>.` or, for an update, `The update is written for a Winbond W25Q128 flash chip. This board
 has <chip>.`
 
-9.2.6 A power cycle is needed after a successful write. The host does not restart by itself. The board does not start a new
-firmware before the power is switched off and on.
+9.2.6 A new firmware starts with the next power-up. After a successful write the result page counts down `Restarting in <n> s to start <what>.` (5 s; any key restarts at once) and asks the ESP32 control module to power-cycle the board. If that fails, the page reads `The restart did not happen: <reason>.` and `Switch the power off and on to start <what>.`
 
 > **WARNING** If the write or the read-back fails after the first erase, the result page shows `The flash may not boot` and
 > `Do not switch the power off.` Press **RETURN** to write the file again from the copy in memory. **ESC** or **LEFT** leaves the page. The board
@@ -76,7 +75,7 @@ file says which.
 5. Read question 1. Press **Y**.
 6. Read question 2. Press **RETURN** after 1 s and within 10 s.
 7. Wait for the result page `Update written`. Press any key.
-8. Switch the power off and on.
+8. The board restarts after the countdown. If the page says the restart did not happen, switch the power off and on.
 
 ![A .txu selected in the File Browser: the panel says what it installs and that U installs it](img/host-browser-txu.png)
 
