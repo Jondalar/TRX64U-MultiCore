@@ -100,8 +100,6 @@ private:
 
     // the application that is open
     int handle_;                          // the loader's slot, -1: none
-    int held_[U2A3_NEEDS_MAX];            // the libraries counted as used by this application (T197 D8), given back when it ends
-    int nheld_;
     char name_[U2A3_NAME_MAX];
     char action_[32], file_[FS_PATH_MAX];
     char reply_[240];

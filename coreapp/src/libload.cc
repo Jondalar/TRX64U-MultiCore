@@ -362,6 +362,9 @@ int LibLoader::fail(int rc, char *err, int errlen, const char *fmt, ...)
 
 void LibLoader::discard(int si)
 {
+    for (int i = 0; i < slot_[si].ndep; i++) {
+        unuse(slot_[si].dep[i]);                        // what this image needed is free for eviction once nothing else uses it
+    }
     delete slot_[si].info.menu;
     delete[] slot_[si].info.menu_bytes;
     free_account(si);
@@ -537,6 +540,7 @@ int LibLoader::load(LibSource *src, int *handle, char *err, int errlen)
 
     // D11: what it needs, by name and both versions
     char vw[16], vh[16];
+    int deps[U2A3_NEEDS_MAX], ndeps = 0;                // the loaded images this one needs (T197 D8: counted as used while this one is loaded)
     for (int i = 0; i < h.needs_count; i++) {
         U2a3Need nd;
         if (!src->read(h.needs_offset + i * U2A3_NEED_SIZE, &nd, sizeof(nd)) || !field_ok(nd.name, false)) {
@@ -559,6 +563,7 @@ int LibLoader::load(LibSource *src, int *handle, char *err, int errlen)
             version_text(vh, dep->info.version);
             return fail(LIB_NEEDS, err, errlen, "\"%s\" needs \"%s\" %s, %s is loaded.", name, nd.name, vw, vh);
         }
+        deps[ndeps++] = (int)(dep - slot_);
     }
 
     // Q10: a library whose capability the core lacks is refused, with a message, before any memory is spent
@@ -646,6 +651,11 @@ int LibLoader::load(LibSource *src, int *handle, char *err, int errlen)
     s.info.image_size = isize;
     s.info.main_addr = h.main_offset == U2A3_NONE ? 0 : base + h.main_offset;
     s.raw = raw;
+    for (int i = 0; i < ndeps; i++) {
+        s.dep[i] = deps[i];
+        use(deps[i]);
+    }
+    s.ndep = ndeps;
 
     if (h.register_offset != U2A3_NONE) {
         // D10.2: the library registers what it contributes under its own name; a failure takes back everything it got in

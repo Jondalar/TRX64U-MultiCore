@@ -298,7 +298,7 @@ int main(int argc, char **argv)
     }
 
     // ---- S6 / S7 (T197 D8): memory short at the press. A model heap gives the loader window; the same AppIndex functions the board calls (prepare_open,
-    // hold, release_holds) run over the real loader.
+    // use counts are the loader's) run over the real loader.
     {
         FakeFs fs;
         fs.put("/sd/cores/apps/unzip.u2a", u1);
@@ -340,15 +340,12 @@ int main(int argc, char **argv)
                 CHECK(ld.handle_of("otherlib") < 0);
                 CHECK(ld.handle_of("miniz") >= 0);
                 printf("S6a: otherlib evicted, miniz loaded, room %u\n", (unsigned)ld.room());
-                // (d) the count: hold at open, back to 0 at the end
-                int held[U2A3_NEEDS_MAX];
-                int nh = idx.hold(&ld, *uz, held, U2A3_NEEDS_MAX);
-                CHECK_EQ(nh, 1);
-                CHECK_EQ(ld.uses(ld.handle_of("miniz")), 1);
-                int h2[U2A3_NEEDS_MAX];
-                int nh2 = idx.hold(&ld, *idx.find("ziplist"), h2, U2A3_NEEDS_MAX);   // a second application on the same library
-                CHECK_EQ(ld.uses(ld.handle_of("miniz")), 2);
-                AppIndex::release_holds(&ld, h2, nh2);
+                // (d) the count: taken by the loader when unzip loads, back to 0 when it is released
+                CoreFile *uf = fs.open(uz->path, false);
+                CoreFileSource usrc(uf);
+                int uh = -1;
+                CHECK_EQ(ld.load(&usrc, &uh, err, sizeof(err)), LIB_OK);
+                fs.close(uf);
                 CHECK_EQ(ld.uses(ld.handle_of("miniz")), 1);
                 // (b) in use: never evicted, even when plain needs the room
                 CHECK_EQ(ld.unload(ld.handle_of("miniz"), err, sizeof(err)), LIB_STATE);
@@ -365,7 +362,7 @@ int main(int argc, char **argv)
                     CHECK_EQ(ld2.count(), 0);
                     printf("S6c: %s\n", err);
                 }
-                AppIndex::release_holds(&ld, held, nh);
+                CHECK_EQ(ld.release(uh, err, sizeof(err)), LIB_OK);
                 CHECK_EQ(ld.uses(ld.handle_of("miniz")), 0);                       // (d)
             }
             // (b) refusal while in use: a heap that holds unzip + miniz and nothing else; plain would need more than is left, miniz is held by unzip
@@ -373,8 +370,7 @@ int main(int argc, char **argv)
                 HeapHost hh(&testcore::desc, mzf->image_bytes + pl->image_bytes + APP_WORK_BYTES - 1);
                 LibLoader ld(&hh, reg);
                 CHECK(idx.load_needs(&fs, &ld, *uz, err, sizeof(err)));            // miniz is in; unzip itself is not loaded in this model
-                int held[U2A3_NEEDS_MAX];
-                int nh = idx.hold(&ld, *uz, held, U2A3_NEEDS_MAX);
+                ld.use(ld.handle_of("miniz"));                                     // a loaded application counts it (the loader does that at load)
                 uint32_t room_before = ld.room();
                 CHECK(pl->image_bytes + APP_WORK_BYTES > room_before);             // plain does not fit beside the held miniz
                 CHECK(!idx.prepare_open(&fs, &ld, *pl, err, sizeof(err)));
@@ -382,10 +378,96 @@ int main(int argc, char **argv)
                 CHECK(ld.handle_of("miniz") >= 0);                                 // in use: kept
                 CHECK_EQ(ld.room(), room_before);
                 // the application ended: miniz has count 0, the same open now clears it away and plain loads
-                AppIndex::release_holds(&ld, held, nh);
+                ld.unuse(ld.handle_of("miniz"));
                 CHECK(idx.prepare_open(&fs, &ld, *pl, err, sizeof(err)));
                 CHECK(ld.handle_of("miniz") < 0);
                 printf("S6b/S7: in use kept, freed after the end, then evicted\n");
+            }
+        }
+    }
+
+    // ---- T197 D8 review fixes: a resident application and a library imported by a library keep their library; the refusal numbers
+    {
+        FakeFs fs;
+        const char *names[] = { "unzip", "miniz", "ziplist", "otherlib", "plain", "outerlib", "resapp" };
+        for (int i = 0; i < 7; i++) {
+            fs.put(std::string("/sd/cores/apps/") + names[i] + ".u2a", slurp(dir + "/" + names[i] + ".u2a"));
+        }
+        CoreCtx c;
+        ctx_for(&c, &fs, &io, "/sd/cores/vc20.cor");
+        static char folders[APP_FOLDERS_MAX][APP_PATH_MAX];
+        int nf = AppIndex::folders(&c, folders, APP_FOLDERS_MAX);
+        AppIndex idx;
+        idx.scan(&fs, folders, nf, 0);
+        const AppEntry *ra = idx.find("resapp"), *pl = idx.find("plain");
+        const LibFile *olf = idx.find_lib("outerlib");
+        CHECK(ra != 0 && pl != 0 && olf != 0);
+        if (ra && pl && olf) {
+            OpRegistry *reg = ops_of(&c);
+            ops_register_base(*reg);
+            char err[LIB_ERR_MAX];
+            // (1) a resident application: its hold is the loader's, so it survives the end of the AppHost's session and a later open evicts around it
+            {
+                HeapHost hh(&testcore::desc, 1u << 20);
+                LibLoader ld(&hh, reg);
+                CHECK(idx.prepare_open(&fs, &ld, *ra, err, sizeof(err)));
+                CoreFile *f = fs.open(ra->path, false);
+                CoreFileSource src(f);
+                int rh = -1;
+                CHECK_EQ(ld.load(&src, &rh, err, sizeof(err)), LIB_OK);
+                fs.close(f);
+                int mh = ld.handle_of("miniz");
+                CHECK_EQ(ld.uses(mh), 1);
+                CHECK_EQ(ld.release(rh, err, sizeof(err)), LIB_STATE);             // resident: end_application does not free it, so nothing gives the hold back
+                CHECK_EQ(ld.uses(mh), 1);
+                CHECK_EQ(ld.unload(mh, err, sizeof(err)), LIB_STATE);              // not evictable under it
+                // reopen of the resident application: it is found loaded, its library is still there and still held (no second count, none lost)
+                CHECK_EQ(ld.handle_of("resapp"), rh);
+                CHECK_EQ(ld.uses(ld.handle_of("miniz")), 1);
+                // evicting pass for a bigger app on a tight heap leaves it alone
+                CHECK(idx.prepare_open(&fs, &ld, *pl, err, sizeof(err)));
+                CHECK(ld.handle_of("miniz") >= 0);
+            }
+            // (2) a library imported by a library: outerlib holds miniz while loaded; unloading outerlib frees it
+            {
+                HeapHost hh(&testcore::desc, 1u << 20);
+                LibLoader ld(&hh, reg);
+                CHECK(idx.load_needs(&fs, &ld, *idx.find("ziplist"), err, sizeof(err)));       // miniz
+                CoreFile *f = fs.open(olf->path, false);
+                CoreFileSource src(f);
+                int oh = -1;
+                CHECK_EQ(ld.load(&src, &oh, err, sizeof(err)), LIB_OK);
+                fs.close(f);
+                int mh = ld.handle_of("miniz");
+                CHECK_EQ(ld.uses(mh), 1);
+                CHECK_EQ(ld.unload(mh, err, sizeof(err)), LIB_STATE);              // imported by outerlib
+                CHECK_EQ(ld.unload(oh, err, sizeof(err)), LIB_OK);
+                CHECK_EQ(ld.uses(ld.handle_of("miniz")), 0);
+                CHECK_EQ(ld.unload(ld.handle_of("miniz"), err, sizeof(err)), LIB_OK);
+                // eviction under room pressure: outerlib (unused) goes first, then miniz it alone held, in one prepare_open
+                CoreFile *g = fs.open(idx.find_lib("miniz")->path, false);
+                CoreFileSource gs(g);
+                int mh2 = -1;
+                CHECK_EQ(ld.load(&gs, &mh2, err, sizeof(err)), LIB_OK);
+                fs.close(g);
+                f = fs.open(olf->path, false);
+                CoreFileSource src2(f);
+                CHECK_EQ(ld.load(&src2, &oh, err, sizeof(err)), LIB_OK);
+                fs.close(f);
+                uint32_t cap = hh.used + pl->image_bytes + APP_WORK_BYTES - 1;       // plain does not fit beside the two libraries
+                hh.cap = cap;
+                CHECK(idx.prepare_open(&fs, &ld, *pl, err, sizeof(err)));
+                CHECK(ld.handle_of("outerlib") < 0 && ld.handle_of("miniz") < 0);
+                printf("D8: lib imported by lib kept while the importer is loaded, both evicted when idle\n");
+            }
+            // (3) the refusal: needs (rounded up) is always above free (rounded down), also when the bytes differ by one
+            for (uint32_t over = 1; over <= 1024; over += 511) {
+                HeapHost tiny(&testcore::desc, pl->image_bytes + APP_WORK_BYTES - over);
+                LibLoader ld(&tiny, reg);
+                CHECK(!idx.prepare_open(&fs, &ld, *pl, err, sizeof(err)));
+                unsigned nk = 0, fk = 0;
+                CHECK_EQ(sscanf(strstr(err, "(needs ") + 7, "%u KB, %u KB free", &nk, &fk), 2);
+                CHECK(nk > fk);
             }
         }
     }

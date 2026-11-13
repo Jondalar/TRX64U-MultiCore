@@ -333,45 +333,29 @@ bool AppIndex::prepare_open(CoreFs *fs, LibLoader *ld, const AppEntry &a, char *
 {
     uint64_t need;
     if (need_bytes(a, ld, &need) && need > ld->room()) {
-        for (int h = 0; h < LIB_MAX; h++) {
-            const LibInfo *li = ld->info(h);
-            if (!li || li->kind != U2A3_KIND_LIB || ld->uses(h) > 0) {
-                continue;
-            }
-            bool wanted = false;
-            for (int k = 0; k < a.nneeds; k++) {
-                wanted |= !strcasecmp(a.needs[k].name, li->name);
-            }
-            if (!wanted) {
-                ld->unload(h, 0, 0);
+        for (bool again = true; again;) {                            // a library only an unloaded library used is free on the next pass
+            again = false;
+            for (int h = 0; h < LIB_MAX; h++) {
+                const LibInfo *li = ld->info(h);
+                if (!li || li->kind != U2A3_KIND_LIB || ld->uses(h) > 0) {
+                    continue;
+                }
+                bool wanted = false;
+                for (int k = 0; k < a.nneeds; k++) {
+                    wanted |= !strcasecmp(a.needs[k].name, li->name);
+                }
+                if (!wanted && ld->unload(h, 0, 0) == LIB_OK) {
+                    again = true;
+                }
             }
         }
         if (!need_bytes(a, ld, &need) || need > ld->room()) {
+            // Rule: needs is rounded UP, free is rounded DOWN, so the two figures can never read equal on a refusal (need > room gives ceil(need) > floor(room)).
             snprintf(err, errlen, "Not enough memory for %s (needs %u KB, %u KB free).", a.name, (unsigned)((need + 1023) / 1024), (unsigned)(ld->room() / 1024));
             return false;
         }
     }
     return load_needs(fs, ld, a, err, errlen);
-}
-
-int AppIndex::hold(LibLoader *ld, const AppEntry &a, int *out, int max) const
-{
-    int n = 0;
-    for (int k = 0; k < a.nneeds && n < max; k++) {
-        int h = ld->handle_of(a.needs[k].name);
-        if (h >= 0) {
-            ld->use(h);
-            out[n++] = h;
-        }
-    }
-    return n;
-}
-
-void AppIndex::release_holds(LibLoader *ld, int *handles, int n)
-{
-    for (int i = 0; i < n; i++) {
-        ld->unuse(handles[i]);
-    }
 }
 
 bool AppIndex::load_needs(CoreFs *fs, LibLoader *ld, const AppEntry &a, char *err, int errlen) const

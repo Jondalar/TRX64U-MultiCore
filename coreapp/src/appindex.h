@@ -89,12 +89,9 @@ public:
     // Loads the libraries `a` needs that are not in memory (the base ones excepted), in the order it lists them; false and a sentence in err if one is missing,
     // too old or refused. A library stays loaded (libraries are resident).
     bool load_needs(CoreFs *fs, LibLoader *ld, const AppEntry &a, char *err, int errlen) const;
-    // T197 D8, at the press: when `a` does not fit `ld->room()`, every loaded library no running application uses and `a` does not need is unloaded, then the
+    // T197 D8, at the press: when `a` does not fit `ld->room()`, every loaded library nothing uses (no loaded application, no loaded library; LibLoader::use) and `a` does not need is unloaded, then the
     // room is asked again; still too small: false and "Not enough memory for <app> (needs N KB, M KB free)." in err. Then load_needs.
     bool prepare_open(CoreFs *fs, LibLoader *ld, const AppEntry &a, char *err, int errlen) const;
-    // The libraries `a` needs that are loaded: use() on each, their handles in out (up to max). release_holds() unuse()s them. One pair per open application.
-    int hold(LibLoader *ld, const AppEntry &a, int *out, int max) const;
-    static void release_holds(LibLoader *ld, int *handles, int n);
 
     // The contributors for the menu merge: one per application whose record has something for the core's menu (rank CR_APP, by name).
     int contributors(Contributor *out, int max) const;

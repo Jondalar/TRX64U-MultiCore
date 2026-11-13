@@ -101,7 +101,8 @@ public:
     int run(int handle, const char *action, const char *file, char *reply, int replylen, int *app_rc, char *err, int errlen, bool keep = false);
     // A transient application kept open by run(): frees it. Its registrations go with it (the registry's drop_owner).
     int release(int handle, char *err, int errlen);
-    // T197 D8: how many running applications need the image (a library). use() at open, unuse() when the application ends; a library with none may be evicted.
+    // T197 D8: how many loaded images need this one (a library): load() takes a use on every library the image needs and discard() gives it
+    // back, so a resident application, or a library imported by a loaded library, keeps its library; a library with none may be evicted.
     void use(int handle);
     void unuse(int handle);
     int uses(int handle) const;
@@ -144,7 +145,9 @@ private:
     struct Slot {
         bool used;
         LibInfo info;
-        int uses;                         // running applications that need it (T197 D8)
+        int uses;                         // loaded images that need it (T197 D8)
+        int dep[U2A3_NEEDS_MAX];          // the slots this image counted as used when it loaded; unuse()d when it goes
+        int ndep;
         void *raw;                        // what the heap gave; the image lies in it, aligned
     };
     LibHost *host_;
