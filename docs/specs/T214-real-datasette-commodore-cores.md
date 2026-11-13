@@ -27,7 +27,7 @@ Scenario: S2 the setting exists in every core
   Then  the menu has "Datasette port": "Off (file only)" / "External datasette", and the golden menu dump shows it   # tests/coreapp/golden/menu_*.txt, tools/dev.sh test
 Scenario: S3 External datasette writes the pin register
   Given "External datasette" is selected
-  Then  C128/SCPU: PIN_CTRL (0x078) = 0x13; VC-20: TAPE_PIN (0x0B0) = 0x13; C16/Plus4: TAPE_PIN (0x0B2) = 0x13; "Off" writes 0   # board: register read back (trxdbg)
+  Then  C128/SCPU: PIN_CTRL (0x078) = 0x13; VC-20: TAPE_PIN (0x0B0) = 0x13; C16/Plus4: TAPE_PIN (0x0B2) = 0x11; "Off" writes 0   # board: register read back (trxdbg)
 Scenario: S4 a real datasette LOADs
   Given a datasette on the C2N port and the setting on
   When  LOAD is typed (PRESS PLAY ON TAPE appears, PLAY is pressed)
@@ -43,7 +43,7 @@ Scenario: S6 the gateware builds
 
 **D1 (Alex, 2026-11-12):** "nobody needs to do that any more if it already works with the PET. Same device." / "Then fix the comment. Build the cores that way." The directions are settled by the PET result: MOTOR out, READ in, SENSE in; WRITE out, wired but not proven by a SAVE on real tape.
 
-**D2 Bits.** C128/SCPU use the existing c64u `PIN_CTRL`: b0 MOTOR, b1 WRITE, b4 READ+SENSE inputs = 0x13. b2 (the streamer drives READ) and b3 (SENSE pulled) stay 0 with an external datasette. (PET writes 0x11: its WRITE bit stays 0 until a SAVE is proven; the other cores wire WRITE as D1 says.)
+**D2 Bits.** C128/SCPU use the existing c64u `PIN_CTRL`: b0 MOTOR, b1 WRITE, b4 READ+SENSE inputs = 0x13. b2 (the streamer drives READ) and b3 (SENSE pulled) stay 0 with an external datasette. (PET and C16/Plus4 write 0x11: their WRITE bit stays 0 until a SAVE is proven - on the C16/Plus4 cassette WRITE shares P1 with the serial CLK out, so IEC traffic would reach the pin; C128, SCPU and VC-20 write 0x13.)
 
 **D3 VC-20 and C16/Plus4 follow the PET pattern:** a `TAPE_PIN` register (VC-20 0x0B0, C264 0x0B2, same bits as PET_TAPE_PIN), inputs through two flip-flops, outputs registered in sys_clk, every pin released at 0. No file streamer in these two, so READ and SENSE are never driven. VC-20: `cass_read` -> VIA2 CA1, `cass_sw` -> VIA1 PA6, `cass_motor` = CA2 (low = on), `cass_write` = VIA2 PB3. C16/Plus4 (7501, sources: MJK 7501 page ist.uwaterloo.ca/~schepers/MJK/7501.html, zimmers 264memnio.txt): P3 MOTOR out (low = on, KERNAL convention, unmeasured), P4 READ in, cassette WRITE shares P1 with the serial CLK out (unproven), P5 not externally accessible; SENSE read at $FD10 b2 (6529 CST sense, low = pressed).
 

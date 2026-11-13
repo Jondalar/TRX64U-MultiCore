@@ -47,11 +47,11 @@ static const RegBind b_model = { C264_MODEL, 0, 1, 0 };
 static const RegBind b_ram   = { C264_RAM_SIZE, 0, 1, 0 };
 static const RegBind b_joy   = { C264_JOY_SWAP, 0, 1, 0 };
 
-// T214: an external datasette on the C2N port (same device as on the PET, GitHub #26): TAPE_PIN b0 MOTOR and b1 WRITE driven (WRITE out is not proven by a SAVE on real tape yet),
-// b4 READ / SENSE are the machine's inputs. Off releases every pin.
+// T214: an external datasette on the C2N port (same device as on the PET, GitHub #26): TAPE_PIN b0 MOTOR driven, b4 READ / SENSE are the machine's inputs (0x11). b1 WRITE stays 0:
+// on the TED machines cassette WRITE shares the 7501's P1 with the serial CLK out, so IEC traffic would reach the pin; unproven until a SAVE on real tape. Off releases every pin.
 static const char *const dset_names[] = { "Off (file only)", "External datasette" };
-static const uint8_t dset_bytes[2] = { 0x00, 0x13 };
-static const RegBind b_dset = { C264_TAPE_PIN, 0, 0x13, dset_bytes };
+static const uint8_t dset_bytes[2] = { 0x00, 0x11 };
+static const RegBind b_dset = { C264_TAPE_PIN, 0, 0x11, dset_bytes };
 static const Setting settings[4 + CBM1541_NSETTINGS] = {
     { KEY_MODEL, model_names, 2, 1, WHEN_RESET, 0, &b_model, 0, 0, 0, 0, "Model" },
     { KEY_RAM,   ram_names,   2, 1, WHEN_RESET, 0, &b_ram, 0, 0, 0, 0, "RAM" },

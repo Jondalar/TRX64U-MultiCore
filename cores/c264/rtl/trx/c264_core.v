@@ -214,6 +214,9 @@ module c264_core #(
         end
     endgenerate
 
+    // the cassette SENSE key at $FD10 bit 2 (T214; tpn_s2 and snp_s are the synchronised pin inputs above)
+    wire sense_rd = (c16_addr[15:4] == 12'hFD1) & rnw;
+    wire [7:0] sense_data = (sense_rd & tpn_s2[4] & ~snp_s[1]) ? 8'hFB : 8'hFF;
     // the bus: wired-AND of everybody, with the TED's address/data latch for the multiplexed phases
     wire openbus_sel = (cpu_addr[15:5] == {8'hFD, 3'b111});          // $FDE0-$FDFF
     wire [7:0] openbus_data = openbus_sel ? c16_datalatch : 8'hFF;
@@ -230,14 +233,12 @@ module c264_core #(
     reg [1:0] ic_s = 2'b11, id_s = 2'b11;
     always @(posedge sys_clk) begin ic_s <= {ic_s[0], iec_clk_i}; id_s <= {id_s[0], iec_data_i}; end
     assign {port_in[5], port_in[3:0]} = {port_out[5], port_out[3:0]};
-    // the cassette (T214): 7501 P3 MOTOR out (low = on: the KERNAL convention, not measured), P4 READ in, cassette WRITE shares P1 with the serial CLK out on the TED machines (unproven); P5 is not externally accessible. The datasette's SENSE key reads at $FD10 bit 2 (6529, CST sense)
+    // the cassette (T214): 7501 P3 MOTOR out (low = on: the KERNAL convention, not measured), P4 READ in, cassette WRITE shares P1 with the serial CLK out on the TED machines (TAPE_PIN b1 stays 0: IEC traffic would reach the pin; unproven); P5 is not externally accessible. The datasette's SENSE key reads at $FD10 bit 2 (6529, CST sense)
     // (low = pressed). Both inputs come from the pins only while TAPE_PIN b4 says an external datasette is there, else idle high.
     assign port_in[4] = tpn_s2[4] ? rdp_s[1] : 1'b1;
     assign tp_motor_on = ~port_out[3];
     assign tp_write = port_out[1];
     assign tp_pin = tpn_s2;
-    wire sense_rd = (c16_addr[15:4] == 12'hFD1) & rnw;
-    wire [7:0] sense_data = (sense_rd & tpn_s2[4] & ~snp_s[1]) ? 8'hFB : 8'hFF;
     assign port_in[6] = ~port_out[1] & ic_s[1];
     assign port_in[7] = ~port_out[0] & id_s[1];
     assign iec_data_o = ~port_out[0];
