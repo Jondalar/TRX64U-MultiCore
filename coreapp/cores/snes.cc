@@ -75,6 +75,7 @@ static const ArgSpec blend_arg[] = { ARG_INT("value", 0, 1) };
 static const char *const dspfw_names[] = { "Auto", "DSP-1", "DSP-2", "DSP-3", "DSP-4" };
 static const ArgSpec dspfw_arg[] = { ARG_INT("value", 0, 4) };
 static const char *const padmap_names[] = { "Default", "Custom" };
+enum { SET_DSPFW = 3 };                                                  // the index of "DSP firmware" in the table below
 static const Setting settings[4] = {
     { "Video standard",        video_names, 3, 0, WHEN_RESET, "snes.set_video" },
     { "Pseudo high resolution", blend_names, 2, 0, WHEN_RESET, "snes.set_blend" },
@@ -392,6 +393,9 @@ static void write_rtc(CoreCtx *c)
 static int snes_run(CoreCtx *c, const char *path, char *msg, int msglen)
 {
     SnesState *st = snes_state(c);
+    if (c->settings) {
+        st->dsp_choice = (uint8_t)c->settings->value(SET_DSPFW);      // the chip is needed while the image is read, before boot_finish applies the settings
+    }
     CoreFile *f = c->fs->open(path, false);
     if (!f) {
         snprintf(msg, msglen, "cannot open %s", path);
