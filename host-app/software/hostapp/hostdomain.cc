@@ -547,6 +547,7 @@ public:
                     w.ks("title", r.title);
                     if (r.sub[0]) w.ks("sub", r.sub);
                     if (r.badge[0]) w.ks("badge", r.badge);
+                    if (r.ver[0]) w.ks("ver", r.ver);
                     if (r.value[0]) w.ks("value", r.value);
                     w.kb("enabled", r.enabled);
                     if (r.def) w.kb("default", true);

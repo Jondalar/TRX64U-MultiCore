@@ -82,6 +82,7 @@ public:
             snprintf(r->title, sizeof(r->title), "%s", v.name);
             snprintf(r->sub, sizeof(r->sub), "%s", v.sub);
             snprintf(r->badge, sizeof(r->badge), "%s", v.badge);
+            snprintf(r->ver, sizeof(r->ver), "%s", v.ver);
             r->def = v.def;
             r->configs = v.configs;
             r->startable = hc_startable(i);

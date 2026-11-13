@@ -126,3 +126,7 @@ D16: `hostui.cc` `fill_mrow` / `fill_erow`: right group from the right = version
 
 ### D20 built (2026-11-13, branch t209-d6-bootmenu)
 `hostui.cc` `ver_col_w()` takes the widest `ver_w` over all `cfg.n` entries (per list, not per visible page: no jump while scrolling), `update_menu` / `update_edit` store it in `vcol_w` before the rows are filled; `fill_mrow` / `fill_erow` use `vcol_w` instead of the row's own `ver_w(v.ver)` for the version label width and the pictogram position (version text right-aligned in the column). `host_core_rows.cc` `hc_entry_ver()` (the D16 display string, no directory read) is what the column loop calls; `hc_row_entry` uses it too. Goldens: none change (the dump holds texts, no positions). `tools/dev.sh riscv` rc 0. Pictures: scratchpad `t209d20/<480p60|720p60|1080p60>/` (boot menu auto/yellow/two red without version/green, F5 editor same rows): the pictograms stand in one column, the red rows leave the version empty. Not run (pipeline only): render bench, apptests.
+
+### Review fix (2026-11-13): the entry's version in the API rows
+D16 moved the version out of the menu row's `sub`, so the REST/RPC "entry" rows (`host_core_model.cc` -> `hostdomain.cc`) lost it. The row now carries
+`ver` (`HRow.ver`, the version as the menu shows it, without the leading v) and the API emits it as `"ver"` when known.
