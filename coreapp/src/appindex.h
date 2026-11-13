@@ -79,12 +79,22 @@ public:
     // Does an application fit the loader window (the heap the board can give, `room`) with the libraries it needs that `loaded` does not have yet, plus
     // APP_WORK_BYTES? Missing or too old a library: no. `ld` (may be null) says which libraries are in memory already.
     bool fits(const AppEntry &a, uint32_t room, const LibLoader *ld) const;
-    // The window the menu is built for (P4): an application that does not fit contributes nothing, so no action is offered that fails after the press.
-    // Called before the merge with the room at that moment; the default is unlimited.
+    // Are the application and every library it needs there (loaded in `ld`, or a file in the folders, new enough)? The menu lists the actions of such an
+    // application whatever the room is (D9); the memory is checked at the press, by prepare_open.
+    bool available(const AppEntry &a, const LibLoader *ld) const;
+    // The bytes `a` takes from the heap now: image + APP_WORK_BYTES + the libraries not in memory. False: a library is missing or too old (*need is not set).
+    bool need_bytes(const AppEntry &a, const LibLoader *ld, uint64_t *need) const;
+    // The room and loader the menu merge sees (D9: only the loader matters now, for which libraries are in memory; the room no longer hides anything).
     void set_room(uint32_t room, const LibLoader *ld) { room_ = room; room_ld_ = ld; }
     // Loads the libraries `a` needs that are not in memory (the base ones excepted), in the order it lists them; false and a sentence in err if one is missing,
     // too old or refused. A library stays loaded (libraries are resident).
     bool load_needs(CoreFs *fs, LibLoader *ld, const AppEntry &a, char *err, int errlen) const;
+    // T197 D8, at the press: when `a` does not fit `ld->room()`, every loaded library no running application uses and `a` does not need is unloaded, then the
+    // room is asked again; still too small: false and "Not enough memory for <app> (needs N KB, M KB free)." in err. Then load_needs.
+    bool prepare_open(CoreFs *fs, LibLoader *ld, const AppEntry &a, char *err, int errlen) const;
+    // The libraries `a` needs that are loaded: use() on each, their handles in out (up to max). release_holds() unuse()s them. One pair per open application.
+    int hold(LibLoader *ld, const AppEntry &a, int *out, int max) const;
+    static void release_holds(LibLoader *ld, int *handles, int n);
 
     // The contributors for the menu merge: one per application whose record has something for the core's menu (rank CR_APP, by name).
     int contributors(Contributor *out, int max) const;

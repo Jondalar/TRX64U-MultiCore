@@ -101,6 +101,12 @@ public:
     int run(int handle, const char *action, const char *file, char *reply, int replylen, int *app_rc, char *err, int errlen, bool keep = false);
     // A transient application kept open by run(): frees it. Its registrations go with it (the registry's drop_owner).
     int release(int handle, char *err, int errlen);
+    // T197 D8: how many running applications need the image (a library). use() at open, unuse() when the application ends; a library with none may be evicted.
+    void use(int handle);
+    void unuse(int handle);
+    int uses(int handle) const;
+    // Frees a resident library nothing uses (its registrations go with it). LIB_STATE for an application, a handle not loaded, or a library in use.
+    int unload(int handle, char *err, int errlen);
 
     // The context the operations of api->ops run with (the menu's CoreCtx); none: api->ops answers OPE_UNSUPPORTED.
     void set_ctx(CoreCtx *c) { ctx_ = c; }
@@ -138,6 +144,7 @@ private:
     struct Slot {
         bool used;
         LibInfo info;
+        int uses;                         // running applications that need it (T197 D8)
         void *raw;                        // what the heap gave; the image lies in it, aligned
     };
     LibHost *host_;

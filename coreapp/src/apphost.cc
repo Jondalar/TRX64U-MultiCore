@@ -19,7 +19,7 @@ struct AppHost::Session {
 };
 
 AppHost::AppHost(CoreCtx *c, LibLoader *ld, AppIndex *idx, OsPort *os, CoreLock *lock, MenuCtl *core_menu, MenuHost *mh)
-    : c_(c), ld_(ld), idx_(idx), os_(os), lock_(lock), core_menu_(core_menu), mh_(mh), dlg_(os, c->fs), mu_(os->mutex_new()), req_pending_(false), handle_(-1),
+    : c_(c), ld_(ld), idx_(idx), os_(os), lock_(lock), core_menu_(core_menu), mh_(mh), dlg_(os, c->fs), mu_(os->mutex_new()), req_pending_(false), handle_(-1), nheld_(0),
       reply_bad_(false), reply_ready_(false), task_alive_(false), task_done_(false), stop_(false), resident_(false), resident_task_started_(false),
       last_draw_(0), s_(0), sess_(0), sess_started_(0), end_hook_(0)
 {
@@ -187,7 +187,7 @@ void AppHost::open_now()
     if (h < 0) {
         char derr[LIB_ERR_MAX] = "";
         lock_->lock();                                  // the libraries it needs (T197: miniz), from the same folders; they stay loaded
-        bool deps = idx_->load_needs(c_->fs, ld_, *e, derr, sizeof(derr));
+        bool deps = idx_->prepare_open(c_->fs, ld_, *e, derr, sizeof(derr));
         lock_->unlock();
         if (!deps) {
             post_status(derr[0] ? derr : "A library the application needs did not load.", true);
@@ -213,6 +213,9 @@ void AppHost::open_now()
         printf("[app] %s v%u.%u loaded at 0x%08x (%u bytes)\n", e->name, (unsigned)(ld_->info(h)->version >> 16), (unsigned)(ld_->info(h)->version & 0xFFFF),
                (unsigned)ld_->info(h)->image_addr, (unsigned)ld_->info(h)->image_size);
     }
+    if (!nheld_) {
+        nheld_ = idx_->hold(ld_, *e, held_, U2A3_NEEDS_MAX);       // the libraries it needs are in use until it ends
+    }
     handle_ = h;
     snprintf(name_, sizeof(name_), "%s", e->name);
     snprintf(action_, sizeof(action_), "%s", action);
@@ -228,6 +231,8 @@ void AppHost::open_now()
             }
             lock_->unlock();
             ld_->set_current(-1);
+            AppIndex::release_holds(ld_, held_, nheld_);
+            nheld_ = 0;
             handle_ = -1;
             return;
         }
@@ -248,6 +253,8 @@ void AppHost::open_now()
             }
             lock_->unlock();
             ld_->set_current(-1);
+            AppIndex::release_holds(ld_, held_, nheld_);
+            nheld_ = 0;
             handle_ = -1;
         }
     }
@@ -388,6 +395,8 @@ void AppHost::end_application()
         lock_->unlock();
     }
     ld_->set_current(-1);
+    AppIndex::release_holds(ld_, held_, nheld_);
+    nheld_ = 0;
     handle_ = -1;
     name_[0] = 0;
 }

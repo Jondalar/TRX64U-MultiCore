@@ -767,6 +767,43 @@ int LibLoader::release(int handle, char *err, int errlen)
     return LIB_OK;
 }
 
+void LibLoader::use(int handle)
+{
+    if (handle >= 0 && handle < LIB_MAX && slot_[handle].used) {
+        slot_[handle].uses++;
+    }
+}
+
+void LibLoader::unuse(int handle)
+{
+    if (handle >= 0 && handle < LIB_MAX && slot_[handle].used && slot_[handle].uses > 0) {
+        slot_[handle].uses--;
+    }
+}
+
+int LibLoader::uses(int handle) const
+{
+    return handle >= 0 && handle < LIB_MAX && slot_[handle].used ? slot_[handle].uses : 0;
+}
+
+int LibLoader::unload(int handle, char *err, int errlen)
+{
+    if (handle < 0 || handle >= LIB_MAX || !slot_[handle].used) {
+        return fail(LIB_STATE, err, errlen, "Nothing is loaded under handle %d.", handle);
+    }
+    Slot &s = slot_[handle];
+    if (s.info.kind != U2A3_KIND_LIB || s.uses > 0) {
+        return fail(LIB_STATE, err, errlen, "\"%s\" is not an unused library.", s.info.name);
+    }
+    reg_->drop_owner(s.info.name);
+    if (cur_ == handle) {
+        cur_ = -1;
+    }
+    discard(handle);
+    count_--;
+    return LIB_OK;
+}
+
 int LibLoader::finish(int handle, char *err, int errlen)
 {
     return release(handle, err, errlen);

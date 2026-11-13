@@ -295,9 +295,9 @@ const LibFile *AppIndex::find_lib(const char *name, uint32_t min_version) const
     return 0;
 }
 
-bool AppIndex::fits(const AppEntry &a, uint32_t room, const LibLoader *ld) const
+bool AppIndex::need_bytes(const AppEntry &a, const LibLoader *ld, uint64_t *need) const
 {
-    uint64_t need = (uint64_t)a.image_bytes + APP_WORK_BYTES;
+    uint64_t n = (uint64_t)a.image_bytes + APP_WORK_BYTES;
     for (int k = 0; k < a.nneeds; k++) {
         int h = ld ? ld->handle_of(a.needs[k].name) : -1;
         const LibInfo *li = h >= 0 ? ld->info(h) : 0;
@@ -311,9 +311,67 @@ bool AppIndex::fits(const AppEntry &a, uint32_t room, const LibLoader *ld) const
         if (!lf) {
             return false;
         }
-        need += lf->image_bytes;
+        n += lf->image_bytes;
     }
-    return need <= room;
+    *need = n;
+    return true;
+}
+
+bool AppIndex::available(const AppEntry &a, const LibLoader *ld) const
+{
+    uint64_t n;
+    return need_bytes(a, ld, &n);
+}
+
+bool AppIndex::fits(const AppEntry &a, uint32_t room, const LibLoader *ld) const
+{
+    uint64_t need;
+    return need_bytes(a, ld, &need) && need <= room;
+}
+
+bool AppIndex::prepare_open(CoreFs *fs, LibLoader *ld, const AppEntry &a, char *err, int errlen) const
+{
+    uint64_t need;
+    if (need_bytes(a, ld, &need) && need > ld->room()) {
+        for (int h = 0; h < LIB_MAX; h++) {
+            const LibInfo *li = ld->info(h);
+            if (!li || li->kind != U2A3_KIND_LIB || ld->uses(h) > 0) {
+                continue;
+            }
+            bool wanted = false;
+            for (int k = 0; k < a.nneeds; k++) {
+                wanted |= !strcasecmp(a.needs[k].name, li->name);
+            }
+            if (!wanted) {
+                ld->unload(h, 0, 0);
+            }
+        }
+        if (!need_bytes(a, ld, &need) || need > ld->room()) {
+            snprintf(err, errlen, "Not enough memory for %s (needs %u KB, %u KB free).", a.name, (unsigned)((need + 1023) / 1024), (unsigned)(ld->room() / 1024));
+            return false;
+        }
+    }
+    return load_needs(fs, ld, a, err, errlen);
+}
+
+int AppIndex::hold(LibLoader *ld, const AppEntry &a, int *out, int max) const
+{
+    int n = 0;
+    for (int k = 0; k < a.nneeds && n < max; k++) {
+        int h = ld->handle_of(a.needs[k].name);
+        if (h >= 0) {
+            ld->use(h);
+            out[n++] = h;
+        }
+    }
+    return n;
+}
+
+void AppIndex::release_holds(LibLoader *ld, int *handles, int n)
+{
+    for (int i = 0; i < n; i++) {
+        ld->unuse(handles[i]);
+    }
 }
 
 bool AppIndex::load_needs(CoreFs *fs, LibLoader *ld, const AppEntry &a, char *err, int errlen) const
@@ -350,7 +408,7 @@ int AppIndex::contributors(Contributor *out, int max) const
 {
     int k = 0;
     for (int i = 0; i < n_ && k < max; i++) {
-        if (app_[i].menu && fits(app_[i], room_, room_ld_)) {
+        if (app_[i].menu && available(app_[i], room_ld_)) {
             out[k].name = app_[i].name;
             out[k].rank = CR_APP;
             out[k].rec = &app_[i].host;
