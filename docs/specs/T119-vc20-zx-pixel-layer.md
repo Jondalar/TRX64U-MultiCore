@@ -1,6 +1,6 @@
 # T119 — VC-20 and ZX Spectrum draw into a DDR2 frame buffer of the pixel layer, not through the host's vic_scaler
 
-**Status:** DECIDED (2026-10-23, Alex).
+**Status:** DECIDED (2026-10-23, Alex). 2026-11-13 status check: built and merged (VC-20 and ZX draw through the pixel layer, Merge t119-zxblack, t164-zx48e); ZX 48K picture on the board 2026-11-04 (todo); state: in progress as in row.
 **Repo:** TRX64U-MultiCore — `cores/vc20/`, `cores/zx/` (a pixel writer each, as `cores/c264/rtl/trx/c264_pixw.v`), the
 core app's per-core setup where the C264 has one. The host is not touched (frozen, `tools/host_pin.sh`).
 **Number:** T119 (TODO table; T117 unused, T118 is the HDMI geometry bench on `t118-hdmigeom`).

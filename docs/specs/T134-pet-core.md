@@ -1,6 +1,6 @@
 # T134 — A Commodore PET runs as its own core, PET
 
-**Status:** IN PROGRESS (2026-11-10, Alex: "go, agent + fpga skill, build everything in isolation, then one Vivado and iterate from there"); Q1-Q13 decided 2026-11-10.
+**Status:** IN PROGRESS (2026-11-10, Alex: "go, agent + fpga skill, build everything in isolation, then one Vivado and iterate from there"); Q1-Q13 decided 2026-11-10. 2026-11-13 status check: DONE as is (Alex 2026-11-11: board start 11-11, demos run); merged (Merge t134-pet); reopened 11-12 for T216 (separate row).
 **Repo:** TRX64U-MultiCore — the core in `cores/pet/` (`layer2_pet.v`, `core.toml`, `core_sources.tcl`, `rtl/`, `sim/`), its descriptor in
 `coreapp/cores/pet.cc` + `pet_regs.h`; host unchanged; CI rows in `ci/sims.txt` and `ci/targets.txt`.
 **Number:** T134 (the table in `TODO.md`; T126 was merged into it on 2026-11-05).

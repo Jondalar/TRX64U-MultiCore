@@ -1,6 +1,6 @@
 # T105 — the picture a board comes up in is not ours to decide
 
-**Status:** IN PROGRESS (2026-10-16). Asked for by Alex on 2026-10-16 after a tester outside this
+**Status:** IN PROGRESS (2026-10-16). Asked for by Alex on 2026-10-16 after a tester outside this 2026-11-13 status check: OVERTAKEN by T107 (the host stays at 1080p, each core picks its mode); mode choice moved to F8 (T139). Row and todo say dropped.
 house installed `trx64mc-main-51e89821` and got a black screen: "Wieso bootet unser Test Host nicht
 hoch bei jemand anderem?"
 

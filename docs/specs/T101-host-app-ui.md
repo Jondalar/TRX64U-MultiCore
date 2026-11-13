@@ -1,6 +1,6 @@
 # T101 — The core-neutral host app scrolls, shows their icons, asks before it deletes, and lists only what the person added
 
-**Status:** BUILT, native benches green, links (2026-10-15); board step S8b open (deploy freeze, Alex). 2026-10-25: S10 removes the scan of the media (P1, S1, S2, D1-D3 below are history) and the start check reads no part (a+b). 2026-10-26: S10 changed again - the start checks nothing; the menu comes up from boot.cfg alone and each entry is read afterwards, lazily (S10b).
+**Status:** BUILT, native benches green, links (2026-10-15); board step S8b open (deploy freeze, Alex). 2026-10-25: S10 removes the scan of the media (P1, S1, S2, D1-D3 below are history) and the start check reads no part (a+b). 2026-10-26: S10 changed again - the start checks nothing; the menu comes up from boot.cfg alone and each entry is read afterwards, lazily (S10b). 2026-11-13 status check: merged to main (Merge t101-startprogress); S8b was superseded by S10b (lazy start check) and the board saw the menu 2026-10-23/28 (todo); row/boot.cfg mismatch fixed with T139. State: done.
 **Repo:** TRX64U-MultiCore — `host-app/software/hostapp/` (own code), `tests/hostapp/` (benches), no gateware.
 **Number:** T101 (registry: the table in `TODO.md`).
 **Origin:** Alex, 2026-10-15: "send an agent off to build the neutral host app. With LVGL UI, please look in

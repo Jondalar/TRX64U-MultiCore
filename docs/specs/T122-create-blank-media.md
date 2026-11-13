@@ -1,6 +1,6 @@
 # T122 — Every core with a drive can create a new, formatted disk image from its menu
 
-**Status:** BUILT (2026-10-23), native tests in `tests/coreapp/run.sh`; the board follow-up of 2026-10-24 (clean prompt, folder choice, progress) BUILT 2026-10-28 (Alex): on the A1200 a newly created ADF takes files from the Workbench (B2, A1200 half).
+**Status:** BUILT (2026-10-23), native tests in `tests/coreapp/run.sh`; the board follow-up of 2026-10-24 (clean prompt, folder choice, progress) BUILT 2026-10-28 (Alex): on the A1200 a newly created ADF takes files from the Workbench (B2, A1200 half). 2026-11-13 status check: state confirmed: merged (Merge t122-create); built, board B1, B3-B8 go to the testers, B2 A1200 passed (as row).
 the same day (§5.2); the board has not run either yet (steps B1-B8 in §2).
 **Repo:** TRX64U-MultiCore — the generic core application (`coreapp/`), per-core descriptors and libraries; no gateware.
 **Number:** T122.

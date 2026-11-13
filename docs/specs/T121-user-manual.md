@@ -1,6 +1,6 @@
 # T121 — The repository explains itself to a user: a README and a manual in engineering-manual style
 
-**Status:** DECIDED (2026-10-23, Alex).
+**Status:** DECIDED (2026-10-23, Alex). 2026-11-13 status check: DONE: S1 README + manual and S3 site built and merged (Merge t121-manual, t121-site); todo/row done.
 **Repo:** TRX64U-MultiCore — `README.md`, `docs/manual/`, `docs/img/`, the architecture site `.claude/trx64-site/`
 (published artifact (internal page)).
 **Number:** T121 (TODO table).

@@ -1,6 +1,6 @@
 # T115 — The host starts a full firmware from a .cfw: Gideon's original and the large TRX64 Ultimate
 
-**Status:** BUILT in the host app (2026-10-21), benched (S1-S3, menu, S10 logos); board S4-S8 not run. Q1-Q4 answered. The mechanism is proven on the board (PoC, §3); what was built and where it differs from D1-D6 is in §7.
+**Status:** BUILT in the host app (2026-10-21), benched (S1-S3, menu, S10 logos); board S4-S8 not run. Q1-Q4 answered. The mechanism is proven on the board (PoC, §3); what was built and where it differs from D1-D6 is in §7. 2026-11-13 status check: merged to main (D12: trx64 core deleted, host drops it); board S8 and S10 passed 2026-10-28 (todo); S7 (refused .cfw) open; no board record found for S4-S6.
 **Repo:** TRX64U-MultiCore — the host app only (`host-app/software/hostapp/`); no gateware (the host's ICAP loader can
 already send IPROG, `coreapp/src/hw.cc:316`), no change to `.cor` or the generic application for part A.
 **Number:** T115 (registry: `TODO.md`).
