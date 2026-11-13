@@ -6,6 +6,7 @@
 //
 //   test_unzip FIXDIR      (FIXDIR: unzip.u2a, unzip2.u2a, t.zip, manifest.txt and files/ - tests/coreapp/run.sh makes them)
 #include <string>
+#include <map>
 #include <vector>
 #include <fstream>
 #include <sstream>
@@ -91,6 +92,22 @@ struct Host : DescLibHost {
     int call_main(const Entry &e, const LibApi *api, AppCtx *ctx) override { return !strcmp(e.name, "ziplist") ? ziplist_main(api, ctx) : app_main(api, ctx); }
 };
 
+// a heap with a size: the loader window as the board has it (room() = what is left); a load that does not fit gets null
+struct HeapHost : Host {
+    uint32_t cap, used;
+    std::map<void *, uint32_t> sz;
+    HeapHost(const CoreDesc *d, uint32_t c) : Host(d), cap(c), used(0) { }
+    void *alloc(uint32_t n) override
+    {
+        if (used + n > cap) return 0;
+        void *p = Host::alloc(n);
+        sz[p] = n; used += n;
+        return p;
+    }
+    void release(void *p) override { used -= sz[p]; sz.erase(p); Host::release(p); }
+    uint32_t room() override { return cap - used; }
+};
+
 static std::string g_msg;                                              // the last dialog the application raised
 static void d_message(const char *, const char *text) { g_msg = text; }
 static void *d_open(const char *, int) { return (void *)1; }
@@ -173,8 +190,8 @@ int main(int argc, char **argv)
         }
         CHECK(here); CHECK(folder); CHECK(one);
 
-        // S4: the loader window. The same index and the same files: a window too small for unzip + miniz + the work reserve lists nothing for ".zip", one that
-        // holds them lists the three actions; a library missing from the folders is a window of any size that does not hold it.
+        // S4 / D9 (e): the .zip actions are listed whenever unzip and miniz are in the folders, whatever the room is (the memory is checked at the press, S6);
+        // fits() still knows the need exactly; a library missing from the folders hides the actions.
         {
             uint32_t need = e->image_bytes + idx.find_lib("miniz")->image_bytes + APP_WORK_BYTES;
             for (int pass = 0; pass < 3; pass++) {
@@ -195,7 +212,10 @@ int main(int argc, char **argv)
                 int zip_actions = 0;
                 for (int i = 0; i < merged2.nfiletypes; i++) { if (!strcmp(merged2.filetypes[i].ext, ".zip")) zip_actions = merged2.filetypes[i].nactions; }
                 printf("S4 pass %d: room %u (need %u): %d zip action(s)\n", pass, (unsigned)room, (unsigned)need, zip_actions);
-                if (pass == 1) CHECK_EQ(zip_actions, 3); else CHECK_EQ(zip_actions, 0);
+                if (pass < 2) CHECK_EQ(zip_actions, 3); else CHECK_EQ(zip_actions, 0);
+                const AppEntry *e2 = idx2.find("unzip");
+                CHECK(e2 != 0);
+                if (e2) CHECK_EQ(idx2.fits(*e2, room, &ld), pass == 1);
             }
         }
 
@@ -273,6 +293,99 @@ int main(int argc, char **argv)
                 CHECK_EQ(app_rc, 0);
                 for (size_t i = 0; i < names.size(); i++) CHECK(g_listing.find(names[i] + "\n") != std::string::npos);
                 CHECK_EQ(fs.open_files, 0);
+            }
+        }
+    }
+
+    // ---- S6 / S7 (T197 D8): memory short at the press. A model heap gives the loader window; the same AppIndex functions the board calls (prepare_open,
+    // hold, release_holds) run over the real loader.
+    {
+        FakeFs fs;
+        fs.put("/sd/cores/apps/unzip.u2a", u1);
+        fs.put("/sd/cores/apps/miniz.u2a", mz);
+        fs.put("/sd/cores/apps/ziplist.u2a", zl);
+        fs.put("/sd/cores/apps/otherlib.u2a", slurp(dir + "/otherlib.u2a"));
+        fs.put("/sd/cores/apps/plain.u2a", slurp(dir + "/plain.u2a"));
+        CoreCtx c;
+        ctx_for(&c, &fs, &io, "/sd/cores/vc20.cor");
+        static char folders[APP_FOLDERS_MAX][APP_PATH_MAX];
+        int nf = AppIndex::folders(&c, folders, APP_FOLDERS_MAX);
+        Log log;
+        AppIndex idx;
+        idx.scan(&fs, folders, nf, &log);
+        CHECK_EQ(idx.nlibs(), 2);
+        const AppEntry *uz = idx.find("unzip"), *pl = idx.find("plain");
+        CHECK(uz != 0 && pl != 0);
+        const LibFile *mzf = idx.find_lib("miniz"), *olf = idx.find_lib("otherlib");
+        CHECK(mzf != 0 && olf != 0);
+        if (uz && pl && mzf && olf) {
+            OpRegistry *reg = ops_of(&c);
+            ops_register_base(*reg);
+            char err[LIB_ERR_MAX];
+            // the heap holds exactly unzip + miniz + work, plus otherlib: after otherlib is loaded and miniz is not, unzip does not fit until otherlib is evicted
+            uint32_t need = uz->image_bytes + mzf->image_bytes + APP_WORK_BYTES;
+            uint32_t cap = need + olf->image_bytes - 1;
+            {
+                HeapHost hh(&testcore::desc, cap);
+                LibLoader ld(&hh, reg);
+                // (a) otherlib (count 0) is evicted, then unzip loads
+                CHECK(idx.load_needs(&fs, &ld, *pl, err, sizeof(err)));            // nothing to load for plain
+                CoreFile *of = fs.open(olf->path, false);
+                CoreFileSource osrc(of);
+                int oh = -1;
+                CHECK_EQ(ld.load(&osrc, &oh, err, sizeof(err)), LIB_OK);
+                fs.close(of);
+                CHECK(!idx.fits(*uz, ld.room(), &ld));
+                CHECK(idx.prepare_open(&fs, &ld, *uz, err, sizeof(err)));
+                CHECK(ld.handle_of("otherlib") < 0);
+                CHECK(ld.handle_of("miniz") >= 0);
+                printf("S6a: otherlib evicted, miniz loaded, room %u\n", (unsigned)ld.room());
+                // (d) the count: hold at open, back to 0 at the end
+                int held[U2A3_NEEDS_MAX];
+                int nh = idx.hold(&ld, *uz, held, U2A3_NEEDS_MAX);
+                CHECK_EQ(nh, 1);
+                CHECK_EQ(ld.uses(ld.handle_of("miniz")), 1);
+                int h2[U2A3_NEEDS_MAX];
+                int nh2 = idx.hold(&ld, *idx.find("ziplist"), h2, U2A3_NEEDS_MAX);   // a second application on the same library
+                CHECK_EQ(ld.uses(ld.handle_of("miniz")), 2);
+                AppIndex::release_holds(&ld, h2, nh2);
+                CHECK_EQ(ld.uses(ld.handle_of("miniz")), 1);
+                // (b) in use: never evicted, even when plain needs the room
+                CHECK_EQ(ld.unload(ld.handle_of("miniz"), err, sizeof(err)), LIB_STATE);
+                CHECK(ld.handle_of("miniz") >= 0);
+                // (c) still too small after eviction: nothing loads, the message has the numbers
+                {
+                    HeapHost tiny(&testcore::desc, pl->image_bytes + APP_WORK_BYTES - 1);
+                    LibLoader ld2(&tiny, reg);
+                    CHECK(!idx.prepare_open(&fs, &ld2, *pl, err, sizeof(err)));
+                    char want[160];
+                    snprintf(want, sizeof(want), "Not enough memory for plain (needs %u KB, %u KB free).", (unsigned)((pl->image_bytes + APP_WORK_BYTES + 1023) / 1024),
+                             (unsigned)(tiny.room() / 1024));
+                    CHECK_STR(err, want);
+                    CHECK_EQ(ld2.count(), 0);
+                    printf("S6c: %s\n", err);
+                }
+                AppIndex::release_holds(&ld, held, nh);
+                CHECK_EQ(ld.uses(ld.handle_of("miniz")), 0);                       // (d)
+            }
+            // (b) refusal while in use: a heap that holds unzip + miniz and nothing else; plain would need more than is left, miniz is held by unzip
+            {
+                HeapHost hh(&testcore::desc, mzf->image_bytes + pl->image_bytes + APP_WORK_BYTES - 1);
+                LibLoader ld(&hh, reg);
+                CHECK(idx.load_needs(&fs, &ld, *uz, err, sizeof(err)));            // miniz is in; unzip itself is not loaded in this model
+                int held[U2A3_NEEDS_MAX];
+                int nh = idx.hold(&ld, *uz, held, U2A3_NEEDS_MAX);
+                uint32_t room_before = ld.room();
+                CHECK(pl->image_bytes + APP_WORK_BYTES > room_before);             // plain does not fit beside the held miniz
+                CHECK(!idx.prepare_open(&fs, &ld, *pl, err, sizeof(err)));
+                CHECK(strstr(err, "Not enough memory for plain") != 0);
+                CHECK(ld.handle_of("miniz") >= 0);                                 // in use: kept
+                CHECK_EQ(ld.room(), room_before);
+                // the application ended: miniz has count 0, the same open now clears it away and plain loads
+                AppIndex::release_holds(&ld, held, nh);
+                CHECK(idx.prepare_open(&fs, &ld, *pl, err, sizeof(err)));
+                CHECK(ld.handle_of("miniz") < 0);
+                printf("S6b/S7: in use kept, freed after the end, then evicted\n");
             }
         }
     }

@@ -30,7 +30,11 @@ subprocess.check_call([sys.executable, os.path.join(root, "tools/u2a_pack.py"), 
                        "--kind", "app", "--residence", "transient", "--name", "ziplist", "--version", "1"] + needs, stdout=subprocess.DEVNULL)
 subprocess.check_call([sys.executable, os.path.join(root, "tools/u2a_pack.py"), os.path.join(out, "testlib_fix.elf"), "-o", os.path.join(out, "miniz.u2a"),
                        "--kind", "lib", "--name", "miniz", "--version", "1", "--needs", "base>=3.1"], stdout=subprocess.DEVNULL)
-
+# D8 (eviction): a second library nobody here needs and an application that needs no library but the base
+subprocess.check_call([sys.executable, os.path.join(root, "tools/u2a_pack.py"), os.path.join(out, "testlib_fix.elf"), "-o", os.path.join(out, "otherlib.u2a"),
+                       "--kind", "lib", "--name", "otherlib", "--version", "1", "--needs", "base>=3.1"], stdout=subprocess.DEVNULL)
+subprocess.check_call([sys.executable, os.path.join(root, "tools/u2a_pack.py"), os.path.join(out, "fix.elf"), "-o", os.path.join(out, "plain.u2a"),
+                       "--kind", "app", "--residence", "transient", "--name", "plain", "--version", "1", "--needs", "base>=3.1"], stdout=subprocess.DEVNULL)
 
 def blob(seed, n):
     x = seed
