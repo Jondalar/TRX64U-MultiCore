@@ -36,7 +36,7 @@ A tester (2026-11-12) ran main-736c16d9 on the board. Working, to keep: internal
 - **D2 (Alex, 2026-11-12, "ja" to the proposal; answers Q1):** graphics keyboard on 2001, 3032 and 4032; business keyboard on 8032,
   8096 and SuperPET. The keyboard follows the model, not the CRTC (`pet_core.v:280` `.bus(m_crtc)` changes).
 - **D3 (Alex, 2026-11-12, "answer 2" = documentation only; answers Q2):** the app does not join or double the 4040 ROMs; INSTALL.md
-  §5 gets a guide: `901466-04.bin` (2 KiB) written twice into `ctl4040.bin`, plus `dos4040.bin` (S4 becomes the doc check, S5).
+  §5 gets a guide: `901466-04.bin` (1 KiB: doubled it gives the 2,048 bytes `coreapp/cores/pet.cc` asks for, as the tester built it) written twice into `ctl4040.bin`, plus `dos4040.bin` (S4 becomes the doc check, S5).
 - **D4 (Alex, 2026-11-12, "b"; answers Q3):** P4 (game mode, direction keys on the digits) is not built in the PET; it comes with the
   key bundles of the generic app (decision 6 of `docs/generic-app-requirements.md`), built with the UI epic, last. Out of T216 (§4).
 - **D5 (Alex, 2026-11-12, "passt"; answers Q4):** P5 needs no code: the app already picks the editor by model and picture rate and the
