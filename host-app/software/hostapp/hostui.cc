@@ -866,6 +866,19 @@ static int ver_w(const char *s)
     lv_text_get_size(&sz, s, F_SMALL, 0, 0, LV_COORD_MAX, LV_TEXT_FLAG_NONE);
     return sz.x + 4 < LROW_VER_W ? sz.x + 4 : LROW_VER_W;
 }
+// T209 D20: one version column for the whole list (the widest version of any entry, not of the visible page: it does not jump while scrolling); the pictograms stand left of it
+static int ver_col_w(void)
+{
+    int m = 0;
+    for (int i = 0; i < cfg.n; i++) {
+        char b[24];
+        hc_entry_ver(i, b, sizeof(b));
+        const int w = ver_w(b);
+        m = w > m ? w : m;
+    }
+    return m;
+}
+static int vcol_w;                                  // set by update_menu / update_edit before the rows are filled
 static void build_mrow(Row &r, lv_obj_t *par, int x, int y, int w, int h)
 {
     r.box = box(par, x, y, w, h, C_PANEL, 1, C_LINE);
@@ -946,7 +959,7 @@ static void fill_mrow(Row &r, int i)
         lv_obj_set_width(r.ic, iw);
     }
     // from the right (T209 D16): version (far right, as wide as its text), the pictogram directly beside it, "auto", "N configs"; the name takes what is left
-    const int vw = ver_w(v.ver);
+    const int vw = vcol_w;
     const int vx = r.w - 10 - vw;
     if (lv_obj_get_x(r.b) != vx) {
         lv_obj_set_x(r.b, vx);
@@ -971,7 +984,7 @@ static void fill_mrow(Row &r, int i)
     }
     set_txt_mid(r.a, v.name);
     set_txt(r.b, v.ver);
-    if (vw && lv_obj_get_style_width(r.b, LV_PART_MAIN) != vw) {
+    if (vw && lv_obj_get_style_width(r.b, LV_PART_MAIN) != vw) {   // the label is the column's width; its text stands at the right (D20)
         lv_obj_set_width(r.b, vw);
     }
     if (r.pcs != v.pic) {
@@ -1027,7 +1040,7 @@ static void fill_erow(Row &r, int i)
         return;
     }
     set_hidden(r.box, false);
-    const int vw = ver_w(v.ver);
+    const int vw = vcol_w;
     const int vx = r.w - 10 - vw;
     const int px = vx - (vw ? RGRP_GAP : 0) - PIC_D;
     const int dx = px - 6 - DEF_W;
@@ -1206,6 +1219,7 @@ static void update_menu(void)
     int total = cfg.n;
     hc_nav_menu_first(total);
     HcMenuTexts t;
+    vcol_w = ver_col_w();
     hc_menu_texts(nv.mfirst, total, &t);
     set_hidden(m_hint, !t.hint_on);
     set_txt(m_hint, t.hint);
@@ -1245,6 +1259,7 @@ static void update_edit(void)
 {
     hc_nav_edit_first(cfg.n);
     HcEditTexts t;
+    vcol_w = ver_col_w();
     hc_edit_texts(nv.efirst, &t);
     set_txt_mid(e_def, t.autol);
     set_txt(e_menu, t.menu);

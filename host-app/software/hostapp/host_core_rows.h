@@ -60,6 +60,7 @@ struct HcEntryRow {
     char cfgbadge[16];                            // "3 configs", "" for none
 };
 bool hc_row_entry(int i, bool menu_style, HcEntryRow *r);
+void hc_entry_ver(int i, char *out, size_t n);          // the displayed version of entry i (T209 D16), empty for none
 
 // The menu page: the line under the title, the hint while there are no entries, the position, the countdown line and its bar.
 #define HC_NO_CORES_HINT "No cores yet. Press F3, open a folder on SD or USB\nand press A on a .cor bundle or a .cfw firmware."

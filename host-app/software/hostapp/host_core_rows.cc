@@ -122,6 +122,25 @@ static void badge_text(EState st, bool full, int origin, unsigned contract, char
     }
 }
 
+// T209 D16 (Alex 2026-11-13): the version shows without its leading "v" (one v/V is stripped from the displayed string only); the editor row carries it in
+// its right group too, so the path line is the path alone. Cheap (no directory read): the list's version column width (D20) is taken from it for every entry.
+void hc_entry_ver(int i, char *out, size_t n)
+{
+    out[0] = 0;
+    const BootCfg &cfg = hc_cfg();
+    if (i < 0 || i >= cfg.n) {
+        return;
+    }
+    EState st = hc_est(i);
+    bool ok = st == ES_OK || st == ES_CHANGED;
+    const char *ver = ok ? hc_einfo(i).version : "";
+    if (hc_efull(i)) {
+        snprintf(out, n, "%s", ok ? "full firmware" : "");
+    } else if (ver[0]) {
+        snprintf(out, n, "%s", ver[0] == 'v' || ver[0] == 'V' ? ver + 1 : ver);
+    }
+}
+
 bool hc_row_entry(int i, bool menu_style, HcEntryRow *r)
 {
     const BootCfg &cfg = hc_cfg();
@@ -130,7 +149,6 @@ bool hc_row_entry(int i, bool menu_style, HcEntryRow *r)
     }
     EState st = hc_est(i);
     bool ok = st == ES_OK || st == ES_CHANGED;
-    const char *ver = ok ? hc_einfo(i).version : "";
     bool full = hc_efull(i);
     snprintf(r->name, sizeof(r->name), "%s", cfg.e[i].name);
     {   // T209 D15: the tile says the core's own short name (manifest "short"); without one the first four letters/digits of the entry name,
@@ -150,12 +168,7 @@ bool hc_row_entry(int i, bool menu_style, HcEntryRow *r)
         }
         r->tile[k] = 0;
     }
-    // T209 D16 (Alex 2026-11-13): the version shows without its leading "v" (one v/V is stripped from the displayed string only); the editor row carries it in
-    // its right group too, so the path line is the path alone.
-    snprintf(r->ver, sizeof(r->ver), "%s", full && ok ? "full firmware" : "");
-    if (!full && ver[0]) {
-        snprintf(r->ver, sizeof(r->ver), "%s", ver[0] == 'v' || ver[0] == 'V' ? ver + 1 : ver);
-    }
+    hc_entry_ver(i, r->ver, sizeof(r->ver));
     (void)menu_style;
     snprintf(r->sub, sizeof(r->sub), "%s", cfg.e[i].path);
     badge_text(st, full, hc_einfo(i).origin, (unsigned)hc_einfo(i).contract, r->badge, sizeof(r->badge), &r->badge_tone);
