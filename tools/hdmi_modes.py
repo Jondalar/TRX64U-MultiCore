@@ -528,6 +528,33 @@ def host_decode(text, amiga=False):
 AMIGA_VH = [os.path.join(ROOT, "cores/amiga/mono/host/hdmi_modes.vh"), os.path.join(ROOT, "cores/amiga1200/mono/host/hdmi_modes.vh")]
 HOST_ROWTXT = {}
 
+def amiga_follow_check(rows):
+    """T188 D3: the Amiga copies' timing generator follows the core (FOLLOW) only on rows 0..2, inside what the rasters can pad / skip, wired from the core."""
+    import re
+    bad = []
+    txt = {}
+    for c in ("amiga", "amiga1200"):
+        for fn in ("hdmi_timing.v", "hdmi_out.v", "top.v"):
+            try: txt[c, fn] = open(os.path.join(ROOT, "cores", c, "mono/host", fn)).read()
+            except OSError: txt[c, fn] = ""
+    if txt["amiga", "hdmi_timing.v"] != txt["amiga1200", "hdmi_timing.v"]: bad.append("T188 D3: hdmi_timing.v of the two Amiga copies differ")
+    t = txt["amiga1200", "hdmi_timing.v"]
+    m = re.search(r"EMIN = -6'sd(\d+), EMAX = 6'sd(\d+)", t)
+    if not m or "parameter FOLLOW" not in t or "m < 4'd3" not in t: bad.append("T188 D3: hdmi_timing.v has no FOLLOW on rows 0..2 / EMIN, EMAX")
+    else:
+        emin, emax = int(m.group(1)), int(m.group(2))
+        if emax > 30 or emin > 30: bad.append("T188 D3: follow limits do not fit the 5 bit pad / skip counters")
+        for r in [x for x in rows if x["idx"] < 3]:
+            # skipped lines come out of the back porch (at least 2 lines stay), padded lines repeat a front porch line (cy >= 2 so that cy 0 / 1 are never repeated)
+            if emin > r["vbp"] - 2 or r["vfp"] < 3: bad.append("T188 D3: row %s: vfp %d / vbp %d cannot take the follow limits -%d .. +%d" % (r["name"], r["vfp"], r["vbp"], emin, emax))
+    for c in ("amiga", "amiga1200"):
+        if "hdmi_timing #(.FOLLOW(1))" not in txt[c, "hdmi_out.v"] or ".core_tgl(core_fr_tgl)" not in txt[c, "hdmi_out.v"]: bad.append("T188 D3: %s hdmi_out.v does not run the follow" % c)
+        if ".core_fr_tgl(drive_dbg[255])" not in txt[c, "top.v"]: bad.append("T188 D3: %s top.v does not wire the core's frame event" % c)
+    try: l2 = open(os.path.join(ROOT, "cores/amiga/layer2_amiga.v")).read()
+    except OSError: l2 = ""
+    if "assign drive_dbg = {a_frame_done, 255'd0};" not in l2: bad.append("T188 D3: layer2_amiga.v does not drive the frame event on drive_dbg[255]")
+    return bad
+
 def amiga_check():
     """T188: the two Amiga copies are what `amiga-gen` writes, every T188 row is exactly the Amiga frame, every other row is the host's."""
     global HOST_ROWTXT
@@ -541,6 +568,7 @@ def amiga_check():
         except OSError: cur = ""
         bad += host_decode(cur, amiga=True)
         if cur != want: bad.append("%s is not what `amiga-gen` writes" % os.path.relpath(path, ROOT))
+    bad += amiga_follow_check(rows)
     for b in bad: print("FAIL:", b)
     if not bad: print("PASS hdmi_modes amiga: rows 0..2 run exactly the Amiga frame %.6f Hz (exact CDCE ratio, decoded from both core copies), the other 6 rows are the host's" % float(F_CORE))
     return 1 if bad else 0
