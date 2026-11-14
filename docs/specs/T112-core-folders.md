@@ -1,6 +1,6 @@
 # T112 — Every core lives in its own folder on a medium, with its .cor, its settings and its ROMs
 
-**Status:** BUILT for layer-2 cores (2026-10-26), host benches only; board steps S1 and S2 (large .cor) open. D1 and Q1 decided by Alex. 2026-11-13 status check: merged to main (Merge t112-folders); D1-D3 superseded by T148; state as in row: built, board S1/S2 open.
+**Status:** BUILT for layer-2 cores (2026-10-26), host benches only; board steps S1 and S2 (large .cor) open. D1 and Q1 decided by Alex. 2026-11-13 status check: merged to main (Merge t112-folders); D1-D3 superseded by T148; state as in row: built, board S1/S2 open. **2026-11-15 sync:** T148 (core folder, done by Alex 2026-11-14: "proven in daily board use (core folders)") is the successor of this spec; no board result for S1/S2 is recorded under T112 itself, so whether T112 closes as superseded is Alex's call (listed in the sync report).
 **Repo:** TRX64U-MultiCore — the host app (`host-app/software/hostapp/discover.cc`) and the generic application
 (`coreapp/src/romfind.cc`); no gateware, the host stays frozen.
 **Number:** T112 (registry: `TODO.md`).
