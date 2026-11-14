@@ -359,10 +359,14 @@ module scpu_mem (
     // the BA hold of an I/O write (VICE scpu64cpu.c:193-203, 105-118): a write completes unheld only in the 3 PHI2 cycles BA gives the CPU before AEC drops; from the 4th BA-low cycle on it waits until
     // BA is high again (the enable is withheld). ba_n counts the PHI2 starts (l_ev) at which BA was low, like the VIC's ba1..ba3 chain that lowers AEC: ba_hold is true in exactly the cycles
     // whose PHI2 half has AEC low. Only at 20 MHz (at 1 MHz the 65816 does what the 6510 does: the three writes of an interrupt, never more).
+    // ba comes from the VIC on clk (dot4x), this logic runs on clk2x: registered here like aec_q (one clk2x of lag; the l_ev sampling below is tuned to this registered copy).
+    reg        ba_q = 1'b1;
+    always @(posedge clk2x) ba_q <= ba;
     reg  [1:0] ba_n = 2'd0;
-    always @(posedge clk2x) if (rst || (l_ev && ba)) ba_n <= 2'd0; else if (l_ev && ba_n != 2'd3) ba_n <= ba_n + 2'd1;
-    wire ba_hold = !ba && (l_ev ? ba_n[1] : (ba_n == 2'd3));
-    wire io_wr   = b_bus && b_wr && bank == 8'h00 && pg[7:4] == 4'hD && (d_wk == WK_BUS || d_wk == WK_INT);
+    always @(posedge clk2x) if (rst || (l_ev && ba_q)) ba_n <= 2'd0; else if (l_ev && ba_n != 2'd3) ba_n <= ba_n + 2'd1;
+    wire ba_hold = !ba_q && (l_ev ? ba_n[1] : (ba_n == 2'd3));
+    // the I/O write classes and the colour RAM ($D800-$DBFF, WK_BOTH): the arbiter selects the CPU half only while AEC is high (vic_write_ab low), so a write at AEC low is lost there too
+    wire io_wr   = b_bus && b_wr && bank == 8'h00 && pg[7:4] == 4'hD && (d_wk == WK_BUS || d_wk == WK_INT || d_wk == WK_BOTH);
 `ifdef SCPU_MUT_NOBAHOLD
     wire wr_hold = 1'b0;                                // control of the BA hold: I/O writes are never held (the old core)
 `else
