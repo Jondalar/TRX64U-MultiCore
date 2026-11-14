@@ -1,6 +1,6 @@
 # T109 — a core that makes sound is heard, and silence cannot come back unseen
 
-**Status:** PROPOSED (2026-10-16). 2026-11-13 status check: IN PROGRESS, not PROPOSED: the Atari and A1200 audio benches run in CI (ci/sims.txt) and the lint keeps the registry (S1, S2, S3, S5 built); S4 (boundary bench) and S6 (board, Alex's ears) open; silence not found.
+**Status:** DONE (2026-11-14, Alex: "Close it.", translated). Closed: sound proven in daily use; the silence-watch board proof is waived by Alex. Earlier status: PROPOSED (2026-10-16). 2026-11-13 status check: IN PROGRESS, not PROPOSED: the Atari and A1200 audio benches run in CI (ci/sims.txt) and the lint keeps the registry (S1, S2, S3, S5 built); S4 (boundary bench) and S6 (board, Alex's ears) open; silence not found.
 **Repo:** TRX64U-MultiCore — the Atari core (`cores/atari800/`), the Amiga 1200 configuration
 (`cores/amiga1200/`), the benches under `cores/*/sim/` and the registry `ci/sims.txt`.
 **Number:** T109 (registry: the table in `TODO.md`).

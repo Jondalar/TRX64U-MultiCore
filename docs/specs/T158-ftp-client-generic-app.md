@@ -1,6 +1,6 @@
 # T158 — the generic core application browses remote FTP servers like a medium, as the Ultimate application does
 
-**Status:** PROPOSED (2026-10-29), asked by Alex. Status check 2026-11-13: PROPOSED stays, but an FTP medium already exists in the core app (T104.2 9da495bdb: netfs.cc, ftp_client.cc, settings 'FTP n ...'; T186 fixes it); Q1-Q3 were never answered here, URL entry and §2 proofs not checked.
+**Status:** DONE (2026-11-14, Alex: "Close it.", translated). Closed as done: Q1 ported (ftp_client/netfs), Q2 stored in the settings (plain), Q3 upload on unmount (STOR); URL entry not built (out). Earlier status: PROPOSED (2026-10-29), asked by Alex. Status check 2026-11-13: PROPOSED stays, but an FTP medium already exists in the core app (T104.2 9da495bdb: netfs.cc, ftp_client.cc, settings 'FTP n ...'; T186 fixes it); Q1-Q3 were never answered here, URL entry and §2 proofs not checked.
 **Repo:** TRX64U-MultiCore — the generic core application (`coreapp/src`: a file system behind the Library browser, the
 server list in its settings). Host and core gateware are not changed.
 **Number:** T158.

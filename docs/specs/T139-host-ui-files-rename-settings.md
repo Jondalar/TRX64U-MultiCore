@@ -1,6 +1,6 @@
 # T139 — The host app manages files, renames menu entries and has a settings page
 
-**Status:** PROPOSED (2026-10-28), asked by Alex at the board. 2026-11-13 status check: built and merged (tests/hostapp test_fileops, test_bootcfg, test_coremaint; F8 settings page; Merge t148-core-folder, t164-capp); board: M target fixed 11-01 after Alex's find; no full board pass of S1-S5 recorded.
+**Status:** DONE (2026-11-14, Alex: "Yes", translated). Closed: proven in daily board use (file management, rename, settings page). Earlier status: PROPOSED (2026-10-28), asked by Alex at the board. 2026-11-13 status check: built and merged (tests/hostapp test_fileops, test_bootcfg, test_coremaint; F8 settings page; Merge t148-core-folder, t164-capp); board: M target fixed 11-01 after Alex's find; no full board pass of S1-S5 recorded.
 **Repo:** TRX64U-MultiCore — the host application only (`host-app/software/hostapp/`, `tests/hostapp/`). No gateware.
 **Number:** T139.
 **Origin:** Alex, 2026-10-28, after testing run 1022 (translated): "File browser F3: no Delete or Move/Copy? We need those

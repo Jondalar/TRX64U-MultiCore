@@ -1,6 +1,6 @@
 # T148 — Every core has one folder of its own beside its .cor: settings, ROMs, saves; no file is shared
 
-**Status:** PROPOSED (2026-10-28), designed with Alex; building. 2026-11-13 status check: built and merged (tests/coreapp test_corefolder, test_romfind, test_mediumwait, tests/hostapp test_coremaint; Merge w1-t148, D13 medium wait); §5 build notes still empty; board S6-S8 and P7 tidy not recorded.
+**Status:** DONE (2026-11-14, Alex: "Yes", translated). Closed: proven in daily board use (core folders). Earlier status: PROPOSED (2026-10-28), designed with Alex; building. 2026-11-13 status check: built and merged (tests/coreapp test_corefolder, test_romfind, test_mediumwait, tests/hostapp test_coremaint; Merge w1-t148, D13 medium wait); §5 build notes still empty; board S6-S8 and P7 tidy not recorded.
 **Repo:** TRX64U-MultiCore — core application (`coreapp/`: ROM search, settings, saves), host application
 (`host-app/software/hostapp/`: F8 maintenance page, boot.cfg), CI packaging (`ci/package.sh`), manual chapter 6.
 **Number:** T148.

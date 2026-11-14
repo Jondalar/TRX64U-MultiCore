@@ -1,6 +1,6 @@
 # T151 — Every core can keep its inserted media across a reset and a restart; "Reset and eject all" in Actions
 
-**Status:** PROPOSED (2026-10-28), asked by Alex. Status check 2026-11-13: PROPOSED stays; §5 empty, nothing built; T180 D2 (Persist medium mounts) overlaps S1, undecided.
+**Status:** WON'T DO (2026-11-14, Alex: "Gone. Won't do.", translated). Won't do; T180 D2 keeps the media mounts. Earlier status: PROPOSED (2026-10-28), asked by Alex. Status check 2026-11-13: PROPOSED stays; §5 empty, nothing built; T180 D2 (Persist medium mounts) overlaps S1, undecided.
 **Repo:** TRX64U-MultiCore — the shared base of the core application (`coreapp/src`, the media slots every descriptor
 already declares), the core folder of T148 (where the list is kept), the menu (Actions). No gateware.
 **Number:** T151.

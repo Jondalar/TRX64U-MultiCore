@@ -39,7 +39,6 @@ Built and benched; what is left is a step on the board (Alex, 2026-10-28, transl
 | T107 | 1 | 🔨 | Every application chooses its own video mode, the host re-asserts its own when a core returns | D7/D8/D11 designed in T164 (host); Sony cause found (pixel repetition, §5); host app 720-wide UI open | [T107](docs/todo/T107.md) |
 | T104.1 | 2 | 🔨 | Contribution model: libraries and apps register ops, state, menus; one service layer | Board: REST/WS to the core app of a running DFX core returns status and memory (Claude by curl) | [T104.1](docs/specs/T104.1-contribution-model.md) |
 | T104.3 | 2 | 🔨 | Applications: ABI 3 svc table, the app runner, declarative UI rendered by the app (Alex 10-26) | Runner, host, 4 apps proven in ue2emu (merged 10-29, trxmon stays linked); board S8, overlay Q1 open | [T104.3](docs/specs/T104.3-applications.md) |
-| T115 | 3 | 🔨 | The host starts a full firmware from a .cfw (flash file + IPROG): Gideon's original and the large TRX64 | Merged (trx64 core deleted, D12); board S7: refused .cfw (Claude by FTP, Alex taps it); S4-S6 no record | [T115](docs/todo/T115.md) |
 | T122 | 3 | 🔨 | Every core with a drive creates a new, formatted disk image from its menu (D81, Apple II, ADF, ATR, CPC) | Built; board B1, B3-B8 for all cores go to the testers (Alex 10-31); B2 A1200 passed | [T122](docs/specs/T122-create-blank-media.md) |
 | T128 | 3 | 🔨 | A folder on the stick/SD as an Amiga hard disk, instead of an .hdf image | Board B1-B6: mount a folder as HD0 on the A1200 (and A500 with KS 2.05/3.x), write, delete, power cut | [T128](docs/todo/T128.md) |
 
@@ -48,7 +47,6 @@ Built and benched; what is left is a step on the board (Alex, 2026-10-28, transl
 | ID | M | Status | Task | Open | Details |
 |---|---|---|---|---|---|
 | T99 | 2 | 📅 | Two SIDs, each with its own of Dag's filter settings (reDIP wrapper with NS=2) | Spec PROPOSED; the engine index is hardwired to 4 SIDs, so two SIDs share one engine | [T99](docs/todo/T99.md) |
-| T109 | 3 | 🔨 | A core that makes sound is heard, and silence cannot come back unseen | Both audio benches now run in CI and lint keeps the registry complete; the silence itself is open | [T109](docs/specs/T109-core-sound-reaches-the-speaker.md) |
 | T110 | 3 | 📅 | What we ship is still the T79 debug build: reSID8, UCI, streams, REU, sampler and turbo are all off | bitstream.yml:92-95 decide it for host and cores (jtag_dbg out, was T46); the rebuild moves host_pin | [T110](docs/todo/T110.md) |
 | T111 | 3 | 🔨 | A host application formats a stick or SD card as exFAT, for images above 4 GiB | Built: File Browser F formats exFAT (f_mkfs + own MBR); builder benches green; board B1-B4 are Alex's | [T111](docs/todo/T111.md) |
 | T112 | 3 | 🔨 | One folder per core (.cor, .cfg, roms/); ROM search starts beside the core | Layer-2 and large .cor: ROMs and .cfg beside the .cor, benches green; board S1/S2 open | [T112](docs/todo/T112.md) |
@@ -106,13 +104,10 @@ Built and benched; what is left is a step on the board (Alex, 2026-10-28, transl
 | T180 | 3 | 🔨 | Media housekeeping: a mount replaces what is mounted, mounts persist (F8), Recent/Favorites, file ops | D1-D10 built; open: media-set rows, +/- hint, names >127; board test | [T180](docs/todo/T180.md) |
 | T182 | 3 | 🔨 | C64 with SuperCPU (65816, SuperRAM) as its own core C64SCPU | Board: VICE ROM to READY, 1581; CMD ROM 1.4 fixed in sim (§5.11), board + JiffyDOS test open | [T182](docs/todo/T182.md) |
 | T181 | 3 | 🔨 | Hotkeys while a core runs (menu, volume, ...) without opening the menu | Board 11-07: works (Alex, S1-S4); S5 C= + CTRL on Apple II, Atari, ZX, CPC never pressed | [T181](docs/todo/T181.md) |
-| T174 | 3 | 🔨 | CI efficiency: bitstream-input keys, one test cache for agents and CI, early red, NAS runner takes cheap jobs | D1-D5 merged (baf37fb2f); §2 proof not recorded | [T174](docs/todo/T174.md) |
 | T166 | 3 | 📅 | Tester checklists: a GitHub wiki page or discussion with tickable test lists per core | Reminder (Alex 10-31): with the next test release; nothing posted yet | [T166](docs/todo/T166.md) |
 | T167 | 3 | 🔨 | UI: a changing progress bar or percentage in an overlay shows what lies behind it while redrawing | Built; 5.10 passed on the board (11-02); 5.8 format/update page look and 5.9 TrxPage updater re-check open | [T167](docs/todo/T167.md) |
-| T168 | 3 | 🔨 | Showcase: DDT's C64U demos (mandelbrUlt, look_ma_no_vic) as partial cores, picture over the host's HDMI | Merged; board 10-31: both run (Alex: "both look good"); 6-engine D10 build not seen on board | [T168](docs/todo/T168.md) |
 | T170 | 3 | 📅 | C128 core with real drives on the IEC port: 1541, and 1571 with fast serial (SRQ) | Spec proposed (Alex 10-31); D1/D2 decided; nothing built, needs room (T140 D24) | [T170](docs/specs/T170-c128-real-drives.md) |
 | T171 | 3 | ✅ | MultiCore publishes into its own generic package trx64u-multicore, not into trx64-ultimate | Done: first CI publish run 279 -> main-a938c680 (2026-10-31); contract §1 written | [T171](docs/todo/T171.md) |
-| T172 | 2 | 🔨 | Bundle step: board installer on any branch on demand ([bundle] / dispatch), branch+commit or SemVer | Built D1-D6 + S5 bundle check (11-07); S2-S4 proof not recorded | [T172](docs/specs/T172-bundle-step.md) |
 | T129 | 3 | 📅 | SNES core as a full (large) core | Planned as a full flat core (like the C128); source not chosen, spec not written | [T129](docs/todo/T129.md) |
 | T130 | 3 | 📅 | Atari ST core | Planned; candidate MiSTeryNano has no licence file (authors to be asked); spec not written | [T130](docs/todo/T130.md) |
 | T131 | 3 | 📅 | App API description and SDK for outside developers | Planned (Alex 10-26): foreign apps load (T104.3 Q3); API doc and SDK not written | [T131](docs/todo/T131.md) |
@@ -127,17 +122,11 @@ Built and benched; what is left is a step on the board (Alex, 2026-10-28, transl
 | T143 | 3 | 🔨 | Neo Geo as a large core from MiSTer NeoGeo | Board 10-31: plays; sprite stripes fixed in pixw (needs board), load progress, USB pad | [T143](docs/todo/T143.md) |
 | T146 | 3 | 🔨 | The host menu is on the screen at once: a saved picture of the last menu, LVGL builds behind it | Board: picture at 3.1 s (S1 < 1 s); core menus split out to T176 (11-02) | [T146](docs/todo/T146.md) |
 | T147 | 3 | 📅 | A logo on the host app's start screen | Planned (Alex 10-28); no spec | [T147](docs/todo/T147.md) |
-| T148 | 3 | 🔨 | Every core has one folder beside its .cor: cfg, roms, saves; no shared files; F8 maintenance | Built, merged (D13 medium wait); §5 notes empty; board S6-S8 and P7 tidy not recorded | [T148](docs/todo/T148.md) |
-| T149 | 3 | 🔨 | SD card at 25 MHz without errors: IOB capture and timing constraints for the SD pins | D5 built, merged (IOB, 25 MHz in A1200/ZX Next); S3 CI large and S4 board (crc errors 0) not recorded | [T149](docs/todo/T149.md) |
-| T150 | 3 | 📅 | Host/core edge registered and budgeted; CI margin check; a host change keeps core timing | Spec PROPOSED (Alex 10-28); D3 gate dropped; D1/D2/D4 not built | [T150](docs/todo/T150.md) |
-| T151 | 3 | 📅 | Every core keeps its inserted media across reset/restart (setting); "Reset and eject all" | Spec PROPOSED (Alex 10-28); nothing built; T180 D2 persist mounts overlaps, Alex decides | [T151](docs/todo/T151.md) |
 | T152 | 3 | 🔨 | Our update as .txu (host, app), split from foreign firmware; flash locked under large cores (F8) | S8 ESP32 flash built (U on inspect, 11-07); board: S2/S5/S6b/S7/Q5, locked text, S8 | [T152](docs/todo/T152.md) |
-| T153 | 3 | 🔨 | The UI is an SDK (widgets, layouts, TOML content) with a written contract and a BDD suite run in ue2emu | Merged 10-29: state query, test SDK, 44 scenarios; Q1-Q7 answered; open: contract lint D7.1, host app | [T153](docs/todo/T153.md) |
 | T154 | 3 | 🔨 | Cartridge and battery-RAM saves go back to the user's file (Off/Ask/Auto), shared app base, all cores | Merged 10-29: service, C64 flash/EEPROM, EF3 built and benched; board S1 and P3/P4 open | [T154](docs/todo/T154.md) |
 | T155 | 3 | 📅 | C128: run a cartridge from the generic app, then its write-back on the T154 service | Planned (Alex 10-29); spec to write later | [T155](docs/todo/T155.md) |
 | T156 | 3 | 🔨 | USB gamepads drive the cores' own controllers, generic HID parsing in the app base; NES, SNES, Neo Geo | Board 11-02: NES, SNES, Neo Geo pads ok (Neo Geo map by position); open: real pad dump | [T156](docs/todo/T156.md) |
 | T157 | 3 | 🔨 | Every core can swap the two joystick ports from its menu (generic app), issue #9 | Built: amiga, a1200, nes, c128; vc20 none (Alex); CI bitstreams + board S5 open | [T157](docs/todo/T157.md) |
-| T158 | 3 | 🔨 | The generic core app browses remote FTP servers (URL, login) like a medium, as the Ultimate app does | FTP medium exists (netfs.cc, 'FTP n' settings, T186 fixes); Q1-Q3 unanswered, URL entry and §2 proofs unchecked | [T158](docs/todo/T158.md) |
 | T159 | 3 | 🔨 | Case LED 1 = floppy LED (drive motor + hard disk), menu On/Off, A1200 first | Board 11-04: A500, Atari, Apple II, CPC, C128 pass; C264 and VC-20 not seen yet | [T159](docs/todo/T159.md) |
 | T160 | 3 | 🔨 | Every core has a master volume (SHIFT+/SHIFT- in the menu), gain in the host | A1200 board S3 passed; host gain + toast on every page built (T164 WP11), board S3 on another core open | [T160](docs/todo/T160.md) |
 | T161 | 3 | 🔨 | A GitHub bug report needs version, core, steps, photos and the T162 report (issue forms) | Forms + lint built, on GitHub; S3 Alex looks | [T161](docs/todo/T161.md) |
@@ -145,13 +134,23 @@ Built and benched; what is left is a step on the board (Alex, 2026-10-28, transl
 | T163 | 2 | 🔨 | Host and core settings in our own store, apart from Gideon's (FTP off after 1.1.0) | Pkg A, S3, S4 built; open: integration run, board FTP step | [T163](docs/todo/T163.md) |
 | T164 | 2 | 🔨 | Next host package: HDMI modes + scaler in the host, flash lock, volume, lamp, port clock, NTP | Board 11-02 (c83a83c2): host, A1200 ok; D10p, WP8c in main; D10q built; C128 picture passed 11-04; board test | [T164](docs/todo/T164.md) |
 | T138 | 3 | 🔨 | A1200 with 32 MB Zorro III fast RAM | Board S5 half: avail shows 32 MB (Alex 10-31); Deep Meet not tried yet | [T138](docs/todo/T138.md) |
-| T139 | 3 | 🔨 | Host app: file delete/copy/move, rename entries, settings page (F8) | Built and merged; board steps S1-S5 not recorded as a full pass (M target fixed 11-01) | [T139](docs/todo/T139.md) |
 
 ## Done
 
 | ID | M | Status | Task | Open | Details |
 | T169 | 3 | ✅ | User manual rebuilt for the host app: one chapter per menu, engineering-manual style, emulator screenshots | Done (Alex 11-14, closed after the §5 check); left: colour page app fix + picture, Run Update for TRXBK on a backup-started firmware | [T169](docs/todo/T169.md) |
 |---|---|---|---|---|---|
+| T115 | 3 | ✅ | The host starts a full firmware from a .cfw (flash file + IPROG): Gideon's original and the large TRX64 | Done (Alex 11-14); proven in daily board use (.cfw start) | [T115](docs/todo/T115.md) |
+| T109 | 3 | ✅ | A core that makes sound is heard, and silence cannot come back unseen | Done (Alex 11-14); sound proven in daily use, silence-watch board proof waived | [T109](docs/specs/T109-core-sound-reaches-the-speaker.md) |
+| T174 | 3 | ✅ | CI efficiency: bitstream-input keys, one test cache for agents and CI, early red, NAS runner takes cheap jobs | Done (Alex 11-14); CI is much better since T174 | [T174](docs/todo/T174.md) |
+| T168 | 3 | ✅ | Showcase: DDT's C64U demos (mandelbrUlt, look_ma_no_vic) as partial cores, picture over the host's HDMI | Done (Alex 11-14); both run on the board incl. the 6-engine ddt_mandel | [T168](docs/todo/T168.md) |
+| T172 | 2 | ✅ | Bundle step: board installer on any branch on demand ([bundle] / dispatch), branch+commit or SemVer | Done (Alex 11-14); branch installers install on the board | [T172](docs/specs/T172-bundle-step.md) |
+| T148 | 3 | ✅ | Every core has one folder beside its .cor: cfg, roms, saves; no shared files; F8 maintenance | Done (Alex 11-14); proven in daily board use (core folders) | [T148](docs/todo/T148.md) |
+| T149 | 3 | ✅ | SD card at 25 MHz without errors: IOB capture and timing constraints for the SD pins | Done (Alex 11-14); proven in daily board use (SD at 25 MHz) | [T149](docs/todo/T149.md) |
+| T153 | 3 | ✅ | The UI is an SDK (widgets, layouts, TOML content) with a written contract and a BDD suite run in ue2emu | Done (Alex 11-14); host-app migration is T192 D12, contract lint D7.1 moves to T192 | [T153](docs/todo/T153.md) |
+| T158 | 3 | ✅ | The generic core app browses remote FTP servers (URL, login) like a medium, as the Ultimate app does | Done (Alex 11-14): Q1 ported, Q2 plain in settings, Q3 upload on unmount; URL entry not built | [T158](docs/todo/T158.md) |
+| T139 | 3 | ✅ | Host app: file delete/copy/move, rename entries, settings page (F8) | Done (Alex 11-14); proven in daily board use (file management, rename, settings page) | [T139](docs/todo/T139.md) |
+| T113 | 3 | ✅ | Commodore 128 core: analysis (source, cost, contract fit), then a spec | Done (Alex 11-14); known nit: VDC interlace in a Boulder game, no todo | [T113](docs/todo/T113.md) |
 | T79 | 3 | ✅ | Partial reconfiguration trial: small static layer, C64 side swappable | Done: cores swap through ICAP, return to the host by IPROG works (Atari, NES) | [T79](docs/todo/T79.md) |
 | T81 | 3 | ✅ | Core selector: small LVGL host app picks a core from USB/SD and starts the swap by softboot | Done: the host app menu (T84, T101); null core not built | [T81](docs/todo/T81.md) |
 | T83 | 3 | ✅ | VIC-20 (VC-20) core from VIC20Nano as the second core in the T79 host/core split | Done (Alex, 2026-10-23): picture, sound, .d64 on the 1541 with autostart; the start click stays | [T83-vc20-core](docs/specs/T83-vc20-core.md) |
@@ -161,7 +160,6 @@ Built and benched; what is left is a step on the board (Alex, 2026-10-28, transl
 | T106 | 1 | ✅ | The host app answers a browser and answers us in JSON: see the menu, start a core, set the picture | Done (Alex, 2026-10-23): page and JSON work; its picture setting waits on T105 | [T106](docs/todo/T106.md) |
 | T114 | 3 | ✅ | Every shipped core has a recognisable logo in the TRX64 LVGL theme and a pack-ready 32x32 icon | Done: nine logo sets, packed into every .cor, drawn by the boot menu (bench) | [T114](docs/todo/T114.md) |
 | T118 | 3 | 🔨 | The HDMI picture is the same for every core, or we know which signal differs | Bench: encoder input identical for VC-20 and A1200 (hypothesis refuted); board difference open | [T118](docs/todo/T118.md) |
-| T113 | 3 | 🔨 | Commodore 128 core: analysis (source, cost, contract fit), then a spec | Large C128 core done (ships c128.cor); D11 VDC interlace woven built, sims green, Vivado + board open | [T113](docs/todo/T113.md) |
 | T123 | 3 | ✅ | The flash holds only the host: the core partition carries a null core, not the TRX64 core | Done: board flash holds host + null core (null_full.bit at 0x0, run 1022 package, 2026-10-28) | [T123](docs/todo/T123.md) |
 | T133 | 3 | ✅ | Host I+D cache for the RISC-V (branch t133-dcache): faster menu | Merged to main 2026-10-28 with the host pin (Alex: "Ja, darfst Du."); board-tested in run 1016/1022 | [T133](docs/todo/T133.md) |
 | T85 | 3 | ✅ | Amiga (Minimig) core from NanoMig as the third core in the T79 host/core split | Done: A500 runs (generic app, disk change from the menu boots); board confirmed by Alex 2026-10-28 | [T85](docs/todo/T85.md) |
@@ -177,6 +175,8 @@ Built and benched; what is left is a step on the board (Alex, 2026-10-28, transl
 
 | ID | M | Status | Task | Open | Details |
 |---|---|---|---|---|---|
+| T150 | 3 | ❌ | Host/core edge registered and budgeted; CI margin check; a host change keeps core timing | Won't do (Alex 11-14); nothing built | [T150](docs/todo/T150.md) |
+| T151 | 3 | ❌ | Every core keeps its inserted media across reset/restart (setting); "Reset and eject all" | Won't do (Alex 11-14); T180 D2 keeps the mounts | [T151](docs/todo/T151.md) |
 | T24 | 2 | ✖ | Own LVGL UI and boot (from TRX64-Ultimate M2, 2026-10-16) | Covered by T101 (host UI) and T104 (core apps) | [T24](docs/todo/T24.md) |
 | T32 | 2 | ✖ | Own TRX64U settings menu (from TRX64-Ultimate M2, 2026-10-16) | Covered by T104 (settings per core) and T101 (the host's) | [T32](docs/todo/T32.md) |
 | T36 | 2 | ✖ | Decoupling stage 2: own UI and own API for everything (from TRX64-Ultimate M2, 2026-10-16) | Covered by T101, T104 and T106 | [T36](docs/todo/T36.md) |

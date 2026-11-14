@@ -1,6 +1,6 @@
 # T168 — DDT's two C64U demo designs run as partial cores of the host, their picture on the host's HDMI
 
-**Status:** BUILDING (2026-10-31). Status check 2026-11-13: BUILT and merged (cores/ddt_mandel, cores/ddt_novic in main); board 10-31 both run (Alex: "both look good"); the 6-engine ddt_mandel of D10 (4768d714c) is not recorded on the board.
+**Status:** DONE (2026-11-14, Alex: "Yes it does. Both run.", translated). Closed: Alex has seen both on the board, incl. the 6-engine ddt_mandel. Earlier status: BUILDING (2026-10-31). Status check 2026-11-13: BUILT and merged (cores/ddt_mandel, cores/ddt_novic in main); board 10-31 both run (Alex: "both look good"); the 6-engine ddt_mandel of D10 (4768d714c) is not recorded on the board.
 **Repo:** TRX64U-MultiCore — two cores (`cores/ddt_mandel`, `cores/ddt_novic`), two core-app descriptors (`coreapp/cores/ddt_mandel.cc`, `ddt_novic.cc`, registers in `ddt_regs.h`), CI wiring.
 **Number:** T168 (table in `TODO.md`).
 **Origin:** Alex, 2026-10-31 (translated), after "we once had DDT's demo that could only output analogue and had no HDMI" (T22): "OK, can you have
