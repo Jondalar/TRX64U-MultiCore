@@ -1,4 +1,4 @@
-// Our IO block for the app (TRX64-Ultimate/docs/specs/ARCH-lean-state-access.md §10):
+// Our IO block for the app (docs/specs/ARCH-lean-state-access.md §10):
 // 0x101A0000-0x101AFFFF in 4 KB pages, plus Gideon's GMod2 EEPROM window
 // 0x1004C000. Pages built so far: 0 (ID, interrupt; from offset 0x100 the
 // gate and capture control), 1 (state bus), 2 (engine, trx_engine.v), 4
@@ -166,7 +166,7 @@ module trx_io (
     input  wire [31:0] build,           // USR_ACCESSE2 DATA, constant after configuration
     input  wire [63:0] ddr_cal,         // DDR2 calibration result, ui_clk, static once done (DDR_CAL0/1)
 
-    // T25.5: CAPS3 (0x006) and the reSID8 filter control (0x040-0x04B), TRX64-Ultimate/docs/specs/T25.5-resid8-menus.md
+    // T25.5: CAPS3 (0x006) and the reSID8 filter control (0x040-0x04B), docs/specs/T25.5-resid8-menus.md
     input  wire  [7:0] caps3,
     output wire [49:0] rs8_cfg          // {bypass 2, offset 2 x 11, base 2 x 9, auto 2 x 2, filter source 2 x 2}
 );

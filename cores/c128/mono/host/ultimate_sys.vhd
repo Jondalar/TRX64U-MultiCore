@@ -50,7 +50,7 @@
 --     EEPROM window at 0x1004C000 (CAPAB_EEPROM), one port (cw_*) with addr
 --     b16 = the EEPROM window; its interrupt is ITU high interrupt 2 (drive
 --     B's in ultimate_logic_32; we have no drive B).
---   - The Ultimate Audio sampler (T25.6, CAPAB_SAMPLER = bit 21; TRX64-Ultimate/docs/specs/T25.6-sampler.md): its trx_sampler.v is in
+--   - The Ultimate Audio sampler (T25.6, CAPAB_SAMPLER = bit 21; docs/specs/T25.6-sampler.md): its trx_sampler.v is in
 --     c64_core (the C64's $DF20-$DFFF, the Sampler L/R mixer inputs); here only what the app drives: the byte
 --     window SAMPLER_BASE 0x10048000-0x100480FF (region r_cw, trx_io page 8), C64_SAMPLER_ENABLE (cart register
 --     +0E) and the mixer bytes 8..11 (sid_gains2).
@@ -842,7 +842,7 @@ begin
     -- at every address, as on Gideon's core (app updates, any flash layout incl.
     -- the 100T's). 4-byte opcodes stay blocked, and so do status-register writes except the
     -- one lock the host app sets before a large core (g_lock, T152 D9 / T164 S15).
-    -- g_wren_pass true: WREN reaches the chip. docs/specs/done/T44-flash-write-gate.md
+    -- g_wren_pass true: WREN reaches the chip. docs/specs/T44-flash-write-gate.md
     i_flash_gate: entity work.flash_gate
     generic map (
         g_wren_pass => true,

@@ -17,7 +17,7 @@
 //     and VIC stay locked.
 // Keyboard: the C64U's own, scanned over I2C (c64u_keyboard); joysticks and
 // RESTORE straight from their pins. Tied off: tape. The expansion port and the
-// SID sockets: TRX64-Ultimate/docs/specs/T16-cartridge-port.md §13. The serial bus
+// SID sockets: docs/specs/T16-cartridge-port.md §13. The serial bus
 // joins the C64, the app's drive A and the board's IEC port (iec_bus.v).
 //
 // Next to the C64: Gideon's RISC-V (rvlite, 100 MHz) with the stubs the U64-II
@@ -1453,7 +1453,7 @@ module top #(
     assign LED_CASE2n = !led2n;
     assign LED_CASE3n = 1'b0;
 
-    // ---- T79.1 decoupler (docs/specs/done/T79.1-host-core-contract.md section 7), the host side of the l2 edge ----
+    // ---- T79.1 decoupler (docs/specs/T79.1-host-core-contract.md section 7), the host side of the l2 edge ----
     // core_decouple (JTAG 0x100029) is 1 while the core is being swapped: l2's outputs are undefined then,
     // so every one that reaches the host or a pin is held at its idle here (all transparent at 0).
     dfx_sync dcs_cpu  (.clk(cpu_clk), .i(core_decouple), .o(dc_cpu));

@@ -39,7 +39,7 @@ module c64_top_c64ref #(
   input wire vic_trst_mask,
   input wire cpu_pause_req,
 
-  // T29 turbo (c64_turbo_c64ref.v, TRX64-Ultimate/docs/specs/T29-turbo.md §12). gate_ce: c64_core_c64ref's
+  // T29 turbo (c64_turbo_c64ref.v, docs/specs/T29-turbo.md §12). gate_ce: c64_core_c64ref's
   // enable for the next gclk edge (ungated clock); turbo_inhibit: something
   // stops the machine or needs it exact, the engine falls back to normal
   // speed; the app's setting (quasi-static, the toggle after the bytes);

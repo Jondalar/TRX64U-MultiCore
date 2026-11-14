@@ -9,7 +9,7 @@
 // slots of 1.667 ns, eight per ui_clk) and ui_clk (CLKDIV and the whole fabric).
 // Everything in the fabric is ui_clk: no clock crossing except the pads.
 //
-// Slot grid (TRX64-Ultimate/docs/specs/OPT-ddr2.md §7): a ui_clk cycle is 8 slots = two memory
+// Slot grid (docs/specs/OPT-ddr2.md §7): a ui_clk cycle is 8 slots = two memory
 // clocks. What this module registers in cycle n is serialized in the following cycle
 // (OSERDES takes D at the next CLKDIV edge); all pins have the same delay. A command is
 // launched in cycle n: slot 0 = ACTIVE, slot 1 = READ/WRITE+AP; a command value is held
@@ -23,7 +23,7 @@
 // bitslip, tap and read delay are set by software (the register block) as in
 // ddr2_calibrator_u64ii.c.
 //
-// Register block (r_*, ui_clk, word addresses): see TRX64-Ultimate/docs/specs/OPT-ddr2.md §7.
+// Register block (r_*, ui_clk, word addresses): see docs/specs/OPT-ddr2.md §7.
 module ddr2_lean (
     inout  wire [15:0] ddr2_dq,
     inout  wire [1:0]  ddr2_dqs_n,

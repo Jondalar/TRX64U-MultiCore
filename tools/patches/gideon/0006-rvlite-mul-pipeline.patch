@@ -2,7 +2,7 @@ rvlite: the multiply gets its own pipeline; the instruction waits two cycles in 
 
 The product was formed in execute straight from the register file block RAM
 (gprf clock-to-out, sign-extension LUT, the cascaded DSP48s into exec_r.mul_result)
-and missed 100 MHz whenever placement moved (TRX64-Ultimate/docs/specs/OPT-rvmul.md). Now the
+and missed 100 MHz whenever placement moved (docs/specs/OPT-rvmul.md). Now the
 operands go into registers (the DSP A/B registers), the product into a second
 register (M register), and exec_r.mul_result takes it two cycles later. A MUL,
 MULH, MULHSU or MULHU holds in execute for those cycles: mul_hold hands a

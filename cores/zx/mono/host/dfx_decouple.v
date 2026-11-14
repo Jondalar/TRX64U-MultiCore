@@ -1,4 +1,4 @@
-// T79.1 decoupler helpers (docs/specs/done/T79.1-host-core-contract.md section 7). The host side of the
+// T79.1 decoupler helpers (docs/specs/T79.1-host-core-contract.md section 7). The host side of the
 // partition edge; layer 2 needs nothing from them. While `dc` is 0 every module is transparent.
 
 // two-flip-flop synchroniser of a level into clk

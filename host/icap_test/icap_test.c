@@ -1,5 +1,5 @@
 /*
- * T79 ICAP loader test (docs/specs/done/T79.1-host-core-contract.md section 7): copies LEN bytes from a
+ * T79 ICAP loader test (docs/specs/T79.1-host-core-contract.md section 7): copies LEN bytes from a
  * DDR2 address to the ICAP loader of layer 1 (ultimate_sys.vhd, io 0x10060600) and checks the
  * word count the loader reports. Parameters and results live in DDR2 (JTAG reads them):
  *
