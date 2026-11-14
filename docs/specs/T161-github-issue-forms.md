@@ -63,3 +63,4 @@ Scenario: S3 GitHub
   carry one.
 - **2026-10-30, GitHub (Alex):** "The forms to GitHub is ok and I will look at them there" (translated): the snapshot goes out with
   them; S3 is his look.
+- 2026-11-14 (Alex: "ja", translated "yes", to cutting the list): the bug form names only the supported areas (host, official firmware, generic core application, trx64u, trx64g; CONTRIBUTING.md, discussion #66); tools/check_issue_forms.py checks that list.
