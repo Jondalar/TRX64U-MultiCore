@@ -1,8 +1,8 @@
 # Machine pause (T12 B)
 
 Source: TODO.md section 4 "Machine pause (T12 B)", written 2026-10-01 (simulated, not on the
-board then); moved here 2026-10-03. State of that day: T12 (`docs/specs/T12-freeze-overlay.md`),
-T20 and ARCH (`docs/specs/ARCH-lean-state-access.md`) supersede it where they differ
+board then); moved here 2026-10-03. State of that day: T12 ([T12-freeze-overlay.md](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/T12-freeze-overlay.md)),
+T20 and ARCH ([ARCH-lean-state-access.md](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/ARCH-lean-state-access.md)) supersede it where they differ
 (e.g. HDMI now shows the dimmed still, not a black window).
 
 

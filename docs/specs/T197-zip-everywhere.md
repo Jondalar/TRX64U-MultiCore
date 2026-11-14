@@ -1,6 +1,6 @@
 # T197 — A .zip can be unpacked from the host menu and from every core that has room, through one zip library any application can use
 
-**Status:** IN PROGRESS (2026-11-10, branch `t197-zip`: P1, P2, P4, P5 built and green natively and for RISC-V; P3 host open). Corrected 2026-11-13 (status check): BUILT, merged to main (b14e42228); S1-S4, S6, S7 proven in test_unzip (§5); S5 board open.
+**Status:** BUILT, merged to main (b14e42228), P1-P5 incl. the host (P3, 2026-11-10); S1-S4, S6, S7 proven in test_unzip and the host bench (§5); S5 board (unzip a real collection in host F3 and in the A1200) open, so not DONE. 2026-11-15 sync: the old 'IN PROGRESS ... P3 host open' text removed (P3 built, §5 line 96).
 **Repo:** TRX64U-MultiCore — `apps/` (the zip library and the unzip application), the loader and service table of T104.1/T104.3
 (`app/sdk/`, `coreapp/src/libload.cc`), the host app (`host-app/software/hostapp/`: an application loader it does not have today).
 **Number:** T197.

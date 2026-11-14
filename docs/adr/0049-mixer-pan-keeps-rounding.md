@@ -19,4 +19,4 @@ Alex (2026-10-08): "Runden lassen". The mixer keeps rounding. This is a delibera
 
 ## Links
 
-TODO T25; docs/specs/T25.6-sampler.md; tests/sampler-ref
+TODO T25; [T25.6-sampler.md](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/T25.6-sampler.md); tests/sampler-ref

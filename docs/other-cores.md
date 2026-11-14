@@ -20,7 +20,7 @@ Source: TODO.md section 6 (candidates picked 2026-10-01); moved here 2026-10-03.
 - Atari 800 XL (T88, 2026-10-13): no Atari 800 core exists among the MiSTle-Dev repositories. Base:
   github.com/MiSTer-devel/Atari800_MiSTer (`rtl/common`, Mark Watson, VHDL, non-commercial licence,
   see `cores/atari800/rtl/NOTICE`; `cpu_65xx.vhd` is "All Rights Reserved"). Third-party Tang Nano 20K port for reference:
-  github.com/carlosbravoa/atari800_tang_nano20k (NTSC only). See docs/specs/T88-atari800-core.md.
+  github.com/carlosbravoa/atari800_tang_nano20k (NTSC only). See docs/specs/done/T88-atari800-core.md.
 - NES (T95, 2026-10-15): Brian Bennett's `fpga_nes` (github.com/brianbennett/fpga_nes, Verilog, BSD 2-clause), mapper 0 only, no DMC. Lost: `MiSTer-devel/NES_MiSTer` (GPL v3,
   cycle accurate, the mappers, SystemVerilog, SDRAM) and `nand2mario/nestang` (its Tang Nano reduction). Q1 of docs/specs/T95-nes-core.md asks which one carries the mappers.
 - BBC Micro (T125) and Commodore PET (T126, merged into T134 on 2026-11-05), 2026-10-24 (Alex: "In die Liste der Cores bitte noch BBC und PET"): on the list;

@@ -55,5 +55,3 @@ flash (W25Q128). Nothing written."
 
 1.5.1 Every core is experimental (`experimental = true` in its `core.toml`) except the Apple IIe. The TRX64 core comes from the TRX64 Ultimate project and has no descriptor here. The table in the README of the project gives the state of each core and
 the evidence. This manual follows `main` as of 2026-11-13.
-
-1.5.2 The shipped bitstreams are the debug build. reSID8, UCI, streams, REU, sampler and turbo are off in them.

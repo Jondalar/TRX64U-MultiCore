@@ -60,7 +60,7 @@ separate compatibility step. No screen calls firmware actions yet.
 - Settings change live when the user leaves a page. `SAVE TO FLASH` persists them;
   `RESET FROM FLASH` restores the stored values. There is deliberately no fictional
   Apply/Discard transaction.
-- `globals.xml` subjects are demo data until the adapters in `../specs/T24-ui-wiring.md`
+- `globals.xml` subjects are demo data until the adapters in `T24-ui-wiring.md` (TRX64-Ultimate)
   bind them to firmware state.
 - Parameter and action inventories are not duplicated in XML. Runtime rows are
   created from `ConfigManager`, `ConfigGroupCollection`, `TasksCollection`,

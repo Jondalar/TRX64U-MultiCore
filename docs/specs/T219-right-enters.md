@@ -1,6 +1,6 @@
 # T219 — RIGHT goes in, LEFT goes out, in every file browser (GitHub #90)
 
-**Status:** BUILT (2026-11-14), ue2emu pictures in `docs/pictures/gh90/`; board not run.
+**Status:** BUILT (2026-11-14), ue2emu pictures in `docs/pictures/gh90/`; board not run. 2026-11-15 sync: merged to main (2b5d80b73), code checked (`host_core_ui.cc:634`, `menuctl.cc:2545-2547`, `filemgr.cc:863`); consistent.
 **Origin:** GitHub #90 (a user): in the generic core application's file browser ENTER opens the selected folder and LEFT goes to the parent, RIGHT does not open the folder - inconsistent and unlike the Ultimate firmware. Alex, 2026-11-14 (translated): "he is right; didn't we already say with the configs and zips: LEFT out (one folder up), RIGHT in (into the folder or zip or config)".
 **Builds on:** T198 D2 (RIGHT opens the config overlay on a core row / `.cor`, symmetric to LEFT = back), T197 (a `.zip` is unpacked with Z, never browsed), `docs/lvgl_ui_project/NAVIGATION.md`.
 
