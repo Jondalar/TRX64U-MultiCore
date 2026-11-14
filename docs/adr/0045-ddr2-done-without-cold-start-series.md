@@ -19,4 +19,4 @@ Alex, 2026-10-07, asked whether the 4-hour run plus the day's loads are enough: 
 
 ## Links
 
-TODO OPT-ddr2, OPT-ddr2.md in TRX64-Ultimate/docs/specs
+TODO OPT-ddr2, [OPT-ddr2.md](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/OPT-ddr2.md)

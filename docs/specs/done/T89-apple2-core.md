@@ -31,7 +31,7 @@ famous NTSC artifact colours (HGR green/violet/orange/blue from a monochrome bit
 **Today:** there is no Apple II anything. The swap works with TRX64 (T79.1 PoC 4/5) and a VC-20 runs behind it (T83); the third
 core (T85, Amiga) is specified. The edge is still TRX64's: 228 ports, 2,180 bits, a VIC-II shaped video port, a DDR2 port pair,
 the 8-bit register bus. An Apple II shares one thing with the C64: both are 6502 machines on a 14.31818 MHz crystal
-(C64 NTSC CPU clock 1,022,727 Hz, Apple 14,318,181 Hz / 14 = 1,022,727 Hz, T40-ntsc.md in TRX64-Ultimate/docs/specs table), so the host's NTSC
+(C64 NTSC CPU clock 1,022,727 Hz, Apple 14,318,181 Hz / 14 = 1,022,727 Hz, [T40-ntsc.md](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/T40-ntsc.md) table), so the host's NTSC
 clock mode (sys_clk 32.7273 MHz, T40) is an exact 16/7 of the Apple master clock.
 
 **What the sources are.**

@@ -250,7 +250,7 @@ in the repository; the figures below come from **different tools and dates and d
 | Item | Figure | Source | Tool |
 |---|---:|---|---|
 | ring engine (`eng`) | 931 LUT | `docs/lut-budget.md`, run 275 | Vivado, post-route |
-| ring engine | 1,377 LUT | T80-lean-ring.md in TRX64-Ultimate/docs/specs:9` (M1) | Vivado |
+| ring engine | 1,377 LUT | [T80-lean-ring.md](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/T80-lean-ring.md):9` (M1) | Vivado |
 | ring engine | 1,687 LUT, 4 RAMB36 | `SLIM-state-path.md` §6.1 table (slim-core) | yosys, +-20 % |
 | `trx_dbg` | 962 LUT | `lut-budget.md`, run 275 | Vivado |
 | `trx_dbg` | 531 LUT, 2 RAMB36 | `ARCH-lean-state-access.md:1150` | yosys |

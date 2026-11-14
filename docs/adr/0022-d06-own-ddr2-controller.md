@@ -24,4 +24,4 @@ OPT-ddr2: board 4-hour run 6,095 rounds 0 errors; swapped into c64_basic and in 
 - [OPT-mig](../specs/README.md#belonged-to-trx64-ultimate)
 - [T11](../../docs/todo/T11.md)
 - [T41](../../docs/todo/T41.md)
-- [OPT-ddr2.md in TRX64-Ultimate/docs/specs](../specs/README.md#belonged-to-trx64-ultimate)
+- [OPT-ddr2.md](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/OPT-ddr2.md)

@@ -22,5 +22,5 @@ A freeze is a plain machine pause with zero machine cycles; app accesses are bus
 - [T12](../specs/README.md#belonged-to-trx64-ultimate)
 - [T20](../specs/README.md#belonged-to-trx64-ultimate)
 - [T21](../specs/README.md#belonged-to-trx64-ultimate)
-- [SLIM-state-path.md in TRX64-Ultimate/docs/specs](../specs/README.md#belonged-to-trx64-ultimate)
-- [ARCH-lean-state-access.md in TRX64-Ultimate/docs/specs](../specs/README.md#belonged-to-trx64-ultimate)
+- [SLIM-state-path.md](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/SLIM-state-path.md)
+- [ARCH-lean-state-access.md](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/ARCH-lean-state-access.md)

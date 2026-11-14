@@ -134,9 +134,9 @@ den 50T nicht mit Reserve. Es geht nur, wenn die 1541-Emulation oder der Turbo f
 | – | Floppy in software on the RISC-V / one 6502 core time-shared by C64 and 1541 | **verworfen** — rvlite schafft keinen zyklusgenauen 1541 in Echtzeit; geteilte CPU: in C64RE wurde es erst gut, als die Floppy-CPU wirklich getrennt war (Fastloader/Floppycode-Loader sind pingelig) |
 | 4 | JTAG-Debug im Release | **RC/Release ohne JTAG-Debug** (jtag_dbg, rv_dbg, con_ring: −761 LUT); Dev-Build behält ihn. Budget-Gate gilt für den Release-Build |
 | 5 | Budget | **Kein hartes 26.000-Gate** (Alex: "wenn es baut, ist es ok"). Maßstab ist der Release-Build: Timing erfüllt (WNS ≥ 0 in jeder Domain). Ziel bleibt Reserve; die Optimierungs-Branches (opt-bling −473, opt-frz −144, opt-kb offen) und Release ohne JTAG (−761) gehen rein |
-| 6 | DDR2-Controller | **Option B: eigener schlanker Controller statt MIG (Alex 2026-10-05: "das lohnt sich richtig")**, nach dem Vorbild von Gideons Altera-Controller; zuerst im ddr2_test-Design mit Speichertest auf dem Board, erst danach Tausch in c64_basic. Spec folgt (OPT-ddr2.md in TRX64-Ultimate/docs/specs). Option A (opt-mig, -313) ist gemergt |
+| 6 | DDR2-Controller | **Option B: eigener schlanker Controller statt MIG (Alex 2026-10-05: "das lohnt sich richtig")**, nach dem Vorbild von Gideons Altera-Controller; zuerst im ddr2_test-Design mit Speichertest auf dem Board, erst danach Tausch in c64_basic. Spec folgt ([OPT-ddr2.md](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/OPT-ddr2.md)). Option A (opt-mig, -313) ist gemergt |
 | 7 | Ring- und Standbild-Formate | **Frei nach unserer Sicht optimierbar (Alex 2026-10-06):** Ring-, Standbild- und Record-Formate müssen nicht zum TRX64-Emulator passen; nur wir und Mike nutzen beides, Mike noch kaum. Austausch mit TRX64 bleibt M2/M3 (A09). |
-| 8 | pix_layer schlanker | **Ja (Alex 2026-10-06):** Standbild-Aufnahme als Schieberegister mit einem Puffer, Konfigurations-Register nicht mehr rücklesbar (nur Status), Spec OPT-pix.md in TRX64-Ultimate/docs/specs |
+| 8 | pix_layer schlanker | **Ja (Alex 2026-10-06):** Standbild-Aufnahme als Schieberegister mit einem Puffer, Konfigurations-Register nicht mehr rücklesbar (nur Status), Spec [OPT-pix.md](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/OPT-pix.md) |
 | 9 | Turbo (T29) | **Wieder rein in M1 (Alex 2026-10-06):** der Platz ist da (Iteration 2: 23.709 LUT); auf dem neuen Stand neu aufsetzen und messen, IEC-Bremse unter Turbo klären. Ersetzt "Turbo raus aus dem Budget" vom 5.10. |
 | 10 | Integration | **Ein Integrations-Branch `integ-m1`** mit allen fertigen Branches statt vieler Einzel-Merges (Alex 2026-10-06: "viel zu fragmentiert"); ein CI-Build, ein Board-Test, dann nach main |
 | 11 | Lizenz | **Unser Code: GPL-3.0-or-later (Alex 2026-10-06).** Dags reDIP-Teile bleiben CERN-OHL-S-2.0, unser GPL-Code ist im Sinne von CERN-OHL-S "Available Components" (Dags Vorschlag). Übersicht: LICENSING.md, Text: LICENSE |
@@ -152,8 +152,8 @@ Alle fertigen Branches sind in `integ-m1` (Entscheidung 10) zusammengeführt; CI
 | main 448fc36 (rvmul, CI-Cache) | gemergt | 27.660 | +0,340 |
 | opt-kb (Tastatur-Scanner, formal gleichwertig) | gemergt, main 8423823 | 27.275 | +0,027 |
 | hdmi-cea50 (50 Hz wie Gideon, T40 §11) | gemergt, Acer getestet | – | +0,054 (Branch) |
-| opt-mig (MIG ohne XADC, 2 Bank-Maschinen, OPT-mig.md in TRX64-Ultimate/docs/specs) | gemergt, Board-Test 2026-10-06 | 26.962 (Branch) | +0,200 |
-| SLIM (SLIM-state-path.md in TRX64-Ultimate/docs/specs, D1-D6) | gemergt (main), App slim-core-app in main | – | – |
+| opt-mig (MIG ohne XADC, 2 Bank-Maschinen, [OPT-mig.md](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/OPT-mig.md)) | gemergt, Board-Test 2026-10-06 | 26.962 (Branch) | +0,200 |
+| SLIM ([SLIM-state-path.md](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/SLIM-state-path.md), D1-D6) | gemergt (main), App slim-core-app in main | – | – |
 | opt-pix (Standbild-Schieberegister, OPT-pix.md) | in integ-m1 | grüner CI-Lauf 450 (Branch) | – |
 | opt-bling (LED-Effekte) | in integ-m1 | 27.171 (alter Stand) | +0,170 |
 | ddr2-swap (eigener DDR2-Controller, OPT-ddr2 §9) | in integ-m1 | grüner CI-Lauf 449 (Branch) | – |

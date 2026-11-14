@@ -19,5 +19,5 @@ T25.4 (reDIP generalised to NS SIDs, 8 = two UltiSIDs split in four) built on br
 ## Links
 
 - [T25](../../docs/todo/T25.md)
-- [T25.4-redip-ultisid.md in TRX64-Ultimate/docs/specs](../specs/README.md#belonged-to-trx64-ultimate)
+- [T25.4-redip-ultisid.md](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/T25.4-redip-ultisid.md)
 - [LICENSING.md](../../LICENSING.md)

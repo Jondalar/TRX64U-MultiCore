@@ -21,4 +21,4 @@ T29 in main 2026-10-06 (branch t29-turbo + app t29-app); turbo 1-64 MHz passes o
 ## Links
 
 - [T29](../specs/README.md#belonged-to-trx64-ultimate)
-- [T29-turbo.md in TRX64-Ultimate/docs/specs](../specs/README.md#belonged-to-trx64-ultimate)
+- [T29-turbo.md](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/T29-turbo.md)

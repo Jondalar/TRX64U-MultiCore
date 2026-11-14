@@ -37,4 +37,4 @@ free ranges so that the UCI can be switched selectively. Gideon's behaviour is n
 
 ## Links
 
-TODO T72, T73, T57, T16; T57-trex-crt-both-cores.md in TRX64-Ultimate/docs/specs; T16-cartridge-port.md in TRX64-Ultimate/docs/specs; doc/cartridge_mapping_descriptor.md (app)
+TODO T72, T73, T57, T16; [T57-trex-crt-both-cores.md](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/T57-trex-crt-both-cores.md); [T16-cartridge-port.md](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/T16-cartridge-port.md); doc/cartridge_mapping_descriptor.md (app)

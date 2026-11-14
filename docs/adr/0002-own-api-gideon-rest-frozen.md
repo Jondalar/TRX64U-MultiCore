@@ -25,4 +25,4 @@ itself is still not extended.
 
 - [T36](../specs/README.md#belonged-to-trx64-ultimate)
 - [T52](../../docs/todo/T52.md)
-- [T24-ui-wiring.md in TRX64-Ultimate/docs/specs](../specs/README.md#belonged-to-trx64-ultimate)
+- [T24-ui-wiring.md](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/T24-ui-wiring.md)

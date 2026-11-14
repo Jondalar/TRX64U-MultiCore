@@ -5,7 +5,7 @@ Specs of the TRX64U MultiCore line (one host, n swappable cores; layout since 20
 ## The split
 
 - **MultiCore** (this repository): host (layer 1) and swappable cores (layer 2) on the C64 Ultimate / U64 Elite II. Its specs are in this directory.
-- **TRX64-Ultimate**: the 1:1 drop-in line (full C64, monitor, Timewarp ring, cartridge port, SID/turbo, update path). Its specs are in `TRX64-Ultimate/docs/specs`.
+- **TRX64-Ultimate**: the 1:1 drop-in line (full C64, monitor, Timewarp ring, cartridge port, SID/turbo, update path). Its specs are in [TRX64-Ultimate/docs/specs](https://github.com/Jondalar/TRX64-Ultimate/tree/main/docs/specs).
 - Before the split (up to 2026-10-13) both lines shared one numbering and one directory. The specs that are the TRX64-Ultimate line's were removed here; the list is below.
 
 ## Layout
@@ -108,54 +108,54 @@ Specs of the TRX64U MultiCore line (one host, n swappable cores; layout since 20
 
 ## Belonged to TRX64-Ultimate
 
-Removed from this repository; the specs live in `TRX64-Ultimate/docs/specs` under the same file name.
+Removed from this repository; the specs live in [TRX64-Ultimate/docs/specs](https://github.com/Jondalar/TRX64-Ultimate/tree/main/docs/specs) under the same file name.
 
-- ARCH-lean-state-access: Lean state access: one state bus for T12, T16.2, T20, T21
-- G06-dma-cycle-steal: App DMA into the C64's I/O area while the C64 runs (cycle steal)
-- OPT-bling: bling: LED effects out of bling_io
-- OPT-ddr2: ddr2: our own lean DDR2 controller instead of MIG
-- OPT-kb: kb — make c64u_keyboard smaller and shallower
-- OPT-mig: mig: a smaller MIG (DDR2 controller) by configuration
-- OPT-pix: pix — make pix_layer smaller without changing what the user sees
-- OPT-rvmul: rvmul: rvlite register file -> multiplier path
-- PROP-001-cartridge-writeback-interface: Cartridge Write-Back Interface (CWBI)
-- PROP-002-cartridge-mapping-descriptor: Cartridge Mapping Descriptor
-- SLIM-state-path: one state path, a lean write log (2026-10-05)
-- T12-freeze-overlay: Freeze menu on the machine pause: shadow I/O, C64 text overlay, pixel layer
-- T15-flash-boot: Boot the Ultimate app from flash
-- T16-board-session: board session: Alex's real cartridges
-- T16-cartridge-port: The real cartridge (expansion) port
-- T16.2-app-cartridge-writeback: Writable cartridges: hardware interface and the app's write-back
-- T20-delta-ring: Delta ring, dump, restore
-- T21-monitor: Machine code monitor at TRX64 level
-- T24-lvgl-ui: Own LVGL UI on the pixel layer
-- T24-ui-project-review: Review of the LVGL UI project (`docs/lvgl_ui_project/`)
-- T24-ui-wiring: wiring: how the LVGL UI reaches every function of the app
-- T24.1-pip-box: Live C64 picture box (picture-in-picture): hardware and register spec
-- T25-cleanroom-multisid: Clean room: UltiSID, Copper, lp_filter (overview)
-- T25.1-sid-engine: Clean-room SID engine (UltiSID replacement, up to 8 SIDs)
-- T25.2-copper: Clean-room Copper (raster-timed VIC register writer)
-- T25.3-lp-filter: Clean-room audio decimator (lp_filter / resampler replacement)
-- T25.4-redip-ultisid: reDIP SID up to UltiSID level (8 SIDs in one pipeline)
-- T25.5-resid8-menus: reSID8: the SID menus of the app for our engine
-- T25.6-sampler: Sampler / Ultimate Audio (gap G14)
-- T26.0-esp32-facts: step 0: ESP32 facts and the way back (spec)
-- T27-u64-cyclone-port: TRX64 Ultimate on the old U64 (Cyclone V 5CEBA4F23C8): feasibility
-- T28-uci: UCI (Ultimate Command Interface) on TRX64 Ultimate
-- T29-turbo: Turbo: a C64 CPU faster than 1 MHz
-- T31-ci-pipeline: Staged CI: lint, sims, app, bitstreams, package
-- T33-generic-cart-decoder: Descriptor-driven cartridge decoder (TREX-PROP-002 on our core)
-- T37-sid-sockets: Real SID chips in the C64U's SID sockets
-- T38-T39-input-reset: T38/T39 — App keyboard/joystick injection and the C64 reset interrupt
-- T40-ntsc: System Mode: PAL, NTSC, PAL-60, NTSC-50 (and the two "/L" variants)
-- T47-paddles-mouse: Paddles, 1351 mouse, joystick swap, WASD-to-joystick, NMI sense
-- T50-update-unlock: Flash unlock for updates (T+R+X at power-on)
-- T51-ef3: EasyFlash 3 emulation, writable 8 MB
-- T57-trex-crt-both-cores: trex_crt (cart dumper / writer / inspector) on both cores
-- T59-palette: Custom palettes as in Gideon's core
-- T60-reu-16mb: REU up to 16 MB, with Gideon's enable and size
-- T70-u64-re-minimal: TRX64 RE core for the old U64 (Cyclone V), minimal scope
-- T71-robot-tests: Robot Framework tests (BDD) for TRX64 Ultimate
-- T78-wifi-rpc-timeout: WiFi RPC replies with a timeout
-- T80-lean-ring: a lean ring engine (draft)
-- T82-vic-check-and-slim: Our VIC-II matches Gideon's measured on the raster tests, and costs only the LUTs it needs
+- [ARCH-lean-state-access](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/ARCH-lean-state-access.md): Lean state access: one state bus for T12, T16.2, T20, T21
+- [G06-dma-cycle-steal](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/G06-dma-cycle-steal.md): App DMA into the C64's I/O area while the C64 runs (cycle steal)
+- [OPT-bling](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/OPT-bling.md): bling: LED effects out of bling_io
+- [OPT-ddr2](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/OPT-ddr2.md): ddr2: our own lean DDR2 controller instead of MIG
+- [OPT-kb](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/OPT-kb.md): kb — make c64u_keyboard smaller and shallower
+- [OPT-mig](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/OPT-mig.md): mig: a smaller MIG (DDR2 controller) by configuration
+- [OPT-pix](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/OPT-pix.md): pix — make pix_layer smaller without changing what the user sees
+- [OPT-rvmul](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/OPT-rvmul.md): rvmul: rvlite register file -> multiplier path
+- [PROP-001-cartridge-writeback-interface](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/PROP-001-cartridge-writeback-interface.md): Cartridge Write-Back Interface (CWBI)
+- [PROP-002-cartridge-mapping-descriptor](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/PROP-002-cartridge-mapping-descriptor.md): Cartridge Mapping Descriptor
+- [SLIM-state-path](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/SLIM-state-path.md): one state path, a lean write log (2026-10-05)
+- [T12-freeze-overlay](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/T12-freeze-overlay.md): Freeze menu on the machine pause: shadow I/O, C64 text overlay, pixel layer
+- [T15-flash-boot](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/T15-flash-boot.md): Boot the Ultimate app from flash
+- [T16-board-session](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/T16-board-session.md): board session: Alex's real cartridges
+- [T16-cartridge-port](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/T16-cartridge-port.md): The real cartridge (expansion) port
+- [T16.2-app-cartridge-writeback](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/T16.2-app-cartridge-writeback.md): Writable cartridges: hardware interface and the app's write-back
+- [T20-delta-ring](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/T20-delta-ring.md): Delta ring, dump, restore
+- [T21-monitor](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/T21-monitor.md): Machine code monitor at TRX64 level
+- [T24-lvgl-ui](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/T24-lvgl-ui.md): Own LVGL UI on the pixel layer
+- [T24-ui-project-review](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/T24-ui-project-review.md): Review of the LVGL UI project (`docs/lvgl_ui_project/`)
+- [T24-ui-wiring](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/T24-ui-wiring.md): wiring: how the LVGL UI reaches every function of the app
+- [T24.1-pip-box](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/T24.1-pip-box.md): Live C64 picture box (picture-in-picture): hardware and register spec
+- [T25-cleanroom-multisid](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/T25-cleanroom-multisid.md): Clean room: UltiSID, Copper, lp_filter (overview)
+- [T25.1-sid-engine](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/T25.1-sid-engine.md): Clean-room SID engine (UltiSID replacement, up to 8 SIDs)
+- [T25.2-copper](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/T25.2-copper.md): Clean-room Copper (raster-timed VIC register writer)
+- [T25.3-lp-filter](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/T25.3-lp-filter.md): Clean-room audio decimator (lp_filter / resampler replacement)
+- [T25.4-redip-ultisid](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/T25.4-redip-ultisid.md): reDIP SID up to UltiSID level (8 SIDs in one pipeline)
+- [T25.5-resid8-menus](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/T25.5-resid8-menus.md): reSID8: the SID menus of the app for our engine
+- [T25.6-sampler](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/T25.6-sampler.md): Sampler / Ultimate Audio (gap G14)
+- [T26.0-esp32-facts](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/T26.0-esp32-facts.md): step 0: ESP32 facts and the way back (spec)
+- [T27-u64-cyclone-port](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/T27-u64-cyclone-port.md): TRX64 Ultimate on the old U64 (Cyclone V 5CEBA4F23C8): feasibility
+- [T28-uci](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/T28-uci.md): UCI (Ultimate Command Interface) on TRX64 Ultimate
+- [T29-turbo](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/T29-turbo.md): Turbo: a C64 CPU faster than 1 MHz
+- [T31-ci-pipeline](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/T31-ci-pipeline.md): Staged CI: lint, sims, app, bitstreams, package
+- [T33-generic-cart-decoder](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/T33-generic-cart-decoder.md): Descriptor-driven cartridge decoder (TREX-PROP-002 on our core)
+- [T37-sid-sockets](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/T37-sid-sockets.md): Real SID chips in the C64U's SID sockets
+- [T38-T39-input-reset](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/T38-T39-input-reset.md): T38/T39 — App keyboard/joystick injection and the C64 reset interrupt
+- [T40-ntsc](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/T40-ntsc.md): System Mode: PAL, NTSC, PAL-60, NTSC-50 (and the two "/L" variants)
+- [T47-paddles-mouse](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/T47-paddles-mouse.md): Paddles, 1351 mouse, joystick swap, WASD-to-joystick, NMI sense
+- [T50-update-unlock](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/T50-update-unlock.md): Flash unlock for updates (T+R+X at power-on)
+- [T51-ef3](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/T51-ef3.md): EasyFlash 3 emulation, writable 8 MB
+- [T57-trex-crt-both-cores](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/T57-trex-crt-both-cores.md): trex_crt (cart dumper / writer / inspector) on both cores
+- [T59-palette](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/T59-palette.md): Custom palettes as in Gideon's core
+- [T60-reu-16mb](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/T60-reu-16mb.md): REU up to 16 MB, with Gideon's enable and size
+- [T70-u64-re-minimal](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/T70-u64-re-minimal.md): TRX64 RE core for the old U64 (Cyclone V), minimal scope
+- [T71-robot-tests](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/T71-robot-tests.md): Robot Framework tests (BDD) for TRX64 Ultimate
+- [T78-wifi-rpc-timeout](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/T78-wifi-rpc-timeout.md): WiFi RPC replies with a timeout
+- [T80-lean-ring](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/T80-lean-ring.md): a lean ring engine (draft)
+- [T82-vic-check-and-slim](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/T82-vic-check-and-slim.md): Our VIC-II matches Gideon's measured on the raster tests, and costs only the LUTs it needs

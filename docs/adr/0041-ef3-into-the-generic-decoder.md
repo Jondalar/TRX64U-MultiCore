@@ -21,5 +21,5 @@ Full emulation parked at tags park/ef3-full and park/ef3-full-app ("keep it in g
 - [T51](../specs/README.md#belonged-to-trx64-ultimate)
 - [T33](../specs/README.md#belonged-to-trx64-ultimate)
 - [T57](../specs/README.md#belonged-to-trx64-ultimate)
-- [T51-ef3.md in TRX64-Ultimate/docs/specs](../specs/README.md#belonged-to-trx64-ultimate)
-- [PROP-002-cartridge-mapping-descriptor.md in TRX64-Ultimate/docs/specs](../specs/README.md#belonged-to-trx64-ultimate)
+- [T51-ef3.md](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/T51-ef3.md)
+- [PROP-002-cartridge-mapping-descriptor.md](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/PROP-002-cartridge-mapping-descriptor.md)
