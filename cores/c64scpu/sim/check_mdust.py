@@ -159,6 +159,67 @@ def check_stz(r, lines):
     return r
 
 
+def check_stars(r, lines, chain_only=False):
+    """T208 board trace 2026-11-14 (spec section 5): the stars' raster IRQ handler on the badlines against the VICE accounting (scpu64cpu.c: scpu64_clock_read_stretch_io steals the cycles when BA is low = from line
+    cycle 12 on a badline; scpu64_clock_write_stretch_io_start steals when maincpu_clk >= maincpu_ba_low_start = BA low + 3 = cycle 15; the VIC gives the CPU the bus back at cycle 55). So on a badline no I/O access
+    of the CPU may complete in cycles 15-54 (the writes) / 12-54 (the reads). Only handlers that start before cycle 10 and are not nested in the music ISR (the first I/O access before cycle 12) are judged."""
+    cur, hand = None, {}
+    for ln in lines:
+        g = re.match(r"irq\|(\d+)\|y (\d+)\|x (\d+)\|fr (\d+)", ln)
+        if g:
+            cur = (int(g.group(2)), int(g.group(4)), int(g.group(1)))
+            hand[cur] = []
+            continue
+        g = re.match(r"(iow|ior)\|(\w+)\|\w+\|dirq (-?\d+)\|dclk (-?\d+)\|cyc (\d+)\|y (\d+)\|x (\d+)", ln)
+        if g and cur:
+            hand[cur].append((g.group(1), g.group(2), int(g.group(6)) * 63 + int(g.group(7)) // 8 - cur[0] * 63))
+    # the chain itself: the raster IRQ every 3 lines, every frame (a write the VIC drops while AEC is low leaves the compare line stale and the chain sparse)
+    frames = {}
+    for k in hand:
+        frames[k[1]] = frames.get(k[1], 0) + 1
+    full = sorted(frames)
+    r.chk("raster chain runs every frame", bool(full) and all(frames[f] == 35 for f in full), "IRQs per frame (frames 0..%d): %s (35 expected: lines 129..231 every 3rd)" % (max(frames), " ".join(str(frames[f]) for f in full)))
+    if chain_only:                  # starsq60: the dispatcher is long, the I/O starts after cycle 12 on every line: only the chain is judged
+        return r
+    bad = [(k, v) for k, v in hand.items() if (k[0] & 7) == 3 and v and v[0][2] < 12 and k[1] >= 1]
+    r.chk("badline handlers", len(bad) >= 8, "%d badline raster IRQ handlers that start their I/O before cycle 12 (of %d handlers)" % (len(bad), len(hand)))
+    inside = {}
+    for k, v in bad:
+        for kind, a, c in v:
+            if (kind == "iow" and 15 <= c <= 54) or (kind == "ior" and 12 <= c <= 54):
+                inside.setdefault((kind, a, c), 0)
+                inside[(kind, a, c)] += 1
+    ex = sorted(inside.items())
+    r.chk("no I/O access while the VIC has the bus", not inside, "%d I/O accesses of %d handlers complete in the VIC's window (VICE: 0, they wait to cycle 55); %s" % (sum(inside.values()), len(bad), ", ".join("%s $%s @%d x%d" % (a[0][0][2:], a[0][1], a[0][2], a[1]) for a in ex[:8]) or "none"))
+    if not bad:
+        return r
+    norm = [(k, v) for k, v in hand.items() if (k[0] & 7) != 3 and v and v[0][2] < 12 and k[1] >= 1 and k[0] % 3 == 0]
+    def med(vs, i):
+        c = sorted(v[i][2] for v in vs if len(v) > i)
+        return c[len(c) // 2] if c else -1
+    bad_v, norm_v = [v for k, v in bad], [v for k, v in norm]
+    ops = [(x[0], x[1]) for x in bad[0][1]]
+    for nm, grp in (("badline", [v for k, v in bad]), ("normal ", [v for k, v in norm])):
+        if grp:
+            print("mdust| stars table %s (%d handlers, median PHI2 cycle of each I/O access): %s" % (nm, len(grp), " ".join("%s$%s@%d" % (ops[i][0][2], ops[i][1], med(grp, i)) for i in range(min(len(ops), min(len(v) for v in grp))))))
+    n = min(len(ops), min(len(v) for v in bad_v), min(len(v) for v in norm_v)) if norm else 0
+    if n:
+        # hand model of the VICE accounting for the same code: an access that the normal line completes before cycle 15 lands at the same cycle on the badline (the 3 cycles BA gives the CPU: +-1);
+        # every later one waits for the VIC's window to end (cycle 55, the first one) and keeps its distance to the first held one: badline = normal + 40 (55 - 15), +3 for the clock the enable needs after BA rises
+        errs = []
+        for i in range(n):
+            nc, bc = med(norm_v, i), med(bad_v, i)
+            if nc < 15 and abs(bc - nc) > 1:
+                errs.append("#%d normal %d badline %d (want the same +-1)" % (i, nc, bc))
+            if nc >= 15 and not 40 <= bc - nc <= 43:
+                errs.append("#%d normal %d badline %d (want +40..43)" % (i, nc, bc))
+        r.chk("badline = normal line + hold (VICE hand model)", not errs, "%d I/O accesses compared; %s" % (n, "; ".join(errs[:4]) or "all within the model"))
+    tails = sorted(v[-1][2] for k, v in bad)
+    first = sorted(v[0][2] for k, v in bad)
+    print("mdust| stars info    badline handlers: first I/O access at cycle %s, last (the $D011 write) at %s; the same on the other lines: see the log" % (first[len(first) // 2], tails[len(tails) // 2]))
+    return r
+
+
 def check_smc(r, lines):
     m = {n: [ln for ln in lines if re.match(r"mark\|%d\|" % n, ln)] for n in (1, 2, 3)}
     r.chk("run reached its end", bool(m[3]), "marker 3 (all %d passes done): %s" % (8, m[3][0] if m[3] else "not reached"))
@@ -183,6 +244,8 @@ def main():
         check_stz(r, lines)
     elif label == "smc":
         check_smc(r, lines)
+    elif label in ("stars", "stars60"):
+        check_stars(r, lines, label == "stars60")
     else:
         r.chk("label", False, "unknown label " + label)
     return r.done()
