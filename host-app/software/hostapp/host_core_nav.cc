@@ -14,7 +14,7 @@ HcNavPlatform g_plat;
 struct StartState {                       // the state a fresh start has, before anything runs
     StartState() { hc_nav_reset(); }
 } g_start_state;
-int g_mrows = 5, g_erows = 5, g_brows = 13, g_cmrows = 17;
+int g_mrows = 5, g_erows = 5, g_brows = 13, g_cmrows = 1;
 
 HcArm g_arm;
 uint32_t g_arm_seq;

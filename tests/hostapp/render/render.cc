@@ -1491,15 +1491,19 @@ static void areas(void)
     // a longer manifest overflows it into the whole screen (518,400 px). 128 is the headroom; the number is read from the display struct.
     printf("AREA invalid-area slots in this build: %d\n", hostui_test_inv_slots());
     CHECK(hostui_test_inv_slots() >= 128);
-    // F1 boot menu: 9 entries, a window of 5
-    hostui_test_init(eight);
+    // F1 boot menu: the menu's rows + 4 entries; the window is the geometry's row count, so the page change is exercised at any canvas
+    char paged[4096] = "countdown=5\ndefault=0\n";
+    hostui_test_init(paged);
+    const int PR = geom("rows=");
+    for (int i = 1; i <= PR + 4; i++) { char l[120]; snprintf(l, sizeof(l), "core=/Usb0/many/m%d.cor|Core number %d||0\n", i, i); strcat(paged, l); }
+    hostui_test_init(paged);
     area("F1 menu: selection move", hostui_test_key(KEY_DOWN), 2 * MMARK);
     area("F1 menu: selection move up", hostui_test_key(KEY_UP), 2 * MMARK);
-    for (int i = 0; i < 4; i++) hostui_test_key(KEY_DOWN);                 // row 4, the last of the window
-    area("F1 menu: page change down", hostui_test_key(KEY_DOWN), 5 * MROW);
-    area("F1 menu: scroll one more", hostui_test_key(KEY_DOWN), 5 * MROW);
-    for (int i = 0; i < 4; i++) hostui_test_key(KEY_UP);                   // sel 2 = the top row of the window
-    area("F1 menu: page change up", hostui_test_key(KEY_UP), 5 * MROW);
+    for (int i = 0; i < PR - 1; i++) hostui_test_key(KEY_DOWN);            // the last row of the window
+    area("F1 menu: page change down", hostui_test_key(KEY_DOWN), PR * MROW);
+    area("F1 menu: scroll one more", hostui_test_key(KEY_DOWN), PR * MROW);
+    for (int i = 0; i < PR - 1; i++) hostui_test_key(KEY_UP);              // sel 2 = the top row of the window
+    area("F1 menu: page change up", hostui_test_key(KEY_UP), PR * MROW);
     hostui_test_init(eight);
     area("F1 menu: UP on the first row", hostui_test_key(KEY_UP), 0);
     {   // T135 D12: with direct boot on the menu shows neither the countdown text nor its bar; off, both; the toggle in F8 brings them back

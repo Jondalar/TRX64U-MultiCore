@@ -1129,8 +1129,10 @@ static void cd_update(void)
     if (!t.visible) {
         lv_obj_add_flag(cd_label_obj, LV_OBJ_FLAG_HIDDEN);
         lv_obj_add_flag(cd_bar_obj, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(m_cdbox, LV_OBJ_FLAG_HIDDEN);     // the opaque box sits over the status line (CH - 26) while direct boot moves it down
         return;
     }
+    lv_obj_clear_flag(m_cdbox, LV_OBJ_FLAG_HIDDEN);
     lv_obj_clear_flag(cd_label_obj, LV_OBJ_FLAG_HIDDEN);
     lv_obj_clear_flag(cd_bar_obj, LV_OBJ_FLAG_HIDDEN);
     set_txt(cd_label_obj, t.text);
@@ -1545,8 +1547,8 @@ static void fill_snapshot(WebSnapshot *w);
 // delete the files that belong to no core: ASK1 lists them and asks, ASK2 asks again; only Y answers yes, RETURN and every other key is No.
 enum { CMM_OFF = HCM_OFF, CMM_LIST = HCM_LIST, CMM_ASK1 = HCM_ASK1, CMM_ASK2 = HCM_ASK2 };
 #define CM_ROWS_MAX 24
-#define CM_ROWS (cm_rows_n)                    // 18 on the full canvas; the compact layout takes what its height holds
-static int cm_rows_n = 17;
+#define CM_ROWS (cm_rows_n)                    // layout_counts(): what the canvas height holds (22 on 960x540)
+static int cm_rows_n = 1;                      // set by layout_counts() before any view is built
 #define CM_LINE 112
 #define CM_LINES 200
 static lv_obj_t *cm_root, *cm_head, *cm_row[CM_ROWS_MAX], *cm_note;
