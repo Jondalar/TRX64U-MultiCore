@@ -20,5 +20,5 @@ Branch opt-bling (bling_io 620 -> 69 LUT). The app's LedStrip / Keyboard Lightin
 
 - [T08](../specs/README.md#belonged-to-trx64-ultimate)
 - [T09](../specs/README.md#belonged-to-trx64-ultimate)
-- [TRX64-Ultimate/docs/specs/OPT-bling.md](../specs/README.md#belonged-to-trx64-ultimate)
+- [OPT-bling.md in TRX64-Ultimate/docs/specs](../specs/README.md#belonged-to-trx64-ultimate)
 - [docs/done-audit-2026-10-04.md](../../docs/done-audit-2026-10-04.md)

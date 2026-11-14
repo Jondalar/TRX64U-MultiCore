@@ -20,5 +20,5 @@ The whole 16 MB belongs to whichever module is plugged. The app refuses `.reu` l
 
 - [T60](../specs/README.md#belonged-to-trx64-ultimate)
 - [T51](../specs/README.md#belonged-to-trx64-ultimate)
-- [TRX64-Ultimate/docs/specs/T60-reu-16mb.md](../specs/README.md#belonged-to-trx64-ultimate)
+- [T60-reu-16mb.md in TRX64-Ultimate/docs/specs](../specs/README.md#belonged-to-trx64-ultimate)
 - [docs/gap-audit-gideon-app.md](../../docs/gap-audit-gideon-app.md)

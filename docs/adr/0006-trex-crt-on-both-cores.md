@@ -19,4 +19,4 @@ Detection `api->trx != NULL` + ID "TRX2" + SLOT_STATUS b31; the Gideon path keep
 ## Links
 
 - [T57](../specs/README.md#belonged-to-trx64-ultimate)
-- [TRX64-Ultimate/docs/specs/T57-trex-crt-both-cores.md](../specs/README.md#belonged-to-trx64-ultimate)
+- [T57-trex-crt-both-cores.md in TRX64-Ultimate/docs/specs](../specs/README.md#belonged-to-trx64-ultimate)

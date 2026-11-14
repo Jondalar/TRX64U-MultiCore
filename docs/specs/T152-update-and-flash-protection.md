@@ -163,7 +163,7 @@ Decided by Alex on 2026-10-29 (each with its quote); the concrete layout and the
   protocol are Gideon's (GPL, `apps/ultimate`): `update_u64ii.cc` `update_esp32_impl()` (bootloader 0x000000, partition table 0x008000,
   application 0x010000), `io/wifi/esp32.cc` (ROM bootloader over SLIP), mode bits 6:4 of the WiFi UART's flow control (`dma_uart.cc`
   `ModuleCtrl`); the host has to route those bits to WIFI_BOOT / WIFI_DIS (polarity measured on Gideon's core first). Start from the earlier work, not anew:
-  TRX64-Ultimate `TRX64-Ultimate/docs/specs/T26.0-esp32-facts.md` (ESP32-S3, 8 MB, the updater's flow without verify, open point M4 = the pin polarity) and
+  TRX64-Ultimate T26.0-esp32-facts.md in TRX64-Ultimate/docs/specs (ESP32-S3, 8 MB, the updater's flow without verify, open point M4 = the pin polarity) and
   the T26.2 `esp_tool` of 2026-10-11 (ROM loader reached; flash used 0x0-0xDFFFF; uart_dma patch 0007 gates button events while armed). M4 is answered: TRX64-Ultimate
   `t26-esp-ram` (`esp_ctl.v`, T26.1 board test 2026-10-10): WIFI_BOOT high = ROM loader, WIFI_DIS high = reset, both low = run.
 - **Q4** Answered 2026-10-29 (Alex: "Ok." to "default on"): D7 defaults to on; to run Gideon's updater on purpose,

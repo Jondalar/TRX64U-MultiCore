@@ -1,6 +1,6 @@
 # Turbo reference measurements on Gideon's core (C64U, 2026-10-03)
 
-Reference facts for T29 (`TRX64-Ultimate/docs/specs/T29-turbo.md`), measured on Alex's C64 Ultimate with the
+Reference facts for T29 (T29-turbo.md in TRX64-Ultimate/docs/specs), measured on Alex's C64 Ultimate with the
 flashed bitstream and firmware (FPGA reconfigured from flash with `openFPGALoader -c usb-blaster
 --reset`; `/v1/info`: product "Ultimate 64-II", firmware 3.15, fpga_version 125, core_version 1.50,
 no `trx64` object, so not our core). PAL. Nothing was saved to flash.

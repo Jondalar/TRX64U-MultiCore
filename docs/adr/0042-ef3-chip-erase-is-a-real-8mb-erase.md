@@ -20,4 +20,4 @@ Chip erase of the emulated EF3 = whole 8 MB; trex_crt: whole-cart chip erase (po
 
 - [T51](../specs/README.md#belonged-to-trx64-ultimate)
 - [T57](../specs/README.md#belonged-to-trx64-ultimate)
-- [TRX64-Ultimate/docs/specs/T51-ef3.md](../specs/README.md#belonged-to-trx64-ultimate)
+- [T51-ef3.md in TRX64-Ultimate/docs/specs](../specs/README.md#belonged-to-trx64-ultimate)

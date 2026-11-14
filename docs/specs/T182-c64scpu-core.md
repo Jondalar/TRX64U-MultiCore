@@ -227,7 +227,7 @@ paths that start at `A_OUT` (CE every 3.15 clocks at 20 MHz); no timing number e
 | `$F6:0000-$F7:FFFF` | alias of the first 128 KiB of SuperRAM (`scpu64mem.c:529-542`) | same DDR2 bytes |
 | `$F8:0000-$FF:FFFF` | the ROM image mirrored up to 512 KiB, writes ignored (`:544-551`, `scpu64rom.c:85-87`); at reset the boot map also shows it over `$8000-$FFFF` of bank 0 (`scpu64mem.c:1399`, config bit 7) | DDR2 behind the cache (read only) |
 
-DDR2 users in this repository and the bytes they hold (128 MB board; sources: `TRX64-Ultimate/docs/specs/T20-delta-ring.md` 5.1, `docs/specs/T142-snes.md` "DDR2 space", `cores/c128/mono/host/cart_fill.v:18-29`, `reu_ddr_map.v`,
+DDR2 users in this repository and the bytes they hold (128 MB board; sources: T20-delta-ring.md in TRX64-Ultimate/docs/specs 5.1, `docs/specs/T142-snes.md` "DDR2 space", `cores/c128/mono/host/cart_fill.v:18-29`, `reu_ddr_map.v`,
 `cores/c128/c128_ddrx.v:13-14`): the core application (code, data, bss, heap) `0x00000000-0x00E8FFFF` (`linker.x`, 14.56 MiB, the 9.3 MB bss is its own choice); drive A's image `0x0EE0000`, cartridge RAM `0x0EF0000`, the built-in
 cartridge slot `0x0F00000-0x0FFFFFF`; the expansion-port block `0x01000000-0x01FFFFFF` (the REU's 16 MiB or the CRT image: `ROM_BASE_BLOCK`, "the app never has REU and a cartridge on together"; the C128 puts its system ROM at
 `0x01C00000` inside this block, so its REU is smaller than 16 MiB); Gideon's legacy ROM base `0x03C00000-0x03FFFFFF` (`ROM_SEL` 0, not used by our app); the T20 ring `0x04000000-0x07FFFFFF` (TRX64 core only; other cores must not use

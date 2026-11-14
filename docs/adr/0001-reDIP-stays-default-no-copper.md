@@ -19,7 +19,7 @@ reDIP is the default SID engine. T25.1 (engine), T25.3 (low-pass filter) and T25
 ## Links
 
 - [T25](../../docs/todo/T25.md) (docs/todo/T25.md)
-- [TRX64-Ultimate/docs/specs/T25-cleanroom-multisid.md](../specs/README.md#belonged-to-trx64-ultimate)
-- [TRX64-Ultimate/docs/specs/T25.1-sid-engine.md](../specs/README.md#belonged-to-trx64-ultimate)
-- [TRX64-Ultimate/docs/specs/T25.2-copper.md](../specs/README.md#belonged-to-trx64-ultimate)
-- [TRX64-Ultimate/docs/specs/T25.3-lp-filter.md](../specs/README.md#belonged-to-trx64-ultimate)
+- [T25-cleanroom-multisid.md in TRX64-Ultimate/docs/specs](../specs/README.md#belonged-to-trx64-ultimate)
+- [T25.1-sid-engine.md in TRX64-Ultimate/docs/specs](../specs/README.md#belonged-to-trx64-ultimate)
+- [T25.2-copper.md in TRX64-Ultimate/docs/specs](../specs/README.md#belonged-to-trx64-ultimate)
+- [T25.3-lp-filter.md in TRX64-Ultimate/docs/specs](../specs/README.md#belonged-to-trx64-ultimate)

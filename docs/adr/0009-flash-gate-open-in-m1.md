@@ -21,4 +21,4 @@ In main 2026-10-06 (t44-open). Protection comes back with T50 (milestone M3). Th
 - [T44](../specs/done/T44-flash-write-gate.md#status-and-history)
 - [T50](../specs/README.md#belonged-to-trx64-ultimate)
 - [docs/specs/done/T44-flash-write-gate.md](../specs/done/T44-flash-write-gate.md)
-- [TRX64-Ultimate/docs/specs/T50-update-unlock.md](../specs/README.md#belonged-to-trx64-ultimate)
+- [T50-update-unlock.md in TRX64-Ultimate/docs/specs](../specs/README.md#belonged-to-trx64-ultimate)

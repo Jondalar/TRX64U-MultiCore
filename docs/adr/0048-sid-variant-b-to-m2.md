@@ -21,4 +21,4 @@ Alex, same day: "ja, Jitter auch nach M2" — the sampler collision jitter (a se
 
 ## Links
 
-TODO T25; docs/todo/T25.md; TRX64-Ultimate/docs/specs/T25.4-redip-ultisid.md; TRX64-Ultimate/docs/specs/T25.6-sampler.md
+TODO T25; docs/todo/T25.md; T25.4-redip-ultisid.md in TRX64-Ultimate/docs/specs; T25.6-sampler.md in TRX64-Ultimate/docs/specs

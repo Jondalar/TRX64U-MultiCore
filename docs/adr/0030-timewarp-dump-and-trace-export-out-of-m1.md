@@ -21,5 +21,5 @@ Removed 2026-10-06 (app a13-no-dump-app 87050ca, a13-trace-app; the code is in g
 - [T66](../specs/README.md#belonged-to-trx64-ultimate)
 - [T20](../specs/README.md#belonged-to-trx64-ultimate)
 - [T21](../specs/README.md#belonged-to-trx64-ultimate)
-- [TRX64-Ultimate/docs/specs/T20-delta-ring.md](../specs/README.md#belonged-to-trx64-ultimate)
+- [T20-delta-ring.md in TRX64-Ultimate/docs/specs](../specs/README.md#belonged-to-trx64-ultimate)
 - [docs/done-audit-2026-10-04.md](../../docs/done-audit-2026-10-04.md)
