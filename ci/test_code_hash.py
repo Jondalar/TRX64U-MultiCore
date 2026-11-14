@@ -115,5 +115,18 @@ check("i py: encoding line is kept", not same("t.py", "# -*- coding: latin-1 -*-
 check("i verilog: // synopsys full_case parallel_case kept", not same("t.v", "case (a) // synopsys full_case parallel_case\nendcase\n", "case (a)\nendcase\n"))
 check("i verilog: // coverage off kept", not same("t.v", "// coverage off\nwire a;\n", "wire a;\n"))
 check("i vhdl: -- vivado / cadence kept", not same("a.vhd", "-- vivado keep\nb <= a;\n", "b <= a;\n") and not same("a.vhd", "-- cadence x\nb <= a;\n", "b <= a;\n"))
+# (j) hash-paths on a symlink: to a directory = link text (the old hash-object died there), to a file = the file's content, a plain directory = error
+import tempfile
+_cwd = os.getcwd()
+with tempfile.TemporaryDirectory() as _t:
+    os.chdir(_t)
+    os.mkdir("d"); open("f.c", "w").write("int x;\n"); os.symlink("d", "ld"); os.symlink("f.c", "lf.c")
+    check("j symlink to a directory hashes as its link text", ch._path_bytes("ld") == b"d")
+    check("j symlink to a file follows the link", ch._path_bytes("lf.c") == ch._path_bytes("f.c"))
+    try:
+        ch._path_bytes("d"); check("j a plain directory is an error", False)
+    except SystemExit:
+        check("j a plain directory is an error", True)
+    os.chdir(_cwd)
 print("%d failed" % len(fails))
 sys.exit(1 if fails else 0)

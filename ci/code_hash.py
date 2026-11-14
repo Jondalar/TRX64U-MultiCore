@@ -176,6 +176,17 @@ def normalise(path, data):
     return b"\n".join(lines) + b"\n" if lines else b""
 
 
+def _path_bytes(p):
+    """What hash-paths hashes for one tracked path. A symlink to a directory (host-app/software/FreeRTOS) has no content to read: it is
+    hashed as git records it, the link text (the old `git hash-object --stdin-paths` died on it and silently dropped every later path).
+    A symlink to a file follows the link as before; a plain directory is an error (a gitlink never reaches here)."""
+    if os.path.isdir(p):
+        if not os.path.islink(p):
+            raise SystemExit("code_hash: %s is a directory, not a file" % p)
+        return os.readlink(p).encode()
+    return normalise(p, open(p, "rb").read())
+
+
 def blob_hash(data):
     return hashlib.sha1(b"blob %d\0" % len(data) + data).hexdigest()
 
@@ -221,7 +232,7 @@ def main(argv):
     elif cmd == "hash-paths":
         for p in sys.stdin.read().split("\n"):
             if p:
-                print(blob_hash(normalise(p, open(p, "rb").read())))
+                print(blob_hash(_path_bytes(p)))
     elif cmd == "sha256":
         for p in argv[2:]:
             print("%s  %s" % (hashlib.sha256(normalise(p, open(p, "rb").read())).hexdigest(), p))
