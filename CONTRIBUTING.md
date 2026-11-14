@@ -53,7 +53,7 @@ We take an issue only if we can reproduce it end to end, exactly as you saw it. 
 
 - **No ROMs, Kickstarts, BIOS or firmware files**, no disk, tape or cartridge images, and nothing made from them.
   Name them and where they came from; that is all we need.
-- **No firmware package of Commodore's or Gideon's**, and no part of one.
+- **No official firmware package**, and no part of one.
 - **No backup files** the installer wrote (`TRXBK*`). They contain your settings, including the network password.
 
 ## Pull requests

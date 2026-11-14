@@ -45,8 +45,8 @@ body:
       label: Steps
       description: From switching on, what you did, one step per line (menus, keys, files).
       placeholder: |
-        1. Boot menu, choose Amiga 1200
-        2. F1, Library, USB0/Games/Turrican.adf, Insert DF0
+        1. Switch on holding C=, the boot menu shows
+        2. Choose trx64u, it starts
         3. ...
     validations:
       required: true
