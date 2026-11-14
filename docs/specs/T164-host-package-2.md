@@ -348,7 +348,7 @@ Asked one at a time when Alex answers; each has my recommendation. Nothing below
    goes without them, the HDMI board work needs them (`hdmi_meas`, `trxdbg`). *Recommendation:* the first T164 host keeps them, the host of the
    release set after the Sony / Samsung steps is built without (`NO_JTAG_DBG`), which lowers the boundary move of Q1 to about 430 LUT.
    **Decided (Alex, 2026-10-31): "Yes."** (translated)
-3. **Q3 - smoothing (bilinear for Fit and Fill, +350-650 LUT, 6 DSP, no block RAM).** Decided for the A1200 (D9) but not built; in the host it would put
+3. **Q3 - smoothing (bilinear for Fit and Fill, +350-650 LUT, 6 DSP, no block RAM).** Decided for the A1200 (D9) but not built (2026-11-15 sync: built in the host since, `host/top.v:1400` `SMOOTH(1)`; see the decision below); in the host it would put
    `pb_l1` at about 90 %. *Recommendation:* not in the first host build; built and benched in the A1200 first (as you said), then added to the
    host as a second step once the density of the first build is known (WP20).
    **Decided (Alex, 2026-10-31), against the recommendation:** "No, build it in, I want to know what the cut between host + partial vs
@@ -530,7 +530,7 @@ T133).
 | T152 ESP32 pins `esp_ctl` | +60 | +40 | 0 | 0 | estimate 40-80 (the module is in another repository) |
 | T107 D9 SID out of c64ref, T120, rvlite fix | 0 | 0 | 0 | 0 | none in `pb_l1`; `pb_l2` side below |
 | **Package total, without smoothing** | **+1,076** | **+518** | **0** | **+2** | **12,089 LUT = 85.1 %** (range 11,800-12,400) |
-| bilinear smoothing for Fit and Fill (Q3) | +350..+650 | +450..+800 | 0 | +6 | T107 §5.7 estimate 4b, not built anywhere |
+| bilinear smoothing for Fit and Fill (Q3) | +350..+650 | +450..+800 | 0 | +6 | T107 §5.7 estimate 4b (2026-11-15 sync: now built in the host, `SMOOTH(1)`) |
 | with smoothing | about 12,590 | | | | 88.7 % |
 | lever: host without `jtag_dbg` + `rv_dbg` (Q2) | -734 | | | | measured, run 1104 hier |
 
