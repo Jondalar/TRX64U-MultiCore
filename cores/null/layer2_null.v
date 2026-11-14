@@ -1,5 +1,5 @@
 // T123: the null core, the flash filler. The full bitstream of the host update file (.cfw) is the host with this in the core partition, so
-// the flash holds the host and no machine (docs/specs/done/T123-flash-null-core.md). It is never a .cor and never in the boot menu
+// the flash holds the host and no machine (docs/specs/T123-flash-null-core.md). It is never a .cor and never in the boot menu
 // (core.toml flash_filler). Same ports as every layer-2 module (contract/layer2_ports.txt); it is built by host/core.tcl against the
 // cached host like any core.
 //

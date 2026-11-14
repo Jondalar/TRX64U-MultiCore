@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // ---------------------------------------------------------------------------
-// trx_sid_c64u: the C64 side of the T25.1 SID engine (TRX64-Ultimate/docs/specs/T25.1-sid-engine.md
+// trx_sid_c64u: the C64 side of the T25.1 SID engine (docs/specs/T25.1-sid-engine.md
 // §3.1): the app's UltiSID addressing (two bases and masks, the shared split),
 // the bus read path, POT, the op latch per C64 cycle and the pass start for
 // trx_sid_engine_c64u, which runs on clk2x (2 x dot4x, same MMCM, phase-locked).
@@ -261,7 +261,7 @@ wire start = tgl_s != tgl_d;
 reg  [1:0] rst_e = 2'b11;
 always @(posedge clk2x) rst_e <= {rst_e[0], rst};
 
-// SID_MULTI: reDIP's pipelines for 8 SIDs (sid_multi, TRX64-Ultimate/docs/specs/T25.4-redip-ultisid.md)
+// SID_MULTI: reDIP's pipelines for 8 SIDs (sid_multi, docs/specs/T25.4-redip-ultisid.md)
 // instead of the T25.1 engine
 `ifdef SID_MULTI
 `ifdef SID_MULTI_EQUIV

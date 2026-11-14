@@ -18,7 +18,7 @@ Records (type: value):
   4 icon       32 x 32 RGB565, little endian (2048 bytes), optional
 
 The records are in this order, each once; the manifest first so a browser can stop reading there.
-`contract` is the host/core contract version (docs/specs/done/T79.1-host-core-contract.md); the boot app
+`contract` is the host/core contract version (docs/specs/T79.1-host-core-contract.md); the boot app
 refuses a bundle whose contract is not its own. `host_key` names the one host this partial was
 routed against (T84 D5b): the first 8 hex of ci/lib.sh's host_key, which the host build also writes
 into the bitstream's AXSS register (host/pins.xdc), so the boot app reads the running host's own

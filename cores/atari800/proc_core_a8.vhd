@@ -2,7 +2,7 @@
 -- T88: the Atari 800 XL core's own proc_core. A copy of vendor/icepi/6502n/proc_core.vhd (Gideon
 -- Zweijtzer, GPL-3) that differs in one line: it instantiates proc_interrupt_a8 (direct NMI) instead
 -- of proc_interrupt. Every other sub-unit (alu, shifter, proc_control, proc_registers, ...) comes
--- from vendor/icepi/6502n unchanged. Rationale and proof: docs/specs/done/T88-atari800-core.md S2.
+-- from vendor/icepi/6502n unchanged. Rationale and proof: docs/specs/T88-atari800-core.md S2.
 library ieee;
 use ieee.std_logic_1164.all;
 

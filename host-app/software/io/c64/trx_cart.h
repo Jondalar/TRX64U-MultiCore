@@ -1,5 +1,5 @@
 // Writable cartridges on the TRX64 Ultimate bitstream (TRX64-Ultimate
-// TRX64-Ultimate/docs/specs/T16.2-app-cartridge-writeback.md, ARCH-lean-state-access.md §7.4).
+// docs/specs/T16.2-app-cartridge-writeback.md, ARCH-lean-state-access.md §7.4).
 //
 // The bitstream's cartridge model answers the flash command sequences itself and
 // stops at a program or erase until the firmware has applied it to the image in
@@ -25,7 +25,7 @@
 #define CART_TYPE_EASYFLASH_XL 0x31 // TRX64's 4 MB EasyFlash
 #define CART_TYPE_EASYFLASH3   0x12 // TRX64's EasyFlash 3 (T51): 8 MB, CRT type 90
 
-// T60 (TRX64-Ultimate TRX64-Ultimate/docs/specs/T60-reu-16mb.md §7): the 16 MB expansion-port block of DDR2 at
+// T60 (TRX64-Ultimate docs/specs/T60-reu-16mb.md §7): the 16 MB expansion-port block of DDR2 at
 // TRX_XPORT_BLOCK (= REU_MEMORY_BASE) holds the REU's memory or the CRT image, never both. The app's
 // own small cartridges (Run PRG's boot cart, SID, MUS and MOD players) have a slot of their own,
 // TRX_BUILTIN_SLOT, so that starting them never overwrites REU data.

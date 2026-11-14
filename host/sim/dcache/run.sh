@@ -1,6 +1,6 @@
 #!/bin/sh
 # T133 bench: rv_dcache (host/rv_dcache.vhd) in front of Gideon's bus_converter, a DMA master on the
-# arbiter, a toggle writer and a memory model (tb_dcache.vhd; spec docs/specs/done/T133-host-dcache.md §2).
+# arbiter, a toggle writer and a memory model (tb_dcache.vhd; spec docs/specs/T133-host-dcache.md §2).
 #   directed scenarios S1-S9 and a random run (SEEDS, default "1 2 3"); PASS = no "ERR:" line
 # G = Gideon's fpga directory (default vendor/gideon/fpga). Needs ghdl (container trx64-sim-env:4). One process, niced.
 set -e

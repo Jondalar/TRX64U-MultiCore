@@ -2,7 +2,7 @@
 # T88: copy the parts of Mark Watson's Atari800 core (https://github.com/MiSTer-devel/Atari800_MiSTer) that the
 # Atari 800 XL core uses into cores/atari800/rtl, unchanged. Only the files of the list below are taken, only from
 # the commit the spec was written against, and only when every file still has the SHA-256 it had when it was read
-# (docs/specs/done/T88-atari800-core.md D1/D2): the licence reading of that section is of THESE bytes, and Watson's terms
+# (docs/specs/T88-atari800-core.md D1/D2): the licence reading of that section is of THESE bytes, and Watson's terms
 # are non-commercial (see cores/atari800/rtl/NOTICE).
 # Usage: tools/vendor_atari800.sh <Atari800_MiSTer checkout>
 set -e

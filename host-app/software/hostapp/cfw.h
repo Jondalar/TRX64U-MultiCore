@@ -3,7 +3,7 @@
 // {load, length, start} followed by the application. The host starts such a firmware by loading the .bit for the
 // FPGA it runs on through the ICAP (IPROG) and handing the application over in DDR2.
 // Pure code: the bytes come through a CorSource, so the same parser runs in tests/hostapp/test_cfw.cc and on the
-// board over a file. docs/specs/done/T115-full-bitstream-cores.md is the description; the code is the check.
+// board over a file. docs/specs/T115-full-bitstream-cores.md is the description; the code is the check.
 #ifndef HOST_CFW_H
 #define HOST_CFW_H
 

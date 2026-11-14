@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // ---------------------------------------------------------------------------
-// trx_sampler_c64u: the Ultimate Audio sampler (TRX64-Ultimate/docs/specs/T25.6-sampler.md), 8 voices on one time-multiplexed datapath.
+// trx_sampler_c64u: the Ultimate Audio sampler (docs/specs/T25.6-sampler.md), 8 voices on one time-multiplexed datapath.
 // Written from the app's side of the interface and the players that drive it (spec 1); no HDL of others.
 //
 // clk2x: 64 clocks per C64 cycle form one frame (free running; a C64 cycle sets `adv`, so the voices only advance

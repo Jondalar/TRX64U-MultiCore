@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""T44 board test of the flash write gate (docs/specs/done/T44-flash-write-gate.md §8).
+"""T44 board test of the flash write gate (docs/specs/T44-flash-write-gate.md §8).
 
     tools/flashgate_test.py stage0 [--out FILE]
         Read only; today's bitstream or the gate's: SR1/SR2/SR3, JEDEC ID,

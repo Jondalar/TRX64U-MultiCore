@@ -1,7 +1,7 @@
 // TRX64 host boot app (T84): derived from software/lvgl_port/lv_conf.h of the Ultimate app (fonts 14/16/24,
 // unscii 16 and the bar widget on; the rest unchanged).
 // LVGL configuration for the TRX64 Ultimate pixel layer (TRX64-Ultimate
-// TRX64-Ultimate/docs/specs/T24-lvgl-ui.md §4). Only what differs from LVGL's defaults
+// docs/specs/T24-lvgl-ui.md §4). Only what differs from LVGL's defaults
 // (software/lvgl/include/lvgl/config/lv_conf_internal.h) is set here, plus every
 // widget, theme and font switch, so that nothing is built by default that the
 // UI does not use: a widget is turned on in the phase that needs it.

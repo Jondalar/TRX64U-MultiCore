@@ -1,5 +1,5 @@
 // The TRX64 Ultimate bitstream's IO block (TRX64-Ultimate repo, trx_io.v,
-// TRX64-Ultimate/docs/specs/ARCH-lean-state-access.md §10, §15.3): detection, the 32-bit register
+// docs/specs/ARCH-lean-state-access.md §10, §15.3): detection, the 32-bit register
 // rule and the one interrupt line all its users share.
 //
 // Only the U64-II/C64U application builds this (trx_cart.cc, trx_video.cc). On
@@ -33,7 +33,7 @@
 #define TRX_CAPS2_SESSION  0x08 // b3: freeze session commit list, SH_CTRL PROTO/SIDEFX, TX_CTRL b0 = show (gone on a slim core)
 #define TRX_CAPS2_TRACE    0x80 // b7: the instruction trace former (LOG_CTRL b4/b9, LOG_CNT[3], T21 §4.11.1)
 
-// CAPS3 (bitstreams without the byte read 0, Gideon's too; TRX64-Ultimate TRX64-Ultimate/docs/specs/T25.5-resid8-menus.md)
+// CAPS3 (bitstreams without the byte read 0, Gideon's too; TRX64-Ultimate docs/specs/T25.5-resid8-menus.md)
 #define TRX_CAPS3_RESID8   0x01 // b0: the SID is the 8-SID reDIP (reSID8) with the filter control registers below
 
 // reSID8 filter control, page 0 0x040-0x04B (engine 1 / 2). Reset values (Auto, 245, -780) are the original reDIP.
@@ -46,7 +46,7 @@
 #define TRX_RS8_SRC_6581   1
 #define TRX_RS8_SRC_8580   2
 
-// T29 turbo engine, page 0 from 0x140 (TRX64-Ultimate TRX64-Ultimate/docs/specs/T29-turbo.md §12.7)
+// T29 turbo engine, page 0 from 0x140 (TRX64-Ultimate docs/specs/T29-turbo.md §12.7)
 #define TRX_TURBO_STAT     (TRX_IO_BASE + 0x140) // b30 engine on, b28 ran since cleared, b22:16 CPU cycles per PHI2
 #define TRX_TURBO_CTRL     (TRX_IO_BASE + 0x144) // W b0 clears "ran"
 #define TRX_TURBO_W1       (TRX_IO_BASE + 0x148) // {$D031 b31:24, $D030 bit 0 b11, enable word b10:8, PREFER b7:0}
@@ -68,7 +68,7 @@ extern const char *trx_io_alt_id;
 // CAPS of the block, 0 without it ("TRX2" not at ID). Read once, then cached.
 uint8_t trx_io_caps(void);
 
-// The slim core (TRX64-Ultimate TRX64-Ultimate/docs/specs/SLIM-state-path.md): TX_CTRL b31:24 reads 2. It has no freeze
+// The slim core (TRX64-Ultimate docs/specs/SLIM-state-path.md): TX_CTRL b31:24 reads 2. It has no freeze
 // session: SH_CTRL, SH_STATUS and the counters of page 5 read 0, the app's accesses to a stopped machine are
 // bus cycles, the C64 text layer takes its VIC view from TX_VIEW (page 5, +028), the menu reads the keyboard
 // and the joysticks over KEYB_COL / KEYB_ROW / KEYB_JOY. False on every other bitstream.

@@ -9,7 +9,7 @@
 #
 # Only for integ-m1, main and v* tags (ci/select.sh update); any other ref prints
 # "update SKIPPED" and ends green at once. The decision is made here, never by a job-level `if:`
-# (TRX64-Ultimate/docs/specs/T31-ci-pipeline.md, decision 2). UPDATE_FORCE=true (dispatch input `update`), BUNDLE_INPUT=true (dispatch input `bundle`)
+# (docs/specs/T31-ci-pipeline.md, decision 2). UPDATE_FORCE=true (dispatch input `update`), BUNDLE_INPUT=true (dispatch input `bundle`)
 # or "[bundle]" in the head commit message (T172) builds on any branch, into $MC_PKG as <branch>-<sha8>.
 #
 # Hook for the release tag: TRX_UPDATE_NAME replaces the file name base (tools/make_update.sh); the

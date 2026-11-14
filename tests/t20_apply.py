@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""T20 APPLY on the board: the engine's undo/redo against the CPU walk (TRX64-Ultimate/docs/specs/T20-delta-ring.md §17.3).
+"""T20 APPLY on the board: the engine's undo/redo against the CPU walk (docs/specs/T20-delta-ring.md §17.3).
 
     ~/.cache/1541ultimate-tools/jtag-venv/bin/python -u tests/t20_apply.py <board ip> [pairs] [--full]
 

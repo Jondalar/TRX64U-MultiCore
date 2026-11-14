@@ -1,4 +1,4 @@
-; T12 test 7 (TRX64-Ultimate/docs/specs/T12-freeze-overlay.md §8.2, §14.6): a raster-timed
+; T12 test 7 (docs/specs/T12-freeze-overlay.md §8.2, §14.6): a raster-timed
 ; program for freeze/resume on the board (freeze_raster.py).
 ;
 ; Five colour splits per frame (border and background change at fixed lines)

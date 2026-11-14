@@ -1,4 +1,4 @@
-# Which file belongs to which layer of the chip (docs/specs/done/T87-ci-layer-caches.md D2, T94 D1).
+# Which file belongs to which layer of the chip (docs/specs/T87-ci-layer-caches.md D2, T94 D1).
 # Sections: "name:" lines; below one git pathspec per line (":(exclude)..." allowed). Read by
 # ci/lib.sh (host_key, ooc_key, core_key) and checked by ci/layers_check.sh (stage lint):
 # every tracked file under host/, cores/ and vendor/ is in exactly one section, every

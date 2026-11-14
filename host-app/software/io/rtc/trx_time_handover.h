@@ -1,7 +1,7 @@
 #ifndef TRX_TIME_HANDOVER_H
 #define TRX_TIME_HANDOVER_H
 // TRX64 Ultimate: the app hands its wall-clock time to the updater it starts with "Run Update"
-// (docs/specs/done/T49-update-packages.md). Four words at a fixed DDR address inside the updater's
+// (docs/specs/T49-update-packages.md). Four words at a fixed DDR address inside the updater's
 // window (0x03000000-0x03FFFFFF, update_trx/linker.x) that nothing there owns: the loaded image
 // ends below 0x03600000, .data/.bss/heap start there and grow up from it, the stack starts at
 // 0x03FFFFFC and grows down. The updater reads and clears them first thing in ultimate_main.

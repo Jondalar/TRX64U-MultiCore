@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """T12 test 7 on the board: a raster-timed program frozen and resumed N times
-(TRX64-Ultimate/docs/specs/T12-freeze-overlay.md §8.2 item 7, §14.6).
+(docs/specs/T12-freeze-overlay.md §8.2 item 7, §14.6).
 
     tests/freeze_raster/run.sh [host] [--freezes N] [--hold S] [--no-video]
 

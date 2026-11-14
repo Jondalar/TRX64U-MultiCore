@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """TRX64 Ultimate update package: the one place that knows the trx_manifest layout.
 
-docs/specs/done/T49-update-packages.md section 3.3 (as built).  The C side is the header this
+docs/specs/T49-update-packages.md section 3.3 (as built).  The C side is the header this
 module writes (`trx_pkg.py header`), vendor/gideon/software/application/
 update_u2p/trx_manifest.h; nothing else may carry the layout.
 

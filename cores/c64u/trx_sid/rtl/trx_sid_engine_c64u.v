@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // ---------------------------------------------------------------------------
 // trx_sid_engine_c64u: T25.1 time-multiplexed SID engine, 8 SIDs / 24 voices / 8
-// filters, all state in RAM (TRX64-Ultimate/docs/specs/T25.1-sid-engine.md).
+// filters, all state in RAM (docs/specs/T25.1-sid-engine.md).
 //
 // Bit-level behaviour = trx64/trx_sid_c64u/model/sidref.cpp (the M1 reference
 // model); the benches in host/sim/sid compare the two cycle by

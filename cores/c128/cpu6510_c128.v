@@ -31,7 +31,7 @@ module cpu6510_c128 #(
   input  wire clk,          // the C64's (gated) clock: PHI2-side registers
   input  wire reset,
 
-  // T29 (TRX64-Ultimate/docs/specs/T29-turbo.md §12.3): the 6502N core and the CPU port
+  // T29 (docs/specs/T29-turbo.md §12.3): the 6502N core and the CPU port
   // run on clk2x (2 x clk, same MMCM, not gated) with clock enables. g_edge:
   // this clk2x edge is one a gclk edge passes on; run2: any clk2x edge that
   // passes; at normal speed the core's enable is g_edge && phi2_l (the edge

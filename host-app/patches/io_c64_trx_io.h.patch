@@ -3,7 +3,7 @@
 @@ -1,4 +1,4 @@
 -// The TRX64 Ultimate bitstream's IO block (TRX64-Ultimate designs/c64_basic/trx_io.v,
 +// The TRX64 Ultimate bitstream's IO block (TRX64-Ultimate repo, trx_io.v,
- // TRX64-Ultimate/docs/specs/ARCH-lean-state-access.md §10, §15.3): detection, the 32-bit register
+ // docs/specs/ARCH-lean-state-access.md §10, §15.3): detection, the 32-bit register
  // rule and the one interrupt line all its users share.
  //
 @@ -62,6 +62,9 @@

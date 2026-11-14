@@ -25,4 +25,4 @@ build serves every core whose `core.toml` says `app = "blueprint"`: the A500 and
   is chosen at run time from the ID block; the Amiga names stay untouched).
 - `tests/coreapp/run.sh` runs the logic natively with a negative control per test.
 
-Spec: `docs/specs/done/T93-core-app-blueprint.md`, what was decided while building is its section 5.
+Spec: `docs/specs/T93-core-app-blueprint.md`, what was decided while building is its section 5.

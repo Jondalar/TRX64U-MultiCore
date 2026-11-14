@@ -1,6 +1,6 @@
 // PROVENANCE: copied unchanged from TRX64-Ultimate software/ultimate-app/software/io/c64/trx_c64re.h, T104.2 UI.
 // .c64re and .c64rering files from the TRX64 Ultimate frame ring
-// (TRX64-Ultimate TRX64-Ultimate/docs/specs/T20-delta-ring.md §9, §10; the container and node
+// (TRX64-Ultimate docs/specs/T20-delta-ring.md §9, §10; the container and node
 // shapes are TRX64's: crates/trx64-core/src/native_snapshot.rs,
 // c64re_snapshot.rs, ring_dump.rs). Written with stored deflate blocks (valid
 // gzip, no compressor on the RISC-V). Every file carries our own exact state in

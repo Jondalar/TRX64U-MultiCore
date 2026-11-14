@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""T16 board session with Alex's real cartridges (TRX64-Ultimate/docs/specs/T16-board-session.md).
+"""T16 board session with Alex's real cartridges (docs/specs/T16-board-session.md).
 
 One cartridge per run; Alex only powers off, plugs, powers on and presses keys.
 
@@ -56,7 +56,7 @@ HOST = os.environ.get("TRX64_HOST", "192.0.2.189")
 OUT = Path(os.environ.get("T16_OUT", Path.home() / ".cache" / "trx64-t16"))
 BASELINES = HERE / "data" / "baseline_candidates.json"
 
-# trx pages (TRX64-Ultimate/docs/specs/T16-cartridge-port.md §13.7)
+# trx pages (docs/specs/T16-cartridge-port.md §13.7)
 SLOT_CTRL = 0x7000          # b1 ROM_WR_EN
 SLOT_STATUS = 0x7004
 GATE_CTRL = 0x0100          # b0: the app's C64_STOP pauses the whole machine (freeze sessions)
@@ -718,7 +718,7 @@ def baseline_compare(ctx: Ctx, banks: dict, romh: bool) -> None:
         src = bl["source"]
     else:
         ctx.rec("dump", "P3.2/4", "equals the dump on Gideon's bitstream", None,
-                "no baseline for this cart (see TRX64-Ultimate/docs/specs/T16-board-session.md §Baseline): self-consistency only")
+                "no baseline for this cart (see docs/specs/T16-board-session.md §Baseline): self-consistency only")
         return
     diff = [b for b in range(c.banks) if ref_sha.get(b) != sha(banks[b])]
     if not diff:
@@ -742,7 +742,7 @@ def st_pre(ctx: Ctx) -> None:
     ver = ctx.rest.version()
     ctx.rec("pre", "-", "REST answers", True, ver[:80])
     if a.gideon:
-        ctx.rec("pre", "-", "Gideon-core run: no slot block, plain DMA reads", None, "TRX64-Ultimate/docs/specs/T16-board-session.md, Baseline")
+        ctx.rec("pre", "-", "Gideon-core run: no slot block, plain DMA reads", None, "docs/specs/T16-board-session.md, Baseline")
         return
     st = ctx.status()
     ctx.rec("pre", "§13.7", "our slot block present (SLOT_STATUS b31)", st["ours"], hex(ctx.jtag.status()), hard=True)
@@ -1975,7 +1975,7 @@ def expand_stages(args, cart: Cart) -> list:
 def cmd_plan(args) -> int:
     """What the final session does, cart by cart, and how long it takes."""
     total = 0
-    print("Final cart session (TRX64-Ultimate/docs/specs/T16-board-session.md). Alex: power, plug, answer a few questions, play for the in-game saves.\n")
+    print("Final cart session (docs/specs/T16-board-session.md). Alex: power, plug, answer a few questions, play for the in-game saves.\n")
     for key in ("rom16", "ef1", "megabyter", "gmod2"):
         st = FULL[key].split(",")
         mins = sum(MINUTES.get(x, 2) for x in st) + 3

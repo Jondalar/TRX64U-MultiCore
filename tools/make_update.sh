@@ -1,5 +1,5 @@
 #!/bin/bash
-# Build a TRX64 Ultimate tester update package (docs/specs/done/T49-update-packages.md).
+# Build a TRX64 Ultimate tester update package (docs/specs/T49-update-packages.md).
 #
 #   tools/make_update.sh [options] <bitstream.bit> <ultimate.app>
 #

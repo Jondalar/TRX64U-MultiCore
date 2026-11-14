@@ -112,7 +112,7 @@ CON_BASE = 0x200000                 # the last 4 KB of them, 4 bytes per read
 CON_SIZE = 4096
 BOOT_MAGIC = 0x1571BABE             # boot ROM: jump to [0xFFF8] when [0xFFFC] holds it
 BOOT_REQ = 0x7158B007               # boot ROM request at 0xFFF4: mode 0xFFF0, address 0xFFEC
-BOOT_RES = 0xFFC0                   # its result block (TRX64-Ultimate/docs/specs/T15-flash-boot.md §5)
+BOOT_RES = 0xFFC0                   # its result block (docs/specs/T15-flash-boot.md §5)
 BOOT_STATUS = {0: "running", 1: "booting", 2: "checked", 3: "empty (erased header)",
                4: "header invalid", 5: "identity mismatch: no flash boot", 6: "locked (button)",
                7: "bad request", 8: "staged image overlaps its destination"}
