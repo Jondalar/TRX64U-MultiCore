@@ -646,7 +646,7 @@ cpu65816_c64scpu cpu_0 (
   .pc      (cpu_pc),
   .e_flag  (cpu_e_flag),
   .exrom_pin(vic_exrom), .game_pin(vic_game), .pla_pport(cpu_pla),
-  .rom_valid_i(scpu_rom_valid), .srom_log2_i(scpu_srom_log2), .scpu_sw_i(scpu_sw), .rom_flush(scpu_flush), .aec(vic_aec), .rom_valid_o(scpu_rom_valid_o),
+  .rom_valid_i(scpu_rom_valid), .srom_log2_i(scpu_srom_log2), .scpu_sw_i(scpu_sw), .rom_flush(scpu_flush), .ba(vic_ba), .aec(vic_aec), .rom_valid_o(scpu_rom_valid_o),
   .s_req_tgl(scpu_s_req_tgl), .s_req_line(scpu_s_req_line), .s_done_tgl(scpu_s_done_tgl), .s_fill(scpu_fill),
   .sw_req_tgl(scpu_sw_req_tgl), .sw_req_addr(scpu_sw_req_addr), .sw_req_data(scpu_sw_req_data), .sw_done_tgl(scpu_sw_done_tgl),
   .dev_cyc(scpu_dev_cyc), .mem_n_hit(scpu_n_hit), .mem_n_miss(scpu_n_miss), .bootmap_o(scpu_bootmap), .hwenable_o(scpu_hwenable), .dosext_o(scpu_dosext), .fast_o(cpu_fast),
