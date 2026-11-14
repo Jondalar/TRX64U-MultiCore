@@ -1,7 +1,6 @@
 # T164 — the next host package: one list of everything that waits for the host
 
-**Status:** DESIGN COMPLETE (2026-10-31), waiting for Alex's answers to §3a (design, budget and plan: §3b-§3d, `docs/todo/T164.md`). Proposed 2026-10-30, asked by Alex. Go on 2026-10-31 (translated): "I want us to get to HDMI and the Status check 2026-11-13: BUILT and merged (t164-* merges incl. ee2a77410; package main-b8b6bcf7 with testers); the design is complete and the §3a answers are recorded in the todo; board tests open as listed there. The text 'waiting for Alex's answers' is outdated.
-scaler in the host... it takes too long for me because too much hangs on it." Then: "OK, then spec, plan, refinement, ADRs, and go."
+**Status:** BUILT and merged (t164-* merges incl. ee2a77410; package main-b8b6bcf7 with testers), board tests open as listed in `docs/todo/T164.md`. Design complete 2026-10-31 (design, budget and plan: §3b-§3d); the §3a answers are recorded in the todo. Proposed 2026-10-30, asked by Alex. Go on 2026-10-31 (translated): "I want us to get to HDMI and the scaler in the host... it takes too long for me because too much hangs on it." Then: "OK, then spec, plan, refinement, ADRs, and go." 2026-11-15 sync: the 2026-11-13 status check had cut this quote in two; header rewritten, the outdated 'waiting for Alex's answers' removed.
 **Repo:** TRX64U-MultiCore — `host/` (gateware, layer 1), `host-app/`, `contract/` where a core feeds the host.
 **Number:** T164.
 **Origin:** Alex, 2026-10-30 (translated): "We have to touch the host again anyway, don't we? Do we have the overview of what else?" Then:
