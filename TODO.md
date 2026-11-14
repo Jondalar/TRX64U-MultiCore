@@ -97,6 +97,7 @@ Built and benched; what is left is a step on the board (Alex, 2026-10-28, transl
 | T216 | 3 | 🔨 | PET finish: business keyboard per model, SuperPET row only there, 4040 ROM guide | Merged to main; S1 cause, S4 board open | [T216](docs/specs/T216-pet-finish.md) |
 | T217 | 2 | 📅 | SCPU: Mount & Run of a PRG in a disk image reaches the 65816 (page 0 in SCPU SRAM) | Alex 11-12 | [T217](docs/specs/T217-scpu-mount-run-prg.md) |
 | T218 | 3 | 🔨 | SNES: DSP-n cartridges (DSP-1/1B, 2, 3, 4) run; firmware from the SD (appended to the .sfc first, else dsp*.bin) | Built on t218-snes-dsp, sim proof; open: pipeline (S6), board S1/S2/S4 | [T218](docs/specs/T218-snes-dsp-n.md) |
+| T219 | 2 | 🔨 | RIGHT enters a folder in every file browser, LEFT goes up (#90) | Host F3 + core app Library built (ue2emu pictures); keywalk golden regenerated; Alex: two browsers stay | [T219](docs/specs/T219-right-enters.md) |
 | T175 | 3 | 🔨 | Diag core: a timed probe engine plus TOML tests measure the joystick/paddle ports, results to SD | Gateware + core app merged (t175-diag); Vivado run + engine/board steps open | [T175](docs/todo/T175.md) |
 | T176 | 3 | 📅 | Core menus on the screen at once from a saved picture (split out of T146 P5, issue #4) | Deferred (Alex 11-02): split out of T146 P5; not started | [T176](docs/todo/T176.md) |
 | T177 | 3 | 📅 | Recovery boot: a key held at power-on starts a recovery image, even with a black host menu | Spec PROPOSED (Alex 11-02); Decided (Alex 11-02): app, RESTORE+F1, recovery.cor/backup, no flash, LED; build open | [T177](docs/todo/T177.md) |
