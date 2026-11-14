@@ -110,7 +110,6 @@ Built and benched; what is left is a step on the board (Alex, 2026-10-28, transl
 | T166 | 3 | 📅 | Tester checklists: a GitHub wiki page or discussion with tickable test lists per core | Reminder (Alex 10-31): with the next test release; nothing posted yet | [T166](docs/todo/T166.md) |
 | T167 | 3 | 🔨 | UI: a changing progress bar or percentage in an overlay shows what lies behind it while redrawing | Built; 5.10 passed on the board (11-02); 5.8 format/update page look and 5.9 TrxPage updater re-check open | [T167](docs/todo/T167.md) |
 | T168 | 3 | 🔨 | Showcase: DDT's C64U demos (mandelbrUlt, look_ma_no_vic) as partial cores, picture over the host's HDMI | Merged; board 10-31: both run (Alex: "both look good"); 6-engine D10 build not seen on board | [T168](docs/todo/T168.md) |
-| T169 | 3 | 🔨 | User manual rebuilt for the host app: one chapter per menu, engineering-manual style, emulator screenshots | Merged 10-31, kept current; open points in §5; S2/S3 review not recorded | [T169](docs/specs/T169-host-app-manual.md) |
 | T170 | 3 | 📅 | C128 core with real drives on the IEC port: 1541, and 1571 with fast serial (SRQ) | Spec proposed (Alex 10-31); D1/D2 decided; nothing built, needs room (T140 D24) | [T170](docs/specs/T170-c128-real-drives.md) |
 | T171 | 3 | ✅ | MultiCore publishes into its own generic package trx64u-multicore, not into trx64-ultimate | Done: first CI publish run 279 -> main-a938c680 (2026-10-31); contract §1 written | [T171](docs/todo/T171.md) |
 | T172 | 2 | 🔨 | Bundle step: board installer on any branch on demand ([bundle] / dispatch), branch+commit or SemVer | Built D1-D6 + S5 bundle check (11-07); S2-S4 proof not recorded | [T172](docs/specs/T172-bundle-step.md) |
@@ -151,6 +150,7 @@ Built and benched; what is left is a step on the board (Alex, 2026-10-28, transl
 ## Done
 
 | ID | M | Status | Task | Open | Details |
+| T169 | 3 | ✅ | User manual rebuilt for the host app: one chapter per menu, engineering-manual style, emulator screenshots | Done (Alex 11-14, closed after the §5 check); left: colour page app fix + picture, Run Update for TRXBK on a backup-started firmware | [T169](docs/todo/T169.md) |
 |---|---|---|---|---|---|
 | T79 | 3 | ✅ | Partial reconfiguration trial: small static layer, C64 side swappable | Done: cores swap through ICAP, return to the host by IPROG works (Atari, NES) | [T79](docs/todo/T79.md) |
 | T81 | 3 | ✅ | Core selector: small LVGL host app picks a core from USB/SD and starts the swap by softboot | Done: the host app menu (T84, T101); null core not built | [T81](docs/todo/T81.md) |

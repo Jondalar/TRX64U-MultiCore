@@ -1,6 +1,6 @@
 # T169 — The user manual describes the host application as it is today, menu by menu, with emulator screenshots
 
-**Status:** DECIDED (2026-10-31, Alex). Status check 2026-11-13: BUILT and merged 2026-10-31 (d98c1fac2), kept current by later commits; §5 open points (11 items) and S2/S3 review record not seen.
+**Status:** DONE (2026-11-14, Alex: "Ja" to closing after the check, translated). Built and merged 2026-10-31 (d98c1fac2), kept current by later commits; every §5 point checked against `main` on 2026-11-14, see the table at the end of §5. S2/S3 review: closed by Alex's decision without a separate review record.
 **Repo:** TRX64U-MultiCore — `docs/manual/`, `docs/img/`.
 **Number:** T169 (TODO table).
 **Origin:** Alex, 2026-10-31: "look at the manual in TRX64-Ultimate, we need something like it for the host app too. NOT for
@@ -110,3 +110,23 @@ first by the global HDMI step (hostui.cc:4841), so the `v` pattern is unreachabl
 - The behaviour of the installer when the installed bitstream is already ours (`installed_axss != 0`: two warranty questions, then the
   normal backup to the root of the first medium, no cores folder, no `boot.cfg`) is read from the code but not described in chapter 2.
 - Pictures of the installer screens (vendor updater) do not exist; the emulator runs the host app only.
+
+**Close-out check (2026-11-14, against `main` c982d8392).** One row per open point of this section.
+
+| Point | Result | Evidence |
+|---|---|---|
+| `.txu` in the release folder | done | `tools/release_mc.sh:149-158` requires and ships `trx64host_update_*.txu`; manual 02-installation.md:11 and 2.1.4 name it |
+| **Run Update** for `TRXBK_*.CFW` on a firmware started from the backup `.cor` | still open | the host has no `TRXBK` code (grep of `host-app/software/hostapp`); 14-recovery.md:8 states the condition instead of a claim; needs a board step, not built |
+| Raw bitstream/app files for the cable way | done | 14-recovery.md:55-62: the two parts of `trx64host_update_<id>.ue2`, `openFPGALoader` offsets 0x0 and 0x220000 (command not run on a board by this check) |
+| 01.5.2 "debug build, reSID8/UCI/... off" | obsolete | no code evidence found; the sentence is removed from 01-safety-and-applicability.md |
+| Installer when the bitstream is already ours | done | 02-installation.md 2.4.8 (two questions, no `.cor`, no copy, no `boot.cfg`) |
+| Pictures of the vendor installer screens | obsolete | the emulator runs the host app only; the vendor updater is not ours; the manual describes it in text (2.4, 2.5) |
+| Defect: `39%%` in the copy/move progress | done | fixed: hostui.cc:2549 puts a plain `%` outside the format |
+| Defect: colour page not shown after **C** | still open (app code) | `hc_nav_colors_open()` (host_core_nav.cc:461) sets the view without `ue_show`/`show_view`; manual 7.5.1 carries the NOTE; fix is a one-line app change, not a manual change |
+| Defect: pattern **v** unreachable (global HDMI key) | still open (app code) | manual 7.5.3 NOTE; no `HCA_COLORS_PATTERN` mapping for V found; not built |
+| Colour test picture `host-colors.png` | still open | cannot be shot while the page is not shown; follows the app fix |
+| S2 pictures from the emulator | done | 24 `docs/img/host-*.png` (list in `docs/img`); no placeholder removed or added by this check |
+| S3 install / first start / way back match T152 and T137 | done | chapters 2, 3, 9, 14 read in T121 sync 2026-11-13 |
+| S2/S3 review record | closed by decision | Alex 2026-11-14: close without a separate review record |
+
+Left for later work (not part of T169): the app fix for the colour page and the **V** key (one app change, then one picture), and the board question of **Run Update** for `TRXBK_*.CFW`.
