@@ -1,6 +1,6 @@
 # T215 — A comment never moves a CI key or triggers a build: plan and cache keys hash code only
 
-**Status:** BUILT (2026-11-14, review fixes the same day), proofs in §5, merged main into `t215-code-hash`; open: the two builder steps of §5 (install, key_alias), then merge. 2026-11-15 sync: merged to main (d9910d192; `ci/code_hash.py`, `ci/key_alias.sh` are in main); run 1902 was red because key_alias ran without the pipeline's build options, fixed in a1e69bf78; no record that install + key_alias were rerun on the real cache successfully - still open.
+**Status:** BUILT (2026-11-14, review fixes the same day), proofs in §5, merged main into `t215-code-hash`; 2026-11-15 sync: merged to main (d9910d192; `ci/code_hash.py`, `ci/key_alias.sh` are in main); run 1902 was red because key_alias ran without the pipeline's build options. 2026-11-14: key_alias.sh fixed in a1e69bf78, builder cache migrated by the coordinator, main run 1906 green.
 **Repo:** TRX64U-MultiCore — CI (`ci/plan.py`, `ci/lib.sh`, new `ci/code_hash.py`).
 **Number:** T215.
 **Origin:** Alex, 2026-11-12: "A comment should trigger NO build at all." / "Yes. The hash should only concern code. Always. It simply cannot be that a comment triggers everything." (translated). A comment-only fix in the 13 `cores/*/mono/host/top.v` copies would have started Vivado for 13 cores.

@@ -275,7 +275,7 @@ gate would be worth nothing. A legitimate update of the bitstream and app areas 
 
 Rules (Alex, 2026-10-03):
 
-1. **Physical keys only (corrected 2026-10-03, see T50):** the C64U's built-in keyboard reaches the FPGA over the Bling controller's UART (`bling_keyboard.v`), not the I2C scan (`c64u_keyboard` reads a classic keyboard on P7). The unlock listens to the Bling UART only; software cannot forge it, so the I2C/JTAG-override guards below are no longer needed. Spec: docs/specs/T50-update-unlock.md.
+1. **Physical keys only (corrected 2026-10-03, see T50):** the C64U's built-in keyboard reaches the FPGA over the Bling controller's UART (`bling_keyboard.v`), not the I2C scan (`c64u_keyboard` reads a classic keyboard on P7). The unlock listens to the Bling UART only; software cannot forge it, so the I2C/JTAG-override guards below are no longer needed. Spec: T50-update-unlock.md in `TRX64-Ultimate/docs/specs` (not in this repository).
 2. **Only right after the reset.** The keys must be seen down in every scan of a window that
    starts with the first complete scan after `i2c_done` and lasts about 1 s. Keys pressed
    later unlock nothing; one scan without them ends the window. After the window the state is

@@ -13,7 +13,7 @@ Specs of the TRX64U MultiCore line (one host, n swappable cores; layout since 20
 - `docs/specs/`: open specs (table below) and `_TEMPLATE.md`.
 - `docs/specs/done/`: finished specs: done, merged into another spec, dropped, overtaken, or won't do. Status and date are in each file's header; the history is in `docs/todo/<ID>.md`.
 - "Belonged to TRX64-Ultimate": the list at the end; the files are gone from this repository.
-- Still here from before the split, because MultiCore changed them: T44, T49, T53 (two files), T79, T83, T84-boot-chain, T87.
+- Still here from before the split, because MultiCore changed them: T53 (`T53-ue2-build.md`, in `docs/specs/`). The others are in `done/`: T44, T49, T53-ue2-session-till, T79 (two files), T83, T84 (two files), T87.
 
 ## Open specs
 
