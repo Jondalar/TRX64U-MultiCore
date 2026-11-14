@@ -1,6 +1,6 @@
 # T206 — Every core that mounts a disk also offers "Run Disk" (mount and run), with the same action names
 
-**Status:** PROPOSED (2026-11-11). Corrected 2026-11-13 (status check): BUILT, merged to main (475cdbcfe); S1, S2 proven by test_desc; PET added 2026-11-12; S3 board (SCPU Run Disk) open.
+**Status:** PROPOSED (2026-11-11). Corrected 2026-11-13 (status check): BUILT, merged to main (475cdbcfe); S1, S2 proven by test_desc; PET added 2026-11-12; SCPU Run Disk now types through the key matrix (decision A, 2026-11-12, merged with 475cdbcfe). 2026-11-15 sync: S3 board is open for all of them, no pass recorded: SCPU, C128 (READY delay), PET (D64/D80/D82), Amiga Mount DF0 and reset; SCPU/C64 `Mount & Run` of a PRG still pokes RAM and has the same SCPU page-0 problem (§5, needs its own decision).
 **Repo:** TRX64U-MultiCore — the generic core app, the file actions of the cores (`coreapp/cores/c64scpu.cc`, `c128.cc`, `cbm1541_desc.h`, ...).
 **Number:** T206.
 **Origin:** Alex, 2026-11-11, at the board in the SCPU core (F3 Library on a disk: Mount Disk, Mount Disk Read Only, Browse Disk, ... no run), translated:

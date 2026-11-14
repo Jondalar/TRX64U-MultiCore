@@ -1,6 +1,6 @@
 # T201 — The diag core finds, with a tester's answers, the analog A/V settings that give a stable colour picture on his TV
 
-**Status:** v1 BUILT (S1-S6 proven); v2 (D3, D4) BUILT on branch `t201-av-v2`, S9-S11 proven, no Vivado run yet; S7 and S8 open (2026-11-11, Alex: "do that for #59 please and open an issue", translated). Corrected 2026-11-13 (status check): v1 and v2 built and merged to main (5cc93edeb); Vivado run 1686 green (WNS +0.185), diag.cor on the board SD; S7, S8 open ("no Vivado run yet" above is outdated).
+**Status:** v1 and v2 (D3, D4) BUILT and merged to main (`1e899f93d`, `5cc93edeb`, 2026-11-11); S1-S6 and S9-S11 proven (§5); Vivado run 1686 green (WNS +0.185 ns), `diag.cor` (sha256 df7aa4b8...) on the board SD; S7 and S8 (board, tester) open (2026-11-11, Alex: "do that for #59 please and open an issue", translated; issue #73). 2026-11-15 sync: status line rewritten; the D3c chroma-invert is dropped by D4; the "no Vivado run yet" sentences inside §5 are the state when written, run 1686 is the later line.
 **Repo:** TRX64U-MultiCore — `cores/diag/` (large core: a test picture generator and Y/C/CVBS encoder on the A/V balls, registers), the
 diag core app (`coreapp/cores/diag.cc` and its test runner: a live A/V page, a TOML test with questions, a result file), `tests/`.
 **Number:** T201 (registry: `TODO.md`).
