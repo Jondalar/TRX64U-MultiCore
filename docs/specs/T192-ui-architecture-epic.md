@@ -1,7 +1,6 @@
 # T192 — Epic: one functional core, many user interfaces (host app and generic core app)
 
-**Status:** PROPOSED (2026-11-07), asked by Alex. Epic: spec and architecture only; no build while the finish plan Corrected 2026-11-13 (status check): MVP (D20) built and merged to main through integ-1 (0c5612d2d); child specs T192.1-T192.6 carry their own state; the epic stays open.
-(`docs/todo/finish-plan-2026-11-07.md`) is open, unless Alex says so. MVP build released by D20 (2026-11-08).
+**Status:** PROPOSED (2026-11-07), asked by Alex; the epic stays open. MVP (D20) built and merged to main through integ-1 (0c5612d2d, 2026-11-09); the parity cut (D23: T192.2 host, T192.3 core app) merged with it; the service runs in every core of the generic core app (T192.3 D31, bfcd0211c, 2026-11-10). T192.1-T192.3 are built (their board steps are open), T192.4-T192.6 are not built, the D24 migration of per-core C data to TOML is not built. Originally no build while the finish plan (`docs/todo/finish-plan-2026-11-07.md`) is open, unless Alex says so; MVP released by D20 (2026-11-08). 2026-11-15 sync: status line rewritten (an earlier correction sat inside the sentence), §4 and §5 follow the code.
 **Repo:** TRX64U-MultiCore — host app (`host-app/software/hostapp/`), generic core app (`coreapp/`), view layer (`app/view/`),
 REST/WS (`coreapp/src/rest.cc`, `wsproto.cc`).
 **Number:** T192.
@@ -296,11 +295,11 @@ T192.2 and T192.3 may run in parallel after T192.1; T192.4-.6 after both (or per
 - A renderer or code inside a bundle or `.u2a` (D9, T104.3 D0): bundles are data.
 - A separate contract per app (D14 option B), a host-only `host_core`.
 - A build before the finish plan is closed (header), unless Alex says so (released for the MVP by D20).
-- Deferred past the MVP by D20: S1 parity (T192.2), T192.3's parity pictures, T192.4 search, T192.5 text UI, T192.6 bundles.
+- Deferred past the MVP by D20: S1 parity (T192.2), T192.3's parity pictures, T192.4 search, T192.5 text UI, T192.6 bundles. Since built by the D23 cut (2026-11-09): S1 parity and T192.3's parity pictures; still not built: T192.4, T192.5, T192.6.
 
 ## §5 Build
 
-Nothing built.
+Built (2026-11-15 sync, from the code): the shared service `uicore/` (T192.1), the host app on `host_core` with the declarative menu (T192.2), the core app on the service in every core (T192.3, D31). Per child spec: T192.1 §5/§5a/§5b, T192.2 §5, T192.3 §5. Not built: T192.4 search overlay, T192.5 text UI, T192.6 bundles and safe mode (no code: no search chord, no safe-mode chord, no bundle loader in `host-app/`, `coreapp/`, `uicore/`), the D24 lint gate against new per-core C data.
 
 ## §6 Open questions
 
