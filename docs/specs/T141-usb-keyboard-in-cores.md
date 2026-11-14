@@ -1,6 +1,6 @@
 # T141 — A USB keyboard types into every core, not only into the menus
 
-**Status:** BUILDING (2026-10-31, A1200 first, D4), PROPOSED 2026-10-28, asked by Alex. 2026-11-13 status check: merged in parts (w1-a500, w1-t141); A1200 board ok; A500 and C128 built, Vivado + board open (as row).
+**Status:** BUILDING (2026-10-31, A1200 first, D4), PROPOSED 2026-10-28, asked by Alex. 2026-11-13 status check: merged in parts (w1-a500, w1-t141); A1200 board ok; A500 and C128 built, Vivado + board open (as row). 2026-11-15 sync: C128 P2 is in main (1d85da7fa, 2026-11-07): `coreapp/cores/c128.cc:1108-1111` hands the held usages to `c128_xkeys_apply` (c128.cc:1240), tests in `tests/coreapp/test_c128.cc:651-672`; the commit says 'not yet run', no pass is recorded here; S2 board open. The row text 'C128 later' is outdated.
 **Repo:** TRX64U-MultiCore — the core application (`coreapp/`), the cores' keyboard inputs (`cores/c128`, `cores/amiga`,
 `cores/amiga1200`), possibly the host's keyboard block (a host change needs Alex's approval).
 **Number:** T141.
@@ -133,6 +133,8 @@ their sources include cores/amiga), board (key tester on the A500).
 
 **Left out, on purpose (to decide with Alex).** The reset combination Ctrl + Amiga + Amiga works from the C64 matrix only (`reset_kbd`); on USB the machine's
 own keyboard reset is not built. The keyboard's caps LED is not driven from the machine. More than 6 keys at once are the boot report's limit.
+
+**C128 P2 (2026-11-07, 1d85da7fa, in main).** The C128 descriptor takes the USB keyboard through `rawkeys` in held mode (`rawkeys.cc`), `c128_xkeys_apply` writes XKEYS / XSPECIAL (registers of T113 already in `cores/c128/c128_regs.v`); no gateware change. Test and controls in `tests/coreapp/test_c128.cc`, `run.sh`; no run result recorded here; board S2 open.
 
 **What C128 (P2) and the A500 can reuse.** The USB hook (`usb_hid_set_keyboard_sink`, `rawkeys_usb_report`), the report ring, the press / release
 difference, the menu handling (open: release, close: baseline) and the test rig (`test_rawkeys.cc`, the register model with room) are core-independent.
