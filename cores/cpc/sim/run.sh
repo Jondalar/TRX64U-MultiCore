@@ -60,7 +60,7 @@ for m in $modes; do
     disk)    python3 "$root/tools/cpc_progs.py" ddr "$here/build/disk.ddr.hex"; args="+ROM=$here/prog/disk.hex +DDR=$here/build/disk.ddr.hex +FRAMES=200" ;;
     page|page664|page464) args="+ROM=$here/prog/page.hex +EXP=$here/prog/$m.exp.hex +FRAMES=40" ;;
     pause) ;;
-    fdcscan) ;;      # the image block service alone (u765 + cpc_fdc + the DDR2 model), no machine
+    fdcscan|fdcfix) ;;      # the image block service alone (u765 + cpc_fdc + the DDR2 model), no machine
     *) echo "unknown mode $m"; exit 1 ;;
   esac
   if [ "$m" = pause ]; then
@@ -84,11 +84,20 @@ FAIL pause hashes: the paused run differs from the reference in $(diff "$here/bu
     python3 "$root/tools/cpc_progs.py" ddr40 "$here/build/blank40.ddr.hex"
     if [ ! -x "$fd/Vtb_fdcscan" ] || [ -n "$ZX_REBUILD" ]; then
       mkdir -p "$fd"
-      nice -n 15 verilator --binary --timing -Wno-fatal -Wno-lint -Wno-style -Wno-TIMESCALEMOD -j 2 --top-module tb_fdcscan -I"$here" -Mdir "$fd" \
+      nice -n 15 verilator --binary --timing -Wno-fatal -Wno-lint -Wno-style -Wno-TIMESCALEMOD -j 2 --top-module tb_fdcscan --public-flat-rw -I"$here" -Mdir "$fd" \
         --x-assign 0 --x-initial 0 "$here/tb_fdcscan.v" "$here/ddr2c_model.v" $c/gen/u765.sv $c/trx/cpc_fdc.v > "$fd/build.log" 2>&1 || { tail -30 "$fd/build.log"; echo "FAIL build"; exit 1; }
     fi
     "$fd/Vtb_fdcscan" +DDR="$here/build/blank40.ddr.hex" > "$here/build/$m.log" 2>&1 || true
-    r=$(grep -E "^(PASS|FAIL)" "$here/build/$m.log" || true)
+    r=$(grep -E "^(PASS|FAIL|  stuck|  HANG|  scan|  second|  both|  hold)" "$here/build/$m.log" || true)
+  elif [ "$m" = fdcfix ]; then
+    fd=$base/fdcfix
+    if [ ! -x "$fd/Vtb_fdcfix" ] || [ -n "$ZX_REBUILD" ]; then
+      mkdir -p "$fd"
+      nice -n 15 verilator --binary --timing -Wno-fatal -Wno-lint -Wno-style -Wno-TIMESCALEMOD -j 2 --top-module tb_fdcfix -I"$here" -Mdir "$fd" \
+        --x-assign 0 --x-initial 0 "$here/tb_fdcfix.v" "$here/ddr2c_model.v" $c/trx/cpc_fdc.v > "$fd/build.log" 2>&1 || { tail -30 "$fd/build.log"; echo "FAIL build"; exit 1; }
+    fi
+    "$fd/Vtb_fdcfix" > "$here/build/$m.log" 2>&1 || true
+    r=$(grep -E "^(PASS|FAIL|  4)" "$here/build/$m.log" || true)
   else
   # shellcheck disable=SC2086
   build "$base"

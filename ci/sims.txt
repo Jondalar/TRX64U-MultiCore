@@ -200,6 +200,7 @@
 2|cpc_io|2400|sh cores/cpc/sim/run.sh audio keys
 2|cpc_media|3600|sh cores/cpc/sim/run.sh tape disk
 2|cpc_fdcscan|900|sh cores/cpc/sim/run.sh fdcscan
+2|cpc_fdcfix|600|sh cores/cpc/sim/run.sh fdcfix
 2|cpc_pause|1800|sh cores/cpc/sim/run.sh pause
 # T92 S12: the same for layer2_cpc.v
 1|cpc_pins|120|sh cores/cpc/sim/run_pins.sh
