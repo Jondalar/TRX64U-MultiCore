@@ -1,7 +1,7 @@
 # T92 — An Amstrad/Schneider CPC core, ported from the MiSTer core, run as a swappable core in the T79 host/core split
 
 **Status:** BUILT, ROUTED, ON THE BOARD (2026-11-15 sync). Decided 2026-10-13 (Q1-Q5, §3 end). Routed in CI run 125 (§5), on the board since 2026-10-22 (Alex: BASIC, `print 1+1`), 2026-11-02 CAT works and a game starts with sound (t164-c83a83c2, GitHub #17), floppy LED works 2026-11-04 (T159, `tests/coreapp/test_ledcores.cc`, board main-7fda7e1f). Not recorded in this spec: the 464/664 models, tape and Freeze on the board; the §2 scenario table was not re-checked (not DONE).
-**Repo:** TRX64-Ultimate (gateware under new `designs/cpc/` plus the shared parts under `cores/zxcpc/` that T91 builds, the
+**Repo:** TRX64U-MultiCore, gateware `cores/cpc/` (2026-11-15 sync: the first text named TRX64-Ultimate `designs/cpc/` and `cores/zxcpc/`; those paths are not in this repository) (original text: TRX64-Ultimate, gateware under new `designs/cpc/` plus the shared parts under `cores/zxcpc/` that T91 builds, the
 core's application on Gideon's base as for the VC-20 and the Amiga, tools). The sources are read from outside
 (MiSTer-devel); nothing is copied into this repo by this spec.
 **Number:** T92. Split out of the combined ZX Spectrum / CPC spec on 2026-10-13 (Alex, Q1/Q2): the Spectrum stayed in T91
