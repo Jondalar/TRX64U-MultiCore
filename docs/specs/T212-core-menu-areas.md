@@ -1,6 +1,6 @@
 # T212 - Core menu areas: F1 quick actions, F5 machine, F7 app settings
 
-Status: PROPOSED 2026-11-12, Alex (board photos of the A1200 core app: F1, F5, F7).
+Status: PROPOSED 2026-11-12, Alex (board photos of the A1200 core app: F1, F5, F7). Corrected 2026-11-13 (status check): decisions D1-D17 taken (Alex); built on branch t212-core-areas (b7077f8b1), not merged to main.
 
 ## §1 The problem
 - P1: F1 Home is information only; the cursor walks the STATUS box without any action. Alex: "I can't do ANYTHING here, only info.

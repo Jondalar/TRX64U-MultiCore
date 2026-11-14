@@ -1,6 +1,6 @@
 # T100 — The host has its own pipeline, and every core has its own
 
-**Status:** PROPOSED (2026-10-14).
+**Status:** PROPOSED (2026-10-14). 2026-11-13 status check: DONE; merged (lanes in ci/children.txt, D7/D8/D14/D15 recorded in docs/todo/T100.md); header was still PROPOSED.
 **Repo:** TRX64U-MultiCore — `.gitea/workflows/` (the stage files), `ci/lib.sh` (the keys),
 `ci/sims.sh` (bench selection and cache), `ci/bitstream_layers.sh` (host and core stages),
 `release/` (the set).

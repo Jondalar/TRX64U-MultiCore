@@ -54,15 +54,17 @@ static void write_sw(CoreCtx *c)
 static const char *const speed_names[] = { "20 MHz", "1 MHz" };
 static const char *const jiffy_names[] = { "Off", "On" };
 static const char *const joy_names[]   = { "Normal", "Swapped" };
+static const char *const dset_names[]  = { "Off (file only)", "External datasette" };
 #define KEY_SYSMODE "System Mode"
 static const char *const sysmode_names[] = { "PAL", "NTSC", "PAL-60", "NTSC-50" };
 // C64_VIDEOFORMAT per mode, as in the C128 descriptor: the host's mode controller (host/mode_ctl.v) is the same file.
 static const uint8_t sysmode_fmt[4] = { 0x00, 0x2B, 0x2A, 0x01 };
 
-static const Setting settings[4 + CBM1541_NSETTINGS] = {
+static const Setting settings[5 + CBM1541_NSETTINGS] = {
     { KEY_SPEED, speed_names, 2, 0, WHEN_LIVE, "c64scpu.set_speed", 0 },
     { KEY_JIFFY, jiffy_names, 2, 0, WHEN_LIVE, "c64scpu.set_jiffy", 0 },
     { "Joystick ports", joy_names, 2, 0, WHEN_LIVE, "c64scpu.set_joy", 0 },
+    { "Datasette port", dset_names, 2, 0, WHEN_LIVE, "c64scpu.set_dset", 0 },
     { KEY_SYSMODE, sysmode_names, 4, 0, WHEN_LIVE, "c64scpu.set_sysmode", 0 },
     CBM1541_SETTINGS,
 };
@@ -88,6 +90,14 @@ static int op_set_jiffy(CoreCtx *c, const OpArgs &a, OpOut &o)
     scpu_state(c)->jiffy = a.i(0) ? 1 : 0;
     write_sw(c);                                        // the switch bit follows the setting whether or not the file is there
     apply_drive_rom(c, o.msg, o.msglen);
+    return OPE_OK;
+}
+
+// T214: an external datasette on the C2N port (same device as on the PET, GitHub #26). PIN_CTRL b0 MOTOR and b1 WRITE driven, b4 READ / SENSE are inputs (0x13);
+// b2 / b3 stay off (the file streamer must not drive READ or pull SENSE then). Off releases every pin. WRITE out is not proven by a SAVE on real tape yet.
+static int op_set_dset(CoreCtx *c, const OpArgs &a, OpOut &)
+{
+    c->io->wr(SCPU_PIN_CTRL, (uint8_t)(a.i(0) ? 0x13 : 0x00));
     return OPE_OK;
 }
 
@@ -326,6 +336,9 @@ static int c64scpu_cold_start(CoreCtx *c, char *msg, int msglen)
 
 // T206: the machine the typed start waits for is the C64's (the SuperCPU changes the CPU, not the KERNAL): BASIC at $0801, TXTTAB $2B, the keyboard
 // buffer at $0277 with its count at $C6, the numbers of c64.cc. ready_ms is the C64 core's 1000 ms; no board has measured it on this core yet.
+// The typed start does NOT use the buffer: the 65816 reads bank 0 from the SuperCPU's own SRAM and only the pages $02-$FF are mirrored to the C64
+// RAM the application writes (scpu_mem.v mir_tab; $C6 and $2B are page 0, the buffer is only read from the SRAM). m.screen switches the job to
+// the key matrix (cbm_run.h): the keys go in as a person's, READY is read from the screen at $0400 (page 4, mirrored). Alex 2026-11-12, T206 decision A.
 static CbmRunMachine machine(void)
 {
     CbmRunMachine m;
@@ -342,6 +355,9 @@ static CbmRunMachine machine(void)
     m.ready_ms = 1000;
     m.settle_ms = 300;
     m.giveup_ms = 4000;
+    m.screen = 0x0400;
+    m.key_hold_ms = 90;                                 // two scans at 50 Hz are 40 ms; 90 ms is four, and a held key repeats only after ~400 ms
+    m.key_gap_ms = 90;
     return m;
 }
 
@@ -403,6 +419,7 @@ static void c64scpu_register(OpRegistry &r)
     r.add_op("c64scpu.set_speed", bit_arg, 1, op_set_speed);
     r.add_op("c64scpu.set_jiffy", bit_arg, 1, op_set_jiffy);
     r.add_op("c64scpu.set_joy", bit_arg, 1, op_set_joy);
+    r.add_op("c64scpu.set_dset", bit_arg, 1, op_set_dset);
     r.add_op("c64scpu.set_sysmode", sysmode_arg, 1, op_set_sysmode);
     r.add_op("c64scpu.service", 0, 0, op_service);
     r.add_op("c64scpu.type_script", text_arg, 1, op_type);
@@ -422,7 +439,7 @@ const CoreDesc c64scpu_desc = {
     "C64SCPU Settings",
     1,
     roms, 8,
-    settings, 4 + CBM1541_NSETTINGS,
+    settings, 5 + CBM1541_NSETTINGS,
     tasks, 2 + CBM1541_NTASKS + CBM1581_NTASKS,
     filetypes, 4,
     media, 1,

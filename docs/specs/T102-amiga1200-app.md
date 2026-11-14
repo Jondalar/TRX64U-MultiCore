@@ -1,6 +1,6 @@
 # T102 — The Amiga 1200 core has an application, and it stays AGA with 2 MB chip RAM
 
-**Status:** BUILT, bench-proven, not on the board (2026-10-15). Open: S4 (board), upload of `amiga1200.app` (coordinator).
+**Status:** BUILT, bench-proven, not on the board (2026-10-15). Open: S4 (board), upload of `amiga1200.app` (coordinator). 2026-11-13 status check: MERGED INTO T97 (row dropped 2026-10-18); its board steps are T97's (done, Alex 11-08).
 **Repo:** TRX64U-MultiCore — `cores/amiga1200/` (contract file), `cores/amiga/sim/` (benches), `cores/amiga/rtl/trx/` (the
 feature register and the size generic). The application source is in the 1541ultimate line, worktree
 `TREX/1541ultimate branch `t85-amigaapp` (the worktree `1541ultimate-wt-amigaapp` was removed 2026-10-22)`, branch `t85-amigaapp` (T93: still built outside this repository).

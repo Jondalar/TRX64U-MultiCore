@@ -15,4 +15,5 @@ PY
 python3 tools/check_todo.py >/dev/null
 T=$(basename "$S" | cut -d- -f1)
 git add "$S" && git commit -q -m "$T $Q answered (Alex)
+
 " && git push -q 2>/dev/null; git log --oneline -1

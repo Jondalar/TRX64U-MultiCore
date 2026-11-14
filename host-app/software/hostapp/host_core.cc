@@ -44,15 +44,15 @@ static const HcKey KEYMAP[] = {
     K(HCX_PICTURE, KEY_LEFT, PICTURE_REVERT), K(HCX_PICTURE, KEY_ESCAPE, PICTURE_REVERT), K(HCX_PICTURE, KEY_BREAK, PICTURE_REVERT), K(HCX_PICTURE, HC_KEY_ANY, PICTURE_KEEP),
     // F1
     K(HCX_MENU, KEY_UP, CURSOR_UP), K(HCX_MENU, KEY_DOWN, CURSOR_DOWN), K(HCX_MENU, KEY_RETURN, ENTRY_START), LET(HCX_MENU, 'r', ENTRY_RECHECK),
-    K(HCX_MENU, KEY_RIGHT, CONFIG_LIST),
-    // the config overlay (T198): UP/DOWN pick, RETURN start, LEFT/ESC close, D default, R rename, DEL delete (twice)
+    K(HCX_MENU, KEY_RIGHT, CONFIG_LIST), K(HCX_MENU, '+', MENU_PAGE_DOWN), K(HCX_MENU, '-', MENU_PAGE_UP),
+    // the config overlay (T198): UP/DOWN pick, RETURN start, LEFT/ESC close, D auto, R rename, DEL delete (twice)
     K(HCX_CFG, KEY_UP, CURSOR_UP), K(HCX_CFG, KEY_DOWN, CURSOR_DOWN), K(HCX_CFG, KEY_RETURN, CONFIG_START), K(HCX_CFG, KEY_LEFT, BACK), K(HCX_CFG, KEY_ESCAPE, BACK),
     K(HCX_CFG, KEY_BREAK, BACK), LET(HCX_CFG, 'd', CONFIG_DEFAULT), LET(HCX_CFG, 'r', CONFIG_RENAME), K(HCX_CFG, KEY_DELETE, CONFIG_DELETE), K(HCX_CFG, KEY_BACK, CONFIG_DELETE),
     // F3
     K(HCX_BROWSE, KEY_RIGHT, CONFIG_LIST), K(HCX_BROWSE, KEY_UP, CURSOR_UP), K(HCX_BROWSE, KEY_DOWN, CURSOR_DOWN), K(HCX_BROWSE, '+', BROWSE_PAGE_DOWN), K(HCX_BROWSE, '-', BROWSE_PAGE_UP),
     K(HCX_BROWSE, KEY_LEFT, BROWSE_UP), K(HCX_BROWSE, KEY_RETURN, BROWSE_OPEN), K(HCX_BROWSE, KEY_DELETE, BROWSE_DELETE), K(HCX_BROWSE, KEY_BACK, BROWSE_DELETE),
     LET(HCX_BROWSE, 'c', BROWSE_COPY), LET(HCX_BROWSE, 'm', BROWSE_MOVE), LET(HCX_BROWSE, 'a', BROWSE_ADD), LET(HCX_BROWSE, 'p', BROWSE_CONVERT),
-    LET(HCX_BROWSE, 'r', BROWSE_RESTORE), LET(HCX_BROWSE, 'u', BROWSE_UPDATE), LET(HCX_BROWSE, 'f', BROWSE_FORMAT), LET(HCX_BROWSE, 's', BROWSE_START),
+    LET(HCX_BROWSE, 'r', BROWSE_RESTORE), LET(HCX_BROWSE, 'u', BROWSE_UPDATE), LET(HCX_BROWSE, 'f', BROWSE_FORMAT), LET(HCX_BROWSE, 'z', BROWSE_UNZIP), LET(HCX_BROWSE, 's', BROWSE_START),
     // F3, the target pick of a copy or move
     K(HCX_BROWSE_PICK, KEY_UP, CURSOR_UP), K(HCX_BROWSE_PICK, KEY_DOWN, CURSOR_DOWN), K(HCX_BROWSE_PICK, '+', BROWSE_PAGE_DOWN), K(HCX_BROWSE_PICK, '-', BROWSE_PAGE_UP),
     K(HCX_BROWSE_PICK, KEY_LEFT, BROWSE_UP), K(HCX_BROWSE_PICK, KEY_RIGHT, BROWSE_ENTER), K(HCX_BROWSE_PICK, KEY_RETURN, BROWSE_OPEN),
@@ -213,12 +213,16 @@ static const Seg F_BR_BACKUP[] = { SEL, S1("% add", BROWSE_ADD), S1("% start", B
                                    S1("% move", BROWSE_MOVE), S1("% twice deletes", BROWSE_DELETE), S1("% up", BROWSE_UP), PIC };
 static const Seg F_BR_TXU[] = { SEL, S1("% update", BROWSE_UPDATE), S1("% copy", BROWSE_COPY), S1("% move", BROWSE_MOVE), S1("% twice deletes", BROWSE_DELETE),
                                 S1("% up a folder", BROWSE_UP), PIC };
+static const Seg F_BR_ZIP[] = { SEL, S1("% unzip", BROWSE_UNZIP), S1("% copy", BROWSE_COPY), S1("% move", BROWSE_MOVE), S1("% twice deletes", BROWSE_DELETE),
+                                S1("% up a folder", BROWSE_UP), PIC };
 static const Seg F_BR_INSPECT[] = { SEL, S1("% open folder", BROWSE_ENTER), S1("% up a folder", BROWSE_UP), S1("% inspects a .cfw/.ue2", BROWSE_OPEN),
                                     S1("% back", BROWSE_PICK_CANCEL) };
 static const Seg F_BR_CFW[] = { SEL, S1("% add", BROWSE_ADD), S1("% start", BROWSE_START), S1("% package", BROWSE_CONVERT), S1("% restore", BROWSE_RESTORE),
                                 S1("% copy", BROWSE_COPY), S1("% move", BROWSE_MOVE), S1("% twice deletes", BROWSE_DELETE), S1("% up", BROWSE_UP), PIC };
-static const Seg F_EDIT[] = { SEL, S2("%/% move", ENTRY_MOVE_UP, ENTRY_MOVE_DOWN), S1("% default", ENTRY_DEFAULT), S1("% rename", ENTRY_RENAME),
+static const Seg F_EDIT[] = { SEL, S2("%/% move", ENTRY_MOVE_UP, ENTRY_MOVE_DOWN), S1("% auto", ENTRY_DEFAULT), S1("% rename", ENTRY_RENAME),
                               S2("%/% config of this core", ENTRY_DEFCFG_PREV, ENTRY_DEFCFG_NEXT), S1("% twice removes", ENTRY_REMOVE) };
+static const Seg F_EDIT_PLAIN[] = { SEL, S2("%/% move", ENTRY_MOVE_UP, ENTRY_MOVE_DOWN), S1("% auto", ENTRY_DEFAULT), S1("% rename", ENTRY_RENAME),
+                                    S1("% twice removes", ENTRY_REMOVE) };   // the same without "config of this core", for a selected row that has none
 static const Seg F_NET[] = { S1("% colours", NET_COLORS), PIC };
 static const Seg F_SET[] = { SEL, S3("%/% or % change", SET_DEC, SET_INC, SET_ACTIVATE), PIC };
 static const Seg F_CM_LIST[] = { S2("%/% scroll", CURSOR_UP, CURSOR_DOWN), S1("% delete the files that belong to no core", CORES_DELETE), S1("% back", BACK) };
@@ -229,7 +233,7 @@ static const Seg F_WM[] = { SEL, S3("%/% or % change", WIFI_DEC, WIFI_INC, WIFI_
                             S1("% disconnect", WIFI_DISCONNECT), S1("% forget", WIFI_FORGET), S1("% back", BACK) };
 static const Seg F_PM[] = { SEL, S1("% use this mode", PM_APPLY), S1("% back", BACK) };
 
-static const Seg F_CFG[] = { S2("%/% pick", CURSOR_UP, CURSOR_DOWN), S1("% start", CONFIG_START), S1("% back", BACK), S1("% default", CONFIG_DEFAULT), S1("% rename", CONFIG_RENAME), S1("% twice deletes", CONFIG_DELETE) };
+static const Seg F_CFG[] = { S2("%/% pick", CURSOR_UP, CURSOR_DOWN), S1("% start", CONFIG_START), S1("% back", BACK), S1("% auto", CONFIG_DEFAULT), S1("% rename", CONFIG_RENAME), S1("% twice deletes", CONFIG_DELETE) };
 
 static const Seg F_CFG_PLAIN[] = { S2("%/% pick", CURSOR_UP, CURSOR_DOWN), S1("% start", CONFIG_START), S1("% back", BACK) };   // "Plain start": nothing to default, rename or delete
 
@@ -238,8 +242,8 @@ static const Foot FOOTS[HCF_N] = {
     FT(HCX_MENU, F_MENU), FT(HCX_BROWSE, F_BROWSE), FT(HCX_BROWSE, F_BR_MEDIA), FT(HCX_BROWSE, F_BR_PLAIN), FT(HCX_BROWSE, F_BR_FILE), FT(HCX_BROWSE, F_BR_DIR),
     FT(HCX_BROWSE_PICK, F_BR_PICK_COPY), FT(HCX_BROWSE_PICK, F_BR_PICK_MOVE), FT(HCX_BROWSE_ASK, F_BR_ASK), FT(HCX_BROWSE, F_BR_BACKUP), FT(HCX_BROWSE, F_BR_TXU),
     FT(HCX_BROWSE_INSPECT, F_BR_INSPECT), FT(HCX_BROWSE, F_BR_CFW), FT(HCX_EDIT, F_EDIT), FT(HCX_NET, F_NET), FT(HCX_SET, F_SET), FT(HCX_CORES, F_CM_LIST),
-    FT(HCX_CORES_ASK1, F_CM_ASK1), FT(HCX_CORES_ASK2, F_CM_ASK2), FT(HCX_WIFI, F_WM), FT(HCX_CORES, F_CM_EMPTY), FT(HCX_PICMODES, F_PM), FT(HCX_CFG, F_CFG),
-    FT(HCX_MENU, F_MENU_PLAIN), FT(HCX_BROWSE, F_BROWSE_PLAIN), FT(HCX_CFG, F_CFG_PLAIN),
+    FT(HCX_CORES_ASK1, F_CM_ASK1), FT(HCX_CORES_ASK2, F_CM_ASK2), FT(HCX_WIFI, F_WM), FT(HCX_CORES, F_CM_EMPTY), FT(HCX_PICMODES, F_PM), FT(HCX_CFG, F_CFG), FT(HCX_BROWSE, F_BR_ZIP),
+    FT(HCX_MENU, F_MENU_PLAIN), FT(HCX_BROWSE, F_BROWSE_PLAIN), FT(HCX_CFG, F_CFG_PLAIN), FT(HCX_EDIT, F_EDIT_PLAIN),
 };
 
 #define FOOT_MAX 240

@@ -52,10 +52,16 @@ static const RegBind b_blk5 = { VC20_RAM_RO, 0, 0x10, blk5_bytes };
 
 #define KEY_JIFFY "JiffyDOS"
 static const char *const jiffy_names[] = { "Off", "On" };
-static const Setting settings[3 + CBM1541_NSETTINGS] = {
+// T214: an external datasette on the C2N port (same device as on the PET, GitHub #26): TAPE_PIN b0 MOTOR and b1 WRITE driven (WRITE out is not proven by a SAVE on real tape yet),
+// b4 READ / SENSE are the machine's inputs. Off releases every pin.
+static const char *const dset_names[] = { "Off (file only)", "External datasette" };
+static const uint8_t dset_bytes[2] = { 0x00, 0x13 };
+static const RegBind b_dset = { VC20_TAPE_PIN, 0, 0x13, dset_bytes };
+static const Setting settings[4 + CBM1541_NSETTINGS] = {
     { "Memory Expansion (at next reset)", exp_names,  7, 0, WHEN_RESET, 0, &b_exp, 0, 0, 0, 0, "Memory Expansion" },
     { "Block 5 ($A000), when expanded",   blk5_names, 2, 0, WHEN_RESET, 0, &b_blk5 },
     { KEY_JIFFY, jiffy_names, 2, 0, WHEN_RESET, "vc20.set_jiffy" },
+    { "Datasette port", dset_names, 2, 0, WHEN_LIVE, 0, &b_dset },
     CBM1541_SETTINGS,
 };
 
@@ -293,7 +299,7 @@ const CoreDesc vc20_desc = {
     "VIC-20 Settings",
     1,
     roms, 6,
-    settings, 3 + CBM1541_NSETTINGS,
+    settings, 4 + CBM1541_NSETTINGS,
     tasks, 2 + CBM1541_NTASKS,
     filetypes, 2 + CBM1541_NFILETYPES,
     media, 2,

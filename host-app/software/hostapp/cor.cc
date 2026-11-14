@@ -212,6 +212,12 @@ cor_result_t cor_probe(CorSource &src, CorInfo &ci)
             return COR_ERR_FORMAT;
         }
     }
+    if (!cor_json_get(m, "short", ci.shortn, sizeof(ci.shortn))) {
+        ci.shortn[0] = 0;                                            // T209 D15: optional; a missing or too long one is none
+    }
+    if (strlen(ci.shortn) > 4) {
+        ci.shortn[0] = 0;                                            // T209 D18: at most 4 characters (the tile falls back to the name's first 4)
+    }
     if (ci.large) {
         uint32_t fmt;
         char b[16];

@@ -1,6 +1,6 @@
 # T149 — The SD card reads without errors at 25 MHz, with timing margin from the FPGA
 
-**Status:** PROPOSED (2026-10-28), decided by Alex; scope cut to the large cores the same day (D5); rework on `t148-core-folder`.
+**Status:** PROPOSED (2026-10-28), decided by Alex; scope cut to the large cores the same day (D5); rework on `t148-core-folder`. 2026-11-13 status check: D5 built and merged (sd_spi IOB flops, 25 MHz only in the A1200 and ZX Next flat builds, host 12.5 MHz; d9d239fc0); open: S3 (CI large) and S4 (board, crc errors 0 at 25 MHz).
 **Repo:** TRX64U-MultiCore — the host gateware (`host/pins.xdc`, the SPI sampling path of the SD interface, timing
 constraints), every large core's flat build (they carry the host's top level), the SD driver speed (`sd_card.cc`).
 A host change: approved by Alex (below); `contract/host_pin.txt` updated in the same commit; every DFX core is rebuilt.

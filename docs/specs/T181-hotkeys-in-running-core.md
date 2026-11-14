@@ -1,6 +1,6 @@
 # T181 — Hotkeys while a core runs: act without opening the menu
 
-**Status:** PROPOSED (2026-11-04, Alex).
+**Status:** PROPOSED (2026-11-04, Alex). Status check 2026-11-13: BUILT and in main (24 commits); board 11-07 S1-S4 pass (Alex); S5 (C= + CTRL on Apple II, Atari, ZX, CPC) never pressed.
 **Repo:** TRX64U-MultiCore — the core app (`coreapp/src/`), possibly `host/app_input.v` (see §1, P3) and then every large core's host copy.
 **Number:** T181.
 **Origin:** Alex, 2026-11-04: "that is worth its own spec. Create it. Then we should also talk about 'what do we make controllable by

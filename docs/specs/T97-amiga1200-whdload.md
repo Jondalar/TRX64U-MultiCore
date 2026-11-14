@@ -2,6 +2,7 @@
 
 **Status:** PROPOSED (2026-10-14). 2026-10-15: D3 decided and built (gateware + application), D4 read (§5.2). 2026-10-16: P1 built
 (TG68K as a 68020, §5.4) and benched; its area (an estimate, §5.4) and timing are the builder's to measure; P5 untouched.
+**Status check 2026-11-13:** DONE (Alex 2026-11-08): AmigaVision boots on the board from the large .cor (package 1018, 2026-10-28); the A1200 is a large core since 2026-10-25. No longer "PROPOSED".
 **Repo:** TRX64U-MultiCore — `cores/amiga1200/` (its descriptor and recipe), `cores/amiga/rtl/` (the
 shared gateware: CPU wrapper, memory, the HDF path), the core application (T93, built outside this
 repository).

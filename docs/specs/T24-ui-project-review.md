@@ -1,6 +1,7 @@
 # T24 — Review of the LVGL UI project (`docs/lvgl_ui_project/`)
 
 **Status:** review 2026-10-04, read-only analysis; nothing built, nothing measured on the board.
+**Status check 2026-11-13:** DROPPED in this repository (TODO row T24, status dropped/merged, 2026-10-16): covered by T101 (host UI) and T104 (core apps); this file is history of the M2 line from TRX64-Ultimate and builds nothing here.
 **Task:** TODO.md T24 (M2), T32, T36, T48, T54, T55. **Reviewed:** the XML project as committed (30 screens +
 README/UI-COVERAGE/UI-SCREEN-TOUR), against `T24-lvgl-ui.md` (T24), `T24-ui-wiring.md` (WIR),
 `gideon-menu-tree.md` (GMT), `T12-freeze-overlay.md` (T12), `pix_layer.v`, `overlay.v`.

@@ -326,6 +326,19 @@ int hc_nav_act(int ctx, int act)
     HcNav &n = g_nav;
     switch (ctx) {
     case HCX_MENU:
+        if (act == HCA_MENU_PAGE_DOWN || act == HCA_MENU_PAGE_UP) {      // T209 D7: "+" / "-" move the selection one page (the rows the menu shows), stopping at the ends
+            const int cnt = hc_cfg().n;
+            if (cnt <= 0) {
+                return HCN_NONE;
+            }
+            int t = act == HCA_MENU_PAGE_DOWN ? n.sel + g_mrows : n.sel - g_mrows;
+            t = t >= cnt ? cnt - 1 : (t < 0 ? 0 : t);
+            if (t == n.sel) {
+                return HCN_DONE;
+            }
+            n.sel = t;
+            return HCN_DONE | HCN_SELMOVE;
+        }
         if (act == HCA_CURSOR_UP && n.sel > 0) {
             n.sel--;
             return HCN_DONE | HCN_SELMOVE;

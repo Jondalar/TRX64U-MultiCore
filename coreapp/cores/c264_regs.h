@@ -15,6 +15,7 @@
 #define C264_STATUS     0x0A4          // b0 in reset, b1 held (Freeze), b2 the TED's PAL flag
 #define C264_ST_HELD    0x02
 #define C264_ROM_SEL    0x0B0          // b2:0 the array behind the 16 KB aperture
+#define C264_TAPE_PIN   0x0B2          // b0 MOTOR pin driven, b1 WRITE pin driven, b4 READ / SENSE pins are the machine's inputs (reset 0: every pin released)
 #define C264_CART       0x0B1          // b0 a cartridge low image is loaded, b1 a cartridge high image is loaded
 #define C264_FB_LATEST  0x0C0          // b7 valid, b1:0 the buffer of the newest complete frame
 #define C264_FRAME_SEQ  0x0C1

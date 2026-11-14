@@ -1,6 +1,7 @@
 # T94 — One TRX64HOST repository, a pipeline from host to core to release set, and GitOps for what runs on a board
 
 **Status:** DECIDED (2026-10-13): all 10 open questions answered by Alex (Q6 revised); not built.
+**Status check 2026-11-13:** DONE (Alex 2026-10-28, "Ja, mach done"), no longer "not built": host + n cores, CI by change, packages (P2-P5); not built and not wanted for now: automatic board deploy and package retention.
 **Repo:** a new repository (working name TRX64HOST, Q1); this spec lives in TRX64-Ultimate until the new repository exists, then moves (D9).
 **Number:** T94 (registry: the TODO table in `TODO.md`; T93 was the last).
 **Milestone:** M2.

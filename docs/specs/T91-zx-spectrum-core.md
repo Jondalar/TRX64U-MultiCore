@@ -1,6 +1,7 @@
 # T91 — A ZX Spectrum core, ported from the MiSTer core, run as a swappable core in the T79 host/core split
 
 **Status:** BUILT, benched, application written (2026-10-22, §5); decided 2026-10-13 (Q1-Q6 answered, §3 end). Not routed, not on a board.
+**Status check 2026-11-13:** MERGED into T119 (2026-10-28, bed3d6e54; TODO row T91 is merged): built and benched, on the board since 2026-10-22/23 (picture path through the DDR2 frame buffer, black screen after a short white); the open board finding lives in T119.
 **Repo:** TRX64-Ultimate (gateware under new `designs/zxspectrum/` plus shared parts under `cores/zxcpc/`, the core's
 application on Gideon's base as for the VC-20 and the Amiga, tools). The sources are read from outside (MiSTer-devel);
 nothing is copied into this repo by this spec.

@@ -1,6 +1,6 @@
 # T118 — The HDMI picture is the same for every core, or we know which signal differs
 
-**Status:** PROPOSED (2026-10-23). Part 1 (is the encoder's input core dependent?) answered in §5 by a bench: no. The board difference is open.
+**Status:** PROPOSED (2026-10-23). Part 1 (is the encoder's input core dependent?) answered in §5 by a bench: no. The board difference is open. 2026-11-13 status check: state confirmed: bench merged (Merge t118-hdmigeom), board difference open (row).
 **Repo:** TRX64U-MultiCore — a bench in `cores/vc20/sim/`; no change to `host/` (frozen) or to a core.
 **Number:** T118 (registry: the table in `TODO.md`).
 **Origin:** Alex, 2026-10-23, board photos of release trx64mc-main-2895ec1a (core app 6d9f3d2): the menu fills the 1080p screen on the A1200 core,

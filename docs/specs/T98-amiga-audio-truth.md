@@ -1,6 +1,7 @@
 # T98 — The Amiga core can say why its sound crackles, instead of being guessed at
 
 **Status:** PROPOSED (2026-10-14).
+**Status check 2026-11-13:** MERGED into T85 (2026-10-18, 871766a26; TODO row T98 is merged): nothing of it is built; the spec stays as the design for the crackle measurement.
 **Repo:** TRX64U-MultiCore — `cores/amiga/rtl/trx/amiga_audio.v` and `amiga_core.v` (the status
 outputs), `cores/amiga/sim/run_audio.sh` (the bench), the core application (T93, outside).
 **Number:** T98 (registry: the table in `TODO.md`).

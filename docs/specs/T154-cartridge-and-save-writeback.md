@@ -1,6 +1,6 @@
 # T154 — What a game writes to its cartridge or battery RAM goes back to the user's file, in the shared app base, for every core
 
-**Status:** BUILDING (2026-10-29), asked by Alex. P1, P2 built and benched; P3 and P4 as listed in section 5.
+**Status:** BUILDING (2026-10-29), asked by Alex. P1, P2 built and benched; P3 and P4 as listed in section 5. Status check 2026-11-13: BUILDING stays: P1/P2 and EF3 merged 2026-10-29 (52b0addec); board S1 and P3/P4 open.
 **Repo:** TRX64U-MultiCore — shared base of the generic core application (`coreapp/src`), the C64 cartridge code
 (`coreapp/cores/c64_cart.cc`), per-core descriptors; gateware only where a core cannot report a write today (inventory, §1).
 **Number:** T154.

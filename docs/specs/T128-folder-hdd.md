@@ -1,6 +1,6 @@
 # T128 — A folder on the stick/SD is an Amiga hard disk, read and written like an .hdf, without the .hdf
 
-**Status:** BUILT 2026-10-26 (host benches S1-S10 green; board steps B1-B6 open). Decided 2026-10-26 (all questions answered or taken as proposed, §4 settled with Alex). Where §3 and §5.3 differ, §5.3 is what was built.
+**Status:** BUILT 2026-10-26 (host benches S1-S10 green; board steps B1-B6 open). Decided 2026-10-26 (all questions answered or taken as proposed, §4 settled with Alex). Where §3 and §5.3 differ, §5.3 is what was built. 2026-11-13 status check: merged to main (Merge t128-d35); built, board B1-B6 open (as row).
 **Repo:** TRX64U-MultiCore — the generic core application (`coreapp/src`, `coreapp/cores/amiga.cc`), the unit tests in `tests/coreapp`. No gateware change
 is planned (§3 D1); the board steps run on the A1200 core.
 **Number:** T128 (registry: the table in `TODO.md`).

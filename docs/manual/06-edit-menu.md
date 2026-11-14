@@ -2,20 +2,20 @@
 
 ## 6.1 General
 
-6.1.1 The Edit menu changes the order, the default entry and the names of the boot menu entries, and removes entries. The
+6.1.1 The Edit menu changes the order, the auto entry and the names of the boot menu entries, and removes entries. The
 host writes every change to `Flash:/boot.cfg` at once.
 
 6.1.2 The page does not change the countdown or direct boot. These are on the Settings page (8.2, 8.3).
 
-6.1.3 The page shows an info panel and the list of the entries. The list shows five entries at a time. The title bar shows the
-position (`1-5 of 12`) when the list is longer than the window. Each entry shows its name, its path and its badge (4.3).
+6.1.3 The page shows an info box of two lines and the list of the entries (4 at 960 x 540). The footer reads `UP/DOWN select    +/- move    D auto    C rename    DEL twice removes`, with `LEFT/RIGHT config of this core` for a core with configs. The title bar shows the position (`1-5 of 12`) when the
+list is longer than the window. Each entry shows its name, under it its path, and at the right the `N configs` and `auto`
+markers, the pictogram of its state (4.3) and its version (without a leading `v`), the pictogram directly beside the version. The word of the
+state of the selected entry shows in the status line.
 
-| Info item | Content |
+| Info line | Content |
 |---|---|
-| Countdown | `<n> s`, or `off` |
-| Direct boot | `on (C= or fire at power-on: menu)` or `off (menu, then the countdown)` |
-| Default | Name of the default entry, or `(none)` |
-| Menu file | `Flash:/boot.cfg` |
+| `Auto: <core> (<config>)` | The auto entry and its auto config. Without a config: `Auto: <core>`. Without an auto entry: `Auto: (none)` |
+| `Menu: /Flash/boot.cfg` | The file of the menu |
 
 ![The Edit menu: the info panel on top, the entries below, the selected one marked](img/host-edit-menu.png)
 
@@ -28,14 +28,15 @@ position (`1-5 of 12`) when the list is longer than the window. Each entry shows
 | **UP**, **DOWN** | Select an entry |
 | **+** (or **=**) | Move the entry up one place |
 | **-** | Move the entry down one place |
-| **D** | Make the selected entry the default entry |
+| **D** | Make the selected entry the auto entry |
+| **LEFT**, **RIGHT** | Auto config of the entry: none, then the configs of its core, backwards or forwards. `This core has no configs.` when it has none |
 | **C** | Rename the entry (6.3) |
 | **DEL**, **DEL** | Remove the entry from the menu (6.4) |
-| **V** | Next HDMI mode (4.4.3) |
+| **V** | Open the Picture page (4.4.3) |
 
-6.2.1 A moved default entry stays the default entry. The default entry moves with it.
+6.2.1 A moved auto entry stays the auto entry.
 
-6.2.2 The first entry that is added to an empty menu becomes the default entry.
+6.2.2 The first entry that is added to an empty menu becomes the auto entry.
 
 ## 6.3 Rename an entry
 
@@ -84,8 +85,8 @@ file does not hold the name, the note reads `Renamed to <name>, but boot.cfg doe
 
 6.4.3 The remove changes `boot.cfg` only. The file stays on the medium. Add it again in the File Browser (5.4).
 
-6.4.4 If the removed entry was the default entry, the first entry of the menu becomes the default entry. If the menu is then
-empty, no default is set.
+6.4.4 If the removed entry was the auto entry, the first entry of the menu becomes the auto entry. If the menu is then
+empty, no auto entry is set.
 
 ## 6.5 Notes
 

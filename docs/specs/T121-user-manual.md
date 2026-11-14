@@ -1,6 +1,6 @@
 # T121 — The repository explains itself to a user: a README and a manual in engineering-manual style
 
-**Status:** DECIDED (2026-10-23, Alex).
+**Status:** DECIDED (2026-10-23, Alex). 2026-11-13 status check: DONE: S1 README + manual and S3 site built and merged (Merge t121-manual, t121-site); todo/row done.
 **Repo:** TRX64U-MultiCore — `README.md`, `docs/manual/`, `docs/img/`, the architecture site `.claude/trx64-site/`
 (published artifact (internal page)).
 **Number:** T121 (TODO table).
@@ -99,3 +99,13 @@ Open: photos of the updater screens (figures 2-1 to 2-4, 8-1 to 8-4); a render o
 - Not verifiable from the code, taken from the pipeline's reports as before: the LUT and block-RAM figures of the
   floorplan page, the 18,000 / 13,000 LUT region limits, the 80 % routing limit. exFAT support of the file system
   (submodule `apps/ultimate` is not checked out in the worktree) is therefore not stated.
+
+### 5.4 2026-11-13 sync (manual matched to the code on `main`)
+
+Chapters 00-16 and the README were matched to the code by three sync passes, then cross-checked for references, repeated statements and images. Current picture sources, replacing the plans above:
+
+- Host figures: `docs/manual/img/host-*.png`, `first-start-*.png`, taken from the real host application in ue2emu (`tools/ui_emu.sh`), cut to the menu (960 x 540 of the 1920 x 1080 picture). The compact-layout figures (`host-compact-*`) are taken at the size of the mode (480p, 576p, 800 x 600) with the emulator's screen-size option; the commands of the passes are not in the repository.
+- Core figures: `docs/manual/img/core-*.png`, rendered from the core application by `tests/coreapp/render`.
+- `docs/img/` keeps only what the README and other documents use (`readme-*`, `core-icons-32.png`, the older `host-*` files that a document still names). `docs/img/host-*` as named in the 2026-10-23 entry above are superseded by `docs/manual/img/`; `host-browser-large`, `host-bugreport` and `host-update-panel` were deleted (no reference).
+- Figures 2-1 to 2-4 and 8-1 to 8-4 of the first plan no longer exist under those numbers; the figure list is the one of the chapters.
+- Known gaps: the unzip run page is blank in the emulator (no figure of it); the host-part update figures show a host-app-only update; the colour page cannot be reached after **C** and has no vertical-lines key (defect, chapter 7 says so).

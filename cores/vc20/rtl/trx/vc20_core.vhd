@@ -88,7 +88,14 @@ entity vc20_core is
     e_rdy      : in  std_logic := '1';
     e_wdf_data : out std_logic_vector(127 downto 0);
     e_wdf_mask : out std_logic_vector(15 downto 0);
-    e_wdf_wren : out std_logic
+    e_wdf_wren : out std_logic;
+
+    -- the cassette port (T214): the pins' levels in (any clock), the machine's motor and write lines and the app's pin register out (sys_clk)
+    tp_read_pin  : in  std_logic := '1';
+    tp_sense_pin : in  std_logic := '1';
+    tp_motor_on  : out std_logic;
+    tp_write     : out std_logic;
+    tp_pin       : out std_logic_vector(7 downto 0)
   );
 end entity;
 
@@ -96,7 +103,11 @@ architecture rtl of vc20_core is
   signal ctrl, ctrl_s1, ctrl_s2 : std_logic_vector(7 downto 0) := (others => '0');
   signal ext, ext_s1, ext_s2    : std_logic_vector(4 downto 0) := (others => '0');
   signal ro, ro_s1, ro_s2       : std_logic_vector(4 downto 0) := (others => '0');
+  signal tpin, tpn_s1, tpn_s2   : std_logic_vector(7 downto 0) := (others => '0');
+  signal rdp_s, snp_s           : std_logic_vector(1 downto 0) := "11";
+  signal cass_motor_w, cass_write_w : std_logic;
   attribute ASYNC_REG : string;
+  attribute ASYNC_REG of tpn_s1, tpn_s2, rdp_s, snp_s : signal is "TRUE";
   attribute ASYNC_REG of ctrl_s1, ctrl_s2, ext_s1, ext_s2, ro_s1, ro_s2 : signal is "TRUE";
 
   signal rst_m, rst_q, hold_req, held : std_logic := '0';
@@ -174,6 +185,9 @@ begin
       ctrl_s1 <= ctrl; ctrl_s2 <= ctrl_s1;
       ext_s1  <= ext;  ext_s2  <= ext_s1;
       ro_s1   <= ro;   ro_s2   <= ro_s1;
+      tpn_s1  <= tpin; tpn_s2  <= tpn_s1;
+      rdp_s   <= rdp_s(0) & tp_read_pin;
+      snp_s   <= snp_s(0) & tp_sense_pin;
     end if;
   end process;
 
@@ -254,10 +268,10 @@ begin
       keyboard_matrix_in  => kb_in,
       tape_play    => open,
       o_audio      => vic_audio,
-      cass_write   => open,
-      cass_read    => '1',
-      cass_motor   => open,
-      cass_sw      => '1',
+      cass_write   => cass_write_w,
+      cass_read    => rdp_s(1) or not tpn_s2(4),      -- the READ pin feeds VIA 2 CA1 only when the app says an external datasette is there
+      cass_motor   => cass_motor_w,
+      cass_sw      => snp_s(1) or not tpn_s2(4),      -- the SENSE pin (low = key pressed) feeds VIA 1 PA6 the same way
       conf_clk     => sys_clk,
       conf_wr      => conf_wr,
       conf_ai      => conf_ai,
@@ -330,7 +344,11 @@ begin
               rdata => cw_rdata, ack => cw_ack, irq => cw_irq, build => build, ddr_cal => ddr_cal,
               px_we => px_we, px_re => px_re, px_rdata => px_rdata,
               ev_vsync => px_ev_vsync, ev_flip => px_ev_flip, ev_frame => ev_frame,
-              ctrl => ctrl, ram_ext => ext, ram_ro => ro, fb_base => fb_base, fb_stride => fb_stride,
+              ctrl => ctrl, tape_pin => tpin, ram_ext => ext, ram_ro => ro, fb_base => fb_base, fb_stride => fb_stride,
               status => status, frames => std_logic_vector(frames), cpuaddr => caddr,
               fb_latest => fb_latest, fb_seq => fb_seq, fb_over => fb_over);
+  -- CA2 low = motor on (the C64's P5 convention); registered and driven in layer2_vc20.v
+  tp_motor_on <= not cass_motor_w;
+  tp_write    <= cass_write_w;
+  tp_pin      <= tpn_s2;
 end architecture;

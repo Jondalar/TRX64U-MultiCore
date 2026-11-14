@@ -1,6 +1,6 @@
 # T107 — the person can choose the picture of every core application, and the picture follows
 
-**Status:** IN PROGRESS (2026-10-16): built and benched on the Mac, board step open.
+**Status:** IN PROGRESS (2026-10-16): built and benched on the Mac, board step open. 2026-11-13 status check: still IN PROGRESS: built and benched; D7/D8/D11 designed in T164 (host), Sony cause found (§5), host app 720-wide UI and board step open (as row and todo).
 **Repo:** TRX64U-MultiCore — the core application (`coreapp/src`), the shared video library (`app/video`), benches in `tests/coreapp`.
 **Number:** T107 (table in `TODO.md`).
 **Origin:** Alex at the board, 2026-10-16 (translated): "Wait .. then surely the HOST and CORE apps should each be allowed to CHOOSE the mode. The Gideon-based U1541FW apps do it that way too." Then: "Where is the resolution? That built for hours." and, on the Atari, "No resolution on the Atari either." And: "Gideon's apps can switch the screen, in mode and in resolution - please let all the other cores do that too. Scaling must then adapt." And: "also for the Atari 800 ... the resolution is the same as with the NES, there too we should be able to take 720p etc."

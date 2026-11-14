@@ -21,13 +21,13 @@ back is to switch the power off and on.` **RETURN** starts. Any other key cancel
 
 13.2.5 A start from the countdown or from direct boot asks nothing (4.6.4, 4.7).
 
-13.2.6 The host checks the file. It keeps the bitstream as one file in `/Flash/legacy` and compares it with the file in the flash drive area
-before the handover (4.5.3).
+13.2.6 The host checks the file. It keeps the bitstream as one file, `/Flash/legacy/fullcore.bit`, with a stamp `fullcore.stm` that names the firmware it holds. An entry that was checked when it was added and has not changed is used as it is when the stamp names it.
+Any other file is read, checked, copied into `fullcore.bit` and compared. Before the handover the host checks on every start that `fullcore.bit` is one complete run of flash clusters (4.5.3).
 
 13.2.7 To return to the host, switch the power off and on.
 
-> **WARNING** With `Protect Flash from updates` on (8.5), the host locks the first 4 MiB of the flash before the handover. The updater of
-> the firmware cannot then overwrite the host. With the setting off, the updater of the firmware can replace the host. The way back is in
+> **WARNING** With `Protect Flash from updates` on (8.5), the host locks the first 4 MiB of the flash before the handover. The same lock is set before every start of a large core. A partial core does not get it. The updater of
+> the firmware cannot then overwrite the host. With the setting off, the updater of the firmware can replace the host. If the lock cannot be set, nothing starts: `the flash could not be protected (...); nothing was started`. The way back is in
 > chapter 14.
 
 ## 13.3 Refusals

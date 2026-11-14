@@ -1,6 +1,6 @@
 # T153 — The UI is an SDK with three written contracts and a BDD test suite that runs it in ue2emu
 
-**Status:** PROPOSED (2026-10-29); D4-D6 built and run the same day (§5), the contract lint (D7.1) and the host app are not.
+**Status:** PROPOSED (2026-10-29); D4-D6 built and run the same day (§5), the contract lint (D7.1) and the host app are not. Status check 2026-11-13: BUILT and merged into main 2026-10-29 (94f31c833): D4-D6, Q1-Q7 all answered (§3a); contract lint D7.1 (tools/check_ui_contract.py absent) and host-app migration not built.
 **Repo:** TRX64U-MultiCore — widget layer `app/view/` (shared by both applications), layout templates and controller `coreapp/src/`, content `coreapp/cores/<core>/menu.toml` + `tools/descrec.py`, tests `tests/ui/`.
 **Number:** T153 (registry: the table in `TODO.md`).
 **Origin:** Alex, 2026-10-29 (translated), after the new TRX64U menu in ue2emu ("very well done, looks consistent"): "Can you send a second agent that prepares BDD tests for the UI via the emulator? It should now be: Generic UI SDK, API and ABI clearly described, then a test suite SDK. And with that we then build the host app, switch TRX64 to it, and in perspective the other cores too."

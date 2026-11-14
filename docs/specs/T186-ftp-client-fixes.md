@@ -1,6 +1,6 @@
 # T186 — The core application's FTP client survives servers behind NAT, dead connections and late transfer replies
 
-**Status:** BUILT in the code and the Mac tests (2026-11-06), S1-S3; RISC-V build and app tests: see §5; S4 (board) open.
+**Status:** BUILT in the code and the Mac tests (2026-11-06), S1-S3; RISC-V build and app tests: see §5; S4 (board) open. Status check 2026-11-13: BUILT and in main (476da487f); S4 (board, with T184 S3) open.
 **Repo:** TRX64U-MultiCore — core app only (`coreapp/src/ftp_client.cc`, the `/ftp` mount of NetFs).
 **Number:** T186.
 **Origin:** T184 D4 (2026-11-05): the evaluation of the fork omnicron-c64/ultimate-community-edition f7f665ab (GPL-3) listed three FTP

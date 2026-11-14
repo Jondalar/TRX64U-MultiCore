@@ -21,7 +21,18 @@ struct CbmRunMachine {
     // Optional: a reason to refuse a file before the machine is touched (the C16's 16 KB, where a program past $3FFF would wrap).
     // `load` is the file's load address, `len` the bytes behind it.
     const char *(*refuse)(CoreCtx *c, uint32_t load, uint32_t len);
+    // T206: how a typed start reaches the machine. screen 0 = the keyboard buffer (prg.kbd_buffer / kbd_count, READY from the BASIC pointers).
+    // screen != 0 = the key matrix (CoreIo::matrix_keys), for a machine whose CPU does not read the C64 RAM the application writes (the SuperCPU
+    // reads bank 0 from its own SRAM, which mirrors only pages $02-$FF to the C64 RAM): the keys are pressed like a person's, key_hold_ms down
+    // and key_gap_ms up (the KERNAL scans at 50/60 Hz and wants a key down for two scans and up between two equal characters), and READY is the
+    // screen at `screen` (40x25 screen codes, the VIC reads the C64 RAM): the last row with a character on it starts with READY.
+    uint16_t screen;
+    uint16_t key_hold_ms, key_gap_ms;
 };
+
+// T206: the key of a PETSCII character on the C64 keyboard: idx = col * 8 + row (hotkeys.h), shift = L SHIFT goes down with it. False: no key types it.
+struct CbmKey { uint8_t idx; bool shift; };
+bool cbm_key_for(uint8_t petscii, CbmKey *k);
 
 struct CbmRun {
     char program[56];                                  // the last program started
@@ -32,6 +43,11 @@ struct CbmRun {
     bool p00;
     uint32_t size;
     uint32_t ran_ms, last_ms, ready_at;
+    // T206, the matrix method: the key now down (kidx 0xFF none, kshift the L SHIFT with it), when it went down / came up (ran_ms), and whether the
+    // line just typed ended in RETURN (the next character waits for the prompt again)
+    uint8_t kidx, kphase;                               // kphase 0 no key down, 1 L SHIFT alone down, 2 the key down
+    bool kshift, kwait;
+    uint32_t kt;
 };
 
 // The operation's half of "Run PRG": the file is read and checked, the machine reset (boot_cold_reset: the reset-time settings go in while

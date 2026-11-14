@@ -29,7 +29,7 @@ static void legends()
 {
     CHECK_S(hc_foot(HCF_MENU), "UP/DOWN select    RETURN start    RIGHT configs    R check entry    V picture    any key stops the countdown");
     CHECK_S(hc_foot(HCF_BROWSE), "UP/DOWN select    RETURN open    A add    S start    RIGHT configs    C copy    M move    DEL twice deletes    LEFT up    V picture");
-    CHECK_S(hc_foot(HCF_EDIT), "UP/DOWN select    +/- move    D default    C rename    LEFT/RIGHT config of this core    DEL twice removes");
+    CHECK_S(hc_foot(HCF_EDIT), "UP/DOWN select    +/- move    D auto    C rename    LEFT/RIGHT config of this core    DEL twice removes");
     CHECK_S(hc_foot(HCF_NET), "C colours    V picture");
     CHECK_S(hc_foot(HCF_SET), "UP/DOWN select    LEFT/RIGHT or RETURN change    V picture");
     CHECK_S(hc_foot(HCF_BR_MEDIA), "UP/DOWN select    RETURN open    F format as exFAT    V picture");

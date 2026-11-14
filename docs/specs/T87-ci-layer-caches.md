@@ -1,6 +1,7 @@
 # T87 — The CI caches per layer (host, each core) and a pipeline that never interleaves or cancels another
 
 **Status:** DECIDED (2026-10-12): all open questions answered; not built.
+**Status check 2026-11-13:** DONE, no longer "not built": host cache, per-core caches and the non-interleaving pipeline exist (closed by Alex, f38c582a4, 2026-10-18); Q4 settled by D16; the finer split per core is T100.
 **Repo:** TRX64-Ultimate (`.gitea/workflows/`, `ci/`, `designs/c64_basic/build.tcl` split, `tools/cor_pack.py` check). Nothing in C64RE or ue2emu.
 **Number:** T87 (registry: the TODO table in `TODO.md`; T86 was the last).
 **Milestone:** M2

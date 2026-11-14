@@ -1,6 +1,6 @@
 # T150 — A host change never costs a core its timing: the host/core edge is registered and budgeted
 
-**Status:** PROPOSED (2026-10-28), asked by Alex.
+**Status:** PROPOSED (2026-10-28), asked by Alex. Status check 2026-11-13: PROPOSED stays; D3 dropped (Alex 10-28), Q1 void; D1/D2/D4 not built (§5 empty, no bench, no contract entry).
 **Repo:** TRX64U-MultiCore — the host (`host/`: the register stages at the partition pins; a host change, Alex approves the
 build, `host_pin` in the same commit), the contract (`contract/`), the CI timing check (`ci/bitstream_layers.sh`,
 `ci/bitstream_mono.sh`, `ci/lib.sh`), every DFX core (rebuilt once).

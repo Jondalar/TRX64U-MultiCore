@@ -1,6 +1,6 @@
 # T146 — The host menu is on the screen at once: a saved picture of the last menu, LVGL builds behind it
 
-**Status:** PROPOSED (2026-10-28), asked by Alex; building.
+**Status:** PROPOSED (2026-10-28), asked by Alex; building. 2026-11-13 status check: built and merged (Merge t146-menu-snap); board picture at 3.1 s (S1 < 1 s open); core menus split out to T176 (11-02).
 **Repo:** TRX64U-MultiCore — the host application (`host-app/software/hostapp/`, `tests/hostapp/`). No gateware.
 **Number:** T146.
 **Origin:** Alex, 2026-10-28, TODO review of T101 (translated): the start "still says 'Building UI' or something ... do we

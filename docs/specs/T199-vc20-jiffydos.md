@@ -1,6 +1,6 @@
 # T199 — The VC-20 core starts with JiffyDOS when the person chooses it, the KERNAL and the 1541 drive switched together
 
-**Status:** IN PROGRESS (2026-11-10, Alex: "Todo, Spec, umsetzen direkt" - spec and build at once).
+**Status:** IN PROGRESS (2026-11-10, Alex: "Todo, Spec, umsetzen direkt" - spec and build at once). Corrected 2026-11-13 (status check): DONE: merged to main (dbd8ce7f7); S1-S5 app tests; S6 board PASS 2026-11-11 (§5).
 **Repo:** TRX64U-MultiCore — core app only: `coreapp/cores/vc20.cc` (descriptor), `coreapp/cores/drive_rom_pick.h` and `cbm1541_desc.h` (the
 1541's ROM choice, as the SuperCPU core uses it), `tests/coreapp/`. No gateware.
 **Number:** T199 (registry: `TODO.md`).

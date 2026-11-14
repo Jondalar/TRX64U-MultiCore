@@ -1,6 +1,6 @@
 # T194 — The C128's 40-column picture follows the Picture setting (Integer, Fit, Fill) as every other core's does
 
-**Status:** DECIDED and being built (2026-11-09: Alex, "make a spec and then send an agent on a branch that fixes the C128", translated; the placement proposal answered the same day, D8-D10). Phase 2 (RTL, app, benches) on `c128-scale`; the Vivado run is the CI's (large:c128).
+**Status:** DECIDED and being built (2026-11-09: Alex, "make a spec and then send an agent on a branch that fixes the C128", translated; the placement proposal answered the same day, D8-D10). Phase 2 (RTL, app, benches) on `c128-scale`; the Vivado run is the CI's (large:c128). Corrected 2026-11-13 (status check): BUILT, merged to main (4d7c8b30f, 2026-11-09); S6 board partial: D12 hotkey works, Auto switch missed the PETSCII Robots title (open).
 **Repo:** TRX64U-MultiCore — the C128 large core only (`cores/c128/`, its own host copies in `cores/c128/mono/host/`) and its
 core app record (`coreapp/cores/c128.cc`). The host (`host/`) and every other core stay as they are.
 **Number:** T194.

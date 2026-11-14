@@ -91,6 +91,9 @@ module snes_core #(
     wire        ipl_wr;
     wire [5:0]  ipl_wa;
     wire [7:0]  ipl_wd;
+    wire        fw_wr, fw_sel;                 // the DSP-n firmware port (T218, snes_regs.v 0x140)
+    wire [10:0] fw_a;
+    wire [23:0] fw_d;
     (* ASYNC_REG = "TRUE" *) reg [1:0] rq_s = 2'b00, hl_s = 2'b00;
     always @(posedge cpu_clk) begin
         rq_s <= {rq_s[0], reset_req | sys_rst};
@@ -189,7 +192,8 @@ module snes_core #(
         .HIGH_RES(high_res), .FIELD_OUT(field_out), .INTERLACE(interlace), .V224_MODE(v224), .DOTCLK(dotclk),
         .RGB_OUT(rgb_out), .HDE(hde), .VDE(vde), .HSYNC(hsync), .VSYNC(vsync), .HVCNT_ATZERO(atzero),
         .JOY1_DI(joy1_di), .JOY2_DI(joy2_di), .JOY_STRB(joy_strb), .JOY1_CLK(joy1_clk), .JOY2_CLK(joy2_clk),
-        .AUDIO_L(a_l), .AUDIO_R(a_r), .IPL_WR(ipl_wr), .IPL_WA(ipl_wa), .IPL_WD(ipl_wd));
+        .AUDIO_L(a_l), .AUDIO_R(a_r), .IPL_WR(ipl_wr), .IPL_WA(ipl_wa), .IPL_WD(ipl_wd),
+        .FW_WR(fw_wr), .FW_SEL(fw_sel), .FW_A(fw_a), .FW_D(fw_d));
 
     // ---------------------------------------------------------------- the machine's own block RAM (SNES.sv: dpram vram1, vram2, aram)
     // all of them read and write on the machine's enable; the read of an address is registered (a block RAM), a write is read back as written
@@ -322,7 +326,7 @@ module snes_core #(
         .clk(cpu_clk), .we(cw_we), .re(cw_re), .addr(cw_addr), .wdata(cw_wdata), .rdata(cw_rdata), .ack(cw_ack), .irq(cw_irq),
         .build(build), .ddr_cal(ddr_cal), .px_we(px_we), .px_re(px_re), .px_rdata(px_rdata),
         .ev_vsync(px_ev_vsync), .ev_flip(px_ev_flip), .ev_frame(ev_frame),
-        .ctrl(ctrl), .sys_cfg(sys_cfg), .rom_type(rom_type), .rom_mask(rom_mask), .ram_mask(ram_mask), .rtc(rtc), .cart_base(cart_base), .pad1(app_pad1), .pad2(app_pad2), .ipl_wr(ipl_wr), .ipl_wa(ipl_wa), .ipl_wd(ipl_wd),
+        .ctrl(ctrl), .sys_cfg(sys_cfg), .rom_type(rom_type), .rom_mask(rom_mask), .ram_mask(ram_mask), .rtc(rtc), .cart_base(cart_base), .pad1(app_pad1), .pad2(app_pad2), .ipl_wr(ipl_wr), .ipl_wa(ipl_wa), .ipl_wd(ipl_wd), .fw_wr(fw_wr), .fw_sel(fw_sel), .fw_a(fw_a), .fw_d(fw_d),
         .st_miss_rom(st_miss_rom), .st_miss_wram(st_miss_wram), .st_miss_bs(st_miss_bs), .st_stall(st_stall), .st_wr(st_wr),
         .fb_base(fb_base), .fb_stride(fb_stride),
         .status(status), .frames(frames), .romaddr(rom_a_s),

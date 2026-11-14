@@ -80,6 +80,8 @@ const char *cbm_run_pending(const CbmRun *r)
     return r->job ? (r->job == 2 ? "type" : "run") : 0;
 }
 
+static const uint8_t zero_keys[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
+
 int cbm_run_queue_script(CoreCtx *c, CbmRun *r, const CbmRunMachine &m, const char *text, char *msg, int msglen)
 {
     if (cbm_prg_script_check(text, msg, msglen)) {
@@ -92,10 +94,17 @@ int cbm_run_queue_script(CoreCtx *c, CbmRun *r, const CbmRunMachine &m, const ch
     if (boot_cold_reset(c, msg, msglen)) {
         return 1;
     }
+    if (r->kphase) {
+        c->io->matrix_keys(zero_keys);                  // a typed start still holding a key is replaced
+    }
     r->job = 2;                                         // after the reset: the machine's init clears a job that was still waiting
     snprintf(r->script, sizeof(r->script), "%s", text);
     r->script_pos = 0;
     r->ran_ms = r->last_ms = r->ready_at = 0;
+    r->kidx = 0xFF;
+    r->kphase = 0;
+    r->kwait = true;                                    // the matrix method starts when the prompt is on the screen
+    r->kt = 0;
     printf("[%s] reset, typing queued for READY\n", m.tag);
     return 0;
 }
@@ -118,9 +127,169 @@ int cbm_run_queue(CoreCtx *c, CbmRun *r, const CbmRunMachine &m, const char *pat
     return 0;
 }
 
+// ---- T206: the typed start through the key matrix ----------------------------------------------------------------------------------
+#define K_LSHIFT_IDX 15
+#define SHIFT_LEAD_MS 40                                // L SHIFT is down alone this long before the key joins it: the scan never sees the key without it
+#define KEYS_PROMPT_MIN_MS 600                          // after RETURN: the least before the screen is asked for the prompt again
+#define KEYS_PROMPT_MAX_MS 240000                       // ... and the most (a LOAD from the drive runs at the drive's speed)
+
+// Unshifted keys by index (col * 8 + row), the PETSCII character they type; 0 = a key that types no character in a name or a command.
+static const char key_char[64] = {
+    0, '\r', 0, 0, 0, 0, 0, 0,        '3', 'W', 'A', '4', 'Z', 'S', 'E', 0,
+    '5', 'R', 'D', '6', 'C', 'F', 'T', 'X',   '7', 'Y', 'G', '8', 'B', 'H', 'U', 'V',
+    '9', 'I', 'J', '0', 'M', 'K', 'O', 'N',   '+', 'P', 'L', '-', '.', ':', '@', ',',
+    0, '*', ';', 0, 0, '=', 0, '/',            '1', 0, 0, '2', ' ', 0, 'Q', 0 };
+// The characters that need L SHIFT, and the key it goes with.
+static const struct { char ch; char base; } shifted[] = {
+    { '!', '1' }, { '"', '2' }, { '#', '3' }, { '$', '4' }, { '%', '5' }, { '&', '6' }, { '\'', '7' }, { '(', '8' }, { ')', '9' },
+    { '<', ',' }, { '>', '.' }, { '?', '/' }, { '[', ':' }, { ']', ';' } };
+
+static int idx_of(char ch)
+{
+    for (int i = 0; i < 64; i++) {
+        if (key_char[i] == ch) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+bool cbm_key_for(uint8_t ch, CbmKey *k)
+{
+    int i = ch ? idx_of((char)ch) : -1;
+    if (i >= 0) {
+        k->idx = (uint8_t)i;
+        k->shift = false;
+        return true;
+    }
+    if (ch >= 0xC1 && ch <= 0xDA) {                     // SHIFT + letter
+        k->idx = (uint8_t)idx_of((char)(ch - 0xC1 + 'A'));
+        k->shift = true;
+        return true;
+    }
+    for (unsigned n = 0; n < sizeof(shifted) / sizeof(shifted[0]); n++) {
+        if (shifted[n].ch == (char)ch) {
+            k->idx = (uint8_t)idx_of(shifted[n].base);
+            k->shift = true;
+            return true;
+        }
+    }
+    return false;
+}
+
+static void put_keys(CoreCtx *c, int a, int b)           // a, b: key indexes down (-1: none)
+{
+    uint8_t m[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
+    if (a >= 0) {
+        m[a / 8] |= (uint8_t)(1u << (a % 8));
+    }
+    if (b >= 0) {
+        m[b / 8] |= (uint8_t)(1u << (b % 8));
+    }
+    c->io->matrix_keys(m);
+}
+
+// The screen at m.screen: the last row with a character on it is "READY." alone (screen codes 18 5 1 4 25 46, the rest blank) - the BASIC prompt
+// with nothing running and nothing half typed. The RAM window sees the screen on the SuperCPU (the pages $02-$FF are mirrored to the C64 RAM
+// and the VIC reads it); the BASIC pointers in page 0 are not (cores/c64scpu/scpu_mem.v: mir_tab).
+static bool screen_at_prompt(CoreCtx *c, const CbmRunMachine &m)
+{
+    static uint8_t scr[1000];
+    c->io->ram_read(m.screen, scr, sizeof(scr));
+    for (int row = 24; row >= 0; row--) {
+        const uint8_t *p = scr + row * 40;
+        bool blank = true;
+        for (int i = 0; i < 40; i++) {
+            blank = blank && (p[i] & 0x7F) == 32;
+        }
+        if (blank) {
+            continue;
+        }
+        static const uint8_t ready[6] = { 18, 5, 1, 4, 25, 46 };
+        for (int i = 0; i < 40; i++) {
+            if ((p[i] & 0x7F) != (i < 6 ? ready[i] : 32)) {
+                return false;
+            }
+        }
+        return true;
+    }
+    return false;
+}
+
+static int type_keys(CoreCtx *c, CbmRun *r, const CbmRunMachine &m)
+{
+    uint32_t el = r->ran_ms - r->kt;
+    if (r->kphase == 1) {
+        if (el >= SHIFT_LEAD_MS) {
+            put_keys(c, K_LSHIFT_IDX, r->kidx);
+            r->kphase = 2;
+            r->kt = r->ran_ms;
+        }
+        return OPE_OK;
+    }
+    if (r->kphase == 2) {
+        if (el >= m.key_hold_ms) {
+            put_keys(c, -1, -1);
+            r->kphase = 0;
+            r->kt = r->ran_ms;
+        }
+        return OPE_OK;
+    }
+    if (el < m.key_gap_ms) {
+        return OPE_OK;
+    }
+    if (!r->script[r->script_pos] || (r->script[r->script_pos] == '|' && !r->script[r->script_pos + 1])) {
+        r->job = 0;                                     // all typed (the last RETURN needs no prompt after it)
+        return OPE_OK;
+    }
+    if (r->kwait) {
+        bool first = !r->ready_at;
+        if (el < (first ? 0u : KEYS_PROMPT_MIN_MS) || !screen_at_prompt(c, m)) {
+            if (first ? r->ran_ms > (uint32_t)m.ready_ms + m.giveup_ms : el > KEYS_PROMPT_MAX_MS) {
+                r->job = 0;
+                tell(c, m, first ? "The machine did not reach READY: the program was not started (are the ROMs the right ones?)"
+                                 : "The machine did not come back to READY: the typed start stopped");
+            }
+            return OPE_OK;
+        }
+        if (first) {
+            r->ready_at = r->ran_ms;
+            return OPE_OK;                              // READY seen: the next look types, after settle_ms below
+        }
+        r->kwait = false;
+    }
+    if (r->ready_at && r->ran_ms - r->ready_at < m.settle_ms && r->script_pos == 0) {
+        return OPE_OK;
+    }
+    if (r->script[r->script_pos] == '|') {
+        r->script_pos++;
+    }
+    uint8_t ch = (uint8_t)r->script[r->script_pos++];
+    CbmKey k;
+    if (!cbm_key_for(ch, &k)) {
+        cbm_key_for('?', &k);                           // what no key types is the wildcard, as in a name inside the quotes
+    }
+    r->kidx = k.idx;
+    r->kshift = k.shift;
+    r->kwait = ch == '\r';
+    r->kt = r->ran_ms;
+    if (k.shift) {
+        put_keys(c, K_LSHIFT_IDX, -1);
+        r->kphase = 1;
+    } else {
+        put_keys(c, k.idx, -1);
+        r->kphase = 2;
+    }
+    return OPE_OK;
+}
+
 int cbm_run_service(CoreCtx *c, CbmRun *r, const CbmRunMachine &m)
 {
     if (!r->job) {
+        if (r->kphase) {                                // a reset ended the job with a key down: let go
+            put_keys(c, -1, -1);
+            r->kphase = 0;
+        }
         return OPE_OK;
     }
     uint32_t now = c->io->now_ms();
@@ -131,6 +300,9 @@ int cbm_run_service(CoreCtx *c, CbmRun *r, const CbmRunMachine &m)
     r->last_ms = now;
     if (r->ran_ms < m.ready_ms) {
         return OPE_OK;
+    }
+    if (r->job == 2 && m.screen) {
+        return type_keys(c, r, m);
     }
     uint8_t b[2] = { 0, 0 };
     c->io->ram_read(m.prg.txttab, b, 2);

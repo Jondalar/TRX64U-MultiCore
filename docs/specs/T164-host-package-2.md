@@ -1,6 +1,6 @@
 # T164 — the next host package: one list of everything that waits for the host
 
-**Status:** DESIGN COMPLETE (2026-10-31), waiting for Alex's answers to §3a (design, budget and plan: §3b-§3d, `docs/todo/T164.md`). Proposed 2026-10-30, asked by Alex. Go on 2026-10-31 (translated): "I want us to get to HDMI and the
+**Status:** DESIGN COMPLETE (2026-10-31), waiting for Alex's answers to §3a (design, budget and plan: §3b-§3d, `docs/todo/T164.md`). Proposed 2026-10-30, asked by Alex. Go on 2026-10-31 (translated): "I want us to get to HDMI and the Status check 2026-11-13: BUILT and merged (t164-* merges incl. ee2a77410; package main-b8b6bcf7 with testers); the design is complete and the §3a answers are recorded in the todo; board tests open as listed there. The text 'waiting for Alex's answers' is outdated.
 scaler in the host... it takes too long for me because too much hangs on it." Then: "OK, then spec, plan, refinement, ADRs, and go."
 **Repo:** TRX64U-MultiCore — `host/` (gateware, layer 1), `host-app/`, `contract/` where a core feeds the host.
 **Number:** T164.

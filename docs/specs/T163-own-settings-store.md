@@ -1,6 +1,6 @@
 # T163 — the host's and the cores' settings live in our own store, apart from Gideon's
 
-**Status:** PACKAGE A BUILT (2026-10-30), asked by Alex.
+**Status:** PACKAGE A BUILT (2026-10-30), asked by Alex. Status check 2026-11-13: PACKAGE A, S3 and S4 built and merged (0f79218f4, 34f7cd231); board FTP step and integration run open.
 **Repo:** TRX64U-MultiCore — host app (`host-app/software/components/config.cc`, `network/`), generic core app (`coreapp/src/netops.cc`).
 **Number:** T163.
 **Origin:** Alex, 2026-10-30, after FTP stayed off on the host following a stock 1.1.0 test (translated): "that is a fat bug in my

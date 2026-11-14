@@ -268,7 +268,7 @@ module layer2_amiga #(
     // gate_frz & !machine_ctl[4] (top.v), and gate_frz is always set here: the Amiga has no CPU-only pause to fall back to.
     // mc_halt_s[1] (a System Mode switch) and machine_ctl[1] (the JTAG CPU pause) hold the machine as well. c64_halted
     // answers when it is so: the clock enable held and every DDR2 access it began done (amiga_core `paused`).
-    wire a_running, a_paused, a_drv_led, a_drv_hd;
+    wire a_running, a_paused, a_drv_led, a_drv_hd, a_frame_done;
     amiga_core #(.CHS_INIT(CHS_INIT), .MEM_INIT(MEM_INIT), .HDF_SECT(HDF_SECT)) amiga (
         .sys_clk(sys_clk), .sys_rst(sys_rst), .cpu_clk(cpu_clk), .mclk(mclk), .ui_clk(ui_clk), .ui_rst(ui_rst),
         .reset_req(core_reset_req), .running(a_running),
@@ -282,7 +282,7 @@ module layer2_amiga #(
         .pix_color(pix_color), .pix_x(pix_x), .pix_y(pix_y), .audio_sample_en(audio_sample_en), .audio_l(audio_l), .audio_r(audio_r),
         .cw_we(cw_we), .cw_re(cw_re), .cw_addr(cw_addr), .cw_wdata(cw_wdata), .cw_rdata(cw_rdata), .cw_ack(cw_ack),
         .cw_irq(cw_irq), .px_we(px_we), .px_re(px_re), .px_rdata(px_rdata), .px_ev_vsync(px_ev_vsync),
-        .px_ev_flip(px_ev_flip), .build(usr_access), .ddr_cal(ddr_cal), .drv_led(a_drv_led), .drv_hd(a_drv_hd));
+        .px_ev_flip(px_ev_flip), .build(usr_access), .ddr_cal(ddr_cal), .drv_led(a_drv_led), .drv_hd(a_drv_hd), .frame_done_o(a_frame_done));
     assign c64_halted = a_paused;
     assign c64_leds = {4'b0000, a_running};
 
@@ -305,7 +305,9 @@ module layer2_amiga #(
     assign drv_wdata = 32'd0;
     assign drv_clk_o = 1'b1;
     assign drv_data_o = 1'b1;
-    assign drive_dbg = 256'd0;
+    // T188 D3 (Amiga-only convention on an existing port, the contract is not changed): drive_dbg[255] is a toggle on sys_clk at every complete Amiga
+    // frame; the Amiga copies of the host files (cores/amiga*/mono/host, top.v -> hdmi_out.v) steer the HDMI frame length by it. The rest stays 0.
+    assign drive_dbg = {a_frame_done, 255'd0};
     assign drive_leds_n = {1'b1, ~a_drv_hd, ~a_drv_led};   // T159 D-all: [0] a drive motor runs or the hard disk is accessed, [1] the hard disk alone
     assign c64_atn_o = 1'b1;
     assign c64_clk_o = 1'b1;

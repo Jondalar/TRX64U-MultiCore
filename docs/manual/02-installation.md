@@ -8,9 +8,14 @@
 |---|---|
 | `trx64host_update_<id>.ue2` | The installer. Use it on a board that runs the Commodore firmware 1.1.0 |
 | `trx64host_update_<id>.cfw` | The same installer, with a pre-header. For a board whose file browser takes a `.cfw` |
+| `trx64host_update_<commit>.txu` | The update of a host that runs already (2.1.4). It has no date in its name |
 | `<core>.cor` | One file per core |
+| `unzip.u2a`, `miniz.u2a` | The applications that unpack a `.zip` (File Browser **Z**, core menus). The installer copies them to `cores/apps` (2.4.4) |
 | `SHA256SUMS` | The checksums of the files above |
 | `INSTALL.md` | The guide that belongs to this release |
+| `ROMS.txt` | What each core needs in its own folder and where the files can legally come from (chapter 12) |
+
+2.1.1a The release is also one `.zip` that holds all of these files. A `.zip` never holds a core folder.
 
 2.1.2 The installer writes two things to the flash. Nothing else in the flash changes.
 
@@ -19,7 +24,7 @@
 
 2.1.3 The cores are not written to the flash. The installer copies them to a stick or a card (2.4.4).
 
-2.1.4 A `.txu` file (`trx64host_update_<id>.txu`) updates a board that runs the host already. It is not an installer. Use it as in 9.3.
+2.1.4 A `.txu` file (`trx64host_update_<commit>.txu`) updates a board that runs the host already. It is not an installer. Use it as in 9.3.
 
 ## 2.2 The procedure in short
 
@@ -30,7 +35,7 @@
 | 1 | Put the `.ue2`, the `.cor` files and a medium with free space together (2.3) | The medium is ready |
 | 2 | Open the file browser of the firmware that runs on the board. Select the `.ue2`. Pick **Run Update** | The updater starts |
 | 3 | Answer the two questions about the warranty (2.4.2) | The updater continues |
-| 4 | Choose the medium for the backup and the cores (2.4.3) | The updater writes the backup |
+| 4 | Choose the medium for the backup and the cores, if it asks (2.4.3) | The updater writes the backup |
 | 5 | Wait for `Update OK` | The board switches off |
 | 6 | Switch the power off and on | The board starts the Commodore firmware from the backup (2.6) |
 | 7 | Hold **C=** at the next power-on | The boot menu of the host shows (chapter 3) |
@@ -42,9 +47,9 @@ bundle, the `.cor` of the old firmware and the files that you copy. The updater 
 
 2.3.2 Copy the `.ue2` to the medium. Copy the `.cor` files of the release into the **same folder** as the `.ue2`.
 
-2.3.3 The updater searches the media for the `.ue2` (the root and up to three folder levels). It copies every `.cor` and `.cfw` that lies in
-the same folder as the `.ue2` to the `cores` folder of the chosen medium (up to 24 files). It does not copy a file whose name starts
-with `trx64host_update`, `trx64_update` or `trxbk`.
+2.3.3 The updater searches the media for the `.ue2` or `.cfw` of this very package (the root of each medium and up to three folder levels). It copies every `.cor`, `.cfw`
+and `.u2a` that lies in the same folder to the chosen medium (up to 24 files in all): `.cor` and `.cfw` to `cores`, `.u2a` to `cores/apps`. It does not copy a file whose name starts
+with `trx64host_update`, `trx64_update` or `trxbk`, and not the installer itself.
 
 ## 2.4 Install the host
 
@@ -59,18 +64,20 @@ with `trx64host_update`, `trx64_update` or `trxbk`.
 
 - the date and time of the board, if it has a valid clock,
 - `Detected Flash:` and the type of the flash chip,
-- `Detected FPGA Type: XC7A50T.` and the board revision,
+- `Detected FPGA Type: XC7A50T.` and `Board Revision:`,
 - `Checking the package..`, then `Package OK.`,
-- `Installed:` the state of the flash, and `Package` with the data of the new package.
+- `Installed:` the state of the flash (`bitstream AXSS <key>` or `bitstream: no stamp (not ours)`, the application, the running core), and `Package <id>:` with the data of the new package,
+- `firmware: ours (TRX64)` or `firmware: not ours`. A firmware is ours when its bitstream carries the stamp and its application in the flash holds the word `TRX64`. A firmware with a stamp and without the word shows `not ours (stamped, no TRX64)`,
+- `started by a host: the running firmware is not in the flash`, when the host started the updater (2.4.9).
 
-Then it asks two questions. The button `No` is preselected in both.
+Then it asks two questions, on every install of this firmware (also over an earlier install of it). The button `No` is preselected in both. `No` to either ends the run: `Cancelled. Nothing written.` and `Back to the menu..`
 
 | Question | Answer |
 |---|---|
 | `You are leaving the warranty of Gideon and Commodore. Do you want that?` | `Yes` |
 | `Do you really want that?` | `Yes` |
 
-2.4.3 If the installed bitstream has no TRX stamp (a vendor firmware is installed), the updater sets the machine up before it
+2.4.3 If the installed firmware is not ours (a vendor firmware, or a self-built one without the word `TRX64` in its application), the updater sets the machine up before it
 writes the flash:
 
 1. If it cannot pack the old firmware as a `.cor`, it shows the reason and asks `Go on without it?`.
@@ -90,10 +97,13 @@ writes the flash:
 | `TRXBK_<date>_nnn.CFW` | An installable package of the previous state: bitstream, application and the configuration pages (2.5) |
 | `<vendor>-<version>.cor` | The previous firmware as a large `.cor` (for example `commodore-110.cor`). The boot menu shows it with the badge `backup` |
 | The `.cor` and `.cfw` files from the folder of the `.ue2` | The cores of the release (2.3.3). A file that exists with the same content is skipped |
+| `<medium>/cores/apps/*.u2a` | The applications from the folder of the `.ue2` (`unzip.u2a`, `miniz.u2a`). They are not menu entries |
+
+The updater ends the copy with `Files: n copied, n same, n failed`. If a file failed it asks `Not every file could be copied. Go on anyway?`.
 
 2.4.5 `<date>` is the date of the board's clock (`YYYYMMDD`). With no valid date, the names are `TRXBKnnn.BIN` and `TRXBKnnn.CFW`. The name of
-the `.cor` is the vendor and the version of the old firmware without dots (for example `commodore-110.cor`, `gideon-315.cor`). If the
-updater cannot read the version, the name is `backup-<date>.cor` (the entry shows `Backup <date>`). `nnn` counts up from 000, so a new backup never replaces an older one. After each file the updater reads it back and compares it.
+the `.cor` is the vendor and the version of the old firmware without dots (for example `commodore-110.cor`, `gideon-315.cor`; a version that starts with another digit gives `firmware-<version>.cor`). If the
+updater cannot read the version, the name is `backup<date>.cor` (`backup20261113.cor`; `backup.cor` with no date) and the entry shows `Backup <date>`. `nnn` counts up from 000, so a new backup never replaces an older one. After each file the updater reads it back and compares it.
 
 2.4.6 The updater writes `Flash:/boot.cfg` (the boot menu, 8.9). The old `boot.cfg` of an earlier install is kept as `boot.cfg.bak`. The new
 file holds: countdown 5, direct boot on, the backup `.cor` as the default (entry 1), and one entry for every copied core. If it cannot
@@ -101,6 +111,13 @@ write `boot.cfg`, it asks `Flash:/boot.cfg cannot be written. The cores stay on 
 
 2.4.7 If the backup cannot be written, the updater shows `The backup could not be written. Nothing is written to the flash.` and returns to
 the menu of the firmware. No backup, no update.
+
+2.4.8 If the installed firmware is ours (2.4.2), the updater does not set the machine up: it asks the two questions, writes no `.cor` of the old firmware, copies no core and does not touch `boot.cfg`. It
+makes the backup (`TRXBK_<date>_nnn.BIN` and `.CFW`) in the root of the first medium that has room, not in `cores`. It shows `Backing up the flash (x.y MB) to USB/SD..`. If no medium has room it asks
+`No USB/SD with x.y MB free. Insert one. Retry?`. **No** ends the run with `No backup, no update. Nothing written.`
+
+2.4.9 If the host started the updater (a `.cfw` or `.ue2` started from the boot menu, chapter 13) and the flash holds this firmware, the updater makes no backup. It shows `No backup of the flash: it holds MultiCore, not the
+firmware that is running.` A backup of the host cannot bring the running firmware back.
 
 > **NOTE** The raw `.BIN` and the `.CFW` hold the configuration pages of the flash. Keep the medium safe.
 
@@ -120,7 +137,7 @@ switches the board off.
 2.6.1 Switch the power off, wait a few seconds, then switch it on.
 
 2.6.2 The host starts. Direct boot is on and the default entry is the backup of the old firmware (2.4.6). The board therefore starts the
-old firmware, as before the install, and the host menu does not show.
+old firmware, as before the install, and the host menu does not show. At the first start the host writes the bitstream of the old firmware once into the flash drive (`/Flash/legacy`, 13.2.6); later starts only check that file. Without a backup `.cor` the default is the first core that the updater added.
 
 2.6.3 To see the host menu: switch the power off. Hold **C=** (or the fire button of joystick port 1) and switch the power on. The rules
 are in 4.7.
@@ -134,10 +151,12 @@ are in 4.7.
 ```
 /cores/                  the .cor files of the release, the backup .cor, TRXBK_*.BIN and TRXBK_*.CFW
     trx64.cor  vc20.cor  amiga.cor  ...
+    apps/                unzip.u2a, miniz.u2a: applications that every core and the File Browser can start
     <name>/              one folder per core, made by the core at its first start; never part of a release
         <name>.cfg       its settings
         roms/            its ROM files (chapter 12)
         saves/           what it saves
+        configs/         its named configs, <config>.cfg, up to 16
 anywhere                 your media: .adf .hdf .atr .xex .d64 .prg .nes .dsk ...
 ```
 
@@ -149,7 +168,7 @@ board's flash. The updater does not write them.
 
 2.7.4 **Media.** Disks, games and images can lie anywhere. You browse to them from the core's menu.
 
-2.7.5 **Settings.** A core keeps its settings in `<name>.cfg` in its own folder (`/cores/<name>/<name>.cfg`).
+2.7.5 **Settings.** A core keeps its settings in `<name>.cfg` in its own folder (`/cores/<name>/<name>.cfg`). A config is a named copy of the settings and of the media that were mounted. It lies in `configs/` of the folder of the core.
 
 2.7.6 **Update of the cores.** Copy the `.cor` files of a new release over the old ones. The folders of the cores are not touched.
 

@@ -1,6 +1,6 @@
 # T157 — every core can swap the two joystick ports from its menu, one setting, kept per core
 
-**Status:** ACCEPTED (2026-10-29), asked by Alex; D1 decided.
+**Status:** ACCEPTED (2026-10-29), asked by Alex; D1 decided. Status check 2026-11-13: BUILT in amiga, a1200, nes, c128 (merged 51a88f3cd, 10-29); vc20 none; board S5 open, CI bitstream proof not recorded.
 **Repo:** TRX64U-MultiCore — the generic core application (`coreapp/src`: one "Joystick ports" setting for every core) and
 the swap bit in each core's own registers (D1). The host is not changed.
 **Number:** T157.

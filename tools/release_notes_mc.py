@@ -149,6 +149,27 @@ PARAS = {
         "BASIC 2 / BASIC 1 / 8032 variants in the same folder), or the generic names `basic.bin`, `edit.bin`, `kernal.bin`, `chargen.bin`.",
         "Optional: the disk drive's DOS and controller ROMs (`dos4040.bin`, `ctl4040.bin`, `dos1001` or `dos8250.bin`, `ctl8250.bin`) and the six SuperPET",
         "`waterloo-*.bin` ROMs. Where to get them: the VICE distribution (%s), folder `data/PET/`." % VICE,
+        "",
+        "**VICE files per model** (in `cores/pet/roms/`, the names are the ones the core looks for; the picture-rate setting chooses the 50 or 60 Hz editor):",
+        "",
+        "| Model | BASIC | Editor 60 Hz | Editor 50 Hz | KERNAL | Characters |",
+        "|---|---|---|---|---|---|",
+        "| 2001 | `basic-1.901439-09-05-02-06.bin` | `edit-1-n.901439-03.bin` | same | `kernal-1.901439-04-07.bin` | `characters-1.901447-08.bin` |",
+        "| 3032 | `basic-2.901465-01-02.bin` | `edit-2-n.901447-24.bin` | same | `kernal-2.901465-03.bin` | `characters-2.901447-10.bin` |",
+        "| 4032 | `basic-4.901465-23-20-21.bin` | `edit-4-40-n-60Hz.901499-01.bin` | `edit-4-40-n-50Hz.901498-01.bin` | `kernal-4.901465-22.bin` | `characters-2.901447-10.bin` |",
+        "| 8032, 8096, SuperPET | `basic-4.901465-23-20-21.bin` | `edit-4-80-b-60Hz.901474-03.bin` | `edit-4-80-b-50Hz.901474-04.bin` (or `edit-4-80-b-50Hz.901474-04_.bin`) | `kernal-4.901465-22.bin` | `characters.901640-01.bin` (or `characters-2.901447-10.bin`) |",
+        "",
+        "**The 4040 drive** (setting Drive = 4040) needs two files in the same folder, both of exactly these sizes (the core refuses any other size):",
+        "",
+        "- `dos4040.bin`, 12,288 bytes (also accepted as `dos4040-901468-14-16.bin`): the drive's DOS ROMs.",
+        "- `ctl4040.bin`, 2,048 bytes: the controller ROM `901466-04.bin` written twice into one file, one copy after the other. The result must be 2,048 bytes.",
+        "",
+        "Join the controller ROM with the command of your system, in the folder that holds `901466-04.bin`, then check the size of `ctl4040.bin`:",
+        "",
+        "```",
+        "macOS, Linux:   cat 901466-04.bin 901466-04.bin > ctl4040.bin",
+        "Windows:        copy /b 901466-04.bin+901466-04.bin ctl4040.bin",
+        "```",
     ],
     "c264": [
         "Needs `kernal.bin` and `basic.bin` (16,384 bytes each, PAL) in `cores/c264/roms/`.",
@@ -396,6 +417,8 @@ def render(a, cors, bit_len, alen, dest):
     if u2as:
         w("    apps/                    applications every core reads (T180 D9), from this bundle; never a core's folder:")
         w("        unzip.u2a            Unzip here / Unzip to folder / Extract one file, on a .zip in the F3 browser")
+        if "miniz.u2a" in u2as:
+            w("        miniz.u2a            the zip library Unzip loads (T197); it has no menu entry, and any application that reads a .zip can use it")
     w("    <name>/                  one folder per core, made by the core at its first start; never part of a release:")
     w("        <name>.cfg           its settings")
     w("        roms/                its ROM files (section 5)")
@@ -414,6 +437,8 @@ def render(a, cors, bit_len, alen, dest):
         w("- **Unzip (all cores):** the installer (section 3) writes `unzip.u2a` to `/cores/apps/unzip.u2a`; after the update in 3a, or by hand, copy it there yourself; every core finds it there, no copy per core folder. A `unzip.u2a`")
         w("  in a core's own `/cores/<name>/apps/` wins over that one. Then ENTER on a `.zip` in the File Browser (F3) offers **Unzip here**, **Unzip to folder**")
         w("  and **Extract one file**.")
+        if "miniz.u2a" in u2as:
+            w("  Unzip needs the zip library `miniz.u2a` in the same folder (`/cores/apps/` or the core's own `apps/`); copy both.")
     w("- **Media** (disks, games, images) can lie anywhere; you browse to them from the core's menu.")
     w("- **Settings:** the cores on the common application (Amiga, Amiga 1200, Atari 800 XL, NES, Apple IIe, ZX Spectrum, Amstrad CPC, ZX Spectrum Next, VIC-20, Commodore 264) keep")
     w("  them in `<name>.cfg` in the core's folder, `/cores/<name>/<name>.cfg`.")
@@ -462,8 +487,8 @@ def render(a, cors, bit_len, alen, dest):
     w("| **F7** | Network | the address of the board |")
     w("")
     w("1. Plug in the stick. Press **F3**, browse to `cores`, press **A** on the `.cor` files you want.")
-    w("2. **F5**: choose the default core and the countdown. The default starts when the countdown ends; any key")
-    w("   stops it. If the default core's stick is not there, the host waits up to 30 seconds for it.")
+    w("2. **F5**: choose the auto core and the countdown. The auto entry starts when the countdown ends; any key")
+    w("   stops it. If the auto core's stick is not there, the host waits up to 30 seconds for it.")
     w("3. **F1**, select a core, RETURN.")
     w("4. **No picture?** Press **V** in the menu. It steps through the resolutions one by one, applies each at")
     w("   once and saves the one that works (`video=<system>,<hdmi>` in `/Flash/boot.cfg`, which you can also edit over")

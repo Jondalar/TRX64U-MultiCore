@@ -182,7 +182,7 @@ bool hc_cfgov_default(void)
     hc_cfgov_disarm();
     int e = g_ov.entry;
     if (e < 0) {
-        setmsg("Add the core to the boot menu first (F3, A), then it can have a default.", HCT_WARN);
+        setmsg("Add the core to the boot menu first (F3, A), then it can have an auto config.", HCT_WARN);
         return false;
     }
     const char *nm = hc_cfgov_cur_name();
@@ -190,16 +190,16 @@ bool hc_cfgov_default(void)
     const char *to = same ? "" : nm;
     int r = hc_entry_defcfg(e, to);
     if (r == HCR_REFUSED) {
-        setmsg("That name cannot be a default.", HCT_WARN);
+        setmsg("That name cannot be the auto config.", HCT_WARN);
         return false;
     }
     snprintf(g_ov.def, sizeof(g_ov.def), "%s", to);
     if (r == HCR_SAVE_FAILED) {
         setmsg("Could not write boot.cfg.", HCT_BAD);
     } else if (!to[0]) {
-        setmsg(nm[0] ? "No default config any more." : "No default config: the countdown starts plain.", HCT_OK);
+        setmsg(nm[0] ? "No auto config any more." : "No auto config: the countdown starts plain.", HCT_OK);
     } else {
-        setmsg("Default config set. The countdown and direct boot use it.", HCT_OK);
+        setmsg("Auto config set. The countdown and direct boot use it.", HCT_OK);
     }
     return true;
 }
@@ -355,7 +355,7 @@ void hc_cfgov_pick(HcWifiPick *p)
         } else {
             snprintf(it.a, sizeof(it.a), "%s", g_ov.l.name[r - 1]);
             if (g_ov.def[0] && !strcmp(g_ov.def, g_ov.l.name[r - 1])) {
-                snprintf(it.c, sizeof(it.c), "default");
+                snprintf(it.c, sizeof(it.c), "auto");
                 it.ctone = HCT_HOST;
             }
         }

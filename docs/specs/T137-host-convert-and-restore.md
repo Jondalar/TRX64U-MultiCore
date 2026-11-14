@@ -1,6 +1,6 @@
 # T137 — The host app turns a firmware file into a .cor and puts the original firmware back
 
-**Status:** PROPOSED (2026-10-28), asked by Alex; Q1 answered. **Convert (P1, S1, D1, D2 reader, D3 table, D9) BUILT on `t137-convert`
+**Status:** PROPOSED (2026-10-28), asked by Alex; Q1 answered. **Convert (P1, S1, D1, D2 reader, D3 table, D9) BUILT on `t137-convert` 2026-11-13 status check: convert built and merged (t137-convert via w1-t152); restore passed on the board, D11 look passed 11-02; D10 restart and the P board step open (as row).
 (2026-10-29); restore (P2, P3, S2, S3, D4-D8) BUILT on `worktree-agent-ab3bbec775e48c870` (2026-10-30, T137 step 2), see §5;** the MultiCore
 update (P4, S4) is T152 and not built here. Open: the board step (a real restore) and Alex's look at the pages.
 **Repo:** TRX64U-MultiCore — host application (`host-app/software/hostapp/`), the large `.cor` manifest

@@ -1,6 +1,6 @@
 # T123 — The flash holds only the host: the core partition carries a null core, not the TRX64 core
 
-**Status:** BUILDING (2026-10-24).
+**Status:** BUILDING (2026-10-24). 2026-11-13 status check: DONE: merged (Merge t123-null-core), board flash holds host + null core (null_full.bit at 0x0, 2026-10-28, todo).
 **Repo:** TRX64U-MultiCore — a new core folder `cores/null/` (never routed into the host), the packaging stage (`ci/update.sh`,
 `tools/make_update.sh`), `INSTALL.md`. The host (`host/`, `contract/`) does not change.
 **Number:** T123.

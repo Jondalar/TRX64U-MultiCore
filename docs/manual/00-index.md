@@ -2,7 +2,7 @@
 
 Multi-core FPGA firmware for the Ultimate 64 Elite II (and so the C64 Ultimate, same board).
 
-This manual follows `main` as of 2026-11-02 (host package `t164-c83a83c2`).
+This manual follows `main` as of 2026-11-13 (commit `5a87975ed`).
 
 ## Contents
 
@@ -37,6 +37,7 @@ are the same on both.
 
 0.4 Names in `code type` are file names, folder names or text that the screen shows.
 
-0.5 The figures are rendered from the real application code by the render benches (`tests/hostapp/render`, `tests/coreapp/render`), 960 x 540 of the
-1920 x 1080 picture, or the size of the mode where a figure shows a compact layout. The files are in `docs/manual/img/`. The names of files and cores in the
-figures, and the address `192.0.2.189`, are test data of the bench. A figure shows the screen, not the exact content of your card.
+0.5 The figures of the host application are screens of the real application that runs in the ue2 emulator (`tools/ui_emu.sh`), cut to the menu: 960 x 540 pixels of the
+1920 x 1080 picture, or the size of the mode where a figure shows a compact layout. The figures of a core application (chapter 11) are rendered from the application code by the render bench
+(`tests/coreapp/render`) unless a caption says otherwise. The files are in `docs/manual/img/`. The names of files, cores and addresses in the
+figures are test data. The emulator has no version stamp and no host key, so the header chips `app` and `host` carry no text in a figure. A figure shows the screen, not the exact content of your card.

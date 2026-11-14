@@ -16,6 +16,7 @@ struct SnesInfo {
     uint8_t mapping;               // 0 LoROM, 1 HiROM, 2 ExHiROM
     uint8_t chipset;               // header byte 0x16
     uint8_t rom_type;              // SNES_ROM_TYPE
+    uint8_t dsp;                   // T218: 0 no DSP-n, else 1..4 = DSP-1/1B, DSP-2, DSP-3, DSP-4 (the chipset byte says DSP-n, the title says which, as the known games)
     uint32_t rom_mask, ram_mask;   // 24 bit
     uint32_t ram_bytes;
     bool pal;                      // the header's country code is a 50 Hz country
@@ -27,6 +28,9 @@ struct SnesInfo {
 #define SNES_HDR_LO 0x7FC0u
 #define SNES_HDR_HI 0xFFC0u
 #define SNES_HDR_EX 0x40FFC0u
+
+// T218: the DSP-n firmware as one file: 2048 program words of 3 bytes and 1024 data words of 2 bytes, low byte first (ares/higan order) = 8192 bytes.
+#define SNES_DSP_FW_BYTES 8192u
 
 // hdr[0..2] = the 64 bytes at SNES_HDR_LO / HI / EX (+copier), or null when the file is too short for that place; file_size = the file's size.
 SnesInfo snes_parse(const uint8_t *const hdr[3], uint64_t file_size);

@@ -1,6 +1,7 @@
 # T99 — Two SIDs, each with its own of Dag's filter settings
 
 **Status:** PROPOSED (2026-10-14).
+**Status check 2026-11-13:** Unchanged: PROPOSED, nothing built (no commit besides the spec, 865f6d642); TODO row T99 planned.
 **Repo:** TRX64U-MultiCore — `vendor/icepi/c64_redip_sid/sid_multi.sv` (our wrapper around Dag Lem's
 `sid_core`), `cores/trx64/trx_sid/rtl/trx_sid.v` (where it is instantiated), `cores/trx64/core.toml`.
 **Number:** T99 (registry: the table in `TODO.md`).

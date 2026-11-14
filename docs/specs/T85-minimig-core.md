@@ -2,6 +2,7 @@
 
 **Status:** DECIDED (2026-10-12): all open questions answered; not built.
 to the open questions in §3.
+**Status check 2026-11-13:** DONE, no longer "not built": the A500 runs on the generic core application, inserting a disk boots it, board confirmed by Alex 2026-10-28 (448c6f613, docs/todo/T85.md). Open: the sound crackle and its measurement (T98 merged into this one).
 **Repo:** TRX64-Ultimate (gateware under a new `designs/amiga/` and `cores/minimig/`, the core's application on
 Gideon's base as for the VC-20, tools). The source is read from outside (MiSTle-Dev/NanoMig); nothing is copied into this
 repo by this spec.

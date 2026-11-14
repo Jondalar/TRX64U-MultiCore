@@ -1,6 +1,6 @@
 # T140 — The board puts out an analogue picture: S-Video (Y/C) and composite, PAL and NTSC
 
-**Status:** PROPOSED (2026-10-28), asked by Alex. C128 build and bench done 2026-10-30 (branch t140-c128-av, §5); no Vivado run, no board.
+**Status:** PROPOSED (2026-10-28), asked by Alex. C128 build and bench done 2026-10-30 (branch t140-c128-av, §5); no Vivado run, no board. 2026-11-13 status check: built in part and merged (C128 AV, #19/#21 fixed 11-09, #67 board pass 11-11); open: hang after warm reset, load stop, T170 SRQ (as row). 'no Vivado run, no board' above is outdated.
 **Repo:** TRX64U-MultiCore — the host (`host/`: the encoder and the pins; a host change, Alex approves it, `host_pin` in
 the same commit), the host app (T139 settings page, D5), large cores (their copy of `top.v`).
 **Number:** T140.

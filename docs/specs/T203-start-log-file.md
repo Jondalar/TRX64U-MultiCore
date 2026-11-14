@@ -1,6 +1,6 @@
 # T203 — Every host start leaves a short record on the SD card, so a start that went wrong can be read afterwards
 
-**Status:** IN PROGRESS (2026-11-11, Alex: "yes", translated, to the proposal of a start log file for issue #69).
+**Status:** IN PROGRESS (2026-11-11, Alex: "yes", translated, to the proposal of a start log file for issue #69). Corrected 2026-11-13 (status check): DONE: merged to main (6377a03b4); S1-S6 host app tests; S7 board PASS 2026-11-11 (startlog.txt read over FTP, 4b0950be7).
 **Repo:** TRX64U-MultiCore — host app (`host-app/software/hostapp/`: `hostui.cc` direct boot phase and countdown, `menukeys.cc`, a small new writer),
 `tests/hostapp/`.
 **Number:** T203 (registry: `TODO.md`).
