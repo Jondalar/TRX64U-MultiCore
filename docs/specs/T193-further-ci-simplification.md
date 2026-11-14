@@ -1,6 +1,6 @@
 # T193 — Further CI simplification: one run per push shows its children as a dependency graph again
 
-**Status:** PROPOSED (2026-11-08, Alex: "let us remember this as spec 193 'further CI simplification'", translated). Not designed further, not built.
+**Status:** PROPOSED (2026-11-08, Alex: "let us remember this as spec 193 'further CI simplification'", translated). Not designed further, not built (2026-11-15 sync: confirmed, no generated run.yml in ci/ or .gitea/).
 **Repo:** TRX64U-MultiCore — CI only (`ci/orchestrate.py`, `ci/children.txt`, `.gitea/workflows/`).
 **Number:** T193 (registry: the table in `TODO.md`).
 **Origin:** Alex, 2026-11-08, after run 1222 (translated): "This nice view with the dependencies of the jobs/steps, where did it go?"; "In my
