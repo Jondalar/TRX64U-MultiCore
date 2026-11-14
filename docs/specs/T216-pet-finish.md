@@ -1,6 +1,6 @@
 # T216 — The PET core works on every model with the right keyboard and menu, and its drive ROMs are documented
 
-**Status:** PROPOSED (2026-11-12). Corrected 2026-11-13 (status check): merged to main (81fdcf008); S1, S2 bench, S3 golden, S5 guide built; S4 board and the board cause of S1 open.
+**Status:** PROPOSED (2026-11-12). Corrected 2026-11-13 (status check): merged to main (81fdcf008); S1, S2 bench, S3 golden, S5 guide built; S4 board and the board cause of S1 open. 2026-11-15 sync: verified in main - S1/S2 bench `tb_pet_models` runs in CI through `run_boot.sh` (`pet_boot`, `ci/sims.txt:48`), S3 row `pet.superpet` (`pet.cc:75`), S5 guide in `tools/release_notes_mc.py:165-171`; the stale 'Open: 2 KiB' note in §5 is removed (D3 says 1 KiB since cc1b7c55f).
 **Repo:** TRX64U-MultiCore — `cores/pet/` (keys, model select), `coreapp/cores/pet.cc` (menu), `INSTALL.md` (docs).
 **Number:** T216 (registry: the table in `TODO.md`).
 **Origin:** Alex, 2026-11-12, after a tester's report (2026-11-12): "spec, plan it in, let's get the PET round, more or less" (translated). Reopens T134 (closed "as is" 11-11).
@@ -63,6 +63,4 @@ P4 (game mode): moved to the generic app's key bundles (D4). P5: documentation o
   value only while the Model setting is SuperPET, so the row appears as soon as the model is chosen, not after the reset. The menu dump (`menutree.cc`) now
   prints `[listed while <state>]` for such rows, so the golden `menu_pet.txt` records the condition; `menu_c64.txt` changed with it (its REU and static-IP rows).
 - **P3/P5 (S5):** INSTALL.md is generated; the PET text is `tools/release_notes_mc.py` (section 5). It lists the VICE files per model and picture rate from
-  `pet_models.h` and the 4040 guide (`cat` / `copy /b`). **Open:** D3 says `901466-04.bin` is 2 KiB, written twice; the core takes `ctl4040.bin` only at exactly
-  2,048 bytes (`pet.cc` `op_put_ctl4040`, `rom_scan` matches sizes exactly), so a 2 KiB file doubled (4 KiB) would be refused. The guide says the result must be 2,048 bytes;
-  Alex or the tester to confirm the size of the source file (S4 board).
+  `pet_models.h` and the 4040 guide (`cat` / `copy /b`). The size question is settled (cc1b7c55f, 2026-11-13): `901466-04.bin` is 1 KiB, written twice it gives the 2,048 bytes `pet.cc` (`op_put_ctl4040`) accepts; the guide says the result must be 2,048 bytes. Board check of the guide stays S4.

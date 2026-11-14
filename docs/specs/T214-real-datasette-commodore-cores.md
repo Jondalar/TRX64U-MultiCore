@@ -1,6 +1,6 @@
 # T214 — A real datasette works in every Commodore core that has a C2N port (C128, SuperCPU, VC-20, C16/Plus4), as it does on the PET
 
-**Status:** PROPOSED (2026-11-12). Corrected 2026-11-13 (status check): BUILT, merged to main (fc77f0d8b, run 871 green); S4 board LOAD per core open; C16/Plus4 motor polarity not measured.
+**Status:** PROPOSED (2026-11-12). Corrected 2026-11-13 (status check): BUILT, merged to main (fc77f0d8b, run 871 green); S4 board LOAD per core open; C16/Plus4 motor polarity not measured. 2026-11-15 sync: S1 holds only where the comments were fixed (`pet.cc`; the stale text is still in `layer2_c128.v:550`, `layer2_c64scpu.v:544`, `layer2_c64u.v:490`, `c64u_io.v:37` and `layer2_pet.v:283`, deliberately taken back, see §5); C16/Plus4 on main writes TAPE_PIN 0x11 (`c264.cc:53`, WRITE never driven); the WRITE drive, bench `c264_tape` and the tester report of 2026-11-14 are on branch t214-c264-tape (not in main); C16/Plus4 LOAD fails on the board (§5, 2026-11-14).
 **Repo:** TRX64U-MultiCore — cores (`c128`, `c64scpu`, `vc20`, `c264` gateware), the core app (`coreapp/cores/*`), comments in `pet` and `c64u`.
 **Number:** T214.
 **Origin:** Alex, 2026-11-12, after the PET result (GitHub #26): "nobody needs to do that any more if it already works with the PET. Same device." / "Then fix the comment. Build the cores that way." (translated)
@@ -59,3 +59,5 @@ Scenario: S6 the gateware builds
 - 2026-11-12 (Alex: "A comment should trigger NO build at all"): the comment-only fixes in gateware of cores whose gateware does not
   change otherwise (c128, c64scpu, c64u, pet layer2/io and the 13 `mono/host/top.v` copies except c264) are taken back, so the push
   builds only VC-20 and C264. Those stale "direction unknown" comments are corrected with the next real change of each file.
+- 2026-11-14 board, C16/Plus4 (recorded observation, test build a050e995 from branch t214-c264-tape, not in main): SENSE ok, motor ok, READ pulses arrive, SAVE runs; LOAD: the screen goes blank and never returns. Cause open. Next: a KERNAL tape-load bench with a VICE TAP and a capture of the SAVE pulses.
+- 2026-11-14 tester (pre-release main-ef67ea93; recorded in this spec on branch t214-c264-tape, not in main): VC-20, C128, SCPU and PET "LOAD and SAVE"; C16/Plus4 "reads or writes nothing". S4 is therefore not closed for any core by a recorded per-core pass in main.
