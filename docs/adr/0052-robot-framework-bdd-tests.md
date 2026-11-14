@@ -32,11 +32,11 @@ M1 > MVP anfang M2 > volle Umstellung als Acceptance Criteria für Erreichen von
 
 ## Consequences
 
-- New spec T71 (docs/specs/T71-robot-tests.md) with plan and acceptance criteria per phase.
+- New spec T71 (TRX64-Ultimate/docs/specs/T71-robot-tests.md) with plan and acceptance criteria per phase.
 - M2 is not reached until the migration of T71 §7.3 is complete.
 - The board stage stays under the existing rules (SRAM only, no flash or power cycle without Alex).
 - RTL benches and host unit tests are not affected.
 
 ## Links
 
-TODO T71.1, T71; docs/specs/T71-robot-tests.md; ADR-0002 (own API), ADR-0003 (milestones); docs/specs/T31-ci-pipeline.md
+TODO T71.1, T71; TRX64-Ultimate/docs/specs/T71-robot-tests.md; ADR-0002 (own API), ADR-0003 (milestones); TRX64-Ultimate/docs/specs/T31-ci-pipeline.md

@@ -18,5 +18,5 @@ Built 2026-10-06 (app t21-rpc1-app 2fcac32b + ABI 5390a16e): WS close 1013 / HTT
 
 ## Links
 
-- [T21](../../docs/specs/T21-monitor.md#status-and-history)
-- [docs/specs/T21-monitor.md](../../docs/specs/T21-monitor.md)
+- [T21](../specs/README.md#belonged-to-trx64-ultimate)
+- [TRX64-Ultimate/docs/specs/T21-monitor.md](../specs/README.md#belonged-to-trx64-ultimate)

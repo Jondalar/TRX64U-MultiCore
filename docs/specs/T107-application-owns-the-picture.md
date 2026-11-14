@@ -4,7 +4,7 @@
 **Repo:** TRX64U-MultiCore — the core application (`coreapp/src`), the shared video library (`app/video`), benches in `tests/coreapp`.
 **Number:** T107 (table in `TODO.md`).
 **Origin:** Alex at the board, 2026-10-16 (translated): "Wait .. then surely the HOST and CORE apps should each be allowed to CHOOSE the mode. The Gideon-based U1541FW apps do it that way too." Then: "Where is the resolution? That built for hours." and, on the Atari, "No resolution on the Atari either." And: "Gideon's apps can switch the screen, in mode and in resolution - please let all the other cores do that too. Scaling must then adapt." And: "also for the Atari 800 ... the resolution is the same as with the NES, there too we should be able to take 720p etc."
-**Depends on:** [ADR-0057](../adr/0057-every-application-owns-the-video-mode.md) (the application owns the mode), [T105](T105-video-mode.md) (the mode machinery: EDID, `video_apply`, the hand-over), T104 (the generic application and its settings).
+**Depends on:** [ADR-0057](../adr/0057-every-application-owns-the-video-mode.md) (the application owns the mode), [T105](done/T105-video-mode.md) (the mode machinery: EDID, `video_apply`, the hand-over), T104 (the generic application and its settings).
 **Milestone:** M1.
 
 ---

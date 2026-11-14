@@ -7,8 +7,8 @@
 **Origin:** Alex at the board, 2026-10-16: Centipede runs on the Atari — "Spiel läuft ! aber kein Ton"
 (translated: the game runs, but no sound) — and earlier the same session, "ich hab keinen Ton mit dem
 Amiga 1200" while the A500 core sounds fine.
-**Depends on:** [T88](T88-atari800-core.md), [T85](../todo/T85.md), [T102](T102-amiga1200-app.md),
-[T98](../todo/T98.md) (the Amiga's FIFO counters, which this does not replace).
+**Depends on:** [T88](T88-atari800-core.md), [T85](../../todo/T85.md), [T102](T102-amiga1200-app.md),
+[T98](../../todo/T98.md) (the Amiga's FIFO counters, which this does not replace).
 **Milestone:** M3.
 
 ---
@@ -112,7 +112,7 @@ Every part has a scenario; S3 and S5 carry a control that has to be able to fail
 
 ## §4 Out
 
-- **The Amiga's crackle.** That is [T98](../todo/T98.md) — the FIFO counters are unconnected
+- **The Amiga's crackle.** That is [T98](../../todo/T98.md) — the FIFO counters are unconnected
   (`cores/amiga/rtl/trx/amiga_core.v:259` leaves `.st_under() .st_over() .st_fill()` open), so the board
   cannot say why it scratches. A different problem on a core that is not silent.
 - **Sound quality, filters, mixing levels.** This spec is about audible or not audible.
@@ -142,7 +142,7 @@ the next piece of work, not a precaution.
 Two things measured on the way that belong elsewhere:
 
 - `ok   F5 pulls CONSOL OPTION low` - the console keys are already reachable from the keyboard the
-  application drives, so switching BASIC off ([T108](T108-atari800-media.md) P4) needs no gateware
+  application drives, so switching BASIC off ([T108](../T108-atari800-media.md) P4) needs no gateware
   change: the application holds the key across the cold start.
 - The bench costs 21 min 41 s of CPU and more than 1,800 s of wall clock, so it is a tier 2 entry with
   an hour, not a tier 1 one with half of it. Run 63's sims stage went red on exactly that.

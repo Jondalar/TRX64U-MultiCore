@@ -26,4 +26,4 @@ deliberate exception to "Gideon measured wins". Alex agrees with the thread that
 
 ## Links
 
-TODO T25; docs/specs/T25.6-sampler.md; ADR-0049
+TODO T25; TRX64-Ultimate/docs/specs/T25.6-sampler.md; ADR-0049

@@ -1,4 +1,4 @@
-// The Commodore PET descriptor (T134, spec docs/specs/T134-pet-core.md D8 and Q10-Q12): the ROM rows with VICE's file names, model / CPU speed /
+// The Commodore PET descriptor (T134, spec docs/specs/done/T134-pet-core.md D8 and Q10-Q12): the ROM rows with VICE's file names, model / CPU speed /
 // Diag / picture rate / phosphor as register settings, the .prg actions "Load" and "Load + run" through the PRG library (cbm_run.cc), the picture:
 // four 640 x 400 buffers the core's frame writer fills, shown 2 x 2 on the pixel layer. The register block is cores/pet/rtl/trx/pet_regs.v.
 #include "hk_defaults.h"

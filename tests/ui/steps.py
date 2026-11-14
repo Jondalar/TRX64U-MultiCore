@@ -1,4 +1,4 @@
-"""The step definitions (D5 of docs/specs/T153-ui-sdk-and-tests.md). A step is a regular expression and a function(ctx, *groups).
+"""The step definitions (D5 of docs/specs/done/T153-ui-sdk-and-tests.md). A step is a regular expression and a function(ctx, *groups).
 
 Since T192.3 (Alex, 2026-11-09) every step reads the UI service's snapshot (GET /v1/ui/state, contract 2: `rev`, `areas`, `tabs`, `items`, `dialog`, `topbar`,
 `footer`, `status`, `path`, `sheet`, `medium`); there is no v1 state any more. The keys still go in as the board's keyboard (the emulator's control port), which is

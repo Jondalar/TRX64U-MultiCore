@@ -21,7 +21,7 @@ extern "C" void get_current_time(int &wd, int &year, int &month, int &day, int &
 #define HOST_RMII_RX_ENABLE (*(volatile uint8_t *)(RMII_BASE + 0x08))   // rmii_interface.h RMII_RX_ENABLE
 #define HOST_WIFI_FLOWCTRL  (*(volatile uint8_t *)(WIFI_UART_BASE + 0x03))   // dma_uart.h flowctrl; bit 7 = soft_reset (uart_dma.vhd c_uart_flowctrl)
 
-// ICAP loader of layer 1 (docs/specs/T79.1-host-core-contract.md section 7)
+// ICAP loader of layer 1 (docs/specs/done/T79.1-host-core-contract.md section 7)
 #define ICAP_ID      (*(volatile uint8_t *)0x10060600)
 #define ICAP_DATA    (*(volatile uint8_t *)0x10060610)
 #define ICAP_EN      (*(volatile uint8_t *)0x10060614)

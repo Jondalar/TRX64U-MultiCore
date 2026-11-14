@@ -59,7 +59,7 @@ Scenario: S3 install, first start and way back match the updater and restore of 
 colour test (F7), 08 settings (F8), 09 update, restore, package (U, R, P), 10 bug report, 11 cores (text unchanged, Alex: no core
 documentation; only two references fixed), 12 ROMs, 13 full firmwares, 14 recovery, 15 troubleshooting, 16 glossary. Pictures: 27 PNGs
 `docs/img/host-*.png` from `tools/ui_emu.sh --headless` runs of the host app c721bc07 (built with `HOSTAPP_EMU_FLASH`, so the update writes
-in ue2emu; `tests/hostapp/emu_txu.sh`). `tools/check_manual_links.py` checks every `](...)` target of `docs/manual/*.md` and `README.md` and
+in ue2emu; `tests/hostapp/emu_txu.sh`). `tools/check_manual_links.py` checks every `](../...)` target of `docs/manual/*.md` and `README.md` and
 every `N.N` / `N.N.N` / `chapter N` reference of the manual: 0 findings.
 
 **Source of chapters 02 and 14 (installer).** The updater that runs on the Commodore firmware 1.1.0 is the one pinned by the submodule

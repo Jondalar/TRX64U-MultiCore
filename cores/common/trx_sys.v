@@ -34,7 +34,7 @@
 //                               (one shot; the machine stays stopped until
 //                               b9 is written 1); R b16 stopped there
 //     118-13F  debug: owner, counters, CYC_CMP (trx_dbg.v has the map)
-//     140      TURBO_STAT  R    T29 (c64_turbo.v, docs/specs/T29-turbo.md §12.7): {hold active
+//     140      TURBO_STAT  R    T29 (c64_turbo.v, TRX64-Ultimate/docs/specs/T29-turbo.md §12.7): {hold active
 //                               b31, engine drives the CPU b30, badline timing in force b29, turbo ran
 //                               since cleared b28, stops force normal speed b27, CPU cycles per PHI2
 //                               b22:16, enable word b10:8, $D030 bit b7, speed index b3:0}

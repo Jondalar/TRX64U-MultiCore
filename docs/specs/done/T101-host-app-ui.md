@@ -12,7 +12,7 @@ the TRX64-Ultimate folder and at the host app. We have mocks, ideas and experien
 
 ## §1 The problem
 
-The host app of T84 exists, runs on the board and starts cores (`docs/specs/T84-hostapp.md`). Read from the
+The host app of T84 exists, runs on the board and starts cores (`docs/specs/done/T84-hostapp.md`). Read from the
 code (`hostui.cc`, 1,580 lines), what a person cannot do with it today:
 
 - **P1 Find cores.** (Superseded 2026-10-25, S10: Alex wants NO search. The menu shows only what he adds by hand.) The menu only knows what the user added by hand: F3, walk the folders, RETURN. A fresh stick

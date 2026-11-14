@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Files for tests/hostapp/test_espinspect.cc (T152 D8/S9): vendor-style update files that carry (or do not carry) an ESP32-S3 image set in the format the
-vendor updater embeds (TRX-64-Ultimate docs/specs/T26.0-esp32-facts.md section 2: bootloader, partition table, application `u64ctrl`; the layout of the
+vendor updater embeds (TRX-64-Ultimate TRX64-Ultimate/docs/specs/T26.0-esp32-facts.md section 2: bootloader, partition table, application `u64ctrl`; the layout of the
 images was derived from the real c64u_v1.1.0.ue2 and update_v3.14.ue2 - header, segment table, checksum byte, appended SHA-256, esp_app_desc).
 
   mkesptest.py <outdir>

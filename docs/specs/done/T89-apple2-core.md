@@ -31,7 +31,7 @@ famous NTSC artifact colours (HGR green/violet/orange/blue from a monochrome bit
 **Today:** there is no Apple II anything. The swap works with TRX64 (T79.1 PoC 4/5) and a VC-20 runs behind it (T83); the third
 core (T85, Amiga) is specified. The edge is still TRX64's: 228 ports, 2,180 bits, a VIC-II shaped video port, a DDR2 port pair,
 the 8-bit register bus. An Apple II shares one thing with the C64: both are 6502 machines on a 14.31818 MHz crystal
-(C64 NTSC CPU clock 1,022,727 Hz, Apple 14,318,181 Hz / 14 = 1,022,727 Hz, `docs/specs/T40-ntsc.md` table), so the host's NTSC
+(C64 NTSC CPU clock 1,022,727 Hz, Apple 14,318,181 Hz / 14 = 1,022,727 Hz, `TRX64-Ultimate/docs/specs/T40-ntsc.md` table), so the host's NTSC
 clock mode (sys_clk 32.7273 MHz, T40) is an exact 16/7 of the Apple master clock.
 
 **What the sources are.**
@@ -503,8 +503,8 @@ in the same commit as the code.
 ## §4 Out
 
 - **Phase 2 (Alex, Q5):** WOZ images through the bit-exact flux controller (MiSTer, GPL-3), with its own track storage;
-  planned after the first build, not dropped. **Now in [T89.1](T89.1-apple2-disk-hdd.md)** (Alex, 2026-10-29).
-- **Phase 2 (Alex, Q6):** the ProDOS hard disk (.hdv/.2mg, slot 7, the app serves blocks). **Now in [T89.1](T89.1-apple2-disk-hdd.md)** (Alex, 2026-10-29).
+  planned after the first build, not dropped. **Now in [T89.1](../T89.1-apple2-disk-hdd.md)** (Alex, 2026-10-29).
+- **Phase 2 (Alex, Q6):** the ProDOS hard disk (.hdv/.2mg, slot 7, the app serves blocks). **Now in [T89.1](../T89.1-apple2-disk-hdd.md)** (Alex, 2026-10-29).
 - **Phase 2 (Alex, Q7):** the Mockingboard A (two AY-3-8913 + two 6522, slot 4).
 - **Phase 2 (Alex, Q9):** RAM beyond 128 KB (Saturn 128K / RamWorks, in DDR2).
 - **Later phase (Alex, Q10):** PAL (50 Hz, 312 lines, European IIe) after NTSC.

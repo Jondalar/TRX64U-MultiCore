@@ -1,4 +1,4 @@
-// System Mode (T40, docs/specs/T40-ntsc.md §9): PAL, NTSC, PAL-60, NTSC-50.
+// System Mode (T40, TRX64-Ultimate/docs/specs/T40-ntsc.md §9): PAL, NTSC, PAL-60, NTSC-50.
 //
 // The app writes C64_VIDEOFORMAT (ultimate_sys.vhd, video_fmt); its bit 5
 // (CYCLES_65) and bit 0 (NTSC_ENCODING) give the mode:

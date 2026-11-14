@@ -18,8 +18,8 @@ Removed 2026-10-06 (app a13-no-dump-app 87050ca, a13-trace-app; the code is in g
 
 ## Links
 
-- [T66](../../docs/specs/T20-delta-ring.md#t66)
-- [T20](../../docs/specs/T20-delta-ring.md#t20)
-- [T21](../../docs/specs/T21-monitor.md#status-and-history)
-- [docs/specs/T20-delta-ring.md](../../docs/specs/T20-delta-ring.md)
+- [T66](../specs/README.md#belonged-to-trx64-ultimate)
+- [T20](../specs/README.md#belonged-to-trx64-ultimate)
+- [T21](../specs/README.md#belonged-to-trx64-ultimate)
+- [TRX64-Ultimate/docs/specs/T20-delta-ring.md](../specs/README.md#belonged-to-trx64-ultimate)
 - [docs/done-audit-2026-10-04.md](../../docs/done-audit-2026-10-04.md)

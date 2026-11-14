@@ -8,7 +8,7 @@
 --  * the received bits go to their own register rx, not into the transmit shift register, so the later sample needs no
 --    knowledge of where the shift register is at that moment.
 -- Needs rate >= 1 (the sample is taken one clock after the SCK edge, the next SCK edge must be at least 2 clocks away).
--- Timing numbers: docs/specs/T149-sd-interface-timing.md; the constraints: cores/amiga1200/sd/sd_timing.xdc.
+-- Timing numbers: docs/specs/done/T149-sd-interface-timing.md; the constraints: cores/amiga1200/sd/sd_timing.xdc.
 -- Only the flat builds of amiga1200 and zxnext use this block (cores/amiga1200/sd/sd_mono.tcl swaps it in for the host's
 -- i_sd); the host gateware keeps Gideon's spi_peripheral_io. sd_spi_peripheral_io reads bit 7 of the control register
 -- (SDCARD_BASE + 8) as 1: the driver (host-app sdio.cc, sdio_set_rw_speed) runs 25 MHz only when it sees that bit.

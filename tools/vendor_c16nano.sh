@@ -1,7 +1,7 @@
 #!/bin/sh
 # T90: copy the parts of C16Nano (https://github.com/MiSTle-Dev/C16Nano, GPL-3.0) that the C264 core uses into
 # cores/c264/rtl/src, unchanged. Only files of the list below are taken, and only when the checkout is the commit the spec was
-# written against and every file has the SHA-256 it had when it was read (docs/specs/T90-c16-core.md, section 1). A different
+# written against and every file has the SHA-256 it had when it was read (docs/specs/done/T90-c16-core.md, section 1). A different
 # commit or a changed file stops the script: the licence reading of section 1 is of THESE bytes.
 # Usage: tools/vendor_c16nano.sh <C16Nano checkout>
 set -e

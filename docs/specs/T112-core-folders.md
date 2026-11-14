@@ -71,7 +71,7 @@ for one level deeper (S1, S4); the board for S1.
 
 ## §3 Decision
 
-**Superseded 2026-10-28 by [T148](T148-core-folder.md)** (one folder per core beside the `.cor`, no shared files).
+**Superseded 2026-10-28 by [T148](done/T148-core-folder.md)** (one folder per core beside the `.cor`, no shared files).
 
 
 - **D1 (Alex, 2026-10-19):** "No, then we do it beside the core. That would be good for the generic app. The search over

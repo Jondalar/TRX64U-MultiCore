@@ -18,9 +18,9 @@ A freeze is a plain machine pause with zero machine cycles; app accesses are bus
 
 ## Links
 
-- [SLIM](../../docs/specs/SLIM-state-path.md#status-and-history)
-- [T12](../../docs/specs/T12-freeze-overlay.md#status-and-history)
-- [T20](../../docs/specs/T20-delta-ring.md#t20)
-- [T21](../../docs/specs/T21-monitor.md#status-and-history)
-- [docs/specs/SLIM-state-path.md](../../docs/specs/SLIM-state-path.md)
-- [docs/specs/ARCH-lean-state-access.md](../../docs/specs/ARCH-lean-state-access.md)
+- [SLIM](../specs/README.md#belonged-to-trx64-ultimate)
+- [T12](../specs/README.md#belonged-to-trx64-ultimate)
+- [T20](../specs/README.md#belonged-to-trx64-ultimate)
+- [T21](../specs/README.md#belonged-to-trx64-ultimate)
+- [TRX64-Ultimate/docs/specs/SLIM-state-path.md](../specs/README.md#belonged-to-trx64-ultimate)
+- [TRX64-Ultimate/docs/specs/ARCH-lean-state-access.md](../specs/README.md#belonged-to-trx64-ultimate)

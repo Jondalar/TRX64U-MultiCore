@@ -1,6 +1,6 @@
 # cores/c128 provenance (T113)
 
-Spec: `docs/specs/T113-c128-core.md` (D1, §5). Third-party files keep their headers and are TREX-internal until the licence question is settled
+Spec: `docs/specs/done/T113-c128-core.md` (D1, §5). Third-party files keep their headers and are TREX-internal until the licence question is settled
 (T113 Q9: "We use them, as all MiSTer and daughter projects do too", translated). Sources were read outside this repository
 (MiSTer-devel/C128_MiSTer at `9bc3c5d`, 2026-09-10); `releases/` and `mra/` of that repository, which hold ROM images and bitstreams, were never fetched.
 `tools/check_c128_tree.py` (bench `sim/run_scan.sh`, scenario S1) checks this file against the tree: every source file is listed here, the third-party

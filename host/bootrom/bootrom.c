@@ -1,7 +1,7 @@
 /*
  * TRX64 boot ROM for rvlite, made from Gideon's U64-II boot loader
  * (vendor/gideon/software/portable/riscv/bootloader_u64ii.c) for our bitstream
- * (docs/specs/T15-flash-boot.md):
+ * (TRX64-Ultimate/docs/specs/T15-flash-boot.md):
  *
  *   - initializeDDR2() (his own DDR2 PHY) becomes a wait for the DDR2 controller's
  *     calibration (done in hardware, host/cal_seq.v), read at 0x10100100

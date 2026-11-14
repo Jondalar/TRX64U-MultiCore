@@ -1,4 +1,4 @@
-# legacy_boot — PoC of T115 (docs/specs/T115-full-bitstream-cores.md)
+# legacy_boot — PoC of T115 (docs/specs/done/T115-full-bitstream-cores.md)
 
 Starts Gideon's complete firmware from a vanilla `.cfw` on a board with our host in flash. Bare-metal RISC-V,
 loaded over JTAG into the running host; built with `riscv32-unknown-elf-gcc` (u64-build-env, `make`).

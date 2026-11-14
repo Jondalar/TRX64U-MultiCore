@@ -20,4 +20,4 @@ Bench run_bypass.sh. The filter parametrisation C64RE/TRX64 uses is expressible 
 
 - [T25](../../docs/todo/T25.md)
 - [T69](../../docs/todo/T69.md)
-- [docs/specs/T25.5-resid8-menus.md](../../docs/specs/T25.5-resid8-menus.md)
+- [TRX64-Ultimate/docs/specs/T25.5-resid8-menus.md](../specs/README.md#belonged-to-trx64-ultimate)

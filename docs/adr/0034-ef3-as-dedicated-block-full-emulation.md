@@ -18,5 +18,5 @@ Reversed the next day (ADR-0041); the full emulation is parked at tags park/ef3-
 
 ## Links
 
-- [T51](../../docs/specs/T51-ef3.md#status-and-history)
-- [docs/specs/T51-ef3.md](../../docs/specs/T51-ef3.md)
+- [T51](../specs/README.md#belonged-to-trx64-ultimate)
+- [TRX64-Ultimate/docs/specs/T51-ef3.md](../specs/README.md#belonged-to-trx64-ultimate)

@@ -35,7 +35,7 @@ snapshot to start.
 
 **Today:** two cores exist or are being built against the contract (VC-20 T83, Amiga T85); the reference every core must
 route against is the slim C64: 13,643 LUT, 4,300 slices (96 % of `pb_l2`'s 4,500), 39 BRAM tiles (T87 D15/D16, quoted from
-`docs/specs/T87-ci-layer-caches.md` §5). `pb_l2` has 18,000 LUT, 4,500 slices, 50 RAMB36, 80 DSP (task text, T83 D12). No
+`docs/specs/done/T87-ci-layer-caches.md` §5). `pb_l2` has 18,000 LUT, 4,500 slices, 50 RAMB36, 80 DSP (task text, T83 D12). No
 Z80 machine exists in the repo. The edge still has the VIC-II shaped video (`pix_color[3:0]`, `pix_x[9:0]`, `pix_y[8:0]`,
 T83 D5); a 16-entry, app-written, 24-bit palette sits behind the 4-bit colour index (`vic_scaler.v` ports
 `pal_we/pal_addr/pal_wdata`; `T59-palette.md` §3).

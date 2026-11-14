@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // ---------------------------------------------------------------------------
-// trx_audio_c64u: T25.3 mixer and decimator (docs/specs/T25.3-lp-filter.md).
+// trx_audio_c64u: T25.3 mixer and decimator (TRX64-Ultimate/docs/specs/T25.3-lp-filter.md).
 // Written from textbook DSP (Hogenauer CIC, halfband FIR, polyphase
 // fractional resampling with linear interpolation between phases); the
 // coefficients come from trx64/trx_sid_c64u/model/design_decim.py. No lp_filter,

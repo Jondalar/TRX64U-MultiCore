@@ -1,5 +1,5 @@
 // The frame ring of the TRX64 Ultimate bitstream (TRX64-Ultimate
-// docs/specs/T20-delta-ring.md, ARCH-lean-state-access.md §15.7-§15.9): the
+// TRX64-Ultimate/docs/specs/T20-delta-ring.md, ARCH-lean-state-access.md §15.7-§15.9): the
 // app side of the engine (trx_engine.v, page 2 of the IO block).
 //
 // The hardware writes, while the log is on, every C64 RAM write (stream 0),
@@ -173,7 +173,7 @@ bool trx_ring_pending(void);
 // From C64::unfreeze() when trx_ring_pending(): restores and runs.
 void trx_ring_unfreeze(void);
 
-// Timewarp's scrub (TRX64-Ultimate docs/specs/T20-delta-ring.md §16.7), with
+// Timewarp's scrub (TRX64-Ultimate TRX64-Ultimate/docs/specs/T20-delta-ring.md §16.7), with
 // the freeze menu up: puts the paused machine on entry "index" (from the entry
 // it showed last, by the logged values), runs one frame so the still capture
 // holds that frame's picture, and stops again. The first call ends the freeze

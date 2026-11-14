@@ -19,5 +19,5 @@ CI run 481 (8-SID + T25.3 mixer default) green, WNS +0.142 ns; board 2026-10-07 
 ## Links
 
 - [T25](../../docs/todo/T25.md)
-- [docs/specs/T25.4-redip-ultisid.md](../../docs/specs/T25.4-redip-ultisid.md)
-- [docs/specs/T25.5-resid8-menus.md](../../docs/specs/T25.5-resid8-menus.md)
+- [TRX64-Ultimate/docs/specs/T25.4-redip-ultisid.md](../specs/README.md#belonged-to-trx64-ultimate)
+- [TRX64-Ultimate/docs/specs/T25.5-resid8-menus.md](../specs/README.md#belonged-to-trx64-ultimate)

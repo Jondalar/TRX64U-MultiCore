@@ -19,7 +19,7 @@ W25Q128, 16 MB; ranges from `w25q_flash.cc` (U64-II 50T), use from the dump:
   The paragraphs "No other cores in flash" and "Gideon's updaters" below describe the TRX64-Ultimate monolith line.
 - Boot: the boot ROM in the bitstream loads the app image at 0x220000 (Gideon's format,
   `{dest, length, run}` then the data); ours only when the bitstream at 0x000000 carries
-  the running bitstream's build stamp (`docs/specs/T15-flash-boot.md`).
+  the running bitstream's build stamp (`TRX64-Ultimate/docs/specs/T15-flash-boot.md`).
 - No other cores in flash (monolith line): guests (Gideon's C64U core, other cores) are soft-booted by
   the host into SRAM and never stored in flash (Alex, 2026-10-03; T26). Gideon's
   updater rewrites 0x0 and 0x220000.

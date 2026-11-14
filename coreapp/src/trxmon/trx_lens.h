@@ -1,6 +1,6 @@
 /*
  * trx_lens.h - memory through a lens on the TRX64 Ultimate bitstream
- * (TRX64-Ultimate docs/specs/T21-monitor.md §3.4, §3.4.1).
+ * (TRX64-Ultimate TRX64-Ultimate/docs/specs/T21-monitor.md §3.4, §3.4.1).
  *
  * One piece of code for every reader: the firmware's REST machine:readmem
  * (trx_lens_fw.cc) and trxmon's mach_peek, m, d and session/read_memory

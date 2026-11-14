@@ -174,7 +174,7 @@ if {[llength $rdy_nets] == 1} {
 # T79 trial A2 (branch dfx-trial only): Alex's cut (2026-10-11) as a floorplan of today's design.
 # Layer 1, the host that survives: JTAG debug, RISC-V (with its ITU, console, debug tap), DDR2 with
 # its arbiter and bridge, the ESP32 UART and pins, flash, USB, SD, the HDMI transmitter (GTP), the
-# clock chip and mode control, resets. Layer 2: everything else (docs/specs/T79-dfx-trial.md).
+# clock chip and mode control, resets. Layer 2: everything else (docs/specs/done/T79-dfx-trial.md).
 # Layer 1 gets clock region X1Y0 (DDR2, GTP, USB clocks) with all its block RAM, slices X20-35 of
 # X0Y2 (the GTP reference clock's BUFH loads, run 678) and slices X56-65 rows 50-99; layer 2 the
 # rest: about 5,350 slices, 55 BRAM tiles, 100 DSP. A leak out of the region fails the build.
@@ -284,7 +284,7 @@ foreach pbn {pb_l2 pb_l1} {
   close $fh
 }
 # The app CPU's register file -> multiplier path (rvlite, 100 MHz) failed on
-# placement luck alone (run 289); patch 0006 (docs/specs/OPT-rvmul.md) pipelines
+# placement luck alone (run 289); patch 0006 (TRX64-Ultimate/docs/specs/OPT-rvmul.md) pipelines
 # the multiplier, the directives stay for the rest of the design.
 write_checkpoint -force $bdir/opt.dcp
 

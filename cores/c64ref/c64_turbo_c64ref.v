@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------
 // (c64ref copy of vendor/icepi/c64_turbo.v: the outside's falling edge, tb_took, enters go in its last LUT;
 // T103 §5. The original is read by the reference core and stays as it is.)
-// T29 turbo engine (docs/specs/T29-turbo.md §12): the CPU faster than PHI2.
+// T29 turbo engine (TRX64-Ultimate/docs/specs/T29-turbo.md §12): the CPU faster than PHI2.
 //
 // The 6502N core (cpu6510.v) runs on clk2x, 2 x the C64's dot4x, with clock
 // enables. At normal speed the enable is the PHI2 phase of today; in turbo

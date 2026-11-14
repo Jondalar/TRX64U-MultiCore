@@ -37,7 +37,7 @@ set_property PACKAGE_PIN H17 [get_ports LED_CASE2n]
 set_property PACKAGE_PIN G17 [get_ports LED_CASE3n]
 set_property IOSTANDARD LVCMOS33 [get_ports {LED_BOARDn LED_CASE1n LED_CASE2n LED_CASE3n}]
 
-# Expansion port and SID sockets (T16, docs/specs/T16-cartridge-port.md §3.1,
+# Expansion port and SID sockets (T16, TRX64-Ultimate/docs/specs/T16-cartridge-port.md §3.1,
 # §13.1): every ball is a port, so none sits at Vivado's default pull-down.
 # Balls, standards and drive as in Gideon's XDC / bitstream (no pulls there
 # except CIA_RSTn); the pulls below are ours, for the lines a cart or nothing

@@ -52,7 +52,7 @@ Two consequences worth stating plainly, because they are not symmetric:
   there and the application would offer nothing for it. REU is a host-word question, not a core question.
 - **UCI is advertised and absent.** `COMMAND_INTF` is set while `UCI_EN = 0`, so the application offers
   a command interface today that no gateware answers. That is a defect of the shipped host
-  independent of this core (noted in [T110](../todo/T110.md)).
+  independent of this core (noted in [T110](../../todo/T110.md)).
 
 So with the host untouched, vanilla's set is: the C64, the cartridge/expansion port, the 1541 drive A,
 the IEC bus, the sampler, turbo, and the SID engine of its choice. Not REU, not UCI, not the streams,
@@ -250,7 +250,7 @@ in the repository; the figures below come from **different tools and dates and d
 | Item | Figure | Source | Tool |
 |---|---:|---|---|
 | ring engine (`eng`) | 931 LUT | `docs/lut-budget.md`, run 275 | Vivado, post-route |
-| ring engine | 1,377 LUT | `docs/specs/T80-lean-ring.md:9` (M1) | Vivado |
+| ring engine | 1,377 LUT | `TRX64-Ultimate/docs/specs/T80-lean-ring.md:9` (M1) | Vivado |
 | ring engine | 1,687 LUT, 4 RAMB36 | `SLIM-state-path.md` §6.1 table (slim-core) | yosys, +-20 % |
 | `trx_dbg` | 962 LUT | `lut-budget.md`, run 275 | Vivado |
 | `trx_dbg` | 531 LUT, 2 RAMB36 | `ARCH-lean-state-access.md:1150` | yosys |

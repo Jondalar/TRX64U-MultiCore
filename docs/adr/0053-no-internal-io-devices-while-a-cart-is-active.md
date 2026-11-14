@@ -37,4 +37,4 @@ free ranges so that the UCI can be switched selectively. Gideon's behaviour is n
 
 ## Links
 
-TODO T72, T73, T57, T16; docs/specs/T57-trex-crt-both-cores.md; docs/specs/T16-cartridge-port.md; doc/cartridge_mapping_descriptor.md (app)
+TODO T72, T73, T57, T16; TRX64-Ultimate/docs/specs/T57-trex-crt-both-cores.md; TRX64-Ultimate/docs/specs/T16-cartridge-port.md; doc/cartridge_mapping_descriptor.md (app)

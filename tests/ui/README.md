@@ -2,7 +2,7 @@
 
 Gherkin `.feature` files run against the real application image (`coreapp.app`) in ue2emu, headless. The steps assert on the UI **state**
 (`GET /v1/ui/state` of the application: the UI service's snapshot, T192.1 contract 2, `coreapp/src/uiapp.cc`; the v1 state is gone since T192.3), never on pixels; a screenshot is only attached when a step fails
-(`tests/ui/out/fail_<feature>__<scenario>.png`). Python 3 standard library only. Contract and decisions: `docs/specs/T153-ui-sdk-and-tests.md`.
+(`tests/ui/out/fail_<feature>__<scenario>.png`). Python 3 standard library only. Contract and decisions: `docs/specs/done/T153-ui-sdk-and-tests.md`.
 
 ## Run
 

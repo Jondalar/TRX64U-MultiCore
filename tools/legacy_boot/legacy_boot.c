@@ -7,7 +7,7 @@
  *      its clusters are contiguous and that its bytes equal the .cfw's;
  *   3. copy the application to its load address, put the boot magic at 0xFFF8/0xFFFC (Gideon's boot
  *      ROM jumps there instead of loading 0x220000 from flash); every address through remap(), the
- *      DDR2 address map of Gideon's controller (docs/specs/T115-full-bitstream-cores.md section 3);
+ *      DDR2 address map of Gideon's controller (docs/specs/done/T115-full-bitstream-cores.md section 3);
  *   4. ICAP: WBSTAR := the file's flash address, IPROG. The FPGA loads Gideon's bitstream from flash.
  *
  * Parameters and results in DDR2 at 0x02810000 (JTAG reads them), one console line per step.

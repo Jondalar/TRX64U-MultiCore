@@ -760,7 +760,7 @@ as an application, both on the day-1 list (D9.7, T104.1 §3 F).
   containing "1.3" or "13" and had no `AMIGA1200_APP` branch (`amiga.cc:386-398`), while
   `cores/amiga1200/core.toml:19` names Kickstart 3.1. Alex, 2026-10-16: the Amiga 500 and its kin load
   1.3, the AGA machines load 3.1, and **neither comes up with a disk in the drive**
-  ([ADR-0056](../adr/0056-amiga-kickstart-per-chipset-no-disk.md)). The name is not a usable key -
+  ([ADR-0056](../../adr/0056-amiga-kickstart-per-chipset-no-disk.md)). The name is not a usable key -
   two of his three 3.1 images carry no version in their name - so Auto reads the version word at offset
   `0x0C` of the image. For the descriptor this means a `rom_set` may be chosen by a field **inside** the
   file, and no media slot auto-mounts.
@@ -986,7 +986,7 @@ Former heading of D2: "Three layers, and the middle one is meant to be empty (Al
 > - ~~**An application-loader ABI implementation** (D6): the boundary and the refusal path are designed,
 >   nothing is built. The first module to use it will be the Atari's SIO, and only after the five
 >   declarative cores prove that it is the exception (S8).~~ In since D9.4 (2026-10-18): libraries load
->   dynamically through the `.u2a` door; the design is [T104.1](T104.1-contribution-model.md) D10-D12.
+>   dynamically through the `.u2a` door; the design is [T104.1](../T104.1-contribution-model.md) D10-D12.
 
 **Former §5.3 bullets:**
 

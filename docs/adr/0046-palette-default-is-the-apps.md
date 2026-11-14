@@ -19,4 +19,4 @@ The app is the source of truth for the palette values, including the default. Th
 
 ## Links
 
-TODO T59, docs/specs/T59-palette.md
+TODO T59, TRX64-Ultimate/docs/specs/T59-palette.md

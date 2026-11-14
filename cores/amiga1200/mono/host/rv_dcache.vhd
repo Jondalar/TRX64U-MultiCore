@@ -1,5 +1,5 @@
 --------------------------------------------------------------------------------
--- T133: write-through data cache for the rvlite (docs/specs/T133-host-dcache.md).
+-- T133: write-through data cache for the rvlite (docs/specs/done/T133-host-dcache.md).
 --
 -- Sits between the core's data port (t_dmem_req / t_dmem_resp, the icache's
 -- records) and the data-side bus_converter. Direct mapped, one 32-bit word per

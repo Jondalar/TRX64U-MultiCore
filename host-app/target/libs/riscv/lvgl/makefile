@@ -1,5 +1,5 @@
 # LVGL (software/lvgl, pinned copy; software/lvgl_port/lv_conf.h) as a static
-# library for the RISC-V applications (TRX64-Ultimate docs/specs/T24-lvgl-ui.md).
+# library for the RISC-V applications (TRX64-Ultimate TRX64-Ultimate/docs/specs/T24-lvgl-ui.md).
 #
 # Every C file under software/lvgl/src is compiled; what lv_conf.h turns off
 # compiles to nothing, and --gc-sections in the application drops what is not

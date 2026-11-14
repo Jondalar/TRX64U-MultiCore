@@ -9,7 +9,7 @@
 //     100      GATE_CTRL   RW   b0 FRZ: the app's C64_STOP pauses the whole machine (the freeze; the app's accesses
 //                               to it are bus cycles, dma_win_c64ref.v); 0 (reset value): it pauses only the CPU.
 //                               R: b8 halted, b9 gate shut
-//     140      TURBO_STAT  R    T29 (c64_turbo_c64ref.v, docs/specs/T29-turbo.md §12.7): {hold active b31, engine drives the
+//     140      TURBO_STAT  R    T29 (c64_turbo_c64ref.v, TRX64-Ultimate/docs/specs/T29-turbo.md §12.7): {hold active b31, engine drives the
 //                               CPU b30, badline timing in force b29, turbo ran since cleared b28, stops force
 //                               normal speed b27, CPU cycles per PHI2 b22:16, enable word b10:8, $D030 bit b7,
 //                               speed index b3:0}

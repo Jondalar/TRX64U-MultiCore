@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """A small client for trxmon.u2a, the TRX64 runtime contract on the C64 Ultimate.
 
-trxmon serves WebSocket JSON-RPC 2.0 on TCP 4312 (docs/specs/T21-monitor.md
+trxmon serves WebSocket JSON-RPC 2.0 on TCP 4312 (TRX64-Ultimate/docs/specs/T21-monitor.md
 §7.4) with TRX64's method names. This client speaks it with the standard
 library only, for board tests and for poking at the machine by hand:
 

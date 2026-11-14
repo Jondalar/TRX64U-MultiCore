@@ -7,8 +7,8 @@ inputs (`cores/atari800/trx/`), a new simulation under `cores/atari800/sim/`, `c
 **Origin:** Alex at the board, 2026-10-16, after Boulder Dash would not start: "Hm ... Spec ? ATARI 800
 sollte mit Disks, ATR, xex, und Cartidges starten bitte" (translated: the Atari 800 should start from
 disks, ATR, xex and cartridges).
-**Depends on:** [T88](T88-atari800-core.md) (the core itself, on the board since 2026-10-15),
-[T93](../todo/T93.md) (the application blueprint), [T104](T104-generic-core-app.md) (the file actions and
+**Depends on:** [T88](done/T88-atari800-core.md) (the core itself, on the board since 2026-10-15),
+[T93](../todo/T93.md) (the application blueprint), [T104](done/T104-generic-core-app.md) (the file actions and
 the media slots it describes).
 **Milestone:** M3.
 

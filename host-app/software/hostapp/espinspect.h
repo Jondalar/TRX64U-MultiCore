@@ -1,5 +1,5 @@
 // T152 D8/S9: does a .cfw/.ue2 carry an ESP32 image set, and which version? Read-only: the file is scanned, nothing is written anywhere.
-// An ESP32 image set is what the vendor updater writes to the ESP32-S3 (TRX64-Ultimate docs/specs/T26.0-esp32-facts.md section 2): the bootloader image, the
+// An ESP32 image set is what the vendor updater writes to the ESP32-S3 (TRX64-Ultimate TRX64-Ultimate/docs/specs/T26.0-esp32-facts.md section 2): the bootloader image, the
 // partition table and the application image `u64ctrl`. All three are found by their structure, not by a name or an offset of a particular vendor file:
 //   image     0xE9, 1..16 segments, SPI mode 0..4, chip id 0x0009 (ESP32-S3) at byte 12; its end follows from the segment lengths, the SHA-256 appended
 //             behind it (header byte 23) is compared with the bytes of the image

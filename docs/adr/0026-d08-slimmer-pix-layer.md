@@ -20,5 +20,5 @@ OPT-pix built; benches pixlayer/still60 updated; in main 2026-10-06; freeze pict
 
 ## Links
 
-- [OPT-pix](../../docs/specs/OPT-pix.md#status-and-history)
-- [docs/specs/OPT-pix.md](../../docs/specs/OPT-pix.md)
+- [OPT-pix](../specs/README.md#belonged-to-trx64-ultimate)
+- [TRX64-Ultimate/docs/specs/OPT-pix.md](../specs/README.md#belonged-to-trx64-ultimate)

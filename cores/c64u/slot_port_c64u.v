@@ -1,4 +1,4 @@
-// The C64U's physical expansion port (T16 M1, docs/specs/T16-cartridge-port.md
+// The C64U's physical expansion port (T16 M1, TRX64-Ultimate/docs/specs/T16-cartridge-port.md
 // §13): our C64 core drives it as a C64 board does while the app's
 // C64_BUS_EXTERNAL selects ROM, IO1 or IO2 there; otherwise it stays idle
 // (static levels, no traffic).

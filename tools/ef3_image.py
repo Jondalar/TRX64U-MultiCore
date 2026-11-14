@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""EasyFlash 3 images (CRT type 90, TRX-PROP-002 sec. 8.4; docs/specs/T51-ef3.md).
+"""EasyFlash 3 images (CRT type 90, TRX-PROP-002 sec. 8.4; TRX64-Ultimate/docs/specs/T51-ef3.md).
 
 An EF3 image is the 8 MiB of the cartridge: 8 slots of 64 banks, slot 0 the system area (KERNALs, menu,
 EasyProg, directory, freezers). In the CRT the CHIP packets are 8 KiB each, slot-major, bank field =

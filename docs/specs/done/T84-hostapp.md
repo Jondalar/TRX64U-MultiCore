@@ -1,7 +1,7 @@
 # T84 host boot app: build, format, board test
 
-**Status:** built, merged to `main` with the T94 layout (`host-app/`), builds in the container and **runs on the board**: flashed at 0x220000, and `vc20.cor` started from its boot menu through the ICAP without JTAG (2026-10-12, board run 3 in `docs/specs/T83-vc20-core.md`). Open: the colours (blue tint, pixelated font).
-Spec of the boot chain: `docs/specs/T84-boot-chain.md` (integ branch). Mockup: `.claude/trx64-site/bootmenu-mock.html`.
+**Status:** built, merged to `main` with the T94 layout (`host-app/`), builds in the container and **runs on the board**: flashed at 0x220000, and `vc20.cor` started from its boot menu through the ICAP without JTAG (2026-10-12, board run 3 in `docs/specs/done/T83-vc20-core.md`). Open: the colours (blue tint, pixelated font).
+Spec of the boot chain: `docs/specs/done/T84-boot-chain.md` (integ branch). Mockup: `.claude/trx64-site/bootmenu-mock.html`.
 
 ## What it is
 

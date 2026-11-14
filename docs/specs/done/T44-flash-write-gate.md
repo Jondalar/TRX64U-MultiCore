@@ -501,10 +501,10 @@ T44: Flash write gate
 
 Milestone M3, status ⏸. Open (one line, as in the TODO table): WEL=1 probe never run; protection returns with T50
 
-Decisions: [ADR-0009 Flash write gate open in M1; T44 and T50 out of M1](../adr/0009-flash-gate-open-in-m1.md).
+Decisions: [ADR-0009 Flash write gate open in M1; T44 and T50 out of M1](../../adr/0009-flash-gate-open-in-m1.md).
 
 Moved from the TODO.md row on 2026-10-07, wording unchanged. Dated entries, newest first; undated text stays attached to the entry before it.
 
-- Task text: Flash write gate (docs/specs/T44-flash-write-gate.md): merged with `g_wren_pass` true; board stages 0-2 PASS 2026-10-03 (forbidden commands reach the chip as 0x9F; scratch 0xFE8000 erase/program/erase verified and left all 0xFF); settings save and /Flash files persist across a JTAG reload. App registry was never RAM-only on trx64/main (the define sat in a dead ifneq) and persists in /Flash/config/apps.json; dead define removed (app branch t44-registry). Not run: WEL=1 probe (spec §8: forbidden path never tested with WEL set). Gate counters reset with the RISC-V. Host update: JTAG now, T+R+X at power-on in M3
+- Task text: Flash write gate (docs/specs/done/T44-flash-write-gate.md): merged with `g_wren_pass` true; board stages 0-2 PASS 2026-10-03 (forbidden commands reach the chip as 0x9F; scratch 0xFE8000 erase/program/erase verified and left all 0xFF); settings save and /Flash files persist across a JTAG reload. App registry was never RAM-only on trx64/main (the define sat in a dead ifneq) and persists in /Flash/config/apps.json; dead define removed (app branch t44-registry). Not run: WEL=1 probe (spec §8: forbidden path never tested with WEL set). Gate counters reset with the RISC-V. Host update: JTAG now, T+R+X at power-on in M3
 - **In main 2026-10-06 (t44-open, g_low_limit 0; the board ran with it on 2026-10-06 evening, settings and /Flash files in use).**
 - **Out of M1 (Alex, 2026-10-04):** the gate stays in the design but open (g_low_limit 0: program/erase pass at every address, as on Gideon's core); status-register writes and 4-byte opcodes stay blocked. Reason: the 100T layout needs another limit (0x58) and T49 app updates need the app slot writable; protection comes back with T50.

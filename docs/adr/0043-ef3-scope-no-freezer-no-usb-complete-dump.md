@@ -18,6 +18,6 @@ trex_crt dumps the whole EF3 as one type 90 CRT. Q4 of the T51 spec is answered.
 
 ## Links
 
-- [T51](../../docs/specs/T51-ef3.md#status-and-history)
-- [T57](../../docs/specs/T57-trex-crt-both-cores.md#status-and-history)
-- [docs/specs/T51-ef3.md](../../docs/specs/T51-ef3.md)
+- [T51](../specs/README.md#belonged-to-trx64-ultimate)
+- [T57](../specs/README.md#belonged-to-trx64-ultimate)
+- [TRX64-Ultimate/docs/specs/T51-ef3.md](../specs/README.md#belonged-to-trx64-ultimate)

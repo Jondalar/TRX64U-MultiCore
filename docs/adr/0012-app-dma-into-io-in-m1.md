@@ -18,5 +18,5 @@ Built as cycle steal (spec G06-dma-cycle-steal.md); CI run 403: c64_basic 27,636
 
 ## Links
 
-- [T63](../../docs/specs/G06-dma-cycle-steal.md#status-and-history)
-- [docs/specs/G06-dma-cycle-steal.md](../../docs/specs/G06-dma-cycle-steal.md)
+- [T63](../specs/README.md#belonged-to-trx64-ultimate)
+- [TRX64-Ultimate/docs/specs/G06-dma-cycle-steal.md](../specs/README.md#belonged-to-trx64-ultimate)

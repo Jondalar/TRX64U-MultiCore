@@ -386,7 +386,7 @@ typedef struct
 } u2p_video_t;
 
 /* The T20 frame ring, as the debugger uses it (TRX64-Ultimate
- * docs/specs/T20-delta-ring.md, T21-monitor.md §4.10; the firmware's
+ * TRX64-Ultimate/docs/specs/T20-delta-ring.md, T21-monitor.md §4.10; the firmware's
  * software/io/c64/trx_ring.h). Entries are frame starts (snaps), oldest
  * first; an index moves when old entries go, a seq does not. */
 typedef struct

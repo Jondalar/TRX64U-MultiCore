@@ -10,7 +10,7 @@
 #                                                       (ci/update.sh); without it one is built here,
 #                                                       which needs the RISC-V toolchain image
 #
-# The update file carries two blobs, as every TRX64 update does (docs/specs/T49-update-packages.md):
+# The update file carries two blobs, as every TRX64 update does (docs/specs/done/T49-update-packages.md):
 #   * the full bitstream to flash 0x000000 - the host AND the null core (cores/null, T123): the host is
 #     routed together with its reference core (T87 D8), but the image in the flash carries the null core
 #     in the partition (ci/update.sh packs null_full.bit), so no machine is in the flash;

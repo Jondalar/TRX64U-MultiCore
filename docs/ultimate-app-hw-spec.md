@@ -58,7 +58,7 @@ bit, e.g. a read of 0x10100100) and keep steps 4-6. Step 4 is the bring-up path:
 0xFFF8 and 0x1571BABE to 0xFFFC (same as `recover.py`). `init_ext_pll` is optional (the app reprograms
 the PLLs later in `SetVideoPll`/`SetExternalPLL`).
 
-As built (T15, `docs/specs/T15-flash-boot.md`): our ROM does steps 4-6 with the APPL partition
+As built (T15, `TRX64-Ultimate/docs/specs/T15-flash-boot.md`): our ROM does steps 4-6 with the APPL partition
 (0x1E0000 - 12) as the length limit and no jump on a bad header; it boots the flash image on its own
 only when the bitstream in flash carries the running bitstream's USR_ACCESS stamp (trx_io BUILD), and
 takes JTAG requests at 0xFFF4 (check the flash image, boot a DDR2-staged copy).

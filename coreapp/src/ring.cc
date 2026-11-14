@@ -1151,7 +1151,7 @@ static int restore_locked(int idx, TrxRestoreStats *st)
     return err;
 }
 
-// ---- scrub (TRX64-Ultimate docs/specs/T20-delta-ring.md §16.7) ------------------
+// ---- scrub (TRX64-Ultimate TRX64-Ultimate/docs/specs/T20-delta-ring.md §16.7) ------------------
 // Timewarp moves the paused machine from the entry it shows (D) to another (T)
 // and lets it draw that frame: the writes since the last step undone, D -> T
 // by the logged values (back: old bytes, newest first; forward: new bytes,

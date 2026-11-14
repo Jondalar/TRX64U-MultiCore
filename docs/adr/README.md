@@ -76,4 +76,4 @@ Rules: a new decision gets the next number, a changed decision gets a new record
 
 - docs/done-audit-2026-10-04.md: decisions A01-A03, A05-A07, A08.1-A08.4 are listed there (A04, A08 and A13 have records above).
 - Spec-internal decisions stay in their spec: SLIM D1-D6 (summarised in [0024](0024-slim-state-path.md)), T25.5 decisions 1-9, T29 Q1-Q15, T33 D1-D7, T44, T49, T50, T51 D1-D13, T57 Q1-Q7 (summarised), T60, T31 decisions 1-5, T12 Q1-Q9, T16 Q-list, G06, OPT-* options.
-- docs/specs/ARCH-lean-state-access.md: the user decisions of 2026-10-01.
+- TRX64-Ultimate/docs/specs/ARCH-lean-state-access.md: the user decisions of 2026-10-01.

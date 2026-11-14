@@ -1,4 +1,4 @@
-// LVGL on the TRX64 Ultimate pixel layer (TRX64-Ultimate docs/specs/T24-lvgl-ui.md;
+// LVGL on the TRX64 Ultimate pixel layer (TRX64-Ultimate TRX64-Ultimate/docs/specs/T24-lvgl-ui.md;
 // hardware: ARCH-lean-state-access.md §7.5, §15.3 page 6, pix_layer.v).
 //
 // One display, 960 x 540 RGB565 at scale 2 (the whole 1920 x 1080 output), two

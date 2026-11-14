@@ -19,4 +19,4 @@ Spec T25.6-sampler.md, branch t25-sampler: built and simulated 2026-10-07, merge
 ## Links
 
 - [T25](../../docs/todo/T25.md)
-- [docs/specs/T25.6-sampler.md](../../docs/specs/T25.6-sampler.md)
+- [TRX64-Ultimate/docs/specs/T25.6-sampler.md](../specs/README.md#belonged-to-trx64-ultimate)

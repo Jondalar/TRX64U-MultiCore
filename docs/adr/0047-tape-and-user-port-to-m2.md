@@ -21,4 +21,4 @@ Alex, same day: "Genauso T37. nach M2." — T37 (real SID chips in the C64U's SI
 
 ## Links
 
-TODO T35, T58, T37; docs/todo/T35.md, docs/todo/T58.md, docs/specs/T37-sid-sockets.md
+TODO T35, T58, T37; docs/todo/T35.md, docs/todo/T58.md, TRX64-Ultimate/docs/specs/T37-sid-sockets.md
