@@ -10,7 +10,7 @@ git bundle create -q "$bundle" HEAD
 scp -q "$bundle" builder:$tmp.bundle
 rm -f "$bundle"
 # the container runs as root: it clones, lints and removes its own tree, so nothing root-owned is left on the builder
-ssh builder "nice -n 15 timeout 1200 docker run --rm -v /var/tmp:/t -e PYTHONDONTWRITEBYTECODE=1 trx64-sim-env:4 sh -c '
+ssh builder "nice -n 15 timeout 1200 docker run --rm -v /var/tmp:/t -e PYTHONDONTWRITEBYTECODE=1 trx64-sim-env:5 sh -c '
   git -c init.defaultBranch=main clone -q /t/prepush-$$.bundle /src && cd /src && git -c advice.detachedHead=false checkout -q $rev &&
   ci/lint.sh; echo rc=\$?'; rm -f $tmp.bundle" > "$log" 2>&1 || true
 grep -E "^FAILED|^rc=" "$log" || true

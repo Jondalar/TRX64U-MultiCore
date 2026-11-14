@@ -79,24 +79,40 @@ lap() { local d=$((SECONDS - _lap_t)); _lap_t=$SECONDS; printf '%dm%02ds' $((d /
 
 branch_slug() { printf '%s' "${GITHUB_REF_NAME:-$(git -C "$ROOT" rev-parse --abbrev-ref HEAD)}" | tr '/' '_'; }
 
+# T215: every content key hashes the NORMALISED content of a file (ci/code_hash.py: comments cut out, tree-sitter), the same function ci/plan.py
+# decides "changed" with; a comment never moves a key. CODE_HASH=raw gives the keys as they were before (ci/key_alias.sh).
 # tree_key <pathspec...>: 16 hex digits over the content of the tracked files
 # under the pathspecs, plus (when the checkout has it) the content of vendor/gideon
 # and the free text in $KEY_EXTRA. Only the content counts, not commits: a push
 # that leaves these files alone gets the same key.
 tree_key() {
-  {
+  python3 "$ROOT/ci/code_hash.py" check >&2 || return 1
+  # the body goes to a file first, in a subshell with pipefail: a failing index / sha256 stage fails the key, it never yields a key from fewer lines
+  local body; body="$(mktemp)"
+  (
+    set -eo pipefail
     # a core's logo (cores/<id>/logo/, T114) is a picture for the boot menu, not gateware: it never moves a key
-    git -C "$ROOT" ls-files -s -- "$@" ':(exclude,glob)cores/*/logo/**'
+    # set -e / pipefail are off on the left of `|| {...}` (bash ignores them there): every stage ends in an explicit `|| exit 1`
+    local idx; idx="$(mktemp)" || exit 1
+    git -C "$ROOT" ls-files -s -- "$@" ':(exclude,glob)cores/*/logo/**' > "$idx" || { rm -f "$idx"; exit 1; }
+    (cd "$ROOT" && python3 ci/code_hash.py index < "$idx") || { rm -f "$idx"; exit 1; }
+    rm -f "$idx"
     if [ -d "$ROOT/vendor/gideon" ]; then
       # Only what the gateware reads: the VHDL and the files beside it (vendor_gideon.sh `files`). The software of the two
       # applications in the same tree (software/, tools/, target/, roms/) is not gateware: a change to it moves no bitstream key.
       # VENDOR.md only records the commit the copy was made from and would move every key (run 898 rebuilt the host for a change
       # without one VHDL line); the copied files themselves count
-      (cd "$ROOT" && { find vendor/gideon/fpga vendor/gideon/target/simulation -type f
-                        ls vendor/gideon/LICENSE.txt vendor/gideon/software/io/usb/nano_minimal.nan vendor/gideon/software/portable/riscv/bootloader_u64ii.c vendor/gideon/tools/parse_nano.py; } | LC_ALL=C sort | xargs sha256sum)
+      local gl; gl="$(mktemp)" || exit 1
+      (cd "$ROOT" && { find vendor/gideon/fpga vendor/gideon/target/simulation -type f || exit 1
+                        ls vendor/gideon/LICENSE.txt vendor/gideon/software/io/usb/nano_minimal.nan vendor/gideon/software/portable/riscv/bootloader_u64ii.c vendor/gideon/tools/parse_nano.py || exit 1; }) > "$gl" || { rm -f "$gl"; exit 1; }
+      LC_ALL=C sort "$gl" > "$gl.s" || { rm -f "$gl" "$gl.s"; exit 1; }
+      (cd "$ROOT" && xargs python3 ci/code_hash.py sha256 < "$gl.s") || { rm -f "$gl" "$gl.s"; exit 1; }
+      rm -f "$gl" "$gl.s"
     fi
     printf '%s\n' "${KEY_EXTRA:-}"
-  } | sha256sum | cut -c1-16
+  ) > "$body" || { rm -f "$body"; echo "tree_key: a stage failed, no key" >&2; return 1; }
+  sha256sum < "$body" | cut -c1-16
+  rm -f "$body"
 }
 
 # files_key <pathspec...>: 16 hex digits over the CONTENT (working tree, so an
@@ -107,6 +123,7 @@ tree_key() {
 # ':(exclude)' only narrows the others.
 files_key() {
   local spec list names
+  python3 "$ROOT/ci/code_hash.py" check >&2 || return 1
   for spec in "$@"; do
     case "$spec" in ':(exclude)'*) continue ;; esac
     if [ -z "$(git -C "$ROOT" ls-files -- "$spec" | head -1)" ]; then
@@ -115,13 +132,19 @@ files_key() {
     fi
   done
   list="$(mktemp)"; names="$(mktemp)"
-  git -C "$ROOT" ls-files -s -- "$@" > "$list"
-  awk -F'\t' '{ split($1, a, " "); if (a[1] != "160000") print $2 }' "$list" > "$names"
-  {
-    awk -F'\t' '{ split($1, a, " "); if (a[1] == "160000") print "submodule", a[2], $2 }' "$list"
-    (cd "$ROOT" && git hash-object --stdin-paths < "$names") | paste -d' ' - "$names"
-  } | sha256sum | cut -c1-16
-  rm -f "$list" "$names"
+  git -C "$ROOT" ls-files -s -- "$@" > "$list" || { rm -f "$list" "$names"; echo "files_key: git ls-files failed, no key" >&2; return 1; }
+  awk -F'\t' '{ split($1, a, " "); if (a[1] != "160000") print $2 }' "$list" > "$names" || { rm -f "$list" "$names"; return 1; }
+  local body; body="$(mktemp)"
+  (
+    set -eo pipefail
+    awk -F'\t' '{ split($1, a, " "); if (a[1] == "160000") print "submodule", a[2], $2 }' "$list" || exit 1
+    local hp; hp="$(mktemp)" || exit 1
+    (cd "$ROOT" && python3 ci/code_hash.py hash-paths < "$names") > "$hp" || { rm -f "$hp"; exit 1; }
+    paste -d' ' "$hp" "$names" || { rm -f "$hp"; exit 1; }
+    rm -f "$hp"
+  ) > "$body" || { rm -f "$list" "$names" "$body"; echo "files_key: a stage failed, no key" >&2; return 1; }
+  sha256sum < "$body" | cut -c1-16
+  rm -f "$list" "$names" "$body"
 }
 
 # tool_versions: the first version line of each simulator on PATH, on one line.

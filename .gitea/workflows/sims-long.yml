@@ -23,7 +23,7 @@ jobs:
     name: Simulations (tier 3)
     runs-on: nas
     container:
-      image: trx64-sim-env:4
+      image: trx64-sim-env:5
       options: --init
       volumes:
         - /srv/trx64-build/cache:/cache
