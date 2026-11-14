@@ -44,6 +44,16 @@ def _die(msg):
     sys.exit(2)
 
 
+def _cached(tslp, lang):
+    """Is the grammar of `lang` in the local cache dir? The pack's own listing of what is downloaded (present in the pinned 1.23.1, local only);
+    a pack without it falls back to looking for the grammar's library file in the cache dir. Never a download."""
+    try:
+        return lang in tslp.downloaded_languages()
+    except AttributeError:
+        d = os.environ.get("TREE_SITTER_LANGUAGE_PACK_CACHE_DIR") or ""
+        return any(f.split(".")[0].endswith("_" + lang) or f.split(".")[0].endswith("-" + lang) for _, _, fs in os.walk(d) for f in fs)
+
+
 def _parser(lang):
     if lang not in _parsers:
         try:
@@ -51,7 +61,7 @@ def _parser(lang):
         except ImportError:
             _die("tree-sitter-language-pack is not installed (ci/codehash-requirements.txt, ci/install_codehash.sh)")
         # never a download at run time: a grammar fetched on one machine and not on another would give the two different keys
-        if lang not in tslp.downloaded_languages():
+        if not _cached(tslp, lang):
             _die("grammar %r is not in the local cache dir %s (ci/install_codehash.sh puts it there; no download at run time)"
                  % (lang, os.environ.get("TREE_SITTER_LANGUAGE_PACK_CACHE_DIR", "default")))
         _parsers[lang] = tslp.get_parser(lang)
@@ -60,7 +70,7 @@ def _parser(lang):
 
 # A comment that carries a tool directive is semantic (`-- synthesis translate_off` hides code from the synthesiser, `// synthesis keep` keeps a
 # net): it is a token like any other and never cut. A plain comment that merely mentions one of these words is kept too - the safe side.
-_PRAGMA = re.compile(rb"synthesis|synopsys|pragma|translate_(?:off|on)|xilinx|rtl_synthesis|synplify|altera|lint_off|lint_on|verilator", re.I)
+_PRAGMA = re.compile(rb"synthesis|synopsys|pragma|translate_(?:off|on)|xilinx|rtl_synthesis|synplify|altera|lint_off|lint_on|verilator|full_case|parallel_case|coverage|vivado|cadence|coding[:=]", re.I)
 
 
 def _scan(root):
@@ -129,9 +139,10 @@ def normalise(path, data):
     if tree.root_node.has_error and (lang not in _CLIKE or any(_in_string(data, a, lang, com) for a, b in com)):
         sys.stderr.write("code_hash: %s: parse errors, hashed raw\n" % path)
         return data
-    out, pos = [], 0
+    out, pos, cl = [], 0, set()
     for a, b in com:
         out.append(data[pos:a])
+        cl.add(b"".join(out).count(b"\n"))      # the line of the cut text that carried this comment (a multi-line comment becomes one blank)
         out.append(b" ")
         pos = b
     out.append(data[pos:])
@@ -140,23 +151,28 @@ def normalise(path, data):
     if leaves2 != leaves or any(not (a == 0 and cut.startswith(b"#!")) for a, b in com2):
         sys.stderr.write("code_hash: %s: the text without its comments does not parse to the same tokens, hashed raw\n" % path)
         return data
+    src = cut.replace(b"\r\n", b"\n")
     if lang in _STRICT:
-        # a literal of these languages may span lines (heredoc, triple quotes, Tcl braces): a blank line or a trailing blank inside it is data. Their
-        # comments are one line each, so only a line that carried a comment is cleaned up (and dropped when nothing is left); every other line stays.
-        cl = {data.count(b"\n", 0, a) for a, b in com}
-        src = cut.replace(b"\r\n", b"\n")
+        # a literal of these languages may span lines (heredoc, triple quotes, Tcl braces): a blank line or a trailing blank inside it is data. Only a
+        # line that carried a comment is cleaned up (and dropped when nothing is left); every other line stays.
         if src.endswith(b"\n"):
             src = src[:-1]
-        lines = []
+        lines, prev = [], b""
         for i, l in enumerate(src.split(b"\n")):
             if i in cl:
                 l = l.rstrip()
-                if not l:
+                if not l and not prev.endswith(b"\\"):
+                    prev = l
                     continue
             lines.append(l)
+            prev = l
         return b"\n".join(lines) + b"\n" if lines else b""
-    lines = [l.rstrip() for l in cut.replace(b"\r\n", b"\n").split(b"\n")]
-    lines = [l for l in lines if l]
+    lines, prev = [], b""
+    for l in src.split(b"\n"):
+        l = l.rstrip()
+        if l or prev.endswith(b"\\"):      # a blank (or comment-only) line after a line ending in a backslash ends a macro / continuation: it is code
+            lines.append(l)
+        prev = l
     return b"\n".join(lines) + b"\n" if lines else b""
 
 
