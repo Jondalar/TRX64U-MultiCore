@@ -4,6 +4,9 @@
 # files the real scripts write and a timing report with a settable slack; it is not a model of Vivado,
 # it only lets the shell side (keys, cache layout, host_sha rule, pins, failure handling) be run.
 set -euo pipefail
+# T215: this test moves keys by appending a comment line to a source; it tests the plumbing (stage flow, plan, layer keys), not the normaliser, so keys are
+# the raw content hash here (the normaliser has its own test: ci/test_code_hash.py).
+export CODE_HASH=raw
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 SRC="$PWD"
 W="$(mktemp -d)"; trap 'rm -rf "${W:?}"' EXIT
