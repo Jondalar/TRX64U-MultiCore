@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # tests/cart/t16_session.py with the JTAG venv (pyftdi), niced; see the script's docstring and
-# docs/specs/T16-board-session.md. selftest and --dry-run need no board and no venv.
+# TRX64-Ultimate/docs/specs/T16-board-session.md. selftest and --dry-run need no board and no venv.
 #   tests/cart/t16_session.sh boot | status | run --cart ef1 [...] | selftest | mkbaseline
 set -uo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
