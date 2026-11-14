@@ -616,7 +616,7 @@ module tb_cpc;
         "rom_cat": begin                                           // DIAGNOSTIC: the real ROMs (+OSROM +BASROM +AMSROM as hex), a DSK in the DDR2 (+DDR), CAT typed
             begin : rc
                 reg [8*200-1:0] f2;
-                integer fr, k2, dsz, pass, mnt, obs;
+                integer fr, k2, dsz, pass, mnt, obs, prew, rlen, npass, idle_fr, lastfr, done_c;
                 if (!$value$plusargs("DDR=%s", ddrfile)) ddrfile = "";
                 if (!$value$plusargs("DSZ=%d", dsz)) dsz = 194816;
                 if (!$value$plusargs("MOUNTAT=%d", mnt)) mnt = 0;
@@ -626,21 +626,31 @@ module tb_cpc;
                 $value$plusargs("OSROM=%s", f2); $readmemh(f2, dut.mem.rom_os);
                 $value$plusargs("BASROM=%s", f2); $readmemh(f2, dut.mem.rom_bas);
                 $value$plusargs("AMSROM=%s", f2); $readmemh(f2, dut.mem.rom_ams);
+                if ($test$plusargs("RSTREQ")) begin       // the app: cpc_init holds, mode_reset(true) = reset_req, the media go in, release
+                    reset_req = 1'b1; cw_wr(12'h0A0, 8'h00);
+                    if (mnt == 0) rc_mount(dsz);
+                    repeat (3000) @(posedge sys_clk);
+                    reset_req = 1'b0;
+                end else begin
                 if (mnt == 0) rc_mount(dsz);
                 cw_wr(12'h0A0, 8'h00);
-                for (pass = 0; pass < (($test$plusargs("RESET2")) ? 2 : 1); pass = pass + 1) begin
-                    if (pass == 1) begin
-                        $display("rom_cat: warm reset at frame %0d", frames_seen);
-                        cw_wr(12'h0A0, 8'h01);
-                        repeat (2000) @(posedge sys_clk);
-                        cw_wr(12'h0A0, 8'h00);
+                end
+                if (!$value$plusargs("PREWAIT=%d", prew)) prew = 150;
+                if (!$value$plusargs("RLEN=%d", rlen)) rlen = 2000;
+                if (!$value$plusargs("NPASS=%d", npass)) npass = ($test$plusargs("RESET2")) ? 2 : 1;
+                for (pass = 0; pass < npass; pass = pass + 1) begin
+                    if (pass >= 1) begin
+                        $display("rom_cat: warm reset at frame %0d (%0s, %0d clocks)", frames_seen, $test$plusargs("RSTREQ") ? "reset_req, the app's / ui_btn(2) path" : "ctrl bit 0", rlen);
+                        if ($test$plusargs("RSTREQ")) begin reset_req = 1'b1; repeat (rlen) @(posedge sys_clk); reset_req = 1'b0; end
+                        else begin cw_wr(12'h0A0, 8'h01); repeat (rlen) @(posedge sys_clk); cw_wr(12'h0A0, 8'h00); end
                     end
-                    fr = frames_seen; while (frames_seen < fr + ((mnt != 0 && pass == 0) ? mnt : 150)) @(posedge sys_clk);
+                    fr = frames_seen; while (frames_seen < fr + ((mnt != 0 && pass == 0) ? mnt : prew)) @(posedge sys_clk);
                     if (mnt != 0 && pass == 0) begin
                         rc_mount(dsz);
                         $display("rom_cat: mounted at frame %0d", frames_seen);
                         fr = frames_seen; while (frames_seen < fr + 60) @(posedge sys_clk);
                     end
+                    if (pass == 0 && $test$plusargs("SKIPCAT0")) continue;     // the issue's flow: insert, then reset, then CAT (no CAT between)
                     $display("rom_cat: pass %0d frame %0d, pc %04x, FDC main status %02x", pass, frames_seen, dut.cpu_addr, dut.fdc.m_status);
                     rd_cmds = 0; cmds = 0;
                     // CAT RETURN: C line 7 bit 6, A line 8 bit 5, T line 6 bit 3, RETURN line 2 bit 2
@@ -655,8 +665,15 @@ module tb_cpc;
                     end
                     fr = frames_seen;
                     if (!$value$plusargs("OBS=%d", obs)) obs = 250;
-                    while (frames_seen < fr + obs) begin
+                    idle_fr = 0; lastfr = frames_seen; done_c = 0;
+                    while (frames_seen < fr + obs && !done_c) begin
                         @(posedge sys_clk);
+                        if (frames_seen != lastfr) begin           // once per frame: the CAT is over when the FDC has been idle for 40 frames after a Read Data
+                            lastfr = frames_seen;
+                            if ((frames_seen - fr) % 25 == 0) $display("  obs frame %0d: pc %04x, FDC status %02x, Read Data %0d", frames_seen, dut.cpu_addr, dut.fdc.m_status, rd_cmds);
+                            if (rd_cmds > 0 && dut.fdc.m_status == 8'h80) idle_fr = idle_fr + 1; else idle_fr = 0;
+                            if (idle_fr >= 40) done_c = 1;
+                        end
                         if (dut.io_wr && !rc_wd && dut.cpu_addr == 16'hFB7F) begin
                             cmds = cmds + 1;
                             if (cmds < 12) $display("  FDC data write %02x at frame %0d (status %02x, scan %0d)", dut.cpu_dout, frames_seen, dut.fdc.m_status, dut.fdc.fdc.image_scan_state[0]);
