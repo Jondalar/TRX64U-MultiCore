@@ -27,29 +27,16 @@ body:
   - type: dropdown
     id: core
     attributes:
-      label: Core
-      description: The core that was running when it happened.
+      label: Area
+      description: >-
+        Only the host, the official firmwares, the generic core application and TRX64 are supported (CONTRIBUTING.md).
+        For other cores use Discussions.
       options:
-        - host - boot menu or host application
-        - amiga - Amiga 500 (OCS/ECS)
-        - amiga1200 - Amiga 1200 (AGA)
-        - apple2 - Apple IIe
-        - atari800 - Atari 800 XL
-        - c128 - Commodore 128
-        - c264 - Commodore 16 / Plus/4
-        - cpc - Amstrad CPC
-        - neogeo - SNK Neo Geo
-        - ddt_mandel - DDT Mandelbrot (mandelbrUlt)
-        - diag - Port Diagnostics
-        - ddt_novic - DDT Look Ma, No VIC
-        - nes - Nintendo Entertainment System
-        - pet - Commodore PET
-        - snes - Super Nintendo
-        - trx64g - C64 with the Ultimate application
-        - trx64u - C64 with the TRX64 application
-        - vc20 - VIC-20
-        - zx - ZX Spectrum 48K / 128K
-        - zxnext - ZX Spectrum Next
+        - host - boot menu, host application, update, core folders
+        - firmware - an official firmware (.cfw) does not start from the host
+        - coreapp - generic core application (menus, media, settings, saves)
+        - trx64u - C64 with the TRX64 application (start from the host)
+        - trx64g - C64 with the Ultimate application (start from the host)
     validations:
       required: true
   - type: textarea
