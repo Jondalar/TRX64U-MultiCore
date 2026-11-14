@@ -6,6 +6,7 @@ both call this file, so they cannot drift.
   ci/code_hash.py index                  stdin: `git ls-files -s` lines; stdout: the same lines with the blob hash of the normalised index content
   ci/code_hash.py hash-paths             stdin: paths (cwd = repo root); stdout: the hash of each normalised working-tree file, one per line
   ci/code_hash.py sha256 <file>...       like sha256sum, over the normalised content
+  ci/code_hash.py check                  exit 0 when the tree-sitter install and every grammar load, else 2 (no key is made from a missing install)
   ci/code_hash.py show <file>            the normalised text of a file (debugging)
 
 CODE_HASH=raw in the environment turns normalising off (the key function as it was before T215; ci/key_alias.sh pairs old and new keys with it).
@@ -16,7 +17,9 @@ hashed as it is. A parse with error nodes (the Verilog grammar has them on much 
 checked: the text without comments must parse to the very same non-comment tokens, else the file is hashed raw and the line is logged."""
 import hashlib, os, re, subprocess, sys
 
-_LIBS = os.environ.get("CODE_HASH_LIBS", "/cache/multicore/pylibs")      # a pinned install on the builder's cache, where an image does not carry it (ci/install_codehash.sh)
+# a pinned install on the builder's cache, where an image does not carry it (ci/install_codehash.sh). One directory per Python minor version: the
+# tree-sitter wheel is a compiled module of that version (vivado-env and u64-build-env run 3.10, trx64-sim-env 3.12).
+_LIBS = os.environ.get("CODE_HASH_LIBS", "/cache/multicore/pylibs-cp%d%d" % sys.version_info[:2])
 if os.path.isdir(_LIBS):
     sys.path.insert(0, _LIBS)
     if os.path.isdir(os.path.join(_LIBS, "grammars")):
@@ -173,6 +176,10 @@ def main(argv):
     elif cmd == "sha256":
         for p in argv[2:]:
             print("%s  %s" % (hashlib.sha256(normalise(p, open(p, "rb").read())).hexdigest(), p))
+    elif cmd == "check":     # exit 2 with a message when the install is missing; ci/lib.sh calls it first, a key is never made from a broken pipe
+        if os.environ.get("CODE_HASH") != "raw":
+            for lang in sorted(set(PARSER_FOR.values())):
+                _parser(lang)
     elif cmd == "show":
         sys.stdout.write(normalise(argv[2], open(argv[2], "rb").read()).decode("latin-1"))
     else:

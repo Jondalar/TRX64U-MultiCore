@@ -26,7 +26,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # T215 D2: ci/code_hash.py (plan + cache keys); the pins are those of ci/codehash-requirements.txt (keep equal), grammars are fetched now, not at run time
 ENV TREE_SITTER_LANGUAGE_PACK_CACHE_DIR=/opt/tslp-grammars
-RUN pip3 install --no-cache-dir --break-system-packages tree-sitter==0.26.1 tree-sitter-language-pack==1.25.0 \
+RUN pip3 install --no-cache-dir --break-system-packages tree-sitter==0.26.1 tree-sitter-language-pack==1.23.1 \
     && python3 -c "import tree_sitter_language_pack as p; p.download(['verilog','vhdl','c','cpp','python','tcl','bash','toml'])"
 
 RUN curl -fsSL "https://github.com/YosysHQ/oss-cad-suite-build/releases/download/${OSS_CAD_SUITE_DATE}/oss-cad-suite-linux-x64-$(echo ${OSS_CAD_SUITE_DATE} | tr -d -).tgz" \

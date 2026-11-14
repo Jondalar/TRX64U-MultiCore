@@ -86,6 +86,7 @@ branch_slug() { printf '%s' "${GITHUB_REF_NAME:-$(git -C "$ROOT" rev-parse --abb
 # and the free text in $KEY_EXTRA. Only the content counts, not commits: a push
 # that leaves these files alone gets the same key.
 tree_key() {
+  python3 "$ROOT/ci/code_hash.py" check >&2 || return 1
   {
     # a core's logo (cores/<id>/logo/, T114) is a picture for the boot menu, not gateware: it never moves a key
     git -C "$ROOT" ls-files -s -- "$@" ':(exclude,glob)cores/*/logo/**' | (cd "$ROOT" && python3 ci/code_hash.py index)
@@ -109,6 +110,7 @@ tree_key() {
 # ':(exclude)' only narrows the others.
 files_key() {
   local spec list names
+  python3 "$ROOT/ci/code_hash.py" check >&2 || return 1
   for spec in "$@"; do
     case "$spec" in ':(exclude)'*) continue ;; esac
     if [ -z "$(git -C "$ROOT" ls-files -- "$spec" | head -1)" ]; then

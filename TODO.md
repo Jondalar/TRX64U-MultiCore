@@ -93,7 +93,7 @@ Built and benched; what is left is a step on the board (Alex, 2026-10-28, transl
 | T212 | 2 | 🔨 | Core app areas: F1 quick actions, F5 machine, F7 app settings (host value as default), status to F8 | D1-D17 decided; built on branch t212-core-areas (not merged); board open | [T212](docs/specs/T212-core-menu-areas.md) |
 | T213 | 2 | 📅 | Epic: bitstream API (a) - API TOML per core, C modules in the service, child spec per core | Alex 11-12 | [T213](docs/specs/T213-bitstream-api.md) |
 | T214 | 2 | 🔨 | Real datasette in C128, SCPU, VC-20, C16/Plus4 as on the PET | Merged to main (run 871 green); board LOAD per core (S4) | [T214](docs/specs/T214-real-datasette-commodore-cores.md) |
-| T215 | 2 | 🔨 | CI keys and the plan hash code only: a comment moves no key and starts no build | Spec PROPOSED (Alex 11-12); t215-code-hash, not merged; image + key_alias step open | [T215](docs/specs/T215-ci-hash-code-only.md) |
+| T215 | 2 | 🔨 | CI keys and the plan hash code only: a comment moves no key and starts no build | Built, scenarios a-h proven (11-14); image 5 built; open: builder install + key_alias, merge | [T215](docs/specs/T215-ci-hash-code-only.md) |
 | T216 | 3 | 🔨 | PET finish: business keyboard per model, SuperPET row only there, 4040 ROM guide | Merged to main; S1 cause, S4 board open | [T216](docs/specs/T216-pet-finish.md) |
 | T217 | 2 | 📅 | SCPU: Mount & Run of a PRG in a disk image reaches the 65816 (page 0 in SCPU SRAM) | Alex 11-12 | [T217](docs/specs/T217-scpu-mount-run-prg.md) |
 | T218 | 3 | 🔨 | SNES: DSP-n cartridges (DSP-1/1B, 2, 3, 4) run; firmware from the SD (appended to the .sfc first, else dsp*.bin) | Built on t218-snes-dsp, sim proof; open: pipeline (S6), board S1/S2/S4 | [T218](docs/specs/T218-snes-dsp-n.md) |
