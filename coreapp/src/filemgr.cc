@@ -856,6 +856,15 @@ void FileMgr::do_rename(const char *from, const char *name)
     }
     say(r.msg, rc != 0);
     load_dir();
+    up_while_gone();
+}
+
+// the folder the browser is in was renamed or deleted from inside (the sheet of "..", T219): the nearest one above that lists
+void FileMgr::up_while_gone()
+{
+    while (!vmode && image_ft < 0 && !dir_ok && strcmp(path, "/")) {
+        parent_dir();
+    }
 }
 
 void FileMgr::delete_question(const CoreCtx *c, char *q, int n)

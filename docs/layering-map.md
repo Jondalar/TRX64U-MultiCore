@@ -112,4 +112,4 @@ None of these six files has a single `ifdef`, so leaving them out is not a switc
   drive of 1541 size (1,820 LUT, run 275) would put the core near 81–85 %, and 78 % is the highest
   that has ever routed.
 
-Spec and the open questions: [T103](specs/T103-c64u-vanilla-core.md).
+Spec and the open questions: [T103](specs/done/T103-c64u-vanilla-core.md).

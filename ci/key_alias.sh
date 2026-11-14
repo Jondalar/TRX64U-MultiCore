@@ -9,6 +9,9 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "$ROOT/ci/lib.sh"
 part="${1:-xc7a50tfgg484-1}"
+# The host and core keys contain the build options of vivado.yml / package.yml (host_key: T79_FLOOR; ooc_key: TRX_SID, TRX_FEATURES): without them this script
+# computes other keys than the pipeline, finds no old entry and migrates nothing (run 1902: host-17cfd66ace1ab1b8 stayed under its old key). Same values as the workflows.
+export TRX_SID="${TRX_SID:-redip2}" TRX_FEATURES="${TRX_FEATURES:-jtag}" T79_GREYBOX="${T79_GREYBOX:-1}" T79_FLOOR="${T79_FLOOR:-B}"
 cache="${CI_BIT_CACHE:-/cache/multicore/bit}"
 
 keys() {   # keys <raw|norm>: the entry directory names, in a fixed order

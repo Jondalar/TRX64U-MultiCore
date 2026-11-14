@@ -5,6 +5,9 @@
 # cannot fail proves nothing. D9-7 (cache fallback), D9-8 (time limit) and D9.6 (red targets) need the stage and live in
 # ci/test_layers_flow.sh with the fake Vivado.
 set -euo pipefail
+# T215: this test moves keys by appending a comment line to a source; it tests the plumbing (stage flow, plan, layer keys), not the normaliser, so keys are
+# the raw content hash here (the normaliser has its own test: ci/test_code_hash.py).
+export CODE_HASH=raw
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 SRC="$PWD"
 W="$(mktemp -d)"; trap 'rm -rf "${W:?}"' EXIT

@@ -19,4 +19,4 @@ Fixes the silent reSID8 at -30 dB master. Board retest with the merged build ope
 ## Links
 
 - [T25](../../docs/todo/T25.md)
-- [docs/specs/T25.3-lp-filter.md](../../docs/specs/T25.3-lp-filter.md)
+- [T25.3-lp-filter.md](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/T25.3-lp-filter.md)

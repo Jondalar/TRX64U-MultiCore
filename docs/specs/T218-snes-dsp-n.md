@@ -1,6 +1,6 @@
 # T218 — SNES: cartridges with a DSP-n coprocessor (DSP-1/1B, DSP-2, DSP-3, DSP-4) run, the firmware comes from the SD card
 
-**Status:** DECIDED (2026-11-13).
+**Status:** DECIDED (2026-11-13). 2026-11-15 sync: BUILT and merged to main (c982d8392; `snes_sys.vhd:140` `USE_DSPn => '1'`, `snes.cc:83` setting, `ci/sims.txt:231` bench `snes_dsp`). Not recorded anywhere: the pipeline's area/timing result (S6), the app-test pass (S1-S4, S7), any board pass (S1/S2/S4 with real firmware); S4 for DSP-2/3/4 has no game owned.
 **Repo:** TRX64U-MultiCore — `cores/snes` (gateware, glue, sim), `coreapp/cores/snes*.{cc,h}` (loader), `tools/snes_gen.py`, manual 11.15 and 12.2.
 **Number:** T218 (registry: the table in `TODO.md`).
 **Origin:** GitHub issue #85 "Add DSP-n coprocessor to SNES core" (Super Mario Kart is refused with the chip message). Alex, 2026-11-13: "Gut. Todo+spec+bauen." (translated, accepting the proposal D1-D3 below).

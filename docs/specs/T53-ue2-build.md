@@ -1,6 +1,6 @@
 # T53 — Ultimate 64 Elite II (XC7A100T) build
 
-**Status:** placeholder (Alex, 2026-11-01: "that is only a placeholder until we know the 100T geometry ... that only comes with the C77 board, which comes out from February or so"): stage `bit-ue2` stays; no board has a 100T yet. Spec 2026-10-03, branch `t53-ue2` (on top of `t31-ci`). **Task:** TODO.md T53 (M1, RC item).
+**Status:** placeholder (Alex, 2026-11-01: "that is only a placeholder until we know the 100T geometry ... that only comes with the C77 board, which comes out from February or so"): stage `bit-ue2` stays; no board has a 100T yet. **2026-11-15 sync:** the stage still exists, but in this repository it builds the host, not `designs/c64_basic` (which is not here): `ci/bitstream.sh ue2` (part xc7a100tfgg484-1, `_100t` files, on dispatch with ue2, tag or release/* branch, `ci/children.txt:28`); §1 and §2 describe the old monolith build and are history. Spec body records the task as dropped (Alex 2026-10-04, ADR-0015) and TODO.md has no T53 row. Spec 2026-10-03, branch `t53-ue2` (on top of `t31-ci`). **Task:** TODO.md T53 (M1, RC item).
 **Shares with:** T31 (the pipeline stage `bit-ue2`), T49 (the update package carries both bitstreams),
 T15 (boot ROM picks the app address by FPGA type), T50 (updater picks the bitstream).
 Evidence: Gideon's public constraints (GitHub issue 615, copy in the tools fork `pinmap/c64u_gideon_issue615.xdc`),

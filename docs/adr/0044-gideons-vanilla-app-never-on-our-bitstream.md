@@ -18,5 +18,5 @@ No tests, no compatibility work for the vanilla app on our core; the reverse (ou
 
 ## Links
 
-- [T60](../../docs/specs/T60-reu-16mb.md#status-and-history)
-- [T57](../../docs/specs/T57-trex-crt-both-cores.md#status-and-history)
+- [T60](../specs/README.md#belonged-to-trx64-ultimate)
+- [T57](../specs/README.md#belonged-to-trx64-ultimate)

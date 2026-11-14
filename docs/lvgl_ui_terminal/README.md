@@ -50,6 +50,6 @@ Both prototypes share the full matrix and automation rules in
 ## Scope
 
 This is still a presentation prototype. Step 2 binds both variants to the same
-adapters described in [`../specs/T24-ui-wiring.md`](../specs/T24-ui-wiring.md).
+adapters described in [`T24-ui-wiring.md` (TRX64-Ultimate)](../specs/README.md#belonged-to-trx64-ultimate).
 The authoritative menu coverage remains in the primary prototype's
 [`UI-COVERAGE.md`](../lvgl_ui_project/UI-COVERAGE.md).
