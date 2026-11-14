@@ -76,5 +76,31 @@ base = ch.normalise("t.v", src.encode())
 code_chars = [i for i, c in enumerate(src) if i < src.index("// c") and c.isalnum()] + [src.index("x//y")]
 bad = [i for i in code_chars if ch.normalise("t.v", (src[:i] + "~" + src[i + 1:]).encode()) == base]
 check("f mutation of code characters always changes the hash (%d tried)" % len(code_chars), not bad)
+# (g) synthesis pragmas are semantic: never cut, moving or removing one moves the hash
+VP = "a <= b;\n--synthesis translate_off\nreport \"x\";\n--synthesis translate_on\nc <= d;\n"
+check("g vhdl: pragma removed", not same("a.vhd", VP, VP.replace("--synthesis translate_off\n", "")))
+check("g vhdl: pragma moved", not same("a.vhd", VP, "a <= b;\n--synthesis translate_off\n--synthesis translate_on\nreport \"x\";\nc <= d;\n"))
+check("g vhdl: pragma added", not same("a.vhd", "a <= b;\nc <= d;\n", VP.replace('report "x";\n', "")))
+check("g vhdl: pragma text edited (off -> on)", not same("a.vhd", VP, VP.replace("translate_off", "translate_on")))
+check("g vhdl: plain comment around a pragma still cut", same("a.vhd", VP, "-- hello\n" + VP.replace("c <= d;", "c <= d; -- t")))
+check("g verilog: // synthesis keep", not same("t.v", "wire a; // synthesis keep\n", "wire a;\n"))
+check("g verilog: // synopsys translate_off", not same("t.v", "// synopsys translate_off\nwire a;\n", "wire a;\n"))
+check("g verilog: /* synthesis */ block", not same("t.v", "wire a /* synthesis keep */;\n", "wire a;\n"))
+check("g verilog: case-insensitive", not same("t.v", "// SYNTHESIS translate_off\nwire a;\n", "wire a;\n"))
+check("g verilog: plain comment still cut", same("t.v", "wire a; // fanout\n", "wire a;\n"))
+check("g c: #pragma stays code, // pragma-comment kept", not same("m.c", "int x; // pragma foo\n", "int x;\n"))
+if os.path.exists(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "cores/c264/rtl/src/t65/T65_ALU.vhd")):
+    alu = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "cores/c264/rtl/src/t65/T65_ALU.vhd"), "rb").read().decode("latin-1")
+    check("g T65_ALU.vhd: a translate_off line removed moves the hash", not same("T65_ALU.vhd", alu, re.sub(r"--synthesis translate_off\r?\n", "", alu, count=1)))
+    check("g T65_ALU.vhd: a translate_on line removed moves the hash", not same("T65_ALU.vhd", alu, re.sub(r"--synthesis translate_on\r?\n", "", alu, count=1)))
+    check("g T65_ALU.vhd: a plain comment line added is the same", same("T65_ALU.vhd", alu, "-- a new remark\n" + alu))
+# (h) whitespace inside multi-line literals is data
+check("h sh: blank line in a heredoc", not same("r.sh", "cat <<E\na\n\nb\nE\n", "cat <<E\na\nb\nE\n"))
+check("h sh: trailing blank in a heredoc", not same("r.sh", "cat <<E\na  \nE\n", "cat <<E\na\nE\n"))
+check("h py: blank line in a triple-quoted string", not same("t.py", 'x = """a\n\nb"""\n', 'x = """a\nb"""\n'))
+check("h py: trailing blank in a triple-quoted string", not same("t.py", 'x = """a  \nb"""\n', 'x = """a\nb"""\n'))
+check("h toml: blank line in a multi-line string", not same("c.toml", 'a = """x\n\ny"""\n', 'a = """x\ny"""\n'))
+check("h sh: comment lines around a heredoc still cut", same("r.sh", "cat <<E\na\n\nb\nE\n", "# c\ncat <<E\na\n\nb\nE\n# d\n"))
+check("h sh: comment next to blank lines", same("r.sh", "a\n\nb\n", "a\n# c\n\nb # t\n"))
 print("%d failed" % len(fails))
 sys.exit(1 if fails else 0)

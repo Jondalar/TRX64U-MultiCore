@@ -12,7 +12,8 @@ both call this file, so they cannot drift.
 CODE_HASH=raw in the environment turns normalising off (the key function as it was before T215; ci/key_alias.sh pairs old and new keys with it).
 
 Normalising (T215 D2, Alex: tree-sitter): every comment node of the parse is cut out (tree-sitter + tree-sitter-language-pack, exact versions in
-ci/codehash-requirements.txt: they decide the hash), trailing whitespace and blank lines dropped, indentation untouched. A file of an unknown type is
+ci/codehash-requirements.txt: they decide the hash), trailing whitespace and blank lines dropped (C-like and HDL; in python/bash/toml/tcl only on lines that carried a comment, a literal may span lines),
+indentation untouched. A comment with a tool directive (synthesis, translate_off, pragma, lint_off, verilator ...) is kept. A file of an unknown type is
 hashed as it is. A parse with error nodes (the Verilog grammar has them on much real code) still yields the comments as lexer tokens; the cut is
 checked: the text without comments must parse to the very same non-comment tokens, else the file is hashed raw and the line is logged."""
 import hashlib, os, re, subprocess, sys
@@ -38,22 +39,38 @@ def lang_of(path):
     return PARSER_FOR.get(os.path.splitext(path)[1].lower())
 
 
+def _die(msg):
+    sys.stderr.write("code_hash: %s\n" % msg)
+    sys.exit(2)
+
+
 def _parser(lang):
     if lang not in _parsers:
         try:
             import tree_sitter_language_pack as tslp
         except ImportError:
-            raise SystemExit("code_hash: tree-sitter-language-pack is not installed (ci/codehash-requirements.txt, ci/install_codehash.sh)")
+            _die("tree-sitter-language-pack is not installed (ci/codehash-requirements.txt, ci/install_codehash.sh)")
+        # never a download at run time: a grammar fetched on one machine and not on another would give the two different keys
+        if lang not in tslp.downloaded_languages():
+            _die("grammar %r is not in the local cache dir %s (ci/install_codehash.sh puts it there; no download at run time)"
+                 % (lang, os.environ.get("TREE_SITTER_LANGUAGE_PACK_CACHE_DIR", "default")))
         _parsers[lang] = tslp.get_parser(lang)
     return _parsers[lang]
 
 
+# A comment that carries a tool directive is semantic (`-- synthesis translate_off` hides code from the synthesiser, `// synthesis keep` keeps a
+# net): it is a token like any other and never cut. A plain comment that merely mentions one of these words is kept too - the safe side.
+_PRAGMA = re.compile(rb"synthesis|synopsys|pragma|translate_(?:off|on)|xilinx|rtl_synthesis|synplify|altera|lint_off|lint_on|verilator", re.I)
+
+
 def _scan(root):
-    """(comment byte ranges, the text of every other leaf in order). A shebang is no comment."""
+    """(comment byte ranges, the text of every other leaf in order; a pragma comment counts as a leaf). A shebang is no comment."""
     com, leaves, stack = [], [], [root]
     while stack:
         n = stack.pop()
-        if "comment" in n.type:
+        if "comment" in n.type and _PRAGMA.search(n.text):
+            leaves.append(n.text)
+        elif "comment" in n.type:
             com.append((n.start_byte, n.end_byte))
         elif n.child_count == 0:
             leaves.append(n.text)
@@ -63,6 +80,7 @@ def _scan(root):
 
 
 _CLIKE = ("verilog", "vhdl", "c", "cpp")
+_STRICT = ("python", "bash", "toml", "tcl")
 _CHAR_C = re.compile(rb"'(?:\\.[^']{0,6}|[^\\'])'")
 _CHAR_VHDL = re.compile(rb"'[^']'")
 
@@ -122,6 +140,21 @@ def normalise(path, data):
     if leaves2 != leaves or any(not (a == 0 and cut.startswith(b"#!")) for a, b in com2):
         sys.stderr.write("code_hash: %s: the text without its comments does not parse to the same tokens, hashed raw\n" % path)
         return data
+    if lang in _STRICT:
+        # a literal of these languages may span lines (heredoc, triple quotes, Tcl braces): a blank line or a trailing blank inside it is data. Their
+        # comments are one line each, so only a line that carried a comment is cleaned up (and dropped when nothing is left); every other line stays.
+        cl = {data.count(b"\n", 0, a) for a, b in com}
+        src = cut.replace(b"\r\n", b"\n")
+        if src.endswith(b"\n"):
+            src = src[:-1]
+        lines = []
+        for i, l in enumerate(src.split(b"\n")):
+            if i in cl:
+                l = l.rstrip()
+                if not l:
+                    continue
+            lines.append(l)
+        return b"\n".join(lines) + b"\n" if lines else b""
     lines = [l.rstrip() for l in cut.replace(b"\r\n", b"\n").split(b"\n")]
     lines = [l for l in lines if l]
     return b"\n".join(lines) + b"\n" if lines else b""

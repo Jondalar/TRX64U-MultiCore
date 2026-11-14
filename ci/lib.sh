@@ -87,7 +87,10 @@ branch_slug() { printf '%s' "${GITHUB_REF_NAME:-$(git -C "$ROOT" rev-parse --abb
 # that leaves these files alone gets the same key.
 tree_key() {
   python3 "$ROOT/ci/code_hash.py" check >&2 || return 1
-  {
+  # the body goes to a file first, in a subshell with pipefail: a failing index / sha256 stage fails the key, it never yields a key from fewer lines
+  local body; body="$(mktemp)"
+  (
+    set -eo pipefail
     # a core's logo (cores/<id>/logo/, T114) is a picture for the boot menu, not gateware: it never moves a key
     git -C "$ROOT" ls-files -s -- "$@" ':(exclude,glob)cores/*/logo/**' | (cd "$ROOT" && python3 ci/code_hash.py index)
     if [ -d "$ROOT/vendor/gideon" ]; then
@@ -99,7 +102,9 @@ tree_key() {
                         ls vendor/gideon/LICENSE.txt vendor/gideon/software/io/usb/nano_minimal.nan vendor/gideon/software/portable/riscv/bootloader_u64ii.c vendor/gideon/tools/parse_nano.py; } | LC_ALL=C sort | xargs python3 ci/code_hash.py sha256)
     fi
     printf '%s\n' "${KEY_EXTRA:-}"
-  } | sha256sum | cut -c1-16
+  ) > "$body" || { rm -f "$body"; echo "tree_key: a stage failed, no key" >&2; return 1; }
+  sha256sum < "$body" | cut -c1-16
+  rm -f "$body"
 }
 
 # files_key <pathspec...>: 16 hex digits over the CONTENT (working tree, so an
@@ -121,11 +126,14 @@ files_key() {
   list="$(mktemp)"; names="$(mktemp)"
   git -C "$ROOT" ls-files -s -- "$@" > "$list"
   awk -F'\t' '{ split($1, a, " "); if (a[1] != "160000") print $2 }' "$list" > "$names"
-  {
+  local body; body="$(mktemp)"
+  (
+    set -eo pipefail
     awk -F'\t' '{ split($1, a, " "); if (a[1] == "160000") print "submodule", a[2], $2 }' "$list"
     (cd "$ROOT" && python3 ci/code_hash.py hash-paths < "$names") | paste -d' ' - "$names"
-  } | sha256sum | cut -c1-16
-  rm -f "$list" "$names"
+  ) > "$body" || { rm -f "$list" "$names" "$body"; echo "files_key: a stage failed, no key" >&2; return 1; }
+  sha256sum < "$body" | cut -c1-16
+  rm -f "$list" "$names" "$body"
 }
 
 # tool_versions: the first version line of each simulator on PATH, on one line.

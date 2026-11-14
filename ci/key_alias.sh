@@ -2,7 +2,7 @@
 # T215 D3: one-time migration of the bitstream cache to the normalised keys (ci/code_hash.py). Run on the builder, in a checkout of the commit that
 # carries T215 BEFORE its first push, with the cache mounted. For every entry the tree has today (host, core:<id>, mono-<id>, aux) it computes
 # the key as it was (CODE_HASH=raw) and as it is now; where an entry of the old key exists and the new one does not, it copies it under the new name
-# (a copy, not a link: cache_gc and the pins stay per entry). Nothing is built, nothing deleted; run it again at will.
+# (a copy without its pins/, not a link: cache_gc works per entry). Nothing is built, nothing deleted; run it again at will.
 #   ci/key_alias.sh [part]          CI_BIT_CACHE (default /cache/multicore/bit)
 # Test caches (apptests-ok, render-ok, sims-ok, trxapps) are not migrated: they are cheap and re-run once.
 set -euo pipefail
@@ -31,8 +31,12 @@ n=0
 for i in "${!old[@]}"; do
   if [ "${old[$i]}" = "${new[$i]}" ]; then echo "same      ${new[$i]}"; continue; fi
   if [ -f "$cache/${new[$i]}/DONE" ]; then echo "present   ${new[$i]}"; continue; fi
+  if [ -e "$cache/${new[$i]}" ]; then echo "PARTIAL   ${new[$i]} exists without DONE: skipped, look at it by hand (nothing removed)"; continue; fi
   if [ -f "$cache/${old[$i]}/DONE" ]; then
-    cp -R "$cache/${old[$i]}" "$cache/${new[$i]}.tmp.$$" && rm -rf "$cache/${new[$i]}" && mv "$cache/${new[$i]}.tmp.$$" "$cache/${new[$i]}"
+    # pins/ is not copied: every run that uses an entry re-pins it (pin_entry, ci/lib.sh) and the janitor (ci/cache_gc.py) reads pins per entry;
+    # a copied pin would keep the new entry alive for a branch that may already be gone, and the old entry keeps its own pins until it ages out
+    tmp="$cache/${new[$i]}.tmp.$$"; rm -rf "$tmp"
+    cp -R "$cache/${old[$i]}" "$tmp" && rm -rf "$tmp/pins" && mv "$tmp" "$cache/${new[$i]}"
     echo "migrated  ${old[$i]} -> ${new[$i]}"; n=$((n + 1))
   else echo "no entry  ${old[$i]} (builds as before)"; fi
 done
