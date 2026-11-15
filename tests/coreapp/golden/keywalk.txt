@@ -1477,40 +1477,40 @@ Amiga (OCS/ECS, 68000) F3/browse s13 59 a802dfe5
 Amiga (OCS/ECS, 68000) F3/browse s14 59 a802dfe5
 Amiga (OCS/ECS, 68000) F3/browse s15 59 987c8a11
 Amiga (OCS/ECS, 68000) F3/browse s16 59 49524f02
-Amiga (OCS/ECS, 68000) F5/settings s0 59 a97971ed
-Amiga (OCS/ECS, 68000) F5/settings s1 59 635f1c62
-Amiga (OCS/ECS, 68000) F5/settings s2 59 2274386f
-Amiga (OCS/ECS, 68000) F5/settings s3 59 da8ab236
-Amiga (OCS/ECS, 68000) F5/settings s4 59 da8ab236
-Amiga (OCS/ECS, 68000) F5/settings s5 59 d4dd03f1
-Amiga (OCS/ECS, 68000) F5/settings s6 59 da8ab236
-Amiga (OCS/ECS, 68000) F5/settings s7 59 db0d5383
-Amiga (OCS/ECS, 68000) F5/settings s8 59 68b69b97
-Amiga (OCS/ECS, 68000) F5/settings s9 59 ef9451b3
-Amiga (OCS/ECS, 68000) F5/settings s10 59 4ed443bd
-Amiga (OCS/ECS, 68000) F5/settings s11 59 f5d3f284
-Amiga (OCS/ECS, 68000) F5/settings s12 59 eee9069c
-Amiga (OCS/ECS, 68000) F5/settings s13 59 2adf5efd
-Amiga (OCS/ECS, 68000) F5/settings s14 59 855729ef
-Amiga (OCS/ECS, 68000) F5/settings s15 59 a99203c5
-Amiga (OCS/ECS, 68000) F5/settings s16 59 5f4a4f31
-Amiga (OCS/ECS, 68000) F5/input s0 59 15a8eea5
-Amiga (OCS/ECS, 68000) F5/input s1 59 d8f4ed72
-Amiga (OCS/ECS, 68000) F5/input s2 59 80534381
-Amiga (OCS/ECS, 68000) F5/input s3 59 e6e13e51
-Amiga (OCS/ECS, 68000) F5/input s4 59 e4b9f56b
-Amiga (OCS/ECS, 68000) F5/input s5 59 43c4e7b0
-Amiga (OCS/ECS, 68000) F5/input s6 59 b2a60c5a
-Amiga (OCS/ECS, 68000) F5/input s7 59 3e889d05
-Amiga (OCS/ECS, 68000) F5/input s8 59 67f37ba6
-Amiga (OCS/ECS, 68000) F5/input s9 59 be59bfc6
-Amiga (OCS/ECS, 68000) F5/input s10 59 ae420dc6
-Amiga (OCS/ECS, 68000) F5/input s11 59 03b33554
-Amiga (OCS/ECS, 68000) F5/input s12 59 8b477678
-Amiga (OCS/ECS, 68000) F5/input s13 59 e7dcd01b
-Amiga (OCS/ECS, 68000) F5/input s14 59 1c64deab
-Amiga (OCS/ECS, 68000) F5/input s15 59 0ea415a6
-Amiga (OCS/ECS, 68000) F5/input s16 59 20be187d
+Amiga (OCS/ECS, 68000) F5/settings s0 59 6e24d8d1
+Amiga (OCS/ECS, 68000) F5/settings s1 59 74b8b92c
+Amiga (OCS/ECS, 68000) F5/settings s2 59 7ea83617
+Amiga (OCS/ECS, 68000) F5/settings s3 59 c56b7310
+Amiga (OCS/ECS, 68000) F5/settings s4 59 c56b7310
+Amiga (OCS/ECS, 68000) F5/settings s5 59 21086d74
+Amiga (OCS/ECS, 68000) F5/settings s6 59 c56b7310
+Amiga (OCS/ECS, 68000) F5/settings s7 59 c0e7aa10
+Amiga (OCS/ECS, 68000) F5/settings s8 59 143be314
+Amiga (OCS/ECS, 68000) F5/settings s9 59 d1fceba8
+Amiga (OCS/ECS, 68000) F5/settings s10 59 b63b50a1
+Amiga (OCS/ECS, 68000) F5/settings s11 59 4f55cd71
+Amiga (OCS/ECS, 68000) F5/settings s12 59 e6b91797
+Amiga (OCS/ECS, 68000) F5/settings s13 59 b94933d9
+Amiga (OCS/ECS, 68000) F5/settings s14 59 6731b8ce
+Amiga (OCS/ECS, 68000) F5/settings s15 59 0d824827
+Amiga (OCS/ECS, 68000) F5/settings s16 59 304f7c72
+Amiga (OCS/ECS, 68000) F5/input s0 59 3f3b0d66
+Amiga (OCS/ECS, 68000) F5/input s1 59 46aa780d
+Amiga (OCS/ECS, 68000) F5/input s2 59 19cb1078
+Amiga (OCS/ECS, 68000) F5/input s3 59 e942b7f4
+Amiga (OCS/ECS, 68000) F5/input s4 59 cf6efd50
+Amiga (OCS/ECS, 68000) F5/input s5 59 21c9699a
+Amiga (OCS/ECS, 68000) F5/input s6 59 bee820a7
+Amiga (OCS/ECS, 68000) F5/input s7 59 1be245a0
+Amiga (OCS/ECS, 68000) F5/input s8 59 47249093
+Amiga (OCS/ECS, 68000) F5/input s9 59 b8079f9b
+Amiga (OCS/ECS, 68000) F5/input s10 59 3f3b0d66
+Amiga (OCS/ECS, 68000) F5/input s11 59 b3419f8a
+Amiga (OCS/ECS, 68000) F5/input s12 59 b3419f8a
+Amiga (OCS/ECS, 68000) F5/input s13 59 b3419f8a
+Amiga (OCS/ECS, 68000) F5/input s14 59 b3419f8a
+Amiga (OCS/ECS, 68000) F5/input s15 59 f4d64225
+Amiga (OCS/ECS, 68000) F5/input s16 59 41bcea71
 Amiga (OCS/ECS, 68000) F7/quick s0 59 3058aec0
 Amiga (OCS/ECS, 68000) F7/quick s1 59 b94b1d18
 Amiga (OCS/ECS, 68000) F7/quick s2 59 f2988a76
@@ -1579,40 +1579,40 @@ Amiga 1200 (AGA, 68020) F3/browse s13 59 4e6fb959
 Amiga 1200 (AGA, 68020) F3/browse s14 59 4e6fb959
 Amiga 1200 (AGA, 68020) F3/browse s15 59 9e8b00c8
 Amiga 1200 (AGA, 68020) F3/browse s16 59 9f57936e
-Amiga 1200 (AGA, 68020) F5/settings s0 59 f0a41703
-Amiga 1200 (AGA, 68020) F5/settings s1 59 5408aecc
-Amiga 1200 (AGA, 68020) F5/settings s2 59 cbce5c33
-Amiga 1200 (AGA, 68020) F5/settings s3 59 c4e9a7d1
-Amiga 1200 (AGA, 68020) F5/settings s4 59 c4e9a7d1
-Amiga 1200 (AGA, 68020) F5/settings s5 59 d87d7c59
-Amiga 1200 (AGA, 68020) F5/settings s6 59 c4e9a7d1
-Amiga 1200 (AGA, 68020) F5/settings s7 59 36b22d59
-Amiga 1200 (AGA, 68020) F5/settings s8 59 f30b0031
-Amiga 1200 (AGA, 68020) F5/settings s9 59 4bf36b73
-Amiga 1200 (AGA, 68020) F5/settings s10 59 b0033d57
-Amiga 1200 (AGA, 68020) F5/settings s11 59 1e2e6817
-Amiga 1200 (AGA, 68020) F5/settings s12 59 06a63c09
-Amiga 1200 (AGA, 68020) F5/settings s13 59 facee67e
-Amiga 1200 (AGA, 68020) F5/settings s14 59 97ade692
-Amiga 1200 (AGA, 68020) F5/settings s15 59 6a11c50f
-Amiga 1200 (AGA, 68020) F5/settings s16 59 9241133c
-Amiga 1200 (AGA, 68020) F5/input s0 59 f7d20c5d
-Amiga 1200 (AGA, 68020) F5/input s1 59 dddd942e
-Amiga 1200 (AGA, 68020) F5/input s2 59 f71b2fda
-Amiga 1200 (AGA, 68020) F5/input s3 59 b80c9e18
-Amiga 1200 (AGA, 68020) F5/input s4 59 fdf00cab
-Amiga 1200 (AGA, 68020) F5/input s5 59 d6930e3a
-Amiga 1200 (AGA, 68020) F5/input s6 59 47e9090a
-Amiga 1200 (AGA, 68020) F5/input s7 59 d0b1f8c3
-Amiga 1200 (AGA, 68020) F5/input s8 59 581d831e
-Amiga 1200 (AGA, 68020) F5/input s9 59 50cfe51d
-Amiga 1200 (AGA, 68020) F5/input s10 59 626c90e2
-Amiga 1200 (AGA, 68020) F5/input s11 59 db1d5d24
-Amiga 1200 (AGA, 68020) F5/input s12 59 77f70d8b
-Amiga 1200 (AGA, 68020) F5/input s13 59 d11afabf
-Amiga 1200 (AGA, 68020) F5/input s14 59 74a3c9d8
-Amiga 1200 (AGA, 68020) F5/input s15 59 9431b556
-Amiga 1200 (AGA, 68020) F5/input s16 59 b0fa71db
+Amiga 1200 (AGA, 68020) F5/settings s0 59 deb6b63b
+Amiga 1200 (AGA, 68020) F5/settings s1 59 d021a62a
+Amiga 1200 (AGA, 68020) F5/settings s2 59 18a08034
+Amiga 1200 (AGA, 68020) F5/settings s3 59 226fe047
+Amiga 1200 (AGA, 68020) F5/settings s4 59 226fe047
+Amiga 1200 (AGA, 68020) F5/settings s5 59 5786ed48
+Amiga 1200 (AGA, 68020) F5/settings s6 59 226fe047
+Amiga 1200 (AGA, 68020) F5/settings s7 59 30b30b71
+Amiga 1200 (AGA, 68020) F5/settings s8 59 c56420c9
+Amiga 1200 (AGA, 68020) F5/settings s9 59 7d11cc22
+Amiga 1200 (AGA, 68020) F5/settings s10 59 559f77ef
+Amiga 1200 (AGA, 68020) F5/settings s11 59 19b8d12e
+Amiga 1200 (AGA, 68020) F5/settings s12 59 2d103f12
+Amiga 1200 (AGA, 68020) F5/settings s13 59 54e57269
+Amiga 1200 (AGA, 68020) F5/settings s14 59 0a7c3c92
+Amiga 1200 (AGA, 68020) F5/settings s15 59 09bebcf5
+Amiga 1200 (AGA, 68020) F5/settings s16 59 1959b3af
+Amiga 1200 (AGA, 68020) F5/input s0 59 c29410e4
+Amiga 1200 (AGA, 68020) F5/input s1 59 6a5f71eb
+Amiga 1200 (AGA, 68020) F5/input s2 59 4fc6caf6
+Amiga 1200 (AGA, 68020) F5/input s3 59 2fbfc9d8
+Amiga 1200 (AGA, 68020) F5/input s4 59 7bc1b67b
+Amiga 1200 (AGA, 68020) F5/input s5 59 21c9699a
+Amiga 1200 (AGA, 68020) F5/input s6 59 51848b64
+Amiga 1200 (AGA, 68020) F5/input s7 59 b874a5a2
+Amiga 1200 (AGA, 68020) F5/input s8 59 815a2b8d
+Amiga 1200 (AGA, 68020) F5/input s9 59 44a1be57
+Amiga 1200 (AGA, 68020) F5/input s10 59 c29410e4
+Amiga 1200 (AGA, 68020) F5/input s11 59 b3419f8a
+Amiga 1200 (AGA, 68020) F5/input s12 59 b3419f8a
+Amiga 1200 (AGA, 68020) F5/input s13 59 b3419f8a
+Amiga 1200 (AGA, 68020) F5/input s14 59 b3419f8a
+Amiga 1200 (AGA, 68020) F5/input s15 59 f53c018f
+Amiga 1200 (AGA, 68020) F5/input s16 59 bcc90315
 Amiga 1200 (AGA, 68020) F7/quick s0 59 dcb2ef16
 Amiga 1200 (AGA, 68020) F7/quick s1 59 bc07f720
 Amiga 1200 (AGA, 68020) F7/quick s2 59 030fcdc1
