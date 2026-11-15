@@ -74,3 +74,11 @@ Measure first (S0), then horizontal only. Vertical blending is not part of this 
   `smooth_apply` writes 0x4F0B on that path, the frame-buffer path is untouched. `picture_start` applies the stored value through `smooth_apply`.
   Picture proof: ue2emu has no c64scpu profile (`tests/coreapp/emu/profiles`: amiga1200, atari800, c128, nes, pet, vc20) and no 0x4F0x status emulation, so no
   picture of the c64scpu Video tab was made.
+- **Run 1994 timing failure 2026-11-15** (c64scpu, no bitstream; builder `runs/parent-1994.red/vivado-large-c64scpu/child.log`, no timing report was kept, only the log):
+  post-route WNS -3.099 ns, after phys_opt -2.778 ns (run 1965: +0.004). Path groups named by phys_opt: `pix_mmcm` (6.667 ns period; net
+  `hout/scaler/p_1_in[1]_repN`, the scaler's registers) is the worst; `sid2x_mmcm` (65816 CPU, `cpu_0/cpu/s816_addrgen`) improves only to -0.547. The exact path
+  (source/destination/levels) is not in the log. Cause read from the code: `s1_f <= frac4(hd, hacc)` computed the remainder (add, compare, subtract) and the
+  case-of-constants divide `8 q / hd` in one 6.667 ns stage, with the `ce` enable. Fix (`vic_scaler.v`): two stages, `s1_q <= frac_q(hd, hacc)` and
+  `s2_f <= s1_sm ? frac_div(s1_d, s1_q) : 0`; same latency (the old `s1_f` stage is replaced by `s1_q`/`s1_d`), same values (iverilog check of all
+  (hd, hacc) pairs: 0 differences; yosys read clean). Unproven: the exact failing path (could also be `s0_half` -> `sx_sm` -> `s1_addr` or the DSP `s5_p*`
+  with only the P register), and the `sid2x_mmcm` -0.55 (65816 path, untouched by T227: placement disturbed by the scaler/SID2 changes); both need run 1995+.
