@@ -256,6 +256,10 @@ overlay was fitted from a 1280x800 manual picture, so its scale on the real 960x
 - D4 (Alex 2026-11-15, translated: "can the stupid SHIFTED go away"): the rail has no "SHIFTED" heading. The rail is generic, so this
   applies to every core's menu, not only trx64u.
 
+- D5 (Alex 2026-11-15, Q2b, after mock-ups c2 / a3): "Apps ... but not everything (!) the port belongs to F1, TRXCRT to Apps"
+  (translated): the cartridge PORT actions (mount, remove, save the cartridge in the port) stay at the cartridge port on F1; the
+  TRXCRT cartridge tools (dump, inspect, flash cartridge) are an app and go to the "Apps" tab of F7.
+
 ## §4 Out
 
 ## §5 Built
