@@ -82,7 +82,7 @@ controls (T174 D5.4) only where a flash/SD write is the point (S1, S8, S9).
   outside the checksum like `id_sum`/`time_sum`); nothing is written to the SD for it. An old core app ignores the field (plain start).
 - **D8 (Alex, 2026-11-10, Q6: "C"):** a core's default config is stored in its `boot.cfg` entry (D in the overlay writes it); the countdown
   and direct boot start that entry with its default config; RETURN on the row stays a plain start (D1).
-- **D9 (Alex, 2026-11-10, Q7: "A"):** RIGHT on a core row without configs does nothing (no badge, no hint there, mock-up (a)).
+- **D9 (Alex, 2026-11-10, Q7: "A"; changed by T224 D1, 2026-11-15: the overlay opens on every non-full core, it holds the rescue row):** RIGHT on a core row without configs does nothing (no badge, no hint there, mock-up (a)).
 - **D10 (Alex, 2026-11-10, Q8: "the folder is always made at the start, isn't it?" - yes: `corefolder_ensure`, `coreapp/src/corefolder.cc:117`,
   T148):** `configs/` lives in the core folder the core app makes at every start; only a read-only medium or a JTAG start without a .cor
   has none, and then there are no configs (no flash fallback). `corefolder_ensure` also makes `configs/`.
