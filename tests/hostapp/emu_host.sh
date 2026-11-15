@@ -69,7 +69,7 @@ else echo "FAIL host->vc20->menu->host: $why (see $out/flow.log)"; FAIL=1; fi
 # RETURN on a mode applies it. The emulator has no mode request register (hv_gateware() is false: "the old firmware path"), so the 8 s question and the
 # revert do not exist here: the render bench (tests/hostapp/render, picnote_*.png) is their proof.
 pic_flow() { printf 'wait 15000\nkey space\nwait 800\nkey f3\nwait 1500\nkey down\nwait 500\nkey down\nwait 500\nkey return\nwait 2000\n'
-             printf 'key down\nwait 500\nkey return\nwait 2000\nkey down\nwait 500\nkey down\nwait 6000\nkey a\nwait 8000\nkey f1\nwait 2000\npng %s/host-home.png\nkey f8\nwait 1500\npng %s/host-f8-list.png\nkey v\nwait 1500\npng %s/host-picture-page.png\n' "$out" "$out" "$out"
+             printf 'key down\nwait 500\nkey return\nwait 2000\nkey down\nwait 500\nkey down\nwait 6000\nkey a\nwait 8000\nkey f1\nwait 2000\npng %s/host-home.png\nkey pageup\nwait 1500\npng %s/host-pageup.png\nkey pagedown\nwait 1500\npng %s/host-pagedown.png\nkey f8\nwait 1500\npng %s/host-f8-list.png\nkey v\nwait 1500\npng %s/host-picture-page.png\n' "$out" "$out" "$out" "$out" "$out"
              printf 'key down\nwait 300\nkey return\nwait 4000\npng %s/host-picture-applied.png\nquit\n' "$out"; }
 run_pic() {
     local w="$out/work-pic"
@@ -92,6 +92,8 @@ else
     for n in $shots; do [ -s "$out/$n.png" ] && [ "$(wc -c < "$out/$n.png")" -gt 5000 ] || bad="$bad $n(missing)"; done
     # each step must change the screen: the list is not the home, the page is not the list, the applied picture is not the page
     prev=""; for n in $shots; do [ -z "$prev" ] || ! cmp -s "$out/$prev.png" "$out/$n.png" || bad="$bad $n(same as $prev)"; prev=$n; done
+    # T211 S3 (first half): the real Page Up / Page Down are page keys, not F1 / F7 - on the home screen they change nothing (what they do is open)
+    for n in host-pageup host-pagedown; do cmp -s "$out/host-home.png" "$out/$n.png" || bad="$bad $n(differs from host-home: a key was folded into F1/F7)"; done
     if [ -z "$bad" ]; then echo "PASS host picture flow: home, F8 list, Picture page, applied mode - four different screens (PNGs in $out)"
     else echo "FAIL host picture flow:$bad (see $out/pic.log)"; FAIL=1; fi
 fi
