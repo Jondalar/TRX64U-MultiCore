@@ -24,6 +24,7 @@ menu structures ... they differ strongly from the generic approach."
 - S1 UX design: the UX specialist maps every trx64u menu entry to the generic structure (keep / move / merge / drop), with ue2emu
   mock pictures; Alex decides entry by entry where it is not obvious.
 - S2 build: trx64u uses the generic menu; its own entries live where S1 decided; ue2emu pictures, ux-review PASS.
+- S2b Alex in ue2emu (D6): he drives the new menu himself in the emulator and approves it; only then S3.
 - S3 board: menu actions on trx64u respond like the other cores (no 2-3 s); every TRX64 function reachable.
 
 ## §3 Decision
@@ -259,6 +260,9 @@ overlay was fitted from a 1280x800 manual picture, so its scale on the real 960x
 - D5 (Alex 2026-11-15, Q2b, after mock-ups c2 / a3): "Apps ... but not everything (!) the port belongs to F1, TRXCRT to Apps"
   (translated): the cartridge PORT actions (mount, remove, save the cartridge in the port) stay at the cartridge port on F1; the
   TRXCRT cartridge tools (dump, inspect, flash cartridge) are an app and go to the "Apps" tab of F7.
+
+- D6 (Alex 2026-11-15, translated: "in any case I want to test it as a human in the emulator first, before it goes out"): after S2 is
+  built, Alex tries the new trx64u menu himself in ue2emu (S2b) before any board test, package or release.
 
 ## §4 Out
 
