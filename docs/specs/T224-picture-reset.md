@@ -39,6 +39,8 @@
 
 Not decided. P1: no code until Q1 is answered (the fix must follow a verified cause). P2: not built until Q2..Q5 are decided by Alex.
 
+- D1 (Alex 2026-11-15, Q2, after mock-ups h1a-c, translated: "I thought with the configs? RIGHT on the core and there is \"Boot safe graphics mode\" or so"): the rescue sits in the boot menu's config overlay (RIGHT on a core entry, T198), as an entry "Boot safe graphics mode". Options a-c of Q2 are replaced by this. What the entry does (this start only, or reset the stored settings) is asked next.
+
 ### Open questions for Alex (one at a time)
 
 1. **Q1 (P1):** Can you give me the serial/REST log of one failing A1200 start with `Picture=576p / 480p`? Without it the cause stays unproven. Fallback if you cannot: I add a start guard that is independent of the cause - if the stored Picture is not up 1 s after the request, the core app writes `Picture=Auto` to the cfg, says so in the splash, and goes on (a stall below the app would still not be cured by this).
