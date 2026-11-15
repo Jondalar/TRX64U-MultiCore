@@ -1,4 +1,4 @@
-// T180 #38 (GitHub #38, docs/specs/T180-media-housekeeping.md): the pieces under the F3 Library and the media picks that a FAT long name (up to 255 characters) goes through.
+// T180 #38 (GitHub #38, docs/specs/done/T180-media-housekeeping.md): the pieces under the F3 Library and the media picks that a FAT long name (up to 255 characters) goes through.
 // What the Library, the Amiga DF0 pick and the drive pick do with such a file is in test_f3.cc, test_media_mounts.cc and test_cbm1541.cc; here are the parts that have no screen:
 //  - fs_short_name: a name for a place that only shows it keeps its start and its end and says that it was cut,
 //  - the listing a caller with thousands of entries uses (CoreFs::list_short): 72 byte entries, the name cut at 55 characters and marked, the whole name kept by list(),

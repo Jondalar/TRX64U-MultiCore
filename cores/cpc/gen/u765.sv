@@ -1,5 +1,6 @@
-// T92 D3: cores/cpc/rtl/u765/u765.sv with one change made by tools/cpc_gen.py (the initialiser of `logical_size` in SECTOR_SIZE is an
-// assignment per call). Everything else, the licence header included, is the upstream file. Do not edit.
+// T92 D3: cores/cpc/rtl/u765/u765.sv with two changes made by tools/cpc_gen.py (the initialiser of `logical_size` in SECTOR_SIZE is an
+// assignment per call; T92 #17: a new image event releases the scan lock its drive's running scan held). Everything else, the licence header
+// included, is the upstream file. Do not edit.
 // ====================================================================
 //
 //  NEC upd765 FDC with EDSK-based floppy drive
@@ -383,6 +384,7 @@ always @(posedge clk_sys) begin : fdc
 			image_wp[i] <= img_wp;
 			image_size[i] <= img_size;
 			image_scan_state[i] <= {1'b0, |img_size};
+			if (image_scan_state[i] >= 2'd2) i_scan_lock <= 0; // T92 #17: this drive's running scan held the lock
 			image_ready[i] <= 0;
 			disk_changed[i] <= 1;
 			int_state[i] <= 0;

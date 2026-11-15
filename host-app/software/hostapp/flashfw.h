@@ -1,7 +1,7 @@
 // The firmware flash layer (T137 D4; the MultiCore update of T152 builds on it, T152 D2): check before the first erase, the write, the read-back.
 // Pure code over the Ultimate application's `Flash` class. The layer does not decide WHO may be written (fwrestore.cc does for a restore); it
 // guarantees the order: an image exists only after fw_image_seal() was handed a package whose checks passed, and fw_write() refuses an unsealed
-// image before it touches the chip. docs/specs/T137-host-convert-and-restore.md is the description; the code is the check.
+// image before it touches the chip. docs/specs/done/T137-host-convert-and-restore.md is the description; the code is the check.
 #ifndef HOST_FLASHFW_H
 #define HOST_FLASHFW_H
 

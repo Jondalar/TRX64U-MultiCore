@@ -16,11 +16,17 @@ struct Model {
     int waited_ms = 0;
     int writes = 0;
     uint8_t last_req = 0xFF;
+    uint8_t scale = 1;              // T222: the scale in use (0x4F0A), written at 0x4F01
+    int scale_delay = 2;            // reads of 0x4F0A before a written scale shows
+    int scale_polls = 0;
+    uint8_t scale_pend = 1;
+    int scale_writes = 0;
 };
 static Model M;
 
 static void wr(uint32_t off, uint8_t v)
 {
+    if (off == GW_SCALE) { M.scale_writes++; M.scale_pend = v; M.scale_polls = 0; return; }
     if (off == GW_REQ) {
         M.writes++;
         M.last_req = v;
@@ -39,6 +45,7 @@ static uint8_t rd(uint32_t off)
 {
     if (off == GW_MAGIC_AT) return M.magic;
     if (off == GW_VERSION_AT) return M.version;
+    if (off == GW_SCALE_AT) { if (++M.scale_polls > M.scale_delay) M.scale = M.scale_pend; return M.scale; }
     if (off == GW_SEEN_AT) return M.seen;
     if (off == GW_DONE_AT) return M.done;
     if (off == GW_FLAGS_AT || off == GW_MODE_AT) {
@@ -120,6 +127,47 @@ int main()
     // an absent gateware never reports a mode up
     fresh(); M.magic = 0;
     CHECK(!video_gw_apply_io(&io, VID_SYS_PAL50, VID_HDMI_720P, 100));
+
+    // ---- T222: the VIC scaler's gateware (version 2, the C64-type flag): the scale register and the rows it takes
+    {
+        GwStatus s = GwStatus();
+        s.present = true; s.version = 2; s.flags = GW_F_C64_TYPE | GW_F_RUNNING;
+        CHECK(video_gw_has_scale(s));
+        s.version = 1;                                                              // the host's generic mode_req: no scale register
+        CHECK(!video_gw_has_scale(s));
+        s.version = 2; s.flags = GW_F_RUNNING;                                      // version 2 without the flag
+        CHECK(!video_gw_has_scale(s));
+        s.flags = GW_F_C64_TYPE; s.present = false;
+        CHECK(!video_gw_has_scale(s));
+        s.present = true; s.version = 2;
+        CHECK_EQ(video_gw_row_for(s, VID_SYS_NTSC60, VID_HDMI_1024x768), 9);        // 800 x 600 at 60 Hz
+        CHECK_EQ(video_gw_row_for(s, VID_SYS_NTSC60, VID_HDMI_1280x1024), 9);
+        CHECK_EQ(video_gw_row_for(s, VID_SYS_NTSC60, VID_HDMI_800x600), 9);
+        CHECK_EQ(video_gw_row_for(s, VID_SYS_NTSC60, VID_HDMI_1080P), 8);
+        CHECK_EQ(video_gw_row_for(s, VID_SYS_PAL50, VID_HDMI_800x600), 0);          // no 50 Hz PC row: 576p
+        CHECK_EQ(video_gw_row_for(s, VID_SYS_PAL50, VID_HDMI_1280x1024), 0);
+        CHECK_EQ(video_gw_row_for(s, VID_SYS_PAL50, VID_HDMI_720P), 1);
+        CHECK_EQ(video_gw_row_for(s, VID_SYS_NTSC60, VID_HDMI_480_576), 6);
+        CHECK_EQ(video_gw_row_for(s, VID_SYS_PAL60, VID_HDMI_1080P), 8);            // T222: PAL-60 runs the 60 Hz row, the gateware reports 8 back
+        s.version = 1; s.flags = 0;                                                 // any other gateware: the plain index
+        CHECK_EQ(video_gw_row_for(s, VID_SYS_NTSC60, VID_HDMI_1280x1024), 11);
+        CHECK_EQ(video_gw_row_for(s, VID_SYS_PAL50, VID_HDMI_800x600), 3);
+        // the apply goes through the mapping: 1280 x 1024 at 60 Hz writes row 9 and comes up
+        fresh(); M.version = 2; M.flags = GW_F_GT_READY | GW_F_C64_TYPE; M.up_flags = GW_F_GT_READY | GW_F_PIX_LOCKED | GW_F_RUNNING | GW_F_C64_TYPE;
+        CHECK(video_gw_apply_io(&io, VID_SYS_NTSC60, VID_HDMI_1280x1024, 1000));
+        CHECK_EQ(M.last_req, 9);
+        // the scale: written once, read back from 0x4F0A, a value that is no scale is not written
+        fresh();
+        CHECK(video_gw_set_scale_io(&io, VID_SCALE_FILL, GW_SCALE_TIMEOUT_MS));
+        CHECK_EQ(M.scale, 2);
+        CHECK_EQ(M.scale_writes, 1);
+        CHECK(!video_gw_set_scale_io(&io, 3, GW_SCALE_TIMEOUT_MS));
+        CHECK(!video_gw_set_scale_io(&io, -1, GW_SCALE_TIMEOUT_MS));
+        CHECK_EQ(M.scale_writes, 1);
+        fresh(); M.scale_delay = 1000;                                              // never shows: gives up after the timeout
+        CHECK(!video_gw_set_scale_io(&io, VID_SCALE_INTEGER, 100));
+        CHECK(M.waited_ms >= 90 && M.waited_ms <= 110);
+    }
 
     DONE("gwstatus");
 }

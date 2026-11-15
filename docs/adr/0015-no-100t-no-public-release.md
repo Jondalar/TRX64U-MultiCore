@@ -18,7 +18,7 @@ T49 packages are 50T only for C64U and UE2 (same board and bitstream); the updat
 
 ## Links
 
-- [T53](../../docs/specs/T53-ue2-build.md#status-and-history)
+- [T53](../specs/T53-ue2-build.md#status-and-history)
 - [T49](../specs/done/T49-update-packages.md#status-and-history)
-- [docs/specs/T53-ue2-build.md](../../docs/specs/T53-ue2-build.md)
+- [docs/specs/T53-ue2-build.md](../specs/T53-ue2-build.md)
 - [docs/specs/done/T53-ue2-session-till.md](../specs/done/T53-ue2-session-till.md)

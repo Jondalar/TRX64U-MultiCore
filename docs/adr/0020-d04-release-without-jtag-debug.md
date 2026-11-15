@@ -20,6 +20,6 @@ T46 (release build switch) carries it; debugging a release board = dev bitstream
 
 ## Links
 
-- [T46](../../docs/todo/T46.md)
-- [docs/lut-budget.md](../../docs/lut-budget.md)
-- [docs/architecture-reset-2026-10-05.md](../../docs/architecture-reset-2026-10-05.md)
+- [T46](../todo/T46.md)
+- [docs/lut-budget.md](../lut-budget.md)
+- [docs/architecture-reset-2026-10-05.md](../architecture-reset-2026-10-05.md)

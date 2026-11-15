@@ -21,4 +21,4 @@ integ-m1 / integ-m1-app carry the merges; CI tier 2 also runs on integ-* branche
 ## Links
 
 - [T31](../specs/README.md#belonged-to-trx64-ultimate)
-- [docs/architecture-reset-2026-10-05.md](../../docs/architecture-reset-2026-10-05.md)
+- [docs/architecture-reset-2026-10-05.md](../architecture-reset-2026-10-05.md)

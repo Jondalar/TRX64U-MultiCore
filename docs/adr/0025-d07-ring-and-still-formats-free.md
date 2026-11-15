@@ -22,4 +22,4 @@ Formats can change; the exchange with TRX64 (.c64re, board snapshot with SID/dri
 
 - [T20](../specs/README.md#belonged-to-trx64-ultimate)
 - [T66](../specs/README.md#belonged-to-trx64-ultimate)
-- [docs/architecture-reset-2026-10-05.md](../../docs/architecture-reset-2026-10-05.md)
+- [docs/architecture-reset-2026-10-05.md](../architecture-reset-2026-10-05.md)

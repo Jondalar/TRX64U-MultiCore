@@ -22,4 +22,4 @@ Removed 2026-10-06 (app a13-no-dump-app 87050ca, a13-trace-app; the code is in g
 - [T20](../specs/README.md#belonged-to-trx64-ultimate)
 - [T21](../specs/README.md#belonged-to-trx64-ultimate)
 - [T20-delta-ring.md](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/T20-delta-ring.md)
-- [docs/done-audit-2026-10-04.md](../../docs/done-audit-2026-10-04.md)
+- [docs/done-audit-2026-10-04.md](../done-audit-2026-10-04.md)

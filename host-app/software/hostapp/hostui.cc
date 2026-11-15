@@ -178,8 +178,9 @@ static bool icon_c_ok[BOOT_MAX];
 static int icons_gen;                     // bumped when icon buffers are rewritten, so a row redraws its image
 #define MROWS_MAX 12
 #define MENU_ROW0 (COMPACT ? 66 : 76)
-#define MROWS (mrows_n)                         // rows that fit above the note and the countdown (T101 D4): 5 on the full canvas, from the height below it
+#define MROWS (mrows_n)                         // rows that fit above the note and the countdown (T101 D4): from the height below it, 9 on the full canvas (8 while the countdown line shows)
 static int mrows_n = 5, erows_n = 5;          // T209: the editor's panel above its list takes room: its list is shorter than the menu's
+static int mrows_full = 5, mrows_cd = 5;      // menu rows built = the count without the countdown line; mrows_cd = the count while the line shows
 #define EROWS (erows_n)
 static bool need_full = true;             // the render flag
 // T192 D21: the arm of a destructive row action that takes its key twice (DEL DEL in the editor and the browser, F F on the WiFi page) is the core's (host_core_nav.h:
@@ -1008,9 +1009,9 @@ static void fill_mrow(Row &r, int i)
 }
 
 // T209 D8 (Alex 2026-11-12): the editor row is the boot menu's row as it was before T209 (fcd8abd9a^1), copied, without the logo: the name (F_TEXT), under it the
-// path (F_SMALL), the version, the pictogram and the badges at the right (D16). Same row height (56) and pitch (62) as that row.
+// path (F_SMALL), the version, the pictogram and the badges at the right (D16). Same row height (56) as that row; the pitch is 60 so five rows fit above the status line on the full canvas.
 #define EROW_H 56
-#define EROW_P 62
+#define EROW_P 60
 #define EROW_TX 12                            // the text starts at 12 (no logo)
 static void build_erow(Row &r, lv_obj_t *par, int x, int y, int w, int h)
 {
@@ -1138,8 +1139,10 @@ static void cd_update(void)
     if (!t.visible) {
         lv_obj_add_flag(cd_label_obj, LV_OBJ_FLAG_HIDDEN);
         lv_obj_add_flag(cd_bar_obj, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(m_cdbox, LV_OBJ_FLAG_HIDDEN);     // the opaque box sits over the status line (CH - 26) while direct boot moves it down
         return;
     }
+    lv_obj_clear_flag(m_cdbox, LV_OBJ_FLAG_HIDDEN);
     lv_obj_clear_flag(cd_label_obj, LV_OBJ_FLAG_HIDDEN);
     lv_obj_clear_flag(cd_bar_obj, LV_OBJ_FLAG_HIDDEN);
     set_txt(cd_label_obj, t.text);
@@ -1192,11 +1195,11 @@ static void build_menu(void)
     m_pos = txt(p, CX0 + CW - 200, COMPACT ? 14 : 22, "", F_SMALL, C_MUTED, 200);      // T209: on the title's line, so the subtitle has the whole column
     lv_obj_set_style_text_align(m_pos, LV_TEXT_ALIGN_RIGHT, 0);
     m_hint = txt(p, CX0, 100, HC_NO_CORES_HINT, F_TEXT, C_MUTED);
-    for (int i = 0; i < MROWS; i++) {
+    for (int i = 0; i < mrows_full; i++) {
         build_mrow(mrow[i], p, CX0, MENU_ROW0 + i * LROW_P, CW, LROW_H);
     }
-    m_note = fit1(txt(p, CX0, CH - 74, "", F_SMALL, C_MUTED, CW), CW);
-    m_cdbox = box(p, CX0, CH - 44, CW, 32, C_BG, 0);
+    m_note = fit1(txt(p, CX0, CH - 26, "", F_SMALL, C_MUTED, CW), CW);      // menu_rows_sync moves it up while the countdown line shows
+    m_cdbox = box(p, CX0, CH - 34, CW, 30, C_BG, 0);
     cd_label_obj = fit1(txt(m_cdbox, 0, 0, "", F_SMALL, C_MUTED, CW), CW);
     cd_bar_obj = lv_bar_create(m_cdbox);
     lv_obj_set_pos(cd_bar_obj, 0, 22);
@@ -1224,8 +1227,25 @@ static void state_status(lv_obj_t *slot)
 }
 static void menu_status(void) { state_status(m_note); }
 
+// The countdown line (a second line under the status line) is there unless direct boot is on: with it the list holds one row less and the status line
+// moves up by its height; without it the status line sits on the pane's bottom edge above the key bar.
+static void menu_rows_sync(void)
+{
+    HcCountdownTexts t;
+    hc_countdown_texts(&t);
+    int want = t.visible ? mrows_cd : mrows_full;
+    if (m_note) {
+        lv_obj_set_y(m_note, t.visible ? CH - 56 : CH - 26);
+    }
+    if (want != mrows_n) {
+        mrows_n = want;
+        hc_nav_geometry(mrows_n, hc_nav_browse_rows(), hc_nav_cores_rows(), hc_nav_edit_rows());
+    }
+}
+
 static void update_menu(void)
 {
+    menu_rows_sync();
     int total = cfg.n;
     hc_nav_menu_first(total);
     HcMenuTexts t;
@@ -1235,7 +1255,11 @@ static void update_menu(void)
     set_txt(m_hint, t.hint);
     set_txt(m_sub, t.sub);
     set_txt(m_pos, t.pos);
-    for (int i = 0; i < MROWS; i++) {
+    for (int i = 0; i < mrows_full; i++) {
+        if (i >= MROWS) {
+            set_hidden(mrow[i].box, true);
+            continue;
+        }
         fill_mrow(mrow[i], nv.mfirst + i);
         if (nv.mfirst + i < total) {
             row_style(mrow[i], nv.mfirst + i == nv.sel);
@@ -1533,8 +1557,8 @@ static void fill_snapshot(WebSnapshot *w);
 // delete the files that belong to no core: ASK1 lists them and asks, ASK2 asks again; only Y answers yes, RETURN and every other key is No.
 enum { CMM_OFF = HCM_OFF, CMM_LIST = HCM_LIST, CMM_ASK1 = HCM_ASK1, CMM_ASK2 = HCM_ASK2 };
 #define CM_ROWS_MAX 24
-#define CM_ROWS (cm_rows_n)                    // 17 on the full canvas; the compact layout takes what its height holds
-static int cm_rows_n = 17;
+#define CM_ROWS (cm_rows_n)                    // layout_counts(): what the canvas height holds (22 on 960x540)
+static int cm_rows_n = 1;                      // set by layout_counts() before any view is built
 #define CM_LINE 112
 #define CM_LINES 200
 static lv_obj_t *cm_root, *cm_head, *cm_row[CM_ROWS_MAX], *cm_note;
@@ -1770,25 +1794,28 @@ static void build_start(void);
 static void buffers_mode(bool single);
 static void overlay_state_forget(void);             // what the overlay panels remember of what they show (below, after their statics)
 
-// How many rows each list holds on the canvas that is up (the full canvas: the rows the pages were laid out with, 5, 13 and 17; the compact layout
+// How many rows each list holds on the canvas that is up (the full canvas: 9 menu rows, 5 editor rows, 13 browser rows, 18 list rows; the compact layout
 // takes what its height holds, from the same positions the builders use).
 static void layout_counts(void)
 {
     hc_rows_set_compact(COMPACT);
     // T209 D8: the editor holds what fits between its panel and its note, at the pitch of the boot menu's old row.
     // T209 D6: the boot menu keeps its full-size logo (LROW_H high, LROW_P pitch); both canvases hold what fits between the list's top and its detail line - the row count gives, not the logo.
-    int m = (CH - MENU_ROW0 - 80 + 2) / LROW_P;
-    mrows_n = m < 1 ? 1 : (m > MROWS_MAX ? MROWS_MAX : m);
-    int e = (CH - 26 - ((COMPACT ? 64 : 74) + ED_PN_H + 12) + 6) / EROW_P;
+    int m = (CH - 26 - 6 - MENU_ROW0 + 2) / LROW_P;      // down to the status line at CH - 26
+    int mc = (CH - 56 - 6 - MENU_ROW0 + 2) / LROW_P;      // down to the status line at CH - 56, above the countdown line
+    mrows_full = m < 1 ? 1 : (m > MROWS_MAX ? MROWS_MAX : m);
+    mrows_cd = mc < 1 ? 1 : (mc > mrows_full ? mrows_full : mc);
+    mrows_n = mrows_full;
+    int e = (CH - 26 - ((COMPACT ? 64 : 74) + ED_PN_H + 12) + 4) / EROW_P;
     erows_n = e < 1 ? 1 : (e > MROWS_MAX ? MROWS_MAX : e);
     if (!COMPACT) {
         brows_n = 13;
-        cm_rows_n = 17;
+        cm_rows_n = (CH - 26 - 6 - 70 + 2) / 20;
         hc_nav_geometry(mrows_n, brows_n, cm_rows_n, erows_n);
         return;
     }
     brows_n = (CH - 74 - 40) / 26;
-    cm_rows_n = (CH - 26 - 60) / 20;
+    cm_rows_n = (CH - 26 - 6 - 60 + 2) / 20;
     brows_n = brows_n < 1 ? 1 : (brows_n > BROWS_MAX ? BROWS_MAX : brows_n);
     cm_rows_n = cm_rows_n < 1 ? 1 : (cm_rows_n > CM_ROWS_MAX ? CM_ROWS_MAX : cm_rows_n);
     hc_nav_geometry(mrows_n, brows_n, cm_rows_n, erows_n);

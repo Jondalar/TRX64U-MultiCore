@@ -74,6 +74,18 @@ public:
         }
     }
 
+    // Pipe Interval is in 125 us units. Full/low speed bInterval is in ms; high speed (speed 2) is 2^(bInterval-1) microframes.
+    // Clamped to 1..20 ms: never slower than the old fixed 20 ms, never a zero or absurd value from a bad descriptor.
+    static uint16_t poll_interval(int speed, uint8_t b)
+    {
+        uint32_t units;
+        if (speed == 2) units = (b >= 1 && b <= 16) ? (1u << (b - 1)) : 160;
+        else            units = (uint32_t)b * 8;
+        if (units < 8) units = 8;
+        if (units > 160) units = 160;
+        return (uint16_t)units;
+    }
+
     void install(UsbInterface *intf)
     {
         UsbDevice *dev = intf->getParentDevice();
@@ -96,7 +108,7 @@ public:
         if (!pad) return;
 
         host->initialize_pipe(&ipipe, device, iin);
-        ipipe.Interval = 160;                                                // 50 Hz, as the HID driver
+        ipipe.Interval = poll_interval(dev->speed, iin->interval);          // the endpoint's own rate (#55: 20 ms lost ~58 % of GIP reports at bInterval 4 ms)
         uint16_t mp = iin->max_packet_size;
         if (mp == 0 || mp > sizeof(irq_data)) mp = sizeof(irq_data);
         ipipe.Length = mp;

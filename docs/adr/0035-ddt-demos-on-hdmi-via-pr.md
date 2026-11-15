@@ -18,4 +18,4 @@ An agent was started (local clones under ~/Development/ddt, branch hdmi-out; CI 
 
 ## Links
 
-- [T22](../../docs/todo/T22.md)
+- [T22](../todo/T22.md)
