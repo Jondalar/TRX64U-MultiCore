@@ -210,6 +210,45 @@ or the two core-only areas); the settings of the machine are in one area (F5), t
 **Not checked:** F2 Timeline and F3 Search/Browse pictures were produced but not judged (their content is unchanged by the mapping); no 480p/1080p variants
 (trx64u has no scaled emulator mode, `ux-review` §7); the board; whether every proposed F5 tab fits the 480p row count (S2 renders it).
 
+### Q2 mock-ups (UX specialist, 2026-11-15 - a proposal for Alex, not a decision)
+
+Constraint (Alex via coordinator): Timewarp and Monitor are overlays over the running C64 and keep the style of the TRX64G build
+(Gideon's app on the TRX64 bitstream); the mock-ups decide only from where they are reached. Reference for the overlays: the manual
+images `TRX64-Ultimate/docs/manual/img/timewarp-bar.png` and `trxmon-start.png` (manual 06-monitor.md, 07-timewarp.md), used
+unchanged in `overlay-timewarp-trx64g.png` / `overlay-monitor-trx64g.png` (the monitor 1280x800 fitted into 960x540 with side bars,
+same for all variants). The menu pictures are static drawings in the app's look (colours sampled from `t228-gen-*`, Verdana instead of
+Montserrat), not app renders; generator `/private/tmp/claude-501/-Users-alex-Development-TRX64U-MultiCore/0ca06245-af10-4231-a6a6-09d268feb49b/scratchpad/t228/q2/mock.py`. Pictures in /private/tmp/claude-501/-Users-alex-Development-TRX64U-MultiCore/0ca06245-af10-4231-a6a6-09d268feb49b/scratchpad/t228/q2/ (not in the repository).
+Facts used: trx64g reaches Timewarp via C64 Machine > Timewarp (Freeze menu) and the monitor via Developer > TRX64 Monitor or C= O;
+trx64g apps add entries to context menus of their file types (trex_crt: "Write to Cartridge" on .crt; unzip on .zip; softboot on
+.cfw/.ue2/.u64) and to C64 Machine (Dump Cartridge, Cart Inspector, Flash Cartridge).
+
+| Variant | Where things land | Pictures |
+|---|---|---|
+| A: rail F1 Home, F2 Timewarp, F3 Library, F4 Monitor, F5 C64, F7 APP, F8 System | F2/F4 open the overlay at once (as today); cartridge tools, Softboot, Unzip = F7 APP tab "Apps"; streams in F8 Network | a1-rail-timewarp, a2-rail-monitor, a3-f7-apps, a4-f8-streams |
+| B: standard rail only (F1/F3/F5/F7/F8) | Timewarp + Monitor = rows on a new F5 tab "Debug" (RETURN opens the overlay; ring/trace switches beside them); cartridge tools + Unzip in F7 APP tab "Apps"; streams in F8 Network | b1-rail, b2-f5-debug, b3-f7-apps, b4-f8-streams |
+| C (recommended): standard areas + a rail group "Over the C64" (Timewarp F2, Monitor F4); apps dissolve into their objects | cartridge tools in the F1 cartridge-port list; Unzip (and Softboot, Write to Cartridge) in the Library context menu of the file; streams = F8 tab "Streams"; F7 APP stays settings only | c1-rail, c2-f1-cart, c3-f3-library-zip, c4-f8-streams |
+| all | the overlays | overlay-timewarp-trx64g, overlay-monitor-trx64g |
+
+Verdicts (skill R-rules):
+- A: PASS with findings. Keeps today's keys (F2/F4 muscle memory, one key = overlay). R10: F2/F4 look like areas but have no screen to
+  stay in, they are launchers beside real areas (the rail mixes two kinds without saying so); F7 "Apps" mixes launchers into the
+  area that T212 D6 made the home of app settings (R4/R10: settings and actions in one area), and the cartridge tools are far from
+  the cartridge slot (R10 redundancy/object rule).
+- B: FAIL on structure. F5 is "machine settings only" (R4); "Open Timewarp / Open Monitor" are two focusable launcher rows in a
+  settings area (R10), the overlay hotkeys are lost or hidden, a key that took one press now takes F5, 7, RETURN. The ring/trace
+  switches on that tab are fine (Q7) - they can go to the F5 TRX64 tab without the launchers. Apps in F7 as in A.
+- C: PASS with findings. One purpose per area holds: F7 = app settings, F1 = session and slot actions, F3 = file actions, F8 =
+  device incl. Streams. The group heading names what Timewarp/Monitor are (overlays), keeps F2/F4, costs one rail group (R11:
+  all-caps heading has a reason: it separates launchers from areas). Findings: the cartridge tools sit under "Cartridge port" and
+  are visible with an empty slot (they work on the real cartridge in the port, not on a mounted file: label them so; trx64g
+  has the same entries under C64 Machine); Softboot and Write to Cartridge on .cfw/.crt not drawn (same mechanism as Unzip); an
+  app whose menu entry moves into context menus needs the descriptor to allow it (S2).
+Recommendation: C. Fallback A if the group heading is not wanted (then drop the apps tab from F7 and use C's placement anyway).
+Questions for Alex (one per line, ask one at a time): Q2a rail group "Over the C64" for Timewarp/Monitor, or plain rail entries as in
+A? Q2b cartridge tools next to the cartridge port (F1), or in one place "Apps"? Q2c Streams as own F8 tab, or inside F8 Network?
+Not checked: no app render (menu.toml compiled into the app); overlays not driven from the menu; 480p/1080p; the monitor's 80x40
+overlay was fitted from a 1280x800 manual picture, so its scale on the real 960x540 canvas is not shown.
+
 - D2 (Alex 2026-11-15, Q1): a) build trx64u on T212's structure (F1 drive rows, F5 machine, F7 APP); T212 has to be merged first.
 
 ## §4 Out
