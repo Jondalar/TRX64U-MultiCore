@@ -20,7 +20,7 @@ cases=${*:-"basic ml old"}
 if [ ! -x "$build/obj/tb_c64scpu" ]; then
   C64SCPU_SIM_DEFS="${C64SCPU_SIM_DEFS:-SID_REDIP NO_TURBO NO_REU TRX_SIM_ROMS}" sh "$here/build_machine.sh" "$build" || exit 1
 fi
-w="$build/prgrun"; rm -rf "$w"; mkdir -p "$w"
+w="$build/prgrun_$(echo $cases | tr " " _)"; rm -rf "$w"; mkdir -p "$w"
 eval "$(python3 -I "$here/prgrun_gen.py" scpu "$w" | sed 's/ /\n/g' | sed 's/^/G_/')"
 c++ -std=gnu++11 -w -o "$w/prgsim" "$root/tools/cbm_prg_sim.cc" "$root/app/loaders/cbm_prg.cc" -I"$root/tests/coreapp" -I"$root/coreapp/src" -I"$root/coreapp/cores" -I"$root/app/loaders" -I"$root/app/video" || exit 1
 rc=0

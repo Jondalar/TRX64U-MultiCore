@@ -17,7 +17,7 @@ build=${C128_BUILD:-$here/build}.prg
 at=${PRG_AT_US:-5000000}; ms=${PRG_MS:-9000}
 cases=${*:-"basic ml none"}
 [ -x "$build/obj/tb_c128" ] || C128_SIM_DEFS="Z80 SID_REDIP NO_TURBO NO_REU VDC_WHOLE VDC64 TRX_SIM_ROMS ROM_CACHE RAM_DDR2" sh "$here/build_machine.sh" "$build" || exit 1
-w="$build/prgrun"; rm -rf "$w"; mkdir -p "$w"
+w="$build/prgrun_$(echo $cases | tr " " _)"; rm -rf "$w"; mkdir -p "$w"
 eval "$(python3 -I "$root/cores/c64scpu/sim/prgrun_gen.py" c128 "$w" | sed 's/ /\n/g' | sed 's/^/G_/')"
 c++ -std=gnu++11 -w -o "$w/prgsim" "$root/tools/cbm_prg_sim.cc" "$root/app/loaders/cbm_prg.cc" -I"$root/tests/coreapp" -I"$root/coreapp/src" -I"$root/coreapp/cores" -I"$root/app/loaders" -I"$root/app/video" || exit 1
 rc=0
