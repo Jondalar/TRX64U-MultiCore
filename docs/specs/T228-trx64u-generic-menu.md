@@ -287,6 +287,10 @@ overlay was fitted from a 1280x800 manual picture, so its scale on the real 960x
 - D16 (Alex 2026-11-15, Q10a: "a! But we no longer call it UltiSID please .. with us it is called reDIP:SID", translated): the SID
   sockets and the emulated SIDs get an own F5 tab "SID"; Audio keeps volume and pan only. Every label says "reDIP:SID", never
   "UltiSID".
+- D17 (Alex 2026-11-15, Q12a, translated: "a .. and CURSOR RIGHT does the same as elsewhere in the file system, it goes in. So in
+  folders AND zips"): Unzip is in the Library menu of the .zip (RETURN). CURSOR RIGHT enters a .zip like a folder (browse its
+  contents), the same key that enters a folder.
+- Q11 needs no answer: D7 decided it. Q13 is settled by D14.
 
 ## §4 Out
 
