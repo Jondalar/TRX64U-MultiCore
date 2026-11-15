@@ -1,6 +1,6 @@
 # T227 — The c64scpu VIC picture can be smoothed (Smoothing row, as the frame-buffer cores have), at non-integer scales
 
-**Status:** PROPOSED (2026-11-15, Alex).
+**Status:** BUILT on branch t227-scpu-smooth, not yet through Vivado or the board (S1/S3 open) (2026-11-15).
 **Repo:** TRX64U-MultiCore — gateware of `cores/c64scpu/mono/host/vic_scaler.v` (own copy, U16 lineage), the core app (Smoothing row
 for the VIC path). The same scaler lives in TRX64-Ultimate u16; a working change can be offered there.
 **Number:** T227.
@@ -47,3 +47,11 @@ Measure first (S0), then horizontal only. Vertical blending is not part of this 
   in sequence, no second ring read), second palette lookup, blend per channel with 3 DSP48 by a 4-bit fraction of `hacc`:
   about +40 LUT, +90 FF, 3 DSP, no BRAM (~+10-25 slices); LUT-multiplier variant +100-150 LUT (+25-40 slices). Assessment: go for
   the DSP variant; the risk is timing closure (WNS +0.004 today), only a Vivado run decides.
+- **D2 built 2026-11-15** (`cores/c64scpu/mono/core.toml`, same shape as 2d17cccb0): `SID2` out of `TRX_DEFS` and the comment. Where the second SID was wired:
+  the define only picks `C64_FLAGS` bit 2 in `c64_core_c64scpu.v:24-28` (`sid_dual`, passed to `c64_redip_sid` at `c64_top_c64scpu.v:769`). The app has no SID2
+  row for c64scpu (its descriptor `coreapp/cores/c64scpu.cc` has none; `u64cfg.cc`'s SID rows belong to other cores): nothing to remove there.
+  **What the build loses is open:** `vendor/icepi/c64_redip_sid/sid_api.sv:61` has `NS = 2` fixed, so both SID cores stay instantiated; `sid_dual = 0` only
+  makes `sid_mono` 1 (second SID's address decode = the first's, `sid_api.sv:74`). Run 1965's hierarchy (`c64_redip_sid_0` 1678 LUT, 1156 FF, 4 RAMB36, 5 RAMB18,
+  2 DSP; `sid_core` 1171 LUT) therefore drops only what constant propagation of `sid_mono` / `sid_dual` removes (the pan / mono-timer logic, some of the 308 LUT
+  wrapper), not a SID. The ~100 slices that 2d17cccb0 / run 852 noted are not explained by the code; the Vivado report of this branch gives the number.
+  A real second-SID removal needs `NS = 1` in `vendor/icepi` (shared with c64u) or a core-owned copy: question to Alex.
