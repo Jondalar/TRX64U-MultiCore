@@ -83,91 +83,108 @@ Atari 800 XL F8/expert s13 59 c4df8e37
 Atari 800 XL F8/expert s14 59 c4df8e37
 Atari 800 XL F8/expert s15 59 cfe90442
 Atari 800 XL F8/expert s16 59 259d8f99
-Nintendo Entertainment System F1/home s0 59 4b9d9561
-Nintendo Entertainment System F1/home s1 59 4b9d9561
-Nintendo Entertainment System F1/home s2 59 982ef852
-Nintendo Entertainment System F1/home s3 59 4b9d9561
-Nintendo Entertainment System F1/home s4 59 4b9d9561
-Nintendo Entertainment System F1/home s5 59 34b4ebbd
-Nintendo Entertainment System F1/home s6 59 4b9d9561
-Nintendo Entertainment System F1/home s7 59 982ef852
-Nintendo Entertainment System F1/home s8 59 982ef852
-Nintendo Entertainment System F1/home s9 59 982ef852
-Nintendo Entertainment System F1/home s10 59 4b9d9561
-Nintendo Entertainment System F1/home s11 59 34b4ebbd
-Nintendo Entertainment System F1/home s12 59 34b4ebbd
-Nintendo Entertainment System F1/home s13 59 34b4ebbd
-Nintendo Entertainment System F1/home s14 59 34b4ebbd
-Nintendo Entertainment System F1/home s15 59 4b9d9561
-Nintendo Entertainment System F1/home s16 59 982ef852
-Nintendo Entertainment System F3/browse s0 59 3e490f62
-Nintendo Entertainment System F3/browse s1 59 2e5067d3
-Nintendo Entertainment System F3/browse s2 59 2590de72
-Nintendo Entertainment System F3/browse s3 59 2e5067d3
-Nintendo Entertainment System F3/browse s4 59 cde2fe64
-Nintendo Entertainment System F3/browse s5 59 cde2fe64
-Nintendo Entertainment System F3/browse s6 59 2e5067d3
-Nintendo Entertainment System F3/browse s7 59 85b76a22
-Nintendo Entertainment System F3/browse s8 59 58cf401d
-Nintendo Entertainment System F3/browse s9 59 e2b0daed
-Nintendo Entertainment System F3/browse s10 59 849bb705
-Nintendo Entertainment System F3/browse s11 59 915aab2c
-Nintendo Entertainment System F3/browse s12 59 915aab2c
-Nintendo Entertainment System F3/browse s13 59 915aab2c
-Nintendo Entertainment System F3/browse s14 59 915aab2c
-Nintendo Entertainment System F3/browse s15 59 8ac6e6e9
-Nintendo Entertainment System F3/browse s16 59 578714c3
-Nintendo Entertainment System F5/settings s0 59 ad9ff14b
-Nintendo Entertainment System F5/settings s1 59 5573f957
-Nintendo Entertainment System F5/settings s2 59 a4f7143e
-Nintendo Entertainment System F5/settings s3 59 4a70b063
-Nintendo Entertainment System F5/settings s4 59 b13c495d
-Nintendo Entertainment System F5/settings s5 59 2b53fec5
-Nintendo Entertainment System F5/settings s6 59 d20589ba
-Nintendo Entertainment System F5/settings s7 59 a80816ec
-Nintendo Entertainment System F5/settings s8 59 264411ec
-Nintendo Entertainment System F5/settings s9 59 5efe1f4c
-Nintendo Entertainment System F5/settings s10 59 c404ceef
-Nintendo Entertainment System F5/settings s11 59 b9f542c4
-Nintendo Entertainment System F5/settings s12 59 0c20bbda
-Nintendo Entertainment System F5/settings s13 59 d30a5ed4
-Nintendo Entertainment System F5/settings s14 59 26adf5c4
-Nintendo Entertainment System F5/settings s15 59 bf0dd576
-Nintendo Entertainment System F5/settings s16 59 6bc61904
-Nintendo Entertainment System F7/quick s0 59 bb94c971
-Nintendo Entertainment System F7/quick s1 59 35766221
-Nintendo Entertainment System F7/quick s2 59 426ce4e4
-Nintendo Entertainment System F7/quick s3 59 bb94c971
-Nintendo Entertainment System F7/quick s4 59 35766221
-Nintendo Entertainment System F7/quick s5 59 13d0cb47
-Nintendo Entertainment System F7/quick s6 59 35766221
-Nintendo Entertainment System F7/quick s7 59 426ce4e4
-Nintendo Entertainment System F7/quick s8 59 a12fe289
-Nintendo Entertainment System F7/quick s9 59 a12fe289
-Nintendo Entertainment System F7/quick s10 59 bb94c971
-Nintendo Entertainment System F7/quick s11 59 0fc3bf3d
-Nintendo Entertainment System F7/quick s12 59 0fc3bf3d
-Nintendo Entertainment System F7/quick s13 59 0fc3bf3d
-Nintendo Entertainment System F7/quick s14 59 0fc3bf3d
-Nintendo Entertainment System F7/quick s15 59 35766221
-Nintendo Entertainment System F7/quick s16 59 426ce4e4
-Nintendo Entertainment System F8/expert s0 59 090ea161
-Nintendo Entertainment System F8/expert s1 59 12d0a256
-Nintendo Entertainment System F8/expert s2 59 d967176e
-Nintendo Entertainment System F8/expert s3 59 090ea161
-Nintendo Entertainment System F8/expert s4 59 12d0a256
-Nintendo Entertainment System F8/expert s5 59 d4e71a93
-Nintendo Entertainment System F8/expert s6 59 12d0a256
-Nintendo Entertainment System F8/expert s7 59 d967176e
-Nintendo Entertainment System F8/expert s8 59 cca7b268
-Nintendo Entertainment System F8/expert s9 59 cca7b268
-Nintendo Entertainment System F8/expert s10 59 090ea161
-Nintendo Entertainment System F8/expert s11 59 3fb8a7c7
-Nintendo Entertainment System F8/expert s12 59 3fb8a7c7
-Nintendo Entertainment System F8/expert s13 59 3fb8a7c7
-Nintendo Entertainment System F8/expert s14 59 3fb8a7c7
-Nintendo Entertainment System F8/expert s15 59 12d0a256
-Nintendo Entertainment System F8/expert s16 59 d967176e
+Nintendo Entertainment System F1/home s0 59 270132b9
+Nintendo Entertainment System F1/home s1 59 270132b9
+Nintendo Entertainment System F1/home s2 59 03fe26ca
+Nintendo Entertainment System F1/home s3 59 270132b9
+Nintendo Entertainment System F1/home s4 59 270132b9
+Nintendo Entertainment System F1/home s5 59 d9a5cab7
+Nintendo Entertainment System F1/home s6 59 270132b9
+Nintendo Entertainment System F1/home s7 59 03fe26ca
+Nintendo Entertainment System F1/home s8 59 03fe26ca
+Nintendo Entertainment System F1/home s9 59 03fe26ca
+Nintendo Entertainment System F1/home s10 59 270132b9
+Nintendo Entertainment System F1/home s11 59 d9a5cab7
+Nintendo Entertainment System F1/home s12 59 d9a5cab7
+Nintendo Entertainment System F1/home s13 59 d9a5cab7
+Nintendo Entertainment System F1/home s14 59 d9a5cab7
+Nintendo Entertainment System F1/home s15 59 270132b9
+Nintendo Entertainment System F1/home s16 59 03fe26ca
+Nintendo Entertainment System F3/browse s0 59 6f0fd1da
+Nintendo Entertainment System F3/browse s1 59 1db8aa59
+Nintendo Entertainment System F3/browse s2 59 db65c0fa
+Nintendo Entertainment System F3/browse s3 59 1db8aa59
+Nintendo Entertainment System F3/browse s4 59 61e7f38c
+Nintendo Entertainment System F3/browse s5 59 61e7f38c
+Nintendo Entertainment System F3/browse s6 59 1db8aa59
+Nintendo Entertainment System F3/browse s7 59 11f17eb2
+Nintendo Entertainment System F3/browse s8 59 384619c5
+Nintendo Entertainment System F3/browse s9 59 88cc37e5
+Nintendo Entertainment System F3/browse s10 59 ae12249c
+Nintendo Entertainment System F3/browse s11 59 3e1d3cc8
+Nintendo Entertainment System F3/browse s12 59 3e1d3cc8
+Nintendo Entertainment System F3/browse s13 59 3e1d3cc8
+Nintendo Entertainment System F3/browse s14 59 3e1d3cc8
+Nintendo Entertainment System F3/browse s15 59 27ea3faa
+Nintendo Entertainment System F3/browse s16 59 8bcd7678
+Nintendo Entertainment System F5/settings s0 59 56226075
+Nintendo Entertainment System F5/settings s1 59 08026e04
+Nintendo Entertainment System F5/settings s2 59 7f601381
+Nintendo Entertainment System F5/settings s3 59 bbb5fa5b
+Nintendo Entertainment System F5/settings s4 59 88ecce06
+Nintendo Entertainment System F5/settings s5 59 dab3e5a7
+Nintendo Entertainment System F5/settings s6 59 97a857a4
+Nintendo Entertainment System F5/settings s7 59 cb6980d4
+Nintendo Entertainment System F5/settings s8 59 2cf2b182
+Nintendo Entertainment System F5/settings s9 59 1dcdb98e
+Nintendo Entertainment System F5/settings s10 59 e160e815
+Nintendo Entertainment System F5/settings s11 59 87ae6918
+Nintendo Entertainment System F5/settings s12 59 2db61025
+Nintendo Entertainment System F5/settings s13 59 968d7d2c
+Nintendo Entertainment System F5/settings s14 59 93c8ad84
+Nintendo Entertainment System F5/settings s15 59 c644839f
+Nintendo Entertainment System F5/settings s16 59 4bcd2868
+Nintendo Entertainment System F5/input s0 59 22897af1
+Nintendo Entertainment System F5/input s1 59 f410278d
+Nintendo Entertainment System F5/input s2 59 3550a859
+Nintendo Entertainment System F5/input s3 59 22897af1
+Nintendo Entertainment System F5/input s4 59 f410278d
+Nintendo Entertainment System F5/input s5 59 3550a859
+Nintendo Entertainment System F5/input s6 59 f410278d
+Nintendo Entertainment System F5/input s7 59 3550a859
+Nintendo Entertainment System F5/input s8 59 9676aa0d
+Nintendo Entertainment System F5/input s9 59 9676aa0d
+Nintendo Entertainment System F5/input s10 59 22897af1
+Nintendo Entertainment System F5/input s11 59 9676aa0d
+Nintendo Entertainment System F5/input s12 59 9676aa0d
+Nintendo Entertainment System F5/input s13 59 9676aa0d
+Nintendo Entertainment System F5/input s14 59 9676aa0d
+Nintendo Entertainment System F5/input s15 59 f410278d
+Nintendo Entertainment System F5/input s16 59 3550a859
+Nintendo Entertainment System F7/quick s0 59 d2829931
+Nintendo Entertainment System F7/quick s1 59 5386c4bc
+Nintendo Entertainment System F7/quick s2 59 5386c4bc
+Nintendo Entertainment System F7/quick s3 59 d2829931
+Nintendo Entertainment System F7/quick s4 59 5386c4bc
+Nintendo Entertainment System F7/quick s5 59 5386c4bc
+Nintendo Entertainment System F7/quick s6 59 5386c4bc
+Nintendo Entertainment System F7/quick s7 59 5386c4bc
+Nintendo Entertainment System F7/quick s8 59 5386c4bc
+Nintendo Entertainment System F7/quick s9 59 5386c4bc
+Nintendo Entertainment System F7/quick s10 59 d2829931
+Nintendo Entertainment System F7/quick s11 59 5386c4bc
+Nintendo Entertainment System F7/quick s12 59 5386c4bc
+Nintendo Entertainment System F7/quick s13 59 5386c4bc
+Nintendo Entertainment System F7/quick s14 59 5386c4bc
+Nintendo Entertainment System F7/quick s15 59 5386c4bc
+Nintendo Entertainment System F7/quick s16 59 5386c4bc
+Nintendo Entertainment System F8/expert s0 59 5b9d826c
+Nintendo Entertainment System F8/expert s1 59 84f66c65
+Nintendo Entertainment System F8/expert s2 59 59f77aa0
+Nintendo Entertainment System F8/expert s3 59 5b9d826c
+Nintendo Entertainment System F8/expert s4 59 84f66c65
+Nintendo Entertainment System F8/expert s5 59 cb642970
+Nintendo Entertainment System F8/expert s6 59 84f66c65
+Nintendo Entertainment System F8/expert s7 59 59f77aa0
+Nintendo Entertainment System F8/expert s8 59 c390ebbb
+Nintendo Entertainment System F8/expert s9 59 c390ebbb
+Nintendo Entertainment System F8/expert s10 59 5b9d826c
+Nintendo Entertainment System F8/expert s11 59 e3a7139a
+Nintendo Entertainment System F8/expert s12 59 e3a7139a
+Nintendo Entertainment System F8/expert s13 59 e3a7139a
+Nintendo Entertainment System F8/expert s14 59 e3a7139a
+Nintendo Entertainment System F8/expert s15 59 84f66c65
+Nintendo Entertainment System F8/expert s16 59 59f77aa0
 Apple IIe F1/home s0 59 b3d42741
 Apple IIe F1/home s1 59 b3d42741
 Apple IIe F1/home s2 59 4496751e
@@ -933,176 +950,210 @@ ZX Spectrum Next F8/expert s13 59 6529e853
 ZX Spectrum Next F8/expert s14 59 6529e853
 ZX Spectrum Next F8/expert s15 59 e392ce0b
 ZX Spectrum Next F8/expert s16 59 99390958
-Super Nintendo F1/home s0 59 dfae9d8c
-Super Nintendo F1/home s1 59 dfae9d8c
-Super Nintendo F1/home s2 59 a441f63c
-Super Nintendo F1/home s3 59 dfae9d8c
-Super Nintendo F1/home s4 59 dfae9d8c
-Super Nintendo F1/home s5 59 0c457817
-Super Nintendo F1/home s6 59 dfae9d8c
-Super Nintendo F1/home s7 59 a441f63c
-Super Nintendo F1/home s8 59 a441f63c
-Super Nintendo F1/home s9 59 a441f63c
-Super Nintendo F1/home s10 59 dfae9d8c
-Super Nintendo F1/home s11 59 0c457817
-Super Nintendo F1/home s12 59 0c457817
-Super Nintendo F1/home s13 59 0c457817
-Super Nintendo F1/home s14 59 0c457817
-Super Nintendo F1/home s15 59 dfae9d8c
-Super Nintendo F1/home s16 59 a441f63c
-Super Nintendo F3/browse s0 59 b72fbce7
-Super Nintendo F3/browse s1 59 d81e960b
-Super Nintendo F3/browse s2 59 65d4ec1a
-Super Nintendo F3/browse s3 59 d81e960b
-Super Nintendo F3/browse s4 59 62eab353
-Super Nintendo F3/browse s5 59 62eab353
-Super Nintendo F3/browse s6 59 d81e960b
-Super Nintendo F3/browse s7 59 16cf304b
-Super Nintendo F3/browse s8 59 d03330de
-Super Nintendo F3/browse s9 59 054b656f
-Super Nintendo F3/browse s10 59 19568df4
-Super Nintendo F3/browse s11 59 ffbe299a
-Super Nintendo F3/browse s12 59 ffbe299a
-Super Nintendo F3/browse s13 59 ffbe299a
-Super Nintendo F3/browse s14 59 ffbe299a
-Super Nintendo F3/browse s15 59 90a086a7
-Super Nintendo F3/browse s16 59 e6405c17
-Super Nintendo F5/settings s0 59 6ae9e3f7
-Super Nintendo F5/settings s1 59 a3414ed1
-Super Nintendo F5/settings s2 59 cfa42609
-Super Nintendo F5/settings s3 59 844e45ee
-Super Nintendo F5/settings s4 59 e628f679
-Super Nintendo F5/settings s5 59 aa651b42
-Super Nintendo F5/settings s6 59 e4b4f93b
-Super Nintendo F5/settings s7 59 20019330
-Super Nintendo F5/settings s8 59 238e64bd
-Super Nintendo F5/settings s9 59 e721c2ba
-Super Nintendo F5/settings s10 59 1fa766e9
-Super Nintendo F5/settings s11 59 a238a30c
-Super Nintendo F5/settings s12 59 5d4d141d
-Super Nintendo F5/settings s13 59 73f6fce6
-Super Nintendo F5/settings s14 59 d0896a99
-Super Nintendo F5/settings s15 59 8fa9b2af
-Super Nintendo F5/settings s16 59 a4eb89c4
-Super Nintendo F7/quick s0 59 1ea1d557
-Super Nintendo F7/quick s1 59 b718b4a6
-Super Nintendo F7/quick s2 59 26c7dfd4
-Super Nintendo F7/quick s3 59 1ea1d557
-Super Nintendo F7/quick s4 59 b718b4a6
-Super Nintendo F7/quick s5 59 41a8ea21
-Super Nintendo F7/quick s6 59 b718b4a6
-Super Nintendo F7/quick s7 59 26c7dfd4
-Super Nintendo F7/quick s8 59 d112f408
-Super Nintendo F7/quick s9 59 d112f408
-Super Nintendo F7/quick s10 59 1ea1d557
-Super Nintendo F7/quick s11 59 1f0df5e4
-Super Nintendo F7/quick s12 59 1f0df5e4
-Super Nintendo F7/quick s13 59 1f0df5e4
-Super Nintendo F7/quick s14 59 1f0df5e4
-Super Nintendo F7/quick s15 59 b718b4a6
-Super Nintendo F7/quick s16 59 26c7dfd4
-Super Nintendo F8/expert s0 59 8ff84dad
-Super Nintendo F8/expert s1 59 c59cab55
-Super Nintendo F8/expert s2 59 b6d08bcb
-Super Nintendo F8/expert s3 59 8ff84dad
-Super Nintendo F8/expert s4 59 c59cab55
-Super Nintendo F8/expert s5 59 b20ea4c2
-Super Nintendo F8/expert s6 59 c59cab55
-Super Nintendo F8/expert s7 59 b6d08bcb
-Super Nintendo F8/expert s8 59 09b60c38
-Super Nintendo F8/expert s9 59 09b60c38
-Super Nintendo F8/expert s10 59 8ff84dad
-Super Nintendo F8/expert s11 59 6916758b
-Super Nintendo F8/expert s12 59 6916758b
-Super Nintendo F8/expert s13 59 6916758b
-Super Nintendo F8/expert s14 59 6916758b
-Super Nintendo F8/expert s15 59 c59cab55
-Super Nintendo F8/expert s16 59 b6d08bcb
-SNK Neo Geo F1/home s0 59 df63c16b
-SNK Neo Geo F1/home s1 59 df63c16b
-SNK Neo Geo F1/home s2 59 d761b023
-SNK Neo Geo F1/home s3 59 df63c16b
-SNK Neo Geo F1/home s4 59 df63c16b
-SNK Neo Geo F1/home s5 59 defea71e
-SNK Neo Geo F1/home s6 59 df63c16b
-SNK Neo Geo F1/home s7 59 d761b023
-SNK Neo Geo F1/home s8 59 d761b023
-SNK Neo Geo F1/home s9 59 d761b023
-SNK Neo Geo F1/home s10 59 df63c16b
-SNK Neo Geo F1/home s11 59 defea71e
-SNK Neo Geo F1/home s12 59 defea71e
-SNK Neo Geo F1/home s13 59 defea71e
-SNK Neo Geo F1/home s14 59 defea71e
-SNK Neo Geo F1/home s15 59 df63c16b
-SNK Neo Geo F1/home s16 59 d761b023
-SNK Neo Geo F3/browse s0 59 63b4c5bb
-SNK Neo Geo F3/browse s1 59 7a22e0aa
-SNK Neo Geo F3/browse s2 59 0de5f65b
-SNK Neo Geo F3/browse s3 59 7a22e0aa
-SNK Neo Geo F3/browse s4 59 f1e17315
-SNK Neo Geo F3/browse s5 59 f1e17315
-SNK Neo Geo F3/browse s6 59 7a22e0aa
-SNK Neo Geo F3/browse s7 59 84ef7903
-SNK Neo Geo F3/browse s8 59 ba6e199e
-SNK Neo Geo F3/browse s9 59 1080e746
-SNK Neo Geo F3/browse s10 59 77719e30
-SNK Neo Geo F3/browse s11 59 d5f7f9d2
-SNK Neo Geo F3/browse s12 59 d5f7f9d2
-SNK Neo Geo F3/browse s13 59 d5f7f9d2
-SNK Neo Geo F3/browse s14 59 d5f7f9d2
-SNK Neo Geo F3/browse s15 59 107a948c
-SNK Neo Geo F3/browse s16 59 181fb0af
-SNK Neo Geo F5/settings s0 59 cf7e63ef
-SNK Neo Geo F5/settings s1 59 abda53fd
-SNK Neo Geo F5/settings s2 59 d36ceb0d
-SNK Neo Geo F5/settings s3 59 25a525aa
-SNK Neo Geo F5/settings s4 59 a0d7d8e1
-SNK Neo Geo F5/settings s5 59 17474659
-SNK Neo Geo F5/settings s6 59 6d8c6de9
-SNK Neo Geo F5/settings s7 59 1face161
-SNK Neo Geo F5/settings s8 59 3bde4cad
-SNK Neo Geo F5/settings s9 59 d9f6a5cb
-SNK Neo Geo F5/settings s10 59 dda32a46
-SNK Neo Geo F5/settings s11 59 4f23ab8f
-SNK Neo Geo F5/settings s12 59 3d25cfb7
-SNK Neo Geo F5/settings s13 59 4f23ab8f
-SNK Neo Geo F5/settings s14 59 3d25cfb7
-SNK Neo Geo F5/settings s15 59 a0d7d8e1
-SNK Neo Geo F5/settings s16 59 382a1c7f
-SNK Neo Geo F7/quick s0 59 61d0e758
-SNK Neo Geo F7/quick s1 59 dace50dc
-SNK Neo Geo F7/quick s2 59 b3c762fd
-SNK Neo Geo F7/quick s3 59 61d0e758
-SNK Neo Geo F7/quick s4 59 dace50dc
-SNK Neo Geo F7/quick s5 59 d8f2e319
-SNK Neo Geo F7/quick s6 59 dace50dc
-SNK Neo Geo F7/quick s7 59 b3c762fd
-SNK Neo Geo F7/quick s8 59 4f71a5a2
-SNK Neo Geo F7/quick s9 59 4f71a5a2
-SNK Neo Geo F7/quick s10 59 61d0e758
-SNK Neo Geo F7/quick s11 59 aecb6c70
-SNK Neo Geo F7/quick s12 59 aecb6c70
-SNK Neo Geo F7/quick s13 59 aecb6c70
-SNK Neo Geo F7/quick s14 59 aecb6c70
-SNK Neo Geo F7/quick s15 59 dace50dc
-SNK Neo Geo F7/quick s16 59 b3c762fd
-SNK Neo Geo F8/expert s0 59 786c7873
-SNK Neo Geo F8/expert s1 59 99712da4
-SNK Neo Geo F8/expert s2 59 d14428b3
-SNK Neo Geo F8/expert s3 59 786c7873
-SNK Neo Geo F8/expert s4 59 99712da4
-SNK Neo Geo F8/expert s5 59 25dde641
-SNK Neo Geo F8/expert s6 59 99712da4
-SNK Neo Geo F8/expert s7 59 d14428b3
-SNK Neo Geo F8/expert s8 59 5220f636
-SNK Neo Geo F8/expert s9 59 5220f636
-SNK Neo Geo F8/expert s10 59 786c7873
-SNK Neo Geo F8/expert s11 59 4d85e345
-SNK Neo Geo F8/expert s12 59 4d85e345
-SNK Neo Geo F8/expert s13 59 4d85e345
-SNK Neo Geo F8/expert s14 59 4d85e345
-SNK Neo Geo F8/expert s15 59 99712da4
-SNK Neo Geo F8/expert s16 59 d14428b3
+Super Nintendo F1/home s0 59 e084cb29
+Super Nintendo F1/home s1 59 e084cb29
+Super Nintendo F1/home s2 59 95aa4609
+Super Nintendo F1/home s3 59 e084cb29
+Super Nintendo F1/home s4 59 e084cb29
+Super Nintendo F1/home s5 59 db06d1e8
+Super Nintendo F1/home s6 59 e084cb29
+Super Nintendo F1/home s7 59 95aa4609
+Super Nintendo F1/home s8 59 95aa4609
+Super Nintendo F1/home s9 59 95aa4609
+Super Nintendo F1/home s10 59 e084cb29
+Super Nintendo F1/home s11 59 db06d1e8
+Super Nintendo F1/home s12 59 db06d1e8
+Super Nintendo F1/home s13 59 db06d1e8
+Super Nintendo F1/home s14 59 db06d1e8
+Super Nintendo F1/home s15 59 e084cb29
+Super Nintendo F1/home s16 59 95aa4609
+Super Nintendo F3/browse s0 59 41f48e54
+Super Nintendo F3/browse s1 59 6cfc41da
+Super Nintendo F3/browse s2 59 54f6d377
+Super Nintendo F3/browse s3 59 6cfc41da
+Super Nintendo F3/browse s4 59 8be5af6a
+Super Nintendo F3/browse s5 59 8be5af6a
+Super Nintendo F3/browse s6 59 6cfc41da
+Super Nintendo F3/browse s7 59 aa912664
+Super Nintendo F3/browse s8 59 d1453da3
+Super Nintendo F3/browse s9 59 503d13be
+Super Nintendo F3/browse s10 59 3de8b9d6
+Super Nintendo F3/browse s11 59 be69caad
+Super Nintendo F3/browse s12 59 be69caad
+Super Nintendo F3/browse s13 59 be69caad
+Super Nintendo F3/browse s14 59 be69caad
+Super Nintendo F3/browse s15 59 41216ec6
+Super Nintendo F3/browse s16 59 1abc8c52
+Super Nintendo F5/settings s0 59 5d956379
+Super Nintendo F5/settings s1 59 dcfb0acf
+Super Nintendo F5/settings s2 59 0c4cf364
+Super Nintendo F5/settings s3 59 ffd8a67f
+Super Nintendo F5/settings s4 59 7d0a8815
+Super Nintendo F5/settings s5 59 69291cd0
+Super Nintendo F5/settings s6 59 61936ac0
+Super Nintendo F5/settings s7 59 40c9d8f7
+Super Nintendo F5/settings s8 59 b1e559e8
+Super Nintendo F5/settings s9 59 11df42cd
+Super Nintendo F5/settings s10 59 38900e04
+Super Nintendo F5/settings s11 59 1aa0f07c
+Super Nintendo F5/settings s12 59 ae1595d5
+Super Nintendo F5/settings s13 59 a9c14a91
+Super Nintendo F5/settings s14 59 045467d2
+Super Nintendo F5/settings s15 59 44277f43
+Super Nintendo F5/settings s16 59 53e20b0f
+Super Nintendo F5/input s0 59 1e4de9a8
+Super Nintendo F5/input s1 59 2c0373e5
+Super Nintendo F5/input s2 59 8719b685
+Super Nintendo F5/input s3 59 1e4de9a8
+Super Nintendo F5/input s4 59 2c0373e5
+Super Nintendo F5/input s5 59 8719b685
+Super Nintendo F5/input s6 59 2c0373e5
+Super Nintendo F5/input s7 59 8719b685
+Super Nintendo F5/input s8 59 4d86f503
+Super Nintendo F5/input s9 59 4d86f503
+Super Nintendo F5/input s10 59 1e4de9a8
+Super Nintendo F5/input s11 59 4d86f503
+Super Nintendo F5/input s12 59 4d86f503
+Super Nintendo F5/input s13 59 4d86f503
+Super Nintendo F5/input s14 59 4d86f503
+Super Nintendo F5/input s15 59 2c0373e5
+Super Nintendo F5/input s16 59 8719b685
+Super Nintendo F7/quick s0 59 4a7429de
+Super Nintendo F7/quick s1 59 67689948
+Super Nintendo F7/quick s2 59 7cd1b3d5
+Super Nintendo F7/quick s3 59 4a7429de
+Super Nintendo F7/quick s4 59 67689948
+Super Nintendo F7/quick s5 59 2166ff8d
+Super Nintendo F7/quick s6 59 67689948
+Super Nintendo F7/quick s7 59 7cd1b3d5
+Super Nintendo F7/quick s8 59 a07b48f2
+Super Nintendo F7/quick s9 59 a07b48f2
+Super Nintendo F7/quick s10 59 4a7429de
+Super Nintendo F7/quick s11 59 428e1ecd
+Super Nintendo F7/quick s12 59 428e1ecd
+Super Nintendo F7/quick s13 59 428e1ecd
+Super Nintendo F7/quick s14 59 428e1ecd
+Super Nintendo F7/quick s15 59 67689948
+Super Nintendo F7/quick s16 59 7cd1b3d5
+Super Nintendo F8/expert s0 59 af5a2f3f
+Super Nintendo F8/expert s1 59 14e79813
+Super Nintendo F8/expert s2 59 59575c30
+Super Nintendo F8/expert s3 59 af5a2f3f
+Super Nintendo F8/expert s4 59 14e79813
+Super Nintendo F8/expert s5 59 64ad3174
+Super Nintendo F8/expert s6 59 14e79813
+Super Nintendo F8/expert s7 59 59575c30
+Super Nintendo F8/expert s8 59 306e1a66
+Super Nintendo F8/expert s9 59 306e1a66
+Super Nintendo F8/expert s10 59 af5a2f3f
+Super Nintendo F8/expert s11 59 f7b488f9
+Super Nintendo F8/expert s12 59 f7b488f9
+Super Nintendo F8/expert s13 59 f7b488f9
+Super Nintendo F8/expert s14 59 f7b488f9
+Super Nintendo F8/expert s15 59 14e79813
+Super Nintendo F8/expert s16 59 59575c30
+SNK Neo Geo F1/home s0 59 d8c9c6aa
+SNK Neo Geo F1/home s1 59 d8c9c6aa
+SNK Neo Geo F1/home s2 59 97cc48c4
+SNK Neo Geo F1/home s3 59 d8c9c6aa
+SNK Neo Geo F1/home s4 59 d8c9c6aa
+SNK Neo Geo F1/home s5 59 02e08a89
+SNK Neo Geo F1/home s6 59 d8c9c6aa
+SNK Neo Geo F1/home s7 59 97cc48c4
+SNK Neo Geo F1/home s8 59 97cc48c4
+SNK Neo Geo F1/home s9 59 97cc48c4
+SNK Neo Geo F1/home s10 59 d8c9c6aa
+SNK Neo Geo F1/home s11 59 02e08a89
+SNK Neo Geo F1/home s12 59 02e08a89
+SNK Neo Geo F1/home s13 59 02e08a89
+SNK Neo Geo F1/home s14 59 02e08a89
+SNK Neo Geo F1/home s15 59 d8c9c6aa
+SNK Neo Geo F1/home s16 59 97cc48c4
+SNK Neo Geo F3/browse s0 59 b13c80a2
+SNK Neo Geo F3/browse s1 59 f84dd339
+SNK Neo Geo F3/browse s2 59 db15ccda
+SNK Neo Geo F3/browse s3 59 f84dd339
+SNK Neo Geo F3/browse s4 59 98c09942
+SNK Neo Geo F3/browse s5 59 98c09942
+SNK Neo Geo F3/browse s6 59 f84dd339
+SNK Neo Geo F3/browse s7 59 26240702
+SNK Neo Geo F3/browse s8 59 b61f583d
+SNK Neo Geo F3/browse s9 59 231520b9
+SNK Neo Geo F3/browse s10 59 702a88fb
+SNK Neo Geo F3/browse s11 59 a1eb9345
+SNK Neo Geo F3/browse s12 59 a1eb9345
+SNK Neo Geo F3/browse s13 59 a1eb9345
+SNK Neo Geo F3/browse s14 59 a1eb9345
+SNK Neo Geo F3/browse s15 59 5460c483
+SNK Neo Geo F3/browse s16 59 5ed27bca
+SNK Neo Geo F5/settings s0 59 ff483b19
+SNK Neo Geo F5/settings s1 59 e0224c06
+SNK Neo Geo F5/settings s2 59 a5d40463
+SNK Neo Geo F5/settings s3 59 73f7b2f8
+SNK Neo Geo F5/settings s4 59 4b088b11
+SNK Neo Geo F5/settings s5 59 62e33cc2
+SNK Neo Geo F5/settings s6 59 72e398f0
+SNK Neo Geo F5/settings s7 59 0b7ea3d2
+SNK Neo Geo F5/settings s8 59 b24af02f
+SNK Neo Geo F5/settings s9 59 c18ffcf0
+SNK Neo Geo F5/settings s10 59 4d31d1b5
+SNK Neo Geo F5/settings s11 59 fa33e304
+SNK Neo Geo F5/settings s12 59 fafea902
+SNK Neo Geo F5/settings s13 59 fa33e304
+SNK Neo Geo F5/settings s14 59 fafea902
+SNK Neo Geo F5/settings s15 59 4b088b11
+SNK Neo Geo F5/settings s16 59 5774fe13
+SNK Neo Geo F5/input s0 59 9dc9eb05
+SNK Neo Geo F5/input s1 59 9688ca5f
+SNK Neo Geo F5/input s2 59 65590e31
+SNK Neo Geo F5/input s3 59 9dc9eb05
+SNK Neo Geo F5/input s4 59 9688ca5f
+SNK Neo Geo F5/input s5 59 65590e31
+SNK Neo Geo F5/input s6 59 9688ca5f
+SNK Neo Geo F5/input s7 59 65590e31
+SNK Neo Geo F5/input s8 59 f782974b
+SNK Neo Geo F5/input s9 59 f782974b
+SNK Neo Geo F5/input s10 59 9dc9eb05
+SNK Neo Geo F5/input s11 59 f782974b
+SNK Neo Geo F5/input s12 59 f782974b
+SNK Neo Geo F5/input s13 59 f782974b
+SNK Neo Geo F5/input s14 59 f782974b
+SNK Neo Geo F5/input s15 59 9688ca5f
+SNK Neo Geo F5/input s16 59 65590e31
+SNK Neo Geo F7/quick s0 59 dbd5c83f
+SNK Neo Geo F7/quick s1 59 915bb11c
+SNK Neo Geo F7/quick s2 59 4d0d82bb
+SNK Neo Geo F7/quick s3 59 dbd5c83f
+SNK Neo Geo F7/quick s4 59 915bb11c
+SNK Neo Geo F7/quick s5 59 651f50f8
+SNK Neo Geo F7/quick s6 59 915bb11c
+SNK Neo Geo F7/quick s7 59 4d0d82bb
+SNK Neo Geo F7/quick s8 59 7ce37e4f
+SNK Neo Geo F7/quick s9 59 7ce37e4f
+SNK Neo Geo F7/quick s10 59 dbd5c83f
+SNK Neo Geo F7/quick s11 59 af8a78b7
+SNK Neo Geo F7/quick s12 59 af8a78b7
+SNK Neo Geo F7/quick s13 59 af8a78b7
+SNK Neo Geo F7/quick s14 59 af8a78b7
+SNK Neo Geo F7/quick s15 59 915bb11c
+SNK Neo Geo F7/quick s16 59 4d0d82bb
+SNK Neo Geo F8/expert s0 59 650d5844
+SNK Neo Geo F8/expert s1 59 716ceca2
+SNK Neo Geo F8/expert s2 59 07f56f8c
+SNK Neo Geo F8/expert s3 59 650d5844
+SNK Neo Geo F8/expert s4 59 716ceca2
+SNK Neo Geo F8/expert s5 59 8eb8d63a
+SNK Neo Geo F8/expert s6 59 716ceca2
+SNK Neo Geo F8/expert s7 59 07f56f8c
+SNK Neo Geo F8/expert s8 59 36e2e40c
+SNK Neo Geo F8/expert s9 59 36e2e40c
+SNK Neo Geo F8/expert s10 59 650d5844
+SNK Neo Geo F8/expert s11 59 e3aab3f3
+SNK Neo Geo F8/expert s12 59 e3aab3f3
+SNK Neo Geo F8/expert s13 59 e3aab3f3
+SNK Neo Geo F8/expert s14 59 e3aab3f3
+SNK Neo Geo F8/expert s15 59 716ceca2
+SNK Neo Geo F8/expert s16 59 07f56f8c
 TRX64U F1/home s0 59 fa863437
 TRX64U F1/home s1 59 42795def
 TRX64U F1/home s2 59 d58ca8f5
@@ -1494,23 +1545,23 @@ Amiga (OCS/ECS, 68000) F5/settings s13 59 b94933d9
 Amiga (OCS/ECS, 68000) F5/settings s14 59 6731b8ce
 Amiga (OCS/ECS, 68000) F5/settings s15 59 0d824827
 Amiga (OCS/ECS, 68000) F5/settings s16 59 304f7c72
-Amiga (OCS/ECS, 68000) F5/input s0 59 3f3b0d66
-Amiga (OCS/ECS, 68000) F5/input s1 59 46aa780d
-Amiga (OCS/ECS, 68000) F5/input s2 59 19cb1078
-Amiga (OCS/ECS, 68000) F5/input s3 59 e942b7f4
-Amiga (OCS/ECS, 68000) F5/input s4 59 cf6efd50
-Amiga (OCS/ECS, 68000) F5/input s5 59 21c9699a
-Amiga (OCS/ECS, 68000) F5/input s6 59 bee820a7
-Amiga (OCS/ECS, 68000) F5/input s7 59 1be245a0
-Amiga (OCS/ECS, 68000) F5/input s8 59 47249093
-Amiga (OCS/ECS, 68000) F5/input s9 59 b8079f9b
-Amiga (OCS/ECS, 68000) F5/input s10 59 3f3b0d66
-Amiga (OCS/ECS, 68000) F5/input s11 59 b3419f8a
-Amiga (OCS/ECS, 68000) F5/input s12 59 b3419f8a
-Amiga (OCS/ECS, 68000) F5/input s13 59 b3419f8a
-Amiga (OCS/ECS, 68000) F5/input s14 59 b3419f8a
-Amiga (OCS/ECS, 68000) F5/input s15 59 f4d64225
-Amiga (OCS/ECS, 68000) F5/input s16 59 41bcea71
+Amiga (OCS/ECS, 68000) F5/input s0 59 f3ebc996
+Amiga (OCS/ECS, 68000) F5/input s1 59 0f5159c7
+Amiga (OCS/ECS, 68000) F5/input s2 59 d33d2500
+Amiga (OCS/ECS, 68000) F5/input s3 59 a68038ec
+Amiga (OCS/ECS, 68000) F5/input s4 59 5f42436c
+Amiga (OCS/ECS, 68000) F5/input s5 59 650e81e1
+Amiga (OCS/ECS, 68000) F5/input s6 59 b1c59cee
+Amiga (OCS/ECS, 68000) F5/input s7 59 fdac3e81
+Amiga (OCS/ECS, 68000) F5/input s8 59 0dc1c65d
+Amiga (OCS/ECS, 68000) F5/input s9 59 c54c7726
+Amiga (OCS/ECS, 68000) F5/input s10 59 2133f6f2
+Amiga (OCS/ECS, 68000) F5/input s11 59 d9834de1
+Amiga (OCS/ECS, 68000) F5/input s12 59 9e43b5ad
+Amiga (OCS/ECS, 68000) F5/input s13 59 7de396e3
+Amiga (OCS/ECS, 68000) F5/input s14 59 a98d987b
+Amiga (OCS/ECS, 68000) F5/input s15 59 f148c382
+Amiga (OCS/ECS, 68000) F5/input s16 59 56172a2d
 Amiga (OCS/ECS, 68000) F7/quick s0 59 3058aec0
 Amiga (OCS/ECS, 68000) F7/quick s1 59 b94b1d18
 Amiga (OCS/ECS, 68000) F7/quick s2 59 f2988a76
@@ -1596,23 +1647,23 @@ Amiga 1200 (AGA, 68020) F5/settings s13 59 54e57269
 Amiga 1200 (AGA, 68020) F5/settings s14 59 0a7c3c92
 Amiga 1200 (AGA, 68020) F5/settings s15 59 09bebcf5
 Amiga 1200 (AGA, 68020) F5/settings s16 59 1959b3af
-Amiga 1200 (AGA, 68020) F5/input s0 59 c29410e4
-Amiga 1200 (AGA, 68020) F5/input s1 59 6a5f71eb
-Amiga 1200 (AGA, 68020) F5/input s2 59 4fc6caf6
-Amiga 1200 (AGA, 68020) F5/input s3 59 2fbfc9d8
-Amiga 1200 (AGA, 68020) F5/input s4 59 7bc1b67b
-Amiga 1200 (AGA, 68020) F5/input s5 59 21c9699a
-Amiga 1200 (AGA, 68020) F5/input s6 59 51848b64
-Amiga 1200 (AGA, 68020) F5/input s7 59 b874a5a2
-Amiga 1200 (AGA, 68020) F5/input s8 59 815a2b8d
-Amiga 1200 (AGA, 68020) F5/input s9 59 44a1be57
-Amiga 1200 (AGA, 68020) F5/input s10 59 c29410e4
-Amiga 1200 (AGA, 68020) F5/input s11 59 b3419f8a
-Amiga 1200 (AGA, 68020) F5/input s12 59 b3419f8a
-Amiga 1200 (AGA, 68020) F5/input s13 59 b3419f8a
-Amiga 1200 (AGA, 68020) F5/input s14 59 b3419f8a
-Amiga 1200 (AGA, 68020) F5/input s15 59 f53c018f
-Amiga 1200 (AGA, 68020) F5/input s16 59 bcc90315
+Amiga 1200 (AGA, 68020) F5/input s0 59 28b822d4
+Amiga 1200 (AGA, 68020) F5/input s1 59 1dd7e1fd
+Amiga 1200 (AGA, 68020) F5/input s2 59 61ebb60e
+Amiga 1200 (AGA, 68020) F5/input s3 59 96a9b940
+Amiga 1200 (AGA, 68020) F5/input s4 59 0d375007
+Amiga 1200 (AGA, 68020) F5/input s5 59 2958b195
+Amiga 1200 (AGA, 68020) F5/input s6 59 4e8f85c9
+Amiga 1200 (AGA, 68020) F5/input s7 59 c2f790fb
+Amiga 1200 (AGA, 68020) F5/input s8 59 c9d7fb5b
+Amiga 1200 (AGA, 68020) F5/input s9 59 d09a40aa
+Amiga 1200 (AGA, 68020) F5/input s10 59 4edf412e
+Amiga 1200 (AGA, 68020) F5/input s11 59 9f835e23
+Amiga 1200 (AGA, 68020) F5/input s12 59 0eca1d73
+Amiga 1200 (AGA, 68020) F5/input s13 59 b5a3554f
+Amiga 1200 (AGA, 68020) F5/input s14 59 53b51fbe
+Amiga 1200 (AGA, 68020) F5/input s15 59 145c4385
+Amiga 1200 (AGA, 68020) F5/input s16 59 1fd4c789
 Amiga 1200 (AGA, 68020) F7/quick s0 59 dcb2ef16
 Amiga 1200 (AGA, 68020) F7/quick s1 59 bc07f720
 Amiga 1200 (AGA, 68020) F7/quick s2 59 030fcdc1
