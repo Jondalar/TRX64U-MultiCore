@@ -74,6 +74,23 @@ Alex's decisions (2026-11-15, translated from his request):
 
 - **D1** "SemVer for everything from now on: host, host menu, generic app, every core."
 - **D2** Display rule: "on feature branches / integration builds SemVer+commit; on a release: SemVer."
+- **D3** (Q1, 2026-11-15): Branch/integration builds show `X.Y.Z-dev+<sha8>` (e.g. `1.4.0-dev+1a2b3c4d`, pre-release, sorts below the release); a release shows `X.Y.Z`.
+- **D4** (Q2, 2026-11-15): A release is not a new build (Alex: "a release is only copying the .cor out of the non-release and patching the metadata"): a tool takes a tested dev package and rewrites its version strings to `X.Y.Z` (the TRXVSTAMP field of the apps via `tools/stamp_version.py`, already done per package in `ci/package.sh:103-108`; the `.cor` metadata `version`; hashes and the `.txu` repacked). Everything else stays byte-identical to the tested build. Open detail: the generic core app has no TRXVSTAMP field yet and needs one.
+- **D5** (Q3, 2026-11-15): Two separate SemVers: host gateware and host menu (host app) count on their own.
+- **D6** (Q4, 2026-11-15): Both (Alex: "every deliverable has its own version.toml and for the release we have a bundle.toml"): each deliverable (host gateware, host menu, generic core app, each core) carries its own version file; a release has a `bundle.toml` with the bundle SemVer and the version of every part in it.
+- **D7** (Q4b, 2026-11-15): Cores keep their version in `core.toml` (it is already the core descriptor); host gateware, host menu and generic core app get a `version.toml` each.
+- **D8** (Q5, 2026-11-15): Versions are bumped on the way to `main` (Alex: "on the feature branch no versioning, the state stays; via integ -> main and THERE it is versioned"): a feature branch never changes a version; the merge into `main` raises the version of every deliverable it changed.
+- **D9** (Q5b, 2026-11-15): The bump level is set by hand at the merge into `main` for now (whoever merges; Claude asks Alex before a MAJOR). A script proposes the level from the spec/TODO kind and the merge-commit prefix so it is not worked out by an LLM per merge; the human approves. Later, with more contributors and builds from elsewhere, the script decides and a human releases (Alex: "first 3 ... then by script some day and the human approves").
+- **D10** (Q6, 2026-11-15): Start values: host gateware, host menu and generic core app start at 0.2.0. The cores are gone through one by one with Alex afterwards (open, one question per core).
+- **D11** (Q7, 2026-11-15): MAJOR for a core: either a user-visible break (old settings, saves or media no longer work, menu structure breaks) or a contract change (an older host no longer loads the core).
+- **D12** (Q8, 2026-11-15): The contract number folds into the host gateware version: a contract change is a MAJOR of the host gateware; the separate number and the "contract N" chip go. Consequence to settle in the design: the .cor check that today compares the contract integer (`COR_HOST_CONTRACT`, `cor.h:9`; `cor_pack.py` `CONTRACT`) then compares the host gateware MAJOR.
+- **D13** (Q9, 2026-11-15): Boot menu, large cores: the version column shows the version as for every core; "full" becomes a small badge at the icon/name (layout with a mock-up and ux-review before it is built).
+- **D14** (Q10, 2026-11-15): Host chip: a release shows only the SemVer (`host 0.2.0`); a test build shows SemVer plus the host key (`host 0.2.0-dev+<sha8> · 17CFD66A`). The key stays in F8, the bug report and the .cor refusal text.
+- **D15** (Q11, 2026-11-15): trx64u/trx64g take their SemVer from TRX64-Ultimate: its package/manifest carries the version, the pin copies it (a contract line to agree with TRX64-Ultimate in docs/contracts/trx64u-firmware-handover.md).
+- **D16** (Q9b, 2026-11-15): Refines D13 (Alex): the badge is a small purple icon beside the version: "L" for a large core, "P" for a partial (small) core; mock-up and ux-review before it is built.
+- **D17** (Q12, 2026-11-15): The `.txu` and the Gitea package carry the bundle version from `bundle.toml` (release `1.4.0`, test build `1.4.0-dev+<sha8>`); the part versions are inside (bundle.toml, .cor metadata).
+- **D18** (Q13, 2026-11-15): The generic core app counts its own version (follows from D6, its own deliverable).
+- **D19** (Q14, 2026-11-15): Besides the host gateware MAJOR check (D12), an update or core install of an older version warns and lets the user go on (downgrade allowed with a warning).
 
 Everything else is open, asked one at a time, answers recorded here when given.
 
@@ -105,3 +122,4 @@ Nothing decided out yet.
 ## History
 
 - 2026-11-15: PROPOSED on Alex's request; §1 read from code, open questions Q1-Q14 listed.
+- 2026-11-15: Q1-Q14 decided with Alex the same day (D3-D19); open: start version per core (one by one), the TRX64-Ultimate contract line (D15), the L/P badge mock-up (D16).
