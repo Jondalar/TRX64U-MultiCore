@@ -80,7 +80,8 @@ lap() { local d=$((SECONDS - _lap_t)); _lap_t=$SECONDS; printf '%dm%02ds' $((d /
 branch_slug() { printf '%s' "${GITHUB_REF_NAME:-$(git -C "$ROOT" rev-parse --abbrev-ref HEAD)}" | tr '/' '_'; }
 
 # T215: every content key hashes the NORMALISED content of a file (ci/code_hash.py: comments cut out, tree-sitter), the same function ci/plan.py
-# decides "changed" with; a comment never moves a key. CODE_HASH=raw gives the keys as they were before (ci/key_alias.sh).
+# decides "changed" with; a comment never moves a key, and neither does a documentation file (is_doc: FROM, *.md, README*, PROVENANCE*, LICENSE*, COPYING*; 2026-11-15).
+# CODE_HASH=raw turns the normalising off, CODE_HASH_DOCS=keep puts the documentation files back (ci/key_alias.sh pairs the two key sets).
 # tree_key <pathspec...>: 16 hex digits over the content of the tracked files
 # under the pathspecs, plus (when the checkout has it) the content of vendor/gideon
 # and the free text in $KEY_EXTRA. Only the content counts, not commits: a push
@@ -133,7 +134,8 @@ files_key() {
   done
   list="$(mktemp)"; names="$(mktemp)"
   git -C "$ROOT" ls-files -s -- "$@" > "$list" || { rm -f "$list" "$names"; echo "files_key: git ls-files failed, no key" >&2; return 1; }
-  awk -F'\t' '{ split($1, a, " "); if (a[1] != "160000") print $2 }' "$list" > "$names" || { rm -f "$list" "$names"; return 1; }
+  # documentation (ci/code_hash.py is_doc) never enters a key: `keep` drops it from the list
+  awk -F'\t' '{ split($1, a, " "); if (a[1] != "160000") print $2 }' "$list" | (cd "$ROOT" && python3 ci/code_hash.py keep) > "$names" || { rm -f "$list" "$names"; return 1; }
   local body; body="$(mktemp)"
   (
     set -eo pipefail

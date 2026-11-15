@@ -8,8 +8,13 @@ both call this file, so they cannot drift.
   ci/code_hash.py sha256 <file>...       like sha256sum, over the normalised content
   ci/code_hash.py check                  exit 0 when the tree-sitter install and every grammar load, else 2 (no key is made from a missing install)
   ci/code_hash.py show <file>            the normalised text of a file (debugging)
+  ci/code_hash.py keep                   stdin: paths; stdout: those that are not documentation (is_doc), for the callers that hash a path list
 
-CODE_HASH=raw in the environment turns normalising off (the key function as it was before T215; ci/key_alias.sh pairs old and new keys with it).
+Documentation never enters a key (Alex 2026-11-15, after run 2007 rebuilt c64scpu for a text move in mono/host/FROM: "that is really a drama with
+this crap"): see is_doc. index and keep drop such a file, differs says "unchanged". CODE_HASH_DOCS=keep brings them back (the keys as they were
+before this rule, normalised; ci/key_alias.sh pairs those with the new keys).
+
+CODE_HASH=raw in the environment turns normalising off (comments stay in the key; documentation files still drop out, CODE_HASH_DOCS=keep brings them back; ci/key_alias.sh pairs those keys).
 
 Normalising (T215 D2, Alex: tree-sitter): every comment node of the parse is cut out (tree-sitter + tree-sitter-language-pack, exact versions in
 ci/codehash-requirements.txt: they decide the hash), trailing whitespace and blank lines dropped (C-like and HDL; in python/bash/toml/tcl only on lines that carried a comment, a literal may span lines),
@@ -33,6 +38,19 @@ PARSER_FOR = {      # extension -> grammar of tree-sitter-language-pack
     ".py": "python", ".tcl": "tcl", ".xdc": "tcl", ".sdc": "tcl", ".sh": "bash", ".bash": "bash", ".toml": "toml",
 }
 _parsers = {}
+
+# No build reads these files (checked 2026-11-15: no tcl/Makefile/sh/py of ci/, tools/, host/, cores/ opens one; the globs read .v/.sv/.vhd/.mem/.bin only).
+DOC_BASENAMES = ("FROM",)
+DOC_PREFIXES = ("README", "PROVENANCE", "LICENSE", "LICENCE", "COPYING")
+DOC_EXTS = (".md",)
+
+
+def is_doc(path):
+    """A documentation file: it moves no key and no plan decision. FROM = the provenance note of a copied folder (cores/<id>/mono/host/FROM)."""
+    if os.environ.get("CODE_HASH_DOCS") == "keep":
+        return False
+    b = os.path.basename(path)
+    return b in DOC_BASENAMES or b.startswith(DOC_PREFIXES) or b.lower().endswith(DOC_EXTS)
 
 
 def lang_of(path):
@@ -193,6 +211,8 @@ def blob_hash(data):
 
 def differs(base_bytes, head_bytes, path):
     """The plan's question for one file; None = absent on that side (an added or deleted file always counts)."""
+    if is_doc(path):
+        return False
     if base_bytes is None or head_bytes is None:
         return base_bytes is not head_bytes
     return normalise(path, base_bytes) != normalise(path, head_bytes)
@@ -200,6 +220,7 @@ def differs(base_bytes, head_bytes, path):
 
 def _index(lines):
     rows = [l.split("\t", 1) for l in lines if l]
+    rows = [r for r in rows if not is_doc(r[1])]
     want = []
     if os.environ.get("CODE_HASH") != "raw":
         want = [r[0].split()[1] for r in rows if r[0].split()[0] != "160000" and lang_of(r[1])]
@@ -233,8 +254,14 @@ def main(argv):
         for p in sys.stdin.read().split("\n"):
             if p:
                 print(blob_hash(_path_bytes(p)))
+    elif cmd == "keep":
+        for p in sys.stdin.read().split("\n"):
+            if p and not is_doc(p):
+                print(p)
     elif cmd == "sha256":
         for p in argv[2:]:
+            if is_doc(p):
+                continue
             print("%s  %s" % (hashlib.sha256(normalise(p, open(p, "rb").read())).hexdigest(), p))
     elif cmd == "check":     # exit 2 with a message when the install is missing; ci/lib.sh calls it first, a key is never made from a broken pipe
         if os.environ.get("CODE_HASH") != "raw":
