@@ -59,6 +59,11 @@ struct PadSpec {
     uint8_t nbuttons;                            // the core's buttons, bit n of the word
     const char *const *names;                    // nbuttons labels, for the prompts of the mapping ("A", "Start", "Up")
     const uint8_t *def_map;                      // nbuttons entries: a source id, PAD_SRC_NONE or a role (PAD_ROLE_*, resolved per pad)
+    // T225 (the Amiga cores' game port 2): ONE port, fed by the first pad that is plugged (whichever player slot it has); its map is kept per pad,
+    // keyed by VID:PID, in the core's .cfg ("Pad map 2DC8:6001" = <target type digit><nbuttons hex pairs>), so that the same pad finds it again on any
+    // USB socket. reg[1] is not used (0). `id_loaded` is called, from pad_pace, when a pad with a stored map appears: the stored target type.
+    uint8_t by_id;
+    void (*id_loaded)(CoreCtx *c, int type);
 };
 
 // A spec's default map for a pad (vid = pid = 0: none plugged, the generic numbering): roles resolved, nbuttons entries.
@@ -89,6 +94,16 @@ void pad_reset();
 // Makes the service the one of this core: a no-op while the core's spec is the one in use, else pad_configure() and pad_load_maps() (the pace and the
 // menu call it first, whichever comes first after the core started).
 void pad_ensure(CoreCtx *c);
+
+// T225: how many of the spec's buttons the target in force has (the others are never set and the mapping wizard does not ask for them; 0 = all) and
+// the target's type number (stored with a per-pad map). pad_nbuttons() is the count in force.
+void pad_set_target(int type, int nbuttons);
+int  pad_nbuttons();
+int  pad_target_type();
+// The slot (0..1, in plug order) of the pad that serves `player`: the player itself, except in a by_id spec, where it is the first slot in use.
+int  pad_slot(int player);
+// By-id specs: keeps the map in force for the pad of `player` under "Pad map <VID:PID>" with the target type; false when no pad is there or the file cannot be written.
+bool pad_save_id_map(Settings *s, int player);
 
 // The poll's side: writes the words that changed. True when it wrote.
 bool pad_pace(CoreCtx *c);
@@ -126,5 +141,7 @@ const char *pad_src_name(uint8_t src, char *buf, int n);   // "Button 3", "Up"
 void pad_register(OpRegistry &r);
 // The mapping wizard (padwiz.cc, T192.3): operations pad.map.begin / next / back / cancel / tick, menu.pad_map_1 / _2 (they begin it), states pad.map.active / title / left / right / sub.
 void padwiz_register(OpRegistry &r);
+// Starts the wizard for a player (what menu.pad_map_1 does); T225: for a by_id spec the one port. OPE_FAILED with a message in `o` when no pad is there.
+int pad_wizard_begin(CoreCtx *c, int player, OpOut &o);
 
 #endif

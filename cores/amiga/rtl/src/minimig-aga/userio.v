@@ -39,6 +39,7 @@ module userio
 	output            _fire1,     // joystick 1 fire output (to CIA)
 	input             _fire0_dat,
 	input             _fire1_dat,
+	input             cd32pad2_en, // T225: port 2 is a CD32 pad (the USB pad standing in for it): the CD32 shift register answers pin 5 / pin 6
 	input      [15:0] _joy1,      // joystick 1 in (default mouse port)
 	input      [15:0] _joy2,      // joystick 2 in (default joystick port)
 	input      [15:0] joy_ana1,
@@ -161,7 +162,7 @@ always @ (posedge clk) if (ce28) begin
 	if (reset)
 		potcap <= 0;
 	else if (clk7_en) begin
-		if (cd32pad & ~joy2_pin5) begin
+		if (cd32pad2_en & ~joy2_pin5) begin
 			potcap[3] <= cd32pad2_reg[7];
 		end else begin
 			potcap[3] <= _djoy2[5] & ~(potreg[15] & ~potreg[14]);
@@ -311,7 +312,7 @@ end
 
 // assign fire outputs to cia A
 assign _fire0 = cd32pad && !cd32pad1_reg_load ? fire1_d : _sjoy1[4] & _mleft;
-assign _fire1 = cd32pad && !cd32pad2_reg_load ? fire2_d : _sjoy2[4];
+assign _fire1 = cd32pad2_en && !cd32pad2_reg_load ? fire2_d : _sjoy2[4];
 
 //JB: some trainers writes to JOYTEST register to reset current mouse counter
 assign test_load = reg_address_in[8:1]==JOYTEST[8:1] ? 1'b1 : 1'b0;

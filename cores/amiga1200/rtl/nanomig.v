@@ -57,7 +57,8 @@ module nanomig ( input wire ce28,
    input	 kbd_mouse_level,
    input [1:0]	 kbd_mouse_type,
    input [7:0]	 kbd_mouse_data,
-   input [7:0]	 joystick0,
+   input [10:0]	 joystick0,        // T225: [7:0] fire2,fire,up,down,left,right as before; [10:8] the CD32 pad's play, reverse, forward (port 2)
+   input		 cd32pad2_en,       // T225: game port 2 is the CD32 pad of the USB gamepad
    input [7:0]	 joystick1,
 
    // UART/RS232 for e.g. DiagROM or MIDI
@@ -1370,7 +1371,7 @@ wire	   hs_in, vs_in;
 
 // JOY0 is actually the joystick port and and joy1 is being driven by usb mouse data
 // JOY2 and JOY3 
-wire [15:0] JOY0 = { 8'h00, joystick0 };   
+wire [15:0] JOY0 = { 5'h00, joystick0 };   
 wire [15:0] JOY1 = { 8'h00, joystick1 };   
 wire [15:0] JOY2 = 16'h0000;
 wire [15:0] JOY3 = 16'h0000;   
@@ -1502,6 +1503,7 @@ minimig minimig
 	.ri           (1'b1             ), // RS232 Ring Indicator (1=idle/not ringing)
 
 	//I/O
+	.cd32pad2_en  (cd32pad2_en      ), // T225
 	._joy1        (~JOY0            ), // joystick 1 [fire4,fire3,fire2,fire,up,down,left,right] (default mouse port)
 	._joy2        (~JOY1            ), // joystick 2 [fire4,fire3,fire2,fire,up,down,left,right] (default joystick port)
 	._joy3        (~JOY2            ), // joystick 3 [fire4,fire3,fire2,fire,up,down,left,right]

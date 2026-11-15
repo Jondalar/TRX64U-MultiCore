@@ -1,6 +1,6 @@
 # T225 — In the Amiga cores a USB gamepad can stand in for Amiga game port 2, as a one-button joystick, a two-button joystick or a CD32 pad, with a saved per-pad button mapping
 
-**Status:** PROPOSED (2026-11-15, Alex).
+**Status:** BUILT on branch `t225-amiga-usbpad` (2026-11-15); S4 (Vivado) and S5 (board) open; S2/S3 pictures missing, see §5 (the emulator has no USB gamepad).
 **Repo:** TRX64U-MultiCore — gateware of `cores/amiga` and `cores/amiga1200` (minimig `userio.v`: CD32 pad enable and the pad bits
 into `_joy2`, one register the app writes), the core app (pad service, Input tab of both Amiga cores, the mapping dialog, saving).
 **Number:** T225.
@@ -47,3 +47,25 @@ As Alex said in "Origin".
 - Port 1 (mouse port) stays as it is.
 
 ## §5 Built
+
+Branch `t225-amiga-usbpad`, 2026-11-15. Not merged, not pushed, no Vivado run, no board.
+
+**Port numbering (read from the code, not from comments):** Amiga game port 2 is `userio.v` `_joy1` (`_sjoy2` <= `joy1` with `joy_swap = 0`; `JOY1DAT`, CIA-A PA7 fire) = `nanomig.v` `JOY0` = `amiga_input.v` `joystick0` (the host's port 1 when "Joystick ports" is Normal). The spec text said `_joy2`; that is port 1 (the mouse port).
+
+**Gateware (both cores, own copies; `cores/amiga1200/tools/check_wrapper_fork.sh` is ok for all pairs):**
+- `trx/amiga_regs.v` (A1200: `rtl/amiga_regs.v`): `1D0` PAD2_WORD low byte staged, `1D1` b2:0 commits the 11-bit word, `1D2` PAD2_MODE b1:0 (0 as before, 1 joystick 1 button, 2 joystick 2 buttons, 3 CD32), FEATURES b5 = PAD2. Word bits: 0 up, 1 down, 2 left, 3 right, 4 fire/red, 5 blue (2nd button), 6 green, 7 yellow, 8 play, 9 reverse, 10 forward.
+- `amiga_input.v`: word and mode through two flip flops into `sys_clk`; `joystick0` is 11 bits: mode 0 = the host's joystick port as before, mode 1..3 = the pad word only (D1: the C64U joystick port is off for port 2); `cd32pad2_en` = mode 3.
+- `amiga_core.v`, `nanomig.v` (`joystick0` 11 bits, `cd32pad2_en`), `minimig.v`, `userio.v`: `cd32pad2_en` replaces `cd32pad` in the two port 2 places only (`potcap[3]`, `_fire1`); port 1 keeps `cd32pad = 0`. `userio.v` is the A1200's own copy now (`cores/amiga1200/rtl/userio.v`, `userio.diff` empty, `core_sources.tcl` `a12_own`).
+- Testbenches `tb_input`, `tb_rawkey`, `tb_aga`, `tb_ideal`, `tb_mem` got the new ports (not run).
+- yosys `-noautowire` read of every edited file: clean. LUT estimate: about 40 flip flops (11+2 synchronised twice, 11+8+2 register) and about 30 LUT (mode mux of 11 bits, the CD32 enable in two places); no utilization report read, no Vivado run.
+
+**App:**
+- `coreapp/src/pad.{h,cc}`, `padwiz.cc`: `PadSpec::by_id` (one port, fed by the first pad plugged), `pad_set_target` (the buttons of the target in force: 5 / 6 / 11), the map is kept per pad in the core's `.cfg` as `Pad map <VID>:<PID>` = `<target type digit><11 hex pairs>` (D2: the existing "Pad N map" storage, keyed by VID:PID instead of the player; any USB socket); the wizard is the existing one (`pad.map.*` states, `menu.pad_map_port`, `pad_wizard_begin`), remap = save again. A pad with a stored map sets the target setting (`PadSpec::id_loaded`).
+- `coreapp/cores/amiga.cc` (both cores): Input tab rows "Map port 2 to USB controller" (Off/On, ops `amiga.pad2_on`), "Port 2 acts as" (Joystick 1 button / Joystick 2 buttons / CD32 gamepad), "Map port 2 buttons" (any change starts the dialog and falls back); capability `pad` (XInput pads reach the service). Button names: Up, Down, Left, Right, Fire (Red), Button 2 (Blue), Green, Yellow, Play, Reverse (L), Forward (R). Default map: D3 layout, red = bottom, blue = right, green = left, yellow = top, play = Start, reverse = L, forward = R.
+- `tools/dev.sh riscv --branch t225-amiga-usbpad`: green. Goldens (`menu_amiga*.txt`, `ids.txt`, `ops_*.txt`) edited by hand, the app tests did not run (pipeline only).
+
+**Findings the builder could not close:**
+- `show_state` hides a row in the UI state (REST) but the F5 Input tab draws it anyway (pictures `t225-input-*.png`); the three rows are therefore always listed (no `show_state`), so state and picture agree.
+- "Map port 2 buttons" without a pad: the setting's operation cannot show its message (the status line says "Map port 2 buttons: Map..."), the dialog does not open.
+- The emulator has no USB gamepad to attach: S2 (dialog pictures) and the restart half of S3 are not proven by pictures.
+

@@ -50,6 +50,7 @@ op	pad.map.cancel
 op	pad.map.tick
 op	menu.pad_map_1
 op	menu.pad_map_2
+op	menu.pad_map_port
 op	net.fx	value:int:-2000:2000:0:
 op	wifi.toggle
 op	stream.start	id:int:0:2:0:
@@ -71,6 +72,9 @@ op	machine.read_mem	address:int:0:16777215:0:	length:int:1:256:0:
 op	machine.write_mem	address:int:0:16777215:0:	data:string:0:0:254:
 op	amiga.poll
 op	amiga.mount_reset	path:path:0:0:519:
+op	amiga.pad2_on	value:int:0:1:0:
+op	amiga.pad2_type	value:int:0:2:0:
+op	amiga.pad2_map	value:int:0:1:0:
 op	disk.create	path:string:0:0:255:	format:enum:0:3:0:apple2_dsk|adf|atr|cpc_dsk	name:string:0:0:24:
 state	sectors.folder.offer
 state	config.count

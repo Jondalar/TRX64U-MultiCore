@@ -750,8 +750,11 @@ Amiga (OCS/ECS, 68000) F5/settings 6 set:Floppy write protect (next reset)
 Amiga (OCS/ECS, 68000) F5/settings 7 set:Real-time clock (at next reset)
 Amiga (OCS/ECS, 68000) F5/settings 8 set:Joystick ports
 Amiga (OCS/ECS, 68000) F5/settings 9 set:LED Load Indicator
-Amiga (OCS/ECS, 68000) F5/input 0 set:Mouse Sensitivity
-Amiga (OCS/ECS, 68000) F5/input 1 set:Mouse Acceleration
+Amiga (OCS/ECS, 68000) F5/input 0 set:Map port 2 to USB controller
+Amiga (OCS/ECS, 68000) F5/input 1 set:Port 2 acts as
+Amiga (OCS/ECS, 68000) F5/input 2 set:Map port 2 buttons
+Amiga (OCS/ECS, 68000) F5/input 3 set:Mouse Sensitivity
+Amiga (OCS/ECS, 68000) F5/input 4 set:Mouse Acceleration
 Amiga (OCS/ECS, 68000) F7/quick 0 task:Reset Amiga
 Amiga (OCS/ECS, 68000) F7/quick 1 task:Reload Kickstart, Reset
 Amiga (OCS/ECS, 68000) F7/quick 2 task:Eject DF0
@@ -796,8 +799,11 @@ Amiga 1200 (AGA, 68020) F5/settings 6 set:Floppy write protect (next reset)
 Amiga 1200 (AGA, 68020) F5/settings 7 set:Real-time clock (at next reset)
 Amiga 1200 (AGA, 68020) F5/settings 8 set:Joystick ports
 Amiga 1200 (AGA, 68020) F5/settings 9 set:LED Load Indicator
-Amiga 1200 (AGA, 68020) F5/input 0 set:Mouse Sensitivity
-Amiga 1200 (AGA, 68020) F5/input 1 set:Mouse Acceleration
+Amiga 1200 (AGA, 68020) F5/input 0 set:Map port 2 to USB controller
+Amiga 1200 (AGA, 68020) F5/input 1 set:Port 2 acts as
+Amiga 1200 (AGA, 68020) F5/input 2 set:Map port 2 buttons
+Amiga 1200 (AGA, 68020) F5/input 3 set:Mouse Sensitivity
+Amiga 1200 (AGA, 68020) F5/input 4 set:Mouse Acceleration
 Amiga 1200 (AGA, 68020) F7/quick 0 task:Reset Amiga
 Amiga 1200 (AGA, 68020) F7/quick 1 task:Reload Kickstart, Reset
 Amiga 1200 (AGA, 68020) F7/quick 2 task:Eject DF0

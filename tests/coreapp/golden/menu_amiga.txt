@@ -33,6 +33,9 @@ area F5 AMIGA
     setting Joystick ports = Normal | Swapped (default Normal, live)
     setting LED Load Indicator = On | Off (default On, live)
   tab 2 Input
+    setting Map port 2 to USB controller = Off | On (default Off, live)
+    setting Port 2 acts as = Joystick 1 button | Joystick 2 buttons | CD32 gamepad (default Joystick 1 button, live)
+    setting Map port 2 buttons = Map... | Map... (default Map..., live)
     setting Mouse sensitivity = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 (default 8, live)
     setting Mouse acceleration = Off | Adaptive (default Off, live)
 area F7 Actions
