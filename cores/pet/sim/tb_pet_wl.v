@@ -78,7 +78,7 @@ module tb_pet_wl;
             $write("\n");
         end
         // the six Waterloo files run the 6809 to its menu in 80 columns, with the CRTC set up for the Waterloo character set (R12 bit 5)
-        if (dut.mem.vram.mem[0] !== "W" || dut.mem.vram.mem[1] !== "a" || dut.mem.vram.mem[9] !== "o") begin $display("FAIL no Waterloo banner on row 0"); errs = errs + 1; end
+        if (dut.mem.vram.mem[0] !== "W" || dut.mem.vram.mem[1] !== "a" || dut.mem.vram.mem[7] !== "o") begin $display("FAIL no Waterloo banner on row 0"); errs = errs + 1; end
         if (!dut.col80) begin $display("FAIL not 80 columns"); errs = errs + 1; end
         if (dut.r12[5] !== 1'b1) begin $display("FAIL R12 bit 5 (Waterloo character set) not set: %h", dut.r12); errs = errs + 1; end
         if (errs == 0) $display("PASS tb_pet_wl"); else $display("FAIL tb_pet_wl: %0d errors", errs);
