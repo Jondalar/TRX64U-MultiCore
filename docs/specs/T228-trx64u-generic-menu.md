@@ -277,6 +277,8 @@ overlay was fitted from a 1280x800 manual picture, so its scale on the real 960x
   nothing in flash; settings are not stored in flash.
 - D12 (Alex 2026-11-15, Q6a, after mock-ups q06a-c): "Keys and help" is a row in F8 > Support in every core (generic), beside
   Bug report and About.
+- D13 (Alex 2026-11-15, Q7a, after mock-ups q07a/b): the Timewarp ring and Instruction trace switches go to F5 C64 > tab "TRX64",
+  section "Recording". The Timewarp overlay stays unchanged (D3).
 
 ## §4 Out
 
