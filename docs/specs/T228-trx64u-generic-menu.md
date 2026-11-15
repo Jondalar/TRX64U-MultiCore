@@ -279,6 +279,10 @@ overlay was fitted from a 1280x800 manual picture, so its scale on the real 960x
   Bug report and About.
 - D13 (Alex 2026-11-15, Q7a, after mock-ups q07a/b): the Timewarp ring and Instruction trace switches go to F5 C64 > tab "TRX64",
   section "Recording". The Timewarp overlay stays unchanged (D3).
+- D14 (Alex 2026-11-15, Q8a, translated: "A; but only show what the core really can, no longer what was in Gideon's"): the
+  Video tab has two sections, "Picture" (System mode, Picture, Scale, Smooth) and "Output" (HDMI). General rule for the whole
+  menu: a row is shown only when the trx64u bitstream really implements it; rows copied from Gideon's menu that do nothing are
+  dropped. This also settles Q13 (option a). S2 checks every row against the bitstream/app code before keeping it.
 
 ## §4 Out
 
