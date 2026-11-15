@@ -153,7 +153,6 @@ static const RomSpec roms[R_COUNT] = {
 static int cpc_init(CoreCtx *c, char *, int)
 {
     CpcState *st = cpc_state(c);
-    cpcd_event(c, &st->disks, 'r', "reset-hold (before flush)");
     cpcd_flush_all(c, &st->disks);                // what the FDC wrote is in the files before the machine starts over
     st->hold = true;
     write_ctrl(c);
@@ -167,7 +166,6 @@ static int cpc_release(CoreCtx *c, char *, int)
     cpc_state(c)->hold = false;
     write_ctrl(c);
     c->io->mode_reset(false);
-    cpcd_event(c, &cpc_state(c)->disks, 'o', "reset-release");
     return 0;
 }
 
@@ -227,7 +225,6 @@ static int op_service(CoreCtx *c, const OpArgs &, OpOut &)
     CpcState *st = cpc_state(c);
     deck_service(c, &st->deck, tape_regs);
     cpcd_poll(c, &st->disks, false);
-    cpcd_probe(c, &st->disks);                    // T92 #17 probe
     return OPE_OK;
 }
 

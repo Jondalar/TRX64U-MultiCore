@@ -8,7 +8,6 @@
 #define COREAPP_CPC_DISK_H
 
 #include "ctx.h"
-#include <stdint.h>
 
 #define CPCD_IDLE_MS 1000
 #define CPCD_MAX_DIRTY_MS 5000
@@ -24,18 +23,7 @@ struct CpcDisk {
     char path[FS_PATH_MAX];               // T180 D2: where the image came from, for the stored mounts (cpc.cc mount_slots)
 };
 
-// T92 #17 probe: what the periodic tick last saw (cpcd_probe) and the counters of the heartbeat line.
-struct CpcProbe {
-    bool have, oob_seen;
-    uint8_t st, ds, ctl, wp, dy0, dy1;
-    uint32_t b0, s0, b1, s1;
-    uint16_t lo, hi;
-    uint32_t win_ms, chg_ms, hb_n, busy_ticks, ticks, last_mount_ms, last_reset_ms;
-    uint8_t n_mount, n_eject, n_reset, n_flush;
-};
-
 struct CpcDisks {
-    CpcProbe probe;
     CpcDisk d[2];
     bool wp_setting;              // the setting "Disks write protected": taken at the mount
     uint8_t wp_bits;              // b0/b1: the protect bits last given to the core (DISK_CTRL b4/b5)
@@ -51,10 +39,6 @@ void cpcd_poll(CoreCtx *c, CpcDisks *s, bool force);
 // otherwise, the disks stay mounted with their chunks.
 bool cpcd_flush_all(CoreCtx *c, CpcDisks *s, char *msg = 0, int msglen = 0);
 bool cpcd_pending(CoreCtx *c, const CpcDisks *s);     // something is on its way to a file: for the "Saving media..." display
-// T92 #17 probe: one `[cpc]` console line with the time and the registers now; kind m mount, e eject, r reset, f flush (counted in the heartbeat), anything else o.
-void cpcd_event(CoreCtx *c, CpcDisks *s, char kind, const char *fmt, ...) __attribute__((format(printf, 4, 5)));
-// The periodic tick: a line when a register changed (at most one per 250 ms), a heartbeat line while the Z80's address stays in a 64 byte span.
-void cpcd_probe(CoreCtx *c, CpcDisks *s);
 const char *cpcd_name(const CpcDisks *s, int drive);
 
 #endif
