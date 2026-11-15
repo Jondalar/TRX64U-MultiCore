@@ -27,6 +27,29 @@ static std::vector<uint8_t> prg(uint16_t load)        // "10 PRINT": link, line 
 
 int main()
 {
+    // --- T216 D15: the CRC32 and the reference table
+    CHECK(pet_crc32((const uint8_t *)"123456789", 9) == 0xCBF43926u);
+    CHECK(pet_rom_crc_of("kernal-4.901465-22.bin") == 0xcc5298a1u);
+    CHECK(pet_rom_crc_of("waterloo-e000.901897-01.bin") == 0xb2cee903u);
+    CHECK(pet_rom_crc_of("basic.bin") == 0);                       // a generic name has no reference: not checked
+    for (unsigned i = 0; i < sizeof(pet_rom_crcs) / sizeof(pet_rom_crcs[0]); i++) {
+        CHECK(pet_rom_crcs[i].crc != 0);
+        for (unsigned k = i + 1; k < sizeof(pet_rom_crcs) / sizeof(pet_rom_crcs[0]); k++) {
+            CHECK(strcmp(pet_rom_crcs[i].name, pet_rom_crcs[k].name) != 0);
+        }
+    }
+    // every name pet_rom_names can return has a reference
+    for (int m = PET_M_2001; m <= PET_M_2001B2; m++) {
+        for (int hz = 0; hz < 2; hz++) {
+            for (int r = PET_R_BASIC; r <= PET_R_CHAR; r++) {
+                const char *n[6];
+                int c = pet_rom_names(m, hz != 0, r, n);
+                for (int k = 0; k < c; k++) {
+                    CHECK(pet_rom_crc_of(n[k]) != 0);
+                }
+            }
+        }
+    }
     // --- the files per model
     CHECK(first_is(PET_M_2001, false, PET_R_BASIC, "basic-1.901439-09-05-02-06.bin"));
     CHECK(first_is(PET_M_2001, false, PET_R_EDITOR, "edit-1-n.901439-03.bin"));

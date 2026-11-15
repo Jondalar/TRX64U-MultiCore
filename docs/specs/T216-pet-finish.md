@@ -178,7 +178,13 @@ LUT/BRAM: +1 BRAM18 (character ROM 4 KiB); no BRAM for 96 KiB (`pet_ram64` alrea
 | S9 | `tb_pet_real` 8032 PASS (80 columns after the beeps); 8096 / SuperPET with real editor: board, open |
 | S10 | built, listing of all missing files rendered (`ux-pet-missing`); app test: pipeline |
 | S11 | `tb_pet_real` 2001 + BASIC 2 READY PASS; disk on the 2001: board, open |
-| S12 | missing file: built; wrong content: open question (not decided) |
+| S12 | missing file: built; wrong content: D15 built (CRC32), pictures with the build; app test: pipeline |
 | S13 | not touched, waits for T214 (D-Q6) |
 | S14 | `pet_keys` PASS, symbolic and positional; board: type the digits, open |
 | S15 | `pet_keys` PASS, menu built end to end, riscv ok; USB pad on the board: open |
+
+### 2026-11-15 late: D10-D15 built (agent, branch t216-pet)
+- D10: `MenuCtl::foot_line` returns the note, or the ring legend when there is none (no shared line). D11: `MenuEntry::dialog` set by `menutree.cc` for every task listed in a settings tab; `MenuCtl::row` shows ">" at the right. D12: the row that opens a page (Hotkeys) is added after the task rows of its tab. D13: `coreapp/cores/pet.cc` label "Diag jumper", values Off/On; the .cfg KEY `Diag (at next reset)` is unchanged, and the stored value text "On (DIAG jumper)" of an old .cfg still loads as On (`cfgfile_label_head_equal` compares up to " ("). Manual 11.19.5 and `tests/coreapp/golden/menu_pet.txt` hand-edited.
+- D14: `list_missing_roms` appends ONE line for the Waterloo set when the model is the SuperPET and its CPU switch is not 6502: "and for the 6809: waterloo-a000 ... f000 (6 files)", or "waterloo-a000 c000 (2 of 6)" when only some are missing. Header shortened ("ROM files of the SuperPET in cores/pet/roms, then choose Reload ROMs:") so base files + line fit OP_MSG_MAX.
+- D15: `pet_models.h` `pet_rom_crcs` (CRC32 of 31 named files) read from VICE `data/PET` (local and builder `/var/tmp/petroms`, identical) and `cores/pet/sim/media` (Waterloo, identical to VICE's). `rom_state()` in pet.cc: found + CRC differs = "wrong content: <name>" in the same message as the missing files; a Waterloo file with wrong content is refused when the 6809 can run. Names without a reference file (generic `basic.bin`, `edit.bin`, `kernal.bin`, `chargen.bin`, `basic4.bin`, `basic2.bin`, `basic`, `kernal`, `chargen`, `characters.bin`) get no check; the `hre-*` files are not in the table (no use here). Unit checks in `tests/coreapp/test_pet_models.cc` (written, not run).
+- Goldens: `menu_pet.txt` edited by hand. Not recomputed (no run): `keywalk.txt` hashes of PET and Amiga/Amiga 1200 Input tabs and of any core with a task in a settings tab (">" at the right), and of any state with a note plus the ring legend (foot line). `ids.txt` unchanged (ids use the key). Expect those hashes red in the pipeline until `UPDATE_GOLDEN=1` is run there.

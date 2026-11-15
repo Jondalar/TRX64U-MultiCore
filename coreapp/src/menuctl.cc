@@ -736,6 +736,9 @@ void MenuCtl::row(int i, char *left, int ln, char *right, int rn, bool *active, 
     snprintf(left, ln, "%s", e.label);
     switch (e.kind) {
     case EK_TASK:
+        if (e.dialog) {                                  // T216 D11: a dialog task in a settings tab shows ">" like Hotkeys
+            snprintf(right, rn, ">");
+        }
         break;
     case EK_MEDIA: {
         const char *w = ops_state(c_, c_->desc->media[e.index].state);
@@ -865,8 +868,8 @@ const char *MenuCtl::sel_detail()
     return detail_;
 }
 
-// T187 F4 / T209: the foot line. The status says its word, else the selected row says its own; when a row of the list carries the ring, the legend of the ring follows on
-// the same line (a status used to push the legend out, and the ring stood unexplained). A status the toast chip already says is not repeated.
+// T187 F4 / T209: the foot line. The status says its word, else the selected row says its own; when a row of the list carries the ring, the legend of the ring stands alone
+// when there is no note (T216 D10: one line, a note and the legend never share it). A status the toast chip already says is not repeated.
 const char *MenuCtl::foot_line()
 {
     if (status_[0] && !strcmp(status_, toast_)) {
@@ -876,11 +879,7 @@ const char *MenuCtl::foot_line()
     if (busy_ || wizard() || pick_ || entry_ || is_browser() || !ring_listed()) {
         return what;
     }
-    if (!what[0]) {
-        return reset_legend();
-    }
-    snprintf(foot_, sizeof(foot_), "%s   %s", what, reset_legend());
-    return foot_;
+    return what[0] ? what : reset_legend();                        // T216 D10: one line; while a note shows, the ring legend is left out
 }
 
 void MenuCtl::move(int d)

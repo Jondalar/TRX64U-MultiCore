@@ -50,7 +50,7 @@ static const char *const ram_names[]   = { "8 KiB", "16 KiB", "32 KiB" };
 static const char *const spram_names[] = { "32 KiB", "96 KiB" };       // the SuperPET's: 96 = the 64 KiB bank RAM (4 KiB banks behind $9000) beside the 32 KiB, 32 = the ROM behind $9000
 static const char *const keymode_names[] = { "Symbolic (key legend)", "Positional (PET key place)" };
 static const char *const cpu_names[]   = { "x1", "x2", "x3", "x4", "x5", "x6", "x7", "x8" };
-static const char *const diag_names[]  = { "Off", "On (DIAG jumper)" };
+static const char *const diag_names[]  = { "Off", "On" };
 static const char *const hz_names[]    = { "60 Hz", "50 Hz" };
 static const char *const phos_names[]  = { "Green", "Amber", "White" };
 static const RegBind b_model = { PET_MODEL, 0, 7, model_bytes };
@@ -82,7 +82,7 @@ enum { PET_S_MODEL = 0, PET_S_HZ = 3, PET_S_DRIVE = 6, PET_S_SPCPU = 8 };
 static const Setting settings[17] = {
     { "Model (at next reset)", model_names, 7, 2, WHEN_RESET, 0, &b_model, 0, 0, 0, 0, "Model" },
     { "CPU speed",             cpu_names,   8, 0, WHEN_LIVE,  0, &b_cpu,   0, 0, 0, 0, 0 },
-    { "Diag (at next reset)",  diag_names,  2, 0, WHEN_RESET, 0, &b_diag,  0, 0, 0, 0, "Diag" },
+    { "Diag (at next reset)",  diag_names,  2, 0, WHEN_RESET, 0, &b_diag,  0, 0, 0, 0, "Diag jumper" },
     { "Picture rate",          hz_names,    2, 0, WHEN_LIVE,  0, &b_hz,    0, "video", 0, 0, "Refresh rate" },
     { "Phosphor",              phos_names,  3, 0, WHEN_LIVE,  0, &b_phos,  0, "video", 0, 0, 0 },
     { "RAM (at next reset)",   ram_names,   3, 2, WHEN_RESET, 0, &b_ram,   0, 0, 0, "pet.ramrow", "RAM" },   // listed for the 2001, 3032 and 4032 only: the CRTC models always have 32 KiB, the SuperPET has its own row
@@ -148,7 +148,24 @@ static int put_at(CoreCtx *c, uint32_t addr, const uint8_t *data, uint32_t n, co
 }
 
 // Whether the model's own file of a role is on the card (the scan of put_model_rom, without reading it).
-static bool model_rom_found(CoreCtx *c, int role, uint32_t want, const char *const *names)
+// T216 D15: 0 the file of the role is on the card and its content is the one its name stands for, 1 it is not there (or cannot be read), 2 it is there with another
+// CRC32 (`hit` names it). A name with no reference CRC (pet_models.h) is accepted as found.
+static int rom_state(CoreCtx *c, RomSpec &s, char *hit)
+{
+    char own[96], sum[160];
+    const char *own_dir = rom_own_dir(c->cor_path, own, sizeof(own)) ? own : 0;
+    RomResult res[1];
+    Scratch buf(12288);
+    hit[0] = 0;
+    if (rom_scan(c->fs, c->desc->folder, &s, 1, res, sum, sizeof(sum), c->board ? c->board->rom_dir : 0, own_dir) != ROM_FOUND ||
+        res[0].hit.size > buf.n || !rom_read(c->fs, &res[0].hit, buf)) {
+        return 1;
+    }
+    snprintf(hit, 56, "%s", res[0].hit.name);
+    uint32_t want = pet_rom_crc_of(res[0].hit.name);
+    return want && pet_crc32(buf, res[0].hit.size) != want ? 2 : 0;
+}
+static int model_rom_state(CoreCtx *c, int role, uint32_t want, const char *const *names, char *hit)
 {
     RomSpec s;
     memset(&s, 0, sizeof(s));
@@ -163,10 +180,24 @@ static bool model_rom_found(CoreCtx *c, int role, uint32_t want, const char *con
     }
     s.required = true;
     s.put_op = "";
-    char own[96], sum[160];
-    const char *own_dir = rom_own_dir(c->cor_path, own, sizeof(own)) ? own : 0;
-    RomResult res[1];
-    return rom_scan(c->fs, c->desc->folder, &s, 1, res, sum, sizeof(sum), c->board ? c->board->rom_dir : 0, own_dir) == ROM_FOUND;
+    return rom_state(c, s, hit);
+}
+
+static const char *const wl_names[6] = { "waterloo-a000.901898-01.bin", "waterloo-b000.901898-02.bin", "waterloo-c000.901898-03.bin",
+                                         "waterloo-d000.901898-04.bin", "waterloo-e000.901897-01.bin", "waterloo-f000.901898-05.bin" };
+
+// T216 D14/D15: the state (rom_state) of the Waterloo file i, looked up in the same folders and sizes the put uses
+static int wl_state(CoreCtx *c, int i, char *hit)
+{
+    RomSpec s;
+    memset(&s, 0, sizeof(s));
+    s.role = "";
+    s.names[0] = wl_names[i];
+    s.sizes[0] = 4096;
+    if (i == 4) {
+        s.sizes[1] = 2048;
+    }
+    return rom_state(c, s, hit);
 }
 
 // T216 P6/P7 (Alex 2026-11-15, "Ja"): the refusal lists every missing file of the model at once (the first name of each role), not only the first one found.
@@ -174,13 +205,34 @@ static void list_missing_roms(CoreCtx *c, OpOut &o)
 {
     static const struct { int role; const char *label; } roles[4] = { { PET_R_BASIC, "BASIC" }, { PET_R_EDITOR, "Editor" }, { PET_R_KERNAL, "KERNAL" }, { PET_R_CHAR, "Characters" } };
     int model = pet_model(c);
-    int len = snprintf(o.msg, o.msglen, "Missing in cores/pet/roms (%s), copy them there and choose Reload ROMs:", model_names[model]);
+    int len = snprintf(o.msg, o.msglen, "ROM files of the %s in cores/pet/roms, then choose Reload ROMs:", model_names[model]);
+    char hit[56];
     for (int i = 0; i < 4; i++) {
         const char *names[6];
         pet_rom_names(model, pet_hz50(c), roles[i].role, names);
         uint32_t want = roles[i].role == PET_R_BASIC ? (pet_basic_gen(model) == 4 ? 12288 : 8192) : roles[i].role == PET_R_EDITOR ? 2048 : roles[i].role == PET_R_KERNAL ? 4096 : PET_CHAR_MAX;
-        if (!model_rom_found(c, roles[i].role, want, names) && len > 0 && len < o.msglen) {
-            len += snprintf(o.msg + len, o.msglen - len, "\n%s", names[0]);
+        int st = model_rom_state(c, roles[i].role, want, names, hit);
+        if (st && len > 0 && len < o.msglen) {
+            len += snprintf(o.msg + len, o.msglen - len, st == 2 ? "\nwrong content: %s" : "\n%s", st == 2 ? hit : names[0]);
+        }
+    }
+    // T216 D14: the SuperPET's 6809 needs the Waterloo set (not with the 6502 switch): one summary line; the missing files by letter when not all six, a wrong one by name (D15)
+    if (model == PET_M_SUPERPET && c->settings->value(PET_S_SPCPU) != 0 && len > 0 && len < o.msglen) {
+        char miss[40];
+        int nm = 0, ml = 0;
+        for (int i = 0; i < 6; i++) {
+            int st = wl_state(c, i, hit);
+            if (st == 1) {
+                ml += snprintf(miss + ml, sizeof(miss) - ml, ml ? " %c000" : "%c000", 'a' + i);
+                nm++;
+            } else if (st == 2 && len < o.msglen) {
+                len += snprintf(o.msg + len, o.msglen - len, "\nwrong content: %s", hit);
+            }
+        }
+        if (nm == 6 && len < o.msglen) {
+            snprintf(o.msg + len, o.msglen - len, "\nand for the 6809: waterloo-a000 ... f000 (6 files)");
+        } else if (nm > 0 && len < o.msglen) {
+            snprintf(o.msg + len, o.msglen - len, "\nand for the 6809: waterloo-%s (%d of 6)", miss, nm);
         }
     }
 }
@@ -211,6 +263,10 @@ static int put_model_rom(CoreCtx *c, int role, uint32_t want, const char *label,
     RomResult res[1];
     if (rom_scan(c->fs, c->desc->folder, &s, 1, res, sum, sizeof(sum), c->board ? c->board->rom_dir : 0, own_dir) != ROM_FOUND ||
         res[0].hit.size > buf.n || !rom_read(c->fs, &res[0].hit, buf)) {
+        list_missing_roms(c, o);
+        return OPE_FAILED;
+    }
+    if (pet_rom_crc_of(res[0].hit.name) && pet_crc32(buf, res[0].hit.size) != pet_rom_crc_of(res[0].hit.name)) {   // T216 D15: the name is known, the content is not its own
         list_missing_roms(c, o);
         return OPE_FAILED;
     }
@@ -314,8 +370,6 @@ static int op_put_ctl8250(CoreCtx *c, const OpArgs &, OpOut &o) { return put_dri
 // The Waterloo ROMs (SuperPET only) go through the aperture too: ROM_SEL 3 is $A000-$DFFF (the files a, b, c, d at 0, $1000, $2000, $3000), ROM_SEL 8 is
 // $E000-$FFFF (e at 0, f at $1000); the 6809 reads them from there. A file that is not on the card is an error only when the 6809 can run (the switch is
 // not 6502); an E000 file of 2 KiB is the part below the I/O page.
-static const char *const wl_names[6] = { "waterloo-a000.901898-01.bin", "waterloo-b000.901898-02.bin", "waterloo-c000.901898-03.bin",
-                                         "waterloo-d000.901898-04.bin", "waterloo-e000.901897-01.bin", "waterloo-f000.901898-05.bin" };
 static int put_waterloo(CoreCtx *c, int i, OpOut &o)
 {
     Scratch buf(4096), back(4096);
@@ -343,6 +397,13 @@ static int put_waterloo(CoreCtx *c, int i, OpOut &o)
             return OPE_OK;
         }
         snprintf(o.msg, o.msglen, "%s for the SuperPET's 6809: %s", label, wl_names[i]);
+        return OPE_FAILED;
+    }
+    if (pet_rom_crc_of(res[0].hit.name) && pet_crc32(buf, res[0].hit.size) != pet_rom_crc_of(res[0].hit.name)) {   // T216 D15
+        if (c->settings->value(PET_S_SPCPU) == 0) {
+            return OPE_OK;
+        }
+        snprintf(o.msg, o.msglen, "wrong content: %s", res[0].hit.name);
         return OPE_FAILED;
     }
     uint32_t n = res[0].hit.size;

@@ -4,6 +4,7 @@
 #define COREAPP_PET_MODELS_H
 
 #include "cbm_prg.h"
+#include <stdint.h>
 #include <string.h>
 
 // PET_M_2001B2 (T216 P8) is a 2001 with the BASIC 2 ROM set (BASIC 2 + KERNAL 2 + editor 2, the 3032's); the core's MODEL register gets 0 (pet_hw_model).
@@ -49,6 +50,59 @@ static inline int pet_rom_names(int model, bool hz50, int role, const char *out[
     }
     out[n] = 0;
     return n;
+}
+
+// T216 D15 (Alex 2026-11-15): the CRC32 of every ROM file the app knows by name, taken from the files of VICE's data/PET and cores/pet/sim/media (the Waterloo set), the
+// same bytes the benches boot. A name that is not in this table (the generic basic.bin, edit.bin ...) has no reference and is not checked.
+struct PetRomCrc { const char *name; uint32_t crc; };
+static const PetRomCrc pet_rom_crcs[] = {
+    { "basic-1.901439-09-05-02-06.bin", 0xaff78300u },
+    { "basic-2.901465-01-02.bin", 0xcf35e68bu },
+    { "basic-4.901465-23-20-21.bin", 0x2a940f0au },
+    { "characters-1.901447-08.bin", 0x54f32f45u },
+    { "characters-2.901447-10.bin", 0xd8408674u },
+    { "characters.901640-01.bin", 0xee8229c4u },
+    { "edit-1-n.901439-03.bin", 0x9e1c5ceau },
+    { "edit-2-b.901474-01.bin", 0x05db957eu },
+    { "edit-2-n.901447-24.bin", 0xe459ab32u },
+    { "edit-4-40-b-50Hz.ts.bin", 0x16fb070cu },
+    { "edit-4-40-b-60Hz.ts.bin", 0x7a0e59adu },
+    { "edit-4-40-n-50Hz.901498-01.bin", 0x3370e359u },
+    { "edit-4-40-n-60Hz.901499-01.bin", 0x5f85bdf8u },
+    { "edit-4-80-b-50Hz.901474-04.bin", 0xabb000e7u },
+    { "edit-4-80-b-50Hz.901474-04_.bin", 0x845a44e6u },
+    { "edit-4-80-b-60Hz.901474-03.bin", 0x5674dd5eu },
+    { "edit-4-b-noCRTC.901474-02.bin", 0x75ff4af7u },
+    { "kernal-1.901439-04-07.bin", 0xf0186492u },
+    { "kernal-2.901465-03.bin", 0xf02238e2u },
+    { "kernal-4.901465-22.bin", 0xcc5298a1u },
+    { "waterloo-a000.901898-01.bin", 0x728a998bu },
+    { "waterloo-b000.901898-02.bin", 0x6beb7c62u },
+    { "waterloo-c000.901898-03.bin", 0x5db4983du },
+    { "waterloo-d000.901898-04.bin", 0xf55fc559u },
+    { "waterloo-e000.901897-01.bin", 0xb2cee903u },
+    { "waterloo-f000.901898-05.bin", 0xf42df0cbu },
+};
+// the expected CRC32 of the file `name`; 0 when the table knows no such file
+static inline uint32_t pet_rom_crc_of(const char *name)
+{
+    for (unsigned i = 0; i < sizeof(pet_rom_crcs) / sizeof(pet_rom_crcs[0]); i++) {
+        if (!strcmp(pet_rom_crcs[i].name, name)) {
+            return pet_rom_crcs[i].crc;
+        }
+    }
+    return 0;
+}
+static inline uint32_t pet_crc32(const uint8_t *p, uint32_t n)
+{
+    uint32_t c = 0xFFFFFFFFu;
+    for (uint32_t i = 0; i < n; i++) {
+        c ^= p[i];
+        for (int k = 0; k < 8; k++) {
+            c = (c >> 1) ^ (0xEDB88320u & (0u - (c & 1u)));
+        }
+    }
+    return ~c;
 }
 
 // The loader's numbers. BASIC 2 and 4: text at $0401, the pointer pairs at $28 (start), $2A, $2C, $2E, keyboard buffer $026F with its count at $9E.
