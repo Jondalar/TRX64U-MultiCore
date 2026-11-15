@@ -10,7 +10,7 @@
 //                 the next frame start (fstart): no restart of the synthesizer, the transmitters or mmcm_pix. Power-up 1 (Fit).
 //   read  0x4F04  magic 0x48
 //         0x4F05  version 3 (T222: this core's copy; U16 and the host's generic mode_req.v answer 1; 2 = the scale register 0x4F01 / 0x4F0A exists;
-//                 T227: 3 = the smoothing register 0x4F0B / 0x4F0B exists too)
+//                 T227: 3 = the smoothing register 0x4F0B exists too)
 //         0x4F06  {last request refused, 0, 0, c64_type = 1, row in use is locked, running, pix_locked, gt_ready}
 //         0x4F07  the mode hdmi_timing runs (mode_q), 0..11
 //         0x4F08  requests written to 0x4F00 (clk_sys count)
