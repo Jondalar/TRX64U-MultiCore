@@ -9,7 +9,7 @@
 
 AppDlg::AppDlg(OsPort *os, CoreFs *fs)
     : os_(os), fs_(fs), mu_(os->mutex_new()), ask_(os->mutex_new()), done_(os->sem_new()), headless_(false), pending_(false), answer_(0),
-      answered_(false), abandoned_(false), deadline_ms_(0), pk_list_(0), pk_n_(0), tx_n_(0), sel_(0), first_(0), rev_(1), bar_dirty_(false)
+      answered_(false), abandoned_(false), live_ms_(0), deadline_ms_(0), pk_list_(0), pk_n_(0), tx_n_(0), sel_(0), first_(0), rev_(1), bar_dirty_(false)
 {
     memset(&req_, 0, sizeof(req_));
     memset(&cur_, 0, sizeof(cur_));
@@ -76,6 +76,19 @@ int AppDlg::buttons_timed(const char *title, const char *text, int b, int timeou
     r.text = text;
     r.buttons = b ? b : SVC_BUTTON_OK;
     r.timeout_s = timeout_s > 0 ? timeout_s : 0;
+    return ask(r);
+}
+
+int AppDlg::buttons_live(const char *title, const char *text, int b, void (*live)(void *), void *ud)
+{
+    Req r;
+    memset(&r, 0, sizeof(r));
+    r.kind = DK_BUTTONS;
+    r.title = title;
+    r.text = text;
+    r.buttons = b ? b : SVC_BUTTON_OK;
+    r.live = live;
+    r.live_ud = ud;
     return ask(r);
 }
 
@@ -325,6 +338,13 @@ bool AppDlg::service()
         }
         deadline_ms_ = cur_.timeout_s ? os_->now_ms() + (uint32_t)cur_.timeout_s * 1000u : 0;      // the time runs from the moment the question is on the screen
         v_.remaining_s = cur_.timeout_s;
+        live_ms_ = os_->now_ms() + 1000u;
+        rev_++;
+        changed = true;
+    }
+    if (cur_.kind != DK_NONE && cur_.live && (int32_t)(os_->now_ms() - live_ms_) >= 0) {
+        live_ms_ = os_->now_ms() + 1000u;
+        cur_.live(cur_.live_ud);                      // the application's buffer is rewritten here, on the task that reads it for the screen
         rev_++;
         changed = true;
     }
@@ -600,6 +620,7 @@ const DlgView &AppDlg::view()
     v_.input[0] = 0;
     v_.caret = 0;
     v_.buttons = cur_.buttons;
+    v_.live = cur_.live != 0;
     if (cur_.kind == DK_MESSAGE || cur_.kind == DK_BUTTONS || cur_.kind == DK_CHOOSE) {
         if (cur_.text) {
             snprintf(v_.text, sizeof(v_.text), "%s", cur_.text);

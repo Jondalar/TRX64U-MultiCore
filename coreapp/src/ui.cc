@@ -820,12 +820,15 @@ static bool g_dlg_up;
 static uint32_t g_dlg_gen;                       // trx_overlay_gen() the objects below were built in: a frame rebuild deletes them with the container
 static lv_obj_t *g_veil, *g_qcard, *g_bcard, *g_bl1, *g_bl2, *g_bfill;
 static uint32_t g_qsig;
+static lv_obj_t *g_qtxt;                                  // the text label of the open question
+
 static int g_bkind = -1;                         // the bar's place depends on whether a question is open: 1 alone at the foot, 0 below a question
 
 static void dialog_objs_forget(void)
 {
     g_veil = g_qcard = g_bcard = g_bl1 = g_bl2 = g_bfill = 0;
     g_qsig = 0;
+    g_qtxt = 0;
     g_bkind = -1;
 }
 
@@ -858,7 +861,15 @@ static uint32_t question_sig(const DlgView &v)
     };
     add(&v.kind, sizeof(v.kind));
     add(v.title, strlen(v.title) + 1);
-    add(v.text, strlen(v.text) + 1);
+    if (v.live) {                                        // a live text changes in place (g_qtxt); only its length in lines is part of the card
+        int lines = 1;
+        for (const char *p = v.text; *p; p++) {
+            lines += *p == '\n';
+        }
+        add(&lines, sizeof(lines));
+    } else {
+        add(v.text, strlen(v.text) + 1);
+    }
     add(v.input, strlen(v.input) + 1);
     add(&v.caret, sizeof(v.caret));
     add(&v.nitems, sizeof(v.nitems));
@@ -897,6 +908,7 @@ static lv_obj_t *question_card(lv_obj_t *top, const DlgView &v)
         int cy = t.space_md + 30;
         if (v.text[0]) {
             lv_obj_t *tl = trx_txt(card, t.space_lg, cy, v.text, t.body, t.muted, w - 2 * t.space_lg);
+            g_qtxt = tl;
             lv_label_set_long_mode(tl, LV_LABEL_LONG_MODE_WRAP);
             lv_obj_set_width(tl, w - 2 * t.space_lg);
             cy += 16 * (lines < 8 ? lines : 8) + 8;
@@ -991,16 +1003,19 @@ void ui_dialog_render(AppDlg &d)
             if (g_qcard) {
                 lv_obj_delete(g_qcard);
             }
+            g_qtxt = 0;
             g_qcard = question_card(top, v);
             g_qsig = sig;
             if (g_bcard) {
                 lv_obj_move_foreground(g_bcard);
             }
+        } else if (v.live && g_qtxt && strcmp(lv_label_get_text(g_qtxt), v.text) != 0) {
+            lv_label_set_text(g_qtxt, v.text);                                               // a live text: the label only, the card stays
         }
     } else if (g_veil) {                                                                       // only the bar is left
         lv_obj_delete(g_veil);
         lv_obj_delete(g_qcard);
-        g_veil = g_qcard = 0;
+        g_veil = g_qcard = g_qtxt = 0;
         g_qsig = 0;
     }
     if (v.bar) {                                                                               // the bar: below the question, or alone at the foot of the screen

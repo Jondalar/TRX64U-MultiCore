@@ -640,6 +640,11 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
             int b = dlg->buttons_timed(title, text, SVC_BUTTON_YES | SVC_BUTTON_NO, timeout_s);
             return b == SVC_BUTTON_YES ? 1 : b == SVC_BUTTON_NO ? 0 : b == DLG_TIMEOUT ? -2 : -1;
         }
+        int ask_live(const char *title, const char *text, void (*live)(void *), void *ud) override
+        {
+            int b = dlg->buttons_live(title, text, SVC_BUTTON_YES | SVC_BUTTON_NO, live, ud);
+            return b == SVC_BUTTON_YES ? 1 : b == SVC_BUTTON_NO ? 0 : -1;
+        }
         int choose(const char *title, const char *text, const char *const *items, int n, int timeout_s) override
         {
             int b = dlg->choose_timed(title, text, items, n, timeout_s);

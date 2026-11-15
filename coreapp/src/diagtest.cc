@@ -2467,12 +2467,20 @@ static int run_xpadtest(DiagEnv *env, const XpadTest &t, DiagOutcome *out)
     snprintf(title, sizeof(title), "%s (poll %d ms, ack of input %s)", t.name[0] ? t.name : t.id, t.poll_ms, t.ack_input ? "on" : "off");
     bool aborted = false;
     uint32_t t0 = env->now_ms();
+    struct Live {
+        DiagEnv *env;
+        char *txt, *scr;
+    } lv = { env, txt, scr };
+    auto fill = [](void *p) {                         // the dialog's text, rewritten in place once a second (the menu task calls it)
+        Live *l = (Live *)p;
+        l->env->xpad_text(l->env->xpad_ud, l->txt, TXT_N);
+        snprintf(l->scr, SCR_N, "Tap D-pad up 20 times slowly, then Down, Left, Right, A, B: press = release = 20 means nothing was lost.\n"
+                                  "Replug the pad first if the programmed interval below is not the wanted one.\n\n%s\n"
+                                  "YES: finish and write the report.   NO: zero the counters.   ESC: stop.", l->txt);
+    };
     for (;;) {
-        env->xpad_text(env->xpad_ud, txt, TXT_N);
-        snprintf(scr, SCR_N, "Tap D-pad up 20 times slowly, then Down, Left, Right, A, B: press = release = 20 means nothing was lost.\n"
-                                   "Replug the pad first if the programmed interval below is not the wanted one.\n\n%s\n"
-                                   "YES: finish and write the report.   NO: zero the counters.   ESC: stop.", txt);
-        int a = env->ui->question(title, scr, 1, 1, 1);
+        fill(&lv);
+        int a = env->ui->question_live(title, scr, fill, &lv);
         if (a == DUI_ABORT) {
             aborted = true;
             break;

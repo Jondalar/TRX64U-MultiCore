@@ -152,6 +152,13 @@ public:
     virtual ~DiagUi() { }
     // T201: a question of an A/V test; the answer is DUI_CONTINUE for YES, DUI_SKIP for NO, DUI_TIMEOUT, DUI_ABORT. The default is the prompt.
     virtual int question(const char *title, const char *text, int idx, int total, int timeout_s) { return prompt(title, text, idx, total, timeout_s); }
+    // A question with a text the test rewrites (T196 S7): `text` is the test's buffer, live(ud) refills it about once a second while the question is open, the dialog
+    // changes the text in place. The answer as question(); the default asks once.
+    virtual int question_live(const char *title, const char *text, void (*live)(void *), void *ud)
+    {
+        (void)live; (void)ud;
+        return question(title, text, 1, 1, 0);
+    }
     // T201 v2: a question with a choice of answers (items[0..n-1]); DUI_CONTINUE with *pick = the index, DUI_TIMEOUT, DUI_ABORT. The default asks it as YES / NO: YES picks 0, NO picks the last item.
     virtual int choice(const char *title, const char *text, int idx, int total, int timeout_s, const char *const *items, int n, int *pick)
     {

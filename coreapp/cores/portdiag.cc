@@ -212,6 +212,13 @@ public:
         int a = g_host->ask(t, x, timeout_s);
         return a > 0 ? DUI_CONTINUE : a == 0 ? DUI_SKIP : a == -2 ? DUI_TIMEOUT : DUI_ABORT;
     }
+    int question_live(const char *title, const char *text, void (*live)(void *), void *ud) override
+    {
+        char t[128], x[8];
+        portdiag_question_text(title, "", 1, 1, t, sizeof(t), x, sizeof(x));      // the title with its position; the test's own text carries its keys
+        int a = g_host->ask_live(t, text, live, ud);
+        return a > 0 ? DUI_CONTINUE : a == 0 ? DUI_SKIP : DUI_ABORT;
+    }
     int choice(const char *title, const char *text, int idx, int total, int timeout_s, const char *const *items, int n, int *pick) override
     {
         char t[96], x[400];

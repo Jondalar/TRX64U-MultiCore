@@ -120,6 +120,8 @@ Parts:
   length (it returns the bytes sent, 0 on a failure; the old `< 0` check in `flush()` never fires and is left as it was) and its longest duration is shown. A sequence
   gap is counted from the byte d[2] of 0x20 messages; 255 -> 1 is not counted (a pad skipping 0 on the wrap is not known). Interval units: 125 us (`poll_ms * 8`).
   No bench run (Alex 2026-11-15: no benches before a merge); proof is the RISC-V build and the board step S7.
+  Fix after the first board run (Alex: "the screen keeps rebuilding all the time"): the counters were a 1 s timed question closed and reopened in a loop; now one
+  `AppDlg::buttons_live` question without a timer, `live(ud)` refills the buffer once a second on the menu task and `ui.cc` sets the label text in place (`g_qtxt`).
 - **Board step S7:** copy nothing: the diag core writes the three files to `/SD/cores/diag/tests/` at its start. Start the diag core, run `xpad20` from the file
   browser, then plug the Series pad in, tap Up 20 times slowly (also Down, Left, Right, A, B), photograph the screen, YES. The same with `xpad4`, then `xpad4noack`.
   Reading: press = release = 20 and no sequence gaps with 4 ms but fewer with 20 ms = A; losses also at 4 ms, or OUT failed / slow, or losses vanish with
