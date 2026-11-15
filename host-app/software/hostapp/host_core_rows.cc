@@ -848,7 +848,7 @@ void hc_set_row_text(int kind, const char *&name, char (&v)[64], const char *&he
         name = hc_set_name(SK_DIRECT);
         snprintf(v, sizeof(v), "%s", cfg.direct ? "on" : "off");
         help = cfg.direct ? "The auto core starts at power-on without the menu. C= or fire on port 1 at power-on shows the menu."
-                          : "The menu comes up first; the autostart below decides whether it starts the auto core.";
+                          : "Menu first; the autostart below decides about the auto core.";
         break;
     case SK_AUTO:
         name = hc_set_name(SK_AUTO);

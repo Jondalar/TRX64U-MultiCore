@@ -22,11 +22,11 @@
 |---|---|---|---|
 | S1 | P1 | 32 entries added through the browser stay in boot.cfg: 32 `core=` lines read back from the emulated flash | `tests/hostapp/emu_host.sh` T223 section (PASS line; boot.cfg dump `m32-boot.cfg`) |
 | S2 | P1 | The menu with 32 entries: top page, scrolled page, last page, paging footer ("n-m of 32") | ue2emu pictures `t223-menu-top/scrolled/last` |
-| S3 | P1 | Entry 17-32 boots (RETURN on a row of the second half starts it) | open: not walked, see §5 |
-| S4 | P1 | The countdown default beyond 16 starts after the countdown | open: not walked, see §5 |
+| S3 | P1 | Entry 17-32 boots (RETURN on a row of the second half starts it) | PASS 11-15: row 20 RETURN, log `core identified ... /USB0/cores/c20.cor` (§5) |
+| S4 | P1 | The countdown default beyond 16 starts after the countdown | PASS 11-15: auto set to row 20 (F5, D), countdown, log `core identified ... c20.cor` (§5) |
 | S5 | P1 | The editor (F5) lists and edits 32 entries, last page | ue2emu picture `t223-editor-last` |
-| S6 | P2 | With 32 entries only the default, the selection and the rows on screen are read; scrolling reads the rows that come into view | emulator console lines `[host] entry N ... state read` in `m32.log` (only visible N before the scroll) |
-| S7 | P3 | A large core's row shows its config count | blocked on Q1 |
+| S6 | P2 | With 32 entries only the default, the selection and the rows on screen are read; scrolling reads the rows that come into view | PASS 11-15: `[host] entry N ... state read` lines (§5) |
+| S7 | P3 | A large core's row shows its config count | blocked on Q1 (Alex decides) |
 | S8 | P4 | The 33rd add is refused with "Boot menu is full: it holds 32 of 32 entries. Remove one in Edit menu (F5) first." in the note, nothing written | ue2emu picture `t223-full-message`, boot.cfg still 32 lines |
 
 ## §3 Decision
@@ -53,3 +53,13 @@
 - Not checked: S3 (boot of entry 17-32), S4 (countdown default beyond 16), S6 (the emulator console does not carry the host's `[host] entry N` lines, so the windowed reading is not measured; the code path is `hc_lazy_next`), S7 (blocked on Q1), 720p/1080p, the web UI with 32 entries. No app tests run (pipeline).
 
 - UX review (ux-specialist, 2026-11-15): FAIL on one point, R2: the browser's note line sits on the panels' bottom edge (the note slot of the browser, older than T223, not changed here). R6 wording fixed ("Edit menu (F5)"; pictures show the earlier wording "editor"). Proposals not built: hint "A adds it" while the menu is full (R10); "+/- PAGE" in caps (older). Question: does + page by 5 or 10 (first page 1-7, next 11-17)?
+
+### Walk of S3, S4, S6 and the R2 fix (2026-11-15, branch host-menu-32, host-boot-rows and main merged)
+`tools/dev.sh riscv` rc 0. Real host app in ue2emu at 480p60/720p60/1080p60, 33 `.cor` copies (the kit's VIC-20 bundle with this build's core app), pictures and logs in scratchpad `t209t223/menu32/<mode>/` (`m_added32`, `m_full_message_browser`, `m_direct_off`, `m_menu_top/scrolled/last`, `m_editor_last`, `m_s3_row20`, `m_s4_editor_auto20`). Flow: 33 A presses in the browser (32 `core=` lines read back: `boot.cfg: 32 cores`), direct boot off in F8.
+- S3: boot menu, 19 times DOWN to entry 20, RETURN: the core application identifies `VC20 VIC-20, cor /USB0/cores/c20.cor` (all three modes).
+- S4: F5, entry 20, D (auto), fresh start without a key: the countdown ends and the core application identifies `/USB0/cores/c20.cor` (all three modes).
+- S6: with the menu open at 1080p (8 rows, direct boot off) 8 entries had `state read` before the first key (the default and the window); the later entries were read while paging (row 19 after 17 key presses, ...), 32 in all after the walk to the last page.
+- R2: the browser's panels used `ph = CH - 90` and ended at `CH - 16`, under the note line at `CH - 26`. Now `ph = CH - top - 30` (ends 4 px above the note); the browser holds 12 rows on 960x540 (was 13; the 13th sat on the panel edge), the compact count follows the same height (`layout_counts`); render bench `BPH` and the row-count label adjusted. Picture: `m_full_message_browser` (all modes).
+- Not run (pipeline only): render bench, apptests. Web UI with 32 entries not checked.
+- ux-review (ux-specialist, 2026-11-15, 27 pictures): R2 of the browser PASS in all modes (`m_full_message_browser`, `m_added32`). New R2 FAIL at 480p, F8 Settings with direct boot off (`480p60/m_direct_off`): the help line wrapped to two lines onto the status line. Older text (T135), fixed here: "Menu first; the autostart below decides about the auto core." (`host_core_rows.cc`); picture `480p60/m_settings_directoff_fixed`. The "on" text ("The auto core starts at power-on without the menu. C= or fire ...") is also longer than one 480p line (not shown with a status line over it; not changed).
+- Questions for Alex (proposals of the review, not built; pictures in `t209t223/menu32/<mode>/`): (1) the full-menu note is cut at 480p ("... Remove one in Edit m...", `480p60/m_full_message_browser`); A: "Menu full (32/32). Remove one in F5 first.", B: "Boot menu full (32). Free a slot in F5 Edit menu.", C: keep the text, action first. (2) `+`/`-` page by 10 (480p) / 9 (720p, 1080p) while the window holds 7/8, so rows are skipped (`m_menu_top/scrolled/last`); option: page by exactly the window. (3) the browser hint says "A adds it to the boot menu" while the menu is full; option: "Menu full: remove one in F5 first." (4) F5 info box takes a row at 480p: already T209 D19/question on branch host-boot-rows.
