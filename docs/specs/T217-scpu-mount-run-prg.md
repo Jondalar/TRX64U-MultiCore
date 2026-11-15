@@ -58,10 +58,11 @@ program itself pokes (C64 RAM `$C000`, a mirrored page, so the window sees it) a
 
 - C64-mode starts on the C128 (open question 1).
 - No tape, no cartridge-style start.
+- D4 (Alex 2026-11-15, question 1 "A"): a C64 program opened on the C128 (load address `$0801`) switches the machine to C64 mode (GO64) and starts the .prg there; S10 becomes a scenario to build. A non-`$0801` file keeps the 128-mode path.
 
 ## Open questions for Alex
 
-1. C128: a C64 program (BASIC at `$0801`, or a C64 ML file) needs C64 mode, and a reset always starts 128 mode. How should a program start reach C64 mode: (a) type `GO64` and `Y` through the key matrix after READY, then place and run as on the C64, (b) a setting that makes the machine start in C64 mode, (c) refuse (current behaviour, with a message)?
+1. (answered: D4) C128: a C64 program (BASIC at `$0801`, or a C64 ML file) needs C64 mode, and a reset always starts 128 mode. How should a program start reach C64 mode: (a) type `GO64` and `Y` through the key matrix after READY, then place and run as on the C64, (b) a setting that makes the machine start in C64 mode, (c) refuse (current behaviour, with a message)?
 
 ## §5 Build notes
 
