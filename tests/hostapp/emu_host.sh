@@ -69,7 +69,7 @@ else echo "FAIL host->vc20->menu->host: $why (see $out/flow.log)"; FAIL=1; fi
 # RETURN on a mode applies it. The emulator has no mode request register (hv_gateware() is false: "the old firmware path"), so the 8 s question and the
 # revert do not exist here: the render bench (tests/hostapp/render, picnote_*.png) is their proof.
 pic_flow() { printf 'wait 15000\nkey space\nwait 800\nkey f3\nwait 1500\nkey down\nwait 500\nkey down\nwait 500\nkey return\nwait 2000\n'
-             printf 'key down\nwait 500\nkey return\nwait 2000\nkey down\nwait 500\nkey down\nwait 6000\nkey a\nwait 8000\nkey f1\nwait 2000\npng %s/host-home.png\nusbkey pageup\nwait 1500\npng %s/host-pageup.png\nusbkey pagedown\nwait 1500\npng %s/host-pagedown.png\nkey f8\nwait 1500\npng %s/host-f8-list.png\nkey v\nwait 1500\npng %s/host-picture-page.png\n' "$out" "$out" "$out" "$out" "$out"
+             printf 'key down\nwait 500\nkey return\nwait 2000\nkey down\nwait 500\nkey down\nwait 6000\nkey a\nwait 8000\nkey f1\nwait 2000\npng %s/host-home.png\nkey f8\nwait 1500\npng %s/host-f8-list.png\nkey v\nwait 1500\npng %s/host-picture-page.png\n' "$out" "$out" "$out"
              printf 'key down\nwait 300\nkey return\nwait 4000\npng %s/host-picture-applied.png\nquit\n' "$out"; }
 run_pic() {
     local w="$out/work-pic"
@@ -78,7 +78,7 @@ run_pic() {
     pic_flow > "$w/flow.ctl"
     cp "$kit/flash.bin" "$out/pic-flash.bin"
     ( cd "$w" && nice -n 15 timeout 300 "$UE2EMU" run --board c64u --trx-io=on --icap --cor-dir "$w/cors" --core-dir "$w/profiles" --firmware "$img/hostapp_emu.elf" \
-        --roms "$kit/roms" --flash "$out/pic-flash.bin" --usb-dir "$w/stick" --usb-dir-work "$w/usbwork" --usb-keyboard --headless --speed max --script "$w/flow.ctl" \
+        --roms "$kit/roms" --flash "$out/pic-flash.bin" --usb-dir "$w/stick" --usb-dir-work "$w/usbwork" --headless --speed max --script "$w/flow.ctl" \
         --max-seconds 280 > "$out/pic.log" 2>&1 )
     local rc=$?
     rm -rf "$w" "$out/pic-flash.bin"
@@ -92,8 +92,6 @@ else
     for n in $shots; do [ -s "$out/$n.png" ] && [ "$(wc -c < "$out/$n.png")" -gt 5000 ] || bad="$bad $n(missing)"; done
     # each step must change the screen: the list is not the home, the page is not the list, the applied picture is not the page
     prev=""; for n in $shots; do [ -z "$prev" ] || ! cmp -s "$out/$prev.png" "$out/$n.png" || bad="$bad $n(same as $prev)"; prev=$n; done
-    # T211 S3 (first half): the real Page Up / Page Down are page keys, not F1 / F7 - on the home screen they change nothing (what they do is open)
-    for n in host-pageup host-pagedown; do python3 "$HERE/png_panel_same.py" "$out/host-home.png" "$out/$n.png" || bad="$bad $n(differs from host-home: a key was folded into F1/F7)"; done
     if [ -z "$bad" ]; then echo "PASS host picture flow: home, F8 list, Picture page, applied mode - four different screens (PNGs in $out)"
     else echo "FAIL host picture flow:$bad (see $out/pic.log)"; FAIL=1; fi
 fi
@@ -144,5 +142,37 @@ if [ $rc -ne 0 ]; then echo "FAIL T198 config overlay flow: the emulator exited 
 elif ! grep -aq '^\[core\] config Charlie: /USB0/cores/vc20/configs/Charlie.cfg' "$out/cfg.log"; then
     echo "FAIL T198 config overlay flow: the core did not start with the config Charlie (no '[core] config Charlie:' line, see $out/cfg.log)"; FAIL=1
 else echo "PASS T198 config overlay flow: overlay, badges, default, 10-config scroll, start with Charlie (PNGs $out/cfg-*.png)"; fi
+
+# ---- T211 D2 (Alex 11-15, S3 = a): the real Page Up / Page Down page a host list like + / -. The stick has a folder of 80 files: the browser shows its top, Page Down
+# moves a page (a different panel), Page Up brings the top back (same panel; only the host panel is compared, the emulated machine behind it blinks).
+page_nav() { printf 'wait 15000\nkey space\nwait 800\nkey f3\nwait 1500\nkey down\nwait 500\nkey down\nwait 500\nkey return\nwait 2000\nkey down\nwait 500\nkey return\nwait 3000\n'
+             printf 'png %s/browse-top.png\nusbkey pagedown\nwait 1500\npng %s/browse-pagedown.png\nusbkey pageup\nwait 1500\npng %s/browse-pageup.png\n' "$out" "$out" "$out"
+             printf 'usbkey pagedown\nwait 800\nusbkey pagedown\nwait 1500\npng %s/browse-pagedown2.png\nusbkey f1\nwait 1500\npng %s/browse-f1.png\nquit\n' "$out" "$out"; }
+run_page() {
+    local w="$out/work-page" n
+    rm -rf "$w"; mkdir -p "$w/cors" "$w/profiles" "$w/stick/many"
+    for n in $(seq -w 1 80); do printf 'x\n' > "$w/stick/many/file$n.txt"; done
+    page_nav > "$w/flow.ctl"
+    cp "$kit/flash.bin" "$out/page-flash.bin"
+    ( cd "$w" && nice -n 15 timeout 300 "$UE2EMU" run --board c64u --trx-io=on --icap --cor-dir "$w/cors" --core-dir "$w/profiles" --firmware "$img/hostapp_emu.elf" \
+        --roms "$kit/roms" --flash "$out/page-flash.bin" --usb-dir "$w/stick" --usb-dir-work "$w/usbwork" --usb-keyboard --headless --speed max --script "$w/flow.ctl" \
+        --max-seconds 280 > "$out/page.log" 2>&1 )
+    local rc=$?
+    rm -rf "$w" "$out/page-flash.bin"
+    return $rc
+}
+same() { python3 "$HERE/png_panel_same.py" "$out/$1.png" "$out/$2.png"; }
+run_page; rc=$?
+if [ $rc -ne 0 ]; then echo "FAIL T211 page keys: the emulator exited $rc (see $out/page.log)"; FAIL=1
+else
+    bad=""
+    for n in browse-top browse-pagedown browse-pageup browse-pagedown2 browse-f1; do [ -s "$out/$n.png" ] || bad="$bad $n(missing)"; done
+    [ -z "$bad" ] && same browse-top browse-pagedown && bad="$bad Page Down did not page"
+    [ -z "$bad" ] && ! same browse-top browse-pageup && bad="$bad Page Up did not bring the top back"
+    [ -z "$bad" ] && same browse-pagedown browse-pagedown2 && bad="$bad the second Page Down did not move"
+    [ -z "$bad" ] && same browse-pagedown2 browse-f1 && bad="$bad F1 (control) did not change the screen"
+    if [ -z "$bad" ]; then echo "PASS T211 page keys: Page Down pages the browser list, Page Up goes back, F1 still navigates (PNGs in $out)"
+    else echo "FAIL T211 page keys:$bad (see $out/page.log)"; FAIL=1; fi
+fi
 
 [ $FAIL = 0 ] && echo "tests/hostapp/emu_host: all scenarios passed" || { echo "tests/hostapp/emu_host: FAILED"; exit 1; }

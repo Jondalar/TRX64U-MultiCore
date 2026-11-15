@@ -1,6 +1,6 @@
 # T211 - Own key names in the host UI (F keys are the navigation)
 
-Status: BUILT on branch `t211-key-names` 2026-11-15 (S1, S2, S3 first half); S3 "what Page Up/Down do in lists" OPEN with Alex. Proposed 2026-11-12, Alex.
+Status: BUILT on branch `t211-key-names` 2026-11-15 (S1, S2, S3 first half); S3 decided (D2) and built. Proposed 2026-11-12, Alex.
 
 ## §1 The problem
 - P1: the host app takes Gideon's keymapper codes: F1/F3/F5/F7 arrive as KEY_PAGEUP/KEY_HELP/KEY_TASKS/KEY_PAGEDOWN and
@@ -13,10 +13,11 @@ Status: BUILT on branch `t211-key-names` 2026-11-15 (S1, S2, S3 first half); S3 
 - S1: every key the host UI handles has our own name (F1-F8, cursor, RETURN, +/-, ...) at one place where Gideon's codes
   enter; no handler compares against KEY_PAGEUP/KEY_HELP/KEY_TASKS/KEY_PAGEDOWN meaning F keys. Proof: grep gate in lint.
 - S2: the F keys behave exactly as before on C64 matrix keyboard and USB keyboard (tests/hostapp key walks, ue2emu).
-- S3: real Page Up / Page Down from a USB keyboard reach the UI as page keys (no F1/F7). What they do in lists: open, to decide.
+- S3: real Page Up / Page Down from a USB keyboard reach the UI as page keys (no F1/F7). What they do in lists: D2.
 
 ## §3 Decisions
 - D1 (Alex 11-12): F keys are the main navigation; our UI uses its own key names, Gideon's naming is translated at the edge.
+- D2 (Alex 2026-11-15, S3 = "A", after the mock-ups h4a/h4b): real Page Up / Page Down page every host list like `+` / `-` (browser, pick lists, boot menu: wherever `+`/`-` page). The F5 editor keeps no paging (T209 D7a: `+`/`-` move the entry there), so the page keys do nothing in the editor. The foot legend stays `+/- PAGE`.
 
 ## §4 Out
 - Open with Alex: paging keys in the host editor (none; editor +/- moves an entry). The boot menu pages with +/- since T209 D7 (`host_core.cc:47`); real Page Up/Down still arrive as F1/F7.
@@ -35,4 +36,8 @@ Status: BUILT on branch `t211-key-names` 2026-11-15 (S1, S2, S3 first half); S3 
 - S2: `tools/dev.sh emu` on the builder, all three host flows PASS with the new image (F3 browser, F1/F5 menu and editor, F8 settings, V, core start and back). Not run: tests/hostapp key walks (agents run no app tests; pipeline).
 - S3 first half: emu flow (`tests/hostapp/emu_host.sh`, `usbkey pageup` / `usbkey pagedown` with `--usb-keyboard`) on the home screen: panel pixels equal to before the key
   (`tests/hostapp/png_panel_same.py`, control: the F8 list differs), so neither key acts as F1 / F7. Pictures: host-home.png, host-pageup.png, host-pagedown.png.
-- S3 second half OPEN (Alex): what Page Up / Page Down do in the lists (browser, boot menu, pick). Today after this change: nothing.
+- D2 built: `host_core.cc` key map, KEY_PAGEDOWN / KEY_PAGEUP beside `+` / `-` in HCX_MENU, HCX_BROWSE, HCX_BROWSE_PICK, HCX_BROWSE_INSPECT (same intents; none in HCX_EDIT). Each is
+  placed after its `+`/`-` entry, so the legends (first entry of an intent) are unchanged: the foot still reads `+/- PAGE` (browse-pagedown.png), no 480p/1080p picture needed.
+- S3 proof: emu flow `T211 page keys` (80 files in a stick folder): Page Down changes the panel, Page Up brings the top back (equal), a second Page Down moves again, F1 still navigates
+  (PASS on the builder with all other host flows). Pictures browse-top / -pagedown / -pageup / -pagedown2 / -f1. Boot menu and pick lists share the intents through the same table; not walked separately.
+  The home-screen step of the earlier commit (Page keys change nothing there) is replaced by this flow; host-pageup/host-pagedown.png are from that earlier run.
