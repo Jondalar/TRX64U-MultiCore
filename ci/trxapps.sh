@@ -35,13 +35,14 @@ inplace="${TRX_BUILD_INPLACE:-}"
 
 out="$(stage_dir trxapps)"
 # T174 D2.2/D4 (Alex, 2026-11-07: the app is built and tested natively first, RISC-V last): the parent starts this child only after `apptests` is green.
-# The trees, not the commit: a documentation commit must not cost a rebuild. app/ is in the key because
+# The content of the tracked files, not the commit and not tree ids: a documentation file (ci/code_hash.py is_doc) must not cost a rebuild.
+# Raw blob ids (git hash-object) of what `keep` leaves, as before not comment-normalised. app/ is in the key because
 # the shared view layer lives there and both applications compile it (T104 D8) - without it a change to
 # the shell would be served out of the cache and never reach the board.
 key=""; cache=""
 if [ -z "$inplace" ]; then
-  key="$(cd "$ROOT" && git rev-parse HEAD:host-app HEAD:coreapp HEAD:uicore HEAD:app HEAD:apps/unzip HEAD:apps/miniz HEAD:cores/apple2/rtl/roms HEAD:vendor/gideon/software HEAD:vendor/gideon/tools HEAD:vendor/gideon/target HEAD:vendor/gideon/roms | tr -d '\n')"
-  key="$(printf '%s' "$key" | sha256sum | cut -c1-16)"
+  key="$(cd "$ROOT" && set -o pipefail && git ls-files -- host-app coreapp uicore app apps/unzip apps/miniz cores/apple2/rtl/roms vendor/gideon/software vendor/gideon/tools vendor/gideon/target vendor/gideon/roms | python3 ci/code_hash.py keep > "$out/.keynames" && git hash-object --stdin-paths < "$out/.keynames" | paste -d' ' - "$out/.keynames" | sha256sum | cut -c1-16)" || { echo "trxapps: stage key failed" >&2; exit 1; }
+  rm -f "$out/.keynames"
   cache="${CI_TRXAPPS_CACHE:-/cache/trxapps}/$key"
 fi
 
@@ -138,7 +139,7 @@ else
   # instead of building and cleaning every run (the stage key above is coarser: any change in app/ or coreapp/ rebuilds the stage, but not these two).
   libapp() {   # libapp DIR NAME.u2a : DIR relative to the tree
     local d="$1" n="$2" k c
-    k="$( (cd "$ROOT" && git ls-files -- "$d" apps/miniz app/lib/app.mk app/sdk coreapp/src tools/u2a_pack.py | { git hash-object --stdin-paths | paste -d' ' - <(git ls-files -- "$d" apps/miniz app/lib/app.mk app/sdk coreapp/src tools/u2a_pack.py); }; riscv32-unknown-elf-gcc --version | head -1; echo "$d $n") | sha256sum | cut -c1-16)"
+    k="$( (cd "$ROOT" && git ls-files -- "$d" apps/miniz app/lib/app.mk app/sdk coreapp/src tools/u2a_pack.py | python3 ci/code_hash.py keep > "$out/.libnames" && git hash-object --stdin-paths < "$out/.libnames" | paste -d' ' - "$out/.libnames"; rm -f "$out/.libnames"; riscv32-unknown-elf-gcc --version | head -1; echo "$d $n") | sha256sum | cut -c1-16)"
     c="${CI_TRXAPPS_CACHE:-/cache/trxapps}/lib-apps/$k"
     if [ -f "$c/$n" ]; then echo "=== trxapps $n: from cache $c (key $k)"; cp "$c/$n" "$out/"; return 0; fi
     nice -n 15 make -j"$J" -C "$B/$d" RV_PREFIX=riscv32-unknown-elf- "$n"
