@@ -171,8 +171,9 @@ check "select.sh" bash -c '
   EXPECT=0   t sims-tier GITHUB_REF_NAME=main GITHUB_EVENT_NAME=push SELECT_MSG=x &&
   EXPECT=2   t sims-tier GITHUB_REF_NAME=main GITHUB_EVENT_NAME=workflow_dispatch SIMS_INPUT=true SELECT_MSG=x &&
   EXPECT=2   t sims-tier GITHUB_REF_NAME=integ-m1 GITHUB_EVENT_NAME=push'
-# T172 D4/D5: VERSION is x.y.z (format only; the bump rules are a guide below 1.0.0)
-check "VERSION" bash -c 'grep -Eqx "(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)" VERSION'
+# T221 S1/S2: every deliverable has its own x.y.z in its own file, the build strings are made from them (ci/version.sh)
+check "versions (T221 S2)" python3 tools/check_versions.py
+check "version strings (T221 S1)" ci/test_version.sh
 check "workflow" python3 - <<'PY'
 import glob, os, sys, yaml
 ok = True

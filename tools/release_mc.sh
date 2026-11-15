@@ -76,6 +76,9 @@ for f in $files; do
 done
 [ -s "$PKG/c64_basic.bit" ] || { echo "the package has no bitstream" >&2; exit 1; }
 [ -s "$PKG/manifest.json" ] || { echo "the package has no manifest" >&2; exit 1; }
+# T221 D4: the release is the tested build with its version strings rewritten (x.y.z-dev+<sha8> -> x.y.z in the apps, the .cor, the .txu, the manifest);
+# the marker keeps a second run over the same downloaded package from promoting it twice
+[ -f "$PKG/.promoted" ] || { python3 "$ROOT/tools/release_promote.py" "$PKG" && touch "$PKG/.promoted"; } || { echo "the package could not be promoted to a release" >&2; exit 1; }
 # The host app of this very run (T94 P6). Before stage trxapps existed it came from a local result/
 # directory, so a release could carry an application nobody had built from the commit it names.
 if [ -z "$APP" ]; then

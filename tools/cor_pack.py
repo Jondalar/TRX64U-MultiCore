@@ -334,6 +334,31 @@ def pack(name, version, partial, app, load, entry, host_key, contract=CONTRACT, 
     return MAGIC + struct.pack("<I", len(body)) + body
 
 
+def retag(blob, version, app_fn=None):
+    """the same .cor with another manifest `version` (T221 D4: a release is the tested build with its version strings rewritten) and, when `app_fn` is
+    given, the application image (record 3) it returns for the old one, the manifest's app_size / app_sha256 following. Everything else stays byte for byte."""
+    if blob[:8] != MAGIC:
+        raise CorError("not a .cor")
+    recs, pos = [], 12
+    while pos < len(blob):
+        t, n = struct.unpack("<II", blob[pos:pos + 8])
+        recs.append([t, blob[pos + 8:pos + 8 + n]])
+        pos += 8 + n
+    if [r[0] for r in recs].count(T_APP) != 1 or recs[0][0] != T_MANIFEST:
+        raise CorError("expected one manifest first and one app record")
+    m = json.loads(recs[0][1])
+    m["version"] = version
+    for r in recs:
+        if r[0] == T_APP and app_fn is not None:
+            r[1] = app_fn(r[1])
+            m.update(app_size=len(r[1]), app_sha256=sha(r[1]))
+    recs[0][1] = json.dumps(m, sort_keys=True, separators=(",", ":")).encode()
+    body = b"".join(rec(t, v) for t, v in recs)
+    out = MAGIC + struct.pack("<I", len(body)) + body
+    parse(out)
+    return out
+
+
 def replace_app(blob, app):
     """the same .cor with another application image (record 3) and its manifest fields; `app` is the image or a .app (12-byte header
     load, size, entry, which then sets app_load / app_entry). For the emulator flows: the .cor must carry the image under test."""

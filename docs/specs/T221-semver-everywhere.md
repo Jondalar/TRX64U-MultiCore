@@ -1,6 +1,6 @@
 # T221 — Every component has a SemVer, and every display shows it: SemVer+commit on a branch build, plain SemVer on a release
 
-**Status:** PROPOSED (2026-11-15, Alex).
+**Status:** BUILDING (2026-11-15; branch t221-semver). PROPOSED 2026-11-15, Alex.
 **Repo:** TRX64U-MultiCore — host (gateware, app), generic core app, every `cores/<id>/core.toml`, `ci/version.sh`, `tools/` packers, `contract/`.
 **Number:** T221 (registry: the table in `TODO.md`; T220 was the last row).
 **Origin:** Alex, 2026-11-15 (translated): "Let us work out by spec: SemVer for everything from now on: host, host menu, generic app, every core. And then the displays: on feature branches / integration builds SemVer+commit; on a release: SemVer."
@@ -123,3 +123,4 @@ Nothing decided out yet.
 
 - 2026-11-15: PROPOSED on Alex's request; §1 read from code, open questions Q1-Q14 listed.
 - 2026-11-15: Q1-Q14 decided with Alex the same day (D3-D19); open: start version per core (one by one), the TRX64-Ultimate contract line (D15), the L/P badge mock-up (D16).
+- 2026-11-15: status BUILDING; branch t221-semver (worktree ../wt-t221-semver); §5 holds what is built and what is open.

@@ -35,12 +35,16 @@ gitinfo:: | $(OUTPUT)
 	  '#ifdef __cplusplus' 'extern "C" {' '#endif' \
 	  'extern const char app_version_tag[], app_version_branch[], app_version_date[], app_version_hash[], app_build_date[], app_build_machine[];' \
 	  'const char *app_version_string(void);' \
+	  'const char *app_host_version_string(void);' \
+	  'const char *app_bundle_version_string(void);' \
 	  '#ifdef __cplusplus' '}' '#endif' \
 	  '#define APP_VERSION_TAG    app_version_tag' \
 	  '#define APP_VERSION_BRANCH app_version_branch' \
 	  '#define APP_VERSION_DATE   app_version_date' \
 	  '#define APP_VERSION_HASH   app_version_hash' \
 	  '#define APP_VERSION_STRING app_version_string()' \
+	  '#define APP_HOST_VERSION_STRING app_host_version_string()' \
+	  '#define APP_BUNDLE_VERSION_STRING app_bundle_version_string()' \
 	  '#define APP_BUILD_DATE     app_build_date' \
 	  '#define APP_BUILD_MACHINE  app_build_machine' >$(OUTPUT)/gitinfo.h.tmp
 	@if cmp -s $(OUTPUT)/gitinfo.h.tmp $(OUTPUT)/gitinfo.h; then rm -f $(OUTPUT)/gitinfo.h.tmp; else mv -f $(OUTPUT)/gitinfo.h.tmp $(OUTPUT)/gitinfo.h; fi
@@ -52,8 +56,10 @@ gitinfo:: | $(OUTPUT)
 	@echo 'const char app_version_hash[]   = "'`git rev-parse --short HEAD`'";' >>$(OUTPUT)/gitinfo.c.tmp
 	@echo 'const char app_build_date[]     = "'`git log -n 1 --format=%cd --date=format:'%F %R'`'";' >>$(OUTPUT)/gitinfo.c.tmp
 	@echo 'const char app_build_machine[]  = "trx";' >>$(OUTPUT)/gitinfo.c.tmp
-	@echo '/* The version string is a stamp field in the image: ci/package.sh patches it per commit (tools/stamp_version.py), so a cached app build shows the version of the bundle it ships in, not of the build that filled the cache (T172). */' >>$(OUTPUT)/gitinfo.c.tmp
-	@echo 'const char *app_version_string(void) { static const volatile char f[64] = "TRXVSTAMP:'`"$$(git rev-parse --show-toplevel)/ci/version.sh"`'"; return (const char *)f + 10; }' >>$(OUTPUT)/gitinfo.c.tmp
+	@echo '/* The version strings are stamp fields in the image (T172, T221): the own one of the application (VERSION_COMPONENT of its Makefile: hostapp or coreapp), the host gateware and the bundle. ci/package.sh patches them per commit (tools/stamp_version.py), so a cached app build shows the versions of the bundle it ships in, not of the build that filled the cache. */' >>$(OUTPUT)/gitinfo.c.tmp
+	@echo 'const char *app_version_string(void) { static const volatile char f[64] = "TRXVSTAMP:'`"$$(git rev-parse --show-toplevel)/ci/version.sh" $(VERSION_COMPONENT)`'"; return (const char *)f + 10; }' >>$(OUTPUT)/gitinfo.c.tmp
+	@echo 'const char *app_host_version_string(void) { static const volatile char f[64] = "TRXHSTAMP:'`"$$(git rev-parse --show-toplevel)/ci/version.sh" host`'"; return (const char *)f + 10; }' >>$(OUTPUT)/gitinfo.c.tmp
+	@echo 'const char *app_bundle_version_string(void) { static const volatile char f[64] = "TRXBSTAMP:'`"$$(git rev-parse --show-toplevel)/ci/version.sh" bundle`'"; return (const char *)f + 10; }' >>$(OUTPUT)/gitinfo.c.tmp
 	@if cmp -s $(OUTPUT)/gitinfo.c.tmp $(OUTPUT)/gitinfo.c; then rm -f $(OUTPUT)/gitinfo.c.tmp; else mv -f $(OUTPUT)/gitinfo.c.tmp $(OUTPUT)/gitinfo.c; fi
 
 mem: $(OUTPUT)/$(PRJ).mem
