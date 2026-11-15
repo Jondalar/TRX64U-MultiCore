@@ -74,7 +74,6 @@ op	amiga.poll
 op	amiga.mount_reset	path:path:0:0:519:
 op	amiga.pad2_on	value:int:0:1:0:
 op	amiga.pad2_type	value:int:0:2:0:
-op	amiga.pad2_map	value:int:0:1:0:
 op	disk.create	path:string:0:0:255:	format:enum:0:3:0:apple2_dsk|adf|atr|cpc_dsk	name:string:0:0:24:
 state	sectors.folder.offer
 state	config.count
