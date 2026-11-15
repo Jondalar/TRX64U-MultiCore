@@ -28,6 +28,9 @@ struct CbmRunMachine {
     // screen at `screen` (40x25 screen codes, the VIC reads the C64 RAM): the last row with a character on it starts with READY.
     uint16_t screen;
     uint16_t key_hold_ms, key_gap_ms;
+    // T217: with prg.mem_ddr set (the program goes into the CPU's own memory through the DDR2 window), the register that invalidates the CPU's cache
+    // (bit 0 starts it, reads 1 while it runs; SCPU_ROM_CTRL) - written after every placement so the CPU reads the new bytes.
+    uint32_t mem_flush_reg;
 };
 
 // T206: the key of a PETSCII character on the C64 keyboard: idx = col * 8 + row (hotkeys.h), shift = L SHIFT goes down with it. False: no key types it.
@@ -47,6 +50,7 @@ struct CbmRun {
     // line just typed ended in RETURN (the next character waits for the prompt again)
     uint8_t kidx, kphase;                               // kphase 0 no key down, 1 L SHIFT alone down, 2 the key down
     bool kshift, kwait;
+    bool start_typed;                                  // T217: job 1 with m.screen: the program is placed, its RUN / SYS goes in through the key matrix (job 2)
     uint32_t kt;
 };
 

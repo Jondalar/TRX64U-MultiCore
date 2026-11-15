@@ -40,16 +40,33 @@ static bool is_basic_start(uint16_t a, const CbmPrgParams &p)
     return false;
 }
 
-static void wr16(CoreIo *io, uint16_t addr, uint16_t v)
+void cbm_prg_mem_write(CoreIo *io, const CbmPrgParams &p, uint16_t addr, const void *data, uint32_t n)
 {
-    uint8_t b[2] = { (uint8_t)(v & 0xFF), (uint8_t)(v >> 8) };
-    io->ram_write(addr, b, 2);
+    io->ram_write(addr, data, n);
+    if (p.mem_ddr) {
+        io->ddr_write(p.mem_ddr + addr, data, n);
+    }
 }
 
-static uint16_t rd16(CoreIo *io, uint16_t addr)
+void cbm_prg_mem_read(CoreIo *io, const CbmPrgParams &p, uint16_t addr, void *data, uint32_t n)
+{
+    if (p.mem_ddr) {
+        io->ddr_read(p.mem_ddr + addr, data, n);
+    } else {
+        io->ram_read(addr, data, n);
+    }
+}
+
+static void wr16(CoreIo *io, const CbmPrgParams &p, uint16_t addr, uint16_t v)
+{
+    uint8_t b[2] = { (uint8_t)(v & 0xFF), (uint8_t)(v >> 8) };
+    cbm_prg_mem_write(io, p, addr, b, 2);
+}
+
+static uint16_t rd16(CoreIo *io, const CbmPrgParams &p, uint16_t addr)
 {
     uint8_t b[2] = { 0, 0 };
-    io->ram_read(addr, b, 2);
+    cbm_prg_mem_read(io, p, addr, b, 2);
     return (uint16_t)(b[0] | (b[1] << 8));
 }
 
@@ -80,7 +97,7 @@ int cbm_prg_place(CoreIo *io, const uint8_t *data, uint32_t size, const CbmPrgPa
 
     if (!is_basic_start(load, p)) {
         // a machine-language file: it goes where it says, and SYS starts it there
-        io->ram_write(load, body, blen);
+        cbm_prg_mem_write(io, p, load, body, blen);
         out->load = load;
         out->end = (uint16_t)(load + blen);
         out->basic = false;
@@ -91,7 +108,7 @@ int cbm_prg_place(CoreIo *io, const uint8_t *data, uint32_t size, const CbmPrgPa
     // A BASIC program goes to the machine's own start of BASIC, which the machine itself states - the
     // expansion it came up with decides it, and the plausibility window is what keeps a machine that has
     // not finished its reset from sending the program into nowhere.
-    uint16_t txt = rd16(io, p.txttab);
+    uint16_t txt = rd16(io, p, p.txttab);
     if (txt < p.txttab_min || txt > p.txttab_max) {
         snprintf(msg, msglen, "the machine says BASIC starts at $%04X, which cannot be right", txt);
         return 1;
@@ -104,10 +121,10 @@ int cbm_prg_place(CoreIo *io, const uint8_t *data, uint32_t size, const CbmPrgPa
     uint32_t len = blen < sizeof(buf) ? blen : sizeof(buf);
     memcpy(buf, body, len);
     uint16_t end = cbm_prg_relink(buf, len, load, txt);
-    io->ram_write(txt, buf, len);
-    wr16(io, p.vartab, end);
-    wr16(io, p.arytab, end);
-    wr16(io, p.strend, end);
+    cbm_prg_mem_write(io, p, txt, buf, len);
+    wr16(io, p, p.vartab, end);
+    wr16(io, p, p.arytab, end);
+    wr16(io, p, p.strend, end);
     out->load = txt;
     out->end = end;
     out->basic = true;

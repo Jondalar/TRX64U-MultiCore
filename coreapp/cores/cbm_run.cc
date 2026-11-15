@@ -80,6 +80,25 @@ const char *cbm_run_pending(const CbmRun *r)
     return r->job ? (r->job == 2 ? "type" : "run") : 0;
 }
 
+// T217: the bytes just written to the CPU's own memory are in the DDR2; its write-through cache may still hold older lines of them: invalidate it
+// (the register finishes in 512 clocks, the same wait as the ROM images'). 0 or a reason.
+static int mem_sync(CoreCtx *c, const CbmRunMachine &m, char *msg, int msglen)
+{
+    if (!m.prg.mem_ddr) {
+        return 0;
+    }
+    c->io->wr(m.mem_flush_reg, 0x01);
+    uint32_t t0 = c->io->now_ms();
+    while (c->io->rd(m.mem_flush_reg) & 0x01) {
+        if (c->io->now_ms() - t0 > 100) {
+            snprintf(msg, msglen, "the CPU's cache did not take the program (flush did not finish)");
+            return 1;
+        }
+        c->io->delay_ms(1);
+    }
+    return 0;
+}
+
 static const uint8_t zero_keys[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
 
 int cbm_run_queue_script(CoreCtx *c, CbmRun *r, const CbmRunMachine &m, const char *text, char *msg, int msglen)
@@ -283,6 +302,49 @@ static int type_keys(CoreCtx *c, CbmRun *r, const CbmRunMachine &m)
     return OPE_OK;
 }
 
+// T217: a program on a machine that is started through the key matrix (m.screen): READY is the screen (as for a typed script), the bytes go into the
+// CPU's own memory (m.prg.mem_ddr), and the start - RUN, or SYS <address> - is typed like a person's, as job 2. The keyboard buffer and the BASIC
+// pointers are page 0 of the SuperCPU's SRAM, which the application's RAM window does not reach (cores/c64scpu/scpu_mem.v: mir_tab mirrors CPU writes
+// of the pages $02-$FF to the C64 RAM, one way).
+static int place_and_type(CoreCtx *c, CbmRun *r, const CbmRunMachine &m)
+{
+    if (!r->ready_at) {
+        if (screen_at_prompt(c, m)) {
+            r->ready_at = r->ran_ms;
+        } else if (r->ran_ms > (uint32_t)m.ready_ms + m.giveup_ms) {
+            r->job = 0;
+            tell(c, m, "The machine did not reach READY: the program was not started (are the ROMs the right ones?)");
+        }
+        return OPE_OK;
+    }
+    if (r->ran_ms - r->ready_at < m.settle_ms) {
+        return OPE_OK;
+    }
+    char msg[200];
+    msg[0] = 0;
+    CbmPrgResult res;
+    memset(&res, 0, sizeof(res));
+    if (cbm_prg_place(c->io, prgbuf, r->size, m.prg, r->p00, &res, msg, sizeof(msg)) || mem_sync(c, m, msg, sizeof(msg))) {
+        r->job = 0;
+        tell(c, m, msg);
+        return OPE_OK;
+    }
+    if (res.basic) {
+        snprintf(r->script, sizeof(r->script), "RUN\r");
+    } else {
+        snprintf(r->script, sizeof(r->script), "SYS%u\r", (unsigned)res.start);
+    }
+    printf("[%s] %s: $%04X-$%04X, %s\n", m.tag, r->name, res.load, (unsigned)(res.end - 1) & 0xFFFF, res.basic ? "RUN" : "SYS");
+    snprintf(r->program, sizeof(r->program), "%s", r->name);
+    r->job = 2;
+    r->script_pos = 0;
+    r->kidx = 0xFF;
+    r->kphase = 0;
+    r->kwait = false;
+    r->kt = r->ran_ms;
+    return OPE_OK;
+}
+
 int cbm_run_service(CoreCtx *c, CbmRun *r, const CbmRunMachine &m)
 {
     if (!r->job) {
@@ -304,8 +366,11 @@ int cbm_run_service(CoreCtx *c, CbmRun *r, const CbmRunMachine &m)
     if (r->job == 2 && m.screen) {
         return type_keys(c, r, m);
     }
+    if (r->job == 1 && m.screen) {
+        return place_and_type(c, r, m);
+    }
     uint8_t b[2] = { 0, 0 };
-    c->io->ram_read(m.prg.txttab, b, 2);
+    cbm_prg_mem_read(c->io, m.prg, m.prg.txttab, b, 2);
     uint16_t txt = (uint16_t)(b[0] | (b[1] << 8));
     bool basic_up = false;
     for (int i = 0; i < m.prg.nbasic_starts; i++) {
@@ -360,7 +425,7 @@ int cbm_load_now(CoreCtx *c, CbmRun *r, const CbmRunMachine &m, const char *path
         return 1;
     }
     CbmPrgResult res;
-    if (cbm_prg_place(c->io, prgbuf, size, m.prg, is_p00(path), &res, msg, msglen)) {
+    if (cbm_prg_place(c->io, prgbuf, size, m.prg, is_p00(path), &res, msg, msglen) || mem_sync(c, m, msg, msglen)) {
         return 1;
     }
     fs_short_name(r->program, sizeof(r->program), base_name(path));

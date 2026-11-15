@@ -356,6 +356,8 @@ static CbmRunMachine machine(void)
     m.settle_ms = 300;
     m.giveup_ms = 4000;
     m.screen = 0x0400;
+    m.prg.mem_ddr = SCPU_SRAM_WIN_OFF;                  // T217: a program goes into the 65816's own SRAM (page 0 and the BASIC pointers are not in the C64 RAM window)
+    m.mem_flush_reg = SCPU_ROM_CTRL;
     m.key_hold_ms = 90;                                 // two scans at 50 Hz are 40 ms; 90 ms is four, and a held key repeats only after ~400 ms
     m.key_gap_ms = 90;
     return m;
@@ -373,6 +375,12 @@ static int op_run(CoreCtx *c, const OpArgs &a, OpOut &o)
     return cbm_run_queue(c, &scpu_state(c)->run, machine(), a.s(0), o.msg, o.msglen) ? OPE_FAILED : OPE_OK;
 }
 
+// T217: "Load" of a .prg: the bytes into the 65816's SRAM as the machine is now (BASIC relinked to $2B's value, its pointers follow), nothing typed
+static int op_load(CoreCtx *c, const OpArgs &a, OpOut &o)
+{
+    return cbm_load_now(c, &scpu_state(c)->run, machine(), a.s(0), o.msg, o.msglen) ? OPE_FAILED : OPE_OK;
+}
+
 static int op_service(CoreCtx *c, const OpArgs &, OpOut &o)
 {
     int rc = cbm_run_service(c, &scpu_state(c)->run, machine());
@@ -386,8 +394,14 @@ static const FileAction rom_actions[] = {
     { "Set as 1541 ROM", "c64scpu.set_drive_rom", file_bind, 1, false, 0, 0 },
 };
 // T206: the disk actions are the library's (cbm1541_desc.h): the same names and order as in every core with a drive
-static const FileType filetypes[4] = {
+static const FileAction prg_actions[] = {
+    { "Load", "c64scpu.load_prg", file_bind, 1, false, 0, 0 },
+    { "Load + run", "c64scpu.run_prg", file_bind, 1, true, 0, 0 },
+};
+static const FileType filetypes[6] = {
     { ".rom", rom_actions, 1, 0, 0, 0 },
+    { ".prg", prg_actions, 2, 0, 0, 0 },
+    { ".p00", prg_actions, 2, 0, 0, 0 },
     { ".d64", c1541_d64_actions, 5, ".prg", c1541_inner_actions, 2 },     // the files inside: Mount & Run (run_op) and Real Run (type_op)
     { ".g64", c1541_g64_actions, 4, 0, 0, 0 },
     { ".d81", c1581_disk_actions, 4, ".prg", c1541_inner_actions, 2 },
@@ -416,6 +430,7 @@ static void c64scpu_register(OpRegistry &r)
     r.add_op("c64scpu.put_drive_rom1581", rom_arg, 1, op_put_drive_rom81);
     r.add_op("c64scpu.put_jiffy_rom1581", rom_arg, 1, op_put_jiffy_rom81);
     r.add_op("c64scpu.set_drive_rom", path_arg, 1, op_set_drive_rom);
+    r.add_op("c64scpu.load_prg", path_arg, 1, op_load);
     r.add_op("c64scpu.set_speed", bit_arg, 1, op_set_speed);
     r.add_op("c64scpu.set_jiffy", bit_arg, 1, op_set_jiffy);
     r.add_op("c64scpu.set_joy", bit_arg, 1, op_set_joy);
@@ -441,7 +456,7 @@ const CoreDesc c64scpu_desc = {
     roms, 8,
     settings, 5 + CBM1541_NSETTINGS,
     tasks, 2 + CBM1541_NTASKS + CBM1581_NTASKS,
-    filetypes, 4,
+    filetypes, 6,
     media, 1,
     // the picture goes through the host's scaler (the VIC-II), as the C64's: no buffers, no registers
     { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
