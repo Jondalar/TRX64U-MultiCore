@@ -1,6 +1,6 @@
 # T225 — In the Amiga cores a USB gamepad can stand in for Amiga game port 2, as a one-button joystick, a two-button joystick or a CD32 pad, with a saved per-pad button mapping
 
-**Status:** BUILT on branch `t225-amiga-usbpad` (2026-11-15); S4 (Vivado) and S5 (board) open; S2/S3 pictures missing, see §5 (the emulator has no USB gamepad).
+**Status:** BUILT on branch `t225-amiga-usbpad` (2026-11-15); S4 Vivado green (run 1999); board 2026-11-15 on amiga1200: mapping dialog and CD32 mode PASS, all 7 buttons, 1-/2-button games, restart and amiga (A500) still open.
 **Repo:** TRX64U-MultiCore — gateware of `cores/amiga` and `cores/amiga1200` (minimig `userio.v`: CD32 pad enable and the pad bits
 into `_joy2`, one register the app writes), the core app (pad service, Input tab of both Amiga cores, the mapping dialog, saving).
 **Number:** T225.
@@ -53,6 +53,11 @@ As Alex said in "Origin".
 - Port 1 (mouse port) stays as it is.
 
 ## §5 Built
+
+Board 2026-11-15 (Alex, amiga1200.cor 642cebf6 = run 1999), translated: "I can play Alien Breed 3D and several things arrive on
+the Amiga, so 3 buttons + d-pad react"; "amiga 1200 and port 2 acts as CD32 yes, I could map just fine". S2 (dialog) PASS on the
+board; S5 partly: d-pad and 3 buttons in CD32 mode; the other 4 CD32 buttons, the 1-/2-button modes, S3 restart and the A500 core
+not seen yet.
 
 Branch `t225-amiga-usbpad`, 2026-11-15. Not merged, not pushed, no Vivado run, no board.
 
