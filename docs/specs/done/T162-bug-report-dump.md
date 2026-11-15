@@ -1,6 +1,6 @@
 # T162 — the host app writes a bug report file (versions, configuration, media, log, core state) from its menu and serves it over REST
 
-**Status:** ACCEPTED (2026-10-30), asked by Alex. Status check 2026-11-13: built and in main (host + core app, D5 merged ab3f39b7a); board step open.
+**Status:** DONE 2026-11-15 (Alex 2026-11-15: "under A there is nothing I would not class as DONE! That has been in the builds for days/weeks, we had bugs and re-tests in part.") Open board/scenario items are closed by Alex's decision, not separately recorded. Earlier status: ACCEPTED (2026-10-30), asked by Alex. Status check 2026-11-13: built and in main (host + core app, D5 merged ab3f39b7a); board step open.
 **Repo:** TRX64U-MultiCore — host app (`host-app/software/hostapp`: menu entry, file, REST `GET /v1/report`), the generic core app
 (each core's own part of the state through its descriptor). No gateware.
 **Number:** T162.

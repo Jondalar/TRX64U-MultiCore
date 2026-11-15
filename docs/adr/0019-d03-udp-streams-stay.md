@@ -20,5 +20,5 @@ T13 keeps the UDP video and audio streams. The debug stream (2/3) is not built (
 
 ## Links
 
-- [T13](../../docs/todo/T13.md)
-- [docs/architecture-reset-2026-10-05.md](../../docs/architecture-reset-2026-10-05.md)
+- [T13](../todo/T13.md)
+- [docs/architecture-reset-2026-10-05.md](../architecture-reset-2026-10-05.md)

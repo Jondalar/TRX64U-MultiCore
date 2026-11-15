@@ -1,6 +1,6 @@
 # T160 — every core has a master volume, set in the menu with SHIFT+ / SHIFT-, applied in the host
 
-**Status:** ACCEPTED (2026-10-29), asked by Alex. Status check 2026-11-13: built and merged: A1200 trial (board S3 pass 10-31), host gain T164 WP11; board S3 on another core open. 2026-11-15 sync: host gain confirmed in code (`host/trx_gain.v`, `host/top.v:971-973`); the 'Host plan (not built)' bullet is now marked built.
+**Status:** DONE 2026-11-15 (Alex 2026-11-15: "under A there is nothing I would not class as DONE! That has been in the builds for days/weeks, we had bugs and re-tests in part.") Open board/scenario items are closed by Alex's decision, not separately recorded. Earlier status: ACCEPTED (2026-10-29), asked by Alex. Status check 2026-11-13: built and merged: A1200 trial (board S3 pass 10-31), host gain T164 WP11; board S3 on another core open. 2026-11-15 sync: host gain confirmed in code (`host/trx_gain.v`, `host/top.v:971-973`); the 'Host plan (not built)' bullet is now marked built.
 **Repo:** TRX64U-MultiCore — host gateware (a gain on the core's audio before HDMI and I2S), the generic core application (setting,
 keys), the host application (its own menu, if wanted). Trial first in the A1200's own files (§3 D2).
 **Number:** T160.

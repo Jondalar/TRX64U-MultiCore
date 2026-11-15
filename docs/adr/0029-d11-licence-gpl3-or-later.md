@@ -20,7 +20,7 @@ LICENSE (text) and LICENSING.md (parts table) in main 2026-10-06. SPDX headers a
 
 ## Links
 
-- [T68](../../docs/todo/T68.md)
-- [T34](../../docs/todo/T34.md)
-- [T25](../../docs/todo/T25.md)
+- [T68](../todo/T68.md)
+- [T34](../todo/T34.md)
+- [T25](../todo/T25.md)
 - [LICENSING.md](../../LICENSING.md)

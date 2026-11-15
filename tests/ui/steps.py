@@ -118,7 +118,7 @@ class Ctx:
         if s['menu_open']:
             self.press("RUN/STOP")
             s = self.refresh()
-            if s['menu_open'] and self.emu.core == "nes":     # the NES with no cartridge loaded keeps its menu (the top bar says WAITING): that is the state the scenario starts from
+            if s['menu_open'] and self.emu.core in ("nes", "snes", "neogeo"):     # the NES with no cartridge loaded keeps its menu (the top bar says WAITING): that is the state the scenario starts from
                 return self.settle()
             if s['menu_open']:
                 raise AssertionFailed("RUN/STOP did not close the menu")
@@ -219,6 +219,15 @@ def i_save_picture(c, name):
     """The emulator's screen as a PNG (tests/ui/out/NAME.png): for the person who looks at the page; nothing is asserted on pixels."""
     c.emu.wait(400)
     c.emu.png(name)
+
+
+@step(r'I press RETURN and save the picture "([^"]+)" while it works')
+def i_press_return_during(c, name):
+    """T226 S1: RETURN starts a load that blocks the service; the picture is taken in the middle of it (emulated time), nothing is awaited."""
+    c.emu.key("RETURN")
+    c.emu.wait(150)
+    c.emu.png(name)
+    c.emu.wait(20000)
 
 
 def _png_bright(path, x0, y0, x1, y1, lum=140):

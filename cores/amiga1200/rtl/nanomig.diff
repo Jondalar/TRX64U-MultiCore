@@ -8,15 +8,15 @@
 >    output [7:0]	 b,
 31a32
 >    output [40-1:0] diw_o,         // T97 5.10 (A1200 copy, nanomig.diff)
-97c98
+98c99
 <    output [23:1] fastram_addr,
 ---
 >    output [25:1] fastram_addr,   // T138 (A1200 copy, nanomig.diff): [25] = the Zorro III board, [24:1] its word address
-562c563
+563c564
 < assign fastram_addr = ram_addr[23:1];
 ---
 > assign fastram_addr = {ram_addr[28], ram_addr[24:1]};
-1362,1364c1363,1365
+1363,1365c1364,1366
 < wire [3:0] r_in = (hbl||vbl)?4'h0:red[7:4];
 < wire [3:0] g_in = (hbl||vbl)?4'h0:green[7:4];
 < wire [3:0] b_in = (hbl||vbl)?4'h0:blue[7:4];   
@@ -24,5 +24,5 @@
 > wire [7:0] r_in = (hbl||vbl)?8'h0:red;
 > wire [7:0] g_in = (hbl||vbl)?8'h0:green;
 > wire [7:0] b_in = (hbl||vbl)?8'h0:blue;   
-1529a1531
+1531a1533
 > 	.diw_o        (diw_o            ),

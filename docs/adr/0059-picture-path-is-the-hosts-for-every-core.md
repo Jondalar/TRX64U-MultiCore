@@ -2,7 +2,7 @@
 
 Date: 2026-10-31
 
-Status: Accepted (Alex, 2026-10-31, [T107](../specs/T107-application-owns-the-picture.md) D11 and [T164](../specs/T164-host-package-2.md) D6/D7; extends [ADR-0057](0057-every-application-owns-the-video-mode.md))
+Status: Accepted (Alex, 2026-10-31, [T107](../specs/done/T107-application-owns-the-picture.md) D11 and [T164](../specs/done/T164-host-package-2.md) D6/D7; extends [ADR-0057](0057-every-application-owns-the-video-mode.md))
 
 ## Context
 
@@ -37,4 +37,4 @@ register write (overlay window `0x4F00`) and reads one status register (`0x4F04`
 
 ## Links
 
-[T164](../specs/T164-host-package-2.md) §3b G1-G9, [T107](../specs/T107-application-owns-the-picture.md) §5.7, §5.8, [ADR-0057](0057-every-application-owns-the-video-mode.md)
+[T164](../specs/done/T164-host-package-2.md) §3b G1-G9, [T107](../specs/done/T107-application-owns-the-picture.md) §5.7, §5.8, [ADR-0057](0057-every-application-owns-the-video-mode.md)

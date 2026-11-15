@@ -94,6 +94,33 @@ static bool group_in_tab(const Skeleton *sk, uint8_t widget, const SkelTab &tb, 
     return true;
 }
 
+// T226 S2: a task that names a group which a settings tab lists and no tasks tab lists is a row of that settings tab (the pad's "Map buttons" on Input), not of Actions.
+static bool task_in_settings_tab(const Skeleton *sk, const SkelTab &tb, const char *g)
+{
+    if (!g || tb.widget != TW_SETTINGS || !tb.groups || !groups_have(tb.groups, g)) {
+        return false;
+    }
+    for (int a = 0; a < sk->nareas; a++) {
+        for (int t = 0; t < sk->areas[a].ntabs; t++) {
+            if (sk->areas[a].tabs[t].widget == TW_TASKS && groups_have(sk->areas[a].tabs[t].groups, g)) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+static bool task_in_any_settings_tab(const Skeleton *sk, const char *g)
+{
+    for (int a = 0; a < sk->nareas; a++) {
+        for (int t = 0; t < sk->areas[a].ntabs; t++) {
+            if (task_in_settings_tab(sk, sk->areas[a].tabs[t], g)) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 static bool skel_has_widget(const Skeleton *sk, uint8_t widget)
 {
     for (int a = 0; a < sk->nareas; a++) {
@@ -314,11 +341,16 @@ void menu_build(const CoreDesc *d, MenuTree *t, bool return_host, bool reload_co
                         }
                     }
                 }
+                for (int i = 0; i < d->ntasks; i++) {
+                    if (task_in_settings_tab(sk, st, d->tasks[i].group)) {
+                        add(t, EK_TASK, d->tasks[i].label, i);
+                    }
+                }
                 break;
             }
             case TW_TASKS:
                 for (int i = 0; i < d->ntasks; i++) {
-                    if (group_in_tab(sk, TW_TASKS, st, d->tasks[i].group)) {
+                    if (!task_in_any_settings_tab(sk, d->tasks[i].group) && group_in_tab(sk, TW_TASKS, st, d->tasks[i].group)) {
                         add(t, EK_TASK, d->tasks[i].label, i);
                     }
                 }

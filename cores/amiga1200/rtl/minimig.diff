@@ -1,6 +1,6 @@
-247a248
+248a249
 > 	output [40-1:0] diw_o,    // T97 5.10 (A1200 copy): the display window as the register writes set it, {vdiwstop, vdiwstrt, hdiwstop, hdiwstrt}
-330a332,354
+331a333,355
 > 
 > // T97 5.10 (A1200 copy, minimig.diff): the display window, snooped from the register bus the way agnus_bitplanedma.v decodes it
 > // (CPU and copper writes both arrive on reg_address / custom_data_in); read by the application, so it must not touch the chipset.
@@ -24,14 +24,14 @@
 > 	end
 > end
 > assign diw_o = {w_vstop, w_vstrt, w_hstop, w_hstrt};
-942a967,972
+944a969,974
 > `ifndef GATEMATE
 >  `ifndef LATTICE
 >   `default_nettype wire
 >  `endif
 > `endif
 > 
-975,980d1004
+977,982d1006
 < 
 < `ifndef GATEMATE
 <  `ifndef LATTICE

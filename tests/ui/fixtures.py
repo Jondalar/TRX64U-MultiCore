@@ -88,6 +88,25 @@ def make_stick(stick, roms_dir, core="trx64u"):
                 f.write(make_d64("ALPHA", "hello", HELLO_PRG))
         _big(stick, "adf")
         return
+    if core == "snes":
+        # a core with no drives: one synthetic 1 MiB LoROM image (header at 0x7FC0: title, LoROM mode, 1 MiB, complement + checksum, reset vector), nothing third-party
+        os.makedirs(os.path.join(stick, "cores", "snes"))
+        rom = bytearray(1 << 20)
+        h = 0x7FC0
+        rom[h:h + 21] = b"TRX TEST CARTRIDGE".ljust(21)
+        rom[h + 0x15] = 0x20
+        rom[h + 0x17] = 0x0A
+        rom[h + 0x1C:h + 0x20] = bytes([0xFF, 0xFF, 0x00, 0x00])
+        rom[h + 0x3C:h + 0x3E] = bytes([0x00, 0x80])
+        with open(os.path.join(stick, "games", "test.sfc"), "wb") as f:
+            f.write(rom)
+        return
+    if core == "neogeo":
+        os.makedirs(os.path.join(stick, "cores", "neogeo", "roms"))
+        for n, b in (("sp-s2.sp1", 0x20000), ("000-lo.lo", 0x10000), ("sfix.sfix", 0x20000)):     # blank images stand in: no ROM is in the repository
+            with open(os.path.join(stick, "cores", "neogeo", "roms", n), "wb") as f:
+                f.write(bytes(b))
+        return
     if core == "nes":
         # a core with no drives and no ROM set: the core folder holds nothing, the games folder one cartridge image (iNES header, 16 KiB PRG, 8 KiB CHR of zeros)
         os.makedirs(os.path.join(stick, "cores", "nes"))

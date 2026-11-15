@@ -7,7 +7,7 @@ id = "AMIG"                  # amiga.cc: the gateware's one ID word, shared with
 board = "multicore"          # the ICAP loader answers 0x7A: the multicore profile, "Return to host menu"
 
 [ro]
-0x00C = 0x19                 # AM_FEAT: b0 HDF_SECT, b3 FBWIN (the A1200, not the A500), b4 RAWKEY
+0x00C = 0x39                 # AM_FEAT: b0 HDF_SECT, b3 FBWIN (the A1200, not the A500), b4 RAWKEY, b5 PAD2 (T225)
 
 [regs]
 0x0A0 = 0x01                 # AM_CTRL: b0 HOLD, the machine in reset after power-up

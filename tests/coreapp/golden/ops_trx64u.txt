@@ -50,6 +50,7 @@ op	pad.map.cancel
 op	pad.map.tick
 op	menu.pad_map_1
 op	menu.pad_map_2
+op	menu.pad_map_port
 op	net.fx	value:int:-2000:2000:0:
 op	wifi.toggle
 op	stream.start	id:int:0:2:0:

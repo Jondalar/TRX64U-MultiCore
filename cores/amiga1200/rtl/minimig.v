@@ -197,6 +197,7 @@ module minimig
 	input	      ri, // rs232 Ring Indicator
 
 	//I/O
+	input         cd32pad2_en, // T225: game port 2 is a CD32 pad
 	input [15:0]  _joy1, // joystick 1 [fire2,fire,up,down,left,right] (default mouse port)
 	input [15:0]  _joy2, // joystick 2 [fire2,fire,up,down,left,right] (default joystick port)
 	input [15:0]  _joy3, // joystick 3 [fire2,fire,up,down,left,right]
@@ -585,6 +586,7 @@ userio USERIO1
 	._fire1(_fire1),
 	._fire0_dat(_fire0_dat),
 	._fire1_dat(_fire1_dat),
+	.cd32pad2_en(cd32pad2_en),
 	._joy1(_joy1),
 	._joy2(_joy2),
 	.joy_ana1(joya1),

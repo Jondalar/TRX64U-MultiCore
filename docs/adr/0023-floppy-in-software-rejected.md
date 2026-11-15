@@ -18,4 +18,4 @@ The hardware 1541 (c1541_drive) stays (decision 1).
 
 ## Links
 
-- [docs/architecture-reset-2026-10-05.md](../../docs/architecture-reset-2026-10-05.md)
+- [docs/architecture-reset-2026-10-05.md](../architecture-reset-2026-10-05.md)

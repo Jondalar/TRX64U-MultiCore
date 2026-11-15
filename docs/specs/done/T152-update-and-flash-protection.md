@@ -1,6 +1,6 @@
 # T152 — The MultiCore system updates its own parts from a .txu package, and a large core cannot overwrite the host in flash
 
-**Status:** BUILDING (2026-10-31). Asked by Alex 2026-10-29; 2026-10-31 (translated): "Then build T152 and we measure tomorrow." Status check 2026-11-13: BUILDING stays: D1-D11 and S8 merged (a92658e30, 11-08); board S2/S5/S6b/S7/Q5, locked text and S8 open.
+**Status:** DONE 2026-11-15 (Alex 2026-11-15: "under A there is nothing I would not class as DONE! That has been in the builds for days/weeks, we had bugs and re-tests in part.") Open board/scenario items are closed by Alex's decision, not separately recorded. Earlier status: BUILDING (2026-10-31). Asked by Alex 2026-10-29; 2026-10-31 (translated): "Then build T152 and we measure tomorrow." Status check 2026-11-13: BUILDING stays: D1-D11 and S8 merged (a92658e30, 11-08); board S2/S5/S6b/S7/Q5, locked text and S8 open.
 Built: D3/D5 `.txu`, D4/D6/D7 flash protection, D8 inspect, S8 ESP32 flashing (2026-11-07, section 5.7; the host gateware part is T164 WP13).
 Open for the board: S1, S2, S5, S6, S7 and Q5 (`docs/archive/board-tests/board-tests-pending.md`); D6 is not called done before Q5 is measured.
 **Repo:** TRX64U-MultiCore — host application (`host-app/software/hostapp/`: update flow, flash lock, F8 setting), packaging

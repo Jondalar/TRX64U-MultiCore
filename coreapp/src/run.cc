@@ -132,6 +132,24 @@ static void saving_note(CoreCtx *c, bool on)
     if (on) {
         ui_message("Saving media", "Saving media...", false);
         ui_render_now();
+    } else if (c->loading_depth > 0) {                // T226: a write-back inside a load: the load's note stands again
+        ui_message("Cartridge", "Loading cartridge...", false);
+        ui_render_now();
+    } else {
+        ui_message_clear();
+    }
+}
+
+// T226 S1: a cartridge / ROM image is read in with the menu up (seconds on the SNES): the picture says so until the core runs or the load failed (the menu
+// shows its answer after the operation, as after a write-back).
+static void loading_note(CoreCtx *c, bool on)
+{
+    if (!c->menu_open) {
+        return;
+    }
+    if (on) {
+        ui_message("Cartridge", "Loading cartridge...", false);
+        ui_render_now();
     } else {
         ui_message_clear();
     }
@@ -451,6 +469,7 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
     ctx.board = board;
     ctx.io = hw_io();
     ctx.saving = saving_note;
+    ctx.loading = loading_note;
     ctx.mount_changed = mounts_engine_changed;     // T180 D2: a mount or unmount in the core's own media engine is stored (mediamounts.h)
     ctx.partial = hw_partial();
     // a .d64 / .d81 is a folder for everything that goes through CoreFs (the browser, Run PRG, Mount & Run of a PRG inside an image; d1541_fs.h)

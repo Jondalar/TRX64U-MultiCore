@@ -18,4 +18,4 @@ Led to docs/architecture-reset-2026-10-05.md and the numbered decisions of 2026-
 
 ## Links
 
-- [docs/architecture-reset-2026-10-05.md](../../docs/architecture-reset-2026-10-05.md)
+- [docs/architecture-reset-2026-10-05.md](../architecture-reset-2026-10-05.md)
