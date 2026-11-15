@@ -139,7 +139,7 @@ bool add_entry(const HcFoEnv &e, const char *name, const char *path, const char 
     }
     if (hc_cfg().n >= BOOT_MAX) {                              // T223 P4: the full menu says so, and how many entries it holds
         char t[120];
-        snprintf(t, sizeof(t), "Boot menu is full: it holds %d of %d entries. Remove one in the editor first.", hc_cfg().n, BOOT_MAX);
+        snprintf(t, sizeof(t), "Boot menu is full: it holds %d of %d entries. Remove one in Edit menu (F5) first.", hc_cfg().n, BOOT_MAX);
         note(e, t, HCT_BAD);
         return false;
     }

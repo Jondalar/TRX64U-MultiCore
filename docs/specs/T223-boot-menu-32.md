@@ -27,7 +27,7 @@
 | S5 | P1 | The editor (F5) lists and edits 32 entries, last page | ue2emu picture `t223-editor-last` |
 | S6 | P2 | With 32 entries only the default, the selection and the rows on screen are read; scrolling reads the rows that come into view | emulator console lines `[host] entry N ... state read` in `m32.log` (only visible N before the scroll) |
 | S7 | P3 | A large core's row shows its config count | blocked on Q1 |
-| S8 | P4 | The 33rd add is refused with "Boot menu is full: it holds 32 of 32 entries. Remove one in the editor first." in the note, nothing written | ue2emu picture `t223-full-message`, boot.cfg still 32 lines |
+| S8 | P4 | The 33rd add is refused with "Boot menu is full: it holds 32 of 32 entries. Remove one in Edit menu (F5) first." in the note, nothing written | ue2emu picture `t223-full-message`, boot.cfg still 32 lines |
 
 ## §3 Decision
 
@@ -49,5 +49,7 @@
 
 - `bootcfg.h`: `BOOT_MAX 32`. `host_core.cc/.h`: `hc_lazy_window`, `hc_lazy_next` honours it. `hostui.cc`: `lazy_window()` before each lazy step and busy check. `host_core_flow_fileops.cc:142`: new full-menu message. `tests/hostapp/emu_host.sh`: T223 section.
 - `tools/dev.sh riscv`: ok (2026-11-15).
-- Evidence (2026-11-15, `tools/dev.sh emu` on the builder, `tests/hostapp/emu_host.sh` T223 section, whole script PASS): 33 `.cor` copies on the stick, 33 A presses in the real browser: boot.cfg read back from the flash image holds 32 `core=` lines. Pictures (emulator, 960x540 canvas; the emulator offers no 720p/1080p mode): `/tmp/claude-501/m32pics/t223-{full-message,added-32,menu-top,menu-scrolled,menu-last,editor-last}.png` (also in `.ci/dev/host-menu-32/emu/`). Seen: the note "Boot menu is full: it holds 32 of 32 entries. Remove one in the editor first." (S8), "1-7 of 32" and "26-32 of 32" (S1, S2, S5).
+- Evidence (2026-11-15, `tools/dev.sh emu` on the builder, `tests/hostapp/emu_host.sh` T223 section, whole script PASS): 33 `.cor` copies on the stick, 33 A presses in the real browser: boot.cfg read back from the flash image holds 32 `core=` lines. Pictures (emulator, 960x540 canvas; the emulator offers no 720p/1080p mode): `/tmp/claude-501/m32pics/t223-{full-message,added-32,menu-top,menu-scrolled,menu-last,editor-last}.png` (also in `.ci/dev/host-menu-32/emu/`). Seen: the note "Boot menu is full: it holds 32 of 32 entries. Remove one in Edit menu (F5) first." (S8), "1-7 of 32" and "26-32 of 32" (S1, S2, S5).
 - Not checked: S3 (boot of entry 17-32), S4 (countdown default beyond 16), S6 (the emulator console does not carry the host's `[host] entry N` lines, so the windowed reading is not measured; the code path is `hc_lazy_next`), S7 (blocked on Q1), 720p/1080p, the web UI with 32 entries. No app tests run (pipeline).
+
+- UX review (ux-specialist, 2026-11-15): FAIL on one point, R2: the browser's note line sits on the panels' bottom edge (the note slot of the browser, older than T223, not changed here). R6 wording fixed ("Edit menu (F5)"; pictures show the earlier wording "editor"). Proposals not built: hint "A adds it" while the menu is full (R10); "+/- PAGE" in caps (older). Question: does + page by 5 or 10 (first page 1-7, next 11-17)?
