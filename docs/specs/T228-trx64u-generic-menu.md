@@ -160,7 +160,7 @@ app build, i.e. S2); the text mock-up above stands in. Pictures: /private/tmp/cl
 
 | F8 Expert bar: Restart core | 1 | merge | generic F8 Actions "Restart core"/"Reload core" |
 
-| F8 Expert bar: Clear config | 1 | merge | generic F8 Reset "Reset to host defaults" (Q5: is "clear the flash config" a separate action?) |
+| F8 Expert bar: Clear config | 1 | merge | generic F8 Reset "Reset to host defaults" (D11: no flash, no own row) |
 
 | F4 Diagnostics: Bug report | 1 | merge | generic F8 Support "Bug report" |
 
@@ -270,6 +270,11 @@ overlay was fitted from a 1280x800 manual picture, so its scale on the real 960x
   "Save C64 memory" and "Save REU memory" go to F1 Home, top, beside Reset. F1 may get tabs of its own when it grows.
 - D9 (Alex 2026-11-15, Q4a, after mock-ups q04a/b): the Discard / Defaults / Save bar goes; every change applies at once and is
   saved by itself (as in the generic cores). Defaults: F8 > Reset.
+- D10 (Alex 2026-11-15, translated: "saving configs and mounted media like the other cores must go in too!"): trx64u saves its
+  settings and its mounted media the same way the generic cores do (same mechanism, same "Persist mounts" behaviour); S2 must build it.
+- D11 (Alex 2026-11-15, Q5, translated: "we do not save to flash! and nothing is erased in flash there either!!! Reset to host
+  defaults is the right one"): F8 > Reset has "Reset to host defaults" only, no "Clear flash config" row. The menu writes and erases
+  nothing in flash; settings are not stored in flash.
 
 ## §4 Out
 
