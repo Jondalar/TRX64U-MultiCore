@@ -42,6 +42,9 @@ As Alex said in "Origin".
 - D2: where the mapping is stored follows the existing pad-mapping storage of the pad service (T156/T181), keyed by the pad's
   VID:PID; the builder reports in §5 where that is.
 
+- D3 (Alex 2026-11-15, asked: "Map port 2 buttons" with no pad plugged does nothing; should the dialog open anyway and say
+  "plug in a pad"? Answer: "Yes"): the mapping dialog opens without a pad and asks to plug one in; it continues when a pad appears.
+
 ## §4 Out
 
 - Port 1 (mouse port) stays as it is.
