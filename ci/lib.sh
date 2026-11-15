@@ -101,8 +101,8 @@ tree_key() {
     if [ -d "$ROOT/vendor/gideon" ]; then
       # Only what the gateware reads: the VHDL and the files beside it (vendor_gideon.sh `files`). The software of the two
       # applications in the same tree (software/, tools/, target/, roms/) is not gateware: a change to it moves no bitstream key.
-      # VENDOR.md only records the commit the copy was made from and would move every key (run 898 rebuilt the host for a change
-      # without one VHDL line); the copied files themselves count
+      # VENDOR.md only records the commit the copy was made from; it is not listed here and the doc filter (is_doc, *.md) covers it as well
+      # (run 898 rebuilt the host for a change without one VHDL line); the copied files themselves count
       local gl; gl="$(mktemp)" || exit 1
       (cd "$ROOT" && { find vendor/gideon/fpga vendor/gideon/target/simulation -type f || exit 1
                         ls vendor/gideon/LICENSE.txt vendor/gideon/software/io/usb/nano_minimal.nan vendor/gideon/software/portable/riscv/bootloader_u64ii.c vendor/gideon/tools/parse_nano.py || exit 1; }) > "$gl" || { rm -f "$gl"; exit 1; }

@@ -43,6 +43,8 @@ _parsers = {}
 DOC_BASENAMES = ("FROM",)
 DOC_PREFIXES = ("README", "PROVENANCE", "LICENSE", "LICENCE", "COPYING")
 DOC_EXTS = (".md",)
+# README/LICENSE... count as documentation only without an extension or with a plain-text one: README.v or LICENSE.sv stay code
+DOC_PREFIX_EXTS = ("", ".txt", ".md", ".apache", ".mit", ".bsd", ".gpl", ".lgpl", ".text", ".rst")
 
 
 def is_doc(path):
@@ -50,7 +52,8 @@ def is_doc(path):
     if os.environ.get("CODE_HASH_DOCS") == "keep":
         return False
     b = os.path.basename(path)
-    return b in DOC_BASENAMES or b.startswith(DOC_PREFIXES) or b.lower().endswith(DOC_EXTS)
+    return (b in DOC_BASENAMES or b.lower().endswith(DOC_EXTS)
+            or (b.startswith(DOC_PREFIXES) and os.path.splitext(b)[1].lower() in DOC_PREFIX_EXTS))
 
 
 def lang_of(path):

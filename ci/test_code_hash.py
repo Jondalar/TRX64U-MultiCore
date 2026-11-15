@@ -131,7 +131,7 @@ with tempfile.TemporaryDirectory() as _t:
 # k documentation never enters a key (2026-11-15)
 for pth in ("cores/c64scpu/mono/host/FROM", "a/README", "a/README.txt", "x/PROVENANCE.md", "vendor/LICENSE-APACHE", "v/LICENCE", "v/COPYING", "docs/x.md"):
     check("k is_doc " + pth, ch.is_doc(pth))
-for pth in ("a/top.v", "a/FROMAGE.v", "a/readme.v", "a/build.tcl", "a/x.mem"):
+for pth in ("a/top.v", "a/FROMAGE.v", "a/readme.v", "a/build.tcl", "a/x.mem", "a/README.v", "a/LICENSE.sv", "a/PROVENANCE.vhd", "a/COPYING.c"):
     check("k not is_doc " + pth, not ch.is_doc(pth))
 check("k differs: a doc edit is no change", not ch.differs(b"a", b"b", "x/FROM") and not ch.differs(None, b"b", "x/README.md"))
 check("k differs: code still counts", ch.differs(b"a", b"b", "x/top.v"))
