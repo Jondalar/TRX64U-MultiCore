@@ -78,3 +78,21 @@ program itself pokes (C64 RAM `$C000`, a mirrored page, so the window sees it) a
 - **Benches (local, real ROMs, never in CI):** `cores/c64scpu/sim/run_prgrun.sh` (cases basic, ml, old = control), `cores/c128/sim/run_prgrun.sh` (basic, ml, none = control), writer
   `tools/cbm_prg_sim.cc` (the application's own library code and parameter headers), tb replay `+PRG_AT`. Test programs: `cores/c64scpu/sim/prgrun_gen.py`.
 - **Pictures:** ue2emu, `tests/ui/features_cores/t217_prg_c128.feature`, `t217_prg_c64scpu.feature` (commit 7ef47665f); UX review PASS, minor wording note: "Load + run" against "Mount & Run".
+
+### Status at hand-over (2026-11-15; Alex stopped the benches: "no benches before a merge")
+
+| # | Scenario | Evidence |
+|---|---|---|
+| S1 | SCPU BASIC .prg runs on the 65816 | OPEN: bench `run_prgrun.sh basic` written, not finished (one run reached READY with TXTTAB `$0801` in the SRAM, but the replay parse was wrong then and is fixed; the run was stopped). Board step for Alex. |
+| S2 | SCPU old way does not run it (control) | bench `run_prgrun.sh old`: PASS line seen, but the replay applied 0 bytes at that time, so it proves nothing; open |
+| S3 | SCPU ML by SYS | OPEN (bench written, not run) |
+| S4 | SCPU pointers seen by the CPU | OPEN (second marker `PEEK(45)` in the basic case) |
+| S5 | SCPU `.prg`/`.p00` rows | ue2emu pictures, ux-review PASS (`t217-c64scpu-prg-sheet.png`) |
+| S6 | SCPU inner Mount & Run | inner rows picture PASS; the job itself = S1 (open) |
+| S7, S8 | C128 BASIC / ML .prg | OPEN (bench written, build failed once for memory, not run) |
+| S9 | C128 rows + inner Mount & Run | ue2emu pictures, ux-review PASS |
+| S10 | C128 C64-mode program | OPEN: question 1 (refused with a reason meanwhile) |
+
+`tools/benches.sh c64scpu -f` on the commit with the new tb plusargs: emu, map, speed, mirror, irq, mdust PASS; `c64scpu_base` FAIL after 10 s in that run while memory was exhausted
+(cc1plus segfault), and PASS standalone (`run_base.sh`). The C128 set was not run. Not checked: the SCPU's real TXTTAB/READY timing on the board, the 5 s wait of
+`ready_ms`, the C128 keyboard buffer numbers (`$034A`/`$D0`) and RAM-window coherence with the 8502's line cache on the board; no native app test was added (pipeline).
