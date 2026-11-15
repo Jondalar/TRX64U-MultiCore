@@ -431,6 +431,49 @@ module tb_c128;
 `endif
         $display("evt| injected %0d bytes at %0t", inj_n, $time);
     end
+    // +PRG_AT=<us> (T217, run_prgrun.sh): at that time mem/prgscript.txt is replayed - what the application does to start a program (tools/cbm_prg_sim.cc): R|addr|byte
+    // writes into RAM block 0 (the RAM window; the same places as +INJECT_AT: the DDR2 model, the pinned slots, the CPU's line cache emptied), K|ms|hex64 the key matrix
+    integer pg_us, pg_fd, pg_n, pg_ms, pg_prev, pg_nr = 0, pg_nk = 0;
+    reg [8*80-1:0] pg_line;
+    reg [7:0] pg_t;
+    reg [31:0] pg_a;
+    reg [7:0]  pg_b;
+    reg [63:0] pg_k;
+    reg [16:0] pg_x;
+    initial if ($value$plusargs("PRG_AT=%d", pg_us)) begin
+        #(pg_us * 1000.0);
+        pg_fd = $fopen("mem/prgscript.txt", "r");
+        pg_prev = 0;
+        while (pg_fd != 0 && !$feof(pg_fd)) begin
+            pg_n = $fgets(pg_line, pg_fd);
+            if (pg_n != 0) begin
+                pg_n = $sscanf(pg_line, "%c|%h|%h", pg_t, pg_a, pg_b);
+                if (pg_t == "R") begin
+                    pg_x = {1'b0, pg_a[15:0]};
+`ifdef RAM_DDR2
+                    ddr.mem[8192 + pg_x[16:4]][8 * pg_x[3:0] +: 8] = pg_b;
+                    if (pg_x[15:14] == 2'd0) begin if (pg_x[0]) dut.mem.ramd.gb[0].hi[pg_x[13:1]] = pg_b; else dut.mem.ramd.gb[0].lo[pg_x[13:1]] = pg_b; end
+                    if (pg_x[15:14] == 2'd1) begin if (pg_x[0]) dut.mem.ramd.gb[1].hi[pg_x[13:1]] = pg_b; else dut.mem.ramd.gb[1].lo[pg_x[13:1]] = pg_b; end
+                    if (pg_x[15:14] == 2'd2) begin if (pg_x[0]) dut.mem.ramd.gb[2].hi[pg_x[13:1]] = pg_b; else dut.mem.ramd.gb[2].lo[pg_x[13:1]] = pg_b; end
+                    if (pg_x[15:14] == 2'd3) begin if (pg_x[0]) dut.mem.ramd.gb[3].hi[pg_x[13:1]] = pg_b; else dut.mem.ramd.gb[3].lo[pg_x[13:1]] = pg_b; end
+`else
+                    if (pg_x[0]) dut.mem.ram_hi[{pg_x[16], pg_x[15:1]}] = pg_b; else dut.mem.ram_lo[{pg_x[16], pg_x[15:1]}] = pg_b;
+`endif
+                    pg_nr = pg_nr + 1;
+                end else if (pg_t == "K") begin
+                    pg_n = $sscanf(pg_line, "K|%d|%h", pg_ms, pg_k);
+                    #((pg_ms - pg_prev) * 1000000.0);
+                    pg_prev = pg_ms;
+                    keys = pg_k;
+                    pg_nk = pg_nk + 1;
+                end
+            end
+        end
+`ifdef RAM_DDR2
+        for (pg_n = 0; pg_n < 512; pg_n = pg_n + 1) dut.mem.ramd.cm[pg_n][132] = 1'b0;
+`endif
+        $display("prg|%0d RAM-window bytes, %0d key states replayed", pg_nr, pg_nk);
+    end
     initial if (keyoff_us >= 0) begin #(keyoff_us * 1000.0); keys = 64'd0; $display("evt| keys released at %0t", $time); end
     initial if (reset_at_us >= 0) begin
         #(reset_at_us * 1000.0); cpu_reset_req = 1'b1; reset_win = 1'b1; $display("evt| reset on at %0t, raster line %0d x %0d", $time, dut.c64.vic_pix_y, dut.c64.vic_pix_x);
