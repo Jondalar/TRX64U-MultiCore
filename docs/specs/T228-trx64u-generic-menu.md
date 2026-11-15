@@ -268,6 +268,8 @@ overlay was fitted from a 1280x800 manual picture, so its scale on the real 960x
 
 - D8 (Alex 2026-11-15, Q3a, after mock-ups q03a-c: "a fits, you can make tabs there too", translated): "Reboot, clear memory",
   "Save C64 memory" and "Save REU memory" go to F1 Home, top, beside Reset. F1 may get tabs of its own when it grows.
+- D9 (Alex 2026-11-15, Q4a, after mock-ups q04a/b): the Discard / Defaults / Save bar goes; every change applies at once and is
+  saved by itself (as in the generic cores). Defaults: F8 > Reset.
 
 ## §4 Out
 
