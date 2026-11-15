@@ -148,8 +148,8 @@ run_cfg_flow() {
 # .txu (its bundle version, and the warning when it is older than the running bundle). The stick carries vc20.cor, a large amiga1200.cor and an app-only .txu of
 # an older bundle (0.1.0); A on each .cor adds it, F1 shows the list, the .txu opens the ask (nothing is written: the flow quits at the question).
 semver_flow() { printf 'wait 15000\nkey space\nwait 800\nkey f3\nwait 1500\nkey down\nwait 500\nkey down\nwait 500\nkey return\nwait 2000\n'
-                printf 'key down\nwait 500\nkey return\nwait 2000\nkey down\nwait 500\nkey a\nwait 6000\nkey down\nwait 500\nkey a\nwait 6000\nkey f1\nwait 2000\npng %s/semver-list.png\n' "$out"
-                printf 'key f3\nwait 2000\nkey down\nwait 500\nkey down\nwait 500\nkey down\nwait 500\nkey return\nwait 6000\npng %s/semver-update.png\nquit\n' "$out"; }
+                printf 'key down\nwait 500\nkey return\nwait 2000\nkey down\nwait 500\nkey a\nwait 6000\nkey down\nwait 500\nkey down\nwait 500\nkey a\nwait 6000\nkey f1\nwait 2000\npng %s/semver-list.png\n' "$out"
+                printf 'key f3\nwait 2000\nkey up\nwait 500\nkey return\nwait 6000\npng %s/semver-update.png\nquit\n' "$out"; }
 run_semver() {
     local w="$out/work-semver"
     rm -rf "$w"; mkdir -p "$w/cors" "$w/profiles" "$w/stick/cores"
