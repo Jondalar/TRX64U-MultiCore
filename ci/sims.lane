@@ -134,6 +134,7 @@ cpc_io: large:cpc
 cpc_media: large:cpc
 cpc_pause: large:cpc
 cpc_fdcscan: large:cpc
+cpc_fdcfix: large:cpc
 cpc_pins: large:cpc
 zxnext_boot: large:zxnext
 zxnext_noimg: large:zxnext
