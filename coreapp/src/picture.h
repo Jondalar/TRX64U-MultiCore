@@ -55,6 +55,10 @@ void smooth_apply(CoreCtx *c, int value);
 // Returns the mode the picture is in.
 int picture_start(CoreCtx *c, int sys, int hdmi_now);
 
+// T224 D2/D3: "Boot safe graphics mode". Puts Picture = Auto, Scale = Integer, Smoothing = Off in force for this run (Settings::override_value: nothing is written, the stored values
+// stay in the .cfg); only those of the three the core has. Call after the settings are read and before picture_start. Returns how many it overrode.
+int picture_safe(CoreCtx *c);
+
 // T140 D24: the System Mode (0 PAL, 1 NTSC, 2 PAL-60, 3 NTSC-50, the order of t_video_mode) of a core whose clock follows it: the HDMI mode stays, the
 // host's PLL and scan registers go to `sys` through the same call a change of the Picture makes, video_current and the Video follow. The caller writes the
 // core's own format bits (CoreIo::video_format) after it. No change, no call.

@@ -558,6 +558,23 @@ static int read_host_choice(CoreCtx *c)
     return hdmi;
 }
 
+int picture_safe(CoreCtx *c)
+{
+    if (!c->settings) {
+        return 0;
+    }
+    int n = 0;
+    const int idx[3] = { picture_index(c->desc), scale_index(c->desc), smooth_index(c->desc) };
+    const int safe[3] = { 0 /* Auto */, VID_SCALE_INTEGER, 0 /* Off */ };
+    for (int k = 0; k < 3; k++) {
+        if (idx[k] >= 0) {
+            c->settings->override_value(idx[k], safe[k]);
+            n++;
+        }
+    }
+    return n;
+}
+
 int picture_start(CoreCtx *c, int sys, int hdmi_now)
 {
     if (sys < 0) {

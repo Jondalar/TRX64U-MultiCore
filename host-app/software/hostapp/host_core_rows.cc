@@ -321,11 +321,11 @@ const char *hc_edit_foot(void)
     return hc_foot(has ? HCF_EDIT : HCF_EDIT_PLAIN);
 }
 
-// The footer of the boot menu: "RIGHT configs" only while the selected row has configs (T198 D9, mock-up (a)).
+// The footer of the boot menu: "RIGHT configs" on every row but a full firmware (T198 D9 gave it to rows with configs; T224 D1 changed it).
 const char *hc_menu_foot(void)
 {
     const HcNav &v = hc_nav();
-    const bool has = v.sel >= 0 && v.sel < hc_cfg().n && hc_cfgov_count(hc_cfg().e[v.sel].path) > 0;
+    const bool has = v.sel >= 0 && v.sel < hc_cfg().n && !hc_efull(v.sel);      // T224 D1: RIGHT opens the overlay on every core that gets the hand-over page (the rescue row)
     const char *base = hc_foot(has ? HCF_MENU : HCF_MENU_PLAIN);
     if (hc_cfg().n <= hc_nav_menu_rows()) {
         return base;

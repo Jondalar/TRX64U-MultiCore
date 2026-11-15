@@ -82,6 +82,22 @@ const char *handover_config(const Handover *h)
     return h->config;
 }
 
+static uint32_t handover_safe_sum(const Handover *h)
+{
+    uint32_t s = 0x5AFE6A7Bu ^ h->sum ^ h->id_sum;
+    return s ? s : 1u;
+}
+
+void handover_set_safe(Handover *h, bool on)
+{
+    h->safe_sum = on ? handover_safe_sum(h) : 0;
+}
+
+bool handover_safe(const Handover *h)
+{
+    return h->safe_sum != 0 && h->safe_sum == handover_safe_sum(h);
+}
+
 static void put(char *dst, int cap, const char *src)
 {
     memset(dst, 0, cap);

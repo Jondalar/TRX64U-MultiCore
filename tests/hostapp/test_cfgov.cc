@@ -103,8 +103,15 @@ int main()
     CHECK(hc_act_by_name("config.list") == HCA_CONFIG_LIST && hc_act_by_name("config.start") == HCA_CONFIG_START && hc_act_by_name("config.rename") == HCA_CONFIG_RENAME);
     CHECK(hc_act_by_name("config.delete") == HCA_CONFIG_DELETE && hc_act_by_name("config.default") == HCA_CONFIG_DEFAULT);
 
-    // D9: a core without configs: nothing opens
-    CHECK(!hc_cfgov_open("/SD/cores/vic.cor", "VIC", 1) && !hc_cfgov_is_open());
+    // T224 D1 (replaces D9's "nothing opens"): a core without configs opens with "Plain start" and the rescue row "Boot safe graphics mode" only
+    CHECK(hc_cfgov_open("/SD/cores/vic.cor", "VIC", 1) && hc_cfgov_is_open() && hc_cfgov().l.n == 0 && !hc_cfgov_on_safe());
+    hc_cfgov_move(+1);
+    CHECK(hc_cfgov_on_safe() && !strcmp(hc_cfgov_cur_name(), "") && hc_cfgov().cur == 1);
+    hc_cfgov_move(+1);
+    CHECK(hc_cfgov().cur == 1);                                                       // the safe row is the last one
+    CHECK(hc_cfgov_delete() == 0 && !hc_cfgov_rename("x"));                           // it is not a config
+    { HcWifiPick p; hc_cfgov_pick(&p); CHECK(p.n == 2 && !strcmp(p.item[1].a, "Boot safe graphics mode") && p.sel == 1); }
+    hc_cfgov_close();
 
     // D14/D11: opens on the default config; "Plain start" is row 0; the order is case-insensitive
     CHECK(hc_cfgov_open("/SD/cores/amiga.cor", "Amiga", 0));

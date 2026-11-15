@@ -38,6 +38,9 @@ struct Handover {
     // Read it with handover_config() only.
     uint32_t config_sum;          // handover_config_sum(): the name mixed with `sum` and `id_sum`; 0 = no config
     char config[48];              // the config's name, "" = plain start (HANDOVER_CONFIG_MAX characters at most)
+    // ---- after the config (T224 D2, 2026-11-15): "start with safe graphics" - the core application takes Picture Auto, Scale Integer, Smoothing Off for this start and writes none of
+    // them. Outside handover_sum() and every earlier check word like the config: older readers ignore it, a block of an older host has none. Read it with handover_safe() only.
+    uint32_t safe_sum;            // handover_safe_sum(): mixed with `sum` and `id_sum`; 0 = not asked
 };
 #define HANDOVER_CONFIG_MAX 32    // T198 D11: a config name is at most 32 characters; the field holds 47
 
@@ -70,6 +73,10 @@ bool handover_time(const Handover *h, int *year, int *mon, int *day, int *hour, 
 // terminated name: never a wrong name, the core then starts plain.
 bool handover_set_config(Handover *h, const char *name);
 const char *handover_config(const Handover *h);
+
+// T224 D2: asks for the safe graphics start (handover_safe() gives it back; false for a block that carries none, whose check does not hold, or that was never asked).
+void handover_set_safe(Handover *h, bool on);
+bool handover_safe(const Handover *h);
 
 // True when magic, version and sum agree and the path is terminated. DDR2 holds noise after a power-up and the previous
 // core's block after a JTAG start: this tells noise from a block, not a fresh block from a stale one.

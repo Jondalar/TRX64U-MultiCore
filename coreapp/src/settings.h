@@ -60,6 +60,9 @@ public:
     bool dirty() const { return dirty_; }
     bool item_held(int i) const { return i >= 0 && i < n_ && held_[i]; }   // T192.3 S11: this setting was changed and waits for save()
     bool save();                                      // writes the .cfg now; false when it could not be written
+    // T224 D2/D3: a value in force for this run only. value() answers it; no file (the .cfg, a config exported by "Save as config") is ever written with it, they get the stored value
+    // (the core layer, else the host layer, else the default). set() on the same item ends the override: what the person chooses is stored as always. load() and rebind() drop all.
+    void override_value(int i, int v);
     // T156: keys of the core's own that are not choices from a list (the recorded pad maps, "Pad 1 map=..."). Only keys that start with
     // "Pad " are kept; they are written with the settings and removed with them.
     bool extra_get(const char *key, char *val, int n) const;
@@ -96,6 +99,7 @@ private:
     FlashLayer *flash_;
     int16_t host_[SETTINGS_MAX];      // -1: not set in the flash
     int16_t core_[SETTINGS_MAX];      // -1: not set in the .cfg
+    int16_t ovr_[SETTINGS_MAX];       // -1: none; else the value this run uses instead (override_value)
     enum { TEXT_N = 120, TEXT_LEN = 128 };
     int8_t tix_[SETTINGS_MAX];        // a text setting's place in tpool_, -1 none
     char tpool_[TEXT_N][TEXT_LEN];    // the texts the core layer holds (T104.2 UI)
@@ -117,6 +121,7 @@ private:
     void fail(const char *what);
     static void on_item(void *user, const char *store, const char *key, const char *value);
     int label_index(int i, const char *label) const;
+    int stored_value(int i) const;    // value() without the override
 };
 
 #endif

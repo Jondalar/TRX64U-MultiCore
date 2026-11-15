@@ -147,5 +147,25 @@ int main()
         int y, mo, d, hh, mm, ss;
         CHECK(handover_time(&c, &y, &mo, &d, &hh, &mm, &ss));
     }
+    // T224 D2: the safe-graphics flag is a tail field of its own: set, read back, never from noise or from another block, independent of the config
+    {
+        Handover s;
+        handover_fill(&s, "/SD/cores/amiga1200.cor", "Amiga 1200", "0.1.0", 0x12345678u, 0, "amiga1200");
+        CHECK(!handover_safe(&s));                                    // a page nobody asked
+        handover_set_config(&s, "Demo collection");
+        handover_set_safe(&s, true);
+        CHECK(handover_safe(&s) && handover_valid(&s));
+        CHECK_STR(handover_config(&s), "Demo collection");
+        handover_set_safe(&s, false);
+        CHECK(!handover_safe(&s));
+        handover_set_safe(&s, true);
+        Handover o;
+        handover_fill(&o, "/SD/other.cor", "Other", "1.0", 0, 0, "other");
+        o.safe_sum = s.safe_sum;                                      // left behind by another start: its sum is another one
+        CHECK(!handover_safe(&o));
+        Handover z;
+        memset(&z, 0xA5, sizeof(z));
+        CHECK(!handover_safe(&z));                                    // noise
+    }
     DONE("test_handover");
 }

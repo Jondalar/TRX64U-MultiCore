@@ -1,6 +1,6 @@
 # T189 — every core has a tone preset (Flat / Bass boost / Treble boost) beside the master volume, applied in the host
 
-**Status:** DECIDED (2026-11-07), D1-D7; build open (2026-11-15 sync: confirmed, no tone filter in host/ or coreapp/).
+**Status:** DECIDED (2026-11-07), D1-D8; building since 2026-11-15 (D8: go for the host change) (2026-11-15 sync: confirmed, no tone filter in host/ or coreapp/).
 **Repo:** TRX64U-MultiCore — host gateware (a shelf filter before the T160 gain), the generic core application (setting, register write), `.cfg`.
 **Number:** T189 (`TODO.md`).
 **Origin:** GitHub issue #49 (a user of the C64U, 2026-11-05): "On small or TV speakers the Amiga cores sound thin in the low end. A simple choice of
@@ -86,6 +86,7 @@ Scenario: S8 the sound (P5) - board, by hand
   beside `trx_gain.v`; neogeo gets it once its flat build places again, until then neogeo shows no Tone row.
 - **D7 (Alex, 2026-11-07: "A"; question 7):** the issue author gets the tester package once T189 is built and runs board step S8 on his C64U,
   reporting on #49; the gateware stays ours. All seven questions answered: T189 is DECIDED, build open (host change, `host_pin` update).
+- **D8 (Alex, 2026-11-15, "T189 a"):** go for the host change: build it tonight, with the host and DFX-core rebuild it costs and the host pin moved (`tools/host_pin.sh --update`).
 
 ## §4 Out (proposed, to confirm with Alex)
 
