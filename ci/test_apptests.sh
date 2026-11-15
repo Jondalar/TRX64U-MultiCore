@@ -5,6 +5,10 @@
 # is in submission order, a failing job fails the suite, and JOBS jobs really overlap. Every check has its control: the same
 # assertion on the wrong state must be false.
 set -euo pipefail
+# T215: the key checks below change a source by appending a code line and compare keys many times; a normalised key hashes the whole tree through
+# tree-sitter (about 55 s each on the NAS), so the plumbing here runs with the raw content hash. The normaliser itself is tested by
+# ci/test_code_hash.py.
+export CODE_HASH=raw
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 SRC="$PWD"
 W="$(mktemp -d)"; trap 'rm -rf "${W:?}"' EXIT
@@ -20,14 +24,14 @@ K() { ( cd "$R" && ci/apptests.sh --key "$1" 2>/dev/null ); }
 # (1) keys
 c0="$(K coreapp)"; h0="$(K hostapp)"; l0="$(K loader)"
 [ "$c0" = "$(K coreapp)" ] || fail "the same tree gave two keys"
-echo "// d12 $RANDOM" >> "$R/coreapp/src/ops.cc"
+echo "int x_$RANDOM;" >> "$R/coreapp/src/ops.cc"
 c1="$(K coreapp)"
 [ "$c1" != "$c0" ] || fail "a changed coreapp source did not move the coreapp key"
 [ "$(K loader)" != "$l0" ] || fail "a changed coreapp source did not move the loader key"
 echo "ok   key: unchanged tree same key, coreapp source moves coreapp and loader"
 G checkout -q coreapp/src/ops.cc
 [ "$(K coreapp)" = "$c0" ] || fail "restoring the source did not restore the key"
-echo "// d12 $RANDOM" >> "$R/tests/coreapp/run.sh"
+echo ": d12 $RANDOM" >> "$R/tests/coreapp/run.sh"
 [ "$(K coreapp)" != "$c0" ] || fail "a changed run.sh did not move the coreapp key"
 [ "$(K hostapp)" = "$h0" ] || fail "a change of tests/coreapp moved the hostapp key"
 echo "ok   key: tests/coreapp moves coreapp, not hostapp"
@@ -35,13 +39,13 @@ G checkout -q tests/coreapp/run.sh
 
 # (1b) T174 D3: the core application tests are one suite per group - a change to one core's file moves that core's key and `cross`, no other group's
 a0="$(K coreapp:amiga)"; v0="$(K coreapp:vc20)"; x0="$(K coreapp:cross)"; sh0="$(K coreapp)"
-echo "// d3 $RANDOM" >> "$R/coreapp/cores/vc20.cc"
+echo "int x_$RANDOM;" >> "$R/coreapp/cores/vc20.cc"
 [ "$(K coreapp:vc20)" != "$v0" ] || fail "a changed vc20.cc did not move the coreapp:vc20 key"
 [ "$(K coreapp:cross)" != "$x0" ] || fail "a changed vc20.cc did not move the coreapp:cross key (its units link every core)"
 [ "$(K coreapp:amiga)" = "$a0" ] || fail "a changed vc20.cc moved the coreapp:amiga key"
 [ "$(K coreapp)" = "$sh0" ] || fail "a changed vc20.cc moved the shared coreapp key"
 G checkout -q coreapp/cores/vc20.cc
-echo "// d3 $RANDOM" >> "$R/coreapp/src/ops.cc"
+echo "int x_$RANDOM;" >> "$R/coreapp/src/ops.cc"
 for pair in "coreapp=$sh0" "coreapp:cross=$x0" "coreapp:vc20=$v0" "coreapp:amiga=$a0"; do
   [ "$(K "${pair%%=*}")" != "${pair#*=}" ] || fail "a shared source (coreapp/src/ops.cc) did not move ${pair%%=*}"
 done
@@ -50,7 +54,7 @@ G checkout -q coreapp/src/ops.cc
 sed -i.bak '/core_excl "\${1#coreapp:}"/s/; core_excl "[^"]*"//' "$R/ci/apptests.sh"
 cmp -s "$R/ci/apptests.sh" "$R/ci/apptests.sh.bak" && fail "control: the sed changed nothing"
 rm -f "$R/ci/apptests.sh.bak"
-a1="$(K coreapp:amiga)"; echo "// d3 $RANDOM" >> "$R/coreapp/cores/vc20.cc"
+a1="$(K coreapp:amiga)"; echo "int x_$RANDOM;" >> "$R/coreapp/cores/vc20.cc"
 [ "$(K coreapp:amiga)" != "$a1" ] || fail "control: without the exclusions a vc20 change still left coreapp:amiga alone, the check cannot tell"
 G checkout -q coreapp/cores/vc20.cc ci/apptests.sh
 # the harness is in a suite key by CC_KEY_VERSION: a comment-only edit of tests/ctlcache.sh moves nothing, a raised number moves every suite
@@ -70,7 +74,7 @@ o="$(run coreapp)"; echo "$o" | grep -q "stub coreapp ran" || fail "first run di
 o="$(run coreapp)"; echo "$o" | grep -q "cached PASS" || fail "second run was not cached: $o"
 echo "$o" | grep -q "stub coreapp ran" && fail "a cached suite ran"
 o="$(run -f coreapp)"; echo "$o" | grep -q "stub coreapp ran" || fail "-f did not run the suite"
-echo "// d12 $RANDOM" >> "$R/coreapp/src/ops.cc"
+echo "int x_$RANDOM;" >> "$R/coreapp/src/ops.cc"
 o="$(run coreapp)"; echo "$o" | grep -q "stub coreapp ran" || fail "a changed source was served from the cache"
 echo "ok   marker: PASS cached, -f and a changed source run again"
 printf '#!/bin/sh\necho stub fails\nexit 1\n' > "$R/tests/loader/run.sh"
@@ -81,7 +85,7 @@ echo "ok   marker: a failing suite fails and writes none"
 
 # (2a) T174 D3: a fast PASS is remembered for the fast tier only
 runf() { ( cd "$R" && ci/apptests.sh --tier fast "$@" 2>&1 ); }
-echo "// d3 fast $RANDOM" >> "$R/coreapp/src/ops.cc"
+echo "int x_$RANDOM;" >> "$R/coreapp/src/ops.cc"
 o="$(runf coreapp)"; echo "$o" | grep -q "stub coreapp ran" || fail "a changed source was not run by the fast tier: $o"
 o="$(runf coreapp)"; echo "$o" | grep -q "cached fast PASS" || fail "the second fast run was not served by the fast marker: $o"
 echo "$o" | grep -q "stub coreapp ran" && fail "a suite with a fast marker ran again"
@@ -93,13 +97,13 @@ grep -qE '^fundamental=\([a-z]' "$SRC/ci/apptests.sh" && fail "ci/apptests.sh ha
 G add -A; G commit -q --allow-empty -m before_fund
 b0="$(G rev-parse HEAD)"
 tierline() { ( cd "$R" && CI_BRANCH=feature/x ci/apptests.sh --base "$b0" hostapp 2>&1 | grep 'tier auto' ); }
-echo "// fund $RANDOM" >> "$R/coreapp/src/ops.cc"
+echo "int x_$RANDOM;" >> "$R/coreapp/src/ops.cc"
 tierline | grep -q 'tier auto -> fast' || fail "a plain coreapp change did not stay fast: $(tierline)"
 G checkout -q coreapp/src/ops.cc
 echo "// fund $RANDOM" >> "$R/app/lib/lib.mk"
 tierline | grep -q 'tier auto -> integration' || fail "an [apptests] path (app/lib) did not escalate: $(tierline)"
 G checkout -q app/lib/lib.mk
-echo "// fund $RANDOM" >> "$R/coreapp/src/desc.h"
+echo "int x_$RANDOM;" >> "$R/coreapp/src/desc.h"
 tierline | grep -q 'tier auto -> integration' || fail "an [all] path (coreapp/src/desc.h) did not escalate: $(tierline)"
 G checkout -q coreapp/src/desc.h
 # the benches section is not the apptests list: cores/common is [benches] only

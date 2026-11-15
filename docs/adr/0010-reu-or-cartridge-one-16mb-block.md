@@ -18,7 +18,7 @@ The whole 16 MB belongs to whichever module is plugged. The app refuses `.reu` l
 
 ## Links
 
-- [T60](../../docs/specs/T60-reu-16mb.md#status-and-history)
-- [T51](../../docs/specs/T51-ef3.md#status-and-history)
-- [docs/specs/T60-reu-16mb.md](../../docs/specs/T60-reu-16mb.md)
+- [T60](../specs/README.md#belonged-to-trx64-ultimate)
+- [T51](../specs/README.md#belonged-to-trx64-ultimate)
+- [T60-reu-16mb.md](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/T60-reu-16mb.md)
 - [docs/gap-audit-gideon-app.md](../../docs/gap-audit-gideon-app.md)

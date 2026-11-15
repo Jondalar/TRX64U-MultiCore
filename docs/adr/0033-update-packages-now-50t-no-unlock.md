@@ -18,6 +18,6 @@ Built 2026-10-06 (t49-pkg + app t49-update-app): host checker PASS, ue2emu PASS 
 
 ## Links
 
-- [T49](../../docs/specs/T49-update-packages.md#status-and-history)
-- [T50](../../docs/specs/T50-update-unlock.md#status-and-history)
-- [docs/specs/T49-update-packages.md](../../docs/specs/T49-update-packages.md)
+- [T49](../specs/done/T49-update-packages.md#status-and-history)
+- [T50](../specs/README.md#belonged-to-trx64-ultimate)
+- [docs/specs/done/T49-update-packages.md](../specs/done/T49-update-packages.md)

@@ -7,7 +7,7 @@ preview on 10 October 2026.
 The screens currently use preview data. They describe information hierarchy,
 navigation, visual states, and confirmation flows; they do not invoke firmware
 actions yet. The adapter work is specified separately in
-[`../specs/T24-ui-wiring.md`](../specs/T24-ui-wiring.md).
+[`T24-ui-wiring.md` (TRX64-Ultimate)](../specs/README.md#belonged-to-trx64-ultimate).
 
 This revision deliberately uses a minimalist hierarchy: one dominant task per
 screen, flat lists instead of card grids, 11–21 px typography, and accent color
@@ -196,5 +196,5 @@ complete stable sequence and automation contract is in
 ## Design references
 
 - [`../gideon-menu-tree.md`](../gideon-menu-tree.md) — source feature and menu inventory
-- [`../specs/T24-lvgl-ui.md`](../specs/T24-lvgl-ui.md) — UI scope and architecture
-- [`../specs/T24-ui-wiring.md`](../specs/T24-ui-wiring.md) — later firmware adapter work
+- [`T24-lvgl-ui.md` (TRX64-Ultimate)](../specs/README.md#belonged-to-trx64-ultimate) — UI scope and architecture
+- [`T24-ui-wiring.md` (TRX64-Ultimate)](../specs/README.md#belonged-to-trx64-ultimate) — later firmware adapter work

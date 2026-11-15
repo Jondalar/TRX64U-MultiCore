@@ -102,7 +102,7 @@ Proposed:
 
 ## §5 Build notes
 
-Built 2026-10-29 on branch `t156-pads` (from `t142-snes`). Written to the code as it stands; nothing here was seen on the board.
+Built 2026-10-29 on branch `t156-pads` (from `t142-snes`). Written to the code as it stands; nothing here was seen on the board. (2026-11-15 sync: superseded for NES, SNES, Neo Geo - Alex passed them on the board 2026-11-02, docs/todo/T156.md:9; the per-scenario S2/S3 game checks are not itemised there.)
 
 ### 5.1 Read, compare, plan (before the gateware)
 

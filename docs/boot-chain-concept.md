@@ -1,6 +1,6 @@
 # Boot chain: host firmware and guest cores (concept)
 
-Status: concept, 2026-10-01. **Superseded 2026-10-12 by [T84](specs/T84-boot-chain.md)** (Alex: no ESP32 loader; cores through ICAP and DFX). The flash-protection section stays valid and is taken over by T84 D8.
+Status: concept, 2026-10-01. **Superseded 2026-10-12 by [T84](specs/done/T84-boot-chain.md)** (Alex: no ESP32 loader; cores through ICAP and DFX). The flash-protection section stays valid and is taken over by T84 D8.
 
 ## Idea
 

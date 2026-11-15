@@ -2,7 +2,7 @@
 """T208: the synthetic SuperCPU ROM of the Metal Dust benches (cores/c64scpu/sim/run_mdust.sh, spec T208 section 2 S1-S3). The ROM is our own code (no byte of a game, a crack or a CMD ROM); the
 access patterns are those of the static analysis in the spec (section 1), the code is written here.
 
-  gen_c64scpu_mdust.py <out dir> menu20|menu1|scroll|hud|hudx|stz|smc      writes <out>/mem/scpu_rom.mem, <out>/mem/c64scpu_rom.mem (zeros), <out>/expect.json; prints the extra bench arguments
+  gen_c64scpu_mdust.py <out dir> menu20|menu1|scroll|hud|hudx|stz|smc|stars|starsq<N>      writes <out>/mem/scpu_rom.mem, <out>/mem/c64scpu_rom.mem (zeros), <out>/expect.json; prints the extra bench arguments
 
   menu20 / menu1  S3: the crack menu's shape - emulation mode, hwenable off, $01 = $35, a raster IRQ at line $F3 (vector in RAM at $FFFE), a handler that sets the lower text mode, waits
                   for the raster byte 0 with `lda #0 / cmp $D012 / bne`, sets the upper bitmap mode, scrolls the text row ($63C0), moves the sprite Y registers from $7700/$7800, plays a
@@ -16,6 +16,7 @@ access patterns are those of the static analysis in the spec (section 1), the co
                   through the native vector $FFEE and an indirect jump through a RAM word.
   smc             T208: the code cache's next-line prefetch against self-modifying code (smcbench): 60 straight code lines in SuperRAM bank 2 that store into the next line while it is fetched, 8 passes,
                   markers 1 (all results right) / 2 (a stale line was executed) / 3 (end).
+  stars           T208: the crack menu's stars (starsbench below): a 3-line raster IRQ chain and a nested CIA music IRQ, the PHI2 cycle of the $D00C store and of the handler's end per line.
   stz             S2 bare: 24 `stz $D0xx` in a row at 20 MHz (a subroutine called three times: cold, then warm), no IRQ, no sprites, no badlines; the PHI2 gaps between the stores against the VICE accounting (check_mdust.py).
 """
 import json
@@ -431,6 +432,71 @@ def smcbench():
     return t
 
 
+def starsbench(pad=None):
+    """T208 stars (run_mdust.sh `stars`): the structure of the crack menu's flickering stars (04_menu, board trace 2026-11-14, spec T208 section 5): native mode, mirror all ($D077), $D011 = $3B,
+    sprites 6 and 7, a raster IRQ chain every 3 lines from line 129 to 231 (the handler: acknowledge $D019, five stores $D00C/$D00E/$D010/$D02D/$D02E, four mirrored stores $836C/$836D/$8370/$8371,
+    the next line to $D012, $D011 read and written back, marker 1 before the pops and the RTI) and a CIA 1 timer A IRQ every 2457 PHI2 cycles (8 a frame) whose handler does CLI, then 31 mirrored
+    stores to $E0xx and 15 stores to $D4xx (the raster IRQs nest in it). The main loop only waits."""
+    t = Asm(ORG)
+    setup_common(t)
+    t.clc(); t.xce()
+    t.sep(0x30)
+    t.ldai(0x3B); t.sta(0xD011)
+    t.ldai(0x18); t.sta(0xD016)
+    t.ldai(0xD8); t.sta(0xD018)
+    t.ldai(0xC0); t.sta(0xD015)                      # sprites 6 and 7
+    t.ldai(0x90); t.sta(0xD00D); t.sta(0xD00F)
+    t.ldai(0x30); t.sta(0xD00C); t.ldai(0x60); t.sta(0xD00E)
+    t.ldai(0x01); t.sta(0xD02D); t.sta(0xD02E)
+    t.sta(0xD077)                                    # mirror all
+    t.ldai(129); t.sta(0x0A40)
+    t.ldai(0); t.sta(0x0A41); t.sta(0x0A42)
+    t.ldai_l("irq", "lo"); t.sta(0xFFEE)
+    t.ldai_l("irq", "hi"); t.sta(0xFFEF)
+    t.ldai(129); t.sta(0xD012)
+    t.ldai(0xFF); t.sta(0xD019)
+    t.ldai(1); t.sta(0xD01A)
+    t.ldai(0x98); t.sta(0xDC04)
+    t.ldai(0x09); t.sta(0xDC05)                      # 2456 + 1 = 2457 PHI2 cycles
+    t.ldai(0x81); t.sta(0xDC0D)
+    t.ldai(0x01); t.sta(0xDC0E)
+    t.cli()
+    t.label("main"); t.bra("main")
+    t.label("irq")
+    if pad is None:
+        t.rep(0x30); t.pha(); t.phx(); t.phy(); t.sep(0x30)     # 16 bit register save (6 mirrored stack stores in mode $D077)
+    else:
+        t.pha()                                          # starsq<N>: only A is saved and N NOPs stand in for the rest of a dispatcher, the I/O accesses fall into the VIC's BA window (cycles 12-18)
+        for _ in range(pad):
+            t.nop()
+    t.lda(0xDC0D); t.andi(1); t.bne("music")
+    t.lda(0xD019); t.andi(1); t.beq("out")
+    t.ldai(1); t.sta(0xD019)
+    t.lda(0x0A40)                                    # the line counter is only read before the five stores: a store to it would be a mirrored one (mode $D077)
+    for r in (0xD00C, 0xD00E, 0xD010, 0xD02D, 0xD02E):
+        t.sta(r)
+    for r in (0x836C, 0x836D, 0x8370, 0x8371):
+        t.sta(r)
+    t.lda(0x0A40); t.clc(); t.raw(0x69, 3); t.cmpi(232); t.bcc("nx"); t.ldai(129)
+    t.label("nx"); t.sta(0x0A40); t.sta(0xD012)
+    t.lda(0xD011); t.sta(0xD011)
+    t.sta(MK[1])
+    t.label("out")
+    if pad is None:
+        t.rep(0x30); t.ply(); t.plx(); t.pla(); t.rti()
+    else:
+        t.pla(); t.rti()
+    t.label("music")
+    t.cli()                                          # the music ISR is interruptible: the raster IRQs nest in it
+    t.inc(0x0A41); t.lda(0x0A41)
+    for k in range(31):
+        t.sta(0xE000 + (k * 7) % 0x80)
+    for k in range(15):
+        t.sta(0xD400 + k)
+    t.jmp("out")
+    return t
+
+
 def image(kind):
     global SRC
     if kind == "hud":
@@ -439,6 +505,10 @@ def image(kind):
         t = stzbench()
     elif kind == "smc":
         t = smcbench()
+    elif kind == "stars":
+        t = starsbench()
+    elif kind.startswith("starsq"):
+        t = starsbench(int(kind[6:]))
     elif kind in ("menu20", "menu1"):
         t = menu(kind == "menu1")
     else:
