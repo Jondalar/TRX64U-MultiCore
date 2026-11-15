@@ -62,7 +62,7 @@ Branch `t225-amiga-usbpad`, 2026-11-15. Not merged, not pushed, no Vivado run, n
 - `trx/amiga_regs.v` (A1200: `rtl/amiga_regs.v`): `1D0` PAD2_WORD low byte staged, `1D1` b2:0 commits the 11-bit word, `1D2` PAD2_MODE b1:0 (0 as before, 1 joystick 1 button, 2 joystick 2 buttons, 3 CD32), FEATURES b5 = PAD2. Word bits: 0 up, 1 down, 2 left, 3 right, 4 fire/red, 5 blue (2nd button), 6 green, 7 yellow, 8 play, 9 reverse, 10 forward.
 - `amiga_input.v`: word and mode through two flip flops into `sys_clk`; `joystick0` is 11 bits: mode 0 = the host's joystick port as before, mode 1..3 = the pad word only (D1: the C64U joystick port is off for port 2); `cd32pad2_en` = mode 3.
 - `amiga_core.v`, `nanomig.v` (`joystick0` 11 bits, `cd32pad2_en`), `minimig.v`, `userio.v`: `cd32pad2_en` replaces `cd32pad` in the two port 2 places only (`potcap[3]`, `_fire1`); port 1 keeps `cd32pad = 0`. `userio.v` is the A1200's own copy now (`cores/amiga1200/rtl/userio.v`, `userio.diff` empty, `core_sources.tcl` `a12_own`).
-- Testbenches `tb_input`, `tb_rawkey`, `tb_aga`, `tb_ideal`, `tb_mem` got the new ports (not run).
+- Testbenches (`tb_rawkey`: `j0` widened to 11 bits, `cd32pad2_en` connected) `tb_input`, `tb_rawkey`, `tb_aga`, `tb_ideal`, `tb_mem` got the new ports (not run).
 - yosys `-noautowire` read of every edited file: clean. LUT estimate: about 40 flip flops (11+2 synchronised twice, 11+8+2 register) and about 30 LUT (mode mux of 11 bits, the CD32 enable in two places); no utilization report read, no Vivado run.
 
 **App:**
@@ -72,6 +72,6 @@ Branch `t225-amiga-usbpad`, 2026-11-15. Not merged, not pushed, no Vivado run, n
 
 **Findings the builder could not close:**
 - `show_state` hides a row in the UI state (REST) but the F5 Input tab draws it anyway (pictures `t225-input-*.png`); the three rows are therefore always listed (no `show_state`), so state and picture agree.
-- "Map port 2 buttons" without a pad: the setting's operation cannot show its message (the status line says "Map port 2 buttons: Map..."), the dialog does not open.
+- "Map port 2 buttons" without a pad (D3, built): `padwiz.cc` `begin()` for a `by_id` spec with no pad now opens the dialog in a waiting state (`g_wait`): title "Map port 2 to USB pad", prompt "Plug in a USB pad", sub line "No USB pad is connected. The mapping continues when you plug one in. RUN/STOP cancels"; `pad.map.tick` starts the capture (`start_capture`) when `pad_state` shows a pad, `next`/`back` do nothing while waiting, `cancel` ends it. Console cores (not `by_id`) keep "No pad is connected as pad N" and no dialog. Picture of the dialog: NOT yet seen (the riscv build waited for an app slot behind a running Vivado job on the builder); scenario "Map port 2 buttons with no pad plugged" is in `tests/ui/features_a1200/t225_pad_port2.feature` (picture `t225-map-no-pad`).
 - The emulator has no USB gamepad to attach: S2 (dialog pictures) and the restart half of S3 are not proven by pictures.
 
