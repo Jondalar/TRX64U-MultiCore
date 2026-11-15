@@ -21,4 +21,4 @@ Overturned the next day by decision 9.
 ## Links
 
 - [T29](../specs/README.md#belonged-to-trx64-ultimate)
-- [docs/architecture-reset-2026-10-05.md](../../docs/architecture-reset-2026-10-05.md)
+- [docs/architecture-reset-2026-10-05.md](../architecture-reset-2026-10-05.md)

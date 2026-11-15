@@ -18,4 +18,4 @@ Nothing built, clones and branch removed. Side finding for the record: DDT's C64
 
 ## Links
 
-- [T22](../../docs/todo/T22.md)
+- [T22](../todo/T22.md)

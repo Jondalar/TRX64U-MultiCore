@@ -71,7 +71,7 @@ application alike.
 
 The premise that a smaller HDMI mode gives a picture more area does not hold on the host in this repository: its output is fixed
 1920 x 1080 (`host/vic_scaler.v`, `host/overlay.v:8`). Applications still own the mode setting, but the layout is the 1080p layout in
-every mode. See [T107 5.6](../specs/T107-application-owns-the-picture.md).
+every mode. See [T107 5.6](../specs/done/T107-application-owns-the-picture.md).
 
 ## Links
 

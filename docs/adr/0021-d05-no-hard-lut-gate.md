@@ -20,5 +20,5 @@ Timing (WNS) decides, not a LUT count; the LUT figures are tracked in docs/lut-b
 
 ## Links
 
-- [docs/architecture-reset-2026-10-05.md](../../docs/architecture-reset-2026-10-05.md)
-- [docs/lut-budget.md](../../docs/lut-budget.md)
+- [docs/architecture-reset-2026-10-05.md](../architecture-reset-2026-10-05.md)
+- [docs/lut-budget.md](../lut-budget.md)

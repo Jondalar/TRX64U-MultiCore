@@ -1,4 +1,4 @@
-// T198 (docs/specs/T198-per-core-configs.md, scenarios S1, S7, S8, S10, S11, S14, S15): a config is a file of the core folder that holds a full copy of the settings and the
+// T198 (docs/specs/done/T198-per-core-configs.md, scenarios S1, S7, S8, S10, S11, S14, S15): a config is a file of the core folder that holds a full copy of the settings and the
 // mounts; the host names one in the hand-over page and the core starts with it (the settings are read from its file, the core's own .cfg is not touched); the running core saves
 // and loads configs. The machine is the A1200's record on the model of its core (as test_media_mounts.cc), with the fake file system's switches for a medium that is read only.
 #include <map>

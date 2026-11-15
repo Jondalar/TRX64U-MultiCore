@@ -20,4 +20,4 @@ Built 2026-10-07 as app branch a08-reu-timewarp-app: REU on = ring off and frame
 
 - [T20](../specs/README.md#belonged-to-trx64-ultimate)
 - [T20-delta-ring.md](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/T20-delta-ring.md) (A08 as built)
-- [docs/done-audit-2026-10-04.md](../../docs/done-audit-2026-10-04.md)
+- [docs/done-audit-2026-10-04.md](../done-audit-2026-10-04.md)

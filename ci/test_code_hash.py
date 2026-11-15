@@ -128,5 +128,17 @@ with tempfile.TemporaryDirectory() as _t:
     except SystemExit:
         check("j a plain directory is an error", True)
     os.chdir(_cwd)
+# k documentation never enters a key (2026-11-15)
+for pth in ("cores/c64scpu/mono/host/FROM", "a/README", "a/README.txt", "x/PROVENANCE.md", "vendor/LICENSE-APACHE", "v/LICENCE", "v/COPYING", "docs/x.md"):
+    check("k is_doc " + pth, ch.is_doc(pth))
+for pth in ("a/top.v", "a/FROMAGE.v", "a/readme.v", "a/build.tcl", "a/x.mem", "a/README.v", "a/LICENSE.sv", "a/PROVENANCE.vhd", "a/COPYING.c"):
+    check("k not is_doc " + pth, not ch.is_doc(pth))
+check("k differs: a doc edit is no change", not ch.differs(b"a", b"b", "x/FROM") and not ch.differs(None, b"b", "x/README.md"))
+check("k differs: code still counts", ch.differs(b"a", b"b", "x/top.v"))
+check("k index drops a doc row", ch._index(["100644 " + "a" * 40 + " 0\tx/FROM"]) == [])
+_o = os.environ.get("CODE_HASH_DOCS"); os.environ["CODE_HASH_DOCS"] = "keep"
+check("k CODE_HASH_DOCS=keep brings docs back", not ch.is_doc("x/FROM") and ch.differs(b"a", b"b", "x/FROM"))
+if _o is None: del os.environ["CODE_HASH_DOCS"]
+else: os.environ["CODE_HASH_DOCS"] = _o
 print("%d failed" % len(fails))
 sys.exit(1 if fails else 0)

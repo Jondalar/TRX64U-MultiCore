@@ -111,4 +111,4 @@ Scenario: S6 the release says it (P4)
 
 - **2026-10-20:** the mode this spec chooses from the screen is only a request on this host: its output is fixed 1920 x 1080
   (`host/overlay.v:8`, `host/vic_scaler.v`), so a screen that takes only 576p still gets 1080p. Applications therefore lay out for
-  1080p in every mode ([T107 5.6](../T107-application-owns-the-picture.md)); whether a real 576p / 720p output is wanted is open.
+  1080p in every mode ([T107 5.6](T107-application-owns-the-picture.md)); whether a real 576p / 720p output is wanted is open.

@@ -2,6 +2,7 @@
 #include "c64_cart_desc.h"
 #include "c64_regs.h"
 #include "boot.h"
+#include "engines.h"
 #include "writeback.h"
 #include "writeback_crt.h"
 #include <stdio.h>
@@ -493,6 +494,7 @@ static void load_eeprom(CoreIo *io, CoreFile *f, uint64_t fsize, uint32_t pos)
 int c64_cart_run(CoreCtx *c, const char *path, char *msg, int msglen)
 {
     CoreIo *io = c->io;
+    MediaLoading loading(c);                               // T226 S1
     CoreFile *f = c->fs->open(path, false);
     if (!f) {
         snprintf(msg, msglen, "cannot open %s", path);

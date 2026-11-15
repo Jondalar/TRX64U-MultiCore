@@ -393,6 +393,7 @@ static void write_rtc(CoreCtx *c)
 static int snes_run(CoreCtx *c, const char *path, char *msg, int msglen)
 {
     SnesState *st = snes_state(c);
+    MediaLoading loading(c);                               // T226 S1: "Loading cartridge..." until the function returns (the core runs or the load failed)
     if (c->settings) {
         st->dsp_choice = (uint8_t)c->settings->value(SET_DSPFW);      // the chip is needed while the image is read, before boot_finish applies the settings
     }
@@ -540,8 +541,8 @@ static const Task tasks[] = {
     { "Reset",                     "machine.cold_reset", 0, 0, true },
     { "Save the battery RAM now",  "snes.save",          0, 0, false },
     { "Sound check",               "snes.sound",         0, 0, false },
-    { "Map buttons, pad 1",        "menu.pad_map_1",     0, 0, false },
-    { "Map buttons, pad 2",        "menu.pad_map_2",     0, 0, false },
+    { "Map buttons, pad 1",        "menu.pad_map_1",     0, 0, false, 0, 0, false, 0, "input" },
+    { "Map buttons, pad 2",        "menu.pad_map_2",     0, 0, false, 0, 0, false, 0, "input" },
 };
 
 static const OpBind run_bind[] = { B_FILE("path") };
