@@ -32,6 +32,8 @@ static const char *g_values[1 + VID_HDMI_COUNT];
 static const char *g_scale_values[VID_SCALE_COUNT];     // T107 D8: Integer, Fit, Fill
 static const char *const g_smooth_values[2] = { "Off", "On" };
 
+static void drop_unlocked(void);
+
 static void fill_values(void)
 {
     g_nlist = video_modes_hdmi_list(g_mask, g_msys, g_list);
@@ -39,10 +41,26 @@ static void fill_values(void)
         g_mask = EDID_LIST_NONE;
         g_nlist = video_modes_hdmi_list(g_mask, g_msys, g_list);
     }
+    drop_unlocked();
     g_values[0] = g_auto_text;
     for (int i = 0; i < g_nlist; i++) {
         g_values[1 + i] = video_hdmi_name(g_list[i]);
     }
+}
+
+// T222: the gateware's VIC path locks 576p / 480p, 720p, 1080p and 800 x 600 only (U16 D2): 1024 x 768 and 1280 x 1024 are not offered
+static void drop_unlocked(void)
+{
+    if (!g_vic_scale) {
+        return;
+    }
+    int n = 0;
+    for (int i = 0; i < g_nlist; i++) {
+        if (g_list[i] <= VID_HDMI_800x600) {
+            g_list[n++] = g_list[i];
+        }
+    }
+    g_nlist = n;
 }
 
 static int current_sys(void)
