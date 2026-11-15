@@ -71,15 +71,15 @@ Reported on GitHub after the first test release (2026-11-13/14), bundled here 20
   character ROM by the VICE names (`coreapp/cores/pet_models.h:26-48`). INSTALL.md §5 lists which VICE PET files go into `pet/roms`.
 
 
-### Open questions for Alex (2026-11-15, nothing decided; one at a time)
+### Questions for Alex (2026-11-15), all seven decided the same day
 
-1. **P6 RAM:** offer a "96 KiB" value for the SuperPET (32 KiB + 64 KiB bank RAM), or keep 32 KiB as VICE does and document it?
-2. **P6/P7 ROM handling:** when a model's own ROM file is missing and a generic or other-model file is taken, should the app refuse with a message naming the file (options: refuse; warn and take it; as now)?
-3. **P8:** the 2001 keeps the original BASIC 1 disk bug (documented), or the app offers "BASIC 2 on the 2001" (which needs KERNAL 2 and editor 2 with it, so it is a different model setting), or a warning when a drive is on with BASIC 1?
-4. **P10:** are the PET legends the target (a C64 key gives the PET key at its position, as VICE's positional map) or the C64 legends (an unshifted C64 digit gives the digit; options: positional, symbolic, both as a setting)?
-5. **P4 (game mode, #80):** D4 puts it into the generic key bundles; does the reported USB gamepad (the PET has no joystick port) belong to the same bundle decision, and does the PET wait for it?
-6. **P9 (tape SAVE):** enable the write pin (`dset_bytes` b1) in a test core now and let a tester with a datasette report, as T214 does for the C16, or wait for T214's result first?
-7. **P6 bench:** may the Waterloo ROMs be checked in under `cores/pet/sim/media/` (as the Atari OS ROM was) so a bench can prove the 6809 screen?
+1. **P6 RAM:** offer a "96 KiB" value for the SuperPET (32 KiB + 64 KiB bank RAM), or keep 32 KiB as VICE does and document it? **Decided 2026-11-15 (Alex): offer 96 KiB** for the SuperPET (32 KiB + 64 KiB bank RAM); RAM/BRAM cost to be checked when built.
+2. **P6/P7 ROM handling:** when a model's own ROM file is missing and a generic or other-model file is taken, should the app refuse with a message naming the file (options: refuse; warn and take it; as now)? **Decided 2026-11-15 (Alex): refuse and name the missing file** (the model does not start on a substitute ROM).
+3. **P8:** the 2001 keeps the original BASIC 1 disk bug (documented), or the app offers "BASIC 2 on the 2001" (which needs KERNAL 2 and editor 2 with it, so it is a different model setting), or a warning when a drive is on with BASIC 1? **Decided 2026-11-15 (Alex): a model setting "2001 with BASIC 2"** (BASIC 2 + KERNAL 2 + editor 2 together); BASIC 1 keeps its original behaviour.
+4. **P10:** are the PET legends the target (a C64 key gives the PET key at its position, as VICE's positional map) or the C64 legends (an unshifted C64 digit gives the digit; options: positional, symbolic, both as a setting)? **Decided 2026-11-15 (Alex): both, as a menu setting** (symbolic: the key legend counts; positional: the PET key at the same place).
+5. **P4 (game mode, #80):** D4 puts it into the generic key bundles; does the reported USB gamepad (the PET has no joystick port) belong to the same bundle decision, and does the PET wait for it? **Decided 2026-11-15 (Alex): generic, PET first** (pad/joystick -> keys as a generic core-app service; the PET is its first user and drives the build).
+6. **P9 (tape SAVE):** enable the write pin (`dset_bytes` b1) in a test core now and let a tester with a datasette report, as T214 does for the C16, or wait for T214's result first? **Decided 2026-11-15 (Alex): wait for T214 first** (the C16 SAVE is being measured); the PET write pin follows its result.
+7. **P6 bench:** may the Waterloo ROMs be checked in under `cores/pet/sim/media/` (as the Atari OS ROM was) so a bench can prove the 6809 screen? **Decided 2026-11-15 (Alex): yes, under `cores/pet/sim/media/`** (Gitea only; `tools/github_snapshot.py` drops sim/media, never in a .cor, package or release; CLAUDE.md third exception).
 
 ## §4 Out
 
