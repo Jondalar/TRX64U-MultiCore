@@ -37,10 +37,11 @@
 
 ## §3 Decision
 
-Not decided. P1: no code until Q1 is answered (the fix must follow a verified cause). P2: not built until Q2..Q5 are decided by Alex.
+Decided (D1-D3, 2026-11-15); P1 closed by the board result (§5). Earlier: Not decided. P1: no code until Q1 is answered (the fix must follow a verified cause). P2: not built until Q2..Q5 are decided by Alex.
 
 - D1 (Alex 2026-11-15, Q2, after mock-ups h1a-c, translated: "I thought with the configs? RIGHT on the core and there is \"Boot safe graphics mode\" or so"): the rescue sits in the boot menu's config overlay (RIGHT on a core entry, T198), as an entry "Boot safe graphics mode". Options a-c of Q2 are replaced by this. What the entry does (this start only, or reset the stored settings) is asked next.
 - D2 (Alex 2026-11-15, "A"): "Boot safe graphics mode" starts the core ONCE with safe video values (Picture Auto, Scale Integer, Smoothing Off); the stored settings in `<core>.cfg` stay untouched, the next normal start uses them again. So nothing is written (Q5 void) and starting is the action itself (no confirm: Q4 void).
+- D3 (Alex 2026-11-15, Q3 "A"): only the three host-owned values Picture, Scale, Smoothing are overridden for that start; the core's own `group = "video"` settings stay as stored. All questions of P2 are answered; build next.
 
 ### Open questions for Alex (one at a time)
 
