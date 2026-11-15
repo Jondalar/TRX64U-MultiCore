@@ -115,3 +115,6 @@ Consumers read: `x_text` (still driven by the scaler: calibration, unchanged sem
 - 2026-11-15, run 1960 red at synthesis: `unable to resolve 'hm_align'` in vic_scaler.v. Vivado runs with `host/` as its working
   directory and finds `host/hdmi_modes.vh` (the host's table, no `hm_align`) before the include dir `cores/c64scpu/mono/host`.
   Fix: the core's table is renamed `scpu_hdmi_modes.vh` (includes, benches, `ci/sims.deps`, FROM updated), so no host file shadows it.
+- **Board PASS 2026-11-15 (S11, Alex):** c64scpu.cor = run-1965 bitstream (5b25c1469) + core app of 6bb738925 (menu canvas per mode,
+  list without 1024x768/1280x1024, Picture family from the running row): "everything works" (translated) after the modes,
+  scales and 50/60 Hz were tried. The torn 1080p picture seen once before the app fixes did not come back.
