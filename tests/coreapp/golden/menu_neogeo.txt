@@ -25,13 +25,14 @@ area F5 NEO GEO
     setting [DIP] Freeze = Off | On (default Off, live)
     setting Joystick ports = Normal | Swapped (default Normal, live)
     setting Pad map = Default | Custom (default Default, live)
+  tab 2 Input
+    task Map buttons, pad 1
+    task Map buttons, pad 2
 area F7 Actions
   tab 1 Quick
     task Reset (closes the menu)
     task Load a ROM set from a folder (closes the menu) (asks a name)
     task Save the memory card and backup RAM now
-    task Map buttons, pad 1
-    task Map buttons, pad 2
 area F8 System (shifted)
   tab 1 System
     heading Actions

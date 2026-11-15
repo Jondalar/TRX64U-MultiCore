@@ -630,7 +630,9 @@ void hc_ui_input(int k, HcUiResult *res)
     if (ctx == HCX_CFG && cfgov_input(act, res)) {
         return;
     }
-    if (act == HCA_CONFIG_LIST && (ctx == HCX_MENU || ctx == HCX_BROWSE)) {
+    if (act == HCA_CONFIG_LIST && ctx == HCX_BROWSE && hc_nav().bsel < hc_nav().bn && hc_nav().bl[hc_nav().bsel].dir) {
+        act = HCA_BROWSE_OPEN;              // GitHub #90 (T219): RIGHT on a folder goes in, as RETURN does; ".." goes up like RETURN
+    } else if (act == HCA_CONFIG_LIST && (ctx == HCX_MENU || ctx == HCX_BROWSE)) {
         cfgov_open(ctx, res);
         return;
     }

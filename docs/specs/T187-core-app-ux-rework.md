@@ -1,6 +1,6 @@
 # T187 — Every core's menu is laid out the same way, keeps the selection visible and never covers its rows
 
-**Status:** PROPOSED (2026-11-06), D1-D8 decided; questions open (§6). Status check 2026-11-13: BUILT and merged into main 2026-11-11 (18b14d2b4): D1-D9 incl. host Picture page, ux-review PASS; open: S2, S5, S6. 'PROPOSED' and 'questions open' are outdated.
+**Status:** DECIDED (D1-D9, all questions answered, §6); BUILT and merged into main 2026-11-11 (18b14d2b4) incl. host Picture page, ux-review PASS (S7). Proofs recorded: S1, S3, S4 (render benches, §5). Open, no recorded proof: S2 (toast overlap), S5 (H in F3 / folder selector; note T180 D10 built Home Directory with `test_home`, not checked against this S5), S6 (trx64u 1080p layer). Not DONE. 2026-11-15 sync: 'PROPOSED' and 'questions open' removed.
 **Superseded in part by T205 (2026-11-11):** F6 is gone; the settings of a core are in F5 (core tab, Video, Audio, Input), F8 holds actions only. Where this text says F6, read F5.
 **Repo:** TRX64U-MultiCore — core app (`coreapp/src/menutree.cc`, `ui.cc`, `menuctl.cc`, the extend functions), its render bench;
 the host app's WiFi page (T184 D3 amended) is reviewed with the same rules.

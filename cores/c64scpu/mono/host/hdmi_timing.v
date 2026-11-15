@@ -1,27 +1,30 @@
-// T164 WP2 (the host, all cores): the HDMI mode timing generator, from the A1200's (T107 D7). One of the 9 modes of host/hdmi_modes.vh
-// (tools/hdmi_modes.py host-gen) is taken while rst is high and kept; the generator then runs free. A mode that is not in the table
-// (hm_valid 0: family 0 with hdmi 3..5, or mode 12..15) is refused: `valid` is 0 and the generator never starts (`running` stays 0).
+// SPDX-License-Identifier: GPL-3.0-or-later
+// U16 D6: the HDMI mode timing generator, ported from TRX64U-MultiCore's host/hdmi_timing.v (T164 WP2 there). One row of
+// scpu_hdmi_modes.vh (tools/hdmi_modes.py gen) is taken while rst is high and kept; the generator then runs free. A mode that is not in the
+// table (hm_valid 0) is refused: `valid` is 0 and the generator never starts (`running` stays 0). mode_req.v never hands one down.
 //
-// `align` (T164 G5, Q4): a one-clock pulse from the VIC path; only on a locked row (hm_locked: the two 1080p rows) it restarts the frame at
-// the origin of the active area (the pixel after the one registered at the pulse clock is cx = xact0, cy = yact0), as vic_scaler's `frame_seen && !locked` did with its own counters.
-// On every other row it is ignored. `aligned` is set by the first accepted pulse and cleared by rst.
+// `align`: a level from vic_scaler (held until a ce takes it); on a locked row (every row of this design, hm_locked) it restarts the frame
+// at the origin of the active area: the pixel after the one registered at the ce that takes it is cx = xact0, cy = yact0.
+// `aligned` is set by the first accepted align and cleared by rst.
 //
 // Pixel repetition ("gear" g, 1/2/3/5): clk is the TMDS clock, g x the pixel clock; every video pixel lasts g clocks. `ce` is high in
-// the last clock of a pixel; every register of the pixel chain after this module (overlay, pix_layer) changes only when ce is high,
-// so each pixel value is held for g clocks and the encoder (hdmi.v fork, clocked every cycle) sends it g times.
+// the last clock of a pixel; every register of the pixel chain after this module (vic_scaler, overlay, pix_layer, c64_text, the encoder)
+// changes only when ce is high, so each pixel value is held for g clocks and tmds_rep.v sends each of its TMDS bits g times.
 //
 // Counters, as the pixel chain takes them (cx, cy): cx = 0 at the first clock after the active area, then front porch, sync, back porch
 // (blanking B = hfp + hsync + hbp), the active area is cx B .. B + hact - 1; cy = 0 at the first line after the active lines, vertical
 // front porch, sync, back porch (Bv), active lines Bv .. Bv + vact - 1. xact0 = B and yact0 = Bv go down to the layers as their origin
-// (they replaced the 768 / 45 of vic_scaler's fixed 1080p). hs/vs have the mode's polarity. rgb is black.
+// (they replaced the 768 / 45 of vic_scaler's fixed 1080p before U16), htot_m1 / vtot_m1 to vic_scaler. hs/vs have the mode's polarity.
+// rgb is black.
 //
 // For the encoder: sx_e = g * B (first active TMDS clock of the line), fw_m1 = g * htot - 1, sy = Bv, ey = Bv + vact = vtot, and the
-// phase ph_e: clocks since the pixel registers last changed, so that g * cx + ph_e is the position in TMDS clocks.
+// phase ph_e: clocks since the pixel registers last changed, so that g * cx + ph_e is the position in TMDS clocks. (c64_basic's encoder,
+// hdmi_enc/hdmi.v, counts pixels and takes xact0 / yact0 instead; these stay for the bench.)
 module hdmi_timing (
     input  wire        clk,
     input  wire        rst,             // sync to clk; mode is taken while it is high
-    input  wire [3:0]  mode,            // family * 6 + hdmi (hdmi_modes.vh)
-    input  wire        align,           // pulse (clk): re-phase the frame on a locked row
+    input  wire [3:0]  mode,            // family * 6 + hdmi (scpu_hdmi_modes.vh)
+    input  wire        align,           // level (clk), taken at a ce: re-phase the frame on a locked row
     output wire        valid,           // the captured mode is a row of the table
     output reg         aligned,         // an align pulse was accepted since rst
     output reg         ce,
@@ -36,8 +39,10 @@ module hdmi_timing (
     output reg  [11:0] xact0,
     output reg  [10:0] yact0,
     output reg  [3:0]  gear,
+    output reg  [11:0] htot_m1,         // last cx of a line
+    output reg  [10:0] vtot_m1,         // last cy of a frame
     output reg  [6:0]  vic,
-    output reg  [31:0] rate,            // the PIXEL clock in Hz (hm_rate); the TMDS clock is gear times it
+    output reg  [31:0] rate,            // the PIXEL clock in Hz in the family's first System Mode (hm_rate); the TMDS clock is gear times it
     output reg  [12:0] sx_e,
     output reg  [12:0] fw_m1,
     output reg  [10:0] sy_e,
@@ -45,15 +50,15 @@ module hdmi_timing (
     output reg  [2:0]  ph_e,
     output wire [3:0]  mode_q           // the mode this generator runs (JTAG read-out)
 );
-`include "hdmi_modes.vh"
+`include "scpu_hdmi_modes.vh"
 
     // ---- the mode: captured while rst, derived values a clock later (rst is held for several clocks, running waits for them)
     reg  [3:0]   m = 4'd2;
     assign mode_q = m;
     assign valid = hm_valid(m);
     wire do_align = align && hm_locked(m);
-    // T164 run 1126 (cpc -0.165 ns, nes -0.039 ns at 150 MHz: m -> table -> four-term sums -> vtot_m1 / htot_m1): the row is registered
-    // before the sums. vtot_m1 is one clock further (sum of the registered yact0 and vact; C128 copy, T164 run 1142). One clock more for the derived values; m is captured while rst and is stable for many clocks before rst falls.
+    // MultiCore T164 run 1126 (-0.165 ns at 150 MHz: m -> table -> four-term sums -> vtot_m1 / htot_m1): the row is registered
+    // before the sums. One clock more for the derived values; m is captured while rst and is stable for many clocks before rst falls.
     reg  [104:0] row = 105'd0;
     always @(posedge clk) row <= hm_row(m);
     wire [6:0]  r_vic   = row[104:98];
@@ -68,9 +73,9 @@ module hdmi_timing (
     wire [10:0] r_vsync = row[22:12];
     wire [10:0] r_vbp   = row[11:1];
     wire        r_vpol  = row[0];
-    reg  [11:0] hfp, hs0, hs1, htot_m1;      // hs0 .. hs1 - 1: the sync pulse
+    reg  [11:0] hfp, hs0, hs1;               // hs0 .. hs1 - 1: the sync pulse
     reg         hpol, vpol;
-    reg  [10:0] vfp_r, vs0, vs1, vtot_m1;
+    reg  [10:0] vfp_r, vs0, vs1;
     reg  [3:0]  wait_n = 4'd0;
     wire [12:0] htot = {1'b0, htot_m1} + 13'd1;
     always @(posedge clk) begin
@@ -82,7 +87,7 @@ module hdmi_timing (
         htot_m1 <= r_hfp + r_hsync + r_hbp + r_hact - 12'd1;
         vs0 <= r_vfp; vs1 <= r_vfp + r_vsync;
         yact0 <= r_vfp + r_vsync + r_vbp;
-        vtot_m1 <= yact0 + vact - 11'd1;     // T164 run 1142 (c128 -0.095 ns, row -> 4-term sum -> vtot_m1): from the registered yact0 / vact, one clock later
+        vtot_m1 <= r_vfp + r_vsync + r_vbp + r_vact - 11'd1;
         sy_e <= r_vfp + r_vsync + r_vbp;
         ey_e <= r_vfp + r_vsync + r_vbp + r_vact;
     end

@@ -3,6 +3,9 @@
 # an unnamed one comes from the cache (the older entry when the core's own sources moved the key; a host change moves no large key, T164 3a Q1), an unnamed
 # one without any entry is built and marked, a flat build that does not finish is red and the stage goes on (D9-8, D9.6).
 set -euo pipefail
+# T215: this test moves keys by appending a comment line to a source; it tests the plumbing (stage flow, plan, layer keys), not the normaliser, so keys are
+# the raw content hash here (the normaliser has its own test: ci/test_code_hash.py).
+export CODE_HASH=raw
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 SRC="$PWD"
 W="$(mktemp -d)"; trap 'rm -rf "${W:?}"' EXIT

@@ -1,6 +1,6 @@
 # T118 — The HDMI picture is the same for every core, or we know which signal differs
 
-**Status:** PROPOSED (2026-10-23). Part 1 (is the encoder's input core dependent?) answered in §5 by a bench: no. The board difference is open. 2026-11-13 status check: state confirmed: bench merged (Merge t118-hdmigeom), board difference open (row).
+**Status:** PROPOSED (2026-10-23). Part 1 (is the encoder's input core dependent?) answered in §5 by a bench: no. The board difference is open. 2026-11-13 status check: state confirmed: bench merged (Merge t118-hdmigeom), board difference open (row). **2026-11-15 sync:** the symptom itself is gone: the VC-20 left the vic_scaler path for the pixel layer (T119) and its menu and picture fit on the board (Alex 2026-10-23, "Klappt !"); the question "which signal differs" (P3) was never answered, only bypassed (T119 §1 P2: the scaler's lock time differs, 389,751 vs 190,241 pixel clocks). Whether T118 closes as bypassed is Alex's call (sync report).
 **Repo:** TRX64U-MultiCore — a bench in `cores/vc20/sim/`; no change to `host/` (frozen) or to a core.
 **Number:** T118 (registry: the table in `TODO.md`).
 **Origin:** Alex, 2026-10-23, board photos of release trx64mc-main-2895ec1a (core app 6d9f3d2): the menu fills the 1080p screen on the A1200 core,

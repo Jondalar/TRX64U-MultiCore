@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # T215 D3: one-time migration of the bitstream cache to the normalised keys (ci/code_hash.py). Run on the builder, in a checkout of the commit that
 # carries T215 BEFORE its first push, with the cache mounted. For every entry the tree has today (host, core:<id>, mono-<id>, aux) it computes
-# the key as it was (CODE_HASH=raw) and as it is now; where an entry of the old key exists and the new one does not, it copies it under the new name
+# the key as it was (CODE_HASH_DOCS=keep: normalised, documentation files in the key) and as it is now; where an entry of the old key exists and the new one does not, it copies it under the new name
 # (a copy without its pins/, not a link: cache_gc works per entry). Nothing is built, nothing deleted; run it again at will.
 #   ci/key_alias.sh [part]          CI_BIT_CACHE (default /cache/multicore/bit)
 # Test caches (apptests-ok, render-ok, sims-ok, trxapps) are not migrated: they are cheap and re-run once.
@@ -9,9 +9,12 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "$ROOT/ci/lib.sh"
 part="${1:-xc7a50tfgg484-1}"
+# The host and core keys contain the build options of vivado.yml / package.yml (host_key: T79_FLOOR; ooc_key: TRX_SID, TRX_FEATURES): without them this script
+# computes other keys than the pipeline, finds no old entry and migrates nothing (run 1902: host-17cfd66ace1ab1b8 stayed under its old key). Same values as the workflows.
+export TRX_SID="${TRX_SID:-redip2}" TRX_FEATURES="${TRX_FEATURES:-jtag}" T79_GREYBOX="${T79_GREYBOX:-1}" T79_FLOOR="${T79_FLOOR:-B}"
 cache="${CI_BIT_CACHE:-/cache/multicore/bit}"
 
-keys() {   # keys <raw|norm>: the entry directory names, in a fixed order
+keys() {   # the entry directory names, in a fixed order
   local H core O CP CR
   H="$(host_key "$part")"; echo "host-$H"
   echo "aux-$(aux_key "$part")"
@@ -24,7 +27,7 @@ keys() {   # keys <raw|norm>: the entry directory names, in a fixed order
   while IFS= read -r core; do echo "mono-$core-$(mono_key "$part" "$core")"; done < <(python3 "$ROOT/ci/plan.py" lanes | sed -n 's/^large://p')
 }
 
-old=(); while IFS= read -r l; do old+=("$l"); done < <(CODE_HASH=raw keys)
+old=(); while IFS= read -r l; do old+=("$l"); done < <(CODE_HASH_DOCS=keep keys)
 new=(); while IFS= read -r l; do new+=("$l"); done < <(keys)
 [ "${#old[@]}" = "${#new[@]}" ] || { echo "key_alias: ${#old[@]} old and ${#new[@]} new keys" >&2; exit 1; }
 n=0; failed=0

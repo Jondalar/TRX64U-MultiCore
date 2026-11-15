@@ -1,7 +1,8 @@
 // ---------------------------------------------------------------------------
 // T182 step 2 (T2, T3): the 65C816 in place of the 6510 - a drop-in for vendor/icepi/cpu6510.v in c64_top_c64scpu.v (same ports where the top uses them).
 // The CPU is cores/c64scpu/cpu (s816_cpu, the MiSTer 65C816); the 6510's port $00/$01 is scpu_pport; this module is the bus adaptor to the PHI2 path:
-//   - the CPU takes one step per PHI2 cycle on clk2x (clock enable g_edge && phi2_l, the edge the 6510 core took), 1 MHz as the C64's bus; no 20 MHz yet (step 4);
+//   - the CPU's clock enable is scpu_mem's core_ce (on clk2x): in 1 MHz mode one step per PHI2 cycle (ce_raw = g_edge && phi2_l, the edge the 6510 core took);
+//     in 20 MHz mode (step 4) the rate accumulator's pend (scpu_mem.v, 1/20,000,000 units against PHI2), in both modes held back until the memory is ready (core_ce = tick && ok);
 //   - D_IN is the byte the bus left at the last PHI2 fall (din_r), RDY / IRQ / NMI are sampled at the PHI2 fall like the 6510's wrapper did;
 //   - RDY: a read cycle with rdy low is repeated (the s816_cpu stops its state on RDY_IN low); a write cycle is not held (the 6510 and the BA rule of the C64:
 //     the CPU may finish writes), so rdy_in = rdy | write;
@@ -59,6 +60,7 @@ module cpu65816_c64scpu #(
   input  wire  [4:0] srom_log2_i,
   input  wire  [1:0] scpu_sw_i,
   input  wire        rom_flush,
+  input  wire        ba,           // the VIC's BA: the I/O write hold (scpu_mem.v)
   input  wire        aec,          // step 5: the VIC leaves the C64 bus to the CPU (the mirror write is repeated when it does not)
   output wire        rom_valid_o,
   output wire        s_req_tgl,
@@ -178,7 +180,7 @@ wire [7:0] mem_q, int_q;
 scpu_mem smem (
   .clk2x(clk2x), .rst(reset), .ce_raw(ce_raw), .l_ev(g_edge && phi2_l), .n_ev(g_edge && phi2_n), .core_ce(core_ce),
   .a_out(a_out), .bus_cyc(bus_cyc), .wr_cyc(wr_cyc), .d_out(d_out), .e_flag(e_out), .vpb(vpb), .vpa(vpa), .pport(pout[2:0]), .exrom_pin(exrom_pin), .game_pin(game_pin),
-  .rom_valid_i(rom_valid_i), .srom_log2_i(srom_log2_i), .scpu_sw_i(scpu_sw_i), .flush(rom_flush), .aec(aec), .rom_valid_o(rom_valid), .fast_o(fast_o), .mem_free(mem_free), .sync_cyc(sync_cyc), .mir_drv(mir_drv), .mir_a(mir_a), .mir_d(mir_d),
+  .rom_valid_i(rom_valid_i), .srom_log2_i(srom_log2_i), .scpu_sw_i(scpu_sw_i), .flush(rom_flush), .ba(ba), .aec(aec), .rom_valid_o(rom_valid), .fast_o(fast_o), .mem_free(mem_free), .sync_cyc(sync_cyc), .mir_drv(mir_drv), .mir_a(mir_a), .mir_d(mir_d),
   .fwd(fwd), .pla_pport(pla_pport), .rd_mem(rd_mem), .rd_int(rd_int), .mem_q(mem_q), .int_q(int_q),
   .s_req_tgl(s_req_tgl), .s_req_line(s_req_line), .s_done_tgl(s_done_tgl), .fill(s_fill),
   .sw_req_tgl(sw_req_tgl), .sw_req_addr(sw_req_addr), .sw_req_data(sw_req_data), .sw_done_tgl(sw_done_tgl),

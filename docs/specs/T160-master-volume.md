@@ -1,6 +1,6 @@
 # T160 — every core has a master volume, set in the menu with SHIFT+ / SHIFT-, applied in the host
 
-**Status:** ACCEPTED (2026-10-29), asked by Alex. Status check 2026-11-13: built and merged: A1200 trial (board S3 pass 10-31), host gain T164 WP11; board S3 on another core open.
+**Status:** ACCEPTED (2026-10-29), asked by Alex. Status check 2026-11-13: built and merged: A1200 trial (board S3 pass 10-31), host gain T164 WP11; board S3 on another core open. 2026-11-15 sync: host gain confirmed in code (`host/trx_gain.v`, `host/top.v:971-973`); the 'Host plan (not built)' bullet is now marked built.
 **Repo:** TRX64U-MultiCore — host gateware (a gain on the core's audio before HDMI and I2S), the generic core application (setting,
 keys), the host application (its own menu, if wanted). Trial first in the A1200's own files (§3 D2).
 **Number:** T160.
@@ -68,7 +68,7 @@ Scenario: S3 board (A1200 trial, then every core)
   as `+` and `-` too and cannot be told from the USB ones, so they step as well.
 - **Measured:** bench `amiga1200_gain` (`cores/amiga1200/sim/gain/`, iverilog): unity exact for 0, +-1, both extremes and 200 random samples, 0 silent, 64 = half, 32 = quarter with the channels
   apart, 255 = 1.992x and saturating on both signs; control `TRX_GAIN_MUT_BYPASS` fails. `tests/coreapp` `volume` plus four controls (keys ignored, register not written, no clamp, USB down keys lost).
-- **Host plan (not built, for the host package; D1):** in `host/top.v` the cores' `audio_l/r` (`:925-935`) get `snd_l <= pause ? 0 : sat24(audio_l * mix_l / 128)` (the same `trx_gain` module,
+- **Host plan (as planned; BUILT 2026-10-31 in T164 WP11, see "Host version built" below; D1):** in `host/top.v` the cores' `audio_l/r` (`:925-935`) get `snd_l <= pause ? 0 : sat24(audio_l * mix_l / 128)` (the same `trx_gain` module,
   `mix_l/mix_r` of `:447, :680` are unused today), one DSP per channel (51 free in pb_l1, T107 §5.7). To check before: the reset value of `mix_l/mix_r` out of `ultimate_sys` must be unity
   (else the core sounds different without the setting) and the generic app needs a way to write them (the host's register, today only the Ultimate app does); until then C64 cores keep
   their own mixer (P4). When the host has it, the A1200 copy (`trx_gain` in `amiga_core.v`, `VOL_CFG`) is removed and `AM_VOL_CFG` becomes the host's register, the setting and keys stay as they are.
