@@ -554,6 +554,8 @@ shared parts, the application's tape deck and the ROM aperture finding are in T9
   - **4b, `cpc_fdc.v`:** `clr_q` single flip-flop and unsynchronised data replaced by `clr_s[2:0]`, data (`clr_d/i/a`) sampled on the synchronised edge. Bench: the toggle at a random phase to `sys_clk`, the data arriving 0-37 ns later, the lane of the last clear and of this one dirty again before each: unfixed `FAIL fdcfix 4b: 60 ...` (stale mask of the previous clear applied, `dirty0 ffffffffff2dffff expected ffffff76ffffffff`), fixed `PASS`.
   - **Not done:** `cpc_core.v:239-246` drops a drive 1 event that arrives in the same sys clock as a drive 0 event (`else if`); the app writes them far apart, not changed. Candidate 3 (bench (b), hold in a READ DATA block), (c) real `ddr2_lean`, (d) `reset_req` sweep over a `rom_cat` CAT stay unbuilt. Whether this is #17 is open until a board run with a build that carries it.
 
+- **2026-11-15, #17 board PASS (Alex; build of run 1934, `cpc.cor` sha256 55ea42e8..., on the SD).** "er läd wieder, spiel läuft" (translated: "it loads again, the game runs"). Asked about repeated disk swaps/ejects: "ne, er bootet das Ninja Carnage spiel, das reicht" (translated: "no, it boots the game Ninja Carnage, that is enough"). Scenario evidence: CAT / game boot with a mounted DSK = board PASS 2026-11-15; swap/eject during CAT not tested on the board (Alex: enough). The app probe build (215e2dbb2) was not needed after the fixes and is reverted, never merged.
+
 ---
 <!--
 Closing: Status → DONE (date) + which scenarios are green where; TODO row ✅ and history entry,
