@@ -12,14 +12,18 @@
 set -eu
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 what="${1:-bundle}"
+# no python here: the build image of the apps (ci/trxapps.sh, rules.mk gitinfo) calls this script, and tools/check_versions.py is the strict check of the files
+semver_re='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
+read_version() { sed -n 's/^[[:space:]]*version[[:space:]]*=[[:space:]]*"\([^"]*\)".*$/\1/p' "$1" | head -1; }
 case "$what" in
-  bundle) base="$(python3 -I "$ROOT/tools/semver.py" get "$ROOT/bundle.toml")";;
-  hostapp) base="$(python3 -I "$ROOT/tools/semver.py" get "$ROOT/host-app/version.toml")";;
-  coreapp) base="$(python3 -I "$ROOT/tools/semver.py" get "$ROOT/coreapp/version.toml")";;
-  host) base="$(python3 -I "$ROOT/tools/semver.py" get "$ROOT/contract/version.toml")";;
-  with) base="${2:?ci/version.sh with <X.Y.Z>}"; python3 -I "$ROOT/tools/semver.py" check "$base";;
+  bundle) base="$(read_version "$ROOT/bundle.toml")";;
+  hostapp) base="$(read_version "$ROOT/host-app/version.toml")";;
+  coreapp) base="$(read_version "$ROOT/coreapp/version.toml")";;
+  host) base="$(read_version "$ROOT/contract/version.toml")";;
+  with) base="${2:?ci/version.sh with <X.Y.Z>}";;
   *) echo "ci/version.sh: unknown component '$what'" >&2; exit 2;;
 esac
+printf '%s' "$base" | grep -Eq "$semver_re" || { echo "ci/version.sh: '$base' is not x.y.z ($what)" >&2; exit 1; }
 if [ "${GITHUB_REF_TYPE:-}" = tag ]; then printf '%s\n' "$base"; exit 0; fi
 sha8="${TRX_VERSION_SHA8:-$(git -C "$ROOT" rev-parse --short=8 HEAD)}"
-python3 -I "$ROOT/tools/semver.py" dev "$base" "$sha8"
+printf '%s-dev+%s\n' "$base" "$sha8"
