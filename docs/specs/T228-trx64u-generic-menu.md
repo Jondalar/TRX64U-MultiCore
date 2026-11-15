@@ -290,7 +290,10 @@ overlay was fitted from a 1280x800 manual picture, so its scale on the real 960x
 - D17 (Alex 2026-11-15, Q12a, translated: "a .. and CURSOR RIGHT does the same as elsewhere in the file system, it goes in. So in
   folders AND zips"): Unzip is in the Library menu of the .zip (RETURN). CURSOR RIGHT enters a .zip like a folder (browse its
   contents), the same key that enters a folder.
+- D18 (Alex 2026-11-15, Q14a, after mock-ups q14a/a2/b): F8 Network is one tab with sections (WiFi/Ethernet, Services, Streams
+  per D7); "FTP hosts" is one row that opens a page with the hosts (BACK returns).
 - Q11 needs no answer: D7 decided it. Q13 is settled by D14.
+- All S1 questions Q1-Q14 are answered (D1-D18). Next: T212 merges (D2), then S2 is built, then Alex tests in ue2emu (D6).
 
 ## §4 Out
 

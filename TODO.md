@@ -102,7 +102,7 @@ Built and benched; what is left is a step on the board (Alex, 2026-10-28, transl
 | T225 | 2 | 📝 | Amiga: USB pad on game port 2 (1-/2-button, CD32), mapping dialog, saved per pad ID | Spec 11-15 (Alex) | [T225](docs/specs/T225-amiga-usb-pad-port2.md) |
 | T226 | 2 | 📝 | Core app: "Loading cartridge" note; pad mapping on the Input tab, not Actions F7 | Spec 11-15 (Alex, board) | [T226](docs/specs/T226-coreapp-board-ux-1115.md) |
 | T227 | 3 | 📝 | SCPU: smoothing of the VIC picture (horizontal blend), Smoothing row | Spec 11-15 (Alex); measure slices first | [T227](docs/specs/T227-scpu-vic-smoothing.md) |
-| T228 | 2 | 📝 | trx64u on the generic core menu; UX specialist reworks the menu structure first | Spec 11-15 (Alex) | [T228](docs/specs/T228-trx64u-generic-menu.md) |
+| T228 | 2 | 📝 | trx64u on the generic core menu; S1 decided (D1-D18), next T212 merge then S2 | Spec 11-15 (Alex) | [T228](docs/specs/T228-trx64u-generic-menu.md) |
 | T175 | 3 | 🔨 | Diag core: a timed probe engine plus TOML tests measure the joystick/paddle ports, results to SD | Merged; diag v2 with testers 11-04 (pins, stick2 ok, cd32 6/24); S4, S7 board, S8 numbers open | [T175](docs/todo/T175.md) |
 | T176 | 3 | 📅 | Core menus on the screen at once from a saved picture (split out of T146 P5, issue #4) | Deferred (Alex 11-02): split out of T146 P5; not started | [T176](docs/todo/T176.md) |
 | T177 | 3 | 📅 | Recovery boot: a key held at power-on starts a recovery image, even with a black host menu | DECIDED (Alex 11-02): app, RESTORE+F1, recovery.cor/backup, no flash, LED; build open | [T177](docs/todo/T177.md) |
