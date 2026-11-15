@@ -82,6 +82,9 @@ static void layouts()
     CHECK_STR(video_scale_name(VID_SCALE_FIT), "Fit");
 }
 
+int g_vic_scale_written = -1;
+bool video_set_scale_gateware(int scale) { g_vic_scale_written = scale; return true; }   // T222: the board's write to 0x4F01
+
 struct Rig {
     FakeIo io; FakeFs fs; PxRec px; CoreDesc ext; Setting items[SETTINGS_MAX + 4]; CoreCtx c; Settings *st; Video *vid;
     const char *why;
@@ -145,6 +148,24 @@ static void items_and_apply()
       Rig r(&own);
       CHECK_EQ(r.ext.nsettings, own.nsettings + 1);
       CHECK_EQ(scale_index(&r.ext), -1);
+    }
+    // T222: a core whose picture is the VIC through a gateware with the scale register: Picture and Scale (default Fit), no Smoothing; Scale writes 0x4F01
+    { CoreDesc own = nes_desc; own.video.w = 0;
+      Setting items[SETTINGS_MAX + 4]; CoreDesc ext;
+      PictureEnv env = { EDID_ROW_MASK, 0, true, VID_SYS_PAL50, true };
+      CHECK(!picture_extend(&own, &ext, items, &env));
+      CHECK_EQ(ext.nsettings, own.nsettings + 2);
+      CHECK_EQ(scale_index(&ext), own.nsettings + 1);
+      CHECK_EQ(smooth_index(&ext), -1);
+      CHECK_EQ(ext.settings[scale_index(&ext)].def, VID_SCALE_FIT);
+      FakeIo io; FakeFs fs; PxRec px; CoreCtx c; memset(&c, 0, sizeof(c)); c.desc = &ext; c.io = &io; c.fs = &fs;
+      g_vic_scale_written = -1;
+      scale_apply(&c, VID_SCALE_FILL);
+      CHECK_EQ(g_vic_scale_written, VID_SCALE_FILL);
+      env.vic_scale = false;                                                    // a gateware without it: Picture alone, as before
+      CHECK(!picture_extend(&own, &ext, items, &env));
+      CHECK_EQ(ext.nsettings, own.nsettings + 1);
+      CHECK_EQ(scale_index(&ext), -1);
     }
     // Smoothing (Q3): the scaler's register follows the item, written with every layer set so that it survives the menu
     { Rig r(&amiga1200_desc);

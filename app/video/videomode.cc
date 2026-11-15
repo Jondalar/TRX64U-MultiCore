@@ -215,9 +215,44 @@ bool video_gw_up(const GwStatus &st, int row)
     return (st.flags & GW_F_PIX_LOCKED) && (st.flags & GW_F_RUNNING) && st.mode == row;
 }
 
+bool video_gw_has_scale(const GwStatus &st)
+{
+    return st.present && st.version >= 2 && (st.flags & GW_F_C64_TYPE) != 0;
+}
+
+int video_gw_row_for(const GwStatus &st, int sys, int hdmi)
+{
+    if (video_gw_has_scale(st) && hdmi > VID_HDMI_800x600) {
+        hdmi = VID_HDMI_800x600;
+    }
+    if (video_gw_has_scale(st) && hdmi == VID_HDMI_800x600 && sys != VID_SYS_NTSC60) {
+        hdmi = VID_HDMI_480_576;
+    }
+    return video_mode_index(hdmi, sys);
+}
+
+bool video_gw_set_scale_io(const GwIo *io, int scale, int timeout_ms)
+{
+    if (scale < 0 || scale >= VID_SCALE_COUNT) {
+        return false;
+    }
+    io->wr(GW_SCALE, (uint8_t)scale);
+    for (int t = 0;; t += 10) {
+        if (io->rd(GW_SCALE_AT) == (uint8_t)scale) {
+            return true;
+        }
+        if (t >= timeout_ms) {
+            return false;
+        }
+        io->wait_ms(10);
+    }
+}
+
 bool video_gw_apply_io(const GwIo *io, int sys, int hdmi, int timeout_ms)
 {
-    int row = video_mode_index(hdmi, sys);
+    GwStatus st0;
+    video_gw_probe_io(io, &st0);
+    int row = video_gw_row_for(st0, sys, hdmi);
     io->wr(GW_REQ, (uint8_t)row);
     GwStatus st;
     for (int t = 0;; t += 10) {
@@ -302,6 +337,22 @@ int video_gateware_row(void)
         return -1;
     }
     return st.mode < 12 ? st.mode : -1;
+}
+
+bool video_gateware_vic_scale(void)
+{
+    static bool seen = false;                      // the gateware does not change under a running application: only a yes is kept
+    if (!seen) {
+        GwStatus st;
+        video_gw_probe_io(&k_gw_io, &st);
+        seen = video_gw_has_scale(st);
+    }
+    return seen;
+}
+
+bool video_set_scale_gateware(int scale)
+{
+    return video_gw_set_scale_io(&k_gw_io, scale, GW_SCALE_TIMEOUT_MS);
 }
 
 bool video_apply_gateware(int sys, int hdmi)

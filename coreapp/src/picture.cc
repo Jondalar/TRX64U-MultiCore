@@ -21,6 +21,7 @@ static uint32_t g_sig = 0;                           // the signature of the scr
 static bool g_have_sig = false;
 static uint32_t g_next_poll = 0;
 static bool g_poll_armed = false;
+static bool g_vic_scale = false;                     // T222: the core's picture is the VIC through the gateware's scaler, which has a scale register
 static bool g_list_dirty = false;                    // the Picture list was rebuilt outside picture_service (the C128's System Mode): the next picture_service says so
 static void set_machine_sys(CoreCtx *c, int sys);
 
@@ -60,7 +61,9 @@ const char *picture_extend(const CoreDesc *d, CoreDesc *out, Setting *store, con
     g_gw = env ? env->gateware : false;
     g_msys = (env && env->sys >= 0) ? env->sys : current_sys();
     bool scaled = g_gw && d->video.w != 0 && d->nsettings + 3 <= SETTINGS_MAX;             // the frame buffer goes through the scaler (G14); a core with its own picture has no layer to scale
-    int extra = scaled ? 3 : 1;                        // Picture; Scale and Smoothing for a frame-buffer core on the gateware
+    bool vic_scaled = g_gw && env && env->vic_scale && d->video.w == 0 && d->nsettings + 2 <= SETTINGS_MAX;   // T222: the VIC path's scale (0x4F01), no Smoothing (no layer)
+    g_vic_scale = vic_scaled;
+    int extra = scaled ? 3 : vic_scaled ? 2 : 1;       // Picture; Scale and Smoothing for a frame-buffer core on the gateware; Picture and Scale for the VIC path
     if (d->nsettings + extra > SETTINGS_MAX) {
         return "settings: no room for the Picture item the application adds";
     }
@@ -81,6 +84,20 @@ const char *picture_extend(const CoreDesc *d, CoreDesc *out, Setting *store, con
     p.when = WHEN_LIVE;
     p.apply = PICTURE_OP;
     p.group = "video";                             // the TRX64U menu lists it on the Video page (HDMI Scan Resolution); a core whose menu has no such group shows it where it did
+    if (vic_scaled) {
+        for (int m = 0; m < VID_SCALE_COUNT; m++) {
+            g_scale_values[m] = video_scale_name(m);
+        }
+        Setting &q = store[d->nsettings + 1];
+        q = Setting();
+        q.key = SCALE_KEY;
+        q.values = g_scale_values;
+        q.nvalues = VID_SCALE_COUNT;
+        q.def = VID_SCALE_FIT;                         // the gateware powers up at Fit (U16 D3)
+        q.when = WHEN_LIVE;
+        q.apply = SCALE_OP;
+        q.group = "video";
+    }
     if (scaled) {
         for (int m = 0; m < VID_SCALE_COUNT; m++) {
             g_scale_values[m] = video_scale_name(m);
@@ -121,6 +138,7 @@ void picture_env_read(PictureEnv *env, int sys)
     EdidInfo info;
     env->native = len > 0 && edid_parse(edid, len, &info) ? (uint16_t)(info.native & env->mask) : 0;
     env->gateware = video_gateware_present();
+    env->vic_scale = video_gateware_vic_scale();
     env->sys = sys;
 }
 
@@ -334,6 +352,12 @@ void picture_confirm_revert()
 
 void scale_apply(CoreCtx *c, int value)
 {
+    if (g_vic_scale) {                             // T222: the VIC's picture is scaled by the gateware, at 0x4F01
+        if (!video_set_scale_gateware(value)) {
+            printf("[core] scale: the gateware did not take %s\n", video_scale_name(value));
+        }
+        return;
+    }
     if (c->video) {
         c->video->set_scale_mode(value);
     }
@@ -534,7 +558,7 @@ int picture_start(CoreCtx *c, int sys, int hdmi_now)
     Pick p = target(c, value, hdmi_now);
     int sidx = scale_index(c->desc);
     if (sidx >= 0 && c->settings) {
-        c->video->set_scale_mode(c->settings->value(sidx));          // before set_mode: the layout is made once
+        scale_apply(c, c->settings->value(sidx));                    // before set_mode: the layout is made once (a VIC path: the gateware's register)
     }
     int midx = smooth_index(c->desc);
     if (midx >= 0 && c->settings) {
