@@ -702,7 +702,7 @@ Diese Fragen sollten vor dem visuellen Design entschieden werden:
 - Laufwerksaktionen:
   [`../software/ultimate-app/software/drive/c1541.cc`](../software/ultimate-app/software/drive/c1541.cc)
 - Dateityp-Aktionen:
-  [`../software/ultimate-app/software/filetypes/`](../software/ultimate-app/software/filetypes/)
+  [`../software/ultimate-app/software/filetypes/`](../software/ultimate-app/software/filetypes)
 
 
 ---

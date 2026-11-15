@@ -22,6 +22,6 @@ Cancelled on 2026-10-04 (late) together with the 100T build; the TODO overview k
 - [T40](../specs/README.md#belonged-to-trx64-ultimate)
 - [T49](../specs/done/T49-update-packages.md#status-and-history)
 - [T50](../specs/README.md#belonged-to-trx64-ultimate)
-- [T53](../../docs/specs/T53-ue2-build.md#status-and-history)
+- [T53](../specs/T53-ue2-build.md#status-and-history)
 - [T37](../specs/README.md#belonged-to-trx64-ultimate)
-- [T35](../../docs/todo/T35.md)
+- [T35](../todo/T35.md)

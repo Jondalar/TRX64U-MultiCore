@@ -1,6 +1,6 @@
 # T164 — the next host package: one list of everything that waits for the host
 
-**Status:** BUILT and merged (t164-* merges incl. ee2a77410; package main-b8b6bcf7 with testers), board tests open as listed in `docs/todo/T164.md`. Design complete 2026-10-31 (design, budget and plan: §3b-§3d); the §3a answers are recorded in the todo. Proposed 2026-10-30, asked by Alex. Go on 2026-10-31 (translated): "I want us to get to HDMI and the scaler in the host... it takes too long for me because too much hangs on it." Then: "OK, then spec, plan, refinement, ADRs, and go." 2026-11-15 sync: the 2026-11-13 status check had cut this quote in two; header rewritten, the outdated 'waiting for Alex's answers' removed.
+**Status:** DONE 2026-11-15 (Alex 2026-11-15: "under A there is nothing I would not class as DONE! That has been in the builds for days/weeks, we had bugs and re-tests in part.") Open board/scenario items are closed by Alex's decision, not separately recorded. Earlier status: BUILT and merged (t164-* merges incl. ee2a77410; package main-b8b6bcf7 with testers), board tests open as listed in `docs/todo/T164.md`. Design complete 2026-10-31 (design, budget and plan: §3b-§3d); the §3a answers are recorded in the todo. Proposed 2026-10-30, asked by Alex. Go on 2026-10-31 (translated): "I want us to get to HDMI and the scaler in the host... it takes too long for me because too much hangs on it." Then: "OK, then spec, plan, refinement, ADRs, and go." 2026-11-15 sync: the 2026-11-13 status check had cut this quote in two; header rewritten, the outdated 'waiting for Alex's answers' removed.
 **Repo:** TRX64U-MultiCore — `host/` (gateware, layer 1), `host-app/`, `contract/` where a core feeds the host.
 **Number:** T164.
 **Origin:** Alex, 2026-10-30 (translated): "We have to touch the host again anyway, don't we? Do we have the overview of what else?" Then:
@@ -566,10 +566,10 @@ nothing for the others (their sizes set the block). The large twin of the A500 c
 
 ## 3d The plan
 
-The work packages, their benches, dependencies and the board steps are in [`docs/todo/T164.md`](../todo/T164.md) (kept there because it is a
-working list, not a decision). The ADRs are [0059](../adr/0059-picture-path-is-the-hosts-for-every-core.md),
-[0060](../adr/0060-tmds-bit-repetition-instead-of-pixel-repetition.md), [0061](../adr/0061-one-video-out-for-the-host-and-the-large-cores.md),
-[0062](../adr/0062-the-screen-decides-which-modes-are-offered.md), [0063](../adr/0063-pb-l1-grows-cores-that-do-not-fit-become-large.md).
+The work packages, their benches, dependencies and the board steps are in [`docs/todo/T164.md`](../../todo/T164.md) (kept there because it is a
+working list, not a decision). The ADRs are [0059](../../adr/0059-picture-path-is-the-hosts-for-every-core.md),
+[0060](../../adr/0060-tmds-bit-repetition-instead-of-pixel-repetition.md), [0061](../../adr/0061-one-video-out-for-the-host-and-the-large-cores.md),
+[0062](../../adr/0062-the-screen-decides-which-modes-are-offered.md), [0063](../../adr/0063-pb-l1-grows-cores-that-do-not-fit-become-large.md).
 
 ## §4 Out
 

@@ -1,6 +1,6 @@
 # T209 — Every list row in host and core app is one line, rows sit closer, lists scroll before the edge, and the paging keys are shown
 
-**Status:** PROPOSED (2026-11-11, Alex). Corrected 2026-11-13 (status check): BUILT D1-D20, merged to main (093e59887); open: host menu/editor paging keys, S8 board. 2026-11-15 sync: the boot menu pages with +/- and names it in the foot (D7: `host_core.cc:47`, `hc_menu_foot`); the F5 editor has no paging keys (`host_core.cc:67`: +/- move an entry, D7) - S7 for the editor is an open question for Alex; S8 board open.
+**Status:** D1-D20 DONE 2026-11-15 (Alex 2026-11-15: "under A there is nothing I would not class as DONE! That has been in the builds for days/weeks, we had bugs and re-tests in part."). Still open: D21 (branch host-boot-rows, being finished) and the F5 editor paging-key question. Earlier status: PROPOSED (2026-11-11, Alex). Corrected 2026-11-13 (status check): BUILT D1-D20, merged to main (093e59887); open: host menu/editor paging keys, S8 board. 2026-11-15 sync: the boot menu pages with +/- and names it in the foot (D7: `host_core.cc:47`, `hc_menu_foot`); the F5 editor has no paging keys (`host_core.cc:67`: +/- move an entry, D7) - S7 for the editor is an open question for Alex; S8 board open.
 **Repo:** TRX64U-MultiCore — core app (`coreapp/src/ui.cc`, `screens.cc`, `menuctl.cc`, `app/view/trxview.cc`), host app (`host-app/software/hostapp/hostui.cc`).
 **Number:** T209.
 **Origin:** Alex 2026-11-11 (translated): "these sublines ... I want to question their sense strongly from a UX view"; on the
