@@ -1,19 +1,24 @@
-// T164 WP7 (the host, all cores; from the A1200 large core, T107 D7): host/cdce_i2c.v with the PLL registers per HDMI mode instead of the two System Mode blobs. The same
-// sequence (block write of 8 bytes from register 0x14, sent twice); bytes 0x18..0x1B come from hdmi_modes.vh (tools/hdmi_modes.py host-gen: N, Q, R, P
-// and the VCO range bits for the TMDS clock of the mode, out of our 37.89 MHz reference). Mode 2 (1080p50) is byte for byte the old
-// 55/14 blob. `lock` = 1 (a C64-type core, whose frame must equal the VIC frame) takes hm_cdce_lock, `lock` = 0 (a frame-buffer core) hm_cdce.
-// `mode` and `lock` have to be steady from rst on; rst starts the sequence again (a mode change).
+// SPDX-License-Identifier: GPL-3.0-or-later
+// U16: programs the CDCE(L)913/CDCEL824-type clock synthesizer at I2C address 0x64 for the HDMI mode `mode` (hdmi_modes.vh,
+// family * 6 + hdmi). Ported from TRX64U-MultiCore's host/cdce_mode.v (T164 WP7 there), which grew out of this design's cdce_i2c.v:
+// the same sequence as the U64-II bootloader (block write of 8 bytes from register 0x14, Pdiv2/Pdiv3 = 1, sent twice), with PLL1's
+// registers 0x18..0x1B from hm_cdce_lock(mode) instead of the two System Mode blobs. Every row of this design is locked: its N/M makes
+// the HDMI frame exactly one VIC frame out of the 37.89 MHz we feed the chip (125/104 of dot4x; tools/hdmi_modes.py proves the bytes
+// against the chip's rules for both System Modes of the family). Rows 2 and 8 (1080p50 / 1080p60) are byte for byte cdce_i2c.v's
+// 55/14 and 990/263 blobs. This design has no frame-buffer rows, so MultiCore's `lock` port (a choice of table) is not here.
+// `mode` has to be steady from rst on; rst starts the sequence again: power-up and lock loss (por_rst | ~clocks_ok, which also covers
+// a System Mode switch, mode_ctl.v step 5) and every accepted mode request (mode_req.v vm_rst).
+// Drives both buses the bootloader uses; ACKs are not checked. done goes high when the sequence has been sent twice.
 module cdce_mode (
-    input  wire clk,            // 50 MHz
-    input  wire rst,
-    output reg  scl_low,        // 1 = pull SCL low
-    output reg  sda_low,        // 1 = pull SDA low
-    output reg  done,
-    input  wire [3:0] mode,
-    input  wire       lock
+    input  wire       clk,          // 50 MHz
+    input  wire       rst,
+    output reg        scl_low,      // 1 = pull SCL low
+    output reg        sda_low,      // 1 = pull SDA low
+    output reg        done,
+    input  wire [3:0] mode
 );
 `include "hdmi_modes.vh"
-    wire [31:0] pll = lock ? hm_cdce_lock(mode) : hm_cdce(mode);
+    wire [31:0] pll = hm_cdce_lock(mode);
     localparam NBYTES = 11;
     function [7:0] byte_at; input [3:0] i;
         case (i)
@@ -24,9 +29,9 @@ module cdce_mode (
             4: byte_at = 8'h00;     // 0x15
             5: byte_at = 8'h01;     // 0x16: Pdiv2 = 1
             6: byte_at = 8'h01;     // 0x17: Pdiv3 = 1
-            7: byte_at = pll[31:24];   // 0x18: N[11:4]
-            8: byte_at = pll[23:16];   // 0x19: N[3:0], R[8:5]
-            9: byte_at = pll[15:8];    // 0x1A: R[4:0], Q[5:3]
+            7: byte_at = pll[31:24];    // 0x18: N[11:4]
+            8: byte_at = pll[23:16];    // 0x19: N[3:0], R[8:5]
+            9: byte_at = pll[15:8];     // 0x1A: R[4:0], Q[5:3]
             default: byte_at = pll[7:0]; // 0x1B: Q[2:0], P, VCO range
         endcase
     endfunction

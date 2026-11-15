@@ -82,8 +82,12 @@ generate
         // Exact because the video windows (sx_e - 11 .. sx_e - 1) lie far from the line wrap at cx = fw_m1 and cy changes only at that wrap.
         reg [BIT_WIDTH-1:0] sx_m1, sx_m3, sx_m11;
         reg cy_in;
+        // T181 (TRX64-Ultimate u16 d48734d8, T222): the last active line (ey_e - 1) is registered too (the compare with cy fed the audio packet CE
+        // there: WNS -0.062, 9 levels). ey_e is the mode's, quasi static, so video_field_end is the same cycle as before except one ce after a mode change.
+        reg [BIT_HEIGHT-1:0] ey_m1;
         always @(posedge clk_pixel) if (ce)
         begin
+            ey_m1 <= ey_e - 1'b1;
             sx_m1 <= sx_e - 1'b1;
             sx_m3 <= sx_e - 2'd3;
             sx_m11 <= sx_e - 4'd11;
@@ -134,7 +138,7 @@ generate
                 cx >= DATA_ISLAND_START - 1'b1 && cx < DATA_ISLAND_END - 1'b1 :
                 cx >= DATA_ISLAND_START - 1'b1 || cx < DATA_ISLAND_END - 1'b1);
 
-        assign video_field_end = cx == fw_m1 && cy == (ey_e - 1);
+        assign video_field_end = cx == fw_m1 && cy == ey_m1;
 
         assign packet_enable = data_island_period_instantaneous &&
            data_island_offset == 0;
