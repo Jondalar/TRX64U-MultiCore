@@ -93,7 +93,7 @@ else
     # each step must change the screen: the list is not the home, the page is not the list, the applied picture is not the page
     prev=""; for n in $shots; do [ -z "$prev" ] || ! cmp -s "$out/$prev.png" "$out/$n.png" || bad="$bad $n(same as $prev)"; prev=$n; done
     # T211 S3 (first half): the real Page Up / Page Down are page keys, not F1 / F7 - on the home screen they change nothing (what they do is open)
-    for n in host-pageup host-pagedown; do cmp -s "$out/host-home.png" "$out/$n.png" || bad="$bad $n(differs from host-home: a key was folded into F1/F7)"; done
+    for n in host-pageup host-pagedown; do python3 "$HERE/png_panel_same.py" "$out/host-home.png" "$out/$n.png" || bad="$bad $n(differs from host-home: a key was folded into F1/F7)"; done
     if [ -z "$bad" ]; then echo "PASS host picture flow: home, F8 list, Picture page, applied mode - four different screens (PNGs in $out)"
     else echo "FAIL host picture flow:$bad (see $out/pic.log)"; FAIL=1; fi
 fi
