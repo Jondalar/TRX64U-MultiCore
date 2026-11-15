@@ -210,6 +210,8 @@ or the two core-only areas); the settings of the machine are in one area (F5), t
 **Not checked:** F2 Timeline and F3 Search/Browse pictures were produced but not judged (their content is unchanged by the mapping); no 480p/1080p variants
 (trx64u has no scaled emulator mode, `ux-review` §7); the board; whether every proposed F5 tab fits the 480p row count (S2 renders it).
 
+- D2 (Alex 2026-11-15, Q1): a) build trx64u on T212's structure (F1 drive rows, F5 machine, F7 APP); T212 has to be merged first.
+
 ## §4 Out
 
 ## §5 Built
