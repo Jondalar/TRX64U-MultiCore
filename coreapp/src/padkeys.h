@@ -33,6 +33,6 @@ static const uint8_t padkey_codes[] = {
 // the register binding of one button's key: the code is the byte written
 #define PADKEY_BIND(name, reg) static const RegBind name = { reg, 0, 0xFF, padkey_codes }
 // the setting of one button's key (a row of the core's table): key text, label, the binding, the default index
-#define PADKEY_ROW(key, label, bind, def) { key, padkey_names, PADKEY_COUNT, def, WHEN_LIVE, 0, &bind, 0, 0, 0, 0, label }
+#define PADKEY_ROW(key, label, bind, def) { key, padkey_names, PADKEY_COUNT, def, WHEN_LIVE, 0, &bind, 0, "input", 0, 0, label }
 
 #endif

@@ -42,6 +42,8 @@ module tb_pet_real;
     always @(posedge sys_clk) if (dut.v_gfx) gfx1 = gfx1 + 1; else gfx0 = gfx0 + 1;
     reg cb2_d = 0;
     always @(posedge sys_clk) begin cb2_d <= dut.cb2_audio; if (dut.cb2_audio != cb2_d) beeps = beeps + 1; end
+    reg [15:0] jsr [0:31]; integer jn = 0, jk;
+    always @(posedge sys_clk) if (dut.rdy && dut.sync_o && dut.cpu_di == 8'h20) begin jsr[jn % 32] = dut.a65; jn = jn + 1; end
     task loadrom(input [8*200-1:0] name, input integer where, input integer is_chr); begin
         $sformat(fn, "%0s/%0s", dir, name);
         fd = $fopen(fn, "rb");
@@ -79,6 +81,7 @@ module tb_pet_real;
         repeat (ms) #1000000;
         cols = dut.col80 ? 80 : 40;
         $display("board %0d after %0d ms: PC %h, CRTC R1 %0d R12 %h, picture %0d columns, CB2 edges %0d, gfx low %0d high %0d", model, ms, dut.a65, dut.r1, dut.r12, cols, beeps, gfx0, gfx1);
+        $write("last JSR sites:"); for (jk = (jn > 32 ? jn - 32 : 0); jk < jn; jk = jk + 1) $write(" %h", jsr[jk % 32]); $write("\n");
         for (row = 0; row < 25; row = row + 1) begin
             for (col = 0; col < 80; col = col + 1) begin
                 lo = dut.mem.vram.mem[row * (cols == 80 ? 80 : 40) + col];

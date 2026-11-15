@@ -48,6 +48,7 @@
 1|pet_boot|900|sh cores/pet/sim/run_boot.sh
 1|pet_spet|900|sh cores/pet/sim/run_spet.sh
 1|pet_keys|300|sh cores/pet/sim/run_keys.sh
+1|pet_wl|3300|sh cores/pet/sim/run_wl.sh
 1|pet_tape|900|sh cores/pet/sim/run_tape.sh
 1|eth|900|sh host/sim/eth/run.sh
 # T103 pktport (iverilog, about 1 min on the Mac): video, audio and MAC frames through the generic packet port against the senders wired

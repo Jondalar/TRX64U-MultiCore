@@ -47,7 +47,7 @@ static PetState *pet_state(CoreCtx *c)
 static const char *const model_names[] = { "2001", "3032", "4032", "8032", "8096", "SuperPET", "2001 + BASIC 2" };
 static const uint8_t model_bytes[7]    = { 0, 1, 2, 3, 4, 5, 0 };      // PET_MODEL: the board (pet_hw_model)
 static const char *const ram_names[]   = { "8 KiB", "16 KiB", "32 KiB" };
-static const char *const spram_names[] = { "32 KiB", "96 KiB (32 + 64 bank RAM)" };       // the SuperPET's: the 64 KiB in 4 KiB banks behind $9000, or the ROM there
+static const char *const spram_names[] = { "32 KiB", "96 KiB" };       // the SuperPET's: 96 = the 64 KiB bank RAM (4 KiB banks behind $9000) beside the 32 KiB, 32 = the ROM behind $9000
 static const char *const keymode_names[] = { "Symbolic (key legend)", "Positional (PET key place)" };
 static const char *const cpu_names[]   = { "x1", "x2", "x3", "x4", "x5", "x6", "x7", "x8" };
 static const char *const diag_names[]  = { "Off", "On (DIAG jumper)" };
@@ -88,18 +88,18 @@ static const Setting settings[17] = {
     { "RAM (at next reset)",   ram_names,   3, 2, WHEN_RESET, 0, &b_ram,   0, 0, 0, "pet.ramrow", "RAM" },   // listed for the 2001, 3032 and 4032 only: the CRTC models always have 32 KiB, the SuperPET has its own row
     { "Drive 8 (at next reset)", drive_names, 3, 0, WHEN_RESET, 0, &b_drive, 0, 0, 0, 0, "Drive" },   // the dual unit of ieee_drive: drives 0 and 1
     { "Datasette port",        dset_names,  2, 0, WHEN_LIVE,  0, &b_dset,  0, 0, 0, 0, 0 },
-    { "SuperPET CPU (at next reset)", spcpu_names, 3, 0, WHEN_RESET, 0, &b_spcpu, 0, 0, 0, "pet.superpet", "SPCPU" },   // T216 P2: listed only while the model is the SuperPET (the only one that looks at it); default 6502 as in VICE
+    { "SuperPET CPU (at next reset)", spcpu_names, 3, 0, WHEN_RESET, 0, &b_spcpu, 0, 0, 0, "pet.superpet", "SuperPET CPU" },   // T216 P2: listed only while the model is the SuperPET (the only one that looks at it); default 6502 as in VICE
     // T216 P6: the SuperPET's 96 KiB (32 KiB + the 64 KiB bank RAM); the default is the whole machine
-    { "SuperPET RAM (at next reset)", spram_names, 2, 1, WHEN_RESET, 0, &b_spram, 0, 0, 0, "pet.superpet", "SPRAM" },
+    { "SuperPET RAM (at next reset)", spram_names, 2, 1, WHEN_RESET, 0, &b_spram, 0, 0, 0, "pet.superpet", "SuperPET RAM" },
     // T216 P10: how the host's C64 keys become PET keys
-    { "Keyboard mapping",      keymode_names, 2, 0, WHEN_LIVE, 0, &b_keymode, 0, 0, 0, 0, 0 },
+    { "Keyboard mapping",      keymode_names, 2, 0, WHEN_LIVE, 0, &b_keymode, 0, "input", 0, 0, 0 },
     // T216 P4: pad / joystick as keys (padkeys.h); the five buttons are the same on both USB pads and both joystick ports
     PADKEY_ROW("Pad up key", "Pad / joystick up", b_pk_up, PADKEY_DEF_UP),
     PADKEY_ROW("Pad down key", "Pad / joystick down", b_pk_down, PADKEY_DEF_DOWN),
     PADKEY_ROW("Pad left key", "Pad / joystick left", b_pk_left, PADKEY_DEF_LEFT),
     PADKEY_ROW("Pad right key", "Pad / joystick right", b_pk_right, PADKEY_DEF_RIGHT),
     PADKEY_ROW("Pad fire key", "Pad / joystick fire", b_pk_fire, PADKEY_DEF_FIRE),
-    { "Pad map", padmap_names, 2, 0, WHEN_LIVE, "pad.set_map", 0, 0, 0, 0, 0, 0 },
+    { "Pad map", padmap_names, 2, 0, WHEN_LIVE, "pad.set_map", 0, 0, "input", 0, 0, 0 },
 };
 static int pet_model(CoreCtx *c) { return c->settings->value(PET_S_MODEL); }
 static bool pet_hz50(CoreCtx *c) { return c->settings->value(PET_S_HZ) == 1; }
@@ -174,9 +174,9 @@ static int put_model_rom(CoreCtx *c, int role, uint32_t want, const char *label,
     if (rom_scan(c->fs, c->desc->folder, &s, 1, res, sum, sizeof(sum), c->board ? c->board->rom_dir : 0, own_dir) != ROM_FOUND ||
         res[0].hit.size > buf.n || !rom_read(c->fs, &res[0].hit, buf)) {
         if (names[1]) {
-            snprintf(o.msg, o.msglen, "%s of the %s is missing: %s or %s", label, model_names[pet_model(c)], names[0], names[1]);
+            snprintf(o.msg, o.msglen, "%s of the %s is missing in cores/pet/roms: %s or %s", label, model_names[pet_model(c)], names[0], names[1]);
         } else {
-            snprintf(o.msg, o.msglen, "%s of the %s is missing: %s", label, model_names[pet_model(c)], names[0]);
+            snprintf(o.msg, o.msglen, "%s of the %s is missing in cores/pet/roms: %s", label, model_names[pet_model(c)], names[0]);
         }
         return OPE_FAILED;
     }

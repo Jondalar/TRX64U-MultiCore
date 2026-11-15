@@ -69,14 +69,19 @@ module tb_pet_wl;
         #100 sys_rst = 0; ui_rst = 0;
         if (!$value$plusargs("ms=%d", ms)) ms = 20;
         repeat (ms) #1000000;
-        $display("6809 after %0d ms: PC %h, R1 %0d, gfx low %0d high %0d", ms, dut.a09, dut.r1, gfx0, gfx1);
+        $display("6809 after %0d ms: PC %h, R1 %0d, R12 %h, gfx low %0d high %0d", ms, dut.a09, dut.r1, dut.r12, gfx0, gfx1);
         for (row = 0; row < 25; row = row + 1) begin
             for (col = 0; col < 80; col = col + 1) begin
                 lo = dut.mem.vram.mem[row * 80 + col];
-                $write("%s", (lo[6:0] >= 7'd1 && lo[6:0] <= 7'd26) ? 8'd64 + lo[6:0] : (lo[6:0] >= 7'd32 && lo[6:0] < 7'd64) ? lo[6:0] : 8'd46);
+                $write("%s", (lo >= 8'd32 && lo < 8'd127) ? lo : 8'd46);
             end
             $write("\n");
         end
+        // the six Waterloo files run the 6809 to its menu in 80 columns, with the CRTC set up for the Waterloo character set (R12 bit 5)
+        if (dut.mem.vram.mem[0] !== "W" || dut.mem.vram.mem[1] !== "a" || dut.mem.vram.mem[9] !== "o") begin $display("FAIL no Waterloo banner on row 0"); errs = errs + 1; end
+        if (!dut.col80) begin $display("FAIL not 80 columns"); errs = errs + 1; end
+        if (dut.r12[5] !== 1'b1) begin $display("FAIL R12 bit 5 (Waterloo character set) not set: %h", dut.r12); errs = errs + 1; end
+        if (errs == 0) $display("PASS tb_pet_wl"); else $display("FAIL tb_pet_wl: %0d errors", errs);
         $finish;
     end
 endmodule

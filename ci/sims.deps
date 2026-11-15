@@ -92,6 +92,7 @@ c264_tedsnd: cores/c264/sim cores/c264/rtl
 pet_boot: cores/pet/sim cores/pet/rtl
 pet_spet: cores/pet/sim cores/pet/rtl
 pet_keys: cores/pet/sim cores/pet/rtl
+pet_wl: cores/pet/sim cores/pet/rtl
 pet_tape: cores/pet/sim cores/pet/rtl
 # G06 and T29: c64_core under Verilator
 # T12 §14.8: c64_core with trx_dbg, dma_win, trx_sys and the cartridge's DDR2 side under Verilator

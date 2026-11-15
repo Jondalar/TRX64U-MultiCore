@@ -32,8 +32,9 @@ area F5 PET
     setting RAM = 8 KiB | 16 KiB | 32 KiB (default 32 KiB, at next reset) [listed while pet.ramrow]
     setting Drive = Off | 4040 (D64) | 8250 (D80, D82) (default Off, at next reset)
     setting Datasette port = Off (file only) | External datasette (default Off (file only), live)
-    setting SPCPU = 6502 | 6809 | Program ($EFF8) (default 6502, at next reset) [listed while pet.superpet]
-    setting SPRAM = 32 KiB | 96 KiB (32 + 64 bank RAM) (default 96 KiB (32 + 64 bank RAM), at next reset) [listed while pet.superpet]
+    setting SuperPET CPU = 6502 | 6809 | Program ($EFF8) (default 6502, at next reset) [listed while pet.superpet]
+    setting SuperPET RAM = 32 KiB | 96 KiB (default 96 KiB, at next reset) [listed while pet.superpet]
+  tab 2 Input
     setting Keyboard mapping = Symbolic (key legend) | Positional (PET key place) (default Symbolic (key legend), live)
     setting Pad / joystick up = None | 8 | 2 | 4 | 6 | 5 | 0 | 1 | 3 | 7 | 9 | Space | Return | Cursor up | Cursor down | Cursor left | Cursor right | Home | Del | Stop | W | A | S | D | Q | E | Z | X | + | - | * | / (default 8, live)
     setting Pad / joystick down = None | 8 | 2 | 4 | 6 | 5 | 0 | 1 | 3 | 7 | 9 | Space | Return | Cursor up | Cursor down | Cursor left | Cursor right | Home | Del | Stop | W | A | S | D | Q | E | Z | X | + | - | * | / (default 2, live)
