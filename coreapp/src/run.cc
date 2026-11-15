@@ -525,6 +525,14 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
             ui_render_now();
         }
     }
+    if (h && handover_valid(h) && handover_safe(h)) {      // T224 D2: "Boot safe graphics mode": the three video values of this start, stored nowhere
+        int n = picture_safe(&ctx);
+        printf("[core] safe graphics mode: %d video settings overridden for this start\n", n);
+        if (!ctx.notice_pending) {
+            snprintf(ctx.notice, sizeof(ctx.notice), "Safe graphics mode: Picture Auto, Scale Integer, Smoothing Off for this start. Your settings are kept.");
+            ctx.notice_pending = true;
+        }
+    }
     printf("[core] settings %s: %s\n", desc->store, ctx.cfg_path[0] ? ctx.cfg_path : "(no .cfg path, in memory only)");
     cs_step(1, "Setting the picture");
     video = new Video(desc->video, &px, ctx.io);

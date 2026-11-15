@@ -138,6 +138,7 @@ bool hc_cfg_readback_ok(int i);                          // boot.cfg as the boar
 int hc_entry_move(int i, int dir);                       // dir -1 up, +1 down; the default follows
 int hc_entry_default(int i);
 int hc_entry_defcfg(int i, const char *name);           // T198 D8: the entry's default config ("" = none); HCR_REFUSED for a name config_name_ok refuses
+void hc_start_safe_set(bool on);                            // T224 D2: the next hc_start_sequence hands over "safe graphics mode" (one-shot)
 void hc_start_config_set(const char *name);             // T198: the config the next hc_start_sequence hands over (one-shot, "" = plain)
 int hc_entry_remove(int i);
 int hc_entry_rename(int i, const char *name);            // HCR_REFUSED: the name cannot be used (nothing changed)

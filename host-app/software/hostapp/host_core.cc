@@ -429,6 +429,9 @@ void hc_start_config_set(const char *name)
     snprintf(g_start_cfg, sizeof(g_start_cfg), "%s", name ? name : "");
 }
 
+static bool g_start_safe;
+void hc_start_safe_set(bool on) { g_start_safe = on; }
+
 int hc_entry_remove(int i)
 {
     bootcfg_remove(&g_cfg, i);
@@ -540,6 +543,8 @@ const char *hc_start_sequence(const HcStartEntry &e, int mode, const HcStartHook
     char cfgname[CONFIG_NAME_MAX + 1];
     snprintf(cfgname, sizeof(cfgname), "%s", e.config && e.config[0] ? e.config : g_start_cfg);
     g_start_cfg[0] = 0;                                         // one-shot: a start that fails leaves nothing behind for the next one
+    const bool safe = g_start_safe;                             // T224 D2: the same, for "Boot safe graphics mode"
+    g_start_safe = false;
     StartGuard guard;
     if (!guard.own) {
         return HC_START_BUSY;
@@ -580,6 +585,7 @@ const char *hc_start_sequence(const HcStartEntry &e, int mode, const HcStartHook
         h.before_jump(h.ctx, true);
         legacy_jump(&plan);
     }
+    core_set_start_safe(safe);
     core_set_start_config(cfgname);                             // T198 D7: every core start sets what the jump hands over ("" = plain)
     CorInfo ci;
     if (!core_stage(e.path, &ci, &why, h.progress, h.ctx, e.trusted, direct)) {
