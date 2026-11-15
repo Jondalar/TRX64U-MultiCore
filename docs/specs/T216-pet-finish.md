@@ -88,6 +88,7 @@ Reported on GitHub after the first test release (2026-11-13/14), bundled here 20
 - **D8 (Alex: "Ja bitte alles ins Input tab"):** every pad/keyboard row is in the Input tab, including "Map buttons, pad 1/2" (was F7): the tasks carry group `input`; generic code: `coreapp/src/menutree.cc` lists a task in a settings tab that names its group (below the rows) and no longer in the tasks tab (`task_in_settings_tab`).
 - **D9 (Alex: "Ja"):** the missing-ROM message lists every missing file of the model at once, one per line (`list_missing_roms`, `coreapp/cores/pet.cc`), not only the first.
 - **D10 (Alex 2026-11-15, open UX Q1 "b", after q1a-c):** the foot shows one line: while a row note is shown (e.g. "Model: ... takes effect at the next reset"), the ring legend is left out (generic, `MenuCtl::foot_line`, every core).
+- **D11 (Alex 2026-11-15, open UX Q2 "B", after q2a/q2b):** a task row in a settings tab that opens a dialog ("Map buttons, pad 1/2", the Amiga's "Map port 2 buttons") shows ">" at the right like Hotkeys (generic, every core; also answers the T226 question on the ">" badge).
 
 ## §4 Out
 
