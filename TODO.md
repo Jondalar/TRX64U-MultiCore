@@ -72,7 +72,7 @@ Built and benched; what is left is a step on the board (Alex, 2026-10-28, transl
 | T193 | 3 | 📅 | Further CI simplification: generated run.yml per push, Gitea shows the children as a graph | Spec PROPOSED 11-08 (idea only) | [T193](docs/specs/T193-further-ci-simplification.md) |
 | T194 | 2 | ✅ | C128 40 columns through the pixel layer: Integer/Fit/Fill as every core (#63) | In main since 11-09 (4d7c8b30f), #63 done; D12 Auto switch missed PETSCII Robots title (open) | [T194](docs/specs/done/T194-c128-40col-scaling.md) |
 | T195 | 2 | 🔨 | Board buttons UI_BUTTON[2:0] (header reset as on the U64 Elite) in host and every core | Merged main 11-09; S1 bench pass; S3 Vivado line not recorded; S4 board (header button) open | [T195](docs/specs/T195-board-buttons.md) |
-| T196 | 2 | 🔨 | XInput (Xbox) pads on a USB cable, console cores only (#55) | Merged main; S5 PASS 11-10; #55 missed presses: diag test first (11-15) | [T196](docs/specs/T196-xinput-pads.md) |
+| T196 | 2 | 🔨 | XInput (Xbox) pads on a USB cable, console cores only (#55) | Merged main; S5 PASS 11-10; #55 fix: poll at EP bInterval, board PASS 11-15 | [T196](docs/specs/T196-xinput-pads.md) |
 | T197 | 2 | 🔨 | Zip library (miniz) for any app; unzip in host F3 and cores with room | Built, merged main 11-13; open: S5 board | [T197](docs/specs/T197-zip-everywhere.md) |
 | T198 | 2 | 🔨 | Per-core configs: boot menu overlay starts a core with a saved config (#58) | Merged main; ux PASS; S17 board (save, overlay, start, power cycle) open | [T198](docs/specs/T198-per-core-configs.md) |
 | T199 | 2 | ✅ | VC-20: JiffyDOS setting switches KERNAL and 1541 ROM together (#59) | Merged main; S1-S5 tests, S6 board PASS 11-11 | [T199](docs/specs/done/T199-vc20-jiffydos.md) |
@@ -99,6 +99,7 @@ Built and benched; what is left is a step on the board (Alex, 2026-10-28, transl
 | T220 | 3 | 📅 | Host network chip stale: "no network" while LAN works (#84 comment) | Backlog; read 11-15: 3 s poll, cause open | [T220](docs/specs/T220-net-chip-stale.md) |
 | T221 | 2 | 📅 | SemVer for host, host menu, core app, every core; displays: branch SemVer+commit, release SemVer | D1-D19 decided 11-15; open: core start versions, TRX64-U contract, L/P mock-up | [T221](docs/specs/T221-semver-everywhere.md) |
 | T225 | 2 | 🔨 | Amiga: USB pad on game port 2 (1-/2-button, CD32), mapping dialog, saved per pad ID | Built on t225-amiga-usbpad; S4 Vivado, S5 board open; no gamepad in ue2emu | [T225](docs/specs/T225-amiga-usb-pad-port2.md) |
+| T226 | 2 | 📝 | Core app: "Loading cartridge" note; pad mapping on the Input tab, not Actions F7 | Spec 11-15 (Alex, board) | [T226](docs/specs/T226-coreapp-board-ux-1115.md) |
 | T175 | 3 | 🔨 | Diag core: a timed probe engine plus TOML tests measure the joystick/paddle ports, results to SD | Merged; diag v2 with testers 11-04 (pins, stick2 ok, cd32 6/24); S4, S7 board, S8 numbers open | [T175](docs/todo/T175.md) |
 | T176 | 3 | 📅 | Core menus on the screen at once from a saved picture (split out of T146 P5, issue #4) | Deferred (Alex 11-02): split out of T146 P5; not started | [T176](docs/todo/T176.md) |
 | T177 | 3 | 📅 | Recovery boot: a key held at power-on starts a recovery image, even with a black host menu | DECIDED (Alex 11-02): app, RESTORE+F1, recovery.cor/backup, no flash, LED; build open | [T177](docs/todo/T177.md) |
