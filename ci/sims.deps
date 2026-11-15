@@ -203,6 +203,7 @@ cpc_video: @cpcrtl :(glob)cores/cpc/sim/prog/clk.* :(glob)cores/cpc/sim/prog/vid
 cpc_io: @cpcrtl :(glob)cores/cpc/sim/prog/audio.* :(glob)cores/cpc/sim/prog/keys.* tools/zxcpc_keys.py
 cpc_media: @cpcrtl :(glob)cores/cpc/sim/prog/tape.* :(glob)cores/cpc/sim/prog/disk.* :(glob)cores/zx/sim/prog/tape48.* tools/cpc_progs.py
 cpc_fdcscan: @cpcrtl cores/cpc/sim/tb_fdcscan.v tools/cpc_progs.py
+cpc_fdcfix: @cpcrtl cores/cpc/sim/tb_fdcfix.v
 cpc_pause: @cpcrtl :(glob)cores/cpc/sim/prog/anim.*
 cpc_pins: cores/cpc/layer2_cpc.v cores/cpc/sim/run_pins.sh tools/check_layer2_pins.py cores/cpc/mono/host/top.v
 
