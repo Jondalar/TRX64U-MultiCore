@@ -1458,7 +1458,7 @@ module top #(
     dfx_sync dcs_cpu  (.clk(cpu_clk), .i(core_decouple), .o(dc_cpu));
     dfx_sync dcs_mclk (.clk(mclk),    .i(core_decouple), .o(dc_mclk));
     dfx_sync dcs_ui   (.clk(ui_clk),  .i(core_decouple), .o(dc_ui));
-    // (the scaler locks to the new core's VIC frame after a swap: hdmi_out.v takes core_decouple)
+    // (T222: the U16 hdmi_out.v has no core_decouple input; this large core is never swapped while it runs)
 
     // l2's outputs as it drives them
     wire l2_IEC_ATN_O;

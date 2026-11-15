@@ -100,6 +100,8 @@ void video_layout_scaled(int w, int h, int hdmi, int sys, int scale_mode, int bi
 #define GW_MODE_AT    0x4F07
 #define GW_SEEN_AT    0x4F08               // requests written
 #define GW_DONE_AT    0x4F09               // requests processed; equal to GW_SEEN_AT = the refused bit is current
+#define GW_SCALE      0x4F01               // T222: write 0 Integer / 1 Fit / 2 Fill, only where the gateware has the VIC scaler with a scale (version 2, C64-type flag)
+#define GW_SCALE_AT   0x4F0A               // T222: the scale in use
 #define GW_MAGIC      0x48
 #define GW_F_GT_READY   0x01
 #define GW_F_PIX_LOCKED 0x02
@@ -119,6 +121,16 @@ struct GwIo {
 bool video_gw_probe_io(const GwIo *io, GwStatus *st);
 // A mode is up when the transmitter runs on a locked pixel clock in exactly the requested row, and the request was not refused.
 bool video_gw_up(const GwStatus &st, int row);
+// T222: a gateware whose picture is the VIC through the scaler with the scale register (a C64-type core's mode_req, version >= 2). Its table has seven rows
+// (576p, 720p, 1080p at 50 Hz; 480p, 720p, 1080p, 800 x 600 at 60 Hz) and takes only the System Mode's family; the host's generic mode_req (version 1) has neither.
+bool video_gw_has_scale(const GwStatus &st);
+// The row of the request for (sys, hdmi) in such a gateware: 1024 x 768 and 1280 x 1024 are taken as 800 x 600 at 60 Hz, every PC row at 50 Hz as 576p (U16 D5).
+// In any other gateware the plain mode index.
+int video_gw_row_for(const GwStatus &st, int sys, int hdmi);
+// Writes the scale and polls 0x4F0A until it reads back (the gateware takes it at its next frame start) or `timeout_ms` has passed. False: not in time, or the
+// value is not a scale.
+bool video_gw_set_scale_io(const GwIo *io, int scale, int timeout_ms);
+#define GW_SCALE_TIMEOUT_MS 200
 // Writes the request and polls the status every 10 ms until the row is up or `timeout_ms` has passed. False: refused, or not up in time.
 bool video_gw_apply_io(const GwIo *io, int sys, int hdmi, int timeout_ms);
 #define GW_APPLY_TIMEOUT_MS 1000
@@ -128,6 +140,9 @@ int  video_gateware_row(void);
 // Board side: put the mode into the gateware's request register and wait for the status (pix_locked, running, the mode) with a 1 s timeout.
 // True when the row came up; the screen is enabled either way.
 bool video_apply_gateware(int sys, int hdmi);
+// T222: does the gateware under this core scale the VIC's picture with a scale register (video_gw_has_scale)? And set that scale (VID_SCALE_*). Board side.
+bool video_gateware_vic_scale(void);
+bool video_set_scale_gateware(int scale);
 // Board side (D11b): a signature of the screen that is attached. False: nothing is attached (hot-plug low); then *sig is not touched. The
 // signature is made of the base block's checksum and extension count, read without the rest of the EDID.
 bool video_edid_sig(uint32_t *sig);

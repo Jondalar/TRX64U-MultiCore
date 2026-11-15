@@ -349,3 +349,10 @@
 1|c128_vicshow|7200|sh cores/c128/sim/run_vicshow.sh
 1|c128_act|120|sh cores/c128/sim/run_act.sh
 1|c128_vicpic_tear|3600|sh cores/c128/sim/run_vicpic_tear.sh
+# T222 (S1-S6): this core's copy of the host video files (cores/c64scpu/mono/host) with the HDMI rows and scales of TRX64-Ultimate's U16: the timing per row, the mode request / scale register, the TMDS bit repeater, vic_scaler on hdmi_timing (7 rows x 3 scales + 3 controls), c64_text's geometry, hdmi_out end to end (1080p50 and 576p50 from the GTP words)
+1|c64scpu_hdmi_timing|900|sh cores/c64scpu/sim/hdmi/run_one.sh tb_hdmi_timing.v
+1|c64scpu_mode_req|1800|sh cores/c64scpu/sim/hdmi/run_one.sh tb_mode_req.v && sh cores/c64scpu/sim/hdmi/run_one.sh tb_mode_req.v -DPHASE_I2C && sh cores/c64scpu/sim/hdmi/run_one.sh tb_mode_req.v -DPHASE_SCALE
+1|c64scpu_tmds_rep|300|sh cores/c64scpu/sim/hdmi/run_one.sh tb_tmds_rep.v
+1|c64scpu_scaler|2400|JOBS=3 sh cores/c64scpu/sim/hdmi/run_scaler.sh
+1|c64scpu_text_geom|1800|JOBS=3 sh cores/c64scpu/sim/hdmi/run_text.sh
+2|c64scpu_hdmi_out|9000|sh cores/c64scpu/sim/hdmi/run_hdmi_out.sh

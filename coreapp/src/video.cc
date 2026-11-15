@@ -106,6 +106,17 @@ void Video::set_scale_mode(int m)
 // mode's active area, the rest black. The canvas is told to the port first (the display is laid out for it), then its place in the output.
 void video_place_menu(PxPort *px, int hdmi, int sys)
 {
+    if (hdmi >= 0 && video_gateware_vic_scale()) {  // T222: the row the gateware really shows (video_gw_row_for): 1024 x 768 and 1280 x 1024 as 800 x 600, 800 x 600 at 50 Hz as 576p; PAL-60 runs the 60 Hz row
+        if (hdmi > VID_HDMI_800x600) {
+            hdmi = VID_HDMI_800x600;
+        }
+        if (hdmi == VID_HDMI_800x600 && sys != VID_SYS_NTSC60) {
+            hdmi = VID_HDMI_480_576;
+        }
+        if (sys == VID_SYS_PAL60) {
+            sys = VID_SYS_NTSC60;
+        }
+    }
     int fw = 0, fh = 0;
     video_active_size(hdmi, sys, &fw, &fh);
     if (fw <= 0 || fh <= 0) {
@@ -170,6 +181,10 @@ int Video::set_mode(int hdmi, int sys)
 {
     if (own_picture()) {                           // own picture: the mode is kept, there is no layout to move
         mode_ = hdmi;
+        if (video_gateware_vic_scale()) {          // T222: with U16's VIC scaler (c64scpu) the menu canvas follows the mode; other own-picture cores keep the start-time placement
+            sys_ = sys;
+            place_menu(hdmi, sys);
+        }
         return mode_;
     }
     if (gw_) {

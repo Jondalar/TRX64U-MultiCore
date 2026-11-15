@@ -1396,11 +1396,12 @@ module top #(
 
     // ---- HDMI: hdmi_out.v (T164 WP8, G1) holds the mode request, the synthesizer sequencer, mmcm_pix, the timing generator, the VIC path
     // (vic_scaler on the timing's counters), the menu overlay, the pixel layer, the freeze text, the encoder, the TMDS bit repeater and the
-    // GTPs. c64_type 1 (a C64-type core): the request is held to the System Mode's family and to the VIC-locked rows.
+    // GTPs. T222: every row of U16 D2 and the scale at 0x4F01; the request is held to the System Mode's family and to the seven VIC-locked rows
+    // (this core's mode_req is a C64-type one without a switch); vmode gives the encoder the clock rate of the System Mode.
     wire        gt_ready, video_locked_s;
     hdmi_out #(.SMOOTH(1)) hout (
         .clk50(clk50), .cpu_clk(cpu_clk), .sys_clk(sys_clk),
-        .cdce_rst(por_rst | ~clocks_ok), .gt_rst(gt_rst), .c64_type(1'b1), .fam_v60(mc_cdce_v60), .core_decouple(core_decouple),
+        .cdce_rst(por_rst | ~clocks_ok), .gt_rst(gt_rst), .fam_v60(mc_cdce_v60), .vmode(vmode),
         .refclk_p(HDMI_REFCLK_P), .refclk_n(HDMI_REFCLK_N),
         .data_p(HDMI_DATA_P), .data_n(HDMI_DATA_N), .clk_p(HDMI_CLK_P), .clk_n(HDMI_CLK_N),
         .scl_low(scl_low), .sda_low(sda_low), .i2c_done(i2c_done),
@@ -1478,7 +1479,7 @@ module top #(
     dfx_sync dcs_cpu  (.clk(cpu_clk), .i(core_decouple), .o(dc_cpu));
     dfx_sync dcs_mclk (.clk(mclk),    .i(core_decouple), .o(dc_mclk));
     dfx_sync dcs_ui   (.clk(ui_clk),  .i(core_decouple), .o(dc_ui));
-    // (the scaler locks to the new core's VIC frame after a swap: hdmi_out.v takes core_decouple)
+    // (T222: the U16 hdmi_out.v has no core_decouple input; this large core is never swapped while it runs)
 
     // l2's outputs as it drives them
     wire l2_IEC_ATN_O;
