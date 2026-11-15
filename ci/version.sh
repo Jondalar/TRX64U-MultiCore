@@ -25,5 +25,6 @@ case "$what" in
 esac
 printf '%s' "$base" | grep -Eq "$semver_re" || { echo "ci/version.sh: '$base' is not x.y.z ($what)" >&2; exit 1; }
 if [ "${GITHUB_REF_TYPE:-}" = tag ]; then printf '%s\n' "$base"; exit 0; fi
-sha8="${TRX_VERSION_SHA8:-$(git -C "$ROOT" rev-parse --short=8 HEAD)}"
+# the dev tree of tools/dev.sh is a fresh `git init` without a commit: 00000000 says so
+sha8="${TRX_VERSION_SHA8:-$(git -C "$ROOT" rev-parse --short=8 HEAD 2>/dev/null || echo 00000000)}"
 printf '%s-dev+%s\n' "$base" "$sha8"
