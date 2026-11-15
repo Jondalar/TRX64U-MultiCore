@@ -89,7 +89,7 @@ module hdmi_out #(
     output wire        video_locked_s,   // clk50: the picture is up (and locked to the VIC where the VIC path is in use)
     output reg  [31:0] hdmi_meas         // sys_clk: {gt_ready, pix_locked, locked, 0, frames in the last second (12), pixel clocks per frame / 256 (16)}
 );
-`include "hdmi_modes.vh"
+`include "scpu_hdmi_modes.vh"
 
     // ---- clocks: usrclk from the GTPs, pix_clk = 2 x usrclk from mmcm_pix
     wire        usrclk;

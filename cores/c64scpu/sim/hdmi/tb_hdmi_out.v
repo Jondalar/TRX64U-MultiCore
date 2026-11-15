@@ -9,12 +9,12 @@
 //   - every data island: BCH parity, AVI InfoFrame (checksum, PR = 0, VIC, picture aspect), ACR (N = 6144, CTS against the pixel clock), audio sample
 //     packets (the samples the bench hands over arrive in order, none lost or repeated), SPD, audio InfoFrame, one island per line
 // Before that, in MODE 0 the request 0x4F00 = 0 goes through the overlay window; the status registers 0x4F04..07 are read back in both modes.
-// Time unit 1 fs: the 1080p50 pixel clock and the VIC dot clock are in the exact ratio 6875 / 1456 of the lock (hdmi_modes.vh).
+// Time unit 1 fs: the 1080p50 pixel clock and the VIC dot clock are in the exact ratio 6875 / 1456 of the lock (scpu_hdmi_modes.vh).
 `timescale 1fs/1fs
 module tb;
     parameter MODE = 2;
     localparam CHK = 1;
-`include "hdmi_modes.vh"
+`include "scpu_hdmi_modes.vh"
     localparam [104:0] ROW = hm_row(MODE);
     localparam [6:0]  R_VIC  = ROW[104:98];
     localparam integer GEAR  = ROW[97:94];

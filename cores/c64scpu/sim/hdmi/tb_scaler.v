@@ -17,7 +17,7 @@
 // align line 70 lines late (the ring overtaken), 3 the horizontal step hd one larger (wrong pixels, window size).
 `timescale 1ns/1fs
 module tb;
-`include "hdmi_modes.vh"
+`include "scpu_hdmi_modes.vh"
     localparam X0 = 96, Y0 = 16, Y0_60 = 31;      // vic_scaler.v, tools/hdmi_modes.py
     integer m, sc, sc2, extra, NF, mut;
     integer fam, XMAX, YMAX, N, M, g, ha, va, htot, vtot, xa0, ya0, wln;
@@ -32,7 +32,7 @@ module tb;
         if (!$value$plusargs("mut=%d", mut)) mut = 0;
         fam = m >= 6;
         dot4x = fam ? 50.0e6 * 47.125 / 3.0 / 24.0 : 50.0e6 * 56.75 / 3.0 / 30.0;   // NTSC / PAL (mode_ctl.v)
-        case (m)        // the CDCE's N / M per row (hdmi_modes.vh hm_cdce_lock, tools/hdmi_modes.py)
+        case (m)        // the CDCE's N / M per row (scpu_hdmi_modes.vh hm_cdce_lock, tools/hdmi_modes.py)
         0: begin N = 25;  M = 7;   end
         1, 2: begin N = 55; M = 14; end
         6: begin N = 16;  M = 5;   end

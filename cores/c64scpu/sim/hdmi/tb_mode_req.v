@@ -6,7 +6,7 @@
 // read back over the same bus. The pixel clock stops for the retune as on the board.
 // Phase 1 (default): every request value 0..15 after every other, then 0x10 / 0xFF / 0x12 / 0x8C, in family 0 and then in family 1;
 // a family change (System Mode) restarts the synthesizer on the other family's row with no request, 800 x 600 going to 576p at 50 Hz. The expected behaviour (accepted,
-// refused, the row in use, the clocks per frame) is written out below, not read from hdmi_modes.vh.
+// refused, the row in use, the clocks per frame) is written out below, not read from scpu_hdmi_modes.vh.
 // Phase 2 (+i2c): for every effective row of both families, the CDCE transactions: two writes of C8 14 08 57 00 01 01 + the 4 bytes of
 // the row (written out below, from tools/hdmi_modes.py table).
 // Phase 3 (+scale): 0x4F01 takes 0, 1, 2 and refuses everything else (3, 4, 0x80, 0xFF: nothing changes); the scale reaches

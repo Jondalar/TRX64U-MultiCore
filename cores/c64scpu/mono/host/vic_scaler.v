@@ -15,7 +15,7 @@
 //
 // The window: 400 x 270 VIC pixels from raster (X0, Y0) at 50 Hz; 400 x 240 from (X0, Y0_60) at 60 Hz (T40, 65 x 263: the window runs
 // from line 31 through 262 into 0-7 of the next frame). X0, Y0 and Y0_60 are the ones
-// tools/hdmi_modes.py computes the geometry and the align lines with. hm_geom(mode, scale) (hdmi_modes.vh) gives the steps, hn / hd VIC
+// tools/hdmi_modes.py computes the geometry and the align lines with. hm_geom(mode, scale) (scpu_hdmi_modes.vh) gives the steps, hn / hd VIC
 // pixels per output pixel and vn / vd VIC lines per output line (each <= 1), and the window's first output pixel / line (xw0, yw0)
 // relative to the active origin. One accumulator per axis: the horizontal one is held at 0 for every pixel left of the window (and in
 // the blanking), the vertical one for every line above it; inside, each output pixel (line) adds hn (vn) and moves on one VIC pixel
@@ -68,7 +68,7 @@ module vic_scaler #(
     output reg  [9:0]  x_text,          // calibration: raster x of the first background pixel on line 200 (vclk)
     input  wire        scan             // T62 G09: darken the last output line of every VIC line (any clock, static)
 );
-`include "hdmi_modes.vh"
+`include "scpu_hdmi_modes.vh"
     localparam [9:0] X0    = 10'd96;      // tools/hdmi_modes.py X0
     localparam [8:0] Y0    = 9'd16;       // tools/hdmi_modes.py Y0[0]
     localparam [8:0] Y0_60 = 9'd31;       // tools/hdmi_modes.py Y0[1]

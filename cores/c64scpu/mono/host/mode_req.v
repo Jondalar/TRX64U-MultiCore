@@ -2,7 +2,7 @@
 // U16 D4: the HDMI mode request, the picture's scale and their status, in the overlay window of the application (0x10140000, byte
 // addresses 0x4Fxx; overlay.v decodes nothing there). Ported from TRX64U-MultiCore's host/mode_req.v (T164 WP7 there); this design is a
 // C64-type core (c64_type = 1, a constant here) and adds the scale (U16 D3).
-//   write 0x4F00  request = family * 6 + hdmi (hdmi_modes.vh). A value with bits 7:4 set or above 11 is refused; otherwise its family
+//   write 0x4F00  request = family * 6 + hdmi (scpu_hdmi_modes.vh). A value with bits 7:4 set or above 11 is refused; otherwise its family
 //                 part is replaced by fam_v60 (mode_ctl cdce_v60, the System Mode) and the row so named must be locked (hm_locked: the
 //                 seven rows of U16 D2), else it is refused. Refused: nothing changes, the CDCE is not touched.
 //   write 0x4F01  scale: 0 Integer, 1 Fit, 2 Fill (U16 D3). Any other value is refused and nothing changes (it touches neither the
@@ -42,7 +42,7 @@ module mode_req (
     input  wire        running,            // hdmi_timing.running (clk_pix)
     input  wire [3:0]  mode_q              // hdmi_timing.mode_q (clk_pix)
 );
-`include "hdmi_modes.vh"
+`include "scpu_hdmi_modes.vh"
     // ---- clk_sys: the writes
     reg  [7:0] req_val = 8'd2;
     reg        req_tgl = 1'b0;

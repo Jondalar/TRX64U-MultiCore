@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // U16 D6: the HDMI mode timing generator, ported from TRX64U-MultiCore's host/hdmi_timing.v (T164 WP2 there). One row of
-// hdmi_modes.vh (tools/hdmi_modes.py gen) is taken while rst is high and kept; the generator then runs free. A mode that is not in the
+// scpu_hdmi_modes.vh (tools/hdmi_modes.py gen) is taken while rst is high and kept; the generator then runs free. A mode that is not in the
 // table (hm_valid 0) is refused: `valid` is 0 and the generator never starts (`running` stays 0). mode_req.v never hands one down.
 //
 // `align`: a level from vic_scaler (held until a ce takes it); on a locked row (every row of this design, hm_locked) it restarts the frame
@@ -23,7 +23,7 @@
 module hdmi_timing (
     input  wire        clk,
     input  wire        rst,             // sync to clk; mode is taken while it is high
-    input  wire [3:0]  mode,            // family * 6 + hdmi (hdmi_modes.vh)
+    input  wire [3:0]  mode,            // family * 6 + hdmi (scpu_hdmi_modes.vh)
     input  wire        align,           // level (clk), taken at a ce: re-phase the frame on a locked row
     output wire        valid,           // the captured mode is a row of the table
     output reg         aligned,         // an align pulse was accepted since rst
@@ -50,7 +50,7 @@ module hdmi_timing (
     output reg  [2:0]  ph_e,
     output wire [3:0]  mode_q           // the mode this generator runs (JTAG read-out)
 );
-`include "hdmi_modes.vh"
+`include "scpu_hdmi_modes.vh"
 
     // ---- the mode: captured while rst, derived values a clock later (rst is held for several clocks, running waits for them)
     reg  [3:0]   m = 4'd2;

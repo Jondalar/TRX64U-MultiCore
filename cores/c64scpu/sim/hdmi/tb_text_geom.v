@@ -9,7 +9,7 @@
 // No line may be late (TX_STATUS lines not drawn = 0). +mut=1 (control, must FAIL): hd one larger.
 `timescale 1ns/1ps
 module tb;
-`include "hdmi_modes.vh"
+`include "scpu_hdmi_modes.vh"
     integer m, sc, mut, fails = 0;
     reg clk = 0, cclk = 0, sclk = 0;
     always #3.35 clk = ~clk;           // the pixel clock (its exact rate does not matter here)

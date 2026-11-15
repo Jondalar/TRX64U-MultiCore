@@ -4,7 +4,7 @@
 // vtot x gear), pixel enables (htot x vtot), active pixels (hact x vact), the position and width of the hsync pulse and of the vsync
 // pulse and their polarity, the first active pixel and line, that every pixel value is held for gear clocks, and the frame rate
 // rate/clocks against the VIC frame (50.124 Hz PAL, 59.823 Hz NTSC; 0.1 %). The expected geometry is written out here from Gideon's
-// table (hdmi_scan.cc) with row 6's one line more (vfp 11, U16 D2), not read from hdmi_modes.vh. Then: the modes that are not rows (3,
+// table (hdmi_scan.cc) with row 6's one line more (vfp 11, U16 D2), not read from scpu_hdmi_modes.vh. Then: the modes that are not rows (3,
 // 4, 5, 10..15) are refused (valid 0, running and ce stay 0); an align level in the middle of the frame re-phases every row (all are
 // locked) to the active origin.
 //   sh cores/c64scpu/sim/hdmi/run_one.sh tb_hdmi_timing.v

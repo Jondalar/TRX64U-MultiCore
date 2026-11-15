@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// U16: programs the CDCE(L)913/CDCEL824-type clock synthesizer at I2C address 0x64 for the HDMI mode `mode` (hdmi_modes.vh,
+// U16: programs the CDCE(L)913/CDCEL824-type clock synthesizer at I2C address 0x64 for the HDMI mode `mode` (scpu_hdmi_modes.vh,
 // family * 6 + hdmi). Ported from TRX64U-MultiCore's host/cdce_mode.v (T164 WP7 there), which grew out of this design's cdce_i2c.v:
 // the same sequence as the U64-II bootloader (block write of 8 bytes from register 0x14, Pdiv2/Pdiv3 = 1, sent twice), with PLL1's
 // registers 0x18..0x1B from hm_cdce_lock(mode) instead of the two System Mode blobs. Every row of this design is locked: its N/M makes
@@ -17,7 +17,7 @@ module cdce_mode (
     output reg        done,
     input  wire [3:0] mode
 );
-`include "hdmi_modes.vh"
+`include "scpu_hdmi_modes.vh"
     wire [31:0] pll = hm_cdce_lock(mode);
     localparam NBYTES = 11;
     function [7:0] byte_at; input [3:0] i;
