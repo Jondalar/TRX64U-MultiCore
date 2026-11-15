@@ -9,13 +9,13 @@
 #   old     the control, the way the application started a program before T217 (RAM window and keyboard buffer only): the program must NOT run - the bench cannot pass
 #           for the reason that the program ran by itself
 #   C64_ROMDIR=<dir with scpu64*, basic*901226*, kernal*901227*, char*901225* files> sh cores/c64scpu/sim/run_prgrun.sh [basic|ml|old]...     (default: all three)
-# PRG_AT_US (default 4000000: after READY, see the "scr|" lines of the first case) and PRG_MS (default 8500: simulated milliseconds) can be set.
+# PRG_AT_US (default 3700000: after READY, see the "scr|" lines of the first case) and PRG_MS (default 8500: simulated milliseconds) can be set.
 set -u
 here=$(cd "$(dirname "$0")" && pwd)
 root=$(cd "$here/../../.." && pwd)
 build=${C64SCPU_RBUILD:-$here/build_real}
 : "${C64_ROMDIR:?set C64_ROMDIR to the directory with the ROM files}"
-at=${PRG_AT_US:-4000000}; ms=${PRG_MS:-8500}
+at=${PRG_AT_US:-3700000}; ms=${PRG_MS:-5000}
 cases=${*:-"basic ml old"}
 if [ ! -x "$build/obj/tb_c64scpu" ]; then
   C64SCPU_SIM_DEFS="${C64SCPU_SIM_DEFS:-SID_REDIP NO_TURBO NO_REU TRX_SIM_ROMS}" sh "$here/build_machine.sh" "$build" || exit 1

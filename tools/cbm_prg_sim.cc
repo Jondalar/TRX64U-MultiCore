@@ -1,11 +1,11 @@
 // T217: the writer of the real-ROM program-start benches (cores/c64scpu/sim/run_prgrun.sh, cores/c128/sim/run_prgrun.sh). It places a .prg with the SAME library
 // code and the SAME numbers the core application uses on the board (app/loaders/cbm_prg.cc; coreapp/cores/c64scpu_prg.h, c128_prg.h; the key matrix of
 // cbm_run.cc's typed start) against a recording model of the machine, and writes what reached the machine as the bench's script:
-//   W|<DDR2 byte address, hex>|<byte>     the application's write into the DDR2 window (the SuperCPU's SRAM)
-//   R|<C64 RAM address, hex>|<byte>       the application's write into the RAM window
-//   F|1                                   the CPU cache flush (ROM_CTRL.b0) that follows the placement
-//   K|<ms after the start>|<64 bit hex>   the key matrix the application presses, in time
-//   I|text                                the log line the board prints
+//   1 <DDR2 byte address, hex> <byte>      the application's write into the DDR2 window (the SuperCPU's SRAM)
+//   2 <C64 RAM address, hex> <byte>        the application's write into the RAM window
+//   3 1                                    the CPU cache flush (ROM_CTRL.b0) that follows the placement
+//   4 <ms after the start> <64 bit hex>    the key matrix the application presses, in time
+//   0 text                                 the log line the board prints
 // Usage: cbm_prg_sim <scpu|c128> <new|old> <file.prg>
 //   new  the way the application starts a program now (T217); old  what it did before (the RAM window and the keyboard buffer only: the control of the bench)
 // The state the machine is in at READY is preset: BASIC's TXTTAB points at the start of BASIC (the bench checks it afterwards against the real ROM).
@@ -53,14 +53,14 @@ int main(int argc, char **argv)
     CbmPrgResult r;
     char msg[200] = "";
     if (cbm_prg_place(&io, file.data(), (uint32_t)n, p, false, &r, msg, sizeof(msg))) { fprintf(stderr, "place: %s\n", msg); return 1; }
-    printf("I|%s: $%04X-$%04X, %s\n", scpu ? "c64scpu" : "c128", r.load, (unsigned)(r.end - 1) & 0xFFFF, r.basic ? "RUN" : "SYS");
-    for (auto &w : io.dw) printf("W|%x|%02x\n", 0x01000000u + w.first, w.second);
-    for (auto &w : io.rw) printf("R|%x|%02x\n", w.first, w.second);
-    if (p.mem_ddr) printf("F|1\n");
+    printf("0 %s: $%04X-$%04X, %s\n", scpu ? "c64scpu" : "c128", r.load, (unsigned)(r.end - 1) & 0xFFFF, r.basic ? "RUN" : "SYS");
+    for (auto &w : io.dw) printf("1 %x %02x\n", 0x01000000u + w.first, w.second);
+    for (auto &w : io.rw) printf("2 %x %02x\n", w.first, w.second);
+    if (p.mem_ddr) printf("3 1\n");
     if (!neu || !scpu) {                                // the keyboard buffer: the old way, and the C128's (its CPU reads the window's RAM)
         io.rw.clear();
         cbm_prg_type_start(&io, p, r);
-        for (auto &w : io.rw) printf("R|%x|%02x\n", w.first, w.second);
+        for (auto &w : io.rw) printf("2 %x %02x\n", w.first, w.second);
         return 0;
     }
     char line[32];
@@ -70,10 +70,10 @@ int main(int argc, char **argv)
         CbmKey k;
         if (!cbm_key_for((uint8_t)*c, &k)) { fprintf(stderr, "no key for %02x\n", *c); return 1; }
         uint64_t key = 1ull << k.idx, sh = 1ull << 15;
-        if (k.shift) { printf("K|%u|%016llx\n", t, (unsigned long long)sh); t += 40; key |= sh; }
-        printf("K|%u|%016llx\n", t, (unsigned long long)key);
+        if (k.shift) { printf("4 %u %016llx\n", t, (unsigned long long)sh); t += 40; key |= sh; }
+        printf("4 %u %016llx\n", t, (unsigned long long)key);
         t += SCPU_KEY_HOLD_MS;
-        printf("K|%u|%016llx\n", t, 0ull);
+        printf("4 %u %016llx\n", t, 0ull);
         t += SCPU_KEY_GAP_MS;
     }
     return 0;

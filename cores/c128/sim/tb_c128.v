@@ -431,11 +431,11 @@ module tb_c128;
 `endif
         $display("evt| injected %0d bytes at %0t", inj_n, $time);
     end
-    // +PRG_AT=<us> (T217, run_prgrun.sh): at that time mem/prgscript.txt is replayed - what the application does to start a program (tools/cbm_prg_sim.cc): R|addr|byte
-    // writes into RAM block 0 (the RAM window; the same places as +INJECT_AT: the DDR2 model, the pinned slots, the CPU's line cache emptied), K|ms|hex64 the key matrix
+    // +PRG_AT=<us> (T217, run_prgrun.sh): at that time mem/prgscript.txt is replayed - what the application does to start a program (tools/cbm_prg_sim.cc): 2 addr byte
+    // writes into RAM block 0 (the RAM window; the same places as +INJECT_AT: the DDR2 model, the pinned slots, the CPU's line cache emptied), 4 ms hex64 the key matrix
     integer pg_us, pg_fd, pg_n, pg_ms, pg_prev, pg_nr = 0, pg_nk = 0;
     reg [8*80-1:0] pg_line;
-    reg [7:0] pg_t;
+    integer pg_t;
     reg [31:0] pg_a;
     reg [7:0]  pg_b;
     reg [63:0] pg_k;
@@ -447,8 +447,9 @@ module tb_c128;
         while (pg_fd != 0 && !$feof(pg_fd)) begin
             pg_n = $fgets(pg_line, pg_fd);
             if (pg_n != 0) begin
-                pg_n = $sscanf(pg_line, "%c|%h|%h", pg_t, pg_a, pg_b);
-                if (pg_t == "R") begin
+                pg_n = $sscanf(pg_line, "%d", pg_t);
+                if (pg_t == 1 || pg_t == 2) pg_n = $sscanf(pg_line, "%d %h %h", pg_t, pg_a, pg_b);
+                if (pg_t == 2) begin
                     pg_x = {1'b0, pg_a[15:0]};
 `ifdef RAM_DDR2
                     ddr.mem[8192 + pg_x[16:4]][8 * pg_x[3:0] +: 8] = pg_b;
@@ -460,8 +461,8 @@ module tb_c128;
                     if (pg_x[0]) dut.mem.ram_hi[{pg_x[16], pg_x[15:1]}] = pg_b; else dut.mem.ram_lo[{pg_x[16], pg_x[15:1]}] = pg_b;
 `endif
                     pg_nr = pg_nr + 1;
-                end else if (pg_t == "K") begin
-                    pg_n = $sscanf(pg_line, "K|%d|%h", pg_ms, pg_k);
+                end else if (pg_t == 4) begin
+                    pg_n = $sscanf(pg_line, "%d %d %h", pg_t, pg_ms, pg_k);
                     #((pg_ms - pg_prev) * 1000000.0);
                     pg_prev = pg_ms;
                     keys = pg_k;
