@@ -896,7 +896,7 @@ static lv_obj_t *question_card(lv_obj_t *top, const DlgView &v)
             lines += *p == '\n';
         }
         int rows = (v.kind == DK_CHOOSE || v.kind == DK_PICK_FILE || v.kind == DK_PICK_FOLDER) ? (v.rows < 1 ? 1 : v.rows) : 0;
-        int h = 22 + 30 + (v.text[0] ? 16 * (lines < 8 ? lines : 8) + 8 : 0) + (rows ? rows * (trx_row_h() + 1) + 24 : 0) +
+        int h = 22 + 30 + (v.text[0] ? 16 * (lines < 14 ? lines : 14) + 8 : 0) + (rows ? rows * (trx_row_h() + 1) + 24 : 0) +
                 (v.kind == DK_TEXT ? 44 : 0) + (v.kind == DK_BUTTONS || v.kind == DK_MESSAGE ? 44 : 0) + 34;
         if (h > SH - 70) {
             h = SH - 70;
@@ -911,7 +911,7 @@ static lv_obj_t *question_card(lv_obj_t *top, const DlgView &v)
             g_qtxt = tl;
             lv_label_set_long_mode(tl, LV_LABEL_LONG_MODE_WRAP);
             lv_obj_set_width(tl, w - 2 * t.space_lg);
-            cy += 16 * (lines < 8 ? lines : 8) + 8;
+            cy += 16 * (lines < 14 ? lines : 14) + 8;
         }
         if (v.kind == DK_TEXT) {
             lv_obj_t *box = trx_box(card, t.space_lg, cy, w - 2 * t.space_lg, 28, t.bg, 1, t.accent);

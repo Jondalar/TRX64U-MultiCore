@@ -122,6 +122,8 @@ Parts:
   No bench run (Alex 2026-11-15: no benches before a merge); proof is the RISC-V build and the board step S7.
   Fix after the first board run (Alex: "the screen keeps rebuilding all the time"): the counters were a 1 s timed question closed and reopened in a loop; now one
   `AppDlg::buttons_live` question without a timer, `live(ud)` refills the buffer once a second on the menu task and `ui.cc` sets the label text in place (`g_qtxt`).
+  Fix 2 (text cut, never seen on screen): compact counter text (about 13 lines), `DlgView.text` 300 -> 520, card height cap 8 -> 14 lines, title without "(1 of 1)";
+  ran in ue2emu on the new `diag` profile (no pad: counters 0): start, "Running N s" ticking in place, NO, ESC (left arrow, stops, report), YES (report written).
 - **Board step S7:** copy nothing: the diag core writes the three files to `/SD/cores/diag/tests/` at its start. Start the diag core, run `xpad20` from the file
   browser, then plug the Series pad in, tap Up 20 times slowly (also Down, Left, Right, A, B), photograph the screen, YES. The same with `xpad4`, then `xpad4noack`.
   Reading: press = release = 20 and no sequence gaps with 4 ms but fewer with 20 ms = A; losses also at 4 ms, or OUT failed / slow, or losses vanish with

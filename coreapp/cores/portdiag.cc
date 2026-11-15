@@ -214,8 +214,7 @@ public:
     }
     int question_live(const char *title, const char *text, void (*live)(void *), void *ud) override
     {
-        char t[128], x[8];
-        portdiag_question_text(title, "", 1, 1, t, sizeof(t), x, sizeof(x));      // the title with its position; the test's own text carries its keys
+        const char *t = title;                         // the live test is one screen: no "1 of 1"; its own text carries the keys
         int a = g_host->ask_live(t, text, live, ud);
         return a > 0 ? DUI_CONTINUE : a == 0 ? DUI_SKIP : DUI_ABORT;
     }

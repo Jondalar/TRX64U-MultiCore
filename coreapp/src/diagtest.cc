@@ -2464,19 +2464,20 @@ static int run_xpadtest(DiagEnv *env, const XpadTest &t, DiagOutcome *out)
     char *txt = g_text, *scr = g_text + 1200;             // the file is parsed: its buffer is free (no new static RAM)
     const int TXT_N = 1200, SCR_N = 1700;
     char title[96];
-    snprintf(title, sizeof(title), "%s (poll %d ms, ack of input %s)", t.name[0] ? t.name : t.id, t.poll_ms, t.ack_input ? "on" : "off");
+    snprintf(title, sizeof(title), "%s", t.name[0] ? t.name : t.id);
     bool aborted = false;
     uint32_t t0 = env->now_ms();
     struct Live {
         DiagEnv *env;
         char *txt, *scr;
-    } lv = { env, txt, scr };
+        uint32_t t0;
+    } lv = { env, txt, scr, t0 };
     auto fill = [](void *p) {                         // the dialog's text, rewritten in place once a second (the menu task calls it)
         Live *l = (Live *)p;
         l->env->xpad_text(l->env->xpad_ud, l->txt, TXT_N);
-        snprintf(l->scr, SCR_N, "Tap D-pad up 20 times slowly, then Down, Left, Right, A, B: press = release = 20 means nothing was lost.\n"
-                                  "Replug the pad first if the programmed interval below is not the wanted one.\n\n%s\n"
-                                  "YES: finish and write the report.   NO: zero the counters.   ESC: stop.", l->txt);
+        snprintf(l->scr, SCR_N, "Tap Up 20x slowly, then Down, Left, Right, A, B.\n"
+                                  "Press = release = 20: nothing lost. Replug if the interval is wrong.\n\n%s\n"
+                                  "Running %u s   YES: write report   NO: zero counters   ESC: stop", l->txt, (unsigned)((l->env->now_ms() - l->t0) / 1000));
     };
     for (;;) {
         fill(&lv);

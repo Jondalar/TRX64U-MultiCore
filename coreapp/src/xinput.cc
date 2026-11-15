@@ -226,21 +226,19 @@ int xi_stats_text(char *out, int cap, uint32_t cb_per_s)
     if (!s.attached) {
         ADD("No XInput pad claimed. Plug the pad in (or replug it).\n");
     } else {
-        ADD("Pad %04X:%04X %s  IN bInterval %u ms, max packet %u\n", s.vid, s.pid, s.kind == XI_GIP ? "GIP" : "360", (unsigned)s.ep_interval,
-            (unsigned)s.ep_maxpkt);
-        ADD("Programmed %u x 125 us = %u ms   wanted by the test: %d ms\n", (unsigned)s.programmed, (unsigned)(s.programmed / 8), xi_cfg.poll_ms);
+        ADD("%04X:%04X %s  bInterval %u ms  max %u  programmed %u ms (want %d)\n", s.vid, s.pid, s.kind == XI_GIP ? "GIP" : "360", (unsigned)s.ep_interval,
+            (unsigned)s.ep_maxpkt, (unsigned)(s.programmed / 8), xi_cfg.poll_ms);
     }
-    ADD("Ack of input: %s\n", xi_cfg.ack_input ? "on" : "off");
-    ADD("Callbacks %u (%u/s, empty %u)\n", (unsigned)s.cb, (unsigned)cb_per_s, (unsigned)s.cb_empty);
-    ADD("0x20 input %u   0x07 guide %u   0x03 keepalive %u   other %u\n", (unsigned)s.cmd20, (unsigned)s.cmd07, (unsigned)s.cmd03, (unsigned)s.cmd_other);
-    ADD("Ack bit set: on 0x20 %u, on others %u\n", (unsigned)s.ackbit20, (unsigned)s.ackbit_other);
-    ADD("Acks queued %u, queue full %u\n", (unsigned)s.ack_queued, (unsigned)s.ack_dropped);
-    ADD("OUT writes ok %u, failed %u, slowest %u ms\n", (unsigned)s.out_ok, (unsigned)s.out_fail, (unsigned)s.out_ms_max);
-    ADD("Sequence gaps in 0x20: %u (%u messages lost)\n", (unsigned)s.seq_gaps, (unsigned)s.seq_lost);
+    ADD("Ack of input %s   cb/s %u  total %u  empty %u\n", xi_cfg.ack_input ? "on" : "off", (unsigned)cb_per_s, (unsigned)s.cb, (unsigned)s.cb_empty);
+    ADD("0x20 %u  0x07 %u  0x03 %u  other %u  ack-bit %u/%u\n", (unsigned)s.cmd20, (unsigned)s.cmd07, (unsigned)s.cmd03, (unsigned)s.cmd_other,
+        (unsigned)s.ackbit20, (unsigned)s.ackbit_other);
+    ADD("Acks queued %u full %u   OUT ok %u fail %u max %u ms\n", (unsigned)s.ack_queued, (unsigned)s.ack_dropped, (unsigned)s.out_ok, (unsigned)s.out_fail,
+        (unsigned)s.out_ms_max);
+    ADD("Seq gaps %u (lost %u)\n", (unsigned)s.seq_gaps, (unsigned)s.seq_lost);
     static const char *const nm[6] = { "Up", "Down", "Left", "Right", "A", "B" };
-    ADD("Edges press/release:\n");
+    ADD("Press/release:\n");
     for (int i = 0; i < 6; i++) {
-        ADD("%s %u/%u%s", nm[i], (unsigned)s.press[i], (unsigned)s.release[i], i < 5 ? "   " : "\n");
+        ADD("%s %u/%u%s", nm[i], (unsigned)s.press[i], (unsigned)s.release[i], i < 5 ? "  " : "\n");
     }
 #undef ADD
     return n < cap ? n : cap - 1;

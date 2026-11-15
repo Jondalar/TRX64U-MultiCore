@@ -26,7 +26,7 @@ enum DlgKind { DK_NONE = 0, DK_MESSAGE, DK_BUTTONS, DK_CHOOSE, DK_TEXT, DK_PICK_
 struct DlgView {
     int kind;                             // DlgKind; DK_NONE: no question open
     char title[64];
-    char text[300];
+    char text[520];
     char input[DLG_TEXT_MAX + 1];         // text(): what was typed; the pickers: the folder
     int caret;                            // text(): the cursor, in characters
     int nitems;                           // choose(), pickers: how many rows there are
