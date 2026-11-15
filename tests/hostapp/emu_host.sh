@@ -69,7 +69,7 @@ else echo "FAIL host->vc20->menu->host: $why (see $out/flow.log)"; FAIL=1; fi
 # RETURN on a mode applies it. The emulator has no mode request register (hv_gateware() is false: "the old firmware path"), so the 8 s question and the
 # revert do not exist here: the render bench (tests/hostapp/render, picnote_*.png) is their proof.
 pic_flow() { printf 'wait 15000\nkey space\nwait 800\nkey f3\nwait 1500\nkey down\nwait 500\nkey down\nwait 500\nkey return\nwait 2000\n'
-             printf 'key down\nwait 500\nkey return\nwait 2000\nkey down\nwait 500\nkey down\nwait 6000\nkey a\nwait 8000\nkey f1\nwait 2000\npng %s/host-home.png\nkey pageup\nwait 1500\npng %s/host-pageup.png\nkey pagedown\nwait 1500\npng %s/host-pagedown.png\nkey f8\nwait 1500\npng %s/host-f8-list.png\nkey v\nwait 1500\npng %s/host-picture-page.png\n' "$out" "$out" "$out" "$out" "$out"
+             printf 'key down\nwait 500\nkey return\nwait 2000\nkey down\nwait 500\nkey down\nwait 6000\nkey a\nwait 8000\nkey f1\nwait 2000\npng %s/host-home.png\nusbkey pageup\nwait 1500\npng %s/host-pageup.png\nusbkey pagedown\nwait 1500\npng %s/host-pagedown.png\nkey f8\nwait 1500\npng %s/host-f8-list.png\nkey v\nwait 1500\npng %s/host-picture-page.png\n' "$out" "$out" "$out" "$out" "$out"
              printf 'key down\nwait 300\nkey return\nwait 4000\npng %s/host-picture-applied.png\nquit\n' "$out"; }
 run_pic() {
     local w="$out/work-pic"
@@ -78,7 +78,7 @@ run_pic() {
     pic_flow > "$w/flow.ctl"
     cp "$kit/flash.bin" "$out/pic-flash.bin"
     ( cd "$w" && nice -n 15 timeout 300 "$UE2EMU" run --board c64u --trx-io=on --icap --cor-dir "$w/cors" --core-dir "$w/profiles" --firmware "$img/hostapp_emu.elf" \
-        --roms "$kit/roms" --flash "$out/pic-flash.bin" --usb-dir "$w/stick" --usb-dir-work "$w/usbwork" --headless --speed max --script "$w/flow.ctl" \
+        --roms "$kit/roms" --flash "$out/pic-flash.bin" --usb-dir "$w/stick" --usb-dir-work "$w/usbwork" --usb-keyboard --headless --speed max --script "$w/flow.ctl" \
         --max-seconds 280 > "$out/pic.log" 2>&1 )
     local rc=$?
     rm -rf "$w" "$out/pic-flash.bin"
