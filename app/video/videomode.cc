@@ -222,6 +222,9 @@ bool video_gw_has_scale(const GwStatus &st)
 
 int video_gw_row_for(const GwStatus &st, int sys, int hdmi)
 {
+    if (video_gw_has_scale(st) && sys == VID_SYS_PAL60) {
+        sys = VID_SYS_NTSC60;                      // T222: the gateware runs the 60 Hz family for PAL-60, and reports that row back (0x4F07)
+    }
     if (video_gw_has_scale(st) && hdmi > VID_HDMI_800x600) {
         hdmi = VID_HDMI_800x600;
     }

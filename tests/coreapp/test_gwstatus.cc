@@ -148,6 +148,7 @@ int main()
         CHECK_EQ(video_gw_row_for(s, VID_SYS_PAL50, VID_HDMI_1280x1024), 0);
         CHECK_EQ(video_gw_row_for(s, VID_SYS_PAL50, VID_HDMI_720P), 1);
         CHECK_EQ(video_gw_row_for(s, VID_SYS_NTSC60, VID_HDMI_480_576), 6);
+        CHECK_EQ(video_gw_row_for(s, VID_SYS_PAL60, VID_HDMI_1080P), 8);            // T222: PAL-60 runs the 60 Hz row, the gateware reports 8 back
         s.version = 1; s.flags = 0;                                                 // any other gateware: the plain index
         CHECK_EQ(video_gw_row_for(s, VID_SYS_NTSC60, VID_HDMI_1280x1024), 11);
         CHECK_EQ(video_gw_row_for(s, VID_SYS_PAL50, VID_HDMI_800x600), 3);
