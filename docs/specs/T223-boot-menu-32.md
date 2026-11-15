@@ -36,6 +36,7 @@
 - **D3:** the full-menu note says the menu is full and how many it holds, and what to do; the other refusal (a `|` or line break in the name) keeps its own text.
 - **D4 (Alex, 2026-11-15, Q1 "T223 ja", after the mock-ups h5a/h5b; answers Q1; named D1 in the coordinator's note):** large cores get configs and the RIGHT overlay too (including T224's "Boot safe graphics mode"); the host hands the choice over through a small file on the SD before the full-firmware start, and the large core's core app reads it (no gateware). Not built yet.
 - **D5 (Alex, 2026-11-15, translated: "but please like a table in the boot menu view: corename / Auto / config / picto"; named D2 in the coordinator's note):** the boot menu row becomes aligned columns: core name | Auto | config | status pictogram. Not built yet; open: whether the version column stays (T221 D13/D16 put an L/P badge next to the version), being asked with mock-ups first. Amends T209 D16/D20 if the version goes.
+- **D6 (Alex, 2026-11-15, after mock-ups t1a/t1b, translated: "Boot menu: b, but please do not waste the column on the config name. A \"config\" or a \"C\" is enough"):** the version column with the L/P badge stays (t1b). The config column is narrow: a short marker ("C" or "config") on rows that have configs, nothing otherwise; no config name in the row. RIGHT still opens the overlay.
 
 ## §4 Out
 
