@@ -179,10 +179,12 @@ void Video::select_picture(int n)
 
 int Video::set_mode(int hdmi, int sys)
 {
-    if (own_picture()) {                           // own picture: the mode is kept, there is no layout to move; the menu canvas follows the mode (T222: it was placed once, at the start)
+    if (own_picture()) {                           // own picture: the mode is kept, there is no layout to move
         mode_ = hdmi;
-        sys_ = sys;
-        place_menu(hdmi, sys);
+        if (video_gateware_vic_scale()) {          // T222: with U16's VIC scaler (c64scpu) the menu canvas follows the mode; other own-picture cores keep the start-time placement
+            sys_ = sys;
+            place_menu(hdmi, sys);
+        }
         return mode_;
     }
     if (gw_) {
