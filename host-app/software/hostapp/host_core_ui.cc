@@ -514,7 +514,7 @@ void cfgov_open(int ctx, HcUiResult *res)
             *dot = 0;
         }
     }
-    if (hc_is_full(path)) {
+    if (cfw_is_name(path)) {                         // T223 D4: a large .cor takes configs through the start file; a foreign firmware has no hand-over
         return;
     }
     if (hc_cfgov_open(path, title, entry, ctx != HCX_MENU)) {

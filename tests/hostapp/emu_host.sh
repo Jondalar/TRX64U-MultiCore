@@ -145,7 +145,7 @@ else echo "PASS T198 config overlay flow: overlay, badges, default, 10-config sc
 
 # ---- T223: 32 boot entries, the visible rows read, the full menu's message -----------------------------------------------------------------------
 # The stick has 33 copies of the VIC-20 bundle (cores/c01.cor .. c33.cor). The walk adds them one by one with A (the browser's own add, no seeded boot.cfg): the 33rd is
-# refused with the message "Boot menu is full: it holds 32 of 32 entries" (PNG), then the boot menu at its top, scrolled, on its last page, and the editor on the last page.
+# refused with the message "Menu full (32/32): remove one in F5 first." (PNG), then the boot menu at its top, scrolled, on its last page, and the editor on the last page.
 m32_nav() {
     local P="$out/t223" i
     printf 'wait 15000\nkey space\nwait 800\nkey f3\nwait 1500\nkey down\nwait 500\nkey down\nwait 500\nkey return\nwait 2000\n'

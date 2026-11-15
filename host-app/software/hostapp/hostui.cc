@@ -627,7 +627,17 @@ static bool core_cfg_save(const char *text, int n) { return hostfs_save(BOOTCFG_
 static void core_cfg_changed(void) { arm_drop(HARM_END_GONE); }       // the entries changed: an arm on one of them does not hold
 static void core_log(const char *line) { printf("%s\n", line); }
 static uint32_t core_now(void) { return now_ms(); }
-static const HcPlatform core_plat = { core_cfg_load, core_cfg_save, core_cfg_changed, &board_fs, core_log, core_now };
+static bool core_start_file(const char *cor_path, const char *text, int n)      // T223 D4: "<medium>/trx64-start.txt" beside the large core's medium root
+{
+    char path[HANDOVER_PATH_MAX + 32];
+    if (!startfile_path(cor_path, path, sizeof(path))) {
+        return false;
+    }
+    char *slash = strrchr(path, '/');
+    *slash = 0;
+    return hostfs_save(path, slash + 1, text, n);
+}
+static const HcPlatform core_plat = { core_cfg_load, core_cfg_save, core_cfg_changed, &board_fs, core_log, core_now, core_start_file };
 
 // ... and of the navigation: the folder listing, and what the screen drops when the list is read anew.
 static int nav_list(const char *path, HostDirEntry *out, int max) { return hostfs_list(path, out, max, false); }
@@ -842,6 +852,11 @@ static void row_style(Row &r, bool on)
 
 #define BADGE_W (COMPACT ? 112 : 150)
 #define DEF_W (COMPACT ? 70 : 78)
+#ifdef HC_CFG_MARKER_LONG
+#define CFGM_W (COMPACT ? 52 : 60)         // T223 D6: the boot menu's config column ("config")
+#else
+#define CFGM_W 26                          // T223 D6: the boot menu's config column ("C")
+#endif
 #define CFG_W (COMPACT ? 84 : 98)          // T198: the "N configs" badge, between the status and the default badge (mock-up order: default, N configs, status)
 
 // T209 D6 (Alex 2026-11-12): the boot menu row is the mock-up's: the logo at its full size (32 x 32, as before T209) on the left, then the name, then the
@@ -978,14 +993,18 @@ static void fill_mrow(Row &r, int i)
     if (lv_obj_get_x(r.stb) != px) {
         lv_obj_set_x(r.stb, px);
     }
-    const int dx = px - 6 - DEF_W;
-    const int cx = (v.def ? dx : px) - 6 - CFG_W;
-    const int nleft = (v.cfgbadge[0] ? cx : v.def ? dx : px) - 8;
+    // T223 D5/D6: a table, the columns keep their place whether the row has a mark or not: name | auto | config | pictogram | version
+    const int cx = px - 6 - CFGM_W;
+    const int dx = cx - 6 - DEF_W;
+    const int nleft = dx - 8;
     if (lv_obj_get_x(r.defb) != dx) {
         lv_obj_set_x(r.defb, dx);
     }
     if (lv_obj_get_x(r.cfb) != cx) {
         lv_obj_set_x(r.cfb, cx);
+    }
+    if (lv_obj_get_width(r.cfb) != CFGM_W) {
+        lv_obj_set_width(r.cfb, CFGM_W);
     }
     const int want = nleft - LROW_TX;
     if (want != (int)(intptr_t)lv_obj_get_user_data(r.a)) {
@@ -1003,8 +1022,13 @@ static void fill_mrow(Row &r, int i)
         r.pcs = v.pic;
     }
     set_hidden(r.defb, !v.def);
-    set_txt(r.cfl, v.cfgbadge);
-    set_hidden(r.cfb, !v.cfgbadge[0]);
+    set_txt(r.cfl, v.cfgmark);
+    {
+        lv_point_t msz = { 0, 0 };
+        lv_text_get_size(&msz, v.cfgmark, F_SMALL, 0, 0, LV_COORD_MAX, LV_TEXT_FLAG_NONE);
+        lv_obj_set_x(r.cfl, (CFGM_W - 2 - (msz.x + 4)) / 2);
+    }
+    set_hidden(r.cfb, !v.cfgmark[0]);
 }
 
 // T209 D8 (Alex 2026-11-12): the editor row is the boot menu's row as it was before T209 (fcd8abd9a^1), copied, without the logo: the name (F_TEXT), under it the

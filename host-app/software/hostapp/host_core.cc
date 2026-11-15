@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <strings.h>
 #include "configlist.h"
+#include "handover.h"
 
 // ---- the intents' names ------------------------------------------------------------------------------------------------------------------
 static const char *const ACT_NAME[] = {
@@ -583,6 +584,16 @@ const char *hc_start_sequence(const HcStartEntry &e, int mode, const HcStartHook
             return why;                                         // T152 D6: the flash could not be protected, the firmware is not started
         }
         h.before_jump(h.ctx, true);
+        if (!cfw_is_name(e.path)) {   // T223 D4: the large core's application reads the choice from this file (the page of a .cfw start may not survive the bitstream change); written last, nothing can fail after it
+            char text[STARTFILE_MAX];
+            int tl = startfile_format(text, sizeof(text), e.path, cfgname, safe);
+            bool ok = g_plat.start_file && tl > 0 && g_plat.start_file(e.path, text, tl);
+            char ln[200];
+            snprintf(ln, sizeof(ln), "[host] start file for %s: config \"%s\", safe %d: %s", e.path, cfgname, safe ? 1 : 0, ok ? "written" : "not written");
+            if (g_plat.log) {
+                g_plat.log(ln);
+            }
+        }
         legacy_jump(&plan);
     }
     core_set_start_safe(safe);
@@ -683,6 +694,8 @@ EState probe_full(CorSource &s, CorInfo &ci, cfw_result_t *res = 0)
 EState hc_est(int i) { return i >= 0 && i < BOOT_MAX ? g_ent[i].st : ES_UNKNOWN; }
 const CorInfo &hc_einfo(int i) { return g_ent[i < 0 || i >= BOOT_MAX ? 0 : i].info; }
 bool hc_efull(int i) { return i >= 0 && i < BOOT_MAX && g_ent[i].full; }
+// T223 D4: every entry takes configs and the rescue start but a foreign firmware (.cfw/.ue2): a large .cor is full firmware too, and gets them through the start file.
+bool hc_ecfg_ok(int i) { return i >= 0 && i < g_cfg.n && !(g_ent[i].full && cfw_is_name(g_cfg.e[i].path)); }
 void hc_entry_origin(int i, int origin) { if (i >= 0 && i < BOOT_MAX) g_ent[i].info.origin = origin; }
 
 bool hc_startable(int i) { return i >= 0 && i < g_cfg.n && (g_ent[i].st == ES_OK || g_ent[i].st == ES_CHANGED || g_ent[i].st == ES_UNKNOWN); }

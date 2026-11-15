@@ -34,7 +34,7 @@ void hc_cfgov_io(CmFs *cm, FoFs *fo);
 int hc_cfgov_count(const char *cor_path);
 void hc_cfgov_forget(void);
 
-// Opens the overlay for a core. T224 D1: it opens with no config too (the last row is the rescue start); the caller keeps it from full-firmware cores. `entry`: its boot.cfg index or -1.
+// Opens the overlay for a core. T224 D1: it opens with no config too (the last row is the rescue start); the caller keeps it from foreign firmware (.cfw/.ue2); a large .cor opens it (T223 D4). `entry`: its boot.cfg index or -1.
 bool hc_cfgov_open(const char *cor_path, const char *title, int entry, bool browse = false);
 void hc_cfgov_close(void);
 const HcCfgOv &hc_cfgov(void);

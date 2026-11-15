@@ -119,6 +119,7 @@ struct HcPlatform {
     StartFs *fs;                                         // the file system the entries are checked on (stat, open); the core never touches a file but through it
     void (*log)(const char *line);                       // the console line ("[host] ..."), one per call, no newline; null: none
     uint32_t (*now_ms)(void);
+    bool (*start_file)(const char *cor_path, const char *text, int n);   // T223 D4: writes the hand-over file of a large core's start (startfile_path of cor_path); null: none
 };
 void hc_init(const HcPlatform *p);
 StartFs *hc_fs(void);                                  // the file system the entries are checked on (null: none given)
@@ -204,6 +205,7 @@ enum EState { ES_UNKNOWN, ES_OK, ES_CHANGED, ES_MISSING, ES_BAD, ES_CONTRACT, ES
 EState hc_est(int i);
 const CorInfo &hc_einfo(int i);
 bool hc_efull(int i);                                    // T115: the entry is a .cfw full firmware or a large .cor, not a partial bundle
+bool hc_ecfg_ok(int i);                                  // T223 D4: the entry takes configs and the rescue start (all but a .cfw/.ue2)
 void hc_entry_origin(int i, int origin);                 // a large .cor's icon record names who made it (read with the icon)
 bool hc_startable(int i);                                // an entry the lazy reader has not reached yet starts too: the start verifies and refuses by itself
 int hc_in_menu(const char *path);                        // the index of the entry with that path, -1

@@ -167,5 +167,25 @@ int main()
         memset(&z, 0xA5, sizeof(z));
         CHECK(!handover_safe(&z));                                    // noise
     }
+    // T223 D4: the start file of a large core: path on the .cor's medium, text round trip, refusals
+    {
+        char p[96], t[STARTFILE_MAX], cor[HANDOVER_PATH_MAX], cfg[HANDOVER_CONFIG_MAX + 2];
+        bool safe;
+        CHECK(startfile_path("/SD/cores/c64scpu.cor", p, sizeof(p)));
+        CHECK_STR(p, "/SD/trx64-start.txt");
+        CHECK(startfile_path("/USB0/cores/c20.cor", p, sizeof(p)) && !strcmp(p, "/USB0/trx64-start.txt"));
+        CHECK(!startfile_path("c.cor", p, sizeof(p)) && !startfile_path("/c.cor", p, sizeof(p)));
+        int n = startfile_format(t, sizeof(t), "/SD/cores/c64scpu.cor", "Demo collection", true);
+        CHECK(n > 0 && startfile_parse(t, n, cor, sizeof(cor), cfg, sizeof(cfg), &safe));
+        CHECK_STR(cor, "/SD/cores/c64scpu.cor");
+        CHECK_STR(cfg, "Demo collection");
+        CHECK(safe);
+        n = startfile_format(t, sizeof(t), "/SD/cores/c64scpu.cor", "", false);
+        CHECK(n > 0 && startfile_parse(t, n, cor, sizeof(cor), cfg, sizeof(cfg), &safe) && !cfg[0] && !safe);
+        CHECK(!startfile_parse("TRXSTART2\ncor=/SD/x.cor\n", 25, cor, sizeof(cor), cfg, sizeof(cfg), &safe));      // another version
+        CHECK(!startfile_parse("TRXSTART1\nconfig=a\n", 19, cor, sizeof(cor), cfg, sizeof(cfg), &safe));           // no cor=
+        CHECK(!startfile_parse("noise", 5, cor, sizeof(cor), cfg, sizeof(cfg), &safe));
+        CHECK(startfile_format(t, sizeof(t), "/SD/x.cor", "0123456789012345678901234567890123", false) == 0);         // 34 characters: over HANDOVER_CONFIG_MAX
+    }
     DONE("test_handover");
 }

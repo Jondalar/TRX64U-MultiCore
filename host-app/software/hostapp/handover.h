@@ -78,6 +78,16 @@ const char *handover_config(const Handover *h);
 void handover_set_safe(Handover *h, bool on);
 bool handover_safe(const Handover *h);
 
+// T223 D4: a large core is started as full firmware and the hand-over page may not survive its bitstream change, so the host also writes a small text file on the
+// medium of the .cor ("<medium>/trx64-start.txt", the SD card for the usual place) just before the jump. It carries the .cor path, the config and the safe flag; the core application
+// reads it once at its start and deletes it. Line 1 "TRXSTART1", then "cor=<path>", "config=<name>", "safe=0|1".
+#define STARTFILE_NAME "trx64-start.txt"
+#define STARTFILE_MAX  (HANDOVER_PATH_MAX + 96)
+bool startfile_path(const char *cor_path, char *out, int outlen);                 // "/SD/cores/x.cor" -> "/SD/trx64-start.txt"; false for a path with no medium
+int startfile_format(char *out, int outlen, const char *cor_path, const char *config, bool safe);   // the text; its length, 0 when it does not fit
+// False for text that is not this file (other first line, no cor=, a config over HANDOVER_CONFIG_MAX characters).
+bool startfile_parse(const char *text, int len, char *cor, int corlen, char *config, int cfglen, bool *safe);
+
 // True when magic, version and sum agree and the path is terminated. DDR2 holds noise after a power-up and the previous
 // core's block after a JTAG start: this tells noise from a block, not a fresh block from a stale one.
 bool handover_valid(const Handover *h);
