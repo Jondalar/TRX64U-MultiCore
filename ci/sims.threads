@@ -10,3 +10,6 @@ hdmi_enc: 4
 apple2_woz: 3
 apple2_hdd: 3
 diag_co: 4
+c64scpu_hdmi_out: 2
+c64scpu_scaler: 3
+c64scpu_text_geom: 3

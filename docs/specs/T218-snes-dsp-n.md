@@ -63,3 +63,4 @@ SA-1, Super FX, Cx4, S-DD1, SPC7110, ST010/ST011, BSX, Sufami, MSU-1 (T142 §4, 
 
 - Title list for DSP-2/3/4 (D2b): other titles with those chips (alternate names, hacks) load the DSP-1 firmware under Auto; the setting (D4) is the way round it.
 - Firmware byte order is per the ares/bsnes loader, unverified on board; the first real firmware file proves it (S1 board).
+- 2026-11-15, board S1 PASS (Alex): Super Mario Kart (Europe) (.sfc 524288 bytes, no firmware appended) runs with `dsp1b.bin` from `/SD/cores/snes/roms/` (8192 bytes, program + data as one file), DSP firmware setting Auto; Alex: "klappt" ("works"), GitHub #85 closed by Alex. Build on the SD: snes.cor of c982d839.

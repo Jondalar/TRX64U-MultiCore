@@ -1,6 +1,7 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 // The C64 text layer (T12 §4, in hardware after all): the freeze menu the app
-// writes into the C64's memory, drawn on the 1080p picture as the VIC would
-// draw it, on top of everything (scaler -> overlay.v -> pix_layer -> this).
+// writes into the C64's memory, drawn on the HDMI picture as the VIC would
+// draw it, on top of everything (vic_scaler -> overlay.v -> pix_layer -> this).
 // The pixel layer below holds the dimmed still the app drew once at the
 // freeze; this layer puts the text on it, so a key press shows in the next
 // frame without the app drawing anything.
@@ -26,19 +27,19 @@
 // ($D021) transparent, or $D021 with TX_CTRL.opaque. Scroll, 38 columns/24
 // rows, sprites, multicolour, ECM and bitmap are not drawn (the menu uses
 // none). Colours: the C64 palette (pal_ram.v, as the scaler).
-// Geometry (T164 WP6): each C64 pixel is ST x ST output pixels, ST = min(4, hact / 320, vact / 200) of the mode
-// (4, 3 or 2 in the host's nine modes, 1 below 640 x 400), so the text area (320 x 200 C64 pixels) is 320 ST x 200 ST
-// and is centred in the active area: its first pixel at (XS, YS) = (xact0 + (hact - 320 ST) / 2, yact0 + (vact - 200 ST) / 2),
-// 1280 x 800 from cx 1088, cy 185 at 1080p (the app's pixel layer draws the C64 window so, trx_video.cc). Pixel
+// Geometry (U16 D6): the mode's and scale's (hm_geom, from vic_scaler.v): the text area's first pixel at (XS, YS) = (xact0 + xt0,
+// yact0 + yt0), hn / hd C64 pixels per output pixel (the picture's horizontal step) and tvn / tvd C64 lines per output line (the step
+// the 50 Hz window has at that scale), each <= 1: one accumulator per axis, as the scaler's. 1080p at Fit (and Integer): 4 x 4, 1280 x
+// 800 from 320 / 140 of the active area, as before U16 and as the app's pixel layer draws the C64 window there (trx_video.cc). Pixel
 // repetition: every register of the pixel side changes only when ce is high (hdmi_timing.v).
 //
-// Fetch: when output line 4l + YS starts (C64 line l of the text area), the
+// Fetch: when the first output line of C64 line l of the text area starts, the
 // pixel side asks for line l + 1 (line 0 at the frame start) into the other
 // half of a two-line buffer (2 x 40 cells of {colour, glyph byte}, LUT RAM
 // written in cclk, read in clk). Per cell the fetcher reads the screen byte,
 // then the glyph byte, and the colour nibble beside them: at least 4 clocks,
-// some 165 for a line, of the 2,244 C64 clocks (71 us) it has. A line whose
-// fetch is not in when it starts is not drawn (counted, TX_STATUS).
+// some 165 for a line (5.2 us), of the at least one output line (25.7 us at 800 x 600, the shortest of
+// U16 D2) it has. A line whose fetch is not in when it starts is not drawn (counted, TX_STATUS).
 //
 // Registers (trx_io page 6, 0x101A6000; clk_sys; 32 bit, the T21 rule: writing
 // byte 3 commits, reading byte 0 takes bytes 1-3):
@@ -75,10 +76,12 @@ module c64_text (
 
     input  wire        clk,
     input  wire        ce,              // pixel enable (hdmi_timing.v)
-    input  wire [11:0] hact,            // the mode's active area and where it starts in cx / cy
-    input  wire [10:0] vact,
-    input  wire [11:0] xact0,
+    input  wire [11:0] xact0,           // where the active area starts in cx / cy
     input  wire [10:0] yact0,
+    input  wire [11:0] xt0,             // the text area's first pixel / line, relative to the active origin (hm_geom)
+    input  wire [10:0] yt0,
+    input  wire [5:0]  hn, hd,          // C64 pixels per output pixel: hn / hd (hm_geom)
+    input  wire [5:0]  tvn, tvd,        // C64 lines per output line: tvn / tvd (hm_geom)
     input  wire [23:0] rgb_in,
     input  wire        de_in, hs_in, vs_in,
     input  wire [11:0] cx_in,
@@ -195,22 +198,17 @@ module c64_text (
     reg  [8:0] tag0 = 9'h1FF, tag1 = 9'h1FF;  // {invalid, line} of the buffer halves
     reg        act = 1'b0, first = 1'b0, line_ok = 1'b0, line_on = 1'b0;
     reg  [7:0] l;                        // C64 line of the text area
-    reg  [2:0] sub;
+    reg  [5:0] tacc;                     // vertical accumulator: tvn per output line, a C64 line at tvd
+    wire [6:0] tsum = {1'b0, tacc} + {1'b0, tvn};
     reg  [3:0] f_bg;
     reg        f_opq;
     wire       want = p_en[1] && p_rdy[1];
-    // scale and origin of the text area in this mode (hact / vact are static while the mode runs)
-    wire [2:0] st_h = (hact >= 12'd1280) ? 3'd4 : (hact >= 12'd960) ? 3'd3 : (hact >= 12'd640) ? 3'd2 : 3'd1;
-    wire [2:0] st_v = (vact >= 11'd800)  ? 3'd4 : (vact >= 11'd600) ? 3'd3 : (vact >= 11'd400) ? 3'd2 : 3'd1;
-    reg  [2:0]  st;
-    reg  [11:0] XS;
-    reg  [10:0] YS;
-    wire [11:0] tw = (st == 3'd4) ? 12'd1280 : (st == 3'd3) ? 12'd960 : (st == 3'd2) ? 12'd640 : 12'd320;
-    wire [10:0] th = (st == 3'd4) ? 11'd800  : (st == 3'd3) ? 11'd600 : (st == 3'd2) ? 11'd400 : 11'd200;
+    // the text area's origin in this mode and scale (static while a frame runs)
+    reg  [11:0] XS = 12'd0;
+    reg  [10:0] YS = 11'd0;
     always @(posedge clk) if (ce) begin
-        st <= (st_h < st_v) ? st_h : st_v;
-        XS <= xact0 + ((hact - tw) >> 1);
-        YS <= yact0 + ((vact - th) >> 1);
+        XS <= xact0 + xt0;
+        YS <= yact0 + yt0;
     end
     always @(posedge clk) if (ce) begin
         p_en  <= {p_en[0], r_ctrl[0]};
@@ -233,14 +231,14 @@ module c64_text (
             if (cy_in == 11'd0)
                 act <= 1'b0;
             else if (cy_in == YS) begin
-                act <= 1'b1; l <= 8'd0; sub <= 3'd0; first <= 1'b1;
+                act <= 1'b1; l <= 8'd0; tacc <= 6'd0; first <= 1'b1;
             end else if (act) begin
-                if (sub == st - 3'd1) begin
-                    sub <= 3'd0;
+                if (tsum >= {1'b0, tvd}) begin
+                    tacc <= tsum[5:0] - tvd;
                     if (l == 8'd199) act <= 1'b0;
                     else begin l <= l + 8'd1; first <= 1'b1; end
                 end else
-                    sub <= sub + 3'd1;
+                    tacc <= tsum[5:0];
             end
         end
         if (cx_in == 12'd24) begin
@@ -259,14 +257,15 @@ module c64_text (
     reg        h_on = 1'b0;
     reg  [5:0] hcol;
     reg  [2:0] hbit;
-    reg  [2:0] hsub;
+    reg  [5:0] hacc;
+    wire [6:0] hsum = {1'b0, hacc} + {1'b0, hn};
     always @(posedge clk) if (ce)
         if (cx_in == XS) begin
-            h_on <= line_on; hcol <= 6'd0; hbit <= 3'd0; hsub <= 3'd0;
+            h_on <= line_on; hcol <= 6'd0; hbit <= 3'd0; hacc <= 6'd0;
         end else if (h_on) begin
-            hsub <= hsub + 3'd1;
-            if (hsub == st - 3'd1) begin
-                hsub <= 3'd0;
+            hacc <= hsum[5:0];
+            if (hsum >= {1'b0, hd}) begin
+                hacc <= hsum[5:0] - hd;
                 hbit <= hbit + 3'd1;
                 if (hbit == 3'd7) begin
                     hcol <= hcol + 6'd1;
