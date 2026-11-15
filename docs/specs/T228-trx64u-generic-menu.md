@@ -251,6 +251,11 @@ overlay was fitted from a 1280x800 manual picture, so its scale on the real 960x
 
 - D2 (Alex 2026-11-15, Q1): a) build trx64u on T212's structure (F1 drive rows, F5 machine, F7 APP); T212 has to be merged first.
 
+- D3 (Alex 2026-11-15, Q2a, after the mock-ups c1 / a1): variant A for the rail - Timewarp F2 and Monitor F4 as plain rail entries,
+  no group "OVER THE C64" ("the 2nd is better"). The overlays keep the TRX64G style unchanged.
+- D4 (Alex 2026-11-15, translated: "can the stupid SHIFTED go away"): the rail has no "SHIFTED" heading. The rail is generic, so this
+  applies to every core's menu, not only trx64u.
+
 ## §4 Out
 
 ## §5 Built
