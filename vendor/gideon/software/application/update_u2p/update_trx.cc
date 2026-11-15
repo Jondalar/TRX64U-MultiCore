@@ -1039,7 +1039,7 @@ static void cfw_seg_add_to(cfw_seg *segs, int *n, uint32_t *cursor, uint32_t len
 
 // ---- T135 D8: the installer sets the machine up ----------------------------------------------------------------------------------
 //
-// After the backup, before the first flash write (T135 D8, docs/specs/T135-direct-boot.md): ask where the cores go (SD or USB), create /cores
+// After the backup, before the first flash write (T135 D8, docs/specs/done/T135-direct-boot.md): ask where the cores go (SD or USB), create /cores
 // there, pack the backed-up firmware as a large .cor (origin backup, T137 D1/D2), copy the firmware files that came with the update file,
 // write /Flash/boot.cfg with the backup as the default and direct=1. Only for a package whose application is the MultiCore host (it reads
 // /Flash/boot.cfg) over a firmware that is not ours (ourfw.h: no stamp in the installed bitstream, or no TRX64 in its application).

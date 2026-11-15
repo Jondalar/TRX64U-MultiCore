@@ -1,6 +1,6 @@
 # T180 — Media housekeeping in every core: a mount replaces what is mounted, mounts can persist, the library keeps up
 
-**Status:** DECIDED (2026-11-04, Alex; D1-D7, all questions answered); BUILT and merged: D1-D10 (commits to 2026-11-10 on main, §5 per branch). Open: where the C64's media-set rows live, the footer +/- hint (§5 'Footer not changed'), names >127 on the board FileManager (vendor INFO_SIZE 128), board test. 2026-11-15 sync: the old 'rest not built' text removed; media sets are configs without settings since T198 (`mediamounts.cc`), so the media-set row question may be moot (Alex to confirm).
+**Status:** DONE 2026-11-15 (Alex 2026-11-15: "under A there is nothing I would not class as DONE! That has been in the builds for days/weeks, we had bugs and re-tests in part.") Open board/scenario items are closed by Alex's decision, not separately recorded. Earlier status: DECIDED (2026-11-04, Alex; D1-D7, all questions answered); BUILT and merged: D1-D10 (commits to 2026-11-10 on main, §5 per branch). Open: where the C64's media-set rows live, the footer +/- hint (§5 'Footer not changed'), names >127 on the board FileManager (vendor INFO_SIZE 128), board test. 2026-11-15 sync: the old 'rest not built' text removed; media sets are configs without settings since T198 (`mediamounts.cc`), so the media-set row question may be moot (Alex to confirm).
 **Repo:** TRX64U-MultiCore — the core app (`coreapp/src/`: media slots, settings, library), every core's descriptor, the host File Browser
 for P5.
 **Number:** T180.

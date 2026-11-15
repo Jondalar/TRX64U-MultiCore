@@ -14,7 +14,7 @@
 
 - **Who:** a tester playing full-screen vertical scrollers (Pinball Dreams) on the A1200 core (Kickstart 3.1) and the A500 core (Kickstart 1.3), C64U, HDMI 1920x1080 Scale Integer, Smoothing off.
 - **What they see:** a short hitch about every 10 s on the A1200 at 1080p, rarer on the A500, none noticed at 800x600. Observed by eye, not measured (issue #48).
-- **Why:** the Amiga frame is written into a DDR2 buffer by the core and read by the host's pixel layer at the output rate. The output rate comes from the CDCE ratio of the mode and is free-running (T107 "Frame lock", `docs/specs/T107-application-owns-the-picture.md:286`). Two unrelated rates give a beat: once per 1/|f_out - f_core| seconds the layer shows one frame twice (or skips one). On a vertical scroller that is the hitch.
+- **Why:** the Amiga frame is written into a DDR2 buffer by the core and read by the host's pixel layer at the output rate. The output rate comes from the CDCE ratio of the mode and is free-running (T107 "Frame lock", `docs/specs/done/T107-application-owns-the-picture.md:286`). Two unrelated rates give a beat: once per 1/|f_out - f_core| seconds the layer shows one frame twice (or skips one). On a vertical scroller that is the hitch.
 
 **The numbers (derived, formula `T_repeat = 1 / |f_out - f_core|`):**
 

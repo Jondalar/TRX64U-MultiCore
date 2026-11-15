@@ -20,5 +20,5 @@ The software-floppy alternative was rejected (ADR-0023). Drive options (mm_drive
 
 ## Links
 
-- [T56](../../docs/todo/T56.md)
-- [docs/architecture-reset-2026-10-05.md](../../docs/architecture-reset-2026-10-05.md)
+- [T56](../todo/T56.md)
+- [docs/architecture-reset-2026-10-05.md](../architecture-reset-2026-10-05.md)

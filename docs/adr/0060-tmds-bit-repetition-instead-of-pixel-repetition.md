@@ -33,4 +33,4 @@ encoder's counters return to pixel units.
 
 ## Links
 
-[T164](../specs/T164-host-package-2.md) S3, S4, §3b G3-G4, [T107](../specs/T107-application-owns-the-picture.md) §5, §5.8
+[T164](../specs/done/T164-host-package-2.md) S3, S4, §3b G3-G4, [T107](../specs/done/T107-application-owns-the-picture.md) §5, §5.8

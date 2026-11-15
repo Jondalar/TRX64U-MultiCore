@@ -18,5 +18,5 @@ App-only (an rvlite patch 0006 was tried for timing and reverted, run 391). Boar
 
 ## Links
 
-- [T61](../../docs/todo/T61.md)
-- [docs/gap-audit-gideon-app.md](../../docs/gap-audit-gideon-app.md)
+- [T61](../todo/T61.md)
+- [docs/gap-audit-gideon-app.md](../gap-audit-gideon-app.md)

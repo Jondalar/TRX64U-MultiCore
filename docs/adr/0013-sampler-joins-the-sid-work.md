@@ -18,5 +18,5 @@ Spec T25.6-sampler.md, branch t25-sampler: built and simulated 2026-10-07, merge
 
 ## Links
 
-- [T25](../../docs/todo/T25.md)
+- [T25](../todo/T25.md)
 - [T25.6-sampler.md](https://github.com/Jondalar/TRX64-Ultimate/blob/main/docs/specs/T25.6-sampler.md)

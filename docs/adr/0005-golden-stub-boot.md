@@ -18,5 +18,5 @@ Part of the boot-chain design (host firmware in flash, guests loaded into SRAM b
 
 ## Links
 
-- [T26](../../docs/todo/T26.md)
-- [docs/boot-chain-concept.md](../../docs/boot-chain-concept.md)
+- [T26](../todo/T26.md)
+- [docs/boot-chain-concept.md](../boot-chain-concept.md)

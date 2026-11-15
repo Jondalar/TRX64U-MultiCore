@@ -25,4 +25,4 @@ Only slice columns move; the block RAM and DSP ranges of both blocks stay. A cor
 
 ## Links
 
-[T164](../specs/T164-host-package-2.md) §3a Q1-Q2, §3c, [T107](../specs/T107-application-owns-the-picture.md) §5.7, D11d
+[T164](../specs/done/T164-host-package-2.md) §3a Q1-Q2, §3c, [T107](../specs/done/T107-application-owns-the-picture.md) §5.7, D11d

@@ -1,6 +1,6 @@
 # T161 — a bug report on GitHub cannot be sent without version, core, steps, photos and the T162 report file
 
-**Status:** ACCEPTED (2026-10-30), asked by Alex. Status check 2026-11-13: built: forms and lint in main (778289484), on GitHub; S3 (Alex looks) open.
+**Status:** DONE 2026-11-15 (Alex 2026-11-15: "under A there is nothing I would not class as DONE! That has been in the builds for days/weeks, we had bugs and re-tests in part.") Open board/scenario items are closed by Alex's decision, not separately recorded. Earlier status: ACCEPTED (2026-10-30), asked by Alex. Status check 2026-11-13: built: forms and lint in main (778289484), on GitHub; S3 (Alex looks) open.
 **Repo:** TRX64U-MultiCore — `.github/ISSUE_TEMPLATE/` (issue forms), carried to GitHub by `tools/github_snapshot.py`. No gateware, no app.
 **Number:** T161.
 **Origin:** Alex, 2026-10-30 (translated): "Can we build templates into the GitHub issues? What I would like are photos, the boot config,
