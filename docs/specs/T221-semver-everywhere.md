@@ -82,6 +82,11 @@ Alex's decisions (2026-11-15, translated from his request):
 - **D8** (Q5, 2026-11-15): Versions are bumped on the way to `main` (Alex: "on the feature branch no versioning, the state stays; via integ -> main and THERE it is versioned"): a feature branch never changes a version; the merge into `main` raises the version of every deliverable it changed.
 - **D9** (Q5b, 2026-11-15): The bump level is set by hand at the merge into `main` for now (whoever merges; Claude asks Alex before a MAJOR). A script proposes the level from the spec/TODO kind and the merge-commit prefix so it is not worked out by an LLM per merge; the human approves. Later, with more contributors and builds from elsewhere, the script decides and a human releases (Alex: "first 3 ... then by script some day and the human approves").
 - **D10** (Q6, 2026-11-15): Start values: host gateware, host menu and generic core app start at 0.2.0. The cores are gone through one by one with Alex afterwards (open, one question per core).
+  **Answered 2026-11-15** (Alex, translated: "A, but vc20 is also 0.3.0 please"; A = keep today's `core.toml` version): every core starts at the version its `core.toml` holds today, except
+  vc20 = 0.3.0 (was 0.9.0). Table: amiga1200 0.3.0, amiga 0.2.0, c128 0.1.0, c264 0.1.0, c64scpu 0.1.0, pet 0.1.0, diag 0.1.0, apple2 0.1.0, vc20 0.3.0, atari800 0.0.1, cpc 0.0.1,
+  nes 0.0.1, snes 0.0.1, neogeo 0.0.1, zx 0.0.1, zxnext 0.0.1, ddt_mandel 0.1.0, ddt_novic 0.1.0. `c64ref` (1.0.0, build_only) and `null` (1.0.0, flash filler) are never packed as a `.cor`,
+  listed in a release or shown in a menu, so no display shows their version: they keep the value (it must be valid SemVer, `tools/check_versions.py` checks it) and nothing else is done
+  with it. Only `cores/vc20/core.toml` changes (last commit of the branch).
 - **D11** (Q7, 2026-11-15): MAJOR for a core: either a user-visible break (old settings, saves or media no longer work, menu structure breaks) or a contract change (an older host no longer loads the core).
 - **D12** (Q8, 2026-11-15): The contract number folds into the host gateware version: a contract change is a MAJOR of the host gateware; the separate number and the "contract N" chip go. Consequence to settle in the design: the .cor check that today compares the contract integer (`COR_HOST_CONTRACT`, `cor.h:9`; `cor_pack.py` `CONTRACT`) then compares the host gateware MAJOR.
 - **D13** (Q9, 2026-11-15): Boot menu, large cores: the version column shows the version as for every core; "full" becomes a small badge at the icon/name (layout with a mock-up and ux-review before it is built).
@@ -142,16 +147,15 @@ under `contract/`, not `host/`, so a bump cannot move the host key); `tools/semv
 - **B6 (core app).** Splash, Home "Application", console and bug report show the core app SemVer; the host gateware version reaches it in a new trailing field of the
   hand-over page (`host_version`, own check word, older readers and older hosts unaffected); REST `/v1/info` has `app` and `host`, `/rpc` ping has `core_version`,
   `app_version`, `host_version`; the bug report names the host as `<ver>, key <key>`.
-- **B7 (Vivado keys).** None moved: no file under `host/`, `cores/` or `vendor/` is touched (the host gateware version is `contract/version.toml`; no `core.toml` edit).
-  `contract/` is in no key (`ci/lib.sh`, `host/layers.txt`). The trxapps key moves (apps changed; `ci/version.sh` is now one of its inputs because `gitinfo.c` is made from
+- **B7 (Vivado keys).** Everything except the last commit moves none: no file under `host/`, `cores/` or `vendor/` is touched (the host gateware version is `contract/version.toml`). The last
+  commit (`cores/vc20/core.toml` version 0.9.0 -> 0.3.0) moves exactly vc20's own keys: its OOC key (`ooc_key`: `cores/vc20` is in its `sources`) and so its core key (`core_key`); measured
+  with `ci/lib.sh` in raw mode, before/after in the commit message. The host key, c64ref's and every other core's keys are unchanged. `contract/` is in no key (`ci/lib.sh`, `host/layers.txt`). The trxapps key moves (apps changed; `ci/version.sh` is now one of its inputs because `gitinfo.c` is made from
   it), so every `.cor` is repacked; no bitstream is rebuilt.
 - **B8 (dev tree).** Images of `tools/dev.sh` carry no version (no commit in the dev tree); `tests/hostapp/emu_host.sh` stamps copies before it runs, so its pictures show real strings.
 
 ### Open (not decided; Alex must answer, one at a time)
 
-- **OPEN-1 (D10).** The start version of every core (cores one by one: apple2 0.1.0, atari800 0.0.1, c64ref 1.0.0, ddt_mandel 0.1.0, ddt_novic 0.1.0, null 1.0.0, vc20 0.9.0 and
-  every large core's `mono/core.toml`). All stay as they are; any edit of a `core.toml` moves that core's Vivado key (its `sources` contain the folder), so it belongs in its own
-  last commit and the keys it moves must be named first: not made. Also: host gateware / host menu / core app / bundle start at 0.2.0 (D10), done.
+- **OPEN-1 (D10): answered** (see D10; vc20 0.3.0, all others unchanged). The vc20 edit moves vc20's Vivado keys, see B7.
 - **OPEN-2 (D12 consequence).** The `.cor` check still compares the contract integer (`COR_HOST_CONTRACT` = 2, `contract/VERSION`). Folding it into the host gateware MAJOR with a
   start of 0.2.0 gives MAJOR 0, not 2: either the host gateware starts at 2.0.0 or the check stays an integer. The chip is gone either way (D12); the row refusal text "contract 3 != 2"
   stays until this is answered.
