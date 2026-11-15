@@ -98,6 +98,7 @@ Built and benched; what is left is a step on the board (Alex, 2026-10-28, transl
 | T219 | 2 | 🔨 | RIGHT enters a folder in every file browser, LEFT goes up (#90) | Host F3 + core app Library built (ue2emu pictures); keywalk golden regenerated; Alex: two browsers stay | [T219](docs/specs/T219-right-enters.md) |
 | T220 | 3 | 📅 | Host network chip stale: "no network" while LAN works (#84 comment) | Backlog; read 11-15: 3 s poll, cause open | [T220](docs/specs/T220-net-chip-stale.md) |
 | T221 | 2 | 📅 | SemVer for host, host menu, core app, every core; displays: branch SemVer+commit, release SemVer | D1-D19 decided 11-15; open: core start versions, TRX64-U contract, L/P mock-up | [T221](docs/specs/T221-semver-everywhere.md) |
+| T225 | 2 | 📝 | Amiga: USB pad on game port 2 (1-/2-button, CD32), mapping dialog, saved per pad ID | Spec 11-15 (Alex) | [T225](docs/specs/T225-amiga-usb-pad-port2.md) |
 | T175 | 3 | 🔨 | Diag core: a timed probe engine plus TOML tests measure the joystick/paddle ports, results to SD | Merged; diag v2 with testers 11-04 (pins, stick2 ok, cd32 6/24); S4, S7 board, S8 numbers open | [T175](docs/todo/T175.md) |
 | T176 | 3 | 📅 | Core menus on the screen at once from a saved picture (split out of T146 P5, issue #4) | Deferred (Alex 11-02): split out of T146 P5; not started | [T176](docs/todo/T176.md) |
 | T177 | 3 | 📅 | Recovery boot: a key held at power-on starts a recovery image, even with a black host menu | DECIDED (Alex 11-02): app, RESTORE+F1, recovery.cor/backup, no flash, LED; build open | [T177](docs/todo/T177.md) |
