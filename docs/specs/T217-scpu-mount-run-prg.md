@@ -84,6 +84,7 @@ program itself pokes (C64 RAM `$C000`, a mirrored page, so the window sees it) a
 | # | Scenario | Evidence |
 |---|---|---|
 | S1 | SCPU BASIC .prg runs on the 65816 | OPEN: bench `run_prgrun.sh basic` written, not finished (one run reached READY with TXTTAB `$0801` in the SRAM, but the replay parse was wrong then and is fixed; the run was stopped). Board step for Alex. |
+| S1 board | SCPU .prg "Load + run" from the file browser | board PASS 2026-11-15 (Alex, translated: "start PRG in SUPER CPU works!"), c64scpu.cor f9e6656c (run-1965 bitstream + this app) |
 | S2 | SCPU old way does not run it (control) | bench `run_prgrun.sh old`: PASS line seen, but the replay applied 0 bytes at that time, so it proves nothing; open |
 | S3 | SCPU ML by SYS | OPEN (bench written, not run) |
 | S4 | SCPU pointers seen by the CPU | OPEN (second marker `PEEK(45)` in the basic case) |
