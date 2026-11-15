@@ -73,7 +73,16 @@ def make_stick(stick, roms_dir, core="trx64u"):
         os.makedirs(os.path.join(stick, "cores", core, "roms"))
         with open(os.path.join(stick, "cores", core, "roms", "kick31.rom"), "wb") as f:
             f.write(bytes(524288))
-        for n, b in ROMFILES.get(core, ()):          # the ROMs the core wants (blank images stand in: no ROM is in the repository), else it waits for them and the UI service stays down
+        if core == "pet":                            # T216 P6: a model's own VICE-named files are required, the generic names no longer count; the files come from the
+            # local VICE data dir (PET_ROMS_DIR) and the Waterloo set in cores/pet/sim/media; UI_PET_DROP="a.bin,b.bin" leaves files out (the missing-ROM picture)
+            drop = [x for x in os.environ.get("UI_PET_DROP", "").split(",") if x]
+            vice = os.environ.get("PET_ROMS_DIR", os.path.expanduser("~/Development/C64/Tools/vice/vice/data/PET"))
+            media = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "cores", "pet", "sim", "media")
+            for src in (vice, media):
+                for n in (sorted(os.listdir(src)) if os.path.isdir(src) else ()):
+                    if n.endswith(".bin") and n not in drop and (src == media or n.startswith(("basic-", "edit-", "kernal-", "characters"))):
+                        shutil.copy(os.path.join(src, n), os.path.join(stick, "cores", core, "roms", n))
+        for n, b in ROMFILES.get(core, ()) if core != "pet" else (("dos4040.bin", 12288), ("ctl4040.bin", 2048)):          # the ROMs the core wants (blank images stand in: no ROM is in the repository), else it waits for them and the UI service stays down
             with open(os.path.join(stick, "cores", core, "roms", n), "wb") as f:
                 f.write(bytes([0xA5]) * b if core == "pet" else bytes(b))       # PET: a pattern, so the read-back of the ROM aperture proves something
         for n, b in (("alpha.adf", 1), ("beta.adf", 2), ("Turrican_II_The_Final_Fight_Director_Cut_Disk_1_of_3_Fixed.adf", 3)):

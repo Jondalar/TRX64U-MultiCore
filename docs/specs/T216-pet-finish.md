@@ -81,6 +81,13 @@ Reported on GitHub after the first test release (2026-11-13/14), bundled here 20
 6. **P9 (tape SAVE):** enable the write pin (`dset_bytes` b1) in a test core now and let a tester with a datasette report, as T214 does for the C16, or wait for T214's result first? **Decided 2026-11-15 (Alex): wait for T214 first** (the C16 SAVE is being measured); the PET write pin follows its result.
 7. **P6 bench:** may the Waterloo ROMs be checked in under `cores/pet/sim/media/` (as the Atari OS ROM was) so a bench can prove the 6809 screen? **Decided 2026-11-15 (Alex): yes, under `cores/pet/sim/media/`** (Gitea only; `tools/github_snapshot.py` drops sim/media, never in a .cor, package or release; CLAUDE.md third exception).
 
+### UX decisions on the PET menu (Alex, 2026-11-15, after the ue2emu review)
+
+- **D6 (Alex: "Ja"):** "Picture rate" and "Phosphor" move from the PET tab to the Video tab (shorter F5 list): group `video` on both rows, `coreapp/cores/pet.cc` settings table.
+- **D7 (Alex: "Key 8"):** the pad rows show the chosen key as "Key 8", "Key Space" (all keys, "None" stays): `coreapp/src/padkeys.h` `padkey_names` (generic service; the stored value text changes with it).
+- **D8 (Alex: "Ja bitte alles ins Input tab"):** every pad/keyboard row is in the Input tab, including "Map buttons, pad 1/2" (was F7): the tasks carry group `input`; generic code: `coreapp/src/menutree.cc` lists a task in a settings tab that names its group (below the rows) and no longer in the tasks tab (`task_in_settings_tab`).
+- **D9 (Alex: "Ja"):** the missing-ROM message lists every missing file of the model at once, one per line (`list_missing_roms`, `coreapp/cores/pet.cc`), not only the first.
+
 ## §4 Out
 
 P4 (game mode): moved to the generic app's key bundles (D4). P5: documentation only (D5).
@@ -137,3 +144,9 @@ P4 (game mode): moved to the generic app's key bundles (D4). P5: documentation o
 | S14 | `pet_keys` PASS: symbolic mapping checked by character against the PET legends, both boards |
 | S15 | `pet_keys` PASS: pad / joystick keys (5 buttons, 2 pads, 2 joystick ports, SHIFT code); app side built (riscv build ok, `padkeys.h`); USB pad on the board: open |
 LUT/BRAM: +1 BRAM18 (character ROM 4 KiB); no BRAM for 96 KiB (`pet_ram64` already existed); `pet_padkeys` about 350 LUT (64-bit decode of five key codes), `pet_keys` symbolic matrices about 150 LUT, registers ~60 FF: estimates, not synthesised.
+
+### 2026-11-15 UX decisions applied (agent, branch t216-pet): D6-D9, riscv builds, ue2emu pictures, ux-specialist FAIL on one generic defect
+- Built: D6-D9 in §3; the earlier labels "SuperPET CPU"/"SuperPET RAM" and the Keyboard mapping row in Input are in. Extra wording: "Picture rate" is labelled "Refresh rate" (beside the generic "Picture" row); the missing-ROM message ends with the action. `tools/dev.sh riscv` ok. `tests/ui/fixtures.py` gives the PET stick the VICE-named files (`PET_ROMS_DIR`, default the local VICE `data/PET`, plus `cores/pet/sim/media`, never committed elsewhere), `UI_PET_DROP` leaves files out; `tests/ui/steps.py` got `I wait N ms`; features `ux_t216_pet.feature`, `ux_t216_pet_missing.feature`.
+- Pictures (480p/720p/1080p, not committed): scratchpad `pet-shots/<res>/ux-pet-*.png`.
+- ux-specialist: FAIL. The two-line foot ("Model: X (takes effect at the next reset)   A ring beside a name: ...") is clipped at 480p, 720p and 1080p (`MenuCtl::foot_line`, generic; the foot box holds one line): not fixed, needs a decision (drop the ring legend while a row note shows, or a second foot line).
+- Open for Alex: (1) the foot above; (2) "Map buttons, pad 1/2" on Input have no value and no ">" like Hotkeys/Picture: add the chevron?; (3) Input order puts the generic Hotkeys row between Pad map and Map buttons: Hotkeys last?; (4) the emulator shows RAM/SuperPET rows for every model (conditional rows are board-only); (5) "Diag" wording; (6) a long missing list (SuperPET + Waterloo) not rendered.

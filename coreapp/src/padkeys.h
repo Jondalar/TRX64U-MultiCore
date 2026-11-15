@@ -12,11 +12,11 @@
 
 #include "desc.h"
 
-// the keys the menu offers: the digits (games use them), the cursor keys, space and return, the letters of a typical WASD / QAZX layout, the arithmetic keys, stop
+// the keys the menu offers, shown as "Key 8", "Key Space" (T216, Alex 2026-11-15: "Key 8"; None stays): the digits (games use them), the cursor keys, space and return, the letters of a typical WASD / QAZX layout, the arithmetic keys, stop
 static const char *const padkey_names[] = {
-    "None", "8", "2", "4", "6", "5", "0", "1", "3", "7", "9",
-    "Space", "Return", "Cursor up", "Cursor down", "Cursor left", "Cursor right", "Home", "Del", "Stop",
-    "W", "A", "S", "D", "Q", "E", "Z", "X", "+", "-", "*", "/",
+    "None", "Key 8", "Key 2", "Key 4", "Key 6", "Key 5", "Key 0", "Key 1", "Key 3", "Key 7", "Key 9",
+    "Key Space", "Key Return", "Key Cursor up", "Key Cursor down", "Key Cursor left", "Key Cursor right", "Key Home", "Key Del", "Key Stop",
+    "Key W", "Key A", "Key S", "Key D", "Key Q", "Key E", "Key Z", "Key X", "Key +", "Key -", "Key *", "Key /",
 };
 static const uint8_t padkey_codes[] = {
     0xFF, 27, 59, 11, 19, 16, 35, 56, 8, 24, 32,

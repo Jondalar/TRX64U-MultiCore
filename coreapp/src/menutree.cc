@@ -94,6 +94,21 @@ static bool group_in_tab(const Skeleton *sk, uint8_t widget, const SkelTab &tb, 
     return true;
 }
 
+// T216 (Alex 2026-11-15, "alles ins Input tab"): a task whose group a settings tab lists stands in that tab, below its rows, and not in the tasks tab
+// ("Map buttons" beside the pad rows). Only a settings tab that names its groups claims tasks.
+static bool task_in_settings_tab(const Skeleton *sk, const char *g)
+{
+    for (int a = 0; g && a < sk->nareas; a++) {
+        for (int t = 0; t < sk->areas[a].ntabs; t++) {
+            const SkelTab &o = sk->areas[a].tabs[t];
+            if (o.widget == TW_SETTINGS && groups_have(o.groups, g)) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 static bool skel_has_widget(const Skeleton *sk, uint8_t widget)
 {
     for (int a = 0; a < sk->nareas; a++) {
@@ -314,11 +329,16 @@ void menu_build(const CoreDesc *d, MenuTree *t, bool return_host, bool reload_co
                         }
                     }
                 }
+                for (int i = 0; st.groups && i < d->ntasks; i++) {
+                    if (groups_have(st.groups, d->tasks[i].group)) {
+                        add(t, EK_TASK, d->tasks[i].label, i);
+                    }
+                }
                 break;
             }
             case TW_TASKS:
                 for (int i = 0; i < d->ntasks; i++) {
-                    if (group_in_tab(sk, TW_TASKS, st, d->tasks[i].group)) {
+                    if (group_in_tab(sk, TW_TASKS, st, d->tasks[i].group) && !task_in_settings_tab(sk, d->tasks[i].group)) {
                         add(t, EK_TASK, d->tasks[i].label, i);
                     }
                 }

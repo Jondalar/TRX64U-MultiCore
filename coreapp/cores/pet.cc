@@ -83,8 +83,8 @@ static const Setting settings[17] = {
     { "Model (at next reset)", model_names, 7, 2, WHEN_RESET, 0, &b_model, 0, 0, 0, 0, "Model" },
     { "CPU speed",             cpu_names,   8, 0, WHEN_LIVE,  0, &b_cpu,   0, 0, 0, 0, 0 },
     { "Diag (at next reset)",  diag_names,  2, 0, WHEN_RESET, 0, &b_diag,  0, 0, 0, 0, "Diag" },
-    { "Picture rate",          hz_names,    2, 0, WHEN_LIVE,  0, &b_hz,    0, 0, 0, 0, 0 },
-    { "Phosphor",              phos_names,  3, 0, WHEN_LIVE,  0, &b_phos,  0, 0, 0, 0, 0 },
+    { "Picture rate",          hz_names,    2, 0, WHEN_LIVE,  0, &b_hz,    0, "video", 0, 0, "Refresh rate" },
+    { "Phosphor",              phos_names,  3, 0, WHEN_LIVE,  0, &b_phos,  0, "video", 0, 0, 0 },
     { "RAM (at next reset)",   ram_names,   3, 2, WHEN_RESET, 0, &b_ram,   0, 0, 0, "pet.ramrow", "RAM" },   // listed for the 2001, 3032 and 4032 only: the CRTC models always have 32 KiB, the SuperPET has its own row
     { "Drive 8 (at next reset)", drive_names, 3, 0, WHEN_RESET, 0, &b_drive, 0, 0, 0, 0, "Drive" },   // the dual unit of ieee_drive: drives 0 and 1
     { "Datasette port",        dset_names,  2, 0, WHEN_LIVE,  0, &b_dset,  0, 0, 0, 0, 0 },
@@ -147,6 +147,44 @@ static int put_at(CoreCtx *c, uint32_t addr, const uint8_t *data, uint32_t n, co
     return first < n ? put_space(c, PET_SPACE_C000, 0, data + first, n - first, role, msg, msglen) : 0;
 }
 
+// Whether the model's own file of a role is on the card (the scan of put_model_rom, without reading it).
+static bool model_rom_found(CoreCtx *c, int role, uint32_t want, const char *const *names)
+{
+    RomSpec s;
+    memset(&s, 0, sizeof(s));
+    s.role = "";
+    for (int i = 0; names[i] && i < ROM_NAMES_MAX; i++) {
+        s.names[i] = names[i];
+    }
+    s.sizes[0] = want;
+    if (role == PET_R_CHAR) {
+        s.sizes[0] = PET_CHAR_MAX;
+        s.sizes[1] = PET_CHAR_BYTES;
+    }
+    s.required = true;
+    s.put_op = "";
+    char own[96], sum[160];
+    const char *own_dir = rom_own_dir(c->cor_path, own, sizeof(own)) ? own : 0;
+    RomResult res[1];
+    return rom_scan(c->fs, c->desc->folder, &s, 1, res, sum, sizeof(sum), c->board ? c->board->rom_dir : 0, own_dir) == ROM_FOUND;
+}
+
+// T216 P6/P7 (Alex 2026-11-15, "Ja"): the refusal lists every missing file of the model at once (the first name of each role), not only the first one found.
+static void list_missing_roms(CoreCtx *c, OpOut &o)
+{
+    static const struct { int role; const char *label; } roles[4] = { { PET_R_BASIC, "BASIC" }, { PET_R_EDITOR, "Editor" }, { PET_R_KERNAL, "KERNAL" }, { PET_R_CHAR, "Characters" } };
+    int model = pet_model(c);
+    int len = snprintf(o.msg, o.msglen, "Missing in cores/pet/roms (%s), copy them there and choose Reload ROMs:", model_names[model]);
+    for (int i = 0; i < 4; i++) {
+        const char *names[6];
+        pet_rom_names(model, pet_hz50(c), roles[i].role, names);
+        uint32_t want = roles[i].role == PET_R_BASIC ? (pet_basic_gen(model) == 4 ? 12288 : 8192) : roles[i].role == PET_R_EDITOR ? 2048 : roles[i].role == PET_R_KERNAL ? 4096 : PET_CHAR_MAX;
+        if (!model_rom_found(c, roles[i].role, want, names) && len > 0 && len < o.msglen) {
+            len += snprintf(o.msg + len, o.msglen - len, "\n%s", names[0]);
+        }
+    }
+}
+
 // The ROM of a role is the one the MODEL names (pet_models.h): the scan finds a file of any model, so here the model's own file is looked up again
 // (the same folders as the scan) and a missing one is refused by name (T216 P6, Alex 2026-11-15): the machine does not start on another model's ROM
 // or a generic file. The character ROM goes in as 4 KiB (a 2 KiB file leaves the upper half zero): the upper half is the SuperPET's Waterloo set.
@@ -173,11 +211,7 @@ static int put_model_rom(CoreCtx *c, int role, uint32_t want, const char *label,
     RomResult res[1];
     if (rom_scan(c->fs, c->desc->folder, &s, 1, res, sum, sizeof(sum), c->board ? c->board->rom_dir : 0, own_dir) != ROM_FOUND ||
         res[0].hit.size > buf.n || !rom_read(c->fs, &res[0].hit, buf)) {
-        if (names[1]) {
-            snprintf(o.msg, o.msglen, "%s of the %s is missing in cores/pet/roms: %s or %s", label, model_names[pet_model(c)], names[0], names[1]);
-        } else {
-            snprintf(o.msg, o.msglen, "%s of the %s is missing in cores/pet/roms: %s", label, model_names[pet_model(c)], names[0]);
-        }
+        list_missing_roms(c, o);
         return OPE_FAILED;
     }
     uint32_t n = role == PET_R_CHAR ? PET_CHAR_MAX : want;
@@ -626,8 +660,8 @@ static const Task tasks[] = {
     { "Tape: Stop", "pet.tape_stop", 0, 0, false },
     { "Tape: Rewind", "pet.tape_rewind", 0, 0, false },
     { "Tape: Eject", "pet.tape_eject", 0, 0, false },
-    { "Map buttons, pad 1", "menu.pad_map_1", 0, 0, false },
-    { "Map buttons, pad 2", "menu.pad_map_2", 0, 0, false },
+    { "Map buttons, pad 1", "menu.pad_map_1", 0, 0, false, 0, 0, false, 0, "input" },
+    { "Map buttons, pad 2", "menu.pad_map_2", 0, 0, false, 0, 0, false, 0, "input" },
 };
 
 static const MediaSlot media[] = {
