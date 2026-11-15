@@ -264,6 +264,8 @@ overlay was fitted from a 1280x800 manual picture, so its scale on the real 960x
 - D6 (Alex 2026-11-15, translated: "in any case I want to test it as a human in the emulator first, before it goes out"): after S2 is
   built, Alex tries the new trx64u menu himself in ue2emu (S2b) before any board test, package or release.
 
+- D7 (Alex 2026-11-15, Q2c): Streams (start/stop and their targets) are a section inside the F8 tab "Network", not an own tab.
+
 ## §4 Out
 
 ## §5 Built
