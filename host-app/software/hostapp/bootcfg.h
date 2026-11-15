@@ -20,7 +20,7 @@
 #define HOST_BOOTCFG_H
 
 #include "configlist.h"
-#define BOOT_MAX 16
+#define BOOT_MAX 32                       // T223 D1 (Alex, 2026-11-15): 32 entries; the boot ROM does not read boot.cfg
 #define BOOT_COUNTDOWN_DEFAULT 5          // Alex, T84 D4a: the default starts by itself after 5 s
 #define BOOT_AUTOSTART_MAX 60
 #define BOOT_NAME_MAX 47                  // BootEntry::name without its terminator

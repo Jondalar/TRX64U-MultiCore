@@ -759,6 +759,10 @@ void hc_lazy_mark(int i)
     }
 }
 
+// T223 D2: only the rows on screen are read; the default and the selected row always are (the countdown and the start wait for them).
+static int g_win_first = 0, g_win_n = BOOT_MAX;
+void hc_lazy_window(int first, int n) { g_win_first = first; g_win_n = n; }
+
 int hc_lazy_next(int sel_hint)
 {
     if (g_cfg.def >= 0 && g_cfg.def < g_cfg.n && g_pend[g_cfg.def]) {
@@ -767,7 +771,7 @@ int hc_lazy_next(int sel_hint)
     if (sel_hint >= 0 && sel_hint < g_cfg.n && g_pend[sel_hint]) {
         return sel_hint;
     }
-    for (int i = 0; i < g_cfg.n; i++) {
+    for (int i = g_win_first < 0 ? 0 : g_win_first; i < g_cfg.n && i < g_win_first + g_win_n; i++) {
         if (g_pend[i]) {
             return i;
         }

@@ -210,6 +210,7 @@ bool hc_is_full(const char *path);                       // a .cfw, or a .cor th
 void hc_probe_state(int i);                              // (a) size and mtime of the directory entry, (b) the package header: the state. No part is hashed, no medium is listed.
 void hc_lazy_reset(void);                                // every entry is unknown again (a move, a removal, a late boot.cfg)
 void hc_lazy_mark(int i);                                // entry i is read again, its old state stays until the new one is in
+void hc_lazy_window(int first, int n);                   // T223 D2: the rows the reader may read besides the default and the selection (default: all)
 int hc_lazy_next(int sel_hint);                          // the entry the reader would take next (the default first, then `sel_hint`), -1
 enum { HCL_STATE = 1, HCL_ICON, HCL_MIGRATE };
 struct HcLazy {

@@ -143,4 +143,45 @@ elif ! grep -aq '^\[core\] config Charlie: /USB0/cores/vc20/configs/Charlie.cfg'
     echo "FAIL T198 config overlay flow: the core did not start with the config Charlie (no '[core] config Charlie:' line, see $out/cfg.log)"; FAIL=1
 else echo "PASS T198 config overlay flow: overlay, badges, default, 10-config scroll, start with Charlie (PNGs $out/cfg-*.png)"; fi
 
+# ---- T223: 32 boot entries, the visible rows read, the full menu's message -----------------------------------------------------------------------
+# The stick has 33 copies of the VIC-20 bundle (cores/c01.cor .. c33.cor). The walk adds them one by one with A (the browser's own add, no seeded boot.cfg): the 33rd is
+# refused with the message "Boot menu is full: it holds 32 of 32 entries" (PNG), then the boot menu at its top, scrolled, on its last page, and the editor on the last page.
+m32_nav() {
+    local P="$out/t223" i
+    printf 'wait 15000\nkey space\nwait 800\nkey f3\nwait 1500\nkey down\nwait 500\nkey down\nwait 500\nkey return\nwait 2000\n'
+    printf 'key down\nwait 500\nkey return\nwait 2000\nkey down\nwait 500\n'
+    for ((i = 1; i <= 33; i++)); do printf 'key a\nwait 14000\n'; [ $i = 32 ] && printf 'png %s-added-32.png\n' "$P"; printf 'key down\nwait 300\n'; done
+    printf 'wait 4000\npng %s-full-message.png\nkey f1\nwait 4000\npng %s-menu-top.png\n' "$P" "$P"
+    for ((i = 0; i < 14; i++)); do printf 'key down\nwait 300\n'; done
+    printf 'wait 3000\npng %s-menu-scrolled.png\n' "$P"
+    for ((i = 0; i < 17; i++)); do printf 'key down\nwait 300\n'; done
+    printf 'wait 6000\npng %s-menu-last.png\nkey f5\nwait 2500\npng %s-editor-last.png\nquit\n' "$P" "$P"
+}
+run_m32_flow() {
+    local w="$out/work-m32" i
+    rm -rf "$w"; mkdir -p "$w/cors" "$w/profiles" "$w/stick/cores"
+    for ((i = 1; i <= 33; i++)); do cp "$kit/cors/vc20.cor" "$w/stick/cores/$(printf 'c%02d' $i).cor"; done
+    m32_nav > "$w/flow.ctl"
+    cp "$kit/flash.bin" "$out/m32-flash.bin"
+    ( cd "$w" && nice -n 15 timeout 1700 "$UE2EMU" run --board c64u --trx-io=on --icap --cor-dir "$w/cors" --core-dir "$w/profiles" --firmware "$img/hostapp_emu.elf" \
+        --roms "$kit/roms" --flash "$out/m32-flash.bin" --usb-dir "$w/stick" --usb-dir-work "$w/usbwork" --headless --speed max --script "$w/flow.ctl" \
+        --max-seconds 1600 > "$out/m32.log" 2>&1 )
+    local rc=$?
+    python3 -I - "$out/m32-flash.bin" "$ROOT/tests/updater" > "$out/m32-boot.cfg" <<'PY'
+import sys
+sys.path.insert(0, sys.argv[2])
+from fatread import Fat
+f = Fat(open(sys.argv[1], "rb").read()[0x580000:])
+e = f.find("boot.cfg")
+sys.stdout.write(f.read(e).decode() if e else "NO BOOT.CFG\n")
+PY
+    rm -rf "$w" "$out/m32-flash.bin"
+    return $rc
+}
+run_m32_flow; rc=$?
+n32=$(grep -c '^core=' "$out/m32-boot.cfg" 2>/dev/null || echo 0)
+if [ $rc -ne 0 ]; then echo "FAIL T223 32 entries: the emulator exited $rc (see $out/m32.log)"; FAIL=1
+elif [ "$n32" != 32 ]; then echo "FAIL T223 32 entries: boot.cfg holds $n32 core= lines, not 32 (the 33rd must be refused, see $out/m32.log)"; FAIL=1
+else echo "PASS T223 32 entries: 32 added, the 33rd refused (boot.cfg 32 lines; PNGs $out/t223-*.png)"; fi
+
 [ $FAIL = 0 ] && echo "tests/hostapp/emu_host: all scenarios passed" || { echo "tests/hostapp/emu_host: FAILED"; exit 1; }

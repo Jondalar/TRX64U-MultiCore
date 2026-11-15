@@ -549,7 +549,16 @@ static void lazy_reset(void)
 // Entry i is read again, its old state stays on screen until the new one is in.
 static void lazy_mark(int i) { hc_lazy_mark(i); }
 
-static bool lazy_busy(void) { return hc_lazy_next(nv.sel) >= 0; }
+static void lazy_window(void)
+{
+    if (nv.view == V_MENU || nv.view == V_EDIT) {
+        hc_lazy_window(nv.view == V_MENU ? nv.mfirst : nv.efirst, nv.view == V_MENU ? MROWS : EROWS);
+    } else {
+        hc_lazy_window(0, 0);                // another view: nothing but the default and the selection
+    }
+}
+
+static bool lazy_busy(void) { lazy_window(); return hc_lazy_next(nv.sel) >= 0; }
 
 static bool row_visible(int i)
 {
@@ -566,6 +575,7 @@ static bool lazy_step(bool quiet)
 {
     HcLazy z;
     uint32_t t0 = now_ms();
+    lazy_window();
     if (!hc_lazy_step(quiet, nv.sel, &z)) {
         return false;
     }
