@@ -30,6 +30,10 @@ would be cool, wouldn't it?" -> "Ok" to: measure the slice headroom first, then 
 
 Measure first (S0), then horizontal only. Vertical blending is not part of this spec unless Alex decides it after S0.
 
+- D1 (Alex 2026-11-15, after S0: "yes, try it"): build the DSP variant of horizontal blending.
+- D2 (Alex 2026-11-15, translated: "we had 2 SIDs in there, didn't we? we really need only 1 there"): the c64scpu build drops the
+  second SID (build define SID2 and whatever the app offers for it) to win room; one SID stays.
+
 ## §4 Out
 
 - Vertical blending (until decided).
