@@ -110,13 +110,14 @@ module hdmi_out #(
     // ---- the mode: request and status (cpu_clk), the synthesizer (clk50), the timing (pix_clk)
     wire [3:0]  vm_mode, mode_pix, m_mode;
     wire [1:0]  scale_pix;
+    wire        smooth_pix;
     wire        vm_rst, running, fstart;
     wire [7:0]  mr_rdata;
     wire        mr_rhit;
     mode_req mreq (
         .clk_sys(cpu_clk), .we(ovl_we), .addr(ovl_addr), .wdata(ovl_wdata), .rdata(mr_rdata), .rhit(mr_rhit),
         .clk50(clk50), .fam_v60(fam_v60), .vm_mode(vm_mode), .vm_rst(vm_rst),
-        .clk_pix(pix_clk), .mode_pix(mode_pix), .fstart(fstart), .scale_pix(scale_pix),
+        .clk_pix(pix_clk), .mode_pix(mode_pix), .fstart(fstart), .scale_pix(scale_pix), .smooth_pix(smooth_pix),
         .gt_ready(gt_ready), .pix_locked(pix_locked), .running(running), .mode_q(m_mode)
     );
     cdce_mode i2c (.clk(clk50), .rst(cdce_rst | vm_rst), .scl_low(scl_low), .sda_low(sda_low), .done(i2c_done), .mode(vm_mode));
@@ -145,7 +146,7 @@ module hdmi_out #(
         .vclk(sys_clk), .pix(pix_color), .px(pix_x), .py(pix_y),
         .clk(pix_clk), .rst(pix_rst), .ce(pce),
         .pal_clk(cpu_clk), .pal_we(pal_we), .pal_addr(pal_addr), .pal_wdata(pal_wdata),
-        .mode(m_mode), .scale(scale_pix), .t_de(t_de), .t_hs(t_hs), .t_vs(t_vs), .t_cx(t_cx), .t_cy(t_cy),
+        .mode(m_mode), .scale(scale_pix), .smooth(smooth_pix), .t_de(t_de), .t_hs(t_hs), .t_vs(t_vs), .t_cx(t_cx), .t_cy(t_cy),
         .xact0(m_xact0), .yact0(m_yact0), .hact(m_hact), .vact(m_vact), .htot_m1(m_htot_m1), .geom(geom), .align(align),
         .rgb(s_rgb), .de(s_de), .hs(s_hs), .vs(s_vs), .cx(s_cx), .cy(s_cy), .locked(sc_locked),
         .blank(c64_halted), .x_text(x_text), .scan(scanlines)

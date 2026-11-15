@@ -55,3 +55,22 @@ Measure first (S0), then horizontal only. Vertical blending is not part of this 
   2 DSP; `sid_core` 1171 LUT) therefore drops only what constant propagation of `sid_mono` / `sid_dual` removes (the pan / mono-timer logic, some of the 308 LUT
   wrapper), not a SID. The ~100 slices that 2d17cccb0 / run 852 noted are not explained by the code; the Vivado report of this branch gives the number.
   A real second-SID removal needs `NS = 1` in `vendor/icepi` (shared with c64u) or a core-owned copy: question to Alex.
+- **D1 built 2026-11-15, `cores/c64scpu/mono/host/vic_scaler.v`** (port `smooth`; own copy, include name unchanged): pair (a, b) of VIC pixels around the sample
+  point u = hpx + hacc/hd, `half = 2 hacc >= hd` (`s0_half`), b = pixel `hpx + half`, a = the b before the last address change (`l_adr`/`l_col`/`a_hold`,
+  no second ring read; left of the window the address is X0-1, so a is the left border at the window's first pixel), f = `frac4(hd, hacc)` = floor(8 q / hd),
+  q = (2 hacc + hd) mod 2 hd, 4 bit; the sample point is centred, so the picture does not move against Off (NN samples at u, centres at i + 1/2).
+  Stages (all in `if (ce)`): s1 address/f, s2 ring + palette index, s3 two palette lookups (second `pal_ram`), s4 differences, s5 `16 a + (b-a) f` in a
+  DSP48 per channel (`use_dsp`), rgb. ctl/h/v/cx/cy/win/edge/last travel along: latency 3 -> 6 pixels, in both smooth states. Off: address X0 + hpx, a = b,
+  f = 0, so out = b = today's palette colour; the scanline dimming applies to the blend as it did to the palette colour. Fraction proof (iverilog on the function
+  itself against floor(8 q / hd), every hacc in 0..hd-1 for every (hn,hd) of `scpu_hdmi_modes.vh` hm_geom: hd in {2,3,4,8,9,16,24}): 74 cases, 0 wrong, all < 16.
+  yosys lint (read_verilog, hierarchy, proc) of vic_scaler/pal_ram/mode_req: no implicit nets. No bench ran (not asked); `tb_scaler` ties `smooth` to 0 and
+  `tb_mode_req`/`tb_hdmi_out` expect version 3 now.
+  Estimate (S0 stays the basis): +3 DSP, +96 FF for the colour stages (2 x 24 + 27 + 24 + 4 + 3 x 14) plus ctl/h/v delays (3 x ~28), +~60 LUT (frac4, the
+  address mux, `a_idx`) + 24 LUTRAM-bits-worth for the second palette (3 x 8 x 16 as RAM32M, ~8 LUT); no BRAM.
+- **Register layout (`mode_req.v`):** version 3 (0x4F05; 2 = scale register, 3 = smoothing too). Write `0x4F0B`: 0 Off, 1 On, other values refused and
+  nothing changes; taken into clk_pix and handed to `vic_scaler` as `smooth_pix` at the next `fstart` like the scale. Read `0x4F0B`: the smoothing in use.
+  Power-up Off. `hdmi_out.v` wires `smooth_pix`. The app checks `video_gw_has_smooth` = has_scale && version >= 3 (`app/video/videomode.cc`).
+- **App (S2), `coreapp/src/picture.cc`:** with `env->vic_smooth` the VIC-scale branch adds a Smoothing item (Off/On, live, group video) after Scale;
+  `smooth_apply` writes 0x4F0B on that path, the frame-buffer path is untouched. `picture_start` applies the stored value through `smooth_apply`.
+  Picture proof: ue2emu has no c64scpu profile (`tests/coreapp/emu/profiles`: amiga1200, atari800, c128, nes, pet, vc20) and no 0x4F0x status emulation, so no
+  picture of the c64scpu Video tab was made.

@@ -112,7 +112,7 @@ module tb;
         .ph_e(), .mode_q(mode_q));
     vic_scaler dut (.vclk(vclk), .pix(pix), .px(x), .py(y), .clk(clk), .rst(rst), .ce(ce),
         .pal_clk(pclk), .pal_we(pal_we), .pal_addr(pal_addr), .pal_wdata(pal_wdata),
-        .mode(mode_q), .scale(scale), .t_de(t_de), .t_hs(t_hs), .t_vs(t_vs), .t_cx(t_cx), .t_cy(t_cy),
+        .mode(mode_q), .scale(scale), .smooth(1'b0), .t_de(t_de), .t_hs(t_hs), .t_vs(t_vs), .t_cx(t_cx), .t_cy(t_cy),
         .xact0(xact0), .yact0(yact0), .hact(hact), .vact(vact), .htot_m1(htot_m1), .geom(geom), .align(align),
         .rgb(rgb), .de(de), .hs(hs), .vs(vs), .cx(cx), .cy(cy), .locked(locked), .blank(1'b0), .x_text(), .scan(scan));
 
