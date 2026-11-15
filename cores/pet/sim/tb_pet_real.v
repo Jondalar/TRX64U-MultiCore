@@ -34,7 +34,7 @@ module tb_pet_real;
 
     // T216 S9, S11: a real ROM set (VICE's data/PET files, not in git: +roms=<dir>, skipped without them) boots a model; +model=N (the core's board number 0..5), +hz50,
     // +basic= +edit= +kernal= +chars= the file names, +ms= the simulated time. The screen text and the CRTC state are printed; a model with a CRTC must still show 80 columns at the end.
-    integer i, errs = 0, fd, c, n, row, col, ms, model, cols;
+    integer nsp, ready, i, errs = 0, fd, c, n, row, col, ms, model, cols;
     reg [8*200-1:0] dir, fb, fe, fk, fc;
     reg [8*260-1:0] fn;
     reg [7:0] lo;
@@ -74,11 +74,21 @@ module tb_pet_real;
         loadrom(fe, 16'hE000, 0);
         loadrom(fk, 16'hF000, 0);
         loadrom(fc, 0, 1);
+        // +fastbeep: the editors' reset beep (LDA #$10 STA $E7 or $03EC = the note length, four times seven notes, ~600 ms at 1 MHz) is shortened to length 1 so a model reaches READY in a short run;
+        // without it the run is the real timing.
+        if ($test$plusargs("fastbeep"))
+            for (i = 0; i < 2040; i = i + 1) if (dut.mem.rom.mem[16'h6000 + i] == 8'hA9 && dut.mem.rom.mem[16'h6000 + i + 1] == 8'h10 && dut.mem.rom.mem[16'h6000 + i + 2] == 8'h85 && dut.mem.rom.mem[16'h6000 + i + 3] == 8'hE7) dut.mem.rom.mem[16'h6000 + i + 1] = 8'h01;
+        if ($test$plusargs("fastbeep"))
+            for (i = 0; i < 2040; i = i + 1) if (dut.mem.rom.mem[16'h6000 + i] == 8'hA9 && dut.mem.rom.mem[16'h6000 + i + 1] == 8'h10 && dut.mem.rom.mem[16'h6000 + i + 2] == 8'h8D && dut.mem.rom.mem[16'h6000 + i + 3] == 8'hEC && dut.mem.rom.mem[16'h6000 + i + 4] == 8'h03) dut.mem.rom.mem[16'h6000 + i + 1] = 8'h01;
         if ($test$plusargs("hz50")) cw(12'h0A5, 8'd1);
         cw(12'h0A1, model[7:0]);
         cw(12'h0A7, 8'd2);
         #100 sys_rst = 0; ui_rst = 0;
-        repeat (ms) #1000000;
+        for (i = 0; i < ms; i = i + 1) begin
+            #1000000;
+            nsp = 0; for (n = 0; n < 2000; n = n + 1) if (dut.mem.vram.mem[n] != 8'h20) nsp = nsp + 1;
+            if (i % 50 == 49) $display("t=%0d ms: PC %h CRTC R1 %0d R12 %h CB2 edges %0d, screen RAM bytes not space %0d", i + 1, dut.a65, dut.r1, dut.r12, beeps, nsp); if (i % 50 == 49) $fflush;
+        end
         cols = dut.col80 ? 80 : 40;
         $display("board %0d after %0d ms: PC %h, CRTC R1 %0d R12 %h, picture %0d columns, CB2 edges %0d, gfx low %0d high %0d", model, ms, dut.a65, dut.r1, dut.r12, cols, beeps, gfx0, gfx1);
         $write("last JSR sites:"); for (jk = (jn > 32 ? jn - 32 : 0); jk < jn; jk = jk + 1) $write(" %h", jsr[jk % 32]); $write("\n");
@@ -89,6 +99,13 @@ module tb_pet_real;
             end
             $write("\n");
         end
+        // the editor's reset beeps (two JSR/fall-through pairs of seven notes, about 600 ms at 1 MHz) end before the editor programs the CRTC (R12 = $10) and BASIC prints READY.
+        ready = 0;
+        for (i = 0; i < 2000 - 5; i = i + 1)
+            if ({dut.mem.vram.mem[i][6:0], dut.mem.vram.mem[i+1][6:0], dut.mem.vram.mem[i+2][6:0], dut.mem.vram.mem[i+3][6:0], dut.mem.vram.mem[i+4][6:0]} == {7'd18, 7'd5, 7'd1, 7'd4, 7'd25}) ready = 1;
+        $display("READY on screen: %0d, R12 %h, beeps (CB2 edges) %0d", ready, dut.r12, beeps);
+        if (!ready) begin $display("FAIL tb_pet_real: no READY on the screen after %0d ms", ms); errs = errs + 1; end
+        if (model >= 3 && dut.r12 != 8'h10) begin $display("FAIL tb_pet_real: CRTC R12 is %h, not $10 (editor init did not finish)", dut.r12); errs = errs + 1; end
         if (model >= 3 && cols != 80) begin $display("FAIL tb_pet_real: the CRTC board shows %0d columns", cols); errs = errs + 1; end
         if (errs == 0) $display("PASS tb_pet_real");
         $finish;
