@@ -346,3 +346,5 @@ Dumps (Alex, C64U, c64scpu_trace v3, Metal Dust, 20 MHz, JiffyDOS; session scrat
 
 **LUT / timing (estimate, no Vivado run).** `ba_q` is one flip-flop; it removes the unregistered `ba` (dot4x domain) from the `ba_n` / `ba_hold` / `arm_go` cone and so shortens that path. The colour RAM term adds one `d_wk == WK_BOTH` compare (3-bit) into `io_wr`, which already compares `d_wk` for `WK_BUS` / `WK_INT` and `pg[7:4]`: about one LUT, folded into the existing `wr_hold` LUT cone in front of `arm_go`. No new critical path is expected; WNS +0.026 ns before is unmeasured for this change until the pipeline run.
 
+**Run 1925 (2026-11-15, 60bfda790, child 1927 `vivado large:c64scpu`):** green in 1063 s. Pass 1 ExtraTimingOpt WNS -0.041 ns after post-route phys_opt; pass AltSpreadLogic_high `Post Routing Timing Summary | WNS=0.082 | TNS=0.000 | WHS=0.017`, kept (`=== kept: build_mono_c64scpu/routed_alt.dcp (WNS 0.082 ns)`); the `.cor` child 1931 green. Timing met without the debug WNS floor. Open: board S4 retest.
+
