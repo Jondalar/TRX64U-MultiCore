@@ -80,6 +80,7 @@ enum { DT_KIND_TEST = 0, DT_KIND_SUITE = 1 };
 struct DiagTest {
     char name[DT_STR], id[DT_NAME];
     int version;
+    bool kbd_only;                                          // [test] menu_input = "keyboard": the joystick ports feed no menu key while the test runs
     char needs[DT_LIST][48]; int nneeds;                   // what the person needs plugged in, for the report
     char requires[DT_LIST][DT_NAME * 2]; int nrequires;     // "<test>.<eval id>": the newest result of that test must show the eval as PASS
     DtPrompt prompts[DT_PROMPTS]; int nprompts;
@@ -196,6 +197,9 @@ struct DiagEnv {
     void (*av_done)(void *ud);
     void (*av_freeze)(void *ud, bool on);    // T201 v2: the marker stands still while a question is open (register 053 bit 1); av_done clears it as well. May be null.
     void *av_ud;
+    // T175: a test with menu_input = "keyboard" switches the joystick ports off as menu keys from its start until its result dialog (on = false), and back on. May be null.
+    void (*joy_menu)(void *ud, bool on);
+    void *joy_ud;
 };
 
 struct DiagOutcome {

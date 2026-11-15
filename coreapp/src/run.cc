@@ -645,6 +645,12 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
             int b = dlg->choose_timed(title, text, items, n, timeout_s);
             return b == DLG_TIMEOUT ? -2 : b;
         }
+        void joystick_menu(bool on) override
+        {
+            if (matrix_kb) {
+                matrix_kb->set_keyboard_only(!on);
+            }
+        }
         void notice(const char *title, const char *text) override { dlg->message(title, text); }
         bool pick(const char *start, char *out, int outlen) override { return dlg->pick_file(start, ".toml", out, outlen); }
         bool stamp(char out[16]) override

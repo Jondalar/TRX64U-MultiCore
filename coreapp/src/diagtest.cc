@@ -554,6 +554,19 @@ static int apply_kv(Builder &b, const Kv &kv, int line)
             f.test.version = (int)kv.i;
             return 0;
         }
+        if (!strcmp(k, "menu_input")) {
+            if (want_type(b, kv, V_STR, line)) {
+                return -1;
+            }
+            if (!strcmp(kv.s, "keyboard")) {
+                f.test.kbd_only = true;
+            } else if (!strcmp(kv.s, "any")) {
+                f.test.kbd_only = false;
+            } else {
+                return fail(b.e, line, "menu_input is \"any\" or \"keyboard\"");
+            }
+            return 0;
+        }
         if (!strcmp(k, "needs")) {
             if (want_type(b, kv, V_ARR_STR, line)) {
                 return -1;
@@ -1617,6 +1630,15 @@ static int run_test(DiagEnv *env, const DiagTest &t, bool quiet, DiagOutcome *ou
     char why[160];
     why[0] = 0;
     bool wrote_hw = false;
+    struct JoyMenuGuard {                                    // a test that asks for the keyboard only: the joystick ports are no menu keys until the result dialog
+        DiagEnv *e;
+        bool off;
+        void back() { if (off) { off = false; e->joy_menu(e->joy_ud, true); } }
+        ~JoyMenuGuard() { back(); }
+    } jg = { env, t.kbd_only && env->joy_menu != 0 };
+    if (jg.off) {
+        env->joy_menu(env->joy_ud, false);
+    }
 
     do {
         if (io->rd(PD_ID) != 'D' || io->rd(PD_ID + 1) != 'I' || io->rd(PD_ID + 2) != 'A' || io->rd(PD_ID + 3) != 'G') {
@@ -1740,6 +1762,7 @@ static int run_test(DiagEnv *env, const DiagTest &t, bool quiet, DiagOutcome *ou
             dt_evaluate(t, &r);
         }
     } while (0);
+    jg.back();
     if (wrote_hw) {
         io->wr(PD_CTRL, PD_CTRL_ABORT);                      // every output released, whatever happened
     }

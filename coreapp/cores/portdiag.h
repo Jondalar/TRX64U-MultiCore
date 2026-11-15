@@ -21,6 +21,8 @@ public:
     virtual bool pick(const char *start, char *out, int outlen) = 0;
     // "YYYYMMDD-HHMMSS" from the clock, false when it has none.
     virtual bool stamp(char out[16]) = 0;
+    // T175: false: the joystick ports feed no menu key (only the keyboards answer a prompt); true: as always. The default does nothing.
+    virtual void joystick_menu(bool on) { (void)on; }
 };
 
 void portdiag_attach(PdHost *h);

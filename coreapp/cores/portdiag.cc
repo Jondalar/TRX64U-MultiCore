@@ -148,6 +148,7 @@ static CoreCtx *g_ctx;
 static uint32_t env_now(void) { return g_ctx->io->now_ms(); }
 static void env_delay(uint32_t ms) { g_ctx->io->delay_ms(ms); }
 static bool env_stamp(char out[16]) { return g_host && g_host->stamp(out); }
+static void env_joy_menu(void *, bool on) { if (g_host) { g_host->joystick_menu(on); } }
 
 void portdiag_prompt_text(const char *test, const char *text, int idx, int total, char *t, int tn, char *x, int xn)
 {
@@ -300,6 +301,7 @@ static void run_path(CoreCtx *c, const char *path)
     env.av_done = av_done_cb;
     env.av_freeze = av_freeze_cb;
     env.av_ud = c;
+    env.joy_menu = env_joy_menu;
     const char *fn = strrchr(path, '/');
     snprintf(g_last, sizeof(g_last), "running %s", fn ? fn + 1 : path);
     int rc = diag_run_file(&env, path, &out);
