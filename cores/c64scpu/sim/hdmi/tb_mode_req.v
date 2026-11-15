@@ -115,7 +115,7 @@ module tb;
 
     task check_status(input integer exp_row, input integer exp_ref); begin
         bus_read(4); if (rd !== 8'h48) begin fails = fails + 1; $display("FAIL status magic %h", rd); end
-        bus_read(5); if (rd !== 8'h01) begin fails = fails + 1; $display("FAIL status version %h", rd); end
+        bus_read(5); if (rd !== 8'h02) begin fails = fails + 1; $display("FAIL status version %h", rd); end
         bus_read(6);
         if (rd[0] !== 1'b1 || rd[1] !== 1'b1 || rd[2] !== 1'b1 || rd[3] !== 1'b1 || rd[4] !== 1'b1 || rd[7] !== exp_ref[0] || rd[6:5] !== 2'b0) begin
             fails = fails + 1; $display("FAIL status flags %b: want gt 1 pix_locked 1 running 1 locked 1 c64 1 refused %0d", rd, exp_ref);
