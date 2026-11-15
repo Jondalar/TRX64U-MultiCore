@@ -1,6 +1,6 @@
 # T225 — In the Amiga cores a USB gamepad can stand in for Amiga game port 2, as a one-button joystick, a two-button joystick or a CD32 pad, with a saved per-pad button mapping
 
-**Status:** BUILT on branch `t225-amiga-usbpad` (2026-11-15); S4 Vivado green (run 1999); board 2026-11-15 on amiga1200: mapping dialog and CD32 mode PASS, all 7 buttons, 1-/2-button games, restart and amiga (A500) still open.
+**Status:** DONE 2026-11-15 (Alex: "it is ok, note it as done", translated). Vivado green (run 1999); board on amiga1200: mapping dialog, CD32 mode with d-pad + 3 buttons. Not checked by decision of Alex: the other 4 CD32 buttons, the 1-/2-button modes, the restart (S3) and the A500 core on the board.
 **Repo:** TRX64U-MultiCore — gateware of `cores/amiga` and `cores/amiga1200` (minimig `userio.v`: CD32 pad enable and the pad bits
 into `_joy2`, one register the app writes), the core app (pad service, Input tab of both Amiga cores, the mapping dialog, saving).
 **Number:** T225.
