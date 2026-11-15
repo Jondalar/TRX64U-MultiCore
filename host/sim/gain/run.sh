@@ -13,7 +13,7 @@ grep -q '^PASS tb_gain errors=0' "$out/gain.log"
 t=$root/host/top.v
 u=$root/host/ultimate_sys.vhd
 wiring() { # top.v ultimate_sys.vhd
-  grep -q 'trx_gain mgain (.clk(mclk), .vol(master_vol), .in_l(audio_l), .in_r(audio_r), .out_l(gain_l), .out_r(gain_r));' "$1" &&
+  grep -q 'trx_gain mgain (.clk(mclk), .vol(master_vol), .in_l(tone_l), .in_r(tone_r), .out_l(gain_l), .out_r(gain_r));' "$1" &&
   grep -q "snd_l <= pause_mclk\[1\] ? 24'sd0 : gain_l;" "$1" && grep -q "snd_r <= pause_mclk\[1\] ? 24'sd0 : gain_r;" "$1" &&
   grep -q '\.master_vol(master_vol)' "$1" &&
   grep -q 'signal master_vol_i : std_logic_vector(7 downto 0) := X"80";' "$2" &&

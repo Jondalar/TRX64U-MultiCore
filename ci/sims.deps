@@ -57,6 +57,7 @@ case_leds: ci/sim_iv.sh host/sim/tb_case_leds.v host/case_leds.v
 ui_buttons: host/sim/ui_buttons host/sim/tb_ui_buttons.v host/ui_buttons.v host/top.v host/ultimate_sys.vhd host/pins.xdc
 portlock: host/sim/portlock host/portlock_clk.v
 host_gain: host/sim/gain host/trx_gain.v host/top.v host/ultimate_sys.vhd
+host_tone: host/sim/tone host/trx_tone.v host/trx_gain.v host/top.v host/ultimate_sys.vhd
 mig_arb: ci/sim_iv.sh host/sim/tb_mig_arb.v @mig
 reu_map: ci/sim_iv.sh host/sim/tb_reu_map.v host/reu_ddr_map.v @mig
 udp_audio: ci/sim_iv.sh host/sim/tb_udp_audio.v host/udp_stream.v host/udp_audio.v host/stream_mux.v

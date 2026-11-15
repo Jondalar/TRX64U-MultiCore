@@ -4,7 +4,7 @@
 module tb_gain;
     reg clk = 0; always #5 clk = ~clk;
     reg [7:0] vol = 8'd128;
-    reg signed [23:0] il = 0, ir = 0;
+    reg signed [24:0] il = 0, ir = 0;
     wire signed [23:0] ol, or_;
     trx_gain dut (.clk(clk), .vol(vol), .in_l(il), .in_r(ir), .out_l(ol), .out_r(or_));
     integer errors = 0, i;

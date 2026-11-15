@@ -33,6 +33,8 @@
 1|portlock|120|sh host/sim/portlock/run.sh
 # T164 WP11 / T160 S1: the host's master volume for every core (host/trx_gain.v): unity exact, 0 silent, half, saturation
 1|host_gain|300|sh host/sim/gain/run.sh
+# T189 S1-S5: the tone preset (host/trx_tone.v, host/sim/tone): Flat exact, shelf gains against a double-precision reference, no wrap, silent when idle, one pair for HDMI and I2S; controls STUCK and SWAP
+1|host_tone|1500|sh host/sim/tone/run.sh
 1|mig_arb|600|ci/sim_iv.sh tb_mig_arb.v host/ddr2_port.v host/sim/mig_ui_model.v
 1|drive_mem|600|sh host/sim/drive_mem/run.sh
 2|flash_gate|900|sh host/sim/flash_gate/run.sh

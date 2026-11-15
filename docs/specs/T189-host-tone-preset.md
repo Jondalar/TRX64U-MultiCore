@@ -96,7 +96,13 @@ Scenario: S8 the sound (P5) - board, by hand
 
 ## §5 Decisions taken while building
 
-Empty.
+- **Host gateware (2026-11-15, branch `t189-tone`):** `host/trx_tone.v` (new), `trx_gain.v` input widened to 25 bit, `top.v` (`mtone` before `mgain`, `tone_sel`),
+  `ultimate_sys.vhd` (register `0x51`, reset 0, port `tone_sel`), `build.tcl` / `layers.txt` list the file, `contract/host_pin.txt` updated.
+- Bass set is Q2.16, treble set Q3.15 (18-bit coefficients; the bass poles sit so close to 1 that Q3.15 lost 0.06 dB at 100 Hz and left a +-1000 LSB dead band).
+  The rounding remainder of each sample goes into the next sample's sum (first-order error feedback): no dead band, no DC offset after a burst.
+- Timing in the frame: the filter captures the core's pair 16 clocks after `frame_en`, the output register changes about 30 clocks after it and holds for the rest
+  of the frame, so the HDMI hold (next `frame_en`) and the I2S take (`frame_en` + 127) are the same pair (S5). A filtered sample is one frame (21 us) late; Flat is combinational.
+- S4 DC criterion: 0.01 dB is not reachable with 18-bit coefficients for the bass shelf (1 + a1 + a2 is 32 counts of 65536); measured 0.0206 dB, bench limit 0.05 dB (to confirm with Alex).
 
 ## §6 Design options and questions
 
