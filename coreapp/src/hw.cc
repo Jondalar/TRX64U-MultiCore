@@ -149,6 +149,7 @@ public:
     void bling_lock_off(bool on) { BLING_RX_FLAGS = on ? 0x01 : 0x00; }
     void case_led_select(uint8_t v) { U64_CASELED_SELECT = v; }
     void master_volume(uint8_t v) { *(volatile uint8_t *)(U64_AUDIO_MIXER + 0x50) = v; }
+    void master_tone(uint8_t v) { *(volatile uint8_t *)(U64_AUDIO_MIXER + 0x51) = v; }
     void video_format(uint8_t v) { C64_VIDEOFORMAT = v; }
     // T181: the 11 bytes of the hotkey mask (hotkeys.h) at U64_AUDIO_MIXER + 0x60
     void hotkey_regs(const uint8_t r[11])

@@ -101,6 +101,9 @@ Scenario: S8 the sound (P5) - board, by hand
 - **Large cores (D6):** the 12 large mono builds except neogeo (amiga, amiga1200, c128, c264, c64scpu, cpc, diag, nes, pet, snes, zx, zxnext) carry the same change in their
   OWN copy (`mono/host/{trx_tone.v,trx_gain.v,top.v,ultimate_sys.vhd}` + their `mono/top.v` for c128, c64scpu, diag, `build_mono.tcl`, `FROM`; no shared file).
   neogeo is left alone (D6: once its flat build places again; its copy has no filter, so its app shows no Tone row).
+- **App:** `coreapp/src/tone.{h,cc}` (`tone_extend` after `volume_extend` in `menu_build`, group `audio`, `tone.apply` -> `CoreIo::master_tone` -> `hw.cc` byte at
+  `U64_AUDIO_MIXER + 0x51`), `CoreDesc::no_tone` (trailing field; neogeo sets it), `menutree.cc` routes the item with Volume. `tools/dev.sh riscv` passes.
+  `tests/coreapp/test_tone.cc` (S7) is written but NOT run here (agents run no app tests; the pipeline does).
 - Bass set is Q2.16, treble set Q3.15 (18-bit coefficients; the bass poles sit so close to 1 that Q3.15 lost 0.06 dB at 100 Hz and left a +-1000 LSB dead band).
   The rounding remainder of each sample goes into the next sample's sum (first-order error feedback): no dead band, no DC offset after a burst.
 - Timing in the frame: the filter captures the core's pair 16 clocks after `frame_en`, the output register changes about 30 clocks after it and holds for the rest

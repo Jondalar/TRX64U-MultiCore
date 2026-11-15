@@ -319,6 +319,9 @@ struct CoreDesc {
     // T194: a second picture of the core on the same layer (the C128's VIC-IIe next to the VDC): Video::select_picture() switches to it; the Picture, HDMI mode and
     // Smoothing settings reach both. Null: one picture. Last in the record, so the positional initialisers stay as they are.
     const VideoDesc *alt_video;
+    // T189: the core's build has no tone filter (host/trx_tone.v is not in it: neogeo until its flat build places), so the application adds no "Tone" item.
+    // Last in the record, so the positional initialisers stay as they are.
+    bool no_tone;
 };
 
 static inline bool desc_has_capability(const CoreDesc *d, const char *cap)

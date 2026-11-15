@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include "menubuild.h"
 #include "volume.h"
+#include "tone.h"
 #include "mediamounts.h"
 #include "home.h"
 #include "hotkeys.h"
@@ -16,6 +17,11 @@ const char *menu_build(const CoreDesc *desc, CoreDesc *out, Setting *store, cons
         first = why;
     }
     why = volume_extend(out, out, store);      // T160 D1: the master volume, after Picture
+    if (why) {
+        printf("[core] %s: %s\n", desc->cor_name, why);
+        if (!first) { first = why; }
+    }
+    why = tone_extend(out, out, store);        // T189: the tone preset, after Volume
     if (why) {
         printf("[core] %s: %s\n", desc->cor_name, why);
         if (!first) { first = why; }

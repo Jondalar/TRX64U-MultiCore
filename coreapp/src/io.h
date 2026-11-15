@@ -93,6 +93,9 @@ public:
     // T160 D1 / T164 WP11: the host's master volume, a byte at U64_AUDIO_MIXER + 0x50 (ultimate_sys.vhd, trx_gain.v in host/top.v): 128 unity, 0 silent,
     // 255 +6 dB. A host without it ignores the write.
     virtual void master_volume(uint8_t) { }
+    // T189: the host's tone preset, a byte at U64_AUDIO_MIXER + 0x51 (ultimate_sys.vhd, trx_tone.v in host/top.v): 0 Flat, 1 Bass boost, 2 Treble boost. A host
+    // without it ignores the write.
+    virtual void master_tone(uint8_t) { }
     // T181: the host's hotkey mask registers (U64_AUDIO_MIXER + 0x60 ...): MOD_A, MOD_B, the 8 mask bytes, the RESTORE bit (hotkeys.h hk_regs). A host without them
     // ignores the writes.
     virtual void hotkey_regs(const uint8_t r[11]) { (void)r; }

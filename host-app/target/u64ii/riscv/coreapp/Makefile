@@ -135,6 +135,7 @@ SRCS_CC	 =  u64ii_init.cc \
 			picture.cc \
 			picmodes.cc \
 			volume.cc \
+			tone.cc \
 			hotkeys.cc \
 			ops.cc \
 			ops_glue.cc \

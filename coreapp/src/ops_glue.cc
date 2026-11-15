@@ -4,6 +4,7 @@
 #include "netops.h"
 #include "picture.h"
 #include "volume.h"
+#include "tone.h"
 #include "hotkeys.h"
 #include "home.h"
 #include "engines.h"
@@ -44,6 +45,7 @@ void ops_register_base(OpRegistry &r)
     mounts_register(r);
     picture_register(r);
     volume_register(r);
+    tone_register(r);
     hk_register(r);
     home_register(r);
     settings_register(r);
