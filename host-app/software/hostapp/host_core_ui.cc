@@ -717,6 +717,7 @@ void hc_ui_input(int k, HcUiResult *res)
     }
     bool selmove = false;
     int sel0 = v.sel, bsel0 = v.bsel;
+    const int mfirst0 = v.mfirst, bfirst0 = v.bfirst;      // a page key moves the window itself (listwin_page): a changed window is a redraw
     // a key that changes nothing must not rebuild the view (with one core, UP/DOWN do nothing at all)
     unsigned fp0 = hc_ui_fingerprint();
     char bp0[160];
@@ -897,6 +898,9 @@ void hc_ui_input(int k, HcUiResult *res)
         if (hc_nav_window_follow()) {
             selmove = false;                         // the window scrolls: the rows are refilled
         }
+    }
+    if (selmove && (v.mfirst != mfirst0 || v.bfirst != bfirst0)) {
+        selmove = false;
     }
     unsigned fp1 = hc_ui_fingerprint();
     if (!selmove && fp0 == fp1 && !strcmp(bp0, v.bpath) && !g_changed) {

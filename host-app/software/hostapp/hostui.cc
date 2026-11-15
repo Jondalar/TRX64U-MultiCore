@@ -698,7 +698,6 @@ static lv_obj_t *b_mark[BROWS_MAX], *b_name[BROWS_MAX], *b_size[BROWS_MAX];
 static lv_obj_t *r_title, *r_key[7], *r_val[7], *r_msg, *r_err;
 static lv_obj_t *n_eth, *n_ftp, *n_media, *n_rest;
 static lv_obj_t *c_pat;                         // colour screen: solid / stripe layer
-static int bfirst;
 
 static void set_txt(lv_obj_t *l, const char *s)
 {
@@ -1403,7 +1402,7 @@ static void browse_right_update(void)
 static void browse_mark(void)
 {
     static int shown_y = 34;
-    int y = 36 + (nv.bsel - bfirst) * 26 - 2;
+    int y = 36 + (nv.bsel - nv.bfirst) * 26 - 2;
     for (int i = 0; i < 4; i++) {
         set_hidden(b_hl[i], !nv.bn);
     }
@@ -1451,12 +1450,12 @@ static void update_browse(void)
     browse_sub_update();
     hc_browse_title(t, sizeof(t));
     set_txt(b_path, t);
-    listwin_fix(nv.bsel, nv.bn, BROWS, &bfirst);          // T209 D3: scrolls while 2 rows are still hidden ahead of the selection
+    listwin_fix(nv.bsel, nv.bn, BROWS, &nv.bfirst);          // T209 D3: scrolls while 2 rows are still hidden ahead of the selection
     hc_browse_empty_text(t, sizeof(t));
     set_txt(b_empty, t);
     for (int i = 0; i < BROWS; i++) {
         HcBrowseRow r;
-        bool on = hc_browse_row(bfirst + i, &r);
+        bool on = hc_browse_row(nv.bfirst + i, &r);
         set_hidden(b_mark[i], !on);
         set_hidden(b_name[i], !on);
         set_hidden(b_size[i], !on);
@@ -3576,9 +3575,9 @@ static void apply_updates(void)
                 set_foot(foot_label, hc_edit_foot());
             }
         } else if (nv.view == V_BROWSE) {
-            int first = bfirst;
+            int first = nv.bfirst;
             listwin_fix(nv.bsel, nv.bn, BROWS, &first);
-            if (first != bfirst) {
+            if (first != nv.bfirst) {
                 update_browse();                    // the list scrolls: refill the 13 rows
             } else {
                 browse_mark();

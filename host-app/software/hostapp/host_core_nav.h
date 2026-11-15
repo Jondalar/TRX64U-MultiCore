@@ -21,7 +21,7 @@ struct HcNav {
     int ssel;                           // settings: the selected slot
     int nsel;                           // the WiFi page: the selected row
     int bsel;                           // browser cursor
-    int mfirst, efirst;                 // the first visible row of the menu / the editor window
+    int mfirst, efirst, bfirst;         // the first visible row of the menu / the editor / the browser window
     char bpath[160];                    // the browser's folder ("/" = the media)
     HostDirEntry bl[HC_BR_MAX + 1];     // its rows
     int bn;                             // ... and their number

@@ -946,21 +946,23 @@ static void scenarios(const char *out)
     CHECK(has(ex));
     // T209 D7: "+" / "-" page the boot menu (a page = the rows it shows), stopping at the ends; the foot names the keys
     CHECK(has("+/- PAGE"));
+    // a page moves the window by exactly the rows it shows (T223: no row is skipped between two pages); the window first = 4 here
     hostui_test_key('-');
-    snprintf(ex, sizeof(ex), "sel=%d first=%d ", 0, 0);
+    snprintf(ex, sizeof(ex), " first=%d ", 4 - MR < 0 ? 0 : 4 - MR);
     CHECK(has(ex));
+    hostui_test_key('-');
+    CHECK(has(" first=0 "));
     hostui_test_key('+');
-    snprintf(ex, sizeof(ex), "sel=%d first=%d ", MR, 3);
+    snprintf(ex, sizeof(ex), " first=%d ", MR < N - MR ? MR : N - MR);
     CHECK(has(ex));
     snprintf(p, sizeof(p), "%s/menu_page_step.png", out); png(p, 2);
     hostui_test_key('+');
+    snprintf(ex, sizeof(ex), " first=%d ", 2 * MR < N - MR ? 2 * MR : N - MR);
+    CHECK(has(ex));
+    for (int i = 0; i < 6; i++) hostui_test_key('+');                        // past the end: the last window, the last row selected
     snprintf(ex, sizeof(ex), "sel=%d first=%d ", N - 1, N - MR);
     CHECK(has(ex));
-    hostui_test_key('+');
-    CHECK(has(ex));
-    hostui_test_key('-');
-    hostui_test_key('-');
-    hostui_test_key('-');
+    for (int i = 0; i < 6; i++) hostui_test_key('-');
     snprintf(ex, sizeof(ex), "sel=%d first=%d ", 0, 0);
     CHECK(has(ex));
     // the editor scrolls too (the same entries)
@@ -4974,28 +4976,28 @@ int main(int argc, char **argv)
         hostui_test_key('-');
         CHECK(hostui_test_bsel() == 0);                               // "-" at the top stays
         hostui_test_key('+');
-        CHECK(hostui_test_bsel() == pg);                              // one page down
+        CHECK(hostui_test_bsel() == pg + 2);                          // one page down: the window moves by 13, the selection keeps its row (margin 2)
         hostui_test_key('+');
-        CHECK(hostui_test_bsel() == 2 * pg);                          // the last page
+        CHECK(hostui_test_bsel() == 16);                                // the last window (first 14 of 27), the selection keeps its row
         hostui_test_key('+');
-        CHECK(hostui_test_bsel() == 2 * pg);                          // a third "+" stays there
+        CHECK(hostui_test_bsel() == 26);                               // a third "+" at the end: the last row
         hostui_test_key('-');
-        CHECK(hostui_test_bsel() == pg);                              // "-" goes back one page
+        CHECK(hostui_test_bsel() == 11);                               // "-": the window back by a page (first 1), the row stays inside the margin
         hostui_test_key('-'); hostui_test_key('-');
         CHECK(hostui_test_bsel() == 0);
         hostui_test_browse_at("/Usb0/sized");                          // 20 bundles + "..": the last step is a part page, clamped to the last row
         hostui_test_key('+'); hostui_test_key('+');
         CHECK(hostui_test_bsel() == hostui_test_bn() - 1);
         hostui_test_key('-');
-        CHECK(hostui_test_bsel() == hostui_test_bn() - 1 - pg);
+        CHECK(hostui_test_bsel() == 10);                               // back one window (first 0), the row kept inside the margin
         hostui_test_browse_at("/Usb0/pages");                          // the letters keep their action: C opens the target pick, "+" pages in it too
         hostui_test_key(KEY_DOWN);
         hostui_test_key('c');
         CHECK(strstr(hostui_test_foot(), "ESC cancels") != NULL);
         hostui_test_key('+');
-        CHECK(hostui_test_bsel() == 1 + pg);
+        CHECK(hostui_test_bsel() == pg + 2);
         hostui_test_key('-');
-        CHECK(hostui_test_bsel() == 1);
+        CHECK(hostui_test_bsel() == 2);
         hostui_test_key(KEY_ESCAPE);
         CHECK(strstr(hostui_test_foot(), "ESC cancels") == NULL);
     }
