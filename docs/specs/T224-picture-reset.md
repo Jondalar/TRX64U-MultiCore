@@ -72,3 +72,4 @@ Nothing decided yet. Gateware changes (A1200 576p lock) are out of this spec unt
 ## §5 Decisions taken while building
 
 2026-11-15: research only, no code. The core app path from step 1 to step 2 has no unbounded wait (cites in §1); P1's cause is open, see Q1.
+- 2026-11-15, P1 board result (Alex): the hang at "Setting the picture" with `Picture=576p / 480p` happened with the game-capture device in the HDMI path; "without the game capture" the A1200 starts and everything works ("Also klappt prima alles"). The core and the app are not the cause; P1 closes without a code change. Not explained: why the app stayed in the start step while the capture was attached (the mode apply is bounded at 1 s by reading); not pursued.
