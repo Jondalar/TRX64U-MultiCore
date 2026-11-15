@@ -158,6 +158,7 @@ a2e00c0eebb3f1ead5880554edd560692bb40c4e host/rvlite_wrapper_dc.vhd
 94d45d79013a688e3ae6e791ac2ce181d6775efd host/tmds_rep.v
 17edc523fe128d5bee561b8b1c4c99648e40d772 host/top.v
 0fafdec72a58ee11150e687f1e030da458631425 host/trx_gain.v
+6e523747af775bc14452518b0e396f57e016f668 host/trx_tone.v
 3ff720a3ddb63b9bc2a23e4538178373dc06dc92 host/uci_unit.vhd
 b1a7b7c006be621d340268aab49cafc02cc84c79 host/udp_audio.v
 5c5833b669451d6936853021cb767b5006a26f01 host/udp_stream.v

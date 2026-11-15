@@ -104,6 +104,15 @@ Scenario: S8 the sound (P5) - board, by hand
 - **App:** `coreapp/src/tone.{h,cc}` (`tone_extend` after `volume_extend` in `menu_build`, group `audio`, `tone.apply` -> `CoreIo::master_tone` -> `hw.cc` byte at
   `U64_AUDIO_MIXER + 0x51`), `CoreDesc::no_tone` (trailing field; neogeo sets it), `menutree.cc` routes the item with Volume. `tools/dev.sh riscv` passes.
   `tests/coreapp/test_tone.cc` (S7) is written but NOT run here (agents run no app tests; the pipeline does).
+- **Proof (S1-S5, iverilog, `host/sim/tone/run.sh`, in `trx64-sim-env:4` on the builder, 2026-11-15): PASS.** S1 Flat bit-exact (0, +-1, extremes, 200 random, again after
+  switching back); S2 measured vs ideal (bass 50/100/200/400/1k/4k/16k Hz: 5.99/5.62/2.97/0.38/0.01/0/0 dB; treble 0/0/0/0/0.02/3.00/6.00 dB, all within 0.1 dB of the double-precision
+  reference); S3 no wrap at volume 255 and 128 (worst deviation from the clipped ideal 1.2 % of full scale, the coefficient quantisation, a wrap would be 200 %); S4 silent after a
+  burst (0 of 4800 samples outside +-2 LSB), DC gain bass +6.02 dB (ideal 6.00), treble +0.001 dB; S5 HDMI hold == I2S take in 395 of 395 frames, both presets. Controls: filter stuck on
+  and swapped coefficient sets both FAIL the bench. The saturation-removed control of S3 and the S7 controls are not built (CLAUDE.md: controls only for flash/persistence).
+- **Cost (S6), no Vivado run yet:** last host build (cache `host-e9617b5de4d9f7bb`, commit de1061fe, 2026-11-15): `pb_l1` 12,862 / 17,400 LUT = 73.92 %, 16,920 / 34,800 FF, 20 / 80 DSP,
+  24.5 / 35 BRAM, WNS 0.002 ns. yosys `synth_xilinx` of `trx_tone` alone: about 425 LUT, 410 FF, 2 DSP48E1, 0 BRAM (Vivado usually packs the accumulate into the DSP, so this is the
+  upper end): `pb_l1` would land at about 76.4 % LUT, DSP 22 / 80. **That is above the 74.5 % bound of S6 and inside the 75-77 % that routed (skill); the pipeline run decides.**
+  WNS 0.002 is the host's own; the new paths are in the 12.288 MHz domain (81 ns, multiply registered, no long combinational path).
 - Bass set is Q2.16, treble set Q3.15 (18-bit coefficients; the bass poles sit so close to 1 that Q3.15 lost 0.06 dB at 100 Hz and left a +-1000 LSB dead band).
   The rounding remainder of each sample goes into the next sample's sum (first-order error feedback): no dead band, no DC offset after a burst.
 - Timing in the frame: the filter captures the core's pair 16 clocks after `frame_en`, the output register changes about 30 clocks after it and holds for the rest
