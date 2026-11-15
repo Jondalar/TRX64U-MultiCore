@@ -1,6 +1,6 @@
 # T216 — The PET core works on every model with the right keyboard and menu, and its drive ROMs are documented
 
-**Status:** PROPOSED (2026-11-12). Reopened 2026-11-15 as the one PET spec (Alex: "bundle all PET bugs/enhancements into one spec", translated): GitHub #78, #79, #80, #82, #87 and the PET part of #86 are parts P6-P10 below; the parts built so far (P1-P3, P5 and their S1-S5) stay recorded as built, P4 stays decided (D4). Corrected 2026-11-13 (status check): merged to main (81fdcf008); S1, S2 bench, S3 golden, S5 guide built; S4 board and the board cause of S1 open. 2026-11-15 sync: verified in main - S1/S2 bench `tb_pet_models` runs in CI through `run_boot.sh` (`pet_boot`, `ci/sims.txt:48`), S3 row `pet.superpet` (`pet.cc:75`), S5 guide in `tools/release_notes_mc.py:165-171`; the stale 'Open: 2 KiB' note in §5 is removed (D3 says 1 KiB since cc1b7c55f).
+**Status:** BUILT except P9 (waits for T214, D-Q6); open: 5 UX questions for Alex, S12 wrong-content question, board steps (2026-11-15 night, merged with main). PROPOSED (2026-11-12). Reopened 2026-11-15 as the one PET spec (Alex: "bundle all PET bugs/enhancements into one spec", translated): GitHub #78, #79, #80, #82, #87 and the PET part of #86 are parts P6-P10 below; the parts built so far (P1-P3, P5 and their S1-S5) stay recorded as built, P4 stays decided (D4). Corrected 2026-11-13 (status check): merged to main (81fdcf008); S1, S2 bench, S3 golden, S5 guide built; S4 board and the board cause of S1 open. 2026-11-15 sync: verified in main - S1/S2 bench `tb_pet_models` runs in CI through `run_boot.sh` (`pet_boot`, `ci/sims.txt:48`), S3 row `pet.superpet` (`pet.cc:75`), S5 guide in `tools/release_notes_mc.py:165-171`; the stale 'Open: 2 KiB' note in §5 is removed (D3 says 1 KiB since cc1b7c55f).
 **Repo:** TRX64U-MultiCore — `cores/pet/` (keys, model select), `coreapp/cores/pet.cc` (menu), `INSTALL.md` (docs).
 **Number:** T216 (registry: the table in `TODO.md`).
 **Origin:** Alex, 2026-11-12, after a tester's report (2026-11-12): "spec, plan it in, let's get the PET round, more or less" (translated). Reopens T134 (closed "as is" 11-11).
@@ -150,3 +150,29 @@ LUT/BRAM: +1 BRAM18 (character ROM 4 KiB); no BRAM for 96 KiB (`pet_ram64` alrea
 - Pictures (480p/720p/1080p, not committed): scratchpad `pet-shots/<res>/ux-pet-*.png`.
 - ux-specialist: FAIL. The two-line foot ("Model: X (takes effect at the next reset)   A ring beside a name: ...") is clipped at 480p, 720p and 1080p (`MenuCtl::foot_line`, generic; the foot box holds one line): not fixed, needs a decision (drop the ring legend while a row note shows, or a second foot line).
 - Open for Alex: (1) the foot above; (2) "Map buttons, pad 1/2" on Input have no value and no ">" like Hotkeys/Picture: add the chevron?; (3) Input order puts the generic Hotkeys row between Pad map and Map buttons: Hotkeys last?; (4) the emulator shows RAM/SuperPET rows for every model (conditional rows are board-only); (5) "Diag" wording; (6) a long missing list (SuperPET + Waterloo) not rendered.
+
+### 2026-11-15 night: merge with main, scenario check, open questions (agent, branch t216-pet)
+- `git merge main` (a7998ed75): one conflict, `coreapp/src/menutree.cc`: main had built the same generic rule (T226 S2, `task_in_settings_tab` with a settings tab and a tasks-tab check); main's version kept, this branch's copy dropped. `tools/dev.sh riscv` passes on the merged tree (host app + core app). Goldens not regenerated: no change of a menu dump came from the merge (the PET golden was edited by hand on 11-15, see S3; no generator run here).
+- Nothing decided in §3 is left unbuilt except P9. Checked in the code: P4 end to end in the menu = Input tab rows `Pad / joystick up..fire` (value "Key 8"), `Pad map`, `Map buttons, pad 1/2` (group `input`, rendered below the rows by main's rule), 5 registers `PET_PADKEY0..4`, `pet_pad` words via `pad_pace`; pictures `review/*/ux-pet-f5-input*.png`.
+- S12 stays as built (a missing own file is refused by name). A WRONG file (right size, other content) is not detected; not decided, no CRC check invented: open question for Alex.
+- ue2emu pictures (480p/720p/1080p, real core app) of every changed PET screen: PET tab top/end, SuperPET, 2001 + BASIC 2, Video, Input (4 positions, positional), F7, F1, missing-ROM message. ux-review: PASS for placement and wording (Refresh rate / Phosphor on Video, pad rows on Input, "Key 8"); R2 FAIL stays for the clipped two-part foot note until Q1 is answered; the emulator still lists the RAM / SuperPET rows for every model (conditional rows are board-only).
+- Question pictures, one per option, `questions.md` with the German sentences (scratchpad t216/q): Q1 foot note, Q2 chevron on Map buttons, Q3 Hotkeys position, Q4 "Diag" wording, Q5 long missing list (mock-ups are scratch commits, dropped). Found while making Q5: a message is at most `OP_MSG_MAX` 240 bytes; the four-file list of every model fits (largest about 195), ten files (SuperPET + Waterloo) would be cut.
+- Gateware: `cores/pet/rtl` changed on this branch (R1/col80, 4 KiB character ROM with R12 bit 5, `pet_padkeys.v`, symbolic `pet_keys`, SuperPET RAM flag) and never went through Vivado: a Vivado run of `pet` is needed. `cores/common`, `host`, `contract` unchanged by this work.
+
+| # | State after the night |
+|---|---|
+| S1 | bench PASS (`pet_keys`, 312 checks); board (type the alphabet on 8032): open |
+| S2 | bench PASS |
+| S3 | golden by hand; app test: pipeline |
+| S4 | board: build ctl4040/dos4040 by the guide, mount a d80, open |
+| S5 | built (INSTALL text) |
+| S6 | not a scenario (D5) |
+| S7 | `pet_wl` PASS; board open |
+| S8 | `pet_spet` PASS; board memory test 6809: open |
+| S9 | `tb_pet_real` 8032 PASS (80 columns after the beeps); 8096 / SuperPET with real editor: board, open |
+| S10 | built, listing of all missing files rendered (`ux-pet-missing`); app test: pipeline |
+| S11 | `tb_pet_real` 2001 + BASIC 2 READY PASS; disk on the 2001: board, open |
+| S12 | missing file: built; wrong content: open question (not decided) |
+| S13 | not touched, waits for T214 (D-Q6) |
+| S14 | `pet_keys` PASS, symbolic and positional; board: type the digits, open |
+| S15 | `pet_keys` PASS, menu built end to end, riscv ok; USB pad on the board: open |
