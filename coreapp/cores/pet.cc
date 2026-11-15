@@ -11,6 +11,8 @@
 #include "romfind.h"
 #include "cores.h"
 #include "tape_deck.h"
+#include "pad.h"
+#include "padkeys.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -40,13 +42,27 @@ static PetState *pet_state(CoreCtx *c)
 
 // ---- settings ------------------------------------------------------------------------------------------------------------------
 // The SuperPET (model 5) is an 8032 plus its board (6809, 64 KiB banked RAM at $9000, Waterloo ROMs, dongle, ACIA; T134 Q13): the setting "SuperPET CPU" picks the processor.
-static const char *const model_names[] = { "2001", "3032", "4032", "8032", "8096", "SuperPET" };
+// "2001 + BASIC 2" (T216 P8, Alex 2026-11-15) is the 2001 board with the 3032's ROM set (BASIC 2, KERNAL 2, editor 2): the one that can use the disk drive; the plain 2001
+// keeps BASIC 1 and its disk bug as the original has it. The value is the last so that the stored settings of the other models keep their index.
+static const char *const model_names[] = { "2001", "3032", "4032", "8032", "8096", "SuperPET", "2001 + BASIC 2" };
+static const uint8_t model_bytes[7]    = { 0, 1, 2, 3, 4, 5, 0 };      // PET_MODEL: the board (pet_hw_model)
 static const char *const ram_names[]   = { "8 KiB", "16 KiB", "32 KiB" };
+static const char *const spram_names[] = { "32 KiB", "96 KiB (32 + 64 bank RAM)" };       // the SuperPET's: the 64 KiB in 4 KiB banks behind $9000, or the ROM there
+static const char *const keymode_names[] = { "Symbolic (key legend)", "Positional (PET key place)" };
 static const char *const cpu_names[]   = { "x1", "x2", "x3", "x4", "x5", "x6", "x7", "x8" };
 static const char *const diag_names[]  = { "Off", "On (DIAG jumper)" };
 static const char *const hz_names[]    = { "60 Hz", "50 Hz" };
 static const char *const phos_names[]  = { "Green", "Amber", "White" };
-static const RegBind b_model = { PET_MODEL, 0, 7, 0 };
+static const RegBind b_model = { PET_MODEL, 0, 7, model_bytes };
+static const RegBind b_keymode = { PET_KEYMODE, 0, 1, 0 };
+static const uint8_t spram_bytes[2] = { 0, 1 };
+static const RegBind b_spram = { PET_SP_RAM, 0, 1, spram_bytes };
+PADKEY_BIND(b_pk_up, PET_PADKEY0);
+PADKEY_BIND(b_pk_down, PET_PADKEY0 + 1);
+PADKEY_BIND(b_pk_left, PET_PADKEY0 + 2);
+PADKEY_BIND(b_pk_right, PET_PADKEY0 + 3);
+PADKEY_BIND(b_pk_fire, PET_PADKEY0 + 4);
+static const char *const padmap_names[] = { "Default", "Custom" };
 static const RegBind b_cpu   = { PET_CPU_X, 0, 7, 0 };
 static const RegBind b_diag  = { PET_DIAG, 0, 1, 0 };
 static const RegBind b_hz    = { PET_HZ, 0, 1, 0 };
@@ -63,16 +79,27 @@ static const RegBind b_spcpu = { PET_SP_CPU, 0, 3, 0 };
 
 // The setting indices pet_model() and pet_hz50() read (the order of the table below).
 enum { PET_S_MODEL = 0, PET_S_HZ = 3, PET_S_DRIVE = 6, PET_S_SPCPU = 8 };
-static const Setting settings[9] = {
-    { "Model (at next reset)", model_names, 6, 2, WHEN_RESET, 0, &b_model, 0, 0, 0, 0, "Model" },
+static const Setting settings[17] = {
+    { "Model (at next reset)", model_names, 7, 2, WHEN_RESET, 0, &b_model, 0, 0, 0, 0, "Model" },
     { "CPU speed",             cpu_names,   8, 0, WHEN_LIVE,  0, &b_cpu,   0, 0, 0, 0, 0 },
     { "Diag (at next reset)",  diag_names,  2, 0, WHEN_RESET, 0, &b_diag,  0, 0, 0, 0, "Diag" },
     { "Picture rate",          hz_names,    2, 0, WHEN_LIVE,  0, &b_hz,    0, 0, 0, 0, 0 },
     { "Phosphor",              phos_names,  3, 0, WHEN_LIVE,  0, &b_phos,  0, 0, 0, 0, 0 },
-    { "RAM (at next reset)",   ram_names,   3, 2, WHEN_RESET, 0, &b_ram,   0, 0, 0, 0, "RAM" },   // the CRTC models always have 32 KiB
+    { "RAM (at next reset)",   ram_names,   3, 2, WHEN_RESET, 0, &b_ram,   0, 0, 0, "pet.ramrow", "RAM" },   // listed for the 2001, 3032 and 4032 only: the CRTC models always have 32 KiB, the SuperPET has its own row
     { "Drive 8 (at next reset)", drive_names, 3, 0, WHEN_RESET, 0, &b_drive, 0, 0, 0, 0, "Drive" },   // the dual unit of ieee_drive: drives 0 and 1
     { "Datasette port",        dset_names,  2, 0, WHEN_LIVE,  0, &b_dset,  0, 0, 0, 0, 0 },
     { "SuperPET CPU (at next reset)", spcpu_names, 3, 0, WHEN_RESET, 0, &b_spcpu, 0, 0, 0, "pet.superpet", "SPCPU" },   // T216 P2: listed only while the model is the SuperPET (the only one that looks at it); default 6502 as in VICE
+    // T216 P6: the SuperPET's 96 KiB (32 KiB + the 64 KiB bank RAM); the default is the whole machine
+    { "SuperPET RAM (at next reset)", spram_names, 2, 1, WHEN_RESET, 0, &b_spram, 0, 0, 0, "pet.superpet", "SPRAM" },
+    // T216 P10: how the host's C64 keys become PET keys
+    { "Keyboard mapping",      keymode_names, 2, 0, WHEN_LIVE, 0, &b_keymode, 0, 0, 0, 0, 0 },
+    // T216 P4: pad / joystick as keys (padkeys.h); the five buttons are the same on both USB pads and both joystick ports
+    PADKEY_ROW("Pad up key", "Pad / joystick up", b_pk_up, PADKEY_DEF_UP),
+    PADKEY_ROW("Pad down key", "Pad / joystick down", b_pk_down, PADKEY_DEF_DOWN),
+    PADKEY_ROW("Pad left key", "Pad / joystick left", b_pk_left, PADKEY_DEF_LEFT),
+    PADKEY_ROW("Pad right key", "Pad / joystick right", b_pk_right, PADKEY_DEF_RIGHT),
+    PADKEY_ROW("Pad fire key", "Pad / joystick fire", b_pk_fire, PADKEY_DEF_FIRE),
+    { "Pad map", padmap_names, 2, 0, WHEN_LIVE, "pad.set_map", 0, 0, 0, 0, 0, 0 },
 };
 static int pet_model(CoreCtx *c) { return c->settings->value(PET_S_MODEL); }
 static bool pet_hz50(CoreCtx *c) { return c->settings->value(PET_S_HZ) == 1; }
@@ -82,7 +109,7 @@ static bool pet_hz50(CoreCtx *c) { return c->settings->value(PET_S_HZ) == 1; }
 struct Scratch {
     uint8_t *p;
     uint32_t n;
-    explicit Scratch(uint32_t size) : p(new uint8_t[size]), n(size) {}
+    explicit Scratch(uint32_t size) : p(new uint8_t[size]()), n(size) {}
     ~Scratch() { delete[] p; }
     Scratch(const Scratch &) = delete;
     Scratch &operator=(const Scratch &) = delete;
@@ -121,7 +148,8 @@ static int put_at(CoreCtx *c, uint32_t addr, const uint8_t *data, uint32_t n, co
 }
 
 // The ROM of a role is the one the MODEL names (pet_models.h): the scan finds a file of any model, so here the model's own file is looked up again
-// (the same folders as the scan) and a missing one is told by name. A 4 KiB character file gives its first 2 KiB.
+// (the same folders as the scan) and a missing one is refused by name (T216 P6, Alex 2026-11-15): the machine does not start on another model's ROM
+// or a generic file. The character ROM goes in as 4 KiB (a 2 KiB file leaves the upper half zero): the upper half is the SuperPET's Waterloo set.
 static int put_model_rom(CoreCtx *c, int role, uint32_t want, const char *label, OpOut &o)
 {
     Scratch buf(12288);
@@ -135,7 +163,8 @@ static int put_model_rom(CoreCtx *c, int role, uint32_t want, const char *label,
     }
     s.sizes[0] = want;
     if (role == PET_R_CHAR) {
-        s.sizes[1] = 2 * PET_CHAR_BYTES;
+        s.sizes[0] = PET_CHAR_MAX;                      // the 4 KiB file first, the 2 KiB set of the 2001, 3032, 4032, 8032 and 8096 after it
+        s.sizes[1] = PET_CHAR_BYTES;
     }
     s.required = true;
     s.put_op = "";
@@ -144,10 +173,20 @@ static int put_model_rom(CoreCtx *c, int role, uint32_t want, const char *label,
     RomResult res[1];
     if (rom_scan(c->fs, c->desc->folder, &s, 1, res, sum, sizeof(sum), c->board ? c->board->rom_dir : 0, own_dir) != ROM_FOUND ||
         res[0].hit.size > buf.n || !rom_read(c->fs, &res[0].hit, buf)) {
-        snprintf(o.msg, o.msglen, "%s for the %s: %s", label, model_names[pet_model(c)], names[0]);
+        if (names[1]) {
+            snprintf(o.msg, o.msglen, "%s of the %s is missing: %s or %s", label, model_names[pet_model(c)], names[0], names[1]);
+        } else {
+            snprintf(o.msg, o.msglen, "%s of the %s is missing: %s", label, model_names[pet_model(c)], names[0]);
+        }
         return OPE_FAILED;
     }
-    uint32_t n = role == PET_R_CHAR ? PET_CHAR_BYTES : want;
+    uint32_t n = role == PET_R_CHAR ? PET_CHAR_MAX : want;
+    if (role == PET_R_CHAR) {
+        if (pet_model(c) == PET_M_SUPERPET && res[0].hit.size < PET_CHAR_MAX) {
+            snprintf(o.msg, o.msglen, "Characters of the SuperPET is not the 4 KiB set: %s (%u bytes)", res[0].hit.name, (unsigned)res[0].hit.size);
+            return OPE_FAILED;
+        }
+    }
     printf("[core] %s for the %s: %s\n", label, model_names[pet_model(c)], res[0].hit.name);
     if (role == PET_R_BASIC) {
         return put_at(c, 0xE000 - n, buf, n, "BASIC", o.msg, o.msglen) ? OPE_FAILED : OPE_OK;
@@ -163,7 +202,7 @@ static int op_put_basic(CoreCtx *c, const OpArgs &, OpOut &o)
 }
 static int op_put_editor(CoreCtx *c, const OpArgs &, OpOut &o) { return put_model_rom(c, PET_R_EDITOR, 2048, "Editor", o); }
 static int op_put_kernal(CoreCtx *c, const OpArgs &, OpOut &o) { return put_model_rom(c, PET_R_KERNAL, 4096, "KERNAL", o); }
-static int op_put_char(CoreCtx *c, const OpArgs &, OpOut &o) { return put_model_rom(c, PET_R_CHAR, PET_CHAR_BYTES, "Characters", o); }
+static int op_put_char(CoreCtx *c, const OpArgs &, OpOut &o) { return put_model_rom(c, PET_R_CHAR, PET_CHAR_MAX, "Characters", o); }
 static const ArgSpec rom_arg[] = { ARG_BLOB("data") };
 
 // VICE's file names first (Alex 2026-11-10, Q12: "VICE is on the disk, take it from there"), then the generic ones. The scan only has to see that a
@@ -522,6 +561,7 @@ static int op_service(CoreCtx *c, const OpArgs &, OpOut &)
 {
     drv_service(c);
     deck_service(c, &pet_state(c)->deck, tape_regs);
+    pad_pace(c);                                      // the USB pads' words into the core, where pet_padkeys turns them into keys (T216 P4)
     return cbm_run_service(c, &pet_state(c)->run, machine(c));
 }
 static int op_type(CoreCtx *c, const OpArgs &a, OpOut &o)
@@ -586,6 +626,8 @@ static const Task tasks[] = {
     { "Tape: Stop", "pet.tape_stop", 0, 0, false },
     { "Tape: Rewind", "pet.tape_rewind", 0, 0, false },
     { "Tape: Eject", "pet.tape_eject", 0, 0, false },
+    { "Map buttons, pad 1", "menu.pad_map_1", 0, 0, false },
+    { "Map buttons, pad 2", "menu.pad_map_2", 0, 0, false },
 };
 
 static const MediaSlot media[] = {
@@ -600,6 +642,8 @@ static const MemRegion pet_mem_regions[] = { { 0, 0x8000, MK_RAM, 0, 0, "RAM" } 
 static const MemMap pet_mem = { pet_mem_regions, 1, true, 0 };
 
 static const char *superpet_state(CoreCtx *c) { return pet_model(c) == PET_M_SUPERPET ? "yes" : 0; }
+// the RAM row is the 2001, 3032 and 4032's: the CRTC models (8032, 8096, SuperPET) have 32 KiB whatever the row says, the SuperPET has its own row (T216 P6)
+static const char *ramrow_state(CoreCtx *c) { return pet_crtc(pet_model(c)) ? 0 : "yes"; }
 
 static void pet_register(OpRegistry &r)
 {
@@ -636,12 +680,18 @@ static void pet_register(OpRegistry &r)
     r.add_state("pet.program", prg_name);
     r.add_state("pet.pending", prg_pending);
     r.add_state("pet.superpet", superpet_state);
+    r.add_state("pet.ramrow", ramrow_state);
     r.add_state("pet.drive8", drv_name0);
     r.add_state("pet.drive81", drv_name1);
     r.add_state("pet.tape.image", tape_image);
 }
 
-static const char *const caps[] = { "tape" };     // the cassette 1 slot (the capability only lets the word through the menu check)
+// T216 P4 (GitHub #80): the pads are five buttons whose words the service writes to PET_PAD1 / PET_PAD2; pet_padkeys.v presses the key each one is set to (padkeys.h)
+static const char *const pad_names[5] = { "Up", "Down", "Left", "Right", "Fire" };
+static const uint8_t pad_def[5] = { PAD_SRC_UP, PAD_SRC_DOWN, PAD_SRC_LEFT, PAD_SRC_RIGHT, PAD_D3_BOTTOM };
+static const PadSpec pad_spec = { { PET_PAD1, PET_PAD2 }, 5, pad_names, pad_def };
+
+static const char *const caps[] = { "tape", "pad" };     // the cassette 1 slot, the USB pads (the capabilities only let the word through the menu check)
 
 extern const CoreDesc pet_desc;
 const CoreDesc pet_desc = {
@@ -653,8 +703,8 @@ const CoreDesc pet_desc = {
     "PET Settings",
     1,
     roms, 14,
-    settings, 9,
-    tasks, 6,
+    settings, 17,
+    tasks, 8,
     filetypes, 6,
     media, 4,
     // 640 x 400 shown 2 x 2 (1280 x 800), centred on 1920 x 1080; the buffers are the core's reset values of FB_BASE / FB_STRIDE
@@ -664,7 +714,7 @@ const CoreDesc pet_desc = {
     "pet.service", 20, false,
     0, 0,
     pet_register,
-    caps, 1,
+    caps, 2,
     false, false, 0, 0, 0, 0, 0, 0, 0,
     "pet.type_script",
     "pet.run_prg",
@@ -673,7 +723,7 @@ const CoreDesc pet_desc = {
     0, 0,
     0,
     0, 0,
-    0, false, 0, 0, false,
+    0, false, &pad_spec, 0, false,                // rawkeys, own_volume, pad (T216 P4), live_ms, menu_first
     pet_media_flush, pet_media_pending,           // T180 D4: the drive's write-back
     &mount_slots,                                 // T180 D2, D5: Drive 8, Drive 8.1 and Tape
     &hk_console,

@@ -84,7 +84,7 @@ read_verilog -sv [list $iv/types.sv $iv/ieee_drive.sv $iv/ieee_misc.sv $iv/ieeed
   $iv/ieeedrv_track.sv $iv/ieeedrv_trkgen.sv $iv/M6532.sv $iv/ieeedrv_via6522.v $pr/trx/pet_dblk.v $pr/trx/pet_ieee.sv \
   $pr/src/mc6809/mc6809is.v]   ;# mc6809is.v declares a reg inside an unnamed begin block (SystemVerilog): -sv
 read_verilog [list $pr/src/cpu6502.v $pr/src/pia6520.v $pr/src/via6522.v $pr/src/pet2001io.v $pr/trx/pet_spet.v \
-  $pr/trx/pet_keys.v $pr/trx/pet_audio.v $pr/trx/pet_tape.v $pr/trx/pet_mem.v $pr/trx/pet_win.v $pr/trx/pet_vid.v \
+  $pr/trx/pet_keys.v $pr/trx/pet_padkeys.v $pr/trx/pet_audio.v $pr/trx/pet_tape.v $pr/trx/pet_mem.v $pr/trx/pet_win.v $pr/trx/pet_vid.v \
   $pr/trx/pet_regs.v $pr/trx/pet_pixw.v $pr/trx/pet_core.v $bdir/layer2_mono.v]
 
 read_xdc $hd/ddr2_pins.xdc

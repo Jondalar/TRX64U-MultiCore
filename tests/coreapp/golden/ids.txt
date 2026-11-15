@@ -253,12 +253,22 @@ Commodore PET F5/settings 5 set:RAM (at next reset)
 Commodore PET F5/settings 6 set:Drive 8 (at next reset)
 Commodore PET F5/settings 7 set:Datasette port
 Commodore PET F5/settings 8 set:SuperPET CPU (at next reset)
+Commodore PET F5/settings 9 set:SuperPET RAM (at next reset)
+Commodore PET F5/settings 10 set:Keyboard mapping
+Commodore PET F5/settings 11 set:Pad up key
+Commodore PET F5/settings 12 set:Pad down key
+Commodore PET F5/settings 13 set:Pad left key
+Commodore PET F5/settings 14 set:Pad right key
+Commodore PET F5/settings 15 set:Pad fire key
+Commodore PET F5/settings 16 set:Pad map
 Commodore PET F7/quick 0 task:Reset
 Commodore PET F7/quick 1 task:Reload ROMs, reset
 Commodore PET F7/quick 2 task:Tape: Play
 Commodore PET F7/quick 3 task:Tape: Stop
 Commodore PET F7/quick 4 task:Tape: Rewind
 Commodore PET F7/quick 5 task:Tape: Eject
+Commodore PET F7/quick 6 task:Map buttons, pad 1
+Commodore PET F7/quick 7 task:Map buttons, pad 2
 Commodore PET F8/expert 0 fixed:13:Actions
 Commodore PET F8/expert 1 fixed:6:Restart core
 Commodore PET F8/expert 2 fixed:7:Return to host menu

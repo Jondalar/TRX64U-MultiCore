@@ -3,7 +3,7 @@
 //
 // One raster of its own: 800 dots x 657 lines (59.98 Hz) or 788 lines (50.01 Hz) at one dot per sys_clk (31.5278 MHz), 640 x 400 visible. A text
 // ccell is 8 x 8 source pixels, shown doubled in height (16 lines) and, in the 40 column picture, doubled in width (16 dots). The CRTC models
-// (8032, 8096, SuperPET) show 80 columns while R1 >= 60, else 40. The frame writer (pet_pixw) takes the visible window; the dot strobe is 1.
+// (8032, 8096, SuperPET) show 80 columns while R1 >= 30 (a CRTC character is two columns on these boards: the editor ROMs program R1 = 40; below 30 a 40 column picture), else 40. The frame writer (pet_pixw) takes the visible window; the dot strobe is 1.
 //
 // The fetch runs one ccell ahead on the clock count `ph` inside the ccell: ph 0 video RAM address, ph 2 character ROM address, ph 4 the byte is
 // latched (reverse and cursor applied), at the next ccell's ph 0 it goes into the shifter. The ccell after the lastc of a line is ccell 0 of the
@@ -16,8 +16,9 @@ module pet_vid (
     input  wire        clk,
     input  wire        hz50,
     input  wire [1:0]  phos,                 // 0 green, 1 amber, 2 white
+    input  wire        alt,                  // the upper pair of character sets (CRTC R12 bit 5 = MA13 on the CRTC models, T216 P6)
     input  wire        crtc_m,               // the model has a CRTC
-    input  wire [7:0]  r1,                   // CRTC R1 displayed columns
+    input  wire [7:0]  r1,                   // CRTC R1 displayed characters: the 80 column boards show two columns per CRTC character, so the real editors program 40 (T216 P7)
     input  wire [11:0] start,                // CRTC R12[3:0], R13
     input  wire [13:0] cur,                  // CRTC R14[5:0], R15
     input  wire [7:0]  r10,
@@ -26,7 +27,7 @@ module pet_vid (
     input  wire        blank,                // the PIA's screen blanking
     output reg  [10:0] v_a = 11'd0,
     input  wire [7:0]  v_q,
-    output reg  [10:0] c_a = 11'd0,
+    output reg  [11:0] c_a = 12'd0,
     input  wire [7:0]  c_q,
     output reg         hblank = 1'b1,
     output reg         vblank = 1'b1,
@@ -72,7 +73,7 @@ module pet_vid (
             x <= 10'd0;
             if (ylast) begin
                 y <= 10'd0;
-                col80 <= crtc_m && (r1 >= 8'd60);
+                col80 <= crtc_m && (r1 >= 8'd30);
                 fcnt <= fcnt + 6'd1;
                 frame_end <= 1'b1;
             end else y <= y + 10'd1;
@@ -84,7 +85,7 @@ module pet_vid (
             cur_f <= crtc_m && (faddr == cur);
         end
         if (ph == 4'd2) begin
-            c_a <= {gfx, v_q[6:0], scan_f};
+            c_a <= {alt, gfx, v_q[6:0], scan_f};
             inv_f <= v_q[7];
         end
         if (ph == 4'd4) nb <= (c_q ^ {8{inv_f}}) ^ {8{cur_f & blink_on & cur_scan}};

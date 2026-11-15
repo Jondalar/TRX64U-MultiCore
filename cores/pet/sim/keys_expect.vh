@@ -113,3 +113,207 @@ task gchk_all; begin
     gchk(1, 0, 6, 5);   // C64 RET = VICE Return
     gchk(60, 0, 9, 2);   // C64 SPACE = VICE space
 end endtask
+task ssym_all; begin
+    ssym_b(56, 0, 1, 0, 0);   // C64 1 types 1
+    ssym_g(56, 0, 6, 6, 0);   // C64 1 types 1
+    ssym_b(56, 1, 1, 0, 1);   // C64 shift + 1 types !
+    ssym_g(56, 1, 0, 0, 0);   // C64 shift + 1 types !
+    ssym_b(59, 0, 0, 0, 0);   // C64 2 types 2
+    ssym_g(59, 0, 7, 6, 0);   // C64 2 types 2
+    ssym_b(59, 1, 0, 0, 1);   // C64 shift + 2 types "
+    ssym_g(59, 1, 1, 0, 0);   // C64 shift + 2 types "
+    ssym_b(8, 0, 9, 1, 0);   // C64 3 types 3
+    ssym_g(8, 0, 6, 7, 0);   // C64 3 types 3
+    ssym_b(8, 1, 9, 1, 1);   // C64 shift + 3 types #
+    ssym_g(8, 1, 0, 1, 0);   // C64 shift + 3 types #
+    ssym_b(11, 0, 1, 1, 0);   // C64 4 types 4
+    ssym_g(11, 0, 4, 6, 0);   // C64 4 types 4
+    ssym_b(11, 1, 1, 1, 1);   // C64 shift + 4 types $
+    ssym_g(11, 1, 1, 1, 0);   // C64 shift + 4 types $
+    ssym_b(16, 0, 0, 1, 0);   // C64 5 types 5
+    ssym_g(16, 0, 5, 6, 0);   // C64 5 types 5
+    ssym_b(16, 1, 0, 1, 1);   // C64 shift + 5 types %
+    ssym_g(16, 1, 0, 2, 0);   // C64 shift + 5 types %
+    ssym_b(19, 0, 9, 2, 0);   // C64 6 types 6
+    ssym_g(19, 0, 4, 7, 0);   // C64 6 types 6
+    ssym_b(19, 1, 9, 2, 1);   // C64 shift + 6 types &
+    ssym_g(19, 1, 0, 3, 0);   // C64 shift + 6 types &
+    ssym_b(24, 0, 1, 2, 0);   // C64 7 types 7
+    ssym_g(24, 0, 2, 6, 0);   // C64 7 types 7
+    ssym_b(24, 1, 1, 2, 1);   // C64 shift + 7 types '
+    ssym_g(24, 1, 1, 2, 0);   // C64 shift + 7 types '
+    ssym_b(27, 0, 0, 2, 0);   // C64 8 types 8
+    ssym_g(27, 0, 3, 6, 0);   // C64 8 types 8
+    ssym_b(27, 1, 0, 2, 1);   // C64 shift + 8 types (
+    ssym_g(27, 1, 0, 4, 0);   // C64 shift + 8 types (
+    ssym_b(32, 0, 9, 3, 0);   // C64 9 types 9
+    ssym_g(32, 0, 2, 7, 0);   // C64 9 types 9
+    ssym_b(32, 1, 9, 3, 1);   // C64 shift + 9 types )
+    ssym_g(32, 1, 1, 4, 0);   // C64 shift + 9 types )
+    ssym_b(35, 0, 1, 3, 0);   // C64 0 types 0
+    ssym_g(35, 0, 8, 6, 0);   // C64 0 types 0
+    ssym_b(35, 1, 1, 3, 1);   // C64 shift + 0 types shift+0 (graphics)
+    ssym_g(35, 1, 8, 6, 1);   // C64 shift + 0 types shift+0 (graphics)
+    ssym_b(40, 0, 2, 6, 1);   // C64 + types +
+    ssym_g(40, 0, 7, 7, 0);   // C64 + types +
+    ssym_b(40, 1, 2, 6, 1);   // C64 shift + + types shift++ (graphics)
+    ssym_g(40, 1, 7, 7, 1);   // C64 shift + + types shift++ (graphics)
+    ssym_b(43, 0, 0, 3, 0);   // C64 - types -
+    ssym_g(43, 0, 8, 7, 0);   // C64 - types -
+    ssym_b(43, 1, 0, 3, 1);   // C64 shift + - types shift+- (graphics)
+    ssym_g(43, 1, 8, 7, 1);   // C64 shift + - types shift+- (graphics)
+    ssym_b(49, 0, 9, 5, 1);   // C64 * types *
+    ssym_g(49, 0, 5, 7, 0);   // C64 * types *
+    ssym_b(49, 1, 9, 5, 1);   // C64 shift + * types shift+* (graphics)
+    ssym_g(49, 1, 5, 7, 1);   // C64 shift + * types shift+* (graphics)
+    ssym_b(53, 0, 0, 3, 1);   // C64 = types =
+    ssym_g(53, 0, 9, 7, 0);   // C64 = types =
+    ssym_b(53, 1, 0, 3, 1);   // C64 shift + = types shift+= (graphics)
+    ssym_g(53, 1, 9, 7, 1);   // C64 shift + = types shift+= (graphics)
+    ssym_b(45, 0, 9, 5, 0);   // C64 : types :
+    ssym_g(45, 0, 5, 4, 0);   // C64 : types :
+    ssym_b(45, 1, 5, 6, 0);   // C64 shift + : types [
+    ssym_g(45, 1, 9, 1, 0);   // C64 shift + : types [
+    ssym_b(50, 0, 2, 6, 0);   // C64 ; types ;
+    ssym_g(50, 0, 6, 4, 0);   // C64 ; types ;
+    ssym_b(50, 1, 2, 4, 0);   // C64 shift + ; types ]
+    ssym_g(50, 1, 8, 2, 0);   // C64 shift + ; types ]
+    ssym_b(46, 0, 3, 6, 0);   // C64 @ types @
+    ssym_g(46, 0, 8, 1, 0);   // C64 @ types @
+    ssym_b(46, 1, 3, 6, 1);   // C64 shift + @ types shift+@ (graphics)
+    ssym_g(46, 1, 8, 1, 1);   // C64 shift + @ types shift+@ (graphics)
+    ssym_b(55, 0, 8, 6, 0);   // C64 / types /
+    ssym_g(55, 0, 3, 7, 0);   // C64 / types /
+    ssym_b(55, 1, 8, 6, 1);   // C64 shift + / types ?
+    ssym_g(55, 1, 7, 4, 0);   // C64 shift + / types ?
+    ssym_b(47, 0, 7, 3, 0);   // C64 , types ,
+    ssym_g(47, 0, 7, 3, 0);   // C64 , types ,
+    ssym_b(47, 1, 7, 3, 1);   // C64 shift + , types <
+    ssym_g(47, 1, 9, 3, 0);   // C64 shift + , types <
+    ssym_b(44, 0, 6, 3, 0);   // C64 . types .
+    ssym_g(44, 0, 9, 6, 0);   // C64 . types .
+    ssym_b(44, 1, 6, 3, 1);   // C64 shift + . types >
+    ssym_g(44, 1, 8, 4, 0);   // C64 shift + . types >
+    ssym_b(48, 0, 4, 4, 0);   // C64 \ types \
+    ssym_g(48, 0, 1, 3, 0);   // C64 \ types \
+    ssym_b(48, 1, 4, 4, 1);   // C64 shift + \ types shift+\ (graphics)
+    ssym_g(48, 1, 1, 3, 1);   // C64 shift + \ types shift+\ (graphics)
+    ssym_b(10, 0, 3, 0, 0);   // C64 A
+    ssym_g(10, 0, 4, 0, 0);   // C64 A
+    ssym_b(10, 1, 3, 0, 1);   // C64 shift + A
+    ssym_g(10, 1, 4, 0, 1);   // C64 shift + A
+    ssym_b(28, 0, 6, 2, 0);   // C64 B
+    ssym_g(28, 0, 6, 2, 0);   // C64 B
+    ssym_b(28, 1, 6, 2, 1);   // C64 shift + B
+    ssym_g(28, 1, 6, 2, 1);   // C64 shift + B
+    ssym_b(20, 0, 6, 1, 0);   // C64 C
+    ssym_g(20, 0, 6, 1, 0);   // C64 C
+    ssym_b(20, 1, 6, 1, 1);   // C64 shift + C
+    ssym_g(20, 1, 6, 1, 1);   // C64 shift + C
+    ssym_b(18, 0, 3, 1, 0);   // C64 D
+    ssym_g(18, 0, 4, 1, 0);   // C64 D
+    ssym_b(18, 1, 3, 1, 1);   // C64 shift + D
+    ssym_g(18, 1, 4, 1, 1);   // C64 shift + D
+    ssym_b(14, 0, 5, 1, 0);   // C64 E
+    ssym_g(14, 0, 2, 1, 0);   // C64 E
+    ssym_b(14, 1, 5, 1, 1);   // C64 shift + E
+    ssym_g(14, 1, 2, 1, 1);   // C64 shift + E
+    ssym_b(21, 0, 2, 2, 0);   // C64 F
+    ssym_g(21, 0, 5, 1, 0);   // C64 F
+    ssym_b(21, 1, 2, 2, 1);   // C64 shift + F
+    ssym_g(21, 1, 5, 1, 1);   // C64 shift + F
+    ssym_b(26, 0, 3, 2, 0);   // C64 G
+    ssym_g(26, 0, 4, 2, 0);   // C64 G
+    ssym_b(26, 1, 3, 2, 1);   // C64 shift + G
+    ssym_g(26, 1, 4, 2, 1);   // C64 shift + G
+    ssym_b(29, 0, 2, 3, 0);   // C64 H
+    ssym_g(29, 0, 5, 2, 0);   // C64 H
+    ssym_b(29, 1, 2, 3, 1);   // C64 shift + H
+    ssym_g(29, 1, 5, 2, 1);   // C64 shift + H
+    ssym_b(33, 0, 4, 5, 0);   // C64 I
+    ssym_g(33, 0, 3, 3, 0);   // C64 I
+    ssym_b(33, 1, 4, 5, 1);   // C64 shift + I
+    ssym_g(33, 1, 3, 3, 1);   // C64 shift + I
+    ssym_b(34, 0, 3, 3, 0);   // C64 J
+    ssym_g(34, 0, 4, 3, 0);   // C64 J
+    ssym_b(34, 1, 3, 3, 1);   // C64 shift + J
+    ssym_g(34, 1, 4, 3, 1);   // C64 shift + J
+    ssym_b(37, 0, 2, 5, 0);   // C64 K
+    ssym_g(37, 0, 5, 3, 0);   // C64 K
+    ssym_b(37, 1, 2, 5, 1);   // C64 shift + K
+    ssym_g(37, 1, 5, 3, 1);   // C64 shift + K
+    ssym_b(42, 0, 3, 5, 0);   // C64 L
+    ssym_g(42, 0, 4, 4, 0);   // C64 L
+    ssym_b(42, 1, 3, 5, 1);   // C64 shift + L
+    ssym_g(42, 1, 4, 4, 1);   // C64 shift + L
+    ssym_b(36, 0, 8, 3, 0);   // C64 M
+    ssym_g(36, 0, 6, 3, 0);   // C64 M
+    ssym_b(36, 1, 8, 3, 1);   // C64 shift + M
+    ssym_g(36, 1, 6, 3, 1);   // C64 shift + M
+    ssym_b(39, 0, 7, 2, 0);   // C64 N
+    ssym_g(39, 0, 7, 2, 0);   // C64 N
+    ssym_b(39, 1, 7, 2, 1);   // C64 shift + N
+    ssym_g(39, 1, 7, 2, 1);   // C64 shift + N
+    ssym_b(38, 0, 5, 5, 0);   // C64 O
+    ssym_g(38, 0, 2, 4, 0);   // C64 O
+    ssym_b(38, 1, 5, 5, 1);   // C64 shift + O
+    ssym_g(38, 1, 2, 4, 1);   // C64 shift + O
+    ssym_b(41, 0, 4, 6, 0);   // C64 P
+    ssym_g(41, 0, 3, 4, 0);   // C64 P
+    ssym_b(41, 1, 4, 6, 1);   // C64 shift + P
+    ssym_g(41, 1, 3, 4, 1);   // C64 shift + P
+    ssym_b(62, 0, 5, 0, 0);   // C64 Q
+    ssym_g(62, 0, 2, 0, 0);   // C64 Q
+    ssym_b(62, 1, 5, 0, 1);   // C64 shift + Q
+    ssym_g(62, 1, 2, 0, 1);   // C64 shift + Q
+    ssym_b(17, 0, 4, 2, 0);   // C64 R
+    ssym_g(17, 0, 3, 1, 0);   // C64 R
+    ssym_b(17, 1, 4, 2, 1);   // C64 shift + R
+    ssym_g(17, 1, 3, 1, 1);   // C64 shift + R
+    ssym_b(13, 0, 2, 1, 0);   // C64 S
+    ssym_g(13, 0, 5, 0, 0);   // C64 S
+    ssym_b(13, 1, 2, 1, 1);   // C64 shift + S
+    ssym_g(13, 1, 5, 0, 1);   // C64 shift + S
+    ssym_b(22, 0, 5, 2, 0);   // C64 T
+    ssym_g(22, 0, 2, 2, 0);   // C64 T
+    ssym_b(22, 1, 5, 2, 1);   // C64 shift + T
+    ssym_g(22, 1, 2, 2, 1);   // C64 shift + T
+    ssym_b(30, 0, 5, 3, 0);   // C64 U
+    ssym_g(30, 0, 2, 3, 0);   // C64 U
+    ssym_b(30, 1, 5, 3, 1);   // C64 shift + U
+    ssym_g(30, 1, 2, 3, 1);   // C64 shift + U
+    ssym_b(31, 0, 7, 1, 0);   // C64 V
+    ssym_g(31, 0, 7, 1, 0);   // C64 V
+    ssym_b(31, 1, 7, 1, 1);   // C64 shift + V
+    ssym_g(31, 1, 7, 1, 1);   // C64 shift + V
+    ssym_b(9, 0, 4, 1, 0);   // C64 W
+    ssym_g(9, 0, 3, 0, 0);   // C64 W
+    ssym_b(9, 1, 4, 1, 1);   // C64 shift + W
+    ssym_g(9, 1, 3, 0, 1);   // C64 shift + W
+    ssym_b(23, 0, 8, 1, 0);   // C64 X
+    ssym_g(23, 0, 7, 0, 0);   // C64 X
+    ssym_b(23, 1, 8, 1, 1);   // C64 shift + X
+    ssym_g(23, 1, 7, 0, 1);   // C64 shift + X
+    ssym_b(25, 0, 4, 3, 0);   // C64 Y
+    ssym_g(25, 0, 3, 2, 0);   // C64 Y
+    ssym_b(25, 1, 4, 3, 1);   // C64 shift + Y
+    ssym_g(25, 1, 3, 2, 1);   // C64 shift + Y
+    ssym_b(12, 0, 7, 0, 0);   // C64 Z
+    ssym_g(12, 0, 6, 0, 0);   // C64 Z
+    ssym_b(12, 1, 7, 0, 1);   // C64 shift + Z
+    ssym_g(12, 1, 6, 0, 1);   // C64 shift + Z
+    ssym_b(1, 0, 3, 4, 0);   // C64 RET
+    ssym_g(1, 0, 6, 5, 0);   // C64 RET
+    ssym_b(60, 0, 8, 2, 0);   // C64 SPACE
+    ssym_g(60, 0, 9, 2, 0);   // C64 SPACE
+    ssym_b(0, 0, 4, 7, 0);   // C64 DEL
+    ssym_g(0, 0, 1, 7, 0);   // C64 DEL
+    ssym_b(51, 0, 8, 4, 0);   // C64 HOME
+    ssym_g(51, 0, 0, 6, 0);   // C64 HOME
+    ssym_b(2, 0, 0, 5, 0);   // C64 CRSR_R
+    ssym_g(2, 0, 0, 7, 0);   // C64 CRSR_R
+    ssym_b(7, 0, 5, 4, 0);   // C64 CRSR_D
+    ssym_g(7, 0, 1, 6, 0);   // C64 CRSR_D
+    ssym_b(63, 0, 9, 4, 0);   // C64 STOP
+    ssym_g(63, 0, 9, 4, 0);   // C64 STOP
+end endtask
