@@ -29,13 +29,18 @@ gamepad (whatever USB port) and the mapping; remap = save again."
 - S2 mapping dialog: wire each target button (and directions) to a pad button; Proof: ue2emu pictures.
 - S3 saving: pad ID (VID:PID, independent of the USB socket) + target type + mapping stored; after a restart the same pad gets the same
   mapping on any socket; remapping overwrites it. Proof: ue2emu restart picture, board.
-- S4 gateware: the core's port 2 reads the USB pad (OR with the C64U joystick port), in CD32 mode the minimig CD32 shift logic gives
+- S4 gateware: with the mapping On, the core's port 2 reads only the USB pad (the C64U joystick port is off for port 2, D1); in CD32 mode the minimig CD32 shift logic gives
   the 7 buttons. Proof: Vivado green both cores; board.
 - S5 board: a CD32 game reads all 7 buttons from a USB pad (Xbox pad); a 1-button and a 2-button game work with the same pad.
 
 ## §3 Decision
 
-As Alex said in "Origin". Open details (asked one at a time before building): none recorded yet.
+As Alex said in "Origin".
+
+- D1 (Alex 2026-11-15, asked: should a real joystick on the C64U socket still work for port 2 while port 2 is mapped to the USB
+  pad? Answer: "Off"): mapping On = port 2 comes from the USB pad only; mapping Off = port 2 from the C64U joystick port as today.
+- D2: where the mapping is stored follows the existing pad-mapping storage of the pad service (T156/T181), keyed by the pad's
+  VID:PID; the builder reports in §5 where that is.
 
 ## §4 Out
 
