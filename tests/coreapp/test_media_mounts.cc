@@ -1,4 +1,4 @@
-// T180 D2 and D5 (docs/specs/T180-media-housekeeping.md, scenarios S2, S3 and S8): "Persist medium mounts" keeps the mounted media in the core's .cfg and the next start
+// T180 D2 and D5 (docs/specs/done/T180-media-housekeeping.md, scenarios S2, S3 and S8): "Persist medium mounts" keeps the mounted media in the core's .cfg and the next start
 // mounts them before the core is released; a medium that is gone leaves its slot empty with a note; a media set is the same keys in <core folder>/media/<name>.mnt, and
 // loading one writes everything back, mounts what the set holds, unmounts the rest and resets the core once. The machine is the A1200's record on the model of its core:
 // four floppy slots, two hard disk units (an image and a folder disk), with a .cfg and a core folder in the fake file system. A "restart" is a new application run on the

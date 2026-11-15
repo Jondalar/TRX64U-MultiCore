@@ -1,4 +1,4 @@
-// T180 D4 and D1 (docs/specs/T180-media-housekeeping.md, scenarios S1 and S7): every path that lets go of a writable medium writes back everything
+// T180 D4 and D1 (docs/specs/done/T180-media-housekeeping.md, scenarios S1 and S7): every path that lets go of a writable medium writes back everything
 // pending for it first, completely; a write-back that fails keeps the medium mounted, stops the action and shows the error; a mount on an
 // occupied slot lets the old medium go the same way. The machine is the A1200's record (a floppy window, a hard disk image and a folder disk) on
 // the model of its core; the reset paths run on a copy of the record whose hold and release do nothing, so that only the base's own write-back
