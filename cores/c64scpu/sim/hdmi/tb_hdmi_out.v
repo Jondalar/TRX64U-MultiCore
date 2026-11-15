@@ -436,7 +436,7 @@ module tb;
             px_wr32(12'h080, 32'h00000003);
         end
         ovl_rd(15'h4F07, rd); if (rd[3:0] !== MODE[3:0]) fail("status mode 0x4F07", rd, MODE);
-        if (MODE == 2) begin tmo = 0; while (!dut.mtim.aligned && tmo < 40000000) begin @(posedge dut.pix_clk); tmo = tmo + 1; end
+        begin tmo = 0; while (!dut.mtim.aligned && tmo < 40000000) begin @(posedge dut.pix_clk); tmo = tmo + 1; end
             if (!dut.mtim.aligned) begin $display("hdmi_out mode %0d FAIL the VIC lock never came", MODE); $finish; end end
         mon_en = 1'b1;
         wait (lat_set);
