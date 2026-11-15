@@ -36,3 +36,10 @@ Measure first (S0), then horizontal only. Vertical blending is not part of this 
 - Other cores (they smooth through pix_layer already).
 
 ## §5 Built
+- **S0 measurement 2026-11-15** (run 1965, builder cache `parent-1965/large-c64scpu/c64scpu_mono.utilization.rpt`, `wns.txt`):
+  Slice LUTs 23083/32600 (70.81 %), FFs 22966/65200 (35.22 %), **Slices 7835/8150 (96.13 %, 315 free)**, BRAM 58.5/75, DSP 30/120;
+  WNS +0.004 ns after phys_opt (router intermediate -0.298..-1.161), WHS +0.053. `vic_scaler`: 148 LUT, 152 FF, 4 RAMB36.
+  Estimate for horizontal blending (read of `vic_scaler.v`): keep the previous VIC pixel in a register (upscaling: neighbours come
+  in sequence, no second ring read), second palette lookup, blend per channel with 3 DSP48 by a 4-bit fraction of `hacc`:
+  about +40 LUT, +90 FF, 3 DSP, no BRAM (~+10-25 slices); LUT-multiplier variant +100-150 LUT (+25-40 slices). Assessment: go for
+  the DSP variant; the risk is timing closure (WNS +0.004 today), only a Vivado run decides.
