@@ -28,6 +28,7 @@ struct HcRowsPlatform {
     void (*rest_text)(bool net, char *out, int n);
     void (*net_note)(const char *text, int tone);
     const char *app_version;
+    const char *host_version;       // T221: the host gateware SemVer (the "host" chip); a test build ends in -dev+<sha8>
 };
 void hc_rows_init(const HcRowsPlatform *p);
 const char *hc_item_title(const char *page, const char *id);     // the declaration's label of a fixed row
@@ -164,7 +165,7 @@ struct HcChip {
     char text[48];
     bool ok;
 };
-int hc_chips(HcChip *out, int cap);               // network, USB, SD, contract, host key (when there is one), app: left to right as the screen lays them from the right
+int hc_chips(HcChip *out, int cap);               // network, USB, SD, host SemVer (and key on a test build), app: left to right as the screen lays them from the right
 void hc_chips_sig(char *out, int n);              // changes when the chips do
 const char *hc_chip_net_text(void);
 

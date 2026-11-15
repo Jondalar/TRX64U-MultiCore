@@ -2,6 +2,7 @@
 #include "hostfs.h"
 #include "startcheck.h"
 #include "handover.h"
+#include "gitinfo.h"
 #include "configlist.h"
 #include "videomode.h"
 #include "FreeRTOS.h"
@@ -259,6 +260,7 @@ void core_jump(const CorInfo *ci)
     // It lies outside the application's load range, the staging areas and the trampoline, so the copy below leaves it alone.
     handover_fill((Handover *)HANDOVER_ADDR, staged_path, ci->name, ci->version, cor_host_key, video_current, ci->id);
     handover_set_config((Handover *)HANDOVER_ADDR, start_config);
+    handover_set_host_version((Handover *)HANDOVER_ADDR, APP_HOST_VERSION_STRING);
     if (rtc_time_valid()) {                          // T191: the core application has no SNTP; it sets its clock from this
         int wd, y, mo, d, h, mi, sec;
         get_current_time(wd, y, mo, d, h, mi, sec);

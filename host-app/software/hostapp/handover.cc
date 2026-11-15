@@ -73,6 +73,35 @@ bool handover_set_config(Handover *h, const char *name)
     return true;
 }
 
+static uint32_t handover_hostver_sum(const Handover *h)
+{
+    uint32_t s = 0x7A55E1B3u ^ h->sum ^ h->id_sum;
+    for (unsigned i = 0; i < sizeof(h->host_version); i++) {
+        s = ((s << 5) | (s >> 27)) ^ (uint8_t)h->host_version[i];
+    }
+    return s ? s : 1u;
+}
+
+bool handover_set_host_version(Handover *h, const char *version)
+{
+    memset(h->host_version, 0, sizeof(h->host_version));
+    h->hostver_sum = 0;
+    if (!version || !version[0] || strlen(version) >= sizeof(h->host_version)) {
+        return false;
+    }
+    strcpy(h->host_version, version);
+    h->hostver_sum = handover_hostver_sum(h);
+    return true;
+}
+
+const char *handover_host_version(const Handover *h)
+{
+    if (!h->host_version[0] || h->host_version[sizeof(h->host_version) - 1] != 0 || h->hostver_sum != handover_hostver_sum(h)) {
+        return "";
+    }
+    return h->host_version;
+}
+
 const char *handover_config(const Handover *h)
 {
     if (!h->config[0] || h->config[sizeof(h->config) - 1] != 0 || strlen(h->config) > HANDOVER_CONFIG_MAX ||

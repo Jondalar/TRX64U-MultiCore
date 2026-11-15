@@ -15,7 +15,7 @@ int host_report_build(const WebSnapshot *s, uint32_t fattime, bool time_valid, c
 
     br_section(&o, "Versions");
     br_kv(&o, "Host app", "%s built %s", s->app, s->app_date);
-    br_kv(&o, "Host bitstream", "%s", s->host_key[0] ? s->host_key : "none named");
+    br_kv(&o, "Host bitstream", "%s%s%s", s->host_ver, s->host_ver[0] ? ", key " : "", s->host_key[0] ? s->host_key : "none named");
     br_kv(&o, "Board", "%s", s->board);
     br_kv(&o, "Core", "none running (the host menu is open)");
 

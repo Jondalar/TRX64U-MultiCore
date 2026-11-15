@@ -134,10 +134,11 @@ void hc_entry_ver(int i, char *out, size_t n)
     EState st = hc_est(i);
     bool ok = st == ES_OK || st == ES_CHANGED;
     const char *ver = ok ? hc_einfo(i).version : "";
-    if (hc_efull(i)) {
-        snprintf(out, n, "%s", ok ? "full firmware" : "");
-    } else if (ver[0]) {
+    // T221 D13: a large core shows its version like every core; "full firmware" stays for a full image that names none (a .cfw)
+    if (ver[0]) {
         snprintf(out, n, "%s", ver[0] == 'v' || ver[0] == 'V' ? ver + 1 : ver);
+    } else if (hc_efull(i)) {
+        snprintf(out, n, "%s", ok ? "full firmware" : "");
     }
 }
 
@@ -983,13 +984,15 @@ int hc_chips(HcChip *out, int cap)
         snprintf(out[n].text, sizeof(out[n].text), "SD");
         out[n++].ok = g_st.sd;
     }
+    // T221 D12/D14: the host gateware's SemVer (its MAJOR is the contract, so the "contract N" chip is gone); a release shows the SemVer alone, a test
+    // build ("-dev+<sha8>") the host key of the running bitstream (T84 D5b) after it
     if (n < cap) {
-        snprintf(out[n].text, sizeof(out[n].text), "contract %d", COR_HOST_CONTRACT);
-        out[n++].ok = false;
-    }
-    // the host key of the running bitstream (T84 D5b) and, after it, the app's own build
-    if (cor_host_key && n < cap) {
-        snprintf(out[n].text, sizeof(out[n].text), "host %08x", (unsigned)cor_host_key);
+        const char *hv = g_pl.host_version ? g_pl.host_version : "";
+        if (cor_host_key && strstr(hv, "-dev+")) {
+            snprintf(out[n].text, sizeof(out[n].text), "host %s \xC2\xB7 %08X", hv, (unsigned)cor_host_key);
+        } else {
+            snprintf(out[n].text, sizeof(out[n].text), "host %s", hv);
+        }
         out[n++].ok = false;
     }
     if (n < cap) {

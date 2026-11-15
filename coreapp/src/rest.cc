@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+#include "gitinfo.h"
 
 // ---- the alias table (Q2) ------------------------------------------------------------------------------------------------------
 // The paths of Gideon's REST that our own tests and scripts use, each pointing at an operation of this service layer. An alias whose operation no
@@ -557,13 +558,17 @@ int rest_serve(CoreCtx *c, const HttpReq &q, char *out, int cap, bool *ws)
         if (!get) {
             return respond_text(out, cap, 405, "GET only");
         }
-        char b[300];
+        char b[420];
         int p = 0;
         OpRegistry *reg = ops_of(c);
         json_put(b, sizeof(b), &p, "{\"api\":1,\"core\":");
         json_put_string(b, sizeof(b), &p, c->desc ? c->desc->cor_name : "");
         json_put(b, sizeof(b), &p, ",\"version\":");
         json_put_string(b, sizeof(b), &p, c->core_version);
+        json_put(b, sizeof(b), &p, ",\"app\":");                       // T221: the core app and the host gateware, SemVer strings
+        json_put_string(b, sizeof(b), &p, APP_VERSION_STRING);
+        json_put(b, sizeof(b), &p, ",\"host\":");
+        json_put_string(b, sizeof(b), &p, c->host_version);
         json_put(b, sizeof(b), &p, ",\"ops\":%d,\"state\":%d,\"events\":%d}", reg->nops(), reg->nstates(), reg->nevents());
         return respond(out, cap, 200, b, p);
     }

@@ -1493,7 +1493,7 @@ static void net_note(const char *s, int tone)
     hostapi_note(nv.nnote, tone == HCT_BAD);
 }
 
-static const HcRowsPlatform rows_plat = { hostapi_rest_text, net_note, APP_VERSION_STRING };
+static const HcRowsPlatform rows_plat = { hostapi_rest_text, net_note, APP_VERSION_STRING, APP_HOST_VERSION_STRING };
 
 static void update_net(void)
 {
@@ -2715,7 +2715,7 @@ static bool confirm_full(const char *title)
 static void slog_flush(void)
 {
     if (startrec_decided()) {
-        hostreport_startlog_store(APP_VERSION_HASH, APP_BUILD_DATE);
+        hostreport_startlog_store(APP_VERSION_STRING, APP_BUILD_DATE);
     }
 }
 static const char *start_origin = "menu (key or network request)";
@@ -3351,7 +3351,8 @@ static void fill_snapshot(WebSnapshot *wp)
 {
     WebSnapshot &w = *wp;
     memset(&w, 0, sizeof(w));
-    snprintf(w.app, sizeof(w.app), "%s", APP_VERSION_HASH);
+    snprintf(w.app, sizeof(w.app), "%s", APP_VERSION_STRING);
+    snprintf(w.host_ver, sizeof(w.host_ver), "%s", APP_HOST_VERSION_STRING);
     snprintf(w.app_date, sizeof(w.app_date), "%s", APP_BUILD_DATE);
     snprintf(w.board, sizeof(w.board), "%s", hostreport_board());
     w.direct = cfg.direct;
@@ -3941,6 +3942,7 @@ static void startup(void)
     hc_cfgov_io(hostfs_cm(), hostfs_fo());
     hc_nav_init(&nav_plat);
     hc_rows_init(&rows_plat);
+    snprintf(txu_running_version, sizeof(txu_running_version), "%s", APP_BUNDLE_VERSION_STRING);   // T221 D19
     hc_ui_init(&ui_env_ref());
     hc_cfg_clear();
     direct_phase();                                  // T135: a direct start never returns; otherwise the menu below, with the reason in its note
@@ -4322,6 +4324,7 @@ void hostui_test_init_lazy(const char *cfgtext)
     hc_cfgov_io(hostfs_cm(), hostfs_fo());
     hc_nav_init(&nav_plat);
     hc_rows_init(&rows_plat);
+    snprintf(txu_running_version, sizeof(txu_running_version), "%s", APP_BUNDLE_VERSION_STRING);   // T221 D19
     hc_ui_init(&ui_env_ref());
     hc_cfg_reset(cfgtext);
     lazy_reset();

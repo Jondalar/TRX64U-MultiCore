@@ -20,7 +20,7 @@
 
 // What the UI task knows, written by it and read by the web task. One struct, copied whole.
 struct WebSnapshot {
-    char app[24], host_key[12];
+    char app[24], host_key[12], host_ver[24];   // T221: app = the host menu SemVer, host_ver = the host gateware SemVer
     char ip[24];
     bool usb, sd, net;
     char media[96];
