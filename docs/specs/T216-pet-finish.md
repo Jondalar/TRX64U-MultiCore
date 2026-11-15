@@ -87,6 +87,7 @@ Reported on GitHub after the first test release (2026-11-13/14), bundled here 20
 - **D7 (Alex: "Key 8"):** the pad rows show the chosen key as "Key 8", "Key Space" (all keys, "None" stays): `coreapp/src/padkeys.h` `padkey_names` (generic service; the stored value text changes with it).
 - **D8 (Alex: "Ja bitte alles ins Input tab"):** every pad/keyboard row is in the Input tab, including "Map buttons, pad 1/2" (was F7): the tasks carry group `input`; generic code: `coreapp/src/menutree.cc` lists a task in a settings tab that names its group (below the rows) and no longer in the tasks tab (`task_in_settings_tab`).
 - **D9 (Alex: "Ja"):** the missing-ROM message lists every missing file of the model at once, one per line (`list_missing_roms`, `coreapp/cores/pet.cc`), not only the first.
+- **D10 (Alex 2026-11-15, open UX Q1 "b", after q1a-c):** the foot shows one line: while a row note is shown (e.g. "Model: ... takes effect at the next reset"), the ring legend is left out (generic, `MenuCtl::foot_line`, every core).
 
 ## §4 Out
 
