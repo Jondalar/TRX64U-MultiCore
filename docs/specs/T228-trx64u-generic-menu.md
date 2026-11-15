@@ -283,6 +283,7 @@ overlay was fitted from a 1280x800 manual picture, so its scale on the real 960x
   Video tab has two sections, "Picture" (System mode, Picture, Scale, Smooth) and "Output" (HDMI). General rule for the whole
   menu: a row is shown only when the trx64u bitstream really implements it; rows copied from Gideon's menu that do nothing are
   dropped. This also settles Q13 (option a). S2 checks every row against the bitstream/app code before keeping it.
+- D15 (Alex 2026-11-15, Q9a, after mock-ups q09a/b): one "Volume" row; "Master volume" is merged into it.
 
 ## §4 Out
 
