@@ -119,3 +119,21 @@ P4 (game mode): moved to the generic app's key bundles (D4). P5: documentation o
 - **Not done: P9 (tape write), waits for T214 (D-Q6).**
 - **UX review (ue2emu, agent, 2026-11-15): FAIL on R3/R6/R2, partly fixed.** Fixed: labels "SuperPET CPU" / "SuperPET RAM", SuperPET RAM values "32 KiB" / "96 KiB", Keyboard mapping + pad rows + Pad map moved to the Input tab (`group "input"`), the missing-ROM message names the folder. Open (proposals to Alex): Picture rate / Phosphor to the Video tab; pad values "8" vs "Key 8"; F7 "Map buttons" beside "Pad map"; the missing-ROM screen names only the first missing file; the foot note of a changed row is clipped at 480p/720p (generic app code, ring legend); the emulator cannot show the conditional rows (pet.ramrow / pet.superpet).
 - **Real-ROM finding, open:** with the real 8032 editor ROM (VICE `edit-4-80-b-60Hz.901474-03.bin`, `cores/pet/sim/tb_pet_real.v`, +roms=VICE data/PET) the 6502 sits in the editor's beep delay loop at `$E6BF` for 350 ms and CRTC R12 stays 0: the editor's init does not get past its first beep (CB2 edges counted 1427). This is the tester's "four beeps"; the cause (a core, 6502 or VIA defect, or a missing input the editor tests) is NOT found, so #82 is only fixed for the R1 = 40 part. Next step: trace A/X/Y/flags around `$E6A4-$E6C0` (the beep routine uses VIA shift register / T2 at `$E848-$E84B`) and compare with VICE.
+
+### 2026-11-15 scenario evidence (builder `tools/benches.sh pet -f`: pet_boot 360 s, pet_spet 10 s, pet_keys, pet_tape PASS; pet_wl 440 s PASS)
+| # | Evidence |
+|---|---|
+| S1, S2 | `pet_keys` PASS: 312 key checks, positional against VICE's two .vkm, business and graphics; `tb_pet_models` mode 0 PASS. Board (Q types Q): open |
+| S3 | golden `menu_pet.txt` updated by hand (rows by model: `pet.ramrow`, `pet.superpet`); app test not run (pipeline) |
+| S4, S5 | unchanged: board, open / INSTALL text updated |
+| S6 | not a scenario (P5 documentation only) |
+| S7 | `pet_wl` PASS: the six Waterloo files run the 6809 to "Waterloo microSystems / Select :" menu on row 0 in 80 columns with R12 = `$30`; missing-file message from the app: `put_waterloo`, unchanged; board, open |
+| S8 | `pet_spet` modes 2 (sixteen banks keep first and last byte) and 3 (32 KiB: ROM behind `$9000`) PASS; board memory test in 6809 mode: open |
+| S9 | `tb_pet_models` mode 0 PASS with R1 = 40 giving 80 columns, and `tb_pet_real` (VICE ROMs, local) 8032: 80 columns at 25/60/350 ms; the editor itself does not get past its first beep (see above): open |
+| S10 | `pet_models.h` lists only own names, `test_pet_models.cc` extended; message text rendered in ue2emu (4032 BASIC variant); app test not run |
+| S11 | model "2001 + BASIC 2" built (app test `test_pet_models.cc`); no boot bench with the real BASIC 2 set was run (`tb_pet_real +model=0 +basic=basic-2... ` is ready, not run, same editor-beep question); board, open |
+| S12 | app refuses a missing own file by name (S10 path); a wrong-content file is not detected (size only): open |
+| S13 | P9, waits for T214: not touched |
+| S14 | `pet_keys` PASS: symbolic mapping checked by character against the PET legends, both boards |
+| S15 | `pet_keys` PASS: pad / joystick keys (5 buttons, 2 pads, 2 joystick ports, SHIFT code); app side built (riscv build ok, `padkeys.h`); USB pad on the board: open |
+LUT/BRAM: +1 BRAM18 (character ROM 4 KiB); no BRAM for 96 KiB (`pet_ram64` already existed); `pet_padkeys` about 350 LUT (64-bit decode of five key codes), `pet_keys` symbolic matrices about 150 LUT, registers ~60 FF: estimates, not synthesised.
