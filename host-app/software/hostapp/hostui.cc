@@ -657,7 +657,7 @@ static int in_menu(const char *path) { return hc_in_menu(path); }
 #define CW  (SW - NAV_W - 2 * CX0)
 #define CH  (SH - TOP_H - FOOT_H)
 #define BROWS_MAX 16
-#define BROWS (brows_n)                         // browser rows: 13 on the full canvas, from the height below it
+#define BROWS (brows_n)                         // browser rows: what the panel holds (12 on the full canvas), from the height below it
 static int brows_n = 13;
 // the pitch of the menu rows and the editor rows, and where the editor's panel ends (compact: its settings take a line each)
 #define ED_PN_H 56                              // T209 D19: the editor's info box is two lines
@@ -1317,7 +1317,7 @@ static void build_browse(void)
     int rw = COMPACT ? (CW - 16) / 2 : CW / 2 - 8;
     int lw = COMPACT ? CW - 16 - rw : CW / 2 - 8;
     int top = COMPACT ? 64 : 74;
-    int ph = CH - (COMPACT ? 74 : 90);
+    int ph = CH - top - 30;                               // T223 R2: the panels end 4 px above the note line (CH - 26), not under it
     // the value column of the right panel: compact, it starts after the longest key of either mode of the panel (a key is never cut to dots)
     static const char *const key_words[] = { "Version", "Contract", "FPGA", "Core", "Application", "SHA-256", "Status", "Size", "Contents", "Boot menu", "Access", "Format" };
     int rk = 130;
@@ -1794,7 +1794,7 @@ static void build_start(void);
 static void buffers_mode(bool single);
 static void overlay_state_forget(void);             // what the overlay panels remember of what they show (below, after their statics)
 
-// How many rows each list holds on the canvas that is up (the full canvas: 9 menu rows, 5 editor rows, 13 browser rows, 18 list rows; the compact layout
+// How many rows each list holds on the canvas that is up (the full canvas: 9 menu rows, 5 editor rows, 12 browser rows, 18 list rows; the compact layout
 // takes what its height holds, from the same positions the builders use).
 static void layout_counts(void)
 {
@@ -1809,12 +1809,12 @@ static void layout_counts(void)
     int e = (CH - 26 - ((COMPACT ? 64 : 74) + ED_PN_H + 12) + 4) / EROW_P;
     erows_n = e < 1 ? 1 : (e > MROWS_MAX ? MROWS_MAX : e);
     if (!COMPACT) {
-        brows_n = 13;
+        brows_n = (CH - 74 - 30 - 40) / 26;                // T223 R2: the panel ends above the note line; the last row sits inside it
         cm_rows_n = (CH - 26 - 6 - 70 + 2) / 20;
         hc_nav_geometry(mrows_n, brows_n, cm_rows_n, erows_n);
         return;
     }
-    brows_n = (CH - 74 - 40) / 26;
+    brows_n = (CH - 64 - 30 - 40) / 26;                  // the panel's height (see the browser builder) less its first row's offset
     cm_rows_n = (CH - 26 - 6 - 60 + 2) / 20;
     brows_n = brows_n < 1 ? 1 : (brows_n > BROWS_MAX ? BROWS_MAX : brows_n);
     cm_rows_n = cm_rows_n < 1 ? 1 : (cm_rows_n > CM_ROWS_MAX ? CM_ROWS_MAX : cm_rows_n);

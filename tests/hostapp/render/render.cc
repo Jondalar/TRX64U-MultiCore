@@ -1549,11 +1549,11 @@ static void areas(void)
     area("F5 edit: RIGHT (default config; a core without configs says so)", hostui_test_key(KEY_RIGHT), 19000);   // T198 D13: the note line is drawn
     // F3 browser, a folder of 19
     hostui_test_browse_at("/Usb0/scroll");
-    const uint32_t BLW = CW_ / 2 - 8, BPH = 540 - 40 - 30 - 90;
+    const uint32_t BLW = CW_ / 2 - 8, BPH = 540 - 40 - 30 - 104;
     hostui_test_key(KEY_DOWN);                                              // the first key of a fresh view refills the manifest panel
     area("F3 browse: selection move", hostui_test_key(KEY_DOWN), 2 * (4 * BLW + 8 * 24) + 6u * 1000 + 19000);   // + the T198 note of the F5 RIGHT before it, cleared by this key
     for (int i = 0; i < 10; i++) hostui_test_key(KEY_DOWN);
-    area("F3 browse: scroll one row (13 rows)", hostui_test_key(KEY_DOWN), BLW * BPH);
+    area("F3 browse: scroll one row", hostui_test_key(KEY_DOWN), BLW * BPH);
     area("F3 browse: last row (.cfw)", hostui_test_key(KEY_DOWN), BLW * BPH);
     // 20 bundles of different sizes: a scrolling key changes 13 names, 13 sizes and the manifest panel (about 40 labels)
     hostui_test_browse_at("/Usb0/sized");
