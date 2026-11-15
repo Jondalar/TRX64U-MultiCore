@@ -117,7 +117,54 @@ Nothing decided out yet.
 
 ## §5 Decisions taken while building
 
-(none yet)
+Built on branch `t221-semver` (2026-11-15). Files: `bundle.toml`, `contract/version.toml`, `host-app/version.toml`, `coreapp/version.toml` (D6/D7; the host gateware file is
+under `contract/`, not `host/`, so a bump cannot move the host key); `tools/semver.py`, `ci/version.sh [bundle|hostapp|coreapp|host|with X.Y.Z]`, `tools/check_versions.py`,
+`ci/test_version.sh`, `tools/release_promote.py`.
+
+- **B1 (form).** A source file holds `x.y.z` only (lint, `tools/check_versions.py`); every build that is not a tag shows `x.y.z-dev+<sha8>`, `main` too (D3; the old
+  `X.Y.Z+<sha8>` of `main` and `<branch>@<sha8>` are gone, `ci/test_version.sh` has negative controls for both). A tree without a commit (the dev tree of `tools/dev.sh`)
+  shows `+00000000`. `ci/version.sh` has no python (the app build image has none; the package stage runs python).
+- **B2 (stamps).** The apps carry three stamp fields (`TRXVSTAMP` own version, `TRXHSTAMP` host gateware, `TRXBSTAMP` bundle; `tools/stamp_version.py --marker`);
+  the core app image (`coreapp.bin`, the blueprint `.app` copies, so also the app inside every `.cor`) carries its own `TRXVSTAMP`. `ci/package.sh` stamps all of them
+  before a `.cor` or the `.txu` is packed; the large and imported `.cor` take `$out/coreapp.bin` (the stamped one), not the stage's cached image.
+- **B3 (artifacts).** `.cor` version = `ci/version.sh with <core.toml version>` (`pack_cores_mc.sh`, `package.sh` large cores); `.txu` and `manifest.json` `version` = bundle
+  version (D17); `manifest.json` has `parts` = host gateware, host menu, core app, and every core as read back from its `.cor` (D6). `tools/check_bundle.py` checks all three
+  app fields against the manifest (its selftest passes). The Gitea package coordinates stay `<branch>-<sha8>` / `<branch>-latest` (the pipeline's lookup key,
+  `ci/lib.sh publish_files`); the version is inside. OPEN-1 below.
+- **B4 (release, D4).** `tools/release_promote.py <package dir>` rewrites `x.y.z-dev+<sha8>` to `x.y.z` in the apps, every `.cor` (manifest and the app inside, size and SHA-256
+  following), the `.txu` (repacked), `manifest.json` and `SHA256SUMS`; selftest with a negative control (a release is not promoted twice). `tools/release_mc.sh` calls it right
+  after the download (marker `.promoted`). The `.cfw`/`.ue2` of stage update carry their branch-sha identity and are made again from the promoted package, not patched;
+  `release_mc.sh` still repacks the large cores itself as before (their `core.toml` version is already the release form).
+- **B5 (host displays).** Boot menu version column: every row with a version shows it, large cores included (`full firmware` stays only for a full image that names none,
+  e.g. a `.cfw`); chips: "contract N" removed (D12), `host <ver>` on a release, `host <ver> · <KEY>` on a test build (D14), `app <ver>`; splash, startlog, web hello (`app`,
+  `host_version`), bug report ("Host app", "Host bitstream <ver>, key <key>"); update ask shows the `.txu` bundle version and, if it is older than the running bundle, a
+  warning line and goes on (D19, `semver.h`, `txu_running_version`).
+- **B6 (core app).** Splash, Home "Application", console and bug report show the core app SemVer; the host gateware version reaches it in a new trailing field of the
+  hand-over page (`host_version`, own check word, older readers and older hosts unaffected); REST `/v1/info` has `app` and `host`, `/rpc` ping has `core_version`,
+  `app_version`, `host_version`; the bug report names the host as `<ver>, key <key>`.
+- **B7 (Vivado keys).** None moved: no file under `host/`, `cores/` or `vendor/` is touched (the host gateware version is `contract/version.toml`; no `core.toml` edit).
+  `contract/` is in no key (`ci/lib.sh`, `host/layers.txt`). The trxapps key moves (apps changed; `ci/version.sh` is now one of its inputs because `gitinfo.c` is made from
+  it), so every `.cor` is repacked; no bitstream is rebuilt.
+- **B8 (dev tree).** Images of `tools/dev.sh` carry no version (no commit in the dev tree); `tests/hostapp/emu_host.sh` stamps copies before it runs, so its pictures show real strings.
+
+### Open (not decided; Alex must answer, one at a time)
+
+- **OPEN-1 (D10).** The start version of every core (cores one by one: apple2 0.1.0, atari800 0.0.1, c64ref 1.0.0, ddt_mandel 0.1.0, ddt_novic 0.1.0, null 1.0.0, vc20 0.9.0 and
+  every large core's `mono/core.toml`). All stay as they are; any edit of a `core.toml` moves that core's Vivado key (its `sources` contain the folder), so it belongs in its own
+  last commit and the keys it moves must be named first: not made. Also: host gateware / host menu / core app / bundle start at 0.2.0 (D10), done.
+- **OPEN-2 (D12 consequence).** The `.cor` check still compares the contract integer (`COR_HOST_CONTRACT` = 2, `contract/VERSION`). Folding it into the host gateware MAJOR with a
+  start of 0.2.0 gives MAJOR 0, not 2: either the host gateware starts at 2.0.0 or the check stays an integer. The chip is gone either way (D12); the row refusal text "contract 3 != 2"
+  stays until this is answered.
+- **OPEN-3 (D15).** Imported trx64u/trx64g: `pack_import_cor.sh` reads a `SEMVER=` from the pin and falls back to the commit with a message; no pin has one. Proposal text for
+  `docs/contracts/trx64u-firmware-handover.md` (not edited: that file changes only with TRX64-Ultimate): "TRX64-Ultimate publishes with every CI package a `version.txt` (one line,
+  SemVer 2.0 `x.y.z`, no build metadata) beside `c64_basic.bit`; TRX64U-MultiCore copies it into the pin as `SEMVER=`. A change of the bitstream is a new version; a
+  `-dev+<sha8>` is added by the MultiCore packer on a test build." Needs the other repo's side.
+- **OPEN-4 (D16).** The L/P badge: placement/look is not decided, so it is not built; until then a large core is no longer marked in the list (the version replaces
+  "full firmware"). Mock-ups: `scratchpad/t221/badge-*.png`.
+- **OPEN-5 (D19).** "Core install of an older version warns": the host has no install step for a `.cor` (it is copied by hand and added with A). Only the `.txu` update warns. Where the
+  core warning belongs (adding an entry whose id is already in the menu with a newer version?) is not said.
+- **OPEN-6 (D17).** Gitea package coordinates stay branch-sha (see B3); changing them to the SemVer string touches `ci/lib.sh` publish/fetch and the update stage.
+- **OPEN-7.** `bundle.toml` carries only the bundle version; the part versions are written into `manifest.json` `parts` at package time (a hand-kept list would be a second copy).
 
 ## History
 
