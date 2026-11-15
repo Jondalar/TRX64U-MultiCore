@@ -100,6 +100,7 @@ module amiga_core #(
     wire [7:0] status;
     wire [31:0] s_reads, s_miss, s_writes, s_pf, s_hold, s_age, s_info, s_gap, s_debt;
     wire [3:0] r_statsel; wire [31:0] stat_val; wire r_cfgtgl;
+    wire [10:0] r_padw; wire [1:0] r_padm; wire cd32p2;   // T225: the USB pad for game port 2
     wire [7:0] r_rkd; wire r_rkt, rk_room;            // T141: raw key events of the application into amiga_input
     wire mb_tgl, mb_we, mb_drv; wire [31:0] mb_lba; wire dlog_ovf;
 
@@ -110,7 +111,7 @@ module amiga_core #(
         .ctrl(r_ctrl), .mem_cfg(r_mem), .fast_cfg(r_fast), .cpu_cfg(r_cpu), .chipset_cfg(r_chipset),
         .floppy_cfg(r_floppy), .ide_cfg(r_ide), .joy_cfg(r_joy), .rtc_en(r_rtc_en), .rtc_ld(r_rtc_ld), .rtc_loaded(rtc_loaded_c), .adf_present(r_adf_present), .adf_mount_tgl(r_adf_tgl),
         .hdf_present(r_hdf_present), .hdf_mount_tgl(r_hdf_tgl), .hdf_size0(r_hdf0), .hdf_size1(r_hdf1),
-        .mouse_dx(r_mdx), .mouse_dy(r_mdy), .mouse_btn(r_mbtn), .mouse_tgl(r_mtgl), .rk_data(r_rkd), .rk_tgl(r_rkt), .rk_room(rk_room), .mb_done_tgl(r_mbdone),
+        .mouse_dx(r_mdx), .mouse_dy(r_mdy), .mouse_btn(r_mbtn), .mouse_tgl(r_mtgl), .rk_data(r_rkd), .rk_tgl(r_rkt), .rk_room(rk_room), .pad_word(r_padw), .pad_mode(r_padm), .mb_done_tgl(r_mbdone),
         .dlog_ovf_clr_tgl(r_ovfclr),
         .status(status), .frame_start_tgl(fs_tgl), .frame_done_tgl(fd_tgl), .frames(fb_frames), .overruns(fb_over),
         .stat_sel(r_statsel), .stat_val(stat_val), .cfg_tgl(r_cfgtgl),
@@ -187,7 +188,7 @@ module amiga_core #(
     wire [15:0] m_dout, p2_dout; wire [47:0] m_dout48, p2_dout48; wire p2_ready; wire m_pend;
     wire [7:0] sdc_mounted, sdc_rd, sdc_wr; wire [63:0] sdc_size; wire [31:0] sdc_sector;
     wire sdc_busy, sdc_done, sdc_bstrobe; wire [8:0] sdc_baddr; wire [7:0] sdc_bin, sdc_bout;
-    wire kml; wire [1:0] kmt; wire [7:0] kmd; wire [2:0] mbtn; wire [7:0] joy0, joyb; wire reset_kbd;
+    wire kml; wire [1:0] kmt; wire [7:0] kmd; wire [2:0] mbtn; wire [10:0] joy0; wire [7:0] joyb; wire reset_kbd;
     wire uart_tx;
 
     // Freeze. The request holds ce28 (amiga_ce) unless the machine is in reset: a reset needs ticks to go through. The
@@ -216,7 +217,7 @@ module amiga_core #(
         .floppy_config(flp_b[3:0]), .video_config(4'b0000), .turbo_config(3'b000), .ide_config(ide_b[5:0]),
         .audio_left(au_l), .audio_right(au_r),
         .mouse_buttons(mbtn), .kbd_mouse_level(kml), .kbd_mouse_type(kmt), .kbd_mouse_data(kmd),
-        .joystick0(joy0), .joystick1(joyb), .uart_tx(uart_tx), .uart_rx(1'b1),
+        .joystick0(joy0), .cd32pad2_en(cd32p2), .joystick1(joyb), .uart_tx(uart_tx), .uart_rx(1'b1),
         .sdc_img_mounted(sdc_mounted), .sdc_img_size(sdc_size), .sdc_rd(sdc_rd), .sdc_wr(sdc_wr),
         .sdc_sector(sdc_sector), .sdc_busy(sdc_busy), .sdc_done(sdc_done), .sdc_byte_in_strobe(sdc_bstrobe),
         .sdc_byte_addr(sdc_baddr), .sdc_byte_in_data(sdc_bin), .sdc_byte_out_data(sdc_bout),
@@ -280,9 +281,9 @@ module amiga_core #(
     // ---------------------------------------------------------------- input, audio
     amiga_input inp (
         .sys_clk(sys_clk), .sys_rst(sys_rst | hold), .ce28(ce28), .keys(keys), .restore(restore), .joy1(joy1), .joy2(joy2), .joy_swap(joy_swap_s[1]),
-        .mouse_dx(r_mdx), .mouse_dy(r_mdy), .mouse_btn(r_mbtn), .mouse_tgl(r_mtgl), .rk_data(r_rkd), .rk_tgl(r_rkt), .rk_room(rk_room),
+        .mouse_dx(r_mdx), .mouse_dy(r_mdy), .mouse_btn(r_mbtn), .mouse_tgl(r_mtgl), .rk_data(r_rkd), .rk_tgl(r_rkt), .rk_room(rk_room), .pad_word(r_padw), .pad_mode(r_padm),
         .kbd_mouse_level(kml), .kbd_mouse_type(kmt), .kbd_mouse_data(kmd), .mouse_buttons(mbtn),
-        .joystick0(joy0), .joystick1(joyb), .reset_kbd(reset_kbd));
+        .joystick0(joy0), .cd32pad2_en(cd32p2), .joystick1(joyb), .reset_kbd(reset_kbd));
 
     amiga_audio aud (.sys_clk(sys_clk), .ce28(ce28), .mclk(mclk), .sample_en(audio_sample_en), .left(au_l), .right(au_r), .mute(pause_eff), .clr(hold),
                      .audio_l(audio_l), .audio_r(audio_r), .st_under(au_under), .st_over(au_over), .st_fill(au_fill), .st_fmin(au_fmin), .st_fmax(au_fmax));

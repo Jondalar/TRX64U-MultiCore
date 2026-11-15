@@ -52,6 +52,25 @@ private:
     CoreCtx *c_;
 };
 
+// T226 S1: the picture says "Loading cartridge..." for as long as this object lives (a cartridge or ROM image is being read in; the application's c->loading).
+class MediaLoading {
+public:
+    explicit MediaLoading(CoreCtx *c) : c_(c->loading ? c : 0)
+    {
+        if (c_ && c_->loading_depth++ == 0) {
+            c_->loading(c_, true);
+        }
+    }
+    ~MediaLoading()
+    {
+        if (c_ && --c_->loading_depth == 0) {
+            c_->loading(c_, false);
+        }
+    }
+private:
+    CoreCtx *c_;
+};
+
 // T180 D4: everything pending for a writable medium goes back to its file, completely: the cartridge (wb_flush, as its setting says), every window
 // drive, every sector unit with the folder disk's full fold-back. 0, or 1 with the first reason in msg: the medium stays mounted and the caller
 // stops what it was about to do (reset, reload, restart, return to host, power off).
