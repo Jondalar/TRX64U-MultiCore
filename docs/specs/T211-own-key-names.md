@@ -18,6 +18,7 @@ Status: BUILT on branch `t211-key-names` 2026-11-15 (S1, S2, S3 first half); S3 
 ## §3 Decisions
 - D1 (Alex 11-12): F keys are the main navigation; our UI uses its own key names, Gideon's naming is translated at the edge.
 - D2 (Alex 2026-11-15, S3 = "A", after the mock-ups h4a/h4b): real Page Up / Page Down page every host list like `+` / `-` (browser, pick lists, boot menu: wherever `+`/`-` page). The F5 editor keeps no paging (T209 D7a: `+`/`-` move the entry there), so the page keys do nothing in the editor. The foot legend stays `+/- PAGE`.
+- D3 (coordinator, from Alex's 2026-11-12 statement): the core app follows D1/D2 - `map_key` in `coreapp/src/run.cc` is removed; real Page Up / Page Down page lists like `+`/`-` where those page.
 
 ## §4 Out
 - Open with Alex: paging keys in the host editor (none; editor +/- moves an entry). The boot menu pages with +/- since T209 D7 (`host_core.cc:47`); real Page Up/Down still arrive as F1/F7.
@@ -41,3 +42,13 @@ Status: BUILT on branch `t211-key-names` 2026-11-15 (S1, S2, S3 first half); S3 
 - S3 proof: emu flow `T211 page keys` (80 files in a stick folder): Page Down changes the panel, Page Up brings the top back (equal), a second Page Down moves again, F1 still navigates
   (PASS on the builder with all other host flows). Pictures browse-top / -pagedown / -pageup / -pagedown2 / -f1. Boot menu and pick lists share the intents through the same table; not walked separately.
   The home-screen step of the earlier commit (Page keys change nothing there) is replaced by this flow; host-pageup/host-pagedown.png are from that earlier run.
+
+D3 build state (2026-11-15, UNVERIFIED):
+- Built: `map_key` removed from `coreapp/src/run.cc` (`getch_nowait` returns the key as read). `menukeytab.cc` already had KEY_PAGEUP / KEY_PAGEDOWN rows in every stage (viewer, app grid,
+  timeline, main menu `MI_PAGE`, appdlg `DI_PAGE_*`, picker); with the fold they never fired, now they do. F1/F3/F5/F7 are unchanged (both keyboards deliver KEY_F1...).
+  Real Page Up / Page Down in the main menu are `MI_PAGE` (ten rows, or the rows a browser list shows), in `KS_PAGING` the `+`/`-` rows stay the browser's own.
+- Monitor (`monitor.cc`): behaviour and look unchanged. It already receives F1/F3/F5/F7 as function keys and translates them to trxmon's PAGEUP/HELP/TASKS/PAGEDOWN itself (`mon_key`); a real
+  Page Up / Page Down used to arrive as F1/F7 and became PAGEUP/PAGEDOWN there, now they arrive as PAGEUP/PAGEDOWN directly: same result. Only the stale comment above that switch was reworded.
+- Test added, NOT RUN: `tests/hostapp/emu_host.sh` flow "T211 core page keys" (host starts vc20.cor, CTRL+RESTORE, F1/F3 navigate the core menu, F3 browser into a 80-file folder, usbkey pagedown/pageup
+  page it, F1 navigates). Navigation keys inside the core browser (down, down, return, down, return) are a guess from the host flow and may need adjusting after the first run.
+- NOT verified: the RISC-V build of the core app after this change, and the ue2emu run above (the builder's app slots were blocked by Vivado for hours). A fresh agent: `tools/dev.sh riscv --branch t211-key-names`, then `tools/dev.sh emu --branch t211-key-names`, look at core-*.png, fix the nav script if needed.
