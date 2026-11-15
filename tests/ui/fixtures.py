@@ -47,7 +47,9 @@ def make_d64(name, prg_name, prg_bytes):
 HELLO_PRG = bytes([0x01, 0x08, 0x0B, 0x08, 0x0A, 0x00, 0x99, 0x22, 0x48, 0x49, 0x22, 0x00, 0x00, 0x00])
 
 
-ROMFILES = {"vc20": (("basic.bin", 8192), ("kernal.bin", 8192), ("char.bin", 4096)), "c128": (("c128.rom", 73728),),
+SCPU_ROM = bytes([0xEA]) * 0xFFFC + bytes([0x00, 0x80, 0x00, 0x00])        # T217 pictures: 64 KiB, reset vector $8000, not empty (what scpu_rom_fault asks); no real SuperCPU ROM is in the repository
+
+ROMFILES = {"c64scpu": (("scpu64.rom", SCPU_ROM), ("basic.bin", 8192), ("kernal.bin", 8192), ("chars.bin", 4096)), "vc20": (("basic.bin", 8192), ("kernal.bin", 8192), ("char.bin", 4096)), "c128": (("c128.rom", 73728),),
             "atari800": (("ATARIXL.ROM", 16384), ("BASIC.ROM", 8192)),
             "pet": (("basic.bin", 12288), ("edit.bin", 2048), ("kernal.bin", 4096), ("chargen.bin", 4096), ("dos4040.bin", 12288), ("ctl4040.bin", 2048))}
 
@@ -68,20 +70,20 @@ def make_stick(stick, roms_dir, core="trx64u"):
     """The USB stick of the test machine: games/ with two disks and a program, roms/c64/ with the three ROMs of the emulator's firmware tree."""
     shutil.rmtree(stick, ignore_errors=True)
     os.makedirs(os.path.join(stick, "games"))
-    if core in ("amiga1200", "vc20", "c128", "atari800", "pet"):
+    if core in ("amiga1200", "vc20", "c128", "atari800", "pet", "c64scpu"):
         # the core folder (a blank Kickstart image stands in: no ROM is in the repository), two floppies and a program
         os.makedirs(os.path.join(stick, "cores", core, "roms"))
         with open(os.path.join(stick, "cores", core, "roms", "kick31.rom"), "wb") as f:
             f.write(bytes(524288))
         for n, b in ROMFILES.get(core, ()):          # the ROMs the core wants (blank images stand in: no ROM is in the repository), else it waits for them and the UI service stays down
             with open(os.path.join(stick, "cores", core, "roms", n), "wb") as f:
-                f.write(bytes([0xA5]) * b if core == "pet" else bytes(b))       # PET: a pattern, so the read-back of the ROM aperture proves something
+                f.write(b if isinstance(b, bytes) else bytes([0xA5]) * b if core == "pet" else bytes(b))       # PET: a pattern, so the read-back of the ROM aperture proves something
         for n, b in (("alpha.adf", 1), ("beta.adf", 2), ("Turrican_II_The_Final_Fight_Director_Cut_Disk_1_of_3_Fixed.adf", 3)):
             with open(os.path.join(stick, "games", n), "wb") as f:
                 f.write(bytes([b]) * 901120)
         with open(os.path.join(stick, "games", "hello.prg"), "wb") as f:
             f.write(HELLO_PRG)
-        if core == "pet":                            # T206: a disk to run (the PET core mounts .d64)
+        if core in ("pet", "c128", "c64scpu"):       # T206: a disk to run (the PET core mounts .d64); T217: a program inside a disk, on the C128 and the SuperCPU too
             with open(os.path.join(stick, "games", "alpha.d64"), "wb") as f:
                 f.write(make_d64("ALPHA", "hello", HELLO_PRG))
         _big(stick, "adf")
