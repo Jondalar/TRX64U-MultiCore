@@ -121,3 +121,6 @@ Parts:
   to 8..160 units (1..20 ms), so no pad polls slower than the old fixed 20 ms and a bad descriptor cannot give 0. `install()` line 111 uses it
   instead of the hard-coded 160. Only the XInput driver; `usb_hid.cc` unchanged. Elite Series 2 (bInterval 4) now polls at 32 units = 4 ms.
   Proof so far: RISC-V build; board re-test of S7 with the production build still to do.
+- **Board PASS 2026-11-15 (Alex, #55 fix):** snes.cor = main-66f89900 bitstream + core app of t196-xpad-poll 09391001b (poll at the
+  pad's bInterval): "tested, good like this" (translated). The fix is in the shared core app, so NES, SNES and Neo Geo get it from
+  main; the Amiga cores get it with T225 (pad capability there).
