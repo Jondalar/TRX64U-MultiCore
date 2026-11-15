@@ -7,4 +7,5 @@ iverilog -g2012 -I sim -o /tmp/tb_pet_wl.vvp sim/tb_pet_wl.v rtl/trx/pet_core.v 
   rtl/trx/pet_spet.v rtl/src/mc6809/mc6809is.v
 out=$(timeout 3000 vvp /tmp/tb_pet_wl.vvp +ms=${WL_MS:-250} +media=${WL_MEDIA:-sim/media})
 echo "$out" | head -14
+echo "$out" | grep -a "FAIL\|PASS" || true
 echo "$out" | grep -q '^PASS tb_pet_wl'
