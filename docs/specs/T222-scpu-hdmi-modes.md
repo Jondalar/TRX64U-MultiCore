@@ -118,3 +118,6 @@ Consumers read: `x_text` (still driven by the scaler: calibration, unchanged sem
 - **Board PASS 2026-11-15 (S11, Alex):** c64scpu.cor = run-1965 bitstream (5b25c1469) + core app of 6bb738925 (menu canvas per mode,
   list without 1024x768/1280x1024, Picture family from the running row): "everything works" (translated) after the modes,
   scales and 50/60 Hz were tried. The torn 1080p picture seen once before the app fixes did not come back.
+- **Board 2026-11-15, Scale (Alex):** Scale works: at 720p Integer/Fit/Fill change the picture (at 1080p50 Integer and Fit are the
+  same geometry by design, hm_geom). Smoothing does not exist for the VIC path (neither here nor in U16's vic_scaler); Alex
+  2026-11-15: "it would be cool" -> separate spec T227 (measure slice headroom first).
