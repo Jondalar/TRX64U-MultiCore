@@ -195,7 +195,7 @@ module vic_scaler #(
     endfunction
     reg  [5:0]  h_gap = 6'd0;                        // hd - hn (static while a frame runs)
     always @(posedge clk) h_gap <= hd - hn;
-    wire        s0_st   = smooth && h_in && hacc > h_gap;
+    wire        s0_st   = smooth && hacc > h_gap;      // no h_in here (timing): outside the window s0_win masks the pixel, and hacc is 0 one ce after h_in drops
     wire [9:0]  sx      = X0 + {1'b0, hpx} + {9'd0, s0_st};
     wire        s0_win = h_in && v_in && hpx != 9'd400 && vln != wln && locked && !blank_s[1];
     // T62 G09: the output line after which vln moves on is the last of its VIC line
