@@ -1,6 +1,6 @@
 # T226 — The core app shows "Loading cartridge" while a ROM loads, and the pad button mapping sits on the Input tab
 
-**Status:** PROPOSED (2026-11-15, Alex at the board).
+**Status:** BUILT, board step S3 open (built 2026-11-15; was PROPOSED) (2026-11-15, Alex at the board).
 **Repo:** TRX64U-MultiCore — core app only (`coreapp/`), no gateware.
 **Number:** T226.
 **Origin:** Alex 2026-11-15, SNES core on the board (translated): "SNES core - 'loading cartridge' would be good ... that takes a few
@@ -28,3 +28,15 @@ As Alex said in "Origin". Open details are asked before building.
 ## §4 Out
 
 ## §5 Built
+
+- **S1 (built):** `MediaLoading` (`coreapp/src/engines.h`, beside `MediaSaving`) calls the new `CoreCtx::loading` hook; the application's `loading_note` (`run.cc`) shows the
+  existing message view "Cartridge / Loading cartridge..." with the menu up and clears it when the operation returns (core released, or the error shown by the menu).
+  A write-back inside a load puts the note back after its own "Saving media". Used in `snes_run`, `nes_run`, Neo Geo `run_file` / `run_dir`, `c64_cart_run`.
+  Not on the stored-mount path at boot (menu closed: `menu_open` false, nothing is shown, as for the save note). Picture: `tests/ui/out/t226-snes-loading.png`
+  (`tests/ui/features_cores/t226_snes.feature`, a synthetic 1 MiB LoROM image on the stick).
+- **S2 (built):** a task whose `group` is "input" is a row of the settings tab that lists that group (Input) and not of Actions, unless a tasks tab lists the group
+  (`task_in_settings_tab`, `menutree.cc`); the three cores set `group = "input"` on "Map buttons, pad 1/2" - same operation (`menu.pad_map_1/2`), same dialog and storage.
+  Pictures: `t226-{snes,nes,neogeo}-f5-input.png` (Hotkeys, Map buttons pad 1, pad 2), `t226-{snes,nes,neogeo}-f7-actions.png` (no mapping entry). The golden dumps
+  (`tests/coreapp/golden/menu_*.txt`) use a route without Input tab and stay as they are.
+- **Emulator profiles for the pictures:** `tests/coreapp/emu/profiles/{snes,neogeo}.toml`, stick fixtures in `tests/ui/fixtures.py`, step "I press RETURN and save the picture ... while it works".
+- **Open (Alex):** the setting "Pad map = Default / Custom" stays on the core's own tab; moving it to Input beside the mapping rows is not done (not in Origin).
