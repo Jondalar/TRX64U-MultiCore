@@ -482,7 +482,6 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
     start_paths(&ctx, h, board);
     char file_config[HANDOVER_CONFIG_MAX + 2] = "";     // T223 D4: a large core's choice comes in a file beside the page
     bool file_safe = false;
-    start_file_take(&ctx, h, file_config, sizeof(file_config), &file_safe);
     {                                                   // T148 D1, D5, D13: the core's own folder, made at the first start (after its medium is up); an old .cfg beside the .cor moves in
         class BoardMediumEnv : public MediumEnv {
         public:
@@ -491,6 +490,7 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
         } medium_env;
         start_core_folder(&ctx, &medium_env);
     }
+    start_file_take(&ctx, h, file_config, sizeof(file_config), &file_safe);    // after start_core_folder: it waits for the core's medium, the file lives on it
     start_migrate_cfg(&ctx, board);
     config_start(&ctx, h && handover_valid(h) && handover_config(h)[0] ? handover_config(h) : file_config);                              // T198 D7: the host named a config in the hand-over page: the settings are read from it
     // The machine's stop register lives in the host (C64_CARTREGS_BASE + 1, hw.cc), so it keeps whatever the
