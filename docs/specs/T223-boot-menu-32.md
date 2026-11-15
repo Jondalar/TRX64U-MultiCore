@@ -26,7 +26,7 @@
 | S4 | P1 | The countdown default beyond 16 starts after the countdown | PASS 11-15: auto set to row 20 (F5, D), countdown, log `core identified ... c20.cor` (§5) |
 | S5 | P1 | The editor (F5) lists and edits 32 entries, last page | ue2emu picture `t223-editor-last` |
 | S6 | P2 | With 32 entries only the default, the selection and the rows on screen are read; scrolling reads the rows that come into view | PASS 11-15: `[host] entry N ... state read` lines (§5) |
-| S7 | P3 | A large core's row shows its config count | blocked on Q1 (Alex decides) |
+| S7 | P3 | A large core's row shows its config count | decided D4 (11-15), not built; proof then: board/emulator picture of the SuperCPU row |
 | S8 | P4 | The 33rd add is refused with "Boot menu is full: it holds 32 of 32 entries. Remove one in Edit menu (F5) first." in the note, nothing written | ue2emu picture `t223-full-message`, boot.cfg still 32 lines |
 
 ## §3 Decision
@@ -34,6 +34,8 @@
 - **D1 (Alex, 2026-11-15):** 32 boot entries. `BOOT_MAX 32`.
 - **D2 (Alex, 2026-11-15):** "they do not all have to be cached the same, only the visible ones." The lazy reader reads the default and the selected row always, then only the rows of the current window (`hc_lazy_window`, set by the screen from `mfirst/MROWS` or `efirst/EROWS`; outside the menu and the editor: none). Rows that scroll into view are read then. Entries never in view stay "unknown"; they still start (the start verifies by itself, T101 S10).
 - **D3:** the full-menu note says the menu is full and how many it holds, and what to do; the other refusal (a `|` or line break in the name) keeps its own text.
+- **D4 (Alex, 2026-11-15, Q1 "T223 ja", after the mock-ups h5a/h5b; answers Q1; named D1 in the coordinator's note):** large cores get configs and the RIGHT overlay too (including T224's "Boot safe graphics mode"); the host hands the choice over through a small file on the SD before the full-firmware start, and the large core's core app reads it (no gateware). Not built yet.
+- **D5 (Alex, 2026-11-15, translated: "but please like a table in the boot menu view: corename / Auto / config / picto"; named D2 in the coordinator's note):** the boot menu row becomes aligned columns: core name | Auto | config | status pictogram. Not built yet; open: whether the version column stays (T221 D13/D16 put an L/P badge next to the version), being asked with mock-ups first. Amends T209 D16/D20 if the version goes.
 
 ## §4 Out
 
@@ -63,3 +65,6 @@
 - Not run (pipeline only): render bench, apptests. Web UI with 32 entries not checked.
 - ux-review (ux-specialist, 2026-11-15, 27 pictures): R2 of the browser PASS in all modes (`m_full_message_browser`, `m_added32`). New R2 FAIL at 480p, F8 Settings with direct boot off (`480p60/m_direct_off`): the help line wrapped to two lines onto the status line. Older text (T135), fixed here: "Menu first; the autostart below decides about the auto core." (`host_core_rows.cc`); picture `480p60/m_settings_directoff_fixed`. The "on" text ("The auto core starts at power-on without the menu. C= or fire ...") is also longer than one 480p line (not shown with a status line over it; not changed).
 - Questions for Alex (proposals of the review, not built; pictures in `t209t223/menu32/<mode>/`): (1) the full-menu note is cut at 480p ("... Remove one in Edit m...", `480p60/m_full_message_browser`); A: "Menu full (32/32). Remove one in F5 first.", B: "Boot menu full (32). Free a slot in F5 Edit menu.", C: keep the text, action first. (2) `+`/`-` page by 10 (480p) / 9 (720p, 1080p) while the window holds 7/8, so rows are skipped (`m_menu_top/scrolled/last`); option: page by exactly the window. (3) the browser hint says "A adds it to the boot menu" while the menu is full; option: "Menu full: remove one in F5 first." (4) F5 info box takes a row at 480p: already T209 D19/question on branch host-boot-rows.
+
+### Paging (2026-11-15)
+Question 2 of the review was a bug (a page must move the window by exactly the rows shown): fixed on host-boot-rows (T209 "Paging fix"), merged here; the browser holds 12 rows here, bench numbers for the browser page cases adjusted (12 rows, 27 entries). Pictures `t209t223/menu32/page/`.

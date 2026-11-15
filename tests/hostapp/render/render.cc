@@ -4971,25 +4971,25 @@ int main(int argc, char **argv)
         extern const char *hostui_test_foot(void);
         hostui_test_browse_at("/Usb0/pages");
         const int pg = hostui_test_brows();
-        CHECK(hostui_test_bn() == 27 && pg == 13);                    // ".." + 26 files: three pages of 13, 13, 1
+        CHECK(hostui_test_bn() == 27 && pg == 12);                    // ".." + 26 files: three pages of 13, 13, 1
         CHECK(hostui_test_bsel() == 0);
         hostui_test_key('-');
         CHECK(hostui_test_bsel() == 0);                               // "-" at the top stays
         hostui_test_key('+');
-        CHECK(hostui_test_bsel() == pg + 2);                          // one page down: the window moves by 13, the selection keeps its row (margin 2)
+        CHECK(hostui_test_bsel() == pg + 2);                          // one page down: the window moves by 12, the selection keeps its row (margin 2)
         hostui_test_key('+');
-        CHECK(hostui_test_bsel() == 16);                                // the last window (first 14 of 27), the selection keeps its row
+        CHECK(hostui_test_bsel() == 17);                                // the last window (first 15 of 27), the selection keeps its row
         hostui_test_key('+');
         CHECK(hostui_test_bsel() == 26);                               // a third "+" at the end: the last row
         hostui_test_key('-');
-        CHECK(hostui_test_bsel() == 11);                               // "-": the window back by a page (first 1), the row stays inside the margin
+        CHECK(hostui_test_bsel() == 12);                               // "-": the window back by a page (first 3), the row stays inside the margin
         hostui_test_key('-'); hostui_test_key('-');
         CHECK(hostui_test_bsel() == 0);
         hostui_test_browse_at("/Usb0/sized");                          // 20 bundles + "..": the last step is a part page, clamped to the last row
         hostui_test_key('+'); hostui_test_key('+');
         CHECK(hostui_test_bsel() == hostui_test_bn() - 1);
         hostui_test_key('-');
-        CHECK(hostui_test_bsel() == 10);                               // back one window (first 0), the row kept inside the margin
+        CHECK(hostui_test_bsel() == 9);                                // back one window (first 0), the row kept inside the margin
         hostui_test_browse_at("/Usb0/pages");                          // the letters keep their action: C opens the target pick, "+" pages in it too
         hostui_test_key(KEY_DOWN);
         hostui_test_key('c');
