@@ -152,50 +152,6 @@ int cbm_run_queue(CoreCtx *c, CbmRun *r, const CbmRunMachine &m, const char *pat
 #define KEYS_PROMPT_MIN_MS 600                          // after RETURN: the least before the screen is asked for the prompt again
 #define KEYS_PROMPT_MAX_MS 240000                       // ... and the most (a LOAD from the drive runs at the drive's speed)
 
-// Unshifted keys by index (col * 8 + row), the PETSCII character they type; 0 = a key that types no character in a name or a command.
-static const char key_char[64] = {
-    0, '\r', 0, 0, 0, 0, 0, 0,        '3', 'W', 'A', '4', 'Z', 'S', 'E', 0,
-    '5', 'R', 'D', '6', 'C', 'F', 'T', 'X',   '7', 'Y', 'G', '8', 'B', 'H', 'U', 'V',
-    '9', 'I', 'J', '0', 'M', 'K', 'O', 'N',   '+', 'P', 'L', '-', '.', ':', '@', ',',
-    0, '*', ';', 0, 0, '=', 0, '/',            '1', 0, 0, '2', ' ', 0, 'Q', 0 };
-// The characters that need L SHIFT, and the key it goes with.
-static const struct { char ch; char base; } shifted[] = {
-    { '!', '1' }, { '"', '2' }, { '#', '3' }, { '$', '4' }, { '%', '5' }, { '&', '6' }, { '\'', '7' }, { '(', '8' }, { ')', '9' },
-    { '<', ',' }, { '>', '.' }, { '?', '/' }, { '[', ':' }, { ']', ';' } };
-
-static int idx_of(char ch)
-{
-    for (int i = 0; i < 64; i++) {
-        if (key_char[i] == ch) {
-            return i;
-        }
-    }
-    return -1;
-}
-
-bool cbm_key_for(uint8_t ch, CbmKey *k)
-{
-    int i = ch ? idx_of((char)ch) : -1;
-    if (i >= 0) {
-        k->idx = (uint8_t)i;
-        k->shift = false;
-        return true;
-    }
-    if (ch >= 0xC1 && ch <= 0xDA) {                     // SHIFT + letter
-        k->idx = (uint8_t)idx_of((char)(ch - 0xC1 + 'A'));
-        k->shift = true;
-        return true;
-    }
-    for (unsigned n = 0; n < sizeof(shifted) / sizeof(shifted[0]); n++) {
-        if (shifted[n].ch == (char)ch) {
-            k->idx = (uint8_t)idx_of(shifted[n].base);
-            k->shift = true;
-            return true;
-        }
-    }
-    return false;
-}
-
 static void put_keys(CoreCtx *c, int a, int b)           // a, b: key indexes down (-1: none)
 {
     uint8_t m[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };

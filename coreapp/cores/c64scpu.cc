@@ -9,6 +9,7 @@
 #include "ctx.h"
 #include "boot.h"
 #include "c64scpu_regs.h"
+#include "c64scpu_prg.h"
 #include "cbm1541.h"
 #include "cbm1541_desc.h"
 #include "cbm_run.h"
@@ -336,30 +337,23 @@ static int c64scpu_cold_start(CoreCtx *c, char *msg, int msglen)
 
 // T206: the machine the typed start waits for is the C64's (the SuperCPU changes the CPU, not the KERNAL): BASIC at $0801, TXTTAB $2B, the keyboard
 // buffer at $0277 with its count at $C6, the numbers of c64.cc. ready_ms is the C64 core's 1000 ms; no board has measured it on this core yet.
-// The typed start does NOT use the buffer: the 65816 reads bank 0 from the SuperCPU's own SRAM and only the pages $02-$FF are mirrored to the C64
-// RAM the application writes (scpu_mem.v mir_tab; $C6 and $2B are page 0, the buffer is only read from the SRAM). m.screen switches the job to
+// The typed start does NOT use the buffer: the 65816 reads bank 0 from the SuperCPU's own SRAM (DDR2 0x03000000); the C64 RAM the application's RAM window writes
+// is only ever the mirror of CPU writes to the pages $02-$FF (scpu_mem.v mir_tab, one way), so $C6 and $2B (page 0) never show there. A program and its pointers are
+// written into the SRAM itself (c64scpu_prg.h mem_ddr, T217). m.screen switches the job to
 // the key matrix (cbm_run.h): the keys go in as a person's, READY is read from the screen at $0400 (page 4, mirrored). Alex 2026-11-12, T206 decision A.
 static CbmRunMachine machine(void)
 {
     CbmRunMachine m;
     memset(&m, 0, sizeof(m));
     m.tag = "c64scpu";
-    m.prg.basic_starts[0] = 0x0801;
-    m.prg.nbasic_starts = 1;
-    m.prg.txttab = 0x2B; m.prg.txttab_min = 0x0801; m.prg.txttab_max = 0x9FFF;
-    m.prg.vartab = 0x2D; m.prg.arytab = 0x2F; m.prg.strend = 0x31;
-    m.prg.kbd_buffer = 0x0277; m.prg.kbd_count = 0xC6;
-    m.prg.p00_header = 0x1A;
-    m.prg.min_size = 3;
-    m.prg.max_size = 0x1A + 2 + (0x10000 - 0x0801);
+    scpu_prg_params(&m.prg);                            // T217: the program goes into the 65816's own SRAM (c64scpu_prg.h; page 0 and the BASIC pointers are not in the C64 RAM window)
+    m.mem_flush_reg = SCPU_ROM_CTRL;
     m.ready_ms = 1000;
     m.settle_ms = 300;
     m.giveup_ms = 4000;
     m.screen = 0x0400;
-    m.prg.mem_ddr = SCPU_SRAM_WIN_OFF;                  // T217: a program goes into the 65816's own SRAM (page 0 and the BASIC pointers are not in the C64 RAM window)
-    m.mem_flush_reg = SCPU_ROM_CTRL;
-    m.key_hold_ms = 90;                                 // two scans at 50 Hz are 40 ms; 90 ms is four, and a held key repeats only after ~400 ms
-    m.key_gap_ms = 90;
+    m.key_hold_ms = SCPU_KEY_HOLD_MS;
+    m.key_gap_ms = SCPU_KEY_GAP_MS;
     return m;
 }
 

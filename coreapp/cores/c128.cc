@@ -12,6 +12,7 @@
 #include "boot.h"
 #include "c128_regs.h"
 #include "c128_keys.h"
+#include "c128_prg.h"
 #include "cbm1541.h"
 #include "cbm1541_desc.h"
 #include "cbm_run.h"
@@ -1001,14 +1002,7 @@ static CbmRunMachine machine(void)
     memset(&m, 0, sizeof(m));
     m.tag = "c128";
     m.refuse = refuse_c64_basic;
-    m.prg.basic_starts[0] = 0x1C01;
-    m.prg.nbasic_starts = 1;
-    m.prg.txttab = 0x2D; m.prg.txttab_min = 0x1C01; m.prg.txttab_max = 0xBFFF;
-    m.prg.vartab = 0x2F; m.prg.arytab = 0x31; m.prg.strend = 0x33;
-    m.prg.kbd_buffer = 0x034A; m.prg.kbd_count = 0xD0;
-    m.prg.p00_header = 0x1A;
-    m.prg.min_size = 3;
-    m.prg.max_size = 0x1A + 2 + (0x10000 - 0x1C01);
+    c128_prg_params(&m.prg);
     m.ready_ms = 2000;
     m.settle_ms = 500;
     m.giveup_ms = 6000;

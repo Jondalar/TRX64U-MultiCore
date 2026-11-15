@@ -30,12 +30,9 @@ struct CbmRunMachine {
     uint16_t key_hold_ms, key_gap_ms;
     // T217: with prg.mem_ddr set (the program goes into the CPU's own memory through the DDR2 window), the register that invalidates the CPU's cache
     // (bit 0 starts it, reads 1 while it runs; SCPU_ROM_CTRL) - written after every placement so the CPU reads the new bytes.
-    uint32_t mem_flush_reg;
+    uint32_t mem_flush_reg = 0;
 };
 
-// T206: the key of a PETSCII character on the C64 keyboard: idx = col * 8 + row (hotkeys.h), shift = L SHIFT goes down with it. False: no key types it.
-struct CbmKey { uint8_t idx; bool shift; };
-bool cbm_key_for(uint8_t petscii, CbmKey *k);
 
 struct CbmRun {
     char program[56];                                  // the last program started
