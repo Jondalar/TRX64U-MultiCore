@@ -21,6 +21,13 @@ kit="$(ue2emu_kit)" || skip "no emulator kit (UE2EMU_KIT, tools/ue2emu_kit.sh)"
 [ -f "$kit/cors/vc20.cor" ] && [ -f "$kit/profiles/VIC-20.toml" ] || skip "kit $kit has no cors/vc20.cor or profiles/VIC-20.toml"
 "$UE2EMU" run --help >/dev/null 2>&1 || skip "no emulator ($UE2EMU)"
 mkdir -p "$out"; out="$(cd "$out" && pwd -P)"; img="$(cd "$img" && pwd -P)"
+# T221: the images of a dev build carry no version (no git in the build container); the package stamps them (ci/package.sh), so the flows run on stamped copies, the pictures show real strings
+mkdir -p "$out/img"; cp "$img/hostapp_emu.elf" "$img/coreapp.elf" "$img/coreapp.app" "$out/img/"
+for fld in "TRXVSTAMP hostapp" "TRXHSTAMP host" "TRXBSTAMP bundle"; do
+    python3 -I "$ROOT/tools/stamp_version.py" stamp "$out/img/hostapp_emu.elf" --marker "${fld% *}" --version "$("$ROOT/ci/version.sh" "${fld#* }")" >/dev/null || skip "cannot stamp ${fld% *} into hostapp_emu.elf"
+done
+python3 -I "$ROOT/tools/stamp_version.py" stamp "$out/img/coreapp.elf" "$out/img/coreapp.app" --version "$("$ROOT/ci/version.sh" coreapp)" >/dev/null || skip "cannot stamp coreapp"
+img="$out/img"
 FAIL=0
 
 # nav: past the countdown, F3, USB0, into cores (the list is .., vc20/, vc20.cor), the .cor, S = start; back: the hotkey, RESTORE, F8 System (first focus Restart core), one down to Return to host menu (T187 D8)
