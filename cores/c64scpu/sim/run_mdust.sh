@@ -53,7 +53,8 @@ if [ -z "${MDUST_ONLY:-}" ]; then
     iverilog -g2012 ${2:+-D$2} -o "$work/tb_scpu_cache_$1" "$here/tb_scpu_cache.v" "$root/cores/c64scpu/scpu_cache.v" || { echo "FAIL tb_scpu_cache $1: iverilog"; rc=1; return; }
     vvp "$work/tb_scpu_cache_$1" > "$work/tb_scpu_cache_$1.log" 2>&1
     if grep -q "^PASS tb_scpu_cache" "$work/tb_scpu_cache_$1.log"; then v=1; else v=0; fi
-    grep -E "^(ok|FAIL|PASS)" "$work/tb_scpu_cache_$1.log" | sed "s/^/tb_scpu_cache $1| /"
+    pre=""; [ "$3" = 1 ] || pre="ctl| "                    # a control's own FAIL lines are not the bench's verdict (ci/sims.sh verdict_of skips "ctl| " lines)
+    grep -E "^(ok|FAIL|PASS)" "$work/tb_scpu_cache_$1.log" | sed "s/^/${pre}tb_scpu_cache $1| /"
     if [ "$v" = "$3" ]; then echo "mdust| tb_scpu_cache $1: $( [ "$3" = 1 ] && echo PASS || echo 'fails as it must')"; else echo "mdust| tb_scpu_cache $1: wrong verdict"; rc=1; fi
   }
   ut main "" 1
