@@ -1,6 +1,6 @@
 # T217 — Start a .prg on the SuperCPU and C128 cores: from the stick and from inside a disk image
 
-**Status:** IN PROGRESS (2026-11-15; PROPOSED 2026-11-12). P1, P2, P3 (128 mode), P4 built; the C64-mode half waits for Alex (open question 1).
+**Status:** IN PROGRESS (2026-11-15; PROPOSED 2026-11-12). P1, P2, P3 (128 mode), P4 built; the C64-mode half (D4) is built, its proof is a board step.
 **Repo:** TRX64U-MultiCore — `coreapp/cores/c64scpu.cc`, `coreapp/cores/c128.cc`, the shared `cbm_run` job and the PRG library (`app/loaders/cbm_prg.*`).
 **Number:** T217 (registry: the table in `TODO.md`).
 **Origin:** found while building T206 (SCPU Run Disk, decision A, branch `t206-scpu-run`); Alex, 2026-11-12: "own task" (translated)
@@ -43,7 +43,7 @@ program itself pokes (C64 RAM `$C000`, a mirrored page, so the window sees it) a
 | S7 | C128 128 mode: BASIC .prg at `$1C01` placed with the app code and typed start (keyboard buffer `$034A/$D0`) runs on the real C128 ROM | bench `c128_prgrun`: marker |
 | S8 | C128: ML .prg runs by SYS | bench `c128_prgrun` |
 | S9 | C128: file rows `.prg`/`.p00` and the inner Mount & Run on `.d64`/`.d81` | ue2emu pictures |
-| S10 | C128 C64-mode program ($0801) | OPEN: question 1; until decided the start is refused with a reason (`refuse_c64_basic`) |
+| S10 | Given the C128, a C64 BASIC .prg ($0801); When "Load + run" (file browser, .prg/.p00) or Mount & Run inside a .d64/.d81; Then the machine goes to C64 mode (GO64) and the program runs there (a "Load" of it stays refused with a reason) | board step (below); ue2emu's c128 profile is a register stub (tests/coreapp/emu/profiles/c128.toml) without the machine, so no picture of a running program exists |
 
 ## §3 Decisions
 
@@ -56,7 +56,6 @@ program itself pokes (C64 RAM `$C000`, a mirrored page, so the window sees it) a
 
 ## §4 Out
 
-- C64-mode starts on the C128 (open question 1).
 - No tape, no cartridge-style start.
 - D4 (Alex 2026-11-15, question 1 "A"): a C64 program opened on the C128 (load address `$0801`) switches the machine to C64 mode (GO64) and starts the .prg there; S10 becomes a scenario to build. A non-`$0801` file keeps the 128-mode path.
 
@@ -98,3 +97,16 @@ program itself pokes (C64 RAM `$C000`, a mirrored page, so the window sees it) a
 `tools/benches.sh c64scpu -f` on the commit with the new tb plusargs: emu, map, speed, mirror, irq, mdust PASS; `c64scpu_base` FAIL after 10 s in that run while memory was exhausted
 (cc1plus segfault), and PASS standalone (`run_base.sh`). The C128 set was not run. Not checked: the SCPU's real TXTTAB/READY timing on the board, the 5 s wait of
 `ready_ms`, the C128 keyboard buffer numbers (`$034A`/`$D0`) and RAM-window coherence with the 8502's line cache on the board; no native app test was added (pipeline).
+
+### S10 build notes (2026-11-15, D4)
+
+- **How the switch works** (`coreapp/cores/cbm_run.cc` `service_c64`, set up by `CbmRunMachine::c64_load` etc. in `c128.cc` `machine()`): `cbm_run_queue` sets `CbmRun.c64` when the file's load
+  address equals `c64_load` (`$0801`) and skips the refuse hook for that file; the machine is reset (it comes up in 128 mode). Phase 0: TXTTAB `$2D` = `$1C01` (the 128-mode READY, `c128_prg_params`), settle 500 ms,
+  then `GO64\r` goes into the keyboard buffer `$034A/$D0`. Phase 1: 400 ms after the buffer was taken, `Y\r` (GO64's ARE YOU SURE? answer; the RETURN is read as a line or left in a buffer the reset forgets). Phase 2: wait for
+  `C128_STATUS` b0 (`C128_REG(0x030)`, "C64 mode", an existing register; no new one). Phase 3: at least 1500 ms after the switch, TXTTAB `$2B` = `$0801` (`c128_prg_params_c64`) and the screen at `$0400` shows READY alone,
+  settle 500 ms, then `cbm_prg_place` + `cbm_prg_type_start` with the C64 numbers (keyboard buffer `$0277/$C6`, RUN or SYS), as the C64 core does. Every wait has a give-up with a notice.
+  `Load` (no start) of a `$0801` file stays refused ("use Load + run"); a file at any other address keeps the 128-mode path (D4). `max_size` of the 128 parameters now spans `$0801`.
+- **Evidence:** `tools/dev.sh riscv` (see the hand-over line below for the result). ue2emu has no running C128, so no picture of the program.
+- **Not checked, board step for Alex:** (1) copy a BASIC .prg (`10 PRINT"HELLO":GOTO 10` at `$0801`) to the stick, C128 core, F3 file browser, "Load + run": the screen goes to C64 mode and the program runs;
+  the same for a .prg inside a .d64 (Mount & Run). (2) Unverified numbers: whether GO64 takes Y without RETURN or needs it, the 400 ms gap, the 1500 ms `c64_ready_ms`, and that the RAM window sees the C64-mode screen at `$0400`
+  and the pointers in block 0 after the switch. If the notice "did not enter its second mode" appears, the typed answer did not reach GO64; "did not reach READY" means TXTTAB or the screen test did not match.

@@ -16,7 +16,22 @@ static inline void c128_prg_params(CbmPrgParams *p)
     p->kbd_buffer = 0x034A; p->kbd_count = 0xD0;
     p->p00_header = 0x1A;
     p->min_size = 3;
-    p->max_size = 0x1A + 2 + (0x10000 - 0x1C01);
+    p->max_size = 0x1A + 2 + (0x10000 - 0x0801);        // a C64 file ($0801, T217 D4) is the larger window; load + length past $FFFF is refused by the job
+}
+
+// T217 D4: the same machine in C64 mode (GO64): BASIC at $0801, TXTTAB $2B/$2C, VARTAB $2D, ARYTAB $2F, STREND $31, keyboard buffer $0277 with its count $C6 -
+// the C64's own numbers (coreapp/cores/c64.cc run_params). RAM block 0 is what both modes use and what the RAM window reaches.
+static inline void c128_prg_params_c64(CbmPrgParams *p)
+{
+    memset(p, 0, sizeof(*p));
+    p->basic_starts[0] = 0x0801;
+    p->nbasic_starts = 1;
+    p->txttab = 0x2B; p->txttab_min = 0x0801; p->txttab_max = 0x9FFF;
+    p->vartab = 0x2D; p->arytab = 0x2F; p->strend = 0x31;
+    p->kbd_buffer = 0x0277; p->kbd_count = 0xC6;
+    p->p00_header = 0x1A;
+    p->min_size = 3;
+    p->max_size = 0x1A + 2 + (0x10000 - 0x0801);
 }
 
 #endif

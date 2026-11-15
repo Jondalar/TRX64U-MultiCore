@@ -31,6 +31,16 @@ struct CbmRunMachine {
     // T217: with prg.mem_ddr set (the program goes into the CPU's own memory through the DDR2 window), the register that invalidates the CPU's cache
     // (bit 0 starts it, reads 1 while it runs; SCPU_ROM_CTRL) - written after every placement so the CPU reads the new bytes.
     uint32_t mem_flush_reg = 0;
+    // T217 D4: a machine with a second mode (the C128's C64 mode). A file whose load address is c64_load (0 = none) is started in that mode: the machine
+    // is reset, comes up in its first mode (prg = its READY), `switch_text` is typed there (GO64, the answer), and when the status register mode_reg
+    // shows mode_mask the C64's own READY is awaited (c64_prg: its TXTTAB, its keyboard buffer; c64_screen: its screen, c64_ready_ms: the least after
+    // the switch) and the program is placed and started as on a C64.
+    uint16_t c64_load = 0;
+    CbmPrgParams c64_prg;
+    const char *switch_text = 0;
+    uint32_t mode_reg = 0;
+    uint8_t mode_mask = 0;
+    uint16_t c64_screen = 0, c64_ready_ms = 0;
 };
 
 
@@ -47,6 +57,9 @@ struct CbmRun {
     // line just typed ended in RETURN (the next character waits for the prompt again)
     uint8_t kidx, kphase;                               // kphase 0 no key down, 1 L SHIFT alone down, 2 the key down
     bool kshift, kwait;
+    bool c64;                                          // T217 D4: job 1 starts the program in the machine's second mode (CbmRunMachine::c64_load)
+    uint8_t c64_phase;                                 // 0 the first mode's READY, 1 the switch typed, 2 waiting for the mode, 3 waiting for the second mode's READY
+    uint32_t c64_t;                                    // ran_ms of the last step of the phases
     bool start_typed;                                  // T217: job 1 with m.screen: the program is placed, its RUN / SYS goes in through the key matrix (job 2)
     uint32_t kt;
 };

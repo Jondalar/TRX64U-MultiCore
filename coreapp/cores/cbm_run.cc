@@ -27,7 +27,7 @@ static void tell(CoreCtx *c, const CbmRunMachine &m, const char *what)
 }
 
 // The whole file into prgbuf; checks the size window, and what the machine refuses. 0 or a reason.
-static int read_prg(CoreCtx *c, const CbmRunMachine &m, const char *path, uint32_t *size, char *msg, int msglen)
+static int read_prg(CoreCtx *c, const CbmRunMachine &m, const char *path, uint32_t *size, uint32_t *loadp, bool allow_c64, char *msg, int msglen)
 {
     const CbmPrgParams &p = m.prg;
     CoreFile *f = c->fs->open(path, false);
@@ -54,7 +54,8 @@ static int read_prg(CoreCtx *c, const CbmRunMachine &m, const char *path, uint32
         snprintf(msg, msglen, "%s: $%04X + %u bytes runs past $FFFF", path, (unsigned)load, (unsigned)len);
         return 1;
     }
-    if (m.refuse) {
+    *loadp = load;
+    if (m.refuse && !(allow_c64 && m.c64_load && load == m.c64_load)) {
         const char *why = m.refuse(c, load, len);
         if (why) {
             snprintf(msg, msglen, "%s", why);
@@ -130,14 +131,17 @@ int cbm_run_queue_script(CoreCtx *c, CbmRun *r, const CbmRunMachine &m, const ch
 
 int cbm_run_queue(CoreCtx *c, CbmRun *r, const CbmRunMachine &m, const char *path, char *msg, int msglen)
 {
-    uint32_t size;
-    if (read_prg(c, m, path, &size, msg, msglen)) {
+    uint32_t size, load;
+    if (read_prg(c, m, path, &size, &load, true, msg, msglen)) {
         return 1;
     }
     if (boot_cold_reset(c, msg, msglen)) {
         return 1;
     }
     r->job = 1;                                         // after the reset: the machine's init clears a job that was still waiting
+    r->c64 = m.c64_load && load == m.c64_load;
+    r->c64_phase = 0;
+    r->c64_t = 0;
     r->p00 = is_p00(path);
     r->size = size;
     r->ran_ms = r->last_ms = r->ready_at = 0;
@@ -167,10 +171,10 @@ static void put_keys(CoreCtx *c, int a, int b)           // a, b: key indexes do
 // The screen at m.screen: the last row with a character on it is "READY." alone (screen codes 18 5 1 4 25 46, the rest blank) - the BASIC prompt
 // with nothing running and nothing half typed. The RAM window sees the screen on the SuperCPU (the pages $02-$FF are mirrored to the C64 RAM
 // and the VIC reads it); the BASIC pointers in page 0 are not (cores/c64scpu/scpu_mem.v: mir_tab).
-static bool screen_at_prompt(CoreCtx *c, const CbmRunMachine &m)
+static bool screen_at(CoreCtx *c, uint16_t addr)
 {
     static uint8_t scr[1000];
-    c->io->ram_read(m.screen, scr, sizeof(scr));
+    c->io->ram_read(addr, scr, sizeof(scr));
     for (int row = 24; row >= 0; row--) {
         const uint8_t *p = scr + row * 40;
         bool blank = true;
@@ -189,6 +193,11 @@ static bool screen_at_prompt(CoreCtx *c, const CbmRunMachine &m)
         return true;
     }
     return false;
+}
+
+static bool screen_at_prompt(CoreCtx *c, const CbmRunMachine &m)
+{
+    return screen_at(c, m.screen);
 }
 
 static int type_keys(CoreCtx *c, CbmRun *r, const CbmRunMachine &m)
@@ -301,6 +310,113 @@ static int place_and_type(CoreCtx *c, CbmRun *r, const CbmRunMachine &m)
     return OPE_OK;
 }
 
+static uint16_t txttab_of(CoreCtx *c, const CbmPrgParams &p)
+{
+    uint8_t b[2] = { 0, 0 };
+    cbm_prg_mem_read(c->io, p, p.txttab, b, 2);
+    return (uint16_t)(b[0] | (b[1] << 8));
+}
+
+static void put_piece(CoreCtx *c, const CbmPrgParams &p, const char *s, uint8_t n)
+{
+    c->io->ram_write(p.kbd_buffer, s, n);
+    c->io->ram_write(p.kbd_count, &n, 1);
+}
+
+// T217 D4: the program is for the machine's second mode. Phase 0: the first mode comes up (TXTTAB as for any program, then settle_ms); the switch text
+// goes in through the keyboard buffer - its first line, and 400 ms after the buffer was taken the rest (the answer to the machine's question; the
+// C128's GO64 asks ARE YOU SURE? and takes the Y at the prompt, the RETURN is harmless if it is read as a line or left behind in a buffer the reset
+// forgets). Phase 2: the status register shows the mode. Phase 3: the second mode's own READY (its TXTTAB, its screen, at least c64_ready_ms after the
+// switch: the first mode's screen and pointers are still there until its reset has run), settle, then the program is placed and RUN / SYS goes into the
+// second mode's keyboard buffer, as on the C64.
+static int service_c64(CoreCtx *c, CbmRun *r, const CbmRunMachine &m)
+{
+    uint32_t giveup = (uint32_t)m.ready_ms + m.giveup_ms;
+    if (r->c64_phase == 0) {
+        uint16_t txt = txttab_of(c, m.prg);
+        bool up = false;
+        for (int i = 0; i < m.prg.nbasic_starts; i++) {
+            up = up || txt == m.prg.basic_starts[i];
+        }
+        if (!up) {
+            if (r->ran_ms > giveup) {
+                r->job = 0;
+                tell(c, m, "The machine did not reach READY: the program was not started (are the ROMs the right ones?)");
+            }
+            return OPE_OK;
+        }
+        if (!r->ready_at) {
+            r->ready_at = r->ran_ms;
+        }
+        if (r->ran_ms - r->ready_at < m.settle_ms) {
+            return OPE_OK;
+        }
+        const char *nl = strchr(m.switch_text, '|');
+        put_piece(c, m.prg, m.switch_text, (uint8_t)(nl ? nl - m.switch_text : strlen(m.switch_text)));
+        r->c64_phase = 1;
+        r->c64_t = r->ran_ms;
+        printf("[%s] %s: switch to the second mode typed\n", m.tag, r->name);
+        return OPE_OK;
+    }
+    if (r->c64_phase == 1) {
+        uint8_t cnt = 0;
+        c->io->ram_read(m.prg.kbd_count, &cnt, 1);
+        if (r->ran_ms - r->c64_t > 5000) {
+            r->job = 0;
+            tell(c, m, "The machine did not take the typed mode switch (is the editor stuck?)");
+        } else if (!cnt && r->ran_ms - r->c64_t >= 400) {
+            const char *nl = strchr(m.switch_text, '|');
+            const char *rest = nl ? nl + 1 : "";
+            put_piece(c, m.prg, rest, (uint8_t)strlen(rest));
+            r->c64_phase = 2;
+            r->c64_t = r->ran_ms;
+        }
+        return OPE_OK;
+    }
+    if (r->c64_phase == 2) {
+        if (c->io->rd(m.mode_reg) & m.mode_mask) {
+            r->c64_phase = 3;
+            r->c64_t = r->ran_ms;
+            r->ready_at = 0;
+            printf("[%s] %s: second mode\n", m.tag, r->name);
+        } else if (r->ran_ms - r->c64_t > 5000) {
+            r->job = 0;
+            tell(c, m, "The machine did not enter its second mode (C64 mode): the program was not started");
+        }
+        return OPE_OK;
+    }
+    uint32_t since = r->ran_ms - r->c64_t;
+    if (since < m.c64_ready_ms) {
+        return OPE_OK;
+    }
+    if (txttab_of(c, m.c64_prg) != m.c64_prg.basic_starts[0] || !screen_at(c, m.c64_screen)) {
+        if (since > (uint32_t)m.c64_ready_ms + m.giveup_ms) {
+            r->job = 0;
+            tell(c, m, "The C64 mode did not reach READY: the program was not started");
+        }
+        return OPE_OK;
+    }
+    if (!r->ready_at) {
+        r->ready_at = r->ran_ms;
+    }
+    if (r->ran_ms - r->ready_at < m.settle_ms) {
+        return OPE_OK;
+    }
+    char msg[200];
+    msg[0] = 0;
+    CbmPrgResult res;
+    memset(&res, 0, sizeof(res));
+    if (cbm_prg_place(c->io, prgbuf, r->size, m.c64_prg, r->p00, &res, msg, sizeof(msg))) {
+        tell(c, m, msg);
+    } else {
+        cbm_prg_type_start(c->io, m.c64_prg, res);
+        printf("[%s] %s: C64 mode, $%04X-$%04X, %s\n", m.tag, r->name, res.load, (unsigned)(res.end - 1) & 0xFFFF, res.basic ? "RUN" : "SYS");
+        snprintf(r->program, sizeof(r->program), "%s", r->name);
+    }
+    r->job = 0;
+    return OPE_OK;
+}
+
 int cbm_run_service(CoreCtx *c, CbmRun *r, const CbmRunMachine &m)
 {
     if (!r->job) {
@@ -321,6 +437,9 @@ int cbm_run_service(CoreCtx *c, CbmRun *r, const CbmRunMachine &m)
     }
     if (r->job == 2 && m.screen) {
         return type_keys(c, r, m);
+    }
+    if (r->job == 1 && r->c64 && m.c64_load) {
+        return service_c64(c, r, m);
     }
     if (r->job == 1 && m.screen) {
         return place_and_type(c, r, m);
@@ -376,8 +495,8 @@ int cbm_run_service(CoreCtx *c, CbmRun *r, const CbmRunMachine &m)
 
 int cbm_load_now(CoreCtx *c, CbmRun *r, const CbmRunMachine &m, const char *path, char *msg, int msglen)
 {
-    uint32_t size;
-    if (read_prg(c, m, path, &size, msg, msglen)) {
+    uint32_t size, load;
+    if (read_prg(c, m, path, &size, &load, false, msg, msglen)) {
         return 1;
     }
     CbmPrgResult res;

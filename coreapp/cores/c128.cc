@@ -986,12 +986,13 @@ static void debug_line(CoreCtx *c)
 // $2D/$2E (VARTAB $2F, ARYTAB $31, STREND $33), the keyboard buffer KEYD is $034A (ten keys) with its count NDX at $D0 - the C128 Programmer's Reference
 // Guide's memory map; no C128 KERNAL source is in this repository to read them from, so they are unverified until the board step. ready_ms is not measured: the first look at READY is
 // taken 2 s after the reset (the 128-mode boot with the 40/80 init and the RAM test is slower than the C64's), 500 ms settle; Alex's board step S3 measures it.
-// T217 P3: a program file is started in 128 mode (the mode a reset always starts in). A BASIC program of the C64 (load address $0801) would need C64 mode
-// (GO64): refused with the reason until Alex decides how that mode is reached (T217 open question 1); a machine-language file goes where it says and SYS starts it.
+// T217 P3 / D4: a program file is started in 128 mode (the mode a reset always starts in), except a file with the C64's load address $0801 (BASIC or a C64
+// ML file placed there): that one is started in C64 mode (cbm_run.cc service_c64: GO64 typed at the 128 READY, the answer Y, the status register's b0 says C64 mode,
+// then the C64's own READY, then placement and RUN as on a C64). "Load" (no start) of such a file stays in 128 mode and is refused with the reason.
 static const char *refuse_c64_basic(CoreCtx *, uint32_t load, uint32_t)
 {
     if (load == 0x0801) {
-        return "This is a C64 BASIC program (load address $0801): it needs the C64 mode of this core, which a program start does not enter yet";
+        return "This is a C64 program (load address $0801): use Load + run, which starts it in C64 mode";
     }
     return 0;
 }
@@ -1003,6 +1004,13 @@ static CbmRunMachine machine(void)
     m.tag = "c128";
     m.refuse = refuse_c64_basic;
     c128_prg_params(&m.prg);
+    m.c64_load = 0x0801;
+    c128_prg_params_c64(&m.c64_prg);
+    m.switch_text = "GO64\r|Y\r";
+    m.mode_reg = C128_STATUS;
+    m.mode_mask = 0x01;                                 // C128_STATUS b0: C64 mode
+    m.c64_screen = 0x0400;
+    m.c64_ready_ms = 1500;
     m.ready_ms = 2000;
     m.settle_ms = 500;
     m.giveup_ms = 6000;
