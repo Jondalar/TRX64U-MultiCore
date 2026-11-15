@@ -19,7 +19,7 @@ set l2_dcp [file join $bdir layer2_amiga1200_ooc.dcp]
 set a12_own {cpu_wrapper.v paula_floppy_fifo.v minimig.v}
 # T97 5.11 (area): the sector buffer of Paula's floppy DMA in block RAM (paula_floppy.v), the sd service's two queues in block RAM (amiga_sdc.v with
 # trx_afifo_rr.v); each copy is the shared file plus a recorded .diff (tools/check_wrapper_fork.sh)
-lappend a12_own paula_floppy.v
+lappend a12_own paula_floppy.v userio.v      ;# userio.v: T225, the A1200's own copy (the CD32 pad enable of game port 2)
 set mm_v [list]
 foreach f [glob $mm/src/minimig-aga/*.v] { if {[file tail $f] ni $a12_own} { lappend mm_v $f } }
 set trx_v [list]
@@ -27,7 +27,7 @@ set trx_v [list]
 # the display window is snooped in minimig.v, nanomig.v carries the port - the A500 keeps its sources and its cache key)
 set a12_trx {amiga_core.v amiga_fb.v amiga_regs.v amiga_sdc.v amiga_mem.v amiga_input.v}   ;# amiga_input.v: T141, the A1200's own copy
 foreach f [glob $mm/trx/*.v] { if {[file tail $f] ni $a12_trx} { lappend trx_v $f } }
-set mm_v [concat $mm_v $a12/nanomig.v $a12/minimig.v $trx_v $a12/amiga_core.v $a12/amiga_fb.v $a12/amiga_regs.v $a12/amiga_input.v $a12/cpu_wrapper.v $a12/paula_floppy_fifo.v $a12/tg68k_020.v $a12/amiga_mem.v]
+set mm_v [concat $mm_v $a12/nanomig.v $a12/minimig.v $a12/userio.v $trx_v $a12/amiga_core.v $a12/amiga_fb.v $a12/amiga_regs.v $a12/amiga_input.v $a12/cpu_wrapper.v $a12/paula_floppy_fifo.v $a12/tg68k_020.v $a12/amiga_mem.v]
 set mm_v [concat $mm_v $a12/paula_floppy.v $a12/amiga_sdc.v $a12/trx_afifo_rr.v]
 # the 68020: TG68K (Tobias Gubener), VHDL, the package first; its entity is TG68KdotC_Kernel_core (rtl/NOTICE)
 set a12_vhdl [list $a12/tg68k/TG68K_Pack.vhd $a12/tg68k/TG68K_ALU.vhd $a12/tg68k/TG68KdotC_Kernel.vhd]

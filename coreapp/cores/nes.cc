@@ -5,6 +5,7 @@
 #include "ctx.h"
 #include "memops.h"
 #include "boot.h"
+#include "engines.h"
 #include "nes_regs.h"
 #include "ines.h"
 #include "cores.h"
@@ -78,6 +79,7 @@ static bool copy_image(CoreCtx *c, CoreFile *f, uint32_t file_off, uint32_t byte
 static int nes_run(CoreCtx *c, const char *path, int, char *msg, int msglen)
 {
     NesState *st = nes_state(c);
+    MediaLoading loading(c);                               // T226 S1
     CoreFile *f = c->fs->open(path, false);
     if (!f) {
         snprintf(msg, msglen, "cannot open %s", path);
@@ -129,8 +131,8 @@ static const ArgSpec run_args[] = { ARG_PATH("path") };
 
 static const Task tasks[] = {
     { "Reset", "machine.cold_reset", 0, 0, true },
-    { "Map buttons, pad 1", "menu.pad_map_1", 0, 0, false },
-    { "Map buttons, pad 2", "menu.pad_map_2", 0, 0, false },
+    { "Map buttons, pad 1", "menu.pad_map_1", 0, 0, false, 0, 0, false, 0, "input" },
+    { "Map buttons, pad 2", "menu.pad_map_2", 0, 0, false, 0, 0, false, 0, "input" },
 };
 
 static const OpBind run_bind[] = { B_FILE("path") };

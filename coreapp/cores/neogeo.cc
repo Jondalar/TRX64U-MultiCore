@@ -468,6 +468,7 @@ static int start_game(CoreCtx *c, NeoParts &parts, const char *game_path, const 
 // A .neo file: the chips from the entry of the same name in romsets.xml (without one: none, and the message says so).
 static int run_file(CoreCtx *c, const char *path, char *msg, int msglen)
 {
+    MediaLoading loading(c);                               // T226 S1
     NeoPartsHeap held;
     if (!held.p) {
         snprintf(msg, msglen, "No memory to read the game's files");
@@ -499,6 +500,7 @@ static const ArgSpec run_args[] = { ARG_PATH("path") };
 // A folder of a cartridge's files: path = "<folder>/<set name>" (the menu appends what the person typed to the folder it chose); an empty name is the folder's own.
 static int run_dir(CoreCtx *c, const char *arg, char *msg, int msglen)
 {
+    MediaLoading loading(c);                               // T226 S1
     NeoPartsHeap held;
     if (!held.p) {
         snprintf(msg, msglen, "No memory to read the game's files");
@@ -623,8 +625,8 @@ static const Task tasks[] = {
     { "Reset",                                   "machine.cold_reset", 0, 0, true },
     { "Load a ROM set from a folder",            "neogeo.run_dir",     dir_bind, 1, true, "Set name (romsets.xml)", "neogeo.set.offer", true, "Use this folder" },
     { "Save the memory card and backup RAM now", "neogeo.save_now",    0, 0, false },
-    { "Map buttons, pad 1",                      "menu.pad_map_1",     0, 0, false },
-    { "Map buttons, pad 2",                      "menu.pad_map_2",     0, 0, false },
+    { "Map buttons, pad 1",                      "menu.pad_map_1",     0, 0, false, 0, 0, false, 0, "input" },
+    { "Map buttons, pad 2",                      "menu.pad_map_2",     0, 0, false, 0, 0, false, 0, "input" },
 };
 static const FileAction neo_actions[] = { { "Run", "neogeo.run", run_bind, 1, true } };
 static const FileType filetypes[] = { { ".neo", neo_actions, 1 } };

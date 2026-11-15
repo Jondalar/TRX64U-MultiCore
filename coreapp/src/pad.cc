@@ -32,6 +32,10 @@ bool custom_ok[PAD_PLAYERS];
 uint16_t sent[PAD_PLAYERS];
 bool sent_valid[PAD_PLAYERS];
 int log_budget = 96;
+int g_nact;                      // T225: the buttons of the target in force (0 = all of the spec's)
+int g_type;                      // T225: its type number
+bool id_seen;                    // T225 by_id: the pad whose stored map is in force ...
+uint16_t id_vid, id_pid;         // ... (0:0 = none)
 
 struct Capture {
     bool active;
@@ -115,6 +119,9 @@ void pad_configure(const PadSpec *s)
     }
     mode = PAD_MODE_DEFAULT;
     cap.active = false;
+    g_nact = 0;
+    g_type = 0;
+    id_seen = false;
 }
 
 void pad_reset()
@@ -249,7 +256,8 @@ void pad_detach(const void *key)
 uint16_t pad_word(const PadSpec *sp, const uint8_t *map, uint32_t buttons, uint8_t dpad)
 {
     uint16_t w = 0;
-    for (int i = 0; i < sp->nbuttons && i < PAD_BUTTONS_MAX; i++) {
+    int n = (g_nact > 0 && g_nact < sp->nbuttons) ? g_nact : sp->nbuttons;
+    for (int i = 0; i < n && i < PAD_BUTTONS_MAX; i++) {
         uint8_t s = map[i];
         bool on = false;
         if (s < 32) on = (buttons >> s) & 1;
@@ -259,13 +267,72 @@ uint16_t pad_word(const PadSpec *sp, const uint8_t *map, uint32_t buttons, uint8
     return w;
 }
 
+int pad_slot(int player)
+{
+    if (!spec || !spec->by_id) return player;
+    for (int k = 0; k < PAD_PLAYERS; k++) {
+        if (slots[k].used) return k;
+    }
+    return 0;
+}
+
+void pad_set_target(int type, int nbuttons)
+{
+    Guard g;
+    g_type = type;
+    g_nact = nbuttons;
+    for (int i = 0; i < PAD_PLAYERS; i++) sent_valid[i] = false;
+}
+
+int pad_nbuttons() { return (spec && g_nact > 0 && g_nact < spec->nbuttons) ? g_nact : (spec ? spec->nbuttons : 0); }
+int pad_target_type() { return g_type; }
+
 const uint8_t *pad_active_map(int player)
 {
     if (!spec) return 0;
     if (player < 0 || player >= PAD_PLAYERS) return spec->def_map;
-    if (mode == PAD_MODE_CUSTOM && custom_ok[player]) return custom[player];
-    pad_default_map(spec, slots[player].used ? slots[player].vid : 0, slots[player].used ? slots[player].pid : 0, resolved[player]);
+    int s = pad_slot(player);
+    if ((mode == PAD_MODE_CUSTOM || spec->by_id) && custom_ok[player]) return custom[player];
+    pad_default_map(spec, slots[s].used ? slots[s].vid : 0, slots[s].used ? slots[s].pid : 0, resolved[player]);
     return resolved[player];
+}
+
+// by_id: the stored map of the pad that is plugged now (its VID:PID, any socket), looked up when that pad changes.
+static void id_refresh(CoreCtx *c)
+{
+    uint16_t v, pi;
+    {
+        Guard g;
+        int s = pad_slot(0);
+        v = slots[s].used ? slots[s].vid : 0;
+        pi = slots[s].used ? slots[s].pid : 0;
+        if (id_seen && v == id_vid && pi == id_pid) return;
+        id_seen = true;
+        id_vid = v;
+        id_pid = pi;
+        custom_ok[0] = false;
+    }
+    if (!slots[pad_slot(0)].used || !c->settings) return;
+    char key[40], val[80];
+    uint8_t m[PAD_BUTTONS_MAX];
+    snprintf(key, sizeof(key), "Pad map %04X:%04X", v, pi);
+    if (c->settings->extra_get(key, val, sizeof(val)) && val[0] >= '0' && val[0] <= '9' && pad_map_from_text(val + 1, spec->nbuttons, m)) {
+        pad_set_custom(0, m);
+        printf("[pad] %04X:%04X: stored map for target type %c\n", v, pi, val[0]);
+        if (spec->id_loaded) spec->id_loaded(c, val[0] - '0');
+    }
+}
+
+bool pad_save_id_map(Settings *s, int player)
+{
+    if (!spec || !spec->by_id || !s || player != 0 || !custom_ok[0]) return false;
+    int sl = pad_slot(0);
+    if (!slots[sl].used) return false;
+    char key[40], v[80];
+    snprintf(key, sizeof(key), "Pad map %04X:%04X", slots[sl].vid, slots[sl].pid);
+    v[0] = (char)('0' + g_type);
+    if (!pad_map_to_text(custom[0], spec->nbuttons, v + 1, sizeof(v) - 1)) return false;
+    return s->extra_set(key, v);
 }
 
 void pad_ensure(CoreCtx *c)
@@ -283,14 +350,15 @@ bool pad_pace(CoreCtx *c)
         return false;
     }
     bool wrote = false;
-    for (int p = 0; p < PAD_PLAYERS; p++) {
+    if (spec->by_id) id_refresh(c);
+    for (int p = 0; p < (spec->by_id ? 1 : PAD_PLAYERS); p++) {
         uint16_t w;
         uint8_t dd[PAD_DESC_MAX];
         int dl = 0;
         char nm[sizeof(slots[0].name)];
         {
             Guard g;
-            Slot &sl = slots[p];
+            Slot &sl = slots[pad_slot(p)];
             if (sl.used && !sl.seen) {
                 sl.seen = true;
                 sl.seen_ms = c->io->now_ms();
@@ -304,7 +372,7 @@ bool pad_pace(CoreCtx *c)
         if (dl) dump_desc(p, nm, dd, dl);
         {
             Guard g;
-            w = pad_word(spec, pad_active_map(p), slots[p].raw.buttons, slots[p].raw.dpad);
+            w = pad_word(spec, pad_active_map(p), slots[pad_slot(p)].raw.buttons, slots[pad_slot(p)].raw.dpad);
             if (sent_valid[p] && sent[p] == w) continue;
             sent[p] = w;
             sent_valid[p] = true;
@@ -373,7 +441,7 @@ static const char *const map_keys[PAD_PLAYERS] = { "Pad 1 map", "Pad 2 map" };
 
 void pad_load_maps(Settings *s)
 {
-    if (!spec || !s) return;
+    if (!spec || !s || spec->by_id) return;                // a by_id spec keeps its maps per pad (id_refresh)
     int mi = s->find("Pad map");
     pad_set_mode(mi >= 0 ? s->value(mi) : PAD_MODE_DEFAULT);
     for (int p = 0; p < PAD_PLAYERS; p++) {

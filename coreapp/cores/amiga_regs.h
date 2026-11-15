@@ -4,6 +4,7 @@
 
 #define AM_FEAT         0x00C   // b0 the HDF size registers are in 512-byte sectors, not bytes (HDF_SECT; 0 in a gateware without the register)
 #define AM_FEAT_RAWKEY  0x10    // b4 RAWKEY (both Amiga builds, T141)
+#define AM_FEAT_PAD2    0x20    // b5 PAD2_WORD / PAD2_MODE (T225, both Amiga builds): a USB pad can stand in for game port 2
 #define AM_FEAT_FBWIN   0x08    // b3 the display window (AM_DIW_*) and the crop window (AM_FB_*) registers are there (the A1200 core, T97 5.10)
 #define AM_CTRL         0x0A0   // b0 HOLD (machine in reset; 1 after power-up), b1 VIDEO_OFF
 #define AM_HOLD         0x01
@@ -36,6 +37,8 @@
 #define AM_MOUSE_DY     0x1C1   // this write sends the pair
 #define AM_MOUSE_BTN    0x1C2
 #define AM_RAWKEY       0x1C4   // T141 (both Amiga builds): W = one Amiga key event {release, raw code}; R b0 = room for 8 more events
+#define AM_PAD2_WORD    0x1D0   // T225: W 16 bit pair, low byte first, the high byte (b2:0) commits: bit 0 up, 1 down, 2 left, 3 right, 4 fire/red, 5 blue (2nd button), 6 green, 7 yellow, 8 play, 9 reverse, 10 forward
+#define AM_PAD2_MODE    0x1D2   // T225: W b1:0 0 game port 2 as before (the host's joystick port), 1 one-button joystick, 2 two-button joystick, 3 CD32 pad; with 1..3 port 2 is the USB pad only
 #define AM_DLOG_STATUS  0x1F0   // b0 not empty, b1 overflow (write 0x02 clears)
 #define AM_DLOG_TRACK   0x1F1
 #define AM_DLOG_DRIVE   0x1F2
