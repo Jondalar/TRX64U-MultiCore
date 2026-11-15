@@ -1,6 +1,6 @@
 # T222 — The C64 + SuperCPU core respects the HDMI resolutions: 576p, 720p, 1080p at 50 Hz; 480p, 720p, 1080p, 800 x 600 at 60 Hz, each locked to the VIC frame, at Integer / Fit / Fill
 
-**Status:** PROPOSED (2026-11-15, Alex).
+**Status:** IN PROGRESS (2026-11-15, Alex): gateware and app built, benches S1-S6 green on the builder (§5); open: the Vivado run (S9), the app tests in CI (S7), the board (S11). Branch `scpu-hdmi-modes`, not pushed.
 **Repo:** TRX64U-MultiCore — the core `cores/c64scpu` (its own copy of the host video files `mono/host/`, `mono/top.v`), the generic core app (`coreapp/src/picture.*`, `app/video/videomode.*`), CI (`ci/sims.*`). `host/`, `cores/common/`, `contract/` are not touched.
 **Number:** T222 (registry: the table in `TODO.md`; T221 was the last row).
 **Origin:** Alex, 2026-11-15 (translated): "the SuperCPU is done; what is missing is respecting the resolutions, TRX64-Ultimate just built that."
@@ -70,10 +70,43 @@ Nothing decided out yet. Not part of this spec by nature: 1024 x 768 and 1280 x 
 
 ## Open questions for Alex
 
-None yet; the first one will come from the area estimate or the build.
+None yet. The first can come from the Vivado run (§5 area): if the flat build does not route at 96.7 % slices plus the delta, the choice is which rows to drop (D6).
 
 ## §5 Decisions taken while building
 
-(filled in while building)
+**Read-compare-plan (2026-11-15).** The c64scpu copy of the host video path is the T164 host's (hdmi_out + hdmi_timing / mode_req / cdce_mode / tmds_rep / vic_scaler EXT=1 / overlay / pix_layer / c64_text / hdmi_enc), the same lineage U16 imported. Against U16 `d48734d8`:
+
+| File (mono/host) | Ours before | U16 | Taken |
+|---|---|---|---|
+| `hdmi_modes.vh` | 9 rows, 1080p locked, `hm_cdce` + `hm_cdce_lock` | 7 locked rows, `hm_geom`, `hm_align`, `hm_rate_alt`, row 6 vfp 11 | U16's (rows 10, 11 gone) |
+| `hdmi_timing.v` | `align` pulse, no `htot_m1` / `vtot_m1` ports | `align` level, `htot_m1`, `vtot_m1` outputs | U16's |
+| `cdce_mode.v` | `lock` port picks `hm_cdce` / `hm_cdce_lock` | always `hm_cdce_lock` | U16's |
+| `mode_req.v` | `c64_type` port, 1080p only locked | constant C64 type, scale 0x4F01 / 0x4F0A, `fstart`, `scale_pix`, family fallback | U16's, version byte 2 (D3) |
+| `vic_scaler.v` | EXT counters, 1600 x 1080 only, `en`, `relock`, `v60` | rewritten: ring of 64 lines, fractional accumulators, `geom`, `align` level | U16's |
+| `c64_text.v` | whole-number step from `hact / vact` | `hm_geom` step and origin | U16's |
+| `hdmi_enc/hdmi.v` | `cy == ey_e - 1` | registered `ey_m1` (T181) | the three lines edited in (names stay `trx_*`) |
+| `hdmi_out.v` | `c64_type`, `core_decouple`, picture mux, `en`, `relock` | (U16's `top.v` wires the same modules) | ours, edited (D2) |
+| `overlay.v`, `pix_layer.v`, `tmds_rep.v`, `hdmi_gtp.v`, `mode_ctl.v` | same | same (comments only) | unchanged |
+| `mono/top.v` | `.c64_type(1'b1)`, `.core_decouple` | - | `.vmode(vmode)`, the two ports gone; `top.v.diff` regenerated |
+
+Consumers read: `x_text` (still driven by the scaler: calibration, unchanged semantics), `scanlines` (`scan`), `blank = c64_halted`, `pix_*` raster (the same X0 / Y0 / Y0_60 constants as ours), the freeze text (`xt0 yt0 hn hd tvn tvd` from `geom`), `fam_v60` (mode_ctl), `i2c_done` (mode_ctl step 5), the audio clock rate (`vmode`). `pix_layer` still takes `v60` and the raster for the still capture; nothing there changed.
+
+**Area (estimate, then measurement).** Estimate from a yosys `synth_xilinx` of the old and new modules alone (relative only, not the Vivado number): `vic_scaler` +426 LUT +231 FF, `mode_req` +18 / +42, `hdmi_timing` -84 / -6, `c64_text` +-0, block RAM +0 (the ring is 12 RAMB36 in both). About +360 LUT, +270 FF, 0 BRAM, 0 DSP: from 22,977 LUT (70.48 %) to about 23,340 (71.6 %), registers 22,940 -> about 23,210. U16's own cost (+691 LUT, +477 FF) was higher because it also added the modules this core already has. Slices are the limit: 7,881 of 8,150 now (96.7 %); +360 LUT / +270 FF is about +90..130 slices if packing stays as it is, so about 7,970-8,010 (98 %), which fits the device arithmetically; TRX64-Ultimate's build routed at 8,147 / 8,150. **The decisive number is the Vivado run (S9), not this estimate**; it is open.
+
+**Benches (builder, `tools/benches.sh`, `-f`, 2026-11-15, commit of this branch):**
+- S1 `c64scpu_hdmi_timing` PASS (7 rows exact, refused rows, align restarts every row), 380 s.
+- S2 `c64scpu_mode_req` PASS (path, I2C phase, scale phase; after `tb_mode_req` was changed to expect version 2), 370 s.
+- S3 `c64scpu_tmds_rep` PASS (gears 1 2 3 5 3, 3000 pixels, 4 lanes exact), 9 s.
+- S4 `c64scpu_scaler` PASS: "7 rows x 3 scales, 4 scale changes, palette and scan lines, 3 controls caught" (also run on the Mac: the same lines); 1,386 s. One earlier builder run of this bench reported "exit 1" with its log lost (the helper deletes the log of a run that exits 0); the repeat and the Mac run are green.
+- S5 `c64scpu_text_geom` PASS (7 rows x 3 scales, control caught), 1,579 s.
+- S6 `c64scpu_hdmi_out` PASS (1080p50 and 576p50, the GTP words decoded: geometry, preambles and guards, pixels, AVI / ACR / SPD / audio InfoFrames, one island per line); 2,047 s. The first run failed in 576p because the bench measured before the VIC lock re-phased the frame: the bench now waits for `mtim.aligned` in every row (a bench fix, no gateware change). The 576p picture is checked inside the pixel layer's rectangle (640 x 480 at (40, 48)); the VIC picture around it (720 x 486 at Fit) is checked by S4, not here.
+- S7 app: `tests/coreapp/test_gwstatus.cc` (row mapping, `has_scale`, scale write / readback, apply through the mapping) and `test_scale.cc` (the VIC-path core gets Picture + Scale, default Fit, no Smoothing, `scale_apply` writes the gateware; a gateware without the register: Picture alone) are written; `test_gwstatus.cc` compiled and run on the Mac (51 checks, 0 failed); the rest runs in CI only (no app tests by agents).
+- S8 `tools/dev.sh riscv`: ok (hostapp.app, coreapp.bin).
+- S10: `tools/host_pin.sh --check`: host unchanged (329 files). yosys `read_verilog -sv` with the build's defines: no implicit net in `top.v`, `hdmi_out.v`, `vic_scaler.v`, `c64_text.v`, `mode_req.v` (the detector fires on a test file). Full `tools/benches.sh c64scpu -f` result: see below.
+
+**What was changed in generic code (D4):** `app/video/videomode.{h,cc}` (`GW_SCALE`, `GW_SCALE_AT`, `video_gw_has_scale`, `video_gw_row_for`, `video_gw_set_scale_io`, board `video_gateware_vic_scale` / `video_set_scale_gateware`; `video_gw_apply_io` maps through `video_gw_row_for`, which is the plain index unless the gateware answers version >= 2 with the C64-type flag), `coreapp/src/picture.{h,cc}` (`PictureEnv::vic_scale`, the Scale item for `video.w == 0` cores, `scale_apply` / `picture_start` write 0x4F01). For every other host and core the behaviour is as before (version 1 / no flag / `vic_scale` false).
+
+**Not checked:** the Vivado build (area, WNS, routing: S9); the app tests in CI (S7 beyond `test_gwstatus.cc`); the board (S11): no picture of any row, no screen, no 50/60 Hz System Mode switch with HDMI up, audio, the freeze menu text position, the Picture / Scale rows on a real screen (`ux-review` pictures of the new Scale row were not made); whether anything the core app draws on the pixel layer at the freeze (a captured still, `video.cc` format 3) is placed right in the other rows (U16 D6 changed TRX64-Ultimate's own app for it; this repository's core app was not read for it; the freeze text itself goes through `c64_text`, whose geometry follows the scale and is proven by S5); `hdmi_gtp.v` / `mode_ctl.v` comment updates were not taken (comments only).
+
 
 ---
