@@ -90,6 +90,7 @@ Reported on GitHub after the first test release (2026-11-13/14), bundled here 20
 - **D10 (Alex 2026-11-15, open UX Q1 "b", after q1a-c):** the foot shows one line: while a row note is shown (e.g. "Model: ... takes effect at the next reset"), the ring legend is left out (generic, `MenuCtl::foot_line`, every core).
 - **D11 (Alex 2026-11-15, open UX Q2 "B", after q2a/q2b):** a task row in a settings tab that opens a dialog ("Map buttons, pad 1/2", the Amiga's "Map port 2 buttons") shows ">" at the right like Hotkeys (generic, every core; also answers the T226 question on the ">" badge).
 - **D12 (Alex 2026-11-15, open UX Q3 "B", after q3a/q3b):** the Input tab lists Hotkeys last, after the task rows (generic order in `menutree.cc`, every core).
+- **D13 (Alex 2026-11-15, open UX Q4 "c", after q4a-c):** the PET row "Diag" is named "Diag jumper", values Off/On.
 
 ## §4 Out
 
