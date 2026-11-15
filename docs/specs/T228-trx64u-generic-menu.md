@@ -34,6 +34,9 @@ menu structures ... they differ strongly from the generic approach."
 
 ### Proposal S1 (UX specialist, 2026-11-15 - a proposal for Alex, not a decision)
 
+**The rows below are the proposal as made; D2-D18 (§3 end) override them where they differ** (D4 no SHIFTED heading, D9/D11 no
+flash save, D13 Timewarp switches on F5 tab TRX64, D16 own SID tab and "reDIP:SID" instead of "UltiSID").
+
 **Base (read, not redone):** `TRX64-Ultimate/docs/gideon-menu-tree.md` §5-6 (Gideon's tree: objects in several places, technical grouping; target
 shell Home/Library/C64/Timewarp/Tools/Settings), `docs/lvgl_ui_project/NAVIGATION.md` (area keys F1..F8, numbered tabs; trx64u today is this contract
 1:1: F5 C64, F6 Settings, F7 Actions), `UI-COVERAGE.md` (settings placement table; "UI does not invent an Apply/Discard transaction"; persistence
