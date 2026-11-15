@@ -92,6 +92,7 @@ Reported on GitHub after the first test release (2026-11-13/14), bundled here 20
 - **D12 (Alex 2026-11-15, open UX Q3 "B", after q3a/q3b):** the Input tab lists Hotkeys last, after the task rows (generic order in `menutree.cc`, every core).
 - **D13 (Alex 2026-11-15, open UX Q4 "c", after q4a-c):** the PET row "Diag" is named "Diag jumper", values Off/On.
 - **D14 (Alex 2026-11-15, open UX Q5 "C", after q5a/q5c):** on the SuperPET the missing-ROM message lists the missing base files plus one summary line for the Waterloo set ("and for the 6809: waterloo-a000 ... f000 (6 files)"), all in one message (fits OP_MSG_MAX).
+- **D15 (Alex 2026-11-15, S12 "B"):** the app checks the checksum (CRC32) of every known PET ROM file it loads against the expected value of that file name and refuses a file with wrong content, naming it, the same way as a missing file (no start on a wrong ROM).
 
 ## §4 Out
 
