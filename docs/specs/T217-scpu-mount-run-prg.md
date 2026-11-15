@@ -64,3 +64,17 @@ program itself pokes (C64 RAM `$C000`, a mirrored page, so the window sees it) a
 1. C128: a C64 program (BASIC at `$0801`, or a C64 ML file) needs C64 mode, and a reset always starts 128 mode. How should a program start reach C64 mode: (a) type `GO64` and `Y` through the key matrix after READY, then place and run as on the C64, (b) a setting that makes the machine start in C64 mode, (c) refuse (current behaviour, with a message)?
 
 ## §5 Build notes
+
+### Build notes (2026-11-15, first session)
+
+- **P2 cause (code):** `coreapp/cores/cbm_run.cc` `cbm_run_service` (old: `ram_read(m.prg.txttab)`), `app/loaders/cbm_prg.cc` `cbm_prg_place` (pointer and program writes) and
+  `cbm_prg_type_start` (`$0277`/`$C6`) all went through the RAM window = the C64 RAM. The 65816 reads bank 0 from its SRAM (DDR2 0x03000000): `cores/c64scpu/scpu_mem.v:171-180`
+  (`d_rk = RK_MEM, d_rp = sram(...)`); the only link is the CPU-to-window mirror `scpu_mem.v:148-168` (`mir_tab`, reset `optim` 0xC7 = pages `$02-$FF`) and `:220` (`d_mir`).
+  Page 0 is not mirrored and an application write never reaches the SRAM. Fixed in the application, no gateware: `CbmPrgParams.mem_ddr` (`c64scpu_prg.h`, `SCPU_SRAM_WIN_OFF`)
+  sends program, pointers and the TXTTAB read through the DDR2 window, `mem_sync` (`cbm_run.cc`) flushes the write-through cache (`scpu_cache.v`, ROM_CTRL.b0), the start is typed
+  through the key matrix (`place_and_type`).
+- **Built:** P1 `.prg`/`.p00` rows (Load, Load + run) on the SuperCPU; P2 as above; P3 `.prg`/`.p00` rows on the C128 (128 mode, keyboard buffer path, C64 BASIC at `$0801` refused);
+  P4 `run_op` and the inner rows on `.d64`/`.d81` of the C128. `tools/dev.sh riscv` builds (run 2026-11-15, rc 0).
+- **Benches (local, real ROMs, never in CI):** `cores/c64scpu/sim/run_prgrun.sh` (cases basic, ml, old = control), `cores/c128/sim/run_prgrun.sh` (basic, ml, none = control), writer
+  `tools/cbm_prg_sim.cc` (the application's own library code and parameter headers), tb replay `+PRG_AT`. Test programs: `cores/c64scpu/sim/prgrun_gen.py`.
+- **Pictures:** ue2emu, `tests/ui/features_cores/t217_prg_c128.feature`, `t217_prg_c64scpu.feature` (commit 7ef47665f); UX review PASS, minor wording note: "Load + run" against "Mount & Run".
