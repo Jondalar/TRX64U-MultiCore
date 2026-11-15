@@ -111,3 +111,8 @@ Parts:
   button except the guide button. The tester attached the pad's USB descriptors (json/txt in #55). Code analysis of the cause: running.
 - **Decision 2026-11-15 (Alex, translated):** "the measurement into the diag core then, as an extra test, before we build any big
   gateware". The measurement that decides between the causes is a separate diag test; no pad fix and no gateware before it.
+- **Board S7 2026-11-15 (Alex, Xbox Elite Series 2 `045E:0B00`, GIP, EP bInterval 4 ms, max 64; diag xpad test, build diag-joy-menu
+  bd4071b51 app in the main-66f89900 diag bitstream):** `xpad20` (production poll 20 ms): 0x20 received 139, seq gaps 93, lost 193
+  (~58 % of the input reports), ack-bit 0/0, OUT ok 3 fail 0. `xpad4` (poll 4 ms, acks on): 0x20 received 252, seq gaps 0 (lost 0),
+  ack-bit 0/0, press/release Up 20/20, Down 20/20, Left 20/20, Right 20/20, A 21/21, B 20/20. Cause of #55: the 20 ms poll
+  (`coreapp/src/usb_xinput.cc:99`) is slower than the pad's 4 ms endpoint; the ack path is not involved (input carries no ack bit).
