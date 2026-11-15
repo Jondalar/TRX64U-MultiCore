@@ -1,6 +1,6 @@
 #!/bin/sh
 # T208: the Metal Dust benches of the C64SCPU core (spec T208 section 2 S1-S3). The whole machine with the SuperCPU map under Verilator; synthetic SuperCPU ROMs of our own
-# (tools/gen_c64scpu_mdust.py, no ROM byte of a game, a crack or a CMD ROM) in the DDR2 model. Seven runs:
+# (tools/gen_c64scpu_mdust.py, no ROM byte of a game, a crack or a CMD ROM) in the DDR2 model. The runs:
 #   menu20   S3  the crack menu's raster IRQ at line $F3 (handler shape of the spec), 30 frames at 20 MHz and 30 at 1 MHz are not mixed: menu20 stays at 20 MHz
 #   menu1    S3  the same, switched to 1 MHz (system speed register) after 30 frames
 #   scroll   S1  optimisation mode $D075 (mirror $40-$7F), a dense stream of mirrored writes with $D077 windows, badlines and sprite DMA: the VIC's own copy of the RAM against the 65816's
