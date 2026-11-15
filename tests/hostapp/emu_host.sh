@@ -179,7 +179,7 @@ fi
 # The core menu opens with CTRL+RESTORE; the stick has a folder of 80 files. Panels are compared in the core menu's own area (the left 960 x 540 stays the menu).
 core_page_nav() { nav
     printf 'hold ctrl\nwait 300\nrestore\nwait 300\nrelease ctrl\nwait 2500\nkey f1\nwait 1500\npng %s/core-f1.png\nkey f3\nwait 1500\npng %s/core-f3.png\n' "$out" "$out"
-    printf 'key down\nwait 600\nkey down\nwait 600\nkey return\nwait 2500\nkey down\nwait 600\nkey return\nwait 3000\npng %s/core-browse-top.png\n' "$out"
+    printf 'key down\nwait 600\nkey down\nwait 600\nkey return\nwait 2500\nkey down\nwait 600\nkey down\nwait 600\nkey return\nwait 3000\npng %s/core-browse-top.png\n' "$out"
     printf 'usbkey pagedown\nwait 1500\npng %s/core-browse-pagedown.png\nusbkey pageup\nwait 1500\npng %s/core-browse-pageup.png\n' "$out" "$out"
     printf 'usbkey pagedown\nwait 800\nusbkey pagedown\nwait 1500\npng %s/core-browse-pagedown2.png\nusbkey f1\nwait 1500\npng %s/core-browse-f1.png\nquit\n' "$out" "$out"; }
 run_core_page() {

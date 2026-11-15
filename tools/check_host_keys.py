@@ -15,6 +15,8 @@ DIR = "host-app/software/hostapp"
 BAD = re.compile(r"\bKEY_(HELP|TASKS)\b")
 PAGE = re.compile(r"\bKEY_(PAGEUP|PAGEDOWN)\b")
 PAGE_OK = {"hostdomain.cc"}
+# T211 D2: a key-table row that maps Page Up / Page Down to a PAGE action (K(ctx, KEY_PAGEDOWN, X_PAGE_DOWN)) is the own-name mapping, not a fold
+ROW = re.compile(r"K\(\w+,\s*KEY_PAGE(UP|DOWN),\s*\w+_PAGE_(UP|DOWN)\)")
 
 
 def code(text):
@@ -29,7 +31,7 @@ def scan(root):
         if not f.endswith((".cc", ".h")):
             continue
         for n, line in enumerate(code(open(os.path.join(d, f), errors="replace").read()).split("\n"), 1):
-            if BAD.search(line) or (PAGE.search(line) and f not in PAGE_OK):
+            if BAD.search(line) or (PAGE.search(ROW.sub("", line)) and f not in PAGE_OK):
                 out.append("%s/%s:%d: %s" % (DIR, f, n, line.strip()))
     return out
 

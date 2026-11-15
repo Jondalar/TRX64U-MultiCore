@@ -43,7 +43,7 @@ Status: BUILT on branch `t211-key-names` 2026-11-15 (S1, S2, S3 first half); S3 
   (PASS on the builder with all other host flows). Pictures browse-top / -pagedown / -pageup / -pagedown2 / -f1. Boot menu and pick lists share the intents through the same table; not walked separately.
   The home-screen step of the earlier commit (Page keys change nothing there) is replaced by this flow; host-pageup/host-pagedown.png are from that earlier run.
 
-D3 build state (2026-11-15, UNVERIFIED):
+D3 build state (2026-11-16, VERIFIED below; first written 2026-11-15 unverified):
 - Built: `map_key` removed from `coreapp/src/run.cc` (`getch_nowait` returns the key as read). `menukeytab.cc` already had KEY_PAGEUP / KEY_PAGEDOWN rows in every stage (viewer, app grid,
   timeline, main menu `MI_PAGE`, appdlg `DI_PAGE_*`, picker); with the fold they never fired, now they do. F1/F3/F5/F7 are unchanged (both keyboards deliver KEY_F1...).
   Real Page Up / Page Down in the main menu are `MI_PAGE` (ten rows, or the rows a browser list shows), in `KS_PAGING` the `+`/`-` rows stay the browser's own.
@@ -52,3 +52,8 @@ D3 build state (2026-11-15, UNVERIFIED):
 - Test added, NOT RUN: `tests/hostapp/emu_host.sh` flow "T211 core page keys" (host starts vc20.cor, CTRL+RESTORE, F1/F3 navigate the core menu, F3 browser into a 80-file folder, usbkey pagedown/pageup
   page it, F1 navigates). Navigation keys inside the core browser (down, down, return, down, return) are a guess from the host flow and may need adjusting after the first run.
 - NOT verified: the RISC-V build of the core app after this change, and the ue2emu run above (the builder's app slots were blocked by Vivado for hours). A fresh agent: `tools/dev.sh riscv --branch t211-key-names`, then `tools/dev.sh emu --branch t211-key-names`, look at core-*.png, fix the nav script if needed.
+- D3 verified (2026-11-16): `tools/dev.sh riscv --branch t211-key-names` rc=0 (hostapp + coreapp build). `tools/dev.sh emu` rc=0: all host flows PASS incl. "T211 page keys" and
+  "T211 core page keys". Fixes: (1) the core flow's guessed navigation was one `down` short (the stick's /USB0 lists cores/ before many/, so it landed in /USB0/cores); now two downs, picture
+  core-browse-top.png shows /USB0/many "1-19 of 81", core-browse-pagedown.png the cursor moved ten rows to file10.txt (Page Down pages like +/-). (2) `tools/check_host_keys.py` flagged the four
+  `K(ctx, KEY_PAGEDOWN, *_PAGE_DOWN)` key-table rows of D2 in host_core.cc (the gate was written before D2); rows of exactly that form are now ignored, the planted fold/help/tasks faults are
+  still found (selftest ok, tree check ok). Pictures: scratchpad t211/core-*.png. Full `ci/lint.sh` not run, only the host-keys check.
