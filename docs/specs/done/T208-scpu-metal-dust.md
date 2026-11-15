@@ -1,7 +1,7 @@
 # T208 — Metal Dust runs on the C64SCPU core without picture faults
 
 **Trace v2 (2026-11-14):** SID back in, REU and tape out, the trace also records the I/O reads; proven in sim (§5, last entry); not yet built in CI or run on the board.
-**Status:** BUILT and board-proven for the flicker (2026-11-15): the BA write hold (`scpu-ba-hold`, `ba_q`, colour RAM hold) is merged to main, all c64scpu benches pass, run 1925 green (WNS +0.082 ns), board S4 PASS 2026-11-15 (Alex: "Metal Dust! Perfect!", GitHub #77). History: S1-S3 and S5 proven in sim 2026-11-11; S4 FAIL 2026-11-12 with the prefetch alone; cause found 2026-11-14 (the VIC accepts writes only with AEC high). Branch t208-trace (debug core) stays parked, never merged.
+**Status:** DONE 2026-11-15 (Alex). BUILT and board-proven for the flicker (2026-11-15): the BA write hold (`scpu-ba-hold`, `ba_q`, colour RAM hold) is merged to main, all c64scpu benches pass, run 1925 green (WNS +0.082 ns), board S4 PASS 2026-11-15 (Alex: "Metal Dust! Perfect!", GitHub #77). History: S1-S3 and S5 proven in sim 2026-11-11; S4 FAIL 2026-11-12 with the prefetch alone; cause found 2026-11-14 (the VIC accepts writes only with AEC high). Branch t208-trace (debug core) stays parked, never merged.
 **Repo:** TRX64U-MultiCore — `cores/c64scpu/` (scpu_mem.v mirror queue, cpu65816 IRQ, c64scpu_ramd.v).
 **Number:** T208.
 **Origin:** Alex, 2026-11-11 (board, CMD ROM 1.4 + JiffyDOS): Metal Dust starts; still pictures fine; while it scrolls the asteroid sprites are cut and
@@ -350,3 +350,6 @@ Dumps (Alex, C64U, c64scpu_trace v3, Metal Dust, 20 MHz, JiffyDOS; session scrat
 
 **Board S4 (2026-11-15, Alex, `c64scpu.cor` ab64908b of run 1925 on the SD):** "Metal Dust ! Perfekt !!!!" (translated: "Metal Dust! Perfect!"): the texture flicker while scrolling (GitHub #77) is gone. ROM/KERNAL combination not recorded.
 
+### 2026-11-15: closed (Alex: "208 = done")
+
+The trace core (decoder `scpu_trace.py`, benches, DDR2-ring RTL, build variants `debug_wns_floor_ps`/Explore pass) was never merged; it stays only in `refs/backup/t208-trace` on Gitea (commit `1875ee854`). The branch is deleted. Its spec notes (trace v1-v3 design, the 2026-11-14 board trace analysis, the stars bench) are in this file already.
