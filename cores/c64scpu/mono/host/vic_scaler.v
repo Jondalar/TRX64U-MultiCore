@@ -30,13 +30,13 @@
 // window is black until then. tools/hdmi_modes.py check proves for every row and scale that a VIC line is complete at least 3 lines
 // before its first output pixel and read for the last time at least 3 lines before the ring comes round to it again.
 //
-// Smoothing (T227 D1, `smooth` = 1): the two VIC pixels that enclose the output pixel's sample point are blended, per channel
-// out = a + (b - a) * f / 16, f a 4 bit fraction of hacc / hd. The pixel (hpx, hacc) sits at u = hpx + hacc / hd in VIC pixels (each VIC
-// pixel covers [i, i+1), its centre is i + 1/2). With half = (2 hacc >= hd): b is VIC pixel j = hpx + half, a is j - 1, and
-// f = floor(8 q / hd) with q = (2 hacc + hd) mod 2 hd, i.e. the distance of u from the centre of a, in 1/16. j climbs by 0 or 1 per output
-// pixel (hn <= hd), so a is the b of the last time j changed (a register, no second ring read). Left of the window the address is X0 - 1,
-// so the window's first pixel blends the left border with VIC pixel 0 as the one before it. smooth = 0: the address is the nearest-neighbour
-// one (X0 + hpx), a = b, f = 0, out = b exactly: today's picture, three more pixels of latency (cx / cy / de / hs / vs travel with rgb).
+// Smoothing (T227 D3, `smooth` = 1, "sharp"): an output pixel shows the pure colour of the VIC pixel hpx it lies in. Its footprint is
+// [hacc, hacc + hn) in 1/hd VIC pixels from the start of hpx; only when hacc + hn > hd it straddles into hpx + 1 and is blended,
+// out = a + (b - a) * f / 16 per channel, a = VIC pixel hpx, b = hpx + 1, f = floor(16 (hacc + hn - hd) / hn): the share of the footprint
+// in the next pixel (area coverage). With hn <= hd a footprint straddles at most once per VIC pixel, and the output pixel before a
+// straddling one always read hpx too (non-straddling: address hpx; straddling at hpx - 1: its b = hpx), so a is the colour of the previous
+// ce's read (a register, no second ring read). Integer steps never straddle: the picture equals smooth = 0. smooth = 0: the address is
+// X0 + hpx, a = b, f = 0, out = b exactly (cx / cy / de / hs / vs travel with rgb in both cases).
 //
 // While blank is set (the machine pause stops the VIC) the window is black: the ring holds only the last 64 lines. c64_core resumes
 // the VIC after whole frames, so the lock still holds afterwards.
@@ -182,34 +182,22 @@ module vic_scaler #(
     end
 
     // ---- pipeline: address, block RAM, palette -----------------------------------
-    // T227: the smoothing's pair of VIC pixels and the fraction (see the header). Two register stages, the divide by hd's constants apart
-    // from the remainder (run 1994: one stage for both was -2.78 ns in pix_mmcm): frac_q is q = (2 hacc + hd) mod 2 hd, frac_div is floor(8 q / hd).
-    function [5:0] frac_q(input [5:0] d, input [5:0] ha);
-        reg [6:0] q;
+    // T227 D3: the straddle test (hacc > hd - hn, a compare with a static value, carry-in of the address adder), num = hacc + hn - hd in the
+    // first stage, the division by hn (1, 3 or 5 in every geometry; with hn = 1 a footprint never straddles) in the second (run 1994: -2.78 ns in pix_mmcm when they were one).
+    function [3:0] frac16(input [5:0] n, input [5:0] num);
         begin
-            q = {ha, 1'b0} + {1'b0, d};
-            if (q >= {d, 1'b0}) q = q - {d, 1'b0};
-            frac_q = q[5:0];
-        end
-    endfunction
-    function [3:0] frac_div(input [5:0] d, input [5:0] q);
-        begin
-            case (d)
-            6'd2:    frac_div = ({4'b0000, q} * 10'd8) / 10'd2;
-            6'd3:    frac_div = ({4'b0000, q} * 10'd8) / 10'd3;
-            6'd4:    frac_div = ({4'b0000, q} * 10'd8) / 10'd4;
-            6'd8:    frac_div = ({4'b0000, q} * 10'd8) / 10'd8;
-            6'd9:    frac_div = ({4'b0000, q} * 10'd8) / 10'd9;
-            6'd16:   frac_div = ({4'b0000, q} * 10'd8) / 10'd16;
-            6'd24:   frac_div = ({4'b0000, q} * 10'd8) / 10'd24;
-            default: frac_div = 4'd0;
+            case (n)
+            6'd3:    frac16 = ({4'b0000, num} * 10'd16) / 10'd3;
+            6'd5:    frac16 = ({4'b0000, num} * 10'd16) / 10'd5;
+            default: frac16 = 4'd0;
             endcase
         end
     endfunction
-    wire        s0_half = {hacc, 1'b0} >= {1'b0, hd};
-    wire [9:0]  sx_sm   = h_in ? X0 + {1'b0, hpx} + {9'd0, s0_half} : X0 - 10'd1;
+    reg  [5:0]  h_gap = 6'd0;                        // hd - hn (static while a frame runs)
+    always @(posedge clk) h_gap <= hd - hn;
+    wire        s0_st   = smooth && h_in && hacc > h_gap;
+    wire [9:0]  sx      = X0 + {1'b0, hpx} + {9'd0, s0_st};
     wire        s0_win = h_in && v_in && hpx != 9'd400 && vln != wln && locked && !blank_s[1];
-    wire [9:0]  sx     = smooth ? sx_sm : X0 + {1'b0, hpx};
     // T62 G09: the output line after which vln moves on is the last of its VIC line
     wire        s0_last = vsum >= {1'b0, vd};
     wire        s0_edge = EDGE && t_de && (x == 12'd0 || x == hact - 12'd1 || y == 11'd0 || y == vact - 11'd1);
@@ -221,15 +209,13 @@ module vic_scaler #(
     reg        s1_win, s2_win, s3_win, s4_win, s5_win;
     reg        s1_edge, s2_edge, s3_edge, s4_edge, s5_edge;
     reg        s1_last, s2_last, s3_last, s4_last, s5_last;
-    reg [5:0]  s1_q, s1_d;
+    reg [5:0]  s1_num, s1_n;
     reg [3:0]  s2_f, s3_f, s4_f;
-    reg        s1_sm, s2_sm;
+    reg        s1_st, s2_st;
     reg [3:0]  s2_col;
-    reg [8:0]  s2_adr;
-    // the pair: a = the colour of the address before the last change, b = the colour now (s3: both through the palette)
-    reg [8:0]  l_adr = 9'd0;
-    reg [3:0]  l_col = 4'd0, a_hold = 4'd0;
-    wire [3:0] a_idx = !s2_sm ? s2_col : (s2_adr != l_adr) ? l_col : a_hold;
+    // the pair: a = the colour read by the previous ce (pixel hpx) when this one straddles, else b itself; b = the colour read now
+    reg [3:0] l_col = 4'd0;
+    wire [3:0] a_idx = s2_st ? l_col : s2_col;
     // the C64 palette (T59): pal_ram.v, Colodore until the app writes C64_PALETTE; one lookup for b, one for a
     wire [23:0] pal_rgb, pal_rgb_a;
     pal_ram pal   (.clk_w(pal_clk), .we(pal_we), .addr(pal_addr), .wdata(pal_wdata), .idx(s2_col), .rgb(pal_rgb));
@@ -242,9 +228,9 @@ module vic_scaler #(
     wire [23:0] blend = {s5_pr[11:4], s5_pg[11:4], s5_pb[11:4]};
     always @(posedge clk) if (ce) begin
         s1_addr <= {vln[5:0], sx[8:0]};
-        s1_q    <= frac_q(hd, hacc);
-        s1_d    <= hd;
-        s1_sm   <= smooth;
+        s1_num  <= hacc - h_gap;
+        s1_n    <= hn;
+        s1_st   <= s0_st;
         s1_ctl  <= {t_de, t_hs, t_vs};
         s1_h    <= t_cx;
         s1_v    <= t_cy;
@@ -252,18 +238,15 @@ module vic_scaler #(
         s1_edge <= s0_edge;
         s1_last <= s0_last;
         s2_col  <= ring[s1_addr];
-        s2_adr  <= s1_addr[8:0];
-        s2_f    <= s1_sm ? frac_div(s1_d, s1_q) : 4'd0;
-        s2_sm   <= s1_sm;
+        s2_f    <= s1_st ? frac16(s1_n, s1_num) : 4'd0;
+        s2_st   <= s1_st;
         s2_last <= s1_last;
         s2_ctl  <= s1_ctl;
         s2_h    <= s1_h;
         s2_v    <= s1_v;
         s2_win  <= s1_win;
         s2_edge <= s1_edge;
-        l_adr   <= s2_adr;
         l_col   <= s2_col;
-        a_hold  <= a_idx;
         s3_a    <= pal_rgb_a;
         s3_b    <= pal_rgb;
         s3_f    <= s2_f;

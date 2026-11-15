@@ -1,6 +1,6 @@
 # T227 — The c64scpu VIC picture can be smoothed (Smoothing row, as the frame-buffer cores have), at non-integer scales
 
-**Status:** BUILT on branch t227-scpu-smooth, not yet through Vivado or the board (S1/S3 open) (2026-11-15).
+**Status:** D1 blend failed the board (blurry); D3 sharp smoothing BUILT on branch t227-scpu-smooth, Vivado + board open (S1/S3) (2026-11-15).
 **Repo:** TRX64U-MultiCore — gateware of `cores/c64scpu/mono/host/vic_scaler.v` (own copy, U16 lineage), the core app (Smoothing row
 for the VIC path). The same scaler lives in TRX64-Ultimate u16; a working change can be offered there.
 **Number:** T227.
@@ -33,6 +33,11 @@ Measure first (S0), then horizontal only. Vertical blending is not part of this 
 - D1 (Alex 2026-11-15, after S0: "yes, try it"): build the DSP variant of horizontal blending.
 - D2 (Alex 2026-11-15, translated: "we had 2 SIDs in there, didn't we? we really need only 1 there"): the c64scpu build drops the
   second SID (build define SID2 and whatever the app offers for it) to win room; one SID stays.
+- D3 (Alex 2026-11-15, after the board test of D1: "ouhhh ... it gets really blurry, sorry", then "rebuild it, yes"; translated): **sharp smoothing**.
+  D1's blend between the two VIC pixels around the sample point turns every edge into a ramp one VIC pixel wide (3-4 output pixels at 720p/1080p). New: an output
+  pixel takes the pure colour of the VIC pixel it lies in; only an output pixel whose footprint straddles the boundary to the next VIC pixel is blended, with
+  f = the share of its footprint in the next pixel (area coverage). Integer steps: nothing straddles, picture = Off. Fit/Fill: one mixed pixel per seam.
+  Register interface (0x4F0B, version 3) unchanged, the app is untouched.
 
 ## §4 Out
 
@@ -82,3 +87,15 @@ Measure first (S0), then horizontal only. Vertical blending is not part of this 
   `s2_f <= s1_sm ? frac_div(s1_d, s1_q) : 0`; same latency (the old `s1_f` stage is replaced by `s1_q`/`s1_d`), same values (iverilog check of all
   (hd, hacc) pairs: 0 differences; yosys read clean). Unproven: the exact failing path (could also be `s0_half` -> `sx_sm` -> `s1_addr` or the DSP `s5_p*`
   with only the P register), and the `sid2x_mmcm` -0.55 (65816 path, untouched by T227: placement disturbed by the scaler/SID2 changes); both need run 1995+.
+- **D3 built 2026-11-15, `vic_scaler.v`** (D1's half / q / frac4 pair replaced; stages, latency (6 ce), DSP blend, palette pair and ring unchanged in shape). Output pixel
+  covers [hacc, hacc + hn) of 1/hd VIC pixels from the start of VIC pixel hpx; it straddles iff hacc + hn > hd, i.e. `hacc > h_gap` with `h_gap = hd - hn` (a register,
+  static per mode) - a compare with a static value, no adder in front of the address. Address = X0 + hpx + straddle (the carry-in); b = that read, a = the previous
+  ce's read (`l_col`) when straddling, else b itself (f = 0). Valid because hn <= hd: a straddle happens at most once per VIC pixel and the read before it was always
+  hpx (non-straddling pixel of hpx, or the straddle at hpx-1 whose b is hpx; a pixel that starts a VIC pixel has hacc = 0 and cannot straddle). `l_adr`, `a_hold`,
+  `s0_half`, `sx_sm`, `frac_q`, `frac_div` are gone. Stage 1 registers `num = hacc - h_gap` (= hacc + hn - hd), `hn`, `st`; stage 2 `f = floor(16 num / hn)` by case on hn
+  (3, 5; hn = 1 never straddles; every hn of `hm_geom` is 1, 3 or 5), so the division stays one stage apart from the subtraction (timing structure of runs 1994 -> 2007 kept:
+  pix_mmcm WNS -2.78 ns, then +0.006 ns). f < 16 always (num < hn).
+  Proof (iverilog in `trx64-sim-env:5` on the builder, the function text cut out of `vic_scaler.v`, an independent integer reference of the footprint, 400 output pixels per
+  geometry): `hn/hd` 1/2, 1/4, 1/3 (integer): 0 of 400 blended; 5/9: 178 blended; 3/8: 100; 5/16: 100; 5/24: 67; 5/8: 200; 0 differences to the reference;
+  spot values frac16(5,1)=3, frac16(5,4)=12, frac16(3,2)=10; `PASS t227 sharp fraction`. `vic_scaler.v` + `pal_ram.v` compile clean in iverilog. No bench ran; Vivado and
+  the board (S1, S3: integer = Off, Fit/Fill one mixed pixel per seam) are open.
