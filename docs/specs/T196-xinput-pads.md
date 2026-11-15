@@ -106,3 +106,8 @@ Parts:
 - **Board pass S5 (2026-11-10):** Alex: "Xbox Series Pro controller via USB works 1A" (translated), on a USB cable. Build: branch
   `t196-xinput` 1035cb05a with main merged (0e320374f), core app packed with the `main-038d80c1` mono bitstreams into `nes.cor`,
   `snes.cor`, `neogeo.cor` (`tools/pack_large_cor.sh`, read back identical on the SD). Not checked separately: a HID pad and a keyboard beside it.
+- **Tester report 2026-11-13/14 (#55):** Xbox Series X/S pad on a USB-C to A cable in the SNES core: button and D-pad presses are
+  often missed (about half), a D-pad direction sometimes stays pressed after release; the left stick is responsive. F7 maps every
+  button except the guide button. The tester attached the pad's USB descriptors (json/txt in #55). Code analysis of the cause: running.
+- **Decision 2026-11-15 (Alex, translated):** "the measurement into the diag core then, as an extra test, before we build any big
+  gateware". The measurement that decides between the causes is a separate diag test; no pad fix and no gateware before it.
