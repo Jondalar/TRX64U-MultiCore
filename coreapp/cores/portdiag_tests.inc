@@ -2026,8 +2026,44 @@ static const PortdiagTest portdiag_tests[] = {
         "\n"
         "[result]\n"
         "format = \"toml\"\n" },
+    { "xpad20.toml",
+        "# XInput (Xbox / GIP) pad measurement, poll 20 ms, ack of input on (T196 S7, GitHub issue #55). Plug the pad in AFTER starting this test (or replug it): the poll interval is\n"
+        "# programmed when the pad is claimed. The screen shows the counters once a second; tap D-pad up 20 times slowly, then Down, Left, Right, A, B, and photograph the screen.\n"
+        "# Press = release = 20 per button means nothing was lost; fewer means the pad's reports were missed. YES finishes and writes results/xpad20_<time>.txt.\n"
+        "kind = \"xpad\"\n"
+        "\n"
+        "[test]\n"
+        "name = \"XInput pad, poll 20 ms, ack of input on\"\n"
+        "id = \"xpad20\"\n"
+        "version = 1\n"
+        "poll_ms = 20\n"
+        "ack_input = true\n" },
+    { "xpad4.toml",
+        "# XInput (Xbox / GIP) pad measurement, poll 4 ms, ack of input on (T196 S7, GitHub issue #55). Plug the pad in AFTER starting this test (or replug it): the poll interval is\n"
+        "# programmed when the pad is claimed. The screen shows the counters once a second; tap D-pad up 20 times slowly, then Down, Left, Right, A, B, and photograph the screen.\n"
+        "# Press = release = 20 per button means nothing was lost; fewer means the pad's reports were missed. YES finishes and writes results/xpad4_<time>.txt.\n"
+        "kind = \"xpad\"\n"
+        "\n"
+        "[test]\n"
+        "name = \"XInput pad, poll 4 ms, ack of input on\"\n"
+        "id = \"xpad4\"\n"
+        "version = 1\n"
+        "poll_ms = 4\n"
+        "ack_input = true\n" },
+    { "xpad4noack.toml",
+        "# XInput (Xbox / GIP) pad measurement, poll 4 ms, ack of input off (T196 S7, GitHub issue #55). Plug the pad in AFTER starting this test (or replug it): the poll interval is\n"
+        "# programmed when the pad is claimed. The screen shows the counters once a second; tap D-pad up 20 times slowly, then Down, Left, Right, A, B, and photograph the screen.\n"
+        "# Press = release = 20 per button means nothing was lost; fewer means the pad's reports were missed. YES finishes and writes results/xpad4noack_<time>.txt.\n"
+        "kind = \"xpad\"\n"
+        "\n"
+        "[test]\n"
+        "name = \"XInput pad, poll 4 ms, ack of input off\"\n"
+        "id = \"xpad4noack\"\n"
+        "version = 1\n"
+        "poll_ms = 4\n"
+        "ack_input = false\n" },
 };
-#define PORTDIAG_NTESTS 7
+#define PORTDIAG_NTESTS 10
 static const PortdiagTest portdiag_superseded[] = {
     { "avout.toml",
         "# A/V output: find the settings that give a stable colour picture on the TV at the C64U's A/V port (T201, GitHub discussion #59).\n"

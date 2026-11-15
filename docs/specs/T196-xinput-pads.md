@@ -45,6 +45,7 @@ Parts:
 | S4 | P2 | GIP: the power-on packet is written once after the claim; announce/guide messages are acknowledged; 360: the LED packet sets the player ring | native test of the init sequence against a model endpoint | apptests |
 | S5 | P1-P5 | Board: Alex's Xbox Series controller (GIP) on a USB cable in the NES, SNES and Neo Geo core plays; a HID pad and a keyboard still work beside it | by hand | board (Alex) |
 | S6 | P1-P5 | A third-party pad in X mode (T50, 360 protocol) plays | by hand | tester (#55) |
+| S7 | P1, P5 | Diag measurement of a GIP pad (issue #55: presses missed): the diag core runs `xpad20`, `xpad4`, `xpad4noack` with a Series pad and shows VID:PID, protocol, bInterval, programmed interval, packets per command, ack bit / acks queued / OUT ok / failed, 0x20 sequence gaps and press/release edges per D-pad direction, A, B; it tells hypothesis A (20 ms polling loses reports) from B (ack/OUT path disturbs input) | board photos of the counters, 20 taps per button | board (Alex / tester) |
 
 ## §3 Decision
 
@@ -106,3 +107,20 @@ Parts:
 - **Board pass S5 (2026-11-10):** Alex: "Xbox Series Pro controller via USB works 1A" (translated), on a USB cable. Build: branch
   `t196-xinput` 1035cb05a with main merged (0e320374f), core app packed with the `main-038d80c1` mono bitstreams into `nes.cor`,
   `snes.cor`, `neogeo.cor` (`tools/pack_large_cor.sh`, read back identical on the SD). Not checked separately: a HID pad and a keyboard beside it.
+
+- **D9 (Alex, 2026-11-15, translated: "the measurement into the diag core, as an extra test, before we build any big gateware"):** a diag test file with
+  `kind = "xpad"` (`[test]`: `name`, `id`, `version`, `poll_ms` default 20, `ack_input` default true) sets the XInput driver's poll interval and whether a 0x20
+  message with the ack bit is acknowledged, shows the driver's counters once a second (dialog rebuilt every second; YES = finish and write
+  `results/<id>_<stamp>.toml/.txt`, NO = zero the counters, ESC = stop) and puts the production values back (20 ms, ack on) when it ends. The pad is claimed with the
+  interval that is set when it is plugged in, so the tester plugs the pad in after starting the test (the screen shows the programmed interval beside the wanted
+  one). Shipped files: `xpad20` (20 ms, as production), `xpad4` (4 ms, the pad's own bInterval), `xpad4noack` (4 ms, no ack of 0x20; separates B from A). The
+  diag core names the capability `pad` (no PadSpec: the pad service drops the reports) so the driver claims the pad there. Production in the other cores is unchanged.
+- **Built (D9):** `XiStats`/`XiCfg` in `xinput.h/.cc` (counters in `XiSession::data`, the driver's callbacks and OUT writes in `usb_xinput.cc`, edges in
+  `xi_stats_report`), `run_xpadtest` in `diagtest.cc`, hooks in `DiagEnv` wired in `portdiag.cc`. The OUT write is counted ok only when `bulk_out` returned the full
+  length (it returns the bytes sent, 0 on a failure; the old `< 0` check in `flush()` never fires and is left as it was) and its longest duration is shown. A sequence
+  gap is counted from the byte d[2] of 0x20 messages; 255 -> 1 is not counted (a pad skipping 0 on the wrap is not known). Interval units: 125 us (`poll_ms * 8`).
+  No bench run (Alex 2026-11-15: no benches before a merge); proof is the RISC-V build and the board step S7.
+- **Board step S7:** copy nothing: the diag core writes the three files to `/SD/cores/diag/tests/` at its start. Start the diag core, run `xpad20` from the file
+  browser, then plug the Series pad in, tap Up 20 times slowly (also Down, Left, Right, A, B), photograph the screen, YES. The same with `xpad4`, then `xpad4noack`.
+  Reading: press = release = 20 and no sequence gaps with 4 ms but fewer with 20 ms = A; losses also at 4 ms, or OUT failed / slow, or losses vanish with
+  `xpad4noack` = B.

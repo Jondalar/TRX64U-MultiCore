@@ -200,6 +200,13 @@ struct DiagEnv {
     // T175: a test with menu_input = "keyboard" switches the joystick ports off as menu keys from its start until its result dialog (on = false), and back on. May be null.
     void (*joy_menu)(void *ud, bool on);
     void *joy_ud;
+    // T196 S7, a test with kind = "xpad": the XInput pad's counters. xpad_begin sets the poll interval and the ack switch and zeroes the counters, xpad_reset zeroes them,
+    // xpad_text writes the counters as lines of text, xpad_end puts the production values back. Null in an application with no XInput driver.
+    void (*xpad_begin)(void *ud, int poll_ms, bool ack_input);
+    void (*xpad_reset)(void *ud);
+    int (*xpad_text)(void *ud, char *out, int cap);
+    void (*xpad_end)(void *ud);
+    void *xpad_ud;
 };
 
 struct DiagOutcome {

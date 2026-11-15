@@ -56,6 +56,39 @@ extern const uint8_t xinput_360_magic[8];
 #define GIP_INPUT_MIN      18       // header 4 + payload 14
 extern const uint8_t xinput_gip_poweron[5];     // 05 20 00 01 00
 
+// ---- T196 S7: what the diag core's xpad test measures (docs/specs/T196-xinput-pads.md section 2 S7) ----
+// Production never reads it; the counters cost a few increments per packet. The driver fills the attach and OUT fields, the session the GIP fields, and
+// xi_stats_report() the press/release edges of the decoded report.
+struct XiStats {
+    bool attached;                                  // a pad claimed by the driver
+    int kind;                                       // XI_360 / XI_GIP
+    uint16_t vid, pid;
+    uint8_t ep_interval;                            // bInterval of the IN endpoint (ms at full speed)
+    uint16_t ep_maxpkt;                             // wMaxPacketSize of the IN endpoint
+    uint16_t programmed;                            // t_pipe.Interval as programmed (units of 125 us)
+    uint32_t cb, cb_empty;                          // input callbacks, of them without data
+    uint32_t cmd20, cmd07, cmd03, cmd_other;        // GIP packets per command (0x20 input, 0x07 guide, 0x03 keepalive)
+    uint32_t ackbit20, ackbit_other;                // packets with the acknowledge bit (0x10), 0x20 and the rest
+    uint32_t ack_queued, ack_dropped;               // acks the session wanted to write: taken by the queue / queue full
+    uint32_t out_ok, out_fail, out_ms_max;          // OUT writes the driver sent (a short count is a failure), the longest one in ms
+    uint32_t seq_gaps, seq_lost;                    // 0x20 messages whose sequence byte skipped, and how many messages that makes
+    bool seq_have;
+    uint8_t seq_last;
+    uint32_t press[6], release[6];                  // up, down, left, right, A, B: edges of the decoded report
+    uint8_t last_state;                             // bit n = direction/button n held in the last decoded report
+};
+extern XiStats xi_stats;
+// The diag test's knobs (D9 of the spec); the defaults are what production does.
+struct XiCfg {
+    int poll_ms;                                    // the input pipe's interval; 20 = 50 Hz as the HID driver
+    bool ack_input;                                 // acknowledge a 0x20 message that asks for it
+};
+extern XiCfg xi_cfg;
+void xi_stats_reset();                              // the counters back to 0 (the attach fields stay)
+void xi_stats_report(const uint8_t rep[XI_REPORT_LEN]);
+// The counters as lines of text for the screen; the length written.
+int xi_stats_text(char *out, int cap, uint32_t cb_per_s);
+
 // What the session writes to the pad's OUT endpoint. true: taken.
 class XiOut {
 public:
@@ -79,7 +112,7 @@ private:
     bool have_;
     uint8_t last_[GIP_INPUT_MIN];
     int writes_;
-    void put(const uint8_t *p, int n);
+    bool put(const uint8_t *p, int n);
 };
 
 #endif

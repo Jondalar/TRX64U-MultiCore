@@ -2356,6 +2356,168 @@ static int run_avtest(DiagEnv *env, const AvTest &t, DiagOutcome *out)
     return 0;
 }
 
+// ---------------------------------------------------------------------------------------------------------------------------------------------------
+// T196 S7: the XInput pad test. A file with kind = "xpad" sets the pad driver's poll interval (and whether a 0x20 input message is acknowledged), then shows the
+// driver's counters once a second until the person ends it; the last counters go to results/<id>_<stamp>.toml and .txt. No probe engine is involved.
+struct XpadTest {
+    char name[DT_STR], id[DT_NAME];
+    int version;
+    int poll_ms;
+    bool ack_input;
+};
+
+static bool is_kind(const char *text, uint32_t len, const char *word)
+{
+    const char *p = text, *end = text + len;
+    size_t wl = strlen(word);
+    while (p < end) {
+        const char *q = skip_ws(p);
+        if (!strncmp(q, "kind", 4) && (q[4] == ' ' || q[4] == '=' || q[4] == '\t')) {
+            const char *e = (const char *)memchr(q, '\n', (size_t)(end - q));
+            const char *v = (const char *)memchr(q, '"', (size_t)(end - q));
+            return v && (!e || v < e) && (size_t)(end - v) >= wl + 2 && !strncmp(v + 1, word, wl) && v[wl + 1] == '"';
+        }
+        if (*q == '[') {
+            return false;
+        }
+        const char *nl = (const char *)memchr(p, '\n', (size_t)(end - p));
+        p = nl ? nl + 1 : end;
+    }
+    return false;
+}
+
+static XpadTest g_xpad;
+
+static int xpad_parse(const char *text, uint32_t len, XpadTest *t, DtErr *err)
+{
+    memset(t, 0, sizeof(*t));
+    t->poll_ms = 20;
+    t->ack_input = true;
+    int sect = 0;
+    int line = 0;
+    const char *p = text, *end = text + len;
+    while (p < end) {
+        const char *nl = (const char *)memchr(p, '\n', (size_t)(end - p));
+        int ll = nl ? (int)(nl - p) : (int)(end - p);
+        static char buf[320];
+        line++;
+        if (ll >= (int)sizeof(buf)) {
+            return fail(err, line, "a line is longer than %d characters", (int)sizeof(buf) - 1);
+        }
+        memcpy(buf, p, (size_t)ll);
+        buf[ll] = 0;
+        p = nl ? nl + 1 : end;
+        const char *q = skip_ws(buf);
+        if (!*q || *q == '#' || *q == '\r') {
+            continue;
+        }
+        if (*q == '[') {
+            if (strncmp(q, "[test]", 6)) {
+                return fail(err, line, "an xpad test has only the section [test]");
+            }
+            sect = 1;
+            continue;
+        }
+        Kv kv;
+        if (parse_kv(q, &kv, err, line)) {
+            return -1;
+        }
+        if (!sect) {
+            if (strcmp(kv.key, "kind")) {
+                return fail(err, line, "unknown key %s", kv.key);
+            }
+        } else if (!strcmp(kv.key, "name") && kv.type == V_STR) {
+            cpy(t->name, sizeof(t->name), kv.s);
+        } else if (!strcmp(kv.key, "id") && kv.type == V_STR) {
+            if (!kv.s[0] || strlen(kv.s) >= DT_NAME) {
+                return fail(err, line, "id must be 1 .. %d characters", DT_NAME - 1);
+            }
+            cpy(t->id, sizeof(t->id), kv.s);
+        } else if (!strcmp(kv.key, "version") && kv.type == V_INT) {
+            t->version = (int)kv.i;
+        } else if (!strcmp(kv.key, "poll_ms") && kv.type == V_INT) {
+            if (kv.i < 1 || kv.i > 255) {
+                return fail(err, line, "poll_ms must be 1 .. 255");
+            }
+            t->poll_ms = (int)kv.i;
+        } else if (!strcmp(kv.key, "ack_input") && kv.type == V_BOOL) {
+            t->ack_input = kv.i != 0;
+        } else {
+            return fail(err, line, "unknown key or wrong type: %s", kv.key);
+        }
+    }
+    if (!t->id[0]) {
+        return fail(err, 0, "[test] id is missing");
+    }
+    return 0;
+}
+
+static int run_xpadtest(DiagEnv *env, const XpadTest &t, DiagOutcome *out)
+{
+    if (!env->xpad_begin || !env->xpad_text || !env->xpad_reset || !env->xpad_end) {
+        snprintf(out->msg, sizeof(out->msg), "%s: this application has no XInput pad driver", t.id);
+        return -1;
+    }
+    char stamp[16];
+    make_stamp(env, stamp);
+    env->xpad_begin(env->xpad_ud, t.poll_ms, t.ack_input);
+    char *txt = g_text, *scr = g_text + 1200;             // the file is parsed: its buffer is free (no new static RAM)
+    const int TXT_N = 1200, SCR_N = 1700;
+    char title[96];
+    snprintf(title, sizeof(title), "%s (poll %d ms, ack of input %s)", t.name[0] ? t.name : t.id, t.poll_ms, t.ack_input ? "on" : "off");
+    bool aborted = false;
+    uint32_t t0 = env->now_ms();
+    for (;;) {
+        env->xpad_text(env->xpad_ud, txt, TXT_N);
+        snprintf(scr, SCR_N, "Tap D-pad up 20 times slowly, then Down, Left, Right, A, B: press = release = 20 means nothing was lost.\n"
+                                   "Replug the pad first if the programmed interval below is not the wanted one.\n\n%s\n"
+                                   "YES: finish and write the report.   NO: zero the counters.   ESC: stop.", txt);
+        int a = env->ui->question(title, scr, 1, 1, 1);
+        if (a == DUI_ABORT) {
+            aborted = true;
+            break;
+        }
+        if (a == DUI_CONTINUE) {
+            break;
+        }
+        if (a == DUI_SKIP) {
+            env->xpad_reset(env->xpad_ud);
+        }
+    }
+    uint32_t secs = (env->now_ms() - t0) / 1000;
+    env->xpad_text(env->xpad_ud, txt, TXT_N);
+    env->xpad_end(env->xpad_ud);
+    char *o_t = g_toml, *o_x = g_txt;
+    Out o = { o_t, 2400, 0, false, 0, 0 };
+    Out x = { o_x, 2400, 0, false, 0, 0 };
+    o.put("# TRX64U Port Diagnostics XInput pad result (T196 S7).\n[meta]\ntest = ");
+    o.str(t.id);
+    o.put("\nversion = %d\ncore = ", t.version);
+    o.str(env->core_version ? env->core_version : "");
+    o.put("\ndate = ");
+    o.str(stamp);
+    o.put("\npoll_ms = %d\nack_input = %s\nseconds = %u\nstatus = \"%s\"\n\n[counters]\ntext = ", t.poll_ms, t.ack_input ? "true" : "false", (unsigned)secs, aborted ? "aborted" : "done");
+    o.str(txt);
+    o.put("\n");
+    x.put("XInput pad test %s (%s)\nDate %s\nPoll %d ms, ack of input %s, %u s, %s\n\n%s", t.name, t.id, stamp, t.poll_ms, t.ack_input ? "on" : "off", (unsigned)secs,
+          aborted ? "stopped by the tester" : "done", txt);
+    char why[160] = "";
+    if (o.over || x.over || !write_pair(env, t.id, stamp, o_t, o.n, o_x, x.n, out, why, sizeof(why))) {
+        snprintf(out->msg, sizeof(out->msg), "%s", why[0] ? why : "the result does not fit the buffers");
+        return -1;
+    }
+    out->ntests++;
+    if (aborted) {
+        out->nerror++;
+    } else {
+        out->npass++;                                      // no verdict: the counters are the result
+    }
+    char *sum = scr;
+    snprintf(sum, SCR_N, "%s: %s\n\n%s\nReport: results/%s_%s.txt", t.name, aborted ? "stopped" : "done", txt, t.id, stamp);
+    env->ui->show("Port Diagnostics", sum);
+    return 0;
+}
+
 static int load_parse(DiagEnv *env, const char *path, DiagOutcome *out)
 {
     int n = env->fs->load(path, g_text, DT_FILE_MAX);
@@ -2393,6 +2555,19 @@ int diag_run_file(DiagEnv *env, const char *path, DiagOutcome *out)
                 return -1;
             }
             return run_avtest(env, g_av, out);
+        }
+        if (n >= 0 && is_kind(g_text, (uint32_t)n, "xpad")) {            // T196 S7
+            DtErr e;
+            if (xpad_parse(g_text, (uint32_t)n, &g_xpad, &e)) {
+                const char *fn = strrchr(path, '/');
+                if (e.line) {
+                    snprintf(out->msg, sizeof(out->msg), "%s line %d: %s", fn ? fn + 1 : path, e.line, e.msg);
+                } else {
+                    snprintf(out->msg, sizeof(out->msg), "%s: %s", fn ? fn + 1 : path, e.msg);
+                }
+                return -1;
+            }
+            return run_xpadtest(env, g_xpad, out);
         }
     }
     if (load_parse(env, path, out)) {

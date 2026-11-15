@@ -1,9 +1,13 @@
 #include "xinput.h"
 #include <string.h>
+#include <stdio.h>
 
 const uint8_t xinput_gip_poweron[5] = { GIP_CMD_POWER, GIP_OPT_INTERNAL, 0x00, 0x01, 0x00 };
 
 const uint8_t xinput_360_magic[8] = { 0xC1, 0x01, 0x00, 0x01, 0x00, 0x00, 0x14, 0x00 };
+
+XiStats xi_stats;
+XiCfg xi_cfg = { 20, true };
 
 namespace {
 
@@ -103,9 +107,13 @@ XiSession::XiSession() : kind_(XI_NONE), out_(0), guide_(false), have_(false), w
     memset(last_, 0, sizeof(last_));
 }
 
-void XiSession::put(const uint8_t *p, int n)
+bool XiSession::put(const uint8_t *p, int n)
 {
-    if (out_ && out_->write(p, n)) writes_++;
+    if (out_ && out_->write(p, n)) {
+        writes_++;
+        return true;
+    }
+    return false;
 }
 
 void XiSession::start(int kind, XiOut *out, int player)
@@ -137,9 +145,31 @@ bool XiSession::data(const uint8_t *d, int n, uint8_t out[XI_REPORT_LEN])
     if (kind_ != XI_GIP || n < 4) return false;
     uint8_t cmd = d[0], opt = d[1], seq = d[2], plen = d[3];
     if (plen & 0x80) return false;                                                  // a two byte length: no message we read
-    if ((opt & GIP_OPT_ACK) && cmd != GIP_CMD_ACK) {
+    XiStats &st = xi_stats;
+    if (opt & GIP_OPT_ACK) {
+        if (cmd == GIP_CMD_INPUT) st.ackbit20++; else st.ackbit_other++;
+    }
+    if (cmd == GIP_CMD_INPUT) {
+        st.cmd20++;
+        if (st.seq_have) {
+            uint8_t gap = (uint8_t)(seq - st.seq_last - 1);
+            if (gap && !(st.seq_last == 255 && seq == 1)) {         // 255 -> 1 may be the pad skipping 0 on a wrap, not a loss
+                st.seq_gaps++;
+                st.seq_lost += gap;
+            }
+        }
+        st.seq_have = true;
+        st.seq_last = seq;
+    } else if (cmd == GIP_CMD_VIRTUAL) {
+        st.cmd07++;
+    } else if (cmd == 0x03) {
+        st.cmd03++;
+    } else {
+        st.cmd_other++;
+    }
+    if ((opt & GIP_OPT_ACK) && cmd != GIP_CMD_ACK && (cmd != GIP_CMD_INPUT || xi_cfg.ack_input)) {
         const uint8_t ack[13] = { GIP_CMD_ACK, GIP_OPT_INTERNAL, seq, 0x09, 0x00, cmd, (uint8_t)(opt & ~GIP_OPT_ACK), plen, 0x00, 0x00, 0x00, 0x00, 0x00 };
-        put(ack, sizeof(ack));
+        if (put(ack, sizeof(ack))) st.ack_queued++; else st.ack_dropped++;
     }
     if (cmd == GIP_CMD_VIRTUAL && n >= 5 && plen >= 1) {
         guide_ = d[4] & 1;
@@ -154,4 +184,64 @@ bool XiSession::data(const uint8_t *d, int n, uint8_t out[XI_REPORT_LEN])
         return true;
     }
     return false;
+}
+
+void xi_stats_reset()
+{
+    XiStats keep = xi_stats;
+    memset(&xi_stats, 0, sizeof(xi_stats));
+    xi_stats.attached = keep.attached;
+    xi_stats.kind = keep.kind;
+    xi_stats.vid = keep.vid;
+    xi_stats.pid = keep.pid;
+    xi_stats.ep_interval = keep.ep_interval;
+    xi_stats.ep_maxpkt = keep.ep_maxpkt;
+    xi_stats.programmed = keep.programmed;
+}
+
+void xi_stats_report(const uint8_t rep[XI_REPORT_LEN])
+{
+    uint8_t hat = rep[2] & 0x0F;
+    uint8_t now = 0;
+    if (hat == 7 || hat == 0 || hat == 1) now |= 1;                 // up
+    if (hat == 3 || hat == 4 || hat == 5) now |= 2;                 // down
+    if (hat == 5 || hat == 6 || hat == 7) now |= 4;                 // left
+    if (hat == 1 || hat == 2 || hat == 3) now |= 8;                 // right
+    if (rep[0] & (1 << XI_B_A)) now |= 16;
+    if (rep[0] & (1 << XI_B_B)) now |= 32;
+    uint8_t ch = now ^ xi_stats.last_state;
+    for (int i = 0; i < 6; i++) {
+        if (ch & (1 << i)) {
+            if (now & (1 << i)) xi_stats.press[i]++; else xi_stats.release[i]++;
+        }
+    }
+    xi_stats.last_state = now;
+}
+
+int xi_stats_text(char *out, int cap, uint32_t cb_per_s)
+{
+    const XiStats &s = xi_stats;
+    int n = 0;
+#define ADD(...) do { if (n < cap) n += snprintf(out + n, cap - n, __VA_ARGS__); } while (0)
+    if (!s.attached) {
+        ADD("No XInput pad claimed. Plug the pad in (or replug it).\n");
+    } else {
+        ADD("Pad %04X:%04X %s  IN bInterval %u ms, max packet %u\n", s.vid, s.pid, s.kind == XI_GIP ? "GIP" : "360", (unsigned)s.ep_interval,
+            (unsigned)s.ep_maxpkt);
+        ADD("Programmed %u x 125 us = %u ms   wanted by the test: %d ms\n", (unsigned)s.programmed, (unsigned)(s.programmed / 8), xi_cfg.poll_ms);
+    }
+    ADD("Ack of input: %s\n", xi_cfg.ack_input ? "on" : "off");
+    ADD("Callbacks %u (%u/s, empty %u)\n", (unsigned)s.cb, (unsigned)cb_per_s, (unsigned)s.cb_empty);
+    ADD("0x20 input %u   0x07 guide %u   0x03 keepalive %u   other %u\n", (unsigned)s.cmd20, (unsigned)s.cmd07, (unsigned)s.cmd03, (unsigned)s.cmd_other);
+    ADD("Ack bit set: on 0x20 %u, on others %u\n", (unsigned)s.ackbit20, (unsigned)s.ackbit_other);
+    ADD("Acks queued %u, queue full %u\n", (unsigned)s.ack_queued, (unsigned)s.ack_dropped);
+    ADD("OUT writes ok %u, failed %u, slowest %u ms\n", (unsigned)s.out_ok, (unsigned)s.out_fail, (unsigned)s.out_ms_max);
+    ADD("Sequence gaps in 0x20: %u (%u messages lost)\n", (unsigned)s.seq_gaps, (unsigned)s.seq_lost);
+    static const char *const nm[6] = { "Up", "Down", "Left", "Right", "A", "B" };
+    ADD("Edges press/release:\n");
+    for (int i = 0; i < 6; i++) {
+        ADD("%s %u/%u%s", nm[i], (unsigned)s.press[i], (unsigned)s.release[i], i < 5 ? "   " : "\n");
+    }
+#undef ADD
+    return n < cap ? n : cap - 1;
 }
