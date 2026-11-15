@@ -36,13 +36,13 @@ inplace="${TRX_BUILD_INPLACE:-}"
 out="$(stage_dir trxapps)"
 # T174 D2.2/D4 (Alex, 2026-11-07: the app is built and tested natively first, RISC-V last): the parent starts this child only after `apptests` is green.
 # The content of the tracked files, not the commit and not tree ids: a documentation file (ci/code_hash.py is_doc) must not cost a rebuild.
-# Raw blob ids (git hash-object) of what `keep` leaves, as before not comment-normalised. app/ is in the key because
+# Raw index entries (git ls-files -s: mode, blob id or submodule commit, path) of what `keep` leaves; hash-object cannot hash a submodule (run 2020: host-app/software/FreeRTOS), as before not comment-normalised. app/ is in the key because
 # the shared view layer lives there and both applications compile it (T104 D8) - without it a change to
 # the shell would be served out of the cache and never reach the board.
 key=""; cache=""
 if [ -z "$inplace" ]; then
-  key="$(cd "$ROOT" && set -o pipefail && git ls-files -- host-app coreapp uicore app apps/unzip apps/miniz cores/apple2/rtl/roms vendor/gideon/software vendor/gideon/tools vendor/gideon/target vendor/gideon/roms | python3 ci/code_hash.py keep > "$out/.keynames" && git hash-object --stdin-paths < "$out/.keynames" | paste -d' ' - "$out/.keynames" | sha256sum | cut -c1-16)" || { echo "trxapps: stage key failed" >&2; exit 1; }
-  rm -f "$out/.keynames"
+  key="$(cd "$ROOT" && set -o pipefail && git ls-files -s -- host-app coreapp uicore app apps/unzip apps/miniz cores/apple2/rtl/roms vendor/gideon/software vendor/gideon/tools vendor/gideon/target vendor/gideon/roms > "$out/.keyall" && cut -f2 "$out/.keyall" | python3 ci/code_hash.py keep > "$out/.keynames" && awk -F'\t' 'NR==FNR{k[$0];next} ($2 in k)' "$out/.keynames" "$out/.keyall" | sha256sum | cut -c1-16)" || { echo "trxapps: stage key failed" >&2; exit 1; }
+  rm -f "$out/.keynames" "$out/.keyall"
   cache="${CI_TRXAPPS_CACHE:-/cache/trxapps}/$key"
 fi
 
@@ -139,7 +139,7 @@ else
   # instead of building and cleaning every run (the stage key above is coarser: any change in app/ or coreapp/ rebuilds the stage, but not these two).
   libapp() {   # libapp DIR NAME.u2a : DIR relative to the tree
     local d="$1" n="$2" k c
-    k="$( (cd "$ROOT" && git ls-files -- "$d" apps/miniz app/lib/app.mk app/sdk coreapp/src tools/u2a_pack.py | python3 ci/code_hash.py keep > "$out/.libnames" && git hash-object --stdin-paths < "$out/.libnames" | paste -d' ' - "$out/.libnames"; rm -f "$out/.libnames"; riscv32-unknown-elf-gcc --version | head -1; echo "$d $n") | sha256sum | cut -c1-16)"
+    k="$( (cd "$ROOT" && git ls-files -s -- "$d" apps/miniz app/lib/app.mk app/sdk coreapp/src tools/u2a_pack.py > "$out/.liball" && cut -f2 "$out/.liball" | python3 ci/code_hash.py keep > "$out/.libnames" && awk -F'\t' 'NR==FNR{k[$0];next} ($2 in k)' "$out/.libnames" "$out/.liball"; rm -f "$out/.libnames" "$out/.liball"; riscv32-unknown-elf-gcc --version | head -1; echo "$d $n") | sha256sum | cut -c1-16)"
     c="${CI_TRXAPPS_CACHE:-/cache/trxapps}/lib-apps/$k"
     if [ -f "$c/$n" ]; then echo "=== trxapps $n: from cache $c (key $k)"; cp "$c/$n" "$out/"; return 0; fi
     nice -n 15 make -j"$J" -C "$B/$d" RV_PREFIX=riscv32-unknown-elf- "$n"
