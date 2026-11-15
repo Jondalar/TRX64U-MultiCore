@@ -116,3 +116,8 @@ Parts:
   (~58 % of the input reports), ack-bit 0/0, OUT ok 3 fail 0. `xpad4` (poll 4 ms, acks on): 0x20 received 252, seq gaps 0 (lost 0),
   ack-bit 0/0, press/release Up 20/20, Down 20/20, Left 20/20, Right 20/20, A 21/21, B 20/20. Cause of #55: the 20 ms poll
   (`coreapp/src/usb_xinput.cc:99`) is slower than the pad's 4 ms endpoint; the ack path is not involved (input carries no ack bit).
+- **Built 2026-11-15 (#55 fix, branch t196-xpad-poll):** `coreapp/src/usb_xinput.cc` `poll_interval()` (line 79) derives the IN pipe Interval
+  (125 us units) from the endpoint's bInterval: full/low speed ms * 8, high speed (`dev->speed == 2`) 2^(bInterval-1) microframes; clamped
+  to 8..160 units (1..20 ms), so no pad polls slower than the old fixed 20 ms and a bad descriptor cannot give 0. `install()` line 111 uses it
+  instead of the hard-coded 160. Only the XInput driver; `usb_hid.cc` unchanged. Elite Series 2 (bInterval 4) now polls at 32 units = 4 ms.
+  Proof so far: RISC-V build; board re-test of S7 with the production build still to do.
