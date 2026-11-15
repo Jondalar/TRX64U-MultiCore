@@ -19,11 +19,12 @@ area F5 NES
     setting Console type = NTSC | PAL | Dendy (default NTSC, at next reset)
     setting Joystick ports = Normal | Swapped (default Normal, live)
     setting Pad map = Default | Custom (default Default, live)
+  tab 2 Input
+    task Map buttons, pad 1
+    task Map buttons, pad 2
 area F7 Actions
   tab 1 Quick
     task Reset (closes the menu)
-    task Map buttons, pad 1
-    task Map buttons, pad 2
 area F8 System (shifted)
   tab 1 System
     heading Actions

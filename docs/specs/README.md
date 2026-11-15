@@ -66,7 +66,7 @@ Specs of the TRX64U MultiCore line (one host, n swappable cores; layout since 20
 | [T185](T185-c128-jiffydos.md) | C128: start with the standard ROMs or JiffyDOS, chosen in the settings (#46) | D4 built + tested (files selected, Stock default); board 11-11: works, faster (J.3 timing not measured) |
 | [T186](T186-ftp-client-fixes.md) | Core app FTP client: passive address of the control peer, no QUIT on a dead link, late 226 read | Built, Mac tests + 5 controls green; RISC-V + apptests green (20 min); board S4 open |
 | [T187](T187-core-app-ux-rework.md) | Core app menus: same layout in every core, selection visible, no overlap (board 11-06, UX review) | Built D1-D9 incl. host Picture page, ux-review PASS (core+host), merged 11-11; open: S2, S5, S6 |
-| [T188](T188-amiga-frame-lock.md) | Amiga cores: output frame follows the core (#48) | Merged 11-13 (run 1796 green); board: smoother (Alex), into tester release |
+| [T188](done/T188-amiga-frame-lock.md) | Amiga cores: output frame follows the core (#48) | Done (Alex 11-15); merged 11-13 (run 1796 green) |
 | [T189](T189-host-tone-preset.md) | Host audio: tone preset Flat/Bass/Treble beside the master volume (#49) | DECIDED 11-07 (D1-D7): shelf before gain, 2 DSP, per-core .cfg, all cores; build open |
 | [T190](T190-amiga-mouse-settings.md) | Amiga cores: USB mouse sensitivity and acceleration settings (#51) | Merged main; S1-S2 proven; S3 board (Lemmings, A500) open |
 | [T191](T191-amiga-rtc.md) | Amiga cores: optional battery-backed clock at $DC0000, time from the board (#52) | Merged main; S8 board PASS 11-08; S7 Vivado per-module line open (yosys 248 LUT) |
@@ -90,7 +90,7 @@ Specs of the TRX64U MultiCore line (one host, n swappable cores; layout since 20
 | [T205](T205-core-settings-one-place.md) | Core app: settings in one place (F5: core, Video, Audio, Input); F6 goes | Built, T207 merged; ux-review PASS (emulator); board S6 open |
 | [T206](T206-run-disk-everywhere.md) | Core app: "Run Disk" beside every "Mount Disk" (SCPU, C128, Amiga, PET built; S3 board) | Alex D1 11-11 |
 | [T207](T207-hotkey-learn.md) | Core app: hotkeys learned by pressing the key, not stepped through with LEFT/RIGHT | Built; S1-S4 proofs in §5; S5 board (Alex) |
-| [T208](T208-scpu-metal-dust.md) | SCPU: Metal Dust picture faults while scrolling, menu speed (mirror queue / IRQ timing) | Sims S1-S3, S5 pass, merged; S4 board FAIL 11-12 (flicker stays); cause open; t208-smc/-trace unmerged |
+| [T208](done/T208-scpu-metal-dust.md) | SCPU: Metal Dust picture faults while scrolling, menu speed (mirror queue / IRQ timing) | Done (Alex 11-15); BA write hold, board S4 PASS 11-15; trace code only in refs/backup/t208-trace |
 | [T209](T209-one-line-rows.md) | Host + core app: one line per row (no sublines), closer rows, scroll before the edge, paging keys in the foot | Merged main; D1-D20 built; open: host paging keys, S8 board |
 | [T210](T210-coreapp-modes-wifi.md) | Core app: splash placed for 480p/720p from the first frame; F8 WiFi real state in every core | Merged main; ue2emu proofs; S3 board (splash 480p, F8 WiFi) open |
 | [T211](T211-own-key-names.md) | Host UI: own key names, F keys as navigation (no PAGEUP=F1 aliasing) | Alex 11-12 |

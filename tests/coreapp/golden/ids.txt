@@ -46,9 +46,9 @@ Nintendo Entertainment System F1/home 8 fixed:11:Load config...
 Nintendo Entertainment System F5/settings 0 set:Console type
 Nintendo Entertainment System F5/settings 1 set:Joystick ports
 Nintendo Entertainment System F5/settings 2 set:Pad map
+Nintendo Entertainment System F5/input 0 task:Map buttons, pad 1
+Nintendo Entertainment System F5/input 1 task:Map buttons, pad 2
 Nintendo Entertainment System F7/quick 0 task:Reset
-Nintendo Entertainment System F7/quick 1 task:Map buttons, pad 1
-Nintendo Entertainment System F7/quick 2 task:Map buttons, pad 2
 Nintendo Entertainment System F8/expert 0 fixed:13:Actions
 Nintendo Entertainment System F8/expert 1 fixed:6:Restart core
 Nintendo Entertainment System F8/expert 2 fixed:7:Return to host menu
@@ -396,11 +396,11 @@ Super Nintendo F5/settings 0 set:Video standard
 Super Nintendo F5/settings 1 set:Pseudo high resolution
 Super Nintendo F5/settings 2 set:Pad map
 Super Nintendo F5/settings 3 set:DSP firmware
+Super Nintendo F5/input 0 task:Map buttons, pad 1
+Super Nintendo F5/input 1 task:Map buttons, pad 2
 Super Nintendo F7/quick 0 task:Reset
 Super Nintendo F7/quick 1 task:Save the battery RAM now
 Super Nintendo F7/quick 2 task:Sound check
-Super Nintendo F7/quick 3 task:Map buttons, pad 1
-Super Nintendo F7/quick 4 task:Map buttons, pad 2
 Super Nintendo F8/expert 0 fixed:13:Actions
 Super Nintendo F8/expert 1 fixed:6:Restart core
 Super Nintendo F8/expert 2 fixed:7:Return to host menu
@@ -428,11 +428,11 @@ SNK Neo Geo F5/settings 5 set:[DIP] Free play
 SNK Neo Geo F5/settings 6 set:[DIP] Freeze
 SNK Neo Geo F5/settings 7 set:Joystick ports
 SNK Neo Geo F5/settings 8 set:Pad map
+SNK Neo Geo F5/input 0 task:Map buttons, pad 1
+SNK Neo Geo F5/input 1 task:Map buttons, pad 2
 SNK Neo Geo F7/quick 0 task:Reset
 SNK Neo Geo F7/quick 1 task:Load a ROM set from a folder
 SNK Neo Geo F7/quick 2 task:Save the memory card and backup RAM now
-SNK Neo Geo F7/quick 3 task:Map buttons, pad 1
-SNK Neo Geo F7/quick 4 task:Map buttons, pad 2
 SNK Neo Geo F8/expert 0 fixed:13:Actions
 SNK Neo Geo F8/expert 1 fixed:6:Restart core
 SNK Neo Geo F8/expert 2 fixed:7:Return to host menu
@@ -760,8 +760,11 @@ Amiga (OCS/ECS, 68000) F5/settings 6 set:Floppy write protect (next reset)
 Amiga (OCS/ECS, 68000) F5/settings 7 set:Real-time clock (at next reset)
 Amiga (OCS/ECS, 68000) F5/settings 8 set:Joystick ports
 Amiga (OCS/ECS, 68000) F5/settings 9 set:LED Load Indicator
-Amiga (OCS/ECS, 68000) F5/input 0 set:Mouse Sensitivity
-Amiga (OCS/ECS, 68000) F5/input 1 set:Mouse Acceleration
+Amiga (OCS/ECS, 68000) F5/input 0 set:Map port 2 to USB controller
+Amiga (OCS/ECS, 68000) F5/input 1 set:Port 2 acts as
+Amiga (OCS/ECS, 68000) F5/input 2 set:Mouse Sensitivity
+Amiga (OCS/ECS, 68000) F5/input 3 set:Mouse Acceleration
+Amiga (OCS/ECS, 68000) F5/input 4 task:Map port 2 buttons
 Amiga (OCS/ECS, 68000) F7/quick 0 task:Reset Amiga
 Amiga (OCS/ECS, 68000) F7/quick 1 task:Reload Kickstart, Reset
 Amiga (OCS/ECS, 68000) F7/quick 2 task:Eject DF0
@@ -806,8 +809,11 @@ Amiga 1200 (AGA, 68020) F5/settings 6 set:Floppy write protect (next reset)
 Amiga 1200 (AGA, 68020) F5/settings 7 set:Real-time clock (at next reset)
 Amiga 1200 (AGA, 68020) F5/settings 8 set:Joystick ports
 Amiga 1200 (AGA, 68020) F5/settings 9 set:LED Load Indicator
-Amiga 1200 (AGA, 68020) F5/input 0 set:Mouse Sensitivity
-Amiga 1200 (AGA, 68020) F5/input 1 set:Mouse Acceleration
+Amiga 1200 (AGA, 68020) F5/input 0 set:Map port 2 to USB controller
+Amiga 1200 (AGA, 68020) F5/input 1 set:Port 2 acts as
+Amiga 1200 (AGA, 68020) F5/input 2 set:Mouse Sensitivity
+Amiga 1200 (AGA, 68020) F5/input 3 set:Mouse Acceleration
+Amiga 1200 (AGA, 68020) F5/input 4 task:Map port 2 buttons
 Amiga 1200 (AGA, 68020) F7/quick 0 task:Reset Amiga
 Amiga 1200 (AGA, 68020) F7/quick 1 task:Reload Kickstart, Reset
 Amiga 1200 (AGA, 68020) F7/quick 2 task:Eject DF0

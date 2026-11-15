@@ -76,6 +76,9 @@ struct CoreCtx {
     // through MediaSaving, engines.h; saving_depth makes nested write-backs one display).
     void (*saving)(CoreCtx *c, bool on);
     int saving_depth;
+    // T226 S1: the picture while a cartridge / ROM image is read in ("Loading cartridge..."); the application sets it, null: nothing to show (MediaLoading, engines.h).
+    void (*loading)(CoreCtx *c, bool on);
+    int loading_depth;
     // T180 D2: a slot of the core's own media engine (CoreDesc::mount_slots) changed; the engine calls it through mount_notify. The application sets it
     // (mediamounts.cc); null: nothing to store (tests of an engine alone).
     void (*mount_changed)(CoreCtx *c, int slot);

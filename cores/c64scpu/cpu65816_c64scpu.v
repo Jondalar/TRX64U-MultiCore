@@ -60,6 +60,7 @@ module cpu65816_c64scpu #(
   input  wire  [4:0] srom_log2_i,
   input  wire  [1:0] scpu_sw_i,
   input  wire        rom_flush,
+  input  wire        ba,           // the VIC's BA: the I/O write hold (scpu_mem.v)
   input  wire        aec,          // step 5: the VIC leaves the C64 bus to the CPU (the mirror write is repeated when it does not)
   output wire        rom_valid_o,
   output wire        s_req_tgl,
@@ -179,7 +180,7 @@ wire [7:0] mem_q, int_q;
 scpu_mem smem (
   .clk2x(clk2x), .rst(reset), .ce_raw(ce_raw), .l_ev(g_edge && phi2_l), .n_ev(g_edge && phi2_n), .core_ce(core_ce),
   .a_out(a_out), .bus_cyc(bus_cyc), .wr_cyc(wr_cyc), .d_out(d_out), .e_flag(e_out), .vpb(vpb), .vpa(vpa), .pport(pout[2:0]), .exrom_pin(exrom_pin), .game_pin(game_pin),
-  .rom_valid_i(rom_valid_i), .srom_log2_i(srom_log2_i), .scpu_sw_i(scpu_sw_i), .flush(rom_flush), .aec(aec), .rom_valid_o(rom_valid), .fast_o(fast_o), .mem_free(mem_free), .sync_cyc(sync_cyc), .mir_drv(mir_drv), .mir_a(mir_a), .mir_d(mir_d),
+  .rom_valid_i(rom_valid_i), .srom_log2_i(srom_log2_i), .scpu_sw_i(scpu_sw_i), .flush(rom_flush), .ba(ba), .aec(aec), .rom_valid_o(rom_valid), .fast_o(fast_o), .mem_free(mem_free), .sync_cyc(sync_cyc), .mir_drv(mir_drv), .mir_a(mir_a), .mir_d(mir_d),
   .fwd(fwd), .pla_pport(pla_pport), .rd_mem(rd_mem), .rd_int(rd_int), .mem_q(mem_q), .int_q(int_q),
   .s_req_tgl(s_req_tgl), .s_req_line(s_req_line), .s_done_tgl(s_done_tgl), .fill(s_fill),
   .sw_req_tgl(sw_req_tgl), .sw_req_addr(sw_req_addr), .sw_req_data(sw_req_data), .sw_done_tgl(sw_done_tgl),

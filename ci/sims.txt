@@ -202,6 +202,7 @@
 2|cpc_io|2400|sh cores/cpc/sim/run.sh audio keys
 2|cpc_media|3600|sh cores/cpc/sim/run.sh tape disk
 2|cpc_fdcscan|900|sh cores/cpc/sim/run.sh fdcscan
+2|cpc_fdcfix|600|sh cores/cpc/sim/run.sh fdcfix
 2|cpc_pause|1800|sh cores/cpc/sim/run.sh pause
 # T92 S12: the same for layer2_cpc.v
 1|cpc_pins|120|sh cores/cpc/sim/run_pins.sh
@@ -342,7 +343,7 @@
 1|c64scpu_mirror|5400|sh cores/c64scpu/sim/run_mirror.sh
 # T182 step 6: the interrupt / vector bench (spec T182 S9 and the native-mode part of S3, 5.8): handler counts after 100,000 PHI2 cycles for CIA / VIC / RESTORE sources in emulation and native mode, with and without the vector reroute, BRK / COP, and a native 16-bit program in SuperRAM against the model. Controls: NOREROUTE, EMUONLY.
 1|c64scpu_irq|7200|sh cores/c64scpu/sim/run_irq.sh
-# T208 S1-S3 (Metal Dust): synthetic SuperCPU ROMs of our own (tools/gen_c64scpu_mdust.py) drive the game's write stream (mirror queue vs the VIC's copy, n_wlost), the HUD IRQ's I/O write spacing (cold and warm code, against a port of the VICE accounting) the crack menu's raster IRQ at 20 and 1 MHz (once per frame), and the code cache's next-line prefetch (S5: the HUD stage stays at writes + 1 with its code evicted every frame; self-modifying code that stores into the line being prefetched).
+# T208 S1-S3 (Metal Dust): synthetic SuperCPU ROMs of our own (tools/gen_c64scpu_mdust.py) drive the game's write stream (mirror queue vs the VIC's copy, n_wlost), the HUD IRQ's I/O write spacing (cold and warm code, against a port of the VICE accounting) the crack menu's raster IRQ at 20 and 1 MHz (once per frame), the stars' raster IRQ chain against the VICE accounting on badlines (BA hold of I/O writes, chain runs every frame), and the code cache's next-line prefetch (S5: the HUD stage stays at writes + 1 with its code evicted every frame; self-modifying code that stores into the line being prefetched).
 1|c64scpu_mdust|3600|sh cores/c64scpu/sim/run_mdust.sh
 # T194 S1/S2 (the C128's 40 columns through the pixel layer, cores/c128/mono/host/pix_layer.v format 3): the VIC capture with 13-word rows and three slots; the picture
 # at Integer / Fit / Fill in 1080p and 720p, 50 and 60 Hz. T140 section 18: c128_act.v (which chip is being used) and its registers.
@@ -350,3 +351,10 @@
 1|c128_vicshow|7200|sh cores/c128/sim/run_vicshow.sh
 1|c128_act|120|sh cores/c128/sim/run_act.sh
 1|c128_vicpic_tear|3600|sh cores/c128/sim/run_vicpic_tear.sh
+# T222 (S1-S6): this core's copy of the host video files (cores/c64scpu/mono/host) with the HDMI rows and scales of TRX64-Ultimate's U16: the timing per row, the mode request / scale register, the TMDS bit repeater, vic_scaler on hdmi_timing (7 rows x 3 scales + 3 controls), c64_text's geometry, hdmi_out end to end (1080p50 and 576p50 from the GTP words)
+1|c64scpu_hdmi_timing|900|sh cores/c64scpu/sim/hdmi/run_one.sh tb_hdmi_timing.v
+1|c64scpu_mode_req|1800|sh cores/c64scpu/sim/hdmi/run_one.sh tb_mode_req.v && sh cores/c64scpu/sim/hdmi/run_one.sh tb_mode_req.v -DPHASE_I2C && sh cores/c64scpu/sim/hdmi/run_one.sh tb_mode_req.v -DPHASE_SCALE
+1|c64scpu_tmds_rep|300|sh cores/c64scpu/sim/hdmi/run_one.sh tb_tmds_rep.v
+1|c64scpu_scaler|2400|JOBS=3 sh cores/c64scpu/sim/hdmi/run_scaler.sh
+1|c64scpu_text_geom|1800|JOBS=3 sh cores/c64scpu/sim/hdmi/run_text.sh
+2|c64scpu_hdmi_out|9000|sh cores/c64scpu/sim/hdmi/run_hdmi_out.sh

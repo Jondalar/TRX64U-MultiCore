@@ -67,8 +67,8 @@ def code_differs(base, head, path):
 
 
 # D2.1 (Alex, 2026-11-07: "Only real code triggers anything"): documentation, specs, TODO and notes move no key and name no target. A file of
-# this kind inside a code tree (host/README.md) is still part of that tree's content key, so a stage may find a cache miss there; the plan
-# does not name it.
+# this kind inside a code tree (host/README.md, mono/host/FROM) is no part of any content key either (ci/code_hash.py is_doc, 2026-11-15); the
+# plan does not name it and code_differs says "unchanged" for it.
 def is_noncode(p):
     base = os.path.basename(p)
     return p.startswith(("docs/", ".claude/")) or p.endswith(".md") or base.startswith("TODO") or base in ("LICENSE", "LICENSE.txt")

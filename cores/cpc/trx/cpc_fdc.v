@@ -3,9 +3,9 @@
 // fall; while sd_ack is high the requester moves the 512 bytes through sd_buff_addr / sd_buff_dout / sd_buff_wr (a read) or reads
 // sd_buff_din (a write). Here the image is a block of the DDR2 that the app filled (D0_BASE / D1_BASE, size in bytes), so a block is 32
 // lines of 16 bytes through the host's real-time port c_* (ui_clk): a request by toggle, the line held stable until the next request, the
-// same circuit as the tape engine's and the NES cartridge's. A block beyond the end of the image reads as zeros (oob is set) and a write
-// to it is dropped. A written block sets one bit per 16 KB of the image in `dirty` (the app flushes those chunks to the file and clears the
-// bits). Written for this project (TREX), no upstream code.
+// same circuit as the tape engine's and the NES cartridge's. A line (16 bytes) beyond the end of the image reads as zeros (oob is set) and a
+// write of it is dropped; the lines of a block that are inside the image are served (an image of 204,544 bytes ends 256 bytes into block 399).
+// A written block sets one bit per 16 KB of the image in `dirty` (the app flushes those chunks to the file and clears the bits). Written for this project (TREX), no upstream code.
 `timescale 1ns / 1ps
 module cpc_fdc (
     input  wire         clk,                        // sys_clk
@@ -50,7 +50,7 @@ module cpc_fdc (
     localparam [3:0] S_IDLE = 4'd0, S_CHECK = 4'd1, S_RREQ = 4'd2, S_RWAIT = 4'd3, S_RPUT = 4'd4, S_WGET0 = 4'd5, S_WGET1 = 4'd6, S_WGET2 = 4'd7,
                      S_WSEND = 4'd8, S_WWAIT = 4'd9, S_END = 4'd10, S_END2 = 4'd11;
     reg [3:0]   st = S_IDLE;
-    reg         drv = 1'b0, is_wr = 1'b0, in_img = 1'b0;
+    reg         drv = 1'b0, is_wr = 1'b0, any_w = 1'b0;
     reg [31:0]  lba = 32'd0, img_base = 32'd0;
     reg [5:0]   line = 6'd0;
     reg [4:0]   k = 5'd0;
@@ -61,7 +61,7 @@ module cpc_fdc (
     (* ASYNC_REG = "TRUE" *) reg [2:0] dn_s = 3'b000;
     reg         dn_tgl = 1'b0;
     reg [127:0] ui_line = 128'd0;
-    reg         clr_q = 1'b0;
+    (* ASYNC_REG = "TRUE" *) reg [2:0] clr_s = 3'b000;         // the app's dirty-clear toggle (cpu_clk) through three flip-flops
     assign busy = (st != S_IDLE);
     // The host's DDR2 side resetting (ui_rst) drops the transaction in flight: the ui_clk state machine goes idle and the answer is never given. The
     // sys_clk side has to leave S_RWAIT / S_WWAIT with it, or sd_ack stays high and u765 never gets another block until the machine is reset.
@@ -70,15 +70,18 @@ module cpc_fdc (
     wire rst_i = rst | urst_s[2];
 
     wire [31:0] size = drv ? d1_size : d0_size;
-    wire [41:0] end_off = {1'b0, lba, 9'd0} + 42'd512;
-    wire        fits = (end_off <= {10'd0, size});
+    // the line under `line` and the one after it: is it entirely inside the image?
+    wire [41:0] ln_end  = {1'b0, lba, 9'd0} + {33'd0, line[4:0], 4'd0} + 42'd16;
+    wire [41:0] ln_end1 = {1'b0, lba, 9'd0} + {33'd0, line[4:0], 4'd0} + 42'd32;
+    wire        in_img  = (ln_end  <= {10'd0, size});
+    wire        in_img1 = (ln_end1 <= {10'd0, size});
     wire [31:0] byte_a = img_base + {lba[22:0], 9'd0} + {22'd0, line[4:0], 4'd0};
     wire [5:0]  chunk = lba[10:5];                  // one bit per 16 KB of the image (32 sectors)
 
     always @(posedge clk) begin
         dn_s <= {dn_s[1:0], dn_tgl};
-        clr_q <= clr_tgl;
-        if (clr_q != clr_tgl) begin
+        clr_s <= {clr_s[1:0], clr_tgl};
+        if (clr_s[2] != clr_s[1]) begin                        // the data of the app side has been stable for two clocks by now
             if (!clr_d) dirty0[8 * clr_i +: 8] <= dirty0[8 * clr_i +: 8] & ~clr_a;
             else dirty1[8 * clr_i +: 8] <= dirty1[8 * clr_i +: 8] & ~clr_a;
         end
@@ -92,15 +95,14 @@ module cpc_fdc (
                 is_wr <= |sd_wr;
                 lba <= sd_lba;
                 img_base <= (sd_rd[1] | sd_wr[1]) ? d1_base : d0_base;
-                line <= 6'd0; k <= 5'd0;
+                line <= 6'd0; k <= 5'd0; any_w <= 1'b0;
                 sd_ack <= 1'b1;
                 st <= S_CHECK;
             end
-            S_CHECK: begin                                 // drv, lba and size are settled: is the block inside the image?
-                in_img <= fits;
-                if (!fits) oob <= 1'b1;
+            S_CHECK: begin                                 // drv, lba and size are settled: is the first line inside the image?
+                if (!in_img) oob <= 1'b1;
                 if (is_wr) st <= S_WGET0;
-                else if (fits) st <= S_RREQ;
+                else if (in_img) st <= S_RREQ;
                 else begin ldata <= 128'd0; k <= 5'd0; st <= S_RPUT; end
             end
             // ---- read: a line at a time into u765's buffer
@@ -118,7 +120,7 @@ module cpc_fdc (
                     if (line == 6'd31) st <= S_END;
                     else begin
                         line <= line + 6'd1;
-                        if (in_img) st <= S_RREQ; else begin ldata <= 128'd0; k <= 5'd0; end
+                        if (in_img1) st <= S_RREQ; else begin ldata <= 128'd0; k <= 5'd0; oob <= 1'b1; end
                     end
                 end
             end
@@ -134,8 +136,10 @@ module cpc_fdc (
                 end else st <= S_WGET0;
             end
             S_WSEND: begin
+                if (!in_img) oob <= 1'b1;
                 if (in_img) begin
                     rq_addr <= byte_a[27:1]; rq_wr <= 1'b1; rq_tgl <= ~rq_tgl;
+                    any_w <= 1'b1;
                     st <= S_WWAIT;
                 end else if (line == 6'd31) st <= S_END;
                 else begin line <= line + 6'd1; k <= 5'd0; st <= S_WGET0; end
@@ -145,7 +149,7 @@ module cpc_fdc (
                 else begin line <= line + 6'd1; k <= 5'd0; st <= S_WGET0; end
             end
             S_END: begin
-                if (is_wr && in_img) begin
+                if (is_wr && any_w) begin
                     if (drv) dirty1[chunk] <= 1'b1; else dirty0[chunk] <= 1'b1;
                 end
                 sd_ack <= 1'b0;

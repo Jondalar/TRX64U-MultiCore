@@ -6,13 +6,13 @@
   - cores/<id>/mono/build_mono.tcl defines `set hd ../cores/<id>/mono/host` and names no file of the live host/ tree by its bare name (code and
     comment-free lines, outside string literals): such a name is read from Vivado's working directory host/, i.e. the shared tree, and a host change would
     reach the build behind the cache key's back;
-  - the descriptor's `sources` cover the copy (mono/host/FROM is among the tracked files they select), so the cache key and the plan see it.
 
+FROM itself is documentation and is no input of any CI key (ci/code_hash.py is_doc, 2026-11-15), so it is not a probe of the `sources` either.
 The copies are NOT compared with host/: they may differ from it and from each other (a host fix reaches a large core only by copying it in on purpose).
 tools/host_pin.sh stays about host/ only.
 
   tools/check_large_copies.py            the checkout
-  tools/check_large_copies.py selftest   a bare host name, a stray file, a missing FROM and sources that leave the copy out must each be refused
+  tools/check_large_copies.py selftest   a bare host name, a stray file, a missing FROM and a missing `set hd` must each be refused
 """
 import os
 import re
@@ -76,10 +76,6 @@ def check(root):
         live = sorted(set(t for t in code_tokens(txt) if t in names))
         if live:
             bad.append("cores/%s/mono/build_mono.tcl names live host/ files by their bare name (read from host/, not from the copy): %s" % (c, " ".join(live[:8])))
-        specs = sh(root, "python3", "tools/core_toml.py", "sources", c).split("\n")
-        specs = [s for s in specs if s]
-        if "%s/FROM" % d not in sh(root, "git", "ls-files", "-z", "--", *specs).split("\0"):
-            bad.append("cores/%s/mono/core.toml `sources` do not cover %s: its cache key and the plan would not see the copy" % (c, d))
     return bad
 
 
@@ -123,8 +119,6 @@ def selftest():
         rc |= mutate("a missing FROM", lambda: os.remove(os.path.join(t, "cores", "x", "mono", "host", "FROM")), "FROM is missing")
         rc |= mutate("a stray file", lambda: (open(os.path.join(t, "cores", "x", "mono", "host", "stray.v"), "w").write("\n"), g("add", "-A")), "different files")
         rc |= mutate("no set hd", lambda: open(tclp, "w").write("read_xdc $hd/pins.xdc\n"), "does not `set hd")
-        rc |= mutate("sources that leave the copy out", lambda: open(os.path.join(t, "cores", "x", "mono", "core.toml"), "a").write(
-            'sources = ["cores/x/mono/build_mono.tcl"]\n'), "do not cover")
         return rc
     finally:
         shutil.rmtree(t, ignore_errors=True)
