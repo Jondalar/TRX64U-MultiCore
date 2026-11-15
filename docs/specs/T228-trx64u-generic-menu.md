@@ -266,6 +266,9 @@ overlay was fitted from a 1280x800 manual picture, so its scale on the real 960x
 
 - D7 (Alex 2026-11-15, Q2c): Streams (start/stop and their targets) are a section inside the F8 tab "Network", not an own tab.
 
+- D8 (Alex 2026-11-15, Q3a, after mock-ups q03a-c: "a fits, you can make tabs there too", translated): "Reboot, clear memory",
+  "Save C64 memory" and "Save REU memory" go to F1 Home, top, beside Reset. F1 may get tabs of its own when it grows.
+
 ## §4 Out
 
 ## §5 Built
