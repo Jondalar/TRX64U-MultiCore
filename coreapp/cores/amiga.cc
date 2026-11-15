@@ -66,7 +66,7 @@ static const char *const led_names[]   = { "On", "Off" };
 static const char *const rtc_names[]   = { "Off", "On" };
 static const char *const pad2_names[]  = { "Off", "On" };
 static const char *const pad2_type_names[] = { "Joystick 1 button", "Joystick 2 buttons", "CD32 gamepad" };
-static const char *const pad2_map_names[]  = { "Map...", "Map..." };       // any change starts the mapping dialog (amiga.pad2_map)
+static const char *const pad2_map_names[]  = { "Map...", "Map port 2..." };  // stepping to the second value starts the mapping dialog (amiga.pad2_map) and falls back; the names must differ, settings.set finds the value by name
 // T190: the USB driver's sensitivity 1 .. 16 (8 = 1:1) and acceleration, as Gideon's items offer them (u64_config.cc CFG_MOUSE_SENSITIVITY 1 .. 16 default 8, CFG_MOUSE_ACCELERATION Off / Adaptive default Off)
 static const char *const mouse_sens_names[] = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16" };
 static const char *const mouse_acc_names[]  = { "Off", "Adaptive" };
@@ -225,8 +225,11 @@ static void pad2_loaded(CoreCtx *c, int type)
 }
 
 // The row "Map port 2 buttons" is not a value, only the way to start the dialog from the Input tab: it falls back at once.
-static int op_pad2_map(CoreCtx *c, const OpArgs &, OpOut &o)
+static int op_pad2_map(CoreCtx *c, const OpArgs &a, OpOut &o)
 {
+    if (a.i(0) == 0) {                                               // the row rests on 0; the boot-time apply of every live setting must not open the dialog
+        return OPE_OK;
+    }
     int i = c->settings ? c->settings->find("Map port 2 buttons") : -1;
     if (i >= 0) {
         c->settings->set(i, 0);

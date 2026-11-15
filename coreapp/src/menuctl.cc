@@ -2009,6 +2009,10 @@ MenuCtl::Result MenuCtl::change_setting(int dir)
     // the same operation a REST or WS client calls (T104.1 D3)
     OpResult r;
     int rc = settings_set(c_, s.key, s.values[v], &r);
+    if (!rc && wizard()) {                                           // T225 D3: the setting's operation opened a wizard (a row that only starts a dialog): its screen is the answer
+        set_status("", false);
+        return R_REDRAW;
+    }
     if (!rc && first[0]) {                                           // the key(s) stepped over are named
         char l2[128];
         snprintf(l2, sizeof(l2), "%s: %s (%s)", s.label, s.values[v], first);
