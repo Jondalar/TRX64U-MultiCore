@@ -66,7 +66,6 @@ static const char *const led_names[]   = { "On", "Off" };
 static const char *const rtc_names[]   = { "Off", "On" };
 static const char *const pad2_names[]  = { "Off", "On" };
 static const char *const pad2_type_names[] = { "Joystick 1 button", "Joystick 2 buttons", "CD32 gamepad" };
-static const char *const pad2_map_names[]  = { "Map...", "Map port 2..." };  // stepping to the second value starts the mapping dialog (amiga.pad2_map) and falls back; the names must differ, settings.set finds the value by name
 // T190: the USB driver's sensitivity 1 .. 16 (8 = 1:1) and acceleration, as Gideon's items offer them (u64_config.cc CFG_MOUSE_SENSITIVITY 1 .. 16 default 8, CFG_MOUSE_ACCELERATION Off / Adaptive default Off)
 static const char *const mouse_sens_names[] = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16" };
 static const char *const mouse_acc_names[]  = { "Off", "Adaptive" };
@@ -122,6 +121,7 @@ static const Task tasks[] = {
     { "Create blank ADF", "disk.create", new_adf, 3, false, "Name of the new ADF", "disk.suggest.adf", true },
     { "Mount folder as HD0", "sectors.mount_folder", mfold0, 2, false, "Size of the disk in GB", "sectors.folder.offer", true, "Use this folder" },
     { "Mount folder as HD1", "sectors.mount_folder", mfold1, 2, false, "Size of the disk in GB", "sectors.folder.offer", true, "Use this folder" },
+    { "Map port 2 buttons", "menu.pad_map_port", 0, 0, false, 0, 0, false, 0, "input" },   // T225 D3: a task (shown on the Input tab, T226), not a setting: it opens a dialog
 };
 
 static const OpBind rdf0[] = { B_FILE("path") };
@@ -224,20 +224,6 @@ static void pad2_loaded(CoreCtx *c, int type)
     pad2_apply(c);
 }
 
-// The row "Map port 2 buttons" is not a value, only the way to start the dialog from the Input tab: it falls back at once.
-static int op_pad2_map(CoreCtx *c, const OpArgs &a, OpOut &o)
-{
-    if (a.i(0) == 0) {                                               // the row rests on 0; the boot-time apply of every live setting must not open the dialog
-        return OPE_OK;
-    }
-    int i = c->settings ? c->settings->find("Map port 2 buttons") : -1;
-    if (i >= 0) {
-        c->settings->set(i, 0);
-    }
-    return pad_wizard_begin(c, 0, o);
-}
-static const ArgSpec pad2_map_arg[] = { ARG_INT("value", 0, 1) };
-
 static const MemMap amiga_mem = { 0, 0, false, "The Amiga's chip and slow RAM are the core's own SDRAM; no window of the application reaches them" };
 
 static void amiga_register(OpRegistry &r)
@@ -248,7 +234,6 @@ static void amiga_register(OpRegistry &r)
     r.add_op("amiga.mount_reset", mount_reset_arg, 1, op_mount_reset);
     r.add_op("amiga.pad2_on", pad2_on_arg, 1, op_pad2_on);          // T225
     r.add_op("amiga.pad2_type", pad2_type_arg, 1, op_pad2_type);
-    r.add_op("amiga.pad2_map", pad2_map_arg, 1, op_pad2_map);
     r.add_state("amiga.df0.image", win_state<0>);
     r.add_state("amiga.df1.image", win_state<1>);
     r.add_state("amiga.df2.image", win_state<2>);
@@ -367,10 +352,9 @@ static CoreDesc make(int v)
         s[ns++] = Setting{ "LED Load Indicator", led_names, 2, 0, WHEN_LIVE, "led.load", 0 };
     }
 
-    // T225: a USB gamepad as game port 2 (Input tab): On = port 2 comes from the pad only (D1), the type is what the Amiga sees, the third row opens the dialog
+    // T225: a USB gamepad as game port 2 (Input tab): On = port 2 comes from the pad only (D1), the type is what the Amiga sees, the task "Map port 2 buttons" opens the dialog
     s[ns++] = Setting{ "Map port 2 to USB controller", pad2_names, 2, 0, WHEN_LIVE, "amiga.pad2_on", 0, 0, "input", 0, 0 };
     s[ns++] = Setting{ "Port 2 acts as", pad2_type_names, 3, 0, WHEN_LIVE, "amiga.pad2_type", 0, 0, "input", 0, 0, 0 };
-    s[ns++] = Setting{ "Map port 2 buttons", pad2_map_names, 2, 0, WHEN_LIVE, "amiga.pad2_map", 0, 0, "input", 0, 0, 0 };
 
     // T190: the mouse's scaling, applied by the base operations mouse.sens (the value is the sensitivity itself: base 1) and mouse.accel
     s[ns++] = Setting{ "Mouse Sensitivity", mouse_sens_names, 16, 7, WHEN_LIVE, "mouse.sens", 0, 1, "input", 0, 0, "Mouse sensitivity" };
@@ -386,7 +370,7 @@ static CoreDesc make(int v)
     d.store = a.store;
     d.min_contract = 1;
     d.settings = s; d.nsettings = ns;
-    d.tasks = tasks; d.ntasks = 11;
+    d.tasks = tasks; d.ntasks = 12;
     d.filetypes = filetypes; d.nfiletypes = 2;
     d.media = media; d.nmedia = 6;
     // 720 x 540 at scale 2 on 1920 x 1080; the three buffers are gateware parameters (FB_BUFS, FB_BYTE0): no FB_BASE / FB_STRIDE register
