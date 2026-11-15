@@ -4,6 +4,8 @@ this core only by copying it in here on purpose, then update this line. The file
 Edits to the copies: gideon_vhdl.tcl: the local VHDL names carry $hd/ (set by build_mono.tcl); overlay.v: the two $readmemh paths point into this folder (mem/). hdmi_modes.vh: the T188 edition (rows 0..2 bent to the Amiga frame), made by `python3 tools/hdmi_modes.py amiga-gen`, not a copy of host/ (`amiga-check` in lint catches a re-copy).
 T195 (2026-11-09): ui_buttons.v added (copied from host/); top.v, ultimate_sys.vhd and pins.xdc carry the same UI_BUTTON change as host/ (Menu: left and middle, Reset: right, ITU bit 5/7 move).
 
+T189 (2026-11-15): trx_tone.v added (copied from host/); trx_gain.v (25-bit input), top.v and ultimate_sys.vhd carry the same tone-preset change as host/ (register 0x51).
+
 Files:
 app_i2c.v
 app_input.v
@@ -60,6 +62,7 @@ rvlite_wrapper_dc.vhd
 tmds_rep.v
 top.v
 trx_gain.v
+trx_tone.v
 uci_unit.vhd
 ui_buttons.v
 ultimate_sys.vhd

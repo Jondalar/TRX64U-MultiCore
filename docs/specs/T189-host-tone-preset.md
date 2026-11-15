@@ -98,6 +98,9 @@ Scenario: S8 the sound (P5) - board, by hand
 
 - **Host gateware (2026-11-15, branch `t189-tone`):** `host/trx_tone.v` (new), `trx_gain.v` input widened to 25 bit, `top.v` (`mtone` before `mgain`, `tone_sel`),
   `ultimate_sys.vhd` (register `0x51`, reset 0, port `tone_sel`), `build.tcl` / `layers.txt` list the file, `contract/host_pin.txt` updated.
+- **Large cores (D6):** the 12 large mono builds except neogeo (amiga, amiga1200, c128, c264, c64scpu, cpc, diag, nes, pet, snes, zx, zxnext) carry the same change in their
+  OWN copy (`mono/host/{trx_tone.v,trx_gain.v,top.v,ultimate_sys.vhd}` + their `mono/top.v` for c128, c64scpu, diag, `build_mono.tcl`, `FROM`; no shared file).
+  neogeo is left alone (D6: once its flat build places again; its copy has no filter, so its app shows no Tone row).
 - Bass set is Q2.16, treble set Q3.15 (18-bit coefficients; the bass poles sit so close to 1 that Q3.15 lost 0.06 dB at 100 Hz and left a +-1000 LSB dead band).
   The rounding remainder of each sample goes into the next sample's sum (first-order error feedback): no dead band, no DC offset after a burst.
 - Timing in the frame: the filter captures the core's pair 16 clocks after `frame_en`, the output register changes about 30 clocks after it and holds for the rest
