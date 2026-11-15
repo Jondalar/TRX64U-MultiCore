@@ -275,6 +275,8 @@ overlay was fitted from a 1280x800 manual picture, so its scale on the real 960x
 - D11 (Alex 2026-11-15, Q5, translated: "we do not save to flash! and nothing is erased in flash there either!!! Reset to host
   defaults is the right one"): F8 > Reset has "Reset to host defaults" only, no "Clear flash config" row. The menu writes and erases
   nothing in flash; settings are not stored in flash.
+- D12 (Alex 2026-11-15, Q6a, after mock-ups q06a-c): "Keys and help" is a row in F8 > Support in every core (generic), beside
+  Bug report and About.
 
 ## §4 Out
 
