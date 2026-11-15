@@ -9,6 +9,7 @@
 #include "menuctl.h"
 #include "regset.h"
 #include "ops.h"
+#include "ops_glue.h"
 #include "volume.h"
 #include "tone.h"
 
