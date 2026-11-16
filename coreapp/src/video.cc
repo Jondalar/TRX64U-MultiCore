@@ -135,10 +135,24 @@ void Video::place_menu(int hdmi, int sys)
 // T194: the alternative's height follows the System Mode's family (the VIC frame is 65 x 263 in NTSC and PAL-60: 240 lines of the window, else 270)
 void Video::alt_height(int sys)
 {
+    if (msys_ >= 0) {
+        sys = msys_;                               // the capture's rows are the VIC's, not the HDMI row's: a 50 Hz machine on a 60 Hz row still has 270
+    }
     if (pic_ && alt_ && alt_->h60) {
         d_.h = (sys == VID_SYS_NTSC60 || sys == VID_SYS_PAL60) ? alt_->h60 : alt_->h;
         vw_ = d_.w;
         vh_ = d_.h;
+    }
+}
+
+void Video::set_machine_sys(int sys)
+{
+    if (sys == msys_) {
+        return;
+    }
+    msys_ = sys;
+    if (pic_ && mode_ >= 0 && !own_picture()) {
+        set_mode(mode_, sys_);                     // the height of the capture changed with the family
     }
 }
 
