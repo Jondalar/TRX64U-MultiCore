@@ -95,6 +95,8 @@ bitstream with Gideon's application). The Gideon UI is to be phased out; for a w
 - **D7 (Alex 2026-11-16, Q-A answered "in the config (recommended)"):** the autostart target lives in the core's config: one setting
   "Autostart" (file + Mount & Run / Load & Run) in the core settings, saved with "Save as config"; choosing that config in the boot menu
   (RIGHT) starts the program. No new field in the start file. The place of the row in the menu is asked separately, with pictures.
+- **D8 (Alex 2026-11-16, Q-B answered "yes, trx64g stays as it is (recommended)"):** P-6 holds: trx64g starts without a config choice,
+  keeps `trx64g/trx64g.cfg`, does not read the start file; no work in Gideon's application. The config choice exists only in our UI (trx64u).
 - **Proposal P-1 (version, after FW-1):** TRX64-Ultimate's `ci/package.sh` writes `"version": "x.y.z"` from the packed application's
   `APPL_VERSION_NUMBER` into `manifest.json`. MultiCore copies it into the pin as `SEMVER=` when the pin moves, but only when
   `PKG_VERSION` is a release (Gitea release `trx64-<PKG_VERSION>` exists); a non-release pin gets `x.y.z-dev+<sha8>`.
@@ -150,13 +152,13 @@ For the TRX64-Ultimate firmware session:
 For Alex:
 - **Q-A: answered (D7).** Where does the autostart target come from: (a) a row in the core's config ("Autostart" = a file + mode), saved with
   "Save as config"; (b) a choice in the host's RIGHT overlay, carried in the start file (`run=`); (c) both?
-- **Q-B:** Does P-6 hold: no config choice for trx64g at start?
+- **Q-B: answered (D8).** Does P-6 hold: no config choice for trx64g at start?
 
 ## §4 Out
 
 - No change of the hand-over page layout or address (contract §3 stays as it is for the page).
 - Nothing published to GitHub; releases stay by hand (CLAUDE.md).
-- Pending §3a: whether trx64g gets anything (Q-B).
+- trx64g gets no config choice at start (D8).
 
 ## §5 Implementation log
 
