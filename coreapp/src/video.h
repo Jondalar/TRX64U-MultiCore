@@ -100,6 +100,7 @@ public:
     void set_alt(const VideoDesc *a) { alt_ = a; }
     void select_picture(int n);
     int picture() const { return pic_; }
+    void set_machine_sys(int sys);                 // the System Mode the core's VIC runs (the capture's family), apart from the HDMI row's
     uint32_t front() const { return front_; }
     bool visible() const { return on_; }
     // fmt: the layer's format, 1 RGB565 or 2 32 bit (T136)
@@ -132,6 +133,7 @@ private:
     VideoDesc prim_ = VideoDesc();                 // the descriptor's own picture while the alternative is selected, with its bias
     int pic_ = 0, prim_bx_ = 0, prim_by_ = 0;
     void alt_height(int sys);
+    int msys_ = -1;                                // the machine's System Mode (its VIC's 50 / 60 Hz family); -1 = not told, sys_ stands in
 };
 
 #endif

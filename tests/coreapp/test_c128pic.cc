@@ -102,6 +102,26 @@ int main()
         CHECK_EQ(px.last(PX_STRIDE), 208u);
         CHECK_EQ(px.last(PX_CTRL), 0x17u);
     }
+    // Board 2026-11-16: a 50 Hz machine (System Mode PAL) on a 1080p 60 Hz row still captures 270 rows, a 60 Hz machine on a 50 Hz row 240: the capture's height
+    // is the machine's, the row's family only picks the frame (before: the row's family chose, a PAL machine showed 240 of its 270 lines, picture too low, bottom cut)
+    v.set_scale_mode(VID_SCALE_FILL);
+    v.set_machine_sys(VID_SYS_PAL50);
+    v.set_mode(VID_HDMI_1080P, VID_SYS_NTSC60);
+    CHECK_EQ(px.last(PX_SIZE), (270u << 16) | 400u);
+    CHECK_EQ(px.last(PX_OSIZE), (1080u << 16) | 1920u);
+    CHECK_EQ(px.last(PX_POS), 0u);
+    v.set_scale_mode(VID_SCALE_INTEGER);
+    CHECK_EQ(px.last(PX_OSIZE), (1080u << 16) | 1600u);          // 4 x 270, centred: 160, 0
+    CHECK_EQ(px.last(PX_POS), 160u);
+    v.set_machine_sys(VID_SYS_NTSC60);
+    v.set_mode(VID_HDMI_1080P, VID_SYS_PAL50);
+    CHECK_EQ(px.last(PX_SIZE), (240u << 16) | 400u);
+    CHECK_EQ(px.last(PX_OSIZE), (960u << 16) | 1600u);           // 4 x 240, centred: 160, 60
+    CHECK_EQ(px.last(PX_POS), (60u << 16) | 160u);
+    v.set_machine_sys(VID_SYS_PAL50);                            // the family changes while shown: the height follows at once
+    CHECK_EQ(px.last(PX_SIZE), (270u << 16) | 400u);
+    v.set_machine_sys(-1);                                       // not told: the row's family stands in, as the table above
+    v.set_scale_mode(VID_SCALE_FILL);
     // Smoothing reaches it: b6 of PX_CTRL
     v.set_scale_mode(VID_SCALE_FILL);
     v.set_mode(VID_HDMI_1080P, VID_SYS_PAL50);

@@ -437,6 +437,7 @@ void picture_apply(CoreCtx *c, int value)
             changed = true;
         }
     }
+    c->video->set_machine_sys(g_msys);
     c->video->set_mode(p.hdmi, p.sys);
     if (changed) {                                 // Q7 (every change - menu, REST, web - asks; run.cc shows the question with the menu closed too): any key keeps it, else the previous mode and the previous item come back
         g_cf.active = true;
@@ -457,6 +458,7 @@ void picture_set_system(CoreCtx *c, int sys)
         return;
     }
     sys = vic_family(sys);
+    c->video->set_machine_sys(sys);                // the capture's family is the machine's, before the early return below
     int hdmi = current_hdmi(c);
     if (hdmi < 0) {
         hdmi = VID_HDMI_1080P;
