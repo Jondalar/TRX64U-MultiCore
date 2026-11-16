@@ -195,7 +195,7 @@ PARAS = {
         "A `.rom` of the wrong size is refused",
         "with a message. With none, the core stays held and the screen says \"Kickstart not found ... Put a 256K",
         "or 512K .rom file ... is missing in /SD/cores/amiga/roms/\" after about 10 seconds. A plain reset reloads the Kickstart when you",
-        "picked another file; **Reload Kickstart, reset** (top of F1) always does.",
+        "picked another file; **Reload Kickstart, Reset** (top of F1) always does.",
         "Where to get it: Amiga Forever (%s), Cloanto's licensed package with Kickstart 1.3 and 3.1." % AMIGA_FOREVER,
         "The core needs a plain image: a file that does not begin with `1111` or `1114` is not recognised as a",
         "Kickstart, and Auto cannot tell what it is. A file that needs Cloanto's `rom.key` to be read has to be",
@@ -262,11 +262,11 @@ PARAS = {
     ],
     "snes": [
         "Needs no ROM file: the 64 byte boot ROM of the console's sound processor is embedded in the application. Games are `.sfc` / `.smc` files chosen in the F3 Library.",
-        "Battery saves go to `saves/<game>.srm` in the core's folder. Cartridges with a coprocessor other than a DSP-n (SA-1, Super FX, Cx4, SPC7110, S-DD1, ST010/ST011) are refused.",
+        "Battery saves go to `saves/<game>.srm` in the core's folder. Cartridges with an SA-1, Super FX, Cx4, SPC7110, S-DD1 or ST010/ST011 are refused.",
         "**DSP-n cartridges** (DSP-1/1B, DSP-2, DSP-3, DSP-4: Super Mario Kart, Pilotwings, Dungeon Master, SD Gundam GX, Top Gear 3000) run, but the chip's firmware is not part of this release and never will be:",
         "you supply it as 8192 bytes. The core takes it from the end of the `.sfc` when the file is a power-of-two ROM size plus 8192 bytes; otherwise from a file in `cores/snes/roms/` or `roms/snes/` on any medium:",
         "`dsp1b.bin` (else `dsp1.bin`) for DSP-1, `dsp2.bin`, `dsp3.bin`, `dsp4.bin`. A firmware file with the words high byte first is recognised and turned around. The chip is chosen from the game's title;",
-        "the setting **DSP firmware** (F5, takes effect at the next reset) overrides it (Auto, DSP-1 ... DSP-4). Without a firmware file the game is refused with a message that names the file and the folder.",
+        "the setting **DSP firmware** (F5, takes effect when the game is run again from F3; a Reset alone keeps the chip) overrides it (Auto, DSP-1 ... DSP-4). Without a firmware file the game is refused with a message that names the file and the folder.",
     ],
 }
 
@@ -291,7 +291,7 @@ MEDIA = {
 }
 
 KNOWN = {
-    "_scpu": "**C64 with SuperCPU (large core, experimental):** *Run Disk* and *Mount & Run* type `LOAD\"*\",8,1` and `RUN` through the keyboard matrix when BASIC is at READY, and a `.prg` of the stick or inside a disk image is placed into the 65816's own RAM; both are built, a board pass is not recorded yet. *Metal Dust* scrolls without picture faults (board 2026-11-15). A large core replaces the whole FPGA: power off and on to come back.",
+    "_scpu": "**C64 with SuperCPU (large core, experimental):** *Run Disk* types `LOAD\"*\",8,1` and `RUN` through the keyboard matrix at READY (no board pass yet); *Load + run* of a `.prg` on the stick and *Mount & Run* of one inside a disk image place it into the 65816's own RAM and type RUN or SYS (Load + run: board pass 2026-11-15). *Metal Dust* scrolls without picture faults (board 2026-11-15). A large core replaces the whole FPGA: power off and on to come back.",
     "atari800": "**Atari 800 XL:** a mounted `.atr` boots. Some executables (the trainer demo) show a broken scroller and ignore input.",
     "apple2": "**Apple IIe:** swapping the disk in D1: while a game runs is not tested on the board yet.",
     "pet": "**Commodore PET (large core, experimental):** starts on the board and runs demos (2026-11-11); the models and the cassette are not checked yet. Needs your own PET ROMs. A large core replaces the whole FPGA: power off and on to come back.",
@@ -303,7 +303,7 @@ KNOWN = {
     "cpc": "**Amstrad CPC:** never on the board. The picture position (720 x 540 at scale 2) is an estimate; there is no tape SAVE and no snapshot.",
     "neogeo": "**SNK Neo Geo (large core):** never on the board. The machine is held while a sprite or fix word is late from the DDR2 (about 210,000 words in a 320 ms bench run); whether that is visible is open. A large core replaces the whole FPGA: power off and on to come back.",
     "zxnext": "**ZX Spectrum Next:** never on the board; the CPU runs from the DDR2 behind a cache and waits on a miss, so the speed of a program that does not fit the cache is below the real machine's. 128K, +3 and Pentagon timing run 1.5 to 2.7 % fast (frame lock); no Sega 6-button pad, no SD pass-through.",
-    "snes": "**Super Nintendo (large core):** The ROM and RAM are in the DDR2 behind caches and the machine waits on a miss (about 1 % in the benches); no coprocessor cartridges other than DSP-n (a DSP-n game needs its firmware, section 5; Super Mario Kart with DSP-1 runs on the board); the keys for the buttons are a proposal.",
+    "snes": "**Super Nintendo (large core):** The ROM and RAM are in the DDR2 behind caches and the machine waits on a miss (about 1 % in the benches); no SA-1, Super FX, Cx4, SPC7110, S-DD1 or ST010/ST011 cartridges (a DSP-n game needs its firmware, section 5; Super Mario Kart with DSP-1 runs on the board); the keys for the buttons are a proposal.",
     "vc20": "**VIC-20:** the common application is never on the board for it; the board retest of the current version is still open.",
 }
 
@@ -525,8 +525,8 @@ def render(a, cors, bit_len, alen, dest):
     w("The common menu: **F1** quick actions (the core's resets and reloads on top, then one row per drive or slot: RETURN on it opens")
     w("the list for that drive, e.g. mount from the Library, create a blank image, eject, tape controls; a line with the machine's model and memory; save and load")
     w("the core's config), **F3** Library (the file browser: ENTER on a file offers what to do with it), **F5** the machine (its settings: video, audio, input),")
-    w("**F7** app settings (storage, where the menu opens, hotkeys; a setting that also exists in the host starts with the host's value, **Reset to host defaults** restores it),")
-    w("**F8** System (build version, ROMs, libraries, network, return to the host menu).")
+    w("**F7** app settings (storage, where the menu opens, hotkeys; a setting that also exists in the host starts with the host's value),")
+    w("**F8** System (build version, ROMs, libraries, network, **Reset to host defaults** - every setting of the core back to the host's values -, return to the host menu).")
     w("")
     w("**Media per core:**")
     w("")
@@ -573,8 +573,8 @@ def render(a, cors, bit_len, alen, dest):
     w("Send us:")
     w("")
     w("- a **photo of the screen**;")
-    w("- the **core and its version** (the boot menu shows them; the common menu's F8 System page shows core, version and")
-    w("  app build) and this bundle's id: `%s`;" % a.id)
+    w("- the **core and its version** (the boot menu shows them; F8 System shows the app build; F8's Bug report has core, core version")
+    w("  and build) and this bundle's id: `%s`;" % a.id)
     w("- what you did, step by step, and what you expected;")
     w("- for a ROM problem: the message on the screen, and the file name and size on your stick.")
     w("")
