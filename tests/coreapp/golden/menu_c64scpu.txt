@@ -14,6 +14,8 @@ area F3 Library
   tab 1 Browse
     browser Browse
       filetype .rom: Set as 1541 ROM
+      filetype .prg: Load | Load + run
+      filetype .p00: Load | Load + run
       filetype .d64: Mount Disk | Mount Disk Read Only | Mount Disk Unlinked | Run Disk | Browse Disk
         inside .prg: Mount & Run | Real Run
       filetype .g64: Mount Disk | Mount Disk Read Only | Mount Disk Unlinked | Run Disk
