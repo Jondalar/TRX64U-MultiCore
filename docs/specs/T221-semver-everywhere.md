@@ -119,8 +119,10 @@ Everything else is open, asked one at a time, answers recorded here when given.
 **Release decision (Alex 2026-11-16):** the tester pre-release `trx64mc-main-13c2cde9` ships the board-tested bytes, versions shown as
 `x.y.z-dev+13c2cde9`, not promoted ("A"). After it, `main` moves reliably to SemVer releases: "danach stellen wir den Kram hier auf Main jetzt
 verlässlich auf Release per SemVer um, also das nächste Release wird eines mit Tag und reiner Versionsnummer, ohne diesen Branchkram dahinter"
-(the next release is a tag with a plain version number, no branch/sha suffix). Open for that step: the release path must produce and board-test
-the promoted bytes (release_promote.py / release_mc.sh) instead of promoting tested dev bytes afterwards.
+(the next release is a tag with a plain version number, no branch/sha suffix). The release promotes the board-tested bytes (only the version
+text changes; no rebuild, no second board test - Alex: "Das ist doch Ressourcenverschwendung"). Open for that step: `release_promote.py`
+promotes the .cor files and the app but not the app inside the update files (.cfw/.ue2), so `release_mc.sh`'s installer check fails; the
+promote step must cover every part.
 
 ## §4 Out
 
