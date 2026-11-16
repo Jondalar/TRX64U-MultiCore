@@ -120,7 +120,7 @@ int main()
     CHECK(o.cur == 3 && !strcmp(hc_cfgov_cur_name(), "Games"));
     HcWifiPick pk;
     hc_cfgov_pick(&pk);
-    CHECK(pk.n == 6 && !strcmp(pk.item[0].a, "Plain start") && !strcmp(pk.item[3].a, "Games") && !strcmp(pk.item[3].c, "auto") && pk.sel == 3);
+    CHECK(pk.n == 7 && !strcmp(pk.item[0].a, "Plain start") && !strcmp(pk.item[6].a, "Boot safe graphics mode") && !strcmp(pk.item[3].a, "Games") && !strcmp(pk.item[3].c, "auto") && pk.sel == 3);
     CHECK(pk.cfgov && !pk.item[0].b[0] && !pk.item[3].b[0] && !strcmp(pk.sub, "5 configs"));
     hc_cfgov_close();
     CHECK(hc_cfgov_open("/SD/cores/amiga.cor", "Amiga", -1, true));
@@ -140,10 +140,10 @@ int main()
     for (int i = 0; i < 10; i++) hc_cfgov_move(-1);
     CHECK(o.cur == 0 && !strcmp(hc_cfgov_cur_name(), ""));
     for (int i = 0; i < 10; i++) hc_cfgov_move(+1);
-    CHECK(o.cur == 5);
+    CHECK(o.cur == 6 && hc_cfgov_on_safe());                                         // the last row is the safe one (T224 D1), after the 5 configs
 
     // S9: D sets, D again clears; on Plain start it clears; the boot.cfg line carries it
-    hc_cfgov_move(-1);                                                               // old
+    hc_cfgov_move(-1); hc_cfgov_move(-1);                                            // old (Zed, then old)
     g_saves = 0;
     CHECK(hc_cfgov_default() && g_saves == 1 && !strcmp(hc_cfg().e[0].defcfg, "old") && g_saved.find("|old\n") != std::string::npos);
     CHECK(hc_cfgov_default() && !hc_cfg().e[0].defcfg[0] && g_saved.find("|old") == std::string::npos);

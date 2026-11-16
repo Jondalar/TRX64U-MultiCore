@@ -97,3 +97,8 @@ Nothing decided yet. Gateware changes (A1200 576p lock) are out of this spec unt
 - S5: small VIC-20 and large A1200: `[core] safe graphics mode: 3 video settings overridden for this start` at all three modes (large via the start file, `safe 1`).
 - S6: `.cfg` of the VIC-20 and the A1200 byte-identical (md5) after the safe start; a later save in that session not run here.
 - S7: second plain start of the large core after the safe start: `safe 0`, no override line (log `workB/run-<mode>.log`).
+
+### Fast-tier fixes on integ-1116 (2026-11-16)
+- `tests/coreapp/test_settings.cc`: a `"..." + std::string(...)` expression inside `CHECK_TXT` did not compile (the macro passes a `const char *`); the expected text is a `std::string` now.
+- `tests/hostapp/hostcore_stubs.cc`: the host test build had no `core_set_start_safe` (the real one is in `coreboot.cc`, which the test does not link); a recording fake `stub_start_safe` was added beside `core_set_start_config`.
+- `tests/coreapp/test_handover.cc`: the bit-flip loop of the config check ran to the end of the page and so flipped `safe_sum` and `host_version`, which are not part of the config (the code is right: `handover_config_sum` covers all 48 bytes of `config`). The loop ends at `safe_sum`; new loops flip every bit of the safe flag's and the host version's own field (`safe_sum`, `hostver_sum`, `host_version`) and require no wrong value.

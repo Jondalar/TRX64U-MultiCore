@@ -127,7 +127,7 @@ int main()
         // a damaged or stale tail is never read as a name: every flipped bit is a plain start or the very name
         CHECK(handover_set_config(&c, "Demo collection"));
         int wrongc = 0;
-        for (unsigned i = offsetof(Handover, config_sum); i < sizeof(c); i++) {
+        for (unsigned i = offsetof(Handover, config_sum); i < offsetof(Handover, safe_sum); i++) {   // the config's own field: its check word and its 48 bytes
             for (int bit = 0; bit < 8; bit++) {
                 Handover x = c;
                 ((uint8_t *)&x)[i] ^= (uint8_t)(1 << bit);
@@ -135,6 +135,27 @@ int main()
             }
         }
         CHECK_EQ(wrongc, 0);
+        // the same for the host version (T221) and the safe flag (T224): a flipped bit in their own field is never read as the value
+        {
+            Handover v = c;
+            CHECK(handover_set_host_version(&v, "0.2.0-dev+1a2b3c4d"));
+            handover_set_safe(&v, true);
+            CHECK(handover_safe(&v));
+            int wrongv = 0, wrongs = 0;
+            for (unsigned i = offsetof(Handover, safe_sum); i < sizeof(v); i++) {
+                for (int bit = 0; bit < 8; bit++) {
+                    Handover x = v;
+                    ((uint8_t *)&x)[i] ^= (uint8_t)(1 << bit);
+                    if (i < offsetof(Handover, hostver_sum)) {
+                        wrongs += handover_safe(&x) ? 1 : 0;
+                    } else {
+                        wrongv += strcmp(handover_host_version(&x), "") != 0;
+                    }
+                }
+            }
+            CHECK_EQ(wrongs, 0);
+            CHECK_EQ(wrongv, 0);
+        }
         // a config left in the page by another start (the other block has another path, hence another sum) is not this block's
         Handover n2;
         handover_fill(&n2, "/SD/other.cor", "Other", "1.0", 0, 0, "other");

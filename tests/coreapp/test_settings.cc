@@ -158,7 +158,10 @@ int main()
         CHECK_EQ(o.value(ram), 0);
         CHECK_EQ(o.value(spd), 3);
         CHECK(o.set(joy, 0));                        // another item changes: the file is written again
-        CHECK_TXT(fs2.text(CFG), "[" STORE "]\nRAM size=576 KB Rambo\nJoystick ports=" + std::string(it[joy].values[0]) + "\n\n");
+        {
+            std::string want = "[" STORE "]\nRAM size=576 KB Rambo\nJoystick ports=" + std::string(it[joy].values[0]) + "\n\n";
+            CHECK_TXT(fs2.text(CFG), want.c_str());
+        }
         CHECK(o.save());
         CHECK(fs2.text(CFG).find("RAM size=576 KB Rambo") != std::string::npos && fs2.text(CFG).find("CPU speed") == std::string::npos);
         int ns = 0;
