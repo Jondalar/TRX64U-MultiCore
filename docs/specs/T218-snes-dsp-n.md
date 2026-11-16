@@ -31,6 +31,7 @@ Read from the code (2026-11-13): `snes_sys.vhd` instantiates `DSP_LHRomMap` with
 | S5 | P5 | Non-DSP games unchanged: `boot` bench real == ref; SA-1/Super FX/... refused as before | sims `snes_boot` etc.; `test_snes.cc` S12 | CI sims, apptests |
 | S6 | P6 | The flat build routes and meets timing with the chip | `utilization.rpt` / `timing.rpt` of the pipeline run (lane large-snes) | CI vivado (after the coordinator's push) |
 | S7 | P3 | The menu setting "DSP firmware" (Auto, DSP-1..DSP-4): a fixed choice replaces the title rule for every DSP cartridge (mapper byte and firmware file follow, the refusal names the chosen chip's file); non-DSP cartridges are unaffected | `test_snes.cc` | CI apptests; board |
+| S8 | D6 | The same real DSP-1 firmware once as read (low byte first) and once with every word reversed (high byte first): both are recognised, the reversed one is turned back, the bytes written to the chip are identical; a file that is neither (random bytes) is written as it is; on the board Mario Kart runs with the reversed file | `test_snes.cc` (real file from the board, outside the tree) | apptests; board |
 
 ## §3 Decisions
 
@@ -43,6 +44,7 @@ Read from the code (2026-11-13): `snes_sys.vhd` instantiates `DSP_LHRomMap` with
 
 - **D4 (Alex, 2026-11-13: "A setting in the menu for the firmware choice does make sense. Auto / 1.2.3.4", translated):** the SNES core setting `DSP firmware`: `Auto`, `DSP-1`, `DSP-2`, `DSP-3`, `DSP-4`, default `Auto` = the title rule of D2b, taken at the next reset (`WHEN_RESET`, op `snes.set_dspfw`). A fixed choice replaces the chip for every DSP cartridge (the mapper byte's chip bits and the firmware file follow); cartridges without a DSP are unaffected. Declared like the other SNES settings (in `coreapp/cores/snes.cc`; the core's `.toml` carries no settings).
 - **D5 (review):** `DSP_LHRomMap`'s `DSPn` reset is gated by mapper bit 7 (`snes_gen.py`: `RST_N and MAP_CTRL(7) and ...`), because `MAP_DSP_SEL` is also true for plain mapper bytes; a plain cartridge never runs the chip.
+- **D6 (Alex, 2026-11-16: "A", answer to GitHub #85, a tester: a big-endian DSP-n firmware hangs the game after the title and the beep):** the application recognises a firmware file whose words are high byte first (each 3-byte program word and each 2-byte data word reversed) and turns it around before it writes the chip; the game runs. Application only (`snes.cc`), no gateware. How it is recognised: from the structure of the uPD7725 words, proven on a real little-endian file and its reversed copy (S8).
 
 ## §4 Out (decided with Alex beforehand)
 
