@@ -10,6 +10,7 @@
 trx_io: host
 cart_unit: host
 host_hdmi_timing: host
+host_tone: host
 host_modepath: host
 ring_f4: host
 ring_trace: host

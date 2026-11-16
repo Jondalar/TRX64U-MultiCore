@@ -277,6 +277,9 @@ port (
     -- audio in top.v (trx_gain.v), 0x80 = unity (reset value), 0 silent, 0xFF +6 dB.
     -- Not the mixer above: that one also drives the SID mixer and would count twice.
     master_vol      : out std_logic_vector(7 downto 0);
+    -- T189 tone preset (0x10100551, byte, write only): 0 Flat (reset value), 1 Bass boost, 2 Treble boost,
+    -- anything else Flat; the filter in front of the gain (trx_tone.v).
+    tone_sel        : out std_logic_vector(7 downto 0);
     -- T181 D2 hotkey mask (0x10100560..0x1010056A, byte writes, write only): modifier A/B
     -- (b7 = used, b6..0 = key 0-63 or 64 = RESTORE) and the action-key mask (bytes 0-7 =
     -- bit col*8+row as MATRIX_KEYB, 0x6A b0 = RESTORE); consumed by app_input.v
@@ -410,6 +413,7 @@ architecture rtl of ultimate_sys is
     signal hk_mod_b_i   : std_logic_vector(7 downto 0) := X"00";
     signal hk_mask_i    : std_logic_vector(64 downto 0) := (others => '0');
     signal master_vol_i : std_logic_vector(7 downto 0) := X"80";   -- T160, unity until the app writes it
+    signal tone_sel_i   : std_logic_vector(7 downto 0) := X"00";   -- T189, Flat until the app writes it
     signal keyb_col     : std_logic_vector(7 downto 0) := X"FF";  -- KEYB_COL, low = column selected
     signal keyb_joy_sel : std_logic := '0';                       -- KEYB_JOY b0: the port the line reads (0 port 2, 1 port 1)
     signal wifi_event   : std_logic_vector(7 downto 0);
@@ -1311,6 +1315,7 @@ begin
                 when X"44" => spk_gain(2)  <= unsigned(io_req.data);
                 when X"45" => spk_gain(3)  <= unsigned(io_req.data);
                 when X"50" => master_vol_i <= io_req.data;
+                when X"51" => tone_sel_i <= io_req.data;
                 when X"60" => hk_mod_a_i <= io_req.data;
                 when X"61" => hk_mod_b_i <= io_req.data;
                 when X"62" => hk_mask_i(7 downto 0)   <= io_req.data;
@@ -1673,6 +1678,7 @@ begin
     mix_r   <= std_logic_vector(main_gain(0)) when main_gain(0) > main_gain(2) else std_logic_vector(main_gain(2));
     mix_l   <= std_logic_vector(main_gain(1)) when main_gain(1) > main_gain(3) else std_logic_vector(main_gain(3));
     master_vol <= master_vol_i;
+    tone_sel <= tone_sel_i;
     hk_mod_a <= hk_mod_a_i;
     hk_mod_b <= hk_mod_b_i;
     hk_mask  <= hk_mask_i;

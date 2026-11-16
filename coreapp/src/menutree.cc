@@ -7,6 +7,7 @@
 #include "keyboard.h"
 #include "picture.h"
 #include "volume.h"
+#include "tone.h"
 #include "hotkeys.h"
 #include <stdio.h>
 #include <string.h>
@@ -150,7 +151,7 @@ const MenuGroupRoute *menu_route_of(const Setting &s)
     }
     if (!strcmp(s.apply, PICTURE_OP) || !strcmp(s.apply, SCALE_OP) || !strcmp(s.apply, SMOOTH_OP)) {
         g = "video";
-    } else if (volume_is_generic(s)) {
+    } else if (volume_is_generic(s) || tone_is_generic(s)) {
         g = "audio";
     } else if (hk_is_generic(s)) {
         g = "hotkeys";

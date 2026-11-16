@@ -350,6 +350,8 @@ public:
     void case_led_select(uint8_t v) { led_log.push_back({0, v, t}); }
     std::vector<Wr> vol_log;            // T160: every write of the host's master volume (reg = 0, v = the byte), with the virtual time
     void master_volume(uint8_t v) { vol_log.push_back({0, v, t}); }
+    std::vector<Wr> tone_log;           // T189: every write of the host's tone preset (reg = 0, v = the byte), with the virtual time
+    void master_tone(uint8_t v) { tone_log.push_back({0, v, t}); }
     uint8_t hk_regs_now[11] = {};       // T181: the host's hotkey mask registers as the application wrote them last (hotkey_regs), and how many times
     int hk_writes = 0;
     void hotkey_regs(const uint8_t r[11]) { memcpy(hk_regs_now, r, 11); hk_writes++; }

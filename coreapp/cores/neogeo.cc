@@ -725,4 +725,5 @@ const CoreDesc neogeo_desc = {
     neo_media_flush, neo_media_pending,        // T180 D4: the backup RAM's and the card's save
     &mount_slots,                              // T180 D2, D5: Cartridge
     &hk_console,                           // T181: the default hotkey map (hk_defaults.h)
+    0, true,                               // alt_video, no_tone (T189 D6: neogeo's flat build has no tone filter until it places)
 };

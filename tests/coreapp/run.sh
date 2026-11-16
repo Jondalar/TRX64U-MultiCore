@@ -49,7 +49,7 @@ CXX="${CXX:-c++}"
 FLAGS="-std=gnu++11 -Wall -Wno-unused-function -fno-exceptions -pthread"
 PASS=0
 # the shared base every core application links, and the one descriptor each blueprint core adds to it
-BASEL="configlist.cc board_stubs.cc appindex_stub.cc t64.cc boot.cc partial.cc cor.cc sha256_cc.cc contrib.cc bindcheck.cc settings_ops.cc memops.cc romfind.cc corefolder.cc settings.cc cfgfile.cc video.cc videomode.cc edid.cc picture.cc picmodes.cc volume.cc hotkeys.cc home.cc ops.cc ops_glue.cc update.cc exec.cc video_stub.cc regset.cc engines.cc ledload.cc winslot.cc sectors.cc mediamounts.cc amiga_ffs.cc folderhd.cc folderhd_fold.cc romset.cc mousesink.cc rawkeys.cc pad.cc hidpad.cc pad_ops.cc padwiz.cc fbwin.cc kickstart.cc newfile.cc newdisk.cc writeback.cc writeback_crt.cc"
+BASEL="configlist.cc board_stubs.cc appindex_stub.cc t64.cc boot.cc partial.cc cor.cc sha256_cc.cc contrib.cc bindcheck.cc settings_ops.cc memops.cc romfind.cc corefolder.cc settings.cc cfgfile.cc video.cc videomode.cc edid.cc picture.cc picmodes.cc volume.cc tone.cc hotkeys.cc home.cc ops.cc ops_glue.cc update.cc exec.cc video_stub.cc regset.cc engines.cc ledload.cc winslot.cc sectors.cc mediamounts.cc amiga_ffs.cc folderhd.cc folderhd_fold.cc romset.cc mousesink.cc rawkeys.cc pad.cc hidpad.cc pad_ops.cc padwiz.cc fbwin.cc kickstart.cc newfile.cc newdisk.cc writeback.cc writeback_crt.cc"
 ATARI="atari800.cc atari_media.cc atari_sio.cc atari_atr.cc atari_xex.cc atari_cart.cc $BASEL"
 # the cbm1541 library (T104.1 D15): the drive logic (app/lib/cbm1541) and its contributor; every descriptor with a drive links them
 DRV="cbm1541.cc d1541_drive.cc d1541_gcr.cc d1541_wd.cc d1541_fs.cc"
@@ -268,6 +268,8 @@ control home_not_stored libfiles.cc 's/    ops_call(c, "settings.set", in, 2, &r
 run reopen test_reopen.cc menuctl.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc amiga.cc nes.cc ines.cc libfiles.cc $ATARI
 # T160: the A1200's Volume setting and the menu's SHIFT+ / SHIFT- (C64 '{' '}', USB '+' '_' '-')
 run volume test_volume.cc menuctl.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc amiga.cc nes.cc ines.cc $ATARI
+# T189 S7: the generic Tone setting (the register write 0x51, the .cfg, a new session, own Tone / no_tone / own_volume)
+run tone test_tone.cc menuctl.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc amiga.cc nes.cc ines.cc $ATARI
 # T164 WP11: the host's master volume for every core (the generic item, the register write, the toast on every page)
 # T104.1 Q10: the capability list the loader asks
 # a tab that silently drops the last of its entries: the golden would differ, and so must the count check
