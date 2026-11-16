@@ -47,6 +47,7 @@ struct CoreCtx {
     PartialPort *partial;                 // the host's ICAP loader and decoupler (partial.h); null: nothing to reload a partial with
     void *state;                          // the descriptor's own state (mounted disks, loaded program)
     bool started;                         // the core has been released once
+    uint32_t rom_key_loaded;              // T216 D16: desc->rom_key() of the settings the ROMs in the machine were put for
     LibSel lib;                           // the Library's cursor, marks and clipboard
     bool paused;                          // Pause (T104.2 UI): the machine stays held after the menu closes, until Resume
     bool frozen;                          // the machine is stopped for the menu (Freeze); a poll of a contributor that does not

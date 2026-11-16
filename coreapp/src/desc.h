@@ -322,6 +322,11 @@ struct CoreDesc {
     // T189: the core's build has no tone filter (host/trx_tone.v is not in it: neogeo until its flat build places), so the application adds no "Tone" item.
     // Last in the record, so the positional initialisers stay as they are.
     bool no_tone;
+    // T216 D16: the settings that choose which ROM files the core's put operations read (the PET's model, picture rate, SuperPET CPU), folded into one number.
+    // The application remembers the number the ROMs in the machine were loaded for; a Reset whose number differs loads the ROMs again, as "Reload ROMs, reset"
+    // does (same refusal when a file is missing). Null: the ROMs do not depend on a setting (every other core). Last in the record, so the positional
+    // initialisers stay as they are.
+    uint32_t (*rom_key)(CoreCtx *c);
 };
 
 static inline bool desc_has_capability(const CoreDesc *d, const char *cap)
