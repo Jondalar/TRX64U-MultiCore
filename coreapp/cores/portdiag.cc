@@ -401,12 +401,10 @@ static int start(CoreCtx *c, const char *path, OpOut &o)
 
 static int op_run(CoreCtx *c, const OpArgs &a, OpOut &o) { return start(c, a.s(0), o); }
 static int op_pick(CoreCtx *c, const OpArgs &, OpOut &o) { return start(c, "", o); }
-// Weak: the benches that link only the descriptor do not link instfiles.cc; the board image always does.
-extern int core_files_install(CoreCtx *c) __attribute__((weak));
 static int op_install(CoreCtx *c, const OpArgs &, OpOut &o)
 {
     folder_of(c);
-    int n = core_files_install ? core_files_install(c) : -1;          // record 8 of diag.cor (instfiles.h)
+    int n = c->install_files ? c->install_files(c) : -1;          // record 8 of diag.cor (instfiles.h)
     if (n < 0) {
         snprintf(o.msg, o.msglen, "Cannot write %s/tests (read only card?)", g_folder);
         return OPE_FAILED;

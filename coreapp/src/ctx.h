@@ -73,6 +73,8 @@ struct CoreCtx {
     bool job_cancel;                      // the caller wants the running job dropped (the partial file is removed)
     int job_pct;                          // 0-100, written by the operation
     char job_path[260];                   // the file being written, written by the operation once it is placed
+    // The files the core's bundle installs on the card (record 8, instfiles.h): the application sets it, null in builds that link no bundle; -1 = cannot write.
+    int (*install_files)(CoreCtx *c);
     // T104.3: the operation `app.open` asks the application host (apphost.h) to open an application; null: this build has none. The answer is the operation's.
     int (*app_open)(CoreCtx *c, const char *app, const char *action, const char *file, char *msg, int msglen);
     // T180 D4: the picture while a write-back runs ("Saving media..."); the application sets it, null: nothing to show (the media code calls it

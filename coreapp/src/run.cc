@@ -606,6 +606,7 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
         menu->rebuild();
     }
 
+    ctx.install_files = core_files_install;
     core_files_install(&ctx);                     // record 8 of the bundle: the files the core installs on the card, when missing (instfiles.h)
     hk_apply(&ctx);                               // T181: the map into the host's mask registers (and the USB filter) before the core runs
     cs_step(3, desc->nroms || desc->romset ? "ROM files, then the core" : "Starting the core");

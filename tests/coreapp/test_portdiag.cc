@@ -74,6 +74,7 @@ int main()
     d.register_ops(reg);
     CHECK(!reg.error()[0]);
     c.ops = &reg;
+    c.install_files = core_files_install;
 
     // the start: outputs released; the examples are record 8 of diag.cor, written by the application's installer (instcore.cc) at the start of the core
     fs.put("/SD/cores/diag.cor", slurp_bytes(getenv("DIAG_COR")));
