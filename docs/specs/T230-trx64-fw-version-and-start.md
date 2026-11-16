@@ -62,6 +62,9 @@ bitstream with Gideon's application). The Gideon UI is to be phased out; for a w
 - **D1 (Alex 2026-11-16, origin):** the version number of the TRX64-Ultimate firmware reaches the MultiCore boot menu.
 - **D2 (Alex 2026-11-16, origin):** the Gideon UI (`trx64g`) is phased out in perspective and runs in parallel for a while; "our" UI
   (`trx64u`) gets, at core start, load config, medium persist and, if possible, autostart.
+- **D3 (Alex 2026-11-16, on the firmware session's ownership split and the go he had given it, translated: "That is good too. Sorry."):**
+  the contract's §1 becomes the ownership table of FW-2's proposal, and both copies are made byte-identical again; the firmware session
+  drafts, MultiCore reviews, the final text goes to Alex before either side commits it.
 - **Proposal P-1 (version, after FW-1):** TRX64-Ultimate's `ci/package.sh` writes `"version": "x.y.z"` from the packed application's
   `APPL_VERSION_NUMBER` into `manifest.json`. MultiCore copies it into the pin as `SEMVER=` when the pin moves, but only when
   `PKG_VERSION` is a release (Gitea release `trx64-<PKG_VERSION>` exists); a non-release pin gets `x.y.z-dev+<sha8>`.
