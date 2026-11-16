@@ -139,6 +139,23 @@ void hc_entry_ver(int i, char *out, size_t n)
     // T221 D13: a large core shows its version like every core; "full firmware" stays for a full image that names none (a .cfw)
     if (ver[0]) {
         snprintf(out, n, "%s", ver[0] == 'v' || ver[0] == 'V' ? ver + 1 : ver);
+        // T223 D7: the table shows x.y.z only; "-dev+<sha8>" or any other pre-release/build part is for the header chips and the entry's info view.
+        // A string that is no SemVer (a hash, "bit 2026/09/10") stays as it is.
+        const char *q = out;
+        for (int part = 0; part < 3; part++) {
+            if (!isdigit((unsigned char)*q)) {
+                return;
+            }
+            while (isdigit((unsigned char)*q)) {
+                q++;
+            }
+            if (part < 2 && *q++ != '.') {
+                return;
+            }
+        }
+        if (*q == '-' || *q == '+') {
+            out[q - out] = 0;
+        }
     } else if (hc_efull(i)) {
         snprintf(out, n, "%s", ok ? "full firmware" : "");
     }
@@ -178,6 +195,7 @@ bool hc_row_entry(int i, bool menu_style, HcEntryRow *r)
     r->pic = st == ES_OK ? HCP_OK : (st == ES_CHANGED || st == ES_UNKNOWN) ? HCP_CHECK : HCP_BAD;      // T209 D10: hash ok, ready, backup, foreign / changed, not read yet / the rest
     r->def = i == cfg.def;
     r->full = full;
+    r->ctype = !ok ? 0 : !full ? 'P' : cfw_is_name(cfg.e[i].path) ? 0 : 'L';     // T223 D7 (T221 D16): L = a large .cor (flat bitstream), P = a partial (DFX) .cor; a .cfw names no type
     r->ok_state = ok;
     r->configs = hc_ecfg_ok(i) && st != ES_UNKNOWN ? hc_cfgov_count(cfg.e[i].path) : 0;      // one directory read per generation and core (S15); none before the entry has been read (T101 S10: the first frame lists no folder)
     hc_cfgov_badge(r->configs, r->cfgbadge, sizeof(r->cfgbadge));

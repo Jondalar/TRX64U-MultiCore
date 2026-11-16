@@ -184,7 +184,7 @@ a release build's short strings fit), and a large core's test version is cut to 
   `docs/contracts/trx64u-firmware-handover.md` (not edited: that file changes only with TRX64-Ultimate): "TRX64-Ultimate publishes with every CI package a `version.txt` (one line,
   SemVer 2.0 `x.y.z`, no build metadata) beside `c64_basic.bit`; TRX64U-MultiCore copies it into the pin as `SEMVER=`. A change of the bitstream is a new version; a
   `-dev+<sha8>` is added by the MultiCore packer on a test build." Needs the other repo's side.
-- **OPEN-4 (D16).** The L/P badge: placement/look is not decided, so it is not built; until then a large core is no longer marked in the list (the version replaces
+- **OPEN-4 (D16).** BUILT 2026-11-16 as mock-up t1b (T223 D7 §5: purple square right of the version, L/P; pictogram position switchable, default t1b). Older text: not built; until then a large core is no longer marked in the list (the version replaces
   "full firmware"). Mock-ups: `scratchpad/t221/badge-*.png`.
 - **OPEN-5 (D19).** "Core install of an older version warns": the host has no install step for a `.cor` (it is copied by hand and added with A). Only the `.txu` update warns. Where the
   core warning belongs (adding an entry whose id is already in the menu with a newer version?) is not said.

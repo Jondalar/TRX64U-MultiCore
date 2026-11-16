@@ -118,3 +118,12 @@ The red fast tier came from T224 code (compile error in `test_settings.cc`, miss
 
 ### Emulator flow fix on integ-1116 (2026-11-16)
 - `hostapp_emu` flow host->vc20->menu->host failed in CI runs 2119/2150 ("the partial of VIC-20 was not found") but passes on the builder with the CI images, kit and emulator image (also under load): `check_flow` matched the emulator's `icap:` lines with `^`, and the firmware's UART text shares the log line-wise unsynchronised (stray `@` seen at a line start), so the line can start after a half UI line. The `^` anchors are dropped in `tests/hostapp/emu_host.sh`; every other check is unchanged. Cause not seen in the CI log itself (only the PASS/FAIL line is kept there).
+
+### D7 built 2026-11-16
+- `host_core_rows.cc hc_entry_ver`: the row's version is the x.y.z core of a SemVer string (pre-release/build such as `-dev+<sha8>` cut); a string that is no SemVer ("422f9dce", "bit 2026/09/10") stays. The editor row uses the same text; the header chips and the check-entry view still read the full manifest version. `HcEntryRow.ctype`: 'L' large `.cor`, 'P' partial `.cor`, none for a `.cfw`/`.ue2` or an unread entry.
+- `hostui.cc build_mrow/fill_mrow`: core-type badge = purple square (`TB_BG`, 22 px, 18 px compact) right of the version, its slot kept on rows without a type. Status pictogram position is a build switch: default (B) as t1b: name | auto | config | pictogram | version | badge; `-DHC_PIC_AT_END` (A): ... | version | badge | pictogram at the far right. Letters L/P as D16 (Alex wrote "L / C" in D7: open, see D7's open point).
+- Not built: the column header line of t1b (Core / Auto / Config / Version); the build has none (D5/D6 §5: ux-review decides).
+- Pictures (ue2emu, real host app, 480p/720p/1080p, A and B): `scratchpad/t223d7/menu_{A,B}_{480p60,720p60,1080p60}.png`. ux-review: PASS with notes: badge and version readable at 480p; the name of a long row ("Amiga 1200 (AGA, 68020)") is cut at 480p in both variants (as before); no column header.
+- Render bench: its row expectations are built from `HcEntryRow.ver` itself and its fixtures carry no `-dev+` version, so no golden line changes; the emu flow `tests/hostapp/emu_host.sh` packs a `0.3.0-dev+85acf2b0` Amiga: it now shows `0.3.0` in the row, and the pipeline flags it if that flow reads the row text.
+- `tools/dev.sh riscv --branch t223-d7`: ok.
+
