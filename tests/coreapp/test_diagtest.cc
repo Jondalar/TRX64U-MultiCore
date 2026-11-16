@@ -129,7 +129,7 @@ static void test_parse_shipped()
     CHECK_STR(g_f.suite.tests[1], "stick2.toml");
     // the example tests the app carries are the files of the repository
     Rig r;
-    CHECK_EQ(diag_install_examples(&r.fs, "/SD/cores/diag"), 7);
+    CHECK_EQ(diag_install_examples(&r.fs, "/SD/cores/diag"), 10);
     for (const char *n : names) {
         CHECK_STR(r.fs.text(std::string("/SD/cores/diag/tests/") + n + ".toml").c_str(), slurp(std::string("cores/diag/sd/tests/") + n + ".toml").c_str());
     }
@@ -528,7 +528,7 @@ static void test_cd32_v2()
     Rig w;
     w.fs.put_text("/SD/cores/diag/tests/cd32.toml", slurp("cores/diag/superseded/cd32.v1.toml"));
     w.fs.put_text("/SD/cores/diag/tests/stick2.toml", slurp("cores/diag/superseded/stick2.v1.toml") + "# mine\n");
-    CHECK_EQ(diag_install_examples(&w.fs, "/SD/cores/diag"), 6);                       // cd32 replaced + pins, paddle, joystick, cd32keys, avout written; stick2 edited, kept
+    CHECK_EQ(diag_install_examples(&w.fs, "/SD/cores/diag"), 9);   // cd32 replaced + pins, paddle, joystick, cd32keys, avout, xpad20, xpad4, xpad4noack written; stick2 edited, kept
     CHECK_STR(w.fs.text("/SD/cores/diag/tests/cd32.toml").c_str(), slurp("cores/diag/sd/tests/cd32.toml").c_str());
     CHECK(w.fs.text("/SD/cores/diag/tests/stick2.toml").find("# mine") != std::string::npos);
     CHECK_EQ(diag_install_examples(&w.fs, "/SD/cores/diag"), 0);                       // the second start writes nothing
@@ -686,7 +686,7 @@ static void test_engine_errors()
 static void test_examples()
 {
     Rig r;
-    CHECK_EQ(diag_install_examples(&r.fs, "/SD/cores/diag"), 7);
+    CHECK_EQ(diag_install_examples(&r.fs, "/SD/cores/diag"), 10);
     CHECK(r.fs.has("/SD/cores/diag/tests/pins.toml"));
     // the person edits one; the next start leaves it alone and writes only what is missing
     r.fs.put_text("/SD/cores/diag/tests/pins.toml", "# mine\n");

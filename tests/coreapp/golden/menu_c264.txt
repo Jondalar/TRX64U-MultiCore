@@ -3,7 +3,6 @@ area F1 Home
   tab 1 Home
     task Reset (closes the menu)
     task Reload ROMs, reset (closes the menu)
-    task Eject cartridge, reset (closes the menu)
     media Program
     media Cartridge
     media Drive A:

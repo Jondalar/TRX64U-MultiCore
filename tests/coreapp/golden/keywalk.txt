@@ -525,91 +525,91 @@ VIC-20 F8/expert s13 59 51dc581e
 VIC-20 F8/expert s14 59 51dc581e
 VIC-20 F8/expert s15 59 40cf2f26
 VIC-20 F8/expert s16 59 001a9289
-Commodore 264 (C16, Plus/4) F1/home s0 59 03189327
-Commodore 264 (C16, Plus/4) F1/home s1 59 a79bafb4
-Commodore 264 (C16, Plus/4) F1/home s2 59 dbc86fb3
-Commodore 264 (C16, Plus/4) F1/home s3 59 03189327
-Commodore 264 (C16, Plus/4) F1/home s4 59 a79bafb4
-Commodore 264 (C16, Plus/4) F1/home s5 59 7f9260c6
-Commodore 264 (C16, Plus/4) F1/home s6 59 a79bafb4
-Commodore 264 (C16, Plus/4) F1/home s7 59 dbc86fb3
-Commodore 264 (C16, Plus/4) F1/home s8 59 fd863515
-Commodore 264 (C16, Plus/4) F1/home s9 59 fd863515
-Commodore 264 (C16, Plus/4) F1/home s10 59 03189327
-Commodore 264 (C16, Plus/4) F1/home s11 59 70622237
-Commodore 264 (C16, Plus/4) F1/home s12 59 70622237
-Commodore 264 (C16, Plus/4) F1/home s13 59 70622237
-Commodore 264 (C16, Plus/4) F1/home s14 59 70622237
-Commodore 264 (C16, Plus/4) F1/home s15 59 a79bafb4
-Commodore 264 (C16, Plus/4) F1/home s16 59 dbc86fb3
-Commodore 264 (C16, Plus/4) F1/drive s0 59 59935e05
-Commodore 264 (C16, Plus/4) F1/drive s1 59 a79bafb4
-Commodore 264 (C16, Plus/4) F1/drive s2 59 a79bafb4
-Commodore 264 (C16, Plus/4) F1/drive s3 59 59935e05
-Commodore 264 (C16, Plus/4) F1/drive s4 59 a79bafb4
-Commodore 264 (C16, Plus/4) F1/drive s5 59 a79bafb4
-Commodore 264 (C16, Plus/4) F1/drive s6 59 a79bafb4
-Commodore 264 (C16, Plus/4) F1/drive s7 59 dbc86fb3
-Commodore 264 (C16, Plus/4) F1/drive s8 59 fd863515
-Commodore 264 (C16, Plus/4) F1/drive s9 59 fd863515
-Commodore 264 (C16, Plus/4) F1/drive s10 59 59935e05
-Commodore 264 (C16, Plus/4) F1/drive s11 59 70622237
-Commodore 264 (C16, Plus/4) F1/drive s12 59 70622237
-Commodore 264 (C16, Plus/4) F1/drive s13 59 70622237
-Commodore 264 (C16, Plus/4) F1/drive s14 59 70622237
-Commodore 264 (C16, Plus/4) F1/drive s15 59 a79bafb4
-Commodore 264 (C16, Plus/4) F1/drive s16 59 dbc86fb3
-Commodore 264 (C16, Plus/4) F3/browse s0 59 823c2408
-Commodore 264 (C16, Plus/4) F3/browse s1 59 731337d6
-Commodore 264 (C16, Plus/4) F3/browse s2 59 053c149e
-Commodore 264 (C16, Plus/4) F3/browse s3 59 731337d6
-Commodore 264 (C16, Plus/4) F3/browse s4 59 b2591732
-Commodore 264 (C16, Plus/4) F3/browse s5 59 b2591732
-Commodore 264 (C16, Plus/4) F3/browse s6 59 731337d6
-Commodore 264 (C16, Plus/4) F3/browse s7 59 65cd8e87
-Commodore 264 (C16, Plus/4) F3/browse s8 59 484a6e4f
-Commodore 264 (C16, Plus/4) F3/browse s9 59 03e264a8
-Commodore 264 (C16, Plus/4) F3/browse s10 59 cc4a951e
-Commodore 264 (C16, Plus/4) F3/browse s11 59 9e13011f
-Commodore 264 (C16, Plus/4) F3/browse s12 59 9e13011f
-Commodore 264 (C16, Plus/4) F3/browse s13 59 9e13011f
-Commodore 264 (C16, Plus/4) F3/browse s14 59 9e13011f
-Commodore 264 (C16, Plus/4) F3/browse s15 59 69bcbb82
-Commodore 264 (C16, Plus/4) F3/browse s16 59 98c339e4
-Commodore 264 (C16, Plus/4) F5/settings s0 59 b5e65ff6
-Commodore 264 (C16, Plus/4) F5/settings s1 59 e22debc2
-Commodore 264 (C16, Plus/4) F5/settings s2 59 d59a762b
-Commodore 264 (C16, Plus/4) F5/settings s3 59 01ec9466
-Commodore 264 (C16, Plus/4) F5/settings s4 59 a94c16f7
-Commodore 264 (C16, Plus/4) F5/settings s5 59 447443e2
-Commodore 264 (C16, Plus/4) F5/settings s6 59 21e179d1
-Commodore 264 (C16, Plus/4) F5/settings s7 59 27ac711b
-Commodore 264 (C16, Plus/4) F5/settings s8 59 250c7e4f
-Commodore 264 (C16, Plus/4) F5/settings s9 59 5934226f
-Commodore 264 (C16, Plus/4) F5/settings s10 59 18ac5c71
-Commodore 264 (C16, Plus/4) F5/settings s11 59 abc8a29b
-Commodore 264 (C16, Plus/4) F5/settings s12 59 de2576e5
-Commodore 264 (C16, Plus/4) F5/settings s13 59 abc8a29b
-Commodore 264 (C16, Plus/4) F5/settings s14 59 de2576e5
-Commodore 264 (C16, Plus/4) F5/settings s15 59 a94c16f7
-Commodore 264 (C16, Plus/4) F5/settings s16 59 a650347b
-Commodore 264 (C16, Plus/4) F8/expert s0 59 a38f5330
-Commodore 264 (C16, Plus/4) F8/expert s1 59 f8404d92
-Commodore 264 (C16, Plus/4) F8/expert s2 59 f10a3ed7
-Commodore 264 (C16, Plus/4) F8/expert s3 59 a38f5330
-Commodore 264 (C16, Plus/4) F8/expert s4 59 f8404d92
-Commodore 264 (C16, Plus/4) F8/expert s5 59 47e86205
-Commodore 264 (C16, Plus/4) F8/expert s6 59 f8404d92
-Commodore 264 (C16, Plus/4) F8/expert s7 59 f10a3ed7
-Commodore 264 (C16, Plus/4) F8/expert s8 59 3d715d98
-Commodore 264 (C16, Plus/4) F8/expert s9 59 3d715d98
-Commodore 264 (C16, Plus/4) F8/expert s10 59 a38f5330
-Commodore 264 (C16, Plus/4) F8/expert s11 59 78f538a7
-Commodore 264 (C16, Plus/4) F8/expert s12 59 78f538a7
-Commodore 264 (C16, Plus/4) F8/expert s13 59 78f538a7
-Commodore 264 (C16, Plus/4) F8/expert s14 59 78f538a7
-Commodore 264 (C16, Plus/4) F8/expert s15 59 f8404d92
-Commodore 264 (C16, Plus/4) F8/expert s16 59 f10a3ed7
+Commodore 264 (C16, Plus/4) F1/home s0 59 cda25d13
+Commodore 264 (C16, Plus/4) F1/home s1 59 f60fee3d
+Commodore 264 (C16, Plus/4) F1/home s2 59 d30d8c58
+Commodore 264 (C16, Plus/4) F1/home s3 59 cda25d13
+Commodore 264 (C16, Plus/4) F1/home s4 59 f60fee3d
+Commodore 264 (C16, Plus/4) F1/home s5 59 f27f327e
+Commodore 264 (C16, Plus/4) F1/home s6 59 f60fee3d
+Commodore 264 (C16, Plus/4) F1/home s7 59 d30d8c58
+Commodore 264 (C16, Plus/4) F1/home s8 59 2322e5c4
+Commodore 264 (C16, Plus/4) F1/home s9 59 2322e5c4
+Commodore 264 (C16, Plus/4) F1/home s10 59 cda25d13
+Commodore 264 (C16, Plus/4) F1/home s11 59 00514885
+Commodore 264 (C16, Plus/4) F1/home s12 59 00514885
+Commodore 264 (C16, Plus/4) F1/home s13 59 00514885
+Commodore 264 (C16, Plus/4) F1/home s14 59 00514885
+Commodore 264 (C16, Plus/4) F1/home s15 59 f60fee3d
+Commodore 264 (C16, Plus/4) F1/home s16 59 d30d8c58
+Commodore 264 (C16, Plus/4) F1/drive s0 59 65bd9cc9
+Commodore 264 (C16, Plus/4) F1/drive s1 59 f60fee3d
+Commodore 264 (C16, Plus/4) F1/drive s2 59 f60fee3d
+Commodore 264 (C16, Plus/4) F1/drive s3 59 65bd9cc9
+Commodore 264 (C16, Plus/4) F1/drive s4 59 f60fee3d
+Commodore 264 (C16, Plus/4) F1/drive s5 59 f60fee3d
+Commodore 264 (C16, Plus/4) F1/drive s6 59 f60fee3d
+Commodore 264 (C16, Plus/4) F1/drive s7 59 d30d8c58
+Commodore 264 (C16, Plus/4) F1/drive s8 59 2322e5c4
+Commodore 264 (C16, Plus/4) F1/drive s9 59 2322e5c4
+Commodore 264 (C16, Plus/4) F1/drive s10 59 65bd9cc9
+Commodore 264 (C16, Plus/4) F1/drive s11 59 00514885
+Commodore 264 (C16, Plus/4) F1/drive s12 59 00514885
+Commodore 264 (C16, Plus/4) F1/drive s13 59 00514885
+Commodore 264 (C16, Plus/4) F1/drive s14 59 00514885
+Commodore 264 (C16, Plus/4) F1/drive s15 59 f60fee3d
+Commodore 264 (C16, Plus/4) F1/drive s16 59 d30d8c58
+Commodore 264 (C16, Plus/4) F3/browse s0 59 3c1eaed0
+Commodore 264 (C16, Plus/4) F3/browse s1 59 0e88c4c6
+Commodore 264 (C16, Plus/4) F3/browse s2 59 3a0785fe
+Commodore 264 (C16, Plus/4) F3/browse s3 59 0e88c4c6
+Commodore 264 (C16, Plus/4) F3/browse s4 59 cd53afea
+Commodore 264 (C16, Plus/4) F3/browse s5 59 cd53afea
+Commodore 264 (C16, Plus/4) F3/browse s6 59 0e88c4c6
+Commodore 264 (C16, Plus/4) F3/browse s7 59 d3403877
+Commodore 264 (C16, Plus/4) F3/browse s8 59 b7942b2f
+Commodore 264 (C16, Plus/4) F3/browse s9 59 0bf51288
+Commodore 264 (C16, Plus/4) F3/browse s10 59 968050ed
+Commodore 264 (C16, Plus/4) F3/browse s11 59 ed201077
+Commodore 264 (C16, Plus/4) F3/browse s12 59 ed201077
+Commodore 264 (C16, Plus/4) F3/browse s13 59 ed201077
+Commodore 264 (C16, Plus/4) F3/browse s14 59 ed201077
+Commodore 264 (C16, Plus/4) F3/browse s15 59 e5b09b1c
+Commodore 264 (C16, Plus/4) F3/browse s16 59 a8250b88
+Commodore 264 (C16, Plus/4) F5/settings s0 59 2a1fe05a
+Commodore 264 (C16, Plus/4) F5/settings s1 59 56ad1c6c
+Commodore 264 (C16, Plus/4) F5/settings s2 59 21e3b368
+Commodore 264 (C16, Plus/4) F5/settings s3 59 a30956dc
+Commodore 264 (C16, Plus/4) F5/settings s4 59 ed49b017
+Commodore 264 (C16, Plus/4) F5/settings s5 59 61bed18f
+Commodore 264 (C16, Plus/4) F5/settings s6 59 e415b7f5
+Commodore 264 (C16, Plus/4) F5/settings s7 59 c5f349e1
+Commodore 264 (C16, Plus/4) F5/settings s8 59 8c50bea1
+Commodore 264 (C16, Plus/4) F5/settings s9 59 c950e6d4
+Commodore 264 (C16, Plus/4) F5/settings s10 59 3abd6bbd
+Commodore 264 (C16, Plus/4) F5/settings s11 59 3994f77a
+Commodore 264 (C16, Plus/4) F5/settings s12 59 55592c65
+Commodore 264 (C16, Plus/4) F5/settings s13 59 3994f77a
+Commodore 264 (C16, Plus/4) F5/settings s14 59 55592c65
+Commodore 264 (C16, Plus/4) F5/settings s15 59 ed49b017
+Commodore 264 (C16, Plus/4) F5/settings s16 59 34995a41
+Commodore 264 (C16, Plus/4) F8/expert s0 59 c3093fb0
+Commodore 264 (C16, Plus/4) F8/expert s1 59 3bbcdb86
+Commodore 264 (C16, Plus/4) F8/expert s2 59 4f3200c2
+Commodore 264 (C16, Plus/4) F8/expert s3 59 c3093fb0
+Commodore 264 (C16, Plus/4) F8/expert s4 59 3bbcdb86
+Commodore 264 (C16, Plus/4) F8/expert s5 59 42784c85
+Commodore 264 (C16, Plus/4) F8/expert s6 59 3bbcdb86
+Commodore 264 (C16, Plus/4) F8/expert s7 59 4f3200c2
+Commodore 264 (C16, Plus/4) F8/expert s8 59 8fc21808
+Commodore 264 (C16, Plus/4) F8/expert s9 59 8fc21808
+Commodore 264 (C16, Plus/4) F8/expert s10 59 c3093fb0
+Commodore 264 (C16, Plus/4) F8/expert s11 59 b30903e5
+Commodore 264 (C16, Plus/4) F8/expert s12 59 b30903e5
+Commodore 264 (C16, Plus/4) F8/expert s13 59 b30903e5
+Commodore 264 (C16, Plus/4) F8/expert s14 59 b30903e5
+Commodore 264 (C16, Plus/4) F8/expert s15 59 3bbcdb86
+Commodore 264 (C16, Plus/4) F8/expert s16 59 4f3200c2
 Commodore PET F1/home s0 59 84f4fbd0
 Commodore PET F1/home s1 59 4f9e753f
 Commodore PET F1/home s2 59 bd1e4545
@@ -1859,8 +1859,8 @@ Port Diagnostics F3/browse s4 59 e3881a8a
 Port Diagnostics F3/browse s5 59 e3881a8a
 Port Diagnostics F3/browse s6 59 fce4e035
 Port Diagnostics F3/browse s7 59 b4e387d1
-Port Diagnostics F3/browse s8 59 3e7bc2fe
-Port Diagnostics F3/browse s9 59 7bd77763
+Port Diagnostics F3/browse s8 59 579ff3b6
+Port Diagnostics F3/browse s9 59 94a89244
 Port Diagnostics F3/browse s10 59 b927ef28
 Port Diagnostics F3/browse s11 59 b76b37fe
 Port Diagnostics F3/browse s12 59 b76b37fe
