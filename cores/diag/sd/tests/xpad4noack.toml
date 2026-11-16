@@ -1,0 +1,11 @@
+# XInput (Xbox / GIP) pad measurement, poll 4 ms, ack of input off (T196 S7, GitHub issue #55). Plug the pad in AFTER starting this test (or replug it): the poll interval is
+# programmed when the pad is claimed. The screen shows the counters once a second; tap D-pad up 20 times slowly, then Down, Left, Right, A, B, and photograph the screen.
+# Press = release = 20 per button means nothing was lost; fewer means the pad's reports were missed. YES finishes and writes results/xpad4noack_<time>.txt.
+kind = "xpad"
+
+[test]
+name = "XInput pad, poll 4 ms, ack of input off"
+id = "xpad4noack"
+version = 1
+poll_ms = 4
+ack_input = false

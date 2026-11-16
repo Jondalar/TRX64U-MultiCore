@@ -13,6 +13,9 @@ public:
     // A question with two answers and a way out: 1 yes, 0 no, -1 the person stopped (ESC). timeout_s > 0: the question closes by itself after that many seconds
     // and answers -2 (the dialog shows the seconds left); 0: waits for ever.
     virtual int ask(const char *title, const char *text, int timeout_s) = 0;
+    // As ask() with no timer, for a text the caller rewrites: `text` is the caller's buffer, live(ud) refills it about once a second (on the menu task) and the dialog
+    // changes the text in place. The default asks it as ask() does, once.
+    virtual int ask_live(const char *title, const char *text, void (*live)(void *), void *ud) { (void)live; (void)ud; return ask(title, text, 0); }
     // T201 v2: a question with a choice of answers (items, at most 8): the index of the one picked, -1 the person stopped (ESC), -2 the time ran out (timeout_s as ask()).
     virtual int choose(const char *title, const char *text, const char *const *items, int n, int timeout_s) = 0;
     // A message that waits for OK.
@@ -21,6 +24,8 @@ public:
     virtual bool pick(const char *start, char *out, int outlen) = 0;
     // "YYYYMMDD-HHMMSS" from the clock, false when it has none.
     virtual bool stamp(char out[16]) = 0;
+    // T175: false: the joystick ports feed no menu key (only the keyboards answer a prompt); true: as always. The default does nothing.
+    virtual void joystick_menu(bool on) { (void)on; }
 };
 
 void portdiag_attach(PdHost *h);

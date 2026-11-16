@@ -45,6 +45,7 @@ Parts:
 | S4 | P2 | GIP: the power-on packet is written once after the claim; announce/guide messages are acknowledged; 360: the LED packet sets the player ring | native test of the init sequence against a model endpoint | apptests |
 | S5 | P1-P5 | Board: Alex's Xbox Series controller (GIP) on a USB cable in the NES, SNES and Neo Geo core plays; a HID pad and a keyboard still work beside it | by hand | board (Alex) |
 | S6 | P1-P5 | A third-party pad in X mode (T50, 360 protocol) plays | by hand | tester (#55) |
+| S7 | P1, P5 | Diag measurement of a GIP pad (issue #55: presses missed): the diag core runs `xpad20`, `xpad4`, `xpad4noack` with a Series pad and shows VID:PID, protocol, bInterval, programmed interval, packets per command, ack bit / acks queued / OUT ok / failed, 0x20 sequence gaps and press/release edges per D-pad direction, A, B; it tells hypothesis A (20 ms polling loses reports) from B (ack/OUT path disturbs input) | board photos of the counters, 20 taps per button | board (Alex / tester) |
 
 ## §3 Decision
 
@@ -124,3 +125,24 @@ Parts:
 - **Board PASS 2026-11-15 (Alex, #55 fix):** snes.cor = main-66f89900 bitstream + core app of t196-xpad-poll 09391001b (poll at the
   pad's bInterval): "tested, good like this" (translated). The fix is in the shared core app, so NES, SNES and Neo Geo get it from
   main; the Amiga cores get it with T225 (pad capability there).
+- **D9 (Alex, 2026-11-15, translated: "the measurement into the diag core, as an extra test, before we build any big gateware"):** a diag test file with
+  `kind = "xpad"` (`[test]`: `name`, `id`, `version`, `poll_ms` default 20 (forced), `ack_input` default true) sets the XInput driver's poll interval and whether a 0x20
+  message with the ack bit is acknowledged, shows the driver's counters once a second (dialog rebuilt every second; YES = finish and write
+  `results/<id>_<stamp>.toml/.txt`, NO = zero the counters, ESC = stop) and puts the production values back (the endpoint's own bInterval since the #55 fix, `poll_ms` 0 in `xi_cfg`; ack on) when it ends. The pad is claimed with the
+  interval that is set when it is plugged in, so the tester plugs the pad in after starting the test (the screen shows the programmed interval beside the wanted
+  one). Shipped files: `xpad20` (20 ms, the old production value, forced), `xpad4` (4 ms, the pad's own bInterval), `xpad4noack` (4 ms, no ack of 0x20; separates B from A). The
+  diag core names the capability `pad` (no PadSpec: the pad service drops the reports) so the driver claims the pad there. Production in the other cores is unchanged.
+- **Built (D9):** `XiStats`/`XiCfg` in `xinput.h/.cc` (counters in `XiSession::data`, the driver's callbacks and OUT writes in `usb_xinput.cc`, edges in
+  `xi_stats_report`), `run_xpadtest` in `diagtest.cc`, hooks in `DiagEnv` wired in `portdiag.cc`. The OUT write is counted ok only when `bulk_out` returned the full
+  length (it returns the bytes sent, 0 on a failure; the old `< 0` check in `flush()` never fires and is left as it was) and its longest duration is shown. A sequence
+  gap is counted from the byte d[2] of 0x20 messages; 255 -> 1 is not counted (a pad skipping 0 on the wrap is not known). Interval units: 125 us (`poll_ms * 8`).
+  No bench run (Alex 2026-11-15: no benches before a merge); proof is the RISC-V build and the board step S7.
+  Fix after the first board run (Alex: "the screen keeps rebuilding all the time"): the counters were a 1 s timed question closed and reopened in a loop; now one
+  `AppDlg::buttons_live` question without a timer, `live(ud)` refills the buffer once a second on the menu task and `ui.cc` sets the label text in place (`g_qtxt`).
+  Fix 2 (text cut, never seen on screen): compact counter text (about 13 lines), `DlgView.text` 300 -> 520, card height cap 8 -> 14 lines, title without "(1 of 1)";
+  ran in ue2emu on the new `diag` profile (no pad: counters 0): start, "Running N s" ticking in place, NO, ESC (left arrow, stops, report), YES (report written).
+- **Board step S7:** copy nothing: the diag core writes the three files to `/SD/cores/diag/tests/` at its start. Start the diag core, run `xpad20` from the file
+  browser, then plug the Series pad in, tap Up 20 times slowly (also Down, Left, Right, A, B), photograph the screen, YES. The same with `xpad4`, then `xpad4noack`.
+  Reading: press = release = 20 and no sequence gaps with 4 ms but fewer with 20 ms = A; losses also at 4 ms, or OUT failed / slow, or losses vanish with
+  `xpad4noack` = B.
+- 2026-11-16 (merge diag-joy-menu into followup-1116): the diag test's `xi_cfg.poll_ms` forced every pad to 20 ms; with the #55 fix in main it is 0 = "the endpoint's own rate" (`poll_interval`), a test sets 1..255 ms explicitly, the screen shows "want endpoint" when not forced.

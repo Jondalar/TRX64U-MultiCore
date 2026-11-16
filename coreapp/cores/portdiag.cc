@@ -11,6 +11,7 @@
 #include "picture.h"
 #include "settings_ops.h"
 #include "ops_glue.h"
+#include "xinput.h"
 #include <stdio.h>
 
 static PdHost *g_host;
@@ -148,6 +149,40 @@ static CoreCtx *g_ctx;
 static uint32_t env_now(void) { return g_ctx->io->now_ms(); }
 static void env_delay(uint32_t ms) { g_ctx->io->delay_ms(ms); }
 static bool env_stamp(char out[16]) { return g_host && g_host->stamp(out); }
+static void env_joy_menu(void *, bool on) { if (g_host) { g_host->joystick_menu(on); } }
+
+// T196 S7: the XInput pad test (diagtest.cc run_xpadtest) sets the driver's poll interval and ack switch and reads its counters (xinput.h XiStats)
+static uint32_t g_xp_cb, g_xp_ms;
+static void xpad_begin_cb(void *, int poll_ms, bool ack_input)
+{
+    xi_cfg.poll_ms = poll_ms;
+    xi_cfg.ack_input = ack_input;
+    xi_stats_reset();
+    g_xp_cb = 0;
+    g_xp_ms = g_ctx->io->now_ms();
+}
+static void xpad_reset_cb(void *)
+{
+    xi_stats_reset();
+    g_xp_cb = 0;
+    g_xp_ms = g_ctx->io->now_ms();
+}
+static int xpad_text_cb(void *, char *out, int cap)
+{
+    uint32_t now = g_ctx->io->now_ms();
+    uint32_t cb = xi_stats.cb;
+    uint32_t rate = now - g_xp_ms >= 500 ? (uint32_t)(((uint64_t)(cb - g_xp_cb) * 1000 + (now - g_xp_ms) / 2) / (now - g_xp_ms)) : 0;
+    if (now - g_xp_ms >= 1000) {                       // the rate is over the last second or so
+        g_xp_cb = cb;
+        g_xp_ms = now;
+    }
+    return xi_stats_text(out, cap, rate);
+}
+static void xpad_end_cb(void *)
+{
+    xi_cfg.poll_ms = 0;                                // production: the pad that is plugged in later is polled at its own bInterval
+    xi_cfg.ack_input = true;
+}
 
 void portdiag_prompt_text(const char *test, const char *text, int idx, int total, char *t, int tn, char *x, int xn)
 {
@@ -172,10 +207,16 @@ public:
     }
     int question(const char *title, const char *text, int idx, int total, int timeout_s) override
     {
-        char t[96], x[400];
+        char t[128], x[1700];                         // an xpad test's counters are about 700 characters
         portdiag_question_text(title, text, idx, total, t, sizeof(t), x, sizeof(x));
         int a = g_host->ask(t, x, timeout_s);
         return a > 0 ? DUI_CONTINUE : a == 0 ? DUI_SKIP : a == -2 ? DUI_TIMEOUT : DUI_ABORT;
+    }
+    int question_live(const char *title, const char *text, void (*live)(void *), void *ud) override
+    {
+        const char *t = title;                         // the live test is one screen: no "1 of 1"; its own text carries the keys
+        int a = g_host->ask_live(t, text, live, ud);
+        return a > 0 ? DUI_CONTINUE : a == 0 ? DUI_SKIP : DUI_ABORT;
     }
     int choice(const char *title, const char *text, int idx, int total, int timeout_s, const char *const *items, int n, int *pick) override
     {
@@ -300,6 +341,11 @@ static void run_path(CoreCtx *c, const char *path)
     env.av_done = av_done_cb;
     env.av_freeze = av_freeze_cb;
     env.av_ud = c;
+    env.joy_menu = env_joy_menu;
+    env.xpad_begin = xpad_begin_cb;
+    env.xpad_reset = xpad_reset_cb;
+    env.xpad_text = xpad_text_cb;
+    env.xpad_end = xpad_end_cb;
     const char *fn = strrchr(path, '/');
     snprintf(g_last, sizeof(g_last), "running %s", fn ? fn + 1 : path);
     int rc = diag_run_file(&env, path, &out);
@@ -391,6 +437,7 @@ static const FileAction toml_actions[] = {
     { "Run test", "pd.run", run_bind, 1, false, 0, 0, 0, 0, 'R' },
     { "Load A/V preset", "pd.av_load", load_bind, 1, false, 0, 0, 0, 0, 'L' },
 };
+static const char *const pd_caps[] = { "pad" };
 static const FileType filetypes[] = {
     { ".toml", toml_actions, 2, 0, 0, 0 },
 };
@@ -453,7 +500,7 @@ const CoreDesc portdiag_desc = {
     0, 0, false,
     0, 0,
     pd_register,
-    0, 0,                                                  // caps
+    pd_caps, 1,                                            // caps: `pad` only lets the XInput driver claim a pad for the xpad test (T196 S7); the core has no PadSpec
     false,                                                 // board_caps
     false, 0, 0, 0, 0, 0, 0, 0,                            // id_shared, reset_writes, romset, window_media, sector_media, mouse, fbwin
     0, 0,                                                  // type_op, run_op

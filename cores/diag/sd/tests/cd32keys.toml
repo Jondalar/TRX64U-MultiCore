@@ -6,7 +6,8 @@ kind = "test"
 [test]
 name = "CD32 pad buttons one by one, port 2"
 id = "cd32keys"
-version = 1
+version = 2
+menu_input = "keyboard"
 needs = ["CD32 pad"]
 
 [[prompt]]

@@ -1,0 +1,11 @@
+# XInput (Xbox / GIP) pad measurement, poll 20 ms, ack of input on (T196 S7, GitHub issue #55). Plug the pad in AFTER starting this test (or replug it): the poll interval is
+# programmed when the pad is claimed. The screen shows the counters once a second; tap D-pad up 20 times slowly, then Down, Left, Right, A, B, and photograph the screen.
+# Press = release = 20 per button means nothing was lost; fewer means the pad's reports were missed. YES finishes and writes results/xpad20_<time>.txt.
+kind = "xpad"
+
+[test]
+name = "XInput pad, poll 20 ms, ack of input on"
+id = "xpad20"
+version = 1
+poll_ms = 20
+ack_input = true
