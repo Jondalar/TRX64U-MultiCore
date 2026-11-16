@@ -300,7 +300,7 @@ overlay was fitted from a 1280x800 manual picture, so its scale on the real 960x
 
 ### Decisions during S2 (decided by Claude on Alex's delegation 2026-11-16 night; Alex can overturn each at S2b)
 Alex 2026-11-16 (translated): "you start T228 overnight ... be the advisor here, decide for me". Each decision follows a D-row or the
-S1 table where one exists; only DC1, DC2, DC3 and DC6 are new choices.
+S1 table where one exists; only DC1, DC2, DC3, DC6 and DC7 are new choices.
 - DC1 Softboot is a Library file action on `.cfw`/`.ue2`/`.u64` (RETURN menu of the file), not a row in F7 Apps. Why: trx64g puts
   softboot in the context menu of those file types (Q2 facts), and D17 already made Unzip a file action of its `.zip`. A launcher
   that needs a file belongs to the file. D5 ("TRXCRT to Apps") covers the cartridge tools only.
@@ -317,6 +317,12 @@ S1 table where one exists; only DC1, DC2, DC3 and DC6 are new choices.
 - DC5 The Home machine-info line names the REU only while it is enabled. Why: the line describes the machine as it runs (T212 D13).
 - DC6 A section heading that repeats its tab's title is not drawn (e.g. "Machine" over "MACHINE"), in every core (generic). Why: it
   repeats the title (ux-review R10).
+- DC7 The old F4 Diagnostics rows that stay go to F8 System, in a tab of their own, "Diagnostics": debug log and clear/save log,
+  screen EDID and save EDID, Heap, Debug register. Instruction trace stays only in F5 TRX64 > Recording (D13), with no second row.
+  Why:
+  - F4 opens the Monitor overlay, which owns the keyboard: "2" types into its command line (S1 finding 6, R10). A Diagnostics tab
+    beside it cannot be reached.
+  - The rows are device and developer values, and F8 holds the device. Bug report is already in the generic F8 Support (S1 table).
 - From the spec, not new:
   - F4 is the Monitor rail entry (D3, variant A), so the rail reads "MONITOR", not "TOOLS".
   - The old F4 Diagnostics content goes where the S1 table puts it: Bug report to F8 Support, System information/Board/Uptime to F8
