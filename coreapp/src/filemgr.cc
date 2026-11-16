@@ -173,9 +173,21 @@ void FileMgr::load_dir()
     // A FsEntry holds a whole FAT long name (T180 #38), 272 bytes: the folder is listed into list itself (after the ".." row) and the filter below moves the entries
     // that stay to the front; no second buffer of that size is kept. The list grows with the folder (listgrow.h, GitHub #93); `more` is what the heap budget cut.
     const int up = strcmp(path, "/") != 0 ? 1 : 0;
+    if (list && cap > ListGrow::START) {                          // a long folder's buffer goes back to the heap before the next one is sized against what is free (as the host's browser does)
+        free(list);
+        free(marked);
+        list = 0;
+        marked = 0;
+        cap = 0;
+        marked_cap = 0;
+    }
     int n = ListGrow::read(c->fs, path, &list, &cap, up, &more);
-    if (!ensure_list()) {
-        n = -1;
+    if (!ensure_list()) {                                         // no flags for the entries (marked is null): nothing may be listed
+        dir_ok = false;
+        nlist = 0;
+        sel = 0;
+        lib_sync();
+        return;
     }
     dir_ok = n >= 0;
     nlist = 0;
