@@ -70,10 +70,9 @@ file coreapp/cores/nes_regs.h 23
 file coreapp/cores/pet.cc 745
 file coreapp/cores/pet_models.h 111
 file coreapp/cores/pet_regs.h 52
-file coreapp/cores/portdiag.cc 429
-file coreapp/cores/portdiag.h 18
+file coreapp/cores/portdiag.cc 474
+file coreapp/cores/portdiag.h 20
 file coreapp/cores/portdiag_regs.h 50
-file coreapp/cores/portdiag_tests.inc 2236
 file coreapp/cores/snes.cc 558
 file coreapp/cores/snes_regs.h 44
 file coreapp/cores/snes_rom.cc 222
@@ -95,8 +94,8 @@ file coreapp/cores/zxnext_fw.h 170
 file coreapp/cores/zxnext_regs.h 36
 file coreapp/src/amiga_ffs.cc 337
 file coreapp/src/amiga_ffs.h 87
-file coreapp/src/diagtest.cc 2402
-file coreapp/src/diagtest.h 166
+file coreapp/src/diagtest.cc 2552
+file coreapp/src/diagtest.h 178
 file coreapp/src/monitor.cc 473
 file coreapp/src/monitor.h 24
 file coreapp/src/monsrv.cc 547
@@ -186,9 +185,5 @@ exception coreapp/cores/c128.cc +5 T217 (C128 GO64, branch t217-go64, uncommitte
 exception coreapp/cores/c128_prg.h +2 T217 (C128 GO64, branch t217-go64, uncommitted at measurement)
 exception coreapp/cores/cbm_run.cc +34 T217 (C128 GO64, branch t217-go64, uncommitted at measurement)
 exception coreapp/cores/cbm_run.h +4 T217 (C128 GO64, branch t217-go64, uncommitted at measurement)
-# followup-1116 (diag tests moved into diag.cor: portdiag_tests.inc deleted, nothing embedded remains), measured on its uncommitted working tree against main (includes its committed diag changes)
-exception coreapp/cores/portdiag.cc +45 T175 (followup-1116: diag change, tests loaded from diag.cor)
-exception coreapp/cores/portdiag.h +2 T175 (followup-1116: diag change)
-exception coreapp/src/diagtest.cc +150 T175 (followup-1116: diag change, tests loaded from diag.cor)
-exception coreapp/src/diagtest.h +12 T175 (followup-1116: diag change)
-# TODO t217/followup: re-measure when the branches are committed; the c264 rename of followup-1116 changes no c264.cc code lines (measured 0).
+# followup-1116 merged into main 2026-11-16 (449e1148a): its four exceptions folded into the file lines above (T175 menu_input + T196 S7 xpad test,
+# board PASS); portdiag_tests.inc (2236 lines of embedded core data) is gone, the tests ride in diag.cor record 8. TODO t217: re-measure when committed.
