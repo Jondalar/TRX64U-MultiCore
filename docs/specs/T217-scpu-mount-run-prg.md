@@ -132,3 +132,4 @@ Alex, translated: "Load and run from the C128 on a C64 file needs GO64, (ARE YOU
   `PASS prgrun ml` (`ram[00b02] = 2a`); `none` shows the control's `FAIL: ram[00b00] = 00` line (its check pattern was wrong, fixed, not rerun). S7, S8 and S10 therefore have a bench pass; the board step stays open.
 - **Build:** `tools/dev.sh riscv --branch t217-go64` rc=0.
 - **Not checked, board step for Alex:** C128 core, F3 file browser, "Load + run" on a `$0801` BASIC .prg, in 40 and in 80 columns, and with a drive/disk image mounted (the boot attempt). The boot attempt on the board: "4-5 s kommt hin" (Alex 2026-11-16: 4-5 s is about right), so the 80-column blind READY wait is 6000 ms (5 s + 1 s); the 20 s phase-1 limit stays.
+- D4 board (Board test 2026-11-16, package main-13c2cde9 (run 2344), Alex in the test list): C128 Load + run of a C64 .prg in 40 and 80 columns - PASS (GO64, "ARE YOU SURE?" Y, program runs in C64 mode).

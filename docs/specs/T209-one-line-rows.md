@@ -196,3 +196,4 @@ copy-all n=784 heap=0: marked 784, cut 0  -> arrived 784 of 784, message 'Copied
 copy-all n=784 heap=600000: marked 585, cut 199 -> arrived 288 of 784, message 'Copied 288 item(s), 496 more not taken (memory)'
 ```
 `tools/dev.sh riscv --branch browser-n` rc 0. Not run: apptests, render bench (pipeline). Not covered by pictures: long names, the pick, 480p.
+- #93 board (Board test 2026-11-16, package main-13c2cde9 (run 2344), Alex in the test list): host browser on a big folder PASS, core Library on a big folder PASS.

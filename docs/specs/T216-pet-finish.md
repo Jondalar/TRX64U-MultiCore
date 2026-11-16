@@ -225,3 +225,4 @@ LUT/BRAM: +1 BRAM18 (character ROM 4 KiB); no BRAM for 96 KiB (`pet_ram64` alrea
 - **Fix:** the cursor overlay is removed from `pet_vid.v` (ports `cur`, `r10`, `r11`, `fcnt`, `cur_f` gone; `pet_core.v` instance); the reverse-video bit (the PET's software cursor) stays.
 - **Bench:** `tb_pet_models` mode 0 (in `run_models.sh`, case of `pet_boot`, already listed in `ci/sims.txt`) now writes R10 = 0, R11 = 0 like the editor (R14/R15 stay at their reset value 0) and checks cell (0,0) scan 0 = dots 0 and 7 only.
   Before (RTL of main): `FAIL 80 col cell0`, `FAIL alternate character set (R12 bit 5)`, 2 errors. After: `PASS tb_pet_models mode 0`.
+- S13 board (Board test 2026-11-16, package main-13c2cde9 (run 2344), Alex in the test list): PET 8032/8096/SuperPET, no "_" left at the top after the power-on message, "*" intact - PASS (pet_vid.v CRTC cursor overlay removed).
