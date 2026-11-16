@@ -56,6 +56,7 @@ struct HcEntryRow {
     uint8_t pic;                                  // T209 D10: the boot menu pictogram: HCP_OK (usable), HCP_CHECK (check with R), HCP_BAD (not usable)
     bool def;
     bool full;
+    char ctype;                                   // T223 D7: the core-type badge letter: 'L' large, 'P' partial, 0 none (a .cfw, an entry not read)
     bool ok_state;                                // the entry's state is OK or CHANGED (an icon may be read)
     int configs;                                  // T198: the core's configs (menu rows of a .cor; 0 = no badge, D9)
     char cfgmark[8];                              // T223 D6: the boot menu's config column: "C" (or "config" with HC_CFG_MARKER_LONG) on a row that has configs, "" for none

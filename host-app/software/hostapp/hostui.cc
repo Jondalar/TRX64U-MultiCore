@@ -676,7 +676,7 @@ static lv_obj_t *sub1(lv_obj_t *p, const char *text, const char *compact_text = 
 
 
 struct Row {
-    lv_obj_t *box, *a, *b, *ic, *icl, *img, *defb, *defl, *stb, *stl, *cfb, *cfl, *vl;   // vl: the editor row's version (the menu row's is b)
+    lv_obj_t *box, *a, *b, *ic, *icl, *img, *defb, *defl, *stb, *stl, *cfb, *cfl, *vl, *tb, *tl;   // vl: the editor row's version (the menu row's is b)
     int w;                                      // the row's width (T198: the text lines' room depends on the badge)
     lv_obj_t *mk[4];                            // the selection mark: top, bottom, left bar, right (T101 areas)
     lv_draw_buf_t dsc;                          // the icon image's source (T101 D5)
@@ -893,6 +893,13 @@ static int ver_col_w(void)
     }
     return m;
 }
+// T223 D7 (T221 D16): the core-type badge, a small purple square right of the version ("L" large, "P" partial), as on mock-up t1b. Its slot is kept on rows
+// without a type (a .cfw) so the version column does not move. The status pictogram stands at the far right end, after the version and the badge
+// (Alex 2026-11-16, from pictures A/B: A).
+#define TB_W (COMPACT ? 18 : 22)
+#define TB_GAP 6
+#define TB_BG 0x5B49C8
+#define TB_INK 0xEDE9FF
 static int vcol_w;                                  // set by update_menu / update_edit before the rows are filled
 static void build_mrow(Row &r, lv_obj_t *par, int x, int y, int w, int h)
 {
@@ -921,6 +928,9 @@ static void build_mrow(Row &r, lv_obj_t *par, int x, int y, int w, int h)
     lv_obj_set_style_image_recolor(r.stb, lv_color_hex(PIC_GREEN), 0);
     r.pcs = HCP_OK;
     r.stl = NULL;
+    r.tb = box(r.box, w - 10 - TB_W, (h - 2 - TB_W) / 2, TB_W, TB_W, TB_BG, 0);
+    r.tl = txt(r.tb, 0, (TB_W - lv_font_get_line_height(F_SMALL)) / 2, "", F_SMALL, TB_INK, TB_W);
+    lv_obj_set_style_text_align(r.tl, LV_TEXT_ALIGN_CENTER, 0);
     r.defb = box(r.box, w - 10 - BADGE_W - DEF_W - 6, by, DEF_W, BADGE_H, C_HOST, 0);
     r.defl = txt(r.defb, 0, bty + 1, "auto", F_SMALL, C_BG, DEF_W);
     lv_obj_set_style_text_align(r.defl, LV_TEXT_ALIGN_CENTER, 0);
@@ -973,18 +983,29 @@ static void fill_mrow(Row &r, int i)
     if (lv_obj_get_style_width(r.ic, LV_PART_MAIN) != iw) {
         lv_obj_set_width(r.ic, iw);
     }
-    // from the right (T209 D16): version (far right, as wide as its text), the pictogram directly beside it, "auto", "N configs"; the name takes what is left
+    // from the right (T209 D16, T223 D7, Alex 2026-11-16: "the tick pictograms at the far right edge"): the pictogram at the right edge, the type badge
+    // left of it, the version left of that (as wide as its text); then "auto", the config marker; the name takes what is left
     const int vw = vcol_w;
-    const int vx = r.w - 10 - vw;
+    const int px = r.w - 10 - PIC_D;
+    const int tx = px - TB_GAP - TB_W;
+    const int vx = tx - TB_GAP - vw;
+    const int lx = vx - (vw ? RGRP_GAP : 0);
     if (lv_obj_get_x(r.b) != vx) {
         lv_obj_set_x(r.b, vx);
     }
-    const int px = vx - (vw ? RGRP_GAP : 0) - PIC_D;
     if (lv_obj_get_x(r.stb) != px) {
         lv_obj_set_x(r.stb, px);
     }
+    if (lv_obj_get_x(r.tb) != tx) {
+        lv_obj_set_x(r.tb, tx);
+    }
+    {
+        const char lt[2] = { v.ctype, 0 };
+        set_txt(r.tl, lt);                         // the label is the square's width at x 0 and centred (build_mrow): the letter sits in the middle
+        set_hidden(r.tb, !v.ctype);
+    }
     // T223 D5/D6: a table, the columns keep their place whether the row has a mark or not: name | auto | config | pictogram | version
-    const int cx = px - 6 - CFGM_W;
+    const int cx = lx - 6 - CFGM_W;
     const int dx = cx - 6 - DEF_W;
     const int nleft = dx - 8;
     if (lv_obj_get_x(r.defb) != dx) {
