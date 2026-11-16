@@ -186,7 +186,7 @@ Scenario: S9 on the board, end to end
   release; the release waits for it.
 
 
-1. **Q1 Which part do the 2-3 s blocked seconds belong to?** The code says keys are queued, not acted on, until the first LVGL frame
+1. **Q1: answered 2026-11-16 (Alex, "both, measure first (recommended)"):** S1 first (board startlog per phase), then the row cache AND the build phase, so that keys act early. Question was: **Which part do the 2-3 s blocked seconds belong to?** The code says keys are queued, not acted on, until the first LVGL frame
    after `build_ui()` (2.5 s on the board of 2026-10-29), and a data cache does not touch that. Do you want T229 as the row cache
    only (D1-D10), with the build phase decided after S1's numbers, or is the build phase part of this task?
 2. **Q2 Size + mtime only at menu time (D5)?** Accept that a same-size, same-2-s-mtime replacement shows its old row until the start
@@ -199,7 +199,7 @@ Scenario: S9 on the board, end to end
 
 ## §4 Out (nothing here decided yet; Alex fills it)
 
-- The build phase of `build_ui()` / first frame (see Q1), the compact modes' missing picture (T146 / T164 D10b), the core menus (T176).
+- The compact modes' missing picture (T146 / T164 D10b), the core menus (T176).
 - Direct boot (T135): no menu, no cache read.
 
 ## §5 Build notes
