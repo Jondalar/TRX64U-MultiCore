@@ -379,7 +379,7 @@ const char *hc_menu_foot(void)
     char dn[16], up[16];
     hc_key_name(HCX_MENU, HCA_MENU_PAGE_DOWN, dn, sizeof(dn));
     hc_key_name(HCX_MENU, HCA_MENU_PAGE_UP, up, sizeof(up));
-    snprintf(buf, sizeof(buf), "%s    %s/%s PAGE", base, dn, up);
+    snprintf(buf, sizeof(buf), "%s    %s/%s page", base, dn, up);
     return buf;
 }
 
@@ -408,7 +408,7 @@ static const char *browse_foot_base(void)
     return v.bsel >= 0 && v.bsel < v.bn ? (txu_is_name(v.bl[v.bsel].name) ? hc_foot(HCF_BR_TXU) : (hc_is_zip_name(v.bl[v.bsel].name) ? hc_foot(HCF_BR_ZIP) : hc_foot(HCF_BR_FILE))) : hc_foot(HCF_BR_PLAIN);
 }
 
-// T209 D4: a list longer than its window names its paging keys, in the core application's words ("+/- PAGE").
+// T209 D4: a list longer than its window names its paging keys, as the foot's last words ("+/- page", lowercase like every other word of a host foot).
 const char *hc_browse_foot(void)
 {
     static char buf[320];
@@ -420,7 +420,7 @@ const char *hc_browse_foot(void)
     char dn[16], up[16];
     hc_key_name(HCX_BROWSE, HCA_BROWSE_PAGE_DOWN, dn, sizeof(dn));
     hc_key_name(HCX_BROWSE, HCA_BROWSE_PAGE_UP, up, sizeof(up));
-    snprintf(buf, sizeof(buf), "%s    %s/%s PAGE", base, dn, up);
+    snprintf(buf, sizeof(buf), "%s    %s/%s page", base, dn, up);
     return buf;
 }
 

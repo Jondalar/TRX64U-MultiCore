@@ -1,5 +1,7 @@
 // The application's life after identification (T93 D4 steps 3-8, the Freeze menu, the menu loop and the start of the service layer's tasks). Board code; the sequences
 // it calls (boot.cc, freeze.cc, menuctl.cc, video.cc, settings.cc) are tested natively against models of the core.
+#include "listgrow.h"
+#include "FreeRTOS.h"
 #include "run.h"
 #include "diag.h"
 #include "ui.h"
@@ -467,6 +469,7 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
     net_fs.bind(&ctx);
     netfs_set(&net_fs);
     ctx.fs = &net_fs;
+    ListGrow::free_heap() = []() -> uint32_t { return (uint32_t)xPortGetFreeHeapSize(); };   // the Library and the folder pick size their lists against it (listgrow.h)
     hostwifi_load(ctx.fs);                              // T184 D3: the WiFi settings are the host's (F8); read once, never written
     start_paths(&ctx, h, board);
     char file_config[HANDOVER_CONFIG_MAX + 2] = "";     // T223 D4: a large core's choice comes in a file beside the page

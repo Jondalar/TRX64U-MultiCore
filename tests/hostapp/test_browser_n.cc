@@ -60,6 +60,8 @@ static void run(int nfake, uint32_t heap, bool cursor_keys)
     CHECK(v.bn > 4 && v.bl[1].dir && v.bl[3].dir && !v.bl[4].dir, "folders first");
     CHECK(more == 0 || v.bl[v.bn - 1].name[0] != 0, "last entry is a real row");
     int total_rows = hc_browse_nrows();
+    int nsel = hc_browse_nsel();                 // the cursor stands on entries only: the "more" line is information (ux-review R10)
+    CHECK(nsel == v.bn && total_rows == nsel + (more > 0), "rows %d, selectable %d", total_rows, nsel);
     int steps = 0, last = -1;
     hc_nav_geometry(5, 13, 1);
     if (cursor_keys) {
@@ -67,9 +69,9 @@ static void run(int nfake, uint32_t heap, bool cursor_keys)
             if (hc_nav_act(HCX_BROWSE, HCA_CURSOR_DOWN) == HCN_NONE) break;
             steps++;
         }
-        CHECK(steps == total_rows - 1, "cursor DOWN walked %d of %d", steps, total_rows - 1);
+        CHECK(steps == nsel - 1, "cursor DOWN walked %d of %d", steps, nsel - 1);
     } else {
-        for (int i = 0; i < total_rows; i++) {
+        for (int i = 0; i < total_rows + 2; i++) {
             int r = hc_nav_act(HCX_BROWSE, HCA_BROWSE_PAGE_DOWN);
             int sel = hc_nav().bsel;
             if (sel == last) break;
@@ -77,36 +79,40 @@ static void run(int nfake, uint32_t heap, bool cursor_keys)
             steps++;
             (void)r;
         }
-        CHECK(hc_nav().bsel == total_rows - 1, "+ reached the last row: %d of %d after %d pages", hc_nav().bsel, total_rows - 1, steps);
+        CHECK(hc_nav().bsel == nsel - 1, "+ reached the last entry: %d of %d after %d pages", hc_nav().bsel, nsel - 1, steps);
     }
     struct { char name[160]; } r;
     const HcNav &w = hc_nav();
     int sel = w.bsel;
-    CHECK(sel == total_rows - 1, "cursor on the last row");
-    if (sel < w.bn) snprintf(r.name, sizeof(r.name), "%s", w.bl[sel].name); else hc_browse_more_text(r.name, sizeof(r.name));
+    CHECK(sel == nsel - 1, "cursor on the last entry");
+    snprintf(r.name, sizeof(r.name), "%s", w.bl[sel].name);
+    char pos[40];
+    hc_browse_pos_text(pos, sizeof(pos), w.bfirst, 13);
+    char wantpos[40];
+    int total_e = v.bn - 1;
+    snprintf(wantpos, sizeof(wantpos), "of %d", total_e);
+    CHECK(total_e <= 13 ? !pos[0] : strstr(pos, wantpos) != 0, "position '%s' says %s", pos, wantpos);
     if (more > 0) {
-        CHECK(strstr(r.name, "more entries not shown") != 0, "last row says: %s", r.name);
+        char mt[120];
+        hc_browse_more_text(mt, sizeof(mt));
+        CHECK(strstr(mt, "more not shown") != 0, "the line behind the last entry says: %s", mt);
         char want[16];
         snprintf(want, sizeof(want), "%d more", more);
-        CHECK(strstr(r.name, want) != 0, "count %d in: %s", more, r.name);
+        CHECK(strstr(mt, want) != 0, "count %d in: %s", more, mt);
+        CHECK(sel < w.bn, "the cursor never stands on the information line");
+        hc_nav_act(HCX_BROWSE, HCA_CURSOR_DOWN);
+        CHECK(hc_nav().bsel == nsel - 1, "DOWN on the last entry stays");
     } else {
         char want[40];
         snprintf(want, sizeof(want), "Game %04d", nfake - 1);
         CHECK(strstr(r.name, want) != 0, "last entry is %s, row is %s", want, r.name);
     }
-    printf("  at the end: row %d '%s'\n", hc_nav().bsel, r.name);
-    // ENTER on the "more" row opens nothing
-    if (more > 0) {
-        char before[160];
-        snprintf(before, sizeof(before), "%s", hc_nav().bpath);
-        hc_browse_enter();
-        CHECK(!strcmp(before, hc_nav().bpath), "ENTER on the more row stays");
-    }
+    printf("  at the end: row %d '%s' position '%s'\n", hc_nav().bsel, r.name, pos);
     // back up with - and with UP to row 0 (the parent row)
     if (cursor_keys) {
         for (int i = 0; i < total_rows + 5; i++) if (hc_nav_act(HCX_BROWSE, HCA_CURSOR_UP) == HCN_NONE) break;
     } else {
-        for (int i = 0; i < total_rows; i++) if (hc_nav_act(HCX_BROWSE, HCA_BROWSE_PAGE_UP) == HCN_NONE && hc_nav().bsel == 0) break;
+        for (int i = 0; i < total_rows + 2; i++) if (hc_nav_act(HCX_BROWSE, HCA_BROWSE_PAGE_UP) == HCN_NONE && hc_nav().bsel == 0) break;
     }
     CHECK(hc_nav().bsel == 0 && !strcmp(hc_nav().bl[0].name, ".."), "back at the parent row");
 }

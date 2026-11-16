@@ -951,7 +951,7 @@ static void scenarios(const char *out)
     snprintf(ex, sizeof(ex), "sel=%d first=%d ", MR, 4);
     CHECK(has(ex));
     // T209 D7: "+" / "-" page the boot menu (a page = the rows it shows), stopping at the ends; the foot names the keys
-    CHECK(has("+/- PAGE"));
+    CHECK(has("+/- page"));
     // a page moves the window by exactly the rows it shows (T223: no row is skipped between two pages); the window first = 4 here
     hostui_test_key('-');
     snprintf(ex, sizeof(ex), " first=%d ", 4 - MR < 0 ? 0 : 4 - MR);

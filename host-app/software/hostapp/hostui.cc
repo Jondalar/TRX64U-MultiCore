@@ -692,7 +692,8 @@ static int nav_shown = -1;                      // the navigation entry that is 
 static Row mrow[MROWS_MAX], erow[MROWS_MAX];
 static lv_obj_t *m_hint, *m_sub, *m_pos, *m_note, *m_cdbox;
 static lv_obj_t *e_def, *e_menu, *e_note, *e_pos;
-static lv_obj_t *b_left, *b_path, *b_empty, *b_note, *b_right, *b_sub;
+static int b_lw;
+static lv_obj_t *b_left, *b_path, *b_pos, *b_empty, *b_note, *b_right, *b_sub;
 static lv_obj_t *b_hl[4];                       // the selection mark of the list (4 strips, see marks_build)
 static lv_obj_t *b_mark[BROWS_MAX], *b_name[BROWS_MAX], *b_size[BROWS_MAX];
 static lv_obj_t *r_title, *r_key[7], *r_val[7], *r_msg, *r_err;
@@ -1367,6 +1368,9 @@ static void build_browse(void)
     lv_obj_t *left = box(p, CX0, top, lw, ph, C_PANEL, 1);
     b_left = left;
     b_path = fit1(txt(left, 10, 6, "", F_TEXT, C_OK, lw - 20), lw - 20);
+    b_lw = lw;
+    b_pos = txt(left, lw - 10 - 130, 8, "", F_SMALL, C_MUTED, 130);          // ux-review R5: "13-24 of 784" on the path's line, right-aligned like the boot menu's
+    lv_obj_set_style_text_align(b_pos, LV_TEXT_ALIGN_RIGHT, 0);
     b_empty = txt(left, 10, 40, "", F_SMALL, C_MUTED);
     marks_build(b_hl, left, 4, 34, lw - 8, 24);
     int szw = COMPACT ? 70 : 86;
@@ -1483,9 +1487,15 @@ static void update_browse(void)
 {
     char t[200];
     browse_sub_update();
+    hc_nav_browse_first(BROWS);                              // T209 D3: scrolls while 2 rows are still hidden ahead of the selection (the model moves it; hc_nav() is const)
+    char pos[40];
+    hc_browse_pos_text(pos, sizeof(pos), nv.bfirst, BROWS);
+    int pw = b_lw - 20 - (pos[0] ? 140 : 0);                 // the path gives way to the position
+    lv_obj_set_width(b_path, pw);
+    lv_obj_set_user_data(b_path, (void *)(intptr_t)pw);
+    set_txt(b_pos, pos);
     hc_browse_title(t, sizeof(t));
     set_txt(b_path, t);
-    hc_nav_browse_first(BROWS);                              // T209 D3: scrolls while 2 rows are still hidden ahead of the selection (the model moves it; hc_nav() is const)
     hc_browse_empty_text(t, sizeof(t));
     set_txt(b_empty, t);
     for (int i = 0; i < BROWS; i++) {

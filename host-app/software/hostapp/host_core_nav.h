@@ -12,8 +12,12 @@
 enum HcView { HCV_MENU = 0, HCV_BROWSE, HCV_EDIT, HCV_NET, HCV_SET, HCV_COLORS, HCV_N };      // HCV_MENU .. HCV_SET are the navigation's 0..4; the colour test has no entry
 enum HcBrMode { HCB_NORMAL = 0, HCB_PICK, HCB_INSPECT };                                    // the browser: ordinary, picking the target folder of a copy / move, picking a .cfw/.ue2 to look into
 enum HcCmMode { HCM_OFF = 0, HCM_LIST, HCM_ASK1, HCM_ASK2 };                                // the page "Cores and ROMs" over the settings: off, the list, the first / the second question
+#ifndef HC_BR_START                                                                         // (a mock-up build for the pictures of the "more" row sets both small: -DHC_BR_START=40 -DHC_BR_HARD=60)
 #define HC_BR_START 256                                                                     // rows the browser buffer holds first (the parent row included); a longer folder grows it
+#endif
+#ifndef HC_BR_HARD
 #define HC_BR_HARD 32768                                                                    // the most rows it ever holds, however much heap is free (T229-free bound: a real memory limit is the heap quarter below)
+#endif
 #define HC_NOTE_MAX 160
 
 struct HcNav {
@@ -50,6 +54,8 @@ int hc_nav_menu_rows(void);
 int hc_nav_edit_rows(void);
 int hc_nav_browse_rows(void);
 void hc_browse_more_text(char *out, int n);   // the text of that last row
+void hc_browse_pos_text(char *out, int n, int first, int rows);   // the browser's "a-b of n" (entries only), empty while the list fits
+int hc_browse_nsel(void);                   // the rows the cursor stands on (the entries; not the "more not shown" line)
 int hc_browse_nrows(void);                  // the rows the list shows: the entries plus the "more not shown" row when the folder did not fit
 int hc_nav_cores_rows(void);
 

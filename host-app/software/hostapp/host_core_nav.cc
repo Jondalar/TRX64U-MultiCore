@@ -200,8 +200,26 @@ static bool br_buf(int cap)
     return true;
 }
 
-void hc_browse_more_text(char *out, int n) { snprintf(out, n, "... %d more entries not shown (memory)", g_nav.bmore); }
+void hc_browse_more_text(char *out, int n) { snprintf(out, n, "... %d more not shown", g_nav.bmore); }
 int hc_browse_nrows(void) { return g_nav.bn + (g_nav.bmore > 0 ? 1 : 0); }
+int hc_browse_nsel(void) { return g_nav.bn; }       // the rows the cursor can stand on: the "more not shown" row is a line of the list, not an entry (ux-review R10)
+
+// The browser's position line (ux-review R5, same words as the menu's): "13-24 of 784", the entries only (the ".." row and the "more not shown"
+// line are not counted), empty while the list fits its window.
+void hc_browse_pos_text(char *b, int n, int first, int rows)
+{
+    const HcNav &v = g_nav;
+    int skip = v.bup && v.bn > 0 ? 1 : 0;
+    int total = v.bn - skip;
+    if (hc_browse_nrows() <= rows || total <= 0) {
+        b[0] = 0;
+        return;
+    }
+    int a = first - skip < 0 ? 0 : first - skip;
+    int z = first + rows - skip > total ? total : first + rows - skip;
+    a = a >= total ? total - 1 : a;
+    snprintf(b, n, "%d-%d of %d", a + 1, z, total);
+}
 
 void hc_browse_load(void)
 {
@@ -257,8 +275,8 @@ void hc_browse_load(void)
     if (n.bl) {
         memset(&n.bl[n.bn], 0, sizeof(n.bl[0]));    // the row behind the last one (the "more" row) reads as empty
     }
-    if (n.bsel >= hc_browse_nrows()) {
-        n.bsel = hc_browse_nrows() ? hc_browse_nrows() - 1 : 0;
+    if (n.bsel >= n.bn) {
+        n.bsel = n.bn ? n.bn - 1 : 0;
     }
     if (g_plat.loaded) {
         g_plat.loaded();
@@ -309,8 +327,8 @@ void hc_browse_set_path(const char *path) { snprintf(g_nav.bpath, sizeof(g_nav.b
 void hc_nav_set_bsel(int i) { g_nav.bsel = i; }
 void hc_nav_bsel_clamp(void)
 {
-    if (g_nav.bsel >= hc_browse_nrows()) {
-        g_nav.bsel = hc_browse_nrows() ? hc_browse_nrows() - 1 : 0;
+    if (g_nav.bsel >= g_nav.bn) {
+        g_nav.bsel = g_nav.bn ? g_nav.bn - 1 : 0;
     }
 }
 bool hc_browse_at_media(void) { return !strcmp(g_nav.bpath, "/"); }
@@ -353,7 +371,7 @@ int browse_cursor(int act)
     HcNav &n = g_nav;
     if (act == HCA_CURSOR_UP && n.bsel > 0) {
         n.bsel--;
-    } else if (act == HCA_CURSOR_DOWN && n.bsel + 1 < hc_browse_nrows()) {
+    } else if (act == HCA_CURSOR_DOWN && n.bsel + 1 < n.bn) {
         n.bsel++;
     } else {
         return HCN_NONE;
@@ -372,6 +390,9 @@ int browse_page(int act)
     }
     int t = n.bsel;
     listwin_page(&t, &n.bfirst, hc_browse_nrows(), g_brows, act == HCA_BROWSE_PAGE_DOWN ? 1 : -1);
+    if (t >= n.bn) {                                  // the last line of a cut list is information, the cursor stops on the last entry
+        t = n.bn ? n.bn - 1 : 0;
+    }
     int r = HCN_DONE;
     if (t != n.bsel) {
         n.bsel = t;
