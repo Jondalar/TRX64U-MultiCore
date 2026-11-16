@@ -99,7 +99,7 @@ Built and benched; what is left is a step on the board (Alex, 2026-10-28, transl
 | T220 | 3 | 📅 | Host network chip stale: "no network" while LAN works (#84 comment) | Backlog; read 11-15: 3 s poll, cause open | [T220](docs/specs/T220-net-chip-stale.md) |
 | T221 | 2 | 🔨 | SemVer for host, host menu, core app, every core; displays: branch SemVer+commit, release SemVer | in main (11-16); L/P badge built (T223 D7); open: TRX64-U contract (D15) | [T221](docs/specs/T221-semver-everywhere.md) |
 | T222 | 2 | ✅ | SCPU core: every HDMI row of U16 (576p/720p/1080p 50, 480p/720p/1080p/800x600 60) at Integer/Fit/Fill | Board PASS 11-15 (Alex: everything works); merged to main | [T222](docs/specs/T222-scpu-hdmi-modes.md) |
-| T223 | 2 | 🔨 | Boot menu: 32 entries, only visible rows read, clear full-menu message; large cores take configs (D4) | Board 11-16 table ok; D7 built: version x.y.z only, L/P badge, tick at the right edge (ue2emu ok) | [T223](docs/specs/T223-boot-menu-32.md) |
+| T223 | 2 | 🔨 | Boot menu: 32 entries, only visible rows read, clear full-menu message; large cores take configs (D4) | Board 11-16 table ok; D7 (version x.y.z, L/P badge, tick right) board PASS 11-16 | [T223](docs/specs/T223-boot-menu-32.md) |
 | T225 | 2 | ✅ | Amiga: USB pad on game port 2 (1-/2-button, CD32), mapping dialog, saved per pad ID | Done 11-15, board amiga1200 (Alex) | [T225](docs/specs/T225-amiga-usb-pad-port2.md) |
 | T226 | 2 | 🔨 | Core app: "Loading cartridge" note; pad mapping on the Input tab, not Actions F7 | Spec 11-15 (Alex, board) | [T226](docs/specs/T226-coreapp-board-ux-1115.md) |
 | T228 | 2 | 📝 | trx64u on the generic core menu; S1 decided (D1-D18), next T212 merge then S2 | Spec 11-15 (Alex) | [T228](docs/specs/T228-trx64u-generic-menu.md) |
