@@ -93,6 +93,7 @@ Reported on GitHub after the first test release (2026-11-13/14), bundled here 20
 - **D13 (Alex 2026-11-15, open UX Q4 "c", after q4a-c):** the PET row "Diag" is named "Diag jumper", values Off/On.
 - **D14 (Alex 2026-11-15, open UX Q5 "C", after q5a/q5c):** on the SuperPET the missing-ROM message lists the missing base files plus one summary line for the Waterloo set ("and for the 6809: waterloo-a000 ... f000 (6 files)"), all in one message (fits OP_MSG_MAX).
 - **D15 (Alex 2026-11-15, S12 "B"):** the app checks the checksum (CRC32) of every known PET ROM file it loads against the expected value of that file name and refuses a file with wrong content, naming it, the same way as a missing file (no start on a wrong ROM).
+- **D16 (Alex 2026-11-16: "a", after the board showed the 2001 + BASIC 2 on the previous model's ROMs):** after a change of the model, the next Reset loads the ROMs of the new model by itself, as "Reload ROMs, reset" does (today a plain Reset keeps the old ROMs without a word: `boot.cc` writes ROMs only on reload). Application only.
 
 ## §4 Out
 
