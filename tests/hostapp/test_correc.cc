@@ -99,14 +99,22 @@ int main(int argc, char **argv)
     CHECK(cor_probe(x, ci) == COR_ERR_FORMAT);
     CHECK(load(x, dir + "/libsonly.cor"));
     CHECK(cor_probe(x, ci) == COR_OK && ci.size[COR_PART_DESC] == 0 && ci.size[COR_PART_LIBS] > 0);
-    // a record type nobody knows
+    // a record type nobody knows (9; record 8 is the files record since T175)
     MemSrc t = s;
     uint32_t total = t.d.size() - 12;
-    uint8_t extra[8] = { 8, 0, 0, 0, 0, 0, 0, 0 };
+    uint8_t extra[8] = { 9, 0, 0, 0, 0, 0, 0, 0 };
     t.d.insert(t.d.end(), extra, extra + 8);
     total += 8;
     for (int i = 0; i < 4; i++) t.d[8 + i] = (uint8_t)(total >> (8 * i));
     CHECK(cor_probe(t, ci) == COR_ERR_FORMAT);
+    // record 8 with a payload the manifest does not announce (no files_size) is refused as well
+    MemSrc f = s;
+    total = f.d.size() - 12;
+    uint8_t rec8[12] = { 8, 0, 0, 0, 4, 0, 0, 0, 1, 2, 3, 4 };
+    f.d.insert(f.d.end(), rec8, rec8 + 12);
+    total += 12;
+    for (int i = 0; i < 4; i++) f.d[8 + i] = (uint8_t)(total >> (8 * i));
+    CHECK(cor_probe(f, ci) == COR_ERR_FORMAT);
     printf(fails ? "FAILED %d\n" : "test_correc: all ok\n", fails);
     return fails != 0;
 }
