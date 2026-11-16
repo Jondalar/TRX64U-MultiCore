@@ -3,6 +3,7 @@
 //
 // copy, move and delete are jobs in steps (the menu's progress display, T122 5): the operation is called again for as long as it answers `more`, one file chunk or
 // one directory entry per call. The first call of a job (CoreCtx::job_pct 0 and no job_path) makes the work list from the selection.
+#include "listgrow.h"
 #include "libfiles.h"
 #include "home.h"
 #include "ops_glue.h"
@@ -30,8 +31,8 @@ struct Frame {
 struct Job {
     bool active;
     int kind;
-    char srcs[LIBSEL_MAX][FS_PATH_MAX];
-    int nsrc, si;
+    char (*srcs)[FS_PATH_MAX];            // heap: one path per item of the selection (GitHub #93: no fixed count)
+    int nsrc, si, src_cut;                // src_cut: marked or clipboard items the memory budget did not take (the end message says it)
     char dest[200];
     Frame fr[DEPTH];
     int depth;
@@ -57,18 +58,32 @@ static void join(char *out, int n, const char *dir, const char *name)
     snprintf(out, n, "%s%s%s", dir, l && dir[l - 1] == '/' ? "" : "/", name);
 }
 
-// The sources of an operation: the marked names, else the row under the cursor.
-static int selection(CoreCtx *c, char out[][FS_PATH_MAX], int max)
+// The sources of an operation: the marked names, else the row under the cursor. A buffer of exactly the items taken (the caller frees it or keeps it); *cut = the
+// marked items that did not fit the memory budget (GitHub #93: counted, never dropped in silence). Null: no item (or no memory, then *cut says how many).
+static char (*selection(CoreCtx *c, int *n_out, int *cut))[FS_PATH_MAX]
 {
-    int n = 0;
     LibSel &l = c->lib;
-    for (int i = 0; i < l.nmarked && n < max; i++) {
-        join(out[n++], FS_PATH_MAX, l.dir, l.marked[i]);
+    int want = l.nmarked ? l.nmarked : (l.cur[0] ? 1 : 0);
+    int take = want ? ListGrow::fit(want, FS_PATH_MAX) : 0;
+    *cut = (l.nmarked ? l.marked_cut : 0) + (want - take);
+    *n_out = 0;
+    if (!take) {
+        return 0;
     }
-    if (!n && l.cur[0] && n < max) {
-        snprintf(out[n++], FS_PATH_MAX, "%s", l.cur);
+    char (*out)[FS_PATH_MAX] = (char (*)[FS_PATH_MAX])malloc((size_t)take * FS_PATH_MAX);
+    if (!out) {
+        *cut += take;
+        return 0;
     }
-    return n;
+    if (l.nmarked) {
+        for (int i = 0; i < take; i++) {
+            join(out[i], FS_PATH_MAX, l.dir, l.marked[i]);
+        }
+    } else {
+        snprintf(out[0], FS_PATH_MAX, "%s", l.cur);
+    }
+    *n_out = take;
+    return out;
 }
 
 static bool is_dir(CoreCtx *c, const char *p)
@@ -94,6 +109,7 @@ static void job_free(void)
     for (int i = 0; i < DEPTH; i++) {
         delete[] g_job->fr[i].ents;
     }
+    free(g_job->srcs);
     delete g_job;
     g_job = 0;
 }
@@ -111,17 +127,21 @@ static int job_begin(CoreCtx *c, int kind, bool from_clip, char *msg, int msglen
     Job *j = g_job;
     j->kind = kind;
     if (from_clip) {
-        for (int i = 0; i < c->lib.nclip && j->nsrc < LIBSEL_MAX; i++) {
+        int take = c->lib.nclip ? ListGrow::fit(c->lib.nclip, FS_PATH_MAX) : 0;
+        j->srcs = take ? (char (*)[FS_PATH_MAX])malloc((size_t)take * FS_PATH_MAX) : 0;
+        take = j->srcs ? take : 0;
+        for (int i = 0; i < take; i++) {
             snprintf(j->srcs[j->nsrc++], FS_PATH_MAX, "%s", c->lib.clip[i]);
         }
+        j->src_cut = c->lib.clip_cut + (c->lib.nclip - take);
         j->kind = c->lib.clip_move ? FJ_MOVE : FJ_COPY;
         snprintf(j->dest, sizeof(j->dest), "%s", c->lib.dir);
     } else {
-        j->nsrc = selection(c, j->srcs, LIBSEL_MAX);
+        j->srcs = selection(c, &j->nsrc, &j->src_cut);
         snprintf(j->dest, sizeof(j->dest), "%s", c->media_dir);
     }
     if (!j->nsrc) {
-        snprintf(msg, msglen, "Nothing is selected");
+        snprintf(msg, msglen, j->src_cut ? "No memory for the selection" : "Nothing is selected");
         job_free();
         return 1;
     }
@@ -353,6 +373,9 @@ static int job_step(CoreCtx *c, Job *j, char *msg, int msglen)
     }
     static const char *const verb[] = { "Copied", "Moved", "Deleted" };
     int w = snprintf(msg, msglen, "%s %d item(s)", verb[j->kind], j->done_files);
+    if (j->src_cut && w < msglen) {
+        w += snprintf(msg + w, msglen - w, ", %d more not taken (memory)", j->src_cut);
+    }
     if (j->skipped && w < msglen) {
         w += snprintf(msg + w, msglen - w, ", %d skipped (the name exists there)", j->skipped);
     }
@@ -398,24 +421,23 @@ static int op_paste_job(CoreCtx *c, const OpArgs &, OpOut &o) { return run_job(c
 // ---- the clipboard, marks, rename, new folder, home ------------------------------------------------------------------------------------------------
 static int op_clip(CoreCtx *c, const OpArgs &a, OpOut &o)           // value 0 copy, 1 cut
 {
-    char (*sel)[FS_PATH_MAX] = (char (*)[FS_PATH_MAX])malloc((size_t)LIBSEL_MAX * FS_PATH_MAX);      // 33 KB for this call, not for good
-    if (!sel) {
-        snprintf(o.msg, o.msglen, "No memory for the selection");
-        return OPE_FAILED;
-    }
-    int n = selection(c, sel, LIBSEL_MAX);
+    int n = 0, cut = 0;
+    char (*sel)[FS_PATH_MAX] = selection(c, &n, &cut);
     if (!n) {
         free(sel);
-        snprintf(o.msg, o.msglen, "Nothing is selected");
+        snprintf(o.msg, o.msglen, cut ? "No memory for the selection" : "Nothing is selected");
         return OPE_FAILED;
     }
-    for (int i = 0; i < n; i++) {
-        snprintf(c->lib.clip[i], sizeof(c->lib.clip[i]), "%s", sel[i]);
-    }
-    free(sel);
+    free(c->lib.clip);                                              // the clipboard takes the buffer over
+    c->lib.clip = sel;
+    c->lib.cap_clip = n;
     c->lib.nclip = n;
+    c->lib.clip_cut = cut;
     c->lib.clip_move = a.i(0) != 0;
-    snprintf(o.msg, o.msglen, "%d item(s) on the clipboard (%s): open the target folder and paste", n, c->lib.clip_move ? "cut" : "copy");
+    int w = snprintf(o.msg, o.msglen, "%d item(s) on the clipboard (%s): open the target folder and paste", n, c->lib.clip_move ? "cut" : "copy");
+    if (cut && w < o.msglen) {
+        snprintf(o.msg + w, o.msglen - w, "; %d more marked were not taken (memory)", cut);
+    }
     return OPE_OK;
 }
 

@@ -27,6 +27,7 @@ struct FileMgr {
         bool dir;
         bool marked;                     // SPACE marked it (Manage: copy, move, delete take the marked rows)
         int tone;                        // 0 muted, 1 cyan, 2 violet, 3 amber, 4 coral
+        bool info;                       // the line of a cut list: information, no entry
         bool more;                       // it has more than one action (RETURN opens the list)
     };
 

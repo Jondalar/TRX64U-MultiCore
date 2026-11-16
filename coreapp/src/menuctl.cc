@@ -954,11 +954,63 @@ void MenuCtl::move(int d)
 }
 
 // T180 D7: a page. In the F3 browser (its list, not a sheet or a text) it is the rows the list shows; elsewhere the ten rows PageUp/PageDown always moved.
-// move() clamps at both ends.
+// The Library's list pages as the host's (ux-review R9, T209 D3/D7, host-app listwin.h `listwin_page`): the window moves by exactly the rows it shows, clamped
+// to the list, and the selection keeps its row in the window inside the margin of 2 (not at the ends); already at an end the selection goes to the last / first row.
 void MenuCtl::page(int dir)
 {
-    int n = is_browser() && !chooser_ ? page_rows_ : 10;
-    move(dir * (n > 0 ? n : 1));
+    if (!(is_browser() && !chooser_ && !entry_ && !pick_ && !busy_)) {
+        int k = is_browser() && !chooser_ ? page_rows_ : 10;
+        move(dir * (k > 0 ? k : 1));
+        return;
+    }
+    int n = rows(), rws = page_rows_ > 0 ? page_rows_ : 1;
+    if (n <= 0) {
+        return;
+    }
+    int m = (rws - 1) / 2 < 2 ? (rws - 1) / 2 : 2;
+    int maxf = n > rws ? n - rws : 0;
+    int f = scroll_ > maxf ? maxf : (scroll_ < 0 ? 0 : scroll_);
+    int f2 = f + dir * rws;
+    f2 = f2 > maxf ? maxf : (f2 < 0 ? 0 : f2);
+    int off = fm_.sel - f;
+    off = off < 0 ? 0 : (off > rws - 1 ? rws - 1 : off);
+    if (f2 > 0 && off < m) {
+        off = m;
+    }
+    if (f2 < maxf && off > rws - 1 - m) {
+        off = rws - 1 - m;
+    }
+    int s2 = f2 + off;
+    if (f2 == f) {
+        s2 = dir > 0 ? n - 1 : 0;
+    }
+    s2 = s2 >= n ? n - 1 : (s2 < 0 ? 0 : s2);
+    if (s2 >= fm_.nlist && fm_.nlist > 0) {                         // the information line of a cut list takes no focus (R10)
+        s2 = fm_.nlist - 1;
+    }
+    fm_.sel = s2;
+    scroll_ = f2;                                                    // the screen starts its window there (as after a reopen)
+    scroll_rev_++;
+}
+
+// The Library header (ux-review R5, the words of the host's browser): "773-784 of 784" - the entries only, ".." and the "more not shown" line not counted - once the list
+// is longer than its window; a cut list adds "+" ("49-59 of 59+"). A list that fits says "N items".
+void MenuCtl::pos_text(char *b, int n, int first, int rows_shown)
+{
+    int skip = fm_.nlist > 0 && !strcmp(fm_.list[0].name, "..") ? 1 : 0;
+    int total = fm_.nlist - skip;
+    const char *plus = list_cut() ? "+" : "";
+    if (total < 0) {
+        total = 0;
+    }
+    if (this->rows() <= rows_shown || total <= 0) {
+        snprintf(b, n, "%d%s items", total, plus);
+        return;
+    }
+    int a = first - skip < 0 ? 0 : first - skip;
+    int z = first + rows_shown - skip > total ? total : first + rows_shown - skip;
+    a = a >= total ? total - 1 : a;
+    snprintf(b, n, "%d-%d of %d%s", a + 1, z, total, plus);
 }
 
 void MenuCtl::begin_entry(const FileAction &a, const char *file)
@@ -1686,7 +1738,7 @@ bool MenuCtl::tick()
     }
     busy_ = false;
     c_->job_cancel = false;
-    c_->lib.nmarked = 0;                                            // a job used the marks up
+    c_->lib.nmarked = c_->lib.marked_cut = 0;                                            // a job used the marks up
     if (is_browser()) {
         fm_.load_dir();
         fm_.up_while_gone();
@@ -3949,7 +4001,7 @@ MenuCtl::Result MenuCtl::ui_action(const char *op, const char *file)
         return R_REDRAW;
     }
     if (!marked_file) {                                             // the action of one file acts on that file, not on marks elsewhere
-        l.nmarked = 0;
+        l.nmarked = l.marked_cut = 0;
     }
     snprintf(l.cur, sizeof(l.cur), "%s", file);
     if (!strcmp(op, "ui.copy")) {

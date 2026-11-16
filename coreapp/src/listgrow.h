@@ -27,6 +27,14 @@ struct ListGrow {
         return f;
     }
 
+    // How many of `want` rows of `each` bytes the budget allows: at most a quarter of the heap that is free now (GitHub #93: the marks, the clipboard and a job's sources).
+    static int fit(int want, size_t each)
+    {
+        uint32_t fh = free_heap() ? free_heap()() : 0xFFFFFFFFu;
+        uint64_t most = (uint64_t)(fh / 4) / each;
+        return (uint64_t)want > most ? (int)most : want;
+    }
+
     // `*buf` holds `*cap` entries (null: none yet). Reads `dir` into (*buf)[up ..]; returns what CoreFs::list returns (the entries read, -1 when the folder cannot be read).
     // `*cut` is set when the folder is longer than the buffer the budget allows.
     static int read(CoreFs *fs, const char *dir, FsEntry **buf, int *cap, int up, bool *cut)

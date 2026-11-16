@@ -505,25 +505,41 @@ int main()
         int vol = p.st->find(VOLUME_KEY);
         CHECK(vol >= 0);
         int v0 = vol >= 0 ? p.st->value(vol) : -1;
-        p.m->key(KEY_HOME);
+        // ux-review R9 (GitHub #93): a page moves the window by the rows it shows and the selection keeps its row inside the margin of 2 (T209 D3, as the host's listwin_page);
+        // `scr` is the screen's part: it starts its window where the menu says (scroll_rev) and keeps the selection inside the margin (trx_window), then reports it
+        uint32_t seen = 0;
+        int first = 0;
+        auto scr = [&]() {
+            if (p.m->scroll_rev() != seen) { first = p.m->scroll_first(); seen = p.m->scroll_rev(); }
+            int n = p.m->rows(), sel = p.m->selected();
+            if (first > sel - 2) first = sel - 2;
+            if (sel > first + 8 - 1 - 2) first = sel - 8 + 1 + 2;
+            if (first > n - 8) first = n - 8;
+            if (first < 0) first = 0;
+            p.m->note_scroll(first);
+        };
+        p.m->key(KEY_HOME); scr();
         CHECK_EQ(p.m->selected(), 0);
-        p.m->key('+');
-        CHECK_EQ(p.m->selected(), 8);
-        p.m->key('+');
-        CHECK_EQ(p.m->selected(), 16);                             // the last page
-        p.m->key('+');
-        CHECK_EQ(p.m->selected(), 23);                             // clamped at the end, still on the last page
-        p.m->key('+');
+        p.m->key('+'); scr();
+        CHECK_EQ(p.m->selected(), 10);                             // the window 0..7 -> 8..15, the selection on its row 2 (the margin)
+        p.m->key('+'); scr();
+        CHECK_EQ(p.m->selected(), 18);                             // the last window 16..23
+        p.m->key('+'); scr();
+        CHECK_EQ(p.m->selected(), 23);                             // already on the last window: the last row
+        p.m->key('+'); scr();
         CHECK_EQ(p.m->selected(), 23);
-        p.m->key('-');
-        CHECK_EQ(p.m->selected(), 15);                             // one page up
-        p.m->key('-'); p.m->key('-'); p.m->key('-');
-        CHECK_EQ(p.m->selected(), 0);                              // clamped at the top
+        p.m->key('-'); scr();
+        CHECK_EQ(p.m->selected(), 13);                             // one window up (8..15), the row it stood on (7) held inside the margin: 5
+        p.m->key('-'); scr();
+        CHECK_EQ(p.m->selected(), 5);
+        p.m->key('-'); scr(); p.m->key('-'); scr();
+        CHECK_EQ(p.m->selected(), 0);                              // the first window: the first row
         CHECK_EQ(vol >= 0 ? p.st->value(vol) : -1, v0);            // the bare keys did not touch the volume
-        p.m->key(KEY_PAGEDOWN);
-        CHECK_EQ(p.m->selected(), 8);                              // PageDown is the same page
-        p.m->key(KEY_PAGEUP);
-        CHECK_EQ(p.m->selected(), 0);
+        p.m->key(KEY_PAGEDOWN); scr();
+        CHECK_EQ(p.m->selected(), 10);                             // PageDown is the same page
+        p.m->key(KEY_PAGEUP); scr();
+        CHECK_EQ(p.m->selected(), 2);
+        p.m->key(KEY_HOME); scr();
         // the volume on the C64 keyboard's keys and the USB SHIFT+- key; the selection stays
         p.m->key('{');
         CHECK_EQ(vol >= 0 ? p.st->value(vol) : -1, v0 + 1);
