@@ -182,6 +182,10 @@ Scenario: S9 on the board, end to end
 
 ## §3a Open questions (asked one at a time, in this order)
 
+- **Release scope (Alex 2026-11-16, asked "T229 in this release or after?", answer "in the release"):** T229 is built for the coming
+  release; the release waits for it.
+
+
 1. **Q1 Which part do the 2-3 s blocked seconds belong to?** The code says keys are queued, not acted on, until the first LVGL frame
    after `build_ui()` (2.5 s on the board of 2026-10-29), and a data cache does not touch that. Do you want T229 as the row cache
    only (D1-D10), with the build phase decided after S1's numbers, or is the build phase part of this task?
