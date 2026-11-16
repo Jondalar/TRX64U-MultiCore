@@ -217,6 +217,39 @@ int main()
         CHECK_EQ(ops_set(&r.c, "c64.set_freeze_mode", 2), OPE_ARG);
     }
 
+    // ---- T216 D16: a descriptor with a rom_key loads the ROMs again at the Reset that follows a change of the key, and only then
+    {
+        static uint32_t key;
+        struct K { static uint32_t get(CoreCtx *) { return key; } };
+        CoreDesc d = c64_desc;
+        d.rom_key = K::get;
+        C64Rig r;
+        r.c.desc = &d;
+        r.put_roms();
+        key = 1;
+        CHECK(r.boot());
+        OpResult res;
+        r.io.events.clear();
+        CHECK_EQ(ops_call(&r.c, "machine.cold_reset", 0, 0, &res), OPE_OK);        // the key is the one the ROMs were put for
+        CHECK_EQ(count_prefix(r.io.events, "rom_write"), 0);
+        key = 2;                                                                    // the model changed
+        r.io.events.clear();
+        CHECK_EQ(ops_call(&r.c, "machine.cold_reset", 0, 0, &res), OPE_OK);
+        CHECK_EQ(count_prefix(r.io.events, "rom_write"), 3);
+        CHECK_STR(ev_last(r.io.events), "mode_unreset");
+        r.io.events.clear();
+        CHECK_EQ(ops_call(&r.c, "machine.cold_reset", 0, 0, &res), OPE_OK);        // the next one has nothing to load
+        CHECK_EQ(count_prefix(r.io.events, "rom_write"), 0);
+        key = 3;                                                                    // a file gone: the Reset refuses like the reload, the machine keeps running
+        r.fs.remove("/flash/roms/chars.bin");
+        r.io.events.clear();
+        CHECK_EQ(ops_call(&r.c, "machine.cold_reset", 0, 0, &res), OPE_FAILED);
+        CHECK(r.io.events.empty());
+        r.fs.put("/flash/roms/chars.bin", r.chars);                                 // still not loaded for key 3: the next Reset loads
+        CHECK_EQ(ops_call(&r.c, "machine.cold_reset", 0, 0, &res), OPE_OK);
+        CHECK_EQ(count_prefix(r.io.events, "rom_write"), 3);
+    }
+
     // ---- S9: C64_STOP, the gate bit awaited, the layer to the menu; leaving: the keys, then the machine runs
     {
         C64Rig r;

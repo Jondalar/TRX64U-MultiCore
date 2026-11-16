@@ -104,6 +104,12 @@ static const Setting settings[17] = {
 static int pet_model(CoreCtx *c) { return c->settings->value(PET_S_MODEL); }
 static bool pet_hz50(CoreCtx *c) { return c->settings->value(PET_S_HZ) == 1; }
 
+// T216 D16: what the files the put operations choose depend on: the model, the editor's rate and the SuperPET's CPU (put_model_rom, pet_rom_names)
+static uint32_t pet_rom_key(CoreCtx *c)
+{
+    return (uint32_t)pet_model(c) | (pet_hz50(c) ? 0x100u : 0) | ((uint32_t)c->settings->value(PET_S_SPCPU) << 16);
+}
+
 // ---- ROMs ----------------------------------------------------------------------------------------------------------------------
 // The staging buffers live on the heap for the duration of one call: as static arrays they were 60 KiB of .bss, and the core app's .bss is full (T134 merged with T206/T205).
 struct Scratch {
@@ -822,4 +828,5 @@ const CoreDesc pet_desc = {
     pet_media_flush, pet_media_pending,           // T180 D4: the drive's write-back
     &mount_slots,                                 // T180 D2, D5: Drive 8, Drive 8.1 and Tape
     &hk_console,
+    0, false, pet_rom_key,                         // alt_video, no_tone, rom_key (T216 D16)
 };
