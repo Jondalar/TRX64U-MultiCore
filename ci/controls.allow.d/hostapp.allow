@@ -8,3 +8,4 @@ tests/hostapp/run\.sh : cm_(apps_orphan|apps_deletable)   # persistence - the cl
 tests/hostapp/render/run\.sh : (t137r_no_equal_check|t137r_unknown_taken_official)   # flash - firmware restore: skip-if-equal and official-only gate before the flash write
 tests/hostapp/render/run\.sh : (t152_no_lock|t152_lock_failure_ignored|t152_all_parts_written|t152_equal_part_rewritten|t152_protect_does_not_flip)   # flash - flash lock, parts written and flash protection of the update
 tests/hostapp/render/run\.sh : \$name   # flash - t137_ctl wrapper, called only by the flash entries above
+tests/hostapp/render/run\.sh : t229_(rewrite_identical|write_while_pending)   # flash - Flash:/menu.rows (T229 S7): an identical rows file is not written again, nothing is written while row units are pending
