@@ -24,7 +24,7 @@ build_now() {
   need_objs
   # XFLAGS: flags for the whole bench
   c++ -std=gnu++14 -O1 -w -DHOSTUI_RENDER_TEST -DHOSTAPP_FLASH_LOCK=${FLASH_LOCK:-1} -DVIDEOMODE_NO_BOARD=1 -DWEBUI_NO_BOARD=1 -DLV_CONF_INCLUDE_SIMPLE ${XFLAGS:-} -I"${7:-$B}" -I"$R/stub" -I"$H" -iquote "$L" -I"$ROOT/app/view" -I"$ROOT/uicore" -I"$ROOT/coreapp/src" -I"$ROOT/app/edit" -I"$ROOT/tests" -I"$ROOT/app/video" -I"$CORE/io/c64" -I"$CORE/components" -I"$CORE/system" -I"$ROOT/host-app/software/filesystem" -I"$CORE/io/flash" \
-    -o "$1" "$R/render.cc" "$2" "$ROOT/app/view/trxview.cc" "$ROOT/app/video/videomode.cc" "$ROOT/app/video/edid.cc" "$ROOT/coreapp/src/picmodes.cc" "$H/hostvideo.cc" "${HC_SRC:-$H/host_core.cc}" "${HCF_SRC:-$H/host_core_flow.cc}" "${HCR_SRC:-$H/host_core_flow_restore.cc}" "$H/host_core_flow_convert.cc" "$H/host_core_flow_esp.cc" "$H/host_core_flow_fileops.cc" "$H/host_core_flow_wifi.cc" "$H/host_core_flow_format.cc" "$H/host_core_nav.cc" "$H/host_core_cm.cc" "$H/host_core_cfgov.cc" "$H/configlist.cc" "${HCW_SRC:-$H/host_core_rows.cc}" "${HCU_SRC:-$H/host_core_ui.cc}" "$H/host_core_model.cc" "$H/hostdecl.cc" "$H/hostdomain.cc" "$H/startfile.cc" "$ROOT/uicore/uic_json.cc" "$ROOT/uicore/uic_sha.cc" "$ROOT/uicore/uic_svc.cc" "$ROOT/uicore/uic_net.cc" "$H/webui.cc" "$H/hostreport.cc" "$H/hostreport_live.cc" "$H/bugreport.cc" "$H/cor.cc" "$H/directboot.cc" "$4" "${5:-$H/cfwicon.cc}" "$H/bootcfg.cc" "$H/menusnap.cc" "$H/fileops.cc" "$H/coremaint.cc" "$ROOT/app/edit/lineedit.cc" "$H/startcheck.cc" "$H/handover.cc" "$3" "$H/sha256.c" "$H/fmtconfirm.cc" "$H/mediaui.cc" "$H/mediasniff.cc" "$H/fwknown.cc" "$H/fwconvert.cc" "$H/fwrestore.cc" "$H/flashfw.cc" "$H/fwconfirm.cc" "$H/txu.cc" "$H/espinspect.cc" "$H/espflash.cc" "$H/host_core_flow_zip.cc" "$ROOT/coreapp/src/appindex.cc" "$ROOT/coreapp/src/libload.cc" "$ROOT/coreapp/src/libscan.cc" "$ROOT/coreapp/src/libmenu.cc" "$ROOT/coreapp/src/descrec.cc" "$ROOT/coreapp/src/ops.cc" "$ROOT/coreapp/src/corefolder.cc" "${6:-$OBJS}"/*.o -lz -lm
+    -o "$1" "$R/render.cc" "$2" "$ROOT/app/view/trxview.cc" "$ROOT/app/video/videomode.cc" "$ROOT/app/video/edid.cc" "$ROOT/coreapp/src/picmodes.cc" "$H/hostvideo.cc" "${HC_SRC:-$H/host_core.cc}" "${HCF_SRC:-$H/host_core_flow.cc}" "${HCR_SRC:-$H/host_core_flow_restore.cc}" "$H/host_core_flow_convert.cc" "$H/host_core_flow_esp.cc" "$H/host_core_flow_fileops.cc" "$H/host_core_flow_wifi.cc" "$H/host_core_flow_format.cc" "$H/host_core_nav.cc" "$H/host_core_cm.cc" "$H/host_core_cfgov.cc" "$H/configlist.cc" "${HCW_SRC:-$H/host_core_rows.cc}" "${HCU_SRC:-$H/host_core_ui.cc}" "$H/host_core_model.cc" "$H/hostdecl.cc" "$H/hostdomain.cc" "$H/startfile.cc" "$ROOT/uicore/uic_json.cc" "$ROOT/uicore/uic_sha.cc" "$ROOT/uicore/uic_svc.cc" "$ROOT/uicore/uic_net.cc" "$H/webui.cc" "$H/hostreport.cc" "$H/hostreport_live.cc" "$H/bugreport.cc" "$H/cor.cc" "$H/directboot.cc" "$4" "${5:-$H/cfwicon.cc}" "$H/bootcfg.cc" "$H/menusnap.cc" "$H/menurows.cc" "$H/fileops.cc" "$H/coremaint.cc" "$ROOT/app/edit/lineedit.cc" "$H/startcheck.cc" "$H/handover.cc" "$3" "$H/sha256.c" "$H/fmtconfirm.cc" "$H/mediaui.cc" "$H/mediasniff.cc" "$H/fwknown.cc" "$H/fwconvert.cc" "$H/fwrestore.cc" "$H/flashfw.cc" "$H/fwconfirm.cc" "$H/txu.cc" "$H/espinspect.cc" "$H/espflash.cc" "$H/host_core_flow_zip.cc" "$ROOT/coreapp/src/appindex.cc" "$ROOT/coreapp/src/libload.cc" "$ROOT/coreapp/src/libscan.cc" "$ROOT/coreapp/src/libmenu.cc" "$ROOT/coreapp/src/descrec.cc" "$ROOT/coreapp/src/ops.cc" "$ROOT/coreapp/src/corefolder.cc" "${6:-$OBJS}"/*.o -lz -lm
 }
 python3 "$R/mktree.py" "$B/tree"
 # T197 P3: the images of Unzip and its library (the real packer; the bench's "application" asks what unzip asks), copied into the tree by the scenario that needs them
@@ -85,6 +85,47 @@ t_t146_base() {
 }
 cc_block t146_base t_t146_base main_render build_now need_objs t146_run t146_save
 
+# T229: the row cache. Process 1 (the picture's save run) settles the menu and writes Flash:/menu.rows (S7, with the controls below); process 2 starts
+# with that file: complete rows without opening a file (S2), the checks are one stat (S6), a replaced / removed file is found and only its row is read
+# (S3, S4), a missing or broken file is today's path (S5), boot.cfg moved / removed / added / changed lines (S8). T229_CASE names the case.
+t229_run() { T229_START=1 T229_CASE="$2" LOGO_DIR="$ROOT/cores" "$1" "$B/t229" "$B/tree"; }
+t_t229_base() {
+  main_render
+  t146_save "$B/render" "$B/t229"
+  for c in cache touch missing none magic format key crc trunc swap remove add line; do
+    echo "T229 case $c"
+    t229_run "$B/render" "$c"
+  done
+  # control (persistence): a loader that ignores the format version and the CRCs takes the broken files; the bench has to go red on them
+  XFLAGS="-DT229_MUT_LOADER" build_now "$B/render_t229ldr" "$H/hostui.cc" "$H/discover.cc" "$H/cfw.cc"
+  for c in crc format; do
+    if t229_run "$B/render_t229ldr" "$c" > "$B/t229ldr_$c.log" 2>&1; then echo "CONTROL t229 loader ($c): the bench PASSED against the mutant" >&2; exit 1; fi
+    grep -q '^  *FAIL\|FAIL' "$B/t229ldr_$c.log" || { echo "CONTROL t229 loader ($c): it failed without a red check" >&2; exit 1; }
+    echo "control t229 loader ($c): fails as it must"
+  done
+}
+cc_block t229_base t_t229_base main_render build_now need_objs t146_save t229_run
+
+# T229 build phase: the first frame builds the F1 parts only; every other area (browser, editor, network, settings, colours, rename, wifi, start panels) is built when
+# it is first used, or in the main loop's slices; its frames at 480p / 720p / 1080p are the frames of the start that built everything first.
+t_t229_lazy() {
+  main_render
+  t146_save "$B/render" "$B/t229"
+  local var f b n=0
+  for var in eager lazy slices; do
+    T229_LAZY="$var" LOGO_DIR="$ROOT/cores" "$B/render" "$B/t229" "$B/tree" || return 1
+  done
+  for f in "$B"/t229/t229lazy_eager_*.raw; do
+    b="${f##*/}"; b="${b#t229lazy_eager_}"
+    for var in lazy slices; do
+      cmp -s "$f" "$B/t229/t229lazy_${var}_$b" || { echo "T229 LAZY: $b differs between eager and $var" >&2; return 1; }
+    done
+    n=$((n + 1))
+  done
+  echo "T229 LAZY: $n frames, eager = lazy = slices (0 px differ)"
+}
+cc_block t229_lazy t_t229_lazy main_render build_now need_objs t146_save
+
 # T137 P2/P3 and T152 (the update at the UI; the module's controls are in run_fwrestore.sh, run_txu.sh, run_flashlock.sh): one decision of hostui.cc taken out each.
 t137_ctl() { cc_no_controls && return 0;   # name, sed expression on hostui.cc
   local name="$1" expr="$2"
@@ -113,6 +154,10 @@ hc_ctl t152_lock_failure_ignored 's/    if (flashprot_before_handover(\&m)) {/  
 hc_ctl t152_all_parts_written 's/^    parts = 0;/    parts = FW_PART_BIT | FW_PART_APP;/' host_core_flow.cc
 hc_ctl t152_equal_part_rewritten 's/    if (img.bit \&\& !fw_flash_equals_bit(fl, img)) {/    if (img.bit) {/' host_core_flow.cc
 hc_ctl t152_protect_does_not_flip 's/        hc_protect_set(!flashprot_enabled());/        hc_protect_set(true);/' host_core_ui.cc
+# T229 controls (flash/persistence only, T174 D5.4): the writer rewrites an identical file / writes while a unit is pending
+t137_ctl t229_rewrite_identical 's/if (rows_file_known \&\& rows_file_crc == crc) {/if (false) {/'
+t137_ctl t229_write_while_pending 's/bool ok = hc_cfg_loaded() \&\& cfg.n > 0 \&\& !nkeys \&\& !lazy_busy();/bool ok = hc_cfg_loaded() \&\& cfg.n > 0 \&\& !nkeys;/'
+
 
 # T152 D9: the board build (HOSTAPP_FLASH_LOCK=0): no "Protect Flash from updates" row on F8. The bench renders the board build and checks the row is absent.
 FLASH_LOCK=0 build_now "$B/render_nolock" "$H/hostui.cc" "$H/discover.cc" "$H/cfw.cc"

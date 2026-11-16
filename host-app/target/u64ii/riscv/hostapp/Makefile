@@ -138,6 +138,7 @@ SRCS_CC	 =  u64ii_init.cc \
 			ftpstate_board.cc \
 			cfgfile.cc \
 			menusnap.cc \
+			menurows.cc \
 			fileops.cc \
 			coremaint.cc \
 			lineedit.cc \
