@@ -3,7 +3,7 @@
 #include "menusnap.h"
 #include <string.h>
 
-#define MR_FORMAT_VERSION 1
+#define MR_FORMAT_VERSION 2
 #define MR_HDR 20                      // "MROW", format u16, count u16, key u32, length u32 (of the records), CRC u32 (of the records)
 
 const char *mr_result_text(MrResult r)
@@ -26,7 +26,7 @@ static uint32_t get16(const uint8_t *p) { return p[0] | (p[1] << 8); }
 static uint32_t get32(const uint8_t *p) { return p[0] | (p[1] << 8) | (p[2] << 16) | ((uint32_t)p[3] << 24); }
 
 // The record's fields in a fixed order (strings in their full arrays, numbers little endian), the icon last when there is one.
-#define BODY_FIXED (96 + 65 + 5 * 4 + 4 + 48 + 8 + 24 + 24 + 4 + 2 + 4 + 1)
+#define BODY_FIXED (96 + 65 + 5 * 4 + 4 + 48 + 8 + 24 + 24 + 4 + 2 + 1)
 #define REC_HDR 8                      // length u32, CRC u32
 
 uint32_t mr_max_encoded(int n) { return MR_HDR + (uint32_t)n * (REC_HDR + BODY_FIXED + MR_ICON_BYTES); }
@@ -49,7 +49,6 @@ static uint8_t *put_rec(uint8_t *o, const MrRec &r)
     memcpy(p, r.id, 24); p += 24;
     put32(p, r.contract); p += 4;
     put16(p, (uint16_t)r.cfgn); p += 2;
-    put32(p, r.cfgstamp); p += 4;
     *p++ = r.has_icon && r.icon ? 1 : 0;
     if (r.has_icon && r.icon) {
         memcpy(p, r.icon, MR_ICON_BYTES);
@@ -135,7 +134,6 @@ MrResult mr_decode(const uint8_t *file, uint32_t len, uint32_t key, MrRec *out, 
         memcpy(r.id, q, 24); q += 24;
         r.contract = get32(q); q += 4;
         r.cfgn = (int16_t)get16(q); q += 2;
-        r.cfgstamp = get32(q); q += 4;
         r.has_icon = *q++;
         if (r.has_icon) {
             if ((uint32_t)(b + l - q) < MR_ICON_BYTES) {

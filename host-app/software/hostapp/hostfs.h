@@ -31,7 +31,6 @@ bool hostfs_exists(const char *path);
 
 // The directory entry of one file: size (saturated) and mtime = FAT date << 16 | time, never 0. One stat, no file opened, no listing.
 bool hostfs_stat(const char *path, uint32_t *size, uint32_t *mtime);
-bool hostfs_stat_dir(const char *path, uint32_t *mtime);       // T229: a folder's date and time (never 0); false when it is not a folder
 
 // T139: the file layer fileops.cc works on, over the FileManager (delete, copy and move in the File Browser).
 FoFs *hostfs_fo(void);

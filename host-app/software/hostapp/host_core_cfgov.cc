@@ -17,29 +17,11 @@ struct Cached {
     char path[200];
     int n;
     uint32_t gen;
-    uint32_t stamp;                // T229 Q3: the config folders' directory mtimes the count was made under
+    bool seeded;                   // T229 Q3: the count came out of the row cache and was not listed in this generation: the background pass counts it again
 };
 Cached g_cache[BOOT_MAX + 4];
 int g_ncache;
 uint32_t g_gen = 1;
-
-// T229 Q3: what tells that the folders of a core changed: the mtime of each (a FAT directory's date changes when a file in it is made, renamed or removed). 0: no folder.
-uint32_t folder_stamp(const char *cor_path)
-{
-    char dir[200];
-    if (!g_cm || !config_core_dir(cor_path, dir, sizeof(dir))) {
-        return 0;
-    }
-    uint32_t stamp = 0;
-    for (int pass = 0; pass < 2; pass++) {
-        char d[220];
-        uint32_t m = 0;
-        if (config_dir_path(dir, pass == 1, d, sizeof(d)) && g_cm->dir_mtime(d, &m)) {
-            stamp = stamp * 31u + m;
-        }
-    }
-    return stamp;
-}
 
 // One listing of both folders of a core into `l` (S2, S10: the same configlist.cc the core app uses).
 bool read_list(const char *cor_path, char *dir, int dcap, ConfigList *l)
@@ -143,23 +125,22 @@ int hc_cfgov_count(const char *cor_path)
     snprintf(g_cache[at].path, sizeof(g_cache[at].path), "%s", cor_path);
     g_cache[at].n = n;
     g_cache[at].gen = g_gen;
-    g_cache[at].stamp = folder_stamp(cor_path);
+    g_cache[at].seeded = false;
     return n;
 }
 
-bool hc_cfgov_peek(const char *cor_path, int *n, uint32_t *stamp)
+bool hc_cfgov_peek(const char *cor_path, int *n)
 {
     for (int i = 0; i < g_ncache; i++) {
         if (g_cache[i].gen == g_gen && !strcmp(g_cache[i].path, cor_path)) {
             *n = g_cache[i].n;
-            *stamp = g_cache[i].stamp;
             return true;
         }
     }
     return false;
 }
 
-void hc_cfgov_seed(const char *cor_path, int n, uint32_t stamp)
+void hc_cfgov_seed(const char *cor_path, int n)
 {
     if (n < 0) {
         return;
@@ -179,17 +160,26 @@ void hc_cfgov_seed(const char *cor_path, int n, uint32_t stamp)
     snprintf(g_cache[at].path, sizeof(g_cache[at].path), "%s", cor_path);
     g_cache[at].n = n;
     g_cache[at].gen = g_gen;
-    g_cache[at].stamp = stamp;
+    g_cache[at].seeded = true;
 }
 
-bool hc_cfgov_stale(const char *cor_path)
+// One seeded count is listed again (the folders may have changed since the file was made: the core application, FTP or a PC write there). One call = one core's two folders.
+bool hc_cfgov_recount_step(int *idx, bool *changed)
 {
-    for (int i = 0; i < g_ncache; i++) {
-        if (g_cache[i].gen == g_gen && !strcmp(g_cache[i].path, cor_path)) {
-            if (folder_stamp(cor_path) == g_cache[i].stamp) {
-                return false;
+    const BootCfg &c = hc_cfg();
+    for (int k = 0; k < c.n; k++) {
+        for (int i = 0; i < g_ncache; i++) {
+            if (!g_cache[i].seeded || g_cache[i].gen != g_gen || strcmp(g_cache[i].path, c.e[k].path)) {
+                continue;
             }
-            g_cache[i].gen = 0;                       // counted again at the next draw
+            static ConfigList l;
+            char dir[200];
+            const bool ok = read_list(g_cache[i].path, dir, sizeof(dir), &l);
+            const int n = ok ? l.n : 0;
+            g_cache[i].seeded = false;
+            *idx = k;
+            *changed = n != g_cache[i].n;
+            g_cache[i].n = n;
             return true;
         }
     }

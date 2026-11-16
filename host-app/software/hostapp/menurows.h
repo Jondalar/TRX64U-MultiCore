@@ -28,7 +28,6 @@ struct MrRec {
     char name[48], shortn[8], version[24], id[24];
     uint32_t contract;
     int16_t cfgn;                       // config count (-1: not counted)
-    uint32_t cfgstamp;                  // the config folders' directory mtimes the count was made under (0: none)
     uint8_t has_icon;
     const uint8_t *icon;                // MR_ICON_BYTES, little endian; points into the file image on decode; encode: the caller's bytes
 };

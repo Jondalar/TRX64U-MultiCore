@@ -625,6 +625,9 @@ static void mt_report(void)
         n += snprintf(b + n, sizeof(b) - n, "row %d state %u ms icon %u ms verify %u ms redraw %u ms (%u units)\n", g_mt.order[k], r.state, r.icon, r.verify, r.redraw, r.units);
     }
     n += snprintf(b + n, sizeof(b) - n, "longest main-loop pass %u ms (at t+%u), longest read unit %u ms\n", g_mt.pass_max, g_mt.pass_at, g_mt.unit_max);
+    if (n > (int)sizeof(b) - 1) {
+        n = (int)sizeof(b) - 1;                      // snprintf says what it would have written
+    }
     printf("%s", b);
     FoFs *fo = hostfs_fo();
     if (fo) {
@@ -644,7 +647,13 @@ static void mt_report(void)
 static MsSettle rows_st;
 static bool rows_file_known;
 static uint32_t rows_file_crc;
-static uint32_t rows_key(void) { return ms_crc32(0, APP_VERSION_HASH, (uint32_t)strlen(APP_VERSION_HASH)); }
+// The key a row cache is good for: this build and the host contract it stands on (a cached ES_OK / ES_HOST / ES_CONTRACT is a verdict against both).
+static uint32_t rows_key(void)
+{
+    uint32_t k = ms_crc32(0, APP_VERSION_HASH, (uint32_t)strlen(APP_VERSION_HASH));
+    const uint32_t host[2] = { cor_host_key, (uint32_t)COR_HOST_CONTRACT };
+    return ms_crc32(k, host, sizeof(host));
+}
 
 // At the start, after lazy_reset(): every entry whose path and boot.cfg line a record names takes the record's state, icon and config count. It waits for its stat.
 static void rows_load(void)
@@ -685,7 +694,7 @@ static void rows_load(void)
                             icon_c_ok[i] = true;
                         }
                         if (rec[j].cfgn >= 0 && hc_ecfg_ok(i)) {
-                            hc_cfgov_seed(cfg.e[i].path, rec[j].cfgn, rec[j].cfgstamp);
+                            hc_cfgov_seed(cfg.e[i].path, rec[j].cfgn);
                         }
                         g_mt.rows_loaded++;
                         break;
@@ -716,10 +725,8 @@ static void rows_save(void)
             }
             MrRec &r = rec[n];
             int cn = 0;
-            uint32_t stamp = 0;
-            if (hc_ecfg_ok(i) && hc_cfgov_peek(cfg.e[i].path, &cn, &stamp)) {
+            if (hc_ecfg_ok(i) && hc_cfgov_peek(cfg.e[i].path, &cn)) {
                 r.cfgn = (int16_t)cn;
-                r.cfgstamp = stamp;
             }
             r.has_icon = icon_c_ok[i];
             r.icon = (const uint8_t *)icon_c[i];                 // little endian in memory, as the file holds it
@@ -771,8 +778,7 @@ static void rows_tick(uint32_t t, int nkeys)
         sig = ms_crc32(sig, cfg.e[i].path, (uint32_t)strlen(cfg.e[i].path));
         sig = ms_crc32(sig, cfg.e[i].hash, (uint32_t)strlen(cfg.e[i].hash));
         int cn;
-        uint32_t st;
-        cc += hc_cfgov_peek(cfg.e[i].path, &cn, &st) ? cn + 1 : 0;
+        cc += hc_cfgov_peek(cfg.e[i].path, &cn) ? cn + 1 : 0;
     }
     sig = ms_crc32(sig, &cc, sizeof(cc));
     bool ok = hc_cfg_loaded() && cfg.n > 0 && !nkeys && !lazy_busy();
@@ -790,7 +796,19 @@ static bool lazy_step(bool quiet)
     uint32_t t0 = now_ms();
     lazy_window();
     if (!hc_lazy_step(quiet, nv.sel, &z)) {
-        return false;
+        int ri = 0;
+        bool changed = false;
+        if (!hc_cfgov_recount_step(&ri, &changed)) {     // T229 Q3: nothing else to read: one core's config folders are listed again
+            return false;
+        }
+        mt_unit(ri, 2, now_ms() - t0);
+        printf("[host] entry %d %s: configs %s %u ms\n", ri, cfg.e[ri].path, changed ? "changed" : "same", (unsigned)(now_ms() - t0));
+        if (changed && (row_visible(ri) || ri == cfg.def || ri == nv.sel)) {
+            need_full = true;                            // the C mark, the foot's F5/F3 and the REST value follow the new count
+            g_mt.redraw_row1 = ri + 1;
+        }
+        g_mt.t_unit_end = now_ms();
+        return true;
     }
     if (z.unit == HCL_MIGRATE) {
         if (z.save != HCR_REFUSED) {
@@ -800,15 +818,10 @@ static bool lazy_step(bool quiet)
     }
     int i = z.index;
     bool icon_next = false;
-    if (z.unit == HCL_VERIFY) {                      // T229 D5: one stat said whether the cached row still stands; nothing is drawn unless the config count went stale
-        bool stale = hc_ecfg_ok(i) && hc_cfgov_stale(cfg.e[i].path);
+    if (z.unit == HCL_VERIFY) {                      // T229 D5: one stat said whether the cached row still stands; the config count is checked by its own unit (T229 Q3)
         uint32_t ms = now_ms() - t0;
         mt_unit(i, 2, ms);
         printf("[host] entry %d %s: verify %s %u ms\n", i, cfg.e[i].path, z.changed ? "changed" : "same", (unsigned)ms);
-        if (stale && (row_visible(i) || i == cfg.def)) {
-            need_full = true;
-            g_mt.redraw_row1 = i + 1;
-        }
         g_mt.t_unit_end = now_ms();
         return true;
     }
@@ -1476,7 +1489,7 @@ static lv_obj_t *view_box(int v)
 // T229 (build phase): what the first frame does not show is built after it. An AREA is a view (browser, editor, network, settings, colours) or a group of
 // overlay panels (rename, wifi, start); its builder is written as STEPS: each BSTEP block runs in one call, the builder runs through again for the next
 // one (the values outside the blocks are computed again, they only read). A step is a few objects (about 7 ms each on the board), so the main loop can
-// build for 40 ms between two key checks; a key that opens an area not built yet builds the rest of it at once (EN).
+// build between two key checks, as much as the pass budget leaves (95 ms less the recent render time, build_pass); a key that opens an area not built yet builds the rest of it at once (EN).
 enum { A_BROWSE, A_EDIT, A_NET, A_SET, A_COLORS, A_RENAME, A_WIFI, A_START, A_N };
 #ifdef HOSTUI_RENDER_TEST
 static bool lazy_build = false;                 // the benches build everything at the start, as before (the lazy bench turns it on)
@@ -2198,8 +2211,8 @@ static void layout_counts(void)
     hc_nav_geometry(mrows_n, brows_n, cm_rows_n, erows_n);
 }
 
-// The canvas changed (a mode below 960 wide, or back): the view, the port and the display take it, every widget is built again for it and drawn at
-// the next render. The state of the pages (selection, windows, notes) is kept; the widgets are not.
+// The canvas changed (a mode below 960 wide, or back): the view, the port and the display take it; the widgets of the first frame are built again for it at once, the areas are built
+// again by the build passes (all at once when lazy_build is off; areas_forget), all drawn at the next render. The state of the pages (selection, windows, notes) is kept; the widgets are not.
 static void show_view(View v);
 static void canvas_apply(const TrxCanvas &c)
 {
@@ -2981,6 +2994,47 @@ static void areas_forget(void)
     cm_root = wm_root = pm_root = 0;
     memset(pm_box, 0, sizeof(pm_box));
     memset(n_smk, 0, sizeof(n_smk));
+    // every other child of a lazy area: the canvas change deleted the objects, a pointer left behind would be written to
+    e_def = e_menu = e_note = e_pos = 0;
+    b_path = b_pos = b_empty = b_note = b_sub = 0;
+    memset(b_name, 0, sizeof(b_name));
+    memset(b_size, 0, sizeof(b_size));
+    r_title = r_msg = r_err = 0;
+    memset(r_key, 0, sizeof(r_key));
+    memset(r_val, 0, sizeof(r_val));
+    n_eth = n_ftp = n_media = n_rest = n_wst = n_wnet = n_wip = n_wmac = n_note = 0;
+    memset(n_snm, 0, sizeof(n_snm));
+    memset(n_sval, 0, sizeof(n_sval));
+    wm_a = wm_b = wm_c = wm_note = 0;
+    memset(s_name, 0, sizeof(s_name));
+    memset(s_val, 0, sizeof(s_val));
+    s_help = s_note = 0;
+    cm_head = cm_note = 0;
+    memset(cm_row, 0, sizeof(cm_row));
+    pm_info = pm_note = 0;
+    memset(pm_name, 0, sizeof(pm_name));
+    memset(pm_hz, 0, sizeof(pm_hz));
+    memset(pm_tag, 0, sizeof(pm_tag));
+    memset(pm_mk, 0, sizeof(pm_mk));
+    pq_title = pq_l0 = pq_l1 = pq_key = 0;
+    rn_head = rn_sub = rn_in = rn_cur = rn_msg = 0;
+    wl_title = wl_sub = wl_msg = wl_keys = 0;
+    memset(wl_a, 0, sizeof(wl_a));
+    memset(wl_b, 0, sizeof(wl_b));
+    memset(wl_c, 0, sizeof(wl_c));
+    memset(wl_mk, 0, sizeof(wl_mk));
+    oc_panel = oc_title = oc_sub = oc_msg = 0;
+    memset(oc_a, 0, sizeof(oc_a));
+    memset(oc_df, 0, sizeof(oc_df));
+    memset(oc_mk, 0, sizeof(oc_mk));
+    we_title = we_sub = we_in = we_msg = we_keys = 0;
+    cf_title = cf_text = cf_hint = 0;
+    fm_box = fm_title = fm_pctl = fm_inbox = fm_in = fm_msg = fm_bar = fm_key = 0;
+    memset(fm_l, 0, sizeof(fm_l));
+    st_err = st_title = st_bar = 0;
+    memset(st_mark, 0, sizeof(st_mark));
+    memset(st_name, 0, sizeof(st_name));
+    memset(st_pctl, 0, sizeof(st_pctl));
 }
 
 // One step of an area; true when the area is complete.
@@ -3028,6 +3082,9 @@ static bool area_step(int a)
 
 static void ensure_area(int a)
 {
+    if (!have_ui) {
+        return;                                      // no pixel layer: no LVGL object is built
+    }
     while (!b_done[a]) {
         area_step(a);
     }
@@ -3040,7 +3097,7 @@ static void build_rest_all(void)
     }
 }
 
-// The main loop's share: steps of the areas still to build, until 40 ms are used (a step is a few objects, tens of ms at most). True while something is left.
+// True while an area is still to be built (the main loop's build_pass does the steps).
 static bool build_pending(void)
 {
     for (int a = 0; a < A_N; a++) {
@@ -3050,7 +3107,7 @@ static bool build_pending(void)
     }
     return false;
 }
-// T229 B (Q4: a pass of the main loop is bounded by 100 ms): the pass renders after it builds, so the build gets what is left of 95 ms after the
+// T229 B (Q4: a pass of the main loop is bounded by 180 ms): the build share of a pass renders after it builds, so the build gets what is left of 95 ms after the
 // render time of the last passes; at least one step runs, and a step that would not fit (judged by the longest step so far) is not started.
 static uint32_t g_render_recent[4];                  // what the last passes that built took besides the building (ms): the render, the updates, the rest
 static uint32_t render_recent_max(void)
@@ -4883,7 +4940,7 @@ void hostui_run(void)
         }
         snap_tick(t, nk);
         rows_tick(t, nk);                    // T229 D6: the file of the rows, when they have settled
-        // T229: what the first frame did not need is built in steps of at most 40 ms, when no key came in this pass; with rows to read, in turn with them
+        // T229: what the first frame did not need is built in steps within the pass budget, when no key came in this pass; with rows to read, in turn with them
         bool built_now = false;
         uint32_t tb0 = now_ms();
         if (have_ui && !nk && build_pending() && (!lazy_busy() || (build_turn = !build_turn))) {
@@ -4959,7 +5016,7 @@ int hostui_test_built(void)
     }
     return m;
 }
-int hostui_test_build_steps(void)                // one main-loop pass of the build; steps are bounded by 40 ms: the number of passes to the end
+int hostui_test_build_steps(void)                // one main-loop pass of the build; one step per pass: the number of passes to the end
 {
     int n = 0;
     while (build_pending() && n < 10000) {
@@ -5001,6 +5058,7 @@ void hostui_test_snap_tick(uint32_t t, int nkeys, bool countdown)
 }
 // T229: the row cache as the bench sees it
 int hostui_test_rows_loaded(void) { return g_mt.rows_loaded; }
+int hostui_test_cfgcount(const char *cor_path) { int n; return hc_cfgov_peek(cor_path, &n) ? n : -1; }      // T229 Q3: the count the row shows now (-1: none cached)
 int hostui_test_redraws(void) { return g_redraws; }
 int hostui_test_est(int i) { return (int)hc_est(i); }
 void hostui_test_lazy_reset(void) { lazy_reset(); }

@@ -33,11 +33,11 @@ void hc_cfgov_io(CmFs *cm, FoFs *fo);
 // The number of configs of a core (the badge, `configs: n` of the status). One directory read per generation and path (S15); hc_cfgov_forget() starts a new generation.
 int hc_cfgov_count(const char *cor_path);
 void hc_cfgov_forget(void);
-// T229 Q3: the cached count with the folders' stamp it was made under; a count out of the row cache is put back (seed); stale = the folders' stamp is not the cached one
-// any more (one stat each, no listing): the count is dropped and made again at the next draw, true then.
-bool hc_cfgov_peek(const char *cor_path, int *n, uint32_t *stamp);
-void hc_cfgov_seed(const char *cor_path, int n, uint32_t stamp);
-bool hc_cfgov_stale(const char *cor_path);
+// T229 Q3: the cached count (peek), a count out of the row cache is put back (seed). The first frame shows it; recount_step then lists the folders of one seeded
+// core (one unit, called by the main loop when it has nothing else to read) and says which boot.cfg entry it was and whether the count changed.
+bool hc_cfgov_peek(const char *cor_path, int *n);
+void hc_cfgov_seed(const char *cor_path, int n);
+bool hc_cfgov_recount_step(int *idx, bool *changed);
 
 // Opens the overlay for a core. T224 D1: it opens with no config too (the last row is the rescue start); the caller keeps it from foreign firmware (.cfw/.ue2); a large .cor opens it (T223 D4). `entry`: its boot.cfg index or -1.
 bool hc_cfgov_open(const char *cor_path, const char *title, int entry, bool browse = false);

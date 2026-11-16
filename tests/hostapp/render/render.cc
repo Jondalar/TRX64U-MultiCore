@@ -366,7 +366,6 @@ struct RealFo : FoFs {
 FoFs *hostfs_fo(void) { static RealFo fo; return &fo; }
 // T148: the listing of the Cores and ROMs page over the bench's tree; the manifest names of the .cor files the scenario makes (they hold no manifest)
 struct BenchCm : CmFs {
-    bool dir_mtime(const char *dir, uint32_t *m) override { return hostfs_stat_dir(dir, m); }
     int list(const char *dir, CmEntry *out, int max)
     {
         static HostDirEntry tmp[64];
@@ -395,15 +394,6 @@ bool hostfs_stat(const char *path, uint32_t *size, uint32_t *mtime)
     struct stat st;
     if (stat(d, &st) || S_ISDIR(st.st_mode)) return false;
     *size = (uint32_t)st.st_size;
-    *mtime = (uint32_t)st.st_mtime ? (uint32_t)st.st_mtime : 1;
-    return true;
-}
-bool hostfs_stat_dir(const char *path, uint32_t *mtime)
-{
-    g_stats++;
-    char d[600]; fpath(d, sizeof(d), path);
-    struct stat st;
-    if (stat(d, &st) || !S_ISDIR(st.st_mode)) return false;
     *mtime = (uint32_t)st.st_mtime ? (uint32_t)st.st_mtime : 1;
     return true;
 }
@@ -1658,7 +1648,7 @@ static void lazy_phase_check(void)
     }
     printf("LAZY: %d steps, at most %d open, %d stat, %lu bytes per step\n", steps, max_open, max_stat, max_bytes);
     CHECK(steps >= 13 && steps <= 26);                                 // state + icon of each entry, at most two phases
-    CHECK(max_open <= 2 && max_stat <= 3);                             // a phase touches one file (is_full and cor_probe each open it), one stat; the redraw after it counts a row's config folders (T229: their two stamps)
+    CHECK(max_open <= 2 && max_stat <= 3);                             // a phase touches one file (is_full and cor_probe each open it), one stat
     CHECK(max_bytes < 6000);                                           // header, manifest, a 2 KB icon: no part
     CHECK(first_is_default);                                           // the default entry is read before the others
     CHECK(!has("|?|"));                                                // every entry has its state now
@@ -2848,6 +2838,7 @@ extern int hostui_test_next_key(void);
 extern bool hostui_test_snap_shown(void);
 extern void hostui_test_set_note(const char *s);
 extern int hostui_test_rows_loaded(void);
+extern int hostui_test_cfgcount(const char *cor_path);
 extern int hostui_test_redraws(void);
 extern int hostui_test_est(int i);
 extern void hostui_test_lazy_reset(void);
@@ -3046,7 +3037,7 @@ static void lazy_scenario(const char *out)
     lazy_shot(out, var, "1080", "first");
     if (slices) {
         int n = hostui_test_build_steps();
-        printf("T229 LAZY slices: %d main-loop passes (at most 40 ms each) to build the rest, mask 0x%02x\n", n, hostui_test_built());
+        printf("T229 LAZY slices: %d main-loop passes (each within the pass budget) to build the rest, mask 0x%02x\n", n, hostui_test_built());
         CHECK(hostui_test_built() == 0xff && n > 8);
         hostui_test_view(0);
     }
@@ -3065,7 +3056,7 @@ static void lazy_scenario(const char *out)
     CHECK(hostui_test_built() == 0xff);
 }
 
-// ---- T229: a start with the row cache of the run above (S2-S6, S8). T229_CASE: cache, none, magic, format, key, crc, trunc, touch, missing, swap, remove, add, line
+// ---- T229: a start with the row cache of the run above (S2-S6, S8). T229_CASE: cache, none, magic, format, key, crc, trunc, touch, missing, swap, remove, add, line, cfgadd, cfgdel
 static std::string t229_file(const char *out, const char *name, std::vector<uint8_t> *v)
 {
     char p[600]; snprintf(p, sizeof(p), "%s/%s", out, name);
@@ -3117,6 +3108,39 @@ static void rows_start_scenario(const char *out)
         l = l.substr(0, p3) + std::to_string(atol(l.substr(p3, p4 - p3).c_str()) + 1) + l.substr(p4);
         expect--;
     }
+    // T229 Q3 (cfgadd / cfgdel): the config folder of the first core without configs changes after the cache was made: a file is added (the cache says 0), or one was there and
+    // is removed again (the cache says 1). No directory date is looked at: the bench makes and removes the file, the app has to find the difference by listing.
+    std::string cfgdir, cfgpath;
+    int cfg_n0 = -1;
+    char cfgfile[760] = "";
+    if (c == "cfgadd" || c == "cfgdel") {
+        for (int j = 0; j < nrec && cfgpath.empty(); j++) {
+            size_t pl = strlen(recs[j].path);
+            if (recs[j].cfgn == 0 && pl > 8 && recs[j].path[0] == '/' && !strcmp(recs[j].path + pl - 4, ".cor") && strchr(recs[j].path + 1, '/')) {
+                cfgpath = recs[j].path;
+                if (c == "cfgdel") recs[j].cfgn = 1;                                // what the cache was made with
+                cfg_n0 = recs[j].cfgn;
+            }
+        }
+        CHECK(!cfgpath.empty());
+        cfgdir = cfgpath.substr(0, cfgpath.size() - 4) + "/configs";
+        std::string full = std::string(g_root) + cfgdir;
+        for (size_t p = strlen(g_root) + 1; p <= full.size(); p++) {
+            if (p == full.size() || full[p] == '/') mkdir(full.substr(0, p).c_str(), 0777);
+        }
+        snprintf(cfgfile, sizeof(cfgfile), "%s/T229 cfg.cfg", full.c_str());
+        FILE *cf = fopen(cfgfile, "wb");
+        CHECK(cf != 0);
+        if (cf) { fputs("x", cf); fclose(cf); }
+        if (c == "cfgdel") {
+            remove(cfgfile);                                                        // the config is gone since the cache was written
+            std::vector<uint8_t> re(mr_max_encoded(MR_MAX));
+            int len = mr_encode(recs, nrec, hostui_test_rows_key(), re.data(), (uint32_t)re.size());
+            CHECK(len > 0);
+            re.resize(len > 0 ? len : 0);
+            rows = re;
+        }
+    }
     std::string nc;
     for (auto &l : cl) nc += l + "\n";
     g_t146_cfg = nc; g_t146_cfg_set = true;
@@ -3142,6 +3166,22 @@ static void rows_start_scenario(const char *out)
         return;
     }
     CHECK(loaded == expect);
+    if (c == "cfgadd" || c == "cfgdel") {
+        // the first frame shows the cached count; the background unit lists the folder after the reader is idle and the row follows (no directory date is read)
+        CHECK(hostui_test_cfgcount(cfgpath.c_str()) == cfg_n0);
+        int k = 0;
+        while (hostui_test_lazy_busy() && k++ < 200) hostui_test_lazy_pass(0, t + 250, t);
+        CHECK(hostui_test_cfgcount(cfgpath.c_str()) == cfg_n0);               // verify units alone do not look into the folder
+        int r0 = hostui_test_redraws();
+        int passes = 0;
+        while (hostui_test_lazy_pass(0, t + 250, t) && passes < 50) passes++;
+        int want = cfg_n0 + (c == "cfgadd" ? 1 : -1);
+        printf("T229 Q3 %s: %s cached %d, after %d background unit(s) %d, redraws %d\n", c.c_str(), cfgpath.c_str(), cfg_n0, passes, hostui_test_cfgcount(cfgpath.c_str()), hostui_test_redraws() - r0);
+        CHECK(passes >= 1 && hostui_test_cfgcount(cfgpath.c_str()) == want);
+        CHECK(hostui_test_redraws() > r0);                                    // the row changed: it is drawn again
+        remove(cfgfile);
+        return;
+    }
     CHECK(c != "add" || has("|?|"));                                           // the new entry is not known yet; the cached ones are
     if (c == "cache") {
         // S2: every row the file holds shows as in the settled frame (text of the dump, pixels of the table)
@@ -3207,7 +3247,7 @@ static void rows_start_scenario(const char *out)
         } else {
             CHECK(max_open <= 2 && hostui_test_redraws() - redraws0 <= 4);          // S8: the new / changed / shifted-in entry is read; the cached ones are not (9 would be 18+ opens)
         }
-        CHECK(max_stat <= 3);                                                       // one file stat (+ the config folders' two)
+        CHECK(max_stat <= 3);                                                       // one file stat
         for (int i = 0; i < 80; i++) hostui_test_snap_tick(t += 250, 0, false);
         CHECK(g_rows_saves == 0 || c == "add" || c == "line" || c == "remove" || c == "swap");   // S7: unchanged rows, no write
         if (c == "cache") CHECK(g_rows_saves == 0);

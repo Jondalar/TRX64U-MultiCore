@@ -87,12 +87,12 @@ cc_block t146_base t_t146_base main_render build_now need_objs t146_run t146_sav
 
 # T229: the row cache. Process 1 (the picture's save run) settles the menu and writes Flash:/menu.rows (S7, with the controls below); process 2 starts
 # with that file: complete rows without opening a file (S2), the checks are one stat (S6), a replaced / removed file is found and only its row is read
-# (S3, S4), a missing or broken file is today's path (S5), boot.cfg moved / removed / added / changed lines (S8). T229_CASE names the case.
+# (S3, S4), a missing or broken file is today's path (S5), boot.cfg moved / removed / added / changed lines (S8), a config file added / removed after the cache was made (S10: cfgadd, cfgdel). T229_CASE names the case.
 t229_run() { T229_START=1 T229_CASE="$2" LOGO_DIR="$ROOT/cores" "$1" "$B/t229" "$B/tree"; }
 t_t229_base() {
   main_render
   t146_save "$B/render" "$B/t229"
-  for c in cache touch missing none magic format key crc trunc swap remove add line; do
+  for c in cache touch missing none magic format key crc trunc swap remove add line cfgadd cfgdel; do
     echo "T229 case $c"
     t229_run "$B/render" "$c"
   done
