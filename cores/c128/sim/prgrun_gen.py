@@ -32,3 +32,12 @@ print("VAR_LO=%02x" % (end & 255))
 print("MLMARK=%04x" % (marker + 2))
 print("MLAT=%d" % ml_at)
 print("TXT_LO=%02x TXT_HI=%02x" % (start & 255, start >> 8))
+
+# T217 D4: a C64 program ($0801, BASIC 2 numbers: VARTAB is $2D = 45) for the GO64 case: POKE 49152,42 / POKE 49153,PEEK(45); the bench reads $C000 and $C001
+c64_start = 0x0801
+c64_mark = 0xC000
+l1, a2 = line(c64_start, 10, bytes([POKE]) + b" %d,42" % c64_mark)
+l2, a3 = line(a2, 20, bytes([POKE]) + b" %d," % (c64_mark + 1) + bytes([PEEK]) + b"(45)")
+open(os.path.join(out, "c64.prg"), "wb").write(bytes([c64_start & 255, c64_start >> 8]) + l1 + l2 + b"\0\0")
+print("C64MARK=%04x" % c64_mark)
+print("C64VAR_LO=%02x" % ((a3 + 2) & 255))

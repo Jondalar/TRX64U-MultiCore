@@ -323,15 +323,35 @@ static void put_piece(CoreCtx *c, const CbmPrgParams &p, const char *s, uint8_t 
     c->io->ram_write(p.kbd_count, &n, 1);
 }
 
-// T217 D4: the program is for the machine's second mode. Phase 0: the first mode comes up (TXTTAB as for any program, then settle_ms); the switch text
-// goes in through the keyboard buffer - its first line, and 400 ms after the buffer was taken the rest (the answer to the machine's question; the
-// C128's GO64 asks ARE YOU SURE? and takes the Y at the prompt, the RETURN is harmless if it is read as a line or left behind in a buffer the reset
-// forgets). Phase 2: the status register shows the mode. Phase 3: the second mode's own READY (its TXTTAB, its screen, at least c64_ready_ms after the
-// switch: the first mode's screen and pointers are still there until its reset has run), settle, then the program is placed and RUN / SYS goes into the
-// second mode's keyboard buffer, as on the C64.
+// The screen at `addr` (40 x 25 screen codes, reverse video ignored) holds `n` codes in a row (the machine's question on the 40-column screen).
+static bool screen_has(CoreCtx *c, uint16_t addr, const uint8_t *s, uint8_t n)
+{
+    static uint8_t scr[1000];
+    c->io->ram_read(addr, scr, sizeof(scr));
+    for (int i = 0; i + n <= (int)sizeof(scr); i++) {
+        int k = 0;
+        while (k < n && (scr[i + k] & 0x7F) == s[k]) {
+            k++;
+        }
+        if (k == n) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// T217 D4: the program is for the machine's second mode. The steps follow what the machine shows, not a clock, wherever the application can see it:
+// phase 0: the first mode is up (TXTTAB as for any program) and shows READY on the 40-column screen (m.screen_ask; the 80-column picture is the VDC's and
+// cannot be read: then, ready_blind_ms after TXTTAB, it is taken as READY) and settle_ms; the first piece of switch_text (GO64) goes into the keyboard buffer.
+// Phase 1: the buffer is taken (count 0). Phase 4: the machine's question (GO64 prints ARE YOU SURE?) is on the 40-column screen - or, with no sight of it,
+// ask_blind_ms after the buffer was taken - and only then the second piece (the answer, Y and RETURN) goes in. Phase 5: that is taken too. Phase 2: the
+// status register shows the mode. Phase 3: the second mode's own READY (its TXTTAB, its screen, at least c64_ready_ms after the switch: the first mode's
+// screen and pointers are still there until its reset has run), settle, then the program is placed and RUN / SYS goes into the second mode's keyboard
+// buffer, as on the C64.
 static int service_c64(CoreCtx *c, CbmRun *r, const CbmRunMachine &m)
 {
     uint32_t giveup = (uint32_t)m.ready_ms + m.giveup_ms;
+    const char *nl = strchr(m.switch_text, '|');
     if (r->c64_phase == 0) {
         uint16_t txt = txttab_of(c, m.prg);
         bool up = false;
@@ -351,26 +371,44 @@ static int service_c64(CoreCtx *c, CbmRun *r, const CbmRunMachine &m)
         if (r->ran_ms - r->ready_at < m.settle_ms) {
             return OPE_OK;
         }
-        const char *nl = strchr(m.switch_text, '|');
+        if (m.ask_screen && !screen_at(c, m.ask_screen) && r->ran_ms - r->ready_at < m.ready_blind_ms) {
+            return OPE_OK;                              // not READY on the 40-column screen yet (the KERNAL's boot attempt, the banner): the keys would wait in vain
+        }
         put_piece(c, m.prg, m.switch_text, (uint8_t)(nl ? nl - m.switch_text : strlen(m.switch_text)));
         r->c64_phase = 1;
         r->c64_t = r->ran_ms;
         printf("[%s] %s: switch to the second mode typed\n", m.tag, r->name);
         return OPE_OK;
     }
-    if (r->c64_phase == 1) {
+    if (r->c64_phase == 1 || r->c64_phase == 5) {
         uint8_t cnt = 0;
         c->io->ram_read(m.prg.kbd_count, &cnt, 1);
-        if (r->ran_ms - r->c64_t > 5000) {
+        if (r->ran_ms - r->c64_t > (r->c64_phase == 1 ? 20000u : 5000u)) {       // the first piece waits out the KERNAL's boot attempt (no key is taken before READY)
             r->job = 0;
             tell(c, m, "The machine did not take the typed mode switch (is the editor stuck?)");
-        } else if (!cnt && r->ran_ms - r->c64_t >= 400) {
-            const char *nl = strchr(m.switch_text, '|');
-            const char *rest = nl ? nl + 1 : "";
-            put_piece(c, m.prg, rest, (uint8_t)strlen(rest));
-            r->c64_phase = 2;
+        } else if (!cnt) {
             r->c64_t = r->ran_ms;
+            if (r->c64_phase == 1) {
+                r->c64_phase = 4;
+                printf("[%s] %s: switch text taken\n", m.tag, r->name);
+            } else {
+                r->c64_phase = 2;
+                printf("[%s] %s: answer taken\n", m.tag, r->name);
+            }
         }
+        return OPE_OK;
+    }
+    if (r->c64_phase == 4) {
+        uint32_t since = r->ran_ms - r->c64_t;
+        bool seen = m.ask_screen && screen_has(c, m.ask_screen, m.ask, m.ask_len);
+        if (since < 100 || (!seen && since < m.ask_blind_ms)) {
+            return OPE_OK;
+        }
+        const char *rest = nl ? nl + 1 : "";
+        put_piece(c, m.prg, rest, (uint8_t)strlen(rest));
+        printf("[%s] %s: the answer typed (question %s)\n", m.tag, r->name, seen ? "on the screen" : "not readable, waited");
+        r->c64_phase = 5;
+        r->c64_t = r->ran_ms;
         return OPE_OK;
     }
     if (r->c64_phase == 2) {

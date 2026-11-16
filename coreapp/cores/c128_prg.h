@@ -34,4 +34,9 @@ static inline void c128_prg_params_c64(CbmPrgParams *p)
     p->max_size = 0x1A + 2 + (0x10000 - 0x0801);
 }
 
+// T217 D4: what the application types to reach C64 mode ('|' separates the pieces: the second goes in when the machine asks) and the 40-column screen codes of that
+// question (GO64 prints it with PRIMM; the bench waits for the same codes, cores/c128/sim/run_prgrun.sh go64)
+#define C128_SWITCH_TEXT "GO64\r|Y\r"
+static const uint8_t c128_go64_ask[13] = { 1, 18, 5, 32, 25, 15, 21, 32, 19, 21, 18, 5, 63 };      // ARE YOU SURE?
+
 #endif
