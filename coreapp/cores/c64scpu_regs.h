@@ -38,6 +38,8 @@
 
 #define SCPU_SROM_DDR_ADDR 0x03080000u                // = SCPU_SROM_BASE
 #define SCPU_SROM_WIN_OFF  0x02080000u                // = SCPU_SROM_DDR_ADDR - 0x01000000, the offset inside the application's DDR2 window
+#define SCPU_SRAM_WIN_OFF  0x02000000u                // T217: the 65816's SRAM bank 0 ($0000-$FFFF) in the application's DDR2 window = 0x03000000 - 0x01000000 (scpu_mem.v sram(): p = 0x1000000 + addr,
+                                                      // scpu_cache.v: p is the byte address minus 0x02000000). The CPU's page 0 and the BASIC pointers live here, not in the C64 RAM window.
 #define SCPU_SROM_MAX      262144u
 
 // ---- the C64 ROMs (step 1's path, unchanged) -----------------------------------------------------------------------------------------

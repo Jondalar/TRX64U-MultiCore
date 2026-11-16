@@ -6,12 +6,13 @@
 // Auto switch (T194 D12: on/off, time) moves to the chip that is being used, and a core hotkey (40/80) flips by hand.
 // Drive A is the cbm1541 library with the 1541 and the 1581 (cbm1541_desc.h, CBM1581_*). The register page is c128_regs.h; the extra keys of
 // the USB keyboard are c128_xkey_for (below), delivered by rawkeys.cc in held mode (T141 P2). Run Disk (T206) resets the machine and types the start at
-// READY (c128.type_script, the shared cbm_run job). Not in this descriptor: cartridge port, REU, Run PRG and the inner Mount & Run (no run_op), see T113 section 5.5 "Open".
+// READY (c128.type_script, the shared cbm_run job). T217: Load / Load + run of a .prg and the inner Mount & Run (run_op). Not in this descriptor: cartridge port, REU, see T113 section 5.5 "Open".
 #include "hk_defaults.h"
 #include "ctx.h"
 #include "boot.h"
 #include "c128_regs.h"
 #include "c128_keys.h"
+#include "c128_prg.h"
 #include "cbm1541.h"
 #include "cbm1541_desc.h"
 #include "cbm_run.h"
@@ -985,23 +986,45 @@ static void debug_line(CoreCtx *c)
 // $2D/$2E (VARTAB $2F, ARYTAB $31, STREND $33), the keyboard buffer KEYD is $034A (ten keys) with its count NDX at $D0 - the C128 Programmer's Reference
 // Guide's memory map; no C128 KERNAL source is in this repository to read them from, so they are unverified until the board step. ready_ms is not measured: the first look at READY is
 // taken 2 s after the reset (the 128-mode boot with the 40/80 init and the RAM test is slower than the C64's), 500 ms settle; Alex's board step S3 measures it.
+// T217 P3 / D4: a program file is started in 128 mode (the mode a reset always starts in), except a file with the C64's load address $0801 (BASIC or a C64
+// ML file placed there): that one is started in C64 mode (cbm_run.cc service_c64: GO64 typed at the 128 READY, the answer Y, the status register's b0 says C64 mode,
+// then the C64's own READY, then placement and RUN as on a C64). "Load" (no start) of such a file stays in 128 mode and is refused with the reason.
+static const char *refuse_c64_basic(CoreCtx *, uint32_t load, uint32_t)
+{
+    if (load == 0x0801) {
+        return "This is a C64 program (load address $0801): use Load + run, which starts it in C64 mode";
+    }
+    return 0;
+}
+
 static CbmRunMachine machine(void)
 {
     CbmRunMachine m;
     memset(&m, 0, sizeof(m));
     m.tag = "c128";
-    m.prg.basic_starts[0] = 0x1C01;
-    m.prg.nbasic_starts = 1;
-    m.prg.txttab = 0x2D; m.prg.txttab_min = 0x1C01; m.prg.txttab_max = 0xBFFF;
-    m.prg.vartab = 0x2F; m.prg.arytab = 0x31; m.prg.strend = 0x33;
-    m.prg.kbd_buffer = 0x034A; m.prg.kbd_count = 0xD0;
-    m.prg.p00_header = 0x1A;
-    m.prg.min_size = 3;
-    m.prg.max_size = 0x1A + 2 + (0x10000 - 0x1C01);
+    m.refuse = refuse_c64_basic;
+    c128_prg_params(&m.prg);
+    m.c64_load = 0x0801;
+    c128_prg_params_c64(&m.c64_prg);
+    m.switch_text = "GO64\r|Y\r";
+    m.mode_reg = C128_STATUS;
+    m.mode_mask = 0x01;                                 // C128_STATUS b0: C64 mode
+    m.c64_screen = 0x0400;
+    m.c64_ready_ms = 1500;
     m.ready_ms = 2000;
     m.settle_ms = 500;
     m.giveup_ms = 6000;
     return m;
+}
+
+// T217: "Load" / "Load + run" of a .prg, and Mount & Run of a file inside a disk image (run_op): the shared cbm_run job (PRG library, keyboard buffer)
+static int op_run(CoreCtx *c, const OpArgs &a, OpOut &o)
+{
+    return cbm_run_queue(c, &c128_state(c)->run, machine(), a.s(0), o.msg, o.msglen) ? OPE_FAILED : OPE_OK;
+}
+static int op_load(CoreCtx *c, const OpArgs &a, OpOut &o)
+{
+    return cbm_load_now(c, &c128_state(c)->run, machine(), a.s(0), o.msg, o.msglen) ? OPE_FAILED : OPE_OK;
 }
 
 static int op_type(CoreCtx *c, const OpArgs &a, OpOut &o)
@@ -1055,14 +1078,20 @@ static const FileAction rom_actions[] = {
     KIT_ACTIONS,
 };
 static const FileAction bin_actions[] = { KIT_ACTIONS };
-// T206: the disk actions are the library's (cbm1541_desc.h): the same names and order as in every core with a drive. No inner Mount & Run / Real Run on
-// the images: the core has no Run PRG (run_op), so Mount & Run would fail.
-static const FileType filetypes[5] = {
+static const FileAction prg_actions[] = {
+    { "Load", "c128.load_prg", file_bind, 1, false, 0, 0 },
+    { "Load + run", "c128.run_prg", file_bind, 1, true, 0, 0 },
+};
+// T206: the disk actions are the library's (cbm1541_desc.h): the same names and order as in every core with a drive. T217 P4: the files inside the images get
+// Mount & Run (run_op) and Real Run (type_op).
+static const FileType filetypes[7] = {
     { ".rom", rom_actions, 6, 0, 0, 0 },
     { ".bin", bin_actions, 4, 0, 0, 0 },
-    { ".d64", c1541_d64_actions, 5, 0, 0, 0 },
+    { ".prg", prg_actions, 2, 0, 0, 0 },
+    { ".p00", prg_actions, 2, 0, 0, 0 },
+    { ".d64", c1541_d64_actions, 5, ".prg", c1541_inner_actions, 2 },
     { ".g64", c1541_g64_actions, 4, 0, 0, 0 },
-    { ".d81", c1581_disk_actions, 4, 0, 0, 0 },
+    { ".d81", c1581_disk_actions, 4, ".prg", c1541_inner_actions, 2 },
 };
 
 static const Task tasks[2 + CBM1541_NTASKS + CBM1581_NTASKS] = {
@@ -1099,6 +1128,8 @@ static void c128_register(OpRegistry &r)
     r.add_op("c128.set_sysmode", sysmode_arg, 1, op_set_sysmode);
     r.add_op("c128.service", 0, 0, op_service);
     r.add_op("c128.type_script", text_arg, 1, op_type);
+    r.add_op("c128.run_prg", path_arg, 1, op_run);
+    r.add_op("c128.load_prg", path_arg, 1, op_load);
     r.add_state("c128.auto_diag", state_auto_diag);
     cbm1541_register(r);
 }
@@ -1134,7 +1165,7 @@ const CoreDesc c128_desc = {
     roms, 3,
     settings, 12 + CBM1541_NSETTINGS,
     tasks, 2 + CBM1541_NTASKS + CBM1581_NTASKS,
-    filetypes, 5,
+    filetypes, 7,
     media, 1,
     // the VDC's picture: 640 x 480 is the largest (interlace woven, T113 D11), shown 2 x 2 (1280 x 960) centred on 1920 x 1080; without interlace the layer shows 400 rows
     // (c128_rows, 1280 x 800 as before); the buffers are the core's reset values of FB_BASE / FB_STRIDE
@@ -1147,7 +1178,7 @@ const CoreDesc c128_desc = {
     caps, 2,
     false, false, 0, 0, 0, 0, 0, 0, 0,
     "c128.type_script",                                 // type_op (T206: Run Disk)
-    0,                                                  // run_op
+    "c128.run_prg",                                     // run_op (T217: Load + run, and Mount & Run of a file inside a disk image)
     65536,                                              // cold_ram_bytes: RAM block 0, what the RAM window reaches (block 1 and the VDC's RAM it does not)
     // TODO(T113 5.6, coordinator at merge): once CoreDesc has the hook, add  .cold_start = c128_cold_start  here (the descriptor is positional: the new field's slot)
     0, 0, 0, 0,                                // cold_start, id_feat_reg, id_feat_mask, id_feat_val
