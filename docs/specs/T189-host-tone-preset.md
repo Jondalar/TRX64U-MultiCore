@@ -117,6 +117,9 @@ Scenario: S8 the sound (P5) - board, by hand
   The rounding remainder of each sample goes into the next sample's sum (first-order error feedback): no dead band, no DC offset after a burst.
 - Timing in the frame: the filter captures the core's pair 16 clocks after `frame_en`, the output register changes about 30 clocks after it and holds for the rest
   of the frame, so the HDMI hold (next `frame_en`) and the I2S take (`frame_en` + 127) are the same pair (S5). A filtered sample is one frame (21 us) late; Flat is combinational.
+- **vc20 against the T189 host (run 2102, 2026-11-16):** the first vc20 route against the new static missed setup by 0.040 ns (WNS -0.040, TNS -0.114) on the
+  1541 GCR path `l2/drv/i_gcr` (not touched by T189; the static moved). One change: vc20's `core.toml` gets `route = "AggressiveExplore"` (per-core directive,
+  host key and the other cores stay). null routed with the defaults (cache).
 - S4 DC criterion: 0.01 dB is not reachable with 18-bit coefficients for the bass shelf (1 + a1 + a2 is 32 counts of 65536); measured 0.0206 dB, bench limit 0.05 dB (to confirm with Alex).
 
 ## §6 Design options and questions
