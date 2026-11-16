@@ -327,6 +327,13 @@ void hc_browse_empty_text(char *out, int n)
 bool hc_browse_row(int k, HcBrowseRow *r)
 {
     const HcNav &v = hc_nav();
+    if (k == v.bn && v.bmore > 0) {                      // the folder did not fit the memory: say so, never just stop
+        r->mark[0] = ' ';
+        r->mark[1] = 0;
+        hc_browse_more_text(r->name, sizeof(r->name));
+        r->size[0] = 0;
+        return true;
+    }
     if (k < 0 || k >= v.bn) {
         return false;
     }
@@ -407,7 +414,7 @@ const char *hc_browse_foot(void)
     static char buf[320];
     const char *base = browse_foot_base();
     const HcNav &v = hc_nav();
-    if (v.bn <= hc_nav_browse_rows() || hc_fo_replace_pending()) {
+    if (hc_browse_nrows() <= hc_nav_browse_rows() || hc_fo_replace_pending()) {
         return base;
     }
     char dn[16], up[16];

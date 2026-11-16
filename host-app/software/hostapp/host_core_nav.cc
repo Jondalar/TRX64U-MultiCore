@@ -5,6 +5,7 @@
 #include "host_core_flow.h"
 #include "listwin.h"
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 namespace {
@@ -179,6 +180,29 @@ void hc_nnote_set(const char *text, int tone)
 void hc_nnote_clear(void) { g_nav.nnote[0] = 0; }
 
 // ---- the browser -----------------------------------------------------------------------------------------------------------------------------
+// The list's buffer: cap rows and one zeroed after them. It is kept between two loads (the first one never fails a later load), grown for a longer folder.
+static bool br_buf(int cap)
+{
+    HcNav &n = g_nav;
+    if (n.bl && n.bcap >= cap) {
+        return true;
+    }
+    HostDirEntry *b = (HostDirEntry *)calloc((size_t)cap + 1, sizeof(HostDirEntry));
+    if (!b) {
+        return false;
+    }
+    if (n.bl) {                                  // growing: what was read stays (the parent row is in it)
+        memcpy(b, n.bl, sizeof(HostDirEntry) * (size_t)(n.bn < n.bcap ? n.bn : n.bcap));
+    }
+    free(n.bl);
+    n.bl = b;
+    n.bcap = cap;
+    return true;
+}
+
+void hc_browse_more_text(char *out, int n) { snprintf(out, n, "... %d more entries not shown (memory)", g_nav.bmore); }
+int hc_browse_nrows(void) { return g_nav.bn + (g_nav.bmore > 0 ? 1 : 0); }
+
 void hc_browse_load(void)
 {
     plat_arm_drop();                          // the list is read anew: an arm on one of its rows does not hold
@@ -186,18 +210,55 @@ void hc_browse_load(void)
     n.gen++;
     n.bup = strcmp(n.bpath, "/") != 0;
     n.bn = 0;
-    if (n.bup) {
-        strcpy(n.bl[0].name, "..");
-        n.bl[0].dir = true;
-        n.bl[0].size = 0;
-        n.bn = 1;
+    n.bmore = 0;
+    int c = -1, total = -1;
+    if (n.bl && n.bcap > HC_BR_START) {          // a long folder's buffer goes back to the heap before the next one is sized against what is free
+        free(n.bl);
+        n.bl = 0;
+        n.bcap = 0;
     }
-    int c = g_plat.list ? g_plat.list(n.bpath, n.bl + n.bn, HC_BR_MAX - n.bn) : -1;
+    if (br_buf(n.bcap > HC_BR_START ? n.bcap : HC_BR_START)) {
+        n.bl[0].name[0] = 0;
+        if (n.bup) {
+            strcpy(n.bl[0].name, "..");
+            n.bl[0].dir = true;
+            n.bl[0].size = 0;
+            n.bl[0].size64 = 0;
+            n.bn = 1;
+        }
+        c = g_plat.list ? g_plat.list(n.bpath, n.bl + n.bn, n.bcap - n.bn, &total) : -1;
+        if (c >= 0 && total > c && g_plat.list) {      // the folder is longer than the buffer: grow it by what the heap allows (a quarter of what is free), then read again
+            int want = n.bn + total;
+            int room = want;
+            if (g_plat.free_heap) {
+                uint32_t fh = g_plat.free_heap();
+                uint32_t rows = fh / 4 / (uint32_t)sizeof(HostDirEntry);
+                room = rows > (uint32_t)HC_BR_HARD ? HC_BR_HARD : (int)rows;
+            } else if (room > HC_BR_HARD) {
+                room = HC_BR_HARD;
+            }
+            if (room > want) {
+                room = want;
+            }
+            if (room > n.bcap && br_buf(room)) {
+                c = g_plat.list(n.bpath, n.bl + n.bn, n.bcap - n.bn, &total);
+            }
+        }
+        if (c < 0) {
+            c = -1;
+        }
+    }
     if (c > 0) {
         n.bn += c;
+        if (total > c) {
+            n.bmore = total - c;                   // the user sees what did not fit: one last row
+        }
     }
-    if (n.bsel >= n.bn) {
-        n.bsel = n.bn ? n.bn - 1 : 0;
+    if (n.bl) {
+        memset(&n.bl[n.bn], 0, sizeof(n.bl[0]));    // the row behind the last one (the "more" row) reads as empty
+    }
+    if (n.bsel >= hc_browse_nrows()) {
+        n.bsel = hc_browse_nrows() ? hc_browse_nrows() - 1 : 0;
     }
     if (g_plat.loaded) {
         g_plat.loaded();
@@ -214,6 +275,9 @@ void hc_browse_up(void)
 void hc_browse_enter(void)
 {
     HcNav &n = g_nav;
+    if (n.bsel < 0 || n.bsel >= n.bn) {          // the "more not shown" row (or no row) opens nothing
+        return;
+    }
     if (!strcmp(n.bl[n.bsel].name, "..")) {
         path_up(n.bpath);
     } else {
@@ -245,8 +309,8 @@ void hc_browse_set_path(const char *path) { snprintf(g_nav.bpath, sizeof(g_nav.b
 void hc_nav_set_bsel(int i) { g_nav.bsel = i; }
 void hc_nav_bsel_clamp(void)
 {
-    if (g_nav.bsel >= g_nav.bn) {
-        g_nav.bsel = g_nav.bn ? g_nav.bn - 1 : 0;
+    if (g_nav.bsel >= hc_browse_nrows()) {
+        g_nav.bsel = hc_browse_nrows() ? hc_browse_nrows() - 1 : 0;
     }
 }
 bool hc_browse_at_media(void) { return !strcmp(g_nav.bpath, "/"); }
@@ -289,7 +353,7 @@ int browse_cursor(int act)
     HcNav &n = g_nav;
     if (act == HCA_CURSOR_UP && n.bsel > 0) {
         n.bsel--;
-    } else if (act == HCA_CURSOR_DOWN && n.bsel + 1 < n.bn) {
+    } else if (act == HCA_CURSOR_DOWN && n.bsel + 1 < hc_browse_nrows()) {
         n.bsel++;
     } else {
         return HCN_NONE;
@@ -303,11 +367,11 @@ int browse_cursor(int act)
 int browse_page(int act)
 {
     HcNav &n = g_nav;
-    if ((act != HCA_BROWSE_PAGE_DOWN && act != HCA_BROWSE_PAGE_UP) || n.bn <= 0) {
+    if ((act != HCA_BROWSE_PAGE_DOWN && act != HCA_BROWSE_PAGE_UP) || hc_browse_nrows() <= 0) {
         return HCN_NONE;
     }
     int t = n.bsel;
-    listwin_page(&t, &n.bfirst, n.bn, g_brows, act == HCA_BROWSE_PAGE_DOWN ? 1 : -1);
+    listwin_page(&t, &n.bfirst, hc_browse_nrows(), g_brows, act == HCA_BROWSE_PAGE_DOWN ? 1 : -1);
     int r = HCN_DONE;
     if (t != n.bsel) {
         n.bsel = t;
@@ -517,7 +581,7 @@ int hc_nav_edit_first(int total)
 
 int hc_nav_browse_first(int rows)
 {
-    listwin_fix(g_nav.bsel, g_nav.bn, rows, &g_nav.bfirst);
+    listwin_fix(g_nav.bsel, hc_browse_nrows(), rows, &g_nav.bfirst);
     return g_nav.bfirst;
 }
 

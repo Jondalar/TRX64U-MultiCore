@@ -188,7 +188,9 @@ int UsbKb::getch() { if (!kbn) return -1; int k = kbq[0]; memmove(kbq, kbq + 1, 
 
 static void fpath(char *out, size_t n, const char *p) { snprintf(out, n, "%s%s", g_root, p); }
 
-int hostfs_list(const char *path, HostDirEntry *out, int max, bool only_cor)
+int hostfs_list_n(const char *path, HostDirEntry *out, int max, bool only_cor, int *total);
+int hostfs_list(const char *path, HostDirEntry *out, int max, bool only_cor) { return hostfs_list_n(path, out, max, only_cor, 0); }
+int hostfs_list_n(const char *path, HostDirEntry *out, int max, bool only_cor, int *total)
 {
     size_t pl = strlen(path);
     bool own = (pl > 8 && !strcmp(path + pl - 8, "/configs")) || (pl > 6 && !strcmp(path + pl - 6, "/media"));   // T198 S15: a core's own two folders, read once per generation
@@ -198,7 +200,7 @@ int hostfs_list(const char *path, HostDirEntry *out, int max, bool only_cor)
     struct dirent **nl;
     int c = scandir(d, &nl, 0, alphasort);
     if (c < 0) return -1;
-    int n = 0;
+    int n = 0, all = 0;
     for (int pass = 0; pass < 2; pass++) {
         for (int i = 0; i < c; i++) {
             const char *nm = nl[i]->d_name;
@@ -209,9 +211,11 @@ int hostfs_list(const char *path, HostDirEntry *out, int max, bool only_cor)
             if (stat(full, &st)) continue;
             bool dir = S_ISDIR(st.st_mode);
             int l = strlen(nm);
-            if ((pass == 0) != dir || n >= max) continue;
+            if ((pass == 0) != dir) continue;
             (void)l;
             if (!dir && only_cor && !discover_is_bundle(nm)) continue;
+            all++;
+            if (n >= max) continue;
             strncpy(out[n].name, nm, sizeof(out[n].name) - 1);
             out[n].name[sizeof(out[n].name) - 1] = 0;
             out[n].dir = dir;
@@ -222,6 +226,7 @@ int hostfs_list(const char *path, HostDirEntry *out, int max, bool only_cor)
     }
     for (int i = 0; i < c; i++) free(nl[i]);
     free(nl);
+    if (total) *total = all;
     return n;
 }
 static bool g_loadback;              // T139: boot.cfg reads back what the host saved last

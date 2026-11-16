@@ -157,7 +157,6 @@ static int nav_w_compact(void)
 enum View { V_MENU = HCV_MENU, V_BROWSE = HCV_BROWSE, V_EDIT = HCV_EDIT, V_NET = HCV_NET, V_SET = HCV_SET, V_COLORS = HCV_COLORS };
 #define NAV_N 5          // the views with an entry in the navigation (V_COLORS has none)
 
-#define BR_MAX 200
 #define ICON_W 32
 #define ICON_TILE_W 48          // the text tile shown while a row has no picture
 #define ICON_PX 1024            // the bundle's icon: 32 x 32 RGB565, little endian
@@ -630,12 +629,13 @@ static bool core_start_file(const char *cor_path, const char *text, int n)      
 static const HcPlatform core_plat = { core_cfg_load, core_cfg_save, core_cfg_changed, &board_fs, core_log, core_now, core_start_file };
 
 // ... and of the navigation: the folder listing, and what the screen drops when the list is read anew.
-static int nav_list(const char *path, HostDirEntry *out, int max) { return hostfs_list(path, out, max, false); }
+static int nav_list(const char *path, HostDirEntry *out, int max, int *total) { return hostfs_list_n(path, out, max, false, total); }
+static uint32_t nav_free_heap(void) { return media_free_heap(); }
 static bool nav_exists(const char *path) { return hostfs_exists(path); }
 static void nav_arm_end(uint32_t token, int how) { hostapi_arm_end(token, how); }
 static bool nav_key_local(void) { return hostapi_key_local(); }
 static void nav_ask_gone(void) { hostapi_ask("", 0, 0); }
-static const HcNavPlatform nav_plat = { nav_list, nav_exists, nav_arm_end, nav_key_local, 0, nav_ask_gone };
+static const HcNavPlatform nav_plat = { nav_list, nav_exists, nav_arm_end, nav_key_local, 0, nav_ask_gone, nav_free_heap };
 
 static void browse_load(void) { hc_browse_load(); }
 
@@ -3612,7 +3612,7 @@ static void apply_updates(void)
             }
         } else if (nv.view == V_BROWSE) {
             int first = nv.bfirst;
-            listwin_fix(nv.bsel, nv.bn, BROWS, &first);
+            listwin_fix(nv.bsel, hc_browse_nrows(), BROWS, &first);
             if (first != nv.bfirst) {
                 update_browse();                    // the list scrolls: refill the 13 rows
             } else {
