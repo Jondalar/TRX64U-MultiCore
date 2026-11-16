@@ -156,3 +156,4 @@ For Alex:
   (`tools/test_pack_import_cor.sh`, section 5): `PASS SEMVER=0.3.1-dev+8f1dc184 ... packed as it is`, `PASS SEMVER=0.3.1-dev+deadbeef ... refused`,
   `PASS manifest version 0.3.0 equals SEMVER 0.3.0: packed`, `PASS manifest version 0.4.0 differs from SEMVER 0.3.0: refused, message names both`,
   `PASS manifest without version: packed, one log line`. S1 stays open until a pin bump to a package that carries the field.
+- Run 2310 (main 5516eb716, 2026-11-16), package stage: `release/imports/trx64u.pin: manifest of main-8f1dc184 has no version (older package), SEMVER=0.3.0 not checked against it` (same for trx64g); trx64u.cor 3650513 bytes, trx64g.cor 3414513 bytes. S1 stays open until a pin points at a package whose manifest has "version".
