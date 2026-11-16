@@ -75,3 +75,4 @@ SA-1, Super FX, Cx4, S-DD1, SPC7110, ST010/ST011, BSX, Sufami, MSU-1 (T142 §4, 
 - **Not turned:** 200 seeded random 8192-byte files (0 turned); the test patterns `i*7+1` and `i*13+5` of `test_snes.cc` (unchanged).
 - **App test S8:** `test_snes.cc` builds a firmware of our own in valid words (JP/LD/OP, data words), low first as a file, reversed as a file, reversed appended: the stream to the chip is the same; random bytes are written as they are. Not run (CI); compiles (syntax check) and the RISC-V build was started.
 - **Board:** reversed file on Mario Kart still to do.
+- Board 2026-11-16 S8 PASS (Alex, package main-aaaee0d5): Super Mario Kart runs with `dsp1b.bin` reversed (high byte first) in `/SD/cores/snes/roms/`; the original (low byte first) was put back afterwards.
