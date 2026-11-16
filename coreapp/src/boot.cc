@@ -54,6 +54,7 @@ int boot_put_roms(CoreCtx *c, const RomResult *res, char *msg, int msglen)
         }
         printf("[core] %s: %s/%s (%u bytes)\n", s.role, res[i].hit.dir, res[i].hit.name, (unsigned)res[i].hit.size);
     }
+    c->rom_key_loaded = d->rom_key ? d->rom_key(c) : 0;      // T216 D16: what the ROMs now in the machine were chosen by
     // the ROM set (T104 5.2): the member the choice names, read like a named file and handed to the base's own placement
     if (d->romset) {
         RomHit hit;
@@ -191,6 +192,9 @@ int boot_cold_reset(CoreCtx *c, char *msg, int msglen)
     }
     if (d->romset && romset_stale(c)) {
         return reload(c, msg, msglen, false);     // the choice names another file than the one in the window (reload_on_change)
+    }
+    if (d->rom_key && d->rom_key(c) != c->rom_key_loaded) {
+        return reload(c, msg, msglen, false);     // T216 D16: a setting that chooses the ROM files changed: the ROMs of the new choice go in, as "Reload ROMs, reset"
     }
     printf("[core] cold reset\n");
     c->paused = false;                            // a reset runs the machine

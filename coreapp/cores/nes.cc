@@ -5,6 +5,7 @@
 #include "ctx.h"
 #include "memops.h"
 #include "boot.h"
+#include "engines.h"
 #include "nes_regs.h"
 #include "ines.h"
 #include "cores.h"
@@ -78,6 +79,7 @@ static bool copy_image(CoreCtx *c, CoreFile *f, uint32_t file_off, uint32_t byte
 static int nes_run(CoreCtx *c, const char *path, int, char *msg, int msglen)
 {
     NesState *st = nes_state(c);
+    MediaLoading loading(c);                               // T226 S1
     CoreFile *f = c->fs->open(path, false);
     if (!f) {
         snprintf(msg, msglen, "cannot open %s", path);
@@ -211,6 +213,6 @@ const CoreDesc nes_desc = {
     0, 0,                                      // media_flush, media_pending
     &mount_slots,                              // T180 D2, D5: Cartridge
     &hk_console,                           // T181: the default hotkey map (hk_defaults.h)
-    0,                                     // alt_video
+    0, false, 0,                                     // alt_video, no_tone, rom_key
     "Console type",                            // T212 D13: machine_info
 };

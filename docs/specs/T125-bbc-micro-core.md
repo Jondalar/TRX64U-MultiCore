@@ -1,6 +1,6 @@
 # T125 — A BBC Micro runs as its own core: MODE 7 teletext, MODE 0-6, keyboard with BREAK, a disk from the stick, sound
 
-**Status:** PROPOSED (2026-11-05, Alex).
+**Status:** PROPOSED (2026-11-05, Alex). 2026-11-13 status check: state confirmed: PROPOSED, no core directory in cores/, row planned.
 **Repo:** TRX64U-MultiCore — a new core `cores/bbc/` (gateware, glue in `trx/`), its descriptor in `coreapp/cores/bbc.cc`; nothing in the host.
 **Number:** T125 (registry: the table in `TODO.md`).
 **Origin:** Alex, 2026-10-24 (translated): "please add BBC and PET to the list of cores". 2026-11-05 (translated): "Prepare the specs, so we can build them bit by bit."

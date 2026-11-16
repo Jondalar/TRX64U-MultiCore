@@ -1,6 +1,6 @@
 # T157 — every core can swap the two joystick ports from its menu, one setting, kept per core
 
-**Status:** ACCEPTED (2026-10-29), asked by Alex; D1 decided.
+**Status:** ACCEPTED (2026-10-29), asked by Alex; D1 decided. Status check 2026-11-13: BUILT in amiga, a1200, nes, c128 (merged 51a88f3cd, 10-29); vc20 none; board S5 open, CI bitstream proof not recorded. 2026-11-15 sync: SNES and Neo Geo were to get the swap 'on their merge' (§3, §5): Neo Geo has it (`coreapp/cores/neogeo.cc:77`, `NEO_PAD` -> `pad_swap` in neo_regs.v:55,132, from T143; no T157 bench or board record); SNES has none (`coreapp/cores/snes.cc` has no Joystick ports setting, no swap in cores/snes) - not built, not decided out.
 **Repo:** TRX64U-MultiCore — the generic core application (`coreapp/src`: one "Joystick ports" setting for every core) and
 the swap bit in each core's own registers (D1). The host is not changed.
 **Number:** T157.

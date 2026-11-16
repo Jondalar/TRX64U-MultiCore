@@ -67,7 +67,7 @@ void setmsg(const char *m, int tone)
 
 void window(void)
 {
-    listwin_fix(g_ov.cur, g_ov.l.n + 1, HC_CFGOV_ROWS, &g_ov.top);       // T209 D3: the same 2-row margin as the other lists
+    listwin_fix(g_ov.cur, g_ov.l.n + 2, HC_CFGOV_ROWS, &g_ov.top);       // T209 D3: the same 2-row margin as the other lists
 }
 
 void file_of(int k, char *out, int cap)
@@ -131,9 +131,7 @@ bool hc_cfgov_open(const char *cor_path, const char *title, int entry, bool brow
 {
     HcCfgOv o;
     memset(&o, 0, sizeof(o));
-    if (!read_list(cor_path, o.dir, sizeof(o.dir), &o.l) || o.l.n == 0) {
-        return false;
-    }
+    read_list(cor_path, o.dir, sizeof(o.dir), &o.l);         // T224 D1: a core with no config (or no folder) opens too, the last row is the rescue start
     o.open = true;
     o.entry = entry;
     o.browse = browse;
@@ -169,20 +167,24 @@ void hc_cfgov_move(int dir)
     hc_cfgov_disarm();
     g_ov.msg[0] = 0;
     int c = g_ov.cur + dir;
-    if (c >= 0 && c <= g_ov.l.n) {
+    if (c >= 0 && c <= g_ov.l.n + 1) {
         g_ov.cur = c;
+    }
+    if (hc_cfgov_on_safe()) {
+        setmsg("This start only: Auto picture, Integer scale, no smoothing.", HCT_MUTED);
     }
     window();
 }
 
-const char *hc_cfgov_cur_name(void) { return g_ov.cur > 0 ? g_ov.l.name[g_ov.cur - 1] : ""; }
+const char *hc_cfgov_cur_name(void) { return g_ov.cur > 0 && g_ov.cur <= g_ov.l.n ? g_ov.l.name[g_ov.cur - 1] : ""; }
+bool hc_cfgov_on_safe(void) { return g_ov.open && g_ov.cur == g_ov.l.n + 1; }
 
 bool hc_cfgov_default(void)
 {
     hc_cfgov_disarm();
     int e = g_ov.entry;
     if (e < 0) {
-        setmsg("Add the core to the boot menu first (F3, A), then it can have a default.", HCT_WARN);
+        setmsg("Add the core to the boot menu first (F3, A), then it can have an auto config.", HCT_WARN);
         return false;
     }
     const char *nm = hc_cfgov_cur_name();
@@ -190,24 +192,24 @@ bool hc_cfgov_default(void)
     const char *to = same ? "" : nm;
     int r = hc_entry_defcfg(e, to);
     if (r == HCR_REFUSED) {
-        setmsg("That name cannot be a default.", HCT_WARN);
+        setmsg("That name cannot be the auto config.", HCT_WARN);
         return false;
     }
     snprintf(g_ov.def, sizeof(g_ov.def), "%s", to);
     if (r == HCR_SAVE_FAILED) {
         setmsg("Could not write boot.cfg.", HCT_BAD);
     } else if (!to[0]) {
-        setmsg(nm[0] ? "No default config any more." : "No default config: the countdown starts plain.", HCT_OK);
+        setmsg(nm[0] ? "No auto config any more." : "No auto config: the countdown starts plain.", HCT_OK);
     } else {
-        setmsg("Default config set. The countdown and direct boot use it.", HCT_OK);
+        setmsg("Auto config set. The countdown and direct boot use it.", HCT_OK);
     }
     return true;
 }
 
 int hc_cfgov_delete(void)
 {
-    if (g_ov.cur == 0) {
-        setmsg("\"Plain start\" is not a config.", HCT_MUTED);
+    if (g_ov.cur == 0 || hc_cfgov_on_safe()) {
+        setmsg(g_ov.cur == 0 ? "\"Plain start\" is not a config." : "\"Boot safe graphics mode\" is not a config.", HCT_MUTED);
         return 0;
     }
     if (!g_ov.ask) {
@@ -249,7 +251,7 @@ int hc_cfgov_delete(void)
 bool hc_cfgov_rename(const char *to)
 {
     hc_cfgov_disarm();
-    if (g_ov.cur == 0) {
+    if (g_ov.cur == 0 || hc_cfgov_on_safe()) {
         return false;
     }
     int k = g_ov.cur - 1;
@@ -331,7 +333,7 @@ void hc_cfgov_pick(HcWifiPick *p)
     memset(p, 0, sizeof(*p));
     p->cfgov = true;
     snprintf(p->title, sizeof(p->title), "%s - start with", g_ov.title);
-    int total = g_ov.l.n + 1;
+    int total = g_ov.l.n + 2;
     const char *slash = strrchr(g_ov.path, '/');
     char who[64] = "";                                   // from the File Browser the sub text names the file that RETURN starts
     if (g_ov.browse) {
@@ -343,6 +345,8 @@ void hc_cfgov_pick(HcWifiPick *p)
     if (total > HC_CFGOV_ROWS) {
         snprintf(p->sub, sizeof(p->sub), "%s%d configs   %d-%d of %d", who, g_ov.l.n, g_ov.top + 1,
                  g_ov.top + HC_CFGOV_ROWS < total ? g_ov.top + HC_CFGOV_ROWS : total, total);
+    } else if (g_ov.l.n == 0) {
+        snprintf(p->sub, sizeof(p->sub), "%sNo configs yet", who);
     } else {
         snprintf(p->sub, sizeof(p->sub), g_ov.l.n == 1 ? "%s%d config" : "%s%d configs", who, g_ov.l.n);
     }
@@ -352,10 +356,12 @@ void hc_cfgov_pick(HcWifiPick *p)
         HcWifiItem &it = p->item[n];
         if (r == 0) {
             snprintf(it.a, sizeof(it.a), "Plain start");
+        } else if (r == g_ov.l.n + 1) {
+            snprintf(it.a, sizeof(it.a), "Boot safe graphics mode");
         } else {
             snprintf(it.a, sizeof(it.a), "%s", g_ov.l.name[r - 1]);
             if (g_ov.def[0] && !strcmp(g_ov.def, g_ov.l.name[r - 1])) {
-                snprintf(it.c, sizeof(it.c), "default");
+                snprintf(it.c, sizeof(it.c), "auto");
                 it.ctone = HCT_HOST;
             }
         }

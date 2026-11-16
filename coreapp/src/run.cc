@@ -73,24 +73,13 @@ public:
 MatrixHost matrix_host;
 Keyboard_C64 *matrix_kb;
 
-int map_key(int k)
-{
-    switch (k) {            // Gideon's keymapper turns F1/F3/F5/F7 into these for the user interface
-    case KEY_PAGEUP: return KEY_F1;
-    case KEY_HELP: return KEY_F3;
-    case KEY_TASKS: return KEY_F5;
-    case KEY_PAGEDOWN: return KEY_F7;
-    }
-    return k;
-}
-
 int getch_nowait(void)
 {
     int k = system_usb_keyboard.getch();
     if (k < 0 && matrix_kb) {
         k = matrix_kb->getch_nowait();
     }
-    return map_key(k);
+    return k;
 }
 
 // ---- the screen -------------------------------------------------------------------------------------------------------------
@@ -131,6 +120,24 @@ static void saving_note(CoreCtx *c, bool on)
     }
     if (on) {
         ui_message("Saving media", "Saving media...", false);
+        ui_render_now();
+    } else if (c->loading_depth > 0) {                // T226: a write-back inside a load: the load's note stands again
+        ui_message("Cartridge", "Loading cartridge...", false);
+        ui_render_now();
+    } else {
+        ui_message_clear();
+    }
+}
+
+// T226 S1: a cartridge / ROM image is read in with the menu up (seconds on the SNES): the picture says so until the core runs or the load failed (the menu
+// shows its answer after the operation, as after a write-back).
+static void loading_note(CoreCtx *c, bool on)
+{
+    if (!c->menu_open) {
+        return;
+    }
+    if (on) {
+        ui_message("Cartridge", "Loading cartridge...", false);
         ui_render_now();
     } else {
         ui_message_clear();
@@ -298,8 +305,8 @@ public:
                      ctx.desc->id[1], ctx.desc->id[2], ctx.desc->id[3]);
             break;
         case 1:
-            if (APP_VERSION_HASH[0]) {
-                snprintf(out, n, "%s built %s", APP_VERSION_HASH, APP_BUILD_DATE);
+            if (APP_VERSION_STRING[0]) {
+                snprintf(out, n, "%s built %s", APP_VERSION_STRING, APP_BUILD_DATE);
             } else {
                 snprintf(out, n, "built %s", APP_BUILD_DATE);
             }
@@ -418,7 +425,7 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
     }
     {
         char ver[64];
-        snprintf(ver, sizeof(ver), "%s  %s", APP_VERSION_HASH, APP_BUILD_DATE);
+        snprintf(ver, sizeof(ver), "%s  %s", APP_VERSION_STRING, APP_BUILD_DATE);
         ui_splash_open(desc->cor_name, ver, CS_STEPS);
     }
     // The port opens now, not after the start: the start can wait as long as it takes (a ROM, the medium) and FTP answers meanwhile, so the API must
@@ -451,6 +458,7 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
     ctx.board = board;
     ctx.io = hw_io();
     ctx.saving = saving_note;
+    ctx.loading = loading_note;
     ctx.mount_changed = mounts_engine_changed;     // T180 D2: a mount or unmount in the core's own media engine is stored (mediamounts.h)
     ctx.partial = hw_partial();
     // a .d64 / .d81 is a folder for everything that goes through CoreFs (the browser, Run PRG, Mount & Run of a PRG inside an image; d1541_fs.h)
@@ -461,6 +469,8 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
     ctx.fs = &net_fs;
     hostwifi_load(ctx.fs);                              // T184 D3: the WiFi settings are the host's (F8); read once, never written
     start_paths(&ctx, h, board);
+    char file_config[HANDOVER_CONFIG_MAX + 2] = "";     // T223 D4: a large core's choice comes in a file beside the page
+    bool file_safe = false;
     {                                                   // T148 D1, D5, D13: the core's own folder, made at the first start (after its medium is up); an old .cfg beside the .cor moves in
         class BoardMediumEnv : public MediumEnv {
         public:
@@ -469,8 +479,9 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
         } medium_env;
         start_core_folder(&ctx, &medium_env);
     }
+    start_file_take(&ctx, h, file_config, sizeof(file_config), &file_safe);    // after start_core_folder: it waits for the core's medium, the file lives on it
     start_migrate_cfg(&ctx, board);
-    config_start(&ctx, h && handover_valid(h) ? handover_config(h) : "");                              // T198 D7: the host named a config in the hand-over page: the settings are read from it
+    config_start(&ctx, h && handover_valid(h) && handover_config(h)[0] ? handover_config(h) : file_config);                              // T198 D7: the host named a config in the hand-over page: the settings are read from it
     // The machine's stop register lives in the host (C64_CARTREGS_BASE + 1, hw.cc), so it keeps whatever the
     // application before us left in it: a core application that was replaced with its Freeze menu open leaves the
     // machine stopped, and the next one releases its core into a stop nobody can see. Clearing it here is the
@@ -504,6 +515,14 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
         if (ix >= 0 && ctx.settings->value(ix) == 0) {
             ui_splash_close();
             ui_render_now();
+        }
+    }
+    if (file_safe || (h && handover_valid(h) && handover_safe(h))) {      // T224 D2: "Boot safe graphics mode": the three video values of this start, stored nowhere
+        int n = picture_safe(&ctx);
+        printf("[core] safe graphics mode: %d video settings overridden for this start\n", n);
+        if (!ctx.notice_pending) {
+            snprintf(ctx.notice, sizeof(ctx.notice), "Safe graphics mode: Picture Auto, Scale Integer, Smoothing Off for this start. Your settings are kept.");
+            ctx.notice_pending = true;
         }
     }
     printf("[core] settings %s: %s\n", desc->store, ctx.cfg_path[0] ? ctx.cfg_path : "(no .cfg path, in memory only)");
@@ -556,6 +575,7 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
     static LogStdout say_out;
     const CoreDesc *merge_base = ctx.desc;
     auto do_merge = [&]() {
+        app_index.set_room(lib_board_loader() ? lib_board_loader()->room() : 0xFFFFFFFFu, lib_board_loader());   // T197 P4: the loader window of this moment
         int refused = bundle_merge(&ctx, merge_base, &bundle, lib_board_loader(), &say_out, &merged_desc, &merge, &app_index);
         lib_board_menu_note(refused);
         ctx.desc = &merged_desc;

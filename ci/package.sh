@@ -93,17 +93,23 @@ cp "$c64u/wns.txt" "$out/wns.c64u.txt"
 # this stage existed they came from the generic package trx64-coreapps, uploaded by hand from a Mac -
 # which is how trx64mc-main-51e89821 ended up carrying an application nobody had built from its commit.
 trxapps="$(need_stage trxapps)"
-cp "$trxapps/hostapp.app" "$trxapps/hostapp.elf" "$trxapps/coreapp.bin" "$out/"
+cp "$trxapps/hostapp.app" "$trxapps/hostapp.elf" "$trxapps/coreapp.bin" "$trxapps/coreapp.elf" "$out/"   # T221: the ELF is stamped beside the image (release_promote.py rewrites both)
 # T180 D9: Unzip, the one application every core reads from <root>/cores/apps/; the release bundle takes it from here (tools/release_mc.sh)
 [ -s "$trxapps/unzip.u2a" ] && cp "$trxapps/unzip.u2a" "$out/" || mark_red package unzip "stage trxapps made no unzip.u2a"
+# T197 P5: the zip library unzip.u2a loads (apps/miniz); the updater copies every .u2a beside the update file into <cores>/apps
+[ -s "$trxapps/miniz.u2a" ] && cp "$trxapps/miniz.u2a" "$out/" || mark_red package miniz "stage trxapps made no miniz.u2a"
 cp "$trxapps/trxapps_commit" "$out/trxapps_commit"
 # T172: the host app is cached by the content of its tree, so the version string it was built with is that of the run that filled the cache. The
 # copy that ships is stamped with this run's version (the field TRXVSTAMP: in the image, host-app/target/common/rules.mk), before the .txu and the
 # update files are made from it; the cache itself stays as it is. A long branch name is cut so the commit stays whole.
-appver="$("$ROOT/ci/version.sh")"
-[ "${#appver}" -le 53 ] || appver="${appver:0:44}@$(git -C "$ROOT" rev-parse --short=8 HEAD)"
-python3 -I "$ROOT/tools/stamp_version.py" stamp "$out/hostapp.app" "$out/hostapp.elf" --version "$appver" \
-  || mark_red package stamp "tools/stamp_version.py could not stamp the version into the host app"
+# T221: three fields, each from its own SemVer file: the host menu (TRXVSTAMP), the host gateware shown in the "host" chip (TRXHSTAMP) and the bundle (TRXBSTAMP).
+# The core app of a blueprint core carries its own version (TRXVSTAMP, coreapp/version.toml); its copies are stamped below, before a .cor is packed with them.
+for fld in "TRXVSTAMP hostapp" "TRXHSTAMP host" "TRXBSTAMP bundle"; do
+  python3 -I "$ROOT/tools/stamp_version.py" stamp "$out/hostapp.app" "$out/hostapp.elf" --marker "${fld% *}" --version "$("$ROOT/ci/version.sh" "${fld#* }")" \
+    || mark_red package stamp "tools/stamp_version.py could not stamp ${fld% *} into the host app"
+done
+python3 -I "$ROOT/tools/stamp_version.py" stamp "$out/coreapp.bin" "$out/coreapp.elf" --version "$("$ROOT/ci/version.sh" coreapp)" \
+  || mark_red package stamp "tools/stamp_version.py could not stamp the core app"
 
 # The applications the .cor bundles are packed with: the stage's blueprint image for every core that
 # has a descriptor (every core but trx64 and c64u), and for the rest the generic package trx64-coreapps.
@@ -127,6 +133,8 @@ if [ -n "${PACKAGE_TOKEN:-}" ]; then
   done
 fi
 cp "$trxapps/coreapps"/*.app "$coreapps/"
+python3 -I "$ROOT/tools/stamp_version.py" stamp "$coreapps"/*.app --version "$("$ROOT/ci/version.sh" coreapp)" \
+  || mark_red package stamp "tools/stamp_version.py could not stamp the version into the blueprint core apps"
 ls -l "$coreapps"
 
 # The .cor files of this package, packed here instead of by hand on the Mac (T100 §5, 2026-10-14).
@@ -168,7 +176,8 @@ if [ -n "$mono" ]; then
     echo "=== large .cor of $core"
     desc="$ROOT/cores/$core/mono/core.toml"
     if ! "$ROOT/tools/pack_large_cor.sh" --id "$core" --name "$(TRX_CORE_DESC="$desc" python3 "$ROOT/tools/core_toml.py" get "$core" name)" \
-        --version "$(TRX_CORE_DESC="$desc" python3 "$ROOT/tools/core_toml.py" get "$core" version)" --bit "$bit" --app-bin "$trxapps/coreapp.bin" \
+        --version "$("$ROOT/ci/version.sh" with "$(TRX_CORE_DESC="$desc" python3 "$ROOT/tools/core_toml.py" get "$core" version)")" \
+      --short "$(TRX_CORE_DESC="$desc" python3 "$ROOT/tools/core_toml.py" get "$core" short)" --bit "$bit" --app-bin "$out/coreapp.bin" \
         --bit-commit "$(git -C "$ROOT" rev-parse --short=8 HEAD)" --app-commit "$(cut -c1-8 "$trxapps/trxapps_commit")" --out "$out"; then
       echo "the large .cor of $core could not be packed" >&2
       rm -f "$out/$core.cor"
@@ -189,7 +198,7 @@ fi
 for pin in "$ROOT"/release/imports/*.pin; do
   [ -e "$pin" ] || continue
   echo "=== imported large .cor $(basename "$pin" .pin)"
-  if ! "$ROOT/tools/pack_import_cor.sh" --pin "$pin" --app-bin "$trxapps/coreapp.bin" --app-commit "$(cut -c1-8 "$trxapps/trxapps_commit")" --out "$out"; then
+  if ! "$ROOT/tools/pack_import_cor.sh" --pin "$pin" --app-bin "$out/coreapp.bin" --app-commit "$(cut -c1-8 "$trxapps/trxapps_commit")" --out "$out"; then
     echo "the imported large .cor of $pin could not be packed" >&2
     mark_red package "cor-$(basename "$pin" .pin)" "tools/pack_import_cor.sh failed"
   fi
@@ -207,14 +216,24 @@ sha="$(git -C "$ROOT" rev-parse --short=8 HEAD)"
 # provides; the app part the interface it needs. tools/txu_pack.py checks both like the host does before the first erase. No null_full.bit (the host lane is
 # red or left nothing): the file is not made and the red target says so - an app-only .txu is not made here on purpose, the update stage works from a whole run.
 if [ -f "$out/null_full.bit" ] && [ -f "$out/hostapp.app" ]; then
-  "$ROOT/tools/pack_txu_mc.sh" --host "$out/null_full.bit" --app "$out/hostapp.app" --branch "$(branch_slug)" --sha "$sha" \
+  "$ROOT/tools/pack_txu_mc.sh" --host "$out/null_full.bit" --app "$out/hostapp.app" --branch "$(branch_slug)" --sha "$sha" --version "$("$ROOT/ci/version.sh" bundle)" \
     --commit "$(git -C "$ROOT" rev-parse --short=15 HEAD)" --out "$out" || mark_red package txu "tools/pack_txu_mc.sh could not pack the .txu"
 else
   echo "no null_full.bit or hostapp.app in this package: no .txu"
 fi
-BITDIR="$c64u" python3 - "$out" "$sha" "$(git -C "$ROOT" rev-parse HEAD)" "$(branch_slug)" "$(cat "$trxapps/trxapps_commit")" "$("$ROOT/ci/version.sh")" <<'PY'
+BITDIR="$c64u" python3 - "$out" "$sha" "$(git -C "$ROOT" rev-parse HEAD)" "$(branch_slug)" "$(cat "$trxapps/trxapps_commit")" "$("$ROOT/ci/version.sh" bundle)" \
+  "$("$ROOT/ci/version.sh" host)" "$("$ROOT/ci/version.sh" hostapp)" "$("$ROOT/ci/version.sh" coreapp)" "$ROOT" <<'PY'
 import hashlib, json, os, sys
-out, short, full, branch, trxapps, version = sys.argv[1:]
+out, short, full, branch, trxapps, version, v_host, v_menu, v_coreapp, root = sys.argv[1:]
+sys.path.insert(0, os.path.join(root, "tools"))
+import cor_pack
+def cor_versions():          # T221 D6: the version of every core in the package, read from the .cor files themselves
+    vs = {}
+    for f in sorted(os.listdir(out)):
+        if f.endswith(".cor"):
+            m, _ = cor_pack.parse(open(os.path.join(out, f), "rb").read())
+            vs[f[:-4]] = m["version"]
+    return vs
 def wns(name):
     p = os.path.join(out, name)
     return dict(l.split() for l in open(p)) if os.path.exists(p) else {}
@@ -225,6 +244,7 @@ for f in sorted(os.listdir(out)):
     data = open(os.path.join(out, f), "rb").read()
     files[f] = {"sha256": hashlib.sha256(data).hexdigest(), "size": len(data)}
 json.dump({"trx64_commit": full, "trxapps_commit": trxapps, "branch": branch, "version": version,
+           "parts": {"host_gateware": v_host, "host_menu": v_menu, "core_app": v_coreapp, "cores": cor_versions()},
            "gateware_key": open(os.path.join(os.environ["BITDIR"], "key")).read().strip(),
            "bitstream_from": open(os.path.join(os.environ["BITDIR"], "from")).read().strip(),
            "wns_ns": wns("wns.c64u.txt"),

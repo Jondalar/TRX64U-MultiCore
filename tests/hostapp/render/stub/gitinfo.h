@@ -4,5 +4,7 @@
 #else
 #define APP_VERSION_HASH "85acf2b"
 #endif
-#define APP_VERSION_STRING "0.2.0+85acf2b"
+#define APP_VERSION_STRING "0.2.0-dev+85acf2b0"
+#define APP_HOST_VERSION_STRING "0.2.0-dev+85acf2b0"
+#define APP_BUNDLE_VERSION_STRING "0.2.0-dev+85acf2b0"
 #define APP_BUILD_DATE "2026-10-12"

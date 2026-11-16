@@ -29,7 +29,7 @@ static void legends()
 {
     CHECK_S(hc_foot(HCF_MENU), "UP/DOWN select    RETURN start    RIGHT configs    R check entry    V picture    any key stops the countdown");
     CHECK_S(hc_foot(HCF_BROWSE), "UP/DOWN select    RETURN open    A add    S start    RIGHT configs    C copy    M move    DEL twice deletes    LEFT up    V picture");
-    CHECK_S(hc_foot(HCF_EDIT), "UP/DOWN select    +/- move    D default    C rename    LEFT/RIGHT config of this core    DEL twice removes");
+    CHECK_S(hc_foot(HCF_EDIT), "UP/DOWN select    +/- move    D auto    C rename    LEFT/RIGHT config of this core    DEL twice removes");
     CHECK_S(hc_foot(HCF_NET), "C colours    V picture");
     CHECK_S(hc_foot(HCF_SET), "UP/DOWN select    LEFT/RIGHT or RETURN change    V picture");
     CHECK_S(hc_foot(HCF_BR_MEDIA), "UP/DOWN select    RETURN open    F format as exFAT    V picture");
@@ -105,7 +105,7 @@ static void resolve()
     CHECK(hc_resolve(HCX_MENU, KEY_RETURN) == HCA_ENTRY_START && hc_resolve(HCX_MENU, 'R') == HCA_ENTRY_RECHECK && hc_resolve(HCX_MENU, 'x') == HCA_NONE);
     // the browser: the normal mode, the pick, the inspect, the question
     CHECK(hc_resolve(HCX_BROWSE, KEY_DELETE) == HCA_BROWSE_DELETE && hc_resolve(HCX_BROWSE, KEY_BACK) == HCA_BROWSE_DELETE);
-    CHECK(hc_resolve(HCX_BROWSE, KEY_RIGHT) == HCA_CONFIG_LIST);                                                // T198: RIGHT lists the configs of a core (a folder opens only in a pick)
+    CHECK(hc_resolve(HCX_BROWSE, KEY_RIGHT) == HCA_CONFIG_LIST);                                                // T198: RIGHT lists the configs of a core (the browser's hc_ui_input turns it into BROWSE_OPEN on a folder row; a pick enters through HCA_BROWSE_ENTER)
     CHECK(hc_resolve(HCX_BROWSE_PICK, KEY_RIGHT) == HCA_BROWSE_ENTER && hc_resolve(HCX_BROWSE_INSPECT, KEY_RIGHT) == HCA_BROWSE_ENTER);
     CHECK(hc_resolve(HCX_BROWSE_PICK, 'c') == HCA_NONE && hc_resolve(HCX_BROWSE_INSPECT, 'a') == HCA_NONE);           // the copy / add keys do nothing in a pick
     CHECK(hc_resolve(HCX_BROWSE_PICK, KEY_BREAK) == HCA_BROWSE_PICK_CANCEL && hc_resolve(HCX_BROWSE_INSPECT, KEY_ESCAPE) == HCA_BROWSE_PICK_CANCEL);

@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <strings.h>
 #include "configlist.h"
+#include "handover.h"
 
 // ---- the intents' names ------------------------------------------------------------------------------------------------------------------
 static const char *const ACT_NAME[] = {
@@ -44,21 +45,21 @@ static const HcKey KEYMAP[] = {
     K(HCX_PICTURE, KEY_LEFT, PICTURE_REVERT), K(HCX_PICTURE, KEY_ESCAPE, PICTURE_REVERT), K(HCX_PICTURE, KEY_BREAK, PICTURE_REVERT), K(HCX_PICTURE, HC_KEY_ANY, PICTURE_KEEP),
     // F1
     K(HCX_MENU, KEY_UP, CURSOR_UP), K(HCX_MENU, KEY_DOWN, CURSOR_DOWN), K(HCX_MENU, KEY_RETURN, ENTRY_START), LET(HCX_MENU, 'r', ENTRY_RECHECK),
-    K(HCX_MENU, KEY_RIGHT, CONFIG_LIST),
-    // the config overlay (T198): UP/DOWN pick, RETURN start, LEFT/ESC close, D default, R rename, DEL delete (twice)
+    K(HCX_MENU, KEY_RIGHT, CONFIG_LIST), K(HCX_MENU, '+', MENU_PAGE_DOWN), K(HCX_MENU, '-', MENU_PAGE_UP), K(HCX_MENU, KEY_PAGEDOWN, MENU_PAGE_DOWN), K(HCX_MENU, KEY_PAGEUP, MENU_PAGE_UP),
+    // the config overlay (T198): UP/DOWN pick, RETURN start, LEFT/ESC close, D auto, R rename, DEL delete (twice)
     K(HCX_CFG, KEY_UP, CURSOR_UP), K(HCX_CFG, KEY_DOWN, CURSOR_DOWN), K(HCX_CFG, KEY_RETURN, CONFIG_START), K(HCX_CFG, KEY_LEFT, BACK), K(HCX_CFG, KEY_ESCAPE, BACK),
     K(HCX_CFG, KEY_BREAK, BACK), LET(HCX_CFG, 'd', CONFIG_DEFAULT), LET(HCX_CFG, 'r', CONFIG_RENAME), K(HCX_CFG, KEY_DELETE, CONFIG_DELETE), K(HCX_CFG, KEY_BACK, CONFIG_DELETE),
     // F3
-    K(HCX_BROWSE, KEY_RIGHT, CONFIG_LIST), K(HCX_BROWSE, KEY_UP, CURSOR_UP), K(HCX_BROWSE, KEY_DOWN, CURSOR_DOWN), K(HCX_BROWSE, '+', BROWSE_PAGE_DOWN), K(HCX_BROWSE, '-', BROWSE_PAGE_UP),
+    K(HCX_BROWSE, KEY_RIGHT, CONFIG_LIST), K(HCX_BROWSE, KEY_UP, CURSOR_UP), K(HCX_BROWSE, KEY_DOWN, CURSOR_DOWN), K(HCX_BROWSE, '+', BROWSE_PAGE_DOWN), K(HCX_BROWSE, '-', BROWSE_PAGE_UP), K(HCX_BROWSE, KEY_PAGEDOWN, BROWSE_PAGE_DOWN), K(HCX_BROWSE, KEY_PAGEUP, BROWSE_PAGE_UP),
     K(HCX_BROWSE, KEY_LEFT, BROWSE_UP), K(HCX_BROWSE, KEY_RETURN, BROWSE_OPEN), K(HCX_BROWSE, KEY_DELETE, BROWSE_DELETE), K(HCX_BROWSE, KEY_BACK, BROWSE_DELETE),
     LET(HCX_BROWSE, 'c', BROWSE_COPY), LET(HCX_BROWSE, 'm', BROWSE_MOVE), LET(HCX_BROWSE, 'a', BROWSE_ADD), LET(HCX_BROWSE, 'p', BROWSE_CONVERT),
-    LET(HCX_BROWSE, 'r', BROWSE_RESTORE), LET(HCX_BROWSE, 'u', BROWSE_UPDATE), LET(HCX_BROWSE, 'f', BROWSE_FORMAT), LET(HCX_BROWSE, 's', BROWSE_START),
+    LET(HCX_BROWSE, 'r', BROWSE_RESTORE), LET(HCX_BROWSE, 'u', BROWSE_UPDATE), LET(HCX_BROWSE, 'f', BROWSE_FORMAT), LET(HCX_BROWSE, 'z', BROWSE_UNZIP), LET(HCX_BROWSE, 's', BROWSE_START),
     // F3, the target pick of a copy or move
-    K(HCX_BROWSE_PICK, KEY_UP, CURSOR_UP), K(HCX_BROWSE_PICK, KEY_DOWN, CURSOR_DOWN), K(HCX_BROWSE_PICK, '+', BROWSE_PAGE_DOWN), K(HCX_BROWSE_PICK, '-', BROWSE_PAGE_UP),
+    K(HCX_BROWSE_PICK, KEY_UP, CURSOR_UP), K(HCX_BROWSE_PICK, KEY_DOWN, CURSOR_DOWN), K(HCX_BROWSE_PICK, '+', BROWSE_PAGE_DOWN), K(HCX_BROWSE_PICK, '-', BROWSE_PAGE_UP), K(HCX_BROWSE_PICK, KEY_PAGEDOWN, BROWSE_PAGE_DOWN), K(HCX_BROWSE_PICK, KEY_PAGEUP, BROWSE_PAGE_UP),
     K(HCX_BROWSE_PICK, KEY_LEFT, BROWSE_UP), K(HCX_BROWSE_PICK, KEY_RIGHT, BROWSE_ENTER), K(HCX_BROWSE_PICK, KEY_RETURN, BROWSE_OPEN),
     K(HCX_BROWSE_PICK, KEY_ESCAPE, BROWSE_PICK_CANCEL), K(HCX_BROWSE_PICK, KEY_BREAK, BROWSE_PICK_CANCEL),
     // F3, the pick of a .cfw/.ue2 to look into
-    K(HCX_BROWSE_INSPECT, KEY_UP, CURSOR_UP), K(HCX_BROWSE_INSPECT, KEY_DOWN, CURSOR_DOWN), K(HCX_BROWSE_INSPECT, '+', BROWSE_PAGE_DOWN), K(HCX_BROWSE_INSPECT, '-', BROWSE_PAGE_UP),
+    K(HCX_BROWSE_INSPECT, KEY_UP, CURSOR_UP), K(HCX_BROWSE_INSPECT, KEY_DOWN, CURSOR_DOWN), K(HCX_BROWSE_INSPECT, '+', BROWSE_PAGE_DOWN), K(HCX_BROWSE_INSPECT, '-', BROWSE_PAGE_UP), K(HCX_BROWSE_INSPECT, KEY_PAGEDOWN, BROWSE_PAGE_DOWN), K(HCX_BROWSE_INSPECT, KEY_PAGEUP, BROWSE_PAGE_UP),
     K(HCX_BROWSE_INSPECT, KEY_LEFT, BROWSE_UP), K(HCX_BROWSE_INSPECT, KEY_RIGHT, BROWSE_ENTER), K(HCX_BROWSE_INSPECT, KEY_RETURN, BROWSE_OPEN),
     K(HCX_BROWSE_INSPECT, KEY_ESCAPE, BROWSE_PICK_CANCEL), K(HCX_BROWSE_INSPECT, KEY_BREAK, BROWSE_PICK_CANCEL),
     // F3, "replace the file that is there?": RETURN says yes, every other key no
@@ -213,12 +214,16 @@ static const Seg F_BR_BACKUP[] = { SEL, S1("% add", BROWSE_ADD), S1("% start", B
                                    S1("% move", BROWSE_MOVE), S1("% twice deletes", BROWSE_DELETE), S1("% up", BROWSE_UP), PIC };
 static const Seg F_BR_TXU[] = { SEL, S1("% update", BROWSE_UPDATE), S1("% copy", BROWSE_COPY), S1("% move", BROWSE_MOVE), S1("% twice deletes", BROWSE_DELETE),
                                 S1("% up a folder", BROWSE_UP), PIC };
+static const Seg F_BR_ZIP[] = { SEL, S1("% unzip", BROWSE_UNZIP), S1("% copy", BROWSE_COPY), S1("% move", BROWSE_MOVE), S1("% twice deletes", BROWSE_DELETE),
+                                S1("% up a folder", BROWSE_UP), PIC };
 static const Seg F_BR_INSPECT[] = { SEL, S1("% open folder", BROWSE_ENTER), S1("% up a folder", BROWSE_UP), S1("% inspects a .cfw/.ue2", BROWSE_OPEN),
                                     S1("% back", BROWSE_PICK_CANCEL) };
 static const Seg F_BR_CFW[] = { SEL, S1("% add", BROWSE_ADD), S1("% start", BROWSE_START), S1("% package", BROWSE_CONVERT), S1("% restore", BROWSE_RESTORE),
                                 S1("% copy", BROWSE_COPY), S1("% move", BROWSE_MOVE), S1("% twice deletes", BROWSE_DELETE), S1("% up", BROWSE_UP), PIC };
-static const Seg F_EDIT[] = { SEL, S2("%/% move", ENTRY_MOVE_UP, ENTRY_MOVE_DOWN), S1("% default", ENTRY_DEFAULT), S1("% rename", ENTRY_RENAME),
+static const Seg F_EDIT[] = { SEL, S2("%/% move", ENTRY_MOVE_UP, ENTRY_MOVE_DOWN), S1("% auto", ENTRY_DEFAULT), S1("% rename", ENTRY_RENAME),
                               S2("%/% config of this core", ENTRY_DEFCFG_PREV, ENTRY_DEFCFG_NEXT), S1("% twice removes", ENTRY_REMOVE) };
+static const Seg F_EDIT_PLAIN[] = { SEL, S2("%/% move", ENTRY_MOVE_UP, ENTRY_MOVE_DOWN), S1("% auto", ENTRY_DEFAULT), S1("% rename", ENTRY_RENAME),
+                                    S1("% twice removes", ENTRY_REMOVE) };   // the same without "config of this core", for a selected row that has none
 static const Seg F_NET[] = { S1("% colours", NET_COLORS), PIC };
 static const Seg F_SET[] = { SEL, S3("%/% or % change", SET_DEC, SET_INC, SET_ACTIVATE), PIC };
 static const Seg F_CM_LIST[] = { S2("%/% scroll", CURSOR_UP, CURSOR_DOWN), S1("% delete the files that belong to no core", CORES_DELETE), S1("% back", BACK) };
@@ -229,7 +234,7 @@ static const Seg F_WM[] = { SEL, S3("%/% or % change", WIFI_DEC, WIFI_INC, WIFI_
                             S1("% disconnect", WIFI_DISCONNECT), S1("% forget", WIFI_FORGET), S1("% back", BACK) };
 static const Seg F_PM[] = { SEL, S1("% use this mode", PM_APPLY), S1("% back", BACK) };
 
-static const Seg F_CFG[] = { S2("%/% pick", CURSOR_UP, CURSOR_DOWN), S1("% start", CONFIG_START), S1("% back", BACK), S1("% default", CONFIG_DEFAULT), S1("% rename", CONFIG_RENAME), S1("% twice deletes", CONFIG_DELETE) };
+static const Seg F_CFG[] = { S2("%/% pick", CURSOR_UP, CURSOR_DOWN), S1("% start", CONFIG_START), S1("% back", BACK), S1("% auto", CONFIG_DEFAULT), S1("% rename", CONFIG_RENAME), S1("% twice deletes", CONFIG_DELETE) };
 
 static const Seg F_CFG_PLAIN[] = { S2("%/% pick", CURSOR_UP, CURSOR_DOWN), S1("% start", CONFIG_START), S1("% back", BACK) };   // "Plain start": nothing to default, rename or delete
 
@@ -238,8 +243,8 @@ static const Foot FOOTS[HCF_N] = {
     FT(HCX_MENU, F_MENU), FT(HCX_BROWSE, F_BROWSE), FT(HCX_BROWSE, F_BR_MEDIA), FT(HCX_BROWSE, F_BR_PLAIN), FT(HCX_BROWSE, F_BR_FILE), FT(HCX_BROWSE, F_BR_DIR),
     FT(HCX_BROWSE_PICK, F_BR_PICK_COPY), FT(HCX_BROWSE_PICK, F_BR_PICK_MOVE), FT(HCX_BROWSE_ASK, F_BR_ASK), FT(HCX_BROWSE, F_BR_BACKUP), FT(HCX_BROWSE, F_BR_TXU),
     FT(HCX_BROWSE_INSPECT, F_BR_INSPECT), FT(HCX_BROWSE, F_BR_CFW), FT(HCX_EDIT, F_EDIT), FT(HCX_NET, F_NET), FT(HCX_SET, F_SET), FT(HCX_CORES, F_CM_LIST),
-    FT(HCX_CORES_ASK1, F_CM_ASK1), FT(HCX_CORES_ASK2, F_CM_ASK2), FT(HCX_WIFI, F_WM), FT(HCX_CORES, F_CM_EMPTY), FT(HCX_PICMODES, F_PM), FT(HCX_CFG, F_CFG),
-    FT(HCX_MENU, F_MENU_PLAIN), FT(HCX_BROWSE, F_BROWSE_PLAIN), FT(HCX_CFG, F_CFG_PLAIN),
+    FT(HCX_CORES_ASK1, F_CM_ASK1), FT(HCX_CORES_ASK2, F_CM_ASK2), FT(HCX_WIFI, F_WM), FT(HCX_CORES, F_CM_EMPTY), FT(HCX_PICMODES, F_PM), FT(HCX_CFG, F_CFG), FT(HCX_BROWSE, F_BR_ZIP),
+    FT(HCX_MENU, F_MENU_PLAIN), FT(HCX_BROWSE, F_BROWSE_PLAIN), FT(HCX_CFG, F_CFG_PLAIN), FT(HCX_EDIT, F_EDIT_PLAIN),
 };
 
 #define FOOT_MAX 240
@@ -425,6 +430,9 @@ void hc_start_config_set(const char *name)
     snprintf(g_start_cfg, sizeof(g_start_cfg), "%s", name ? name : "");
 }
 
+static bool g_start_safe;
+void hc_start_safe_set(bool on) { g_start_safe = on; }
+
 int hc_entry_remove(int i)
 {
     bootcfg_remove(&g_cfg, i);
@@ -536,6 +544,8 @@ const char *hc_start_sequence(const HcStartEntry &e, int mode, const HcStartHook
     char cfgname[CONFIG_NAME_MAX + 1];
     snprintf(cfgname, sizeof(cfgname), "%s", e.config && e.config[0] ? e.config : g_start_cfg);
     g_start_cfg[0] = 0;                                         // one-shot: a start that fails leaves nothing behind for the next one
+    const bool safe = g_start_safe;                             // T224 D2: the same, for "Boot safe graphics mode"
+    g_start_safe = false;
     StartGuard guard;
     if (!guard.own) {
         return HC_START_BUSY;
@@ -574,8 +584,19 @@ const char *hc_start_sequence(const HcStartEntry &e, int mode, const HcStartHook
             return why;                                         // T152 D6: the flash could not be protected, the firmware is not started
         }
         h.before_jump(h.ctx, true);
+        if (!cfw_is_name(e.path)) {   // T223 D4: the large core's application reads the choice from this file (the page of a .cfw start may not survive the bitstream change); written last, nothing can fail after it
+            char text[STARTFILE_MAX];
+            int tl = startfile_format(text, sizeof(text), e.path, cfgname, safe);
+            bool ok = g_plat.start_file && tl > 0 && g_plat.start_file(e.path, text, tl);
+            char ln[200];
+            snprintf(ln, sizeof(ln), "[host] start file for %s: config \"%s\", safe %d: %s", e.path, cfgname, safe ? 1 : 0, ok ? "written" : "not written");
+            if (g_plat.log) {
+                g_plat.log(ln);
+            }
+        }
         legacy_jump(&plan);
     }
+    core_set_start_safe(safe);
     core_set_start_config(cfgname);                             // T198 D7: every core start sets what the jump hands over ("" = plain)
     CorInfo ci;
     if (!core_stage(e.path, &ci, &why, h.progress, h.ctx, e.trusted, direct)) {
@@ -673,6 +694,8 @@ EState probe_full(CorSource &s, CorInfo &ci, cfw_result_t *res = 0)
 EState hc_est(int i) { return i >= 0 && i < BOOT_MAX ? g_ent[i].st : ES_UNKNOWN; }
 const CorInfo &hc_einfo(int i) { return g_ent[i < 0 || i >= BOOT_MAX ? 0 : i].info; }
 bool hc_efull(int i) { return i >= 0 && i < BOOT_MAX && g_ent[i].full; }
+// T223 D4: every entry takes configs and the rescue start but a foreign firmware (.cfw/.ue2): a large .cor is full firmware too, and gets them through the start file.
+bool hc_ecfg_ok(int i) { return i >= 0 && i < g_cfg.n && !(g_ent[i].full && cfw_is_name(g_cfg.e[i].path)); }
 void hc_entry_origin(int i, int origin) { if (i >= 0 && i < BOOT_MAX) g_ent[i].info.origin = origin; }
 
 bool hc_startable(int i) { return i >= 0 && i < g_cfg.n && (g_ent[i].st == ES_OK || g_ent[i].st == ES_CHANGED || g_ent[i].st == ES_UNKNOWN); }
@@ -707,6 +730,20 @@ bool hc_is_full(const char *path)
     return large;
 }
 
+// T221 D13: the version of a large core is in its .cor manifest; a .cfw names none (its row stays "full firmware")
+static void large_version(const char *path, CorInfo &ci)
+{
+    if (cfw_is_name(path)) {                                    // a .cfw/.ue2 carries no manifest: no probe (the start check reads no byte of it)
+        return;
+    }
+    static CorInfo lc;
+    CorSource *s = g_plat.fs ? g_plat.fs->open(path) : 0;
+    if (s && cor_probe(*s, lc) == COR_ERR_LARGE) {
+        snprintf(ci.version, sizeof(ci.version), "%s", lc.version);
+    }
+    delete s;
+}
+
 void hc_probe_state(int i)
 {
     Ent &e = g_ent[i];
@@ -722,10 +759,12 @@ void hc_probe_state(int i)
         if (ec == EC_OK) {                           // nothing changed since adding: no bitstream is walked again
             snprintf(e.info.name, sizeof(e.info.name), "%s", g_cfg.e[i].name);
             e.st = ES_OK;
+            large_version(g_cfg.e[i].path, e.info);
         } else {
             CorSource *s = g_plat.fs->open(g_cfg.e[i].path);
             e.st = s ? probe_full(*s, e.info) : ES_MISSING;
             delete s;
+            large_version(g_cfg.e[i].path, e.info);
             if (e.st == ES_OK) {
                 e.st = ES_CHANGED;
             }
@@ -755,6 +794,10 @@ void hc_lazy_mark(int i)
     }
 }
 
+// T223 D2: only the rows on screen are read; the default and the selected row always are (the countdown and the start wait for them).
+static int g_win_first = 0, g_win_n = BOOT_MAX;
+void hc_lazy_window(int first, int n) { g_win_first = first; g_win_n = n; }
+
 int hc_lazy_next(int sel_hint)
 {
     if (g_cfg.def >= 0 && g_cfg.def < g_cfg.n && g_pend[g_cfg.def]) {
@@ -763,7 +806,7 @@ int hc_lazy_next(int sel_hint)
     if (sel_hint >= 0 && sel_hint < g_cfg.n && g_pend[sel_hint]) {
         return sel_hint;
     }
-    for (int i = 0; i < g_cfg.n; i++) {
+    for (int i = g_win_first < 0 ? 0 : g_win_first; i < g_cfg.n && i < g_win_first + g_win_n; i++) {
         if (g_pend[i]) {
             return i;
         }

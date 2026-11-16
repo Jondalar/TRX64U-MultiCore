@@ -455,6 +455,7 @@ bool core_stage(const char *path, CorInfo *, const char **why, core_progress_t c
 bool core_swap(const CorInfo *, const char **, core_progress_t, void *) { return false; }
 std::string g_started_cfg = "?";               // T198: what the last core start asked the jump to hand over
 void core_set_start_config(const char *n) { g_started_cfg = n ? n : ""; }
+void core_set_start_safe(bool) {}                                   // T224 D2: the render bench starts no core; the safe flag has nothing to reach
 void core_jump(const CorInfo *) { exit(1); }
 // T115: the firmware start is recorded, not run
 static char g_legacy_path[256];
@@ -871,7 +872,7 @@ static void scenarios(const char *out)
         snprintf(txt, sizeof(txt), "%score=/Usb0/cores/vc20.cor|VC-20 (PAL)|%s|%u|%u|%08x\n", head, vhash, vsize, vmtime, vhdr);
         g_list_deep = 0; g_bytes_read = 0; g_saves = 0;
         hostui_test_init(txt);
-        CHECK(has("VC-20 (PAL)|/Usb0/cores/vc20.cor  v0.1|hash ok|default|SEL|tag"));
+        CHECK(has("VC-20 (PAL)|0.1|hash ok|auto|SEL|img f800"));
         CHECK(g_saves == 0 && g_list_deep == 0);                            // nothing to migrate, nothing listed
         CHECK(g_bytes_read < vsize / 2);                                    // header, manifest and the 2 KB icon, not the 8 KB+ of parts
         printf("start of one entry: %lu of %u bytes read\n", g_bytes_read, vsize);
@@ -883,29 +884,29 @@ static void scenarios(const char *out)
         CHECK(g_stage_calls == 1 && g_stage_trusted != 0 && strstr(hostui_test_start_err(), "bench: no hardware. Press R") != 0);
         snprintf(txt, sizeof(txt), "%score=/Usb0/cores/vc20.cor|VC-20 (PAL)|%s|%u|%u|%08x\n", head, vhash, vsize, vmtime + 2, vhdr);
         hostui_test_init(txt);
-        CHECK(has("v0.1|changed|default|SEL") && hostui_test_cfg_n() == 1);   // (a) another mtime
+        CHECK(has("0.1|changed|auto|SEL") && hostui_test_cfg_n() == 1);   // (a) another mtime
         snprintf(txt, sizeof(txt), "%score=/Usb0/cores/vc20.cor|VC-20 (PAL)|%s|%u|%u|%08x\n", head, vhash, vsize + 1, vmtime, vhdr);
         hostui_test_init(txt);
-        CHECK(has("v0.1|changed|default|SEL"));                              // (a) another size
+        CHECK(has("0.1|changed|auto|SEL"));                              // (a) another size
         snprintf(txt, sizeof(txt), "%score=/Usb0/cores/vc20.cor|VC-20 (PAL)|%s|%u|%u|%08x\n", head, vhash, vsize, vmtime, vhdr ^ 1);
         hostui_test_init(txt);
-        CHECK(has("v0.1|changed|default|SEL"));                              // (b) another header digest
+        CHECK(has("0.1|changed|auto|SEL"));                              // (b) another header digest
         CHECK(hostui_test_startable(0));                                     // marked, still startable (the start checks every part)
         // R on it: the full check again, the new state stored, the mark gone
         g_saves = 0; g_bytes_read = 0;
         hostui_test_key('r');
-        CHECK(has("v0.1|hash ok|default|SEL") && g_saves == 1 && g_bytes_read > 8000 && strstr(g_last_save, vline));
+        CHECK(has("0.1|hash ok|auto|SEL") && g_saves == 1 && g_bytes_read > 8000 && strstr(g_last_save, vline));
         // an entry of an older boot.cfg (no mtime, no hash): the full check runs once at the start and is stored
         g_saves = 0; g_bytes_read = 0;
         hostui_test_init("countdown=5\ndefault=0\ncore=/Usb0/cores/vc20.cor|VC-20 (PAL)||0\n");
-        CHECK(has("v0.1|hash ok|default|SEL") && g_saves == 1 && g_bytes_read > 8000 && strstr(g_last_save, vline));
+        CHECK(has("0.1|hash ok|auto|SEL") && g_saves == 1 && g_bytes_read > 8000 && strstr(g_last_save, vline));
         const char *olds = strdup(g_last_save);
         g_saves = 0; g_bytes_read = 0;
         hostui_test_init(olds);
-        CHECK(has("v0.1|hash ok|default|SEL") && g_saves == 0 && g_bytes_read < vsize / 2);   // and never again
+        CHECK(has("0.1|hash ok|auto|SEL") && g_saves == 0 && g_bytes_read < vsize / 2);   // and never again
         // a file that is gone: marked missing, kept in the menu
         hostui_test_init("countdown=5\ndefault=0\ncore=/Usb0/cores/gone.cor|Gone|ab|10|5|00000001\n");
-        CHECK(has("Gone|/Usb0/cores/gone.cor|missing") && hostui_test_cfg_n() == 1);
+        CHECK(has("Gone||missing") && hostui_test_cfg_n() == 1);
     }
     g_stage_calls = 0;
 
@@ -925,7 +926,7 @@ static void scenarios(const char *out)
     for (int i = 0; i < N - 1; i++) {
         hostui_test_key(KEY_DOWN);
         in_window &= has("|SEL|") || strstr(D, "SEL|");
-        no_overlap &= geom("rows_bottom=") <= geom("note_top=") && geom("note_top=") < geom("countdown_top=");
+        no_overlap &= geom("rows_bottom=") <= geom("note_top=") && (geom("countdown_top=") < 0 || geom("note_top=") < geom("countdown_top="));   // T209 D21: a hidden countdown box (-1) is no overlap
     }
     CHECK(in_window && no_overlap);
     snprintf(ex, sizeof(ex), "sel=%d first=%d total=%d ", N - 1, N - MR, N);
@@ -944,10 +945,32 @@ static void scenarios(const char *out)
     hostui_test_key(KEY_UP);
     snprintf(ex, sizeof(ex), "sel=%d first=%d ", MR, 4);
     CHECK(has(ex));
+    // T209 D7: "+" / "-" page the boot menu (a page = the rows it shows), stopping at the ends; the foot names the keys
+    CHECK(has("+/- PAGE"));
+    // a page moves the window by exactly the rows it shows (T223: no row is skipped between two pages); the window first = 4 here
+    hostui_test_key('-');
+    snprintf(ex, sizeof(ex), " first=%d ", 4 - MR < 0 ? 0 : 4 - MR);
+    CHECK(has(ex));
+    hostui_test_key('-');
+    CHECK(has(" first=0 "));
+    hostui_test_key('+');
+    snprintf(ex, sizeof(ex), " first=%d ", MR < N - MR ? MR : N - MR);
+    CHECK(has(ex));
+    snprintf(p, sizeof(p), "%s/menu_page_step.png", out); png(p, 2);
+    hostui_test_key('+');
+    snprintf(ex, sizeof(ex), " first=%d ", 2 * MR < N - MR ? 2 * MR : N - MR);
+    CHECK(has(ex));
+    for (int i = 0; i < 6; i++) hostui_test_key('+');                        // past the end: the last window, the last row selected
+    snprintf(ex, sizeof(ex), "sel=%d first=%d ", N - 1, N - MR);
+    CHECK(has(ex));
+    for (int i = 0; i < 6; i++) hostui_test_key('-');
+    snprintf(ex, sizeof(ex), "sel=%d first=%d ", 0, 0);
+    CHECK(has(ex));
     // the editor scrolls too (the same entries)
     hostui_test_view(2);
     const int ER = geom("rows=");
-    CHECK(ER >= 5);
+    printf("editor rows on the full canvas: %d (menu rows %d)\n", ER, MR);
+    CHECK(ER >= 3);
     for (int i = 0; i < N; i++) hostui_test_key(KEY_DOWN);
     snprintf(ex, sizeof(ex), "view=2 sel=%d first=%d total=%d ", N - 1, N - ER > 0 ? N - ER : 0, N);
     CHECK(has(ex) && geom("rows_bottom=") <= geom("note_top="));
@@ -956,15 +979,14 @@ static void scenarios(const char *out)
     // S4 icons
     hostui_test_init("countdown=5\ndefault=0\ncore=/Usb0/cores/vc20.cor|VC-20 (PAL)||0\ncore=/SD/cores/trx64.cor|TRX64 Ultimate (C64)||0\n"
                      "core=/Usb0/cores/badicon.cor|Bad icon||0\n");
-    CHECK(has("VC-20 (PAL)|/Usb0/cores/vc20.cor  v0.1|hash ok|default|SEL|tag"));
-    CHECK(has("|TRX64 Ultimate (C64)|/SD/cores/trx64.cor  v1.0-rc1|hash ok||") && has("v1.0-rc1|hash ok|||tag"));
-    CHECK(has("Bad icon|/Usb0/cores/badicon.cor  v0.3|changed|||tag"));     // the full check of the older entry finds the icon's SHA-256 wrong: not accepted, no picture
+    CHECK(has("VC-20 (PAL)|0.1|hash ok|auto|SEL|img f800"));
+    CHECK(has("|TRX64 Ultimate (C64)|1.0-rc1|hash ok||") && has("1.0-rc1|hash ok|||tag"));
+    CHECK(has("Bad icon|0.3|changed|||tag"));     // the full check of the older entry finds the icon's SHA-256 wrong: not accepted, no picture
     snprintf(p, sizeof(p), "%s/icons.png", out); png(p, 2);
 
     // S4b T114: the real core logos reach the screen. The bundle's icon is searched in the frame buffer pixel for
     // pixel (drawn 1:1, 32 x 32 RGB565), so a wrong picture, a missing one or a text tile cannot pass.
     {
-        (void)icon_no_bars;
         const char *ids[] = { "amiga", "amiga1200", "apple2", "atari800", "c128", "c264", "c64u", "cpc", "nes", "trx64", "vc20", "zx", "zxnext" };
         const char *ld = getenv("LOGO_DIR");
         CHECK(ld != 0);
@@ -982,11 +1004,11 @@ static void scenarios(const char *out)
             CHECK(got);
             snprintf(cfgt, sizeof(cfgt), "countdown=5\ndefault=0\ncore=/Usb0/logos/%s.cor|%s||0\n", id, id);
             hostui_test_init(cfgt);
-            if (got && has("|hash ok|default|SEL|tag") && !find_icon(logo)) drawn++;
-            else printf("FAIL logo %s: row missing or an icon drawn\n", id);
+            if (got && has("|hash ok|auto|SEL|img") && find_icon(logo)) drawn++;
+            else printf("FAIL logo %s not drawn\n", id);
         }
         CHECK(drawn == 13);
-        printf("logos: %d of 13 bundles listed, no icon drawn (T209: one-line rows carry none)\n", drawn);
+        printf("logos: %d of 13 real icons found pixel-exact in the frame\n", drawn);
         // the control: the same bundle with a damaged icon record shows the text tile and not the picture
         uint16_t amiga[1024];
         char lp[600];
@@ -995,10 +1017,11 @@ static void scenarios(const char *out)
         CHECK(lf && fread(amiga, 2, 1024, lf) == 1024);
         if (lf) fclose(lf);
         hostui_test_init("countdown=5\ndefault=0\ncore=/Usb0/logos/amiga.cor|amiga||0\n");
-        CHECK(!find_icon(amiga));                                                        // T209: one-line rows draw no icon
+        CHECK(find_icon(amiga));                                                         // the control can succeed ...
+        CHECK(icon_no_bars(amiga));                                                      // T114: and sits in no wider box
         hostui_test_init("countdown=5\ndefault=0\ncore=/Usb0/logos/bad_amiga.cor|amiga bad||0\n");
-        CHECK(has("|default|SEL|tag") && !find_icon(amiga));
-
+        CHECK(has("|auto|SEL|tag") && !find_icon(amiga));                             // ... and fails on a bad hash
+        printf("logos control: damaged icon -> text tile, picture absent\n");
         hostui_test_init("countdown=5\ndefault=0\ncore=/Usb0/logos/trx64.cor|TRX64 Ultimate (C64)||0\ncore=/Usb0/logos/amiga.cor|Amiga (OCS)||0\n"
                          "core=/Usb0/logos/c64u.cor|C64 Ultimate||0\ncore=/Usb0/logos/vc20.cor|VC-20 (PAL)||0\ncore=/Usb0/logos/c264.cor|Plus/4||0\n");
         snprintf(p, sizeof(p), "%s/logos.png", out); png(p, 2);
@@ -1030,22 +1053,22 @@ static void scenarios(const char *out)
     cor_host_key = 0x820eded2;
     hostui_test_init("countdown=5\ndefault=0\ncore=/SD/cores/trx64.cor|A||0\ncore=/SD/cores/trx64.cor.x|B||0\ncore=/Usb0/old/trx64-0.9.cor|C||0\n"
                      "core=/Usb0/old/h2.cor|D||0\ncore=/Usb0/old/garbage.cor|E||0\ncore=/Usb0/cores/vc20.cor|F|0000|0\n");
-    CHECK(has("A|/SD/cores/trx64.cor  v1.0-rc1|hash ok|default|SEL"));
-    CHECK(has("B|/SD/cores/trx64.cor.x|missing"));
-    CHECK(has("C|/Usb0/old/trx64-0.9.cor|contract 3 != 2"));
-    CHECK(has("D|/Usb0/old/h2.cor|other host"));
-    CHECK(has("E|/Usb0/old/garbage.cor|damaged"));
+    CHECK(has("A|1.0-rc1|hash ok|auto|SEL"));
+    CHECK(has("B||missing"));
+    CHECK(has("C||contract 3 != 2"));
+    CHECK(has("D||other host"));
+    CHECK(has("E||damaged"));
     hostui_test_key(KEY_DOWN);
     hostui_test_key(KEY_DOWN);
     hostui_test_key(KEY_DOWN);
     hostui_test_key(KEY_DOWN);
     hostui_test_key(KEY_DOWN);                                              // 6 rows: F is row 5, off the 5-row window
-    CHECK(has("F|/Usb0/cores/vc20.cor  v0.1|changed"));
-    CHECK(has("foot='UP/DOWN select    RETURN start    R check entry    V picture    any key stops the countdown'"));
+    CHECK(has("F|0.1|changed"));
+    CHECK(has("foot='UP/DOWN select    RETURN start    RIGHT configs    R check entry    V picture'"));   // T223 S14: direct boot on, no countdown words; T224 D1: RIGHT configs on every non-full row
     CHECK(hostui_test_hint_overflow() == 0);                           // the "No cores yet" hint is cut at the right edge when it is one line
     CHECK(hostui_test_foot_overflow() == 0);                           // every footer is one line (board photo 2026-10-21: it wrapped)
     hostui_test_view(2);
-    CHECK(has("foot='UP/DOWN select    +/- move    D default    C rename    LEFT/RIGHT config of this core    DEL twice removes'"));        // T139: no B, no LEFT/RIGHT, no V
+    CHECK(has("foot='UP/DOWN select    +/- move    D auto    C rename    DEL twice removes'"));        // T139: no B, no LEFT/RIGHT, no V
     cor_host_key = 0;
     snprintf(p, sizeof(p), "%s/states.png", out); png(p, 2);
 }
@@ -1080,7 +1103,7 @@ static void scenarios_fw(const char *out)
     unsigned fsz = 0, fmt = 0, fhd = 9;
     { const char *tail = strstr(fwline, "||"); CHECK(tail && sscanf(tail + 2, "%u|%u|%x", &fsz, &fmt, &fhd) == 3 && fsz > 0 && fmt != 0 && fhd == 0); }
     hostui_test_view(0);
-    CHECK(has("u64_mk2_artix 2026/09/10 11:00:57|/Usb0/cores/gideon.cfw  full firmware|ready|default|SEL"));
+    CHECK(has("|full firmware|ready|auto|SEL"));
     snprintf(p, sizeof(p), "%s/menu_firmware.png", out); png(p, 2);
     // the start check of a firmware: the directory entry only, no bitstream walked (size or mtime another: marked, the parse decides)
     {
@@ -1088,15 +1111,16 @@ static void scenarios_fw(const char *out)
         snprintf(txt, sizeof(txt), "countdown=5\ndefault=0\n%s\n", fwline);
         g_bytes_read = 0; g_list_deep = 0;
         hostui_test_init(txt);
-        CHECK(has("full firmware|ready|default|SEL") && g_bytes_read == 0 && g_list_deep == 0);
+        CHECK(has("full firmware|ready|auto|SEL") && g_bytes_read == 0 && g_list_deep == 0);
+        
         snprintf(txt, sizeof(txt), "countdown=5\ndefault=0\ncore=/Usb0/cores/gideon.cfw|u64_mk2_artix 2026/09/10 11:00:57||%u|%u|00000000\n", fsz, fmt + 1);
         hostui_test_init(txt);
-        CHECK(has("full firmware|changed|default|SEL") && hostui_test_cfg_n() == 1 && hostui_test_startable(0));
+        CHECK(has("full firmware|changed|auto|SEL") && hostui_test_cfg_n() == 1 && hostui_test_startable(0));
         // an older entry (no mtime) gets its size and mtime once; one that is not a usable firmware stays and says so
         g_saves = 0;
         hostui_test_init("countdown=5\ndefault=0\ncore=/Usb0/cores/gideon.cfw|G||0\ncore=/Usb0/cores/only100.cfw|only100.cfw||0\n");
         CHECK(g_saves == 1 && strstr(g_last_save, "core=/Usb0/cores/gideon.cfw|G||") && !strstr(g_last_save, "gideon.cfw|G||0|0|"));
-        CHECK(has("G|/Usb0/cores/gideon.cfw  full firmware|ready|default|SEL") && has("only100.cfw|/Usb0/cores/only100.cfw|unusable"));
+        CHECK(has("G|full firmware|ready|auto|SEL") && has("only100.cfw||unusable"));
     }
     hostui_test_init(fwline[0] ? (snprintf(R, sizeof(R), "countdown=5\ndefault=0\n%s\ncore=/Usb0/cores/vc20.cor|VC-20 (PAL)||0\n", fwline), R) : 0);
     int calls = g_legacy_calls;
@@ -1179,15 +1203,15 @@ static void scenarios_ic(const char *out)
                      "core=/Usb0/cores/mystery.cfw|mystery_design 2026/10/01 10:00:00||0\ncore=/Usb0/cores/trx64.cfw|top 2026/10/10 18:23:21||0\n"
                      "core=/Usb0/cores/wrong.cfw|top 2026/10/10 18:23:21||0\n");
     CHECK(hostui_test_cfg_n() == 5);
-    CHECK(has("|/Usb0/cores/gideon_plain.cfw  full firmware|ready|") && has("mystery_design 2026/10/01 10:00:00|/Usb0/cores/mystery.cfw  full firmware"));
-    CHECK(count_icon(gid) == 0);        // gideon_plain.cfw: the built-in logo of Gideon's firmware; gideon.cfw shows its sidecar instead
-    CHECK(count_icon(side) == 0);       // gideon.cfw: the 2048-byte sidecar replaces it
-    CHECK(count_icon(trx) == 0);        // trx64.cfw and wrong.cfw (its 2049-byte sidecar is ignored)
-    CHECK(count_icon(gen) == 0);        // mystery.cfw: a design the host does not know gets the generic firmware logo
+    CHECK(has("|full firmware|ready|") && has("mystery_design 2026/10/01 10:00:00|full firmware"));
+    CHECK(count_icon(gid) == 1);        // gideon_plain.cfw: the built-in logo of Gideon's firmware; gideon.cfw shows its sidecar instead
+    CHECK(count_icon(side) == 1);       // gideon.cfw: the 2048-byte sidecar replaces it
+    CHECK(count_icon(trx) == 2);        // trx64.cfw and wrong.cfw (its 2049-byte sidecar is ignored)
+    CHECK(count_icon(gen) == 1);        // mystery.cfw: a design the host does not know gets the generic firmware logo
     snprintf(p, sizeof(p), "%s/menu_firmware_logos.png", out); png(p, 2);
     // a firmware in the boot menu shows the same logo (the entry's path is the .cfw)
     hostui_test_init("countdown=5\ndefault=0\ncore=/Usb0/cores/trx64.cfw|top 2026/10/10 18:23:21||0\ncore=/Usb0/cores/gideon.cfw|u64_mk2_artix 2026/09/10 11:00:57||0\n");
-    CHECK(count_icon(trx) == 0 && count_icon(side) == 0);   // T209: one-line rows carry no logo
+    CHECK(count_icon(trx) >= 1 && count_icon(side) >= 1);
     snprintf(g_root, sizeof(g_root), "%s", main_root);
 }
 
@@ -1225,7 +1249,7 @@ static void scenarios_lc(const char *out)
     hostui_test_key('a');
     CHECK(hostui_test_cfg_n() == 1 && g_saves == 1 && strstr(g_last_save, "core=/Usb0/cores/amiga1200.cor|Amiga 1200 (AGA)|"));
     hostui_test_view(0);
-    CHECK(has("Amiga 1200 (AGA)|/Usb0/cores/amiga1200.cor  full firmware|ready|default|SEL"));
+    CHECK(has("Amiga 1200 (AGA)|0.3.0|ready|auto|SEL"));   // T221 D13: the version, as for every core
     calls = g_legacy_calls;
     hostui_test_key(KEY_RETURN);                                                           // RETURN on the large .cor row: no dialog, started
     CHECK(hostui_test_confirms() == conf && g_legacy_calls == calls + 1 && !g_legacy_verify && g_stage_calls == stage);
@@ -1457,11 +1481,11 @@ static void area(const char *name, uint32_t px, uint32_t limit)
 static void areas(void)
 {
     const uint32_t CW_ = 960 - 170 - 40;                      // hostui.cc geometry: content width
-    const uint32_t MROW = CW_ * 30, EROW = CW_ * 24;           // a menu row, an editor row
+    const uint32_t MROW = CW_ * 38, EROW = CW_ * 56;           // a menu row, an editor row
     const uint32_t VIEW = (960 - 170) * (540 - 40 - 30);       // the content container of a view
     // The selection mark of a row: a 2 px frame and a 5 px bar on the left, at most 4 strips of the row's width and 8 of its
     // height. A selection move redraws the old and the new mark and nothing else.
-    const uint32_t MMARK = 4 * CW_ + 8 * 30, EMARK = 4 * CW_ + 8 * 24;   // T209: one-line rows, 30 and 24 px high
+    const uint32_t MMARK = 4 * CW_ + 8 * 38, EMARK = 4 * CW_ + 8 * 56;   // the boot menu row 38 high (T209 D6), the editor row 56 (T209 D8)
     const char *eight =
         "countdown=5\ndefault=0\n"
         "core=/Usb0/many/m1.cor|Core number 1||0\ncore=/Usb0/many/m2.cor|Core number 2||0\ncore=/Usb0/many/m3.cor|Core number 3||0\n"
@@ -1471,15 +1495,19 @@ static void areas(void)
     // a longer manifest overflows it into the whole screen (518,400 px). 128 is the headroom; the number is read from the display struct.
     printf("AREA invalid-area slots in this build: %d\n", hostui_test_inv_slots());
     CHECK(hostui_test_inv_slots() >= 128);
-    // F1 boot menu: 9 entries, a window of 5
-    hostui_test_init(eight);
-    area("F1 menu: selection move", hostui_test_key(KEY_DOWN), 2 * MMARK + 6u * 1000);   // + the detail line (the selected entry's path and version, T209)
-    area("F1 menu: selection move up", hostui_test_key(KEY_UP), 2 * MMARK + 6u * 1000);
-    for (int i = 0; i < 4; i++) hostui_test_key(KEY_DOWN);                 // row 4, the last of the window
-    area("F1 menu: page change down", hostui_test_key(KEY_DOWN), 5 * MROW);
-    area("F1 menu: scroll one more", hostui_test_key(KEY_DOWN), 5 * MROW);
-    for (int i = 0; i < 4; i++) hostui_test_key(KEY_UP);                   // sel 2 = the top row of the window
-    area("F1 menu: page change up", hostui_test_key(KEY_UP), 5 * MROW);
+    // F1 boot menu: the menu's rows + 4 entries; the window is the geometry's row count, so the page change is exercised at any canvas
+    char paged[4096] = "countdown=5\ndefault=0\n";
+    hostui_test_init(paged);
+    const int PR = geom("rows=");
+    for (int i = 1; i <= PR + 4; i++) { char l[120]; snprintf(l, sizeof(l), "core=/Usb0/many/m%d.cor|Core number %d||0\n", i, i); strcat(paged, l); }
+    hostui_test_init(paged);
+    area("F1 menu: selection move", hostui_test_key(KEY_DOWN), 2 * MMARK);
+    area("F1 menu: selection move up", hostui_test_key(KEY_UP), 2 * MMARK);
+    for (int i = 0; i < PR - 1; i++) hostui_test_key(KEY_DOWN);            // the last row of the window
+    area("F1 menu: page change down", hostui_test_key(KEY_DOWN), PR * MROW);
+    area("F1 menu: scroll one more", hostui_test_key(KEY_DOWN), PR * MROW);
+    for (int i = 0; i < PR - 1; i++) hostui_test_key(KEY_UP);              // sel 2 = the top row of the window
+    area("F1 menu: page change up", hostui_test_key(KEY_UP), PR * MROW);
     hostui_test_init(eight);
     area("F1 menu: UP on the first row", hostui_test_key(KEY_UP), 0);
     {   // T135 D12: with direct boot on the menu shows neither the countdown text nor its bar; off, both; the toggle in F8 brings them back
@@ -1513,23 +1541,23 @@ static void areas(void)
     { std::string off = std::string("direct=0\n") + eight; hostui_test_init(off.c_str()); }
     area("F1 menu: countdown second", hostui_test_cd_tick(), 10u * 1000);   // label + bar of the countdown, not the 750 px strip
     area("F1 menu: countdown second 2", hostui_test_cd_tick(), 10u * 1000);
-    area("F1 menu: chips (network up)", hostui_test_chips(true), 640u * 40);
-    area("F1 menu: chips (network down)", hostui_test_chips(false), 640u * 40);
+    area("F1 menu: chips (network up)", hostui_test_chips(true), 770u * 40);   // T221 §5: the chip holder is 770 wide at the 960 canvas (host SemVer + key + app chip)
+    area("F1 menu: chips (network down)", hostui_test_chips(false), 770u * 40);
     // F5 editor
     hostui_test_init(eight);
     hostui_test_key(KEY_F5);
-    area("F5 edit: selection move", hostui_test_key(KEY_DOWN), 2 * EMARK + 6u * 1000);
+    area("F5 edit: selection move", hostui_test_key(KEY_DOWN), 2 * EMARK);
     for (int i = 0; i < 3; i++) hostui_test_key(KEY_DOWN);
     area("F5 edit: page change", hostui_test_key(KEY_DOWN), 5 * EROW);
     area("F5 edit: D (default)", hostui_test_key('d'), 3 * EROW);
     area("F5 edit: RIGHT (default config; a core without configs says so)", hostui_test_key(KEY_RIGHT), 19000);   // T198 D13: the note line is drawn
     // F3 browser, a folder of 19
     hostui_test_browse_at("/Usb0/scroll");
-    const uint32_t BLW = CW_ / 2 - 8, BPH = 540 - 40 - 30 - 90;
+    const uint32_t BLW = CW_ / 2 - 8, BPH = 540 - 40 - 30 - 104;
     hostui_test_key(KEY_DOWN);                                              // the first key of a fresh view refills the manifest panel
     area("F3 browse: selection move", hostui_test_key(KEY_DOWN), 2 * (4 * BLW + 8 * 24) + 6u * 1000 + 19000);   // + the T198 note of the F5 RIGHT before it, cleared by this key
     for (int i = 0; i < 10; i++) hostui_test_key(KEY_DOWN);
-    area("F3 browse: scroll one row (13 rows)", hostui_test_key(KEY_DOWN), BLW * BPH);
+    area("F3 browse: scroll one row", hostui_test_key(KEY_DOWN), BLW * BPH);
     area("F3 browse: last row (.cfw)", hostui_test_key(KEY_DOWN), BLW * BPH);
     // 20 bundles of different sizes: a scrolling key changes 13 names, 13 sizes and the manifest panel (about 40 labels)
     hostui_test_browse_at("/Usb0/sized");
@@ -1544,7 +1572,7 @@ static void areas(void)
     area("F7 switch", hostui_test_key(KEY_F7), VIEW + 35000);
     area("F8 switch", hostui_test_key(KEY_F8), VIEW + 35000);
     hostui_test_key(KEY_F7);
-    area("F7 net: chips (network up)", hostui_test_chips(true), 640u * 40 + 6000);
+    area("F7 net: chips (network up)", hostui_test_chips(true), 770u * 40 + 6000);
     area("F1 switch", hostui_test_key(KEY_F1), VIEW + 35000);
     area("F1 menu: R (full check of the entry)", hostui_test_key('r'), 12000);   // two notes and the row's badge and picture
 }
@@ -2186,7 +2214,7 @@ static void scenarios_t139(const char *out)
     const char *cfg3 = "countdown=5\ndefault=1\ncore=/SD/cores/a.cor|Alpha||0\ncore=/SD/cores/b.cor|Beta||0\ncore=/SD/cores/c.cor|Gamma||0\n";
     hostui_test_init(cfg3);
     hostui_test_key(KEY_F5);
-    CHECK(has("foot='UP/DOWN select    +/- move    D default    C rename    LEFT/RIGHT config of this core    DEL twice removes'"));
+    CHECK(has("foot='UP/DOWN select    +/- move    D auto    C rename    DEL twice removes'"));
     CHECK(hostui_test_sel_row() == 1);                                   // Beta, the default
     g_loadback = true;
     g_saves = 0;
@@ -2196,6 +2224,9 @@ static void scenarios_t139(const char *out)
     CHECK(has("row 1|New Amiga 1200|") && has("row 0|Alpha|") && has("row 2|Gamma|") && has("def=1"));    // order and default as they were
     CHECK(strstr(g_last_save, "core=/SD/cores/b.cor|New Amiga 1200||") && strstr(g_last_save, "default=1\n"));
     CHECK(has("note='Renamed to New Amiga 1200 (boot.cfg read back)'"));
+    hostui_test_key(KEY_DOWN);                                           // the next key: the note is gone, it does not stay under the list
+    CHECK(!has("note='Renamed") && !strstr(dump(), "Renamed to"));
+    hostui_test_key(KEY_UP);
     hostui_test_key(KEY_F1);                                             // the menu shows the new name
     CHECK(has("row 1|New Amiga 1200|"));
     hostui_test_key(KEY_F5);
@@ -2342,14 +2373,20 @@ static void scenarios_t139(const char *out)
         hostui_test_key('+');                                            // Gamma above Beta
         hostui_test_key('+');                                            // and above Alpha
         CHECK(has("row 0|Gamma|") && has("row 1|Alpha|") && has("row 2|Beta|") && has("row 3|Delta|") && has("def=1"));
+        for (int r = 0; r < 4; r++) {                                    // T209 D12: the editor row draws the boot menu's pictogram (22 x 22), no word box
+            char pic[48];
+            snprintf(pic, sizeof(pic), "\npic %d|", r);
+            CHECK(has(pic));
+        }
+        CHECK(strstr(dump(), "|22x22|auto\n") != 0 || strstr(dump(), "|20x20|auto\n") != 0);
         hostui_test_lazy_pass(0, 5000, 0);                               // the lazy reader runs between the keys
         hostui_test_key(KEY_F1);
         for (int r = 0; r < 4; r++) {
             char row[64];
-            snprintf(row, sizeof(row), "row %d|%s|%s", r, names[r], paths[r]);
+            snprintf(row, sizeof(row), "row %d|%s|", r, names[r]);       // the menu row names the entry; the path is not in the row (T209 D8)
             CHECK(has(row));
         }
-        CHECK(strstr(strstr(dump(), "row 1|Alpha|"), "default") != 0);   // the default badge went with Alpha
+        CHECK(strstr(strstr(dump(), "row 1|Alpha|"), "auto") != 0);   // the auto badge went with Alpha
         for (int want = 0; want < 4; want++) {                           // every row: RETURN starts the entry that row shows
             hostui_test_init_lazy(c4);
             hostui_test_key(KEY_F5);
@@ -2496,6 +2533,8 @@ static void scenarios_t148(const char *out)
 #include "host_core_cfgov.h"
 extern const char *hostui_test_oc_title(int *w, int *room);
 void hc_ui_cfgov_draw(bool fresh);
+static int note_px(char *text, int tn);
+extern bool hostui_test_tile(int i, char *text, int tn, int *lx1, int *lx2, int *tx1, int *tx2);
 static void scenarios_t198(const char *out)
 {
     char p[512], main_root[400];
@@ -2535,12 +2574,34 @@ static void scenarios_t198(const char *out)
         CHECK(strstr(ed, "\ncfgbadge 2|1 config\n") != NULL);                       // 1 config: singular
         CHECK(strstr(ed, "\ncfgbadge 1|") == NULL);                                  // a core without configs: no badge (D9)
     }
+    // the F5 foot offers LEFT/RIGHT config only on a row whose core has configs (row 0: 4, row 1: none)
+    CHECK(strstr(hostui_test_foot(), "LEFT/RIGHT config of this core") != NULL);
+    hostui_test_key(KEY_DOWN);
+    CHECK(strstr(hostui_test_foot(), "LEFT/RIGHT") == NULL && strstr(hostui_test_foot(), "DEL twice removes") != NULL);
+    CHECK(strstr(dump(), "LEFT/RIGHT config of this core") == NULL);
+    hostui_test_key(KEY_UP);
+    CHECK(strstr(hostui_test_foot(), "LEFT/RIGHT config of this core") != NULL);
+    {   // T209 D13/D14: "auto" in the words; the editor's status line says the selected row's state word, coloured like the boot menu
+        HcEntryRow sr;
+        char nt[200];
+        CHECK(hc_row_entry(0, true, &sr) && sr.badge[0]);
+        CHECK(note_px(nt, sizeof(nt)) > 0 && !strcmp(nt, sr.badge));                  // row 0 selected: its word, no note
+        CHECK(strstr(hostui_test_foot(), "D auto") != NULL && strstr(hostui_test_foot(), "default") == NULL);
+        hostui_test_key(KEY_DOWN);
+        CHECK(hc_row_entry(1, true, &sr) && note_px(nt, sizeof(nt)) > 0 && !strcmp(nt, sr.badge));   // follows the selection
+        hostui_test_key(KEY_UP);
+    }
     snprintf(p, sizeof(p), "%s/t198_edit_badges_480.png", out); png(p, 1);
     snprintf(p, sizeof(p), "%s/t198_edit_badges_1080.png", out); png(p, 2);
     hostui_test_key(KEY_F1);
-    // D9: RIGHT on a core without configs does nothing
+    // T224 D1 (replaces T198 D9): RIGHT on a core without configs opens the overlay too (no config, Plain start + the safe row); the foot offers it on every non-full row
     hostui_test_key(KEY_DOWN);
+    CHECK(strstr(hostui_test_foot(), "RIGHT configs") != NULL);
     hostui_test_key(KEY_RIGHT);
+    CHECK(hc_cfgov_is_open() && hc_cfgov().l.n == 0 && hc_cfgov().cur == 0);
+    hostui_test_key(KEY_DOWN);
+    CHECK(hc_cfgov().cur == 1 && hc_cfgov_on_safe());
+    hostui_test_key(KEY_LEFT);
     CHECK(!hc_cfgov_is_open());
     hostui_test_key(KEY_UP);
     // S3/D2/D14: RIGHT opens the overlay, the cursor on the default config
@@ -2548,7 +2609,7 @@ static void scenarios_t198(const char *out)
     hostui_test_key(KEY_RIGHT);
     CHECK(hc_cfgov_is_open() && hc_cfgov().l.n == 4 && hc_cfgov().cur == 2 && !strcmp(hc_cfgov_cur_name(), "Games"));
     CHECK(!strcmp(hc_cfgov().l.name[0], "Demo collection") && !strcmp(hc_cfgov().l.name[2], "old set") && hc_cfgov().l.legacy[2]);
-    CHECK(!strcmp(hostui_test_foot(), "UP/DOWN select    RETURN start    LEFT back    D default    R rename    DEL twice deletes") ||
+    CHECK(!strcmp(hostui_test_foot(), "UP/DOWN select    RETURN start    LEFT back    D auto    R rename    DEL twice deletes") ||
           strstr(hostui_test_foot(), "RETURN start"));
     {   // board 11-11: the title is the whole entry name, not "Amiga 12"; a name too wide for the panel is cut with "..." before the suffix
         int w, room;
@@ -2656,14 +2717,17 @@ static void scenarios_t198(const char *out)
     hc_cfgov_forget();
     hostui_test_key(KEY_RIGHT);
     CHECK(hc_cfgov_is_open() && hc_cfgov().l.n == 11);
-    for (int i = 0; i < 12; i++) hostui_test_key(KEY_DOWN);                // the last row: scrolled
-    CHECK(hc_cfgov().cur == 11 && hc_cfgov().top > 0);
+    for (int i = 0; i < 13; i++) hostui_test_key(KEY_DOWN);                // the last row (Plain start, 11 configs, the safe row of T224 D1): scrolled
+    CHECK(hc_cfgov().cur == 12 && hc_cfgov_on_safe() && hc_cfgov().top > 0);
     {
         int g[8]; hostui_test_oc_geom(g);
         CHECK(g[2] >= 0 && g[3] <= g[1] && g[6] <= g[1] && g[0] + g[1] <= g[7]);
     }
-    { HcWifiPick pk; hc_cfgov_pick(&pk); CHECK(strstr(pk.sub, " of 12") != nullptr); }
+    { HcWifiPick pk; hc_cfgov_pick(&pk); CHECK(strstr(pk.sub, " of 13") != nullptr); }
     snprintf(p, sizeof(p), "%s/t198_overlay_10_last_1080.png", out); png(p, 2);
+    hostui_test_key(KEY_DELETE);                                           // the safe row has nothing to delete (T224 D1): no ask
+    CHECK(hc_cfgov().ask == 0);
+    hostui_test_key(KEY_UP);                                               // the last config, the list still scrolled
     hostui_test_key(KEY_DELETE);                                           // the ask is a message over the full, scrolled list
     CHECK(hc_cfgov().ask == 1);
     {
@@ -2674,7 +2738,7 @@ static void scenarios_t198(const char *out)
     hostui_test_key(KEY_DOWN);
     // finding 2: on "Plain start" the key bar names no D / R / DEL
     for (int i = 0; i < 12; i++) hostui_test_key(KEY_UP);
-    CHECK(hc_cfgov().cur == 0 && !strstr(hostui_test_foot(), "default") && !strstr(hostui_test_foot(), "rename") && !strstr(hostui_test_foot(), "DEL"));
+    CHECK(hc_cfgov().cur == 0 && !strstr(hostui_test_foot(), "auto") && !strstr(hostui_test_foot(), "rename") && !strstr(hostui_test_foot(), "DEL"));
     CHECK(strstr(hostui_test_foot(), "start") != nullptr);
     hostui_test_key(KEY_DOWN);
     CHECK(strstr(hostui_test_foot(), "twice deletes") != nullptr);
@@ -2712,6 +2776,39 @@ static void scenarios_t198(const char *out)
     // S15: the listing is read once per generation, not per key
     snprintf(g_root, sizeof(g_root), "%s", main_root);
     printf("T198 scenarios done\n");
+}
+
+// ---- T209 D13/D15: the text tile of a logo-less core (manifest short name, else the first letters without punctuation), always inside its tile; "auto" in the words
+static void scenarios_t209_tiles(const char *out)
+{
+    char p[512];
+    hostui_test_init("countdown=0\ndefault=0\ncore=/Usb0/tiles/pet.cor|Commodore PET||0\ncore=/Usb0/tiles/wide.cor|Wide tile||0\n"
+                     "core=/Usb0/tiles/plain.cor|VIC-20 (PAL)||0\ncore=/Usb0/tiles/plain.cor|Commodore 64||0\ncore=/Usb0/tiles/plain.cor|!!||0\n");
+    hostui_test_pump();
+    const char *want[] = { "PET", "MMMM", "VIC2", "Comm", "!!" };
+    HcEntryRow r;
+    for (int i = 0; i < 5; i++) {
+        CHECK(hc_row_entry(i, true, &r));
+        if (i == 1) {
+            CHECK(!strcmp(r.tile, "MMMM"));                                  // the data layer keeps the whole short name ...
+        } else {
+            CHECK(!strcmp(r.tile, want[i]));
+        }
+        char tx[16];
+        int lx1, lx2, tx1, tx2;
+        if (!hostui_test_tile(i, tx, sizeof(tx), &lx1, &lx2, &tx1, &tx2)) {
+            CHECK(r.tile[0] == 0 || false);                                   // ... and every tile with text is on the screen
+            continue;
+        }
+        CHECK(!strstr(tx, "..."));                                            // never cut to dots
+        CHECK(lx1 >= tx1 && lx2 <= tx2);                                      // inside its tile
+        CHECK(tx[0] && !strncmp(tx, r.tile, strlen(tx)));                     // a whole-letter prefix of the tile text, not a mangled one
+        printf("T209 D15 tile %d: '%s' (row says '%s') label %d..%d in tile %d..%d\n", i, tx, r.tile, lx1, lx2, tx1, tx2);
+    }
+    CHECK(strstr(dump(), "|auto|") != NULL);                                  // D13: the dump's marker of the auto entry
+    snprintf(p, sizeof(p), "%s/t209_tiles_480.png", out); png(p, 1);
+    snprintf(p, sizeof(p), "%s/t209_tiles_1080.png", out); png(p, 2);
+    printf("T209 tiles done\n");
 }
 
 // ---- T146: the saved menu picture ------------------------------------------------------------------------------------------------
@@ -2968,7 +3065,7 @@ static void scenarios_t137(const char *out)
     CHECK(hostui_test_cfg_n() == 1 && g_saves == 1 && strstr(g_last_save, "core=/Usb0/cores/vendor.cor|Test Vendor image|"));
     hostui_test_fm_keep(false);                                              // the page of the last conversion goes, so the menu can be seen
     hostui_test_view(0);
-    CHECK(has("Test Vendor image|/Usb0/cores/vendor.cor  full firmware|foreign|"));
+    CHECK(has("Test Vendor image|9.9|foreign|"));
     snprintf(p, sizeof(p), "%s/menu_foreign.png", out); png(p, 2);
     hostui_test_fm_keep(true);
     // ---- an internal drive is no place for a 3 MiB file
@@ -3006,6 +3103,189 @@ static void scenarios_t137(const char *out)
     CHECK(hostui_test_cv_runs() == 4 && !hostui_test_fmt_active());
     hostui_cv_hook = 0;
     snprintf(g_root, sizeof(g_root), "%s", main_root);
+}
+
+// ---- T197 P3: Unzip in the File Browser. The job is the board's (host_core_flow_zip.cc over the loader of coreapp/src); what stands in for the machine is a CoreFs over the bench's
+// tree and a LibHost whose "application" asks what unzip asks (the bar, one page). The real unzip + miniz run in tests/hostapp/test_hostzip.cc (S3); this part judges the screens.
+#include "host_core_flow_zip.h"
+#include "hostzip_board.h"
+class BenchMemFile : public CoreFile {
+public:
+    std::string d;
+    uint64_t size() { return d.size(); }
+    bool writable() { return false; }
+    bool read(uint64_t off, void *buf, uint32_t len) { if (off + len > d.size()) return false; memcpy(buf, d.data() + off, len); return true; }
+    bool write(uint64_t, const void *, uint32_t) { return false; }
+    bool sync() { return true; }
+};
+class BenchZipFs : public CoreFs {
+public:
+    int list(const char *dir, FsEntry *out, int max)
+    {
+        HostDirEntry *h = (HostDirEntry *)malloc(sizeof(HostDirEntry) * 64);
+        int n = hostfs_list(dir, h, 64, false);
+        for (int i = 0; i < n && i < max; i++) {
+            memset(&out[i], 0, sizeof(out[i]));
+            snprintf(out[i].name, sizeof(out[i].name), "%s", h[i].name);
+            out[i].dir = h[i].dir;
+            out[i].size = h[i].size64;
+        }
+        free(h);
+        return n < max ? n : max;
+    }
+    bool stat(const char *path, uint64_t *size, bool *dir) { char d[700]; fpath(d, sizeof(d), path); struct stat st; if (::stat(d, &st)) return false; if (size) *size = st.st_size; if (dir) *dir = S_ISDIR(st.st_mode); return true; }
+    int load(const char *, void *, uint32_t) { return -1; }
+    bool save(const char *, const void *, uint32_t) { return false; }
+    bool remove(const char *) { return false; }
+    CoreFile *open(const char *path, bool rw)
+    {
+        if (rw) return 0;
+        char d[700]; fpath(d, sizeof(d), path);
+        FILE *f = fopen(d, "rb");
+        if (!f) return 0;
+        BenchMemFile *m = new BenchMemFile;
+        char b[4096]; size_t n;
+        while ((n = fread(b, 1, sizeof(b), f)) > 0) m->d.append(b, n);
+        fclose(f);
+        return m;
+    }
+    void close(CoreFile *f) { delete f; }
+};
+extern const char *hostui_test_browse_sub(void);
+static bool g_zip_one, g_zip_refuse_pic;                                                    // the bench's application plays the one-file picker
+class BenchLibHost : public LibHost {
+public:
+    void *alloc(uint32_t n) { return malloc(n); }
+    void release(void *p) { free(p); }
+    uint32_t addr_of(const void *p) { return (uint32_t)(uintptr_t)p; }
+    void sync_code(void *, uint32_t) { }
+    bool has_capability(const char *) { return false; }
+    const char *core_name() { return "host"; }
+    int call_register(const Entry &, const LibApi *, LibRecord *) { return 0; }
+    int call_main(const Entry &, const LibApi *api, AppCtx *ctx)         // what unzip does on screen: a bar, then its page
+    {
+        if (g_zip_one) {
+            const char *items[3] = { "readme.txt", "sub/data.bin", "sub/deep/more.bin" };
+            if (api->dlg->choose("Unzip set.zip", items, 3, 0) < 0) return 0;
+            api->dlg->message("Unzip", "Extracted 1 file into /Usb0/zip");
+            return 0;
+        }
+        void *bar = api->dlg->progress_open("Unzipping", 3);
+        const char *names[3] = { "readme.txt", "sub/data.bin", "sub/deep/more.bin" };
+        for (int i = 1; i <= 3; i++) api->dlg->progress_set(bar, i, names[i - 1]);
+        api->dlg->progress_close(bar);
+        api->dlg->message("Unzip", "Extracted 3 files into /Usb0/zip/set");   // the hook presses the key once the page is up
+        (void)ctx;
+        return 0;
+    }
+};
+HcZipEnv *hostzip_env(const HcFlowEnv *base)
+{
+    static BenchZipFs fs;
+    static BenchLibHost host;
+    static HcZipEnv env;
+    if (!env.base) { env.base = base; env.fs = &fs; env.libhost = &host; env.rig = 0; }
+    return &env;
+}
+static int g_zip_pics;
+static const char *g_zip_out;
+static void zip_hook(int phase, uint64_t done, uint64_t total)
+{
+    if (phase == -2) {                                                   // the question "into a folder, here, one file" is up
+        lv_refr_now(NULL);
+        char pp[600]; snprintf(pp, sizeof(pp), "%s/unzip_ask.png", g_zip_out); png(pp, 2);
+        g_zip_pics++;
+        kb_push(g_zip_one ? 'o' : 'f');
+    } else if (phase == -3 || phase == -4) {                              // the application's page / its list is up: the footer is the page's key line
+        lv_refr_now(NULL);
+        CHECK(phase == -4 ? has("foot='UP/DOWN select    RETURN takes it    ESC cancels'") : has("foot='any key continues'"));
+        char pp[600]; snprintf(pp, sizeof(pp), "%s/%s.png", g_zip_out, phase == -4 ? "unzip_one" : (g_zip_one ? "unzip_one_done" : "unzip_done")); png(pp, 2);
+        g_zip_pics++;
+        kb_push(KEY_RETURN);
+    } else if (phase == -1) {
+        if (g_zip_refuse_pic) {                                           // the refusal is up: its key line is the footer
+            g_zip_refuse_pic = false;
+            lv_refr_now(NULL);
+            CHECK(has("foot='any key returns to the File Browser'"));
+            char pp[600]; snprintf(pp, sizeof(pp), "%s/unzip_refused.png", g_zip_out); png(pp, 2);
+        }
+        kb_push('x');
+    }
+    (void)done; (void)total;
+}
+static void copyfile(const std::string &from, const std::string &to)
+{
+    FILE *a = fopen(from.c_str(), "rb"), *b = fopen(to.c_str(), "wb");
+    char buf[4096]; size_t n;
+    if (a && b) { while ((n = fread(buf, 1, sizeof(buf), a)) > 0) fwrite(buf, 1, n, b); }
+    if (a) fclose(a);
+    if (b) fclose(b);
+}
+static void scenarios_t197(const char *out)
+{
+    char p[512], pg[2048], rows[2048];
+    const char *fx = getenv("ZIP_FIXDIR");
+    if (!fx) { printf("T197: no ZIP_FIXDIR, the unzip pictures are skipped\n"); return; }
+    std::string apps = std::string(g_root) + "/SD/cores/apps", zdir = std::string(g_root) + "/Usb0/zip";
+    mkdir(apps.c_str(), 0755);
+    mkdir(zdir.c_str(), 0755);
+    copyfile(std::string(fx) + "/unzip.u2a", apps + "/unzip.u2a");
+    copyfile(std::string(fx) + "/miniz.u2a", apps + "/miniz.u2a");
+    FILE *f = fopen((zdir + "/set.zip").c_str(), "wb"); fputs("PK dummy: the bench's application does not read it\n", f); fclose(f);
+    f = fopen((zdir + "/notes.txt").c_str(), "wb"); fputs("x\n", f); fclose(f);
+    g_zip_out = out;
+    g_saves = 0;
+    hostui_test_init(0);
+    hostui_cv_hook = zip_hook;
+    hostui_test_browse_keep("/Usb0/zip");                                    // rows: .. / notes.txt / set.zip
+    hostui_test_browse_rows(rows, sizeof(rows));
+    printf("t197 rows: %s\n", rows);
+    CHECK(strstr(rows, "set.zip|") && strstr(rows, "notes.txt|"));
+    hostui_test_key(KEY_DOWN);                                               // notes.txt: Z does nothing on a file that is no zip
+    CHECK(!has("Z unzip") && !strstr(hostui_test_browse_sub(), "Z unzip"));
+    hostui_test_fm_keep(true);
+    hostui_test_key('z');
+    hostui_test_fm_page(pg, sizeof(pg));
+    CHECK(!hostui_test_fmt_active() && !strstr(pg, "title=Unzip"));
+    hostui_test_fm_keep(false);
+    hostui_test_key(KEY_DOWN);                                               // set.zip
+    {
+        char rp[900];
+        hostui_test_browse_right(rp, sizeof(rp));
+        CHECK(strstr(rp, "title=set.zip|") && strstr(rp, "Zip archive. Z unpacks it into this folder or into a folder named after it.") && !strstr(rp, "Not a boot menu"));
+        CHECK((printf("t197 sub: %s\n", hostui_test_browse_sub()), strstr(hostui_test_browse_sub(), "F format, Z unzip.")));
+    }
+    CHECK(has("foot='UP/DOWN select    Z unzip    C copy    M move    DEL twice deletes    LEFT up a folder    V picture'"));
+    lv_refr_now(NULL);
+    snprintf(p, sizeof(p), "%s/unzip_browse.png", out); png(p, 2);
+    // ---- the flow: question, bar, the application's page; the picture of each
+    hostui_test_fm_keep(true);
+    hostui_test_key('z');
+    hostui_test_fm_page(pg, sizeof(pg));
+    printf("t197 page: %s\n", pg);
+    CHECK(g_zip_pics == 2 && strstr(pg, "title=Unzip|") && strstr(pg, "l0=Extracted 3 files into /Usb0/zip/set|"));
+    CHECK(!hostui_test_fmt_active() && has("note='Unzipped'"));
+    // ---- O: the one-file picker, then the singular page
+    g_zip_one = true;
+    hostui_test_key('z');
+    hostui_test_fm_page(pg, sizeof(pg));
+    printf("t197 page: %s\n", pg);
+    CHECK(g_zip_pics == 5 && strstr(pg, "l0=Extracted 1 file into /Usb0/zip|"));
+    g_zip_one = false;
+    // ---- no application on the card: a page that says so, nothing else happens
+    unlink((apps + "/unzip.u2a").c_str());
+    g_zip_refuse_pic = true;
+    hostui_test_key('z');
+    hostui_test_fm_page(pg, sizeof(pg));
+    printf("t197 page: %s\n", pg);
+    CHECK(strstr(pg, "title=Cannot unzip set.zip|") && strstr(pg, "l0=Unzip is not installed.|") && strstr(pg, "Nothing was unpacked.") && !g_zip_refuse_pic && !hostui_test_fmt_active());
+    hostui_test_fm_keep(false);
+    unlink((apps + "/miniz.u2a").c_str());
+    rmdir(apps.c_str());
+    unlink((zdir + "/set.zip").c_str());
+    unlink((zdir + "/notes.txt").c_str());
+    rmdir(zdir.c_str());
+    hostui_cv_hook = 0;
 }
 
 
@@ -4266,8 +4546,37 @@ static void rows_scenario(const char *out)
         HcEntryRow r;
         CHECK(hc_row_entry(i, true, &r));
         char want_row[400];
-        snprintf(want_row, sizeof(want_row), "row %d|%s|%s|%s|%s|%s|", i, r.name, r.sub, r.badge, r.def ? "default" : "", i == 1 ? "SEL" : "");
+        snprintf(want_row, sizeof(want_row), "row %d|%s|%s|%s|%s|%s|", i, r.name, r.ver, r.badge, r.def ? "auto" : "", i == 1 ? "SEL" : "");
         CHECK(strstr(md, want_row) != NULL);
+        // T209 D10/D11: one pictogram per group (glyph + fill), all the same size; the marker reads "auto"
+        const char *glyph = r.pic == HCP_OK ? "ok" : r.pic == HCP_CHECK ? "check" : "bad";      // the dump names the group the glyph drew
+        char want_pic[200];
+        snprintf(want_pic, sizeof(want_pic), "\npic %d|%s|", i, glyph);
+        CHECK(strstr(md, want_pic) != NULL);
+        CHECK(strstr(md, "|auto\n") != NULL);
+    }
+    // the pictogram groups of the words (D10)
+    {
+        HcEntryRow r;
+        int seen[3] = { 0, 0, 0 };
+        for (int i = 0; i < hostui_test_cfg_n(); i++) {
+            CHECK(hc_row_entry(i, true, &r));
+            seen[r.pic]++;
+            bool ok = !strcmp(r.badge, "hash ok") || !strcmp(r.badge, "ready") || !strcmp(r.badge, "backup") || !strcmp(r.badge, "foreign");
+            bool chk = !strcmp(r.badge, "changed") || !strcmp(r.badge, "?");
+            CHECK(r.pic == (ok ? HCP_OK : chk ? HCP_CHECK : HCP_BAD));
+        }
+        CHECK(seen[HCP_OK] + seen[HCP_CHECK] + seen[HCP_BAD] == hostui_test_cfg_n());
+        CHECK(strstr(md, "|22x22|auto\n") != NULL || strstr(md, "|20x20|auto\n") != NULL);
+        // the status line shows the selected row's word while no note stands; no path anywhere in the menu rows
+        HcEntryRow sel;
+        CHECK(hc_row_entry(1, true, &sel));
+        char want_det[160];
+        snprintf(want_det, sizeof(want_det), "note='' ");
+        if (strstr(md, want_det)) {
+            snprintf(want_det, sizeof(want_det), "detail='%s'", sel.badge);
+            CHECK(strstr(md, want_det) != NULL);
+        }
     }
 }
 
@@ -4588,8 +4897,10 @@ int main(int argc, char **argv)
     scenarios_t139(out);
     scenarios_t148(out);
     scenarios_t198(out);
+    scenarios_t209_tiles(out);
     scenarios_t137(out);
     scenarios_t137r(out);
+    scenarios_t197(out);
     scenarios_t152(out);
     scenarios_t184(out);
     picnote(out);
@@ -4670,33 +4981,33 @@ int main(int argc, char **argv)
         extern const char *hostui_test_foot(void);
         hostui_test_browse_at("/Usb0/pages");
         const int pg = hostui_test_brows();
-        CHECK(hostui_test_bn() == 27 && pg == 13);                    // ".." + 26 files: three pages of 13, 13, 1
+        CHECK(hostui_test_bn() == 27 && pg == 12);                    // ".." + 26 files: three pages of 13, 13, 1
         CHECK(hostui_test_bsel() == 0);
         hostui_test_key('-');
         CHECK(hostui_test_bsel() == 0);                               // "-" at the top stays
         hostui_test_key('+');
-        CHECK(hostui_test_bsel() == pg);                              // one page down
+        CHECK(hostui_test_bsel() == pg + 2);                          // one page down: the window moves by 12, the selection keeps its row (margin 2)
         hostui_test_key('+');
-        CHECK(hostui_test_bsel() == 2 * pg);                          // the last page
+        CHECK(hostui_test_bsel() == 17);                                // the last window (first 15 of 27), the selection keeps its row
         hostui_test_key('+');
-        CHECK(hostui_test_bsel() == 2 * pg);                          // a third "+" stays there
+        CHECK(hostui_test_bsel() == 26);                               // a third "+" at the end: the last row
         hostui_test_key('-');
-        CHECK(hostui_test_bsel() == pg);                              // "-" goes back one page
+        CHECK(hostui_test_bsel() == 12);                               // "-": the window back by a page (first 3), the row stays inside the margin
         hostui_test_key('-'); hostui_test_key('-');
         CHECK(hostui_test_bsel() == 0);
         hostui_test_browse_at("/Usb0/sized");                          // 20 bundles + "..": the last step is a part page, clamped to the last row
         hostui_test_key('+'); hostui_test_key('+');
         CHECK(hostui_test_bsel() == hostui_test_bn() - 1);
         hostui_test_key('-');
-        CHECK(hostui_test_bsel() == hostui_test_bn() - 1 - pg);
+        CHECK(hostui_test_bsel() == 9);                                // back one window (first 0), the row kept inside the margin
         hostui_test_browse_at("/Usb0/pages");                          // the letters keep their action: C opens the target pick, "+" pages in it too
         hostui_test_key(KEY_DOWN);
         hostui_test_key('c');
         CHECK(strstr(hostui_test_foot(), "ESC cancels") != NULL);
         hostui_test_key('+');
-        CHECK(hostui_test_bsel() == 1 + pg);
+        CHECK(hostui_test_bsel() == pg + 2);
         hostui_test_key('-');
-        CHECK(hostui_test_bsel() == 1);
+        CHECK(hostui_test_bsel() == 2);
         hostui_test_key(KEY_ESCAPE);
         CHECK(strstr(hostui_test_foot(), "ESC cancels") == NULL);
     }

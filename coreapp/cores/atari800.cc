@@ -245,6 +245,6 @@ const CoreDesc atari800_desc = {
     a8_media_flush, a8_media_pending,          // T180 D4: the SIO drives' sync
     &mount_slots,                              // T180 D2, D5: D1..D4 and the cartridge
     &hk_typing,                            // T181: the default hotkey map (hk_defaults.h)
-    0,                                     // alt_video
+    0, false, 0,                                     // alt_video, no_tone, rom_key
     "RAM size,Video standard",                 // T212 D13: machine_info
 };

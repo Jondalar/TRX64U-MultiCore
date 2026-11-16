@@ -117,6 +117,7 @@ struct FileMgr {
     static const Task *task_delete();
     static const Task *task_paste();
     static const FileAction *universal(int *n);                    // View, Hex View, Copy to, Move to, clipboard, Rename, Delete
+    void up_while_gone();
     static const FileAction *folder_open();                        // the sheet of a folder: Open, then the universal ones from the third, then folder_items
     static const FileAction *folder_items(int *n);
     // The person's text for a rename, a new folder or a search: no spaces at its end.

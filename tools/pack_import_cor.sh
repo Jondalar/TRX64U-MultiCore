@@ -30,9 +30,12 @@ while [ $# -gt 0 ]; do
     esac
 done
 [ -f "$PIN" ] && [ -n "$OUT" ] || { sed -n '2,10p' "$0" >&2; exit 2; }
-ID="" NAME="" VERSION="" PKG_VERSION="" BIT_FILE="" BIT_SHA256="" ICON="" APP_FILE="" APP_SHA256="" DESC="" OPS=""
+ID="" NAME="" VERSION="" SEMVER="" PKG_VERSION="" BIT_FILE="" BIT_SHA256="" ICON="" APP_FILE="" APP_SHA256="" DESC="" OPS=""
 # shellcheck disable=SC1090
 . "$PIN"
+# T221 D15: the version of an imported core is the SemVer its pin copies from the TRX64-Ultimate package (SEMVER=); a pin without one (the proposal of
+# docs/contracts/trx64u-firmware-handover.md is not agreed yet) shows the commit as it did, and says so.
+if [ -n "$SEMVER" ]; then VERSION="$("$ROOT/ci/version.sh" with "$SEMVER")"; else echo "$PIN: no SEMVER, the version shown is the commit $VERSION (T221 D15 open)" >&2; fi
 for v in ID NAME VERSION PKG_VERSION BIT_FILE BIT_SHA256 ICON; do [ -n "${!v}" ] || { echo "$PIN: $v is empty" >&2; exit 2; }; done
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 sha() { python3 -c 'import hashlib,sys; print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' "$1"; }

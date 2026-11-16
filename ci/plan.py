@@ -29,6 +29,9 @@ plan.json (version 1):
 """
 import json, os, re, subprocess, sys
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import code_hash
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 EXC = ":(exclude)"
@@ -50,13 +53,22 @@ def changed_in(base, head, specs):
     """Files that differ between base and head under the pathspecs (git decides, :(exclude) narrows)."""
     if not any(not s.startswith(EXC) for s in specs):
         return set()
-    out = git("diff", "--name-only", "-z", base, head, "--", *specs)
-    return set(p for p in out.split("\0") if p)
+    out = git("diff", "--name-only", "--no-renames", "-z", base, head, "--", *specs)
+    return set(p for p in out.split("\0") if p and code_differs(base, head, p))
+
+
+def code_differs(base, head, path):
+    """T215 D1 (Alex: "The hash should only concern code. Always."): a file counts as changed only when its normalised content (ci/code_hash.py,
+    the very function ci/lib.sh keys with) differs; a comment-only edit changes nothing."""
+    def blob(rev):
+        r = subprocess.run(["git", "-C", ROOT, "show", "%s:%s" % (rev, path)], capture_output=True)
+        return r.stdout if r.returncode == 0 else None
+    return code_hash.differs(blob(base), blob(head), path)
 
 
 # D2.1 (Alex, 2026-11-07: "Only real code triggers anything"): documentation, specs, TODO and notes move no key and name no target. A file of
-# this kind inside a code tree (host/README.md) is still part of that tree's content key, so a stage may find a cache miss there; the plan
-# does not name it.
+# this kind inside a code tree (host/README.md, mono/host/FROM) is no part of any content key either (ci/code_hash.py is_doc, 2026-11-15); the
+# plan does not name it and code_differs says "unchanged" for it.
 def is_noncode(p):
     base = os.path.basename(p)
     return p.startswith(("docs/", ".claude/")) or p.endswith(".md") or base.startswith("TODO") or base in ("LICENSE", "LICENSE.txt")

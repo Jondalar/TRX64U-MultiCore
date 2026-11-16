@@ -18,10 +18,10 @@ Cancelled on 2026-10-04 (late) together with the 100T build; the TODO overview k
 
 ## Links
 
-- [T29](../../docs/specs/T29-turbo.md#status-and-history)
-- [T40](../../docs/specs/T40-ntsc.md#status-and-history)
-- [T49](../../docs/specs/T49-update-packages.md#status-and-history)
-- [T50](../../docs/specs/T50-update-unlock.md#status-and-history)
-- [T53](../../docs/specs/T53-ue2-build.md#status-and-history)
-- [T37](../../docs/specs/T37-sid-sockets.md#status-and-history)
-- [T35](../../docs/todo/T35.md)
+- [T29](../specs/README.md#belonged-to-trx64-ultimate)
+- [T40](../specs/README.md#belonged-to-trx64-ultimate)
+- [T49](../specs/done/T49-update-packages.md#status-and-history)
+- [T50](../specs/README.md#belonged-to-trx64-ultimate)
+- [T53](../specs/T53-ue2-build.md#status-and-history)
+- [T37](../specs/README.md#belonged-to-trx64-ultimate)
+- [T35](../todo/T35.md)

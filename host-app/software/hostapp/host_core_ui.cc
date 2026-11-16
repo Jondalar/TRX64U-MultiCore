@@ -8,6 +8,7 @@
 #include "discover.h"
 #include "cfw.h"
 #include "txu.h"
+#include "host_core_flow.h"
 #include "cor.h"
 #include "keyboard.h"
 #include "host_core_cfgov.h"
@@ -264,7 +265,7 @@ void hc_ui_settings_change(int kind, int dir)
     switch (kind) {
     case SK_DIRECT:
         hc_ui_cfg_after(hc_direct_toggle());
-        hc_ui_note(cfg().direct ? "Direct boot on: the default starts at power-on" : "Direct boot off: the menu comes up first", HCT_HOST);
+        hc_ui_note(cfg().direct ? "Direct boot on: the auto core starts at power-on" : "Direct boot off: the menu comes up first", HCT_HOST);
         break;
     case SK_AUTO:
         hc_ui_cfg_after(hc_autostart(cfg().countdown == 0, 0));
@@ -473,7 +474,7 @@ void hc_ui_cfgov_draw(bool fresh)
     if (g_env.wifi && g_env.wifi->draw_pick && hc_cfgov_is_open()) {
         HcWifiPick p;
         hc_cfgov_pick(&p);
-        p.keys = hc_foot(hc_cfgov().cur == 0 ? HCF_CFG_PLAIN : HCF_CFG);
+        p.keys = hc_foot(hc_cfgov().cur == 0 || hc_cfgov_on_safe() ? HCF_CFG_PLAIN : HCF_CFG);
         g_env.wifi->draw_pick(g_env.wifi->ctx, p, fresh);
     }
 }
@@ -487,7 +488,8 @@ void cfgov_close(void)
     }
 }
 
-// RIGHT on a core row (F1) or on a .cor (F3): the overlay opens when the core has configs; otherwise nothing happens (D9).
+// RIGHT on a core row (F1) or on a .cor (F3): the overlay opens for every core that gets the hand-over page. T224 D1: it holds the rescue row even with no config. A full firmware
+// (a .cfw, a large core) is started without a hand-over page, so it has neither configs nor the safe start: nothing happens there.
 void cfgov_open(int ctx, HcUiResult *res)
 {
     const HcNav &v = hc_nav();
@@ -511,6 +513,9 @@ void cfgov_open(int ctx, HcUiResult *res)
         if (entry < 0 && dot) {
             *dot = 0;
         }
+    }
+    if (cfw_is_name(path)) {                         // T223 D4: a large .cor takes configs through the start file; a foreign firmware has no hand-over
+        return;
     }
     if (hc_cfgov_open(path, title, entry, ctx != HCX_MENU)) {
         hc_ui_cfgov_draw(true);
@@ -542,7 +547,7 @@ bool cfgov_input(int act, HcUiResult *res)
         }
         break;
     case HCA_CONFIG_RENAME:
-        if (hc_cfgov().cur > 0) {
+        if (hc_cfgov().cur > 0 && !hc_cfgov_on_safe()) {
             g_env.flow(g_env.ctx, HUF_CFGRENAME, "", -2);
         }
         return true;
@@ -552,18 +557,21 @@ bool cfgov_input(int act, HcUiResult *res)
         const int entry = o.entry;
         snprintf(path, sizeof(path), "%s", o.path);
         snprintf(name, sizeof(name), "%s", hc_cfgov_cur_name());
+        const bool safe = hc_cfgov_on_safe();
         char title[96];
         snprintf(title, sizeof(title), "%s", o.title);
         cfgov_close();
         res->redraw = true;
         g_changed = true;
         hc_start_config_set(name);
+        hc_start_safe_set(safe);                      // T224 D2: the rescue start, this start only (plain start, no config)
         if (entry >= 0 && entry < cfg().n && hc_startable(entry)) {
             g_env.start_any(g_env.ctx, cfg().e[entry].path, cfg().e[entry].name, &cfg().e[entry], true);
         } else if (entry < 0) {
             g_env.start_core(g_env.ctx, path, title);
         }
         hc_start_config_set("");                      // a start that came back (refused, aborted) leaves nothing armed
+        hc_start_safe_set(false);
         return true;
     }
     default:
@@ -629,11 +637,17 @@ void hc_ui_input(int k, HcUiResult *res)
     if (ctx == HCX_CFG && cfgov_input(act, res)) {
         return;
     }
-    if (act == HCA_CONFIG_LIST && (ctx == HCX_MENU || ctx == HCX_BROWSE)) {
+    if (act == HCA_CONFIG_LIST && ctx == HCX_BROWSE && hc_nav().bsel < hc_nav().bn && hc_nav().bl[hc_nav().bsel].dir) {
+        act = HCA_BROWSE_OPEN;              // GitHub #90 (T219): RIGHT on a folder goes in, as RETURN does; ".." goes up like RETURN
+    } else if (act == HCA_CONFIG_LIST && (ctx == HCX_MENU || ctx == HCX_BROWSE)) {
         cfgov_open(ctx, res);
         return;
     }
     int armed = hc_arm_take_row();          // T101 D6: only an unbroken DEL, DEL removes
+    if (armed < 0 && ctx == HCX_EDIT && v.note[0]) {
+        hc_note_clear();                        // the editor's note (Renamed to ...) lasts until the next key; this key's own outcome sets a new one after this
+        g_changed = true;
+    }
     HcKeyArm key_arm;                       // T192 D21: the arm ends with this key (yes when it is the confirming one)
     switch (act) {
     case HCA_NAV_MENU: hc_ui_go(HCV_MENU); res->redraw = true; return;
@@ -699,8 +713,7 @@ void hc_ui_input(int k, HcUiResult *res)
         res->redraw = true;
         return;
     }
-    // The way back from a black screen (T105): V steps through the resolutions, applies each one at once and writes it to boot.cfg, so a screen that cannot take the mode we came
-    // up in is one blind keypress away from one it can. It is in the footer legend, and in INSTALL.md for the reader who has no picture to read it on.
+    // The way back from a black screen: V opens the Picture page from any view (hc_ui_picture_step); RETURN or SPACE on a mode applies it and asks "Keep this picture?" (T105, T187 D5).
     case HCA_PICTURE_STEP:
         hc_arm_take_wifi();                 // this key returns before the WiFi page's keys: it ends the F arm like any other key (the arm's token ends in HcKeyArm)
         hc_ui_picture_step();
@@ -711,6 +724,7 @@ void hc_ui_input(int k, HcUiResult *res)
     }
     bool selmove = false;
     int sel0 = v.sel, bsel0 = v.bsel;
+    const int mfirst0 = v.mfirst, bfirst0 = v.bfirst;      // a page key moves the window itself (listwin_page): a changed window is a redraw
     // a key that changes nothing must not rebuild the view (with one core, UP/DOWN do nothing at all)
     unsigned fp0 = hc_ui_fingerprint();
     char bp0[160];
@@ -790,6 +804,10 @@ void hc_ui_input(int k, HcUiResult *res)
         } else if (act == HCA_BROWSE_UPDATE) {
             if (!hc_browse_at_media() && !env_busy() && hc_browse_sel_file(path, sizeof(path)) && txu_is_name(v.bl[v.bsel].name)) {     // T152: U installs a .txu
                 g_env.flow(g_env.ctx, HUF_UPDATE, path, 0);
+            }
+        } else if (act == HCA_BROWSE_UNZIP) {
+            if (!hc_browse_at_media() && !env_busy() && hc_browse_sel_file(path, sizeof(path)) && hc_is_zip_name(v.bl[v.bsel].name)) {     // T197: Z unpacks a .zip
+                g_env.flow(g_env.ctx, HUF_UNZIP, path, 0);
             }
         } else if (act == HCA_BROWSE_FORMAT && hc_browse_at_media() && v.bsel < v.bn) {
             g_env.flow(g_env.ctx, HUF_FORMAT, v.bl[v.bsel].name, 0);
@@ -887,6 +905,9 @@ void hc_ui_input(int k, HcUiResult *res)
         if (hc_nav_window_follow()) {
             selmove = false;                         // the window scrolls: the rows are refilled
         }
+    }
+    if (selmove && (v.mfirst != mfirst0 || v.bfirst != bfirst0)) {
+        selmove = false;
     }
     unsigned fp1 = hc_ui_fingerprint();
     if (!selmove && fp0 == fp1 && !strcmp(bp0, v.bpath) && !g_changed) {

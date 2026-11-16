@@ -14,6 +14,7 @@
 #include "amiga_regs.h"
 #include "amiga_keys.h"
 #include "rawkeys.h"
+#include "pad.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -63,6 +64,8 @@ static const char *const no_yes[]       = { "No", "Yes" };
 static const char *const joy_names[]   = { "Normal", "Swapped" };
 static const char *const led_names[]   = { "On", "Off" };
 static const char *const rtc_names[]   = { "Off", "On" };
+static const char *const pad2_names[]  = { "Off", "On" };
+static const char *const pad2_type_names[] = { "Joystick 1 button", "Joystick 2 buttons", "CD32 gamepad" };
 // T190: the USB driver's sensitivity 1 .. 16 (8 = 1:1) and acceleration, as Gideon's items offer them (u64_config.cc CFG_MOUSE_SENSITIVITY 1 .. 16 default 8, CFG_MOUSE_ACCELERATION Off / Adaptive default Off)
 static const char *const mouse_sens_names[] = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16" };
 static const char *const mouse_acc_names[]  = { "Off", "Adaptive" };
@@ -118,6 +121,7 @@ static const Task tasks[] = {
     { "Create blank ADF", "disk.create", new_adf, 3, false, "Name of the new ADF", "disk.suggest.adf", true },
     { "Mount folder as HD0", "sectors.mount_folder", mfold0, 2, false, "Size of the disk in GB", "sectors.folder.offer", true, "Use this folder" },
     { "Mount folder as HD1", "sectors.mount_folder", mfold1, 2, false, "Size of the disk in GB", "sectors.folder.offer", true, "Use this folder" },
+    { "Map port 2 buttons", "menu.pad_map_port", 0, 0, false, 0, 0, false, 0, "input" },   // T225 D3: a task (shown on the Input tab, T226), not a setting: it opens a dialog
 };
 
 static const OpBind rdf0[] = { B_FILE("path") };
@@ -185,6 +189,45 @@ static int op_mount_reset(CoreCtx *c, const OpArgs &a, OpOut &o)
 }
 static const ArgSpec mount_reset_arg[] = { ARG_PATH("path") };
 
+// ---- T225: a USB gamepad as game port 2 ---------------------------------------------------------------------------------------------------
+// The register word (AM_PAD2_WORD) is the pad service's word: bit n = button n of pad2_btn_names, the first 5 (joystick, one button), 6 (two buttons) or
+// all 11 (CD32) of them by target. The service keeps one map per pad (VID:PID, pad.h by_id); the target type is stored with it.
+static const char *const pad2_btn_names[11] = { "Up", "Down", "Left", "Right", "Fire (Red)", "Button 2 (Blue)", "Green", "Yellow", "Play", "Reverse (L)", "Forward (R)" };
+static const uint8_t pad2_def[11] = { PAD_SRC_UP, PAD_SRC_DOWN, PAD_SRC_LEFT, PAD_SRC_RIGHT, PAD_D3_BOTTOM, PAD_D3_RIGHT, PAD_D3_LEFT, PAD_D3_TOP, PAD_D3_START, PAD_D3_L, PAD_D3_R };
+static const uint8_t pad2_count[3] = { 5, 6, 11 };
+static void pad2_loaded(CoreCtx *c, int type);
+static const PadSpec pad2_spec = { { AM_PAD2_WORD, 0 }, 11, pad2_btn_names, pad2_def, 1, pad2_loaded };
+static int g_pad2_on, g_pad2_type;
+
+// The gateware's mode and the service's target from the two settings. A gateware without the registers (FEAT b5) is left alone.
+static void pad2_apply(CoreCtx *c)
+{
+    pad_ensure(c);
+    pad_set_target(g_pad2_type, pad2_count[g_pad2_type]);
+    if (c->io->rd(AM_FEAT) & AM_FEAT_PAD2) {
+        c->io->wr(AM_PAD2_MODE, (uint8_t)(g_pad2_on ? g_pad2_type + 1 : 0));
+    }
+}
+
+static int op_pad2_on(CoreCtx *c, const OpArgs &a, OpOut &) { g_pad2_on = a.i(0); pad2_apply(c); return OPE_OK; }
+static int op_pad2_type(CoreCtx *c, const OpArgs &a, OpOut &) { g_pad2_type = a.i(0); pad2_apply(c); return OPE_OK; }
+static const ArgSpec pad2_on_arg[] = { ARG_INT("value", 0, 1) };
+static const ArgSpec pad2_type_arg[] = { ARG_INT("value", 0, 2) };
+
+// A pad with a stored map came: the target type stored with it is the setting's now.
+static void pad2_loaded(CoreCtx *c, int type)
+{
+    if (type < 0 || type > 2) {
+        return;
+    }
+    int i = c->settings ? c->settings->find("Port 2 acts as") : -1;
+    if (i >= 0) {
+        c->settings->set(i, type);
+    }
+    g_pad2_type = type;
+    pad2_apply(c);
+}
+
 static const MemMap amiga_mem = { 0, 0, false, "The Amiga's chip and slow RAM are the core's own SDRAM; no window of the application reaches them" };
 
 static void amiga_register(OpRegistry &r)
@@ -193,6 +236,8 @@ static void amiga_register(OpRegistry &r)
     MEM_OPS(r, amiga_mem, 0xFFFFFF);
     r.add_op("amiga.poll", 0, 0, op_am_poll);
     r.add_op("amiga.mount_reset", mount_reset_arg, 1, op_mount_reset);
+    r.add_op("amiga.pad2_on", pad2_on_arg, 1, op_pad2_on);          // T225
+    r.add_op("amiga.pad2_type", pad2_type_arg, 1, op_pad2_type);
     r.add_state("amiga.df0.image", win_state<0>);
     r.add_state("amiga.df1.image", win_state<1>);
     r.add_state("amiga.df2.image", win_state<2>);
@@ -258,10 +303,10 @@ static int am_release(CoreCtx *c, char *, int)
     return 0;
 }
 
-static const char *const caps[] = { "floppy", "hdf", "mouse" };
+static const char *const caps[] = { "floppy", "hdf", "mouse", "pad" };
 
 // ---- the two records, built from the common part and the override list ------------------------------------------------------------------
-static Setting g_settings[2][12];
+static Setting g_settings[2][15];
 static RomSetLabels g_labels[2];
 static RomSetSpec g_romset[2];
 
@@ -311,6 +356,10 @@ static CoreDesc make(int v)
         s[ns++] = Setting{ "LED Load Indicator", led_names, 2, 0, WHEN_LIVE, "led.load", 0 };
     }
 
+    // T225: a USB gamepad as game port 2 (Input tab): On = port 2 comes from the pad only (D1), the type is what the Amiga sees, the task "Map port 2 buttons" opens the dialog
+    s[ns++] = Setting{ "Map port 2 to USB controller", pad2_names, 2, 0, WHEN_LIVE, "amiga.pad2_on", 0, 0, "input", 0, 0 };
+    s[ns++] = Setting{ "Port 2 acts as", pad2_type_names, 3, 0, WHEN_LIVE, "amiga.pad2_type", 0, 0, "input", 0, 0, 0 };
+
     // T190: the mouse's scaling, applied by the base operations mouse.sens (the value is the sensitivity itself: base 1) and mouse.accel
     s[ns++] = Setting{ "Mouse Sensitivity", mouse_sens_names, 16, 7, WHEN_LIVE, "mouse.sens", 0, 1, "input", 0, 0, "Mouse sensitivity" };
     s[ns++] = Setting{ "Mouse Acceleration", mouse_acc_names, 2, 0, WHEN_LIVE, "mouse.accel", 0, 0, "input", 0, 0, "Mouse acceleration" };
@@ -325,7 +374,7 @@ static CoreDesc make(int v)
     d.store = a.store;
     d.min_contract = 1;
     d.settings = s; d.nsettings = ns;
-    d.tasks = tasks; d.ntasks = 11;
+    d.tasks = tasks; d.ntasks = 12;
     d.filetypes = filetypes; d.nfiletypes = 2;
     d.media = media; d.nmedia = 6;
     d.machine_info = "Chipset,Chip RAM,Slow RAM,Fast RAM";
@@ -341,7 +390,7 @@ static CoreDesc make(int v)
     d.service_op = "amiga.poll";                 // media.poll plus the audio KPI line
     d.service_period_ms = 5;                     // an open menu is Freeze (Alex, 2026-10-20): the machine is held and no poll runs
     d.register_ops = amiga_register;
-    d.caps = caps; d.ncaps = 3;
+    d.caps = caps; d.ncaps = 4;
     d.id_shared = true;
     d.id_feat_reg = AM_FEAT; d.id_feat_mask = AM_FEAT_FBWIN; d.id_feat_val = a.fbwin ? AM_FEAT_FBWIN : 0;   // T115 D9: a .cfw has no bundle name
     d.core_id = a.core_id;
@@ -351,6 +400,7 @@ static CoreDesc make(int v)
     d.window_media = &floppies;
     d.sector_media = &hard_disks;
     d.mouse = &mouse;
+    d.pad = &pad2_spec;                        // T225
     d.rawkeys = a.usbkeys ? &rawkeys : 0;
     d.hotkeys = &hk_amiga;                     // T181: the default hotkey map (hk_defaults.h)
     d.fbwin = a.fbwin ? &picture_window : 0;

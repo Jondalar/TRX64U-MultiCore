@@ -63,7 +63,7 @@ module tb_aga;
         .floppy_config(4'b0000), .video_config(4'b0000), .turbo_config(3'b000), .ide_config(6'b100000),
         .rtc_en(1'b0), .rtc_ld(9'd0), .audio_left(al), .audio_right(ar),
         .mouse_buttons(3'b000), .kbd_mouse_level(1'b0), .kbd_mouse_type(2'b00), .kbd_mouse_data(8'h00),
-        .joystick0(8'h00), .joystick1(8'h00), .uart_tx(uart_tx), .uart_rx(1'b1),
+        .joystick0(11'h000), .cd32pad2_en(1'b0), .joystick1(8'h00), .uart_tx(uart_tx), .uart_rx(1'b1),
         .sdc_img_mounted(8'h00), .sdc_img_size(64'd0), .sdc_rd(sdc_rd), .sdc_wr(sdc_wr), .sdc_sector(sdc_sector),
         .sdc_busy(1'b0), .sdc_done(1'b0), .sdc_byte_in_strobe(1'b0), .sdc_byte_addr(9'd0), .sdc_byte_in_data(8'h00),
         .sdc_byte_out_data(sdc_byte_out),

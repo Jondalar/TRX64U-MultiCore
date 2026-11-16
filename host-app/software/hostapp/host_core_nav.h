@@ -21,7 +21,7 @@ struct HcNav {
     int ssel;                           // settings: the selected slot
     int nsel;                           // the WiFi page: the selected row
     int bsel;                           // browser cursor
-    int mfirst, efirst;                 // the first visible row of the menu / the editor window
+    int mfirst, efirst, bfirst;         // the first visible row of the menu / the editor / the browser window
     char bpath[160];                    // the browser's folder ("/" = the media)
     HostDirEntry bl[HC_BR_MAX + 1];     // its rows
     int bn;                             // ... and their number
@@ -127,6 +127,7 @@ void hc_nav_focus(int src, int i);                               // 0 entry (the
 // The windows follow the cursor; the number is the first visible row.
 int hc_nav_menu_first(int total);
 int hc_nav_edit_first(int total);
+int hc_nav_browse_first(int rows);                              // the browser's window follows its cursor (T209 D3); rows = the rows the panel shows
 bool hc_nav_window_follow(void);                                 // after a key: the window of the menu / editor follows the cursor; true when it scrolled
 
 // ---- the browser -----------------------------------------------------------------------------------------------------------------------------

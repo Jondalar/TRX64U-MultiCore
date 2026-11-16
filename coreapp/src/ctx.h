@@ -40,12 +40,14 @@ struct CoreCtx {
     char cor_path[HANDOVER_PATH_MAX];     // "" when the application started without a hand-over (JTAG, developer)
     char cfg_path[HANDOVER_PATH_MAX];     // "" when there is no .cor path: then there is no .cfg either
     char core_version[24];
+    char host_version[24];      // T221: the host gateware SemVer from the hand-over ("" = a host that names none)
     char config[48];                      // T198: the config this run started with or has loaded (configs/<name>.cfg), "" = the core's own .cfg
     char settings_path[HANDOVER_PATH_MAX];   // T198: the file the settings are read from and written to: the config's, or "" = cfg_path
     uint32_t host_key;                    // the host build the .cor was routed against, from the hand-over (8 hex digits); 0: none named
     PartialPort *partial;                 // the host's ICAP loader and decoupler (partial.h); null: nothing to reload a partial with
     void *state;                          // the descriptor's own state (mounted disks, loaded program)
     bool started;                         // the core has been released once
+    uint32_t rom_key_loaded;              // T216 D16: desc->rom_key() of the settings the ROMs in the machine were put for
     LibSel lib;                           // the Library's cursor, marks and clipboard
     bool paused;                          // Pause (T104.2 UI): the machine stays held after the menu closes, until Resume
     bool frozen;                          // the machine is stopped for the menu (Freeze); a poll of a contributor that does not
@@ -76,6 +78,9 @@ struct CoreCtx {
     // through MediaSaving, engines.h; saving_depth makes nested write-backs one display).
     void (*saving)(CoreCtx *c, bool on);
     int saving_depth;
+    // T226 S1: the picture while a cartridge / ROM image is read in ("Loading cartridge..."); the application sets it, null: nothing to show (MediaLoading, engines.h).
+    void (*loading)(CoreCtx *c, bool on);
+    int loading_depth;
     // T180 D2: a slot of the core's own media engine (CoreDesc::mount_slots) changed; the engine calls it through mount_notify. The application sets it
     // (mediamounts.cc); null: nothing to store (tests of an engine alone).
     void (*mount_changed)(CoreCtx *c, int slot);

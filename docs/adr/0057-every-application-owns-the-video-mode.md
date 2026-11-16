@@ -2,7 +2,7 @@
 
 Date: 2026-10-16
 
-Status: Accepted (extends [T105](../specs/T105-video-mode.md); the work is [T107](../todo/T107.md))
+Status: Accepted (extends [T105](../specs/done/T105-video-mode.md); the work is [T107](../todo/T107.md))
 
 ## Context
 
@@ -65,15 +65,15 @@ application alike.
 - The NES goes to 720p and fills the height. The Atari and the C16 get the same treatment from their own
   numbers; the Amiga keeps 1080p until someone measures better.
 - The 3 x ceiling of the pixel layer stays. Anything that needs more is a gateware task and a separate
-  decision ([T105](../specs/T105-video-mode.md) §4 keeps it out).
+  decision ([T105](../specs/done/T105-video-mode.md) §4 keeps it out).
 
 ## Correction (2026-10-20)
 
 The premise that a smaller HDMI mode gives a picture more area does not hold on the host in this repository: its output is fixed
 1920 x 1080 (`host/vic_scaler.v`, `host/overlay.v:8`). Applications still own the mode setting, but the layout is the 1080p layout in
-every mode. See [T107 5.6](../specs/T107-application-owns-the-picture.md).
+every mode. See [T107 5.6](../specs/done/T107-application-owns-the-picture.md).
 
 ## Links
 
-- [T105](../specs/T105-video-mode.md), [T107](../todo/T107.md), [T104](../specs/T104-generic-core-app.md),
+- [T105](../specs/done/T105-video-mode.md), [T107](../todo/T107.md), [T104](../specs/done/T104-generic-core-app.md),
   [ADR-0056](0056-amiga-kickstart-per-chipset-no-disk.md)

@@ -18,7 +18,7 @@ Settings::Settings(const Setting *items, int n, const char *store, CoreFs *fs, c
     memset(extra_, 0, sizeof(extra_));
     memset(mnt_, 0, sizeof(mnt_));
     for (int i = 0; i < SETTINGS_MAX; i++) {
-        host_[i] = core_[i] = -1;
+        host_[i] = core_[i] = ovr_[i] = -1;
         tix_[i] = hix_[i] = -1;
     }
 }
@@ -100,7 +100,7 @@ void Settings::load()
     memset(mnt_, 0, sizeof(mnt_));
     int nh = 0;
     for (int i = 0; i < n_; i++) {
-        host_[i] = core_[i] = -1;
+        host_[i] = core_[i] = ovr_[i] = -1;
         tix_[i] = hix_[i] = -1;
         char val[96];
         if (flash_ && flash_->get(store_, items_[i].key, val, sizeof(val))) {
@@ -138,6 +138,21 @@ void Settings::load()
 
 int Settings::value(int i) const
 {
+    if (ovr_[i] >= 0) {
+        return ovr_[i];
+    }
+    return stored_value(i);
+}
+
+void Settings::override_value(int i, int v)
+{
+    if (i >= 0 && i < n_ && v >= 0 && v < items_[i].nvalues && !items_[i].kind) {
+        ovr_[i] = (int16_t)v;
+    }
+}
+
+int Settings::stored_value(int i) const
+{
     if (core_[i] >= 0) {
         return core_[i];
     }
@@ -168,7 +183,7 @@ bool Settings::build(char *buf, int max, int *pos, bool all, const char *const *
     bool ok = cfgfile_begin(buf, max, pos, store_);
     for (int i = 0; i < n_ && ok; i++) {
         if (core_[i] >= 0 || all) {
-            const char *val = items_[i].kind ? (core_[i] >= 0 && tix_[i] >= 0 ? tpool_[tix_[i]] : text(i)) : items_[i].values[value(i)];
+            const char *val = items_[i].kind ? (core_[i] >= 0 && tix_[i] >= 0 ? tpool_[tix_[i]] : text(i)) : items_[i].values[stored_value(i)];   // never the override (T224 D2)
             char head[96];
             if (!items_[i].kind && items_[i].apply && !strcmp(items_[i].apply, "picture.apply")) {   // the Picture item's Auto carries a display note that goes stale with the host's mode: the file keeps the label
                 snprintf(head, sizeof(head), "%s", val);
@@ -251,6 +266,7 @@ bool Settings::set(int i, int v)
         return false;
     }
     core_[i] = (int16_t)v;
+    ovr_[i] = -1;                                      // T224 D2: the person chose a value here: it is stored like any other
     if (!cfg_path_[0]) {
         fail("There is no bundle path, so there is no settings file");
         return false;

@@ -749,6 +749,9 @@ void MenuCtl::row(int i, char *left, int ln, char *right, int rn, bool *active, 
     snprintf(left, ln, "%s", e.label);
     switch (e.kind) {
     case EK_TASK:
+        if (e.dialog) {                                  // T216 D11: a dialog task in a settings tab shows ">" like Hotkeys
+            snprintf(right, rn, ">");
+        }
         break;
     case EK_MEDIA: {
         const char *w = ops_state(c_, c_->desc->media[e.index].state);
@@ -879,8 +882,8 @@ const char *MenuCtl::sel_detail()
     return detail_;
 }
 
-// T187 F4 / T209: the foot line. The status says its word, else the selected row says its own; when a row of the list carries the ring, the legend of the ring follows on
-// the same line (a status used to push the legend out, and the ring stood unexplained). A status the toast chip already says is not repeated.
+// T187 F4 / T209: the foot line. The status says its word, else the selected row says its own; when a row of the list carries the ring, the legend of the ring stands alone
+// when there is no note (T216 D10: one line, a note and the legend never share it). A status the toast chip already says is not repeated.
 const char *MenuCtl::foot_line()
 {
     if (status_[0] && !strcmp(status_, toast_)) {
@@ -890,11 +893,7 @@ const char *MenuCtl::foot_line()
     if (busy_ || wizard() || pick_ || entry_ || is_browser() || !ring_listed()) {
         return what;
     }
-    if (!what[0]) {
-        return reset_legend();
-    }
-    snprintf(foot_, sizeof(foot_), "%s   %s", what, reset_legend());
-    return foot_;
+    return what[0] ? what : reset_legend();                        // T216 D10: one line; while a note shows, the ring legend is left out
 }
 
 void MenuCtl::move(int d)
@@ -1641,6 +1640,7 @@ bool MenuCtl::tick()
         set_status(r.msg[0] ? r.msg : "failed", true);
         if (is_browser()) {
             fm_.load_dir();
+            fm_.up_while_gone();
         }
         return true;
     }
@@ -1655,6 +1655,7 @@ bool MenuCtl::tick()
     c_->lib.nmarked = 0;                                            // a job used the marks up
     if (is_browser()) {
         fm_.load_dir();
+        fm_.up_while_gone();
     }
     char s[240];
     if (r.msg[0]) {
@@ -2119,12 +2120,12 @@ MenuCtl::Result MenuCtl::activate(bool primary, bool all)
         fm_.full_path(fm_.sel, full, sizeof(full));
         bool up = !strcmp(f.name, "..");
         bool plain = cur().id && !strcmp(cur().id, "browse");               // the Library's own tab: not the online listing, not a search
-        if (f.dir && primary && fm_.image_ft < 0 && f.name[0] != '[' && (!up || plain)) {      // RIGHT on a folder: its sheet; on ".." the sheet of the folder the browser is in (GitHub #42: a folder without a subfolder had none)
+        if (f.dir && primary && fm_.image_ft < 0 && f.name[0] != '[' && up && plain) {      // RIGHT on a folder enters it (GitHub #90, T219); RIGHT on ".." is the sheet of the folder the browser is in (GitHub #42: a folder without a subfolder had none)
             int n = 0, nuni, nitems;
             const FileAction *uni = FileMgr::universal(&nuni);
             const FileAction *items = FileMgr::folder_items(&nitems);
-            if (!up) {
-                chooser_buf_[n++] = *FileMgr::folder_open();
+            bool inside = strrchr(fm_.path, '/') != fm_.path && !fm_.vmode;     // a folder below a medium's top: what is done to a folder applies to it (the top of a medium and "/" are no folder to rename or delete)
+            if (inside) {
                 for (int k = 2; k < nuni; k++) {
                     chooser_buf_[n++] = uni[k];
                 }
@@ -2141,7 +2142,7 @@ MenuCtl::Result MenuCtl::activate(bool primary, bool all)
             chooser_ft_ = 0;
             chooser_sel_ = 0;
             folder_sheet_ = true;
-            snprintf(chooser_file_, sizeof(chooser_file_), "%s", up ? fm_.path : full);
+            snprintf(chooser_file_, sizeof(chooser_file_), "%s", fm_.path);
             return R_REDRAW;
         }
         if (f.dir) {
@@ -2705,7 +2706,11 @@ void MenuCtl::footer_legend_keys(char *out, int n)
         } else if (media_level()) {                                    // as the host's File Browser at "/": the keys that do something
             snprintf(out, n, "UP/DOWN  SELECT   RETURN  OPEN IT   / SEEK");
         } else if (fm_.sel < fm_.nlist && fm_.list[fm_.sel].dir) {
-            snprintf(out, n, "RETURN  OPEN   RIGHT  FOLDER ACTIONS   SPACE  MARK   <- UP   / SEEK");
+            if (!strcmp(fm_.list[fm_.sel].name, "..") && cur().id && !strcmp(cur().id, "browse")) {
+                snprintf(out, n, "RETURN  UP   RIGHT  FOLDER ACTIONS   SPACE  MARK   <- UP   / SEEK");
+            } else {
+                snprintf(out, n, "RETURN  OPEN   RIGHT  OPEN   SPACE  MARK   <- UP   / SEEK");
+            }
         } else if (mount_slot_ >= 0 && fm_.sel < fm_.nlist) {
             snprintf(out, n, "RETURN  MOUNT IN %s   <- UP   / SEEK   F1  HOME", c_->desc->media[mount_slot_].name);
             for (char *p = out; *p; p++) {

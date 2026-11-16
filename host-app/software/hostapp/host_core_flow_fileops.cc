@@ -137,9 +137,15 @@ bool add_entry(const HcFoEnv &e, const char *name, const char *path, const char 
         note(e, t, HCT_BAD);
         return false;
     }
+    if (hc_cfg().n >= BOOT_MAX) {                              // T223 P4: the full menu says so, and how many entries it holds
+        char t[120];
+        snprintf(t, sizeof(t), "Menu full (%d/%d): remove one in F5 first.", hc_cfg().n, BOOT_MAX);
+        note(e, t, HCT_BAD);
+        return false;
+    }
     int ar = hc_entry_add(name, path, hash, size, fst.mtime, hdr);
     if (ar == HCR_REFUSED) {
-        note(e, "cannot add: the menu is full or the name has a '|'", HCT_BAD);
+        note(e, "cannot add: the name has a '|' or a line break", HCT_BAD);
         return false;
     }
     e.after_add(e.ctx, ar, path);

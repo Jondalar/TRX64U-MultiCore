@@ -20,10 +20,12 @@ struct PictureEnv {
     uint16_t native;          // T187 D5: the rows its short video descriptors flag as native (0: none known)
     bool gateware;            // the host's status register answered (video_gateware_present()): Scale and Smoothing, the exact mode, the 1 s status wait
     int sys;                  // the machine's 50/60 Hz family (VID_SYS_*), -1: what video_current says
+    bool vic_scale;           // T222: the gateware scales the VIC's picture with a scale register (video_gateware_vic_scale()): a core with no frame buffer gets a Scale item
+    bool vic_smooth;          // T227: that gateware also smooths (video_gateware_vic_smooth(), register 0x4F0B): the Scale item gets a Smoothing item after it
 };
 
 // out = *d with the Picture item after d's own settings; for every frame-buffer core on a host whose gateware scales (env->gateware), Scale and
-// Smoothing follow it. `store` holds the merged array (SETTINGS_MAX items) and has to outlive `out`. Returns null, or the reason when the core has no
+// Smoothing follow it; a core whose picture is the VIC (no frame buffer) on a gateware with the VIC scaler (env->vic_scale, T222) gets Scale (0x4F01), and Smoothing too when env->vic_smooth (T227, 0x4F0B). `store` holds the merged array (SETTINGS_MAX items) and has to outlive `out`. Returns null, or the reason when the core has no
 // room for the items or declares a key itself. The menu, the boot sequence and the settings read the merged copy (CoreCtx::desc points at it), never
 // the table's original. The Picture list is Auto and the resolutions of video_modes_hdmi_list() for the mask and the machine's family (D11a, Q6);
 // env null: every row, no gateware.
@@ -53,6 +55,10 @@ void smooth_apply(CoreCtx *c, int value);
 // Takes the mode the stored choice says (Auto when there is none), through the same path as a change at run time.
 // Returns the mode the picture is in.
 int picture_start(CoreCtx *c, int sys, int hdmi_now);
+
+// T224 D2/D3: "Boot safe graphics mode". Puts Picture = Auto, Scale = Integer, Smoothing = Off in force for this run (Settings::override_value: nothing is written, the stored values
+// stay in the .cfg); only those of the three the core has. Call after the settings are read and before picture_start. Returns how many it overrode.
+int picture_safe(CoreCtx *c);
 
 // T140 D24: the System Mode (0 PAL, 1 NTSC, 2 PAL-60, 3 NTSC-50, the order of t_video_mode) of a core whose clock follows it: the HDMI mode stays, the
 // host's PLL and scan registers go to `sys` through the same call a change of the Picture makes, video_current and the Video follow. The caller writes the

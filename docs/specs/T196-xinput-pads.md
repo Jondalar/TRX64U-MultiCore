@@ -1,6 +1,6 @@
 # T196 — An Xbox-style (XInput) controller on a USB cable works in the console cores (NES, SNES, Neo Geo), as a HID gamepad does
 
-**Status:** BUILDING (app code and native tests on branch t196-xinput, 2026-11-10; S5/S6 open).
+**Status:** BUILT, merged to main (3887b1dbf); S1-S4 native tests; S5 board PASS 2026-11-10 (Series Pro pad on a USB cable; HID pad and keyboard beside it not checked); S6 (third-party pad, X mode, #55) tester open, so not DONE. 2026-11-15 sync: the old 'BUILDING ... S5/S6 open' text removed.
 **Repo:** TRX64U-MultiCore — the USB host driver the apps compile (`host-app/software/io/usb/`, our copy with patches) and the core app's pad
 service (`coreapp/src/pad.cc`, `hidpad.cc`). No gateware. Host app: nothing (the host menu takes no gamepad).
 **Number:** T196.
@@ -106,3 +106,21 @@ Parts:
 - **Board pass S5 (2026-11-10):** Alex: "Xbox Series Pro controller via USB works 1A" (translated), on a USB cable. Build: branch
   `t196-xinput` 1035cb05a with main merged (0e320374f), core app packed with the `main-038d80c1` mono bitstreams into `nes.cor`,
   `snes.cor`, `neogeo.cor` (`tools/pack_large_cor.sh`, read back identical on the SD). Not checked separately: a HID pad and a keyboard beside it.
+- **Tester report 2026-11-13/14 (#55):** Xbox Series X/S pad on a USB-C to A cable in the SNES core: button and D-pad presses are
+  often missed (about half), a D-pad direction sometimes stays pressed after release; the left stick is responsive. F7 maps every
+  button except the guide button. The tester attached the pad's USB descriptors (json/txt in #55). Code analysis of the cause: running.
+- **Decision 2026-11-15 (Alex, translated):** "the measurement into the diag core then, as an extra test, before we build any big
+  gateware". The measurement that decides between the causes is a separate diag test; no pad fix and no gateware before it.
+- **Board S7 2026-11-15 (Alex, Xbox Elite Series 2 `045E:0B00`, GIP, EP bInterval 4 ms, max 64; diag xpad test, build diag-joy-menu
+  bd4071b51 app in the main-66f89900 diag bitstream):** `xpad20` (production poll 20 ms): 0x20 received 139, seq gaps 93, lost 193
+  (~58 % of the input reports), ack-bit 0/0, OUT ok 3 fail 0. `xpad4` (poll 4 ms, acks on): 0x20 received 252, seq gaps 0 (lost 0),
+  ack-bit 0/0, press/release Up 20/20, Down 20/20, Left 20/20, Right 20/20, A 21/21, B 20/20. Cause of #55: the 20 ms poll
+  (`coreapp/src/usb_xinput.cc:99`) is slower than the pad's 4 ms endpoint; the ack path is not involved (input carries no ack bit).
+- **Built 2026-11-15 (#55 fix, branch t196-xpad-poll):** `coreapp/src/usb_xinput.cc` `poll_interval()` (line 79) derives the IN pipe Interval
+  (125 us units) from the endpoint's bInterval: full/low speed ms * 8, high speed (`dev->speed == 2`) 2^(bInterval-1) microframes; clamped
+  to 8..160 units (1..20 ms), so no pad polls slower than the old fixed 20 ms and a bad descriptor cannot give 0. `install()` line 111 uses it
+  instead of the hard-coded 160. Only the XInput driver; `usb_hid.cc` unchanged. Elite Series 2 (bInterval 4) now polls at 32 units = 4 ms.
+  Proof so far: RISC-V build; board re-test of S7 with the production build still to do.
+- **Board PASS 2026-11-15 (Alex, #55 fix):** snes.cor = main-66f89900 bitstream + core app of t196-xpad-poll 09391001b (poll at the
+  pad's bInterval): "tested, good like this" (translated). The fix is in the shared core app, so NES, SNES and Neo Geo get it from
+  main; the Amiga cores get it with T225 (pad capability there).

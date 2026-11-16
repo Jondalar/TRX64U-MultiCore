@@ -10,6 +10,7 @@
 trx_io: host
 cart_unit: host
 host_hdmi_timing: host
+host_tone: host
 host_modepath: host
 ring_f4: host
 ring_trace: host
@@ -41,6 +42,8 @@ c264_colors: large:c264
 c264_tedsnd: large:c264
 pet_boot: large:pet
 pet_spet: large:pet
+pet_keys: large:pet
+pet_wl: large:pet
 pet_tape: large:pet
 eth: host
 pktport: host
@@ -134,6 +137,7 @@ cpc_io: large:cpc
 cpc_media: large:cpc
 cpc_pause: large:cpc
 cpc_fdcscan: large:cpc
+cpc_fdcfix: large:cpc
 cpc_pins: large:cpc
 zxnext_boot: large:zxnext
 zxnext_noimg: large:zxnext
@@ -159,6 +163,7 @@ snes_audio: large:snes
 snes_audio_q: large:snes
 snes_brr: large:snes
 snes_pins: large:snes
+snes_dsp: large:snes
 
 # T113 (the C128, a large core): every c128_* bench proves its flat build
 c128_machine: large:c128
@@ -228,3 +233,9 @@ c128_vicpic: large:c128
 c128_vicshow: large:c128
 c128_act: large:c128
 c128_vicpic_tear: large:c128
+c64scpu_hdmi_timing: large:c64scpu
+c64scpu_mode_req: large:c64scpu
+c64scpu_tmds_rep: large:c64scpu
+c64scpu_scaler: large:c64scpu
+c64scpu_text_geom: large:c64scpu
+c64scpu_hdmi_out: large:c64scpu

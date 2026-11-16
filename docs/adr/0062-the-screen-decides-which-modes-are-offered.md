@@ -27,4 +27,4 @@ the value from the host config, but each core should have its own settings."
 
 ## Links
 
-[T164](../specs/T164-host-package-2.md) S10-S12, §3b G11-G13, [T163](../specs/T163-own-settings-store.md), [T105](../specs/T105-video-mode.md), [ADR-0057](0057-every-application-owns-the-video-mode.md)
+[T164](../specs/done/T164-host-package-2.md) S10-S12, §3b G11-G13, [T163](../specs/done/T163-own-settings-store.md), [T105](../specs/done/T105-video-mode.md), [ADR-0057](0057-every-application-owns-the-video-mode.md)

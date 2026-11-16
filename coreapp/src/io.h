@@ -93,9 +93,16 @@ public:
     // T160 D1 / T164 WP11: the host's master volume, a byte at U64_AUDIO_MIXER + 0x50 (ultimate_sys.vhd, trx_gain.v in host/top.v): 128 unity, 0 silent,
     // 255 +6 dB. A host without it ignores the write.
     virtual void master_volume(uint8_t) { }
+    // T189: the host's tone preset, a byte at U64_AUDIO_MIXER + 0x51 (ultimate_sys.vhd, trx_tone.v in host/top.v): 0 Flat, 1 Bass boost, 2 Treble boost. A host
+    // without it ignores the write.
+    virtual void master_tone(uint8_t) { }
     // T181: the host's hotkey mask registers (U64_AUDIO_MIXER + 0x60 ...): MOD_A, MOD_B, the 8 mask bytes, the RESTORE bit (hotkeys.h hk_regs). A host without them
     // ignores the writes.
     virtual void hotkey_regs(const uint8_t r[11]) { (void)r; }
+    // T206: the application's own keys in the core's key matrix (MATRIX_KEYB, U2P_IO_BASE + 0x300; host/ultimate_sys.vhd page 001, host/app_input.v ORs them with
+    // the physical keyboard): m[col] bit row = down, the same col * 8 + row index as hotkeys.h. All zero releases every key the application holds. A host
+    // without the register ignores the write.
+    virtual void matrix_keys(const uint8_t m[8]) { (void)m; }
     // T181: the physical keys now, whatever the core is shown: m[col] bit row = down, and the RESTORE level. False: this host cannot say.
     virtual bool keys_read(uint8_t m[8], bool *restore) { (void)m; (void)restore; return false; }
     // The host's machine stop (C64_STOP) and the app's reset (C64_MODE reset / unreset).

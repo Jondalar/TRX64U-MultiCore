@@ -6,6 +6,10 @@ hdmi_timing.v (2026-11-02, T164 5, first made for the C128 core): vtot_m1 is com
 top.v is the base of this core's fork mono/top.v (mono/top.v.diff); the build reads mono/top.v. ultimate_sys.vhd is read with g_net = 0 (define NO_NET, T140 Q2b).
 T195 (2026-11-09): ui_buttons.v added (copied from host/); top.v, ultimate_sys.vhd and pins.xdc carry the same UI_BUTTON change as host/ (Menu: left and middle, Reset: right, ITU bit 5/7 move).
 
+T222 (2026-11-15, the HDMI rows of TRX64-Ultimate U16): copies from TRX64-Ultimate branch u16 at d48734d8 (gateware unchanged to head 422f9dce; those files came from this tree's host/ in the first place, T94 D1): scpu_hdmi_modes.vh (the 7 locked rows, hm_geom, hm_align, hm_rate_alt; generated there by tools/hdmi_modes.py gen), hdmi_timing.v, cdce_mode.v (always hm_cdce_lock), mode_req.v (+ the scale at 0x4F01, 0x4F0A; version 2 here), vic_scaler.v (rewritten there: 64-line ring, fractional accumulators), c64_text.v (hm_geom geometry), hdmi_enc/hdmi.v (the T181 registered last line, ey_m1: edited into this copy, the file keeps the trx_ names). Edited here: hdmi_out.v (the VIC path in every row, vmode, no c64_type / core_decouple / relock, as U16's top.v:1514-1635 wires it). Unchanged: tmds_rep.v, overlay.v, pix_layer.v, hdmi_gtp.v and mode_ctl.v (comment-only differences). The rows 10 and 11 (1024 x 768, 1280 x 1024) are gone from the table: they do not lock (U16 D2), this core is a C64-type one. Spec docs/specs/T222-scpu-hdmi-modes.md; benches cores/c64scpu/sim/hdmi.
+
+T189 (2026-11-15): trx_tone.v added (copied from host/); trx_gain.v (25-bit input), top.v and ultimate_sys.vhd carry the same tone-preset change as host/ (register 0x51), and the core's own mono/top.v too.
+
 Files:
 app_i2c.v
 app_input.v
@@ -38,7 +42,7 @@ hdmi_enc/packet_assembler.sv
 hdmi_enc/packet_picker.sv
 hdmi_enc/tmds_channel.sv
 hdmi_gtp.v
-hdmi_modes.vh
+scpu_hdmi_modes.vh
 hdmi_out.v
 hdmi_timing.v
 i2s_out.v
@@ -62,6 +66,7 @@ rvlite_wrapper_dc.vhd
 tmds_rep.v
 top.v
 trx_gain.v
+trx_tone.v
 uci_unit.vhd
 ui_buttons.v
 ultimate_sys.vhd

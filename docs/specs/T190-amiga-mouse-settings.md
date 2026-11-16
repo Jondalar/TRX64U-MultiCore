@@ -1,6 +1,6 @@
 # T190 — A fast USB mouse can be tamed in the Amiga cores' menu
 
-**Status:** DECIDED (2026-11-06), build open.
+**Status:** DECIDED (2026-11-06); BUILT, merged to main (01b55e397); S1, S2 proven (§5); S3 board (Lemmings, A500) open, so not DONE. 2026-11-15 sync: 'build open' removed.
 **Repo:** TRX64U-MultiCore — core app (Amiga descriptors `coreapp/cores/amiga*.cc`, the USB mouse path); no gateware.
 **Number:** T190.
 **Origin:** GitHub issue #51 (a tester, 2026-11-06): with a 1000 DPI mouse the pointer in Lemmings on the A500 core moves too far; the

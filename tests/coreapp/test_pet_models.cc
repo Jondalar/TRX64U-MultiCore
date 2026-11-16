@@ -27,6 +27,29 @@ static std::vector<uint8_t> prg(uint16_t load)        // "10 PRINT": link, line 
 
 int main()
 {
+    // --- T216 D15: the CRC32 and the reference table
+    CHECK(pet_crc32((const uint8_t *)"123456789", 9) == 0xCBF43926u);
+    CHECK(pet_rom_crc_of("kernal-4.901465-22.bin") == 0xcc5298a1u);
+    CHECK(pet_rom_crc_of("waterloo-e000.901897-01.bin") == 0xb2cee903u);
+    CHECK(pet_rom_crc_of("basic.bin") == 0);                       // a generic name has no reference: not checked
+    for (unsigned i = 0; i < sizeof(pet_rom_crcs) / sizeof(pet_rom_crcs[0]); i++) {
+        CHECK(pet_rom_crcs[i].crc != 0);
+        for (unsigned k = i + 1; k < sizeof(pet_rom_crcs) / sizeof(pet_rom_crcs[0]); k++) {
+            CHECK(strcmp(pet_rom_crcs[i].name, pet_rom_crcs[k].name) != 0);
+        }
+    }
+    // every name pet_rom_names can return has a reference
+    for (int m = PET_M_2001; m <= PET_M_2001B2; m++) {
+        for (int hz = 0; hz < 2; hz++) {
+            for (int r = PET_R_BASIC; r <= PET_R_CHAR; r++) {
+                const char *n[6];
+                int c = pet_rom_names(m, hz != 0, r, n);
+                for (int k = 0; k < c; k++) {
+                    CHECK(pet_rom_crc_of(n[k]) != 0);
+                }
+            }
+        }
+    }
     // --- the files per model
     CHECK(first_is(PET_M_2001, false, PET_R_BASIC, "basic-1.901439-09-05-02-06.bin"));
     CHECK(first_is(PET_M_2001, false, PET_R_EDITOR, "edit-1-n.901439-03.bin"));
@@ -46,6 +69,40 @@ int main()
         CHECK(first_is(m, false, PET_R_EDITOR, "edit-4-80-b-60Hz.901474-03.bin"));
         CHECK(first_is(m, true, PET_R_EDITOR, "edit-4-80-b-50Hz.901474-04.bin"));
         CHECK(first_is(m, false, PET_R_CHAR, "characters.901640-01.bin"));
+    }
+    // T216 P6: VICE's names of the model only, no generic file and no other model's stands in (the app refuses and names the file)
+    for (int m = PET_M_2001; m <= PET_M_2001B2; m++) {
+        for (int hz = 0; hz < 2; hz++) {
+            for (int role = PET_R_BASIC; role <= PET_R_CHAR; role++) {
+                const char *g[6];
+                int c = pet_rom_names(m, hz != 0, role, g);
+                CHECK(c >= 1 && c <= 2);
+                for (int i = 0; i < c; i++) {
+                    CHECK(strcmp(g[i], "basic.bin") && strcmp(g[i], "edit.bin") && strcmp(g[i], "kernal.bin") && strcmp(g[i], "chargen.bin") && strcmp(g[i], "characters.bin") &&
+                          strcmp(g[i], "basic") && strcmp(g[i], "kernal") && strcmp(g[i], "chargen"));
+                }
+            }
+        }
+    }
+    // P8: the 2001 + BASIC 2 is the 2001 board with the 3032's ROMs; the core is given the 2001's model number
+    CHECK(first_is(PET_M_2001B2, false, PET_R_BASIC, "basic-2.901465-01-02.bin"));
+    CHECK(first_is(PET_M_2001B2, false, PET_R_EDITOR, "edit-2-n.901447-24.bin"));
+    CHECK(first_is(PET_M_2001B2, false, PET_R_KERNAL, "kernal-2.901465-03.bin"));
+    CHECK(first_is(PET_M_2001B2, false, PET_R_CHAR, "characters-1.901447-08.bin"));
+    CHECK_EQ(pet_hw_model(PET_M_2001B2), PET_M_2001);
+    CHECK_EQ(pet_hw_model(PET_M_SUPERPET), PET_M_SUPERPET);
+    CHECK(!pet_crtc(PET_M_2001B2) && pet_crtc(PET_M_SUPERPET));
+    CHECK_EQ(pet_basic_gen(PET_M_2001B2), 2);
+    CHECK_EQ(pet_basic_gen(PET_M_2001), 1);                         // BASIC 1 stays the original
+    {
+        CbmPrgParams pb = pet_prg_params(PET_M_2001B2);
+        CHECK_EQ(pb.basic_starts[0], 0x0401); CHECK_EQ(pb.txttab, 0x28);   // BASIC 2's zero page, not BASIC 1's
+    }
+    // the SuperPET takes only the 4 KiB character file (its upper half is the Waterloo set)
+    {
+        const char *g[6];
+        CHECK_EQ(pet_rom_names(PET_M_SUPERPET, false, PET_R_CHAR, g), 1);
+        CHECK_EQ(pet_rom_names(PET_M_8032, false, PET_R_CHAR, g), 2);
     }
     const char *n[6];
     pet_rom_names(PET_M_8032, false, PET_R_CHAR, n);

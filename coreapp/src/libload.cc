@@ -32,6 +32,8 @@ LibLoader::LibLoader(LibHost *host, OpRegistry *reg, uint16_t base_minor)
     ops_.size = sizeof(ops_);
     ops_.call = svc_call;
     ops_.state = svc_state;
+    lib_.size = sizeof(lib_);
+    lib_.find = svc_lib_find;
     fs_.size = sizeof(fs_);
     fs_.open = svc_open;
     fs_.read = svc_fread;
@@ -60,6 +62,7 @@ LibLoader::LibLoader(LibHost *host, OpRegistry *reg, uint16_t base_minor)
     api_.trx = 0;
     api_.net = 0;
     api_.c64 = 0;
+    api_.lib = &lib_;
 }
 
 LibLoader::~LibLoader()
@@ -153,6 +156,18 @@ int LibLoader::svc_call(const char *name, const OpIn *in, int nin, OpResult *r)
         return OPE_UNSUPPORTED;
     }
     return L->reg_->call(L->ctx_, name, in, nin, r);
+}
+
+const void *LibLoader::svc_lib_find(const char *name, uint32_t min_version, uint32_t *table_size)
+{
+    const Slot *s = name ? s_ld->find(name) : 0;
+    if (!s || s->info.kind != U2A3_KIND_LIB || s->info.version < min_version || !s->info.record.exports) {
+        return 0;
+    }
+    if (table_size) {
+        *table_size = s->info.record.exports_size;
+    }
+    return s->info.record.exports;
 }
 
 const char *LibLoader::svc_state(const char *name, uint32_t *rev)
@@ -347,6 +362,9 @@ int LibLoader::fail(int rc, char *err, int errlen, const char *fmt, ...)
 
 void LibLoader::discard(int si)
 {
+    for (int i = 0; i < slot_[si].ndep; i++) {
+        unuse(slot_[si].dep[i]);                        // what this image needed is free for eviction once nothing else uses it
+    }
     delete slot_[si].info.menu;
     delete[] slot_[si].info.menu_bytes;
     free_account(si);
@@ -522,6 +540,7 @@ int LibLoader::load(LibSource *src, int *handle, char *err, int errlen)
 
     // D11: what it needs, by name and both versions
     char vw[16], vh[16];
+    int deps[U2A3_NEEDS_MAX], ndeps = 0;                // the loaded images this one needs (T197 D8: counted as used while this one is loaded)
     for (int i = 0; i < h.needs_count; i++) {
         U2a3Need nd;
         if (!src->read(h.needs_offset + i * U2A3_NEED_SIZE, &nd, sizeof(nd)) || !field_ok(nd.name, false)) {
@@ -544,6 +563,7 @@ int LibLoader::load(LibSource *src, int *handle, char *err, int errlen)
             version_text(vh, dep->info.version);
             return fail(LIB_NEEDS, err, errlen, "\"%s\" needs \"%s\" %s, %s is loaded.", name, nd.name, vw, vh);
         }
+        deps[ndeps++] = (int)(dep - slot_);
     }
 
     // Q10: a library whose capability the core lacks is refused, with a message, before any memory is spent
@@ -631,6 +651,11 @@ int LibLoader::load(LibSource *src, int *handle, char *err, int errlen)
     s.info.image_size = isize;
     s.info.main_addr = h.main_offset == U2A3_NONE ? 0 : base + h.main_offset;
     s.raw = raw;
+    for (int i = 0; i < ndeps; i++) {
+        s.dep[i] = deps[i];
+        use(deps[i]);
+    }
+    s.ndep = ndeps;
 
     if (h.register_offset != U2A3_NONE) {
         // D10.2: the library registers what it contributes under its own name; a failure takes back everything it got in
@@ -652,6 +677,8 @@ int LibLoader::load(LibSource *src, int *handle, char *err, int errlen)
         } else if (rec.nops < 0 || rec.nstates < 0 || rec.nevents < 0 || (rec.nops && !rec.ops) || (rec.nstates && !rec.states) ||
                    (rec.nevents && !rec.events)) {
             bad = fail(LIB_REGISTER, err, errlen, "Library \"%s\" returned a record with a count and no list.", name);
+        } else if (rec.exports && rec.exports_size < sizeof(uint32_t)) {
+            bad = fail(LIB_REGISTER, err, errlen, "Library \"%s\" returned a call table with no size.", name);
         } else {
             reg_->contributor(s.info.name);
             int r = OPE_OK;
@@ -742,6 +769,43 @@ int LibLoader::release(int handle, char *err, int errlen)
         return fail(LIB_STATE, err, errlen, "\"%s\" is resident and stays loaded.", s.info.name);
     }
     reg_->drop_owner(s.info.name);                      // its operations, state values and events go before the code they point into
+    if (cur_ == handle) {
+        cur_ = -1;
+    }
+    discard(handle);
+    count_--;
+    return LIB_OK;
+}
+
+void LibLoader::use(int handle)
+{
+    if (handle >= 0 && handle < LIB_MAX && slot_[handle].used) {
+        slot_[handle].uses++;
+    }
+}
+
+void LibLoader::unuse(int handle)
+{
+    if (handle >= 0 && handle < LIB_MAX && slot_[handle].used && slot_[handle].uses > 0) {
+        slot_[handle].uses--;
+    }
+}
+
+int LibLoader::uses(int handle) const
+{
+    return handle >= 0 && handle < LIB_MAX && slot_[handle].used ? slot_[handle].uses : 0;
+}
+
+int LibLoader::unload(int handle, char *err, int errlen)
+{
+    if (handle < 0 || handle >= LIB_MAX || !slot_[handle].used) {
+        return fail(LIB_STATE, err, errlen, "Nothing is loaded under handle %d.", handle);
+    }
+    Slot &s = slot_[handle];
+    if (s.info.kind != U2A3_KIND_LIB || s.uses > 0) {
+        return fail(LIB_STATE, err, errlen, "\"%s\" is not an unused library.", s.info.name);
+    }
+    reg_->drop_owner(s.info.name);
     if (cur_ == handle) {
         cur_ = -1;
     }

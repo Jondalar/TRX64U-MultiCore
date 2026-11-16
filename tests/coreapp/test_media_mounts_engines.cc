@@ -1,4 +1,4 @@
-// T180 D2 and D5 for every core (docs/specs/T180-media-housekeeping.md, scenarios S2, S3 and S8): the cores whose media engine has a mount state of its own - the Apple IIe
+// T180 D2 and D5 for every core (docs/specs/done/T180-media-housekeeping.md, scenarios S2, S3 and S8): the cores whose media engine has a mount state of its own - the Apple IIe
 // (D1 D2 S7.1 S7.2), the Atari (D1-D4, the cartridge, a .xex boot disk), the CPC (A B Tape), the Spectrum (Tape), the drive library of the VC-20, the C128, the C264 and the C64
 // (Drive A, read/write, read only, unlinked) with the cartridge ports of the C64 and the C264, the NES, the SNES and the Neo Geo (the game, a .neo file or a ROM set folder) -
 // keep their mounts in the core's .cfg ("Persist medium mounts"), mount them again in boot_start BEFORE the core is released, leave a slot whose medium is gone empty with a note,

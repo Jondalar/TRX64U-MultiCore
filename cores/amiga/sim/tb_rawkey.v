@@ -10,10 +10,10 @@ module tb_rawkey;
     initial #1000 sys_rst = 0;
     reg [63:0] keys = 0; reg restore = 0;
     reg [7:0] rkd = 0; reg rkt = 0;
-    wire room; wire kml; wire [1:0] kmt; wire [7:0] kmd; wire [2:0] mb; wire [7:0] j0, j1; wire rk;
-    amiga_input dut (.sys_clk(sys_clk), .sys_rst(sys_rst), .ce28(ce28), .keys(keys), .restore(restore), .joy1(5'd0), .joy2(5'd0), .joy_swap(1'b0),
+    wire room; wire kml; wire [1:0] kmt; wire [7:0] kmd; wire [2:0] mb; wire [10:0] j0; wire [7:0] j1; wire cd32en; wire rk;
+    amiga_input dut (.sys_clk(sys_clk), .sys_rst(sys_rst), .ce28(ce28), .keys(keys), .restore(restore), .joy1(5'd0), .joy2(5'd0), .joy_swap(1'b0), .pad_word(11'd0), .pad_mode(2'd0),
         .mouse_dx(8'd0), .mouse_dy(8'd0), .mouse_btn(3'd0), .mouse_tgl(1'b0), .rk_data(rkd), .rk_tgl(rkt), .rk_room(room),
-        .kbd_mouse_level(kml), .kbd_mouse_type(kmt), .kbd_mouse_data(kmd), .mouse_buttons(mb), .joystick0(j0), .joystick1(j1), .reset_kbd(rk));
+        .kbd_mouse_level(kml), .kbd_mouse_type(kmt), .kbd_mouse_data(kmd), .mouse_buttons(mb), .joystick0(j0), .cd32pad2_en(cd32en), .joystick1(j1), .reset_kbd(rk));
     reg [1:0] ev_t [0:127]; reg [7:0] ev_d [0:127]; time ev_ns [0:127]; integer nev = 0;
     always @(kml) if (!sys_rst) begin ev_t[nev] = kmt; ev_d[nev] = kmd; ev_ns[nev] = $time; nev = nev + 1; end
     integer errors = 0;

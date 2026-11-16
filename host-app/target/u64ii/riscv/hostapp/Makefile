@@ -169,6 +169,18 @@ SRCS_CC	 =  u64ii_init.cc \
 			host_core_flow_esp.cc \
 			host_core_flow_fileops.cc \
 			host_core_flow_wifi.cc \
+			host_core_flow_zip.cc \
+			hostzip_board.cc \
+			appindex.cc \
+			libload.cc \
+			libscan.cc \
+			libmenu.cc \
+			descrec.cc \
+			ops.cc \
+			corefolder.cc \
+			fm_fs.cc \
+			fm_medium.cc \
+			fastseek.cc \
 			host_core_nav.cc \
 			host_core_cm.cc \
 			host_core_cfgov.cc \
@@ -228,6 +240,7 @@ LIBS   += ../../../libs/riscv/lvgl/result/liblvgl.a
 LFLAGS   = --gc-sections --wrap=outbyte --wrap=malloc --wrap=_malloc_r --wrap=free --wrap=_free_r --wrap=realloc --wrap=_realloc_r --wrap=calloc --wrap=_calloc_r
 LINKMETHOD = ld
 
+VERSION_COMPONENT = hostapp          # T221: ci/version.sh <component> names the SemVer file the TRXVSTAMP field starts from
 include ../../../common/rules.mk
 
 # the hash loop is the hot spot of the bundle check

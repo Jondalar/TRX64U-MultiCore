@@ -145,5 +145,35 @@ int main()
     CHECK_EQ(x.value(vid), 1);                       // a label matches ignoring case and outer spaces (Gideon's reader does)
     CHECK_EQ(x.value(spd), 2);
     CHECK_EQ(x.value(joy), 1);                       // no trailing newline needed
+    // T224 D2/D3: an override is in force for this run and is written nowhere: not by a later save of the .cfg, not by Save as config; a change of the person ends it for that item
+    {
+        FakeFs fs2;
+        Settings o(it, n, STORE, &fs2, CFG, 0);
+        o.load();
+        CHECK(o.set(ram, 5));
+        CHECK(o.set(joy, 1));
+        CHECK_TXT(fs2.text(CFG), "[" STORE "]\nRAM size=576 KB Rambo\nJoystick ports=Swapped\n\n");
+        o.override_value(ram, 0);
+        o.override_value(spd, 3);                    // an item that is not in the file at all
+        CHECK_EQ(o.value(ram), 0);
+        CHECK_EQ(o.value(spd), 3);
+        CHECK(o.set(joy, 0));                        // another item changes: the file is written again
+        {
+            std::string want = "[" STORE "]\nRAM size=576 KB Rambo\nJoystick ports=" + std::string(it[joy].values[0]) + "\n\n";
+            CHECK_TXT(fs2.text(CFG), want.c_str());
+        }
+        CHECK(o.save());
+        CHECK(fs2.text(CFG).find("RAM size=576 KB Rambo") != std::string::npos && fs2.text(CFG).find("CPU speed") == std::string::npos);
+        int ns = 0;
+        CHECK(o.export_config("/usb0/cores/atari800/configs/x.cfg", 0, 0, 0, &ns));
+        CHECK(fs2.text("/usb0/cores/atari800/configs/x.cfg").find("RAM size=576 KB Rambo") != std::string::npos);
+        CHECK(fs2.text("/usb0/cores/atari800/configs/x.cfg").find(std::string("CPU speed=") + it[spd].values[it[spd].def]) != std::string::npos);
+        CHECK(o.set(ram, 2));                        // the person's own choice is stored and in force
+        CHECK_EQ(o.value(ram), 2);
+        CHECK(fs2.text(CFG).find(std::string("RAM size=") + it[ram].values[2]) != std::string::npos);
+        Settings t(it, n, STORE, &fs2, CFG, 0);
+        t.load();
+        CHECK_EQ(t.value(spd), it[spd].def);         // the next start reads the stored values, the override is gone
+    }
     DONE("test_settings");
 }

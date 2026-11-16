@@ -12,9 +12,13 @@ area F3 Library
     browser Browse
       filetype .rom: Load as system ROM image (72 KiB) | Set as 1541 ROM | Use as JiffyDOS C128 ROM | Use as JiffyDOS C64 ROM | Use as JiffyDOS 1541 ROM | Use as JiffyDOS 1581 ROM
       filetype .bin: Use as JiffyDOS C128 ROM | Use as JiffyDOS C64 ROM | Use as JiffyDOS 1541 ROM | Use as JiffyDOS 1581 ROM
+      filetype .prg: Load | Load + run
+      filetype .p00: Load | Load + run
       filetype .d64: Mount Disk | Mount Disk Read Only | Mount Disk Unlinked | Run Disk | Browse Disk
+        inside .prg: Mount & Run | Real Run
       filetype .g64: Mount Disk | Mount Disk Read Only | Mount Disk Unlinked | Run Disk
       filetype .d81: Mount Disk | Mount Disk Read Only | Run Disk | Browse Disk
+        inside .prg: Mount & Run | Real Run
 area F5 C128
   tab 1 C128
     setting 40/80 DISPLAY = 40 columns | 80 columns (default 40 columns, at next reset)
@@ -22,6 +26,7 @@ area F5 C128
     setting Auto switch = Off | On (default On, live)
     setting Auto switch time = 0.5 s | 1 s | 2 s | 3 s (default 1 s, live)
     setting Joystick ports = Normal | Swapped (default Normal, live)
+    setting Datasette port = Off (file only) | External datasette (default Off (file only), live)
     setting System Mode = PAL | NTSC | PAL-60 | NTSC-50 (default PAL, live)
     setting ROM set = Standard | JiffyDOS (default Standard, at next reset)
     setting JiffyDOS C128 ROM = a file the person selects (none by default, at next reset)

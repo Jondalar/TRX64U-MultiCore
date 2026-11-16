@@ -263,7 +263,7 @@ module layer2_pet #(
         .drv_tgl(drv_tgl), .drv_addr(drv_addr), .drv_we(drv_we), .drv_wdata(drv_wdata), .drv_be(drv_be), .drv_done_tgl(drv_done_tgl), .drv_rdata(drv_done_rdata),
         .sys_clk(sys_clk), .sys_rst(sys_rst), .cpu_clk(cpu_clk), .mclk(mclk), .ui_clk(ui_clk), .ui_rst(ui_rst),
         .reset_req(core_reset_req), .halt_req(c64_halt_req | machine_ctl[1] | app_stop | mc_halt_s[1]), .halted(c64_halted), .running(p_running),
-        .keys(c64_keys),
+        .keys(c64_keys), .joy1(c64_joy1), .joy2(c64_joy2),
         .dma_req_tgl(dma_req_tgl), .dma_addr(dma_addr), .dma_we(dma_we), .dma_wdata(dma_wdata), .dma_rom(dma_rom),
         .dma_done_tgl(dma_done_tgl), .dma_rdata(dma_rdata_q), .dbg_busy(dbg_re | dbg_we),
         .win_port_use(win_port_use), .win_port_addr(win_port_addr), .win_port_rom(win_port_rom),

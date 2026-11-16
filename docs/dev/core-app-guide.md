@@ -151,6 +151,7 @@ flash: `FlashLayer` has no write method, and a test counts the flash accesses of
 `picture.apply`); for every frame-buffer core on a host whose gateware scales, *Scale* (`SCALE_KEY`) and *Smoothing* (`SMOOTH_KEY`) follow;
 `volume_extend` adds *Volume* (`VOLUME_KEY`, 0 to 200 % in steps of 5, the host's master gain in `trx_gain.v`). A descriptor that declares one of these keys is
 refused, except a core with its own Volume or `own_volume = true`. SHIFT+ and SHIFT- on the menu step the item named `Volume` (`change_volume` in `menuctl.cc`).
+`tone_extend` (T189) adds *Tone* (`TONE_KEY`: Flat / Bass boost / Treble boost, the host's shelf filter in `trx_tone.v`, register `U64_AUDIO_MIXER + 0x51`) right after Volume in the same Audio group; `own_volume` does not remove it, a descriptor with its own *Tone* keeps it, `CoreDesc::no_tone` (neogeo, whose build has no filter) removes it.
 
 Settings can also carry `group`, `show_state` (show the row only while a state value holds) and `kind` 1/2 (a text the person types, shown plain or as stars).
 

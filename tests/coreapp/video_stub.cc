@@ -10,6 +10,14 @@ bool video_gateware_present(void) __attribute__((weak));
 bool video_gateware_present(void) { return false; }
 int video_gateware_row(void) __attribute__((weak));
 int video_gateware_row(void) { return -1; }
+bool video_gateware_vic_scale(void) __attribute__((weak));
+bool video_gateware_vic_scale(void) { return false; }
+bool video_set_scale_gateware(int) __attribute__((weak));
+bool video_set_scale_gateware(int) { return true; }
+bool video_gateware_vic_smooth(void) __attribute__((weak));
+bool video_gateware_vic_smooth(void) { return false; }
+bool video_set_smooth_gateware(int) __attribute__((weak));
+bool video_set_smooth_gateware(int) { return true; }
 bool video_edid_sig(uint32_t *) __attribute__((weak));
 bool video_edid_sig(uint32_t *) { return false; }
 bool video_read_edid(uint8_t *, int, int *len) __attribute__((weak));

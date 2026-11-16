@@ -31,7 +31,20 @@ struct CbmPrgParams {
     uint16_t ready_ms;           // how long the machine needs after a reset before it reads the buffer
     uint16_t p00_header;         // bytes a .P00 carries before the load address (0x1A)
     uint32_t min_size, max_size; // a file outside this is not a program
+    // T217: a machine whose CPU keeps its RAM where the application's RAM window does not reach (the SuperCPU: the 65816's bank 0 is its own SRAM in the DDR2,
+    // the window reaches the C64 RAM that only the pages $02-$FF mirror, and only from the CPU to the window, never back). mem_ddr != 0: every byte the
+    // loader places or reads goes to the DDR2 window at mem_ddr + address (and to the RAM window too, so the C64 side shows it); the caller then
+    // invalidates the CPU's cache (cbm_run.cc mem_sync).
+    uint32_t mem_ddr = 0;
 };
+
+// The machine's own memory (T217): through the RAM window, or through the DDR2 window when p.mem_ddr says that is where its CPU looks.
+void cbm_prg_mem_write(CoreIo *io, const CbmPrgParams &p, uint16_t addr, const void *data, uint32_t n);
+void cbm_prg_mem_read(CoreIo *io, const CbmPrgParams &p, uint16_t addr, void *data, uint32_t n);
+
+// T206: the key of a PETSCII character on the C64 keyboard: idx = col * 8 + row (hotkeys.h), shift = L SHIFT goes down with it. False: no key types it.
+struct CbmKey { uint8_t idx; bool shift; };
+bool cbm_key_for(uint8_t petscii, CbmKey *k);
 
 enum CbmPrgMode { CBM_PRG_LOAD = 0, CBM_PRG_RUN = 1 };
 

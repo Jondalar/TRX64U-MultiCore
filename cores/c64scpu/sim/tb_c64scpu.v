@@ -8,6 +8,8 @@
 //            +SHOT_AT=<us>    the same at that time ("evt| screen at ...")
 //            +PIXDUMP=<n>     write every pixel of the n-th VIC frame ("y x colour") into pixdump.txt: the picture as the VIC made it
 //            +SCRCODES        at the end of the +PIXDUMP frame write the 1000 screen codes of $0400 (hex, one per line) into scrcodes.txt
+//            +PRG_AT=<us>     T217 (run_prgrun.sh): at that time replay mem/prgscript.txt: what the application does to start a program (tools/cbm_prg_sim.cc): 1 ddr byte
+//                             writes into the DDR2 (the SRAM), 2 addr byte writes into the C64 RAM window, 3 1 the CPU cache flush, 4 ms hex64 the key matrix
 //            +TRACE           print every CPU bus cycle
 //            (always)         "mark|n|cycle" for every write to $0B00+n (n = 0..3): the PHI2 cycle counter at that bus cycle (T182 step 2)
 `timescale 1ns / 1ps
@@ -423,6 +425,46 @@ module tb_c64scpu;
         end
     endtask
 `endif
+
+
+    // ---- T217: the application's program start, replayed (run_prgrun.sh). The script is written by tools/cbm_prg_sim.cc from the application's own library code.
+    integer pg_us, pg_fd, pg_n, pg_ms, pg_prev, pg_nw = 0, pg_nr = 0, pg_nk = 0, pg_nf = 0;
+    reg [8*80-1:0] pg_line;
+    integer pg_t;
+    reg [31:0] pg_a, pg_off;
+    reg [7:0]  pg_b;
+    reg [63:0] pg_k;
+    initial if ($value$plusargs("PRG_AT=%d", pg_us)) begin
+        #(pg_us * 1000.0);
+        pg_fd = $fopen("mem/prgscript.txt", "r");
+        pg_prev = 0;
+        while (pg_fd != 0 && !$feof(pg_fd)) begin
+            pg_n = $fgets(pg_line, pg_fd);
+            if (pg_n != 0) begin
+                pg_n = $sscanf(pg_line, "%d", pg_t);
+                if (pg_t == 1 || pg_t == 2) pg_n = $sscanf(pg_line, "%d %h %h", pg_t, pg_a, pg_b);
+                if (pg_t == 1) begin
+                    pg_off = pg_a - 32'h01C00000;
+                    ddr.mem[pg_off >> 4][8 * pg_off[3:0] +: 8] = pg_b;
+                    pg_nw = pg_nw + 1;
+                end else if (pg_t == 2) begin
+                    ddr.mem[8192 + pg_a[15:4]][8 * pg_a[3:0] +: 8] = pg_b;
+                    pg_nr = pg_nr + 1;
+                end else if (pg_t == 3) begin
+                    rom_flush_tgl = ~rom_flush_tgl;
+                    pg_nf = pg_nf + 1;
+                    #200000.0;
+                end else if (pg_t == 4) begin
+                    pg_n = $sscanf(pg_line, "%d %d %h", pg_t, pg_ms, pg_k);
+                    #((pg_ms - pg_prev) * 1000000.0);
+                    pg_prev = pg_ms;
+                    keys = pg_k;
+                    pg_nk = pg_nk + 1;
+                end
+            end
+        end
+        $display("prg|%0d DDR2 bytes, %0d RAM-window bytes, %0d flushes, %0d key states replayed", pg_nw, pg_nr, pg_nf, pg_nk);
+    end
 
     reg [63:0] keyv = 64'd0;
     reg [15:0] acc;

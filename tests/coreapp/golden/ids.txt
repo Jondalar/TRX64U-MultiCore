@@ -133,11 +133,12 @@ VIC-20 F1/home 5 fixed:11:Load config...
 VIC-20 F5/settings 0 set:Memory Expansion (at next reset)
 VIC-20 F5/settings 1 set:Block 5 ($A000), when expanded
 VIC-20 F5/settings 2 set:JiffyDOS
-VIC-20 F5/settings 3 set:Drive
-VIC-20 F5/settings 4 set:Drive Bus ID
-VIC-20 F5/settings 5 set:Extra RAM
-VIC-20 F5/settings 6 set:Disk swap delay
-VIC-20 F5/settings 7 set:LED Load Indicator
+VIC-20 F5/settings 3 set:Datasette port
+VIC-20 F5/settings 4 set:Drive
+VIC-20 F5/settings 5 set:Drive Bus ID
+VIC-20 F5/settings 6 set:Extra RAM
+VIC-20 F5/settings 7 set:Disk swap delay
+VIC-20 F5/settings 8 set:LED Load Indicator
 VIC-20 F8/expert 0 fixed:13:Actions
 VIC-20 F8/expert 1 fixed:6:Restart core
 VIC-20 F8/expert 2 fixed:7:Return to host menu
@@ -162,11 +163,12 @@ Commodore 264 (C16, Plus/4) F1/home 7 fixed:11:Load config...
 Commodore 264 (C16, Plus/4) F5/settings 0 set:Model (at next reset)
 Commodore 264 (C16, Plus/4) F5/settings 1 set:RAM (at next reset)
 Commodore 264 (C16, Plus/4) F5/settings 2 set:Joystick ports (at next reset)
-Commodore 264 (C16, Plus/4) F5/settings 3 set:Drive
-Commodore 264 (C16, Plus/4) F5/settings 4 set:Drive Bus ID
-Commodore 264 (C16, Plus/4) F5/settings 5 set:Extra RAM
-Commodore 264 (C16, Plus/4) F5/settings 6 set:Disk swap delay
-Commodore 264 (C16, Plus/4) F5/settings 7 set:LED Load Indicator
+Commodore 264 (C16, Plus/4) F5/settings 3 set:Datasette port
+Commodore 264 (C16, Plus/4) F5/settings 4 set:Drive
+Commodore 264 (C16, Plus/4) F5/settings 5 set:Drive Bus ID
+Commodore 264 (C16, Plus/4) F5/settings 6 set:Extra RAM
+Commodore 264 (C16, Plus/4) F5/settings 7 set:Disk swap delay
+Commodore 264 (C16, Plus/4) F5/settings 8 set:LED Load Indicator
 Commodore 264 (C16, Plus/4) F8/expert 0 fixed:13:Actions
 Commodore 264 (C16, Plus/4) F8/expert 1 fixed:6:Restart core
 Commodore 264 (C16, Plus/4) F8/expert 2 fixed:7:Return to host menu
@@ -191,12 +193,22 @@ Commodore PET F1/home 7 fixed:11:Load config...
 Commodore PET F5/settings 0 set:Model (at next reset)
 Commodore PET F5/settings 1 set:CPU speed
 Commodore PET F5/settings 2 set:Diag (at next reset)
-Commodore PET F5/settings 3 set:Picture rate
-Commodore PET F5/settings 4 set:Phosphor
-Commodore PET F5/settings 5 set:RAM (at next reset)
-Commodore PET F5/settings 6 set:Drive 8 (at next reset)
-Commodore PET F5/settings 7 set:Datasette port
-Commodore PET F5/settings 8 set:SuperPET CPU (at next reset)
+Commodore PET F5/settings 3 set:RAM (at next reset)
+Commodore PET F5/settings 4 set:Drive 8 (at next reset)
+Commodore PET F5/settings 5 set:Datasette port
+Commodore PET F5/settings 6 set:SuperPET CPU (at next reset)
+Commodore PET F5/settings 7 set:SuperPET RAM (at next reset)
+Commodore PET F5/video 0 set:Picture rate
+Commodore PET F5/video 1 set:Phosphor
+Commodore PET F5/input 0 set:Keyboard mapping
+Commodore PET F5/input 1 set:Pad up key
+Commodore PET F5/input 2 set:Pad down key
+Commodore PET F5/input 3 set:Pad left key
+Commodore PET F5/input 4 set:Pad right key
+Commodore PET F5/input 5 set:Pad fire key
+Commodore PET F5/input 6 set:Pad map
+Commodore PET F5/input 7 task:Map buttons, pad 1
+Commodore PET F5/input 8 task:Map buttons, pad 2
 Commodore PET F8/expert 0 fixed:13:Actions
 Commodore PET F8/expert 1 fixed:6:Restart core
 Commodore PET F8/expert 2 fixed:7:Return to host menu
@@ -220,17 +232,18 @@ Commodore 128 F5/settings 1 set:Picture shown
 Commodore 128 F5/settings 2 set:Auto switch
 Commodore 128 F5/settings 3 set:Auto switch time
 Commodore 128 F5/settings 4 set:Joystick ports
-Commodore 128 F5/settings 5 set:System Mode
-Commodore 128 F5/settings 6 set:ROM set
-Commodore 128 F5/settings 7 set:JiffyDOS C128 ROM
-Commodore 128 F5/settings 8 set:JiffyDOS C64 ROM
-Commodore 128 F5/settings 9 set:JiffyDOS 1541 ROM
-Commodore 128 F5/settings 10 set:JiffyDOS 1581 ROM
-Commodore 128 F5/settings 11 set:Drive
-Commodore 128 F5/settings 12 set:Drive Bus ID
-Commodore 128 F5/settings 13 set:Extra RAM
-Commodore 128 F5/settings 14 set:Disk swap delay
-Commodore 128 F5/settings 15 set:LED Load Indicator
+Commodore 128 F5/settings 5 set:Datasette port
+Commodore 128 F5/settings 6 set:System Mode
+Commodore 128 F5/settings 7 set:ROM set
+Commodore 128 F5/settings 8 set:JiffyDOS C128 ROM
+Commodore 128 F5/settings 9 set:JiffyDOS C64 ROM
+Commodore 128 F5/settings 10 set:JiffyDOS 1541 ROM
+Commodore 128 F5/settings 11 set:JiffyDOS 1581 ROM
+Commodore 128 F5/settings 12 set:Drive
+Commodore 128 F5/settings 13 set:Drive Bus ID
+Commodore 128 F5/settings 14 set:Extra RAM
+Commodore 128 F5/settings 15 set:Disk swap delay
+Commodore 128 F5/settings 16 set:LED Load Indicator
 Commodore 128 F8/expert 0 fixed:13:Actions
 Commodore 128 F8/expert 1 fixed:6:Restart core
 Commodore 128 F8/expert 2 fixed:7:Return to host menu
@@ -252,12 +265,13 @@ C64 with SuperCPU F1/home 4 fixed:11:Load config...
 C64 with SuperCPU F5/settings 0 set:SuperCPU speed
 C64 with SuperCPU F5/settings 1 set:JiffyDOS
 C64 with SuperCPU F5/settings 2 set:Joystick ports
-C64 with SuperCPU F5/settings 3 set:System Mode
-C64 with SuperCPU F5/settings 4 set:Drive
-C64 with SuperCPU F5/settings 5 set:Drive Bus ID
-C64 with SuperCPU F5/settings 6 set:Extra RAM
-C64 with SuperCPU F5/settings 7 set:Disk swap delay
-C64 with SuperCPU F5/settings 8 set:LED Load Indicator
+C64 with SuperCPU F5/settings 3 set:Datasette port
+C64 with SuperCPU F5/settings 4 set:System Mode
+C64 with SuperCPU F5/settings 5 set:Drive
+C64 with SuperCPU F5/settings 6 set:Drive Bus ID
+C64 with SuperCPU F5/settings 7 set:Extra RAM
+C64 with SuperCPU F5/settings 8 set:Disk swap delay
+C64 with SuperCPU F5/settings 9 set:LED Load Indicator
 C64 with SuperCPU F8/expert 0 fixed:13:Actions
 C64 with SuperCPU F8/expert 1 fixed:6:Restart core
 C64 with SuperCPU F8/expert 2 fixed:7:Return to host menu
@@ -302,6 +316,7 @@ Super Nintendo F1/home 4 fixed:11:Load config...
 Super Nintendo F5/settings 0 set:Video standard
 Super Nintendo F5/settings 1 set:Pseudo high resolution
 Super Nintendo F5/settings 2 set:Pad map
+Super Nintendo F5/settings 3 set:DSP firmware
 Super Nintendo F5/input 0 task:Map buttons, pad 1
 Super Nintendo F5/input 1 task:Map buttons, pad 2
 Super Nintendo F8/expert 0 fixed:13:Actions
@@ -659,8 +674,11 @@ Amiga (OCS/ECS, 68000) F5/settings 6 set:Floppy write protect (next reset)
 Amiga (OCS/ECS, 68000) F5/settings 7 set:Real-time clock (at next reset)
 Amiga (OCS/ECS, 68000) F5/settings 8 set:Joystick ports
 Amiga (OCS/ECS, 68000) F5/settings 9 set:LED Load Indicator
-Amiga (OCS/ECS, 68000) F5/input 0 set:Mouse Sensitivity
-Amiga (OCS/ECS, 68000) F5/input 1 set:Mouse Acceleration
+Amiga (OCS/ECS, 68000) F5/input 0 set:Map port 2 to USB controller
+Amiga (OCS/ECS, 68000) F5/input 1 set:Port 2 acts as
+Amiga (OCS/ECS, 68000) F5/input 2 set:Mouse Sensitivity
+Amiga (OCS/ECS, 68000) F5/input 3 set:Mouse Acceleration
+Amiga (OCS/ECS, 68000) F5/input 4 task:Map port 2 buttons
 Amiga (OCS/ECS, 68000) F8/expert 0 fixed:13:Actions
 Amiga (OCS/ECS, 68000) F8/expert 1 fixed:6:Restart core
 Amiga (OCS/ECS, 68000) F8/expert 2 fixed:7:Return to host menu
@@ -694,8 +712,11 @@ Amiga 1200 (AGA, 68020) F5/settings 6 set:Floppy write protect (next reset)
 Amiga 1200 (AGA, 68020) F5/settings 7 set:Real-time clock (at next reset)
 Amiga 1200 (AGA, 68020) F5/settings 8 set:Joystick ports
 Amiga 1200 (AGA, 68020) F5/settings 9 set:LED Load Indicator
-Amiga 1200 (AGA, 68020) F5/input 0 set:Mouse Sensitivity
-Amiga 1200 (AGA, 68020) F5/input 1 set:Mouse Acceleration
+Amiga 1200 (AGA, 68020) F5/input 0 set:Map port 2 to USB controller
+Amiga 1200 (AGA, 68020) F5/input 1 set:Port 2 acts as
+Amiga 1200 (AGA, 68020) F5/input 2 set:Mouse Sensitivity
+Amiga 1200 (AGA, 68020) F5/input 3 set:Mouse Acceleration
+Amiga 1200 (AGA, 68020) F5/input 4 task:Map port 2 buttons
 Amiga 1200 (AGA, 68020) F8/expert 0 fixed:13:Actions
 Amiga 1200 (AGA, 68020) F8/expert 1 fixed:6:Restart core
 Amiga 1200 (AGA, 68020) F8/expert 2 fixed:7:Return to host menu

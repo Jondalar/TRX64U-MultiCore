@@ -468,6 +468,7 @@ static int start_game(CoreCtx *c, NeoParts &parts, const char *game_path, const 
 // A .neo file: the chips from the entry of the same name in romsets.xml (without one: none, and the message says so).
 static int run_file(CoreCtx *c, const char *path, char *msg, int msglen)
 {
+    MediaLoading loading(c);                               // T226 S1
     NeoPartsHeap held;
     if (!held.p) {
         snprintf(msg, msglen, "No memory to read the game's files");
@@ -499,6 +500,7 @@ static const ArgSpec run_args[] = { ARG_PATH("path") };
 // A folder of a cartridge's files: path = "<folder>/<set name>" (the menu appends what the person typed to the folder it chose); an empty name is the folder's own.
 static int run_dir(CoreCtx *c, const char *arg, char *msg, int msglen)
 {
+    MediaLoading loading(c);                               // T226 S1
     NeoPartsHeap held;
     if (!held.p) {
         snprintf(msg, msglen, "No memory to read the game's files");
@@ -723,6 +725,6 @@ const CoreDesc neogeo_desc = {
     neo_media_flush, neo_media_pending,        // T180 D4: the backup RAM's and the card's save
     &mount_slots,                              // T180 D2, D5: Cartridge
     &hk_console,                           // T181: the default hotkey map (hk_defaults.h)
-    0,                                     // alt_video
-    "System type,BIOS",                        // T212 D13: machine_info
+    0, true, 0,                            // alt_video, no_tone (T189 D6: neogeo's flat build has no tone filter until it places), rom_key
+    "System type,BIOS",                    // T212 D13: machine_info
 };

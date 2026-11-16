@@ -248,6 +248,113 @@ int main()
         CHECK_EQ(r.io.reset_asserts, 0);
         CHECK(!r.c.program_loaded);
     }
+    // --- T218 S1-S4: a DSP-n cartridge. No firmware: refused, naming the file(s) and the folder, machine untouched. A separate file in the core's roms folder: the 8192 bytes go to
+    // the chip's port in order and the mapper byte selects the chip. Appended to the image: used first, even when a file exists, and the image's size is the ROM's.
+    {
+        std::vector<uint8_t> fwa(SNES_DSP_FW_BYTES), fwb(SNES_DSP_FW_BYTES);
+        for (uint32_t i = 0; i < SNES_DSP_FW_BYTES; i++) { fwa[i] = (uint8_t)(i * 7 + 1); fwb[i] = (uint8_t)(i * 13 + 5); }
+        auto fw_stream = [](SnesRig &r) { std::vector<uint8_t> o; for (auto &w : r.io.log) if (w.reg == SNES_DSPFW) o.push_back(w.v); return o; };
+        {
+            FakeFs fs;
+            fs.put("/sd/games/mk.sfc", image(0x80000, 0x03, 0x09, 0x00, 0x01, "SUPER MARIO KART"));
+            SnesRig r(&fs);
+            char msg[300];
+            CHECK(run(r, "/sd/games/mk.sfc", msg, sizeof(msg)) != OPE_OK);                // S3
+            CHECK(strstr(msg, "dsp1b.bin") != 0 && strstr(msg, "dsp1.bin") != 0 && strstr(msg, "DSP-1") != 0 && strstr(msg, "append") != 0);
+            CHECK(r.io.log.empty());
+            CHECK(!r.c.program_loaded);
+            fs.put("/sd/cores/snes/roms/dsp1b.bin", fwa);                                 // S1
+            CHECK_EQ(run(r, "/sd/games/mk.sfc"), OPE_OK);
+            CHECK(fw_stream(r) == fwa);
+            CHECK_EQ(count_writes(r, SNES_DSPFW_REWIND, 0), 1);
+            CHECK_EQ(count_writes(r, SNES_ROM_TYPE, 0x80), 1);
+        }
+        {
+            FakeFs fs;                                                                    // S2: appended wins over the file
+            auto img = image(0x80000, 0x03, 0x09, 0x00, 0x01, "SUPER MARIO KART");
+            std::vector<uint8_t> both = img;
+            both.insert(both.end(), fwb.begin(), fwb.end());
+            fs.put("/sd/games/mk2.sfc", both);
+            fs.put("/sd/cores/snes/roms/dsp1b.bin", fwa);
+            SnesRig r(&fs);
+            CHECK_EQ(run(r, "/sd/games/mk2.sfc"), OPE_OK);
+            CHECK(fw_stream(r) == fwb);
+            CHECK_EQ(rd24(r, SNES_ROM_MASK), 0x7FFFFu);
+            CHECK(!memcmp(&r.io.ddr[SNES_W_ROM], img.data(), img.size()));
+        }
+        {   // S8 (D6): a firmware of our own in valid uPD7725 words (jump / load / operation, no real firmware), once low byte first, once with every word reversed
+            std::vector<uint8_t> lo(SNES_DSP_FW_BYTES), hi(SNES_DSP_FW_BYTES);
+            for (uint32_t i = 0; i < 2048; i++) {
+                uint32_t w = i % 3 == 0 ? (2u << 22 | 0x100u << 13 | (i & 0x7FF) << 2)                // JP with the jump-always branch field 100000000
+                           : i % 3 == 1 ? (3u << 22 | (i * 37 & 0xFFFF) << 6 | 3)                      // LD
+                                        : (i * 0x10101u & 0x3FFFFF);                                   // OP
+                for (int k = 0; k < 3; k++) { lo[3 * i + k] = (uint8_t)(w >> (8 * k)); hi[3 * i + 2 - k] = (uint8_t)(w >> (8 * k)); }
+            }
+            for (uint32_t i = 0; i < 1024; i++) {
+                uint16_t d = (uint16_t)(i * 77 + 0x1234);
+                lo[6144 + 2 * i] = (uint8_t)d; lo[6145 + 2 * i] = (uint8_t)(d >> 8);
+                hi[6144 + 2 * i] = (uint8_t)(d >> 8); hi[6145 + 2 * i] = (uint8_t)d;
+            }
+            for (int variant = 0; variant < 3; variant++) {                                        // 0 low first, 1 reversed as a file, 2 reversed and appended
+                FakeFs fs;
+                auto img = image(0x80000, 0x03, 0x09, 0x00, 0x01, "SUPER MARIO KART");
+                if (variant == 2) {
+                    img.insert(img.end(), hi.begin(), hi.end());
+                } else {
+                    fs.put("/sd/cores/snes/roms/dsp1b.bin", variant ? hi : lo);
+                }
+                fs.put("/sd/games/mk8.sfc", img);
+                SnesRig r(&fs);
+                CHECK_EQ(run(r, "/sd/games/mk8.sfc"), OPE_OK);
+                CHECK(fw_stream(r) == lo);
+            }
+            std::vector<uint8_t> rnd(SNES_DSP_FW_BYTES);                                           // neither: random bytes are written as they are
+            uint32_t x = 12345;
+            for (auto &b : rnd) { x = x * 1664525u + 1013904223u; b = (uint8_t)(x >> 24); }
+            FakeFs fs;
+            fs.put("/sd/cores/snes/roms/dsp1b.bin", rnd);
+            fs.put("/sd/games/mk9.sfc", image(0x80000, 0x03, 0x09, 0x00, 0x01, "SUPER MARIO KART"));
+            SnesRig r(&fs);
+            CHECK_EQ(run(r, "/sd/games/mk9.sfc"), OPE_OK);
+            CHECK(fw_stream(r) == rnd);
+        }
+        {
+            FakeFs fs;                                                                    // S4: the title picks the chip and its file; a wrong size file is not taken
+            fs.put("/sd/games/dm.sfc", image(0x100000, 0x03, 0x0A, 0x00, 0x01, "DUNGEON MASTER"));
+            fs.put("/sd/roms/snes/dsp2.bin", fwb);
+            fs.put("/sd/roms/snes/dsp1b.bin", fwa);
+            fs.put("/sd/games/g.sfc", image(0x100000, 0x03, 0x0A, 0x00, 0x01, "SD GUNDAM GX"));
+            fs.put("/sd/roms/snes/dsp3.bin", std::vector<uint8_t>(100, 1));
+            SnesRig r(&fs);
+            CHECK_EQ(run(r, "/sd/games/dm.sfc"), OPE_OK);
+            CHECK(fw_stream(r) == fwb);
+            CHECK_EQ(count_writes(r, SNES_ROM_TYPE, 0x90), 1);
+            char msg[300];
+            r.io.log.clear();
+            CHECK(run(r, "/sd/games/g.sfc", msg, sizeof(msg)) != OPE_OK);
+            CHECK(strstr(msg, "dsp3.bin") != 0);
+            CHECK(r.io.log.empty());
+        }
+        {
+            FakeFs fs;                                                                    // S7: the setting "DSP firmware" (index 3) overrides the title for every DSP cartridge, not for others
+            fs.put("/sd/games/mk.sfc", image(0x80000, 0x03, 0x09, 0x00, 0x01, "SUPER MARIO KART"));
+            fs.put("/sd/games/plain.sfc", image(0x80000, 0x00, 0x09, 0x00, 0x01));
+            SnesRig r(&fs);
+            r.st->set(3, 3);                                                              // DSP-3
+            char msg[300];
+            CHECK(run(r, "/sd/games/mk.sfc", msg, sizeof(msg)) != OPE_OK);
+            CHECK(strstr(msg, "dsp3.bin") != 0 && strstr(msg, "DSP-3") != 0 && strstr(msg, "dsp1b.bin") == 0);
+            CHECK(r.io.log.empty());
+            fs.put("/sd/cores/snes/roms/dsp3.bin", fwb);
+            CHECK_EQ(run(r, "/sd/games/mk.sfc"), OPE_OK);
+            CHECK(fw_stream(r) == fwb);
+            CHECK_EQ(count_writes(r, SNES_ROM_TYPE, 0xA0), 1);
+            r.io.log.clear();
+            CHECK_EQ(run(r, "/sd/games/plain.sfc"), OPE_OK);
+            CHECK(fw_stream(r).empty());
+            CHECK_EQ(count_writes(r, SNES_ROM_TYPE, 0x00), 1);
+        }
+    }
     // --- an image whose size is not a power of two: the part of the window the mask reaches is the cartridge's mirror (1.5 MiB: 1.5-2 MiB repeat 1-1.5 MiB)
     {
         FakeFs fs;

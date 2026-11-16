@@ -113,7 +113,7 @@ StartResult start_identify(const uint8_t id[4], const Handover *h, const CoreDes
 
 void start_paths(CoreCtx *c, const Handover *h, const BoardProfile *prof)
 {
-    c->cor_path[0] = c->cfg_path[0] = c->core_version[0] = 0;
+    c->cor_path[0] = c->cfg_path[0] = c->core_version[0] = c->host_version[0] = 0;
     c->host_key = 0;
     if (h && handover_valid(h)) {
         uint32_t key = 0;
@@ -136,6 +136,7 @@ void start_paths(CoreCtx *c, const Handover *h, const BoardProfile *prof)
         c->host_key = key;
         strncpy(c->cor_path, h->path, sizeof(c->cor_path) - 1);
         c->cor_path[sizeof(c->cor_path) - 1] = 0;
+        snprintf(c->host_version, sizeof(c->host_version), "%s", handover_host_version(h));
         strncpy(c->core_version, h->core_version, sizeof(c->core_version) - 1);
         c->core_version[sizeof(c->core_version) - 1] = 0;
         if (!corefolder_cfg(c->cor_path, c->cfg_path, sizeof(c->cfg_path))) {          // T148 D1: in the core folder
@@ -145,6 +146,52 @@ void start_paths(CoreCtx *c, const Handover *h, const BoardProfile *prof)
     if (!c->cfg_path[0] && prof && prof->cfg_dir && c->desc && c->desc->folder) {
         snprintf(c->cfg_path, sizeof(c->cfg_path), "%s/%s.cfg", prof->cfg_dir, c->desc->folder);
     }
+}
+
+bool start_file_take(CoreCtx *c, const Handover *h, char *config, int cfglen, bool *safe)
+{
+    config[0] = 0;
+    *safe = false;
+    if (!c->fs) {
+        return false;
+    }
+    const bool page = h && handover_valid(h) && h->path[0];
+    char path[HANDOVER_PATH_MAX + 32];
+    if (!startfile_path(page ? h->path : "/SD/x", path, sizeof(path))) {
+        return false;
+    }
+    uint64_t size;
+    bool dir;
+    if (!c->fs->stat(path, &size, &dir) || dir) {
+        return false;
+    }
+    static char buf[STARTFILE_MAX + 8];
+    int got = size < sizeof(buf) ? c->fs->load(path, buf, sizeof(buf)) : -1;
+    if (!c->fs->remove(path)) {
+        printf("[core] start file %s: could not be deleted\n", path);
+    }
+    char cor[HANDOVER_PATH_MAX], cfg[HANDOVER_CONFIG_MAX + 2];
+    bool sf = false;
+    if (got < 0 || !startfile_parse(buf, got, cor, sizeof(cor), cfg, sizeof(cfg), &sf)) {
+        printf("[core] start file %s: not a start file, dropped\n", path);
+        return false;
+    }
+    if (page) {
+        if (strcasecmp(cor, h->path)) {
+            printf("[core] start file %s: for %s, not for this start (%s), dropped\n", path, cor, h->path);
+            return false;
+        }
+    } else {
+        strncpy(c->cor_path, cor, sizeof(c->cor_path) - 1);
+        c->cor_path[sizeof(c->cor_path) - 1] = 0;
+        if (corefolder_cfg(c->cor_path, c->cfg_path, sizeof(c->cfg_path))) {
+            printf("[core] start file: no hand-over path, the core folder of %s is used\n", cor);
+        }
+    }
+    snprintf(config, cfglen, "%s", cfg);
+    *safe = sf;
+    printf("[core] start file %s read and deleted: config \"%s\", safe %d\n", path, cfg, sf ? 1 : 0);
+    return true;
 }
 
 bool start_migrate_cfg(CoreCtx *c, const BoardProfile *prof)

@@ -6,41 +6,45 @@ the build that filled the cache. host-app/target/common/rules.mk therefore emits
 the marker) and this tool overwrites it in the copy that goes into a package, with the version of the run (ci/version.sh). The image keeps its length;
 every instance of the field is patched (one per translation unit that includes gitinfo.h and uses it); none found is an error.
 
-  tools/stamp_version.py stamp <file>... --version <string>
-  tools/stamp_version.py read <file>
+  tools/stamp_version.py stamp <file>... --version <string> [--marker TRXVSTAMP|TRXHSTAMP|TRXBSTAMP]
+  tools/stamp_version.py read <file> [--marker ...]
+
+T221: three fields of the same size, each stamped with its own string: TRXVSTAMP the version of the application itself (host menu or core app),
+TRXHSTAMP the host gateware version the host app shows in its "host" chip, TRXBSTAMP the bundle version (the update file the host app belongs to).
   tools/stamp_version.py selftest
 """
 import sys
 
 MARK = b"TRXVSTAMP:"
+MARKERS = ("TRXVSTAMP", "TRXHSTAMP", "TRXBSTAMP")
 FIELD = 54
 
 
-def find(data):
+def find(data, mark=MARK):
     i, out = 0, []
     while True:
-        i = data.find(MARK, i)
+        i = data.find(mark, i)
         if i < 0:
             return out
-        out.append(i + len(MARK))
-        i += len(MARK)
+        out.append(i + len(mark))
+        i += len(mark)
 
 
-def stamp(data, version):
+def stamp(data, version, mark=MARK):
     v = version.encode("ascii")
     if len(v) >= FIELD:
         raise ValueError("version %r does not fit %d bytes (NUL terminated)" % (version, FIELD))
-    at = find(data)
+    at = find(data, mark)
     if not at:
-        raise ValueError("no TRXVSTAMP field in the image")
+        raise ValueError("no %s field in the image" % mark.decode())
     b = bytearray(data)
     for o in at:
         b[o:o + FIELD] = v + b"\0" * (FIELD - len(v))
     return bytes(b), len(at)
 
 
-def read(data):
-    return [data[o:o + FIELD].split(b"\0")[0].decode("ascii") for o in find(data)]
+def read(data, mark=MARK):
+    return [data[o:o + FIELD].split(b"\0")[0].decode("ascii") for o in find(data, mark)]
 
 
 def selftest():
@@ -54,20 +58,31 @@ def selftest():
             raise SystemExit("selftest: %s accepted" % what)
         except ValueError:
             pass
+    hs = b"TRXHSTAMP:"
+    two = MARK + b"a".ljust(FIELD, b"\0") + hs + b"b".ljust(FIELD, b"\0")
+    new, n = stamp(two, "0.2.0", hs)
+    assert n == 1 and read(new) == ["a"] and read(new, hs) == ["0.2.0"], "one marker must leave the other alone"
     print("stamp_version selftest ok")
 
 
 def main(a):
+    mark = MARK
+    if "--marker" in a:
+        k = a.index("--marker")
+        if a[k + 1] not in MARKERS:
+            sys.exit("stamp_version: marker %r, one of %s" % (a[k + 1], ", ".join(MARKERS)))
+        mark = a[k + 1].encode() + b":"
+        a = a[:k] + a[k + 2:]
     if a[:1] == ["selftest"]:
         return selftest()
     if a[:1] == ["read"] and len(a) == 2:
-        print("\n".join(read(open(a[1], "rb").read())))
+        print("\n".join(read(open(a[1], "rb").read(), mark)))
         return
     if a[:1] == ["stamp"] and "--version" in a:
         k = a.index("--version")
         ver, files = a[k + 1], a[1:k] + a[k + 2:]
         for f in files:
-            new, n = stamp(open(f, "rb").read(), ver)
+            new, n = stamp(open(f, "rb").read(), ver, mark)
             open(f, "wb").write(new)
             print("%s: version %s stamped into %d field(s)" % (f, ver, n))
         return

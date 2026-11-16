@@ -65,7 +65,7 @@ read_verilog -sv $hd/hdmi_gtp.v
 # T164 G4: the encoder is mono/host/hdmi_enc (six forked files); the three unforked ones come from the vendor tree
 read_verilog -sv [list {*}[glob $hd/hdmi_enc/*.sv] $hd/hdmi_enc/hdmi.v $core/hdmi/audio_sample_packet.sv $core/hdmi/audio_info_frame.sv \
   $core/hdmi/source_product_description_info_frame.sv]
-read_verilog [list $hd/top.v $hd/vic_scaler.v $hd/pal_ram.v $hd/hdmi_out.v $hd/hdmi_timing.v $hd/mode_req.v $hd/cdce_mode.v $hd/tmds_rep.v $hd/mode_ctl.v $hd/c64u_keyboard.v $hd/bling_keyboard.v $hd/jtag_dbg.v $hd/ddr2_port.v $hd/ddr2_ctrl.v $hd/ddr2_lean.v $hd/cal_seq.v $hd/i2s_out.v $hd/trx_gain.v $hd/portlock_clk.v $hd/esp_ctl.v $hd/ui_buttons.v \
+read_verilog [list $hd/top.v $hd/vic_scaler.v $hd/pal_ram.v $hd/hdmi_out.v $hd/hdmi_timing.v $hd/mode_req.v $hd/cdce_mode.v $hd/tmds_rep.v $hd/mode_ctl.v $hd/c64u_keyboard.v $hd/bling_keyboard.v $hd/jtag_dbg.v $hd/ddr2_port.v $hd/ddr2_ctrl.v $hd/ddr2_lean.v $hd/cal_seq.v $hd/i2s_out.v $hd/trx_gain.v $hd/trx_tone.v $hd/portlock_clk.v $hd/esp_ctl.v $hd/ui_buttons.v \
   $hd/con_ring.v $hd/pktport_host.v $hd/app_i2c.v $hd/overlay.v $hd/usb_phy.v $common/iec_bus.v \
   $hd/cart_fill.v $common/trx_io.v $common/trx_sys.v $common/dma_win.v $hd/pix_layer.v $hd/c64_text.v $common/trx_engine.v \
   $common/drv_dbg.v $hd/app_input.v $hd/rv_dbg.v $hd/bling_io.v $hd/case_leds.v $hd/reu_ddr_map.v $hd/dfx_decouple.v]
@@ -84,7 +84,7 @@ read_verilog -sv [list $iv/types.sv $iv/ieee_drive.sv $iv/ieee_misc.sv $iv/ieeed
   $iv/ieeedrv_track.sv $iv/ieeedrv_trkgen.sv $iv/M6532.sv $iv/ieeedrv_via6522.v $pr/trx/pet_dblk.v $pr/trx/pet_ieee.sv \
   $pr/src/mc6809/mc6809is.v]   ;# mc6809is.v declares a reg inside an unnamed begin block (SystemVerilog): -sv
 read_verilog [list $pr/src/cpu6502.v $pr/src/pia6520.v $pr/src/via6522.v $pr/src/pet2001io.v $pr/trx/pet_spet.v \
-  $pr/trx/pet_keys.v $pr/trx/pet_audio.v $pr/trx/pet_tape.v $pr/trx/pet_mem.v $pr/trx/pet_win.v $pr/trx/pet_vid.v \
+  $pr/trx/pet_keys.v $pr/trx/pet_padkeys.v $pr/trx/pet_audio.v $pr/trx/pet_tape.v $pr/trx/pet_mem.v $pr/trx/pet_win.v $pr/trx/pet_vid.v \
   $pr/trx/pet_regs.v $pr/trx/pet_pixw.v $pr/trx/pet_core.v $bdir/layer2_mono.v]
 
 read_xdc $hd/ddr2_pins.xdc

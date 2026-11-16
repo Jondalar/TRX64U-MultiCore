@@ -25,6 +25,7 @@ struct SnesState {
     SnesInfo info;
     bool hdr_pal;                          // the header's region
     uint8_t video;                         // the "Video standard" setting: 0 auto, 1 NTSC, 2 PAL
+    uint8_t dsp_choice;                    // T218 D4, the "DSP firmware" setting: 0 Auto (the title says), 1..4 = DSP-1..DSP-4 for every DSP cartridge
     uint8_t blend_off;                     // the "Pseudo high resolution" setting
     uint8_t *shadow;                       // the battery RAM as the save file last had it
     uint32_t shadow_bytes;
@@ -66,15 +67,20 @@ static void write_system(CoreCtx *c)
 }
 static int op_video(CoreCtx *c, const OpArgs &a, OpOut &) { snes_state(c)->video = (uint8_t)a.i(0); write_system(c); return OPE_OK; }
 static int op_blend(CoreCtx *c, const OpArgs &a, OpOut &) { snes_state(c)->blend_off = (uint8_t)a.i(0); write_system(c); return OPE_OK; }
+static int op_dspfw(CoreCtx *c, const OpArgs &a, OpOut &) { snes_state(c)->dsp_choice = (uint8_t)a.i(0); return OPE_OK; }
 static const char *const video_names[] = { "Auto (cartridge)", "NTSC", "PAL" };
 static const char *const blend_names[] = { "Blend", "512 wide" };
 static const ArgSpec video_arg[] = { ARG_INT("value", 0, 2) };
 static const ArgSpec blend_arg[] = { ARG_INT("value", 0, 1) };
+static const char *const dspfw_names[] = { "Auto", "DSP-1", "DSP-2", "DSP-3", "DSP-4" };
+static const ArgSpec dspfw_arg[] = { ARG_INT("value", 0, 4) };
 static const char *const padmap_names[] = { "Default", "Custom" };
-static const Setting settings[3] = {
+enum { SET_DSPFW = 3 };                                                  // the index of "DSP firmware" in the table below
+static const Setting settings[4] = {
     { "Video standard",        video_names, 3, 0, WHEN_RESET, "snes.set_video" },
     { "Pseudo high resolution", blend_names, 2, 0, WHEN_RESET, "snes.set_blend" },
     { "Pad map",               padmap_names, 2, 0, WHEN_LIVE, "pad.set_map" },
+    { "DSP firmware",          dspfw_names, 5, 0, WHEN_RESET, "snes.set_dspfw" },
 };
 
 // T156: the USB pads. The register's bit n is the controller's serial bit n (B Y Select Start Up Down Left Right A X L R); the default map is D3
@@ -100,6 +106,60 @@ static void write_ipl(CoreCtx *c)
     for (int i = 0; i < SNES_IPL_BYTES; i++) {
         c->io->wr(SNES_IPL + i, spc_ipl[i]);
         c->io->delay_us(2);                                   // each byte's strobe to the machine lasts 8 clocks
+    }
+}
+
+static uint8_t g_chunk[32768];
+
+// ---- the DSP-n firmware (T218) -----------------------------------------------------------------------------------------------
+// Never in the core (T142 D9). Two places, the first that has it wins: appended to the .sfc (the file is a power of two ROM size + 8192 bytes: the last 8192 are
+// the firmware), else a file of the chip's name in the core's own roms folder (<core folder>/roms/) or <root>/roms/snes/ of any root.
+static const char *const dsp_files[5][2] = { { 0, 0 }, { "dsp1b.bin", "dsp1.bin" }, { "dsp2.bin", 0 }, { "dsp3.bin", 0 }, { "dsp4.bin", 0 } };
+static const char *const dsp_chip[5] = { "", "DSP-1", "DSP-2", "DSP-3", "DSP-4" };
+
+// D4: a fixed choice of the setting replaces the title's chip for every DSP cartridge; the mapper byte follows (bits 5:4 = the chip).
+static void apply_dsp_choice(const SnesState *st, SnesInfo *i)
+{
+    if (i->dsp && st->dsp_choice) {
+        i->dsp = st->dsp_choice;
+        i->rom_type = (uint8_t)(0x80 | ((i->dsp - 1) << 4) | i->mapping);
+    }
+}
+
+static bool pow2_at_least_32k(uint64_t v) { return v >= 0x8000 && (v & (v - 1)) == 0; }
+
+// The separate file: true with the 8192 bytes in fw and its path in `src`.
+static bool dsp_fw_file(CoreCtx *c, uint8_t dsp, uint8_t *fw, char *src, int srclen)
+{
+    char own[96];
+    bool have_own = rom_own_dir(c->cor_path, own, sizeof(own));
+    for (int k = 0; k < 2 && dsp_files[dsp][k]; k++) {
+        for (int r = have_own ? -1 : 0; r < 0 || rom_roots[r]; r++) {
+            if (r < 0) {
+                snprintf(src, srclen, "%s/%s", own, dsp_files[dsp][k]);
+            } else {
+                snprintf(src, srclen, "%s/roms/snes/%s", rom_roots[r], dsp_files[dsp][k]);
+            }
+            uint64_t size;
+            bool dir;
+            if (c->fs->stat(src, &size, &dir) && !dir && size == SNES_DSP_FW_BYTES && c->fs->load(src, fw, SNES_DSP_FW_BYTES) == (int)SNES_DSP_FW_BYTES) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+// The firmware into the chip: the reset is held, the stream is rewound and the bytes go in one by one (snes_regs.v 0x140 / 0x141).
+static void write_dsp_fw(CoreCtx *c, uint8_t *fw)
+{
+    if (snes_dsp_fw_fix(fw)) {                                // D6: a high-byte-first file is turned around
+        printf("[snes] firmware turned around (high byte first)\n");
+    }
+    c->io->wr(SNES_DSPFW_REWIND, 0);
+    for (uint32_t i = 0; i < SNES_DSP_FW_BYTES; i++) {
+        c->io->wr(SNES_DSPFW, fw[i]);
+        c->io->delay_us(1);
     }
 }
 
@@ -270,9 +330,9 @@ static int snes_release(CoreCtx *c, char *, int)
 // The image's bytes into the window: the file from `off`, `n` bytes, to the window at `win`.
 static bool copy_image(CoreCtx *c, CoreFile *f, uint64_t off, uint32_t n, uint32_t win)
 {
-    static uint8_t chunk[32768];
-    for (uint32_t o = 0; o < n; o += sizeof(chunk)) {
-        uint32_t k = n - o < sizeof(chunk) ? n - o : (uint32_t)sizeof(chunk);
+    uint8_t *chunk = g_chunk;                                 // T218: one scratch buffer for the image copy, the fill and the DSP-n firmware (the RISC-V .bss is full)
+    for (uint32_t o = 0; o < n; o += sizeof(g_chunk)) {
+        uint32_t k = n - o < sizeof(g_chunk) ? n - o : (uint32_t)sizeof(g_chunk);
         if (!f->read(off + o, chunk, k)) {
             return false;
         }
@@ -304,10 +364,9 @@ static uint32_t mirror(uint32_t addr, uint32_t size)
 
 static void fill_ddr(CoreCtx *c, uint32_t win, uint8_t v, uint32_t n)
 {
-    static uint8_t chunk[32768];
-    memset(chunk, v, sizeof(chunk));
-    for (uint32_t o = 0; o < n; o += sizeof(chunk)) {
-        c->io->ddr_write(win + o, chunk, n - o < sizeof(chunk) ? n - o : (uint32_t)sizeof(chunk));
+    memset(g_chunk, v, sizeof(g_chunk));
+    for (uint32_t o = 0; o < n; o += sizeof(g_chunk)) {
+        c->io->ddr_write(win + o, g_chunk, n - o < sizeof(g_chunk) ? n - o : (uint32_t)sizeof(g_chunk));
     }
 }
 
@@ -337,6 +396,10 @@ static void write_rtc(CoreCtx *c)
 static int snes_run(CoreCtx *c, const char *path, char *msg, int msglen)
 {
     SnesState *st = snes_state(c);
+    MediaLoading loading(c);                               // T226 S1: "Loading cartridge..." until the function returns (the core runs or the load failed)
+    if (c->settings) {
+        st->dsp_choice = (uint8_t)c->settings->value(SET_DSPFW);      // the chip is needed while the image is read, before boot_finish applies the settings
+    }
     CoreFile *f = c->fs->open(path, false);
     if (!f) {
         snprintf(msg, msglen, "cannot open %s", path);
@@ -358,6 +421,56 @@ static int snes_run(CoreCtx *c, const char *path, char *msg, int msglen)
         snprintf(msg, msglen, "%s", info.err);
         return 1;
     }
+    // T218 D2: a DSP-n cartridge needs its firmware before the machine is touched: appended to the image first, else the chip's file.
+    apply_dsp_choice(st, &info);
+    uint8_t *fw = g_chunk;                                 // the firmware waits in the scratch buffer until it is written (before the image copy)
+    if (info.dsp) {
+        bool have = false;
+        char where[FS_PATH_MAX];
+        where[0] = 0;
+        if (pow2_at_least_32k(info.rom_bytes - SNES_DSP_FW_BYTES)) {          // power of two + 8192: the last 8192 bytes are the firmware
+            if (f->read(size - SNES_DSP_FW_BYTES, fw, SNES_DSP_FW_BYTES)) {
+                have = true;
+                snprintf(where, sizeof(where), "appended to the image");
+                size -= SNES_DSP_FW_BYTES;
+                uint8_t hb2[3][64];
+                const uint8_t *hp2[3] = { 0, 0, 0 };
+                for (int i = 0; i < 3; i++) {
+                    if (size >= (uint64_t)copier + places[i] + 64 && f->read(copier + places[i], hb2[i], 64)) {
+                        hp2[i] = hb2[i];
+                    }
+                }
+                info = snes_parse(hp2, size);
+                if (!info.ok) {
+                    c->fs->close(f);
+                    snprintf(msg, msglen, "%s", info.err);
+                    return 1;
+                }
+                apply_dsp_choice(st, &info);
+            }
+        }
+        if (!have) {
+            c->fs->close(f);                                               // the image's handle is not held while another file is read; it is opened again below
+            f = 0;
+            have = dsp_fw_file(c, info.dsp, fw, where, sizeof(where));
+            if (have) {
+                f = c->fs->open(path, false);
+                if (!f) {
+                    snprintf(msg, msglen, "cannot open %s", path);
+                    return 1;
+                }
+            }
+        }
+        if (!have) {
+            char own[96];
+            bool have_own = rom_own_dir(c->cor_path, own, sizeof(own));
+            snprintf(msg, msglen, "\"%s\" needs the %s coprocessor and its firmware (8192 bytes) is missing: put %s%s%s in %s/ (or roms/snes/ on a drive), or append it to the .sfc.",
+                     info.title, dsp_chip[info.dsp], dsp_files[info.dsp][0], dsp_files[info.dsp][1] ? " or " : "", dsp_files[info.dsp][1] ? dsp_files[info.dsp][1] : "",
+                     have_own ? own : "the core's roms folder");
+            return 1;
+        }
+        printf("[snes] %s firmware: %s\n", dsp_chip[info.dsp], where);
+    }
     if (snes_media_flush(c, msg, msglen)) {                 // T180 D1, D4: the old game's save is in its file before the new one replaces it
         c->fs->close(f);
         return 1;
@@ -372,6 +485,9 @@ static int snes_run(CoreCtx *c, const char *path, char *msg, int msglen)
     st->hdr_pal = info.pal;
     make_save_path(c, st);
     c->io->wr(SNES_ROM_TYPE, info.rom_type);
+    if (info.dsp) {
+        write_dsp_fw(c, fw);
+    }
     wr24(c, SNES_ROM_MASK, info.rom_mask);
     wr24(c, SNES_RAM_MASK, info.ram_mask);
     write_rtc(c);
@@ -484,6 +600,7 @@ static void snes_register(OpRegistry &r)
     MEM_OPS(r, snes_mem, 0xFFFFFF);
     r.add_op("snes.set_video", video_arg, 1, op_video);
     r.add_op("snes.set_blend", blend_arg, 1, op_blend);
+    r.add_op("snes.set_dspfw", dspfw_arg, 1, op_dspfw);
     r.add_op("snes.run", run_args, 1, op_run);
     r.add_op("snes.save", 0, 0, op_save);
     r.add_op("snes.sound", 0, 0, op_sound);
@@ -504,7 +621,7 @@ const CoreDesc snes_desc = {
     "SNES Settings",
     1,
     0, 0,
-    settings, 3,
+    settings, 4,
     tasks, 5,
     filetypes, 2,
     media, 1,

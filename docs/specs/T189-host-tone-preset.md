@@ -1,6 +1,6 @@
 # T189 — every core has a tone preset (Flat / Bass boost / Treble boost) beside the master volume, applied in the host
 
-**Status:** DECIDED (2026-11-07), D1-D7; build open.
+**Status:** DECIDED (2026-11-07), D1-D8; building since 2026-11-15 (D8: go for the host change) (2026-11-15 sync: confirmed, no tone filter in host/ or coreapp/).
 **Repo:** TRX64U-MultiCore — host gateware (a shelf filter before the T160 gain), the generic core application (setting, register write), `.cfg`.
 **Number:** T189 (`TODO.md`).
 **Origin:** GitHub issue #49 (a user of the C64U, 2026-11-05): "On small or TV speakers the Amiga cores sound thin in the low end. A simple choice of
@@ -86,6 +86,7 @@ Scenario: S8 the sound (P5) - board, by hand
   beside `trx_gain.v`; neogeo gets it once its flat build places again, until then neogeo shows no Tone row.
 - **D7 (Alex, 2026-11-07: "A"; question 7):** the issue author gets the tester package once T189 is built and runs board step S8 on his C64U,
   reporting on #49; the gateware stays ours. All seven questions answered: T189 is DECIDED, build open (host change, `host_pin` update).
+- **D8 (Alex, 2026-11-15, "T189 a"):** go for the host change: build it tonight, with the host and DFX-core rebuild it costs and the host pin moved (`tools/host_pin.sh --update`).
 
 ## §4 Out (proposed, to confirm with Alex)
 
@@ -95,7 +96,34 @@ Scenario: S8 the sound (P5) - board, by hand
 
 ## §5 Decisions taken while building
 
-Empty.
+- **Host gateware (2026-11-15, branch `t189-tone`):** `host/trx_tone.v` (new), `trx_gain.v` input widened to 25 bit, `top.v` (`mtone` before `mgain`, `tone_sel`),
+  `ultimate_sys.vhd` (register `0x51`, reset 0, port `tone_sel`), `build.tcl` / `layers.txt` list the file, `contract/host_pin.txt` updated.
+- **Large cores (D6):** the 12 large mono builds except neogeo (amiga, amiga1200, c128, c264, c64scpu, cpc, diag, nes, pet, snes, zx, zxnext) carry the same change in their
+  OWN copy (`mono/host/{trx_tone.v,trx_gain.v,top.v,ultimate_sys.vhd}` + their `mono/top.v` for c128, c64scpu, diag, `build_mono.tcl`, `FROM`; no shared file).
+  neogeo is left alone (D6: once its flat build places again; its copy has no filter, so its app shows no Tone row).
+- **App:** `coreapp/src/tone.{h,cc}` (`tone_extend` after `volume_extend` in `menu_build`, group `audio`, `tone.apply` -> `CoreIo::master_tone` -> `hw.cc` byte at
+  `U64_AUDIO_MIXER + 0x51`), `CoreDesc::no_tone` (trailing field; neogeo sets it), `menutree.cc` routes the item with Volume. `tools/dev.sh riscv` passes.
+  `tests/coreapp/test_tone.cc` (S7) is written but NOT run here (agents run no app tests; the pipeline does).
+- **Proof (S1-S5, iverilog, `host/sim/tone/run.sh`, in `trx64-sim-env:4` on the builder, 2026-11-15): PASS.** S1 Flat bit-exact (0, +-1, extremes, 200 random, again after
+  switching back); S2 measured vs ideal (bass 50/100/200/400/1k/4k/16k Hz: 5.99/5.62/2.97/0.38/0.01/0/0 dB; treble 0/0/0/0/0.02/3.00/6.00 dB, all within 0.1 dB of the double-precision
+  reference); S3 no wrap at volume 255 and 128 (worst deviation from the clipped ideal 1.2 % of full scale, the coefficient quantisation, a wrap would be 200 %); S4 silent after a
+  burst (0 of 4800 samples outside +-2 LSB), DC gain bass +6.02 dB (ideal 6.00), treble +0.001 dB; S5 HDMI hold == I2S take in 395 of 395 frames, both presets. Controls: filter stuck on
+  and swapped coefficient sets both FAIL the bench. The saturation-removed control of S3 and the S7 controls are not built (CLAUDE.md: controls only for flash/persistence).
+- **Cost (S6), no Vivado run yet:** last host build (cache `host-e9617b5de4d9f7bb`, commit de1061fe, 2026-11-15): `pb_l1` 12,862 / 17,400 LUT = 73.92 %, 16,920 / 34,800 FF, 20 / 80 DSP,
+  24.5 / 35 BRAM, WNS 0.002 ns. yosys `synth_xilinx` of `trx_tone` alone: about 425 LUT, 410 FF, 2 DSP48E1, 0 BRAM (Vivado usually packs the accumulate into the DSP, so this is the
+  upper end): `pb_l1` would land at about 76.4 % LUT, DSP 22 / 80. **That is above the 74.5 % bound of S6 and inside the 75-77 % that routed (skill); the pipeline run decides.**
+  WNS 0.002 is the host's own; the new paths are in the 12.288 MHz domain (81 ns, multiply registered, no long combinational path).
+- Bass set is Q2.16, treble set Q3.15 (18-bit coefficients; the bass poles sit so close to 1 that Q3.15 lost 0.06 dB at 100 Hz and left a +-1000 LSB dead band).
+  The rounding remainder of each sample goes into the next sample's sum (first-order error feedback): no dead band, no DC offset after a burst.
+- Timing in the frame: the filter captures the core's pair 16 clocks after `frame_en`, the output register changes about 30 clocks after it and holds for the rest
+  of the frame, so the HDMI hold (next `frame_en`) and the I2S take (`frame_en` + 127) are the same pair (S5). A filtered sample is one frame (21 us) late; Flat is combinational.
+- **vc20 against the T189 host (run 2102, 2026-11-16):** the first vc20 route against the new static missed setup by 0.040 ns (WNS -0.040, TNS -0.114) on the
+  drive's register write path: host `ult/i_cpu/i_dmem/addr_i_reg` -> partition edge (4.0 ns route) -> `drive_unit` address compare (3 CARRY4) -> `param_34` CE
+  (not touched by T189; the static moved). Run 2119 with vc20 `route = "AggressiveExplore"`: the same -0.040 ns, so the route directive is taken out again.
+  Fix: `cores/vc20/layer2_vc20.v` takes `drv_io_*` into the core through one register stage (cpu_clk); the host waits for the ack (core_pend, 65535-clock
+  time-out), so a write or read is one clock later. Shared `drive_unit.vhd` / `drive_l2.vhd` stay (host key). null routed with the defaults (cache).
+  Board 2026-11-16 (Alex, package main-aaaee0d5): the VC-20 loads from the 1541 - the drive's register bus through the new stage works.
+- S4 DC criterion: 0.01 dB is not reachable with 18-bit coefficients for the bass shelf (1 + a1 + a2 is 32 counts of 65536); measured 0.0206 dB, bench limit 0.05 dB (to confirm with Alex).
 
 ## §6 Design options and questions
 

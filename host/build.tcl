@@ -104,7 +104,7 @@ read_verilog -sv hdmi_gtp.v
 # T164 G4: the encoder is host/hdmi_enc (ce, runtime frame, PR = 0: six forked files); the three unforked ones come from the vendor tree
 read_verilog -sv [list {*}[glob hdmi_enc/*.sv] hdmi_enc/hdmi.v $core/hdmi/audio_sample_packet.sv $core/hdmi/audio_info_frame.sv \
   $core/hdmi/source_product_description_info_frame.sv]
-read_verilog $core_stub $l2_stub top.v vic_scaler.v pal_ram.v hdmi_out.v hdmi_timing.v mode_req.v cdce_mode.v tmds_rep.v mode_ctl.v portlock_clk.v c64u_keyboard.v bling_keyboard.v jtag_dbg.v ddr2_port.v ddr2_ctrl.v ddr2_lean.v cal_seq.v i2s_out.v trx_gain.v \
+read_verilog $core_stub $l2_stub top.v vic_scaler.v pal_ram.v hdmi_out.v hdmi_timing.v mode_req.v cdce_mode.v tmds_rep.v mode_ctl.v portlock_clk.v c64u_keyboard.v bling_keyboard.v jtag_dbg.v ddr2_port.v ddr2_ctrl.v ddr2_lean.v cal_seq.v i2s_out.v trx_gain.v trx_tone.v \
   con_ring.v pktport_host.v app_i2c.v overlay.v usb_phy.v $common/iec_bus.v \
   cart_fill.v $common/trx_io.v $common/trx_sys.v $common/dma_win.v pix_layer.v c64_text.v $common/trx_engine.v \
   $common/drv_dbg.v app_input.v rv_dbg.v

@@ -260,13 +260,27 @@ module layer2_vc20 #(
     wire c64_atn_i, c64_clk_i, c64_data_i;
     wire drv_atn_i, drv_clk_i, drv_data_i;
     wire vc_halted, vc_running;
+    wire tp_motor_on, tp_write;
+    wire [7:0] tp_pin;
 
     // the 1541 and the serial bus, as in layer2.v; the debug master of the C64 module is not here
     wire [2:0] drva_leds_n;
     drive_leds_map drv_led_map (.drv_leds_n(drva_leds_n), .drive_leds_n(drive_leds_n));
+    // The drive's register bus enters the core through one register stage (T189 section 5, runs 2102/2119): against the T189 host
+    // static the path from the host CPU's address register over the partition edge into the drive's address compare missed
+    // by 0.040 ns. The host waits for the core's ack (ultimate_sys.vhd core_pend, 65535-clock time-out), so one clock more is fine.
+    reg        drv_io_rd_q = 1'b0, drv_io_wr_q = 1'b0;
+    reg [23:0] drv_io_addr_q = 24'd0;
+    reg [7:0]  drv_io_wdata_q = 8'd0;
+    always @(posedge cpu_clk) begin
+        drv_io_rd_q    <= drv_io_rd & ~cpu_rst;
+        drv_io_wr_q    <= drv_io_wr & ~cpu_rst;
+        drv_io_addr_q  <= drv_io_addr;
+        drv_io_wdata_q <= drv_io_wdata;
+    end
     drive_l2 drv (
         .clock(cpu_clk), .reset(cpu_rst), .tick_16MHz(drv_t16), .tick_4MHz(drv_t4), .tick_1kHz(drv_t1k),
-        .drv_io_read(drv_io_rd), .drv_io_write(drv_io_wr), .drv_io_addr(drv_io_addr), .drv_io_wdata(drv_io_wdata),
+        .drv_io_read(drv_io_rd_q), .drv_io_write(drv_io_wr_q), .drv_io_addr(drv_io_addr_q), .drv_io_wdata(drv_io_wdata_q),
         .drv_io_rdata(drv_io_rdata), .drv_io_ack(drv_io_ack), .drv_io_nc(drv_io_nc),
         .gcr_io_read(gcr_io_rd), .gcr_io_write(gcr_io_wr), .gcr_io_addr(gcr_io_addr), .gcr_io_wdata(gcr_io_wdata),
         .gcr_io_rdata(gcr_io_rdata), .gcr_io_ack(gcr_io_ack), .gcr_io_nc(gcr_io_nc),
@@ -314,7 +328,8 @@ module layer2_vc20 #(
         .build(usr_access), .ddr_cal(ddr_cal),
         .dbg_re(dbg_re && dbg_trx_sel), .dbg_addr(dbg_addr[11:0]), .j_rdata(trx_j_rdata), .j_rvalid(trx_j_rvalid),
         .e_addr(e_addr), .e_cmd(e_cmd), .e_en(e_en), .e_rdy(e_rdy), .e_wdf_data(e_wdf_data), .e_wdf_mask(e_wdf_mask),
-        .e_wdf_wren(e_wdf_wren)
+        .e_wdf_wren(e_wdf_wren),
+        .tp_read_pin(c2n_read_i), .tp_sense_pin(c2n_sense_i), .tp_motor_on(tp_motor_on), .tp_write(tp_write), .tp_pin(tp_pin)
     );
     assign c64_halted = vc_halted;
     assign c64_leds = {4'b0000, vc_running};
@@ -365,13 +380,17 @@ module layer2_vc20 #(
     assign smp_f_tgl = 'd0;
     assign tx_view = 'd0;
     // T103 contract v2: pins and the packet port, tied off (outputs idle, pads released, sockets deselected)
-    assign c2n_motor_en = 1'b0;
-    assign c2n_motor_o = 1'b0;
+    // the cassette port (T214): every pin is released until TAPE_PIN (0x0B0) says otherwise. MOTOR out, WRITE out (not proven by a SAVE on real tape yet),
+    // READ and SENSE in; the VIC-20 has no file streamer, so READ and SENSE are never driven.
+    reg r_mot = 1'b0, r_wr = 1'b1;
+    always @(posedge sys_clk) begin r_mot <= tp_motor_on; r_wr <= tp_write; end
+    assign c2n_motor_o = r_mot;
+    assign c2n_motor_en = tp_pin[0];
+    assign c2n_write_o = r_wr;
+    assign c2n_write_en = tp_pin[1];
     assign c2n_read_en = 1'b0;
-    assign c2n_read_o = 1'b0;
+    assign c2n_read_o = 1'b1;
     assign c2n_sense_o = 1'b0;
-    assign c2n_write_en = 1'b0;
-    assign c2n_write_o = 1'b0;
     assign paddle_adj_en = 1'b0;
     assign paddle_adj_o = 1'b0;
     assign paddle_dis_en = 1'b0;

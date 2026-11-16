@@ -90,7 +90,7 @@ lap "$mode on $host (rc=$rc)"
 
 case "$mode" in riscv|emu|cor|integrate)
   out=".ci/dev/$slug"; mkdir -p "$out"
-  for f in hostapp.app hostapp.elf coreapp.app coreapp.bin coreapp.elf testlib.u2a unzip.u2a; do
+  for f in hostapp.app hostapp.elf coreapp.app coreapp.bin coreapp.elf testlib.u2a unzip.u2a miniz.u2a; do
     scp -q "$host:$tree/.dev-out/trxapps/$f" "$out/" 2>/dev/null || echo "(no $f in the result)"
   done
   ls -l "$out"; shasum -a 256 "$out"/hostapp.app "$out"/coreapp.bin 2>/dev/null || sha256sum "$out"/hostapp.app "$out"/coreapp.bin

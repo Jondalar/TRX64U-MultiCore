@@ -328,6 +328,14 @@ struct CoreDesc {
     // T194: a second picture of the core on the same layer (the C128's VIC-IIe next to the VDC): Video::select_picture() switches to it; the Picture, HDMI mode and
     // Smoothing settings reach both. Null: one picture. Last in the record, so the positional initialisers stay as they are.
     const VideoDesc *alt_video;
+    // T189: the core's build has no tone filter (host/trx_tone.v is not in it: neogeo until its flat build places), so the application adds no "Tone" item.
+    // Last in the record, so the positional initialisers stay as they are.
+    bool no_tone;
+    // T216 D16: the settings that choose which ROM files the core's put operations read (the PET's model, picture rate, SuperPET CPU), folded into one number.
+    // The application remembers the number the ROMs in the machine were loaded for; a Reset whose number differs loads the ROMs again, as "Reload ROMs, reset"
+    // does (same refusal when a file is missing). Null: the ROMs do not depend on a setting (every other core). Last in the record, so the positional
+    // initialisers stay as they are.
+    uint32_t (*rom_key)(CoreCtx *c);
     // T212 D3: the settings (by label, else key; comma separated) whose values make the one line of Home that says what machine this is ("AGA - Chip RAM 2M").
     // A value "None" is left out. Null: Home has no such line. Last in the record, so the positional initialisers stay as they are.
     const char *machine_info;

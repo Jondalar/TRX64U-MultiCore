@@ -26,7 +26,7 @@ restore write these two areas. They do not write the boot menu, the cores or the
 |---|---|---|
 | 1 | Check page: the host reads the file into memory and checks every part. Title `Checking <file>`, a progress bar | **ESC** or **LEFT** cancels. Nothing is written |
 | 2 | Question 1. A red page shows what the write replaces, the version, the effect on the cores and the flash chip | **Y** continues. **RETURN**, **ESC** or any other key cancels. No key for 60 s cancels |
-| 3 | Question 2: `Last question.` The footer shows the seconds that remain | **RETURN** starts the write. The host ignores every key in the first second. After that, any other key cancels. No **RETURN** within 10 s cancels |
+| 3 | Question 2: `Last question.`, a line that says what is erased and written again, `From the first erase on, no key stops the write.` and `The power must stay on until the result.` The footer shows the seconds that remain | **RETURN** starts the write. The host ignores every key in the first second. After that, any other key cancels. No **RETURN** within 10 s cancels |
 | 4 | Write page: `Check the file   done`, then the phases | No key stops the write (9.2.3) |
 | 5 | Read back: the host reads the flash and compares it with the file | |
 | 6 | Result page | Any key returns to the File Browser |
@@ -37,7 +37,7 @@ restore write these two areas. They do not write the boot menu, the cores or the
 |---|---|
 | `Cannot update from <file>` or `Cannot restore <file>` | See 9.3.4 and 9.4.4 |
 | `Update check failed` or `Firmware check failed` | The file is damaged or is not what it says. The page shows the reason |
-| `Nothing to write` | The flash holds exactly this file already. Nothing is written |
+| `Nothing to write` | The flash holds exactly this file already (every part that the file writes). The page reads `The flash already holds exactly this update.` or `The flash already holds exactly this firmware.` and `Nothing was written.` |
 
 Each refusal page, except `Nothing to write`, ends with `Nothing was written. The flash is as it was.`
 
@@ -50,8 +50,7 @@ result.` The footer reads `No key stops this    do not switch the power off`.
 W25Q128 flash chip. This board has <chip>.` or, for an update, `The update is written for a Winbond W25Q128 flash chip. This board
 has <chip>.`
 
-9.2.6 A power cycle is needed after a successful write. The host does not restart by itself. The board does not start a new
-firmware before the power is switched off and on.
+9.2.6 A new firmware starts with the next power-up. After a successful write the result page counts down `Restarting in <n> s to start <what>.` (5 s; any key restarts at once) and asks the ESP32 control module to power-cycle the board. If that fails, the page reads `The restart did not happen: <reason>.` and `Switch the power off and on to start <what>.`
 
 > **WARNING** If the write or the read-back fails after the first erase, the result page shows `The flash may not boot` and
 > `Do not switch the power off.` Press **RETURN** to write the file again from the copy in memory. **ESC** or **LEFT** leaves the page. The board
@@ -64,7 +63,7 @@ two questions and for the failed write.
 ## 9.3 Update (U)
 
 9.3.1 The update installs a `.txu` file, a MultiCore update. It writes the host (bitstream), the host application, or both. The
-file says which.
+file says which. The host compares each part with the flash and writes only the parts that differ: the title and the red line of question 1 name those parts (9.3.3). If every part is the same, the page `Nothing to write` shows (9.2.2).
 
 9.3.2 To install an update:
 
@@ -75,8 +74,8 @@ file says which.
 4. Wait for the check page (step 1 of 9.2.1).
 5. Read question 1. Press **Y**.
 6. Read question 2. Press **RETURN** after 1 s and within 10 s.
-7. Wait for the result page `Update written`. Press any key.
-8. Switch the power off and on.
+7. Wait for the result page `Update written`.
+8. The page counts down `Restarting in <n> s to start the new version.` (9.2.6). The board restarts after the countdown, or at once with any key. If the page says the restart did not happen, switch the power off and on.
 
 ![A .txu selected in the File Browser: the panel says what it installs and that U installs it](img/host-browser-txu.png)
 
@@ -95,12 +94,12 @@ file says which.
 | Version | `Version <version>   <size> + <size>`: the parts that are written |
 | Check | `The package is complete and intact.` |
 | Effect on the cores | See 9.3.5 |
-| Not written again | `Not written again, the flash holds it already: <part>.` |
+| Not written again | `Not written again, the flash holds it already: <part>.` Only when the file holds a host and a host application and one of them is the same as in the flash |
 | Flash chip | `Flash chip: <chip>. Nothing has been written yet.` |
 
-![Question 1 of an update of the host and the host app: red frame, version, the effect on the cores, the flash chip](img/host-update-ask1.png)
+![Question 1 of an update of the host app: red frame, version, the effect on the cores, the flash chip](img/host-update-ask1.png)
 
-*Figure 9-3. Question 1 of an update of the host and the host app. The page names the effect on the cores. The footer holds the keys of the page.*
+*Figure 9-3. Question 1 of an update of the host app. The page names the effect on the cores. The footer holds the keys of the page.* The pictures of the update and the restore were made in the emulator: its flash chip shows as `Infineon S25FL128L`, a board shows `Winbond W25Q128`.
 
 ![Question 2 of the update: Last question, the erase sentence, no key stops the write, the footer counts the seconds](img/host-update-ask2.png)
 
@@ -117,9 +116,9 @@ file says which.
 | `the update file does not come from TRX` | The file has another origin |
 | `The app in this package needs host interface <n>; the running host provides <m>.` (and similar) | The host application and the host do not fit. The page adds `This package does not fit the host it would run on.` and `Use the update that matches this system.` |
 
-![Refusal of an update that does not fit: amber frame, the reason, Nothing was written](img/host-update-refuse.png)
+![Refusal of an update file that is cut: amber frame, the reason, Nothing was written](img/host-update-refuse.png)
 
-*Figure 9-5. Refusal of a package with a wrong host interface.*
+*Figure 9-5. Refusal of an update file that is cut off (`cut.txu`): `The update file is damaged or incomplete.` A package with a wrong host interface shows the amber page the same way (9.3.4).*
 
 9.3.5 The lines of question 1 for the cores:
 
@@ -131,19 +130,19 @@ file says which.
 | `The host key changes; no partial core on the media is affected.` | No partial `.cor` on the media is routed against the old host |
 | `<n> large core(s) is/are not affected.` | Large cores do not depend on the host key. The line adds `Some cores that are off now start again.` when a `.cor` fits the new host |
 
-9.3.6 The write page shows the phases (`Check the file`, `Write the host app`, `Write the host`, `Read back and compare`) with `done` for those that are over, one
-number and one bar. The footer reads `No key stops this    do not switch the power off`.
+9.3.6 The write page shows the phases (`Check the file`, `Write the host app`, `Write the host`, `Read back and compare`) with `done` for those that are over (`...` for the one that runs), the step as a line below (`Erasing sector <n> of <m>`, `Programming sector <n> of <m>`) and one
+bar with its percent. The title is `Updating <what>`. The footer reads `No key stops this    do not switch the power off`.
 
-![The write page of an update: the phases, the sector that is programmed, 43 %](img/host-update-progress.png)
+![The write page of an update: the phases, the sector that is programmed, 37 %](img/host-update-progress.png)
 
-*Figure 9-5a. The write page. The host app is written; the host is being programmed.*
+*Figure 9-5a. The write page. The host app is written (sector 198 of 265); the host is `not needed, unchanged`.*
 
-9.3.7 The result page `Update written` shows `Written and verified: <part>.`, `Switch the power off and on to start the new version.`
-and `Took <n> s. Boot menu, cores and settings were not touched.` After a host update it adds the effect on the cores.
+9.3.7 The result page `Update written` shows `Written and verified: <part>.`, then, when it applies, `Not written again, the flash held it already: <part>.` and (only when the host key changes) the effect on the cores: `<n> partial core(s) need(s) a rebuild for the new host. Large cores are not affected.` or `No core on the media needs a rebuild.` Then it shows the countdown `Restarting in <n> s to start the new version.` (9.2.6) and
+`Took <n> s. Boot menu, cores and settings were not touched.`
 
-![The result page of an update: Written and verified, switch the power off and on](img/host-update-done.png)
+![The result page of an update: Written and verified, the restart countdown](img/host-update-done.png)
 
-*Figure 9-6. Result of an update of the host and the host app.*
+*Figure 9-6. Result of an update of the host app. The page counts down `Restarting in <n> s to start the new version.`*
 
 ## 9.4 Restore (R)
 
@@ -173,18 +172,17 @@ vendor.
 
 1. Open the File Browser. Select the file.
 2. Press **R**. The host compares the SHA-256 of the file with the list (page `Checking <file>`).
-3. Do the steps of the update from 9.3.2 step 4: check page, question 1 (**Y**), question 2 (**RETURN**), write, read back.
-4. Read the result page `Firmware restored`: `Firmware written and verified (<size> + <size>).` and `Switch the power off and on to start the restored
-   firmware.` The page adds `Took <n> s. Cores, boot menu and settings were not touched.`
-5. Switch the power off and on.
+3. Do the steps of the update from 9.3.2 step 4: check page, question 1 (**Y**), question 2 (**RETURN**), write, read back. The write page is titled `Restoring <name>` and shows the phases `Write the application`, `Write the bitstream` and `Read both back and compare`.
+4. Read the result page `Firmware restored`: `Firmware written and verified (<size> + <size>).` When the bitstream carries the AXSS stamp that the boot loader looks for, the page adds `The boot loader finds the new firmware.` It ends with `Took <n> s. Cores, boot menu and settings were not touched.` and the countdown `Restarting in <n> s to start the restored firmware.` (9.2.6).
+5. If the restart did not happen, switch the power off and on.
 
 ![Question 1 of a restore: This replaces the running firmware, the name and sizes, the way back to MultiCore](img/host-restore-ask1.png)
 
-*Figure 9-6a. Question 1 of a restore of `Commodore 1.1.0`.*
+*Figure 9-6a. Question 1 of a restore of `Commodore 64 Ultimate 1.1.0`.* The flash chip line shows the emulator's chip.
 
-Question 1 shows `Restore <name>?`, the name and the sizes, `Official release. The file is complete and intact.` (or `The backup is complete and intact.`),
+Question 1 shows `Restore <name>?` (for an official file the name is vendor, name and version, for example `Restore Gideon Ultimate firmware 3.14?`; for a backup the name of the `.cor`, else `the backup of <date>`), `This replaces the running firmware.`, the name and the sizes, `Official release. The file is complete and intact.` (or `The backup is complete and intact.`),
 `To come back to MultiCore, run the MultiCore update file from that firmware's update menu.`, `Your cores and settings stay on the flash drive.` and
-`The restored firmware does not use them.`
+`The restored firmware does not use them.` and `Flash chip: <chip>. Nothing has been written yet.`
 
 9.4.5 The write order is: the application (`0x220000`), the bitstream (`0x000000`), the read-back of both.
 
@@ -198,7 +196,11 @@ Question 1 shows `Restore <name>?`, the name and the sizes, `Official release. T
 | `This is a TRX64 firmware, not a backup of the original.` | The `.cor` is a firmware of this project |
 | `This is not a firmware file.` | The file is not a firmware |
 | `The file cannot be read.` | The medium or the file is not readable |
-| The reason of the image check | The image is damaged. The page title is `Cannot restore <file>` |
+| The reason of the probe: `not a firmware image (.cfw / .ue2)`, `the firmware image is truncated`, `no bitstream in the firmware image`, `no bitstream for this FPGA in the firmware image`, `no application after the bitstreams in the firmware image`, `the application does not load and start at 0x30000`, `the firmware image is too large for the staging areas`, `a part of the core package is damaged (SHA-256)` or `cannot read the firmware file` | The file is not a usable firmware image |
+| `Cancelled while reading the file.` | You stopped the check |
+| `This firmware is for a Winbond W25Q128 flash chip. This board has <chip>.` | Another flash chip (9.2.5) |
+
+An image whose check fails at the page `Checking <file>` shows the title `Firmware check failed` and the reason (9.2.2).
 
 ![Refusal of a restore: the file is not on the list of official firmware](img/host-restore-refuse.png)
 
@@ -214,11 +216,11 @@ function reads the firmware file and writes one new file. It writes no flash. Th
 1. Open the File Browser. Select the `.cfw` or `.ue2`. The panel shows `P packages it as a .cor in the cores folder`.
 2. Press **P**.
 3. The page `Checking <file>` compares the file with the list of official firmware (9.4.3). **ESC** or **LEFT** cancels.
-4. If a `.cor` with that name exists, the page `Replace the .cor that is there?` shows. **RETURN** replaces it after the new file is
-   written and checked. Any other key cancels.
+4. If a `.cor` with that name exists, the page `Replace the .cor that is there?` shows `<name>.cor is in the cores folder already.` and `The new file is written first and checked; the old one is replaced only then.` **RETURN** replaces it after the new file is
+   written and checked. Any other key cancels (`Not replaced. Nothing was changed.`).
 5. The page `Packaging <name>.cor` shows three steps: `Reading the firmware and hashing both parts`, `Writing the .cor`, `Reading it back
    and comparing`. **ESC** or **LEFT** cancels. No half-written file stays.
-6. The page `Packaged as .cor` shows the file, the name and the version. Press any key.
+6. The page `Packaged as .cor` shows `<file>  (<size>), written and checked.`, `Name: <name>    Version: <version>`, `Made on this board from a firmware file.` and `Marked "foreign" in the boot menu. A adds it, S starts it.` Press any key. A write that fails or is cancelled shows `Packaging failed` or `Package cancelled`, the reason and `No half-written file was left behind. The firmware file is untouched.`
 
 ![The result page of a package: the .cor is written and checked, marked foreign in the boot menu](img/host-package-done.png)
 
@@ -237,7 +239,8 @@ firmware file without its extension.
 | `The file is not a usable firmware image.` | The image is damaged |
 | `The file cannot be read.` | The medium or the file is not readable |
 | `The file name is not that of a .cfw or .ue2.` | Wrong extension |
-| `This firmware lies on the internal drive; the .cor is too large for it.` | The file is on `Flash`. Copy it to a card or stick with **C** (5.6), then package it there |
+| `This firmware lies on the internal drive; the .cor is too large for it.` | The file is on `Flash`. The page adds `Copy it to a card or stick with C, then make the .cor there.` (5.6) |
 | `The name of the .cor does not fit.` | The path is too long |
-| `There is no room for it on that medium.` | The medium is full. The page shows the size that is needed and the free space |
+| `There is no room for it on that medium.` | The medium is full. The page shows `The .cor needs <size>, the medium has <size> free.` |
+| `The medium cannot take the .cor.` | The medium refused the file |
 | `Cancelled while reading the file.` | You cancelled |

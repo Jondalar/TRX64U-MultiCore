@@ -1,6 +1,6 @@
 # T181 — Hotkeys while a core runs: act without opening the menu
 
-**Status:** PROPOSED (2026-11-04, Alex).
+**Status:** BUILT and in main (decided 2026-11-04, Alex; host register `host/app_input.v`, app `coreapp/src/hotkeys.cc`); board 2026-11-07 S1-S4 pass (Alex); S5 (C= + CTRL on Apple II, Atari, ZX, CPC) never pressed, so not DONE. 2026-11-15 sync: the Depends-on T177 is not built (RESTORE for the hotkeys comes from T181's own mask register, bit 64, not from T177).
 **Repo:** TRX64U-MultiCore — the core app (`coreapp/src/`), possibly `host/app_input.v` (see §1, P3) and then every large core's host copy.
 **Number:** T181.
 **Origin:** Alex, 2026-11-04: "that is worth its own spec. Create it. Then we should also talk about 'what do we make controllable by

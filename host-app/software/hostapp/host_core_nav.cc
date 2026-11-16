@@ -14,7 +14,7 @@ HcNavPlatform g_plat;
 struct StartState {                       // the state a fresh start has, before anything runs
     StartState() { hc_nav_reset(); }
 } g_start_state;
-int g_mrows = 5, g_erows = 5, g_brows = 13, g_cmrows = 17;
+int g_mrows = 5, g_erows = 5, g_brows = 13, g_cmrows = 1;
 
 HcArm g_arm;
 uint32_t g_arm_seq;
@@ -306,8 +306,8 @@ int browse_page(int act)
     if ((act != HCA_BROWSE_PAGE_DOWN && act != HCA_BROWSE_PAGE_UP) || n.bn <= 0) {
         return HCN_NONE;
     }
-    int t = act == HCA_BROWSE_PAGE_DOWN ? n.bsel + g_brows : n.bsel - g_brows;
-    t = t >= n.bn ? n.bn - 1 : (t < 0 ? 0 : t);
+    int t = n.bsel;
+    listwin_page(&t, &n.bfirst, n.bn, g_brows, act == HCA_BROWSE_PAGE_DOWN ? 1 : -1);
     int r = HCN_DONE;
     if (t != n.bsel) {
         n.bsel = t;
@@ -326,6 +326,19 @@ int hc_nav_act(int ctx, int act)
     HcNav &n = g_nav;
     switch (ctx) {
     case HCX_MENU:
+        if (act == HCA_MENU_PAGE_DOWN || act == HCA_MENU_PAGE_UP) {      // T209 D7: "+" / "-" move the selection one page (the rows the menu shows), stopping at the ends
+            const int cnt = hc_cfg().n;
+            if (cnt <= 0) {
+                return HCN_NONE;
+            }
+            int t = n.sel;
+            listwin_page(&t, &n.mfirst, cnt, g_mrows, act == HCA_MENU_PAGE_DOWN ? 1 : -1);
+            if (t == n.sel) {
+                return HCN_DONE;
+            }
+            n.sel = t;
+            return HCN_DONE | HCN_SELMOVE;
+        }
         if (act == HCA_CURSOR_UP && n.sel > 0) {
             n.sel--;
             return HCN_DONE | HCN_SELMOVE;
@@ -502,6 +515,12 @@ int hc_nav_edit_first(int total)
     return g_nav.efirst;
 }
 
+int hc_nav_browse_first(int rows)
+{
+    listwin_fix(g_nav.bsel, g_nav.bn, rows, &g_nav.bfirst);
+    return g_nav.bfirst;
+}
+
 bool hc_nav_window_follow(void)
 {
     HcNav &n = g_nav;
@@ -524,7 +543,7 @@ void hc_nav_test_view(int view, int sel, int bsel)
 void hc_nav_test_init(void)
 {
     hc_nav_sel_default();
-    g_nav.mfirst = g_nav.efirst = 0;
+    g_nav.mfirst = g_nav.efirst = g_nav.bfirst = 0;
     hc_note_clear();
     g_nav.ssel = 0;
     g_nav.br_mode = HCB_NORMAL;

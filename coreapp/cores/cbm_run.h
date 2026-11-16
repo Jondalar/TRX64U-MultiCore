@@ -21,7 +21,28 @@ struct CbmRunMachine {
     // Optional: a reason to refuse a file before the machine is touched (the C16's 16 KB, where a program past $3FFF would wrap).
     // `load` is the file's load address, `len` the bytes behind it.
     const char *(*refuse)(CoreCtx *c, uint32_t load, uint32_t len);
+    // T206: how a typed start reaches the machine. screen 0 = the keyboard buffer (prg.kbd_buffer / kbd_count, READY from the BASIC pointers).
+    // screen != 0 = the key matrix (CoreIo::matrix_keys), for a machine whose CPU does not read the C64 RAM the application writes (the SuperCPU
+    // reads bank 0 from its own SRAM, which mirrors only pages $02-$FF to the C64 RAM): the keys are pressed like a person's, key_hold_ms down
+    // and key_gap_ms up (the KERNAL scans at 50/60 Hz and wants a key down for two scans and up between two equal characters), and READY is the
+    // screen at `screen` (40x25 screen codes, the VIC reads the C64 RAM): the last row with a character on it starts with READY.
+    uint16_t screen;
+    uint16_t key_hold_ms, key_gap_ms;
+    // T217: with prg.mem_ddr set (the program goes into the CPU's own memory through the DDR2 window), the register that invalidates the CPU's cache
+    // (bit 0 starts it, reads 1 while it runs; SCPU_ROM_CTRL) - written after every placement so the CPU reads the new bytes.
+    uint32_t mem_flush_reg = 0;
+    // T217 D4: a machine with a second mode (the C128's C64 mode). A file whose load address is c64_load (0 = none) is started in that mode: the machine
+    // is reset, comes up in its first mode (prg = its READY), `switch_text` is typed there (GO64, the answer), and when the status register mode_reg
+    // shows mode_mask the C64's own READY is awaited (c64_prg: its TXTTAB, its keyboard buffer; c64_screen: its screen, c64_ready_ms: the least after
+    // the switch) and the program is placed and started as on a C64.
+    uint16_t c64_load = 0;
+    CbmPrgParams c64_prg;
+    const char *switch_text = 0;
+    uint32_t mode_reg = 0;
+    uint8_t mode_mask = 0;
+    uint16_t c64_screen = 0, c64_ready_ms = 0;
 };
+
 
 struct CbmRun {
     char program[56];                                  // the last program started
@@ -32,6 +53,15 @@ struct CbmRun {
     bool p00;
     uint32_t size;
     uint32_t ran_ms, last_ms, ready_at;
+    // T206, the matrix method: the key now down (kidx 0xFF none, kshift the L SHIFT with it), when it went down / came up (ran_ms), and whether the
+    // line just typed ended in RETURN (the next character waits for the prompt again)
+    uint8_t kidx, kphase;                               // kphase 0 no key down, 1 L SHIFT alone down, 2 the key down
+    bool kshift, kwait;
+    bool c64;                                          // T217 D4: job 1 starts the program in the machine's second mode (CbmRunMachine::c64_load)
+    uint8_t c64_phase;                                 // 0 the first mode's READY, 1 the switch typed, 2 waiting for the mode, 3 waiting for the second mode's READY
+    uint32_t c64_t;                                    // ran_ms of the last step of the phases
+    bool start_typed;                                  // T217: job 1 with m.screen: the program is placed, its RUN / SYS goes in through the key matrix (job 2)
+    uint32_t kt;
 };
 
 // The operation's half of "Run PRG": the file is read and checked, the machine reset (boot_cold_reset: the reset-time settings go in while

@@ -3,7 +3,8 @@
 //   ram   32 KB   $0000-$7FFF   CPU on port A, the app's window on port B
 //   vram   2 KB   $8000-$8FFF   CPU on port A (mirrored by the caller), the picture on port B
 //   rom   32 KB   $8000-$FFFF   (only $9000-$E7FF and $F000-$FFFF are read by the machine)  CPU port A, the app's window on port B (rom_sel 0/1)
-//   chr    2 KB   character ROM   the picture on port A, the app's window on port B (rom_sel 2)
+//   chr    4 KB   character ROM   the picture on port A, the app's window on port B (rom_sel 2): four 1 KiB sets, graphics and lower case twice; the upper pair is the SuperPET's
+//                 Waterloo ASCII / APL set (CRTC R12 bit 5 = MA13 selects it, T216 P6), a 2 KiB file leaves the upper pair zero
 //   rom09 24 KB   the Waterloo ROMs for the 6809, CPU port A, the app's window on port B (rom_sel 3: $A000-$DFFF, rom_sel 8: $E000-$FFFF)
 `timescale 1ns / 1ps
 module pet_ram32 (
@@ -77,6 +78,28 @@ module pet_rom09 (
     end
 endmodule
 
+module pet_ram4k (
+    input  wire        clk,
+    input  wire [11:0] a_addr,
+    input  wire        a_wr,
+    input  wire [7:0]  a_d,
+    output reg  [7:0]  a_q = 8'd0,
+    input  wire [11:0] b_addr,
+    input  wire        b_wr,
+    input  wire [7:0]  b_d,
+    output reg  [7:0]  b_q = 8'd0
+);
+    (* ram_style = "block" *) reg [7:0] mem [0:4095];
+    always @(posedge clk) begin
+        if (a_wr) mem[a_addr] <= a_d;
+        a_q <= mem[a_addr];
+    end
+    always @(posedge clk) begin
+        if (b_wr) mem[b_addr] <= b_d;
+        b_q <= mem[b_addr];
+    end
+endmodule
+
 module pet_ram2k (
     input  wire        clk,
     input  wire [10:0] a_addr,
@@ -113,7 +136,7 @@ module pet_mem (
     output wire [7:0]  vc_q,
     input  wire [10:0] vv_addr,             // video RAM, the picture's
     output wire [7:0]  vv_q,
-    input  wire [10:0] ch_addr,             // character ROM, the picture's
+    input  wire [11:0] ch_addr,             // character ROM, the picture's
     output wire [7:0]  ch_q,
     // the app's window (pet_win)
     input  wire        w_wr,
@@ -140,8 +163,8 @@ module pet_mem (
                  .b_wr(w_wr & hit_rom), .b_addr({w_sel[0], w_ai[13:0]}), .b_d(w_di), .b_q(rom_b));
     pet_ram2k vram (.clk(clk), .a_addr(vc_addr), .a_wr(vc_we), .a_d(m_wdata), .a_q(vc_q),
                     .b_addr(vv_addr), .b_wr(1'b0), .b_d(8'd0), .b_q(vv_q));
-    pet_ram2k chr (.clk(clk), .a_addr(ch_addr), .a_wr(1'b0), .a_d(8'd0), .a_q(ch_q),
-                   .b_addr(w_ai[10:0]), .b_wr(w_wr & hit_chr), .b_d(w_di), .b_q(chr_b));
+    pet_ram4k chr (.clk(clk), .a_addr(ch_addr), .a_wr(1'b0), .a_d(8'd0), .a_q(ch_q),
+                   .b_addr(w_ai[11:0]), .b_wr(w_wr & hit_chr), .b_d(w_di), .b_q(chr_b));
     reg [3:0] sel_q = 4'd0;
     reg       hit_q = 1'b0, rom_sel_q = 1'b0;
     always @(posedge clk) begin

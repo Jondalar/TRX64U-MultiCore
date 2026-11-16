@@ -31,6 +31,7 @@
 //   1C0 MOUSE_DX (W)   1C1 MOUSE_DY (W: sends the pair)   1C2 MOUSE_BTN (RW b2:0)
 //   1F0 DLOG_STATUS (R) b0 not empty b1 overflow (write clears b1)   1F1 DLOG_TRACK (R)   1F2 DLOG_DRIVE (R)
 //   1F3 DLOG_POP (W)
+//   1D0-1D1 PAD2_WORD (W: T225, the USB pad on game port 2: bit 0 up, 1 down, 2 left, 3 right, 4 fire/red, 5 blue (2nd button), 6 green, 7 yellow, 8 play, 9 reverse, 10 forward; 1D1 commits)   1D2 PAD2_MODE (W b1:0, 0 off, 1 joy 1 button, 2 joy 2 buttons, 3 CD32)
 //   1C4 RAWKEY (W: {release, raw code} of one Amiga key event, queued in amiga_input; R b0 = room for 8 more events -- write only while it is 1)  (T141, FEATURES b4)
 //   T97 5.10 (this file is the A1200's own copy, cores/amiga1200/rtl/amiga_regs.diff):
 //   0C0-0C3 DIW_H (R)  {7'd0, HDIWSTOP[8:0], 7'd0, HDIWSTRT[8:0]}   0C4-0C7 DIW_V (R)  {5'd0, VDIWSTOP[10:0], 5'd0, VDIWSTRT[10:0]}
@@ -87,6 +88,8 @@ module amiga_regs #(
     output reg         mouse_tgl = 1'b0,
     output reg  [7:0]  rk_data = 8'd0,              // T141: a raw Amiga key event, taken by amiga_input at the toggle
     output reg         rk_tgl = 1'b0,
+    output reg  [10:0] pad_word = 11'd0,           // T225: 1D0 low byte (staged), 1D1 b2:0 commits the 11 bit pad state of game port 2
+    output reg  [1:0]  pad_mode = 2'd0,            // T225: 1D2 b1:0 0 port 2 as before, 1 one-button joystick, 2 two-button, 3 CD32 pad (no commit toggle: quasi static)
     input  wire        rk_room,                      // T141: amiga_input's queue has room for 8 more (sys_clk, one bit)
     output reg         mb_done_tgl = 1'b0,
     output reg         dlog_ovf_clr_tgl = 1'b0,
@@ -190,6 +193,7 @@ module amiga_regs #(
     assign irq = |(irq_en & cause);
     assign rdata = q_p6 ? px_rdata : q;
     assign ack = ack_r;
+    reg [7:0] pad_stage = 8'd0;
     reg mb_pend = 1'b0;
     reg dne_d = 1'b1;
 
@@ -242,6 +246,9 @@ module amiga_regs #(
             12'h1C1: begin mouse_dy <= wdata; mouse_tgl <= ~mouse_tgl; end
             12'h1C2: mouse_btn <= wdata[2:0];
             12'h1C4: begin rk_data <= wdata; rk_tgl <= ~rk_tgl; end
+            12'h1D0: pad_stage <= wdata;
+            12'h1D1: pad_word <= {wdata[2:0], pad_stage};
+            12'h1D2: pad_mode <= wdata[1:0];
             12'h1F0: if (wdata[1]) dlog_ovf_clr_tgl <= ~dlog_ovf_clr_tgl;
             12'h1F3: dlog_pop <= 1'b1;
             default: ;
@@ -259,7 +266,7 @@ module amiga_regs #(
             10'h000: wq <= {"G", "I", "M", "A"};
             10'h001: wq <= {8'h00, 8'h01, 8'h02, 8'hC0};
             10'h002: wq <= build;
-            10'h003: wq <= {27'd0, 1'b1, 1'b1, 1'b1, 1'b1, HDF_SECT != 0};   // b3: the display window (0C0) and crop window (0D0) registers, b4: RAWKEY (1C4)
+            10'h003: wq <= {26'd0, 1'b1, 1'b1, 1'b1, 1'b1, 1'b1, HDF_SECT != 0};   // b3: the display window (0C0) and crop window (0D0) registers, b5: PAD2 (1D0, T225), b4: RAWKEY (1C4)
             10'h004: wq <= {24'd0, irq_en};
             10'h005: wq <= {24'd0, cause};
             10'h008: wq <= ddr_cal[31:0];

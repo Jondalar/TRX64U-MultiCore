@@ -95,6 +95,7 @@ host/tmds.v
 host/tmds_rep.v
 host/top.v
 host/trx_gain.v
+host/trx_tone.v
 host/uci_unit.vhd
 host/udp_audio.v
 host/udp_stream.v

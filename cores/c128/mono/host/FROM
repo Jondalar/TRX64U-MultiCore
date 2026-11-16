@@ -7,6 +7,8 @@ T194 (2026-11-09): pix_layer.v (format 3, the VIC's capture with 13-word rows an
 top.v is the base of this core's fork mono/top.v (mono/top.v.diff); the build reads mono/top.v. ultimate_sys.vhd is read with g_net = 0 (define NO_NET, T140 Q2b); the C128 fork of it is gone.
 T195 (2026-11-09): ui_buttons.v added (copied from host/); top.v, ultimate_sys.vhd and pins.xdc carry the same UI_BUTTON change as host/ (Menu: left and middle, Reset: right, ITU bit 5/7 move).
 
+T189 (2026-11-15): trx_tone.v added (copied from host/); trx_gain.v (25-bit input), top.v and ultimate_sys.vhd carry the same tone-preset change as host/ (register 0x51), and the core's own mono/top.v too.
+
 Files:
 app_i2c.v
 app_input.v
@@ -63,6 +65,7 @@ rvlite_wrapper_dc.vhd
 tmds_rep.v
 top.v
 trx_gain.v
+trx_tone.v
 uci_unit.vhd
 ui_buttons.v
 ultimate_sys.vhd

@@ -338,11 +338,13 @@ void webnet_ws_open(WebnetWs *w)
     memset(w->app, 0, sizeof(w->app));
     memset(w->build, 0, sizeof(w->build));
     memset(w->host_key, 0, sizeof(w->host_key));
+    memset(w->host_ver, 0, sizeof(w->host_ver));
     if (v) {
         web_copy(&v->s, v->note, sizeof(v->note));
         snprintf(w->app, sizeof(w->app), "%s", v->s.app);
         snprintf(w->build, sizeof(w->build), "%s", v->s.app_date);
         snprintf(w->host_key, sizeof(w->host_key), "%s", v->s.host_key);
+        snprintf(w->host_ver, sizeof(w->host_ver), "%s", v->s.host_ver);
         net_delete(v);
     }
 }
@@ -355,6 +357,7 @@ static int put_hello(const WebnetWs *w, char *out, int cap, const char *id)
     ok = ok && json_put(out, cap, &p, "{\"role\":\"host\",\"transport\":1,\"auth\":\"none\",\"app\":") && json_put_string(out, cap, &p, w->app);
     ok = ok && json_put(out, cap, &p, ",\"build\":") && json_put_string(out, cap, &p, w->build);
     ok = ok && json_put(out, cap, &p, ",\"host_key\":") && json_put_string(out, cap, &p, w->host_key);
+    ok = ok && json_put(out, cap, &p, ",\"host_version\":") && json_put_string(out, cap, &p, w->host_ver);
     ok = ok && json_put(out, cap, &p, "}}");
     return ok ? p : -1;
 }

@@ -10,10 +10,10 @@ module tb_input;
     initial #1000 sys_rst = 0;
     reg [63:0] keys = 0; reg restore = 0; reg [4:0] joy1 = 0, joy2 = 0; reg jswap = 0;
     reg [7:0] mdx = 0, mdy = 0; reg [2:0] mbtn = 0; reg mtgl = 0;
-    wire kml; wire [1:0] kmt; wire [7:0] kmd; wire [2:0] mb; wire [7:0] j0, j1; wire rk;
-    amiga_input dut (.sys_clk(sys_clk), .sys_rst(sys_rst), .ce28(ce28), .keys(keys), .restore(restore), .joy1(joy1), .joy2(joy2), .joy_swap(jswap),
+    wire kml; wire [1:0] kmt; wire [7:0] kmd; wire [2:0] mb; wire [10:0] j0; wire [7:0] j1; wire cd32; wire rk;
+    amiga_input dut (.sys_clk(sys_clk), .sys_rst(sys_rst), .ce28(ce28), .keys(keys), .restore(restore), .joy1(joy1), .joy2(joy2), .joy_swap(jswap), .pad_word(11'd0), .pad_mode(2'd0),
         .mouse_dx(mdx), .mouse_dy(mdy), .mouse_btn(mbtn), .mouse_tgl(mtgl),
-        .kbd_mouse_level(kml), .kbd_mouse_type(kmt), .kbd_mouse_data(kmd), .mouse_buttons(mb), .joystick0(j0), .joystick1(j1),
+        .kbd_mouse_level(kml), .kbd_mouse_type(kmt), .kbd_mouse_data(kmd), .mouse_buttons(mb), .joystick0(j0), .cd32pad2_en(cd32), .joystick1(j1),
         .reset_kbd(rk));
     reg [1:0] ev_t [0:63]; reg [7:0] ev_d [0:63]; integer nev = 0;
     always @(kml) if (!sys_rst) begin ev_t[nev] = kmt; ev_d[nev] = kmd; nev = nev + 1; end

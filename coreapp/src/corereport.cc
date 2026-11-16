@@ -100,8 +100,8 @@ int core_report_build(CoreCtx *c, uint32_t fattime, bool time_valid, const char 
     br_kv(&o, "Core id", "%s", d->core_id ? d->core_id : "none named");
     br_kv(&o, "Core version", "%s", c->core_version[0] ? c->core_version : "none named");
     br_kv(&o, "Core file", "%s", c->cor_path[0] ? c->cor_path : "none (started without a hand-over)");
-    br_kv(&o, "Host bitstream", "%08X", (unsigned)c->host_key);
-    br_kv(&o, "Core application", "%s built %s", APP_VERSION_HASH, APP_BUILD_DATE);
+    br_kv(&o, "Host bitstream", "%s%s%08X", c->host_version, c->host_version[0] ? ", key " : "", (unsigned)c->host_key);
+    br_kv(&o, "Core application", "%s built %s", APP_VERSION_STRING, APP_BUILD_DATE);
     br_kv(&o, "Board", "%s", c->board ? board_name(*c->board) : "MultiCore host");
     br_kv(&o, "Started", "%s", c->started ? "yes" : "no");
     br_kv(&o, "Paused", "%s", c->paused ? "yes" : "no");

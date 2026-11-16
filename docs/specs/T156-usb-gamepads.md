@@ -1,6 +1,6 @@
 # T156 — USB gamepads drive the machine's own controllers in every core, first NES, SNES and Neo Geo
 
-**Status:** PROPOSED (2026-10-29), asked by Alex.
+**Status:** PROPOSED (2026-10-29), asked by Alex. Status check 2026-11-13: BUILT and merged (15f484139, 2026-11-01): NES, SNES, Neo Geo pads, board pass 11-02 (Alex); open: real pad dump.
 **Repo:** TRX64U-MultiCore — shared base of the generic core application (`coreapp/src`: USB HID report parsing, a pad
 service), per-core descriptors (button maps), per-core gateware only where a core needs a register for pad state
 (`cores/nes`, `cores/snes`, `cores/neogeo`; large cores since T164, the register lives in the core's own `trx/` sources, not in the host copy). Host gateware is not changed.
@@ -102,7 +102,7 @@ Proposed:
 
 ## §5 Build notes
 
-Built 2026-10-29 on branch `t156-pads` (from `t142-snes`). Written to the code as it stands; nothing here was seen on the board.
+Built 2026-10-29 on branch `t156-pads` (from `t142-snes`). Written to the code as it stands; nothing here was seen on the board. (2026-11-15 sync: superseded for NES, SNES, Neo Geo - Alex passed them on the board 2026-11-02, docs/todo/T156.md:9; the per-scenario S2/S3 game checks are not itemised there.)
 
 ### 5.1 Read, compare, plan (before the gateware)
 

@@ -1,54 +1,55 @@
-102d101
-<     wire [7:0] r_rkd; wire r_rkt, rk_room;            // T141: raw key events of the application into amiga_input
-103a103,104
->     wire [7:0] r_rkd; wire r_rkt, rk_room;            // T141: raw key events of the application into amiga_input
->     wire [39:0] diw; wire [32:0] r_fbwin;           // T97 5.10: the display window out of Agnus, the crop window the application writes
+102a103
+>     wire mb_tgl, mb_we, mb_drv; wire [31:0] mb_lba; wire dlog_ovf;
 105c106
+<     wire mb_tgl, mb_we, mb_drv; wire [31:0] mb_lba; wire dlog_ovf;
+---
+>     wire [39:0] diw; wire [32:0] r_fbwin;           // T97 5.10: the display window out of Agnus, the crop window the application writes
+107c108
 <     amiga_regs #(.FB_BUFS(FB_BUFS), .HDF_SECT(HDF_SECT)) regs (
 ---
 >     amiga_regs #(.FB_BUFS(FB_BUFS), .FB_BYTE0(32'h04000000), .FB_SHIFT(21), .HDF_SECT(HDF_SECT)) regs (   // T136 D3
-117c118,119
+119c120,121
 <         .dlog_empty(dlog_empty), .dlog_head(dlog_head), .dlog_ovf(dlog_ovf), .dlog_pop(dlog_pop), .wb_idx(r_wb));
 ---
 >         .dlog_empty(dlog_empty), .dlog_head(dlog_head), .dlog_ovf(dlog_ovf), .dlog_pop(dlog_pop), .wb_idx(r_wb),
 >         .diw(diw), .fbwin(r_fbwin));
-127a130
+129a132
 >     reg [32:0] win_b = {9'd270, 7'd90, 8'd10, 9'd36};   // the crop window (amiga_fb's fixed one until the application writes)
-133c136
+135c138
 <             h0_b <= r_hdf0; h1_b <= r_hdf1;
 ---
 >             h0_b <= r_hdf0; h1_b <= r_hdf1; win_b <= r_fbwin;
-182c185
+184c187
 <     wire hs, vs; wire [3:0] vr, vg, vb; wire hbl_o, vbl_o, lace_o, field1_o; wire [1:0] hires_o;
 ---
 >     wire hs, vs; wire [7:0] vr, vg, vb; wire hbl_o, vbl_o, lace_o, field1_o; wire [1:0] hires_o;
-185c188,189
+187c190,191
 <     wire fastram_sel; wire [23:1] fastram_addr; wire fastram_lds, fastram_uds, fastram_wr; wire [15:0] fastram_din;
 ---
 >     wire fastram_sel; wire [25:1] fastram_addr;   // T138: [25] = the Zorro III board (ramaddr[28] of the CPU wrapper)
 >     wire fastram_lds, fastram_uds, fastram_wr; wire [15:0] fastram_din;
-206a211,216
+208a213,218
 >     // T97 5.9 (one of the changes against ../../amiga/rtl/trx/amiga_core.v, recorded in amiga_core.diff; the others are the display window out of nanomig and the crop window into amiga_fb, 5.10): FAST_CFG 3 (5.5 MB) takes 1.5 MB
 >     // "from the slow RAM" ($600000..$77FFFF are the fast cards 2 and 3; nanomig.v clears slowram_config for the CPU's own port). The
 >     // chipset (gary, minimig_sram_bridge) still got the raw memory_config and served the slow RAM at $C00000..$D7FFFF from the very
 >     // same DDR2 bytes, so the OS saw them twice, as slow and as fast RAM. The slow bits are cleared for the chipset as well then.
 >     wire [7:0] mem_nm = {mem_b[7:4], mem_b[3:2] & {2{~&fast_b[1:0]}}, mem_b[1:0]};
 > 
-213,214c223,224
+215,216c225,226
 <         .hblank_o(hbl_o), .vblank_o(vbl_o), .lace_o(lace_o), .field1_o(field1_o), .hires_o(hires_o),
 <         .memory_config(mem_b), .fastram_config(fast_b[2:0]), .cpu_config(cpu_b[1:0]), .chipset_config(chs_b[5:0]),
 ---
 >         .diw_o(diw), .hblank_o(hbl_o), .vblank_o(vbl_o), .lace_o(lace_o), .field1_o(field1_o), .hires_o(hires_o),
 >         .memory_config(mem_nm), .fastram_config(fast_b[2:0]), .cpu_config(cpu_b[1:0]), .chipset_config(chs_b[5:0]),
-232c242
+234c244
 <         .p2_sel(fastram_sel), .p2_wr(fastram_wr), .p2_addr(fastram_addr[22:1]), .p2_be(~{fastram_uds, fastram_lds}),
 ---
 >         .p2_sel(fastram_sel), .p2_wr(fastram_wr), .p2_addr(fastram_addr[25:1]), .p2_be(~{fastram_uds, fastram_lds}),
-248c258,260
+250c260,262
 <     amiga_fb #(.FB_BASE_W(BASE + 27'h0E80000 - 27'h0800000 + 27'h0000000), .BUF_STRIDE_W(27'h80000)) fb (
 ---
 >     // T136 D3: 32 bits per pixel, 3 x 720 x 540 x 4 bytes do not fit the window's 3 MB at +0xD00000: the buffers are at DDR2
 >     // 0x4000000, 2 MB apart (outside the window, which ends at 0x1FFFFFF; a power of two, amiga_regs takes the buffer from the address bits)
 >     amiga_fb #(.FB_BASE_W(27'h2000000), .BUF_STRIDE_W(27'h100000)) fb (
-250a263
+252a265
 >         .skip_x(win_b[8:0]), .skip_y(win_b[16:9]), .cols_w(win_b[23:17]), .lines(win_b[32:24]),

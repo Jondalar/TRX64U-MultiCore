@@ -20,13 +20,17 @@ def put(path, data):
     os.makedirs(os.path.dirname(p), exist_ok=True)
     open(p, "wb").write(data)
 
-def core(name, ver="1.0", icon=None, contract=C.CONTRACT, host=HOST):
-    return C.pack(name, ver, bit, app, 0x30000, 0x30010, host, contract=contract, icon=icon)
+def core(name, ver="1.0", icon=None, contract=C.CONTRACT, host=HOST, short=None):
+    return C.pack(name, ver, bit, app, 0x30000, 0x30010, host, contract=contract, icon=icon, short=short)
 
 put("Flash/cores/tiny.cor", core("Tiny", "0.2"))
 put("SD/cores/trx64.cor", core("TRX64 Ultimate (C64)", "1.0-rc1"))
 put("SD/readme.txt", b"not a bundle\n")
 put("Usb0/cores/vc20.cor", core("VC-20 (PAL)", "0.1", icon=icon))
+# T209 D15: logo-less cores for the text tile: a short name from the manifest, the widest one the format allows, none (the first letters of the name)
+put("Usb0/tiles/pet.cor", core("Commodore PET", "0.1", short="PET"))
+put("Usb0/tiles/wide.cor", core("Wide tile", "0.1", short="MMMM"))
+put("Usb0/tiles/plain.cor", core("VIC-20 (PAL)", "0.1"))
 put("Usb0/cores/c2.cor", core("Future", "9.0", contract=3))
 bad = bytearray(core("Bad icon", "0.3", icon=icon))
 bad[-100] ^= 0xFF                      # a byte inside the icon record: its SHA-256 no longer matches

@@ -17,6 +17,7 @@ area F5 SNES
     setting Video standard = Auto (cartridge) | NTSC | PAL (default Auto (cartridge), at next reset)
     setting Pseudo high resolution = Blend | 512 wide (default Blend, at next reset)
     setting Pad map = Default | Custom (default Default, live)
+    setting DSP firmware = Auto | DSP-1 | DSP-2 | DSP-3 | DSP-4 (default Auto, at next reset)
   tab 2 Input
     task Map buttons, pad 1
     task Map buttons, pad 2

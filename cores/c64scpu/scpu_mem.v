@@ -38,6 +38,7 @@ module scpu_mem (
     input  wire  [4:0]  srom_log2_i,
     input  wire  [1:0]  scpu_sw_i,              // b0 = 20 MHz switch, b1 = JiffyDOS switch
     input  wire         flush,
+    input  wire         ba,                     // the VIC's BA (high = the CPU may run); with it the I/O write hold of a badline (scpu64cpu.c:193-203)
     input  wire         aec,                    // the VIC leaves the C64 bus to the CPU (high in the PHI2 high phase, low in the badline's c-accesses)
     output wire         rom_valid_o,
     output wire         fast_o,                 // 20 MHz in effect
@@ -355,7 +356,23 @@ module scpu_mem (
     end
     reg past_n = 1'b0;                                  // this PHI2 cycle's fall and the 2 clocks of its data are over: the next rise is the next cycle's
     always @(posedge clk2x) if (l_ev) past_n <= 1'b0; else if (n_d[1]) past_n <= 1'b1;
-    wire arm_go = sync_cyc && settled && !armed && !bus_ok && !(fast && wb_busy) && !mir_busy;
+    // the BA hold of an I/O write (VICE scpu64cpu.c:193-203, 105-118): a write completes unheld only in the 3 PHI2 cycles BA gives the CPU before AEC drops; from the 4th BA-low cycle on it waits until
+    // BA is high again (the enable is withheld). ba_n counts the PHI2 starts (l_ev) at which BA was low, like the VIC's ba1..ba3 chain that lowers AEC: ba_hold is true in exactly the cycles
+    // whose PHI2 half has AEC low. Only at 20 MHz (at 1 MHz the 65816 does what the 6510 does: the three writes of an interrupt, never more).
+    // ba comes from the VIC on clk (dot4x), this logic runs on clk2x: registered here like aec_q (one clk2x of lag; the l_ev sampling below is tuned to this registered copy).
+    reg        ba_q = 1'b1;
+    always @(posedge clk2x) ba_q <= ba;
+    reg  [1:0] ba_n = 2'd0;
+    always @(posedge clk2x) if (rst || (l_ev && ba_q)) ba_n <= 2'd0; else if (l_ev && ba_n != 2'd3) ba_n <= ba_n + 2'd1;
+    wire ba_hold = !ba_q && (l_ev ? ba_n[1] : (ba_n == 2'd3));
+    // the I/O write classes and the colour RAM ($D800-$DBFF, WK_BOTH): the arbiter selects the CPU half only while AEC is high (vic_write_ab low), so a write at AEC low is lost there too
+    wire io_wr   = b_bus && b_wr && bank == 8'h00 && pg[7:4] == 4'hD && (d_wk == WK_BUS || d_wk == WK_INT || d_wk == WK_BOTH);
+`ifdef SCPU_MUT_NOBAHOLD
+    wire wr_hold = 1'b0;                                // control of the BA hold: I/O writes are never held (the old core)
+`else
+    wire wr_hold = fast && io_wr && ba_hold;
+`endif
+    wire arm_go = sync_cyc && settled && !armed && !bus_ok && !(fast && wb_busy) && !mir_busy && !wr_hold;
 `ifdef SCPU_MUT_LATEADDR
     wire skip_now = 1'b0;                               // S4 bus control: the address goes out whenever the class is known, also after the PHI2 rise
 `else
@@ -365,7 +382,7 @@ module scpu_mem (
         if (core_ce || rst) begin armed <= 1'b0; a_skip <= 1'b0; bus_ok <= 1'b0; end
         else begin
             if (arm_go) begin armed <= 1'b1; a_skip <= skip_now; end
-            else if (armed && l_ev && a_skip) a_skip <= 1'b0;
+            else if (armed && l_ev && a_skip) begin a_skip <= 1'b0; if (wr_hold) armed <= 1'b0; end      // the address was to go out in this cycle, but BA holds the write now: not armed, decided again
             else if (armed && n_d[1] && !a_skip) bus_ok <= 1'b1;
         end
     end

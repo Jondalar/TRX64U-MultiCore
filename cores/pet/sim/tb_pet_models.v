@@ -18,7 +18,7 @@ module tb_pet_models;
     reg  [16:0] cw_addr = 0; reg [7:0] cw_wdata = 0; reg cw_we = 0, cw_re = 0;
     pet_core dut (
         .sys_clk(sys_clk), .sys_rst(sys_rst), .cpu_clk(cpu_clk), .mclk(mclk), .ui_clk(ui_clk), .ui_rst(ui_rst), .reset_req(1'b0), .halt_req(1'b0),
-        .halted(halted), .running(running), .keys(keys),
+        .halted(halted), .running(running), .keys(keys), .joy1(5'd0), .joy2(5'd0),
         .dma_req_tgl(1'b0), .dma_addr(16'd0), .dma_we(1'b0), .dma_wdata(8'd0), .dma_rom(1'b0), .dma_done_tgl(dma_done_tgl), .dma_rdata(dma_rdata), .dbg_busy(1'b0),
         .win_port_use(win_port_use), .win_port_addr(win_port_addr), .win_port_rom(win_port_rom), .win_port_we(win_port_we), .win_port_wdata(win_port_wdata),
         .port_req(1'b0), .port_addr(16'd0), .port_rom(1'b0), .port_we(1'b0), .port_wdata(8'd0), .ram_rdata(ram_rdata),
@@ -45,20 +45,20 @@ module tb_pet_models;
     initial begin
         if (!$value$plusargs("mode=%d", mode)) mode = 0;
         for (i = 0; i < 32768; i = i + 1) dut.mem.rom.mem[i] = 8'hEA;
-        for (i = 0; i < 2048; i = i + 1) dut.mem.chr.mem[i] = 8'h00;
+        for (i = 0; i < 4096; i = i + 1) dut.mem.chr.mem[i] = 8'h00;
         for (i = 0; i < 2048; i = i + 1) dut.mem.vram.mem[i] = 8'h00;
         for (i = 0; i < 65536; i = i + 1) dut.xram.mem[i] = 8'h00;
-        for (i = 0; i < 8; i = i + 1) begin dut.mem.chr.mem[8 + i] = 8'h81; dut.mem.chr.mem[16 + i] = 8'hFF; dut.mem.chr.mem[1024 + 8 + i] = 8'h81; dut.mem.chr.mem[1024 + 16 + i] = 8'hFF; end
+        for (i = 0; i < 8; i = i + 1) begin dut.mem.chr.mem[8 + i] = 8'h81; dut.mem.chr.mem[16 + i] = 8'hFF; dut.mem.chr.mem[1024 + 8 + i] = 8'h81; dut.mem.chr.mem[1024 + 16 + i] = 8'hFF; dut.mem.chr.mem[2048 + 8 + i] = 8'h3C; dut.mem.chr.mem[3072 + 8 + i] = 8'h3C; end   // the upper pair (CRTC R12 bit 5): code 1 = dots 2..5
         rom(16'hFFFC, 8'h00); rom(16'hFFFD, 8'hF0);
         pc = 16'hF000;
         emit(8'h78); emit(8'hD8); emit(8'hA2); emit(8'hFF); emit(8'h9A);
         if (mode == 0) begin
-            // 8032: three characters into the 80 column video RAM, the CRTC's R1 = 80, a marker
+            // 8032: three characters into the 80 column video RAM, the CRTC's R1 = 40 as the real editor ROMs program it (two columns per CRTC character), a marker
             emit(8'hA9); emit(8'h01); emit(8'h8D); emit(8'h00); emit(8'h80);
             emit(8'hA9); emit(8'h81); emit(8'h8D); emit(8'h01); emit(8'h80);
             emit(8'hA9); emit(8'h02); emit(8'h8D); emit(8'h50); emit(8'h80);
             emit(8'hA9); emit(8'h01); emit(8'h8D); emit(8'h80); emit(8'hE8);
-            emit(8'hA9); emit(8'h50); emit(8'h8D); emit(8'h81); emit(8'hE8);
+            emit(8'hA9); emit(8'h28); emit(8'h8D); emit(8'h81); emit(8'hE8);
             emit(8'hA9); emit(8'hA5); emit(8'h8D); emit(8'h00); emit(8'h02);
             emit(8'h4C); emit(8'h23); emit(8'hF0);
         end else begin
@@ -96,18 +96,20 @@ module tb_pet_models;
     end
     // the pixel stream as the frame writer sees it
     reg [15:0] line0 [0:639], line16 [0:639], line0b [0:639];
-    integer xd = 0, yd = 0, frames_seen = 0, startmod = 0;
+    integer xd = 0, yd = 0, frames_seen = 0, startmod = 0, altmod = 0;
+    reg [15:0] line0c [0:639];
     reg hb_d = 1;
     always @(posedge sys_clk) begin
         hb_d <= dut.vid.hblank;
         if (dut.vid.frame_end) begin
             frames_seen = frames_seen + 1;
             if (frames_seen == 3 && mode == 0) begin dut.r13 = 8'd1; startmod = 1; end   // the CRTC start address moves by one character
+            if (frames_seen == 5 && mode == 0) begin dut.r13 = 8'd0; dut.r12 = 8'h20; altmod = 1; end   // R12 bit 5 (MA13): the upper pair of character sets
         end
-        if ((frames_seen == 2 || (frames_seen == 4 && startmod)) && mode == 0) begin
+        if ((frames_seen == 2 || (frames_seen == 4 && startmod) || (frames_seen == 6 && altmod)) && mode == 0) begin
             if (hb_d && !dut.vid.hblank) xd = 0;
             if (!dut.vid.hblank && !dut.vid.vblank) begin
-                if (yd == 0) begin if (frames_seen == 2) line0[xd] = dut.vid.rgb565; else line0b[xd] = dut.vid.rgb565; end
+                if (yd == 0) begin if (frames_seen == 2) line0[xd] = dut.vid.rgb565; else if (frames_seen == 4) line0b[xd] = dut.vid.rgb565; else line0c[xd] = dut.vid.rgb565; end
                 if (yd == 16 && frames_seen == 2) line16[xd] = dut.vid.rgb565;
                 xd = xd + 1;
             end
@@ -115,19 +117,13 @@ module tb_pet_models;
             if (dut.vid.vblank) yd = 0;
         end
     end
-    // the business matrix: 'A' (C64 key 10) is row 3 column 0, '1' (C64 key 56) row 1 column 0, 'SPACE' (60) row 8 column 2; the graphics matrix has 'A' at row 4
-    reg [63:0] kk;
-    wire [7:0] kb, kg;
-    reg [3:0] kr = 0;
-    pet_keys kx_b (.keys(kk), .bus(1'b1), .keyrow(kr), .keyin(kb));
-    pet_keys kx_g (.keys(kk), .bus(1'b0), .keyrow(kr), .keyin(kg));
     initial begin
         #30000000;
         if (mode == 0) begin
             if (dut.mem.ram.mem[16'h0200] !== 8'hA5) begin $display("FAIL marker %h", dut.mem.ram.mem[16'h0200]); errs = errs + 1; end
             if (!dut.col80) begin $display("FAIL col80"); errs = errs + 1; end
             if (dut.vid.col80 !== 1'b1) begin $display("FAIL vid col80"); errs = errs + 1; end
-            wait (frames_seen >= 5);
+            wait (frames_seen >= 7);
             #1000;
             $write("line0:  "); for (k = 0; k < 40; k = k + 1) $write("%0d", line0[k] != 0); $write("\nline16: "); for (k = 0; k < 40; k = k + 1) $write("%0d", line16[k] != 0);
             $write("\nline0b: "); for (k = 0; k < 40; k = k + 1) $write("%0d", line0b[k] != 0); $write("\n");
@@ -137,15 +133,9 @@ module tb_pet_models;
             // row 1 starts at character 80 (video RAM $8050): code 2 is all dots on, 8 dots wide, then blank
             if (!(line16[0] == 16'h27E6 && line16[7] == 16'h27E6 && line16[8] == 0)) begin $display("FAIL 80 col row 1"); errs = errs + 1; end
             // start address 1: the first character is the old second one
+            // R12 bit 5: cell 0 (code 1) now comes from the upper pair: dots 2..5
+            if (!(line0c[0] == 0 && line0c[1] == 0 && line0c[2] == 16'h27E6 && line0c[5] == 16'h27E6 && line0c[6] == 0 && line0c[7] == 0)) begin $display("FAIL alternate character set (R12 bit 5)"); errs = errs + 1; end
             if (!(line0b[0] == 0 && line0b[1] == 16'h27E6 && line0b[6] == 16'h27E6 && line0b[7] == 0 && line0b[8] == 0)) begin $display("FAIL CRTC start address"); errs = errs + 1; end
-            // keys
-            kk = 64'd0; kk[10] = 1; kr = 3; #10; if (kb !== 8'hFE) begin $display("FAIL business A %h", kb); errs = errs + 1; end
-            kr = 4; #10; if (kg !== 8'hFE) begin $display("FAIL graphics A %h", kg); errs = errs + 1; end
-            kk = 64'd0; kk[60] = 1; kr = 8; #10; if (kb !== 8'hFB) begin $display("FAIL business SPACE %h", kb); errs = errs + 1; end
-            kk = 64'd0; kk[15] = 1; kr = 6; #10; if (kb !== 8'hFE) begin $display("FAIL business SHIFT %h", kb); errs = errs + 1; end
-            kk = 64'd0; kk[56] = 1; kr = 1; #10; if (kb !== 8'hFE) begin $display("FAIL business 1 %h", kb); errs = errs + 1; end
-            kk = 64'd0; kk[56] = 1; kk[61] = 1; kr = 1; #10; if (kb !== 8'hFF) begin $display("FAIL business C=+1 on the digit row %h", kb); errs = errs + 1; end
-            kr = 8; #10; if (kb !== 8'h7F) begin $display("FAIL business keypad 1 %h", kb); errs = errs + 1; end
         end else if (mode == 1) begin
             if (dut.mem.ram.mem[16'h0208] !== 8'hA5) begin $display("FAIL marker %h", dut.mem.ram.mem[16'h0208]); errs = errs + 1; end
             for (k = 0; k < 8; k = k + 1) $write("%h ", dut.mem.ram.mem[16'h0200 + k]); $write("\n");

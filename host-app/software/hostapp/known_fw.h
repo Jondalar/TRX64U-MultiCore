@@ -1,6 +1,6 @@
 // Official firmware files the host recognises by the SHA-256 of the whole file (T137 D3, Q6): a converted .cor carries the name and version of its row.
 // The rows were made on 2026-10-29 from files that lay on the machine of the one who builds this (no download, nothing typed from memory);
-// where each lay is in docs/specs/T137-host-convert-and-restore.md section 5. Every one of them parses as a firmware for the XC7A50T (cfw_probe).
+// where each lay is in docs/specs/done/T137-host-convert-and-restore.md section 5. Every one of them parses as a firmware for the XC7A50T (cfw_probe).
 // A row means "named like the vendor's release and found in the place such a release goes"; that is a recognition, not a signature (Q5).
 // The table ends with a row of zeros.
 #ifndef HOST_KNOWN_FW_H

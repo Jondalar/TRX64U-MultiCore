@@ -75,6 +75,7 @@ struct MenuEntry {
     EntryKind kind;
     const char *label;
     int index;          // into the descriptor's table of that kind
+    bool dialog;        // T216 D11: a task row of a settings tab that opens a dialog: the row shows ">" at the right
 };
 
 struct MenuTab {

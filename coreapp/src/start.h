@@ -34,6 +34,12 @@ HeldKeyResult held_key(const BoardProfile *b, int key, HeldReturnFn ret, char *m
 // reads "Atari 800 XL Settings".
 void start_paths(CoreCtx *c, const Handover *h, const BoardProfile *prof = 0);
 
+// T223 D4: the start file of a large core (handover.h, startfile_*): read once, then deleted whatever it said. Call after start_paths, with c->fs set. The hand-over page's path
+// decides where the file is; a block with no path (the page did not survive) looks on "/SD". A file whose cor= is not the page's path (left behind by another start) is dropped.
+// Without a page path the file's cor= is the .cor of this start: the folder and its settings follow it (c->cor_path, c->cfg_path). *config gets the name ("" = plain), *safe the flag.
+// True when a file of this start was found and used.
+bool start_file_take(CoreCtx *c, const Handover *h, char *config, int cfglen, bool *safe);
+
 // T112 Q1, "never lose a user's settings": a large core that used to keep its settings in the profile's directory (the monolith's
 // /flash/trx64u/<folder>.cfg) now has its .cfg in its core folder (T148 D1). When that file does not exist and the profile's file does, the profile's file is copied
 // there once; the original stays. True when it was copied. Call after start_paths, with c->fs set.

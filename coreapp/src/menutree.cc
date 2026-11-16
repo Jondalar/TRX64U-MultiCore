@@ -7,6 +7,7 @@
 #include "keyboard.h"
 #include "picture.h"
 #include "volume.h"
+#include "tone.h"
 #include "hotkeys.h"
 #include <stdio.h>
 #include <string.h>
@@ -19,6 +20,7 @@ static void add(MenuTree *t, EntryKind k, const char *label, int index)
         t->e[t->n].kind = k;
         t->e[t->n].label = label;
         t->e[t->n].index = index;
+        t->e[t->n].dialog = false;
         t->n++;
     }
 }
@@ -96,6 +98,33 @@ static bool group_in_tab(const Skeleton *sk, uint8_t widget, const SkelTab &tb, 
     return true;
 }
 
+// T226 S2: a task that names a group which a settings tab lists and no tasks tab lists is a row of that settings tab (the pad's "Map buttons" on Input), not of Actions.
+static bool task_in_settings_tab(const Skeleton *sk, const SkelTab &tb, const char *g)
+{
+    if (!g || tb.widget != TW_SETTINGS || !tb.groups || !groups_have(tb.groups, g)) {
+        return false;
+    }
+    for (int a = 0; a < sk->nareas; a++) {
+        for (int t = 0; t < sk->areas[a].ntabs; t++) {
+            if (sk->areas[a].tabs[t].widget == TW_TASKS && groups_have(sk->areas[a].tabs[t].groups, g)) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+static bool task_in_any_settings_tab(const Skeleton *sk, const char *g)
+{
+    for (int a = 0; a < sk->nareas; a++) {
+        for (int t = 0; t < sk->areas[a].ntabs; t++) {
+            if (task_in_settings_tab(sk, sk->areas[a].tabs[t], g)) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 static bool skel_has_widget(const Skeleton *sk, uint8_t widget)
 {
     for (int a = 0; a < sk->nareas; a++) {
@@ -125,7 +154,7 @@ const MenuGroupRoute *menu_route_of(const Setting &s)
     }
     if (!strcmp(s.apply, PICTURE_OP) || !strcmp(s.apply, SCALE_OP) || !strcmp(s.apply, SMOOTH_OP)) {
         g = "video";
-    } else if (volume_is_generic(s)) {
+    } else if (volume_is_generic(s) || tone_is_generic(s)) {
         g = "audio";
     } else if (hk_is_generic(s)) {
         g = "hotkeys";
@@ -240,6 +269,7 @@ void menu_build(const CoreDesc *d, MenuTree *t, bool return_host, bool reload_co
             bool nodes_done = false;
             bool drive_page_wanted = false;                              // T212 D5: Home has drive rows that open a list
             const MenuGroupRoute *page_route = 0;                       // set when a row of this tab opens a page (T187 D2)
+            int opens_index = -1;
             switch (st.widget) {
             case TW_INFO: {
                 if (st.groups) {                                             // a description names the lines of this tab (descrec.h), in its order
@@ -323,8 +353,8 @@ void menu_build(const CoreDesc *d, MenuTree *t, bool return_host, bool reload_co
                 auto add_routed = [&](int i, const MenuGroupRoute *r) {
                     if (r->page) {                                           // T187 D2: one row opens the page; the page is a tab of its own after this one
                         if (!page_route) {
-                            page_route = r;
-                            add(t, EK_OPENS, r->label, i);
+                            page_route = r;                                  // T216 D12: the row that opens the page stands last in the tab, after the task rows
+                            opens_index = i;
                         }
                     } else {
                         add(t, EK_SETTING, d->settings[i].label ? d->settings[i].label : d->settings[i].key, i);
@@ -348,7 +378,7 @@ void menu_build(const CoreDesc *d, MenuTree *t, bool return_host, bool reload_co
                             if (r != &g_routes[g]) {
                                 continue;
                             }
-                            if (!head_done) {
+                            if (!head_done && !r->page) {                    // a page row brings its heading where the row stands (below), not before it is placed
                                 add(t, EK_HEADING, r->heading, 0);
                                 head_done = true;
                             }
@@ -356,18 +386,32 @@ void menu_build(const CoreDesc *d, MenuTree *t, bool return_host, bool reload_co
                         }
                     }
                 }
-                // T212 D8: the tasks that are the machine's own settings (Map buttons, 50 / 60 Hz, CPU speed) stand below the settings of the tab named for their group
-                for (int i = 0; !skel_has_widget(sk, TW_TASKS) && i < d->ntasks; i++) {
-                    if (st.groups ? (groups_have(st.groups, "input") && task_in_group(d->tasks[i], "input"))
-                                  : (st.id && !strcmp(st.id, "settings") && task_in_group(d->tasks[i], "machine"))) {
-                        add(t, EK_TASK, d->tasks[i].label, i);
+                // T212 D8: the tasks that are the machine's own settings (Map buttons, 50 / 60 Hz, CPU speed) stand below the settings of the tab named for their group;
+                // T226 S2: so does a task whose group a settings tab lists and no tasks tab does
+                for (int i = 0; i < d->ntasks; i++) {
+                    bool here = task_in_settings_tab(sk, st, d->tasks[i].group);
+                    if (!here && !skel_has_widget(sk, TW_TASKS)) {
+                        here = st.groups ? (groups_have(st.groups, "input") && task_in_group(d->tasks[i], "input"))
+                                         : (st.id && !strcmp(st.id, "settings") && task_in_group(d->tasks[i], "machine"));
                     }
+                    if (here) {
+                        add(t, EK_TASK, d->tasks[i].label, i);
+                        if (t->n > 0 && t->e[t->n - 1].kind == EK_TASK && t->e[t->n - 1].index == i) {
+                            t->e[t->n - 1].dialog = true;                    // T216 D11
+                        }
+                    }
+                }
+                if (page_route) {
+                    if (heads) {
+                        add(t, EK_HEADING, page_route->heading, 0);           // T212 D12: the page's own section, T216 D12: after the task rows
+                    }
+                    add(t, EK_OPENS, page_route->label, opens_index);
                 }
                 break;
             }
             case TW_TASKS:
                 for (int i = 0; i < d->ntasks; i++) {
-                    if (group_in_tab(sk, TW_TASKS, st, d->tasks[i].group)) {
+                    if (!task_in_any_settings_tab(sk, d->tasks[i].group) && group_in_tab(sk, TW_TASKS, st, d->tasks[i].group)) {
                         add(t, EK_TASK, d->tasks[i].label, i);
                     }
                 }
@@ -554,6 +598,9 @@ int menu_dump(const CoreDesc *d, const MenuTree *t, char *out, int max)
                     }
                     if (s.kind != 3) {
                         EMIT(" (default %s, %s)", s.values[s.def], s.when == WHEN_RESET ? "at next reset" : "live");
+                    }
+                    if (s.show_state) {
+                        EMIT(" [listed while %s]", s.show_state);          // T216 S3: a row that depends on a state is told in the dump
                     }
                 } else if (e.kind == EK_TASK) {
                     EMIT("%s%s", d->tasks[e.index].closes_menu ? " (closes the menu)" : "", d->tasks[e.index].ask ? " (asks a name)" : "");

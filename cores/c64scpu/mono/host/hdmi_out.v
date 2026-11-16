@@ -1,18 +1,17 @@
-// T164 WP8 (G1, the host, every core): the HDMI side from the picture sources to the pins. One module holds the mode request and status
-// (mode_req), the synthesizer sequencer (cdce_mode), mmcm_pix, the timing generator (hdmi_timing), the VIC path (vic_scaler on the timing's
-// counters, 1080p rows only), the menu overlay, the pixel layer, the freeze text, the encoder fork (hdmi_enc), the TMDS bit repeater (tmds_rep),
-// the GTPs, the HDMI side of the audio crossing and the measure register. A core delivers a picture and nothing else: the VIC raster (pix_*),
-// or the DDR2 frame buffer through pix_layer.
+// T164 WP8 (G1, the host, every core), then T222: this core's copy of the HDMI side from the picture sources to the pins, with the HDMI rows
+// of TRX64-Ultimate's U16 (d48734d8). One module holds the mode request, the scale and the status (mode_req), the synthesizer sequencer
+// (cdce_mode), mmcm_pix, the timing generator (hdmi_timing), the VIC path (vic_scaler on the timing's counters, every row, at the scale of 0x4F01),
+// the menu overlay, the pixel layer, the freeze text, the encoder fork (hdmi_enc), the TMDS bit repeater (tmds_rep), the GTPs, the HDMI side of the
+// audio crossing and the measure register. A core delivers a picture and nothing else: the VIC raster (pix_*), and the DDR2 frame buffer through
+// pix_layer.
 //
-// Clocks: the GTPs run on usrclk = pix_clk / 2; mmcm_pix (x14 / 7 from usrclk) makes pix_clk = the TMDS clock of the mode (92 .. 149 MHz). A
+// Clocks: the GTPs run on usrclk = pix_clk / 2; mmcm_pix (x14 / 7 from usrclk) makes pix_clk = the TMDS clock of the mode (122.7 .. 149.1 MHz). A
 // pixel lasts `gear` pix_clk (hdmi_timing.v), `pce` is high in the last pix_clk of a pixel; every register of the picture chain after the
 // timing changes only on that edge, the encoder and tmds_rep run on it as well.
 //
-// Selection of the picture: on a 1080p row (hm_locked) the VIC path (gear 1) is in the chain, on every other row hdmi_timing's own (black)
-// picture goes into the overlay: the scaler's three clocks of delay would shift the pixels against `pce` of a repeated row.
-//
-// c64_type (static): the core is a C64-type one, held to the System Mode's family and to the VIC-locked rows (mode_req, cdce_mode `lock`). The
-// DFX host ties it to 0 (no DFX core ships on the VIC path, T164 Q4); a large C64-type core's top sets 1.
+// Differences against the host's hdmi_out.v (T222): the core is a C64-type one without exception (mode_req holds every request to the System Mode's
+// family and to the seven locked rows of U16 D2), the VIC path is in the chain in every row (no black picture row, no picture mux), there is no core
+// swap (no relock), `vmode` gives the encoder the clock rate of the System Mode.
 module hdmi_out #(
     parameter SMOOTH = 1                 // pix_layer: bilinear smoothing
 ) (
@@ -21,9 +20,8 @@ module hdmi_out #(
     input  wire        sys_clk,          // the C64 system clock (VIC pixel side, freeze text, measure register)
     input  wire        cdce_rst,         // clk50: por_rst | ~clocks_ok; cdce_mode also restarts with every accepted mode request
     input  wire        gt_rst,           // clk50: GTP reset (the synthesizer settles for 50 ms first)
-    input  wire        c64_type,
     input  wire        fam_v60,          // clk50: the System Mode's family (mode_ctl cdce_v60)
-    input  wire        core_decouple,    // JTAG: a core swap; the VIC lock is taken again afterwards
+    input  wire [1:0]  vmode,            // clk50: the System Mode in use (mode_ctl vmode): 0 PAL, 1 NTSC, 2 PAL-60, 3 NTSC-50
 
     // pins
     input  wire        refclk_p, refclk_n,
@@ -91,7 +89,7 @@ module hdmi_out #(
     output wire        video_locked_s,   // clk50: the picture is up (and locked to the VIC where the VIC path is in use)
     output reg  [31:0] hdmi_meas         // sys_clk: {gt_ready, pix_locked, locked, 0, frames in the last second (12), pixel clocks per frame / 256 (16)}
 );
-`include "hdmi_modes.vh"
+`include "scpu_hdmi_modes.vh"
 
     // ---- clocks: usrclk from the GTPs, pix_clk = 2 x usrclk from mmcm_pix
     wire        usrclk;
@@ -111,64 +109,48 @@ module hdmi_out #(
 
     // ---- the mode: request and status (cpu_clk), the synthesizer (clk50), the timing (pix_clk)
     wire [3:0]  vm_mode, mode_pix, m_mode;
-    wire        vm_rst, running;
+    wire [1:0]  scale_pix;
+    wire        smooth_pix;
+    wire        vm_rst, running, fstart;
     wire [7:0]  mr_rdata;
     wire        mr_rhit;
     mode_req mreq (
         .clk_sys(cpu_clk), .we(ovl_we), .addr(ovl_addr), .wdata(ovl_wdata), .rdata(mr_rdata), .rhit(mr_rhit),
-        .clk50(clk50), .c64_type(c64_type), .fam_v60(fam_v60), .vm_mode(vm_mode), .vm_rst(vm_rst),
-        .clk_pix(pix_clk), .mode_pix(mode_pix), .gt_ready(gt_ready), .pix_locked(pix_locked), .running(running), .mode_q(m_mode)
+        .clk50(clk50), .fam_v60(fam_v60), .vm_mode(vm_mode), .vm_rst(vm_rst),
+        .clk_pix(pix_clk), .mode_pix(mode_pix), .fstart(fstart), .scale_pix(scale_pix), .smooth_pix(smooth_pix),
+        .gt_ready(gt_ready), .pix_locked(pix_locked), .running(running), .mode_q(m_mode)
     );
-    cdce_mode i2c (.clk(clk50), .rst(cdce_rst | vm_rst), .scl_low(scl_low), .sda_low(sda_low), .done(i2c_done),
-                   .mode(vm_mode), .lock(c64_type));
+    cdce_mode i2c (.clk(clk50), .rst(cdce_rst | vm_rst), .scl_low(scl_low), .sda_low(sda_low), .done(i2c_done), .mode(vm_mode));
 
     wire        align, pce, t_de, t_hs, t_vs;
-    wire [23:0] t_rgb;
-    wire [11:0] t_cx, m_hact, m_xact0;
+    wire [11:0] t_cx, m_hact, m_xact0, m_htot_m1;
     wire [10:0] t_cy, m_vact, m_yact0;
     wire  [3:0] m_gear;
     wire  [6:0] m_vic;
-    wire [31:0] m_rate;
     hdmi_timing mtim (
         .clk(pix_clk), .rst(pix_rst), .mode(mode_pix), .align(align), .valid(), .aligned(),
-        .ce(pce), .rgb(t_rgb), .de(t_de), .hs(t_hs), .vs(t_vs), .cx(t_cx), .cy(t_cy), .running(running),
-        .hact(m_hact), .vact(m_vact), .xact0(m_xact0), .yact0(m_yact0), .gear(m_gear), .vic(m_vic), .rate(m_rate),
-        .sx_e(), .fw_m1(), .sy_e(), .ey_e(), .ph_e(), .mode_q(m_mode)
+        .ce(pce), .rgb(), .de(t_de), .hs(t_hs), .vs(t_vs), .cx(t_cx), .cy(t_cy), .running(running),
+        .hact(m_hact), .vact(m_vact), .xact0(m_xact0), .yact0(m_yact0), .gear(m_gear), .htot_m1(m_htot_m1), .vtot_m1(),
+        .vic(m_vic), .rate(), .sx_e(), .fw_m1(), .sy_e(), .ey_e(), .ph_e(), .mode_q(m_mode)
     );
-    wire        vic_row = hm_locked(m_mode);       // static while running
+    assign fstart = pce && t_cx == 12'd0 && t_cy == 11'd0;
     wire [1:0]  m_aspect = hm_aspect(m_mode);
 
-    // ---- the VIC path (1080p rows)
-    wire        dc_pix;
-    reg         dc_pix_q = 1'b0;
-    dfx_sync dcs_pix (.clk(pix_clk), .i(core_decouple), .o(dc_pix));
-    always @(posedge pix_clk) dc_pix_q <= dc_pix;
-    wire        relock = dc_pix_q && !dc_pix;
-    wire [23:0] v_rgb;
-    wire        v_de, v_hs, v_vs, sc_locked;
-    wire [11:0] v_cx;
-    wire [10:0] v_cy;
-`ifdef NO_C64VIDEO
-    // T164 console flat builds (NO_C64VIDEO): no VIC path. The picture selection below never takes it (vic_sel = 0), the status reads "locked".
-    wire        vic_sel = 1'b0;
-    assign v_rgb = 24'd0, v_de = 1'b0, v_hs = 1'b0, v_vs = 1'b0, v_cx = 12'd0, v_cy = 11'd0, sc_locked = 1'b1, x_text = 10'd0, align = 1'b0;
-`else
-    wire        vic_sel = vic_row;
-    vic_scaler #(.EXT(1'b1)) scaler (
+    // ---- the VIC picture on the timing's counters, at the scale in use (the same geometry feeds the freeze text)
+    wire [23:0] s_rgb;
+    wire        s_de, s_hs, s_vs, sc_locked;
+    wire [11:0] s_cx;
+    wire [10:0] s_cy;
+    wire [81:0] geom;                              // hm_geom(m_mode, scale_pix), registered in vic_scaler
+    vic_scaler scaler (
         .vclk(sys_clk), .pix(pix_color), .px(pix_x), .py(pix_y),
-        .clk(pix_clk), .rst(pix_rst),
+        .clk(pix_clk), .rst(pix_rst), .ce(pce),
         .pal_clk(cpu_clk), .pal_we(pal_we), .pal_addr(pal_addr), .pal_wdata(pal_wdata),
-        .rgb(v_rgb), .de(v_de), .hs(v_hs), .vs(v_vs), .cx(v_cx), .cy(v_cy), .locked(sc_locked),
-        .blank(c64_halted), .x_text(x_text), .v60(v60), .scan(scanlines), .relock(relock),
-        .en(vic_row), .t_de(t_de), .t_hs(t_hs), .t_vs(t_vs), .t_cx(t_cx), .t_cy(t_cy), .xact0(m_xact0), .yact0(m_yact0), .align(align)
+        .mode(m_mode), .scale(scale_pix), .smooth(smooth_pix), .t_de(t_de), .t_hs(t_hs), .t_vs(t_vs), .t_cx(t_cx), .t_cy(t_cy),
+        .xact0(m_xact0), .yact0(m_yact0), .hact(m_hact), .vact(m_vact), .htot_m1(m_htot_m1), .geom(geom), .align(align),
+        .rgb(s_rgb), .de(s_de), .hs(s_hs), .vs(s_vs), .cx(s_cx), .cy(s_cy), .locked(sc_locked),
+        .blank(c64_halted), .x_text(x_text), .scan(scanlines)
     );
-`endif
-    wire [23:0] s_rgb = vic_sel ? v_rgb : t_rgb;
-    wire        s_de  = vic_sel ? v_de  : t_de;
-    wire        s_hs  = vic_sel ? v_hs  : t_hs;
-    wire        s_vs  = vic_sel ? v_vs  : t_vs;
-    wire [11:0] s_cx  = vic_sel ? v_cx  : t_cx;
-    wire [10:0] s_cy  = vic_sel ? v_cy  : t_cy;
 
     // ---- the app's menu (0x10140000) on top of the picture; the mode status is read over the overlay's data
     wire [7:0]  o_rdata;
@@ -203,16 +185,11 @@ module hdmi_out #(
         .rgb(p_rgb), .de(p_de), .hs(p_hs), .vs(p_vs), .cx(p_cx), .cy(p_cy)
     );
 
-    // ---- the freeze menu's C64 text on top: the still the app drew on the pixel layer stays below it
+    // ---- the freeze menu's C64 text on top: the still the app drew on the pixel layer stays below it; its area and steps are the scale's (hm_geom)
     wire [23:0] rgb;
     wire        de, hs, vs;
     wire [11:0] cx;
     wire [10:0] cy;
-`ifdef NO_C64VIDEO
-    // T164 console flat builds (NO_C64VIDEO): no C64 freeze text; the pixel layer's picture goes to the encoder, the text port reads 0 and asks for nothing
-    assign rgb = p_rgb, de = p_de, hs = p_hs, vs = p_vs, cx = p_cx, cy = p_cy;
-    assign tx_rdata = 8'd0, tx_req = 1'b0, tx_paddr = 16'd0, tx_rom = 1'b0, tx_cram_addr = 10'd0;
-`else
     c64_text txt (
         .clk_sys(cpu_clk), .we(px_we), .re(px_re), .addr(px_addr), .wdata(px_wdata),
         .rdata(tx_rdata),
@@ -221,11 +198,11 @@ module hdmi_out #(
         .port_req(tx_req), .port_addr(tx_paddr), .port_rom(tx_rom), .port_grant(tx_go),
         .port_rdata(ram_rdata), .cram_addr(tx_cram_addr), .cram_grant(cram_grant),
         .cram_rdata(cram_rdata),
-        .clk(pix_clk), .ce(pce), .hact(m_hact), .vact(m_vact), .xact0(m_xact0), .yact0(m_yact0),
+        .clk(pix_clk), .ce(pce), .xact0(m_xact0), .yact0(m_yact0), .xt0(geom[22:11]), .yt0(geom[10:0]),
+        .hn(geom[81:76]), .hd(geom[75:70]), .tvn(geom[57:52]), .tvd(geom[51:46]),
         .rgb_in(p_rgb), .de_in(p_de), .hs_in(p_hs), .vs_in(p_vs), .cx_in(p_cx), .cy_in(p_cy),
         .rgb(rgb), .de(de), .hs(hs), .vs(vs), .cx(cx), .cy(cy)
     );
-`endif
 
     // ---- audio: the samples held in the mclk domain, taken over here (the encoder sends them at its own 48 kHz; a pair is repeated or
     // skipped now and then, the two clocks being 0.005 % apart)
@@ -239,13 +216,21 @@ module hdmi_out #(
 
     // ---- the encoder: the chain's outputs are registers that change on the edge ending a `ce` clock; the frame constants are the mode's, in
     // pixels. ce_enc also runs while the timing is reset (ce is low then) so that the encoder's reset reaches its registers.
+    // the pixel clock rate for the encoder's 48 kHz audio tick and N / CTS: the row's (hm_rate) in the family's first System Mode (PAL, NTSC),
+    // hm_rate_alt in its second (NTSC-50, PAL-60; T40). The VIC code and the frame are the timing's.
+    (* ASYNC_REG = "TRUE" *) reg [1:0] vm_p1 = 2'd0, vm_p = 2'd0;
+    reg  [31:0] hdmi_rate = 32'd148869143;
+    always @(posedge pix_clk) begin
+        vm_p1 <= vmode; vm_p <= vm_p1;
+        hdmi_rate <= (vm_p == 2'd2 || vm_p == 2'd3) ? hm_rate_alt(m_mode) : hm_rate(m_mode);
+    end
     wire [9:0] tmds_0, tmds_1, tmds_2;
     wire [11:0] e_sx = m_xact0;
     wire [11:0] e_fwm1 = m_xact0 + m_hact - 12'd1;
     wire [10:0] e_sy = m_yact0;
     wire [10:0] e_ey = m_yact0 + m_vact;
     trx_hdmi #(
-        .DVI_OUTPUT(1'b0), .IT_CONTENT(1'b1), .VIDEO_ID_CODE(0), .VIDEO_RATE(165_000_000), .RUNTIME(1), .MAX_PACKETS(3),
+        .DVI_OUTPUT(1'b0), .IT_CONTENT(1'b1), .VIDEO_ID_CODE(0), .VIDEO_RATE(149_138_494), .RUNTIME(1), .MAX_PACKETS(3),
         .AUDIO_RATE(48_000), .AUDIO_BIT_WIDTH(24),
         .BIT_WIDTH(12), .BIT_HEIGHT(11),
         .VENDOR_NAME(64'h5452583634000000),                        // "TRX64"
@@ -254,7 +239,7 @@ module hdmi_out #(
     ) hdmi_enc (
         .clk_pixel_x5(1'b0), .clk_pixel(pix_clk), .ce(pce | pix_rst), .reset(pix_rst),
         .rgb(rgb), .hsync(hs), .vsync(vs), .cx(cx), .cy(cy), .de(de),
-        .vic_code(m_vic), .video_rate(m_rate), .aspect(m_aspect),
+        .vic_code(m_vic), .video_rate(hdmi_rate), .aspect(m_aspect),
         .sx_e(e_sx), .fw_m1(e_fwm1), .sy_e(e_sy), .ey_e(e_ey),
         .audio_sample_word_0(hdmi_snd[47:24]), .audio_sample_word_1(hdmi_snd[23:0]),
         .audio_sample_en(hdmi_sample_en),
@@ -279,7 +264,7 @@ module hdmi_out #(
     );
 
     // ---- T40: the HDMI output as measured: frames per second (clk50 window) and pixel clocks per frame, from the timing's vsync
-    wire video_locked = running && (!(c64_type && vic_row) || sc_locked);
+    wire video_locked = running && sc_locked;
     reg        hm_vs_q = 1'b0, hm_tgl = 1'b0;
     reg [23:0] hm_pc = 24'd0, hm_pcf = 24'd0;
     always @(posedge pix_clk) begin

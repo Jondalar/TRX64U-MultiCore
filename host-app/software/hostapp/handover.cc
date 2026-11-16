@@ -73,6 +73,35 @@ bool handover_set_config(Handover *h, const char *name)
     return true;
 }
 
+static uint32_t handover_hostver_sum(const Handover *h)
+{
+    uint32_t s = 0x7A55E1B3u ^ h->sum ^ h->id_sum;
+    for (unsigned i = 0; i < sizeof(h->host_version); i++) {
+        s = ((s << 5) | (s >> 27)) ^ (uint8_t)h->host_version[i];
+    }
+    return s ? s : 1u;
+}
+
+bool handover_set_host_version(Handover *h, const char *version)
+{
+    memset(h->host_version, 0, sizeof(h->host_version));
+    h->hostver_sum = 0;
+    if (!version || !version[0] || strlen(version) >= sizeof(h->host_version)) {
+        return false;
+    }
+    strcpy(h->host_version, version);
+    h->hostver_sum = handover_hostver_sum(h);
+    return true;
+}
+
+const char *handover_host_version(const Handover *h)
+{
+    if (!h->host_version[0] || h->host_version[sizeof(h->host_version) - 1] != 0 || h->hostver_sum != handover_hostver_sum(h)) {
+        return "";
+    }
+    return h->host_version;
+}
+
 const char *handover_config(const Handover *h)
 {
     if (!h->config[0] || h->config[sizeof(h->config) - 1] != 0 || strlen(h->config) > HANDOVER_CONFIG_MAX ||
@@ -80,6 +109,22 @@ const char *handover_config(const Handover *h)
         return "";
     }
     return h->config;
+}
+
+static uint32_t handover_safe_sum(const Handover *h)
+{
+    uint32_t s = 0x5AFE6A7Bu ^ h->sum ^ h->id_sum;
+    return s ? s : 1u;
+}
+
+void handover_set_safe(Handover *h, bool on)
+{
+    h->safe_sum = on ? handover_safe_sum(h) : 0;
+}
+
+bool handover_safe(const Handover *h)
+{
+    return h->safe_sum != 0 && h->safe_sum == handover_safe_sum(h);
 }
 
 static void put(char *dst, int cap, const char *src)
@@ -155,4 +200,69 @@ bool handover_menu_take(void *page)
     m[1] = 0;
     (void)m[1];
     return hit;
+}
+
+bool startfile_path(const char *cor_path, char *out, int outlen)
+{
+    if (!cor_path || cor_path[0] != '/') {
+        return false;
+    }
+    const char *end = strchr(cor_path + 1, '/');
+    if (!end) {
+        return false;
+    }
+    int n = (int)(end - cor_path);
+    if (n + 1 + (int)sizeof(STARTFILE_NAME) > outlen) {
+        return false;
+    }
+    memcpy(out, cor_path, n);
+    snprintf(out + n, outlen - n, "/%s", STARTFILE_NAME);
+    return true;
+}
+
+int startfile_format(char *out, int outlen, const char *cor_path, const char *config, bool safe)
+{
+    if (!cor_path || !cor_path[0] || strlen(cor_path) >= HANDOVER_PATH_MAX || (config && strlen(config) > HANDOVER_CONFIG_MAX)) {
+        return 0;
+    }
+    int n = snprintf(out, outlen, "TRXSTART1\ncor=%s\nconfig=%s\nsafe=%d\n", cor_path, config ? config : "", safe ? 1 : 0);
+    return n > 0 && n < outlen ? n : 0;
+}
+
+bool startfile_parse(const char *text, int len, char *cor, int corlen, char *config, int cfglen, bool *safe)
+{
+    static const char head[] = "TRXSTART1\n";
+    cor[0] = config[0] = 0;
+    *safe = false;
+    if (len < (int)sizeof(head) - 1 || memcmp(text, head, sizeof(head) - 1)) {
+        return false;
+    }
+    bool have_cor = false;
+    int i = (int)sizeof(head) - 1;
+    while (i < len) {
+        int j = i;
+        while (j < len && text[j] != '\n') {
+            j++;
+        }
+        int l = j - i;
+        const char *ln = text + i;
+        if (l > 4 && !memcmp(ln, "cor=", 4)) {
+            if (l - 4 >= corlen) {
+                return false;
+            }
+            memcpy(cor, ln + 4, l - 4);
+            cor[l - 4] = 0;
+            have_cor = true;
+        } else if (l >= 7 && !memcmp(ln, "config=", 7)) {
+            if (l - 7 > HANDOVER_CONFIG_MAX || l - 7 >= cfglen) {
+                return false;
+            }
+            memcpy(config, ln + 7, l - 7);
+            config[l - 7] = 0;
+        } else if (l == 6 && !memcmp(ln, "safe=1", 6)) {
+            *safe = true;
+        }
+        i = j + 1;
+    }
+    return have_cor;
 }

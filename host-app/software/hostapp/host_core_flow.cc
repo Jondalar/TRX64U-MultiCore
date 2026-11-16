@@ -5,6 +5,8 @@
 #include "fwconfirm.h"
 #include "mediaui.h"
 #include "cor.h"
+#include "semver.h"
+#include "txu.h"
 #include "keyboard.h"
 #include <stdarg.h>
 #include <stdio.h>
@@ -12,6 +14,12 @@
 #include <strings.h>
 
 // ---- the job base (host_core_job.h) ----------------------------------------------------------------------------------------------------------------
+bool hc_is_zip_name(const char *name)
+{
+    size_t l = name ? strlen(name) : 0;
+    return l > 4 && !strcasecmp(name + l - 4, ".zip");
+}
+
 namespace {
 HcJob *g_cur_job;
 }
@@ -387,6 +395,7 @@ struct UpAsk {
     char what[124];           // "This replaces the host app in the flash."
     char cores[124];          // the effect on the cores
     uint8_t cores_col;
+    char older[124];          // T221 D19: "This is older than the running version x (a downgrade)", or ""
     char cores2[124];         // a second line about the cores, or ""
     char skip[124];           // what is not written again
     char chip[32];
@@ -407,6 +416,9 @@ void up_ask_page(HcPage &pg, const UpAsk &a, const FwConfirm &c, uint32_t now)
     }
     hp_line(&pg, n++, HCT_BAD, a.what);
     hp_line(&pg, n++, HCT_INK, a.version);
+    if (a.older[0]) {
+        hp_line(&pg, n++, HCT_WARN, a.older);
+    }
     hp_line(&pg, n++, HCT_OK, "The package is complete and intact.");
     hp_line(&pg, n++, a.cores_col, a.cores);
     if (a.cores2[0]) {
@@ -708,6 +720,9 @@ bool UpdateJob::run()
         ui_size_text(sb, sizeof(sb), img.app_len);
         snprintf(sz, sizeof(sz), "%s%s%s", w_host ? sa : "", w_host && w_app ? " + " : "", w_app ? sb : "");
         snprintf(ask.version, sizeof(ask.version), "Version %s   %s", up_info.version, sz);
+    }
+    if (semver_cmp(up_info.version, txu_running_version) == -1) {
+        snprintf(ask.older, sizeof(ask.older), "Downgrade from the running %s.", txu_running_version);
     }
     if (w_host && chk.host_key_changes) {
         if (up_survey.broken) {

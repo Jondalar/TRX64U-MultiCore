@@ -464,6 +464,7 @@ module top #(
     wire  [3:0] speaker_vol;            // U2PIO_SPEAKER_EN volume, unused (the mixer sets it)
     wire  [7:0] mix_l, mix_r, mix_spk;
     wire  [7:0] master_vol;             // T160, cpu_clk, quasi static
+    wire  [7:0] tone_sel;               // T189, cpu_clk, quasi static: 0 Flat, 1 Bass boost, 2 Treble boost
     // the app's UltiSID registers, filter curve writes, envelope levels (T25.1)
     wire [15:0] sid_base, sid_mask;
     wire  [2:0] sid_split;
@@ -696,7 +697,7 @@ module top #(
         .video_fmt(video_fmt),
         .turbo_en(turbo_en), .turbo_prefer(turbo_prefer), .turbo_upd_tgl(turbo_upd),
         .speaker_en(speaker_en), .speaker_vol(speaker_vol),
-        .mix_l(mix_l), .mix_r(mix_r), .mix_spk(mix_spk), .master_vol(master_vol),
+        .mix_l(mix_l), .mix_r(mix_r), .mix_spk(mix_spk), .master_vol(master_vol), .tone_sel(tone_sel),
         .sid_base(sid_base), .sid_mask(sid_mask), .sid_split(sid_split), .sid_waves(sid_waves),
         .sid_res(sid_res), .sid_digi(sid_digi), .sidcv_we(sidcv_we), .sidcv_addr(sidcv_addr),
         .sidcv_wdata(sidcv_wdata), .sid_lv_addr(sid_lv_addr), .sid_lv_data(sid_lv_data),
@@ -972,7 +973,10 @@ module top #(
     always @(posedge mclk) pause_mclk <= {pause_mclk[0], c64_mute};
     // T160: the master volume of every core, sat24(audio * master_vol / 128), before HDMI and I2S (trx_gain.v)
     wire signed [23:0] gain_l, gain_r;
-    trx_gain mgain (.clk(mclk), .vol(master_vol), .in_l(audio_l), .in_r(audio_r), .out_l(gain_l), .out_r(gain_r));
+    // T189: the tone preset (Flat / Bass boost / Treble boost) in front of it, 25 bit out: the gain's sat stays the only clip point (trx_tone.v)
+    wire signed [24:0] tone_l, tone_r;
+    trx_tone mtone (.clk(mclk), .frame_en(audio_sample_en), .sel(tone_sel), .in_l(audio_l), .in_r(audio_r), .out_l(tone_l), .out_r(tone_r));
+    trx_gain mgain (.clk(mclk), .vol(master_vol), .in_l(tone_l), .in_r(tone_r), .out_l(gain_l), .out_r(gain_r));
     reg signed [23:0] snd_l, snd_r;
     always @(posedge mclk) begin
         snd_l <= pause_mclk[1] ? 24'sd0 : gain_l;
@@ -1396,11 +1400,12 @@ module top #(
 
     // ---- HDMI: hdmi_out.v (T164 WP8, G1) holds the mode request, the synthesizer sequencer, mmcm_pix, the timing generator, the VIC path
     // (vic_scaler on the timing's counters), the menu overlay, the pixel layer, the freeze text, the encoder, the TMDS bit repeater and the
-    // GTPs. c64_type 1 (a C64-type core): the request is held to the System Mode's family and to the VIC-locked rows.
+    // GTPs. T222: every row of U16 D2 and the scale at 0x4F01; the request is held to the System Mode's family and to the seven VIC-locked rows
+    // (this core's mode_req is a C64-type one without a switch); vmode gives the encoder the clock rate of the System Mode.
     wire        gt_ready, video_locked_s;
     hdmi_out #(.SMOOTH(1)) hout (
         .clk50(clk50), .cpu_clk(cpu_clk), .sys_clk(sys_clk),
-        .cdce_rst(por_rst | ~clocks_ok), .gt_rst(gt_rst), .c64_type(1'b1), .fam_v60(mc_cdce_v60), .core_decouple(core_decouple),
+        .cdce_rst(por_rst | ~clocks_ok), .gt_rst(gt_rst), .fam_v60(mc_cdce_v60), .vmode(vmode),
         .refclk_p(HDMI_REFCLK_P), .refclk_n(HDMI_REFCLK_N),
         .data_p(HDMI_DATA_P), .data_n(HDMI_DATA_N), .clk_p(HDMI_CLK_P), .clk_n(HDMI_CLK_N),
         .scl_low(scl_low), .sda_low(sda_low), .i2c_done(i2c_done),
@@ -1478,7 +1483,7 @@ module top #(
     dfx_sync dcs_cpu  (.clk(cpu_clk), .i(core_decouple), .o(dc_cpu));
     dfx_sync dcs_mclk (.clk(mclk),    .i(core_decouple), .o(dc_mclk));
     dfx_sync dcs_ui   (.clk(ui_clk),  .i(core_decouple), .o(dc_ui));
-    // (the scaler locks to the new core's VIC frame after a swap: hdmi_out.v takes core_decouple)
+    // (T222: the U16 hdmi_out.v has no core_decouple input; this large core is never swapped while it runs)
 
     // l2's outputs as it drives them
     wire l2_IEC_ATN_O;

@@ -45,6 +45,7 @@ public:
         (void)e; (void)api; (void)ctx;
         return LIB_HOST_CANNOT_RUN;
     }
+    virtual uint32_t room() { return 0xFFFFFFFFu; }
     virtual uint32_t now_ms() { return 0; }
     virtual void delay_ms(uint32_t ms) { (void)ms; }
     // The lists of an application's blocks and files are touched by its tasks and the base's: a host with tasks gives a critical section.
@@ -100,6 +101,13 @@ public:
     int run(int handle, const char *action, const char *file, char *reply, int replylen, int *app_rc, char *err, int errlen, bool keep = false);
     // A transient application kept open by run(): frees it. Its registrations go with it (the registry's drop_owner).
     int release(int handle, char *err, int errlen);
+    // T197 D8: how many loaded images need this one (a library): load() takes a use on every library the image needs and discard() gives it
+    // back, so a resident application, or a library imported by a loaded library, keeps its library; a library with none may be evicted.
+    void use(int handle);
+    void unuse(int handle);
+    int uses(int handle) const;
+    // Frees a resident library nothing uses (its registrations go with it). LIB_STATE for an application, a handle not loaded, or a library in use.
+    int unload(int handle, char *err, int errlen);
 
     // The context the operations of api->ops run with (the menu's CoreCtx); none: api->ops answers OPE_UNSUPPORTED.
     void set_ctx(CoreCtx *c) { ctx_ = c; }
@@ -109,6 +117,8 @@ public:
     void set_trx(const SvcTrx *t) { api_.trx = t; }
     void set_net(const SvcNet *t) { api_.net = t; }
     void set_c64(const SvcC64 *t) { api_.c64 = t; }
+    // The bytes the heap can still give (the loader window of a board); a host with no such limit says "all". AppIndex asks it (T197 P4).
+    uint32_t room() const { return host_->room(); }
     void set_sys_extra(int (*flash_read)(uint32_t, void *, int), void (*handover)(void)) { sys_.flash_read = flash_read; sys_.machine_handover = handover; }
     // Whose account the allocations and files of api->mem / api->fs go to from now on: the application whose tasks run (-1: nobody's). run() sets it
     // for the call; the base sets it for as long as an application's screens or jobs are up.
@@ -135,6 +145,9 @@ private:
     struct Slot {
         bool used;
         LibInfo info;
+        int uses;                         // loaded images that need it (T197 D8)
+        int dep[U2A3_NEEDS_MAX];          // the slots this image counted as used when it loaded; unuse()d when it goes
+        int ndep;
         void *raw;                        // what the heap gave; the image lies in it, aligned
     };
     LibHost *host_;
@@ -155,6 +168,7 @@ private:
     SvcSys sys_;
     SvcMem mem_;
     SvcOps ops_;
+    SvcLib lib_;
     SvcFs fs_;
     SvcFile *files_[LIB_MAX + 1];         // the open files of api->fs, one list per slot as acct_
 
@@ -163,6 +177,7 @@ private:
     static void *svc_realloc(void *p, uint32_t n);
     static int svc_call(const char *name, const OpIn *in, int nin, OpResult *r);
     static const char *svc_state(const char *name, uint32_t *rev);
+    static const void *svc_lib_find(const char *name, uint32_t min_version, uint32_t *table_size);
     static void svc_log(const char *text);
     static uint32_t svc_ms(void);
     static void svc_sleep(uint32_t ms);

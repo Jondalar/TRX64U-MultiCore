@@ -87,6 +87,8 @@ check "menu controller gate: selftest" python3 tools/check_menuctl_gate.py --sel
 # T192.3 (Alex, 2026-11-09): one state and one reader of it, the UI service's; red if the v1 state (uistate, `?v=1`, `seq`) or a second reader of the screen returns
 check "no v1 UI state, no second reader (T192.3)" python3 tools/check_no_v1_ui.py
 check "no v1 UI state: selftest" python3 tools/check_no_v1_ui.py --selftest
+# T211 S1 (D1): the host app names its keys itself; no Gideon page/help/tasks code treated as an F key
+check "host key names (T211 S1)" bash -c 'python3 -I tools/check_host_keys.py --selftest && python3 -I tools/check_host_keys.py'
 check "u2a_pack test" python3 tools/test_u2a_pack.py
 check "release checks test" python3 tools/test_release_check.py
 check "release bundle test" python3 tools/test_make_release_mc.py
@@ -171,8 +173,9 @@ check "select.sh" bash -c '
   EXPECT=0   t sims-tier GITHUB_REF_NAME=main GITHUB_EVENT_NAME=push SELECT_MSG=x &&
   EXPECT=2   t sims-tier GITHUB_REF_NAME=main GITHUB_EVENT_NAME=workflow_dispatch SIMS_INPUT=true SELECT_MSG=x &&
   EXPECT=2   t sims-tier GITHUB_REF_NAME=integ-m1 GITHUB_EVENT_NAME=push'
-# T172 D4/D5: VERSION is x.y.z (format only; the bump rules are a guide below 1.0.0)
-check "VERSION" bash -c 'grep -Eqx "(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)" VERSION'
+# T221 S1/S2: every deliverable has its own x.y.z in its own file, the build strings are made from them (ci/version.sh)
+check "versions (T221 S2)" python3 tools/check_versions.py
+check "version strings (T221 S1)" ci/test_version.sh
 check "workflow" python3 - <<'PY'
 import glob, os, sys, yaml
 ok = True

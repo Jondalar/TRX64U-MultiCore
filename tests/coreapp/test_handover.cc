@@ -127,7 +127,7 @@ int main()
         // a damaged or stale tail is never read as a name: every flipped bit is a plain start or the very name
         CHECK(handover_set_config(&c, "Demo collection"));
         int wrongc = 0;
-        for (unsigned i = offsetof(Handover, config_sum); i < sizeof(c); i++) {
+        for (unsigned i = offsetof(Handover, config_sum); i < offsetof(Handover, safe_sum); i++) {   // the config's own field: its check word and its 48 bytes
             for (int bit = 0; bit < 8; bit++) {
                 Handover x = c;
                 ((uint8_t *)&x)[i] ^= (uint8_t)(1 << bit);
@@ -135,6 +135,27 @@ int main()
             }
         }
         CHECK_EQ(wrongc, 0);
+        // the same for the host version (T221) and the safe flag (T224): a flipped bit in their own field is never read as the value
+        {
+            Handover v = c;
+            CHECK(handover_set_host_version(&v, "0.2.0-dev+1a2b3c4d"));
+            handover_set_safe(&v, true);
+            CHECK(handover_safe(&v));
+            int wrongv = 0, wrongs = 0;
+            for (unsigned i = offsetof(Handover, safe_sum); i < sizeof(v); i++) {
+                for (int bit = 0; bit < 8; bit++) {
+                    Handover x = v;
+                    ((uint8_t *)&x)[i] ^= (uint8_t)(1 << bit);
+                    if (i < offsetof(Handover, hostver_sum)) {
+                        wrongs += handover_safe(&x) ? 1 : 0;
+                    } else {
+                        wrongv += strcmp(handover_host_version(&x), "") != 0;
+                    }
+                }
+            }
+            CHECK_EQ(wrongs, 0);
+            CHECK_EQ(wrongv, 0);
+        }
         // a config left in the page by another start (the other block has another path, hence another sum) is not this block's
         Handover n2;
         handover_fill(&n2, "/SD/other.cor", "Other", "1.0", 0, 0, "other");
@@ -146,6 +167,46 @@ int main()
         CHECK_STR(handover_config(&c), "Demo collection");
         int y, mo, d, hh, mm, ss;
         CHECK(handover_time(&c, &y, &mo, &d, &hh, &mm, &ss));
+    }
+    // T224 D2: the safe-graphics flag is a tail field of its own: set, read back, never from noise or from another block, independent of the config
+    {
+        Handover s;
+        handover_fill(&s, "/SD/cores/amiga1200.cor", "Amiga 1200", "0.1.0", 0x12345678u, 0, "amiga1200");
+        CHECK(!handover_safe(&s));                                    // a page nobody asked
+        handover_set_config(&s, "Demo collection");
+        handover_set_safe(&s, true);
+        CHECK(handover_safe(&s) && handover_valid(&s));
+        CHECK_STR(handover_config(&s), "Demo collection");
+        handover_set_safe(&s, false);
+        CHECK(!handover_safe(&s));
+        handover_set_safe(&s, true);
+        Handover o;
+        handover_fill(&o, "/SD/other.cor", "Other", "1.0", 0, 0, "other");
+        o.safe_sum = s.safe_sum;                                      // left behind by another start: its sum is another one
+        CHECK(!handover_safe(&o));
+        Handover z;
+        memset(&z, 0xA5, sizeof(z));
+        CHECK(!handover_safe(&z));                                    // noise
+    }
+    // T223 D4: the start file of a large core: path on the .cor's medium, text round trip, refusals
+    {
+        char p[96], t[STARTFILE_MAX], cor[HANDOVER_PATH_MAX], cfg[HANDOVER_CONFIG_MAX + 2];
+        bool safe;
+        CHECK(startfile_path("/SD/cores/c64scpu.cor", p, sizeof(p)));
+        CHECK_STR(p, "/SD/trx64-start.txt");
+        CHECK(startfile_path("/USB0/cores/c20.cor", p, sizeof(p)) && !strcmp(p, "/USB0/trx64-start.txt"));
+        CHECK(!startfile_path("c.cor", p, sizeof(p)) && !startfile_path("/c.cor", p, sizeof(p)));
+        int n = startfile_format(t, sizeof(t), "/SD/cores/c64scpu.cor", "Demo collection", true);
+        CHECK(n > 0 && startfile_parse(t, n, cor, sizeof(cor), cfg, sizeof(cfg), &safe));
+        CHECK_STR(cor, "/SD/cores/c64scpu.cor");
+        CHECK_STR(cfg, "Demo collection");
+        CHECK(safe);
+        n = startfile_format(t, sizeof(t), "/SD/cores/c64scpu.cor", "", false);
+        CHECK(n > 0 && startfile_parse(t, n, cor, sizeof(cor), cfg, sizeof(cfg), &safe) && !cfg[0] && !safe);
+        CHECK(!startfile_parse("TRXSTART2\ncor=/SD/x.cor\n", 25, cor, sizeof(cor), cfg, sizeof(cfg), &safe));      // another version
+        CHECK(!startfile_parse("TRXSTART1\nconfig=a\n", 19, cor, sizeof(cor), cfg, sizeof(cfg), &safe));           // no cor=
+        CHECK(!startfile_parse("noise", 5, cor, sizeof(cor), cfg, sizeof(cfg), &safe));
+        CHECK(startfile_format(t, sizeof(t), "/SD/x.cor", "0123456789012345678901234567890123", false) == 0);         // 34 characters: over HANDOVER_CONFIG_MAX
     }
     DONE("test_handover");
 }

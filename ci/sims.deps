@@ -57,6 +57,7 @@ case_leds: ci/sim_iv.sh host/sim/tb_case_leds.v host/case_leds.v
 ui_buttons: host/sim/ui_buttons host/sim/tb_ui_buttons.v host/ui_buttons.v host/top.v host/ultimate_sys.vhd host/pins.xdc
 portlock: host/sim/portlock host/portlock_clk.v
 host_gain: host/sim/gain host/trx_gain.v host/top.v host/ultimate_sys.vhd
+host_tone: host/sim/tone host/trx_tone.v host/trx_gain.v host/top.v host/ultimate_sys.vhd
 mig_arb: ci/sim_iv.sh host/sim/tb_mig_arb.v @mig
 reu_map: ci/sim_iv.sh host/sim/tb_reu_map.v host/reu_ddr_map.v @mig
 udp_audio: ci/sim_iv.sh host/sim/tb_udp_audio.v host/udp_stream.v host/udp_audio.v host/stream_mux.v
@@ -91,6 +92,8 @@ c264_colors: cores/c264/sim cores/c264/rtl
 c264_tedsnd: cores/c264/sim cores/c264/rtl
 pet_boot: cores/pet/sim cores/pet/rtl
 pet_spet: cores/pet/sim cores/pet/rtl
+pet_keys: cores/pet/sim cores/pet/rtl
+pet_wl: cores/pet/sim cores/pet/rtl
 pet_tape: cores/pet/sim cores/pet/rtl
 # G06 and T29: c64_core under Verilator
 # T12 §14.8: c64_core with trx_dbg, dma_win, trx_sys and the cartridge's DDR2 side under Verilator
@@ -203,6 +206,7 @@ cpc_video: @cpcrtl :(glob)cores/cpc/sim/prog/clk.* :(glob)cores/cpc/sim/prog/vid
 cpc_io: @cpcrtl :(glob)cores/cpc/sim/prog/audio.* :(glob)cores/cpc/sim/prog/keys.* tools/zxcpc_keys.py
 cpc_media: @cpcrtl :(glob)cores/cpc/sim/prog/tape.* :(glob)cores/cpc/sim/prog/disk.* :(glob)cores/zx/sim/prog/tape48.* tools/cpc_progs.py
 cpc_fdcscan: @cpcrtl cores/cpc/sim/tb_fdcscan.v tools/cpc_progs.py
+cpc_fdcfix: @cpcrtl cores/cpc/sim/tb_fdcfix.v
 cpc_pause: @cpcrtl :(glob)cores/cpc/sim/prog/anim.*
 cpc_pins: cores/cpc/layer2_cpc.v cores/cpc/sim/run_pins.sh tools/check_layer2_pins.py cores/cpc/mono/host/top.v
 
@@ -230,6 +234,7 @@ zxnext_pins: cores/zxnext/layer2_zxnext.v cores/zxnext/sim/run_pins.sh tools/che
 @snesrtl = cores/snes/gen cores/snes/trx cores/snes/sim/run.sh cores/snes/sim/tb_snes.v cores/snes/sim/ddr2_model.v cores/snes/sim/snes_mem_ref.v tools/snes_asm.py tools/snes_expect.py
 snes_boot: @snesrtl :(glob)cores/snes/sim/prog/boot.* :(glob)cores/snes/sim/prog/mvn.*
 snes_mem: @snesrtl :(glob)cores/snes/sim/prog/mem.*
+snes_dsp: @snesrtl :(glob)cores/snes/sim/prog/dsp.* tools/snes_dsp_fw.py
 snes_video: @snesrtl :(glob)cores/snes/sim/prog/video.*
 snes_pad: @snesrtl cores/snes/sim/tb_pad.v :(glob)cores/snes/sim/prog/pad.*
 snes_audio: @snesrtl :(glob)cores/snes/sim/prog/audio* coreapp/cores/snes.cc
@@ -314,3 +319,10 @@ c128_vicpic: cores/c128/mono/host/pix_layer.v cores/c128/mono/host/pal_ram.v cor
 c128_vicshow: cores/c128/mono/host/pix_layer.v cores/c128/mono/host/pal_ram.v cores/c128/mono/host/ddr2_port.v host/sim/pixlayer/tgl_client.v host/sim/mig_ui_model.v cores/c128/sim/pixscale/model.py cores/common/trx_io.v cores/c128/sim/run_vicshow.sh cores/c128/sim/job_vicshow.sh cores/c128/sim/tb_vicshow.v
 c128_act: cores/c128/c128_act.v cores/c128/sim/run_act.sh cores/c128/sim/tb_act.v
 c128_vicpic_tear: cores/c128/mono/host/pix_layer.v cores/c128/mono/host/pal_ram.v cores/c128/mono/host/ddr2_port.v host/sim/pixlayer/tgl_client.v host/sim/mig_ui_model.v cores/common/trx_io.v cores/c128/sim/run_vicpic_tear.sh cores/c128/sim/job_tear.sh cores/c128/sim/tb_vicpic_tear.v
+# T222
+c64scpu_hdmi_timing: cores/c64scpu/sim/hdmi/run_one.sh cores/c64scpu/sim/hdmi/tb_hdmi_timing.v cores/c64scpu/mono/host/hdmi_timing.v cores/c64scpu/mono/host/scpu_hdmi_modes.vh
+c64scpu_mode_req: cores/c64scpu/sim/hdmi/run_one.sh cores/c64scpu/sim/hdmi/tb_mode_req.v cores/c64scpu/mono/host/mode_req.v cores/c64scpu/mono/host/cdce_mode.v cores/c64scpu/mono/host/hdmi_timing.v cores/c64scpu/mono/host/scpu_hdmi_modes.vh
+c64scpu_tmds_rep: cores/c64scpu/sim/hdmi/run_one.sh cores/c64scpu/sim/hdmi/tb_tmds_rep.v cores/c64scpu/mono/host/tmds_rep.v
+c64scpu_scaler: cores/c64scpu/sim/hdmi/run_scaler.sh cores/c64scpu/sim/hdmi/tb_scaler.v cores/c64scpu/mono/host/vic_scaler.v cores/c64scpu/mono/host/pal_ram.v cores/c64scpu/mono/host/hdmi_timing.v cores/c64scpu/mono/host/scpu_hdmi_modes.vh
+c64scpu_text_geom: cores/c64scpu/sim/hdmi/run_text.sh cores/c64scpu/sim/hdmi/tb_text_geom.v cores/c64scpu/mono/host/c64_text.v cores/c64scpu/mono/host/pal_ram.v cores/c64scpu/mono/host/hdmi_timing.v cores/c64scpu/mono/host/scpu_hdmi_modes.vh
+c64scpu_hdmi_out: cores/c64scpu/sim/hdmi/run_hdmi_out.sh cores/c64scpu/sim/hdmi/tb_hdmi_out.v cores/c64scpu/sim/hdmi/models.v cores/c64scpu/sim/hdmi/mig_ui_model.v cores/c64scpu/mono/host/hdmi_out.v cores/c64scpu/mono/host/hdmi_timing.v cores/c64scpu/mono/host/mode_req.v cores/c64scpu/mono/host/cdce_mode.v cores/c64scpu/mono/host/tmds_rep.v cores/c64scpu/mono/host/vic_scaler.v cores/c64scpu/mono/host/pal_ram.v cores/c64scpu/mono/host/overlay.v cores/c64scpu/mono/host/pix_layer.v cores/c64scpu/mono/host/c64_text.v cores/c64scpu/mono/host/dfx_decouple.v cores/c64scpu/mono/host/scpu_hdmi_modes.vh cores/c64scpu/mono/host/hdmi_enc vendor/icepi/hdmi cores/c64scpu/mono/host/mem

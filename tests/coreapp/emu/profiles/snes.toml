@@ -1,0 +1,13 @@
+# The SNES core as the core application sees it (T226 pictures; the layout of nes.toml). Registers from coreapp/cores/snes_regs.h.
+name = "snes"
+id = "SNES"                  # snes.cc: the gateware's ID word
+board = "multicore"          # the ICAP loader answers 0x7A: the multicore profile, "Return to host menu"
+
+[regs]
+0x0A0 = 0x01                 # SNES_CTRL: b0 HOLD, the machine in reset after power-up
+
+[handover]
+core = "Super Nintendo"      # the manifest's name
+id = "snes"                  # core.toml id
+path = "/Usb0/cores/snes.cor"
+video = "1080p"

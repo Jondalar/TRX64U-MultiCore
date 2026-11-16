@@ -26,4 +26,4 @@ is the host's source, not a second copy.
 
 ## Links
 
-[T164](../specs/T164-host-package-2.md) S13, §3b G9, [ADR-0058](0058-full-bitstream-cores-by-iprog-from-a-flash-file.md), [T107](../specs/T107-application-owns-the-picture.md) §5.8
+[T164](../specs/done/T164-host-package-2.md) S13, §3b G9, [ADR-0058](0058-full-bitstream-cores-by-iprog-from-a-flash-file.md), [T107](../specs/done/T107-application-owns-the-picture.md) §5.8

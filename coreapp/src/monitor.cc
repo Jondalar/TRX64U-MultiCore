@@ -383,7 +383,7 @@ bool mon_key(CoreCtx *c, int k)
 {
     g_menu = true;
     session_open(c);
-    switch (k) {                                // run.cc maps the Ultimate interface's F1 F3 F5 F7 into the menu's function keys; the monitor has the names back
+    switch (k) {                                // the keyboards deliver F1 F3 F5 F7 as function keys; trxmon names them PAGEUP HELP TASKS PAGEDOWN, the monitor has those names here
     case KEY_F1: k = KEY_PAGEUP; break;
     case KEY_F3: k = KEY_HELP; break;
     case KEY_F5: k = KEY_TASKS; break;

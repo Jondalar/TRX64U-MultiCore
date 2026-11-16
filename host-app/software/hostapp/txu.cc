@@ -25,6 +25,8 @@ bool txu_is_name(const char *name)
     return l >= 4 && !strcasecmp(name + l - 4, ".txu");
 }
 
+char txu_running_version[32];
+
 txu_result_t txu_probe(CorSource &src, TxuInfo *ci)
 {
     memset(ci, 0, sizeof(*ci));
