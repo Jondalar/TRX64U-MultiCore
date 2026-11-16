@@ -93,7 +93,7 @@ Built and benched; what is left is a step on the board (Alex, 2026-10-28, transl
 | T214 | 2 | 🔨 | Real datasette in C128, SCPU, VC-20, C16/Plus4 as on the PET | C16 parked 11-15: inverted READ fails too; later c264 debug trace + borrowed datasette | [T214](docs/specs/T214-real-datasette-commodore-cores.md) |
 | T215 | 2 | 🔨 | CI keys and the plan hash code only: a comment moves no key and starts no build | Merged to main, a-h proven (11-14); key_alias fixed (a1e69bf78), cache migrated, run 1906 green | [T215](docs/specs/T215-ci-hash-code-only.md) |
 | T216 | 3 | 🔨 | PET: D10-D15 in main; 11-16: 4 KiB char window (Vivado); D16 Reset reloads ROMs on model change built | Alex 11-16 | [T216](docs/specs/T216-pet-finish.md) |
-| T217 | 2 | 🔧 | Start a .prg on SCPU and C128: stick + in disk image; SCPU via SRAM window; C128 $0801 = GO64, board step | Alex 11-15 | [T217](docs/specs/T217-scpu-mount-run-prg.md) |
+| T217 | 2 | 🔧 | Start a .prg on SCPU and C128: stick + in disk image; SCPU via SRAM window; C128 $0801 = GO64, board step | Alex 11-15; 11-16 GO64 Y fixed (bench go64 PASS), board open | [T217](docs/specs/T217-scpu-mount-run-prg.md) |
 | T218 | 3 | 🔨 | SNES: DSP-n cartridges (DSP-1/1B, 2, 3, 4) run; firmware from the SD (appended to the .sfc first, else dsp*.bin) | Board S1 PASS 11-15 (Mario Kart); D6 board PASS 11-16 (reversed fw); open: S2/S4, S6 | [T218](docs/specs/T218-snes-dsp-n.md) |
 | T219 | 2 | ✅ | RIGHT enters a folder in every file browser, LEFT goes up (#90) | Done 11-15 (Alex: in builds for weeks) | [T219](docs/specs/done/T219-right-enters.md) |
 | T220 | 3 | 📅 | Host network chip stale: "no network" while LAN works (#84 comment) | Backlog; read 11-15: 3 s poll, cause open | [T220](docs/specs/T220-net-chip-stale.md) |

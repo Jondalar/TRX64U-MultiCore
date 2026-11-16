@@ -6,8 +6,10 @@
 //   3 1                                    the CPU cache flush (ROM_CTRL.b0) that follows the placement
 //   4 <ms after the start> <64 bit hex>    the key matrix the application presses, in time
 //   0 text                                 the log line the board prints
-// Usage: cbm_prg_sim <scpu|c128> <new|old> <file.prg>
+//   5 <ms>                                 wait that long (cache lines emptied first), 6 <n> <hex>  wait until the 40-column screen holds those n screen codes
+// Usage: cbm_prg_sim <scpu|c128> <new|old|go64> <file.prg>
 //   new  the way the application starts a program now (T217); old  what it did before (the RAM window and the keyboard buffer only: the control of the bench)
+//   go64 (c128 only, T217 D4) the C128 starts a C64 program: GO64 typed, the wait for its question, Y typed, the wait for the C64's screen, the program placed with the C64 numbers
 // The state the machine is in at READY is preset: BASIC's TXTTAB points at the start of BASIC (the bench checks it afterwards against the real ROM).
 #include <stdio.h>
 #include <stdlib.h>
@@ -32,15 +34,73 @@ struct Rec : FakeIo {
     }
 };
 
+static void wait_screen(const uint8_t *b, int n)
+{
+    printf("6 %d ", n);
+    for (int i = 0; i < n; i++) printf("%02x", b[i]);
+    printf("\n");
+}
+
+static void put_keys_ram(Rec &io, const CbmPrgParams &p, const char *s, size_t n)
+{
+    io.rw.clear();
+    io.ram_write(p.kbd_buffer, s, (uint32_t)n);
+    uint8_t c = (uint8_t)n;
+    io.ram_write(p.kbd_count, &c, 1);
+    for (auto &w : io.rw) printf("2 %x %02x\n", w.first, w.second);
+    io.rw.clear();
+}
+
+// the C128 starts a C64 program (cbm_run.cc service_c64, the steps in time): GO64 typed; its count taken, then the question is on the screen; Y typed; the
+// C64's screen with READY and TXTTAB $0801; the program placed with the C64 numbers, RUN typed into the C64's keyboard buffer
+static int go64_script(const char *path)
+{
+    FILE *f = fopen(path, "rb");
+    if (!f) { perror(path); return 2; }
+    std::vector<uint8_t> file(0x20000);
+    size_t n = fread(file.data(), 1, file.size(), f);
+    fclose(f);
+    Rec io;
+    io.ram.assign(65536, 0);
+    CbmPrgParams p128, p64;
+    c128_prg_params(&p128);
+    c128_prg_params_c64(&p64);
+    const char *sw = C128_SWITCH_TEXT, *bar = strchr(sw, '|');
+    printf("0 c128 C64 mode: GO64, the question, Y, the C64's READY, the program\n");
+    put_keys_ram(io, p128, sw, (size_t)(bar - sw));
+    printf("7 %x 00\n", p128.kbd_count);
+    printf("5 400\n");
+    wait_screen(c128_go64_ask, (int)sizeof(c128_go64_ask));
+    put_keys_ram(io, p128, bar + 1, strlen(bar + 1));
+    static const uint8_t banner[8] = { 2, 1, 19, 9, 3, 32, 22, 50 };                    // BASIC V2
+    static const uint8_t ready[6] = { 18, 5, 1, 4, 25, 46 };                             // READY.
+    wait_screen(banner, sizeof(banner));
+    printf("7 %x %02x\n7 %x %02x\n", p64.txttab + 1, 0x08, p64.txttab, 0x01);
+    wait_screen(ready, sizeof(ready));
+    printf("5 500\n");
+    io.ram[p64.txttab] = 0x01; io.ram[p64.txttab + 1] = 0x08;                         // the C64's READY: BASIC's TXTTAB
+    CbmPrgResult r;
+    char msg[200] = "";
+    if (cbm_prg_place(&io, file.data(), (uint32_t)n, p64, false, &r, msg, sizeof(msg))) { fprintf(stderr, "place: %s\n", msg); return 1; }
+    for (auto &w : io.rw) printf("2 %x %02x\n", w.first, w.second);
+    io.rw.clear();
+    cbm_prg_type_start(&io, p64, r);
+    for (auto &w : io.rw) printf("2 %x %02x\n", w.first, w.second);
+    return 0;
+}
+
 int main(int argc, char **argv)
 {
     if (argc != 4) { fprintf(stderr, "usage: cbm_prg_sim <scpu|c128> <new|old> <file.prg>\n"); return 2; }
-    bool scpu = !strcmp(argv[1], "scpu"), neu = !strcmp(argv[2], "new");
+    bool scpu = !strcmp(argv[1], "scpu"), neu = !strcmp(argv[2], "new"), go64 = !strcmp(argv[2], "go64");
+    if (go64) neu = true;
     FILE *f = fopen(argv[3], "rb");
     if (!f) { perror(argv[3]); return 2; }
     std::vector<uint8_t> file(0x20000);
     size_t n = fread(file.data(), 1, file.size(), f);
     fclose(f);
+    if (go64) return go64_script(argv[3]);
+    if (go64) return go64_script(argv[3]);
     Rec io;
     io.ram.assign(65536, 0);
     io.ddr.assign(0x04000000, 0);

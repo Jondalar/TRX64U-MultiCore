@@ -433,6 +433,7 @@ module tb_c128;
     end
     // +PRG_AT=<us> (T217, run_prgrun.sh): at that time mem/prgscript.txt is replayed - what the application does to start a program (tools/cbm_prg_sim.cc): 2 addr byte
     // writes into RAM block 0 (the RAM window; the same places as +INJECT_AT: the DDR2 model, the pinned slots, the CPU's line cache emptied), 4 ms hex64 the key matrix
+    // (T217 D4, the C128's start of a C64 program: 5 ms = wait, 6 n hex = wait until the 40-column screen holds those screen codes, 7 addr value = wait until that RAM byte holds the value)
     integer pg_us, pg_fd, pg_n, pg_ms, pg_prev, pg_nr = 0, pg_nk = 0;
     reg [8*80-1:0] pg_line;
     integer pg_t;
@@ -440,6 +441,19 @@ module tb_c128;
     reg [7:0]  pg_b;
     reg [63:0] pg_k;
     reg [16:0] pg_x;
+    reg [127:0] pg_w;
+    integer pg_len, pg_pos, pg_j, pg_waited;
+    reg pg_hit;
+`ifdef RAM_DDR2
+    function [7:0] pg_rd(input [15:0] a);                 // RAM block 0 as the CPU sees it (the pinned slots)
+        case (a[15:14])
+            2'd0: pg_rd = a[0] ? dut.mem.ramd.gb[0].hi[a[13:1]] : dut.mem.ramd.gb[0].lo[a[13:1]];
+            2'd1: pg_rd = a[0] ? dut.mem.ramd.gb[1].hi[a[13:1]] : dut.mem.ramd.gb[1].lo[a[13:1]];
+            2'd2: pg_rd = a[0] ? dut.mem.ramd.gb[2].hi[a[13:1]] : dut.mem.ramd.gb[2].lo[a[13:1]];
+            default: pg_rd = a[0] ? dut.mem.ramd.gb[3].hi[a[13:1]] : dut.mem.ramd.gb[3].lo[a[13:1]];
+        endcase
+    endfunction
+`endif
     initial if ($value$plusargs("PRG_AT=%d", pg_us)) begin
         #(pg_us * 1000.0);
         pg_fd = $fopen("mem/prgscript.txt", "r");
@@ -461,6 +475,35 @@ module tb_c128;
                     if (pg_x[0]) dut.mem.ram_hi[{pg_x[16], pg_x[15:1]}] = pg_b; else dut.mem.ram_lo[{pg_x[16], pg_x[15:1]}] = pg_b;
 `endif
                     pg_nr = pg_nr + 1;
+                end else if (pg_t == 5) begin
+                    pg_n = $sscanf(pg_line, "%d %d", pg_t, pg_ms);       // 5 ms: wait that many ms from here (the next writes are a later step of the application)
+`ifdef RAM_DDR2
+                    for (pg_n = 0; pg_n < 512; pg_n = pg_n + 1) dut.mem.ramd.cm[pg_n][132] = 1'b0;
+`endif
+                    #(pg_ms * 1000000.0);
+                end else if (pg_t == 6) begin
+`ifdef RAM_DDR2
+                    // 6 <n> <hex of n bytes>: wait until the 40-column screen ($0400-$07E7) holds those screen codes (the application waits for the same text on the board), 20 s at most
+                    pg_n = $sscanf(pg_line, "%d %d %h", pg_t, pg_len, pg_w);
+                    pg_hit = 1'b0; pg_waited = 0;
+                    while (!pg_hit && pg_waited < 4000) begin
+                        for (pg_pos = 0; pg_pos < 1000 - pg_len; pg_pos = pg_pos + 1) begin
+                            pg_n = 1;
+                            for (pg_j = 0; pg_j < pg_len; pg_j = pg_j + 1) if (pg_rd(16'h0400 + pg_pos + pg_j) != pg_w[8 * (pg_len - 1 - pg_j) +: 8]) pg_n = 0;
+                            if (pg_n) pg_hit = 1'b1;
+                        end
+                        if (!pg_hit) begin #5000000.0; pg_waited = pg_waited + 1; end
+                    end
+                    $display("prg|screen wait (%0d bytes): %s after %0d ms of polling", pg_len, pg_hit ? "found" : "TIMEOUT", pg_waited * 5);
+`endif
+                end else if (pg_t == 7) begin
+`ifdef RAM_DDR2
+                    // 7 <addr> <value>: wait until that RAM byte holds the value (what the application polls: TXTTAB, the keyboard count), 20 s at most
+                    pg_n = $sscanf(pg_line, "%d %h %h", pg_t, pg_a, pg_b);
+                    pg_waited = 0;
+                    while (pg_rd(pg_a[15:0]) !== pg_b && pg_waited < 4000) begin #5000000.0; pg_waited = pg_waited + 1; end
+                    $display("prg|byte wait $%04h = %02h: %s after %0d ms of polling", pg_a[15:0], pg_b, pg_rd(pg_a[15:0]) === pg_b ? "found" : "TIMEOUT", pg_waited * 5);
+`endif
                 end else if (pg_t == 4) begin
                     pg_n = $sscanf(pg_line, "%d %d %h", pg_t, pg_ms, pg_k);
                     #((pg_ms - pg_prev) * 1000000.0);

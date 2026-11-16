@@ -41,6 +41,13 @@ struct CbmRunMachine {
     uint32_t mode_reg = 0;
     uint8_t mode_mask = 0;
     uint16_t c64_screen = 0, c64_ready_ms = 0;
+    // ... and what the first mode shows: ask_screen = its 40-column screen (0: nothing can be read), `ask` / ask_len the screen codes of its question. The text
+    // is typed when the first mode's screen shows READY (or ready_blind_ms after its TXTTAB, if the screen does not: the 80-column picture), the answer when
+    // the question is on the screen (or ask_blind_ms after the first piece was taken).
+    uint16_t ask_screen = 0;
+    const uint8_t *ask = 0;
+    uint8_t ask_len = 0;
+    uint16_t ask_blind_ms = 0, ready_blind_ms = 0;
 };
 
 
@@ -58,7 +65,7 @@ struct CbmRun {
     uint8_t kidx, kphase;                               // kphase 0 no key down, 1 L SHIFT alone down, 2 the key down
     bool kshift, kwait;
     bool c64;                                          // T217 D4: job 1 starts the program in the machine's second mode (CbmRunMachine::c64_load)
-    uint8_t c64_phase;                                 // 0 the first mode's READY, 1 the switch typed, 2 waiting for the mode, 3 waiting for the second mode's READY
+    uint8_t c64_phase;                                 // 0 the first mode's READY, 1 the switch typed, 4 waiting for the question, 5 the answer typed, 2 waiting for the mode, 3 the second mode's READY
     uint32_t c64_t;                                    // ran_ms of the last step of the phases
     bool start_typed;                                  // T217: job 1 with m.screen: the program is placed, its RUN / SYS goes in through the key matrix (job 2)
     uint32_t kt;

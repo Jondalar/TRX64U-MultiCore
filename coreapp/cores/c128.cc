@@ -1006,7 +1006,12 @@ static CbmRunMachine machine(void)
     c128_prg_params(&m.prg);
     m.c64_load = 0x0801;
     c128_prg_params_c64(&m.c64_prg);
-    m.switch_text = "GO64\r|Y\r";
+    m.switch_text = C128_SWITCH_TEXT;
+    m.ask_screen = 0x0400;                              // the 40-column screen; in 80 columns the question is on the VDC and cannot be read: the blind waits
+    m.ask = c128_go64_ask;
+    m.ask_len = sizeof(c128_go64_ask);
+    m.ask_blind_ms = 1500;
+    m.ready_blind_ms = 4000;
     m.mode_reg = C128_STATUS;
     m.mode_mask = 0x01;                                 // C128_STATUS b0: C64 mode
     m.c64_screen = 0x0400;

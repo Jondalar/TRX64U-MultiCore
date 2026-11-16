@@ -90,9 +90,9 @@ program itself pokes (C64 RAM `$C000`, a mirrored page, so the window sees it) a
 | S4 | SCPU pointers seen by the CPU | OPEN (second marker `PEEK(45)` in the basic case) |
 | S5 | SCPU `.prg`/`.p00` rows | ue2emu pictures, ux-review PASS (`t217-c64scpu-prg-sheet.png`) |
 | S6 | SCPU inner Mount & Run | inner rows picture PASS; the job itself = S1 (open) |
-| S7, S8 | C128 BASIC / ML .prg | OPEN (bench written, build failed once for memory, not run) |
+| S7, S8 | C128 BASIC / ML .prg | bench PASS 2026-11-16 (`run_prgrun.sh basic`, `ml`, see "Board 2026-11-16"); board open |
 | S9 | C128 rows + inner Mount & Run | ue2emu pictures, ux-review PASS |
-| S10 | C128 C64-mode program | OPEN: question 1 (refused with a reason meanwhile) |
+| S10 | C128 C64-mode program | bench PASS 2026-11-16 (`run_prgrun.sh go64`); board 11-16 failed (GO64 Y), fixed, board open |
 
 `tools/benches.sh c64scpu -f` on the commit with the new tb plusargs: emu, map, speed, mirror, irq, mdust PASS; `c64scpu_base` FAIL after 10 s in that run while memory was exhausted
 (cc1plus segfault), and PASS standalone (`run_base.sh`). The C128 set was not run. Not checked: the SCPU's real TXTTAB/READY timing on the board, the 5 s wait of
@@ -100,7 +100,7 @@ program itself pokes (C64 RAM `$C000`, a mirrored page, so the window sees it) a
 
 ### S10 build notes (2026-11-15, D4)
 
-- **How the switch works** (`coreapp/cores/cbm_run.cc` `service_c64`, set up by `CbmRunMachine::c64_load` etc. in `c128.cc` `machine()`): `cbm_run_queue` sets `CbmRun.c64` when the file's load
+- **How the switch works (phases 0-3 as built 2026-11-15; phases 1, 4, 5 and the READY / question waits replaced 2026-11-16, see the last section)** (`coreapp/cores/cbm_run.cc` `service_c64`, set up by `CbmRunMachine::c64_load` etc. in `c128.cc` `machine()`): `cbm_run_queue` sets `CbmRun.c64` when the file's load
   address equals `c64_load` (`$0801`) and skips the refuse hook for that file; the machine is reset (it comes up in 128 mode). Phase 0: TXTTAB `$2D` = `$1C01` (the 128-mode READY, `c128_prg_params`), settle 500 ms,
   then `GO64\r` goes into the keyboard buffer `$034A/$D0`. Phase 1: 400 ms after the buffer was taken, `Y\r` (GO64's ARE YOU SURE? answer; the RETURN is read as a line or left in a buffer the reset forgets). Phase 2: wait for
   `C128_STATUS` b0 (`C128_REG(0x030)`, "C64 mode", an existing register; no new one). Phase 3: at least 1500 ms after the switch, TXTTAB `$2B` = `$0801` (`c128_prg_params_c64`) and the screen at `$0400` shows READY alone,
@@ -110,3 +110,25 @@ program itself pokes (C64 RAM `$C000`, a mirrored page, so the window sees it) a
 - **Not checked, board step for Alex:** (1) copy a BASIC .prg (`10 PRINT"HELLO":GOTO 10` at `$0801`) to the stick, C128 core, F3 file browser, "Load + run": the screen goes to C64 mode and the program runs;
   the same for a .prg inside a .d64 (Mount & Run). (2) Unverified numbers: whether GO64 takes Y without RETURN or needs it, the 400 ms gap, the 1500 ms `c64_ready_ms`, and that the RAM window sees the C64-mode screen at `$0400`
   and the pointers in block 0 after the switch. If the notice "did not enter its second mode" appears, the typed answer did not reach GO64; "did not reach READY" means TXTTAB or the screen test did not match.
+
+### Board 2026-11-16: GO64 Y not typed (D4 fix)
+
+Alex, translated: "Load and run from the C128 on a C64 file needs GO64, (ARE YOU SURE?) Y, RETURN, then load the file, then RUN. Right now it does not even type the Y, and after that it breaks."
+
+- **Cause (measured, not the line cache):** the editor takes no key while the KERNAL's boot attempt (a disk read after the banner) has not ended. TXTTAB `$2D` is `$1C01` from the banner on, so the old phase 0 typed `GO64\r`
+  500 ms after TXTTAB, into a machine that was not at READY; the old phase 1 waited 5 s for the count `$D0` to reach 0 and gave up with "did not take the typed mode switch" when the boot attempt lasted longer: `Y` never went in.
+  Log lines (`exp.sh`, real ROMs, the 5 s PRG_AT replay, no `+NODEV`, the stub device never answers the boot attempt): after 14 s the screen holds the banner and no READY, `$D0` = 02 (the second piece overwrote the
+  first count: nothing was taken), no typed text on the screen. The same run with `+NODEV` (the attempt ends): the screen shows `READY.`, `GO64`, `ARE YOU SURE?`, and the app's own timing (TXTTAB found, +500 ms GO64, `$D0` = 0, +400 ms Y)
+  reaches the C64 screen (`**** COMMODORE 64 BASIC V2 ****`, `READY.`) in 40 and in 80 columns (`a40`/`a80`, `ARE YOU SURE?Y` on the VDC). So the timing of the typed steps is right on a machine that is at READY; what failed is typing without
+  looking at the machine. The first guess (the RAM window reading `$D0` stale through the 8502's line cache) was not the cause: block 0 is pinned in slots, the window's port uses the same command path as the CPU (`c128_ramd.v`). The board's boot
+  attempt time is not measured; the cause on the board is this mechanism by the symptom, not by a board measurement.
+- **Bench bug found on the way:** `run_prgrun.sh` ran without `+NODEV`, so none of its cases could ever reach READY (the earlier `basic` run: 0 markers, READY lines 0). Fixed; the `none` control pattern was `ram[0b00]`, the log prints `ram[00b00]`: fixed.
+- **Fix** (`coreapp/cores/cbm_run.cc` `service_c64`, `CbmRunMachine::ask_*`, `c128.cc` `machine()`, `c128_prg.h`): phase 0 waits for READY on the 40-column screen (`screen_at` at `$0400`; the 80-column picture is the VDC's and cannot be read: then 4000 ms after TXTTAB) and settle;
+  `GO64\r` is typed; phase 1 waits until the count is 0 (up to 20 s: it waits out the boot attempt); phase 4 waits for `ARE YOU SURE?` on the 40-column screen (screen codes in `c128_prg.h`, the bench waits for the same codes) and types `Y\r` only then
+  (80 columns or not found: 1500 ms after the first piece was taken); phase 5 waits until that is taken (5 s); then the mode bit, the C64's READY, placement, RUN as before. Log lines: `switch text taken`, `the answer typed (question on the screen | not readable, waited)`, `answer taken`.
+- **Bench:** `cores/c128/sim/run_prgrun.sh go64` (new; 14 s of simulated time, not in the default set): `tools/cbm_prg_sim.cc c128 go64` writes the script with the application's own strings and numbers (`C128_SWITCH_TEXT`, `c128_go64_ask`, the C64 parameters); `tb_c128.v` got `5 ms`, `6 n hex`
+  (wait for screen codes) and `7 addr value` (wait for a RAM byte), `prgrun_gen.py` the `$0801` program (`POKE 49152,42` / `POKE 49153,PEEK(45)`). The bench's waits are the tb's, not the application's code: the application's polling is checked by the RISC-V build and the board.
+  Result (builder, real ROMs): `PASS prgrun go64` - screen wait for the question found after 0 ms of polling, C64 banner after 2260 ms, READY after 30 ms, `ram[0c000] = 2a`, `ram[0c001] = 24`, TXTTAB `01 08`. With the same `+NODEV` fix: `PASS prgrun basic` (`ram[00b00] = 2a`, `ram[00b01] = 22`, TXTTAB `01 1c`),
+  `PASS prgrun ml` (`ram[00b02] = 2a`); `none` shows the control's `FAIL: ram[00b00] = 00` line (its check pattern was wrong, fixed, not rerun). S7, S8 and S10 therefore have a bench pass; the board step stays open.
+- **Build:** `tools/dev.sh riscv --branch t217-go64` rc=0.
+- **Not checked, board step for Alex:** C128 core, F3 file browser, "Load + run" on a `$0801` BASIC .prg, in 40 and in 80 columns, and with a drive/disk image mounted (the boot attempt). Not measured: how long the boot attempt takes on the board (the 20 s limit and 4000 ms blind READY are guesses).
