@@ -110,6 +110,10 @@ check "negative controls only in flash and persistence tests (selftest)" python3
 check "negative controls only in flash and persistence tests" python3 -I tools/check_controls.py
 
 
+# T213 D4 / T192 D24 (Alex 2026-11-16): per-core code in the generic app only shrinks (ledger tools/d24_ledger.txt); the selftest plants each breach
+check "D24 per-core code gate (selftest)" python3 -I tools/check_d24.py --selftest
+check "D24 per-core code gate" python3 -I tools/check_d24.py
+
 check "verilog syntax" bash -c '
   rc=0
   for f in $(git ls-files | grep -E "^designs/[^/]+/[^/]+\.v$"); do

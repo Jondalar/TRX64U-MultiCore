@@ -1,0 +1,194 @@
+# T213 D4 (Alex 2026-11-16): the baseline of per-core code in the app. tools/check_d24.py reads it. Lines only shrink; lower a value when the code moved out.
+# A grown file, a new file in coreapp/cores/, a new core name/id string in generic code or core data embedded in the app is red, unless an exception line says why.
+#   exception <file> +<lines> <spec ref> (<decision of Alex>)
+file coreapp/cores/6502/xexboot.asm 161
+file coreapp/cores/6502/xexboot_bin.h 26
+file coreapp/cores/amiga.cc 345
+file coreapp/cores/amiga_keys.h 23
+file coreapp/cores/amiga_regs.h 62
+file coreapp/cores/apple2.cc 340
+file coreapp/cores/apple2_disk.cc 470
+file coreapp/cores/apple2_disk.h 71
+file coreapp/cores/apple2_hdd.cc 237
+file coreapp/cores/apple2_nib.cc 270
+file coreapp/cores/apple2_nib.h 21
+file coreapp/cores/apple2_regs.h 69
+file coreapp/cores/apple2_woz.cc 154
+file coreapp/cores/apple2_woz.h 17
+file coreapp/cores/atari800.cc 208
+file coreapp/cores/atari800_regs.h 39
+file coreapp/cores/atari_atr.cc 115
+file coreapp/cores/atari_atr.h 15
+file coreapp/cores/atari_cart.cc 61
+file coreapp/cores/atari_cart.h 14
+file coreapp/cores/atari_disk.h 16
+file coreapp/cores/atari_media.cc 188
+file coreapp/cores/atari_media.h 33
+file coreapp/cores/atari_sio.cc 362
+file coreapp/cores/atari_sio.h 67
+file coreapp/cores/atari_xex.cc 64
+file coreapp/cores/atari_xex.h 8
+file coreapp/cores/c128.cc 1073
+file coreapp/cores/c128_keys.h 12
+file coreapp/cores/c128_prg.h 28
+file coreapp/cores/c128_regs.h 52
+file coreapp/cores/c264.cc 293
+file coreapp/cores/c264_regs.h 29
+file coreapp/cores/c64.cc 561
+file coreapp/cores/c64_cart.cc 627
+file coreapp/cores/c64_cart.h 11
+file coreapp/cores/c64_cart_desc.h 72
+file coreapp/cores/c64_go.cc 145
+file coreapp/cores/c64_go.h 7
+file coreapp/cores/c64_regs.h 56
+file coreapp/cores/c64scpu.cc 401
+file coreapp/cores/c64scpu_prg.h 20
+file coreapp/cores/c64scpu_regs.h 35
+file coreapp/cores/cbm1541.cc 417
+file coreapp/cores/cbm1541.h 16
+file coreapp/cores/cbm1541_desc.h 79
+file coreapp/cores/cbm_run.cc 469
+file coreapp/cores/cbm_run.h 46
+file coreapp/cores/cores.h 23
+file coreapp/cores/cpc.cc 315
+file coreapp/cores/cpc_disk.cc 238
+file coreapp/cores/cpc_disk.h 27
+file coreapp/cores/cpc_regs.h 41
+file coreapp/cores/ddt_mandel.cc 48
+file coreapp/cores/ddt_novic.cc 48
+file coreapp/cores/ddt_regs.h 13
+file coreapp/cores/drive_rom_pick.h 98
+file coreapp/cores/hk_defaults.h 25
+file coreapp/cores/ines.cc 100
+file coreapp/cores/ines.h 22
+file coreapp/cores/neogeo.cc 651
+file coreapp/cores/neogeo_regs.h 78
+file coreapp/cores/neoset.cc 589
+file coreapp/cores/neoset.h 58
+file coreapp/cores/nes.cc 189
+file coreapp/cores/nes_regs.h 23
+file coreapp/cores/pet.cc 745
+file coreapp/cores/pet_models.h 111
+file coreapp/cores/pet_regs.h 52
+file coreapp/cores/portdiag.cc 429
+file coreapp/cores/portdiag.h 18
+file coreapp/cores/portdiag_regs.h 50
+file coreapp/cores/portdiag_tests.inc 2236
+file coreapp/cores/snes.cc 558
+file coreapp/cores/snes_regs.h 44
+file coreapp/cores/snes_rom.cc 222
+file coreapp/cores/snes_rom.h 26
+file coreapp/cores/tape_deck.cc 138
+file coreapp/cores/tape_deck.h 31
+file coreapp/cores/tape_pulses.cc 485
+file coreapp/cores/tape_pulses.h 24
+file coreapp/cores/trx64u/menu.toml 2692
+file coreapp/cores/trx64u/menu_rec.inc 2757
+file coreapp/cores/vc20.cc 273
+file coreapp/cores/vc20_regs.h 25
+file coreapp/cores/zx.cc 311
+file coreapp/cores/zx_regs.h 42
+file coreapp/cores/zx_snap.cc 311
+file coreapp/cores/zx_snap.h 17
+file coreapp/cores/zxnext.cc 283
+file coreapp/cores/zxnext_fw.h 170
+file coreapp/cores/zxnext_regs.h 36
+file coreapp/src/amiga_ffs.cc 337
+file coreapp/src/amiga_ffs.h 87
+file coreapp/src/diagtest.cc 2402
+file coreapp/src/diagtest.h 166
+file coreapp/src/monitor.cc 473
+file coreapp/src/monitor.h 24
+file coreapp/src/monsrv.cc 547
+file coreapp/src/monsrv.h 39
+file coreapp/src/ring.cc 2139
+file coreapp/src/ringfile.cc 880
+file coreapp/src/ringops.cc 359
+file coreapp/src/ringops.h 6
+file coreapp/src/t64.cc 79
+file coreapp/src/t64.h 11
+file coreapp/src/trx64u_ops.cc 554
+file coreapp/src/trx64u_ops.h 10
+file coreapp/src/trx_c64re.h 19
+file coreapp/src/trx_ring.h 135
+file coreapp/src/trxmon/README.md 4
+file coreapp/src/trxmon/asm6502.h 22
+file coreapp/src/trxmon/cond.h 38
+file coreapp/src/trxmon/dis6502.h 9
+file coreapp/src/trxmon/dis6502_table.h 36
+file coreapp/src/trxmon/hw.h 192
+file coreapp/src/trxmon/json.h 44
+file coreapp/src/trxmon/mach.h 174
+file coreapp/src/trxmon/mlib.h 31
+file coreapp/src/trxmon/mon.h 27
+file coreapp/src/trxmon/ring.h 45
+file coreapp/src/trxmon/rpc.h 30
+file coreapp/src/trxmon/spans.h 11
+file coreapp/src/trxmon/tm_asm6502.c 886
+file coreapp/src/trxmon/tm_cond.c 371
+file coreapp/src/trxmon/tm_dis6502.c 103
+file coreapp/src/trxmon/tm_hw_trx.c 473
+file coreapp/src/trxmon/tm_json.c 422
+file coreapp/src/trxmon/tm_mach.c 1262
+file coreapp/src/trxmon/tm_mlib.c 194
+file coreapp/src/trxmon/tm_mon.c 3075
+file coreapp/src/trxmon/tm_ring.c 952
+file coreapp/src/trxmon/tm_rpc.c 1589
+file coreapp/src/trxmon/tm_spans.c 95
+file coreapp/src/trxmon/tm_trace.c 1005
+file coreapp/src/trxmon/tm_trx_lens.c 245
+file coreapp/src/trxmon/tm_ui.c 822
+file coreapp/src/trxmon/tm_ws.c 304
+file coreapp/src/trxmon/trace.h 12
+file coreapp/src/trxmon/trx_lens.h 43
+file coreapp/src/trxmon/ui.h 71
+file coreapp/src/trxmon/ws.h 26
+file coreapp/src/u64_resample.inc 83
+file coreapp/src/u64cfg.cc 583
+file coreapp/src/u64cfg.h 9
+ids coreapp/src/board.h trx64u 1
+ids coreapp/src/desc_check.cc null 1
+ids coreapp/src/diag.cc diag 16
+ids coreapp/src/diag.cc trx64u 1
+ids coreapp/src/filemgr.cc diag 1
+ids coreapp/src/folderhd.cc amiga 2
+ids coreapp/src/folderhd.h amiga 1
+ids coreapp/src/folderhd_fold.cc amiga 2
+ids coreapp/src/fsif.h c64 1
+ids coreapp/src/fsif.h trx64u 2
+ids coreapp/src/libboard.cc c64 1
+ids coreapp/src/menuctl.cc diag 1
+ids coreapp/src/menuflows.cc trx64u 1
+ids coreapp/src/menutree.cc diag 1
+ids coreapp/src/menuvlist.cc c64 2
+ids coreapp/src/netfs.cc trx64u 1
+ids coreapp/src/netops.cc trx64u 1
+ids coreapp/src/nettransport.cc null 1
+ids coreapp/src/newdisk.cc apple2 2
+ids coreapp/src/newdisk.cc cpc 2
+ids coreapp/src/newdisk.cc trx64u 1
+ids coreapp/src/rest.cc c64 2
+ids coreapp/src/rest.cc null 2
+ids coreapp/src/rpc.cc null 3
+ids coreapp/src/rpccontract.cc c64 2
+ids coreapp/src/rpccontract.cc null 9
+ids coreapp/src/run.cc c64 1
+ids coreapp/src/run.cc diag 2
+ids coreapp/src/run.cc trx64u 1
+ids coreapp/src/svc.cc null 2
+ids coreapp/src/svcjson.cc null 2
+ids coreapp/src/writeback_crt.cc c64 1
+ids uicore/uic_svc.cc null 1
+
+# In-flight release fixes, measured on their worktrees 2026-11-16 (code-line delta against the branch's own base). Alex's decision: pre-registered by the coordinator on his
+# instruction to build the gate (T213 D4); delete each line when its branch is merged and the file lines above are raised by the same amount, or when the code moved out.
+exception coreapp/cores/c128.cc +5 T217 (C128 GO64, branch t217-go64, uncommitted at measurement)
+exception coreapp/cores/c128_prg.h +2 T217 (C128 GO64, branch t217-go64, uncommitted at measurement)
+exception coreapp/cores/cbm_run.cc +34 T217 (C128 GO64, branch t217-go64, uncommitted at measurement)
+exception coreapp/cores/cbm_run.h +4 T217 (C128 GO64, branch t217-go64, uncommitted at measurement)
+# followup-1116 (diag tests moved into diag.cor: portdiag_tests.inc deleted, nothing embedded remains), measured on its uncommitted working tree against main (includes its committed diag changes)
+exception coreapp/cores/portdiag.cc +45 T175 (followup-1116: diag change, tests loaded from diag.cor)
+exception coreapp/cores/portdiag.h +2 T175 (followup-1116: diag change)
+exception coreapp/src/diagtest.cc +150 T175 (followup-1116: diag change, tests loaded from diag.cor)
+exception coreapp/src/diagtest.h +12 T175 (followup-1116: diag change)
+# TODO t217/followup: re-measure when the branches are committed; the c264 rename of followup-1116 changes no c264.cc code lines (measured 0).
