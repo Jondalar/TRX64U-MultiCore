@@ -226,7 +226,7 @@ t_test_hostcore() {
 }
 cc_block test_hostcore t_test_hostcore
 
-# GitHub #93 (T229 spec section "File Browser, n entries"): the File Browser lists a folder of 784 / 3000 entries and pages to its end; what the heap budget cuts is said on a last row.
+# GitHub #93 (T209 spec section "File Browser, n entries"): the File Browser lists a folder of 784 / 3000 entries and pages to its end; what the heap budget cuts is said on a last row.
 # No negative control: not a flash or persistence operation (T174 D5.4).
 t_test_browser_n() {
   c++ -std=gnu++11 -Wall -Wextra -I"$H" -I"$ROOT/app/edit" -I"$ROOT/app/video" -I"$ROOT/host-app/software/io/c64" -o "$T/test_browser_n" "$ROOT/tests/hostapp/test_browser_n.cc" "$ROOT/tests/hostapp/hostcore_stubs.cc" \

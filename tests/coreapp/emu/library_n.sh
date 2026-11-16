@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # GitHub #93 (T209 section "File Browser, n entries", the core application's side): the real generic application in ue2emu on a USB stick with a folder of N empty
 # files named like snes zips. F3 > USB0 > snes, then "+" to the end (pictures: first page, last page, one page back). With a mock-up image built with
-# -DLISTGROW_START=40 -DLISTGROW_HARD=60 the list is cut and the last page shows the line "... more entries not shown (memory)".
+# -DLISTGROW_START=40 -DLISTGROW_HARD=60 the list is cut and the last page shows the line "... more not shown".
 #
 #   tests/coreapp/emu/library_n.sh <coreapp.app> <out dir> [files, default 784] [screen, default 1080p60]
 set -uo pipefail

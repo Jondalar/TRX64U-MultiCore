@@ -44,3 +44,4 @@ Status: PROPOSED 2026-11-12, Alex (T192 D24).
   code. Shrinking prints "ledger can shrink"; CI never edits the ledger. Exceptions (`exception <file> +N <spec> (<decision>)`) are printed every run.
   Pre-registered: t217-go64 (+45 lines: c128.cc 5, c128_prg.h 2, cbm_run.cc 34, cbm_run.h 4), followup-1116 (portdiag.cc 45, portdiag.h 2, diagtest.cc 150,
   diagtest.h 12; portdiag_tests.inc deleted, -2236). browser-n and t229 branches add no per-core lines and no new ids (measured 0).
+- D4 known gap (recorded 2026-11-16 by the pre-push review, no code change): the gate does not see per-core glue inside generic files - `run.cc` `PdHost` (`ask_live`, `joystick_menu`) and the diag-only `XiStats` / `xi_cfg` in `xinput.cc` / `usb_xinput.cc`, about 100 lines.

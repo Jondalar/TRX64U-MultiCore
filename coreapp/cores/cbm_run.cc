@@ -341,7 +341,7 @@ static bool screen_has(CoreCtx *c, uint16_t addr, const uint8_t *s, uint8_t n)
 }
 
 // T217 D4: the program is for the machine's second mode. The steps follow what the machine shows, not a clock, wherever the application can see it:
-// phase 0: the first mode is up (TXTTAB as for any program) and shows READY on the 40-column screen (m.screen_ask; the 80-column picture is the VDC's and
+// phase 0: the first mode is up (TXTTAB as for any program) and shows READY on the 40-column screen (m.ask_screen; the 80-column picture is the VDC's and
 // cannot be read: then, ready_blind_ms after TXTTAB, it is taken as READY) and settle_ms; the first piece of switch_text (GO64) goes into the keyboard buffer.
 // Phase 1: the buffer is taken (count 0). Phase 4: the machine's question (GO64 prints ARE YOU SURE?) is on the 40-column screen - or, with no sight of it,
 // ask_blind_ms after the buffer was taken - and only then the second piece (the answer, Y and RETURN) goes in. Phase 5: that is taken too. Phase 2: the

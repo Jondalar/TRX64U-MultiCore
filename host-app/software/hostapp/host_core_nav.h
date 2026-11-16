@@ -16,7 +16,7 @@ enum HcCmMode { HCM_OFF = 0, HCM_LIST, HCM_ASK1, HCM_ASK2 };                    
 #define HC_BR_START 256                                                                     // rows the browser buffer holds first (the parent row included); a longer folder grows it
 #endif
 #ifndef HC_BR_HARD
-#define HC_BR_HARD 32768                                                                    // the most rows it ever holds, however much heap is free (T229-free bound: a real memory limit is the heap quarter below)
+#define HC_BR_HARD 32768                                                                    // the most rows it ever holds, however much heap is free (a fixed bound on the row count; the real memory limit is the heap quarter below)
 #endif
 #define HC_NOTE_MAX 160
 
