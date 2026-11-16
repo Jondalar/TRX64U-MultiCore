@@ -295,7 +295,7 @@ static const FileType filetypes[] = {
 };
 
 static const MediaSlot media[] = {
-    { "Tape", "zx.tape.image", "zx.tape_eject", 0, 0 },
+    { "Tape", "zx.tape.image", "zx.tape_eject", 0, 0, 0, ".tap,.tzx", "Insert tape", 0, "Tape: Play,Tape: Stop,Tape: Rewind,Tape: Previous block,Tape: Next block" },
 };
 
 static const ArgSpec insert_args[] = { ARG_PATH("path"), ARG_INT("play", 0, 1) };
@@ -360,4 +360,6 @@ const CoreDesc zx_desc = {
     0, 0,                                      // media_flush, media_pending
     &mount_slots,                              // T180 D2, D5: Tape
     &hk_typing,                            // T181: the default hotkey map (hk_defaults.h)
+    0, false, 0,                                     // alt_video, no_tone, rom_key
+    "Model",                                   // T212 D13: machine_info
 };

@@ -273,16 +273,15 @@ int main()
         }
     }
 
-    // ---- the item in the menu: a row of F5's Storage block (T187 D7; not of F8); RETURN switches it, the next mount is stored
+    // ---- the item in the menu: a row of F7's Storage block (T212; T187 D7); RETURN switches it, the next mount is stored
     {
         FakeFs fs;
         world(fs);
         R a(fs);
         a.boot();
         a.open_menu();
-        a.m->key(KEY_F5);
-        a.m->key('1');                                                   // T205 D1: the core's own tab (Storage is a block of it)
-        CHECK(a.find_row("Persist medium mounts") > 0 && a.find_row("Chip RAM") >= 0);
+        a.m->key(KEY_F7);                                                // T212 D1: Storage is a block of the app's settings (F7, APP)
+        CHECK(a.find_row("Persist medium mounts") > 0 && a.find_row("Chip RAM") < 0);
         CHECK(a.find_row("Storage") >= 0 && a.find_row("Storage") < a.find_row("Persist medium mounts"));   // under its heading
         CHECK_STR(a.right(a.find_row("Persist medium mounts")).c_str(), "No");
         a.go_to("Persist medium mounts");
@@ -514,6 +513,99 @@ int main()
             CHECK(c.mounted_df(0));                                      // the 80 one comes back by its whole path
             CHECK_STR(c.spec(0), p80.c_str());
         }
+    }
+
+    // ---- T212 (docs/specs/T212-core-menu-areas.md S1-S11): Home is the session and its quick actions, F7 the app's settings, F5 the machine's, F8 the status
+    {
+        FakeFs fs;
+        world(fs);
+        R a(fs);
+        a.boot();
+        a.open_menu();
+        char foot[240], buf[200];
+        // S1: no information lines on Home; the cursor walks Reset / Reload, the six drives and the two config rows, every row takes it
+        CHECK_STR(a.m->tab_id(), "home");
+        CHECK_STR(a.left(0).c_str(), "Reset Amiga");
+        CHECK_STR(a.left(1).c_str(), "Reload Kickstart, Reset");
+        const char *gone[] = { "Core", "Application", "Network", "Media", "ROMs", "Libraries", "Build", "Eject DF0", "Create blank ADF" };
+        for (const char *g : gone) CHECK(a.find_row(g) < 0);
+        const char *drives[] = { "DF0", "DF1", "DF2", "DF3", "HD0", "HD1" };
+        for (int i = 0; i < 6; i++) CHECK_EQ(a.find_row(drives[i]), 2 + i);
+        CHECK(a.find_row("Save as config...") == 8 && a.find_row("Load config...") == 9);        // S5
+        for (int i = 0; i < a.m->tree().a[0].tabs[0].count; i++) {
+            const MenuEntry &e = a.m->tree().e[a.m->tree().a[0].tabs[0].first + i];
+            CHECK(e.kind == EK_TASK || e.kind == EK_MEDIA || e.kind == EK_SAVE_SET || e.kind == EK_LOAD_SET);      // nothing the cursor walks does nothing
+        }
+        int n = a.m->rows();
+        a.m->key(KEY_UP);
+        for (int i = 1; i < n; i++) { a.m->key(KEY_DOWN); CHECK_EQ(a.m->selected(), i); }
+        // S6: the machine line from the setting values; an empty drive says how to fill it (R11)
+        a.m->machine_line(buf, sizeof(buf));
+        CHECK_STR(buf, "AGA - Chip RAM 2M");
+        CHECK_STR(a.right(a.find_row("DF0")).c_str(), "Empty - RETURN to mount");
+        // S3: RETURN on an empty drive opens its list: mount from the Library, create blank; S11: the foot names its keys
+        CHECK(a.go_to("DF0"));
+        a.m->key(KEY_RETURN);
+        CHECK_STR(a.m->tab_id(), "drive");
+        CHECK_STR(a.m->title(), "DF0");
+        CHECK_EQ(a.m->rows(), 2);
+        CHECK_STR(a.left(0).c_str(), "Mount from Library...");
+        CHECK_STR(a.left(1).c_str(), "Create blank ADF");
+        a.m->footer_legend(foot, sizeof(foot));
+        CHECK_STR(foot, "UP/DOWN  CHOOSE   RETURN  DO IT   ESC  BACK");
+        a.m->key(KEY_ESCAPE);
+        CHECK_STR(a.m->tab_id(), "home");
+        CHECK(a.go_to("HD0"));
+        a.m->key(KEY_RETURN);
+        CHECK(a.left(0) == "Mount from Library..." && a.left(1) == "Mount folder as HD0" && a.m->rows() == 2);
+        a.m->key(KEY_ESCAPE);
+        // S3: Mount from Library: the Library lists the folders and the types of the drive only; RETURN on a file mounts it into that drive
+        CHECK(a.go_to("DF0"));
+        a.m->key(KEY_RETURN);
+        a.m->key(KEY_RETURN);
+        CHECK_EQ(a.m->mount_slot(), 0);
+        CHECK_STR(a.m->tree().a[a.m->area()].key, "F3");
+        a.m->footer_legend(foot, sizeof(foot));
+        if (a.find_row("usb0/") >= 0) { CHECK(a.go_to("usb0/")); a.m->key(KEY_RETURN); }
+        CHECK(a.find_row("a.adf") >= 0 && a.find_row("b.adf") >= 0 && a.find_row("h.hdf") < 0);
+        CHECK(a.go_to("a.adf"));
+        CHECK_EQ(a.m->mount_slot(), 0);                              // the footer of the mount browser is drawn by the F3 layout (seen in ue2emu, S11)
+        a.m->key(KEY_RETURN);
+        CHECK(a.mounted_df(0));
+        CHECK_EQ(a.m->mount_slot(), -1);
+        // S2: a mounted drive: eject, replace; RETURN on Eject ejects and says so
+        a.m->key(KEY_F1);
+        CHECK(a.right(a.find_row("DF0")).find("a.adf") != std::string::npos);
+        CHECK(a.go_to("DF0"));
+        a.m->key(KEY_RETURN);
+        CHECK(a.left(0) == "Eject" && a.left(1) == "Replace from Library..." && a.m->rows() == 2);
+        a.m->key(KEY_RETURN);
+        CHECK(!a.mounted_df(0));
+        CHECK(strstr(a.m->toast_text(), "DF0 ejected") != 0);
+        CHECK_STR(a.m->tab_id(), "home");
+        // S4: Reset and Reload are the core's own reset tasks and close the menu
+        CHECK(a.go_to("Reload Kickstart, Reset"));
+        MenuCtl::Result rr = a.m->key(KEY_RETURN);
+        if (rr != MenuCtl::R_CLOSE) { a.m->dialog(buf, sizeof(buf)); rr = a.m->key(KEY_RETURN); }       // a confirmation first
+        CHECK_EQ(rr, MenuCtl::R_CLOSE);
+        a.m->open();
+        // S7: F7 is APP: the generic app's settings; the Quick list is gone
+        a.m->key(KEY_F7);
+        CHECK_STR(a.m->tree().a[a.m->area()].name, "APP");
+        const char *app[] = { "Storage", "Persist medium mounts" };       // this rig extends the persist item only (home_extend and hk_extend: test_home, test_hotkeys)
+        for (const char *g : app) CHECK(a.find_row(g) >= 0);
+        CHECK(a.find_row("Chip RAM") < 0 && a.find_row("Eject DF0") < 0 && a.find_row("Reset Amiga") < 0);
+        // S8: F5 is the machine: no storage, menu or hotkey rows
+        a.m->key(KEY_F5);
+        CHECK(a.find_row("Chip RAM") >= 0);
+        const char *not_machine[] = { "Persist medium mounts", "Menu opens at", "Hotkeys", "Home directory" };
+        for (const char *g : not_machine) CHECK(a.find_row(g) < 0);
+        // S10: F8 shows Build, ROMs and Libraries below the reset row
+        a.m->key(KEY_F8);
+        CHECK(a.find_row("Build") > a.find_row("Reset to host defaults") && a.find_row("ROMs") > a.find_row("Build") && a.find_row("Libraries") > a.find_row("ROMs"));
+        CHECK(a.find_row("Core") < 0 && a.find_row("Media") < 0);
+        a.m->footer_legend(foot, sizeof(foot));
+        CHECK(strstr(foot, "RETURN") != 0);
     }
 
     DONE("test_media_mounts");

@@ -98,7 +98,7 @@ def make_stick(stick, roms_dir, core="trx64u"):
                 f.write(bytes([b]) * 901120)
         with open(os.path.join(stick, "games", "hello.prg"), "wb") as f:
             f.write(HELLO_PRG)
-        if core in ("pet", "c128", "c64scpu"):       # T206: a disk to run (the PET core mounts .d64); T217: a program inside a disk, on the C128 and the SuperCPU too
+        if core in ("pet", "vc20", "c128", "c64scpu"):  # T206: a disk to run (the PET core mounts .d64); T212: the CBM cores mount one from their drive list; T217: a program inside a disk
             with open(os.path.join(stick, "games", "alpha.d64"), "wb") as f:
                 f.write(make_d64("ALPHA", "hello", HELLO_PRG))
         _big(stick, "adf")

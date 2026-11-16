@@ -130,7 +130,6 @@ static const Task tasks[] = {
     { "Reset",                      "machine.warm_reset",   0, 0,        true },
     { "Cold start",                 "machine.cold_reset",   0, 0,        true },
     { "Reload ROMs, cold start",    "machine.reload_roms",  0, 0,        true },
-    { "Remove cartridge, cold start", "atari800.remove_cart", 0, 0,      true },
     { "Eject D1:",                  "atari800.eject",       drive0, 1,   false },
     { "Eject D2:",                  "atari800.eject",       drive1, 1,   false },
     { "Eject D3:",                  "atari800.eject",       drive2, 1,   false },
@@ -171,9 +170,11 @@ static const char *d4(CoreCtx *c) { return slot_name(c, 3); }
 static const char *cart(CoreCtx *c) { AtariState *st = a8_state(c); return st->cart_mode ? st->cart_name : 0; }
 
 static const MediaSlot media[] = {
-    { "D1:", "atari800.d1.image", "atari800.eject", drive0, 1 }, { "D2:", "atari800.d2.image", "atari800.eject", drive1, 1 },
-    { "D3:", "atari800.d3.image", "atari800.eject", drive2, 1 }, { "D4:", "atari800.d4.image", "atari800.eject", drive3, 1 },
-    { "Cartridge", "atari800.cartridge.image", "atari800.remove_cart", 0, 0 },
+    { "D1:", "atari800.d1.image", "atari800.eject", drive0, 1, 0, ".atr,.xfd", "Mount D1:", "Create blank ATR", 0 },
+    { "D2:", "atari800.d2.image", "atari800.eject", drive1, 1, 0, ".atr,.xfd", "Mount D2:", "Create blank ATR", 0 },
+    { "D3:", "atari800.d3.image", "atari800.eject", drive2, 1, 0, ".atr,.xfd", "Mount D3:", "Create blank ATR", 0 },
+    { "D4:", "atari800.d4.image", "atari800.eject", drive3, 1, 0, ".atr,.xfd", "Mount D4:", "Create blank ATR", 0 },
+    { "Cartridge", "atari800.cartridge.image", "atari800.remove_cart", 0, 0, 0, ".car,.rom,.bin", "Insert cartridge, cold start", 0, 0, true },
 };
 
 // T180 D2, D5: the five slots for the stored mounts and the media sets (atari_media.cc): D1..D4, then the cartridge
@@ -222,7 +223,7 @@ const CoreDesc atari800_desc = {
     1,
     roms, 2,
     settings, S_COUNT,
-    tasks, 9,
+    tasks, 8,
     filetypes, 8,
     media, 5,
     // 384 x 288 at scale 3 is 1152 x 864 on the 1920 x 1080 output (T88 D5); x0 = 384 centres the window, +42 (14 hires pixels
@@ -244,4 +245,6 @@ const CoreDesc atari800_desc = {
     a8_media_flush, a8_media_pending,          // T180 D4: the SIO drives' sync
     &mount_slots,                              // T180 D2, D5: D1..D4 and the cartridge
     &hk_typing,                            // T181: the default hotkey map (hk_defaults.h)
+    0, false, 0,                                     // alt_video, no_tone, rom_key
+    "RAM size,Video standard",                 // T212 D13: machine_info
 };

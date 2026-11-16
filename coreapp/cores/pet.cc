@@ -733,9 +733,9 @@ static const Task tasks[] = {
 
 static const MediaSlot media[] = {
     { "Program", "pet.program", 0, 0, 0 },
-    { "Drive 8", "pet.drive8", "pet.eject_d0", 0, 0, 0 },
-    { "Drive 8.1", "pet.drive81", "pet.eject_d1", 0, 0, 0 },
-    { "Tape", "pet.tape.image", "pet.tape_eject", 0, 0, 0 },
+    { "Drive 8", "pet.drive8", "pet.eject_d0", 0, 0, 0, ".d64,.d80,.d82", "Mount in Drive 8", 0, 0 },
+    { "Drive 8.1", "pet.drive81", "pet.eject_d1", 0, 0, 0, ".d64,.d80,.d82", "Mount in Drive 8.1", 0, 0 },
+    { "Tape", "pet.tape.image", "pet.tape_eject", 0, 0, 0, ".tap", "Insert tape", 0, "Tape: Play,Tape: Stop,Tape: Rewind" },
 };
 
 // 32 KB of RAM; the 8096's banked 64 KB are not reachable yet (T134 section 5)
@@ -829,4 +829,5 @@ const CoreDesc pet_desc = {
     &mount_slots,                                 // T180 D2, D5: Drive 8, Drive 8.1 and Tape
     &hk_console,
     0, false, pet_rom_key,                         // alt_video, no_tone, rom_key (T216 D16)
+    "Model,RAM",                               // T212 D13: machine_info
 };

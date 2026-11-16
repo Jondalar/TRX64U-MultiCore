@@ -1,18 +1,16 @@
 core APL2 Apple IIe
 area F1 Home
   tab 1 Home
-    info Core
-    info Application
-    info Network
-    info Media
-    info ROMs
-    info Libraries
+    task Reset (Ctrl-Reset) (closes the menu)
+    task Cold start (closes the menu)
+    task Reload ROMs, cold start (closes the menu)
     media D1:
     media D2:
     media S7.1:
     media S7.2:
     fixed Save as config...
     fixed Load config...
+  tab 0 Drive (a page)
 area F3 Library
   tab 1 Browse
     browser Browse
@@ -32,16 +30,6 @@ area F5 APPLE II
     setting Joystick ports = Normal | Swapped (default Normal, live)
     setting CAPS LOCK = On | Off | Follow SHIFT LOCK (default Follow SHIFT LOCK, live)
     setting LED Load Indicator = On | Off (default On, live)
-area F7 Actions
-  tab 1 Quick
-    task Reset (Ctrl-Reset) (closes the menu)
-    task Cold start (closes the menu)
-    task Reload ROMs, cold start (closes the menu)
-    task Eject D1:
-    task Eject D2:
-    task Eject S7 unit 1
-    task Eject S7 unit 2
-    task Create blank DSK (asks a name)
 area F8 System (shifted)
   tab 1 System
     heading Actions
@@ -53,3 +41,7 @@ area F8 System (shifted)
     fixed Bug report
     heading Reset
     fixed Reset to host defaults
+    heading Status
+    info Build
+    info ROMs
+    info Libraries

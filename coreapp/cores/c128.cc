@@ -1102,7 +1102,7 @@ static const Task tasks[2 + CBM1541_NTASKS + CBM1581_NTASKS] = {
 };
 
 static const MediaSlot media[] = {
-    CBM1541_MEDIA,
+    CBM1541_1581_MEDIA,
 };
 
 static void c128_register(OpRegistry &r)
@@ -1190,6 +1190,8 @@ const CoreDesc c128_desc = {
     &cbm1541_mount_slots,                      // T180 D2, D5: Drive A
     &hk_c128,                              // T181: the hotkey map with the 40/80 function (T194 D12)
     &c128_vic,                             // T194: the 40-column picture
+    false, 0,                              // no_tone, rom_key
+    "40/80 DISPLAY",                       // T212 D13: machine_info
 };
 
 // ---- the USB keyboard's extra keys ---------------------------------------------------------------------------------------------

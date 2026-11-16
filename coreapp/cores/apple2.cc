@@ -323,10 +323,10 @@ static const char *d2(CoreCtx *c) { return a2_drive_name(c, 1); }
 static const char *s71(CoreCtx *c) { return a2_unit_name(c, 0); }
 static const char *s72(CoreCtx *c) { return a2_unit_name(c, 1); }
 static const MediaSlot media[] = {
-    { "D1:", "apple2.d1.image", "apple2.eject", drive0, 1 },
-    { "D2:", "apple2.d2.image", "apple2.eject", drive1, 1 },
-    { "S7.1:", "apple2.s71.image", "apple2.hdd_eject", unit0, 1 },
-    { "S7.2:", "apple2.s72.image", "apple2.hdd_eject", unit1, 1 },
+    { "D1:", "apple2.d1.image", "apple2.eject", drive0, 1, 0, ".dsk,.do,.nib,.woz,.po,.2mg", "Mount D1:", "Create blank DSK", 0 },
+    { "D2:", "apple2.d2.image", "apple2.eject", drive1, 1, 0, ".dsk,.do,.nib,.woz,.po,.2mg", "Mount D2:", "Create blank DSK", 0 },
+    { "S7.1:", "apple2.s71.image", "apple2.hdd_eject", unit0, 1, 0, ".hdv,.po,.2mg", "Mount S7 unit 1", 0, 0 },
+    { "S7.2:", "apple2.s72.image", "apple2.hdd_eject", unit1, 1, 0, ".hdv,.po,.2mg", "Mount S7 unit 2", 0, 0 },
 };
 
 // The built-in contributor of this core (T104.1 D14).

@@ -108,15 +108,40 @@ int main()
         n.m->key(KEY_F3);
         CHECK_STR(n.m->title(), "/");
     }
-    {   // T187 D7: both items are F5's Storage (the core's Settings tab here), and F8 does not list them any more
+    {   // T187 D7, T212 D1: both items are Storage on F7 (APP), not in the machine's F5, and F8 does not list them
         Rig f(&gd, &world);
         f.menu();
         f.m->key(KEY_F5);
-        f.m->key('1');                                                       // T205 D1: the core's own tab
+        CHECK(f.find_row("Home directory") < 0 && f.find_row("Enter home on startup") < 0);
+        f.m->key(KEY_F7);
         CHECK(f.find_row("Home directory") >= 0 && f.find_row("Enter home on startup") >= 0);
         CHECK(f.find_row("Storage") >= 0 && f.find_row("Storage") < f.find_row("Home directory"));   // the heading of the routed block
         f.m->key(KEY_F8);
         CHECK(f.find_row("Home directory") < 0 && f.find_row("Enter home on startup") < 0);
+    }
+    {   // T212 S9: Home Directory and Enter Home on Startup take the host's value (CFG_USERIF_HOME_DIR, CFG_USERIF_START_HOME) as default; Menu opens at has no host counterpart
+        struct HostFlash : FlashLayer {
+            bool get(const char *, const char *key, char *val, int n)
+            {
+                if (!strcmp(key, HOME_DIR_KEY)) { snprintf(val, n, "/usb0/host"); return true; }
+                if (!strcmp(key, HOME_ENTER_KEY)) { snprintf(val, n, "Enabled"); return true; }
+                return false;
+            }
+        } hf;
+        FakeFs hfs;
+        Settings hst(gd.settings, gd.nsettings, gd.store, &hfs, CFG, &hf);
+        hst.load();
+        int di = hst.find(HOME_DIR_KEY), ei = hst.find(HOME_ENTER_KEY), ri = hst.find(REOPEN_KEY);
+        CHECK(di >= 0 && ei >= 0 && ri >= 0);
+        CHECK_STR(hst.text(di), "/usb0/host");
+        CHECK_EQ(hst.value(ei), 1);                                  // T212 D14: the host's Enabled is the core's Yes
+        CHECK_STR(hst.item(ei).values[hst.value(ei)], "Yes");
+        CHECK(hst.layer(di) == Settings::L_HOST && hst.layer(ei) == Settings::L_HOST && hst.layer(ri) == Settings::L_DEFAULT);
+        CHECK_EQ(hst.value(ri), 0);
+        CHECK(hst.set_text(di, "/usb0/own"));                          // the core's own value wins, and Reset to host defaults brings the host's back
+        CHECK_STR(hst.text(di), "/usb0/own");
+        CHECK(hst.reset_to_host());
+        CHECK_STR(hst.text(di), "/usb0/host");
     }
     DONE("test_home");
 }

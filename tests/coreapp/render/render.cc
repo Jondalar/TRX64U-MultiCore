@@ -185,6 +185,13 @@ static void txt_collect(lv_obj_t *o, TxtBox *b, int *n, int cap)
         txt_collect(lv_obj_get_child(o, (int32_t)i), b, n, cap);
     }
 }
+static lv_obj_t *find_label(lv_obj_t *o, const char *prefix)   // the first visible label whose text starts with prefix
+{
+    if (lv_obj_has_flag(o, LV_OBJ_FLAG_HIDDEN)) { return 0; }
+    if (lv_obj_check_type(o, &lv_label_class)) { const char *tx = lv_label_get_text(o); if (tx && !strncmp(tx, prefix, strlen(prefix))) { return o; } }
+    for (uint32_t i = 0; i < lv_obj_get_child_count(o); i++) { lv_obj_t *r = find_label(lv_obj_get_child(o, (int32_t)i), prefix); if (r) { return r; } }
+    return 0;
+}
 static int txt_overlaps(const char *what)
 {
     static TxtBox b[2000];
@@ -302,7 +309,7 @@ static void same_as_scratch(const char *name, Rig &c)
     if (diff) printf("AREA %s: the shown buffer differs from one built from scratch in %zu px, in x %d..%d y %d..%d\n", name, diff, x0, x1, y0, y1);
     CHECK(diff == 0);
 }
-// The Home page's "Current session" panel has no picture area (Alex 2026-10-29: the picture-in-picture, T24.1, is not built): no large empty box with the screen's
+// The Home page's "Session" panel has no picture area (Alex 2026-10-29: the picture-in-picture, T24.1, is not built): no large empty box with the screen's
 // background and a hairline border anywhere in it. UI_HOME_PICTURE_BOX puts the box back (the bench's control).
 static int big_empty_boxes(lv_obj_t *o)
 {
@@ -435,8 +442,8 @@ static void areas_core(void)
     area_case("Settings: value change (first of a session)", key_px(c, KEY_RIGHT), 30000, &c);
     area_case("Settings: value change again", key_px(c, KEY_LEFT), 30000, &c);
     area_case("tab 1 machine", key_px(c, '1'), PANE + 15000, &c);
-    area_case("F7 actions", key_px(c, KEY_F7), PANE + 45000, &c);              // 397,576 px measured 2026-10-29 (see F5)
-    area_case("F8 system", key_px(c, KEY_F8), PANE + 40000, &c);
+    area_case("F7 actions", key_px(c, KEY_F7), SCREEN, &c);                    // T212 D12: APP has no tab strip, so the pane's height changes and the whole screen is built (518,400 px measured 2026-11-12)
+    area_case("F8 system", key_px(c, KEY_F8), SCREEN, &c);                     // T212 D12: back from the strip-less APP area: the pane changes height again
     area_case("F1 home", key_px(c, KEY_F1), PANE + 40000, &c);
     // the browser: into a folder and back
     c.m->key(KEY_F3);
@@ -524,6 +531,21 @@ static void a1200_menu(const char *out)
             ui_menu_render(*r.m);
             lv_timer_handler();
             CHECK(txt_overlaps(k == 0 ? "a1200 home 480p" : "a1200 home") == 0);
+            {   // T212 (the drive rows and the machine line lengthen Home): the last row of Home stands inside the panel that holds it, at 480p and at the full canvas
+                char l[120], v[120]; bool ap;
+                int nr = r.m->rows();
+                r.m->row(nr - 1, l, sizeof(l), v, sizeof(v), &ap);
+                lv_obj_t *lb = find_label(lv_screen_active(), l);
+                CHECK(lb != 0);
+                if (lb) {
+                    lv_area_t ra, pa;
+                    lv_obj_t *row = lv_obj_get_parent(lb), *panel = lv_obj_get_parent(row);
+                    lv_obj_get_coords(row, &ra);
+                    lv_obj_get_coords(panel, &pa);
+                    printf("HOME %s: %d rows, last row \"%s\" y %d..%d, panel y %d..%d\n", k == 0 ? "480p" : "full", nr, l, (int)ra.y1, (int)ra.y2, (int)pa.y1, (int)pa.y2);
+                    CHECK(ra.y2 <= pa.y2);
+                }
+            }
             if (k == 0) {
                 TrxCanvas full = trx_canvas_for(1920, 1080);
                 trx_canvas_set(full.w, full.h);
@@ -862,7 +884,7 @@ static void ddt_menu(const char *out)
         r.c.program_loaded = true;
         ui_open(kb);
         r.m->open();
-        r.m->key(KEY_F7);
+        r.m->key(KEY_F1);
         r.m->key('1');
         ui_menu_render(*r.m);
         lv_timer_handler();
@@ -1451,12 +1473,15 @@ static void ux_rules(void)
             UXCHECK(a != 0, "%s: the generic row \"%s\" is on no page", src->cor_name, lab.c_str());
             if (!a) { continue; }
             if (lab == "Persist medium mounts" || lab == "Enter home on startup" || lab == "Home directory" || lab == "Menu opens at") {
-                // D7 puts the storage rows in F5, group Storage. The C64's record is the firmware's (docs/contracts/trx64u-firmware-handover.md): it keeps them in
-                // Drive A (F5) and Expert (F8), so the C64 is not the yardstick for these three; a core without other settings in F5 Settings lists them with no heading.
+                // T212 D1/D6: the storage and menu rows are the app's: F7 (APP), under the headings Storage / Menu, never the machine's F5. The C64's record is the firmware's
+                // (docs/contracts/trx64u-firmware-handover.md): it keeps them in Drive A (F5) and Expert (F8), so the C64 is not the yardstick for these four.
                 uxstor++;
-                if (b && (b->area != a->area || b->group != a->group)) { uxdev++; }
-                // (T205 D1: with no other settings in the core's tab the rows have no heading, the group is then the tab's name - the core's; "Menu opens at" has the heading Menu)
-                UXCHECK(a->area == 5 && a->group != "Video" && a->group != "Audio" && a->group.compare(0, 5, "Input") != 0, "%s: \"%s\" is in F%d group \"%s\", D7/T205 want the core's F5 tab", src->cor_name, lab.c_str(), a->area, a->group.c_str());
+                const MenuGroupRoute *sr = menu_route_of(d->settings[i]);
+                const UxLoc *sa = 0;
+                for (const UxLoc &u : loc) { if (u.label == lab && u.area == 7) { sa = &u; break; } }
+                if (b && (b->area != 7 || b->group != sr->heading)) { uxdev++; }
+                UXCHECK(sa != 0 && sa->group == sr->heading, "%s: \"%s\" is in F%d group \"%s\", T212 wants F7 group \"%s\"", src->cor_name, lab.c_str(), a->area, a->group.c_str(), sr->heading);
+                for (const UxLoc &u : loc) { UXCHECK(!(u.label == lab && u.area == 5), "%s: \"%s\" is still in F5 group \"%s\"", src->cor_name, lab.c_str(), u.group.c_str()); }
                 continue;
             }
             // the C64 has no row of these labels (its record is the firmware's, with its own Settings area F6 and Video/Audio/Input pages): the C64 fixes the tab, named for the
@@ -1464,10 +1489,13 @@ static void ux_rules(void)
             const MenuGroupRoute *rt = menu_route_of(d->settings[i]);
             int fk = atoi(rt->area + 1);
             int fref = atoi((rt->alt_area ? rt->alt_area : rt->area) + 1);
-            std::string want = rt->page ? std::string(rt->heading) + " > " + rt->label : std::string(rt->heading);
+            // T212 D12: a page of the app's area F7 is reached from the section "Settings" (the strip is hidden, the title stays): "Settings > <page>"
+            std::string want = rt->page ? std::string("Settings > ") + rt->label : std::string(rt->heading);
             bool in_ref = false;
             for (const UxLoc &u : ref) { if (u.area == fref && u.group == rt->heading) { in_ref = true; break; } }
-            if (strcmp(rt->group, "menu")) { UXCHECK(in_ref, "the C64 has no F%d tab \"%s\"", fref, rt->heading); }
+            // the machine's groups (F5: Video, Audio) have the C64's tab as their yardstick; the app's F7 is the generic app's own area, the C64's F7 is its Actions
+            if (fk == 5) { UXCHECK(in_ref, "the C64 has no F%d tab \"%s\"", fref, rt->heading); }
+            for (const UxLoc &u : loc) { if (u.label == lab && u.area == fk) { a = &u; break; } }   // a label that also stands on Home (Reset) is looked up in the route's own area
             uxcmp++;
             UXCHECK(a->area == fk && a->group == want, "%s: \"%s\" is in F%d group \"%s\", the place is F%d \"%s\"", src->cor_name, lab.c_str(), a->area, a->group.c_str(), fk, want.c_str());
         }
@@ -1481,8 +1509,12 @@ static void ux_rules(void)
             ux_rowtext(r, sel, &l, &v, &act);
             uxf8++;
             UXCHECK(!r.m->heading(sel) && l != "Reset to host defaults", "%s: F8 takes its first focus on \"%s\" (row %d of %d, heading %d)", src->cor_name, l.c_str(), sel, n, (int)r.m->heading(sel));
-            ux_rowtext(r, n - 1, &l, &v, &act);
-            UXCHECK(l == "Reset to host defaults", "%s: the last row of F8 is \"%s\"", src->cor_name, l.c_str());
+            // T212 D3/D7: the Status section (Build, ROMs, Libraries - information, nothing to press) closes F8 behind the Reset section; the last row that acts is the reset
+            std::string tail[3];
+            for (int k = 0; k < 3; k++) { ux_rowtext(r, n - 3 + k, &tail[k], &v, &act); UXCHECK(!act, "%s: F8 closes with \"%s\", an information row must not act", src->cor_name, tail[k].c_str()); }
+            UXCHECK(tail[0] == "Build" && tail[1] == "ROMs" && tail[2] == "Libraries", "%s: the last rows of F8 are \"%s\", \"%s\", \"%s\"", src->cor_name, tail[0].c_str(), tail[1].c_str(), tail[2].c_str());
+            ux_rowtext(r, n - 5, &l, &v, &act);
+            UXCHECK(l == "Reset to host defaults" && act && r.m->heading(n - 4), "%s: F8 has \"%s\" where the reset stands (row %d of %d)", src->cor_name, l.c_str(), n - 5, n);
         }
         // P4b: a value changed in place, in every list of F5
         for (int ak = 4; ak <= 4; ak++) {                       // F5
@@ -2267,9 +2299,10 @@ int main(int argc, char **argv)
             return false;
         };
         j.m->open();
-        j.m->key(KEY_F7);
-        bool ok = pick("Create blank ATR");
+        j.m->key(KEY_F1);                                                       // T212 D5: the task belongs to the drive: F1, the D1: row, RETURN opens its list
+        bool ok = pick("D1:");
         CHECK(ok);
+        if (ok) { j.m->key(KEY_RETURN); ok = pick("Create blank ATR"); CHECK(ok); }
         if (ok) {
             j.m->key(KEY_RETURN);
             for (int i = 0; i < 8 && strcmp(j.m->title(), "/") != 0; i++) j.m->key(KEY_LEFT);
@@ -2286,12 +2319,15 @@ int main(int argc, char **argv)
             CHECK(j.m->busy());
             ui_menu_render(*j.m);
             lv_timer_handler();
+            lv_area_t jr = { 190, 76, 949, 225 };                               // where the job row stands is found, not assumed: the row object of the "Building the image" label
+            { lv_obj_t *scr = lv_screen_active(); lv_obj_update_layout(scr); lv_obj_t *lb = find_label(scr, "Building"); CHECK(lb != 0); if (lb) { lv_obj_get_coords(lv_obj_get_parent(lb), &jr); } }
             snprintf(p, sizeof(p), "%s/atari-job_0.png", out);
             png(p, 2);
             int n = 0, bad = 0, states = 0, visits = 0;
             for (int i = 0; i < 400 && j.m->busy(); i++) {
                 j.m->tick();
-                ovp::begin(fb, 190, 76, 760, 150);
+                if (!j.m->busy()) { break; }                                   // the tick that ends the job swaps the job row for the page again: a rebuild of the screen, not a refresh of the row
+                ovp::begin(fb, jr.x1, jr.y1, jr.x2 - jr.x1 + 1, jr.y2 - jr.y1 + 1);
                 ui_menu_render(*j.m);
                 lv_timer_handler();
                 int st, vi;

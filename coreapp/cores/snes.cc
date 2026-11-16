@@ -543,7 +543,7 @@ static const ArgSpec run_args[] = { ARG_PATH("path") };
 static const Task tasks[] = {
     { "Reset",                     "machine.cold_reset", 0, 0, true },
     { "Save the battery RAM now",  "snes.save",          0, 0, false },
-    { "Sound check",               "snes.sound",         0, 0, false },
+    { "Sound check",               "snes.sound",         0, 0, false, 0, 0, false, 0, "top" },
     { "Map buttons, pad 1",        "menu.pad_map_1",     0, 0, false, 0, 0, false, 0, "input" },
     { "Map buttons, pad 2",        "menu.pad_map_2",     0, 0, false, 0, 0, false, 0, "input" },
 };
@@ -557,7 +557,7 @@ static const char *cart_name(CoreCtx *c)
     SnesState *st = snes_state(c);
     return c->program_loaded ? st->name : 0;
 }
-static const MediaSlot media[] = { { "Cartridge", "snes.cartridge.image", 0, 0, 0 } };
+static const MediaSlot media[] = { { "Cartridge", "snes.cartridge.image", 0, 0, 0, 0, ".sfc,.smc", "Run", 0, "Save the battery RAM now" } };
 
 // T180 D2, D5: the cartridge for the stored mounts and the media sets: the game's path. Emptying the slot writes the save back, holds the machine and leaves it
 // with no program (the start waits for one, as at a first start).

@@ -144,7 +144,7 @@ static const char *cart_name(CoreCtx *c)
     NesState *st = nes_state(c);
     return c->program_loaded ? st->name : 0;
 }
-static const MediaSlot media[] = { { "Cartridge", "nes.cartridge.image", 0, 0, 0 } };
+static const MediaSlot media[] = { { "Cartridge", "nes.cartridge.image", 0, 0, 0, 0, ".nes", "Run", 0, 0 } };
 
 // T180 D2, D5: the cartridge for the stored mounts and the media sets: the .nes file's path. Emptying the slot holds the machine and leaves it with no program
 // (the start waits for one, as at a first start).
@@ -213,4 +213,6 @@ const CoreDesc nes_desc = {
     0, 0,                                      // media_flush, media_pending
     &mount_slots,                              // T180 D2, D5: Cartridge
     &hk_console,                           // T181: the default hotkey map (hk_defaults.h)
+    0, false, 0,                                     // alt_video, no_tone, rom_key
+    "Console type",                            // T212 D13: machine_info
 };

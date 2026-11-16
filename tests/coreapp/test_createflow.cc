@@ -90,11 +90,27 @@ struct Rig {
     }
     void type(const char *s) { for (; *s; s++) m->key(*s); }
     void clear_name() { for (int i = 0; i < 30; i++) m->key(KEY_BACK); }
-    // F7 (the page of the tasks), the task, and its folder browser: leaves the picker up
+    // T212 D5: the blank medium is a row of the empty drive's list on Home; selects the task there
+    bool drive_task(const char *label)
+    {
+        m->key(KEY_F1);
+        const char *drive = 0;                                           // the first drive whose empty list has the task
+        for (int i = 0; !drive && i < c.desc->nmedia; i++) {
+            if (c.desc->media[i].empty_tasks && strstr(c.desc->media[i].empty_tasks, label)) drive = c.desc->media[i].name;
+        }
+        if (!drive) {
+            printf("FAIL no drive has the task \"%s\"\n", label);
+            g_fails++;
+            return false;
+        }
+        if (!pick(drive)) return false;
+        m->key(KEY_RETURN);
+        return pick(label);
+    }
+    // the drive's list on Home, the task, and its folder browser: leaves the picker up
     void begin(const char *label)
     {
-        m->key(KEY_F7);
-        if (pick(label)) m->key(KEY_RETURN);
+        if (drive_task(label)) m->key(KEY_RETURN);
     }
     // all the way to the name prompt, in `folder`, from wherever the picker starts
     void to_prompt(const char *label, const char *folder)
@@ -305,8 +321,7 @@ static void check_junk()
 // the folder browser's title after Create was chosen on the page of the tasks
 static std::string picker_start(Rig &r)
 {
-    r.m->key(KEY_F7);
-    CHECK(r.pick("Create blank ATR"));
+    CHECK(r.drive_task("Create blank ATR"));
     r.m->key(KEY_RETURN);
     CHECK(r.m->picking());
     return r.m->title();
@@ -436,8 +451,7 @@ static void check_folder()
         r.fs.put("/usb1/disks/blank.atr", Bytes(4, 1));
         r.m->open();
         browse_to(r, "/usb0/games");
-        r.m->key(KEY_F7);
-        CHECK(r.pick("Create blank ATR"));
+        CHECK(r.drive_task("Create blank ATR"));
         r.m->key(KEY_RETURN);
         CHECK_STR(r.m->title(), "/usb0/games");
         r.goto_folder("/usb1/disks");
@@ -463,8 +477,7 @@ static void check_folder()
         CHECK(bytes_of(r.fs, "/usb1/disks/chosen.atr") == want);
         // an empty name is a free one in the chosen folder
         r.fs.put("/usb1/disks/blank2.atr", Bytes(4, 1));
-        r.m->key(KEY_F7);
-        CHECK(r.pick("Create blank ATR"));
+        CHECK(r.drive_task("Create blank ATR"));
         r.m->key(KEY_RETURN);
         CHECK_STR(r.m->title(), "/usb0/games");              // the menu's own folder is still the start
         r.goto_folder("/usb1/disks");

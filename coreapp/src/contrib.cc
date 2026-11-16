@@ -11,17 +11,19 @@ static bool text(const char *s) { return s && s[0]; }
 // ---- the default route (T104 5.8) --------------------------------------------------------------------------------------------
 static const SkelTab t_home[] = { { "home", "Home", 0, TW_INFO, 0 } };
 static const SkelTab t_lib[] = { { "browse", "Browse", 0, TW_BROWSER, 0 } };
-// T205 D1: F5 is the core's one settings area: its own settings first (that tab is named after the core), then Video, Audio, Input; there is no F6. The tab ids
+// T205 D1, T212 D1: F5 is the core's machine settings: its own settings first (that tab is named after the core), then Video, Audio, Input (the hotkeys moved to F7); there is no F6. The tab ids
 // are the ones menutree.cc's group table names. What the old Summary tab showed (the media slots, the configs) is on Home.
 static const SkelTab t_machine[] = { { "settings", 0, 0, TW_SETTINGS, 0 }, { "video", "Video", 0, TW_SETTINGS, "video", 0 },
                                      { "audio", "Audio", 0, TW_SETTINGS, "audio", 0 }, { "input", "Input", 0, TW_SETTINGS, "input", 0 } };
-static const SkelTab t_actions[] = { { "quick", "Quick", 0, TW_TASKS, 0 } };
+// T212 D1/D6: F7 (APP) is the generic app's settings; the groups "app" claim no descriptor setting, the routed rows (menutree.cc g_routes) and what a library registers
+// land here. The drive and reset tasks that were its Quick list are on Home.
+static const SkelTab t_app[] = { { "settings", "Settings", 0, TW_SETTINGS, "app" } };
 static const SkelTab t_system[] = { { "expert", "System", 0, TW_SYSTEM, 0 } };       // T187 D8: named System; the id stays, anchors name it
 static const SkelArea default_areas[] = {
     { "F1", "Home", false, t_home, 1 },
     { "F3", "Library", false, t_lib, 1 },
     { "F5", 0, false, t_machine, 4 },                        // the core's short title
-    { "F7", "Actions", false, t_actions, 1 },
+    { "F7", "APP", false, t_app, 1 },
     { "F8", "System", true, t_system, 1 },
 };
 static const Skeleton default_skel = { default_areas, 5 };

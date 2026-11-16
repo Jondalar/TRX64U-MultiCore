@@ -225,6 +225,9 @@ static void build_route(const MenuTree &tr, bool app_mode)
             tabs[a][nv].arg = 0;
             nv++;
         }
+        if (nv == 1 && !strcmp(tr.a[a].key, "F7")) {             // T212 D12: the APP area with one tab shows its sections directly; a strip of one tab carries no information
+            nv = 0;
+        }
         areas[a].key = tr.a[a].key;
         areas[a].title = tr.a[a].name;
         areas[a].tabs = tabs[a];
@@ -270,6 +273,7 @@ static void ui_home(lv_obj_t *c, MenuCtl &m, int x, int y);
 static lv_obj_t *g_row[UI_ROWS_MAX];
 static int g_rown, g_rowfirst, g_rowsel = -1;
 static uint32_t g_rowsig;
+static bool g_rowtitle[24];                          // per kept row: it is a heading proper, not an information line (the bench's probe: no window ends on one)
 static bool g_rowhead[24];                           // per kept row: it is a heading (the bench's probe)
 static bool g_rowlist;                             // the kept rows belong to a list, not to Home
 static uint32_t g_inplace;                         // window moves and value changes served by retexting the rows
@@ -281,6 +285,8 @@ static bool g_status_bad;
 static lv_obj_t *g_home[UI_HOME_MAX];                // the Home panel's status rows, kept so a selection move there restyles two of them
 static int g_homen, g_homesel = -1;
 static uint32_t g_homesig;
+static uint32_t g_homehead, g_homerowh[UI_HOME_MAX];   // what Home shows besides its rows, and per row what it shows: a row whose text moved is retexted in place (T212: a job runs from Home)
+static int g_homecw;                                   // the width of a Home row's content
 static bool g_homelist;
 static uint32_t g_rowh[UI_ROWS_MAX];               // per kept row: what it shows (text, selection, dim), to retext only the ones that moved
 static uint32_t g_shape;                           // the pane's structure: title, status, row count, window size, row kinds
@@ -317,7 +323,7 @@ static TrxWindow list_window(MenuCtl &m, int *room_out)
     *room_out = room;
     int first = (g_last_area != m.area() || g_last_tab != m.tab()) ? m.first_hint() : g_first;     // T187 rule 5: a tab comes back with the window it had
     TrxWindow w = trx_window_h(m.rows(), m.selected(), first, room, list_row_h, &m);
-    while (w.count > 1 && m.heading(w.first + w.count - 1)) {          // T187 rule 3: a heading is never the last line of a window
+    while (w.count > 1 && m.title_row(w.first + w.count - 1)) {         // T187 rule 3: a heading is never the last line of a window (an information line is a row: it ends one)
         w.count--;
     }
     m.note_first(w.first);
@@ -383,6 +389,30 @@ static uint32_t list_signature(MenuCtl &m)
     return h;
 }
 
+// Home's frame: the title, the session, video and machine lines - everything but the rows.
+static uint32_t home_head_sig(MenuCtl &m)
+{
+    uint32_t h = 2166136261u;
+    char l[120];
+    h = sig_str(h, m.title());
+    h = (h ^ (uint32_t)m.closable()) * 16777619u;
+    m.session_line(l, sizeof(l));
+    h = sig_str(h, l);
+    m.video_line(l, sizeof(l));
+    h = sig_str(h, l);
+    m.machine_line(l, sizeof(l));
+    return sig_str(h, l);
+}
+static uint32_t home_row_sig(MenuCtl &m, int i)
+{
+    char l[120], r[120];
+    bool active;
+    m.row(i, l, sizeof(l), r, sizeof(r), &active, 0, 0);
+    uint32_t h = sig_str(2166136261u, l);
+    h = sig_str(h, r);
+    return (h ^ (uint32_t)active) * 16777619u;
+}
+
 // Everything Home shows except which row is selected.
 static uint32_t home_signature(MenuCtl &m)
 {
@@ -394,6 +424,8 @@ static uint32_t home_signature(MenuCtl &m)
     m.session_line(l, sizeof(l));
     h = sig_str(h, l);
     m.video_line(l, sizeof(l));
+    h = sig_str(h, l);
+    m.machine_line(l, sizeof(l));
     h = sig_str(h, l);
     int n = m.rows();
     h = (h ^ (uint32_t)n) * 16777619u;
@@ -506,7 +538,7 @@ bool ui_list_probe(UiListProbe *p)
             p->val_off_max = off > p->val_off_max ? off : p->val_off_max;
         }
         if (i == g_rown - 1) {
-            p->last_heading = g_rowhead[i];
+            p->last_heading = g_rowtitle[i];
         }
         if (g_rowfirst + i == g_rowsel) {
             p->sel_heading = g_rowhead[i];
@@ -589,6 +621,34 @@ void ui_menu_render(MenuCtl &m)
         }
         return;
     }
+    if (g_homelist && m.is_home() && trx_shell_same(scr, info, route, m.area(), ui_shell_tab(m)) && m.rows() == g_homen && m.selected() == g_homesel &&
+        home_head_sig(m) == g_homehead) {
+        // T212: a job runs from Home (a drive's list, "Create blank"): only the text of a row moves (the percentage); the rows that differ are retexted, the panel stands
+        bool ok = true;
+        for (int i = 0; ok && i < g_homen; i++) {
+            if (home_row_sig(m, i) == g_homerowh[i]) {
+                continue;
+            }
+            char l[120], r[120];
+            bool active;
+            m.row(i, l, sizeof(l), r, sizeof(r), &active, 0, 0);
+            TrxRow row;
+            memset(&row, 0, sizeof(row));
+            row.label = l;
+            row.value = r[0] ? r : 0;
+            row.selected = row.strong = (i == m.selected());
+            row.dim = !active;
+            ok = trx_row_retext(g_home[i], row, g_homecw);
+            if (ok) {
+                g_homerowh[i] = home_row_sig(m, i);
+            }
+        }
+        if (ok) {
+            g_homesig = home_signature(m);
+            g_inplace++;
+            return;
+        }
+    }
     if (g_rowlist && !m.is_home() && trx_shell_same(scr, info, route, m.area(), ui_shell_tab(m))) {
         int sel = m.selected();
         int o = g_rowsel - g_rowfirst, nw = sel - g_rowfirst;
@@ -628,7 +688,7 @@ void ui_menu_render(MenuCtl &m)
                     r.selected = r.strong = (w.first + i == m.selected());
                     r.dim = !active;
                     r.mark = m.row_reset(w.first + i);
-                    r.heading = m.heading(w.first + i);
+                    r.heading = m.title_row(w.first + i);                // an information line is a row with its value, only a heading proper is drawn quiet
                     ok = trx_row_retext(g_row[i], r, cw);
                 }
                 if (ok) {
@@ -701,12 +761,13 @@ void ui_menu_render(MenuCtl &m)
         r.strong = (idx == sel);
         r.dim = !active;
         r.mark = m.row_reset(idx);
-        r.heading = m.heading(idx);
-        r.selected = r.strong = r.selected && !r.heading;
+        r.heading = m.title_row(idx);                         // an information line is a row with its value (it takes no focus), only a heading proper is drawn quiet
+        r.selected = r.strong = r.selected && !m.heading(idx);
         lv_obj_t *row = trx_row_at(c, x, y, trx_content_w() - 2 * x, r, &y);
         if (i < UI_ROWS_MAX) {                               // kept for the cheap path of the next key
             g_row[i] = row;
-            g_rowhead[i] = r.heading;
+            g_rowhead[i] = m.heading(idx);
+            g_rowtitle[i] = m.title_row(idx);
         }
     }
     g_rown = w.count <= UI_ROWS_MAX ? w.count : 0;           // a window larger than the store: no cheap path
@@ -738,16 +799,15 @@ void ui_menu_render(MenuCtl &m)
     }
 }
 
-// home.xml: CURRENT SESSION on the left (compact: core, what is in it, the video mode; no picture area, T24.1 is not built), STATUS on the right with one action
+// home.xml: SESSION on the left (compact: core, what is in it, the video mode; no picture area, T24.1 is not built), STATUS on the right with one action
 // row per information line, and the Quick Actions button under them.
 static void ui_home(lv_obj_t *c, MenuCtl &m, int x, int y)
 {
     const TrxTheme &t = trx_theme();
     int h = trx_content_h() - y - t.space_md;
-    int right_w = trx_compact() ? 200 : 250;                 // T205: the compact canvas gives the session panel the room for "Load config..." with its value
-    int left_w = trx_content_w() - 2 * x - right_w - t.space_lg;
+    int left_w = trx_content_w() - 2 * x;                    // T212 D7: no Status panel any more; the session panel is the whole of Home
 
-    lv_obj_t *left = trx_panel(c, x, y, left_w, h, trx_compact() ? "Session" : "Current session",
+    lv_obj_t *left = trx_panel(c, x, y, left_w, h, "Session",
                                m.session_word(false), t.ok);
     int iy = trx_panel_top();
 #ifdef UI_HOME_PICTURE_BOX                       // the bench's control: the empty box of home.xml's picture-in-picture (T24.1, not built) comes back
@@ -767,44 +827,41 @@ static void ui_home(lv_obj_t *c, MenuCtl &m, int x, int y)
     m.video_line(mode, sizeof(mode));
     lv_label_set_long_mode(trx_txt(left, t.space_lg, cy + d_what + d_mode, trx_fit_mid(mode, left_w - 2 * t.space_lg - 4, t.caption, mfit, sizeof(mfit)), t.caption, t.muted,
                                    left_w - 2 * t.space_lg), LV_LABEL_LONG_MODE_CLIP);
-    trx_button(left, t.space_md, h - 28, 0, "F7  Actions", false);
-
-    lv_obj_t *right = trx_panel(c, x + left_w + t.space_lg, y, right_w, h, "Status", 0, 0);
-    int ry = trx_panel_top();
+    trx_button(left, t.space_md, h - 28, 0, "F3  Library", false);
     int n = m.rows();
     char l[120], r[120];
     bool active;
     g_homen = 0;
-    // T205 D1: the information lines are the Status panel; the media slots and configs (what the F5 Summary tab was) stand in the session panel under the video line,
-    // as the same rows a list draws. The rows are in the tab's order (the information first), g_home keeps one object per row either way.
-    const MenuTab &tb = m.tree().a[m.area()].tabs[m.tab()];
+    // T212: the rows of the Home tab (reset, drives, configs) stand in the session panel under the video line, as the same rows a list draws; g_home keeps one object per row.
     int ly = cy + d_what + d_mode + d_rows;
-    bool clipped = false;
+    char mach[96];
+    m.machine_line(mach, sizeof(mach));                       // T212 D3: what machine this is, from the core's own setting values
+    if (mach[0]) {
+        char mfit2[96];
+        lv_label_set_long_mode(trx_txt(left, t.space_lg, cy + d_what + d_mode + (cp ? 20 : 22), trx_fit_mid(mach, left_w - 2 * t.space_lg - 4, t.caption, mfit2, sizeof(mfit2)),
+                                       t.caption, t.muted, left_w - 2 * t.space_lg), LV_LABEL_LONG_MODE_CLIP);
+        ly += cp ? 18 : 20;
+    }
     for (int i = 0; i < n; i++) {
         m.row(i, l, sizeof(l), r, sizeof(r), &active, 0, 0);
-        lv_obj_t *ar;
-        if (m.tree().e[tb.first + i].kind == EK_INFO) {
-            if (ry >= h - 30) {
-                clipped = true;                              // a row that does not fit is not drawn: no cheap selection path then
-                continue;
-            }
-            ar = trx_action_row_at(right, t.space_md, ry, right_w - 2 * t.space_md, l, r, 0, 0, i == m.selected(), &ry);
-        } else {
-            TrxRow row;
-            memset(&row, 0, sizeof(row));
-            row.label = l;
-            row.value = r[0] ? r : 0;
-            row.selected = row.strong = (i == m.selected());
-            row.dim = !active;
-            ar = trx_row_at(left, t.space_lg, ly, left_w - 2 * t.space_lg, row, &ly);
-        }
+        TrxRow row;
+        memset(&row, 0, sizeof(row));
+        row.label = l;
+        row.value = r[0] ? r : 0;
+        row.selected = row.strong = (i == m.selected());
+        row.dim = !active;
+        lv_obj_t *ar = trx_row_at(left, t.space_lg, ly, left_w - 2 * t.space_lg, row, &ly);
         if (i < UI_HOME_MAX) {
             g_home[i] = ar;
             g_homen = i + 1;
         }
     }
-    trx_button(right, t.space_md, h - 28, right_w - 2 * t.space_md, "F3  Library", false);
-    g_homelist = !clipped && g_homen == n;                     // every row kept: a selection move needs no build
+    g_homelist = g_homen == n;                     // every row kept: a selection move needs no build
+    g_homehead = home_head_sig(m);
+    g_homecw = left_w - 2 * t.space_lg;
+    for (int i = 0; i < g_homen; i++) {
+        g_homerowh[i] = home_row_sig(m, i);
+    }
     g_homesel = m.selected();
     g_homesig = home_signature(m);
 }

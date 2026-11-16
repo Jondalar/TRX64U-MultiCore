@@ -77,6 +77,9 @@ struct FileMgr {
     void apply_pending();                           // what an operation asked of the Library (mark all, none, open this folder) is done
     const char *full_path(int i, char *buf, int n) const;
     bool visible_ext(const char *name, const FileType **ft) const;
+    // T212 D5: while a drive mounts from the Library, only files of these extensions (".d64,.g64") are listed beside the folders; null: every file
+    const char *ext_filter = 0;
+    bool ext_wanted(const char *name) const;
     bool browse_image(const char *file);            // a disk image is a folder for the browser; false (and a line) when it cannot be read
     bool open_vlist(const MenuVList *vl, const char *file);   // the entries of a file are the rows
     void open_folder(const char *full);             // "Open" on a folder: the Library goes there

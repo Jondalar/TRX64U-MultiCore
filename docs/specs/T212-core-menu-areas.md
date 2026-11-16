@@ -11,7 +11,23 @@ Status: PROPOSED 2026-11-12, Alex (board photos of the A1200 core app: F1, F5, F
   opens at); hotkeys sit under F5 Input; the zip behaviour of T202 needs a place.
 
 ## §2 Scenarios
-(to be written with the design; every one names its ue2emu picture or test)
+Proof column: T = core app test (`tests/coreapp`, menu goldens), U = ue2emu picture via `tests/ui` (A1200, C128, VC-20; 480p, 720p, 1080p).
+
+| # | Scenario | Proof |
+|---|----------|-------|
+| S1 | F1 Home has no STATUS box; the cursor walks the Reset / Reload rows and the drive rows, every one does something on RETURN | T (golden of F1: no `info` rows, `media`/`task` rows), U (F1) |
+| S2 | RETURN on a mounted drive row ejects it (toast "<slot> ejected") | T (key walk), U |
+| S3 | RETURN on an empty drive row mounts from the Library / creates a blank, per core with the ops the core has - OPEN, see §5 Q1 | T, U |
+| S4 | Reset and Reload on top of F1 are the core's own reset ops ("Reset Amiga", "Reload Kickstart, Reset"); they close the menu | T, U |
+| S5 | Save as config / Load config stay on F1 | T |
+| S6 | A machine-info line on F1 from existing setting values (A1200: chipset, RAM, video mode); a core without the values shows none | T, U |
+| S7 | F7 is the app settings area (label OPEN, §5 Q2) and holds Storage (persist mounts, enter home on startup, home directory), Menu (opens at), Hotkeys; the Quick list is gone | T (golden), U (F7) |
+| S8 | F5 holds machine settings only: tab 1 MACHINE, Video, Audio, Input without hotkeys | T (golden), U (F5) |
+| S9 | A setting that exists in the host app takes the host's value on "Reset to host defaults" in F7 too; no new host setting | T |
+| S10 | F8 shows Build version, ROMs, Libraries below the existing rows, the rest unchanged | T, U (F8) |
+| S11 | Keys and the foot legend of F1 / F7 match what the keys do | T (legend), U |
+| S12 | One line per row, no overlap, selection visible, long names cut, at 480p / 720p / 1080p (UX R1, R2, R5, R7) | U + ux-review |
+| S13 | Zip behaviour (T202): NOT built here (T202 has no build yet) | - |
 
 ## §3 Decisions
 - D1 (Alex 2026-11-12, "proposal for you and the UX agent"): F5 = machine (core) settings; F7 = menu-app settings; F1 = quick actions
@@ -74,3 +90,32 @@ Status: PROPOSED 2026-11-12, Alex (board photos of the A1200 core app: F1, F5, F
 - Anything on F1 beyond D3 until new users' feedback.
 
 ## §5 Build notes
+- 2026-11-12 (agent, stopped before code, nothing built): questions that are not in D1-D3 - Q1 what RETURN does on an empty drive row and where
+  the tasks that fit no drive row go (Reset Drive, Save Disk as D64/G64, Mount folder as HD0/HD1, Create blank D64/G64/D81 on C128); Q2 the F7
+  label ("APP" proposed, no name in code or ux skill); Q3 the Core / Network / Media info lines (not named in D3).
+- 2026-11-12 (D8-D11, D14 built): a Task's `group` places it in the default route: "top" = Home beside the resets (snes Sound check; the NMI closes the menu and is
+  there already), "machine" = F5's first tab (zxnext 50 / 60 Hz, CPU speed), "input" = F5 Input (pad maps of snes, nes, neogeo). `MediaSlot::eject_closes` makes the
+  list's Eject close the menu (atari cartridge; the task "Remove cartridge, cold start" is gone). D9 and D10 lists (snes/neogeo cartridge, cpc/zx/pet tape) were
+  already in the descriptors; test_desc now pins them. D14: the core shows No/Yes, `Settings::load` reads the host's Disabled/Enabled as No/Yes.
+- 2026-11-12 (D12, D13 built): D12: `ui.cc build_route` draws no tab strip for the F7 area when it has one visible tab (the framework did not hide single-tab strips anywhere
+  else; Home and Library keep theirs, D12 names only APP); the route heading "Keys" is now "Hotkeys"; the drive list's title was already the slot name (`open_drive`).
+  D13: `CoreDesc::machine_info` set per core, from existing settings only: PET Model,RAM; VIC-20 Memory Expansion; C264 Model,RAM; C128 "40/80 DISPLAY";
+  SCPU "SuperCPU speed"; Amiga Chipset + RAMs; Atari RAM size,Video standard; CPC Model; ZX Model; NES Console type; Neo Geo System type,BIOS. No line: Apple IIe,
+  ZX Next, SNES (no model or memory setting), TRX64U (C64 cores untouched). Open: C128 C64 mode and SCPU SuperRAM are no settings (core state). test_desc pins the table.
+- 2026-11-12 (render bench, R8, pictures): the core render bench follows the layout (Reset on F1, storage/menu rows in F7 under Storage/Menu, hotkey page "Settings > Hotkeys",
+  F8 closes with Status: Build, ROMs, Libraries behind the Reset section, "Create blank" through the drive list; each check asserts the new place). A job started from a drive
+  list runs on Home: Home now retexts a changed row in place (`ui.cc`, as the lists do) - without it every tick rebuilt the panel (T167 probe: 119k foreign pixels). Home's last
+  row is checked inside its panel at 480p (A1200, 10 rows: y 423 of 443). R8: entering/leaving F7 redraws 518,400 px (strip hidden, pane height changes) = about 1.1 s at the
+  board's 2.2 ms per 1,000 px, against 396,219 px (about 0.87 s) for any other area switch: +0.27 s on two transitions. Pictures: tests/ui/features_*/t212_*.feature.
+  UX review (A1200, C128, VC-20; 720p mostly): FAIL until F8 Status is seen in a picture and Home after mount/eject is pictured; polish list in the report.
+- 2026-11-12 (review fixes): F8 pictures were not stale: `list_window` cut trailing rows with `m.heading()`, which is also true for an information line (R10), so Status (Build, ROMs, Libraries) was cut as "headings at the window's end", the window counted shorter than the list (so "+/- PAGE" showed for one page) and the counter said 1-5 of 5; now `MenuCtl::title_row` (heading proper only) decides both, and an information line is drawn as a row with its value (it was drawn as a quiet heading, value dropped). Home panel is "Session" at every size (fits 480p). Drive page title drops the trailing colon of the slot name ("Drive A"). New pictures `t212-<core>-f1-ejected` (Eject from the drive list, toast in the status chip) at 480p/720p/1080p; the three T212 features run at each mode with `UI_VIDEO`. keywalk golden regenerated (Home panel title).
+- 2026-11-16: merged main, ue2emu pictures, start script. `git merge main` (463 commits). Conflicts and how both sides hold: `desc.h` keeps `no_tone`, `rom_key` (T189, T216 D16) and `machine_info` (D13/D15), in that order
+  (positional initialisers: `neogeo` `0, true, 0, "System type,BIOS"`, `pet` `0, false, pet_rom_key, "Model,RAM"`, `c128`/atari/c264/cpc/nes/scpu/vc20/zx got `false, 0` before their `machine_info`);
+  `menutree.cc` settings-tab task loop = T226/T216 `task_in_settings_tab` OR T212 D8 group rule (one add, no duplicate), `dialog` flag (T216 D11), the page row after the tasks (D12);
+  `settings.cc` keeps `ovr_` (T189) and `hix_` (D2/S9); `menuctl.cc` foot: main's ".." / folder keys plus the drive-mount line (`mount_slot_`); `snes.cc` Sound check "top" (D8); `fixtures.py` stick for vc20 + c64scpu (T217);
+  `TODO.md` main's rows. Goldens (`ids`, `keywalk`, `menu_*`) taken from the tree and regenerated with `UPDATE_GOLDEN=1 CA_GROUP=cross tests/coreapp/run.sh` on the builder (the one run; stopped when the goldens were written, controls and other tests not run).
+  Merge bug found in the pictures and fixed: F7 showed a stray "Hotkeys" heading above Storage (the T212 heading loop met T216 D12's deferred page row); the heading now stands directly above the Hotkeys row. RISC-V build ok.
+  T228 overrides T212 only where T228 itself says (not built here): D4 drops the rail heading "SHIFTED" (still drawn in these pictures), D12 adds "Keys and help" to F8 Support, D18 turns F8 into the Network tab with sections; the T212 areas stay as D2 says.
+  ue2emu pictures (real core app, 720p + 1080p, amiga1200 and c128: F1, drive lists, F3 mount, F5, F7, F8, eject toast): `t212-*` in scratchpad `t212emu/{720p,1080p}/`. ux-review verdict by the coordinator's reading of the pictures (R1, R2, R5, R7): PASS; open, outside T212: the "SHIFTED" heading (T228 D4).
+  Interactive start: `bash <scratchpad>/t212emu/start.sh amiga1200` (window, real time; kit with the app image next to it).
+- 2026-11-16 (Alex approval): checked by Alex in ue2emu with `scratchpad/t212emu/start.sh` (translated): "Menu from T212 is ok, feels good." Approved in ue2emu; merged to main; board step = with the next package.

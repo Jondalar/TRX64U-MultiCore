@@ -409,7 +409,7 @@ static const Task tasks[2 + CBM1541_NTASKS + CBM1581_NTASKS] = {
 };
 
 static const MediaSlot media[] = {
-    CBM1541_MEDIA,
+    CBM1541_1581_MEDIA,
 };
 
 static void c64scpu_register(OpRegistry &r)
@@ -472,4 +472,6 @@ const CoreDesc c64scpu_desc = {
     cbm1541_media_flush, cbm1541_media_pending,         // T180 D4: the drive's write-back
     &cbm1541_mount_slots,                               // T180 D2, D5: Drive A
     &hk_cbm,                               // T181: the default hotkey map (hk_defaults.h)
+    0, false, 0,                                     // alt_video, no_tone, rom_key
+    "SuperCPU speed",                          // T212 D13: machine_info
 };

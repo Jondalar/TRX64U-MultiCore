@@ -636,7 +636,7 @@ static const char *cart_name(CoreCtx *c)
     NeoState *st = neo_state(c);
     return st->loaded ? st->name : 0;
 }
-static const MediaSlot media[] = { { "Cartridge", "neogeo.cartridge.image", 0, 0, 0 } };
+static const MediaSlot media[] = { { "Cartridge", "neogeo.cartridge.image", 0, 0, 0, 0, ".neo", "Run", "Load a ROM set from a folder", "Load a ROM set from a folder,Save the memory card and backup RAM now" } };
 
 // T180 D2, D5: the cartridge for the stored mounts and the media sets: the .neo file's path, or "folder <folder>/<set name>" for a ROM set. Emptying the slot
 // writes the saves back, holds the machine and leaves it with no program (the start waits for one, as at a first start).
@@ -725,5 +725,6 @@ const CoreDesc neogeo_desc = {
     neo_media_flush, neo_media_pending,        // T180 D4: the backup RAM's and the card's save
     &mount_slots,                              // T180 D2, D5: Cartridge
     &hk_console,                           // T181: the default hotkey map (hk_defaults.h)
-    0, true,                               // alt_video, no_tone (T189 D6: neogeo's flat build has no tone filter until it places)
+    0, true, 0,                            // alt_video, no_tone (T189 D6: neogeo's flat build has no tone filter until it places), rom_key
+    "System type,BIOS",                    // T212 D13: machine_info
 };

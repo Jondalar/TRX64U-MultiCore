@@ -1,15 +1,11 @@
 core NES_ Nintendo Entertainment System
 area F1 Home
   tab 1 Home
-    info Core
-    info Application
-    info Network
-    info Media
-    info ROMs
-    info Libraries
+    task Reset (closes the menu)
     media Cartridge
     fixed Save as config...
     fixed Load config...
+  tab 0 Drive (a page)
 area F3 Library
   tab 1 Browse
     browser Browse
@@ -22,9 +18,6 @@ area F5 NES
   tab 2 Input
     task Map buttons, pad 1
     task Map buttons, pad 2
-area F7 Actions
-  tab 1 Quick
-    task Reset (closes the menu)
 area F8 System (shifted)
   tab 1 System
     heading Actions
@@ -36,3 +29,7 @@ area F8 System (shifted)
     fixed Bug report
     heading Reset
     fixed Reset to host defaults
+    heading Status
+    info Build
+    info ROMs
+    info Libraries

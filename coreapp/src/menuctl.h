@@ -86,6 +86,7 @@ public:
     // T187 D1: row i of the flat list is a heading (a quiet divider): never selected, never the last line of the window. T187 rule 5: the first row of a tab's
     // window is kept per tab, so coming back to a tab (from a page it opened, or from another area) shows the rows where they were.
     bool heading(int i);
+    bool title_row(int i);                       // only a heading proper (not an information line): the one a window never ends on
     int first_hint() const;
     void note_first(int first);
     static const int NAME_LONG_MAX = 255;                          // a FAT long name: what Rename and New folder take
@@ -210,6 +211,10 @@ public:
     bool replace_text(const char *text);
     static void (*entry_hook)(const char *text);
     const char *tab_id() const { return cur().id ? cur().id : ""; }
+    // T212 D5: the drive whose list is open / whose Library mount is under way (-1: none); the one-line machine description of Home ("AGA - 2 MB - PAL"), empty when
+    // the core's settings say nothing of it.
+    int mount_slot() const { return mount_slot_; }
+    void machine_line(char *out, int n) const;
 
 private:
     Result apply_run(const MenuIntent &in);
@@ -311,6 +316,12 @@ private:
     // a copy of the file type's actions plus the ones every file has (view, copy, move, rename, delete, favourite)
     FileAction chooser_buf_[40];
     bool folder_sheet_;
+    int drive_slot_ = -1;                                          // T212 D5: the media slot whose list (the "drive" page) is open
+    int mount_slot_ = -1;                                          // ... whose Library mount is under way: the Library lists its types, RETURN on a file mounts it there
+    char drive_title_[24] = "";
+    Result open_drive(int slot);
+    Result drive_row(const MenuEntry &e);
+    void end_mount();
     Task node_task_;                                               // a node that runs as a job (ui `job`) or picks a folder first (ui `pick`)
     char fav_label_[2][24];
     enum { FILT_MAX = 16 };

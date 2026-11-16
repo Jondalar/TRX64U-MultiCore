@@ -91,7 +91,11 @@ static const FileAction c1581_disk_actions[] = {
 #define CBM1581_TASKS \
     { "Create blank D81",    "drive.create", c1541_bind_new_d81,  3, false, "Name of the new D81",  "drive.suggest.d81", true }
 
-#define CBM1541_MEDIA { "Drive A:", "drive.drive_a.image", "drive.eject", c1541_bind_slot, 1 }
+// T212 D5: the drive's list: an empty one mounts from the Library or gets a blank disk, a mounted one is ejected, saved or reset
+#define CBM1541_MEDIA { "Drive A:", "drive.drive_a.image", "drive.eject", c1541_bind_slot, 1, 0, ".d64,.g64", "Mount Disk", \
+                        "Create blank D64,Create blank G64", "Save Disk as D64,Save Disk as G64,Reset Drive" }
+#define CBM1541_1581_MEDIA { "Drive A:", "drive.drive_a.image", "drive.eject", c1541_bind_slot, 1, 0, ".d64,.g64,.d81", "Mount Disk", \
+                        "Create blank D64,Create blank G64,Create blank D81", "Save Disk as D64,Save Disk as G64,Reset Drive" }
 
 // The drive's ROM is optional: the machine runs without a drive. 16 or 32 KB, the names of the VICE and Gideon sets. It is a shared device ROM
 // (RomSpec::shared): the core's folder first, then <root>/roms where the C64 side keeps it.

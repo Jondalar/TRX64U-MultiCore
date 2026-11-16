@@ -1,16 +1,13 @@
 core DIAG Port Diagnostics
 area F1 Home
   tab 1 Home
-    info Core
-    info Application
-    info Network
-    info Media
-    info ROMs
-    info Libraries
     media Port 1
     media Port 2
     media Comparators
     media Last test
+    task Pick a test and run it
+    task Write the example tests
+    task Save A/V preset (asks a name)
 area F3 Library
   tab 1 Browse
     browser Browse
@@ -35,11 +32,6 @@ area F5 DIAG
     setting Vsync length = 3 lines | 2.5 lines | 6 lines (default 3 lines, live)
     setting Vsync position = -8 | -4 | 0 | +4 | +8 (default 0, live)
     setting Lines 60 Hz = 263 | 262 (default 263, live)
-area F7 Actions
-  tab 1 Quick
-    task Pick a test and run it
-    task Write the example tests
-    task Save A/V preset (asks a name)
 area F8 System (shifted)
   tab 1 System
     heading Actions
@@ -51,3 +43,7 @@ area F8 System (shifted)
     fixed Bug report
     heading Reset
     fixed Reset to host defaults
+    heading Status
+    info Build
+    info ROMs
+    info Libraries

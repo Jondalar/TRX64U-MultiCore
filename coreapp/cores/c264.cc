@@ -274,7 +274,7 @@ static const Task tasks[3 + CBM1541_NTASKS] = {
 
 static const MediaSlot media[] = {
     { "Program", "c264.program", 0, 0, 0 },
-    { "Cartridge", "c264.cartridge", 0, 0, 0 },
+    { "Cartridge", "c264.cartridge", 0, 0, 0, 0, ".bin", "Load as cartridge (Plus/4)", 0, "Eject cartridge, reset" },
     CBM1541_MEDIA,
 };
 
@@ -338,4 +338,6 @@ const CoreDesc c264_desc = {
     cbm1541_media_flush, cbm1541_media_pending,   // T180 D4: the drive's write-back
     &mount_slots,                              // T180 D2, D5: Drive A and Cartridge
     &hk_c264,                              // T181: the default hotkey map (hk_defaults.h)
+    0, false, 0,                                     // alt_video, no_tone, rom_key
+    "Model,RAM",                               // T212 D13: machine_info
 };

@@ -38,11 +38,12 @@ key = "F5"
 
 [[area]]
 key = "F7"
-name = "Actions"
+name = "APP"
   [[area.tab]]
-  id = "quick"
-  name = "Quick"
-  widget = "tasks"
+  id = "settings"
+  name = "Settings"
+  widget = "settings"
+  groups = ["app"]
 
 [[area]]
 key = "F8"

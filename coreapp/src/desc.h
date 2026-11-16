@@ -153,6 +153,15 @@ struct MediaSlot {
     const char *eject_op;                 // optional; filled from eject_bind like a task
     const OpBind *eject_bind; int neject_bind;
     const char *group;                    // T104.2 D10: as Task::group
+    // T212 D5: what belongs to this drive. RETURN on its row in Home opens a short list: `mount` is the label of the file action that puts a file of `exts`
+    // (".d64,.g64") into this slot (the list's "Mount from Library..." jumps to the Library showing those types and runs that action on RETURN); the task
+    // labels (comma separated) are listed for an empty slot / a mounted one. The slot's eject is the list's "Eject". All null: the row only shows its state.
+    const char *exts;
+    const char *mount;
+    const char *empty_tasks;
+    const char *mounted_tasks;
+    // T212 D11: the list's "Eject" closes the menu (the eject restarts the machine: the Atari's cartridge removal is a cold start)
+    bool eject_closes;
 };
 
 // ---- video, freeze (D9) -------------------------------------------------------------------------------------------------
@@ -327,6 +336,9 @@ struct CoreDesc {
     // does (same refusal when a file is missing). Null: the ROMs do not depend on a setting (every other core). Last in the record, so the positional
     // initialisers stay as they are.
     uint32_t (*rom_key)(CoreCtx *c);
+    // T212 D3: the settings (by label, else key; comma separated) whose values make the one line of Home that says what machine this is ("AGA - Chip RAM 2M").
+    // A value "None" is left out. Null: Home has no such line. Last in the record, so the positional initialisers stay as they are.
+    const char *machine_info;
 };
 
 static inline bool desc_has_capability(const CoreDesc *d, const char *cap)

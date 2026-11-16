@@ -50,6 +50,41 @@ static void golden(const CoreDesc *d0, const char *name)
 // declared (T104 5.8: the route is a regrouping of T93's four pages, never a filter). This is the check
 // that would catch an area or a tab quietly swallowing a setting, which a golden file alone would only
 // show as a diff somebody has to read.
+// T212 D8-D11: the place of a task in the built tree, "F1/home" style, or "" when no tab lists it (a drive's list is no tab: see slot_lists)
+static std::string task_place(const CoreDesc *d, const char *label)
+{
+    MenuTree t;
+    menu_build(d, &t, true, false, 0);
+    for (int a = 0; a < t.nareas; a++) {
+        for (int b = 0; b < t.a[a].ntabs; b++) {
+            const MenuTab &tb = t.a[a].tabs[b];
+            for (int i = 0; !tb.drive_page && i < tb.count; i++) {
+                const MenuEntry &e = t.e[tb.first + i];
+                if (e.kind == EK_TASK && !strcmp(d->tasks[e.index].label, label)) {
+                    return std::string(t.a[a].key) + "/" + (tb.id ? tb.id : "") + "#" + std::to_string(i);
+                }
+            }
+        }
+    }
+    return "";
+}
+static bool slot_lists(const CoreDesc *d, const char *slot, bool mounted, const char *label)
+{
+    for (int i = 0; i < d->nmedia; i++) {
+        if (!strcmp(d->media[i].name, slot)) {
+            return groups_have(mounted ? d->media[i].mounted_tasks : d->media[i].empty_tasks, label);
+        }
+    }
+    return false;
+}
+static const Task *find_task(const CoreDesc *d, const char *label)
+{
+    for (int i = 0; i < d->ntasks; i++) {
+        if (!strcmp(d->tasks[i].label, label)) return &d->tasks[i];
+    }
+    return 0;
+}
+
 static void every_item_once(const CoreDesc *d0)
 {
     const CoreDesc *d = menu_desc(d0);
@@ -60,11 +95,11 @@ static void every_item_once(const CoreDesc *d0)
     for (int a = 0; a < t.nareas; a++) {
         for (int b = 0; b < t.a[a].ntabs; b++) {
             const MenuTab &tb = t.a[a].tabs[b];
-            CHECK(tb.count > 0);                       // an empty tab is never published
+            CHECK(tb.count > 0 || tb.drive_page);      // an empty tab is never published (the drive list is filled when a drive row opens it)
             if (d0 != &c64_desc) {
                 CHECK(tb.page || tb.n == b + 1);                  // the printed number is the tab's place, and stable (a record names its published numbers: Drives is 3)
             }
-            in_tabs += tb.count;
+            in_tabs += tb.drive_page ? DRIVE_PAGE_ROWS : tb.count;      // T212 D5: the drive list's reserved rows
             for (int i = tb.first; i < tb.first + tb.count; i++) {
                 switch (t.e[i].kind) {
                 case EK_TASK: seen_task++; break;
@@ -93,15 +128,17 @@ static void every_item_once(const CoreDesc *d0)
         CHECK(t.n > 100);
         return;
     }
-    CHECK_EQ(seen_task, d->ntasks);
+    int claimed = 0;                                   // T212 D5: a task that a drive's list reaches is not a row of any tab
+    for (int i = 0; i < d->ntasks; i++) {
+        claimed += menu_task_claimed(d, i) ? 1 : 0;
+    }
+    CHECK_EQ(seen_task + claimed, d->ntasks);
     CHECK_EQ(seen_media, d->nmedia);
     CHECK_EQ(seen_set, d->nsettings);
     CHECK_EQ(seen_browser, 1);
     CHECK_EQ(seen_fixed, 5);                           // Reset to host defaults, Restart core, Bug report, WiFi, Return to host menu
     CHECK_EQ(seen_mset, mounts_have_slots(d) ? 2 : 0);   // T180 D5: the media tab of a core with media slots has the two config rows, no other tab does
-    int info = 0;
-    while (menu_info_labels[info]) { info++; }
-    CHECK_EQ(seen_info, info);                         // the C64's six lines are spread over two tabs, each once (Home: Core Media Network; Status: the rest)
+    CHECK_EQ(seen_info, 3);                            // T212 D7: Build, ROMs, Libraries stand in F8 (Core, Network and Media are dropped)
 }
 
 // T180 D2, D5: the slots of a core's own media engine are keys of the .cfg
@@ -121,6 +158,42 @@ int main()
         every_item_once(*p);
     }
     CHECK(!desc_check_table(core_table));
+
+    // T212 D13: the machine line of Home names settings the core has; the cores that have a model/version or a memory setting get one, the others none
+    {
+        struct Mi { const char *cor; const char *info; };
+        static const Mi want[] = {
+            { "Commodore PET", "Model,RAM" }, { "VIC-20", "Memory Expansion" }, { "Commodore 264 (C16, Plus/4)", "Model,RAM" },
+            { "Commodore 128", "40/80 DISPLAY" }, { "C64 with SuperCPU", "SuperCPU speed" }, { "Amiga 1200 (AGA, 68020)", "Chipset,Chip RAM,Slow RAM,Fast RAM" },
+            { "Atari 800 XL", "RAM size,Video standard" }, { "Amstrad CPC 464 / 664 / 6128", "Model" }, { "ZX Spectrum 48K / 128K", "Model" },
+            { "Nintendo Entertainment System", "Console type" }, { "SNK Neo Geo", "System type,BIOS" },
+        };
+        static const char *const none[] = { "Apple IIe", "ZX Spectrum Next", "Super Nintendo", "TRX64U" };
+        int found = 0, nones = 0;
+        for (const CoreDesc *const *p = core_table; *p; p++) {
+            const CoreDesc *d = *p;
+            for (const Mi &w : want) {
+                if (strcmp(d->cor_name, w.cor)) continue;
+                found++;
+                CHECK(d->machine_info && !strcmp(d->machine_info, w.info));
+                for (const char *q = d->machine_info; d->machine_info && *q;) {          // every name is a choice setting of the core
+                    const char *e = strchr(q, ',');
+                    int l = e ? (int)(e - q) : (int)strlen(q), hit = 0;
+                    for (int i = 0; i < d->nsettings; i++) {
+                        const char *nm = d->settings[i].label ? d->settings[i].label : d->settings[i].key;
+                        hit += !d->settings[i].kind && (int)strlen(nm) == l && !strncasecmp(nm, q, l);
+                    }
+                    if (hit != 1) printf("T212 D13: %s: machine_info names '%.*s' (%d settings)\n", d->cor_name, l, q, hit);
+                    CHECK_EQ(hit, 1);
+                    if (!e) break;
+                    q = e + 1;
+                }
+            }
+            for (const char *nn : none) if (!strcmp(d->cor_name, nn)) { nones++; CHECK(!d->machine_info); }
+        }
+        CHECK_EQ(found, (int)(sizeof(want) / sizeof(want[0])));
+        CHECK_EQ(nones, 4);
+    }
 
     // T206 S1, S2: wherever a disk image is mounted the same "Run Disk" is offered beside "Mount Disk", with the same names in the same order in every core.
     // The CBM drive images (d64, g64, d81) have one reference table each; "Run Disk" needs the core to be able to type at READY (type_op). The machines with
@@ -259,7 +332,7 @@ int main()
                 }
             }
             CHECK(act == 1 && ret == 1 && wifi == 1 && bug == 1 && rst == 1);
-            // S3: Home keeps the information lines first, then every media slot of the core, then the configs when the core has slots
+            // T212 D7: Home has no information lines: the media slots of the core, then the configs when the core has slots
             const MenuTab &h = t.a[f1].tabs[0];
             int nmedia = 0, ninfo = 0, saves = 0;
             bool info_first = true;
@@ -269,7 +342,7 @@ int main()
                 nmedia += e.kind == EK_MEDIA;
                 saves += e.kind == EK_SAVE_SET || e.kind == EK_LOAD_SET;
             }
-            CHECK(ninfo == 6 && info_first && nmedia == d->nmedia);
+            CHECK(ninfo == 0 && info_first && nmedia == d->nmedia);
         }
         CHECK(n205 >= 18);
     }
@@ -710,10 +783,10 @@ int main()
             const MenuEntry &e = t.e[i];
             bool own = false;
             switch (e.kind) {
-            case EK_TASK: own = e.label == (*p)->tasks[e.index].label; break;
+            case EK_TASK: own = e.label == (*p)->tasks[e.index].label || !e.label[0]; break;   // T212 D5: an empty label = a row reserved for the drive list (its tab lists none)
             case EK_MEDIA: own = e.label == (*p)->media[e.index].name; break;
             case EK_SETTING: own = e.label == ((*p)->settings[e.index].label ? (*p)->settings[e.index].label : (*p)->settings[e.index].key); break;
-            case EK_INFO: own = e.label == menu_info_labels[e.index]; break;
+            case EK_INFO: own = e.label == menu_info_labels[e.index] || !strcmp(e.label, "Build") || !strcmp(e.label, "ROMs") || !strcmp(e.label, "Libraries"); break;
             case EK_BROWSER: own = !strcmp(e.label, "Browse"); break;
             case EK_RESET_HOST: own = !strcmp(e.label, "Reset to host defaults"); break;
             case EK_RESTART_CORE: own = !strcmp(e.label, "Restart core"); break;
@@ -723,10 +796,12 @@ int main()
             case EK_SAVE_SET: own = !strcmp(e.label, "Save as config..."); break;
             case EK_LOAD_SET: own = !strcmp(e.label, "Load config..."); break;
             case EK_HEADING: own = !strcmp(e.label, "Machine") || !strcmp(e.label, "Storage") || !strcmp(e.label, "Actions") || !strcmp(e.label, "Network") ||
-                                   !strcmp(e.label, "Support") || !strcmp(e.label, "Reset"); break;
-            case EK_OPENS: own = !strcmp(e.label, "Hotkeys"); break;
+                                   !strcmp(e.label, "Support") || !strcmp(e.label, "Reset") || !strcmp(e.label, "Status"); break;
+            case EK_DRIVE_MOUNT: case EK_DRIVE_EJECT: own = true; break;      // T212 D5: the drive list's own rows
+            case EK_OPENS: own = !strcmp(e.label, "Hotkeys") || !strcmp(e.label, "Storage") || !strcmp(e.label, "Menu") || !strcmp(e.label, "Keys"); break;
             case EK_NODE: own = false; break;
             }
+            if (!own) printf("not own: kind %d label [%s] idx %d core %s i %d\n", (int)e.kind, e.label, e.index, (*p)->id, i);
             CHECK(own);
             for (int f = 0; forbidden[f]; f++) {
                 if (!strcmp(forbidden[f], "Tape") && desc_has_capability(*p, "tape")) continue;   // a Spectrum or a CPC has a tape (T91, T92); the C64's datasette is not theirs
@@ -782,5 +857,54 @@ int main()
     CHECK_EQ(ops_run_bound(&mc, "test.nothing", 0, 0, 0, &res), OPE_NOT_FOUND);
     CHECK_EQ(testcore::g_mounted, 1);
     CHECK(ops_state(&mc, "test.slot") == 0);
+    // T212 D8: tasks that fit no drive. Pad maps stand in F5 Input, 50 / 60 Hz and CPU speed in F5's machine tab, Sound check and the NMI on top of Home with the resets
+    {
+        for (const CoreDesc *d : { &snes_desc, &nes_desc, &neogeo_desc }) {
+            CHECK(task_place(d, "Map buttons, pad 1").rfind("F5/input#", 0) == 0);
+            CHECK(task_place(d, "Map buttons, pad 2").rfind("F5/input#", 0) == 0);
+        }
+        CHECK(task_place(&zxnext_desc, "F3: 50 / 60 Hz").rfind("F5/settings#", 0) == 0);
+        CHECK(task_place(&zxnext_desc, "F8: CPU speed").rfind("F5/settings#", 0) == 0);
+        CHECK_STR(task_place(&snes_desc, "Reset").c_str(), "F1/home#0");
+        CHECK_STR(task_place(&snes_desc, "Sound check").c_str(), "F1/home#1");           // beside Reset, before the drive rows
+        CHECK_STR(task_place(&zxnext_desc, "Reset").c_str(), "F1/home#0");
+        CHECK_STR(task_place(&zxnext_desc, "NMI: Multiface (M1 button)").c_str(), "F1/home#1");
+        for (const char *tk : { "Map buttons, pad 1", "Sound check" }) CHECK(task_place(&snes_desc, tk).find("#") != std::string::npos);
+        CHECK_STR(task_place(&snes_desc, "Save the battery RAM now").c_str(), "");     // no task is under the drive rows any more: D9 puts it in the list
+    }
+    // T212 D9: the saves and the ROM set folder belong to the cartridge slot's list
+    {
+        CHECK(slot_lists(&snes_desc, "Cartridge", true, "Save the battery RAM now") && !slot_lists(&snes_desc, "Cartridge", false, "Save the battery RAM now"));
+        CHECK(slot_lists(&neogeo_desc, "Cartridge", true, "Save the memory card and backup RAM now"));
+        CHECK(slot_lists(&neogeo_desc, "Cartridge", false, "Load a ROM set from a folder") && slot_lists(&neogeo_desc, "Cartridge", true, "Load a ROM set from a folder"));
+        CHECK_STR(task_place(&neogeo_desc, "Load a ROM set from a folder").c_str(), "");
+        CHECK_STR(task_place(&neogeo_desc, "Save the memory card and backup RAM now").c_str(), "");
+    }
+    // T212 D10: the tape keys are in the mounted Tape list; Play closes the menu, the others do not
+    {
+        struct T { const CoreDesc *d; const char *keys[5]; };
+        const T tapes[] = { { &cpc_desc, { "Tape: Play", "Tape: Stop", "Tape: Rewind", "Tape: Previous block", "Tape: Next block" } },
+                            { &zx_desc, { "Tape: Play", "Tape: Stop", "Tape: Rewind", "Tape: Previous block", "Tape: Next block" } },
+                            { &pet_desc, { "Tape: Play", "Tape: Stop", "Tape: Rewind", 0, 0 } } };
+        for (const T &tp : tapes) {
+            for (const char *k : tp.keys) {
+                if (!k) continue;
+                CHECK(slot_lists(tp.d, "Tape", true, k) && !slot_lists(tp.d, "Tape", false, k));
+                CHECK_STR(task_place(tp.d, k).c_str(), "");
+                const Task *t = find_task(tp.d, k);
+                CHECK(t && t->closes_menu == !strcmp(k, "Tape: Play"));
+            }
+        }
+    }
+    // T212 D11: the Atari's cartridge removal is the slot's Eject (cold start, closes the menu), no task on top of Home
+    {
+        CHECK(find_task(&atari800_desc, "Remove cartridge, cold start") == 0);
+        const MediaSlot *cs = 0;
+        for (int i = 0; i < atari800_desc.nmedia; i++) if (!strcmp(atari800_desc.media[i].name, "Cartridge")) cs = &atari800_desc.media[i];
+        CHECK(cs && cs->eject_op && !strcmp(cs->eject_op, "atari800.remove_cart") && cs->eject_closes);
+        for (int i = 0; i < atari800_desc.nmedia; i++) if (&atari800_desc.media[i] != cs) CHECK(!atari800_desc.media[i].eject_closes);
+        CHECK_STR(task_place(&atari800_desc, "Reset").c_str(), "F1/home#0");
+        CHECK_STR(task_place(&atari800_desc, "Reload ROMs, cold start").c_str(), "F1/home#2");
+    }
     DONE("test_desc");
 }

@@ -104,6 +104,9 @@ private:
     int8_t tix_[SETTINGS_MAX];        // a text setting's place in tpool_, -1 none
     char tpool_[TEXT_N][TEXT_LEN];    // the texts the core layer holds (T104.2 UI)
     int ntext_;
+    enum { HTEXT_N = 8 };
+    int8_t hix_[SETTINGS_MAX];        // T212 D2/S9: a text setting's host value, its place in hpool_, -1 none
+    char hpool_[HTEXT_N][TEXT_LEN];
     int autosave_;
     bool dirty_;
     bool held_[SETTINGS_MAX];         // per setting: changed, not written yet (Auto Save Config Off or Ask)

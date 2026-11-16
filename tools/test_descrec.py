@@ -342,7 +342,7 @@ class LibraryMenus(unittest.TestCase):
     """T104.2 D10: the packer merges the menus of the libraries into the record; the record names them."""
 
     def gamma(self):
-        return D.compile_text('[[node]]\nanchor = "F7/quick"\nkind = "op"\nlabel = "Gamma"\nop = "gamma.go"\n[[file_action]]\next = [".gam"]\nlabel = "Play"\nop = "gamma.play"\n')
+        return D.compile_text('[[node]]\nanchor = "F7/settings"\nkind = "op"\nlabel = "Gamma"\nop = "gamma.go"\n[[file_action]]\next = [".gam"]\nlabel = "Play"\nop = "gamma.play"\n')
 
     def test_a_library_menu_is_appended_and_named(self):
         base = D.compile_text(menu_text())
@@ -356,14 +356,14 @@ class LibraryMenus(unittest.TestCase):
         self.assertEqual(D.parse_desc(base)["merged"], [])
 
     def test_libraries_are_taken_in_the_order_of_their_names(self):
-        a = D.compile_text('[[node]]\nanchor = "F7/quick"\nkind = "op"\nlabel = "A"\nop = "a.go"\n')
+        a = D.compile_text('[[node]]\nanchor = "F7/settings"\nkind = "op"\nlabel = "A"\nop = "a.go"\n')
         b, _, _ = D.merge_lib_menus(D.compile_text(menu_text()), [("zed", self.gamma()), ("alpha", a)])
         own = [n["label"] for n in D.parse_desc(D.compile_text(menu_text()))["node"]]
         self.assertEqual([n["label"] for n in D.parse_desc(b)["node"]], own + ["A", "Gamma"])
         self.assertEqual(D.parse_desc(b)["merged"], ["alpha", "zed"])
 
     def test_what_a_library_may_not_bring_stays_for_the_run_time(self):
-        poll = D.compile_text('[[node]]\nanchor = "F7/quick"\nkind = "op"\nlabel = "P"\nop = "p.go"\n[poll]\nop = "p.go"\nperiod_ms = 10\n')
+        poll = D.compile_text('[[node]]\nanchor = "F7/settings"\nkind = "op"\nlabel = "P"\nop = "p.go"\n[poll]\nop = "p.go"\nperiod_ms = 10\n')
         route = D.compile_text(src("desc_default.toml"))
         blob, merged, kept = D.merge_lib_menus(D.compile_text(menu_text()), [("poller", poll), ("router", route), ("gamma", self.gamma())])
         self.assertEqual(merged, ["gamma"])

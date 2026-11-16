@@ -5,8 +5,8 @@
 //
 // Since T104 the tree is a *route* in the prototype's grammar (T104 5.8): a function key picks an area, a number key picks a
 // tab inside it, and published numbers never reorder. The four pages of T93 are the same entries under five areas - Home
-// (the information lines and, since T205, the media slots and configs), Library (the browser), the core (F5: its own settings, Video, Audio, Input),
-// Actions (its tasks), System (the actions). Nothing is added or dropped on the way, which is what the golden files check.
+// (T212: the reset rows, the drive rows and the configs), Library (the browser), the core (F5: its own settings, Video, Audio, Input),
+// APP (F7: the generic app's settings), System (the actions and the status). Nothing is added or dropped on the way, which is what the golden files check.
 #ifndef COREAPP_MENUTREE_H
 #define COREAPP_MENUTREE_H
 
@@ -27,6 +27,8 @@ enum EntryKind {
     EK_LOAD_SET,        // fixed, the same: Load config...
     EK_NODE,            // a node a library, an application or the description contributed (T104.1 D4, D8); `index` is into MenuTree::nodes
     EK_HEADING,         // T187 D1: a quiet divider that names the group of the rows below it; never selectable, `label` is its text
+    EK_DRIVE_MOUNT,     // T212 D5, in the drive list: mount from the Library (the Library opens on the slot's file types); `index` is the media slot
+    EK_DRIVE_EJECT,     // T212 D5, in the drive list: eject the slot's medium
     EK_OPENS            // T187 D2: a row that opens a page (a hidden tab of the same area); `index` is the descriptor setting whose value the row shows
 };
 
@@ -64,6 +66,10 @@ struct FixedDef {
 };
 // The definition of a fixed entry, null for a kind that has none.
 const FixedDef *menu_fixed(EntryKind kind, int variant);
+// T212 D5: the slot is a drive (it can be ejected or a file can be mounted into it); other slots only show a state.
+bool menu_slot_is_drive(const MediaSlot &m);
+// T212 D5: the task is reached from a drive's list (named by a media slot, or that slot's eject), so Home does not list it.
+bool menu_task_claimed(const CoreDesc *d, int task);
 
 struct MenuEntry {
     EntryKind kind;
@@ -80,7 +86,10 @@ struct MenuTab {
     int first, count;   // into MenuTree::e
     bool page;          // T187 D2: a page a row opens (Hotkeys): no place on the tab strip, no number; leaving it returns to `parent`
     int8_t parent;      // the tab (index in the area) whose row opens this page, -1: none
+    bool home;          // T212: the session tab (Home): reset rows, drive rows, configs
+    bool drive_page;    // T212 D5: the drive list, filled by MenuCtl when a drive row is opened (its rows are reserved here: DRIVE_PAGE_ROWS)
 };
+#define DRIVE_PAGE_ROWS 12
 
 struct MenuArea {
     const char *key;    // "F1".."F8", the logical key as it is printed
@@ -135,7 +144,7 @@ void menu_build_for(const CoreCtx *c, MenuTree *t);
 // route has no such tab (a record without the area) lists the row where the ungrouped settings are.
 struct MenuGroupRoute {
     const char *group;      // "video", "audio", "hotkeys", "storage", "menu"
-    const char *area;       // "F5" (T205 D1: the core's one settings area)
+    const char *area;       // "F5" machine (video, audio), "F7" the app (T212)
     const char *tab;        // "video", "audio", "input", "settings" (a core without that tab lists the row in the area's tab "settings", under the heading)
     const char *heading;    // the group as a person reads it: "Video", "Audio", "Input", "Storage", "Menu"
     const char *label;      // a page's row in the tab ("Hotkeys")

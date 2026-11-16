@@ -1,15 +1,12 @@
 core ZXN_ ZX Spectrum Next
 area F1 Home
   tab 1 Home
-    info Core
-    info Application
-    info Network
-    info Media
-    info ROMs
-    info Libraries
+    task Reset (closes the menu)
+    task NMI: Multiface (M1 button) (closes the menu)
     media SD
     fixed Save as config...
     fixed Load config...
+  tab 0 Drive (a page)
 area F3 Library
   tab 1 Browse
     browser Browse
@@ -19,13 +16,8 @@ area F5 NEXT
     setting Joystick ports = Normal | Swapped (default Normal, live)
     setting Frame lock to 50 Hz = On | Off (default On, live)
     setting Board issue = Auto | Issue 2 | Issue 4 | Issue 5 (default Auto, at next reset)
-area F7 Actions
-  tab 1 Quick
-    task Reset (closes the menu)
-    task Eject the SD image
     task F3: 50 / 60 Hz
     task F8: CPU speed
-    task NMI: Multiface (M1 button) (closes the menu)
 area F8 System (shifted)
   tab 1 System
     heading Actions
@@ -37,3 +29,7 @@ area F8 System (shifted)
     fixed Bug report
     heading Reset
     fixed Reset to host defaults
+    heading Status
+    info Build
+    info ROMs
+    info Libraries
