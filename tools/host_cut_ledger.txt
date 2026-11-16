@@ -6,3 +6,5 @@ core_cfg_save hostfs_save   # the core's platform glue (host_core.h HcPlatform):
 ue_report hostreport_write   # the board's report writer (a file on SD/USB): the screen hands it the snapshot
 snap_save hostfs_save   # the menu picture (T146) is a view concern: stays
 core_start_file hostfs_save   # the core platform glue (host_core.h HcPlatform, T223 D4): where trx64-start.txt is written for a large core; stays
+rows_save hostfs_save   # the row cache (T229) is a view concern like the menu picture: stays
+mt_report hostfs_save   # the start-timing file (T229 S1): a view concern, a log: stays

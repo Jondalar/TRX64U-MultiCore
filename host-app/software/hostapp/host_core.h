@@ -215,14 +215,20 @@ void hc_lazy_reset(void);                                // every entry is unkno
 void hc_lazy_mark(int i);                                // entry i is read again, its old state stays until the new one is in
 void hc_lazy_window(int first, int n);                   // T223 D2: the rows the reader may read besides the default and the selection (default: all)
 int hc_lazy_next(int sel_hint);                          // the entry the reader would take next (the default first, then `sel_hint`), -1
-enum { HCL_STATE = 1, HCL_ICON, HCL_MIGRATE };
+struct MrRec;                                            // menurows.h (T229)
+enum { HCL_STATE = 1, HCL_ICON, HCL_MIGRATE, HCL_VERIFY };
 struct HcLazy {
     int index;
     int unit;                                            // HCL_STATE: the state of `index` was read; HCL_ICON: its icon is due, the screen loads it and calls hc_lazy_icon_done;
                                                          // HCL_MIGRATE: an old entry was checked in full once (save: HCR_OK / HCR_SAVE_FAILED, HCR_REFUSED: nothing stored)
     bool icon_next;                                      // HCL_STATE: the icon is due next
     int save;
+    bool changed;                                        // HCL_VERIFY (T229): the cached row is not what the file is any more; its state and icon units follow
 };
+// T229: the settled row as a record (false: not settled), and a record taken back for the entry it was made for (false: another path or boot.cfg line).
+// The entry then shows the record's state and waits for HCL_VERIFY (one stat), which says whether it is read again.
+bool hc_row_export(int i, MrRec *r);
+bool hc_row_import(int i, const MrRec &r);
 bool hc_lazy_step(bool quiet, int sel_hint, HcLazy *out);   // one unit, or (last, when quiet) one migration; false when there is nothing to do
 void hc_lazy_icon_done(int i);
 

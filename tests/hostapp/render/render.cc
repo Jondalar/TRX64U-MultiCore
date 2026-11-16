@@ -19,6 +19,7 @@
 #include "fmt.h"
 #include "trx_lv_port.h"
 #include "menusnap.h"
+#include "menurows.h"
 #include "view_bounds.h"
 #include "trxcanvas.h"
 #include "trxview.h"
@@ -37,6 +38,7 @@
 #include <time.h>
 #include <dirent.h>
 #include <sys/stat.h>
+#include <fcntl.h>
 #include <strings.h>
 #include <unistd.h>
 #include <string>
@@ -166,6 +168,8 @@ void trx_lv_buffers(uint16_t **a, uint16_t **b) { *a = fbs[0]; *b = fbs[1]; }
 bool trx_lv_show_picture(const uint16_t *f) { g_pic_shown++; fb = (uint16_t *)f; return true; }
 // T146: Flash:/menu.snap lives in memory; T146_START runs get a boot.cfg text and a picture from the run that saved them
 static std::vector<uint8_t> g_snap;
+static std::vector<uint8_t> g_rows;                 // T229: Flash:/menu.rows lives in memory too
+static int g_rows_saves;
 static int g_snap_saves;
 static std::string g_t146_cfg;
 static bool g_t146_cfg_set;
@@ -227,6 +231,12 @@ int hostfs_list(const char *path, HostDirEntry *out, int max, bool only_cor)
 static bool g_loadback;              // T139: boot.cfg reads back what the host saved last
 int hostfs_load(const char *path, char *buf, int max)
 {
+    if (!strcmp(path, MR_PATH)) {
+        if (g_rows.empty()) return -1;
+        int n = (int)g_rows.size() < max ? (int)g_rows.size() : max;
+        memcpy(buf, g_rows.data(), n);
+        return n;
+    }
     if (!strcmp(path, MS_PATH)) {
         if (g_snap.empty()) return -1;
         int n = (int)g_snap.size() < max ? (int)g_snap.size() : max;
@@ -272,6 +282,11 @@ bool hostfs_save(const char *dir, const char *name, const void *buf, int len)
         g_rep_text.assign((const char *)buf, len);
         g_rep_name = name;
         g_rep_saves++;
+        return true;
+    }
+    if (!strcmp(name, MR_FILE)) {
+        g_rows.assign((const uint8_t *)buf, (const uint8_t *)buf + len);
+        g_rows_saves++;
         return true;
     }
     if (!strcmp(name, MS_FILE)) {
@@ -346,6 +361,7 @@ struct RealFo : FoFs {
 FoFs *hostfs_fo(void) { static RealFo fo; return &fo; }
 // T148: the listing of the Cores and ROMs page over the bench's tree; the manifest names of the .cor files the scenario makes (they hold no manifest)
 struct BenchCm : CmFs {
+    bool dir_mtime(const char *dir, uint32_t *m) override { return hostfs_stat_dir(dir, m); }
     int list(const char *dir, CmEntry *out, int max)
     {
         static HostDirEntry tmp[64];
@@ -374,6 +390,15 @@ bool hostfs_stat(const char *path, uint32_t *size, uint32_t *mtime)
     struct stat st;
     if (stat(d, &st) || S_ISDIR(st.st_mode)) return false;
     *size = (uint32_t)st.st_size;
+    *mtime = (uint32_t)st.st_mtime ? (uint32_t)st.st_mtime : 1;
+    return true;
+}
+bool hostfs_stat_dir(const char *path, uint32_t *mtime)
+{
+    g_stats++;
+    char d[600]; fpath(d, sizeof(d), path);
+    struct stat st;
+    if (stat(d, &st) || !S_ISDIR(st.st_mode)) return false;
     *mtime = (uint32_t)st.st_mtime ? (uint32_t)st.st_mtime : 1;
     return true;
 }
@@ -1628,7 +1653,7 @@ static void lazy_phase_check(void)
     }
     printf("LAZY: %d steps, at most %d open, %d stat, %lu bytes per step\n", steps, max_open, max_stat, max_bytes);
     CHECK(steps >= 13 && steps <= 26);                                 // state + icon of each entry, at most two phases
-    CHECK(max_open <= 2 && max_stat <= 1);                             // a phase touches one file (is_full and cor_probe each open it), one stat
+    CHECK(max_open <= 2 && max_stat <= 3);                             // a phase touches one file (is_full and cor_probe each open it), one stat; the redraw after it counts a row's config folders (T229: their two stamps)
     CHECK(max_bytes < 6000);                                           // header, manifest, a 2 KB icon: no part
     CHECK(first_is_default);                                           // the default entry is read before the others
     CHECK(!has("|?|"));                                                // every entry has its state now
@@ -2817,6 +2842,15 @@ extern uint32_t hostui_test_snap_key(void);
 extern int hostui_test_next_key(void);
 extern bool hostui_test_snap_shown(void);
 extern void hostui_test_set_note(const char *s);
+extern int hostui_test_rows_loaded(void);
+extern int hostui_test_redraws(void);
+extern int hostui_test_est(int i);
+extern void hostui_test_lazy_reset(void);
+extern void hostui_test_rows_save_now(void);
+extern void hostui_test_rows_rect(int *y0, int *y1);
+extern const char *hostui_test_cfg_path(int i);
+extern uint32_t hostui_test_rows_key(void);
+extern int hostui_test_cfg_n(void);
 
 static bool read_file(const char *p, std::vector<uint8_t> &v)
 {
@@ -2866,6 +2900,26 @@ static void snap_save_scenario(const char *out)
     FILE *f = fopen(p, "wb"); fwrite(first_snap.data(), 1, first_snap.size(), f); fclose(f);
     snprintf(p, sizeof(p), "%s/t146_boot.cfg", out);
     f = fopen(p, "wb"); fwrite(first_cfg.data(), 1, first_cfg.size(), f); fclose(f);
+    // T229 S7: the rows were written once, when they settled; the same data again is not written; nothing is written while a unit is pending
+    CHECK(g_rows_saves == 1 && !g_rows.empty());
+    snprintf(p, sizeof(p), "%s/t229_menu.rows", out);
+    f = fopen(p, "wb"); fwrite(g_rows.data(), 1, g_rows.size(), f); fclose(f);
+    snprintf(p, sizeof(p), "%s/t229_dump.txt", out);
+    f = fopen(p, "wb"); fwrite(dump(), 1, strlen(dump()), f); fclose(f);
+    snprintf(p, sizeof(p), "%s/t229_settled.raw", out);
+    f = fopen(p, "wb"); fwrite(fb, 1, sizeof(px), f); fclose(f);
+    printf("T229 S7: rows file %zu bytes, written %d time(s)\n", g_rows.size(), g_rows_saves);
+    {
+        int rs = g_rows_saves;
+        hostui_test_rows_save_now();
+        CHECK(g_rows_saves == rs);                                           // identical file: not rewritten
+        hostui_test_lazy_reset();                                            // every entry waits for a unit again: the file is not made from half-read rows
+        for (int i = 0; i < 60; i++) hostui_test_snap_tick(t += 250, 0, false);
+        CHECK(g_rows_saves == rs);
+        for (int n = 0; hostui_test_lazy_busy() && n < 200; n++) hostui_test_lazy_pass(0, t + 250, t);       // the units, no migration (that one changes boot.cfg's line, so the rows)
+        for (int i = 0; i < 60; i++) hostui_test_snap_tick(t += 250, 0, false);
+        CHECK(g_rows_saves == rs);                                           // read again, the same rows: still the same file
+    }
     // a change of boot.cfg (the default moves to the second entry): saved again 2 s after, with another key
     uint32_t k0, c0, k1, c1;
     CHECK(ms_header_info(first_snap.data(), first_snap.size(), &k0, &c0));
@@ -2948,6 +3002,157 @@ static void snap_start_scenario(const char *out)
         CHECK(!hostui_test_snap_shown() && g_pic_shown == 0);                 // S2: the splash as today
         CHECK(kbn == 3);                                                      // nothing was taken: the driver keeps them
         CHECK(hostui_test_next_key() == KEY_DOWN);
+    }
+}
+
+
+// ---- T229: a start with the row cache of the run above (S2-S6, S8). T229_CASE: cache, none, magic, format, key, crc, trunc, touch, missing, swap, remove, add, line
+static std::string t229_file(const char *out, const char *name, std::vector<uint8_t> *v)
+{
+    char p[600]; snprintf(p, sizeof(p), "%s/%s", out, name);
+    CHECK(read_file(p, *v));
+    return p;
+}
+static std::vector<std::string> t229_lines(const std::string &t)
+{
+    std::vector<std::string> r; size_t a = 0;
+    while (a < t.size()) { size_t e = t.find('\n', a); if (e == std::string::npos) e = t.size(); r.push_back(t.substr(a, e - a)); a = e + 1; }
+    return r;
+}
+static void rows_start_scenario(const char *out)
+{
+    g_saved_hdmi = VID_HDMI_1080P; g_saved_sys = VID_SYS_PAL50;
+    const char *cs = getenv("T229_CASE");
+    std::string c = cs ? cs : "cache";
+    std::vector<uint8_t> v, rows, raw;
+    t229_file(out, "t146_boot.cfg", &v);
+    std::string cfgtext(v.begin(), v.end());
+    t229_file(out, "t229_menu.rows", &rows);
+    t229_file(out, "t229_settled.raw", &raw);
+    t229_file(out, "t229_dump.txt", &v);
+    std::vector<std::string> adump = t229_lines(std::string(v.begin(), v.end()));
+    // what the file holds: the records the bench can name
+    static MrRec recs[MR_MAX];
+    int nrec = 0;
+    CHECK(mr_decode(rows.data(), rows.size(), hostui_test_rows_key(), recs, MR_MAX, &nrec) == MR_OK && nrec >= 9);
+    int expect = nrec;                                                         // entries whose record is taken
+    std::vector<std::string> cl = t229_lines(cfgtext);
+    auto is_core = [](const std::string &l) { return l.compare(0, 5, "core=") == 0; };
+    std::vector<int> core_at;
+    for (size_t i = 0; i < cl.size(); i++) if (is_core(cl[i])) core_at.push_back((int)i);
+    bool cached = true;
+    if (c == "none") { rows.clear(); cached = false; }
+    else if (c == "magic") { rows[0] = 'X'; cached = false; }
+    else if (c == "format") { rows[4] = 9; cached = false; }
+    else if (c == "key") { rows[8] ^= 0x55; cached = false; }
+    else if (c == "crc") { rows[rows.size() / 2] ^= 0x01; cached = false; }
+    else if (c == "trunc") { rows.resize(rows.size() - 10); cached = false; }
+    else if (c == "swap") { std::swap(cl[core_at[1]], cl[core_at[2]]); }
+    else if (c == "remove") { cl.erase(cl.begin() + core_at[1]); expect--; }
+    else if (c == "add") { cl.insert(cl.begin() + core_at[1], "core=/SD/other.cor|Other|"); }
+    else if (c == "line") {                                                     // the boot.cfg line of one entry carries another size: its record is dropped alone
+        std::string &l = cl[core_at[1]];
+        size_t p3 = 0;
+        for (int k = 0; k < 3; k++) p3 = l.find('|', p3) + 1;                  // path|name|hash|size|...: the size field
+        size_t p4 = l.find('|', p3);
+        l = l.substr(0, p3) + std::to_string(atol(l.substr(p3, p4 - p3).c_str()) + 1) + l.substr(p4);
+        expect--;
+    }
+    std::string nc;
+    for (auto &l : cl) nc += l + "\n";
+    g_t146_cfg = nc; g_t146_cfg_set = true;
+    g_snap.clear();
+    g_rows = rows;
+    hostui_test_video(VID_SYS_PAL50, VID_HDMI_1080P);
+    g_opens = g_stats = g_loads = 0; g_bytes_read = 0; g_rows_saves = 0;
+    hostui_test_startup(0);
+    int loaded = hostui_test_rows_loaded();
+    printf("T229 START %s: %d of %d records taken, opens %d, stats %d, bytes %lu, redraws %d\n", c.c_str(), loaded, nrec, g_opens, g_stats, g_bytes_read, hostui_test_redraws());
+    CHECK(g_opens == 0 && g_bytes_read == 0);                                  // the start reads no file of an entry, with or without the cache
+    unsigned t = 100000;
+    if (!cached) {                                                              // S5: today's path
+        CHECK(loaded == 0 && has("|?|"));
+        int n = 0;
+        while (hostui_test_lazy_busy() && n++ < 100) hostui_test_lazy_pass(0, t + 250, t);
+        CHECK(!has("|?|") && g_opens > 0);
+        for (int i = 0; i < 80; i++) hostui_test_snap_tick(t += 250, 0, false);
+        CHECK(g_rows_saves == 1);                                               // written new after the reader has gone idle
+        int cnt = 0;
+        CHECK(mr_decode(g_rows.data(), g_rows.size(), hostui_test_rows_key(), recs, MR_MAX, &cnt) == MR_OK && cnt >= 9);
+        printf("T229 %s: today's path, file written new (%d records)\n", c.c_str(), cnt);
+        return;
+    }
+    CHECK(loaded == expect);
+    CHECK(c != "add" || has("|?|"));                                           // the new entry is not known yet; the cached ones are
+    if (c == "cache") {
+        // S2: every row the file holds shows as in the settled frame (text of the dump, pixels of the table)
+        std::vector<std::string> bd = t229_lines(dump());
+        int same = 0, rowsn = 0;
+        for (auto &l : adump) {
+            if (l.compare(0, 4, "row ") || l.find("|?|") != std::string::npos) continue;
+            rowsn++;
+            for (auto &m : bd) if (m == l) { same++; break; }
+        }
+        printf("T229 S2: %d of %d settled rows identical in the first frame's dump\n", same, rowsn);
+        CHECK(rowsn >= 9 && same == rowsn);
+        int y0, y1; hostui_test_rows_rect(&y0, &y1);
+        size_t d = 0;
+        const uint16_t *a = (const uint16_t *)raw.data();
+        for (int y = y0; y < y1 && y < 540; y++) for (int x = 0; x < 960; x++) d += a[y * 960 + x] != fb[y * 960 + x];
+        printf("T229 S2: table band y %d..%d: %zu px differ from the settled frame\n", y0, y1, d);
+        CHECK(d == 0);
+    }
+    // S6: a key in the pass: no unit; then the checks, one stat each, nothing opened, nothing redrawn
+    int stats0 = g_stats;
+    CHECK(!hostui_test_lazy_pass(1, t, t) && g_stats == stats0);
+    int redraws0 = hostui_test_redraws();
+    int units = 0, max_open = 0, max_stat = 0;
+    std::vector<int> est0;
+    for (int i = 0; i < hostui_test_cfg_n(); i++) est0.push_back(hostui_test_est(i));
+    std::string victim;
+    int vi = -1;
+    for (int i = 3; i < hostui_test_cfg_n() && vi < 0; i++) if (est0[i] == ES_OK) vi = i;
+    if (vi >= 0) victim = hostui_test_cfg_path(vi);
+    char vpath[700]; snprintf(vpath, sizeof(vpath), "%s%s", g_root, victim.c_str());
+    char gone[720]; snprintf(gone, sizeof(gone), "%s.gone", vpath);
+    struct stat vst;
+    stat(vpath, &vst);
+    if (c == "touch") {
+        struct timespec ts[2] = { { vst.st_atime, 0 }, { vst.st_mtime + 100, 0 } };
+        CHECK(utimensat(AT_FDCWD, vpath, ts, 0) == 0);
+    } else if (c == "missing") {
+        CHECK(rename(vpath, gone) == 0);
+    }
+    while (hostui_test_lazy_busy() && units < 200) {
+        g_opens = g_stats = 0;
+        hostui_test_lazy_pass(0, t + 250, t);
+        units++;
+        if (g_opens > max_open) max_open = g_opens;
+        if (g_stats > max_stat) max_stat = g_stats;
+    }
+    int opens_all = g_opens;
+    printf("T229 %s: %d units, at most %d open and %d stat per unit, redraws %d\n", c.c_str(), units, max_open, max_stat, hostui_test_redraws() - redraws0);
+    if (c == "touch" || c == "missing") {
+        CHECK(vi >= 0);
+        CHECK(hostui_test_est(vi) == (c == "touch" ? ES_CHANGED : ES_MISSING));    // S3 / S4: the row shows the new state
+        for (int i = 0; i < (int)est0.size(); i++) if (i != vi) CHECK(hostui_test_est(i) == est0[i]);
+        CHECK(max_open >= 1 && max_open <= 2);                                      // only that entry's units open a file ...
+        CHECK(hostui_test_redraws() - redraws0 >= 1 && hostui_test_redraws() - redraws0 <= 3);   // ... and only its row is drawn again
+        CHECK(units >= (int)est0.size() - 4 && units < (int)est0.size() + 4);       // one verify per cached entry, plus the changed one's own units
+        if (c == "touch") { struct timespec ts[2] = { { vst.st_atime, 0 }, { vst.st_mtime, 0 } }; utimensat(AT_FDCWD, vpath, ts, 0); }
+        else rename(gone, vpath);
+    } else {
+        if (c == "cache" || c == "swap") {
+            CHECK(max_open == 0 && opens_all == 0);                                 // S2/S6: no open, no probe
+            CHECK(hostui_test_redraws() == redraws0);                               // ... no redraw
+        } else {
+            CHECK(max_open <= 2 && hostui_test_redraws() - redraws0 <= 4);          // S8: the new / changed / shifted-in entry is read; the cached ones are not (9 would be 18+ opens)
+        }
+        CHECK(max_stat <= 3);                                                       // one file stat (+ the config folders' two)
+        for (int i = 0; i < 80; i++) hostui_test_snap_tick(t += 250, 0, false);
+        CHECK(g_rows_saves == 0 || c == "add" || c == "line" || c == "remove" || c == "swap");   // S7: unchanged rows, no write
+        if (c == "cache") CHECK(g_rows_saves == 0);
+        else CHECK(g_rows_saves <= 1);
     }
 }
 
@@ -4876,6 +5081,11 @@ int main(int argc, char **argv)
     if (getenv("T152_NOLOCK")) {                     // the toggle-off build: only this scenario (the others need the row)
         nolock_scenario(out);
         printf("render bench (T152 D9, lock off): %d checks, %d failed\n", checks, fails);
+        return fails != 0;
+    }
+    if (getenv("T229_START")) {                      // T229: a start with the rows the first run saved
+        rows_start_scenario(out);
+        printf("render bench (T229 start): %d checks, %d failed\n", checks, fails);
         return fails != 0;
     }
     if (getenv("T146_START")) {                      // a second process: the start with the picture the first one saved

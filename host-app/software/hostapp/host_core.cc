@@ -6,6 +6,7 @@
 #include <strings.h>
 #include "configlist.h"
 #include "handover.h"
+#include "menurows.h"
 
 // ---- the intents' names ------------------------------------------------------------------------------------------------------------------
 static const char *const ACT_NAME[] = {
@@ -642,9 +643,10 @@ struct Ent {
     EState st;
     CorInfo info;
     bool full;
+    uint32_t dsize, dmtime;                             // T229: the directory entry as the state was read (what the background stat compares)
 };
 Ent g_ent[BOOT_MAX];
-uint8_t g_pend[BOOT_MAX];                               // 0 done, 1 = state and icon wait, 2 = the icon waits
+uint8_t g_pend[BOOT_MAX];                               // 0 done, 1 = state and icon wait, 2 = the icon waits, 3 = a cached row waits for its stat (T229)
 bool g_mig_tried[BOOT_MAX];
 
 void say(const char *line)
@@ -752,6 +754,8 @@ void hc_probe_state(int i)
         FileStat fst;
         EntryCheck ec = startcheck_firmware(g_cfg.e[i], *g_plat.fs, fst);
         memset(&e.info, 0, sizeof(e.info));
+        e.dsize = ec == EC_MISSING ? 0 : fst.size;
+        e.dmtime = ec == EC_MISSING ? 0 : fst.mtime;
         if (ec == EC_MISSING) {
             e.st = ES_MISSING;
             return;
@@ -772,8 +776,11 @@ void hc_probe_state(int i)
         return;
     }
     FileStat fst;
+    fst.size = fst.mtime = 0;
     EntryCheck ec = startcheck_entry(g_cfg.e[i], *g_plat.fs, e.info, fst);
     e.st = state_of_check(ec);
+    e.dsize = ec == EC_MISSING ? 0 : fst.size;
+    e.dmtime = ec == EC_MISSING ? 0 : fst.mtime;
 }
 
 void hc_lazy_reset(void)
@@ -783,6 +790,7 @@ void hc_lazy_reset(void)
         g_mig_tried[i] = false;
         g_ent[i].st = ES_UNKNOWN;
         g_ent[i].full = false;
+        g_ent[i].dsize = g_ent[i].dmtime = 0;
         memset(&g_ent[i].info, 0, sizeof(g_ent[i].info));
     }
 }
@@ -808,6 +816,11 @@ int hc_lazy_next(int sel_hint)
     }
     for (int i = g_win_first < 0 ? 0 : g_win_first; i < g_cfg.n && i < g_win_first + g_win_n; i++) {
         if (g_pend[i]) {
+            return i;
+        }
+    }
+    for (int i = 0; i < g_cfg.n; i++) {                // T229 Q6: a cached row out of view is stat-checked too (one stat; no row is read that was not read before)
+        if (g_pend[i] == 3) {
             return i;
         }
     }
@@ -861,6 +874,16 @@ bool hc_lazy_step(bool quiet, int sel_hint, HcLazy *out)
         return false;
     }
     out->index = i;
+    if (g_pend[i] == 3) {                                // T229 D5: one stat against the cached directory entry; no open, no probe, no hash, no icon
+        FileStat st;
+        Ent &e = g_ent[i];
+        bool have = g_plat.fs->stat(g_cfg.e[i].path, &st);
+        bool same = have ? (e.st != ES_MISSING && st.size == e.dsize && st.mtime == e.dmtime) : e.st == ES_MISSING;
+        out->unit = HCL_VERIFY;
+        out->changed = !same;
+        g_pend[i] = same ? 0 : 1;                        // different or gone: today's state unit, then the icon
+        return true;
+    }
     if (g_pend[i] == 1) {
         hc_probe_state(i);
         g_pend[i] = (g_ent[i].st == ES_OK || g_ent[i].st == ES_CHANGED || g_ent[i].st == ES_CONTRACT || g_ent[i].st == ES_HOST) ? 2 : 0;
@@ -869,6 +892,62 @@ bool hc_lazy_step(bool quiet, int sel_hint, HcLazy *out)
     } else {
         out->unit = HCL_ICON;                            // the screen loads the picture, then says so
     }
+    return true;
+}
+
+// T229 D2: the settled row as the cache file holds it. Not an entry that is unread, waits for a unit or is the cache's own unverified copy.
+bool hc_row_export(int i, MrRec *r)
+{
+    if (i < 0 || i >= g_cfg.n || g_pend[i] != 0 || g_ent[i].st == ES_UNKNOWN) {
+        return false;
+    }
+    const BootEntry &b = g_cfg.e[i];
+    const Ent &e = g_ent[i];
+    memset(r, 0, sizeof(*r));
+    snprintf(r->path, sizeof(r->path), "%s", b.path);
+    snprintf(r->hash, sizeof(r->hash), "%s", b.hash);
+    r->size = b.size;
+    r->mtime = b.mtime;
+    r->hdr = b.hdr;
+    r->dsize = e.dsize;
+    r->dmtime = e.dmtime;
+    r->st = (uint8_t)e.st;
+    r->full = e.full;
+    r->large = e.info.large;
+    r->origin = (uint8_t)e.info.origin;
+    snprintf(r->name, sizeof(r->name), "%s", e.info.name);
+    snprintf(r->shortn, sizeof(r->shortn), "%s", e.info.shortn);
+    snprintf(r->version, sizeof(r->version), "%s", e.info.version);
+    snprintf(r->id, sizeof(r->id), "%s", e.info.id);
+    r->contract = e.info.contract;
+    r->cfgn = -1;
+    return true;
+}
+
+// T229 D4/D7: the record of an entry whose path and boot.cfg line are the ones it was made for becomes the entry's state; it waits for its stat.
+bool hc_row_import(int i, const MrRec &r)
+{
+    if (i < 0 || i >= g_cfg.n || r.st == ES_UNKNOWN || r.st > ES_FWBAD) {
+        return false;
+    }
+    const BootEntry &b = g_cfg.e[i];
+    if (strcmp(b.path, r.path) || strcmp(b.hash, r.hash) || b.size != r.size || b.mtime != r.mtime || b.hdr != r.hdr) {
+        return false;
+    }
+    Ent &e = g_ent[i];
+    memset(&e.info, 0, sizeof(e.info));
+    e.st = (EState)r.st;
+    e.full = r.full != 0;
+    e.dsize = r.dsize;
+    e.dmtime = r.dmtime;
+    e.info.large = r.large != 0;
+    e.info.origin = r.origin;
+    snprintf(e.info.name, sizeof(e.info.name), "%s", r.name);
+    snprintf(e.info.shortn, sizeof(e.info.shortn), "%s", r.shortn);
+    snprintf(e.info.version, sizeof(e.info.version), "%s", r.version);
+    snprintf(e.info.id, sizeof(e.info.id), "%s", r.id);
+    e.info.contract = r.contract;
+    g_pend[i] = 3;
     return true;
 }
 

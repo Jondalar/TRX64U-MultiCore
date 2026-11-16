@@ -17,10 +17,29 @@ struct Cached {
     char path[200];
     int n;
     uint32_t gen;
+    uint32_t stamp;                // T229 Q3: the config folders' directory mtimes the count was made under
 };
 Cached g_cache[BOOT_MAX + 4];
 int g_ncache;
 uint32_t g_gen = 1;
+
+// T229 Q3: what tells that the folders of a core changed: the mtime of each (a FAT directory's date changes when a file in it is made, renamed or removed). 0: no folder.
+uint32_t folder_stamp(const char *cor_path)
+{
+    char dir[200];
+    if (!g_cm || !config_core_dir(cor_path, dir, sizeof(dir))) {
+        return 0;
+    }
+    uint32_t stamp = 0;
+    for (int pass = 0; pass < 2; pass++) {
+        char d[220];
+        uint32_t m = 0;
+        if (config_dir_path(dir, pass == 1, d, sizeof(d)) && g_cm->dir_mtime(d, &m)) {
+            stamp = stamp * 31u + m;
+        }
+    }
+    return stamp;
+}
 
 // One listing of both folders of a core into `l` (S2, S10: the same configlist.cc the core app uses).
 bool read_list(const char *cor_path, char *dir, int dcap, ConfigList *l)
@@ -124,7 +143,57 @@ int hc_cfgov_count(const char *cor_path)
     snprintf(g_cache[at].path, sizeof(g_cache[at].path), "%s", cor_path);
     g_cache[at].n = n;
     g_cache[at].gen = g_gen;
+    g_cache[at].stamp = folder_stamp(cor_path);
     return n;
+}
+
+bool hc_cfgov_peek(const char *cor_path, int *n, uint32_t *stamp)
+{
+    for (int i = 0; i < g_ncache; i++) {
+        if (g_cache[i].gen == g_gen && !strcmp(g_cache[i].path, cor_path)) {
+            *n = g_cache[i].n;
+            *stamp = g_cache[i].stamp;
+            return true;
+        }
+    }
+    return false;
+}
+
+void hc_cfgov_seed(const char *cor_path, int n, uint32_t stamp)
+{
+    if (n < 0) {
+        return;
+    }
+    int at = -1;
+    for (int i = 0; i < g_ncache; i++) {
+        if (!strcmp(g_cache[i].path, cor_path)) {
+            at = i;
+        }
+    }
+    if (at < 0) {
+        if (g_ncache >= (int)(sizeof(g_cache) / sizeof(g_cache[0]))) {
+            return;
+        }
+        at = g_ncache++;
+    }
+    snprintf(g_cache[at].path, sizeof(g_cache[at].path), "%s", cor_path);
+    g_cache[at].n = n;
+    g_cache[at].gen = g_gen;
+    g_cache[at].stamp = stamp;
+}
+
+bool hc_cfgov_stale(const char *cor_path)
+{
+    for (int i = 0; i < g_ncache; i++) {
+        if (g_cache[i].gen == g_gen && !strcmp(g_cache[i].path, cor_path)) {
+            if (folder_stamp(cor_path) == g_cache[i].stamp) {
+                return false;
+            }
+            g_cache[i].gen = 0;                       // counted again at the next draw
+            return true;
+        }
+    }
+    return false;
 }
 
 bool hc_cfgov_open(const char *cor_path, const char *title, int entry, bool browse)

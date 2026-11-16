@@ -25,7 +25,8 @@ struct CmEntry {
 struct CmFs {
     virtual ~CmFs() { }
     virtual int list(const char *dir, CmEntry *out, int max) = 0;                    // "/" lists the media; -1 if it cannot be read
-    virtual bool core_name(const char *cor_path, char *name, int n) = 0;              // the manifest's name of a .cor; false if it cannot be read
+    virtual bool core_name(const char *cor_path, char *name, int n) = 0;
+    virtual bool dir_mtime(const char *, uint32_t *) { return false; }               // T229: the date and time of a folder (date << 16 | time, never 0); false: no such folder              // the manifest's name of a .cor; false if it cannot be read
 };
 
 // What a core needs (romreq_table.inc, generated from the descriptors: tests/coreapp/gen_romreq.cc).

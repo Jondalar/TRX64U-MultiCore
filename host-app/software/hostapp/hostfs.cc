@@ -100,6 +100,17 @@ bool hostfs_stat(const char *path, uint32_t *size, uint32_t *mtime)
     return true;
 }
 
+bool hostfs_stat_dir(const char *path, uint32_t *mtime)
+{
+    FileInfo info(INFO_SIZE);
+    if (FileManager :: getFileManager()->fstat(path, info) != FR_OK || !(info.attrib & AM_DIR)) {
+        return false;
+    }
+    uint32_t m = ((uint32_t)info.date << 16) | info.time;
+    *mtime = m ? m : 1;
+    return true;
+}
+
 FileSource::FileSource(const char *path) : file(0), sz(0)
 {
     FileManager *fm = FileManager :: getFileManager();
@@ -246,6 +257,7 @@ public:
         }
         return n;
     }
+    bool dir_mtime(const char *dir, uint32_t *mtime) { return hostfs_stat_dir(dir, mtime); }
     bool core_name(const char *cor_path, char *name, int n)
     {
         FileSource src(cor_path);

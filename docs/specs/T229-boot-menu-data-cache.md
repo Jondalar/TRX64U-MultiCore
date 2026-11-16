@@ -204,4 +204,28 @@ Scenario: S9 on the board, end to end
 
 ## §5 Build notes
 
-(filled in while building; the measurement lines of S1 go in with the startlog excerpt they came from.)
+(Branch `t229-menu-cache`, built 2026-11-16. The measurement lines of S1 go in with the file they came from; the build phase waits for them.)
+
+### Built (row cache D1-D10, S1 measurement)
+- `menurows.h/.cc`: the file `Flash:/menu.rows` (`MR_PATH`): header (magic, format 1, count, key = CRC of `APP_VERSION_HASH`, CRC of the records), per record length + CRC + fields (path, boot.cfg line fields, directory size/mtime at read, `EState`, `full`, `large`, origin, name/short/version/id, contract, config count + the config folders' stamp, icon 2048 bytes or none). About 2.4 KB per record with an icon; the bench's 9 records are 6.9 KB (no icons in its tree).
+- `host_core.cc`: `hc_row_export` (settled rows only) and `hc_row_import` (path + boot.cfg line fields must match, else that record alone is dropped, D7); `g_pend` value 3 = "cached, waits for its stat" and the unit `HCL_VERIFY` (D5: one `stat`, compares the directory entry's size and mtime; equal = done, no redraw; different or gone = pend 1, today's state unit and icon unit). `hc_lazy_next` takes verify entries beyond the window too (Q6). `Ent` keeps the directory entry read by `hc_probe_state`.
+- `host_core_cfgov.cc` (Q3): the cached config count carries the stamp of the two config folders' directory mtimes (`CmFs::dir_mtime`, `hostfs_stat_dir`); `hc_cfgov_seed` puts a count from the file back, `hc_cfgov_stale` (two stats) drops it when a stamp changed.
+- `hostui.cc`: `rows_load` after `lazy_reset()` in `startup()`; `rows_tick` (every 250 ms a signature; unchanged for 2 s, reader idle, no key: `rows_save`, which writes only when the encoded file's CRC differs from the file on the drive; a refused file is never "the file on the drive"); `lazy_step` handles `HCL_VERIFY` (redraw only when the config count went stale). Q4 (100 ms between key checks): one unit per loop pass as before; a verify unit is one stat (two with the folders); the migration stays behind 1500 ms of quiet (Q5). The unit time is measured, see S1.
+- S1 (D9): `g_mt` in `hostui.cc`: marks of the start phases (layer open, picture shown, boot.cfg, screen mode, layout, every part of `build_ui()`, `build_start`, row cache, first frame), per row state/icon/verify/redraw ms, the longest main-loop pass and the longest unit; written once, one second after the reader first went idle, to **`/SD/report/menutime.txt`** (the start block of `startlog.txt` is 1 KB and cannot hold 30 lines); `startlog.txt` gets one summary line (`menu timing: picture ..., built ..., frame ..., idle ..., longest pass ...`).
+- The free flash is logged beside every write (`[host] menu rows: saved, N records, B bytes, T ms, flash free K KiB`, console only).
+
+### Evidence (render bench, `tests/hostapp/render/run.sh` on the builder, whole bench 2466 checks green, then the T229 unit and its controls)
+| S | Evidence |
+|---|---|
+| S1 | board only (see below) |
+| S2 | `T229 START cache: 9 of 9 records taken, opens 0, stats 0, bytes 0, redraws 0`; `T229 S2: 9 of 9 settled rows identical in the first frame's dump`; `table band y 116..474: 0 px differ from the settled frame` (the first frame of the real `startup()` against the frame the first run settled on) |
+| S3 | `T229 touch: 11 units, at most 2 open and 3 stat per unit, redraws 2`: one file's mtime +100 s: its row shows `ES_CHANGED`, every other row keeps its state, 9 verify units + the row's own 2 |
+| S4 | `T229 missing: 10 units, at most 1 open ...`: the file renamed away shows `ES_MISSING`, the others unchanged |
+| S5 | cases none, magic, format, key, crc, trunc: `0 of 9 records taken`, nothing opened at start, today's path reads all rows, the file is written new after idle (9 records); control: loader built with `-DT229_MUT_LOADER` (ignores format and CRCs) goes red on crc and format (`control t229 loader`) |
+| S6 | `T229 cache: 9 units, at most 0 open and 3 stat per unit, redraws 0`; a pass with a key in it reads nothing (stats unchanged); the unit time is measured on the board |
+| S7 | `T229 S7: rows file 6888 bytes, written 1 time(s)` over 15 s of quiet; the same rows again, and every entry waiting for a unit, write nothing; controls `t229_rewrite_identical` and `t229_write_while_pending` fail as they must |
+| S8 | cases swap (9 of 9 taken, 0 opens), remove (8 of 9; the entry that slides into the window is read), add (9 of 9, the new row unknown), line (a changed boot.cfg size: its record alone dropped, 8 of 9) |
+| S9 | board only |
+- `tools/dev.sh riscv --branch t229-menu-cache`: ok. `check_host_cut.py`: green (two ledger lines for the file writes).
+- The lazy test's bound `max_stat <= 1` is now 3: the redraw after a unit counts the row's two config-folder stamp stats.
+- One finding on the way: a refused file whose header bytes (format, key) differed but whose record CRC was the same counted as "the file on the drive", so the new file was never written over it. Fixed (`rows_load`), bench case `format` caught it.

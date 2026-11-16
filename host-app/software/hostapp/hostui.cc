@@ -16,6 +16,7 @@
 #include "host_core_nav.h"
 #include "host_core_cm.h"
 #include "host_core_rows.h"
+#include "menurows.h"
 #include "menu_pictos.h"
 #include "host_core_ui.h"
 #include "host_core_model.h"
@@ -560,6 +561,225 @@ static bool row_visible(int i)
     return i >= first && i < first + (nv.view == V_MENU ? MROWS : EROWS);
 }
 
+
+// ---- T229 S1/D9: where the start's time goes. Marks of the start phases, one record per read unit, the longest main-loop pass; written once to
+// /SD/report/menutime.txt (the start block of startlog.txt holds 1 KB, this holds the rows) when the reader first goes idle. ----------------------------
+static void slog_flush(void);
+#define MT_MARKS 40
+struct MtRow { uint16_t state, icon, verify, redraw; uint8_t units; };
+static struct {
+    const char *mark_n[MT_MARKS];
+    uint32_t mark_t[MT_MARKS];
+    int nmark;
+    MtRow row[BOOT_MAX];
+    int order[BOOT_MAX], norder;
+    int redraw_row1;                 // 1 + the row whose last unit asked for a redraw (0: none): the loop adds the time of that redraw
+    uint32_t t_unit_end;
+    uint32_t pass_max, pass_at, unit_max;
+    uint32_t t_pic, t_built, t_frame, t_idle;
+    int rows_loaded, rows_total;     // the cache: entries taken from it / entries in boot.cfg (rows_total < 0: no cache file)
+    const char *rows_why;
+    bool reported;
+    int tries;
+} g_mt;
+static uint32_t mt_now(void) { return startlog_ms(); }
+static void mt_mark(const char *name)
+{
+    if (g_mt.nmark < MT_MARKS) {
+        g_mt.mark_n[g_mt.nmark] = name;
+        g_mt.mark_t[g_mt.nmark++] = mt_now();
+    }
+}
+static void mt_unit(int i, int kind, uint32_t ms)       // kind 0 state, 1 icon, 2 verify
+{
+    MtRow &r = g_mt.row[i];
+    uint16_t v = ms > 65535 ? 65535 : (uint16_t)ms;
+    if (!r.units) {
+        g_mt.order[g_mt.norder++] = i;
+    }
+    if (r.units < 255) {
+        r.units++;
+    }
+    (kind == 0 ? r.state : kind == 1 ? r.icon : r.verify) += v;
+    if (ms > g_mt.unit_max) {
+        g_mt.unit_max = ms;
+    }
+}
+static void mt_report(void)
+{
+    static char b[3072];
+    int n = snprintf(b, sizeof(b), "T229 menu timing, ms since the host began\npicture shown t+%u, menu built t+%u, first frame t+%u, reader idle t+%u\n",
+                     g_mt.t_pic, g_mt.t_built, g_mt.t_frame, g_mt.t_idle);
+    n += snprintf(b + n, sizeof(b) - n, "row cache: %s\n", g_mt.rows_total < 0 ? g_mt.rows_why : "");
+    if (g_mt.rows_total >= 0) {
+        n += snprintf(b + n - 1, sizeof(b) - n, "%d of %d entries from the cache file\n", g_mt.rows_loaded, g_mt.rows_total) - 1;
+    }
+    n += snprintf(b + n, sizeof(b) - n, "phases (+ms since the mark before):\n");
+    for (int k = 0; k < g_mt.nmark && n < (int)sizeof(b) - 80; k++) {
+        n += snprintf(b + n, sizeof(b) - n, "  t+%u +%u %s\n", g_mt.mark_t[k], k ? g_mt.mark_t[k] - g_mt.mark_t[k - 1] : 0u, g_mt.mark_n[k]);
+    }
+    for (int k = 0; k < g_mt.norder && n < (int)sizeof(b) - 80; k++) {
+        const MtRow &r = g_mt.row[g_mt.order[k]];
+        n += snprintf(b + n, sizeof(b) - n, "row %d state %u ms icon %u ms verify %u ms redraw %u ms (%u units)\n", g_mt.order[k], r.state, r.icon, r.verify, r.redraw, r.units);
+    }
+    n += snprintf(b + n, sizeof(b) - n, "longest main-loop pass %u ms (at t+%u), longest read unit %u ms\n", g_mt.pass_max, g_mt.pass_at, g_mt.unit_max);
+    printf("%s", b);
+    FoFs *fo = hostfs_fo();
+    if (fo) {
+        fo->make_dir(HOST_REPORT_DIR);
+    }
+    bool ok = hostfs_save(HOST_REPORT_DIR, "menutime.txt", b, n);
+    if (ok) {
+        g_mt.reported = true;
+        startrec_event("menu timing: picture t+%u, built t+%u, frame t+%u, idle t+%u, longest pass %u ms (menutime.txt)", g_mt.t_pic, g_mt.t_built, g_mt.t_frame, g_mt.t_idle, g_mt.pass_max);
+        slog_flush();
+    } else if (++g_mt.tries >= 5) {
+        g_mt.reported = true;                      // no SD card: not tried again
+    }
+}
+
+// ---- T229 D1-D7: the row cache (Flash:/menu.rows) -----------------------------------------------------------------------------------------------
+static MsSettle rows_st;
+static bool rows_file_known;
+static uint32_t rows_file_crc;
+static uint32_t rows_key(void) { return ms_crc32(0, APP_VERSION_HASH, (uint32_t)strlen(APP_VERSION_HASH)); }
+
+// At the start, after lazy_reset(): every entry whose path and boot.cfg line a record names takes the record's state, icon and config count. It waits for its stat.
+static void rows_load(void)
+{
+    ms_settle_init(&rows_st);
+    rows_file_known = false;
+    g_mt.rows_total = -1;
+    g_mt.rows_loaded = 0;
+    g_mt.rows_why = "no cache file";
+    if (!hc_cfg_loaded() || cfg.n == 0) {
+        return;
+    }
+    uint32_t cap = mr_max_encoded(MR_MAX);
+    uint8_t *buf = (uint8_t *)malloc(cap);
+    MrRec *rec = (MrRec *)malloc(sizeof(MrRec) * MR_MAX);
+    if (buf && rec) {
+        int len = hostfs_load(MR_PATH, (char *)buf, (int)cap);
+        if (len >= 0) {
+            uint32_t crc;
+            int cnt = 0;
+            MrResult r = mr_decode(buf, (uint32_t)len, rows_key(), rec, MR_MAX, &cnt);
+            if (r == MR_OK && mr_file_crc(buf, (uint32_t)len, &crc)) {      // only a file that was taken is "the file on the drive": a refused one is written over
+                rows_file_known = true;
+                rows_file_crc = crc;
+            }
+            if (r != MR_OK) {
+                g_mt.rows_why = mr_result_text(r);
+                STARTLOG("menu rows: refused (%s), today's path", mr_result_text(r));
+            } else {
+                g_mt.rows_total = cfg.n;
+                for (int i = 0; i < cfg.n; i++) {
+                    for (int j = 0; j < cnt; j++) {
+                        if (strcmp(rec[j].path, cfg.e[i].path) || !hc_row_import(i, rec[j])) {
+                            continue;
+                        }
+                        if (rec[j].has_icon && rec[j].icon) {
+                            memcpy(icon_c[i], rec[j].icon, MR_ICON_BYTES);
+                            icon_c_ok[i] = true;
+                        }
+                        if (rec[j].cfgn >= 0 && hc_ecfg_ok(i)) {
+                            hc_cfgov_seed(cfg.e[i].path, rec[j].cfgn, rec[j].cfgstamp);
+                        }
+                        g_mt.rows_loaded++;
+                        break;
+                    }
+                }
+                icons_gen++;
+                STARTLOG("menu rows: %d of %d entries from the cache (%d records)", g_mt.rows_loaded, cfg.n, cnt);
+            }
+        } else {
+            STARTLOG("menu rows: none");
+        }
+    }
+    free(buf);
+    free(rec);
+}
+
+// The cache as it is now: the settled rows. Written only when the encoded file differs from the one on the drive (wear, D6).
+static void rows_save(void)
+{
+    uint32_t cap = mr_max_encoded(MR_MAX);
+    uint8_t *buf = (uint8_t *)malloc(cap);
+    MrRec *rec = (MrRec *)malloc(sizeof(MrRec) * MR_MAX);
+    if (buf && rec) {
+        int n = 0;
+        for (int i = 0; i < cfg.n && n < MR_MAX; i++) {
+            if (!hc_row_export(i, &rec[n])) {
+                continue;
+            }
+            MrRec &r = rec[n];
+            int cn = 0;
+            uint32_t stamp = 0;
+            if (hc_ecfg_ok(i) && hc_cfgov_peek(cfg.e[i].path, &cn, &stamp)) {
+                r.cfgn = (int16_t)cn;
+                r.cfgstamp = stamp;
+            }
+            r.has_icon = icon_c_ok[i];
+            r.icon = (const uint8_t *)icon_c[i];                 // little endian in memory, as the file holds it
+            n++;
+        }
+        int len = mr_encode(rec, n, rows_key(), buf, cap);
+        uint32_t crc;
+        if (len > 0 && mr_file_crc(buf, (uint32_t)len, &crc)) {
+            if (rows_file_known && rows_file_crc == crc) {
+                printf("[host] menu rows: same as the file, not written (%d records, %d bytes)\n", n, len);
+            } else {
+                uint32_t t0 = now_ms();
+                bool ok = hostfs_save(MR_DIR, MR_FILE, buf, len);
+                if (ok) {
+                    rows_file_known = true;
+                    rows_file_crc = crc;
+                }
+                uint64_t fb = 0;
+                FoFs *fo = hostfs_fo();
+                bool have_free = fo && fo->free_bytes(MR_DIR, &fb);
+                printf("[host] menu rows: %s, %d records, %d bytes, %u ms, flash free %u KiB%s\n", ok ? "saved" : "NOT saved", n, len, (unsigned)(now_ms() - t0),
+                       (unsigned)(fb >> 10), have_free ? "" : " (unknown)");
+            }
+        }
+    }
+    free(buf);
+    free(rec);
+}
+
+// The loop's side: every 250 ms the rows boil down to a signature; unchanged for MR_QUIET_MS with the reader idle, the file is made (D6).
+static void rows_tick(uint32_t t, int nkeys)
+{
+    static uint32_t last;
+    if (!have_ui) {
+        return;
+    }
+    if (nkeys) {
+        ms_settle_touch(&rows_st, t);
+    }
+    if (t - last < 250) {
+        return;
+    }
+    last = t;
+    uint32_t sig = ms_crc32(0, &icons_gen, sizeof(icons_gen));
+    int32_t cc = 0;
+    for (int i = 0; i < cfg.n; i++) {
+        int32_t e = hc_est(i) | (icon_c_ok[i] ? 0x100 : 0);
+        sig = ms_crc32(sig, &e, sizeof(e));
+        sig = ms_crc32(sig, cfg.e[i].path, (uint32_t)strlen(cfg.e[i].path));
+        sig = ms_crc32(sig, cfg.e[i].hash, (uint32_t)strlen(cfg.e[i].hash));
+        int cn;
+        uint32_t st;
+        cc += hc_cfgov_peek(cfg.e[i].path, &cn, &st) ? cn + 1 : 0;
+    }
+    sig = ms_crc32(sig, &cc, sizeof(cc));
+    bool ok = hc_cfg_loaded() && cfg.n > 0 && !nkeys && !lazy_busy();
+    if (ms_settle(&rows_st, t, sig, ok, MR_QUIET_MS)) {
+        rows_save();
+        ms_settle_saved(&rows_st);
+    }
+}
+
 // One unit of the lazy read: one phase of one entry, or (last, when quiet) one migration. Returns whether it did anything.
 // A phase is a stat + a header read, or the icon read: the unit a key can have to wait for.
 static bool lazy_step(bool quiet)
@@ -578,6 +798,18 @@ static bool lazy_step(bool quiet)
     }
     int i = z.index;
     bool icon_next = false;
+    if (z.unit == HCL_VERIFY) {                      // T229 D5: one stat said whether the cached row still stands; nothing is drawn unless the config count went stale
+        bool stale = hc_ecfg_ok(i) && hc_cfgov_stale(cfg.e[i].path);
+        uint32_t ms = now_ms() - t0;
+        mt_unit(i, 2, ms);
+        printf("[host] entry %d %s: verify %s %u ms\n", i, cfg.e[i].path, z.changed ? "changed" : "same", (unsigned)ms);
+        if (stale && (row_visible(i) || i == cfg.def)) {
+            need_full = true;
+            g_mt.redraw_row1 = i + 1;
+        }
+        g_mt.t_unit_end = now_ms();
+        return true;
+    }
     if (z.unit == HCL_STATE) {
         icon_c_ok[i] = false;
         icon_next = z.icon_next;
@@ -585,10 +817,14 @@ static bool lazy_step(bool quiet)
         probe_icon(i);
         hc_lazy_icon_done(i);
     }
-    printf("[host] entry %d %s: %s read %u ms\n", i, cfg.e[i].path, icon_next ? "state" : "icon", (unsigned)(now_ms() - t0));
+    uint32_t ums = now_ms() - t0;
+    printf("[host] entry %d %s: %s read %u ms\n", i, cfg.e[i].path, z.unit == HCL_STATE ? "state" : "icon", (unsigned)ums);
+    mt_unit(i, z.unit == HCL_STATE ? 0 : 1, ums);
     if (row_visible(i) || i == cfg.def) {
         need_full = true;
+        g_mt.redraw_row1 = i + 1;
     }
+    g_mt.t_unit_end = now_ms();
     return true;
 }
 
@@ -2381,14 +2617,23 @@ static void build_ui(void)
         lv_label_set_long_mode(foot_label, LV_LABEL_LONG_MODE_DOTS);
     }
 
+    mt_mark("build_ui: header, nav, foot");
     build_menu();
+    mt_mark("build_ui: menu view");
     build_browse();
+    mt_mark("build_ui: browser view");
     build_edit();
+    mt_mark("build_ui: editor view");
     build_net();
+    mt_mark("build_ui: network view");
     build_settings();
+    mt_mark("build_ui: settings view");
     build_colors();
+    mt_mark("build_ui: colours view");
     build_rename();
+    mt_mark("build_ui: rename");
     build_wifi_panels();
+    mt_mark("build_ui: wifi panels");
 }
 
 static void update_nav(void)
@@ -3588,9 +3833,11 @@ static uint32_t inv_pixels(void)
 static bool need_sel;
 static int sel_old, bsel_old;
 
+static int g_redraws;                   // T229: full refills of the current view (the bench counts what a cache hit costs)
 static void apply_updates(void)
 {
     if (need_full) {
+        g_redraws++;
         refresh_current();
     } else if (need_sel && have_ui) {
         if (nv.view == V_MENU || nv.view == V_EDIT) {
@@ -4009,6 +4256,7 @@ static const HcUiEnv &ui_env_ref(void);
 static void startup(void)
 {
     STARTLOG("phase UI task starts");
+    mt_mark("startup begins");
     hc_init(&core_plat);
     hc_cfgov_io(hostfs_cm(), hostfs_fo());
     hc_nav_init(&nav_plat);
@@ -4027,7 +4275,10 @@ static void startup(void)
         lv_obj_set_style_bg_color(scr, lv_color_hex(C_BG), 0);
         lv_obj_set_style_bg_opa(scr, LV_OPA_COVER, 0);
         lv_obj_set_flag(scr, LV_OBJ_FLAG_SCROLLABLE, false);
+        mt_mark("layer open, colours");
         snap_shown = snap_try_show();   // T146: the last settled menu on the layer at once, instead of the splash
+        g_mt.t_pic = snap_shown ? mt_now() : 0;
+        mt_mark(snap_shown ? "picture shown (boot.cfg + picture file read, decoded)" : "no picture");
         buffers_mode(true);   // one buffer: no sync copy of the previous frame (that copy reads DDR2, the CPU has no data cache)
         if (!snap_shown) {
             char ver[64];
@@ -4042,6 +4293,7 @@ static void startup(void)
     if (!hc_cfg_loaded()) {
         try_load_cfg();
     }
+    mt_mark("boot.cfg");
     // The picture the user chose, if there is one: hostapp.cc had to bring a mode up before the flash
     // disk was mounted, and that one came from the screen (T105).
     // ADR-0057: the host puts its own mode up whenever it is the one running - a core that changed the
@@ -4052,18 +4304,26 @@ static void startup(void)
     if (!direct_video_done) {
         hc_picture_start(true, 0, 0);               // the stored picture is host.cfg's, boot.cfg or not (T164 picsave)
     }
+    mt_mark("screen mode");
     menu_place();                                    // T164 boot720: also when the direct phase put the mode up; the layer was opened with the 1080p placement
     hc_countdown_boot(now_ms());
     hs_step(2, "Building the menu");   // the last label: what follows only builds objects, drawn once by draw()
     if (have_ui) {
+        mt_mark("menu place");
         layout_counts();                             // T209: the rows of the full canvas are computed too (one line per row), not only after a canvas change
+        mt_mark("layout counts");
         build_ui();
+        mt_mark("build_ui total");
         build_start();
+        mt_mark("build_start");
         ui_built = true;
     }
     lazy_reset();                                    // no file of an entry is opened before the first frame (T101 S10)
+    rows_load();                                     // T229: the rows the last settled menu held, taken at once; the files are only stat-checked afterwards
+    mt_mark("lazy reset + row cache");
     refresh_status();
     hc_nav_sel_default();
+    g_mt.t_built = mt_now();
     STARTLOG("phase menu built, drawing the first frame");
     if (snap_shown) {
         snap_poll_keys();
@@ -4072,6 +4332,8 @@ static void startup(void)
         trx_splash_close();
     }
     draw();
+    g_mt.t_frame = mt_now();
+    mt_mark("first frame drawn");
     STARTLOG("first menu frame shown");
     if (snap_shown) {
         snap_poll_keys();
@@ -4181,6 +4443,7 @@ void hostui_run(void)
     uint32_t last = 0, last_key_ms = 0;
     bool redraw_pending = false;
     for (;;) {
+        uint32_t pass0 = now_ms();
         if (sj_active()) {                                  // a flow runs: it is stepped, nothing else of the UI runs (as when each flow was one modal call)
             if (sj_pump()) {                                // the flow ended: its aftermath is drawn here, as the key that ran the old call did (no pass between sees need_full)
                 apply_updates();
@@ -4260,7 +4523,6 @@ void hostui_run(void)
                 need_full = true;
             }
         }
-        snap_tick(t, nk);                    // T146: the picture of the settled menu
         int cdev = hc_countdown_tick(t);         // the countdown begins once the default can be started; it is given up or spent
         if ((cdev & HCC_GAVE_UP) && nv.view == V_MENU) {
             need_full = true;
@@ -4275,6 +4537,8 @@ void hostui_run(void)
         } else if (hc_cd_running() && nv.view == V_MENU && have_ui) {
             cd_update();
         }
+        snap_tick(t, nk);
+        rows_tick(t, nk);                    // T229 D6: the file of the rows, when they have settled
         lazy_pass(nk, t, last_key_ms);       // after the keys of this pass: one phase of one entry, when no key is near
         web_pump();                          // T106 D2: the one place the web task's commands are applied
         picture_tick();                      // T164: the hot-plug follow and the question's timer
@@ -4291,6 +4555,25 @@ void hostui_run(void)
         if (ms < 0) {
             have_ui = false;
             ui_built = false;
+        }
+        {
+            uint32_t pass1 = now_ms();
+            if (g_mt.redraw_row1) {                  // T229 S1: what the redraw after a unit cost
+                MtRow &mr = g_mt.row[g_mt.redraw_row1 - 1];
+                uint32_t d = pass1 - g_mt.t_unit_end;
+                mr.redraw += d > 65535 ? 65535 : (uint16_t)d;
+                g_mt.redraw_row1 = 0;
+            }
+            if (pass1 - pass0 > g_mt.pass_max) {
+                g_mt.pass_max = pass1 - pass0;
+                g_mt.pass_at = mt_now();
+            }
+            if (!g_mt.t_idle && g_mt.t_frame && !lazy_busy()) {
+                g_mt.t_idle = mt_now();                  // the reader has nothing left to read or check
+            }
+            if (!g_mt.reported && g_mt.t_idle && !nk && mt_now() - g_mt.t_idle >= 1000) {
+                mt_report();
+            }
         }
         vTaskDelay(pdMS_TO_TICKS(10));
     }
@@ -4330,6 +4613,19 @@ void hostui_test_snap_tick(uint32_t t, int nkeys, bool countdown)
 {
     hc_cd_set(countdown, !countdown, 0);
     snap_tick(t, nkeys);
+    rows_tick(t, nkeys);
+}
+// T229: the row cache as the bench sees it
+int hostui_test_rows_loaded(void) { return g_mt.rows_loaded; }
+int hostui_test_redraws(void) { return g_redraws; }
+int hostui_test_est(int i) { return (int)hc_est(i); }
+void hostui_test_lazy_reset(void) { lazy_reset(); }
+uint32_t hostui_test_rows_key(void) { return rows_key(); }
+void hostui_test_rows_save_now(void) { rows_save(); }
+void hostui_test_rows_rect(int *y0, int *y1)           // the screen rows the menu's table covers (top of the first row to the bottom of the last)
+{
+    *y0 = lv_obj_get_y(mrow[0].box) + (int)lv_obj_get_y(lv_obj_get_parent(mrow[0].box));
+    *y1 = *y0 + (int)(lv_obj_get_y(mrow[MROWS - 1].box) - lv_obj_get_y(mrow[0].box)) + (int)lv_obj_get_height(mrow[MROWS - 1].box);
 }
 uint32_t hostui_test_snap_key(void) { return snap_key_now(); }
 int hostui_test_next_key(void) { return menu_getch(); }
