@@ -10,6 +10,8 @@
 #include "ops_glue.h"
 #include "menuctl.h"
 #include "keyboard.h"
+#include "regset.h"
+#include "padkeys.h"
 
 enum { CTRL = 58, CBM = 61, KR = 17, KPLUS = 40, KMINUS = 43, KJ = 34, KP = 41, KA = 10, KSHIFT = 15, K1 = 56 };
 
@@ -359,6 +361,85 @@ int main()
             m->key(KEY_RIGHT);
             CHECK(hk_current().mod_a != CBM && hk_current().mod_b != CBM);
         }
+    }
+    // ---- T232: pad keys A-Z and learn by key press (PET rows; the board's path: the menu learn -> settings_set -> regset -> the register file)
+    {
+        struct MHost : MenuHost { void info(int, char *o, int) { o[0] = 0; } bool return_to_host(char *m, int n) { snprintf(m, n, "no"); return false; } };
+        auto fkey = [](int n) { static const int f[8] = { KEY_F1, KEY_F2, KEY_F3, KEY_F4, KEY_F5, KEY_F6, KEY_F7, KEY_F8 }; return f[n]; };
+        { uint8_t z[8] = {}; uint8_t zr = 0; hk_usb_matrix_filter(z, &zr); }
+        // S2: the old list is the same up to index 31 (names and codes), the letters are appended; an old T216 .cfg loads as the same key
+        CHECK_EQ(PADKEY_COUNT, 50);
+        CHECK_STR(padkey_names[1], "Key 8"); CHECK_EQ(padkey_codes[1], 27); CHECK_STR(padkey_names[15], "Key Cursor left"); CHECK_EQ(padkey_codes[15], 2 | 0x40);
+        CHECK_STR(padkey_names[20], "Key W"); CHECK_EQ(padkey_codes[20], 9); CHECK_STR(padkey_names[27], "Key X"); CHECK_EQ(padkey_codes[27], 23); CHECK_STR(padkey_names[31], "Key /");
+        {   // every letter A-Z is offered once, with its place in the matrix
+            static const struct { char ch; int code; } L[] = { {'A',10},{'B',28},{'C',20},{'D',18},{'E',14},{'F',21},{'G',26},{'H',29},{'I',33},{'J',34},{'K',37},{'L',42},{'M',36},
+                {'N',39},{'O',38},{'P',41},{'Q',62},{'R',17},{'S',13},{'T',22},{'U',30},{'V',31},{'W',9},{'X',23},{'Y',25},{'Z',12} };
+            for (auto &l : L) {
+                char nm[16]; snprintf(nm, sizeof(nm), "Key %c", l.ch);
+                int found = 0;
+                for (int i = 0; i < PADKEY_COUNT; i++) if (!strcmp(padkey_names[i], nm)) { found++; CHECK_EQ(padkey_codes[i], l.code); }
+                CHECK_EQ(found, 1);
+            }
+        }
+        Rig g(&pet_desc);
+        g.fs.put_text("/sd/cores/hk.cfg", std::string("[") + g.d.store + "]\nPad up key=Key Cursor left\nPad fire key=Key X\n");
+        g.st->load();
+        regset_apply(&g.c, true);
+        int iu = -1, id = -1, il = -1, ir = -1, ifr = -1;
+        for (int i = 0; i < g.d.nsettings; i++) {
+            if (!strcmp(g.d.settings[i].key, "Pad up key")) iu = i;
+            if (!strcmp(g.d.settings[i].key, "Pad down key")) id = i;
+            if (!strcmp(g.d.settings[i].key, "Pad left key")) il = i;
+            if (!strcmp(g.d.settings[i].key, "Pad right key")) ir = i;
+            if (!strcmp(g.d.settings[i].key, "Pad fire key")) ifr = i;
+        }
+        CHECK(iu >= 0 && id >= 0 && il >= 0 && ir >= 0 && ifr >= 0);
+        CHECK_EQ(g.st->value(iu), 15); CHECK_EQ(g.st->value(ifr), 27);
+        CHECK_EQ(g.io.regs[0x164], 2 | 0x40); CHECK_EQ(g.io.regs[0x168], 23);
+        CHECK_EQ(g.st->value(id), PADKEY_DEF_DOWN);                                      // an unset row keeps the default
+        CHECK(padkey_row(g.d.settings[iu]) && hk_learn_item(&g.c, iu));
+        // S3/S1: learn I K J L on the four rows up/down/left/right by pressing the keys on the (USB) keyboard
+        MHost host;
+        MenuCtl *m = new MenuCtl(&g.c, &host);
+        m->open();
+        int pa = -1, pt = -1;
+        for (int a = 0; a < m->tree().nareas && pa < 0; a++)
+            for (int t = 0; t < m->tree().a[a].ntabs; t++) {
+                const MenuTab &tb = m->tree().a[a].tabs[t];
+                for (int e = tb.first; e < tb.first + tb.count; e++) if (m->tree().e[e].kind == EK_SETTING && m->tree().e[e].index == iu) { pa = a; pt = t; }
+            }
+        CHECK(pa >= 0);
+        auto text = [&](int i, int which) { char l[200], r[100], sb[200]; bool act; m->row(i, l, 200, r, 100, &act, sb, 200); return std::string(which == 0 ? l : which == 1 ? r : sb); };
+        auto seek = [&](const char *label) { for (int n = 0; n < 40; n++) m->key(KEY_UP); for (int n = 0; n < 60 && text(m->selected(), 0) != label; n++) m->key(KEY_DOWN); CHECK_STR(text(m->selected(), 0).c_str(), label); };
+        auto press = [&](int k) { g.io.key(k, true); g.io.delay_ms(20); m->pump(true); };
+        auto release = [&](int k) { g.io.key(k, false); g.io.delay_ms(20); m->pump(true); };
+        m->key(fkey(m->tree().a[pa].key[1] - '1')); m->key('1' + pt);
+        const struct { const char *label; int set; int key; } W[] = { { "Pad / joystick up", iu, 33 }, { "Pad / joystick down", id, 37 },
+                                                                                { "Pad / joystick left", il, 34 }, { "Pad / joystick right", ir, 42 } };
+        for (auto &w : W) {
+            seek(w.label);
+            m->key(KEY_RETURN);
+            CHECK(m->learning());
+            CHECK_STR(text(m->selected(), 0).c_str(), "Press the new key");
+            press(w.key); CHECK(m->learning()); release(w.key); CHECK(!m->learning() && !m->status_bad());   // the keys held are taken when released (or settled)
+            CHECK_EQ(padkey_codes[g.st->value(w.set)], w.key);
+        }
+        CHECK_EQ(g.io.regs[0x164], 33); CHECK_EQ(g.io.regs[0x165], 37); CHECK_EQ(g.io.regs[0x166], 34); CHECK_EQ(g.io.regs[0x167], 42);   // I K J L reach the core
+        CHECK(g.fs.text("/sd/cores/hk.cfg").find("Pad up key=Key I") != std::string::npos);
+        // a key not in the list is refused (the C= key, matrix 61, has no entry in the list), the value stays; ESC keeps the old value
+        seek("Pad / joystick fire"); m->key(KEY_RETURN); press(61); release(61); CHECK(!m->learning() && m->status_bad());
+        CHECK_EQ(padkey_codes[g.st->value(ifr)], 23);
+        m->key(KEY_RETURN); CHECK(m->learning()); m->key(KEY_ESCAPE); CHECK(!m->learning()); CHECK_EQ(padkey_codes[g.st->value(ifr)], 23);
+        // an A-Z key of the old list is still learned as its old index
+        m->key(KEY_RETURN); press(9); release(9); CHECK(!m->learning()); CHECK_EQ(g.st->value(ifr), 20); CHECK_EQ(g.io.regs[0x168], 9);
+        // two keys held together: refused with "Press one key", the value stays
+        m->key(KEY_RETURN); g.io.key(33, true); g.io.key(37, true); g.io.delay_ms(500); m->pump(true); g.io.key(33, false); g.io.key(37, false); m->pump(true);
+        CHECK(!m->learning() && m->status_bad() && strstr(m->status(), "Press one key") != 0); CHECK_EQ(g.st->value(ifr), 20);
+        // SHIFT held alone past the settle time does not end the learn; SHIFT + cursor down then learns cursor up (code 7 + shift)
+        m->key(KEY_RETURN); g.io.key(15, true); g.io.delay_ms(500); m->pump(true); CHECK(m->learning());
+        press(7); release(7); g.io.key(15, false); m->pump(true); CHECK(!m->learning() && !m->status_bad()); CHECK_EQ(g.st->value(ifr), 13);
+        // SHIFT + cursor: the cursor up (code 7 + shift)
+        m->key(KEY_RETURN); g.io.key(15, true); press(7); release(7); g.io.key(15, false); m->pump(true); CHECK_EQ(g.st->value(ifr), 13);
     }
     DONE("test_hotkeys");
 }

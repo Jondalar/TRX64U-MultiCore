@@ -86,21 +86,21 @@ HkKeys hk_read_keys(CoreCtx *c);
 // has not changed for HK_LEARN_SETTLE_MS or when the keys are released.
 class HkLearn {
 public:
-    void begin(const HkKeys &now, bool modifier, uint32_t t_ms);
+    void begin(const HkKeys &now, bool modifier, uint32_t t_ms, bool pad = false);   // pad: a pad-key row (settle mode; SHIFT held alone does not end it)
     bool poll(const HkKeys &now, uint32_t t_ms, HkKeys *got);
 private:
     uint64_t ign_k_ = 0, peak_k_ = 0, last_k_ = 0;
-    bool ign_r_ = false, peak_r_ = false, last_r_ = false, mod_ = false;
+    bool ign_r_ = false, peak_r_ = false, last_r_ = false, mod_ = false, pad_ = false;
     uint32_t since_ = 0;
 };
-// What the key(s) `got` mean for the setting `set` (index in c->desc->settings, a hotkey item of hk_extend). Returns the setting's new value (index into its
-// values), or -1 with the reason in `line` (the key is the modifier or another hotkey's, or the keys are no modifier of the list).
+// What the key(s) `got` mean for the setting `set` (index in c->desc->settings, a hotkey item of hk_extend or a pad-key row). Returns the setting's new value (index into its
+// values), or -1 with the reason in `line` (the key is the modifier or another hotkey's, or the keys are no modifier of the list; for a pad-key row: no key, not one key, or a key that is not available).
 int hk_learn_value(CoreCtx *c, int set, const HkKeys &got, char *line, int n);
 // T207 D2 for LEFT / RIGHT: true when value `v` of hotkey item `set` would collide (another hotkey's key, the modifier's key); `line` names the other.
 bool hk_value_refused(CoreCtx *c, int set, int v, char *line, int n);
 // True: the setting is the modifier (learned as a set of held keys); false: an action key item or no hotkey item.
 bool hk_learn_is_modifier(const CoreCtx *c, int set);
-// True: the setting is a hotkey item of the page (modifier or action key) and RETURN on its row learns.
+// True: the setting is a hotkey item (modifier or action key) or a pad-key row, and RETURN on its row learns.
 bool hk_learn_item(const CoreCtx *c, int set);
 
 // One poll: returns the actions (bit HKA_x) to perform now. An action fires when its key goes down while the whole modifier is held, or the modifier

@@ -1,4 +1,5 @@
 #include "menuctl.h"
+#include "padkeys.h"
 #include "listgrow.h"
 #include "keyboard.h"
 #include "ops_glue.h"
@@ -1166,7 +1167,7 @@ void MenuCtl::begin_confirm_job(const Task *t, const char *question)
     set_status("RETURN confirms, <- cancels", false);
 }
 
-// T207: the prompt of a hotkey row. The keys are read from the physical keys (the USB keyboard's raw matrix and the C64 keyboard), not from the menu's key
+// T207: the prompt of a hotkey row or a pad-key row (T232). The keys are read from the physical keys (the USB keyboard's raw matrix and the C64 keyboard), not from the menu's key
 // codes, so a key the menu itself uses (F1-F8, cursor keys, RETURN) can be learned; ESC (RUN/STOP) cancels.
 void MenuCtl::begin_learn(int set)
 {
@@ -1178,7 +1179,7 @@ void MenuCtl::begin_learn(int set)
     confirm_node_ = 0;
     confirm_task_ = 0;
     learn_ = set;
-    lrn_.begin(hk_read_keys(c_), hk_learn_is_modifier(c_, set), c_->io->now_ms());
+    lrn_.begin(hk_read_keys(c_), hk_learn_is_modifier(c_, set) || padkey_row(c_->desc->settings[set]), c_->io->now_ms(), padkey_row(c_->desc->settings[set]));   // T232: a pad-key row takes the keys held as the modifier does (SHIFT + cursor arrives as two keys); SHIFT alone does not end it
     status_[0] = 0;                                                  // the row and the foot already say it
     status_bad_ = false;
 }
@@ -2135,7 +2136,7 @@ bool MenuCtl::pump(bool quiet)
             changed = true;
         }
     }
-    if (nk == 0 && learn_poll()) {                                   // T207: the key the person pressed for a hotkey row
+    if (nk == 0 && learn_poll()) {                                   // T207: the key the person pressed for a hotkey row or a pad-key row
         nk++;
         changed = true;
     }
@@ -2835,7 +2836,10 @@ void MenuCtl::footer_legend_keys(char *out, int n)
             nmax = ar.tabs[b].n;
         }
     }
-    int p = snprintf(out, n, nmax > 1 ? "F1-F8 AREA  1-%d TAB  RETURN  <- BACK" : "F1-F8 AREA  RETURN  <- BACK", nmax);
+    const int tsel = cur().count > 0 ? sel_[area_][tab_] : -1;                                   // T232: a pad-key row on a tab learns by RETURN, too
+    const bool tab_learn = tsel >= 0 && tree_.e[cur().first + tsel].kind == EK_SETTING && hk_learn_item(c_, tree_.e[cur().first + tsel].index);
+    int p = snprintf(out, n, nmax > 1 ? (tab_learn ? "F1-F8 AREA  1-%d TAB  RETURN  LEARN KEY  <- BACK" : "F1-F8 AREA  1-%d TAB  RETURN  <- BACK")
+                                      : (tab_learn ? "F1-F8 AREA  RETURN  LEARN KEY  <- BACK" : "F1-F8 AREA  RETURN  <- BACK"), nmax);
     // the letters of this page's buttons first, then the core's own that this page does not claim, as far as the line holds (about 92 characters)
     for (int i = cur().first; i < cur().first + cur().count && i < tree_.n && p < n - 12; i++) {
         const MenuEntry &e = tree_.e[i];
