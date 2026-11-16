@@ -3,12 +3,12 @@
 # Shell variables; the bitstream is a file of the TRX64-Ultimate CI generic package trx64-ultimate/<PKG_VERSION>.
 ID=trx64u
 NAME="TRX64U"
-VERSION=8f1dc184
-# T230 P-1: main-8f1dc184 is the TRX64-Ultimate release 0.3.0 (Gitea prerelease trx64-main-8f1dc184, APPL_VERSION_NUMBER of its app)
+VERSION=31e69921
+# T230 S1: main-31e69921 is the TRX64-Ultimate release 0.3.0 (Gitea prerelease trx64-main-31e69921, release run 2323; its manifest carries "version": "0.3.0")
 SEMVER=0.3.0
-PKG_VERSION=main-8f1dc184
+PKG_VERSION=main-31e69921
 BIT_FILE=c64_basic.bit
-BIT_SHA256=1180391a81a4cf6ff73d68b648031a960f346b26ca31ab936bfa540201014f45
+BIT_SHA256=149b4dfb3cba0948949d9cf83420b0113cd65d3a8ecf9e4c644a89b50b368733
 ICON=tools/core_logos/trx64/icon.rgb565
 DESC=coreapp/cores/trx64u/menu.toml
 OPS=tests/coreapp/golden/ops_trx64u.txt

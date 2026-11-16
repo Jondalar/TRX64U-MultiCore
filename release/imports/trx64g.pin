@@ -3,12 +3,12 @@
 # SHA-256 is not APP_SHA256.
 ID=trx64g
 NAME="TRX64 Ultimate (Gideon app)"
-VERSION=8f1dc184
-# T230 P-1: main-8f1dc184 is the TRX64-Ultimate release 0.3.0 (Gitea prerelease trx64-main-8f1dc184, APPL_VERSION_NUMBER of its app)
+VERSION=31e69921
+# T230 S1: main-31e69921 is the TRX64-Ultimate release 0.3.0 (Gitea prerelease trx64-main-31e69921, release run 2323; its manifest carries "version": "0.3.0")
 SEMVER=0.3.0
-PKG_VERSION=main-8f1dc184
+PKG_VERSION=main-31e69921
 BIT_FILE=c64_basic.bit
-BIT_SHA256=1180391a81a4cf6ff73d68b648031a960f346b26ca31ab936bfa540201014f45
+BIT_SHA256=149b4dfb3cba0948949d9cf83420b0113cd65d3a8ecf9e4c644a89b50b368733
 APP_FILE=ultimate.app
-APP_SHA256=b25ff5353c9597e8865ff6c31d254d81e5e6b1a1f3f202dbaa6b451c00cec4fc
+APP_SHA256=fa70a66d4663ceeeb56bc6ce2996c5b9ea062053caaf08297c5bb5fedc3c7be7
 ICON=tools/core_logos/trx64/icon.rgb565
