@@ -11,7 +11,7 @@
 //
 // Output: no counters of its own. The picture rides on hdmi_timing.v's counters (t_cx / t_cy / t_de / t_hs / t_vs, the active area
 // from xact0 / yact0): every register of the pixel side changes only when ce is high (one pixel lasts `gear` clocks), so rgb and the
-// counters leave three pixels (three ce) after they came in.
+// counters leave six pixels (six ce) after they came in (T227: three more than before, for the smoothing's blend).
 //
 // The window: 400 x 270 VIC pixels from raster (X0, Y0) at 50 Hz; 400 x 240 from (X0, Y0_60) at 60 Hz (T40, 65 x 263: the window runs
 // from line 31 through 262 into 0-7 of the next frame). X0, Y0 and Y0_60 are the ones
@@ -29,6 +29,14 @@
 // origin. A different align line (a scale change, U16 D3) drops `locked` and the frame is aligned again at the next VIC frame: the
 // window is black until then. tools/hdmi_modes.py check proves for every row and scale that a VIC line is complete at least 3 lines
 // before its first output pixel and read for the last time at least 3 lines before the ring comes round to it again.
+//
+// Smoothing (T227 D3, `smooth` = 1, "sharp"): an output pixel shows the pure colour of the VIC pixel hpx it lies in. Its footprint is
+// [hacc, hacc + hn) in 1/hd VIC pixels from the start of hpx; only when hacc + hn > hd it straddles into hpx + 1 and is blended,
+// out = a + (b - a) * f / 16 per channel, a = VIC pixel hpx, b = hpx + 1, f = floor(16 (hacc + hn - hd) / hn): the share of the footprint
+// in the next pixel (area coverage). With hn <= hd a footprint straddles at most once per VIC pixel, and the output pixel before a
+// straddling one always read hpx too (non-straddling: address hpx; straddling at hpx - 1: its b = hpx), so a is the colour of the previous
+// ce's read (a register, no second ring read). Integer steps never straddle: the picture equals smooth = 0. smooth = 0: the address is
+// X0 + hpx, a = b, f = 0, out = b exactly (cx / cy / de / hs / vs travel with rgb in both cases).
 //
 // While blank is set (the machine pause stops the VIC) the window is black: the ring holds only the last 64 lines. c64_core resumes
 // the VIC after whole frames, so the lock still holds afterwards.
@@ -49,6 +57,7 @@ module vic_scaler #(
     input  wire [7:0]  pal_wdata,
     input  wire [3:0]  mode,            // clk: the row hdmi_timing runs (its mode_q; static while it runs)
     input  wire [1:0]  scale,           // clk: the scale in use (mode_req.v scale_pix; changes at a frame start)
+    input  wire        smooth,          // clk: T227 horizontal smoothing in use (mode_req.v smooth_pix; changes at a frame start)
     input  wire        t_de, t_hs, t_vs,
     input  wire [11:0] t_cx,
     input  wire [10:0] t_cy,
@@ -173,44 +182,94 @@ module vic_scaler #(
     end
 
     // ---- pipeline: address, block RAM, palette -----------------------------------
+    // T227 D3: the straddle test (hacc > hd - hn, a compare with a static value, carry-in of the address adder), num = hacc + hn - hd in the
+    // first stage, the division by hn (1, 3 or 5 in every geometry; with hn = 1 a footprint never straddles) in the second (run 1994: -2.78 ns in pix_mmcm when they were one).
+    function [3:0] frac16(input [5:0] n, input [5:0] num);
+        begin
+            case (n)
+            6'd3:    frac16 = ({4'b0000, num} * 10'd16) / 10'd3;
+            6'd5:    frac16 = ({4'b0000, num} * 10'd16) / 10'd5;
+            default: frac16 = 4'd0;
+            endcase
+        end
+    endfunction
+    reg  [5:0]  h_gap = 6'd0;                        // hd - hn (static while a frame runs)
+    always @(posedge clk) h_gap <= hd - hn;
+    wire        s0_st   = smooth && hacc > h_gap;      // no h_in here (timing): outside the window s0_win masks the pixel, and hacc is 0 one ce after h_in drops
+    wire [9:0]  sx      = X0 + {1'b0, hpx} + {9'd0, s0_st};
     wire        s0_win = h_in && v_in && hpx != 9'd400 && vln != wln && locked && !blank_s[1];
-    wire [9:0]  sx     = X0 + {1'b0, hpx};
     // T62 G09: the output line after which vln moves on is the last of its VIC line
     wire        s0_last = vsum >= {1'b0, vd};
     wire        s0_edge = EDGE && t_de && (x == 12'd0 || x == hact - 12'd1 || y == 11'd0 || y == vact - 11'd1);
 
     reg [14:0] s1_addr;
-    reg [2:0]  s1_ctl, s2_ctl;                      // {de, hs, vs}
-    reg [11:0] s1_h, s2_h;
-    reg [10:0] s1_v, s2_v;
-    reg        s1_win, s2_win;
-    reg        s1_edge, s2_edge;
-    reg        s1_last, s2_last;
+    reg [2:0]  s1_ctl, s2_ctl, s3_ctl, s4_ctl, s5_ctl;   // {de, hs, vs}
+    reg [11:0] s1_h, s2_h, s3_h, s4_h, s5_h;
+    reg [10:0] s1_v, s2_v, s3_v, s4_v, s5_v;
+    reg        s1_win, s2_win, s3_win, s4_win, s5_win;
+    reg        s1_edge, s2_edge, s3_edge, s4_edge, s5_edge;
+    reg        s1_last, s2_last, s3_last, s4_last, s5_last;
+    reg [5:0]  s1_num, s1_n;
+    reg [3:0]  s2_f, s3_f, s4_f;
+    reg        s1_st, s2_st;
     reg [3:0]  s2_col;
-    // the C64 palette (T59): pal_ram.v, Colodore until the app writes C64_PALETTE
-    wire [23:0] pal_rgb;
-    pal_ram pal (.clk_w(pal_clk), .we(pal_we), .addr(pal_addr), .wdata(pal_wdata), .idx(s2_col), .rgb(pal_rgb));
+    // the pair: a = the colour read by the previous ce (pixel hpx) when this one straddles, else b itself; b = the colour read now
+    reg [3:0] l_col = 4'd0;
+    wire [3:0] a_idx = s2_st ? l_col : s2_col;
+    // the C64 palette (T59): pal_ram.v, Colodore until the app writes C64_PALETTE; one lookup for b, one for a
+    wire [23:0] pal_rgb, pal_rgb_a;
+    pal_ram pal   (.clk_w(pal_clk), .we(pal_we), .addr(pal_addr), .wdata(pal_wdata), .idx(s2_col), .rgb(pal_rgb));
+    pal_ram pal_a (.clk_w(pal_clk), .we(pal_we), .addr(pal_addr), .wdata(pal_wdata), .idx(a_idx),  .rgb(pal_rgb_a));
+    reg [23:0] s3_a, s3_b;
+    // s4: the differences b - a (signed, -255..255); s5: 16 a + (b - a) f in a DSP48 per channel (0..4080, so out = p >> 4)
+    reg signed [8:0] s4_dr, s4_dg, s4_db;
+    reg [23:0] s4_a;
+    (* use_dsp = "yes" *) reg signed [13:0] s5_pr, s5_pg, s5_pb;
+    wire [23:0] blend = {s5_pr[11:4], s5_pg[11:4], s5_pb[11:4]};
     always @(posedge clk) if (ce) begin
         s1_addr <= {vln[5:0], sx[8:0]};
+        s1_num  <= hacc - h_gap;
+        s1_n    <= hn;
+        s1_st   <= s0_st;
         s1_ctl  <= {t_de, t_hs, t_vs};
         s1_h    <= t_cx;
         s1_v    <= t_cy;
         s1_win  <= s0_win;
         s1_edge <= s0_edge;
         s1_last <= s0_last;
-        s2_last <= s1_last;
         s2_col  <= ring[s1_addr];
+        s2_f    <= s1_st ? frac16(s1_n, s1_num) : 4'd0;
+        s2_st   <= s1_st;
+        s2_last <= s1_last;
         s2_ctl  <= s1_ctl;
         s2_h    <= s1_h;
         s2_v    <= s1_v;
         s2_win  <= s1_win;
         s2_edge <= s1_edge;
-        rgb     <= s2_edge ? 24'hFFFFFF
-                 : s2_win  ? ((scan_s[1] && s2_last) ? {2'b00, pal_rgb[23:18], 2'b00, pal_rgb[15:10], 2'b00, pal_rgb[7:2]} : pal_rgb)
+        l_col   <= s2_col;
+        s3_a    <= pal_rgb_a;
+        s3_b    <= pal_rgb;
+        s3_f    <= s2_f;
+        s3_ctl  <= s2_ctl;  s3_h <= s2_h;  s3_v <= s2_v;
+        s3_win  <= s2_win;  s3_edge <= s2_edge;  s3_last <= s2_last;
+        s4_dr   <= $signed({1'b0, s3_b[23:16]}) - $signed({1'b0, s3_a[23:16]});
+        s4_dg   <= $signed({1'b0, s3_b[15:8]})  - $signed({1'b0, s3_a[15:8]});
+        s4_db   <= $signed({1'b0, s3_b[7:0]})   - $signed({1'b0, s3_a[7:0]});
+        s4_a    <= s3_a;
+        s4_f    <= s3_f;
+        s4_ctl  <= s3_ctl;  s4_h <= s3_h;  s4_v <= s3_v;
+        s4_win  <= s3_win;  s4_edge <= s3_edge;  s4_last <= s3_last;
+        s5_pr   <= $signed({2'b00, s4_a[23:16], 4'b0000}) + s4_dr * $signed({1'b0, s4_f});
+        s5_pg   <= $signed({2'b00, s4_a[15:8],  4'b0000}) + s4_dg * $signed({1'b0, s4_f});
+        s5_pb   <= $signed({2'b00, s4_a[7:0],   4'b0000}) + s4_db * $signed({1'b0, s4_f});
+        s5_ctl  <= s4_ctl;  s5_h <= s4_h;  s5_v <= s4_v;
+        s5_win  <= s4_win;  s5_edge <= s4_edge;  s5_last <= s4_last;
+        rgb     <= s5_edge ? 24'hFFFFFF
+                 : s5_win  ? ((scan_s[1] && s5_last) ? {2'b00, blend[23:18], 2'b00, blend[15:10], 2'b00, blend[7:2]} : blend)
                  : 24'h000000;
-        {de, hs, vs} <= s2_ctl;
-        cx      <= s2_h;
-        cy      <= s2_v;
+        {de, hs, vs} <= s5_ctl;
+        cx      <= s5_h;
+        cy      <= s5_v;
     end
 
 endmodule

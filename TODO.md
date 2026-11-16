@@ -92,7 +92,7 @@ Built and benched; what is left is a step on the board (Alex, 2026-10-28, transl
 | T213 | 2 | 📅 | Epic: bitstream API (a) - API TOML per core, C modules in the service, child spec per core | Alex 11-12 | [T213](docs/specs/T213-bitstream-api.md) |
 | T214 | 2 | 🔨 | Real datasette in C128, SCPU, VC-20, C16/Plus4 as on the PET | C16 parked 11-15: inverted READ fails too; later c264 debug trace + borrowed datasette | [T214](docs/specs/T214-real-datasette-commodore-cores.md) |
 | T215 | 2 | 🔨 | CI keys and the plan hash code only: a comment moves no key and starts no build | Merged to main, a-h proven (11-14); key_alias fixed (a1e69bf78), cache migrated, run 1906 green | [T215](docs/specs/T215-ci-hash-code-only.md) |
-| T217 | 2 | 📅 | SCPU: Mount & Run of a PRG in a disk image reaches the 65816 (page 0 in SCPU SRAM) | Alex 11-12 | [T217](docs/specs/T217-scpu-mount-run-prg.md) |
+| T216 | 3 | 🔨 | PET: D10-D15 built, riscv ok, goldens fresh, tests green; D14 picture open, board | §5 11-15 night | [T216](docs/specs/T216-pet-finish.md) |
 | T217 | 2 | 🔧 | Start a .prg on SCPU and C128: stick + in disk image; SCPU via SRAM window; C128 $0801 = GO64, board step | Alex 11-15 | [T217](docs/specs/T217-scpu-mount-run-prg.md) |
 | T218 | 3 | 🔨 | SNES: DSP-n cartridges (DSP-1/1B, 2, 3, 4) run; firmware from the SD (appended to the .sfc first, else dsp*.bin) | Merged to main; board S1 PASS 11-15 (Mario Kart, dsp1b from SD), #85 closed; open: S2/S4 board, S6 | [T218](docs/specs/T218-snes-dsp-n.md) |
 | T219 | 2 | ✅ | RIGHT enters a folder in every file browser, LEFT goes up (#90) | Done 11-15 (Alex: in builds for weeks) | [T219](docs/specs/done/T219-right-enters.md) |
@@ -102,7 +102,7 @@ Built and benched; what is left is a step on the board (Alex, 2026-10-28, transl
 | T223 | 2 | 🔨 | Boot menu: 32 entries, only visible rows read, clear full-menu message; large cores take configs (D4) | D1-D2/P4 PASS; D4-D6 + 3 fixes built, ue2emu 3 modes ok, "C" vs "config" open (Alex) | [T223](docs/specs/T223-boot-menu-32.md) |
 | T225 | 2 | ✅ | Amiga: USB pad on game port 2 (1-/2-button, CD32), mapping dialog, saved per pad ID | Done 11-15, board amiga1200 (Alex) | [T225](docs/specs/T225-amiga-usb-pad-port2.md) |
 | T226 | 2 | 🔨 | Core app: "Loading cartridge" note; pad mapping on the Input tab, not Actions F7 | Spec 11-15 (Alex, board) | [T226](docs/specs/T226-coreapp-board-ux-1115.md) |
-| T227 | 3 | 📝 | SCPU: smoothing of the VIC picture (horizontal blend), Smoothing row | Spec 11-15 (Alex); measure slices first | [T227](docs/specs/T227-scpu-vic-smoothing.md) |
+| T227 | 3 | 🔨 | SCPU: smoothing of the VIC picture (horizontal blend), Smoothing row | D1 blend blurry on board; D3 sharp smoothing built, Vivado + board open (S1/S3) | [T227](docs/specs/T227-scpu-vic-smoothing.md) |
 | T228 | 2 | 📝 | trx64u on the generic core menu; S1 decided (D1-D18), next T212 merge then S2 | Spec 11-15 (Alex) | [T228](docs/specs/T228-trx64u-generic-menu.md) |
 | T224 | 2 | 🔨 | "Boot safe graphics mode" in the config overlay (RIGHT): one start with Picture Auto, Scale Integer, Smoothing Off | Built on t224-picture-reset 11-15 (D1-D3, Alex); ue2emu 3 modes ok incl. large core; tests unrun | [T224](docs/specs/T224-picture-reset.md) |
 | T175 | 3 | 🔨 | Diag core: a timed probe engine plus TOML tests measure the joystick/paddle ports, results to SD | Merged; diag v2 with testers 11-04 (pins, stick2 ok, cd32 6/24); S4, S7 board, S8 numbers open | [T175](docs/todo/T175.md) |

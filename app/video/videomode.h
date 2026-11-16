@@ -101,6 +101,7 @@ void video_layout_scaled(int w, int h, int hdmi, int sys, int scale_mode, int bi
 #define GW_SEEN_AT    0x4F08               // requests written
 #define GW_DONE_AT    0x4F09               // requests processed; equal to GW_SEEN_AT = the refused bit is current
 #define GW_SCALE      0x4F01               // T222: write 0 Integer / 1 Fit / 2 Fill, only where the gateware has the VIC scaler with a scale (version 2, C64-type flag)
+#define GW_SMOOTH     0x4F0B               // T227: write 0 Off / 1 On (smoothing of the VIC picture, horizontal blend); read: the smoothing in use. Version 3
 #define GW_SCALE_AT   0x4F0A               // T222: the scale in use
 #define GW_MAGIC      0x48
 #define GW_F_GT_READY   0x01
@@ -124,6 +125,10 @@ bool video_gw_up(const GwStatus &st, int row);
 // T222: a gateware whose picture is the VIC through the scaler with the scale register (a C64-type core's mode_req, version >= 2). Its table has seven rows
 // (576p, 720p, 1080p at 50 Hz; 480p, 720p, 1080p, 800 x 600 at 60 Hz) and takes only the System Mode's family; the host's generic mode_req (version 1) has neither.
 bool video_gw_has_scale(const GwStatus &st);
+// T227: the same gateware with the smoothing register 0x4F0B (version >= 3).
+bool video_gw_has_smooth(const GwStatus &st);
+// Writes the smoothing (0 Off, 1 On) and polls 0x4F0B until it reads back (taken at the next frame start) or `timeout_ms` has passed. False: not in time, or not 0 / 1.
+bool video_gw_set_smooth_io(const GwIo *io, int on, int timeout_ms);
 // The row of the request for (sys, hdmi) in such a gateware: 1024 x 768 and 1280 x 1024 are taken as 800 x 600 at 60 Hz, every PC row at 50 Hz as 576p (U16 D5).
 // In any other gateware the plain mode index.
 int video_gw_row_for(const GwStatus &st, int sys, int hdmi);
@@ -143,6 +148,9 @@ bool video_apply_gateware(int sys, int hdmi);
 // T222: does the gateware under this core scale the VIC's picture with a scale register (video_gw_has_scale)? And set that scale (VID_SCALE_*). Board side.
 bool video_gateware_vic_scale(void);
 bool video_set_scale_gateware(int scale);
+// T227: does that gateware also smooth (video_gw_has_smooth)? And set the smoothing (0 / 1). Board side.
+bool video_gateware_vic_smooth(void);
+bool video_set_smooth_gateware(int on);
 // Board side (D11b): a signature of the screen that is attached. False: nothing is attached (hot-plug low); then *sig is not touched. The
 // signature is made of the base block's checksum and extension count, read without the rest of the EDID.
 bool video_edid_sig(uint32_t *sig);

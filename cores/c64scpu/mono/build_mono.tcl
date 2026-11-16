@@ -7,7 +7,7 @@
 # Environment (all optional):
 #   TRX_BUILD   output directory under host/ (default build_mono)
 #   TRX_STOP    synth | place | route (default route = also writes the bitstream)
-#   TRX_DEFS    extra Verilog defines for the whole design, space separated (e.g. "SID2 SOCK_AUDIO TAPE NO_NET")
+#   TRX_DEFS    extra Verilog defines for the whole design, space separated (e.g. "SOCK_AUDIO TAPE NO_NET")
 #   TRX_REU=1   keeps the REU (the core_sources.tcl define NO_REU is dropped)
 #   TRX_STUB    host modules replaced by a port-compatible stub (cores/c64scpu/mono/stubs): overlay con_ring
 #   TRX_TOP_OFF host switches top.v knows, appended to the defines: NO_UCI NO_JTAG_DBG NO_STREAMS

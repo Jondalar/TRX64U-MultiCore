@@ -36,7 +36,7 @@ module tb;
     wire fstart = ce && cx == 12'd0 && cy == 11'd0;          // as top.v
     mode_req dut (.clk_sys(clk_sys), .we(we), .addr(addr), .wdata(wdata), .rdata(rdata), .rhit(rhit),
         .clk50(clk50), .fam_v60(fam != 0), .vm_mode(vm_mode), .vm_rst(vm_rst),
-        .clk_pix(pix_clk), .mode_pix(mode_pix), .fstart(fstart), .scale_pix(scale_pix),
+        .clk_pix(pix_clk), .mode_pix(mode_pix), .fstart(fstart), .scale_pix(scale_pix), .smooth_pix(),
         .gt_ready(1'b1), .pix_locked(pix_locked), .running(running), .mode_q(mode_q));
     cdce_mode i2c (.clk(clk50), .rst(vm_rst), .scl_low(scl_low), .sda_low(sda_low), .done(done), .mode(vm_mode));
     hdmi_timing mtim (.clk(pix_clk), .rst(pix_rst), .mode(mode_pix), .align(1'b0), .valid(valid), .aligned(), .ce(ce), .rgb(rgb), .de(de), .hs(hs), .vs(vs),
@@ -115,7 +115,7 @@ module tb;
 
     task check_status(input integer exp_row, input integer exp_ref); begin
         bus_read(4); if (rd !== 8'h48) begin fails = fails + 1; $display("FAIL status magic %h", rd); end
-        bus_read(5); if (rd !== 8'h02) begin fails = fails + 1; $display("FAIL status version %h", rd); end
+        bus_read(5); if (rd !== 8'h03) begin fails = fails + 1; $display("FAIL status version %h", rd); end
         bus_read(6);
         if (rd[0] !== 1'b1 || rd[1] !== 1'b1 || rd[2] !== 1'b1 || rd[3] !== 1'b1 || rd[4] !== 1'b1 || rd[7] !== exp_ref[0] || rd[6:5] !== 2'b0) begin
             fails = fails + 1; $display("FAIL status flags %b: want gt 1 pix_locked 1 running 1 locked 1 c64 1 refused %0d", rd, exp_ref);

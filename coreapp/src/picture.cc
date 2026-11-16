@@ -89,10 +89,11 @@ const char *picture_extend(const CoreDesc *d, CoreDesc *out, Setting *store, con
     g_gw = env ? env->gateware : false;
     g_msys = (env && env->sys >= 0) ? env->sys : current_sys();
     bool scaled = g_gw && d->video.w != 0 && d->nsettings + 3 <= SETTINGS_MAX;             // the frame buffer goes through the scaler (G14); a core with its own picture has no layer to scale
-    bool vic_scaled = g_gw && env && env->vic_scale && d->video.w == 0 && d->nsettings + 2 <= SETTINGS_MAX;   // T222: the VIC path's scale (0x4F01), no Smoothing (no layer)
+    bool vic_scaled = g_gw && env && env->vic_scale && d->video.w == 0 && d->nsettings + 2 <= SETTINGS_MAX;   // T222: the VIC path's scale (0x4F01)
+    bool vic_smooth = vic_scaled && env->vic_smooth && d->nsettings + 3 <= SETTINGS_MAX;                    // T227: and its smoothing (0x4F0B)
     g_vic_scale = vic_scaled;
     g_msys = vic_family(g_msys);
-    int extra = scaled ? 3 : vic_scaled ? 2 : 1;       // Picture; Scale and Smoothing for a frame-buffer core on the gateware; Picture and Scale for the VIC path
+    int extra = (scaled || vic_smooth) ? 3 : vic_scaled ? 2 : 1;       // Picture; Scale and Smoothing for a frame-buffer core on the gateware and for the VIC path with the smoothing register; Picture and Scale for an older VIC path
     if (d->nsettings + extra > SETTINGS_MAX) {
         return "settings: no room for the Picture item the application adds";
     }
@@ -126,6 +127,17 @@ const char *picture_extend(const CoreDesc *d, CoreDesc *out, Setting *store, con
         q.when = WHEN_LIVE;
         q.apply = SCALE_OP;
         q.group = "video";
+    }
+    if (vic_smooth) {
+        Setting &r = store[d->nsettings + 2];
+        r = Setting();
+        r.key = SMOOTH_KEY;
+        r.values = g_smooth_values;
+        r.nvalues = 2;
+        r.def = 0;                                     // the gateware powers up with the smoothing off (T227)
+        r.when = WHEN_LIVE;
+        r.apply = SMOOTH_OP;
+        r.group = "video";
     }
     if (scaled) {
         for (int m = 0; m < VID_SCALE_COUNT; m++) {
@@ -168,6 +180,7 @@ void picture_env_read(PictureEnv *env, int sys)
     env->native = len > 0 && edid_parse(edid, len, &info) ? (uint16_t)(info.native & env->mask) : 0;
     env->gateware = video_gateware_present();
     env->vic_scale = video_gateware_vic_scale();
+    env->vic_smooth = video_gateware_vic_smooth();
     env->sys = sys;
 }
 
@@ -394,6 +407,12 @@ void scale_apply(CoreCtx *c, int value)
 
 void smooth_apply(CoreCtx *c, int value)
 {
+    if (g_vic_scale) {                             // T227: the VIC's picture is smoothed by the gateware, at 0x4F0B
+        if (!video_set_smooth_gateware(value == 1 ? 1 : 0)) {
+            printf("[core] smoothing: the gateware did not take %s\n", value == 1 ? "On" : "Off");
+        }
+        return;
+    }
     if (c->video) {
         c->video->set_smoothing(value == 1);
     }
@@ -615,7 +634,7 @@ int picture_start(CoreCtx *c, int sys, int hdmi_now)
     }
     int midx = smooth_index(c->desc);
     if (midx >= 0 && c->settings) {
-        c->video->set_smoothing(c->settings->value(midx) == 1);
+        smooth_apply(c, c->settings->value(midx));
     }
     if (p.hdmi >= 0 && (p.hdmi != hdmi_now || (g_gw && p.sys != run_sys))) {
         printf("[core] picture %s: %s instead of %s\n", value <= 0 ? "auto" : "chosen", video_hdmi_name(p.hdmi),

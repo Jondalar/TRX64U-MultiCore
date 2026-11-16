@@ -9,12 +9,16 @@
 //                 counters nor the refused bit, which belong to 0x4F00). Taken into clk_pix and handed to the picture (scale_pix) at
 //                 the next frame start (fstart): no restart of the synthesizer, the transmitters or mmcm_pix. Power-up 1 (Fit).
 //   read  0x4F04  magic 0x48
-//         0x4F05  version 2 (T222: this core's copy; U16 and the host's generic mode_req.v answer 1; 2 = the scale register 0x4F01 / 0x4F0A exists)
+//         0x4F05  version 3 (T222: this core's copy; U16 and the host's generic mode_req.v answer 1; 2 = the scale register 0x4F01 / 0x4F0A exists;
+//                 T227: 3 = the smoothing register 0x4F0B exists too)
 //         0x4F06  {last request refused, 0, 0, c64_type = 1, row in use is locked, running, pix_locked, gt_ready}
 //         0x4F07  the mode hdmi_timing runs (mode_q), 0..11
 //         0x4F08  requests written to 0x4F00 (clk_sys count)
 //         0x4F09  requests processed (clk50 count, crossed as 8 bits, so one read may be torn; equal to 0x4F08 = the refused bit is current)
 //         0x4F0A  the scale in use (scale_pix), 0..2
+//   write 0x4F0B  T227 smoothing of the VIC picture: 0 Off, 1 On (any other value is refused and nothing changes). Taken in clk_pix at the next frame
+//                 start like the scale (smooth_pix). Power-up 0 (Off).
+//   read  0x4F0B  the smoothing in use (smooth_pix), 0..1
 // A System Mode switch (fam_v60) moves the row to the other family; where the request's row does not exist there (800 x 600, hdmi 3,
 // has no 50 Hz row) the family's first row, 576p, is taken, as the application maps it (U16 D5), so the synthesizer and the timing
 // never get a row that is not in the table (MultiCore's mode_req.v has only the two 1080p rows locked and needs no such fallback).
@@ -28,7 +32,7 @@ module mode_req (
     input  wire [14:0] addr,
     input  wire [7:0]  wdata,
     output reg  [7:0]  rdata = 8'd0,
-    output reg         rhit = 1'b0,        // rdata is this module's (addr one clock before was 0x4F04..0x4F0A)
+    output reg         rhit = 1'b0,        // rdata is this module's (addr one clock before was 0x4F04..0x4F0B)
     input  wire        clk50,
     input  wire        fam_v60,            // clk50: the System Mode's family (mode_ctl cdce_v60)
     output reg  [3:0]  vm_mode = 4'd2,     // clk50: the row the synthesizer is written for (to cdce_mode)
@@ -37,6 +41,7 @@ module mode_req (
     output reg  [3:0]  mode_pix = 4'd2,    // clk_pix: vm_mode, for hdmi_timing (taken while its rst is high)
     input  wire        fstart,             // clk_pix: a frame starts (one clock)
     output reg  [1:0]  scale_pix = 2'd1,   // clk_pix: the scale the picture uses, changes only at fstart
+    output reg         smooth_pix = 1'b0,  // clk_pix: T227 the smoothing the picture uses, changes only at fstart
     input  wire        gt_ready,           // any clock
     input  wire        pix_locked,         // any clock
     input  wire        running,            // hdmi_timing.running (clk_pix)
@@ -49,9 +54,12 @@ module mode_req (
     reg  [7:0] wr_cnt = 8'd0;
     reg  [1:0] sc_val = 2'd1;
     reg        sc_tgl = 1'b0;
+    reg        sm_val = 1'b0;
+    reg        sm_tgl = 1'b0;
     always @(posedge clk_sys) begin
         if (we && addr == 15'h4F00) begin req_val <= wdata; req_tgl <= ~req_tgl; wr_cnt <= wr_cnt + 8'd1; end
         if (we && addr == 15'h4F01 && wdata < 8'd3) begin sc_val <= wdata[1:0]; sc_tgl <= ~sc_tgl; end
+        if (we && addr == 15'h4F0B && wdata < 8'd2) begin sm_val <= wdata[0]; sm_tgl <= ~sm_tgl; end
     end
 
     // ---- clk50: take, check, hold
@@ -80,12 +88,16 @@ module mode_req (
     // ---- clk_pix: the mode for hdmi_timing, the scale at a frame start
     (* ASYNC_REG = "TRUE" *) reg [3:0] mp1 = 4'd2;
     (* ASYNC_REG = "TRUE" *) reg [2:0] sc_s = 3'b000;
+    (* ASYNC_REG = "TRUE" *) reg [2:0] sm_s = 3'b000;
+    reg        sm_req = 1'b0;
     reg  [1:0] sc_req = 2'd1;             // sc_val, taken a clock after its toggle arrived (it is stable from the toggle on)
     always @(posedge clk_pix) begin
         mp1 <= vm_mode; mode_pix <= mp1;
         sc_s <= {sc_s[1:0], sc_tgl};
         if (sc_s[2] != sc_s[1]) sc_req <= sc_val;
-        if (fstart) scale_pix <= sc_req;
+        sm_s <= {sm_s[1:0], sm_tgl};
+        if (sm_s[2] != sm_s[1]) sm_req <= sm_val;
+        if (fstart) begin scale_pix <= sc_req; smooth_pix <= sm_req; end
     end
 
     // ---- clk_sys: the status
@@ -94,6 +106,7 @@ module mode_req (
     (* ASYNC_REG = "TRUE" *) reg [7:0] ack_a = 8'd0, ack_b = 8'd0;
     (* ASYNC_REG = "TRUE" *) reg       ref_a = 1'b0, ref_b = 1'b0;
     (* ASYNC_REG = "TRUE" *) reg [1:0] sq_a = 2'd1, sq_b = 2'd1;
+    (* ASYNC_REG = "TRUE" *) reg       sm_a = 1'b0, sm_b = 1'b0;
     always @(posedge clk_sys) begin
         gt_s <= {gt_s[1:0], gt_ready};
         pl_s <= {pl_s[1:0], pix_locked};
@@ -102,14 +115,16 @@ module mode_req (
         ack_a <= ack_cnt; ack_b <= ack_a;
         ref_a <= refused; ref_b <= ref_a;
         sq_a <= scale_pix; sq_b <= sq_a;
-        rhit <= addr[14:4] == 11'h4F0 && addr[3:0] >= 4'd4 && addr[3:0] <= 4'd10;
+        sm_a <= smooth_pix; sm_b <= sm_a;
+        rhit <= addr[14:4] == 11'h4F0 && addr[3:0] >= 4'd4 && addr[3:0] <= 4'd11;
         case (addr[3:0])
         4'd4: rdata <= 8'h48;
-        4'd5: rdata <= 8'd2;
+        4'd5: rdata <= 8'd3;
         4'd6: rdata <= {ref_b, 2'b00, 1'b1, hm_locked(mq_b), ru_s[2], pl_s[2], gt_s[2]};
         4'd7: rdata <= {4'd0, mq_b};
         4'd8: rdata <= wr_cnt;
         4'd10: rdata <= {6'd0, sq_b};
+        4'd11: rdata <= {7'd0, sm_b};
         default: rdata <= ack_b;
         endcase
     end
