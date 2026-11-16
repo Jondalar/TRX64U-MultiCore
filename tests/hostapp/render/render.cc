@@ -2861,6 +2861,14 @@ static bool read_file(const char *p, std::vector<uint8_t> &v)
 }
 
 // S3 (and the files the T146_START runs use): after the start the menu is settled; the picture is saved once, 2 s after the last change.
+// T229 B: the picture is encoded in slices, one per main-loop pass, and the loop passes much more often than the settle timer's 250 ms. One bench
+// "tick" is therefore the timer's step plus the passes the loop makes inside the same 250 ms (the same function the loop calls, same instant), enough for
+// every slice of the frame; a key held on drops the encoding in each of them as it does on the board.
+static void snap_pass(uint32_t t, int nkeys, bool countdown)
+{
+    for (int i = 0; i < MS_PIXELS / MS_SLICE_PX + 3; i++) hostui_test_snap_tick(t, nkeys, countdown);
+}
+
 static void snap_save_scenario(const char *out)
 {
     g_saved_hdmi = VID_HDMI_1080P; g_saved_sys = VID_SYS_PAL50;   // the saved picture is the 960 x 540 canvas (T164 D10a: a compact canvas is not saved): the stored mode is 1080p
@@ -2872,12 +2880,12 @@ static void snap_save_scenario(const char *out)
     g_snap_saves = 0;
     CHECK(strlen(g_last_save) > 100 && strlen(g_last_save) < 4000);          // boot.cfg as the app saved it (migrations), not cut off
     // a running countdown is not a picture: 5 s of ticks, nothing saved
-    for (int i = 0; i < 20; i++) hostui_test_snap_tick(t += 250, 0, true);
+    for (int i = 0; i < 20; i++) snap_pass(t += 250, 0, true);
     CHECK(g_snap_saves == 0);
     // settled: the first tick sees the state, the save follows 2000 ms later and only once
     uint32_t t_first = t + 250, t_save = 0;
     for (int i = 0; i < 60; i++) {
-        hostui_test_snap_tick(t += 250, 0, false);
+        snap_pass(t += 250, 0, false);
         if (g_snap_saves && !t_save) t_save = t;
     }
     printf("SNAP: saved %d time(s), %u ms after the state settled\n", g_snap_saves, (unsigned)(t_save - t_first));
@@ -2910,10 +2918,10 @@ static void snap_save_scenario(const char *out)
         hostui_test_rows_save_now();
         CHECK(g_rows_saves == rs);                                           // identical file: not rewritten
         hostui_test_lazy_reset();                                            // every entry waits for a unit again: the file is not made from half-read rows
-        for (int i = 0; i < 60; i++) hostui_test_snap_tick(t += 250, 0, false);
+        for (int i = 0; i < 60; i++) snap_pass(t += 250, 0, false);
         CHECK(g_rows_saves == rs);
         for (int n = 0; hostui_test_lazy_busy() && n < 200; n++) hostui_test_lazy_pass(0, t + 250, t);       // the units, no migration (that one changes boot.cfg's line, so the rows)
-        for (int i = 0; i < 60; i++) hostui_test_snap_tick(t += 250, 0, false);
+        for (int i = 0; i < 60; i++) snap_pass(t += 250, 0, false);
         CHECK(g_rows_saves == rs);                                           // read again, the same rows: still the same file
     }
     // a change of boot.cfg (the default moves to the second entry): saved again 2 s after, with another key
@@ -2925,17 +2933,17 @@ static void snap_save_scenario(const char *out)
     hostui_test_key(KEY_F1);
     CHECK(hostui_test_cfg_def() == 1);
     int before = g_snap_saves;
-    for (int i = 0; i < 7; i++) hostui_test_snap_tick(t += 250, 0, false);    // 1.75 s
+    for (int i = 0; i < 7; i++) snap_pass(t += 250, 0, false);    // 1.75 s
     CHECK(g_snap_saves == before);
-    for (int i = 0; i < 4; i++) hostui_test_snap_tick(t += 250, 0, false);
+    for (int i = 0; i < 4; i++) snap_pass(t += 250, 0, false);
     CHECK(g_snap_saves == before + 1);
     CHECK(ms_header_info(g_snap.data(), g_snap.size(), &k1, &c1) && k1 != k0 && c1 != c0);
     // a note on the screen: not a picture; it going away again is the state that was saved, so no second save
     hostui_test_set_note("cannot save Flash:/boot.cfg");
-    for (int i = 0; i < 20; i++) hostui_test_snap_tick(t += 250, 0, false);
+    for (int i = 0; i < 20; i++) snap_pass(t += 250, 0, false);
     CHECK(g_snap_saves == before + 1);
     hostui_test_set_note("");
-    for (int i = 0; i < 20; i++) hostui_test_snap_tick(t += 250, 0, false);
+    for (int i = 0; i < 20; i++) snap_pass(t += 250, 0, false);
     CHECK(g_snap_saves == before + 1);
     // keys held on: the quiet time keeps starting again
     hostui_test_key(KEY_F5);
@@ -2944,9 +2952,9 @@ static void snap_save_scenario(const char *out)
     hostui_test_key(KEY_F1);
     CHECK(hostui_test_cfg_def() == 0);
     int b2 = g_snap_saves;
-    for (int i = 0; i < 20; i++) hostui_test_snap_tick(t += 250, 1, false);
+    for (int i = 0; i < 20; i++) snap_pass(t += 250, 1, false);
     CHECK(g_snap_saves == b2);
-    for (int i = 0; i < 12; i++) hostui_test_snap_tick(t += 250, 0, false);
+    for (int i = 0; i < 12; i++) snap_pass(t += 250, 0, false);
     CHECK(g_snap_saves == b2 + 1);
 }
 

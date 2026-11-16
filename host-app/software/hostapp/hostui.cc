@@ -3134,7 +3134,7 @@ static void build_pass(bool one_step = false)
                 printf("[host] build step: area %d stage %d took %u ms\n", a, stg, (unsigned)(te - ts));
             }
             longest = te - ts > longest ? te - ts : longest;
-            if (te - t0 + longest > budget_ms) {
+            if (one_step || te - t0 + longest > budget_ms) {      // one_step: exactly one step, also when the clock has not moved (a step under 1 ms)
                 return;
             }
         }
