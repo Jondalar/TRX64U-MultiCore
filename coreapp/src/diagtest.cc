@@ -2474,9 +2474,12 @@ static int run_xpadtest(DiagEnv *env, const XpadTest &t, DiagOutcome *out)
     auto fill = [](void *p) {                         // the dialog's text, rewritten in place once a second (the menu task calls it)
         Live *l = (Live *)p;
         l->env->xpad_text(l->env->xpad_ud, l->txt, TXT_N);
-        snprintf(l->scr, SCR_N, "Tap Up 20x slowly, then Down, Left, Right, A, B.\n"
-                                  "Press = release = 20: nothing lost. Replug if the interval is wrong.\n\n%s\n"
-                                  "Running %u s   YES: write report   NO: zero counters   ESC: stop", l->txt, (unsigned)((l->env->now_ms() - l->t0) / 1000));
+        // the key line first, the counters next, the static hint last: DlgView.text holds 520 bytes, so a cut (6-7 digit counters, about 465 + 50 bytes)
+        // only ever takes the end of the hint
+        snprintf(l->scr, SCR_N, "YES: write report   NO: zero counters   ESC: stop   Running %u s\n%s\n"
+                                  "Tap Up 20x slowly, then Down, Left, Right, A, B.\n"
+                                  "Press = release = 20: nothing lost. Replug if the interval is wrong.",
+                 (unsigned)((l->env->now_ms() - l->t0) / 1000), l->txt);
     };
     for (;;) {
         fill(&lv);
