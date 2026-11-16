@@ -70,6 +70,15 @@ bitstream with Gideon's application). The Gideon UI is to be phased out; for a w
 - **D3 (Alex 2026-11-16, on the firmware session's ownership split and the go he had given it, translated: "That is good too. Sorry."):**
   the contract's §1 becomes the ownership table of FW-2's proposal, and both copies are made byte-identical again; the firmware session
   drafts, MultiCore reviews, the final text goes to Alex before either side commits it.
+- **D3 (Alex 2026-11-16, after reading contract draft v2, translated: "Separation of concerns is not enough for me there. If I change
+  something about the features with TRX64-Ultimate, the contract breaks because MultiCore owns the toml for the app"; on the proposed
+  split: "Yes, in perspective. If that is so big now, we do it after we have a release"):** target split, built after the next release:
+  TRX64-Ultimate owns the bitstream, its features, the trx64u menu TOML (today `coreapp/cores/trx64u/menu.toml`, 125 ops) and a feature
+  library (today MultiCore's `trx64u_ops`, `ring*`, `monitor`, `monsrv`, streams, U64 registers), both shipped in its package and pinned
+  by hash; MultiCore owns the host, the generic core app as the base, the library interface (`libapi.h`, T104.1) and the TOML format
+  with the list of generic operations, published with versions; the contract then covers only interfaces (library interface version,
+  TOML format, generic operations, hand-over page, start file). Until then the v2 split (MultiCore owns the trx64u menu and its ops)
+  is the interim state.
 - **Proposal P-1 (version, after FW-1):** TRX64-Ultimate's `ci/package.sh` writes `"version": "x.y.z"` from the packed application's
   `APPL_VERSION_NUMBER` into `manifest.json`. MultiCore copies it into the pin as `SEMVER=` when the pin moves, but only when
   `PKG_VERSION` is a release (Gitea release `trx64-<PKG_VERSION>` exists); a non-release pin gets `x.y.z-dev+<sha8>`.
