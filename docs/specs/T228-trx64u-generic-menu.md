@@ -323,6 +323,8 @@ S1 table where one exists; only DC1, DC2, DC3, DC6 and DC7 are new choices.
   - F4 opens the Monitor overlay, which owns the keyboard: "2" types into its command line (S1 finding 6, R10). A Diagnostics tab
     beside it cannot be reached.
   - The rows are device and developer values, and F8 holds the device. Bug report is already in the generic F8 Support (S1 table).
+- DC8 (reading D16, not a new choice) The F5 Audio tab keeps its Speaker section. Alex's Q10a answer took the option "own F5 tab SID
+  (recommended, Audio then has 3 sections: Volumes / Pan / Speaker)". D16's "volume and pan only" means without the SID rows.
 - From the spec, not new:
   - F4 is the Monitor rail entry (D3, variant A), so the rail reads "MONITOR", not "TOOLS".
   - The old F4 Diagnostics content goes where the S1 table puts it: Bug report to F8 Support, System information/Board/Uptime to F8
