@@ -116,6 +116,12 @@ Everything else is open, asked one at a time, answers recorded here when given.
 13. Does the generic core app version equal the host-menu version (same tree, same commit) or does it count on its own?
 14. Is a version ever compared (e.g. refuse an older host app), or stay a label only as today?
 
+**Release decision (Alex 2026-11-16):** the tester pre-release `trx64mc-main-13c2cde9` ships the board-tested bytes, versions shown as
+`x.y.z-dev+13c2cde9`, not promoted ("A"). After it, `main` moves reliably to SemVer releases: "danach stellen wir den Kram hier auf Main jetzt
+verlässlich auf Release per SemVer um, also das nächste Release wird eines mit Tag und reiner Versionsnummer, ohne diesen Branchkram dahinter"
+(the next release is a tag with a plain version number, no branch/sha suffix). Open for that step: the release path must produce and board-test
+the promoted bytes (release_promote.py / release_mc.sh) instead of promoting tested dev bytes afterwards.
+
 ## §4 Out
 
 Nothing decided out yet.
