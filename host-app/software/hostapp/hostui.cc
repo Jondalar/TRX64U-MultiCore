@@ -870,7 +870,7 @@ static void pic_init(void)
 }
 static uint32_t pic_col(int g) { return g == HCP_OK ? PIC_GREEN : g == HCP_CHECK ? PIC_YELLOW : PIC_RED; }
 #define LROW_VER_W (COMPACT ? 96 : 150)           // the version's widest label ("0.3.0-dev+85acf2b0" of a test build, T221, cut to its SemVer at 480p so the name keeps its room; "full firmware"); the label is as wide as its text (T209 D16)
-#define RGRP_GAP 6                                // between the version and the pictogram
+#define RGRP_GAP 6                                // left of the version: to the config marker (boot row, T223 D7) or the pictogram (editor row)
 // T209 D16: the width the version text takes (label width as set_txt would give it), 0 for none
 static int ver_w(const char *s)
 {
