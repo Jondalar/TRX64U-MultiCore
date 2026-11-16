@@ -99,4 +99,4 @@ Measure first (S0), then horizontal only. Vertical blending is not part of this 
   geometry): `hn/hd` 1/2, 1/4, 1/3 (integer): 0 of 400 blended; 5/9: 178 blended; 3/8: 100; 5/16: 100; 5/24: 67; 5/8: 200; 0 differences to the reference;
   spot values frac16(5,1)=3, frac16(5,4)=12, frac16(3,2)=10; `PASS t227 sharp fraction`. `vic_scaler.v` + `pal_ram.v` compile clean in iverilog. No bench ran; Vivado and
   the board (S1, S3: integer = Off, Fit/Fill one mixed pixel per seam) are open.
-- Board 2026-11-16 (S3): Alex, translated: "Fill + Smooth look great on the SuperCPU." c64scpu.cor of main (D3). PASS. Fit and Off were not reported separately; Off is the picture of the days before (bit for bit, S1), Fit uses the same seam path.
+- Board 2026-11-16 (S3): Alex, translated: "Fill + Smooth look great on the SuperCPU." c64scpu.cor of main (D3). PASS. Fit and Smoothing Off, asked after that: "That is good too." PASS.
