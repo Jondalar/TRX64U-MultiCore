@@ -188,7 +188,7 @@ a release build's short strings fit), and a large core's test version is cut to 
   "full firmware"). Mock-ups: `scratchpad/t221/badge-*.png`.
 - **OPEN-5 (D19).** "Core install of an older version warns": the host has no install step for a `.cor` (it is copied by hand and added with A). Only the `.txu` update warns. Where the
   core warning belongs (adding an entry whose id is already in the menu with a newer version?) is not said.
-- **OPEN-6 (D17).** Gitea package coordinates stay branch-sha (see B3); changing them to the SemVer string touches `ci/lib.sh` publish/fetch and the update stage.
+- **OPEN-6 (D17): answered 2026-11-16 (Alex, "yes ok then", after asking whether a later move of lint and tests to GitHub with builds here by hook is hindered - it is not, the commit is the same on both):** Gitea package coordinates stay branch-sha. Older text: Gitea package coordinates stay branch-sha (see B3); changing them to the SemVer string touches `ci/lib.sh` publish/fetch and the update stage.
 - **OPEN-7.** `bundle.toml` carries only the bundle version; the part versions are written into `manifest.json` `parts` at package time (a hand-kept list would be a second copy).
 
 ## History
