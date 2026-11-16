@@ -768,7 +768,12 @@ static void build_library(lv_obj_t *c, MenuCtl &m, int sel)
     } else {
         upper(p, sizeof(p), m.browse_path());
         trx_txt(card, t.space_md, t.space_sm, p, t.caption, t.muted, lw - 160);
-        snprintf(items, sizeof(items), media ? "" : (m.list_cut() ? "%d+ items" : "%d items"), m.entries());
+        if (media) {
+            items[0] = 0;
+        } else {                                                   // ux-review R5: "773-784 of 784" (entries only, ".." and the "more" line not counted) once the list is longer than its window
+            TrxWindow w0 = trx_window(m.rows(), sel, g_lib_first, lib_rows(false));
+            m.pos_text(items, sizeof(items), w0.first, lib_rows(false));
+        }
     }
     trx_txt(card, lw - t.space_md - trx_text_w(items, t.caption) - (m.in_search_tab() ? t.space_sm : 0), m.in_search_tab() ? 5 : t.space_sm, items, t.caption, t.muted);
     TrxWindow w = trx_window(m.rows(), sel, g_lib_first, lib_rows(false));
@@ -779,6 +784,13 @@ static void build_library(lv_obj_t *c, MenuCtl &m, int sel)
     for (int k = 0; k < w.count; k++) {
         MenuCtl::BrowseRow r;
         m.browse_row(w.first + k, &r);
+        if (r.info) {                                              // ux-review R10: "... more not shown" is information, no bullet, dimmed, no rule, no focus (as on the host)
+            char it[72];
+            snprintf(it, sizeof(it), "%s", r.name);
+            TrxRow ir = { it, 0, false, false, true, false, true };
+            g_win[k] = trx_row_at(card, t.space_md, ry, lw - 2 * t.space_md, ir, &ry);
+            continue;
+        }
         if (media) {                                               // "> SD": the row of a medium, nothing else (the details are in the panel)
             char gt[72];
             snprintf(gt, sizeof(gt), "> %s", r.name);

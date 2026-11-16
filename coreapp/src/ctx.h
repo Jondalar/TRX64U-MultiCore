@@ -15,15 +15,16 @@ class PartialPort;
 
 // What the Library shows and has marked (T104.2 UI): the menu writes it as the browser moves, the file operations (fileops.cc) read it. One writer, and the
 // operations run while the menu waits for them, so there is no lock.
-#define LIBSEL_MAX 64
 struct LibSel {
     char dir[200];                        // the folder the browser is on ("/" the list of media)
     char cur[FS_PATH_MAX];                    // the full path under the cursor, "" when there is none
     bool cur_dir;                         // ... and it is a folder
-    char marked[LIBSEL_MAX][FS_NAME_MAX + 1];   // names marked in `dir` (SPACE)
-    int nmarked;
-    char clip[LIBSEL_MAX][FS_PATH_MAX];     // the clipboard: full paths
-    int nclip;
+    // GitHub #93: the marks and the clipboard grow with the folder (heap, one row per marked name), bounded by a quarter of the free heap (ListGrow::fit).
+    // What the budget leaves out is counted (`marked_cut`, `clip_cut`) and every operation says how many it did not take - never silent.
+    char (*marked)[FS_NAME_MAX + 1];      // names marked in `dir` (SPACE)
+    int nmarked, cap_marked, marked_cut;
+    char (*clip)[FS_PATH_MAX];            // the clipboard: full paths
+    int nclip, cap_clip, clip_cut;
     bool clip_move;                       // cut, not copy
     bool mark_all, mark_none;             // asked by an operation, taken by the menu
     char home[200];                       // the home folder ("" none)

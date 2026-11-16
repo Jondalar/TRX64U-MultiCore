@@ -73,6 +73,7 @@ public:
     int area() const { return area_; }
     int tab() const { return tab_; }
     const char *title() const;                                     // the tab name, or the browser's path
+    void pos_text(char *b, int n, int first, int rows_shown);       // the Library header: "773-784 of 784" / "N items"
     int entries();                                                 // rows() without the line of a cut Library list (what the header counts)
     bool list_cut() const { return fm_.more && !fm_.vmode; }        // the Library list is cut by the heap budget (its last row is the line that says so)
     int rows();                                                    // rows of the current view

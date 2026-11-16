@@ -211,7 +211,7 @@ void FileMgr::load_dir()
     // the marks stay with the names (the list is read again every two seconds and after every job)
     bool same = !strcmp(c->lib.dir, path);
     clear_marks();
-    for (int i = 0; same && i < nlist; i++) {
+    for (int i = 0; same && c->lib.nmarked && i < nlist; i++) {
         for (int m = 0; m < c->lib.nmarked; m++) {
             if (!strcmp(c->lib.marked[m], list[i].name)) {
                 marked[i] = true;
@@ -383,6 +383,7 @@ void FileMgr::browse_row(int i, BrowseRow *r, const char *marks_spec) const
     memset(r, 0, sizeof(*r));
     if (i == nlist && more && !vmode) {
         more_text(r->name, sizeof(r->name));
+        r->info = true;
         return;
     }
     if (i < 0 || i >= nlist) {
@@ -500,13 +501,27 @@ void FileMgr::lib_sync()
         l.cur_dir = list[sel].dir;
     }
     if (port.on_browser(port.user) && !vmode) {
+        int want = 0;
+        for (int i = 0; i < nlist; i++) {
+            want += marked[i] ? 1 : 0;
+        }
+        int take = want ? ListGrow::fit(want, sizeof(l.marked[0])) : 0;
+        if (take > l.cap_marked) {                                  // the names are written anew below: the old buffer is not copied
+            free(l.marked);
+            l.marked = (char (*)[FS_NAME_MAX + 1])malloc((size_t)take * sizeof(l.marked[0]));
+            l.cap_marked = l.marked ? take : 0;
+        }
+        if (take > l.cap_marked) {
+            take = l.cap_marked;
+        }
         int n = 0;
-        for (int i = 0; i < nlist && n < LIBSEL_MAX; i++) {
+        for (int i = 0; i < nlist && n < take; i++) {
             if (marked[i]) {
                 snprintf(l.marked[n++], sizeof(l.marked[0]), "%s", list[i].name);
             }
         }
         l.nmarked = n;
+        l.marked_cut = want - n;                                    // marked on screen, not kept for the operations: they say so
     }
 }
 
@@ -532,7 +547,7 @@ void FileMgr::apply_pending()
     if (l.mark_none) {
         l.mark_none = false;
         clear_marks();
-        l.nmarked = 0;
+        l.nmarked = l.marked_cut = 0;
     }
 }
 
@@ -893,7 +908,7 @@ void FileMgr::clip(bool cut, const char *file, bool file_is_marked)
     OpResult r;
     if (file) {
         if (!file_is_marked) {
-            c->lib.nmarked = 0;
+            c->lib.nmarked = c->lib.marked_cut = 0;
         }
         snprintf(c->lib.cur, sizeof(c->lib.cur), "%s", file);
     } else {
@@ -939,7 +954,11 @@ void FileMgr::up_while_gone()
 void FileMgr::delete_question(const CoreCtx *c, char *q, int n)
 {
     if (c->lib.nmarked > 1) {
-        snprintf(q, n, "Delete the %d marked items?", c->lib.nmarked);
+        if (c->lib.marked_cut) {
+            snprintf(q, n, "Delete %d of the %d marked items (%d are not taken: memory)?", c->lib.nmarked, c->lib.nmarked + c->lib.marked_cut, c->lib.marked_cut);
+        } else {
+            snprintf(q, n, "Delete the %d marked items?", c->lib.nmarked);
+        }
         return;
     }
     const char *slash = strrchr(c->lib.cur, '/');
