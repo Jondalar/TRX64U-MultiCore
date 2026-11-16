@@ -4711,7 +4711,8 @@ int hostui_test_dump(char *out, int max)
         }
     }
     int note_y = lv_obj_get_y(nv.view == V_EDIT ? e_note : m_note);
-    n += snprintf(out + n, max - n, "geometry rows_bottom=%d note_top=%d countdown_top=%d\n", bottom, note_y, lv_obj_get_y(m_cdbox));
+    n += snprintf(out + n, max - n, "geometry rows_bottom=%d note_top=%d countdown_top=%d\n", bottom, note_y,
+                  lv_obj_has_flag(m_cdbox, LV_OBJ_FLAG_HIDDEN) ? -1 : lv_obj_get_y(m_cdbox));
     return n;
 }
 

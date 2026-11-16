@@ -110,3 +110,7 @@ Stopped because the builder is held for Vivado: `tools/dev.sh riscv` queued for 
 ### Fast-tier fixes on integ-1116 (2026-11-16)
 The red fast tier came from T224 code (compile error in `test_settings.cc`, missing `core_set_start_safe` fake in `hostcore_stubs.cc`, a hand-over bit-flip loop that ran over the T221/T224 tail fields). Details in T224 §5; all three hand-over check words (config, host version, safe) cover their whole field.
 - Two more reds, found when the run really used this worktree: `tests/hostapp/test_cfgov.cc` still counted the pre-T224 rows (now Plain start + 5 configs + the safe row = 7, the last cursor stop is the safe row, "old" is two steps up from it); `tools/host_cut_ledger.txt` had no line for `core_start_file` (T223 D4), which is platform glue like `core_cfg_save` (a `HcPlatform` callback) and stays in `hostui.cc`.
+
+### Render bench fixes on integ-1116 (2026-11-16)
+- S14 (direct boot on): the boot menu foot of the render bench expects no "any key stops the countdown" (plus "RIGHT configs", T224 D1); the golden `hostrows.txt` subtitle is "Pick a core."; the bench's countdown geometry check treats a hidden countdown box (dump `countdown_top=-1`, T209 D21) as no overlap.
+- A `.cfw`/`.ue2` row reads no byte at start (T101 S10): `large_version()` (`host_core.cc`) probed every full entry with `cor_probe` (20 bytes) and now skips a `.cfw` name; the bench check `g_bytes_read == 0` is unchanged.

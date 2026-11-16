@@ -733,6 +733,9 @@ bool hc_is_full(const char *path)
 // T221 D13: the version of a large core is in its .cor manifest; a .cfw names none (its row stays "full firmware")
 static void large_version(const char *path, CorInfo &ci)
 {
+    if (cfw_is_name(path)) {                                    // a .cfw/.ue2 carries no manifest: no probe (the start check reads no byte of it)
+        return;
+    }
     static CorInfo lc;
     CorSource *s = g_plat.fs ? g_plat.fs->open(path) : 0;
     if (s && cor_probe(*s, lc) == COR_ERR_LARGE) {

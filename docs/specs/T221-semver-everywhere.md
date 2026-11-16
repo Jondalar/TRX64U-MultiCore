@@ -197,3 +197,7 @@ a release build's short strings fit), and a large core's test version is cut to 
 - 2026-11-15: Q1-Q14 decided with Alex the same day (D3-D19); open: start version per core (one by one), the TRX64-Ultimate contract line (D15), the L/P badge mock-up (D16).
 - 2026-11-15: status BUILDING; branch t221-semver (worktree ../wt-t221-semver); §5 holds what is built and what is open.
 - 2026-11-16: pictures and ux-review of the host side (S3-S7), fixes see §5; S8 partial, S10 open.
+
+### Render bench fixes on integ-1116 (2026-11-16)
+- Area budgets: the chip holder is 770 wide at the 960 canvas (§5 pictures, fix 2), so the measured chip redraw is 30030 px (770 x 39), a deliberate widening, not an accidental redraw; `areas()` limits are now `770u * 40` (F1 chips) and `770u * 40 + 6000` (F7 net) instead of 640.
+- The boot row of a converted large `.cor` shows its manifest version ("Test Vendor image|9.9|foreign|", D13 `large_version`) instead of "full firmware"; the render bench expects that.

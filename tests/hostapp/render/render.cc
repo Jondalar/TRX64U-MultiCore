@@ -926,7 +926,7 @@ static void scenarios(const char *out)
     for (int i = 0; i < N - 1; i++) {
         hostui_test_key(KEY_DOWN);
         in_window &= has("|SEL|") || strstr(D, "SEL|");
-        no_overlap &= geom("rows_bottom=") <= geom("note_top=") && geom("note_top=") < geom("countdown_top=");
+        no_overlap &= geom("rows_bottom=") <= geom("note_top=") && (geom("countdown_top=") < 0 || geom("note_top=") < geom("countdown_top="));   // T209 D21: a hidden countdown box (-1) is no overlap
     }
     CHECK(in_window && no_overlap);
     snprintf(ex, sizeof(ex), "sel=%d first=%d total=%d ", N - 1, N - MR, N);
@@ -1064,7 +1064,7 @@ static void scenarios(const char *out)
     hostui_test_key(KEY_DOWN);
     hostui_test_key(KEY_DOWN);                                              // 6 rows: F is row 5, off the 5-row window
     CHECK(has("F|0.1|changed"));
-    CHECK(has("foot='UP/DOWN select    RETURN start    R check entry    V picture    any key stops the countdown'"));
+    CHECK(has("foot='UP/DOWN select    RETURN start    RIGHT configs    R check entry    V picture'"));   // T223 S14: direct boot on, no countdown words; T224 D1: RIGHT configs on every non-full row
     CHECK(hostui_test_hint_overflow() == 0);                           // the "No cores yet" hint is cut at the right edge when it is one line
     CHECK(hostui_test_foot_overflow() == 0);                           // every footer is one line (board photo 2026-10-21: it wrapped)
     hostui_test_view(2);
@@ -1112,6 +1112,7 @@ static void scenarios_fw(const char *out)
         g_bytes_read = 0; g_list_deep = 0;
         hostui_test_init(txt);
         CHECK(has("full firmware|ready|auto|SEL") && g_bytes_read == 0 && g_list_deep == 0);
+        
         snprintf(txt, sizeof(txt), "countdown=5\ndefault=0\ncore=/Usb0/cores/gideon.cfw|u64_mk2_artix 2026/09/10 11:00:57||%u|%u|00000000\n", fsz, fmt + 1);
         hostui_test_init(txt);
         CHECK(has("full firmware|changed|auto|SEL") && hostui_test_cfg_n() == 1 && hostui_test_startable(0));
@@ -1540,8 +1541,8 @@ static void areas(void)
     { std::string off = std::string("direct=0\n") + eight; hostui_test_init(off.c_str()); }
     area("F1 menu: countdown second", hostui_test_cd_tick(), 10u * 1000);   // label + bar of the countdown, not the 750 px strip
     area("F1 menu: countdown second 2", hostui_test_cd_tick(), 10u * 1000);
-    area("F1 menu: chips (network up)", hostui_test_chips(true), 640u * 40);
-    area("F1 menu: chips (network down)", hostui_test_chips(false), 640u * 40);
+    area("F1 menu: chips (network up)", hostui_test_chips(true), 770u * 40);   // T221 §5: the chip holder is 770 wide at the 960 canvas (host SemVer + key + app chip)
+    area("F1 menu: chips (network down)", hostui_test_chips(false), 770u * 40);
     // F5 editor
     hostui_test_init(eight);
     hostui_test_key(KEY_F5);
@@ -1571,7 +1572,7 @@ static void areas(void)
     area("F7 switch", hostui_test_key(KEY_F7), VIEW + 35000);
     area("F8 switch", hostui_test_key(KEY_F8), VIEW + 35000);
     hostui_test_key(KEY_F7);
-    area("F7 net: chips (network up)", hostui_test_chips(true), 640u * 40 + 6000);
+    area("F7 net: chips (network up)", hostui_test_chips(true), 770u * 40 + 6000);
     area("F1 switch", hostui_test_key(KEY_F1), VIEW + 35000);
     area("F1 menu: R (full check of the entry)", hostui_test_key('r'), 12000);   // two notes and the row's badge and picture
 }
@@ -2593,9 +2594,14 @@ static void scenarios_t198(const char *out)
     snprintf(p, sizeof(p), "%s/t198_edit_badges_480.png", out); png(p, 1);
     snprintf(p, sizeof(p), "%s/t198_edit_badges_1080.png", out); png(p, 2);
     hostui_test_key(KEY_F1);
-    // D9: RIGHT on a core without configs does nothing
+    // T224 D1 (replaces T198 D9): RIGHT on a core without configs opens the overlay too (no config, Plain start + the safe row); the foot offers it on every non-full row
     hostui_test_key(KEY_DOWN);
+    CHECK(strstr(hostui_test_foot(), "RIGHT configs") != NULL);
     hostui_test_key(KEY_RIGHT);
+    CHECK(hc_cfgov_is_open() && hc_cfgov().l.n == 0 && hc_cfgov().cur == 0);
+    hostui_test_key(KEY_DOWN);
+    CHECK(hc_cfgov().cur == 1 && hc_cfgov_on_safe());
+    hostui_test_key(KEY_LEFT);
     CHECK(!hc_cfgov_is_open());
     hostui_test_key(KEY_UP);
     // S3/D2/D14: RIGHT opens the overlay, the cursor on the default config
@@ -2711,14 +2717,17 @@ static void scenarios_t198(const char *out)
     hc_cfgov_forget();
     hostui_test_key(KEY_RIGHT);
     CHECK(hc_cfgov_is_open() && hc_cfgov().l.n == 11);
-    for (int i = 0; i < 12; i++) hostui_test_key(KEY_DOWN);                // the last row: scrolled
-    CHECK(hc_cfgov().cur == 11 && hc_cfgov().top > 0);
+    for (int i = 0; i < 13; i++) hostui_test_key(KEY_DOWN);                // the last row (Plain start, 11 configs, the safe row of T224 D1): scrolled
+    CHECK(hc_cfgov().cur == 12 && hc_cfgov_on_safe() && hc_cfgov().top > 0);
     {
         int g[8]; hostui_test_oc_geom(g);
         CHECK(g[2] >= 0 && g[3] <= g[1] && g[6] <= g[1] && g[0] + g[1] <= g[7]);
     }
-    { HcWifiPick pk; hc_cfgov_pick(&pk); CHECK(strstr(pk.sub, " of 12") != nullptr); }
+    { HcWifiPick pk; hc_cfgov_pick(&pk); CHECK(strstr(pk.sub, " of 13") != nullptr); }
     snprintf(p, sizeof(p), "%s/t198_overlay_10_last_1080.png", out); png(p, 2);
+    hostui_test_key(KEY_DELETE);                                           // the safe row has nothing to delete (T224 D1): no ask
+    CHECK(hc_cfgov().ask == 0);
+    hostui_test_key(KEY_UP);                                               // the last config, the list still scrolled
     hostui_test_key(KEY_DELETE);                                           // the ask is a message over the full, scrolled list
     CHECK(hc_cfgov().ask == 1);
     {
@@ -3056,7 +3065,7 @@ static void scenarios_t137(const char *out)
     CHECK(hostui_test_cfg_n() == 1 && g_saves == 1 && strstr(g_last_save, "core=/Usb0/cores/vendor.cor|Test Vendor image|"));
     hostui_test_fm_keep(false);                                              // the page of the last conversion goes, so the menu can be seen
     hostui_test_view(0);
-    CHECK(has("Test Vendor image|full firmware|foreign|"));
+    CHECK(has("Test Vendor image|9.9|foreign|"));
     snprintf(p, sizeof(p), "%s/menu_foreign.png", out); png(p, 2);
     hostui_test_fm_keep(true);
     // ---- an internal drive is no place for a 3 MiB file

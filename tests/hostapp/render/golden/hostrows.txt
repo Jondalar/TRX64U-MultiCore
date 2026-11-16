@@ -1,5 +1,5 @@
 page menu|Boot menu|UP/DOWN select    RETURN start    RIGHT configs    R check entry    V picture    any key stops the countdown
-  sub|Pick a core. The auto entry starts when the countdown ends.
+  sub|Pick a core.
   hint|No cores yet. Press F3, open a folder on SD or USB
 and press A on a .cor bundle or a .cfw firmware.|hidden
   pos|
