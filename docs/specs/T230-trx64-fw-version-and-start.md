@@ -92,6 +92,9 @@ bitstream with Gideon's application). The Gideon UI is to be phased out; for a w
 - **D6 (Alex 2026-11-16, asked whether a page-less trx64u start keeps waiting up to 4 s for a USB stick, answer "keep 4 s
   (recommended)"):** the wait stays (`lib_board_wait_stick`, `LIB_MOUNT_WAIT_MS`). It costs only on a start without a valid hand-over page;
   whether the page survives the full reconfiguration of a boot-menu start is to be read once on the board (core log "no hand-over path").
+- **D7 (Alex 2026-11-16, Q-A answered "in the config (recommended)"):** the autostart target lives in the core's config: one setting
+  "Autostart" (file + Mount & Run / Load & Run) in the core settings, saved with "Save as config"; choosing that config in the boot menu
+  (RIGHT) starts the program. No new field in the start file. The place of the row in the menu is asked separately, with pictures.
 - **Proposal P-1 (version, after FW-1):** TRX64-Ultimate's `ci/package.sh` writes `"version": "x.y.z"` from the packed application's
   `APPL_VERSION_NUMBER` into `manifest.json`. MultiCore copies it into the pin as `SEMVER=` when the pin moves, but only when
   `PKG_VERSION` is a release (Gitea release `trx64-<PKG_VERSION>` exists); a non-release pin gets `x.y.z-dev+<sha8>`.
@@ -145,7 +148,7 @@ For the TRX64-Ultimate firmware session:
   browser, a scan of the root)?
 
 For Alex:
-- **Q-A:** Where does the autostart target come from: (a) a row in the core's config ("Autostart" = a file + mode), saved with
+- **Q-A: answered (D7).** Where does the autostart target come from: (a) a row in the core's config ("Autostart" = a file + mode), saved with
   "Save as config"; (b) a choice in the host's RIGHT overlay, carried in the start file (`run=`); (c) both?
 - **Q-B:** Does P-6 hold: no config choice for trx64g at start?
 
