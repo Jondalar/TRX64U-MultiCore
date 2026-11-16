@@ -1,5 +1,6 @@
 // T216 §5: the app's window to the 4 KiB character ROM (rom_sel 2): every byte of offset 0-0xFFF is written and read back through pet_win + pet_mem,
 // the upper 2 KiB (0x800-0xFFF, the 8032/8096/SuperPET characters.901640-01) included; offset 0x1000 and up is refused (reads 0).
+// The app's offset o reaches pet_win as p_addr 0x4000 + o (bit 13 clear: the 2 KiB decode before this fix hit only there, and the board loaded the 2 KiB sets).
 `timescale 1ns / 1ps
 module tb_pet_chrwin;
     reg clk = 0;
@@ -28,14 +29,14 @@ module tb_pet_chrwin;
     endtask
     initial begin
         #50;
-        for (i = 0; i < 4096; i = i + 1) acc(16'h2000 + i, 1, pat(i));
+        for (i = 0; i < 4096; i = i + 1) acc(16'h4000 + i, 1, pat(i));
         for (i = 0; i < 4096; i = i + 1) begin
-            acc(16'h2000 + i, 0, 8'd0);
+            acc(16'h4000 + i, 0, 8'd0);
             if (w_do !== pat(i)) begin errs = errs + 1; if (errs < 8) $display("FAIL chr offset %h: %h expected %h", i, w_do, pat(i)); end
         end
-        acc(16'h3000, 1, 8'hEE); acc(16'h3000, 0, 8'd0);
+        acc(16'h5000, 1, 8'hEE); acc(16'h5000, 0, 8'd0);
         if (w_do !== 8'h00) begin errs = errs + 1; $display("FAIL chr offset 0x1000 not refused: %h", w_do); end
-        acc(16'h2000, 0, 8'd0);
+        acc(16'h4000, 0, 8'd0);
         if (w_do !== pat(0)) begin errs = errs + 1; $display("FAIL chr offset 0 overwritten by the refused write"); end
         if (errs == 0) $display("PASS tb_pet_chrwin"); else $display("FAIL tb_pet_chrwin errs=%0d", errs);
         $finish;
