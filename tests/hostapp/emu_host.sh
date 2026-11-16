@@ -58,11 +58,11 @@ run_flow() {   # run_flow NAME WITH_COR(1|0): the whole flow; the log is $out/NA
     rm -rf "$w" "$out/$name-flash.bin"
     return $rc
 }
-check_flow() {   # check_flow NAME: 0 when the flow ran through; prints the first missing step
+check_flow() {   # check_flow NAME: 0 when the flow ran through; prints the first missing step. The icap lines are not anchored: the firmware's UART text is written in pieces and can sit in front of an emulator line on the same log line
     local l="$out/$1.log"
-    grep -aq '^icap: the partial of "VIC-20"' "$l" || { echo "the partial of VIC-20 was not found"; return 1; }
+    grep -aq 'icap: the partial of "VIC-20"' "$l" || { echo "the partial of VIC-20 was not found"; return 1; }
     grep -aq 'phase core identified: \[core\] VC20 VIC-20, cor /USB0/cores/vc20.cor' "$l" || { echo "the core application did not identify VC20"; return 1; }
-    grep -aq '^icap: IPROG WBSTAR 0: the host bitstream, .* the menu marker set' "$l" || { echo "no IPROG back to the host bitstream"; return 1; }
+    grep -aq 'icap: IPROG WBSTAR 0: the host bitstream, .* the menu marker set' "$l" || { echo "no IPROG back to the host bitstream"; return 1; }
     grep -aq 'direct boot: decision .*marker 1' "$l" || { echo "the host application did not take the menu marker"; return 1; }
     return 0
 }

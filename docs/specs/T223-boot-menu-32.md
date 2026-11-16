@@ -114,3 +114,6 @@ The red fast tier came from T224 code (compile error in `test_settings.cc`, miss
 ### Render bench fixes on integ-1116 (2026-11-16)
 - S14 (direct boot on): the boot menu foot of the render bench expects no "any key stops the countdown" (plus "RIGHT configs", T224 D1); the golden `hostrows.txt` subtitle is "Pick a core."; the bench's countdown geometry check treats a hidden countdown box (dump `countdown_top=-1`, T209 D21) as no overlap.
 - A `.cfw`/`.ue2` row reads no byte at start (T101 S10): `large_version()` (`host_core.cc`) probed every full entry with `cor_probe` (20 bytes) and now skips a `.cfw` name; the bench check `g_bytes_read == 0` is unchanged.
+
+### Emulator flow fix on integ-1116 (2026-11-16)
+- `hostapp_emu` flow host->vc20->menu->host failed in CI runs 2119/2150 ("the partial of VIC-20 was not found") but passes on the builder with the CI images, kit and emulator image (also under load): `check_flow` matched the emulator's `icap:` lines with `^`, and the firmware's UART text shares the log line-wise unsynchronised (stray `@` seen at a line start), so the line can start after a half UI line. The `^` anchors are dropped in `tests/hostapp/emu_host.sh`; every other check is unchanged. Cause not seen in the CI log itself (only the PASS/FAIL line is kept there).
