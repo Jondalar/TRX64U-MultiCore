@@ -226,10 +226,10 @@ if [ $rc -ne 0 ]; then echo "FAIL T223 32 entries: the emulator exited $rc (see 
 elif [ "$n32" != 32 ]; then echo "FAIL T223 32 entries: boot.cfg holds $n32 core= lines, not 32 (the 33rd must be refused, see $out/m32.log)"; FAIL=1
 else echo "PASS T223 32 entries: 32 added, the 33rd refused (boot.cfg 32 lines; PNGs $out/t223-*.png)"; fi
 
-# ---- T211 D2 (Alex 11-15, S3 = a): the real Page Up / Page Down page a host list like + / -. The stick has a folder of 80 files: the browser shows its top, Page Down
+# ---- T211 D2 (Alex 11-15, S3 = a): the real Page Up / Page Down page a host list like + / -. The stick has a folder of 80 files: the browser shows its top, Page Down (T223 D7 paging keeps the selection on its window row, so Page Up lands on the top window with the selection two rows down; two UP bring it to the first row, then the panel equals the top)
 # moves a page (a different panel), Page Up brings the top back (same panel; only the host panel is compared, the emulated machine behind it blinks).
 page_nav() { printf 'wait 15000\nkey space\nwait 800\nkey f3\nwait 1500\nkey down\nwait 500\nkey down\nwait 500\nkey return\nwait 2000\nkey down\nwait 500\nkey return\nwait 3000\n'
-             printf 'png %s/browse-top.png\nusbkey pagedown\nwait 1500\npng %s/browse-pagedown.png\nusbkey pageup\nwait 1500\npng %s/browse-pageup.png\n' "$out" "$out" "$out"
+             printf 'png %s/browse-top.png\nusbkey pagedown\nwait 1500\npng %s/browse-pagedown.png\nusbkey pageup\nwait 1500\nusbkey up\nwait 400\nusbkey up\nwait 800\npng %s/browse-pageup.png\n' "$out" "$out" "$out"
              printf 'usbkey pagedown\nwait 800\nusbkey pagedown\nwait 1500\npng %s/browse-pagedown2.png\nusbkey f1\nwait 1500\npng %s/browse-f1.png\nquit\n' "$out" "$out"; }
 run_page() {
     local w="$out/work-page" n
