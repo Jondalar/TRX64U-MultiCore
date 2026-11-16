@@ -200,3 +200,4 @@ t+1700 ms), so without a hand-over page there is no stick to read and the file w
 most `LIB_MOUNT_WAIT_MS` (4 s) and ends at the first stick root that lists. **Cost: a page-less start with no stick at all (JTAG, a monolith
 power-up) now takes up to 4 s longer.** Decided (D6, Alex 2026-11-16): keep the 4 s.
 Only one stick root is waited for: a second stick that comes up later is not seen by the same take.
+- S7 (2026-11-16): contract v4 committed on both sides with the same bytes - MultiCore 91f6f3cf6, TRX64-Ultimate 31e69921 (branch u16, pushed with their next batch), `docs/contracts/trx64u-firmware-handover.md` sha256 5be42f9fedd02403...; their manifest "version" field is commit 65775d54. S1 waits for a pin bump to their next green main package.
