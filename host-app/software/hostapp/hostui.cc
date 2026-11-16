@@ -211,16 +211,8 @@ static Keyboard_C64 *matrix_kb;
 
 // Keys without any waiting: USB first, then what the matrix timer scan has queued. (Keyboard_C64::getch()
 // sleeps up to 4 ticks per call; draining a queue through it costs 20 ms a key.)
-static int map_key(int k)
-{
-    switch (k) {            // Gideon's keymapper turns F1/F3/F5/F7 into these for the user interface
-    case KEY_PAGEUP: return KEY_F1;
-    case KEY_HELP: return KEY_F3;
-    case KEY_TASKS: return KEY_F5;
-    case KEY_PAGEDOWN: return KEY_F7;
-    }
-    return k;
-}
+// T211 D1: the host's keys are our own names, F1-F8 are the navigation. Nothing is folded: a real Page Up / Page Down arrives as KEY_PAGEUP / KEY_PAGEDOWN
+// (no entry of the key map, so no action until T211 S3 is decided), F1/F3/F5/F7 arrive as KEY_F1/F3/F5/F7 from both keyboards.
 
 // T192 D21: every key reaches the handlers through the service's key path (hostdomain.h): the board's own key enters as a `key` intent, a remote one is
 // queued by its intent, and what comes out of the queue is what on_key and the modal waits read. Nothing here changes what a key does.
@@ -234,7 +226,6 @@ static int host_getch_nowait(void)
     if (k < 0 && matrix_kb) {
         k = matrix_kb->getch_nowait();
     }
-    k = map_key(k);
     if (k >= 0) {
         hostapi_local_key(k);
         return hostapi_pop_key();
@@ -253,7 +244,6 @@ static int host_getch(void)
     if (k < 0 && matrix_kb) {
         k = matrix_kb->getch();
     }
-    k = map_key(k);
     if (k >= 0) {
         hostapi_local_key(k);
         return hostapi_pop_key();

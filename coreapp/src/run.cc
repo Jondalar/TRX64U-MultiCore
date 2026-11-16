@@ -73,24 +73,13 @@ public:
 MatrixHost matrix_host;
 Keyboard_C64 *matrix_kb;
 
-int map_key(int k)
-{
-    switch (k) {            // Gideon's keymapper turns F1/F3/F5/F7 into these for the user interface
-    case KEY_PAGEUP: return KEY_F1;
-    case KEY_HELP: return KEY_F3;
-    case KEY_TASKS: return KEY_F5;
-    case KEY_PAGEDOWN: return KEY_F7;
-    }
-    return k;
-}
-
 int getch_nowait(void)
 {
     int k = system_usb_keyboard.getch();
     if (k < 0 && matrix_kb) {
         k = matrix_kb->getch_nowait();
     }
-    return map_key(k);
+    return k;
 }
 
 // ---- the screen -------------------------------------------------------------------------------------------------------------

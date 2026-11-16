@@ -184,4 +184,73 @@ if [ $rc -ne 0 ]; then echo "FAIL T223 32 entries: the emulator exited $rc (see 
 elif [ "$n32" != 32 ]; then echo "FAIL T223 32 entries: boot.cfg holds $n32 core= lines, not 32 (the 33rd must be refused, see $out/m32.log)"; FAIL=1
 else echo "PASS T223 32 entries: 32 added, the 33rd refused (boot.cfg 32 lines; PNGs $out/t223-*.png)"; fi
 
+# ---- T211 D2 (Alex 11-15, S3 = a): the real Page Up / Page Down page a host list like + / -. The stick has a folder of 80 files: the browser shows its top, Page Down
+# moves a page (a different panel), Page Up brings the top back (same panel; only the host panel is compared, the emulated machine behind it blinks).
+page_nav() { printf 'wait 15000\nkey space\nwait 800\nkey f3\nwait 1500\nkey down\nwait 500\nkey down\nwait 500\nkey return\nwait 2000\nkey down\nwait 500\nkey return\nwait 3000\n'
+             printf 'png %s/browse-top.png\nusbkey pagedown\nwait 1500\npng %s/browse-pagedown.png\nusbkey pageup\nwait 1500\npng %s/browse-pageup.png\n' "$out" "$out" "$out"
+             printf 'usbkey pagedown\nwait 800\nusbkey pagedown\nwait 1500\npng %s/browse-pagedown2.png\nusbkey f1\nwait 1500\npng %s/browse-f1.png\nquit\n' "$out" "$out"; }
+run_page() {
+    local w="$out/work-page" n
+    rm -rf "$w"; mkdir -p "$w/cors" "$w/profiles" "$w/stick/many"
+    for n in $(seq -w 1 80); do printf 'x\n' > "$w/stick/many/file$n.txt"; done
+    page_nav > "$w/flow.ctl"
+    cp "$kit/flash.bin" "$out/page-flash.bin"
+    ( cd "$w" && nice -n 15 timeout 300 "$UE2EMU" run --board c64u --trx-io=on --icap --cor-dir "$w/cors" --core-dir "$w/profiles" --firmware "$img/hostapp_emu.elf" \
+        --roms "$kit/roms" --flash "$out/page-flash.bin" --usb-dir "$w/stick" --usb-dir-work "$w/usbwork" --usb-keyboard --headless --speed max --script "$w/flow.ctl" \
+        --max-seconds 280 > "$out/page.log" 2>&1 )
+    local rc=$?
+    rm -rf "$w" "$out/page-flash.bin"
+    return $rc
+}
+same() { python3 "$HERE/png_panel_same.py" "$out/$1.png" "$out/$2.png"; }
+run_page; rc=$?
+if [ $rc -ne 0 ]; then echo "FAIL T211 page keys: the emulator exited $rc (see $out/page.log)"; FAIL=1
+else
+    bad=""
+    for n in browse-top browse-pagedown browse-pageup browse-pagedown2 browse-f1; do [ -s "$out/$n.png" ] || bad="$bad $n(missing)"; done
+    [ -z "$bad" ] && same browse-top browse-pagedown && bad="$bad Page Down did not page"
+    [ -z "$bad" ] && ! same browse-top browse-pageup && bad="$bad Page Up did not bring the top back"
+    [ -z "$bad" ] && same browse-pagedown browse-pagedown2 && bad="$bad the second Page Down did not move"
+    [ -z "$bad" ] && same browse-pagedown2 browse-f1 && bad="$bad F1 (control) did not change the screen"
+    if [ -z "$bad" ]; then echo "PASS T211 page keys: Page Down pages the browser list, Page Up goes back, F1 still navigates (PNGs in $out)"
+    else echo "FAIL T211 page keys:$bad (see $out/page.log)"; FAIL=1; fi
+fi
+
+# ---- T211 D3 (core app follows D1/D2): inside the started core, F keys navigate the core menu and the real Page Up / Page Down page its F3 browser list like +/-.
+# The core menu opens with CTRL+RESTORE; the stick has a folder of 80 files. Panels are compared in the core menu's own area (the left 960 x 540 stays the menu).
+core_page_nav() { nav
+    printf 'hold ctrl\nwait 300\nrestore\nwait 300\nrelease ctrl\nwait 2500\nkey f1\nwait 1500\npng %s/core-f1.png\nkey f3\nwait 1500\npng %s/core-f3.png\n' "$out" "$out"
+    printf 'key down\nwait 600\nkey down\nwait 600\nkey return\nwait 2500\nkey down\nwait 600\nkey down\nwait 600\nkey return\nwait 3000\npng %s/core-browse-top.png\n' "$out"
+    printf 'usbkey pagedown\nwait 1500\npng %s/core-browse-pagedown.png\nusbkey pageup\nwait 1500\npng %s/core-browse-pageup.png\n' "$out" "$out"
+    printf 'usbkey pagedown\nwait 800\nusbkey pagedown\nwait 1500\npng %s/core-browse-pagedown2.png\nusbkey f1\nwait 1500\npng %s/core-browse-f1.png\nquit\n' "$out" "$out"; }
+run_core_page() {
+    local w="$out/work-cpage" n
+    rm -rf "$w"; mkdir -p "$w/cors" "$w/profiles" "$w/stick/cores/vc20/roms" "$w/stick/many"
+    python3 "$ROOT/tools/cor_pack.py" replace-app "$kit/cors/vc20.cor" --app "$img/coreapp.app" -o "$w/cors/vc20.cor" > /dev/null || return 1
+    cp "$w/cors/vc20.cor" "$w/stick/cores/"; cp "$kit/profiles/VIC-20.toml" "$w/profiles/"; cp "$img/coreapp.elf" "$w/profiles/"
+    head -c 8192 /dev/zero > "$w/stick/cores/vc20/roms/basic.bin"; head -c 8192 /dev/zero > "$w/stick/cores/vc20/roms/kernal.bin"; head -c 4096 /dev/zero > "$w/stick/cores/vc20/roms/char.bin"
+    for n in $(seq -w 1 80); do printf 'x\n' > "$w/stick/many/file$n.txt"; done
+    core_page_nav > "$w/flow.ctl"
+    cp "$kit/flash.bin" "$out/cpage-flash.bin"
+    ( cd "$w" && nice -n 15 timeout 420 "$UE2EMU" run --board c64u --trx-io=on --icap --cor-dir "$w/cors" --core-dir "$w/profiles" --firmware "$img/hostapp_emu.elf" \
+        --roms "$kit/roms" --flash "$out/cpage-flash.bin" --usb-dir "$w/stick" --usb-dir-work "$w/usbwork" --usb-keyboard --headless --speed max --script "$w/flow.ctl" \
+        --max-seconds 380 > "$out/cpage.log" 2>&1 )
+    local rc=$?
+    rm -rf "$w" "$out/cpage-flash.bin"
+    return $rc
+}
+run_core_page; rc=$?
+if [ $rc -ne 0 ]; then echo "FAIL T211 core page keys: the emulator exited $rc (see $out/cpage.log)"; FAIL=1
+else
+    bad=""
+    for n in core-f1 core-f3 core-browse-top core-browse-pagedown core-browse-pageup core-browse-pagedown2 core-browse-f1; do [ -s "$out/$n.png" ] || bad="$bad $n(missing)"; done
+    [ -z "$bad" ] && same core-f1 core-f3 && bad="$bad F3 did not change the core menu"
+    [ -z "$bad" ] && same core-browse-top core-browse-pagedown && bad="$bad Page Down did not page"
+    [ -z "$bad" ] && ! same core-browse-top core-browse-pageup && bad="$bad Page Up did not bring the top back"
+    [ -z "$bad" ] && same core-browse-pagedown core-browse-pagedown2 && bad="$bad the second Page Down did not move"
+    [ -z "$bad" ] && same core-browse-pagedown2 core-browse-f1 && bad="$bad F1 (control) did not change the screen"
+    if [ -z "$bad" ]; then echo "PASS T211 core page keys: F3 navigates, Page Down pages the core browser list, Page Up goes back, F1 navigates (PNGs in $out)"
+    else echo "FAIL T211 core page keys:$bad (see $out/cpage.log)"; FAIL=1; fi
+fi
+
 [ $FAIL = 0 ] && echo "tests/hostapp/emu_host: all scenarios passed" || { echo "tests/hostapp/emu_host: FAILED"; exit 1; }
