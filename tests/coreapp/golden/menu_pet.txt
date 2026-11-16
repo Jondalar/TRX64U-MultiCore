@@ -24,15 +24,27 @@ area F3 Library
       filetype .tap: Insert tape | Insert tape and play
 area F5 PET
   tab 1 PET
-    setting Model = 2001 | 3032 | 4032 | 8032 | 8096 | SuperPET (default 4032, at next reset)
+    setting Model = 2001 | 3032 | 4032 | 8032 | 8096 | SuperPET | 2001 + BASIC 2 (default 4032, at next reset)
     setting CPU speed = x1 | x2 | x3 | x4 | x5 | x6 | x7 | x8 (default x1, live)
-    setting Diag = Off | On (DIAG jumper) (default Off, at next reset)
-    setting Picture rate = 60 Hz | 50 Hz (default 60 Hz, live)
-    setting Phosphor = Green | Amber | White (default Green, live)
-    setting RAM = 8 KiB | 16 KiB | 32 KiB (default 32 KiB, at next reset)
+    setting Diag jumper = Off | On (default Off, at next reset)
+    setting RAM = 8 KiB | 16 KiB | 32 KiB (default 32 KiB, at next reset) [listed while pet.ramrow]
     setting Drive = Off | 4040 (D64) | 8250 (D80, D82) (default Off, at next reset)
     setting Datasette port = Off (file only) | External datasette (default Off (file only), live)
-    setting SPCPU = 6502 | 6809 | Program ($EFF8) (default 6502, at next reset) [listed while pet.superpet]
+    setting SuperPET CPU = 6502 | 6809 | Program ($EFF8) (default 6502, at next reset) [listed while pet.superpet]
+    setting SuperPET RAM = 32 KiB | 96 KiB (default 96 KiB, at next reset) [listed while pet.superpet]
+  tab 2 Video
+    setting Refresh rate = 60 Hz | 50 Hz (default 60 Hz, live)
+    setting Phosphor = Green | Amber | White (default Green, live)
+  tab 3 Input
+    setting Keyboard mapping = Symbolic (key legend) | Positional (PET key place) (default Symbolic (key legend), live)
+    setting Pad / joystick up = None | Key 8 | Key 2 | Key 4 | Key 6 | Key 5 | Key 0 | Key 1 | Key 3 | Key 7 | Key 9 | Key Space | Key Return | Key Cursor up | Key Cursor down | Key Cursor left | Key Cursor right | Key Home | Key Del | Key Stop | Key W | Key A | Key S | Key D | Key Q | Key E | Key Z | Key X | Key + | Key - | Key * | Key / (default Key 8, live)
+    setting Pad / joystick down = None | Key 8 | Key 2 | Key 4 | Key 6 | Key 5 | Key 0 | Key 1 | Key 3 | Key 7 | Key 9 | Key Space | Key Return | Key Cursor up | Key Cursor down | Key Cursor left | Key Cursor right | Key Home | Key Del | Key Stop | Key W | Key A | Key S | Key D | Key Q | Key E | Key Z | Key X | Key + | Key - | Key * | Key / (default Key 2, live)
+    setting Pad / joystick left = None | Key 8 | Key 2 | Key 4 | Key 6 | Key 5 | Key 0 | Key 1 | Key 3 | Key 7 | Key 9 | Key Space | Key Return | Key Cursor up | Key Cursor down | Key Cursor left | Key Cursor right | Key Home | Key Del | Key Stop | Key W | Key A | Key S | Key D | Key Q | Key E | Key Z | Key X | Key + | Key - | Key * | Key / (default Key 4, live)
+    setting Pad / joystick right = None | Key 8 | Key 2 | Key 4 | Key 6 | Key 5 | Key 0 | Key 1 | Key 3 | Key 7 | Key 9 | Key Space | Key Return | Key Cursor up | Key Cursor down | Key Cursor left | Key Cursor right | Key Home | Key Del | Key Stop | Key W | Key A | Key S | Key D | Key Q | Key E | Key Z | Key X | Key + | Key - | Key * | Key / (default Key 6, live)
+    setting Pad / joystick fire = None | Key 8 | Key 2 | Key 4 | Key 6 | Key 5 | Key 0 | Key 1 | Key 3 | Key 7 | Key 9 | Key Space | Key Return | Key Cursor up | Key Cursor down | Key Cursor left | Key Cursor right | Key Home | Key Del | Key Stop | Key W | Key A | Key S | Key D | Key Q | Key E | Key Z | Key X | Key + | Key - | Key * | Key / (default Key Space, live)
+    setting Pad map = Default | Custom (default Default, live)
+    task Map buttons, pad 1
+    task Map buttons, pad 2
 area F7 Actions
   tab 1 Quick
     task Reset (closes the menu)

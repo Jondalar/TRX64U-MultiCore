@@ -22,6 +22,8 @@ module pet_core (
     output wire        running,                     // out of reset (case LED 1)
 
     input  wire [63:0] keys,
+    input  wire [4:0]  joy1,                        // the host's joystick ports: pad-to-keys (pet_padkeys, T216 P4)
+    input  wire [4:0]  joy2,
 
     input  wire        dma_req_tgl,
     input  wire [15:0] dma_addr,
@@ -105,6 +107,9 @@ module pet_core (
     wire [1:0]  r_spcpu;
     wire        r_diag, r_hz;
     wire [1:0]  r_phos, r_ramsz;
+    wire        r_keymode, r_spram;
+    wire [15:0] r_pad1, r_pad2;
+    wire [39:0] r_padkey;
     wire [31:0] fb_base, fb_stride;
     wire        r_tplay, r_tseek;
     wire        tape_level, tape_playing, tape_eof, tape_stop, tape_err;
@@ -119,11 +124,11 @@ module pet_core (
     reg [31:0] tbase_l = 32'd0;
     reg [24:0] tpos_l = 25'd0;
     (* ASYNC_REG = "TRUE" *) reg [7:0] ctrl_s1 = 8'd0, ctrl_s2 = 8'd0;
-    (* ASYNC_REG = "TRUE" *) reg [17:0] set_s1 = 18'd0, set_s2 = 18'd0;
+    (* ASYNC_REG = "TRUE" *) reg [19:0] set_s1 = 20'd0, set_s2 = 20'd0;
     always @(posedge sys_clk) begin
         ctrl_s1 <= ctrl;
         ctrl_s2 <= ctrl_s1;
-        set_s1 <= {r_spcpu, r_ramsz, r_phos, r_hz, r_diag, r_sel, r_cpux, r_model};
+        set_s1 <= {r_keymode, r_spram, r_spcpu, r_ramsz, r_phos, r_hz, r_diag, r_sel, r_cpux, r_model};
         set_s2 <= set_s1;
         tpl_s <= {tpl_s[1:0], r_tplay};
         tsk_s <= {tsk_s[1:0], r_tseek};
@@ -142,6 +147,8 @@ module pet_core (
     wire [1:0] phos_s    = set_s2[13:12];
     wire [1:0] ramsz_s   = set_s2[15:14];
     wire [1:0] spcpu_s   = set_s2[17:16];
+    wire       spram_s   = set_s2[18];
+    wire       keymode_s = set_s2[19];
 
     // ---------------------------------------------------------------- reset and pause
     wire       rst_m = sys_rst | reset_req | ctrl_s2[0];
@@ -151,6 +158,7 @@ module pet_core (
     reg [2:0]  model_l = 3'd0;                      // the model is taken in reset
     reg [1:0]  ramsz_l = 2'd2;
     reg [1:0]  spcpu_l = 2'd0;                      // the SuperPET's CPU switch is taken in reset too
+    reg        spram_l = 1'b1;                      // and its bank RAM (96 KiB or 32 KiB)
     wire       hold_req = halt_req | ctrl_s2[1];
     wire       hold_eff = hold_req & ~sreset & ~rst_q;
     reg        held = 1'b0;
@@ -171,6 +179,7 @@ module pet_core (
             model_l <= model_s;
             ramsz_l <= ramsz_s;
             spcpu_l <= spcpu_s;
+            spram_l <= spram_s;
             rcnt <= 6'd0;
             sreset <= 1'b1;
         end else if (rdy) begin
@@ -210,12 +219,13 @@ module pet_core (
     wire m_8096 = (model_l == 3'd4);
     wire x_hit  = m_8096 & xreg[7] & a[15] & ~(xreg[6] & dec_io) & ~(xreg[5] & dec_vram);
     wire x_wp   = a[14] ? xreg[1] : xreg[0];
-    // the SuperPET's 64 KiB bank RAM (4 KiB behind $9000-$9FFF) lives in the same 64 KiB array: the models are exclusive
+    // the SuperPET's 64 KiB bank RAM (16 banks of 4 KiB behind $9000-$9FFF; with the 32 KiB below $8000 the SuperPET's 96 KiB) lives in the same 64 KiB array
+    // as the 8096's extra RAM (the models are exclusive, so the array costs nothing more for the SuperPET); the app's SuperPET RAM row of 32 KiB takes it away: the ROM is behind $9000 then
     wire m_spet = (model_l == 3'd5);
     wire [7:0] sp_q;
     wire       sp_hit, sp_ramen, sp_ramwp, sp_diag;
     wire [3:0] sp_bank;
-    wire       s9_hit = m_spet & (a[15:12] == 4'h9) & sp_ramen;
+    wire       s9_hit = m_spet & spram_l & (a[15:12] == 4'h9) & sp_ramen;
     wire       xsel   = x_hit | s9_hit;
     wire [7:0] x_q;
     pet_ram64 xram (.clk(sys_clk), .addr(m_spet ? {sp_bank, a[11:0]} : {a[14], a[14] ? xreg[3] : xreg[2], a[13:0]}),
@@ -231,7 +241,8 @@ module pet_core (
     wire sel_vram = dec_vram & ~x_hit;
     wire sel_io   = dec_io & ~x_hit & ~sp_hit;
     wire [7:0] ram_q, rom_q, vc_q, vv_q, ch_q, w_do;
-    wire [10:0] v_a, c_a;
+    wire [10:0] v_a;
+    wire [11:0] c_a;
     wire        w_wr, w_hit, w_rom;
     wire [3:0]  w_sel;
     wire [15:0] w_ai;
@@ -277,17 +288,19 @@ module pet_core (
     assign tp_write = cass_write;
     assign tp_sense_pull = tpl_s[2];
     assign tp_pin = tpn_s2;
-    pet_keys keyx (.keys(keys), .bus(m_crtc), .keyrow(keyrow), .keyin(keyin));
+    wire [63:0] keys_eff;
+    pet_padkeys padk (.clk(sys_clk), .keys(keys), .pad1(r_pad1), .pad2(r_pad2), .joy1(joy1), .joy2(joy2), .code(r_padkey), .keys_o(keys_eff));
+    pet_keys keyx (.keys(keys_eff), .bus(m_crtc), .sym(~keymode_s), .keyrow(keyrow), .keyin(keyin));
 
     // the CRTC register file (6545 / 6845): index at $E880, data at $E881
     reg [4:0] crtc_ar = 5'd0;
-    reg [7:0] r1 = 8'd80, r10 = 8'h20, r11 = 8'd0, r12 = 8'd0, r13 = 8'd0, r14 = 8'd0, r15 = 8'd0;
+    reg [7:0] r1 = 8'd40, r10 = 8'h20, r11 = 8'd0, r12 = 8'd0, r13 = 8'd0, r14 = 8'd0, r15 = 8'd0;
     wire      sel_crtc = sel_io & a[7] & m_crtc & (a[6:1] == 6'd0);
     wire      vsync_stat;
     always @(posedge sys_clk) begin
         if (sreset) begin
             crtc_ar <= 5'd0;
-            r1 <= 8'd80; r10 <= 8'h20; r11 <= 8'd0; r12 <= 8'd0; r13 <= 8'd0; r14 <= 8'd0; r15 <= 8'd0;
+            r1 <= 8'd40; r10 <= 8'h20; r11 <= 8'd0; r12 <= 8'd0; r13 <= 8'd0; r14 <= 8'd0; r15 <= 8'd0;
         end else if (bus_st & we & sel_crtc) begin
             if (!a[0]) crtc_ar <= cpu_do[4:0];
             else case (crtc_ar)
@@ -330,7 +343,7 @@ module pet_core (
     wire [15:0] rgb565;
     wire        hblank, vblank, dotst, frame_end;
     pet_vid vid (
-        .clk(sys_clk), .hz50(hz50_s), .phos(phos_s), .crtc_m(m_crtc), .r1(r1), .start({r12[3:0], r13}), .cur({r14[5:0], r15}), .r10(r10), .r11(r11[4:0]),
+        .clk(sys_clk), .hz50(hz50_s), .phos(phos_s), .crtc_m(m_crtc), .alt(r12[5]), .r1(r1), .start({r12[3:0], r13}), .cur({r14[5:0], r15}), .r10(r10), .r11(r11[4:0]),
         .gfx(v_gfx), .blank(v_blank), .v_a(v_a), .v_q(vv_q), .c_a(c_a), .c_q(ch_q),
         .hblank(hblank), .vblank(vblank), .video_on(video_on), .dotst(dotst), .rgb565(rgb565), .frame_end(frame_end)
     );
@@ -371,7 +384,7 @@ module pet_core (
     (* ASYNC_REG = "TRUE" *) reg [2:0] ft_s = 3'b000;
     always @(posedge cpu_clk) ft_s <= {ft_s[1:0], frame_tgl};
     wire ev_frame = ft_s[2] ^ ft_s[1];
-    wire col80 = m_crtc && (r1 >= 8'd60);
+    wire col80 = m_crtc && (r1 >= 8'd30);
     // the drives' registers and flags (used by pet_regs below and pet_ieee)
     wire       d_en, d_4040, d_led_e;
     wire [1:0] d_ro, d_mnt, d_clr, d_dirty, d_led;
@@ -383,7 +396,7 @@ module pet_core (
         .clk(cpu_clk), .we(cw_we), .re(cw_re), .addr(cw_addr), .wdata(cw_wdata), .rdata(cw_rdata), .ack(cw_ack), .irq(cw_irq),
         .build(build), .ddr_cal(ddr_cal), .px_we(px_we), .px_re(px_re), .px_rdata(px_rdata),
         .ev_vsync(px_ev_vsync), .ev_flip(px_ev_flip), .ev_frame(ev_frame),
-        .ctrl(ctrl), .model(r_model), .cpu_x(r_cpux), .diag(r_diag), .hz50(r_hz), .phos(r_phos), .ram_sz(r_ramsz), .rom_sel(r_sel), .sp_cpu(r_spcpu),
+        .ctrl(ctrl), .model(r_model), .cpu_x(r_cpux), .diag(r_diag), .hz50(r_hz), .phos(r_phos), .ram_sz(r_ramsz), .rom_sel(r_sel), .sp_cpu(r_spcpu), .keymode(r_keymode), .sp_ram(r_spram), .pad1(r_pad1), .pad2(r_pad2), .padkey(r_padkey),
         .fb_base(fb_base), .fb_stride(fb_stride),
         .status(status), .frames(frames), .cpuaddr(a),
         .fb_latest(fb_latest), .fb_seq(fb_seq), .fb_over(fb_over),

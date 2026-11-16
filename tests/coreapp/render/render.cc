@@ -1199,7 +1199,7 @@ static void s1_state(const char *core, const char *cv, int area, int tab, Rig &r
     }
     if (any_marked) {
         s1legends++;
-        S1CHECK(r.m->status()[0] != 0 || strstr(r.m->foot_line(), "next reset") != 0, "%s: no legend line for a marked row", core);
+        S1CHECK(r.m->status()[0] != 0 || !strcmp(r.m->foot_line(), MenuCtl::reset_legend()) || (r.m->sel_detail()[0] && !strcmp(r.m->foot_line(), r.m->sel_detail())), "%s: the foot of a marked row is neither the ring legend nor the selected row's note", core);   // T216 D10: one line, the row's note or else the legend
     }
     if (shot_out && shot_tag) {
         char fn[512], nm[64];
@@ -1299,6 +1299,9 @@ static void ux_rowtext(Rig &r, int i, std::string *l, std::string *v, bool *act)
 }
 
 // The rows of the Hotkeys page by the names the page gives them (T187 gate 1: no "Hotkey:" prefix on a page that is called Hotkeys)
+// T216 D11: a dialog task of a settings tab shows ">" like a page row; the pad-mapping tasks are the ones of that kind ("Map buttons, pad N", "Map port 2 buttons")
+static bool is_map_task(const std::string &l) { return !strncmp(l.c_str(), "Map ", 4); }
+
 static bool hk_page_label(const std::string &l)
 {
     static const char *const n[] = { "Modifier", "Menu open / close", "Volume up", "Volume down", "Reset", "Swap joystick ports", "Picture mode", "Hotkey modifier" };
@@ -1353,7 +1356,6 @@ static void ux_collect(const char *core, Rig &r, std::vector<UxLoc> *out, int *n
                     UXCHECK(r.m->tab() == tab && r.m->selected() == sel1, "%s: ESC from the Picture page: tab %d sel %d, was tab %d sel %d", core, r.m->tab(), r.m->selected(), tab, sel1);
                     ux_rowtext(r, sel1, &l, &v, &act);
                 } else if (v.size() >= 1 && v.back() == '>') {
-                    (*nopens)++;
                     int sel0, first0;
                     r.m->open(); ui_menu_forget_rows();
                     r.m->key(FKEYS[ak]); if (tk) { r.m->key('0' + tk); }
@@ -1363,7 +1365,19 @@ static void ux_collect(const char *core, Rig &r, std::vector<UxLoc> *out, int *n
                     r.m->key(KEY_RETURN);
                     ui_menu_render(*r.m); lv_timer_handler();
                     std::string pname = r.m->title();
-                    UXCHECK(r.m->tab() != tab, "%s: RETURN on \"%s\" did not open a page", core, l.c_str());
+                    if (r.m->tab() == tab) {                                  // T216 D11: a dialog task shows ">" too; RETURN opens its dialog and the tab stays - not a page
+                        char dtx[200];
+                        UXCHECK(strcmp(r.m->dialog(dtx, sizeof(dtx)), "none") != 0 || r.m->mapping() || r.m->status()[0], "%s: RETURN on \"%s\" opened neither a page nor a dialog", core, l.c_str());
+                        for (int k = 0; k < 4 && (r.m->mapping() || strcmp(r.m->dialog(dtx, sizeof(dtx)), "none") != 0); k++) {     // leave the dialog or wizard the way a person does
+                            r.m->key(KEY_ESCAPE);
+                            ui_menu_render(*r.m); lv_timer_handler();
+                        }
+                        r.m->open(); ui_menu_forget_rows();                      // back to the list as it opens
+                        r.m->key(FKEYS[ak]); if (tk) { r.m->key('0' + tk); }
+                        ui_menu_render(*r.m); lv_timer_handler();
+                        continue;
+                    }
+                    (*nopens)++;
                     int pn = r.m->rows(), cnt = 0;
                     for (int j = 0; j < pn; j++) {
                         std::string pl, pv; bool pa;
@@ -1613,7 +1627,7 @@ static void ux_chrome(void)
                         for (int i = 0; i < n && n < 200; i++) {
                             std::string l, v; bool a;
                             ux_rowtext(r, i, &l, &v, &a);
-                            if (r.m->heading(i) || v.empty() || v.back() != '>') { continue; }
+                            if (r.m->heading(i) || v.empty() || v.back() != '>' || is_map_task(l)) { continue; }
                             r.m->open(); ui_menu_forget_rows();
                             r.m->key(FKEYS[ak]); if (tk) { r.m->key('0' + tk); }
                             select_row(r, i);
@@ -1830,7 +1844,7 @@ static void ux_shots(const char *out)
             for (int i = 0; i < r.m->rows(); i++) {
                 std::string l, v; bool a;
                 ux_rowtext(r, i, &l, &v, &a);
-                if (!r.m->heading(i) && !v.empty() && v.back() == '>') { select_row(r, i); r.m->key(KEY_RETURN); break; }
+                if (!r.m->heading(i) && !v.empty() && v.back() == '>' && !is_map_task(l)) { select_row(r, i); r.m->key(KEY_RETURN); break; }
             }
         }
         ui_menu_render(*r.m); lv_timer_handler();

@@ -290,14 +290,16 @@ made.
 
 ## 11.19 Commodore PET
 
-11.19.1 The Commodore PET (2001, 3032, 4032, 8032, 8096 and SuperPET) as a large core, experimental. Its ROMs are those of the model; none is shipped. They go into `cores/pet/roms/`, with the names of the VICE distribution (a generic name of a role is taken as well: `basic.bin`, `edit.bin`, `kernal.bin`, `chargen.bin`, `characters.bin`). The setting `Picture rate` chooses the 60 Hz or the 50 Hz editor ROM.
+11.19.1 The Commodore PET (2001, 3032, 4032, 8032, 8096 and SuperPET) as a large core, experimental. Its ROMs are those of the model; none is shipped. They go into `cores/pet/roms/`, with the names of the VICE distribution (each model takes the files of its own row only: with one missing the model does not start and the screen names the missing file; generic names such as `basic.bin` are not taken). The setting `Picture rate` chooses the 60 Hz or the 50 Hz editor ROM.
 
 | Model | BASIC | Editor 60 Hz | Editor 50 Hz | KERNAL | Characters |
 |---|---|---|---|---|---|
 | 2001 | `basic-1.901439-09-05-02-06.bin` | `edit-1-n.901439-03.bin` | the same | `kernal-1.901439-04-07.bin` | `characters-1.901447-08.bin` |
 | 3032 | `basic-2.901465-01-02.bin` | `edit-2-n.901447-24.bin` | the same | `kernal-2.901465-03.bin` | `characters-2.901447-10.bin` |
 | 4032 | `basic-4.901465-23-20-21.bin` | `edit-4-40-n-60Hz.901499-01.bin` | `edit-4-40-n-50Hz.901498-01.bin` | `kernal-4.901465-22.bin` | `characters-2.901447-10.bin` |
-| 8032, 8096, SuperPET | `basic-4.901465-23-20-21.bin` | `edit-4-80-b-60Hz.901474-03.bin` | `edit-4-80-b-50Hz.901474-04.bin` (or `edit-4-80-b-50Hz.901474-04_.bin`) | `kernal-4.901465-22.bin` | `characters.901640-01.bin` (or `characters-2.901447-10.bin`) |
+| 2001 + BASIC 2 | `basic-2.901465-01-02.bin` | `edit-2-n.901447-24.bin` | same | `kernal-2.901465-03.bin` | `characters-1.901447-08.bin` |
+| 8032, 8096 | `basic-4.901465-23-20-21.bin` | `edit-4-80-b-60Hz.901474-03.bin` | `edit-4-80-b-50Hz.901474-04.bin` (or `edit-4-80-b-50Hz.901474-04_.bin`) | `kernal-4.901465-22.bin` | `characters.901640-01.bin` (or `characters-2.901447-10.bin`) |
+| SuperPET | `basic-4.901465-23-20-21.bin` | `edit-4-80-b-60Hz.901474-03.bin` | `edit-4-80-b-50Hz.901474-04.bin` (or `edit-4-80-b-50Hz.901474-04_.bin`) | `kernal-4.901465-22.bin` | `characters.901640-01.bin` (4,096 bytes; the upper half is the Waterloo set of the 6809) |
 
 11.19.2 Sizes: BASIC 8,192 bytes (12,288 for BASIC 4, the models 4032 and up), editor 2,048, KERNAL 4,096, characters 2,048 (a 4,096-byte file gives its first 2,048). The core holds until a file of each role is there; the file of the chosen model is looked up again at the start and a missing one is named.
 
@@ -305,7 +307,7 @@ made.
 
 11.19.4 Media: `.prg` and `.p00` (`Load`, `Load + run`), `.d64` (4040), `.d80` and `.d82` (8250) (`Mount in Drive 8`, `Mount in Drive 8.1`, `Run Disk`), `.tap` (`Insert tape`, `Insert tape and play`). Home slots: `Program`, `Drive 8`, `Drive 8.1`, `Tape`.
 
-11.19.5 Settings (F5): `Model` (`2001`, `3032`, `4032`, `8032`, `8096`, `SuperPET`; default `4032`, at next reset), `CPU speed` (`x1` to `x8`; live), `Diag` (`Off`, `On (DIAG jumper)`; at next reset), `Picture rate` (`60 Hz`, `50 Hz`; live), `Phosphor` (`Green`, `Amber`, `White`; live), `RAM` (`8 KiB`, `16 KiB`, `32 KiB`; default `32 KiB`, at next reset), `Drive`, `Datasette port` (11.1.15) and, only while the model is the SuperPET, `SPCPU` (`6502`, `6809`, `Program ($EFF8)`; default `6502`, at next reset). F7: `Reset`, `Reload ROMs, reset`, `Tape: Play`, `Tape: Stop`, `Tape: Rewind`, `Tape: Eject`.
+11.19.5 Settings (F5): `Model` (`2001`, `3032`, `4032`, `8032`, `8096`, `SuperPET`, `2001 + BASIC 2`; default `4032`, at next reset; the plain 2001 keeps BASIC 1 and cannot use the disk drive, as the original), `CPU speed` (`x1` to `x8`; live), `Diag jumper` (`Off`, `On`; at next reset; the .cfg key stays `Diag (at next reset)`, an old `On (DIAG jumper)` still reads as On), `Picture rate` (`60 Hz`, `50 Hz`; live), `Phosphor` (`Green`, `Amber`, `White`; live), `RAM` (`8 KiB`, `16 KiB`, `32 KiB`; default `32 KiB`, at next reset; listed for the 2001, 3032 and 4032 only), `Drive`, `Datasette port` (11.1.15) and, only while the model is the SuperPET, `SuperPET CPU` (`6502`, `6809`, `Program ($EFF8)`; default `6502`, at next reset) and `SuperPET RAM` (`32 KiB`, `96 KiB`: the 64 KiB bank RAM beside the 32 KiB; default 96 KiB, at next reset). In the Input tab: `Keyboard mapping` (`Symbolic`: the key legend counts, `Positional`: the PET key at the same place; default Symbolic; live), `Pad / joystick up`, `down`, `left`, `right`, `fire` (the C64 key a USB pad or joystick button presses; default 8, 2, 4, 6, Space; live) and `Pad map` (`Default`, `Custom`). F7: `Reset`, `Reload ROMs, reset`, `Tape: Play`, `Tape: Stop`, `Tape: Rewind`, `Tape: Eject`, `Map buttons, pad 1`, `Map buttons, pad 2`.
 
 ## 11.20 C64 with SuperCPU (not in a release)
 

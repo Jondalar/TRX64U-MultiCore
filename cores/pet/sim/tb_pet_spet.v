@@ -1,3 +1,4 @@
+// T216 P6 adds mode 2 (96 KiB: sixteen banks) and mode 3 (32 KiB: no bank RAM).
 // T134 Q13: the SuperPET board. mode 0: the CPU switch says 6809; a synthetic program in the Waterloo ROM area (no Waterloo byte in git) banks the
 // $9000 window, writes the screen RAM, reads the ROM at $A000 / $E010, the dongle and the ACIA, write protects the RAM. mode 1: PROG: the 6502 unlocks the
 // control register and hands over to the 6809 through $EFF8 b0.
@@ -19,7 +20,7 @@ module tb_pet_spet;
     reg  [16:0] cw_addr = 0; reg [7:0] cw_wdata = 0; reg cw_we = 0, cw_re = 0;
     pet_core dut (
         .sys_clk(sys_clk), .sys_rst(sys_rst), .cpu_clk(cpu_clk), .mclk(mclk), .ui_clk(ui_clk), .ui_rst(ui_rst), .reset_req(1'b0), .halt_req(1'b0),
-        .halted(halted), .running(running), .keys(keys),
+        .halted(halted), .running(running), .keys(keys), .joy1(5'd0), .joy2(5'd0),
         .dma_req_tgl(1'b0), .dma_addr(16'd0), .dma_we(1'b0), .dma_wdata(8'd0), .dma_rom(1'b0), .dma_done_tgl(dma_done_tgl), .dma_rdata(dma_rdata), .dbg_busy(1'b0),
         .win_port_use(win_port_use), .win_port_addr(win_port_addr), .win_port_rom(win_port_rom), .win_port_we(win_port_we), .win_port_wdata(win_port_wdata),
         .port_req(1'b0), .port_addr(16'd0), .port_rom(1'b0), .port_we(1'b0), .port_wdata(8'd0), .ram_rdata(ram_rdata),
@@ -90,6 +91,27 @@ module tb_pet_spet;
     lda(16'h9000); sta(16'h0209);
     ldai(8'hA5); sta(16'h020A);
     w9(8'h20); w9(8'hFE);
+        end else if (mode >= 2) begin
+            // T216 P6: the 96 KiB. mode 2: all sixteen 4 KiB banks behind $9000 keep their own bytes (first and last byte of each); mode 3: SuperPET RAM = 32 KiB, the ROM is behind $9000 and the write goes nowhere
+            p9 = 16'hF000;
+            if (mode == 2) begin
+                for (i = 0; i < 16; i = i + 1) begin
+                    ldai(8'h80 | i[7:0]); sta(16'hEFFC);
+                    ldai(8'h40 + i[7:0]); sta(16'h9000);
+                    ldai(8'hA0 + i[7:0]); sta(16'h9FFF);
+                end
+                for (i = 0; i < 16; i = i + 1) begin
+                    ldai(8'h80 | i[7:0]); sta(16'hEFFC);
+                    lda(16'h9000); sta(16'h0220 + i[15:0]);
+                    lda(16'h9FFF); sta(16'h0240 + i[15:0]);
+                end
+            end else begin
+                ldai(8'h80); sta(16'hEFFC);
+                ldai(8'h77); sta(16'h9000);
+                lda(16'h9000); sta(16'h0220);
+            end
+            ldai(8'hA5); sta(16'h0200);
+            w9(8'h20); w9(8'hFE);
         end else begin
     pc = 16'hF000;
     emit(8'h78); emit(8'hD8); emit(8'hA2); emit(8'hFF); emit(8'h9A);
@@ -105,7 +127,8 @@ module tb_pet_spet;
         end
         cw(12'h0A1, 8'd5);
         cw(12'h0A7, 8'd2);
-        cw(12'h0AA, mode == 0 ? 8'd1 : 8'd2);
+        cw(12'h0AA, mode == 1 ? 8'd2 : 8'd1);
+        if (mode == 3) cw(12'h0AE, 8'd0);
         #100 sys_rst = 0; ui_rst = 0;
         #1500000;
         if (mode == 0) begin
@@ -115,6 +138,13 @@ module tb_pet_spet;
             chk(16'h020B, 8'hD6, "dongle step 1"); chk(16'h020C, 8'h56, "dongle step 2"); chk(16'h020D, 8'h46, "dongle step 3");
             chk(16'h0208, 8'h33, "RAM write protect"); chk(16'h0209, 8'hEA, "ROM back at $9000"); chk(16'h020A, 8'hA5, "marker");
             if (dut.mem.vram.mem[0] !== 8'h01) begin $display("FAIL video RAM byte %h", dut.mem.vram.mem[0]); errs = errs + 1; end
+        end else if (mode == 2) begin
+            chk(16'h0200, 8'hA5, "marker");
+            for (i = 0; i < 16; i = i + 1) begin
+                chk(16'h0220 + i, 8'h40 + i, "bank first byte"); chk(16'h0240 + i, 8'hA0 + i, "bank last byte");
+            end
+        end else if (mode == 3) begin
+            chk(16'h0200, 8'hA5, "marker"); chk(16'h0220, 8'hEA, "ROM behind $9000 at 32 KiB");
         end else begin
             chk(16'h0200, 8'hA5, "6502 ran first"); chk(16'h0201, 8'h09, "6809 took over"); chk(16'h0202, 8'h5A, "6809 reads Waterloo");
             chk(16'h0203, 8'h00, "6502 stopped");

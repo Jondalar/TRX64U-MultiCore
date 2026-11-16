@@ -20,6 +20,7 @@ static void add(MenuTree *t, EntryKind k, const char *label, int index)
         t->e[t->n].kind = k;
         t->e[t->n].label = label;
         t->e[t->n].index = index;
+        t->e[t->n].dialog = false;
         t->n++;
     }
 }
@@ -239,6 +240,7 @@ void menu_build(const CoreDesc *d, MenuTree *t, bool return_host, bool reload_co
             }
             bool nodes_done = false;
             const MenuGroupRoute *page_route = 0;                       // set when a row of this tab opens a page (T187 D2)
+            int opens_index = -1;
             switch (st.widget) {
             case TW_INFO:
                 if (st.groups) {                                             // a description names the lines of this tab (descrec.h), in its order
@@ -309,8 +311,8 @@ void menu_build(const CoreDesc *d, MenuTree *t, bool return_host, bool reload_co
                 auto add_routed = [&](int i, const MenuGroupRoute *r) {
                     if (r->page) {                                           // T187 D2: one row opens the page; the page is a tab of its own after this one
                         if (!page_route) {
-                            page_route = r;
-                            add(t, EK_OPENS, r->label, i);
+                            page_route = r;                                  // T216 D12: the row that opens the page stands last in the tab, after the task rows
+                            opens_index = i;
                         }
                     } else {
                         add(t, EK_SETTING, d->settings[i].label ? d->settings[i].label : d->settings[i].key, i);
@@ -345,7 +347,13 @@ void menu_build(const CoreDesc *d, MenuTree *t, bool return_host, bool reload_co
                 for (int i = 0; i < d->ntasks; i++) {
                     if (task_in_settings_tab(sk, st, d->tasks[i].group)) {
                         add(t, EK_TASK, d->tasks[i].label, i);
+                        if (t->n > 0 && t->e[t->n - 1].kind == EK_TASK && t->e[t->n - 1].index == i) {
+                            t->e[t->n - 1].dialog = true;                    // T216 D11
+                        }
                     }
+                }
+                if (page_route) {
+                    add(t, EK_OPENS, page_route->label, opens_index);
                 }
                 break;
             }

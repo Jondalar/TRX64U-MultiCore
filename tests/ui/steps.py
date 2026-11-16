@@ -214,6 +214,12 @@ def i_press_n(c, key, n):
         c.press(key)
 
 
+@step(r'I wait (\d+) ms')
+def i_wait_ms(c, n):
+    """Emulated milliseconds without the UI service (a core that holds at boot with a message: no state to wait on)."""
+    c.emu.wait(int(n))
+
+
 @step(r'I save the picture "([^"]+)"')
 def i_save_picture(c, name):
     """The emulator's screen as a PNG (tests/ui/out/NAME.png): for the person who looks at the page; nothing is asserted on pixels."""

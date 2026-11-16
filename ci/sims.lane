@@ -42,6 +42,8 @@ c264_colors: large:c264
 c264_tedsnd: large:c264
 pet_boot: large:pet
 pet_spet: large:pet
+pet_keys: large:pet
+pet_wl: large:pet
 pet_tape: large:pet
 eth: host
 pktport: host

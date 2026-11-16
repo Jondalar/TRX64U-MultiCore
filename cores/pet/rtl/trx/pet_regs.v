@@ -16,6 +16,8 @@
 //   0A7 RAMSZ    RW   b1:0 CPU RAM below $8000: 0 8 KiB, 1 16 KiB, 2 or 3 32 KiB (taken at the core's next reset, like MODEL; the 8096's extra 64 KiB comes with MODEL 4)
 //   0A8-0A9 FRAMES    R   PET frame counter (low 16 bits)
 //   0AA SP_CPU   RW   b1:0 the SuperPET's CPU switch: 0 6502, 1 6809, 2 PROG (6502 at reset, the program switches through $EFF8 b0); taken at the core's next reset, like MODEL
+//   0AB KEYMODE RW   b0 the keyboard mapping (T216 P10): 0 symbolic (the C64 key legend counts), 1 positional (the PET key at the same place); live
+//   0AE SP_RAM  RW   b0 the SuperPET has its 64 KiB bank RAM (96 KiB with the 32 KiB below $8000, T216 P6) or not (32 KiB: ROM behind $9000); taken at the core's next reset
 //   0AC-0AD CPUADDR   R   the CPU's address bus (a sample, read twice to be sure)
 //   0B0 ROM_SEL  RW   b3:0 what is behind the app's 16 KB aperture: 3 the Waterloo ROM $A000-$DFFF (SuperPET, 16 KB), 8 the Waterloo ROM $E000-$FFFF (8 KB), 0 ROM space $8000-$BFFF, 1 ROM space $C000-$FFFF, 2 character ROM (2 KB), 4 / 5 the 4040 drive's DOS (0x1000-0x3FFF of the first half, a 12 KB DOS goes to 0x1000) / controller ROM (first 2 KB of the second half),
 //                    6 / 7 the same for the 8250 (16 KB DOS at 0); write only
@@ -37,6 +39,8 @@
 //   150 TAPE_STATUS R b0 playing, b1 end of tape, b2 stop marker, b3 DDR2 read stuck   151 TAPE_UNDERRUN R
 //   152 TAPE_PIN RW  b0 motor pin driven, b1 write pin driven, b3 SENSE pulled low while the tape plays (the pins are released at 0), b4 the datasette's READ and SENSE pins are the PET's inputs
 //   153 TAPE_LINES R  the PET side of the port: b0 motor on (PIA1 CB2 low), b1 SENSE low (PA4), b2 READ line (PIA1 CA1), b3 WRITE line (VIA PB3)
+//   160-161 PAD1, 162-163 PAD2 RW   the USB pads' button words (T156 service, T216 P4): b0 up, b1 down, b2 left, b3 right, b4 fire; low byte first
+//   164-168 PADKEY0-4 RW   the C64 key each of the five buttons presses (b5:0 the key's matrix bit col*8+row, b6 with C64 SHIFT, 0xFF none); the joystick ports 1 and 2 act as pads too
 //   page 6 (0x6000-0x6FFF)   forwarded to the host's pixel layer (px_we, px_re, px_rdata)
 //   everything else reads 0 and is acknowledged; the EEPROM window (addr[16]) is not here.
 `timescale 1ns / 1ps
@@ -67,6 +71,11 @@ module pet_regs (
     output wire [1:0]  ram_sz,
     output wire [3:0]  rom_sel,
     output wire [1:0]  sp_cpu,
+    output wire        keymode,
+    output wire        sp_ram,
+    output wire [15:0] pad1,
+    output wire [15:0] pad2,
+    output wire [39:0] padkey,
     output wire [31:0] fb_base,
     output wire [31:0] fb_stride,
     input  wire [7:0]  status,
@@ -106,6 +115,9 @@ module pet_regs (
     reg [1:0]  ramsz_r = 2'd2;
     reg [3:0]  sel_r = 4'd0;
     reg [1:0]  spcpu_r = 2'd0;
+    reg        keymode_r = 1'b0, spram_r = 1'b1;
+    reg [15:0] pad1_r = 16'd0, pad2_r = 16'd0;
+    reg [39:0] padkey_r = {5{8'hFF}};
     reg [31:0] base_r = 32'h01D00000;
     reg [31:0] stride_r = 32'h00100000;
     reg [7:0]  irq_en = 8'd0, cause = 8'd0;
@@ -152,6 +164,11 @@ module pet_regs (
     assign ram_sz = ramsz_r;
     assign rom_sel = sel_r;
     assign sp_cpu = spcpu_r;
+    assign keymode = keymode_r;
+    assign sp_ram = spram_r;
+    assign pad1 = pad1_r;
+    assign pad2 = pad2_r;
+    assign padkey = padkey_r;
     assign fb_base = base_r;
     assign fb_stride = stride_r;
     assign ack = ack_r;
@@ -192,6 +209,17 @@ module pet_regs (
                 12'h0A6: phos_r <= wdata[1:0];
                 12'h0A7: ramsz_r <= wdata[1:0];
                 12'h0AA: spcpu_r <= wdata[1:0];
+                12'h0AB: keymode_r <= wdata[0];
+                12'h0AE: spram_r <= wdata[0];
+                12'h160: pad1_r[7:0] <= wdata;
+                12'h161: pad1_r[15:8] <= wdata;
+                12'h162: pad2_r[7:0] <= wdata;
+                12'h163: pad2_r[15:8] <= wdata;
+                12'h164: padkey_r[7:0] <= wdata;
+                12'h165: padkey_r[15:8] <= wdata;
+                12'h166: padkey_r[23:16] <= wdata;
+                12'h167: padkey_r[31:24] <= wdata;
+                12'h168: padkey_r[39:32] <= wdata;
                 12'h0B0: sel_r <= wdata[3:0];
                 12'h0C4: base_r[7:0] <= wdata;
                 12'h0C5: base_r[15:8] <= wdata;
@@ -274,6 +302,17 @@ module pet_regs (
                 12'h0AC: q <= c_q[7:0];
                 12'h0AD: q <= c_q[15:8];
                 12'h0AA: q <= {6'd0, spcpu_r};
+                12'h0AB: q <= {7'd0, keymode_r};
+                12'h0AE: q <= {7'd0, spram_r};
+                12'h160: q <= pad1_r[7:0];
+                12'h161: q <= pad1_r[15:8];
+                12'h162: q <= pad2_r[7:0];
+                12'h163: q <= pad2_r[15:8];
+                12'h164: q <= padkey_r[7:0];
+                12'h165: q <= padkey_r[15:8];
+                12'h166: q <= padkey_r[23:16];
+                12'h167: q <= padkey_r[31:24];
+                12'h168: q <= padkey_r[39:32];
                 12'h0B0: q <= {4'd0, sel_r};
                 12'h0C0: q <= l_q;
                 12'h0C1: q <= n_q;
