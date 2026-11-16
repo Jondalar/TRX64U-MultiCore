@@ -1,6 +1,6 @@
 # T229 — The boot menu's table is cached like its picture: complete at the first frame, checked against the files in the background
 
-**Status:** PROPOSED (2026-11-16). Nothing built; every §3 item is a proposal, Alex decides (one question at a time, §3a).
+**Status:** DECIDED (2026-11-16): Q1-Q6 answered by Alex, in the coming release. Build order: S1 measurement (startlog) and the row cache (D1-D10), the build phase after S1's board numbers.
 **Repo:** TRX64U-MultiCore — host application (`host-app/software/hostapp/`, `tests/hostapp/`). No gateware.
 **Number:** T229.
 **Origin:** Alex, 2026-11-16 (translated): "About the boot menu ... can it not be faster still? If we put the table (currently 16 lines)
@@ -193,9 +193,9 @@ Scenario: S9 on the board, end to end
    (the start check catches it), in exchange for no opens and no hashes in the background?
 3. **Q3: answered 2026-11-16 (Alex): file on Flash beside the picture ("Flash, next to the picture (recommended)", D3 holds); config count by a stat of the `configs/` directory's mtime ("stat on the folder (recommended)").** Question was: **Cache file on `Flash:` (D3), and the config count with a stat of the `configs/` directory's mtime or cached until the
    next verify of its core?**
-4. **Q4 The bound X for a unit between key checks:** 100 ms to start with, then set from S1?
-5. **Q5 The migration (whole-file hash of an entry without mtime):** chunked with key checks, or left behind 1500 ms of quiet as today?
-6. **Q6 Rows out of view:** verified only when they scroll in (T223 D2), or all cached entries are stat-checked in the background?
+4. **Q4: answered 2026-11-16 (Alex, "100 ms, adjust after the measurement (recommended)").** Question was: **The bound X for a unit between key checks:** 100 ms to start with, then set from S1?
+5. **Q5: answered 2026-11-16 (Alex, "as today after 1.5 s of quiet"): the migration stays as it is.** Question was: **The migration (whole-file hash of an entry without mtime):** chunked with key checks, or left behind 1500 ms of quiet as today?
+6. **Q6: answered 2026-11-16 (Alex, "all in the background (recommended)"): after the visible rows every other cached entry is stat-checked.** Question was: **Rows out of view:** verified only when they scroll in (T223 D2), or all cached entries are stat-checked in the background?
 
 ## §4 Out (nothing here decided yet; Alex fills it)
 
