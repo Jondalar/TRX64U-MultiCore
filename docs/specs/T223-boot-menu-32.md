@@ -127,3 +127,4 @@ The red fast tier came from T224 code (compile error in `test_settings.cc`, miss
 - Render bench: its row expectations are built from `HcEntryRow.ver` itself and its fixtures carry no `-dev+` version, so no golden line changes; the emu flow `tests/hostapp/emu_host.sh` packs a `0.3.0-dev+85acf2b0` Amiga: it now shows `0.3.0` in the row, and the pipeline flags it if that flow reads the row text.
 - `tools/dev.sh riscv --branch t223-d7`: ok.
 - D7 follow-ups (Alex 2026-11-16): badge letters L / P ("L arge and P artial, yes"); pictogram at the far right edge after version and badge ("The tick pictograms at the far right edge", picture A); the letter centred in its square.
+- Board 2026-11-16 (package main-6970d2f6, host update applied): D7 PASS - version x.y.z only, L/P square centred, tick at the far right edge (Alex: "all 5 ok", board test list 11-16, test 1).
