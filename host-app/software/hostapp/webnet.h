@@ -32,7 +32,7 @@ bool webnet_ui_done(UicClient *c);
 // One WebSocket connection. `hello` is queued for the client as the first notification; a method call `hello` answers the same facts.
 struct WebnetWs {
     bool hello_sent;
-    char app[24], build[32], host_key[12];       // taken when the connection opens
+    char app[24], build[32], host_key[12], host_ver[24];       // taken when the connection opens
 };
 void webnet_ws_open(WebnetWs *w);
 int webnet_ws_handle(WebnetWs *w, const char *msg, int n, char *out, int cap);

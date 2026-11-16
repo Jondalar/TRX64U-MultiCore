@@ -334,6 +334,7 @@ LIBS   += ../../../libs/riscv/lvgl/result/liblvgl.a
 LFLAGS   = --gc-sections --wrap=outbyte --wrap=malloc --wrap=_malloc_r --wrap=free --wrap=_free_r --wrap=realloc --wrap=_realloc_r --wrap=calloc --wrap=_calloc_r
 LINKMETHOD = ld
 
+VERSION_COMPONENT = coreapp          # T221: ci/version.sh <component> names the SemVer file the TRXVSTAMP field starts from
 include ../../../common/rules.mk
 
 # the hash loop of Reload core (partial.cc) reads the whole partial bitstream: as in the host app

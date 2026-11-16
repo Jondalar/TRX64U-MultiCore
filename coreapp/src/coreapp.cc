@@ -71,7 +71,7 @@ extern "C" void ultimate_main(void *a)
 {
     hw_read_id((uint8_t *)raw_id);                // before the init functions: the RTC asks trx_io_caps() there, which would cache "no block" for an ID other than TRX2
     trx_io_alt_id = raw_id;
-    printf("\n*** TRX64 core application %s (%s) ***\n", APP_VERSION_HASH, APP_BUILD_DATE);
+    printf("\n*** TRX64 core application %s (%s) ***\n", APP_VERSION_STRING, APP_BUILD_DATE);
     printf("*** FPGA Capabilities: %8x ***\n\n", getFpgaCapabilities());
     STARTLOG("phase main: the scheduler runs, the app starts");
     puts("Executing init functions.");

@@ -41,6 +41,10 @@ struct Handover {
     // ---- after the config (T224 D2, 2026-11-15): "start with safe graphics" - the core application takes Picture Auto, Scale Integer, Smoothing Off for this start and writes none of
     // them. Outside handover_sum() and every earlier check word like the config: older readers ignore it, a block of an older host has none. Read it with handover_safe() only.
     uint32_t safe_sum;            // handover_safe_sum(): mixed with `sum` and `id_sum`; 0 = not asked
+    // ---- after the config (T221, 2026-11-15): the host gateware's SemVer, so the core application can name the host in its bug report and REST info. Outside
+    // handover_sum() and every earlier check word like the config: older readers ignore it, a block of an older host has none. Read it with handover_host_version().
+    uint32_t hostver_sum;         // handover_hostver_sum(): the string mixed with `sum` and `id_sum`; 0 = none
+    char host_version[24];        // "0.2.0" or "0.2.0-dev+1a2b3c4d"
 };
 #define HANDOVER_CONFIG_MAX 32    // T198 D11: a config name is at most 32 characters; the field holds 47
 
@@ -72,6 +76,9 @@ bool handover_time(const Handover *h, int *year, int *mon, int *day, int *hour, 
 // and returns false. handover_config() gives it back, "" when the block carries none, the check does not hold (noise, a block of an older host) or the bytes are not a
 // terminated name: never a wrong name, the core then starts plain.
 bool handover_set_config(Handover *h, const char *name);
+// T221: the host gateware SemVer into a filled block / out of it ("" when the block carries none or the check does not hold)
+bool handover_set_host_version(Handover *h, const char *version);
+const char *handover_host_version(const Handover *h);
 const char *handover_config(const Handover *h);
 
 // T224 D2: asks for the safe graphics start (handover_safe() gives it back; false for a block that carries none, whose check does not hold, or that was never asked).

@@ -76,7 +76,7 @@ for c in "${CORES[@]}"; do
     if [ ! -s "$part" ]; then echo "    $c: no partial in this package, skipped"; continue; fi
     if [ ! -s "$app" ]; then echo "    $c: no $c.app in $APPDIR, skipped"; continue; fi
     name="$(python3 "$HERE/core_toml.py" get "$c" name)"
-    ver="$(python3 "$HERE/core_toml.py" get "$c" version)"
+    ver="$("$ROOT/ci/version.sh" with "$(python3 "$HERE/core_toml.py" get "$c" version)")"   # T221 D3: x.y.z-dev+<sha8> on a branch build, x.y.z on a release
     # T114: the core's logo (cores/<id>/logo/icon.rgb565) rides in the bundle as record 4; a core
     # without one is packed without an icon and the boot menu shows its text tile.
     icon=()

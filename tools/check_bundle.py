@@ -11,10 +11,10 @@ What it asserts, from the files and not from their names:
   - the two host bitstreams (c64_basic.bit, null_full.bit): the same design (header: design name, part XC7A50T) and the same host key (AXSS),
     and that key is the one the manifest names (layers.host.host_key)
   - the .txu: parses and verifies (txu_pack), host part == null_full.bit, app part == hostapp.app, host key == AXSS of null_full.bit,
-    version field == <branch cut to 14>-<sha8>, commit == the manifest's trx64_commit
+    version field == the bundle version of manifest.json (T221 D17), commit == the manifest's trx64_commit
   - the .cfw and the .ue2 (both must exist): tools/trx_pkg_check.py with the bitstream and app (byte-equal, CRC, CHK, AXSS, app record), the
     manifest id of the package names the same <sha8> as the manifest.json
-  - the host app: the version it carries (TRXVSTAMP field) is the manifest.json version, every field
+  - the host app: the versions it carries are the manifest.json ones: TRXVSTAMP = parts.host_menu, TRXHSTAMP = parts.host_gateware, TRXBSTAMP = version, every field
 Exit 0 when everything holds, 1 with one line per fault.
 """
 import glob
@@ -109,9 +109,18 @@ def check(dirs):
         err("hostapp.app: %s" % e)
     if not vers:
         err("hostapp.app carries no TRXVSTAMP version field")
+    parts = man.get("parts") or {}
+    for k in ("host_gateware", "host_menu", "core_app"):
+        if not parts.get(k):
+            err("manifest.json parts has no %s (T221 D6)" % k)
     for v in vers:
-        if v != man["version"]:
-            err("hostapp.app shows version '%s', the package is '%s'" % (v, man["version"]))
+        if v != parts.get("host_menu"):
+            err("hostapp.app shows version '%s', the host menu of the package is '%s'" % (v, parts.get("host_menu")))
+    # T221: the host gateware version of the "host" chip and the bundle version ride in the same image
+    for mark, want, what in ((b"TRXHSTAMP:", parts.get("host_gateware"), "host gateware"), (b"TRXBSTAMP:", man["version"], "bundle")):
+        got = S.read(app, mark)
+        if not got or any(v != want for v in got):
+            err("hostapp.app shows %s version %s, the package says %s" % (what, got, want))
 
     # the .txu
     txus = find(dirs, "trx64host_update_*.txu")
@@ -134,7 +143,7 @@ def check(dirs):
             err(".txu: app part is not hostapp.app")
         if ax is not None and m["host_key"] != ax:
             err(".txu: host key %08x, null_full.bit %08x" % (m["host_key"], ax))
-        want = "%s-%s" % (man["branch"][:14], sha8)
+        want = man["version"]                      # T221 D17: the .txu carries the bundle version
         if m["version"] != want:
             err(".txu: version '%s', expected '%s'" % (m["version"], want))
         if not man["trx64_commit"].startswith(m["commit"]):
@@ -163,20 +172,22 @@ def check(dirs):
 def _fixture(root, branch="t172", sha="0123456789abcdef0123456789abcdef01234567", ver=None):
     import test_cor_pack as TC
     sha8 = sha[:8]
-    ver = ver or "%s@%s" % (branch, sha8)
+    ver = ver or "0.2.0-dev+%s" % sha8
     bit = TC.full_bit(frames=3000)
     base = TC.full_bit(frames=3200)          # another image of the same host: same design, part and key
-    app = struct.pack("<III", 0x30000, 70000, 0x30000) + (b"TRXVSTAMP:" + b"\0" * 54).ljust(70000, b"\x5a")
+    app = struct.pack("<III", 0x30000, 70000, 0x30000) + (b"TRXVSTAMP:" + b"\0" * 54 + b"TRXHSTAMP:" + b"\0" * 54 + b"TRXBSTAMP:" + b"\0" * 54).ljust(70000, b"\x5a")
     app, _ = S.stamp(app, ver)
+    app, _ = S.stamp(app, ver, b"TRXHSTAMP:")
+    app, _ = S.stamp(app, ver, b"TRXBSTAMP:")
     os.makedirs(root, exist_ok=True)
     files = {"null_full.bit": bit, "c64_basic.bit": base, "hostapp.app": app}
     for n, b in files.items():
         open(os.path.join(root, n), "wb").write(b)
-    man = {"trx64_commit": sha, "branch": branch, "version": ver,
+    man = {"trx64_commit": sha, "branch": branch, "version": ver, "parts": {"host_gateware": ver, "host_menu": ver, "core_app": ver, "cores": {}},
            "layers": {"host": {"host_key": "%08x" % P.axss(bit) + "00000000"}},
            "files": {n: {"sha256": hashlib.sha256(b).hexdigest(), "size": len(b)} for n, b in files.items()}}
     json.dump(man, open(os.path.join(root, "manifest.json"), "w"))
-    open(os.path.join(root, "trx64host_update_%s.txu" % sha8), "wb").write(X.pack(bit, app, "%s-%s" % (branch[:14], sha8), sha[:15]))
+    open(os.path.join(root, "trx64host_update_%s.txu" % sha8), "wb").write(X.pack(bit, app, ver, sha[:15]))
     code = bytes(range(256)) * 4
     blobs = P.build_blobs(bit, app, "%s-%s" % (branch, sha8), sha[:15], sha[:15])
     img = code + blobs

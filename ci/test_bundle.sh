@@ -19,7 +19,7 @@ int main() { printf("%s\n", APP_VERSION_STRING); return 0; }
 EOF
 cc -O2 -c -I"$W/out" -o "$W/gitinfo.o" "$W/out/gitinfo.c" && c++ -O2 -I"$W/out" -o "$W/probe" "$W/probe.cc" "$W/gitinfo.o"
 built="$("$W/probe")"
-[ "$built" = "$(ci/version.sh)" ] || fail "the build-time string '$built' is not ci/version.sh"
+[ "$built" = "$(ci/version.sh hostapp)" ] || fail "the build-time string '$built' is not ci/version.sh hostapp"
 cp "$W/probe" "$W/cached"                        # "the cache entry": built by an earlier commit, version old
 python3 -I tools/stamp_version.py stamp "$W/probe" --version "t164@774497b1" >/dev/null
 [ "$(uname)" != Darwin ] || codesign -f -s - "$W/probe" 2>/dev/null   # a patched Mach-O loses its signature; the RISC-V image has none

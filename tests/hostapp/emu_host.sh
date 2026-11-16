@@ -21,6 +21,13 @@ kit="$(ue2emu_kit)" || skip "no emulator kit (UE2EMU_KIT, tools/ue2emu_kit.sh)"
 [ -f "$kit/cors/vc20.cor" ] && [ -f "$kit/profiles/VIC-20.toml" ] || skip "kit $kit has no cors/vc20.cor or profiles/VIC-20.toml"
 "$UE2EMU" run --help >/dev/null 2>&1 || skip "no emulator ($UE2EMU)"
 mkdir -p "$out"; out="$(cd "$out" && pwd -P)"; img="$(cd "$img" && pwd -P)"
+# T221: the images of a dev build carry no version (no git in the build container); the package stamps them (ci/package.sh), so the flows run on stamped copies, the pictures show real strings
+mkdir -p "$out/img"; cp "$img/hostapp_emu.elf" "$img/coreapp.elf" "$img/coreapp.app" "$out/img/"
+for fld in "TRXVSTAMP hostapp" "TRXHSTAMP host" "TRXBSTAMP bundle"; do
+    python3 -I "$ROOT/tools/stamp_version.py" stamp "$out/img/hostapp_emu.elf" --marker "${fld% *}" --version "$("$ROOT/ci/version.sh" "${fld#* }")" >/dev/null || skip "cannot stamp ${fld% *} into hostapp_emu.elf"
+done
+python3 -I "$ROOT/tools/stamp_version.py" stamp "$out/img/coreapp.elf" "$out/img/coreapp.app" --version "$("$ROOT/ci/version.sh" coreapp)" >/dev/null || skip "cannot stamp coreapp"
+img="$out/img"
 FAIL=0
 
 # nav: past the countdown, F3, USB0, into cores (the list is .., vc20/, vc20.cor), the .cor, S = start; back: the hotkey, RESTORE, F8 System (first focus Restart core), one down to Return to host menu (T187 D8)
@@ -78,7 +85,7 @@ run_pic() {
     pic_flow > "$w/flow.ctl"
     cp "$kit/flash.bin" "$out/pic-flash.bin"
     ( cd "$w" && nice -n 15 timeout 300 "$UE2EMU" run --board c64u --trx-io=on --icap --cor-dir "$w/cors" --core-dir "$w/profiles" --firmware "$img/hostapp_emu.elf" \
-        --roms "$kit/roms" --flash "$out/pic-flash.bin" --usb-dir "$w/stick" --usb-dir-work "$w/usbwork" --headless --speed max --script "$w/flow.ctl" \
+        --roms "$kit/roms" --flash "$out/pic-flash.bin" --usb-dir "$w/stick" --usb-dir-work "$w/usbwork" --headless --speed max ${EMU_SCREEN:+--screen $EMU_SCREEN} --script "$w/flow.ctl" \
         --max-seconds 280 > "$out/pic.log" 2>&1 )
     local rc=$?
     rm -rf "$w" "$out/pic-flash.bin"
@@ -137,6 +144,41 @@ run_cfg_flow() {
     rm -rf "$w" "$out/cfg-flash.bin"
     return $rc
 }
+# T221: where a version is shown on the host: the boot menu list (a small and a large core, both with their SemVer), the chips (host, app), and the update ask of a
+# .txu (its bundle version, and the warning when it is older than the running bundle). The stick carries vc20.cor, a large amiga1200.cor and an app-only .txu of
+# an older bundle (0.1.0); A on each .cor adds it, F1 shows the list, the .txu opens the ask (nothing is written: the flow quits at the question).
+semver_flow() { printf 'wait 2000\npng %s/semver-splash1.png\nwait 3000\npng %s/semver-splash2.png\nwait 10000\n' "$out" "$out"; printf 'key space\nwait 800\nkey f3\nwait 1500\nkey down\nwait 500\nkey down\nwait 500\nkey return\nwait 2000\n'
+                printf 'key down\nwait 500\nkey return\nwait 2000\nkey down\nwait 500\nkey a\nwait 12000\nkey down\nwait 500\nkey down\nwait 500\nkey a\nwait 3000\npng %s/semver-dbg.png\nwait 12000\n' "$out"   # the bundle check (SHA-256) takes its time
+                printf 'key f1\nwait 2000\npng %s/semver-list.png\n' "$out"
+                printf 'key f3\nwait 2000\nkey up\nwait 800\npng %s/semver-update-sel.png\nkey u\nwait 8000\npng %s/semver-update.png\nquit\n' "$out" "$out"; }
+run_semver() {
+    local w="$out/work-semver"
+    rm -rf "$w"; mkdir -p "$w/cors" "$w/profiles" "$w/stick/cores"
+    cp "$kit/cors/vc20.cor" "$w/stick/cores/"
+    python3 -I - "$ROOT/tools" "$w/stick/cores" <<'PY' || return 1
+import struct, sys
+sys.path.insert(0, sys.argv[1])
+import cor_pack as C, test_cor_pack as TC, txu_pack as X
+d = sys.argv[2]
+open(d + "/amiga1200.cor", "wb").write(C.pack_large("amiga1200", "Amiga 1200 (AGA)", "0.3.0-dev+85acf2b0", TC.full_bit(frames=2000), b"\x13" * 4096))
+app = b"\x5a" * 4096
+open(d + "/update_old.txu", "wb").write(X.pack(app=struct.pack("<III", 0x30000, len(app), 0x30000) + app, version="0.1.0-dev+0123abcd", commit="0123abcd0123abc"))
+PY
+    semver_flow > "$w/flow.ctl"
+    cp "$kit/flash.bin" "$out/semver-flash.bin"
+    ( cd "$w" && nice -n 15 timeout 300 "$UE2EMU" run --board c64u --trx-io=on --icap --cor-dir "$w/cors" --core-dir "$w/profiles" --firmware "$img/hostapp_emu.elf" \
+        --roms "$kit/roms" --flash "$out/semver-flash.bin" --usb-dir "$w/stick" --usb-dir-work "$w/usbwork" --headless --speed max ${EMU_SCREEN:+--screen $EMU_SCREEN} --script "$w/flow.ctl" \
+        --max-seconds 280 > "$out/semver.log" 2>&1 )
+    local rc=$?
+    rm -rf "$w" "$out/semver-flash.bin"
+    return $rc
+}
+run_semver; rc=$?
+if [ $rc -ne 0 ]; then echo "FAIL T221 version flow: the emulator exited $rc (see $out/semver.log)"; FAIL=1
+elif [ ! -s "$out/semver-list.png" ] || [ ! -s "$out/semver-update.png" ] || cmp -s "$out/semver-list.png" "$out/semver-update.png"; then
+    echo "FAIL T221 version flow: the list and the update ask are not two different pictures"; FAIL=1
+else echo "PASS T221 version flow: list with small and large core versions, update ask (PNGs $out/semver-*.png)"; fi
+
 run_cfg_flow; rc=$?
 if [ $rc -ne 0 ]; then echo "FAIL T198 config overlay flow: the emulator exited $rc (see $out/cfg.log)"; FAIL=1
 elif ! grep -aq '^\[core\] config Charlie: /USB0/cores/vc20/configs/Charlie.cfg' "$out/cfg.log"; then

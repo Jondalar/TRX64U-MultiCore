@@ -63,6 +63,8 @@ struct TxuInfo {
 };
 
 // Reads and checks the header (no part bytes). *ci is filled as far as it got.
+// T221 D19: the bundle version the host runs ("" until the host app sets it), what an update file is compared with
+extern char txu_running_version[32];
 txu_result_t txu_probe(CorSource &src, TxuInfo *ci);
 
 // What the running system is, for the checks that come before the first erase.

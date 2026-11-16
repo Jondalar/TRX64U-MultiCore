@@ -7,14 +7,14 @@ read out of another core.
 | File | What it is |
 |---|---|
 | `layer2_ports.txt` | the 247 ports of the partition, generated from the reference core's `cores/c64ref/layer2_c64ref.v` by `tools/contract_ports.py` |
-| `VERSION` | the contract version, an integer. It rises when `layer2_ports.txt` changes |
+| `VERSION` | the contract version, an integer. It rises when `layer2_ports.txt` changes (still what a `.cor` carries and the boot ROM compares; T221 D12 folds it into the host gateware MAJOR, see `version.toml`, open) |
+| `version.toml` | the SemVer of the host gateware (T221 D5/D7), kept here and not under `host/` so that a bump does not move the host key |
 
 Rules:
 
 - Every `cores/<name>/layer2_<name>.v` has exactly these ports. `tools/contract_ports.py --check`
   compares them in the lint stage of the pipeline, so a core cannot drift from the host.
-- The contract version is the first part of the host version (`<contract>.<n>`, T94 Q3) and the
-  number a `.cor` carries: the boot ROM refuses a core built for another contract (T84 D3).
+- The contract version is the number a `.cor` carries: the boot ROM refuses a core built for another contract (T84 D3).
 - Changing the port list is a host change: it raises `VERSION`, invalidates every published core
   and rebuilds the whole matrix (T94 D5, Q6).
 

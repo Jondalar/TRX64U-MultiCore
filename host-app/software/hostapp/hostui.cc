@@ -652,7 +652,7 @@ static int in_menu(const char *path) { return hc_in_menu(path); }
 // only the labels, colours and flags whose value changed. No lv_obj_clean + recreate on the hot path: the host CPU
 // has no data cache (a load from DDR2 is ~0.4 us), so object creation and layout cost hundreds of ms
 // (T24-ui-project-review.md 2.3). No animations, no opacity, no shadows: solid colours only.
-#define CHIPS_W (COMPACT ? SW - 130 : 640)      // the header's chip holder, right aligned
+#define CHIPS_W (COMPACT ? SW - 130 : 770)      // the header's chip holder, right aligned
 #define CX0 (COMPACT ? 12 : 20)                 // content-relative geometry
 #define CW  (SW - NAV_W - 2 * CX0)
 #define CH  (SH - TOP_H - FOOT_H)
@@ -869,7 +869,7 @@ static void pic_init(void)
     }
 }
 static uint32_t pic_col(int g) { return g == HCP_OK ? PIC_GREEN : g == HCP_CHECK ? PIC_YELLOW : PIC_RED; }
-#define LROW_VER_W (COMPACT ? 96 : 104)           // the version's widest label ("1.0-rc1", "full firmware"); the label is as wide as its text (T209 D16)
+#define LROW_VER_W (COMPACT ? 96 : 150)           // the version's widest label ("0.3.0-dev+85acf2b0" of a test build, T221, cut to its SemVer at 480p so the name keeps its room; "full firmware"); the label is as wide as its text (T209 D16)
 #define RGRP_GAP 6                                // between the version and the pictogram
 // T209 D16: the width the version text takes (label width as set_txt would give it), 0 for none
 static int ver_w(const char *s)
@@ -1540,7 +1540,7 @@ static void net_note(const char *s, int tone)
     hostapi_note(nv.nnote, tone == HCT_BAD);
 }
 
-static const HcRowsPlatform rows_plat = { hostapi_rest_text, net_note, APP_VERSION_STRING };
+static const HcRowsPlatform rows_plat = { hostapi_rest_text, net_note, APP_VERSION_STRING, APP_HOST_VERSION_STRING };
 
 static void update_net(void)
 {
@@ -2765,7 +2765,7 @@ static bool confirm_full(const char *title)
 static void slog_flush(void)
 {
     if (startrec_decided()) {
-        hostreport_startlog_store(APP_VERSION_HASH, APP_BUILD_DATE);
+        hostreport_startlog_store(APP_VERSION_STRING, APP_BUILD_DATE);
     }
 }
 static const char *start_origin = "menu (key or network request)";
@@ -3401,7 +3401,8 @@ static void fill_snapshot(WebSnapshot *wp)
 {
     WebSnapshot &w = *wp;
     memset(&w, 0, sizeof(w));
-    snprintf(w.app, sizeof(w.app), "%s", APP_VERSION_HASH);
+    snprintf(w.app, sizeof(w.app), "%s", APP_VERSION_STRING);
+    snprintf(w.host_ver, sizeof(w.host_ver), "%s", APP_HOST_VERSION_STRING);
     snprintf(w.app_date, sizeof(w.app_date), "%s", APP_BUILD_DATE);
     snprintf(w.board, sizeof(w.board), "%s", hostreport_board());
     w.direct = cfg.direct;
@@ -3991,6 +3992,7 @@ static void startup(void)
     hc_cfgov_io(hostfs_cm(), hostfs_fo());
     hc_nav_init(&nav_plat);
     hc_rows_init(&rows_plat);
+    snprintf(txu_running_version, sizeof(txu_running_version), "%s", APP_BUNDLE_VERSION_STRING);   // T221 D19
     hc_ui_init(&ui_env_ref());
     hc_cfg_clear();
     direct_phase();                                  // T135: a direct start never returns; otherwise the menu below, with the reason in its note
@@ -4372,6 +4374,7 @@ void hostui_test_init_lazy(const char *cfgtext)
     hc_cfgov_io(hostfs_cm(), hostfs_fo());
     hc_nav_init(&nav_plat);
     hc_rows_init(&rows_plat);
+    snprintf(txu_running_version, sizeof(txu_running_version), "%s", APP_BUNDLE_VERSION_STRING);   // T221 D19
     hc_ui_init(&ui_env_ref());
     hc_cfg_reset(cfgtext);
     lazy_reset();

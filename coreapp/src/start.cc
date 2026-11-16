@@ -113,7 +113,7 @@ StartResult start_identify(const uint8_t id[4], const Handover *h, const CoreDes
 
 void start_paths(CoreCtx *c, const Handover *h, const BoardProfile *prof)
 {
-    c->cor_path[0] = c->cfg_path[0] = c->core_version[0] = 0;
+    c->cor_path[0] = c->cfg_path[0] = c->core_version[0] = c->host_version[0] = 0;
     c->host_key = 0;
     if (h && handover_valid(h)) {
         uint32_t key = 0;
@@ -136,6 +136,7 @@ void start_paths(CoreCtx *c, const Handover *h, const BoardProfile *prof)
         c->host_key = key;
         strncpy(c->cor_path, h->path, sizeof(c->cor_path) - 1);
         c->cor_path[sizeof(c->cor_path) - 1] = 0;
+        snprintf(c->host_version, sizeof(c->host_version), "%s", handover_host_version(h));
         strncpy(c->core_version, h->core_version, sizeof(c->core_version) - 1);
         c->core_version[sizeof(c->core_version) - 1] = 0;
         if (!corefolder_cfg(c->cor_path, c->cfg_path, sizeof(c->cfg_path))) {          // T148 D1: in the core folder

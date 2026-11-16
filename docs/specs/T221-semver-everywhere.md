@@ -1,6 +1,6 @@
 # T221 — Every component has a SemVer, and every display shows it: SemVer+commit on a branch build, plain SemVer on a release
 
-**Status:** PROPOSED (2026-11-15, Alex).
+**Status:** BUILDING (2026-11-15; branch t221-semver). PROPOSED 2026-11-15, Alex.
 **Repo:** TRX64U-MultiCore — host (gateware, app), generic core app, every `cores/<id>/core.toml`, `ci/version.sh`, `tools/` packers, `contract/`.
 **Number:** T221 (registry: the table in `TODO.md`; T220 was the last row).
 **Origin:** Alex, 2026-11-15 (translated): "Let us work out by spec: SemVer for everything from now on: host, host menu, generic app, every core. And then the displays: on feature branches / integration builds SemVer+commit; on a release: SemVer."
@@ -82,6 +82,11 @@ Alex's decisions (2026-11-15, translated from his request):
 - **D8** (Q5, 2026-11-15): Versions are bumped on the way to `main` (Alex: "on the feature branch no versioning, the state stays; via integ -> main and THERE it is versioned"): a feature branch never changes a version; the merge into `main` raises the version of every deliverable it changed.
 - **D9** (Q5b, 2026-11-15): The bump level is set by hand at the merge into `main` for now (whoever merges; Claude asks Alex before a MAJOR). A script proposes the level from the spec/TODO kind and the merge-commit prefix so it is not worked out by an LLM per merge; the human approves. Later, with more contributors and builds from elsewhere, the script decides and a human releases (Alex: "first 3 ... then by script some day and the human approves").
 - **D10** (Q6, 2026-11-15): Start values: host gateware, host menu and generic core app start at 0.2.0. The cores are gone through one by one with Alex afterwards (open, one question per core).
+  **Answered 2026-11-15** (Alex, translated: "A, but vc20 is also 0.3.0 please"; A = keep today's `core.toml` version): every core starts at the version its `core.toml` holds today, except
+  vc20 = 0.3.0 (was 0.9.0). Table: amiga1200 0.3.0, amiga 0.2.0, c128 0.1.0, c264 0.1.0, c64scpu 0.1.0, pet 0.1.0, diag 0.1.0, apple2 0.1.0, vc20 0.3.0, atari800 0.0.1, cpc 0.0.1,
+  nes 0.0.1, snes 0.0.1, neogeo 0.0.1, zx 0.0.1, zxnext 0.0.1, ddt_mandel 0.1.0, ddt_novic 0.1.0. `c64ref` (1.0.0, build_only) and `null` (1.0.0, flash filler) are never packed as a `.cor`,
+  listed in a release or shown in a menu, so no display shows their version: they keep the value (it must be valid SemVer, `tools/check_versions.py` checks it) and nothing else is done
+  with it. Only `cores/vc20/core.toml` changes (last commit of the branch).
 - **D11** (Q7, 2026-11-15): MAJOR for a core: either a user-visible break (old settings, saves or media no longer work, menu structure breaks) or a contract change (an older host no longer loads the core).
 - **D12** (Q8, 2026-11-15): The contract number folds into the host gateware version: a contract change is a MAJOR of the host gateware; the separate number and the "contract N" chip go. Consequence to settle in the design: the .cor check that today compares the contract integer (`COR_HOST_CONTRACT`, `cor.h:9`; `cor_pack.py` `CONTRACT`) then compares the host gateware MAJOR.
 - **D13** (Q9, 2026-11-15): Boot menu, large cores: the version column shows the version as for every core; "full" becomes a small badge at the icon/name (layout with a mock-up and ux-review before it is built).
@@ -117,9 +122,78 @@ Nothing decided out yet.
 
 ## §5 Decisions taken while building
 
-(none yet)
+Built on branch `t221-semver` (2026-11-15). Files: `bundle.toml`, `contract/version.toml`, `host-app/version.toml`, `coreapp/version.toml` (D6/D7; the host gateware file is
+under `contract/`, not `host/`, so a bump cannot move the host key); `tools/semver.py`, `ci/version.sh [bundle|hostapp|coreapp|host|with X.Y.Z]`, `tools/check_versions.py`,
+`ci/test_version.sh`, `tools/release_promote.py`.
+
+- **B1 (form).** A source file holds `x.y.z` only (lint, `tools/check_versions.py`); every build that is not a tag shows `x.y.z-dev+<sha8>`, `main` too (D3; the old
+  `X.Y.Z+<sha8>` of `main` and `<branch>@<sha8>` are gone, `ci/test_version.sh` has negative controls for both). A tree without a commit (the dev tree of `tools/dev.sh`)
+  shows `+00000000`. `ci/version.sh` has no python (the app build image has none; the package stage runs python).
+- **B2 (stamps).** The apps carry three stamp fields (`TRXVSTAMP` own version, `TRXHSTAMP` host gateware, `TRXBSTAMP` bundle; `tools/stamp_version.py --marker`);
+  the core app image (`coreapp.bin`, the blueprint `.app` copies, so also the app inside every `.cor`) carries its own `TRXVSTAMP`. `ci/package.sh` stamps all of them
+  before a `.cor` or the `.txu` is packed; the large and imported `.cor` take `$out/coreapp.bin` (the stamped one), not the stage's cached image.
+- **B3 (artifacts).** `.cor` version = `ci/version.sh with <core.toml version>` (`pack_cores_mc.sh`, `package.sh` large cores); `.txu` and `manifest.json` `version` = bundle
+  version (D17); `manifest.json` has `parts` = host gateware, host menu, core app, and every core as read back from its `.cor` (D6). `tools/check_bundle.py` checks all three
+  app fields against the manifest (its selftest passes). The Gitea package coordinates stay `<branch>-<sha8>` / `<branch>-latest` (the pipeline's lookup key,
+  `ci/lib.sh publish_files`); the version is inside. OPEN-1 below.
+- **B4 (release, D4).** `tools/release_promote.py <package dir>` rewrites `x.y.z-dev+<sha8>` to `x.y.z` in the apps, every `.cor` (manifest and the app inside, size and SHA-256
+  following), the `.txu` (repacked), `manifest.json` and `SHA256SUMS`; selftest with a negative control (a release is not promoted twice). `tools/release_mc.sh` calls it right
+  after the download (marker `.promoted`). The `.cfw`/`.ue2` of stage update carry their branch-sha identity and are made again from the promoted package, not patched;
+  `release_mc.sh` still repacks the large cores itself as before (their `core.toml` version is already the release form).
+- **B5 (host displays).** Boot menu version column: every row with a version shows it, large cores included (`full firmware` stays only for a full image that names none,
+  e.g. a `.cfw`); chips: "contract N" removed (D12), `host <ver>` on a release, `host <ver> / <key>` on a test build (key lower-case hex; the "·" has no glyph in the font, it drew a box) (D14), `app <ver>`; splash, startlog, web hello (`app`,
+  `host_version`), bug report ("Host app", "Host bitstream <ver>, key <key>"); update ask shows the `.txu` bundle version and, if it is older than the running bundle, a
+  warning line and goes on (D19, `semver.h`, `txu_running_version`).
+- **B6 (core app).** Splash, Home "Application", console and bug report show the core app SemVer; the host gateware version reaches it in a new trailing field of the
+  hand-over page (`host_version`, own check word, older readers and older hosts unaffected); REST `/v1/info` has `app` and `host`, `/rpc` ping has `core_version`,
+  `app_version`, `host_version`; the bug report names the host as `<ver>, key <key>`.
+- **B7 (Vivado keys).** Everything except the last commit moves none: no file under `host/`, `cores/` or `vendor/` is touched (the host gateware version is `contract/version.toml`). The last
+  commit (`cores/vc20/core.toml` version 0.9.0 -> 0.3.0) moves exactly vc20's own keys: its OOC key (`ooc_key`: `cores/vc20` is in its `sources`) and so its core key (`core_key`); measured
+  with `ci/lib.sh` in raw mode, before/after in the commit message. The host key, c64ref's and every other core's keys are unchanged. `contract/` is in no key (`ci/lib.sh`, `host/layers.txt`). The trxapps key moves (apps changed; `ci/version.sh` is now one of its inputs because `gitinfo.c` is made from
+  it), so every `.cor` is repacked; no bitstream is rebuilt.
+- **B8 (dev tree).** Images of `tools/dev.sh` carry no version (no commit in the dev tree); `tests/hostapp/emu_host.sh` stamps copies before it runs, so its pictures show real strings.
+
+### Pictures and ux-review (2026-11-16, ue2emu, flow `semver_flow` of `tests/hostapp/emu_host.sh`)
+
+Found and fixed with the pictures: (1) the "·" in the host chip drew a missing-glyph box, now " / "; (2) the chip holder (640) dropped the app chip at 1080p/720p when the key
+followed the host SemVer, holder now 770 at the 960 canvas; (3) a large core still showed "full firmware" (`hc_probe_state` never read the version of a `.cor` large core), now
+`large_version()` reads it; (4) the version column was 104 px, a test build's "0.3.0-dev+85acf2b0" was cut, now 150 (compact 96: kept, the name keeps its room); (5) the
+downgrade line was cut at 480p, now "Downgrade from the running <ver>."; (6) the flow did not add the cores (bundle check needs 12 s) nor press U, so the two pictures were
+the file browser twice. The emulator has no host key register, so the key chip was drawn with a temporary forced key (not committed); the pictures show `/ 2BB1DE24`.
+
+Known at 480p (640 canvas): a test build cannot show "app", "host ... / key" and the net/USB/SD chips together; the app chip is left out there (`chip()` drops what has no room,
+a release build's short strings fit), and a large core's test version is cut to "0.3.0-dev+8..." (SemVer core visible). Not a regression of the 480p layout, a finding for Alex.
+
+| # | Result | Evidence (scratchpad `t221/`) |
+|---|---|---|
+| S3 | PASS | `semver-list-{480p60,720p60,1080p}.png`: Amiga 1200 row `0.3.0-dev+85acf2b0` (1080p/720p full, 480p cut), no "full firmware" |
+| S4 | PASS | same pictures: VIC-20 `0.9.0` |
+| S5 | PASS | `semver-splash-1080p.png` (`0.2.0-dev+bd16dfdd`), app chip in the list pictures at 720p/1080p; app chip absent at 480p (see above); startlog/`stamp_version.py` not pictured |
+| S6 | PASS | chips `host 0.2.0-dev+bd16dfdd / 2BB1DE24`, fits its holder at 480p, 720p, 1080p; no "contract" chip |
+| S7 | PASS | `semver-update-{480p60,720p60,1080p}.png`: "Version 0.1.0-dev+0123abcd", amber "Downgrade from the running ..." line, the ask goes on |
+| S8 | PARTIAL | core app Home "Application 0.2.0-dev+00000000" and "Core VIC-20 0.9.0" seen (`.ci/dev/t221-semver/emu/core-menu.png`, 1080p frame); core splash, F8 and console line not pictured; the date after "built" is empty in the dev tree |
+| S10 | NOT PROVEN | the host web page needs the network shim; only code (`fill_snapshot` -> `app`, `host_version`) |
+
+### Open (not decided; Alex must answer, one at a time)
+
+- **OPEN-1 (D10): answered** (see D10; vc20 0.3.0, all others unchanged). The vc20 edit moves vc20's Vivado keys, see B7.
+- **OPEN-2 (D12 consequence).** The `.cor` check still compares the contract integer (`COR_HOST_CONTRACT` = 2, `contract/VERSION`). Folding it into the host gateware MAJOR with a
+  start of 0.2.0 gives MAJOR 0, not 2: either the host gateware starts at 2.0.0 or the check stays an integer. The chip is gone either way (D12); the row refusal text "contract 3 != 2"
+  stays until this is answered.
+- **OPEN-3 (D15).** Imported trx64u/trx64g: `pack_import_cor.sh` reads a `SEMVER=` from the pin and falls back to the commit with a message; no pin has one. Proposal text for
+  `docs/contracts/trx64u-firmware-handover.md` (not edited: that file changes only with TRX64-Ultimate): "TRX64-Ultimate publishes with every CI package a `version.txt` (one line,
+  SemVer 2.0 `x.y.z`, no build metadata) beside `c64_basic.bit`; TRX64U-MultiCore copies it into the pin as `SEMVER=`. A change of the bitstream is a new version; a
+  `-dev+<sha8>` is added by the MultiCore packer on a test build." Needs the other repo's side.
+- **OPEN-4 (D16).** The L/P badge: placement/look is not decided, so it is not built; until then a large core is no longer marked in the list (the version replaces
+  "full firmware"). Mock-ups: `scratchpad/t221/badge-*.png`.
+- **OPEN-5 (D19).** "Core install of an older version warns": the host has no install step for a `.cor` (it is copied by hand and added with A). Only the `.txu` update warns. Where the
+  core warning belongs (adding an entry whose id is already in the menu with a newer version?) is not said.
+- **OPEN-6 (D17).** Gitea package coordinates stay branch-sha (see B3); changing them to the SemVer string touches `ci/lib.sh` publish/fetch and the update stage.
+- **OPEN-7.** `bundle.toml` carries only the bundle version; the part versions are written into `manifest.json` `parts` at package time (a hand-kept list would be a second copy).
 
 ## History
 
 - 2026-11-15: PROPOSED on Alex's request; §1 read from code, open questions Q1-Q14 listed.
 - 2026-11-15: Q1-Q14 decided with Alex the same day (D3-D19); open: start version per core (one by one), the TRX64-Ultimate contract line (D15), the L/P badge mock-up (D16).
+- 2026-11-15: status BUILDING; branch t221-semver (worktree ../wt-t221-semver); §5 holds what is built and what is open.
+- 2026-11-16: pictures and ux-review of the host side (S3-S7), fixes see §5; S8 partial, S10 open.

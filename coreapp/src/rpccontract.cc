@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "gitinfo.h"
 
 const ContractRow rpc_contract[] = {
     { "ping", CK_PING },
@@ -313,7 +314,13 @@ int rpc_contract_handle(RpcSession *s, const JsonRpcReq &r, char *out, int cap)
         char v[60];
         snprintf(v, sizeof(v), "coreapp %s", c->core_version[0] ? c->core_version : "?");
         json_put_string(res, sizeof(res), &rp, v);
-        json_put(res, sizeof(res), &rp, ",\"backend\":\"coreapp\",\"core\":");
+        json_put(res, sizeof(res), &rp, ",\"backend\":\"coreapp\",\"core_version\":");      // T221: the three SemVer strings by name
+        json_put_string(res, sizeof(res), &rp, c->core_version);
+        json_put(res, sizeof(res), &rp, ",\"app_version\":");
+        json_put_string(res, sizeof(res), &rp, APP_VERSION_STRING);
+        json_put(res, sizeof(res), &rp, ",\"host_version\":");
+        json_put_string(res, sizeof(res), &rp, c->host_version);
+        json_put(res, sizeof(res), &rp, ",\"core\":");
         json_put_string(res, sizeof(res), &rp, c->desc ? c->desc->cor_name : "");
         json_put(res, sizeof(res), &rp, ",\"project\":null,\"idleExit\":null}");
         return result(r, res, out, cap);

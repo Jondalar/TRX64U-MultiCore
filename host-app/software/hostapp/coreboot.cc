@@ -2,6 +2,7 @@
 #include "hostfs.h"
 #include "startcheck.h"
 #include "handover.h"
+#include "gitinfo.h"
 #include "configlist.h"
 #include "videomode.h"
 #include "FreeRTOS.h"
@@ -264,6 +265,7 @@ void core_jump(const CorInfo *ci)
     handover_set_config((Handover *)HANDOVER_ADDR, start_config);
     handover_set_safe((Handover *)HANDOVER_ADDR, start_safe);
     start_safe = false;
+    handover_set_host_version((Handover *)HANDOVER_ADDR, APP_HOST_VERSION_STRING);
     if (rtc_time_valid()) {                          // T191: the core application has no SNTP; it sets its clock from this
         int wd, y, mo, d, h, mi, sec;
         get_current_time(wd, y, mo, d, h, mi, sec);

@@ -40,6 +40,7 @@ struct CoreCtx {
     char cor_path[HANDOVER_PATH_MAX];     // "" when the application started without a hand-over (JTAG, developer)
     char cfg_path[HANDOVER_PATH_MAX];     // "" when there is no .cor path: then there is no .cfg either
     char core_version[24];
+    char host_version[24];      // T221: the host gateware SemVer from the hand-over ("" = a host that names none)
     char config[48];                      // T198: the config this run started with or has loaded (configs/<name>.cfg), "" = the core's own .cfg
     char settings_path[HANDOVER_PATH_MAX];   // T198: the file the settings are read from and written to: the config's, or "" = cfg_path
     uint32_t host_key;                    // the host build the .cor was routed against, from the hand-over (8 hex digits); 0: none named

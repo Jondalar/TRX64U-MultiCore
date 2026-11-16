@@ -305,8 +305,8 @@ public:
                      ctx.desc->id[1], ctx.desc->id[2], ctx.desc->id[3]);
             break;
         case 1:
-            if (APP_VERSION_HASH[0]) {
-                snprintf(out, n, "%s built %s", APP_VERSION_HASH, APP_BUILD_DATE);
+            if (APP_VERSION_STRING[0]) {
+                snprintf(out, n, "%s built %s", APP_VERSION_STRING, APP_BUILD_DATE);
             } else {
                 snprintf(out, n, "built %s", APP_BUILD_DATE);
             }
@@ -425,7 +425,7 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
     }
     {
         char ver[64];
-        snprintf(ver, sizeof(ver), "%s  %s", APP_VERSION_HASH, APP_BUILD_DATE);
+        snprintf(ver, sizeof(ver), "%s  %s", APP_VERSION_STRING, APP_BUILD_DATE);
         ui_splash_open(desc->cor_name, ver, CS_STEPS);
     }
     // The port opens now, not after the start: the start can wait as long as it takes (a ROM, the medium) and FTP answers meanwhile, so the API must

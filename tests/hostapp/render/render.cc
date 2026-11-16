@@ -1247,7 +1247,7 @@ static void scenarios_lc(const char *out)
     hostui_test_key('a');
     CHECK(hostui_test_cfg_n() == 1 && g_saves == 1 && strstr(g_last_save, "core=/Usb0/cores/amiga1200.cor|Amiga 1200 (AGA)|"));
     hostui_test_view(0);
-    CHECK(has("Amiga 1200 (AGA)|full firmware|ready|auto|SEL"));
+    CHECK(has("Amiga 1200 (AGA)|0.3.0|ready|auto|SEL"));   // T221 D13: the version, as for every core
     calls = g_legacy_calls;
     hostui_test_key(KEY_RETURN);                                                           // RETURN on the large .cor row: no dialog, started
     CHECK(hostui_test_confirms() == conf && g_legacy_calls == calls + 1 && !g_legacy_verify && g_stage_calls == stage);
