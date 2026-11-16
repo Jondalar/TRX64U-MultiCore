@@ -200,3 +200,4 @@ t+1700 ms), so without a hand-over page there is no stick to read and the file w
 most `LIB_MOUNT_WAIT_MS` (4 s) and ends at the first stick root that lists. **Cost: a page-less start with no stick at all (JTAG, a monolith
 power-up) now takes up to 4 s longer.** Decided (D6, Alex 2026-11-16): keep the 4 s.
 Only one stick root is waited for: a second stick that comes up later is not seen by the same take.
+- 2026-11-16 (review fix, D6 scope): the `lib_board_wait_stick` call in `coreapp/src/run.cc` runs only when `board->kind == BOARD_MONOLITH` (and no page): on the MultiCore host every core start fills the page, so a page-less start there is a JTAG/SRAM dev start and never waits 4 s. Not reachable in `test_startfile` (the gate sits in `coreapp_run`, which the unit does not call); the unit still covers `start_file_take` itself.

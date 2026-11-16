@@ -119,3 +119,6 @@ Proof column: T = core app test (`tests/coreapp`, menu goldens), U = ue2emu pict
   ue2emu pictures (real core app, 720p + 1080p, amiga1200 and c128: F1, drive lists, F3 mount, F5, F7, F8, eject toast): `t212-*` in scratchpad `t212emu/{720p,1080p}/`. ux-review verdict by the coordinator's reading of the pictures (R1, R2, R5, R7): PASS; open, outside T212: the "SHIFTED" heading (T228 D4).
   Interactive start: `bash <scratchpad>/t212emu/start.sh amiga1200` (window, real time; kit with the app image next to it).
 - 2026-11-16 (Alex approval): checked by Alex in ue2emu with `scratchpad/t212emu/start.sh` (translated): "Menu from T212 is ok, feels good." Approved in ue2emu; merged to main; board step = with the next package.
+- 2026-11-16 (review fix): the C264 cartridge slot named its mounted task "Eject cartridge, reset"; `groups_have` splits task lists on ',', so the task never matched
+  the drive and stayed a plain Home task (golden `menu_c264` had captured it). Renamed "Eject cartridge and reset" (task, slot list, manual, mock-up); the slot has
+  the task in its Cartridge drive list now. Every other `empty_tasks`/`mounted_tasks` label (all cores, `cbm1541_desc.h`) was checked: none has a comma.

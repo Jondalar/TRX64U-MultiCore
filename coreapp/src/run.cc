@@ -479,7 +479,7 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
         } medium_env;
         start_core_folder(&ctx, &medium_env);
     }
-    if (!(h && handover_valid(h) && h->path[0])) {      // T230 P-2: no page, no medium of a .cor to wait for: the file may lie on a stick that is still coming up
+    if (board && board->kind == BOARD_MONOLITH && !(h && handover_valid(h) && h->path[0])) {      // T230 P-2, D6: monolith only (a host start always fills the page, a page-less start there is a dev start): no page, no medium of a .cor to wait for: the file may lie on a stick that is still coming up
         uint64_t sfsz;
         bool sfdir;
         if (!ctx.fs->stat("/SD/" STARTFILE_NAME, &sfsz, &sfdir)) {

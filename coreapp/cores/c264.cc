@@ -268,13 +268,13 @@ static const FileType filetypes[3 + CBM1541_NFILETYPES] = {
 static const Task tasks[3 + CBM1541_NTASKS] = {
     { "Reset", "machine.cold_reset", 0, 0, true },
     { "Reload ROMs, reset", "machine.reload_roms", 0, 0, true },
-    { "Eject cartridge, reset", "c264.cart_eject", 0, 0, true },
+    { "Eject cartridge and reset", "c264.cart_eject", 0, 0, true },
     CBM1541_TASKS,
 };
 
 static const MediaSlot media[] = {
     { "Program", "c264.program", 0, 0, 0 },
-    { "Cartridge", "c264.cartridge", 0, 0, 0, 0, ".bin", "Load as cartridge (Plus/4)", 0, "Eject cartridge, reset" },
+    { "Cartridge", "c264.cartridge", 0, 0, 0, 0, ".bin", "Load as cartridge (Plus/4)", 0, "Eject cartridge and reset" },
     CBM1541_MEDIA,
 };
 
