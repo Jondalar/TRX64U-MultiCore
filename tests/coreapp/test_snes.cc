@@ -282,6 +282,42 @@ int main()
             CHECK_EQ(rd24(r, SNES_ROM_MASK), 0x7FFFFu);
             CHECK(!memcmp(&r.io.ddr[SNES_W_ROM], img.data(), img.size()));
         }
+        {   // S8 (D6): a firmware of our own in valid uPD7725 words (jump / load / operation, no real firmware), once low byte first, once with every word reversed
+            std::vector<uint8_t> lo(SNES_DSP_FW_BYTES), hi(SNES_DSP_FW_BYTES);
+            for (uint32_t i = 0; i < 2048; i++) {
+                uint32_t w = i % 3 == 0 ? (2u << 22 | 0x100u << 13 | (i & 0x7FF) << 2)                // JP with the jump-always branch field 100000000
+                           : i % 3 == 1 ? (3u << 22 | (i * 37 & 0xFFFF) << 6 | 3)                      // LD
+                                        : (i * 0x10101u & 0x3FFFFF);                                   // OP
+                for (int k = 0; k < 3; k++) { lo[3 * i + k] = (uint8_t)(w >> (8 * k)); hi[3 * i + 2 - k] = (uint8_t)(w >> (8 * k)); }
+            }
+            for (uint32_t i = 0; i < 1024; i++) {
+                uint16_t d = (uint16_t)(i * 77 + 0x1234);
+                lo[6144 + 2 * i] = (uint8_t)d; lo[6145 + 2 * i] = (uint8_t)(d >> 8);
+                hi[6144 + 2 * i] = (uint8_t)(d >> 8); hi[6145 + 2 * i] = (uint8_t)d;
+            }
+            for (int variant = 0; variant < 3; variant++) {                                        // 0 low first, 1 reversed as a file, 2 reversed and appended
+                FakeFs fs;
+                auto img = image(0x80000, 0x03, 0x09, 0x00, 0x01, "SUPER MARIO KART");
+                if (variant == 2) {
+                    img.insert(img.end(), hi.begin(), hi.end());
+                } else {
+                    fs.put("/sd/cores/snes/roms/dsp1b.bin", variant ? hi : lo);
+                }
+                fs.put("/sd/games/mk8.sfc", img);
+                SnesRig r(&fs);
+                CHECK_EQ(run(r, "/sd/games/mk8.sfc"), OPE_OK);
+                CHECK(fw_stream(r) == lo);
+            }
+            std::vector<uint8_t> rnd(SNES_DSP_FW_BYTES);                                           // neither: random bytes are written as they are
+            uint32_t x = 12345;
+            for (auto &b : rnd) { x = x * 1664525u + 1013904223u; b = (uint8_t)(x >> 24); }
+            FakeFs fs;
+            fs.put("/sd/cores/snes/roms/dsp1b.bin", rnd);
+            fs.put("/sd/games/mk9.sfc", image(0x80000, 0x03, 0x09, 0x00, 0x01, "SUPER MARIO KART"));
+            SnesRig r(&fs);
+            CHECK_EQ(run(r, "/sd/games/mk9.sfc"), OPE_OK);
+            CHECK(fw_stream(r) == rnd);
+        }
         {
             FakeFs fs;                                                                    // S4: the title picks the chip and its file; a wrong size file is not taken
             fs.put("/sd/games/dm.sfc", image(0x100000, 0x03, 0x0A, 0x00, 0x01, "DUNGEON MASTER"));

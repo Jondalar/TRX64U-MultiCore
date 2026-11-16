@@ -191,3 +191,56 @@ SnesInfo snes_parse(const uint8_t *const hdr[3], uint64_t file_size)
     r.ok = true;
     return r;
 }
+
+// ---- T218 D6: the byte order of a DSP-n firmware file --------------------------------------------------------------------------
+// The rule is read from the chip, cores/snes/rtl/chip/DSP/DSPn.vhd, not from a file format: a program word is PROG_ROM_Q(23:0) with the type in 23:22 (l.115,
+// INSTR_JP = "10", l.47-50). A JP word's branch field is OP_BRCH = bits 21:13 (l.126) and its target OP_NA = bits 12:2 (l.125); the decode (l.407-440) acts on a
+// branch field only if it is 0 (PC <= SO), or 010xxxxxx with the condition code in bits 5:2 of the field being 0..12 or 15 (l.408-433: 13 and 14 fall to "others"),
+// or 10xxxxxxx with the low six bits 0 (jump / call, l.436-442). Everything else is a no-op the firmware's author never wrote. So a JP word is "valid" when its
+// branch field is one of those. In a real firmware (the proven dsp1b.bin: 273 of 273 JP words) every JP word is valid; read the wrong way round the same file has
+// 5 of 130, random bytes about 4 %. OP/RT/LD words have no unused combination to test (every OP_P, OP_ALU, OP_SRC value decodes), so they do not vote.
+// A reading "holds" when it has at least 16 JP words and at least 7/8 of them are valid. Turned only when the high-byte-first reading holds and ours does not.
+static bool jp_valid(uint32_t w)
+{
+    uint32_t b = (w >> 13) & 0x1FF;
+    if (b == 0) {
+        return true;
+    }
+    if ((b >> 6) == 2) {
+        uint32_t cc = (b >> 2) & 15;
+        return cc <= 12 || cc == 15;
+    }
+    return (b >> 7) == 2 && (b & 0x3F) == 0;
+}
+
+static bool order_holds(const uint8_t *fw, bool high_first)
+{
+    unsigned jp = 0, ok = 0;
+    for (unsigned i = 0; i < 2048; i++) {
+        const uint8_t *b = fw + 3 * i;
+        uint32_t w = high_first ? ((uint32_t)b[0] << 16 | (uint32_t)b[1] << 8 | b[2]) : ((uint32_t)b[0] | (uint32_t)b[1] << 8 | (uint32_t)b[2] << 16);
+        if ((w >> 22) == 2) {
+            jp++;
+            ok += jp_valid(w);
+        }
+    }
+    return jp >= 16 && ok * 8 >= jp * 7;
+}
+
+bool snes_dsp_fw_fix(uint8_t *fw)
+{
+    if (order_holds(fw, false) || !order_holds(fw, true)) {
+        return false;
+    }
+    for (unsigned i = 0; i < 2048; i++) {                                    // the program: 3 bytes each
+        uint8_t t = fw[3 * i];
+        fw[3 * i] = fw[3 * i + 2];
+        fw[3 * i + 2] = t;
+    }
+    for (unsigned i = 0; i < 1024; i++) {                                    // the data: 2 bytes each, after the 6144 program bytes
+        uint8_t t = fw[6144 + 2 * i];
+        fw[6144 + 2 * i] = fw[6144 + 2 * i + 1];
+        fw[6144 + 2 * i + 1] = t;
+    }
+    return true;
+}

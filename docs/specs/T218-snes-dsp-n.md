@@ -31,6 +31,7 @@ Read from the code (2026-11-13): `snes_sys.vhd` instantiates `DSP_LHRomMap` with
 | S5 | P5 | Non-DSP games unchanged: `boot` bench real == ref; SA-1/Super FX/... refused as before | sims `snes_boot` etc.; `test_snes.cc` S12 | CI sims, apptests |
 | S6 | P6 | The flat build routes and meets timing with the chip | `utilization.rpt` / `timing.rpt` of the pipeline run (lane large-snes) | CI vivado (after the coordinator's push) |
 | S7 | P3 | The menu setting "DSP firmware" (Auto, DSP-1..DSP-4): a fixed choice replaces the title rule for every DSP cartridge (mapper byte and firmware file follow, the refusal names the chosen chip's file); non-DSP cartridges are unaffected | `test_snes.cc` | CI apptests; board |
+| S8 | D6 | The same real DSP-1 firmware once as read (low byte first) and once with every word reversed (high byte first): both are recognised, the reversed one is turned back, the bytes written to the chip are identical; a file that is neither (random bytes) is written as it is; on the board Mario Kart runs with the reversed file | `test_snes.cc` with a firmware of our own in valid uPD7725 words (no real firmware in the tree); the real `dsp1b.bin` from the board checked once both ways outside the tree, result in §5 | apptests; board |
 
 ## §3 Decisions
 
@@ -43,6 +44,7 @@ Read from the code (2026-11-13): `snes_sys.vhd` instantiates `DSP_LHRomMap` with
 
 - **D4 (Alex, 2026-11-13: "A setting in the menu for the firmware choice does make sense. Auto / 1.2.3.4", translated):** the SNES core setting `DSP firmware`: `Auto`, `DSP-1`, `DSP-2`, `DSP-3`, `DSP-4`, default `Auto` = the title rule of D2b, taken at the next reset (`WHEN_RESET`, op `snes.set_dspfw`). A fixed choice replaces the chip for every DSP cartridge (the mapper byte's chip bits and the firmware file follow); cartridges without a DSP are unaffected. Declared like the other SNES settings (in `coreapp/cores/snes.cc`; the core's `.toml` carries no settings).
 - **D5 (review):** `DSP_LHRomMap`'s `DSPn` reset is gated by mapper bit 7 (`snes_gen.py`: `RST_N and MAP_CTRL(7) and ...`), because `MAP_DSP_SEL` is also true for plain mapper bytes; a plain cartridge never runs the chip.
+- **D6 (Alex, 2026-11-16: "A", answer to GitHub #85, a tester: a big-endian DSP-n firmware hangs the game after the title and the beep):** the application recognises a firmware file whose words are high byte first (each 3-byte program word and each 2-byte data word reversed) and turns it around before it writes the chip; the game runs. Application only (`snes.cc`), no gateware. How it is recognised: from the structure of the uPD7725 words, proven on a real little-endian file and its reversed copy (S8).
 
 ## §4 Out (decided with Alex beforehand)
 
@@ -64,3 +66,12 @@ SA-1, Super FX, Cx4, S-DD1, SPC7110, ST010/ST011, BSX, Sufami, MSU-1 (T142 §4, 
 - Title list for DSP-2/3/4 (D2b): other titles with those chips (alternate names, hacks) load the DSP-1 firmware under Auto; the setting (D4) is the way round it.
 - Firmware byte order is per the ares/bsnes loader, unverified on board; the first real firmware file proves it (S1 board).
 - 2026-11-15, board S1 PASS (Alex): Super Mario Kart (Europe) (.sfc 524288 bytes, no firmware appended) runs with `dsp1b.bin` from `/SD/cores/snes/roms/` (8192 bytes, program + data as one file), DSP firmware setting Auto; Alex: "klappt" ("works"), GitHub #85 closed by Alex. Build on the SD: snes.cor of c982d839.
+
+## §5 D6 (2026-11-16)
+
+- **Built:** `snes_dsp_fw_fix()` in `coreapp/cores/snes_rom.{h,cc}`, called at the top of `write_dsp_fw` (`snes.cc`), so both sources (appended, separate file) are covered. App only.
+- **Rule (from `DSPn.vhd`, cited in the code):** a program word's type is bits 23:22 (l.115). Only JP words (type 10) have combinations the chip does not decode: branch field = bits 21:13 (l.126), decoded l.407-442 as 0 / 010 + condition code 0..12 or 15 / 10 + low six bits 0. OP, RT, LD decode every value, so they do not vote. A reading "holds" with >= 16 JP words and >= 7/8 of them valid; the file is turned (each 3-byte program word, each 2-byte data word) only when the high-byte-first reading holds and ours does not. Otherwise written unchanged.
+- **Real files (all five, little-endian, `~/Desktop/backup/roms/snes/`, read outside the tree), valid/total JP words, ours -> high-first reading:** dsp1 273/273 -> 18/136; dsp1b 273/273 -> 16/130; dsp2 456/456 -> 82/227; dsp3 348/348 -> 23/151; dsp4 555/555 -> 45/270. Reversed copies show the mirror image. Detector on all ten: the five as they are are left unchanged, the five reversed are turned and equal the originals byte for byte.
+- **Not turned:** 200 seeded random 8192-byte files (0 turned); the test patterns `i*7+1` and `i*13+5` of `test_snes.cc` (unchanged).
+- **App test S8:** `test_snes.cc` builds a firmware of our own in valid words (JP/LD/OP, data words), low first as a file, reversed as a file, reversed appended: the stream to the chip is the same; random bytes are written as they are. Not run (CI); compiles (syntax check) and the RISC-V build was started.
+- **Board:** reversed file on Mario Kart still to do.
