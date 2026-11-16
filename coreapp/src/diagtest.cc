@@ -2665,23 +2665,31 @@ int diag_run_file(DiagEnv *env, const char *path, DiagOutcome *out)
     return w ? 0 : -1;
 }
 
-// True when the file at p is byte for byte a text this app shipped earlier under that name (portdiag_superseded): only such a file is
+// True when the file at p is (size and 64-bit hash) a text this app shipped earlier under that name (portdiag_superseded): only such a file is
 // replaced by the new example. A file the person edited, or any other name, is left alone.
 static bool superseded_here(CoreFs *fs, const char *p, uint64_t sz, const char *name)
 {
     static char buf[DT_FILE_MAX + 1];
+    uint64_t h = 0;
     if (sz == 0 || sz > DT_FILE_MAX) {
         return false;
     }
     int n = -1;
-    for (const PortdiagTest *o = portdiag_superseded; o->name; o++) {
-        if (strcmp(o->name, name) || strlen(o->text) != sz) {
+    for (const PortdiagOld *o = portdiag_superseded; o->name; o++) {
+        if (strcmp(o->name, name) || o->size != sz) {
             continue;
         }
         if (n < 0) {
             n = fs->load(p, buf, DT_FILE_MAX);
+            if (n != (int)sz) {
+                return false;
+            }
+            h = 0xcbf29ce484222325ull;                         // FNV-1a 64 of the file, as tools/gen_diag_tests.py
+            for (int i = 0; i < n; i++) {
+                h = (h ^ (uint8_t)buf[i]) * 0x100000001b3ull;
+            }
         }
-        if (n == (int)sz && !memcmp(buf, o->text, (size_t)sz)) {
+        if ((uint32_t)(h >> 32) == o->hash_hi && (uint32_t)h == o->hash_lo) {
             return true;
         }
     }
