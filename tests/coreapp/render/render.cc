@@ -1199,7 +1199,7 @@ static void s1_state(const char *core, const char *cv, int area, int tab, Rig &r
     }
     if (any_marked) {
         s1legends++;
-        S1CHECK(r.m->status()[0] != 0 || strstr(r.m->foot_line(), "reset") != 0, "%s: the foot of a marked row names neither the legend nor a next-reset note", core);   // D10: legend OR the row's note, both say when the value takes effect
+        S1CHECK(r.m->status()[0] != 0 || !strcmp(r.m->foot_line(), MenuCtl::reset_legend()) || (r.m->sel_detail()[0] && !strcmp(r.m->foot_line(), r.m->sel_detail())), "%s: the foot of a marked row is neither the ring legend nor the selected row's note", core);   // T216 D10: one line, the row's note or else the legend
     }
     if (shot_out && shot_tag) {
         char fn[512], nm[64];
