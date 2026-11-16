@@ -76,7 +76,7 @@ program itself pokes (C64 RAM `$C000`, a mirrored page, so the window sees it) a
 - **Built:** P1 `.prg`/`.p00` rows (Load, Load + run) on the SuperCPU; P2 as above; P3 `.prg`/`.p00` rows on the C128 (128 mode, keyboard buffer path, C64 BASIC at `$0801` refused);
   P4 `run_op` and the inner rows on `.d64`/`.d81` of the C128. `tools/dev.sh riscv` builds (run 2026-11-15, rc 0).
 - **Benches (local, real ROMs, never in CI):** `cores/c64scpu/sim/run_prgrun.sh` (cases basic, ml, old = control), `cores/c128/sim/run_prgrun.sh` (basic, ml, none = control), writer
-  `tools/cbm_prg_sim.cc` (the application's own library code and parameter headers), tb replay `+PRG_AT`. Test programs: `cores/c64scpu/sim/prgrun_gen.py`.
+  `tools/cbm_prg_sim.cc` (the application's own library code and parameter headers), tb replay `+PRG_AT`. Test programs: `cores/c64scpu/sim/prgrun_gen.py`, and its copy `cores/c128/sim/prgrun_gen.py` for the C128 bench (own copy per core, review of integ-1116).
 - **Pictures:** ue2emu, `tests/ui/features_cores/t217_prg_c128.feature`, `t217_prg_c64scpu.feature` (commit 7ef47665f); UX review PASS, minor wording note: "Load + run" against "Mount & Run".
 
 ### Status at hand-over (2026-11-15; Alex stopped the benches: "no benches before a merge")
