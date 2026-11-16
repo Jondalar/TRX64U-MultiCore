@@ -141,7 +141,7 @@ under `contract/`, not `host/`, so a bump cannot move the host key); `tools/semv
   after the download (marker `.promoted`). The `.cfw`/`.ue2` of stage update carry their branch-sha identity and are made again from the promoted package, not patched;
   `release_mc.sh` still repacks the large cores itself as before (their `core.toml` version is already the release form).
 - **B5 (host displays).** Boot menu version column: every row with a version shows it, large cores included (`full firmware` stays only for a full image that names none,
-  e.g. a `.cfw`); chips: "contract N" removed (D12), `host <ver>` on a release, `host <ver> · <KEY>` on a test build (D14), `app <ver>`; splash, startlog, web hello (`app`,
+  e.g. a `.cfw`); chips: "contract N" removed (D12), `host <ver>` on a release, `host <ver> / <key>` on a test build (key lower-case hex; the "·" has no glyph in the font, it drew a box) (D14), `app <ver>`; splash, startlog, web hello (`app`,
   `host_version`), bug report ("Host app", "Host bitstream <ver>, key <key>"); update ask shows the `.txu` bundle version and, if it is older than the running bundle, a
   warning line and goes on (D19, `semver.h`, `txu_running_version`).
 - **B6 (core app).** Splash, Home "Application", console and bug report show the core app SemVer; the host gateware version reaches it in a new trailing field of the
@@ -152,6 +152,27 @@ under `contract/`, not `host/`, so a bump cannot move the host key); `tools/semv
   with `ci/lib.sh` in raw mode, before/after in the commit message. The host key, c64ref's and every other core's keys are unchanged. `contract/` is in no key (`ci/lib.sh`, `host/layers.txt`). The trxapps key moves (apps changed; `ci/version.sh` is now one of its inputs because `gitinfo.c` is made from
   it), so every `.cor` is repacked; no bitstream is rebuilt.
 - **B8 (dev tree).** Images of `tools/dev.sh` carry no version (no commit in the dev tree); `tests/hostapp/emu_host.sh` stamps copies before it runs, so its pictures show real strings.
+
+### Pictures and ux-review (2026-11-16, ue2emu, flow `semver_flow` of `tests/hostapp/emu_host.sh`)
+
+Found and fixed with the pictures: (1) the "·" in the host chip drew a missing-glyph box, now " / "; (2) the chip holder (640) dropped the app chip at 1080p/720p when the key
+followed the host SemVer, holder now 770 at the 960 canvas; (3) a large core still showed "full firmware" (`hc_probe_state` never read the version of a `.cor` large core), now
+`large_version()` reads it; (4) the version column was 104 px, a test build's "0.3.0-dev+85acf2b0" was cut, now 150 (compact 96: kept, the name keeps its room); (5) the
+downgrade line was cut at 480p, now "Downgrade from the running <ver>."; (6) the flow did not add the cores (bundle check needs 12 s) nor press U, so the two pictures were
+the file browser twice. The emulator has no host key register, so the key chip was drawn with a temporary forced key (not committed); the pictures show `/ 2BB1DE24`.
+
+Known at 480p (640 canvas): a test build cannot show "app", "host ... / key" and the net/USB/SD chips together; the app chip is left out there (`chip()` drops what has no room,
+a release build's short strings fit), and a large core's test version is cut to "0.3.0-dev+8..." (SemVer core visible). Not a regression of the 480p layout, a finding for Alex.
+
+| # | Result | Evidence (scratchpad `t221/`) |
+|---|---|---|
+| S3 | PASS | `semver-list-{480p60,720p60,1080p}.png`: Amiga 1200 row `0.3.0-dev+85acf2b0` (1080p/720p full, 480p cut), no "full firmware" |
+| S4 | PASS | same pictures: VIC-20 `0.9.0` |
+| S5 | PASS | `semver-splash-1080p.png` (`0.2.0-dev+bd16dfdd`), app chip in the list pictures at 720p/1080p; app chip absent at 480p (see above); startlog/`stamp_version.py` not pictured |
+| S6 | PASS | chips `host 0.2.0-dev+bd16dfdd / 2BB1DE24`, fits its holder at 480p, 720p, 1080p; no "contract" chip |
+| S7 | PASS | `semver-update-{480p60,720p60,1080p}.png`: "Version 0.1.0-dev+0123abcd", amber "Downgrade from the running ..." line, the ask goes on |
+| S8 | PARTIAL | core app Home "Application 0.2.0-dev+00000000" and "Core VIC-20 0.9.0" seen (`.ci/dev/t221-semver/emu/core-menu.png`, 1080p frame); core splash, F8 and console line not pictured; the date after "built" is empty in the dev tree |
+| S10 | NOT PROVEN | the host web page needs the network shim; only code (`fill_snapshot` -> `app`, `host_version`) |
 
 ### Open (not decided; Alex must answer, one at a time)
 
@@ -175,3 +196,4 @@ under `contract/`, not `host/`, so a bump cannot move the host key); `tools/semv
 - 2026-11-15: PROPOSED on Alex's request; §1 read from code, open questions Q1-Q14 listed.
 - 2026-11-15: Q1-Q14 decided with Alex the same day (D3-D19); open: start version per core (one by one), the TRX64-Ultimate contract line (D15), the L/P badge mock-up (D16).
 - 2026-11-15: status BUILDING; branch t221-semver (worktree ../wt-t221-semver); §5 holds what is built and what is open.
+- 2026-11-16: pictures and ux-review of the host side (S3-S7), fixes see §5; S8 partial, S10 open.

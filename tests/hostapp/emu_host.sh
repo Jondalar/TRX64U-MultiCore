@@ -85,7 +85,7 @@ run_pic() {
     pic_flow > "$w/flow.ctl"
     cp "$kit/flash.bin" "$out/pic-flash.bin"
     ( cd "$w" && nice -n 15 timeout 300 "$UE2EMU" run --board c64u --trx-io=on --icap --cor-dir "$w/cors" --core-dir "$w/profiles" --firmware "$img/hostapp_emu.elf" \
-        --roms "$kit/roms" --flash "$out/pic-flash.bin" --usb-dir "$w/stick" --usb-dir-work "$w/usbwork" --headless --speed max --script "$w/flow.ctl" \
+        --roms "$kit/roms" --flash "$out/pic-flash.bin" --usb-dir "$w/stick" --usb-dir-work "$w/usbwork" --headless --speed max ${EMU_SCREEN:+--screen $EMU_SCREEN} --script "$w/flow.ctl" \
         --max-seconds 280 > "$out/pic.log" 2>&1 )
     local rc=$?
     rm -rf "$w" "$out/pic-flash.bin"
@@ -147,9 +147,10 @@ run_cfg_flow() {
 # T221: where a version is shown on the host: the boot menu list (a small and a large core, both with their SemVer), the chips (host, app), and the update ask of a
 # .txu (its bundle version, and the warning when it is older than the running bundle). The stick carries vc20.cor, a large amiga1200.cor and an app-only .txu of
 # an older bundle (0.1.0); A on each .cor adds it, F1 shows the list, the .txu opens the ask (nothing is written: the flow quits at the question).
-semver_flow() { printf 'wait 15000\nkey space\nwait 800\nkey f3\nwait 1500\nkey down\nwait 500\nkey down\nwait 500\nkey return\nwait 2000\n'
-                printf 'key down\nwait 500\nkey return\nwait 2000\nkey down\nwait 500\nkey a\nwait 6000\nkey down\nwait 500\nkey down\nwait 500\nkey a\nwait 6000\nkey f1\nwait 2000\npng %s/semver-list.png\n' "$out"
-                printf 'key f3\nwait 2000\nkey up\nwait 500\nkey return\nwait 6000\npng %s/semver-update.png\nquit\n' "$out"; }
+semver_flow() { printf 'wait 2000\npng %s/semver-splash1.png\nwait 3000\npng %s/semver-splash2.png\nwait 10000\n' "$out" "$out"; printf 'key space\nwait 800\nkey f3\nwait 1500\nkey down\nwait 500\nkey down\nwait 500\nkey return\nwait 2000\n'
+                printf 'key down\nwait 500\nkey return\nwait 2000\nkey down\nwait 500\nkey a\nwait 12000\nkey down\nwait 500\nkey down\nwait 500\nkey a\nwait 3000\npng %s/semver-dbg.png\nwait 12000\n' "$out"   # the bundle check (SHA-256) takes its time
+                printf 'key f1\nwait 2000\npng %s/semver-list.png\n' "$out"
+                printf 'key f3\nwait 2000\nkey up\nwait 800\npng %s/semver-update-sel.png\nkey u\nwait 8000\npng %s/semver-update.png\nquit\n' "$out" "$out"; }
 run_semver() {
     local w="$out/work-semver"
     rm -rf "$w"; mkdir -p "$w/cors" "$w/profiles" "$w/stick/cores"
@@ -166,7 +167,7 @@ PY
     semver_flow > "$w/flow.ctl"
     cp "$kit/flash.bin" "$out/semver-flash.bin"
     ( cd "$w" && nice -n 15 timeout 300 "$UE2EMU" run --board c64u --trx-io=on --icap --cor-dir "$w/cors" --core-dir "$w/profiles" --firmware "$img/hostapp_emu.elf" \
-        --roms "$kit/roms" --flash "$out/semver-flash.bin" --usb-dir "$w/stick" --usb-dir-work "$w/usbwork" --headless --speed max --script "$w/flow.ctl" \
+        --roms "$kit/roms" --flash "$out/semver-flash.bin" --usb-dir "$w/stick" --usb-dir-work "$w/usbwork" --headless --speed max ${EMU_SCREEN:+--screen $EMU_SCREEN} --script "$w/flow.ctl" \
         --max-seconds 280 > "$out/semver.log" 2>&1 )
     local rc=$?
     rm -rf "$w" "$out/semver-flash.bin"

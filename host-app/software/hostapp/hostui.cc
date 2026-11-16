@@ -641,7 +641,7 @@ static int in_menu(const char *path) { return hc_in_menu(path); }
 // only the labels, colours and flags whose value changed. No lv_obj_clean + recreate on the hot path: the host CPU
 // has no data cache (a load from DDR2 is ~0.4 us), so object creation and layout cost hundreds of ms
 // (T24-ui-project-review.md 2.3). No animations, no opacity, no shadows: solid colours only.
-#define CHIPS_W (COMPACT ? SW - 130 : 640)      // the header's chip holder, right aligned
+#define CHIPS_W (COMPACT ? SW - 130 : 770)      // the header's chip holder, right aligned
 #define CX0 (COMPACT ? 12 : 20)                 // content-relative geometry
 #define CW  (SW - NAV_W - 2 * CX0)
 #define CH  (SH - TOP_H - FOOT_H)
@@ -854,7 +854,7 @@ static void pic_init(void)
     }
 }
 static uint32_t pic_col(int g) { return g == HCP_OK ? PIC_GREEN : g == HCP_CHECK ? PIC_YELLOW : PIC_RED; }
-#define LROW_VER_W (COMPACT ? 96 : 104)           // the version's widest label ("1.0-rc1", "full firmware"); the label is as wide as its text (T209 D16)
+#define LROW_VER_W (COMPACT ? 96 : 150)           // the version's widest label ("0.3.0-dev+85acf2b0" of a test build, T221, cut to its SemVer at 480p so the name keeps its room; "full firmware"); the label is as wide as its text (T209 D16)
 #define RGRP_GAP 6                                // between the version and the pictogram
 // T209 D16: the width the version text takes (label width as set_txt would give it), 0 for none
 static int ver_w(const char *s)

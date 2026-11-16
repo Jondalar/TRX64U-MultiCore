@@ -722,7 +722,7 @@ bool UpdateJob::run()
         snprintf(ask.version, sizeof(ask.version), "Version %s   %s", up_info.version, sz);
     }
     if (semver_cmp(up_info.version, txu_running_version) == -1) {
-        snprintf(ask.older, sizeof(ask.older), "Older than the running version %s: this installs an older one.", txu_running_version);
+        snprintf(ask.older, sizeof(ask.older), "Downgrade from the running %s.", txu_running_version);
     }
     if (w_host && chk.host_key_changes) {
         if (up_survey.broken) {

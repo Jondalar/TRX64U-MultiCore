@@ -989,7 +989,7 @@ int hc_chips(HcChip *out, int cap)
     if (n < cap) {
         const char *hv = g_pl.host_version ? g_pl.host_version : "";
         if (cor_host_key && strstr(hv, "-dev+")) {
-            snprintf(out[n].text, sizeof(out[n].text), "host %s \xC2\xB7 %08X", hv, (unsigned)cor_host_key);
+            snprintf(out[n].text, sizeof(out[n].text), "host %s / %08x", hv, (unsigned)cor_host_key);
         } else {
             snprintf(out[n].text, sizeof(out[n].text), "host %s", hv);
         }

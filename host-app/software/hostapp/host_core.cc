@@ -711,6 +711,17 @@ bool hc_is_full(const char *path)
     return large;
 }
 
+// T221 D13: the version of a large core is in its .cor manifest; a .cfw names none (its row stays "full firmware")
+static void large_version(const char *path, CorInfo &ci)
+{
+    static CorInfo lc;
+    CorSource *s = g_plat.fs ? g_plat.fs->open(path) : 0;
+    if (s && cor_probe(*s, lc) == COR_ERR_LARGE) {
+        snprintf(ci.version, sizeof(ci.version), "%s", lc.version);
+    }
+    delete s;
+}
+
 void hc_probe_state(int i)
 {
     Ent &e = g_ent[i];
@@ -726,10 +737,12 @@ void hc_probe_state(int i)
         if (ec == EC_OK) {                           // nothing changed since adding: no bitstream is walked again
             snprintf(e.info.name, sizeof(e.info.name), "%s", g_cfg.e[i].name);
             e.st = ES_OK;
+            large_version(g_cfg.e[i].path, e.info);
         } else {
             CorSource *s = g_plat.fs->open(g_cfg.e[i].path);
             e.st = s ? probe_full(*s, e.info) : ES_MISSING;
             delete s;
+            large_version(g_cfg.e[i].path, e.info);
             if (e.st == ES_OK) {
                 e.st = ES_CHANGED;
             }
