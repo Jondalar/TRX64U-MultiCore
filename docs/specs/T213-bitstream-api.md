@@ -21,6 +21,14 @@ Status: PROPOSED 2026-11-12, Alex (T192 D24).
 - D3 (Alex 11-12, "all of that in, yes"): T212 ships in the test release as built; its per-core fields (drive lists, info line, task
   groups) move to the API TOML with T213.
 
+- D4 (Alex 2026-11-16, after the coordinator found 1322 lines of new per-core C in coreapp/cores since D24 and the Port Diagnostics
+  tests embedded in every core's image, translated: "Damn, we had clearly settled in the app architecture that everything core-specific
+  goes into libs or APIs. Where did that go wrong again!!!!!"; on the proposed lint gate: "Do it. It is better that way."): the lint
+  gate of T192 D24 is built now, before the release: a ratchet over a ledger of today's per-core code in the app (coreapp/cores/* and
+  the core-specific files of coreapp/src); a new per-core file, a grown ledger file, a new core name/id in the generic code or core data
+  embedded in the app image makes the lint red, unless an exception line with spec reference and Alex's decision is in the ledger.
+  Only a lint: no migration is forced (T213 stays after the release). Every agent brief cites D24 from now on.
+
 ## §4 Out
 - Gideon's and Commodore's C64 firmware (T192 D22).
 
