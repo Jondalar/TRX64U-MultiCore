@@ -148,6 +148,32 @@ void start_paths(CoreCtx *c, const Handover *h, const BoardProfile *prof)
     }
 }
 
+// T230 P-2: does this .cor path name a .cor of the running core? The base name has to be the descriptor's core id, its manifest name or its
+// folder (the monolith's trx64u.cor is "TRX64U" in the descriptor; its folder is "c64", the roms' name, not the .cor's).
+static bool cor_is_ours(const CoreDesc *d, const char *cor)
+{
+    char cfg[HANDOVER_PATH_MAX + 8];
+    if (!d || !corefolder_cfg(cor, cfg, sizeof(cfg))) {
+        return false;
+    }
+    const char *slash = strrchr(cfg, '/');
+    const char *file = slash ? slash + 1 : cfg;
+    char base[64];
+    size_t bl = strlen(file) - 4;                                               // "<name>.cfg" -> "<name>"; the board's printf has no string precision
+    if (bl >= sizeof(base)) {
+        return false;
+    }
+    memcpy(base, file, bl);
+    base[bl] = 0;
+    const char *own[3] = { d->core_id, d->cor_name, d->folder };
+    for (int i = 0; i < 3; i++) {
+        if (own[i] && own[i][0] && !strcasecmp(base, own[i])) {
+            return true;
+        }
+    }
+    return false;
+}
+
 bool start_file_take(CoreCtx *c, const Handover *h, char *config, int cfglen, bool *safe)
 {
     config[0] = 0;
@@ -156,42 +182,55 @@ bool start_file_take(CoreCtx *c, const Handover *h, char *config, int cfglen, bo
         return false;
     }
     const bool page = h && handover_valid(h) && h->path[0];
-    char path[HANDOVER_PATH_MAX + 32];
-    if (!startfile_path(page ? h->path : "/SD/x", path, sizeof(path))) {
-        return false;
-    }
-    uint64_t size;
-    bool dir;
-    if (!c->fs->stat(path, &size, &dir) || dir) {
-        return false;
-    }
-    static char buf[STARTFILE_MAX + 8];
-    int got = size < sizeof(buf) ? c->fs->load(path, buf, sizeof(buf)) : -1;
-    if (!c->fs->remove(path)) {
-        printf("[core] start file %s: could not be deleted\n", path);
-    }
-    char cor[HANDOVER_PATH_MAX], cfg[HANDOVER_CONFIG_MAX + 2];
-    bool sf = false;
-    if (got < 0 || !startfile_parse(buf, got, cor, sizeof(cor), cfg, sizeof(cfg), &sf)) {
-        printf("[core] start file %s: not a start file, dropped\n", path);
-        return false;
-    }
-    if (page) {
-        if (strcasecmp(cor, h->path)) {
-            printf("[core] start file %s: for %s, not for this start (%s), dropped\n", path, cor, h->path);
-            return false;
+    // with a page the file lies on the medium of the .cor; without one (the monolith) the host wrote it on the medium of the .cor it started,
+    // which is any of these (T230 P-2)
+    static const char *const media[] = { "/SD/x", "/USB0/x", "/USB1/x" };
+    const int nmedia = page ? 1 : 3;
+    for (int m = 0; m < nmedia; m++) {
+        char path[HANDOVER_PATH_MAX + 32];
+        if (!startfile_path(page ? h->path : media[m], path, sizeof(path))) {
+            continue;
         }
-    } else {
-        strncpy(c->cor_path, cor, sizeof(c->cor_path) - 1);
-        c->cor_path[sizeof(c->cor_path) - 1] = 0;
-        if (corefolder_cfg(c->cor_path, c->cfg_path, sizeof(c->cfg_path))) {
-            printf("[core] start file: no hand-over path, the core folder of %s is used\n", cor);
+        uint64_t size;
+        bool dir;
+        if (!c->fs->stat(path, &size, &dir) || dir) {
+            continue;
         }
+        static char buf[STARTFILE_MAX + 8];
+        int got = size < sizeof(buf) ? c->fs->load(path, buf, sizeof(buf)) : -1;
+        // one-shot, deleted whoever it is for: the host writes it right before the jump (host_core.cc), so a file this running core finds
+        // and does not take is a leftover of a start whose application never deleted it (Gideon's trx64g does not)
+        if (!c->fs->remove(path)) {
+            printf("[core] start file %s: could not be deleted\n", path);
+        }
+        char cor[HANDOVER_PATH_MAX], cfg[HANDOVER_CONFIG_MAX + 2];
+        bool sf = false;
+        if (got < 0 || !startfile_parse(buf, got, cor, sizeof(cor), cfg, sizeof(cfg), &sf)) {
+            printf("[core] start file %s: not a start file, dropped\n", path);
+            continue;
+        }
+        if (page) {
+            if (strcasecmp(cor, h->path)) {
+                printf("[core] start file %s: for %s, not for this start (%s), dropped\n", path, cor, h->path);
+                return false;
+            }
+        } else {
+            if (!cor_is_ours(c->desc, cor)) {
+                printf("[core] start file %s: for %s, not for this core, dropped\n", path, cor);
+                continue;
+            }
+            strncpy(c->cor_path, cor, sizeof(c->cor_path) - 1);
+            c->cor_path[sizeof(c->cor_path) - 1] = 0;
+            if (corefolder_cfg(c->cor_path, c->cfg_path, sizeof(c->cfg_path))) {
+                printf("[core] start file: no hand-over path, the core folder of %s is used\n", cor);
+            }
+        }
+        snprintf(config, cfglen, "%s", cfg);
+        *safe = sf;
+        printf("[core] start file %s read and deleted: config \"%s\", safe %d\n", path, cfg, sf ? 1 : 0);
+        return true;
     }
-    snprintf(config, cfglen, "%s", cfg);
-    *safe = sf;
-    printf("[core] start file %s read and deleted: config \"%s\", safe %d\n", path, cfg, sf ? 1 : 0);
-    return true;
+    return false;
 }
 
 bool start_migrate_cfg(CoreCtx *c, const BoardProfile *prof)

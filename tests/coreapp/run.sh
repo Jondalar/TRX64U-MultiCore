@@ -167,6 +167,7 @@ run handover test_handover.cc handover.cc
 control handover_cfgext handover.cc 's/strcasecmp(cor_path + l - 4, ".cor") != 0 || //' test_handover.cc handover.cc
 
 run start test_start.cc start.cc handover.cc amiga.cc $C64 $BASEL
+run startfile test_startfile.cc start.cc handover.cc amiga.cc $C64 $BASEL     # T230 P-2: the start file on the monolith
 # the host key from the host's BUILD register through the hand-over page to the F8 "Reload core" check (board 2026-11-04): a .cor of the running host passes, one of another host is refused with both keys named
 run hostkey test_hostkey.cc start.cc handover.cc amiga.cc $C64 $BASEL
 # T115 7 H2: the pick by id (I1-I5)

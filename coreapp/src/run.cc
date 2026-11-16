@@ -479,6 +479,13 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
         } medium_env;
         start_core_folder(&ctx, &medium_env);
     }
+    if (!(h && handover_valid(h) && h->path[0])) {      // T230 P-2: no page, no medium of a .cor to wait for: the file may lie on a stick that is still coming up
+        uint64_t sfsz;
+        bool sfdir;
+        if (!ctx.fs->stat("/SD/" STARTFILE_NAME, &sfsz, &sfdir)) {
+            lib_board_wait_stick(&ctx);
+        }
+    }
     start_file_take(&ctx, h, file_config, sizeof(file_config), &file_safe);    // after start_core_folder: it waits for the core's medium, the file lives on it
     start_migrate_cfg(&ctx, board);
     config_start(&ctx, h && handover_valid(h) && handover_config(h)[0] ? handover_config(h) : file_config);                              // T198 D7: the host named a config in the hand-over page: the settings are read from it

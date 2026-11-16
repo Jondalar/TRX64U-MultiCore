@@ -19,6 +19,10 @@ struct LibBootReport {
 // `bundle` (optional): what bundle_read found; its libraries load before the stick's.
 void lib_board_load(CoreCtx *c, LibBootReport *rep, const BundleExtras *bundle = 0);
 
+// T230 P-2: a start without a hand-over page has no medium to wait for; this waits (lib_wait_for_stick: only when a stick is known to be coming,
+// at most LIB_MOUNT_WAIT_MS) so that a start file on a stick can be found. Logs the decision.
+void lib_board_wait_stick(CoreCtx *c);
+
 // The loader that holds the libraries (null before lib_board_load ran, or when the loading was skipped): the menu merge reads their records.
 LibLoader *lib_board_loader(void);
 
