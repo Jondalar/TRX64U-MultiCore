@@ -4,7 +4,7 @@
 //   p_rom = 0   the PET's 32 KB RAM, byte address = the machine's (a PRG load and machine:readmem / writemem); above $7FFF nothing (reads 0)
 //   p_rom = 1   the app's ROM aperture: dma_addr 0x2000-0x3FFF and 0x4000-0x5FFF are the two halves of ONE 16 KB aperture (offset = dma_addr[13:0]);
 //               rom_sel names what is behind it: 0 the ROM space $8000-$BFFF, 1 the ROM space $C000-$FFFF (the bytes are at their machine
-//               address - 0x8000 + offset), 2 the 2 KB character ROM (offset 0-0x7FF, the rest reads 0),
+//               address - 0x8000 + offset), 2 the 4 KB character ROM (offset 0-0xFFF, the rest reads 0),
 //               3 / 8 the SuperPET's Waterloo ROM $A000-$DFFF / $E000-$FFFF (16 KB / 8 KB: of the aperture 8 uses offsets 0-0x1FFF, the upper half aliases them), 4-7 the drives' ROMs.
 // Written for this project (TREX), no upstream code.
 `timescale 1ns / 1ps
@@ -83,7 +83,7 @@ module pet_win (
         if (p_rom) begin
             w_ai = {2'b00, p_addr[13:0]};
             w_hit = (p_addr[15] == 1'b0) && (p_addr[14:13] == 2'b01 || p_addr[14:13] == 2'b10) &&
-                    (rom_sel <= 4'd1 || (rom_sel == 4'd2 && p_addr[13:11] == 3'b000) || rom_sel == 4'd3 || (rom_sel >= 4'd4 && rom_sel <= 4'd7) ||
+                    (rom_sel <= 4'd1 || (rom_sel == 4'd2 && p_addr[13:12] == 2'b00) || rom_sel == 4'd3 || (rom_sel >= 4'd4 && rom_sel <= 4'd7) ||
                      rom_sel == 4'd8);                                  // 8 KB: pet_mem uses ai[12:0], the other half of the aperture aliases it
         end else begin
             w_hit = ~p_addr[15];

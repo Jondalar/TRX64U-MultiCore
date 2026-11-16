@@ -10,3 +10,5 @@ echo "$out" | tail -8
 echo "$out" | grep -q '^PASS tb_pet_boot'
 
 sh "$d/run_models.sh"
+
+sh "$d/run_chrwin.sh"
