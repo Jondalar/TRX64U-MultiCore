@@ -29,7 +29,11 @@ bitstream with Gideon's application). The Gideon UI is to be phased out; for a w
   (`TRXSTART1`, `cor=`, `config=`, `safe=`) before the full-firmware start; the core app (`coreapp/src/start.cc` `start_file_take`)
   reads it once and deletes it. Proven in ue2emu with the Amiga 1200 large core. On the monolith the core app never reads the hand-over
   page (T104.2 §5, `has_handover` false), so `start.cc:160` looks only at `/SD/trx64-start.txt`: a `trx64u.cor` on a USB stick gets its
-  file written to `/USB0/` and the core app does not find it.
+  file written to `/USB0/` and the core app does not find it. **Worse (found by the firmware session, confirmed in `start.cc:151-190`):**
+  without a page the core app accepts ANY `cor=` from `/SD/trx64-start.txt` and takes its core folder: trx64g started from `/SD`
+  leaves `cor=/SD/cores/trx64g.cor` there (Gideon's application never deletes it); a later trx64u start from `/USB0` reads that
+  leftover, sets `cfg_path` to `/SD/cores/trx64g/trx64g.cfg` and writes its `[section]` settings into Gideon's file, which contract
+  §4 forbids. The same after a JTAG/SRAM start or a failed write of the start file.
 - **P3 Medium persist on trx64u.** The core app has "Persist medium mounts" (T180 D2: `mediamounts.cc` `persist_extend`, added by
   `menubuild.cc:29` for a core with media slots; `boot.cc:157` `mounts_restore`). trx64u's menu is its own TOML descriptor
   (`coreapp/cores/trx64u/menu.toml`); T228 D10 (Alex 2026-11-15: "saving configs and mounted media like the other cores must go in
@@ -52,6 +56,7 @@ bitstream with Gideon's application). The Gideon UI is to be phased out; for a w
 | S2 | P1 | A pin whose `SEMVER=` differs from the version in the pinned package's manifest makes the package stage red with a message naming both | `tools/pack_import_cor.sh` run in the package stage | CI `package` |
 | S3 | P2 | trx64u on `/SD/cores`, config "Demo" chosen with RIGHT in the boot menu: core log `start file ... read and deleted: config "Demo"`, the Demo settings applied, no file left | ue2emu (monolith profile, our core app); then board | Mac ue2emu; board |
 | S4 | P2 | The same with `trx64u.cor` on `/USB0/cores`: the file is found on the stick and applied | ue2emu; board | Mac ue2emu; board |
+| S4b | P2 | A start file whose `cor=` names another core (trx64g's leftover) is dropped on trx64u: log "not for this core, dropped", `cfg_path` stays trx64u's, `trx64g.cfg` untouched | ue2emu (leftover file prepared on the card) | Mac ue2emu |
 | S5 | P3 | trx64u with "Persist medium mounts" = Yes, a `.d64` mounted, back to the host, trx64u started again: the disk is mounted from the first cycle (`mounts_restore` log), the directory loads | ue2emu; board | Mac ue2emu; board |
 | S6 | P4 | trx64u started with a config that names an autostart program: after the boot the program runs without a key press (screen shows it), the log names the autostart | ue2emu; board | Mac ue2emu; board |
 | S7 | P5 | The contract text with the version field, the start file and the list of what the core app needs from the bitstream is the same in both repositories | `diff` of the two files, both commits named in §5 | both repos |
@@ -71,8 +76,9 @@ bitstream with Gideon's application). The Gideon UI is to be phased out; for a w
   `pack_import_cor.sh` checks the pin's `SEMVER=` (without `-dev+...`) against the manifest (S2). Contract §1 and §2 change.
   For today's pins no firmware change is needed: `main-8f1dc184` is the release 0.3.0 (Gitea prerelease `trx64-main-8f1dc184`, checked
   here), so both pins can carry `SEMVER=0.3.0` now.
-- **Proposal P-2 (start file on the monolith):** the core app looks for `trx64-start.txt` on `/SD`, then `/USB0`, `/USB1` and takes
-  the first file whose `cor=` names a `trx64u` path on that medium. MultiCore only.
+- **Proposal P-2 (start file on the monolith):** the core app looks for `trx64-start.txt` on `/SD`, then `/USB0`, `/USB1`; without a
+  page it takes a file only when its `cor=` names a `.cor` of its own core (core folder = its descriptor's), drops any other and logs
+  it (S4b). MultiCore only; it is a bug fix (contract §4) and is built now.
 - **Proposal P-3 (medium persist):** no new work here; it is T228 D10, proven in T228 S2 and by S5 of this spec.
 - **Proposal P-4 (autostart):** open (§3a Q-A). MultiCore only: the generic core app does it with the building blocks of T217.
 - **Proposal P-5 (contract):** §3 gets a paragraph "Start file" (place, format, one-shot, written before every large `.cor` including
@@ -112,7 +118,8 @@ For the TRX64-Ultimate firmware session:
   autostart, `menu.toml`), the start file (writer and reader), the hand-over page layout, the STAGE_* windows. Both with Alex: the
   contract text. The firmware session drafts the merged text; MultiCore reviews it against its code; each side commits the same bytes
   after Alex's go.
-- **FW-3:** The host writes `trx64-start.txt` to the medium root before `trx64g` too. Any objection from Gideon's application (file
+- **FW-3: answered (firmware session, 2026-11-16).** No objection: nothing in Gideon's application reads a `.txt` from a medium root; the
+  file browser shows `trx64-start.txt` as an ordinary file and never deletes it. Older question text: The host writes `trx64-start.txt` to the medium root before `trx64g` too. Any objection from Gideon's application (file
   browser, a scan of the root)?
 
 For Alex:
