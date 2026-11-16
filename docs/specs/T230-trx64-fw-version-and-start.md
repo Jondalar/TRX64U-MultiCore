@@ -79,6 +79,10 @@ bitstream with Gideon's application). The Gideon UI is to be phased out; for a w
   with the list of generic operations, published with versions; the contract then covers only interfaces (library interface version,
   TOML format, generic operations, hand-over page, start file). Until then the v2 split (MultiCore owns the trx64u menu and its ops)
   is the interim state.
+- **D4 (Alex 2026-11-16, on rewriting the target in T213 terms, translated: "Let's try it that way then. But first close all loose
+  ends and a release."):** D3's target is expressed in T192 D24 / T213 D1 (option B) terms: TRX64-Ultimate owns trx64u's API TOML and UI
+  TOML; the feature logic (Timewarp ring, monitor, streams, U64 registers) becomes generic C modules in MultiCore's service, chosen and
+  parametrised by the API TOML; no feature library. Contract §10 is rewritten that way. Built after the next release, after the loose ends.
 - **Proposal P-1 (version, after FW-1):** TRX64-Ultimate's `ci/package.sh` writes `"version": "x.y.z"` from the packed application's
   `APPL_VERSION_NUMBER` into `manifest.json`. MultiCore copies it into the pin as `SEMVER=` when the pin moves, but only when
   `PKG_VERSION` is a release (Gitea release `trx64-<PKG_VERSION>` exists); a non-release pin gets `x.y.z-dev+<sha8>`.
