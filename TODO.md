@@ -102,7 +102,6 @@ Built and benched; what is left is a step on the board (Alex, 2026-10-28, transl
 | T223 | 2 | 🔨 | Boot menu: 32 entries, only visible rows read, clear full-menu message; large cores take configs (D4) | Board 11-16 table ok; D7 built: version x.y.z only, L/P badge, tick at the right edge (ue2emu ok) | [T223](docs/specs/T223-boot-menu-32.md) |
 | T225 | 2 | ✅ | Amiga: USB pad on game port 2 (1-/2-button, CD32), mapping dialog, saved per pad ID | Done 11-15, board amiga1200 (Alex) | [T225](docs/specs/T225-amiga-usb-pad-port2.md) |
 | T226 | 2 | 🔨 | Core app: "Loading cartridge" note; pad mapping on the Input tab, not Actions F7 | Spec 11-15 (Alex, board) | [T226](docs/specs/T226-coreapp-board-ux-1115.md) |
-| T227 | 3 | 🔨 | SCPU: smoothing of the VIC picture (horizontal blend), Smoothing row | D1 blend blurry on board; D3 sharp smoothing built, Vivado + board open (S1/S3) | [T227](docs/specs/T227-scpu-vic-smoothing.md) |
 | T228 | 2 | 📝 | trx64u on the generic core menu; S1 decided (D1-D18), next T212 merge then S2 | Spec 11-15 (Alex) | [T228](docs/specs/T228-trx64u-generic-menu.md) |
 | T229 | 2 | 📝 | Boot menu: row data cached like the picture, stat-only check in the background, keys win | Spec 11-16 (Alex), PROPOSED, Q1-Q6 open | [T229](docs/specs/T229-boot-menu-data-cache.md) |
 | T230 | 2 | 📝 | TRX64 FW version in the menu; trx64u starts with config, media, autostart (FW contract) | PROPOSED; FW-1 answered, pins SEMVER=0.3.0; FW-2/3, Q-A/B open | [T230](docs/specs/T230-trx64-fw-version-and-start.md) |
@@ -150,6 +149,7 @@ Built and benched; what is left is a step on the board (Alex, 2026-10-28, transl
 
 | ID | M | Status | Task | Open | Details |
 | T169 | 3 | ✅ | User manual rebuilt for the host app: one chapter per menu, engineering-manual style, emulator screenshots | Done (Alex 11-14, closed after the §5 check); left: colour page app fix + picture, Run Update for TRXBK on a backup-started firmware | [T169](docs/todo/T169.md) |
+| T227 | 3 | ✅ | SCPU: smoothing of the VIC picture (horizontal blend), Smoothing row | Done: D3 sharp smoothing, board PASS 11-16 (Fill + Smooth) | [T227](docs/specs/done/T227-scpu-vic-smoothing.md) |
 |---|---|---|---|---|---|
 | T115 | 3 | ✅ | The host starts a full firmware from a .cfw (flash file + IPROG): Gideon's original and the large TRX64 | Done (Alex 11-14); proven in daily board use (.cfw start) | [T115](docs/todo/T115.md) |
 | T109 | 3 | ✅ | A core that makes sound is heard, and silence cannot come back unseen | Done (Alex 11-14); sound proven in daily use, silence-watch board proof waived | [T109](docs/specs/done/T109-core-sound-reaches-the-speaker.md) |
