@@ -1,6 +1,6 @@
 # T228 — trx64u runs the generic core menu (the structure of the other cores), not its own trx64u menu
 
-**Status:** PROPOSED (2026-11-15, Alex).
+**Status:** IN PROGRESS (2026-11-16 night, S2 on branch t228-s2; spec 2026-11-15, Alex).
 **Repo:** TRX64U-MultiCore — core app (`coreapp/cores/trx64u/menu.toml`, `coreapp/cores/trx64u*`), the import pin
 `release/imports/trx64u.pin` (DESC/OPS). No gateware (the bitstream stays TRX64-Ultimate's).
 **Number:** T228.
@@ -297,6 +297,33 @@ overlay was fitted from a 1280x800 manual picture, so its scale on the real 960x
   per D7); "FTP hosts" is one row that opens a page with the hosts (BACK returns).
 - Q11 needs no answer: D7 decided it. Q13 is settled by D14.
 - All S1 questions Q1-Q14 are answered (D1-D18). Next: T212 merges (D2), then S2 is built, then Alex tests in ue2emu (D6).
+
+### Decisions during S2 (decided by Claude on Alex's delegation 2026-11-16 night; Alex can overturn each at S2b)
+Alex 2026-11-16 (translated): "you start T228 overnight ... be the advisor here, decide for me". Each decision follows a D-row or the
+S1 table where one exists; only DC1, DC2, DC3 and DC6 are new choices.
+- DC1 Softboot is a Library file action on `.cfw`/`.ue2`/`.u64` (RETURN menu of the file), not a row in F7 Apps. Why: trx64g puts
+  softboot in the context menu of those file types (Q2 facts), and D17 already made Unzip a file action of its `.zip`. A launcher
+  that needs a file belongs to the file. D5 ("TRXCRT to Apps") covers the cartridge tools only.
+- DC2 The rail heading "DIRECT" goes too, in every core (generic, like D4). Why: with SHIFTED gone it heads the only group and
+  separates nothing (an all-caps heading needs a reason, ux-review R11).
+- DC3 The 7 Timewarp actions (start/stop recording, marker here, clear markers, back to live, save frame, save the ring) go to F1 Home,
+  tab 2 "Recording". The ring and trace switches stay in F5 TRX64 > Recording (D13). Why:
+  - The TRX64G Timewarp bar has keys only to move through frames (manual 07-timewarp.md), so these actions cannot live in the F2 overlay
+    (D3 keeps it unchanged).
+  - Alex put machine actions on F1 rather than F5 (D8, "you can make tabs there too"), and F5 holds settings.
+  - The tab is named "Recording", not "Timewarp", so it does not repeat the F2 rail entry.
+- DC4 F5 keeps 7 tabs (Machine, TRX64, Memory and I/O, Video, Audio, SID, Input), so the generic `TRX_TABS_MAX` goes from 6 to 8.
+  Why: the tabs follow from the S1 table, D13, D14 and D16; folding Input into another tab would hide what it is.
+- DC5 The Home machine-info line names the REU only while it is enabled. Why: the line describes the machine as it runs (T212 D13).
+- DC6 A section heading that repeats its tab's title is not drawn (e.g. "Machine" over "MACHINE"), in every core (generic). Why: it
+  repeats the title (ux-review R10).
+- From the spec, not new:
+  - F4 is the Monitor rail entry (D3, variant A), so the rail reads "MONITOR", not "TOOLS".
+  - The old F4 Diagnostics content goes where the S1 table puts it: Bug report to F8 Support, System information/Board/Uptime to F8
+    Status, the cartridge tools to F7 Apps (D5).
+  - Create folder goes to F3 Library (S1 table).
+- Found, outside T228 (for Alex): T212 D16 says no list area's foot repeats "F1-F8 AREA". The generic `menuctl.cc` foot still prints
+  it on every area of every core; only the drive list and pages follow D16.
 
 ## §4 Out
 
