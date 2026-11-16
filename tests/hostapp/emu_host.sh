@@ -71,6 +71,8 @@ run_flow flow 1; rc=$?
 if [ $rc -ne 0 ]; then echo "FAIL host->vc20->menu->host: the emulator exited $rc (see $out/flow.log)"; FAIL=1
 elif why="$(check_flow flow)"; then echo "PASS host->vc20->menu->host: partial found, VC20 identified, back on the host with the menu marker (PNGs in $out)"
 else echo "FAIL host->vc20->menu->host: $why (see $out/flow.log)"; FAIL=1; fi
+# the CI container and its /tmp go away with the job: a failed flow shows the end of its log here (runs 2119/2150 failed without it)
+[ "${FAIL:-0}" = 1 ] && [ -f "$out/flow.log" ] && { echo "--- last 60 lines of $out/flow.log"; tail -n 60 "$out/flow.log" | cut -c1-200; echo "---"; }
 
 # T187: the Picture flow of the host (own run, no core): boot menu (two-line rows of 36 px, one entry added from the stick with A), F8 settings list with the Picture row, the V key opens the Picture page,
 # RETURN on a mode applies it. The emulator has no mode request register (hv_gateware() is false: "the old firmware path"), so the 8 s question and the
