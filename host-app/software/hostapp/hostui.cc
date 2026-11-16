@@ -894,8 +894,8 @@ static int ver_col_w(void)
     return m;
 }
 // T223 D7 (T221 D16): the core-type badge, a small purple square right of the version ("L" large, "P" partial), as on mock-up t1b. Its slot is kept on rows
-// without a type (a .cfw) so the version column does not move. Where the status pictogram stands is a build choice (Alex decides from pictures):
-// default (t1b) between the config marker and the version; -DHC_PIC_AT_END at the far right end, after the version and the badge.
+// without a type (a .cfw) so the version column does not move. The status pictogram stands at the far right end, after the version and the badge
+// (Alex 2026-11-16, from pictures A/B: A).
 #define TB_W (COMPACT ? 18 : 22)
 #define TB_GAP 6
 #define TB_BG 0x5B49C8
@@ -983,20 +983,13 @@ static void fill_mrow(Row &r, int i)
     if (lv_obj_get_style_width(r.ic, LV_PART_MAIN) != iw) {
         lv_obj_set_width(r.ic, iw);
     }
-    // from the right (T209 D16, T223 D7): the type badge (far right), the version left of it (as wide as its text), the pictogram left of the version
-    // (t1b) or, with HC_PIC_AT_END, at the far right with the badge and the version left of it; then "auto", the config marker; the name takes what is left
+    // from the right (T209 D16, T223 D7, Alex 2026-11-16: "the tick pictograms at the far right edge"): the pictogram at the right edge, the type badge
+    // left of it, the version left of that (as wide as its text); then "auto", the config marker; the name takes what is left
     const int vw = vcol_w;
-#ifdef HC_PIC_AT_END
     const int px = r.w - 10 - PIC_D;
     const int tx = px - TB_GAP - TB_W;
     const int vx = tx - TB_GAP - vw;
     const int lx = vx - (vw ? RGRP_GAP : 0);
-#else
-    const int tx = r.w - 10 - TB_W;
-    const int vx = tx - TB_GAP - vw;
-    const int px = vx - (vw ? RGRP_GAP : 0) - PIC_D;
-    const int lx = px;
-#endif
     if (lv_obj_get_x(r.b) != vx) {
         lv_obj_set_x(r.b, vx);
     }

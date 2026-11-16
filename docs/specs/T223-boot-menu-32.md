@@ -126,4 +126,4 @@ The red fast tier came from T224 code (compile error in `test_settings.cc`, miss
 - Pictures (ue2emu, real host app, 480p/720p/1080p, A and B): `scratchpad/t223d7/menu_{A,B}_{480p60,720p60,1080p60}.png`. ux-review: PASS with notes: badge and version readable at 480p; the name of a long row ("Amiga 1200 (AGA, 68020)") is cut at 480p in both variants (as before); no column header.
 - Render bench: its row expectations are built from `HcEntryRow.ver` itself and its fixtures carry no `-dev+` version, so no golden line changes; the emu flow `tests/hostapp/emu_host.sh` packs a `0.3.0-dev+85acf2b0` Amiga: it now shows `0.3.0` in the row, and the pipeline flags it if that flow reads the row text.
 - `tools/dev.sh riscv --branch t223-d7`: ok.
-
+- D7 follow-ups (Alex 2026-11-16): badge letters L / P ("L arge and P artial, yes"); pictogram at the far right edge after version and badge ("The tick pictograms at the far right edge", picture A); the letter centred in its square.
