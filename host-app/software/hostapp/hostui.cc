@@ -1665,12 +1665,18 @@ static void build_browse(void)
     BSTEP {
         b_right = box(p, CX0 + lw + 16, top, rw, ph, C_PANEL, 1);
         r_title = fit1(txt(b_right, 12, COMPACT ? 8 : 10, "", F_TEXT, C_INK, rw - 24), rw - 24);
-        static const char *keys[7] = { "Version", "Contract", "FPGA", "Core", "Application", "SHA-256", "Status" };
-        int ky = COMPACT ? 36 : 44, kp = COMPACT ? 20 : 22;
-        for (int i = 0; i < 7; i++) {
-            r_key[i] = fit1(txt(b_right, 12, ky + i * kp, keys[i], F_SMALL, C_MUTED, COMPACT ? rk - 12 : 0), COMPACT ? rk - 12 : 200);
-            r_val[i] = fit1(txt(b_right, rk, ky + i * kp, "", F_SMALL, C_INK, rw - rk - 12), rw - rk - 12);
+    }
+    static const char *keys[7] = { "Version", "Contract", "FPGA", "Core", "Application", "SHA-256", "Status" };
+    int ky = COMPACT ? 36 : 44, kp = COMPACT ? 20 : 22;
+    for (int i0 = 0; i0 < 7; i0 += 2) {                   // T229 B: two rows of the panel per step (a step may take about 30 ms)
+        BSTEP {
+            for (int i = i0; i < 7 && i < i0 + 2; i++) {
+                r_key[i] = fit1(txt(b_right, 12, ky + i * kp, keys[i], F_SMALL, C_MUTED, COMPACT ? rk - 12 : 0), COMPACT ? rk - 12 : 200);
+                r_val[i] = fit1(txt(b_right, rk, ky + i * kp, "", F_SMALL, C_INK, rw - rk - 12), rw - rk - 12);
+            }
         }
+    }
+    BSTEP {
         r_msg = txt(b_right, 12, ky + 7 * kp + 8, "", F_SMALL, C_OK, rw - 24);
         r_err = txt(b_right, 12, 40, "", F_SMALL, C_MUTED, rw - 24);
         b_note = fit1(txt(p, CX0, CH - 26, "", F_SMALL, C_MUTED, CW), CW);
@@ -3034,13 +3040,34 @@ static bool build_pending(void)
     }
     return false;
 }
-static void build_pass(uint32_t budget_ms = 40)
+// T229 B (Q4: a pass of the main loop is bounded by 100 ms): the pass renders after it builds, so the build gets what is left of 95 ms after the
+// render time of the last passes; at least one step runs, and a step that would not fit (judged by the longest step so far) is not started.
+static uint32_t g_render_recent[4];                  // what the last passes that built took besides the building (ms): the render, the updates, the rest
+static uint32_t render_recent_max(void)
+{
+    uint32_t m = 25;
+    for (uint32_t v : g_render_recent) {
+        m = v > m ? v : m;
+    }
+    return m;
+}
+static void build_pass(bool one_step = false)
 {
     uint32_t t0 = now_ms();
+    uint32_t rmax = render_recent_max();
+    uint32_t budget_ms = (one_step || rmax >= 95) ? 0 : 95 - rmax;
+    uint32_t longest = 0;
     for (int a = 0; a < A_N; a++) {
         while (!b_done[a]) {
+            uint32_t ts = now_ms();
+            int stg = b_stage[a];
             area_step(a);
-            if (now_ms() - t0 >= budget_ms) {
+            uint32_t te = now_ms();
+            if (te - ts >= 20) {
+                printf("[host] build step: area %d stage %d took %u ms\n", a, stg, (unsigned)(te - ts));
+            }
+            longest = te - ts > longest ? te - ts : longest;
+            if (te - t0 + longest > budget_ms) {
                 return;
             }
         }
@@ -4422,39 +4449,69 @@ static int menu_getch(void)
     return k > 0 ? k : host_getch_nowait();
 }
 
-static void snap_save(void)
+// T229 B: the picture is encoded in slices (the whole frame is about 200 ms of CPU, one pass may take 100). The pixels must not change between the
+// slices: a key, a pass that rendered something (g_render_gen) or anything invalid drops the encoding; the settle timer asks again.
+static MsEnc snap_enc;
+static bool snap_enc_on;
+static uint32_t snap_enc_gen, snap_enc_t0, snap_enc_slices;
+static uint16_t *snap_enc_scratch;
+static uint32_t g_render_gen;                        // counts the passes that rendered pixels
+
+static bool snap_begin(void)
 {
     if (COMPACT) {
-        return;                                      // the saved picture is the 960 x 540 canvas (MS_W x MS_H); a compact canvas is not saved
+        return false;                                // the saved picture is the 960 x 540 canvas (MS_W x MS_H); a compact canvas is not saved
     }
     lv_display_t *d = lv_display_get_default();
     uint16_t *a, *b;
     trx_lv_buffers(&a, &b);
     if (!d || !d->buf_1 || !a || !b) {
-        return;
+        return false;
     }
     const uint16_t *px = (const uint16_t *)d->buf_1->data;           // the single buffer LVGL renders into and shows
-    uint16_t *scratch = (px == a) ? b : a;                           // the other one is idle
-    uint32_t t0 = now_ms();
-    uint32_t key = snap_key_now();
-    int n = ms_encode(px, MS_W, MS_H, key, (uint8_t *)scratch, MS_RAW_BYTES);
+    snap_enc_scratch = (px == a) ? b : a;                            // the other one is idle
+    snap_enc_t0 = now_ms();
+    snap_enc_slices = 0;
+    snap_enc_gen = g_render_gen;
+    ms_enc_begin(&snap_enc, px, MS_W, MS_H, snap_key_now(), (uint8_t *)snap_enc_scratch, MS_RAW_BYTES);
+    snap_enc_on = true;
+    return true;
+}
+
+// One slice of at most MS_SLICE_PX pixels; true when the picture is finished (saved, or found the same, or too big): the caller settles it.
+static bool snap_step(int nkeys)
+{
+    if (nkeys || inv_pixels() != 0 || snap_enc_gen != g_render_gen) {
+        snap_enc_on = false;                         // the screen moved: not this one; the settle timer comes round again
+        return false;
+    }
+    snap_enc_slices++;
+    if (!ms_enc_step(&snap_enc, MS_SLICE_PX)) {
+        return false;
+    }
+    snap_enc_on = false;
+    int n = ms_enc_finish(&snap_enc);
+    uint8_t *scratch = (uint8_t *)snap_enc_scratch;
     if (n < 0) {
         printf("[host] menu picture: not saved, above %d bytes\n", (int)(MS_RAW_BYTES < MS_LIMIT ? MS_RAW_BYTES : MS_LIMIT));
-        return;
+        return true;
     }
     uint32_t k2, c2;
-    ms_header_info((const uint8_t *)scratch, n, &k2, &c2);
+    ms_header_info(scratch, n, &k2, &c2);
     if (snap_file_known && snap_file_key == k2 && snap_file_crc == c2) {
-        printf("[host] menu picture: same as the file, not written (%d bytes)\n", n);
-        return;
+        printf("[host] menu picture: same as the file, not written (%d bytes, %u slices)\n", n, (unsigned)snap_enc_slices);
+        return true;
     }
+    uint32_t t1 = now_ms();
     bool ok = hostfs_save(MS_DIR, MS_FILE, scratch, n);
     if (ok) {
         snap_file_known = true;
         snap_file_key = k2;
         snap_file_crc = c2;
     }
-    printf("[host] menu picture: %s, %d bytes, %u ms\n", ok ? "saved" : "NOT saved", n, (unsigned)(now_ms() - t0));
+    printf("[host] menu picture: %s, %d bytes, %u ms (%u slices, the file write %u ms)\n", ok ? "saved" : "NOT saved", n, (unsigned)(now_ms() - snap_enc_t0),
+           (unsigned)snap_enc_slices, (unsigned)(now_ms() - t1));
+    return true;
 }
 
 // The loop calls this every pass: every 250 ms the state of the screen is boiled down to a signature; when it has not changed for
@@ -4467,6 +4524,12 @@ static void snap_tick(uint32_t t, int nkeys)
     }
     if (nkeys) {
         ms_settle_touch(&snap_st, t);
+    }
+    if (snap_enc_on) {                               // an encoding in slices: one slice per pass, no 250 ms gate
+        if (snap_step(nkeys)) {
+            ms_settle_saved(&snap_st);
+        }
+        return;
     }
     if (t - last < 250) {
         return;
@@ -4484,8 +4547,9 @@ static void snap_tick(uint32_t t, int nkeys)
     bool ok = nv.view == V_MENU && !hc_cd_running() && hc_cd_dead() && !nv.note[0] && !lazy_busy() && !nkeys && inv_pixels() == 0 && nv.mfirst == 0 &&
               nv.sel == (cfg.def >= 0 ? cfg.def : 0) && hc_cfg_loaded();
     if (ms_settle(&snap_st, t, sig, ok, MS_QUIET_MS)) {
-        snap_save();
-        ms_settle_saved(&snap_st);
+        if (!snap_begin()) {
+            ms_settle_saved(&snap_st);               // a compact canvas or no buffers: nothing to save for this signature
+        }
     }
 }
 
@@ -4811,13 +4875,16 @@ void hostui_run(void)
         rows_tick(t, nk);                    // T229 D6: the file of the rows, when they have settled
         // T229: what the first frame did not need is built in steps of at most 40 ms, when no key came in this pass; with rows to read, in turn with them
         bool built_now = false;
+        uint32_t tb0 = now_ms();
         if (have_ui && !nk && build_pending() && (!lazy_busy() || (build_turn = !build_turn))) {
             build_pass();
             built_now = true;
         }
+        uint32_t tb1 = now_ms();
         if (!built_now) {
             lazy_pass(nk, t, last_key_ms);   // after the keys of this pass: one phase of one entry, when no key is near
         }
+        uint32_t tb2 = now_ms();
         web_pump();                          // T106 D2: the one place the web task's commands are applied
         picture_tick();                      // T164: the hot-plug follow and the question's timer
         if (!nk && (need_full || need_sel)) {
@@ -4830,6 +4897,9 @@ void hostui_run(void)
         if (r1 - r0 >= 5) {
             printf("[host] render %u ms, %u px invalid\n", (unsigned)(r1 - r0), (unsigned)px_before);
         }
+        if (px_before) {
+            g_render_gen++;
+        }
         if (ms < 0) {
             have_ui = false;
             ui_built = false;
@@ -4841,6 +4911,13 @@ void hostui_run(void)
                 uint32_t d = pass1 - g_mt.t_unit_end;
                 mr.redraw += d > 65535 ? 65535 : (uint16_t)d;
                 g_mt.redraw_row1 = 0;
+            }
+            if (built_now) {
+                static uint32_t rn;
+                g_render_recent[rn++ & 3] = (pass1 - pass0) - (tb1 - tb0);
+            }
+            if (pass1 - pass0 > 100 && g_mt.t_frame) {
+                printf("[host] long pass %u ms: keys+status %u, build %u, reader %u, render+rest %u\n", (unsigned)(pass1 - pass0), (unsigned)(tb0 - pass0), (unsigned)(tb1 - tb0), (unsigned)(tb2 - tb1), (unsigned)(pass1 - tb2));
             }
             if (pass1 - pass0 > g_mt.pass_max) {
                 g_mt.pass_max = pass1 - pass0;
@@ -4876,7 +4953,7 @@ int hostui_test_build_steps(void)                // one main-loop pass of the bu
 {
     int n = 0;
     while (build_pending() && n < 10000) {
-        build_pass(0);                                 // one step per pass: what the board does in the worst case
+        build_pass(true);                              // one step per pass: what the board does in the worst case
         n++;
     }
     return n;

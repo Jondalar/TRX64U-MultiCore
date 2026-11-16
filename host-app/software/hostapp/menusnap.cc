@@ -59,27 +59,44 @@ static uint32_t get32(const uint8_t *p) { return p[0] | (p[1] << 8) | (p[2] << 1
 static void put16(uint8_t *p, uint32_t v) { p[0] = v; p[1] = v >> 8; }
 static uint32_t get16(const uint8_t *p) { return p[0] | (p[1] << 8); }
 
-int ms_encode(const uint16_t *px, int w, int h, uint32_t key, uint8_t *out, uint32_t max_out)
+void ms_enc_begin(MsEnc *e, const uint16_t *px, int w, int h, uint32_t key, uint8_t *out, uint32_t max_out)
 {
-    uint32_t n = (uint32_t)w * (uint32_t)h;
     uint32_t cap = max_out < MS_LIMIT ? max_out : MS_LIMIT;
-    if (cap < MS_HDR_BYTES) {
-        return -1;
+    e->px = px;
+    e->w = w;
+    e->h = h;
+    e->key = key;
+    e->out = out;
+    e->n = (uint32_t)w * (uint32_t)h;
+    e->i = 0;
+    e->failed = cap < MS_HDR_BYTES;
+    e->o = out + MS_HDR_BYTES;
+    e->end = out + cap;
+}
+
+// Encodes the runs that start in the next max_px pixels (a run or a literal may reach past them); true when all pixels are done or the output is full.
+bool ms_enc_step(MsEnc *e, uint32_t max_px)
+{
+    if (e->failed) {
+        return true;
     }
-    uint8_t *o = out + MS_HDR_BYTES;
-    uint8_t *end = out + cap;
-    uint32_t i = 0;
-    while (i < n) {
+    const uint16_t *px = e->px;
+    uint32_t n = e->n;
+    uint32_t i = e->i;
+    uint32_t stop = (n - i > max_px) ? i + max_px : n;
+    uint8_t *o = e->o;
+    uint8_t *end = e->end;
+    while (i < stop) {
         uint32_t r = 1;
         while (i + r < n && px[i + r] == px[i] && r < RUN_MAX) {
             r++;
         }
         if (r >= RUN_MIN) {
             if (r < 130) {
-                if (end - o < 3) return -1;
+                if (end - o < 3) { e->failed = true; return true; }
                 *o++ = 0x80 | (r - RUN_MIN);
             } else {
-                if (end - o < 5) return -1;
+                if (end - o < 5) { e->failed = true; return true; }
                 *o++ = 0xFF;
                 *o++ = (r - 130) & 0xFF;
                 *o++ = (r - 130) >> 8;
@@ -93,7 +110,7 @@ int ms_encode(const uint16_t *px, int w, int h, uint32_t key, uint8_t *out, uint
                 j++;
             }
             uint32_t c = j - i;
-            if ((uint32_t)(end - o) < 1 + c * 2) return -1;
+            if ((uint32_t)(end - o) < 1 + c * 2) { e->failed = true; return true; }
             *o++ = c - 1;
             for (uint32_t k = i; k < j; k++) {
                 *o++ = px[k] & 0xFF;
@@ -102,16 +119,36 @@ int ms_encode(const uint16_t *px, int w, int h, uint32_t key, uint8_t *out, uint
             i = j;
         }
     }
-    uint32_t dlen = (uint32_t)(o - (out + MS_HDR_BYTES));
+    e->i = i;
+    e->o = o;
+    return i >= n;
+}
+
+int ms_enc_finish(MsEnc *e)
+{
+    if (e->failed) {
+        return -1;
+    }
+    uint8_t *out = e->out;
+    uint32_t dlen = (uint32_t)(e->o - (out + MS_HDR_BYTES));
     memcpy(out, "MSNP", 4);
     put16(out + 4, 1);
-    put16(out + 6, w);
-    put16(out + 8, h);
+    put16(out + 6, e->w);
+    put16(out + 8, e->h);
     put16(out + 10, 0);
-    put32(out + 12, key);
+    put32(out + 12, e->key);
     put32(out + 16, dlen);
     put32(out + 20, ms_crc32(0, out + MS_HDR_BYTES, dlen));
     return (int)(MS_HDR_BYTES + dlen);
+}
+
+int ms_encode(const uint16_t *px, int w, int h, uint32_t key, uint8_t *out, uint32_t max_out)
+{
+    MsEnc e;
+    ms_enc_begin(&e, px, w, h, key, out, max_out);
+    while (!ms_enc_step(&e, 0xFFFFFFFFu)) {
+    }
+    return ms_enc_finish(&e);
 }
 
 bool ms_header_info(const uint8_t *file, uint32_t len, uint32_t *key, uint32_t *data_crc)

@@ -12,6 +12,7 @@
 #define MS_RAW_BYTES (MS_PIXELS * 2)
 #define MS_HDR_BYTES 24
 #define MS_LIMIT (1024 * 1024)            // D5: a picture above this is not saved
+#define MS_SLICE_PX 40000                 // T229 B: pixels per slice of the encoder (about 16 ms on the board)
 #define MS_QUIET_MS 2000                  // D2: unchanged for this long before it is saved
 #define MS_PATH "/Flash/menu.snap"
 #define MS_DIR "/Flash"
@@ -33,6 +34,20 @@ uint32_t ms_max_encoded(uint32_t npx);
 // Header + RLE data of a w x h frame into out (max_out bytes). Returns the file length, -1 when it does not fit
 // (min(max_out, MS_LIMIT)). The data CRC and the length are in the header.
 int ms_encode(const uint16_t *px, int w, int h, uint32_t key, uint8_t *out, uint32_t max_out);
+
+// The same encoder in slices (T229 B: one pass of the main loop may take 100 ms, the whole frame takes about 200): begin, step until it says
+// true (each step encodes the runs that START in the next max_px pixels), finish. The pixels must not change between the steps.
+struct MsEnc {
+    const uint16_t *px;
+    int w, h;
+    uint32_t key;
+    uint8_t *out, *o, *end;
+    uint32_t n, i;
+    bool failed;
+};
+void ms_enc_begin(MsEnc *e, const uint16_t *px, int w, int h, uint32_t key, uint8_t *out, uint32_t max_out);
+bool ms_enc_step(MsEnc *e, uint32_t max_px);
+int ms_enc_finish(MsEnc *e);        // the file length, -1 when it does not fit
 
 // The file image `file` (len bytes) into px (w x h). Refuses, writing nothing useful, when the header is not ours, the size or
 // the key differ, the length or the CRC do not fit, or the RLE data does not make exactly w*h pixels.
