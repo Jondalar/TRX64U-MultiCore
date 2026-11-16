@@ -1199,7 +1199,7 @@ static void s1_state(const char *core, const char *cv, int area, int tab, Rig &r
     }
     if (any_marked) {
         s1legends++;
-        S1CHECK(r.m->status()[0] != 0 || r.m->foot_line()[0] != 0, "%s: no foot line (legend or the row's note) for a marked row", core);
+        S1CHECK(r.m->status()[0] != 0 || strstr(r.m->foot_line(), "reset") != 0, "%s: the foot of a marked row names neither the legend nor a next-reset note", core);   // D10: legend OR the row's note, both say when the value takes effect
     }
     if (shot_out && shot_tag) {
         char fn[512], nm[64];
