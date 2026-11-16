@@ -1,0 +1,102 @@
+# T230 — The TRX64 Ultimate firmware's version reaches the boot menu, and trx64u starts with a config, its media and an autostart
+
+**Status:** PROPOSED (2026-11-16). Nothing built; §3 items marked "proposal" wait for Alex and, where the contract moves, for the
+TRX64-Ultimate firmware session (§3a, one question at a time).
+**Repo:** TRX64U-MultiCore (host app, generic core app, `tools/pack_import_cor.sh`, `release/imports/*.pin`) and TREX/TRX64-Ultimate
+(its CI package, `ci/package.sh`). The shared text is `docs/contracts/trx64u-firmware-handover.md`, the same in both repositories.
+**Number:** T230.
+**Origin:** Alex, 2026-11-16 (translated): "Can you clarify two things with the TRX64U-FW? 1. the version number has to reach us, how
+that works. 2. In perspective I want to phase out the Gideon UI ... but it will run in parallel for a while ... What we want with 'our'
+UI is that when the core starts we can also load config, medium persist, including autostart if possible. Who has to do what, adapt
+the contract etc." Then: "Will you write a spec on our side and ask the FW session to work on it with us, please?"
+**Depends on:** `docs/contracts/trx64u-firmware-handover.md` (§1-§6), T221 D15 / OPEN-3 (SemVer of imported cores), T223 D4 (start
+file `trx64-start.txt`), T180 D2 (Persist medium mounts), T217 (Load + run), T228 (trx64u on the generic menu, D10), T104.2 §5 (the
+board probes of the generic core app on the monolith).
+**Milestone:** M3.
+
+---
+
+## §1 The problem
+
+Two cores come from the TRX64-Ultimate firmware: `trx64u` (its monolith bitstream with OUR generic core app) and `trx64g` (the same
+bitstream with Gideon's application). The Gideon UI is to be phased out; for a while both stay in the menu. Read from the code today:
+
+- **P1 Version.** `release/imports/trx64u.pin` and `trx64g.pin` carry `VERSION=8f1dc184` (a commit) and no `SEMVER=`.
+  `tools/pack_import_cor.sh:38` takes a `SEMVER=` when the pin has one and otherwise logs "no SEMVER, the version shown is the commit"
+  (T221 D15). So the boot menu shows `cad182c4` for TRX64U where every other core shows `x.y.z`. The TRX64-Ultimate package's
+  `manifest.json` (written by its `ci/package.sh:40`) has `trx64_commit`, `app_commit`, `branch` and `files`, no version.
+- **P2 Config at the start of trx64u.** Built for large cores (T223 D4): the host writes `<medium of the .cor>/trx64-start.txt`
+  (`TRXSTART1`, `cor=`, `config=`, `safe=`) before the full-firmware start; the core app (`coreapp/src/start.cc` `start_file_take`)
+  reads it once and deletes it. Proven in ue2emu with the Amiga 1200 large core. On the monolith the core app never reads the hand-over
+  page (T104.2 §5, `has_handover` false), so `start.cc:160` looks only at `/SD/trx64-start.txt`: a `trx64u.cor` on a USB stick gets its
+  file written to `/USB0/` and the core app does not find it.
+- **P3 Medium persist on trx64u.** The core app has "Persist medium mounts" (T180 D2: `mediamounts.cc` `persist_extend`, added by
+  `menubuild.cc:29` for a core with media slots; `boot.cc:157` `mounts_restore`). trx64u's menu is its own TOML descriptor
+  (`coreapp/cores/trx64u/menu.toml`); T228 D10 (Alex 2026-11-15: "saving configs and mounted media like the other cores must go in
+  too!") puts it on the generic mechanism, to be built in T228 S2. Not proven on trx64u today.
+- **P4 Autostart.** There is no autostart at core start. "Load + run" (T217) exists as a menu action of some cores; mount, LOAD and RUN
+  are there as building blocks. Nothing says which program a start should run.
+- **P5 The contract does not name what trx64u relies on.** The generic core app on the monolith depends on the bitstream's address map
+  (application `ORIGIN 0x00030000`, `LENGTH 0xE60000`), the board probes of T104.2 §5 (ICAP byte, ITU capability word `0x25E40202`,
+  `TRX_CAPS`, the IEC stub's version byte `0x25`) and the drive and memory windows its menu uses. The contract (§6) asks for an
+  announcement only for "the application's address map". The start file of T223 D4 is not in the contract either, although the host
+  also writes it before `trx64g` (it is a large `.cor`), where Gideon's application ignores it and leaves it on the medium.
+- **P6 trx64g in parallel.** It starts plain and keeps its settings in `<core folder>/trx64g.cfg` (contract §4). It must keep working
+  unchanged while it is phased out.
+
+## §2 Scenarios — what proves it is solved
+
+| # | Solves | Scenario | Test (bench / board step) | Where it runs |
+|---|---|---|---|---|
+| S1 | P1 | A TRX64-Ultimate package carries its version; a pin bump copies it as `SEMVER=`; the TRX64U and trx64g rows of the boot menu show `x.y.z`, and the package stage logs no "no SEMVER" line | package log of the run after the pin bump; ue2emu picture of the boot menu | CI `package`; Mac ue2emu |
+| S2 | P1 | A pin whose `SEMVER=` differs from the version in the pinned package's manifest makes the package stage red with a message naming both | `tools/pack_import_cor.sh` run in the package stage | CI `package` |
+| S3 | P2 | trx64u on `/SD/cores`, config "Demo" chosen with RIGHT in the boot menu: core log `start file ... read and deleted: config "Demo"`, the Demo settings applied, no file left | ue2emu (monolith profile, our core app); then board | Mac ue2emu; board |
+| S4 | P2 | The same with `trx64u.cor` on `/USB0/cores`: the file is found on the stick and applied | ue2emu; board | Mac ue2emu; board |
+| S5 | P3 | trx64u with "Persist medium mounts" = Yes, a `.d64` mounted, back to the host, trx64u started again: the disk is mounted from the first cycle (`mounts_restore` log), the directory loads | ue2emu; board | Mac ue2emu; board |
+| S6 | P4 | trx64u started with a config that names an autostart program: after the boot the program runs without a key press (screen shows it), the log names the autostart | ue2emu; board | Mac ue2emu; board |
+| S7 | P5 | The contract text with the version field, the start file and the list of what the core app needs from the bitstream is the same in both repositories | `diff` of the two files, both commits named in §5 | both repos |
+| S8 | P6 | trx64g starts and saves as before; a start file it left on the medium does not disturb the next trx64u start (log `config ""` or a matching `cor=`) | board: trx64g start, back to the host, trx64u plain start | board |
+
+## §3 Decision
+
+- **D1 (Alex 2026-11-16, origin):** the version number of the TRX64-Ultimate firmware reaches the MultiCore boot menu.
+- **D2 (Alex 2026-11-16, origin):** the Gideon UI (`trx64g`) is phased out in perspective and runs in parallel for a while; "our" UI
+  (`trx64u`) gets, at core start, load config, medium persist and, if possible, autostart.
+- **Proposal P-1 (version):** TRX64-Ultimate writes a field `"version": "x.y.z"` (SemVer 2.0, no build metadata) into its package's
+  `manifest.json`; a new bitstream or application is a new version. MultiCore copies it into the pin as `SEMVER=` when the pin moves,
+  and `pack_import_cor.sh` checks the pin against the manifest (S2). A test build gets `-dev+<sha8>` from MultiCore's packer, as
+  today. Alternative: a separate `version.txt` beside `c64_basic.bit` (T221 OPEN-3's first text). Contract §1 and §2 change.
+- **Proposal P-2 (start file on the monolith):** the core app looks for `trx64-start.txt` on `/SD`, then `/USB0`, `/USB1` and takes
+  the first file whose `cor=` names a `trx64u` path on that medium. MultiCore only.
+- **Proposal P-3 (medium persist):** no new work here; it is T228 D10, proven in T228 S2 and by S5 of this spec.
+- **Proposal P-4 (autostart):** open (§3a Q-A). MultiCore only: the generic core app does it with the building blocks of T217.
+- **Proposal P-5 (contract):** §3 gets a paragraph "Start file" (place, format, one-shot, written before every large `.cor` including
+  `trx64g`, ignored by Gideon's application); §6 gets the list of what the generic core app needs from the bitstream (P5's list), with
+  the rule that a change to any of it is announced before it is pushed.
+- **Proposal P-6 (trx64g):** nothing changes for trx64g. Choosing a config for it at start would need Gideon's application to read
+  the start file, work on the TRX64-Ultimate side for a UI that is being phased out.
+
+### §3a Questions (one at a time)
+
+For the TRX64-Ultimate firmware session:
+- **FW-1:** Can the package carry a version (field in `manifest.json`, or `version.txt`), and where does `x.y.z` come from on your
+  side (a file in the repository bumped per release, a tag)?
+- **FW-2:** Is the list in P5 complete and correct for what your bitstream offers to an application (address map, capability word,
+  `TRX_CAPS`, IEC stub byte, drive and memory windows), and do you agree to announce a change to any of it?
+- **FW-3:** The host writes `trx64-start.txt` to the medium root before `trx64g` too. Any objection from Gideon's application (file
+  browser, a scan of the root)?
+
+For Alex:
+- **Q-A:** Where does the autostart target come from: (a) a row in the core's config ("Autostart" = a file + mode), saved with
+  "Save as config"; (b) a choice in the host's RIGHT overlay, carried in the start file (`run=`); (c) both?
+- **Q-B:** Does P-6 hold: no config choice for trx64g at start?
+
+## §4 Out
+
+- No change of the hand-over page layout or address (contract §3 stays as it is for the page).
+- Nothing published to GitHub; releases stay by hand (CLAUDE.md).
+- Pending §3a: whether trx64g gets anything (Q-B).
+
+## §5 Implementation log
+
+(empty)
