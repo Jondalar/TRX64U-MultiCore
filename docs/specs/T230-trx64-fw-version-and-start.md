@@ -62,10 +62,12 @@ bitstream with Gideon's application). The Gideon UI is to be phased out; for a w
 - **D1 (Alex 2026-11-16, origin):** the version number of the TRX64-Ultimate firmware reaches the MultiCore boot menu.
 - **D2 (Alex 2026-11-16, origin):** the Gideon UI (`trx64g`) is phased out in perspective and runs in parallel for a while; "our" UI
   (`trx64u`) gets, at core start, load config, medium persist and, if possible, autostart.
-- **Proposal P-1 (version):** TRX64-Ultimate writes a field `"version": "x.y.z"` (SemVer 2.0, no build metadata) into its package's
-  `manifest.json`; a new bitstream or application is a new version. MultiCore copies it into the pin as `SEMVER=` when the pin moves,
-  and `pack_import_cor.sh` checks the pin against the manifest (S2). A test build gets `-dev+<sha8>` from MultiCore's packer, as
-  today. Alternative: a separate `version.txt` beside `c64_basic.bit` (T221 OPEN-3's first text). Contract §1 and §2 change.
+- **Proposal P-1 (version, after FW-1):** TRX64-Ultimate's `ci/package.sh` writes `"version": "x.y.z"` from the packed application's
+  `APPL_VERSION_NUMBER` into `manifest.json`. MultiCore copies it into the pin as `SEMVER=` when the pin moves, but only when
+  `PKG_VERSION` is a release (Gitea release `trx64-<PKG_VERSION>` exists); a non-release pin gets `x.y.z-dev+<sha8>`.
+  `pack_import_cor.sh` checks the pin's `SEMVER=` (without `-dev+...`) against the manifest (S2). Contract §1 and §2 change.
+  For today's pins no firmware change is needed: `main-8f1dc184` is the release 0.3.0 (Gitea prerelease `trx64-main-8f1dc184`, checked
+  here), so both pins can carry `SEMVER=0.3.0` now.
 - **Proposal P-2 (start file on the monolith):** the core app looks for `trx64-start.txt` on `/SD`, then `/USB0`, `/USB1` and takes
   the first file whose `cor=` names a `trx64u` path on that medium. MultiCore only.
 - **Proposal P-3 (medium persist):** no new work here; it is T228 D10, proven in T228 S2 and by S5 of this spec.
@@ -79,8 +81,14 @@ bitstream with Gideon's application). The Gideon UI is to be phased out; for a w
 ### §3a Questions (one at a time)
 
 For the TRX64-Ultimate firmware session:
-- **FW-1:** Can the package carry a version (field in `manifest.json`, or `version.txt`), and where does `x.y.z` come from on your
-  side (a file in the repository bumped per release, a tag)?
+- **FW-1: answered (firmware session, 2026-11-16).** Yes, in `manifest.json` (already under `SHA256SUMS`, read by our packer; not a
+  `version.txt`). `x.y.z` is `APPL_VERSION_NUMBER` in the application's `software/application/versions.h:44` (`"0.3.0"`, checked here),
+  bumped by hand in its own commit per release, Alex picks the number; it is what Gideon's application and REST `/v1/info` show. No
+  `v*` tag; a release is the Gitea prerelease `trx64-<PKG_VERSION>` plus the package `trx64-release/<PKG_VERSION>`, made by
+  `release.yml` from the CI package byte for byte. Caveat: every CI package carries the `versions.h` of its commit, so a package
+  between releases repeats the last release's number and cannot know whether it will be released. Their proposal: the pin carries
+  `SEMVER=x.y.z` only when `PKG_VERSION` is a release (the Gitea release `trx64-<PKG_VERSION>` exists, checked when the pin is
+  reviewed), otherwise `x.y.z-dev+<sha8>` or the commit. Their side (the `ci/package.sh:40` line, contract §1/§2) waits for Alex's go.
 - **FW-2:** Is the list in P5 complete and correct for what your bitstream offers to an application (address map, capability word,
   `TRX_CAPS`, IEC stub byte, drive and memory windows), and do you agree to announce a change to any of it?
 - **FW-3:** The host writes `trx64-start.txt` to the medium root before `trx64g` too. Any objection from Gideon's application (file

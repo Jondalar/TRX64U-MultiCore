@@ -180,7 +180,7 @@ a release build's short strings fit), and a large core's test version is cut to 
 - **OPEN-2 (D12 consequence).** The `.cor` check still compares the contract integer (`COR_HOST_CONTRACT` = 2, `contract/VERSION`). Folding it into the host gateware MAJOR with a
   start of 0.2.0 gives MAJOR 0, not 2: either the host gateware starts at 2.0.0 or the check stays an integer. The chip is gone either way (D12); the row refusal text "contract 3 != 2"
   stays until this is answered.
-- **OPEN-3 (D15).** Imported trx64u/trx64g: `pack_import_cor.sh` reads a `SEMVER=` from the pin and falls back to the commit with a message; no pin has one. Proposal text for
+- **OPEN-3 (D15). Moved to T230** (2026-11-16: FW-1 answered by the firmware session, version from `manifest.json`; both pins carry `SEMVER=0.3.0`, the release `main-8f1dc184`). Older text: Imported trx64u/trx64g: `pack_import_cor.sh` reads a `SEMVER=` from the pin and falls back to the commit with a message; no pin has one. Proposal text for
   `docs/contracts/trx64u-firmware-handover.md` (not edited: that file changes only with TRX64-Ultimate): "TRX64-Ultimate publishes with every CI package a `version.txt` (one line,
   SemVer 2.0 `x.y.z`, no build metadata) beside `c64_basic.bit`; TRX64U-MultiCore copies it into the pin as `SEMVER=`. A change of the bitstream is a new version; a
   `-dev+<sha8>` is added by the MultiCore packer on a test build." Needs the other repo's side.

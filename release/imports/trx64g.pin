@@ -4,6 +4,8 @@
 ID=trx64g
 NAME="TRX64 Ultimate (Gideon app)"
 VERSION=8f1dc184
+# T230 P-1: main-8f1dc184 is the TRX64-Ultimate release 0.3.0 (Gitea prerelease trx64-main-8f1dc184, APPL_VERSION_NUMBER of its app)
+SEMVER=0.3.0
 PKG_VERSION=main-8f1dc184
 BIT_FILE=c64_basic.bit
 BIT_SHA256=1180391a81a4cf6ff73d68b648031a960f346b26ca31ab936bfa540201014f45
