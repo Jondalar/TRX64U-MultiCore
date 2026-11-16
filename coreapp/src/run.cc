@@ -480,6 +480,8 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
     ctx.fs = &net_fs;
     hostwifi_load(ctx.fs);                              // T184 D3: the WiFi settings are the host's (F8); read once, never written
     start_paths(&ctx, h, board);
+    char file_config[HANDOVER_CONFIG_MAX + 2] = "";     // T223 D4: a large core's choice comes in a file beside the page
+    bool file_safe = false;
     {                                                   // T148 D1, D5, D13: the core's own folder, made at the first start (after its medium is up); an old .cfg beside the .cor moves in
         class BoardMediumEnv : public MediumEnv {
         public:
@@ -488,8 +490,9 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
         } medium_env;
         start_core_folder(&ctx, &medium_env);
     }
+    start_file_take(&ctx, h, file_config, sizeof(file_config), &file_safe);    // after start_core_folder: it waits for the core's medium, the file lives on it
     start_migrate_cfg(&ctx, board);
-    config_start(&ctx, h && handover_valid(h) ? handover_config(h) : "");                              // T198 D7: the host named a config in the hand-over page: the settings are read from it
+    config_start(&ctx, h && handover_valid(h) && handover_config(h)[0] ? handover_config(h) : file_config);                              // T198 D7: the host named a config in the hand-over page: the settings are read from it
     // The machine's stop register lives in the host (C64_CARTREGS_BASE + 1, hw.cc), so it keeps whatever the
     // application before us left in it: a core application that was replaced with its Freeze menu open leaves the
     // machine stopped, and the next one releases its core into a stop nobody can see. Clearing it here is the
@@ -523,6 +526,14 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
         if (ix >= 0 && ctx.settings->value(ix) == 0) {
             ui_splash_close();
             ui_render_now();
+        }
+    }
+    if (file_safe || (h && handover_valid(h) && handover_safe(h))) {      // T224 D2: "Boot safe graphics mode": the three video values of this start, stored nowhere
+        int n = picture_safe(&ctx);
+        printf("[core] safe graphics mode: %d video settings overridden for this start\n", n);
+        if (!ctx.notice_pending) {
+            snprintf(ctx.notice, sizeof(ctx.notice), "Safe graphics mode: Picture Auto, Scale Integer, Smoothing Off for this start. Your settings are kept.");
+            ctx.notice_pending = true;
         }
     }
     printf("[core] settings %s: %s\n", desc->store, ctx.cfg_path[0] ? ctx.cfg_path : "(no .cfg path, in memory only)");

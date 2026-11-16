@@ -946,21 +946,23 @@ static void scenarios(const char *out)
     CHECK(has(ex));
     // T209 D7: "+" / "-" page the boot menu (a page = the rows it shows), stopping at the ends; the foot names the keys
     CHECK(has("+/- PAGE"));
+    // a page moves the window by exactly the rows it shows (T223: no row is skipped between two pages); the window first = 4 here
     hostui_test_key('-');
-    snprintf(ex, sizeof(ex), "sel=%d first=%d ", 0, 0);
+    snprintf(ex, sizeof(ex), " first=%d ", 4 - MR < 0 ? 0 : 4 - MR);
     CHECK(has(ex));
+    hostui_test_key('-');
+    CHECK(has(" first=0 "));
     hostui_test_key('+');
-    snprintf(ex, sizeof(ex), "sel=%d first=%d ", MR, 3);
+    snprintf(ex, sizeof(ex), " first=%d ", MR < N - MR ? MR : N - MR);
     CHECK(has(ex));
     snprintf(p, sizeof(p), "%s/menu_page_step.png", out); png(p, 2);
     hostui_test_key('+');
+    snprintf(ex, sizeof(ex), " first=%d ", 2 * MR < N - MR ? 2 * MR : N - MR);
+    CHECK(has(ex));
+    for (int i = 0; i < 6; i++) hostui_test_key('+');                        // past the end: the last window, the last row selected
     snprintf(ex, sizeof(ex), "sel=%d first=%d ", N - 1, N - MR);
     CHECK(has(ex));
-    hostui_test_key('+');
-    CHECK(has(ex));
-    hostui_test_key('-');
-    hostui_test_key('-');
-    hostui_test_key('-');
+    for (int i = 0; i < 6; i++) hostui_test_key('-');
     snprintf(ex, sizeof(ex), "sel=%d first=%d ", 0, 0);
     CHECK(has(ex));
     // the editor scrolls too (the same entries)
@@ -1491,15 +1493,19 @@ static void areas(void)
     // a longer manifest overflows it into the whole screen (518,400 px). 128 is the headroom; the number is read from the display struct.
     printf("AREA invalid-area slots in this build: %d\n", hostui_test_inv_slots());
     CHECK(hostui_test_inv_slots() >= 128);
-    // F1 boot menu: 9 entries, a window of 5
-    hostui_test_init(eight);
+    // F1 boot menu: the menu's rows + 4 entries; the window is the geometry's row count, so the page change is exercised at any canvas
+    char paged[4096] = "countdown=5\ndefault=0\n";
+    hostui_test_init(paged);
+    const int PR = geom("rows=");
+    for (int i = 1; i <= PR + 4; i++) { char l[120]; snprintf(l, sizeof(l), "core=/Usb0/many/m%d.cor|Core number %d||0\n", i, i); strcat(paged, l); }
+    hostui_test_init(paged);
     area("F1 menu: selection move", hostui_test_key(KEY_DOWN), 2 * MMARK);
     area("F1 menu: selection move up", hostui_test_key(KEY_UP), 2 * MMARK);
-    for (int i = 0; i < 4; i++) hostui_test_key(KEY_DOWN);                 // row 4, the last of the window
-    area("F1 menu: page change down", hostui_test_key(KEY_DOWN), 5 * MROW);
-    area("F1 menu: scroll one more", hostui_test_key(KEY_DOWN), 5 * MROW);
-    for (int i = 0; i < 4; i++) hostui_test_key(KEY_UP);                   // sel 2 = the top row of the window
-    area("F1 menu: page change up", hostui_test_key(KEY_UP), 5 * MROW);
+    for (int i = 0; i < PR - 1; i++) hostui_test_key(KEY_DOWN);            // the last row of the window
+    area("F1 menu: page change down", hostui_test_key(KEY_DOWN), PR * MROW);
+    area("F1 menu: scroll one more", hostui_test_key(KEY_DOWN), PR * MROW);
+    for (int i = 0; i < PR - 1; i++) hostui_test_key(KEY_UP);              // sel 2 = the top row of the window
+    area("F1 menu: page change up", hostui_test_key(KEY_UP), PR * MROW);
     hostui_test_init(eight);
     area("F1 menu: UP on the first row", hostui_test_key(KEY_UP), 0);
     {   // T135 D12: with direct boot on the menu shows neither the countdown text nor its bar; off, both; the toggle in F8 brings them back
@@ -1545,11 +1551,11 @@ static void areas(void)
     area("F5 edit: RIGHT (default config; a core without configs says so)", hostui_test_key(KEY_RIGHT), 19000);   // T198 D13: the note line is drawn
     // F3 browser, a folder of 19
     hostui_test_browse_at("/Usb0/scroll");
-    const uint32_t BLW = CW_ / 2 - 8, BPH = 540 - 40 - 30 - 90;
+    const uint32_t BLW = CW_ / 2 - 8, BPH = 540 - 40 - 30 - 104;
     hostui_test_key(KEY_DOWN);                                              // the first key of a fresh view refills the manifest panel
     area("F3 browse: selection move", hostui_test_key(KEY_DOWN), 2 * (4 * BLW + 8 * 24) + 6u * 1000 + 19000);   // + the T198 note of the F5 RIGHT before it, cleared by this key
     for (int i = 0; i < 10; i++) hostui_test_key(KEY_DOWN);
-    area("F3 browse: scroll one row (13 rows)", hostui_test_key(KEY_DOWN), BLW * BPH);
+    area("F3 browse: scroll one row", hostui_test_key(KEY_DOWN), BLW * BPH);
     area("F3 browse: last row (.cfw)", hostui_test_key(KEY_DOWN), BLW * BPH);
     // 20 bundles of different sizes: a scrolling key changes 13 names, 13 sizes and the manifest panel (about 40 labels)
     hostui_test_browse_at("/Usb0/sized");
@@ -4965,33 +4971,33 @@ int main(int argc, char **argv)
         extern const char *hostui_test_foot(void);
         hostui_test_browse_at("/Usb0/pages");
         const int pg = hostui_test_brows();
-        CHECK(hostui_test_bn() == 27 && pg == 13);                    // ".." + 26 files: three pages of 13, 13, 1
+        CHECK(hostui_test_bn() == 27 && pg == 12);                    // ".." + 26 files: three pages of 13, 13, 1
         CHECK(hostui_test_bsel() == 0);
         hostui_test_key('-');
         CHECK(hostui_test_bsel() == 0);                               // "-" at the top stays
         hostui_test_key('+');
-        CHECK(hostui_test_bsel() == pg);                              // one page down
+        CHECK(hostui_test_bsel() == pg + 2);                          // one page down: the window moves by 12, the selection keeps its row (margin 2)
         hostui_test_key('+');
-        CHECK(hostui_test_bsel() == 2 * pg);                          // the last page
+        CHECK(hostui_test_bsel() == 17);                                // the last window (first 15 of 27), the selection keeps its row
         hostui_test_key('+');
-        CHECK(hostui_test_bsel() == 2 * pg);                          // a third "+" stays there
+        CHECK(hostui_test_bsel() == 26);                               // a third "+" at the end: the last row
         hostui_test_key('-');
-        CHECK(hostui_test_bsel() == pg);                              // "-" goes back one page
+        CHECK(hostui_test_bsel() == 12);                               // "-": the window back by a page (first 3), the row stays inside the margin
         hostui_test_key('-'); hostui_test_key('-');
         CHECK(hostui_test_bsel() == 0);
         hostui_test_browse_at("/Usb0/sized");                          // 20 bundles + "..": the last step is a part page, clamped to the last row
         hostui_test_key('+'); hostui_test_key('+');
         CHECK(hostui_test_bsel() == hostui_test_bn() - 1);
         hostui_test_key('-');
-        CHECK(hostui_test_bsel() == hostui_test_bn() - 1 - pg);
+        CHECK(hostui_test_bsel() == 9);                                // back one window (first 0), the row kept inside the margin
         hostui_test_browse_at("/Usb0/pages");                          // the letters keep their action: C opens the target pick, "+" pages in it too
         hostui_test_key(KEY_DOWN);
         hostui_test_key('c');
         CHECK(strstr(hostui_test_foot(), "ESC cancels") != NULL);
         hostui_test_key('+');
-        CHECK(hostui_test_bsel() == 1 + pg);
+        CHECK(hostui_test_bsel() == pg + 2);
         hostui_test_key('-');
-        CHECK(hostui_test_bsel() == 1);
+        CHECK(hostui_test_bsel() == 2);
         hostui_test_key(KEY_ESCAPE);
         CHECK(strstr(hostui_test_foot(), "ESC cancels") == NULL);
     }

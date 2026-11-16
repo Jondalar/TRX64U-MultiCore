@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <strings.h>
 #include "configlist.h"
+#include "handover.h"
 
 // ---- the intents' names ------------------------------------------------------------------------------------------------------------------
 static const char *const ACT_NAME[] = {
@@ -429,6 +430,9 @@ void hc_start_config_set(const char *name)
     snprintf(g_start_cfg, sizeof(g_start_cfg), "%s", name ? name : "");
 }
 
+static bool g_start_safe;
+void hc_start_safe_set(bool on) { g_start_safe = on; }
+
 int hc_entry_remove(int i)
 {
     bootcfg_remove(&g_cfg, i);
@@ -540,6 +544,8 @@ const char *hc_start_sequence(const HcStartEntry &e, int mode, const HcStartHook
     char cfgname[CONFIG_NAME_MAX + 1];
     snprintf(cfgname, sizeof(cfgname), "%s", e.config && e.config[0] ? e.config : g_start_cfg);
     g_start_cfg[0] = 0;                                         // one-shot: a start that fails leaves nothing behind for the next one
+    const bool safe = g_start_safe;                             // T224 D2: the same, for "Boot safe graphics mode"
+    g_start_safe = false;
     StartGuard guard;
     if (!guard.own) {
         return HC_START_BUSY;
@@ -578,8 +584,19 @@ const char *hc_start_sequence(const HcStartEntry &e, int mode, const HcStartHook
             return why;                                         // T152 D6: the flash could not be protected, the firmware is not started
         }
         h.before_jump(h.ctx, true);
+        if (!cfw_is_name(e.path)) {   // T223 D4: the large core's application reads the choice from this file (the page of a .cfw start may not survive the bitstream change); written last, nothing can fail after it
+            char text[STARTFILE_MAX];
+            int tl = startfile_format(text, sizeof(text), e.path, cfgname, safe);
+            bool ok = g_plat.start_file && tl > 0 && g_plat.start_file(e.path, text, tl);
+            char ln[200];
+            snprintf(ln, sizeof(ln), "[host] start file for %s: config \"%s\", safe %d: %s", e.path, cfgname, safe ? 1 : 0, ok ? "written" : "not written");
+            if (g_plat.log) {
+                g_plat.log(ln);
+            }
+        }
         legacy_jump(&plan);
     }
+    core_set_start_safe(safe);
     core_set_start_config(cfgname);                             // T198 D7: every core start sets what the jump hands over ("" = plain)
     CorInfo ci;
     if (!core_stage(e.path, &ci, &why, h.progress, h.ctx, e.trusted, direct)) {
@@ -677,6 +694,8 @@ EState probe_full(CorSource &s, CorInfo &ci, cfw_result_t *res = 0)
 EState hc_est(int i) { return i >= 0 && i < BOOT_MAX ? g_ent[i].st : ES_UNKNOWN; }
 const CorInfo &hc_einfo(int i) { return g_ent[i < 0 || i >= BOOT_MAX ? 0 : i].info; }
 bool hc_efull(int i) { return i >= 0 && i < BOOT_MAX && g_ent[i].full; }
+// T223 D4: every entry takes configs and the rescue start but a foreign firmware (.cfw/.ue2): a large .cor is full firmware too, and gets them through the start file.
+bool hc_ecfg_ok(int i) { return i >= 0 && i < g_cfg.n && !(g_ent[i].full && cfw_is_name(g_cfg.e[i].path)); }
 void hc_entry_origin(int i, int origin) { if (i >= 0 && i < BOOT_MAX) g_ent[i].info.origin = origin; }
 
 bool hc_startable(int i) { return i >= 0 && i < g_cfg.n && (g_ent[i].st == ES_OK || g_ent[i].st == ES_CHANGED || g_ent[i].st == ES_UNKNOWN); }
@@ -759,6 +778,10 @@ void hc_lazy_mark(int i)
     }
 }
 
+// T223 D2: only the rows on screen are read; the default and the selected row always are (the countdown and the start wait for them).
+static int g_win_first = 0, g_win_n = BOOT_MAX;
+void hc_lazy_window(int first, int n) { g_win_first = first; g_win_n = n; }
+
 int hc_lazy_next(int sel_hint)
 {
     if (g_cfg.def >= 0 && g_cfg.def < g_cfg.n && g_pend[g_cfg.def]) {
@@ -767,7 +790,7 @@ int hc_lazy_next(int sel_hint)
     if (sel_hint >= 0 && sel_hint < g_cfg.n && g_pend[sel_hint]) {
         return sel_hint;
     }
-    for (int i = 0; i < g_cfg.n; i++) {
+    for (int i = g_win_first < 0 ? 0 : g_win_first; i < g_cfg.n && i < g_win_first + g_win_n; i++) {
         if (g_pend[i]) {
             return i;
         }

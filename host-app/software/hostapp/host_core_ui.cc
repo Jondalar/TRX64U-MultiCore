@@ -474,7 +474,7 @@ void hc_ui_cfgov_draw(bool fresh)
     if (g_env.wifi && g_env.wifi->draw_pick && hc_cfgov_is_open()) {
         HcWifiPick p;
         hc_cfgov_pick(&p);
-        p.keys = hc_foot(hc_cfgov().cur == 0 ? HCF_CFG_PLAIN : HCF_CFG);
+        p.keys = hc_foot(hc_cfgov().cur == 0 || hc_cfgov_on_safe() ? HCF_CFG_PLAIN : HCF_CFG);
         g_env.wifi->draw_pick(g_env.wifi->ctx, p, fresh);
     }
 }
@@ -488,7 +488,8 @@ void cfgov_close(void)
     }
 }
 
-// RIGHT on a core row (F1) or on a .cor (F3): the overlay opens when the core has configs; otherwise nothing happens (D9).
+// RIGHT on a core row (F1) or on a .cor (F3): the overlay opens for every core that gets the hand-over page. T224 D1: it holds the rescue row even with no config. A full firmware
+// (a .cfw, a large core) is started without a hand-over page, so it has neither configs nor the safe start: nothing happens there.
 void cfgov_open(int ctx, HcUiResult *res)
 {
     const HcNav &v = hc_nav();
@@ -512,6 +513,9 @@ void cfgov_open(int ctx, HcUiResult *res)
         if (entry < 0 && dot) {
             *dot = 0;
         }
+    }
+    if (cfw_is_name(path)) {                         // T223 D4: a large .cor takes configs through the start file; a foreign firmware has no hand-over
+        return;
     }
     if (hc_cfgov_open(path, title, entry, ctx != HCX_MENU)) {
         hc_ui_cfgov_draw(true);
@@ -543,7 +547,7 @@ bool cfgov_input(int act, HcUiResult *res)
         }
         break;
     case HCA_CONFIG_RENAME:
-        if (hc_cfgov().cur > 0) {
+        if (hc_cfgov().cur > 0 && !hc_cfgov_on_safe()) {
             g_env.flow(g_env.ctx, HUF_CFGRENAME, "", -2);
         }
         return true;
@@ -553,18 +557,21 @@ bool cfgov_input(int act, HcUiResult *res)
         const int entry = o.entry;
         snprintf(path, sizeof(path), "%s", o.path);
         snprintf(name, sizeof(name), "%s", hc_cfgov_cur_name());
+        const bool safe = hc_cfgov_on_safe();
         char title[96];
         snprintf(title, sizeof(title), "%s", o.title);
         cfgov_close();
         res->redraw = true;
         g_changed = true;
         hc_start_config_set(name);
+        hc_start_safe_set(safe);                      // T224 D2: the rescue start, this start only (plain start, no config)
         if (entry >= 0 && entry < cfg().n && hc_startable(entry)) {
             g_env.start_any(g_env.ctx, cfg().e[entry].path, cfg().e[entry].name, &cfg().e[entry], true);
         } else if (entry < 0) {
             g_env.start_core(g_env.ctx, path, title);
         }
         hc_start_config_set("");                      // a start that came back (refused, aborted) leaves nothing armed
+        hc_start_safe_set(false);
         return true;
     }
     default:
@@ -717,6 +724,7 @@ void hc_ui_input(int k, HcUiResult *res)
     }
     bool selmove = false;
     int sel0 = v.sel, bsel0 = v.bsel;
+    const int mfirst0 = v.mfirst, bfirst0 = v.bfirst;      // a page key moves the window itself (listwin_page): a changed window is a redraw
     // a key that changes nothing must not rebuild the view (with one core, UP/DOWN do nothing at all)
     unsigned fp0 = hc_ui_fingerprint();
     char bp0[160];
@@ -897,6 +905,9 @@ void hc_ui_input(int k, HcUiResult *res)
         if (hc_nav_window_follow()) {
             selmove = false;                         // the window scrolls: the rows are refilled
         }
+    }
+    if (selmove && (v.mfirst != mfirst0 || v.bfirst != bfirst0)) {
+        selmove = false;
     }
     unsigned fp1 = hc_ui_fingerprint();
     if (!selmove && fp0 == fp1 && !strcmp(bp0, v.bpath) && !g_changed) {

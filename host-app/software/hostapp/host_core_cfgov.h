@@ -20,7 +20,7 @@ struct HcCfgOv {
     char title[96];
     ConfigList l;
     char def[CONFIG_NAME_MAX + 1];                       // the default config of the entry ("" = none)
-    int cur;                                             // 0 = "Plain start", 1.. = config cur-1
+    int cur;                                             // 0 = "Plain start", 1..l.n = config cur-1, l.n + 1 = "Boot safe graphics mode" (T224 D1)
     int top;                                             // first visible row
     int ask;                                             // 1: delete is armed (the second DEL deletes)
     char msg[96];
@@ -34,14 +34,15 @@ void hc_cfgov_io(CmFs *cm, FoFs *fo);
 int hc_cfgov_count(const char *cor_path);
 void hc_cfgov_forget(void);
 
-// Opens the overlay for a core. False (nothing opens, D9) when the core has no configs. `entry`: its boot.cfg index or -1.
+// Opens the overlay for a core. T224 D1: it opens with no config too (the last row is the rescue start); the caller keeps it from foreign firmware (.cfw/.ue2); a large .cor opens it (T223 D4). `entry`: its boot.cfg index or -1.
 bool hc_cfgov_open(const char *cor_path, const char *title, int entry, bool browse = false);
 void hc_cfgov_close(void);
 const HcCfgOv &hc_cfgov(void);
 bool hc_cfgov_is_open(void);
 
 void hc_cfgov_move(int dir);                              // UP / DOWN; the window follows
-const char *hc_cfgov_cur_name(void);                     // "" on "Plain start"
+const char *hc_cfgov_cur_name(void);                     // "" on "Plain start" and on the safe row
+bool hc_cfgov_on_safe(void);                             // T224 D1: the cursor is on the last row, "Boot safe graphics mode"
 // D: the config under the cursor becomes the default of the entry (again: no default); on "Plain start": no default. HCR_*-like: true when changed.
 bool hc_cfgov_default(void);
 // DEL: the first call arms, the second deletes the config under the cursor. Returns 1 armed, 2 deleted, 0 nothing (Plain start, or it failed: msg says why).

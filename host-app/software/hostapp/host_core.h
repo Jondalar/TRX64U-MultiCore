@@ -119,6 +119,7 @@ struct HcPlatform {
     StartFs *fs;                                         // the file system the entries are checked on (stat, open); the core never touches a file but through it
     void (*log)(const char *line);                       // the console line ("[host] ..."), one per call, no newline; null: none
     uint32_t (*now_ms)(void);
+    bool (*start_file)(const char *cor_path, const char *text, int n);   // T223 D4: writes the hand-over file of a large core's start (startfile_path of cor_path); null: none
 };
 void hc_init(const HcPlatform *p);
 StartFs *hc_fs(void);                                  // the file system the entries are checked on (null: none given)
@@ -138,6 +139,7 @@ bool hc_cfg_readback_ok(int i);                          // boot.cfg as the boar
 int hc_entry_move(int i, int dir);                       // dir -1 up, +1 down; the default follows
 int hc_entry_default(int i);
 int hc_entry_defcfg(int i, const char *name);           // T198 D8: the entry's default config ("" = none); HCR_REFUSED for a name config_name_ok refuses
+void hc_start_safe_set(bool on);                            // T224 D2: the next hc_start_sequence hands over "safe graphics mode" (one-shot)
 void hc_start_config_set(const char *name);             // T198: the config the next hc_start_sequence hands over (one-shot, "" = plain)
 int hc_entry_remove(int i);
 int hc_entry_rename(int i, const char *name);            // HCR_REFUSED: the name cannot be used (nothing changed)
@@ -203,6 +205,7 @@ enum EState { ES_UNKNOWN, ES_OK, ES_CHANGED, ES_MISSING, ES_BAD, ES_CONTRACT, ES
 EState hc_est(int i);
 const CorInfo &hc_einfo(int i);
 bool hc_efull(int i);                                    // T115: the entry is a .cfw full firmware or a large .cor, not a partial bundle
+bool hc_ecfg_ok(int i);                                  // T223 D4: the entry takes configs and the rescue start (all but a .cfw/.ue2)
 void hc_entry_origin(int i, int origin);                 // a large .cor's icon record names who made it (read with the icon)
 bool hc_startable(int i);                                // an entry the lazy reader has not reached yet starts too: the start verifies and refuses by itself
 int hc_in_menu(const char *path);                        // the index of the entry with that path, -1
@@ -210,6 +213,7 @@ bool hc_is_full(const char *path);                       // a .cfw, or a .cor th
 void hc_probe_state(int i);                              // (a) size and mtime of the directory entry, (b) the package header: the state. No part is hashed, no medium is listed.
 void hc_lazy_reset(void);                                // every entry is unknown again (a move, a removal, a late boot.cfg)
 void hc_lazy_mark(int i);                                // entry i is read again, its old state stays until the new one is in
+void hc_lazy_window(int first, int n);                   // T223 D2: the rows the reader may read besides the default and the selection (default: all)
 int hc_lazy_next(int sel_hint);                          // the entry the reader would take next (the default first, then `sel_hint`), -1
 enum { HCL_STATE = 1, HCL_ICON, HCL_MIGRATE };
 struct HcLazy {

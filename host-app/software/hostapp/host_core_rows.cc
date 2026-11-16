@@ -22,6 +22,8 @@
 #include <strings.h>
 #include <stdarg.h>
 #include "host_core_cm.h"
+// T223: while the menu is full the browser does not offer "A adds it"
+#define ADD_HINT(rest) (hc_cfg().n >= BOOT_MAX ? "Menu full: remove one in F5 first.\n" rest : "A adds it to the boot menu\n" rest)
 
 #ifndef HOSTAPP_FLASH_LOCK
 #define HOSTAPP_FLASH_LOCK 0
@@ -176,8 +178,13 @@ bool hc_row_entry(int i, bool menu_style, HcEntryRow *r)
     r->def = i == cfg.def;
     r->full = full;
     r->ok_state = ok;
-    r->configs = !full && st != ES_UNKNOWN ? hc_cfgov_count(cfg.e[i].path) : 0;      // one directory read per generation and core (S15); none before the entry has been read (T101 S10: the first frame lists no folder)
+    r->configs = hc_ecfg_ok(i) && st != ES_UNKNOWN ? hc_cfgov_count(cfg.e[i].path) : 0;      // one directory read per generation and core (S15); none before the entry has been read (T101 S10: the first frame lists no folder)
     hc_cfgov_badge(r->configs, r->cfgbadge, sizeof(r->cfgbadge));
+#ifdef HC_CFG_MARKER_LONG
+    snprintf(r->cfgmark, sizeof(r->cfgmark), "%s", r->configs > 0 ? "config" : "");
+#else
+    snprintf(r->cfgmark, sizeof(r->cfgmark), "%s", r->configs > 0 ? "C" : "");
+#endif
     return true;
 }
 
@@ -193,7 +200,7 @@ void hc_pos_text(char *b, int n, int first, int total, int rows)
 
 void hc_menu_texts(int first, int total, HcMenuTexts *t)
 {
-    snprintf(t->sub, sizeof(t->sub), "Pick a core. The auto entry starts when the countdown ends.");
+    snprintf(t->sub, sizeof(t->sub), hc_cfg().direct ? "Pick a core." : "Pick a core. The auto entry starts when the countdown ends.");
     t->hint_on = total == 0;
     snprintf(t->hint, sizeof(t->hint), "%s", HC_NO_CORES_HINT);
     hc_pos_text(t->pos, sizeof(t->pos), first, total, hc_nav_menu_rows());
@@ -321,12 +328,24 @@ const char *hc_edit_foot(void)
     return hc_foot(has ? HCF_EDIT : HCF_EDIT_PLAIN);
 }
 
-// The footer of the boot menu: "RIGHT configs" only while the selected row has configs (T198 D9, mock-up (a)).
+// The footer of the boot menu: "RIGHT configs" on every row but a foreign firmware (T198 D9 gave it to rows with configs; T224 D1 changed it).
 const char *hc_menu_foot(void)
 {
     const HcNav &v = hc_nav();
-    const bool has = v.sel >= 0 && v.sel < hc_cfg().n && hc_cfgov_count(hc_cfg().e[v.sel].path) > 0;
+    const bool has = v.sel >= 0 && v.sel < hc_cfg().n && hc_ecfg_ok(v.sel);      // T224 D1, T223 D4: RIGHT opens the overlay on every row but a foreign firmware (the rescue row)
     const char *base = hc_foot(has ? HCF_MENU : HCF_MENU_PLAIN);
+    static char nocd[320];
+    if (hc_cfg().direct) {                                   // direct boot: no countdown runs, so the footer does not talk about one
+        snprintf(nocd, sizeof(nocd), "%s", base);
+        char *cut = strstr(nocd, "any key stops the countdown");
+        if (cut) {
+            while (cut > nocd && cut[-1] == ' ') {
+                cut--;
+            }
+            *cut = 0;
+        }
+        base = nocd;
+    }
     if (hc_cfg().n <= hc_nav_menu_rows()) {
         return base;
     }
@@ -592,9 +611,9 @@ static void panel_full(HcPanel *p, const char *path)
     int m = hc_in_menu(path);
     cell(&p->val[6], m >= 0 ? "in the boot menu" : "not in the menu");
     if (cfw_is_name(path)) {                                      // T137: a .cfw/.ue2 can be made into a .cor
-        cell(&p->msg, m >= 0 ? "A refreshes the entry\nS starts once    back: power cycle\nP packages it as a .cor in the cores folder" : "A adds it to the boot menu\nS starts once    back: power cycle\nP packages it as a .cor in the cores folder", HCT_OK);
+        cell(&p->msg, m >= 0 ? "A refreshes the entry\nS starts once    back: power cycle\nP packages it as a .cor in the cores folder" : ADD_HINT("S starts once    back: power cycle\nP packages it as a .cor in the cores folder"), HCT_OK);
     } else {
-        cell(&p->msg, m >= 0 ? "A refreshes the entry\nS starts once    back: power cycle" : "A adds it to the boot menu\nS starts once    back: power cycle", HCT_OK);
+        cell(&p->msg, m >= 0 ? "A refreshes the entry\nS starts once    back: power cycle" : ADD_HINT("S starts once    back: power cycle"), HCT_OK);
     }
 }
 
@@ -684,7 +703,7 @@ void hc_browse_panel(HcPanel *p)
         snprintf(t, sizeof(t), "Routed against host %08x; this host is %08x. Cannot be added.", (unsigned)g_bci.host_key, (unsigned)cor_host_key);
         cell(&p->msg, t, HCT_WARN);
     } else {
-        cell(&p->msg, m >= 0 ? "A refreshes the entry\nS starts once" : "A adds it to the boot menu\nS starts once", HCT_OK);
+        cell(&p->msg, m >= 0 ? "A refreshes the entry\nS starts once" : ADD_HINT("S starts once"), HCT_OK);
     }
 }
 
@@ -848,7 +867,7 @@ void hc_set_row_text(int kind, const char *&name, char (&v)[64], const char *&he
         name = hc_set_name(SK_DIRECT);
         snprintf(v, sizeof(v), "%s", cfg.direct ? "on" : "off");
         help = cfg.direct ? "The auto core starts at power-on without the menu. C= or fire on port 1 at power-on shows the menu."
-                          : "The menu comes up first; the autostart below decides whether it starts the auto core.";
+                          : "Menu first; the autostart below decides about the auto core.";
         break;
     case SK_AUTO:
         name = hc_set_name(SK_AUTO);

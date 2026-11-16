@@ -57,6 +57,7 @@ struct HcEntryRow {
     bool full;
     bool ok_state;                                // the entry's state is OK or CHANGED (an icon may be read)
     int configs;                                  // T198: the core's configs (menu rows of a .cor; 0 = no badge, D9)
+    char cfgmark[8];                              // T223 D6: the boot menu's config column: "C" (or "config" with HC_CFG_MARKER_LONG) on a row that has configs, "" for none
     char cfgbadge[16];                            // "3 configs", "" for none
 };
 bool hc_row_entry(int i, bool menu_style, HcEntryRow *r);

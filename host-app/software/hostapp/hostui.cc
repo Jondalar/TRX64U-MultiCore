@@ -178,8 +178,9 @@ static bool icon_c_ok[BOOT_MAX];
 static int icons_gen;                     // bumped when icon buffers are rewritten, so a row redraws its image
 #define MROWS_MAX 12
 #define MENU_ROW0 (COMPACT ? 66 : 76)
-#define MROWS (mrows_n)                         // rows that fit above the note and the countdown (T101 D4): 5 on the full canvas, from the height below it
+#define MROWS (mrows_n)                         // rows that fit above the note and the countdown (T101 D4): from the height below it, 9 on the full canvas (8 while the countdown line shows)
 static int mrows_n = 5, erows_n = 5;          // T209: the editor's panel above its list takes room: its list is shorter than the menu's
+static int mrows_full = 5, mrows_cd = 5;      // menu rows built = the count without the countdown line; mrows_cd = the count while the line shows
 #define EROWS (erows_n)
 static bool need_full = true;             // the render flag
 // T192 D21: the arm of a destructive row action that takes its key twice (DEL DEL in the editor and the browser, F F on the WiFi page) is the core's (host_core_nav.h:
@@ -549,7 +550,16 @@ static void lazy_reset(void)
 // Entry i is read again, its old state stays on screen until the new one is in.
 static void lazy_mark(int i) { hc_lazy_mark(i); }
 
-static bool lazy_busy(void) { return hc_lazy_next(nv.sel) >= 0; }
+static void lazy_window(void)
+{
+    if (nv.view == V_MENU || nv.view == V_EDIT) {
+        hc_lazy_window(nv.view == V_MENU ? nv.mfirst : nv.efirst, nv.view == V_MENU ? MROWS : EROWS);
+    } else {
+        hc_lazy_window(0, 0);                // another view: nothing but the default and the selection
+    }
+}
+
+static bool lazy_busy(void) { lazy_window(); return hc_lazy_next(nv.sel) >= 0; }
 
 static bool row_visible(int i)
 {
@@ -566,6 +576,7 @@ static bool lazy_step(bool quiet)
 {
     HcLazy z;
     uint32_t t0 = now_ms();
+    lazy_window();
     if (!hc_lazy_step(quiet, nv.sel, &z)) {
         return false;
     }
@@ -616,7 +627,17 @@ static bool core_cfg_save(const char *text, int n) { return hostfs_save(BOOTCFG_
 static void core_cfg_changed(void) { arm_drop(HARM_END_GONE); }       // the entries changed: an arm on one of them does not hold
 static void core_log(const char *line) { printf("%s\n", line); }
 static uint32_t core_now(void) { return now_ms(); }
-static const HcPlatform core_plat = { core_cfg_load, core_cfg_save, core_cfg_changed, &board_fs, core_log, core_now };
+static bool core_start_file(const char *cor_path, const char *text, int n)      // T223 D4: "<medium>/trx64-start.txt" beside the large core's medium root
+{
+    char path[HANDOVER_PATH_MAX + 32];
+    if (!startfile_path(cor_path, path, sizeof(path))) {
+        return false;
+    }
+    char *slash = strrchr(path, '/');
+    *slash = 0;
+    return hostfs_save(path, slash + 1, text, n);
+}
+static const HcPlatform core_plat = { core_cfg_load, core_cfg_save, core_cfg_changed, &board_fs, core_log, core_now, core_start_file };
 
 // ... and of the navigation: the folder listing, and what the screen drops when the list is read anew.
 static int nav_list(const char *path, HostDirEntry *out, int max) { return hostfs_list(path, out, max, false); }
@@ -646,7 +667,7 @@ static int in_menu(const char *path) { return hc_in_menu(path); }
 #define CW  (SW - NAV_W - 2 * CX0)
 #define CH  (SH - TOP_H - FOOT_H)
 #define BROWS_MAX 16
-#define BROWS (brows_n)                         // browser rows: 13 on the full canvas, from the height below it
+#define BROWS (brows_n)                         // browser rows: what the panel holds (12 on the full canvas), from the height below it
 static int brows_n = 13;
 // the pitch of the menu rows and the editor rows, and where the editor's panel ends (compact: its settings take a line each)
 #define ED_PN_H 56                              // T209 D19: the editor's info box is two lines
@@ -687,7 +708,6 @@ static lv_obj_t *b_mark[BROWS_MAX], *b_name[BROWS_MAX], *b_size[BROWS_MAX];
 static lv_obj_t *r_title, *r_key[7], *r_val[7], *r_msg, *r_err;
 static lv_obj_t *n_eth, *n_ftp, *n_media, *n_rest;
 static lv_obj_t *c_pat;                         // colour screen: solid / stripe layer
-static int bfirst;
 
 static void set_txt(lv_obj_t *l, const char *s)
 {
@@ -832,6 +852,11 @@ static void row_style(Row &r, bool on)
 
 #define BADGE_W (COMPACT ? 112 : 150)
 #define DEF_W (COMPACT ? 70 : 78)
+#ifdef HC_CFG_MARKER_LONG
+#define CFGM_W (COMPACT ? 52 : 60)         // T223 D6: the boot menu's config column ("config")
+#else
+#define CFGM_W 26                          // T223 D6: the boot menu's config column ("C")
+#endif
 #define CFG_W (COMPACT ? 84 : 98)          // T198: the "N configs" badge, between the status and the default badge (mock-up order: default, N configs, status)
 
 // T209 D6 (Alex 2026-11-12): the boot menu row is the mock-up's: the logo at its full size (32 x 32, as before T209) on the left, then the name, then the
@@ -968,14 +993,18 @@ static void fill_mrow(Row &r, int i)
     if (lv_obj_get_x(r.stb) != px) {
         lv_obj_set_x(r.stb, px);
     }
-    const int dx = px - 6 - DEF_W;
-    const int cx = (v.def ? dx : px) - 6 - CFG_W;
-    const int nleft = (v.cfgbadge[0] ? cx : v.def ? dx : px) - 8;
+    // T223 D5/D6: a table, the columns keep their place whether the row has a mark or not: name | auto | config | pictogram | version
+    const int cx = px - 6 - CFGM_W;
+    const int dx = cx - 6 - DEF_W;
+    const int nleft = dx - 8;
     if (lv_obj_get_x(r.defb) != dx) {
         lv_obj_set_x(r.defb, dx);
     }
     if (lv_obj_get_x(r.cfb) != cx) {
         lv_obj_set_x(r.cfb, cx);
+    }
+    if (lv_obj_get_width(r.cfb) != CFGM_W) {
+        lv_obj_set_width(r.cfb, CFGM_W);
     }
     const int want = nleft - LROW_TX;
     if (want != (int)(intptr_t)lv_obj_get_user_data(r.a)) {
@@ -993,14 +1022,19 @@ static void fill_mrow(Row &r, int i)
         r.pcs = v.pic;
     }
     set_hidden(r.defb, !v.def);
-    set_txt(r.cfl, v.cfgbadge);
-    set_hidden(r.cfb, !v.cfgbadge[0]);
+    set_txt(r.cfl, v.cfgmark);
+    {
+        lv_point_t msz = { 0, 0 };
+        lv_text_get_size(&msz, v.cfgmark, F_SMALL, 0, 0, LV_COORD_MAX, LV_TEXT_FLAG_NONE);
+        lv_obj_set_x(r.cfl, (CFGM_W - 2 - (msz.x + 4)) / 2);
+    }
+    set_hidden(r.cfb, !v.cfgmark[0]);
 }
 
 // T209 D8 (Alex 2026-11-12): the editor row is the boot menu's row as it was before T209 (fcd8abd9a^1), copied, without the logo: the name (F_TEXT), under it the
-// path (F_SMALL), the version, the pictogram and the badges at the right (D16). Same row height (56) and pitch (62) as that row.
+// path (F_SMALL), the version, the pictogram and the badges at the right (D16). Same row height (56) as that row; the pitch is 60 so five rows fit above the status line on the full canvas.
 #define EROW_H 56
-#define EROW_P 62
+#define EROW_P 60
 #define EROW_TX 12                            // the text starts at 12 (no logo)
 static void build_erow(Row &r, lv_obj_t *par, int x, int y, int w, int h)
 {
@@ -1128,8 +1162,10 @@ static void cd_update(void)
     if (!t.visible) {
         lv_obj_add_flag(cd_label_obj, LV_OBJ_FLAG_HIDDEN);
         lv_obj_add_flag(cd_bar_obj, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(m_cdbox, LV_OBJ_FLAG_HIDDEN);     // the opaque box sits over the status line (CH - 26) while direct boot moves it down
         return;
     }
+    lv_obj_clear_flag(m_cdbox, LV_OBJ_FLAG_HIDDEN);
     lv_obj_clear_flag(cd_label_obj, LV_OBJ_FLAG_HIDDEN);
     lv_obj_clear_flag(cd_bar_obj, LV_OBJ_FLAG_HIDDEN);
     set_txt(cd_label_obj, t.text);
@@ -1182,11 +1218,11 @@ static void build_menu(void)
     m_pos = txt(p, CX0 + CW - 200, COMPACT ? 14 : 22, "", F_SMALL, C_MUTED, 200);      // T209: on the title's line, so the subtitle has the whole column
     lv_obj_set_style_text_align(m_pos, LV_TEXT_ALIGN_RIGHT, 0);
     m_hint = txt(p, CX0, 100, HC_NO_CORES_HINT, F_TEXT, C_MUTED);
-    for (int i = 0; i < MROWS; i++) {
+    for (int i = 0; i < mrows_full; i++) {
         build_mrow(mrow[i], p, CX0, MENU_ROW0 + i * LROW_P, CW, LROW_H);
     }
-    m_note = fit1(txt(p, CX0, CH - 74, "", F_SMALL, C_MUTED, CW), CW);
-    m_cdbox = box(p, CX0, CH - 44, CW, 32, C_BG, 0);
+    m_note = fit1(txt(p, CX0, CH - 26, "", F_SMALL, C_MUTED, CW), CW);      // menu_rows_sync moves it up while the countdown line shows
+    m_cdbox = box(p, CX0, CH - 34, CW, 30, C_BG, 0);
     cd_label_obj = fit1(txt(m_cdbox, 0, 0, "", F_SMALL, C_MUTED, CW), CW);
     cd_bar_obj = lv_bar_create(m_cdbox);
     lv_obj_set_pos(cd_bar_obj, 0, 22);
@@ -1214,8 +1250,25 @@ static void state_status(lv_obj_t *slot)
 }
 static void menu_status(void) { state_status(m_note); }
 
+// The countdown line (a second line under the status line) is there unless direct boot is on: with it the list holds one row less and the status line
+// moves up by its height; without it the status line sits on the pane's bottom edge above the key bar.
+static void menu_rows_sync(void)
+{
+    HcCountdownTexts t;
+    hc_countdown_texts(&t);
+    int want = t.visible ? mrows_cd : mrows_full;
+    if (m_note) {
+        lv_obj_set_y(m_note, t.visible ? CH - 56 : CH - 26);
+    }
+    if (want != mrows_n) {
+        mrows_n = want;
+        hc_nav_geometry(mrows_n, hc_nav_browse_rows(), hc_nav_cores_rows(), hc_nav_edit_rows());
+    }
+}
+
 static void update_menu(void)
 {
+    menu_rows_sync();
     int total = cfg.n;
     hc_nav_menu_first(total);
     HcMenuTexts t;
@@ -1225,7 +1278,11 @@ static void update_menu(void)
     set_txt(m_hint, t.hint);
     set_txt(m_sub, t.sub);
     set_txt(m_pos, t.pos);
-    for (int i = 0; i < MROWS; i++) {
+    for (int i = 0; i < mrows_full; i++) {
+        if (i >= MROWS) {
+            set_hidden(mrow[i].box, true);
+            continue;
+        }
         fill_mrow(mrow[i], nv.mfirst + i);
         if (nv.mfirst + i < total) {
             row_style(mrow[i], nv.mfirst + i == nv.sel);
@@ -1283,7 +1340,7 @@ static void build_browse(void)
     int rw = COMPACT ? (CW - 16) / 2 : CW / 2 - 8;
     int lw = COMPACT ? CW - 16 - rw : CW / 2 - 8;
     int top = COMPACT ? 64 : 74;
-    int ph = CH - (COMPACT ? 74 : 90);
+    int ph = CH - top - 30;                               // T223 R2: the panels end 4 px above the note line (CH - 26), not under it
     // the value column of the right panel: compact, it starts after the longest key of either mode of the panel (a key is never cut to dots)
     static const char *const key_words[] = { "Version", "Contract", "FPGA", "Core", "Application", "SHA-256", "Status", "Size", "Contents", "Boot menu", "Access", "Format" };
     int rk = 130;
@@ -1369,7 +1426,7 @@ static void browse_right_update(void)
 static void browse_mark(void)
 {
     static int shown_y = 34;
-    int y = 36 + (nv.bsel - bfirst) * 26 - 2;
+    int y = 36 + (nv.bsel - nv.bfirst) * 26 - 2;
     for (int i = 0; i < 4; i++) {
         set_hidden(b_hl[i], !nv.bn);
     }
@@ -1417,12 +1474,12 @@ static void update_browse(void)
     browse_sub_update();
     hc_browse_title(t, sizeof(t));
     set_txt(b_path, t);
-    listwin_fix(nv.bsel, nv.bn, BROWS, &bfirst);          // T209 D3: scrolls while 2 rows are still hidden ahead of the selection
+    listwin_fix(nv.bsel, nv.bn, BROWS, &nv.bfirst);          // T209 D3: scrolls while 2 rows are still hidden ahead of the selection
     hc_browse_empty_text(t, sizeof(t));
     set_txt(b_empty, t);
     for (int i = 0; i < BROWS; i++) {
         HcBrowseRow r;
-        bool on = hc_browse_row(bfirst + i, &r);
+        bool on = hc_browse_row(nv.bfirst + i, &r);
         set_hidden(b_mark[i], !on);
         set_hidden(b_name[i], !on);
         set_hidden(b_size[i], !on);
@@ -1523,8 +1580,8 @@ static void fill_snapshot(WebSnapshot *w);
 // delete the files that belong to no core: ASK1 lists them and asks, ASK2 asks again; only Y answers yes, RETURN and every other key is No.
 enum { CMM_OFF = HCM_OFF, CMM_LIST = HCM_LIST, CMM_ASK1 = HCM_ASK1, CMM_ASK2 = HCM_ASK2 };
 #define CM_ROWS_MAX 24
-#define CM_ROWS (cm_rows_n)                    // 17 on the full canvas; the compact layout takes what its height holds
-static int cm_rows_n = 17;
+#define CM_ROWS (cm_rows_n)                    // layout_counts(): what the canvas height holds (22 on 960x540)
+static int cm_rows_n = 1;                      // set by layout_counts() before any view is built
 #define CM_LINE 112
 #define CM_LINES 200
 static lv_obj_t *cm_root, *cm_head, *cm_row[CM_ROWS_MAX], *cm_note;
@@ -1760,25 +1817,28 @@ static void build_start(void);
 static void buffers_mode(bool single);
 static void overlay_state_forget(void);             // what the overlay panels remember of what they show (below, after their statics)
 
-// How many rows each list holds on the canvas that is up (the full canvas: the rows the pages were laid out with, 5, 13 and 17; the compact layout
+// How many rows each list holds on the canvas that is up (the full canvas: 9 menu rows, 5 editor rows, 12 browser rows, 18 list rows; the compact layout
 // takes what its height holds, from the same positions the builders use).
 static void layout_counts(void)
 {
     hc_rows_set_compact(COMPACT);
     // T209 D8: the editor holds what fits between its panel and its note, at the pitch of the boot menu's old row.
     // T209 D6: the boot menu keeps its full-size logo (LROW_H high, LROW_P pitch); both canvases hold what fits between the list's top and its detail line - the row count gives, not the logo.
-    int m = (CH - MENU_ROW0 - 80 + 2) / LROW_P;
-    mrows_n = m < 1 ? 1 : (m > MROWS_MAX ? MROWS_MAX : m);
-    int e = (CH - 26 - ((COMPACT ? 64 : 74) + ED_PN_H + 12) + 6) / EROW_P;
+    int m = (CH - 26 - 6 - MENU_ROW0 + 2) / LROW_P;      // down to the status line at CH - 26
+    int mc = (CH - 56 - 6 - MENU_ROW0 + 2) / LROW_P;      // down to the status line at CH - 56, above the countdown line
+    mrows_full = m < 1 ? 1 : (m > MROWS_MAX ? MROWS_MAX : m);
+    mrows_cd = mc < 1 ? 1 : (mc > mrows_full ? mrows_full : mc);
+    mrows_n = mrows_full;
+    int e = (CH - 26 - ((COMPACT ? 64 : 74) + ED_PN_H + 12) + 4) / EROW_P;
     erows_n = e < 1 ? 1 : (e > MROWS_MAX ? MROWS_MAX : e);
     if (!COMPACT) {
-        brows_n = 13;
-        cm_rows_n = 17;
+        brows_n = (CH - 74 - 30 - 40) / 26;                // T223 R2: the panel ends above the note line; the last row sits inside it
+        cm_rows_n = (CH - 26 - 6 - 70 + 2) / 20;
         hc_nav_geometry(mrows_n, brows_n, cm_rows_n, erows_n);
         return;
     }
-    brows_n = (CH - 74 - 40) / 26;
-    cm_rows_n = (CH - 26 - 60) / 20;
+    brows_n = (CH - 64 - 30 - 40) / 26;                  // the panel's height (see the browser builder) less its first row's offset
+    cm_rows_n = (CH - 26 - 6 - 60 + 2) / 20;
     brows_n = brows_n < 1 ? 1 : (brows_n > BROWS_MAX ? BROWS_MAX : brows_n);
     cm_rows_n = cm_rows_n < 1 ? 1 : (cm_rows_n > CM_ROWS_MAX ? CM_ROWS_MAX : cm_rows_n);
     hc_nav_geometry(mrows_n, brows_n, cm_rows_n, erows_n);
@@ -3539,9 +3599,9 @@ static void apply_updates(void)
                 set_foot(foot_label, hc_edit_foot());
             }
         } else if (nv.view == V_BROWSE) {
-            int first = bfirst;
+            int first = nv.bfirst;
             listwin_fix(nv.bsel, nv.bn, BROWS, &first);
-            if (first != bfirst) {
+            if (first != nv.bfirst) {
                 update_browse();                    // the list scrolls: refill the 13 rows
             } else {
                 browse_mark();
