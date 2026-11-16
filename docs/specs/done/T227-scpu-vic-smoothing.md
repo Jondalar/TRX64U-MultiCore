@@ -1,6 +1,6 @@
 # T227 — The c64scpu VIC picture can be smoothed (Smoothing row, as the frame-buffer cores have), at non-integer scales
 
-**Status:** D1 blend failed the board (blurry); D3 sharp smoothing BUILT on branch t227-scpu-smooth, Vivado + board open (S1/S3) (2026-11-15).
+**Status:** DONE (2026-11-16): D3 sharp smoothing in main, board PASS (Alex: "Fill + Smooth look great on the SuperCPU", translated). D1 blend failed the board (blurry) and was replaced by D3.
 **Repo:** TRX64U-MultiCore — gateware of `cores/c64scpu/mono/host/vic_scaler.v` (own copy, U16 lineage), the core app (Smoothing row
 for the VIC path). The same scaler lives in TRX64-Ultimate u16; a working change can be offered there.
 **Number:** T227.
@@ -99,3 +99,4 @@ Measure first (S0), then horizontal only. Vertical blending is not part of this 
   geometry): `hn/hd` 1/2, 1/4, 1/3 (integer): 0 of 400 blended; 5/9: 178 blended; 3/8: 100; 5/16: 100; 5/24: 67; 5/8: 200; 0 differences to the reference;
   spot values frac16(5,1)=3, frac16(5,4)=12, frac16(3,2)=10; `PASS t227 sharp fraction`. `vic_scaler.v` + `pal_ram.v` compile clean in iverilog. No bench ran; Vivado and
   the board (S1, S3: integer = Off, Fit/Fill one mixed pixel per seam) are open.
+- Board 2026-11-16 (S3): Alex, translated: "Fill + Smooth look great on the SuperCPU." c64scpu.cor of main (D3). PASS. Fit and Smoothing Off, asked after that: "That is good too." PASS.

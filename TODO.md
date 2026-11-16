@@ -99,12 +99,12 @@ Built and benched; what is left is a step on the board (Alex, 2026-10-28, transl
 | T220 | 3 | 📅 | Host network chip stale: "no network" while LAN works (#84 comment) | Backlog; read 11-15: 3 s poll, cause open | [T220](docs/specs/T220-net-chip-stale.md) |
 | T221 | 2 | 🔨 | SemVer for host, host menu, core app, every core; displays: branch SemVer+commit, release SemVer | in main (11-16); L/P badge built (T223 D7); open: TRX64-U contract (D15) | [T221](docs/specs/T221-semver-everywhere.md) |
 | T222 | 2 | ✅ | SCPU core: every HDMI row of U16 (576p/720p/1080p 50, 480p/720p/1080p/800x600 60) at Integer/Fit/Fill | Board PASS 11-15 (Alex: everything works); merged to main | [T222](docs/specs/T222-scpu-hdmi-modes.md) |
-| T223 | 2 | 🔨 | Boot menu: 32 entries, only visible rows read, clear full-menu message; large cores take configs (D4) | Board 11-16 table ok; D7 built: version x.y.z only, L/P badge, tick at the right edge (ue2emu ok) | [T223](docs/specs/T223-boot-menu-32.md) |
+| T223 | 2 | 🔨 | Boot menu: 32 entries, only visible rows read, clear full-menu message; large cores take configs (D4) | Board 11-16 table ok; D7 (version x.y.z, L/P badge, tick right) board PASS 11-16 | [T223](docs/specs/T223-boot-menu-32.md) |
 | T225 | 2 | ✅ | Amiga: USB pad on game port 2 (1-/2-button, CD32), mapping dialog, saved per pad ID | Done 11-15, board amiga1200 (Alex) | [T225](docs/specs/T225-amiga-usb-pad-port2.md) |
 | T226 | 2 | 🔨 | Core app: "Loading cartridge" note; pad mapping on the Input tab, not Actions F7 | Spec 11-15 (Alex, board) | [T226](docs/specs/T226-coreapp-board-ux-1115.md) |
-| T227 | 3 | 🔨 | SCPU: smoothing of the VIC picture (horizontal blend), Smoothing row | D1 blend blurry on board; D3 sharp smoothing built, Vivado + board open (S1/S3) | [T227](docs/specs/T227-scpu-vic-smoothing.md) |
 | T228 | 2 | 📝 | trx64u on the generic core menu; S1 decided (D1-D18), next T212 merge then S2 | Spec 11-15 (Alex) | [T228](docs/specs/T228-trx64u-generic-menu.md) |
 | T229 | 2 | 📝 | Boot menu: row data cached like the picture, stat-only check in the background, keys win | Spec 11-16 (Alex), PROPOSED, Q1-Q6 open | [T229](docs/specs/T229-boot-menu-data-cache.md) |
+| T230 | 2 | 📝 | TRX64 FW version in the menu; trx64u starts with config, media, autostart (FW contract) | PROPOSED; FW-1 answered, pins SEMVER=0.3.0; FW-2/3, Q-A/B open | [T230](docs/specs/T230-trx64-fw-version-and-start.md) |
 | T224 | 2 | 🔨 | "Boot safe graphics mode" in the config overlay (RIGHT): one start with Picture Auto, Scale Integer, Smoothing Off | Built on t224-picture-reset 11-15 (D1-D3, Alex); ue2emu 3 modes ok incl. large core; tests unrun | [T224](docs/specs/T224-picture-reset.md) |
 | T175 | 3 | 🔨 | Diag core: a timed probe engine plus TOML tests measure the joystick/paddle ports, results to SD | Merged; diag v2 with testers 11-04 (pins, stick2 ok, cd32 6/24); S4, S7 board, S8 numbers open | [T175](docs/todo/T175.md) |
 | T176 | 3 | 📅 | Core menus on the screen at once from a saved picture (split out of T146 P5, issue #4) | Deferred (Alex 11-02): split out of T146 P5; not started | [T176](docs/todo/T176.md) |
@@ -149,6 +149,7 @@ Built and benched; what is left is a step on the board (Alex, 2026-10-28, transl
 
 | ID | M | Status | Task | Open | Details |
 | T169 | 3 | ✅ | User manual rebuilt for the host app: one chapter per menu, engineering-manual style, emulator screenshots | Done (Alex 11-14, closed after the §5 check); left: colour page app fix + picture, Run Update for TRXBK on a backup-started firmware | [T169](docs/todo/T169.md) |
+| T227 | 3 | ✅ | SCPU: smoothing of the VIC picture (horizontal blend), Smoothing row | Done: D3 sharp smoothing, board PASS 11-16 (Fill + Smooth) | [T227](docs/specs/done/T227-scpu-vic-smoothing.md) |
 |---|---|---|---|---|---|
 | T115 | 3 | ✅ | The host starts a full firmware from a .cfw (flash file + IPROG): Gideon's original and the large TRX64 | Done (Alex 11-14); proven in daily board use (.cfw start) | [T115](docs/todo/T115.md) |
 | T109 | 3 | ✅ | A core that makes sound is heard, and silence cannot come back unseen | Done (Alex 11-14); sound proven in daily use, silence-watch board proof waived | [T109](docs/specs/done/T109-core-sound-reaches-the-speaker.md) |
