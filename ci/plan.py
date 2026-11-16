@@ -74,6 +74,13 @@ def is_noncode(p):
     return p.startswith(("docs/", ".claude/")) or p.endswith(".md") or base.startswith("TODO") or base in ("LICENSE", "LICENSE.txt")
 
 
+def changed_names(base, head, specs):
+    """Files under the pathspecs that differ by a single byte (no code normalisation): what a .cor installs on the card is the file as it is."""
+    if not specs:
+        return set()
+    return set(p for p in git("diff", "--name-only", "--no-renames", "-z", base, head, "--", *specs).split("\0") if p)
+
+
 def changed_code(base, head, specs):
     return set(f for f in changed_in(base, head, specs) if not is_noncode(f))
 
@@ -285,6 +292,7 @@ def make(base, head, source, files_out=None, branch=None):
         if docs_only:
             notes.append("only documentation changed (docs/, specs, TODO, *.md): no stage is triggered (D2.1)")
     targets, reason = set(), {}
+    packed = set()                  # large cores whose record 8 changed (their .cor is repacked, no Vivado)
 
     def add(t, why):
         targets.add(t)
@@ -315,6 +323,13 @@ def make(base, head, source, files_out=None, branch=None):
             specs = core_toml("sources", c).split("\n") + shared_large + [EXC + "cores/%s/sim" % c, EXC + "cores/%s/mono/reports" % c]
             for f in sorted(changed_code(base, head, specs)):
                 add("large:" + c, f)
+        # record 8 of a large core's .cor (core.toml install_dir / install_old) is no input of its bitstream (not in its sources): a change there repacks the
+        # .cor from the cached bitstream (package:cfw:<id>, its lane hands the cached bit over) and builds nothing
+        for c in large_all:
+            fdirs = ["cores/%s/%s" % (c, d) for d in (core_toml("get", c, "install_dir"), core_toml("get", c, "install_old")) if d]
+            for f in sorted(p for p in changed_names(base, head, fdirs) if not is_noncode(p)):
+                add("package:cfw:" + c, f)
+                packed.add(c)
         for specs, tg in rows:
             for f in sorted(changed_code(base, head, specs)):
                 for t in tg:
@@ -358,7 +373,7 @@ def make(base, head, source, files_out=None, branch=None):
     # not main builds the cores it touches itself. A host or app change does not drag every other core in; they come from the cache / the main package.
     # The host lane (host + reference core) is the host's own; null comes along with the host (the host update file is built from its image).
     if scoped and not everything:
-        keep = set(t for t in direct if t.startswith(("dfx:", "large:")))
+        keep = set(t for t in direct if t.startswith(("dfx:", "large:"))) | set("large:" + c for c in packed)
         if "host" in targets and "null" in dfx_all:
             keep.add("dfx:null")
         for t in [t for t in targets if t.startswith(("dfx:", "large:")) and t not in keep]:
@@ -427,7 +442,7 @@ def make(base, head, source, files_out=None, branch=None):
         "apps": {"host": "app:host" in targets, "core": "app:core" in targets, "ultimate": "app:ultimate" in targets},
         "package": {"cor": cor_all, "cfw": large_all, "fresh": [t[len("package:"):] for t in fresh]},
         "lanes": lanes_of(everything, host, "aux" in targets, {"host": "app:host" in targets, "core": "app:core" in targets,
-                                                               "ultimate": "app:ultimate" in targets}, named_dfx, named_large, dfx_all, large_all, scoped),
+                                                               "ultimate": "app:ultimate" in targets}, named_dfx, sorted(set(named_large) | packed), dfx_all, large_all, scoped),
         "sims": sorted(sims),
         "universe": {"dfx": dfx_all, "large": large_all, "cor": cor_all, "reference": ref},
         "limits": limits, "notes": notes,

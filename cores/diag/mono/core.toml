@@ -12,6 +12,6 @@ order        = 17              # after the Neo Geo (16)
 delivery     = "cfw"
 experimental = true            # Alex 2026-11-02 (T175 Q5): experimental first
 mono_env     = ["TRX_FEATURES=jtag"]
-sources      = ["cores/diag", ":(exclude)cores/diag/sim"]
+sources      = ["cores/diag", ":(exclude)cores/diag/sim", ":(exclude)cores/diag/sd", ":(exclude)cores/diag/superseded"]   # sd/ and superseded/ are record 8 of diag.cor, no input of the bitstream (ci/plan.py packs: install_dir / install_old)
 install_dir  = "sd"            # cores/diag/sd/tests/*.toml -> <core folder>/tests/ when missing (T175; record 8 of diag.cor, no other core carries them)
 install_old  = "superseded"    # earlier shipped texts <name>.v<N>.toml: an unedited copy of one is replaced
