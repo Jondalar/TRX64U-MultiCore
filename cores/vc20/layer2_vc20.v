@@ -266,9 +266,21 @@ module layer2_vc20 #(
     // the 1541 and the serial bus, as in layer2.v; the debug master of the C64 module is not here
     wire [2:0] drva_leds_n;
     drive_leds_map drv_led_map (.drv_leds_n(drva_leds_n), .drive_leds_n(drive_leds_n));
+    // The drive's register bus enters the core through one register stage (T189 section 5, runs 2102/2119): against the T189 host
+    // static the path from the host CPU's address register over the partition edge into the drive's address compare missed
+    // by 0.040 ns. The host waits for the core's ack (ultimate_sys.vhd core_pend, 65535-clock time-out), so one clock more is fine.
+    reg        drv_io_rd_q = 1'b0, drv_io_wr_q = 1'b0;
+    reg [23:0] drv_io_addr_q = 24'd0;
+    reg [7:0]  drv_io_wdata_q = 8'd0;
+    always @(posedge cpu_clk) begin
+        drv_io_rd_q    <= drv_io_rd & ~cpu_rst;
+        drv_io_wr_q    <= drv_io_wr & ~cpu_rst;
+        drv_io_addr_q  <= drv_io_addr;
+        drv_io_wdata_q <= drv_io_wdata;
+    end
     drive_l2 drv (
         .clock(cpu_clk), .reset(cpu_rst), .tick_16MHz(drv_t16), .tick_4MHz(drv_t4), .tick_1kHz(drv_t1k),
-        .drv_io_read(drv_io_rd), .drv_io_write(drv_io_wr), .drv_io_addr(drv_io_addr), .drv_io_wdata(drv_io_wdata),
+        .drv_io_read(drv_io_rd_q), .drv_io_write(drv_io_wr_q), .drv_io_addr(drv_io_addr_q), .drv_io_wdata(drv_io_wdata_q),
         .drv_io_rdata(drv_io_rdata), .drv_io_ack(drv_io_ack), .drv_io_nc(drv_io_nc),
         .gcr_io_read(gcr_io_rd), .gcr_io_write(gcr_io_wr), .gcr_io_addr(gcr_io_addr), .gcr_io_wdata(gcr_io_wdata),
         .gcr_io_rdata(gcr_io_rdata), .gcr_io_ack(gcr_io_ack), .gcr_io_nc(gcr_io_nc),

@@ -118,8 +118,10 @@ Scenario: S8 the sound (P5) - board, by hand
 - Timing in the frame: the filter captures the core's pair 16 clocks after `frame_en`, the output register changes about 30 clocks after it and holds for the rest
   of the frame, so the HDMI hold (next `frame_en`) and the I2S take (`frame_en` + 127) are the same pair (S5). A filtered sample is one frame (21 us) late; Flat is combinational.
 - **vc20 against the T189 host (run 2102, 2026-11-16):** the first vc20 route against the new static missed setup by 0.040 ns (WNS -0.040, TNS -0.114) on the
-  1541 GCR path `l2/drv/i_gcr` (not touched by T189; the static moved). One change: vc20's `core.toml` gets `route = "AggressiveExplore"` (per-core directive,
-  host key and the other cores stay). null routed with the defaults (cache).
+  drive's register write path: host `ult/i_cpu/i_dmem/addr_i_reg` -> partition edge (4.0 ns route) -> `drive_unit` address compare (3 CARRY4) -> `param_34` CE
+  (not touched by T189; the static moved). Run 2119 with vc20 `route = "AggressiveExplore"`: the same -0.040 ns, so the route directive is taken out again.
+  Fix: `cores/vc20/layer2_vc20.v` takes `drv_io_*` into the core through one register stage (cpu_clk); the host waits for the ack (core_pend, 65535-clock
+  time-out), so a write or read is one clock later. Shared `drive_unit.vhd` / `drive_l2.vhd` stay (host key). null routed with the defaults (cache).
 - S4 DC criterion: 0.01 dB is not reachable with 18-bit coefficients for the bass shelf (1 + a1 + a2 is 32 counts of 65536); measured 0.0206 dB, bench limit 0.05 dB (to confirm with Alex).
 
 ## §6 Design options and questions

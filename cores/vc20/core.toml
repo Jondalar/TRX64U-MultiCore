@@ -8,4 +8,3 @@ order        = 2               # core order of docs/todo/T79.md
 experimental = true            # until it is in a release set (T94 D8); rel-1 holds it (Q4)
 sources      = ["cores/vc20", ":(exclude)cores/vc20/sim", "cores/c1541", ":(exclude)cores/c1541/sim"]
 roms         = ["vic20 kernal", "vic20 basic", "vic20 characters"]
-route        = "AggressiveExplore"   # T189 section 5: against the T189 host static the default route missed by 0.040 ns on the 1541 GCR path (run 2102)
