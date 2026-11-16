@@ -27,13 +27,16 @@ bitstream with Gideon's application). The Gideon UI is to be phased out; for a w
   `manifest.json` (written by its `ci/package.sh:40`) has `trx64_commit`, `app_commit`, `branch` and `files`, no version.
 - **P2 Config at the start of trx64u.** Built for large cores (T223 D4): the host writes `<medium of the .cor>/trx64-start.txt`
   (`TRXSTART1`, `cor=`, `config=`, `safe=`) before the full-firmware start; the core app (`coreapp/src/start.cc` `start_file_take`)
-  reads it once and deletes it. Proven in ue2emu with the Amiga 1200 large core. On the monolith the core app never reads the hand-over
-  page (T104.2 §5, `has_handover` false), so `start.cc:160` looks only at `/SD/trx64-start.txt`: a `trx64u.cor` on a USB stick gets its
-  file written to `/USB0/` and the core app does not find it. **Worse (found by the firmware session, confirmed in `start.cc:151-190`):**
-  without a page the core app accepts ANY `cor=` from `/SD/trx64-start.txt` and takes its core folder: trx64g started from `/SD`
-  leaves `cor=/SD/cores/trx64g.cor` there (Gideon's application never deletes it); a later trx64u start from `/USB0` reads that
-  leftover, sets `cfg_path` to `/SD/cores/trx64g/trx64g.cfg` and writes its `[section]` settings into Gideon's file, which contract
-  §4 forbids. The same after a JTAG/SRAM start or a failed write of the start file.
+  reads it once and deletes it. Proven in ue2emu with the Amiga 1200 large core. On the monolith the core app reads the hand-over page when
+  `board.has_handover` (`board.cc:13`, `HwBoardProbe::handover_valid`; T112 Q1): `cfw_handover_page` (`legacy.cc:494`) fills it for every
+  `.cor` the host starts (`ci.from_cor`), a `.cfw` leaves a wiped page, and the comment in `legacy.cc` says that whether DDR2 keeps it across the
+  IPROG is board step S2 (not measured there). With a valid page `start_file_take` looks at `<medium of h->path>/trx64-start.txt` and
+  takes it only when `cor=` equals `h->path`: correct. The bug is in the branch WITHOUT a valid page (JTAG/SRAM start, a `.cfw` start,
+  a page that did not survive, the ue2emu monolith profile): `start.cc` then looked only at `/SD/trx64-start.txt` and accepted ANY `cor=`:
+  a `trx64u.cor` on a USB stick gets its file written to `/USB0/` and is not found; and trx64g started from `/SD` leaves
+  `cor=/SD/cores/trx64g.cor` there (Gideon's application never deletes it), a later page-less trx64u start reads that leftover, sets
+  `cfg_path` to `/SD/cores/trx64g/trx64g.cfg` and writes its `[section]` settings into Gideon's file, which contract §4 forbids.
+  Whether a real `.cor` start from the boot menu ever lands in that branch depends on S2 (page survival); not measured here.
 - **P3 Medium persist on trx64u.** The core app has "Persist medium mounts" (T180 D2: `mediamounts.cc` `persist_extend`, added by
   `menubuild.cc:29` for a core with media slots; `boot.cc:157` `mounts_restore`). trx64u's menu is its own TOML descriptor
   (`coreapp/cores/trx64u/menu.toml`); T228 D10 (Alex 2026-11-15: "saving configs and mounted media like the other cores must go in
@@ -86,6 +89,9 @@ bitstream with Gideon's application). The Gideon UI is to be phased out; for a w
 - **D5 (Alex 2026-11-16, asked "Go for contract text v4?", answer "Go"):** the merged contract text v4 (firmware session's draft,
   reviewed here against MultiCore's code, §10 in T213 terms) is agreed. Both repositories commit the same bytes as
   `docs/contracts/trx64u-firmware-handover.md`; MultiCore's copy lands together with the code it promises (P-1 packer, in main; P-2 reader).
+- **D6 (Alex 2026-11-16, asked whether a page-less trx64u start keeps waiting up to 4 s for a USB stick, answer "keep 4 s
+  (recommended)"):** the wait stays (`lib_board_wait_stick`, `LIB_MOUNT_WAIT_MS`). It costs only on a start without a valid hand-over page;
+  whether the page survives the full reconfiguration of a boot-menu start is to be read once on the board (core log "no hand-over path").
 - **Proposal P-1 (version, after FW-1):** TRX64-Ultimate's `ci/package.sh` writes `"version": "x.y.z"` from the packed application's
   `APPL_VERSION_NUMBER` into `manifest.json`. MultiCore copies it into the pin as `SEMVER=` when the pin moves, but only when
   `PKG_VERSION` is a release (Gitea release `trx64-<PKG_VERSION>` exists); a non-release pin gets `x.y.z-dev+<sha8>`.
@@ -160,3 +166,32 @@ For Alex:
   `PASS manifest version 0.3.0 equals SEMVER 0.3.0: packed`, `PASS manifest version 0.4.0 differs from SEMVER 0.3.0: refused, message names both`,
   `PASS manifest without version: packed, one log line`. S1 stays open until a pin bump to a package that carries the field.
 - Run 2310 (main 5516eb716, 2026-11-16), package stage: `release/imports/trx64u.pin: manifest of main-8f1dc184 has no version (older package), SEMVER=0.3.0 not checked against it` (same for trx64g); trx64u.cor 3650513 bytes, trx64g.cor 3414513 bytes. S1 stays open until a pin points at a package whose manifest has "version".
+**P-2 built (2026-11-16, branch `t230-startfile`).** `start_file_take` (`coreapp/src/start.cc`), page branch unchanged. Without a valid
+page it looks at `/SD`, `/USB0`, `/USB1` in that order (`startfile_path` of `/<medium>/x`), and takes a file only when the base name of its
+`cor=` equals the descriptor's `core_id`, `cor_name` or `folder` (case-insensitive; trx64u: `cor_name` "TRX64U"; `folder` is "c64", the ROMs'
+name, so the folder alone would never match the `.cor`). Any other file is dropped with
+`[core] start file <path>: for <cor>, not for this core, dropped`; `cor_path`/`cfg_path` stay. Every file found is deleted, taken or not
+(also an unparseable one): the host writes it right before `legacy_jump` (`host_core.cc`, "written last"), so a file that a running
+core finds and does not take belongs to a start whose application never deleted it (trx64g); no start is pending that it could still be for.
+After a drop the next medium is still looked at. Log lines of the taken case are unchanged. Names of other cores without `core_id` match on
+`cor_name`/`folder` only; a page-less start of such a core with a start file whose base name is neither is dropped (was: taken).
+Proof: unit test `tests/coreapp/test_startfile.cc` (`run.sh` unit `startfile`, real `start_file_take` over FakeFs, trx64u descriptor):
+S3 `/SD` taken, deleted, cfg_path `/SD/cores/trx64u/trx64u.cfg`; S4 `/USB0` taken, cfg_path `/USB0/cores/trx64u/trx64u.cfg`; S4b leftover
+`/SD` trx64g file dropped and deleted, `/USB0` file taken, `trx64g.cfg` untouched; leftover alone: nothing taken, cor_path empty, cfg_path
+unchanged. Log: `[core] start file /SD/trx64-start.txt: for /SD/cores/trx64g.cor, not for this core, dropped`.
+ue2emu (monolith profile, `coreapp.app` of `tools/dev.sh riscv --branch t230-startfile`, sticks as `--usb-dir`; runs in the session scratch `t230/`):
+- S4: stick with `trx64-start.txt` (`cor=/USB0/cores/trx64u.cor`, `config=Demo`): `[core] start file: stick wait: a USB mass-storage device is
+  enumerating: stick present after 1680 ms`, `[core] start file: no hand-over path, the core folder of /USB0/cores/trx64u.cor is used`,
+  `[core] start file /USB0/trx64-start.txt read and deleted: config "Demo", safe 0`, then `[core] settings C64 Settings: /USB0/cores/trx64u/trx64u.cfg`
+  (the config name was passed on; the stick has no "Demo" config, so `config_start` said "not found, plain start": the application of a real config
+  is not shown here).
+- S4b (foreign leftover, on /USB0 because the emulator run has no /SD image): `[core] start file /USB0/trx64-start.txt: for /SD/cores/trx64g.cor, not
+  for this core, dropped`, settings stay `/flash/trx64u/c64.cfg`; no trx64g folder is made. The file is gone from the card per the unit test (the
+  emulator's stick directory is not written back within the run).
+- Not run in ue2emu: S3 (no /SD image in this profile; the unit test covers `/SD`).
+**Found while proving it:** at t+300 ms, where `start_file_take` runs, the stack has not found the USB hub yet (ue2emu: hub t+620 ms, stick
+t+1700 ms), so without a hand-over page there is no stick to read and the file would never be seen. The page-less start therefore calls
+`lib_board_wait_stick` (`libboard.cc`, `lib_wait_for_stick` with an env that says "a device is coming") when `/SD` has no start file: it waits at
+most `LIB_MOUNT_WAIT_MS` (4 s) and ends at the first stick root that lists. **Cost: a page-less start with no stick at all (JTAG, a monolith
+power-up) now takes up to 4 s longer.** Decided (D6, Alex 2026-11-16): keep the 4 s.
+Only one stick root is waited for: a second stick that comes up later is not seen by the same take.

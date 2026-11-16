@@ -207,6 +207,24 @@ LibLoader *lib_board_loader(void)
     return g_loader;
 }
 
+namespace {
+// The stack has not even found the hub at t+300 ms (ue2emu: hub at t+620, stick at t+2000), so "is a mass-storage device attached" is always no
+// here and lib_wait_for_stick would never wait: this env says yes, the wait is then bounded by LIB_MOUNT_WAIT_MS and ends at the first root that lists.
+class StartFileEnv : public BoardMountEnv {
+public:
+    explicit StartFileEnv(CoreIo *io) : BoardMountEnv(io) { }
+    bool usb_storage_attached() { return true; }
+};
+}
+
+void lib_board_wait_stick(CoreCtx *c)
+{
+    StartFileEnv env(c->io);
+    LibWaitResult w;
+    lib_wait_for_stick(c->fs, &env, false, &w);
+    printf("[core] start file: stick wait: %s\n", w.why);
+}
+
 void lib_board_load(CoreCtx *c, LibBootReport *rep, const BundleExtras *bundle)
 {
     memset(rep, 0, sizeof(*rep));
