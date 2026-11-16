@@ -195,7 +195,7 @@ PARAS = {
         "A `.rom` of the wrong size is refused",
         "with a message. With none, the core stays held and the screen says \"Kickstart not found ... Put a 256K",
         "or 512K .rom file ... is missing in /SD/cores/amiga/roms/\" after about 10 seconds. A plain reset reloads the Kickstart when you",
-        "picked another file; **Reload Kickstart, Reset** (F7) always does.",
+        "picked another file; **Reload Kickstart, reset** (top of F1) always does.",
         "Where to get it: Amiga Forever (%s), Cloanto's licensed package with Kickstart 1.3 and 3.1." % AMIGA_FOREVER,
         "The core needs a plain image: a file that does not begin with `1111` or `1114` is not recognised as a",
         "Kickstart, and Auto cannot tell what it is. A file that needs Cloanto's `rom.key` to be read has to be",
@@ -261,8 +261,12 @@ PARAS = {
         "What the machine writes to its card goes back into the file. Without an image the boot ROM stops with \"Error initializing SD card!\".",
     ],
     "snes": [
-        "Needs no ROM file: the 64 byte boot ROM of the console's sound processor is embedded in the application. Games are `.sfc` / `.smc` files chosen in the Files page.",
-        "Battery saves go to `saves/<game>.srm` in the core's folder. Cartridges with a coprocessor (SA-1, Super FX, DSP-1 ... Cx4, SPC7110, S-DD1) are refused.",
+        "Needs no ROM file: the 64 byte boot ROM of the console's sound processor is embedded in the application. Games are `.sfc` / `.smc` files chosen in the F3 Library.",
+        "Battery saves go to `saves/<game>.srm` in the core's folder. Cartridges with a coprocessor other than a DSP-n (SA-1, Super FX, Cx4, SPC7110, S-DD1, ST010/ST011) are refused.",
+        "**DSP-n cartridges** (DSP-1/1B, DSP-2, DSP-3, DSP-4: Super Mario Kart, Pilotwings, Dungeon Master, SD Gundam GX, Top Gear 3000) run, but the chip's firmware is not part of this release and never will be:",
+        "you supply it as 8192 bytes. The core takes it from the end of the `.sfc` when the file is a power-of-two ROM size plus 8192 bytes; otherwise from a file in `cores/snes/roms/` or `roms/snes/` on any medium:",
+        "`dsp1b.bin` (else `dsp1.bin`) for DSP-1, `dsp2.bin`, `dsp3.bin`, `dsp4.bin`. A firmware file with the words high byte first is recognised and turned around. The chip is chosen from the game's title;",
+        "the setting **DSP firmware** (F5, takes effect at the next reset) overrides it (Auto, DSP-1 ... DSP-4). Without a firmware file the game is refused with a message that names the file and the folder.",
     ],
 }
 
@@ -279,15 +283,15 @@ MEDIA = {
     "ddt_novic": "none (no disk, no tape, no file).",
     "diag": "`.toml` test files from `cores/diag/tests/` (a test says what to plug in and press); results go to `cores/diag/results/`.",
     "apple2": "`.dsk` `.do` `.po` `.nib` (Mount D1: and cold start, Mount D1:, Mount D2:).",
-    "zx": "`.sna` `.z80` (Run snapshot: the machine starts where the snapshot was taken), `.tap` `.tzx` (Insert tape, then **Tape: Play** in F7; real speed).",
-    "cpc": "`.dsk` (Mount A: and reset, Mount A:, Mount B:; what the disk drive writes goes back into the file), `.cdt` (Insert tape, then **Tape: Play** in F7; real speed).",
-    "snes": "`.sfc` `.smc` (Run; the battery RAM is saved as `.srm`).",
+    "zx": "`.sna` `.z80` (Run snapshot: the machine starts where the snapshot was taken), `.tap` `.tzx` (Insert tape, then **Tape: Play** in the Tape row of F1; real speed).",
+    "cpc": "`.dsk` (Mount A: and reset, Mount A:, Mount B:; what the disk drive writes goes back into the file), `.cdt` (Insert tape, then **Tape: Play** in the Tape row of F1; real speed).",
+    "snes": "`.sfc` `.smc` (Run; the battery RAM is saved as `.srm`); cartridges with a DSP-n chip need its firmware (section 5).",
     "neogeo": "`.neo` (Run); a folder set through the task Load a ROM set from a folder.",
     "zxnext": "`.img` (Mount SD image and reset, Mount SD image; the whole card, written back into the file).",
 }
 
 KNOWN = {
-    "_scpu": "**C64 with SuperCPU (large core, experimental):** *Run Disk* does not work yet (fix pending); *Metal Dust* still flickers while scrolling. A large core replaces the whole FPGA: power off and on to come back.",
+    "_scpu": "**C64 with SuperCPU (large core, experimental):** *Run Disk* and *Mount & Run* type `LOAD\"*\",8,1` and `RUN` through the keyboard matrix when BASIC is at READY, and a `.prg` of the stick or inside a disk image is placed into the 65816's own RAM; both are built, a board pass is not recorded yet. *Metal Dust* scrolls without picture faults (board 2026-11-15). A large core replaces the whole FPGA: power off and on to come back.",
     "atari800": "**Atari 800 XL:** a mounted `.atr` boots. Some executables (the trainer demo) show a broken scroller and ignore input.",
     "apple2": "**Apple IIe:** swapping the disk in D1: while a game runs is not tested on the board yet.",
     "pet": "**Commodore PET (large core, experimental):** starts on the board and runs demos (2026-11-11); the models and the cassette are not checked yet. Needs your own PET ROMs. A large core replaces the whole FPGA: power off and on to come back.",
@@ -299,7 +303,7 @@ KNOWN = {
     "cpc": "**Amstrad CPC:** never on the board. The picture position (720 x 540 at scale 2) is an estimate; there is no tape SAVE and no snapshot.",
     "neogeo": "**SNK Neo Geo (large core):** never on the board. The machine is held while a sprite or fix word is late from the DDR2 (about 210,000 words in a 320 ms bench run); whether that is visible is open. A large core replaces the whole FPGA: power off and on to come back.",
     "zxnext": "**ZX Spectrum Next:** never on the board; the CPU runs from the DDR2 behind a cache and waits on a miss, so the speed of a program that does not fit the cache is below the real machine's. 128K, +3 and Pentagon timing run 1.5 to 2.7 % fast (frame lock); no Sega 6-button pad, no SD pass-through.",
-    "snes": "**Super Nintendo (large core):** never on the board. The ROM and RAM are in the DDR2 behind caches and the machine waits on a miss (about 1 % in the benches); no coprocessor cartridges; the keys for the buttons are a proposal.",
+    "snes": "**Super Nintendo (large core):** The ROM and RAM are in the DDR2 behind caches and the machine waits on a miss (about 1 % in the benches); no coprocessor cartridges other than DSP-n (a DSP-n game needs its firmware, section 5; Super Mario Kart with DSP-1 runs on the board); the keys for the buttons are a proposal.",
     "vc20": "**VIC-20:** the common application is never on the board for it; the board retest of the current version is still open.",
 }
 
@@ -407,12 +411,14 @@ def render(a, cors, bit_len, alen, dest):
         # T152: the host's own File Browser installs a .txu; a .cfw opened there starts as a core, it does not install
         w("### 3a. Already on a TRX64 MultiCore host (an earlier bundle)")
         w("")
-        w("1. Copy every `.cor` of this bundle into `/cores` on the SD card or stick, replacing the old ones, and")
-        w("   `%s` anywhere on it. Do not use the `.cfw` here: the host's File Browser starts a `.cfw` as a core." % a.txu)
+        w("**Order matters: update the host first, then copy the cores.** A `.cor` of this bundle can carry a record an older host does not know (`diag.cor` has record 8, the files it installs on the card); an older host refuses it.")
+        w("")
+        w("1. Copy `%s` anywhere on the SD card or stick. Do not use the `.cfw` here: the host's File Browser starts a `.cfw` as a core." % a.txu)
         if u2as:   # the .txu writes the flash only; it copies no file (#43: the tester who updated this way had no Unzip)
             w("   Also copy `%s` into `/cores/apps/` (create the folder): the update does not copy it." % "`, `".join(u2as))
         w("2. Host menu, **F3**, open `%s`. It shows what it writes (only the parts that changed) and asks; answer **Yes**." % a.txu)
         w("3. When it reports the flash written and verified, power-cycle the board. A host from this bundle on restarts by itself.")
+        w("4. Only now copy every `.cor` of this bundle into `/cores`, replacing the old ones.")
         w("")
     w("## 4. The stick")
     w("")
@@ -516,9 +522,11 @@ def render(a, cors, bit_len, alen, dest):
     w("USB keyboard and close it with **Esc** or **F10**; the machine stands still while it is open. TRX64 and C64U")
     w("show the Ultimate menu.")
     w("")
-    w("The common menu: **F1** Home (core and version, app build, IP address, media, ROM names), **F3** Library (the file")
-    w("browser: ENTER on a file offers what to do with it), **F5** the machine (what is in the drives, the settings),")
-    w("**F7** Actions (reset and friends), **F8** System.")
+    w("The common menu: **F1** quick actions (the core's resets and reloads on top, then one row per drive or slot: RETURN on it opens")
+    w("the list for that drive, e.g. mount from the Library, create a blank image, eject, tape controls; a line with the machine's model and memory; save and load")
+    w("the core's config), **F3** Library (the file browser: ENTER on a file offers what to do with it), **F5** the machine (its settings: video, audio, input),")
+    w("**F7** app settings (storage, where the menu opens, hotkeys; a setting that also exists in the host starts with the host's value, **Reset to host defaults** restores it),")
+    w("**F8** System (build version, ROMs, libraries, network, return to the host menu).")
     w("")
     w("**Media per core:**")
     w("")
@@ -565,7 +573,7 @@ def render(a, cors, bit_len, alen, dest):
     w("Send us:")
     w("")
     w("- a **photo of the screen**;")
-    w("- the **core and its version** (the boot menu shows them; the common menu's Home page shows core, version and")
+    w("- the **core and its version** (the boot menu shows them; the common menu's F8 System page shows core, version and")
     w("  app build) and this bundle's id: `%s`;" % a.id)
     w("- what you did, step by step, and what you expected;")
     w("- for a ROM problem: the message on the screen, and the file name and size on your stick.")
