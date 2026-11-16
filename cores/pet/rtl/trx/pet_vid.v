@@ -6,11 +6,11 @@
 // (8032, 8096, SuperPET) show 80 columns while R1 >= 30 (a CRTC character is two columns on these boards: the editor ROMs program R1 = 40; below 30 a 40 column picture), else 40. The frame writer (pet_pixw) takes the visible window; the dot strobe is 1.
 //
 // The fetch runs one ccell ahead on the clock count `ph` inside the ccell: ph 0 video RAM address, ph 2 character ROM address, ph 4 the byte is
-// latched (reverse and cursor applied), at the next ccell's ph 0 it goes into the shifter. The ccell after the lastc of a line is ccell 0 of the
+// latched (reverse applied), at the next ccell's ph 0 it goes into the shifter. The ccell after the lastc of a line is ccell 0 of the
 // next line (`lastc`), so the first ccell of every line is ready when the dot count starts.
 //
 // Video RAM address = start + row * columns + column (CRTC start address R12/R13 on the CRTC models, 0 otherwise); the video RAM answers to
-// the low 11 bits. The cursor (R10, R11, R14/R15) is the CRTC's: block between the scan lines R10[4:0] and R11[4:0], mode R10[6:5].
+// the low 11 bits. No hardware cursor: the PET boards do not wire the CRTC's CURSOR output; the cursor is the editor's reverse-video bit (T216 S13).
 `timescale 1ns / 1ps
 module pet_vid (
     input  wire        clk,
@@ -20,9 +20,6 @@ module pet_vid (
     input  wire        crtc_m,               // the model has a CRTC
     input  wire [7:0]  r1,                   // CRTC R1 displayed characters: the 80 column boards show two columns per CRTC character, so the real editors program 40 (T216 P7)
     input  wire [11:0] start,                // CRTC R12[3:0], R13
-    input  wire [13:0] cur,                  // CRTC R14[5:0], R15
-    input  wire [7:0]  r10,
-    input  wire [4:0]  r11,
     input  wire        gfx,                  // 1: graphics character set, 0: lower case set
     input  wire        blank,                // the PIA's screen blanking
     output reg  [10:0] v_a = 11'd0,
@@ -53,12 +50,9 @@ module pet_vid (
     wire [13:0] faddr = (crtc_m ? {2'b00, start} : 14'd0) + {2'b00, rowoff} + {7'd0, fcell};
 
     reg [2:0]  scan_f = 3'd0;
-    reg        cur_f = 1'b0, inv_f = 1'b0;
+    reg        inv_f = 1'b0;
     reg [7:0]  nb = 8'd0, sh = 8'd0;
     reg        pix = 1'b0;
-    reg [5:0]  fcnt = 6'd0;
-    wire       blink_on = (r10[6:5] == 2'd0) ? 1'b1 : (r10[6:5] == 2'd1) ? 1'b0 : (r10[6:5] == 2'd2) ? fcnt[4] : fcnt[5];
-    wire       cur_scan = (scan_f >= r10[2:0]) && (scan_f <= r11[2:0]) && !r10[3] && !r11[3] && !r10[4] && !r11[4];
     wire       pe = col80 | ~x[0];
     reg        hb0 = 1'b1, vb0 = 1'b1;
     wire [15:0] on_rgb = (phos == 2'd0) ? 16'h27E6 : (phos == 2'd1) ? 16'hFD80 : 16'hFFFF;
@@ -74,7 +68,6 @@ module pet_vid (
             if (ylast) begin
                 y <= 10'd0;
                 col80 <= crtc_m && (r1 >= 8'd30);
-                fcnt <= fcnt + 6'd1;
                 frame_end <= 1'b1;
             end else y <= y + 10'd1;
         end else x <= x + 10'd1;
@@ -82,13 +75,12 @@ module pet_vid (
         if (ph == 4'd0) begin
             v_a <= faddr[10:0];
             scan_f <= fscan;
-            cur_f <= crtc_m && (faddr == cur);
         end
         if (ph == 4'd2) begin
             c_a <= {alt, gfx, v_q[6:0], scan_f};
             inv_f <= v_q[7];
         end
-        if (ph == 4'd4) nb <= (c_q ^ {8{inv_f}}) ^ {8{cur_f & blink_on & cur_scan}};
+        if (ph == 4'd4) nb <= (c_q ^ {8{inv_f}});
         // dots
         if (ph == 4'd0) begin
             sh <= {nb[6:0], 1'b0};
