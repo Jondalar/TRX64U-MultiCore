@@ -189,7 +189,7 @@ Scenario: S9 on the board, end to end
 1. **Q1: answered 2026-11-16 (Alex, "both, measure first (recommended)"):** S1 first (board startlog per phase), then the row cache AND the build phase, so that keys act early. Question was: **Which part do the 2-3 s blocked seconds belong to?** The code says keys are queued, not acted on, until the first LVGL frame
    after `build_ui()` (2.5 s on the board of 2026-10-29), and a data cache does not touch that. Do you want T229 as the row cache
    only (D1-D10), with the build phase decided after S1's numbers, or is the build phase part of this task?
-2. **Q2 Size + mtime only at menu time (D5)?** Accept that a same-size, same-2-s-mtime replacement shows its old row until the start
+2. **Q2: answered 2026-11-16 (Alex, "size + time is enough (recommended)"): D5 holds.** Question was: **Size + mtime only at menu time (D5)?** Accept that a same-size, same-2-s-mtime replacement shows its old row until the start
    (the start check catches it), in exchange for no opens and no hashes in the background?
 3. **Q3 Cache file on `Flash:` (D3), and the config count with a stat of the `configs/` directory's mtime or cached until the
    next verify of its core?**
