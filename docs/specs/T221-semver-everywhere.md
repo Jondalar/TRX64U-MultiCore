@@ -201,3 +201,5 @@ a release build's short strings fit), and a large core's test version is cut to 
 ### Render bench fixes on integ-1116 (2026-11-16)
 - Area budgets: the chip holder is 770 wide at the 960 canvas (§5 pictures, fix 2), so the measured chip redraw is 30030 px (770 x 39), a deliberate widening, not an accidental redraw; `areas()` limits are now `770u * 40` (F1 chips) and `770u * 40 + 6000` (F7 net) instead of 640.
 - The boot row of a converted large `.cor` shows its manifest version ("Test Vendor image|9.9|foreign|", D13 `large_version`) instead of "full firmware"; the render bench expects that.
+
+- **Main run 2247 (2026-11-16):** the package stage stamped `out/coreapp.elf`, which `ci/package.sh` never copied out of the trxapps stage (only hostapp.app/.elf and coreapp.bin): `FileNotFoundError`. The ELF is copied now (branch runs build no package, so it showed first on main).

@@ -93,7 +93,7 @@ cp "$c64u/wns.txt" "$out/wns.c64u.txt"
 # this stage existed they came from the generic package trx64-coreapps, uploaded by hand from a Mac -
 # which is how trx64mc-main-51e89821 ended up carrying an application nobody had built from its commit.
 trxapps="$(need_stage trxapps)"
-cp "$trxapps/hostapp.app" "$trxapps/hostapp.elf" "$trxapps/coreapp.bin" "$out/"
+cp "$trxapps/hostapp.app" "$trxapps/hostapp.elf" "$trxapps/coreapp.bin" "$trxapps/coreapp.elf" "$out/"   # T221: the ELF is stamped beside the image (release_promote.py rewrites both)
 # T180 D9: Unzip, the one application every core reads from <root>/cores/apps/; the release bundle takes it from here (tools/release_mc.sh)
 [ -s "$trxapps/unzip.u2a" ] && cp "$trxapps/unzip.u2a" "$out/" || mark_red package unzip "stage trxapps made no unzip.u2a"
 # T197 P5: the zip library unzip.u2a loads (apps/miniz); the updater copies every .u2a beside the update file into <cores>/apps
