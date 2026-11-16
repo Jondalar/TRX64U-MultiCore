@@ -83,6 +83,7 @@ FileMgr::FileMgr(CoreCtx *ctx, const Port &p) : c(ctx), port(p), list(0), cap(0)
     last_dir[0] = 0;
     memset(roots, 0, sizeof(roots));
     vl_path[0] = 0;
+    list_path[0] = 0;
     vlabel[0] = 0;
     vfull = new char[VROWS][FS_PATH_MAX];
     search_q[0] = 0;
@@ -173,7 +174,7 @@ void FileMgr::load_dir()
     // A FsEntry holds a whole FAT long name (T180 #38), 272 bytes: the folder is listed into list itself (after the ".." row) and the filter below moves the entries
     // that stay to the front; no second buffer of that size is kept. The list grows with the folder (listgrow.h, GitHub #93); `more` is what the heap budget cut.
     const int up = strcmp(path, "/") != 0 ? 1 : 0;
-    if (list && cap > ListGrow::START) {                          // a long folder's buffer goes back to the heap before the next one is sized against what is free (as the host's browser does)
+    if (list && cap > ListGrow::START && strcmp(list_path, path)) {   // another folder: a long folder's buffer goes back to the heap before the next one is sized against what is free (as the host's browser does); the same folder keeps it (T209: one read per growth)
         free(list);
         free(marked);
         list = 0;
@@ -182,8 +183,10 @@ void FileMgr::load_dir()
         marked_cap = 0;
     }
     int n = ListGrow::read(c->fs, path, &list, &cap, up, &more);
+    snprintf(list_path, sizeof(list_path), "%s", path);
     if (!ensure_list()) {                                         // no flags for the entries (marked is null): nothing may be listed
         dir_ok = false;
+        more = false;
         nlist = 0;
         sel = 0;
         lib_sync();
@@ -517,7 +520,9 @@ void FileMgr::lib_sync()
         for (int i = 0; i < nlist; i++) {
             want += marked[i] ? 1 : 0;
         }
-        int take = want ? ListGrow::fit(want, sizeof(l.marked[0])) : 0;
+        int fit = want ? ListGrow::fit(want, sizeof(l.marked[0])) : 0;
+        const int room = fit > l.cap_marked ? fit : l.cap_marked;       // what fits, or what the kept buffer already holds
+        int take = want < room ? want : room;
         if (take > l.cap_marked) {                                  // the names are written anew below: the old buffer is not copied
             free(l.marked);
             l.marked = (char (*)[FS_NAME_MAX + 1])malloc((size_t)take * sizeof(l.marked[0]));

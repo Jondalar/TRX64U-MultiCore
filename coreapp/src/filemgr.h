@@ -44,6 +44,7 @@ struct FileMgr {
 
     // ---- the model ----
     char path[200];                      // the folder ("/" the list of media); while an image is browsed, the image's path
+    char list_path[200];                 // the folder a grown buffer (cap > START) was read for: kept for a relist of that folder, freed for another
     FsEntry *list;                       // the entries, from the heap, `cap` of them (listgrow.h: 512 first, more while the folder needs it)
     int cap, marked_cap;
     bool more;                           // the folder is longer than the list the heap budget allows: the Library says so on a last line
