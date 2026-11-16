@@ -55,3 +55,27 @@ if "$HERE/pack_import_cor.sh" --pin "$W/trx64g.pin" --app-bin "$W/app.bin" --out
 # 4. the two never share a core folder or .cfg: the folder is the .cor's file name (T148 D1)
 python3 "$HERE/cor_pack.py" check "$W/ok/trx64u.cor" | grep -q '"id": "trx64u"' && [ "$(basename "$W/ok/trx64u.cor" .cor)" != "$(basename "$W/ok/trx64g.cor" .cor)" ] \
     && echo "PASS cores/trx64u/ + trx64u.cfg and cores/trx64g/ + trx64g.cfg differ" || fail "folders shared"
+# 5. T230 P-1/S2: SEMVER=x.y.z or x.y.z-dev+<sha8 of PKG_VERSION>, checked against the "version" of the package's manifest.json (fake local files, no network)
+PKGSHA="$(sed -n 's/^PKG_VERSION=.*-\([0-9a-f]*\)$/\1/p' "$W/trx64u.pin")"
+mkpin() { sed -e "s/^SEMVER=.*/SEMVER=$1/" "$W/trx64u.pin" > "$W/sv.pin"; }
+cor_version() { python3 "$HERE/cor_pack.py" check "$W/$1/trx64u.cor" | sed -n 's/.*"version": "\([^"]*\)".*/\1/p'; }
+packsv() { rm -rf "$W/sv"; "$HERE/pack_import_cor.sh" --pin "$W/sv.pin" --app-bin "$W/app.bin" --out "$W/sv" --bit "$W/good.bit" "$@"; }
+mkpin 0.3.0
+packsv >/dev/null 2>&1 && V="$(cor_version sv)" && case "$V" in 0.3.0-dev+*) echo "PASS SEMVER=0.3.0 (release form) packed as $V";; *) fail "strict form gave '$V'";; esac
+mkpin "0.3.1-dev+$PKGSHA"
+packsv >/dev/null 2>&1 && [ "$(cor_version sv)" = "0.3.1-dev+$PKGSHA" ] && echo "PASS SEMVER=0.3.1-dev+$PKGSHA (sha8 of PKG_VERSION) packed as it is, no second suffix" || fail "dev form not packed as is"
+mkpin "0.3.1-dev+deadbeef"
+if packsv >/dev/null 2>&1; then fail "a dev SEMVER with a foreign sha8 was packed"; fi
+[ ! -e "$W/sv/trx64u.cor" ] && echo "PASS SEMVER=0.3.1-dev+deadbeef (not the sha8 of PKG_VERSION) refused, no .cor" || fail ".cor left behind"
+mkpin "0.3.1-rc1"
+if packsv >/dev/null 2>&1; then fail "a malformed SEMVER was packed"; fi
+echo "PASS SEMVER=0.3.1-rc1 refused"
+mkpin 0.3.0
+echo '{"trx64_commit": "x", "version": "0.3.0"}' > "$W/m_eq.json"; echo '{"version": "0.4.0"}' > "$W/m_ne.json"; echo '{"trx64_commit": "x"}' > "$W/m_none.json"
+packsv --manifest "$W/m_eq.json" >/dev/null 2>&1 && echo "PASS manifest version 0.3.0 equals SEMVER 0.3.0: packed" || fail "equal manifest version refused"
+mkpin "0.3.0-dev+$PKGSHA"
+packsv --manifest "$W/m_eq.json" >/dev/null 2>&1 && echo "PASS dev SEMVER: its x.y.z 0.3.0 equals the manifest version: packed" || fail "equal manifest version refused (dev form)"
+mkpin 0.3.0
+E="$(packsv --manifest "$W/m_ne.json" 2>&1 >/dev/null)" && fail "a manifest with another version was packed"
+[ ! -e "$W/sv/trx64u.cor" ] && echo "$E" | grep -q "0.3.0" && echo "$E" | grep -q "0.4.0" && echo "PASS manifest version 0.4.0 differs from SEMVER 0.3.0: refused, message names both ($(echo "$E" | tail -1 | cut -c1-120)...)" || fail "message does not name both: $E"
+E="$(packsv --manifest "$W/m_none.json" 2>&1 >/dev/null)" && echo "$E" | grep -q "has no version (older package)" && echo "PASS manifest without version: packed, one log line" || fail "manifest without version: $E"

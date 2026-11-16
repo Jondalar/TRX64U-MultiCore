@@ -2,7 +2,7 @@
 """T221 S2: every deliverable carries a valid SemVer 2.0 in its own version file (lint stage).
 
 bundle.toml, contract/version.toml (host gateware), host-app/version.toml (host menu), coreapp/version.toml (generic core app), the `version` of every
-cores/<id>/core.toml and cores/<id>/mono/core.toml, and the SEMVER of every imported pin release/imports/*.pin that has one (a pin without it still
+cores/<id>/core.toml and cores/<id>/mono/core.toml, and the SEMVER of every imported pin release/imports/*.pin that has one (x.y.z, or x.y.z-dev+<sha8> for a package that is no release, T230 P-1; a pin without it still
 shows the commit, T221 D15 open: it is listed, not failed). A source file never holds a build string: x.y.z only, `-dev+<sha8>` is made at build time.
 """
 import glob

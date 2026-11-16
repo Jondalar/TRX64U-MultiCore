@@ -2,7 +2,7 @@
 # Pack the large .cor of a core whose bitstream is built in another repository (release/imports/<id>.pin; T104.2: trx64g).
 #
 #   tools/pack_import_cor.sh --pin release/imports/<id>.pin --out dir [--app-bin coreapp.bin | (pin has APP_FILE)] [--bit <local file>]
-#                            [--app-file <local .app>] [--app-commit <sha>]
+#                            [--app-file <local .app>] [--app-commit <sha>] [--manifest <local manifest.json>]
 #
 # A pin with DESC (the menu.toml) and OPS (the application's export) carries the core's menu as record 6 of the .cor, compiled and checked by tools/descrec.py.
 #
@@ -13,11 +13,15 @@
 # GITHUB_SERVER_URL, GITHUB_REPOSITORY and PACKAGE_TOKEN, as the rest of the pipeline). Either way its SHA-256 has to be the pin's:
 # a different file is refused and nothing is packed. The packing itself is tools/pack_large_cor.sh (IDCODE, sync word, map and hashes are
 # checked there and again by `cor_pack.py check`).
+#
+# SEMVER= (T230 P-1): `x.y.z` (PKG_VERSION is a release) or `x.y.z-dev+<sha8>` (<sha8> = the one of PKG_VERSION); anything else is refused. The package's
+# manifest.json (downloaded with the bitstream, or --manifest) has "version" from TRX64-Ultimate's APPL_VERSION_NUMBER: when present, the x.y.z of
+# SEMVER must equal it; an older package without the field is logged and passed. With --bit and no --manifest nothing is downloaded and the check is skipped.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 source "$ROOT/ci/pkg.env"
-PIN="" APPBIN="" OUT="" BIT="" APPC="" APPLOCAL=""
+PIN="" APPBIN="" OUT="" BIT="" APPC="" APPLOCAL="" MANIFEST=""
 while [ $# -gt 0 ]; do
     case "$1" in
         --pin) PIN="$2"; shift 2;;
@@ -26,6 +30,7 @@ while [ $# -gt 0 ]; do
         --bit) BIT="$2"; shift 2;;
         --app-file) APPLOCAL="$2"; shift 2;;
         --app-commit) APPC="$2"; shift 2;;
+        --manifest) MANIFEST="$2"; shift 2;;
         *) echo "unknown option $1" >&2; exit 2;;
     esac
 done
@@ -33,9 +38,19 @@ done
 ID="" NAME="" VERSION="" SEMVER="" PKG_VERSION="" BIT_FILE="" BIT_SHA256="" ICON="" APP_FILE="" APP_SHA256="" DESC="" OPS=""
 # shellcheck disable=SC1090
 . "$PIN"
-# T221 D15: the version of an imported core is the SemVer its pin copies from the TRX64-Ultimate package (SEMVER=); a pin without one (the proposal of
-# docs/contracts/trx64u-firmware-handover.md is not agreed yet) shows the commit as it did, and says so.
-if [ -n "$SEMVER" ]; then VERSION="$("$ROOT/ci/version.sh" with "$SEMVER")"; else echo "$PIN: no SEMVER, the version shown is the commit $VERSION (T221 D15 open)" >&2; fi
+# T221 D15 / T230 P-1: the version of an imported core is the SemVer its pin copies from the TRX64-Ultimate package (SEMVER=); a pin without one shows the commit.
+SEMVER_BASE=""
+if [ -n "$SEMVER" ]; then
+    SEMVER_BASE="${SEMVER%%-dev+*}"
+    if [ "$SEMVER_BASE" = "$SEMVER" ]; then
+        VERSION="$("$ROOT/ci/version.sh" with "$SEMVER")"
+    else
+        PKG_SHA8="${PKG_VERSION##*-}"
+        [ "$SEMVER" = "$SEMVER_BASE-dev+$PKG_SHA8" ] && [ -n "$PKG_SHA8" ] || { echo "$PIN: SEMVER=$SEMVER is neither x.y.z nor x.y.z-dev+<sha8 of PKG_VERSION $PKG_VERSION>" >&2; exit 2; }
+        printf '%s' "$SEMVER_BASE" | grep -Eq '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$' || { echo "$PIN: SEMVER=$SEMVER has no x.y.z base" >&2; exit 2; }
+        VERSION="$SEMVER"
+    fi
+else echo "$PIN: no SEMVER, the version shown is the commit $VERSION (T221 D15 open)" >&2; fi
 for v in ID NAME VERSION PKG_VERSION BIT_FILE BIT_SHA256 ICON; do [ -n "${!v}" ] || { echo "$PIN: $v is empty" >&2; exit 2; }; done
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 sha() { python3 -c 'import hashlib,sys; print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' "$1"; }
@@ -45,6 +60,14 @@ fetch() {   # fetch <file in the package> <dest>
         "${GITHUB_SERVER_URL}/api/packages/${GITHUB_REPOSITORY%%/*}/generic/${FW_PKG}/${PKG_VERSION}/$1" -o "$2" \
         || { echo "cannot download ${FW_PKG}/${PKG_VERSION}/$1" >&2; exit 1; }
 }
+# T230 S2: the version of the pinned package's manifest against the pin's SEMVER
+if [ -z "$MANIFEST" ] && [ -z "$BIT" ] && [ -n "$SEMVER" ]; then fetch manifest.json "$W/manifest.json"; MANIFEST="$W/manifest.json"; fi
+if [ -n "$SEMVER" ] && [ -n "$MANIFEST" ]; then
+    MV="$(python3 -I -c 'import json,sys; v=json.load(open(sys.argv[1])).get("version"); print(v if isinstance(v,str) else "")' "$MANIFEST")" || { echo "$PIN: $MANIFEST is not readable JSON" >&2; exit 1; }
+    if [ -z "$MV" ]; then echo "$PIN: manifest of $PKG_VERSION has no version (older package), SEMVER=$SEMVER not checked against it" >&2
+    elif [ "$MV" != "$SEMVER_BASE" ]; then echo "$PIN: SEMVER=$SEMVER (x.y.z $SEMVER_BASE) differs from the version $MV in the manifest of ${FW_PKG:-package}/$PKG_VERSION: refused" >&2; exit 1
+    fi
+fi
 if [ -z "$BIT" ]; then fetch "$BIT_FILE" "$W/bit"; BIT="$W/bit"; fi
 GOT="$(sha "$BIT")"
 [ "$GOT" = "$BIT_SHA256" ] || { echo "the bitstream is $GOT, the pin says $BIT_SHA256: refused" >&2; exit 1; }
