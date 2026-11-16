@@ -123,7 +123,7 @@ Scenario: S8 the sound (P5) - board, by hand
   Fix: `cores/vc20/layer2_vc20.v` takes `drv_io_*` into the core through one register stage (cpu_clk); the host waits for the ack (core_pend, 65535-clock
   time-out), so a write or read is one clock later. Shared `drive_unit.vhd` / `drive_l2.vhd` stay (host key). null routed with the defaults (cache).
   Board 2026-11-16 (Alex, package main-aaaee0d5): the VC-20 loads from the 1541 - the drive's register bus through the new stage works.
-- S4 DC criterion: 0.01 dB is not reachable with 18-bit coefficients for the bass shelf (1 + a1 + a2 is 32 counts of 65536); measured 0.0206 dB, bench limit 0.05 dB (to confirm with Alex).
+- S4 DC criterion: 0.01 dB is not reachable with 18-bit coefficients for the bass shelf (1 + a1 + a2 is 32 counts of 65536); measured 0.0206 dB, bench limit 0.05 dB. Confirmed by Alex 2026-11-16 ("0.05 dB ok (recommended)"): the limit is 0.05 dB, S4 passes, no gateware change.
 
 ## §6 Design options and questions
 
