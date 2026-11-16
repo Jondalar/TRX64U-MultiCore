@@ -89,8 +89,26 @@ For the TRX64-Ultimate firmware session:
   between releases repeats the last release's number and cannot know whether it will be released. Their proposal: the pin carries
   `SEMVER=x.y.z` only when `PKG_VERSION` is a release (the Gitea release `trx64-<PKG_VERSION>` exists, checked when the pin is
   reviewed), otherwise `x.y.z-dev+<sha8>` or the commit. Their side (the `ci/package.sh:40` line, contract §1/§2) waits for Alex's go.
-- **FW-2:** Is the list in P5 complete and correct for what your bitstream offers to an application (address map, capability word,
-  `TRX_CAPS`, IEC stub byte, drive and memory windows), and do you agree to announce a change to any of it?
+- **FW-2: answered (firmware session, 2026-11-16).** P5's items hold, read from their code: app region `linker.x:7`; capability word
+  `top.v:606` `{2'b00, FPGA_TYPE, 28'h5E40202}` (0x25E40202 is the 50T C64U build, bits 29:28 follow `FPGA_TYPE`); IEC stub
+  `ultimate_sys.vhd:1347-1351` (offset 0 = 0x25, 1 and 2 = 0x01); `trx_io.v:334-335` CAPS = 0xFF, CAPS2 = 0xF7, CAPS3 at 0x006. They
+  announce any change to the list before pushing. Four items to add: (1) the boot ROM's `FLASH_APPL` 0x220000 `{dest, length, run}`
+  and `MAX_APPL_SIZE` 0x1E0000-12 (`bootrom.c:74-75`, read by our `tools/check_app_size.py`); (2) ICAP 0x10060600 is undecoded and
+  reads 0 on the monolith - our monolith detection depends on it, so decoding anything there is a change; (3) their U16 D7 picture
+  registers at IOBASE+0x144F00: mode request 0x4F00, scale 0x4F01, read-back 0x4F04-0x4F0A (magic 0x48, version 1, flags, row,
+  scale), `PX_POS` counted from the running row's active area; power-up row 1080p, Fit, kept unless our core app writes 0x4F00;
+  (4) the DDR2 windows (below).
+  **Contract drift found (S7 fails today):** the two copies differ. Theirs has §6 "DDR2 windows" (agreed 2026-10-30, their commit
+  4f86e227: 0x03800000-0x03A00000 for their debug service U5, our STAGE_APP/STAGE_PART only before the jump, zero-on-start and
+  give-up-on-update rules) and its §7 is our §6; ours has the §3 paragraph "Page tail after id_sum/core_id" (T191, T198) that theirs
+  lacks. Checked here (section headings of both files).
+  **Their proposal:** §1 of the contract becomes an ownership table and both copies become byte-identical again. TRX64-Ultimate:
+  bitstream, Gideon's application (trx64g), `APPL_VERSION_NUMBER` and the releases, the package with the manifest version, the list of
+  what the bitstream offers and announcing changes, trx64g's `.cfg` in the core folder (§4), the DDR2 window 0x03800000-0x03A00000.
+  MultiCore: host and boot menu, pins and `.cor` packing (SEMVER rule), the generic core app on trx64u (config at start, persist,
+  autostart, `menu.toml`), the start file (writer and reader), the hand-over page layout, the STAGE_* windows. Both with Alex: the
+  contract text. The firmware session drafts the merged text; MultiCore reviews it against its code; each side commits the same bytes
+  after Alex's go.
 - **FW-3:** The host writes `trx64-start.txt` to the medium root before `trx64g` too. Any objection from Gideon's application (file
   browser, a scan of the root)?
 
