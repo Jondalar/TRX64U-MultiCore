@@ -191,7 +191,7 @@ Scenario: S9 on the board, end to end
    only (D1-D10), with the build phase decided after S1's numbers, or is the build phase part of this task?
 2. **Q2: answered 2026-11-16 (Alex, "size + time is enough (recommended)"): D5 holds.** Question was: **Size + mtime only at menu time (D5)?** Accept that a same-size, same-2-s-mtime replacement shows its old row until the start
    (the start check catches it), in exchange for no opens and no hashes in the background?
-3. **Q3 Cache file on `Flash:` (D3), and the config count with a stat of the `configs/` directory's mtime or cached until the
+3. **Q3: answered 2026-11-16 (Alex): file on Flash beside the picture ("Flash, next to the picture (recommended)", D3 holds); config count by a stat of the `configs/` directory's mtime ("stat on the folder (recommended)").** Question was: **Cache file on `Flash:` (D3), and the config count with a stat of the `configs/` directory's mtime or cached until the
    next verify of its core?**
 4. **Q4 The bound X for a unit between key checks:** 100 ms to start with, then set from S1?
 5. **Q5 The migration (whole-file hash of an entry without mtime):** chunked with key checks, or left behind 1500 ms of quiet as today?
