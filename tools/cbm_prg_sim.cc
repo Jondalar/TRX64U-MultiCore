@@ -91,16 +91,14 @@ static int go64_script(const char *path)
 
 int main(int argc, char **argv)
 {
-    if (argc != 4) { fprintf(stderr, "usage: cbm_prg_sim <scpu|c128> <new|old> <file.prg>\n"); return 2; }
+    if (argc != 4) { fprintf(stderr, "usage: cbm_prg_sim <scpu|c128> <new|old|go64> <file.prg>\n"); return 2; }
     bool scpu = !strcmp(argv[1], "scpu"), neu = !strcmp(argv[2], "new"), go64 = !strcmp(argv[2], "go64");
-    if (go64) neu = true;
+    if (go64) return go64_script(argv[3]);
     FILE *f = fopen(argv[3], "rb");
     if (!f) { perror(argv[3]); return 2; }
     std::vector<uint8_t> file(0x20000);
     size_t n = fread(file.data(), 1, file.size(), f);
     fclose(f);
-    if (go64) return go64_script(argv[3]);
-    if (go64) return go64_script(argv[3]);
     Rec io;
     io.ram.assign(65536, 0);
     io.ddr.assign(0x04000000, 0);

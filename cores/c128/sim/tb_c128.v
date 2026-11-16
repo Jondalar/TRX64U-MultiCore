@@ -487,7 +487,7 @@ module tb_c128;
                     pg_n = $sscanf(pg_line, "%d %d %h", pg_t, pg_len, pg_w);
                     pg_hit = 1'b0; pg_waited = 0;
                     while (!pg_hit && pg_waited < 4000) begin
-                        for (pg_pos = 0; pg_pos < 1000 - pg_len; pg_pos = pg_pos + 1) begin
+                        for (pg_pos = 0; pg_pos <= 1000 - pg_len; pg_pos = pg_pos + 1) begin
                             pg_n = 1;
                             for (pg_j = 0; pg_j < pg_len; pg_j = pg_j + 1) if (pg_rd(16'h0400 + pg_pos + pg_j) != pg_w[8 * (pg_len - 1 - pg_j) +: 8]) pg_n = 0;
                             if (pg_n) pg_hit = 1'b1;
