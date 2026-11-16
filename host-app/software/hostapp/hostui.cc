@@ -1008,10 +1008,7 @@ static void fill_mrow(Row &r, int i)
     }
     {
         const char lt[2] = { v.ctype, 0 };
-        set_txt(r.tl, lt);
-        lv_point_t lsz = { 0, 0 };
-        lv_text_get_size(&lsz, lt, F_SMALL, 0, 0, LV_COORD_MAX, LV_TEXT_FLAG_NONE);
-        lv_obj_set_x(r.tl, (TB_W - (lsz.x + 4)) / 2);
+        set_txt(r.tl, lt);                         // the label is the square's width at x 0 and centred (build_mrow): the letter sits in the middle
         set_hidden(r.tb, !v.ctype);
     }
     // T223 D5/D6: a table, the columns keep their place whether the row has a mark or not: name | auto | config | pictogram | version
