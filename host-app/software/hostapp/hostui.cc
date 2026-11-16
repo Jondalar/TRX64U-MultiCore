@@ -565,7 +565,7 @@ static bool row_visible(int i)
 // ---- T229 S1/D9: where the start's time goes. Marks of the start phases, one record per read unit, the longest main-loop pass; written once to
 // /SD/report/menutime.txt (the start block of startlog.txt holds 1 KB, this holds the rows) when the reader first goes idle. ----------------------------
 static void slog_flush(void);
-#define MT_MARKS 40
+#define MT_MARKS 56
 struct MtRow { uint16_t state, icon, verify, redraw; uint8_t units; };
 static struct {
     const char *mark_n[MT_MARKS];
@@ -581,6 +581,8 @@ static struct {
     const char *rows_why;
     bool reported;
     int tries;
+    char area_name[8][32];           // the mark names of the areas built after the first frame
+    uint32_t t_loop, t_key1;         // the first main-loop pass (keys are read from here), the first key handled
 } g_mt;
 static uint32_t mt_now(void) { return startlog_ms(); }
 static void mt_mark(const char *name)
@@ -588,6 +590,7 @@ static void mt_mark(const char *name)
     if (g_mt.nmark < MT_MARKS) {
         g_mt.mark_n[g_mt.nmark] = name;
         g_mt.mark_t[g_mt.nmark++] = mt_now();
+        printf("[mt] t+%u %s\n", g_mt.mark_t[g_mt.nmark - 1], name);
     }
 }
 static void mt_unit(int i, int kind, uint32_t ms)       // kind 0 state, 1 icon, 2 verify
@@ -607,7 +610,7 @@ static void mt_unit(int i, int kind, uint32_t ms)       // kind 0 state, 1 icon,
 }
 static void mt_report(void)
 {
-    static char b[3072];
+    static char b[4096];
     int n = snprintf(b, sizeof(b), "T229 menu timing, ms since the host began\npicture shown t+%u, menu built t+%u, first frame t+%u, reader idle t+%u\n",
                      g_mt.t_pic, g_mt.t_built, g_mt.t_frame, g_mt.t_idle);
     n += snprintf(b + n, sizeof(b) - n, "row cache: %s\n", g_mt.rows_total < 0 ? g_mt.rows_why : "");
@@ -937,6 +940,9 @@ static lv_obj_t *c_pat;                         // colour screen: solid / stripe
 
 static void set_txt(lv_obj_t *l, const char *s)
 {
+    if (!l) {
+        return;                                 // an area that is not built yet (T229): its view draws everything when it is built and shown
+    }
     if (strcmp(lv_label_get_text(l), s)) {
         int maxw = (int)(intptr_t)lv_obj_get_user_data(l);
         if (maxw > 0) {
@@ -1030,6 +1036,9 @@ static void set_foot(lv_obj_t *l, const char *s)
 
 static void set_col(lv_obj_t *l, uint32_t col)
 {
+    if (!l) {
+        return;
+    }
     lv_color_t c = lv_color_hex(col);
     lv_color_t o = lv_obj_get_style_text_color(l, LV_PART_MAIN);
     if (o.red != c.red || o.green != c.green || o.blue != c.blue) {
@@ -1039,6 +1048,9 @@ static void set_col(lv_obj_t *l, uint32_t col)
 
 static void set_hidden(lv_obj_t *o, bool h)
 {
+    if (!o) {
+        return;
+    }
     if (lv_obj_has_flag(o, LV_OBJ_FLAG_HIDDEN) != h) {
         lv_obj_set_flag(o, LV_OBJ_FLAG_HIDDEN, h);
     }
@@ -1066,6 +1078,9 @@ static void marks_build(lv_obj_t **mk, lv_obj_t *par, int x, int y, int w, int h
 
 static void marks_show(lv_obj_t **mk, bool on)
 {
+    if (!mk[0]) {
+        return;
+    }
     for (int i = 0; i < 4; i++) {
         set_hidden(mk[i], !on);
     }
@@ -1455,6 +1470,27 @@ static lv_obj_t *view_box(int v)
     return o;
 }
 
+// T229 (build phase): what the first frame does not show is built after it. An AREA is a view (browser, editor, network, settings, colours) or a group of
+// overlay panels (rename, wifi, start); its builder is written as STEPS: each BSTEP block runs in one call, the builder runs through again for the next
+// one (the values outside the blocks are computed again, they only read). A step is a few objects (about 7 ms each on the board), so the main loop can
+// build for 40 ms between two key checks; a key that opens an area not built yet builds the rest of it at once (EN).
+enum { A_BROWSE, A_EDIT, A_NET, A_SET, A_COLORS, A_RENAME, A_WIFI, A_START, A_N };
+#ifdef HOSTUI_RENDER_TEST
+static bool lazy_build = false;                 // the benches build everything at the start, as before (the lazy bench turns it on)
+#else
+static bool lazy_build = true;
+#endif
+static bool b_done[A_N];
+static int b_stage[A_N];
+static struct { int target, idx; } bs;
+#define BSTEP if (bs.idx++ == bs.target)
+static void ensure_area(int a);
+#define EN(a) do { if (!b_done[a]) ensure_area(a); } while (0)
+static lv_obj_t *bview(int v)
+{
+    return vwin[v] ? vwin[v] : view_box(v);
+}
+
 // Two lines: one line of F_TEXT is wider than the content column (emulator screenshot 2026-10-30: it was cut at the right edge).
 
 static void build_menu(void)
@@ -1544,23 +1580,30 @@ static void update_menu(void)
 
 static void build_edit(void)
 {
-    lv_obj_t *p = view_box(V_EDIT);
-    txt(p, CX0, COMPACT ? 8 : 14, page_title("edit"), F_TITLE, C_INK);
-    sub1(p, "Order, auto entry and names (boot.cfg on the flash disk). Countdown and direct boot: F8.", "Order, auto entry and names (boot.cfg). Countdown: F8.");
-    e_pos = txt(p, CX0 + CW - 200, COMPACT ? 14 : 22, "", F_SMALL, C_MUTED, 200);
-    lv_obj_set_style_text_align(e_pos, LV_TEXT_ALIGN_RIGHT, 0);
-    lv_obj_t *pn = box(p, CX0, COMPACT ? 64 : 74, CW, ED_PN_H, C_PANEL, 1);
-    // T209 D19 (Alex 2026-11-13): two lines, the auto core with its auto config and the file of the menu; countdown and direct boot are F8 settings
-    e_def = fit1(txt(pn, 12, 8, "", F_SMALL, C_INK, CW - 24), CW - 24);
-    e_menu = fit1(txt(pn, 12, 30, "", F_SMALL, C_INK, CW - 24), CW - 24);
-    for (int i = 0; i < EROWS; i++) {
-        build_erow(erow[i], p, CX0, (COMPACT ? 64 : 74) + ED_PN_H + 12 + i * EROW_P, CW, EROW_H);
+    lv_obj_t *p = bview(V_EDIT);
+    BSTEP {
+        txt(p, CX0, COMPACT ? 8 : 14, page_title("edit"), F_TITLE, C_INK);
+        sub1(p, "Order, auto entry and names (boot.cfg on the flash disk). Countdown and direct boot: F8.", "Order, auto entry and names (boot.cfg). Countdown: F8.");
+        e_pos = txt(p, CX0 + CW - 200, COMPACT ? 14 : 22, "", F_SMALL, C_MUTED, 200);
+        lv_obj_set_style_text_align(e_pos, LV_TEXT_ALIGN_RIGHT, 0);
+        lv_obj_t *pn = box(p, CX0, COMPACT ? 64 : 74, CW, ED_PN_H, C_PANEL, 1);
+        // T209 D19 (Alex 2026-11-13): two lines, the auto core with its auto config and the file of the menu; countdown and direct boot are F8 settings
+        e_def = fit1(txt(pn, 12, 8, "", F_SMALL, C_INK, CW - 24), CW - 24);
+        e_menu = fit1(txt(pn, 12, 30, "", F_SMALL, C_INK, CW - 24), CW - 24);
     }
-    e_note = fit1(txt(p, CX0, CH - 26, "", F_SMALL, C_MUTED, CW), CW);
+    for (int i = 0; i < EROWS; i++) {
+        BSTEP {
+            build_erow(erow[i], p, CX0, (COMPACT ? 64 : 74) + ED_PN_H + 12 + i * EROW_P, CW, EROW_H);
+        }
+    }
+    BSTEP {
+        e_note = fit1(txt(p, CX0, CH - 26, "", F_SMALL, C_MUTED, CW), CW);
+    }
 }
 
 static void update_edit(void)
 {
+    EN(A_EDIT);
     hc_nav_edit_first(cfg.n);
     HcEditTexts t;
     vcol_w = ver_col_w();
@@ -1580,9 +1623,7 @@ static void update_edit(void)
 
 static void build_browse(void)
 {
-    lv_obj_t *p = view_box(V_BROWSE);
-    txt(p, CX0, COMPACT ? 8 : 14, page_title("browse"), F_TITLE, C_INK);
-    b_sub = sub1(p, "Media and files. A adds to the menu, C copy, M move, DEL delete, F format a medium.", "A adds to the menu, C copy, M move, DEL delete, F format.");
+    lv_obj_t *p = bview(V_BROWSE);
     // the list on the left, the file's panel on the right; the compact layout gives the panel less (a third) and the list the rest
     int rw = COMPACT ? (CW - 16) / 2 : CW / 2 - 8;
     int lw = COMPACT ? CW - 16 - rw : CW / 2 - 8;
@@ -1600,33 +1641,43 @@ static void build_browse(void)
         }
         rk = 12 + kw + 10;
     }
-    lv_obj_t *left = box(p, CX0, top, lw, ph, C_PANEL, 1);
-    b_left = left;
-    b_path = fit1(txt(left, 10, 6, "", F_TEXT, C_OK, lw - 20), lw - 20);
-    b_empty = txt(left, 10, 40, "", F_SMALL, C_MUTED);
-    marks_build(b_hl, left, 4, 34, lw - 8, 24);
     int szw = COMPACT ? 70 : 86;
+    BSTEP {
+        txt(p, CX0, COMPACT ? 8 : 14, page_title("browse"), F_TITLE, C_INK);
+        b_sub = sub1(p, "Media and files. A adds to the menu, C copy, M move, DEL delete, F format a medium.", "A adds to the menu, C copy, M move, DEL delete, F format.");
+        lv_obj_t *left = box(p, CX0, top, lw, ph, C_PANEL, 1);
+        b_left = left;
+        b_path = fit1(txt(left, 10, 6, "", F_TEXT, C_OK, lw - 20), lw - 20);
+        b_empty = txt(left, 10, 40, "", F_SMALL, C_MUTED);
+        marks_build(b_hl, left, 4, 34, lw - 8, 24);
+    }
     for (int i = 0; i < BROWS; i++) {
-        int y = 36 + i * 26;
-        b_mark[i] = txt(left, 12, y, "", F_SMALL, C_MUTED);
-        b_name[i] = fit1(txt(left, 34, y, "", F_SMALL, C_INK, lw - 34 - szw - 20), lw - 34 - szw - 20);
-        b_size[i] = fit1(txt(left, lw - szw - 10, y, "", F_SMALL, C_MUTED, szw), szw);
+        BSTEP {
+            lv_obj_t *left = b_left;
+            int y = 36 + i * 26;
+            b_mark[i] = txt(left, 12, y, "", F_SMALL, C_MUTED);
+            b_name[i] = fit1(txt(left, 34, y, "", F_SMALL, C_INK, lw - 34 - szw - 20), lw - 34 - szw - 20);
+            b_size[i] = fit1(txt(left, lw - szw - 10, y, "", F_SMALL, C_MUTED, szw), szw);
+        }
     }
-    b_right = box(p, CX0 + lw + 16, top, rw, ph, C_PANEL, 1);
-    r_title = fit1(txt(b_right, 12, COMPACT ? 8 : 10, "", F_TEXT, C_INK, rw - 24), rw - 24);
-    static const char *keys[7] = { "Version", "Contract", "FPGA", "Core", "Application", "SHA-256", "Status" };
-    int ky = COMPACT ? 36 : 44, kp = COMPACT ? 20 : 22;
-    for (int i = 0; i < 7; i++) {
-        r_key[i] = fit1(txt(b_right, 12, ky + i * kp, keys[i], F_SMALL, C_MUTED, COMPACT ? rk - 12 : 0), COMPACT ? rk - 12 : 200);
-        r_val[i] = fit1(txt(b_right, rk, ky + i * kp, "", F_SMALL, C_INK, rw - rk - 12), rw - rk - 12);
+    BSTEP {
+        b_right = box(p, CX0 + lw + 16, top, rw, ph, C_PANEL, 1);
+        r_title = fit1(txt(b_right, 12, COMPACT ? 8 : 10, "", F_TEXT, C_INK, rw - 24), rw - 24);
+        static const char *keys[7] = { "Version", "Contract", "FPGA", "Core", "Application", "SHA-256", "Status" };
+        int ky = COMPACT ? 36 : 44, kp = COMPACT ? 20 : 22;
+        for (int i = 0; i < 7; i++) {
+            r_key[i] = fit1(txt(b_right, 12, ky + i * kp, keys[i], F_SMALL, C_MUTED, COMPACT ? rk - 12 : 0), COMPACT ? rk - 12 : 200);
+            r_val[i] = fit1(txt(b_right, rk, ky + i * kp, "", F_SMALL, C_INK, rw - rk - 12), rw - rk - 12);
+        }
+        r_msg = txt(b_right, 12, ky + 7 * kp + 8, "", F_SMALL, C_OK, rw - 24);
+        r_err = txt(b_right, 12, 40, "", F_SMALL, C_MUTED, rw - 24);
+        b_note = fit1(txt(p, CX0, CH - 26, "", F_SMALL, C_MUTED, CW), CW);
     }
-    r_msg = txt(b_right, 12, ky + 7 * kp + 8, "", F_SMALL, C_OK, rw - 24);
-    r_err = txt(b_right, 12, 40, "", F_SMALL, C_MUTED, rw - 24);
-    b_note = fit1(txt(p, CX0, CH - 26, "", F_SMALL, C_MUTED, CW), CW);
 }
 
 static void set_rkeys(int mode)
 {
+    EN(A_BROWSE);
     if (mode == rk_mode) {
         return;
     }
@@ -1650,6 +1701,7 @@ static void put_cell(lv_obj_t *l, const HcCell &c)
 // The right panel of the browser (the core makes it: the manifest of the selection, the medium, the update, the note).
 static void browse_right_update(void)
 {
+    EN(A_BROWSE);
     static HcPanel p;
     hc_browse_panel(&p);
     set_rkeys(p.keys_mode);
@@ -1672,6 +1724,7 @@ static void browse_right_update(void)
 // The mark follows the selection: its four strips move to the row (the old and the new place are redrawn, nothing else).
 static void browse_mark(void)
 {
+    EN(A_BROWSE);
     static int shown_y = 34;
     int y = 36 + (nv.bsel - nv.bfirst) * 26 - 2;
     for (int i = 0; i < 4; i++) {
@@ -1697,6 +1750,7 @@ static void browse_foot(void)
 // The key line under the title; with a .zip selected it names Z too, when the longer sentence still fits the column whole (T197).
 static void browse_sub_update(void)
 {
+    EN(A_BROWSE);
     static const char *const base_full = "Media and files. A adds to the menu, C copy, M move, DEL delete, F format a medium.";
     static const char *const zip_full = "Media and files. A adds to the menu, C copy, M move, DEL delete, F format, Z unzip.";
     static const char *const base_compact = "A adds to the menu, C copy, M move, DEL delete, F format.";
@@ -1717,6 +1771,7 @@ static void browse_sub_update(void)
 
 static void update_browse(void)
 {
+    EN(A_BROWSE);
     char t[200];
     browse_sub_update();
     hc_browse_title(t, sizeof(t));
@@ -1755,39 +1810,43 @@ static lv_obj_t *wm_root, *wm_a, *wm_b, *wm_c, *wm_note;   // the WiFi page of t
 
 static void build_net(void)
 {
-    lv_obj_t *p = view_box(V_NET);
-    txt(p, CX0, COMPACT ? 8 : 14, page_title("net"), F_TITLE, C_INK);
-    sub1(p, "The host app's own stack (lwIP). Lets a PC copy .cor bundles onto SD, USB and the flash disk.", "A PC can copy .cor bundles onto SD, USB and flash.");
+    lv_obj_t *p = bview(V_NET);
     int pitch = COMPACT ? 19 : 22, ph = 4 * pitch + (COMPACT ? 12 : 14), y0 = COMPACT ? 62 : 74;
     int vx = COMPACT ? 126 : 160, vw = CW - vx - 12;
-    lv_obj_t *pn = box(p, CX0, y0, CW, ph, C_PANEL, 1);
-    int y = COMPACT ? 6 : 7;
-    txt(pn, 12, y, item_title("net", "ethernet"), F_SMALL, C_MUTED);
-    n_eth = fit1(txt(pn, vx, y, "", F_SMALL, C_OK, vw), vw);
-    y += pitch;
-    txt(pn, 12, y, item_title("net", "ftp"), F_SMALL, C_MUTED);
-    n_ftp = fit1(txt(pn, vx, y, "", F_SMALL, C_INK, vw), vw);
-    y += pitch;
-    txt(pn, 12, y, item_title("net", "media"), F_SMALL, C_MUTED);
-    n_media = fit1(txt(pn, vx, y, "", F_SMALL, C_INK, vw), vw);
-    y += pitch;
-    txt(pn, 12, y, "REST", F_SMALL, C_MUTED);
-    n_rest = fit1(txt(pn, vx, y, "", F_SMALL, C_INK, vw), vw);
-    int y1 = y0 + ph + (COMPACT ? 6 : 8);
-    lv_obj_t *pw = box(p, CX0, y1, CW, ph, C_PANEL, 1);
-    y = COMPACT ? 6 : 7;
-    txt(pw, 12, y, item_title("net", "wifi_state"), F_SMALL, C_MUTED);
-    n_wst = fit1(txt(pw, vx, y, "", F_SMALL, C_INK, vw), vw);
-    y += pitch;
-    txt(pw, 12, y, item_title("net", "wifi_net"), F_SMALL, C_MUTED);
-    n_wnet = fit1(txt(pw, vx, y, "", F_SMALL, C_INK, vw), vw);
-    y += pitch;
-    txt(pw, 12, y, item_title("net", "wifi_addr"), F_SMALL, C_MUTED);
-    n_wip = fit1(txt(pw, vx, y, "", F_SMALL, C_INK, vw), vw);
-    y += pitch;
-    txt(pw, 12, y, item_title("net", "wifi_mac"), F_SMALL, C_MUTED);
-    n_wmac = fit1(txt(pw, vx, y, "", F_SMALL, C_MUTED, vw), vw);
-    n_note = fit1(txt(p, CX0, CH - (COMPACT ? 20 : 24), "", F_SMALL, C_MUTED, CW), CW);
+    BSTEP {
+        txt(p, CX0, COMPACT ? 8 : 14, page_title("net"), F_TITLE, C_INK);
+        sub1(p, "The host app's own stack (lwIP). Lets a PC copy .cor bundles onto SD, USB and the flash disk.", "A PC can copy .cor bundles onto SD, USB and flash.");
+        lv_obj_t *pn = box(p, CX0, y0, CW, ph, C_PANEL, 1);
+        int y = COMPACT ? 6 : 7;
+        txt(pn, 12, y, item_title("net", "ethernet"), F_SMALL, C_MUTED);
+        n_eth = fit1(txt(pn, vx, y, "", F_SMALL, C_OK, vw), vw);
+        y += pitch;
+        txt(pn, 12, y, item_title("net", "ftp"), F_SMALL, C_MUTED);
+        n_ftp = fit1(txt(pn, vx, y, "", F_SMALL, C_INK, vw), vw);
+        y += pitch;
+        txt(pn, 12, y, item_title("net", "media"), F_SMALL, C_MUTED);
+        n_media = fit1(txt(pn, vx, y, "", F_SMALL, C_INK, vw), vw);
+        y += pitch;
+        txt(pn, 12, y, "REST", F_SMALL, C_MUTED);
+        n_rest = fit1(txt(pn, vx, y, "", F_SMALL, C_INK, vw), vw);
+    }
+    BSTEP {
+        int y1 = y0 + ph + (COMPACT ? 6 : 8);
+        lv_obj_t *pw = box(p, CX0, y1, CW, ph, C_PANEL, 1);
+        int y = COMPACT ? 6 : 7;
+        txt(pw, 12, y, item_title("net", "wifi_state"), F_SMALL, C_MUTED);
+        n_wst = fit1(txt(pw, vx, y, "", F_SMALL, C_INK, vw), vw);
+        y += pitch;
+        txt(pw, 12, y, item_title("net", "wifi_net"), F_SMALL, C_MUTED);
+        n_wnet = fit1(txt(pw, vx, y, "", F_SMALL, C_INK, vw), vw);
+        y += pitch;
+        txt(pw, 12, y, item_title("net", "wifi_addr"), F_SMALL, C_MUTED);
+        n_wip = fit1(txt(pw, vx, y, "", F_SMALL, C_INK, vw), vw);
+        y += pitch;
+        txt(pw, 12, y, item_title("net", "wifi_mac"), F_SMALL, C_MUTED);
+        n_wmac = fit1(txt(pw, vx, y, "", F_SMALL, C_MUTED, vw), vw);
+        n_note = fit1(txt(p, CX0, CH - (COMPACT ? 20 : 24), "", F_SMALL, C_MUTED, CW), CW);
+    }
 }
 
 static void net_note(const char *s, int tone)
@@ -1801,6 +1860,7 @@ static const HcRowsPlatform rows_plat = { hostapi_rest_text, net_note, APP_VERSI
 
 static void update_net(void)
 {
+    EN(A_NET);
     static HcNetTexts t;
     hc_net_texts(&t);
     put_cell(n_eth, t.eth);
@@ -1849,14 +1909,22 @@ static const HcCmEnv &cm_env_ref(void)
 
 static void build_cm(lv_obj_t *p)
 {
-    cm_root = box(p, 0, 0, SW - NAV_W, CH, C_BG, 0);
-    set_hidden(cm_root, true);
-    txt(cm_root, CX0, COMPACT ? 8 : 14, page_title("settings/cores"), F_TITLE, C_INK);
-    cm_head = fit1(txt(cm_root, CX0, COMPACT ? 38 : 46, "", F_SMALL, C_MUTED, CW), CW);
-    for (int i = 0; i < CM_ROWS; i++) {
-        cm_row[i] = fit1(txt(cm_root, CX0, (COMPACT ? 60 : 70) + i * 20, "", F_SMALL, C_INK, CW), CW);
+    BSTEP {
+        cm_root = box(p, 0, 0, SW - NAV_W, CH, C_BG, 0);
+        set_hidden(cm_root, true);
+        txt(cm_root, CX0, COMPACT ? 8 : 14, page_title("settings/cores"), F_TITLE, C_INK);
+        cm_head = fit1(txt(cm_root, CX0, COMPACT ? 38 : 46, "", F_SMALL, C_MUTED, CW), CW);
     }
-    cm_note = fit1(txt(cm_root, CX0, CH - 26, "", F_SMALL, C_MUTED, CW), CW);
+    for (int i0 = 0; i0 < CM_ROWS; i0 += 4) {
+        BSTEP {
+            for (int i = i0; i < CM_ROWS && i < i0 + 4; i++) {
+                cm_row[i] = fit1(txt(cm_root, CX0, (COMPACT ? 60 : 70) + i * 20, "", F_SMALL, C_INK, CW), CW);
+            }
+        }
+    }
+    BSTEP {
+        cm_note = fit1(txt(cm_root, CX0, CH - 26, "", F_SMALL, C_MUTED, CW), CW);
+    }
 }
 
 static void cm_update(void)
@@ -1890,31 +1958,37 @@ static void cm_update(void)
 // access point list, the manual entry, the last access point, disconnect and forget are its keys (foot_wm). Every change is written to the WiFi store.
 static void build_wm(lv_obj_t *p)
 {
-    wm_root = box(p, 0, 0, SW - NAV_W, CH, C_BG, 0);
-    set_hidden(wm_root, true);
-    txt(wm_root, CX0, COMPACT ? 8 : 14, page_title("settings/wifi"), F_TITLE, C_INK);
-    sub1(wm_root, "Set here, saved at once. The cores show the WiFi and switch it on and off.", "Set here. The cores show it and switch it on and off.");
     int pitch = COMPACT ? 19 : 22, ph = 3 * pitch + (COMPACT ? 12 : 14), y0 = COMPACT ? 62 : 74;
     int vx = COMPACT ? 126 : 160, vw = CW - vx - 12;
-    lv_obj_t *pw = box(wm_root, CX0, y0, CW, ph, C_PANEL, 1);
-    int y = COMPACT ? 6 : 7;
-    txt(pw, 12, y, item_title("settings/wifi", "state"), F_SMALL, C_MUTED);
-    wm_a = fit1(txt(pw, vx, y, "", F_SMALL, C_INK, vw), vw);
-    y += pitch;
-    txt(pw, 12, y, item_title("settings/wifi", "net"), F_SMALL, C_MUTED);
-    wm_b = fit1(txt(pw, vx, y, "", F_SMALL, C_INK, vw), vw);
-    y += pitch;
-    txt(pw, 12, y, item_title("settings/wifi", "addr"), F_SMALL, C_MUTED);
-    wm_c = fit1(txt(pw, vx, y, "", F_SMALL, C_INK, vw), vw);
     int sh = COMPACT ? 24 : 26, sp = sh + 3, y2 = y0 + ph + (COMPACT ? 6 : 8);
     int nw = 200, sx = 14 + nw + 10;
-    for (int i = 0; i < NS_N; i++) {
-        lv_obj_t *b = box(wm_root, CX0, y2 + i * sp, CW, sh, C_PANEL, 1, C_LINE);
-        n_snm[i] = fit1(txt(b, 14, COMPACT ? 2 : 3, hc_wifi_net_set_name(i), F_TEXT, C_INK, nw), nw);
-        n_sval[i] = fit1(txt(b, sx, COMPACT ? 2 : 3, "", F_TEXT, C_INK, CW - sx - 16), CW - sx - 16);
-        marks_build(n_smk[i], b, 0, 0, CW, sh);
+    BSTEP {
+        wm_root = box(p, 0, 0, SW - NAV_W, CH, C_BG, 0);
+        set_hidden(wm_root, true);
+        txt(wm_root, CX0, COMPACT ? 8 : 14, page_title("settings/wifi"), F_TITLE, C_INK);
+        sub1(wm_root, "Set here, saved at once. The cores show the WiFi and switch it on and off.", "Set here. The cores show it and switch it on and off.");
+        lv_obj_t *pw = box(wm_root, CX0, y0, CW, ph, C_PANEL, 1);
+        int y = COMPACT ? 6 : 7;
+        txt(pw, 12, y, item_title("settings/wifi", "state"), F_SMALL, C_MUTED);
+        wm_a = fit1(txt(pw, vx, y, "", F_SMALL, C_INK, vw), vw);
+        y += pitch;
+        txt(pw, 12, y, item_title("settings/wifi", "net"), F_SMALL, C_MUTED);
+        wm_b = fit1(txt(pw, vx, y, "", F_SMALL, C_INK, vw), vw);
+        y += pitch;
+        txt(pw, 12, y, item_title("settings/wifi", "addr"), F_SMALL, C_MUTED);
+        wm_c = fit1(txt(pw, vx, y, "", F_SMALL, C_INK, vw), vw);
     }
-    wm_note = fit1(txt(wm_root, CX0, CH - (COMPACT ? 20 : 24), "", F_SMALL, C_MUTED, CW), CW);
+    for (int i = 0; i < NS_N; i++) {
+        BSTEP {
+            lv_obj_t *b = box(wm_root, CX0, y2 + i * sp, CW, sh, C_PANEL, 1, C_LINE);
+            n_snm[i] = fit1(txt(b, 14, COMPACT ? 2 : 3, hc_wifi_net_set_name(i), F_TEXT, C_INK, nw), nw);
+            n_sval[i] = fit1(txt(b, sx, COMPACT ? 2 : 3, "", F_TEXT, C_INK, CW - sx - 16), CW - sx - 16);
+            marks_build(n_smk[i], b, 0, 0, CW, sh);
+        }
+    }
+    BSTEP {
+        wm_note = fit1(txt(wm_root, CX0, CH - (COMPACT ? 20 : 24), "", F_SMALL, C_MUTED, CW), CW);
+    }
 }
 
 static void wm_update(void)
@@ -1946,20 +2020,26 @@ static lv_obj_t *pm_box[PM_ROWS], *pm_name[PM_ROWS], *pm_hz[PM_ROWS], *pm_tag[PM
 
 static void build_pm(lv_obj_t *p)
 {
-    pm_root = box(p, 0, 0, SW - NAV_W, CH, C_BG, 0);
-    set_hidden(pm_root, true);
-    txt(pm_root, CX0, COMPACT ? 8 : 14, "Settings > Picture", F_TITLE, C_INK);
-    pm_info = txt(pm_root, CX0, COMPACT ? 40 : 48, "", F_SMALL, C_MUTED, CW);
     int sh = COMPACT ? 24 : 30, sp = sh + (COMPACT ? 3 : 4), y0 = COMPACT ? 76 : 96;
     int nw = COMPACT ? 250 : 330, hx = 14 + nw + 10, hw = COMPACT ? 90 : 120, tx = hx + hw + 10;
-    for (int i = 0; i < PM_ROWS; i++) {
-        pm_box[i] = box(pm_root, CX0, y0 + i * sp, CW, sh, C_PANEL, 1, C_LINE);
-        pm_name[i] = fit1(txt(pm_box[i], 14, COMPACT ? 2 : 4, "", F_TEXT, C_INK, nw), nw);
-        pm_hz[i] = fit1(txt(pm_box[i], hx, COMPACT ? 2 : 4, "", F_TEXT, C_MUTED, hw), hw);
-        pm_tag[i] = fit1(txt(pm_box[i], tx, COMPACT ? 2 : 4, "", F_TEXT, C_HOST, CW - tx - 16), CW - tx - 16);
-        marks_build(pm_mk[i], pm_box[i], 0, 0, CW, sh);
+    BSTEP {
+        pm_root = box(p, 0, 0, SW - NAV_W, CH, C_BG, 0);
+        set_hidden(pm_root, true);
+        txt(pm_root, CX0, COMPACT ? 8 : 14, "Settings > Picture", F_TITLE, C_INK);
+        pm_info = txt(pm_root, CX0, COMPACT ? 40 : 48, "", F_SMALL, C_MUTED, CW);
     }
-    pm_note = fit1(txt(pm_root, CX0, CH - 26, "", F_SMALL, C_MUTED, CW), CW);      // where the settings rows put theirs
+    for (int i = 0; i < PM_ROWS; i++) {
+        BSTEP {
+            pm_box[i] = box(pm_root, CX0, y0 + i * sp, CW, sh, C_PANEL, 1, C_LINE);
+            pm_name[i] = fit1(txt(pm_box[i], 14, COMPACT ? 2 : 4, "", F_TEXT, C_INK, nw), nw);
+            pm_hz[i] = fit1(txt(pm_box[i], hx, COMPACT ? 2 : 4, "", F_TEXT, C_MUTED, hw), hw);
+            pm_tag[i] = fit1(txt(pm_box[i], tx, COMPACT ? 2 : 4, "", F_TEXT, C_HOST, CW - tx - 16), CW - tx - 16);
+            marks_build(pm_mk[i], pm_box[i], 0, 0, CW, sh);
+        }
+    }
+    BSTEP {
+        pm_note = fit1(txt(pm_root, CX0, CH - 26, "", F_SMALL, C_MUTED, CW), CW);      // where the settings rows put theirs
+    }
 }
 
 static void pm_update(void)
@@ -1991,9 +2071,7 @@ static void pm_update(void)
 
 static void build_settings(void)
 {
-    lv_obj_t *p = view_box(V_SET);
-    txt(p, CX0, COMPACT ? 8 : 14, page_title("settings"), F_TITLE, C_INK);
-    sub1(p, "Stored on the flash disk (boot.cfg) and saved at once. UP/DOWN select, LEFT/RIGHT or RETURN change.", "Saved at once. UP/DOWN select, LEFT/RIGHT change.");
+    lv_obj_t *p = bview(V_SET);
     int pitch = COMPACT ? 29 : 34, sh = COMPACT ? 26 : 30, y0 = COMPACT ? 62 : 70;           // ten rows (T163 S4: FTP service) in the height nine had
     int nw = 290, vx = 330;
     if (COMPACT) {                                  // the label column is the width of the longest label (measured, as the File Browser's keys), the value takes the rest
@@ -2007,14 +2085,22 @@ static void build_settings(void)
         nw = lw + 4;
         vx = 14 + nw + 12;
     }
-    for (int i = 0; i < SET_SLOTS; i++) {
-        s_box[i] = box(p, CX0, y0 + i * pitch, CW, sh, C_PANEL, 1, C_LINE);
-        s_name[i] = fit1(txt(s_box[i], 14, COMPACT ? 3 : 5, "", F_TEXT, C_INK, nw), nw);
-        s_val[i] = fit1(txt(s_box[i], vx, COMPACT ? 3 : 5, "", F_TEXT, C_INK, CW - vx - 20), CW - vx - 20);
-        marks_build(s_mk[i], s_box[i], 0, 0, CW, sh);
+    BSTEP {
+        txt(p, CX0, COMPACT ? 8 : 14, page_title("settings"), F_TITLE, C_INK);
+        sub1(p, "Stored on the flash disk (boot.cfg) and saved at once. UP/DOWN select, LEFT/RIGHT or RETURN change.", "Saved at once. UP/DOWN select, LEFT/RIGHT change.");
     }
-    s_help = txt(p, CX0, y0 + SET_SLOTS * pitch + 4, "", F_SMALL, C_MUTED, CW);
-    s_note = fit1(txt(p, CX0, CH - 26, "", F_SMALL, C_MUTED, CW), CW);
+    for (int i = 0; i < SET_SLOTS; i++) {
+        BSTEP {
+            s_box[i] = box(p, CX0, y0 + i * pitch, CW, sh, C_PANEL, 1, C_LINE);
+            s_name[i] = fit1(txt(s_box[i], 14, COMPACT ? 3 : 5, "", F_TEXT, C_INK, nw), nw);
+            s_val[i] = fit1(txt(s_box[i], vx, COMPACT ? 3 : 5, "", F_TEXT, C_INK, CW - vx - 20), CW - vx - 20);
+            marks_build(s_mk[i], s_box[i], 0, 0, CW, sh);
+        }
+    }
+    BSTEP {
+        s_help = txt(p, CX0, y0 + SET_SLOTS * pitch + 4, "", F_SMALL, C_MUTED, CW);
+        s_note = fit1(txt(p, CX0, CH - 26, "", F_SMALL, C_MUTED, CW), CW);
+    }
     build_cm(p);
     build_wm(p);
     build_pm(p);
@@ -2022,6 +2108,7 @@ static void build_settings(void)
 
 static void update_settings(void)
 {
+    EN(A_SET);
     cm_update();
     if (nv.cm_mode != CMM_OFF) {
         return;
@@ -2061,6 +2148,8 @@ static void update_settings(void)
 static bool ui_built;                                  // build_ui() and build_start() ran: the widgets exist
 static void build_ui(void);
 static void build_start(void);
+static void areas_forget(void);
+static void build_rest_all(void);
 static void buffers_mode(bool single);
 static void overlay_state_forget(void);             // what the overlay panels remember of what they show (below, after their statics)
 
@@ -2113,13 +2202,16 @@ static void canvas_apply(const TrxCanvas &c)
     lv_obj_clean(scr);                               // the pages, the overlay container and its panels
     memset(mrow, 0, sizeof(mrow));
     memset(erow, 0, sizeof(erow));
+    areas_forget();                                  // T229: an area that is not built again yet has no widgets (its pointers would dangle)
     chips_sig[0] = 0;
     rk_mode = -1;
     nav_shown = -1;
     cd_last_pct = -1;
     overlay_state_forget();
     build_ui();
-    build_start();
+    if (!lazy_build) {
+        build_rest_all();
+    }
     show_view(cur_view());                                 // build_ui() makes every view's container hidden: without this the page in view (and its message line) stays blank
     need_full = true;
 }
@@ -2162,11 +2254,12 @@ static void pq_hide(void)
 }
 static void pq_update(void)
 {
-    if (!pq_root) {
-        return;
-    }
     if (!hv_state()->pending) {
         pq_hide();
+        return;
+    }
+    EN(A_START);
+    if (!pq_root) {
         return;
     }
     char now[64], prev[64], body[240], l0[96], l1[96], keys[96];
@@ -2280,20 +2373,23 @@ static char rn_for_path[sizeof(((BootEntry *)0)->path)];      // the entry being
 static void build_rename(void)
 {
     int w = SW - 40 < 700 ? SW - 40 : 700;
-    rn_root = box(trx_overlay(), (SW - w) / 2, 150 + (SH - 540) / 2, w, 220, C_PANEL, 3, C_HOST);
-    trx_page_hide(rn_root);
-    rn_head = txt(rn_root, 20, 12, "Rename menu entry", F_TITLE, C_INK, w - 40);
-    rn_sub = fit1(txt(rn_root, 20, 46, "", F_SMALL, C_MUTED, w - 40), w - 40);
-    lv_obj_t *inbox = box(rn_root, 20, 76, w - 40, 40, C_BG, 1, C_LINE);
-    rn_in = fit1(txt(inbox, 10, 10, "", F_TEXT, C_INK, w - 80), w - 80);
-    rn_cur = box(inbox, 10, 7, 2, 24, C_HOST, 0);
-    rn_msg = fit1(txt(rn_root, 20, 128, "", F_SMALL, C_WARN, w - 40), w - 40);
-    line1(txt(rn_root, 20, 168, "RETURN saves    ESC cancels    LEFT/RIGHT HOME END move    INS blank", F_SMALL, C_MUTED, w - 40));
+    BSTEP {
+        rn_root = box(trx_overlay(), (SW - w) / 2, 150 + (SH - 540) / 2, w, 220, C_PANEL, 3, C_HOST);
+        trx_page_hide(rn_root);
+        rn_head = txt(rn_root, 20, 12, "Rename menu entry", F_TITLE, C_INK, w - 40);
+        rn_sub = fit1(txt(rn_root, 20, 46, "", F_SMALL, C_MUTED, w - 40), w - 40);
+        lv_obj_t *inbox = box(rn_root, 20, 76, w - 40, 40, C_BG, 1, C_LINE);
+        rn_in = fit1(txt(inbox, 10, 10, "", F_TEXT, C_INK, w - 80), w - 80);
+        rn_cur = box(inbox, 10, 7, 2, 24, C_HOST, 0);
+        rn_msg = fit1(txt(rn_root, 20, 128, "", F_SMALL, C_WARN, w - 40), w - 40);
+        line1(txt(rn_root, 20, 168, "RETURN saves    ESC cancels    LEFT/RIGHT HOME END move    INS blank", F_SMALL, C_MUTED, w - 40));
+    }
 }
 
 // The modal itself is the core's (host_core_ui.cc, RenameJob); this draws its page.
 static void rename_set(const HcRenamePage &p)
 {
+    EN(A_RENAME);
     set_txt(rn_head, p.head);
     hostapi_entry(p.head, rn_for_path, p.typed, "RETURN saves    ESC cancels    LEFT/RIGHT HOME END move    INS blank");
     set_txt(rn_in, p.typed);
@@ -2354,38 +2450,46 @@ static void build_wifi_panels(void)
     wl_rows = (SH - 24 - hdr - ftr) / rp;
     wl_rows = wl_rows > WL_MAX ? WL_MAX : (wl_rows < 3 ? 3 : wl_rows);
     int h = hdr + wl_rows * rp + ftr;
-    wl_root = box(trx_overlay(), (SW - w) / 2, (SH - h) / 2, w, h, C_PANEL, 3, C_HOST);
-    trx_page_hide(wl_root);
-    wl_title = fit1(txt(wl_root, 20, 12, "", F_TITLE, C_INK, w - 40), w - 40);
-    wl_sub = fit1(txt(wl_root, 20, 46, "", F_SMALL, C_MUTED, w - 40), w - 40);
     int xb = w - 20 - 250, xc = w - 20 - 90;
-    for (int i = 0; i < WL_MAX; i++) {
-        int y = hdr + i * rp;
-        marks_build(wl_mk[i], wl_root, 12, y, w - 24, rp - 2);
-        wl_a[i] = fit1(txt(wl_root, 24, y + (COMPACT ? 2 : 3), "", F_TEXT, C_INK, xb - 36), xb - 36);
-        wl_b[i] = fit1(txt(wl_root, xb, y + (COMPACT ? 3 : 4), "", F_SMALL, C_MUTED, 150), 150);
-        wl_c[i] = fit1(txt(wl_root, xc, y + (COMPACT ? 3 : 4), "", F_SMALL, C_INK, 80), 80);
-        lv_obj_set_style_text_align(wl_c[i], LV_TEXT_ALIGN_RIGHT, 0);
-    }
     int yb = hdr + wl_rows * rp + 6;
-    wl_msg = fit1(txt(wl_root, 20, yb, "", F_SMALL, C_WARN, w - 40), w - 40);
-    wl_keys = line1(txt(wl_root, 20, yb + 22, "", F_SMALL, C_MUTED, w - 40));
-
-    {   // T198: the config overlay. The dimmer comes first (below the panel); it stops above the key bar, which shows the overlay's keys and stays bright.
-        const int ow = SW - 40 < 600 ? SW - 40 : 600;
-        oc_hdr = 76;
-        oc_ftr = 34;
-        oc_rp = (SH - FOOT_H - 24 - oc_hdr - oc_ftr) / OC_MAX;
-        oc_rp = oc_rp > (COMPACT ? 26 : 32) ? (COMPACT ? 26 : 32) : oc_rp;            // one line per row (T198 D16), T209 D2: closer
-        oc_ay = (oc_rp - 2 - lv_font_get_line_height(F_TEXT)) / 2;
-        oc_h = oc_hdr + OC_MIN * oc_rp + oc_ftr;
+    BSTEP {
+        wl_root = box(trx_overlay(), (SW - w) / 2, (SH - h) / 2, w, h, C_PANEL, 3, C_HOST);
+        trx_page_hide(wl_root);
+        wl_title = fit1(txt(wl_root, 20, 12, "", F_TITLE, C_INK, w - 40), w - 40);
+        wl_sub = fit1(txt(wl_root, 20, 46, "", F_SMALL, C_MUTED, w - 40), w - 40);
+    }
+    for (int i = 0; i < WL_MAX; i++) {
+        BSTEP {
+            int y = hdr + i * rp;
+            marks_build(wl_mk[i], wl_root, 12, y, w - 24, rp - 2);
+            wl_a[i] = fit1(txt(wl_root, 24, y + (COMPACT ? 2 : 3), "", F_TEXT, C_INK, xb - 36), xb - 36);
+            wl_b[i] = fit1(txt(wl_root, xb, y + (COMPACT ? 3 : 4), "", F_SMALL, C_MUTED, 150), 150);
+            wl_c[i] = fit1(txt(wl_root, xc, y + (COMPACT ? 3 : 4), "", F_SMALL, C_INK, 80), 80);
+            lv_obj_set_style_text_align(wl_c[i], LV_TEXT_ALIGN_RIGHT, 0);
+        }
+    }
+    BSTEP {
+        wl_msg = fit1(txt(wl_root, 20, yb, "", F_SMALL, C_WARN, w - 40), w - 40);
+        wl_keys = line1(txt(wl_root, 20, yb + 22, "", F_SMALL, C_MUTED, w - 40));
+    }
+    // T198: the config overlay. The dimmer comes first (below the panel); it stops above the key bar, which shows the overlay's keys and stays bright.
+    const int ow = SW - 40 < 600 ? SW - 40 : 600;
+    oc_hdr = 76;
+    oc_ftr = 34;
+    oc_rp = (SH - FOOT_H - 24 - oc_hdr - oc_ftr) / OC_MAX;
+    oc_rp = oc_rp > (COMPACT ? 26 : 32) ? (COMPACT ? 26 : 32) : oc_rp;            // one line per row (T198 D16), T209 D2: closer
+    oc_ay = (oc_rp - 2 - lv_font_get_line_height(F_TEXT)) / 2;
+    oc_h = oc_hdr + OC_MIN * oc_rp + oc_ftr;
+    BSTEP {
         oc_root = box(trx_overlay(), 0, 0, SW, SH - FOOT_H, 0x05080e, 0);        // the dimmer is the page's root: one TrxPage shows both
         lv_obj_set_style_bg_opa(oc_root, 184, 0);                                 // 72 %, as the mock-up's dimmer
         trx_page_hide(oc_root);
         oc_panel = box(oc_root, (SW - ow) / 2, (SH - FOOT_H - oc_h) / 2, ow, oc_h, C_PANEL, 3, C_HOST);
         oc_title = fit1(txt(oc_panel, 20, 12, "", F_TITLE, C_INK, ow - 40), ow - 40);
         oc_sub = fit1(txt(oc_panel, 20, 46, "", F_SMALL, C_MUTED, ow - 40), ow - 40);
-        for (int i = 0; i < OC_MAX; i++) {
+    }
+    for (int i = 0; i < OC_MAX; i++) {
+        BSTEP {
             int y = oc_hdr + i * oc_rp;
             marks_build(oc_mk[i], oc_panel, 12, y, ow - 24, oc_rp - 2);
             oc_a[i] = fit1(txt(oc_panel, 24, y + oc_ay, "", F_TEXT, C_INK, ow - 48 - DEF_W - 8), ow - 48 - DEF_W - 8);
@@ -2393,22 +2497,27 @@ static void build_wifi_panels(void)
             lv_obj_set_style_text_align(txt(oc_df[i], 0, 2, "auto", F_SMALL, C_BG, DEF_W), LV_TEXT_ALIGN_CENTER, 0);
             set_hidden(oc_df[i], true);
         }
+    }
+    BSTEP {
         oc_msg = fit1(txt(oc_panel, 20, oc_hdr + OC_MIN * oc_rp + 6, "", F_SMALL, C_WARN, ow - 40), ow - 40);
     }
-    we_root = box(trx_overlay(), (SW - w) / 2, 150 + (SH - 540) / 2, w, 220, C_PANEL, 3, C_HOST);
-    trx_page_hide(we_root);
-    we_title = fit1(txt(we_root, 20, 12, "", F_TITLE, C_INK, w - 40), w - 40);
-    we_sub = fit1(txt(we_root, 20, 46, "", F_SMALL, C_MUTED, w - 40), w - 40);
-    lv_obj_t *inbox = box(we_root, 20, 76, w - 40, 40, C_BG, 1, C_LINE);
-    we_in = fit1(txt(inbox, 10, 10, "", F_TEXT, C_INK, w - 80), w - 80);
-    we_msg = fit1(txt(we_root, 20, 128, "", F_SMALL, C_WARN, w - 40), w - 40);
-    we_keys = line1(txt(we_root, 20, 168, "", F_SMALL, C_MUTED, w - 40));
+    BSTEP {
+        we_root = box(trx_overlay(), (SW - w) / 2, 150 + (SH - 540) / 2, w, 220, C_PANEL, 3, C_HOST);
+        trx_page_hide(we_root);
+        we_title = fit1(txt(we_root, 20, 12, "", F_TITLE, C_INK, w - 40), w - 40);
+        we_sub = fit1(txt(we_root, 20, 46, "", F_SMALL, C_MUTED, w - 40), w - 40);
+        lv_obj_t *inbox = box(we_root, 20, 76, w - 40, 40, C_BG, 1, C_LINE);
+        we_in = fit1(txt(inbox, 10, 10, "", F_TEXT, C_INK, w - 80), w - 80);
+        we_msg = fit1(txt(we_root, 20, 128, "", F_SMALL, C_WARN, w - 40), w - 40);
+        we_keys = line1(txt(we_root, 20, 168, "", F_SMALL, C_MUTED, w - 40));
+    }
 }
 
 static const HcWifiEnv &wifi_env_ref(void);       // the flows' environment (host_core_flow_wifi.h), defined with the other flows' next to flow_env
 
 static void wl_fill(const HcWifiPick &p)
 {
+    EN(A_WIFI);
     const HcWifiItem *it = p.item;
     set_txt(wl_title, p.title);
     set_txt(wl_sub, p.sub);
@@ -2435,6 +2544,7 @@ static void wl_fill(const HcWifiPick &p)
 // T198: the config overlay's page. Rows: one line (the name), the "default" badge right; the panel is as high as its rows (OC_MIN..OC_MAX).
 static void oc_fill(const HcWifiPick &p)
 {
+    EN(A_WIFI);
     const int rows = p.n < OC_MIN ? OC_MIN : (p.n > OC_MAX ? OC_MAX : p.n);
     const int h = oc_hdr + rows * oc_rp + oc_ftr;
     if (h != oc_h) {
@@ -2484,6 +2594,7 @@ static void oc_fill(const HcWifiPick &p)
 // The pick list as the screen draws it and tells the service (fresh: the panel opens).
 static void wifi_pick_show(const HcWifiPick &p, bool fresh)
 {
+    EN(A_WIFI);
     const char *labels[HCW_PICK_MAX];
     for (int i = 0; i < p.n && i < HCW_PICK_MAX; i++) {
         labels[i] = p.item[i].a;
@@ -2508,6 +2619,7 @@ static void wifi_pick_show(const HcWifiPick &p, bool fresh)
 
 static void we_draw(const HcWifiEntry &e)
 {
+    EN(A_WIFI);
     hostapi_entry(e.title, e.sub, e.shown, e.keys);
     set_txt(we_in, e.row);
     set_txt(we_msg, e.msg);
@@ -2515,6 +2627,7 @@ static void we_draw(const HcWifiEntry &e)
 
 static int wifi_entry_vis(void)
 {
+    EN(A_WIFI);
     lv_point_t sz;
     lv_text_get_size(&sz, "0", F_TEXT, 0, 0, LV_COORD_MAX, LV_TEXT_FLAG_NONE);
     return (lv_obj_get_width(we_root) - 100) / (sz.x > 0 ? sz.x + 1 : 10);
@@ -2525,29 +2638,38 @@ static void buffer_report(void);
 static void buffers_mode(bool single);
 static void build_colors(void)
 {
-    lv_obj_t *p = box(scr, 0, 0, SW, SH, C_BG, 0);
-    vwin[V_COLORS] = p;
-    set_hidden(p, true);
     static const uint32_t sw[] = { 0x000000, 0x070a12, 0x0d1220, 0x111827, 0x273047, 0x404040, 0x808080, 0xc0c0c0, 0xffffff,
                                    0xff0000, 0x00ff00, 0x0000ff, 0x800000, 0x008000, 0x000080, 0x8376ff, 0x6de7ff, 0xff7a72, 0xffc15a };
-    for (int i = 0; i < (int)(sizeof(sw) / sizeof(sw[0])); i++) {
-        int cols = COMPACT ? 4 : 5, pitch = COMPACT ? 150 : 180, bw = COMPACT ? 134 : 160, bh = COMPACT ? 62 : 90, py = COMPACT ? 76 : 110;
-        int x = 20 + (i % cols) * pitch, y = (COMPACT ? 48 : 60) + (i / cols) * py;
-        box(p, x, y, bw, bh, sw[i], 0);
-        char t[16];
-        snprintf(t, sizeof(t), "%06x", (unsigned)sw[i]);
-        txt(p, x, y + bh + 2, t, F_SMALL, C_INK);
+    BSTEP {
+        vwin[V_COLORS] = box(scr, 0, 0, SW, SH, C_BG, 0);
+        set_hidden(vwin[V_COLORS], true);
     }
-    lv_obj_t *ct = txt(p, 20, 12, HC_COLORS_TEXT, F_TEXT, C_INK, COMPACT ? SW - 40 : 0);
-    if (COMPACT) {
-        line1(ct);
+    lv_obj_t *p = vwin[V_COLORS];
+    for (int i0 = 0; i0 < (int)(sizeof(sw) / sizeof(sw[0])); i0 += 5) {
+        BSTEP {
+            for (int i = i0; i < (int)(sizeof(sw) / sizeof(sw[0])) && i < i0 + 5; i++) {
+                int cols = COMPACT ? 4 : 5, pitch = COMPACT ? 150 : 180, bw = COMPACT ? 134 : 160, bh = COMPACT ? 62 : 90, py = COMPACT ? 76 : 110;
+                int x = 20 + (i % cols) * pitch, y = (COMPACT ? 48 : 60) + (i / cols) * py;
+                box(p, x, y, bw, bh, sw[i], 0);
+                char t[16];
+                snprintf(t, sizeof(t), "%06x", (unsigned)sw[i]);
+                txt(p, x, y + bh + 2, t, F_SMALL, C_INK);
+            }
+        }
     }
-    c_pat = box(p, 0, 0, SW, SH, 0x000000, 0);
-    set_hidden(c_pat, true);
+    BSTEP {
+        lv_obj_t *ct = txt(p, 20, 12, HC_COLORS_TEXT, F_TEXT, C_INK, COMPACT ? SW - 40 : 0);
+        if (COMPACT) {
+            line1(ct);
+        }
+        c_pat = box(p, 0, 0, SW, SH, 0x000000, 0);
+        set_hidden(c_pat, true);
+    }
 }
 
 static void update_colors(void)
 {
+    EN(A_COLORS);
     if (!nv.cpat) {
         set_hidden(c_pat, true);
         return;
@@ -2620,20 +2742,9 @@ static void build_ui(void)
     mt_mark("build_ui: header, nav, foot");
     build_menu();
     mt_mark("build_ui: menu view");
-    build_browse();
-    mt_mark("build_ui: browser view");
-    build_edit();
-    mt_mark("build_ui: editor view");
-    build_net();
-    mt_mark("build_ui: network view");
-    build_settings();
-    mt_mark("build_ui: settings view");
-    build_colors();
-    mt_mark("build_ui: colours view");
-    build_rename();
-    mt_mark("build_ui: rename");
-    build_wifi_panels();
-    mt_mark("build_ui: wifi panels");
+    // T229: the other areas are built after the first frame (build_pass), or when a key needs one (EN)
+    memset(b_done, 0, sizeof(b_done));
+    memset(b_stage, 0, sizeof(b_stage));
 }
 
 static void update_nav(void)
@@ -2670,6 +2781,14 @@ static void show_view(View v)
     if (!have_ui) {
         return;
     }
+    switch (v) {                                    // T229: the view is built when it is first shown (the rest of it, when the main loop has started on it)
+    case V_BROWSE: EN(A_BROWSE); break;
+    case V_EDIT: EN(A_EDIT); break;
+    case V_NET: EN(A_NET); break;
+    case V_SET: EN(A_SET); break;
+    case V_COLORS: EN(A_COLORS); break;
+    default: break;
+    }
     for (int i = 0; i < 6; i++) {
         set_hidden(vwin[i], i != (int)v);
     }
@@ -2688,7 +2807,13 @@ static void draw(void)          // everything of the current view, now (start-up
     uint32_t t0 = core_cycles();
     show_view(cur_view());
     uint32_t t1 = core_cycles();
+    if (!g_mt.t_frame) {
+        mt_mark("first frame: widgets updated");
+    }
     trx_lv_handler();
+    if (!g_mt.t_frame) {
+        mt_mark("first frame: LVGL handler done");
+    }
     printf("[host] view %d: update %u ms, handler %u ms\n", (int)nv.view, (unsigned)(t1 - t0), (unsigned)(core_cycles() - t1));
 }
 
@@ -2761,24 +2886,32 @@ static int st_shown_step = -1, st_shown_pct = -2;
 
 static void build_start(void)
 {
-    st_root = box(trx_overlay(), (SW - 600) / 2, 130 + (SH - 540) / 2, 600, 270, C_PANEL, 1);
-    trx_page_hide(st_root);
     int w = 600;
-    st_title = txt(st_root, 20, 14, "", F_TITLE, C_INK, w - 40);
-    for (int i = 0; i < STEPS; i++) {
-        int yy = 62 + i * 26;
-        st_mark[i] = txt(st_root, 20, yy, ".", F_TEXT, C_MUTED);
-        st_name[i] = txt(st_root, 46, yy, step_name[i], F_TEXT, C_MUTED, w - 150);
-        st_pctl[i] = txt(st_root, w - 80, yy, "", F_TEXT, C_MUTED);
+    BSTEP {
+        st_root = box(trx_overlay(), (SW - 600) / 2, 130 + (SH - 540) / 2, 600, 270, C_PANEL, 1);
+        trx_page_hide(st_root);
+        st_title = txt(st_root, 20, 14, "", F_TITLE, C_INK, w - 40);
     }
-    st_bar = trx_pbar(st_root, 20, 206, w - 40, 6, C_PANEL2, C_HOST);
-    st_err = txt(st_root, 20, 226, "", F_SMALL, C_BAD, w - 40);
-    cf_root = box(trx_overlay(), (SW - 600) / 2, 150 + (SH - 540) / 2, 600, 200, C_PANEL, 1, C_HOST);
-    trx_page_hide(cf_root);
-    cf_title = txt(cf_root, 20, 14, "", F_TITLE, C_INK, w - 40);
-    cf_text = txt(cf_root, 20, 60, "", F_TEXT, C_INK, w - 40);
-    cf_hint = txt(cf_root, 20, 160, "RETURN starts    any other key cancels", F_SMALL, C_MUTED, w - 40);
-    {
+    for (int i = 0; i < STEPS; i++) {
+        BSTEP {
+            int yy = 62 + i * 26;
+            st_mark[i] = txt(st_root, 20, yy, ".", F_TEXT, C_MUTED);
+            st_name[i] = txt(st_root, 46, yy, step_name[i], F_TEXT, C_MUTED, w - 150);
+            st_pctl[i] = txt(st_root, w - 80, yy, "", F_TEXT, C_MUTED);
+        }
+    }
+    BSTEP {
+        st_bar = trx_pbar(st_root, 20, 206, w - 40, 6, C_PANEL2, C_HOST);
+        st_err = txt(st_root, 20, 226, "", F_SMALL, C_BAD, w - 40);
+    }
+    BSTEP {
+        cf_root = box(trx_overlay(), (SW - 600) / 2, 150 + (SH - 540) / 2, 600, 200, C_PANEL, 1, C_HOST);
+        trx_page_hide(cf_root);
+        cf_title = txt(cf_root, 20, 14, "", F_TITLE, C_INK, w - 40);
+        cf_text = txt(cf_root, 20, 60, "", F_TEXT, C_INK, w - 40);
+        cf_hint = txt(cf_root, 20, 160, "RETURN starts    any other key cancels", F_SMALL, C_MUTED, w - 40);
+    }
+    BSTEP {
         int qw = 560 < SW - 40 ? 560 : SW - 40;
         pq_root = box(trx_overlay(), (SW - qw) / 2, 150, qw, 58 + 4 * PQ_P + 14, C_PANEL, 3, C_HOST);
         trx_page_hide(pq_root);
@@ -2788,20 +2921,116 @@ static void build_start(void)
         pq_key = fit1(txt(pq_root, 20, 58 + 3 * PQ_P, "", F_TEXT, C_HOST, qw - 40), qw - 40);
     }
     int fw = FM_W;
-    fm_root = box(trx_overlay(), NAV_W, TOP_H, SW - NAV_W, CH, C_BG, 0, 0);
-    trx_page_hide(fm_root);
-    fm_box = box(fm_root, (SW - NAV_W - fw) / 2, 20, fw, COMPACT ? CH - 20 : 440, C_PANEL, 3, C_BAD);
-    fm_title = fit1(txt(fm_box, 20, 12, "", F_TITLE, C_INK, fw - 40), fw - 40);
-    for (int i = 0; i < FM_LINES; i++) {
-        fm_l[i] = fit1(txt(fm_box, 20, 58 + i * FM_P, "", F_TEXT, C_INK, fw - 40), fw - 40);
+    BSTEP {
+        fm_root = box(trx_overlay(), NAV_W, TOP_H, SW - NAV_W, CH, C_BG, 0, 0);
+        trx_page_hide(fm_root);
+        fm_box = box(fm_root, (SW - NAV_W - fw) / 2, 20, fw, COMPACT ? CH - 20 : 440, C_PANEL, 3, C_BAD);
+        fm_title = fit1(txt(fm_box, 20, 12, "", F_TITLE, C_INK, fw - 40), fw - 40);
     }
-    fm_pctl = txt(fm_box, fw - 140, 58, "", F_TEXT, C_INK, 120);
-    lv_obj_set_style_text_align(fm_pctl, LV_TEXT_ALIGN_RIGHT, 0);
-    fm_inbox = box(fm_box, 20, 236, fw - 40, 34, C_BG, 1, C_LINE);
-    fm_in = fit1(txt(fm_inbox, 10, 6, "", F_TEXT, C_INK, fw - 60), fw - 60);
-    fm_msg = fit1(txt(fm_box, 20, 282, "", F_TEXT, C_WARN, fw - 40), fw - 40);
-    fm_bar = trx_pbar(fm_box, 20, 330, fw - 40, 10, C_PANEL2, C_HOST);
-    fm_key = fit1(txt(fm_box, 20, 380, "", F_TEXT, C_HOST, fw - 40), fw - 40);   // T152 D10: the page's keys, one blank line under what the page says
+    for (int i = 0; i < FM_LINES; i++) {
+        BSTEP {
+            fm_l[i] = fit1(txt(fm_box, 20, 58 + i * FM_P, "", F_TEXT, C_INK, fw - 40), fw - 40);
+        }
+    }
+    BSTEP {
+        fm_pctl = txt(fm_box, fw - 140, 58, "", F_TEXT, C_INK, 120);
+        lv_obj_set_style_text_align(fm_pctl, LV_TEXT_ALIGN_RIGHT, 0);
+        fm_inbox = box(fm_box, 20, 236, fw - 40, 34, C_BG, 1, C_LINE);
+        fm_in = fit1(txt(fm_inbox, 10, 6, "", F_TEXT, C_INK, fw - 60), fw - 60);
+        fm_msg = fit1(txt(fm_box, 20, 282, "", F_TEXT, C_WARN, fw - 40), fw - 40);
+        fm_bar = trx_pbar(fm_box, 20, 330, fw - 40, 10, C_PANEL2, C_HOST);
+        fm_key = fit1(txt(fm_box, 20, 380, "", F_TEXT, C_HOST, fw - 40), fw - 40);   // T152 D10: the page's keys, one blank line under what the page says
+    }
+}
+
+static void areas_forget(void)
+{
+    memset(vwin, 0, sizeof(vwin));
+    rn_root = wl_root = oc_root = we_root = st_root = cf_root = pq_root = fm_root = 0;
+    b_left = b_right = c_pat = 0;
+    memset(b_mark, 0, sizeof(b_mark));
+    memset(b_hl, 0, sizeof(b_hl));
+    memset(s_box, 0, sizeof(s_box));
+    memset(s_mk, 0, sizeof(s_mk));
+    cm_root = wm_root = pm_root = 0;
+    memset(pm_box, 0, sizeof(pm_box));
+    memset(n_smk, 0, sizeof(n_smk));
+}
+
+// One step of an area; true when the area is complete.
+static bool area_step(int a)
+{
+    bs.target = b_stage[a];
+    bs.idx = 0;
+    switch (a) {
+    case A_BROWSE: build_browse(); break;
+    case A_EDIT: build_edit(); break;
+    case A_NET: build_net(); break;
+    case A_SET: build_settings(); break;
+    case A_COLORS: build_colors(); break;
+    case A_RENAME: build_rename(); break;
+    case A_WIFI: build_wifi_panels(); break;
+    case A_START: build_start(); break;
+    }
+    b_stage[a]++;
+    if (b_stage[a] < bs.idx) {
+        return false;
+    }
+    b_done[a] = true;
+    // the panels sit in one container, in the order the eager build made them: rename, wifi list, config overlay, entry, start, confirm, picture, format
+    lv_obj_t *const ord[] = { rn_root, wl_root, oc_root, we_root, st_root, cf_root, pq_root, fm_root };
+    if (a >= A_RENAME) {
+        for (lv_obj_t *o : ord) {
+            if (o) {
+                lv_obj_move_foreground(o);
+            }
+        }
+    }
+    trx_overlay();                                   // the container is the last child of the screen again
+    static const char *const names[A_N] = { "browser", "editor", "network", "settings", "colours", "rename", "wifi panels", "start panels" };
+    if (g_mt.t_frame) {
+        char *nm = g_mt.area_name[a];
+        snprintf(nm, sizeof(g_mt.area_name[a]), "area built: %s", names[a]);
+        mt_mark(nm);
+    }
+    return true;
+}
+
+static void ensure_area(int a)
+{
+    while (!b_done[a]) {
+        area_step(a);
+    }
+}
+
+static void build_rest_all(void)
+{
+    for (int a = 0; a < A_N; a++) {
+        EN(a);
+    }
+}
+
+// The main loop's share: steps of the areas still to build, until 40 ms are used (a step is a few objects, tens of ms at most). True while something is left.
+static bool build_pending(void)
+{
+    for (int a = 0; a < A_N; a++) {
+        if (!b_done[a]) {
+            return true;
+        }
+    }
+    return false;
+}
+static void build_pass(uint32_t budget_ms = 40)
+{
+    uint32_t t0 = now_ms();
+    for (int a = 0; a < A_N; a++) {
+        while (!b_done[a]) {
+            area_step(a);
+            if (now_ms() - t0 >= budget_ms) {
+                return;
+            }
+        }
+    }
 }
 
 static void start_screen_open(const char *title, bool full = false)
@@ -2810,6 +3039,7 @@ static void start_screen_open(const char *title, bool full = false)
     if (!have_ui) {
         return;
     }
+    EN(A_START);
     {
         TrxPage page(st_root);
         set_txt(st_title, title);
@@ -2840,6 +3070,9 @@ static int start_bar_pct(int step, int pct)
 
 static void start_screen_update(bool force)
 {
+    if (have_ui) {
+        EN(A_START);
+    }
     if (!have_ui || !st_root) {
         return;
     }
@@ -3003,6 +3236,7 @@ static bool confirm_full(const char *title)
 {
     snprintf(last_confirm, sizeof(last_confirm), "%s replaces the host. The way back is to switch the power off and on.", title);
     n_confirms++;
+    EN(A_START);
     if (cf_root) {
         {
             TrxPage page(cf_root);
@@ -3199,6 +3433,9 @@ static void fm_draw(const FmPage &pg, bool force = true)
     fm_last = pg;
     fm_pages++;
     fm_tell(pg);
+    if (have_ui) {
+        EN(A_START);
+    }
     if (!have_ui || !fm_root) {
         return;
     }
@@ -3367,8 +3604,16 @@ static const HcFlowEnv &flow_env_ref(void) { return flow_env; }
 // ---- the WiFi page's actions and modals: the screen's side (host_core_flow_wifi.cc runs them) ----
 static void ww_note(void *, const char *text, int tone) { net_note(text, tone); }
 static const char *ww_set_name(void *, int row) { return hc_wifi_net_set_name(row); }
-static bool ww_panels(void *) { return wl_root && we_root && oc_root; }
-static int ww_pick_rows(void *) { return wl_rows; }
+static bool ww_panels(void *)
+{
+    EN(A_WIFI);
+    return wl_root && we_root && oc_root;
+}
+static int ww_pick_rows(void *)
+{
+    EN(A_WIFI);
+    return wl_rows;
+}
 static int ww_entry_vis(void *) { return wifi_entry_vis(); }
 static bool ww_list_up(void *) { return wl_root && !lv_obj_has_flag(wl_root, LV_OBJ_FLAG_HIDDEN); }
 static void ww_draw_pick(void *, const HcWifiPick &p, bool fresh)
@@ -3641,6 +3886,9 @@ static void sj_start(int kind, const char *arg, int index = 0)
         sj.job = hc_zip_job(*hostzip_env(&flow_env), sj.arg);
         break;
     case SJ_RENAME:
+        if (have_ui) {
+            EN(A_RENAME);
+        }
         if (rn_root) {                                              // the panel exists (a build with no pixel layer has none)
             sj.job = hc_rename_job(flow_env, rename_env, sj.index);
         }
@@ -4313,10 +4561,12 @@ static void startup(void)
         layout_counts();                             // T209: the rows of the full canvas are computed too (one line per row), not only after a canvas change
         mt_mark("layout counts");
         build_ui();
-        mt_mark("build_ui total");
-        build_start();
-        mt_mark("build_start");
+        mt_mark("build_ui total (first screen)");
         ui_built = true;
+        if (!lazy_build) {
+            build_rest_all();                        // the benches: everything before the first frame, as it was
+            mt_mark("all areas built");
+        }
     }
     lazy_reset();                                    // no file of an entry is opened before the first frame (T101 S10)
     rows_load();                                     // T229: the rows the last settled menu held, taken at once; the files are only stat-checked afterwards
@@ -4442,6 +4692,8 @@ void hostui_run(void)
 #endif
     uint32_t last = 0, last_key_ms = 0;
     bool redraw_pending = false;
+    bool build_turn = false;
+    mt_mark("main loop begins (keys are read from here)");
     for (;;) {
         uint32_t pass0 = now_ms();
         if (sj_active()) {                                  // a flow runs: it is stepped, nothing else of the UI runs (as when each flow was one modal call)
@@ -4472,6 +4724,10 @@ void hostui_run(void)
             nk++;
         }
         if (nk) {
+            if (!g_mt.t_key1) {
+                g_mt.t_key1 = mt_now();
+                mt_mark("first key handled");
+            }
             last_key_ms = now_ms();
             uint32_t t0 = core_cycles();
             apply_updates();
@@ -4539,7 +4795,15 @@ void hostui_run(void)
         }
         snap_tick(t, nk);
         rows_tick(t, nk);                    // T229 D6: the file of the rows, when they have settled
-        lazy_pass(nk, t, last_key_ms);       // after the keys of this pass: one phase of one entry, when no key is near
+        // T229: what the first frame did not need is built in steps of at most 40 ms, when no key came in this pass; with rows to read, in turn with them
+        bool built_now = false;
+        if (have_ui && !nk && build_pending() && (!lazy_busy() || (build_turn = !build_turn))) {
+            build_pass();
+            built_now = true;
+        }
+        if (!built_now) {
+            lazy_pass(nk, t, last_key_ms);   // after the keys of this pass: one phase of one entry, when no key is near
+        }
         web_pump();                          // T106 D2: the one place the web task's commands are applied
         picture_tick();                      // T164: the hot-plug follow and the question's timer
         if (!nk && (need_full || need_sel)) {
@@ -4571,7 +4835,7 @@ void hostui_run(void)
             if (!g_mt.t_idle && g_mt.t_frame && !lazy_busy()) {
                 g_mt.t_idle = mt_now();                  // the reader has nothing left to read or check
             }
-            if (!g_mt.reported && g_mt.t_idle && !nk && mt_now() - g_mt.t_idle >= 1000) {
+            if (!g_mt.reported && g_mt.t_idle && !nk && !build_pending() && mt_now() - g_mt.t_idle >= 1000) {
                 mt_report();
             }
         }
@@ -4584,6 +4848,25 @@ void hostui_run(void)
 // T101 S9: the start-up sequence as the app runs it (splash steps, then the first menu frame); `probe` sees the frame after each step.
 int hostui_test_fw_writes(void) { return hc_restore_writes(); }
 // The flow as a job the bench steps by hand (hostui_test_job_async): is one running, where it stands, one step (true: it ended).
+// T229 build phase: the benches start with everything built; the lazy bench turns the lazy build on before the start and asks which areas exist
+void hostui_test_lazy_build(bool on) { lazy_build = on; }
+int hostui_test_built(void)
+{
+    int m = 0;
+    for (int a = 0; a < A_N; a++) {
+        m |= b_done[a] ? 1 << a : 0;
+    }
+    return m;
+}
+int hostui_test_build_steps(void)                // one main-loop pass of the build; steps are bounded by 40 ms: the number of passes to the end
+{
+    int n = 0;
+    while (build_pending() && n < 10000) {
+        build_pass(0);                                 // one step per pass: what the board does in the worst case
+        n++;
+    }
+    return n;
+}
 bool hostui_test_job_active(void) { return sj_active(); }
 int hostui_test_job_state(void) { return sj.job ? sj.job->state : (int)HCJ_DONE; }
 bool hostui_test_job_step(void) { return sj_pump(); }
@@ -4669,8 +4952,10 @@ static void test_open(void)
         lv_obj_set_flag(scr, LV_OBJ_FLAG_SCROLLABLE, false);
         layout_counts();
         build_ui();
-        build_start();
         ui_built = true;
+        if (!lazy_build) {
+            build_rest_all();
+        }
     }
 }
 
@@ -4792,6 +5077,7 @@ void hostui_test_mode(int sys, int hdmi)
 }
 void hostui_test_panels_hide(void)
 {
+    build_rest_all();
     trx_page_hide(st_root);
     trx_page_hide(cf_root);
     trx_page_hide(rn_root);
@@ -5039,6 +5325,7 @@ int hostui_test_confirms(void) { return n_confirms; }
 
 void hostui_test_confirm_panel(bool show)
 {
+    EN(A_START);
     if (show) {
         snprintf(last_confirm, sizeof(last_confirm), "%s replaces the host. The way back is to switch the power off and on.", "u64_mk2_artix 2026/09/10 11:00:57");
         TrxPage page(cf_root);
@@ -5119,6 +5406,7 @@ int hostui_test_cd_state(void) { return (hc_cd_running() ? 1 : 0) | (hc_cd_dead(
 // The rename field for a screenshot: `name` with the cursor at `cur` (the bench cannot look into the modal loop); show=false closes it.
 void hostui_test_rename_panel(bool show, const char *name, int cur, const char *msg)
 {
+    EN(A_RENAME);
     if (!show) {
         trx_page_hide(rn_root);
         lv_refr_now(NULL);
@@ -5162,6 +5450,7 @@ const char *hostui_test_net_label(int i) { return i < NS_N ? hc_wifi_net_set_nam
 // (masked), 3 the field for a name, 4 the authentication list, 5 a field for an address with its message.
 void hostui_test_wifi_panel(int what, int sel_)
 {
+    EN(A_WIFI);
     if (what == 0) {
         trx_page_hide(wl_root);
         trx_page_hide(oc_root);

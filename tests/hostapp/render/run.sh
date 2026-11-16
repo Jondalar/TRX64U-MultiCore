@@ -106,6 +106,26 @@ t_t229_base() {
 }
 cc_block t229_base t_t229_base main_render build_now need_objs t146_save t229_run
 
+# T229 build phase: the first frame builds the F1 parts only; every other area (browser, editor, network, settings, colours, rename, wifi, start panels) is built when
+# it is first used, or in the main loop's slices; its frames at 480p / 720p / 1080p are the frames of the start that built everything first.
+t_t229_lazy() {
+  main_render
+  t146_save "$B/render" "$B/t229"
+  local var f b n=0
+  for var in eager lazy slices; do
+    T229_LAZY="$var" LOGO_DIR="$ROOT/cores" "$B/render" "$B/t229" "$B/tree" || return 1
+  done
+  for f in "$B"/t229/t229lazy_eager_*.raw; do
+    b="${f##*/}"; b="${b#t229lazy_eager_}"
+    for var in lazy slices; do
+      cmp -s "$f" "$B/t229/t229lazy_${var}_$b" || { echo "T229 LAZY: $b differs between eager and $var" >&2; return 1; }
+    done
+    n=$((n + 1))
+  done
+  echo "T229 LAZY: $n frames, eager = lazy = slices (0 px differ)"
+}
+cc_block t229_lazy t_t229_lazy main_render build_now need_objs t146_save
+
 # T137 P2/P3 and T152 (the update at the UI; the module's controls are in run_fwrestore.sh, run_txu.sh, run_flashlock.sh): one decision of hostui.cc taken out each.
 t137_ctl() { cc_no_controls && return 0;   # name, sed expression on hostui.cc
   local name="$1" expr="$2"

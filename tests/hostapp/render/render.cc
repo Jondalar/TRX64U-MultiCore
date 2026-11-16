@@ -3006,6 +3006,60 @@ static void snap_start_scenario(const char *out)
 }
 
 
+// ---- T229 build phase: the first frame needs the F1 parts only; every other area is built when it is first used (T229_LAZY=lazy), or in the main loop's slices
+// (slices), and shows exactly the pixels the start that built everything first (eager) shows. Each variant writes its frames; run.sh compares the files.
+static std::string t229_file(const char *out, const char *name, std::vector<uint8_t> *v);
+extern void hostui_test_lazy_build(bool on);
+extern int hostui_test_built(void);
+extern int hostui_test_build_steps(void);
+extern void hostui_test_wifi_panel(int what, int sel_);
+extern void hostui_test_rename_panel(bool show, const char *name, int cur, const char *msg);
+extern void hostui_test_confirm_panel(bool show);
+static void lazy_shot(const char *out, const char *var, const char *res, const char *name)
+{
+    char p[700]; snprintf(p, sizeof(p), "%s/t229lazy_%s_%s_%s.raw", out, var, res, name);
+    FILE *f = fopen(p, "wb"); CHECK(f != 0);
+    if (f) { fwrite(fb, 1, 960 * 540 * 2, f); fclose(f); }
+}
+static void lazy_scenario(const char *out)
+{
+    const char *var = getenv("T229_LAZY");
+    bool lazy = strcmp(var, "eager") != 0;
+    bool slices = !strcmp(var, "slices");
+    g_saved_hdmi = VID_HDMI_1080P; g_saved_sys = VID_SYS_PAL50;
+    std::vector<uint8_t> v;
+    t229_file(out, "t146_boot.cfg", &v);
+    g_t146_cfg = std::string(v.begin(), v.end()); g_t146_cfg_set = true;
+    g_snap.clear();
+    g_rows.clear();
+    hostui_test_video(VID_SYS_PAL50, VID_HDMI_1080P);
+    hostui_test_lazy_build(lazy);
+    hostui_test_startup(0);
+    int mask = hostui_test_built();
+    printf("T229 LAZY %s: first frame, areas built mask 0x%02x\n", var, mask);
+    CHECK(lazy ? mask == 0 : mask == 0xff);                                   // the first frame needs the F1 parts only
+    lazy_shot(out, var, "1080", "first");
+    if (slices) {
+        int n = hostui_test_build_steps();
+        printf("T229 LAZY slices: %d main-loop passes (at most 40 ms each) to build the rest, mask 0x%02x\n", n, hostui_test_built());
+        CHECK(hostui_test_built() == 0xff && n > 8);
+        hostui_test_view(0);
+    }
+    struct { const char *n; int sys, hdmi; } res[] = { { "480", VID_SYS_NTSC60, VID_HDMI_480_576 }, { "720", VID_SYS_PAL50, VID_HDMI_720P }, { "1080", VID_SYS_PAL50, VID_HDMI_1080P } };
+    for (auto &r : res) {
+        hostui_test_mode(r.sys, r.hdmi);
+        static const char *vn[] = { "f1", "f3", "f5", "f7", "f8", "colours" };
+        for (int vi = 0; vi < 6; vi++) { hostui_test_view(vi); lazy_shot(out, var, r.n, vn[vi]); }
+        hostui_test_view(0);
+        for (int w = 1; w <= 5; w++) { char nm[16]; snprintf(nm, sizeof(nm), "wifi%d", w); hostui_test_wifi_panel(w, 1); lazy_shot(out, var, r.n, nm); }
+        hostui_test_wifi_panel(0, 0);
+        hostui_test_rename_panel(true, "Amiga 1200", 3, ""); lazy_shot(out, var, r.n, "rename"); hostui_test_rename_panel(false, "", 0, "");
+        hostui_test_confirm_panel(true); lazy_shot(out, var, r.n, "confirm"); hostui_test_confirm_panel(false);
+        printf("T229 LAZY %s %s: frames written, mask 0x%02x\n", var, r.n, hostui_test_built());
+    }
+    CHECK(hostui_test_built() == 0xff);
+}
+
 // ---- T229: a start with the row cache of the run above (S2-S6, S8). T229_CASE: cache, none, magic, format, key, crc, trunc, touch, missing, swap, remove, add, line
 static std::string t229_file(const char *out, const char *name, std::vector<uint8_t> *v)
 {
@@ -5081,6 +5135,11 @@ int main(int argc, char **argv)
     if (getenv("T152_NOLOCK")) {                     // the toggle-off build: only this scenario (the others need the row)
         nolock_scenario(out);
         printf("render bench (T152 D9, lock off): %d checks, %d failed\n", checks, fails);
+        return fails != 0;
+    }
+    if (getenv("T229_LAZY")) {                       // T229 build phase: the frames of one variant (eager, lazy, slices) after the run of t146_save
+        lazy_scenario(out);
+        printf("render bench (T229 lazy %s): %d checks, %d failed\n", getenv("T229_LAZY"), checks, fails);
         return fails != 0;
     }
     if (getenv("T229_START")) {                      // T229: a start with the rows the first run saved
