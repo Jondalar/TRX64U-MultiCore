@@ -39,6 +39,7 @@ static lv_obj_t *g_selpan;                        // the SELECTED panel, drawn a
 static int g_selpan_w, g_selpan_h;
 static char g_lib_path[200];
 static int g_lib_first;
+static int lib_rows(bool sheet);
 static bool g_live;
 static bool g_viewer;
 static int g_full;                                // a full screen without the menu's frame is up: 1 Timewarp, 2 the monitor
@@ -404,7 +405,7 @@ static uint32_t signature(MenuCtl &m)
             h = hi(h, m.chip_flags(i));
         }
         h = hi(h, g_lib_first);
-        for (int i = 0; i < m.rows() && i < 512; i++) {
+        for (int i = g_lib_first; i < m.rows() && i < g_lib_first + 2 * lib_rows(false) + 2; i++) {      // the rows the window can show (a list longer than 512 rows must redraw for a mark on row 600 too)
             MenuCtl::BrowseRow br;
             m.browse_row(i, &br);
             h = hi(h, br.marked);
@@ -767,7 +768,7 @@ static void build_library(lv_obj_t *c, MenuCtl &m, int sel)
     } else {
         upper(p, sizeof(p), m.browse_path());
         trx_txt(card, t.space_md, t.space_sm, p, t.caption, t.muted, lw - 160);
-        snprintf(items, sizeof(items), media ? "" : "%d items", m.rows());
+        snprintf(items, sizeof(items), media ? "" : (m.list_cut() ? "%d+ items" : "%d items"), m.entries());
     }
     trx_txt(card, lw - t.space_md - trx_text_w(items, t.caption) - (m.in_search_tab() ? t.space_sm : 0), m.in_search_tab() ? 5 : t.space_sm, items, t.caption, t.muted);
     TrxWindow w = trx_window(m.rows(), sel, g_lib_first, lib_rows(false));

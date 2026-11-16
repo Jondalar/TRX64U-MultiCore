@@ -1,4 +1,5 @@
 #include "filemgr.h"
+#include "listgrow.h"
 #include "menuintent.h"
 #include "ops_glue.h"
 #include "diag.h"
@@ -75,19 +76,47 @@ static bool name_matches(const char *name, const char *pat)
 
 
 
-FileMgr::FileMgr(CoreCtx *ctx, const Port &p) : c(ctx), port(p), nlist(0), dir_ok(true), sel(0), image_ft(-1), nroots(0), vmode(0), vlist(0), vl_index(0), seek_on(false), seek_at(0),
+FileMgr::FileMgr(CoreCtx *ctx, const Port &p) : c(ctx), port(p), list(0), cap(0), marked_cap(0), more(false), marked(0), nlist(0), dir_ok(true), sel(0), image_ft(-1), nroots(0), vmode(0), vlist(0), vl_index(0), seek_on(false), seek_at(0),
     view(false), view_hex(false), view_data(0), view_len(0), view_top(0), view_lines(0), view_nlines(0)
 {
     strcpy(path, "/");
     last_dir[0] = 0;
     memset(roots, 0, sizeof(roots));
-    memset(marked, 0, sizeof(marked));
     vl_path[0] = 0;
     vlabel[0] = 0;
     vfull = new char[VROWS][FS_PATH_MAX];
     search_q[0] = 0;
     seek[0] = 0;
     view_path[0] = 0;
+}
+
+FileMgr::~FileMgr()
+{
+    free(list);
+    free(marked);
+    delete[] vfull;
+}
+
+// The list and its flags are there, as many flags as entries (a list the vmode fills needs them without a folder having been read).
+bool FileMgr::ensure_list()
+{
+    if (!list) {
+        list = (FsEntry *)malloc(sizeof(FsEntry) * ListGrow::START);
+        cap = list ? ListGrow::START : 0;
+    }
+    if (list && (!marked || marked_cap != cap)) {
+        free(marked);
+        marked = (bool *)calloc((size_t)cap, sizeof(bool));
+        marked_cap = marked ? cap : 0;
+    }
+    return list && marked;
+}
+
+void FileMgr::clear_marks()
+{
+    if (marked) {
+        memset(marked, 0, sizeof(bool) * (size_t)cap);
+    }
 }
 
 void FileMgr::say(const char *text, bool bad) const
@@ -141,13 +170,16 @@ void FileMgr::load_dir()
     if (nroots == 0 || !strcmp(path, "/")) {
         refresh_roots();
     }
-    // A FsEntry holds a whole FAT long name (T180 #38), so the 512 rows are 139 KB: the folder is listed into list itself (after the ".." row) and the filter
-    // below moves the entries that stay to the front; no second buffer of that size is kept.
+    // A FsEntry holds a whole FAT long name (T180 #38), 272 bytes: the folder is listed into list itself (after the ".." row) and the filter below moves the entries
+    // that stay to the front; no second buffer of that size is kept. The list grows with the folder (listgrow.h, GitHub #93); `more` is what the heap budget cut.
     const int up = strcmp(path, "/") != 0 ? 1 : 0;
-    int n = c->fs->list(path, &list[up], ROWS_MAX - up);
+    int n = ListGrow::read(c->fs, path, &list, &cap, up, &more);
+    if (!ensure_list()) {
+        n = -1;
+    }
     dir_ok = n >= 0;
     nlist = 0;
-    if (up) {
+    if (up && list) {
         memset(&list[0], 0, sizeof(FsEntry));
         strcpy(list[0].name, "..");
         list[0].dir = true;
@@ -170,7 +202,7 @@ void FileMgr::load_dir()
             nlist++;
         }
     }
-    if (!strcmp(path, "/") && image_ft < 0 && c->lib.home[0] && nlist < ROWS_MAX) {      // the home folder, after the media
+    if (!strcmp(path, "/") && image_ft < 0 && c->lib.home[0] && nlist < cap) {      // the home folder, after the media
         memset(&list[nlist], 0, sizeof(FsEntry));
         snprintf(list[nlist].name, sizeof(list[nlist].name), "%s", "[Home]");
         list[nlist].dir = true;
@@ -178,7 +210,7 @@ void FileMgr::load_dir()
     }
     // the marks stay with the names (the list is read again every two seconds and after every job)
     bool same = !strcmp(c->lib.dir, path);
-    memset(marked, 0, sizeof(marked));
+    clear_marks();
     for (int i = 0; same && i < nlist; i++) {
         for (int m = 0; m < c->lib.nmarked; m++) {
             if (!strcmp(c->lib.marked[m], list[i].name)) {
@@ -341,9 +373,18 @@ bool FileMgr::medium_at(int i, MediumInfo *mi) const
     return c->fs->medium_info(list[i].name, mi);
 }
 
+void FileMgr::more_text(char *out, int n) const
+{
+    snprintf(out, n, "... more not shown");
+}
+
 void FileMgr::browse_row(int i, BrowseRow *r, const char *marks_spec) const
 {
     memset(r, 0, sizeof(*r));
+    if (i == nlist && more && !vmode) {
+        more_text(r->name, sizeof(r->name));
+        return;
+    }
     if (i < 0 || i >= nlist) {
         return;
     }
@@ -490,7 +531,7 @@ void FileMgr::apply_pending()
     }
     if (l.mark_none) {
         l.mark_none = false;
-        memset(marked, 0, sizeof(marked));
+        clear_marks();
         l.nmarked = 0;
     }
 }
@@ -501,16 +542,17 @@ void FileMgr::run_search()
     snprintf(vlabel, sizeof(vlabel), "SEARCH: %s", search_q);
     nlist = 0;
     sel = 0;
-    memset(marked, 0, sizeof(marked));
+    clear_marks();
     image_ft = -1;
     if (!search_q[0]) {
         lib_sync();
         return;
     }
-    // The search reads whole folders (up to ROWS_MAX entries of 272 bytes) and queues folder paths: taken from the heap for this search, given back at its end.
-    FsEntry *const raw = (FsEntry *)malloc(sizeof(FsEntry) * ROWS_MAX);
+    // The search reads whole folders (a buffer that grows with the folder, listgrow.h) and queues folder paths: taken from the heap for this search, given back at its end.
+    FsEntry *raw = 0;
+    int rawcap = 0;
     char (*const queue)[FS_PATH_MAX] = (char (*)[FS_PATH_MAX])malloc((size_t)64 * FS_PATH_MAX);
-    if (!raw || !queue) {
+    if (!ensure_list() || !queue || !(raw = (FsEntry *)malloc(sizeof(FsEntry) * ListGrow::START))) {
         free(raw);
         free(queue);
         say("No memory for the search", true);
@@ -544,6 +586,7 @@ void FileMgr::run_search()
         }
     }
     uint32_t t0 = c->io->now_ms();
+    rawcap = ListGrow::START;
     int dirs = 0;
     bool cut = false;
     while (qh < qt && nlist < VROWS) {
@@ -555,7 +598,9 @@ void FileMgr::run_search()
         char dcopy[FS_PATH_MAX];
         snprintf(dcopy, sizeof(dcopy), "%s", dir);
         qh++;
-        int k = c->fs->list(dcopy, raw, ROWS_MAX);
+        bool folder_cut = false;
+        int k = ListGrow::read(c->fs, dcopy, &raw, &rawcap, 0, &folder_cut);
+        cut = cut || folder_cut;                                   // a folder the budget cut: the answer says so
         dirs++;
         for (int i = 0; i < k && nlist < VROWS; i++) {
             char full[FS_PATH_MAX];
@@ -765,6 +810,10 @@ bool FileMgr::browse_image(const char *file)
 // the entries of a file are the rows of the Library (a tape image): the provider lists them, the full path of every row is the file's
 bool FileMgr::open_vlist(const MenuVList *vl, const char *file)
 {
+    if (!ensure_list()) {
+        say("No memory for the list", true);
+        return false;
+    }
     int n = vl->list(c, file, list, VROWS);
     if (n < 0) {
         say(vl->bad, true);
@@ -780,7 +829,7 @@ bool FileMgr::open_vlist(const MenuVList *vl, const char *file)
         snprintf(vfull[i], FS_PATH_MAX, "%s", file);
     }
     sel = 0;
-    memset(marked, 0, sizeof(marked));
+    clear_marks();
     lib_sync();
     return true;
 }

@@ -12,7 +12,12 @@
 enum HcView { HCV_MENU = 0, HCV_BROWSE, HCV_EDIT, HCV_NET, HCV_SET, HCV_COLORS, HCV_N };      // HCV_MENU .. HCV_SET are the navigation's 0..4; the colour test has no entry
 enum HcBrMode { HCB_NORMAL = 0, HCB_PICK, HCB_INSPECT };                                    // the browser: ordinary, picking the target folder of a copy / move, picking a .cfw/.ue2 to look into
 enum HcCmMode { HCM_OFF = 0, HCM_LIST, HCM_ASK1, HCM_ASK2 };                                // the page "Cores and ROMs" over the settings: off, the list, the first / the second question
-#define HC_BR_MAX 200                                                                       // rows the browser holds (the parent row included)
+#ifndef HC_BR_START                                                                         // (a mock-up build for the pictures of the "more" row sets both small: -DHC_BR_START=40 -DHC_BR_HARD=60)
+#define HC_BR_START 256                                                                     // rows the browser buffer holds first (the parent row included); a longer folder grows it
+#endif
+#ifndef HC_BR_HARD
+#define HC_BR_HARD 32768                                                                    // the most rows it ever holds, however much heap is free (T229-free bound: a real memory limit is the heap quarter below)
+#endif
 #define HC_NOTE_MAX 160
 
 struct HcNav {
@@ -23,8 +28,10 @@ struct HcNav {
     int bsel;                           // browser cursor
     int mfirst, efirst, bfirst;         // the first visible row of the menu / the editor / the browser window
     char bpath[160];                    // the browser's folder ("/" = the media)
-    HostDirEntry bl[HC_BR_MAX + 1];     // its rows
+    HostDirEntry *bl;                   // its rows (heap, bcap + 1 entries: the one after the last is zeroed)
+    int bcap;                           // the rows bl can hold
     int bn;                             // ... and their number
+    int bmore;                          // entries of the folder that did not fit the heap budget (0 = the list is whole); shown as one last row
     bool bup;                           // a synthetic ".." row is row 0
     uint32_t gen;                       // counts the times the list was read anew: what is cached per row is stale when it changes
     int br_mode;                        // HcBrMode
@@ -46,16 +53,21 @@ void hc_nav_geometry(int menu_rows, int browse_rows, int cores_rows, int edit_ro
 int hc_nav_menu_rows(void);
 int hc_nav_edit_rows(void);
 int hc_nav_browse_rows(void);
+void hc_browse_more_text(char *out, int n);   // the text of that last row
+void hc_browse_pos_text(char *out, int n, int first, int rows);   // the browser's "a-b of n" (entries only), empty while the list fits
+int hc_browse_nsel(void);                   // the rows the cursor stands on (the entries; not the "more not shown" line)
+int hc_browse_nrows(void);                  // the rows the list shows: the entries plus the "more not shown" row when the folder did not fit
 int hc_nav_cores_rows(void);
 
 // What the core cannot do alone: the board's side.
 struct HcNavPlatform {
-    int (*list)(const char *path, HostDirEntry *out, int max);   // the folder's entries, folders first (hostfs_list without the bundle filter); -1 when it cannot be read
+    int (*list)(const char *path, HostDirEntry *out, int max, int *total);   // the folder's entries, folders first (hostfs_list without the bundle filter), at most max; *total = all of them; -1 when it cannot be read
     bool (*exists)(const char *path);
     void (*arm_end)(uint32_t token, int how);                    // an arm ended on the screen's own account (HArmEnd): the service learns how (hostapi_arm_end)
     bool (*key_local)(void);                                     // the key being handled is the board's own (not a queued remote one)
     void (*loaded)(void);                                        // the browser's list was read anew: whatever the screen cached of the old rows is stale
     void (*ask_gone)(void);                                      // the page's question for the service is gone
+    uint32_t (*free_heap)(void);                                 // the heap that is free now (the browser grows its list by a quarter of it); 0 = unknown
 };
 void hc_nav_init(const HcNavPlatform *p);
 void hc_nav_reset(void);                                         // the start state

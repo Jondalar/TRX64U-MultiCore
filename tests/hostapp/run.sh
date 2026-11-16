@@ -226,6 +226,16 @@ t_test_hostcore() {
 }
 cc_block test_hostcore t_test_hostcore
 
+# GitHub #93 (T229 spec section "File Browser, n entries"): the File Browser lists a folder of 784 / 3000 entries and pages to its end; what the heap budget cuts is said on a last row.
+# No negative control: not a flash or persistence operation (T174 D5.4).
+t_test_browser_n() {
+  c++ -std=gnu++11 -Wall -Wextra -I"$H" -I"$ROOT/app/edit" -I"$ROOT/app/video" -I"$ROOT/host-app/software/io/c64" -o "$T/test_browser_n" "$ROOT/tests/hostapp/test_browser_n.cc" "$ROOT/tests/hostapp/hostcore_stubs.cc" \
+    "$H/host_core.cc" "$H/host_core_nav.cc" "$H/startcheck.cc" "$H/cor.cc" "$H/cfw.cc" "$H/handover.cc" "$H/bootcfg.cc" "$T/sha256.o" 2>&1
+  "$T/test_browser_n"
+  return 0
+}
+cc_block test_browser_n t_test_browser_n
+
 # T198 (S2, S3, S9, S12, S15): the config overlay's state over a fake file system. No negative control (T174 D5.4: not a flash operation).
 t_test_cfgov() {
   c++ -std=gnu++11 -Wall -Wextra -I"$H" -I"$LE" -I"$KBD" -I"$ROOT/app/video" -I"$ROOT/host-app/software/io/c64" -o "$T/test_cfgov" "$ROOT/tests/hostapp/test_cfgov.cc" "$ROOT/tests/hostapp/hostcore_stubs.cc" \

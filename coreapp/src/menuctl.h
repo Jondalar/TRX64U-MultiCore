@@ -28,7 +28,7 @@ public:
 class MenuCtl {
 public:
     enum Result { R_NONE = 0, R_REDRAW, R_CLOSE };
-    enum { ROWS_MAX = FileMgr::ROWS_MAX, VROWS = FileMgr::VROWS, VIEW_ROWS = FileMgr::VIEW_ROWS, VIEW_COLS = FileMgr::VIEW_COLS, VIEW_MAX = FileMgr::VIEW_MAX };
+    enum { VROWS = FileMgr::VROWS, VIEW_ROWS = FileMgr::VIEW_ROWS, VIEW_COLS = FileMgr::VIEW_COLS, VIEW_MAX = FileMgr::VIEW_MAX };
 
     MenuCtl(CoreCtx *c, MenuHost *h);
 
@@ -73,6 +73,8 @@ public:
     int area() const { return area_; }
     int tab() const { return tab_; }
     const char *title() const;                                     // the tab name, or the browser's path
+    int entries();                                                 // rows() without the line of a cut Library list (what the header counts)
+    bool list_cut() const { return fm_.more && !fm_.vmode; }        // the Library list is cut by the heap budget (its last row is the line that says so)
     int rows();                                                    // rows of the current view
     int selected() const;
     bool row_reset(int i) const;                                   // T187 D9: row i is a setting that takes effect at the next reset
@@ -262,6 +264,7 @@ private:
     void pick_status();
     void start_path(char *out, int n) const;                       // where the folder browser starts: the menu's folder, the last disk's, the first stick
     void load_pick();
+    void pick_release();
     bool pick_key(int k, Result *out);
     Result pick_take(const char *path);                            // T185 D4: the selector chose this file (or "" for none) for setting pick_set_
     const char *setting_label(int idx) const { const Setting &s = c_->desc->settings[idx]; return s.label ? s.label : s.key; }
@@ -360,7 +363,9 @@ private:
     const Task *pick_task_;
     int pick_set_;                                                 // >= 0: the selector chooses the file of this setting (pick_task_ is null)
     char pick_path_[200];
-    FsEntry pick_list_[ROWS_MAX];
+    FsEntry *pick_list_;                                           // the folder browser's entries: from the heap while it is open (listgrow.h)
+    int pick_cap_;
+    bool pick_more_;                                               // the folder is longer than the budget allows
     int pick_n_, pick_sel_;
     bool pick_ok_;
     // the job of a Create task: stepped by tick(), one chunk at a time
