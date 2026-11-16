@@ -1462,9 +1462,11 @@ static void cd_update(void)
 static const int foot_all[] = { HCF_MENU, HCF_BROWSE, HCF_EDIT, HCF_NET, HCF_SET, HCF_BR_TXU, HCF_BR_ZIP, HCF_BR_INSPECT, HCF_BR_CFW, HCF_BR_BACKUP, HCF_BR_MEDIA, HCF_BR_PLAIN, HCF_BR_FILE,
                                 HCF_BR_DIR, HCF_BR_PICK_COPY, HCF_BR_PICK_MOVE, HCF_BR_ASK, HCF_CM_LIST, HCF_CM_EMPTY, HCF_CM_ASK1, HCF_CM_ASK2, HCF_WM };
 
+static lv_obj_t *vhold;                         // T229: the views built after the first frame live in this container (below the overlay): adding a child to the screen
+                                                // would put the overlay out of last place, and moving it back redraws the whole screen (600-800 ms on the board)
 static lv_obj_t *view_box(int v)
 {
-    lv_obj_t *o = box(scr, NAV_W, TOP_H, SW - NAV_W, CH, C_BG, 0);
+    lv_obj_t *o = box(vhold ? vhold : scr, NAV_W, TOP_H, SW - NAV_W, CH, C_BG, 0);
     vwin[v] = o;
     set_hidden(o, true);
     return o;
@@ -2641,7 +2643,7 @@ static void build_colors(void)
     static const uint32_t sw[] = { 0x000000, 0x070a12, 0x0d1220, 0x111827, 0x273047, 0x404040, 0x808080, 0xc0c0c0, 0xffffff,
                                    0xff0000, 0x00ff00, 0x0000ff, 0x800000, 0x008000, 0x000080, 0x8376ff, 0x6de7ff, 0xff7a72, 0xffc15a };
     BSTEP {
-        vwin[V_COLORS] = box(scr, 0, 0, SW, SH, C_BG, 0);
+        vwin[V_COLORS] = box(vhold ? vhold : scr, 0, 0, SW, SH, C_BG, 0);
         set_hidden(vwin[V_COLORS], true);
     }
     lv_obj_t *p = vwin[V_COLORS];
@@ -2739,6 +2741,13 @@ static void build_ui(void)
         lv_label_set_long_mode(foot_label, LV_LABEL_LONG_MODE_DOTS);
     }
 
+    vhold = lv_obj_create(scr);
+    lv_obj_remove_style_all(vhold);
+    lv_obj_set_pos(vhold, 0, 0);
+    lv_obj_set_size(vhold, SW, SH);
+    lv_obj_set_flag(vhold, LV_OBJ_FLAG_SCROLLABLE, false);
+    lv_obj_set_flag(vhold, LV_OBJ_FLAG_CLICKABLE, false);
+    trx_overlay();                                  // the overlay container is the last child of the screen, above the holder (before the first frame: nothing to redraw yet)
     mt_mark("build_ui: header, nav, foot");
     build_menu();
     mt_mark("build_ui: menu view");
@@ -2945,6 +2954,7 @@ static void build_start(void)
 
 static void areas_forget(void)
 {
+    vhold = 0;
     memset(vwin, 0, sizeof(vwin));
     rn_root = wl_root = oc_root = we_root = st_root = cf_root = pq_root = fm_root = 0;
     b_left = b_right = c_pat = 0;
@@ -2978,15 +2988,19 @@ static bool area_step(int a)
     }
     b_done[a] = true;
     // the panels sit in one container, in the order the eager build made them: rename, wifi list, config overlay, entry, start, confirm, picture, format
+    // only when a panel of a later area was built before this one (a key asked for it): moving a panel to the front redraws its area
+    bool later = false;
+    for (int x = a + 1; x < A_N; x++) {
+        later = later || (x >= A_RENAME && b_done[x]);
+    }
     lv_obj_t *const ord[] = { rn_root, wl_root, oc_root, we_root, st_root, cf_root, pq_root, fm_root };
-    if (a >= A_RENAME) {
+    if (a >= A_RENAME && later) {
         for (lv_obj_t *o : ord) {
             if (o) {
                 lv_obj_move_foreground(o);
             }
         }
     }
-    trx_overlay();                                   // the container is the last child of the screen again
     static const char *const names[A_N] = { "browser", "editor", "network", "settings", "colours", "rename", "wifi panels", "start panels" };
     if (g_mt.t_frame) {
         char *nm = g_mt.area_name[a];
