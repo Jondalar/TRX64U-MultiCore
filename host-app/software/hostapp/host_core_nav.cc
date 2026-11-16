@@ -515,6 +515,12 @@ int hc_nav_edit_first(int total)
     return g_nav.efirst;
 }
 
+int hc_nav_browse_first(int rows)
+{
+    listwin_fix(g_nav.bsel, g_nav.bn, rows, &g_nav.bfirst);
+    return g_nav.bfirst;
+}
+
 bool hc_nav_window_follow(void)
 {
     HcNav &n = g_nav;

@@ -455,6 +455,7 @@ bool core_stage(const char *path, CorInfo *, const char **why, core_progress_t c
 bool core_swap(const CorInfo *, const char **, core_progress_t, void *) { return false; }
 std::string g_started_cfg = "?";               // T198: what the last core start asked the jump to hand over
 void core_set_start_config(const char *n) { g_started_cfg = n ? n : ""; }
+void core_set_start_safe(bool) {}                                   // T224 D2: the render bench starts no core; the safe flag has nothing to reach
 void core_jump(const CorInfo *) { exit(1); }
 // T115: the firmware start is recorded, not run
 static char g_legacy_path[256];

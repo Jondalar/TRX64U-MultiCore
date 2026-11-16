@@ -1464,7 +1464,7 @@ static void update_browse(void)
     browse_sub_update();
     hc_browse_title(t, sizeof(t));
     set_txt(b_path, t);
-    listwin_fix(nv.bsel, nv.bn, BROWS, &nv.bfirst);          // T209 D3: scrolls while 2 rows are still hidden ahead of the selection
+    hc_nav_browse_first(BROWS);                              // T209 D3: scrolls while 2 rows are still hidden ahead of the selection (the model moves it; hc_nav() is const)
     hc_browse_empty_text(t, sizeof(t));
     set_txt(b_empty, t);
     for (int i = 0; i < BROWS; i++) {
