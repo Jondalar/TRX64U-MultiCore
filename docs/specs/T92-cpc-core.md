@@ -411,6 +411,19 @@ OS464 + BASIC464`, every part 16 KB (README). Frame: the CRTC is programmable; t
    **Answered (Alex, 2026-10-13):** "b": tape SAVE (.tap/.cdt) later, not in the first build.
 (T91 Q3, the Spectrum's scope, stays in T91.)
 
+**#17 regression in main-13c2cde9 (2026-11-16):**
+- Found by reading (Opus agent, `scratchpad/cpc-regress/FULLREAD.md`). T212 D5's F1 drive list mounts an A:/B: disk with "Mount A:",
+  without a reset (`coreapp/cores/cpc.cc:293`). The menu stays open, so `hold_q` freezes the u765's ce-gated state machine mid-scan,
+  and two disk events count as "inside the scan" however far apart they are. Before T212, the default action on a .dsk was
+  "Mount A: and reset" (`cpc.cc:279`), and that reset cleared every u765 lock.
+- The reading also found two hang paths the :387 fix does not cover:
+  - H1: `tinfo_lock` stays set when a mount or eject strobe resets `seek_state` during the trackinfo load (`u765.sv:391/550/562`).
+  - H2: a command waits for secinfo while the scan waits for COMMAND_IDLE (`:388/:395/:416/:614`).
+- D-17a (Alex 2026-11-16, asked with options app now + gateware / app only / gateware only): "App now + gateware". Two parts, both
+  proven by a bench before the merge:
+  - The drive list mounts A: and B: with a reset, as the test core did.
+  - The u765 gets the H1/H2 fixes through `tools/cpc_gen.py`, so "Mount A:" without a reset no longer hangs either.
+
 ## §4 Out
 
 What this spec does not do, and why. Anything listed here is decided with Alex by the questions above or by the earlier
