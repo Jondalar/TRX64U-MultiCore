@@ -7,7 +7,8 @@ RTL, no per-core C.
 **Origin:** Alex, 2026-11-16, after a tester's comment on GitHub #80: "Support IJKL, or let the user define keys please". Alex
 (translated): "He wants to map keyboard keys from joystick/cursor. Sounds like app and cheap."
 **Depends on:** T216 (pad/joystick as keys), T192 D24 / T213 D4 (generic app, no per-core code).
-**Milestone:** M1.
+**Milestone:** post release (Alex 2026-11-16, translated: "That is post release."): built on branch t232-padkeys, merged to
+`main` only after the next release.
 
 ---
 
