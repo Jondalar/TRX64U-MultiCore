@@ -135,4 +135,11 @@ For Alex:
 
 ## §5 Implementation log
 
-(empty)
+- **P-1, MultiCore side (2026-11-16, branch t230-semver):** `tools/pack_import_cor.sh` takes `SEMVER=x.y.z` (as before, `ci/version.sh with`) or
+  `x.y.z-dev+<sha8>` (sha8 must be the one of `PKG_VERSION`, the string is the .cor version as it is, no second suffix); anything else is refused naming the pin.
+  It fetches the package's `manifest.json` next to the bitstream (or takes `--manifest`); with `"version"` the x.y.z of `SEMVER` must equal it, else
+  exit 1 naming both; without it one log line. With `--bit` and no `--manifest` nothing is fetched, the check is skipped. `tools/check_versions.py`
+  already parsed the dev form (docstring only). The contract is not edited (changes only with the firmware side and Alex). Evidence for S2
+  (`tools/test_pack_import_cor.sh`, section 5): `PASS SEMVER=0.3.1-dev+8f1dc184 ... packed as it is`, `PASS SEMVER=0.3.1-dev+deadbeef ... refused`,
+  `PASS manifest version 0.3.0 equals SEMVER 0.3.0: packed`, `PASS manifest version 0.4.0 differs from SEMVER 0.3.0: refused, message names both`,
+  `PASS manifest without version: packed, one log line`. S1 stays open until a pin bump to a package that carries the field.
