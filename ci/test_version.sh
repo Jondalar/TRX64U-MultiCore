@@ -20,10 +20,9 @@ want "$(GITHUB_REF_TYPE=tag ci/version.sh with 0.9.0)" "0.9.0" "a core on a tag"
 want "$(ci/version.sh with 0.9.0)" "0.9.0-dev+$sha8" "a core on a branch"
 want "$(TRX_VERSION_SHA8=deadbeef ci/version.sh with 1.4.0)" "1.4.0-dev+deadbeef" "the sha override"
 # negative controls
-for bad in "$(ci/version.sh)"; do
-  case "$bad" in *@*) fail "the old branch@sha form is back: $bad";; esac
-  case "$bad" in *-dev+*) ;; *) fail "no -dev pre-release in '$bad'";; esac
-done
+bad="$(ci/version.sh)"
+case "$bad" in *@*) fail "the old branch@sha form is back: $bad";; esac
+case "$bad" in *-dev+*) ;; *) fail "no -dev pre-release in '$bad'";; esac
 ci/version.sh with 8f1dc184 >/dev/null 2>&1 && fail "a commit hash was taken as a version"
 ci/version.sh with 1.4 >/dev/null 2>&1 && fail "1.4 was taken as a version"
 python3 -I tools/semver.py selftest
