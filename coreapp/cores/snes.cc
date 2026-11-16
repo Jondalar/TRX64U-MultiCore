@@ -151,8 +151,11 @@ static bool dsp_fw_file(CoreCtx *c, uint8_t dsp, uint8_t *fw, char *src, int src
 }
 
 // The firmware into the chip: the reset is held, the stream is rewound and the bytes go in one by one (snes_regs.v 0x140 / 0x141).
-static void write_dsp_fw(CoreCtx *c, const uint8_t *fw)
+static void write_dsp_fw(CoreCtx *c, uint8_t *fw)
 {
+    if (snes_dsp_fw_fix(fw)) {                                // D6: a high-byte-first file is turned around
+        printf("[snes] firmware turned around (high byte first)\n");
+    }
     c->io->wr(SNES_DSPFW_REWIND, 0);
     for (uint32_t i = 0; i < SNES_DSP_FW_BYTES; i++) {
         c->io->wr(SNES_DSPFW, fw[i]);

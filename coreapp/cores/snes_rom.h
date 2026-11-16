@@ -32,6 +32,10 @@ struct SnesInfo {
 // T218: the DSP-n firmware as one file: 2048 program words of 3 bytes and 1024 data words of 2 bytes, low byte first (ares/higan order) = 8192 bytes.
 #define SNES_DSP_FW_BYTES 8192u
 
+// T218 D6: a firmware file with every word high byte first is turned around in place to our order (low byte first); a file in our order, or one that is neither, is
+// left as it is. Returns true when it turned the file. The rule is in snes_rom.cc.
+bool snes_dsp_fw_fix(uint8_t *fw);
+
 // hdr[0..2] = the 64 bytes at SNES_HDR_LO / HI / EX (+copier), or null when the file is too short for that place; file_size = the file's size.
 SnesInfo snes_parse(const uint8_t *const hdr[3], uint64_t file_size);
 
