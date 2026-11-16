@@ -11,7 +11,7 @@
 #include "menuvlist.h"
 
 struct FileMgr {
-    enum { ROWS_MAX = 512, VROWS = 128, VIEW_ROWS = 24, VIEW_COLS = 96, VIEW_MAX = 262144, SEEK_MAX = 24 };
+    enum { ROWS_START = 512, VROWS = 128, VIEW_ROWS = 24, VIEW_COLS = 96, VIEW_MAX = 262144, SEEK_MAX = 24 };
 
     // what the manager needs of whoever holds it: a line for the status row, and whether the open tab is the Library (the folder is only handed to the file operations then)
     struct Port {
@@ -31,6 +31,11 @@ struct FileMgr {
     };
 
     FileMgr(CoreCtx *c, const Port &port);
+    ~FileMgr();
+    FileMgr(const FileMgr &) = delete;
+    FileMgr &operator=(const FileMgr &) = delete;
+    bool ensure_list();                             // the list and its flags are allocated (false: no memory)
+    void clear_marks();                             // every flag down
     void say(const char *text, bool bad) const;     // a line for the status row
 
     CoreCtx *c;
@@ -38,11 +43,13 @@ struct FileMgr {
 
     // ---- the model ----
     char path[200];                      // the folder ("/" the list of media); while an image is browsed, the image's path
-    FsEntry list[ROWS_MAX];
+    FsEntry *list;                       // the entries, from the heap, `cap` of them (listgrow.h: 512 first, more while the folder needs it)
+    int cap, marked_cap;
+    bool more;                           // the folder is longer than the list the heap budget allows: the Library says so on a last line
     int nlist;
     bool dir_ok;
     int sel;                             // the cursor
-    bool marked[ROWS_MAX];
+    bool *marked;                        // `cap` flags
     int image_ft;                        // inside a disk image: the index of its file type, else -1
     char last_dir[200];                  // the folder of the last file mounted or run
     char roots[8][16];                   // the media of the root listing, for the source chips
@@ -93,6 +100,7 @@ struct FileMgr {
     int chip_active() const;
     bool media_level() const;                       // the Library stands on "/": the list of the media
     bool medium_at(int i, MediumInfo *mi) const;
+    void more_text(char *out, int n) const;         // the last line of a list the heap budget cut
     void browse_row(int i, BrowseRow *r, const char *marks_spec) const;
 
     // ---- search and quick seek ----

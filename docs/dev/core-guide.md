@@ -252,7 +252,7 @@ The same rule holds for the application side (guide 1, section 10): a `sed` cont
 ## 9. Release
 
 - **`.cor`** (`tools/cor_pack.py`, magic `TRXCOR01`): record 1 manifest (compact JSON: name, version, contract, fpga, partial and application sizes and SHA-256, load and entry address, icon), 2 partial, 3 application
-  (the raw `coreapp.bin`, never the `.app` with its 12-byte header; `cor_pack.py` refuses a header), 4 icon (32 x 32 RGB565), and the optional 6 menu description and 7 libraries. A **DFX** `.cor` also carries the
+  (the raw `coreapp.bin`, never the `.app` with its 12-byte header; `cor_pack.py` refuses a header), 4 icon (32 x 32 RGB565), and the optional 6 menu description, 7 libraries and 8 files the core installs on the SD (core.toml `install_dir` = a folder below `cores/<id>/`, written into the core's folder at the same relative path when missing, never over a file; `install_old` = earlier shipped texts `<name>.v<N>.<ext>`, an unedited copy of one is replaced; layout in the docstring of `tools/cor_pack.py`, reader `coreapp/src/instfiles.cc`; only the core that names the folder carries them). A **DFX** `.cor` also carries the
   **host key** (the first 8 hex of the host's key, written into the bitstream's AXSS register) and the contract: the boot app refuses a bundle built for another host, so a `.cor` fits only the host it was routed against.
   A **large** `.cor` (`pack-large`, `kind = "large"`) has record 5, the whole `.bit`, and the FPGA's IDCODE; no contract, no host key.
 - **Packing in the CI**: `ci/package.sh` packs one `.cor` per core (`tools/pack_cores_mc.sh` against the package's own host `c64_basic.bit`) and one large `.cor` per large core (`tools/pack_large_cor.sh`). The package

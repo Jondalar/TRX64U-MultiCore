@@ -4,7 +4,9 @@ board are tested against what the tools write (T104.1 D9, D12).
 
     gen_bundle.py OUTDIR      writes desc_test.bin, desc_default.bin, new.cor (description + two libraries), old.cor (neither: the layer-2 bundle
                               of before), large.cor (a large core with the description), other.cor (another core's name),
-                              merged.cor (the description with the menu of the library gamma merged in), desc_trx64u.bin (the menu of TRX64U)
+                              merged.cor (the description with the menu of the library gamma merged in), desc_trx64u.bin (the menu of TRX64U),
+                              diag.cor (the diag core's .cor as the packer makes it: record 8 holds cores/diag/sd, earlier versions from cores/diag/superseded),
+                              nofiles.cor (the same core without record 8)
 """
 import os
 import struct
@@ -64,6 +66,11 @@ def main(out):
     data = b"\xFF" * 8 + sync + idcode + struct.pack(">I", 0x20000000) * 20
     bit = data + bytes(-len(data) % 4)
     open(os.path.join(out, "large.cor"), "wb").write(C.pack_large("test", "Test Machine", "0.1", bit, bytes(0x60 for _ in range(64)), desc=desc, libs=[alpha]))
+    # T175: the Port Diagnostics core carries its example tests as record 8 (cores/diag/core.toml install_dir / install_old)
+    diag = os.path.join(here, "..", "..", "cores", "diag")
+    files = C.collect_files(os.path.join(diag, "sd"), os.path.join(diag, "superseded"))
+    open(os.path.join(out, "diag.cor"), "wb").write(C.pack_large("diag", "Port Diagnostics", "0.1", bit, bytes(0x60 for _ in range(64)), files=files))
+    open(os.path.join(out, "nofiles.cor"), "wb").write(C.pack_large("diag", "Port Diagnostics", "0.1", bit, bytes(0x60 for _ in range(64))))
 
 
 if __name__ == "__main__":

@@ -18,6 +18,8 @@ struct HostDirEntry {
 // Lists `path` ("/" = the mounted media). Folders first, then the files; with only_bundles only *.cor and *.cfw files (discover_is_bundle).
 // Returns the number of entries (at most max), -1 if the path cannot be read.
 int hostfs_list(const char *path, HostDirEntry *out, int max, bool only_bundles);
+// The same, and *total (when not NULL) = how many entries the folder has that match, also the ones that did not fit max.
+int hostfs_list_n(const char *path, HostDirEntry *out, int max, bool only_bundles, int *total);
 
 // Whole file into buf (max bytes); returns the length, -1 if it cannot be read.
 int hostfs_load(const char *path, char *buf, int max);

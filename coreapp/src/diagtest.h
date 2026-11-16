@@ -80,6 +80,7 @@ enum { DT_KIND_TEST = 0, DT_KIND_SUITE = 1 };
 struct DiagTest {
     char name[DT_STR], id[DT_NAME];
     int version;
+    bool kbd_only;                                          // [test] menu_input = "keyboard": the joystick ports feed no menu key while the test runs
     char needs[DT_LIST][48]; int nneeds;                   // what the person needs plugged in, for the report
     char requires[DT_LIST][DT_NAME * 2]; int nrequires;     // "<test>.<eval id>": the newest result of that test must show the eval as PASS
     DtPrompt prompts[DT_PROMPTS]; int nprompts;
@@ -151,6 +152,13 @@ public:
     virtual ~DiagUi() { }
     // T201: a question of an A/V test; the answer is DUI_CONTINUE for YES, DUI_SKIP for NO, DUI_TIMEOUT, DUI_ABORT. The default is the prompt.
     virtual int question(const char *title, const char *text, int idx, int total, int timeout_s) { return prompt(title, text, idx, total, timeout_s); }
+    // A question with a text the test rewrites (T196 S7): `text` is the test's buffer, live(ud) refills it about once a second while the question is open, the dialog
+    // changes the text in place. The answer as question(); the default asks once.
+    virtual int question_live(const char *title, const char *text, void (*live)(void *), void *ud)
+    {
+        (void)live; (void)ud;
+        return question(title, text, 1, 1, 0);
+    }
     // T201 v2: a question with a choice of answers (items[0..n-1]); DUI_CONTINUE with *pick = the index, DUI_TIMEOUT, DUI_ABORT. The default asks it as YES / NO: YES picks 0, NO picks the last item.
     virtual int choice(const char *title, const char *text, int idx, int total, int timeout_s, const char *const *items, int n, int *pick)
     {
@@ -196,6 +204,16 @@ struct DiagEnv {
     void (*av_done)(void *ud);
     void (*av_freeze)(void *ud, bool on);    // T201 v2: the marker stands still while a question is open (register 053 bit 1); av_done clears it as well. May be null.
     void *av_ud;
+    // T175: a test with menu_input = "keyboard" switches the joystick ports off as menu keys from its start until its result dialog (on = false), and back on. May be null.
+    void (*joy_menu)(void *ud, bool on);
+    void *joy_ud;
+    // T196 S7, a test with kind = "xpad": the XInput pad's counters. xpad_begin sets the poll interval and the ack switch and zeroes the counters, xpad_reset zeroes them,
+    // xpad_text writes the counters as lines of text, xpad_end puts the production values back. Null in an application with no XInput driver.
+    void (*xpad_begin)(void *ud, int poll_ms, bool ack_input);
+    void (*xpad_reset)(void *ud);
+    int (*xpad_text)(void *ud, char *out, int cap);
+    void (*xpad_end)(void *ud);
+    void *xpad_ud;
 };
 
 struct DiagOutcome {
@@ -206,8 +224,6 @@ struct DiagOutcome {
 
 // Runs a test or suite file (a path on the card). 0 when it ran to the end (verdicts may still fail), else a reason in outcome->msg.
 int diag_run_file(DiagEnv *env, const char *path, DiagOutcome *out);
-// Writes the example tests into <folder>/tests for those that are missing (never over a file). Returns how many were written, -1 when the folder cannot be made.
-int diag_install_examples(CoreFs *fs, const char *folder);
 // The live line of the idle page: reads PD_LIVE.
 uint32_t diag_live(CoreIo *io);
 

@@ -1,5 +1,7 @@
 // The application's life after identification (T93 D4 steps 3-8, the Freeze menu, the menu loop and the start of the service layer's tasks). Board code; the sequences
 // it calls (boot.cc, freeze.cc, menuctl.cc, video.cc, settings.cc) are tested natively against models of the core.
+#include "listgrow.h"
+#include "FreeRTOS.h"
 #include "run.h"
 #include "diag.h"
 #include "ui.h"
@@ -40,6 +42,7 @@ extern "C" bool rtc_time_valid(void);
 #include "rest.h"
 #include "uiapp.h"
 #include "bundle.h"
+#include "instfiles.h"
 #include "apphost.h"
 #include "appsvc.h"
 #include "engines.h"
@@ -467,6 +470,7 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
     net_fs.bind(&ctx);
     netfs_set(&net_fs);
     ctx.fs = &net_fs;
+    ListGrow::free_heap() = []() -> uint32_t { return (uint32_t)xPortGetFreeHeapSize(); };   // the Library and the folder pick size their lists against it (listgrow.h)
     hostwifi_load(ctx.fs);                              // T184 D3: the WiFi settings are the host's (F8); read once, never written
     start_paths(&ctx, h, board);
     char file_config[HANDOVER_CONFIG_MAX + 2] = "";     // T223 D4: a large core's choice comes in a file beside the page
@@ -479,7 +483,7 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
         } medium_env;
         start_core_folder(&ctx, &medium_env);
     }
-    if (!(h && handover_valid(h) && h->path[0])) {      // T230 P-2: no page, no medium of a .cor to wait for: the file may lie on a stick that is still coming up
+    if (board && board->kind == BOARD_MONOLITH && !(h && handover_valid(h) && h->path[0])) {      // T230 P-2, D6: monolith only (a host start always fills the page, a page-less start there is a dev start): no page, no medium of a .cor to wait for: the file may lie on a stick that is still coming up
         uint64_t sfsz;
         bool sfdir;
         if (!ctx.fs->stat("/SD/" STARTFILE_NAME, &sfsz, &sfdir)) {
@@ -602,6 +606,7 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
         menu->rebuild();
     }
 
+    core_files_install(&ctx);                     // record 8 of the bundle: the files the core installs on the card, when missing (instfiles.h)
     hk_apply(&ctx);                               // T181: the map into the host's mask registers (and the USB filter) before the core runs
     cs_step(3, desc->nroms || desc->romset ? "ROM files, then the core" : "Starting the core");
     BootResult r = boot_start(&ctx, &board_ui);
@@ -666,10 +671,21 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
             int b = dlg->buttons_timed(title, text, SVC_BUTTON_YES | SVC_BUTTON_NO, timeout_s);
             return b == SVC_BUTTON_YES ? 1 : b == SVC_BUTTON_NO ? 0 : b == DLG_TIMEOUT ? -2 : -1;
         }
+        int ask_live(const char *title, const char *text, void (*live)(void *), void *ud) override
+        {
+            int b = dlg->buttons_live(title, text, SVC_BUTTON_YES | SVC_BUTTON_NO, live, ud);
+            return b == SVC_BUTTON_YES ? 1 : b == SVC_BUTTON_NO ? 0 : -1;
+        }
         int choose(const char *title, const char *text, const char *const *items, int n, int timeout_s) override
         {
             int b = dlg->choose_timed(title, text, items, n, timeout_s);
             return b == DLG_TIMEOUT ? -2 : b;
+        }
+        void joystick_menu(bool on) override
+        {
+            if (matrix_kb) {
+                matrix_kb->set_keyboard_only(!on);
+            }
         }
         void notice(const char *title, const char *text) override { dlg->message(title, text); }
         bool pick(const char *start, char *out, int outlen) override { return dlg->pick_file(start, ".toml", out, outlen); }

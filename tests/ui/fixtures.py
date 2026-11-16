@@ -122,6 +122,9 @@ def make_stick(stick, roms_dir, core="trx64u"):
             with open(os.path.join(stick, "cores", "neogeo", "roms", n), "wb") as f:
                 f.write(bytes(b))
         return
+    if core == "diag":                               # T196 S7: the diag core has a folder and nothing else (it writes its example tests there)
+        os.makedirs(os.path.join(stick, "cores", "diag"))
+        return
     if core == "nes":
         # a core with no drives and no ROM set: the core folder holds nothing, the games folder one cartridge image (iNES header, 16 KiB PRG, 8 KiB CHR of zeros)
         os.makedirs(os.path.join(stick, "cores", "nes"))

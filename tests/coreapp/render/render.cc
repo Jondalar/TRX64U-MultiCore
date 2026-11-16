@@ -50,6 +50,7 @@ extern const CoreDesc ddt_novic_desc;
 #include "menubuild.h"
 #include "screens.h"
 #include "cores.h"
+#include "diag_examples.h"
 #include "table.cc"                                           // T187: the board's own core table (every core), not a short copy of it
 
 // ---- the pixel layer, native ----------------------------------------------------------------------
@@ -1664,6 +1665,14 @@ static void ux_chrome(void)
                             r.m->key(FKEYS[ak]); if (tk) { r.m->key('0' + tk); }
                             select_row(r, i);
                             r.m->key(KEY_RETURN);
+                            {                                      // T216 D11: a task row shows ">" too (zxnext "F3: 50 / 60 Hz", a key task in F5 since T212 D8): RETURN opens a dialog or runs the task with a toast, no page, the area legend stays
+                                char dtx[200];
+                                if (r.m->status()[0] && !r.m->mapping() && !strcmp(r.m->dialog(dtx, sizeof(dtx)), "none")) { continue; }     // a task ran and said so (a toast), no page
+                                if (r.m->mapping() || strcmp(r.m->dialog(dtx, sizeof(dtx)), "none") != 0) {
+                                    for (int k = 0; k < 4 && (r.m->mapping() || strcmp(r.m->dialog(dtx, sizeof(dtx)), "none") != 0); k++) { r.m->key(KEY_ESCAPE); ui_menu_render(*r.m); lv_timer_handler(); }
+                                    continue;
+                                }
+                            }
                             ucn_pages++;
                             snprintf(where, sizeof(where), "F%d page \"%s\"", area + 1, l.c_str());
                             ux_chrome_check(core, cv.name, r, where, true);

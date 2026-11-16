@@ -9,6 +9,7 @@
 #include "check.h"
 #include "fakes.h"
 #include "diagtest.h"
+#include "diag_examples.h"
 #include "portdiag_regs.h"
 
 #include "diag_engine.h"
@@ -129,7 +130,7 @@ static void test_parse_shipped()
     CHECK_STR(g_f.suite.tests[1], "stick2.toml");
     // the example tests the app carries are the files of the repository
     Rig r;
-    CHECK_EQ(diag_install_examples(&r.fs, "/SD/cores/diag"), 7);
+    CHECK_EQ(diag_install_examples(&r.fs, "/SD/cores/diag"), 10);
     for (const char *n : names) {
         CHECK_STR(r.fs.text(std::string("/SD/cores/diag/tests/") + n + ".toml").c_str(), slurp(std::string("cores/diag/sd/tests/") + n + ".toml").c_str());
     }
@@ -528,10 +529,59 @@ static void test_cd32_v2()
     Rig w;
     w.fs.put_text("/SD/cores/diag/tests/cd32.toml", slurp("cores/diag/superseded/cd32.v1.toml"));
     w.fs.put_text("/SD/cores/diag/tests/stick2.toml", slurp("cores/diag/superseded/stick2.v1.toml") + "# mine\n");
-    CHECK_EQ(diag_install_examples(&w.fs, "/SD/cores/diag"), 6);                       // cd32 replaced + pins, paddle, joystick, cd32keys, avout written; stick2 edited, kept
+    CHECK_EQ(diag_install_examples(&w.fs, "/SD/cores/diag"), 9);   // cd32 replaced + pins, paddle, joystick, cd32keys, avout, xpad20, xpad4, xpad4noack written; stick2 edited, kept
     CHECK_STR(w.fs.text("/SD/cores/diag/tests/cd32.toml").c_str(), slurp("cores/diag/sd/tests/cd32.toml").c_str());
     CHECK(w.fs.text("/SD/cores/diag/tests/stick2.toml").find("# mine") != std::string::npos);
     CHECK_EQ(diag_install_examples(&w.fs, "/SD/cores/diag"), 0);                       // the second start writes nothing
+}
+
+// T175 S-joy (board 2026-11-15, cd32keys v1): the joystick in port 2 drives the menu, so a prompt that says "hold a direction, then press RETURN" was answered by the held
+// direction (SKIPPED). The model: while the joystick is a menu input and a direction is held, the held direction answers the prompt as ESC/NO would; the keyboard's RETURN
+// answers it otherwise. `menu_input = "keyboard"` switches the joystick off for the run, and back on before the result dialog.
+static bool g_joy_menu, g_dir_held;
+static int g_joy_calls;
+static void joy_menu_cb(void *, bool on) { g_joy_menu = on; g_joy_calls++; }
+static void test_menu_input()
+{
+    for (int kbd = 0; kbd < 2; kbd++) {
+        Rig r;
+        std::string t = std::string(SMALL);
+        size_t at = t.find("version = 3\n") + 12;
+        t.insert(at, kbd ? "menu_input = \"keyboard\"\n" : "menu_input = \"any\"\n");
+        r.fs.put_text("/SD/cores/diag/tests/small.toml", t);
+        r.env.joy_menu = joy_menu_cb;
+        g_joy_menu = true;
+        g_dir_held = true;                                  // the person holds a direction while pressing RETURN on the keyboard
+        g_joy_calls = 0;
+        r.ui.answer = [](int) { return g_joy_menu && g_dir_held ? DUI_SKIP : DUI_CONTINUE; };
+        CHECK_EQ(r.run("small.toml"), 0);
+        std::string x = r.fs.text("/SD/cores/diag/results/small_20261102-143015.toml");
+        if (kbd) {
+            CHECK(x.find("SKIPPED") == std::string::npos);
+            CHECK(x.find("p = \"OK\"") != std::string::npos);
+            CHECK_EQ(g_joy_calls, 2);                       // off at the start, on again after the run
+            CHECK(g_joy_menu);                              // restored
+        } else {
+            CHECK(x.find("SKIPPED") != std::string::npos);  // today's behaviour: the held direction answers the prompt
+            CHECK_EQ(g_joy_calls, 0);
+        }
+    }
+    // an unknown value is an error with its line
+    int line;
+    std::string bad = std::string(SMALL);
+    bad.insert(bad.find("version = 3\n") + 12, "menu_input = \"joy\"\n");
+    CHECK_STR(err_of(bad, &line).c_str(), "menu_input is \"any\" or \"keyboard\"");
+    CHECK_EQ(line, 5);
+    // the three shipped tests that ask to hold something say keyboard
+    const char *kb[] = { "cd32", "cd32keys", "stick2" };
+    for (const char *n : kb) {
+        DtErr e;
+        CHECK(parse(slurp(std::string("cores/diag/sd/tests/") + n + ".toml"), &g_f, &e));
+        CHECK(g_f.test.kbd_only);
+    }
+    DtErr e2;
+    CHECK(parse(slurp("cores/diag/sd/tests/pins.toml"), &g_f, &e2));
+    CHECK(!g_f.test.kbd_only);
 }
 
 static void test_requires_suite()
@@ -637,7 +687,7 @@ static void test_engine_errors()
 static void test_examples()
 {
     Rig r;
-    CHECK_EQ(diag_install_examples(&r.fs, "/SD/cores/diag"), 7);
+    CHECK_EQ(diag_install_examples(&r.fs, "/SD/cores/diag"), 10);
     CHECK(r.fs.has("/SD/cores/diag/tests/pins.toml"));
     // the person edits one; the next start leaves it alone and writes only what is missing
     r.fs.put_text("/SD/cores/diag/tests/pins.toml", "# mine\n");
@@ -876,6 +926,7 @@ int main()
     test_prompts();
     test_requires_suite();
     test_cd32_v2();
+    test_menu_input();
     test_engine_errors();
     test_examples();
     test_avout();

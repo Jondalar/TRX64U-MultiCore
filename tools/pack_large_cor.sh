@@ -47,6 +47,15 @@ args=(--id "$ID" --name "$NAME" --version "$VER" --bit "$BIT" --app "$APPBIN")
 [ -z "$OPS" ] || args+=(--ops "$OPS")
 [ -z "$ORIGIN" ] || args+=(--origin "$ORIGIN")
 [ -z "$FLASHID" ] || args+=(--flash-id "$FLASHID")
+# the files the core installs on the SD (record 8): the folders its descriptor names (core.toml install_dir / install_old, relative to cores/<id>/)
+for d in "$ROOT/cores/$ID/mono/core.toml" "$ROOT/cores/$ID/core.toml"; do
+    [ -f "$d" ] || continue
+    idir="$(TRX_CORE_DESC="$d" python3 "$HERE/core_toml.py" get "$ID" install_dir)"
+    iold="$(TRX_CORE_DESC="$d" python3 "$HERE/core_toml.py" get "$ID" install_old)"
+    [ -z "$idir" ] || args+=(--files "$ROOT/cores/$ID/$idir")
+    [ -z "$iold" ] || args+=(--files-old "$ROOT/cores/$ID/$iold")
+    break
+done
 python3 "$HERE/cor_pack.py" pack-large -o "$OUT/$ID.cor" "${args[@]}"
 python3 "$HERE/cor_pack.py" check "$OUT/$ID.cor" > /dev/null
 ls -l "$OUT/$ID.cor"

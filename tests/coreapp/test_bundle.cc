@@ -15,6 +15,7 @@ extern void trx64u_register(OpRegistry &);
 #include "fakes.h"
 #include "test_core.h"
 #include "bundle.h"
+#include "instfiles.h"
 #include "ops_glue.h"
 #include "menutree.h"
 
@@ -29,6 +30,8 @@ static Bytes slurp(const std::string &p)
     std::string t = s.str();
     return Bytes(t.begin(), t.end());
 }
+
+static std::string slurp_text(const std::string &p) { Bytes b = slurp(p); return std::string(b.begin(), b.end()); }
 
 // a library's registration, as the host's twin of lib_register makes it
 static int op_nop(CoreCtx *, const OpArgs &, OpOut &) { return OPE_OK; }
@@ -395,6 +398,66 @@ int main(int argc, char **argv)
         BundleExtras w;
         bundle_read(&c, &w);
         CHECK(!w.probed && w.desc == 0);
+    }
+
+    // ---- T175, record 8: the files a core installs on the card (the diag core's example tests ride in diag.cor)
+    {
+        fs.put("/usb0/cores/diag.cor", slurp(dir + "/diag.cor"));
+        fs.put("/usb0/cores/nofiles.cor", slurp(dir + "/nofiles.cor"));
+        CoreDesc dd = testcore::desc;
+        dd.cor_name = "Port Diagnostics";
+        CoreCtx c;
+        ctx_for(&c, &fs, &io, "/usb0/cores/diag.cor");
+        c.desc = &dd;
+        BundleExtras x;
+        bundle_read(&c, &x);
+        CHECK(x.probed && x.ci.size[COR_PART_FILES] > 0);                       // the host's reader sees record 8
+        free_extras(&x);
+        // an unedited text of an earlier version is replaced, an edited one is not, a file the person made stays, the rest is written
+        fs.put_text("/usb0/cores/diag/tests/cd32.toml", slurp_text("cores/diag/superseded/cd32.v1.toml"));
+        fs.put_text("/usb0/cores/diag/tests/stick2.toml", slurp_text("cores/diag/superseded/stick2.v1.toml") + "# mine\n");
+        fs.put_text("/usb0/cores/diag/tests/pins.toml", "# mine\n");
+        fs.put_text("/usb0/cores/diag/tests/mytest.toml", "# mine too\n");
+        CHECK_EQ(core_files_install(&c), 8);                      // 10 files: cd32 replaced + 7 missing written; stick2 and pins edited, kept
+        CHECK_STR(fs.text("/usb0/cores/diag/tests/cd32.toml").c_str(), slurp_text("cores/diag/sd/tests/cd32.toml").c_str());
+        CHECK_STR(fs.text("/usb0/cores/diag/tests/pins.toml").c_str(), "# mine\n");
+        CHECK(fs.text("/usb0/cores/diag/tests/stick2.toml").find("# mine") != std::string::npos);
+        CHECK_STR(fs.text("/usb0/cores/diag/tests/mytest.toml").c_str(), "# mine too\n");
+        CHECK_STR(fs.text("/usb0/cores/diag/tests/paddle.toml").c_str(), slurp_text("cores/diag/sd/tests/paddle.toml").c_str());
+        CHECK_EQ(core_files_install(&c), 0);                      // the second start writes nothing
+        // a card that cannot be written says so
+        fs.remove("/usb0/cores/diag/tests/paddle.toml");
+        fs.read_only = true;
+        CHECK_EQ(core_files_install(&c), -1);
+        fs.read_only = false;
+        // a bundle without the record, and another core's bundle, install nothing
+        ctx_for(&c, &fs, &io, "/usb0/cores/nofiles.cor");
+        c.desc = &dd;
+        CHECK_EQ(core_files_install(&c), 0);
+        ctx_for(&c, &fs, &io, "/usb0/cores/diag.cor");            // the Test Machine's descriptor with the diag core's bundle
+        size_t before = fs.writes;
+        CHECK_EQ(core_files_install(&c), 0);
+        CHECK_EQ((size_t)fs.writes, before);
+        ctx_for(&c, &fs, &io, "/usb0/cores/new.cor");             // the layer-2 core of the other tests: no record 8
+        CHECK_EQ(core_files_install(&c), 0);
+        ctx_for(&c, &fs, &io, "");                                // no bundle
+        CHECK_EQ(core_files_install(&c), 0);
+        // a damaged record is refused and writes nothing: one flipped byte inside record 8 breaks its SHA-256
+        std::vector<uint8_t> bad = slurp(dir + "/diag.cor");
+        fs.put("/usb0/cores/bad.cor", bad);
+        {
+            CoreCtx cb;
+            ctx_for(&cb, &fs, &io, "/usb0/cores/bad.cor");
+            cb.desc = &dd;
+            BundleExtras xb;
+            bundle_read(&cb, &xb);
+            bad[xb.ci.off[COR_PART_FILES] + xb.ci.size[COR_PART_FILES] - 8] ^= 1;
+            free_extras(&xb);
+            fs.put("/usb0/cores/bad.cor", bad);
+            fs.remove("/usb0/cores/bad/tests/paddle.toml");
+            CHECK_EQ(core_files_install(&cb), -1);
+            CHECK(!fs.has("/usb0/cores/bad/tests/paddle.toml"));
+        }
     }
 
     DONE("test_bundle");

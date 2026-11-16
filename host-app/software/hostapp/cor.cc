@@ -170,7 +170,7 @@ cor_result_t cor_probe(CorSource &src, CorInfo &ci)
         }
         uint32_t t = le32(rh), n = le32(rh + 4);
         p += 8;
-        if (t <= last || t > 7 || n > fsz - p) {
+        if (t <= last || t > 8 || n > fsz - p) {
             return COR_ERR_FORMAT;
         }
         last = t;
@@ -185,7 +185,7 @@ cor_result_t cor_probe(CorSource &src, CorInfo &ci)
         return COR_ERR_FORMAT;                                       // record 5 belongs to a large core only, record 2 to the other kind
     }
 
-    static const char *pk[COR_PARTS] = { "partial", "app", "icon", "bit", "desc", "libs" };
+    static const char *pk[COR_PARTS] = { "partial", "app", "icon", "bit", "desc", "libs", "files" };
     for (int i = 0; i < COR_PARTS; i++) {
         char k[24];
         uint32_t sz;
@@ -206,8 +206,8 @@ cor_result_t cor_probe(CorSource &src, CorInfo &ci)
             return COR_ERR_FORMAT;
         }
     }
-    if (ci.size[COR_PART_DESC] || ci.size[COR_PART_LIBS]) {
-        uint32_t rf;                                                 // T104.1: records 6 and 7 are announced by the manifest ("records": 1)
+    if (ci.size[COR_PART_DESC] || ci.size[COR_PART_LIBS] || ci.size[COR_PART_FILES]) {
+        uint32_t rf;                                                 // T104.1: records 6, 7 and 8 are announced by the manifest ("records": 1)
         if (!get_u32(m, "records", &rf) || rf != 1) {
             return COR_ERR_FORMAT;
         }
@@ -363,9 +363,9 @@ cor_result_t cor_verify_part(CorSource &src, const CorInfo &ci, int part, cor_pr
 
 bool cor_large_verify(CorSource &src, const CorInfo &ci, const char **why, cor_progress_t progress, void *ctx)
 {
-    static const int parts[5] = { COR_PART_APP, COR_PART_ICON, COR_PART_FULL, COR_PART_DESC, COR_PART_LIBS };
-    static const char *const names[5] = { "application", "icon", "bitstream", "description", "libraries" };
-    for (int i = 0; i < 5; i++) {
+    static const int parts[6] = { COR_PART_APP, COR_PART_ICON, COR_PART_FULL, COR_PART_DESC, COR_PART_LIBS, COR_PART_FILES };
+    static const char *const names[6] = { "application", "icon", "bitstream", "description", "libraries", "files" };
+    for (int i = 0; i < 6; i++) {
         if (!ci.size[parts[i]]) {
             continue;
         }

@@ -25,7 +25,7 @@ WORK = os.path.join(HERE, "work")
 OUT = os.path.join(HERE, "out")
 
 
-CORES = ("amiga1200", "nes", "snes", "neogeo", "vc20", "c128", "atari800", "pet", "c64scpu")      # the cores with a profile in tests/coreapp/emu/profiles (no C64 in the machine)
+CORES = ("amiga1200", "nes", "snes", "neogeo", "vc20", "c128", "atari800", "pet", "c64scpu", "diag")      # the cores with a profile in tests/coreapp/emu/profiles (no C64 in the machine)
 
 
 class EmuError(Exception):

@@ -142,7 +142,7 @@ model has BASIC and no built-in programs.
 
 11.5.2 Media: `.prg` and `.p00` (`Run PRG`, `Load PRG (no reset, no start)`). A `.bin` of 16 or 32 KB has `Load as cartridge (Plus/4)`. Drive A is a 1541 as in 11.1.16 (`.d64`, `.g64`, optional `1541.rom`).
 
-11.5.3 Settings (F5): `Model` (`C16 / C116`, `Plus/4`; default `Plus/4`, at next reset), `RAM` (`16 KB (C16, C116)`, `64 KB`; default `64 KB`, at next reset), `Joystick ports` (`Joystick 1 = port 1`, `Swapped`; at next reset), `Datasette port`, and the drive rows. F7: `Reset`, `Reload ROMs, reset`, `Eject cartridge, reset`, and the drive tasks.
+11.5.3 Settings (F5): `Model` (`C16 / C116`, `Plus/4`; default `Plus/4`, at next reset), `RAM` (`16 KB (C16, C116)`, `64 KB`; default `64 KB`, at next reset), `Joystick ports` (`Joystick 1 = port 1`, `Swapped`; at next reset), `Datasette port`, and the drive rows. F7: `Reset`, `Reload ROMs, reset`, `Eject cartridge and reset`, and the drive tasks.
 
 ## 11.6 Amiga (OCS/ECS, 68000)
 

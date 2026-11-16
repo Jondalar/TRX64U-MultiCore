@@ -1,4 +1,5 @@
 #include "menuctl.h"
+#include "listgrow.h"
 #include "keyboard.h"
 #include "ops_glue.h"
 #include "diag.h"
@@ -24,6 +25,9 @@ MenuCtl::MenuCtl(CoreCtx *c, MenuHost *h) : c_(c), h_(h), fm_(c, FileMgr::Port{ 
     pick_(false), pick_task_(0), pick_set_(-1), pick_n_(0), pick_sel_(0), pick_ok_(true), busy_(false), job_started_(false), job_task_(0),
     entry_(false), entry_act_(0), entry_def_(0), entry_n_(0), entry_fresh_(false), app_mode_(false), flow_q_(0)
 {
+    pick_list_ = 0;
+    pick_cap_ = 0;
+    pick_more_ = false;
     follow_last_[0] = 0;
     close_req_ = false;
     entry_set_ = -1;
@@ -229,6 +233,7 @@ void MenuCtl::go(int area, int tab)
     entry_ = false;
     learn_ = -1;
     pick_ = false;
+    pick_release();
     pick_sets_ = false;
     pick_modes_ = false;
     fm_.view = false;
@@ -530,6 +535,11 @@ void MenuCtl::browse_row(int i, BrowseRow *r) const
     fm_.browse_row(i, r, marks);
 }
 
+int MenuCtl::entries()
+{
+    return rows() - (is_browser() && !chooser_ && !entry_ && !pick_ && !busy_ && list_cut() ? 1 : 0);
+}
+
 int MenuCtl::rows()
 {
     if (busy_ || wizard()) {
@@ -548,7 +558,7 @@ int MenuCtl::rows()
         if (chooser_) {
             return chooser_n_;
         }
-        return fm_.nlist;
+        return fm_.nlist + (fm_.more && !fm_.vmode ? 1 : 0);        // the line "... more not shown" is the last row, no entry
     }
     return cur().count;
 }
@@ -736,6 +746,10 @@ void MenuCtl::row(int i, char *left, int ln, char *right, int rn, bool *active, 
             snprintf(left, ln, "%s", chooser_acts_[i].label);
             return;
         }
+        if (i == fm_.nlist && fm_.more && !fm_.vmode) {
+            fm_.more_text(left, ln);
+            return;
+        }
         if (i >= fm_.nlist) {
             return;
         }
@@ -907,6 +921,9 @@ void MenuCtl::move(int d)
     s += d;
     if (s < 0) s = 0;
     if (s >= n) s = n - 1;
+    if (is_browser() && !chooser_ && s >= fm_.nlist && fm_.nlist > 0) {      // the information line of a cut list takes no focus (ux-review R10)
+        s = fm_.nlist - 1;
+    }
     if (!is_browser() && heading(s)) {                              // T187: a heading takes no focus: the next row that does in the direction of the key, else the other way
         int dir = d < 0 ? -1 : 1, k = s;
         while (k >= 0 && k < n && heading(k)) {
@@ -1229,13 +1246,22 @@ void MenuCtl::start_path(char *out, int n) const
     snprintf(out, n, "/");
 }
 
+// The folder browser is closed: its entries go back to the heap.
+void MenuCtl::pick_release()
+{
+    free(pick_list_);
+    pick_list_ = 0;
+    pick_cap_ = 0;
+    pick_more_ = false;
+}
+
 void MenuCtl::load_pick()
 {
     const int up = strcmp(pick_path_, "/") != 0 ? 1 : 0;           // listed into pick_list_ itself, after the ".." row; the folders are moved to the front
-    int n = c_->fs->list(pick_path_, &pick_list_[up], ROWS_MAX - up);
+    int n = ListGrow::read(c_->fs, pick_path_, &pick_list_, &pick_cap_, up, &pick_more_);
     pick_ok_ = n >= 0;
     pick_n_ = 0;
-    if (up) {
+    if (up && pick_list_) {
         memset(&pick_list_[0], 0, sizeof(FsEntry));
         strcpy(pick_list_[0].name, "..");
         pick_list_[0].dir = true;
@@ -1256,11 +1282,15 @@ void MenuCtl::load_pick()
 
 void MenuCtl::pick_status()
 {
-    char s[160];
+    char s[220];
     if (pick_set_ >= 0) {
         snprintf(s, sizeof(s), "Choose the file for \"%s\"; RETURN takes it, <- goes up, ESC cancels", setting_label(pick_set_));
     } else {
         snprintf(s, sizeof(s), "Choose the folder; \"%s\" takes it, <- goes up, ESC cancels", pick_task_ && pick_task_->pick_label ? pick_task_->pick_label : "Create here");
+    }
+    if (pick_more_) {                                               // the folder is longer than the memory budget (listgrow.h): said, never just cut
+        size_t l = strlen(s);
+        snprintf(s + l, sizeof(s) - l, " - more entries are not shown");
     }
     set_status(s, false);
 }
@@ -1357,6 +1387,7 @@ MenuCtl::Result MenuCtl::pick_take(const char *path)
         return R_REDRAW;
     }
     pick_ = false;
+    pick_release();
     pick_set_ = -1;
     set_status(r.msg, false);
     return R_REDRAW;
@@ -1532,6 +1563,7 @@ bool MenuCtl::pick_key(int k, Result *out)
             }
             snprintf(c_->media_dir, sizeof(c_->media_dir), "%s", pick_path_);
             pick_ = false;
+            pick_release();
             if (!pick_task_->ask) {                                 // a job that asks for no name (copy, move): the folder is all it needs
                 *out = start_job(*pick_task_, "");
                 return true;
@@ -1569,12 +1601,14 @@ bool MenuCtl::pick_key(int k, Result *out)
     }
     case KEY_ESCAPE:
         pick_ = false;
+        pick_release();
         set_status("Cancelled", false);
         *out = R_REDRAW;
         return true;
     case KEY_F1: case KEY_F2: case KEY_F3: case KEY_F4: case KEY_F5: case KEY_F6: case KEY_F7: case KEY_F8:
     case KEY_BREAK: case KEY_F10: case KEY_SCRLOCK: case KEY_MENU:
         pick_ = false;
+        pick_release();
         return false;
     default:
         *out = R_NONE;

@@ -154,12 +154,11 @@ VIC-20 F8/expert 11 info:ROMs
 VIC-20 F8/expert 12 info:Libraries
 Commodore 264 (C16, Plus/4) F1/home 0 task:Reset
 Commodore 264 (C16, Plus/4) F1/home 1 task:Reload ROMs, reset
-Commodore 264 (C16, Plus/4) F1/home 2 task:Eject cartridge, reset
-Commodore 264 (C16, Plus/4) F1/home 3 media:c264.program
-Commodore 264 (C16, Plus/4) F1/home 4 media:c264.cartridge
-Commodore 264 (C16, Plus/4) F1/home 5 media:drive.drive_a.image
-Commodore 264 (C16, Plus/4) F1/home 6 fixed:10:Save as config...
-Commodore 264 (C16, Plus/4) F1/home 7 fixed:11:Load config...
+Commodore 264 (C16, Plus/4) F1/home 2 media:c264.program
+Commodore 264 (C16, Plus/4) F1/home 3 media:c264.cartridge
+Commodore 264 (C16, Plus/4) F1/home 4 media:drive.drive_a.image
+Commodore 264 (C16, Plus/4) F1/home 5 fixed:10:Save as config...
+Commodore 264 (C16, Plus/4) F1/home 6 fixed:11:Load config...
 Commodore 264 (C16, Plus/4) F5/settings 0 set:Model (at next reset)
 Commodore 264 (C16, Plus/4) F5/settings 1 set:RAM (at next reset)
 Commodore 264 (C16, Plus/4) F5/settings 2 set:Joystick ports (at next reset)

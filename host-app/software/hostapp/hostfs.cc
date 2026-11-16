@@ -8,7 +8,9 @@
 #include <strings.h>
 #include <stdio.h>
 
-int hostfs_list(const char *path, HostDirEntry *out, int max, bool only_bundles)
+int hostfs_list(const char *path, HostDirEntry *out, int max, bool only_bundles) { return hostfs_list_n(path, out, max, only_bundles, NULL); }
+
+int hostfs_list_n(const char *path, HostDirEntry *out, int max, bool only_bundles, int *total)
 {
     Path p;
     p.cd(path);
@@ -17,15 +19,19 @@ int hostfs_list(const char *path, HostDirEntry *out, int max, bool only_bundles)
     if (fm->get_directory(&p, infos, NULL) != FR_OK) {
         return -1;
     }
-    int n = 0;
+    int n = 0, all = 0;
     for (int pass = 0; pass < 2; pass++) {
         for (int i = 0; i < infos.get_elements(); i++) {
             FileInfo *f = infos[i];
             bool dir = (f->attrib & AM_DIR) != 0;
-            if ((pass == 0) != dir || n >= max) {
+            if ((pass == 0) != dir) {
                 continue;
             }
             if (!dir && only_bundles && !discover_is_bundle(f->lfname)) {
+                continue;
+            }
+            all++;
+            if (n >= max) {
                 continue;
             }
             strncpy(out[n].name, f->lfname, sizeof(out[n].name) - 1);
@@ -38,6 +44,9 @@ int hostfs_list(const char *path, HostDirEntry *out, int max, bool only_bundles)
     }
     for (int i = 0; i < infos.get_elements(); i++) {
         delete infos[i];
+    }
+    if (total) {
+        *total = all;
     }
     return n;
 }

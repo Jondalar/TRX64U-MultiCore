@@ -64,6 +64,11 @@ SCHEMA = {
     "delivery":     ("str",  False),
     # The environment of that flat build, "NAME=value" each (the variant: TRX_DEFS, TRX_Z80, TRX_REU, ... of build_mono.tcl).
     "mono_env":     ("list", False),
+    # Files the core installs on the SD (record 8 of its .cor, tools/cor_pack.py): every file below cores/<id>/<install_dir>/ is written to the core's
+    # folder at the same relative path when it is missing; cores/<id>/<install_old>/<name>.v<N>.<ext> are earlier shipped texts of <name>.<ext>, which
+    # the application replaces when the file on the card is byte for byte one of them. Only the core that names the folder carries the files.
+    "install_dir":  ("str",  False),
+    "install_old":  ("str",  False),
 }
 APPS = ("blueprint", "ultimate", "none")
 DELIVERIES = ("cor", "cfw")

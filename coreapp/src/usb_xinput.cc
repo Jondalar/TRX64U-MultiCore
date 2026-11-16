@@ -7,6 +7,7 @@
 #include "usb_xinput.h"
 #include "xinput.h"
 #include "FreeRTOS.h"
+#include "task.h"
 
 static const UsbPadSink *xi_sink = NULL;
 static bool xi_cap_pad = false;
@@ -67,7 +68,12 @@ public:
             memcpy(obuf, pend[pend_tail], n);
             pend_tail = (pend_tail + 1) % PENDING;
             // a pad that never takes the OUT packet must not hold poll() for long: short timeout, the rest of the queue is dropped on a failure
-            if (host->bulk_out(&opipe, obuf, n, 200) < 0) {
+            uint32_t t0 = (uint32_t)xTaskGetTickCount();
+            int sent = host->bulk_out(&opipe, obuf, n, 200);                // the bytes that went out: a short count is a failure (0 on a NAK / timeout)
+            uint32_t ms = ((uint32_t)xTaskGetTickCount() - t0) * portTICK_PERIOD_MS;
+            if (ms > xi_stats.out_ms_max) xi_stats.out_ms_max = ms;
+            if (sent == n) xi_stats.out_ok++; else xi_stats.out_fail++;
+            if (sent < 0) {
                 printf("[xinput] write of %d bytes failed, %d queued packets dropped\n", n, (pend_head - pend_tail + PENDING) % PENDING);
                 pend_tail = pend_head;
             }
@@ -109,6 +115,9 @@ public:
 
         host->initialize_pipe(&ipipe, device, iin);
         ipipe.Interval = poll_interval(dev->speed, iin->interval);          // the endpoint's own rate (#55: 20 ms lost ~58 % of GIP reports at bInterval 4 ms)
+        if (xi_cfg.poll_ms >= 1 && xi_cfg.poll_ms <= 255) {
+            ipipe.Interval = (uint16_t)(xi_cfg.poll_ms * 8);                // the diag core's xpad test forces a rate (T196 S7); units of 125 us
+        }
         uint16_t mp = iin->max_packet_size;
         if (mp == 0 || mp > sizeof(irq_data)) mp = sizeof(irq_data);
         ipipe.Length = mp;
@@ -121,6 +130,13 @@ public:
             pad = false;
             return;
         }
+        xi_stats.attached = true;
+        xi_stats.kind = kind;
+        xi_stats.vid = dev->vendorID;
+        xi_stats.pid = dev->productID;
+        xi_stats.ep_interval = iin->interval;
+        xi_stats.ep_maxpkt = iin->max_packet_size;
+        xi_stats.programmed = ipipe.Interval;
         if (iout) {
             host->initialize_pipe(&opipe, device, iout);
             have_out = true;
@@ -142,6 +158,7 @@ public:
     {
         if (pad) {
             pad = false;
+            xi_stats.attached = false;
             xi_sink->detach(this);
         }
         if (host && irq_transaction > 0) {
@@ -161,7 +178,10 @@ public:
     {
         int n = host->getReceivedLength(irq_transaction);
         uint8_t rep[XI_REPORT_LEN];
+        xi_stats.cb++;
+        if (n <= 0) xi_stats.cb_empty++;
         if (n > 0 && pad && session.data(irq_data, n, rep)) {
+            xi_stats_report(rep);
             xi_sink->report(this, rep, XI_REPORT_LEN);
         }
         host->resume_input_pipe(irq_transaction);

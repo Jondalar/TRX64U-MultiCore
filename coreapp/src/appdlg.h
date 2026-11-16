@@ -26,7 +26,7 @@ enum DlgKind { DK_NONE = 0, DK_MESSAGE, DK_BUTTONS, DK_CHOOSE, DK_TEXT, DK_PICK_
 struct DlgView {
     int kind;                             // DlgKind; DK_NONE: no question open
     char title[64];
-    char text[300];
+    char text[520];
     char input[DLG_TEXT_MAX + 1];         // text(): what was typed; the pickers: the folder
     int caret;                            // text(): the cursor, in characters
     int nitems;                           // choose(), pickers: how many rows there are
@@ -36,6 +36,7 @@ struct DlgView {
     bool row_dir[DLG_ITEMS_MAX];
     int buttons;                          // SVC_BUTTON_* of buttons(): which ones are drawn
     int remaining_s;                      // a timed question: the whole seconds left (rounded up); 0: no timer
+    bool live;                            // the text is rewritten in place by the application (buttons_live): the screen updates its label, not the card
     bool bar;                             // a bar is up
     char bar_title[64], bar_text[64];
     int bar_value, bar_total;
@@ -58,6 +59,9 @@ public:
     int buttons(const char *title, const char *text, int buttons);
     // As buttons(), and when nobody answered within timeout_s seconds of the question being on the screen it closes and answers DLG_TIMEOUT. 0: no timer.
     int buttons_timed(const char *title, const char *text, int buttons, int timeout_s);
+    // As buttons(), for a text the application rewrites: `text` is a buffer of the application, live(ud) refills it (on the menu task, about once a second while the
+    // question is open) and the screen changes the text in place. No timer.
+    int buttons_live(const char *title, const char *text, int buttons, void (*live)(void *), void *ud);
     bool confirm(const char *title, const char *text);
     int choose(const char *title, const char *const *items, int n, int sel, const char *keys);
     // As choose() with a text under the title, and a timer as buttons_timed(): the index picked, -1 cancelled, DLG_TIMEOUT when the time ran out (so at most DLG_TIMEOUT items).
@@ -98,6 +102,8 @@ private:
         int max;
         int buttons;
         int timeout_s;
+        void (*live)(void *);
+        void *live_ud;
     };
     struct Bar {
         bool on;
@@ -118,6 +124,7 @@ private:
     volatile bool abandoned_;
     // the open question (menu task)
     Req cur_;
+    uint32_t live_ms_;                    // when cur_.live runs next
     uint32_t deadline_ms_;                // cur_'s end of time (os_->now_ms()); only while cur_.timeout_s
     DlgView v_;
     // picker state
