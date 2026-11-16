@@ -343,7 +343,7 @@ module pet_core (
     wire [15:0] rgb565;
     wire        hblank, vblank, dotst, frame_end;
     pet_vid vid (
-        .clk(sys_clk), .hz50(hz50_s), .phos(phos_s), .crtc_m(m_crtc), .alt(r12[5]), .r1(r1), .start({r12[3:0], r13}), .cur({r14[5:0], r15}), .r10(r10), .r11(r11[4:0]),
+        .clk(sys_clk), .hz50(hz50_s), .phos(phos_s), .crtc_m(m_crtc), .alt(r12[5]), .r1(r1), .start({r12[3:0], r13}), 
         .gfx(v_gfx), .blank(v_blank), .v_a(v_a), .v_q(vv_q), .c_a(c_a), .c_q(ch_q),
         .hblank(hblank), .vblank(vblank), .video_on(video_on), .dotst(dotst), .rgb565(rgb565), .frame_end(frame_end)
     );

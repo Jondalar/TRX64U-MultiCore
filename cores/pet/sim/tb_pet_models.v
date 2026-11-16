@@ -60,7 +60,10 @@ module tb_pet_models;
             emit(8'hA9); emit(8'h01); emit(8'h8D); emit(8'h80); emit(8'hE8);
             emit(8'hA9); emit(8'h28); emit(8'h8D); emit(8'h81); emit(8'hE8);
             emit(8'hA9); emit(8'hA5); emit(8'h8D); emit(8'h00); emit(8'h02);
-            emit(8'h4C); emit(8'h23); emit(8'hF0);
+            // T216 S13: what the real 8032 editor leaves in R10 / R11 / R14 / R15 (the table: R10 = 0, R11 = 0, cursor address 0): no cursor glyph at (0,0)
+            emit(8'hA9); emit(8'h0A); emit(8'h8D); emit(8'h80); emit(8'hE8); emit(8'hA9); emit(8'h00); emit(8'h8D); emit(8'h81); emit(8'hE8);
+            emit(8'hA9); emit(8'h0B); emit(8'h8D); emit(8'h80); emit(8'hE8); emit(8'hA9); emit(8'h00); emit(8'h8D); emit(8'h81); emit(8'hE8);
+            emit(8'h4C); emit(8'h37); emit(8'hF0);
         end else begin
             emit(8'h4C); emit(8'h00); emit(8'h03);              // JMP $0300: the test runs from low RAM (the 8096's extra RAM replaces the ROM)
             pc = 16'h0300;
