@@ -60,7 +60,7 @@ module tb_pet_models;
             emit(8'hA9); emit(8'h01); emit(8'h8D); emit(8'h80); emit(8'hE8);
             emit(8'hA9); emit(8'h28); emit(8'h8D); emit(8'h81); emit(8'hE8);
             emit(8'hA9); emit(8'hA5); emit(8'h8D); emit(8'h00); emit(8'h02);
-            // T216 S13: what the real 8032 editor leaves in R10 / R11 / R14 / R15 (the table: R10 = 0, R11 = 0, cursor address 0): no cursor glyph at (0,0)
+            // T216 S13: what the real 8032 editor writes to R10 / R11 (both 0; R14/R15 stay at their reset value 0, as the editor leaves them): no cursor glyph at (0,0)
             emit(8'hA9); emit(8'h0A); emit(8'h8D); emit(8'h80); emit(8'hE8); emit(8'hA9); emit(8'h00); emit(8'h8D); emit(8'h81); emit(8'hE8);
             emit(8'hA9); emit(8'h0B); emit(8'h8D); emit(8'h80); emit(8'hE8); emit(8'hA9); emit(8'h00); emit(8'h8D); emit(8'h81); emit(8'hE8);
             emit(8'h4C); emit(8'h37); emit(8'hF0);

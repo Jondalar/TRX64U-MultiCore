@@ -223,5 +223,5 @@ LUT/BRAM: +1 BRAM18 (character ROM 4 KiB); no BRAM for 96 KiB (`pet_ram64` alrea
   builds `hwflag` from DOUBLE_CHARS / LATE_BEAM only, never `CRTC_HW_CURSOR` (`crtc/crtc-draw.c:105` draws the cursor only with it; `crtc-mem.c:152,165,196` mark R10, R11, R14, R15 "not implemented on the PET" / "unused"; the
   comment `crtc-draw.c:106` says only the B series have a hardware cursor). The reset value R10 = $20 (off) hid it until the editor wrote its table. The 4032 (model 2, `m_crtc` = 0) has no CRTC, so it never drew it.
 - **Fix:** the cursor overlay is removed from `pet_vid.v` (ports `cur`, `r10`, `r11`, `fcnt`, `cur_f` gone; `pet_core.v` instance); the reverse-video bit (the PET's software cursor) stays.
-- **Bench:** `tb_pet_models` mode 0 (in `run_models.sh`, case of `pet_boot`, already listed in `ci/sims.txt`) now writes R10 = 0, R11 = 0, R14/R15 = 0 like the editor and checks cell (0,0) scan 0 = dots 0 and 7 only.
+- **Bench:** `tb_pet_models` mode 0 (in `run_models.sh`, case of `pet_boot`, already listed in `ci/sims.txt`) now writes R10 = 0, R11 = 0 like the editor (R14/R15 stay at their reset value 0) and checks cell (0,0) scan 0 = dots 0 and 7 only.
   Before (RTL of main): `FAIL 80 col cell0`, `FAIL alternate character set (R12 bit 5)`, 2 errors. After: `PASS tb_pet_models mode 0`.
