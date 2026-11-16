@@ -1011,7 +1011,7 @@ static CbmRunMachine machine(void)
     m.ask = c128_go64_ask;
     m.ask_len = sizeof(c128_go64_ask);
     m.ask_blind_ms = 1500;
-    m.ready_blind_ms = 4000;
+    m.ready_blind_ms = 6000;                           // the boot attempt after the banner takes 4-5 s on the board (Alex 2026-11-16), plus 1 s
     m.mode_reg = C128_STATUS;
     m.mode_mask = 0x01;                                 // C128_STATUS b0: C64 mode
     m.c64_screen = 0x0400;
