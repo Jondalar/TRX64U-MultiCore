@@ -50,6 +50,7 @@ extern const CoreDesc ddt_novic_desc;
 #include "menubuild.h"
 #include "screens.h"
 #include "cores.h"
+#include "diag_examples.h"
 #include "table.cc"                                           // T187: the board's own core table (every core), not a short copy of it
 
 // ---- the pixel layer, native ----------------------------------------------------------------------

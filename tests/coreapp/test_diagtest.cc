@@ -9,6 +9,7 @@
 #include "check.h"
 #include "fakes.h"
 #include "diagtest.h"
+#include "diag_examples.h"
 #include "portdiag_regs.h"
 
 #include "diag_engine.h"

@@ -12,7 +12,8 @@
 // COR_PART_FULL: record 5, the full bitstream of a LARGE core (manifest "kind":"large", T115 section 7); it replaces the partial.
 // COR_PART_DESC, COR_PART_LIBS: records 6 and 7, the menu description and the libraries of the core (T104.1 D9, D12); either kind of core may
 // carry them, a bundle without them has size 0 for both and is read as it always was.
-enum { COR_PART_PARTIAL = 0, COR_PART_APP = 1, COR_PART_ICON = 2, COR_PART_FULL = 3, COR_PART_DESC = 4, COR_PART_LIBS = 5, COR_PARTS = 6 };
+// COR_PART_FILES: record 8, the files the core installs on the SD (tools/cor_pack.py, the application's coreapp/src/instfiles.cc reads it).
+enum { COR_PART_PARTIAL = 0, COR_PART_APP = 1, COR_PART_ICON = 2, COR_PART_FULL = 3, COR_PART_DESC = 4, COR_PART_LIBS = 5, COR_PART_FILES = 6, COR_PARTS = 7 };
 
 typedef enum {
     COR_OK = 0,

@@ -42,6 +42,7 @@ extern "C" bool rtc_time_valid(void);
 #include "rest.h"
 #include "uiapp.h"
 #include "bundle.h"
+#include "instfiles.h"
 #include "apphost.h"
 #include "appsvc.h"
 #include "engines.h"
@@ -605,6 +606,7 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
         menu->rebuild();
     }
 
+    core_files_install(&ctx);                     // record 8 of the bundle: the files the core installs on the card, when missing (instfiles.h)
     hk_apply(&ctx);                               // T181: the map into the host's mask registers (and the USB filter) before the core runs
     cs_step(3, desc->nroms || desc->romset ? "ROM files, then the core" : "Starting the core");
     BootResult r = boot_start(&ctx, &board_ui);

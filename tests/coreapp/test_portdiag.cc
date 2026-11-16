@@ -9,12 +9,19 @@
 #include "portdiag.h"
 #include "portdiag_regs.h"
 #include "diagtest.h"
+#include "instfiles.h"
 #include "diag_engine.h"
 #include "settings_ops.h"
 #include "settings.h"
 #include <fstream>
 #include <sstream>
 #include <vector>
+
+static std::vector<uint8_t> slurp_bytes(const char *path)
+{
+    std::ifstream f(path ? path : "", std::ios::binary);
+    return std::vector<uint8_t>((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+}
 
 static std::string slurp_file(const std::string &path)
 {
@@ -68,8 +75,10 @@ int main()
     CHECK(!reg.error()[0]);
     c.ops = &reg;
 
-    // the start: outputs released, the five examples written
+    // the start: outputs released; the examples are record 8 of diag.cor, written by the application's installer (instcore.cc) at the start of the core
+    fs.put("/SD/cores/diag.cor", slurp_bytes(getenv("DIAG_COR")));
     char msg[100];
+    CHECK_EQ(core_files_install(&c), 10);
     CHECK_EQ(d.init(&c, msg, sizeof(msg)), 0);
     CHECK_EQ(io.regs[PD_CTRL], PD_CTRL_CLEAR);         // ABORT, then CLEAR: the last write
     bool aborted = false;
@@ -79,6 +88,7 @@ int main()
     CHECK(fs.has("/SD/cores/diag/tests/joystick.toml"));
     size_t n = fs.writes;
     CHECK_EQ(d.init(&c, msg, sizeof(msg)), 0);
+    CHECK_EQ(core_files_install(&c), 0);
     CHECK_EQ((size_t)fs.writes, n);                     // the second start writes nothing
 
     // the rows read the live register: bits 0-4 port 1, 5-9 port 2, 10-13 the comparators

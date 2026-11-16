@@ -7,6 +7,7 @@
 #include "portdiag_regs.h"
 #include "portdiag.h"
 #include "diagtest.h"
+#include "instfiles.h"
 #include "corefolder.h"
 #include "picture.h"
 #include "settings_ops.h"
@@ -400,10 +401,12 @@ static int start(CoreCtx *c, const char *path, OpOut &o)
 
 static int op_run(CoreCtx *c, const OpArgs &a, OpOut &o) { return start(c, a.s(0), o); }
 static int op_pick(CoreCtx *c, const OpArgs &, OpOut &o) { return start(c, "", o); }
+// Weak: the benches that link only the descriptor do not link instfiles.cc; the board image always does.
+extern int core_files_install(CoreCtx *c) __attribute__((weak));
 static int op_install(CoreCtx *c, const OpArgs &, OpOut &o)
 {
     folder_of(c);
-    int n = diag_install_examples(c->fs, g_folder);
+    int n = core_files_install ? core_files_install(c) : -1;          // record 8 of diag.cor (instfiles.h)
     if (n < 0) {
         snprintf(o.msg, o.msglen, "Cannot write %s/tests (read only card?)", g_folder);
         return OPE_FAILED;
@@ -419,8 +422,6 @@ static int pd_init(CoreCtx *c, char *, int)
     c->io->wr(PD_CTRL, PD_CTRL_CLEAR);
     folder_of(c);
     g_ctx = c;
-    int n = diag_install_examples(c->fs, g_folder);    // the examples the package cannot carry (T148 D8): written when missing; over a file only when it is an unedited text an earlier version shipped
-    printf("[core] diag: %d example test(s) written to %s/tests\n", n, g_folder);
     return 0;
 }
 

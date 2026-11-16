@@ -556,5 +556,48 @@ class MergedMenusTest(unittest.TestCase):
         self.assertEqual(C.parse(blob)[1][C.T_DESC], desc_record())
 
 
+class FilesTest(unittest.TestCase):
+    """Record 8, the files a core installs on the SD (T175)."""
+    FILES = [("tests/a.toml", b"new a\n", [(3, 0x1234567890ABCDEF)]), ("b.txt", b"b" * 5, [])]
+
+    def test_roundtrip_in_both_kinds(self):
+        for blob in (make(files=self.FILES)[0], make_large(files=self.FILES)):
+            m, r = C.parse(blob)
+            self.assertEqual(C.parse_files(r[C.T_FILES]), self.FILES)
+            self.assertEqual((m["records"], m["files_count"], m["files_size"]), (1, 2, len(r[C.T_FILES])))
+            self.assertEqual(list(r)[-1], C.T_FILES)                       # after the others
+        m, r = C.parse(make()[0])
+        self.assertNotIn("files_size", m)                                  # a bundle without it is what it was
+
+    def test_a_damaged_record_is_refused(self):
+        blob = bytearray(make_large(files=self.FILES))
+        blob[-9] ^= 1
+        with self.assertRaises(C.CorError):
+            C.parse(bytes(blob))
+
+    def test_paths_are_relative_and_inside(self):
+        for bad in ("/a", "../a", "a/../b", "a//b", "a\\b", ""):
+            with self.assertRaises(C.CorError, msg=bad):
+                C.pack_files([(bad, b"x", [])])
+
+    def test_collect_pairs_earlier_versions_with_their_file(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            os.makedirs(d + "/sd/tests"); os.makedirs(d + "/old")
+            open(d + "/sd/tests/x.toml", "wb").write(b"v2")
+            open(d + "/old/x.v1.toml", "wb").write(b"v1")
+            (p, data, olds), = C.collect_files(d + "/sd", d + "/old")
+            self.assertEqual((p, data, olds), ("tests/x.toml", b"v2", [(2, C.fnv64(b"v1"))]))
+            open(d + "/old/y.v1.toml", "wb").write(b"?")
+            with self.assertRaises(C.CorError):                             # an earlier version of a file the core does not install
+                C.collect_files(d + "/sd", d + "/old")
+
+    def test_the_diag_core_carries_its_tests_and_only_it(self):
+        root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "cores")
+        files = C.collect_files(os.path.join(root, "diag", "sd"), os.path.join(root, "diag", "superseded"))
+        self.assertIn("tests/cd32.toml", [f[0] for f in files])
+        self.assertTrue(all(o for f in files if f[0] in ("tests/cd32.toml", "tests/stick2.toml") for o in [f[2]]))
+
+
 if __name__ == "__main__":
     unittest.main()

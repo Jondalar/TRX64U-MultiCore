@@ -224,8 +224,6 @@ struct DiagOutcome {
 
 // Runs a test or suite file (a path on the card). 0 when it ran to the end (verdicts may still fail), else a reason in outcome->msg.
 int diag_run_file(DiagEnv *env, const char *path, DiagOutcome *out);
-// Writes the example tests into <folder>/tests for those that are missing (never over a file). Returns how many were written, -1 when the folder cannot be made.
-int diag_install_examples(CoreFs *fs, const char *folder);
 // The live line of the idle page: reads PD_LIVE.
 uint32_t diag_live(CoreIo *io);
 

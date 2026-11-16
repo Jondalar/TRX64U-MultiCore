@@ -85,7 +85,11 @@ for c in "${CORES[@]}"; do
     else
         echo "    $c: no cores/$c/logo/icon.rgb565, packed without an icon"
     fi
-    python3 "$HERE/cor_pack.py" pack --host-key "$HK" --contract "$CV" -o "$OUT/$c.cor" \
+    files=()                                      # record 8: the files the core installs (core.toml install_dir / install_old)
+    idir="$(python3 "$HERE/core_toml.py" get "$c" install_dir)"; iold="$(python3 "$HERE/core_toml.py" get "$c" install_old)"
+    [ -z "$idir" ] || files+=(--files "$ROOT/cores/$c/$idir")
+    [ -z "$iold" ] || files+=(--files-old "$ROOT/cores/$c/$iold")
+    python3 "$HERE/cor_pack.py" pack --host-key "$HK" --contract "$CV" -o "$OUT/$c.cor" ${files[@]+"${files[@]}"} \
         --name "$name" --version "$ver" --partial "$part" --app "$app" \
         --load 0x30000 --entry 0x30000 ${icon[@]+"${icon[@]}"} --short "$(python3 "$HERE/core_toml.py" get "$c" short)" > /dev/null
     python3 "$HERE/cor_pack.py" check --contract "$CV" --host-key "$HK" "$OUT/$c.cor" > /dev/null

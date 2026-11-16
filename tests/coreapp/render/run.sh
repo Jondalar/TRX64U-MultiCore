@@ -8,6 +8,9 @@ SRC="$ROOT/coreapp/src"; CORES="$ROOT/coreapp/cores"; HA="$ROOT/host-app/softwar
 L="${ULTIMATE_SW:-$ROOT/vendor/gideon/software}/lvgl"   # ULTIMATE_SW points at another copy
 OUT="${1:-/tmp/coreapp-render}"; mkdir -p "$OUT"
 B="$(mktemp -d)"; T="$B"; CXX="${CXX:-c++}"
+# the diag core's example tests are record 8 of diag.cor (T175): the real packer makes the record, the application's installer writes it (tests/coreapp/diag_examples.h)
+python3 "$ROOT/tools/cor_pack.py" files-record "$ROOT/cores/diag/sd" --old "$ROOT/cores/diag/superseded" -o "$B/diag_files.rec" > /dev/null
+export DIAG_FILES_REC="$B/diag_files.rec"
 # T100 D14: the render is a unit (tests/ctlcache.sh): what a unit read - every source and header the compile opens, LVGL's headers,
 # the goldens, what the program opens - is recorded when it passes; a unit whose reads are unchanged is not built or run again. Two values
 # of this script enter the key by hand: LVGL's objects live outside the tree (their key), and the source list is derived from the Makefile.

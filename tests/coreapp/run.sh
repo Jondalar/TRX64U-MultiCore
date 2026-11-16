@@ -225,13 +225,18 @@ run nes test_nes.cc $NESSRC
 
 run ddt test_ddt.cc ddt_mandel.cc ddt_novic.cc $BASEL
 
-# T175: the diag core's test files (diagtest.cc) against a model of the probe engine
-run diagtest test_diagtest.cc diagtest.cc
-control diagtest_halffile diagtest.cc 's/        if (env->fs->remove(a)) {  /        if (true) {  /' test_diagtest.cc diagtest.cc
-control diagtest_overwrite diagtest.cc 's/        if (fs->stat(p, \&sz, \&d)) {/        if (false) {/' test_diagtest.cc diagtest.cc
-ca_in shared && python3 "$ROOT/tools/gen_diag_tests.py" --check
+# T175: the diag core's test files (diagtest.cc) against a model of the probe engine. The example tests are record 8 of diag.cor (T175 D-files): the real packer makes the
+# record, the application's installer (instfiles.cc) writes it onto the fake card (diag_examples.h)
+python3 "$ROOT/tools/cor_pack.py" files-record "$ROOT/cores/diag/sd" --old "$ROOT/cores/diag/superseded" -o "$T/diag_files.rec" > /dev/null
+export DIAG_FILES_REC="$T/diag_files.rec"
+python3 "$TST/gen_bundle.py" "$T/bundles"       # diag.cor: the .cor as the packer makes it, for the bench of the installer on a bundle
+export DIAG_COR="$T/bundles/diag.cor"
+run diagtest test_diagtest.cc diagtest.cc instfiles.cc
+control diagtest_halffile diagtest.cc 's/        if (env->fs->remove(a)) {  /        if (true) {  /' test_diagtest.cc diagtest.cc instfiles.cc
+control diagtest_overwrite instfiles.cc 's/if (fs->stat(path, \&sz, \&dir) \&\& (dir || /if (false \&\& (dir || /' test_diagtest.cc diagtest.cc instfiles.cc
+control diagtest_superseded instfiles.cc 's/(dir || !is_earlier_version(fs, path, sz, olds, nold))/(true)/' test_diagtest.cc diagtest.cc instfiles.cc
 
-run portdiag test_portdiag.cc portdiag.cc xinput.cc diagtest.cc $BASEL
+run portdiag test_portdiag.cc portdiag.cc xinput.cc diagtest.cc instfiles.cc instcore.cc $BASEL
 run freeze test_freeze.cc freeze.cc
 
 # T104.1 D12, Q10: the libraries of a folder, in dependency order, with the real descriptors' capability lists
@@ -746,7 +751,7 @@ CONSRC="descrec.cc $PICSRC"
 CARGS="$BUN/desc_test.bin $BUN/desc_default.bin" RARGS="$CARGS"
 run contrib test_contrib.cc $CONSRC
 
-BUNSRC="descrec.cc libmenu.cc bundle.cc libload.cc libscan.cc $PICSRC"
+BUNSRC="descrec.cc libmenu.cc bundle.cc libload.cc libscan.cc instfiles.cc instcore.cc $PICSRC"
 CARGS="$BUN" RARGS="$BUN"
 run bundle test_bundle.cc $BUNSRC
 # T104.2 D10: a library merged at pack time is not added again, the application's own record serves a start without a .cor and never beats the .cor's, the record's own menu replaces the descriptor's tables

@@ -37,7 +37,18 @@ OPTIONAL records of either kind (T104.1 D9, D12), after the others, each once, b
   7 libs   the libraries this core needs, a copy in every bundle that needs it (Q5): "TRXL", u32 version 1, u32 count, then for each
            u32 length and the `.u2a` of format 3 (tools/u2a_pack.py), padded with zeros to a multiple of 4
 
-  cor_pack.py pack ... [--desc D.toml] [--lib L.u2a ...]       (also for pack-large)
+  8 files  files the core installs on the SD (T175 D-files, Alex 2026-11-16: the diag core's example tests ride in diag.cor, no other core carries them):
+           "TRXF", u32 version 1, u32 count, then per file
+             u32 entry_len   bytes of the entry after this field, a multiple of 4
+             u16 path_len, u16 n_old, u32 size
+             n_old x { u32 size, u32 hash_hi, u32 hash_lo }   earlier shipped versions of this file: size and FNV-1a 64 of the whole text
+             path (path_len bytes, relative to the core's folder, '/' separators, no leading '/', no '..'), the file's bytes (size), zero padding to 4
+           At the start of the core the application writes every file that is missing into <core folder>/<path>; it never overwrites a
+           file, except one that is byte for byte (size and hash) an earlier version listed in the entry (coreapp/src/instfiles.cc).
+           Manifest: files_size, files_sha256, files_count. Source: the core's descriptor (core.toml `install_dir`, `install_old`).
+
+  cor_pack.py pack ... [--desc D.toml] [--lib L.u2a ...] [--files DIR [--files-old DIR]]      (also for pack-large)
+  cor_pack.py files-record DIR [--old DIR] -o F.rec            only the record 8 (for the application's benches)
 
 LARGE cores (T115 §7 "The extended .cor"): a core that does not fit layer 2 is one FULL bitstream of the 50T (host and core
 flat in one design), started by IPROG the way a .cfw is. Same container and magic, `kind` = "large" in the manifest (a DFX
@@ -61,9 +72,14 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import descrec  # noqa: E402
 
 MAGIC = b"TRXCOR01"
-T_MANIFEST, T_PARTIAL, T_APP, T_ICON, T_BIT, T_DESC, T_LIBS = 1, 2, 3, 4, 5, 6, 7
+T_MANIFEST, T_PARTIAL, T_APP, T_ICON, T_BIT, T_DESC, T_LIBS, T_FILES = 1, 2, 3, 4, 5, 6, 7, 8
 RECORDS_FORMAT = 1                        # manifest "records": the version of the two optional records below
 LIBS_MAGIC = b"TRXL"
+FILES_MAGIC = b"TRXF"
+FILES_VERSION = 1
+FILES_MAX = 256 * 1024                    # one installed file (coreapp/src/instfiles.h INST_FILE_MAX)
+FILES_PATH_MAX = 100
+FILES_OLD_MAX = 8
 LIB_U2A_MAGIC = b"U2AP"                  # coreapp/src/libfmt.h
 LIB_U2A_FORMAT, LIB_U2A_HEADER = 3, 104
 KIND_LARGE = "large"
@@ -174,6 +190,91 @@ def parse_libs(blob):
     return out
 
 
+def fnv64(data):
+    h = 0xcbf29ce484222325
+    for b in data:
+        h = ((h ^ b) * 0x100000001b3) & 0xFFFFFFFFFFFFFFFF
+    return h
+
+
+def collect_files(src_dir, old_dir=None):
+    """[(relative path, bytes, [(size, fnv64) of earlier shipped versions])] of every file below src_dir (sorted). An earlier version lives in old_dir as
+    <stem>.v<N>.<ext> and belongs to the file(s) named <stem>.<ext> (any folder below src_dir)."""
+    files = []
+    for root, _, names in os.walk(src_dir):
+        for n in names:
+            full = os.path.join(root, n)
+            files.append((os.path.relpath(full, src_dir).replace(os.sep, "/"), open(full, "rb").read()))
+    files.sort()
+    olds = {}
+    if old_dir and os.path.isdir(old_dir):
+        for n in sorted(os.listdir(old_dir)):
+            m = re.fullmatch(r"(.+)\.v\d+(\.[^.]*)?", n)
+            if not m:
+                raise CorError("files-old: %s is not <name>.v<N>.<ext>" % n)
+            data = open(os.path.join(old_dir, n), "rb").read()
+            olds.setdefault(m.group(1) + (m.group(2) or ""), []).append((len(data), fnv64(data)))
+    out = [(p, d, olds.get(p.rsplit("/", 1)[-1], [])) for p, d in files]
+    named = {p.rsplit("/", 1)[-1] for p, _ in files}
+    for k in olds:
+        if k not in named:
+            raise CorError("files-old: an earlier version of %s, which the core does not install" % k)
+    return out
+
+
+def pack_files(files):
+    """Record 8 from [(path, bytes, [(size, hash64)])]."""
+    if not files:
+        raise CorError("files: no file given")
+    out = bytearray(FILES_MAGIC + struct.pack("<II", FILES_VERSION, len(files)))
+    for path, data, olds in files:
+        pb = path.encode("ascii")
+        if not pb or len(pb) > FILES_PATH_MAX or pb[:1] == b"/" or ".." in path.split("/") or "\\" in path or "" in path.split("/"):
+            raise CorError("files: path %r (relative, at most %d characters, no '..')" % (path, FILES_PATH_MAX))
+        if len(data) > FILES_MAX:
+            raise CorError("files: %s is %d bytes, at most %d" % (path, len(data), FILES_MAX))
+        if len(olds) > FILES_OLD_MAX:
+            raise CorError("files: %s has %d earlier versions, at most %d" % (path, len(olds), FILES_OLD_MAX))
+        body = struct.pack("<HHI", len(pb), len(olds), len(data))
+        for sz, h in olds:
+            body += struct.pack("<III", sz, h >> 32, h & 0xFFFFFFFF)
+        body += pb + data
+        body += b"\0" * (-len(body) % 4)
+        out += struct.pack("<I", len(body)) + body
+    return bytes(out)
+
+
+def parse_files(blob):
+    """[(path, bytes, [(size, hash64)])] of record 8, in the order they were packed."""
+    if len(blob) < 12 or blob[:4] != FILES_MAGIC:
+        raise CorError("files: not a file set (magic)")
+    ver, cnt = struct.unpack_from("<II", blob, 4)
+    if ver != FILES_VERSION:
+        raise CorError("files: version %d, this tool reads %d" % (ver, FILES_VERSION))
+    p, out = 12, []
+    for _ in range(cnt):
+        if p + 4 > len(blob):
+            raise CorError("files: truncated")
+        n, = struct.unpack_from("<I", blob, p)
+        p += 4
+        if n % 4 or n < 8 or p + n > len(blob):
+            raise CorError("files: an entry runs past the end")
+        plen, nold, size = struct.unpack_from("<HHI", blob, p)
+        q = p + 8
+        olds = []
+        for _ in range(nold):
+            sz, hh, hl = struct.unpack_from("<III", blob, q)
+            olds.append((sz, (hh << 32) | hl))
+            q += 12
+        if q + plen + size > p + n:
+            raise CorError("files: an entry is shorter than it says")
+        out.append((blob[q:q + plen].decode("ascii"), blob[q + plen:q + plen + size], olds))
+        p += n
+    if p != len(blob) or not out:
+        raise CorError("files: %d bytes behind the last file, or none" % (len(blob) - p))
+    return out
+
+
 def lib_menu(u2a):
     """(name, menu record bytes or None) of a format-3 library: the TOML record behind the header's last word (libmenu.cc reads it the same way)."""
     name = u2a[20:36].split(b"\0")[0].decode("ascii", "replace")
@@ -203,10 +304,10 @@ def merge_menus(desc, libs):
     return blob
 
 
-def optional_records(m, desc, libs):
+def optional_records(m, desc, libs, files=None):
     """The manifest keys and the records for the optional description and libraries; nothing at all when both are None (the bytes of a bundle
     without them stay what they were)."""
-    if desc is None and not libs:
+    if desc is None and not libs and not files:
         return b""
     desc = merge_menus(desc, libs)
     m["records"] = RECORDS_FORMAT
@@ -222,17 +323,21 @@ def optional_records(m, desc, libs):
         blob = pack_libs(libs)
         m.update(libs_size=len(blob), libs_sha256=sha(blob), libs_count=len(libs))
         body += rec(T_LIBS, blob)
+    if files:
+        blob = pack_files(files)
+        m.update(files_size=len(blob), files_sha256=sha(blob), files_count=len(files))
+        body += rec(T_FILES, blob)
     return body
 
 
 def check_optional(m, recs):
     """Record 6 and 7 against the manifest, as every other part is checked; and the description by its own reader."""
-    has = [t for t in (T_DESC, T_LIBS) if t in recs]
-    if not has and "records" not in m and not any(k in m for k in ("desc_size", "libs_size")):
+    has = [t for t in (T_DESC, T_LIBS, T_FILES) if t in recs]
+    if not has and "records" not in m and not any(k in m for k in ("desc_size", "libs_size", "files_size")):
         return
     if m.get("records") != RECORDS_FORMAT:
         raise CorError("records: version %r, this tool reads %d" % (m.get("records"), RECORDS_FORMAT))
-    for part, t in (("desc", T_DESC), ("libs", T_LIBS)):
+    for part, t in (("desc", T_DESC), ("libs", T_LIBS), ("files", T_FILES)):
         if (t in recs) != ((part + "_size") in m):
             raise CorError("%s: record and manifest disagree on its presence" % part)
         if t not in recs:
@@ -248,6 +353,10 @@ def check_optional(m, recs):
         libs = parse_libs(recs[T_LIBS])
         if m.get("libs_count") != len(libs):
             raise CorError("libs: the manifest says %r libraries, the record holds %d" % (m.get("libs_count"), len(libs)))
+    if T_FILES in recs:
+        files = parse_files(recs[T_FILES])
+        if m.get("files_count") != len(files):
+            raise CorError("files: the manifest says %r files, the record holds %d" % (m.get("files_count"), len(files)))
 
 
 AXSS_SYNC = 0xAA995566
@@ -298,7 +407,7 @@ def put_short(m, short):
     m["short"] = short
 
 
-def pack(name, version, partial, app, load, entry, host_key, contract=CONTRACT, fpga="xc7a50t", icon=None, desc=None, libs=None, short=None):
+def pack(name, version, partial, app, load, entry, host_key, contract=CONTRACT, fpga="xc7a50t", icon=None, desc=None, libs=None, files=None, short=None):
     partial = bit_config_data(partial)
     check_partial(partial)
     if not app:
@@ -325,7 +434,7 @@ def pack(name, version, partial, app, load, entry, host_key, contract=CONTRACT, 
     put_short(m, short)
     if icon is not None:
         m.update(icon_size=len(icon), icon_sha256=sha(icon))
-    extra = optional_records(m, desc, libs)
+    extra = optional_records(m, desc, libs, files)
     man = json.dumps(m, sort_keys=True, separators=(",", ":")).encode()
     body = rec(T_MANIFEST, man) + rec(T_PARTIAL, partial) + rec(T_APP, app)
     if icon is not None:
@@ -495,7 +604,7 @@ FLASH_ID_MAX = 40
 
 
 def pack_large(cid, name, version, bit, app, icon=None, map_kind="auto", bit_commit=None, app_commit=None,
-               fpga="xc7a50t", desc=None, libs=None, origin=None, flash_id=None, short=None):
+               fpga="xc7a50t", desc=None, libs=None, files=None, origin=None, flash_id=None, short=None):
     """A .cor that carries a LARGE core: the full bitstream and the application (see the docstring).
     origin (T137 D1): None or "trx" writes no key (the bytes of every .cor before T137); "foreign" and "backup" write `origin`; a backup also
     writes flash_bit, flash_app and flash_id (D2: the chip the parts were read from, so they are written back only to the layout they came from)."""
@@ -544,7 +653,7 @@ def pack_large(cid, name, version, bit, app, icon=None, map_kind="auto", bit_com
         if len(flash_id) > FLASH_ID_MAX:
             raise CorError("flash_id: %d characters, at most %d" % (len(flash_id), FLASH_ID_MAX))
         m.update(flash_bit=FLASH_BIT, flash_app=FLASH_APP, flash_id=flash_id)
-    extra = optional_records(m, desc, libs)
+    extra = optional_records(m, desc, libs, files)
     man = json.dumps(m, sort_keys=True, separators=(",", ":")).encode()
     if len(man) > 2048:
         raise CorError("manifest: %d bytes, the host reads at most 2048" % len(man))
@@ -560,7 +669,7 @@ def parse_large(m, recs, order):
     if m.get("format") != LARGE_FORMAT:
         raise CorError("large core: format %r, this tool reads %d" % (m.get("format"), LARGE_FORMAT))
     if order[:1] != [T_MANIFEST] or order != sorted(order) or T_APP not in recs or T_BIT not in recs \
-            or T_PARTIAL in recs or set(order) - {T_MANIFEST, T_APP, T_ICON, T_BIT, T_DESC, T_LIBS}:
+            or T_PARTIAL in recs or set(order) - {T_MANIFEST, T_APP, T_ICON, T_BIT, T_DESC, T_LIBS, T_FILES}:
         raise CorError("large core: records missing, extra or out of order: %s" % order)
     for k in ("id", "name", "version", "fpga", "idcode", "map", "bit_size", "bit_sha256", "app_size", "app_load",
               "app_entry", "app_sha256"):
@@ -615,14 +724,15 @@ def load_icon(path):
 
 
 def read_extras(a):
-    """(desc record or None, [library bytes] or None) from --desc and --lib."""
+    """(desc record or None, [library bytes] or None, [files] or None) from --desc, --lib and --files."""
     desc = None
     if a.desc:
         try:
             desc = descrec.compile_checked(open(a.desc).read(), open(a.ops).read() if a.ops else None, what=a.desc)
         except descrec.DescError as e:
             raise CorError("%s: %s" % (a.desc, e))
-    return desc, [open(f, "rb").read() for f in a.lib] or None
+    files = collect_files(a.files, a.files_old) if a.files else None
+    return desc, [open(f, "rb").read() for f in a.lib] or None, files
 
 
 def main(argv=None):
@@ -644,6 +754,8 @@ def main(argv=None):
     p.add_argument("--desc", help="the menu description (TOML, tools/descrec.py): record 6")
     p.add_argument("--ops", help="the operations and states the application exports (tests/coreapp/golden/ops_trx64u.txt): every name and binding of --desc is checked against it")
     p.add_argument("--lib", action="append", default=[], help="a library (.u2a of format 3) this core needs: record 7; repeat for more")
+    p.add_argument("--files", help="a folder: every file below it is installed into the core's folder at the same relative path: record 8")
+    p.add_argument("--files-old", help="earlier shipped versions of those files, <name>.v<N>.<ext>: the app replaces a file only when it is byte for byte one of them")
     g = sub.add_parser("pack-large")
     g.add_argument("-o", "--out", required=True)
     g.add_argument("--id", required=True)
@@ -656,11 +768,17 @@ def main(argv=None):
     g.add_argument("--desc", help="the menu description (TOML): record 6")
     g.add_argument("--ops", help="what the application exports (tests/coreapp/golden/ops_trx64u.txt): every name and binding of --desc is checked against it")
     g.add_argument("--lib", action="append", default=[], help="a library (.u2a) this core needs: record 7")
+    g.add_argument("--files", help="a folder: every file below it is installed into the core's folder at the same relative path: record 8")
+    g.add_argument("--files-old", help="earlier shipped versions of those files, <name>.v<N>.<ext>: the app replaces a file only when it is byte for byte one of them")
     g.add_argument("--map", default="auto", choices=("auto",) + MAPS)
     g.add_argument("--bit-commit")
     g.add_argument("--app-commit")
     g.add_argument("--origin", choices=ORIGINS, default=None, help="T137 D1; trx (the default) writes no key")
     g.add_argument("--flash-id", help="a backup: the flash chip the parts were read from (get_type_string), T137 D2")
+    f = sub.add_parser("files-record")
+    f.add_argument("dir")
+    f.add_argument("--old")
+    f.add_argument("-o", "--out", required=True)
     r = sub.add_parser("replace-app")
     r.add_argument("file")
     r.add_argument("--app", required=True)
@@ -684,6 +802,10 @@ def main(argv=None):
             blob = pack_large(a.id, a.name, a.version, open(a.bit, "rb").read(), open(a.app, "rb").read(),
                               load_icon(a.icon) if a.icon else None, a.map, a.bit_commit, a.app_commit, "xc7a50t", *read_extras(a),
                               origin=a.origin, flash_id=a.flash_id, short=a.short)
+            open(a.out, "wb").write(blob)
+            print("%s: %d bytes" % (a.out, len(blob)))
+        elif a.cmd == "files-record":
+            blob = pack_files(collect_files(a.dir, a.old))
             open(a.out, "wb").write(blob)
             print("%s: %d bytes" % (a.out, len(blob)))
         elif a.cmd == "replace-app":

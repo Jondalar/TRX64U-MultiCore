@@ -152,6 +152,8 @@ SRCS_CC	 =  u64ii_init.cc \
 			descrec.cc \
 			libmenu.cc \
 			bundle.cc \
+			instfiles.cc \
+			instcore.cc \
 			settings_ops.cc \
 			writeback.cc \
 			writeback_crt.cc \
