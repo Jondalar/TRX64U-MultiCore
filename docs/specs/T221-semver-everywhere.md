@@ -177,7 +177,7 @@ a release build's short strings fit), and a large core's test version is cut to 
 ### Open (not decided; Alex must answer, one at a time)
 
 - **OPEN-1 (D10): answered** (see D10; vc20 0.3.0, all others unchanged). The vc20 edit moves vc20's Vivado keys, see B7.
-- **OPEN-2 (D12 consequence).** The `.cor` check still compares the contract integer (`COR_HOST_CONTRACT` = 2, `contract/VERSION`). Folding it into the host gateware MAJOR with a
+- **OPEN-2 (D12 consequence): answered 2026-11-16 (Alex, "the integer stays (recommended)"):** the `.cor` check keeps the contract integer (`contract/VERSION`), a number of its own beside the SemVer strings; nothing changes. Older text: The `.cor` check still compares the contract integer (`COR_HOST_CONTRACT` = 2, `contract/VERSION`). Folding it into the host gateware MAJOR with a
   start of 0.2.0 gives MAJOR 0, not 2: either the host gateware starts at 2.0.0 or the check stays an integer. The chip is gone either way (D12); the row refusal text "contract 3 != 2"
   stays until this is answered.
 - **OPEN-3 (D15). Moved to T230** (2026-11-16: FW-1 answered by the firmware session, version from `manifest.json`; both pins carry `SEMVER=0.3.0`, the release `main-8f1dc184`). Older text: Imported trx64u/trx64g: `pack_import_cor.sh` reads a `SEMVER=` from the pin and falls back to the commit with a message; no pin has one. Proposal text for
