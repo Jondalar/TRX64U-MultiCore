@@ -76,12 +76,18 @@ def make_stick(stick, roms_dir, core="trx64u"):
         if core == "pet":                            # T216 P6: a model's own VICE-named files are required, the generic names no longer count; the files come from the
             # local VICE data dir (PET_ROMS_DIR) and the Waterloo set in cores/pet/sim/media; UI_PET_DROP="a.bin,b.bin" leaves files out (the missing-ROM picture)
             drop = [x for x in os.environ.get("UI_PET_DROP", "").split(",") if x]
+            corrupt = [x for x in os.environ.get("UI_PET_CORRUPT", "").split(",") if x]
             vice = os.environ.get("PET_ROMS_DIR", os.path.expanduser("~/Development/C64/Tools/vice/vice/data/PET"))
             media = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "cores", "pet", "sim", "media")
             for src in (vice, media):
                 for n in (sorted(os.listdir(src)) if os.path.isdir(src) else ()):
                     if n.endswith(".bin") and n not in drop and (src == media or n.startswith(("basic-", "edit-", "kernal-", "characters"))):
                         shutil.copy(os.path.join(src, n), os.path.join(stick, "cores", core, "roms", n))
+                        if n in corrupt:                                # T216 D15: a copy with one byte changed (the wrong-content picture)
+                            with open(os.path.join(stick, "cores", core, "roms", n), "r+b") as cf:
+                                cf.seek(100); b0 = cf.read(1); cf.seek(100); cf.write(bytes([b0[0] ^ 0xFF]))
+        if core == "pet" and os.environ.get("UI_PET_CFG"):      # T216 D14: a saved settings file (Model=SuperPET), so the boot itself meets the missing Waterloo files
+            shutil.copy(os.environ["UI_PET_CFG"], os.path.join(stick, "cores", core, "pet.cfg"))
         for n, b in ROMFILES.get(core, ()) if core != "pet" else (("dos4040.bin", 12288), ("ctl4040.bin", 2048)):          # the ROMs the core wants (blank images stand in: no ROM is in the repository), else it waits for them and the UI service stays down
             with open(os.path.join(stick, "cores", core, "roms", n), "wb") as f:
                 f.write(bytes([0xA5]) * b if core == "pet" else bytes(b))       # PET: a pattern, so the read-back of the ROM aperture proves something
