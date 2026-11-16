@@ -31,7 +31,7 @@ Read from the code (2026-11-13): `snes_sys.vhd` instantiates `DSP_LHRomMap` with
 | S5 | P5 | Non-DSP games unchanged: `boot` bench real == ref; SA-1/Super FX/... refused as before | sims `snes_boot` etc.; `test_snes.cc` S12 | CI sims, apptests |
 | S6 | P6 | The flat build routes and meets timing with the chip | `utilization.rpt` / `timing.rpt` of the pipeline run (lane large-snes) | CI vivado (after the coordinator's push) |
 | S7 | P3 | The menu setting "DSP firmware" (Auto, DSP-1..DSP-4): a fixed choice replaces the title rule for every DSP cartridge (mapper byte and firmware file follow, the refusal names the chosen chip's file); non-DSP cartridges are unaffected | `test_snes.cc` | CI apptests; board |
-| S8 | D6 | The same real DSP-1 firmware once as read (low byte first) and once with every word reversed (high byte first): both are recognised, the reversed one is turned back, the bytes written to the chip are identical; a file that is neither (random bytes) is written as it is; on the board Mario Kart runs with the reversed file | `test_snes.cc` (real file from the board, outside the tree) | apptests; board |
+| S8 | D6 | The same real DSP-1 firmware once as read (low byte first) and once with every word reversed (high byte first): both are recognised, the reversed one is turned back, the bytes written to the chip are identical; a file that is neither (random bytes) is written as it is; on the board Mario Kart runs with the reversed file | `test_snes.cc` with a firmware of our own in valid uPD7725 words (no real firmware in the tree); the real `dsp1b.bin` from the board checked once both ways outside the tree, result in §5 | apptests; board |
 
 ## §3 Decisions
 
