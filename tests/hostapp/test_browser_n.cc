@@ -43,7 +43,8 @@ static void run(int nfake, uint32_t heap, bool cursor_keys)
     g_nfake = nfake;
     g_heap = heap;
     g_lists = 0;
-    hc_browse_goto("/Usb0/snes", (char *)(char[200]){0}, 200);       // a folder below the media: the parent row ".." is row 0
+    char why[200] = {0};
+    hc_browse_goto("/Usb0/snes", why, 200);     // a folder below the media: the parent row ".." is row 0
     const HcNav &v = hc_nav();
     int expect_rows = 1 + nfake;
     CHECK(v.bup, "parent row");

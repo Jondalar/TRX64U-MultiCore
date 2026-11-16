@@ -300,7 +300,10 @@ void hc_browse_enter(void)
         path_up(n.bpath);
     } else {
         char np[160];
-        snprintf(np, sizeof(np), "%s%s%s", n.bpath, strcmp(n.bpath, "/") ? "/" : "", n.bl[n.bsel].name);
+        int len = snprintf(np, sizeof(np), "%s%s%s", n.bpath, strcmp(n.bpath, "/") ? "/" : "", n.bl[n.bsel].name);
+        if (len < 0 || len >= (int)sizeof(np)) {     // a path that does not fit is refused, never opened cut short
+            return;
+        }
         strcpy(n.bpath, np);
     }
     n.bsel = 0;
