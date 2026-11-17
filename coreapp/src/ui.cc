@@ -833,7 +833,6 @@ static void ui_home(lv_obj_t *c, MenuCtl &m, int x, int y)
         lv_label_set_long_mode(trx_txt(left, t.space_lg, cy + d_what + d_mode, trx_fit_mid(mode, left_w - 2 * t.space_lg - 4, t.caption, mfit, sizeof(mfit)), t.caption, t.muted,
                                        left_w - 2 * t.space_lg), LV_LABEL_LONG_MODE_CLIP);
     }
-    trx_button(left, t.space_md, h - 28, 0, "F3  Library", false);
     int n = m.rows();
     char l[120], r[120];
     bool active;
@@ -861,6 +860,9 @@ static void ui_home(lv_obj_t *c, MenuCtl &m, int x, int y)
             g_home[i] = ar;
             g_homen = i + 1;
         }
+    }
+    if (ly + t.space_sm <= h - 28) {                // the button stands under the rows where they leave it room; a core with many rows (A1200 at 480p: ten) keeps
+        trx_button(left, t.space_md, h - 28, 0, "F3  Library", false);       // the rows, and the rail names F3 LIBRARY as well
     }
     g_homelist = g_homen == n;                     // every row kept: a selection move needs no build
     g_homehead = home_head_sig(m);
