@@ -6,6 +6,10 @@
 // same circuit as the tape engine's and the NES cartridge's. A line (16 bytes) beyond the end of the image reads as zeros (oob is set) and a
 // write of it is dropped; the lines of a block that are inside the image are served (an image of 204,544 bytes ends 256 bytes into block 399).
 // A written block sets one bit per 16 KB of the image in `dirty` (the app flushes those chunks to the file and clears the bits). Written for this project (TREX), no upstream code.
+// T233 D3: every wait is bounded. The ui_clk side gives up a line the DDR2 does not take or answer within U_LIM ui clocks; the sys_clk side gives
+// up a line wait after S_LIM sys clocks. A lost line ends the block at once with sd_err high at the fall of sd_ack (u765 ends the command with
+// ST0 0x40 / ST1 0x05). The request and done toggles are compared as levels: a line goes out only when the previous one is done, so a line left in
+// flight by a reset is answered first and never taken as the next one's answer; a DDR2 side reset (ui_rst) answers it as failed.
 `timescale 1ns / 1ps
 module cpc_fdc (
     input  wire         clk,                        // sys_clk
@@ -19,6 +23,7 @@ module cpc_fdc (
     output reg  [8:0]   sd_buff_addr = 9'd0,
     output reg  [7:0]   sd_buff_dout = 8'd0,
     output reg          sd_buff_wr = 1'b0,
+    output reg          sd_err = 1'b0,              // T233 D3: the block just ended (sd_ack fell) failed; held until the next block starts
     input  wire [7:0]   sd_buff_din,
     // the images (cpu_clk values through the caller's synchronisers)
     input  wire [31:0]  d0_base,
@@ -48,7 +53,8 @@ module cpc_fdc (
     output wire         ui_busy
 );
     localparam [3:0] S_IDLE = 4'd0, S_CHECK = 4'd1, S_RREQ = 4'd2, S_RWAIT = 4'd3, S_RPUT = 4'd4, S_WGET0 = 4'd5, S_WGET1 = 4'd6, S_WGET2 = 4'd7,
-                     S_WSEND = 4'd8, S_WWAIT = 4'd9, S_END = 4'd10, S_END2 = 4'd11;
+                     S_WSEND = 4'd8, S_WWAIT = 4'd9, S_END = 4'd10, S_END2 = 4'd11, S_FAIL = 4'd12;
+    localparam [16:0] S_LIM = 17'h1FFFF;           // T233 D3: sys clocks a line may wait (4.2 ms at 31.5 MHz; the ui side gives up after U_LIM first)
     reg [3:0]   st = S_IDLE;
     reg         drv = 1'b0, is_wr = 1'b0, any_w = 1'b0;
     reg [31:0]  lba = 32'd0, img_base = 32'd0;
@@ -61,10 +67,12 @@ module cpc_fdc (
     (* ASYNC_REG = "TRUE" *) reg [2:0] dn_s = 3'b000;
     reg         dn_tgl = 1'b0;
     reg [127:0] ui_line = 128'd0;
+    reg         ui_err = 1'b0;                     // the line of the last done toggle was not answered (ui_clk, read with ui_line)
+    reg [16:0]  tmr = 17'd0;                       // sys clocks of the current line wait
     (* ASYNC_REG = "TRUE" *) reg [2:0] clr_s = 3'b000;         // the app's dirty-clear toggle (cpu_clk) through three flip-flops
     assign busy = (st != S_IDLE);
-    // The host's DDR2 side resetting (ui_rst) drops the transaction in flight: the ui_clk state machine goes idle and the answer is never given. The
-    // sys_clk side has to leave S_RWAIT / S_WWAIT with it, or sd_ack stays high and u765 never gets another block until the machine is reset.
+    // The host's DDR2 side resetting (ui_rst) drops the transaction in flight: the ui_clk side answers it as failed (ui_err) and goes idle. The
+    // sys_clk side leaves the block with it (sd_err high at the fall of sd_ack), or sd_ack would stay high and u765 would get no other block.
     (* ASYNC_REG = "TRUE" *) reg [2:0] urst_s = 3'b111;
     always @(posedge clk) urst_s <= {urst_s[1:0], ui_rst};
     wire rst_i = rst | urst_s[2];
@@ -87,10 +95,13 @@ module cpc_fdc (
         end
         sd_buff_wr <= 1'b0;
         if (rst_i) begin
+            if (sd_ack) sd_err <= 1'b1;                // a block cut by a reset ends as failed
             st <= S_IDLE; sd_ack <= 1'b0; oob <= 1'b0;
         end else if (!hold || st != S_IDLE) begin
+            if (st == S_RREQ || st == S_RWAIT || st == S_WSEND || st == S_WWAIT) tmr <= tmr + 17'd1; else tmr <= 17'd0;
             case (st)
             S_IDLE: if ((|sd_rd) || (|sd_wr)) begin
+                sd_err <= 1'b0;
                 drv <= sd_rd[1] | sd_wr[1];
                 is_wr <= |sd_wr;
                 lba <= sd_lba;
@@ -106,11 +117,14 @@ module cpc_fdc (
                 else begin ldata <= 128'd0; k <= 5'd0; st <= S_RPUT; end
             end
             // ---- read: a line at a time into u765's buffer
-            S_RREQ: begin
-                rq_addr <= byte_a[27:1]; rq_wr <= 1'b0; rq_tgl <= ~rq_tgl;
+            S_RREQ: if (dn_s[2] == rq_tgl) begin           // the previous line is done (also one a reset left in flight)
+                rq_addr <= byte_a[27:1]; rq_wr <= 1'b0; rq_tgl <= ~rq_tgl; tmr <= 17'd0;
                 st <= S_RWAIT;
-            end
-            S_RWAIT: if (dn_s[2] != dn_s[1]) begin ldata <= ui_line; k <= 5'd0; st <= S_RPUT; end
+            end else if (tmr == S_LIM) st <= S_FAIL;
+            S_RWAIT: if (dn_s[2] == rq_tgl) begin
+                if (ui_err) st <= S_FAIL;
+                else begin ldata <= ui_line; k <= 5'd0; st <= S_RPUT; end
+            end else if (tmr == S_LIM) st <= S_FAIL;
             S_RPUT: begin                                  // one byte of the line into the buffer per clock
                 sd_buff_addr <= {line[4:0], k[3:0]};
                 sd_buff_dout <= ldata[8 * k[3:0] +: 8];
@@ -138,16 +152,20 @@ module cpc_fdc (
             S_WSEND: begin
                 if (!in_img) oob <= 1'b1;
                 if (in_img) begin
-                    rq_addr <= byte_a[27:1]; rq_wr <= 1'b1; rq_tgl <= ~rq_tgl;
-                    any_w <= 1'b1;
-                    st <= S_WWAIT;
+                    if (dn_s[2] == rq_tgl) begin           // the previous line is done
+                        rq_addr <= byte_a[27:1]; rq_wr <= 1'b1; rq_tgl <= ~rq_tgl; tmr <= 17'd0;
+                        any_w <= 1'b1;
+                        st <= S_WWAIT;
+                    end else if (tmr == S_LIM) st <= S_FAIL;
                 end else if (line == 6'd31) st <= S_END;
                 else begin line <= line + 6'd1; k <= 5'd0; st <= S_WGET0; end
             end
-            S_WWAIT: if (dn_s[2] != dn_s[1]) begin
-                if (line == 6'd31) st <= S_END;
+            S_WWAIT: if (dn_s[2] == rq_tgl) begin
+                if (ui_err) st <= S_FAIL;
+                else if (line == 6'd31) st <= S_END;
                 else begin line <= line + 6'd1; k <= 5'd0; st <= S_WGET0; end
-            end
+            end else if (tmr == S_LIM) st <= S_FAIL;
+            S_FAIL: begin sd_err <= 1'b1; st <= S_END; end   // the block ends here, sd_err high with the fall of sd_ack
             S_END: begin
                 if (is_wr && any_w) begin
                     if (drv) dirty1[chunk] <= 1'b1; else dirty0[chunk] <= 1'b1;
@@ -163,7 +181,9 @@ module cpc_fdc (
 
     // ------------------------------------------------------------------ the ui_clk side
     localparam [1:0] U_IDLE = 2'd0, U_ISSUE = 2'd1, U_WAITR = 2'd2;
+    localparam [15:0] U_LIM = 16'hFFFF;            // T233 D3: ui clocks a line may take (0.87 ms at 75 MHz; the DDR2 answers in well under a microsecond)
     reg [1:0]   us = U_IDLE;
+    reg [15:0]  utmr = 16'd0;
     (* ASYNC_REG = "TRUE" *) reg [2:0] rq_s = 3'b000;
     reg [26:0]  u_addr = 27'd0;
     reg         u_wr = 1'b0;
@@ -174,10 +194,12 @@ module cpc_fdc (
     assign ui_busy = (us != U_IDLE);
     always @(posedge ui_clk) begin
         rq_s <= {rq_s[1:0], rq_tgl};
+        utmr <= (us == U_IDLE) ? 16'd0 : utmr + 16'd1;
         if (ui_rst) begin
             us <= U_IDLE; c_en_i <= 1'b0; c_wr_i <= 1'b0;
+            if (dn_tgl != rq_s[2]) begin ui_err <= 1'b1; dn_tgl <= rq_s[2]; end   // the line in flight is answered as failed
         end else case (us)
-        U_IDLE: if (rq_s[2] != rq_s[1]) begin u_addr <= rq_addr; u_wr <= rq_wr; us <= U_ISSUE; end
+        U_IDLE: if (rq_s[2] != dn_tgl) begin u_addr <= rq_addr; u_wr <= rq_wr; us <= U_ISSUE; end   // a level: a request is never missed
         U_ISSUE: begin
             c_en_i <= 1'b1;
             c_addr <= u_addr;
@@ -185,10 +207,13 @@ module cpc_fdc (
             else begin c_cmd <= 3'b001; c_wr_i <= 1'b0; end
             if (c_en_i && c_rdy) begin
                 c_en_i <= 1'b0; c_wr_i <= 1'b0;
-                if (u_wr) begin dn_tgl <= ~dn_tgl; us <= U_IDLE; end else us <= U_WAITR;
+                if (u_wr) begin ui_err <= 1'b0; dn_tgl <= ~dn_tgl; us <= U_IDLE; end else us <= U_WAITR;
+            end else if (utmr == U_LIM) begin
+                c_en_i <= 1'b0; c_wr_i <= 1'b0; ui_err <= 1'b1; dn_tgl <= ~dn_tgl; us <= U_IDLE;
             end
         end
-        U_WAITR: if (c_rd_valid) begin ui_line <= c_rd_data; dn_tgl <= ~dn_tgl; us <= U_IDLE; end
+        U_WAITR: if (c_rd_valid) begin ui_line <= c_rd_data; ui_err <= 1'b0; dn_tgl <= ~dn_tgl; us <= U_IDLE; end
+                 else if (utmr == U_LIM) begin ui_err <= 1'b1; dn_tgl <= ~dn_tgl; us <= U_IDLE; end
         default: us <= U_IDLE;
         endcase
     end

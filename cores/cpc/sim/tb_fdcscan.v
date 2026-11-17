@@ -69,12 +69,12 @@ module tb_fdcscan;
     reg [31:0] img_size = 32'd0;
     reg [31:0] d1sz = 32'd0;                          // the size of drive 1's image in cpc_fdc (typ 2, 4, 5, 6 kind 1 and the H3 case give it a disk)
     wire [7:0] dout;
-    wire [31:0] sd_lba; wire [1:0] sd_rd, sd_wr; wire sd_ack, sd_buff_wr; wire [8:0] sd_buff_addr; wire [7:0] sd_buff_dout, sd_buff_din;
+    wire [31:0] sd_lba; wire [1:0] sd_rd, sd_wr; wire sd_ack, sd_buff_wr, sd_err; wire [8:0] sd_buff_addr; wire [7:0] sd_buff_dout, sd_buff_din;
     u765 #(.CYCLES(`S3_CYCLES)) fdc (
         .reset(board_reset), .clk_sys(sys_clk), .ce(ce), .ready(ready), .motor(2'b11), .available(2'b11), .fast(1'b0),
         .a0(b_a0), .nRD(b_nrd), .nWR(b_nwr), .din(b_din), .dout(dout),
         .img_mounted(img_mounted), .img_wp(1'b0), .img_size(img_size),
-        .sd_lba(sd_lba), .sd_rd(sd_rd), .sd_wr(sd_wr), .sd_ack(sd_ack),
+        .sd_lba(sd_lba), .sd_rd(sd_rd), .sd_wr(sd_wr), .sd_ack(sd_ack), .sd_err(sd_err),
         .sd_buff_addr(sd_buff_addr), .sd_buff_dout(sd_buff_dout), .sd_buff_din(sd_buff_din), .sd_buff_wr(sd_buff_wr)
     );
     wire [1:0] dbg_ss0 = fdc.fdc.image_scan_state[0], dbg_ss1 = fdc.fdc.image_scan_state[1];
@@ -91,7 +91,7 @@ module tb_fdcscan;
     cpc_fdc fdca (
         .clk(sys_clk), .rst(board_reset), .hold(hold),
         .sd_lba(sd_lba), .sd_rd(sd_rd), .sd_wr(sd_wr), .sd_ack(sd_ack), .sd_buff_addr(sd_buff_addr), .sd_buff_dout(sd_buff_dout),
-        .sd_buff_wr(sd_buff_wr), .sd_buff_din(sd_buff_din),
+        .sd_buff_wr(sd_buff_wr), .sd_buff_din(sd_buff_din), .sd_err(sd_err),
         .d0_base(32'h01000000), .d0_size(32'd194816), .d1_base(32'h01100000), .d1_size(d1sz), .dirty0(dirty0), .dirty1(dirty1),
         .clr_tgl(1'b0), .clr_d(1'b0), .clr_i(3'd0), .clr_a(8'd0), .busy(busy), .oob(oob),
         .ui_clk(ui_clk), .ui_rst(ui_rst), .c_addr(c_addr), .c_cmd(c_cmd), .c_en(c_en), .c_rdy(c_rdy),
