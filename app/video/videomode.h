@@ -124,8 +124,9 @@ struct GwIo {
 bool video_gw_probe_io(const GwIo *io, GwStatus *st);
 // A mode is up when the transmitter runs on a locked pixel clock in exactly the requested row, and the request was not refused.
 bool video_gw_up(const GwStatus &st, int row);
-// T222: a gateware whose picture is the VIC through the scaler with the scale register (a C64-type core's mode_req, version >= 2). Its table has seven rows
-// (576p, 720p, 1080p at 50 Hz; 480p, 720p, 1080p, 800 x 600 at 60 Hz) and takes only the System Mode's family; the host's generic mode_req (version 1) has neither.
+// T222: a gateware whose picture is the VIC through the scaler with the scale register (a C64-type core's mode_req: the flag GW_F_C64_TYPE; T228: any
+// version, TRX64-Ultimate's U16 answers 1). Its table has seven rows (576p, 720p, 1080p at 50 Hz; 480p, 720p, 1080p, 800 x 600 at 60 Hz) and takes only the
+// System Mode's family; the host's generic mode_req (version 1, c64_type tied to 0) has neither.
 bool video_gw_has_scale(const GwStatus &st);
 // T227: the same gateware with the smoothing register 0x4F0B (version >= 3).
 bool video_gw_has_smooth(const GwStatus &st);

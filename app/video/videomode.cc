@@ -217,7 +217,10 @@ bool video_gw_up(const GwStatus &st, int row)
 
 bool video_gw_has_scale(const GwStatus &st)
 {
-    return st.present && st.version >= 2 && (st.flags & GW_F_C64_TYPE) != 0;
+    // T228: the C64-type flag alone decides. The MultiCore bitstreams tie c64_type to 0 wherever their mode_req is version 1 (host/top.v and every
+    // cores/*/mono/host/top.v); TRX64-Ultimate's U16 mode_req answers version 1 with the flag set, has the scale register (0x4F01 / 0x4F0A) and holds the
+    // same seven rows and the System Mode's family as T222's version 2.
+    return st.present && st.version >= 1 && (st.flags & GW_F_C64_TYPE) != 0;
 }
 
 bool video_gw_has_smooth(const GwStatus &st)
