@@ -24,7 +24,8 @@
 //   setting group key first_value nvalues lo hi def apply     (nvalues 0: a range lo .. hi)
 //   ctab   area id name widget groups n     (a tab added to an area of the route, T104.1 D8)
 //   The core's own menu (T104.2 D10), the five tables a C++ descriptor carried as Task / MediaSlot / FileType / Setting arrays:
-//   task   label op first_bind nbind flags ask ask_state pick_label group       (flags bit 0: closes the menu, bit 1: a folder is picked first)
+//   task   label op first_bind nbind flags ask ask_state pick_label group       (flags bit 0: closes the menu, bit 1: a folder is picked first,
+//                                                                               bits 15:8 the default key of its hotkey, T228 R1: 'A'-'Z', '0'-'9', 0 none)
 //   media  name state eject_op first_bind nbind group [version 4: exts mount empty_tasks mounted_tasks flags(bit 0: eject closes the menu)]
 //   ftype  ext inner_ext first_action nactions first_inner ninner                (runs into the file type action table)
 //   fact   label op first_bind nbind flags ask ask_off first_size nsize          (flags bit 0: closes the menu; ask_off a signed 16 bit word)

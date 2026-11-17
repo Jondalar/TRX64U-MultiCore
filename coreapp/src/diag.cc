@@ -85,11 +85,11 @@ int diag_report_rest(CoreCtx *c, char *body, int cap, char *stamp, int stamplen)
     return n;
 }
 
-static bool g_help_tw, g_help_mon;
-void diag_help_areas(bool timewarp, bool monitor)
+static char g_help_tw[96], g_help_mon[96];                             // how the screen is opened, "" none (T228 R1)
+void diag_help_areas(const char *timewarp, const char *monitor)
 {
-    g_help_tw = timewarp;
-    g_help_mon = monitor;
+    snprintf(g_help_tw, sizeof(g_help_tw), "%s", timewarp ? timewarp : "");
+    snprintf(g_help_mon, sizeof(g_help_mon), "%s", monitor ? monitor : "");
 }
 
 // what the viewer shows: 0 log, 1 EDID (hex), 2 trace, 3 system information
@@ -147,19 +147,19 @@ const char *diag_text(int kind, int *n)
             "C= C, C= V      copy, paste the marked files\n"
             "/               quick seek: type the name, ? is any character\n"
             "UP on 1st row   the media chips: LEFT/RIGHT, RETURN opens\n");
-        if (g_help_tw && w < (int)sizeof(g_text)) {
+        if (g_help_tw[0] && w < (int)sizeof(g_text)) {
             w += snprintf(g_text + w, sizeof(g_text) - w,
-                "\nTIMEWARP (F2)\n\n"
+                "\nTIMEWARP (%s)\n\n"
                 "LEFT/RIGHT      one frame\n"
                 "UP/DOWN         one second\n"
                 "F1/F7 (PAGE)    ten seconds\n"
                 "HOME            the oldest frame\n"
                 "RETURN          rewind there and run\n"
-                "R/S, left arrow cancel\n");
+                "R/S, left arrow cancel\n", g_help_tw);
         }
-        if (g_help_mon && w < (int)sizeof(g_text)) {
+        if (g_help_mon[0] && w < (int)sizeof(g_text)) {
             w += snprintf(g_text + w, sizeof(g_text) - w,
-                "\nMONITOR (F4)\n\n"
+                "\nMONITOR (%s)\n\n"
                 "Every key is the monitor's: F1/F7 scroll, F3 help,\n"
                 "? lists the commands, x resumes and leaves,\n"
                 "R/S leaves while the machine stands.\n"
@@ -168,7 +168,7 @@ const char *diag_text(int kind, int *n)
                 "(every menu of the firmware); the menu switch held up\n"
                 "for one second resets the machine.\n"
                 "At power on: Ctrl-P / Ctrl-N PAL / NTSC,\n"
-                "Ctrl-B / S / F the model (the firmware's own).\n");
+                "Ctrl-B / S / F the model (the firmware's own).\n", g_help_mon);
         }
         *n = w < (int)sizeof(g_text) ? w : (int)sizeof(g_text) - 1;
         return g_text;

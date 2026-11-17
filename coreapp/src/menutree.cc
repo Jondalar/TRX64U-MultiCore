@@ -285,6 +285,18 @@ void menu_build(const CoreDesc *d, MenuTree *t, bool return_host, bool reload_co
             }
             // `nodes_first` (a tab's ui): what the description puts into the tab stands above the widget's own rows (a page of actions with its settings below)
             const char *lay = st.layout ? strchr(st.layout, ';') : 0;
+            // T228 R1 (`page`, a tab's ui): a screen a row opens (menu.screen) is a page of the tab it names, an earlier one of this area: no number, no place
+            // on the strip, and leaving it returns there (the Timewarp and Monitor screens of Home)
+            char page_of[32];
+            if (lay && ui_attr(lay + 1, "page", page_of, sizeof(page_of))) {
+                for (int b = 0; b < a->ntabs; b++) {
+                    if (a->tabs[b].id && !strcmp(a->tabs[b].id, page_of)) {
+                        tb->page = true;
+                        tb->parent = (int8_t)b;
+                        tb->n = 0;
+                    }
+                }
+            }
             bool nodes_first = lay && ui_attr(lay + 1, "nodes_first");
             // `sections` (a tab's ui, T228 D13/D14/D16/DC6): a settings tab that lists several groups draws each one under a heading made from the group's id
             const bool sections = lay && ui_attr(lay + 1, "sections");

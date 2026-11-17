@@ -54,7 +54,10 @@ struct CoreCtx {
     bool frozen;                          // the machine is stopped for the menu (Freeze); a poll of a contributor that does not
                                           // declare poll_when_frozen waits for it to end
     bool menu_open;                       // the menu is on screen, frozen or not; nothing gates a poll on it (T104.1 D6)
-    const struct MenuMerge *merge;        // what libraries, applications and the description put into the menu (contrib.h); null: nothing
+    // T228 R1: the screen of the menu an operation asks for ("F1/timewarp", the operation menu.screen of a Home row or a hotkey), taken by the menu: it goes
+    // there now, or when it opens (a hotkey while the core runs opens it). "" none.
+    char want_screen[32];
+    const struct MenuMerge *merge;       // what libraries, applications and the description put into the menu (contrib.h); null: nothing
     struct Engines *eng;                  // the media and ROM engines' state (engines.h); null until a core that declares one asks
     OpRegistry *ops;                    // the service layer (ops.h); null until something asks for it
     Executor *exec;                       // the one task that runs operations; null: they run on the caller (tests, before the start)
