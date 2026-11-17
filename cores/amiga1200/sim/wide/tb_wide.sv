@@ -1,8 +1,11 @@
 // A1200 copy of the AGA wide fetch bench (T97, Discussion #94): amiga_mem (cores/amiga1200/rtl) + a behavioural DDR2, the chip bus and
 // the fast RAM port (Z2 and Zorro III) driven by hand. Rule: dout48[47:32] is the word at +2 bytes of every even requested word
 // address a (sh[a+1]); for a = 0 mod 4 words, dout48 = {sh[a+1], sh[a+2], sh[a+3]}. Odd word addresses: dout only.
-// Miss (critical-word path) and hit (cache banks), every word of a line as the requested one.
-// -DOLD swaps the two selection lines of amiga_mem back to the old rule (words 1..3 of the group), the expectation stays: must FAIL.
+// Miss (critical-word path) and hit (cache banks): groups of 8 words read word 0..7 in turn. Because the first read of a line is the miss,
+// a group only proves the miss path for word 0; therefore "first read" tests read word 2 and word 6 (4 mod 8 bytes) of fresh lines first,
+// for the chip port, the Zorro II fast port and the Zorro III port, and fail if mem.st_miss does not rise by one (a hit would not test crit48).
+// Controls are chosen in run.sh by env var, which builds a patched copy of amiga_mem.v: OLD=1 = both old lines (hit48 and crit48),
+// OLD=crit = only the crit48 line (hit48 stays new). Both must FAIL.
 // Z3: Z3_BASE is overridden to DDR2 word 0x8000 so the model's 64K-word memory holds it; the address path p2_addr[24] is the real one.
 `timescale 1ns/1ps
 module tb_wide;
@@ -77,6 +80,16 @@ module tb_wide;
         check(a, a[24] ? 32'h8000 + a[23:0] : a, p2_dout, p2_dout48, tag);
         p2_sel <= 0; repeat (6) @(posedge clk);
     end endtask
+    // first read of a fresh line at word w: must be a miss (st_miss +1), else the bench does not test the critical-word path
+    integer m0;
+    task chip_miss1(input [21:0] a, input [127:0] tag); begin
+        m0 = mem.st_miss; chip_rd(a, tag);
+        if (mem.st_miss != m0 + 1) begin errs = errs + 1; $display("FAIL %0s a=%h was not a miss (st_miss %0d -> %0d)", tag, a, m0, mem.st_miss); end
+    end endtask
+    task p2_miss1(input [24:0] a, input [127:0] tag); begin
+        m0 = mem.st_miss; p2_rd(a, tag);
+        if (mem.st_miss != m0 + 1) begin errs = errs + 1; $display("FAIL %0s a=%h was not a miss (st_miss %0d -> %0d)", tag, a, m0, mem.st_miss); end
+    end endtask
     integer w;
     initial begin
         wait (!flush); repeat (3000) @(posedge clk);
@@ -99,6 +112,13 @@ module tb_wide;
         for (w = 0; w < 8; w = w + 1) p2_rd(25'h1000118 + w, "z3 miss2");
         for (w = 0; w < 8; w = w + 1) chip_rd(22'h0408 + w, "chip miss 2nd line");
         for (w = 0; w < 8; w = w + 1) chip_rd(22'h0408 + w, "chip hit 2nd line");
+        // first reads (misses) at word 2 and word 6 of fresh lines, neighbours untouched (lines 0x40 words apart)
+        chip_miss1(22'h5002, "chip miss w2");
+        chip_miss1(22'h5106, "chip miss w6");
+        p2_miss1(25'h6202, "z2 miss w2");
+        p2_miss1(25'h6306, "z2 miss w6");
+        p2_miss1(25'h1000402, "z3 miss w2");
+        p2_miss1(25'h1000506, "z3 miss w6");
         $display("wide fetch: %0d reads, %0d errors; amiga_mem reads %0d miss %0d", n, errs, mem.st_reads, mem.st_miss);
         if (errs == 0) $display("PASS tb_wide"); else $display("FAIL tb_wide");
         $finish;
