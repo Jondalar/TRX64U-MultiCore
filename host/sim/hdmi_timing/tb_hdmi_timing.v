@@ -3,7 +3,7 @@
 // clocks per frame (htot x vtot x gear), pixel enables (htot x vtot), active pixels (hact x vact), the position and width of the
 // hsync pulse and of the vsync pulse and their polarity, the first active pixel and line, that every pixel value is held for gear
 // clocks, and the frame rate rate/clocks against the table of tools/hdmi_modes.py (0.1 %). The expected geometry is written out
-// here from Gideon's table (hdmi_scan.cc), not read from hdmi_modes.vh. Then: the modes that are not in the table (3, 4, 5, 12..15) are
+// here from Gideon's table (hdmi_scan.cc), not read from hdmi_modes.vh. Then: the modes that are not in the table (3, 4, 5, 12..15; T188 edition: 3, 4, 5, 15) are
 // refused (valid 0, running and ce stay 0); the align pulse re-phases the frame to the active origin on the two locked rows (1080p) only,
 // on every other row the sequence goes on undisturbed.
 `timescale 1ns/1ps
@@ -19,7 +19,7 @@ module tb;
         .sx_e(sx_e), .fw_m1(fw_m1), .sy_e(sy_e), .ey_e(ey_e), .ph_e(ph_e));
 
     // expected: vic, gear, hact, hfp, hsync, hbp, hpol, vact, vfp, vsync, vbp, vpol, fps*1000
-    integer e [0:11][0:12];
+    integer e [0:14][0:12];
     initial begin
         // fam 0: 50 Hz (rows 3..5 do not exist)
         e[0][0]=17; e[0][1]=5; e[0][2]=720;  e[0][3]=12;  e[0][4]=64;  e[0][5]=68;  e[0][6]=0; e[0][7]=576;  e[0][8]=5;  e[0][9]=5; e[0][10]=39; e[0][11]=0; e[0][12]=50124;
@@ -33,6 +33,10 @@ module tb;
         e[10][0]=0; e[10][1]=2; e[10][2]=1024; e[10][3]=24;  e[10][4]=136; e[10][5]=160; e[10][6]=0; e[10][7]=768;  e[10][8]=3;  e[10][9]=6; e[10][10]=29; e[10][11]=0; e[10][12]=60000;
         e[11][0]=0; e[11][1]=1; e[11][2]=1280; e[11][3]=48;  e[11][4]=112; e[11][5]=248; e[11][6]=1; e[11][7]=1024; e[11][8]=1;  e[11][9]=3; e[11][10]=24; e[11][11]=1; e[11][12]=60001;
 `ifdef T188
+        // T234: rows 12..14 are the host's own 50 Hz television rows (Frame follow Off), written out here as for the host (rows 0..2 above, before the T188 edit)
+        e[12][0]=17; e[12][1]=5; e[12][2]=720;  e[12][3]=12;  e[12][4]=64; e[12][5]=68;  e[12][6]=0; e[12][7]=576;  e[12][8]=5; e[12][9]=5; e[12][10]=39; e[12][11]=0; e[12][12]=50124;
+        e[13][0]=19; e[13][1]=2; e[13][2]=1280; e[13][3]=440; e[13][4]=40; e[13][5]=220; e[13][6]=1; e[13][7]=720;  e[13][8]=5; e[13][9]=5; e[13][10]=20; e[13][11]=1; e[13][12]=50124;
+        e[14][0]=31; e[14][1]=1; e[14][2]=1920; e[14][3]=528; e[14][4]=44; e[14][5]=148; e[14][6]=1; e[14][7]=1080; e[14][8]=4; e[14][9]=5; e[14][10]=36; e[14][11]=1; e[14][12]=50124;
         // T188 D4: the Amiga copies (cores/amiga*/mono/host) hold rows 0..2 bent to the 313-line Amiga frame, 49.920 Hz (tools/hdmi_modes.py amiga-gen)
         e[0][3]=15;  e[0][12]=49920;
         e[1][3]=438; e[1][8]=4; e[1][12]=49920;
@@ -41,6 +45,12 @@ module tb;
     end
 
     integer rstn;
+    integer nref = 0;
+`ifdef T188
+    localparam NROWS = 15;           // T234: 12 rows + the host's three 50 Hz rows 12..14
+`else
+    localparam NROWS = 12;
+`endif
     integer nmodes = 0, fails = 0, m, htot, vtot, g, only;
     // the mode under test, as scalars (the monitor runs every clock)
     integer x_ha, x_hf, x_hs, x_hb, x_hp, x_va, x_vf, x_vs, x_vb, x_vp, x_vic, x_fps;
@@ -93,7 +103,7 @@ module tb;
     task step; begin @(negedge clk); ce_p_get = ce_last; ce_last = ce; end endtask   // ce_p_get: the pixel registers changed at the last posedge
     task align_test;
         begin
-            a_lock = (m == 2 || m == 8);
+            a_lock = (m == 2 || m == 8 || m == 14);
             step; step;
             while (!(ce_p_get && cx == 500 && cy == 300)) step;
             if (aligned !== 1'b0) fail("aligned before the pulse", aligned, 0);
@@ -137,7 +147,7 @@ module tb;
         mon = 0; ce_q = 0; seen = 0; frame_done = 0;
         if (!$value$plusargs("only=%d", only)) only = -1;
         if (!$value$plusargs("rst=%d", rstn)) rstn = 6;
-        for (m = 0; m < 12; m = m + 1) if ((only < 0 || only == m) && (m < 3 || m > 5)) begin
+        for (m = 0; m < NROWS; m = m + 1) if ((only < 0 || only == m) && (m < 3 || (m > 5 && m < 12) || m >= 12 && NROWS > 12)) begin
             nmodes = nmodes + 1;
             x_vic = e[m][0]; g = e[m][1]; x_ha = e[m][2]; x_hf = e[m][3]; x_hs = e[m][4]; x_hb = e[m][5]; x_hp = e[m][6];
             x_va = e[m][7]; x_vf = e[m][8]; x_vs = e[m][9]; x_vb = e[m][10]; x_vp = e[m][11]; x_fps = e[m][12];
@@ -172,8 +182,8 @@ module tb;
             end
             align_test;
         end
-        if (only < 0 || only == 99) for (m = 3; m < 16; m = m + 1) if (m < 6 || m > 11) refuse_test;
-        if (fails == 0) $display("PASS hdmi_timing: %0d modes, %0d refused", nmodes, only < 0 || only == 99 ? 7 : 0);
+        if (only < 0 || only == 99) for (m = 3; m < 16; m = m + 1) if (m < 6 || (m > 11 && m >= NROWS)) begin nref = nref + 1; refuse_test; end
+        if (fails == 0) $display("PASS hdmi_timing: %0d modes, %0d refused", nmodes, nref);
         else $display("FAIL hdmi_timing: %0d checks", fails);
         $finish;
     end

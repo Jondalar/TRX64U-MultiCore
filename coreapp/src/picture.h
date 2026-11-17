@@ -13,6 +13,7 @@
 #define PICTURE_OP "picture.apply"
 #define SCALE_OP   "scale.apply"           // T107 D8
 #define SMOOTH_OP  "smooth.apply"          // T164 Q3
+#define FOLLOW_OP  "follow.apply"          // T234
 
 // T164 G11-G14: what the application knows about the screen and the gateware when it builds the items.
 struct PictureEnv {
@@ -22,6 +23,7 @@ struct PictureEnv {
     int sys;                  // the machine's 50/60 Hz family (VID_SYS_*), -1: what video_current says
     bool vic_scale;           // T222: the gateware scales the VIC's picture with a scale register (video_gateware_vic_scale()): a core with no frame buffer gets a Scale item
     bool vic_smooth;          // T227: that gateware also smooths (video_gateware_vic_smooth(), register 0x4F0B): the Scale item gets a Smoothing item after it
+    bool follow;              // T234: the gateware has Frame follow (video_gateware_follow(), register 0x4F02): a frame-buffer core gets the item Frame follow after the others. Last: the initialisers of the tests leave it 0
 };
 
 // out = *d with the Picture item after d's own settings; for every frame-buffer core on a host whose gateware scales (env->gateware), Scale and
@@ -48,8 +50,10 @@ void picture_apply(CoreCtx *c, int value);
 // Index of the Scale / Smoothing items (a frame-buffer core on a gateware host has them), -1 otherwise; their applies.
 int scale_index(const CoreDesc *d);
 int smooth_index(const CoreDesc *d);
+int follow_index(const CoreDesc *d);                 // T234: -1 when the gateware has no Frame follow
 void scale_apply(CoreCtx *c, int value);
 void smooth_apply(CoreCtx *c, int value);
+void follow_apply(CoreCtx *c, int value);            // T234: 0 Off (the host's standard 50 Hz rows, no follow loop), 1 On (T188); the gateware re-tunes like for a mode change
 
 // Start-up: the application is in `hdmi_now` (what the host handed over, -1: nothing) in system `sys` (-1: nothing).
 // Takes the mode the stored choice says (Auto when there is none), through the same path as a change at run time.

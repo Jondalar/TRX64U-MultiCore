@@ -22,7 +22,7 @@
 // set point S = 21/32 of the frame (13 ms of 20: after the application's flip latency, before the next core frame) and the frame gets
 // E = -(age - S) / 4 lines (rounded, limits EMIN -8 .. EMAX +16, T188 D5): E > 0 lines repeated at the last front porch line before the sync pulse, E < 0 lines taken
 // out of the back porch, right after the sync pulse. A phase that runs away (output faster than the core) shortens the next frame, a lagging one lengthens it. No core event for three frames, a 60 Hz
-// row or FOLLOW = 0: E = 0, the frame of the table. cy values of the active area, cy = 0 and cy = 1 are never repeated or skipped.
+// row or FOLLOW = 0: E = 0, the frame of the table. T234: rows 12..14 (the host's standard 50 Hz rows, run while the setting Frame follow is Off) are m >= 3 and so never followed. cy values of the active area, cy = 0 and cy = 1 are never repeated or skipped.
 module hdmi_timing #(
     parameter FOLLOW = 0
 ) (

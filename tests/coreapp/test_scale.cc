@@ -13,6 +13,7 @@
 #include "picture.h"
 #include "videomode.h"
 #include "regset.h"
+#include "menutree.h"
 
 // the host: the firmware path (video_apply) and the gateware's request (video_apply_gateware), which moves the status row when it succeeds
 static std::vector<std::pair<int, int>> g_fw, g_gw;
@@ -85,8 +86,77 @@ static void layouts()
     CHECK_STR(video_scale_name(VID_SCALE_FIT), "Fit");
 }
 
+int g_follow_written = -1;
+bool video_set_follow_gateware(int on) { g_follow_written = on; return true; }              // T234: the board's write to 0x4F02
 int g_vic_scale_written = -1;
 bool video_set_scale_gateware(int scale) { g_vic_scale_written = scale; return true; }   // T222: the board's write to 0x4F01
+
+// T234: the picture rows of a core whose gateware has Frame follow (the Amiga cores): the item, its place on F5 Video, the write, the stored value
+static void follow_item()
+{
+    for (const CoreDesc *d : { &amiga_desc, &amiga1200_desc }) {
+        Setting items[SETTINGS_MAX + 4]; CoreDesc ext;
+        PictureEnv env = { EDID_ROW_MASK, 0, true, VID_SYS_PAL50, false, false, true };
+        CHECK(!picture_extend(d, &ext, items, &env));
+        CHECK_EQ(ext.nsettings, d->nsettings + 4);                                // Picture, Scale, Smoothing, Frame follow
+        int fi = follow_index(&ext);
+        CHECK_EQ(fi, d->nsettings + 3);
+        if (fi < 0) { return; }
+        const Setting &f = ext.settings[fi];
+        CHECK_STR(f.key, "Frame follow"); CHECK_EQ(f.nvalues, 2); CHECK_STR(f.values[0], "Off"); CHECK_STR(f.values[1], "On");
+        CHECK_EQ(f.def, 0); CHECK(f.when == WHEN_LIVE); CHECK_STR(f.apply, "follow.apply");
+        const MenuGroupRoute *rt = menu_route_of(f);                              // D5: with the other picture rows, F5 Video
+        CHECK(rt != 0);
+        if (rt) { CHECK_STR(rt->area, "F5"); CHECK_STR(rt->tab, "video"); }
+        CHECK_EQ(ext.settings[picture_index(&ext)].group != 0 && !strcmp(ext.settings[picture_index(&ext)].group, f.group), 1);
+        OpRegistry reg; picture_register(reg);
+        CHECK(reg.find_op(FOLLOW_OP) != 0);
+        // the gateware without the register (an older host, every other core): no item, the three rows as before
+        env.follow = false;
+        CHECK(!picture_extend(d, &ext, items, &env));
+        CHECK_EQ(ext.nsettings, d->nsettings + 3);
+        CHECK_EQ(follow_index(&ext), -1);
+    }
+    // a core that draws its own picture has no frame buffer: no item even where the gateware has the register
+    { CoreDesc own = nes_desc; own.video.w = 0;
+      Setting items[SETTINGS_MAX + 4]; CoreDesc ext;
+      PictureEnv env = { EDID_ROW_MASK, 0, true, VID_SYS_PAL50, false, false, true };
+      CHECK(!picture_extend(&own, &ext, items, &env));
+      CHECK_EQ(follow_index(&ext), -1);
+    }
+    // a descriptor may not declare the key itself
+    { CoreDesc bad = amiga1200_desc; Setting s[SETTINGS_MAX + 4]; CoreDesc ext;
+      static const char *const v[2] = { "Off", "On" };
+      for (int i = 0; i < bad.nsettings; i++) { s[i] = amiga1200_desc.settings[i]; }
+      s[bad.nsettings] = Setting(); s[bad.nsettings].key = "Frame follow"; s[bad.nsettings].values = v; s[bad.nsettings].nvalues = 2;
+      bad.settings = s; bad.nsettings++;
+      Setting items[SETTINGS_MAX + 4];
+      PictureEnv env = { EDID_ROW_MASK, 0, true, VID_SYS_PAL50, false, false, true };
+      CHECK(picture_extend(&bad, &ext, items, &env) != 0);
+    }
+    // the apply writes the register, the stored value is read back after a restart and applied by picture_start before the mode
+    { Setting items[SETTINGS_MAX + 4]; CoreDesc ext; FakeIo io; FakeFs fs; PxRec px;
+      PictureEnv env = { EDID_ROW_MASK, 0, true, VID_SYS_PAL50, false, false, true };
+      CHECK(!picture_extend(&amiga1200_desc, &ext, items, &env));
+      int fi = follow_index(&ext);
+      { Settings st(ext.settings, ext.nsettings, amiga1200_desc.store, &fs, "/usb0/cores/x.cfg", 0);
+        st.load();
+        CHECK_EQ(st.value(fi), 0);                                               // a start with no stored settings: Off
+        CHECK(st.set(fi, 1));
+        CHECK(st.save());
+      }
+      Settings st2(ext.settings, ext.nsettings, amiga1200_desc.store, &fs, "/usb0/cores/x.cfg", 0);   // after a restart
+      st2.load();
+      CHECK_EQ(st2.value(fi), 1);
+      CoreCtx c; memset(&c, 0, sizeof(c)); c.desc = &ext; c.io = &io; c.fs = &fs; c.settings = &st2;
+      Video vid(amiga1200_desc.video, &px, &io); c.video = &vid;
+      g_gw_row = 2; g_gw_ok = true; g_follow_written = -1;
+      picture_start(&c, VID_SYS_PAL50, VID_HDMI_1080P);
+      CHECK_EQ(g_follow_written, 1);
+      follow_apply(&c, 0);
+      CHECK_EQ(g_follow_written, 0);
+    }
+}
 
 struct Rig {
     FakeIo io; FakeFs fs; PxRec px; CoreDesc ext; Setting items[SETTINGS_MAX + 4]; CoreCtx c; Settings *st; Video *vid;
@@ -329,5 +399,6 @@ int main()
     layouts();
     menu_places();
     items_and_apply();
+    follow_item();
     DONE("scale");
 }

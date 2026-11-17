@@ -712,6 +712,48 @@ static void rtc_menu(const char *out)
     }
 }
 
+// T234: the Frame follow row of both Amiga cores on the F5 Video page (tab 2) next to Picture, Scale and Smoothing, selected, at the default Off
+static void follow_menu(const char *out)
+{
+    static CoreDesc d[2];
+    const CoreDesc *src[2] = { &amiga_desc, &amiga1200_desc };
+    const char *name[2] = { "a500", "a1200" };
+    for (int k = 0; k < 2; k++) {
+        PictureEnv env = { EDID_ROW_MASK, 0, true, VID_SYS_PAL50, false, false, true };
+        d[k] = *board_desc(src[k], &env);
+        char cfg[64]; snprintf(cfg, sizeof(cfg), "/usb0/cores/%s.cfg", k ? "amiga1200" : "amiga");
+        Rig r(&d[k], cfg);
+        r.c.started = true;
+        r.c.program_loaded = true;
+        ui_open(&d[k]);
+        picture_start(&r.c, VID_SYS_PAL50, VID_HDMI_1080P);
+        r.vid->init();
+        r.m->open();
+        r.m->key(KEY_F5);
+        r.m->key('2');
+        ui_menu_render(*r.m);
+        lv_timer_handler();
+        int row = -1, nvideo = 0;
+        for (int i = 0; i < r.m->rows(); i++) {
+            char l[120], rr[120], sb[160]; bool a;
+            r.m->row(i, l, sizeof(l), rr, sizeof(rr), &a, sb, sizeof(sb));
+            if (!strcmp(l, "Picture") || !strcmp(l, "Scale") || !strcmp(l, "Smoothing")) nvideo++;
+            if (!strcmp(l, "Frame follow")) { row = i; CHECK(!strncmp(rr, "Off", 3)); }
+        }
+        CHECK(row >= 0);
+        CHECK(nvideo == 3);                                                 // D5: the row stands with the other picture rows
+        if (row >= 0) select_row(r, row);
+        ui_menu_render(*r.m);
+        lv_timer_handler();
+        lv_obj_invalidate(lv_screen_active());
+        lv_timer_handler();
+        PxRec::Pl g = r.px.place.empty() ? PxRec::Pl{ 0, 0, 960, 540 } : r.px.place.back();
+        CHECK(view_bounds(name[k], 960, 540) == 0);
+        char p[512]; snprintf(p, sizeof(p), "%s/%s-settings-frame-follow.png", out, name[k]);
+        png_out(p, 1920, 1080, g.x, g.y, g.w, g.h);
+    }
+}
+
 // T164 D10a: the menu in every mode the host offers. Each mode gets the canvas trx_canvas_for names (960 x 540 at a whole factor; the mode's own size
 // below 960 wide: 576p PAL 720 x 576, 480p NTSC 640 x 480, 800 x 600) and the compact layout; every page of the menu (areas F1-F8, tabs 1-5) is rendered
 // and every visible object must lie inside the canvas and not be cut by its parent. The pictures go to the output directory.
@@ -2624,6 +2666,7 @@ int main(int argc, char **argv)
     a1200_menu(out);
     modes_menu(out);
     rtc_menu(out);
+    follow_menu(out);
     modes_picture_row(out);
     ddt_menu(out);
     c128_kit_menu(out);
