@@ -549,7 +549,7 @@ def host_decode(text, amiga=False):
         elif m in lcd or m in lrt: bad.append("%s: not locked but has lock values" % n)
     return bad
 
-AMIGA_VH = [os.path.join(ROOT, "cores/amiga/mono/host/hdmi_modes.vh"), os.path.join(ROOT, "cores/amiga1200/mono/host/hdmi_modes.vh")]
+AMIGA_VH = [os.path.join(ROOT, "cores/amiga/mono/host/hdmi_modes_amiga.vh"), os.path.join(ROOT, "cores/amiga1200/mono/host/hdmi_modes_amiga.vh")]
 HOST_ROWTXT = {}
 
 def amiga_follow_check(rows):

@@ -56,7 +56,7 @@ module hdmi_timing #(
     input  wire        core_tgl,        // T188 D3: toggle, one per complete core frame (any clock domain; crossed here). Unused with FOLLOW = 0
     output wire signed [5:0] follow_e   // T188 D3: the lines the frame has more (+) or fewer (-) than the table's, for the readout and the bench
 );
-`include "hdmi_modes.vh"
+`include "hdmi_modes_amiga.vh"   // T234: a name of its own - Vivado runs in host/, where host/hdmi_modes.vh (no rows 12..14) would be found first
 
     // ---- the mode: captured while rst, derived values a clock later (rst is held for several clocks, running waits for them)
     reg  [3:0]   m = 4'd2;

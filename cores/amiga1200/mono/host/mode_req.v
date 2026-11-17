@@ -37,7 +37,7 @@ module mode_req (
     input  wire        running,            // hdmi_timing.running (clk_pix)
     input  wire [3:0]  mode_q              // hdmi_timing.mode_q (clk_pix)
 );
-`include "hdmi_modes.vh"
+`include "hdmi_modes_amiga.vh"   // T234: a name of its own - Vivado runs in host/, where host/hdmi_modes.vh (no rows 12..14) would be found first
     // ---- clk_sys: the write
     reg  [7:0] req_val = 8'd2;
     reg        req_tgl = 1'b0;
