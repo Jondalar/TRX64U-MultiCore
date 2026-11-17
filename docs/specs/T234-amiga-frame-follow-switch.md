@@ -62,4 +62,9 @@ No mutation tests (T174 D5.4).
 
 ## §5 Build log
 
-(empty)
+**2026-11-17 - built on t234-amiga-follow (1a755a05c, 3e816c5ae, d28b2f4f7, 22f59bedf), merged into main (e8db511c0) on Alex's "merge and build"; S1-S3 proven in sims/units, S4/S5 board and S6 CI open.**
+- **Gateware:** `mode_req.v` of both Amiga copies (equal): register `fol` (write 0x4F02 bit 0, read 0x4F0C, power-up Off), version byte 4. With Off a request for rows 0..2 runs the new rows 12..14 of the generated `hdmi_modes.vh`, the host's own 50 Hz rows of before T188 (`tools/hdmi_modes.py amiga-gen`; `amiga-check` and `selftest` 29 of 29 hold them equal to the host's); `hdmi_timing` unchanged (its follow already applies to m < 3 only). A change of the setting changes the effective row, so the CDCE is rewritten like a mode request, no core reset (D3). The shared `host/` is untouched.
+- **App (no per-core C, `check_d24.py` rc 0):** a generic `Frame follow` row (Off/On, default Off) on F5 Video after Smoothing, added by `picture_extend` when the gateware reports version >= 4; `follow.apply` writes the register and waits for the re-tune; `picture_start` applies a stored value before the mode.
+- **Evidence (builder, both cores, same lines):** `PASS hdmi_timing (12 modes, 4 refused: exact, align on every row)`; rows 12..14 with Off `fe=[0..0] fe_end=0 len_bad=0/338` at 49.60, 49.920128 and 50.20 Hz; T188's `PASS hdmi_timing follow (no repeat, no skip at 49.60 .. 50.20 Hz, ...)` unchanged; `PASS modepath (... Frame follow Off and On)`; `gwstatus: 72 checks, 0 failed`; `scale: 329 checks, 0 failed`; render `296877 checks, 0 failed`; `tools/dev.sh riscv` rc 0.
+- **Cost (estimate, no Vivado yet):** about 80-120 LUT and 5 FF per core, no BRAM/DSP.
+- **Open:** S4/S5 board, S6 Vivado; pictures are render-bench pictures (ue2emu has no model of version 4); open for Alex: the T224 safe graphics mode does not force Frame follow Off; a stored On costs one more re-sync at start.
