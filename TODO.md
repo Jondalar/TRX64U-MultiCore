@@ -21,7 +21,7 @@ number. The drop-in line stays in `TREX/TRX64-Ultimate`.
 
 | ID | M | Status | Task | Open | Details |
 |---|---|---|---|---|---|
-| T92 | 3 | 🔨 | Amstrad/Schneider CPC core from Amstrad_MiSTer in the host/core split (after T91, which builds the shared modules) | #17 CAT hang back in main-13c2cde9 (11-16; test-66f89900 OK), cause open; floppy LED passed 11-04 (T159) | [T92](docs/todo/T92.md) |
+| T92 | 3 | 🔨 | Amstrad/Schneider CPC core from Amstrad_MiSTer in the host/core split (after T91, which builds the shared modules) | #17 fix 011cdc4d failed on board 11-17 (no cursor after mount+reset); CPC out of the pipeline (D-17e) | [T92](docs/todo/T92.md) |
 | T97 | 3 | ✅ | Amiga 1200 runs AmigaVision from HDF: 68020, fast RAM, images above 4 GiB | Done (Alex 11-08); RAM line in Home > Status dropped | [T97](docs/todo/T97.md) |
 | T104.2 | 2 | 🔨 | The generic app boots on the TRX64 Ultimate monolith, then a C64 descriptor and cbm1541 (D10) | Wanted (Alex 10-28): TRX64 runs our app; next: drive pages to main, RISC-V build, board run (S1) | [T104.2](docs/specs/T104.2-generic-app-on-trx64-ultimate.md) |
 | T116 | 3 | 🔨 | ZX Spectrum Next core: the original FPGA source, RAM on DDR2, SD card served from an image | Board passed (Alex 10-28); D11 Auto passed (11-04); open: frame-lock and S6 picture-bench decisions (5.3) | [T116](docs/todo/T116.md) |
@@ -102,11 +102,15 @@ Built and benched; what is left is a step on the board (Alex, 2026-10-28, transl
 | T223 | 2 | 🔨 | Boot menu: 32 entries, only visible rows read, clear full-menu message; large cores take configs (D4) | Board 11-16 table ok; D7 (version x.y.z, L/P badge, tick right) board PASS 11-16 | [T223](docs/specs/T223-boot-menu-32.md) |
 | T225 | 2 | ✅ | Amiga: USB pad on game port 2 (1-/2-button, CD32), mapping dialog, saved per pad ID | Done 11-15, board amiga1200 (Alex) | [T225](docs/specs/T225-amiga-usb-pad-port2.md) |
 | T226 | 2 | 🔨 | Core app: "Loading cartridge" note; pad mapping on the Input tab, not Actions F7 | Spec 11-15 (Alex, board) | [T226](docs/specs/T226-coreapp-board-ux-1115.md) |
-| T228 | 2 | 🔨 | trx64u on the generic core menu; S2 building on t228-s2 (DC1-DC12 by Claude, 11-16 night); step 1 committed | Spec 11-15 (Alex) | [T228](docs/specs/T228-trx64u-generic-menu.md) |
+| T228 | 2 | 🔨 | trx64u on the generic core menu; UI fix first (11-17); trx64u deactivated in the package (pin PIPELINE=false) | Spec 11-15 (Alex) | [T228](docs/specs/T228-trx64u-generic-menu.md) |
 | T229 | 2 | 🔨 | Boot menu: row data cached like the picture, stat-only check in the background, keys win | Flash boot frame 3.0 s (was 11.9 s); S1/S9 + package board PASS 11-16; Q4 bound 180 ms (Alex) | [T229](docs/specs/T229-boot-menu-data-cache.md) |
 | T230 | 2 | 📝 | TRX64 FW version in the menu; trx64u starts with config, media, autostart (FW contract) | v4 (D5), P-1/P-2, D6-D8; S1 board PASS 11-16 (0.3.0); open: autostart row (D7), page survival | [T230](docs/specs/T230-trx64-fw-version-and-start.md) |
 | T231 | 3 | 📝 | Diag core: a cursor move redraws only what changed, not the whole screen | PROPOSED 11-16 (Alex, board test); with or after the app rework (T213) | [T231](docs/specs/T231-diag-redraw.md) |
-| T232 | 1 | 🔨 | Pad/joystick keys: A-Z plus learn by key press (GitHub #80); post release, merge after it | Spec 11-16 (Alex) | [T232](docs/specs/T232-padkeys-letters-learn.md) |
+| T232 | 1 | 🔨 | Pad/joystick keys: A-Z plus learn by key press (GitHub #80); merge 4th, after T228, T235, T234 (Alex 11-17) | Spec 11-16 (Alex) | [T232](docs/specs/T232-padkeys-letters-learn.md) |
+| T233 | 3 | 📝 | CPC floppy controller repair: RQM never waits for a scan, bounded waits, one owner of drive state | Spec 11-17 (Alex); order 5 (Alex 11-17: T228, T235, T234, T232, CPC) | [T233](docs/specs/T233-cpc-fdc-repair.md) |
+| T234 | 2 | 🔨 | Amiga frame follow (T188) as a setting, default Off = standard HDMI rows (Worms DC, 1080p50 reports) | Merged 11-17 (Alex: "merge and build"); Vivado, board S4/S5 open | [T234](docs/specs/T234-amiga-frame-follow-switch.md) |
+| T235 | 2 | 🔨 | Picture list always offers 50 Hz and 60 Hz per resolution; EDID modes marked (T187 D5 changed) | Merged 11-17 (Alex: "merge and build"); board S5 open; defect: EDID of exactly the 6 TV rows reads as none | [T235](docs/specs/T235-picture-always-50-60.md) |
+| T236 | 2 | 🔨 | Native menu simulator (Mac): real coreapp UI with board stubs, live keys, menu TOML reloaded at run time | Merged 11-17 (C64U_emu built it); window not looked at yet: tools/menusim/run.sh | [T236](docs/specs/T236-menu-simulator.md) |
 | T224 | 2 | 🔨 | "Boot safe graphics mode" in the config overlay (RIGHT): one start with Picture Auto, Scale Integer, Smoothing Off | Built on t224-picture-reset 11-15 (D1-D3, Alex); ue2emu 3 modes ok incl. large core; tests unrun | [T224](docs/specs/T224-picture-reset.md) |
 | T175 | 3 | 🔨 | Diag core: a timed probe engine plus TOML tests measure the joystick/paddle ports, results to SD | Merged; tests in diag.cor (rec 8) board PASS 11-16; S4, S7 board, S8 open; redraw UX -> T231 | [T175](docs/todo/T175.md) |
 | T176 | 3 | 📅 | Core menus on the screen at once from a saved picture (split out of T146 P5, issue #4) | Deferred (Alex 11-02): split out of T146 P5; not started | [T176](docs/todo/T176.md) |

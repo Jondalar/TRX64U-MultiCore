@@ -427,6 +427,38 @@ OS464 + BASIC464`, every part 16 KB (README). Frame: the CRTC is programmable; t
   asked with options: reset only into an empty drive / always / never): "Reset only into an empty drive". Mounting into an empty A:/B:
   resets, as the test core did. Replacing the disk of a filled drive swaps it without a reset. The u765 fixes (H1, H2 incl. EXEC8
   and WRITE, H3) make the swap safe.
+- D-17c (Alex 2026-11-17, board test of t92-cpc17b): the board step "swap the disk in A: during a load of a multi-disk game" is
+  dropped: "Test 3 I am not doing, I have no disk-swap game and no time to look for one" (translated). The board tests CAT with a
+  disk in A: and CAT after a reset with two disks in. The swap during a load is proven by the `fdcscan3` bench only.
+- Board test 1 of t92-cpc17b FAILED (Alex 2026-11-17, `cpc.cor` 011cdc4d of run 2358): after "Mount A: and reset" into an empty A:
+  "no cursor any more .. so NOT fixed .. every time the same" and "the floppy LED does nothing either ... so broken. Take the CPC
+  core out" (translated). Cause being read (`scratchpad/cpc-regress/RESET-HANG.md`).
+- D-17d (Alex 2026-11-17, asked with options board + packages / board only / also the published GitHub pre-release): "Board +
+  packages". `cpc.cor` is deleted from the board's `/SD/cores` (the old `cpc_probe_backup.cor` there was not touched). The CI
+  package and the next GitHub releases ship no CPC until #17 is fixed and passes on the board; the CPC is still built, so a fix can
+  be tested. The published pre-release main-13c2cde9 stays as it is.
+- D-17e (Alex 2026-11-17, right after D-17d): "Do not even build it. The code stays, leave it out of the pipeline! Pure waste of
+  time" (translated). Replaces D-17d's "still built": the CPC's code stays in the tree, no pipeline stage builds, packs, ships or
+  benches it (core.toml `pipeline = false`, branch t92-off). The reading agent was stopped; the coordinator read it the same day (next entry). Left for whoever picks it up: Alex's photo of
+  the hang shows "Amstrad 64K Microcomputer (v2)" and the copyright lines, then nothing - the 664 banner, not the 6128's; the
+  machine stops after the firmware banner and before BASIC prints its line, i.e. in the ROM start or AMSDOS init, before any
+  disk command of the user.
+- 2026-11-17, the board hang of 011cdc4d read in the code (Claude, coordinator, reading only): AMSDOS's init (`amsdos.rom`
+  &C1BC -> &C5DD -> &C60D) sends SPECIFY through &C95C, which polls the main status register with no timeout
+  (`IN A,(C); ADD A,A; JR NC` until RQM). u765 in COMMAND_IDLE sets RQM = `!image_scan_state[0] & !image_scan_state[1]`
+  (`gen/u765.sv:787` of t92-cpc17b 42ef2aeaa, upstream code): while a disk scan is pending the Z80 cannot send a byte. So after "Mount A: and reset" the scan of
+  the new image never ends, AMSDOS loops, BASIC never prints, the motor (floppy LED) is never switched on. The 464 has no AMSDOS and
+  would not stop there; the 664 and the 6128 both do ("on both RAM variants", Alex). The scan path is what this build changed against
+  the board-good 66f89900: the start condition (`:425`, H4 adds `!sd_busy_tinfo & !sd_busy_sector & !tinfo_lock`) and the
+  mount-event withdrawals (`:394-396`, H1); `cpc_fdc.v` and its toggle handshake to the DDR2 are unchanged. Which wait stays set on
+  the board is not closed by reading (the benches, without the real `cpc_fdc`/DDR2, never stall it). Cheapest known-good path for
+  later: u765 of 66f89900 plus the app's mount with a reset.
+- D-17f (Alex 2026-11-17, after the reading): "Write a spec. If the MiSTer disc controller is that bad, look for another one or repair
+  it. And then build the core again tonight and test it" (translated). The repair is T233 (docs/specs/T233-cpc-fdc-repair.md); its
+  branch builds the CPC again (T233 D7), `main` keeps it out of the pipeline (D-17e) until the board pass.
+- D-17g (Alex 2026-11-17): "and please take the core out of the docs, completely" (translated). The CPC leaves the README and the
+  manual (chapters 11, 12, 15; the sections after 11.13 move up one number); specs, TODO and internal test lists keep it. It comes back
+  with the T233 board pass. GitHub Discussion #66 (core overview) lost its `cpc` row the same day (Alex: "#66 too?").
 
 ## §4 Out
 
@@ -577,3 +609,9 @@ shared parts, the application's tape deck and the ROM aperture finding are in T9
 Closing: Status → DONE (date) + which scenarios are green where; TODO row ✅ and history entry,
 in the same commit as the code.
 -->
+- **2026-11-17, D-17e built: `pipeline = false`.** Generic `core.toml` key `pipeline` (default true; `tools/core_toml.py` SCHEMA): `list`, `list cfw`, `list-cor` leave the core out, so `ci/plan.py` (universe: no `large:cpc` lane, no `package:cfw:cpc`, no simscope or bench of it), `ci/bitstream_mono.sh`, `ci/package.sh`, `tools/pack_cores_mc.sh` never see it; `ci/sims.sh` skips the benches a `pipeline = false` core owns unless named on the command line; `tools/gen_roms_txt.py` and `tools/test_make_release_mc.py` skip it. `cores/cpc/mono/core.toml` sets it. Still reading the CPC on purpose: lint (cpc gen/programs/slot model, core id, no-ROM, layer2 pins), `coreapp/cores/cpc.cc` and its unit tests (code stays), `tools/release_notes_mc.py` table line (a .cor never appears, so no paragraph). Check output in the hand-over of t92-off.
+- **2026-11-17, D-17e completed after the pre-push review (merge e368fd485 of fix-1117 and the review fixes after it).** `ci/orchestrate.py check` skips
+  a bench whose owner core has `pipeline = false` (the CPC's benches stay in `ci/sims.lane`; rc 0, "every bench has one owner"); `tools/gen_roms_txt.py`
+  leaves out `pipeline = false` cores and imported cores whose pin says `PIPELINE=false` (read as `ci/package.sh` reads it, a prefix match), so ROMS.txt
+  names neither the CPC nor trx64u (`tools/test_roms_txt.py`: "Ran 9 tests ... OK"). The core application keeps the CPC's code (`table.cc`) and its
+  unit tests still run; CLAUDE.md and `tools/core_toml.py` say so.

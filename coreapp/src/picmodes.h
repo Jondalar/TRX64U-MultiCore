@@ -13,14 +13,18 @@ struct PictureModeRow {
     char name[48];
     uint32_t refresh_dhz;
     bool now, native;
+    int mode;                 // T235: the table row (0-11) of a core's row, -1 for Auto and for the host's rows (they have a resolution only)
+    bool named;               // T235: the screen's EDID names this row (the mark beside the rate)
 };
+#define PIC_ROWS_MAX 9        // T235: the rows of the mode table that exist (hdmi_modes.vh: 3 at 50 Hz, 6 at 60 Hz)
 struct PictureModes {
     int n;                    // rows, Auto included
     int cur;                  // the row of the choice in force (0: Auto)
     bool fallback;            // a listed row is of the other 50/60 Hz family than the machine's (the screen names none in the machine's)
     bool sys60;               // the machine's family is 60 Hz (for the wording of the fallback line)
     bool no_edid;             // the screen named nothing: the television rows are listed
-    PictureModeRow row[1 + VID_HDMI_COUNT];
+    bool full;                // T235: every row of the table at its own rate is listed, the rows the screen names carry a mark (a core on the gateware path)
+    PictureModeRow row[1 + PIC_ROWS_MAX];
 };
 
 // Refresh of an EDID row in tenths of Hz (pixel clock over the raster), 0 when the row is unknown.
@@ -28,6 +32,8 @@ uint32_t picmodes_row_dhz(int row);
 // Fills row i: `hdmi` the resolution it asks for (-1: unknown), `msys` the machine's family, `now_hdmi` the resolution in force (-1: none), `cur_auto` the choice is Auto.
 void picmodes_set_row(PictureModes *pm, int i, const char *name, int hdmi, uint16_t mask, uint16_t native, int msys, int now_hdmi, bool cur_auto);
 
+// T235: row i of the full list: `row` the table row it asks for (-1: unknown), `named` the screen names it, `now_row` the row in force (-1: none). Sets pm->full.
+void picmodes_set_row_at(PictureModes *pm, int i, const char *name, int row, bool named, uint16_t native, int now_row, bool cur_auto);
 // "1280 x 720, 50.0 Hz" for the resolution as the screen's list asks for it in family `sys` (the name alone when the raster is unknown, "the previous mode" for none).
 void picmodes_mode_text(uint16_t mask, int sys, int hdmi, char *out, int n);
 

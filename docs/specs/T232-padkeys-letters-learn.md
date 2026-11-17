@@ -1,6 +1,6 @@
 # T232 — A pad or joystick can press any letter key, chosen by pressing it, so a game on IJKL (or WASD) plays from a USB pad
 
-**Status:** IN PROGRESS (2026-11-16, Alex).
+**Status:** IN PROGRESS (2026-11-16, Alex). Order (Alex 2026-11-17): T228, T235, T234, then this, then the CPC (T233).
 **Repo:** TRX64U-MultiCore — the generic core application (`coreapp/src/padkeys.h`, the input tab, the hotkey learn path); no core
 RTL, no per-core C.
 **Number:** T232.

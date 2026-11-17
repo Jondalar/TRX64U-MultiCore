@@ -305,8 +305,8 @@ const char *desc_check_with(const CoreDesc *d, const OpRegistry &reg)
         for (int j = 0; j < i; j++) {
             if (!strcasecmp(d->settings[j].key, s.key)) return "settings: two items with the same key";
         }
-        if (!strcasecmp(s.key, PICTURE_KEY) || !strcasecmp(s.key, SCALE_KEY) || !strcasecmp(s.key, SMOOTH_KEY)) return "settings: the keys Picture, Scale and Smoothing belong to the application";
-        if (s.apply && (!strcmp(s.apply, PICTURE_OP) || !strcmp(s.apply, SCALE_OP) || !strcmp(s.apply, SMOOTH_OP))) return "settings: the operations picture.apply, scale.apply and smooth.apply belong to the application's own Picture, Scale and Smoothing rows";
+        if (!strcasecmp(s.key, PICTURE_KEY) || !strcasecmp(s.key, SCALE_KEY) || !strcasecmp(s.key, SMOOTH_KEY) || !strcasecmp(s.key, FOLLOW_KEY)) return "settings: the keys Picture, Scale, Smoothing and Frame follow belong to the application";
+        if (s.apply && (!strcmp(s.apply, PICTURE_OP) || !strcmp(s.apply, SCALE_OP) || !strcmp(s.apply, SMOOTH_OP) || !strcmp(s.apply, FOLLOW_OP))) return "settings: the operations picture.apply, scale.apply, smooth.apply and follow.apply belong to the application's own Picture, Scale, Smoothing and Frame follow rows";
     }
     for (int i = 0; i < d->ntasks; i++) {
         if (!text(d->tasks[i].label) || !text(d->tasks[i].op)) return "tasks: label and op";

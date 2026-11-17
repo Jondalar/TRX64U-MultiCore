@@ -186,7 +186,7 @@ bool Settings::build(char *buf, int max, int *pos, bool all, const char *const *
         if (core_[i] >= 0 || all) {
             const char *val = items_[i].kind ? (core_[i] >= 0 && tix_[i] >= 0 ? tpool_[tix_[i]] : text(i)) : items_[i].values[stored_value(i)];   // never the override (T224 D2)
             char head[96];
-            if (!items_[i].kind && items_[i].apply && !strcmp(items_[i].apply, PICTURE_OP) && !strcasecmp(items_[i].key, PICTURE_KEY)) {   // the Picture item's Auto carries a display note that goes stale with the host's mode: the file keeps the label
+            if (!items_[i].kind && items_[i].apply && !strcmp(items_[i].apply, PICTURE_OP) && !strcasecmp(items_[i].key, PICTURE_KEY) && stored_value(i) == 0) {   // the Picture item's Auto carries a display note that goes stale with the host's mode: the file keeps the label (T235: the other values end in their rate, "(50 Hz)", and keep it)
                 snprintf(head, sizeof(head), "%s", val);
                 char *n = strstr(head, " (");
                 if (n) {

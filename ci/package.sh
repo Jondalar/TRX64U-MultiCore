@@ -197,6 +197,10 @@ fi
 # the two ids differ, so their core folders and .cfg differ (tools/test_pack_import_cor.sh).
 for pin in "$ROOT"/release/imports/*.pin; do
   [ -e "$pin" ] || continue
+  if grep -q '^PIPELINE=false' "$pin"; then      # deactivated, not deleted (T228, Alex 2026-11-17): the pin stays, nothing is packed
+    echo "=== imported large .cor $(basename "$pin" .pin): PIPELINE=false in the pin, not packed"
+    continue
+  fi
   echo "=== imported large .cor $(basename "$pin" .pin)"
   if ! "$ROOT/tools/pack_import_cor.sh" --pin "$pin" --app-bin "$out/coreapp.bin" --app-commit "$(cut -c1-8 "$trxapps/trxapps_commit")" --out "$out"; then
     echo "the imported large .cor of $pin could not be packed" >&2

@@ -37,8 +37,8 @@ module amiga_mem #(
     input  wire [1:0]  be,                        // {high byte, low byte}, active high
     input  wire [15:0] din,
     output wire [15:0] dout,
-    output wire [47:0] dout48,                    // AGA wide fetch: words 1..3 of the 8-byte aligned group of the requested word
-                                                  // ({+2, +4, +6} bytes), valid with dout (word 0 = dout when the address is aligned)
+    output wire [47:0] dout48,                    // AGA wide fetch: [47:32] is always the word at +2 bytes of the requested even word;
+                                                  // for a request at 0 mod 8 bytes it is {+2, +4, +6}; valid with dout
     output wire        pend,
     output wire        quiet,                     // sys_clk: no request taken or in flight, the DDR2 queue empty (Freeze)
     // the CPU's direct RAM port (fast RAM), toggle handshake
@@ -157,7 +157,7 @@ module amiga_mem #(
     reg  [15:0] crit = 16'd0;                    // ui_clk: the wanted word of the line that is coming in (stable when fill_tgl toggles)
     reg        crit_valid = 1'b0;                 // the demand miss can be answered with the critical word of the fill
     reg [15:0] crit_q = 16'd0;
-    reg [47:0] crit48 = 48'd0;                    // ui_clk: words 1..3 of the wanted word's aligned group (stable with crit)
+    reg [47:0] crit48 = 48'd0;                    // ui_clk: [47:32] = word at +2 of the wanted word; at 0 mod 8 bytes {+2,+4,+6} (stable with crit)
     reg [47:0] crit48_q = 48'd0;
     wire       fill_done_tgl;                     // from the ui side
     (* ASYNC_REG = "TRUE" *) reg [2:0] fd_s = 3'b000;
@@ -186,8 +186,8 @@ module amiga_mem #(
     wire        hit = tag_q[TW-1] & (tag_q[TW-2:0] == want_tag);
     wire [2:0]  r_w = r_a[2:0];
     wire [15:0] hit_word = bank_q[r_w];
-    // words 1..3 of the aligned 4-word group (the four banks of the group are read with the same index in the same clock)
-    wire [47:0] hit48 = r_w[2] ? {bank_q[5], bank_q[6], bank_q[7]} : {bank_q[1], bank_q[2], bank_q[3]};
+    // [47:32] = the word after the requested one (banks read with the same index in the same clock); [31:0] = words 2,3 of the group
+    wire [47:0] hit48 = {bank_q[{r_w[2:1], 1'b1}], bank_q[{r_w[2], 2'b10}], bank_q[{r_w[2], 2'b11}]};
     assign answer_now = (st == S_LOOK) & ~r_src & (r_we ? ~cf_full : hit);
     wire [21:0] nxt_line = r_a[24:3] + 22'd1;
     wire [IW-1:0] nxt_idx = hidx(nxt_line);
@@ -407,7 +407,7 @@ module amiga_mem #(
         U_WAITR: if (c_rd_valid) begin
             b_line <= swap_line(c_rd_data);
             crit <= swap_line(c_rd_data) >> (16 * u_w);
-            crit48 <= {sw_grp[31:16], sw_grp[47:32], sw_grp[63:48]};
+            crit48 <= {u_w[1] ? sw_grp[63:48] : sw_grp[31:16], sw_grp[47:32], sw_grp[63:48]};
             b_we <= 1'b1;
             fill_tgl <= ~fill_tgl;
             us <= U_IDLE;

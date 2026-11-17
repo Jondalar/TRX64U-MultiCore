@@ -74,6 +74,7 @@ struct RegWrite {
 #define VOLUME_KEY "Volume"
 #define SCALE_KEY   "Scale"                // T107 D8: added with Picture to every frame-buffer core on a host whose gateware scales (T164 G14)
 #define SMOOTH_KEY  "Smoothing"            // T164 Q3: added with Scale
+#define FOLLOW_KEY  "Frame follow"         // T234: added after Smoothing to a frame-buffer core whose gateware has the Frame follow register (the Amiga cores)
 struct Setting {
     const char *key;                      // the item text, also the key in <name>.cfg
     const char *const *values;            // labels, also the values in <name>.cfg

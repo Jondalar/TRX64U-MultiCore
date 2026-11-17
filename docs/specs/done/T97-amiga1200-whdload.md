@@ -821,3 +821,35 @@ against Gideon's were not run), its LUT/BRAM/DSP, whether it routes, WNS/WHS. `v
   console line `[core] Kickstart <dir>/<file> (... version V.R)` (`romset.cc`, `romset_put`) names what was loaded - needed to go on (board step).
 - **':' as '=': not reproducible from the code.** The tables (`amiga_keys.h`, `amiga_input.v` matrix map) contain no path from ':' to '=' (raw 0x0C);
   which keyboard and which Kickstart keymap were in use is not recorded (board step).
+
+### 5.16 The wide fetch returned the word at A-2 for fetches at 4 mod 8 (2026-11-17, GitHub Discussion #94, Turrican II AGA)
+Two testers saw wrong 16-px bands every 32 px in the background of Turrican II AGA on the A1200 (pre-release main-13c2cde9), with every Fast
+RAM setting; with Zorro III 32 MB the bands also moved. The OCS Turrican 2 always ran (Alex). Found by reading (scratchpad amiga-z3/READ.md):
+`dout48` / `p2_dout48` of the A1200 `amiga_mem.v` returned words 1..3 of the 4-word group whatever word was asked for (§5.6). FMODE 1/2 show
+`[47:32]` as pixels 16-31 of a fetch, so a fetch at 4 mod 8 bytes got the word at A-2 instead of A+2; at a row start A-2 lies outside the row
+(the left edge). OCS (FMODE 0) never reads `chip48`; FMODE 3 at 8-byte alignment is not affected. §5.6's "an unaligned request is not a wide
+fetch" no longer holds: 4 mod 8 is a valid FMODE 1/2 fetch.
+- **Fix** (commit 09e1b0b58, A1200 copy only): `[47:32]` is always the word at A+2 (hit: bank `{r_w[2:1],1}`; miss: `u_w[1] ? group word 3 :
+  word 1`); a request at 0 mod 8 bytes keeps the full {+2,+4,+6}. The A500 copy keeps the old lines: it has no AGA, so it never reaches them.
+- **Proof:** sim `amiga1200_wide` (`cores/amiga1200/sim/wide`, chip, Zorro II and Zorro III port, hit and miss; commit f9a9594a8 adds six
+  first reads at word 2 and word 6 of fresh lines, each checked to be a miss): "wide fetch: 120 reads, 0 errors; amiga_mem reads 165 miss 12" /
+  "PASS tb_wide". Controls: `OLD=1` (both old lines) fails with 34 errors, `OLD=crit` (only the miss line old) fails with 6 errors, exactly the
+  six miss reads (a pre-push review found that the first bench never missed at 4 mod 8). The A500 bench `amiga_wide` asserted the old rule, which
+  is why no bench caught it.
+- **Zorro III:** the reading found no defect in the Z3 path (address, cache tags, DDR2 users, write ordering). The moving bands are most likely
+  the same defect showing whatever lies at A-2. If they remain after the fix, next is the 32-bit addressing that only the Z3 setting unmasks
+  (`cpu_wrapper.v:284`).
+- **Open:** board check with Turrican II AGA. Test build `trx64mc-test-73fb8d63` (GitHub pre-release, `amiga1200.cor` from Gitea run 2376,
+  WNS +0.085 ns) is out; the retest is asked in Discussion #94 (Alex 2026-11-17: push to GitHub and ask for a retest).
+- **Retest results (#94, 2026-11-17):** Turrican II AGA "Graphic solved", the music stutters a little with Fast RAM 5.5M or 32M (not
+  analysed yet). Worms DC (AGA): no sound, the picture shows ~100 ms then 1.5-2 s blank. Reading (scratchpad amiga-z3/WORMS.md): the
+  change cannot cause it - `chip48` reaches only Denise's bitplane and sprite pixels; `p2_dout48` feeds a line fill under `ENABLE_CACHE`,
+  which no build defines; the two .cor differ only in these two lines (app identical but the version stamp). Ranked candidates: (1) the
+  T188 frame follow on a 50 Hz HDMI mode when the game's frame rate leaves ~49.2-50.3 Hz (NTSC BEAMCON0 or a VARBEAMEN mode): the HDMI
+  frame length jumps up to 24 lines, a TV re-syncs and mutes for 1-2 s; T188 S4 was never recorded as passed; (2) a reset/Guru loop
+  (e.g. Zorro III 32M left on: 32-bit addressing); (3) a chipset stall (weak fit). Separating step: the same game with the old
+  main-13c2cde9 `amiga1200.cor`, and with a 60 Hz HDMI mode (the follow is off there).
+- **Wide fetch, unaligned pointers (WinUAE custom.cpp as the nearest reference, read 2026-11-17):** the new rule equals WinUAE for FMODE 1
+  at every alignment and for FMODE 3 at 0 and 4 mod 8. Same in old and new, not needed for the reports: FMODE 3 at 2/6 mod 8 (word 3 in
+  [31:16]), FMODE 2's duplicated word, and the pointer step that drops the low bits after the first fetch (A1200 forks of
+  `agnus_bitplanedma.v` / `agnus_spritedma.v`).

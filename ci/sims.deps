@@ -116,6 +116,7 @@ amiga_l2: cores/amiga/sim cores/amiga/rtl host/sim/mig_ui_model.v cores/amiga/mo
 amiga1200_l2: cores/amiga/sim cores/amiga/rtl cores/amiga1200 host/sim/mig_ui_model.v cores/amiga/mono/host/ddr2_port.v
 amiga_fuzz: cores/amiga/sim cores/amiga/rtl/trx host/sim/mig_ui_model.v
 amiga_wide: cores/amiga/sim cores/amiga/rtl/trx host/sim/mig_ui_model.v
+amiga1200_wide: cores/amiga1200/sim/wide cores/amiga1200/rtl/amiga_mem.v cores/amiga/rtl/trx/trx_afifo.v host/sim/mig_ui_model.v
 amiga_sdc: cores/amiga/sim cores/amiga/rtl/trx cores/amiga/rtl/a500/trx_afifo_rr.v host/sim/mig_ui_model.v cores/amiga/mono/host/ddr2_port.v
 amiga1200_sdc: cores/amiga/sim cores/amiga/rtl/trx cores/amiga1200/rtl/amiga_sdc.v cores/amiga1200/rtl/trx_afifo_rr.v host/sim/mig_ui_model.v cores/amiga1200/mono/host/ddr2_port.v
 amiga_input: cores/amiga/sim cores/amiga/rtl/trx

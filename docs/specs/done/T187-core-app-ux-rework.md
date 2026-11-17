@@ -55,6 +55,7 @@ of the same day: `docs/todo/T187-ux-review-2026-11-06.md` (findings, layout prop
 - **D5 (Alex, 2026-11-06, on GitHub #50: "good idea, go for it; UX check by the agent, then build"):** the Picture item offers the modes
   the screen names (EDID) as a list to pick from; nothing is applied while browsing it; picking one applies it with the 8-second confirm.
   The same pattern for the host's F8 Picture row. The ux-specialist designs it against the concept before it is built.
+  2026-11-17: "only the modes the screen names" is replaced by T235 D1 (Alex: always 50 Hz and 60 Hz, the screen's modes marked).
 - **D6 (Alex, 2026-11-07: "B", translated; options: max 100 % or up to 200 %):** the core menu's volume goes up to 200 %; values above
   100 % amplify (quiet cores such as SID or Paula get louder, loud passages may clip).
 - **D7 (Alex, 2026-11-07: "A", translated):** Home directory, Enter home on startup and Persist medium mounts move from F8 to F5 Settings,

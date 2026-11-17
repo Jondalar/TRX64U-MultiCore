@@ -1,6 +1,7 @@
-// T164 WP2 (the host, all cores): the HDMI mode timing generator, from the A1200's (T107 D7). One of the 9 modes of host/hdmi_modes.vh
-// (tools/hdmi_modes.py host-gen) is taken while rst is high and kept; the generator then runs free. A mode that is not in the table
-// (hm_valid 0: family 0 with hdmi 3..5, or mode 12..15) is refused: `valid` is 0 and the generator never starts (`running` stays 0).
+// T164 WP2 (the host, all cores): the HDMI mode timing generator, from the A1200's (T107 D7). One of the 12 modes of this copy's hdmi_modes.vh
+// (rows 0..2: T188's Amiga 50 Hz rows, run while Frame follow is On; 6..11: the host's rows; 12..14: the host's standard 50 Hz rows, run while Frame follow
+// is Off) is taken while rst is high and kept;
+// the generator then runs free. A mode that is not in the table (hm_valid 0: rows 3..5 and 15) is refused: `valid` is 0 and the generator never starts (`running` stays 0).
 //
 // `align` (T164 G5, Q4): a one-clock pulse from the VIC path; only on a locked row (hm_locked: the two 1080p rows) it restarts the frame at
 // the origin of the active area (the pixel after the one registered at the pulse clock is cx = xact0, cy = yact0), as vic_scaler's `frame_seen && !locked` did with its own counters.
@@ -22,7 +23,7 @@
 // set point S = 21/32 of the frame (13 ms of 20: after the application's flip latency, before the next core frame) and the frame gets
 // E = -(age - S) / 4 lines (rounded, limits EMIN -8 .. EMAX +16, T188 D5): E > 0 lines repeated at the last front porch line before the sync pulse, E < 0 lines taken
 // out of the back porch, right after the sync pulse. A phase that runs away (output faster than the core) shortens the next frame, a lagging one lengthens it. No core event for three frames, a 60 Hz
-// row or FOLLOW = 0: E = 0, the frame of the table. cy values of the active area, cy = 0 and cy = 1 are never repeated or skipped.
+// row or FOLLOW = 0: E = 0, the frame of the table. T234: rows 12..14 (the host's standard 50 Hz rows, run while the setting Frame follow is Off) are m >= 3 and so never followed. cy values of the active area, cy = 0 and cy = 1 are never repeated or skipped.
 module hdmi_timing #(
     parameter FOLLOW = 0
 ) (

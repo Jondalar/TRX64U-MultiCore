@@ -10,6 +10,7 @@ what ci/lib.sh hashes into that core's keys.
   tools/core_toml.py list [cor|cfw]       (with cor or cfw: only the cores of that delivery; cfw also names the large cores that
                                           have only cores/<name>/mono/core.toml)
   tools/core_toml.py list-cor             the cores a user starts: the same without the flash filler (T123) and the build-only cores (T115)
+  (a core with `pipeline = false` is left out of all three lists: T92 D-17e)
   tools/core_toml.py sources <name>       the core's pathspecs, one per line
   tools/core_toml.py env <name>           the core's mono_env, one NAME=value per line (a value may hold spaces)
   tools/core_toml.py get <name> <key>     one value ("true"/"false" for a flag)
@@ -69,6 +70,10 @@ SCHEMA = {
     # the application replaces when the file on the card is byte for byte one of them. Only the core that names the folder carries the files.
     "install_dir":  ("str",  False),
     "install_old":  ("str",  False),
+    # T92 D-17e: false = the core's code stays in the tree and no pipeline stage builds its gateware, packs, ships or benches it (list, list cfw, list-cor,
+    # ci/plan.py, ci/sims.sh without a bench named, ci/orchestrate.py check, tools/gen_roms_txt.py leave it out). Default true. --check, get, sources and env
+    # still read it; the core application keeps its code (table.cc) and its unit tests (tests/coreapp/run.sh) still run.
+    "pipeline":     ("bool", False),
 }
 APPS = ("blueprint", "ultimate", "none")
 DELIVERIES = ("cor", "cfw")
@@ -103,6 +108,11 @@ def parse(path):
         else:
             raise SystemExit("%s: %s has no value this format knows (%r)" % (path, key, val))
     return out
+
+
+def in_pipeline(table):
+    """T92 D-17e: a core with `pipeline = false` is out of the gateware build, packing and benches; the default is in."""
+    return table.get("pipeline", True) is not False
 
 
 def delivery_of(table):
@@ -222,12 +232,12 @@ def main():
     if a[:1] == ["list"] and len(a) in (1, 2):
         if len(a) == 2 and a[1] not in DELIVERIES:
             raise SystemExit("list: %r is none of %s" % (a[1], ", ".join(DELIVERIES)))
-        names = [n for n, _, t in descriptors() if len(a) == 1 or delivery_of(t) == a[1]]
+        names = [n for n, _, t in descriptors() if in_pipeline(t) and (len(a) == 1 or delivery_of(t) == a[1])]
         if a[1:] == ["cfw"]:        # T100 D9: the large cores (mono/core.toml only) are cores with delivery = "cfw" too
-            names += [n for n, _, _ in large_descriptors() if n not in names]
+            names += [n for n, _, t in large_descriptors() if n not in names and in_pipeline(t)]
         print("\n".join(names))
     elif a[:1] == ["list-cor"]:
-        print("\n".join(n for n, _, t in descriptors() if not t.get("flash_filler") and not t.get("build_only") and delivery_of(t) != "cfw"))
+        print("\n".join(n for n, _, t in descriptors() if in_pipeline(t) and not t.get("flash_filler") and not t.get("build_only") and delivery_of(t) != "cfw"))
     elif a[:1] == ["sources"] and len(a) == 2:
         print("\n".join(table_of(a[1]).get("sources", [])))
     elif a[:1] == ["env"] and len(a) == 2:

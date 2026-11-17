@@ -255,6 +255,8 @@ while IFS='|' read -r t name tmo cmd; do
   case "$t" in ''|'#'*) continue ;; esac
   if [ -z "$check$keyonly$record" ]; then [ "$t" -le "$tier" ] || continue; fi
   [ "$want" = "  " ] || [[ "$want" == *" $name "* ]] || continue
+  # T92 D-17e: a bench of a core with pipeline = false is not run unless named on the command line
+  if [ "$want" = "  " ]; then oc="$(owner_core "$name")"; [ -z "$oc" ] || [ "$(python3 "$ROOT/tools/core_toml.py" get "$oc" pipeline 2>/dev/null)" != false ] || continue; fi
   read -r key kind < <(bench_key "$name" "$cmd")
   names+=("$name"); tmos+=("$tmo"); cmds+=("$cmd"); tiers+=("$t"); keys+=("$key"); kinds+=("$kind")
   if [ -z "$force" ] && [ -n "$cache_on" ] && [ -f "$ok_dir/$name.$key" ]; then

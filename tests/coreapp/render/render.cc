@@ -53,116 +53,7 @@ extern const CoreDesc ddt_novic_desc;
 #include "diag_examples.h"
 #include "table.cc"                                           // T187: the board's own core table (every core), not a short copy of it
 
-// ---- the pixel layer, native ----------------------------------------------------------------------
-static uint16_t fbs[2][960 * 540];
-static uint16_t *fb = fbs[0];
-static int cvw = 960, cvh = 540;                               // T164 D10a: the canvas of the display (the port's trx_lv_set_canvas)
-static uint32_t tick_cb(void) { static uint32_t t; return t += 50; }
-
-bool trx_lv_open(void)
-{
-    lv_init();
-    lv_tick_set_cb(tick_cb);
-    lv_display_t *d = lv_display_create(cvw, cvh);
-    lv_display_set_color_format(d, LV_COLOR_FORMAT_RGB565);
-    lv_display_set_buffers(d, fbs[0], fbs[1], sizeof(fbs[0]), LV_DISPLAY_RENDER_MODE_DIRECT);
-    lv_display_set_flush_cb(d, [](lv_display_t *dd, const lv_area_t *, uint8_t *px) {
-        if (lv_display_flush_is_last(dd)) { fb = (uint16_t *)px; }
-        lv_display_flush_ready(dd);
-    });
-    ovp::install();
-    return true;
-}
-int trx_lv_handler(void) { return (int)lv_timer_handler(); }
-void trx_lv_set_canvas(int w, int h)
-{
-    if (w == cvw && h == cvh) { return; }
-    cvw = w; cvh = h;
-    lv_display_t *d = lv_display_get_default();
-    if (d) {
-        lv_display_set_resolution(d, w, h);
-        lv_display_set_buffers(d, fbs[0], fbs[1], sizeof(fbs[0]), LV_DISPLAY_RENDER_MODE_DIRECT);
-    }
-}
-void trx_lv_suspend(void) { }
-void trx_lv_resume(void) { }
-void trx_lv_refresh_now(void) { lv_timer_handler(); }
-void trx_lv_yield_layer(void) { }
-void trx_lv_set_key(bool, uint16_t) { }
-bool trx_lv_set_alpha(uint8_t) { return true; }
-
-// ---- PNG -------------------------------------------------------------------------------------------
-static void put_be(unsigned char *p, unsigned v) { p[0] = v >> 24; p[1] = v >> 16; p[2] = v >> 8; p[3] = v; }
-
-static void chunk(FILE *f, const char *t, const unsigned char *d, unsigned n)
-{
-    unsigned char h[4];
-    put_be(h, n);
-    fwrite(h, 1, 4, f);
-    uLong c = crc32(0, (const Bytef *)t, 4);
-    fwrite(t, 1, 4, f);
-    if (n) { fwrite(d, 1, n, f); c = crc32(c, d, n); }
-    put_be(h, (unsigned)c);
-    fwrite(h, 1, 4, f);
-}
-
-static void png(const char *path, int scale)
-{
-    int W = 960 * scale, H = 540 * scale;
-    unsigned char *raw = (unsigned char *)malloc((size_t)(W * 3 + 1) * H), *p = raw;
-    for (int y = 0; y < H; y++) {
-        *p++ = 0;
-        for (int x = 0; x < W; x++) {
-            uint16_t v = fb[(y / scale) * 960 + x / scale];
-            unsigned r = (v >> 11) & 31, g = (v >> 5) & 63, b = v & 31;
-            *p++ = (r << 3) | (r >> 2); *p++ = (g << 2) | (g >> 4); *p++ = (b << 3) | (b >> 2);
-        }
-    }
-    uLongf cl = compressBound((W * 3 + 1) * H);
-    unsigned char *z = (unsigned char *)malloc(cl);
-    compress(z, &cl, raw, (W * 3 + 1) * H);
-    FILE *f = fopen(path, "wb");
-    fwrite("\x89PNG\r\n\x1a\n", 1, 8, f);
-    unsigned char ih[13];
-    put_be(ih, W); put_be(ih + 4, H); ih[8] = 8; ih[9] = 2; ih[10] = ih[11] = ih[12] = 0;
-    chunk(f, "IHDR", ih, 13); chunk(f, "IDAT", z, cl); chunk(f, "IEND", 0, 0);
-    fclose(f);
-    free(raw); free(z);
-    printf("%s\n", path);
-}
-
-// T107 5.9: what the monitor gets. The menu canvas (fb, 960 x 540) scaled by nearest sampling into the box the video service gave it (the layer does
-// the same with PX_OSIZE), on a black frame of the mode's size.
-static void png_out(const char *path, int W, int H, int bx, int by, int bw, int bh)
-{
-    unsigned char *raw = (unsigned char *)calloc((size_t)(W * 3 + 1) * H, 1);
-    for (int y = 0; y < H; y++) {
-        unsigned char *row = raw + (size_t)(W * 3 + 1) * y;
-        row[0] = 0;
-        if (y < by || y >= by + bh) { continue; }
-        for (int x = bx; x < bx + bw && x < W; x++) {
-            uint16_t v = fb[((y - by) * cvh / bh) * cvw + (x - bx) * cvw / bw];
-            unsigned r = (v >> 11) & 31, g = (v >> 5) & 63, b = v & 31;
-            unsigned char *q = row + 1 + 3 * x;
-            q[0] = (r << 3) | (r >> 2); q[1] = (g << 2) | (g >> 4); q[2] = (b << 3) | (b >> 2);
-        }
-    }
-    uLongf cl = compressBound((W * 3 + 1) * H);
-    unsigned char *z = (unsigned char *)malloc(cl);
-    compress(z, &cl, raw, (W * 3 + 1) * H);
-    FILE *f = fopen(path, "wb");
-    fwrite("\x89PNG\r\n\x1a\n", 1, 8, f);
-    unsigned char ih[13];
-    put_be(ih, W); put_be(ih + 4, H); ih[8] = 8; ih[9] = 2; ih[10] = ih[11] = ih[12] = 0;
-    chunk(f, "IHDR", ih, 13); chunk(f, "IDAT", z, cl); chunk(f, "IEND", 0, 0);
-    fclose(f);
-    free(raw); free(z);
-    printf("%s\n", path);
-}
-
-// ---- checks ----------------------------------------------------------------------------------------
-static int checks, fails;
-#define CHECK(c) do { checks++; if (!(c)) { printf("FAIL %s:%d %s\n", __FILE__, __LINE__, #c); fails++; } } while (0)
+#include "menu_rig.h"                                         // T236: the native layer, PNG, CHECK, Built and Rig, shared with tools/menusim
 // T209 (UX review): no two texts of a page lie on each other (a title that wrapped into the line below, a value over a label). Returns the number of pairs.
 struct TxtBox { int x1, y1, x2, y2; };
 static void txt_collect(lv_obj_t *o, TxtBox *b, int *n, int cap)
@@ -232,42 +123,6 @@ static uint32_t inv_pixels(void)
     return n;
 }
 
-// T187: the descriptor the board's menu runs on - the core's own plus Picture, Volume, Persist, Home and the hotkeys, built by the one function run.cc calls.
-// Every bench that shows "what the board shows" goes through here; none builds its own chain. Lives for the whole run (the Settings keep pointers into it).
-struct Built {
-    CoreDesc d; Setting s[SETTINGS_MAX];
-    explicit Built(const CoreDesc *src, const PictureEnv *env = 0)
-    {
-        PictureEnv e = { EDID_ROW_MASK, 0, true, VID_SYS_PAL50 };
-        CHECK(!menu_build(src, &d, s, env ? env : &e));
-    }
-};
-static CoreDesc *board_desc(const CoreDesc *src, const PictureEnv *env = 0) { return &(new Built(src, env))->d; }
-
-// ---- the rig ---------------------------------------------------------------------------------------
-struct Host : MenuHost {
-    int returns;
-    Host() : returns(0), media_gen(0) { }
-    int media_gen;                                                   // the bench "mounts a stick": the media chip's text changes
-    void info(int which, char *out, int n) { if (which == 3) snprintf(out, n, "USB %d", media_gen); else snprintf(out, n, "line %d", which); }
-    bool return_to_host(char *msg, int n) { returns++; snprintf(msg, n, "this host has no ICAP"); return false; }
-};
-
-struct Rig {
-    FakeIo io; FakeFs fs; PxRec px; Host host; CoreCtx c; Settings *st; Video *vid; MenuCtl *m;
-    Rig(const CoreDesc *d, const char *cfg, const MenuMerge *mm = 0)
-    {
-        memset(&c, 0, sizeof(c));
-        c.desc = d; c.io = &io; c.fs = &fs; c.merge = mm;
-        px.on_canvas = ui_set_canvas;                   // the video service's canvas reaches the real view, as on the board
-        st = new Settings(d->settings, d->nsettings, d->store, &fs, cfg, 0);
-        c.settings = st;
-        vid = new Video(d->video, &px, &io);
-        c.video = vid;
-        st->load();
-        m = new MenuCtl(&c, &host);
-    }
-};
 
 
 // T104 areas (Alex, 2026-10-22): every key of the core application redraws only what changes. LVGL draws about 2.2 ms per 1,000 px on the
@@ -479,6 +334,9 @@ static void areas_core(void)
     }
 }
 
+// T235: the Picture value of a resolution at 50 Hz on a PAL machine (the list is Auto and every row of the table, the machine's rate first within a resolution)
+static int pic_value50(int hdmi) { static const int v[VID_HDMI_COUNT] = { 1, 3, 5, 7, 8, 9 }; return v[hdmi]; }
+
 // T107 5.9, the A1200 (the core with picture modes of its own): the Settings page as the monitor gets it in 1080p, in 720p, and after the mode was
 // changed from the menu itself (720p -> 1080p with the menu up). The video service hands the layer's place to the port; the bench puts the canvas there.
 static void a1200_menu(const char *out)
@@ -499,10 +357,10 @@ static void a1200_menu(const char *out)
     ui_menu_render(*r.m);
     lv_timer_handler();
     struct { const char *name; int value; int fw, fh; } steps[] = {
-        { "1080", 1 + VID_HDMI_1080P, 1920, 1080 },
-        { "720", 1 + VID_HDMI_720P, 1280, 720 },
-        { "after-switch-1080", 1 + VID_HDMI_1080P, 1920, 1080 },
-        { "800x600", 1 + VID_HDMI_800x600, 800, 600 },
+        { "1080", pic_value50(VID_HDMI_1080P), 1920, 1080 },
+        { "720", pic_value50(VID_HDMI_720P), 1280, 720 },
+        { "after-switch-1080", pic_value50(VID_HDMI_1080P), 1920, 1080 },
+        { "800x600", pic_value50(VID_HDMI_800x600), 800, 600 },
     };
     for (unsigned i = 0; i < sizeof(steps) / sizeof(steps[0]); i++) {
         if (i > 0) {
@@ -586,22 +444,22 @@ static void a1200_menu(const char *out)
         }
         CHECK(found == 2);
     }
-    // T164 WP16: the Picture page of a core that is not the A1200, on a screen that names one PC mode (a monitor): the list is Auto and 1024 x 768,
-    // Scale and Smoothing are there for every frame-buffer core. The page as the monitor gets it in 1024 x 768.
+    // T164 WP16: the Picture page of a core that is not the A1200, on a screen that names one PC mode (a monitor): the list is Auto and every row of the table (T235; the PC mode is
+    // listed at 60 Hz only, the screen names 1024 x 768), Scale and Smoothing are there for every frame-buffer core. The page as the monitor gets it in 1024 x 768.
     {
         static CoreDesc nes_ext;
         PictureEnv pc = { (uint16_t)(1u << 10), 0, true, VID_SYS_PAL50 };
         nes_ext = *board_desc(&nes_desc, &pc);
         int pi = picture_index(&nes_ext), si = scale_index(&nes_ext), mi = smooth_index(&nes_ext);
         CHECK(pi >= 0 && si >= 0 && mi >= 0);
-        CHECK(nes_ext.settings[pi].nvalues == 2 && !strcmp(nes_ext.settings[pi].values[1], "1024 x 768"));
+        CHECK(nes_ext.settings[pi].nvalues == 10 && !strcmp(nes_ext.settings[pi].values[pic_value50(VID_HDMI_1024x768)], "1024 x 768 (60 Hz)"));
         Rig n(&nes_ext, "/usb0/cores/nes.cfg");
         n.c.started = true;
         n.c.program_loaded = true;
         ui_open(&nes_ext);
         picture_start(&n.c, VID_SYS_PAL50, VID_HDMI_1080P);
         n.vid->init();
-        n.st->set(pi, 1);
+        n.st->set(pi, pic_value50(VID_HDMI_1024x768));
         n.st->set(si, VID_SCALE_FIT);
         n.st->set(mi, 1);
         n.m->open();
@@ -708,6 +566,48 @@ static void rtc_menu(const char *out)
         PxRec::Pl g = r.px.place.empty() ? PxRec::Pl{ 0, 0, 960, 540 } : r.px.place.back();
         CHECK(view_bounds(name[k], 960, 540) == 0);
         char p[512]; snprintf(p, sizeof(p), "%s/%s-settings-rtc.png", out, name[k]);
+        png_out(p, 1920, 1080, g.x, g.y, g.w, g.h);
+    }
+}
+
+// T234: the Frame follow row of both Amiga cores on the F5 Video page (tab 2) next to Picture, Scale and Smoothing, selected, at the default Off
+static void follow_menu(const char *out)
+{
+    static CoreDesc d[2];
+    const CoreDesc *src[2] = { &amiga_desc, &amiga1200_desc };
+    const char *name[2] = { "a500", "a1200" };
+    for (int k = 0; k < 2; k++) {
+        PictureEnv env = { EDID_ROW_MASK, 0, true, VID_SYS_PAL50, false, false, true };
+        d[k] = *board_desc(src[k], &env);
+        char cfg[64]; snprintf(cfg, sizeof(cfg), "/usb0/cores/%s.cfg", k ? "amiga1200" : "amiga");
+        Rig r(&d[k], cfg);
+        r.c.started = true;
+        r.c.program_loaded = true;
+        ui_open(&d[k]);
+        picture_start(&r.c, VID_SYS_PAL50, VID_HDMI_1080P);
+        r.vid->init();
+        r.m->open();
+        r.m->key(KEY_F5);
+        r.m->key('2');
+        ui_menu_render(*r.m);
+        lv_timer_handler();
+        int row = -1, nvideo = 0;
+        for (int i = 0; i < r.m->rows(); i++) {
+            char l[120], rr[120], sb[160]; bool a;
+            r.m->row(i, l, sizeof(l), rr, sizeof(rr), &a, sb, sizeof(sb));
+            if (!strcmp(l, "Picture") || !strcmp(l, "Scale") || !strcmp(l, "Smoothing")) nvideo++;
+            if (!strcmp(l, "Frame follow")) { row = i; CHECK(!strncmp(rr, "Off", 3)); }
+        }
+        CHECK(row >= 0);
+        CHECK(nvideo == 3);                                                 // D5: the row stands with the other picture rows
+        if (row >= 0) select_row(r, row);
+        ui_menu_render(*r.m);
+        lv_timer_handler();
+        lv_obj_invalidate(lv_screen_active());
+        lv_timer_handler();
+        PxRec::Pl g = r.px.place.empty() ? PxRec::Pl{ 0, 0, 960, 540 } : r.px.place.back();
+        CHECK(view_bounds(name[k], 960, 540) == 0);
+        char p[512]; snprintf(p, sizeof(p), "%s/%s-settings-frame-follow.png", out, name[k]);
         png_out(p, 1920, 1080, g.x, g.y, g.w, g.h);
     }
 }
@@ -2246,7 +2146,18 @@ static void pm_make_edid(uint8_t *e, int *len, const uint8_t *vics, int nv, unsi
         *len = 256;
     }
 }
-struct PmFx { const char *name; uint8_t vics[3]; int nv; unsigned pc; bool bad, none; int n; int list[6]; unsigned nat; int autohdmi; const char *info; };
+// T235: the page lists Auto and the 9 rows of the mode table (kPmRows, the machine's rate first within a resolution), whatever the screen names; the rows it names carry "*".
+// The mark is the app's own reading of the fixture's EDID (video_modes_offered, tested on its own terms in tests/coreapp/test_edid.cc); `nat` the native row, `info` the foot line.
+struct PmFx { const char *name; uint8_t vics[3]; int nv; unsigned pc; bool bad, none; unsigned nat; int autohdmi; const char *info; };
+static const int kPmRows[9] = { 0, 6, 1, 7, 2, 8, 9, 10, 11 };            // table rows of the list on a PAL machine, in the order of the Picture values 1..9
+static const char *pm_row_name(int row) { int h = row % 6; return h == VID_HDMI_480_576 ? (row >= 6 ? "480p" : "576p") : video_hdmi_name(h); }
+static int pm_row_hdmi(int row) { return row % 6; }
+static unsigned pm_row_dhz(int row)
+{
+    const EdidRow *er = edid_row(row);
+    uint64_t tot = (uint64_t)er->htotal * er->vtotal;
+    return (unsigned)(((uint64_t)er->pixel_hz * 10 + tot / 2) / tot);
+}
 static void pm_page_case(const char *out, const CoreDesc *src, const char *core, const PmFx &f)
 {
     // the canvas is the mode's: picture_start puts it up as the board does (576p 720 x 576, 720p 1280 x 720, 1080p 1920 x 1080)
@@ -2282,50 +2193,47 @@ static void pm_page_case(const char *out, const CoreDesc *src, const char *core,
     r.m->key(KEY_RETURN);
     ui_menu_render(*r.m); lv_timer_handler();
     CHECK(std::string(r.m->title()) == "Picture" && r.m->selected() == 0);
-    CHECK(r.m->rows() == 1 + f.n);
-    CHECK(!strcmp(r.m->status(), f.info));                               // 6: the info line, as the spec words it
+    CHECK(r.m->rows() == 10);                                           // Auto and the 9 rows of the table
+    CHECK(!strcmp(r.m->status(), f.info));                               // 6: the foot line says what the mark means (or that the screen named nothing)
     char leg[120];
     r.m->footer_legend(leg, sizeof(leg));
     CHECK(strstr(leg, "RETURN  USE THIS MODE") && strstr(leg, "BROWSE"));  // the key bar
     CHECK(!r.m->toast_text()[0]);                                       // R2: no chip over the question that is not there yet
     int nnow = 0;
-    for (int i = 0; i < r.m->rows() && i <= f.n; i++) {                 // 1: Auto + the list in order; the table's refresh; native from the EDID; Auto is the choice: one "now" (T187 D9), on Auto's row
+    uint16_t pmask = env.mask;                                           // what the app lists: a mask that names nothing is the television rows
+    { int tmp[VID_HDMI_COUNT]; if (video_modes_hdmi_list(pmask, VID_SYS_PAL50, tmp) == 0) { pmask = EDID_LIST_NONE; } }
+    int autorow = 0;
+    if (!video_modes_resolve(pmask, VID_SYS_PAL50, f.autohdmi, &autorow)) { autorow = f.autohdmi; }
+    for (int i = 0; i < r.m->rows() && i <= 9; i++) {                   // 1: Auto + the 9 rows in order; the rate of the row's own clock; "*" when the screen names it; native from the EDID; Auto is the choice: one "now" (T187 D9), on Auto's row
         std::string l, v; bool a;
         ux_rowtext(r, i, &l, &v, &a);
-        int hdmi = i == 0 ? f.autohdmi : f.list[i - 1];
-        if (i == 0) { CHECK(l.compare(0, 4, "Auto") == 0); } else { CHECK(l == video_hdmi_name(hdmi)); }
-        int rw = hdmi <= VID_HDMI_1080P ? hdmi : 6 + hdmi;
-        const EdidRow *er = edid_row(rw);
-        uint64_t tot = (uint64_t)er->htotal * er->vtotal;
-        unsigned dh = (unsigned)(((uint64_t)er->pixel_hz * 10 + tot / 2) / tot);
-        bool nat = (f.nat >> rw) & 1, now = i == 0;
+        int row = i == 0 ? autorow : kPmRows[i - 1];
+        if (i == 0) { CHECK(l.compare(0, 4, "Auto") == 0); } else { CHECK(l == pm_row_name(row)); }
+        unsigned dh = pm_row_dhz(row);
+        bool nat = (f.nat >> row) & 1, now = i == 0, named = i > 0 && pmask != EDID_LIST_NONE && ((pmask >> row) & 1);
         char ex[64];
-        snprintf(ex, sizeof(ex), "%s%s%s%s%u.%u Hz", now ? "now" : "", now && nat ? " " : "", nat ? "native" : "", (now || nat) ? "   " : "", dh / 10, dh % 10);
+        snprintf(ex, sizeof(ex), "%s%s%s%s%s%s%u.%u Hz", now ? "now" : "", now && nat ? " " : "", nat ? "native" : "", (now || nat) && named ? " " : "", named ? "*" : "", (now || nat || named) ? "   " : "", dh / 10, dh % 10);
         UXCHECK(v == ex, "%s: row %d says \"%s\", expected \"%s\"", what, i, v.c_str(), ex);
         nnow += v.find("now") != std::string::npos;
     }
     CHECK(nnow == 1 && r.m->selected() == 0);                           // D9: one mark, on the chosen row (Auto); the cursor opened on it
-    for (int i = 0; i <= f.n; i++) {                                    // 2, 3: every cursor position: the page lies inside the canvas, nothing is cut
+    for (int i = 0; i <= 9; i++) {                                      // 2, 3: every cursor position: the page lies inside the canvas, nothing is cut
         select_row(r, i);
         char w2[200];
         snprintf(w2, sizeof(w2), "%s cursor %d", what, i);
         CHECK(view_bounds(w2, want.w, want.h) == 0);
     }
     select_row(r, 0);
-    for (int i = 0; i <= f.n; i++) { r.m->key(KEY_DOWN); }              // 4: browsing applies nothing
-    for (int i = 0; i <= f.n; i++) { r.m->key(KEY_UP); }
+    for (int i = 0; i <= 9; i++) { r.m->key(KEY_DOWN); }                // 4: browsing applies nothing
+    for (int i = 0; i <= 9; i++) { r.m->key(KEY_UP); }
     CHECK(g_pm_applies == 0 && !picture_confirm_pending() && r.st->value(picture_index(d)) == 0);
     ui_menu_render(*r.m); lv_timer_handler();
     lv_obj_invalidate(lv_screen_active()); lv_timer_handler();
     snprintf(p, sizeof(p), "%s/pm-%s-%s-%s.png", out, core, f.name, shell);
     { PxRec::Pl g = r.px.place.empty() ? PxRec::Pl{ 32, 114, 960, 540 } : r.px.place.back(); png_out(p, fw, fh, g.x, g.y, g.w, g.h); }
-    int trow = -1;
-    for (int i = 0; i < f.n; i++) { if (f.list[i] != f.autohdmi) { trow = i + 1; break; } }
-    if (trow < 0) {                                                     // one mode: RETURN on it (the mode in force) closes the page and applies nothing
-        r.m->key(KEY_DOWN); r.m->key(KEY_RETURN);
-        CHECK(std::string(r.m->title()) != "Picture" && g_pm_applies == 0 && !picture_confirm_pending());
-        return;
-    }
+    int trow = -1;                                                      // the first row that is not the mode in force (the screen may not name it: it is tried all the same, T235)
+    for (int i = 0; i < 9; i++) { if (kPmRows[i] != autorow) { trow = i + 1; break; } }
+    CHECK(trow > 0);
     select_row(r, trow);
     r.m->key(KEY_RETURN);                                               // 4: RETURN on a mode: one apply, the question pending
     CHECK(g_pm_applies == 1 && picture_confirm_pending());
@@ -2333,12 +2241,10 @@ static void pm_page_case(const char *out, const CoreDesc *src, const char *core,
     picture_confirm_names(nw, sizeof(nw), pv, sizeof(pv));
     char want_now[96], want_prev[96];
     {
-        int rn = f.list[trow - 1] <= VID_HDMI_1080P ? f.list[trow - 1] : 6 + f.list[trow - 1], rp = f.autohdmi;
-        const EdidRow *en = edid_row(rn), *ep = edid_row(rp);
-        uint64_t tn = (uint64_t)en->htotal * en->vtotal, tp = (uint64_t)ep->htotal * ep->vtotal;
-        unsigned dn = (unsigned)(((uint64_t)en->pixel_hz * 10 + tn / 2) / tn), dp = (unsigned)(((uint64_t)ep->pixel_hz * 10 + tp / 2) / tp);
-        snprintf(want_now, sizeof(want_now), "%s, %u.%u Hz", video_hdmi_name(f.list[trow - 1]), dn / 10, dn % 10);
-        snprintf(want_prev, sizeof(want_prev), "%s, %u.%u Hz", video_hdmi_name(f.autohdmi), dp / 10, dp % 10);
+        int rn = kPmRows[trow - 1], rp = autorow;
+        unsigned dn = pm_row_dhz(rn), dp = pm_row_dhz(rp);
+        snprintf(want_now, sizeof(want_now), "%s, %u.%u Hz", video_hdmi_name(pm_row_hdmi(rn)), dn / 10, dn % 10);
+        snprintf(want_prev, sizeof(want_prev), "%s, %u.%u Hz", video_hdmi_name(pm_row_hdmi(rp)), dp / 10, dp % 10);
     }
     CHECK(!strcmp(nw, want_now) && !strcmp(pv, want_prev));             // 5: the question names the new mode and the one that comes back
     ui_picture_question(8, nw, pv);
@@ -2366,11 +2272,11 @@ static void pm_page_case(const char *out, const CoreDesc *src, const char *core,
 static void pm_page_fixtures(const char *out)
 {
     static const PmFx fx[] = {
-        { "six",     { 17, 19, 159 }, 3, 7u, false, false, 6, { 0, 1, 2, 3, 4, 5 }, 1u << 2, 2, "Your screen offers 6 modes. The 60 Hz ones are listed too: the core runs at 50 Hz." },
-        { "four",    { 17, 159, 0 },  2, 3u, false, false, 4, { 0, 2, 3, 4 },       1u << 2, 2, "Your screen offers 4 modes. The 60 Hz ones are listed too: the core runs at 50 Hz." },
-        { "one",     { 147, 0, 0 },   1, 0u, false, false, 1, { 1 },                1u << 1, 1, "Your screen offers 1 mode. Nothing changes until you pick one." },
-        { "none",    { 0, 0, 0 },     0, 0u, false, true,  3, { 0, 1, 2 },          0,       0, "The screen did not name its modes; the standard TV modes are listed." },
-        { "corrupt", { 17, 19, 159 }, 3, 7u, true,  false, 3, { 0, 1, 2 },          0,       0, "The screen did not name its modes; the standard TV modes are listed." },
+        { "six",     { 17, 19, 159 }, 3, 7u, false, false, 1u << 2, 2, "* = the screen names this mode. Others may work: RETURN tries one and asks you to keep it." },
+        { "four",    { 17, 159, 0 },  2, 3u, false, false, 1u << 2, 2, "* = the screen names this mode. Others may work: RETURN tries one and asks you to keep it." },
+        { "one",     { 147, 0, 0 },   1, 0u, false, false, 1u << 1, 1, "* = the screen names this mode. Others may work: RETURN tries one and asks you to keep it." },
+        { "none",    { 0, 0, 0 },     0, 0u, false, true,  0,       0, "The screen did not name its modes. Every mode is listed; RETURN tries one." },
+        { "corrupt", { 17, 19, 159 }, 3, 7u, true,  false, 0,       0, "The screen did not name its modes. Every mode is listed; RETURN tries one." },
     };
     for (const PmFx &f : fx) {
         pm_page_case(out, &amiga1200_desc, "a1200", f);
@@ -2881,6 +2787,7 @@ int main(int argc, char **argv)
     a1200_menu(out);
     modes_menu(out);
     rtc_menu(out);
+    follow_menu(out);
     modes_picture_row(out);
     ddt_menu(out);
     c128_kit_menu(out);

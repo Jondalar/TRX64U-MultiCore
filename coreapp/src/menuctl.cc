@@ -623,7 +623,7 @@ void MenuCtl::row(int i, char *left, int ln, char *right, int rn, bool *active, 
                 if (m.refresh_dhz) {
                     snprintf(hz, sizeof(hz), "%u.%u Hz", (unsigned)(m.refresh_dhz / 10), (unsigned)(m.refresh_dhz % 10));
                 }
-                snprintf(right, rn, "%s%s%s%s%s", m.now ? "now" : "", m.now && m.native ? " " : "", m.native ? "native" : "", hz[0] && (m.now || m.native) ? "   " : "", hz);   // T187 F3: the tags stand left of the Hz so the Hz column is the right edge on every row
+                snprintf(right, rn, "%s%s%s%s%s%s%s", m.now ? "now" : "", m.now && m.native ? " " : "", m.native ? "native" : "", (m.now || m.native) && m.named ? " " : "", m.named ? "*" : "", hz[0] && (m.now || m.native || m.named) ? "   " : "", hz);   // T187 F3: the tags stand left of the Hz so the Hz column is the right edge on every row
             }
         }
         return;
@@ -1455,18 +1455,20 @@ bool MenuCtl::picture_row(const MenuEntry &e) const
            !strcasecmp(c_->desc->settings[e.index].key, PICTURE_KEY);
 }
 
-// T187 D5 (GitHub #50): the Picture row opens the modes the screen names. Browsing applies nothing; RETURN on another row applies it through the setting's
+// T187 D5 (GitHub #50): the Picture row opens the page of the modes (every row of the table at 50 and 60 Hz on the gateware path, T235; the screen's own marked). Browsing applies nothing; RETURN on another row applies it through the setting's
 // operation (the one REST and the web call) and starts the confirm of picture_service; RETURN on the mode in force, <- and ESC close it with no change.
 void MenuCtl::pick_modes_refresh(bool keep_cursor)
 {
     char keep[48] = "";
+    int keep_mode = -1;
     if (keep_cursor && pick_sel_ < pm_.n) {
         snprintf(keep, sizeof(keep), "%s", pm_.row[pick_sel_].name);
+        keep_mode = pm_.row[pick_sel_].mode;                         // T235: 1280 x 720 at 50 and at 60 Hz share a name
     }
     picture_modes(c_, &pm_);
     if (keep[0]) {
         for (int i = 0; i < pm_.n; i++) {                            // the cursor keeps its mode by name; a mode that is gone: the one in force
-            if (!strcmp(pm_.row[i].name, keep)) {
+            if (!strcmp(pm_.row[i].name, keep) && pm_.row[i].mode == keep_mode) {
                 pick_sel_ = i;
                 return;
             }
@@ -1523,8 +1525,12 @@ bool MenuCtl::pick_key(int k, Result *out)
             if (rc) {
                 set_status(r.msg[0] ? r.msg : "The mode was not taken", true);
             } else {
-                char m[96];
-                picmodes_kept_text(pm_.row[pick_sel_].name, m, sizeof(m));
+                char m[96], nm[64];
+                snprintf(nm, sizeof(nm), "%s", pm_.row[pick_sel_].name);
+                if (pm_.full && pm_.row[pick_sel_].mode >= 0) {      // T235: the chip names the rate too ("1280 x 720, 50.0 Hz")
+                    picmodes_mode_text(EDID_ROW_MASK, video_row_sys(pm_.row[pick_sel_].mode), video_row_hdmi(pm_.row[pick_sel_].mode), nm, sizeof(nm));
+                }
+                picmodes_kept_text(nm, m, sizeof(m));
                 toast(m);                                            // T187 D4: the chip in the top bar
                 set_status("", false);
             }

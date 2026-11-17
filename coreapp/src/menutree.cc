@@ -186,10 +186,10 @@ const MenuGroupRoute *menu_route_of(const Setting &s)
     if (!s.apply) {
         return 0;
     }
-    // the application's own Picture, Scale and Smoothing items, matched by op and key: this branch routes them into the Video tab.
+    // the application's own Picture, Scale, Smoothing and Frame follow items, matched by op and key: this branch routes them into the Video tab.
     // desc_check refuses a core setting that uses either the key or the op (tests only); on the board this match is the guard
     if ((!strcmp(s.apply, PICTURE_OP) && !strcasecmp(s.key, PICTURE_KEY)) || (!strcmp(s.apply, SCALE_OP) && !strcasecmp(s.key, SCALE_KEY)) ||
-        (!strcmp(s.apply, SMOOTH_OP) && !strcasecmp(s.key, SMOOTH_KEY))) {
+        (!strcmp(s.apply, SMOOTH_OP) && !strcasecmp(s.key, SMOOTH_KEY)) || (!strcmp(s.apply, FOLLOW_OP) && !strcasecmp(s.key, FOLLOW_KEY))) {
         g = "video";
     } else if (volume_is_generic(s) || tone_is_generic(s)) {
         g = "audio";
