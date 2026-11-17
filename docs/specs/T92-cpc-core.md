@@ -456,6 +456,9 @@ OS464 + BASIC464`, every part 16 KB (README). Frame: the CRTC is programmable; t
 - D-17f (Alex 2026-11-17, after the reading): "Write a spec. If the MiSTer disc controller is that bad, look for another one or repair
   it. And then build the core again tonight and test it" (translated). The repair is T233 (docs/specs/T233-cpc-fdc-repair.md); its
   branch builds the CPC again (T233 D7), `main` keeps it out of the pipeline (D-17e) until the board pass.
+- D-17g (Alex 2026-11-17): "and please take the core out of the docs, completely" (translated). The CPC leaves the README and the
+  manual (chapters 11, 12, 15; the sections after 11.13 move up one number); specs, TODO and internal test lists keep it. It comes back
+  with the T233 board pass.
 
 ## §4 Out
 
