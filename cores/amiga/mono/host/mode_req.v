@@ -4,11 +4,16 @@
 //                 its family: the family part of the request is replaced by fam_v60 (mode_ctl cdce_v60, the System Mode) and only a locked
 //                 row (hm_locked, the 1080p rows) is accepted. A frame-buffer core (c64_type = 0) gets the request as it is.
 //   read  0x4F04  magic 0x48
-//         0x4F05  version 1
+//         0x4F05  version 1 (4 in the Amiga copies: T234 adds 0x4F02 / 0x4F0C, below)
 //         0x4F06  {last request refused, 0, 0, c64_type, row in use is locked, running, pix_locked, gt_ready}
 //         0x4F07  the mode hdmi_timing runs (mode_q), 0..11
 //         0x4F08  requests written (clk_sys count)
 //         0x4F09  requests processed (clk50 count, crossed as 8 bits, so one read may be torn; equal to 0x4F08 = the refused bit is current)
+// T234 (the Amiga copies only; redo 2026-11-17: the default path is the one of before T188): write 0x4F02 bit 0 = Frame follow (0 Off, the power-up
+//   value; 1 On); read 0x4F0C = the value taken. Off: every row is the host's own, rows 0..2 included, and the power-up row is 2, exactly as before
+//   T188. On: a request for row 0, 1 or 2 (the 50 Hz television rows) runs T188's Amiga rows 12, 13, 14 of hdmi_modes.vh, on which hdmi_timing
+//   follows the core. 0x4F07 reports the requested row (0..2) either way. A change of the value is a change of the effective row: the CDCE is
+//   written again and the timing generator restarts like after a request. The version byte (0x4F05) is 4.
 // An accepted request (and any change of the effective row, e.g. the family bit) holds vm_rst for 8 clk50 clocks: cdce_mode starts its two
 // writes again, the transmitters follow (top.v), the pixel clock moves, mmcm_pix relocks and hdmi_timing takes mode_pix while its reset is high.
 // The connections to the overlay window are the write decode here and the read mux (rhit / rdata over overlay.v's rdata, one clk_sys after
@@ -37,12 +42,15 @@ module mode_req (
     reg  [7:0] req_val = 8'd2;
     reg        req_tgl = 1'b0;
     reg  [7:0] wr_cnt = 8'd0;
-    always @(posedge clk_sys)
+    reg        fol = 1'b0;                // T234: Frame follow, Off at power-up
+    always @(posedge clk_sys) begin
         if (we && addr == 15'h4F00) begin req_val <= wdata; req_tgl <= ~req_tgl; wr_cnt <= wr_cnt + 8'd1; end
+        if (we && addr == 15'h4F02) fol <= wdata[0];
+    end
 
     // ---- clk50: take, check, hold
     (* ASYNC_REG = "TRUE" *) reg [2:0] tgl_s = 3'b000;
-    reg  [3:0] req_m = 4'd2;              // the accepted request
+    reg  [3:0] req_m = 4'd2;              // the accepted request (the requested row, not the effective one)
     reg  [3:0] hold = 4'd0;
     reg  [7:0] ack_cnt = 8'd0;
     reg        refused = 1'b0;
@@ -53,9 +61,12 @@ module mode_req (
     wire       ok      = in_rng && (c64_type ? hm_locked(c_row) : hm_valid(req_val[3:0]));
     wire       take    = tgl_s[2] != tgl_s[1];
     wire [3:0] req_n   = (take && ok) ? req_val[3:0] : req_m;
-    wire [3:0] eff_n   = c64_type ? (((req_n >= 4'd6) ? req_n - 4'd6 : req_n) + fam_off) : req_n;
+    wire [3:0] eff_r   = c64_type ? (((req_n >= 4'd6) ? req_n - 4'd6 : req_n) + fam_off) : req_n;
+    (* ASYNC_REG = "TRUE" *) reg [1:0] fol_s = 2'b00;
+    wire [3:0] eff_n   = (fol_s[1] && eff_r < 4'd3) ? eff_r + 4'd12 : eff_r;      // T234: On = T188's Amiga rows 12..14; Off = the host's rows as they are
     always @(posedge clk50) begin
         tgl_s <= {tgl_s[1:0], req_tgl};
+        fol_s <= {fol_s[0], fol};
         if (hold != 4'd0) hold <= hold - 4'd1;
         req_m <= req_n;
         if (take) begin ack_cnt <= ack_cnt + 8'd1; refused <= ~ok; end
@@ -71,6 +82,7 @@ module mode_req (
     (* ASYNC_REG = "TRUE" *) reg [3:0] mq_a = 4'd0, mq_b = 4'd0;
     (* ASYNC_REG = "TRUE" *) reg [7:0] ack_a = 8'd0, ack_b = 8'd0;
     (* ASYNC_REG = "TRUE" *) reg       ref_a = 1'b0, ref_b = 1'b0;
+    wire [3:0] mq_row = (mq_b >= 4'd12) ? mq_b - 4'd12 : mq_b;             // T234: the requested row, whichever table row runs it
     always @(posedge clk_sys) begin
         gt_s <= {gt_s[1:0], gt_ready};
         pl_s <= {pl_s[1:0], pix_locked};
@@ -78,13 +90,14 @@ module mode_req (
         mq_a <= mode_q; mq_b <= mq_a;
         ack_a <= ack_cnt; ack_b <= ack_a;
         ref_a <= refused; ref_b <= ref_a;
-        rhit <= addr[14:4] == 11'h4F0 && addr[3:0] >= 4'd4 && addr[3:0] <= 4'd9;
+        rhit <= addr[14:4] == 11'h4F0 && ((addr[3:0] >= 4'd4 && addr[3:0] <= 4'd9) || addr[3:0] == 4'd12);
         case (addr[3:0])
         4'd4: rdata <= 8'h48;
-        4'd5: rdata <= 8'd1;
+        4'd5: rdata <= 8'd4;
         4'd6: rdata <= {ref_b, 2'b00, c64_type, hm_locked(mq_b), ru_s[2], pl_s[2], gt_s[2]};
-        4'd7: rdata <= {4'd0, mq_b};
+        4'd7: rdata <= {4'd0, mq_row};
         4'd8: rdata <= wr_cnt;
+        4'd12: rdata <= {7'd0, fol};
         default: rdata <= ack_b;
         endcase
     end
