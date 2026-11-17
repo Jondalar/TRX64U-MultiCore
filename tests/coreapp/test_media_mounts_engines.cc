@@ -553,13 +553,14 @@ static void menu_rows(const Prof &p)
     bool persist = false;
     for (int i = 0; i < r.desc.nsettings; i++) persist |= persist_is_generic(r.desc.settings[i]);
     CHECK(persist);                                                          // the item is a setting of the core
-    // the row: the generic item stands on F7 (the app's Storage settings, T212 D1/D6), the C64's record keeps it on F5; its label is its key, the C64's record names it (key) the same
-    CHECK(tree_has(t, p.c64 ? "F5" : "F7", EK_SETTING, PERSIST_KEY));
+    // the row: the generic item stands on F7 (the app's Storage settings, T212 D1/D6) in every core, the C64's record included (T228 D10: the application's own items
+    // follow the record's settings, as the board builds them); its label is its key
+    CHECK(tree_has(t, "F7", EK_SETTING, PERSIST_KEY));
     CHECK(!tree_has(t, "F6", EK_SETTING, PERSIST_KEY) && !tree_has(t, "F8", EK_SETTING, PERSIST_KEY));
-    // T205 D1: the configs are on Home (the Summary tab is gone); the TRX64U core's record keeps its own media tab in F5
-    CHECK(tree_has(t, p.c64 ? "F5" : "F1", EK_SAVE_SET, "Save as config..."));
-    CHECK(tree_has(t, p.c64 ? "F5" : "F1", EK_LOAD_SET, "Load config..."));
-    CHECK(p.c64 || !tree_has(t, "F5", EK_SAVE_SET, "Save as config..."));
+    // T205 D1: the configs are on Home (the Summary tab is gone), in every core
+    CHECK(tree_has(t, "F1", EK_SAVE_SET, "Save as config..."));
+    CHECK(tree_has(t, "F1", EK_LOAD_SET, "Load config..."));
+    CHECK(!tree_has(t, "F5", EK_SAVE_SET, "Save as config..."));
     CHECK(!tree_has(t, "F8", EK_SAVE_SET, "Save as config..."));
 }
 

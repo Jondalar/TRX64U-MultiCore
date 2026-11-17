@@ -25,16 +25,30 @@ CONCEPT = {
 }
 # (area key, tab number) -> reason: tab names that differ from the concept's on purpose
 _BUILT = "as built in coreapp/cores/trx64u/menu.toml (T104.2 UI work, UX walks of 2026-10-28/29); the concept's name is kept in CONCEPT"
+_T228 = "T228 D2, D3, D13, D14, D16 (Alex 2026-11-15): trx64u runs the generic core menu's structure (T212); the concept's name is kept in CONCEPT"
+_DC4 = "T228 DC4 (the F5 machine tabs: Memory and I/O, Video, Audio, SID, Input): trx64u runs the generic core menu's structure (T212); the concept's name is kept in CONCEPT"
+# (area key, tab number) -> (the name the golden must show, reason): a deviation pins the built name, so a later rename or renumber fails
 DEVIATIONS = {
-    ("F3", 3): "tab 3 is Online (the Assembly64 / CommoServe search), " + _BUILT,
-    ("F4", 1): "tab 1 is Monitor, " + _BUILT,
-    ("F4", 2): "tab 2 is Diagnostics, " + _BUILT,
-    ("F5", 1): "tab 1 is Drive A, " + _BUILT,
-    ("F5", 3): "tab 3 is I/O, " + _BUILT,
-    ("F5", 4): "tab 4 is Media sets (Save media set..., Load media set...; T180 D5): the concept's media tab is Summary, the C64's media are its Drive A page and the cartridge port, "
-               "so the two set rows have a tab of their own - to be decided with Alex",
-    ("F7", 2): "tab 2 is More, " + _BUILT,
-    ("F8", 2): "tab 2 is Expert, " + _BUILT,
+    ("F3", 3): ("Online", "tab 3 is Online (the Assembly64 / CommoServe search), " + _BUILT),
+    ("F4", 1): ("Monitor", "tab 1 is Monitor, " + _BUILT),
+    ("F4", 2): ("Diagnostics", "tab 2 is Diagnostics, " + _BUILT),
+    ("F5", 1): ("Machine", "tab 1 is Machine (with the Drive A settings), " + _T228),
+    ("F5", 2): ("TRX64", "tab 2 is TRX64 (Timewarp ring, trace), " + _T228),
+    ("F5", 3): ("Memory and I/O", "tab 3 is Memory and I/O, " + _DC4),
+    ("F5", 4): ("Video", "tab 4 is Video (Picture and Output sections), " + _DC4),
+    ("F5", 5): ("Audio", "tab 5 is Audio, " + _DC4),
+    ("F5", 6): ("SID", "tab 6 is SID (the reDIP:SID sockets and emulated SIDs, D16), " + _DC4),
+    ("F5", 7): ("Input", "tab 7 is Input, " + _DC4),
+    ("F7", 1): ("Settings", "tab 1 is Settings (the application's own), " + _T228),
+    ("F7", 2): ("Apps", "tab 2 is Apps (TRXCRT cartridge tools, D5), " + _T228),
+    ("F8", 1): ("System", "tab 1 is System, " + _T228),
+    ("F8", 2): ("Network", "tab 2 is Network (D7, D18), " + _T228),
+    ("F8", 3): ("Device", "tab 3 is Device, " + _T228),
+}
+# area key -> (the name the golden must show, reason): area names that differ from the concept's on purpose
+AREA_DEVIATIONS = {
+    "F4": ("Monitor", "the area is the Monitor rail entry, so the rail reads MONITOR (T228 D3, Alex 2026-11-15)"),
+    "F7": ("APP", "the area is APP, the application's own settings and apps (T212 D12, T228 D2)"),
 }
 
 
@@ -66,6 +80,9 @@ def check(golden_text, concept=CONCEPT):
             area = key
             if key not in concept:
                 bad.append("line %d: area %s is not in the concept" % (ln, key))
+            elif key in AREA_DEVIATIONS:
+                if AREA_DEVIATIONS[key][0] != name:
+                    bad.append("line %d: area %s is named %r, the deviation pins %r" % (ln, key, name, AREA_DEVIATIONS[key][0]))
             elif norm(concept[key][0]) != norm(name):
                 bad.append("line %d: area %s is named %r, the concept says %r" % (ln, key, name, concept[key][0]))
             continue
@@ -73,7 +90,11 @@ def check(golden_text, concept=CONCEPT):
         if m and area in concept:
             n, name = int(m.group(1)), m.group(2)
             tabs = concept[area][1]
+            if n == 0 and name.endswith("(a page)"):            # tab 0 is a page a row opens (T187 D2, T212 D5): it has no published number
+                continue
             if (area, n) in DEVIATIONS:
+                if DEVIATIONS[(area, n)][0] != name:
+                    bad.append("line %d: %s tab %d is %r, the deviation pins %r" % (ln, area, n, name, DEVIATIONS[(area, n)][0]))
                 continue
             if n not in tabs:
                 bad.append("line %d: %s has no tab number %d in the concept" % (ln, area, n))
@@ -83,13 +104,14 @@ def check(golden_text, concept=CONCEPT):
 
 
 def selftest():
-    good = "area F5 C64\n  tab 1 Summary\n  tab 3 Drives\narea F8 System (shifted)\n  tab 3 Expert\n"
+    good = "area F1 Home\n  tab 1 Home\n  tab 0 Drive (a page)\narea F3 Library\n  tab 1 Browse\n  tab 2 Search\n  tab 3 Online\narea F5 C64\n  tab 2 TRX64\n"
     assert check(good) == [], check(good)
-    for broken, what in (("area F5 C64\n  tab 2 Drives\n", "a tab under another number"), ("area F5 C64\n  tab 5 Extra\n", "a tab number the concept has not"),
+    for broken, what in (("area F3 Library\n  tab 2 Browse\n", "a tab under another number"), ("area F3 Library\n  tab 5 Extra\n", "a tab number the concept has not"),
                          ("area F9 X\n", "an area key"), ("area F5 Machine\n", "an area name")):
         if what == "an area key":
             continue                                              # the area regex only takes F1-F8: F9 is not an area line at all
         assert check(broken), what
+    assert check("area F5 C64\n  tab 4 Videos\n") and check("area F4 Tools\n") and check("area F8 System\n  tab 0 Extra\n")
     x = from_xml('<nav_item label="HOME" shortcut="F1"><tab_item number="1" label="HOME"')
     assert "F1" in x
     print("check_menu_concept selftest ok")

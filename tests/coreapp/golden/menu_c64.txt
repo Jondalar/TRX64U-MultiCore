@@ -1,16 +1,19 @@
 core TRX2 TRX64U
 area F1 Home
   tab 1 Home
-    node Disk = button calls lib.show in group media from description
-    node Pause / resume = button calls machine.pause_toggle in group machine (closes the menu) from description
-    node Cartridge = button calls lib.show in group media from description
-    node Reset = button calls machine.cold_reset in group machine (closes the menu) from description
-    node Program = button calls lib.show in group media from description
-    node Settings = button in group machine from description
-    node RAM expansion = state in group machine from description
-    node Turbo = state in group machine from description
-    node Video = state in group machine from description
-area F2 Timewarp (shifted)
+    task Reset (closes the menu)
+    task Reload ROMs, reset (closes the menu)
+    task Pause / resume (closes the menu)
+    task Reboot, clear memory (closes the menu)
+    task Save C64 memory (asks a name)
+    task Save REU memory (asks a name)
+    media Drive A:
+    media Cartridge port
+    media Program
+    fixed Save as config...
+    fixed Load config...
+  tab 0 Drive (a page)
+area F2 Timewarp
   tab 1 Timeline
     node Resume here = button calls tw.resume in group bar (closes the menu) from description
 area F3 Library
@@ -32,6 +35,7 @@ area F3 Library
       filetype .bin: Set as Kernal ROM | Set as BASIC ROM | Set as Char ROM
       filetype .64c: Set as Kernal ROM
       filetype .c64re: Load Timewarp state
+      filetype .zip: Unzip
   tab 2 Search
     browser Browse
       filetype .prg: Run PRG | Load PRG and start from | DMA (load, do not run)
@@ -50,6 +54,7 @@ area F3 Library
       filetype .bin: Set as Kernal ROM | Set as BASIC ROM | Set as Char ROM
       filetype .64c: Set as Kernal ROM
       filetype .c64re: Load Timewarp state
+      filetype .zip: Unzip
   tab 3 Online
     node Search = button calls online.search from description
     node Library = button calls online.library from description
@@ -71,54 +76,54 @@ area F3 Library
     node Choice 11 = button calls online.cycle from description
     node Choice 12 = button calls online.cycle from description
     node Clear the form = button calls online.clear from description
-area F4 Tools (shifted)
+area F4 Monitor
   tab 1 Monitor
     node Help = button calls mon.run in group bar from description
   tab 2 Diagnostics
     node Debug log = button calls diag.nop from description
-    node Board = state in group side from description
     node Clear debug log = button calls diag.clear_log from description
-    node Up for = state in group side from description
-    node Cartridge dumper = button calls app.open from description
     node Save debug log = button calls diag.save_log from description
     node Heap = state in group side from description
-    node Cartridge inspector = button calls app.open from description
-    node Bug report = button calls diag.bug_report from description
     node Screen EDID = button calls diag.nop from description
     node Debug register = state in group side from description
-    node Flash cartridge = button calls app.open from description
     node Save EDID = button calls diag.save_edid from description
-    node Softboot = button calls app.open from description
     node Instruction trace = button calls diag.nop from description
-    node Unzip = button calls app.open from description
-    node System information = button calls diag.nop from description
 area F5 C64
-  tab 1 Drive A
+  tab 1 Machine
+    setting Fast reset = Disabled | Enabled (default Disabled, live)
+    setting Kernal ROM =   | Built-in (default  , live)
+    setting Basic ROM =   | Built-in (default  , live)
+    setting Char ROM =   | Built-in (default  , live)
+    heading Drive A
     setting Drive enable = Disabled | Enabled (default Enabled, live)
     setting Drive bus ID = 8 | 9 | 10 | 11 (default 8, live)
     setting Disk swap delay = 100 ms | 200 ms | 300 ms | 400 ms | 500 ms | 600 ms | 700 ms | 800 ms | 900 ms | 1000 ms (default 100 ms, live)
-    setting Persist medium mounts = No | Yes (default No, live)
     setting Reset drive with C64 = No | Yes (default Yes, live)
     setting Freeze drive in menu = No | Yes (default Yes, live)
-    setting Leave menu on mount = No | Yes (default No, live)
+    heading Drive extras
     setting Drive extra RAM = Disabled | Enabled (default Disabled, live)
     setting GCR save align tracks = No | Yes (default Yes, live)
     setting D64 geos copy protection = None | Gaps | Track 36 | Both (default None, live)
     setting Track twist = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31 | 32 | 33 | 34 | 35 | 36 | 37 | 38 | 39 | 40 (default 27, live)
     setting SpeedDOS parallel cable = Disabled | Enabled (default Disabled, live)
     setting ROM for 1541 mode = 1541.rom (default 1541.rom, live)
-    node Disk = state in group side from description
-    node Eject disk = button calls drive.eject when drive.drive_a.mode != empty in group side from description
-    node Reset drive = button calls drive.reset in group side from description
-  tab 2 Machine
-    setting Fast reset = Disabled | Enabled (default Disabled, live)
-    setting Kernal ROM =   | Built-in (default  , live)
-    setting Basic ROM =   | Built-in (default  , live)
-    setting Char ROM =   | Built-in (default  , live)
-    node Machine = state in group side from description
-    node Video = state in group side from description
-    node Turbo = state in group side from description
-  tab 3 I/O
+  tab 2 TRX64
+    setting Freeze mode = Whole machine | CPU only (default Whole machine, at next reset)
+    setting Save changed cartridge = Off | Ask | Auto (default Ask, live)
+    setting Turbo control = Off | Manual | U64 Turbo Registers | TurboEnable Bit (default Off, live)
+    setting CPU speed = 1 | 2 | 3 | 4 | 6 | 8 | 10 | 12 | 14 | 16 | 20 | 24 | 32 | 40 | 48 | 64 (default 1, live)
+    heading Recording
+    setting Timewarp ring = Off | On (default On, live)
+    setting Instruction trace = Off | On (default Off, live)
+    node Start recording = button calls ring.start when tw.stopped from description
+    node Stop recording = button calls ring.stop when tw.running from description
+    node Marker here = button calls tw.mark when tw.present from description
+    node Clear markers = button calls tw.clear_marks when tw.present from description
+    node Back to live = button calls tw.live when tw.present from description
+    node Save frame = button calls tw.dump when tw.present from description
+    node Save the ring = button calls tw.ringdump when tw.present from description
+  tab 3 Memory and I/O
+    heading Expansion
     setting Cartridge preference = Auto | Internal | External | Manual (default Auto, live)
     setting RAM expansion unit = Disabled | Enabled | GeoRAM Mode (default Disabled, live)
     setting REU size = 128 KB | 256 KB | 512 KB | 1 MB | 2 MB | 4 MB | 8 MB | 16 MB (default 2 MB, live) [listed while reu.on]
@@ -127,94 +132,51 @@ area F5 C64
     setting REU preload offset = 0 KB | 128 KB | 256 KB | 512 KB | 1 MB | 2 MB | 4 MB | 8 MB | 16 MB (default 0 KB, live) [listed while reu.on]
     setting Ultimate audio at $DF20-$DFFF = Disabled | Enabled (default Disabled, live)
     setting Command interface (UCI) = Disabled | Enabled (default Disabled, live)
-    node Cartridge = state in group side from description
-  tab 4 Media sets
-    media Program
-    media Drive A:
-    fixed Save as config...
-    fixed Load config...
-area F7 Actions
-  tab 1 Quick
-    node Reset = button calls machine.cold_reset (closes the menu) from description
-    node Pause = button calls machine.pause_toggle (closes the menu) from description
-    node Swap disk = button calls drive.swap when drive.drive_a.mode != empty from description
-    node Eject disk = button calls drive.eject when drive.drive_a.mode != empty from description
-    node Remove cartridge = button calls c64.remove_cart when c64.cartridge (closes the menu) from description
-    node Reset drive = button calls drive.reset from description
-    node Reload ROMs = button calls machine.reload_roms (closes the menu) from description
-  tab 2 More
-    node Disk and files = group from description
-    node Insert blank disk = button calls drive.insert_blank from description
-    node Unlink disk = button calls drive.unlink when drive.drive_a.mode != empty from description
-    node Create folder = button calls files.mkdir when files.in_media from description
-    node Machine = group from description
-    node Reboot, clear memory = button calls machine.clear_reboot (closes the menu) from description
-    node Save C64 memory = button calls machine.save_ram from description
-    node Save REU memory = button calls machine.save_reu from description
-    node Save cartridge = button calls machine.save_cart when c64.cartridge from description
-    node Timewarp = group from description
-    node Start recording = button calls ring.start when tw.stopped from description
-    node Stop recording = button calls ring.stop when tw.running from description
-    node Marker here = button calls tw.mark when tw.present from description
-    node Clear markers = button calls tw.clear_marks when tw.present from description
-    node Back to live = button calls tw.live when tw.present from description
-    node Save frame = button calls tw.dump when tw.present from description
-    node Save the ring = button calls tw.ringdump when tw.present from description
-    node Power = group from description
-    node Power cycle = button calls u64.power_cycle from description
-    node Power off = button calls u64.power_off from description
-    task Save Disk as D64 (asks a name)
-    task Save Disk as G64 (asks a name)
-    task Create blank D64 (asks a name)
-    task Create blank G64 (asks a name)
-area F6 Settings (shifted)
-  tab 1 TRX64
-    setting Freeze mode = Whole machine | CPU only (default Whole machine, at next reset)
-    setting Overlay transparency = 0 % | 25 % | 50 % | 75 % (default 25 %, live)
-    setting Splash = Off | On (default On, live)
-    setting Save changed cartridge = Off | Ask | Auto (default Ask, live)
-    setting Auto save config = Off | Ask | Auto (default Auto, live)
-    setting Turbo control = Off | Manual | U64 Turbo Registers | TurboEnable Bit (default Off, live)
-    setting CPU speed = 1 | 2 | 3 | 4 | 6 | 8 | 10 | 12 | 14 | 16 | 20 | 24 | 32 | 40 | 48 | 64 (default 1, live)
-    setting Timewarp ring = Off | On (default On, live)
-    setting Instruction trace = Off | On (default Off, live)
-    node Discard = button calls settings.discard when settings.unsaved in group bar from description
-    node Defaults = button calls settings.reset_defaults in group bar from description
-    node Save = button calls settings.save when settings.unsaved in group bar from description
-  tab 2 Video
+    heading Hardware
+    setting DMA load mimics ID = 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31 (default 8, live)
+    setting Bus operation mode = Quiet | Writes | Dynamic | Dyn. & Writes | Compatibility (default Quiet, live)
+    setting Bus sharing - ROMs = Internal | External | Both (default Both, live)
+    setting Bus sharing - I/O1 = Internal | External | Both (default Both, live)
+    setting Bus sharing - I/O2 = Internal | External | Both (default Both, live)
+    setting Bus sharing - interrupts = Internal | External | Both (default Both, live)
+    setting GAME/EXROM = On | Off (default On, live)
+    setting Badline timing = Disabled | Enabled (default Enabled, live)
+    setting SuperCPU detect (D0BC) = Disabled | Enabled (default Disabled, live)
+  tab 4 Video
+    heading Picture
     setting System mode = PAL | NTSC | PAL-60 | NTSC-50 | PAL-60/L | NTSC-50/L (default PAL, live)
-    setting HDMI scan resolution = Auto | SD (480p/576p) | HD (720p) | FullHD (1080p) | PC 800 x 600 | PC 1024 x 768 | PC 1280 x 1024 (default Auto, live)
+    setting Picture = Auto | 576p / 480p | 1280 x 720 | 1920 x 1080 | 800 x 600 | 1024 x 768 | 1280 x 1024 (default Auto, live)
+    heading Output
     setting HDMI scan lines = Disabled | Enabled (default Enabled, live)
     setting Analog video mode = CVBS + SVideo | RGB (default CVBS + SVideo, live)
     setting Digital video mode = Auto | HDMI | DVI (default Auto, live)
     setting Adjust color clock = -100 ppm | -99 ppm | -98 ppm | -97 ppm | -96 ppm | -95 ppm | -94 ppm | -93 ppm | -92 ppm | -91 ppm | -90 ppm | -89 ppm | -88 ppm | -87 ppm | -86 ppm | -85 ppm | -84 ppm | -83 ppm | -82 ppm | -81 ppm | -80 ppm | -79 ppm | -78 ppm | -77 ppm | -76 ppm | -75 ppm | -74 ppm | -73 ppm | -72 ppm | -71 ppm | -70 ppm | -69 ppm | -68 ppm | -67 ppm | -66 ppm | -65 ppm | -64 ppm | -63 ppm | -62 ppm | -61 ppm | -60 ppm | -59 ppm | -58 ppm | -57 ppm | -56 ppm | -55 ppm | -54 ppm | -53 ppm | -52 ppm | -51 ppm | -50 ppm | -49 ppm | -48 ppm | -47 ppm | -46 ppm | -45 ppm | -44 ppm | -43 ppm | -42 ppm | -41 ppm | -40 ppm | -39 ppm | -38 ppm | -37 ppm | -36 ppm | -35 ppm | -34 ppm | -33 ppm | -32 ppm | -31 ppm | -30 ppm | -29 ppm | -28 ppm | -27 ppm | -26 ppm | -25 ppm | -24 ppm | -23 ppm | -22 ppm | -21 ppm | -20 ppm | -19 ppm | -18 ppm | -17 ppm | -16 ppm | -15 ppm | -14 ppm | -13 ppm | -12 ppm | -11 ppm | -10 ppm | -9 ppm | -8 ppm | -7 ppm | -6 ppm | -5 ppm | -4 ppm | -3 ppm | -2 ppm | -1 ppm | 0 ppm | 1 ppm | 2 ppm | 3 ppm | 4 ppm | 5 ppm | 6 ppm | 7 ppm | 8 ppm | 9 ppm | 10 ppm | 11 ppm | 12 ppm | 13 ppm | 14 ppm | 15 ppm | 16 ppm | 17 ppm | 18 ppm | 19 ppm | 20 ppm | 21 ppm | 22 ppm | 23 ppm | 24 ppm | 25 ppm | 26 ppm | 27 ppm | 28 ppm | 29 ppm | 30 ppm | 31 ppm | 32 ppm | 33 ppm | 34 ppm | 35 ppm | 36 ppm | 37 ppm | 38 ppm | 39 ppm | 40 ppm | 41 ppm | 42 ppm | 43 ppm | 44 ppm | 45 ppm | 46 ppm | 47 ppm | 48 ppm | 49 ppm | 50 ppm | 51 ppm | 52 ppm | 53 ppm | 54 ppm | 55 ppm | 56 ppm | 57 ppm | 58 ppm | 59 ppm | 60 ppm | 61 ppm | 62 ppm | 63 ppm | 64 ppm | 65 ppm | 66 ppm | 67 ppm | 68 ppm | 69 ppm | 70 ppm | 71 ppm | 72 ppm | 73 ppm | 74 ppm | 75 ppm | 76 ppm | 77 ppm | 78 ppm | 79 ppm | 80 ppm | 81 ppm | 82 ppm | 83 ppm | 84 ppm | 85 ppm | 86 ppm | 87 ppm | 88 ppm | 89 ppm | 90 ppm | 91 ppm | 92 ppm | 93 ppm | 94 ppm | 95 ppm | 96 ppm | 97 ppm | 98 ppm | 99 ppm | 100 ppm (default 0 ppm, live)
-    node Discard = button calls settings.discard when settings.unsaved in group bar from description
-    node Defaults = button calls settings.reset_defaults in group bar from description
-    node Save = button calls settings.save when settings.unsaved in group bar from description
-  tab 3 Audio
-    setting Volume master = OFF | -42 dB | -36 dB | -30 dB | -27 dB | -24 dB | -18 dB | -17 dB | -16 dB | -15 dB | -14 dB | -13 dB | -12 dB | -11 dB | -10 dB | -9 dB | -8 dB | -7 dB | -6 dB | -5 dB | -4 dB | -3 dB | -2 dB | -1 dB | 0 dB | +1 dB | +2 dB | +3 dB | +4 dB | +5 dB | +6 dB (default 0 dB, live)
-    setting Volume UltiSID 1 = OFF | -42 dB | -36 dB | -30 dB | -27 dB | -24 dB | -18 dB | -17 dB | -16 dB | -15 dB | -14 dB | -13 dB | -12 dB | -11 dB | -10 dB | -9 dB | -8 dB | -7 dB | -6 dB | -5 dB | -4 dB | -3 dB | -2 dB | -1 dB | 0 dB | +1 dB | +2 dB | +3 dB | +4 dB | +5 dB | +6 dB (default 0 dB, live)
-    setting Volume UltiSID 2 = OFF | -42 dB | -36 dB | -30 dB | -27 dB | -24 dB | -18 dB | -17 dB | -16 dB | -15 dB | -14 dB | -13 dB | -12 dB | -11 dB | -10 dB | -9 dB | -8 dB | -7 dB | -6 dB | -5 dB | -4 dB | -3 dB | -2 dB | -1 dB | 0 dB | +1 dB | +2 dB | +3 dB | +4 dB | +5 dB | +6 dB (default 0 dB, live)
+  tab 5 Audio
+    heading Volumes
+    setting Volume = OFF | -42 dB | -36 dB | -30 dB | -27 dB | -24 dB | -18 dB | -17 dB | -16 dB | -15 dB | -14 dB | -13 dB | -12 dB | -11 dB | -10 dB | -9 dB | -8 dB | -7 dB | -6 dB | -5 dB | -4 dB | -3 dB | -2 dB | -1 dB | 0 dB | +1 dB | +2 dB | +3 dB | +4 dB | +5 dB | +6 dB (default 0 dB, live)
+    setting Volume reDIP:SID 1 = OFF | -42 dB | -36 dB | -30 dB | -27 dB | -24 dB | -18 dB | -17 dB | -16 dB | -15 dB | -14 dB | -13 dB | -12 dB | -11 dB | -10 dB | -9 dB | -8 dB | -7 dB | -6 dB | -5 dB | -4 dB | -3 dB | -2 dB | -1 dB | 0 dB | +1 dB | +2 dB | +3 dB | +4 dB | +5 dB | +6 dB (default 0 dB, live)
+    setting Volume reDIP:SID 2 = OFF | -42 dB | -36 dB | -30 dB | -27 dB | -24 dB | -18 dB | -17 dB | -16 dB | -15 dB | -14 dB | -13 dB | -12 dB | -11 dB | -10 dB | -9 dB | -8 dB | -7 dB | -6 dB | -5 dB | -4 dB | -3 dB | -2 dB | -1 dB | 0 dB | +1 dB | +2 dB | +3 dB | +4 dB | +5 dB | +6 dB (default 0 dB, live)
     setting Volume socket 1 = OFF | -42 dB | -36 dB | -30 dB | -27 dB | -24 dB | -18 dB | -17 dB | -16 dB | -15 dB | -14 dB | -13 dB | -12 dB | -11 dB | -10 dB | -9 dB | -8 dB | -7 dB | -6 dB | -5 dB | -4 dB | -3 dB | -2 dB | -1 dB | 0 dB | +1 dB | +2 dB | +3 dB | +4 dB | +5 dB | +6 dB (default 0 dB, live)
     setting Volume socket 2 = OFF | -42 dB | -36 dB | -30 dB | -27 dB | -24 dB | -18 dB | -17 dB | -16 dB | -15 dB | -14 dB | -13 dB | -12 dB | -11 dB | -10 dB | -9 dB | -8 dB | -7 dB | -6 dB | -5 dB | -4 dB | -3 dB | -2 dB | -1 dB | 0 dB | +1 dB | +2 dB | +3 dB | +4 dB | +5 dB | +6 dB (default 0 dB, live)
     setting Volume sampler L = OFF | -42 dB | -36 dB | -30 dB | -27 dB | -24 dB | -18 dB | -17 dB | -16 dB | -15 dB | -14 dB | -13 dB | -12 dB | -11 dB | -10 dB | -9 dB | -8 dB | -7 dB | -6 dB | -5 dB | -4 dB | -3 dB | -2 dB | -1 dB | 0 dB | +1 dB | +2 dB | +3 dB | +4 dB | +5 dB | +6 dB (default 0 dB, live)
     setting Volume sampler R = OFF | -42 dB | -36 dB | -30 dB | -27 dB | -24 dB | -18 dB | -17 dB | -16 dB | -15 dB | -14 dB | -13 dB | -12 dB | -11 dB | -10 dB | -9 dB | -8 dB | -7 dB | -6 dB | -5 dB | -4 dB | -3 dB | -2 dB | -1 dB | 0 dB | +1 dB | +2 dB | +3 dB | +4 dB | +5 dB | +6 dB (default 0 dB, live)
-    setting Volume drive = OFF | -42 dB | -36 dB | -30 dB | -27 dB | -24 dB | -18 dB | -17 dB | -16 dB | -15 dB | -14 dB | -13 dB | -12 dB | -11 dB | -10 dB | -9 dB | -8 dB | -7 dB | -6 dB | -5 dB | -4 dB | -3 dB | -2 dB | -1 dB | 0 dB | +1 dB | +2 dB | +3 dB | +4 dB | +5 dB | +6 dB (default -13 dB, live)
-    setting Pan UltiSID 1 = Left 5 | Left 4 | Left 3 | Left 2 | Left 1 | Center | Right 1 | Right 2 | Right 3 | Right 4 | Right 5 (default Center, live)
-    setting Pan UltiSID 2 = Left 5 | Left 4 | Left 3 | Left 2 | Left 1 | Center | Right 1 | Right 2 | Right 3 | Right 4 | Right 5 (default Center, live)
+    heading Pan
+    setting Pan reDIP:SID 1 = Left 5 | Left 4 | Left 3 | Left 2 | Left 1 | Center | Right 1 | Right 2 | Right 3 | Right 4 | Right 5 (default Center, live)
+    setting Pan reDIP:SID 2 = Left 5 | Left 4 | Left 3 | Left 2 | Left 1 | Center | Right 1 | Right 2 | Right 3 | Right 4 | Right 5 (default Center, live)
     setting Pan socket 1 = Left 5 | Left 4 | Left 3 | Left 2 | Left 1 | Center | Right 1 | Right 2 | Right 3 | Right 4 | Right 5 (default Left 3, live)
     setting Pan socket 2 = Left 5 | Left 4 | Left 3 | Left 2 | Left 1 | Center | Right 1 | Right 2 | Right 3 | Right 4 | Right 5 (default Right 3, live)
     setting Pan sampler L = Left 5 | Left 4 | Left 3 | Left 2 | Left 1 | Center | Right 1 | Right 2 | Right 3 | Right 4 | Right 5 (default Left 3, live)
     setting Pan sampler R = Left 5 | Left 4 | Left 3 | Left 2 | Left 1 | Center | Right 1 | Right 2 | Right 3 | Right 4 | Right 5 (default Right 3, live)
-    setting Pan drive = Left 5 | Left 4 | Left 3 | Left 2 | Left 1 | Center | Right 1 | Right 2 | Right 3 | Right 4 | Right 5 (default Left 2, live)
+    heading Speaker
     setting Speaker enable = Disabled | Enabled (default Enabled, live)
-    setting Speaker volume UltiSID 1 = OFF | -42 dB | -36 dB | -30 dB | -27 dB | -24 dB | -18 dB | -17 dB | -16 dB | -15 dB | -14 dB | -13 dB | -12 dB | -11 dB | -10 dB | -9 dB | -8 dB | -7 dB | -6 dB | -5 dB | -4 dB | -3 dB | -2 dB | -1 dB | 0 dB | +1 dB | +2 dB | +3 dB | +4 dB | +5 dB | +6 dB (default OFF, live)
-    setting Speaker volume UltiSID 2 = OFF | -42 dB | -36 dB | -30 dB | -27 dB | -24 dB | -18 dB | -17 dB | -16 dB | -15 dB | -14 dB | -13 dB | -12 dB | -11 dB | -10 dB | -9 dB | -8 dB | -7 dB | -6 dB | -5 dB | -4 dB | -3 dB | -2 dB | -1 dB | 0 dB | +1 dB | +2 dB | +3 dB | +4 dB | +5 dB | +6 dB (default OFF, live)
+    setting Speaker volume reDIP:SID 1 = OFF | -42 dB | -36 dB | -30 dB | -27 dB | -24 dB | -18 dB | -17 dB | -16 dB | -15 dB | -14 dB | -13 dB | -12 dB | -11 dB | -10 dB | -9 dB | -8 dB | -7 dB | -6 dB | -5 dB | -4 dB | -3 dB | -2 dB | -1 dB | 0 dB | +1 dB | +2 dB | +3 dB | +4 dB | +5 dB | +6 dB (default OFF, live)
+    setting Speaker volume reDIP:SID 2 = OFF | -42 dB | -36 dB | -30 dB | -27 dB | -24 dB | -18 dB | -17 dB | -16 dB | -15 dB | -14 dB | -13 dB | -12 dB | -11 dB | -10 dB | -9 dB | -8 dB | -7 dB | -6 dB | -5 dB | -4 dB | -3 dB | -2 dB | -1 dB | 0 dB | +1 dB | +2 dB | +3 dB | +4 dB | +5 dB | +6 dB (default OFF, live)
     setting Speaker volume socket 1 = OFF | -42 dB | -36 dB | -30 dB | -27 dB | -24 dB | -18 dB | -17 dB | -16 dB | -15 dB | -14 dB | -13 dB | -12 dB | -11 dB | -10 dB | -9 dB | -8 dB | -7 dB | -6 dB | -5 dB | -4 dB | -3 dB | -2 dB | -1 dB | 0 dB | +1 dB | +2 dB | +3 dB | +4 dB | +5 dB | +6 dB (default OFF, live)
     setting Speaker volume socket 2 = OFF | -42 dB | -36 dB | -30 dB | -27 dB | -24 dB | -18 dB | -17 dB | -16 dB | -15 dB | -14 dB | -13 dB | -12 dB | -11 dB | -10 dB | -9 dB | -8 dB | -7 dB | -6 dB | -5 dB | -4 dB | -3 dB | -2 dB | -1 dB | 0 dB | +1 dB | +2 dB | +3 dB | +4 dB | +5 dB | +6 dB (default OFF, live)
     setting Speaker volume sampler L = OFF | -42 dB | -36 dB | -30 dB | -27 dB | -24 dB | -18 dB | -17 dB | -16 dB | -15 dB | -14 dB | -13 dB | -12 dB | -11 dB | -10 dB | -9 dB | -8 dB | -7 dB | -6 dB | -5 dB | -4 dB | -3 dB | -2 dB | -1 dB | 0 dB | +1 dB | +2 dB | +3 dB | +4 dB | +5 dB | +6 dB (default OFF, live)
     setting Speaker volume sampler R = OFF | -42 dB | -36 dB | -30 dB | -27 dB | -24 dB | -18 dB | -17 dB | -16 dB | -15 dB | -14 dB | -13 dB | -12 dB | -11 dB | -10 dB | -9 dB | -8 dB | -7 dB | -6 dB | -5 dB | -4 dB | -3 dB | -2 dB | -1 dB | 0 dB | +1 dB | +2 dB | +3 dB | +4 dB | +5 dB | +6 dB (default OFF, live)
-    setting Speaker volume drive = OFF | -42 dB | -36 dB | -30 dB | -27 dB | -24 dB | -18 dB | -17 dB | -16 dB | -15 dB | -14 dB | -13 dB | -12 dB | -11 dB | -10 dB | -9 dB | -8 dB | -7 dB | -6 dB | -5 dB | -4 dB | -3 dB | -2 dB | -1 dB | 0 dB | +1 dB | +2 dB | +3 dB | +4 dB | +5 dB | +6 dB (default -15 dB, live)
+  tab 6 SID
+    heading SID sockets
     setting Socket 1 enable = Disabled | Enabled (default Disabled, live)
     setting Socket 2 enable = Disabled | Enabled (default Disabled, live)
     setting Socket 1 1K ohm resistor = Off | On (default Off, live)
@@ -224,38 +186,87 @@ area F6 Settings (shifted)
     setting Socket 1 address = Unmapped | $D400 | $D420 | $D440 | $D460 | $D480 | $D4A0 | $D4C0 | $D4E0 | $D500 | $D520 | $D540 | $D560 | $D580 | $D5A0 | $D5C0 | $D5E0 | $D600 | $D620 | $D640 | $D660 | $D680 | $D6A0 | $D6C0 | $D6E0 | $D700 | $D720 | $D740 | $D760 | $D780 | $D7A0 | $D7C0 | $D7E0 | $DE00 | $DE20 | $DE40 | $DE60 | $DE80 | $DEA0 | $DEC0 | $DEE0 | $DF00 | $DF20 | $DF40 | $DF60 | $DF80 | $DFA0 | $DFC0 | $DFE0 (default $D400, live)
     setting Socket 2 address = Unmapped | $D400 | $D420 | $D440 | $D460 | $D480 | $D4A0 | $D4C0 | $D4E0 | $D500 | $D520 | $D540 | $D560 | $D580 | $D5A0 | $D5C0 | $D5E0 | $D600 | $D620 | $D640 | $D660 | $D680 | $D6A0 | $D6C0 | $D6E0 | $D700 | $D720 | $D740 | $D760 | $D780 | $D7A0 | $D7C0 | $D7E0 | $DE00 | $DE20 | $DE40 | $DE60 | $DE80 | $DEA0 | $DEC0 | $DEE0 | $DF00 | $DF20 | $DF40 | $DF60 | $DF80 | $DFA0 | $DFC0 | $DFE0 (default $D400, live)
     setting Extended DualSID range split = Off | A5 | A6 | A7 | A8 | A9 (default Off, live)
-    setting UltiSID 1 address = Unmapped | $D400 | $D420 | $D440 | $D460 | $D480 | $D4A0 | $D4C0 | $D4E0 | $D500 | $D520 | $D540 | $D560 | $D580 | $D5A0 | $D5C0 | $D5E0 | $D600 | $D620 | $D640 | $D660 | $D680 | $D6A0 | $D6C0 | $D6E0 | $D700 | $D720 | $D740 | $D760 | $D780 | $D7A0 | $D7C0 | $D7E0 | $DE00 | $DE20 | $DE40 | $DE60 | $DE80 | $DEA0 | $DEC0 | $DEE0 | $DF00 | $DF20 | $DF40 | $DF60 | $DF80 | $DFA0 | $DFC0 | $DFE0 (default $D400, live)
-    setting UltiSID 2 address = Unmapped | $D400 | $D420 | $D440 | $D460 | $D480 | $D4A0 | $D4C0 | $D4E0 | $D500 | $D520 | $D540 | $D560 | $D580 | $D5A0 | $D5C0 | $D5E0 | $D600 | $D620 | $D640 | $D660 | $D680 | $D6A0 | $D6C0 | $D6E0 | $D700 | $D720 | $D740 | $D760 | $D780 | $D7A0 | $D7C0 | $D7E0 | $DE00 | $DE20 | $DE40 | $DE60 | $DE80 | $DEA0 | $DEC0 | $DEE0 | $DF00 | $DF20 | $DF40 | $DF60 | $DF80 | $DFA0 | $DFC0 | $DFE0 (default $D400, live)
-    setting UltiSID range split = Off | 1/2 (A5) | 1/2 (A6) | 1/2 (A7) | 1/2 (A8) | 1/4 (A5,A6) | 1/4 (A5,A8) | 1/4 (A7,A8) (default Off, live)
     setting Paddle override = Disabled | Enabled (default Enabled, live)
     setting Auto address mirroring = Disabled | Enabled (default Enabled, live)
-    setting UltiSID 1 filter curve = 8580 Lo | 8580 Hi | 6581 | 6581 Alt | U2 Low | U2 Mid | U2 High (default 8580 Lo, live)
-    setting UltiSID 2 filter curve = 8580 Lo | 8580 Hi | 6581 | 6581 Alt | U2 Low | U2 Mid | U2 High (default 8580 Lo, live)
-    setting UltiSID 1 filter resonance = Low | High (default Low, live)
-    setting UltiSID 2 filter resonance = Low | High (default Low, live)
-    setting UltiSID 1 combined waveforms = 6581 | 8580 (default 6581, live)
-    setting UltiSID 2 combined waveforms = 6581 | 8580 (default 6581, live)
-    setting UltiSID 1 digi level = Off | Low | Medium | High (default Medium, live)
-    setting UltiSID 2 digi level = Off | Low | Medium | High (default Medium, live)
-    node Discard = button calls settings.discard when settings.unsaved in group bar from description
-    node Defaults = button calls settings.reset_defaults in group bar from description
-    node Save = button calls settings.save when settings.unsaved in group bar from description
-  tab 4 Input
+    heading Emulated SIDs
+    setting reDIP:SID 1 address = Unmapped | $D400 | $D420 | $D440 | $D460 | $D480 | $D4A0 | $D4C0 | $D4E0 | $D500 | $D520 | $D540 | $D560 | $D580 | $D5A0 | $D5C0 | $D5E0 | $D600 | $D620 | $D640 | $D660 | $D680 | $D6A0 | $D6C0 | $D6E0 | $D700 | $D720 | $D740 | $D760 | $D780 | $D7A0 | $D7C0 | $D7E0 | $DE00 | $DE20 | $DE40 | $DE60 | $DE80 | $DEA0 | $DEC0 | $DEE0 | $DF00 | $DF20 | $DF40 | $DF60 | $DF80 | $DFA0 | $DFC0 | $DFE0 (default $D400, live)
+    setting reDIP:SID 2 address = Unmapped | $D400 | $D420 | $D440 | $D460 | $D480 | $D4A0 | $D4C0 | $D4E0 | $D500 | $D520 | $D540 | $D560 | $D580 | $D5A0 | $D5C0 | $D5E0 | $D600 | $D620 | $D640 | $D660 | $D680 | $D6A0 | $D6C0 | $D6E0 | $D700 | $D720 | $D740 | $D760 | $D780 | $D7A0 | $D7C0 | $D7E0 | $DE00 | $DE20 | $DE40 | $DE60 | $DE80 | $DEA0 | $DEC0 | $DEE0 | $DF00 | $DF20 | $DF40 | $DF60 | $DF80 | $DFA0 | $DFC0 | $DFE0 (default $D400, live)
+    setting reDIP:SID range split = Off | 1/2 (A5) | 1/2 (A6) | 1/2 (A7) | 1/2 (A8) | 1/4 (A5,A6) | 1/4 (A5,A8) | 1/4 (A7,A8) (default Off, live)
+    setting reDIP:SID 1 filter curve = 8580 Lo | 8580 Hi | 6581 | 6581 Alt | U2 Low | U2 Mid | U2 High (default 8580 Lo, live)
+    setting reDIP:SID 2 filter curve = 8580 Lo | 8580 Hi | 6581 | 6581 Alt | U2 Low | U2 Mid | U2 High (default 8580 Lo, live)
+    setting reDIP:SID 1 filter resonance = Low | High (default Low, live)
+    setting reDIP:SID 2 filter resonance = Low | High (default Low, live)
+    setting reDIP:SID 1 combined waveforms = 6581 | 8580 (default 6581, live)
+    setting reDIP:SID 2 combined waveforms = 6581 | 8580 (default 6581, live)
+    setting reDIP:SID 1 digi level = Off | Low | Medium | High (default Medium, live)
+    setting reDIP:SID 2 digi level = Off | Low | Medium | High (default Medium, live)
+  tab 7 Input
     setting Joystick input = Normal | Swapped | WASD Port 2 | WASD Port 1 | WASD P2 No KB | WASD P1 No KB (default Normal, live)
     setting Mouse mode = Cursor | Mouse | Mouse + Cursor | Mouse + Wheel (default Mouse, live)
     setting Mouse sensitivity = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 (default 8, live)
     setting Mouse acceleration = Off | Adaptive (default Off, live)
     setting Mouse wheel sensitivity = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 (default 8, live)
     setting Mouse wheel direction = Normal | Reversed (default Normal, live)
-    node Discard = button calls settings.discard when settings.unsaved in group bar from description
-    node Defaults = button calls settings.reset_defaults in group bar from description
-    node Save = button calls settings.save when settings.unsaved in group bar from description
-  tab 5 Network
+area F7 APP
+  tab 1 Settings
+    heading Application
+    setting Overlay transparency = 0 % | 25 % | 50 % | 75 % (default 25 %, live)
+    setting Splash = Off | On (default On, live)
+    setting Leave menu on mount = No | Yes (default No, live)
+    setting Filename overflow squeeze = None | Beginning | Middle | End (default None, live)
+    heading Storage
+    setting Persist medium mounts = No | Yes (default No, live)
+    setting Enter home on startup = No | Yes (default No, live)
+    setting Home directory =  (default , live)
+    heading Menu
+    setting Menu opens at = Home (F1) | Last screen (default Home (F1), live)
+    heading Hotkeys
+    opens Hotkeys
+  tab 0 Hotkeys (a page)
+    setting Modifier = Off | CTRL | C= | C= + CTRL | C= + L SHIFT | C= + RUN/STOP | CTRL + L SHIFT | CTRL + RUN/STOP (default CTRL, live)
+    setting Menu open / close = Off | DEL | RETURN | CRSR RIGHT | F7 | F1 | F3 | F5 | CRSR DOWN | 3 | W | A | 4 | Z | S | E | L SHIFT | 5 | R | D | 6 | C | F | T | X | 7 | Y | G | 8 | B | H | U | V | 9 | I | J | 0 | M | K | O | N | + | P | L | - | . | : | @ | , | POUND | * | ; | HOME | R SHIFT | = | UP ARROW | / | 1 | LEFT ARROW | CTRL | 2 | SPACE | C= | Q | RUN/STOP | RESTORE (default RESTORE, live)
+    setting Volume up = Off | DEL | RETURN | CRSR RIGHT | F7 | F1 | F3 | F5 | CRSR DOWN | 3 | W | A | 4 | Z | S | E | L SHIFT | 5 | R | D | 6 | C | F | T | X | 7 | Y | G | 8 | B | H | U | V | 9 | I | J | 0 | M | K | O | N | + | P | L | - | . | : | @ | , | POUND | * | ; | HOME | R SHIFT | = | UP ARROW | / | 1 | LEFT ARROW | CTRL | 2 | SPACE | C= | Q | RUN/STOP | RESTORE (default +, live)
+    setting Volume down = Off | DEL | RETURN | CRSR RIGHT | F7 | F1 | F3 | F5 | CRSR DOWN | 3 | W | A | 4 | Z | S | E | L SHIFT | 5 | R | D | 6 | C | F | T | X | 7 | Y | G | 8 | B | H | U | V | 9 | I | J | 0 | M | K | O | N | + | P | L | - | . | : | @ | , | POUND | * | ; | HOME | R SHIFT | = | UP ARROW | / | 1 | LEFT ARROW | CTRL | 2 | SPACE | C= | Q | RUN/STOP | RESTORE (default -, live)
+    setting Reset = Off | DEL | RETURN | CRSR RIGHT | F7 | F1 | F3 | F5 | CRSR DOWN | 3 | W | A | 4 | Z | S | E | L SHIFT | 5 | R | D | 6 | C | F | T | X | 7 | Y | G | 8 | B | H | U | V | 9 | I | J | 0 | M | K | O | N | + | P | L | - | . | : | @ | , | POUND | * | ; | HOME | R SHIFT | = | UP ARROW | / | 1 | LEFT ARROW | CTRL | 2 | SPACE | C= | Q | RUN/STOP | RESTORE (default R, live)
+    setting Swap joystick ports = Off | DEL | RETURN | CRSR RIGHT | F7 | F1 | F3 | F5 | CRSR DOWN | 3 | W | A | 4 | Z | S | E | L SHIFT | 5 | R | D | 6 | C | F | T | X | 7 | Y | G | 8 | B | H | U | V | 9 | I | J | 0 | M | K | O | N | + | P | L | - | . | : | @ | , | POUND | * | ; | HOME | R SHIFT | = | UP ARROW | / | 1 | LEFT ARROW | CTRL | 2 | SPACE | C= | Q | RUN/STOP | RESTORE (default J, live)
+    setting Picture mode = Off | DEL | RETURN | CRSR RIGHT | F7 | F1 | F3 | F5 | CRSR DOWN | 3 | W | A | 4 | Z | S | E | L SHIFT | 5 | R | D | 6 | C | F | T | X | 7 | Y | G | 8 | B | H | U | V | 9 | I | J | 0 | M | K | O | N | + | P | L | - | . | : | @ | , | POUND | * | ; | HOME | R SHIFT | = | UP ARROW | / | 1 | LEFT ARROW | CTRL | 2 | SPACE | C= | Q | RUN/STOP | RESTORE (default P, live)
+  tab 2 Apps
+    node Cartridge dumper = button calls app.open from description
+    node Cartridge inspector = button calls app.open from description
+    node Flash cartridge = button calls app.open from description
+    node Softboot = button calls app.open from description
+area F8 System
+  tab 1 System
+    heading Actions
+    fixed Restart core
+    fixed Return to host menu
+    heading Network
+    fixed WiFi
+    heading Support
+    fixed Bug report
+    node Keys and help = button calls diag.nop from description
+    heading Reset
+    fixed Reset to host defaults
+    heading Status
+    info Build
+    info ROMs
+    info Libraries
+    node Board = state shows diag.board from description
+    node Uptime = state shows diag.uptime from description
+    node SD card = state shows media.sd from description
+    node USB stick 0 = state shows media.usb0 from description
+    node USB stick 1 = state shows media.usb1 from description
+    node Flash = state shows media.flash from description
+    node USB mouse = state shows usb.mouse from description
+    node USB keyboard = state shows usb.keyboard from description
+  tab 2 Network
+    heading WiFi and Ethernet
     setting Use DHCP = Disabled | Enabled (default Enabled, live)
     setting Static IP = 192.168.2.64 (default 192.168.2.64, live) [listed while net.static]
     setting Static netmask = 255.255.255.0 (default 255.255.255.0, live) [listed while net.static]
     setting Static gateway = 192.168.2.1 (default 192.168.2.1, live) [listed while net.static]
     setting Static DNS = 8.8.8.8 (default 8.8.8.8, live) [listed while net.static]
+    heading Services
     setting Host name =   (default  , live)
     setting Unique ID = Default (default Default, live)
     setting Network password =   | Not set (default  , live)
@@ -270,10 +281,12 @@ area F6 Settings (shifted)
     setting Time server 1 =   (default  , live)
     setting Time server 2 =   (default  , live)
     setting Time server 3 =   (default  , live)
+    heading Streams
     setting Stream VIC to = 239.0.1.64:11000 (default 239.0.1.64:11000, live)
     setting Stream audio to = 239.0.1.65:11001 (default 239.0.1.65:11001, live)
     setting Stream debug to = 239.0.1.66:11002 (default 239.0.1.66:11002, live)
     setting Debug stream mode = 6510 Only | VIC Only | 6510 & VIC | 1541 Only | 6510 & 1541 | 6510 w/IEC | 6510 & VIC w/IEC (default 6510 Only, live)
+    heading FTP hosts
     setting FTP 1 alias =   (default  , live)
     setting FTP 1 host =   (default  , live)
     setting FTP 1 port = 21 (default 21, live)
@@ -298,60 +311,20 @@ area F6 Settings (shifted)
     setting FTP 4 user = anonymous (default anonymous, live)
     setting FTP 4 password =   | Not set (default  , live)
     setting FTP 4 folder = / (default /, live)
-    node Ethernet status = state from description
-    node Discard = button calls settings.discard when settings.unsaved in group bar from description
-    node Interface MAC = state from description
-    node Defaults = button calls settings.reset_defaults in group bar from description
-    node Wi-Fi status = state from description
-    node Save = button calls settings.save when settings.unsaved in group bar from description
-    node Wi-Fi network = state from description
-    node Wi-Fi address = state from description
+    node Ethernet status = state shows net.eth_status from description
+    node Interface MAC = state shows net.eth_mac from description
+    node Wi-Fi status = state shows wifi.state from description
+    node Wi-Fi network = state shows wifi.ssid from description
+    node Wi-Fi address = state shows wifi.ip from description
     node Start VIC stream = button calls stream.start when stream.vic_off from description
     node Stop VIC stream = button calls stream.stop when stream.vic_on from description
     node Start audio stream = button calls stream.start when stream.audio_off from description
     node Stop audio stream = button calls stream.stop when stream.audio_on from description
     node Start debug stream = button calls stream.start when stream.debug_off from description
     node Stop debug stream = button calls stream.stop when stream.debug_on from description
-area F8 System (shifted)
-  tab 1 Status
-    node Core = state from description
-    node Application = state from description
-    node ROMs = state from description
-    node Libraries = state from description
-    node Board = state from description
-    node Uptime = state from description
-    node SD card = state from description
-    node USB stick 0 = state from description
-    node USB stick 1 = state from description
-    node Flash = state from description
-    node USB mouse = state from description
-    node USB keyboard = state from description
-    node WiFi = button calls wifi.toggle from description
-    node Keys and help = button calls diag.nop from description
-  tab 2 Expert
-    setting DMA load mimics ID = 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31 (default 8, live)
-    setting Bus operation mode = Quiet | Writes | Dynamic | Dyn. & Writes | Compatibility (default Quiet, live)
-    setting Bus sharing - ROMs = Internal | External | Both (default Both, live)
-    setting Bus sharing - I/O1 = Internal | External | Both (default Both, live)
-    setting Bus sharing - I/O2 = Internal | External | Both (default Both, live)
-    setting Bus sharing - interrupts = Internal | External | Both (default Both, live)
-    setting GAME/EXROM = On | Off (default On, live)
-    setting Burst mode patch = Off | CIA1 | CIA2 (default Off, live)
-    setting Serial bus mode = All Connected | C64 <-> Internal | Ext. <-> Int. | C64 <-> External (default All Connected, live)
-    setting Badline timing = Disabled | Enabled (default Enabled, live)
-    setting SuperCPU detect (D0BC) = Disabled | Enabled (default Disabled, live)
-    setting UserPort power enable = Disabled | Enabled (default Enabled, live)
+  tab 3 Device
     setting Power on after power loss = Off | On | Last State (default Off, live)
     setting Wake on Wi-Fi = Disabled | Enabled (default Disabled, live)
     setting LED select top = On | Off | Drive A Pwr | DrvAPwr + DrvBPwr | Drive A Act | DrvAAct + DrvBAct | DrvAPwr ^ DrvAAct | USB Activity | Any Activity | !(DrvAAct) | !(DrvAAct+DrvBAct) | !(USB Act) | !(Any Act) | IRQ Line | !(IRQ Line) | Drive B Act (default On, live)
     setting LED select bottom = On | Off | Drive A Pwr | DrvAPwr + DrvBPwr | Drive A Act | DrvAAct + DrvBAct | DrvAPwr ^ DrvAAct | USB Activity | Any Activity | !(DrvAAct) | !(DrvAAct+DrvBAct) | !(USB Act) | !(Any Act) | IRQ Line | !(IRQ Line) | Drive B Act (default Drive A Act, live)
     setting Color scheme = Standard Blue | Ultimate Black | C128 Style | Commodore Blue | Commodore 1 | Commodore 2 | Commodore 3 (default Ultimate Black, live)
-    setting Enter home on startup = Disabled | Enabled (default Disabled, live)
-    setting Menu opens at = Home (F1) | Last screen (default Home (F1), live)
-    setting Home directory =   (default  , live)
-    setting Filename overflow squeeze = None | Beginning | Middle | End (default None, live)
-    node Restart core = button calls machine.restart in group bar (closes the menu) from description
-    node Clear config = button calls settings.clear in group bar from description
-    node Discard = button calls settings.discard when settings.unsaved in group bar from description
-    node Defaults = button calls settings.reset_defaults in group bar from description
-    node Save = button calls settings.save when settings.unsaved in group bar from description

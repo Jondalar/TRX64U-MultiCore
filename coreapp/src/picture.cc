@@ -187,25 +187,26 @@ void picture_env_read(PictureEnv *env, int sys)
 int picture_index(const CoreDesc *d)
 {
     for (int i = 0; i < d->nsettings; i++) {
-        if (d->settings[i].apply && !strcmp(d->settings[i].apply, PICTURE_OP)) {
+        if (d->settings[i].apply && !strcmp(d->settings[i].apply, PICTURE_OP) && !strcasecmp(d->settings[i].key, PICTURE_KEY)) {
             return i;
         }
     }
     return -1;
 }
 
-static int index_of_op(const CoreDesc *d, const char *op)
+// op and canonical key: a core's record may carry a hidden setting with the same op (T228 H1); the application's row is the one that counts
+static int index_of_op(const CoreDesc *d, const char *op, const char *key)
 {
     for (int i = 0; i < d->nsettings; i++) {
-        if (d->settings[i].apply && !strcmp(d->settings[i].apply, op)) {
+        if (d->settings[i].apply && !strcmp(d->settings[i].apply, op) && !strcasecmp(d->settings[i].key, key)) {
             return i;
         }
     }
     return -1;
 }
 
-int scale_index(const CoreDesc *d)  { return index_of_op(d, SCALE_OP); }
-int smooth_index(const CoreDesc *d) { return index_of_op(d, SMOOTH_OP); }
+int scale_index(const CoreDesc *d)  { return index_of_op(d, SCALE_OP, SCALE_KEY); }
+int smooth_index(const CoreDesc *d) { return index_of_op(d, SMOOTH_OP, SMOOTH_KEY); }
 
 // A mode of the machine's family and the resolution the person means. With the gateware the row decides the family (Q6: the other one only
 // when the screen has nothing in the machine's); the firmware path of an old host has one family, the machine's.

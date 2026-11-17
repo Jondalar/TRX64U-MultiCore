@@ -1,16 +1,15 @@
-# The menu of TRX64U (T104.2 D10): areas, tabs and everything in them. C++ supplies only the operations, the state values and the settings store the names
+# The menu of TRX64U (T104.2 D10, T228): the areas, tabs and everything in them. C++ supplies only the operations, the state values and the settings store the names
 # below refer to. tools/descrec.py compiles this file (and checks every name and binding against what the application exports,
 # tests/coreapp/golden/ops_trx64u.txt); the packer puts the result into the .cor as record 6, and coreapp/cores/trx64u/menu_rec.inc carries the same bytes
 # for a start without a .cor (JTAG, ue2emu). Regenerate it with `tools/gen_menu_rec.py`; the lint stage compares.
 #
-# The structure is the UX concept's (TRX64-Ultimate docs/lvgl_ui_project: NAVIGATION.md, components/app_shell.xml) as T104.2 section 5 decides it (P4): F1 Home,
-# F3 Library, F5 C64, F7 Actions and F2 Timewarp, F4 Tools, F6 Settings, F8 System. The tab numbers of an area are consecutive, 1 .. n in the order written here (they
-# replace the concept's published numbers: no gaps, no number a tab does not carry). A tab whose function does not exist is not listed, so it is not shown; an area
-# without a tab is not on the rail.
+# T228 D2: the structure is the generic core menu of T212 (F1 session and quick actions, F3 Library, F5 machine, F7 APP, F8 System); trx64u adds F2 Timewarp and F4 Monitor
+# (D3: the rail reads MONITOR; the Diagnostics tab is in F4 beside the monitor until DC7 moves it to F8, step 2). Its Drive A and cartridge port are media slots whose rows open the drive list (T212 D5); the generic items (Persist mounts, Enter home, Menu opens at, Home
+# directory, hotkeys, Picture, Scale; no Tone: the core sets no_tone) are the application's own and not declared here. A settings tab with `ui = { sections = true }` shows each of its groups under a heading made of the
+# group's id ('_' is a space; not drawn when it repeats the tab's title). Nothing is saved to flash: every setting is written to the core's .cfg at once (D9-D11).
 
-# How a tab is drawn (T104.2 D10, the UX concept's screens): `layout` = desk | split | settings | status | library | timeline | terminal, `ui` its parameters (crumb, title, side, chip);
-# the nodes put into a tab name their place by the group of their anchor ("F1/home/head"), and `ui` says how one is shown (coreapp/src/screens.h).
-# A function that does not exist here is not drawn (hidden); one that cannot work now is drawn greyed with its reason (`off`).
+# the machine line of F1 (T212 D13/D15): the values of these settings
+machine_info = "System Mode,REU Size"
 
 [[area]]
 key = "F1"
@@ -18,14 +17,12 @@ name = "Home"
   [[area.tab]]
   id = "home"
   name = "Home"
-  widget = "nodes"
-  layout = "desk"
+  widget = "info"
   n = 1
 
 [[area]]
 key = "F2"
 name = "Timewarp"
-shifted = true
   [[area.tab]]
   id = "timeline"
   name = "Timeline"
@@ -61,8 +58,7 @@ name = "Library"
 
 [[area]]
 key = "F4"
-name = "Tools"
-shifted = true
+name = "Monitor"
   [[area.tab]]
   id = "monitor"
   name = "Monitor"
@@ -80,582 +76,92 @@ shifted = true
 [[area]]
 key = "F5"                       # the core's short title ("C64") names it
   [[area.tab]]
-  id = "drives"
-  name = "Drive A"
-  widget = "settings"
-  groups = ["drives", "more"]
-  layout = "split"
-  ui = { title = "Drive A", side = "Disk in drive A" }
-  n = 1
-  [[area.tab]]
   id = "machine"
   name = "Machine"
   widget = "settings"
-  groups = ["machine"]
-  layout = "split"
-  ui = { title = "Machine", side = "Machine now" }
-  n = 2
-  [[area.tab]]
-  id = "io"
-  name = "I/O"
-  widget = "settings"
-  groups = ["io"]
-  layout = "split"
-  ui = { title = "Memory and I/O", side = "Expansion port" }
-  n = 3
-  # T180 D5: the media sets (Save media set..., Load media set...): the rows the media tab of every other core has; the C64's media are Drive A and the cartridge port
-  [[area.tab]]
-  id = "mediasets"
-  name = "Media sets"
-  widget = "media"
-  layout = "settings"
-  ui = { title = "Media sets" }
-  n = 4
-
-[[area]]
-key = "F7"
-name = "Actions"
-  [[area.tab]]
-  id = "quick"
-  name = "Quick"
-  widget = "nodes"
-  layout = "split"
-  ui = { title = "Do the next thing" }
+  groups = ["Machine", "Drive_A", "Drive_extras"]
+  ui = { sections = true }
   n = 1
-  [[area.tab]]
-  id = "more"
-  name = "More"
-  widget = "tasks"
-  groups = ["c64", "files"]
-  layout = "split"
-  ui = { title = "More actions", nodes_first = true }
-  n = 2
-
-[[area]]
-key = "F6"
-name = "Settings"
-shifted = true
   [[area.tab]]
   id = "trx64"
   name = "TRX64"
   widget = "settings"
-  groups = ["trx64"]
-  layout = "settings"
-  ui = { title = "TRX64 behavior" }
-  n = 1
+  groups = ["TRX64", "Recording"]
+  ui = { sections = true }
+  n = 2
+  [[area.tab]]
+  id = "io"
+  name = "Memory and I/O"
+  widget = "settings"
+  groups = ["Expansion", "Hardware"]
+  ui = { sections = true }
+  n = 3
   [[area.tab]]
   id = "video"
   name = "Video"
   widget = "settings"
-  groups = ["video", "video_hardware"]
-  layout = "settings"
-  ui = { title = "Video" }
-  n = 2
+  groups = ["Picture", "Output"]
+  ui = { sections = true }
+  n = 4
   [[area.tab]]
   id = "audio"
   name = "Audio"
   widget = "settings"
-  groups = ["mixer", "sid_sockets", "ultisid"]
-  layout = "settings"
-  ui = { title = "Audio and SID" }
-  n = 3
+  groups = ["Volumes", "Pan", "Speaker"]
+  ui = { sections = true }
+  n = 5
+  [[area.tab]]
+  id = "sid"
+  name = "SID"
+  widget = "settings"
+  groups = ["SID_sockets", "Emulated_SIDs"]
+  ui = { sections = true }
+  n = 6
   [[area.tab]]
   id = "input"
   name = "Input"
   widget = "settings"
   groups = ["input"]
-  layout = "settings"
-  ui = { title = "Controllers" }
-  n = 4
+  n = 7
+
+[[area]]
+key = "F7"
+name = "APP"
   [[area.tab]]
-  id = "network"
-  name = "Network"
+  id = "settings"
+  name = "Settings"
   widget = "settings"
-  groups = ["ethernet", "network", "time", "streams", "ftp"]
-  layout = "settings"
-  ui = { title = "Network" }
-  n = 5
+  groups = ["app", "Application"]
+  ui = { sections = true }
+  n = 1
+  [[area.tab]]
+  id = "apps"
+  name = "Apps"
+  widget = "nodes"
+  n = 2
 
 [[area]]
 key = "F8"
 name = "System"
-shifted = true
-  [[area.tab]]
-  id = "status"
-  name = "Status"
-  widget = "nodes"
-  layout = "split"
-  ui = { title = "System" }
-  n = 1
   [[area.tab]]
   id = "expert"
-  name = "Expert"
+  name = "System"
+  widget = "system"
+  n = 1
+  [[area.tab]]
+  id = "network"
+  name = "Network"
   widget = "settings"
-  groups = ["expert", "system"]
-  layout = "settings"
-  ui = { title = "Expert settings" }
+  groups = ["WiFi_and_Ethernet", "Services", "Streams", "FTP_hosts"]
+  ui = { sections = true }
   n = 2
+  [[area.tab]]
+  id = "device"
+  name = "Device"
+  widget = "settings"
+  groups = ["Device"]
+  n = 3
 
-# ---- the screens' own items: buttons, status rows, values -------------------------------------------------------------------------------------
-# F1 Home, the media desk: a row for each medium (RETURN opens the Library on its folder), the machine, and the resources it is configured with
-[[node]]
-anchor = "F1/home/media"
-kind = "op"
-label = "Disk"
-op = "lib.show"
-bind = [ { arg = "state", str = "drive.drive_a.path" } ]
-order = 10
-capability = "drive_a"
-ui = { goto = "F3", sub = "@drive.drive_a.image", none = "@drive.drive_a.image", empty = "No disk", chip = "[E]", tone = "cyan" }
-
-[[node]]
-anchor = "F1/home/media"
-kind = "op"
-label = "Cartridge"
-op = "lib.show"
-bind = [ { arg = "state", str = "c64.cartridge_path" } ]
-order = 20
-ui = { goto = "F3", sub = "@c64.cartridge", none = "@c64.cartridge", empty = "No cartridge", chip = "[X]", tone = "cyan" }
-
-[[node]]
-anchor = "F1/home/media"
-kind = "op"
-label = "Program"
-op = "lib.show"
-bind = [ { arg = "state", str = "c64.program_path" } ]
-order = 30
-ui = { goto = "F3", sub = "@c64.program", none = "@c64.program", empty = "No program", tone = "violet" }
-
-[[node]]
-anchor = "F1/home/machine"
-kind = "op"
-label = "Pause / resume"
-op = "machine.pause_toggle"
-order = 10
-closes_menu = true
-ui = { sub = "Stops or continues the machine", chip = "[P]", tone = "cyan" }
-
-[[node]]
-anchor = "F1/home/machine"
-kind = "op"
-label = "Reset"
-op = "machine.cold_reset"
-order = 20
-closes_menu = true
-ui = { confirm = "Reset the machine?", sub = "Restarts the machine", chip = "[R]", tone = "cyan" }
-
-[[node]]
-anchor = "F1/home/machine"
-kind = "op"
-label = "Settings"
-order = 40
-ui = { goto = "F6", sub = "@settings.saved" }
-
-[[node]]
-anchor = "F1/home/machine"
-kind = "state"
-label = "RAM expansion"
-order = 50
-ui = { sub = "@set.RAM Expansion Unit" }
-
-[[node]]
-anchor = "F1/home/machine"
-kind = "state"
-label = "Turbo"
-order = 60
-ui = { sub = "@set.Turbo Control" }
-
-[[node]]
-anchor = "F1/home/machine"
-kind = "state"
-label = "Video"
-order = 70
-ui = { sub = "@set.System Mode" }
-
-# F5 Machine (c64_machine.xml): the session and power rows, the save-state panel; Fast Reset, the ROM files and the DMA id are the settings below
-# F5 I/O: the cartridge in the port
-[[node]]
-anchor = "F5/machine/side"
-kind = "state"
-label = "Machine"
-order = 10
-ui = { sub = "@machine.state" }
-
-[[node]]
-anchor = "F5/machine/side"
-kind = "state"
-label = "Video"
-order = 20
-ui = { sub = "@set.System Mode" }
-
-[[node]]
-anchor = "F5/machine/side"
-kind = "state"
-label = "Turbo"
-order = 30
-ui = { sub = "@set.Turbo Control" }
-
-[[node]]
-anchor = "F5/io/side"
-kind = "state"
-label = "Cartridge"
-order = 10
-ui = { sub = "@c64.cartridge|None" }
-
-# F5 Drives (c64_drives.xml): the drive's settings are the rows; DRIVE CONTROL is this.
-[[node]]
-anchor = "F5/drives/side"
-kind = "state"
-label = "Disk"
-order = 10
-ui = { sub = "@drive.drive_a.image|No disk" }
-
-[[node]]
-anchor = "F5/drives/side"
-kind = "op"
-label = "Eject disk"
-op = "drive.eject"
-bind = [ { arg = "slot", str = "iec:drive_a" } ]
-order = 20
-when_state = "drive.drive_a.mode != empty"
-capability = "drive_a"
-ui = { bkey = "E", why = "There is no disk in the drive" }
-
-[[node]]
-anchor = "F5/drives/side"
-kind = "op"
-label = "Reset drive"
-op = "drive.reset"
-bind = [ { arg = "slot", str = "iec:drive_a" } ]
-order = 30
-capability = "drive_a"
-ui = { bkey = "R" }
-
-[[node]]
-anchor = "F7/more"
-kind = "group"
-label = "Machine"
-order = 200
-
-[[node]]
-anchor = "F7/more"
-kind = "group"
-label = "Power"
-order = 400
-
-[[node]]
-anchor = "F7/more"
-kind = "group"
-label = "Timewarp"
-order = 300
-
-[[node]]
-anchor = "F7/more"
-kind = "group"
-label = "Disk and files"
-order = 100
-
-[[node]]
-anchor = "F7/more"
-kind = "op"
-label = "Insert blank disk"
-op = "drive.insert_blank"
-order = 101
-capability = "drive_a"
-ui = { sub = "A new empty D64 that is not linked to a file" }
-
-[[node]]
-anchor = "F7/more"
-kind = "op"
-label = "Unlink disk"
-op = "drive.unlink"
-order = 102
-when_state = "drive.drive_a.mode != empty"
-capability = "drive_a"
-ui = { why = "There is no disk in the drive", sub = "Keeps the disk in the drive, stops writing the file" }
-
-[[node]]
-anchor = "F7/quick"
-kind = "op"
-label = "Swap disk"
-op = "drive.swap"
-order = 17
-when_state = "drive.drive_a.mode != empty"
-capability = "drive_a"
-ui = { why = "There is no disk in the drive", sub = "Puts the next disk image of the folder in the drive" }
-
-# F7 Quick (quick_actions.xml): the five things done most, each one key and RETURN away
-[[node]]
-anchor = "F7/quick"
-kind = "op"
-label = "Reset"
-op = "machine.cold_reset"
-order = 10
-closes_menu = true
-ui = { key = "R", confirm = "Reset the machine?", sub = "Restarts the machine and closes the menu" }
-
-[[node]]
-anchor = "F7/quick"
-kind = "op"
-label = "Pause"
-op = "machine.pause_toggle"
-order = 15
-closes_menu = true
-ui = { key = "P", label = "@machine.pause_label", sub = "Stops the machine, the picture stays" }
-
-[[node]]
-anchor = "F7/quick"
-kind = "op"
-label = "Eject disk"
-op = "drive.eject"
-bind = [ { arg = "slot", str = "iec:drive_a" } ]
-order = 18
-when_state = "drive.drive_a.mode != empty"
-capability = "drive_a"
-ui = { key = "E", why = "There is no disk in the drive", sub = "Takes the disk out of drive A" }
-
-[[node]]
-anchor = "F7/quick"
-kind = "op"
-label = "Reload ROMs"
-op = "machine.reload_roms"
-order = 35
-closes_menu = true
-ui = { sub = "Reads the ROM files again and restarts" }
-
-[[node]]
-anchor = "F7/quick"
-kind = "op"
-label = "Reset drive"
-op = "drive.reset"
-bind = [ { arg = "slot", str = "iec:drive_a" } ]
-order = 30
-capability = "drive_a"
-ui = { sub = "Resets the 1541, the disk stays in it" }
-
-[[node]]
-anchor = "F7/quick"
-kind = "op"
-label = "Remove cartridge"
-op = "c64.remove_cart"
-order = 19
-closes_menu = true
-when_state = "c64.cartridge"
-ui = { key = "X", why = "There is no cartridge in the port", sub = "Takes the cartridge out of the port and restarts" }
-
-# F7 C64: tasks (the disk saves) and the machine's own actions
-[[node]]
-anchor = "F7/more"
-kind = "op"
-label = "Reboot, clear memory"
-op = "machine.clear_reboot"
-order = 201
-closes_menu = true
-ui = { confirm = "Clear the C64's memory and start again?", sub = "Clears the memory and starts again" }
-
-[[node]]
-anchor = "F7/more"
-kind = "op"
-label = "Power cycle"
-op = "u64.power_cycle"
-order = 401
-ui = { confirm = "Power cycle the board? Everything in memory is lost.", sub = "Switches the board off and on" }
-
-[[node]]
-anchor = "F7/more"
-kind = "op"
-label = "Power off"
-op = "u64.power_off"
-order = 402
-ui = { confirm = "Power off the board?", sub = "Switches the board off" }
-
-[[node]]
-anchor = "F7/more"
-kind = "op"
-label = "Save C64 memory"
-op = "machine.save_ram"
-bind = [ { arg = "name", text = true } ]
-order = 202
-ui = { ask = "Save the C64's 64 KB as (name)", ask_state = "machine.suggest.ram", sub = "The 64 KB of RAM as a file" }
-
-[[node]]
-anchor = "F7/more"
-kind = "op"
-label = "Save REU memory"
-op = "machine.save_reu"
-bind = [ { arg = "name", text = true } ]
-order = 203
-ui = { ask = "Save the REU's memory as (name)", ask_state = "machine.suggest.reu", sub = "The REU's memory as a file" }
-
-[[node]]
-anchor = "F7/more"
-kind = "op"
-label = "Save cartridge"
-op = "machine.save_cart"
-bind = [ { arg = "name", text = true } ]
-order = 204
-when_state = "c64.cartridge"
-ui = { ask = "Save the cartridge as (name)", ask_state = "machine.suggest.cart", why = "There is no cartridge in the port", sub = "The cartridge in the port as a .crt" }
-
-# The bar of every settings page: what the store can do (the core's .cfg goes, the host's values show again; defaults; write now when Auto Save Config holds changes back)
-[[node]]
-anchor = "F6/trx64/bar"
-kind = "op"
-label = "Discard"
-op = "settings.discard"
-order = 10
-when_state = "settings.unsaved"
-ui = { bkey = "D", why = "Nothing to discard: a change is written at once unless Auto Save Config holds it back" }
-
-[[node]]
-anchor = "F6/trx64/bar"
-kind = "op"
-label = "Defaults"
-op = "settings.reset_defaults"
-order = 20
-ui = { bkey = "F", confirm = "Set every setting of this core to its default?" }
-
-[[node]]
-anchor = "F6/trx64/bar"
-kind = "op"
-label = "Save"
-op = "settings.save"
-order = 30
-when_state = "settings.unsaved"
-ui = { bkey = "S", primary = true, why = "Nothing to save: a change is written at once unless Auto Save Config is Off or Ask" }
-
-[[node]]
-anchor = "F6/video/bar"
-kind = "op"
-label = "Discard"
-op = "settings.discard"
-order = 10
-when_state = "settings.unsaved"
-ui = { bkey = "D", why = "Nothing to discard: a change is written at once unless Auto Save Config holds it back" }
-
-[[node]]
-anchor = "F6/video/bar"
-kind = "op"
-label = "Defaults"
-op = "settings.reset_defaults"
-order = 20
-ui = { bkey = "F", confirm = "Set every setting of this core to its default?" }
-
-[[node]]
-anchor = "F6/video/bar"
-kind = "op"
-label = "Save"
-op = "settings.save"
-order = 30
-when_state = "settings.unsaved"
-ui = { bkey = "S", primary = true, why = "Nothing to save: a change is written at once unless Auto Save Config is Off or Ask" }
-
-[[node]]
-anchor = "F6/audio/bar"
-kind = "op"
-label = "Discard"
-op = "settings.discard"
-order = 10
-when_state = "settings.unsaved"
-ui = { bkey = "D", why = "Nothing to discard: a change is written at once unless Auto Save Config holds it back" }
-
-[[node]]
-anchor = "F6/audio/bar"
-kind = "op"
-label = "Defaults"
-op = "settings.reset_defaults"
-order = 20
-ui = { bkey = "F", confirm = "Set every setting of this core to its default?" }
-
-[[node]]
-anchor = "F6/audio/bar"
-kind = "op"
-label = "Save"
-op = "settings.save"
-order = 30
-when_state = "settings.unsaved"
-ui = { bkey = "S", primary = true, why = "Nothing to save: a change is written at once unless Auto Save Config is Off or Ask" }
-
-[[node]]
-anchor = "F6/input/bar"
-kind = "op"
-label = "Discard"
-op = "settings.discard"
-order = 10
-when_state = "settings.unsaved"
-ui = { bkey = "D", why = "Nothing to discard: a change is written at once unless Auto Save Config holds it back" }
-
-[[node]]
-anchor = "F6/input/bar"
-kind = "op"
-label = "Defaults"
-op = "settings.reset_defaults"
-order = 20
-ui = { bkey = "F", confirm = "Set every setting of this core to its default?" }
-
-[[node]]
-anchor = "F6/input/bar"
-kind = "op"
-label = "Save"
-op = "settings.save"
-order = 30
-when_state = "settings.unsaved"
-ui = { bkey = "S", primary = true, why = "Nothing to save: a change is written at once unless Auto Save Config is Off or Ask" }
-
-[[node]]
-anchor = "F8/expert/bar"
-kind = "op"
-label = "Restart core"
-op = "machine.restart"
-order = 5
-closes_menu = true
-ui = { bkey = "A", confirm = "Restart the core? The ROMs are loaded again and the machine starts from the beginning." }
-
-[[node]]
-anchor = "F8/expert/bar"
-kind = "op"
-label = "Clear config"
-op = "settings.clear"
-order = 6
-ui = { bkey = "C", confirm = "Delete this core's settings file (every setting you changed is lost)?" }
-
-[[node]]
-anchor = "F8/expert/bar"
-kind = "op"
-label = "Discard"
-op = "settings.discard"
-order = 10
-when_state = "settings.unsaved"
-ui = { bkey = "D", why = "Nothing to discard: a change is written at once unless Auto Save Config holds it back" }
-
-[[node]]
-anchor = "F8/expert/bar"
-kind = "op"
-label = "Defaults"
-op = "settings.reset_defaults"
-order = 20
-ui = { bkey = "F", confirm = "Set every setting of this core to its default?" }
-
-[[node]]
-anchor = "F8/expert/bar"
-kind = "op"
-label = "Save"
-op = "settings.save"
-order = 30
-when_state = "settings.unsaved"
-ui = { bkey = "S", primary = true, why = "Nothing to save: a change is written at once unless Auto Save Config is Off or Ask" }
-
-[[node]]
-anchor = "F7/more"
-kind = "op"
-label = "Create folder"
-op = "files.mkdir"
-bind = [ { arg = "name", text = true } ]
-order = 103
-when_state = "files.in_media"
-ui = { ask = "Name of the new folder", why = "Open a folder on a medium in Library first", sub = "Makes a folder in the Library's folder" }
-
-# F2 Timewarp: the keys are the layout's (menuctl.cc timeline_key); this node is what RETURN does, and the tab needs an entry to exist
 [[node]]
 anchor = "F2/timeline/bar"
 kind = "op"
@@ -665,9 +171,8 @@ order = 10
 closes_menu = true
 ui = { primary = true }
 
-# F7 Timewarp: the same operations as the keys of F2, by name, and the files (.c64re)
 [[node]]
-anchor = "F7/more"
+anchor = "F5/trx64"
 kind = "op"
 label = "Start recording"
 op = "ring.start"
@@ -676,7 +181,7 @@ when_state = "tw.stopped"
 ui = { why = "The ring is recording already, or there is none", sub = "Starts the frame ring again, the old frames go" }
 
 [[node]]
-anchor = "F7/more"
+anchor = "F5/trx64"
 kind = "op"
 label = "Stop recording"
 op = "ring.stop"
@@ -685,7 +190,7 @@ when_state = "tw.running"
 ui = { why = "The ring is not recording", sub = "The frames stay until it starts again" }
 
 [[node]]
-anchor = "F7/more"
+anchor = "F5/trx64"
 kind = "op"
 label = "Marker here"
 op = "tw.mark"
@@ -694,7 +199,7 @@ when_state = "tw.present"
 ui = { why = "This bitstream has no frame ring", sub = "Marks the frame Timewarp shows" }
 
 [[node]]
-anchor = "F7/more"
+anchor = "F5/trx64"
 kind = "op"
 label = "Clear markers"
 op = "tw.clear_marks"
@@ -703,7 +208,7 @@ when_state = "tw.present"
 ui = { why = "This bitstream has no frame ring", sub = "Forgets every marker" }
 
 [[node]]
-anchor = "F7/more"
+anchor = "F5/trx64"
 kind = "op"
 label = "Back to live"
 op = "tw.live"
@@ -712,7 +217,7 @@ when_state = "tw.present"
 ui = { why = "This bitstream has no frame ring", sub = "The newest frame again" }
 
 [[node]]
-anchor = "F7/more"
+anchor = "F5/trx64"
 kind = "op"
 label = "Save frame"
 op = "tw.dump"
@@ -722,7 +227,7 @@ when_state = "tw.present"
 ui = { ask = "Save the shown frame as (name)", ask_state = "machine.suggest.tw", why = "This bitstream has no frame ring", sub = "The machine's state at the shown frame" }
 
 [[node]]
-anchor = "F7/more"
+anchor = "F5/trx64"
 kind = "op"
 label = "Save the ring"
 op = "tw.ringdump"
@@ -731,8 +236,6 @@ order = 307
 when_state = "tw.present"
 ui = { ask = "Save the last seconds as (name)", ask_state = "machine.suggest.ring", why = "This bitstream has no frame ring", sub = "Up to 30 seconds, one frame in five" }
 
-# F4 Overview: where the tools are, and the monitor's bookmarks (each one runs `m` in the monitor and goes there)
-# F4 Diagnostics (tools_diagnostics.xml)
 [[node]]
 anchor = "F4/diagnostics"
 kind = "op"
@@ -761,14 +264,6 @@ ui = { ask = "Save the debug log as (name)", ask_state = "diag.suggest.log", chi
 [[node]]
 anchor = "F4/diagnostics"
 kind = "op"
-label = "Bug report"
-op = "diag.bug_report"
-order = 35
-ui = { sub = "Writes report/<date-time>.txt on the SD card, else on a USB stick: versions, settings, registers, log", chip = "File", tone = "violet" }
-
-[[node]]
-anchor = "F4/diagnostics"
-kind = "op"
 label = "Screen EDID"
 op = "diag.nop"
 order = 40
@@ -789,29 +284,7 @@ kind = "op"
 label = "Instruction trace"
 op = "diag.nop"
 order = 60
-ui = { view = "trace", sub = "The last 64 instructions (Settings F6 > TRX64 > Instruction Trace)", chip = "@diag.trace", tone = "cyan" }
-
-[[node]]
-anchor = "F4/diagnostics"
-kind = "op"
-label = "System information"
-op = "diag.nop"
-order = 70
-ui = { view = "info", sub = "Board, heap, debug register", chip = "Info", tone = "cyan" }
-
-[[node]]
-anchor = "F4/diagnostics/side"
-kind = "state"
-label = "Board"
-order = 10
-ui = { sub = "@diag.board" }
-
-[[node]]
-anchor = "F4/diagnostics/side"
-kind = "state"
-label = "Up for"
-order = 20
-ui = { sub = "@diag.uptime" }
+ui = { view = "trace", sub = "The last 64 instructions (F5 C64 > TRX64 > Recording)", chip = "@diag.trace", tone = "cyan" }
 
 [[node]]
 anchor = "F4/diagnostics/side"
@@ -827,7 +300,6 @@ label = "Debug register"
 order = 40
 ui = { sub = "@diag.debugreg" }
 
-# F4 Monitor: the terminal is the layout; this entry is what the tab needs to exist
 [[node]]
 anchor = "F4/monitor/bar"
 kind = "op"
@@ -836,7 +308,6 @@ op = "mon.run"
 bind = [ { arg = "line", str = "?" } ]
 order = 10
 
-# F3 Online: the query form of the Assembly64 / CommoServe search (a64_assembly.cc, online.cc); the results are the Library's folder "Online"
 [[node]]
 anchor = "F3/online"
 kind = "op"
@@ -1014,10 +485,8 @@ op = "online.clear"
 order = 110
 ui = { confirm = "Empty every field of the form?", tone = "muted" }
 
-# F4 Apps (T104.3): applications of the core's folder (<core folder>/apps/*.u2a), opened by app.open; each is loaded when it is opened and freed when it ends. An
-# application that is not on the medium answers with a sentence saying so.
 [[node]]
-anchor = "F4/diagnostics"
+anchor = "F7/apps"
 kind = "op"
 label = "Cartridge dumper"
 order = 20
@@ -1026,7 +495,7 @@ action = "dump"
 ui = { sub = "Scan the cartridge in the port and save a CRT image", chip = "APP", tone = "violet" }
 
 [[node]]
-anchor = "F4/diagnostics"
+anchor = "F7/apps"
 kind = "op"
 label = "Cartridge inspector"
 order = 30
@@ -1035,7 +504,7 @@ action = "inspect"
 ui = { sub = "Browse the memory, the banks and the registers of the cartridge", chip = "APP", tone = "cyan" }
 
 [[node]]
-anchor = "F4/diagnostics"
+anchor = "F7/apps"
 kind = "op"
 label = "Flash cartridge"
 order = 40
@@ -1044,7 +513,7 @@ action = "flash"
 ui = { sub = "Write and verify a CRT image on a flash cartridge", chip = "APP", tone = "amber" }
 
 [[node]]
-anchor = "F4/diagnostics"
+anchor = "F7/apps"
 kind = "op"
 label = "Softboot"
 order = 50
@@ -1053,52 +522,47 @@ action = "pick"
 ui = { sub = "Run an update image from RAM without flashing it", chip = "APP", tone = "violet" }
 
 [[node]]
-anchor = "F4/diagnostics"
-kind = "op"
-label = "Unzip"
-order = 60
-app = "unzip"
-action = "folder"
-ui = { sub = "Unpack a .zip into a new folder", chip = "APP", tone = "violet" }
-
-# F6 Network: the interface now, the Wi-Fi state (read only; the host sets it, the WiFi row of F8 switches it, T184 D3) and what the streams do
-[[node]]
-anchor = "F6/network"
+anchor = "F8/network"
 kind = "state"
+state = "net.eth_status"
 label = "Ethernet status"
 order = 10
 ui = { sub = "@net.eth_status", chip = "@net.eth_ip" }
 
 [[node]]
-anchor = "F6/network"
+anchor = "F8/network"
 kind = "state"
+state = "net.eth_mac"
 label = "Interface MAC"
 order = 20
 ui = { sub = "@net.eth_mac" }
 
 [[node]]
-anchor = "F6/network"
+anchor = "F8/network"
 kind = "state"
+state = "wifi.state"
 label = "Wi-Fi status"
 order = 30
 ui = { sub = "@wifi.state" }
 
 [[node]]
-anchor = "F6/network"
+anchor = "F8/network"
 kind = "state"
+state = "wifi.ssid"
 label = "Wi-Fi network"
 order = 31
 ui = { sub = "@wifi.ssid" }
 
 [[node]]
-anchor = "F6/network"
+anchor = "F8/network"
 kind = "state"
+state = "wifi.ip"
 label = "Wi-Fi address"
 order = 32
 ui = { sub = "@wifi.ip" }
 
 [[node]]
-anchor = "F6/network"
+anchor = "F8/network"
 kind = "op"
 label = "Start VIC stream"
 op = "stream.start"
@@ -1108,7 +572,7 @@ when_state = "stream.vic_off"
 ui = { sub = "@stream.vic", chip = "Stream", tone = "cyan", why = "The VIC stream runs already" }
 
 [[node]]
-anchor = "F6/network"
+anchor = "F8/network"
 kind = "op"
 label = "Stop VIC stream"
 op = "stream.stop"
@@ -1118,7 +582,7 @@ when_state = "stream.vic_on"
 ui = { chip = "Stream", tone = "amber", why = "The VIC stream is not running" }
 
 [[node]]
-anchor = "F6/network"
+anchor = "F8/network"
 kind = "op"
 label = "Start audio stream"
 op = "stream.start"
@@ -1128,7 +592,7 @@ when_state = "stream.audio_off"
 ui = { sub = "@stream.audio", chip = "Stream", tone = "cyan", why = "The audio stream runs already" }
 
 [[node]]
-anchor = "F6/network"
+anchor = "F8/network"
 kind = "op"
 label = "Stop audio stream"
 op = "stream.stop"
@@ -1138,7 +602,7 @@ when_state = "stream.audio_on"
 ui = { chip = "Stream", tone = "amber", why = "The audio stream is not running" }
 
 [[node]]
-anchor = "F6/network"
+anchor = "F8/network"
 kind = "op"
 label = "Start debug stream"
 op = "stream.start"
@@ -1148,7 +612,7 @@ when_state = "stream.debug_off"
 ui = { sub = "@stream.debug", chip = "Stream", tone = "cyan", why = "The debug stream runs already" }
 
 [[node]]
-anchor = "F6/network"
+anchor = "F8/network"
 kind = "op"
 label = "Stop debug stream"
 op = "stream.stop"
@@ -1158,134 +622,156 @@ when_state = "stream.debug_on"
 ui = { chip = "Stream", tone = "amber", why = "The debug stream is not running" }
 
 [[node]]
-anchor = "F6/network/bar"
-kind = "op"
-label = "Discard"
-op = "settings.discard"
-order = 10
-when_state = "settings.unsaved"
-ui = { bkey = "D", why = "Nothing to discard: a change is written at once unless Auto Save Config holds it back" }
-
-[[node]]
-anchor = "F6/network/bar"
-kind = "op"
-label = "Defaults"
-op = "settings.reset_defaults"
-order = 20
-ui = { bkey = "F", confirm = "Set every setting of this core to its default?" }
-
-[[node]]
-anchor = "F6/network/bar"
-kind = "op"
-label = "Save"
-op = "settings.save"
-order = 30
-when_state = "settings.unsaved"
-ui = { bkey = "S", primary = true, why = "Nothing to save: a change is written at once unless Auto Save Config is Off or Ask" }
-
-# F8 System status: the application, what it runs on, the media and what is plugged in
-[[node]]
-anchor = "F8/status"
+anchor = "F8/expert"
 kind = "state"
-label = "Core"
-order = 10
-ui = { chip = "@info.Core" }
-
-[[node]]
-anchor = "F8/status"
-kind = "state"
-label = "Application"
-order = 20
-ui = { chip = "@info.Application" }
-
-[[node]]
-anchor = "F8/status"
-kind = "state"
-label = "ROMs"
-order = 30
-ui = { chip = "@info.ROMs" }
-
-[[node]]
-anchor = "F8/status"
-kind = "state"
-label = "Libraries"
-order = 40
-ui = { chip = "@info.Libraries" }
-
-[[node]]
-anchor = "F8/status"
-kind = "state"
+state = "diag.board"
 label = "Board"
 order = 50
 ui = { chip = "@diag.board" }
 
 [[node]]
-anchor = "F8/status"
+anchor = "F8/expert"
 kind = "state"
+state = "diag.uptime"
 label = "Uptime"
 order = 51
 ui = { chip = "@diag.uptime" }
 
 [[node]]
-anchor = "F8/status"
+anchor = "F8/expert"
 kind = "state"
+state = "media.sd"
 label = "SD card"
 order = 60
 ui = { chip = "@media.sd" }
 
 [[node]]
-anchor = "F8/status"
+anchor = "F8/expert"
 kind = "state"
+state = "media.usb0"
 label = "USB stick 0"
 order = 61
 ui = { chip = "@media.usb0" }
 
 [[node]]
-anchor = "F8/status"
+anchor = "F8/expert"
 kind = "state"
+state = "media.usb1"
 label = "USB stick 1"
 order = 62
 ui = { chip = "@media.usb1" }
 
 [[node]]
-anchor = "F8/status"
+anchor = "F8/expert"
 kind = "state"
+state = "media.flash"
 label = "Flash"
 order = 63
 ui = { chip = "@media.flash" }
 
 [[node]]
-anchor = "F8/status"
+anchor = "F8/expert"
 kind = "state"
+state = "usb.mouse"
 label = "USB mouse"
 order = 70
 ui = { chip = "@usb.mouse" }
 
 [[node]]
-anchor = "F8/status"
+anchor = "F8/expert"
 kind = "state"
+state = "usb.keyboard"
 label = "USB keyboard"
 order = 71
 ui = { chip = "@usb.keyboard" }
 
-# T184 D3: the one WiFi row of a core (the same row is F8's of every other core, EK_WIFI): On / Off, switched live and not stored; the host sets the rest
 [[node]]
-anchor = "F8/status"
-kind = "op"
-label = "WiFi"
-op = "wifi.toggle"
-order = 72
-ui = { sub = "@wifi.line", chip = "@wifi.onoff" }
-
-[[node]]
-anchor = "F8/status"
+anchor = "F8/expert"
 kind = "op"
 label = "Keys and help"
 op = "diag.nop"
 order = 80
 ui = { view = "help", chip = "Help", tone = "violet" }
 
-# ---- tasks -------------------------------------------------------------------------------------------------------------------------------------------
+[[task]]
+group = "top"
+label = "Reset"
+op = "machine.cold_reset"
+closes_menu = true
+
+
+[[task]]
+group = "top"
+label = "Reload ROMs, reset"
+op = "machine.reload_roms"
+closes_menu = true
+
+
+[[task]]
+group = "top"
+label = "Pause / resume"
+op = "machine.pause_toggle"
+closes_menu = true
+
+
+[[task]]
+group = "top"
+label = "Reboot, clear memory"
+op = "machine.clear_reboot"
+closes_menu = true
+
+
+[[task]]
+group = "top"
+label = "Save C64 memory"
+op = "machine.save_ram"
+bind = [ { arg = "name", text = true } ]
+ask = "Save the C64's 64 KB as (name)"
+ask_state = "machine.suggest.ram"
+
+
+[[task]]
+group = "top"
+label = "Save REU memory"
+op = "machine.save_reu"
+bind = [ { arg = "name", text = true } ]
+ask = "Save the REU's memory as (name)"
+ask_state = "machine.suggest.reu"
+
+
+[[task]]
+group = "c64"
+label = "Swap disk"
+op = "drive.swap"
+
+
+[[task]]
+group = "c64"
+label = "Reset drive"
+op = "drive.reset"
+bind = [ { arg = "slot", str = "iec:drive_a" } ]
+
+
+[[task]]
+group = "c64"
+label = "Unlink disk"
+op = "drive.unlink"
+
+
+[[task]]
+group = "files"
+label = "Insert blank disk"
+op = "drive.insert_blank"
+
+
+[[task]]
+group = "c64"
+label = "Save cartridge"
+op = "machine.save_cart"
+bind = [ { arg = "name", text = true } ]
+ask = "Save the cartridge as (name)"
+ask_state = "machine.suggest.cart"
+
 [[task]]
 group = "c64"
 label = "Save Disk as D64"
@@ -1320,18 +806,29 @@ ask = "Name of the new G64"
 ask_state = "drive.suggest.g64"
 pick_dir = true
 
-# ---- media -------------------------------------------------------------------------------------------------------------------------------------------
-[[media]]
-name = "Program"
-state = "c64.program"
-
 [[media]]
 name = "Drive A:"
 state = "drive.drive_a.image"
 eject_op = "drive.eject"
 eject_bind = [ { arg = "slot", str = "iec:drive_a" } ]
+exts = ".d64,.g64"
+mount = "Mount Disk"
+empty_tasks = "Insert blank disk,Create blank D64,Create blank G64"
+mounted_tasks = "Swap disk,Reset drive,Unlink disk,Save Disk as D64,Save Disk as G64"
 
-# ---- file types --------------------------------------------------------------------------------------------------------------------------------------
+[[media]]
+name = "Cartridge port"
+state = "c64.cartridge"
+eject_op = "c64.remove_cart"
+exts = ".crt"
+mount = "Run Cartridge"
+mounted_tasks = "Save cartridge"
+eject_closes = true
+
+[[media]]
+name = "Program"
+state = "c64.program"
+
 [[filetype]]
 ext = ".prg"
   [[filetype.action]]
@@ -1566,48 +1063,13 @@ ext = ".c64re"
   bind = [ { arg = "path", file = true } ]
   closes_menu = true
 
-# ---- settings ----------------------------------------------------------------------------------------------------------------------------------------
-# GATE_CTRL b0 (trx_sys.v): with it the app's C64_STOP pauses the whole machine - the picture stands still under our menu - without it only the CPU.
-[[core_setting]]
-group = "trx64"
-key = "Freeze mode"
-values = ["Whole machine", "CPU only"]
-default = 0
-when = "reset"
-apply = "c64.set_freeze_mode"
-
-# The names and the defaults of the drive are Gideon's (c1541.cc): drive on, bus ID 8, no extra RAM, 100 ms swap delay.
-[[core_setting]]
-group = "drives"
-key = "Drive"
-label = "Drive enable"
-values = ["Disabled", "Enabled"]
-default = 1
-apply = "drive.set_power"
-
-[[core_setting]]
-group = "drives"
-key = "Drive Bus ID"
-label = "Drive bus ID"
-values = ["8", "9", "10", "11"]
-default = 0
-apply = "drive.set_bus_id"
-
-[[core_setting]]
-group = "drives"
-key = "Disk swap delay"
-values = ["100 ms", "200 ms", "300 ms", "400 ms", "500 ms", "600 ms", "700 ms", "800 ms", "900 ms", "1000 ms"]
-default = 0
-apply = "drive.set_swap_delay"
-
-# T180 D2: "Persist medium mounts" (coreapp/src/mediamounts.cc): the disk in Drive A and the cartridge in the port are mounted again at the next start. The Drive A page (F5) lists the group (T187 D7).
-[[core_setting]]
-group = "drives"
-key = "Persist medium mounts"
-list = "yes_no"
-default = 0
-when = "live"
-apply = "media.persist_apply"
+[[filetype]]
+ext = ".zip"
+  [[filetype.action]]
+  label = "Unzip"
+  key = "U"
+  op = "app.open"
+  bind = [ { arg = "app", str = "unzip" }, { arg = "action", str = "folder" }, { arg = "file", file = true } ]
 
 [lists]
 scanres_auto = ["Auto", "SD (480p/576p)", "HD (720p)", "FullHD (1080p)", "PC 800 x 600", "PC 1024 x 768", "PC 1280 x 1024"]
@@ -1656,9 +1118,39 @@ reusize = ["128 KB", "256 KB", "512 KB", "1 MB", "2 MB", "4 MB", "8 MB", "16 MB"
 reuoffs = ["0 KB", "128 KB", "256 KB", "512 KB", "1 MB", "2 MB", "4 MB", "8 MB", "16 MB"]
 geos = ["None", "Gaps", "Track 36", "Both"]
 
-# ---- generated from the item tables of Gideon's stores (u64_config.cc, c64.cc, userinterface.cc, c1541.cc) -------
 [[core_setting]]
-group = "video"
+group = "TRX64"
+key = "Freeze mode"
+values = ["Whole machine", "CPU only"]
+default = 0
+when = "reset"
+apply = "c64.set_freeze_mode"
+
+[[core_setting]]
+group = "Drive_A"
+key = "Drive"
+label = "Drive enable"
+values = ["Disabled", "Enabled"]
+default = 1
+apply = "drive.set_power"
+
+[[core_setting]]
+group = "Drive_A"
+key = "Drive Bus ID"
+label = "Drive bus ID"
+values = ["8", "9", "10", "11"]
+default = 0
+apply = "drive.set_bus_id"
+
+[[core_setting]]
+group = "Drive_A"
+key = "Disk swap delay"
+values = ["100 ms", "200 ms", "300 ms", "400 ms", "500 ms", "600 ms", "700 ms", "800 ms", "900 ms", "1000 ms"]
+default = 0
+apply = "drive.set_swap_delay"
+
+[[core_setting]]
+group = "Picture"
 key = "System Mode"
 label = "System mode"
 list = "sysmodes"
@@ -1667,7 +1159,7 @@ when = "live"
 apply = "u64.fx_video"
 
 [[core_setting]]
-group = "video"
+group = "hidden"
 key = "HDMI Scan Resolution"
 label = "HDMI scan resolution"
 list = "scanres_auto"
@@ -1676,7 +1168,7 @@ when = "live"
 apply = "picture.apply"
 
 [[core_setting]]
-group = "video"
+group = "Output"
 key = "HDMI Scan lines"
 label = "HDMI scan lines"
 list = "en_dis"
@@ -1685,7 +1177,7 @@ when = "live"
 apply = "u64.fx_video"
 
 [[core_setting]]
-group = "video"
+group = "Output"
 key = "Analog Video Mode"
 label = "Analog video mode"
 list = "analog"
@@ -1694,7 +1186,7 @@ when = "live"
 apply = "u64.fx_video"
 
 [[core_setting]]
-group = "video"
+group = "Output"
 key = "Digital Video Mode"
 label = "Digital video mode"
 list = "digital"
@@ -1703,7 +1195,7 @@ when = "live"
 apply = "u64.fx_video"
 
 [[core_setting]]
-group = "video_hardware"
+group = "Output"
 key = "Adjust Color Clock"
 label = "Adjust color clock"
 range = [-100, 100]
@@ -1720,34 +1212,34 @@ maxlen = 60
 apply = "u64.fx_video"
 
 [[core_setting]]
-group = "mixer"
+group = "Volumes"
 key = "Vol Master"
-label = "Volume master"
+label = "Volume"
 list = "vols"
 default = 24
 when = "live"
 apply = "u64.fx_audio"
 
 [[core_setting]]
-group = "mixer"
+group = "Volumes"
 key = "Vol UltiSid 1"
-label = "Volume UltiSID 1"
+label = "Volume reDIP:SID 1"
 list = "vols"
 default = 24
 when = "live"
 apply = "u64.fx_audio"
 
 [[core_setting]]
-group = "mixer"
+group = "Volumes"
 key = "Vol UltiSid 2"
-label = "Volume UltiSID 2"
+label = "Volume reDIP:SID 2"
 list = "vols"
 default = 24
 when = "live"
 apply = "u64.fx_audio"
 
 [[core_setting]]
-group = "mixer"
+group = "Volumes"
 key = "Vol Socket 1"
 label = "Volume socket 1"
 list = "vols"
@@ -1756,7 +1248,7 @@ when = "live"
 apply = "u64.fx_audio"
 
 [[core_setting]]
-group = "mixer"
+group = "Volumes"
 key = "Vol Socket 2"
 label = "Volume socket 2"
 list = "vols"
@@ -1765,7 +1257,7 @@ when = "live"
 apply = "u64.fx_audio"
 
 [[core_setting]]
-group = "mixer"
+group = "Volumes"
 key = "Vol Sampler L"
 label = "Volume sampler L"
 list = "vols"
@@ -1774,7 +1266,7 @@ when = "live"
 apply = "u64.fx_audio"
 
 [[core_setting]]
-group = "mixer"
+group = "Volumes"
 key = "Vol Sampler R"
 label = "Volume sampler R"
 list = "vols"
@@ -1783,7 +1275,7 @@ when = "live"
 apply = "u64.fx_audio"
 
 [[core_setting]]
-group = "mixer"
+group = "hidden"
 key = "Vol Drive 1"
 label = "Volume drive"
 list = "vols"
@@ -1792,23 +1284,25 @@ when = "live"
 apply = "u64.fx_audio"
 
 [[core_setting]]
-group = "mixer"
+group = "Pan"
 key = "Pan UltiSID 1"
+label = "Pan reDIP:SID 1"
 list = "pans"
 default = 5
 when = "live"
 apply = "u64.fx_audio"
 
 [[core_setting]]
-group = "mixer"
+group = "Pan"
 key = "Pan UltiSID 2"
+label = "Pan reDIP:SID 2"
 list = "pans"
 default = 5
 when = "live"
 apply = "u64.fx_audio"
 
 [[core_setting]]
-group = "mixer"
+group = "Pan"
 key = "Pan Socket 1"
 label = "Pan socket 1"
 list = "pans"
@@ -1817,7 +1311,7 @@ when = "live"
 apply = "u64.fx_audio"
 
 [[core_setting]]
-group = "mixer"
+group = "Pan"
 key = "Pan Socket 2"
 label = "Pan socket 2"
 list = "pans"
@@ -1826,7 +1320,7 @@ when = "live"
 apply = "u64.fx_audio"
 
 [[core_setting]]
-group = "mixer"
+group = "Pan"
 key = "Pan Sampler L"
 label = "Pan sampler L"
 list = "pans"
@@ -1835,7 +1329,7 @@ when = "live"
 apply = "u64.fx_audio"
 
 [[core_setting]]
-group = "mixer"
+group = "Pan"
 key = "Pan Sampler R"
 label = "Pan sampler R"
 list = "pans"
@@ -1844,7 +1338,7 @@ when = "live"
 apply = "u64.fx_audio"
 
 [[core_setting]]
-group = "mixer"
+group = "hidden"
 key = "Pan Drive 1"
 label = "Pan drive"
 list = "pans"
@@ -1853,7 +1347,7 @@ when = "live"
 apply = "u64.fx_audio"
 
 [[core_setting]]
-group = "mixer"
+group = "Speaker"
 key = "Speaker Enable"
 label = "Speaker enable"
 list = "en_dis"
@@ -1862,25 +1356,25 @@ when = "live"
 apply = "u64.fx_audio"
 
 [[core_setting]]
-group = "mixer"
+group = "Speaker"
 key = "Spk Vol UltiSid 1"
-label = "Speaker volume UltiSID 1"
+label = "Speaker volume reDIP:SID 1"
 list = "vols"
 default = 0
 when = "live"
 apply = "u64.fx_audio"
 
 [[core_setting]]
-group = "mixer"
+group = "Speaker"
 key = "Spk Vol UltiSid 2"
-label = "Speaker volume UltiSID 2"
+label = "Speaker volume reDIP:SID 2"
 list = "vols"
 default = 0
 when = "live"
 apply = "u64.fx_audio"
 
 [[core_setting]]
-group = "mixer"
+group = "Speaker"
 key = "Spk Vol Socket 1"
 label = "Speaker volume socket 1"
 list = "vols"
@@ -1889,7 +1383,7 @@ when = "live"
 apply = "u64.fx_audio"
 
 [[core_setting]]
-group = "mixer"
+group = "Speaker"
 key = "Spk Vol Socket 2"
 label = "Speaker volume socket 2"
 list = "vols"
@@ -1898,7 +1392,7 @@ when = "live"
 apply = "u64.fx_audio"
 
 [[core_setting]]
-group = "mixer"
+group = "Speaker"
 key = "Spk Vol Sampler L"
 label = "Speaker volume sampler L"
 list = "vols"
@@ -1907,7 +1401,7 @@ when = "live"
 apply = "u64.fx_audio"
 
 [[core_setting]]
-group = "mixer"
+group = "Speaker"
 key = "Spk Vol Sampler R"
 label = "Speaker volume sampler R"
 list = "vols"
@@ -1916,7 +1410,7 @@ when = "live"
 apply = "u64.fx_audio"
 
 [[core_setting]]
-group = "mixer"
+group = "hidden"
 key = "Spk Vol Drive 1"
 label = "Speaker volume drive"
 list = "vols"
@@ -1925,7 +1419,7 @@ when = "live"
 apply = "u64.fx_audio"
 
 [[core_setting]]
-group = "sid_sockets"
+group = "SID_sockets"
 key = "SID Socket 1"
 label = "Socket 1 enable"
 list = "en_dis"
@@ -1934,7 +1428,7 @@ when = "live"
 apply = "u64.fx_sid"
 
 [[core_setting]]
-group = "sid_sockets"
+group = "SID_sockets"
 key = "SID Socket 2"
 label = "Socket 2 enable"
 list = "en_dis"
@@ -1943,7 +1437,7 @@ when = "live"
 apply = "u64.fx_sid"
 
 [[core_setting]]
-group = "sid_sockets"
+group = "SID_sockets"
 key = "SID Socket 1 1K Ohm Resistor"
 label = "Socket 1 1K ohm resistor"
 list = "onoff"
@@ -1952,7 +1446,7 @@ when = "live"
 apply = "u64.fx_sid"
 
 [[core_setting]]
-group = "sid_sockets"
+group = "SID_sockets"
 key = "SID Socket 2 1K Ohm Resistor"
 label = "Socket 2 1K ohm resistor"
 list = "onoff"
@@ -1961,7 +1455,7 @@ when = "live"
 apply = "u64.fx_sid"
 
 [[core_setting]]
-group = "sid_sockets"
+group = "SID_sockets"
 key = "SID Socket 1 Capacitors"
 label = "Socket 1 capacitors"
 list = "caps"
@@ -1970,7 +1464,7 @@ when = "live"
 apply = "u64.fx_sid"
 
 [[core_setting]]
-group = "sid_sockets"
+group = "SID_sockets"
 key = "SID Socket 2 Capacitors"
 label = "Socket 2 capacitors"
 list = "caps"
@@ -1979,7 +1473,7 @@ when = "live"
 apply = "u64.fx_sid"
 
 [[core_setting]]
-group = "sid_sockets"
+group = "SID_sockets"
 key = "SID Socket 1 Address"
 label = "Socket 1 address"
 list = "sidbase"
@@ -1988,7 +1482,7 @@ when = "live"
 apply = "u64.fx_sid"
 
 [[core_setting]]
-group = "sid_sockets"
+group = "SID_sockets"
 key = "SID Socket 2 Address"
 label = "Socket 2 address"
 list = "sidbase"
@@ -1997,7 +1491,7 @@ when = "live"
 apply = "u64.fx_sid"
 
 [[core_setting]]
-group = "sid_sockets"
+group = "SID_sockets"
 key = "Ext DualSID Range Split"
 label = "Extended DualSID range split"
 list = "stereo"
@@ -2006,34 +1500,34 @@ when = "live"
 apply = "u64.fx_sid"
 
 [[core_setting]]
-group = "sid_sockets"
+group = "Emulated_SIDs"
 key = "UltiSID 1 Address"
-label = "UltiSID 1 address"
+label = "reDIP:SID 1 address"
 list = "sidbase"
 default = 1
 when = "live"
 apply = "u64.fx_sid"
 
 [[core_setting]]
-group = "sid_sockets"
+group = "Emulated_SIDs"
 key = "UltiSID 2 Address"
-label = "UltiSID 2 address"
+label = "reDIP:SID 2 address"
 list = "sidbase"
 default = 1
 when = "live"
 apply = "u64.fx_sid"
 
 [[core_setting]]
-group = "sid_sockets"
+group = "Emulated_SIDs"
 key = "UltiSID Range Split"
-label = "UltiSID range split"
+label = "reDIP:SID range split"
 list = "split"
 default = 0
 when = "live"
 apply = "u64.fx_sid"
 
 [[core_setting]]
-group = "sid_sockets"
+group = "SID_sockets"
 key = "Paddle Override"
 label = "Paddle override"
 list = "en_dis"
@@ -2042,7 +1536,7 @@ when = "live"
 apply = "u64.fx_sid"
 
 [[core_setting]]
-group = "sid_sockets"
+group = "SID_sockets"
 key = "Auto Address Mirroring"
 label = "Auto address mirroring"
 list = "en_dis"
@@ -2051,72 +1545,72 @@ when = "live"
 apply = "u64.fx_sid"
 
 [[core_setting]]
-group = "ultisid"
+group = "Emulated_SIDs"
 key = "UltiSID 1 Filter Curve"
-label = "UltiSID 1 filter curve"
+label = "reDIP:SID 1 filter curve"
 list = "filters"
 default = 0
 when = "live"
 apply = "u64.fx_sid"
 
 [[core_setting]]
-group = "ultisid"
+group = "Emulated_SIDs"
 key = "UltiSID 2 Filter Curve"
-label = "UltiSID 2 filter curve"
+label = "reDIP:SID 2 filter curve"
 list = "filters"
 default = 0
 when = "live"
 apply = "u64.fx_sid"
 
 [[core_setting]]
-group = "ultisid"
+group = "Emulated_SIDs"
 key = "UltiSID 1 Filter Resonance"
-label = "UltiSID 1 filter resonance"
+label = "reDIP:SID 1 filter resonance"
 list = "reslist"
 default = 0
 when = "live"
 apply = "u64.fx_sid"
 
 [[core_setting]]
-group = "ultisid"
+group = "Emulated_SIDs"
 key = "UltiSID 2 Filter Resonance"
-label = "UltiSID 2 filter resonance"
+label = "reDIP:SID 2 filter resonance"
 list = "reslist"
 default = 0
 when = "live"
 apply = "u64.fx_sid"
 
 [[core_setting]]
-group = "ultisid"
+group = "Emulated_SIDs"
 key = "UltiSID 1 Combined Waveforms"
-label = "UltiSID 1 combined waveforms"
+label = "reDIP:SID 1 combined waveforms"
 list = "waves"
 default = 0
 when = "live"
 apply = "u64.fx_sid"
 
 [[core_setting]]
-group = "ultisid"
+group = "Emulated_SIDs"
 key = "UltiSID 2 Combined Waveforms"
-label = "UltiSID 2 combined waveforms"
+label = "reDIP:SID 2 combined waveforms"
 list = "waves"
 default = 0
 when = "live"
 apply = "u64.fx_sid"
 
 [[core_setting]]
-group = "ultisid"
+group = "Emulated_SIDs"
 key = "UltiSID 1 Digis Level"
-label = "UltiSID 1 digi level"
+label = "reDIP:SID 1 digi level"
 list = "digis"
 default = 2
 when = "live"
 apply = "u64.fx_sid"
 
 [[core_setting]]
-group = "ultisid"
+group = "Emulated_SIDs"
 key = "UltiSID 2 Digis Level"
-label = "UltiSID 2 digi level"
+label = "reDIP:SID 2 digi level"
 list = "digis"
 default = 2
 when = "live"
@@ -2177,7 +1671,7 @@ when = "live"
 apply = "u64.fx_input"
 
 [[core_setting]]
-group = "trx64"
+group = "Application"
 key = "Overlay Transparency"
 label = "Overlay transparency"
 list = "alpha"
@@ -2186,7 +1680,7 @@ when = "live"
 apply = "ui.fx"
 
 [[core_setting]]
-group = "trx64"
+group = "Application"
 key = "Splash"
 list = "splash"
 default = 1
@@ -2194,7 +1688,7 @@ when = "live"
 apply = "settings.noop"
 
 [[core_setting]]
-group = "trx64"
+group = "TRX64"
 key = "Save Changed Cartridge"
 label = "Save changed cartridge"
 list = "off_ask_auto"
@@ -2203,16 +1697,7 @@ when = "live"
 apply = "writeback.mode"
 
 [[core_setting]]
-group = "trx64"
-key = "Auto Save Config"
-label = "Auto save config"
-list = "off_ask_auto"
-default = 2
-when = "live"
-apply = "settings.autosave"
-
-[[core_setting]]
-group = "trx64"
+group = "TRX64"
 key = "Turbo Control"
 label = "Turbo control"
 list = "turbo"
@@ -2221,7 +1706,7 @@ when = "live"
 apply = "u64.fx_misc"
 
 [[core_setting]]
-group = "trx64"
+group = "TRX64"
 key = "CPU Speed"
 label = "CPU speed"
 list = "speeds"
@@ -2230,7 +1715,7 @@ when = "live"
 apply = "u64.fx_misc"
 
 [[core_setting]]
-group = "machine"
+group = "Machine"
 key = "Fast Reset"
 label = "Fast reset"
 list = "en_dis"
@@ -2239,7 +1724,7 @@ when = "live"
 apply = "c64.fx_io"
 
 [[core_setting]]
-group = "machine"
+group = "Machine"
 key = "Kernal ROM"
 text = true
 empty = "Built-in"
@@ -2248,7 +1733,7 @@ maxlen = 60
 apply = "c64.fx_roms"
 
 [[core_setting]]
-group = "machine"
+group = "Machine"
 key = "Basic ROM"
 text = true
 empty = "Built-in"
@@ -2257,7 +1742,7 @@ maxlen = 60
 apply = "c64.fx_roms"
 
 [[core_setting]]
-group = "machine"
+group = "Machine"
 key = "Char ROM"
 text = true
 empty = "Built-in"
@@ -2266,7 +1751,7 @@ maxlen = 60
 apply = "c64.fx_roms"
 
 [[core_setting]]
-group = "expert"
+group = "Hardware"
 key = "DMA Load Mimics ID"
 label = "DMA load mimics ID"
 range = [8, 31]
@@ -2275,7 +1760,7 @@ default = 8
 apply = "c64.fx_io"
 
 [[core_setting]]
-group = "drives"
+group = "Drive_A"
 key = "Resets when C64 resets"
 label = "Reset drive with C64"
 list = "yes_no"
@@ -2284,7 +1769,7 @@ when = "live"
 apply = "drive.fx_misc"
 
 [[core_setting]]
-group = "drives"
+group = "Drive_A"
 key = "Freezes in menu"
 label = "Freeze drive in menu"
 list = "yes_no"
@@ -2293,7 +1778,7 @@ when = "live"
 apply = "drive.fx_misc"
 
 [[core_setting]]
-group = "drives"
+group = "Application"
 key = "Leave Menu on Mount"
 label = "Leave menu on mount"
 list = "yes_no"
@@ -2302,7 +1787,7 @@ when = "live"
 apply = "drive.fx_misc"
 
 [[core_setting]]
-group = "more"
+group = "Drive_extras"
 key = "Extra RAM"
 label = "Drive extra RAM"
 values = ["Disabled", "Enabled"]
@@ -2310,7 +1795,7 @@ default = 0
 apply = "drive.set_ram"
 
 [[core_setting]]
-group = "more"
+group = "Drive_extras"
 key = "GCR Save Align Tracks"
 label = "GCR save align tracks"
 list = "yes_no"
@@ -2319,7 +1804,7 @@ when = "live"
 apply = "drive.fx_misc"
 
 [[core_setting]]
-group = "more"
+group = "Drive_extras"
 key = "D64 Geos Copy Protection"
 label = "D64 geos copy protection"
 list = "geos"
@@ -2328,7 +1813,7 @@ when = "live"
 apply = "drive.fx_misc"
 
 [[core_setting]]
-group = "more"
+group = "Drive_extras"
 key = "Track Twist"
 label = "Track twist"
 range = [0, 40]
@@ -2337,7 +1822,7 @@ default = 27
 apply = "drive.fx_misc"
 
 [[core_setting]]
-group = "more"
+group = "Drive_extras"
 key = "SpeedDOS Parallel Cable"
 label = "SpeedDOS parallel cable"
 list = "en_dis"
@@ -2346,7 +1831,7 @@ when = "live"
 apply = "u64.fx_misc"
 
 [[core_setting]]
-group = "more"
+group = "Drive_extras"
 key = "ROM for 1541 mode"
 text = true
 default = "1541.rom"
@@ -2354,7 +1839,7 @@ maxlen = 60
 apply = "drive.fx_misc"
 
 [[core_setting]]
-group = "io"
+group = "Expansion"
 key = "Cartridge Preference"
 label = "Cartridge preference"
 list = "cartmodes"
@@ -2363,7 +1848,7 @@ when = "live"
 apply = "c64.fx_io"
 
 [[core_setting]]
-group = "io"
+group = "Expansion"
 key = "RAM Expansion Unit"
 label = "RAM expansion unit"
 list = "geo"
@@ -2372,7 +1857,7 @@ when = "live"
 apply = "c64.fx_io"
 
 [[core_setting]]
-group = "io"
+group = "Expansion"
 key = "REU Size"
 label = "REU size"
 list = "reusize"
@@ -2382,7 +1867,7 @@ apply = "c64.fx_io"
 show_state = "reu.on"
 
 [[core_setting]]
-group = "io"
+group = "Expansion"
 key = "REU Preload"
 label = "REU preload"
 list = "en_dis"
@@ -2392,7 +1877,7 @@ apply = "c64.fx_io"
 show_state = "reu.on"
 
 [[core_setting]]
-group = "io"
+group = "Expansion"
 key = "REU Preload Image"
 label = "REU preload image"
 text = true
@@ -2402,7 +1887,7 @@ apply = "settings.noop"
 show_state = "reu.on"
 
 [[core_setting]]
-group = "io"
+group = "Expansion"
 key = "REU Preload Offset"
 label = "REU preload offset"
 list = "reuoffs"
@@ -2412,7 +1897,7 @@ apply = "settings.noop"
 show_state = "reu.on"
 
 [[core_setting]]
-group = "io"
+group = "Expansion"
 key = "Map Ultimate Audio $DF20-DFFF"
 label = "Ultimate audio at $DF20-$DFFF"
 list = "en_dis"
@@ -2421,7 +1906,7 @@ when = "live"
 apply = "c64.fx_io"
 
 [[core_setting]]
-group = "io"
+group = "Expansion"
 key = "Command Interface (UCI)"
 label = "Command interface (UCI)"
 list = "en_dis"
@@ -2430,7 +1915,7 @@ when = "live"
 apply = "c64.fx_io"
 
 [[core_setting]]
-group = "expert"
+group = "Hardware"
 key = "Bus Operation Mode"
 label = "Bus operation mode"
 list = "busmodes"
@@ -2439,7 +1924,7 @@ when = "live"
 apply = "c64.fx_io"
 
 [[core_setting]]
-group = "expert"
+group = "Hardware"
 key = "Bus Sharing - ROMs"
 label = "Bus sharing - ROMs"
 list = "sharing"
@@ -2448,7 +1933,7 @@ when = "live"
 apply = "c64.fx_io"
 
 [[core_setting]]
-group = "expert"
+group = "Hardware"
 key = "Bus Sharing - I/O1"
 label = "Bus sharing - I/O1"
 list = "sharing"
@@ -2457,7 +1942,7 @@ when = "live"
 apply = "c64.fx_io"
 
 [[core_setting]]
-group = "expert"
+group = "Hardware"
 key = "Bus Sharing - I/O2"
 label = "Bus sharing - I/O2"
 list = "sharing"
@@ -2466,7 +1951,7 @@ when = "live"
 apply = "c64.fx_io"
 
 [[core_setting]]
-group = "expert"
+group = "Hardware"
 key = "Bus Sharing - Interrupts"
 label = "Bus sharing - interrupts"
 list = "sharing"
@@ -2475,7 +1960,7 @@ when = "live"
 apply = "c64.fx_io"
 
 [[core_setting]]
-group = "expert"
+group = "Hardware"
 key = "GAME/EXROM"
 list = "gameexrom"
 default = 0
@@ -2483,7 +1968,7 @@ when = "live"
 apply = "c64.fx_io"
 
 [[core_setting]]
-group = "expert"
+group = "hidden"
 key = "Burst Mode Patch"
 label = "Burst mode patch"
 list = "burst"
@@ -2492,7 +1977,7 @@ when = "live"
 apply = "u64.fx_misc"
 
 [[core_setting]]
-group = "expert"
+group = "hidden"
 key = "Serial Bus Mode"
 label = "Serial bus mode"
 list = "iecmodes"
@@ -2501,7 +1986,7 @@ when = "live"
 apply = "u64.fx_misc"
 
 [[core_setting]]
-group = "expert"
+group = "Hardware"
 key = "Badline Timing"
 label = "Badline timing"
 list = "en_dis"
@@ -2510,7 +1995,7 @@ when = "live"
 apply = "u64.fx_misc"
 
 [[core_setting]]
-group = "expert"
+group = "Hardware"
 key = "SuperCPU Detect (D0BC)"
 label = "SuperCPU detect (D0BC)"
 list = "en_dis"
@@ -2519,7 +2004,7 @@ when = "live"
 apply = "u64.fx_misc"
 
 [[core_setting]]
-group = "expert"
+group = "hidden"
 key = "UserPort Power Enable"
 label = "UserPort power enable"
 list = "en_dis"
@@ -2528,7 +2013,7 @@ when = "live"
 apply = "u64.fx_misc"
 
 [[core_setting]]
-group = "expert"
+group = "Device"
 key = "Power On After Power Loss"
 label = "Power on after power loss"
 list = "poweron"
@@ -2537,7 +2022,7 @@ when = "live"
 apply = "u64.fx_power"
 
 [[core_setting]]
-group = "expert"
+group = "Device"
 key = "Wake On Wi-Fi"
 label = "Wake on Wi-Fi"
 list = "en_dis"
@@ -2546,7 +2031,7 @@ when = "live"
 apply = "u64.fx_power"
 
 [[core_setting]]
-group = "expert"
+group = "Device"
 key = "LED Select Top"
 label = "LED select top"
 list = "ledsel"
@@ -2555,7 +2040,7 @@ when = "live"
 apply = "u64.fx_misc"
 
 [[core_setting]]
-group = "expert"
+group = "Device"
 key = "LED Select Bot"
 label = "LED select bottom"
 list = "ledsel"
@@ -2564,7 +2049,7 @@ when = "live"
 apply = "u64.fx_misc"
 
 [[core_setting]]
-group = "expert"
+group = "Device"
 key = "Color Scheme"
 label = "Color scheme"
 list = "schemes"
@@ -2573,34 +2058,7 @@ when = "live"
 apply = "ui.fx"
 
 [[core_setting]]
-group = "expert"
-key = "Enter Home on Startup"
-label = "Enter home on startup"
-list = "en_dis"
-default = 0
-when = "live"
-apply = "settings.noop"
-
-[[core_setting]]
-group = "expert"
-key = "Menu opens at"
-label = "Menu opens at"
-list = "menu_opens"
-default = 0
-when = "live"
-apply = "settings.noop"
-
-[[core_setting]]
-group = "expert"
-key = "Home Directory"
-label = "Home directory"
-text = true
-default = ""
-maxlen = 60
-apply = "settings.noop"
-
-[[core_setting]]
-group = "expert"
+group = "Application"
 key = "Filename overflow squeeze"
 list = "squeeze"
 default = 0
@@ -2608,7 +2066,7 @@ when = "live"
 apply = "ui.fx"
 
 [[core_setting]]
-group = "trx64"
+group = "Recording"
 key = "Timewarp Ring"
 label = "Timewarp ring"
 list = "onoff"
@@ -2617,7 +2075,7 @@ when = "live"
 apply = "ring.fx"
 
 [[core_setting]]
-group = "trx64"
+group = "Recording"
 key = "Instruction Trace"
 label = "Instruction trace"
 list = "onoff"
@@ -2626,7 +2084,7 @@ when = "live"
 apply = "ring.fx"
 
 [[core_setting]]
-group = "ethernet"
+group = "WiFi_and_Ethernet"
 key = "Use DHCP"
 list = "en_dis"
 default = 1
@@ -2634,7 +2092,7 @@ when = "live"
 apply = "net.fx"
 
 [[core_setting]]
-group = "ethernet"
+group = "WiFi_and_Ethernet"
 key = "Static IP"
 show_state = "net.static"
 text = true
@@ -2643,7 +2101,7 @@ maxlen = 15
 apply = "net.fx"
 
 [[core_setting]]
-group = "ethernet"
+group = "WiFi_and_Ethernet"
 key = "Static Netmask"
 label = "Static netmask"
 show_state = "net.static"
@@ -2653,7 +2111,7 @@ maxlen = 15
 apply = "net.fx"
 
 [[core_setting]]
-group = "ethernet"
+group = "WiFi_and_Ethernet"
 key = "Static Gateway"
 label = "Static gateway"
 show_state = "net.static"
@@ -2663,7 +2121,7 @@ maxlen = 15
 apply = "net.fx"
 
 [[core_setting]]
-group = "ethernet"
+group = "WiFi_and_Ethernet"
 key = "Static DNS"
 show_state = "net.static"
 text = true
@@ -2672,7 +2130,7 @@ maxlen = 15
 apply = "net.fx"
 
 [[core_setting]]
-group = "network"
+group = "Services"
 key = "Host Name"
 label = "Host name"
 text = true
@@ -2681,7 +2139,7 @@ maxlen = 31
 apply = "net.fx"
 
 [[core_setting]]
-group = "network"
+group = "Services"
 key = "Unique ID"
 text = true
 default = "Default"
@@ -2689,7 +2147,7 @@ maxlen = 16
 apply = "net.fx"
 
 [[core_setting]]
-group = "network"
+group = "Services"
 key = "Network Password"
 label = "Network password"
 empty = "Not set"
@@ -2699,7 +2157,7 @@ maxlen = 31
 apply = "net.fx"
 
 [[core_setting]]
-group = "network"
+group = "Services"
 key = "Ultimate Ident Service"
 label = "Ultimate ident service"
 list = "en_dis"
@@ -2708,7 +2166,7 @@ when = "live"
 apply = "net.fx"
 
 [[core_setting]]
-group = "network"
+group = "Services"
 key = "Ultimate DMA Service"
 label = "Ultimate DMA service"
 list = "en_dis"
@@ -2717,7 +2175,7 @@ when = "live"
 apply = "net.fx"
 
 [[core_setting]]
-group = "network"
+group = "Services"
 key = "Telnet Remote Menu Service"
 label = "Telnet remote menu service"
 list = "en_dis"
@@ -2726,7 +2184,7 @@ when = "live"
 apply = "net.fx"
 
 [[core_setting]]
-group = "network"
+group = "Services"
 key = "FTP File Service"
 label = "FTP file service"
 list = "en_dis"
@@ -2735,7 +2193,7 @@ when = "live"
 apply = "net.fx"
 
 [[core_setting]]
-group = "network"
+group = "Services"
 key = "Web Remote Control Service"
 label = "Web remote control service"
 list = "en_dis"
@@ -2744,7 +2202,7 @@ when = "live"
 apply = "net.fx"
 
 [[core_setting]]
-group = "network"
+group = "Services"
 key = "Log to Syslog Server"
 label = "Log to syslog server"
 text = true
@@ -2753,7 +2211,7 @@ maxlen = 31
 apply = "net.fx"
 
 [[core_setting]]
-group = "time"
+group = "Services"
 key = "SNTP Enable"
 label = "SNTP enable"
 list = "en_dis"
@@ -2762,7 +2220,7 @@ when = "live"
 apply = "net.fx"
 
 [[core_setting]]
-group = "time"
+group = "Services"
 key = "TimeZone"
 label = "Time zone"
 list = "zones"
@@ -2771,7 +2229,7 @@ when = "live"
 apply = "net.fx"
 
 [[core_setting]]
-group = "time"
+group = "Services"
 key = "Time Server 1"
 label = "Time server 1"
 text = true
@@ -2780,7 +2238,7 @@ maxlen = 31
 apply = "net.fx"
 
 [[core_setting]]
-group = "time"
+group = "Services"
 key = "Time Server 2"
 label = "Time server 2"
 text = true
@@ -2789,7 +2247,7 @@ maxlen = 31
 apply = "net.fx"
 
 [[core_setting]]
-group = "time"
+group = "Services"
 key = "Time Server 3"
 label = "Time server 3"
 text = true
@@ -2798,7 +2256,7 @@ maxlen = 31
 apply = "net.fx"
 
 [[core_setting]]
-group = "streams"
+group = "Streams"
 key = "Stream VIC to"
 text = true
 default = "239.0.1.64:11000"
@@ -2806,7 +2264,7 @@ maxlen = 36
 apply = "settings.noop"
 
 [[core_setting]]
-group = "streams"
+group = "Streams"
 key = "Stream Audio to"
 label = "Stream audio to"
 text = true
@@ -2815,7 +2273,7 @@ maxlen = 36
 apply = "settings.noop"
 
 [[core_setting]]
-group = "streams"
+group = "Streams"
 key = "Stream Debug to"
 label = "Stream debug to"
 text = true
@@ -2824,7 +2282,7 @@ maxlen = 36
 apply = "settings.noop"
 
 [[core_setting]]
-group = "streams"
+group = "Streams"
 key = "Debug Stream Mode"
 label = "Debug stream mode"
 list = "streammodes"
@@ -2833,7 +2291,7 @@ when = "live"
 apply = "settings.noop"
 
 [[core_setting]]
-group = "ftp"
+group = "FTP_hosts"
 key = "FTP 1 Alias"
 label = "FTP 1 alias"
 text = true
@@ -2842,7 +2300,7 @@ maxlen = 40
 apply = "settings.noop"
 
 [[core_setting]]
-group = "ftp"
+group = "FTP_hosts"
 key = "FTP 1 Host"
 label = "FTP 1 host"
 text = true
@@ -2851,7 +2309,7 @@ maxlen = 60
 apply = "settings.noop"
 
 [[core_setting]]
-group = "ftp"
+group = "FTP_hosts"
 key = "FTP 1 Port"
 label = "FTP 1 port"
 text = true
@@ -2860,7 +2318,7 @@ maxlen = 5
 apply = "settings.noop"
 
 [[core_setting]]
-group = "ftp"
+group = "FTP_hosts"
 key = "FTP 1 User"
 label = "FTP 1 user"
 text = true
@@ -2869,7 +2327,7 @@ maxlen = 30
 apply = "settings.noop"
 
 [[core_setting]]
-group = "ftp"
+group = "FTP_hosts"
 key = "FTP 1 Password"
 label = "FTP 1 password"
 empty = "Not set"
@@ -2879,7 +2337,7 @@ maxlen = 30
 apply = "settings.noop"
 
 [[core_setting]]
-group = "ftp"
+group = "FTP_hosts"
 key = "FTP 1 Folder"
 label = "FTP 1 folder"
 text = true
@@ -2888,7 +2346,7 @@ maxlen = 60
 apply = "settings.noop"
 
 [[core_setting]]
-group = "ftp"
+group = "FTP_hosts"
 key = "FTP 2 Alias"
 label = "FTP 2 alias"
 text = true
@@ -2897,7 +2355,7 @@ maxlen = 40
 apply = "settings.noop"
 
 [[core_setting]]
-group = "ftp"
+group = "FTP_hosts"
 key = "FTP 2 Host"
 label = "FTP 2 host"
 text = true
@@ -2906,7 +2364,7 @@ maxlen = 60
 apply = "settings.noop"
 
 [[core_setting]]
-group = "ftp"
+group = "FTP_hosts"
 key = "FTP 2 Port"
 label = "FTP 2 port"
 text = true
@@ -2915,7 +2373,7 @@ maxlen = 5
 apply = "settings.noop"
 
 [[core_setting]]
-group = "ftp"
+group = "FTP_hosts"
 key = "FTP 2 User"
 label = "FTP 2 user"
 text = true
@@ -2924,7 +2382,7 @@ maxlen = 30
 apply = "settings.noop"
 
 [[core_setting]]
-group = "ftp"
+group = "FTP_hosts"
 key = "FTP 2 Password"
 label = "FTP 2 password"
 empty = "Not set"
@@ -2934,7 +2392,7 @@ maxlen = 30
 apply = "settings.noop"
 
 [[core_setting]]
-group = "ftp"
+group = "FTP_hosts"
 key = "FTP 2 Folder"
 label = "FTP 2 folder"
 text = true
@@ -2943,7 +2401,7 @@ maxlen = 60
 apply = "settings.noop"
 
 [[core_setting]]
-group = "ftp"
+group = "FTP_hosts"
 key = "FTP 3 Alias"
 label = "FTP 3 alias"
 text = true
@@ -2952,7 +2410,7 @@ maxlen = 40
 apply = "settings.noop"
 
 [[core_setting]]
-group = "ftp"
+group = "FTP_hosts"
 key = "FTP 3 Host"
 label = "FTP 3 host"
 text = true
@@ -2961,7 +2419,7 @@ maxlen = 60
 apply = "settings.noop"
 
 [[core_setting]]
-group = "ftp"
+group = "FTP_hosts"
 key = "FTP 3 Port"
 label = "FTP 3 port"
 text = true
@@ -2970,7 +2428,7 @@ maxlen = 5
 apply = "settings.noop"
 
 [[core_setting]]
-group = "ftp"
+group = "FTP_hosts"
 key = "FTP 3 User"
 label = "FTP 3 user"
 text = true
@@ -2979,7 +2437,7 @@ maxlen = 30
 apply = "settings.noop"
 
 [[core_setting]]
-group = "ftp"
+group = "FTP_hosts"
 key = "FTP 3 Password"
 label = "FTP 3 password"
 empty = "Not set"
@@ -2989,7 +2447,7 @@ maxlen = 30
 apply = "settings.noop"
 
 [[core_setting]]
-group = "ftp"
+group = "FTP_hosts"
 key = "FTP 3 Folder"
 label = "FTP 3 folder"
 text = true
@@ -2998,7 +2456,7 @@ maxlen = 60
 apply = "settings.noop"
 
 [[core_setting]]
-group = "ftp"
+group = "FTP_hosts"
 key = "FTP 4 Alias"
 label = "FTP 4 alias"
 text = true
@@ -3007,7 +2465,7 @@ maxlen = 40
 apply = "settings.noop"
 
 [[core_setting]]
-group = "ftp"
+group = "FTP_hosts"
 key = "FTP 4 Host"
 label = "FTP 4 host"
 text = true
@@ -3016,7 +2474,7 @@ maxlen = 60
 apply = "settings.noop"
 
 [[core_setting]]
-group = "ftp"
+group = "FTP_hosts"
 key = "FTP 4 Port"
 label = "FTP 4 port"
 text = true
@@ -3025,7 +2483,7 @@ maxlen = 5
 apply = "settings.noop"
 
 [[core_setting]]
-group = "ftp"
+group = "FTP_hosts"
 key = "FTP 4 User"
 label = "FTP 4 user"
 text = true
@@ -3034,7 +2492,7 @@ maxlen = 30
 apply = "settings.noop"
 
 [[core_setting]]
-group = "ftp"
+group = "FTP_hosts"
 key = "FTP 4 Password"
 label = "FTP 4 password"
 empty = "Not set"
@@ -3044,7 +2502,7 @@ maxlen = 30
 apply = "settings.noop"
 
 [[core_setting]]
-group = "ftp"
+group = "FTP_hosts"
 key = "FTP 4 Folder"
 label = "FTP 4 folder"
 text = true

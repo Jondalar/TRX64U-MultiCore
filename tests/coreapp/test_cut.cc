@@ -107,6 +107,24 @@ struct Lib {
 int main()
 {
     setvbuf(stdout, 0, _IONBF, 0);
+    // ---- T228 DC5: the machine line names the REU only while it is on -------------------------------------------------------------------------------------------------
+    {
+        Rec r;
+        Settings *st = r.c.settings;                            // the menu may have replaced the object the rig made: the one the context holds is the one the line reads
+        int reu = st->find("RAM Expansion Unit"), sz = st->find("REU Size");
+        CHECK(reu >= 0 && sz >= 0);
+        // the build's registry has an empty stand-in for reu.on (board_stubs.cc); the state the board has: set while the expansion is not Disabled
+        struct S { static const char *reu_on(CoreCtx *c) { return c->settings->value(c->settings->find("RAM Expansion Unit")) ? "yes" : 0; } };
+        const_cast<StateDef *>(ops_of(&r.c)->find_state("reu.on"))->get = S::reu_on;
+        char off[160], on[160];
+        st->set(reu, 0);
+        r.m->machine_line(off, sizeof(off));
+        st->set(reu, 1);
+        r.m->machine_line(on, sizeof(on));
+        const char *size = trx64u::desc()->settings[sz].values[st->value(sz)];
+        CHECK(strstr(on, size) != 0);
+        CHECK(strstr(off, size) == 0);
+    }
     // ---- Timewarp: the keys are operations (S5, S6) ------------------------------------------------------------------------------------------------------------------
     {
         Rec r;
@@ -142,7 +160,7 @@ int main()
     // ---- the monitor: every key is trxmon's, what closes the menu is the menu's (S5, S6) ----------------------------------------------------------------------------------
     {
         Rec r;
-        int f = area_key_of(*r.m, "Tools");
+        int f = area_key_of(*r.m, "Monitor");
         CHECK(f > 0);
         r.m->key(f);
         CHECK(r.m->layout_is("terminal"));

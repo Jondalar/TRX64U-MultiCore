@@ -41,7 +41,7 @@ static int parse(const Bytes &b, DescRecord *d, char *why = 0)
 }
 
 enum { A, T, N, F, S, H, R, B, E, Z, V, C, K, M, Y, X, Q };
-static const uint32_t ESIZE[17] = { 20, 24, 52, 40, 32, 4, 8, 16, 4, 4, 4, 24, 36, 24, 24, 36, 36 };
+static const uint32_t ESIZE[17] = { 20, 24, 52, 40, 32, 4, 8, 16, 4, 4, 4, 24, 36, 44, 24, 36, 36 };
 static uint32_t table_off(const Bytes &b, int t) { return rd(b, 24 + 8 * t); }
 static uint32_t table_cnt(const Bytes &b, int t) { return rd(b, 28 + 8 * t); }
 static uint32_t entry(const Bytes &b, int t, int i) { return table_off(b, t) + i * ESIZE[t]; }
@@ -107,8 +107,8 @@ int main(int argc, char **argv)
     {
         Bytes b = good; b[0] ^= 1;
         CHECK(parse(b, d, why) != 0 && strstr(why, "magic"));
-        b = good; b[4] = 4;                                         // 3 is the current layout, 2 is read as 3 without a layout and attributes
-        CHECK(parse(b, d, why) != 0 && strstr(why, "version 4"));
+        b = good; b[4] = 5;                                         // 4 is the current layout (T228: wider media slot, machine info), 3 and 2 are read
+        CHECK(parse(b, d, why) != 0 && strstr(why, "version 5"));
         b = good; b[4] = 1;                                         // the first layout (header 136) is not read any more
         CHECK(parse(b, d, why) != 0 && strstr(why, "version 1"));
         b = good; b[6] = 0x71;
@@ -169,13 +169,13 @@ int main(int argc, char **argv)
         // two areas with the same key
         b = good; wr(b, entry(b, A, 1), rd(b, entry(b, A, 0)));
         CHECK(parse(b, d, why) != 0 && strstr(why, "twice"));
-        // the poll: a period without an operation, an operation without a period, a reserved word, a period past a minute
+        // the poll: a period without an operation, an operation without a period, a machine info outside the table (version 4), a period past a minute
         b = good; wr(b, 24 + 8 * DR_TABLES, DESCREC_NONE);
         CHECK(parse(b, d, why) != 0 && strstr(why, "poll"));
         b = good; wr(b, 28 + 8 * DR_TABLES, 0);
         CHECK(parse(b, d, why) != 0 && strstr(why, "poll"));
-        b = good; wr(b, 36 + 8 * DR_TABLES, 1);
-        CHECK(parse(b, d, why) != 0 && strstr(why, "poll"));
+        b = good; wr(b, 36 + 8 * DR_TABLES, 0x7FFFFFF0u);
+        CHECK(parse(b, d, why) != 0 && strstr(why, "machine info"));
         // the list of merged libraries: a string that is empty is no list (none is DESCREC_NONE), one outside the table is not a string
         b = good; wr(b, 32 + 8 * DR_TABLES, 0);
         CHECK(parse(b, d, why) != 0 && strstr(why, "merged"));
@@ -243,20 +243,29 @@ int main(int argc, char **argv)
         DescRecord *o = new DescRecord;
         CHECK_EQ(parse(own, o, why), 0);
         CHECK(o->has_own);
-        CHECK_EQ(o->ntasks, 4);                                    // Reset and the rest of the machine's tasks are nodes of the record now; the four disk tasks stay tables
-        CHECK_STR(o->tasks[0].label, "Save Disk as D64");
-        CHECK(o->tasks[0].ask && o->tasks[0].ask_state && !o->tasks[0].pick_dir && !o->tasks[0].closes_menu);
-        CHECK_STR(o->tasks[0].group, "c64");
-        CHECK_STR(o->tasks[2].label, "Create blank D64");
-        CHECK(o->tasks[2].pick_dir && o->tasks[2].ask && o->tasks[2].ask_state && !o->tasks[2].closes_menu);
-        CHECK_STR(o->tasks[2].ask_state, "drive.suggest.d64");
-        CHECK_EQ(o->tasks[2].nbind, 3);
-        CHECK_EQ(o->tasks[2].bind[0].kind, BIND_TEXT);
-        CHECK_EQ(o->nmedia, 2);
-        CHECK_STR(o->media[1].name, "Drive A:");
-        CHECK_STR(o->media[1].eject_op, "drive.eject");
-        CHECK(!o->media[0].eject_op && o->media[0].neject_bind == 0);
-        CHECK_EQ(o->nftypes, 15);
+        CHECK_EQ(o->ntasks, 15);                                   // T228: the machine's resets, the saves and the drive lists' tasks; the four disk tasks of T104.2 stand last
+        CHECK_STR(o->tasks[0].label, "Reset");
+        CHECK(o->tasks[0].closes_menu && !o->tasks[0].ask);
+        CHECK_STR(o->tasks[0].group, "top");
+        CHECK_STR(o->machine_info, "System Mode,REU Size");        // T228 version 4: the machine line's settings
+        CHECK_STR(o->tasks[11].label, "Save Disk as D64");
+        CHECK(o->tasks[11].ask && o->tasks[11].ask_state && !o->tasks[11].pick_dir && !o->tasks[11].closes_menu);
+        CHECK_STR(o->tasks[11].group, "c64");
+        CHECK_STR(o->tasks[13].label, "Create blank D64");
+        CHECK(o->tasks[13].pick_dir && o->tasks[13].ask && o->tasks[13].ask_state && !o->tasks[13].closes_menu);
+        CHECK_STR(o->tasks[13].ask_state, "drive.suggest.d64");
+        CHECK_EQ(o->tasks[13].nbind, 3);
+        CHECK_EQ(o->tasks[13].bind[0].kind, BIND_TEXT);
+        CHECK_EQ(o->nmedia, 3);
+        CHECK_STR(o->media[0].name, "Drive A:");
+        CHECK_STR(o->media[0].eject_op, "drive.eject");
+        CHECK_STR(o->media[0].exts, ".d64,.g64");                  // T212 D5: the drive list's data
+        CHECK_STR(o->media[0].mount, "Mount Disk");
+        CHECK_STR(o->media[0].mounted_tasks, "Swap disk,Reset drive,Unlink disk,Save Disk as D64,Save Disk as G64");
+        CHECK(!o->media[0].eject_closes && o->media[1].eject_closes);
+        CHECK_STR(o->media[1].name, "Cartridge port");
+        CHECK(!o->media[2].eject_op && o->media[2].neject_bind == 0 && !o->media[2].exts);
+        CHECK_EQ(o->nftypes, 16);
         CHECK_STR(o->ftypes[0].ext, ".prg");
         CHECK_EQ(o->ftypes[0].nactions, 3);
         CHECK_STR(o->ftypes[0].actions[1].ask, "Start address");
@@ -266,38 +275,51 @@ int main(int argc, char **argv)
         CHECK_EQ(o->ftypes[4].ninner, 2);
         CHECK_STR(o->ftypes[4].inner[1].label, "Real Run");
         CHECK(!o->ftypes[5].inner && o->ftypes[5].ninner == 0);
-        CHECK_EQ(o->ncsettings, 160);                              // the four tables of the record and the settings its nodes declare
+        CHECK_EQ(o->ncsettings, 155);                              // the four tables of the record and the settings its nodes declare
         CHECK_STR(o->csettings[0].key, "Freeze mode");
         CHECK_EQ(o->csettings[0].when, WHEN_RESET);
         CHECK_EQ(o->csettings[1].def, 1);
         CHECK_EQ(o->csettings[1].when, WHEN_LIVE);
         CHECK_STR(o->csettings[3].key, "Disk swap delay");
         CHECK_STR(o->csettings[3].values[9], "1000 ms");
-        CHECK_STR(o->csettings[2].group, "drives");
+        CHECK_STR(o->csettings[2].group, "Drive_A");
         // the settings tabs name their groups, and so does the tasks tab
         int grouped = 0;
-        bool tasks_groups = false;
         for (int a = 0; a < o->skel.nareas; a++) for (int t = 0; t < o->areas[a].ntabs; t++) {
             const SkelTab &tb = o->areas[a].tabs[t];
-            if (tb.groups) { grouped++; if (tb.widget == TW_TASKS && !strcmp(tb.groups, "c64,files")) tasks_groups = true; }
+            if (tb.groups) { grouped++; }
         }
         CHECK_EQ(grouped, 10);
-        CHECK(tasks_groups);
         descrec_apply(*o, &base, &out);
-        CHECK(out.tasks == o->tasks && out.ntasks == 4 && out.nmedia == 2 && out.nfiletypes == 15 && out.nsettings == 160);
+        CHECK(out.tasks == o->tasks && out.ntasks == 15 && out.nmedia == 3 && out.nfiletypes == 16 && out.nsettings == 155 && !strcmp(out.machine_info, "System Mode,REU Size"));
+        {   // T228 D10: the base's settings stand behind the record's 155, in the base's order, and a second call gives the same table
+            static Setting bs[2];
+            memset(bs, 0, sizeof(bs));
+            bs[0].key = "Base A";
+            bs[1].key = "Base B";
+            CoreDesc b2 = base, r1, r2;
+            b2.settings = bs; b2.nsettings = 2;
+            descrec_apply(*o, &b2, &r1);
+            descrec_apply(*o, &b2, &r2);
+            CHECK_EQ(r1.nsettings, 157);
+            CHECK_STR(r1.settings[0].key, "Freeze mode");
+            CHECK_STR(r1.settings[155].key, "Base A");
+            CHECK_STR(r1.settings[156].key, "Base B");
+            CHECK(r1.settings == r2.settings && r2.nsettings == 157 && !strcmp(r2.settings[156].key, "Base B"));
+        }
 
         // the refusals of the new tables
         Bytes b;
         b = own; wr(b, 12, rd(b, 12) & ~2u);                       // the flag says no own tables, the tables are there
         CHECK(parse(b, o, why) != 0 && strstr(why, "own-menu flag"));
-        b = own; wr(b, entry(b, K, 0) + 20, DESCREC_NONE);                    // an ask_state without an ask (task 0 has both)
-        CHECK(parse(b, o, why) != 0 && strstr(why, "task 0"));
+        b = own; wr(b, entry(b, K, 4) + 20, DESCREC_NONE);                    // an ask_state without an ask (task 4 has both)
+        CHECK(parse(b, o, why) != 0 && strstr(why, "task 4"));
         b = own; wr(b, entry(b, K, 0) + 16, 8);                               // a flag nobody defined
         CHECK(parse(b, o, why) != 0 && strstr(why, "task 0"));
         b = own; wr(b, entry(b, K, 0) + 8, DR_BINDS);                         // a binding run past the table
         CHECK(parse(b, o, why) != 0 && strstr(why, "task 0"));
-        b = own; wr(b, entry(b, M, 0) + 16, 1);                               // a binding of an eject that is not there
-        CHECK(parse(b, o, why) != 0 && strstr(why, "media slot 0"));
+        b = own; wr(b, entry(b, M, 2) + 16, 1);                               // a binding of an eject that is not there
+        CHECK(parse(b, o, why) != 0 && strstr(why, "media slot 2"));
         b = own; wr(b, entry(b, Y, 1), rd(b, entry(b, Y, 0)));                // the same extension twice
         CHECK(parse(b, o, why) != 0 && strstr(why, "file type"));
         b = own; wr(b, entry(b, Y, 0) + 12, 0);                               // a file type without an action

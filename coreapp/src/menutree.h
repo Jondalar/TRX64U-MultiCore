@@ -45,8 +45,8 @@ enum TabWidget {
 };
 
 #define MENU_AREAS_MAX 8
-#define MENU_TABS_MAX 8                  // tabs of one area in the tree; the strip of the view has room for six of them (TRX_TABS_MAX): an application's hidden screens are tabs that are not on it
-#define MENU_STRIP_TABS 6                // the tab strip of the view has room for six (TRX_TABS_MAX): a library or an application adds no tab beyond them to a core's area
+#define MENU_TABS_MAX 8                  // tabs of one area in the tree; the strip of the view has room for MENU_STRIP_TABS of them: an application's hidden screens are tabs that are not on it
+#define MENU_STRIP_TABS 8                // the tab strip of the view has room for eight (= TRX_TABS_MAX, checked in ui.cc): a library or an application adds no tab beyond them to a core's area
 #define MENU_MAX_ENTRIES 640
 #define MENU_NODES_MAX 320
 
@@ -94,7 +94,7 @@ struct MenuTab {
 struct MenuArea {
     const char *key;    // "F1".."F8", the logical key as it is printed
     const char *name;
-    bool shifted;       // F2/F4/F6/F8: the rail lists them under SHIFTED
+    bool shifted;       // the skeleton's flag for F2/F4/F6/F8; the rail draws one list in the route's order and does not read it (T228 D4)
     MenuTab tabs[MENU_TABS_MAX];
     uint8_t ntabs;
 };
@@ -112,6 +112,8 @@ struct MenuNode {
     const char *group;                // the anchor's third part, "" when none
 };
 
+#define MENU_HEADS_MAX 24
+
 struct MenuTree {
     MenuArea a[MENU_AREAS_MAX];
     uint8_t nareas;
@@ -119,6 +121,8 @@ struct MenuTree {
     int n;
     MenuNode nodes[MENU_NODES_MAX];
     int nnodes;
+    char heads[MENU_HEADS_MAX][32];  // the text of the headings made from a group id (T228: a tab with `sections`), the entries point here
+    int nheads;
 };
 
 // The fixed system information lines, in this order. Their values are the application's to fill in at run time.
@@ -149,7 +153,6 @@ struct MenuGroupRoute {
     const char *heading;    // the group as a person reads it: "Video", "Audio", "Input", "Storage", "Menu"
     const char *label;      // a page's row in the tab ("Hotkeys")
     bool page;              // the rows are not in the tab: one row there opens a page of them (Hotkeys)
-    const char *alt_area;   // a description that keeps its own Settings area (the TRX64U core's F6) is looked at second, by the tab id; null: none
 };
 const MenuGroupRoute *menu_route_of(const Setting &s);
 

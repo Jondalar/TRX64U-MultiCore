@@ -68,8 +68,9 @@ int descrec_parse(const uint8_t *rec, uint32_t n, DescRecord *out, char *why, in
         return r.fail("description record: not a description (magic)");
     }
     uint32_t vh = r.u32(4);
-    if ((vh & 0xFFFF) != DESCREC_VERSION && (vh & 0xFFFF) != DESCREC_VERSION_MIN) {         // version 2 is version 3 without a layout and attributes (those words were 0)
-        return r.fail("description record: version %u, this application reads %u and %u", (unsigned)(vh & 0xFFFF), DESCREC_VERSION_MIN, DESCREC_VERSION);
+    const uint32_t ver = vh & 0xFFFF;
+    if (ver < DESCREC_VERSION_MIN || ver > DESCREC_VERSION) {         // version 2 is version 3 without a layout and attributes (those words were 0); 4 widens the media slot and gives the header's last word a use
+        return r.fail("description record: version %u, this application reads %u to %u", (unsigned)ver, DESCREC_VERSION_MIN, DESCREC_VERSION);
     }
     if ((vh >> 16) != DESCREC_HEADER || r.u32(8) != n) {
         return r.fail("description record: the header or the length does not match the file");
@@ -83,7 +84,7 @@ int descrec_parse(const uint8_t *rec, uint32_t n, DescRecord *out, char *why, in
     if (r.str_off < DESCREC_HEADER || (uint64_t)r.str_off + r.str_size > n || r.str_size == 0) {
         return r.fail("description record: the string table lies outside the record");
     }
-    static const uint32_t esize[DR_TABLES] = { 20, 24, 52, 40, 32, 4, 8, 16, 4, 4, 4, 24, 36, 24, 24, 36, 36 };
+    const uint32_t esize[DR_TABLES] = { 20, 24, 52, 40, 32, 4, 8, 16, 4, 4, 4, 24, 36, ver >= 4 ? 44u : 24u, 24, 36, 36 };
     static const uint32_t emax[DR_TABLES] = { DR_AREAS, DR_TABS, DR_NODES, DR_ACTIONS, DR_SETTINGS, DR_HIDE, DR_RENAME, DR_BINDS, DR_EXTS, DR_SIZES, DR_VALUES, DR_CTABS,
                                               DR_TASKS, DR_MEDIA, DR_FTYPES, DR_FACTS, DR_CSETS };
     static const char *const ename[DR_TABLES] = { "areas", "tabs", "nodes", "file actions", "settings", "hide list", "rename list", "bindings", "extensions",
@@ -148,7 +149,8 @@ int descrec_parse(const uint8_t *rec, uint32_t n, DescRecord *out, char *why, in
     // the poll, and the libraries whose menus were merged into this record when it was packed
     {
         uint32_t po = r.u32(24 + 8 * DR_TABLES), pms = r.u32(28 + 8 * DR_TABLES), mg = r.u32(32 + 8 * DR_TABLES);
-        if (r.u32(36 + 8 * DR_TABLES) != 0 || ((po == DESCREC_NONE) != (pms == 0)) || pms > 60000) {
+        uint32_t mi = r.u32(36 + 8 * DR_TABLES);                      // version 4: the string offset of the machine-info line's settings (T228); before: 0
+        if ((ver < 4 && mi != 0) || ((po == DESCREC_NONE) != (pms == 0)) || pms > 60000) {
             return r.fail("description record: the poll has a bad operation or period");
         }
         out->rec.poll.op = r.str(po, &bad);
@@ -157,6 +159,10 @@ int descrec_parse(const uint8_t *rec, uint32_t n, DescRecord *out, char *why, in
         }
         out->rec.poll.period_ms = (uint16_t)pms;
         out->rec.poll.when_frozen = false;
+        out->machine_info = ver >= 4 ? r.str(mi, &bad) : 0;
+        if (bad || (ver >= 4 && mi != DESCREC_NONE && !out->machine_info[0])) {
+            return r.fail("description record: the machine info is empty or outside the table");
+        }
         out->merged = r.str(mg, &bad);
         if (bad || (mg != DESCREC_NONE && !out->merged[0])) {
             return r.fail("description record: the list of merged libraries is empty or outside the table");
@@ -344,6 +350,17 @@ int descrec_parse(const uint8_t *rec, uint32_t n, DescRecord *out, char *why, in
         }
         d.eject_bind = nb ? out->binds + fb : 0;
         d.neject_bind = (int)nb;
+        if (ver >= 4) {                                              // T212 D5 / D11: the drive list's data (media.mount, exts, empty_tasks, mounted_tasks, eject_closes)
+            d.exts = r.str(W(e, 6), &bad);
+            d.mount = r.str(W(e, 7), &bad);
+            d.empty_tasks = r.str(W(e, 8), &bad);
+            d.mounted_tasks = r.str(W(e, 9), &bad);
+            uint32_t mf = W(e, 10);
+            if (bad || (mf & ~1u)) {
+                return r.fail("description record: media slot %u has a bad drive-list field", (unsigned)i);
+            }
+            d.eject_closes = mf & 1;
+        }
     }
     out->nmedia = (int)tb[M].count;
     for (uint32_t i = 0; i < tb[X].count; i++) {
@@ -443,6 +460,9 @@ int descrec_parse(const uint8_t *rec, uint32_t n, DescRecord *out, char *why, in
 void descrec_apply(const DescRecord &rec, const CoreDesc *base, CoreDesc *out)
 {
     *out = *base;
+    if (rec.machine_info) {
+        out->machine_info = rec.machine_info;
+    }
     if (!rec.has_own) {
         return;
     }
@@ -452,8 +472,26 @@ void descrec_apply(const DescRecord &rec, const CoreDesc *base, CoreDesc *out)
     out->nmedia = rec.nmedia;
     out->filetypes = rec.nftypes ? rec.ftypes : 0;
     out->nfiletypes = rec.nftypes;
-    out->settings = rec.ncsettings ? rec.csettings : 0;
-    out->nsettings = rec.ncsettings;
+    if (rec.ncsettings) {
+        out->settings = rec.csettings;
+        out->nsettings = rec.ncsettings;
+        // T228 D10: the settings of `base` (the core's C++ ones, and the items the application added before the record came: Picture, Persist medium mounts, Home
+        // Directory, Hotkeys, menubuild.cc) stand behind the record's own, so a core whose menu is a record has them as every other core does. The copy goes to
+        // fixed places in the record's table, so a second call with the same base gives the same table. A record that has no settings of its own leaves the
+        // base's as they are. When both do not fit into DR_CSETS the base's are dropped and the line says so.
+        if (base->nsettings > 0) {
+            if (rec.ncsettings + base->nsettings <= DR_CSETS) {
+                Setting *tab = const_cast<DescRecord &>(rec).csettings;
+                for (int i = 0; i < base->nsettings; i++) {
+                    tab[rec.ncsettings + i] = base->settings[i];
+                }
+                out->nsettings = rec.ncsettings + base->nsettings;
+            } else {
+                printf("[menu] description: %d settings and %d of the application's do not fit into %d; the application's are not listed\n", rec.ncsettings,
+                       base->nsettings, DR_CSETS);
+            }
+        }
+    }
 }
 
 bool descrec_merged(const DescRecord &rec, const char *name)

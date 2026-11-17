@@ -174,19 +174,26 @@ static lv_obj_t *nav_item(lv_obj_t *par, int y, const char *label, const char *k
 }
 
 // A tab of the strip: the number in a keycap, then the label (tab_item.xml).
-static int tab_item(lv_obj_t *par, int x, int y, int n, const char *label, bool active, lv_obj_t **obj)
+// `brief`: the keycap alone (a strip that is wider than its canvas shows the open tab with its label and the others as numbers).
+static int tab_w(const char *label, bool brief)
+{
+    const TrxTheme &t = trx_theme();
+    return brief ? 14 + 2 * t.space_sm : 14 + t.space_xs + trx_text_w(shout(label), t.caption) + 2 * t.space_sm;
+}
+
+static int tab_item(lv_obj_t *par, int x, int y, int n, const char *label, bool active, lv_obj_t **obj, bool brief = false)
 {
     const TrxTheme &t = trx_theme();
     char num[4];
     num[0] = (char)('0' + (n % 10));
     num[1] = 0;
-    label = shout(label);
-    int lw = trx_text_w(label, t.caption);
-    int w = 14 + t.space_xs + lw + 2 * t.space_sm;
+    int w = tab_w(label, brief);
     lv_obj_t *b = trx_box(par, x, y, w, 20, active ? t.accent_soft : t.surface2);
     lv_obj_t *cap = trx_box(b, t.space_sm, 3, 12, 14, active ? t.accent : t.line);
     trx_txt(cap, 3, 1, num, t.caption, active ? t.bg : t.muted);
-    trx_txt(b, t.space_sm + 14 + t.space_xs, 3, label, t.caption, active ? t.ink : t.muted);
+    if (!brief) {
+        trx_txt(b, t.space_sm + 14 + t.space_xs, 3, shout(label), t.caption, active ? t.ink : t.muted);
+    }
     if (obj) {
         *obj = b;
     }
@@ -238,6 +245,8 @@ static uint32_t top_key(const TrxShellInfo &i)
 static lv_obj_t *g_content, *g_top, *g_rail, *g_strip;
 static lv_obj_t *g_nav[TRX_AREAS_MAX], *g_tabw[TRX_TABS_MAX];
 static int g_nav_y[TRX_AREAS_MAX], g_tab_x[TRX_TABS_MAX];
+static int g_strip_w;                  // the strip's width, and whether it had to show its inactive tabs as numbers (the open tab then changes every width)
+static bool g_strip_brief;
 static uint32_t g_k_static, g_k_top, g_k_foot;
 static lv_obj_t *g_foot_lbl;
 static int g_area = -2, g_tab = -2;
@@ -309,14 +318,34 @@ static void draw_strip(const TrxRoute &route, int area, int tab)
 {
     const TrxTheme &t = trx_theme();
     const TrxArea &a = route.areas[area];
-    int tx = t.space_sm;
+    int tx = t.space_sm, full = t.space_sm;
     for (int i = 0; i < TRX_TABS_MAX; i++) {
         g_tabw[i] = 0;
     }
     for (int i = 0; i < a.ntabs && i < TRX_TABS_MAX; i++) {
-        g_tab_x[i] = tx;
-        tx += tab_item(g_strip, tx, 9, a.tabs[i].n, a.tabs[i].title, i == tab, &g_tabw[i]) + t.space_xs;
+        full += tab_w(a.tabs[i].title, false) + t.space_xs;
     }
+    g_strip_brief = full > g_strip_w;
+    for (int i = 0; i < a.ntabs && i < TRX_TABS_MAX; i++) {
+        g_tab_x[i] = tx;
+        tx += tab_item(g_strip, tx, 9, a.tabs[i].n, a.tabs[i].title, i == tab, &g_tabw[i], g_strip_brief && i != tab) + t.space_xs;
+    }
+}
+
+bool trx_strip_probe(int *right, int *room)
+{
+    if (!g_strip) {
+        return false;
+    }
+    int r = 0;
+    for (int i = 0; i < TRX_TABS_MAX; i++) {
+        if (g_tabw[i] && g_tab_x[i] + (int)lv_obj_get_width(g_tabw[i]) > r) {
+            r = g_tab_x[i] + (int)lv_obj_get_width(g_tabw[i]);
+        }
+    }
+    *right = r;
+    *room = g_strip_w;
+    return true;
 }
 
 // The bench's look at the rail: where the label's text ends and where the key begins, in the rail item i (false: no such item).
@@ -403,7 +432,10 @@ static void frame_patch(const TrxShellInfo &info, const TrxRoute &route, int are
         g_tab = tab;
         g_partials++;
     } else if (tab != g_tab) {
-        if (g_has_strip) {
+        if (g_has_strip && g_strip_brief) {                                // the widths follow the open tab: the strip is drawn again whole
+            lv_obj_clean(g_strip);
+            draw_strip(route, area, tab);
+        } else if (g_has_strip) {
             if (g_tab >= 0 && g_tab < route.areas[area].ntabs && g_tab < TRX_TABS_MAX) {
                 draw_tab(route, area, g_tab, false);
             }
@@ -451,7 +483,7 @@ lv_obj_t *trx_shell(lv_obj_t *scr, const TrxShellInfo &info, const TrxRoute &rou
     g_top = trx_box(scr, 0, 0, SW, t.topbar_h, t.bg, 1, t.line, LV_BORDER_SIDE_BOTTOM);
     draw_top(g_top, info);
 
-    // the rail: DIRECT above, SHIFTED below, the close hint at the bottom. An application's own screens have none (T104.3 D9.1): its keys are its own.
+    // the rail: the areas in the route's order (T228 D4), the close hint at the bottom. An application's own screens have none (T104.3 D9.1): its keys are its own.
     int body_y = t.topbar_h;
     int body_h = SH - t.topbar_h - t.footer_h;
     int sbw = route.app_mode ? 0 : t.sidebar_w;
@@ -463,23 +495,12 @@ lv_obj_t *trx_shell(lv_obj_t *scr, const TrxShellInfo &info, const TrxRoute &rou
         g_rail = trx_box(scr, 0, body_y, t.sidebar_w, body_h, t.surface, 1, t.line, LV_BORDER_SIDE_RIGHT);
         lv_obj_t *rail = g_rail;
         int y = t.space_sm;
-        trx_txt(rail, t.space_sm, y, "DIRECT", t.caption, t.muted);
-        y += 14;
-        for (int pass = 0; pass < 2; pass++) {
-            if (pass == 1) {
-                y += t.space_sm;
-                trx_txt(rail, t.space_sm, y, "SHIFTED", t.caption, t.muted);
-                y += 14;
-            }
-            for (int i = 0; i < route.nareas && i < TRX_AREAS_MAX; i++) {
-                const TrxArea &a = route.areas[i];
-                if ((int)a.shifted != pass) {
-                    continue;
-                }
-                g_nav_y[i] = y;
-                g_nav[i] = nav_item(rail, y, a.title, a.key, i == area);
-                y += 19;
-            }
+        // T228 D4 / DC2: one list in the order of the route, no SHIFTED and no DIRECT heading
+        for (int i = 0; i < route.nareas && i < TRX_AREAS_MAX; i++) {
+            const TrxArea &a = route.areas[i];
+            g_nav_y[i] = y;
+            g_nav[i] = nav_item(rail, y, a.title, a.key, i == area);
+            y += 19;
         }
         if (info.footer_left) {
             trx_txt(rail, t.space_sm, body_h - 16, info.footer_left, t.caption, t.muted);
@@ -493,6 +514,7 @@ lv_obj_t *trx_shell(lv_obj_t *scr, const TrxShellInfo &info, const TrxRoute &rou
     g_strip = 0;
     if (strip) {
         g_strip = trx_box(scr, cx, cy, cw, t.tabbar_h, t.bg, 1, t.line, LV_BORDER_SIDE_BOTTOM);
+        g_strip_w = cw;
         draw_strip(route, area, tab);
         cy += t.tabbar_h;
     }

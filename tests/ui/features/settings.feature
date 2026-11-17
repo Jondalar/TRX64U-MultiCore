@@ -1,82 +1,45 @@
-Feature: Settings pages: change, hold, Discard, Save, Defaults, with the letters of the buttons (T153 S4-S5)
+Feature: Settings pages of the TRX64U menu: a change is applied and stored at once, reset-time items say when, Reset to host defaults (T153 S4-S5; T228 D9-D11: no hold, no Save bar, nothing written to flash)
 
   Background:
-    Given the menu is open on F6 tab 1
+    Given the menu is open on F5 tab 1
 
-  Scenario: the three buttons carry their letters
-    Then the button "Discard" has the letter D
-    And the button "Defaults" has the letter F
-    And the button "Save" has the letter S
+  Scenario: the settings page has no Save, Discard or Defaults bar
+    Then the page has no item "Save"
+    And the page has no item "Discard"
+    And the page has no item "Defaults"
+    And the top bar does not show "UNSAVED"
 
-  Scenario: another settings page has the same bar
+  Scenario: a live setting is applied at once and nothing is held
+    Then the setting "Drive enable" is "Enabled"
+    When I move to "Drive enable"
+    And I press RETURN
+    Then the setting "Drive enable" is "Disabled"
+    And the status line says "Drive enable"
+    And the top bar does not show "UNSAVED"
+
+  Scenario: a reset-time setting says that it takes effect at the next reset
     When I press 2
-    Then the tab is "Video"
-    And the button "Discard" has the letter D
-    And the button "Defaults" has the letter F
-    And the button "Save" has the letter S
-
-  Scenario: while Auto save config is Auto a change is written at once
-    When I set "Auto save config" to "Auto"
-    And I set "Overlay transparency" to "25 %"
-    And I step "Overlay transparency" up 1 times
-    Then the setting "Overlay transparency" is "50 %"
-    And the top bar does not show "UNSAVED"
-    And the button "Save" is greyed
-    And the button "Discard" is greyed
-
-  Scenario: with Auto save config Off a change is held and Discard takes it back
-    When I set "Auto save config" to "Auto"
-    And I set "Overlay transparency" to "25 %"
-    And I set "Auto save config" to "Off"
-    And I step "Overlay transparency" up 1 times
-    Then the setting "Overlay transparency" is "50 %"
-    And the top bar shows "UNSAVED"
-    And the button "Discard" is enabled
-    And the button "Save" is enabled
-    When I press D
-    Then the setting "Overlay transparency" is "25 %"
-
-  Scenario: after Discard nothing is unsaved any more
-    When I set "Auto save config" to "Auto"
-    And I set "Overlay transparency" to "25 %"
-    And I set "Auto save config" to "Off"
-    And I step "Overlay transparency" up 1 times
-    And I press D
-    Then the top bar does not show "UNSAVED"
-    And the button "Discard" is greyed
-    And the button "Save" is greyed
-
-  Scenario: Save writes the held change
-    When I set "Auto save config" to "Auto"
-    And I set "Overlay transparency" to "25 %"
-    And I set "Auto save config" to "Off"
-    And I step "Overlay transparency" up 1 times
-    Then the top bar shows "UNSAVED"
-    When I press S
-    Then the status line says "Settings written"
-    And the top bar does not show "UNSAVED"
-    And the setting "Overlay transparency" is "50 %"
-    And the button "Save" is greyed
-
-  Scenario: Save with nothing to save only says why
-    When I press S
-    Then the status line says "Nothing to save"
-    And the setting "Auto save config" is "Off"
+    And I set "Freeze mode" to "CPU only"
+    Then the setting "Freeze mode" is "CPU only"
+    And the status line says "takes effect at the next reset"
     And the top bar does not show "UNSAVED"
 
-  Scenario: Defaults asks first and the left arrow cancels
-    When I set "Overlay transparency" to "75 %"
-    And I press F
-    Then a question is open: "Set every setting of this core to its default?"
-    When I press left-arrow
-    Then no dialog is open
-    And the status line is "Cancelled"
-    And the setting "Overlay transparency" is "75 %"
+  Scenario: a toggle on the settings page changes with RETURN
+    When I press F7
+    And I move to "Persist medium mounts"
+    And I press RETURN
+    Then the setting "Persist medium mounts" is "Yes"
+    And the status line is "Persist medium mounts: Yes"
+    When I press RETURN
+    Then the setting "Persist medium mounts" is "No"
 
-  Scenario: Defaults confirmed puts the defaults back
-    When I set "Overlay transparency" to "75 %"
-    And I press F
+  Scenario: Reset to host defaults puts the defaults back and does not ask
+    When I move to "Drive enable"
+    And I press RETURN
+    And I press F8
+    And I move to "Reset to host defaults"
     And I press RETURN
     Then no dialog is open
-    And the setting "Overlay transparency" is "25 %"
-    And the setting "Auto save config" is "Auto"
+    And the status line says "Settings are the host's again"
+    When I press F5
+    Then the setting "Drive enable" is "Enabled"

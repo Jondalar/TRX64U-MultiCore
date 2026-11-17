@@ -555,18 +555,20 @@ int main(int argc, char **argv)
             { "F5", "extras", "Again", TW_NODES, 0, 0 },                      // the id is taken
             { "F5", "fifth", "Fifth", TW_NODES, 0, 0 },
             { "F5", "sixth", "Sixth", TW_NODES, 0, 0 },
-            { "F5", "seventh", "Seventh", TW_NODES, 0, 0 },                    // the strip has room for six
+            { "F5", "seventh", "Seventh", TW_NODES, 0, 0 },
+            { "F5", "eighth", "Eighth", TW_NODES, 0, 0 },
+            { "F5", "ninth", "Ninth", TW_NODES, 0, 0 },                        // the strip has room for eight
             { "F5", "", "NoId", TW_NODES, 0, 0 },
         };
         static const LibNodeDecl nodes[] = {
             { "F5/extras", LN_OP, "In extras", "zl.beep", 0, 1 },
             { "F5/special", LN_OP, "In special", "zl.beep", 0, 1 },
-            { "F5/seventh", LN_OP, "In the seventh", "zl.beep", 0, 1 },
+            { "F5/ninth", LN_OP, "In the ninth", "zl.beep", 0, 1 },
         };
         static const LibSettingDecl sets[] = { { "special", "Volume", beeper_values, 2, 0, 0, 0, "zl.set_beeper" }, { 0, "Plain", beeper_values, 2, 0, 0, 0, "zl.set_beeper" } };
         LibRecord rec;
         memset(&rec, 0, sizeof(rec));
-        rec.tabs = tabs; rec.ntabs = 9;
+        rec.tabs = tabs; rec.ntabs = 11;
         rec.nodes = nodes; rec.nnodes = 3;
         rec.settings = sets; rec.nsettings = 2;
         Contributor cs[] = { { "tabber", CR_LIB, &rec } };
@@ -585,10 +587,10 @@ int main(int argc, char **argv)
         CHECK(r.has_err("area F9, which the route does not have"));
         CHECK(r.has_err("has a tab \"extras\" already"));
         CHECK(r.has_err("a tab numbered 2 already"));
-        CHECK(r.has_err("\"seventh\" does not fit"));
+        CHECK(r.has_err("\"ninth\" does not fit"));
         CHECK(r.has_err("a tab needs an area, an id, a name and a widget"));
-        CHECK(r.has_err("anchors F5/seventh, which the route does not have"));         // its node is refused with it
-        CHECK(r.has_err("area F5 has 6 tabs") || r.has_err("tabs; tab \"seventh\""));
+        CHECK(r.has_err("anchors F5/ninth, which the route does not have"));         // its node is refused with it
+        CHECK(r.has_err("area F5 has 8 tabs") || r.has_err("tabs; tab \"ninth\""));
         // the number key reaches a contributed tab
         r.m->open();
         r.m->key(KEY_F5);

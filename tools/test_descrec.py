@@ -230,8 +230,8 @@ class OwnMenu(unittest.TestCase):
     def test_the_menu_of_trx64u_compiles_and_reads_back(self):
         r = D.parse_desc(D.compile_text(menu_text()))
         self.assertTrue(r["own"] and r["route"])
-        self.assertEqual((len(r["task"]), len(r["media"]), len(r["ftype"]), len(r["cset"])), (4, 2, 15, 160))
-        self.assertEqual([a["key"] for a in r["area"]], ["F1", "F2", "F3", "F4", "F5", "F7", "F6", "F8"])
+        self.assertEqual((len(r["task"]), len(r["media"]), len(r["ftype"]), len(r["cset"])), (15, 3, 16, 155))
+        self.assertEqual([a["key"] for a in r["area"]], ["F1", "F2", "F3", "F4", "F5", "F7", "F8"])
         self.assertEqual((r["tab"][0]["id"], r["tab"][0]["lines"]), ("home", None))        # the Home desk is a nodes tab: it names no information lines
         d64 = next(f for f in r["ftype"] if f["ext"] == ".d64")
         self.assertEqual((d64["inner_ext"], [a["label"] for a in d64["inner"]]), (".prg", ["Mount & Run", "Real Run"]))

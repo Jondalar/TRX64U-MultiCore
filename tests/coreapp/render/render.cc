@@ -1310,7 +1310,7 @@ static void list_rules(const char *out)
 // record). (S4) F8 takes its first focus on a row that is neither a heading nor "Reset to host defaults", which is its last row. (P4b) after a value
 // changes in place, the value's middle is the label's middle.
 static const int FKEYS[8] = { KEY_F1, KEY_F2, KEY_F3, KEY_F4, KEY_F5, KEY_F6, KEY_F7, KEY_F8 };   // the key codes are not consecutive (keyboard.h)
-struct UxLoc { std::string label; int area; std::string group; };   // area: the number of its function key (F5 = 5)
+struct UxLoc { std::string label; int area; std::string group; std::string tab; };   // area: the number of its function key (F5 = 5)
 static int uxstor, uxdev, uxfails, uxcores, uxhot, uxcmp, uxskip, uxf8, uxvals;
 #define UXCHECK(c, ...) do { int f0_ = fails; CHECK(c); if (fails > f0_) { uxfails += fails - f0_; printf("  UX context: " __VA_ARGS__); printf("\n"); } } while (0)
 
@@ -1354,7 +1354,7 @@ static void ux_collect(const char *core, Rig &r, std::vector<UxLoc> *out, int *n
                     r.m->item(i, &it);
                     if (it.kind == MenuCtl::IK_HEADING) { g = it.title; continue; }
                     if (it.kind == MenuCtl::IK_VALUE || it.kind == MenuCtl::IK_INFO || !it.title[0]) { continue; }
-                    out->push_back({ it.title, ak + 1, g });
+                    out->push_back({ it.title, ak + 1, g, tn });
                     if (getenv("UXD_OFF")) { printf("  dbgc %s F%d \"%s\" / \"%s\" : %s\n", core, ak + 1, tn.c_str(), g.c_str(), it.title); }
                 }
                 continue;
@@ -1364,7 +1364,7 @@ static void ux_collect(const char *core, Rig &r, std::vector<UxLoc> *out, int *n
                 std::string l, v; bool act;
                 ux_rowtext(r, i, &l, &v, &act);
                 if (r.m->heading(i)) { group = l; continue; }
-                out->push_back({ l, ak + 1, group });
+                out->push_back({ l, ak + 1, group, tname });
                 if (hk_page_label(l) && tname == "Input") { (*hotkey_items_in_tab)++; (void)nhot_rows; }
                 if (v.size() >= 1 && v.back() == '>' && l == "Picture") {          // T187 D5: the Picture row opens the page of the modes (a pick stage, the tab stays); it is not a sub-page of the Hotkeys kind
                     r.m->open(); ui_menu_forget_rows();
@@ -1407,7 +1407,7 @@ static void ux_collect(const char *core, Rig &r, std::vector<UxLoc> *out, int *n
                         ux_rowtext(r, j, &pl, &pv, &pa);
                         if (r.m->heading(j)) { continue; }
                         cnt++;
-                        out->push_back({ pl, ak + 1, tname + " > " + pname });
+                        out->push_back({ pl, ak + 1, tname + " > " + pname, tname });
                     }
                     *page_rows = cnt;
                     r.m->key(KEY_ESCAPE);
@@ -1427,7 +1427,7 @@ static void ux_rules(void)
     PictureEnv env0 = { EDID_ROW_MASK, 0, true, VID_SYS_PAL50 };
     std::vector<UxLoc> ref;
     {
-        CoreDesc *rd = (CoreDesc *)trx64u::desc();                      // the C64's menu is its record (as the board loads it): no chain over it
+        CoreDesc *rd = (CoreDesc *)trx64u::desc();                      // the C64's menu is its record, laid over the application's own items as the board builds it (trx64u_menu.h): no chain over it
         Rig rr(rd, "/flash/trx64u/ux_ref.cfg", trx64u::merge());
         rr.c.started = true; rr.c.program_loaded = true;
         ui_open(&c64_desc);
@@ -1474,8 +1474,7 @@ static void ux_rules(void)
             UXCHECK(a != 0, "%s: the generic row \"%s\" is on no page", src->cor_name, lab.c_str());
             if (!a) { continue; }
             if (lab == "Persist medium mounts" || lab == "Enter home on startup" || lab == "Home directory" || lab == "Menu opens at") {
-                // T212 D1/D6: the storage and menu rows are the app's: F7 (APP), under the headings Storage / Menu, never the machine's F5. The C64's record is the firmware's
-                // (docs/contracts/trx64u-firmware-handover.md): it keeps them in Drive A (F5) and Expert (F8), so the C64 is not the yardstick for these four.
+                // T212 D1/D6: the storage and menu rows are the app's: F7 (APP), under the headings Storage / Menu, never the machine's F5; the C64's record has them there too (T228 D10).
                 uxstor++;
                 const MenuGroupRoute *sr = menu_route_of(d->settings[i]);
                 const UxLoc *sa = 0;
@@ -1485,17 +1484,16 @@ static void ux_rules(void)
                 for (const UxLoc &u : loc) { UXCHECK(!(u.label == lab && u.area == 5), "%s: \"%s\" is still in F5 group \"%s\"", src->cor_name, lab.c_str(), u.group.c_str()); }
                 continue;
             }
-            // the C64 has no row of these labels (its record is the firmware's, with its own Settings area F6 and Video/Audio/Input pages): the C64 fixes the tab, named for the
-            // route; since T205 D1 every other core lists the route's rows in F5 (the route's area), under the same tab name; the page's rows are in "<tab> > <page>"
+            // the route names the area and the tab of the row; every core lists the route's rows in F5 (the route's area), under the same tab name, the C64's record
+            // included (T228: its Video and Audio tabs are in F5 like the other cores'); the page's rows are in "<tab> > <page>"
             const MenuGroupRoute *rt = menu_route_of(d->settings[i]);
             int fk = atoi(rt->area + 1);
-            int fref = atoi((rt->alt_area ? rt->alt_area : rt->area) + 1);
             // T212 D12: a page of the app's area F7 is reached from the section "Settings" (the strip is hidden, the title stays): "Settings > <page>"
             std::string want = rt->page ? std::string("Settings > ") + rt->label : std::string(rt->heading);
             bool in_ref = false;
-            for (const UxLoc &u : ref) { if (u.area == fref && u.group == rt->heading) { in_ref = true; break; } }
-            // the machine's groups (F5: Video, Audio) have the C64's tab as their yardstick; the app's F7 is the generic app's own area, the C64's F7 is its Actions
-            if (fk == 5) { UXCHECK(in_ref, "the C64 has no F%d tab \"%s\"", fref, rt->heading); }
+            for (const UxLoc &u : ref) { if (u.area == fk && u.tab == rt->heading) { in_ref = true; break; } }
+            // the machine's groups (F5: Video, Audio) have the C64's tab as their yardstick (a tab of that title); the app's F7 is the generic app's own area
+            if (fk == 5) { UXCHECK(in_ref, "the C64 has no F%d tab \"%s\"", fk, rt->heading); }
             for (const UxLoc &u : loc) { if (u.label == lab && u.area == fk) { a = &u; break; } }   // a label that also stands on Home (Reset) is looked up in the route's own area
             uxcmp++;
             UXCHECK(a->area == fk && a->group == want, "%s: \"%s\" is in F%d group \"%s\", the place is F%d \"%s\"", src->cor_name, lab.c_str(), a->area, a->group.c_str(), fk, want.c_str());
@@ -1549,7 +1547,7 @@ static void ux_rules(void)
 // ---- T187 UX gate 1 (R2, R3, R5, R6): the chrome and the lists at every canvas ---------------------------------------------------------------
 // Every core, at 1080p, 720p and 480p: in each tab and page the legend fits the canvas (R2) and says BACK as every list does (R5); each rail item's label ends before its
 // key (R2); no heading is printed twice in a list (R3); no row of the Hotkeys page carries the page's name as a prefix (R6).
-static int ucn_f8, ucn_leg, ucn_rail, ucn_lists, ucn_pages, ucn_hk, ucn_cores, ucn_pcnames;
+static int ucn_strip, ucn_f8, ucn_leg, ucn_rail, ucn_lists, ucn_pages, ucn_hk, ucn_cores, ucn_pcnames;
 static bool g_pc_core;                                             // the core under test names the keys of the USB keyboard (HkSpec::pc_keys)
 static void ux_chrome_check(const char *core, const char *cv, Rig &r, const char *where, bool page)
 {
@@ -1562,6 +1560,13 @@ static void ux_chrome_check(const char *core, const char *cv, Rig &r, const char
         bool list = strstr(txt, "F1-F8 AREA") || strstr(txt, "CHOOSE");
         if (list) {
             UXCHECK(strstr(txt, "BACK") && !strstr(txt, "BACK TO") && (!page || strstr(txt, "ESC  BACK")), "%s %s %s: the way back is not worded \"BACK\": \"%s\"", core, cv, where, txt);
+        }
+    }
+    {
+        int right, room;                                            // T228 M2: every tab of the strip is inside its canvas (7 tabs on F5 of the C64 at 640 and 720 wide)
+        if (trx_strip_probe(&right, &room)) {
+            ucn_strip++;
+            UXCHECK(right <= room, "%s %s %s: the tab strip ends at x %d, the canvas holds %d", core, cv, where, right, room);
         }
     }
     for (int i = 0; i < 8; i++) {
@@ -1684,8 +1689,8 @@ static void ux_chrome(void)
         }
     }
     ui_set_canvas(960, 540);
-    printf("UX chrome: %d cores x 3 canvases, %d legends, %d rail items, %d lists, %d pages, %d page rows, %d key names of non-C64 cores, %d failed\n", ucn_cores / 3, ucn_leg, ucn_rail, ucn_lists, ucn_pages, ucn_hk, ucn_pcnames, uxfails);
-    CHECK(ucn_cores >= 3 * 18 && ucn_leg > 500 && ucn_rail > 1000 && ucn_pages >= 3 * 3 && ucn_hk > 30 && ucn_pcnames > 30);
+    printf("UX chrome: %d cores x 3 canvases, %d tab strips, %d legends, %d rail items, %d lists, %d pages, %d page rows, %d key names of non-C64 cores, %d failed\n", ucn_cores / 3, ucn_strip, ucn_leg, ucn_rail, ucn_lists, ucn_pages, ucn_hk, ucn_pcnames, uxfails);
+    CHECK(ucn_cores >= 3 * 18 && ucn_leg > 500 && ucn_rail > 1000 && ucn_pages >= 3 * 3 && ucn_strip > 300 && ucn_hk > 30 && ucn_pcnames > 30);
 }
 
 // ---- T187 UX gate 1 (R6): the WiFi row of F8 in the states the person can be in --------------------------------------------------------------
@@ -1900,7 +1905,7 @@ static void ux_shots(const char *out)
                                        { "F5-input", KEY_F5, "Input", 0 }, { "F8-system", KEY_F8, 0, 0 } }, 6 },
         { &atari800_desc, false, "atari", { { "F5-core-top", KEY_F5, 0, 0 } }, 1 },
         { &apple2_desc, false, "apple2", { { "F8-system", KEY_F8, 0, 0 } }, 1 },
-        { 0, true, "c64", { { "F5-drive-a", KEY_F5, "Drive A", 0 } }, 1 },
+        { 0, true, "c64", { { "F5-machine", KEY_F5, "Machine", 0 } }, 1 },       // T228: the Drive A settings are a section of the Machine tab
     };
     for (const auto &cv : cvs) {
         TrxCanvas want = trx_canvas_for(cv.fw, cv.fh);

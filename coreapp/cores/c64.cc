@@ -644,5 +644,5 @@ const CoreDesc c64_desc = {
     0, 0, false,                               // pad, live_ms, menu_first
     cbm1541_media_flush, cbm1541_media_pending,   // T180 D4: the drive's write-back
     &mount_slots,                              // T180 D2, D5: Drive A and Cartridge
-    &hk_c64,                               // T181: the default hotkey map (hk_defaults.h)
+    &hk_c64, 0, true,                      // T181: the default hotkey map (hk_defaults.h); alt_video, no_tone (the TRX64-Ultimate bitstream has no host/trx_tone.v)
 };

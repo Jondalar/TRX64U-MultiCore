@@ -169,7 +169,7 @@ E2
 done
 if grep -q '^\.;100b' "$W/low0.log" && grep -q '^>R:2000  42' "$W/low0.log"; then echo "PASS low.prg: PC=\$100B, \$2000=\$42"; else echo "FAIL low.prg: not at \$100B"; grep -E '^\.;|^>R' "$W/low0.log"; FAIL=1; fi
 
-# S10 reset: Actions (F7, Quick tab) > Reset asks "Reset the machine?" (RETURN confirms) and brings READY back while a program runs
+# S10 reset: Home (F1), its first row Reset asks "Reset the machine?" (RETURN confirms) and brings READY back while a program runs
 for want in 0 1; do
   txt='READY.'; [ $want = 1 ] && txt='T9999 NO'
   emu "reset$want" $want <<E2
@@ -182,7 +182,7 @@ key runstop
 wait 3000
 rocker up
 wait 1000
-key f7
+key f1
 wait 500
 key return
 wait 800
@@ -197,9 +197,9 @@ done
 emu set0 0 <<E2
 $BOOT
 $OPEN
-key f6
+key f5
 wait 500
-key 1
+key 2
 wait 800
 key return
 wait 800
@@ -213,7 +213,7 @@ expect-console "settings C64 Settings: /flash/trx64u/c64.cfg" 60000
 quit
 E2
 
-# T104.2 D10: the drive settings are on F5 tab 1 (Drive A), the first row is "Drive": one RETURN switches it off and the file says so; the control expects the default
+# T104.2 D10 / T228: the drive settings are in F5 tab 1 (Machine), section Drive A; the row "Drive enable" is the fifth selectable row (headings are skipped): one RETURN switches it off and the file says so; the control expects the default
 emu drivemenu0 0 <<E2
 $BOOT
 $OPEN
@@ -221,11 +221,15 @@ key f5
 wait 500
 key 1
 wait 800
+key down
+key down
+key down
+key down
 key return
 wait 800
 quit
 E2
-if grep -aq '^Drive=Disabled' "$W/flash.bin"; then echo "PASS drive settings: Drive=Disabled after RETURN on F5 tab 1"; else echo "FAIL drive settings: no Drive=Disabled in the file"; FAIL=1; fi
+if grep -aq '^Drive=Disabled' "$W/flash.bin"; then echo "PASS drive settings: Drive=Disabled after RETURN on "Drive enable" (F5 tab 1)"; else echo "FAIL drive settings: no Drive=Disabled in the file"; FAIL=1; fi
 if grep -aq '^Drive=Enabled' "$W/flash.bin"; then echo "FAIL control drive settings: the default is in the file"; FAIL=1; else echo "  control drive settings: the default is not in the file, as it must"; fi
 
 # D9.1 cbm1541: the 1541 ROM is chosen from the stick (a stick is not up at the ROM scan, see spec 5), a .d64 is mounted, the drive answers

@@ -10,6 +10,7 @@
 #include "test_core.h"
 #include "cores.h"
 #include "desc_check.h"
+#include "picture.h"
 #include "menutree.h"
 #include "home.h"
 #include "keyboard.h"
@@ -115,27 +116,18 @@ static void every_item_once(const CoreDesc *d0)
         }
     }
     CHECK_EQ(in_tabs, t.n);                            // no entry is left out of every tab
-    if (d0 == &c64_desc) {
-        // The TRX64U's tree is its record (menu.toml): every entry is a node, the tasks, media, settings and fixed lines of the classic model do not exist as such.
-        // What the record names is checked where it is compiled (test_descrec, tools/descrec.py, gen_menu_rec.py --check) and the whole tree is the golden menu_c64.txt.
-        CHECK_EQ(seen_task, d->ntasks);                // the four disk tasks stay tables of the record
-        CHECK_EQ(seen_media, d->nmedia);               // the media lines are nodes, except the record's two media rows of the Media sets tab (T180 D5)
-        CHECK_EQ(seen_mset, 2);                        // ... which has the two config rows, no other tab does
-        CHECK(seen_set > 100 && seen_set <= d->nsettings);   // the record's settings, less those the route hides
-        CHECK(seen_browser >= 1);                      // the Library's Browse tab
-        CHECK_EQ(seen_info, 0);
-        CHECK_EQ(seen_fixed, 0);
-        CHECK(t.n > 100);
-        return;
-    }
     int claimed = 0;                                   // T212 D5: a task that a drive's list reaches is not a row of any tab
     for (int i = 0; i < d->ntasks; i++) {
         claimed += menu_task_claimed(d, i) ? 1 : 0;
     }
     CHECK_EQ(seen_task + claimed, d->ntasks);
     CHECK_EQ(seen_media, d->nmedia);
-    CHECK_EQ(seen_set, d->nsettings);
-    CHECK_EQ(seen_browser, 1);
+    int hidden = 0;                                    // T228 D14: a setting of group "hidden" keeps its key and its store value and has no row
+    for (int i = 0; i < d->nsettings; i++) {
+        hidden += d->settings[i].group && !strcmp(d->settings[i].group, "hidden") ? 1 : 0;
+    }
+    CHECK_EQ(seen_set + hidden, d->nsettings);
+    CHECK(seen_browser >= 1);
     CHECK_EQ(seen_fixed, 5);                           // Reset to host defaults, Restart core, Bug report, WiFi, Return to host menu
     CHECK_EQ(seen_mset, mounts_have_slots(d) ? 2 : 0);   // T180 D5: the media tab of a core with media slots has the two config rows, no other tab does
     CHECK_EQ(seen_info, 3);                            // T212 D7: Build, ROMs, Libraries stand in F8 (Core, Network and Media are dropped)
@@ -151,7 +143,7 @@ static const MountSlots ms_ok = { 2, ms_names, ms_spec, ms_mount, ms_eject };
 int main()
 {
     for (const CoreDesc *const *p = core_table; *p; p++) {
-        const char *why = desc_check(menu_desc(*p));            // for the C64 the merged descriptor: its record's names and bindings against the registry
+        const char *why = desc_check(*p == &c64_desc ? trx64u::checked() : *p);            // for the C64 its record's names and bindings against the registry (the application's own items are not the core's to declare)
         if (why) printf("%s: %s\n", (*p)->cor_name, why);
         CHECK(!why);
         CHECK(!desc_check(*p));
@@ -168,7 +160,7 @@ int main()
             { "Atari 800 XL", "RAM size,Video standard" }, { "Amstrad CPC 464 / 664 / 6128", "Model" }, { "ZX Spectrum 48K / 128K", "Model" },
             { "Nintendo Entertainment System", "Console type" }, { "SNK Neo Geo", "System type,BIOS" },
         };
-        static const char *const none[] = { "Apple IIe", "ZX Spectrum Next", "Super Nintendo", "TRX64U" };
+        static const char *const none[] = { "Apple IIe", "ZX Spectrum Next", "Super Nintendo" };
         int found = 0, nones = 0;
         for (const CoreDesc *const *p = core_table; *p; p++) {
             const CoreDesc *d = *p;
@@ -192,7 +184,21 @@ int main()
             for (const char *nn : none) if (!strcmp(d->cor_name, nn)) { nones++; CHECK(!d->machine_info); }
         }
         CHECK_EQ(found, (int)(sizeof(want) / sizeof(want[0])));
-        CHECK_EQ(nones, 4);
+        CHECK_EQ(nones, 3);
+        // the C64's record (not the raw c64_desc): its machine_info names settings the record has, one each (T228)
+        const CoreDesc *td = trx64u::desc();
+        CHECK(td->machine_info && !strcmp(td->machine_info, "System Mode,REU Size"));
+        for (const char *q = td->machine_info; td->machine_info && *q;) {
+            const char *e = strchr(q, ',');
+            int l = e ? (int)(e - q) : (int)strlen(q), hit = 0;
+            for (int i = 0; i < td->nsettings; i++) {
+                const char *nm = td->settings[i].label ? td->settings[i].label : td->settings[i].key;
+                hit += !td->settings[i].kind && (int)strlen(nm) == l && !strncasecmp(nm, q, l);
+            }
+            CHECK_EQ(hit, 1);
+            if (!e) break;
+            q = e + 1;
+        }
     }
 
     // T206 S1, S2: wherever a disk image is mounted the same "Run Disk" is offered beside "Mount Disk", with the same names in the same order in every core.
@@ -257,7 +263,7 @@ int main()
             const MenuEntry &e = t.e[i];
             if (e.kind == EK_WIFI || (e.kind == EK_NODE && !strcmp(e.label, "WiFi"))) {
                 rows++;
-                CHECK(e.kind == EK_WIFI ? *p != &c64_desc : (t.nodes[e.index].op && !strcmp(t.nodes[e.index].op, "wifi.toggle")));
+                CHECK(e.kind == EK_WIFI || (t.nodes[e.index].op && !strcmp(t.nodes[e.index].op, "wifi.toggle")));
             }
             if (e.kind == EK_NODE && t.nodes[e.index].op && !strncmp(t.nodes[e.index].op, "wifi.", 5)) {
                 CHECK(!strcmp(t.nodes[e.index].op, "wifi.toggle"));
@@ -604,6 +610,21 @@ int main()
         CHECK(prg && !strcmp(prg->actions[0].label, "Run PRG") && !prg->actions[0].ask);
         CHECK(prg && !strcmp(prg->actions[1].label, "Load PRG and start from") && prg->actions[1].ask);
         CHECK(prg && !strcmp(prg->actions[2].label, "DMA (load, do not run)") && !prg->actions[2].ask);
+    }
+
+    // T228 H1: the application's Picture row is the one the picture code finds, not a setting of the record that runs the same operation; the keys are unique
+    {
+        const CoreDesc *td = trx64u::desc();
+        int pi = picture_index(td);
+        CHECK(pi >= 0 && !strcasecmp(td->settings[pi].key, PICTURE_KEY));
+        int si = scale_index(td), mi = smooth_index(td);
+        CHECK(si < 0 || !strcasecmp(td->settings[si].key, SCALE_KEY));
+        CHECK(mi < 0 || !strcasecmp(td->settings[mi].key, SMOOTH_KEY));
+        int dup = 0;
+        for (int i = 0; i < td->nsettings; i++)
+            for (int j = i + 1; j < td->nsettings; j++)
+                if (!strcasecmp(td->settings[i].key, td->settings[j].key)) { dup++; printf("duplicate setting key %s\n", td->settings[i].key); }
+        CHECK_EQ(dup, 0);
     }
 
     // T104 5.2: the records the Amiga needed are checked like every other part of the descriptor, and a refusal names the field

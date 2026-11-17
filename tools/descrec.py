@@ -18,7 +18,8 @@ Source (TOML; every key is checked, an unknown one is an error - a typo must not
       n = 3                        # the printed number; 0 or absent: the next free one
 
       layout = "settings"          # optional: how the tab is drawn (a screen of the UX concept): home | split | settings | status | library; the flat list when absent
-      ui = { title = "TRX64 behavior" }      # optional: the layout's parameters (title, crumb)
+      ui = { title = "TRX64 behavior" }      # optional: the layout's parameters (title, crumb); `ui = { sections = true }` alone (no layout) keeps the tab a list and
+                                     # draws each of its groups under a heading made from the group's id (T228; not drawn when it repeats the tab's title)
 
     [[node]]                       # a button, a state line or a heading the core itself puts into a tab
     anchor = "F5/drives/drive_a"   # area/tab or area/tab/group
@@ -60,7 +61,8 @@ Source (TOML; every key is checked, an unknown one is an error - a typo must not
     n = 0                          # 0: the next free number
 
     # T104.2 D10: the tables of the core's OWN menu (what C++ descriptors carry as Task / FileType / MediaSlot / Setting tables). A record that has
-    # any of them takes the core's menu from the record alone; the entries a library contributes are merged after them.
+    # any of them takes the core's tasks, media slots, file types and settings from the record; the application's own settings (Picture, Persist, Home,
+    # hotkeys) follow the record's, and the entries a library contributes are merged after them.
     [[task]]                       # a button of a tasks tab; `group` names the tab (the tab's groups list) it belongs on, none: the tabs that list no group
     group = "machine"
     label = "Reset"
@@ -78,6 +80,11 @@ Source (TOML; every key is checked, an unknown one is an error - a typo must not
     state = "drive.drive_a.image"
     eject_op = "drive.eject"
     eject_bind = [ { arg = "slot", str = "iec:drive_a" } ]
+    exts = ".d64,.g64"             # the drive list (T212 D5/D11): what Mount from Library offers; mount = a file action's label, empty_tasks / mounted_tasks = task labels
+    mount = "Mount Disk"           # (comma separated) listed while the slot is empty / mounted; each must name an existing file action or task (the pack fails otherwise)
+    empty_tasks = "Insert blank D64"
+    mounted_tasks = "Save disk"
+    eject_closes = true            # optional: the Eject row closes the menu
 
     [[filetype]]                   # what the browser offers for files of an extension (and, for a disk image, for the files inside it)
     ext = ".d64"
@@ -117,7 +124,7 @@ import re
 import struct
 
 MAGIC = 0x44585254          # "TRXD"
-VERSION = 3                 # 2 is read too: version 3 gives the two reserved words of 2 a use (a tab's layout, a node's attributes)
+VERSION = 4                 # 4 (T228) widens a media slot by the drive list's fields and gives the header's last word the machine-info line; 3 gave the two reserved words of 2 a use (a tab's layout, a node's attributes); 2 and 3 are read too
 VERSION_MIN = 2
 HEADER = 176
 NONE = 0xFFFFFFFF
@@ -125,7 +132,8 @@ MAX_SIZE = 0x20000
 LIMITS = dict(area=8, tab=32, node=320, action=24, setting=16, hide=16, rename=16, bind=700, ext=48, size=16, value=3200, ctab=16,
               task=64, media=4, ftype=32, fact=200, cset=330)
 ESIZE = dict(area=20, tab=24, node=52, action=40, setting=32, hide=4, rename=8, bind=16, ext=4, size=4, value=4, ctab=24,
-             task=36, media=24, ftype=24, fact=36, cset=36)
+             task=36, media=44, ftype=24, fact=36, cset=36)
+ESIZE_V3_MEDIA = 24
 ORDER = ("area", "tab", "node", "action", "setting", "hide", "rename", "bind", "ext", "size", "value", "ctab", "task", "media", "ftype", "fact", "cset")
 OWN = ("task", "media", "ftype", "fact", "cset")          # the tables of the core's own menu (flag bit 1)
 INFO_LINES = ("Core", "Application", "Network", "Media", "ROMs", "Libraries")   # menutree.cc menu_info_labels, the application's fixed lines
@@ -133,7 +141,7 @@ WHEN = {"live": 0, "reset": 1}
 WIDGETS = ("info", "browser", "media", "settings", "tasks", "system", "nodes")
 NODE_KINDS = {"op": 0, "setting": 1, "state": 2, "widget": 3, "group": 4}
 BIND_KINDS = {"file": 0, "int": 1, "str": 2, "ask": 3, "text": 4}
-TABS_PER_AREA = 8                  # = MENU_TABS_MAX; the tab strip of the view has room for six of them (an application's hidden screens are tabs that are not on it)
+TABS_PER_AREA = 8                  # = MENU_TABS_MAX; the tab strip of the view has room for eight of them (TRX_TABS_MAX) (an application's hidden screens are tabs that are not on it)
 
 
 class DescError(Exception):
@@ -374,7 +382,7 @@ class _Strings:
 UI_NODE_KEYS = {"primary": bool, "link": bool, "goto": str, "sub": str, "chip": str, "tone": str, "off": str, "why": str, "confirm": str, "label": str, "hide": str, "ask": str, "ask_state": str, "job": bool, "pick": str, "rename": bool, "view": str, "key": str, "none": str, "nokey": bool, "empty": str, "bkey": str, "legend": str}
 UI_TONES = ("muted", "cyan", "violet", "amber", "coral")
 LAYOUTS = ("home", "desk", "split", "settings", "status", "library", "timeline", "terminal", "app", "grid")
-UI_TAB_KEYS = {"title": str, "crumb": str, "side": str, "chip": str, "sheet": str, "sheetx": str, "nodes_first": bool, "left": str, "label": str, "frame": str, "bar": str, "hint": str, "marks": str, "pos": str, "info": str, "glyph": str, "track": str,
+UI_TAB_KEYS = {"title": str, "crumb": str, "side": str, "chip": str, "sheet": str, "sheetx": str, "nodes_first": bool, "sections": bool, "left": str, "label": str, "frame": str, "bar": str, "hint": str, "marks": str, "pos": str, "info": str, "glyph": str, "track": str,
                # an application's own screens (T104.3 D0, layouts app and grid): which tab is shown, where a key goes, and what the screen draws of the application's state
                "hidden": bool, "lines": str, "under": str, "back": str, "follow": str, "lock": str, "keys": str, "enter": str, "rows": str, "input": str, "grid": str, "note": str,
                "status": str, "pct": str, "pct_label": str, "pct_note": str,
@@ -475,7 +483,7 @@ def _expand_apps(doc):
 def compile_desc(doc, merged=()):
     """doc: the parsed TOML (a dict). Returns the record's bytes. `merged`: the names of the libraries whose menus were merged into it (merge_lib_menus)."""
     _expand_apps(doc)
-    _only(doc, {"area", "node", "file_action", "setting", "hide", "rename", "tab", "poll", "task", "media", "filetype", "core_setting", "lists"}, "description")
+    _only(doc, {"area", "node", "file_action", "setting", "hide", "rename", "tab", "poll", "task", "media", "filetype", "core_setting", "lists", "machine_info"}, "description")
     st = _Strings()
     t = {k: [] for k in ORDER}
 
@@ -532,14 +540,14 @@ def compile_desc(doc, merged=()):
             seen_n.add(n)
             groups = _tab_groups(tb, tid, widget)
             layout = _opt(tb, "layout", str, "tab " + tid, None)
-            if layout is None and "ui" in tb:
-                raise DescError("tab %s: ui without a layout" % tid)
+            if layout is None and "ui" in tb and set(tb["ui"]) != {"sections"}:
+                raise DescError("tab %s: ui without a layout (only `sections` stands alone)" % tid)
             if layout is not None and layout not in LAYOUTS:
                 raise DescError("tab %s: layout %r (one of %s)" % (tid, layout, ", ".join(LAYOUTS)))
             lay = None
-            if layout is not None:
+            if layout is not None or "ui" in tb:                         # no layout: the name is empty, the tab stays a list (T228 `sections`)
                 params = _ui_string(tb.get("ui"), UI_TAB_KEYS, "tab " + tid)
-                lay = layout + (";" + params if params else "")
+                lay = (layout or "") + (";" + params if params else "")
             t["tab"].append((st.add(tid), st.add(_opt(tb, "name", str, "tab " + tid, "")), n, WIDGETS.index(widget),
                              st.add(",".join(groups)) if groups else NONE, st.add(lay) if lay else 0))
         t["area"].append((st.add(key), st.add(_opt(a, "name", str, "area " + key, None)), 1 if _opt(a, "shifted", bool, "area", False) else 0,
@@ -681,19 +689,23 @@ def compile_desc(doc, merged=()):
                           st.add(text_key(tk, "pick_label", what)), st.add(group_name(tk, what))))
 
     for m in _opt(doc, "media", list, "description", []):
-        _only(m, {"group", "name", "state", "eject_op", "eject_bind"}, "media")
+        _only(m, {"group", "name", "state", "eject_op", "eject_bind", "exts", "mount", "empty_tasks", "mounted_tasks", "eject_closes"}, "media")
         name = _need(m, "name", str, "media")
         what = "media " + name
         if "eject_op" not in m and "eject_bind" in m:
             raise DescError("%s: eject_bind without eject_op" % what)
         fb, nb = bind_list(_opt(m, "eject_bind", list, what, []), what)
-        t["media"].append((st.add(name), st.add(_need(m, "state", str, what)), st.add(text_key(m, "eject_op", what)), fb, nb, st.add(group_name(m, what))))
+        t["media"].append((st.add(name), st.add(_need(m, "state", str, what)), st.add(text_key(m, "eject_op", what)), fb, nb, st.add(group_name(m, what)),
+                           st.add(text_key(m, "exts", what)), st.add(text_key(m, "mount", what)), st.add(text_key(m, "empty_tasks", what)),
+                           st.add(text_key(m, "mounted_tasks", what)), 1 if _opt(m, "eject_closes", bool, what, False) else 0))
 
     seen_ft = set()
     sheet_keys = {}
+    fact_labels = set()
     def file_actions(lst, what):
         first = len(t["fact"])
         for f in lst:
+            fact_labels.add(f.get("label"))
             _only(f, {"label", "op", "bind", "closes_menu", "ask", "ask_off", "size_in", "key"}, what)
             label = _need(f, "label", str, what)
             w2 = "%s action %s" % (what, label)
@@ -739,6 +751,17 @@ def compile_desc(doc, merged=()):
         fa, na = file_actions(acts, "filetype " + ext)
         fi, ni = file_actions(inner, "filetype " + ext + " inner")
         t["ftype"].append((st.add(ext), st.add(inner_ext), fa, na, fi, ni))
+
+    # a media slot's drive list names its entries by label: a typo would silently drop the row, so every name has to exist
+    task_labels = {tk.get("label") for tk in _opt(doc, "task", list, "description", [])}
+    for m in _opt(doc, "media", list, "description", []):
+        what = "media " + m["name"]
+        if m.get("mount") is not None and m["mount"] not in fact_labels:
+            raise DescError("%s: mount %r is not the label of a file action of any filetype" % (what, m["mount"]))
+        for k_ in ("empty_tasks", "mounted_tasks"):
+            for lab in (m.get(k_) or "").split(","):
+                if lab and lab not in task_labels:
+                    raise DescError("%s: %s names %r, which is not a task" % (what, k_, lab))
 
     seen_set = set()
     lists = _opt(doc, "lists", dict, "description", {})
@@ -811,6 +834,8 @@ def compile_desc(doc, merged=()):
         if not re.fullmatch(r"[a-z0-9_]{1,15}", m_):
             raise DescError("merged library name %r: 1 to 15 characters of a-z, 0-9 and _" % m_)
     merged_off = st.add(",".join(merged)) if merged else NONE
+    mi = _opt(doc, "machine_info", str, "description", None)
+    mi_off = st.add(mi) if mi else NONE
     for k in ORDER:
         if len(t[k]) > LIMITS[k]:
             raise DescError("%d %s entries; the board takes %d" % (len(t[k]), k, LIMITS[k]))
@@ -827,7 +852,7 @@ def compile_desc(doc, merged=()):
     out = bytearray(struct.pack("<IHHIIII", MAGIC, VERSION, HEADER, total, (1 if t["area"] else 0) | (2 if any(t[k] for k in OWN) else 0), str_off, len(st.buf)))
     for k in ORDER:
         out += struct.pack("<II", offs[k], len(t[k]))
-    out += struct.pack("<IIII", poll_op, poll_ms, merged_off, 0)
+    out += struct.pack("<IIII", poll_op, poll_ms, merged_off, mi_off)
     assert len(out) == HEADER, len(out)
     for k in ORDER:
         for e in t[k]:
@@ -851,8 +876,11 @@ def parse_desc(blob):
     magic, ver, hsz, total, flags, so, ss = struct.unpack_from("<IHHIIII", blob, 0)
     if magic != MAGIC:
         raise DescError("description record: magic")
-    if ver not in (VERSION, VERSION_MIN):
-        raise DescError("description record: version %d, this tool reads %d and %d" % (ver, VERSION_MIN, VERSION))
+    if not VERSION_MIN <= ver <= VERSION:
+        raise DescError("description record: version %d, this tool reads %d to %d" % (ver, VERSION_MIN, VERSION))
+    esz = dict(ESIZE)
+    if ver < 4:
+        esz["media"] = ESIZE_V3_MEDIA
     if hsz != HEADER or total != n or flags & ~3:
         raise DescError("description record: header or length does not match")
     if so < HEADER or so + ss > n or ss == 0:
@@ -862,9 +890,9 @@ def parse_desc(blob):
         off, cnt = struct.unpack_from("<II", blob, 24 + 8 * i)
         if cnt > LIMITS[k]:
             raise DescError("description record: %d %s entries" % (cnt, k))
-        if cnt and (off < HEADER or off + cnt * ESIZE[k] > n):
+        if cnt and (off < HEADER or off + cnt * esz[k] > n):
             raise DescError("description record: table of %s outside the record" % k)
-        tabs[k] = [struct.unpack_from("<%dI" % (ESIZE[k] // 4), blob, off + j * ESIZE[k]) for j in range(cnt)]
+        tabs[k] = [struct.unpack_from("<%dI" % (esz[k] // 4), blob, off + j * esz[k]) for j in range(cnt)]
 
     def s(o):
         if o == NONE:
@@ -881,7 +909,10 @@ def parse_desc(blob):
 
     out = {"route": bool(flags & 1), "own": bool(flags & 2)}
     pop, pms, merged, r2 = struct.unpack_from("<IIII", blob, 24 + 8 * len(ORDER))
-    if r2 or (pop == NONE) != (pms == 0) or pms > 60000 or (pop != NONE and not s(pop)) or (merged != NONE and not s(merged)):
+    if ver < 4 and r2:
+        raise DescError("description record: a bad poll or merged-libraries list")
+    out["machine_info"] = s(r2) if ver >= 4 and r2 != NONE else None
+    if (pop == NONE) != (pms == 0) or pms > 60000 or (pop != NONE and not s(pop)) or (merged != NONE and not s(merged)):
         raise DescError("description record: a bad poll or merged-libraries list")
     out["merged"] = s(merged).split(",") if merged != NONE else []
     out["poll"] = {"op": s(pop), "period_ms": pms} if pop != NONE else None
@@ -966,10 +997,13 @@ def parse_desc(blob):
         out["task"].append({"label": s(label), "op": s(op), "bind": out["bind"][fb:fb + nb], "closes_menu": bool(fl & 1), "pick_dir": bool(fl & 2),
                             "ask": s(ask), "ask_state": s(ask_state), "pick_label": s(pick_label), "group": s(group)})
     out["media"] = []
-    for name, state, eject, fb, nb, group in tabs["media"]:
-        if not s(name) or not s(state) or fb + nb > len(out["bind"]) or (eject == NONE and nb):
+    for me in tabs["media"]:
+        name, state, eject, fb, nb, group = me[:6]
+        ext_ = me[6:] if len(me) > 6 else (NONE, NONE, NONE, NONE, 0)
+        if not s(name) or not s(state) or fb + nb > len(out["bind"]) or (eject == NONE and nb) or ext_[4] & ~1:
             raise DescError("description record: a bad media slot")
-        out["media"].append({"name": s(name), "state": s(state), "eject_op": s(eject), "eject_bind": out["bind"][fb:fb + nb], "group": s(group)})
+        out["media"].append({"name": s(name), "state": s(state), "eject_op": s(eject), "eject_bind": out["bind"][fb:fb + nb], "group": s(group),
+                             "exts": s(ext_[0]), "mount": s(ext_[1]), "empty_tasks": s(ext_[2]), "mounted_tasks": s(ext_[3]), "eject_closes": bool(ext_[4] & 1)})
     out["fact"] = []
     for label, op, fb, nb, fl, ask, off, fz, nz in tabs["fact"]:
         off = off - 2 ** 32 if off >= 2 ** 31 else off
@@ -1016,6 +1050,8 @@ def decoded_to_doc(rec):
     """The TOML document (a dict, as toml_loads makes it) that compiles to the record `rec` (parse_desc's answer): what the packer needs to put more
     into a record that is already compiled. compile_desc(decoded_to_doc(parse_desc(b)), merged) == b."""
     doc = {}
+    if rec.get("machine_info"):
+        doc["machine_info"] = rec["machine_info"]
     if rec["area"]:
         doc["area"], used = [], 0
         for a in rec["area"]:
@@ -1030,7 +1066,8 @@ def decoded_to_doc(rec):
                     d["lines"] = tb["lines"]
                 if tb.get("layout"):
                     name, _, params = tb["layout"].partition(";")
-                    d["layout"] = name
+                    if name:
+                        d["layout"] = name
                     if params:
                         d["ui"] = _ui_table(params, UI_TAB_KEYS)
                 tabs.append(d)
@@ -1103,6 +1140,11 @@ def decoded_to_doc(rec):
             d = {"name": m["name"], "state": m["state"]}
             if m["group"] is not None:
                 d["group"] = m["group"]
+            for k_ in ("exts", "mount", "empty_tasks", "mounted_tasks"):
+                if m[k_] is not None:
+                    d[k_] = m[k_]
+            if m["eject_closes"]:
+                d["eject_closes"] = True
             if m["eject_op"] is not None:
                 d["eject_op"] = m["eject_op"]
                 if m["eject_bind"]:

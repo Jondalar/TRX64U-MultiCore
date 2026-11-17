@@ -802,7 +802,7 @@ void MenuCtl::row(int i, char *left, int ln, char *right, int rn, bool *active, 
             }
             break;
         }
-        if (s.apply && !strcmp(s.apply, PICTURE_OP)) {                  // T187 D5: the row opens the page of the modes; its value is the mode in force
+        if (s.apply && !strcmp(s.apply, PICTURE_OP) && !strcasecmp(s.key, PICTURE_KEY)) {                  // T187 D5: the row opens the page of the modes; its value is the mode in force
             snprintf(right, rn, "%s >", s.values[v]);
             break;
         }
@@ -1447,7 +1447,8 @@ MenuCtl::Result MenuCtl::pick_take(const char *path)
 
 bool MenuCtl::picture_row(const MenuEntry &e) const
 {
-    return e.kind == EK_SETTING && c_->desc->settings[e.index].apply && !strcmp(c_->desc->settings[e.index].apply, PICTURE_OP);
+    return e.kind == EK_SETTING && c_->desc->settings[e.index].apply && !strcmp(c_->desc->settings[e.index].apply, PICTURE_OP) &&
+           !strcasecmp(c_->desc->settings[e.index].key, PICTURE_KEY);
 }
 
 // T187 D5 (GitHub #50): the Picture row opens the modes the screen names. Browsing applies nothing; RETURN on another row applies it through the setting's
@@ -2411,7 +2412,10 @@ MenuCtl::Result MenuCtl::activate(bool primary, bool all)
     return R_NONE;
 }
 
-// T212 D3: the machine line of Home, from the values of the settings the core names (CoreDesc::machine_info).
+static const char *node_state_text(void *user, const char *name);
+
+// T212 D3: the machine line of Home, from the values of the settings the core names (CoreDesc::machine_info). T228 DC5: a setting that is listed only while a
+// feature is on (show_state) is named only while it is on - the line says what the machine has, not what a switched-off part is set to.
 void MenuCtl::machine_line(char *out, int n) const
 {
     out[0] = 0;
@@ -2428,6 +2432,9 @@ void MenuCtl::machine_line(char *out, int n) const
             const char *name = s.label ? s.label : s.key;
             if (s.kind || (int)strlen(name) != l || strncasecmp(name, p, l)) {
                 continue;
+            }
+            if (s.show_state && !cond_holds(s.show_state, node_state_text, c_)) {
+                break;
             }
             const char *v = s.values[c_->settings->value(i)];
             if (!strcasecmp(v, "None")) {
@@ -3189,7 +3196,6 @@ static int tone_of(const char *name)
     return -1;
 }
 
-static const char *node_state_text(void *user, const char *name);
 
 void MenuCtl::item(int i, Item *it)
 {

@@ -48,7 +48,7 @@ lv_obj_t *trx_txt(lv_obj_t *par, int x, int y, const char *s, const lv_font_t *f
 int trx_text_w(const char *s, const lv_font_t *f);
 
 // ---- the route (T104 5.8: a function key picks an area, a number key picks a visible tab) -------------
-#define TRX_TABS_MAX  6
+#define TRX_TABS_MAX  8
 #define TRX_AREAS_MAX 8
 
 struct TrxTab {
@@ -63,7 +63,6 @@ struct TrxArea {
     const char *title;
     const TrxTab *tabs;
     uint8_t ntabs;
-    bool shifted;                    // F2/F4/F6/F8 sit under the SHIFTED heading of the rail
 };
 
 struct TrxRoute {
@@ -105,6 +104,7 @@ void trx_shell_forget(void);
 
 int trx_content_w(void);
 int trx_content_h(void);
+bool trx_strip_probe(int *right, int *room);                                   // bench: where the last tab of the strip ends, the strip's width (false: no strip)
 bool trx_nav_probe(int i, int *label_end, int *label_room, int *key_x);   // bench: the rail item i's label text end, the label's room, the key's x
 bool trx_foot_probe(char *txt, int n, int *text_w);                      // bench: the legend as drawn and its text's width
 

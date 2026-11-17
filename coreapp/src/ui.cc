@@ -17,6 +17,8 @@
 #include <stdio.h>
 #include <string.h>
 
+static_assert(MENU_STRIP_TABS == TRX_TABS_MAX, "the tab strip of the tree and of the view hold the same number of tabs");
+
 // The canvas is the view's (T164 D10a): 960 x 540, or the mode's own size below 960 wide.
 #define SW trx_canvas_w()
 #define SH trx_canvas_h()
@@ -232,7 +234,6 @@ static void build_route(const MenuTree &tr, bool app_mode)
         areas[a].title = tr.a[a].name;
         areas[a].tabs = tabs[a];
         areas[a].ntabs = (uint8_t)nv;
-        areas[a].shifted = tr.a[a].shifted;
     }
     route.areas = areas;
     route.nareas = (uint8_t)(tr.nareas < TRX_AREAS_MAX ? tr.nareas : TRX_AREAS_MAX);

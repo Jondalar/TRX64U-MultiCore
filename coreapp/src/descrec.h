@@ -6,14 +6,15 @@
 //
 // Layout, little endian, every entry fixed size, strings in one table (NUL terminated, offsets into it, 0xFFFFFFFF = none):
 //
-//   0   u32 magic "TRXD"        4  u16 version (3; 2 is read too)   6  u16 header size (176)
+//   0   u32 magic "TRXD"        4  u16 version (4; 2 and 3 are read too)   6  u16 header size (176)
 //   8   u32 total size         12  u32 flags (bit 0: the record gives the route; bit 1: it carries the core's own menu tables)
 //   16  u32 string table offset, u32 string table size
 //   24  (offset, count) of the tables, in this order, 8 bytes each:
 //       area 20 | tab 24 | node 52 | file action 40 | setting 32 | hide 4 | rename 8 | bind 16 | ext 4 | size 4 | value 4 | contributed tab 24 |
-//       task 36 | media 24 | file type 24 | file type action 36 | core setting 32
+//       task 36 | media 44 (24 before version 4) | file type 24 | file type action 36 | core setting 36
 //   160 poll: u32 operation (string offset, none = no poll), u32 period in ms, u32 merged libraries (string offset of their names, comma separated, none = no
-//       library menu was merged: the menus of those libraries are in this record, the application does not add them again), one reserved word (0)
+//       library menu was merged: the menus of those libraries are in this record, the application does not add them again), version 4: the machine-info
+//       line (string offset of the settings whose values make Home's machine line, none = no line; before version 4: 0)
 //
 //   area   key name flags first_tab ntabs            (flags bit 0: shifted)
 //   tab    id name n widget groups layout      (layout: string offset, 0 = none: "name;key=value;..." how the tab is drawn, contrib.h ui_attr; version 2: reserved, 0)
@@ -24,7 +25,7 @@
 //   ctab   area id name widget groups n     (a tab added to an area of the route, T104.1 D8)
 //   The core's own menu (T104.2 D10), the five tables a C++ descriptor carried as Task / MediaSlot / FileType / Setting arrays:
 //   task   label op first_bind nbind flags ask ask_state pick_label group       (flags bit 0: closes the menu, bit 1: a folder is picked first)
-//   media  name state eject_op first_bind nbind group
+//   media  name state eject_op first_bind nbind group [version 4: exts mount empty_tasks mounted_tasks flags(bit 0: eject closes the menu)]
 //   ftype  ext inner_ext first_action nactions first_inner ninner                (runs into the file type action table)
 //   fact   label op first_bind nbind flags ask ask_off first_size nsize          (flags bit 0: closes the menu; ask_off a signed 16 bit word)
 //   cset   key group first_value nvalues def when apply base                     (when 0: live, 1: at the next reset)
@@ -41,7 +42,7 @@
 #include "contrib.h"
 
 #define DESCREC_MAGIC 0x44585254U                 /* "TRXD" */
-#define DESCREC_VERSION 3
+#define DESCREC_VERSION 4
 #define DESCREC_VERSION_MIN 2                     /* a version 2 record has 0 in the two words version 3 uses (a tab's layout, a node's attributes) */
 #define DESCREC_HEADER 176
 #define DESCREC_NONE 0xFFFFFFFFU
@@ -85,6 +86,7 @@ struct DescRecord {
     LibTabDecl ctabs[DR_CTABS];
     Overrides ov;
     // the core's own menu (flag bit 1): what descrec_apply puts into the descriptor in place of its C++ tables
+    const char *machine_info;                     // version 4: the settings (comma separated) whose values make Home's machine line (CoreDesc::machine_info), or null
     const char *merged;                           // the names of the libraries whose menus were merged in at pack time (comma separated), or null
     bool has_own;
     Task tasks[DR_TASKS]; int ntasks;
@@ -97,8 +99,9 @@ struct DescRecord {
 // Reads the record. 0 and `out` filled, or a negative number and a sentence in why.
 int descrec_parse(const uint8_t *rec, uint32_t n, DescRecord *out, char *why, int whylen);
 
-// Lays the record's own menu on `base`: `out` is a copy of it whose tasks, media slots, file types and settings are the record's (a record without
-// the own tables leaves `out` equal to `base`). The arrays live in `rec`, which has to outlive `out`.
+// Lays the record's own menu on `base`: `out` is a copy of it whose tasks, media slots, file types and settings are the record's, the settings followed by
+// those of `base` (the application's own items, T228 D10; a record with no settings leaves the base's); a record without the own tables leaves `out` equal to
+// `base`, except that the record's machine-info line is set whenever it has one. The arrays live in `rec`, which has to outlive `out`.
 void descrec_apply(const DescRecord &rec, const CoreDesc *base, CoreDesc *out);
 
 // Was the menu of the library `name` merged into this record when it was packed?
