@@ -25,7 +25,10 @@ Source (TOML; every key is checked, an unknown one is an error - a typo must not
                                      # draws each of its groups under a heading made from the group's id (T228; not drawn when it repeats the tab's title)
                                      # `pages = "g1,g2"` (T228 D18): those groups are not sections; one row each opens a page that holds the group's settings (and the nodes
                                      # anchored to the group); "Name=g1+g2" is one page named Name with both groups, each under its heading (R6). A settings tab names pages
-                                     # with `sections`; a system tab's groups are pages only, their rows stand under its Network heading. `pages_head = "SID"` heads the rows
+                                     # with `sections`; a system tab's groups are pages only, their rows stand under its Network heading. `pages_head = "SID"` is a heading
+                                     # above the page rows
+                                     # `page = "home"` (T228 R1): the tab is a page of that tab of the area (an earlier one): no number, not on the strip, back to it;
+                                     # a task with op menu.screen opens it (the Timewarp and Monitor screens of Home)
 
     [[node]]                       # a button, a state line or a heading the core itself puts into a tab
     anchor = "F5/drives/drive_a"   # area/tab or area/tab/group
@@ -79,6 +82,8 @@ Source (TOML; every key is checked, an unknown one is an error - a typo must not
     ask_state = "drive.suggest.d64"
     pick_dir = true
     pick_label = "Create here"
+    hotkey = "T"                   # optional (T228 R1): one upper case letter or digit, the default key of the task's hotkey (the core's modifier + it, F7 > Hotkeys);
+                                   # at most 4 tasks, none that asks (ask)
 
     [[media]]                      # a slot of a media tab: what is in it (state), and how it is ejected
     group = "drives"
@@ -390,6 +395,7 @@ UI_TONES = ("muted", "cyan", "violet", "amber", "coral")
 LAYOUTS = ("home", "desk", "split", "settings", "status", "library", "timeline", "terminal", "app", "grid")
 UI_TAB_KEYS = {"title": str, "crumb": str, "side": str, "chip": str, "sheet": str, "sheetx": str, "nodes_first": bool, "sections": bool, "pages": str, "pages_head": str, "left": str, "label": str, "frame": str, "bar": str, "hint": str, "marks": str, "pos": str, "info": str, "glyph": str, "track": str,
                # an application's own screens (T104.3 D0, layouts app and grid): which tab is shown, where a key goes, and what the screen draws of the application's state
+               "page": str,
                "hidden": bool, "lines": str, "under": str, "back": str, "follow": str, "lock": str, "keys": str, "enter": str, "rows": str, "input": str, "grid": str, "note": str,
                "status": str, "pct": str, "pct_label": str, "pct_note": str,
                "map1": str, "map1_s": str, "map1_d": str, "map1_t": str, "map2": str, "map2_s": str, "map2_d": str, "map2_t": str}
@@ -436,6 +442,7 @@ def _ui_table(s, keys):
 
 
 GROUP_WIDGETS = ("settings", "tasks", "media", "system")      # the widgets whose entries name a group (a system tab's groups are its pages, T228 R6)
+HOTKEY_TASKS = 4                                    # T228 R1: the tasks that may declare a hotkey (coreapp/src/hotkeys.h HK_TASKS_MAX)
 
 
 def _tab_groups(tb, tid, widget):
@@ -582,6 +589,9 @@ def compile_desc(doc, merged=()):
             if layout is not None and layout not in LAYOUTS:
                 raise DescError("tab %s: layout %r (one of %s)" % (tid, layout, ", ".join(LAYOUTS)))
             _tab_pages(tb, tid, widget, groups)
+            parent = (tb.get("ui") or {}).get("page")
+            if parent is not None and (parent == tid or parent not in seen_id or n):    # T228 R1: a page of an earlier tab of this area, with no number
+                raise DescError("tab %s: ui page names %r, which is no earlier tab of area %s, or the page has a number (n)" % (tid, parent, key))
             lay = None
             if layout is not None or "ui" in tb:                         # no layout: the name is empty, the tab stays a list (T228 `sections`)
                 params = _ui_string(tb.get("ui"), UI_TAB_KEYS, "tab " + tid)
@@ -714,8 +724,9 @@ def compile_desc(doc, merged=()):
             raise DescError("%s: group %r is a name of letters, digits and _" % (what, g))
         return g
 
+    hotkeys = []
     for tk in _opt(doc, "task", list, "description", []):
-        _only(tk, {"group", "label", "op", "bind", "closes_menu", "ask", "ask_state", "pick_dir", "pick_label"}, "task")
+        _only(tk, {"group", "label", "op", "bind", "closes_menu", "ask", "ask_state", "pick_dir", "pick_label", "hotkey"}, "task")
         label = _need(tk, "label", str, "task")
         what = "task " + label
         fb, nb = bind_list(_opt(tk, "bind", list, what, []), what)
@@ -724,9 +735,21 @@ def compile_desc(doc, merged=()):
             raise DescError("%s: ask_state, pick_dir and pick_label need an ask" % what)
         if "pick_label" in tk and not tk.get("pick_dir"):
             raise DescError("%s: pick_label needs pick_dir" % what)
-        flags = (1 if _opt(tk, "closes_menu", bool, what, False) else 0) | (2 if _opt(tk, "pick_dir", bool, what, False) else 0)
+        hk = _opt(tk, "hotkey", str, what, "")
+        if hk and not (len(hk) == 1 and hk.isalnum() and hk.isascii() and hk == hk.upper()):
+            raise DescError("%s: hotkey is one upper case letter or digit (the default key with the core's hotkey modifier)" % what)
+        if hk and ask is not None:
+            raise DescError("%s: a hotkey runs the task while the core runs, where nothing can be asked; a task with ask has none" % what)
+        if hk:
+            hotkeys.append(label)
+        flags = (1 if _opt(tk, "closes_menu", bool, what, False) else 0) | (2 if _opt(tk, "pick_dir", bool, what, False) else 0) | (ord(hk) << 8 if hk else 0)   # bits 15:8 the hotkey
         t["task"].append((st.add(label), st.add(_need(tk, "op", str, what)), fb, nb, flags, st.add(ask), st.add(text_key(tk, "ask_state", what)),
                           st.add(text_key(tk, "pick_label", what)), st.add(group_name(tk, what))))
+    if len(hotkeys) > HOTKEY_TASKS:
+        raise DescError("tasks: %d declare a hotkey (%s); the application takes %d (coreapp/src/hotkeys.h HK_TASKS_MAX)" % (len(hotkeys), ", ".join(hotkeys), HOTKEY_TASKS))
+    hk_keys = [chr(e[4] >> 8) for e in t["task"] if e[4] >> 8]
+    if len(set(hk_keys)) != len(hk_keys):
+        raise DescError("tasks: two hotkeys have the same default key (%s)" % ", ".join(hk_keys))
 
     for m in _opt(doc, "media", list, "description", []):
         _only(m, {"group", "name", "state", "eject_op", "eject_bind", "exts", "mount", "empty_tasks", "mounted_tasks", "eject_closes"}, "media")
@@ -1032,11 +1055,12 @@ def parse_desc(blob):
                                "apply": s(apply)})
     out["task"] = []
     for label, op, fb, nb, fl, ask, ask_state, pick_label, group in tabs["task"]:
-        if not s(label) or not s(op) or fl & ~3 or fb + nb > len(out["bind"]) or (s(ask) is None and (ask_state != NONE or fl & 2 or pick_label != NONE)) or \
-                (pick_label != NONE and not fl & 2):
+        hk = fl >> 8
+        if not s(label) or not s(op) or fl & ~0xFF03 or fb + nb > len(out["bind"]) or (s(ask) is None and (ask_state != NONE or fl & 2 or pick_label != NONE)) or \
+                (pick_label != NONE and not fl & 2) or (hk and not (chr(hk).isalnum() and chr(hk).isascii() and chr(hk) == chr(hk).upper())):
             raise DescError("description record: a bad task")
         out["task"].append({"label": s(label), "op": s(op), "bind": out["bind"][fb:fb + nb], "closes_menu": bool(fl & 1), "pick_dir": bool(fl & 2),
-                            "ask": s(ask), "ask_state": s(ask_state), "pick_label": s(pick_label), "group": s(group)})
+                            "ask": s(ask), "ask_state": s(ask_state), "pick_label": s(pick_label), "group": s(group), "hotkey": chr(hk) if hk else ""})
     out["media"] = []
     for me in tabs["media"]:
         name, state, eject, fb, nb, group = me[:6]
@@ -1174,6 +1198,8 @@ def decoded_to_doc(rec):
                     d[k] = t[k]
             if t["pick_dir"]:
                 d["pick_dir"] = True
+            if t.get("hotkey"):
+                d["hotkey"] = t["hotkey"]
             doc["task"].append(d)
     if rec["media"]:
         doc["media"] = []

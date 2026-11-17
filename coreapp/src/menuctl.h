@@ -112,7 +112,9 @@ public:
     void set_app_mode(bool on) { app_mode_ = on; }
     bool app_mode() const { return app_mode_; }
     bool goto_spec(const char *spec);                              // "F3", "F5/drives", "APP/flash": an area, an area and a tab
-    void app_start();                                              // runs the open tab's `enter` operation (an application's screens)
+    bool take_screen();                                            // T228 R1: the screen an operation asked for (CoreCtx::want_screen, menu.screen) is shown; true: moved
+    bool screen_way(const char *layout, char *out, int n) const;   // T228 R1: how the screen of that layout is opened (the keys help); false: none here
+    void app_start();                                             // runs the open tab's `enter` operation (an application's screens)
     bool take_close_request() { bool r = close_req_; close_req_ = false; return r; }   // the application asked for its screens to close (follow = "close")
     bool follow_tick();                                            // the application asked for another tab through the first tab's `follow` state; true: moved
     bool locked(char *why, int n) const;                           // the open tab's `lock` state holds a reason: RUN/STOP does not close the screens now

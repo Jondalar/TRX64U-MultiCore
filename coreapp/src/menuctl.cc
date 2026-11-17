@@ -415,6 +415,9 @@ void MenuCtl::open()
     if (reopen_.valid && !app_mode_ && closable() && fm_.reopen_last()) {   // T192.3 D30: where it was left
         reopen_restore();
     }
+    if (!app_mode_) {
+        take_screen();                                                  // T228 R1: a hotkey of the core asked for a screen (Timewarp, Monitor): the menu opens there
+    }
 }
 
 void MenuCtl::leave()
@@ -2044,6 +2047,9 @@ MenuCtl::Result MenuCtl::run_task(const Task &t, const char *text)
         set_status(r.msg[0] ? r.msg : "failed", true);
         return R_REDRAW;
     }
+    if (take_screen()) {                                            // T228 R1: the task opens a screen (Timewarp..., Monitor...): the screen is the answer
+        return R_REDRAW;
+    }
     if (wizard()) {                                                 // the task opened a wizard: its screen is the answer, the status line starts empty
         set_status("", false);
         return R_REDRAW;
@@ -2437,14 +2443,11 @@ MenuCtl::Result MenuCtl::activate(bool primary, bool all)
         return R_NONE;
     case EK_NODE:
         return run_node(tree_.nodes[e.index], e.label);
-    case EK_KEYS_HELP:                                              // T228 D12: the viewer on the keys text; the areas this core has decide which parts it names
+    case EK_KEYS_HELP:                                              // T228 D12: the viewer on the keys text; the screens this core has decide which parts it names
         {
-            bool tw = false, mon = false;
-            for (int a = 0; a < tree_.nareas; a++) {
-                tw = tw || !strcmp(tree_.a[a].key, "F2");
-                mon = mon || !strcmp(tree_.a[a].key, "F4");
-            }
-            diag_help_areas(tw, mon);
+            char tw[96], mon[96];
+            const bool has_tw = screen_way("timeline", tw, sizeof(tw)), has_mon = screen_way("terminal", mon, sizeof(mon));
+            diag_help_areas(has_tw ? tw : 0, has_mon ? mon : 0);
         }
         fm_.start_view_mem(e.label, 5, false);
         return R_REDRAW;
@@ -2703,6 +2706,9 @@ MenuCtl::Result MenuCtl::run_node(const MenuNode &n, const char *label)
         int rc = ops_run_bound(c_, n.op, n.bind, n.nbind, 0, &r);
         if (rc) {
             set_status(r.msg[0] ? r.msg : "failed", true);
+            return R_REDRAW;
+        }
+        if (take_screen()) {                                                    // T228 R1: a row that opens a screen (menu.screen)
             return R_REDRAW;
         }
         char s[240];
@@ -3092,6 +3098,52 @@ bool MenuCtl::goto_spec(const char *spec)
         return true;
     }
     return false;                                                         // an area this core does not have
+}
+
+// T228 R1 (the keys help, D12): how the screen of `layout` is opened - "F1 Home > Timewarp..., CTRL + T": the area, the row whose task shows it (menu.screen)
+// and the keys of that task's hotkey; a screen that is a tab of its own: its area and tab. False: this core has no such screen.
+bool MenuCtl::screen_way(const char *layout, char *out, int n) const
+{
+    out[0] = 0;
+    for (int a = 0; a < tree_.nareas; a++) {
+        for (int b = 0; b < tree_.a[a].ntabs; b++) {
+            const MenuTab &tb = tree_.a[a].tabs[b];
+            char ln[24];
+            ui_name(tb.layout, ln, sizeof(ln));
+            if (strcmp(ln, layout)) {
+                continue;
+            }
+            char spec[48];
+            snprintf(spec, sizeof(spec), "%s/%s", tree_.a[a].key, tb.id ? tb.id : "");
+            const CoreDesc *d = c_->desc;
+            for (int i = 0; i < d->ntasks; i++) {
+                const Task &t = d->tasks[i];
+                if (!t.op || strcmp(t.op, "menu.screen") || t.nbind != 1 || !t.bind[0].s || strcmp(t.bind[0].s, spec)) {
+                    continue;
+                }
+                char keys[40];
+                hk_task_keys_text(c_, i, keys, sizeof(keys));
+                snprintf(out, n, "%s %s > %s%s%s", tree_.a[a].key, tree_.a[a].name ? tree_.a[a].name : "", t.label, keys[0] ? ", " : "", keys);
+                return true;
+            }
+            snprintf(out, n, "%s %s", tree_.a[a].key, tb.page ? "" : tb.name);
+            return true;
+        }
+    }
+    return false;
+}
+
+// T228 R1: an operation asked for a screen (menu.screen: a row of Home, or a hotkey while the core ran and the menu opened for it). The request is taken
+// once; a screen this core does not have leaves the menu where it is.
+bool MenuCtl::take_screen()
+{
+    if (!c_->want_screen[0]) {
+        return false;
+    }
+    char spec[sizeof(c_->want_screen)];
+    snprintf(spec, sizeof(spec), "%s", c_->want_screen);
+    c_->want_screen[0] = 0;
+    return goto_spec(spec);
 }
 
 // The text a node's `sub` or `chip` key names: "@state.name" (a state value), "@info.Line" (an application information line), "link.Line" (ONLINE when

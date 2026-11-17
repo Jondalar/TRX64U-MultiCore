@@ -35,10 +35,21 @@ static int op_app_open(CoreCtx *c, const OpArgs &a, OpOut &o)
 }
 static const ArgSpec app_open_args[] = { ARG_STRING("app", 15), ARG_STRING("action", 31), ARG_STRING("file", FS_PATH_MAX - 1) };
 
+// T228 R1: a row or a hotkey shows a screen of the menu, named "area/tab" ("F1/timewarp": a page of Home that the core's TOML declares). The menu takes the
+// request (CoreCtx::want_screen) when the operation returns, or when it opens: a hotkey pressed while the core runs opens the menu on that screen.
+static int op_menu_screen(CoreCtx *c, const OpArgs &a, OpOut &o)
+{
+    snprintf(c->want_screen, sizeof(c->want_screen), "%s", a.s(0));
+    o.msg[0] = 0;
+    return OPE_OK;
+}
+static const ArgSpec screen_arg[] = { ARG_STRING("screen", 31) };
+
 void ops_register_base(OpRegistry &r)
 {
     r.contributor("base");
     r.add_op("menu.browse", browse_arg, 1, op_menu_browse);
+    r.add_op("menu.screen", screen_arg, 1, op_menu_screen);
     r.add_op("app.open", app_open_args, 3, op_app_open);
     boot_register(r);
     engines_register(r);

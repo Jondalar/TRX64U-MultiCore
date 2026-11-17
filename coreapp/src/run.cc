@@ -941,6 +941,10 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
             }
             if (hf) {
                 hotkey_act(hf);
+                if (ctx.want_screen[0] && ctx.started) {  // T228 R1: a hotkey of the core asked for a screen of the menu (Timewarp, Monitor): it opens there
+                    uiapp_local_open();
+                    continue;
+                }
             }
             bool want = hw_menu_button_pressed();
             int k;

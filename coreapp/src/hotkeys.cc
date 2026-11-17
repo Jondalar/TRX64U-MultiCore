@@ -111,6 +111,16 @@ static bool is_mod(const HkMap &m, int k)
     return k == m.mod_a || k == m.mod_b;
 }
 
+// T228 R1: the keys of a map by the action's bit: the fixed actions 0 .. HK_NACT-1, then the hotkey tasks HK_NACT + j (j < m.ntask)
+static int n_keys(const HkMap &m)
+{
+    return HK_NACT + (m.ntask < HK_TASKS_MAX ? m.ntask : HK_TASKS_MAX);
+}
+static int key_at(const HkMap &m, int a)
+{
+    return a < HK_NACT ? m.act[a] : m.task[a - HK_NACT];
+}
+
 void hk_regs(const HkMap &m, uint8_t out[HK_NREGS])
 {
     memset(out, 0, HK_NREGS);
@@ -119,8 +129,8 @@ void hk_regs(const HkMap &m, uint8_t out[HK_NREGS])
     }
     out[0] = (uint8_t)(0x80 | m.mod_a);
     out[1] = m.mod_b < HK_NKEYS ? (uint8_t)(0x80 | m.mod_b) : 0;
-    for (int a = 0; a < HK_NACT; a++) {
-        int k = m.act[a];
+    for (int a = 0; a < n_keys(m); a++) {
+        int k = key_at(m, a);
         if (k >= HK_NKEYS || is_mod(m, k)) {
             continue;
         }
@@ -154,8 +164,8 @@ uint32_t HkDetect::poll(const HkMap &m, const HkKeys &keys, uint32_t now)
         return 0;
     }
     uint32_t cur = 0;
-    for (int a = 0; a < HK_NACT; a++) {
-        int k = m.act[a];
+    for (int a = 0; a < n_keys(m); a++) {
+        int k = key_at(m, a);
         if (k < HK_NKEYS && !is_mod(m, k) && keys.down(k)) {
             cur |= 1u << a;
         }
@@ -219,7 +229,7 @@ void HkFilter::apply(const HkMap &m, uint8_t mtx[8], uint8_t *restore)
     }
 }
 
-static HkMap g_usb_map = { HK_NONE, HK_NONE, { HK_NONE, HK_NONE, HK_NONE, HK_NONE, HK_NONE, HK_NONE, HK_NONE } };
+static HkMap g_usb_map = { HK_NONE, HK_NONE, { HK_NONE, HK_NONE, HK_NONE, HK_NONE, HK_NONE, HK_NONE, HK_NONE }, 0, { HK_NONE, HK_NONE, HK_NONE, HK_NONE } };
 static HkFilter g_usb_filter;
 static volatile uint32_t g_usb_lo, g_usb_hi;
 static volatile uint8_t g_usb_restore;
@@ -282,8 +292,8 @@ void hk_usb_report_filter(const uint8_t in[8], uint8_t out[8])
             continue;
         }
         bool act = false;
-        for (int a = 0; a < HK_NACT; a++) {
-            act |= g_usb_map.act[a] == k;
+        for (int a = 0; a < n_keys(g_usb_map); a++) {
+            act |= key_at(g_usb_map, a) == k;
         }
         if (act && held) {
             g_hid_hidden[u / 8] |= (uint8_t)(1u << (u % 8));
@@ -326,6 +336,95 @@ static int n_items(const HkSpec *sp)
 static const HkSpec *spec_of(const CoreDesc *d)
 {
     return d ? d->hotkeys : 0;
+}
+
+// ---- T228 R1: the tasks of the core's menu that declare a hotkey ---------------------------------------------------------------------------------
+int hk_tasks(const CoreDesc *d, int idx[HK_TASKS_MAX])
+{
+    int n = 0;
+    for (int i = 0; d && d->hotkeys && i < d->ntasks && n < HK_TASKS_MAX; i++) {
+        if (d->tasks[i].hotkey) {
+            idx[n++] = i;
+        }
+    }
+    return n;
+}
+
+// The item of a hotkey task, kept for the run: the .cfg key "Hotkey <label>" and the label the Hotkeys page shows (the task's without the "..." that says
+// its row opens something). The same label gives the same item, so the settings' pointers stay valid when the menu is merged again.
+struct TaskItem { char key[48]; char label[40]; };
+static TaskItem g_titem[16];
+static int g_ntitem;
+static const TaskItem *task_item(const char *task_label)
+{
+    char base[40];
+    snprintf(base, sizeof(base), "%s", task_label ? task_label : "");
+    size_t l = strlen(base);
+    while (l > 0 && (base[l - 1] == '.' || base[l - 1] == ' ')) {
+        base[--l] = 0;
+    }
+    for (int i = 0; i < g_ntitem; i++) {
+        if (!strcmp(g_titem[i].label, base)) {
+            return &g_titem[i];
+        }
+    }
+    if (!base[0] || g_ntitem >= (int)(sizeof(g_titem) / sizeof(g_titem[0]))) {
+        return 0;
+    }
+    TaskItem &t = g_titem[g_ntitem++];
+    snprintf(t.label, sizeof(t.label), "%s", base);
+    snprintf(t.key, sizeof(t.key), "Hotkey %s", base);
+    return &t;
+}
+
+// The matrix key of a task's default letter or digit (the key whose cap is that character), HK_NONE: none.
+static int key_of_char(char ch)
+{
+    for (int i = 0; ch && i < 64; i++) {
+        if (g_keys[i][0] == ch && !g_keys[i][1]) {
+            return i;
+        }
+    }
+    return HK_NONE;
+}
+
+// The default key of hotkey task j (idx from hk_tasks): its letter, unless the modifier, a key of the core's own (own_keys), the default of a fixed action or
+// of an earlier task has it - then none, and the person sets one on the Hotkeys page.
+static int task_default(const CoreDesc *d, const int *idx, int j)
+{
+    const HkSpec *sp = spec_of(d);
+    const int k = key_of_char(d->tasks[idx[j]].hotkey);
+    if (!sp || k == HK_NONE || is_mod(sp->def, k) || ((sp->own_keys >> k) & 1)) {
+        return HK_NONE;
+    }
+    for (int a = 0; a < HK_NACT; a++) {
+        if (sp->def.act[a] == k) {
+            return HK_NONE;
+        }
+    }
+    for (int i = 0; i < j; i++) {
+        if (key_of_char(d->tasks[idx[i]].hotkey) == k) {
+            return HK_NONE;
+        }
+    }
+    return k;
+}
+
+// The items of a map by the action's bit (n_keys, key_at): does action a have an item in this core, and which (key, label)?
+static bool has_item(const HkSpec *sp, int nt, int a)
+{
+    return a < HK_NACT ? a < n_items(sp) : a - HK_NACT < nt;
+}
+static ItemDef item_at(const CoreDesc *d, int a)
+{
+    if (a < HK_NACT) {
+        return item_of(spec_of(d), a);
+    }
+    int idx[HK_TASKS_MAX];
+    const int nt = hk_tasks(d, idx);
+    const TaskItem *t = a - HK_NACT < nt ? task_item(d->tasks[idx[a - HK_NACT]].label) : 0;
+    ItemDef r = { t ? t->key : 0, t ? t->label : 0 };
+    return r;
 }
 
 static int val_of_key(int k)
@@ -387,6 +486,59 @@ const char *hk_extend(const CoreDesc *d, CoreDesc *out, Setting *store)
     return 0;
 }
 
+const char *hk_extend_tasks(CoreDesc *d, Setting *store, int cap)
+{
+    int idx[HK_TASKS_MAX];
+    const int nt = hk_tasks(d, idx);
+    if (!nt) {
+        return 0;
+    }
+    const TaskItem *ti[HK_TASKS_MAX];
+    int need = 0;
+    for (int j = 0; j < nt; j++) {
+        ti[j] = task_item(d->tasks[idx[j]].label);
+        for (int i = 0; ti[j] && i < d->nsettings; i++) {
+            if (!strcasecmp(d->settings[i].key, ti[j]->key)) {
+                ti[j] = 0;                                 // there already (a second merge with the same table)
+            }
+        }
+        need += ti[j] ? 1 : 0;
+    }
+    if (!need) {
+        return 0;
+    }
+    if (d->nsettings + need > cap) {
+        return "settings: no room for the hotkey items of the core's tasks";
+    }
+    if (d->settings != store) {
+        for (int i = 0; i < d->nsettings; i++) {
+            store[i] = d->settings[i];
+        }
+    }
+    make_vals();
+    make_pc_pre();
+    const bool pc = spec_of(d)->pc_keys;
+    int n = d->nsettings;
+    for (int j = 0; j < nt; j++) {
+        if (!ti[j]) {
+            continue;
+        }
+        Setting &s = store[n++];
+        s = Setting();
+        s.key = ti[j]->key;
+        s.label = ti[j]->label;
+        s.values = pc ? g_pc_vals : g_vals;
+        s.nvalues = HK_NKEYS + 1;
+        s.def = val_of_key(task_default(d, idx, j));
+        s.when = WHEN_LIVE;
+        s.apply = HK_OP;
+        s.group = "input";
+    }
+    d->settings = store;
+    d->nsettings = n;
+    return 0;
+}
+
 bool hk_is_generic(const Setting &s)
 {
     return s.apply && !strcmp(s.apply, HK_OP);
@@ -394,12 +546,17 @@ bool hk_is_generic(const Setting &s)
 
 HkMap hk_map_of(const CoreCtx *c)
 {
-    HkMap m = { HK_NONE, HK_NONE, { HK_NONE, HK_NONE, HK_NONE, HK_NONE, HK_NONE, HK_NONE, HK_NONE } };
+    HkMap m = { HK_NONE, HK_NONE, { HK_NONE, HK_NONE, HK_NONE, HK_NONE, HK_NONE, HK_NONE, HK_NONE }, 0, { HK_NONE, HK_NONE, HK_NONE, HK_NONE } };
     const HkSpec *sp = spec_of(c->desc);
     if (!sp) {
         return m;
     }
     m = sp->def;
+    int idx[HK_TASKS_MAX];
+    m.ntask = (uint8_t)hk_tasks(c->desc, idx);                 // T228 R1: the hotkey tasks, their default keys until the settings say otherwise
+    for (int j = 0; j < HK_TASKS_MAX; j++) {
+        m.task[j] = j < m.ntask ? (uint8_t)task_default(c->desc, idx, j) : HK_NONE;
+    }
     if (!c->settings) {
         return m;
     }
@@ -412,13 +569,19 @@ HkMap hk_map_of(const CoreCtx *c)
         m.mod_a = g_pre[v].a;
         m.mod_b = g_pre[v].b;
     }
-    for (int a = 0; a < n_items(sp); a++) {
-        int j = c->settings->find(item_of(sp, a).key);
+    for (int a = 0; a < n_keys(m); a++) {
+        const char *key = has_item(sp, m.ntask, a) ? item_at(c->desc, a).key : 0;
+        int j = key ? c->settings->find(key) : -1;
         if (j < 0) {
             continue;
         }
         int w = c->settings->value(j);
-        m.act[a] = w <= 0 || w > HK_NKEYS ? HK_NONE : (uint8_t)(w - 1);
+        const uint8_t k = w <= 0 || w > HK_NKEYS ? HK_NONE : (uint8_t)(w - 1);
+        if (a < HK_NACT) {
+            m.act[a] = k;
+        } else {
+            m.task[a - HK_NACT] = k;
+        }
     }
     return m;
 }
@@ -435,7 +598,7 @@ void hk_register(OpRegistry &r)
     r.add_op(HK_OP, hk_args, 1, op_apply);
 }
 
-static HkMap g_current = { HK_NONE, HK_NONE, { HK_NONE, HK_NONE, HK_NONE, HK_NONE, HK_NONE, HK_NONE, HK_NONE } };
+static HkMap g_current = { HK_NONE, HK_NONE, { HK_NONE, HK_NONE, HK_NONE, HK_NONE, HK_NONE, HK_NONE, HK_NONE }, 0, { HK_NONE, HK_NONE, HK_NONE, HK_NONE } };
 
 void hk_apply(CoreCtx *c)
 {
@@ -512,6 +675,40 @@ bool hk_core_action(CoreCtx *c, char *line, int n)
     int rc = ops_call(c, sp->core_op, 0, 0, &r);
     snprintf(line, n, "%s", r.msg[0] ? r.msg : (rc ? "failed" : (sp->core_label ? sp->core_label : "done")));
     return rc == 0;
+}
+
+bool hk_run_task(CoreCtx *c, int j, char *line, int n)
+{
+    int idx[HK_TASKS_MAX];
+    if (j < 0 || j >= hk_tasks(c->desc, idx)) {
+        snprintf(line, n, "No such hotkey in this core");
+        return false;
+    }
+    const Task &t = c->desc->tasks[idx[j]];
+    static OpResult r;
+    int rc = ops_run_bound(c, t.op, t.bind, t.nbind, 0, &r);
+    snprintf(line, n, "%s", r.msg[0] ? r.msg : (rc ? "failed" : t.label));
+    return rc == 0;
+}
+
+static const char *key_label(const HkSpec *sp, int i);
+void hk_task_keys_text(const CoreCtx *c, int ti, char *out, int n)
+{
+    out[0] = 0;
+    int idx[HK_TASKS_MAX];
+    const int nt = hk_tasks(c->desc, idx);
+    const HkSpec *sp = spec_of(c->desc);
+    const HkMap m = hk_map_of(c);
+    for (int j = 0; j < nt; j++) {
+        if (idx[j] != ti || m.mod_a >= HK_NKEYS || m.task[j] >= HK_NKEYS) {
+            continue;
+        }
+        if (m.mod_b < HK_NKEYS) {
+            snprintf(out, n, "%s + %s + %s", key_label(sp, m.mod_a), key_label(sp, m.mod_b), key_label(sp, m.task[j]));
+        } else {
+            snprintf(out, n, "%s + %s", key_label(sp, m.mod_a), key_label(sp, m.task[j]));
+        }
+    }
 }
 
 bool hk_reset(CoreCtx *c, char *line, int n)
@@ -624,8 +821,10 @@ static int action_of(const CoreCtx *c, int set)
     if (!sp || set < 0 || set >= c->desc->nsettings || !hk_is_generic(c->desc->settings[set])) {
         return -1;
     }
-    for (int a = 0; a < n_items(sp); a++) {
-        const char *k = item_of(sp, a).key;
+    int idx[HK_TASKS_MAX];
+    const int nt = hk_tasks(c->desc, idx);
+    for (int a = 0; a < HK_NACT + nt; a++) {
+        const char *k = has_item(sp, nt, a) ? item_at(c->desc, a).key : 0;
         if (k && !strcasecmp(k, c->desc->settings[set].key)) {
             return a;
         }
@@ -675,9 +874,10 @@ int hk_learn_value(CoreCtx *c, int set, const HkKeys &got, char *line, int n)
             if (!a || !b) {
                 continue;
             }
-            for (int act = 0; sp && act < n_items(sp); act++) {                 // a modifier key may not be the key of a hotkey
-                if (m.act[act] == g_pre[p].a || m.act[act] == g_pre[p].b) {
-                    { char kb[8]; snprintf(line, n, "%s is already %s", key_say(sp, m.act[act], kb), item_of(sp, act).label); }
+            for (int act = 0; sp && act < n_keys(m); act++) {                   // a modifier key may not be the key of a hotkey
+                const int ak = key_at(m, act);
+                if (has_item(sp, m.ntask, act) && (ak == g_pre[p].a || ak == g_pre[p].b)) {
+                    { char kb[8]; snprintf(line, n, "%s is already %s", key_say(sp, ak, kb), item_at(c->desc, act).label); }
                     return -1;
                 }
             }
@@ -704,9 +904,9 @@ int hk_learn_value(CoreCtx *c, int set, const HkKeys &got, char *line, int n)
         { char kb[8]; snprintf(line, n, "%s is the modifier", key_say(sp, k, kb)); }
         return -1;
     }
-    for (int a = 0; a < n_items(sp); a++) {
-        if (a != act && m.act[a] == k) {
-            { char kb[8]; snprintf(line, n, "%s is already %s", key_say(sp, k, kb), item_of(sp, a).label); }
+    for (int a = 0; a < n_keys(m); a++) {
+        if (a != act && has_item(sp, m.ntask, a) && key_at(m, a) == k) {
+            { char kb[8]; snprintf(line, n, "%s is already %s", key_say(sp, k, kb), item_at(c->desc, a).label); }
             return -1;
         }
     }
@@ -725,9 +925,10 @@ bool hk_value_refused(CoreCtx *c, int set, int v, char *line, int n)
         if (v >= NPRE) {
             return false;
         }
-        for (int act = 0; act < n_items(sp); act++) {
-            if (m.act[act] != HK_NONE && (m.act[act] == g_pre[v].a || m.act[act] == g_pre[v].b)) {
-                { char kb[8]; snprintf(line, n, "%s is already %s", key_say(sp, m.act[act], kb), item_of(sp, act).label); }
+        for (int act = 0; act < n_keys(m); act++) {
+            const int ak = key_at(m, act);
+            if (has_item(sp, m.ntask, act) && ak != HK_NONE && (ak == g_pre[v].a || ak == g_pre[v].b)) {
+                { char kb[8]; snprintf(line, n, "%s is already %s", key_say(sp, ak, kb), item_at(c->desc, act).label); }
                 return true;
             }
         }
@@ -742,9 +943,9 @@ bool hk_value_refused(CoreCtx *c, int set, int v, char *line, int n)
         { char kb[8]; snprintf(line, n, "%s is the modifier", key_say(sp, k, kb)); }
         return true;
     }
-    for (int a = 0; a < n_items(sp); a++) {
-        if (a != act && m.act[a] == k) {
-            { char kb[8]; snprintf(line, n, "%s is already %s", key_say(sp, k, kb), item_of(sp, a).label); }
+    for (int a = 0; a < n_keys(m); a++) {
+        if (a != act && has_item(sp, m.ntask, a) && key_at(m, a) == k) {
+            { char kb[8]; snprintf(line, n, "%s is already %s", key_say(sp, k, kb), item_at(c->desc, a).label); }
             return true;
         }
     }
@@ -774,6 +975,12 @@ bool HkLoop::perform(CoreCtx *c, uint32_t f, char *line, int n)
     if (f & (1u << HKA_CORE)) {
         hk_core_action(c, line, n);
         show = true;
+    }
+    for (int j = 0; j < HK_TASKS_MAX; j++) {                     // T228 R1: the core's hotkey tasks (a screen of the menu: the caller opens it)
+        if (f & (1u << (HK_NACT + j))) {
+            hk_run_task(c, j, line, n);
+            show = true;
+        }
     }
     if (f & (1u << HKA_RESET)) {
         char rl[64];

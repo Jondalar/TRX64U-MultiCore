@@ -119,6 +119,9 @@ struct Task {
     const char *pick_label;
     // T104.2 D10: the group (a tasks tab lists `groups`) of a task from the description record; null as above.
     const char *group;
+    // T228 R1: the default key of the task's hotkey (an upper case letter or digit, pressed with the core's hotkey modifier): hotkeys.h gives it an item
+    // on the Hotkeys page and runs the task when it is pressed while the core runs. 0: no hotkey. Last, so the positional initialisers stay as they are.
+    char hotkey;
 };
 
 struct FileAction {

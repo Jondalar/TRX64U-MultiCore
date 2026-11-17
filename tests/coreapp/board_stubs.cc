@@ -134,7 +134,7 @@ const char *diag_text(int, int *n)
     }
     return "";
 }
-void diag_help_areas(bool, bool) { }
+void diag_help_areas(const char *, const char *) { }
 const char *cfg_text(CoreCtx *, const char *) { return ""; }
 bool mon_tick(CoreCtx *) { return false; }
 void mon_run(CoreCtx *, const char *) { }

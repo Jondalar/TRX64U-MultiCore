@@ -25,6 +25,20 @@ name = "Home"
   name = "Home"
   widget = "info"
   n = 1
+  # R1: the two overlays over the machine are pages of Home (no number, not on the strip): the rows "Timewarp..." and "Monitor..." under the reset rows and
+  # their hotkeys (F7 > Hotkeys) open them (the tasks below, menu.screen). Both screens are drawn and keyed as before (layouts timeline and terminal).
+  [[area.tab]]
+  id = "timewarp"
+  name = "Timewarp"
+  widget = "nodes"
+  layout = "timeline"
+  ui = { page = "home", pos = "@tw.pos", info = "@tw.info", glyph = "@tw.glyph", track = "@tw.track", hint = "RETURN jump  <- cancel" }
+  [[area.tab]]
+  id = "monitor"
+  name = "Monitor"
+  widget = "nodes"
+  layout = "terminal"
+  ui = { page = "home" }
 
 [[area]]
 key = "F3"
@@ -532,6 +546,44 @@ group = "top"
 label = "Reload ROMs, reset"
 op = "machine.reload_roms"
 closes_menu = true
+
+
+# R1: the rows under the reset rows that open the two overlays (the pages of Home above), and their hotkeys: the modifier + T, the modifier + O (as the
+# trx64g build's C= O opens the monitor); F7 > Hotkeys changes them.
+[[task]]
+group = "top"
+label = "Timewarp..."
+op = "menu.screen"
+bind = [ { arg = "screen", str = "F1/timewarp" } ]
+hotkey = "T"
+
+
+[[task]]
+group = "top"
+label = "Monitor..."
+op = "menu.screen"
+bind = [ { arg = "screen", str = "F1/monitor" } ]
+hotkey = "O"
+
+
+# R1: the Timewarp page - its keys are the layout's (coreapp/src/menukeytab.cc, KS_TIMELINE); this node is what RETURN does, and the page needs an entry
+[[node]]
+anchor = "F1/timewarp/bar"
+kind = "op"
+label = "Resume here"
+op = "tw.resume"
+order = 10
+closes_menu = true
+ui = { primary = true }
+
+# R1: the Monitor page - the terminal is the layout and every key is the monitor's (KS_MONITOR); this entry is what the page needs to exist
+[[node]]
+anchor = "F1/monitor/bar"
+kind = "op"
+label = "Help"
+op = "mon.run"
+bind = [ { arg = "line", str = "?" } ]
+order = 10
 
 
 [[task]]
