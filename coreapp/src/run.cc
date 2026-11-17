@@ -571,6 +571,9 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
         if (bundle.why[0]) {
             printf("[core] %s\n", bundle.why);
         }
+        // gate fix 4 (T228 R10): a pad the core's record declares ([pad]) is a pad as the capability is: the XInput claim follows the descriptor the menu will be built from. This is the
+        // first place that knows the record; a pad enumerated before it (the call near the sink registration decided on the C descriptor alone) is not claimed.
+        usb_xinput_set_sink(&pad_sink, desc_has_capability(desc, "pad") || (bundle.desc && bundle.desc->has_pad));
         lib_board_load(&ctx, &lr, &bundle);
         if (lr.screen[0]) {                       // a refusal, or why no library was loaded at all (the Commodore key, a start that did not finish)
             board_ui.message(lr.title ? lr.title : "Library not loaded", lr.screen, true);
