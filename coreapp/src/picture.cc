@@ -718,24 +718,6 @@ int picture_start(CoreCtx *c, int sys, int hdmi_now)
     c->video->set_gateware(g_gw);
     int idx = pidx;
     int value = (idx >= 0 && c->settings) ? c->settings->value(idx) : 0;
-    // T235 fix (board 2026-11-17: no picture on a screen that names no 50 Hz mode): at the start nobody is asked to keep a mode, so a stored row the
-    // screen does not name runs, for this run only (nothing is written), its resolution at a rate the screen names, else Auto. A large core's
-    // gateware starts in 1080p50 by itself: without this the stored "1920 x 1080 (50 Hz)" equals the start mode and nothing is changed. Picking the
-    // row from the list still works, with the 8-second confirm.
-    if (full_list() && value > 0 && value - 1 < g_nlist && g_mask != EDID_LIST_NONE && !((g_mask >> g_list[value - 1]) & 1u)) {
-        int want = video_row_hdmi(g_list[value - 1]), alt = 0;
-        for (int j = 0; j < g_nlist; j++) {
-            if (video_row_hdmi(g_list[j]) == want && ((g_mask >> g_list[j]) & 1u)) {
-                alt = j + 1;
-                break;
-            }
-        }
-        printf("[core] picture: the screen does not name the stored mode; this run takes %s\n", alt ? "the same resolution at the screen's rate" : "Auto");
-        value = alt;
-        if (idx >= 0 && c->settings) {
-            c->settings->override_value(idx, value);
-        }
-    }
     g_last_value = value;
     Pick p = target(c, value, hdmi_now);
     int sidx = scale_index(c->desc);
