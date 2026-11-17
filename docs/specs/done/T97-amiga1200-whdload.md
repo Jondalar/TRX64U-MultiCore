@@ -821,3 +821,20 @@ against Gideon's were not run), its LUT/BRAM/DSP, whether it routes, WNS/WHS. `v
   console line `[core] Kickstart <dir>/<file> (... version V.R)` (`romset.cc`, `romset_put`) names what was loaded - needed to go on (board step).
 - **':' as '=': not reproducible from the code.** The tables (`amiga_keys.h`, `amiga_input.v` matrix map) contain no path from ':' to '=' (raw 0x0C);
   which keyboard and which Kickstart keymap were in use is not recorded (board step).
+
+### 5.16 The wide fetch returned the word at A-2 for fetches at 4 mod 8 (2026-11-17, GitHub Discussion #94, Turrican II AGA)
+Two testers saw wrong 16-px bands every 32 px in the background of Turrican II AGA on the A1200 (pre-release main-13c2cde9), with every Fast
+RAM setting; with Zorro III 32 MB the bands also moved. The OCS Turrican 2 always ran (Alex). Found by reading (scratchpad amiga-z3/READ.md):
+`dout48` / `p2_dout48` of the A1200 `amiga_mem.v` returned words 1..3 of the 4-word group whatever word was asked for (§5.6). FMODE 1/2 show
+`[47:32]` as pixels 16-31 of a fetch, so a fetch at 4 mod 8 bytes got the word at A-2 instead of A+2; at a row start A-2 lies outside the row
+(the left edge). OCS (FMODE 0) never reads `chip48`; FMODE 3 at 8-byte alignment is not affected. §5.6's "an unaligned request is not a wide
+fetch" no longer holds: 4 mod 8 is a valid FMODE 1/2 fetch.
+- **Fix** (commit 09e1b0b58, A1200 copy only): `[47:32]` is always the word at A+2 (hit: bank `{r_w[2:1],1}`; miss: `u_w[1] ? group word 3 :
+  word 1`); a request at 0 mod 8 bytes keeps the full {+2,+4,+6}. The A500 copy keeps the old lines: it has no AGA, so it never reaches them.
+- **Proof:** sim `amiga1200_wide` (`cores/amiga1200/sim/wide`, chip, Zorro II and Zorro III port, hit and miss): "wide fetch: 114 reads,
+  0 errors" / "PASS tb_wide"; control `OLD=1` (the old two lines) fails with 28 errors. The A500 bench `amiga_wide` asserted the old rule, which
+  is why no bench caught it.
+- **Zorro III:** the reading found no defect in the Z3 path (address, cache tags, DDR2 users, write ordering). The moving bands are most likely
+  the same defect showing whatever lies at A-2. If they remain after the fix, next is the 32-bit addressing that only the Z3 setting unmasks
+  (`cpu_wrapper.v:284`).
+- **Open:** board check with Turrican II AGA.
