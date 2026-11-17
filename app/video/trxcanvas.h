@@ -36,4 +36,13 @@ static inline TrxCanvas trx_canvas_for(int fw, int fh)
     return c;
 }
 
+// T228: the whole factor S of an output size ow x oh over a canvas cw x ch, 1..3, for a pix_layer that scales by PX_CTRL b5:4 instead of sizing by
+// PX_OSIZE: TRX64-Ultimate's (the bitstream of trx64u.cor) shows each canvas pixel as S x S output pixels, 0 counting as 1. The menu's output size is a
+// whole multiple of its canvas (trx_canvas_for), so S times the canvas is that size; any other size gets the largest S that fits in it.
+static inline int trx_canvas_factor(int ow, int oh, int cw, int ch)
+{
+    int s = (cw > 0 && ch > 0) ? (ow / cw < oh / ch ? ow / cw : oh / ch) : 1;
+    return s < 1 ? 1 : (s > 3 ? 3 : s);
+}
+
 #endif

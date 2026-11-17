@@ -4,12 +4,82 @@
 #include "fakes.h"
 #include "video.h"
 #include "videomode.h"
+#include "trxcanvas.h"
 #include "cores.h"
 #include "atari800_regs.h"
 #include "amiga_regs.h"
 
+// T228: the menu on trx64u's bitstream. Its pix_layer (TRX64-Ultimate's) has no PX_OSIZE and scales by PX_CTRL b5:4, so the LVGL port writes the whole
+// factor of the menu's output size over its canvas there (trx_canvas_factor); its frame is the gateware's row (U16), from the start and after every mode.
+static void trx64u_menu()
+{
+    CHECK_EQ(trx_canvas_factor(1920, 1080, 960, 540), 2);         // 1080p: 960 x 540 at x2
+    CHECK_EQ(trx_canvas_factor(960, 540, 960, 540), 1);           // 720p (and 1024 x 768, 1280 x 1024): x1
+    CHECK_EQ(trx_canvas_factor(720, 576, 720, 576), 1);           // 576p: the compact canvas is the frame
+    CHECK_EQ(trx_canvas_factor(2880, 1620, 960, 540), 3);
+    CHECK_EQ(trx_canvas_factor(3840, 2160, 960, 540), 3);         // b5:4 holds 3 at most
+    CHECK_EQ(trx_canvas_factor(1920, 540, 960, 540), 1);          // not the same multiple in both axes: the largest that fits
+    CHECK_EQ(trx_canvas_factor(0, 0, 960, 540), 1);               // never 0 (the layer reads 0 as 1 anyway)
+    for (int hdmi = 0; hdmi < VID_HDMI_COUNT; hdmi++) {
+        for (int sys : { VID_SYS_PAL50, VID_SYS_NTSC60 }) {
+            int fw = 0, fh = 0;
+            video_active_size(hdmi, sys, &fw, &fh);
+            TrxCanvas c = trx_canvas_for(fw, fh);
+            CHECK_EQ(trx_canvas_factor(c.w * c.factor, c.h * c.factor, c.w, c.h), c.factor);   // b5:4 says what PX_OSIZE says, in every mode
+        }
+    }
+    // the frame at the start: the gateware's row whatever the hand-over says (U16 starts in row 2); the hand-over's mode where it names no row;
+    // without the gateware (ue2emu's TRX64 host, a bitstream with no mode request) the fixed 1920 x 1080
+    int sys = VID_SYS_PAL50, hdmi = VID_HDMI_720P;
+    video_menu_start(true, 2, &sys, &hdmi);
+    CHECK(sys == VID_SYS_PAL50 && hdmi == VID_HDMI_1080P);
+    video_menu_start(true, 6, &sys, &hdmi);
+    CHECK(sys == VID_SYS_NTSC60 && hdmi == VID_HDMI_480_576);
+    sys = VID_SYS_PAL50; hdmi = VID_HDMI_720P;
+    video_menu_start(true, -1, &sys, &hdmi);
+    CHECK(sys == VID_SYS_PAL50 && hdmi == VID_HDMI_720P);
+    video_menu_start(false, -1, &sys, &hdmi);
+    CHECK_EQ(hdmi, VID_HDMI_1080P);
+    sys = -1; hdmi = -1;
+    video_menu_start(false, -1, &sys, &hdmi);
+    CHECK_EQ(hdmi, VID_HDMI_1080P);
+    // a core with its own picture (trx64u, w == 0): with the gateware the menu's canvas and place follow every mode, as a frame-buffer core's do
+    struct M { int hdmi, sys, cw, ch, x, y, w, h; };
+    static const M ms[] = {
+        { VID_HDMI_1080P,   VID_SYS_PAL50,  960, 540,   0,  0, 1920, 1080 },
+        { VID_HDMI_720P,    VID_SYS_PAL50,  960, 540, 160, 90,  960,  540 },
+        { VID_HDMI_480_576, VID_SYS_PAL50,  720, 576,   0,  0,  720,  576 },
+        { VID_HDMI_480_576, VID_SYS_NTSC60, 640, 480,   0,  0,  640,  480 },
+        { VID_HDMI_800x600, VID_SYS_NTSC60, 800, 600,   0,  0,  800,  600 },
+        { VID_HDMI_1080P,   VID_SYS_NTSC60, 960, 540,   0,  0, 1920, 1080 },
+    };
+    FakeIo io;
+    PxRec px;
+    Video v(c64_desc.video, &px, &io);
+    CHECK(v.own_picture());
+    v.set_gateware(true);
+    for (const M &m : ms) {
+        CHECK_EQ(v.set_mode(m.hdmi, m.sys), m.hdmi);
+        CHECK(!px.place.empty() && !px.canvas.empty());
+        if (px.place.empty() || px.canvas.empty()) {
+            break;
+        }
+        const PxRec::Pl &p = px.place.back();
+        if (p.x != m.x || p.y != m.y || p.w != m.w || p.h != m.h) printf("own picture, mode %d sys %d: place %d,%d %dx%d\n", m.hdmi, m.sys, p.x, p.y, p.w, p.h);
+        CHECK(p.x == m.x && p.y == m.y && p.w == m.w && p.h == m.h);
+        CHECK(px.canvas.back().first == m.cw && px.canvas.back().second == m.ch);
+    }
+    CHECK(px.w.empty());                                            // the layer itself is not touched: it is the menu's (the LVGL port's)
+    // without the gateware the frame does not follow the mode: the menu stays where the start put it
+    PxRec npx;
+    Video nv(c64_desc.video, &npx, &io);
+    nv.set_mode(VID_HDMI_720P, VID_SYS_PAL50);
+    CHECK(npx.place.empty() && npx.canvas.empty());
+}
+
 int main()
 {
+    trx64u_menu();
     const VideoDesc &d = atari800_desc.video;
     // the numbers of T88 D5: 384 x 288 at scale 3 = 1152 x 864, centred on 1920 x 1080 and shifted by 14 hires pixels
     CHECK_EQ(d.w * d.scale, 1152);
