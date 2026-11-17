@@ -336,7 +336,7 @@ control board_cfg_dir board.h 's|#define BOARD_MONOLITH_CFG_DIR "/flash/trx64u"|
 # T104.2 D9.3, S13: update.run_record - checks, stage, read back, jump
 run update test_update.cc update.cc ops.cc
 # T115 7 H1: the held page (R1-R5)
-control board_cfg_path start.cc 's/if (!c->cfg_path\[0\] \&\& prof \&\& prof->cfg_dir \&\& c->desc \&\& c->desc->folder) {/if (false) {/' test_board.cc $ALLC
+control board_cfg_path start.cc 's/if (!c->cfg_path\[0\] \&\& prof \&\& prof->flash_cfg \&\& prof->cfg_dir \&\& c->desc \&\& c->desc->folder) {/if (false) {/' test_board.cc $ALLC
 control board_cfg_named_by_store start.cc 's/prof->cfg_dir, c->desc->folder);/prof->cfg_dir, c->desc->store);/' test_board.cc $ALLC
 
 # S6, S7, S9: the ROMs at the aperture's offsets, the reset, the freeze
