@@ -126,6 +126,14 @@ Source (TOML; every key is checked, an unknown one is an error - a typo must not
     op = "drive.poll"
     period_ms = 10
 
+    [pad]                          # T228 R10: the core's USB pads through the pad service (coreapp/src/pad.h PadSpec); a record with it is version 5
+    output = "joystick"            # "joystick": the host's joystick lines, port 1 (reg 0) and port 2 (reg 1), at most 5 buttons (up down left right fire);
+                                   # "registers" (the default): a 16 bit pair per player in the core's register block, `regs = [r1, r2]`
+    per_pad = true                 # one port, fed by the first pad plugged, its map kept per pad (VID:PID) - as the Amiga's port 2 (pad.h by_id)
+    buttons = ["Up", "Down", "Left", "Right", "Fire"]       # bit n of the word = buttons[n], the names the "Map buttons" dialog asks for
+    default = ["up", "down", "left", "right", "face_bottom"]  # per button: up down left right (D-pad or stick), a position face_right face_bottom
+                                   # face_left face_top l r select start (resolved per pad, pad.h PAD_ROLE_*), button1 .. button32, none
+
     hide = ["some_node_id"]        # nodes of other contributors the description hides; a key at the top of the file, before the first table
     [[rename]]
     id = "some_node_id"
@@ -135,9 +143,10 @@ import re
 import struct
 
 MAGIC = 0x44585254          # "TRXD"
-VERSION = 4                 # 4 (T228) widens a media slot by the drive list's fields and gives the header's last word the machine-info line; 3 gave the two reserved words of 2 a use (a tab's layout, a node's attributes); 2 and 3 are read too
+VERSION = 5                 # 5 (T228 R10) adds the pad's six words to the header (200 bytes) - written only for a record with a [pad], one without stays version 4; 4 (T228) widens a media slot by the drive list's fields and gives the header's last word the machine-info line; 3 gave the two reserved words of 2 a use (a tab's layout, a node's attributes); 2 and 3 are read too
 VERSION_MIN = 2
-HEADER = 176
+HEADER = 176                # versions 2 to 4
+HEADER_V5 = 200             # version 5: + the pad (kind, reg 0, reg 1, first name, names, default map)
 NONE = 0xFFFFFFFF
 MAX_SIZE = 0x20000
 LIMITS = dict(area=8, tab=32, node=320, action=24, setting=16, hide=16, rename=16, bind=700, ext=48, size=16, value=3200, ctab=16,
@@ -152,6 +161,9 @@ WHEN = {"live": 0, "reset": 1}
 WIDGETS = ("info", "browser", "media", "settings", "tasks", "system", "nodes")
 NODE_KINDS = {"op": 0, "setting": 1, "state": 2, "widget": 3, "group": 4}
 BIND_KINDS = {"file": 0, "int": 1, "str": 2, "ask": 3, "text": 4}
+PAD_OUTPUTS = {"registers": 0, "joystick": 1}       # pad.h PAD_OUT_REGS, PAD_OUT_JOY
+PAD_ROLES = ("face_right", "face_bottom", "face_left", "face_top", "l", "r", "select", "start")   # pad.h PAD_ROLE_RIGHT (0x40) .. PAD_ROLE_START (0x47)
+PAD_DIRS = ("up", "down", "left", "right")          # pad.h PAD_SRC_UP (32) .. PAD_SRC_RIGHT (35)
 TABS_PER_AREA = 8                  # = MENU_TABS_MAX; the tab strip of the view has room for eight of them (TRX_TABS_MAX) (an application's hidden screens are tabs that are not on it)
 
 
@@ -527,7 +539,8 @@ def _expand_apps(doc):
 def compile_desc(doc, merged=()):
     """doc: the parsed TOML (a dict). Returns the record's bytes. `merged`: the names of the libraries whose menus were merged into it (merge_lib_menus)."""
     _expand_apps(doc)
-    _only(doc, {"area", "node", "file_action", "setting", "hide", "rename", "tab", "poll", "task", "media", "filetype", "core_setting", "lists", "machine_info"}, "description")
+    _only(doc, {"area", "node", "file_action", "setting", "hide", "rename", "tab", "poll", "task", "media", "filetype", "core_setting", "lists", "machine_info",
+                "pad"}, "description")
     st = _Strings()
     t = {k: [] for k in ORDER}
 
@@ -900,11 +913,13 @@ def compile_desc(doc, merged=()):
     merged_off = st.add(",".join(merged)) if merged else NONE
     mi = _opt(doc, "machine_info", str, "description", None)
     mi_off = st.add(mi) if mi else NONE
+    pad_words = _pad_words(_opt(doc, "pad", dict, "description", None), t, st)
     for k in ORDER:
         if len(t[k]) > LIMITS[k]:
             raise DescError("%d %s entries; the board takes %d" % (len(t[k]), k, LIMITS[k]))
     # layout: header, tables in ORDER, strings last
-    pos = HEADER
+    version, header = (VERSION, HEADER_V5) if pad_words else (4, HEADER)
+    pos = header
     offs = {}
     for k in ORDER:
         offs[k] = pos if t[k] else 0
@@ -913,11 +928,13 @@ def compile_desc(doc, merged=()):
     total = str_off + len(st.buf)
     if total > MAX_SIZE:
         raise DescError("the record is %d bytes; the board takes %d" % (total, MAX_SIZE))
-    out = bytearray(struct.pack("<IHHIIII", MAGIC, VERSION, HEADER, total, (1 if t["area"] else 0) | (2 if any(t[k] for k in OWN) else 0), str_off, len(st.buf)))
+    out = bytearray(struct.pack("<IHHIIII", MAGIC, version, header, total, (1 if t["area"] else 0) | (2 if any(t[k] for k in OWN) else 0), str_off, len(st.buf)))
     for k in ORDER:
         out += struct.pack("<II", offs[k], len(t[k]))
     out += struct.pack("<IIII", poll_op, poll_ms, merged_off, mi_off)
-    assert len(out) == HEADER, len(out)
+    if pad_words:
+        out += struct.pack("<6I", *pad_words)
+    assert len(out) == header, len(out)
     for k in ORDER:
         for e in t[k]:
             out += struct.pack("<%dI" % (ESIZE[k] // 4), *e)
@@ -928,6 +945,61 @@ def compile_desc(doc, merged=()):
 
 def compile_text(text):
     return compile_desc(toml_loads(text))
+
+
+def _pad_code(tok):
+    """A [pad] default entry -> the source id of pad.h: a direction 32..35, a position (role) 0x40..0x47, button1..32 -> 0..31, none -> 0xFF."""
+    if tok in PAD_DIRS:
+        return 32 + PAD_DIRS.index(tok)
+    if tok in PAD_ROLES:
+        return 0x40 + PAD_ROLES.index(tok)
+    if tok == "none":
+        return 0xFF
+    m = re.fullmatch(r"button([1-9][0-9]?)", tok) if isinstance(tok, str) else None
+    if m and int(m.group(1)) <= 32:
+        return int(m.group(1)) - 1
+    raise DescError("pad: default %r is not a source (%s, %s, button1 .. button32, none)" % (tok, ", ".join(PAD_DIRS), ", ".join(PAD_ROLES)))
+
+
+def _pad_token(code):
+    if 32 <= code <= 35:
+        return PAD_DIRS[code - 32]
+    if 0x40 <= code <= 0x47:
+        return PAD_ROLES[code - 0x40]
+    if code == 0xFF:
+        return "none"
+    return "button%d" % (code + 1)
+
+
+def _pad_words(pad, t, st):
+    """[pad] -> the six header words of version 5 (kind, reg 0, reg 1, first name, names, default map); the names go into the value table. None: no pad."""
+    if pad is None:
+        return None
+    _only(pad, {"output", "per_pad", "regs", "buttons", "default"}, "pad")
+    output = _opt(pad, "output", str, "pad", "registers")
+    if output not in PAD_OUTPUTS:
+        raise DescError("pad: output %r (one of %s)" % (output, ", ".join(PAD_OUTPUTS)))
+    names = _need(pad, "buttons", list, "pad")
+    if not 1 <= len(names) <= 16 or not all(isinstance(x, str) and x for x in names):
+        raise DescError("pad: buttons are 1 to 16 names")
+    if output == "joystick":
+        if "regs" in pad:
+            raise DescError("pad: the joystick output has its ports (1 and 2), no regs")
+        if len(names) > 5:
+            raise DescError("pad: a joystick has 5 lines (up, down, left, right, fire)")
+        regs = [0, 1]
+    else:
+        regs = _need(pad, "regs", list, "pad")
+        if len(regs) != 2 or not all(isinstance(x, int) and not isinstance(x, bool) and 0 < x <= 0xFFFF for x in regs):
+            raise DescError("pad: regs are the two players' registers")
+    dflt = _need(pad, "default", list, "pad")
+    if len(dflt) != len(names):
+        raise DescError("pad: default has one source per button")
+    codes = [_pad_code(x) for x in dflt]
+    fv = len(t["value"])
+    t["value"].extend((st.add(x),) for x in names)
+    kind = PAD_OUTPUTS[output] | (0x100 if _opt(pad, "per_pad", bool, "pad", False) else 0)
+    return (kind, regs[0], regs[1], fv, len(names), st.add("".join("%02X" % c for c in codes)))
 
 
 # ---- the reader (the same checks as descrec.cc) ----------------------------------------------------------------------------
@@ -945,16 +1017,17 @@ def parse_desc(blob):
     esz = dict(ESIZE)
     if ver < 4:
         esz["media"] = ESIZE_V3_MEDIA
-    if hsz != HEADER or total != n or flags & ~3:
+    hdr = HEADER_V5 if ver >= 5 else HEADER
+    if hsz != hdr or total != n or flags & ~3 or n < hdr:
         raise DescError("description record: header or length does not match")
-    if so < HEADER or so + ss > n or ss == 0:
+    if so < hdr or so + ss > n or ss == 0:
         raise DescError("description record: string table outside the record")
     tabs = {}
     for i, k in enumerate(ORDER):
         off, cnt = struct.unpack_from("<II", blob, 24 + 8 * i)
         if cnt > LIMITS[k]:
             raise DescError("description record: %d %s entries" % (cnt, k))
-        if cnt and (off < HEADER or off + cnt * esz[k] > n):
+        if cnt and (off < hdr or off + cnt * esz[k] > n):
             raise DescError("description record: table of %s outside the record" % k)
         tabs[k] = [struct.unpack_from("<%dI" % (esz[k] // 4), blob, off + j * esz[k]) for j in range(cnt)]
 
@@ -995,6 +1068,19 @@ def parse_desc(blob):
     out["value"] = [s(e[0]) for e in tabs["value"]]
     if any(not e or not e.startswith(".") for e in out["ext"]) or any(not v for v in out["value"]):
         raise DescError("description record: an extension without a dot or an empty value")
+    out["pad"] = None
+    if ver >= 5 and struct.unpack_from("<I", blob, HEADER)[0] != NONE:
+        kind, r0, r1, fv, nv, dm = struct.unpack_from("<6I", blob, HEADER)
+        dmap = s(dm)
+        outs = {v: k for k, v in PAD_OUTPUTS.items()}
+        if kind & ~0x1FF or (kind & 0xFF) not in outs or r0 > 0xFFFF or r1 > 0xFFFF or not 1 <= nv <= 16 or fv + nv > len(out["value"]) or dmap is None \
+                or not re.fullmatch(r"([0-9A-F]{2})*", dmap) or len(dmap) != 2 * nv:
+            raise DescError("description record: a bad pad")
+        codes = [int(dmap[2 * i:2 * i + 2], 16) for i in range(nv)]
+        if any(c > 35 and c != 0xFF and not 0x40 <= c <= 0x47 for c in codes):
+            raise DescError("description record: a bad pad")
+        out["pad"] = {"output": outs[kind & 0xFF], "per_pad": bool(kind & 0x100), "regs": [r0, r1], "buttons": out["value"][fv:fv + nv],
+                      "default": [_pad_token(c) for c in codes]}
     out["hide"] = [s(e[0]) for e in tabs["hide"]]
     out["rename"] = [(s(a), s(b)) for a, b in tabs["rename"]]
     if any(not h for h in out["hide"]) or any(not a or not b for a, b in out["rename"]):
@@ -1187,6 +1273,14 @@ def decoded_to_doc(rec):
             doc["tab"].append(d)
     if rec["poll"]:
         doc["poll"] = dict(rec["poll"])
+    if rec.get("pad"):
+        p = rec["pad"]
+        d = {"output": p["output"], "buttons": list(p["buttons"]), "default": list(p["default"])}
+        if p["per_pad"]:
+            d["per_pad"] = True
+        if p["output"] != "joystick":
+            d["regs"] = list(p["regs"])
+        doc["pad"] = d
     if rec["task"]:
         doc["task"] = []
         for t in rec["task"]:
@@ -1272,8 +1366,8 @@ def merge_lib_menus(desc_blob, libs):
     kept = []
     for name, blob in sorted(libs, key=lambda x: x[0]):
         rec = parse_desc(blob)
-        if rec["route"] or rec["hide"] or rec["rename"] or rec["own"]:
-            kept.append((name, "its record gives a route, hides or renames what others contribute, or carries a core's own tables"))
+        if rec["route"] or rec["hide"] or rec["rename"] or rec["own"] or rec.get("pad"):
+            kept.append((name, "its record gives a route, hides or renames what others contribute, or carries a core's own tables or pad"))
             continue
         if rec["poll"]:
             kept.append((name, "it declares a poll, of which a description has one"))

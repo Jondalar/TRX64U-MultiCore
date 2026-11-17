@@ -127,8 +127,8 @@ int bundle_merge(CoreCtx *c, const CoreDesc *base, const BundleExtras *x, LibLoa
         n += apps->contributors(cs + n, APPS_MAX);
     }
     CoreDesc own;
-    if (x && x->desc && x->desc->has_own) {
-        descrec_apply(*x->desc, base, &own);                      // the core's own tasks, media, file types and settings are the record's (T104.2 D10)
+    if (x && x->desc && (x->desc->has_own || x->desc->has_pad)) {
+        descrec_apply(*x->desc, base, &own);                      // the core's own tasks, media, file types and settings are the record's (T104.2 D10), its pad too (T228 R10)
         // T228 R1: a task of the record that declares a hotkey gets its item on the Hotkeys page, behind the application's own (the record's table holds them)
         if (const char *why = hk_extend_tasks(&own, const_cast<DescRecord *>(x->desc)->csettings, DR_CSETS)) {
             printf("[menu] description: %s\n", why);

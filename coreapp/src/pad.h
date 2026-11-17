@@ -2,12 +2,12 @@
 // over every pad it finds with its report descriptor (hidpad.h reads it), one call per input report, one when it goes away. This service keeps
 // up to two pads in plug order (player 1 = the first one plugged; a pad that leaves frees its place, the next one takes the lowest free
 // player; T156 Q1, recommendation, Alex not yet asked), turns a report into the core's button word through the map, and writes it into the
-// core's register for that player (PadSpec::reg): on every change, and as zero when the pad leaves (S5).
+// core's register for that player (PadSpec::reg; PAD_OUT_JOY: the host's joystick lines of that port): on every change, and as zero when the pad leaves (S5).
 //
 // A SOURCE is what a pad offers: ids 0..31 are Button 1..32 of the HID Button page, 32..35 the four directions (D-pad, hat switch or stick).
 // A MAP says for every button of the core which source drives it. The default map (D3: the SNES layout printed on most pads) is the core's;
 // a custom map is recorded with the "Map buttons" action (one press per core button) and kept in the core's .cfg ("Pad 1 map", "Pad 2 map").
-// The core sees the word as bit n = its button n (PadSpec::names order); the register is a 16 bit pair written low byte first.
+// The core sees the word as bit n = its button n (PadSpec::names order); the register is a 16 bit pair written low byte first (PAD_OUT_REGS).
 #ifndef COREAPP_PAD_H
 #define COREAPP_PAD_H
 
@@ -53,6 +53,10 @@ struct PadNumbering {
 const PadNumbering *pad_numbering_for(uint16_t vid, uint16_t pid);
 #define PAD_MODE_DEFAULT 0
 #define PAD_MODE_CUSTOM  1
+// Where the words go (PadSpec::out). REGS: a 16 bit pair per player in the core's register block (io->wr, low byte first). JOY (T228 R10): the host's joystick
+// lines (CoreIo::joy_lines): reg[] are joystick ports (0 = port 1, 1 = port 2), the word's bits 0..4 are up, down, left, right, fire (at most 5 buttons).
+#define PAD_OUT_REGS 0
+#define PAD_OUT_JOY  1
 
 struct PadSpec {
     uint16_t reg[PAD_PLAYERS];                   // low byte of the player's 16 bit button register; the high byte is the next address
@@ -61,9 +65,11 @@ struct PadSpec {
     const uint8_t *def_map;                      // nbuttons entries: a source id, PAD_SRC_NONE or a role (PAD_ROLE_*, resolved per pad)
     // T225 (the Amiga cores' game port 2): ONE port, fed by the first pad that is plugged (whichever player slot it has); its map is kept per pad,
     // keyed by VID:PID, in the core's .cfg ("Pad map 2DC8:6001" = <target type digit><nbuttons hex pairs>), so that the same pad finds it again on any
-    // USB socket. reg[1] is not used (0). `id_loaded` is called, from pad_pace, when a pad with a stored map appears: the stored target type.
+    // USB socket. The port is reg[pad_port()] (reg[0] unless the operation pad.port picks reg[1]; the Amiga's reg[1] is 0 and never picked). `id_loaded`
+    // (may be null) is called, from pad_pace, when a pad with a stored map appears: the stored target type.
     uint8_t by_id;
     void (*id_loaded)(CoreCtx *c, int type);
+    uint8_t out;                                 // PAD_OUT_REGS (0: the C++ cores) or PAD_OUT_JOY (T228 R10: a menu record's [pad], descrec.h)
 };
 
 // A spec's default map for a pad (vid = pid = 0: none plugged, the generic numbering): roles resolved, nbuttons entries.
@@ -105,6 +111,13 @@ int  pad_slot(int player);
 // By-id specs: keeps the map in force for the pad of `player` under "Pad map <VID:PID>" with the target type; false when no pad is there or the file cannot be written.
 bool pad_save_id_map(Settings *s, int player);
 
+// T228 R10 (operation pad.port): which of the spec's two registers the first pad drives, 0 or 1; the second pad (a players spec) drives the other one. A
+// change releases what the old register held and writes the words again at the next pace. 0 after pad_configure (a core that never sets it: as before).
+void pad_set_port(int index);
+int  pad_port();
+// What the mapping dialog of a by_id spec calls its port: "port 1" / "port 2" for the joystick output (the port in force), else "port 2" (T225's one port).
+const char *pad_port_name();
+
 // The poll's side: writes the words that changed. True when it wrote.
 bool pad_pace(CoreCtx *c);
 
@@ -136,7 +149,8 @@ void pad_capture_stop();
 bool pad_capturing();
 const char *pad_src_name(uint8_t src, char *buf, int n);   // "Button 3", "Up"
 
-// The operations and states of the base (pad_ops.cc): pad.set_map(value) for the setting "Pad map"; menu.pad_map_1 / _2 which the menu answers with
+// The operations and states of the base (pad_ops.cc): pad.set_map(value) for the setting "Pad map"; pad.port(value) (pad_set_port); pad.poll (pad_pace);
+// menu.pad_map_1 / _2 which the menu answers with
 // the mapping wizard; states pad.1 / pad.2 ("<name> buttons=<hex> dpad=<hex>" or "-").
 void pad_register(OpRegistry &r);
 // The mapping wizard (padwiz.cc, T192.3): operations pad.map.begin / next / back / cancel / tick, menu.pad_map_1 / _2 (they begin it), states pad.map.active / title / left / right / sub.

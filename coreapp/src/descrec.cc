@@ -72,7 +72,8 @@ int descrec_parse(const uint8_t *rec, uint32_t n, DescRecord *out, char *why, in
     if (ver < DESCREC_VERSION_MIN || ver > DESCREC_VERSION) {         // version 2 is version 3 without a layout and attributes (those words were 0); 4 widens the media slot and gives the header's last word a use
         return r.fail("description record: version %u, this application reads %u to %u", (unsigned)ver, DESCREC_VERSION_MIN, DESCREC_VERSION);
     }
-    if ((vh >> 16) != DESCREC_HEADER || r.u32(8) != n) {
+    const uint32_t hdr = ver >= 5 ? DESCREC_HEADER_V5 : DESCREC_HEADER;    // version 5 carries the pad's words behind the machine-info line
+    if ((vh >> 16) != hdr || r.u32(8) != n || n < hdr) {
         return r.fail("description record: the header or the length does not match the file");
     }
     uint32_t flags = r.u32(12);
@@ -81,7 +82,7 @@ int descrec_parse(const uint8_t *rec, uint32_t n, DescRecord *out, char *why, in
     }
     r.str_off = r.u32(16);
     r.str_size = r.u32(20);
-    if (r.str_off < DESCREC_HEADER || (uint64_t)r.str_off + r.str_size > n || r.str_size == 0) {
+    if (r.str_off < hdr || (uint64_t)r.str_off + r.str_size > n || r.str_size == 0) {
         return r.fail("description record: the string table lies outside the record");
     }
     const uint32_t esize[DR_TABLES] = { 20, 24, 52, 40, 32, 4, 8, 16, 4, 4, 4, 24, 36, ver >= 4 ? 44u : 24u, 24, 36, 36 };
@@ -96,7 +97,7 @@ int descrec_parse(const uint8_t *rec, uint32_t n, DescRecord *out, char *why, in
         if (tb[i].count > emax[i]) {
             return r.fail("description record: %u %s (this application takes %u)", (unsigned)tb[i].count, ename[i], (unsigned)emax[i]);
         }
-        if (tb[i].count && (tb[i].off < DESCREC_HEADER || (uint64_t)tb[i].off + (uint64_t)tb[i].count * esize[i] > n)) {
+        if (tb[i].count && (tb[i].off < hdr || (uint64_t)tb[i].off + (uint64_t)tb[i].count * esize[i] > n)) {
             return r.fail("description record: the table of %s lies outside the record", ename[i]);
         }
     }
@@ -167,6 +168,42 @@ int descrec_parse(const uint8_t *rec, uint32_t n, DescRecord *out, char *why, in
         if (bad || (mg != DESCREC_NONE && !out->merged[0])) {
             return r.fail("description record: the list of merged libraries is empty or outside the table");
         }
+    }
+    // T228 R10, version 5: the core's pad (pad.h PadSpec): the output and by_id, two registers (or ports), the button names (a run of the value table) and the
+    // default map (two hex digits per button)
+    if (ver >= 5 && r.u32(DESCREC_HEADER) != DESCREC_NONE) {
+        uint32_t kind = r.u32(DESCREC_HEADER), r0 = r.u32(DESCREC_HEADER + 4), r1 = r.u32(DESCREC_HEADER + 8);
+        uint32_t fv = r.u32(DESCREC_HEADER + 12), nv = r.u32(DESCREC_HEADER + 16);
+        const char *def = r.str(r.u32(DESCREC_HEADER + 20), &bad);
+        if (bad || (kind & ~0x1FFu) || (kind & 0xFF) > PAD_OUT_JOY || r0 > 0xFFFF || r1 > 0xFFFF || nv < 1 || nv > PAD_BUTTONS_MAX ||
+            (uint64_t)fv + nv > tb[V].count || !def || strlen(def) != 2 * nv) {
+            return r.fail("description record: the pad has a bad kind, register, run of button names or default map");
+        }
+        for (uint32_t i = 0; i < nv; i++) {
+            unsigned v = 0;
+            for (int k = 0; k < 2; k++) {
+                char ch = def[2 * i + k];
+                int d = (ch >= '0' && ch <= '9') ? ch - '0' : (ch >= 'A' && ch <= 'F') ? ch - 'A' + 10 : -1;
+                if (d < 0) {
+                    return r.fail("description record: the pad's default map is not hex");
+                }
+                v = v * 16 + (unsigned)d;
+            }
+            if (v > 35 && v != PAD_SRC_NONE && (v < PAD_ROLE_RIGHT || v > PAD_ROLE_START)) {
+                return r.fail("description record: entry %u of the pad's default map is no source", (unsigned)i);
+            }
+            out->pad_def[i] = (uint8_t)v;
+        }
+        PadSpec &p = out->pad;
+        memset(&p, 0, sizeof(p));
+        p.reg[0] = (uint16_t)r0;
+        p.reg[1] = (uint16_t)r1;
+        p.nbuttons = (uint8_t)nv;
+        p.names = out->values + fv;
+        p.def_map = out->pad_def;
+        p.by_id = (uint8_t)((kind >> 8) & 1);
+        p.out = (uint8_t)(kind & 0xFF);
+        out->has_pad = true;
     }
     // contributed tabs
     for (uint32_t i = 0; i < tb[C].count; i++) {
@@ -464,6 +501,9 @@ void descrec_apply(const DescRecord &rec, const CoreDesc *base, CoreDesc *out)
     *out = *base;
     if (rec.machine_info) {
         out->machine_info = rec.machine_info;
+    }
+    if (rec.has_pad) {
+        out->pad = &rec.pad;                                   // T228 R10: the record's pad is the core's
     }
     if (!rec.has_own) {
         return;

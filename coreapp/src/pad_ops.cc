@@ -9,6 +9,14 @@ static int op_set_map(CoreCtx *, const OpArgs &a, OpOut &)
 }
 static const ArgSpec set_map_arg[] = { ARG_INT("value", 0, 1) };
 
+// T228 R10: the setting that picks the register (the joystick port) the first pad drives; the running core's spec first, so that the value is not lost to it.
+static int op_port(CoreCtx *c, const OpArgs &a, OpOut &)
+{
+    pad_ensure(c);
+    pad_set_port(a.i(0));
+    return OPE_OK;
+}
+
 // The service of a core that has no other (NES): the words that changed into the registers.
 static int op_poll(CoreCtx *c, const OpArgs &, OpOut &)
 {
@@ -51,6 +59,7 @@ static const char *state_desc2(CoreCtx *) { return pad_desc_text(1); }
 void pad_register(OpRegistry &r)
 {
     r.add_op("pad.set_map", set_map_arg, 1, op_set_map);
+    r.add_op("pad.port", set_map_arg, 1, op_port);                  // value 0 / 1: the spec's register index (the port) the first pad drives
     r.add_op("pad.poll", 0, 0, op_poll);
     padwiz_register(r);                                              // the mapping wizard: pad.map.*, menu.pad_map_1 / _2 (padwiz.cc)
     r.add_state("pad.1", state_pad1);

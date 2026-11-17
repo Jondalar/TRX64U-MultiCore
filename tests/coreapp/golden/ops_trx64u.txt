@@ -45,6 +45,7 @@ op	writeback.open
 op	writeback.answer	value:int:0:1:0:
 op	writeback.leave
 op	pad.set_map	value:int:0:1:0:
+op	pad.port	value:int:0:1:0:
 op	pad.poll
 op	pad.map.begin	player:int:0:1:0:
 op	pad.map.next
