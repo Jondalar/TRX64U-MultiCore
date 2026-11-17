@@ -41,7 +41,7 @@ def cores():
     """(id, manifest name) of every core a user starts from a .cor, in the order of the descriptors."""
     out = []
     for name, _, t in core_toml.descriptors() + core_toml.large_descriptors():
-        if t.get("flash_filler") or t.get("build_only") or name in [o[0] for o in out]:
+        if not core_toml.in_pipeline(t) or t.get("flash_filler") or t.get("build_only") or name in [o[0] for o in out]:
             continue
         out.append((name, t.get("name", name)))
     return out
