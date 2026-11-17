@@ -284,7 +284,7 @@ MEDIA = {
     "diag": "`.toml` test files from `cores/diag/tests/` (a test says what to plug in and press); results go to `cores/diag/results/`.",
     "apple2": "`.dsk` `.do` `.po` `.nib` (Mount D1: and cold start, Mount D1:, Mount D2:).",
     "zx": "`.sna` `.z80` (Run snapshot: the machine starts where the snapshot was taken), `.tap` `.tzx` (Insert tape, then **Tape: Play** in the Tape row of F1; real speed).",
-    "cpc": "`.dsk` (Mount A: and reset, Mount A:, Mount B:; what the disk drive writes goes back into the file), `.cdt` (Insert tape, then **Tape: Play** in the Tape row of F1; real speed).",
+    "cpc": "`.dsk` (Mount A: and reset, Mount A:, Mount B: and reset, Mount B:; the F1 drive list mounts into an empty drive with the reset and replaces the disk of a filled drive without it, so a game of several disks keeps running; what the disk drive writes goes back into the file), `.cdt` (Insert tape, then **Tape: Play** in the Tape row of F1; real speed).",
     "snes": "`.sfc` `.smc` (Run; the battery RAM is saved as `.srm`); cartridges with a DSP-n chip need its firmware (section 5).",
     "neogeo": "`.neo` (Run); a folder set through the task Load a ROM set from a folder.",
     "zxnext": "`.img` (Mount SD image and reset, Mount SD image; the whole card, written back into the file).",

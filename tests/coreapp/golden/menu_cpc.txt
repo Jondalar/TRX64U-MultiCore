@@ -12,7 +12,7 @@ area F1 Home
 area F3 Library
   tab 1 Browse
     browser Browse
-      filetype .dsk: Mount A: and reset | Mount A: | Mount B:
+      filetype .dsk: Mount A: and reset | Mount A: | Mount B: and reset | Mount B:
       filetype .cdt: Insert tape | Insert tape and play
 area F5 CPC
   tab 1 CPC

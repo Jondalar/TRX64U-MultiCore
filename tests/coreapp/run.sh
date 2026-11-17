@@ -419,6 +419,7 @@ run zx test_zx.cc $ZX
 # T92 (the Amstrad CPC on the generic application): the descriptor, the two DSK drives with their write-back and the tape, against a model of the core
 CPC="cpc.cc cpc_disk.cc tape_deck.cc tape_pulses.cc $BASEL"
 run cpc test_cpc.cc $CPC
+run cpc_menu test_cpc_menu.cc menuctl.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc nes.cc ines.cc libfiles.cc $CPC
 control cpc_disk_take cpc_disk.cc 's/            c->io->wr(dirty_reg\[drive\] + m, b);    \/\/ taken.*$/            (void)0;/' test_cpc.cc $CPC
 control cpc_disk_idle cpc_disk.cc 's/now - d.last_ms >= CPCD_IDLE_MS || //' test_cpc.cc $CPC
 control cpc_disk_maxdirty cpc_disk.cc 's/ || now - d.first_ms >= CPCD_MAX_DIRTY_MS//' test_cpc.cc $CPC

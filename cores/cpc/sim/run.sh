@@ -60,7 +60,7 @@ for m in $modes; do
     disk)    python3 "$root/tools/cpc_progs.py" ddr "$here/build/disk.ddr.hex"; args="+ROM=$here/prog/disk.hex +DDR=$here/build/disk.ddr.hex +FRAMES=200" ;;
     page|page664|page464) args="+ROM=$here/prog/page.hex +EXP=$here/prog/$m.exp.hex +FRAMES=40" ;;
     pause) ;;
-    fdcscan|fdcfix) ;;      # the image block service alone (u765 + cpc_fdc + the DDR2 model), no machine
+    fdcscan|fdcscan3|fdcfix) ;;      # the image block service alone (u765 + cpc_fdc + the DDR2 model), no machine; fdcscan3 = only its READ DATA / strobe-pair group
     *) echo "unknown mode $m"; exit 1 ;;
   esac
   if [ "$m" = pause ]; then
@@ -79,16 +79,21 @@ PASS pause hashes: all $nlines frames of the paused run equal the reference run'
       r="$r
 FAIL pause hashes: the paused run differs from the reference in $(diff "$here/build/$m.f" "$here/build/pause_ref.f" | grep -c '^<') of $nlines frames"
     fi
-  elif [ "$m" = fdcscan ]; then
-    fd=$base/fdcscan
+  elif [ "$m" = fdcscan ] || [ "$m" = fdcscan3 ]; then
+    # fdcscan: the mount/reset/second-event groups with CYCLES 4000 (the core's value; the bench's ce is one in eight sys clocks where the core's is about one
+    # in four, so this drive turns at half the core's speed in sys clocks); fdcscan3: the READ DATA groups, whose drive turns 16 times faster than the core's
+    # (S3_CYCLES 125 in the bench, a revolution 0.41M sys clocks, the core: about 6.5M), as its own binary
+    fd=$base/$m
+    if [ "$m" = fdcscan ]; then vdef="-DS3_CYCLES=4000"; fa=+S3SKIP; else vdef=""; fa=+S3ONLY; fi
     python3 "$root/tools/cpc_progs.py" ddr40 "$here/build/blank40.ddr.hex"
     if [ ! -x "$fd/Vtb_fdcscan" ] || [ -n "$ZX_REBUILD" ]; then
       mkdir -p "$fd"
-      nice -n 15 verilator --binary --timing -Wno-fatal -Wno-lint -Wno-style -Wno-TIMESCALEMOD -j 2 --top-module tb_fdcscan --public-flat-rw -I"$here" -Mdir "$fd" \
+      # shellcheck disable=SC2086
+      nice -n 15 verilator --binary --timing -Wno-fatal -Wno-lint -Wno-style -Wno-TIMESCALEMOD -j 2 $vdef --top-module tb_fdcscan --public-flat-rw -I"$here" -Mdir "$fd" \
         --x-assign 0 --x-initial 0 "$here/tb_fdcscan.v" "$here/ddr2c_model.v" $c/gen/u765.sv $c/trx/cpc_fdc.v > "$fd/build.log" 2>&1 || { tail -30 "$fd/build.log"; echo "FAIL build"; exit 1; }
     fi
-    "$fd/Vtb_fdcscan" +DDR="$here/build/blank40.ddr.hex" > "$here/build/$m.log" 2>&1 || true
-    r=$(grep -E "^(PASS|FAIL|  stuck|  HANG|  scan|  second|  both|  hold)" "$here/build/$m.log" || true)
+    "$fd/Vtb_fdcscan" +DDR="$here/build/blank40.ddr.hex" $fa > "$here/build/$m.log" 2>&1 || true
+    r=$(grep -E "^(PASS|FAIL|  stuck|  HANG|  MON|  READ DATA|  scan|  second|  both|  hold|  rdata)" "$here/build/$m.log" || true)
   elif [ "$m" = fdcfix ]; then
     fd=$base/fdcfix
     if [ ! -x "$fd/Vtb_fdcfix" ] || [ -n "$ZX_REBUILD" ]; then

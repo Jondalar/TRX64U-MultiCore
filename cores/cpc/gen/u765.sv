@@ -1,6 +1,7 @@
-// T92 D3: cores/cpc/rtl/u765/u765.sv with two changes made by tools/cpc_gen.py (the initialiser of `logical_size` in SECTOR_SIZE is an
-// assignment per call; T92 #17: a new image event releases the scan lock its drive's running scan held). Everything else, the licence header
-// included, is the upstream file. Do not edit.
+// T92 D3: cores/cpc/rtl/u765/u765.sv with changes made by tools/cpc_gen.py (the initialiser of `logical_size` in SECTOR_SIZE is an
+// assignment per call; T92 #17: a new image event wins over the ce-gated scan/seek of its drive and releases the scan/trackinfo lock its
+// drive held; a command whose image went away ends with the missing-image answer of SETUP (ST0 0x40, ST1 0x05), in its data phase too, and a WRITE stops writing; a sector search waiting for an
+// ejected drive or a reset ends; the trackinfo lock waits for a block in flight; a scan and a trackinfo load never run together; two lock takers never take the trackinfo lock in the same clock). Everything else, the licence header included, is the upstream file. Do not edit.
 // ====================================================================
 //
 //  NEC upd765 FDC with EDSK-based floppy drive
@@ -349,6 +350,9 @@ always @(posedge clk_sys) begin : fdc
 	reg [15:0] i_bytes_to_read;
 	reg [2:0] i_substate;
 	reg [1:0] old_mounted;
+	reg tinfo_take; // T92 #17: a lock taker (seek 3) took tinfo_lock in this clock (blocking)
+	reg [1:0] mnt_ev; // T92 #17: the image event of this clock (the ce-gated scan/seek skip their visit of that drive)
+	reg scan_take; // T92 #17 H4: a scan took i_scan_lock in this clock (blocking)
 	reg [15:0] i_track_offset;
 	reg [19:0] i_timeout;
 	reg [7:0] i_head_timer;
@@ -377,6 +381,9 @@ always @(posedge clk_sys) begin : fdc
 	buff_wait <= 0;
 	tinfo_wait <= 0;
 
+	mnt_ev = ~old_mounted & img_mounted;
+	scan_take = 0;
+	tinfo_take = 0;
 	//new image mounted
 	for(int i=0;i<2;i++) begin 
 		old_mounted[i] <= img_mounted[i];
@@ -385,6 +392,8 @@ always @(posedge clk_sys) begin : fdc
 			image_size[i] <= img_size;
 			image_scan_state[i] <= {1'b0, |img_size};
 			if (image_scan_state[i] >= 2'd2) i_scan_lock <= 0; // T92 #17: this drive's running scan held the lock
+			if (image_scan_state[i] >= 2'd2) sd_rd_mount[i] <= 0; // T92 #17: the cancelled scan's block request is withdrawn
+			if (seek_state[i] >= 3'd4) begin tinfo_lock <= 0; sd_rd_tinfo[i] <= 0; end // T92 #17 H1: this drive's trackinfo load held the lock; its block request is withdrawn
 			image_ready[i] <= 0;
 			disk_changed[i] <= 1;
 			int_state[i] <= 0;
@@ -409,11 +418,12 @@ always @(posedge clk_sys) begin : fdc
 	end
 
    //Process the image file
-	if (ce) begin
+	if (ce && !mnt_ev[i_current_drive]) begin
 		case (image_scan_state[i_current_drive])
 			0: ;//no new image
 			1: //read the first 512 byte
-				if (!sd_busy_mount & !i_scan_lock & state == COMMAND_IDLE) begin
+				if (!sd_busy_mount & !sd_busy_tinfo & !sd_busy_sector & !i_scan_lock & !tinfo_lock & state == COMMAND_IDLE) begin
+					scan_take = 1;
 					i_scan_lock <= 1;
 					sd_rd_mount[i_current_drive] <= 1;
 					i_track_offset<= 16'h1; //offset 100h
@@ -494,6 +504,7 @@ always @(posedge clk_sys) begin : fdc
 		if (image_scan_state[0]) image_scan_state[0] <= 1;
 		if (image_scan_state[1]) image_scan_state[1] <= 1;
 		i_scan_lock <= 0;
+		sector_search_state <= 0; // T92 #17: a reset ends a search that waits (the lock it waited for is cleared here too)
 		i_srt <= 4;
 		tinfo_lock <= 0;
 	end else if (ce) begin
@@ -502,7 +513,7 @@ always @(posedge clk_sys) begin : fdc
 		old_rd <= rd;
 
 		//seek
-		case(seek_state[i_current_drive])
+		if (!mnt_ev[i_current_drive]) case(seek_state[i_current_drive])
 			0: // idle state
 			if (i_seek_start[i_current_drive]) begin
 				seek_state[i_current_drive] <= 1;
@@ -538,7 +549,8 @@ always @(posedge clk_sys) begin : fdc
 			3: // reload trackinfo for the new track
 			begin
 				$display("reload trackinfo: drive %d track %d", i_current_drive, pcn[i_current_drive]);
-				if (!tinfo_lock) begin
+				if (!tinfo_lock && !sd_busy_tinfo && !i_scan_lock) begin
+					tinfo_take = 1;
 					sector_byte_pos[i_current_drive] <= '{ 0, 0 };
 					i_current_track_sectors[i_current_drive] <= '{ 0, 0 };
 					next_weak_sector[i_current_drive] <= 0;
@@ -626,12 +638,12 @@ always @(posedge clk_sys) begin : fdc
 			end
 
 			1:
-			if (!image_trackinfo_dirty[sector_search_ds0] && !tinfo_lock) begin
+			if (!image_trackinfo_dirty[sector_search_ds0] && !tinfo_lock && !sd_busy_tinfo && !i_scan_lock && !scan_take && !tinfo_take) begin
 				tinfo_lock <= 1;
 				image_track_offsets_addr <= { sector_search_ds0, pcn[sector_search_ds0], sector_search_hds };
 				tinfo_wait <= 1;
 				sector_search_state <= 2;
-			end
+			end else if (!image_ready[sector_search_ds0]) sector_search_state <= 0; // T92 #17 H3: ejected while waiting
 
 			2:
 			if (~tinfo_wait) begin
@@ -934,7 +946,16 @@ always @(posedge clk_sys) begin : fdc
 			end
 
 			COMMAND_READ_ID_WAIT_ID:
-			if (!image_trackinfo_dirty[ds0] & i_byte_clk_en) begin
+			if (!image_ready[ds0]) begin
+				i_sector_c <= pcn[ds0];
+				i_sector_h <= {7'd0, hds};
+				i_sector_r <= 8'h00;
+				i_sector_n <= 8'h00;
+				status[0] <= 8'h40; // T92 #17 H2: missing image, as SETUP
+				status[1] <= 8'b101;
+				status[2] <= 0;
+				state <= COMMAND_READ_RESULTS;
+			end else if (!image_trackinfo_dirty[ds0] & i_byte_clk_en) begin
 /*
 				if (sector_byte_pos[ds0][hds] == SECTOR_SYNC2_START) begin
 					m_status[UPD765_MAIN_EXM] <= 0;
@@ -1021,7 +1042,16 @@ always @(posedge clk_sys) begin : fdc
 
 			COMMAND_RW_DATA_EXEC1:
 			begin
-				if (!image_trackinfo_dirty[ds0] && !tinfo_lock) begin
+				if (!image_ready[ds0]) begin
+				i_sector_c <= i_c;
+				i_sector_h <= i_h;
+				i_sector_r <= i_r;
+				i_sector_n <= i_n;
+				status[0] <= 8'h40; // T92 #17 H2: missing image, as SETUP
+				status[1] <= 8'b101;
+				status[2] <= 0;
+				state <= COMMAND_READ_RESULTS;
+				end else if (!image_trackinfo_dirty[ds0] && !tinfo_lock) begin
 					m_status[UPD765_MAIN_DIO] <= ~i_write;
 					if (i_rtrack) i_r <= 0;
 					// If the current track is empty/unformatted (or intentionally treated as empty),
@@ -1043,7 +1073,16 @@ always @(posedge clk_sys) begin : fdc
 			end
 
 			COMMAND_RW_DATA_EXEC2:
-			if (i_secinfo_valid[ds0][hds]) begin
+			if (!image_ready[ds0]) begin
+				i_sector_c <= i_c;
+				i_sector_h <= i_h;
+				i_sector_r <= i_r;
+				i_sector_n <= i_n;
+				status[0] <= 8'h40; // T92 #17 H2: missing image, as SETUP
+				status[1] <= 8'b101;
+				status[2] <= 0;
+				state <= COMMAND_READ_RESULTS;
+			end else if (i_secinfo_valid[ds0][hds]) begin
 				i_scanning <= 0;
 				i_sector <= i_current_sector_pos[ds0][hds];
 				state <= COMMAND_RW_DATA_EXEC3;
@@ -1051,7 +1090,16 @@ always @(posedge clk_sys) begin : fdc
 
 			//process trackInfo + sectorInfo
 			COMMAND_RW_DATA_EXEC3:
-			if (i_secinfo_valid[ds0][hds] && i_byte_clk_en) begin
+			if (!image_ready[ds0]) begin
+				i_sector_c <= i_c;
+				i_sector_h <= i_h;
+				i_sector_r <= i_r;
+				i_sector_n <= i_n;
+				status[0] <= 8'h40; // T92 #17 H2: missing image, as SETUP
+				status[1] <= 8'b101;
+				status[2] <= 0;
+				state <= COMMAND_READ_RESULTS;
+			end else if (i_secinfo_valid[ds0][hds] && i_byte_clk_en) begin
 				i_sector <= i_current_sector_pos[ds0][hds];
 
 				if (i_sector != i_current_sector_pos[ds0][hds]) begin
@@ -1160,7 +1208,7 @@ always @(posedge clk_sys) begin : fdc
 			if (!sd_busy_sector & sd_rd_sector == 2'b00 & sd_wr_sector == 2'b00) begin
 				if (!i_bytes_to_read) begin
 					//end of the current sector
-					if (i_write && buff_addr && i_seek_pos < image_size[ds0]) begin
+					if (i_write && buff_addr && image_ready[ds0] && i_seek_pos < image_size[ds0]) begin
 						i_write_prev <= 0;
 						sd_wr_sector[ds0] <= 1;
 					end
@@ -1224,7 +1272,7 @@ always @(posedge clk_sys) begin : fdc
 				if (&buff_addr) begin
 					//sector continues on the next LBA
 					//so write out the current before reading the next
-					if (i_seek_pos < image_size[ds0]) begin
+					if (image_ready[ds0] && i_seek_pos < image_size[ds0]) begin
 						i_write_prev <= 1; // seek pos advanced to the next sector, but must write the previous
 						sd_wr_sector[ds0] <= 1;
 					end
@@ -1237,13 +1285,18 @@ always @(posedge clk_sys) begin : fdc
 			//End of reading/writing sector, what's next?
 			COMMAND_RW_DATA_EXEC8:
 			if (!sd_busy_sector && sd_rd_sector == 2'b00 && sd_wr_sector == 2'b00 && 
-			    sector_byte_pos[ds0][hds] >= (sector_end_pos[ds0][hds] + (gap3[ds0][hds]>>2))) // in GAP3
+			    (!image_ready[ds0] || sector_byte_pos[ds0][hds] >= (sector_end_pos[ds0][hds] + (gap3[ds0][hds]>>2)))) // in GAP3, or the image went away
 
 			begin
 `ifdef U765_DEBUG
 				dbg_chksum <= chksum;
 `endif
-				if (~i_rtrack & ~(i_sk & (i_rw_deleted ^ i_sector_st2[6])) &
+				if (!image_ready[ds0]) begin
+				status[0] <= 8'h40; // T92 #17 H2: missing image, as SETUP
+				status[1] <= 8'b101;
+				status[2] <= 0;
+				state <= COMMAND_READ_RESULTS;
+				end else if (~i_rtrack & ~(i_sk & (i_rw_deleted ^ i_sector_st2[6])) &
 					((i_sector_st1[5] & i_sector_st2[5]) | (i_rw_deleted ^ i_sector_st2[6]))) begin
 					//deleted mark or crc error
 					status[0] <= 8'h40;

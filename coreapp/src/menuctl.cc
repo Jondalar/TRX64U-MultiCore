@@ -2298,8 +2298,10 @@ MenuCtl::Result MenuCtl::activate(bool primary, bool all)
             ft = 0;
         }
         if (mount_slot_ >= 0 && fm_.image_ft < 0 && c_->desc->media[mount_slot_].mount) {      // T212 D5: the drive's own mount action, whichever way the file was chosen
+            const MediaSlot &ms = c_->desc->media[mount_slot_];
+            const char *want = ms.replace && ops_state(c_, ms.state) ? ms.replace : ms.mount;      // T92 D-17b: a filled slot may swap by another action
             for (int k = 0; k < nacts; k++) {
-                if (!strcmp(acts[k].label, c_->desc->media[mount_slot_].mount)) {
+                if (!strcmp(acts[k].label, want)) {
                     end_mount();
                     return start_action(acts[k], full);
                 }
@@ -2533,7 +2535,10 @@ MenuCtl::Result MenuCtl::drive_row(const MenuEntry &e)
                 fm_.ext_filter = m.exts;
                 go(a, b);
                 char s[120];
-                snprintf(s, sizeof(s), "Choose a file for %s - RETURN mounts it", m.name);
+                const bool filled = ops_state(c_, m.state) != 0;
+                const FileAction *act = desc_slot_action(c_->desc, m, m.replace && filled ? m.replace : m.mount);      // the action RETURN will run (see activate)
+                snprintf(s, sizeof(s), "Choose a file for %s - RETURN %s%s", m.name, m.replace && filled ? "swaps the medium" : "mounts it",
+                         act && desc_action_boots(*act) ? " and resets" : "");
                 set_status(s, false);
                 return R_REDRAW;
             }

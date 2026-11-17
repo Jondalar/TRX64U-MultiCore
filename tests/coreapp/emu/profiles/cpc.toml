@@ -1,0 +1,17 @@
+# The Amstrad CPC core of TRX64U-MultiCore as the core application sees it (the layout of vc20.toml). Tests only (T92 #17 emulator pictures).
+name = "cpc"
+id = "CPC_"
+board = "multicore"
+
+[regs]
+0x0A0 = 0x01                 # CTRL: b0 HOLD
+0x0A4 = 0x0A                 # STATUS: b1 held, b3:2 the 6128 runs
+0x0C4 = 0xD0                 # CPC_FB_BASE 0x01D00000
+0x0C5 = 0x01
+0x0C8 = 0x10                 # CPC_FB_STRIDE 0x00100000
+
+[handover]
+core = "Amstrad CPC 464 / 664 / 6128"
+id = "cpc"
+path = "/Usb0/cores/cpc.cor"
+video = "1080p"

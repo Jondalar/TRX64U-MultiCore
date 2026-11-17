@@ -360,7 +360,7 @@ Amstrad CPC 464 / 664 / 6128 F1/home s1 59 84209d41
 Amstrad CPC 464 / 664 / 6128 F1/home s2 59 fffd5e12
 Amstrad CPC 464 / 664 / 6128 F1/home s3 59 dae0ba11
 Amstrad CPC 464 / 664 / 6128 F1/home s4 59 84209d41
-Amstrad CPC 464 / 664 / 6128 F1/home s5 59 7f1fd4c9
+Amstrad CPC 464 / 664 / 6128 F1/home s5 59 6f3ced15
 Amstrad CPC 464 / 664 / 6128 F1/home s6 59 84209d41
 Amstrad CPC 464 / 664 / 6128 F1/home s7 59 fffd5e12
 Amstrad CPC 464 / 664 / 6128 F1/home s8 59 cf290bb0
