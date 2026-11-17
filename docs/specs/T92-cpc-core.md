@@ -437,6 +437,12 @@ OS464 + BASIC464`, every part 16 KB (README). Frame: the CRTC is programmable; t
   packages". `cpc.cor` is deleted from the board's `/SD/cores` (the old `cpc_probe_backup.cor` there was not touched). The CI
   package and the next GitHub releases ship no CPC until #17 is fixed and passes on the board; the CPC is still built, so a fix can
   be tested. The published pre-release main-13c2cde9 stays as it is.
+- D-17e (Alex 2026-11-17, right after D-17d): "Do not even build it. The code stays, leave it out of the pipeline! Pure waste of
+  time" (translated). Replaces D-17d's "still built": the CPC's code stays in the tree, no pipeline stage builds, packs, ships or
+  benches it (core.toml `pipeline = false`). The reading of the hang was stopped. Left for whoever picks it up: Alex's photo of
+  the hang shows "Amstrad 64K Microcomputer (v2)" and the copyright lines, then nothing - the 664 banner, not the 6128's; the
+  machine stops after the firmware banner and before BASIC prints its line, i.e. in the ROM start or AMSDOS init, before any
+  disk command of the user.
 
 ## §4 Out
 
