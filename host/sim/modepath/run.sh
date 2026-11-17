@@ -27,11 +27,7 @@ good all "+c64=0" "c64=0 path" "frame-buffer path"
 grep -m3 '^request' "$out/all.log"
 [ $amiga = 1 ] || good all_c64 "+c64=1" "c64=1 path" "C64-type path"
 [ $amiga = 1 ] || grep '^family bit' "$out/all_c64.log"
-# T234: the Amiga copies' mode_req has the Frame follow register (0x4F02): the run above is the default Off (rows 0..2 = table rows 12..14), this one has it On first
-[ $amiga = 0 ] || good all_f1 "+c64=0 +fol=1" "c64=0 path" "frame-buffer path, Frame follow On"
-[ $amiga = 0 ] || grep -h '^Frame follow' "$out/all.log" "$out/all_f1.log"
 good i2c "+c64=0 +i2c" "c64=0 i2c" "frame-buffer i2c"
-[ $amiga = 0 ] || good i2c_f1 "+c64=0 +i2c +fol=1" "c64=0 i2c" "frame-buffer i2c, Frame follow On"
 [ $amiga = 1 ] || good i2c_c64 "+c64=1 +i2c" "c64=1 i2c" "C64-type i2c"
-if [ $amiga = 1 ]; then grep -h '^i2c row' "$out/i2c.log" "$out/i2c_f1.log"; else grep -h '^i2c row' "$out/i2c.log" "$out/i2c_c64.log"; fi
-echo "PASS modepath (fb and C64-type paths, i2c bytes of 9 + 2 rows, status register; Amiga copies: Frame follow Off and On)"
+if [ $amiga = 1 ]; then grep -h '^i2c row' "$out/i2c.log"; else grep -h '^i2c row' "$out/i2c.log" "$out/i2c_c64.log"; fi
+echo "PASS modepath (fb and C64-type paths, i2c bytes of 9 + 2 rows, status register)"

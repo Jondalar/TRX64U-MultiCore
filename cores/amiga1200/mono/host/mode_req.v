@@ -9,10 +9,11 @@
 //         0x4F07  the mode hdmi_timing runs (mode_q), 0..11
 //         0x4F08  requests written (clk_sys count)
 //         0x4F09  requests processed (clk50 count, crossed as 8 bits, so one read may be torn; equal to 0x4F08 = the refused bit is current)
-// T234 (the Amiga copies only): write 0x4F02 bit 0 = Frame follow (0 Off, the power-up value; 1 On); read 0x4F0C = the value taken. Off: a request for
-//   row 0, 1 or 2 (the 50 Hz television rows) runs the host's standard rows 12, 13, 14 of hdmi_modes.vh and hdmi_timing does not follow the core on them;
-//   On: rows 0..2 are T188's. 0x4F07 reports the requested row (0..2) either way. A change of the value is a change of the effective row: the CDCE
-//   is written again and the timing generator restarts like after a request. The version byte (0x4F05) is 4.
+// T234 (the Amiga copies only; redo 2026-11-17: the default path is the one of before T188): write 0x4F02 bit 0 = Frame follow (0 Off, the power-up
+//   value; 1 On); read 0x4F0C = the value taken. Off: every row is the host's own, rows 0..2 included, and the power-up row is 2, exactly as before
+//   T188. On: a request for row 0, 1 or 2 (the 50 Hz television rows) runs T188's Amiga rows 12, 13, 14 of hdmi_modes.vh, on which hdmi_timing
+//   follows the core. 0x4F07 reports the requested row (0..2) either way. A change of the value is a change of the effective row: the CDCE is
+//   written again and the timing generator restarts like after a request. The version byte (0x4F05) is 4.
 // An accepted request (and any change of the effective row, e.g. the family bit) holds vm_rst for 8 clk50 clocks: cdce_mode starts its two
 // writes again, the transmitters follow (top.v), the pixel clock moves, mmcm_pix relocks and hdmi_timing takes mode_pix while its reset is high.
 // The connections to the overlay window are the write decode here and the read mux (rhit / rdata over overlay.v's rdata, one clk_sys after
@@ -27,16 +28,16 @@ module mode_req (
     input  wire        clk50,
     input  wire        c64_type,           // static: the core is held to the VIC frame lock
     input  wire        fam_v60,            // clk50: the System Mode's family (mode_ctl cdce_v60)
-    output reg  [3:0]  vm_mode = 4'd14,    // clk50: the row the synthesizer is written for (to cdce_mode)
+    output reg  [3:0]  vm_mode = 4'd2,     // clk50: the row the synthesizer is written for (to cdce_mode)
     output wire        vm_rst,             // clk50: restart cdce_mode
     input  wire        clk_pix,
-    output reg  [3:0]  mode_pix = 4'd14,   // clk_pix: vm_mode, for hdmi_timing (taken while its rst is high)
+    output reg  [3:0]  mode_pix = 4'd2,    // clk_pix: vm_mode, for hdmi_timing (taken while its rst is high)
     input  wire        gt_ready,           // any clock
     input  wire        pix_locked,         // any clock
     input  wire        running,            // hdmi_timing.running (clk_pix)
     input  wire [3:0]  mode_q              // hdmi_timing.mode_q (clk_pix)
 );
-`include "hdmi_modes.vh"
+`include "hdmi_modes_amiga.vh"   // T234: a name of its own - Vivado runs in host/, where host/hdmi_modes.vh (no rows 12..14) would be found first
     // ---- clk_sys: the write
     reg  [7:0] req_val = 8'd2;
     reg        req_tgl = 1'b0;
@@ -62,7 +63,7 @@ module mode_req (
     wire [3:0] req_n   = (take && ok) ? req_val[3:0] : req_m;
     wire [3:0] eff_r   = c64_type ? (((req_n >= 4'd6) ? req_n - 4'd6 : req_n) + fam_off) : req_n;
     (* ASYNC_REG = "TRUE" *) reg [1:0] fol_s = 2'b00;
-    wire [3:0] eff_n   = (!fol_s[1] && eff_r < 4'd3) ? eff_r + 4'd12 : eff_r;     // T234: Off = the host's standard 50 Hz rows 12..14
+    wire [3:0] eff_n   = (fol_s[1] && eff_r < 4'd3) ? eff_r + 4'd12 : eff_r;      // T234: On = T188's Amiga rows 12..14; Off = the host's rows as they are
     always @(posedge clk50) begin
         tgl_s <= {tgl_s[1:0], req_tgl};
         fol_s <= {fol_s[0], fol};
@@ -73,7 +74,7 @@ module mode_req (
     end
 
     // ---- clk_pix: the mode for hdmi_timing
-    (* ASYNC_REG = "TRUE" *) reg [3:0] mp1 = 4'd14;
+    (* ASYNC_REG = "TRUE" *) reg [3:0] mp1 = 4'd2;
     always @(posedge clk_pix) begin mp1 <= vm_mode; mode_pix <= mp1; end
 
     // ---- clk_sys: the status

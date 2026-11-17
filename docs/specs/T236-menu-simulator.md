@@ -162,6 +162,12 @@ No negative controls: nothing here writes flash or persists anything (settings l
   640x480 (frame 640x480)" (480p); S4/S8 key traces of the core and the host app; S5 TOML reload 0.27 s after the save, "menu rebuilt in 108 ms",
   a broken TOML refused with descrec's sentence and the last menu kept; S6 51 of 51 t228-mock trx64u pictures "differ: 0 px"; S7 merged with main
   (fix-1117) on the builder: "coreapp render: 297065 checks, 0 failed", "render bench: 2466 checks, 0 failed"; S9 Mac arm64 only (§4).
+- **Deviations from §3 (pre-push review 2026-11-17):** D1's `tools/menusim/keys.h` is `simwin.h` (window loop, keys) and `hostsim.cc`; D4's `make -j4`
+  is `-j2` (the Mac's limit of two heavy processes); D5's bilinear case is not built - the menu layer is always nearest (the board port writes a fixed
+  `PX_CTRL_ON`, trx_lv_port.cc; the smoothing bit belongs to the game layer). After the review: `ci/fundamental.txt` names `tests/coreapp/menu_rig.h`
+  and `srclist.sh` (a branch that edits them runs the render benches again); the window's nearest-sampling hint is set before the texture is made.
+- **Notes left (local tool):** Cmd+S writes `menusim-<core>-<mode>-<n>.png` into the current directory; paths with spaces or `'` break the build
+  and the TOML reload; a changed define keeps stale objects until `.ci/menusim/` is removed; a typed core name in another case skips the TOML.
 - **Open:** nobody has looked at the visible window yet (the runs used SDL's dummy driver) - Alex's first run is its first look:
   `tools/menusim/run.sh trx64u` (or `--tree <worktree> <core>`, `--host`).
 

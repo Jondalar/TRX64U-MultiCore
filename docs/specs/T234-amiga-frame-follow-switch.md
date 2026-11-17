@@ -1,6 +1,6 @@
 # T234 — The Amiga cores' frame follow (T188) is a setting, off by default; off gives the standard HDMI rows of before T188
 
-**Status:** BUILT, MERGED into main 2026-11-17 (Alex: "merge and build"); Vivado (S6) and board (S4, S5) open. Proposed 2026-11-17.
+**Status:** BUILT on t234-switch, merged into main locally (not pushed) 2026-11-17 late; board: A1200 Off and On checked by Claude (JTAG). Proposed 2026-11-17.
 **Repo:** TRX64U-MultiCore — the Amiga cores' own host copies (`cores/amiga/mono/host/`, `cores/amiga1200/mono/host/`: `hdmi_timing.v`,
 the mode rows, `tools/hdmi_modes.py`), the cores' register blocks, the setting in the core app (through the generic settings path),
 the manual (11.6, 11.7).
@@ -69,3 +69,43 @@ No mutation tests (T174 D5.4).
 - **Evidence (builder, both cores, same lines):** `PASS hdmi_timing (12 modes, 4 refused: exact, align on every row)`; rows 12..14 with Off `fe=[0..0] fe_end=0 len_bad=0/338` at 49.60, 49.920128 and 50.20 Hz; T188's `PASS hdmi_timing follow (no repeat, no skip at 49.60 .. 50.20 Hz, ...)` unchanged; `PASS modepath (... Frame follow Off and On)`; `gwstatus: 72 checks, 0 failed`; `scale: 329 checks, 0 failed`; render `296877 checks, 0 failed`; `tools/dev.sh riscv` rc 0.
 - **Cost (estimate, no Vivado yet):** about 80-120 LUT and 5 FF per core, no BRAM/DSP.
 - **Open:** S4/S5 board, S6 Vivado; pictures are render-bench pictures (ue2emu has no model of version 4); open for Alex: the T224 safe graphics mode does not force Frame follow Off; a stored On costs one more re-sync at start.
+
+**2026-11-17 evening - board failure, gateware reverted on main.**
+- **Board (Alex, package main-6fdc2234, home monitor):** the A1200 gives no picture, the menu does not come either. The core runs; its log (REST
+  /v1/report): "[amiga] frames core 230 out 0 at 10000 ms" (the core's frames count, the HDMI output's do not), "[core] frame follow: the gateware
+  did not take Off" twice (video_gw_set_follow_io: pix_locked and running never both true within 1 s), "[TRX UI] pixel layer: no flip".
+  Alex: "fette regression".
+- **Cause not found by reading** (mode_req, hdmi_modes.vh rows 12..14, cdce_mode, the settle/gt_rst chain in top.v, hdmi_timing all read
+  consistent). The benches covered hdmi_timing and modepath only, not the start path on the board (cdce_mode I2C write, the 50 ms settle, the GTP
+  reset, mmcm_pix, the first frames into pix_layer).
+- **Revert:** the twelve gateware, generator and bench files of the merge (cores/amiga{,1200}/mono/host/{mode_req.v,hdmi_modes.vh,hdmi_timing.v},
+  tools/hdmi_modes.py, host/sim/hdmi_timing/*, host/sim/modepath/*) are back at e8db511c0^1: version byte 1, power-up row 2, T188 always on, as on
+  the board of 2026-11-13. The core app's generic Frame follow row stays; it appears only on gateware that reports version 4 (none now). Manual
+  11.6.8/11.7.3 and the README sentences removed. `tools/hdmi_modes.py check`: "PASS hdmi_modes amiga: rows 0..2 run the Amiga frame ...";
+  selftest "27 of 27 mutations caught".
+- **Redo:** on a branch, with a test of the whole start path that counts output frames, before any board step.
+
+**Redo (Alex 2026-11-17 late, after the revert):** asked "That is exactly what we wanted as an on/off switch, right?" - yes; shown the design
+below: "Try it. I am sleeping. You have to start the A1200 in the host yourself" (translated). The switch the right way round:
+- **Off (default):** rows 0..2 are again exactly the host's standard rows of before T188 (the cores' copies at eba7f582f^1), the power-up
+  state too (vm_mode / mode_pix 2): the default is the old path byte for byte.
+- **On:** T188's Amiga rows as new rows 12..14 with the follow loop (follow on m 12..14 instead of m < 3); used only while On.
+- **Proof before Alex sees it:** the A1200 started from the host by Claude on the board, both settings; the core's log shows HDMI output frames
+  ("[amiga] frames core N out M", M > 0) and the menu.
+
+**2026-11-17 late - redo built and checked on the board (branch t234-switch: 5cd3bbbc1, 3f67dce29; package t234-switch-3f67dce2).**
+- **Off = the old path:** rows 0..2 are the host's again, power-up row 2; `tools/hdmi_modes.py check` "rows 0..11 are the host's (Frame follow Off,
+  the default); rows 12..14 run the Amiga frame 49.920128 Hz within 1 ppm", selftest "28 of 28 mutations caught". Board (Alex, photos): AmigaVision
+  at 1080p50, the menu with Frame follow Off.
+- **The cause of both failures today (T234 Off before, the redo's On after):** the Amiga copies' modules said `include "hdmi_modes.vh"`; Vivado runs
+  in host/, so host/hdmi_modes.vh (9 rows, no 12..14) was read instead of the Amiga copy: rows 12..14 had CDCE word 0 and hm_valid 0. JTAG with
+  On before the fix: "GTP down, pixel MMCM unlocked, 0 frames/s". The Amiga table is now `hdmi_modes_amiga.vh` (both copies, FROM, the generator).
+  Consequence: T188's own rows (2638 x 1125 etc.) never ran on the board before; T188's board result of 11-13 was the follow loop on the host rows.
+- **Board after the fix (Claude, A1200 started from the host web page, JTAG `tools/trxdbg.sh mode`, switched over REST `follow.apply`):**
+  On: "GTP ready, pixel MMCM locked, 50 frames/s, 2967552 pixel clocks per frame" (= T188's 2638 x 1125); Off: "GTP ready, pixel MMCM locked,
+  50 frames/s, 2969856 pixel clocks per frame" (= 2640 x 1125); live both ways, no core reset, no "did not take" in the log. Stored back to Off.
+- **Not checked:** the A500 core on the board (same change; the host menu cannot be reached over REST from a running core); picture and sound of
+  T188's rows on a screen (S5, Pinball Dreams); Worms DC (S4). The core app's "[amiga] frames core N out 0" counter reads 0 although HDMI runs
+  (JTAG: 50 frames/s) - a wrong read-out, not a dead output.
+- **Wrong turn, taken back:** a start-path change of T235 (b23a54ecd, a stored unnamed Picture row would run at the screen's named rate) rested on
+  a wrong guess (the screen takes 1080p50 although its EDID does not name it); reverted (dd0512243) before any board use.
