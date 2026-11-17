@@ -352,8 +352,8 @@ bool video_read_edid(uint8_t *buf, int max, int *len)
     if (!i2c || max < 128) {
         return false;
     }
-    U64_HDMI_REG = U64_HDMI_DDC_ENABLE;
     i2c->i2c_lock("video EDID");
+    U64_HDMI_REG = U64_HDMI_DDC_ENABLE;                          // gate fix 10b: inside the lock - the bug report and the Picture service both read, and the one that waits must not find the DDC lines switched off by the one that finished
     i2c->set_channel(I2C_CHANNEL_HDMI);
     bool ok = i2c->i2c_read_block(0xA0, 0x00, buf, 128) == 0;
     if (ok) {
@@ -465,8 +465,8 @@ bool video_edid_sig(uint32_t *sig)
         return false;
     }
     uint8_t b[2] = { 0, 0 };
-    U64_HDMI_REG = U64_HDMI_DDC_ENABLE;
     i2c->i2c_lock("video EDID sig");
+    U64_HDMI_REG = U64_HDMI_DDC_ENABLE;                          // gate fix 10b: inside the lock, as video_read_edid
     i2c->set_channel(I2C_CHANNEL_HDMI);
     bool ok = i2c->i2c_read_block(0xA0, 0x7E, b, 2) == 0;     // extension count, checksum
     U64_HDMI_REG = U64_HDMI_DDC_DISABLE;

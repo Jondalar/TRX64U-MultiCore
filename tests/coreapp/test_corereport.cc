@@ -12,6 +12,8 @@
 #include "ops_glue.h"
 #include "desc_check.h"
 #include "listgrow.h"
+#include "settings.h"
+#include "trx64u_menu.h"
 extern const CoreDesc amiga_desc, amiga1200_desc, apple2_desc, c64_desc;
 
 const CoreDesc *const core_table[] = { &testcore::desc, &amiga_desc, &amiga1200_desc, &apple2_desc, &c64_desc, 0 };
@@ -318,6 +320,47 @@ int main()
         printf("--- excerpt ---\n%s--- end ---\n", t.substr(a, b - a).c_str());
         ListGrow::free_heap() = 0;
         core_report_edid_reader() = 0;
+    }
+    // ---- gate fix 10a: the biggest report there is - trx64u's whole menu (the most settings), the largest EDID the reader returns, a log of the full 16 KB - fits, nothing is cut
+    {
+        const CoreDesc *d = trx64u::desc();
+        SpyIo io; FakeFs fs; CoreCtx c;
+        memset(&c, 0, sizeof(c));
+        c.desc = d; c.io = &io; c.fs = &fs; c.merge = trx64u::merge();
+        Settings st(d->settings, d->nsettings, d->store, &fs, "/sd/cores/worst.cfg", 0);
+        st.load();
+        c.settings = &st;
+        ListGrow::free_heap() = fake_heap;
+        core_report_edid_reader() = fake_edid;
+        memset(g_edid, 0, sizeof(g_edid));
+        static const uint8_t hdr[8] = { 0, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0 };
+        memcpy(g_edid, hdr, 8);
+        g_edid[8] = 0x12;
+        g_edid[126] = 1;
+        g_edid[128] = 0x02; g_edid[129] = 3; g_edid[130] = 4;
+        for (int b = 0; b < 2; b++) {
+            uint8_t sum = 0;
+            for (int i = 0; i < 127; i++) { sum = (uint8_t)(sum + g_edid[b * 128 + i]); }
+            g_edid[b * 128 + 127] = (uint8_t)(0x100 - sum);
+        }
+        g_edid_len = 256;
+        std::string log;
+        for (int i = 0; log.size() < (size_t)BR_LOG_BYTES; i++) {
+            char l[96];
+            snprintf(l, sizeof(l), "[core] line %03d of the log, filled up to a width of about eighty characters now\n", i);
+            log += l;
+        }
+        int n = core_report_build(&c, 0, false, log.c_str(), (int)log.size(), g_out, sizeof(g_out));
+        std::string t(g_out, n);
+        size_t a = t.find("== Heap =="), b = t.find("== Log"), l0 = t.find("== Configuration =="), l1 = t.find("== Media");
+        printf("worst case: %d of %d bytes; configuration %d, heap and EDID %d, log %d\n", n, (int)CORE_REPORT_MAX, (int)(l1 - l0), (int)(b - a), (int)(n - b));
+        CHECK(has(t, "256 bytes"));
+        CHECK(!has(t, "report cut"));
+        CHECK(has(t, "line 000 of the log") || has(t, "of the log"));
+        CHECK(n < CORE_REPORT_MAX - 512);
+        ListGrow::free_heap() = 0;
+        core_report_edid_reader() = 0;
+        g_edid_len = 0;
     }
     DONE("test_corereport");
 }
