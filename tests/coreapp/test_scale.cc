@@ -34,6 +34,9 @@ const CoreDesc *const core_table[] = { &atari800_desc, &nes_desc, &amiga_desc, &
 
 struct L { int w, h, hdmi, sys, mode, bx, by, ow, oh, x0, y0; };
 
+// T235: the Picture value of a resolution on a PAL machine (the list is every row of the table, the machine's rate first within a resolution)
+static int pv(int hdmi) { static const int v[VID_HDMI_COUNT] = { 1, 3, 5, 7, 8, 9 }; return v[hdmi]; }
+
 static void layouts()
 {
     static const L t[] = {
@@ -191,7 +194,7 @@ static void items_and_apply()
       g_fw.clear(); g_gw.clear();
       picture_start(&r.c, VID_SYS_PAL50, VID_HDMI_1080P);
       CHECK(g_fw.empty() && g_gw.empty());                       // Auto: the A1200 wants what the screen has (1440 x 1080 at 1080p)
-      picture_apply(&r.c, 2);                                    // the item's value 2 is mode 1: 1280 x 720
+      picture_apply(&r.c, pv(VID_HDMI_720P));                    // 1280 x 720 at 50 Hz
       CHECK(g_fw.empty() && g_gw.size() == 1 && g_gw[0] == std::make_pair((int)VID_SYS_PAL50, (int)VID_HDMI_720P));
       CHECK_EQ(r.vid->out_w(), 720u);                            // Integer at 720p: x1
       scale_apply(&r.c, VID_SCALE_FIT);
@@ -211,35 +214,44 @@ static void items_and_apply()
       CHECK_EQ(r.px.last(PX_OSIZE), (270u << 16) | 360u);
       CHECK_EQ(r.px.last(PX_POS), (225u << 16) | 460u);
       // the same mode again is not applied twice
-      picture_apply(&r.c, 2);
+      picture_apply(&r.c, pv(VID_HDMI_720P));
       CHECK_EQ(g_gw.size(), 1u);
     }
-    // T107 5.10: every Picture value of the A1200 through the item's own path (Settings, regset_apply_setting, the operation, picture_apply): the byte the
-    // application writes to the gateware's request register (0x4F00) is family * 6 + the mode the value names, for each of the 12 combinations
+    // T107 5.10, T235: every Picture value of the A1200 through the item's own path (Settings, regset_apply_setting, the operation, picture_apply): the byte the
+    // application writes to the gateware's request register (0x4F00) is the row the value names - the list is every row of the table (9 rows), the machine's rate
+    // first within a resolution, and the value says the family itself (no silent fallback any more)
     for (int sys = VID_SYS_PAL50; sys <= VID_SYS_NTSC60; sys++) {
-        for (int v = 1; v <= VID_HDMI_COUNT; v++) {
+        int rows[10], n = 0;
+        for (int h = 0; h < VID_HDMI_COUNT; h++) {
+            for (int k = 0; k < 2; k++) {
+                int row = (k == 0 ? sys : 1 - sys) * 6 + h;
+                if ((EDID_ROW_MASK >> row) & 1u) rows[n++] = row;
+            }
+        }
+        CHECK_EQ(n, 9);
+        for (int v = 1; v <= n; v++) {
             Rig r(&amiga1200_desc);
             g_fw.clear(); g_gw.clear();
             picture_start(&r.c, sys, VID_HDMI_1080P);                // the gateware starts in 1080p; a 60 Hz host asks for the 60 Hz family at once
             size_t before = g_gw.size();
             int idx = picture_index(&r.ext);
+            CHECK_EQ(r.ext.settings[idx].nvalues, 10);
             CHECK(r.st->set(idx, v));
             regset_apply_setting(&r.c, idx);
-            // Q5: the PC modes exist at 60 Hz only, so a PAL machine takes the 60 Hz row of 800 x 600 and the others (Q6: silent, no Hz choice)
-            int fam = (sys == VID_SYS_NTSC60 || v - 1 >= VID_HDMI_800x600) ? VID_SYS_NTSC60 : VID_SYS_PAL50;
-            int want = fam * 6 + (v - 1);
-            if (v - 1 == VID_HDMI_1080P) {
+            int want = rows[v - 1];
+            if (want == sys * 6 + VID_HDMI_1080P) {
                 CHECK_EQ(g_gw.size(), before);                       // the mode that is up: nothing is written
-                CHECK_EQ(video_mode_index(VID_HDMI_1080P, sys), want);
             } else {
                 CHECK_EQ(g_gw.size(), before + 1);
                 if (g_gw.size() == before + 1) {
-                    CHECK_EQ(g_gw.back().first, fam);
-                    CHECK_EQ(g_gw.back().second, v - 1);
+                    CHECK_EQ(g_gw.back().first, want / 6);
+                    CHECK_EQ(g_gw.back().second, want % 6);
                     CHECK_EQ(video_mode_index(g_gw.back().second, g_gw.back().first), want);
                 }
             }
-            CHECK_STR(r.ext.settings[idx].values[v], video_hdmi_name(v - 1));   // the label the menu shows for the value is the mode it applies
+            char lbl[48];                                            // the label the menu shows for the value is the mode it applies, with its rate
+            snprintf(lbl, sizeof(lbl), "%s (%d Hz)", want % 6 == VID_HDMI_480_576 ? (want / 6 ? "480p" : "576p") : video_hdmi_name(want % 6), want / 6 ? 60 : 50);
+            CHECK_STR(r.ext.settings[idx].values[v], lbl);
         }
     }
     // the gateware starts in 1080p at 50 Hz: a host that was handed 60 Hz (or anything else) does not make it so
@@ -265,13 +277,13 @@ static void menu_places()
 {
     struct P { int value, factor, x, y, cw, ch; };       // D10a: the canvas too (960 x 540, or the mode's own size below 960 wide)
     static const P t[] = {                                       // the Picture item's value is the mode + 1
-        { 1 + VID_HDMI_1080P,     2,   0,   0, 960, 540 },                 // 1920 x 1080: x2 fills it
-        { 1 + VID_HDMI_720P,      1, 160,  90, 960, 540 },                 // 1280 x 720: x1, never 1.33
-        { 1 + VID_HDMI_800x600,   1,   0,   0, 800, 600 },                 // D10a: narrower than 960: the canvas is the frame, the compact layout, nothing cut
-        { 1 + VID_HDMI_1024x768,  1,  32, 114, 960, 540 },
-        { 1 + VID_HDMI_1280x1024, 1, 160, 242, 960, 540 },
-        { 1 + VID_HDMI_480_576,   1,   0,   0, 720, 576 },                 // 576p under PAL: 720 x 576, the canvas is the frame
-        { 1 + VID_HDMI_1080P,     2,   0,   0, 960, 540 },                 // and back: the menu is not left at the small size
+        { pv(VID_HDMI_1080P),     2,   0,   0, 960, 540 },                 // 1920 x 1080: x2 fills it
+        { pv(VID_HDMI_720P),      1, 160,  90, 960, 540 },                 // 1280 x 720: x1, never 1.33
+        { pv(VID_HDMI_800x600),   1,   0,   0, 800, 600 },                 // D10a: narrower than 960: the canvas is the frame, the compact layout, nothing cut
+        { pv(VID_HDMI_1024x768),  1,  32, 114, 960, 540 },
+        { pv(VID_HDMI_1280x1024), 1, 160, 242, 960, 540 },
+        { pv(VID_HDMI_480_576),   1,   0,   0, 720, 576 },                 // 576p under PAL: 720 x 576, the canvas is the frame
+        { pv(VID_HDMI_1080P),     2,   0,   0, 960, 540 },                 // and back: the menu is not left at the small size
     };
     Rig r(&amiga1200_desc);
     g_gw.clear();
@@ -297,7 +309,7 @@ static void menu_places()
         CHECK_EQ(r.px.w.size(), wr);                             // the menu's place is not a write of the video service's layer set
     }
     // the picture's Scale and size do not move the menu: Fill at 720p is 1280 x 720 for the picture, Integer 720 x 540
-    picture_apply(&r.c, 1 + VID_HDMI_720P);
+    picture_apply(&r.c, pv(VID_HDMI_720P));
     for (int sc : { VID_SCALE_INTEGER, VID_SCALE_FIT, VID_SCALE_FILL }) {
         scale_apply(&r.c, sc);
         CHECK(!r.px.place.empty());

@@ -19,6 +19,8 @@ void picmodes_set_row(PictureModes *pm, int i, const char *name, int hdmi, uint1
     snprintf(r.name, sizeof(r.name), "%s", name);
     r.refresh_dhz = 0;
     r.native = false;
+    r.mode = -1;
+    r.named = false;
     int row;
     if (hdmi >= 0 && video_modes_resolve(mask, msys, hdmi, &row)) {
         r.refresh_dhz = picmodes_row_dhz(row);
@@ -29,6 +31,19 @@ void picmodes_set_row(PictureModes *pm, int i, const char *name, int hdmi, uint1
     }
     r.now = i == 0 ? cur_auto : (!cur_auto && hdmi >= 0 && hdmi == now_hdmi);       // T187 D9: one mark, on the row that is chosen (Auto's resolved mode keeps none)
     pm->sys60 = msys == VID_SYS_NTSC60;
+}
+
+void picmodes_set_row_at(PictureModes *pm, int i, const char *name, int row, bool named, uint16_t native, int now_row, bool cur_auto)
+{
+    PictureModeRow &r = pm->row[i];
+    snprintf(r.name, sizeof(r.name), "%s", name);
+    bool ok = row >= 0 && row < EDID_ROWS;
+    r.refresh_dhz = ok ? picmodes_row_dhz(row) : 0;
+    r.native = ok && ((native >> row) & 1);
+    r.named = i > 0 && ok && named;
+    r.mode = i > 0 && ok ? row : -1;
+    r.now = i == 0 ? cur_auto : (!cur_auto && ok && row == now_row);
+    pm->full = true;
 }
 
 void picmodes_mode_text(uint16_t mask, int sys, int hdmi, char *out, int n)
@@ -62,7 +77,7 @@ void picmodes_refresh_text(const PictureModes *pm, int i, char *out, int n)
 void picmodes_tag_text(const PictureModes *pm, int i, char *out, int n)
 {
     const PictureModeRow &r = pm->row[i];
-    snprintf(out, n, "%s%s%s", r.now ? "now" : "", r.now && r.native ? "  " : "", r.native ? "native" : "");
+    snprintf(out, n, "%s%s%s%s%s", r.now ? "now" : "", r.now && r.native ? "  " : "", r.native ? "native" : "", (r.now || r.native) && r.named ? "  " : "", r.named ? "*" : "");
 }
 
 static bool picmodes_mixed(const PictureModes *pm)             // T187 F6: rows of the other family than the core's (a PC mode has only a 60 Hz row) stand in the list
@@ -78,7 +93,13 @@ static bool picmodes_mixed(const PictureModes *pm)             // T187 F6: rows 
 
 void picmodes_info(const PictureModes *pm, char *out, int n)
 {
-    if (pm->no_edid) {
+    if (pm->full) {                                                                  // T235: every mode is listed; the mark says what the screen names
+        if (pm->no_edid) {
+            snprintf(out, n, "The screen did not name its modes. Every mode is listed; RETURN tries one.");
+        } else {
+            snprintf(out, n, "* = the screen names this mode. Others may work: RETURN tries one and asks you to keep it.");
+        }
+    } else if (pm->no_edid) {
         snprintf(out, n, "The screen did not name its modes; the standard TV modes are listed.");
     } else if (pm->fallback) {
         snprintf(out, n, "This screen names no %d Hz modes; %d Hz modes are listed.", pm->sys60 ? 60 : 50, pm->sys60 ? 50 : 60);
@@ -120,14 +141,16 @@ void picpage_open(PicPage *p, const PictureModes *pm)
 void picpage_refresh(PicPage *p, const PictureModes *pm, bool keep)
 {
     char name[48] = "";
+    int mode = -1;
     if (keep && p->sel < p->pm.n) {
         snprintf(name, sizeof(name), "%s", p->pm.row[p->sel].name);
+        mode = p->pm.row[p->sel].mode;
     }
     p->pm = *pm;
     if (keep) {
         p->sel = pm->cur < pm->n ? pm->cur : 0;
         for (int i = 0; i < pm->n; i++) {
-            if (!strcmp(pm->row[i].name, name)) {
+            if (!strcmp(pm->row[i].name, name) && pm->row[i].mode == mode) {
                 p->sel = i;
                 break;
             }
