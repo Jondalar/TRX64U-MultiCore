@@ -10,6 +10,7 @@
 #include "ops_glue.h"
 #include "menuctl.h"
 #include "keyboard.h"
+#include "trx64u_menu.h"
 
 enum { CTRL = 58, CBM = 61, KR = 17, KPLUS = 40, KMINUS = 43, KJ = 34, KP = 41, KA = 10, KSHIFT = 15, K1 = 56 };
 
@@ -359,6 +360,34 @@ int main()
             m->key(KEY_RIGHT);
             CHECK(hk_current().mod_a != CBM && hk_current().mod_b != CBM);
         }
+    }
+    // ---- T228 R1/R16 (gate fixes 3 and 5): trx64u's Timewarp and Monitor tasks hold CTRL+T and CTRL+O by default; a key the stored settings give a fixed action is not doubled
+    {
+        const CoreDesc *d = trx64u::desc();
+        int idx[HK_TASKS_MAX];
+        CHECK_EQ(hk_tasks(d, idx), 2);
+        auto key_named = [](const char *nm) { for (int k = 0; k < HK_NKEYS; k++) if (!strcmp(hk_key_name(k), nm)) return k; return -1; };
+        const int kt = key_named("T"), ko = key_named("O");
+        CHECK(kt >= 0 && ko >= 0);
+        FakeIo io; FakeFs fs; CoreCtx c;
+        memset(&c, 0, sizeof(c));
+        c.desc = d; c.io = &io; c.fs = &fs; c.started = true;
+        Settings *st = new Settings(d->settings, d->nsettings, d->store, &fs, "/sd/cores/hkt.cfg", 0);
+        st->load();
+        c.settings = st;
+        hk_apply(&c);
+        HkMap m = hk_map_of(&c);
+        CHECK_EQ(m.ntask, 2); CHECK_EQ(m.mod_a, CTRL); CHECK_EQ(m.mod_b, HK_NONE);
+        CHECK_EQ(m.task[0], kt); CHECK_EQ(m.task[1], ko);
+        int ti = st->find("Hotkey Timewarp"), ri = st->find("Hotkey reset");
+        CHECK(ti >= 0 && ri >= 0);
+        CHECK_EQ(st->value(ti), kt + 1);
+        CHECK(st->set(ri, kt + 1));                                                  // the person gave Reset the key T
+        m = hk_map_of(&c);
+        CHECK_EQ(m.act[HKA_RESET], kt); CHECK_EQ(m.task[0], HK_NONE); CHECK_EQ(m.task[1], ko);
+        hk_apply(&c);
+        CHECK_EQ(st->value(ti), 0);                                                  // the Hotkeys page shows none for Timewarp
+        CHECK_EQ(hk_current().task[0], HK_NONE); CHECK_EQ(hk_current().act[HKA_RESET], kt);
     }
     DONE("test_hotkeys");
 }

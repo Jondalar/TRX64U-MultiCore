@@ -583,6 +583,18 @@ HkMap hk_map_of(const CoreCtx *c)
             m.task[a - HK_NACT] = k;
         }
     }
+    for (int j = 0; j < m.ntask; j++) {                    // gate fix 3: a task's key (default or stored) never doubles the key of a fixed action or of an earlier task
+        for (int a = 0; a < HK_NACT && m.task[j] != HK_NONE; a++) {
+            if (m.act[a] == m.task[j]) {
+                m.task[j] = HK_NONE;
+            }
+        }
+        for (int i = 0; i < j && m.task[j] != HK_NONE; i++) {
+            if (m.task[i] == m.task[j]) {
+                m.task[j] = HK_NONE;
+            }
+        }
+    }
     return m;
 }
 
@@ -603,6 +615,15 @@ static HkMap g_current = { HK_NONE, HK_NONE, { HK_NONE, HK_NONE, HK_NONE, HK_NON
 void hk_apply(CoreCtx *c)
 {
     HkMap m = hk_map_of(c);
+    for (int j = 0; c->settings && j < m.ntask; j++) {      // gate fix 3: the Hotkeys page shows what the map holds - a task given no key by a clash shows none
+        int idx[HK_TASKS_MAX];
+        hk_tasks(c->desc, idx);
+        const TaskItem *t = task_item(c->desc->tasks[idx[j]].label);
+        const int i = t ? c->settings->find(t->key) : -1;
+        if (i >= 0 && m.task[j] == HK_NONE && c->settings->value(i) != 0) {
+            c->settings->set(i, 0);
+        }
+    }
     uint8_t regs[HK_NREGS];
     hk_regs(m, regs);
     if (c->io) {
