@@ -785,9 +785,9 @@ run memops test_memops.cc $MEMSRC
 # service on the real NES and SNES descriptors, the mapping wizard in the real menu. Controls: one defect each, the same test built against it must fail.
 PADSRC="snes.cc snes_rom.cc nes.cc ines.cc neogeo.cc neoset.cc $ATARI"
 run hidpad test_hidpad.cc hidpad.cc
-run pad test_pad.cc $PADSRC
+run pad test_pad.cc $PADSRC descrec.cc                   # descrec.cc: T228 R10, the menu record's pad (trx64u's record)
 run xinput test_xinput.cc xinput.cc $PADSRC     # T196: XInput pads (claim, 360 and GIP reports through the pad service, start sequences)
-control pad_cfgkeys settings.cc 's/if (!strncasecmp(key, "Pad ", 4)) {/if (false) {/' test_pad.cc $PADSRC
+control pad_cfgkeys settings.cc 's/if (!strncasecmp(key, "Pad ", 4)) {/if (false) {/' test_pad.cc $PADSRC descrec.cc
 run padmenu test_padmenu.cc menuctl.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc $PADSRC
 # T192.3 leak 1 (persistence): the wizard module saves the map through pad_save_map and tells the truth about it
 control pad_wiz_not_saved padwiz.cc 's/bool saved = c->settings \&\& pad_save_map(c->settings, g_player);/bool saved = false;/' test_padmenu.cc menuctl.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc $PADSRC

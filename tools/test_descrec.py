@@ -372,6 +372,14 @@ class Pad(unittest.TestCase):
         with self.assertRaises(D.DescError):
             D.parse_desc(bytes(b))
 
+    def test_the_menu_of_trx64u_declares_its_joystick_pad(self):
+        r = D.parse_desc(D.compile_text(menu_text()))
+        self.assertEqual((r["pad"]["output"], r["pad"]["per_pad"], len(r["pad"]["buttons"])), ("joystick", True, 5))
+        self.assertEqual(r["poll"], {"op": "pad.poll", "period_ms": 16})
+        port = next(c for c in r["cset"] if c["apply"] == "pad.port")
+        self.assertEqual((port["group"], port["values"], port["default"]), ("input", ["Port 1", "Port 2"], 1))
+        self.assertIn(("input", "menu.pad_map_port"), [(t["group"], t["op"]) for t in r["task"]])
+
 
 class AgainstTheApplication(unittest.TestCase):
     """T104.2 D10: every name and binding of a menu is checked against what the application exports (tests/coreapp/golden/ops_trx64u.txt)."""

@@ -12,6 +12,8 @@
 #include "neogeo_regs.h"
 #include "pad.h"
 #include "ops_glue.h"
+#include "descrec.h"
+#include "trx64u/menu_rec.inc"                        // T228 R10: the record with a [pad] (generated from menu.toml)
 
 typedef std::vector<uint8_t> V;
 
@@ -458,6 +460,57 @@ int main()
         CHECK_STR(pad_src_name(0, nm, sizeof(nm)), "Button 1");
         CHECK_STR(pad_src_name(PAD_SRC_DOWN, nm, sizeof(nm)), "Down");
         CHECK_STR(pad_src_name(PAD_SRC_NONE, nm, sizeof(nm)), "none");
+        unplug_all();
+    }
+    // ---- T228 R10: a menu record's pad (the trx64u record, version 5): one port fed by the first pad (by_id), the host's joystick lines (joy_lines, bits
+    // 0..4 up down left right fire, 1 = pressed), pad.port picks port 1 or 2 and releases the one it leaves; no register of the core is written
+    {
+        static DescRecord rec;
+        char why[160];
+        CHECK_EQ(descrec_parse(c64_menu_rec, sizeof(c64_menu_rec), &rec, why, sizeof(why)), 0);
+        CHECK(rec.has_pad && rec.pad.out == PAD_OUT_JOY && rec.pad.by_id && rec.pad.nbuttons == 5);
+        CHECK(rec.pad.reg[0] == 0 && rec.pad.reg[1] == 1);
+        CHECK_STR(rec.pad.names[0], "Up");
+        CHECK_STR(rec.pad.names[4], "Fire");
+        CHECK(rec.pad.def_map[0] == PAD_SRC_UP && rec.pad.def_map[3] == PAD_SRC_RIGHT && rec.pad.def_map[4] == PAD_ROLE_BOTTOM);
+        CoreDesc d = nes_desc;                                             // the settings store of a real descriptor; the pad is the record's
+        d.pad = &rec.pad;
+        Rig r(&d);
+        unplug_all();
+        pad_ensure(&r.c);
+        CHECK_EQ(pad_port(), 0);
+        pad_set_port(1);                                                   // the setting's default, "Port 2" (pad.port 1)
+        CHECK_STR(pad_port_name(), "port 2");
+        CHECK(pad_attach(&k1, "pad", 0x1234, 0x0001, d_hat.data(), (int)d_hat.size()));
+        CHECK(pad_pace(&r.c));
+        CHECK(!r.io.joy_log.empty() && r.io.joy_log.back().port == 1 && r.io.joy_log.back().v == 0);   // port 2, released
+        CHECK_EQ(r.io.joy[0], 0);
+        CHECK(r.io.log.empty());                                           // nothing went to the core's register block
+        V p = rep(0x0001, 0);                                              // Button 1 (bottom: Fire in the generic numbering) and the hat up
+        pad_report(&k1, p.data(), (int)p.size());
+        CHECK(pad_pace(&r.c));
+        CHECK_EQ(r.io.joy[1], 0x11);                                       // up (bit 0) and fire (bit 4) on port 2
+        CHECK_EQ(r.io.joy[0], 0);
+        CHECK(!pad_pace(&r.c));                                            // nothing changed: nothing written
+        p = rep(0, 2);                                                     // hat right
+        pad_report(&k1, p.data(), (int)p.size());
+        CHECK(pad_pace(&r.c));
+        CHECK_EQ(r.io.joy[1], 0x08);
+        p = rep(0x0001, 0);
+        pad_report(&k1, p.data(), (int)p.size());
+        pad_pace(&r.c);
+        size_t n0 = r.io.joy_log.size();
+        pad_set_port(0);                                                   // "Port 1": port 2 is let go first, then port 1 gets the lines
+        CHECK_STR(pad_port_name(), "port 1");
+        CHECK(pad_pace(&r.c));
+        CHECK_EQ(r.io.joy_log.size() - n0, 2);
+        CHECK(r.io.joy_log[n0].port == 1 && r.io.joy_log[n0].v == 0);
+        CHECK(r.io.joy_log[n0 + 1].port == 0 && r.io.joy_log[n0 + 1].v == 0x11);
+        pad_detach(&k1);                                                   // S5: the pad leaves, its port is released
+        CHECK(pad_pace(&r.c));
+        CHECK_EQ(r.io.joy[0], 0);
+        CHECK_EQ(r.io.joy[1], 0);
+        CHECK(r.io.log.empty());
         unplug_all();
     }
     DONE("pad");

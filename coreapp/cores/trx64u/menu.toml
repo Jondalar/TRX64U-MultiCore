@@ -639,6 +639,11 @@ ask = "Name of the new G64"
 ask_state = "drive.suggest.g64"
 pick_dir = true
 
+[[task]]                           # T228 R10: a row of F5 > Input (T226: its group is a settings tab's); the dialog opens without a pad and waits for one (T225 D3)
+group = "input"
+label = "Map USB controller buttons"
+op = "menu.pad_map_port"
+
 [[media]]
 name = "Drive A:"
 state = "drive.drive_a.image"
@@ -904,8 +909,18 @@ ext = ".zip"
   op = "app.open"
   bind = [ { arg = "app", str = "unzip" }, { arg = "action", str = "folder" }, { arg = "file", file = true } ]
 
+[pad]                              # T228 R10: the USB controller as a joystick (the setting "USB Controller Port" picks port 1 or 2, pad.port)
+output = "joystick"
+per_pad = true
+buttons = ["Up", "Down", "Left", "Right", "Fire"]
+default = ["up", "down", "left", "right", "face_bottom"]
+
+[poll]                             # the pad's lines every 16 ms (no poll while the menu holds the machine)
+op = "pad.poll"
+period_ms = 16
+
 [lists]
-scanres_auto = ["Auto", "SD (480p/576p)", "HD (720p)", "FullHD (1080p)", "PC 800 x 600", "PC 1024 x 768", "PC 1280 x 1024"]
+scanres_auto =["Auto", "SD (480p/576p)", "HD (720p)", "FullHD (1080p)", "PC 800 x 600", "PC 1024 x 768", "PC 1280 x 1024"]
 zones = ["US Baker Island (UTC -12)", "America Samoa (UTC -11)", "Hawaii (UTC -10)", "French Polynesia (UTC -9:30)", "Alaska (UTC -9)", "Los Angeles (UTC -8)", "Denver, Colorado (UTC -7)", "Phoenix, Arizona (UTC -7)", "Chicago, Illinois (UTC -6)", "New York (UTC -5)", "Argentina (UTC -3)", "Newfoundland (UTC -2:30)", "Greenland (UTC -2)", "Cabo Verde (UTC -1)", "Iceland (UTC 0)", "UK (UTC +1)", "Western Europe (UTC +2)", "Greece (UTC +3)", "Azerbaijan (UTC +4)", "Iran (UTC +4:30)", "Pakistan (UTC +5)", "India (UTC +5:30)", "Nepal (UTC +5:45)", "Bangladesh (UTC +6)", "Myanmar (UTC +6:30)", "Indonesia (UTC +7)", "China (UTC +8)", "Western Australia (UTC +8:45)", "Japan (UTC +9)", "Central Australia (UTC +9:30)", "Eastern Australia (UTC +10)", "Lord Howe Island (UTC +10:30)", "Solomon Islands (UTC +11)", "New Zealand (UTC +12)", "Chatham Islands (UTC +12:45)", "Tonga (UTC +13)", "Christmas Island (UTC +14)"]
 streammodes = ["6510 Only", "VIC Only", "6510 & VIC", "1541 Only", "6510 & 1541", "6510 w/IEC", "6510 & VIC w/IEC"]
 en_dis = ["Disabled", "Enabled"]
@@ -1502,6 +1517,19 @@ list = "wheeldir"
 default = 0
 when = "live"
 apply = "u64.fx_input"
+
+# T228 R10 (Alex 2026-11-17): a USB pad or controller as a joystick in port 1 or 2, through the generic pad service (coreapp/src/pad.h) as the Amiga's port 2
+# (T225): one port, fed by the first pad plugged, its button map kept per pad (VID:PID) in the .cfg. The pad's lines are the host's own (C64_JOY1/2_SWOUT),
+# OR-ed with the physical ports, so the joysticks and WASD (Joystick input) keep working. [pad] and [poll] declare it; the task opens the dialog
+# (a task of a settings tab stands after its settings: this setting is the group's last, so that the two rows stay together).
+[[core_setting]]
+group = "input"
+key = "USB Controller Port"
+label = "USB controller as joystick"
+values = ["Port 1", "Port 2"]
+default = 1
+when = "live"
+apply = "pad.port"
 
 [[core_setting]]
 group = "Application"
