@@ -1,6 +1,6 @@
 # T234 — The Amiga cores' frame follow (T188) is a setting, off by default; off gives the standard HDMI rows of before T188
 
-**Status:** BUILT, MERGED into main 2026-11-17 (Alex: "merge and build"); Vivado (S6) and board (S4, S5) open. Proposed 2026-11-17.
+**Status:** REVERTED on main 2026-11-17 evening (board: no picture); to be redone on a branch. Built and merged 2026-11-17 (Alex: "merge and build"). Proposed 2026-11-17.
 **Repo:** TRX64U-MultiCore — the Amiga cores' own host copies (`cores/amiga/mono/host/`, `cores/amiga1200/mono/host/`: `hdmi_timing.v`,
 the mode rows, `tools/hdmi_modes.py`), the cores' register blocks, the setting in the core app (through the generic settings path),
 the manual (11.6, 11.7).
@@ -69,3 +69,18 @@ No mutation tests (T174 D5.4).
 - **Evidence (builder, both cores, same lines):** `PASS hdmi_timing (12 modes, 4 refused: exact, align on every row)`; rows 12..14 with Off `fe=[0..0] fe_end=0 len_bad=0/338` at 49.60, 49.920128 and 50.20 Hz; T188's `PASS hdmi_timing follow (no repeat, no skip at 49.60 .. 50.20 Hz, ...)` unchanged; `PASS modepath (... Frame follow Off and On)`; `gwstatus: 72 checks, 0 failed`; `scale: 329 checks, 0 failed`; render `296877 checks, 0 failed`; `tools/dev.sh riscv` rc 0.
 - **Cost (estimate, no Vivado yet):** about 80-120 LUT and 5 FF per core, no BRAM/DSP.
 - **Open:** S4/S5 board, S6 Vivado; pictures are render-bench pictures (ue2emu has no model of version 4); open for Alex: the T224 safe graphics mode does not force Frame follow Off; a stored On costs one more re-sync at start.
+
+**2026-11-17 evening - board failure, gateware reverted on main.**
+- **Board (Alex, package main-6fdc2234, home monitor):** the A1200 gives no picture, the menu does not come either. The core runs; its log (REST
+  /v1/report): "[amiga] frames core 230 out 0 at 10000 ms" (the core's frames count, the HDMI output's do not), "[core] frame follow: the gateware
+  did not take Off" twice (video_gw_set_follow_io: pix_locked and running never both true within 1 s), "[TRX UI] pixel layer: no flip".
+  Alex: "fette regression".
+- **Cause not found by reading** (mode_req, hdmi_modes.vh rows 12..14, cdce_mode, the settle/gt_rst chain in top.v, hdmi_timing all read
+  consistent). The benches covered hdmi_timing and modepath only, not the start path on the board (cdce_mode I2C write, the 50 ms settle, the GTP
+  reset, mmcm_pix, the first frames into pix_layer).
+- **Revert:** the twelve gateware, generator and bench files of the merge (cores/amiga{,1200}/mono/host/{mode_req.v,hdmi_modes.vh,hdmi_timing.v},
+  tools/hdmi_modes.py, host/sim/hdmi_timing/*, host/sim/modepath/*) are back at e8db511c0^1: version byte 1, power-up row 2, T188 always on, as on
+  the board of 2026-11-13. The core app's generic Frame follow row stays; it appears only on gateware that reports version 4 (none now). Manual
+  11.6.8/11.7.3 and the README sentences removed. `tools/hdmi_modes.py check`: "PASS hdmi_modes amiga: rows 0..2 run the Amiga frame ...";
+  selftest "27 of 27 mutations caught".
+- **Redo:** on a branch, with a test of the whole start path that counts output frames, before any board step.

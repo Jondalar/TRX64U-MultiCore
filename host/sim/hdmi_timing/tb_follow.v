@@ -42,7 +42,7 @@ module tb;
         if (!$value$plusargs("jit=%f", jit)) jit = 0.002;
         if (!$value$plusargs("mix=%f", mix)) mix = 0.0;      // fraction of 312-line core frames among 313-line ones (fc is the rate of the 313-line frames then)
         htot = 24;
-        case (mode) 0: vtot = 625; 1: vtot = 749; 2: vtot = 1125; 6: vtot = 525; 7: vtot = 750; 8: vtot = 1125; 12: vtot = 625; 13: vtot = 750; 14: vtot = 1125; default: vtot = 625; endcase   // 12..14: T234, the host's rows (Frame follow Off)
+        case (mode) 0: vtot = 625; 1: vtot = 749; 2: vtot = 1125; 6: vtot = 525; 7: vtot = 750; 8: vtot = 1125; default: vtot = 625; endcase
         fnom = htot * vtot;                                  // clocks of the table's frame
         fo = 49.920128;
         pc = fnom * fo / fc;                                 // clocks of a core frame

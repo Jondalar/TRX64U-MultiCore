@@ -19,9 +19,7 @@ run() {   # <name> <dut.v> [+only=N]
   timeout 1500 nice -n 15 vvp -n "$out/$1.vvp" $3 > "$out/$1.log" 2>&1 || true
 }
 run all "$dut"
-# T234: the Amiga copies have the host's three 50 Hz rows as 12..14 too (Frame follow Off): 12 rows run, 3 / 4 / 5 / 15 are refused
-want_pass="9 modes, 7 refused"; [ -n "$def" ] && want_pass="12 modes, 4 refused"
-grep -q "^PASS hdmi_timing: $want_pass" "$out/all.log" || { grep "^FAIL" "$out/all.log" | head; grep -q "^FAIL" "$out/all.log" || echo "no verdict in $out/all.log: vvp ended on its 1500 s timeout (a loaded machine) or crashed"; echo "FAIL hdmi_timing"; exit 1; }
+grep -q "^PASS hdmi_timing: 9 modes, 7 refused" "$out/all.log" || { grep "^FAIL" "$out/all.log" | head; grep -q "^FAIL" "$out/all.log" || echo "no verdict in $out/all.log: vvp ended on its 1500 s timeout (a loaded machine) or crashed"; echo "FAIL hdmi_timing"; exit 1; }
 grep "^mode " "$out/all.log"
 # T164 run 1142: a copy whose vtot_m1 is a second stage (sum of the registered yact0 / vact, cores/c128/mono/host) gets a short-rst run
 if grep -q "vtot_m1 <= yact0 + vact" "$dut"; then
@@ -64,14 +62,6 @@ PYEOF
   # the 60 Hz row is not followed: follow_e stays 0
   r=$(fl follow1 +fc=49.90 +mode=8 +frames=40); echo "follow| $r"
   echo "$r" | grep -q "fe=\[0\.\.0\] fe_end=0 " || { echo "FAIL follow: 60 Hz row moved: $r"; exit 1; }
-  # T234 Frame follow Off: the host's standard rows 12..14 under the same core frames (49.60 .. 50.20 Hz): the frame length never changes (fe 0, len_bad 0)
-  for m in 12 13 14; do
-    for fc in 49.60 49.920128 50.20; do
-      r=$(fl follow1 +fc=$fc +mode=$m +frames=200); echo "off| $r"
-      echo "$r" | grep -q "fe=\[0\.\.0\] fe_end=0 len_bad=0/" || { echo "FAIL follow off (row $m): $r"; exit 1; }
-    done
-  done
-  echo "PASS hdmi_timing follow off (rows 12..14: no follow, every frame the table's length)"
   # control: follow off (FOLLOW = 0) at 49.60 and 50.20 Hz shows the beat (repeats, skips)
   r=$(fl follow0 +fc=49.60 +mode=2 +frames=700); echo "control| $r"
   echo "$r" | grep -q " repeats=0 " && { echo "FAIL follow control: no repeat without the follow: $r"; exit 1; }
@@ -79,4 +69,4 @@ PYEOF
   echo "$r" | grep -q " skips=0 " && { echo "FAIL follow control: no skip without the follow: $r"; exit 1; }
   echo "PASS hdmi_timing follow (no repeat, no skip at 49.60 .. 50.20 Hz, limits kept, control shows the beat)"
 fi
-echo "PASS hdmi_timing ($want_pass: exact, align on every row)"
+echo "PASS hdmi_timing (9 modes exact, align on 9 rows, 7 refused)"

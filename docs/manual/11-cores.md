@@ -163,16 +163,12 @@ a `rom.key` of the package maker must be converted by you first.
 
 11.6.7 **Real-time clock (at next reset)**, `Off` or `On` (default `Off`; Amiga 500 and Amiga 1200). `On` puts a battery-backed clock (MSM6242B) at `$DC0000`; the core app sets it to the board's time at core start, and it keeps counting. Amiga Test Kit, `SetClock` and the file stamps use it. A `SetClock SAVE` on the Amiga does not change the board's clock. `Off` is the stock machine: Test Kit says "No Clock Detected". Not checked on the board yet.
 
-11.6.8 **Frame follow** (F5, Video page, with Picture, Scale and Smoothing; `Off` or `On`, default `Off`; live, also on the Amiga 1200). `Off` runs the 576p, 720p and 1080p modes at 50 Hz with the standard HDMI timing, a fixed frame length. `On` bends those three modes to the Amiga's frame and lets the HDMI frame follow the Amiga frame line by line, so a vertical scroller does not hitch every few seconds; a screen that cannot take a frame length that changes can lose picture and sound with it. A change re-syncs the picture once, like a change of Picture. The 60 Hz modes are the same either way. Not checked on the board yet.
-
 ## 11.7 Amiga 1200 (AGA, 68020)
 
 11.7.1 The same folder and files as the Amiga. **Auto** takes Kickstart 3.1 first (version 40, the 512 KB A1200 image), else
 any 3.0 or later, else any Kickstart (`Auto (3.1 first)`).
 
 11.7.2 Media: `.adf` and `.hdf`, as the Amiga. The settings differ in the defaults and values: `Chip RAM` default `2M`, `Slow RAM` default `None`, `Fast RAM` (`None`, `2M`, `4M`, `5.5M`, `32M (Zorro III)`; default `None`), `Chipset` (`OCS`, `ECS`, `AGA`; default `AGA`).
-
-11.7.3 **Frame follow** as in 11.6.8 (default `Off`).
 
 ## 11.8 Atari 800 XL
 
