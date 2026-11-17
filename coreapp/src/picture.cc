@@ -312,7 +312,7 @@ static int current_hdmi(CoreCtx *c)
     return video_unpack(video_current, &sys, &hdmi) ? hdmi : -1;
 }
 
-// The mode a value asks for (D11c, D10c): the core's own choice when the screen takes it; else (Auto, or a choice that is gone) the host's own Picture
+// The mode a value asks for (D11c, D10c): a row of the list as it stands (a table row at its own rate on the gateware path, T235, whether or not the screen names it: the 8-second confirm is the safety); Auto: the host's own Picture
 // choice (host.cfg) when it names a resolution the screen takes, else the mode the host handed over when the screen takes that; else the best the screen offers. Without the gateware Auto is still what the picture fits in (ADR-0057: the frame is fixed
 // at 1080p there and the mode is the only lever). A core that draws its own picture (Video::own_picture) has no wish, and Auto then leaves the
 // screen in the mode it is in (`now`, -1 when nobody knows).
