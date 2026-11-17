@@ -7,7 +7,8 @@ RTL, no per-core C.
 **Origin:** Alex, 2026-11-16, after a tester's comment on GitHub #80: "Support IJKL, or let the user define keys please". Alex
 (translated): "He wants to map keyboard keys from joystick/cursor. Sounds like app and cheap."
 **Depends on:** T216 (pad/joystick as keys), T192 D24 / T213 D4 (generic app, no per-core code).
-**Milestone:** M1.
+**Milestone:** post release (Alex 2026-11-16, translated: "That is post release."): built on branch t232-padkeys, merged to
+`main` only after the next release.
 
 ---
 
@@ -52,4 +53,26 @@ I, J, K and L are not in the list, so a game that plays on IJKL cannot be set up
 
 ## §5 Built
 
-(filled in while building)
+- Branch `t232-padkeys`, built 2026-11-16/17 (Claude; agents, Opus review "COMMIT: yes", ux-review PASS with 3 low findings).
+- **List.** `coreapp/src/padkeys.h` appends the 18 missing letters (B C F G H I J K L M N O P R T U V Y) as indices 32-49.
+  - W A S D Q E Z X stay where they were, so A-Z is offered once each, and every old index, `.cfg` text and default is unchanged.
+  - Codes are C64 matrix places (col*8+row), e.g. I=33 J=34 K=37 L=42. The review checked all 50 by script against `g_keys[]`
+    (hotkeys.cc) and the PET's key table.
+- **Learn.** A pad-key row is recognised by its content (`padkey_row`), and `hk_learn_item` / `hk_learn_value` accept it, so the generic
+  RETURN path is the hotkeys' own: prompt "Press the new key", "For <row>", ESC cancels.
+  - The keys are read the hotkey way (`hk_read_keys`, bit = matrix index).
+  - SHIFT counts only on a cursor key: SHIFT + cursor gives the other cursor key. SHIFT held alone keeps the learn waiting.
+  - A key not in the list is refused with "That key is not available - use A-Z, 0-9, Space or a cursor key"; two keys give "Press one key".
+  - The keys held are taken on release, or after 350 ms, because a USB cursor-up arrives as SHIFT + cursor-down in one poll.
+  - The tab footer shows "RETURN  LEARN KEY" on such a row.
+- **Proof** (S1-S3), from the T232 block of `tests/coreapp/test_hotkeys.cc`:
+  - list and codes
+  - an old `.cfg` index loads as the same key
+  - I K J L are learned and reach the PET's registers 0x164-0x167
+  - refusal, two keys, ESC, SHIFT + cursor, SHIFT alone then SHIFT + cursor
+  - goldens `menu_pet.txt` and `keywalk.txt`, which change on PET lines only
+  - ue2emu pictures from `tests/ui/features_cores/t232_pet_padkeys.feature` (720p/1080p)
+  - `dev.sh test` rc 0, riscv ok
+- "Key Stop" cannot be learned (RUN/STOP and ESC cancel the learn); it stays reachable with LEFT/RIGHT.
+- **Open:** S4, the board with a USB pad. The ux-review's two inherited findings (the "ESC cancels" wording twice, the foot spacing)
+  belong to the hotkey learn and are not changed here.
