@@ -62,6 +62,10 @@ Scenario: S4 the three Ultimate identities cannot be confused (P1)
 - **D3 Recognition by the smallest useful cue.** The 32 px icon carries no machine name, model number, frame or rainbow: Commodore-family machines use only the classic two-colour `C=` (blue C and upper wedge, red lower wedge), Amiga uses `A`, Apple II uses a monochrome apple, Atari uses the Fuji, NES uses `N`, CPC uses `CPC`, Spectrum uses `ZX`, and Next uses `N`. The adjacent menu label distinguishes models that share a platform symbol.
 - **D4 Deterministic output.** One checked-in script owns the native pixel definitions and generates the PNG, the RGB565 and the contact sheet. Validation compares the directory with the live core descriptors.
 - **D5 Full-firmware identities stay distinct.** `TRX64`, Gideon's `U64` and Commodore's `C64U` are three independent marks. `tools/core_logos/u64/` is the standalone U64 source used for Gideon's `.cfw`; C64U remains a separate platform identity.
+- **D6 Every Commodore core carries the C= mark** (Alex 2026-11-17, translated: "Can all the Commodore cores in the .cor have the C= logo,
+  please? Leave the Amiga with the A."). D3 applied to every Commodore `.cor`: besides C128, C264 and VIC-20, the PET (until now no logo, the
+  T209 D15 text tile "PET") and the C64 SuperCPU (until now the letters "SCPU", T182 step 8) get the two-colour C=. Amiga and Amiga 1200 keep
+  "A". The full-firmware marks of D5 (TRX64, U64, C64U) are `.cfw` identities and stay as they are.
 
 ## §4 Out
 
