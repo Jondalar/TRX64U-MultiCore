@@ -1096,7 +1096,7 @@ apply = "u64.fx_video"
 [[core_setting]]
 group = "Volumes"
 key = "Vol Master"
-label = "Master"
+label = "Volume"
 list = "vols"
 default = 24
 when = "live"
