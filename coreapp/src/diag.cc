@@ -116,7 +116,7 @@ const char *diag_text(int kind, int *n)
         TrxTraceStatus st;
         int w = 0;
         if (!trx_ring_trace_status(&st) || !st.present || !st.on) {
-            *n = snprintf(g_text, sizeof(g_text), "The instruction trace is off (Settings F6 > TRX64 > Instruction Trace).\n");
+            *n = snprintf(g_text, sizeof(g_text), "The instruction trace is off (F5 > TRX > Recording > Instruction trace).\n");
             return g_text;
         }
         static TrxTraceRec rec[64];
