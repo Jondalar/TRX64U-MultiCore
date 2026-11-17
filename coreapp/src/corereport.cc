@@ -3,6 +3,8 @@
 #include "ops_glue.h"
 #include "ops.h"
 #include "board.h"
+#include "listgrow.h"
+#include "edid.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -85,6 +87,56 @@ static void put_media(BrOut *o, CoreCtx *c)
     }
 }
 
+// R8: the heap that is free now - the number of the Diagnostics "Heap" row (xPortGetFreeHeapSize), read through the seam the board wires (ListGrow::free_heap).
+static void put_heap(BrOut *o)
+{
+    if (!ListGrow::free_heap()) {
+        br_put(o, "Heap free: not known (the board did not wire it)\n");
+        return;
+    }
+    uint32_t h = ListGrow::free_heap()();
+    br_put(o, "Heap free: %u bytes (%u KB)\n", (unsigned)h, (unsigned)(h / 1024));
+}
+
+bool (*&core_report_edid_reader())(uint8_t *, int, int *)
+{
+    static bool (*f)(uint8_t *, int, int *) = 0;
+    return f;
+}
+
+// R8: the screen's raw EDID as hex and the rows the application decodes from it (EdidInfo, video_modes_offered), or plainly that there is none.
+static void put_edid(BrOut *o)
+{
+    static uint8_t ed[256];
+    int len = 0;
+    if (!core_report_edid_reader() || !core_report_edid_reader()(ed, (int)sizeof(ed), &len) || len <= 0) {
+        br_put(o, "The screen answered no EDID (a TV on a converter, or no screen).\n");
+        return;
+    }
+    br_put(o, "%d bytes\n", len);
+    for (int i = 0; i < len; i += 16) {
+        br_put(o, "%03X:", i);
+        for (int k = i; k < i + 16 && k < len; k++) {
+            br_put(o, " %02X", ed[k]);
+        }
+        br_put(o, "\n");
+    }
+    EdidInfo info;
+    if (!edid_parse(ed, len, &info)) {
+        br_put(o, "Decoded: not valid (header or checksum wrong); the application offers the television rows\n");
+    } else {
+        br_kv(o, "Decoded", "valid, %s CEA block, HDMI limit %d MHz", info.has_cea ? "with" : "no", info.max_tmds_mhz);
+    }
+    uint16_t offered = video_modes_offered(ed, len);
+    for (int m = 0; m < EDID_ROWS; m++) {
+        const EdidRow *r = edid_row(m);
+        if (r && ((offered >> m) & 1u)) {
+            br_put(o, "Mode: %u x %u at %d Hz%s\n", (unsigned)r->w, (unsigned)r->h, video_row_sys(m) ? 60 : 50,
+                   info.valid && ((info.native >> m) & 1u) ? " (native)" : "");
+        }
+    }
+}
+
 int core_report_build(CoreCtx *c, uint32_t fattime, bool time_valid, const char *log, int log_len, char *out, int cap)
 {
     BrOut o;
@@ -115,6 +167,12 @@ int core_report_build(CoreCtx *c, uint32_t fattime, bool time_valid, const char 
 
     br_section(&o, "Core state (registers named by the descriptor)");
     put_regs(&o, c);
+
+    br_section(&o, "Heap");
+    put_heap(&o);
+
+    br_section(&o, "Screen (EDID)");
+    put_edid(&o);
 
     br_section(&o, "Log (last lines the application printed)");
     br_log(&o, log, log_len);
