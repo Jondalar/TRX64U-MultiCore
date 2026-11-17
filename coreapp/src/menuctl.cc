@@ -101,6 +101,24 @@ void MenuCtl::held_open()
 void MenuCtl::rebuild()
 {
     menu_build_for(c_, &tree_);
+    // T228 DC1: a node's `hide` ("not shown while the state has a value") holds in a flat list too. A screen reads it at every draw (item()); a list's
+    // rows are fixed, so the row is taken out here, when the menu is built (at start and once the libraries are loaded)
+    for (int a = 0; a < tree_.nareas; a++) {
+        for (int b = 0; b < tree_.a[a].ntabs; b++) {
+            const MenuTab &tb = tree_.a[a].tabs[b];
+            for (int i = tb.count - 1; !tb.layout && i >= 0; i--) {
+                const MenuEntry &e = tree_.e[tb.first + i];
+                char spec[64], v[16];
+                if (e.kind != EK_NODE || !ui_attr(tree_.nodes[e.index].attr, "hide", spec, sizeof(spec))) {
+                    continue;
+                }
+                spec_text(spec, v, sizeof(v));
+                if (v[0]) {
+                    menu_drop_entry(&tree_, a, b, i);
+                }
+            }
+        }
+    }
     if (area_ >= tree_.nareas) {
         area_ = 0;
     }
