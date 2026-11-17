@@ -364,6 +364,9 @@ void menu_build(const CoreDesc *d, MenuTree *t, bool return_host, bool reload_co
                     if (!node_here(m) || (m.n.group && pages.of(m.n.group, strlen(m.n.group)) >= 0)) {
                         continue;
                     }
+                    if (st.widget == TW_SYSTEM && node_in(m, "actions", 7)) {   // gate fix 2: the System tab's own Actions heading takes these (below)
+                        continue;
+                    }
                     if ((want == 1 && m.n.kind == LN_STATE) || (want == 2 && m.n.kind != LN_STATE)) {
                         continue;
                     }
@@ -648,6 +651,11 @@ void menu_build(const CoreDesc *d, MenuTree *t, bool return_host, bool reload_co
                 add(t, EK_RESTART_CORE, reload_core ? "Reload core" : "Restart core", reload_core ? 1 : 0);
                 if (return_host) {
                     add(t, EK_RETURN_HOST, "Return to host menu", 0);
+                }
+                for (int k = 0; mm && k < mm->nnodes; k++) {                 // gate fix 2: a node anchored to <area>/<tab>/actions stands under Actions, after the generic rows
+                    if (node_in(mm->nodes[k], "actions", 7)) {
+                        add_node(mm->nodes[k]);
+                    }
                 }
                 add(t, EK_HEADING, "Network", 0);
                 add(t, EK_WIFI, "WiFi", 0);

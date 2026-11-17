@@ -328,6 +328,22 @@ op = "online.clear"
 order = 110
 ui = { confirm = "Empty every field of the form?", tone = "muted" }
 
+[[node]]                          # gate fix 2 (S1: F8 System > Actions): the generic System tab's Actions heading takes the nodes anchored to its group "actions"
+anchor = "F8/expert/actions"
+kind = "op"
+label = "Power cycle"
+op = "u64.power_cycle"
+order = 401
+ui = { confirm = "Power cycle the board? Everything in memory is lost.", sub = "Switches the board off and on" }
+
+[[node]]
+anchor = "F8/expert/actions"
+kind = "op"
+label = "Power off"
+op = "u64.power_off"
+order = 402
+ui = { confirm = "Power off the board?", sub = "Switches the board off" }
+
 [[node]]                          # the heading of the apps (a group node is a heading in a list as on a screen); the apps follow it in their order
 anchor = "F7/settings"
 kind = "group"
