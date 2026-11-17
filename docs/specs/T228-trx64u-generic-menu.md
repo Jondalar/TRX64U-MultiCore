@@ -300,10 +300,10 @@ overlay was fitted from a 1280x800 manual picture, so its scale on the real 960x
 
 ### Decisions during S2 (decided by Claude on Alex's delegation 2026-11-16 night; Alex can overturn each at S2b)
 Alex 2026-11-16 (translated): "you start T228 overnight ... be the advisor here, decide for me". Each decision follows a D-row or the
-S1 table where one exists; only DC1, DC2, DC3, DC6, DC7, DC9, DC11 and DC12 are new choices.
-- DC1 Softboot is a Library file action on `.cfw`/`.ue2`/`.u64` (RETURN menu of the file), not a row in F7 Apps. Why: trx64g puts
-  softboot in the context menu of those file types (Q2 facts), and D17 already made Unzip a file action of its `.zip`. A launcher
-  that needs a file belongs to the file. D5 ("TRXCRT to Apps") covers the cartridge tools only.
+S1 table where one exists; only DC2, DC3, DC6, DC7, DC9, DC11 and DC12 are new choices (DC1 is Alex's).
+- DC1 (Alex 2026-11-17, overturning Claude's first DC1, which made Softboot a Library file action on .cfw/.ue2/.u64): "DC1 raus unter
+  Multicore" (translated: "DC1 out under MultiCore"). trx64u offers no Softboot while it runs under the MultiCore host: not in F7 Apps,
+  not as a file action. The decision is generic, from the host context, not a core name in the code.
 - DC2 The rail heading "DIRECT" goes too, in every core (generic, like D4). Why: with SHIFTED gone it heads the only group and
   separates nothing (an all-caps heading needs a reason, ux-review R11).
 - DC3 The 7 Timewarp actions (start/stop recording, marker here, clear markers, back to live, save frame, save the ring) go to F1 Home,
