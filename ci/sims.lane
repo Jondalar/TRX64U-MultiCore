@@ -92,6 +92,7 @@ hdmi_enc: host
 amiga1200_motorled: large:amiga1200
 amiga_fuzz: large:amiga
 amiga_wide: large:amiga
+amiga1200_wide: large:amiga1200
 amiga_audio: large:amiga
 atari_gate: core:atari800
 nes: large:nes
