@@ -147,8 +147,8 @@ static const Setting settings[2 + CBM1541_NSETTINGS] = {
 else the descriptor default. Every change goes into the `.cfg` at once (or with Auto Save Config off, when saved). Nothing in the application can write the
 flash: `FlashLayer` has no write method, and a test counts the flash accesses of a whole session.
 
-**Added by the framework, never declared by you.** `picture_extend` adds *Picture* (the HDMI mode list from the screen's EDID, `PICTURE_KEY`, operation
-`picture.apply`); for every frame-buffer core on a host whose gateware scales, *Scale* (`SCALE_KEY`) and *Smoothing* (`SMOOTH_KEY`) follow;
+**Added by the framework, never declared by you.** `picture_extend` adds *Picture* (`PICTURE_KEY`, operation
+`picture.apply`; the list is described below); for every frame-buffer core on a host whose gateware scales, *Scale* (`SCALE_KEY`) and *Smoothing* (`SMOOTH_KEY`) follow, and, where the gateware has the Frame follow register (`PictureEnv::follow`, 0x4F02) and the core has a frame buffer (`video.w != 0`), *Frame follow* (`FOLLOW_KEY`, `Off`/`On`, default `Off`, live, group `video`, operation `follow.apply` = `FOLLOW_OP`: `follow_apply` writes the register, `picture_start` applies the stored value before the mode);
 `volume_extend` adds *Volume* (`VOLUME_KEY`, 0 to 200 % in steps of 5, the host's master gain in `trx_gain.v`). A descriptor that declares one of these keys is
 refused, except a core with its own Volume or `own_volume = true`. SHIFT+ and SHIFT- on the menu step the item named `Volume` (`change_volume` in `menuctl.cc`).
 `tone_extend` (T189) adds *Tone* (`TONE_KEY`: Flat / Bass boost / Treble boost, the host's shelf filter in `trx_tone.v`, register `U64_AUDIO_MIXER + 0x51`) right after Volume in the same Audio group; `own_volume` does not remove it, a descriptor with its own *Tone* keeps it, `CoreDesc::no_tone` (neogeo, whose build has no filter) removes it.
@@ -201,6 +201,8 @@ The golden menu `tests/coreapp/golden/menu_vc20.txt` shows what the whitelist me
 `reg_latest`/`reg_seq`, and puts the layer at `x0,y0` with `scale`. `bpp` 0 or 2 is RGB565; 4 is the A1200's own 32-bit layer. The HDMI mode, Scale and
 Smoothing are the person's choice (section 4), not the descriptor's. A core that draws its own picture (`video.w == 0`, the C64 family on the VIC scaler path) leaves the whole record zero; `desc_check` refuses `h`, `fb_base`,
 `fb_stride` or `nbuf` set with `w == 0`, and a `fb_base` below the DDR2 window (0x01000000).
+
+**The Picture list (T235).** On the gateware path of a frame-buffer core (`full_list()` in `picture.cc`: the host's status register answers and the core is not on the VIC scaler) the item's values are `Auto` and the 9 rows of the host's mode table (`576p`/`480p`, `1280 x 720`, `1920 x 1080`, each at 50 and 60 Hz, the machine's rate first within a resolution; the PC modes `800 x 600`, `1024 x 768`, `1280 x 1024` at 60 Hz only), labelled `<name> (<50|60> Hz)`, whether or not the screen's EDID names the row. `picture_modes` marks the rows the EDID names (`PictureModeRow::named`, shown as `*`) and the foot line says so; `picture_apply` takes a row as it stands and starts the 8-second confirm. On the VIC-scaler path (a core with no frame buffer) and with firmware video only, the list stays the resolutions the screen names, at the machine's rate (`video_modes_hdmi_list`; the VIC path drops 1024 x 768 and 1280 x 1024), no marks.
 
 **Freeze.** `FreezeDesc { reg_status, mask, timeout_ms, word }`. Opening the menu stops the machine (`CoreIo::stop`, the host's `C64_STOP`), waits until the
 core reports PAUSED in its status register (200 ms), switches the pixel layer to the menu, and on leaving gives the machine back exactly (`freeze.h`). The
