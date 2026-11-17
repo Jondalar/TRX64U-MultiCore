@@ -458,7 +458,7 @@ OS464 + BASIC464`, every part 16 KB (README). Frame: the CRTC is programmable; t
   branch builds the CPC again (T233 D7), `main` keeps it out of the pipeline (D-17e) until the board pass.
 - D-17g (Alex 2026-11-17): "and please take the core out of the docs, completely" (translated). The CPC leaves the README and the
   manual (chapters 11, 12, 15; the sections after 11.13 move up one number); specs, TODO and internal test lists keep it. It comes back
-  with the T233 board pass.
+  with the T233 board pass. GitHub Discussion #66 (core overview) lost its `cpc` row the same day (Alex: "#66 too?").
 
 ## §4 Out
 
