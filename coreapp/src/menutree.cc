@@ -211,9 +211,9 @@ static bool skel_has_widget(const Skeleton *sk, uint8_t widget)
 static const MenuGroupRoute g_routes[] = {
     { "video",   "F5", "video", "Video",   0,         false },
     { "audio",   "F5", "audio", "Audio",   0,         false },
-    { "hotkeys", "F7", "settings", "Menu and keys", "Hotkeys", true },        // T212 D1/D6: the app's settings stand on F7 (APP), not in the machine's F5
+    { "hotkeys", "F7", "settings", "Hotkeys", "Hotkeys", true },        // T212 D1/D6: the app's settings stand on F7 (APP), not in the machine's F5
     { "storage", "F7", "settings", "Storage", 0,      false },
-    { "menu",    "F7", "settings", "Menu and keys", 0,      false },
+    { "menu",    "F7", "settings", "Menu",    0,      false },
 };
 
 const MenuGroupRoute *menu_route_of(const Setting &s)
@@ -628,13 +628,7 @@ void menu_build(const CoreDesc *d, MenuTree *t, bool return_host, bool reload_co
                 }
                 if (page_route) {
                     if (heads) {                                                // T212 D12: the page's own section, T216 D12: after the task rows
-                        int lh = t->n - 1;                                      // T228 step 2: the section just above already has this name (Menu and keys): one heading, not two with one row each
-                        while (lh >= tb->first && t->e[lh].kind != EK_HEADING) {
-                            lh--;
-                        }
-                        if (lh < tb->first || strcmp(t->e[lh].label, page_route->heading)) {
-                            add(t, EK_HEADING, page_route->heading, 0);
-                        }
+                        add(t, EK_HEADING, page_route->heading, 0);           // T212 D12: the page's own section, T216 D12: after the task rows
                     }
                     add(t, EK_OPENS, page_route->label, opens_index);
                 }
