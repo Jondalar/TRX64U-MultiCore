@@ -1,6 +1,6 @@
 # T234 — The Amiga cores' frame follow (T188) is a setting, off by default; off gives the standard HDMI rows of before T188
 
-**Status:** REVERTED on main 2026-11-17 evening (board: no picture); to be redone on a branch. Built and merged 2026-11-17 (Alex: "merge and build"). Proposed 2026-11-17.
+**Status:** BUILT on t234-switch, merged into main locally (not pushed) 2026-11-17 late; board: A1200 Off and On checked by Claude (JTAG). Proposed 2026-11-17.
 **Repo:** TRX64U-MultiCore — the Amiga cores' own host copies (`cores/amiga/mono/host/`, `cores/amiga1200/mono/host/`: `hdmi_timing.v`,
 the mode rows, `tools/hdmi_modes.py`), the cores' register blocks, the setting in the core app (through the generic settings path),
 the manual (11.6, 11.7).
@@ -92,3 +92,20 @@ below: "Try it. I am sleeping. You have to start the A1200 in the host yourself"
 - **On:** T188's Amiga rows as new rows 12..14 with the follow loop (follow on m 12..14 instead of m < 3); used only while On.
 - **Proof before Alex sees it:** the A1200 started from the host by Claude on the board, both settings; the core's log shows HDMI output frames
   ("[amiga] frames core N out M", M > 0) and the menu.
+
+**2026-11-17 late - redo built and checked on the board (branch t234-switch: 5cd3bbbc1, 3f67dce29; package t234-switch-3f67dce2).**
+- **Off = the old path:** rows 0..2 are the host's again, power-up row 2; `tools/hdmi_modes.py check` "rows 0..11 are the host's (Frame follow Off,
+  the default); rows 12..14 run the Amiga frame 49.920128 Hz within 1 ppm", selftest "28 of 28 mutations caught". Board (Alex, photos): AmigaVision
+  at 1080p50, the menu with Frame follow Off.
+- **The cause of both failures today (T234 Off before, the redo's On after):** the Amiga copies' modules said `include "hdmi_modes.vh"`; Vivado runs
+  in host/, so host/hdmi_modes.vh (9 rows, no 12..14) was read instead of the Amiga copy: rows 12..14 had CDCE word 0 and hm_valid 0. JTAG with
+  On before the fix: "GTP down, pixel MMCM unlocked, 0 frames/s". The Amiga table is now `hdmi_modes_amiga.vh` (both copies, FROM, the generator).
+  Consequence: T188's own rows (2638 x 1125 etc.) never ran on the board before; T188's board result of 11-13 was the follow loop on the host rows.
+- **Board after the fix (Claude, A1200 started from the host web page, JTAG `tools/trxdbg.sh mode`, switched over REST `follow.apply`):**
+  On: "GTP ready, pixel MMCM locked, 50 frames/s, 2967552 pixel clocks per frame" (= T188's 2638 x 1125); Off: "GTP ready, pixel MMCM locked,
+  50 frames/s, 2969856 pixel clocks per frame" (= 2640 x 1125); live both ways, no core reset, no "did not take" in the log. Stored back to Off.
+- **Not checked:** the A500 core on the board (same change; the host menu cannot be reached over REST from a running core); picture and sound of
+  T188's rows on a screen (S5, Pinball Dreams); Worms DC (S4). The core app's "[amiga] frames core N out 0" counter reads 0 although HDMI runs
+  (JTAG: 50 frames/s) - a wrong read-out, not a dead output.
+- **Wrong turn, taken back:** a start-path change of T235 (b23a54ecd, a stored unnamed Picture row would run at the screen's named rate) rested on
+  a wrong guess (the screen takes 1080p50 although its EDID does not name it); reverted (dd0512243) before any board use.
