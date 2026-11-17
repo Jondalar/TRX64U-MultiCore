@@ -48,6 +48,9 @@ lap() { printf '=== dev.sh %s: %s took %ds\n' "$mode" "$1" $((SECONDS - t0)); t0
 python3 -I tools/treesync.py "$ROOT" "$tree" --host "$host" ${clean:+--clean}
 lap "tree sync"
 abs="$(ssh "$host" "cd $tree && pwd")"
+# the files this branch changed against main (merge-base), plus untracked ones: the base of "changed" in the builder's tree (img_setup)
+mbase0="$(git merge-base HEAD origin/main 2>/dev/null || git merge-base HEAD main 2>/dev/null || true)"
+{ [ -z "$mbase0" ] || git diff --name-only "$mbase0"; git ls-files -o --exclude-standard; } | sort -u | ssh "$host" "cat > $tree/.dev-changed"
 
 # what runs in the container (bash -c); the tree is /work, the CI cache is /cache, ccache is /ccache
 img_setup='set -uo pipefail
@@ -55,11 +58,18 @@ trap "chown -R $HOST_UID:$HOST_GID /work" EXIT
 git config --global --add safe.directory /work
 [ -e .git ] || git init -q
 git add -A >/dev/null 2>&1 || true   # ci/render.sh keys over git ls-files: the dev tree needs an index
+# the tree has no commit (a commit would change the version stamp every run), so "changed" needs a base TREE: the index without the files this
+# branch changed against main (.dev-changed, written by dev.sh), so `git diff BASE` and the plan name exactly those files (ci/apptests.sh --base)
+rm -f .dev-base
+if [ -s .dev-changed ]; then
+  tr "\\n" "\\0" < .dev-changed | xargs -0 git rm --cached -q --ignore-unmatch -- >/dev/null 2>&1 || true
+  git write-tree > .dev-base; git add -A >/dev/null 2>&1 || true
+fi
 export CI_HANDOFF=/work/.dev-out TRX_BUILD_INPLACE=1 CI_BUILD_JOBS="${CI_BUILD_JOBS:-6}"
 '
 case "$mode" in
   build)  inner='ci/trxapps.sh --compile-only'"${clean:+ --clean}" ;;
-  test)   inner='ci/apptests.sh --tier fast' ;;
+  test)   inner='b=""; [ ! -s .dev-base ] || b="--base $(cat .dev-base)"; ci/apptests.sh --tier fast $b' ;;
   riscv|emu) inner='ci/trxapps.sh' ;;
   cor)    inner="ci/trxapps.sh && ci/pack_one.sh $core" ;;
   integrate) inner='CONTROLS_ALL=1 CI_RENDER_OK=/work/.dev-out/render-ok ci/render.sh -f && ci/trxapps.sh' ;;
@@ -69,7 +79,7 @@ run="$(cat <<EOF
 #!/bin/bash
 export PATH="\$PATH:/srv/.qpkg/container-station/bin"   # the NAS (DEV_HOST) has docker there
 cd "$abs" || exit 1
-docker run --rm --init --cpus=${DEV_CPUS:-6} ${CCACHE_DISABLE:+-e CCACHE_DISABLE=1} -e JOBS="${JOBS:-$(( ${DEV_CPUS:-6} - 1 ))}" -e CI_BUILD_JOBS="${DEV_CPUS:-6}" -e HOST_UID=\$(id -u) -e HOST_GID=\$(id -g) \\
+docker run --rm --init --cpus=${DEV_CPUS:-6} ${CCACHE_DISABLE:+-e CCACHE_DISABLE=1} ${UPDATE_GOLDEN:+-e UPDATE_GOLDEN=1} ${CI_APPTESTS_FORCE:+-e CI_APPTESTS_FORCE=1} -e JOBS="${JOBS:-$(( ${DEV_CPUS:-6} - 1 ))}" -e CI_BUILD_JOBS="${DEV_CPUS:-6}" -e HOST_UID=\$(id -u) -e HOST_GID=\$(id -g) \\
   -v "$abs":/work -w /work -v /srv/trx64-build/cache:/cache -v /srv/containers/1541ultimate-ci/ccache:/ccache \\
   u64-build-env:ci bash -c '$img_setup
 if [ -f /opt/esp/esp-idf/export.sh ]; then set +u; . /opt/esp/esp-idf/export.sh >/dev/null; set -u; fi
