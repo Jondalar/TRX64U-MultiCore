@@ -487,3 +487,21 @@ Base: t228-menu = the S2 steps 1-2 and DC3 above, the click-dummy commit with it
   like every heading, R14 names "reDIP:SID"; S2b (Alex in ue2emu, D6) before S3 (board); D19; check_d24 says the ledger can shrink
   (menu.toml 2230 -> 2105, menu_rec.inc 2356 -> 2209, diag.cc ids 16 -> 15); tests/ui's rows_shots pictures (t209-*) of trx64u and the
   A1200 share their file names.
+
+### Gate on t228-int (2026-11-18 night, fdd798729)
+Three review lenses (shared code, trx64u against the decisions, code defects), each finding re-read by a skeptic, and the ux-review in
+ue2emu (70 full frames, trx64u beside the A1200).
+- **Confirmed; fixes on the branch in progress (2026-11-18 night):**
+  - The F7 headings "Hotkeys" and "Menu" had become one "Menu and keys" for every core (from step 2's "Menu and keys section"); no
+    decision covers it, T212 D12/S7 name "Hotkeys". Back to main's headings.
+  - Power cycle and Power off (F7 More until now) were gone from trx64u without a decision; the S1 table puts them on F8 System > Actions.
+  - Timewarp's and the monitor's default keys (R16) could double a key a stored config gives a fixed action; the stored key wins.
+  - XInput pads did not reach trx64u's pad service (the claim asked the C descriptor, trx64u's pad is in its record); R10 says "like
+    on the Amiga", which takes them.
+  - The test helper for trx64u's menu skipped the board's hk_extend_tasks step, so no test saw R1/R16's hotkey items.
+  - ux-review: the sections renderer drew REU rows the model hides while the REU is off; Keys and help (D12) showed two key legends;
+    the merged volume row was labelled "Master", D15 names it "Volume".
+- **ux-review verdict PASS** (no blocker, no major). Minor findings that are older and generic (the same on the A1200) stay out of T228:
+  Home draws no status line, the pad wizard's foot, the Picture page's chip "Settings > Video", the single-tab strips, wording drifts,
+  F3 Online's empty SEARCH pane. Questions for Alex, one at a time: the REDIP:SID heading (pictures question-redip-A-caps /
+  -B-brand); a confirm on Reset to host defaults and Restart core; F8 Status rows focusable; Home's Program row while empty.
