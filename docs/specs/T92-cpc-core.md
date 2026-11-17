@@ -443,6 +443,16 @@ OS464 + BASIC464`, every part 16 KB (README). Frame: the CRTC is programmable; t
   the hang shows "Amstrad 64K Microcomputer (v2)" and the copyright lines, then nothing - the 664 banner, not the 6128's; the
   machine stops after the firmware banner and before BASIC prints its line, i.e. in the ROM start or AMSDOS init, before any
   disk command of the user.
+- 2026-11-17, the board hang of 011cdc4d read in the code (Claude, coordinator, reading only): AMSDOS's init (`amsdos.rom`
+  &C1BC -> &C5DD -> &C60D) sends SPECIFY through &C95C, which polls the main status register with no timeout
+  (`IN A,(C); ADD A,A; JR NC` until RQM). u765 in COMMAND_IDLE sets RQM = `!image_scan_state[0] & !image_scan_state[1]`
+  (`gen/u765.sv:787`, upstream): while a disk scan is pending the Z80 cannot send a byte. So after "Mount A: and reset" the scan of
+  the new image never ends, AMSDOS loops, BASIC never prints, the motor (floppy LED) is never switched on. The 464 has no AMSDOS and
+  would not stop there; the 664 and the 6128 both do ("on both RAM variants", Alex). The scan path is what this build changed against
+  the board-good 66f89900: the start condition (`:425`, H4 adds `!sd_busy_tinfo & !sd_busy_sector & !tinfo_lock`) and the
+  mount-event withdrawals (`:394-396`, H1); `cpc_fdc.v` and its toggle handshake to the DDR2 are unchanged. Which wait stays set on
+  the board is not closed by reading (the benches, without the real `cpc_fdc`/DDR2, never stall it). Cheapest known-good path for
+  later: u765 of 66f89900 plus the app's mount with a reset.
 
 ## §4 Out
 
