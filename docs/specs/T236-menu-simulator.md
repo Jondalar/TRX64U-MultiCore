@@ -115,9 +115,8 @@ No negative controls: nothing here writes flash or persists anything (settings l
 
 - Everything behind the stubs: no core runs, no real stick, SD or network, no WiFi, no hand-over, no mode switch by a core, no frame
   timing. The simulator shows the menu; what the menu does to a machine stays with ue2emu and the board.
-- Mac x86_64: not built or run here (no such Mac). **For Alex to decide** whether it stays untested.
-- Windows (MSYS2 MinGW64 with SDL2): the build path is written (D6), never built or run here (no Windows machine). **For Alex to decide**
-  whether it stays untested or someone with Windows tries it.
+- Mac x86_64: not built or run here (no such Mac). Alex 2026-11-17: "I have an Apple Silicon Mac, that will do for now, the UI is built here" (translated): stays untested.
+- Windows (MSYS2 MinGW64 with SDL2): the build path is written (D6), never built or run here (no Windows machine); stays untested (Alex 2026-11-17, same sentence).
 - No CI stage, no golden pictures of its own (the benches keep the goldens).
 
 ## §5 Decisions taken while building
