@@ -277,7 +277,7 @@ overlay was fitted from a 1280x800 manual picture, so its scale on the real 960x
   settings and its mounted media the same way the generic cores do (same mechanism, same "Persist mounts" behaviour); S2 must build it.
 - D11 (Alex 2026-11-15, Q5, translated: "we do not save to flash! and nothing is erased in flash there either!!! Reset to host
   defaults is the right one"): F8 > Reset has "Reset to host defaults" only, no "Clear flash config" row. The menu writes and erases
-  nothing in flash; settings are not stored in flash.
+  nothing in flash; settings are not stored in flash (under the MultiCore host; a standalone install may keep a flash cfg, DC13).
 - D12 (Alex 2026-11-15, Q6a, after mock-ups q06a-c): "Keys and help" is a row in F8 > Support in every core (generic), beside
   Bug report and About.
 - D13 (Alex 2026-11-15, Q7a, after mock-ups q07a/b): the Timewarp ring and Instruction trace switches go to F5 C64 > tab "TRX64",
