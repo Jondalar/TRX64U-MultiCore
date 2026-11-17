@@ -64,15 +64,23 @@ struct Rec {
     std::string calls() { std::string s; for (auto &x : g_calls) s += (s.empty() ? "" : "|") + x; g_calls.clear(); return s; }
 };
 
-static int area_key_of(MenuCtl &m, const char *name)
+// T228 R1: no F2 and no F4 area - Timewarp and Monitor are pages of Home, opened by the Home rows "Timewarp..." and "Monitor..." (menu.screen F1/timewarp,
+// F1/monitor). The menu opens, F1, the cursor on the row, RETURN: false when there is no such row or the cursor does not land on it.
+static bool open_by_home_row(MenuCtl &m, const char *label)
 {
-    static const int fk[] = { KEY_F1, KEY_F2, KEY_F3, KEY_F4, KEY_F5, KEY_F6, KEY_F7, KEY_F8 };
-    for (int a = 0; a < m.tree().nareas; a++) {
-        if (!strcmp(m.tree().a[a].name, name)) {
-            return fk[m.tree().a[a].key[1] - '1'];
+    m.open();
+    m.key(KEY_F1);
+    for (int i = 0; i < m.rows(); i++) {
+        char l[96], v[96];
+        bool a = false;
+        m.row(i, l, sizeof(l), v, sizeof(v), &a);
+        if (!strcmp(l, label)) {
+            if (!m.select_index(i)) { return false; }
+            m.key(KEY_RETURN);
+            return true;
         }
     }
-    return -1;
+    return false;
 }
 
 struct Lib {
@@ -128,9 +136,7 @@ int main()
     // ---- Timewarp: the keys are operations (S5, S6) ------------------------------------------------------------------------------------------------------------------
     {
         Rec r;
-        int f = area_key_of(*r.m, "Timewarp");
-        CHECK(f > 0);
-        r.m->key(f);
+        CHECK(open_by_home_row(*r.m, "Timewarp..."));
         CHECK(r.m->layout_is("timeline"));
         g_calls.clear();
         CHECK_EQ(r.m->key(KEY_LEFT), MenuCtl::R_REDRAW);  CHECK_STR(r.calls().c_str(), "tw.step -1");
@@ -146,23 +152,21 @@ int main()
         CHECK_EQ(r.m->key('3'), MenuCtl::R_NONE);          CHECK_STR(r.calls().c_str(), "");
         CHECK_EQ(r.m->key(KEY_RETURN), MenuCtl::R_CLOSE);  CHECK_STR(r.calls().c_str(), "tw.resume");
         CHECK_STR(r.m->status(), "Timewarp: running from here");
-        r.m->open(); r.m->key(f);
+        CHECK(open_by_home_row(*r.m, "Timewarp..."));
         CHECK_EQ(r.m->key(KEY_ESCAPE), MenuCtl::R_CLOSE);  CHECK_STR(r.calls().c_str(), "tw.cancel");
-        r.m->open(); r.m->key(f);
+        CHECK(open_by_home_row(*r.m, "Timewarp..."));
         CHECK_EQ(r.m->key(0x60), MenuCtl::R_CLOSE);        CHECK_STR(r.calls().c_str(), "tw.cancel");      // the C64's left arrow is ESC here
-        r.m->open(); r.m->key(f);
+        CHECK(open_by_home_row(*r.m, "Timewarp..."));
         CHECK_EQ(r.m->key(KEY_BREAK), MenuCtl::R_CLOSE);   CHECK_STR(r.calls().c_str(), "tw.cancel");
         // the leave intent of the menu hotkey closes at once, whatever the page
-        r.m->open(); r.m->key(f);
+        CHECK(open_by_home_row(*r.m, "Timewarp..."));
         MenuIntent lv; lv.id = MI_LEAVE; lv.arg = 0; lv.key = 0; lv.stage = KS_MAIN; lv.row = -1;
         CHECK_EQ(r.m->apply(lv), MenuCtl::R_CLOSE);
     }
     // ---- the monitor: every key is trxmon's, what closes the menu is the menu's (S5, S6) ----------------------------------------------------------------------------------
     {
         Rec r;
-        int f = area_key_of(*r.m, "Monitor");
-        CHECK(f > 0);
-        r.m->key(f);
+        CHECK(open_by_home_row(*r.m, "Monitor..."));
         CHECK(r.m->layout_is("terminal"));
         int n0 = stub_mon_key_n;
         CHECK_EQ(r.m->key('x'), MenuCtl::R_REDRAW);

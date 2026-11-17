@@ -374,7 +374,7 @@ int main(int argc, char **argv)
         d.caps = c64_desc.caps; d.ncaps = c64_desc.ncaps;
         trx64u_register(*ops_of(&c));
         CHECK_EQ(bundle_merge(&c, &d, &x, 0, &say, &merged, &mm), 0);
-        CHECK_EQ(merged.ntasks, 15);                                         // the test core's own tables are replaced by the record's
+        CHECK_EQ(merged.ntasks, 14);                                         // the test core's own tables are replaced by the record's (T228: 14 tasks, R1-R3, R10)
         CHECK_EQ(merged.nfiletypes, 16);
         CHECK_STR(merged.tasks[0].label, "Reset");
         CHECK_STR(merged.media[1].name, "Cartridge port");
