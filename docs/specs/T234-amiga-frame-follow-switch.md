@@ -34,7 +34,7 @@ check.
 
 | # | Solves | Scenario | Test | Where it runs |
 |---|---|---|---|---|
-| S1 | P1, P2 | Setting `Off` (default, also on a fresh start with no stored settings): rows 0..2 of both Amiga cores are the host's standard rows of before eba7f582f, and the frame length never changes | `tools/hdmi_modes.py check` / the `hdmi_timing` bench of both cores with the switch off: PASS line naming the standard rows, `len_bad=0`, every frame the same length | sims (CI tier of `hdmi_timing`) |
+| S1 | P1, P2 | Setting `Off` (default, also on a fresh start with no stored settings): rows 0..2 of both Amiga cores are the host's standard rows of before T188, and the frame length never changes | `tools/hdmi_modes.py check` / the `hdmi_timing` bench of both cores with the switch off: PASS line naming the standard rows, `len_bad=0`, every frame the same length | sims (CI tier of `hdmi_timing`) |
 | S2 | P3 | Setting `On`: T188's behaviour unchanged (follow PASS lines as in T188 §5: no repeat, no skip at 49.60..50.20 Hz) | the same bench with the switch on | sims |
 | S3 | P2 | Changing the setting takes effect like a change of the picture mode (one re-sync), without a core reset; the value is stored with the other settings | app unit (setting -> register write, stored, read back after restart) + ue2emu picture of the row | NAS units, ue2emu |
 | S4 | P1 | Board, `Off`: the A1200 at 1080p50 and 720p50 on Alex's screen keeps picture and sound; *Worms DC* starts with picture and sound | board, Alex or a tester | board |
