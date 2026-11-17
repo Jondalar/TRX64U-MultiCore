@@ -273,6 +273,12 @@ class OwnMenu(unittest.TestCase):
             "setting with picture.apply": '[[setting]]\nkey="K"\nvalues=["a","b"]\napply="picture.apply"\n',
             "setting named Scale": '[[setting]]\nkey="Scale"\nvalues=["a","b"]\napply="x"\n',
             "pages names a group the tab lacks": MIN.replace('"nodes"', '"settings"\n  groups = ["a", "b"]\n  ui = { sections = true, pages = "c" }'),
+            "a page group the tab lacks": MIN.replace('"nodes"', '"settings"\n  groups = ["a", "b"]\n  ui = { sections = true, pages = "P=b+c" }'),
+            "a group on two pages": MIN.replace('"nodes"', '"settings"\n  groups = ["a", "b"]\n  ui = { sections = true, pages = "b,P=a+b" }'),
+            "pages without sections": MIN.replace('"nodes"', '"settings"\n  groups = ["a", "b"]\n  ui = { pages = "b" }'),
+            "a system group that is no page": MIN.replace('"nodes"', '"system"\n  groups = ["a", "b"]\n  ui = { pages = "a" }'),
+            "pages_head without pages": MIN.replace('"nodes"', '"settings"\n  groups = ["a", "b"]\n  ui = { sections = true, pages_head = "H" }'),
+            "groups on a browser tab named as pages": MIN.replace('"nodes"', '"browser"\n  ui = { pages = "a" }'),
             "key twice": '[[core_setting]]\nkey="K"\nvalues=["a","b"]\napply="x"\n[[core_setting]]\nkey="k"\nvalues=["a","b"]\napply="x"\n',
             "info lines on a browser": MIN.replace('"nodes"', '"browser"\n  lines = ["Core"]'),
             "an info line that is not one": MIN.replace('"nodes"', '"info"\n  lines = ["Moon"]'),
@@ -286,6 +292,12 @@ class OwnMenu(unittest.TestCase):
     def test_a_tab_may_name_pages(self):                      # T228 D18: a group of the tab that opens as a page
         b = D.compile_text(MIN.replace('"nodes"', '"settings"\n  groups = ["a", "b"]\n  ui = { sections = true, pages = "b" }'))
         self.assertIn(b"pages=b", b)
+
+    def test_pages_of_several_groups_and_of_a_system_tab(self):  # T228 R5/R6: "Name=g1+g2", a heading over the page rows, a System tab's pages
+        b = D.compile_text(MIN.replace('"nodes"', '"settings"\n  groups = ["a", "b", "c"]\n  ui = { sections = true, pages = "P=b+c", pages_head = "H" }'))
+        self.assertIn(b"pages=P=b+c;pages_head=H", b)
+        r = D.parse_desc(D.compile_text(MIN.replace('"nodes"', '"system"\n  groups = ["a", "b"]\n  ui = { pages = "N=a,b" }')))
+        self.assertEqual((r["tab"][0]["widget"], r["tab"][0]["groups"]), ("system", "a,b"))
 
     def test_groups_of_tasks_and_media_tabs(self):
         D.compile_text(MIN.replace('"nodes"', '"tasks"\n  groups = ["quick"]'))

@@ -113,7 +113,7 @@ struct MenuNode {
     const char *group;                // the anchor's third part, "" when none
 };
 
-#define MENU_HEADS_MAX 24
+#define MENU_HEADS_MAX 32
 
 struct MenuTree {
     MenuArea a[MENU_AREAS_MAX];

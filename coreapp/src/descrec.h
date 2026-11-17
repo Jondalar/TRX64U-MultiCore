@@ -30,7 +30,7 @@
 //   fact   label op first_bind nbind flags ask ask_off first_size nsize          (flags bit 0: closes the menu; ask_off a signed 16 bit word)
 //   cset   key group first_value nvalues def when apply base                     (when 0: live, 1: at the next reset)
 //   A tab's `groups` string is, for an information tab, the comma separated lines it shows (the application's fixed ones); a tasks, media or settings
-//   tab lists the groups its entries name.
+//   tab lists the groups its entries name; a system tab lists the groups its layout's `pages` shows (T228 R6).
 //   hide   id         rename id label
 //   bind   arg kind i s
 //
