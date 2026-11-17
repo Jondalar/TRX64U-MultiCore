@@ -806,9 +806,9 @@ void FileMgr::view_line(int row, char *out, int n) const
 void FileMgr::view_status(char *out, int n) const
 {
     if (view_hex) {
-        snprintf(out, n, "HEX  %08X of %08X   UP/DOWN  PAGE  HOME/END  <- BACK", (unsigned)view_top, (unsigned)view_len);
+        snprintf(out, n, "HEX  %08X of %08X", (unsigned)view_top, (unsigned)view_len);
     } else {
-        snprintf(out, n, "TEXT  line %d of %d   UP/DOWN  PAGE  HOME/END  <- BACK", (int)view_top + 1, view_nlines);
+        snprintf(out, n, "TEXT  line %d of %d", (int)view_top + 1, view_nlines);
     }
 }
 

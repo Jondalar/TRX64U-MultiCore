@@ -2836,6 +2836,10 @@ void MenuCtl::footer_legend_keys(char *out, int n)
         snprintf(out, n, "RETURN  YES   <-  NO");
         return;
     }
+    if (fm_.view) {                                                    // gate fix 8: the text and hex views have their own keys; the screen carries this one legend (view_status names the position only)
+        snprintf(out, n, "UP/DOWN  PAGE   HOME/END  TOP OR END   ESC  BACK");
+        return;
+    }
     if (learn_ >= 0) {
         snprintf(out, n, "PRESS A KEY   ESC  CANCEL");
         return;
