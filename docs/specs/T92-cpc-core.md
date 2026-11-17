@@ -427,6 +427,9 @@ OS464 + BASIC464`, every part 16 KB (README). Frame: the CRTC is programmable; t
   asked with options: reset only into an empty drive / always / never): "Reset only into an empty drive". Mounting into an empty A:/B:
   resets, as the test core did. Replacing the disk of a filled drive swaps it without a reset. The u765 fixes (H1, H2 incl. EXEC8
   and WRITE, H3) make the swap safe.
+- D-17c (Alex 2026-11-17, board test of t92-cpc17b): the board step "swap the disk in A: during a load of a multi-disk game" is
+  dropped: "Test 3 I am not doing, I have no disk-swap game and no time to look for one" (translated). The board tests CAT with a
+  disk in A: and CAT after a reset with two disks in. The swap during a load is proven by the `fdcscan3` bench only.
 
 ## §4 Out
 
