@@ -299,6 +299,10 @@ void menu_build(const CoreDesc *d, MenuTree *t, bool return_host, bool reload_co
                     if ((want == 1 && m.n.kind == LN_STATE) || (want == 2 && m.n.kind != LN_STATE)) {
                         continue;
                     }
+                    if (m.n.kind == LN_GROUP && !tb->layout) {                // a group node names the rows after it: in a flat list a heading, as a screen draws it (IK_HEADING)
+                        add(t, EK_HEADING, m.label, 0);
+                        continue;
+                    }
                     t->nodes[t->nnodes] = m.n;
                     add(t, EK_NODE, m.label, t->nnodes);
                     t->nnodes++;
@@ -715,6 +719,25 @@ const FixedDef *menu_fixed(EntryKind kind, int variant)
 void menu_build_for(const CoreCtx *c, MenuTree *t)
 {
     menu_build(c->desc, t, !c->board || c->board->can_return_host, reload_is_dfx(c), c->merge);
+}
+
+void menu_drop_entry(MenuTree *t, int area, int tab, int i)
+{
+    MenuTab &tb = t->a[area].tabs[tab];
+    const int at = tb.first + i;
+    if (i < 0 || i >= tb.count || at >= t->n) {
+        return;
+    }
+    memmove(&t->e[at], &t->e[at + 1], (size_t)(t->n - at - 1) * sizeof(t->e[0]));
+    t->n--;
+    tb.count--;
+    for (int a = 0; a < t->nareas; a++) {                               // the tabs behind it (and a page's reserved rows) move up with their entries
+        for (int b = 0; b < t->a[a].ntabs; b++) {
+            if (t->a[a].tabs[b].first > at) {
+                t->a[a].tabs[b].first--;
+            }
+        }
+    }
 }
 
 static const char *kind_name(EntryKind k)

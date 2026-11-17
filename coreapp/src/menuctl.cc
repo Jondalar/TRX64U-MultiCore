@@ -101,6 +101,24 @@ void MenuCtl::held_open()
 void MenuCtl::rebuild()
 {
     menu_build_for(c_, &tree_);
+    // T228 DC1: a node's `hide` ("not shown while the state has a value") holds in a flat list too. A screen reads it at every draw (item()); a list's
+    // rows are fixed, so the row is taken out here, when the menu is built (at start and once the libraries are loaded)
+    for (int a = 0; a < tree_.nareas; a++) {
+        for (int b = 0; b < tree_.a[a].ntabs; b++) {
+            const MenuTab &tb = tree_.a[a].tabs[b];
+            for (int i = tb.count - 1; !tb.layout && i >= 0; i--) {
+                const MenuEntry &e = tree_.e[tb.first + i];
+                char spec[64], v[16];
+                if (e.kind != EK_NODE || !ui_attr(tree_.nodes[e.index].attr, "hide", spec, sizeof(spec))) {
+                    continue;
+                }
+                spec_text(spec, v, sizeof(v));
+                if (v[0]) {
+                    menu_drop_entry(&tree_, a, b, i);
+                }
+            }
+        }
+    }
     if (area_ >= tree_.nareas) {
         area_ = 0;
     }
@@ -168,6 +186,13 @@ bool MenuCtl::is_home() const
 {
     const MenuTab &tb = cur();
     return tb.home;
+}
+
+// What is in a media slot, null when it is empty: a state with no text is an empty slot as one with none is (the session line reads it so too)
+static const char *slot_text(CoreCtx *c, const MediaSlot &m)
+{
+    const char *w = ops_state(c, m.state);
+    return w && *w ? w : 0;
 }
 
 // The dominant line of the Home panel: the program the machine is running, or what it is waiting for.
@@ -768,7 +793,7 @@ void MenuCtl::row(int i, char *left, int ln, char *right, int rn, bool *active, 
         }
         break;
     case EK_MEDIA: {
-        const char *w = ops_state(c_, c_->desc->media[e.index].state);
+        const char *w = slot_text(c_, c_->desc->media[e.index]);
         const bool drive = menu_slot_is_drive(c_->desc->media[e.index]);
         snprintf(right, rn, "%s", w ? w : (c_->desc->media[e.index].mount ? "Empty - RETURN to mount" : (drive ? "Empty" : "Not set")));      // T212 R11: an empty drive says how to fill it
         *active = drive;
@@ -2489,7 +2514,7 @@ MenuCtl::Result MenuCtl::open_drive(int slot)
         return R_NONE;
     }
     MenuTab &tb = tree_.a[area_].tabs[pg];
-    const bool mounted = ops_state(c_, m.state) != 0;
+    const bool mounted = slot_text(c_, m) != 0;
     int n = 0;
     auto put = [&](EntryKind k, const char *label, int index) {
         if (n < DRIVE_PAGE_ROWS) {
@@ -2856,14 +2881,8 @@ void MenuCtl::footer_legend_keys(char *out, int n)
         snprintf(out, n, "%s", learn_row ? "UP/DOWN  CHOOSE   RETURN  LEARN KEY   <- ->  CHANGE   ESC  BACK" : "UP/DOWN  CHOOSE   <- ->  CHANGE   ESC  BACK");
         return;
     }
-    int nmax = 1;
-    const MenuArea &ar = tree_.a[area_];
-    for (int b = 0; b < ar.ntabs; b++) {
-        if (ar.tabs[b].n > nmax) {
-            nmax = ar.tabs[b].n;
-        }
-    }
-    int p = snprintf(out, n, nmax > 1 ? "F1-F8 AREA  1-%d TAB  RETURN  <- BACK" : "F1-F8 AREA  RETURN  <- BACK", nmax);
+    // T212 D16: every list area's foot reads like the drive list's; what the rail (F1-F8) and the tab strip (the numbers) show is not repeated here
+    int p = snprintf(out, n, "UP/DOWN  CHOOSE   RETURN  DO IT   ESC  BACK");
     // the letters of this page's buttons first, then the core's own that this page does not claim, as far as the line holds (about 92 characters)
     for (int i = cur().first; i < cur().first + cur().count && i < tree_.n && p < n - 12; i++) {
         const MenuEntry &e = tree_.e[i];
@@ -3236,7 +3255,7 @@ void MenuCtl::item(int i, Item *it)
     switch (e.kind) {
     case EK_MEDIA: {
         it->kind = IK_MEDIA;
-        const char *w = ops_state(c_, c_->desc->media[e.index].state);
+        const char *w = slot_text(c_, c_->desc->media[e.index]);
         snprintf(it->value, sizeof(it->value), "%s", w ? w : (c_->desc->media[e.index].eject_op ? "No image" : "Nothing loaded"));        // T209 S2: the mounted file is the row's value
         snprintf(it->chip, sizeof(it->chip), "%s", !w ? "empty" : (c_->desc->media[e.index].eject_op ? "mounted" : "loaded"));            // the word only colours the row's dot (tone_of)
         it->enabled = active;

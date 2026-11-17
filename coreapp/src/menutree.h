@@ -142,6 +142,8 @@ void menu_build(const CoreDesc *d, MenuTree *t, bool return_host = true, bool re
 // The tree of a running core application: return_host, reload_core and the merge are the context's (the board, the .cor, the libraries).
 struct CoreCtx;
 void menu_build_for(const CoreCtx *c, MenuTree *t);
+// Takes entry `i` of a tab out of the tree; the tabs behind it keep their entries (T228 DC1: MenuCtl drops a flat list's row whose `hide` holds).
+void menu_drop_entry(MenuTree *t, int area, int tab, int i);
 
 // T187 D1: the one table that says where a generic row lands in EVERY core, with or without a description record. A row the application adds to every
 // core (Picture, Scale, Smoothing, Volume, the hotkeys, Persist medium mounts, Home directory, Enter home on startup) is named by what it does (its

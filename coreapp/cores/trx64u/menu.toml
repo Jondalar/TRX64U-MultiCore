@@ -6,8 +6,8 @@
 # T228 (Restart 2026-11-17): the structure is the generic core menu of T212 alone (F1 Home, F3 Library, F5 machine, F7 APP, F8 System); no F2 and no F4
 # area (R1). R2: no "Reboot, clear memory" (F8's generic "Restart core"), no "Pause / resume"; R3: no "Save C64 memory" and no "Save REU memory". F5 has the
 # core's tab "C64" with headings, Video, Audio (R5: "SID sockets" and "Emulated SIDs" are two rows at its end that open a page each, as "FTP hosts" does),
-# Input. F7 is one tab of sections (T212 D12) with the apps last, without Softboot (DC1: not under the MultiCore host; a node row of a list does not read
-# `hide`, so it is left out); F8 System takes the diagnostics rows (Support and Status), Network and Device stay.
+# Input. F7 is one tab of sections (T212 D12) with the apps last under their heading "Apps" (a group node); Softboot is hidden under the MultiCore host (DC1:
+# `hide`, read by a flat list when the menu is built); F8 System takes the diagnostics rows (Support and Status), Network and Device stay.
 # Drive A and the cartridge port are media slots whose rows open the drive list (T212 D5); the generic items (Persist mounts, Enter home, Menu opens at, Home
 # directory, hotkeys, Picture, Scale; no Tone: the core sets no_tone) are the application's own and not declared here. A settings tab with `ui = { sections = true }` shows each of its groups under a heading made of the
 # group's id ('_' is a space; not drawn when it repeats the tab's title). Nothing is saved to flash: every setting is written to the core's .cfg at once (D9-D11).
@@ -58,11 +58,11 @@ key = "F5"                       # the core's short title ("C64") names it
   groups = ["Machine", "Drive_A", "Drive_extras", "TRX64", "Expansion", "Hardware", "Recording"]
   ui = { sections = true }
   n = 1
-  [[area.tab]]                    # the generic Picture row first (group "video", no heading: it repeats the tab's title), then System mode and the outputs
+  [[area.tab]]                    # D14: section Picture = System mode, then the generic Picture/Scale rows (routed rows follow the first block), section Output
   id = "video"
   name = "Video"
   widget = "settings"
-  groups = ["video", "Picture", "Output"]
+  groups = ["Picture", "Output"]
   ui = { sections = true }
   n = 2
   [[area.tab]]                    # no generic volume (the core has its own mixer, own_volume); R5: the SID sockets and the emulated SIDs are two rows at the end, each opens its page
@@ -367,6 +367,12 @@ op = "online.clear"
 order = 110
 ui = { confirm = "Empty every field of the form?", tone = "muted" }
 
+[[node]]                          # the heading of the apps (a group node is a heading in a list as on a screen); the apps follow it in their order
+anchor = "F7/settings"
+kind = "group"
+label = "Apps"
+order = 10
+
 [[node]]
 anchor = "F7/settings"
 kind = "op"
@@ -393,6 +399,15 @@ order = 40
 app = "trex_crt"
 action = "flash"
 ui = { sub = "Write and verify a CRT image on a flash cartridge", chip = "APP", tone = "amber" }
+
+[[node]]
+anchor = "F7/settings"
+kind = "op"
+label = "Softboot"
+order = 50
+app = "softboot"
+action = "pick"
+ui = { sub = "Run an update image from RAM without flashing it", chip = "APP", tone = "violet", hide = "@host.multicore" }       # DC1: not under the MultiCore host
 
 [[node]]
 anchor = "F8/network"
