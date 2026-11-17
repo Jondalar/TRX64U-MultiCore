@@ -300,7 +300,7 @@ overlay was fitted from a 1280x800 manual picture, so its scale on the real 960x
 
 ### Decisions during S2 (decided by Claude on Alex's delegation 2026-11-16 night; Alex can overturn each at S2b)
 Alex 2026-11-16 (translated): "you start T228 overnight ... be the advisor here, decide for me". Each decision follows a D-row or the
-S1 table where one exists; only DC1, DC2, DC3, DC6 and DC7 are new choices.
+S1 table where one exists; only DC1, DC2, DC3, DC6, DC7, DC9 and DC11 are new choices.
 - DC1 Softboot is a Library file action on `.cfw`/`.ue2`/`.u64` (RETURN menu of the file), not a row in F7 Apps. Why: trx64g puts
   softboot in the context menu of those file types (Q2 facts), and D17 already made Unzip a file action of its `.zip`. A launcher
   that needs a file belongs to the file. D5 ("TRXCRT to Apps") covers the cartridge tools only.
@@ -325,6 +325,13 @@ S1 table where one exists; only DC1, DC2, DC3, DC6 and DC7 are new choices.
   - The rows are device and developer values, and F8 holds the device. Bug report is already in the generic F8 Support (S1 table).
 - DC8 (reading D16, not a new choice) The F5 Audio tab keeps its Speaker section. Alex's Q10a answer took the option "own F5 tab SID
   (recommended, Audio then has 3 sections: Volumes / Pan / Speaker)". D16's "volume and pan only" means without the SID rows.
+- DC9 F8 Actions uses the generic rows on trx64u too: "Reload core" and "Return to host menu", not an own "Restart core". Why: the S1
+  table merges trx64u's "Restart core" into the generic F8 Actions row, and one action has one name on every core.
+- DC10 The F8 tabs System / Network / Device stay trx64u-only; other cores keep one System tab. Why: trx64u has 43 network rows
+  and the device settings (D18, S1 table). A tab exists only where a core has rows for it (D14), so this changes no other core.
+- DC11 The Home picture line ("the core's own picture") is not drawn when the core reports no picture size, in every core
+  (generic). Why: on trx64u the line names an internal term and tells nothing (ux-review R5/R6). The machine line already says
+  PAL/NTSC, and the output mode is the F5 Video "Picture" row.
 - From the spec, not new:
   - F4 is the Monitor rail entry (D3, variant A), so the rail reads "MONITOR", not "TOOLS".
   - The old F4 Diagnostics content goes where the S1 table puts it: Bug report to F8 Support, System information/Board/Uptime to F8
