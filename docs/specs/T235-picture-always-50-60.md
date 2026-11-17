@@ -1,13 +1,13 @@
 # T235 — The Picture list always offers every resolution at 50 Hz and at 60 Hz; the modes the screen names are marked, not the only ones
 
-**Status:** PROPOSED (2026-11-17).
+**Status:** BUILT, MERGED into main 2026-11-17 (Alex: "merge and build"); board (S5) open. Proposed 2026-11-17.
 **Repo:** TRX64U-MultiCore — the generic core application only (`coreapp/src/picture.cc` `picture_modes`, the Picture page in
 `menuctl.cc`/`run.cc`, its unit `test_picture`), the manual's Picture paragraph. No gateware, no per-core C.
 **Number:** T235 (TODO.md table).
 **Origin:** Alex 2026-11-17, looking at the A1200's Picture list on a monitor whose EDID names no 50 Hz mode ("59.8 Hz" on every row,
 foot "This screen names no 50 Hz modes; 60 Hz modes are listed."): "wouldn't it make sense to always offer PAL (50) / NTSC (60) with
 the resolution? Because the monitor here at home can do 1080p50" (translated); order: "before 234".
-**Depends on:** T187 D5 (the Picture list, the 8-second confirm), T107 (the mode table: every row has a 50 Hz and a 60 Hz clock).
+**Depends on:** T187 D5 (the Picture list, the 8-second confirm), T107 (the mode table: 576p/480p, 720p and 1080p at 50 and 60 Hz; the PC modes at 60 Hz only, see §5).
 **Milestone:** M2.
 
 ---

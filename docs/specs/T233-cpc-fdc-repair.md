@@ -1,6 +1,6 @@
 # T233 — The CPC's floppy controller never stops the machine: a disk event at any moment ends in a working drive or an answered "not ready", and the CPC always reaches Ready
 
-**Status:** PROPOSED (2026-11-17).
+**Status:** PROPOSED (2026-11-17); paused with WIP on t233-cpc-fdc (fe4bc90ab). Order (Alex 2026-11-17): T228, T235, T234, T232, then this.
 **Repo:** TRX64U-MultiCore — gateware of the CPC core (`cores/cpc/rtl/u765` via `tools/cpc_gen.py` -> `cores/cpc/gen/u765.sv`,
 `cores/cpc/trx/cpc_fdc.v`), its benches (`cores/cpc/sim`), the CPC's app files only where §3 names them.
 **Number:** T233 (TODO.md table).

@@ -1,6 +1,6 @@
 # T234 — The Amiga cores' frame follow (T188) is a setting, off by default; off gives the standard HDMI rows of before T188
 
-**Status:** PROPOSED (2026-11-17).
+**Status:** BUILT, MERGED into main 2026-11-17 (Alex: "merge and build"); Vivado (S6) and board (S4, S5) open. Proposed 2026-11-17.
 **Repo:** TRX64U-MultiCore — the Amiga cores' own host copies (`cores/amiga/mono/host/`, `cores/amiga1200/mono/host/`: `hdmi_timing.v`,
 the mode rows, `tools/hdmi_modes.py`), the cores' register blocks, the setting in the core app (through the generic settings path),
 the manual (11.6, 11.7).
@@ -16,8 +16,9 @@ the manual (11.6, 11.7).
 
 Since T188 was merged (2026-11-13, eba7f582f) an Amiga core at 50 Hz drives HDMI with its own row set and steers the frame length:
 
-- rows outside the standard timing: 1080p50 with 1135 instead of 1125 lines and a pixel clock 1.05 % above CEA VIC 31, 720p50 with
-  1960 instead of 1980 pixels a line, 576p50 with 880 instead of 864 (T188 §3);
+- rows outside the standard timing: 1080p50 as 2638 x 1125 at 148.150412 MHz (-0.235 % against CEA VIC 31's 148.5 MHz, hfp 526
+  instead of 528), 720p50 as 1978 x 749, 576p50 as 867 x 625 (T188 D4, in the cores' copies since eba7f582f; the first T188 rows of
+  2026-11-10 - 1135 lines, +1.05 %, 1960 and 880 pixels a line - were replaced by D4 before that merge);
 - a line-count loop that changes every output frame by -8..+16 lines to follow the core (D3, D5).
 
 T188's S4 ("every screen keeps the picture, no re-sync, audio stays") has no board record. Since then: a tester cannot use 1080p50
@@ -46,7 +47,7 @@ No mutation tests (T174 D5.4).
 
 - **D1 (Alex 2026-11-17, "Switch, default off", translated).** One setting `Frame follow` (`Off`, `On`; default `Off`) in both Amiga
   cores. Replaces T188 D2 ("automatic, no setting").
-- **D2** `Off` = the host's standard rows 0..2 (as before eba7f582f) and the follow loop disabled; `On` = T188 as built (Amiga rows,
+- **D2** `Off` = the host's standard rows 0..2 (as before T188 (the host's rows; the cores' copies at 91c9dd419^1)) and the follow loop disabled; `On` = T188 as built (Amiga rows,
   loop with the D5 limits). The 60 Hz rows are not touched by either.
 - **D3** The value goes to the core through its register block at once, like a picture-mode change (the app re-applies the mode); no
   core reset.
