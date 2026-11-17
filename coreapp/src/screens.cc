@@ -762,9 +762,19 @@ static void build_library(lv_obj_t *c, MenuCtl &m, int sel)
     char p[200], items[24];
     if (m.in_search_tab()) {                                       // a field, not a path: what is looked for, and how many were found
         trx_box(card, t.space_sm, 2, lw - 2 * t.space_sm, 22, t.surface2, 1, t.accent);
-        snprintf(p, sizeof(p), "Name contains:  %s", m.search_active() ? m.search_query() : "press RETURN to type");
-        trx_txt(card, t.space_md, 5, p, t.caption, m.search_active() ? t.ink : t.muted, lw - 200);
         snprintf(items, sizeof(items), m.search_active() ? "%d found" : "", m.rows());
+        // one line in the field, beside the counter (a label with a width wraps): what does not fit is cut, the end of a typed text stays in sight; the idle
+        // hint gives way first, the status line under the list says how to type
+        const int room = lw - 2 * t.space_md - t.space_sm - (items[0] ? trx_text_w(items, t.caption) + t.space_md : 0);
+        const char *q = m.search_active() ? m.search_query() : "press RETURN to type";
+        snprintf(p, sizeof(p), "Name contains:  %s", q);
+        if (trx_text_w(p, t.caption) > room && !m.search_active()) {
+            snprintf(p, sizeof(p), "Name contains:");
+        }
+        while (m.search_active() && trx_text_w(p, t.caption) > room && *q) {
+            snprintf(p, sizeof(p), "Name contains:  ...%s", ++q);
+        }
+        trx_txt(card, t.space_md, 5, p, t.caption, m.search_active() ? t.ink : t.muted);
     } else {
         upper(p, sizeof(p), m.browse_path());
         trx_txt(card, t.space_md, t.space_sm, p, t.caption, t.muted, lw - 160);
