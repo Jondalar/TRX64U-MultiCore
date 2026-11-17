@@ -3,13 +3,11 @@
 # tests/coreapp/golden/ops_trx64u.txt); the packer puts the result into the .cor as record 6, and coreapp/cores/trx64u/menu_rec.inc carries the same bytes
 # for a start without a .cor (JTAG, ue2emu). Regenerate it with `tools/gen_menu_rec.py`; the lint stage compares.
 #
-# T228 mock (Restart 2026-11-17, R1-R3; a picture mock for the design talk, not for merging): the structure is the generic core menu of T212 alone (F1 Home,
-# F3 Library, F5 machine, F7 APP, F8 System); no F2 and no F4 area. R1: Timewarp and Monitor are two rows under the reset rows of Home (as tasks: Home takes
-# no nodes and a task cannot open a screen, so neither row opens its overlay in this mock). R2: no "Reboot, clear memory" (F8's generic "Restart core"), no
-# "Pause / resume"; R3: no "Save C64 memory" and no "Save REU memory". R4: F5 has the generic four tabs: the core's one tab "C64" with headings, Video, Audio
-# (R5: "SID sockets" and "Emulated SIDs" are two rows at its end that open a page each, as "FTP hosts" does), Input. F7 is one tab of sections (T212 D12) with the apps
-# last, without Softboot (DC1: not under the MultiCore host; a node row of a list does not read `hide`, so the mock leaves it out); F8 System takes the diagnostics rows
-# (Support and Status), Network and Device stay.
+# T228 (Restart 2026-11-17): the structure is the generic core menu of T212 alone (F1 Home, F3 Library, F5 machine, F7 APP, F8 System); no F2 and no F4
+# area (R1). R2: no "Reboot, clear memory" (F8's generic "Restart core"), no "Pause / resume"; R3: no "Save C64 memory" and no "Save REU memory". F5 has the
+# core's tab "C64" with headings, Video, Audio (R5: "SID sockets" and "Emulated SIDs" are two rows at its end that open a page each, as "FTP hosts" does),
+# Input. F7 is one tab of sections (T212 D12) with the apps last, without Softboot (DC1: not under the MultiCore host; a node row of a list does not read
+# `hide`, so it is left out); F8 System takes the diagnostics rows (Support and Status), Network and Device stay.
 # Drive A and the cartridge port are media slots whose rows open the drive list (T212 D5); the generic items (Persist mounts, Enter home, Menu opens at, Home
 # directory, hotkeys, Picture, Scale; no Tone: the core sets no_tone) are the application's own and not declared here. A settings tab with `ui = { sections = true }` shows each of its groups under a heading made of the
 # group's id ('_' is a space; not drawn when it repeats the tab's title). Nothing is saved to flash: every setting is written to the core's .cfg at once (D9-D11).
@@ -572,20 +570,6 @@ group = "top"
 label = "Reload ROMs, reset"
 op = "machine.reload_roms"
 closes_menu = true
-
-
-# R1: the two rows that stand for the overlays, under the reset rows. Neither opens its screen here (no task opens a screen; Home takes no nodes):
-# "Monitor..." runs the operation the monitor's screen runs when it is shown, "Timewarp..." the no-op (the timeline has no opening operation).
-[[task]]
-group = "top"
-label = "Timewarp..."
-op = "diag.nop"
-
-
-[[task]]
-group = "top"
-label = "Monitor..."
-op = "monitor.open"
 
 
 [[task]]

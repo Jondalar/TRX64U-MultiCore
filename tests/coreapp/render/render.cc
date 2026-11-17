@@ -1836,7 +1836,7 @@ static void ux_shots(const char *out)
     ui_set_canvas(960, 540);
 }
 
-// ---- T228 mock (Restart 2026-11-17, R1-R3; for the design talk, not for merging): every area and every tab of the proposed TRX64U menu (its record, the board's
+// ---- T228 area shots (the click dummy's pictures, Restart 2026-11-17): every area and every tab of the TRX64U menu (its record, the board's
 // chain: menu_build, descrec_apply, contrib_merge - trx64u::desc()) and of the A1200 (board_desc) as the reference, at 1080p (the 960 x 540 canvas, 2x) and 480p:
 // the top of each list and every further window when it is longer than its window (the last one "end"), the Library inside a folder with a file selected, and the pages the concept names (the drive list, Hotkeys, FTP
 // hosts) and R5's SID pages. Files mock-<core>-<area>-<tab>-<state>-<canvas>.png and mock-MANIFEST.json in `out`; a MOCK line per picture and a ROW line per row of each list.
@@ -2289,7 +2289,7 @@ int main(int argc, char **argv)
 {
     const char *out = argc > 1 ? argv[1] : "/tmp/coreapp-render";
     char p[512];
-    if (getenv("MOCK_ONLY")) {                                      // T228 mock: only the click dummy's pictures (a second run after the whole bench)
+    if (getenv("MOCK_ONLY")) {                                      // T228: only the area shots (mock_shots, the click dummy's pictures), without the rest of the bench
         mock_shots(out);
         printf("coreapp render (MOCK_ONLY): %d checks, %d failed\n", checks, fails);
         return fails ? 1 : 0;
@@ -2803,7 +2803,7 @@ int main(int argc, char **argv)
     ux_longname();
     pm_page_fixtures(out);
     ux_wifi(out);
-    mock_shots(out);                                                // T228 mock: the click dummy's pictures, last, so every check above runs as before
+    mock_shots(out);                                                // T228: the area shots of TRX64U and the A1200, last, so every check above runs as before
     printf("coreapp render: %d checks, %d failed\n", checks, fails);
     return fails ? 1 : 0;
 }
