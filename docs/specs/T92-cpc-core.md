@@ -430,6 +430,13 @@ OS464 + BASIC464`, every part 16 KB (README). Frame: the CRTC is programmable; t
 - D-17c (Alex 2026-11-17, board test of t92-cpc17b): the board step "swap the disk in A: during a load of a multi-disk game" is
   dropped: "Test 3 I am not doing, I have no disk-swap game and no time to look for one" (translated). The board tests CAT with a
   disk in A: and CAT after a reset with two disks in. The swap during a load is proven by the `fdcscan3` bench only.
+- Board test 1 of t92-cpc17b FAILED (Alex 2026-11-17, `cpc.cor` 011cdc4d of run 2358): after "Mount A: and reset" into an empty A:
+  "no cursor any more .. so NOT fixed .. every time the same" and "the floppy LED does nothing either ... so broken. Take the CPC
+  core out" (translated). Cause being read (`scratchpad/cpc-regress/RESET-HANG.md`).
+- D-17d (Alex 2026-11-17, asked with options board + packages / board only / also the published GitHub pre-release): "Board +
+  packages". `cpc.cor` is deleted from the board's `/SD/cores` (the old `cpc_probe_backup.cor` there was not touched). The CI
+  package and the next GitHub releases ship no CPC until #17 is fixed and passes on the board; the CPC is still built, so a fix can
+  be tested. The published pre-release main-13c2cde9 stays as it is.
 
 ## §4 Out
 
