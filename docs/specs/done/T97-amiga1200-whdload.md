@@ -841,3 +841,15 @@ fetch" no longer holds: 4 mod 8 is a valid FMODE 1/2 fetch.
   (`cpu_wrapper.v:284`).
 - **Open:** board check with Turrican II AGA. Test build `trx64mc-test-73fb8d63` (GitHub pre-release, `amiga1200.cor` from Gitea run 2376,
   WNS +0.085 ns) is out; the retest is asked in Discussion #94 (Alex 2026-11-17: push to GitHub and ask for a retest).
+- **Retest results (#94, 2026-11-17):** Turrican II AGA "Graphic solved", the music stutters a little with Fast RAM 5.5M or 32M (not
+  analysed yet). Worms DC (AGA): no sound, the picture shows ~100 ms then 1.5-2 s blank. Reading (scratchpad amiga-z3/WORMS.md): the
+  change cannot cause it - `chip48` reaches only Denise's bitplane and sprite pixels; `p2_dout48` feeds a line fill under `ENABLE_CACHE`,
+  which no build defines; the two .cor differ only in these two lines (app identical but the version stamp). Ranked candidates: (1) the
+  T188 frame follow on a 50 Hz HDMI mode when the game's frame rate leaves ~49.2-50.3 Hz (NTSC BEAMCON0 or a VARBEAMEN mode): the HDMI
+  frame length jumps up to 24 lines, a TV re-syncs and mutes for 1-2 s; T188 S4 was never recorded as passed; (2) a reset/Guru loop
+  (e.g. Zorro III 32M left on: 32-bit addressing); (3) a chipset stall (weak fit). Separating step: the same game with the old
+  main-13c2cde9 `amiga1200.cor`, and with a 60 Hz HDMI mode (the follow is off there).
+- **Wide fetch, unaligned pointers (WinUAE custom.cpp as the nearest reference, read 2026-11-17):** the new rule equals WinUAE for FMODE 1
+  at every alignment and for FMODE 3 at 0 and 4 mod 8. Same in old and new, not needed for the reports: FMODE 3 at 2/6 mod 8 (word 3 in
+  [31:16]), FMODE 2's duplicated word, and the pointer step that drops the low bits after the first fetch (A1200 forks of
+  `agnus_bitplanedma.v` / `agnus_spritedma.v`).
