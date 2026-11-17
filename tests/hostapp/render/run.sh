@@ -19,12 +19,15 @@ LK="$("$ROOT/tests/lvgl_objs.sh" --key "$L" "$H/lv_conf.h")"
 cp "$H/lv_conf.h" "$B/"   # what lvgl_objs.sh puts beside the objects, made at once so that every unit sees it whether or not an earlier one built
 need_objs() { [ -n "${OBJS:-}" ] || OBJS="$("$ROOT/tests/lvgl_objs.sh" "$L" "$H/lv_conf.h")"; }
 CORE="$ULT"
+source "$ROOT/tests/hostapp/srclist.sh"   # T236 D12: the sources, defines and include path, shared with tools/menusim
 # build OUT HOSTUI DISCOVER CFW [CFWICON]: the bench around the given sources
 build_now() {
   need_objs
   # XFLAGS: flags for the whole bench
-  c++ -std=gnu++14 -O1 -w -DHOSTUI_RENDER_TEST -DHOSTAPP_FLASH_LOCK=${FLASH_LOCK:-1} -DVIDEOMODE_NO_BOARD=1 -DWEBUI_NO_BOARD=1 -DLV_CONF_INCLUDE_SIMPLE ${XFLAGS:-} -I"${7:-$B}" -I"$R/stub" -I"$H" -iquote "$L" -I"$ROOT/app/view" -I"$ROOT/uicore" -I"$ROOT/coreapp/src" -I"$ROOT/app/edit" -I"$ROOT/tests" -I"$ROOT/app/video" -I"$CORE/io/c64" -I"$CORE/components" -I"$CORE/system" -I"$ROOT/host-app/software/filesystem" -I"$CORE/io/flash" \
-    -o "$1" "$R/render.cc" "$2" "$ROOT/app/view/trxview.cc" "$ROOT/app/video/videomode.cc" "$ROOT/app/video/edid.cc" "$ROOT/coreapp/src/picmodes.cc" "$H/hostvideo.cc" "${HC_SRC:-$H/host_core.cc}" "${HCF_SRC:-$H/host_core_flow.cc}" "${HCR_SRC:-$H/host_core_flow_restore.cc}" "$H/host_core_flow_convert.cc" "$H/host_core_flow_esp.cc" "$H/host_core_flow_fileops.cc" "$H/host_core_flow_wifi.cc" "$H/host_core_flow_format.cc" "$H/host_core_nav.cc" "$H/host_core_cm.cc" "$H/host_core_cfgov.cc" "$H/configlist.cc" "${HCW_SRC:-$H/host_core_rows.cc}" "${HCU_SRC:-$H/host_core_ui.cc}" "$H/host_core_model.cc" "$H/hostdecl.cc" "$H/hostdomain.cc" "$H/startfile.cc" "$ROOT/uicore/uic_json.cc" "$ROOT/uicore/uic_sha.cc" "$ROOT/uicore/uic_svc.cc" "$ROOT/uicore/uic_net.cc" "$H/webui.cc" "$H/hostreport.cc" "$H/hostreport_live.cc" "$H/bugreport.cc" "$H/cor.cc" "$H/directboot.cc" "$4" "${5:-$H/cfwicon.cc}" "$H/bootcfg.cc" "$H/menusnap.cc" "$H/menurows.cc" "$H/fileops.cc" "$H/coremaint.cc" "$ROOT/app/edit/lineedit.cc" "$H/startcheck.cc" "$H/handover.cc" "$3" "$H/sha256.c" "$H/fmtconfirm.cc" "$H/mediaui.cc" "$H/mediasniff.cc" "$H/fwknown.cc" "$H/fwconvert.cc" "$H/fwrestore.cc" "$H/flashfw.cc" "$H/fwconfirm.cc" "$H/txu.cc" "$H/espinspect.cc" "$H/espflash.cc" "$H/host_core_flow_zip.cc" "$ROOT/coreapp/src/appindex.cc" "$ROOT/coreapp/src/libload.cc" "$ROOT/coreapp/src/libscan.cc" "$ROOT/coreapp/src/libmenu.cc" "$ROOT/coreapp/src/descrec.cc" "$ROOT/coreapp/src/ops.cc" "$ROOT/coreapp/src/corefolder.cc" "${6:-$OBJS}"/*.o -lz -lm
+  hostapp_srcs
+  # shellcheck disable=SC2086
+  c++ $HOST_DEFS -O1 -DHOSTAPP_FLASH_LOCK=${FLASH_LOCK:-1} ${XFLAGS:-} -I"${7:-$B}" -I"$R/stub" $HOST_INCS \
+    -o "$1" "$R/render.cc" "$2" "$3" "$4" "${5:-$H/cfwicon.cc}" $HOST_SRCS "${6:-$OBJS}"/*.o -lz -lm
 }
 python3 "$R/mktree.py" "$B/tree"
 # T197 P3: the images of Unzip and its library (the real packer; the bench's "application" asks what unzip asks), copied into the tree by the scenario that needs them

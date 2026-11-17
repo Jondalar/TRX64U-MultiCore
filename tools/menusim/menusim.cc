@@ -24,6 +24,7 @@
 #include "video.h"
 #include "fakes.h"
 #include "keyboard.h"
+#include "simwin.h"
 #include "picture.h"
 #include "menubuild.h"
 #include "cores.h"
@@ -32,7 +33,6 @@
 #include "bundle.h"
 #include "videomode.h"
 #include "edid.h"
-#include <SDL.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -73,20 +73,6 @@ static const CoreDesc *find_core(const char *name)
 }
 
 static bool exists(const std::string &p) { struct stat st; return stat(p.c_str(), &st) == 0; }
-// The file's change time in ms (whole seconds where the platform gives no more).
-static long mtime_of(const char *p)
-{
-    struct stat st;
-    if (stat(p, &st) != 0) { return -1; }
-#if defined(__APPLE__)
-    return (long)st.st_mtime * 1000 + st.st_mtimespec.tv_nsec / 1000000;
-#elif defined(_WIN32)
-    return (long)st.st_mtime * 1000;
-#else
-    return (long)st.st_mtime * 1000 + st.st_mtim.tv_nsec / 1000000;
-#endif
-}
-
 // ---- the mode --------------------------------------------------------------------------------------
 struct Mode { const char *name; int hdmi, sys; };
 static const Mode modes[] = {
@@ -201,34 +187,6 @@ static Menu g_menu;
 static Rig *g_rig;
 static bool g_open = true;                                    // the menu is up
 static std::vector<int> g_keys;                               // every key given, played again after a reload
-static bool g_dirty = true;
-
-static const char *key_name(int k)
-{
-    static char b[16];
-    switch (k) {
-    case KEY_F1: return "F1"; case KEY_F2: return "F2"; case KEY_F3: return "F3"; case KEY_F4: return "F4";
-    case KEY_F5: return "F5"; case KEY_F6: return "F6"; case KEY_F7: return "F7"; case KEY_F8: return "F8"; case KEY_F12: return "F12";
-    case KEY_UP: return "UP"; case KEY_DOWN: return "DOWN"; case KEY_LEFT: return "LEFT"; case KEY_RIGHT: return "RIGHT";
-    case KEY_RETURN: return "RETURN"; case KEY_ESCAPE: return "ESC"; case KEY_BACK: return "BACK"; case KEY_TAB: return "TAB";
-    case KEY_HOME: return "HOME"; case KEY_END: return "END"; case KEY_PAGEUP: return "PGUP"; case KEY_PAGEDOWN: return "PGDN";
-    case KEY_DELETE: return "DEL"; case KEY_SPACE: return "SPACE";
-    }
-    snprintf(b, sizeof(b), k >= 32 && k < 127 ? "%c" : "0x%02X", k);
-    return b;
-}
-
-static int key_of(const char *n)
-{
-    static const struct { const char *n; int k; } t[] = {
-        { "F1", KEY_F1 }, { "F2", KEY_F2 }, { "F3", KEY_F3 }, { "F4", KEY_F4 }, { "F5", KEY_F5 }, { "F6", KEY_F6 }, { "F7", KEY_F7 }, { "F8", KEY_F8 },
-        { "F12", KEY_F12 }, { "UP", KEY_UP }, { "DOWN", KEY_DOWN }, { "LEFT", KEY_LEFT }, { "RIGHT", KEY_RIGHT }, { "RETURN", KEY_RETURN },
-        { "ENTER", KEY_RETURN }, { "ESC", KEY_ESCAPE }, { "BACK", KEY_BACK }, { "BACKSPACE", KEY_BACK }, { "TAB", KEY_TAB }, { "HOME", KEY_HOME },
-        { "END", KEY_END }, { "PGUP", KEY_PAGEUP }, { "PGDN", KEY_PAGEDOWN }, { "DEL", KEY_DELETE }, { "SPACE", KEY_SPACE },
-    };
-    for (auto &e : t) { if (!strcasecmp(e.n, n)) return e.k; }
-    return strlen(n) == 1 ? (unsigned char)n[0] : -1;
-}
 
 // One key as run.cc's give_key hands it to the core's menu: MenuCtl::key, then the render; R_CLOSE closes the menu. F12 opens a closed menu
 // (the board opens it with the menu button or the core's menu hotkey, neither of which reaches the simulator as a key).
@@ -248,13 +206,13 @@ static void give_key(int k, bool log)
     if (r == MenuCtl::R_CLOSE && !g_rig->c.desc->menu_first) {
         g_open = false;
         ui_menu_visible(false);
-        if (log) { printf("key %s -> menu closed (F12 opens it)\n", key_name(k)); }
+        if (log) { printf("key %s -> menu closed (F12 opens it)\n", sim_key_name(k)); }
         return;
     }
     ui_menu_render(*g_rig->m);
     lv_timer_handler();                                       // LVGL runs between two keys, as on the board (and in the bench's steps)
     if (log) {
-        printf("key %s -> area %d tab %d \"%s\" row %d\n", key_name(k), g_rig->m->area(), g_rig->m->tab(), g_rig->m->title(), g_rig->m->selected());
+        printf("key %s -> area %d tab %d \"%s\" row %d\n", sim_key_name(k), g_rig->m->area(), g_rig->m->tab(), g_rig->m->title(), g_rig->m->selected());
     }
 }
 
@@ -287,7 +245,7 @@ static void start_rig(bool replay)
         for (int k : g_keys) { give_key(k, false); }
     }
     lv_obj_invalidate(lv_screen_active());
-    g_dirty = true;
+    sim_dirty = true;
 }
 
 static void place(int *x, int *y, int *w, int *h)
@@ -326,116 +284,37 @@ static void reload(void)
 }
 
 // ---- the window ------------------------------------------------------------------------------------
-static uint32_t wall_tick(void) { return SDL_GetTicks(); }
-static void on_frame(void) { g_dirty = true; }
+static long g_seen = -1;                                      // the menu TOML's change time the menu was built from
+static uint32_t g_next_poll;
 
-static int sdl_key(const SDL_Keysym &ks)
+static void win_key(int k) { g_keys.push_back(k); give_key(k, true); }
+static void win_reload(void) { reload(); g_seen = sim_mtime(o.toml); }
+static void win_idle(void)
 {
-    bool shift = ks.mod & KMOD_SHIFT;
-    switch (ks.sym) {
-    case SDLK_F1: return shift ? KEY_F2 : KEY_F1;
-    case SDLK_F2: return KEY_F2;
-    case SDLK_F3: return shift ? KEY_F4 : KEY_F3;
-    case SDLK_F4: return KEY_F4;
-    case SDLK_F5: return shift ? KEY_F6 : KEY_F5;
-    case SDLK_F6: return KEY_F6;
-    case SDLK_F7: return shift ? KEY_F8 : KEY_F7;
-    case SDLK_F8: return KEY_F8;
-    case SDLK_F12: return KEY_F12;
-    case SDLK_UP: return KEY_UP;
-    case SDLK_DOWN: return KEY_DOWN;
-    case SDLK_LEFT: return KEY_LEFT;
-    case SDLK_RIGHT: return KEY_RIGHT;
-    case SDLK_RETURN: case SDLK_KP_ENTER: return KEY_RETURN;
-    case SDLK_ESCAPE: return KEY_ESCAPE;
-    case SDLK_BACKSPACE: return KEY_BACK;
-    case SDLK_TAB: return KEY_TAB;
-    case SDLK_HOME: return KEY_HOME;
-    case SDLK_END: return KEY_END;
-    case SDLK_PAGEUP: return KEY_PAGEUP;
-    case SDLK_PAGEDOWN: return KEY_PAGEDOWN;
-    case SDLK_DELETE: return KEY_DELETE;
-    case SDLK_SPACE: return KEY_SPACE;
+    if (o.toml && SDL_GetTicks() >= g_next_poll) {            // the menu TOML, polled every 250 ms
+        g_next_poll = SDL_GetTicks() + 250;
+        long now = sim_mtime(o.toml);
+        if (now != g_seen && now >= 0) { g_seen = now; reload(); }
     }
-    if (ks.sym >= SDLK_a && ks.sym <= SDLK_z) { return shift ? (int)(ks.sym - SDLK_a + 'A') : (int)ks.sym; }
-    if (ks.sym >= SDLK_0 && ks.sym <= SDLK_9) { return (int)ks.sym; }
-    return -1;
+    if (g_rig->m->tick()) { ui_menu_render(*g_rig->m); }
+    lv_timer_handler();
+}
+static void win_compose(unsigned char *rgb)
+{
+    int x, y, w, h;
+    place(&x, &y, &w, &h);
+    rig_compose(rgb, frame_w, frame_h, x, y, w, h);
 }
 
 static int run_window(void)
 {
-    if (SDL_Init(SDL_INIT_VIDEO) != 0) {
-        fprintf(stderr, "menusim: SDL_Init: %s\n", SDL_GetError());
-        return 1;
-    }
-    int scale_num = 1, scale_den = 1;
-    if (o.scale > 0) {
-        scale_num = o.scale;
-    } else {
-        SDL_Rect usable;
-        if (SDL_GetDisplayUsableBounds(0, &usable) == 0) {
-            while (frame_w * scale_num / scale_den > usable.w * 9 / 10 || frame_h * scale_num / scale_den > usable.h * 9 / 10) { scale_den++; }
-        }
-    }
-    char title[160];
-    snprintf(title, sizeof(title), "menusim - %s - %s %dx%d", g_src->title ? g_src->title : o.core, mode.name, frame_w, frame_h);
-    SDL_Window *win = SDL_CreateWindow(title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, frame_w * scale_num / scale_den, frame_h * scale_num / scale_den,
-                                       SDL_WINDOW_ALLOW_HIGHDPI);
-    SDL_Renderer *ren = win ? SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC) : 0;
-    if (win && !ren) { ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_SOFTWARE); }    // no GPU renderer (a remote session, SDL's offscreen driver)
-    SDL_Texture *tex = ren ? SDL_CreateTexture(ren, SDL_PIXELFORMAT_RGB24, SDL_TEXTUREACCESS_STREAMING, frame_w, frame_h) : 0;
-    if (!tex) {
-        fprintf(stderr, "menusim: SDL window: %s\n", SDL_GetError());
-        return 1;
-    }
-    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
-    std::vector<unsigned char> rgb((size_t)frame_w * frame_h * 3);
-    printf("menusim: F1-F8 need fn on a Mac keyboard unless \"Use F1, F2, etc. keys as standard function keys\" is on; shift+F1 = F2.\n"
-           "         Cmd+R reload, Cmd+S screenshot, Cmd+Q quit, F12 opens the menu after a close.\n");
-    long seen = o.toml ? mtime_of(o.toml) : -1;
-    uint32_t next_poll = SDL_GetTicks() + 250;
-    int shots = 0;
-    bool quit = false;
-    while (!quit) {
-        SDL_Event e;
-        while (SDL_PollEvent(&e)) {
-            if (e.type == SDL_QUIT) { quit = true; }
-            if (e.type != SDL_KEYDOWN) { continue; }
-            bool cmd = e.key.keysym.mod & (KMOD_GUI | KMOD_CTRL);
-            if (cmd && e.key.keysym.sym == SDLK_q) { quit = true; continue; }
-            if (cmd && e.key.keysym.sym == SDLK_r) { if (o.toml) { reload(); seen = mtime_of(o.toml); } else { printf("reload: this core has no menu TOML\n"); } continue; }
-            if (cmd && e.key.keysym.sym == SDLK_s) {
-                char p[256];
-                snprintf(p, sizeof(p), "menusim-%s-%s-%d.png", o.core, mode.name, ++shots);
-                shot(p);
-                continue;
-            }
-            if (cmd) { continue; }
-            int k = sdl_key(e.key.keysym);
-            if (k >= 0) { g_keys.push_back(k); give_key(k, true); }
-        }
-        if (o.toml && SDL_GetTicks() >= next_poll) {
-            next_poll = SDL_GetTicks() + 250;
-            long now = mtime_of(o.toml);
-            if (now != seen && now >= 0) { seen = now; reload(); }
-        }
-        if (g_rig->m->tick()) { ui_menu_render(*g_rig->m); }
-        lv_timer_handler();
-        if (g_dirty) {
-            g_dirty = false;
-            int x, y, w, h;
-            place(&x, &y, &w, &h);
-            rig_compose(rgb.data(), frame_w, frame_h, x, y, w, h);
-            SDL_UpdateTexture(tex, 0, rgb.data(), frame_w * 3);
-            SDL_RenderClear(ren);
-            SDL_RenderCopy(ren, tex, 0, 0);
-            SDL_RenderPresent(ren);
-        } else {
-            SDL_Delay(8);
-        }
-    }
-    SDL_Quit();
-    return 0;
+    char title[160], name[160];
+    snprintf(title, sizeof(title), "menusim - %s - %s %dx%d - F12 opens a closed menu", g_src->title ? g_src->title : o.core, mode.name, frame_w, frame_h);
+    snprintf(name, sizeof(name), "menusim-%s-%s", o.core, mode.name);
+    g_seen = o.toml ? sim_mtime(o.toml) : -1;
+    g_next_poll = SDL_GetTicks() + 250;
+    SimApp a = { title, frame_w, frame_h, win_key, win_idle, win_compose, shot, o.toml ? win_reload : 0, name };
+    return sim_window(a, o.scale);
 }
 
 // ---- main ------------------------------------------------------------------------------------------
@@ -483,8 +362,8 @@ int main(int argc, char **argv)
         ops_s = std::string(o.root) + "/tests/coreapp/golden/ops_" + o.core + ".txt";
         if (exists(ops_s)) { o.ops = ops_s.c_str(); }
     }
-    if (!o.keys && !o.shot) { rig_tick = wall_tick; }             // the window runs on the wall clock; headless keeps the bench's steps
-    rig_on_frame = on_frame;
+    if (!o.keys && !o.shot) { rig_tick = sim_wall_tick; }             // the window runs on the wall clock; headless keeps the bench's steps
+    rig_on_frame = sim_on_frame;
 
     std::string why;
     uint32_t n = 0;
@@ -502,13 +381,7 @@ int main(int argc, char **argv)
         printf("canvas %dx%d at %d,%d shown %dx%d (frame %dx%d)\n", cvw, cvh, x, y, w, h, frame_w, frame_h);
     }
     if (o.keys || o.shot) {
-        std::string ks = o.keys ? o.keys : "";
-        size_t at = 0;
-        while (at < ks.size()) {
-            size_t c = ks.find(',', at);
-            std::string k = ks.substr(at, c == std::string::npos ? std::string::npos : c - at);
-            at = c == std::string::npos ? ks.size() : c + 1;
-            if (k.empty()) continue;
+        for (const std::string &k : sim_split_keys(o.keys)) {
             if (!k.compare(0, 5, "FIND:") || !k.compare(0, 4, "SEL:")) {   // the selection to a row by UP and DOWN: the first whose label starts with the text, or row n
                 bool find = !k.compare(0, 5, "FIND:");
                 int row = find ? find_row(k.c_str() + 5) : atoi(k.c_str() + 4);
@@ -522,7 +395,7 @@ int main(int argc, char **argv)
                 printf("%s -> row %d\n", k.c_str(), g_rig->m->selected());
                 continue;
             }
-            int code = key_of(k.c_str());
+            int code = sim_key_of(k.c_str());
             if (code < 0) { fprintf(stderr, "menusim: unknown key %s\n", k.c_str()); return 2; }
             g_keys.push_back(code);
             give_key(code, true);
