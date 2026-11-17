@@ -421,9 +421,13 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
     STARTLOG("phase core app run: pixel layer");
     ui_open(desc);
     {
-        // T210 P1: the splash is placed for the running mode from its first frame (layer_up writes the place of the first picture).
+        // T210 P1: the splash is placed for the running mode from its first frame (layer_up writes the place of the first picture). T228: the running mode
+        // is the gateware's row, not always the hand-over's (trx64u's bitstream starts in 1080p50), and 1080p without the gateware (video_menu_start).
         int sys = -1, hdmi = -1;
         video_unpack(h && handover_valid(h) ? h->video : 0, &sys, &hdmi);
+        bool gw = video_gateware_present();
+        video_menu_start(gw, gw ? video_gateware_row() : -1, &sys, &hdmi);
+        printf("[core] menu frame: %s %s (%s)\n", video_sys_name(sys), video_hdmi_name(hdmi), gw ? "the gateware's row" : "no gateware: the fixed 1080p frame");
         video_place_menu(&px, hdmi, sys);
     }
     {
