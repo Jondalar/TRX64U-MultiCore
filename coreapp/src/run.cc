@@ -15,6 +15,7 @@
 #include "boot.h"
 #include "video.h"
 #include "videomode.h"
+#include "corereport.h"
 #include "start.h"
 #include "mediumwait.h"
 #include "corefolder.h"
@@ -475,6 +476,7 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
     netfs_set(&net_fs);
     ctx.fs = &net_fs;
     ListGrow::free_heap() = []() -> uint32_t { return (uint32_t)xPortGetFreeHeapSize(); };   // the Library and the folder pick size their lists against it (listgrow.h)
+    core_report_edid_reader() = video_read_edid;       // R8: the bug report names the screen's EDID
     hostwifi_load(ctx.fs);                              // T184 D3: the WiFi settings are the host's (F8); read once, never written
     start_paths(&ctx, h, board);
     char file_config[HANDOVER_CONFIG_MAX + 2] = "";     // T223 D4: a large core's choice comes in a file beside the page
