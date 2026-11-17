@@ -2684,88 +2684,6 @@ static void scenarios_t137(const char *out)
     snprintf(g_root, sizeof(g_root), "%s", main_root);
 }
 
-// ---- T197 P3: Unzip in the File Browser. The job is the board's (host_core_flow_zip.cc over the loader of coreapp/src); what stands in for the machine is a CoreFs over the bench's
-// tree and a LibHost whose "application" asks what unzip asks (the bar, one page). The real unzip + miniz run in tests/hostapp/test_hostzip.cc (S3); this part judges the screens.
-#include "host_core_flow_zip.h"
-#include "hostzip_board.h"
-class BenchMemFile : public CoreFile {
-public:
-    std::string d;
-    uint64_t size() { return d.size(); }
-    bool writable() { return false; }
-    bool read(uint64_t off, void *buf, uint32_t len) { if (off + len > d.size()) return false; memcpy(buf, d.data() + off, len); return true; }
-    bool write(uint64_t, const void *, uint32_t) { return false; }
-    bool sync() { return true; }
-};
-class BenchZipFs : public CoreFs {
-public:
-    int list(const char *dir, FsEntry *out, int max)
-    {
-        HostDirEntry *h = (HostDirEntry *)malloc(sizeof(HostDirEntry) * 64);
-        int n = hostfs_list(dir, h, 64, false);
-        for (int i = 0; i < n && i < max; i++) {
-            memset(&out[i], 0, sizeof(out[i]));
-            snprintf(out[i].name, sizeof(out[i].name), "%s", h[i].name);
-            out[i].dir = h[i].dir;
-            out[i].size = h[i].size64;
-        }
-        free(h);
-        return n < max ? n : max;
-    }
-    bool stat(const char *path, uint64_t *size, bool *dir) { char d[700]; fpath(d, sizeof(d), path); struct stat st; if (::stat(d, &st)) return false; if (size) *size = st.st_size; if (dir) *dir = S_ISDIR(st.st_mode); return true; }
-    int load(const char *, void *, uint32_t) { return -1; }
-    bool save(const char *, const void *, uint32_t) { return false; }
-    bool remove(const char *) { return false; }
-    CoreFile *open(const char *path, bool rw)
-    {
-        if (rw) return 0;
-        char d[700]; fpath(d, sizeof(d), path);
-        FILE *f = fopen(d, "rb");
-        if (!f) return 0;
-        BenchMemFile *m = new BenchMemFile;
-        char b[4096]; size_t n;
-        while ((n = fread(b, 1, sizeof(b), f)) > 0) m->d.append(b, n);
-        fclose(f);
-        return m;
-    }
-    void close(CoreFile *f) { delete f; }
-};
-extern const char *hostui_test_browse_sub(void);
-static bool g_zip_one, g_zip_refuse_pic;                                                    // the bench's application plays the one-file picker
-class BenchLibHost : public LibHost {
-public:
-    void *alloc(uint32_t n) { return malloc(n); }
-    void release(void *p) { free(p); }
-    uint32_t addr_of(const void *p) { return (uint32_t)(uintptr_t)p; }
-    void sync_code(void *, uint32_t) { }
-    bool has_capability(const char *) { return false; }
-    const char *core_name() { return "host"; }
-    int call_register(const Entry &, const LibApi *, LibRecord *) { return 0; }
-    int call_main(const Entry &, const LibApi *api, AppCtx *ctx)         // what unzip does on screen: a bar, then its page
-    {
-        if (g_zip_one) {
-            const char *items[3] = { "readme.txt", "sub/data.bin", "sub/deep/more.bin" };
-            if (api->dlg->choose("Unzip set.zip", items, 3, 0) < 0) return 0;
-            api->dlg->message("Unzip", "Extracted 1 file into /Usb0/zip");
-            return 0;
-        }
-        void *bar = api->dlg->progress_open("Unzipping", 3);
-        const char *names[3] = { "readme.txt", "sub/data.bin", "sub/deep/more.bin" };
-        for (int i = 1; i <= 3; i++) api->dlg->progress_set(bar, i, names[i - 1]);
-        api->dlg->progress_close(bar);
-        api->dlg->message("Unzip", "Extracted 3 files into /Usb0/zip/set");   // the hook presses the key once the page is up
-        (void)ctx;
-        return 0;
-    }
-};
-HcZipEnv *hostzip_env(const HcFlowEnv *base)
-{
-    static BenchZipFs fs;
-    static BenchLibHost host;
-    static HcZipEnv env;
-    if (!env.base) { env.base = base; env.fs = &fs; env.libhost = &host; env.rig = 0; }
-    return &env;
-}
 static int g_zip_pics;
 static const char *g_zip_out;
 static void zip_hook(int phase, uint64_t done, uint64_t total)
@@ -2953,13 +2871,11 @@ static void fw_geom_check(void)
 static int g_rs_press_at = 5;                // T152 D11: the countdown value at which the bench presses a key (5 = at once, 0 = never)
 static int g_rs_pages;
 // T152 S8: the ROM loader model behind the host app's link, the keys pressed at the pages that wait, the pages themselves
-static EspLoaderModel *g_esp_model;
 static const int *g_u_keys;                  // the keys for the pages that wait for one (the inspect page, then the result page); 'x' when they are used up
 static char g_s8_pg[4][2048];                // the text of the first pages that waited (0: the inspect page, 1: the result, 2: the result after a retry)
 static int g_s8_n, g_s8_asks;
 static const char *g_esp_png5;               // a picture of the write at half way
 extern int hostui_test_esp_writes(void);
-EspFlashLink *esp_flash_board_link(void) { return g_esp_model; }
 static uint32_t g_rs_first_tick;
 static char g_rs_page[2048];
 static void fw_hook(int phase, uint64_t done, uint64_t total)
@@ -3182,11 +3098,6 @@ static std::vector<uint8_t> txu_part(const char *name, int kind)
     return out;
 }
 extern void hostui_test_wifi_sync(void);
-// T163 S3: the bench's FTP store (on the board: the "Network Settings" store, ftpstate_board.cc)
-static FtpState g_ftp = { true, FTPSTATE_PORT, false };
-FtpState ftp_state_now(void) { return g_ftp; }
-static int g_ftp_sets;
-void ftp_state_set(bool on) { g_ftp.on = on; g_ftp_sets++; }
 extern void hostui_test_wifi_panel(int what, int sel);
 extern int hostui_test_net_sel(void);
 extern const char *hostui_test_net_note(void);
