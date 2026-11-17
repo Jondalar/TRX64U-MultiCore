@@ -2040,8 +2040,8 @@ static void pm_make_edid(uint8_t *e, int *len, const uint8_t *vics, int nv, unsi
     }
 }
 // T235: the page lists Auto and the 9 rows of the mode table (kPmRows, the machine's rate first within a resolution), whatever the screen names; the rows it names carry "*".
-// `list`/`n` are the rows the EDID names (the mark), `info` the foot line of the fixture.
-struct PmFx { const char *name; uint8_t vics[3]; int nv; unsigned pc; bool bad, none; int n; int list[6]; unsigned nat; int autohdmi; const char *info; };
+// The mark is the app's own reading of the fixture's EDID (video_modes_offered, tested on its own terms in tests/coreapp/test_edid.cc); `nat` the native row, `info` the foot line.
+struct PmFx { const char *name; uint8_t vics[3]; int nv; unsigned pc; bool bad, none; unsigned nat; int autohdmi; const char *info; };
 static const int kPmRows[9] = { 0, 6, 1, 7, 2, 8, 9, 10, 11 };            // table rows of the list on a PAL machine, in the order of the Picture values 1..9
 static const char *pm_row_name(int row) { int h = row % 6; return h == VID_HDMI_480_576 ? (row >= 6 ? "480p" : "576p") : video_hdmi_name(h); }
 static int pm_row_hdmi(int row) { return row % 6; }
@@ -2165,11 +2165,11 @@ static void pm_page_case(const char *out, const CoreDesc *src, const char *core,
 static void pm_page_fixtures(const char *out)
 {
     static const PmFx fx[] = {
-        { "six",     { 17, 19, 159 }, 3, 7u, false, false, 6, { 0, 1, 2, 3, 4, 5 }, 1u << 2, 2, "* = the screen names this mode. Others may work: RETURN tries one and asks you to keep it." },
-        { "four",    { 17, 159, 0 },  2, 3u, false, false, 4, { 0, 2, 3, 4 },       1u << 2, 2, "* = the screen names this mode. Others may work: RETURN tries one and asks you to keep it." },
-        { "one",     { 147, 0, 0 },   1, 0u, false, false, 1, { 1 },                1u << 1, 1, "* = the screen names this mode. Others may work: RETURN tries one and asks you to keep it." },
-        { "none",    { 0, 0, 0 },     0, 0u, false, true,  3, { 0, 1, 2 },          0,       0, "The screen did not name its modes. Every mode is listed; RETURN tries one." },
-        { "corrupt", { 17, 19, 159 }, 3, 7u, true,  false, 3, { 0, 1, 2 },          0,       0, "The screen did not name its modes. Every mode is listed; RETURN tries one." },
+        { "six",     { 17, 19, 159 }, 3, 7u, false, false, 1u << 2, 2, "* = the screen names this mode. Others may work: RETURN tries one and asks you to keep it." },
+        { "four",    { 17, 159, 0 },  2, 3u, false, false, 1u << 2, 2, "* = the screen names this mode. Others may work: RETURN tries one and asks you to keep it." },
+        { "one",     { 147, 0, 0 },   1, 0u, false, false, 1u << 1, 1, "* = the screen names this mode. Others may work: RETURN tries one and asks you to keep it." },
+        { "none",    { 0, 0, 0 },     0, 0u, false, true,  0,       0, "The screen did not name its modes. Every mode is listed; RETURN tries one." },
+        { "corrupt", { 17, 19, 159 }, 3, 7u, true,  false, 0,       0, "The screen did not name its modes. Every mode is listed; RETURN tries one." },
     };
     for (const PmFx &f : fx) {
         pm_page_case(out, &amiga1200_desc, "a1200", f);

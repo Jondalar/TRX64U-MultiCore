@@ -36,14 +36,14 @@ const char *picture_extend(const CoreDesc *d, CoreDesc *out, Setting *store, con
 void picture_env_read(PictureEnv *env, int sys);
 
 // T187 D5: what the mode list of the Picture page shows (PictureModes, picmodes.h; the host fills the same struct): row 0 Auto, row n the n-th entry
-// of the Picture list (the order of the item's values): on the gateware path (T235) every row of the mode table at its own rate, else a resolution.
+// of the Picture list (the order of the item's values): on the gateware path outside the VIC path (T235) every row of the mode table at its own rate, else a resolution.
 void picture_modes(CoreCtx *c, PictureModes *out);
 
 // Index of the Picture item in c->desc->settings, -1 when the descriptor is not an extended one.
 int picture_index(const CoreDesc *d);
 
 // The item's apply (WHEN_LIVE). value 0 is Auto: the mode the host is set to (host.cfg [Video] Mode, read at picture_start; D10c) when the screen takes it,
-// else the mode the host handed over, else the best the screen offers (D11c; without the gateware the core's own wish); value n is the n-th entry of the list (a table row at its own rate on the gateware path, T235; else a resolution). Sets the mode when it differs from the one the picture is in, then lets the scale
+// else the mode the host handed over, else the best the screen offers (D11c; without the gateware the core's own wish); value n is the n-th entry of the list (a table row at its own rate on the gateware path outside the VIC path, T235; else a resolution). Sets the mode when it differs from the one the picture is in, then lets the scale
 // and the position follow, and starts the confirm-or-revert wait of Q7 (picture_service).
 void picture_apply(CoreCtx *c, int value);
 

@@ -70,8 +70,9 @@ SCHEMA = {
     # the application replaces when the file on the card is byte for byte one of them. Only the core that names the folder carries the files.
     "install_dir":  ("str",  False),
     "install_old":  ("str",  False),
-    # T92 D-17e: false = the core's code stays in the tree and no pipeline stage builds, tests, packs, ships or benches it (list, list cfw, list-cor,
-    # ci/plan.py, ci/sims.sh without a bench named, tools/gen_roms_txt.py leave it out). Default true. --check, get, sources and env still read it.
+    # T92 D-17e: false = the core's code stays in the tree and no pipeline stage builds its gateware, packs, ships or benches it (list, list cfw, list-cor,
+    # ci/plan.py, ci/sims.sh without a bench named, ci/orchestrate.py check, tools/gen_roms_txt.py leave it out). Default true. --check, get, sources and env
+    # still read it; the core application keeps its code (table.cc) and its unit tests (tests/coreapp/run.sh) still run.
     "pipeline":     ("bool", False),
 }
 APPS = ("blueprint", "ultimate", "none")
@@ -110,7 +111,7 @@ def parse(path):
 
 
 def in_pipeline(table):
-    """T92 D-17e: a core with `pipeline = false` is out of every stage; the default is in."""
+    """T92 D-17e: a core with `pipeline = false` is out of the gateware build, packing and benches; the default is in."""
     return table.get("pipeline", True) is not False
 
 

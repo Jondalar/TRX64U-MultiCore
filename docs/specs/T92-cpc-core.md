@@ -610,3 +610,8 @@ Closing: Status → DONE (date) + which scenarios are green where; TODO row ✅ 
 in the same commit as the code.
 -->
 - **2026-11-17, D-17e built: `pipeline = false`.** Generic `core.toml` key `pipeline` (default true; `tools/core_toml.py` SCHEMA): `list`, `list cfw`, `list-cor` leave the core out, so `ci/plan.py` (universe: no `large:cpc` lane, no `package:cfw:cpc`, no simscope or bench of it), `ci/bitstream_mono.sh`, `ci/package.sh`, `tools/pack_cores_mc.sh` never see it; `ci/sims.sh` skips the benches a `pipeline = false` core owns unless named on the command line; `tools/gen_roms_txt.py` and `tools/test_make_release_mc.py` skip it. `cores/cpc/mono/core.toml` sets it. Still reading the CPC on purpose: lint (cpc gen/programs/slot model, core id, no-ROM, layer2 pins), `coreapp/cores/cpc.cc` and its unit tests (code stays), `tools/release_notes_mc.py` table line (a .cor never appears, so no paragraph). Check output in the hand-over of t92-off.
+- **2026-11-17, D-17e completed after the pre-push review (merge e368fd485 of fix-1117 and the review fixes after it).** `ci/orchestrate.py check` skips
+  a bench whose owner core has `pipeline = false` (the CPC's benches stay in `ci/sims.lane`; rc 0, "every bench has one owner"); `tools/gen_roms_txt.py`
+  leaves out `pipeline = false` cores and imported cores whose pin says `PIPELINE=false` (read as `ci/package.sh` reads it, a prefix match), so ROMS.txt
+  names neither the CPC nor trx64u (`tools/test_roms_txt.py`: "Ran 9 tests ... OK"). The core application keeps the CPC's code (`table.cc`) and its
+  unit tests still run; CLAUDE.md and `tools/core_toml.py` say so.

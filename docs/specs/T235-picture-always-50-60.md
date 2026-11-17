@@ -1,6 +1,6 @@
 # T235 — The Picture list always offers every resolution at 50 Hz and at 60 Hz; the modes the screen names are marked, not the only ones
 
-**Status:** BUILT, MERGED into main 2026-11-17 (Alex: "merge and build"); board (S5) open. Proposed 2026-11-17.
+**Status:** BUILT, MERGED into main 2026-11-17 (Alex: "merge and build"); board (S5) open; one defect open (§5: an EDID naming exactly the six TV rows reads as none). Proposed 2026-11-17.
 **Repo:** TRX64U-MultiCore — the generic core application only (`coreapp/src/picture.cc` `picture_modes`, the Picture page in
 `menuctl.cc`/`run.cc`, its unit `test_picture`), the manual's Picture paragraph. No gateware, no per-core C.
 **Number:** T235 (TODO.md table).
@@ -52,3 +52,11 @@ No mutation tests (T174 D5.4).
 - **Deviation from D2:** the PC modes (800x600, 1024x768, 1280x1024) exist at 60 Hz only in the mode table, so they are listed at 60 Hz only: 9 rows, not 12. A 50 Hz PC row would be a gateware row (not in this app-only spec). Alex 2026-11-17: "that is ok like this" (translated).
 - **Compatibility:** the .cfg keeps the rate (only Auto's display note is cut; `settings.cc` cut every value at " (" before). `Picture=1280 x 720` still loads and takes the machine's rate; the old value `576p / 480p` no longer matches (now `576p (50 Hz)` / `480p (60 Hz)`) and falls back to Auto. A new screen that does not name the running mode still gets the best mode once; a stored unnamed choice then reads Auto for that run. REST `picture.apply` takes 0..9.
 - **Evidence (builder):** `test pictfollow: PASS` (60-Hz-only EDID, unnamed pick, revert, 8-second timeout, no EDID, corrupt EDID), `test picture: PASS`, `test scale: PASS`, `test settings` rc 0, `tools/dev.sh riscv` rc 0; UI picture features A1200 and NES `2 passed, 0 failed` each; pictures (A1200, 720p): scratchpad t235/pics.
+- **Render bench (fix-1117, merged e368fd485 before the push):** `tests/coreapp/render/render.cc` expects the T235 list (Auto + the 9 rows, the
+  machine's rate first, `*` where the app's EDID reading names the row, the new foot lines); builder: "coreapp render: 297065 checks, 0 failed". The
+  fixtures' old resolution lists (`n`, `list`), which nothing read any more, were removed after the review (the mark is the app's own EDID reading,
+  tested on its own terms in `tests/coreapp/test_edid.cc`).
+- **Open defect (review 2026-11-17), S2 fails for one kind of screen:** an EDID that names exactly the six television rows (576p50, 720p50,
+  1080p50, 480p60, 720p60, 1080p60) and no PC mode yields the mask `EDID_LIST_NONE` (`app/video/edid.h:14`, 0x01C7), which the app also uses
+  for "no EDID or a corrupt one": `picture.cc:368` sets `no_edid`, so no row gets `*` and the foot says the screen named nothing. Fix: a flag for
+  "no or corrupt EDID" apart from the mask. To be fixed before T235 counts as done.

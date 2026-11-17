@@ -56,7 +56,7 @@ def left_out():
             out |= {name.lower(), str(t.get("name", name)).lower()}
     d = os.path.join(ROOT, "release", "imports")
     for f in sorted(os.listdir(d)) if os.path.isdir(d) else []:
-        if f.endswith(".pin") and re.search(r"^PIPELINE=false\s*$", open(os.path.join(d, f), encoding="utf-8").read(), re.M):
+        if f.endswith(".pin") and re.search(r"^PIPELINE=false", open(os.path.join(d, f), encoding="utf-8").read(), re.M):
             out.add(f[:-4].lower())
     return out
 

@@ -387,7 +387,7 @@ def check_benches():
     _, dfx, large = P.universe()
     sys.path.insert(0, os.path.join(os.path.dirname(HERE), "tools"))
     import core_toml as CT  # noqa: E402
-    off = set(n for n, _, t in CT.descriptors() + CT.large_descriptors() if not CT.in_pipeline(t))   # T92 D-17e: out of every stage
+    off = set(n for n, _, t in CT.descriptors() + CT.large_descriptors() if not CT.in_pipeline(t))   # T92 D-17e: no stage builds, packs or benches it
     for b in sims:
         o = owners.get(b)
         if not o:
