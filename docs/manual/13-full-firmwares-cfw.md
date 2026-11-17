@@ -50,3 +50,27 @@ boot menu to see a new one (4.4.2).
 without the question of 13.2.4.
 
 13.5.3 A `.cor` made this way is for your own board. Do not hand it on.
+
+## 13.6 A new official firmware comes out
+
+13.6.1 Commodore publishes its firmware as a `.ue2`, Gideon as a `.ue2` or a `.cfw`. A `.cfw` is the same image as the `.ue2` with a short
+pre-header that names it. The host takes both. MultiCore stays installed: you do not need to flash the new firmware to run it.
+
+13.6.2 There are three ways. Each one keeps the entries you have, so several firmware versions stay in the boot menu side by side.
+
+| Way | Steps | Result |
+|---|---|---|
+| A. Add the file | Copy the file to the SD card or a stick. **F3**, select the file, **A** (13.2). | A boot menu entry with the badge `ready`. **RETURN** starts it (13.2.4); the next power cycle brings the host back |
+| B. Package the file | **F3**, select the file, **P** (9.5). | A large `.cor` in `<medium>/cores/` with the badge `foreign`. It starts like a core, without the question of 13.2.4 |
+| C. Flash it, then install MultiCore again | Start the entry of the old firmware, run the updater of the new file there, then install MultiCore again (chapter 2) | The installer keeps the new firmware as a `.cor` with the badge `backup`, named after vendor and version, for example `commodore-120.cor` (2.4.4) |
+
+13.6.3 To start the new firmware at power-up, make its entry the auto entry: **F5**, select it, **D** (6.2). With direct boot on (4.7) the
+host menu does not show.
+
+13.6.4 Way C needs `Protect Flash from updates` off (8.5): with it on, the updater of the firmware cannot write the host area.
+
+13.6.5 Ways A and B do not write the ESP32 (the WiFi chip). If the new firmware brings a new ESP32 firmware, write it with
+**F8** > `Inspect .cfw/.ue2 for ESP32` (8.6): pick the file, check the version on the result page, **U** writes it.
+
+13.6.6 Restore (**R**, 9.4) takes only the files on the host's list of official firmware (9.4.3). A new release is on that list only after a
+host update; until then **R** refuses it with `This file is not on the list of official firmware.` Ways A and B work without the list.
