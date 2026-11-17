@@ -308,6 +308,8 @@ overlay was fitted from a 1280x800 manual picture, so its scale on the real 960x
 Alex 2026-11-17 (translated): "I want you to apply the generic APP 100 % to the TRX64U first. And then we fit the 'remaining' functions into the categories and the layout. Not the other way round. Make a concept." Concept page (discussion, not decided as a whole): (internal page) Rules it applies: T205 D1, T212 D1-D17.
 - **R1 (Alex 2026-11-17, Q1, shown three pictures):** "F1 + Hotkey": the generic layout has no F2 and no F4; Timewarp and Monitor are each opened by one F1 row under the two reset rows ("Timewarp...", "Monitor...") and by a hotkey on F7 > Hotkeys. Rail: HOME F1, LIBRARY F3, C64 F5, APP F7, SYSTEM F8.
 - Alex 2026-11-17: "and now make mocks with LVGL for every category + tab and put them on the page, a click dummy" (translated).
+- **R2 (Alex 2026-11-17, Q2):** "to F8 as 'restart core'" (translated): "Reboot, clear memory" is no row of its own; on F8 it is the generic "Restart core" row under Actions.
+- **R3 (Alex 2026-11-17, Q3):** "Save REU memory -> OUT; Save C64 memory -> out, for that we have the .c64re with the Save" (translated): both rows leave the menu; the C64's memory is saved with the .c64re state save.
 
 ### Decisions during S2 (decided by Claude on Alex's delegation 2026-11-16 night; Alex can overturn each at S2b)
 Alex 2026-11-16 (translated): "you start T228 overnight ... be the advisor here, decide for me". Each decision follows a D-row or the
