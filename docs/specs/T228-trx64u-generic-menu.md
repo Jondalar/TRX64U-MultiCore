@@ -1,6 +1,7 @@
 # T228 — trx64u runs the generic core menu (the structure of the other cores), not its own trx64u menu
 
-**Status:** IN PROGRESS - THE UI FIRST (2026-11-17, Alex); building R1-R10 since Alex's "go, I want to get it all finished" (2026-11-17, translated): the menu's place on trx64u's layer (the scale bits), R8, then the menu. Alex 2026-11-17 on the build loop (translated): "you do not build RISC-V with all tests every time, please ... really" - steps in between are checked in the menu simulator (T236) on the Mac only; the RISC-V build and the tests run once, before the merge; not on the NAS (Alex: "not on the NAS, it takes 3-5 times as long there" ... "only when I ask for it", translated): a build that is needed waits for the builder. trx64u is deactivated in the package, not deleted: `PIPELINE=false` in `release/imports/trx64u.pin` keeps it out of the release and out of the packing (ci/package.sh) until the menu is fixed. Alex (translated): "trx64u is out of the release from now on, and it is no longer built", "I do not want to load the pipeline", then "only deactivate! do not delete .. first we fix the UI, then we build the core again". Why: the S2 result in ue2emu missed the goal - the menu is drawn unscaled in the top-left part of the screen (the step pictures were cropped to 960x540 and hid it), and Home still carries the Ultimate machine commands instead of the generic core menu the other cores have. Branch t228-s2 (1debb69b3) stays unmerged, backed up as refs/backup/t228-s2. Board and docs unchanged (Claude deleted /SD/cores/trx64u.cor unasked and put back the file of package main-13c2cde9 the same hour). Earlier: IN PROGRESS (2026-11-16 night, S2 on branch t228-s2; spec 2026-11-15, Alex).
+**Status:** IN PROGRESS - integration built and tested on branch t228-int (2026-11-18, not merged; §5 "Integration"); open: the gate
+before the merge, S2b (Alex in ue2emu, D6), S3 board, D19. Before that: THE UI FIRST (2026-11-17, Alex); building R1-R10 since Alex's "go, I want to get it all finished" (2026-11-17, translated): the menu's place on trx64u's layer (the scale bits), R8, then the menu. Alex 2026-11-17 on the build loop (translated): "you do not build RISC-V with all tests every time, please ... really" - steps in between are checked in the menu simulator (T236) on the Mac only; the RISC-V build and the tests run once, before the merge; not on the NAS (Alex: "not on the NAS, it takes 3-5 times as long there" ... "only when I ask for it", translated): a build that is needed waits for the builder. trx64u is deactivated in the package, not deleted: `PIPELINE=false` in `release/imports/trx64u.pin` keeps it out of the release and out of the packing (ci/package.sh) until the menu is fixed. Alex (translated): "trx64u is out of the release from now on, and it is no longer built", "I do not want to load the pipeline", then "only deactivate! do not delete .. first we fix the UI, then we build the core again". Why: the S2 result in ue2emu missed the goal - the menu is drawn unscaled in the top-left part of the screen (the step pictures were cropped to 960x540 and hid it), and Home still carries the Ultimate machine commands instead of the generic core menu the other cores have. Branch t228-s2 (1debb69b3) stays unmerged, backed up as refs/backup/t228-s2. Board and docs unchanged (Claude deleted /SD/cores/trx64u.cor unasked and put back the file of package main-13c2cde9 the same hour). Earlier: IN PROGRESS (2026-11-16 night, S2 on branch t228-s2; spec 2026-11-15, Alex).
 **Repo:** TRX64U-MultiCore — core app (`coreapp/cores/trx64u/menu.toml`, `coreapp/cores/trx64u*`), the import pin
 `release/imports/trx64u.pin` (DESC/OPS). No gateware (the bitstream stays TRX64-Ultimate's).
 **Number:** T228.
@@ -451,3 +452,38 @@ Opus pre-commit review 5 "COMMIT: yes" (scratchpad t228/step1e/REVIEW5.md); its 
   - Step 2: D12, D17, D18, DC1 (no Softboot under the MultiCore host), DC3, DC7, DC13 (flash cfg by parameter; emu S11 both values).
   - D19: manual text and pictures after S2.
   - The contract note (record v4, `sections`, base-settings merge) in docs/contracts/trx64u-firmware-handover.md waits until both sides change.
+
+### Integration (branch t228-int, 2026-11-17/18, not merged)
+Base: t228-menu = the S2 steps 1-2 and DC3 above, the click-dummy commit with its scaffolding taken out again (2deb16742), main merged.
+- **Steps merged** (each built on its own branch, checked in the menu simulator, T236):
+  - t228-video 57ebfe658: the core menu fills the frame on trx64u's bitstream (PX_CTRL scale bits, menu frame from the gateware).
+  - t228-report c3998fe98: R8 - the bug report names the heap and the screen's EDID (generic, every core).
+  - m4: R11 foot (9ad488b83); an empty media slot says how to fill it (a5345513b); F7 apps under the heading "Apps" (9afc4b96c); Softboot
+    hidden under the MultiCore host in flat lists too (DC1, c0e41ec8f); F5 Video without a "Picture" row over the PICTURE heading
+    (c8f6a190e); R13 (7a5295689); R12 (ca679f312).
+  - m2: R5-R9 - pages of several groups, a heading over page rows, a System tab's groups as pages (18c0fb92e); trx64u F5 C64 | TRX |
+    Expansion, the SID pages under a heading, F8 one System tab (ab5528c56).
+  - m1: R1 - the `menu.screen` op, screens a row opens, hotkeys declared by a core's tasks (a883ff0db); trx64u's two Home rows and two
+    hotkeys (d1a6b82d2).
+  - m3: R10 - the pad service drives the host's joystick lines, a menu record declares a pad (03e9bf965); F5 > Input takes a USB pad as
+    joystick in port 1 or 2 (93e1dd92a).
+  - On top: R14 and R17 (372ff53c4), the R9 trace hint (bfc4a2b73), trx64u's Picture list on the VIC path (17d3c22de), T235's no-EDID
+    flag (c8f988a8a), then main db05a4cde (5a8847010, no conflicts: main's T234 redo touches only the Amiga copies, tools/hdmi_modes.py,
+    host/sim and docs).
+- **Expectations** (e5c8e11f1, 56a2932da, fdd798729; no product code): the ops goldens get `menu.screen` and `pad.port`; trx64u has 14
+  tasks and 156 core settings, areas F1 F3 F5 F7 F8; check_menu_concept pins F5 C64 | TRX | Expansion | Video | Audio | Input, F7 Settings,
+  F8 System; test_cut opens Timewarp and the monitor through the Home rows (every key check of both screens unchanged); the render bench's
+  legend floor is 480 (trx64u walks 6 views fewer per canvas: 498 legends = 498 lists). menu_c64, ids and keywalk are written by test_desc
+  and test_keywalk (UPDATE_GOLDEN=1, diag.cor installed as run.sh does); with only the R11 foot put back, keywalk reproduces the old golden
+  for every core but TRX64U.
+- **Proof** (once, on the builder): `=== dev.sh riscv: ok`; dev.sh test green after the two stale expectations ("=== apptests ok (tier
+  fast)"); "coreapp render: 304166 checks, 0 failed", "MOCK 72 pictures, 0 text overlaps, 0 objects outside or cut"; host render "===
+  apptests hostapp_render: done in 188s"; "tests/hostapp/emu_host: all scenarios passed", "tests/coreapp/emu: all scenarios passed, every
+  control failed as it must"; tests/ui "138 passed, 10 failed, 0 errors" (the 10 = the a1200/atari/c128/vc20/nes baseline above; every
+  trx64u feature passed). ue2emu: the trx64u menu fills 1920 x 1080 (Home, F5, F7, F8 judged by Claude beside the A1200).
+- **trx64u.cor for S3** (not on the board): coreapp.bin 5b8e8855... with the pin's bitstream (main-31e69921), sha256
+  fcc3fe81959693f71b33043c503b21caf2fb9d8a043a3f614cfbc01662948445.
+- **Open:** the gate before the merge (review agents, ux-review in ue2emu); for Alex: F5 > Audio's heading draws "REDIP:SID" in capitals
+  like every heading, R14 names "reDIP:SID"; S2b (Alex in ue2emu, D6) before S3 (board); D19; check_d24 says the ledger can shrink
+  (menu.toml 2230 -> 2105, menu_rec.inc 2356 -> 2209, diag.cc ids 16 -> 15); tests/ui's rows_shots pictures (t209-*) of trx64u and the
+  A1200 share their file names.
