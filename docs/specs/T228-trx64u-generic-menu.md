@@ -352,6 +352,8 @@ S1 table where one exists; only DC2, DC3, DC6, DC7, DC9, DC11 and DC12 are new c
   - A standalone installation, our UI in place of the stock one, turns it on, so the settings persist without a host.
   - `start_migrate_cfg` stays: it reads an old flash file once.
   - The emu scenario S11 covers both values of the parameter.
+- DC14 The generic F8 keeps its single-row sections (Network/WiFi, Reset) as T212 approved them. The step 1d ux-review listed folding them
+  as a low item; folding would change F8 in every core, which is T212's layout, not T228's. Not done in T228.
 - From the spec, not new:
   - F4 is the Monitor rail entry (D3, variant A), so the rail reads "MONITOR", not "TOOLS".
   - The old F4 Diagnostics content goes where the S1 table puts it: Bug report to F8 Support, System information/Board/Uptime to F8
