@@ -313,6 +313,7 @@ Alex 2026-11-17 (translated): "I want you to apply the generic APP 100 % to the 
 - **R2b (Alex 2026-11-17):** "Pause / resume" (`machine.pause_toggle`, from Gideon's "C64 Machine > Pause / Resume") leaves the menu: "Raus" ("out"). The Timewarp overlay (the ring UI) stays as it is today.
 - **R4 (Alex 2026-11-17, Q4, shown three pictures):** "one tab C64": F5 C64 has one core tab "C64" with headings (Machine, Drive A, Drive extras, TRX64, Recording, Expansion, Hardware), then Video, Audio, Input - as every core (T205 D1).
 - **R5 (Alex 2026-11-17, Q5):** "in the Audio tab, but as a group to fold open" (translated): the SID rows (SID sockets, Emulated SIDs) move into F5 > Audio as a group that opens. The generic menu has no fold-open group today (only rows that open a page, e.g. Hotkeys >); how it is built is asked next.
+  - **R5b (Alex 2026-11-17, shown two pictures):** "page like Hotkeys >": two rows at the end of F5 > Audio, "SID sockets >" and "Emulated SIDs >", each opening a page with today's rows of that group (the existing page pattern, no new menu code).
 
 ### Decisions during S2 (decided by Claude on Alex's delegation 2026-11-16 night; Alex can overturn each at S2b)
 Alex 2026-11-16 (translated): "you start T228 overnight ... be the advisor here, decide for me". Each decision follows a D-row or the
