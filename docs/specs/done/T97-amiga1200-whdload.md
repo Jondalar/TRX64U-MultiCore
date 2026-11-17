@@ -839,4 +839,5 @@ fetch" no longer holds: 4 mod 8 is a valid FMODE 1/2 fetch.
 - **Zorro III:** the reading found no defect in the Z3 path (address, cache tags, DDR2 users, write ordering). The moving bands are most likely
   the same defect showing whatever lies at A-2. If they remain after the fix, next is the 32-bit addressing that only the Z3 setting unmasks
   (`cpu_wrapper.v:284`).
-- **Open:** board check with Turrican II AGA.
+- **Open:** board check with Turrican II AGA. Test build `trx64mc-test-73fb8d63` (GitHub pre-release, `amiga1200.cor` from Gitea run 2376,
+  WNS +0.085 ns) is out; the retest is asked in Discussion #94 (Alex 2026-11-17: push to GitHub and ask for a retest).
