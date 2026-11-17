@@ -263,6 +263,14 @@ class OwnMenu(unittest.TestCase):
             "default outside": '[[core_setting]]\nkey="K"\nvalues=["a","b"]\ndefault=2\napply="x"\n',
             "when neither": '[[core_setting]]\nkey="K"\nvalues=["a","b"]\nwhen="soon"\napply="x"\n',
             "Picture": '[[core_setting]]\nkey="picture"\nvalues=["a","b"]\napply="x"\n',
+            "Scale": '[[core_setting]]\nkey="Scale"\nvalues=["a","b"]\napply="x"\n',
+            "Smoothing": '[[core_setting]]\nkey="smoothing"\nvalues=["a","b"]\napply="x"\n',
+            "picture.apply": '[[core_setting]]\nkey="K"\nvalues=["a","b"]\napply="picture.apply"\n',
+            "scale.apply": '[[core_setting]]\nkey="K"\nvalues=["a","b"]\napply="scale.apply"\n',
+            "smooth.apply": '[[core_setting]]\nkey="K"\nvalues=["a","b"]\napply="smooth.apply"\n',
+            "setting with picture.apply": '[[setting]]\nkey="K"\nvalues=["a","b"]\napply="picture.apply"\n',
+            "setting named Scale": '[[setting]]\nkey="Scale"\nvalues=["a","b"]\napply="x"\n',
+            "pages names a group the tab lacks": MIN.replace('"nodes"', '"settings"\n  groups = ["a", "b"]\n  ui = { sections = true, pages = "c" }'),
             "key twice": '[[core_setting]]\nkey="K"\nvalues=["a","b"]\napply="x"\n[[core_setting]]\nkey="k"\nvalues=["a","b"]\napply="x"\n',
             "info lines on a browser": MIN.replace('"nodes"', '"browser"\n  lines = ["Core"]'),
             "an info line that is not one": MIN.replace('"nodes"', '"info"\n  lines = ["Moon"]'),
@@ -272,6 +280,10 @@ class OwnMenu(unittest.TestCase):
         for what, text in bad.items():
             with self.assertRaises(D.DescError, msg=what):
                 D.compile_text(text)
+
+    def test_a_tab_may_name_pages(self):                      # T228 D18: a group of the tab that opens as a page
+        b = D.compile_text(MIN.replace('"nodes"', '"settings"\n  groups = ["a", "b"]\n  ui = { sections = true, pages = "b" }'))
+        self.assertIn(b"pages=b", b)
 
     def test_groups_of_tasks_and_media_tabs(self):
         D.compile_text(MIN.replace('"nodes"', '"tasks"\n  groups = ["quick"]'))

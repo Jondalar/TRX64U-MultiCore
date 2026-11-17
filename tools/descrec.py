@@ -23,6 +23,7 @@ Source (TOML; every key is checked, an unknown one is an error - a typo must not
       layout = "settings"          # optional: how the tab is drawn (a screen of the UX concept): home | split | settings | status | library; the flat list when absent
       ui = { title = "TRX64 behavior" }      # optional: the layout's parameters (title, crumb); `ui = { sections = true }` alone (no layout) keeps the tab a list and
                                      # draws each of its groups under a heading made from the group's id (T228; not drawn when it repeats the tab's title)
+                                     # `pages = "g1,g2"` (T228 D18): those groups are not sections; one row each opens a page that holds the group's settings
 
     [[node]]                       # a button, a state line or a heading the core itself puts into a tab
     anchor = "F5/drives/drive_a"   # area/tab or area/tab/group
@@ -385,7 +386,7 @@ class _Strings:
 UI_NODE_KEYS = {"primary": bool, "link": bool, "goto": str, "sub": str, "chip": str, "tone": str, "off": str, "why": str, "confirm": str, "label": str, "hide": str, "ask": str, "ask_state": str, "job": bool, "pick": str, "rename": bool, "view": str, "key": str, "none": str, "nokey": bool, "empty": str, "bkey": str, "legend": str}
 UI_TONES = ("muted", "cyan", "violet", "amber", "coral")
 LAYOUTS = ("home", "desk", "split", "settings", "status", "library", "timeline", "terminal", "app", "grid")
-UI_TAB_KEYS = {"title": str, "crumb": str, "side": str, "chip": str, "sheet": str, "sheetx": str, "nodes_first": bool, "sections": bool, "left": str, "label": str, "frame": str, "bar": str, "hint": str, "marks": str, "pos": str, "info": str, "glyph": str, "track": str,
+UI_TAB_KEYS = {"title": str, "crumb": str, "side": str, "chip": str, "sheet": str, "sheetx": str, "nodes_first": bool, "sections": bool, "pages": str, "left": str, "label": str, "frame": str, "bar": str, "hint": str, "marks": str, "pos": str, "info": str, "glyph": str, "track": str,
                # an application's own screens (T104.3 D0, layouts app and grid): which tab is shown, where a key goes, and what the screen draws of the application's state
                "hidden": bool, "lines": str, "under": str, "back": str, "follow": str, "lock": str, "keys": str, "enter": str, "rows": str, "input": str, "grid": str, "note": str,
                "status": str, "pct": str, "pct_label": str, "pct_note": str,
@@ -543,10 +544,13 @@ def compile_desc(doc, merged=()):
             seen_n.add(n)
             groups = _tab_groups(tb, tid, widget)
             layout = _opt(tb, "layout", str, "tab " + tid, None)
-            if layout is None and "ui" in tb and set(tb["ui"]) != {"sections"}:
-                raise DescError("tab %s: ui without a layout (only `sections` stands alone)" % tid)
+            if layout is None and "ui" in tb and not set(tb["ui"]) <= {"sections", "pages"}:
+                raise DescError("tab %s: ui without a layout (only `sections` and `pages` stand alone)" % tid)
             if layout is not None and layout not in LAYOUTS:
                 raise DescError("tab %s: layout %r (one of %s)" % (tid, layout, ", ".join(LAYOUTS)))
+            for pg in (tb.get("ui") or {}).get("pages", "").split(","):          # T228 D18: a page is a group of the tab
+                if pg and pg not in groups:
+                    raise DescError("tab %s: ui pages names %r, a group the tab does not list" % (tid, pg))
             lay = None
             if layout is not None or "ui" in tb:                         # no layout: the name is empty, the tab stays a list (T228 `sections`)
                 params = _ui_string(tb.get("ui"), UI_TAB_KEYS, "tab " + tid)
@@ -616,6 +620,7 @@ def compile_desc(doc, merged=()):
         _only(s, {"group", "key", "values", "range", "default", "apply"}, "setting")
         key = _need(s, "key", str, "setting")
         apply = _need(s, "apply", str, "setting " + key)
+        _app_owned("setting " + key, key, apply)
         group = _opt(s, "group", str, "setting " + key, None)
         if ("values" in s) == ("range" in s):
             raise DescError("setting %s: exactly one of values and range" % key)
@@ -772,8 +777,9 @@ def compile_desc(doc, merged=()):
         _only(cs, {"key", "group", "values", "list", "range", "unit", "default", "when", "apply", "base", "text", "secret", "maxlen", "show_state", "label", "empty"}, "core_setting")
         key = _need(cs, "key", str, "core_setting")
         what = "core_setting " + key
-        if key.lower() in seen_set or key.lower() == "picture":
-            raise DescError("%s: the key is taken (Picture belongs to the application)" % what)
+        if key.lower() in seen_set:
+            raise DescError("%s: the key is taken" % what)
+        _app_owned(what, key, _need(cs, "apply", str, what))
         seen_set.add(key.lower())
         when = _opt(cs, "when", str, what, "live")
         if when not in WHEN:
@@ -1302,6 +1308,18 @@ def _bind_problem(ops, what, label, op, binds, file_ok, ask_ok, text_ok):
         if a["name"] not in seen:
             return '%s: "%s" leaves argument "%s" of %s unbound' % (what, label, a["name"], op)
     return None
+
+
+APP_KEYS = ("picture", "scale", "smoothing")          # the application's own rows (coreapp/src/desc.h PICTURE_KEY, SCALE_KEY, SMOOTH_KEY)
+APP_OPS = ("picture.apply", "scale.apply", "smooth.apply")  # and their operations (picture.h); desc_check.cc refuses the same
+
+
+def _app_owned(what, key, apply):
+    """T228 step 2: refuse at pack time what desc_check refuses (a core setting that takes the key or the operation of Picture, Scale or Smoothing)."""
+    if key.lower() in APP_KEYS:
+        raise DescError("%s: the keys Picture, Scale and Smoothing belong to the application" % what)
+    if apply in APP_OPS:
+        raise DescError("%s: the operations picture.apply, scale.apply and smooth.apply belong to the application's own Picture, Scale and Smoothing rows" % what)
 
 
 def _setting_problem(ops, what, key, apply, nvalues, base):
