@@ -1310,16 +1310,16 @@ def _bind_problem(ops, what, label, op, binds, file_ok, ask_ok, text_ok):
     return None
 
 
-APP_KEYS = ("picture", "scale", "smoothing")          # the application's own rows (coreapp/src/desc.h PICTURE_KEY, SCALE_KEY, SMOOTH_KEY)
-APP_OPS = ("picture.apply", "scale.apply", "smooth.apply")  # and their operations (picture.h); desc_check.cc refuses the same
+APP_KEYS = ("picture", "scale", "smoothing", "frame follow")   # the application's own rows (coreapp/src/desc.h PICTURE_KEY, SCALE_KEY, SMOOTH_KEY, FOLLOW_KEY)
+APP_OPS = ("picture.apply", "scale.apply", "smooth.apply", "follow.apply")  # and their operations (picture.h); desc_check.cc refuses the same
 
 
 def _app_owned(what, key, apply):
-    """T228 step 2: refuse at pack time what desc_check refuses (a core setting that takes the key or the operation of Picture, Scale or Smoothing)."""
+    """T228 step 2: refuse at pack time what desc_check refuses (a core setting that takes the key or the operation of Picture, Scale, Smoothing or Frame follow)."""
     if key.lower() in APP_KEYS:
-        raise DescError("%s: the keys Picture, Scale and Smoothing belong to the application" % what)
+        raise DescError("%s: the keys Picture, Scale, Smoothing and Frame follow belong to the application" % what)
     if apply in APP_OPS:
-        raise DescError("%s: the operations picture.apply, scale.apply and smooth.apply belong to the application's own Picture, Scale and Smoothing rows" % what)
+        raise DescError("%s: the operations picture.apply, scale.apply, smooth.apply and follow.apply belong to the application's own Picture, Scale, Smoothing and Frame follow rows" % what)
 
 
 def _setting_problem(ops, what, key, apply, nvalues, base):
