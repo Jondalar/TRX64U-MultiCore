@@ -84,3 +84,11 @@ No mutation tests (T174 D5.4).
   11.6.8/11.7.3 and the README sentences removed. `tools/hdmi_modes.py check`: "PASS hdmi_modes amiga: rows 0..2 run the Amiga frame ...";
   selftest "27 of 27 mutations caught".
 - **Redo:** on a branch, with a test of the whole start path that counts output frames, before any board step.
+
+**Redo (Alex 2026-11-17 late, after the revert):** asked "That is exactly what we wanted as an on/off switch, right?" - yes; shown the design
+below: "Try it. I am sleeping. You have to start the A1200 in the host yourself" (translated). The switch the right way round:
+- **Off (default):** rows 0..2 are again exactly the host's standard rows of before T188 (the cores' copies at eba7f582f^1), the power-up
+  state too (vm_mode / mode_pix 2): the default is the old path byte for byte.
+- **On:** T188's Amiga rows as new rows 12..14 with the follow loop (follow on m 12..14 instead of m < 3); used only while On.
+- **Proof before Alex sees it:** the A1200 started from the host by Claude on the board, both settings; the core's log shows HDMI output frames
+  ("[amiga] frames core N out M", M > 0) and the menu.
