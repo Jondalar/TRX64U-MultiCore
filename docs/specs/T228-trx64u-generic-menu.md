@@ -311,6 +311,7 @@ Alex 2026-11-17 (translated): "I want you to apply the generic APP 100 % to the 
 - **R2 (Alex 2026-11-17, Q2):** "to F8 as 'restart core'" (translated): "Reboot, clear memory" is no row of its own; on F8 it is the generic "Restart core" row under Actions.
 - **R3 (Alex 2026-11-17, Q3):** "Save REU memory -> OUT; Save C64 memory -> out, for that we have the .c64re with the Save" (translated): both rows leave the menu; the C64's memory is saved with the .c64re state save.
 - **R2b (Alex 2026-11-17):** "Pause / resume" (`machine.pause_toggle`, from Gideon's "C64 Machine > Pause / Resume") leaves the menu: "Raus" ("out"). The Timewarp overlay (the ring UI) stays as it is today.
+- **R4 (Alex 2026-11-17, Q4, shown three pictures):** "one tab C64": F5 C64 has one core tab "C64" with headings (Machine, Drive A, Drive extras, TRX64, Recording, Expansion, Hardware), then Video, Audio, Input - as every core (T205 D1).
 
 ### Decisions during S2 (decided by Claude on Alex's delegation 2026-11-16 night; Alex can overturn each at S2b)
 Alex 2026-11-16 (translated): "you start T228 overnight ... be the advisor here, decide for me". Each decision follows a D-row or the
