@@ -323,6 +323,7 @@ Alex 2026-11-17 (translated): "I want you to apply the generic APP 100 % to the 
 - **R12 (Alex 2026-11-17, shown three pictures):** "leave the button out": Home draws the "F3 Library" button only where its rows leave room (the A1200 at 480p has none); the key F3 still opens the Library.
 - **R13 (Alex 2026-11-17, shown two pictures):** "leave the hint out": F3 Search keeps its field on one line; where it does not fit (480p) the idle hint gives way, the status line still says how to type; 1080p unchanged.
 - **R14 (Alex 2026-11-17, asked about the heading over the SID page rows):** "in the Audio menu it should be called reDIP:SID ... when it is about the interface functions between DE00 and DFFF (UltiSID on/off), then still UltiSID" (translated): F5 > Audio's heading over "SID sockets >" and "Emulated SIDs >" reads "reDIP:SID"; rows about the UltiSID's I/O interface ($DE00-$DFFF) keep the name UltiSID.
+- **R15 (Alex 2026-11-17, shown three pictures):** F5 > Expansion's last block (Ultimate audio, UCI) stands under the heading "ULTIMATE".
 - R1-R9 replace the earlier decisions of this spec where they differ (D3, D7, D8, D13, D16, D18 and the S2 choices DC1-DC14); branch t228-s2 stays unmerged. The proposal is rendered on branch t228-mock (render bench `mock_shots()`), shown as a click dummy on the concept page.
 
 ### Decisions during S2 (decided by Claude on Alex's delegation 2026-11-16 night; Alex can overturn each at S2b)
