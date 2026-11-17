@@ -21,6 +21,7 @@ op	config.load	name:string:0:0:32:
 op	picture.apply	value:int:0:6:0:
 op	scale.apply	value:int:0:2:0:
 op	smooth.apply	value:int:0:1:0:
+op	follow.apply	value:int:0:1:0:
 op	volume.apply	value:int:0:40:0:
 op	volume.change	value:int:-2:2:0:
 op	tone.apply	value:int:0:2:0:

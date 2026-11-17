@@ -21,11 +21,26 @@ struct Model {
     int scale_polls = 0;
     uint8_t scale_pend = 1;
     int scale_writes = 0;
+    uint8_t follow = 0;             // T234: Frame follow (0x4F0C), written at 0x4F02
+    uint8_t follow_pend = 0;
+    int follow_delay = 2;           // reads of 0x4F0C before a written value shows
+    int follow_polls = 0;
+    int follow_writes = 0;
+    int retune_delay = 3;           // status reads after the write before the transmitter is locked and running again
+    bool retuning = false;
+    int retune_polls = 0;
+    bool retune_never = false;
 };
 static Model M;
 
 static void wr(uint32_t off, uint8_t v)
 {
+    if (off == GW_FOLLOW) {
+        M.follow_writes++; M.follow_pend = v; M.follow_polls = 0;
+        M.flags = GW_F_GT_READY;                                     // the gateware re-tunes like for a mode request: not locked, not running
+        M.retuning = true; M.retune_polls = 0;
+        return;
+    }
     if (off == GW_SCALE) { M.scale_writes++; M.scale_pend = v; M.scale_polls = 0; return; }
     if (off == GW_REQ) {
         M.writes++;
@@ -46,9 +61,11 @@ static uint8_t rd(uint32_t off)
     if (off == GW_MAGIC_AT) return M.magic;
     if (off == GW_VERSION_AT) return M.version;
     if (off == GW_SCALE_AT) { if (++M.scale_polls > M.scale_delay) M.scale = M.scale_pend; return M.scale; }
+    if (off == GW_FOLLOW_AT) { if (++M.follow_polls > M.follow_delay) M.follow = M.follow_pend; return M.follow; }
     if (off == GW_SEEN_AT) return M.seen;
     if (off == GW_DONE_AT) return M.done;
     if (off == GW_FLAGS_AT || off == GW_MODE_AT) {
+        if (off == GW_FLAGS_AT && M.retuning && !M.retune_never && ++M.retune_polls > M.retune_delay) { M.flags = M.up_flags; M.retuning = false; }
         // the status is read as a block: count the block on the flags byte
         if (off == GW_FLAGS_AT && M.target >= 0 && !M.refuse) {
             M.polls++;
@@ -167,6 +184,36 @@ int main()
         fresh(); M.scale_delay = 1000;                                              // never shows: gives up after the timeout
         CHECK(!video_gw_set_scale_io(&io, VID_SCALE_INTEGER, 100));
         CHECK(M.waited_ms >= 90 && M.waited_ms <= 110);
+    }
+
+    // ---- T234: Frame follow (version 4, the Amiga cores' mode_req): found by the version, written once, read back at 0x4F0C, then the re-tune is waited for
+    {
+        GwStatus s = GwStatus();
+        s.present = true; s.version = 4;
+        CHECK(video_gw_has_follow(s));
+        s.version = 3; CHECK(!video_gw_has_follow(s));                              // the C64 line's mode_req (smoothing): no such register
+        s.version = 1; CHECK(!video_gw_has_follow(s));                              // the host's generic one
+        s.version = 4; s.present = false; CHECK(!video_gw_has_follow(s));
+        fresh(); M.version = 4;
+        CHECK(video_gw_set_follow_io(&io, 1, GW_APPLY_TIMEOUT_MS));
+        CHECK_EQ(M.follow, 1);
+        CHECK_EQ(M.follow_writes, 1);
+        CHECK_EQ(M.follow_writes, 1);
+        CHECK(video_gw_set_follow_io(&io, 0, GW_APPLY_TIMEOUT_MS));
+        CHECK_EQ(M.follow, 0);
+        CHECK_EQ(M.follow_writes, 2);
+        CHECK(!video_gw_set_follow_io(&io, 2, GW_APPLY_TIMEOUT_MS));               // not a value: not written
+        CHECK(!video_gw_set_follow_io(&io, -1, GW_APPLY_TIMEOUT_MS));
+        CHECK_EQ(M.follow_writes, 2);
+        fresh(); M.version = 4; M.follow_delay = 1000;                              // never shows: gives up after the timeout
+        CHECK(!video_gw_set_follow_io(&io, 1, 100));
+        CHECK(M.waited_ms >= 90 && M.waited_ms <= 110);
+        fresh(); M.version = 4; M.retune_never = true;                              // the register is taken, the transmitter never comes back
+        CHECK(!video_gw_set_follow_io(&io, 1, 300));
+        CHECK_EQ(M.follow, 1);
+        fresh(); M.version = 4; M.retune_delay = 20;                                // the re-tune takes its time: waited for, not abandoned at the first status
+        CHECK(video_gw_set_follow_io(&io, 1, GW_APPLY_TIMEOUT_MS));
+        CHECK(M.waited_ms >= 50);
     }
 
     DONE("gwstatus");

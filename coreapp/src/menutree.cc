@@ -152,7 +152,7 @@ const MenuGroupRoute *menu_route_of(const Setting &s)
     if (!s.apply) {
         return 0;
     }
-    if (!strcmp(s.apply, PICTURE_OP) || !strcmp(s.apply, SCALE_OP) || !strcmp(s.apply, SMOOTH_OP)) {
+    if (!strcmp(s.apply, PICTURE_OP) || !strcmp(s.apply, SCALE_OP) || !strcmp(s.apply, SMOOTH_OP) || !strcmp(s.apply, FOLLOW_OP)) {
         g = "video";
     } else if (volume_is_generic(s) || tone_is_generic(s)) {
         g = "audio";

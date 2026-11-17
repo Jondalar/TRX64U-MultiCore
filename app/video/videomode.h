@@ -102,6 +102,8 @@ void video_layout_scaled(int w, int h, int hdmi, int sys, int scale_mode, int bi
 #define GW_DONE_AT    0x4F09               // requests processed; equal to GW_SEEN_AT = the refused bit is current
 #define GW_SCALE      0x4F01               // T222: write 0 Integer / 1 Fit / 2 Fill, only where the gateware has the VIC scaler with a scale (version 2, C64-type flag)
 #define GW_SMOOTH     0x4F0B               // T227: write 0 Off / 1 On (smoothing of the VIC picture, horizontal blend); read: the smoothing in use. Version 3
+#define GW_FOLLOW     0x4F02               // T234: write 0 Off / 1 On (Amiga cores: the HDMI frame follows the core's frame); read back at 0x4F0C. Version 4
+#define GW_FOLLOW_AT  0x4F0C
 #define GW_SCALE_AT   0x4F0A               // T222: the scale in use
 #define GW_MAGIC      0x48
 #define GW_F_GT_READY   0x01
@@ -129,6 +131,11 @@ bool video_gw_has_scale(const GwStatus &st);
 bool video_gw_has_smooth(const GwStatus &st);
 // Writes the smoothing (0 Off, 1 On) and polls 0x4F0B until it reads back (taken at the next frame start) or `timeout_ms` has passed. False: not in time, or not 0 / 1.
 bool video_gw_set_smooth_io(const GwIo *io, int on, int timeout_ms);
+// T234: a gateware with the Frame follow register (the Amiga cores' mode_req, version >= 4). Off is its power-up value; Off runs the host's standard 50 Hz rows.
+bool video_gw_has_follow(const GwStatus &st);
+// Writes Frame follow (0 Off, 1 On), polls 0x4F0C until it reads back, then waits until the transmitter runs again on a locked pixel clock (the gateware re-tunes the
+// synthesizer for the other row set like after a mode request) or `timeout_ms` has passed. False: not 0 / 1, not read back, or not up in time.
+bool video_gw_set_follow_io(const GwIo *io, int on, int timeout_ms);
 // The row of the request for (sys, hdmi) in such a gateware: 1024 x 768 and 1280 x 1024 are taken as 800 x 600 at 60 Hz, every PC row at 50 Hz as 576p (U16 D5).
 // In any other gateware the plain mode index.
 int video_gw_row_for(const GwStatus &st, int sys, int hdmi);
@@ -151,6 +158,9 @@ bool video_set_scale_gateware(int scale);
 // T227: does that gateware also smooth (video_gw_has_smooth)? And set the smoothing (0 / 1). Board side.
 bool video_gateware_vic_smooth(void);
 bool video_set_smooth_gateware(int on);
+// T234: does the gateware under this core have Frame follow (video_gw_has_follow)? And set it (0 / 1). Board side.
+bool video_gateware_follow(void);
+bool video_set_follow_gateware(int on);
 // Board side (D11b): a signature of the screen that is attached. False: nothing is attached (hot-plug low); then *sig is not touched. The
 // signature is made of the base block's checksum and extension count, read without the rest of the EDID.
 bool video_edid_sig(uint32_t *sig);

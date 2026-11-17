@@ -41,6 +41,7 @@ static char g_auto_text[40] = "Auto";
 static const char *g_values[1 + VID_HDMI_COUNT];
 static const char *g_scale_values[VID_SCALE_COUNT];     // T107 D8: Integer, Fit, Fill
 static const char *const g_smooth_values[2] = { "Off", "On" };
+static const char *const g_follow_values[2] = { "Off", "On" };
 
 static void drop_unlocked(void);
 
@@ -98,8 +99,9 @@ const char *picture_extend(const CoreDesc *d, CoreDesc *out, Setting *store, con
         return "settings: no room for the Picture item the application adds";
     }
     for (int i = 0; i < d->nsettings; i++) {
-        if (!strcasecmp(d->settings[i].key, PICTURE_KEY) || !strcasecmp(d->settings[i].key, SCALE_KEY) || !strcasecmp(d->settings[i].key, SMOOTH_KEY)) {
-            return "settings: the keys Picture, Scale and Smoothing belong to the application";
+        if (!strcasecmp(d->settings[i].key, PICTURE_KEY) || !strcasecmp(d->settings[i].key, SCALE_KEY) || !strcasecmp(d->settings[i].key, SMOOTH_KEY) ||
+            !strcasecmp(d->settings[i].key, FOLLOW_KEY)) {
+            return "settings: the keys Picture, Scale, Smoothing and Frame follow belong to the application";
         }
         store[i] = d->settings[i];
     }
@@ -162,6 +164,18 @@ const char *picture_extend(const CoreDesc *d, CoreDesc *out, Setting *store, con
         r.apply = SMOOTH_OP;
         r.group = "video";
     }
+    if (g_gw && env && env->follow && d->video.w != 0 && d->nsettings + extra + 1 <= SETTINGS_MAX) {      // T234: the Amiga cores' Frame follow, with the other picture rows (F5 Video)
+        Setting &f = store[d->nsettings + extra];
+        f = Setting();
+        f.key = FOLLOW_KEY;
+        f.values = g_follow_values;
+        f.nvalues = 2;
+        f.def = 0;                                     // the gateware powers up Off (T234 D1)
+        f.when = WHEN_LIVE;
+        f.apply = FOLLOW_OP;
+        f.group = "video";
+        extra++;
+    }
     *out = *d;
     out->settings = store;
     out->nsettings = d->nsettings + extra;
@@ -181,6 +195,7 @@ void picture_env_read(PictureEnv *env, int sys)
     env->gateware = video_gateware_present();
     env->vic_scale = video_gateware_vic_scale();
     env->vic_smooth = video_gateware_vic_smooth();
+    env->follow = video_gateware_follow();
     env->sys = sys;
 }
 
@@ -206,6 +221,7 @@ static int index_of_op(const CoreDesc *d, const char *op)
 
 int scale_index(const CoreDesc *d)  { return index_of_op(d, SCALE_OP); }
 int smooth_index(const CoreDesc *d) { return index_of_op(d, SMOOTH_OP); }
+int follow_index(const CoreDesc *d) { return index_of_op(d, FOLLOW_OP); }
 
 // A mode of the machine's family and the resolution the person means. With the gateware the row decides the family (Q6: the other one only
 // when the screen has nothing in the machine's); the firmware path of an old host has one family, the machine's.
@@ -418,6 +434,13 @@ void smooth_apply(CoreCtx *c, int value)
     }
 }
 
+void follow_apply(CoreCtx *, int value)
+{
+    if (!video_set_follow_gateware(value == 1 ? 1 : 0)) {
+        printf("[core] frame follow: the gateware did not take %s\n", value == 1 ? "On" : "Off");
+    }
+}
+
 void picture_apply(CoreCtx *c, int value)
 {
     if (!c->video) {
@@ -494,6 +517,12 @@ static int op_smooth(CoreCtx *c, const OpArgs &a, OpOut &)
     smooth_apply(c, a.i(0));
     return OPE_OK;
 }
+static int op_follow(CoreCtx *c, const OpArgs &a, OpOut &)
+{
+    follow_apply(c, a.i(0));
+    return OPE_OK;
+}
+static const ArgSpec follow_args[] = { ARG_INT("value", 0, 1) };
 static const ArgSpec scale_args[] = { ARG_INT("value", 0, VID_SCALE_COUNT - 1) };
 static const ArgSpec smooth_args[] = { ARG_INT("value", 0, 1) };
 static const ArgSpec picture_args[] = { ARG_INT("value", 0, VID_HDMI_COUNT) };
@@ -517,6 +546,7 @@ void picture_register(OpRegistry &r)
     r.add_op(PICTURE_OP, picture_args, 1, op_picture);
     r.add_op(SCALE_OP, scale_args, 1, op_scale);
     r.add_op(SMOOTH_OP, smooth_args, 1, op_smooth);
+    r.add_op(FOLLOW_OP, follow_args, 1, op_follow);
 }
 
 static void note_screen(void)
@@ -637,6 +667,10 @@ int picture_start(CoreCtx *c, int sys, int hdmi_now)
     int midx = smooth_index(c->desc);
     if (midx >= 0 && c->settings) {
         smooth_apply(c, c->settings->value(midx));
+    }
+    int fidx = follow_index(c->desc);
+    if (fidx >= 0 && c->settings) {
+        follow_apply(c, c->settings->value(fidx));                   // before the mode: the gateware re-tunes for the row set once (T234)
     }
     if (p.hdmi >= 0 && (p.hdmi != hdmi_now || (g_gw && p.sys != run_sys))) {
         printf("[core] picture %s: %s instead of %s\n", value <= 0 ? "auto" : "chosen", video_hdmi_name(p.hdmi),
