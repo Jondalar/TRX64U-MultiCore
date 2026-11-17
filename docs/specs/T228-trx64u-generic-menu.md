@@ -293,6 +293,9 @@ overlay was fitted from a 1280x800 manual picture, so its scale on the real 960x
 - D17 (Alex 2026-11-15, Q12a, translated: "a .. and CURSOR RIGHT does the same as elsewhere in the file system, it goes in. So in
   folders AND zips"): Unzip is in the Library menu of the .zip (RETURN). CURSOR RIGHT enters a .zip like a folder (browse its
   contents), the same key that enters a folder.
+  - Moved to T202 (Alex 2026-11-17, asked with three options: D17 to T202 / build zip reading in T228 / settle T202 first: "D17 zu T202"):
+    the core Library has no zip reading at all (only the Unzip app, which unpacks a whole archive). T228 is finished and merged without
+    D17; browsing a .zip is built once, generically, for the host F3 and the core Library in T202.
 - D18 (Alex 2026-11-15, Q14a, after mock-ups q14a/a2/b): F8 Network is one tab with sections (WiFi/Ethernet, Services, Streams
   per D7); "FTP hosts" is one row that opens a page with the hosts (BACK returns).
 - D19 (Alex 2026-11-17, translated: "a task for later: the documentation must be updated then, both its content and the pictures"): after S2,
