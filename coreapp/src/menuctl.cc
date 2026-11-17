@@ -170,6 +170,13 @@ bool MenuCtl::is_home() const
     return tb.home;
 }
 
+// What is in a media slot, null when it is empty: a state with no text is an empty slot as one with none is (the session line reads it so too)
+static const char *slot_text(CoreCtx *c, const MediaSlot &m)
+{
+    const char *w = ops_state(c, m.state);
+    return w && *w ? w : 0;
+}
+
 // The dominant line of the Home panel: the program the machine is running, or what it is waiting for.
 void MenuCtl::session_line(char *out, int n) const
 {
@@ -768,7 +775,7 @@ void MenuCtl::row(int i, char *left, int ln, char *right, int rn, bool *active, 
         }
         break;
     case EK_MEDIA: {
-        const char *w = ops_state(c_, c_->desc->media[e.index].state);
+        const char *w = slot_text(c_, c_->desc->media[e.index]);
         const bool drive = menu_slot_is_drive(c_->desc->media[e.index]);
         snprintf(right, rn, "%s", w ? w : (c_->desc->media[e.index].mount ? "Empty - RETURN to mount" : (drive ? "Empty" : "Not set")));      // T212 R11: an empty drive says how to fill it
         *active = drive;
@@ -2489,7 +2496,7 @@ MenuCtl::Result MenuCtl::open_drive(int slot)
         return R_NONE;
     }
     MenuTab &tb = tree_.a[area_].tabs[pg];
-    const bool mounted = ops_state(c_, m.state) != 0;
+    const bool mounted = slot_text(c_, m) != 0;
     int n = 0;
     auto put = [&](EntryKind k, const char *label, int index) {
         if (n < DRIVE_PAGE_ROWS) {
@@ -3230,7 +3237,7 @@ void MenuCtl::item(int i, Item *it)
     switch (e.kind) {
     case EK_MEDIA: {
         it->kind = IK_MEDIA;
-        const char *w = ops_state(c_, c_->desc->media[e.index].state);
+        const char *w = slot_text(c_, c_->desc->media[e.index]);
         snprintf(it->value, sizeof(it->value), "%s", w ? w : (c_->desc->media[e.index].eject_op ? "No image" : "Nothing loaded"));        // T209 S2: the mounted file is the row's value
         snprintf(it->chip, sizeof(it->chip), "%s", !w ? "empty" : (c_->desc->media[e.index].eject_op ? "mounted" : "loaded"));            // the word only colours the row's dot (tone_of)
         it->enabled = active;
