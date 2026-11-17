@@ -7,6 +7,8 @@
 **Depends on:** T107 (A1200 output modes), T85 (Amiga core, `amiga_ce`), T88 D5 (Atari decision, 2026-10-14), T116 §5.1.3 (ZX Next lock), T164 (host table).
 **Milestone:** M2.
 
+> 2026-11-17: D2 (automatic, no setting) is replaced by T234 D1 (Alex: a setting `Frame follow`, default Off = the standard rows); S4 had no board record.
+
 
 ---
 
