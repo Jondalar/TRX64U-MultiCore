@@ -325,6 +325,7 @@ Alex 2026-11-17 (translated): "I want you to apply the generic APP 100 % to the 
 - **R14 (Alex 2026-11-17, asked about the heading over the SID page rows):** "in the Audio menu it should be called reDIP:SID ... when it is about the interface functions between DE00 and DFFF (UltiSID on/off), then still UltiSID" (translated): F5 > Audio's heading over "SID sockets >" and "Emulated SIDs >" reads "reDIP:SID"; rows about the UltiSID's I/O interface ($DE00-$DFFF) keep the name UltiSID.
 - **R15 (Alex 2026-11-17, shown three pictures):** F5 > Expansion's last block (Ultimate audio, UCI) stands under the heading "ULTIMATE".
 - **R16 (Alex 2026-11-17, shown three pictures):** R1's hotkeys default to CTRL+T (Timewarp) and CTRL+O (Monitor, as trx64g's C= O); both can be learned anew on F7 > Hotkeys.
+- **R17 (Alex 2026-11-17, R2 follow-up, "yes, clear the RAM"):** F8 "Restart core" restarts trx64u with the C64's RAM cleared, as the removed "Reboot, clear memory" did (`machine.clear_reboot` with `ram_memonly`); generic: a core declares in its TOML whether a restart clears its RAM.
 - R1-R9 replace the earlier decisions of this spec where they differ (D3, D7, D8, D13, D16, D18 and the S2 choices DC1-DC14); branch t228-s2 stays unmerged. The proposal is rendered on branch t228-mock (render bench `mock_shots()`), shown as a click dummy on the concept page.
 
 ### Decisions during S2 (decided by Claude on Alex's delegation 2026-11-16 night; Alex can overturn each at S2b)
