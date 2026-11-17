@@ -295,6 +295,9 @@ overlay was fitted from a 1280x800 manual picture, so its scale on the real 960x
   contents), the same key that enters a folder.
 - D18 (Alex 2026-11-15, Q14a, after mock-ups q14a/a2/b): F8 Network is one tab with sections (WiFi/Ethernet, Services, Streams
   per D7); "FTP hosts" is one row that opens a page with the hosts (BACK returns).
+- D19 (Alex 2026-11-17, translated: "a task for later: the documentation must be updated then, both its content and the pictures"): after S2,
+  the manual pages that show the core menu get new text and new ue2emu pictures of the built menu (docs/manual, e.g. 11-cores.md and its
+  `img/core-*.png`). Part of T228, before it counts as done.
 - Q11 needs no answer: D7 decided it. Q13 is settled by D14.
 - All S1 questions Q1-Q14 are answered (D1-D18). Next: T212 merges (D2), then S2 is built, then Alex tests in ue2emu (D6).
 
@@ -413,4 +416,5 @@ Opus pre-commit review 5 "COMMIT: yes" (scratchpad t228/step1e/REVIEW5.md); its 
   - The ux-review of 1d+1e (before the merge).
   - tools/descrec.py refuses only the key "picture" at pack time, not Scale/Smoothing and not the three ops (desc_check's rule); step 2.
   - Step 2: D12, D17, D18, DC1 (no Softboot under the MultiCore host), DC3, DC7, DC13 (flash cfg by parameter; emu S11 both values).
+  - D19: manual text and pictures after S2.
   - The contract note (record v4, `sections`, base-settings merge) in docs/contracts/trx64u-firmware-handover.md waits until both sides change.
