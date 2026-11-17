@@ -1,7 +1,7 @@
 Copy of the host files cores/amiga/mono/build_mono.tcl reads, taken from host/ at commit aa45528c2 (branch t164, T164 hdmi_timing fix included).
 T164 3a Q1 (Alex, 2026-11-01): "Copies instead." A change in host/ does not move this core's cache key or its build; a host fix reaches
 this core only by copying it in here on purpose, then update this line. The files need not equal host/ (no lint compares them).
-Edits to the copies: gideon_vhdl.tcl: the local VHDL names carry $hd/ (set by build_mono.tcl); overlay.v: the two $readmemh paths point into this folder (mem/). hdmi_modes.vh: the T188 edition (rows 0..2 bent to the Amiga frame), made by `python3 tools/hdmi_modes.py amiga-gen`, not a copy of host/ (`amiga-check` in lint catches a re-copy).
+Edits to the copies: gideon_vhdl.tcl: the local VHDL names carry $hd/ (set by build_mono.tcl); overlay.v: the two $readmemh paths point into this folder (mem/). hdmi_modes_amiga.vh (T234, 2026-11-17; was hdmi_modes.vh): the Amiga edition (rows 0..11 the host's, rows 12..14 T188's Amiga rows for Frame follow On), made by `python3 tools/hdmi_modes.py amiga-gen`, not a copy of host/ (`amiga-check` in lint catches a re-copy). Its own name because Vivado runs in host/ and an `include "hdmi_modes.vh"` found host/hdmi_modes.vh first: rows 12..14 had no CDCE word there (board 11-17: GTP down).
 T195 (2026-11-09): ui_buttons.v added (copied from host/); top.v, ultimate_sys.vhd and pins.xdc carry the same UI_BUTTON change as host/ (Menu: left and middle, Reset: right, ITU bit 5/7 move).
 
 T189 (2026-11-15): trx_tone.v added (copied from host/); trx_gain.v (25-bit input), top.v and ultimate_sys.vhd carry the same tone-preset change as host/ (register 0x51).
@@ -38,7 +38,7 @@ hdmi_enc/packet_assembler.sv
 hdmi_enc/packet_picker.sv
 hdmi_enc/tmds_channel.sv
 hdmi_gtp.v
-hdmi_modes.vh
+hdmi_modes_amiga.vh
 hdmi_out.v
 hdmi_timing.v
 i2s_out.v

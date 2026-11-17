@@ -12,7 +12,7 @@ module cdce_mode (
     input  wire [3:0] mode,
     input  wire       lock
 );
-`include "hdmi_modes.vh"
+`include "hdmi_modes_amiga.vh"   // T234: a name of its own - Vivado runs in host/, where host/hdmi_modes.vh (no rows 12..14) would be found first
     wire [31:0] pll = lock ? hm_cdce_lock(mode) : hm_cdce(mode);
     localparam NBYTES = 11;
     function [7:0] byte_at; input [3:0] i;

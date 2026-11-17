@@ -1,6 +1,7 @@
-// T164 WP2 (the host, all cores): the HDMI mode timing generator, from the A1200's (T107 D7). One of the 9 modes of host/hdmi_modes.vh
-// (tools/hdmi_modes.py host-gen) is taken while rst is high and kept; the generator then runs free. A mode that is not in the table
-// (hm_valid 0: family 0 with hdmi 3..5, or mode 12..15) is refused: `valid` is 0 and the generator never starts (`running` stays 0).
+// T164 WP2 (the host, all cores): the HDMI mode timing generator, from the A1200's (T107 D7). One of the 12 modes of this copy's hdmi_modes.vh
+// (tools/hdmi_modes.py amiga-gen: the host's rows 0..2 and 6..11, plus T188's Amiga rows 12..14 that run while Frame follow is On, T234) is taken
+// while rst is high and kept; the generator then runs free. A mode that is not in the table (hm_valid 0: rows 3..5 and 15) is refused: `valid`
+// is 0 and the generator never starts (`running` stays 0).
 //
 // `align` (T164 G5, Q4): a one-clock pulse from the VIC path; only on a locked row (hm_locked: the two 1080p rows) it restarts the frame at
 // the origin of the active area (the pixel after the one registered at the pulse clock is cx = xact0, cy = yact0), as vic_scaler's `frame_seen && !locked` did with its own counters.
@@ -17,7 +18,7 @@
 //
 // For the encoder: sx_e = g * B (first active TMDS clock of the line), fw_m1 = g * htot - 1, sy = Bv, ey = Bv + vact = vtot, and the
 // phase ph_e: clocks since the pixel registers last changed, so that g * cx + ph_e is the position in TMDS clocks.
-// T188 D3 (the Amiga copies only, FOLLOW = 1): on the 50 Hz rows (m 0..2) the frame length follows the core. core_tgl is a toggle of the core's
+// T188 D3 (the Amiga copies only, FOLLOW = 1): on T188's Amiga rows (m 12..14, Frame follow On, T234) the frame length follows the core. core_tgl is a toggle of the core's
 // frame-complete event (sys_clk domain, crossed here). At every frame start the phase (lines since the last core event, `age`) is compared with the
 // set point S = 21/32 of the frame (13 ms of 20: after the application's flip latency, before the next core frame) and the frame gets
 // E = -(age - S) / 4 lines (rounded, limits EMIN -8 .. EMAX +16, T188 D5): E > 0 lines repeated at the last front porch line before the sync pulse, E < 0 lines taken
@@ -55,7 +56,7 @@ module hdmi_timing #(
     input  wire        core_tgl,        // T188 D3: toggle, one per complete core frame (any clock domain; crossed here). Unused with FOLLOW = 0
     output wire signed [5:0] follow_e   // T188 D3: the lines the frame has more (+) or fewer (-) than the table's, for the readout and the bench
 );
-`include "hdmi_modes.vh"
+`include "hdmi_modes_amiga.vh"   // T234: a name of its own - Vivado runs in host/, where host/hdmi_modes.vh (no rows 12..14) would be found first
 
     // ---- the mode: captured while rst, derived values a clock later (rst is held for several clocks, running waits for them)
     reg  [3:0]   m = 4'd2;
@@ -121,7 +122,7 @@ module hdmi_timing #(
         s_a   <= {ey_e, 4'd0} + {3'd0, ey_e, 2'd0} + {5'd0, ey_e};
         s_set <= s_a[15:5];
     end
-    wire        fol_en = (FOLLOW != 0) && (m < 4'd3);
+    wire        fol_en = (FOLLOW != 0) && (m >= 4'd12);     // T234: only T188's Amiga rows 12..14 (Frame follow On) follow the core
     (* ASYNC_REG = "TRUE" *) reg [2:0] cs = 3'd0;
     always @(posedge clk) cs <= {cs[1:0], core_tgl};
     wire        cev = cs[2] ^ cs[1];
