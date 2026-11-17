@@ -831,8 +831,10 @@ RAM setting; with Zorro III 32 MB the bands also moved. The OCS Turrican 2 alway
 fetch" no longer holds: 4 mod 8 is a valid FMODE 1/2 fetch.
 - **Fix** (commit 09e1b0b58, A1200 copy only): `[47:32]` is always the word at A+2 (hit: bank `{r_w[2:1],1}`; miss: `u_w[1] ? group word 3 :
   word 1`); a request at 0 mod 8 bytes keeps the full {+2,+4,+6}. The A500 copy keeps the old lines: it has no AGA, so it never reaches them.
-- **Proof:** sim `amiga1200_wide` (`cores/amiga1200/sim/wide`, chip, Zorro II and Zorro III port, hit and miss): "wide fetch: 114 reads,
-  0 errors" / "PASS tb_wide"; control `OLD=1` (the old two lines) fails with 28 errors. The A500 bench `amiga_wide` asserted the old rule, which
+- **Proof:** sim `amiga1200_wide` (`cores/amiga1200/sim/wide`, chip, Zorro II and Zorro III port, hit and miss; commit f9a9594a8 adds six
+  first reads at word 2 and word 6 of fresh lines, each checked to be a miss): "wide fetch: 120 reads, 0 errors; amiga_mem reads 165 miss 12" /
+  "PASS tb_wide". Controls: `OLD=1` (both old lines) fails with 34 errors, `OLD=crit` (only the miss line old) fails with 6 errors, exactly the
+  six miss reads (a pre-push review found that the first bench never missed at 4 mod 8). The A500 bench `amiga_wide` asserted the old rule, which
   is why no bench caught it.
 - **Zorro III:** the reading found no defect in the Z3 path (address, cache tags, DDR2 users, write ordering). The moving bands are most likely
   the same defect showing whatever lies at A-2. If they remain after the fix, next is the 32-bit addressing that only the Z3 setting unmasks
