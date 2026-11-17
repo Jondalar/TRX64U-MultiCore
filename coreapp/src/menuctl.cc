@@ -97,8 +97,16 @@ void MenuCtl::held_open()
     }
 }
 
-// The tree from the descriptor and what is contributed to it (contrib.h). The run loop calls it again once the libraries are loaded.
-void MenuCtl::rebuild()
+static const char *node_state_text(void *user, const char *name);
+
+// gate fix 7 (T228 DC5): a setting with show_state is listed only while its state holds - in a flat list and in a sections list alike (a screen reads it per draw, item())
+static bool setting_off(const CoreCtx *c, int idx)
+{
+    const Setting &s = c->desc->settings[idx];
+    return s.show_state && !cond_holds(s.show_state, node_state_text, const_cast<CoreCtx *>(c));
+}
+
+void MenuCtl::build_tree()
 {
     menu_build_for(c_, &tree_);
     // T228 DC1: a node's `hide` ("not shown while the state has a value") holds in a flat list too. A screen reads it at every draw (item()); a list's
@@ -106,10 +114,17 @@ void MenuCtl::rebuild()
     for (int a = 0; a < tree_.nareas; a++) {
         for (int b = 0; b < tree_.a[a].ntabs; b++) {
             const MenuTab &tb = tree_.a[a].tabs[b];
-            for (int i = tb.count - 1; !tb.layout && i >= 0; i--) {
+            char ln[24];
+            ui_name(tb.layout, ln, sizeof(ln));
+            const bool flat = !ln[0];                                // no screen layout: the tab is a list, with or without sections
+            for (int i = tb.count - 1; flat && i >= 0; i--) {
                 const MenuEntry &e = tree_.e[tb.first + i];
                 char spec[64], v[16];
-                if (e.kind != EK_NODE || !ui_attr(tree_.nodes[e.index].attr, "hide", spec, sizeof(spec))) {
+                if (e.kind == EK_SETTING && setting_off(c_, e.index)) {
+                    menu_drop_entry(&tree_, a, b, i);
+                    continue;
+                }
+                if (tb.layout || e.kind != EK_NODE || !ui_attr(tree_.nodes[e.index].attr, "hide", spec, sizeof(spec))) {
                     continue;
                 }
                 spec_text(spec, v, sizeof(v));
@@ -119,6 +134,56 @@ void MenuCtl::rebuild()
             }
         }
     }
+    show_sig_ = show_sig();
+}
+
+uint32_t MenuCtl::show_sig() const
+{
+    uint32_t h = 2166136261u;
+    for (int i = 0; i < c_->desc->nsettings; i++) {
+        if (c_->desc->settings[i].show_state) {
+            h = (h ^ (setting_off(c_, i) ? 1u : 2u)) * 16777619u;
+        }
+    }
+    return h;
+}
+
+void MenuCtl::sync_show()
+{
+    if (show_sig() == show_sig_) {
+        return;
+    }
+    const MenuTab &was = cur();
+    MenuEntry keep = { EK_HEADING, 0, -1, false };
+    if (was.count > 0 && sel_[area_][tab_] >= 0 && sel_[area_][tab_] < was.count) {
+        keep = tree_.e[was.first + sel_[area_][tab_]];
+    }
+    build_tree();
+    for (int a = 0; a < tree_.nareas; a++) {
+        for (int b = 0; b < tree_.a[a].ntabs; b++) {
+            const int n = tree_.a[a].tabs[b].count;
+            if (sel_[a][b] >= n) {
+                sel_[a][b] = n > 0 ? n - 1 : 0;
+            }
+            if (first_[a][b] >= n) {
+                first_[a][b] = n > 0 ? n - 1 : 0;
+            }
+        }
+    }
+    const MenuTab &now = cur();
+    for (int i = 0; keep.index >= 0 && i < now.count; i++) {           // the row the cursor stood on, by what it is
+        const MenuEntry &e = tree_.e[now.first + i];
+        if (e.kind == keep.kind && e.index == keep.index && e.label == keep.label) {
+            sel_[area_][tab_] = i;
+            break;
+        }
+    }
+}
+
+// The tree from the descriptor and what is contributed to it (contrib.h). The run loop calls it again once the libraries are loaded.
+void MenuCtl::rebuild()
+{
+    build_tree();
     if (area_ >= tree_.nareas) {
         area_ = 0;
     }
@@ -3609,6 +3674,7 @@ MenuCtl::Result MenuCtl::apply(const MenuIntent &in)
     if (r == R_CLOSE) {
         leave();
     }
+    sync_show();                                                     // a setting the key changed may have switched a feature on or off (show_state)
     return r;
 }
 

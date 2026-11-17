@@ -300,6 +300,10 @@ private:
     int sel_[MENU_AREAS_MAX][MENU_TABS_MAX];
     int first_[MENU_AREAS_MAX][MENU_TABS_MAX];                      // the first row of the window each tab last showed
     void unheading();                                               // the selection is not on a heading
+    void build_tree();                                              // menu_build_for, then the rows a flat list leaves out (a hide node, a show_state setting that is off)
+    uint32_t show_sig() const;                                      // which show_state settings hold now
+    void sync_show();                                               // a show_state flipped: the tree is made again and the selection keeps its row
+    uint32_t show_sig_ = 0;
     int last_tab_[MENU_AREAS_MAX];                                  // the tab an area was left on: its key comes back to it
     char status_[200];
     static const uint32_t TOAST_MS = 2000;                          // how long a toast stays
