@@ -37,7 +37,7 @@ modes=${*:-"z80s clk ctl_rom page page664 page464"}
 mkdir -p "$here/build"
 rc=0
 for m in $modes; do
-  tm=$m
+  tm=$m; lname=
   case $m in
     z80s)    args="+ROM=$zx/sim/prog/z80s.hex +EXP=$zx/sim/prog/z80s.exp.hex +FRAMES=200" ;;
     clk)     args="+ROM=$here/prog/clk.hex" ;;
@@ -51,6 +51,25 @@ for m in $modes; do
              if [ "$CPC_DSK" = game ]; then python3 "$root/tools/cpc_progs.py" ddrgame "$here/build/rc.ddr.hex"; dsz=204544
              else python3 "$root/tools/cpc_progs.py" ddr40 "$here/build/rc.ddr.hex"; dsz=194816; fi
              args="+OSROM=$here/build/os6128.hex +BASROM=$here/build/basic6128.hex +AMSROM=$here/build/amsdos.hex +DDR=$here/build/rc.ddr.hex +DSZ=$dsz +FRAMES=2000 +MAXCLK=2000000000" ;;
+    rom_mount) # T233 D5, MANUAL, not in any CI list: the FDC on its board path (cpc_core: u765, cpc_fdc, the DDR2 model behind the ui_clk crossing) with
+             # the real ROMs (CPC_ROMDIR: os664/basic664 or os6128/basic6128 and amsdos.rom; never in the repo), the app's register sequences.
+             # CPC_MODEL=664 (default) or 6128; CPC_DSK=<file.dsk> the image of A: (default: the blank 40 track DSK), CPC_DSKB the one of B:;
+             # ZX_PLUSARGS: +FLOW=1 (S1, default) +S3 or +S4 on it, +FLOW=2 (S2), +MENUMS=<ms>. Ends with PASS, FAIL or HANG (with the FDC state).
+             [ -n "$CPC_ROMDIR" ] || { echo "FAIL rom_mount: set CPC_ROMDIR"; exit 1; }
+             mdl=${CPC_MODEL:-664}; mn=1; [ "$mdl" = 6128 ] && mn=2
+             lname=${CPC_TAG:-rom_mount}; b=$here/build/$lname     # CPC_TAG: the name of this run's log and files (several runs side by side in one tree)
+             tohex='import sys;d=open(sys.argv[1],"rb").read();open(sys.argv[2],"w").write("".join("%02x\n"%b for b in d))'
+             python3 -c "$tohex" "$CPC_ROMDIR/os$mdl.rom" "$b.os.hex"
+             python3 -c "$tohex" "$CPC_ROMDIR/basic$mdl.rom" "$b.bas.hex"
+             python3 -c "$tohex" "$CPC_ROMDIR/amsdos.rom" "$b.ams.hex"
+             # a DSK as 128 bit words, the first byte in the low bits (as tools/cpc_progs.py write_ddr_hex)
+             dskhex='import sys;d=open(sys.argv[1],"rb").read();d+=bytes(-len(d)%16);open(sys.argv[2],"w").write("".join(d[i:i+16][::-1].hex()+"\n" for i in range(0,len(d),16)))'
+             python3 "$root/tools/cpc_progs.py" ddr40 "$b.blank.hex"
+             if [ -n "$CPC_DSK" ]; then python3 -c "$dskhex" "$CPC_DSK" "$b.a.hex"; dsz=$(wc -c < "$CPC_DSK" | tr -d ' ')
+             else cp "$b.blank.hex" "$b.a.hex"; dsz=194816; fi
+             if [ -n "$CPC_DSKB" ]; then python3 -c "$dskhex" "$CPC_DSKB" "$b.b.hex"; dszb=$(wc -c < "$CPC_DSKB" | tr -d ' ')
+             else cp "$b.blank.hex" "$b.b.hex"; dszb=194816; fi
+             args="+MODEL=$mn +OSROM=$b.os.hex +BASROM=$b.bas.hex +AMSROM=$b.ams.hex +DDR=$b.a.hex +DSZ=$dsz +DDRB=$b.b.hex +DSZB=$dszb +FRAMES=4000 +MAXCLK=2000000000" ;;
     slots)   args="+ROM=$here/prog/slots.hex +FRAMES=20" ;;
     video)   args="+ROM=$here/prog/video.hex +FRAMES=80" ;;
     pause_ref|pause_run) args="+ROM=$here/prog/anim.hex" ;;
@@ -107,9 +126,10 @@ FAIL pause hashes: the paused run differs from the reference in $(diff "$here/bu
   # shellcheck disable=SC2086
   build "$base"
   # shellcheck disable=SC2086
-  sim "$base" "$m" "$tm" $args
+  sim "$base" "${lname:-$m}" "$tm" $args
   case $m in
     slots) r=$(python3 "$root/tools/cpc_slots.py" check < "$here/build/$m.log") || true ;;
+    rom_mount) r=$(grep -E "^(PASS|FAIL|HANG|rom_mount|  (in AMSDOS|no Ready|CAT|S2|READ DATA))" "$here/build/$lname.log" || true) ;;
     *) r=$(verdict "$m") ;;
   esac
   fi

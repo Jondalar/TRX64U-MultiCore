@@ -386,6 +386,101 @@ module tb_cpc;
         if (mode == "slots" && dut.cpu_m1 && !m1_d) $display("M1 %04x %0d %0d", dut.cpu_addr, c16_total, since_cclk);
     end
 
+    // ---------------------------------------------------------------- T233 D5: the board path of the FDC (mode rom_mount, MANUAL: the real ROMs)
+    // BASIC printed its prompt: a read of the "Ready" string in upper ROM 0 (&C0D7 in BASIC 1.1 of the 664 and the 6128)
+    integer rdy_hits = 0, rdy_fr = -1;
+    reg rdy_rd_d = 1'b0;
+    wire rdy_rd = dut.mem_rd && dut.romen && dut.mem_addr[22] && dut.mem_addr[21:14] == 8'd0 && dut.cpu_addr == 16'hC0D7;
+    always @(posedge sys_clk) begin
+        rdy_rd_d <= rdy_rd;
+        if (rdy_rd && !rdy_rd_d) begin rdy_hits <= rdy_hits + 1; rdy_fr <= fclk; end
+    end
+    // RQM low in COMMAND_IDLE (the machine running, not in reset): the longest stretch, in sys clocks
+    integer rqm_low = 0, rqm_low_max = 0;
+    always @(posedge sys_clk) begin
+        if (dut.board_reset || dut.hold_q || dut.fdc.fdc.state != 0 || dut.fdc.m_status[7]) rqm_low <= 0;
+        else begin rqm_low <= rqm_low + 1; if (rqm_low + 1 > rqm_low_max) rqm_low_max <= rqm_low + 1; end
+    end
+    // the FDC's commands as the Z80 writes them, and the result of every READ DATA (ST0 bits 7..6 = 00 a normal end)
+    integer rm_nb = 0, rm_rd_ok = 0, rm_rd_ok_b = 0, rm_rd_err = 0, rm_err45 = 0, rm_cmds = 0;
+    reg [7:0] rm_cmd = 8'h00;
+    reg rm_unit = 1'b0, rm_iow_d = 1'b0, rm_quiet = 1'b0;
+    reg [5:0] rm_st_d = 6'd0;
+    always @(posedge sys_clk) begin
+        rm_iow_d <= dut.io_wr;
+        if (dut.io_wr && !rm_iow_d && dut.cpu_addr == 16'hFB7F) begin
+            if (dut.fdc.fdc.state == 0) begin rm_cmd <= dut.cpu_dout; rm_nb <= 1; rm_cmds <= rm_cmds + 1; end
+            else begin if (rm_nb == 1) rm_unit <= dut.cpu_dout[0]; rm_nb <= rm_nb + 1; end
+        end
+        rm_st_d <= dut.fdc.fdc.state;
+        if (dut.fdc.fdc.state == 42 && rm_st_d != 42 && rm_cmd[4:0] == 5'd6) begin
+            if (dut.fdc.fdc.status[0][7:6] == 2'b00) begin rm_rd_ok <= rm_rd_ok + 1; if (rm_unit) rm_rd_ok_b <= rm_rd_ok_b + 1; end
+            else begin
+                rm_rd_err <= rm_rd_err + 1;
+                if (dut.fdc.fdc.status[0][7:6] == 2'b01 && dut.fdc.fdc.status[1] == 8'h05) rm_err45 <= rm_err45 + 1;
+                if (!rm_quiet && rm_rd_err < 6) $display("  READ DATA of unit %0d ended with ST0 %02x ST1 %02x ST2 %02x at frame %0d", rm_unit, dut.fdc.fdc.status[0], dut.fdc.fdc.status[1], dut.fdc.fdc.status[2], fclk);
+            end
+        end
+    end
+    // the app's register writes come over the host bus about a microsecond apart (cpc_fdc takes the dirty-clear toggles through three flip-flops)
+    task rm_wr(input [11:0] a, input [7:0] d);
+        begin cw_wr(a, d); repeat (100) @(posedge cpu_clk); end
+    endtask
+    task rm_wr32(input [11:0] a, input [31:0] v);
+        begin rm_wr(a, v[7:0]); rm_wr(a + 12'd1, v[15:8]); rm_wr(a + 12'd2, v[23:16]); rm_wr(a + 12'd3, v[31:24]); end
+    endtask
+    // cpcd_mount (coreapp/cores/cpc_disk.cc) after the image copy: the dirty marks cleared, base, size, the MOUNT strobe (write protect off)
+    task rm_mount(input integer drv, input [31:0] base, input [31:0] sz);
+        integer m;
+        begin
+            for (m = 0; m < 8; m = m + 1) rm_wr(12'h1A0 + 12'h10 * drv[11:0] + m[11:0], 8'hFF);
+            rm_wr32(12'h180 + 12'h8 * drv[11:0], base);
+            rm_wr32(12'h184 + 12'h8 * drv[11:0], sz);
+            rm_wr(12'h190, drv ? 8'h02 : 8'h01);
+        end
+    endtask
+    // the FDC as it stands, one line (the state a hang shows)
+    task rm_dump(input [8*24-1:0] what);
+        $display("  %0s at frame %0d: pc %04x | u765 state %0d main status %02x, scan state %0d/%0d, i_scan_lock %0d, tinfo_lock %0d, image_ready %0d/%0d, seek %0d/%0d, sector search %0d | sd_busy mount %0d tinfo %0d sector %0d, requests mount %b tinfo %b rd %b wr %b, sd_rd %b sd_wr %b sd_ack %0d | cpc_fdc st %0d ui_busy %0d | hold_q %0d board_reset %0d | DDR reads %0d",
+            what, fclk, dut.cpu_pc, dut.fdc.fdc.state, dut.fdc.m_status, dut.fdc.fdc.image_scan_state[0], dut.fdc.fdc.image_scan_state[1], dut.fdc.fdc.i_scan_lock,
+            dut.fdc.tinfo_lock, dut.fdc.fdc.image_ready[0], dut.fdc.fdc.image_ready[1], dut.fdc.fdc.seek_state[0], dut.fdc.fdc.seek_state[1], dut.fdc.fdc.sector_search_state,
+            dut.fdc.sd_busy_mount, dut.fdc.sd_busy_tinfo, dut.fdc.sd_busy_sector, dut.fdc.sd_rd_mount, dut.fdc.sd_rd_tinfo, dut.fdc.sd_rd_sector, dut.fdc.sd_wr_sector,
+            dut.fdc.sd_rd, dut.fdc.sd_wr, dut.fdc.sd_ack, dut.fdca.st, dut.fdca.ui_busy, dut.hold_q, dut.board_reset, ddr.reads);
+    endtask
+    // until BASIC prints Ready (ok = 1), or HANG: the Z80 in AMSDOS's main status poll (&C95E..&C962, no timeout) for 50 frames, or maxfr frames without Ready
+    task rm_wait_ready(input integer maxfr, output integer ok);
+        integer f0, h0, loopfr, lastf;
+        begin
+            f0 = fclk; h0 = rdy_hits; loopfr = 0; lastf = fclk;
+            while (rdy_hits == h0 && fclk < f0 + maxfr && loopfr < 50) begin
+                @(posedge sys_clk);
+                if (fclk != lastf) begin
+                    lastf = fclk;
+                    if (dut.cpu_pc >= 16'hC95E && dut.cpu_pc <= 16'hC962) loopfr = loopfr + 1; else loopfr = 0;
+                    if ((fclk - f0) % 25 == 0) begin
+                        $display("  frame %0d: pc %04x, FDC main status %02x, scan state %0d/%0d", fclk, dut.cpu_pc, dut.fdc.m_status, dut.fdc.fdc.image_scan_state[0], dut.fdc.fdc.image_scan_state[1]);
+                        $fflush;                           // the log shows the progress of a long run
+                    end
+                end
+            end
+            ok = (rdy_hits != h0) ? 1 : 0;
+            if (!ok) rm_dump(loopfr >= 50 ? "in AMSDOS's RQM poll" : "no Ready");
+        end
+    endtask
+    // keys as the app injects them (0x160..0x169, bit = line * 8 + bit of the CPC matrix), 5 frames down, 5 frames up
+    task rm_key(input integer k1, input integer k2);
+        integer i3, f3;
+        reg [79:0] m;
+        begin
+            m = 80'd0; m[k1] = 1'b1; if (k2 >= 0) m[k2] = 1'b1;
+            for (i3 = 0; i3 < 10; i3 = i3 + 1) cw_wr(12'h160 + i3[11:0], m[8 * i3 +: 8]);
+            f3 = fclk; while (fclk < f3 + 5) @(posedge sys_clk);
+            for (i3 = 0; i3 < 10; i3 = i3 + 1) cw_wr(12'h160 + i3[11:0], 8'h00);
+            f3 = fclk; while (fclk < f3 + 5) @(posedge sys_clk);
+        end
+    endtask
+    task rm_type_cat; begin rm_key(62, -1); rm_key(69, -1); rm_key(51, -1); rm_key(18, -1); end endtask   // C A T RETURN
+
     initial begin
         if (!$value$plusargs("MODE=%s", mode)) mode = "z80s";
         if (!$value$plusargs("FRAMES=%d", maxframes)) maxframes = 400;
@@ -684,6 +779,118 @@ module tb_cpc;
                     $display("rom_cat: pass %0d end frame %0d, pc %04x, FDC main status %02x, scan state %0d, ready %0d, FDC data writes %0d, read-data commands %0d, DDR reads %0d", pass, frames_seen, dut.cpu_addr, dut.fdc.m_status, dut.fdc.fdc.image_scan_state[0], dut.fdc.fdc.image_ready[0], cmds, rd_cmds, ddr.reads);
                     if (rd_cmds > 0 && dut.fdc.m_status == 8'h80) $display("PASS rom_cat pass %0d: AMSDOS read the directory (Read Data issued, FDC idle again)", pass);
                     else $display("FAIL rom_cat pass %0d: the FDC never came to the Read Data command or never became idle", pass);
+                end
+            end
+        end
+        "rom_mount": begin                                         // T233 D5 (MANUAL): the board path of the FDC with the real ROMs
+            // +FLOW=1 (S1): A: empty, Ready, the menu opens (halt_req), the app mounts A: and resets (cpcd_mount, boot_cold_reset: hold + reset_req,
+            //   settings, 10 ms, release), the menu closes +MENUMS later, Ready, CAT; +S3: the DDR2 model drops the answer of the first line read
+            //   of the CAT's first sector; +S4: a core reset (reset_req, 300 clocks) while cpc_fdc waits for a slow line read of the CAT, then
+            //   Ready and CAT again. +FLOW=2 (S2): power-on with A: and B: stored (T180: both mounted in reset), Ready, CAT, |B, CAT.
+            // +MODEL=1 664, 2 6128; +OSROM +BASROM +AMSROM (hex); +DDR/+DSZ the image of A: at 0x01A00000, +DDRB/+DSZB the one of B: at 0x01B00000.
+            begin : rm
+                reg [8*200-1:0] f2, ddrb;
+                integer flow, model, dsz, dszb, ok, menums, fr, n0, e0, ob0, f0, armed;
+                if (!$value$plusargs("FLOW=%d", flow)) flow = 1;
+                if (!$value$plusargs("MODEL=%d", model)) model = 1;
+                if (!$value$plusargs("DSZ=%d", dsz)) dsz = 194816;
+                if (!$value$plusargs("DSZB=%d", dszb)) dszb = 194816;
+                if (!$value$plusargs("MENUMS=%d", menums)) menums = 100;
+                if (!$value$plusargs("DDR=%s", ddrfile)) ddrfile = "";
+                if (!$value$plusargs("DDRB=%s", ddrb)) ddrb = ddrfile;
+                $display("rom_mount: flow %0d, model %0s, A: %0d bytes", flow, model == 1 ? "664" : "6128", dsz);
+                // power-on (boot_start): cpc_init holds the machine (CTRL b0) and sets mode_reset (reset_req), the model, the ROMs
+                cw_wr(12'h0A0, 8'h01); reset_req = 1'b1;
+                rm_wr(12'h0A1, model[7:0]);
+                $value$plusargs("OSROM=%s", f2); $readmemh(f2, dut.mem.rom_os);
+                $value$plusargs("BASROM=%s", f2); $readmemh(f2, dut.mem.rom_bas);
+                $value$plusargs("AMSROM=%s", f2); $readmemh(f2, dut.mem.rom_ams);
+                if (flow == 2) begin                            // mounts_restore: A: then B:, each after its image copy, all in reset
+                    $readmemh(ddrfile, ddr.mem, 131072); repeat (63000) @(posedge sys_clk);
+                    rm_mount(0, 32'h01A00000, dsz);
+                    $readmemh(ddrb, ddr.mem, 196608); repeat (63000) @(posedge sys_clk);
+                    rm_mount(1, 32'h01B00000, dszb);
+                end
+                repeat (315000) @(posedge sys_clk);             // reset_ms (10)
+                rm_wr(12'h0A0, 8'h00); reset_req = 1'b0;        // cpc_release
+                rm_wait_ready(300, ok);
+                $display("rom_mount: power-on %0s at frame %0d (%0d frames)", ok ? "Ready" : "HANG", fclk, fclk);
+                if (!ok) $display("HANG rom_mount: no Ready after power-on");
+                else if (flow == 1) begin
+                    // the menu opens over the running CPC; the drive list's "Mount A: and reset"
+                    f0 = fclk; while (fclk < f0 + 10) @(posedge sys_clk);
+                    halt_req = 1'b1;
+                    while (!halted) @(posedge sys_clk);
+                    $readmemh(ddrfile, ddr.mem, 131072); repeat (63000) @(posedge sys_clk);   // the image copy (2 ms here; the app takes longer)
+                    rm_mount(0, 32'h01A00000, dsz);
+                    rm_wr(12'h0A0, 8'h01); reset_req = 1'b1;    // boot_cold_reset: cpc_init
+                    rm_wr(12'h0A1, model[7:0]);                 // boot_apply_settings
+                    repeat (315000) @(posedge sys_clk);         // reset_ms
+                    rm_wr(12'h0A0, 8'h00); reset_req = 1'b0;    // cpc_release
+                    repeat (menums * 31528) @(posedge sys_clk); // the menu closes
+                    halt_req = 1'b0;
+                    f0 = fclk;
+                    rm_wait_ready(300, ok);
+                    $display("rom_mount: after Mount A: and reset %0s %0d frames after the menu closed (RQM low in COMMAND_IDLE at most %0d sys clocks = %0d us)", ok ? "Ready" : "HANG", fclk - f0, rqm_low_max, rqm_low_max * 317 / 10000);
+                    if (!ok) $display("HANG rom_mount S1: banner, no Ready after Mount A: and reset (%0s)", model == 1 ? "664" : "6128");
+                    else begin
+                        f0 = fclk; while (fclk < f0 + 10) @(posedge sys_clk);
+                        n0 = rm_rd_ok; e0 = rm_rd_err; armed = 0;
+                        rm_type_cat;
+                        if ($test$plusargs("S3")) begin             // the first line read of the CAT's first sector gets no answer
+                            while (dut.fdc.fdc.state != 11 && fclk < f0 + 200) @(posedge sys_clk);
+                            ddr.drop_next = 1'b1; armed = 1;
+                            $display("rom_mount S3: the DDR2 model drops its next read answer (frame %0d)", fclk);
+                        end
+                        if ($test$plusargs("S4")) begin             // a slow line read of the CAT, a core reset while cpc_fdc waits for it
+                            while (dut.fdc.fdc.state != 11 && fclk < f0 + 200) @(posedge sys_clk);
+                            ddr.slow_next = 1'b1;
+                            while (ddr.slow_next && fclk < f0 + 200) @(posedge sys_clk);     // the model has taken the slow read
+                            while (dut.fdca.st != 4'd3 && fclk < f0 + 200) @(posedge sys_clk);
+                            repeat (20) @(posedge sys_clk);
+                            $display("rom_mount S4: core reset while cpc_fdc waits (st %0d) for a read of %0d ui clocks (frame %0d)", dut.fdca.st, ddr.slow_lat, fclk);
+                            reset_req = 1'b1; repeat (300) @(posedge sys_clk); reset_req = 1'b0;
+                            ob0 = rdy_hits;
+                            rm_wait_ready(300, ok);
+                            $display("rom_mount S4: after the reset %0s, image of A: %0s", ok ? "Ready" : "HANG", dut.fdc.fdc.image_ready[0] ? "ready" : "NOT ready");
+                            f0 = fclk; while (fclk < f0 + 10) @(posedge sys_clk);
+                            n0 = rm_rd_ok; e0 = rm_rd_err;
+                            rm_type_cat;
+                        end
+                        ob0 = rdy_hits;
+                        rm_wait_ready(400, ok);
+                        $display("rom_mount: CAT %0s at frame %0d: READ DATA %0d ended normally, %0d with an error (%0d of them ST0 0x40 ST1 0x05), DDR reads %0d, dropped %0d",
+                            ok ? "ended with Ready" : "did not end", fclk, rm_rd_ok - n0, rm_rd_err - e0, rm_err45, ddr.reads, ddr.dropped);
+                        if ($test$plusargs("S3")) begin
+                            if (ok && rm_rd_ok > n0 && rm_err45 >= 1 && dut.fdc.m_status == 8'h80) $display("PASS rom_mount S3: the dropped DDR2 answer ended a READ DATA with ST0 0x40 ST1 0x05, AMSDOS read on, CAT ended with Ready");
+                            else $display("FAIL rom_mount S3: ok %0d, READ DATA ok %0d, errors 0x40/0x05 %0d, main status %02x", ok, rm_rd_ok - n0, rm_err45, dut.fdc.m_status);
+                        end else if ($test$plusargs("S4")) begin
+                            if (ok && rm_rd_ok > n0 && rm_rd_err == e0 && dut.fdc.fdc.image_ready[0]) $display("PASS rom_mount S4: after a core reset in a DDR2 transfer the next requests were served, Ready, CAT read the disk without an error");
+                            else $display("FAIL rom_mount S4: ok %0d, READ DATA ok %0d, errors %0d, image ready %0d", ok, rm_rd_ok - n0, rm_rd_err - e0, dut.fdc.fdc.image_ready[0]);
+                        end else begin
+                            if (ok && rm_rd_ok > n0 && rm_rd_err == e0 && dut.fdc.m_status == 8'h80) $display("PASS rom_mount S1 (%0s): Ready after Mount A: and reset, CAT read the directory (%0d READ DATA, no error) and ended with Ready", model == 1 ? "664" : "6128", rm_rd_ok - n0);
+                            else begin rm_dump("CAT"); $display("FAIL rom_mount S1: CAT ok %0d, READ DATA ok %0d, errors %0d, main status %02x", ok, rm_rd_ok - n0, rm_rd_err - e0, dut.fdc.m_status); end
+                        end
+                    end
+                end else begin                                  // flow 2 (S2): CAT of A:, then |B and CAT of B:
+                    f0 = fclk; while (fclk < f0 + 10) @(posedge sys_clk);
+                    n0 = rm_rd_ok; e0 = rm_rd_err;
+                    rm_type_cat;
+                    rm_wait_ready(400, ok);
+                    $display("rom_mount S2: CAT of A: %0s, READ DATA %0d ok %0d errors", ok ? "ended with Ready" : "did not end", rm_rd_ok - n0, rm_rd_err - e0);
+                    if (ok) begin
+                        ob0 = rm_rd_ok_b;
+                        rm_key(26, 21); rm_key(54, -1); rm_key(18, -1);   // | (SHIFT @) B RETURN
+                        rm_wait_ready(200, ok);
+                        if (ok) begin
+                            f0 = fclk; while (fclk < f0 + 10) @(posedge sys_clk);
+                            rm_type_cat;
+                            rm_wait_ready(400, ok);
+                        end
+                        $display("rom_mount S2: CAT of B: %0s, READ DATA of B: %0d ok, errors in all %0d", ok ? "ended with Ready" : "did not end", rm_rd_ok_b - ob0, rm_rd_err - e0);
+                    end
+                    if (ok && rm_rd_ok > n0 && rm_rd_ok_b > 0 && rm_rd_err == e0) $display("PASS rom_mount S2 (%0s): A: and B: mounted in reset, Ready, CAT of A: and of B: read their directories without an error", model == 1 ? "664" : "6128");
+                    else begin rm_dump("S2"); $display("FAIL rom_mount S2"); end
                 end
             end
         end
