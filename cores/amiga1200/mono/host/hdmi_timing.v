@@ -1,6 +1,6 @@
-// T164 WP2 (the host, all cores): the HDMI mode timing generator, from the A1200's (T107 D7). One of the 9 modes of host/hdmi_modes.vh
-// (tools/hdmi_modes.py host-gen) is taken while rst is high and kept; the generator then runs free. A mode that is not in the table
-// (hm_valid 0: family 0 with hdmi 3..5, or mode 12..15) is refused: `valid` is 0 and the generator never starts (`running` stays 0).
+// T164 WP2 (the host, all cores): the HDMI mode timing generator, from the A1200's (T107 D7). One of the 12 modes of this copy's hdmi_modes.vh
+// (rows 0..2 and 6..11 of the host table, plus 12..14, the host's standard 50 Hz rows that run while Frame follow is Off) is taken while rst is high and kept;
+// the generator then runs free. A mode that is not in the table (hm_valid 0: rows 3..5 and 15) is refused: `valid` is 0 and the generator never starts (`running` stays 0).
 //
 // `align` (T164 G5, Q4): a one-clock pulse from the VIC path; only on a locked row (hm_locked: the two 1080p rows) it restarts the frame at
 // the origin of the active area (the pixel after the one registered at the pulse clock is cx = xact0, cy = yact0), as vic_scaler's `frame_seen && !locked` did with its own counters.
