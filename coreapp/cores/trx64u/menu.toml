@@ -4,7 +4,7 @@
 # for a start without a .cor (JTAG, ue2emu). Regenerate it with `tools/gen_menu_rec.py`; the lint stage compares.
 #
 # T228 D2: the structure is the generic core menu of T212 (F1 session and quick actions, F3 Library, F5 machine, F7 APP, F8 System); trx64u adds F2 Timewarp and F4 Monitor
-# (D3: the rail reads MONITOR; DC7: the Diagnostics tab is in F8, DC3: F1 has the tab Recording). Its Drive A and cartridge port are media slots whose rows open the drive list (T212 D5); the generic items (Persist mounts, Enter home, Menu opens at, Home
+# (D3: the rail reads MONITOR; DC7: the Diagnostics tab is in F8, DC3: Save frame and Save the ring sit in F5 TRX64 > Recording). Its Drive A and cartridge port are media slots whose rows open the drive list (T212 D5); the generic items (Persist mounts, Enter home, Menu opens at, Home
 # directory, hotkeys, Picture, Scale; no Tone: the core sets no_tone) are the application's own and not declared here. A settings tab with `ui = { sections = true }` shows each of its groups under a heading made of the
 # group's id ('_' is a space; not drawn when it repeats the tab's title). Nothing is saved to flash: every setting is written to the core's .cfg at once (D9-D11).
 
@@ -19,11 +19,6 @@ name = "Home"
   name = "Home"
   widget = "info"
   n = 1
-  [[area.tab]]                      # DC3: the Timewarp actions; the ring and trace switches are F5 TRX64 > Recording (D13)
-  id = "recording"
-  name = "Recording"
-  widget = "nodes"
-  n = 2
 
 [[area]]
 key = "F2"
@@ -177,67 +172,22 @@ closes_menu = true
 ui = { primary = true }
 
 [[node]]
-anchor = "F1/recording"
-kind = "op"
-label = "Start recording"
-op = "ring.start"
-order = 301
-when_state = "tw.stopped"
-ui = { why = "The ring is recording already, or there is none", sub = "Starts the frame ring again, the old frames go" }
-
-[[node]]
-anchor = "F1/recording"
-kind = "op"
-label = "Stop recording"
-op = "ring.stop"
-order = 302
-when_state = "tw.running"
-ui = { why = "The ring is not recording", sub = "The frames stay until it starts again" }
-
-[[node]]
-anchor = "F1/recording"
-kind = "op"
-label = "Marker here"
-op = "tw.mark"
-order = 303
-when_state = "tw.present"
-ui = { why = "This bitstream has no frame ring", sub = "Marks the frame Timewarp shows" }
-
-[[node]]
-anchor = "F1/recording"
-kind = "op"
-label = "Clear markers"
-op = "tw.clear_marks"
-order = 304
-when_state = "tw.present"
-ui = { why = "This bitstream has no frame ring", sub = "Forgets every marker" }
-
-[[node]]
-anchor = "F1/recording"
-kind = "op"
-label = "Back to live"
-op = "tw.live"
-order = 305
-when_state = "tw.present"
-ui = { why = "This bitstream has no frame ring", sub = "The newest frame again" }
-
-[[node]]
-anchor = "F1/recording"
+anchor = "F5/trx64/Recording"
 kind = "op"
 label = "Save frame"
 op = "tw.dump"
 bind = [ { arg = "name", text = true } ]
-order = 306
+order = 10
 when_state = "tw.present"
 ui = { ask = "Save the shown frame as (name)", ask_state = "machine.suggest.tw", why = "This bitstream has no frame ring", sub = "The machine's state at the shown frame" }
 
 [[node]]
-anchor = "F1/recording"
+anchor = "F5/trx64/Recording"
 kind = "op"
 label = "Save the ring"
 op = "tw.ringdump"
 bind = [ { arg = "name", text = true } ]
-order = 307
+order = 11
 when_state = "tw.present"
 ui = { ask = "Save the last seconds as (name)", ask_state = "machine.suggest.ring", why = "This bitstream has no frame ring", sub = "Up to 30 seconds, one frame in five" }
 

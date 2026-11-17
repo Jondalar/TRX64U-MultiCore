@@ -31,7 +31,6 @@ _DC4 = "T228 DC4 (the F5 machine tabs: Memory and I/O, Video, Audio, SID, Input)
 DEVIATIONS = {
     ("F3", 3): ("Online", "tab 3 is Online (the Assembly64 / CommoServe search), " + _BUILT),
     ("F4", 1): ("Monitor", "tab 1 is Monitor, " + _BUILT),
-    ("F1", 2): ("Recording", "tab 2 is Recording (the seven Timewarp actions, T228 DC3), " + _T228),
     ("F5", 1): ("Machine", "tab 1 is Machine (with the Drive A settings), " + _T228),
     ("F5", 2): ("TRX64", "tab 2 is TRX64 (Timewarp ring, trace), " + _T228),
     ("F5", 3): ("Memory and I/O", "tab 3 is Memory and I/O, " + _DC4),

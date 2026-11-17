@@ -383,13 +383,6 @@ TRX64U F1/home 7 media:c64.cartridge
 TRX64U F1/home 8 media:c64.program
 TRX64U F1/home 9 fixed:10:Save as config...
 TRX64U F1/home 10 fixed:11:Load config...
-TRX64U F1/recording 0 node:ring.start
-TRX64U F1/recording 1 node:ring.stop
-TRX64U F1/recording 2 node:tw.mark
-TRX64U F1/recording 3 node:tw.clear_marks
-TRX64U F1/recording 4 node:tw.live
-TRX64U F1/recording 5 node:tw.dump:
-TRX64U F1/recording 6 node:tw.ringdump:
 TRX64U F2/timeline 0 node:tw.resume
 TRX64U F3/online 0 node:online.search
 TRX64U F3/online 1 node:online.library
@@ -436,6 +429,8 @@ TRX64U F5/trx64 3 set:CPU Speed
 TRX64U F5/trx64 4 fixed:13:Recording
 TRX64U F5/trx64 5 set:Timewarp Ring
 TRX64U F5/trx64 6 set:Instruction Trace
+TRX64U F5/trx64 7 node:tw.dump:
+TRX64U F5/trx64 8 node:tw.ringdump:
 TRX64U F5/io 0 fixed:13:Expansion
 TRX64U F5/io 1 set:Cartridge Preference
 TRX64U F5/io 2 set:RAM Expansion Unit

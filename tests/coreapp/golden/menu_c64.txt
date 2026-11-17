@@ -13,14 +13,6 @@ area F1 Home
     fixed Save as config...
     fixed Load config...
   tab 0 Drive (a page)
-  tab 2 Recording
-    node Start recording = button calls ring.start when tw.stopped from description
-    node Stop recording = button calls ring.stop when tw.running from description
-    node Marker here = button calls tw.mark when tw.present from description
-    node Clear markers = button calls tw.clear_marks when tw.present from description
-    node Back to live = button calls tw.live when tw.present from description
-    node Save frame = button calls tw.dump when tw.present from description
-    node Save the ring = button calls tw.ringdump when tw.present from description
 area F2 Timewarp
   tab 1 Timeline
     node Resume here = button calls tw.resume in group bar (closes the menu) from description
@@ -114,6 +106,8 @@ area F5 C64
     heading Recording
     setting Timewarp ring = Off | On (default On, live)
     setting Instruction trace = Off | On (default Off, live)
+    node Save frame = button calls tw.dump when tw.present in group Recording from description
+    node Save the ring = button calls tw.ringdump when tw.present in group Recording from description
   tab 3 Memory and I/O
     heading Expansion
     setting Cartridge preference = Auto | Internal | External | Manual (default Auto, live)
