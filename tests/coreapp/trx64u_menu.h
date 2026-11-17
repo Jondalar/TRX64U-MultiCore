@@ -1,12 +1,14 @@
 // T104.2 D10: the C64 descriptor has no menu tables; its menu is the record the application carries (c64_desc.menu_rec). The tests that need the tasks,
 // the file types, the media slots or the settings of the C64 take them from here: the same steps the board makes (run.cc: menu_build extends c64_desc with
-// Picture, Volume, Persist, Home and the hotkeys; bundle.cc: descrec_apply puts the record's own menu in front of those items; contrib_merge adds the rest).
+// Picture, Volume, Persist, Home and the hotkeys; bundle.cc: descrec_apply puts the record's own menu in front of those items, hk_extend_tasks adds the hotkey items of
+// its tasks; contrib_merge adds the rest).
 #ifndef TESTS_TRX64U_MENU_H
 #define TESTS_TRX64U_MENU_H
 
 #include "cores.h"
 #include "descrec.h"
 #include "contrib.h"
+#include "hotkeys.h"
 #include "menubuild.h"
 #include "picture.h"
 
@@ -38,6 +40,10 @@ inline Menu *menu()
             abort();
         }
         descrec_apply(m->rec, &m->ext, &m->own);
+        if (const char *why = hk_extend_tasks(&m->own, m->rec.csettings, DR_CSETS)) {      // bundle.cc runs it here: the hotkey items of the record's tasks (T228 R1)
+            fprintf(stderr, "hk_extend_tasks: %s\n", why);
+            abort();
+        }
         {
             static DescRecord raw;                   // a copy: descrec_apply writes the base's settings behind the record's own
             raw = m->rec;
