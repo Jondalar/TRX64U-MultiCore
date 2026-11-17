@@ -172,8 +172,8 @@ const MenuGroupRoute *menu_route_of(const Setting &s)
     if (!s.apply) {
         return 0;
     }
-    // the application's own Picture, Scale and Smoothing items: by key too, so a core's own setting that runs the same operation (e.g. a hidden
-    // setting kept for its store key) is not routed into the Video tab beside the application's Picture row
+    // the application's own Picture, Scale and Smoothing items, matched by op and key: this branch routes them into the Video tab.
+    // desc_check refuses a core setting that uses either the key or the op (tests only); on the board this match is the guard
     if ((!strcmp(s.apply, PICTURE_OP) && !strcasecmp(s.key, PICTURE_KEY)) || (!strcmp(s.apply, SCALE_OP) && !strcasecmp(s.key, SCALE_KEY)) ||
         (!strcmp(s.apply, SMOOTH_OP) && !strcasecmp(s.key, SMOOTH_KEY))) {
         g = "video";

@@ -334,10 +334,10 @@ static TrxWindow list_window(MenuCtl &m, int *room_out)
 // "3-20 of 23" and, when rows are hidden, how many lie above and below.
 static void pos_text(char *out, int n, const TrxWindow &w_rows, MenuCtl &m)
 {
-    TrxWindow w = { 0, 0, 0 };                                      // the counter counts settings, not the headings between them
+    TrxWindow w = { 0, 0, 0 };                                      // the counter counts the rows the list draws as lines, not the headings between them (an information line is a line)
     int total = m.rows();
     for (int i = 0; i < total; i++) {
-        if (m.heading(i)) {
+        if (m.title_row(i)) {
             continue;
         }
         if (i < w_rows.first) {
@@ -826,22 +826,27 @@ static void ui_home(lv_obj_t *c, MenuCtl &m, int x, int y)
                                    left_w - 2 * t.space_lg), LV_LABEL_LONG_MODE_CLIP);
     char mode[80];
     m.video_line(mode, sizeof(mode));
-    lv_label_set_long_mode(trx_txt(left, t.space_lg, cy + d_what + d_mode, trx_fit_mid(mode, left_w - 2 * t.space_lg - 4, t.caption, mfit, sizeof(mfit)), t.caption, t.muted,
-                                   left_w - 2 * t.space_lg), LV_LABEL_LONG_MODE_CLIP);
+    char mach[96];
+    m.machine_line(mach, sizeof(mach));                       // T212 D3: what machine this is, from the core's own setting values
+    const bool hv = mode[0] != 0;                              // T228 DC11: a core that reports no picture size has no video line; the machine line then takes its place
+    if (hv) {
+        lv_label_set_long_mode(trx_txt(left, t.space_lg, cy + d_what + d_mode, trx_fit_mid(mode, left_w - 2 * t.space_lg - 4, t.caption, mfit, sizeof(mfit)), t.caption, t.muted,
+                                       left_w - 2 * t.space_lg), LV_LABEL_LONG_MODE_CLIP);
+    }
     trx_button(left, t.space_md, h - 28, 0, "F3  Library", false);
     int n = m.rows();
     char l[120], r[120];
     bool active;
     g_homen = 0;
-    // T212: the rows of the Home tab (reset, drives, configs) stand in the session panel under the video line, as the same rows a list draws; g_home keeps one object per row.
-    int ly = cy + d_what + d_mode + d_rows;
-    char mach[96];
-    m.machine_line(mach, sizeof(mach));                       // T212 D3: what machine this is, from the core's own setting values
+    // T212: the rows of the Home tab (reset, drives, configs) stand in the session panel under the video and machine lines, whichever the core has (right under the title when it has neither), as the same rows a list draws; g_home keeps one object per row.
+    int ly = cy + d_what + d_mode + (hv || mach[0] ? d_rows : 0);
     if (mach[0]) {
         char mfit2[96];
-        lv_label_set_long_mode(trx_txt(left, t.space_lg, cy + d_what + d_mode + (cp ? 20 : 22), trx_fit_mid(mach, left_w - 2 * t.space_lg - 4, t.caption, mfit2, sizeof(mfit2)),
+        lv_label_set_long_mode(trx_txt(left, t.space_lg, cy + d_what + d_mode + (hv ? (cp ? 20 : 22) : 0), trx_fit_mid(mach, left_w - 2 * t.space_lg - 4, t.caption, mfit2, sizeof(mfit2)),
                                        t.caption, t.muted, left_w - 2 * t.space_lg), LV_LABEL_LONG_MODE_CLIP);
-        ly += cp ? 18 : 20;
+        if (hv) {
+            ly += cp ? 18 : 20;
+        }
     }
     for (int i = 0; i < n; i++) {
         m.row(i, l, sizeof(l), r, sizeof(r), &active, 0, 0);

@@ -113,7 +113,7 @@ const char *picture_extend(const CoreDesc *d, CoreDesc *out, Setting *store, con
     p.def = 0;
     p.when = WHEN_LIVE;
     p.apply = PICTURE_OP;
-    p.group = "video";                             // the TRX64U menu lists it on the Video page (HDMI Scan Resolution); a core whose menu has no such group shows it where it did
+    p.group = "video";                             // the setting group "video": the menu route sends the row by op and key (menu_route_of); the group only picks its block on a tab with sections
     if (vic_scaled) {
         for (int m = 0; m < VID_SCALE_COUNT; m++) {
             g_scale_values[m] = video_scale_name(m);
@@ -194,7 +194,7 @@ int picture_index(const CoreDesc *d)
     return -1;
 }
 
-// op and canonical key: a core's record may carry a hidden setting with the same op (T228 H1); the application's row is the one that counts
+// op and canonical key: the application's row is the one that counts. desc_check refuses a core setting that uses either the key or the op of Picture, Scale or Smoothing; it runs in the tests only, so on the board this op+key match is the guard
 static int index_of_op(const CoreDesc *d, const char *op, const char *key)
 {
     for (int i = 0; i < d->nsettings; i++) {
@@ -505,7 +505,7 @@ static const char *st_video_line(CoreCtx *c)
     static char t[64];
     const VideoDesc &v = c->desc->video;
     if (!v.w) {
-        return "the core's own picture";
+        return "";                                       // T228 DC11: no size reported, no line (the Home panel draws none)
     }
     unsigned scale = c->video ? c->video->scale() : v.scale;
     snprintf(t, sizeof(t), "%u x %u, scale %u", (unsigned)v.w, (unsigned)v.h, scale);

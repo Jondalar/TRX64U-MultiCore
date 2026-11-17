@@ -1079,7 +1079,7 @@ en_dis = ["Disabled", "Enabled"]
 yes_no = ["No", "Yes"]
 menu_opens = ["Home (F1)", "Last screen"]
 off_ask_auto = ["Off", "Ask", "Auto"]
-vols = ["OFF", "-42 dB", "-36 dB", "-30 dB", "-27 dB", "-24 dB", "-18 dB", "-17 dB", "-16 dB", "-15 dB", "-14 dB", "-13 dB", "-12 dB", "-11 dB", "-10 dB", "-9 dB", "-8 dB", "-7 dB", "-6 dB", "-5 dB", "-4 dB", "-3 dB", "-2 dB", "-1 dB", "0 dB", "+1 dB", "+2 dB", "+3 dB", "+4 dB", "+5 dB", "+6 dB"]
+vols = ["Off", "-42 dB", "-36 dB", "-30 dB", "-27 dB", "-24 dB", "-18 dB", "-17 dB", "-16 dB", "-15 dB", "-14 dB", "-13 dB", "-12 dB", "-11 dB", "-10 dB", "-9 dB", "-8 dB", "-7 dB", "-6 dB", "-5 dB", "-4 dB", "-3 dB", "-2 dB", "-1 dB", "0 dB", "+1 dB", "+2 dB", "+3 dB", "+4 dB", "+5 dB", "+6 dB"]
 pans = ["Left 5", "Left 4", "Left 3", "Left 2", "Left 1", "Center", "Right 1", "Right 2", "Right 3", "Right 4", "Right 5"]
 sysmodes = ["PAL", "NTSC", "PAL-60", "NTSC-50", "PAL-60/L", "NTSC-50/L"]
 scanres = ["SD (480p/576p)", "HD (720p)", "FullHD (1080p)", "PC 800 x 600", "PC 1024 x 768", "PC 1280 x 1024"]
@@ -1165,7 +1165,7 @@ label = "HDMI scan resolution"
 list = "scanres_auto"
 default = 0
 when = "live"
-apply = "picture.apply"
+apply = "settings.noop"
 
 [[core_setting]]
 group = "Output"
@@ -1214,7 +1214,7 @@ apply = "u64.fx_video"
 [[core_setting]]
 group = "Volumes"
 key = "Vol Master"
-label = "Volume"
+label = "Master"
 list = "vols"
 default = 24
 when = "live"
@@ -1223,7 +1223,7 @@ apply = "u64.fx_audio"
 [[core_setting]]
 group = "Volumes"
 key = "Vol UltiSid 1"
-label = "Volume reDIP:SID 1"
+label = "reDIP:SID 1"
 list = "vols"
 default = 24
 when = "live"
@@ -1232,7 +1232,7 @@ apply = "u64.fx_audio"
 [[core_setting]]
 group = "Volumes"
 key = "Vol UltiSid 2"
-label = "Volume reDIP:SID 2"
+label = "reDIP:SID 2"
 list = "vols"
 default = 24
 when = "live"
@@ -1241,7 +1241,7 @@ apply = "u64.fx_audio"
 [[core_setting]]
 group = "Volumes"
 key = "Vol Socket 1"
-label = "Volume socket 1"
+label = "Socket 1"
 list = "vols"
 default = 24
 when = "live"
@@ -1250,7 +1250,7 @@ apply = "u64.fx_audio"
 [[core_setting]]
 group = "Volumes"
 key = "Vol Socket 2"
-label = "Volume socket 2"
+label = "Socket 2"
 list = "vols"
 default = 24
 when = "live"
@@ -1259,7 +1259,7 @@ apply = "u64.fx_audio"
 [[core_setting]]
 group = "Volumes"
 key = "Vol Sampler L"
-label = "Volume sampler L"
+label = "Sampler L"
 list = "vols"
 default = 24
 when = "live"
@@ -1268,7 +1268,7 @@ apply = "u64.fx_audio"
 [[core_setting]]
 group = "Volumes"
 key = "Vol Sampler R"
-label = "Volume sampler R"
+label = "Sampler R"
 list = "vols"
 default = 24
 when = "live"
@@ -1286,7 +1286,7 @@ apply = "u64.fx_audio"
 [[core_setting]]
 group = "Pan"
 key = "Pan UltiSID 1"
-label = "Pan reDIP:SID 1"
+label = "reDIP:SID 1"
 list = "pans"
 default = 5
 when = "live"
@@ -1295,7 +1295,7 @@ apply = "u64.fx_audio"
 [[core_setting]]
 group = "Pan"
 key = "Pan UltiSID 2"
-label = "Pan reDIP:SID 2"
+label = "reDIP:SID 2"
 list = "pans"
 default = 5
 when = "live"
@@ -1304,7 +1304,7 @@ apply = "u64.fx_audio"
 [[core_setting]]
 group = "Pan"
 key = "Pan Socket 1"
-label = "Pan socket 1"
+label = "Socket 1"
 list = "pans"
 default = 2
 when = "live"
@@ -1313,7 +1313,7 @@ apply = "u64.fx_audio"
 [[core_setting]]
 group = "Pan"
 key = "Pan Socket 2"
-label = "Pan socket 2"
+label = "Socket 2"
 list = "pans"
 default = 8
 when = "live"
@@ -1322,7 +1322,7 @@ apply = "u64.fx_audio"
 [[core_setting]]
 group = "Pan"
 key = "Pan Sampler L"
-label = "Pan sampler L"
+label = "Sampler L"
 list = "pans"
 default = 2
 when = "live"
@@ -1331,7 +1331,7 @@ apply = "u64.fx_audio"
 [[core_setting]]
 group = "Pan"
 key = "Pan Sampler R"
-label = "Pan sampler R"
+label = "Sampler R"
 list = "pans"
 default = 8
 when = "live"
@@ -1349,7 +1349,7 @@ apply = "u64.fx_audio"
 [[core_setting]]
 group = "Speaker"
 key = "Speaker Enable"
-label = "Speaker enable"
+label = "Enable"
 list = "en_dis"
 default = 1
 when = "live"
@@ -1358,7 +1358,7 @@ apply = "u64.fx_audio"
 [[core_setting]]
 group = "Speaker"
 key = "Spk Vol UltiSid 1"
-label = "Speaker volume reDIP:SID 1"
+label = "Volume reDIP:SID 1"
 list = "vols"
 default = 0
 when = "live"
@@ -1367,7 +1367,7 @@ apply = "u64.fx_audio"
 [[core_setting]]
 group = "Speaker"
 key = "Spk Vol UltiSid 2"
-label = "Speaker volume reDIP:SID 2"
+label = "Volume reDIP:SID 2"
 list = "vols"
 default = 0
 when = "live"
@@ -1376,7 +1376,7 @@ apply = "u64.fx_audio"
 [[core_setting]]
 group = "Speaker"
 key = "Spk Vol Socket 1"
-label = "Speaker volume socket 1"
+label = "Volume socket 1"
 list = "vols"
 default = 0
 when = "live"
@@ -1385,7 +1385,7 @@ apply = "u64.fx_audio"
 [[core_setting]]
 group = "Speaker"
 key = "Spk Vol Socket 2"
-label = "Speaker volume socket 2"
+label = "Volume socket 2"
 list = "vols"
 default = 0
 when = "live"
@@ -1394,7 +1394,7 @@ apply = "u64.fx_audio"
 [[core_setting]]
 group = "Speaker"
 key = "Spk Vol Sampler L"
-label = "Speaker volume sampler L"
+label = "Volume sampler L"
 list = "vols"
 default = 0
 when = "live"
@@ -1403,7 +1403,7 @@ apply = "u64.fx_audio"
 [[core_setting]]
 group = "Speaker"
 key = "Spk Vol Sampler R"
-label = "Speaker volume sampler R"
+label = "Volume sampler R"
 list = "vols"
 default = 0
 when = "live"

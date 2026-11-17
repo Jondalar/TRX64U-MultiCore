@@ -612,7 +612,7 @@ int main()
         CHECK(prg && !strcmp(prg->actions[2].label, "DMA (load, do not run)") && !prg->actions[2].ask);
     }
 
-    // T228 H1: the application's Picture row is the one the picture code finds, not a setting of the record that runs the same operation; the keys are unique
+    // T228 §5 (picture fix): the application's Picture row is the one the picture code finds; desc_check refuses a record setting that uses the key or the op of Picture, Scale or Smoothing, so the application's row is the only match
     {
         const CoreDesc *td = trx64u::desc();
         int pi = picture_index(td);

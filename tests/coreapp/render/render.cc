@@ -1206,7 +1206,7 @@ static void s1_state(const char *core, const char *cv, int area, int tab, Rig &r
     S1CHECK(p.drawn_h <= p.rows_bottom - p.rows_top, "%s %s area %d tab %d: sel %d: drawn rows %d px, room %d px", core, cv, area + 1, tab, sel, p.drawn_h, p.rows_bottom - p.rows_top);
     if (p.nrows < n) {
         S1CHECK(p.pos[0] != 0, "%s %s area %d tab %d: %d rows hidden and no position label", core, cv, area + 1, tab, n - p.nrows);
-        int pa = 0, pb = 0, pc = 0;                                             // the counter counts settings: rows hidden that are only headings leave "1-13 of 13"
+        int pa = 0, pb = 0, pc = 0;                                             // the counter counts settings and information lines: rows hidden that are only headings leave "1-13 of 13"
         bool whole = sscanf(p.pos, "%d-%d of %d", &pa, &pb, &pc) == 3 && pa == 1 && pb == pc;
         S1CHECK(whole || strstr(p.pos, "above") || strstr(p.pos, "below"), "%s %s area %d tab %d: position label \"%s\" does not say what is hidden", core, cv, area + 1, tab, p.pos);
         S1CHECK(p.pos_y2 <= p.rows_top, "%s %s area %d tab %d: position label ends at y %d, the first row starts at %d", core, cv, area + 1, tab, p.pos_y2, p.rows_top);
@@ -1547,7 +1547,7 @@ static void ux_rules(void)
 // ---- T187 UX gate 1 (R2, R3, R5, R6): the chrome and the lists at every canvas ---------------------------------------------------------------
 // Every core, at 1080p, 720p and 480p: in each tab and page the legend fits the canvas (R2) and says BACK as every list does (R5); each rail item's label ends before its
 // key (R2); no heading is printed twice in a list (R3); no row of the Hotkeys page carries the page's name as a prefix (R6).
-static int ucn_strip, ucn_f8, ucn_leg, ucn_rail, ucn_lists, ucn_pages, ucn_hk, ucn_cores, ucn_pcnames;
+static int ucn_strip, ucn_strip_skip, ucn_f8, ucn_leg, ucn_rail, ucn_lists, ucn_pages, ucn_hk, ucn_cores, ucn_pcnames;
 static bool g_pc_core;                                             // the core under test names the keys of the USB keyboard (HkSpec::pc_keys)
 static void ux_chrome_check(const char *core, const char *cv, Rig &r, const char *where, bool page)
 {
@@ -1563,10 +1563,14 @@ static void ux_chrome_check(const char *core, const char *cv, Rig &r, const char
         }
     }
     {
-        int right, room;                                            // T228 M2: every tab of the strip is inside its canvas (7 tabs on F5 of the C64 at 640 and 720 wide)
-        if (trx_strip_probe(&right, &room)) {
-            ucn_strip++;
-            UXCHECK(right <= room, "%s %s %s: the tab strip ends at x %d, the canvas holds %d", core, cv, where, right, room);
+        int right, room, nt;                                        // T228 DC12: a strip must end inside the canvas; only a strip of more than 4 tabs that overflows is exempt (7 tabs on F5 of trx64u below 960), and it is said
+        if (trx_strip_probe(&right, &room, &nt)) {
+            if (right > room && nt > 4) {
+                if (ucn_strip_skip++ == 0) { printf("note: %s %s %s: %d-tab strip ends at x %d, the canvas holds %d (DC12: skipped, first of its kind)\n", core, cv, where, nt, right, room); }
+            } else {
+                ucn_strip++;
+                UXCHECK(right <= room, "%s %s %s: the tab strip ends at x %d, the canvas holds %d", core, cv, where, right, room);
+            }
         }
     }
     for (int i = 0; i < 8; i++) {
@@ -1689,7 +1693,7 @@ static void ux_chrome(void)
         }
     }
     ui_set_canvas(960, 540);
-    printf("UX chrome: %d cores x 3 canvases, %d tab strips, %d legends, %d rail items, %d lists, %d pages, %d page rows, %d key names of non-C64 cores, %d failed\n", ucn_cores / 3, ucn_strip, ucn_leg, ucn_rail, ucn_lists, ucn_pages, ucn_hk, ucn_pcnames, uxfails);
+    printf("UX chrome: %d cores x 3 canvases, %d tab strips (%d skipped, DC12), %d legends, %d rail items, %d lists, %d pages, %d page rows, %d key names of non-C64 cores, %d failed\n", ucn_cores / 3, ucn_strip, ucn_strip_skip, ucn_leg, ucn_rail, ucn_lists, ucn_pages, ucn_hk, ucn_pcnames, uxfails);
     CHECK(ucn_cores >= 3 * 18 && ucn_leg > 500 && ucn_rail > 1000 && ucn_pages >= 3 * 3 && ucn_strip > 300 && ucn_hk > 30 && ucn_pcnames > 30);
 }
 

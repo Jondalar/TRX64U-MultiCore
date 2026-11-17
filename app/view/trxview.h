@@ -104,7 +104,7 @@ void trx_shell_forget(void);
 
 int trx_content_w(void);
 int trx_content_h(void);
-bool trx_strip_probe(int *right, int *room);                                   // bench: where the last tab of the strip ends, the strip's width (false: no strip)
+bool trx_strip_probe(int *right, int *room, int *ntabs);                         // bench: where the last tab of the strip ends, the strip's width, the tab count (false: no strip)
 bool trx_nav_probe(int i, int *label_end, int *label_room, int *key_x);   // bench: the rail item i's label text end, the label's room, the key's x
 bool trx_foot_probe(char *txt, int n, int *text_w);                      // bench: the legend as drawn and its text's width
 

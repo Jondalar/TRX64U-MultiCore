@@ -6,6 +6,9 @@ tools/test_descrec.py compile the same sources and read them with both). Little 
 
 Source (TOML; every key is checked, an unknown one is an error - a typo must not silently become a menu without its entry):
 
+    machine_info = "System Mode,REU Size"   # top-level, optional: the names of the settings whose values the Home machine line prints (record v4); a setting with
+                                   # show_state is named only while that state holds (T228 DC5)
+
     [[area]]                       # optional; without any, the default route stays (T104 5.8)
     key = "F5"                     # F1 .. F8
     name = "C64"                   # optional: the core's short title

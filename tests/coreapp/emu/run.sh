@@ -229,7 +229,7 @@ key return
 wait 800
 quit
 E2
-if grep -aq '^Drive=Disabled' "$W/flash.bin"; then echo "PASS drive settings: Drive=Disabled after RETURN on "Drive enable" (F5 tab 1)"; else echo "FAIL drive settings: no Drive=Disabled in the file"; FAIL=1; fi
+if grep -aq '^Drive=Disabled' "$W/flash.bin"; then echo "PASS drive settings: Drive=Disabled after RETURN on 'Drive enable' (F5 tab 1)"; else echo "FAIL drive settings: no Drive=Disabled in the file"; FAIL=1; fi
 if grep -aq '^Drive=Enabled' "$W/flash.bin"; then echo "FAIL control drive settings: the default is in the file"; FAIL=1; else echo "  control drive settings: the default is not in the file, as it must"; fi
 
 # D9.1 cbm1541: the 1541 ROM is chosen from the stick (a stick is not up at the ROM scan, see spec 5), a .d64 is mounted, the drive answers

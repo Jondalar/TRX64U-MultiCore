@@ -174,26 +174,19 @@ static lv_obj_t *nav_item(lv_obj_t *par, int y, const char *label, const char *k
 }
 
 // A tab of the strip: the number in a keycap, then the label (tab_item.xml).
-// `brief`: the keycap alone (a strip that is wider than its canvas shows the open tab with its label and the others as numbers).
-static int tab_w(const char *label, bool brief)
-{
-    const TrxTheme &t = trx_theme();
-    return brief ? 14 + 2 * t.space_sm : 14 + t.space_xs + trx_text_w(shout(label), t.caption) + 2 * t.space_sm;
-}
-
-static int tab_item(lv_obj_t *par, int x, int y, int n, const char *label, bool active, lv_obj_t **obj, bool brief = false)
+static int tab_item(lv_obj_t *par, int x, int y, int n, const char *label, bool active, lv_obj_t **obj)
 {
     const TrxTheme &t = trx_theme();
     char num[4];
     num[0] = (char)('0' + (n % 10));
     num[1] = 0;
-    int w = tab_w(label, brief);
+    label = shout(label);
+    int lw = trx_text_w(label, t.caption);
+    int w = 14 + t.space_xs + lw + 2 * t.space_sm;
     lv_obj_t *b = trx_box(par, x, y, w, 20, active ? t.accent_soft : t.surface2);
     lv_obj_t *cap = trx_box(b, t.space_sm, 3, 12, 14, active ? t.accent : t.line);
     trx_txt(cap, 3, 1, num, t.caption, active ? t.bg : t.muted);
-    if (!brief) {
-        trx_txt(b, t.space_sm + 14 + t.space_xs, 3, shout(label), t.caption, active ? t.ink : t.muted);
-    }
+    trx_txt(b, t.space_sm + 14 + t.space_xs, 3, label, t.caption, active ? t.ink : t.muted);
     if (obj) {
         *obj = b;
     }
@@ -245,8 +238,7 @@ static uint32_t top_key(const TrxShellInfo &i)
 static lv_obj_t *g_content, *g_top, *g_rail, *g_strip;
 static lv_obj_t *g_nav[TRX_AREAS_MAX], *g_tabw[TRX_TABS_MAX];
 static int g_nav_y[TRX_AREAS_MAX], g_tab_x[TRX_TABS_MAX];
-static int g_strip_w;                  // the strip's width, and whether it had to show its inactive tabs as numbers (the open tab then changes every width)
-static bool g_strip_brief;
+static int g_strip_w;                  // the strip's width (the bench checks the tabs end inside it)
 static uint32_t g_k_static, g_k_top, g_k_foot;
 static lv_obj_t *g_foot_lbl;
 static int g_area = -2, g_tab = -2;
@@ -318,40 +310,40 @@ static void draw_strip(const TrxRoute &route, int area, int tab)
 {
     const TrxTheme &t = trx_theme();
     const TrxArea &a = route.areas[area];
-    int tx = t.space_sm, full = t.space_sm;
+    int tx = t.space_sm;
     for (int i = 0; i < TRX_TABS_MAX; i++) {
         g_tabw[i] = 0;
     }
     for (int i = 0; i < a.ntabs && i < TRX_TABS_MAX; i++) {
-        full += tab_w(a.tabs[i].title, false) + t.space_xs;
-    }
-    g_strip_brief = full > g_strip_w;
-    for (int i = 0; i < a.ntabs && i < TRX_TABS_MAX; i++) {
         g_tab_x[i] = tx;
-        tx += tab_item(g_strip, tx, 9, a.tabs[i].n, a.tabs[i].title, i == tab, &g_tabw[i], g_strip_brief && i != tab) + t.space_xs;
+        tx += tab_item(g_strip, tx, 9, a.tabs[i].n, a.tabs[i].title, i == tab, &g_tabw[i]) + t.space_xs;
     }
 }
 
-bool trx_strip_probe(int *right, int *room)
+bool trx_strip_probe(int *right, int *room, int *ntabs)
 {
-    if (!g_strip) {
+    if (!g_content || !g_strip) {
         return false;
     }
-    int r = 0;
+    int r = 0, n = 0;
     for (int i = 0; i < TRX_TABS_MAX; i++) {
+        if (g_tabw[i]) {
+            n++;
+        }
         if (g_tabw[i] && g_tab_x[i] + (int)lv_obj_get_width(g_tabw[i]) > r) {
             r = g_tab_x[i] + (int)lv_obj_get_width(g_tabw[i]);
         }
     }
     *right = r;
     *room = g_strip_w;
+    *ntabs = n;
     return true;
 }
 
 // The bench's look at the rail: where the label's text ends and where the key begins, in the rail item i (false: no such item).
 bool trx_nav_probe(int i, int *label_end, int *label_room, int *key_x)
 {
-    if (i < 0 || i >= TRX_AREAS_MAX || !g_nav[i]) {
+    if (!g_content || i < 0 || i >= TRX_AREAS_MAX || !g_nav[i]) {
         return false;
     }
     uint32_t n = lv_obj_get_child_count(g_nav[i]);
@@ -369,7 +361,7 @@ bool trx_nav_probe(int i, int *label_end, int *label_room, int *key_x)
 // The bench's look at the foot: the legend as drawn and how wide its text is (the line the canvas holds ends at the margin).
 bool trx_foot_probe(char *txt, int n, int *text_w)
 {
-    if (!g_foot_lbl) {
+    if (!g_content || !g_foot_lbl) {
         return false;
     }
     snprintf(txt, (size_t)n, "%s", lv_label_get_text(g_foot_lbl));
@@ -432,10 +424,7 @@ static void frame_patch(const TrxShellInfo &info, const TrxRoute &route, int are
         g_tab = tab;
         g_partials++;
     } else if (tab != g_tab) {
-        if (g_has_strip && g_strip_brief) {                                // the widths follow the open tab: the strip is drawn again whole
-            lv_obj_clean(g_strip);
-            draw_strip(route, area, tab);
-        } else if (g_has_strip) {
+        if (g_has_strip) {
             if (g_tab >= 0 && g_tab < route.areas[area].ntabs && g_tab < TRX_TABS_MAX) {
                 draw_tab(route, area, g_tab, false);
             }
