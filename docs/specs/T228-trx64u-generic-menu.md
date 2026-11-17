@@ -386,12 +386,31 @@ Three Opus pre-commit reviews, the last "COMMIT: yes" (scratchpad t228/step1c/RE
   - c64_desc sets no_tone, because TRX64-Ultimate has no tone filter.
 - **Picture fix:** the Picture/Scale/Smooth lookups and menu_route_of match the op and the canonical key, because the record keeps a hidden
   "HDMI Scan Resolution" with picture.apply. Units in test_desc.cc. In ue2emu, the Picture row opens the mode page and applies 576p / 480p.
-  - Open (step 1d): the hidden setting still runs picture.apply at start, restart and config load (review 3 M1). It becomes settings.noop.
+  - The hidden setting ran picture.apply at start, restart and config load (review 3 M1); it is settings.noop since step 1d.
 - **check_menu_concept:** each exemption pins the built name (F4 "Monitor", F7 "APP"; F5 tabs 3-7 cite DC4).
-- **Tests:** dev.sh test rc 0, integrate render + apptests PASS, riscv ok, emu PASS. The 10 failing tests/ui steps are a1200/atari/c128/vc20/nes
-  features that fail the same way on main (stale since T212); they are not caused by this branch and get rewritten separately.
+- **Tests:** the step 1 "dev.sh test rc 0" came from runs that skipped desc and keywalk (dev.sh tier bug, fixed on main 7c1e47626); the real
+  run is in step 1d+1e below. The 10 failing tests/ui steps are a1200/atari/c128/vc20/nes features that fail the same way on main (stale since
+  T212); they are not caused by this branch and get rewritten separately.
+
+### S2 step 1d+1e (branch t228-s2, commit bbfb7295b, 2026-11-17, not merged)
+Opus pre-commit review 5 "COMMIT: yes" (scratchpad t228/step1e/REVIEW5.md); its comment findings 1-3 are fixed in the commit.
+- **M1:** the hidden "HDMI Scan Resolution" applies settings.noop, so the application's Picture row is the only picture setting.
+  - desc_check refuses a core setting that uses the key or the op of Picture, Scale or Smoothing. It runs in the tests only; on the board the
+    op+key match of the lookups is the guard.
+  - A Picture choice stored on main under "HDMI Scan Resolution" (or written there over REST) now does nothing; the app's Picture starts at
+    Auto once. This goes into the release notes.
+- **DC11** done: no Home picture line without a picture size, in every core.
+- **DC12** done: the compact strip is gone; trx_strip_probe reports the tab count. The render bench skips a strip wider than its canvas and
+  notes it ("c64 480p F5 tab 1: 7-tab strip ends at x 646, the canvas holds 516"). 576p is compact too (room 596), so about 50 px of tab 7
+  "Input" are cut there; the render bench checks 1080p/720p/480p only, so the S3 board check covers 480p and 576p.
+- **DC6:** pos_text skips only the title row.
+- **Audio labels:** Master, reDIP:SID n, Socket, Enable, Volume, Off (DC8 keeps Speaker). The keywalk golden moves 1025 of 113339 probes, all
+  TRX64U F5 (the key 5 jumps into Audio from every F5 tab; only status, selected label and value change).
+- **Tests** (forced runs on the builder, PASS lines quoted in REVIEW5): dev.sh test 90 units PASS (descrec, libscan, desc, keywalk, cut);
+  integrate render 0 failed (392 strips, 7 skipped by DC12; 504 legends); emu all scenarios passed; tests/ui 138 passed, 10 failed (the
+  baseline above); riscv ok; check_d24 rc 0 (the ledger can shrink: menu.toml 2229, menu_rec.inc 2328).
 - **Open:**
-  - Step 1d: review 3 M1, the ux-review FAIL findings (syslog row, F8 counter, SID row, Home picture line DC11), DC9, DC12, the F2 picture.
-  - dev.sh emu S11 expects the cfg in /flash/trx64u/c64.cfg for a start without a .cor, which contradicts D11 (no settings in flash).
-  - Step 2: D12, D17, D18, DC1, DC3, DC7.
+  - The ux-review of 1d+1e (before the merge).
+  - tools/descrec.py refuses only the key "picture" at pack time, not Scale/Smoothing and not the three ops (desc_check's rule); step 2.
+  - Step 2: D12, D17, D18, DC1 (no Softboot under the MultiCore host), DC3, DC7, DC13 (flash cfg by parameter; emu S11 both values).
   - The contract note (record v4, `sections`, base-settings merge) in docs/contracts/trx64u-firmware-handover.md waits until both sides change.
