@@ -385,6 +385,9 @@ def check_benches():
     sims = P.parse_sims(open(os.path.join(HERE, "sims.txt"), encoding="utf-8").read())
     deps = P.parse_deps(open(os.path.join(HERE, "sims.deps"), encoding="utf-8").read(), P.read_reads())
     _, dfx, large = P.universe()
+    sys.path.insert(0, os.path.join(os.path.dirname(HERE), "tools"))
+    import core_toml as CT  # noqa: E402
+    off = set(n for n, _, t in CT.descriptors() + CT.large_descriptors() if not CT.in_pipeline(t))   # T92 D-17e: out of every stage
     for b in sims:
         o = owners.get(b)
         if not o:
@@ -393,6 +396,8 @@ def check_benches():
         if len(o) > 1:
             errs.append("bench %s has %d owners in ci/sims.lane (exactly one)" % (b, len(o)))
         o = o[0]
+        if o.split(":", 1)[-1] in off and o != "host":
+            continue                # the owner core has `pipeline = false`: no stage runs the bench (ci/sims.sh skips it too)
         specs = deps.get(b)
         if specs is None:
             errs.append("bench %s has no line in ci/sims.deps" % b)
