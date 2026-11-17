@@ -58,11 +58,11 @@ key = "F5"                       # the core's short title ("C64") names it
   groups = ["Machine", "Drive_A", "Drive_extras", "TRX64", "Expansion", "Hardware", "Recording"]
   ui = { sections = true }
   n = 1
-  [[area.tab]]                    # the generic Picture row first (group "video", no heading: it repeats the tab's title), then System mode and the outputs
+  [[area.tab]]                    # D14: section Picture = System mode, then the generic Picture/Scale rows (routed rows follow the first block), section Output
   id = "video"
   name = "Video"
   widget = "settings"
-  groups = ["video", "Picture", "Output"]
+  groups = ["Picture", "Output"]
   ui = { sections = true }
   n = 2
   [[area.tab]]                    # no generic volume (the core has its own mixer, own_volume); R5: the SID sockets and the emulated SIDs are two rows at the end, each opens its page
