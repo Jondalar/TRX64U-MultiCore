@@ -66,7 +66,8 @@ only after a change.
 ## §3 Decision
 
 **Repair, not replace** (Claude as advisor, 2026-11-17; Alex delegated: "look for another one or repair it"). A search for another
-open HDL uPD765 found none (2026-11-17: the only other open 765 for Amstrad machines is John Elliott's C library lib765, software).
+open HDL uPD765 for the CPC found none (2026-11-17: the only other open 765 for Amstrad machines found is John Elliott's C library lib765,
+software; PC-style 82077 floppy controllers in other FPGA projects were not looked at).
 u765's command decoding and data path have worked on the board since 2026-11-02 (CAT, games); what failed every round is what
 surrounds it: the scan's hold on RQM, unbounded waits, and disk events applied asynchronously. Those are repaired as a design, not
 patched per race.

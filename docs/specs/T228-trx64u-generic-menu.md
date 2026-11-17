@@ -306,7 +306,7 @@ overlay was fitted from a 1280x800 manual picture, so its scale on the real 960x
 
 ### Decisions during S2 (decided by Claude on Alex's delegation 2026-11-16 night; Alex can overturn each at S2b)
 Alex 2026-11-16 (translated): "you start T228 overnight ... be the advisor here, decide for me". Each decision follows a D-row or the
-S1 table where one exists; only DC2, DC3, DC6, DC7, DC9, DC11 and DC12 are new choices (DC1 is Alex's).
+S1 table where one exists; only DC2, DC6, DC7, DC9, DC11 and DC12 are new choices (DC1 and DC3 are Alex's).
 - DC1 (Alex 2026-11-17, overturning Claude's first DC1, which made Softboot a Library file action on .cfw/.ue2/.u64): "DC1 raus unter
   Multicore" (translated: "DC1 out under MultiCore"). trx64u offers no Softboot while it runs under the MultiCore host: not in F7 Apps,
   not as a file action. The decision is generic, from the host context, not a core name in the code.
