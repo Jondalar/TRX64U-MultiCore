@@ -138,12 +138,12 @@ static int sim_window(const SimApp &a, int scale)
                                        SDL_WINDOW_ALLOW_HIGHDPI);
     SDL_Renderer *ren = win ? SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC) : 0;
     if (win && !ren) { ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_SOFTWARE); }    // no GPU renderer (a remote session, SDL's dummy driver)
+    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");   // before the texture: a texture takes the hint when it is created (nearest, as the pixel layer)
     SDL_Texture *tex = ren ? SDL_CreateTexture(ren, SDL_PIXELFORMAT_RGB24, SDL_TEXTUREACCESS_STREAMING, a.frame_w, a.frame_h) : 0;
     if (!tex) {
         fprintf(stderr, "menusim: SDL window: %s\n", SDL_GetError());
         return 1;
     }
-    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
     std::vector<unsigned char> rgb((size_t)a.frame_w * a.frame_h * 3);
     printf("menusim: F1-F8 need fn on a Mac keyboard unless \"Use F1, F2, etc. keys as standard function keys\" is on; shift+F1 = F2.\n"
            "         Cmd+R reload, Cmd+S screenshot, Cmd+Q quit.\n");
