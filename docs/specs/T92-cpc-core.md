@@ -423,6 +423,10 @@ OS464 + BASIC464`, every part 16 KB (README). Frame: the CRTC is programmable; t
   proven by a bench before the merge:
   - The drive list mounts A: and B: with a reset, as the test core did.
   - The u765 gets the H1/H2 fixes through `tools/cpc_gen.py`, so "Mount A:" without a reset no longer hangs either.
+- D-17b (Alex 2026-11-17, after the review showed that "Replace from Library..." would cold-start the CPC and end a multi-disk game;
+  asked with options: reset only into an empty drive / always / never): "Reset only into an empty drive". Mounting into an empty A:/B:
+  resets, as the test core did. Replacing the disk of a filled drive swaps it without a reset. The u765 fixes (H1, H2 incl. EXEC8
+  and WRITE, H3) make the swap safe.
 
 ## §4 Out
 
