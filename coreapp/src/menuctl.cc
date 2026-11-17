@@ -2856,14 +2856,8 @@ void MenuCtl::footer_legend_keys(char *out, int n)
         snprintf(out, n, "%s", learn_row ? "UP/DOWN  CHOOSE   RETURN  LEARN KEY   <- ->  CHANGE   ESC  BACK" : "UP/DOWN  CHOOSE   <- ->  CHANGE   ESC  BACK");
         return;
     }
-    int nmax = 1;
-    const MenuArea &ar = tree_.a[area_];
-    for (int b = 0; b < ar.ntabs; b++) {
-        if (ar.tabs[b].n > nmax) {
-            nmax = ar.tabs[b].n;
-        }
-    }
-    int p = snprintf(out, n, nmax > 1 ? "F1-F8 AREA  1-%d TAB  RETURN  <- BACK" : "F1-F8 AREA  RETURN  <- BACK", nmax);
+    // T212 D16: every list area's foot reads like the drive list's; what the rail (F1-F8) and the tab strip (the numbers) show is not repeated here
+    int p = snprintf(out, n, "UP/DOWN  CHOOSE   RETURN  DO IT   ESC  BACK");
     // the letters of this page's buttons first, then the core's own that this page does not claim, as far as the line holds (about 92 characters)
     for (int i = cur().first; i < cur().first + cur().count && i < tree_.n && p < n - 12; i++) {
         const MenuEntry &e = tree_.e[i];
