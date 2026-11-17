@@ -741,7 +741,7 @@ static void follow_menu(const char *out)
             if (!strcmp(l, "Frame follow")) { row = i; CHECK(!strncmp(rr, "Off", 3)); }
         }
         CHECK(row >= 0);
-        CHECK_EQ(nvideo, 3);                                                 // D5: the row stands with the other picture rows
+        CHECK(nvideo == 3);                                                 // D5: the row stands with the other picture rows
         if (row >= 0) select_row(r, row);
         ui_menu_render(*r.m);
         lv_timer_handler();
