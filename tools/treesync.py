@@ -26,6 +26,7 @@ import sys
 import tarfile
 
 MANIFEST = ".treesync.manifest"
+DRIFT = "--treesync-drift--"
 
 
 def tracked(src):
@@ -111,8 +112,22 @@ class Remote:
         return subprocess.run(["ssh", self.host, cmd], input=data, check=True, capture_output=True).stdout
 
     def read_manifest(self):
-        out = self.ssh("cat %s 2>/dev/null || true" % shlex.quote(os.path.join(self.root, MANIFEST)))
-        return parse(out.decode("utf-8", "surrogateescape"))
+        """The manifest, minus the entries of files edited by hand on the host: one ssh round prints the manifest, a marker line, and
+        the sha256 of every manifest file whose mtime is not older than the manifest's (a synced file is older: tar keeps the source
+        mtime). A file whose hash differs from its entry is dropped, so it lands in `changed` and is copied again."""
+        m = shlex.quote(os.path.join(self.root, MANIFEST))
+        out = self.ssh("cat %s 2>/dev/null || exit 0; echo '%s'; cd %s && t=$(stat -c %%Y %s) && grep -v '^L:' %s | cut -f3- | tr '\\n' '\\0'"
+                       " | xargs -0 -r stat -c '%%Y\t%%n' 2>/dev/null | awk -F'\t' -v t=$t '$1 >= t {print substr($0, index($0, \"\t\") + 1)}'"
+                       " | tr '\\n' '\\0' | xargs -0 -r sha256sum 2>/dev/null || true"
+                       % (m, DRIFT, shlex.quote(self.root), m, m)).decode("utf-8", "surrogateescape")
+        text, _, sums = out.partition(DRIFT + "\n")
+        old = parse(text)
+        for line in sums.splitlines():
+            h, _, rel = line.partition("  ")
+            if rel in old and old[rel][0] != h:
+                print("drift: " + rel)
+                del old[rel]
+        return old
 
     def apply(self, src, changed, removed, manifest, clean):
         q = shlex.quote(self.root)
