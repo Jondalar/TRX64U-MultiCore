@@ -338,12 +338,17 @@ S1 table where one exists; only DC2, DC3, DC6, DC7, DC9, DC11 and DC12 are new c
   - ue2emu draws trx64u on the 960 canvas in every mode, so the compact strip can never be shown in a picture (ux-review R7, finding 4),
     and code no picture can prove does not ship.
   - S3 checks the F5 strip on the board at 480p. If it overflows there, the strip comes back from commit 4737d0039.
-- DC13 (enforces D11) A trx64u start without a .cor keeps its settings in memory only, as the generic cores do on the multicore
-  profile. With a .cor the cfg is already in the core folder (`<cor dir>/<name>/<name>.cfg`). Today a start without a .cor (JTAG,
-  ue2emu, monolith profile) writes `/flash/trx64u/c64.cfg` (board.h:15). That is the last flash write and goes; `cfg_dir` is null
-  for such a start. `start_migrate_cfg` stays: it reads the old flash file once and writes nothing to flash. The emu scenario S11
-  moves to a start with a start file and a .cor. Why: Alex 2026-11-15, D11: "we do not save to flash! and nothing is erased in
-  flash there either!!!".
+- DC13 (Alex 2026-11-17, replacing Claude's first DC13, which removed the flash cfg): "Mach das mal optional mit Parameter. Evtl
+  ersetzen wir generell das UI mit unserem auch für standalone Installationen. Und dann muss man seine settings ja irgendwie
+  persistieren können. Also auch ohne Multicore als Host System." (translated: "make it optional with a parameter; we may replace the
+  UI with ours for standalone installations too, and then the settings must persist somehow, also without MultiCore as the host").
+  Today a start without a .cor writes `/flash/trx64u/c64.cfg` (board.h:15); with a .cor the cfg is in the core folder. The change:
+  - A generic parameter of the app's start context decides whether a start without a .cor keeps its settings in a flash cfg. It is not
+    a core name in the code; the builder names where it lives.
+  - Under the MultiCore host it is off (D11), so the settings of a start without a .cor stay in memory.
+  - A standalone installation, our UI in place of the stock one, turns it on, so the settings persist without a host.
+  - `start_migrate_cfg` stays: it reads an old flash file once.
+  - The emu scenario S11 covers both values of the parameter.
 - From the spec, not new:
   - F4 is the Monitor rail entry (D3, variant A), so the rail reads "MONITOR", not "TOOLS".
   - The old F4 Diagnostics content goes where the S1 table puts it: Bug report to F8 Support, System information/Board/Uptime to F8
