@@ -35,7 +35,7 @@ static int vic_family(int sys)
     return (sys == VID_SYS_NTSC60 || sys == VID_SYS_PAL60) ? VID_SYS_NTSC60 : VID_SYS_PAL50;
 }
 
-// "Auto" and then the resolutions the screen takes. The first value says where its mode comes from (T164 D10c amended): "Auto (1280 x 720 from host)" when the core
+// "Auto" and then the rows of the list (T235: every row of the table with its rate on the gateware path, else the resolutions the screen takes). The first value says where its mode comes from (T164 D10c amended): "Auto (1280 x 720 from host)" when the core
 // uses the mode the host stored, "Auto (1920 x 1080 from screen)" when it uses what it picked from the screen; plain "Auto" until the picture starts.
 static char g_auto_text[40] = "Auto";
 static const char *g_values[1 + PIC_ROWS_MAX];

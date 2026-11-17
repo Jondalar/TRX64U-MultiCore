@@ -1450,7 +1450,7 @@ bool MenuCtl::picture_row(const MenuEntry &e) const
     return e.kind == EK_SETTING && c_->desc->settings[e.index].apply && !strcmp(c_->desc->settings[e.index].apply, PICTURE_OP);
 }
 
-// T187 D5 (GitHub #50): the Picture row opens the modes the screen names. Browsing applies nothing; RETURN on another row applies it through the setting's
+// T187 D5 (GitHub #50): the Picture row opens the page of the modes (every row of the table at 50 and 60 Hz on the gateware path, T235; the screen's own marked). Browsing applies nothing; RETURN on another row applies it through the setting's
 // operation (the one REST and the web call) and starts the confirm of picture_service; RETURN on the mode in force, <- and ESC close it with no change.
 void MenuCtl::pick_modes_refresh(bool keep_cursor)
 {

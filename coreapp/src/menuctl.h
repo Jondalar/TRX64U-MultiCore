@@ -259,7 +259,7 @@ private:
     void begin_pick_file(int idx);                                 // T185 D4: the file selector of a setting of kind 3 (folders and files, "no file" on top)
     void begin_set_save();                                         // T180 D5: the name prompt of "Save media set..."
     void begin_set_load();                                         // T180 D5: the list of the sets of "Load media set..."
-    void begin_pick_modes();                                       // T187 D5: the Picture row's page - the modes the screen names; browsing applies nothing
+    void begin_pick_modes();                                       // T187 D5: the Picture row's page - the modes (T235: every row at 50 and 60 Hz, the screen's marked); browsing applies nothing
     void pick_modes_refresh(bool keep_cursor);
     bool picture_row(const MenuEntry &e) const;                    // the entry is the Picture setting (RETURN opens the page; LEFT / RIGHT do nothing)
     void pick_status();

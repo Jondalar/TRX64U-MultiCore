@@ -27,7 +27,7 @@ struct PictureEnv {
 // out = *d with the Picture item after d's own settings; for every frame-buffer core on a host whose gateware scales (env->gateware), Scale and
 // Smoothing follow it; a core whose picture is the VIC (no frame buffer) on a gateware with the VIC scaler (env->vic_scale, T222) gets Scale (0x4F01), and Smoothing too when env->vic_smooth (T227, 0x4F0B). `store` holds the merged array (SETTINGS_MAX items) and has to outlive `out`. Returns null, or the reason when the core has no
 // room for the items or declares a key itself. The menu, the boot sequence and the settings read the merged copy (CoreCtx::desc points at it), never
-// the table's original. The Picture list is Auto and the resolutions of video_modes_hdmi_list() for the mask and the machine's family (D11a, Q6);
+// the table's original. On the gateware path (env->gateware, not the VIC path) the Picture list is Auto and every row of the mode table at its own rate, the machine's rate first within a resolution (T235; the mask only marks the rows the screen names); without it, and on the VIC path, the resolutions of video_modes_hdmi_list() for the mask and the machine's family (D11a, Q6);
 // env null: every row, no gateware.
 const char *picture_extend(const CoreDesc *d, CoreDesc *out, Setting *store, const PictureEnv *env = 0);
 // The board's answer, for run.cc: reads the EDID and probes the gateware.
