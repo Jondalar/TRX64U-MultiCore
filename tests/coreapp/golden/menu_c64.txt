@@ -3,19 +3,18 @@ area F1 Home
   tab 1 Home
     task Reset (closes the menu)
     task Reload ROMs, reset (closes the menu)
-    task Pause / resume (closes the menu)
-    task Reboot, clear memory (closes the menu)
-    task Save C64 memory (asks a name)
-    task Save REU memory (asks a name)
+    task Timewarp...
+    task Monitor...
     media Drive A:
     media Cartridge port
     media Program
     fixed Save as config...
     fixed Load config...
   tab 0 Drive (a page)
-area F2 Timewarp
-  tab 1 Timeline
+  tab 0 Timewarp (a page)
     node Resume here = button calls tw.resume in group bar (closes the menu) from description
+  tab 0 Monitor (a page)
+    node Help = button calls mon.run in group bar from description
 area F3 Library
   tab 1 Browse
     browser Browse
@@ -76,11 +75,9 @@ area F3 Library
     node Choice 11 = button calls online.cycle from description
     node Choice 12 = button calls online.cycle from description
     node Clear the form = button calls online.clear from description
-area F4 Monitor
-  tab 1 Monitor
-    node Help = button calls mon.run in group bar from description
 area F5 C64
-  tab 1 Machine
+  tab 1 C64
+    heading Machine
     setting Fast reset = Disabled | Enabled (default Disabled, live)
     setting Kernal ROM =   | Built-in (default  , live)
     setting Basic ROM =   | Built-in (default  , live)
@@ -98,9 +95,14 @@ area F5 C64
     setting Track twist = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31 | 32 | 33 | 34 | 35 | 36 | 37 | 38 | 39 | 40 (default 27, live)
     setting SpeedDOS parallel cable = Disabled | Enabled (default Disabled, live)
     setting ROM for 1541 mode = 1541.rom (default 1541.rom, live)
-  tab 2 TRX64
+    heading Hardware
+    setting DMA load mimics ID = 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31 (default 8, live)
+    setting Bus operation mode = Quiet | Writes | Dynamic | Dyn. & Writes | Compatibility (default Quiet, live)
+    setting Badline timing = Disabled | Enabled (default Enabled, live)
+    setting SuperCPU detect (D0BC) = Disabled | Enabled (default Disabled, live)
+  tab 2 TRX
+    heading TRX64
     setting Freeze mode = Whole machine | CPU only (default Whole machine, at next reset)
-    setting Save changed cartridge = Off | Ask | Auto (default Ask, live)
     setting Turbo control = Off | Manual | U64 Turbo Registers | TurboEnable Bit (default Off, live)
     setting CPU speed = 1 | 2 | 3 | 4 | 6 | 8 | 10 | 12 | 14 | 16 | 20 | 24 | 32 | 40 | 48 | 64 (default 1, live)
     heading Recording
@@ -108,30 +110,28 @@ area F5 C64
     setting Instruction trace = Off | On (default Off, live)
     node Save frame = button calls tw.dump when tw.present in group Recording from description
     node Save the ring = button calls tw.ringdump when tw.present in group Recording from description
-  tab 3 Memory and I/O
-    heading Expansion
+  tab 3 Expansion
+    heading Cartridge
     setting Cartridge preference = Auto | Internal | External | Manual (default Auto, live)
+    setting Save changed cartridge = Off | Ask | Auto (default Ask, live)
+    setting GAME/EXROM = On | Off (default On, live)
+    setting Bus sharing - ROMs = Internal | External | Both (default Both, live)
+    setting Bus sharing - I/O1 = Internal | External | Both (default Both, live)
+    setting Bus sharing - I/O2 = Internal | External | Both (default Both, live)
+    setting Bus sharing - interrupts = Internal | External | Both (default Both, live)
+    heading REU
     setting RAM expansion unit = Disabled | Enabled | GeoRAM Mode (default Disabled, live)
     setting REU size = 128 KB | 256 KB | 512 KB | 1 MB | 2 MB | 4 MB | 8 MB | 16 MB (default 2 MB, live) [listed while reu.on]
     setting REU preload = Disabled | Enabled (default Disabled, live) [listed while reu.on]
     setting REU preload image = /usb0/preload.reu (default /usb0/preload.reu, live) [listed while reu.on]
     setting REU preload offset = 0 KB | 128 KB | 256 KB | 512 KB | 1 MB | 2 MB | 4 MB | 8 MB | 16 MB (default 0 KB, live) [listed while reu.on]
+    heading Ultimate
     setting Ultimate audio at $DF20-$DFFF = Disabled | Enabled (default Disabled, live)
     setting Command interface (UCI) = Disabled | Enabled (default Disabled, live)
-    heading Hardware
-    setting DMA load mimics ID = 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31 (default 8, live)
-    setting Bus operation mode = Quiet | Writes | Dynamic | Dyn. & Writes | Compatibility (default Quiet, live)
-    setting Bus sharing - ROMs = Internal | External | Both (default Both, live)
-    setting Bus sharing - I/O1 = Internal | External | Both (default Both, live)
-    setting Bus sharing - I/O2 = Internal | External | Both (default Both, live)
-    setting Bus sharing - interrupts = Internal | External | Both (default Both, live)
-    setting GAME/EXROM = On | Off (default On, live)
-    setting Badline timing = Disabled | Enabled (default Enabled, live)
-    setting SuperCPU detect (D0BC) = Disabled | Enabled (default Disabled, live)
   tab 4 Video
     heading Picture
     setting System mode = PAL | NTSC | PAL-60 | NTSC-50 | PAL-60/L | NTSC-50/L (default PAL, live)
-    setting Picture = Auto | 576p / 480p | 1280 x 720 | 1920 x 1080 | 800 x 600 | 1024 x 768 | 1280 x 1024 (default Auto, live)
+    setting Picture = Auto | 576p (50 Hz) | 480p (60 Hz) | 1280 x 720 (50 Hz) | 1280 x 720 (60 Hz) | 1920 x 1080 (50 Hz) | 1920 x 1080 (60 Hz) | 800 x 600 (60 Hz) | 1024 x 768 (60 Hz) | 1280 x 1024 (60 Hz) (default Auto, live)
     heading Output
     setting HDMI scan lines = Disabled | Enabled (default Enabled, live)
     setting Analog video mode = CVBS + SVideo | RGB (default CVBS + SVideo, live)
@@ -161,8 +161,10 @@ area F5 C64
     setting Volume socket 2 = Off | -42 dB | -36 dB | -30 dB | -27 dB | -24 dB | -18 dB | -17 dB | -16 dB | -15 dB | -14 dB | -13 dB | -12 dB | -11 dB | -10 dB | -9 dB | -8 dB | -7 dB | -6 dB | -5 dB | -4 dB | -3 dB | -2 dB | -1 dB | 0 dB | +1 dB | +2 dB | +3 dB | +4 dB | +5 dB | +6 dB (default Off, live)
     setting Volume sampler L = Off | -42 dB | -36 dB | -30 dB | -27 dB | -24 dB | -18 dB | -17 dB | -16 dB | -15 dB | -14 dB | -13 dB | -12 dB | -11 dB | -10 dB | -9 dB | -8 dB | -7 dB | -6 dB | -5 dB | -4 dB | -3 dB | -2 dB | -1 dB | 0 dB | +1 dB | +2 dB | +3 dB | +4 dB | +5 dB | +6 dB (default Off, live)
     setting Volume sampler R = Off | -42 dB | -36 dB | -30 dB | -27 dB | -24 dB | -18 dB | -17 dB | -16 dB | -15 dB | -14 dB | -13 dB | -12 dB | -11 dB | -10 dB | -9 dB | -8 dB | -7 dB | -6 dB | -5 dB | -4 dB | -3 dB | -2 dB | -1 dB | 0 dB | +1 dB | +2 dB | +3 dB | +4 dB | +5 dB | +6 dB (default Off, live)
-  tab 6 SID
-    heading SID sockets
+    heading reDIP:SID
+    opens SID sockets
+    opens Emulated SIDs
+  tab 0 SID sockets (a page)
     setting Socket 1 enable = Disabled | Enabled (default Disabled, live)
     setting Socket 2 enable = Disabled | Enabled (default Disabled, live)
     setting Socket 1 1K ohm resistor = Off | On (default Off, live)
@@ -174,7 +176,7 @@ area F5 C64
     setting Extended DualSID range split = Off | A5 | A6 | A7 | A8 | A9 (default Off, live)
     setting Paddle override = Disabled | Enabled (default Enabled, live)
     setting Auto address mirroring = Disabled | Enabled (default Enabled, live)
-    heading Emulated SIDs
+  tab 0 Emulated SIDs (a page)
     setting reDIP:SID 1 address = Unmapped | $D400 | $D420 | $D440 | $D460 | $D480 | $D4A0 | $D4C0 | $D4E0 | $D500 | $D520 | $D540 | $D560 | $D580 | $D5A0 | $D5C0 | $D5E0 | $D600 | $D620 | $D640 | $D660 | $D680 | $D6A0 | $D6C0 | $D6E0 | $D700 | $D720 | $D740 | $D760 | $D780 | $D7A0 | $D7C0 | $D7E0 | $DE00 | $DE20 | $DE40 | $DE60 | $DE80 | $DEA0 | $DEC0 | $DEE0 | $DF00 | $DF20 | $DF40 | $DF60 | $DF80 | $DFA0 | $DFC0 | $DFE0 (default $D400, live)
     setting reDIP:SID 2 address = Unmapped | $D400 | $D420 | $D440 | $D460 | $D480 | $D4A0 | $D4C0 | $D4E0 | $D500 | $D520 | $D540 | $D560 | $D580 | $D5A0 | $D5C0 | $D5E0 | $D600 | $D620 | $D640 | $D660 | $D680 | $D6A0 | $D6C0 | $D6E0 | $D700 | $D720 | $D740 | $D760 | $D780 | $D7A0 | $D7C0 | $D7E0 | $DE00 | $DE20 | $DE40 | $DE60 | $DE80 | $DEA0 | $DEC0 | $DEE0 | $DF00 | $DF20 | $DF40 | $DF60 | $DF80 | $DFA0 | $DFC0 | $DFE0 (default $D400, live)
     setting reDIP:SID range split = Off | 1/2 (A5) | 1/2 (A6) | 1/2 (A7) | 1/2 (A8) | 1/4 (A5,A6) | 1/4 (A5,A8) | 1/4 (A7,A8) (default Off, live)
@@ -186,13 +188,15 @@ area F5 C64
     setting reDIP:SID 2 combined waveforms = 6581 | 8580 (default 6581, live)
     setting reDIP:SID 1 digi level = Off | Low | Medium | High (default Medium, live)
     setting reDIP:SID 2 digi level = Off | Low | Medium | High (default Medium, live)
-  tab 7 Input
+  tab 6 Input
     setting Joystick input = Normal | Swapped | WASD Port 2 | WASD Port 1 | WASD P2 No KB | WASD P1 No KB (default Normal, live)
     setting Mouse mode = Cursor | Mouse | Mouse + Cursor | Mouse + Wheel (default Mouse, live)
     setting Mouse sensitivity = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 (default 8, live)
     setting Mouse acceleration = Off | Adaptive (default Off, live)
     setting Mouse wheel sensitivity = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 (default 8, live)
     setting Mouse wheel direction = Normal | Reversed (default Normal, live)
+    setting USB controller as joystick = Port 1 | Port 2 (default Port 2, live)
+    task Map USB controller buttons
 area F7 APP
   tab 1 Settings
     heading Application
@@ -207,6 +211,11 @@ area F7 APP
     heading Menu and keys
     setting Menu opens at = Home (F1) | Last screen (default Home (F1), live)
     opens Hotkeys
+    heading Apps
+    node Cartridge dumper = button calls app.open from description
+    node Cartridge inspector = button calls app.open from description
+    node Flash cartridge = button calls app.open from description
+    node Softboot = button calls app.open from description
   tab 0 Hotkeys (a page)
     setting Modifier = Off | CTRL | C= | C= + CTRL | C= + L SHIFT | C= + RUN/STOP | CTRL + L SHIFT | CTRL + RUN/STOP (default CTRL, live)
     setting Menu open / close = Off | DEL | RETURN | CRSR RIGHT | F7 | F1 | F3 | F5 | CRSR DOWN | 3 | W | A | 4 | Z | S | E | L SHIFT | 5 | R | D | 6 | C | F | T | X | 7 | Y | G | 8 | B | H | U | V | 9 | I | J | 0 | M | K | O | N | + | P | L | - | . | : | @ | , | POUND | * | ; | HOME | R SHIFT | = | UP ARROW | / | 1 | LEFT ARROW | CTRL | 2 | SPACE | C= | Q | RUN/STOP | RESTORE (default RESTORE, live)
@@ -215,11 +224,6 @@ area F7 APP
     setting Reset = Off | DEL | RETURN | CRSR RIGHT | F7 | F1 | F3 | F5 | CRSR DOWN | 3 | W | A | 4 | Z | S | E | L SHIFT | 5 | R | D | 6 | C | F | T | X | 7 | Y | G | 8 | B | H | U | V | 9 | I | J | 0 | M | K | O | N | + | P | L | - | . | : | @ | , | POUND | * | ; | HOME | R SHIFT | = | UP ARROW | / | 1 | LEFT ARROW | CTRL | 2 | SPACE | C= | Q | RUN/STOP | RESTORE (default R, live)
     setting Swap joystick ports = Off | DEL | RETURN | CRSR RIGHT | F7 | F1 | F3 | F5 | CRSR DOWN | 3 | W | A | 4 | Z | S | E | L SHIFT | 5 | R | D | 6 | C | F | T | X | 7 | Y | G | 8 | B | H | U | V | 9 | I | J | 0 | M | K | O | N | + | P | L | - | . | : | @ | , | POUND | * | ; | HOME | R SHIFT | = | UP ARROW | / | 1 | LEFT ARROW | CTRL | 2 | SPACE | C= | Q | RUN/STOP | RESTORE (default J, live)
     setting Picture mode = Off | DEL | RETURN | CRSR RIGHT | F7 | F1 | F3 | F5 | CRSR DOWN | 3 | W | A | 4 | Z | S | E | L SHIFT | 5 | R | D | 6 | C | F | T | X | 7 | Y | G | 8 | B | H | U | V | 9 | I | J | 0 | M | K | O | N | + | P | L | - | . | : | @ | , | POUND | * | ; | HOME | R SHIFT | = | UP ARROW | / | 1 | LEFT ARROW | CTRL | 2 | SPACE | C= | Q | RUN/STOP | RESTORE (default P, live)
-  tab 2 Apps
-    node Cartridge dumper = button calls app.open from description
-    node Cartridge inspector = button calls app.open from description
-    node Flash cartridge = button calls app.open from description
-    node Softboot = button calls app.open from description
 area F8 System
   tab 1 System
     heading Actions
@@ -227,6 +231,9 @@ area F8 System
     fixed Return to host menu
     heading Network
     fixed WiFi
+    opens Network settings
+    opens Streams
+    opens FTP hosts
     heading Support
     fixed Bug report
     fixed Keys and help
@@ -244,13 +251,18 @@ area F8 System
     node Flash = state shows media.flash from description
     node USB mouse = state shows usb.mouse from description
     node USB keyboard = state shows usb.keyboard from description
-  tab 2 Network
+  tab 0 Network settings (a page)
     heading WiFi and Ethernet
     setting Use DHCP = Disabled | Enabled (default Enabled, live)
     setting Static IP = 192.168.2.64 (default 192.168.2.64, live) [listed while net.static]
     setting Static netmask = 255.255.255.0 (default 255.255.255.0, live) [listed while net.static]
     setting Static gateway = 192.168.2.1 (default 192.168.2.1, live) [listed while net.static]
     setting Static DNS = 8.8.8.8 (default 8.8.8.8, live) [listed while net.static]
+    node Ethernet status = state shows net.eth_status in group WiFi_and_Ethernet from description
+    node Interface MAC = state shows net.eth_mac in group WiFi_and_Ethernet from description
+    node Wi-Fi status = state shows wifi.state in group WiFi_and_Ethernet from description
+    node Wi-Fi network = state shows wifi.ssid in group WiFi_and_Ethernet from description
+    node Wi-Fi address = state shows wifi.ip in group WiFi_and_Ethernet from description
     heading Services
     setting Host name =   (default  , live)
     setting Unique ID = Default (default Default, live)
@@ -266,23 +278,17 @@ area F8 System
     setting Time server 1 =   (default  , live)
     setting Time server 2 =   (default  , live)
     setting Time server 3 =   (default  , live)
-    heading Streams
+  tab 0 Streams (a page)
     setting Stream VIC to = 239.0.1.64:11000 (default 239.0.1.64:11000, live)
     setting Stream audio to = 239.0.1.65:11001 (default 239.0.1.65:11001, live)
     setting Stream debug to = 239.0.1.66:11002 (default 239.0.1.66:11002, live)
     setting Debug stream mode = 6510 Only | VIC Only | 6510 & VIC | 1541 Only | 6510 & 1541 | 6510 w/IEC | 6510 & VIC w/IEC (default 6510 Only, live)
-    opens FTP hosts
-    node Ethernet status = state shows net.eth_status from description
-    node Interface MAC = state shows net.eth_mac from description
-    node Wi-Fi status = state shows wifi.state from description
-    node Wi-Fi network = state shows wifi.ssid from description
-    node Wi-Fi address = state shows wifi.ip from description
-    node Start VIC stream = button calls stream.start when stream.vic_off from description
-    node Stop VIC stream = button calls stream.stop when stream.vic_on from description
-    node Start audio stream = button calls stream.start when stream.audio_off from description
-    node Stop audio stream = button calls stream.stop when stream.audio_on from description
-    node Start debug stream = button calls stream.start when stream.debug_off from description
-    node Stop debug stream = button calls stream.stop when stream.debug_on from description
+    node Start VIC stream = button calls stream.start when stream.vic_off in group Streams from description
+    node Stop VIC stream = button calls stream.stop when stream.vic_on in group Streams from description
+    node Start audio stream = button calls stream.start when stream.audio_off in group Streams from description
+    node Stop audio stream = button calls stream.stop when stream.audio_on in group Streams from description
+    node Start debug stream = button calls stream.start when stream.debug_off in group Streams from description
+    node Stop debug stream = button calls stream.stop when stream.debug_on in group Streams from description
   tab 0 FTP hosts (a page)
     setting FTP 1 alias =   (default  , live)
     setting FTP 1 host =   (default  , live)
@@ -308,17 +314,3 @@ area F8 System
     setting FTP 4 user = anonymous (default anonymous, live)
     setting FTP 4 password =   | Not set (default  , live)
     setting FTP 4 folder = / (default /, live)
-  tab 3 Device
-    setting Power on after power loss = Off | On | Last State (default Off, live)
-    setting Wake on Wi-Fi = Disabled | Enabled (default Disabled, live)
-    setting LED select top = On | Off | Drive A Pwr | DrvAPwr + DrvBPwr | Drive A Act | DrvAAct + DrvBAct | DrvAPwr ^ DrvAAct | USB Activity | Any Activity | !(DrvAAct) | !(DrvAAct+DrvBAct) | !(USB Act) | !(Any Act) | IRQ Line | !(IRQ Line) | Drive B Act (default On, live)
-    setting LED select bottom = On | Off | Drive A Pwr | DrvAPwr + DrvBPwr | Drive A Act | DrvAAct + DrvBAct | DrvAPwr ^ DrvAAct | USB Activity | Any Activity | !(DrvAAct) | !(DrvAAct+DrvBAct) | !(USB Act) | !(Any Act) | IRQ Line | !(IRQ Line) | Drive B Act (default Drive A Act, live)
-    setting Color scheme = Standard Blue | Ultimate Black | C128 Style | Commodore Blue | Commodore 1 | Commodore 2 | Commodore 3 (default Ultimate Black, live)
-  tab 4 Diagnostics
-    node Debug log = button calls diag.nop from description
-    node Clear debug log = button calls diag.clear_log from description
-    node Save debug log = button calls diag.save_log from description
-    node Heap = state in group side from description
-    node Screen EDID = button calls diag.nop from description
-    node Debug register = state in group side from description
-    node Save EDID = button calls diag.save_edid from description

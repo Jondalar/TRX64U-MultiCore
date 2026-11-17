@@ -1809,7 +1809,7 @@ static void ux_shots(const char *out)
                                        { "F5-input", KEY_F5, "Input", 0 }, { "F8-system", KEY_F8, 0, 0 } }, 6 },
         { &atari800_desc, false, "atari", { { "F5-core-top", KEY_F5, 0, 0 } }, 1 },
         { &apple2_desc, false, "apple2", { { "F8-system", KEY_F8, 0, 0 } }, 1 },
-        { 0, true, "c64", { { "F5-machine", KEY_F5, "Machine", 0 } }, 1 },       // T228: the Drive A settings are a section of the Machine tab
+        { 0, true, "c64", { { "F5-c64", KEY_F5, "C64", 0 } }, 1 },               // T228 R9: the Machine and Drive A settings are sections of the tab C64
     };
     for (const auto &cv : cvs) {
         TrxCanvas want = trx_canvas_for(cv.fw, cv.fh);
@@ -1839,7 +1839,7 @@ static void ux_shots(const char *out)
 // ---- T228 area shots (the click dummy's pictures, Restart 2026-11-17): every area and every tab of the TRX64U menu (its record, the board's
 // chain: menu_build, descrec_apply, contrib_merge - trx64u::desc()) and of the A1200 (board_desc) as the reference, at 1080p (the 960 x 540 canvas, 2x) and 480p:
 // the top of each list and every further window when it is longer than its window (the last one "end"), the Library inside a folder with a file selected, and the pages the concept names (the drive list, Hotkeys, FTP
-// hosts) and R5's SID pages. Files mock-<core>-<area>-<tab>-<state>-<canvas>.png and mock-MANIFEST.json in `out`; a MOCK line per picture and a ROW line per row of each list.
+// hosts), R5's SID pages and R6's Network settings and Streams. Files mock-<core>-<area>-<tab>-<state>-<canvas>.png and mock-MANIFEST.json in `out`; a MOCK line per picture and a ROW line per row of each list.
 struct MockShot { std::string file, core, area, area_label, tab_label, state, canvas; int tab_index; };
 static std::vector<MockShot> g_mock;
 static int mock_overlaps, mock_bounds;
@@ -1961,13 +1961,14 @@ static void mock_shots(const char *out)
     static const struct { const char *name; int fw, fh; } cvs[] = { { "1080p", 1920, 1080 }, { "480p", 640, 480 } };
     struct File { const char *path; size_t n; };
     struct Page { const char *area; const char *tab; const char *row; bool prefix; const char *slug; };
-    struct Job { const char *core; bool c64; const CoreDesc *src; File files[8]; int nfiles; Page pages[6]; int npages; const char *pick; };
+    struct Job { const char *core; bool c64; const CoreDesc *src; File files[8]; int nfiles; Page pages[8]; int npages; const char *pick; };
     static const Job jobs[] = {
-        { "trx64u", true, 0,
+        { "trx64u", true, 0,                                                                   // T228 R6: F8 is the one System tab (id "expert"), its Network rows open three pages
           { { "/usb0/games/Katakis.d64", 174848 }, { "/usb0/games/Elite.g64", 333744 }, { "/usb0/games/Turrican.crt", 65616 }, { "/usb0/games/Giana_Sisters.t64", 30000 },
             { "/usb0/games/demo.prg", 2049 }, { "/usb0/games/session.c64re", 70000 }, { "/usb0/games/collection.zip", 40000 } }, 7,
           { { "F1", "home", "Drive A", true, "drive-a" }, { "F5", "audio", "SID sockets", false, "sid-sockets" }, { "F5", "audio", "Emulated SIDs", false, "emulated-sids" },
-            { "F7", "settings", "Hotkeys", false, "hotkeys" }, { "F8", "network", "FTP hosts", false, "ftp-hosts" } }, 5, "Katakis" },
+            { "F7", "settings", "Hotkeys", false, "hotkeys" }, { "F8", "expert", "Network settings", false, "network-settings" }, { "F8", "expert", "Streams", false, "streams" },
+            { "F8", "expert", "FTP hosts", false, "ftp-hosts" } }, 7, "Katakis" },
         { "a1200", false, &amiga1200_desc,
           { { "/usb0/games/Turrican_II.adf", 901120 }, { "/usb0/games/Lotus_III.adf", 901120 }, { "/usb0/games/Workbench.hdf", 1048576 }, { "/usb0/games/notes.txt", 100 } }, 4,
           { { "F1", "home", "DF0", true, "df0" }, { "F7", "settings", "Hotkeys", false, "hotkeys" } }, 2, "Turrican" },

@@ -374,16 +374,15 @@ SNK Neo Geo F8/expert 12 info:ROMs
 SNK Neo Geo F8/expert 13 info:Libraries
 TRX64U F1/home 0 task:Reset
 TRX64U F1/home 1 task:Reload ROMs, reset
-TRX64U F1/home 2 task:Pause / resume
-TRX64U F1/home 3 task:Reboot, clear memory
-TRX64U F1/home 4 task:Save C64 memory
-TRX64U F1/home 5 task:Save REU memory
-TRX64U F1/home 6 media:drive.drive_a.image
-TRX64U F1/home 7 media:c64.cartridge
-TRX64U F1/home 8 media:c64.program
-TRX64U F1/home 9 fixed:10:Save as config...
-TRX64U F1/home 10 fixed:11:Load config...
-TRX64U F2/timeline 0 node:tw.resume
+TRX64U F1/home 2 task:Timewarp...
+TRX64U F1/home 3 task:Monitor...
+TRX64U F1/home 4 media:drive.drive_a.image
+TRX64U F1/home 5 media:c64.cartridge
+TRX64U F1/home 6 media:c64.program
+TRX64U F1/home 7 fixed:10:Save as config...
+TRX64U F1/home 8 fixed:11:Load config...
+TRX64U F1/timewarp 0 node:tw.resume
+TRX64U F1/monitor 0 node:mon.run:?
 TRX64U F3/online 0 node:online.search
 TRX64U F3/online 1 node:online.library
 TRX64U F3/online 2 node:online.set:name:
@@ -404,52 +403,55 @@ TRX64U F3/online 16 node:online.cycle:n9
 TRX64U F3/online 17 node:online.cycle:n10
 TRX64U F3/online 18 node:online.cycle:n11
 TRX64U F3/online 19 node:online.clear
-TRX64U F4/monitor 0 node:mon.run:?
-TRX64U F5/machine 0 set:Fast Reset
-TRX64U F5/machine 1 set:Kernal ROM
-TRX64U F5/machine 2 set:Basic ROM
-TRX64U F5/machine 3 set:Char ROM
-TRX64U F5/machine 4 fixed:13:Drive A
-TRX64U F5/machine 5 set:Drive
-TRX64U F5/machine 6 set:Drive Bus ID
-TRX64U F5/machine 7 set:Disk swap delay
-TRX64U F5/machine 8 set:Resets when C64 resets
-TRX64U F5/machine 9 set:Freezes in menu
-TRX64U F5/machine 10 fixed:13:Drive extras
-TRX64U F5/machine 11 set:Extra RAM
-TRX64U F5/machine 12 set:GCR Save Align Tracks
-TRX64U F5/machine 13 set:D64 Geos Copy Protection
-TRX64U F5/machine 14 set:Track Twist
-TRX64U F5/machine 15 set:SpeedDOS Parallel Cable
-TRX64U F5/machine 16 set:ROM for 1541 mode
-TRX64U F5/trx64 0 set:Freeze mode
-TRX64U F5/trx64 1 set:Save Changed Cartridge
-TRX64U F5/trx64 2 set:Turbo Control
-TRX64U F5/trx64 3 set:CPU Speed
-TRX64U F5/trx64 4 fixed:13:Recording
-TRX64U F5/trx64 5 set:Timewarp Ring
-TRX64U F5/trx64 6 set:Instruction Trace
-TRX64U F5/trx64 7 node:tw.dump:
-TRX64U F5/trx64 8 node:tw.ringdump:
-TRX64U F5/io 0 fixed:13:Expansion
-TRX64U F5/io 1 set:Cartridge Preference
-TRX64U F5/io 2 set:RAM Expansion Unit
-TRX64U F5/io 3 set:REU Size
-TRX64U F5/io 4 set:REU Preload
-TRX64U F5/io 5 set:REU Preload Image
-TRX64U F5/io 6 set:REU Preload Offset
-TRX64U F5/io 7 set:Map Ultimate Audio $DF20-DFFF
-TRX64U F5/io 8 set:Command Interface (UCI)
-TRX64U F5/io 9 fixed:13:Hardware
-TRX64U F5/io 10 set:DMA Load Mimics ID
-TRX64U F5/io 11 set:Bus Operation Mode
-TRX64U F5/io 12 set:Bus Sharing - ROMs
-TRX64U F5/io 13 set:Bus Sharing - I/O1
-TRX64U F5/io 14 set:Bus Sharing - I/O2
-TRX64U F5/io 15 set:Bus Sharing - Interrupts
-TRX64U F5/io 16 set:GAME/EXROM
-TRX64U F5/io 17 set:Badline Timing
-TRX64U F5/io 18 set:SuperCPU Detect (D0BC)
+TRX64U F5/machine 0 fixed:13:Machine
+TRX64U F5/machine 1 set:Fast Reset
+TRX64U F5/machine 2 set:Kernal ROM
+TRX64U F5/machine 3 set:Basic ROM
+TRX64U F5/machine 4 set:Char ROM
+TRX64U F5/machine 5 fixed:13:Drive A
+TRX64U F5/machine 6 set:Drive
+TRX64U F5/machine 7 set:Drive Bus ID
+TRX64U F5/machine 8 set:Disk swap delay
+TRX64U F5/machine 9 set:Resets when C64 resets
+TRX64U F5/machine 10 set:Freezes in menu
+TRX64U F5/machine 11 fixed:13:Drive extras
+TRX64U F5/machine 12 set:Extra RAM
+TRX64U F5/machine 13 set:GCR Save Align Tracks
+TRX64U F5/machine 14 set:D64 Geos Copy Protection
+TRX64U F5/machine 15 set:Track Twist
+TRX64U F5/machine 16 set:SpeedDOS Parallel Cable
+TRX64U F5/machine 17 set:ROM for 1541 mode
+TRX64U F5/machine 18 fixed:13:Hardware
+TRX64U F5/machine 19 set:DMA Load Mimics ID
+TRX64U F5/machine 20 set:Bus Operation Mode
+TRX64U F5/machine 21 set:Badline Timing
+TRX64U F5/machine 22 set:SuperCPU Detect (D0BC)
+TRX64U F5/trx 0 fixed:13:TRX64
+TRX64U F5/trx 1 set:Freeze mode
+TRX64U F5/trx 2 set:Turbo Control
+TRX64U F5/trx 3 set:CPU Speed
+TRX64U F5/trx 4 fixed:13:Recording
+TRX64U F5/trx 5 set:Timewarp Ring
+TRX64U F5/trx 6 set:Instruction Trace
+TRX64U F5/trx 7 node:tw.dump:
+TRX64U F5/trx 8 node:tw.ringdump:
+TRX64U F5/expansion 0 fixed:13:Cartridge
+TRX64U F5/expansion 1 set:Cartridge Preference
+TRX64U F5/expansion 2 set:Save Changed Cartridge
+TRX64U F5/expansion 3 set:GAME/EXROM
+TRX64U F5/expansion 4 set:Bus Sharing - ROMs
+TRX64U F5/expansion 5 set:Bus Sharing - I/O1
+TRX64U F5/expansion 6 set:Bus Sharing - I/O2
+TRX64U F5/expansion 7 set:Bus Sharing - Interrupts
+TRX64U F5/expansion 8 fixed:13:REU
+TRX64U F5/expansion 9 set:RAM Expansion Unit
+TRX64U F5/expansion 10 set:REU Size
+TRX64U F5/expansion 11 set:REU Preload
+TRX64U F5/expansion 12 set:REU Preload Image
+TRX64U F5/expansion 13 set:REU Preload Offset
+TRX64U F5/expansion 14 fixed:13:Ultimate
+TRX64U F5/expansion 15 set:Map Ultimate Audio $DF20-DFFF
+TRX64U F5/expansion 16 set:Command Interface (UCI)
 TRX64U F5/video 0 fixed:13:Picture
 TRX64U F5/video 1 set:System Mode
 TRX64U F5/video 2 set:Picture
@@ -481,36 +483,39 @@ TRX64U F5/audio 19 set:Spk Vol Socket 1
 TRX64U F5/audio 20 set:Spk Vol Socket 2
 TRX64U F5/audio 21 set:Spk Vol Sampler L
 TRX64U F5/audio 22 set:Spk Vol Sampler R
-TRX64U F5/sid 0 fixed:13:SID sockets
-TRX64U F5/sid 1 set:SID Socket 1
-TRX64U F5/sid 2 set:SID Socket 2
-TRX64U F5/sid 3 set:SID Socket 1 1K Ohm Resistor
-TRX64U F5/sid 4 set:SID Socket 2 1K Ohm Resistor
-TRX64U F5/sid 5 set:SID Socket 1 Capacitors
-TRX64U F5/sid 6 set:SID Socket 2 Capacitors
-TRX64U F5/sid 7 set:SID Socket 1 Address
-TRX64U F5/sid 8 set:SID Socket 2 Address
-TRX64U F5/sid 9 set:Ext DualSID Range Split
-TRX64U F5/sid 10 set:Paddle Override
-TRX64U F5/sid 11 set:Auto Address Mirroring
-TRX64U F5/sid 12 fixed:13:Emulated SIDs
-TRX64U F5/sid 13 set:UltiSID 1 Address
-TRX64U F5/sid 14 set:UltiSID 2 Address
-TRX64U F5/sid 15 set:UltiSID Range Split
-TRX64U F5/sid 16 set:UltiSID 1 Filter Curve
-TRX64U F5/sid 17 set:UltiSID 2 Filter Curve
-TRX64U F5/sid 18 set:UltiSID 1 Filter Resonance
-TRX64U F5/sid 19 set:UltiSID 2 Filter Resonance
-TRX64U F5/sid 20 set:UltiSID 1 Combined Waveforms
-TRX64U F5/sid 21 set:UltiSID 2 Combined Waveforms
-TRX64U F5/sid 22 set:UltiSID 1 Digis Level
-TRX64U F5/sid 23 set:UltiSID 2 Digis Level
+TRX64U F5/audio 23 fixed:13:reDIP:SID
+TRX64U F5/audio 24 fixed:16:SID sockets
+TRX64U F5/audio 25 fixed:16:Emulated SIDs
+TRX64U F5/SID sockets 0 set:SID Socket 1
+TRX64U F5/SID sockets 1 set:SID Socket 2
+TRX64U F5/SID sockets 2 set:SID Socket 1 1K Ohm Resistor
+TRX64U F5/SID sockets 3 set:SID Socket 2 1K Ohm Resistor
+TRX64U F5/SID sockets 4 set:SID Socket 1 Capacitors
+TRX64U F5/SID sockets 5 set:SID Socket 2 Capacitors
+TRX64U F5/SID sockets 6 set:SID Socket 1 Address
+TRX64U F5/SID sockets 7 set:SID Socket 2 Address
+TRX64U F5/SID sockets 8 set:Ext DualSID Range Split
+TRX64U F5/SID sockets 9 set:Paddle Override
+TRX64U F5/SID sockets 10 set:Auto Address Mirroring
+TRX64U F5/Emulated SIDs 0 set:UltiSID 1 Address
+TRX64U F5/Emulated SIDs 1 set:UltiSID 2 Address
+TRX64U F5/Emulated SIDs 2 set:UltiSID Range Split
+TRX64U F5/Emulated SIDs 3 set:UltiSID 1 Filter Curve
+TRX64U F5/Emulated SIDs 4 set:UltiSID 2 Filter Curve
+TRX64U F5/Emulated SIDs 5 set:UltiSID 1 Filter Resonance
+TRX64U F5/Emulated SIDs 6 set:UltiSID 2 Filter Resonance
+TRX64U F5/Emulated SIDs 7 set:UltiSID 1 Combined Waveforms
+TRX64U F5/Emulated SIDs 8 set:UltiSID 2 Combined Waveforms
+TRX64U F5/Emulated SIDs 9 set:UltiSID 1 Digis Level
+TRX64U F5/Emulated SIDs 10 set:UltiSID 2 Digis Level
 TRX64U F5/input 0 set:Joystick Input
 TRX64U F5/input 1 set:Mouse Mode
 TRX64U F5/input 2 set:Mouse Sensitivity
 TRX64U F5/input 3 set:Mouse Acceleration
 TRX64U F5/input 4 set:Mouse Wheel Sensitivity
 TRX64U F5/input 5 set:Mouse Wheel Direction
+TRX64U F5/input 6 set:USB Controller Port
+TRX64U F5/input 7 task:Map USB controller buttons
 TRX64U F7/settings 0 fixed:13:Application
 TRX64U F7/settings 1 set:Overlay Transparency
 TRX64U F7/settings 2 set:Splash
@@ -523,6 +528,10 @@ TRX64U F7/settings 8 set:Home Directory
 TRX64U F7/settings 9 fixed:13:Menu and keys
 TRX64U F7/settings 10 set:Menu opens at
 TRX64U F7/settings 11 fixed:16:Hotkeys
+TRX64U F7/settings 12 fixed:13:Apps
+TRX64U F7/settings 13 node:app.open:trex_crt:dump:
+TRX64U F7/settings 14 node:app.open:trex_crt:inspect:
+TRX64U F7/settings 15 node:app.open:trex_crt:flash:
 TRX64U F7/hotkeys 0 set:Hotkey modifier
 TRX64U F7/hotkeys 1 set:Hotkey menu
 TRX64U F7/hotkeys 2 set:Hotkey volume up
@@ -530,70 +539,67 @@ TRX64U F7/hotkeys 3 set:Hotkey volume down
 TRX64U F7/hotkeys 4 set:Hotkey reset
 TRX64U F7/hotkeys 5 set:Hotkey swap joystick
 TRX64U F7/hotkeys 6 set:Hotkey picture mode
-TRX64U F7/apps 0 node:app.open:trex_crt:dump:
-TRX64U F7/apps 1 node:app.open:trex_crt:inspect:
-TRX64U F7/apps 2 node:app.open:trex_crt:flash:
-TRX64U F7/apps 3 node:app.open:softboot:pick:
 TRX64U F8/expert 0 fixed:13:Actions
 TRX64U F8/expert 1 fixed:6:Restart core
 TRX64U F8/expert 2 fixed:7:Return to host menu
 TRX64U F8/expert 3 fixed:13:Network
 TRX64U F8/expert 4 fixed:9:WiFi
-TRX64U F8/expert 5 fixed:13:Support
-TRX64U F8/expert 6 fixed:8:Bug report
-TRX64U F8/expert 7 fixed:17:Keys and help
-TRX64U F8/expert 8 fixed:13:Reset
-TRX64U F8/expert 9 fixed:5:Reset to host defaults
-TRX64U F8/expert 10 fixed:13:Status
-TRX64U F8/expert 11 info:Build
-TRX64U F8/expert 12 info:ROMs
-TRX64U F8/expert 13 info:Libraries
-TRX64U F8/expert 14 node:diag.board
-TRX64U F8/expert 15 node:diag.uptime
-TRX64U F8/expert 16 node:media.sd
-TRX64U F8/expert 17 node:media.usb0
-TRX64U F8/expert 18 node:media.usb1
-TRX64U F8/expert 19 node:media.flash
-TRX64U F8/expert 20 node:usb.mouse
-TRX64U F8/expert 21 node:usb.keyboard
-TRX64U F8/network 0 fixed:13:WiFi and Ethernet
-TRX64U F8/network 1 set:Use DHCP
-TRX64U F8/network 2 set:Static IP
-TRX64U F8/network 3 set:Static Netmask
-TRX64U F8/network 4 set:Static Gateway
-TRX64U F8/network 5 set:Static DNS
-TRX64U F8/network 6 fixed:13:Services
-TRX64U F8/network 7 set:Host Name
-TRX64U F8/network 8 set:Unique ID
-TRX64U F8/network 9 set:Network Password
-TRX64U F8/network 10 set:Ultimate Ident Service
-TRX64U F8/network 11 set:Ultimate DMA Service
-TRX64U F8/network 12 set:Telnet Remote Menu Service
-TRX64U F8/network 13 set:FTP File Service
-TRX64U F8/network 14 set:Web Remote Control Service
-TRX64U F8/network 15 set:Log to Syslog Server
-TRX64U F8/network 16 set:SNTP Enable
-TRX64U F8/network 17 set:TimeZone
-TRX64U F8/network 18 set:Time Server 1
-TRX64U F8/network 19 set:Time Server 2
-TRX64U F8/network 20 set:Time Server 3
-TRX64U F8/network 21 fixed:13:Streams
-TRX64U F8/network 22 set:Stream VIC to
-TRX64U F8/network 23 set:Stream Audio to
-TRX64U F8/network 24 set:Stream Debug to
-TRX64U F8/network 25 set:Debug Stream Mode
-TRX64U F8/network 26 fixed:16:FTP hosts
-TRX64U F8/network 27 node:net.eth_status
-TRX64U F8/network 28 node:net.eth_mac
-TRX64U F8/network 29 node:wifi.state
-TRX64U F8/network 30 node:wifi.ssid
-TRX64U F8/network 31 node:wifi.ip
-TRX64U F8/network 32 node:stream.start:n0
-TRX64U F8/network 33 node:stream.stop:n0
-TRX64U F8/network 34 node:stream.start:n1
-TRX64U F8/network 35 node:stream.stop:n1
-TRX64U F8/network 36 node:stream.start:n2
-TRX64U F8/network 37 node:stream.stop:n2
+TRX64U F8/expert 5 fixed:16:Network settings
+TRX64U F8/expert 6 fixed:16:Streams
+TRX64U F8/expert 7 fixed:16:FTP hosts
+TRX64U F8/expert 8 fixed:13:Support
+TRX64U F8/expert 9 fixed:8:Bug report
+TRX64U F8/expert 10 fixed:17:Keys and help
+TRX64U F8/expert 11 fixed:13:Reset
+TRX64U F8/expert 12 fixed:5:Reset to host defaults
+TRX64U F8/expert 13 fixed:13:Status
+TRX64U F8/expert 14 info:Build
+TRX64U F8/expert 15 info:ROMs
+TRX64U F8/expert 16 info:Libraries
+TRX64U F8/expert 17 node:diag.board
+TRX64U F8/expert 18 node:diag.uptime
+TRX64U F8/expert 19 node:media.sd
+TRX64U F8/expert 20 node:media.usb0
+TRX64U F8/expert 21 node:media.usb1
+TRX64U F8/expert 22 node:media.flash
+TRX64U F8/expert 23 node:usb.mouse
+TRX64U F8/expert 24 node:usb.keyboard
+TRX64U F8/Network settings 0 fixed:13:WiFi and Ethernet
+TRX64U F8/Network settings 1 set:Use DHCP
+TRX64U F8/Network settings 2 set:Static IP
+TRX64U F8/Network settings 3 set:Static Netmask
+TRX64U F8/Network settings 4 set:Static Gateway
+TRX64U F8/Network settings 5 set:Static DNS
+TRX64U F8/Network settings 6 node:net.eth_status
+TRX64U F8/Network settings 7 node:net.eth_mac
+TRX64U F8/Network settings 8 node:wifi.state
+TRX64U F8/Network settings 9 node:wifi.ssid
+TRX64U F8/Network settings 10 node:wifi.ip
+TRX64U F8/Network settings 11 fixed:13:Services
+TRX64U F8/Network settings 12 set:Host Name
+TRX64U F8/Network settings 13 set:Unique ID
+TRX64U F8/Network settings 14 set:Network Password
+TRX64U F8/Network settings 15 set:Ultimate Ident Service
+TRX64U F8/Network settings 16 set:Ultimate DMA Service
+TRX64U F8/Network settings 17 set:Telnet Remote Menu Service
+TRX64U F8/Network settings 18 set:FTP File Service
+TRX64U F8/Network settings 19 set:Web Remote Control Service
+TRX64U F8/Network settings 20 set:Log to Syslog Server
+TRX64U F8/Network settings 21 set:SNTP Enable
+TRX64U F8/Network settings 22 set:TimeZone
+TRX64U F8/Network settings 23 set:Time Server 1
+TRX64U F8/Network settings 24 set:Time Server 2
+TRX64U F8/Network settings 25 set:Time Server 3
+TRX64U F8/Streams 0 set:Stream VIC to
+TRX64U F8/Streams 1 set:Stream Audio to
+TRX64U F8/Streams 2 set:Stream Debug to
+TRX64U F8/Streams 3 set:Debug Stream Mode
+TRX64U F8/Streams 4 node:stream.start:n0
+TRX64U F8/Streams 5 node:stream.stop:n0
+TRX64U F8/Streams 6 node:stream.start:n1
+TRX64U F8/Streams 7 node:stream.stop:n1
+TRX64U F8/Streams 8 node:stream.start:n2
+TRX64U F8/Streams 9 node:stream.stop:n2
 TRX64U F8/FTP hosts 0 set:FTP 1 Alias
 TRX64U F8/FTP hosts 1 set:FTP 1 Host
 TRX64U F8/FTP hosts 2 set:FTP 1 Port
@@ -618,18 +624,6 @@ TRX64U F8/FTP hosts 20 set:FTP 4 Port
 TRX64U F8/FTP hosts 21 set:FTP 4 User
 TRX64U F8/FTP hosts 22 set:FTP 4 Password
 TRX64U F8/FTP hosts 23 set:FTP 4 Folder
-TRX64U F8/device 0 set:Power On After Power Loss
-TRX64U F8/device 1 set:Wake On Wi-Fi
-TRX64U F8/device 2 set:LED Select Top
-TRX64U F8/device 3 set:LED Select Bot
-TRX64U F8/device 4 set:Color Scheme
-TRX64U F8/diagnostics 0 node:diag.nop
-TRX64U F8/diagnostics 1 node:diag.clear_log
-TRX64U F8/diagnostics 2 node:diag.save_log:
-TRX64U F8/diagnostics 3 node::Heap
-TRX64U F8/diagnostics 4 node:diag.nop
-TRX64U F8/diagnostics 5 node::Debug register
-TRX64U F8/diagnostics 6 node:diag.save_edid:
 Amiga (OCS/ECS, 68000) F1/home 0 task:Reset Amiga
 Amiga (OCS/ECS, 68000) F1/home 1 task:Reload Kickstart, Reset
 Amiga (OCS/ECS, 68000) F1/home 2 media:amiga.df0.image

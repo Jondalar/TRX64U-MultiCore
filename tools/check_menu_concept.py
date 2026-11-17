@@ -25,30 +25,25 @@ CONCEPT = {
 }
 # (area key, tab number) -> reason: tab names that differ from the concept's on purpose
 _BUILT = "as built in coreapp/cores/trx64u/menu.toml (T104.2 UI work, UX walks of 2026-10-28/29); the concept's name is kept in CONCEPT"
-_T228 = "T228 D2, D3, D13, D14, D16 (Alex 2026-11-15): trx64u runs the generic core menu's structure (T212); the concept's name is kept in CONCEPT"
-_DC4 = "T228 DC4 (the F5 machine tabs: Memory and I/O, Video, Audio, SID, Input): trx64u runs the generic core menu's structure (T212); the concept's name is kept in CONCEPT"
-# (area key, tab number) -> (the name the golden must show, reason): a deviation pins the built name, so a later rename or renumber fails
+_T228 = "T228 R1-R10 (Alex 2026-11-17): trx64u runs the generic core app 100 % (T205 D1, T212), the TRX64 extras fitted into its areas; the concept's name is kept in CONCEPT"
+_R9 = "T228 R9 (Alex 2026-11-17: F5 C64 = C64 | TRX | Expansion | Video | Audio | Input); the concept's name is kept in CONCEPT"
+# (area key, tab number) -> (the name the golden must show, reason): a deviation pins the built name, so a later rename or renumber fails.
+# T228 R1: no F2 and no F4 area (Timewarp and Monitor are pages of Home, tab 0); R6-R8: F8 is one System tab (Network settings, Streams and FTP hosts
+# are its pages, no Device and no Diagnostics tab); R5b: the SID pages are pages of Audio; F7 is one tab with the apps under their heading.
 DEVIATIONS = {
     ("F3", 3): ("Online", "tab 3 is Online (the Assembly64 / CommoServe search), " + _BUILT),
-    ("F4", 1): ("Monitor", "tab 1 is Monitor, " + _BUILT),
-    ("F5", 1): ("Machine", "tab 1 is Machine (with the Drive A settings), " + _T228),
-    ("F5", 2): ("TRX64", "tab 2 is TRX64 (Timewarp ring, trace), " + _T228),
-    ("F5", 3): ("Memory and I/O", "tab 3 is Memory and I/O, " + _DC4),
-    ("F5", 4): ("Video", "tab 4 is Video (Picture and Output sections), " + _DC4),
-    ("F5", 5): ("Audio", "tab 5 is Audio, " + _DC4),
-    ("F5", 6): ("SID", "tab 6 is SID (the reDIP:SID sockets and emulated SIDs, D16), " + _DC4),
-    ("F5", 7): ("Input", "tab 7 is Input, " + _DC4),
-    ("F7", 1): ("Settings", "tab 1 is Settings (the application's own), " + _T228),
-    ("F7", 2): ("Apps", "tab 2 is Apps (TRXCRT cartridge tools, D5), " + _T228),
-    ("F8", 1): ("System", "tab 1 is System, " + _T228),
-    ("F8", 2): ("Network", "tab 2 is Network (D7, D18), " + _T228),
-    ("F8", 3): ("Device", "tab 3 is Device, " + _T228),
-    ("F8", 4): ("Diagnostics", "tab 4 is Diagnostics (debug log, EDID, heap; T228 DC7, from F4), " + _T228),
+    ("F5", 1): ("C64", "tab 1 is C64 (Machine, Drive A, Drive extras, Hardware), " + _R9),
+    ("F5", 2): ("TRX", "tab 2 is TRX (TRX64, Recording), " + _R9),
+    ("F5", 3): ("Expansion", "tab 3 is Expansion (Cartridge, REU, Ultimate), " + _R9),
+    ("F5", 4): ("Video", "tab 4 is Video (Picture and Output sections), " + _R9),
+    ("F5", 5): ("Audio", "tab 5 is Audio (with the reDIP:SID pages, R5b, R14), " + _R9),
+    ("F5", 6): ("Input", "tab 6 is Input (with the USB controller as joystick, R10), " + _R9),
+    ("F7", 1): ("Settings", "tab 1 is Settings (the application's own, then its apps), " + _T228),
+    ("F8", 1): ("System", "tab 1 is System, the one tab of every core (R6), " + _T228),
 }
 # area key -> (the name the golden must show, reason): area names that differ from the concept's on purpose
 AREA_DEVIATIONS = {
-    "F4": ("Monitor", "the area is the Monitor rail entry, so the rail reads MONITOR (T228 D3, Alex 2026-11-15)"),
-    "F7": ("APP", "the area is APP, the application's own settings and apps (T212 D12, T228 D2)"),
+    "F7": ("APP", "the area is APP, the application's own settings and apps (T212 D12, T228 R1: rail HOME, LIBRARY, C64, APP, SYSTEM)"),
 }
 
 
@@ -104,14 +99,15 @@ def check(golden_text, concept=CONCEPT):
 
 
 def selftest():
-    good = "area F1 Home\n  tab 1 Home\n  tab 0 Drive (a page)\narea F3 Library\n  tab 1 Browse\n  tab 2 Search\n  tab 3 Online\narea F5 C64\n  tab 2 TRX64\n"
+    good = "area F1 Home\n  tab 1 Home\n  tab 0 Drive (a page)\narea F3 Library\n  tab 1 Browse\n  tab 2 Search\n  tab 3 Online\narea F5 C64\n  tab 2 TRX\n"
     assert check(good) == [], check(good)
     for broken, what in (("area F3 Library\n  tab 2 Browse\n", "a tab under another number"), ("area F3 Library\n  tab 5 Extra\n", "a tab number the concept has not"),
                          ("area F9 X\n", "an area key"), ("area F5 Machine\n", "an area name")):
         if what == "an area key":
             continue                                              # the area regex only takes F1-F8: F9 is not an area line at all
         assert check(broken), what
-    assert check("area F5 C64\n  tab 4 Videos\n") and check("area F4 Tools\n") and check("area F8 System\n  tab 0 Extra\n")
+    # a pinned tab under another name, an area under the concept's name where a deviation pins another, a page without "(a page)"
+    assert check("area F5 C64\n  tab 4 Videos\n") and check("area F7 Actions\n") and check("area F8 System\n  tab 0 Extra\n")
     x = from_xml('<nav_item label="HOME" shortcut="F1"><tab_item number="1" label="HOME"')
     assert "F1" in x
     print("check_menu_concept selftest ok")

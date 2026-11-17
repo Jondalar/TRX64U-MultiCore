@@ -1,4 +1,4 @@
-Feature: Navigation of the TRX64U menu (T153 S1-S3; T228 the generic core menu: areas F1-F5, F7, F8, tabs 1-8, left arrow one step out, RUN/STOP closes)
+Feature: Navigation of the TRX64U menu (T153 S1-S3; T228 R1/R9 the generic core menu: areas F1, F3, F5, F7, F8, F5 tabs 1-6, Timewarp and Monitor from Home, left arrow one step out, RUN/STOP closes)
 
   Background:
     Given the menu is open
@@ -17,7 +17,7 @@ Feature: Navigation of the TRX64U menu (T153 S1-S3; T228 the generic core menu: 
     And the layout is "library"
     When I press F5
     Then the area is "C64"
-    And the page title is "Machine"
+    And the page title is "C64"
     And the layout is "list"
     When I press F7
     Then the area is "APP"
@@ -28,14 +28,16 @@ Feature: Navigation of the TRX64U menu (T153 S1-S3; T228 the generic core menu: 
     When I press F1
     Then the area is "Home"
 
-  Scenario: F2 is the Timewarp screen
-    When I press F2
-    Then the area is "Timewarp"
+  Scenario: Home's row Timewarp... opens the Timewarp screen (T228 R1: no F2)
+    When I move to "Timewarp..."
+    And I press RETURN
+    Then the area key is F1
     And the layout is "timeline"
 
-  Scenario: F4 is the monitor, and the monitor keeps every key
-    When I press F4
-    Then the area is "Monitor"
+  Scenario: Home's row Monitor... opens the monitor, and the monitor keeps every key (T228 R1: no F4)
+    When I move to "Monitor..."
+    And I press RETURN
+    Then the area key is F1
     And the layout is "terminal"
     When I press 2
     Then the layout is "terminal"
@@ -45,33 +47,33 @@ Feature: Navigation of the TRX64U menu (T153 S1-S3; T228 the generic core menu: 
   Scenario: digits choose the tab of the area
     When I press F5
     And I press 3
-    Then the tab is "Memory and I/O"
+    Then the tab is "Expansion"
     And the tab number is 3
-    And the page title is "Memory and I/O"
+    And the page title is "Expansion"
     When I press 5
     Then the tab is "Audio"
     When I press 1
-    Then the tab is "Machine"
+    Then the tab is "C64"
 
   Scenario: a digit without a tab does nothing
     When I press F5
     And I press 2
     And I press 8
-    Then the tab is "TRX64"
+    Then the tab is "TRX"
 
   Scenario: an area comes back on the tab it was left on
     When I press F5
     And I press 3
     And I press F1
     And I press F5
-    Then the tab is "Memory and I/O"
+    Then the tab is "Expansion"
 
   Scenario: left arrow is one step out: tab, area, close
     When I press F5
     And I press 3
     And I press left-arrow
     Then the area is "C64"
-    And the tab is "Machine"
+    And the tab is "C64"
     When I press left-arrow
     Then the area is "Home"
     When I press left-arrow

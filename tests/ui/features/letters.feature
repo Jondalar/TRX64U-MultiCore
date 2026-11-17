@@ -20,12 +20,15 @@ Feature: Letters: the menu claims few letters, a letter nobody claims does nothi
     When the menu is open
     Then the status line is ""
 
-  Scenario: the footer names the keys of the page
+  Scenario: the footer names the keys of the page, not what the rail and the tab strip show (T228 R11)
     Given the menu is open
-    Then the footer shows "F1-F8 AREA"
+    Then the footer shows "UP/DOWN  CHOOSE   RETURN  DO IT   ESC  BACK"
+    And the footer does not show "AREA"
     And the footer does not show "TAB"
     When I press F5
-    Then the footer shows "1-7 TAB"
+    Then the footer shows "UP/DOWN  CHOOSE   RETURN  DO IT   ESC  BACK"
+    And the footer does not show "AREA"
+    And the footer does not show "TAB"
     When I press F3
     Then the footer does not show "TAB"
 
