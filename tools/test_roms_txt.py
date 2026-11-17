@@ -35,9 +35,17 @@ class RomsTxt(unittest.TestCase):
             self.assertIn("%s  (cores/%s/roms/)" % (name, cid), self.text)
 
     def test_every_rom_name_of_the_table_is_there(self):
+        off = G.left_out()
         for r in G.rows():
             for n in r["names"]:
-                self.assertIn(n, self.text)
+                if r["core"].lower() in off:
+                    self.assertNotIn(n, self.text)                # pipeline = false (core.toml or import pin): not listed at all
+                else:
+                    self.assertIn(n, self.text)
+
+    def test_a_core_out_of_the_pipeline_is_not_listed(self):
+        self.assertNotIn("os464.rom", self.text)
+        self.assertNotIn("cores/trx64u", self.text)
 
     def test_no_link_leaves_the_legal_domains(self):
         self.assertEqual(N.bad_links(self.text), [])

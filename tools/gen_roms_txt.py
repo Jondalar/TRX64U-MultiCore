@@ -47,6 +47,20 @@ def cores():
     return out
 
 
+def left_out():
+    """Lower-case names of what ROMS.txt does not list: a core with `pipeline = false` (T92 D-17e, by id and manifest name) and an imported core whose
+    pin in release/imports/ says PIPELINE=false (ci/package.sh packs neither)."""
+    out = set()
+    for name, _, t in core_toml.descriptors() + core_toml.large_descriptors():
+        if not core_toml.in_pipeline(t):
+            out |= {name.lower(), str(t.get("name", name)).lower()}
+    d = os.path.join(ROOT, "release", "imports")
+    for f in sorted(os.listdir(d)) if os.path.isdir(d) else []:
+        if f.endswith(".pin") and re.search(r"^PIPELINE=false\s*$", open(os.path.join(d, f), encoding="utf-8").read(), re.M):
+            out.add(f[:-4].lower())
+    return out
+
+
 def legal():
     text = open(MANUAL, encoding="utf-8").read()
     a, b = text.index("## 12.3"), text.index("## 12.4")
@@ -58,7 +72,10 @@ def legal():
 def render():
     allrows = rows()
     byname = {}
+    off = left_out()
     for r in allrows:
+        if r["core"].lower() in off:
+            continue
         byname.setdefault(r["core"], []).append(r)
     notes = dict((c["id"], c) for c in N.CORES)
     lines = []
@@ -112,10 +129,11 @@ def render():
             w("%s  (cores/%s/roms/)" % (name, name.lower()))
             rows_of(byname[name])
             w("")
-    w("TRX64U, ROMs from the board's flash")
-    w("    the ROMs that are in the board's flash (Kernal 8,192, Basic 8,192, Char 4,096 bytes); the core copies them into")
-    w("    cores/trx64u/roms/ at its first start. Nothing to bring.")
-    w("")
+    if "trx64u" not in off:
+        w("TRX64U, ROMs from the board's flash")
+        w("    the ROMs that are in the board's flash (Kernal 8,192, Basic 8,192, Char 4,096 bytes); the core copies them into")
+        w("    cores/trx64u/roms/ at its first start. Nothing to bring.")
+        w("")
     w("Legal sources")
     w("-------------")
     w(legal())
