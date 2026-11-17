@@ -210,7 +210,10 @@ core must honour the stop: ddt_novic halts on `c64_halt_req | mc_halt_s[1] | mac
 
 **USB pads (T156).** A `PadSpec { reg[2], nbuttons, names, def_map }` opts the core in. `pad.cc` keeps two pads in plug order, turns a report into the core's
 button word through the map (the default is the SNES layout, resolved per pad by VID:PID) and writes it as a 16-bit pair, low byte first, to the register of the
-player; a pad that leaves writes zero. "Map buttons" records a custom map into the `.cfg`. NES, SNES and Neo Geo use it.
+player; a pad that leaves writes zero. "Map buttons" records a custom map into the `.cfg`. NES, SNES, Neo Geo and PET use it; the Amiga's `by_id` spec (T225)
+drives one port from the first pad plugged and keeps its map per pad (VID:PID). A menu TOML declares a pad with `[pad]` (T228 R10, record version 5,
+`descrec.h`; `tools/descrec.py` documents the keys): `output = "joystick"` writes the host's joystick lines (`CoreIo::joy_lines`, `C64_JOY1/2_SWOUT`, merged
+with the mouse's in `JoystickOutput`) instead of a register pair, and the operation `pad.port` picks port 1 or 2; trx64u uses it with `per_pad = true`.
 
 **Volume.** Generic (section 4). **LED Load Indicator.** The setting `{ "LED Load Indicator", ..., WHEN_LIVE, "led.load" }` selects case LED 1 = drive A activity once
 (`ledload.h`); every core with a drive splices it in with the 1541 rows. The core must put its floppy/hard-disk activity on `drive_leds_n` (contract README).

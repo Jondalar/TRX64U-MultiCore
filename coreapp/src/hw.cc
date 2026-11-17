@@ -16,6 +16,7 @@
 #include "handover.h"
 #include "walltime.h"
 #include "product.h"
+#include "joystick_output.h"
 
 #define C64_DMA_MEMONLY_REG (*(volatile uint8_t *)(C64_IO_BASE + 0x3))
 #define C64_MODE_REG   (*(volatile uint8_t *)(C64_CARTREGS_BASE + 0x0))
@@ -164,6 +165,12 @@ public:
         for (int i = 0; i < 8; i++) {
             *(volatile uint8_t *)(U2P_IO_BASE + 0x0300 + i) = m[i];
         }
+    }
+    // T228 R10: JoystickOutput owns C64_JOY1_SWOUT / C64_JOY2_SWOUT (each apply() writes both, from the mouse's buttons too), so the pad is one more of its
+    // sources, not a write of its own; the registers take the lines active low.
+    void joy_lines(int port, uint8_t pressed)
+    {
+        JoystickOutput::instance().setPadPort(port, (uint8_t)(~pressed & 0x1F));
     }
     // T181: the matrix as the menu's scan reads it (Keyboard_C64::scan_keyboard), whole in one critical section so that the matrix timer's scan cannot
     // move the column in between; a column is settled when two reads agree.

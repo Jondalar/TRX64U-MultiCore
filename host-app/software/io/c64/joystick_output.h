@@ -11,6 +11,8 @@ class JoystickOutput
 {
     uint8_t usb_p1;
     uint8_t rest_mouse_p1;      // lines of the REST mouse, a source of its own
+    uint8_t pad_p1;             // T228 R10: the core application's pad service, a source of its own per port
+    uint8_t pad_p2;
     // The 1351 position every mouse on port 1 moves. apply() writes the POT
     // lines from what the pacer shows.
     bool mouse_active;
@@ -30,6 +32,8 @@ public:
 
     void setUsbPort1(uint8_t active_low_mask);
     void setRestMousePort1(uint8_t active_low_mask);
+    // T228 R10: the lines a USB pad drives on port 1 (port 0) or port 2 (port 1), active low, bits 4:0.
+    void setPadPort(int port, uint8_t active_low_mask);
     // The running mouse position in counts; only its low seven bits reach the
     // POT lines, paced by MousePotPacer. Both may run in a critical section.
     void setMousePosition(int16_t x, int16_t y);

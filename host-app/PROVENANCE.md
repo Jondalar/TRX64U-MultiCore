@@ -75,8 +75,8 @@ Own code (this repo's licence): `host-app/software/hostapp/`, `coreapp/` (T93, b
 | `software/io/audio/nau8822.cc` | `software/io/audio/nau8822.cc` | b62f55684d72 |
 | `software/io/audio/nau8822.h` | `software/io/audio/nau8822.h` | d27c18e33e54 |
 | `software/io/c64/c64.h` | `software/io/c64/c64.h` | f2d8f78e0410 |
-| `software/io/c64/joystick_output.cc` | `software/io/c64/joystick_output.cc` | 5e2ec0de2d3f |
-| `software/io/c64/joystick_output.h` | `software/io/c64/joystick_output.h` | 97ff9b716e38 |
+| `software/io/c64/joystick_output.cc` | `software/io/c64/joystick_output.cc` | 5e2ec0de2d3f (MODIFIED: T228 R10: setPadPort(), the core application's pad service as a source of its own per port, ANDed into both ports' lines) |
+| `software/io/c64/joystick_output.h` | `software/io/c64/joystick_output.h` | 97ff9b716e38 (MODIFIED: T228 R10: declares setPadPort() and the two sources) |
 | `software/io/c64/keyboard.h` | `software/io/c64/keyboard.h` | a354a0373984 |
 | `software/io/c64/keyboard_c64.cc` | `software/io/c64/keyboard_c64.cc` | 55238b068d1b |
 | `software/io/c64/keyboard_c64.h` | `software/io/c64/keyboard_c64.h` | aa58421a1b78 (MODIFIED: KEYBOARD_C64_TIMER_SCAN also for -DTRX_HOSTAPP (taps shorter than one UI loop were lost); getch_nowait()) |

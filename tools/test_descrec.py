@@ -312,6 +312,67 @@ class OwnMenu(unittest.TestCase):
             self.assertEqual(D.compile_desc(D.decoded_to_doc(D.parse_desc(b))), b)
 
 
+PAD = """
+[pad]
+output = "joystick"
+per_pad = true
+buttons = ["Up", "Down", "Left", "Right", "Fire"]
+default = ["up", "down", "left", "right", "face_bottom"]
+"""
+
+
+class Pad(unittest.TestCase):
+    """T228 R10: [pad], the core's USB pads through the pad service (pad.h PadSpec): version 5 and its six header words, only when there is a pad."""
+
+    def test_a_pad_makes_version_5_and_reads_back(self):
+        b = D.compile_text(MIN + PAD)
+        self.assertEqual((b[4] | b[5] << 8, b[6] | b[7] << 8), (5, D.HEADER_V5))
+        r = D.parse_desc(b)
+        self.assertEqual(r["pad"], {"output": "joystick", "per_pad": True, "regs": [0, 1], "buttons": ["Up", "Down", "Left", "Right", "Fire"],
+                                    "default": ["up", "down", "left", "right", "face_bottom"]})
+        self.assertEqual(D.compile_desc(D.decoded_to_doc(r)), b)
+
+    def test_a_record_without_a_pad_stays_version_4(self):
+        b = D.compile_text(MIN)
+        self.assertEqual((b[4] | b[5] << 8, b[6] | b[7] << 8), (4, D.HEADER))
+        self.assertIsNone(D.parse_desc(b)["pad"])
+
+    def test_the_register_output_and_every_kind_of_source(self):
+        text = MIN + '[pad]\nregs = [0x100, 0x102]\nbuttons = ["A", "B", "C", "D"]\ndefault = ["face_right", "button12", "none", "start"]\n'
+        r = D.parse_desc(D.compile_text(text))
+        self.assertEqual((r["pad"]["output"], r["pad"]["per_pad"], r["pad"]["regs"]), ("registers", False, [0x100, 0x102]))
+        self.assertEqual(r["pad"]["default"], ["face_right", "button12", "none", "start"])
+
+    def test_refusals(self):
+        cases = [
+            (PAD.replace('"joystick"', '"lines"'), "output"),
+            (PAD.replace('"Fire"]', '"Fire", "Fire 2"]').replace('"face_bottom"]', '"face_bottom", "face_right"]'), "5 lines"),
+            (PAD.replace('"face_bottom"', '"fire"'), "not a source"),
+            (PAD.replace('"face_bottom"', '"button33"'), "not a source"),
+            (PAD.replace(', "face_bottom"]', ']'), "one source per button"),
+            (PAD.replace('per_pad = true', 'regs = [0, 1]'), "no regs"),
+            (PAD.replace('output = "joystick"\n', ''), "regs"),
+            (PAD + 'extra = 1\n', "extra"),
+        ]
+        for text, part in cases:
+            with self.assertRaises(D.DescError, msg=part) as e:
+                D.compile_text(MIN + text)
+            self.assertIn(part, str(e.exception))
+
+    def test_the_reader_refuses_a_damaged_pad(self):
+        good = D.compile_text(MIN + PAD)
+        for word, val in ((0, 0x200), (0, 0x2), (16, 0), (16, 17), (12, 0xFFFF)):
+            b = bytearray(good)
+            b[D.HEADER + word:D.HEADER + word + 4] = val.to_bytes(4, "little")
+            with self.assertRaises(D.DescError):
+                D.parse_desc(bytes(b))
+        b = bytearray(good)
+        i = b.index(b"2021222341")                                  # the default map's text: up down left right face_bottom
+        b[i] = ord("x")
+        with self.assertRaises(D.DescError):
+            D.parse_desc(bytes(b))
+
+
 class AgainstTheApplication(unittest.TestCase):
     """T104.2 D10: every name and binding of a menu is checked against what the application exports (tests/coreapp/golden/ops_trx64u.txt)."""
 
