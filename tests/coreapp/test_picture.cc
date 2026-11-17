@@ -334,6 +334,43 @@ static void picmodes_shared()
     CHECK(!q.fallback);
     picmodes_set_row(&q, 3, "1280 x 720", VID_HDMI_720P, (uint16_t)(1u << 7), 0, VID_SYS_PAL50, -1, true);
     CHECK(q.fallback);
+    // T235: the full list - a row of the table with its own rate, the mark of the rows the screen names, the foot line that explains it
+    {
+        PictureModes f;
+        memset(&f, 0, sizeof(f));
+        f.n = 3;
+        picmodes_set_row_at(&f, 0, "Auto", 8, false, 0, 8, true);
+        picmodes_set_row_at(&f, 1, "1280 x 720", 1, true, 0, 8, false);                 // 720p50: named
+        picmodes_set_row_at(&f, 2, "1280 x 720", 7, false, 1u << 7, 8, false);         // 720p60: not named
+        CHECK(f.full && !f.fallback);
+        CHECK(f.row[0].now && !f.row[0].named && f.row[0].mode == -1);
+        CHECK(f.row[1].named && f.row[1].mode == 1 && !f.row[1].now);
+        CHECK(!f.row[2].named && f.row[2].mode == 7);
+        picmodes_refresh_text(&f, 1, b, sizeof(b));
+        CHECK_STR(b, "50.1 Hz");                                                        // the raster's own rate (hdmi_modes.vh row 1)
+        picmodes_refresh_text(&f, 2, b, sizeof(b));
+        CHECK_STR(b, "59.8 Hz");
+        picmodes_tag_text(&f, 1, b, sizeof(b));
+        CHECK_STR(b, "*");
+        picmodes_tag_text(&f, 2, b, sizeof(b));
+        CHECK_STR(b, "native");
+        f.row[1].now = true;
+        picmodes_tag_text(&f, 1, b, sizeof(b));
+        CHECK_STR(b, "now  *");
+        picmodes_info(&f, b, sizeof(b));
+        CHECK(strstr(b, "* = the screen names this mode") != 0);
+        f.no_edid = true;
+        picmodes_info(&f, b, sizeof(b));
+        CHECK(strstr(b, "did not name its modes") != 0 && !strstr(b, "* ="));
+        picmodes_set_row_at(&f, 1, "1280 x 720", 1, true, 0, 1, false);                // the mark needs the cursor key too: the same name at 50 and 60 Hz is two rows
+        PictureModes g = f;
+        g.n = 3;
+        PicPage pp;
+        picpage_open(&pp, &f);
+        pp.sel = 2;
+        picpage_refresh(&pp, &g, true);
+        CHECK_EQ(pp.sel, 2);                                                            // the cursor keeps the 60 Hz row, not the first row of that name
+    }
     picmodes_confirm(8, "1280 x 720, 50.0 Hz", "1920 x 1080, 50.0 Hz", b, sizeof(b));
     CHECK_STR(b, "1280 x 720, 50.0 Hz\nIn 8 s 1920 x 1080, 50.0 Hz comes back.\n\nRETURN keeps it      LEFT or ESC goes back now");
     picmodes_kept_text("1280 x 720", b, sizeof(b));                // the D4 chip after the question: kept, or the mode that came back

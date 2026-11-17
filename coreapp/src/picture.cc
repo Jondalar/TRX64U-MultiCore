@@ -13,7 +13,7 @@ static uint16_t g_mask = EDID_ROW_MASK;              // the rows the screen take
 static uint16_t g_native = 0;                        // the rows it flags as native
 static int g_msys = VID_SYS_PAL50;                   // the machine's 50 / 60 Hz family (Q6)
 static bool g_gw = false;                            // the gateware takes the mode (status register answered)
-static int g_list[VID_HDMI_COUNT], g_nlist = 0;      // the resolutions the Picture item lists: value n + 1 is g_list[n]
+static int g_list[PIC_ROWS_MAX], g_nlist = 0;        // T235: the table rows (family * 6 + hdmi) the Picture item lists: value n + 1 is g_list[n]
 static int g_hd_hdmi = -1;            // the host's default: the mode the host handed over (D11c)
 static int g_host_hdmi = -1;          // T164 D10c: the resolution the host's own Picture is set to (host.cfg [Video] Mode); -1: "From the screen", no file, unreadable
 static int g_last_value = 0;                         // the Picture value in force
@@ -38,7 +38,29 @@ static int vic_family(int sys)
 // "Auto" and then the resolutions the screen takes. The first value says where its mode comes from (T164 D10c amended): "Auto (1280 x 720 from host)" when the core
 // uses the mode the host stored, "Auto (1920 x 1080 from screen)" when it uses what it picked from the screen; plain "Auto" until the picture starts.
 static char g_auto_text[40] = "Auto";
-static const char *g_values[1 + VID_HDMI_COUNT];
+static const char *g_values[1 + PIC_ROWS_MAX];
+static char g_label[PIC_ROWS_MAX][32];                  // T235: the value texts of the full list ("1280 x 720 (50 Hz)"); the .cfg keeps them
+static char g_rname[PIC_ROWS_MAX][20];                  // and the names the page shows beside the rate ("1280 x 720")
+// T235: a core on the gateware path (not the VIC path, which runs the System Mode's family only) is offered every row of the table, at its own rate
+static bool full_list(void) { return g_gw && !g_vic_scale; }
+// A snapshot of the value texts before the list is rebuilt: the texts of the full list live in g_label, which the rebuild overwrites.
+struct OldValues {
+    char text[1 + PIC_ROWS_MAX][40];
+    const char *p[1 + PIC_ROWS_MAX];
+    int n;
+};
+static void snapshot_values(OldValues *o)
+{
+    o->n = 1 + g_nlist;
+    for (int i = 0; i < 1 + PIC_ROWS_MAX; i++) {
+        o->p[i] = 0;
+        o->text[i][0] = 0;
+        if (i < o->n && g_values[i]) {
+            snprintf(o->text[i], sizeof(o->text[i]), "%s", g_values[i]);
+            o->p[i] = o->text[i];
+        }
+    }
+}
 static const char *g_scale_values[VID_SCALE_COUNT];     // T107 D8: Integer, Fit, Fill
 static const char *const g_smooth_values[2] = { "Off", "On" };
 
@@ -46,15 +68,42 @@ static void drop_unlocked(void);
 
 static void fill_values(void)
 {
-    g_nlist = video_modes_hdmi_list(g_mask, g_msys, g_list);
-    if (g_nlist == 0) {                                // a mask that names nothing: the television rows (Q9)
+    int hl[VID_HDMI_COUNT];
+    int nh = video_modes_hdmi_list(g_mask, g_msys, hl);
+    if (nh == 0) {                                     // a mask that names nothing: the television rows (Q9)
         g_mask = EDID_LIST_NONE;
-        g_nlist = video_modes_hdmi_list(g_mask, g_msys, g_list);
+        nh = video_modes_hdmi_list(g_mask, g_msys, hl);
     }
-    drop_unlocked();
+    g_nlist = 0;
+    if (full_list()) {                                 // every row of the table, both rates, the machine's rate first within a resolution (an old .cfg that says "1280 x 720" finds that one)
+        int own = g_msys == VID_SYS_NTSC60 ? 1 : 0;
+        for (int h = 0; h < VID_HDMI_COUNT; h++) {
+            for (int k = 0; k < 2; k++) {
+                int fam = k == 0 ? own : 1 - own;
+                int row = fam * 6 + h;
+                if (!((EDID_ROW_MASK >> row) & 1u)) {
+                    continue;                          // a PC mode has no 50 Hz row
+                }
+                const char *nm = h == VID_HDMI_480_576 ? (fam ? "480p" : "576p") : video_hdmi_name(h);
+                snprintf(g_rname[g_nlist], sizeof(g_rname[0]), "%s", nm);
+                snprintf(g_label[g_nlist], sizeof(g_label[0]), "%s (%d Hz)", nm, fam ? 60 : 50);
+                g_list[g_nlist++] = row;
+            }
+        }
+    } else {
+        for (int i = 0; i < nh; i++) {
+            int row;
+            if (video_modes_resolve(g_mask, g_msys, hl[i], &row)) {
+                snprintf(g_label[g_nlist], sizeof(g_label[0]), "%s", video_hdmi_name(hl[i]));
+                snprintf(g_rname[g_nlist], sizeof(g_rname[0]), "%s", video_hdmi_name(hl[i]));
+                g_list[g_nlist++] = row;
+            }
+        }
+        drop_unlocked();
+    }
     g_values[0] = g_auto_text;
     for (int i = 0; i < g_nlist; i++) {
-        g_values[1 + i] = video_hdmi_name(g_list[i]);
+        g_values[1 + i] = g_label[i];
     }
 }
 
@@ -66,7 +115,9 @@ static void drop_unlocked(void)
     }
     int n = 0;
     for (int i = 0; i < g_nlist; i++) {
-        if (g_list[i] <= VID_HDMI_800x600) {
+        if (video_row_hdmi(g_list[i]) <= VID_HDMI_800x600) {
+            snprintf(g_label[n], sizeof(g_label[0]), "%s", g_label[i]);
+            snprintf(g_rname[n], sizeof(g_rname[0]), "%s", g_rname[i]);
             g_list[n++] = g_list[i];
         }
     }
@@ -255,7 +306,9 @@ static Pick target(CoreCtx *c, int value, int now)
     if (g_nlist == 0) {                            // a caller that never built the items (the list is the defaults')
         fill_values();
     }
-    if (value > 0 && value - 1 < g_nlist && resolve_pick(g_list[value - 1], &p)) {
+    if (value > 0 && value - 1 < g_nlist) {                  // a row of the list: the full list names the family, the others run the machine's
+        p.sys = full_list() ? video_row_sys(g_list[value - 1]) : g_msys;
+        p.hdmi = video_row_hdmi(g_list[value - 1]);
         return p;
     }
     if (g_gw) {
@@ -302,9 +355,17 @@ void picture_modes(CoreCtx *c, PictureModes *out)
     if (c->video) {
         a = target(c, 0, now);
     }
+    bool full = full_list();
+    int now_row = full && now >= 0 ? video_row_of(now, current_sys()) : -1;
     for (int i = 0; i < out->n; i++) {
-        int hdmi = i == 0 ? a.hdmi : g_list[i - 1];
-        picmodes_set_row(out, i, g_values[i], hdmi, g_mask, g_native, g_msys, now, out->cur == 0);
+        if (full) {                                             // T235: the table row, the rate of its own clock, a mark when the screen names it
+            int row = i == 0 ? (a.hdmi >= 0 ? video_row_of(a.hdmi, a.sys) : -1) : g_list[i - 1];
+            bool named = !out->no_edid && row >= 0 && ((g_mask >> row) & 1u);
+            picmodes_set_row_at(out, i, i == 0 ? g_values[0] : g_rname[i - 1], row, named, g_native, now_row, out->cur == 0);
+        } else {
+            int hdmi = i == 0 ? a.hdmi : video_row_hdmi(g_list[i - 1]);
+            picmodes_set_row(out, i, g_values[i], hdmi, g_mask, g_native, g_msys, now, out->cur == 0);
+        }
     }
 }
 
@@ -344,7 +405,7 @@ static char g_result[80];                          // T187 D4/D5: what the chip 
 
 static void mode_text(int sys, int hdmi, char *out, int n)
 {
-    picmodes_mode_text(g_mask, g_gw ? (sys ? VID_SYS_NTSC60 : VID_SYS_PAL50) : sys, hdmi, out, n);
+    picmodes_mode_text(full_list() ? EDID_ROW_MASK : g_mask, g_gw ? (sys ? VID_SYS_NTSC60 : VID_SYS_PAL50) : sys, hdmi, out, n);       // T235: a row the screen does not name has its own rate too
 }
 
 void picture_confirm_names(char *now, int nn, char *prev, int pn)
@@ -496,7 +557,7 @@ static int op_smooth(CoreCtx *c, const OpArgs &a, OpOut &)
 }
 static const ArgSpec scale_args[] = { ARG_INT("value", 0, VID_SCALE_COUNT - 1) };
 static const ArgSpec smooth_args[] = { ARG_INT("value", 0, 1) };
-static const ArgSpec picture_args[] = { ARG_INT("value", 0, VID_HDMI_COUNT) };
+static const ArgSpec picture_args[] = { ARG_INT("value", 0, PIC_ROWS_MAX) };
 
 // The picture as the descriptor states it, for the Home panel (menuflows.h MenuFacts): the scale it is at now, not the descriptor's.
 static const char *st_video_line(CoreCtx *c)
@@ -534,9 +595,8 @@ static void set_machine_sys(CoreCtx *c, int sys)
     if (sys == g_msys) {
         return;
     }
-    const char *old[1 + VID_HDMI_COUNT];
-    int nold = 1 + g_nlist;
-    memcpy(old, g_values, sizeof(old));
+    OldValues old;
+    snapshot_values(&old);
     g_msys = sys;
     fill_values();
     int pidx = picture_index(c->desc);
@@ -544,7 +604,7 @@ static void set_machine_sys(CoreCtx *c, int sys)
         Setting &s = const_cast<Setting &>(c->desc->settings[pidx]);
         s.nvalues = 1 + g_nlist;
         if (c->settings) {
-            c->settings->remap(pidx, old, nold);
+            c->settings->remap(pidx, old.p, old.n);
         }
     }
 }
@@ -715,9 +775,8 @@ int picture_service(CoreCtx *c)
     uint16_t mask = video_modes_offered(edid, len);
     EdidInfo ei;
     g_native = edid_parse(edid, len, &ei) ? (uint16_t)(ei.native & mask) : 0;      // the new screen's native flags, not the last one's
-    const char *old[1 + VID_HDMI_COUNT];
-    int nold = 1 + g_nlist;
-    memcpy(old, g_values, sizeof(old));
+    OldValues old;
+    snapshot_values(&old);
     g_mask = mask;
     fill_values();
     int pidx = picture_index(c->desc);
@@ -725,7 +784,7 @@ int picture_service(CoreCtx *c)
         Setting &s = const_cast<Setting &>(c->desc->settings[pidx]);
         s.nvalues = 1 + g_nlist;
         if (c->settings) {
-            c->settings->remap(pidx, old, nold);
+            c->settings->remap(pidx, old.p, old.n);
         }
     }
     ev |= PS_LIST_CHANGED;
@@ -741,6 +800,13 @@ int picture_service(CoreCtx *c)
         if (apply_mode(p.sys, p.hdmi)) {
             video_current = video_pack(p.sys, p.hdmi);
             c->video->set_mode(p.hdmi, p.sys);
+            if (full_list() && pidx >= 0 && c->settings) {         // T235: the list does not shrink with the screen, so a stored choice the new screen does not name stays on it: for this run it reads Auto (nothing is written)
+                int v = c->settings->value(pidx);
+                if (v > 0 && v - 1 < g_nlist && !((mask >> g_list[v - 1]) & 1u)) {
+                    c->settings->override_value(pidx, 0);
+                    g_last_value = 0;
+                }
+            }
         }
     }
     return ev;
