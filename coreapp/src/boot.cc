@@ -234,13 +234,19 @@ int boot_restart(CoreCtx *c, char *msg, int msglen)
     return reload(c, msg, msglen, true, true);
 }
 
-// The machine RAM to zero, through the RAM window (the machine is held).
+// The machine RAM to zero, through the RAM window (the machine is held); in the window's memory-only mode when the core asks for it (T228 R17).
 static void clear_machine_ram(CoreCtx *c)
 {
     static const uint8_t zero[4096] = { 0 };
+    if (c->desc->cold_ram_only) {
+        c->io->ram_memonly(true);
+    }
     for (uint32_t a = 0; a < c->desc->cold_ram_bytes; a += sizeof(zero)) {
         uint32_t n = c->desc->cold_ram_bytes - a;
         c->io->ram_write(a, zero, n < sizeof(zero) ? n : (uint32_t)sizeof(zero));
+    }
+    if (c->desc->cold_ram_only) {
+        c->io->ram_memonly(false);
     }
 }
 

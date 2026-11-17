@@ -5,7 +5,7 @@
 #
 # T228 (Restart 2026-11-17): the structure is the generic core menu of T212 alone (F1 Home, F3 Library, F5 machine, F7 APP, F8 System); no F2 and no F4
 # area (R1). R2: no "Reboot, clear memory" (F8's generic "Restart core"), no "Pause / resume"; R3: no "Save C64 memory" and no "Save REU memory". R9: F5 has
-# the core's tabs C64, TRX and Expansion with headings, then Video, Audio (R5: "SID sockets" and "Emulated SIDs" are two rows under the heading SID at its
+# the core's tabs C64, TRX and Expansion with headings, then Video, Audio (R5: "SID sockets" and "Emulated SIDs" are two rows under the heading reDIP:SID at its
 # end, each opens a page), Input. F7 is one tab of sections (T212 D12) with the apps last under their heading "Apps" (a group node); Softboot is hidden
 # under the MultiCore host (DC1: `hide`, read by a flat list when the menu is built). R6: F8 is the one generic System tab; under its Network heading
 # three rows open the pages Network settings, Streams and FTP hosts. R7: the Ultimate's device settings (power, wake on Wi-Fi, LEDs, colour scheme) are
@@ -100,7 +100,7 @@ key = "F5"                       # the core's short title ("C64") names it
   name = "Audio"
   widget = "settings"
   groups = ["Volumes", "Pan", "Speaker", "SID_sockets", "Emulated_SIDs"]
-  ui = { sections = true, pages = "SID_sockets,Emulated_SIDs", pages_head = "SID" }
+  ui = { sections = true, pages = "SID_sockets,Emulated_SIDs", pages_head = "reDIP:SID" }
   n = 5
   [[area.tab]]
   id = "input"
@@ -928,6 +928,10 @@ output = "joystick"
 per_pad = true
 buttons = ["Up", "Down", "Left", "Right", "Fire"]
 default = ["up", "down", "left", "right", "face_bottom"]
+
+[restart]                          # T228 R17: F8 "Restart core" starts the C64 with its 64 KiB cleared, as Gideon's "Reboot (Clr Mem)" did; memory-only, so
+clear_ram = 65536                  # $D000-$DFFF is RAM and not the chips
+ram_only = true
 
 [poll]                             # the pad's lines every 16 ms (no poll while the menu holds the machine)
 op = "pad.poll"

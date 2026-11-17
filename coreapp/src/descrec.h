@@ -6,7 +6,7 @@
 //
 // Layout, little endian, every entry fixed size, strings in one table (NUL terminated, offsets into it, 0xFFFFFFFF = none):
 //
-//   0   u32 magic "TRXD"        4  u16 version (5 with a pad, else 4; 2 and 3 are read too)   6  u16 header size (176; version 5: 200)
+//   0   u32 magic "TRXD"        4  u16 version (5 with a pad or a restart, else 4; 2 and 3 are read too)   6  u16 header size (176; version 5: 208)
 //   8   u32 total size         12  u32 flags (bit 0: the record gives the route; bit 1: it carries the core's own menu tables)
 //   16  u32 string table offset, u32 string table size
 //   24  (offset, count) of the tables, in this order, 8 bytes each:
@@ -15,9 +15,12 @@
 //   160 poll: u32 operation (string offset, none = no poll), u32 period in ms, u32 merged libraries (string offset of their names, comma separated, none = no
 //       library menu was merged: the menus of those libraries are in this record, the application does not add them again), version 4: the machine-info
 //       line (string offset of the settings whose values make Home's machine line, none = no line; before version 4: 0)
-//   176 version 5 only (T228 R10: a record with a pad; the writer keeps version 4 and 176 bytes for one without): the pad (pad.h PadSpec): u32 kind (bits
-//       7:0 the output, PAD_OUT_REGS / PAD_OUT_JOY, bit 8 by_id), u32 reg 0, u32 reg 1 (registers, or the ports 0 / 1), u32 the first of its button names
-//       in the value table, u32 how many (1..16), u32 its default map (string offset: two hex digits per button, a source 00-23, a role 40-47, FF none)
+//   176 version 5 only (T228 R10, R17: a record with a pad or a restart; the writer keeps version 4 and 176 bytes for one without): the pad (pad.h PadSpec):
+//       u32 kind (bits 7:0 the output, PAD_OUT_REGS / PAD_OUT_JOY, bit 8 by_id; none = no pad), u32 reg 0, u32 reg 1 (registers, or the ports 0 / 1), u32 the
+//       first of its button names in the value table, u32 how many (1..16), u32 its default map (string offset: two hex digits per button, a source 00-23, a
+//       role 40-47, FF none)
+//   200 version 5 only: the restart (T228 R17, CoreDesc::cold_ram_bytes): u32 the machine RAM F8 "Restart core" clears, in bytes from address 0 (0 = the
+//       core's own value; else a multiple of 256, at most 16 MiB), u32 flags (bit 0: the RAM window in its memory-only mode while it clears)
 //
 //   area   key name flags first_tab ntabs            (flags bit 0: shifted)
 //   tab    id name n widget groups layout      (layout: string offset, 0 = none: "name;key=value;..." how the tab is drawn, contrib.h ui_attr; version 2: reserved, 0)
@@ -50,7 +53,8 @@
 #define DESCREC_VERSION 5
 #define DESCREC_VERSION_MIN 2                     /* a version 2 record has 0 in the two words version 3 uses (a tab's layout, a node's attributes) */
 #define DESCREC_HEADER 176                        /* versions 2 to 4, and the least a record has */
-#define DESCREC_HEADER_V5 200                     /* version 5: the pad's six words follow */
+#define DESCREC_HEADER_V5 208                     /* version 5: the pad's six words and the restart's two follow */
+#define DESCREC_RESTART_MAX (1u << 24)            /* the most RAM a restart clears: 16 MiB */
 #define DESCREC_NONE 0xFFFFFFFFU
 #define DESCREC_MAX_SIZE 0x20000U                 // 128 KiB: more is not a menu description
 
@@ -97,6 +101,8 @@ struct DescRecord {
     bool has_pad;                                 // version 5 (T228 R10): the record declares the core's pad; descrec_apply makes `pad` the descriptor's
     PadSpec pad;                                  // its names point into `values`, its def_map into pad_def
     uint8_t pad_def[PAD_BUTTONS_MAX];
+    uint32_t restart_clear;                       // version 5 (T228 R17): the bytes "Restart core" clears (CoreDesc::cold_ram_bytes), 0: the core's own value
+    bool restart_ram_only;                        // ... through the RAM window in its memory-only mode (CoreDesc::cold_ram_only)
     bool has_own;
     Task tasks[DR_TASKS]; int ntasks;
     MediaSlot media[DR_MEDIA]; int nmedia;

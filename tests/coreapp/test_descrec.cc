@@ -293,6 +293,8 @@ int main(int argc, char **argv)
         }
         CHECK_EQ(grouped, 10);
         descrec_apply(*o, &base, &out);
+        CHECK(o->restart_clear == 65536 && o->restart_ram_only);  // T228 R17: [restart] - "Restart core" clears the C64's 64 KiB, memory-only
+        CHECK(out.cold_ram_bytes == 65536 && out.cold_ram_only);
         CHECK(out.tasks == o->tasks && out.ntasks == 15 && out.nmedia == 3 && out.nfiletypes == 16 && out.nsettings == 155 && !strcmp(out.machine_info, "System Mode,REU Size"));
         {   // T228 D10: the base's settings stand behind the record's 155, in the base's order, and a second call gives the same table
             static Setting bs[2];

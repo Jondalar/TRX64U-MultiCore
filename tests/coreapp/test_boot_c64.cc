@@ -104,6 +104,30 @@ int main()
         CHECK(r.px.w.empty());
         CHECK(r.c.started);
     }
+    // T228 R17: F8 "Restart core" clears the 64 KiB as the record's [restart] says, through the RAM port in memory-only mode: $D000-$DFFF is RAM
+    // there, no byte is a bus cycle into the chips, and the mode is off again afterwards
+    {
+        C64Rig r;
+        r.put_roms();
+        CHECK(r.boot());
+        CHECK(r.c.desc->cold_ram_bytes == 65536 && r.c.desc->cold_ram_only);
+        for (size_t a = 0; a < r.io.ram.size(); a++) {
+            r.io.ram[a] = (uint8_t)(0x55 ^ a);
+        }
+        r.io.bus_cycles = 0;
+        r.io.chip_writes.clear();
+        char msg[160] = "";
+        CHECK_EQ(boot_restart(&r.c, msg, sizeof(msg)), 0);
+        size_t nonzero = 0;
+        for (size_t a = 0; a < 0x10000; a++) {
+            nonzero += r.io.ram[a] != 0;
+        }
+        CHECK_EQ(nonzero, (size_t)0);
+        CHECK_EQ(r.io.bus_cycles, 0);
+        CHECK(r.io.chip_writes.empty());
+        CHECK(!r.io.memonly);
+        CHECK(r.c.started);
+    }
     // a KERNAL of 8191 bytes is a wrong size, CHAR is missing: nothing is written, nothing is released, the screen says why. Then the files
     // come and the machine starts (S7: the core is never released with a ROM missing)
     {

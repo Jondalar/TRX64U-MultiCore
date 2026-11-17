@@ -393,6 +393,52 @@ class Pad(unittest.TestCase):
         self.assertIn(("input", "menu.pad_map_port"), [(t["group"], t["op"]) for t in r["task"]])
 
 
+RESTART = """
+[restart]
+clear_ram = 65536
+ram_only = true
+"""
+
+
+class Restart(unittest.TestCase):
+    """T228 R17: a core declares what F8 "Restart core" clears (record version 5, the two words behind the pad's)."""
+
+    def test_a_restart_makes_version_5_without_a_pad_and_reads_back(self):
+        b = D.compile_text(MIN + RESTART)
+        self.assertEqual((b[4] | b[5] << 8, b[6] | b[7] << 8), (5, D.HEADER_V5))
+        r = D.parse_desc(b)
+        self.assertEqual((r["restart"], r["pad"]), ({"clear_ram": 65536, "ram_only": True}, None))
+        self.assertEqual(D.compile_desc(D.decoded_to_doc(r)), b)
+        self.assertIsNone(D.parse_desc(D.compile_text(MIN + PAD))["restart"])
+
+    def test_ram_only_is_optional(self):
+        r = D.parse_desc(D.compile_text(MIN + RESTART.replace("ram_only = true\n", "")))
+        self.assertEqual(r["restart"], {"clear_ram": 65536, "ram_only": False})
+
+    def test_refusals(self):
+        cases = [
+            (RESTART.replace("65536", "1000"), "multiple of 256"),
+            (RESTART.replace("65536", "0"), "clear_ram"),
+            (RESTART.replace("65536", str(1 << 25)), "clear_ram"),
+            (RESTART + "wipe = 1\n", "wipe"),
+        ]
+        for text, part in cases:
+            with self.assertRaises(D.DescError, msg=part) as e:
+                D.compile_text(MIN + text)
+            self.assertIn(part, str(e.exception))
+
+    def test_the_reader_refuses_a_damaged_restart(self):
+        good = D.compile_text(MIN + RESTART)
+        for word, val in ((24, 100), (24, 1 << 25), (28, 2)):
+            b = bytearray(good)
+            b[D.HEADER + word:D.HEADER + word + 4] = val.to_bytes(4, "little")
+            with self.assertRaises(D.DescError):
+                D.parse_desc(bytes(b))
+
+    def test_the_menu_of_trx64u_clears_the_c64_ram_on_a_restart(self):
+        self.assertEqual(D.parse_desc(D.compile_text(menu_text()))["restart"], {"clear_ram": 65536, "ram_only": True})
+
+
 class AgainstTheApplication(unittest.TestCase):
     """T104.2 D10: every name and binding of a menu is checked against what the application exports (tests/coreapp/golden/ops_trx64u.txt)."""
 

@@ -205,6 +205,15 @@ int descrec_parse(const uint8_t *rec, uint32_t n, DescRecord *out, char *why, in
         p.out = (uint8_t)(kind & 0xFF);
         out->has_pad = true;
     }
+    // T228 R17, version 5: what "Restart core" clears (CoreDesc::cold_ram_bytes, cold_ram_only)
+    if (ver >= 5) {
+        uint32_t clear = r.u32(DESCREC_HEADER + 24), fl = r.u32(DESCREC_HEADER + 28);
+        if ((fl & ~1u) || clear > DESCREC_RESTART_MAX || (clear & 0xFF) || (fl && !clear)) {
+            return r.fail("description record: the restart clears a bad amount of RAM or has unknown flags");
+        }
+        out->restart_clear = clear;
+        out->restart_ram_only = (fl & 1) != 0;
+    }
     // contributed tabs
     for (uint32_t i = 0; i < tb[C].count; i++) {
         const uint8_t *e = ENT(C, i);
@@ -504,6 +513,10 @@ void descrec_apply(const DescRecord &rec, const CoreDesc *base, CoreDesc *out)
     }
     if (rec.has_pad) {
         out->pad = &rec.pad;                                   // T228 R10: the record's pad is the core's
+    }
+    if (rec.restart_clear) {
+        out->cold_ram_bytes = rec.restart_clear;               // T228 R17: what "Restart core" clears, as the core's TOML declares it
+        out->cold_ram_only = rec.restart_ram_only;
     }
     if (!rec.has_own) {
         return;

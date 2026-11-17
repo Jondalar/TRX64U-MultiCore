@@ -9,6 +9,10 @@ Source (TOML; every key is checked, an unknown one is an error - a typo must not
     machine_info = "System Mode,REU Size"   # top-level, optional: the names of the settings whose values the Home machine line prints (record v4); a setting with
                                    # show_state is named only while that state holds (T228 DC5)
 
+    [restart]                      # optional (T228 R17, record v5): what F8 "Restart core" clears before the core starts again (CoreDesc::cold_ram_bytes)
+    clear_ram = 65536              # the machine RAM in bytes from address 0, cleared through the RAM window while the core is held (256 .. 16 MiB, whole 256s)
+    ram_only = true                # optional: the window in its memory-only mode while it clears (io.h ram_memonly: RAM under the I/O range too)
+
     [[area]]                       # optional; without any, the default route stays (T104 5.8)
     key = "F5"                     # F1 .. F8
     name = "C64"                   # optional: the core's short title
@@ -143,10 +147,11 @@ import re
 import struct
 
 MAGIC = 0x44585254          # "TRXD"
-VERSION = 5                 # 5 (T228 R10) adds the pad's six words to the header (200 bytes) - written only for a record with a [pad], one without stays version 4; 4 (T228) widens a media slot by the drive list's fields and gives the header's last word the machine-info line; 3 gave the two reserved words of 2 a use (a tab's layout, a node's attributes); 2 and 3 are read too
+VERSION = 5                 # 5 (T228 R10, R17) adds the pad's six words and the restart's two to the header (208 bytes) - written only for a record with a [pad] or a [restart], one without stays version 4; 4 (T228) widens a media slot by the drive list's fields and gives the header's last word the machine-info line; 3 gave the two reserved words of 2 a use (a tab's layout, a node's attributes); 2 and 3 are read too
 VERSION_MIN = 2
 HEADER = 176                # versions 2 to 4
-HEADER_V5 = 200             # version 5: + the pad (kind, reg 0, reg 1, first name, names, default map)
+HEADER_V5 = 208             # version 5: + the pad (kind, reg 0, reg 1, first name, names, default map; kind NONE: no pad) + the restart (clear_ram bytes, flags bit 0 ram_only)
+RESTART_CLEAR_MAX = 1 << 24 # the most RAM a restart clears (16 MiB)
 NONE = 0xFFFFFFFF
 MAX_SIZE = 0x20000
 LIMITS = dict(area=8, tab=32, node=320, action=24, setting=16, hide=16, rename=16, bind=700, ext=48, size=16, value=3200, ctab=16,
@@ -540,7 +545,7 @@ def compile_desc(doc, merged=()):
     """doc: the parsed TOML (a dict). Returns the record's bytes. `merged`: the names of the libraries whose menus were merged into it (merge_lib_menus)."""
     _expand_apps(doc)
     _only(doc, {"area", "node", "file_action", "setting", "hide", "rename", "tab", "poll", "task", "media", "filetype", "core_setting", "lists", "machine_info",
-                "pad"}, "description")
+                "pad", "restart"}, "description")
     st = _Strings()
     t = {k: [] for k in ORDER}
 
@@ -914,11 +919,12 @@ def compile_desc(doc, merged=()):
     mi = _opt(doc, "machine_info", str, "description", None)
     mi_off = st.add(mi) if mi else NONE
     pad_words = _pad_words(_opt(doc, "pad", dict, "description", None), t, st)
+    restart_words = _restart_words(_opt(doc, "restart", dict, "description", None))
     for k in ORDER:
         if len(t[k]) > LIMITS[k]:
             raise DescError("%d %s entries; the board takes %d" % (len(t[k]), k, LIMITS[k]))
     # layout: header, tables in ORDER, strings last
-    version, header = (VERSION, HEADER_V5) if pad_words else (4, HEADER)
+    version, header = (VERSION, HEADER_V5) if pad_words or restart_words else (4, HEADER)
     pos = header
     offs = {}
     for k in ORDER:
@@ -932,8 +938,9 @@ def compile_desc(doc, merged=()):
     for k in ORDER:
         out += struct.pack("<II", offs[k], len(t[k]))
     out += struct.pack("<IIII", poll_op, poll_ms, merged_off, mi_off)
-    if pad_words:
-        out += struct.pack("<6I", *pad_words)
+    if version >= 5:
+        out += struct.pack("<6I", *(pad_words or (NONE, 0, 0, 0, 0, NONE)))
+        out += struct.pack("<II", *(restart_words or (0, 0)))
     assert len(out) == header, len(out)
     for k in ORDER:
         for e in t[k]:
@@ -969,6 +976,17 @@ def _pad_token(code):
     if code == 0xFF:
         return "none"
     return "button%d" % (code + 1)
+
+
+def _restart_words(rs):
+    """[restart] -> the two header words of version 5 (T228 R17): the bytes F8 "Restart core" clears from address 0, flags (bit 0: memory-only). None: no table."""
+    if rs is None:
+        return None
+    _only(rs, {"clear_ram", "ram_only"}, "restart")
+    n = _need(rs, "clear_ram", int, "restart")
+    if isinstance(n, bool) or not 256 <= n <= RESTART_CLEAR_MAX or n % 256:
+        raise DescError("restart: clear_ram is 256 .. %d bytes, a multiple of 256" % RESTART_CLEAR_MAX)
+    return n, 1 if _opt(rs, "ram_only", bool, "restart", False) else 0
 
 
 def _pad_words(pad, t, st):
@@ -1081,6 +1099,13 @@ def parse_desc(blob):
             raise DescError("description record: a bad pad")
         out["pad"] = {"output": outs[kind & 0xFF], "per_pad": bool(kind & 0x100), "regs": [r0, r1], "buttons": out["value"][fv:fv + nv],
                       "default": [_pad_token(c) for c in codes]}
+    out["restart"] = None
+    if ver >= 5:
+        clear, rfl = struct.unpack_from("<II", blob, HEADER + 24)
+        if rfl & ~1 or clear > RESTART_CLEAR_MAX or clear % 256 or (rfl and not clear):
+            raise DescError("description record: a bad restart")
+        if clear:
+            out["restart"] = {"clear_ram": clear, "ram_only": bool(rfl & 1)}
     out["hide"] = [s(e[0]) for e in tabs["hide"]]
     out["rename"] = [(s(a), s(b)) for a, b in tabs["rename"]]
     if any(not h for h in out["hide"]) or any(not a or not b for a, b in out["rename"]):
@@ -1281,6 +1306,8 @@ def decoded_to_doc(rec):
         if p["output"] != "joystick":
             d["regs"] = list(p["regs"])
         doc["pad"] = d
+    if rec.get("restart"):
+        doc["restart"] = dict(rec["restart"])
     if rec["task"]:
         doc["task"] = []
         for t in rec["task"]:
@@ -1366,8 +1393,8 @@ def merge_lib_menus(desc_blob, libs):
     kept = []
     for name, blob in sorted(libs, key=lambda x: x[0]):
         rec = parse_desc(blob)
-        if rec["route"] or rec["hide"] or rec["rename"] or rec["own"] or rec.get("pad"):
-            kept.append((name, "its record gives a route, hides or renames what others contribute, or carries a core's own tables or pad"))
+        if rec["route"] or rec["hide"] or rec["rename"] or rec["own"] or rec.get("pad") or rec.get("restart"):
+            kept.append((name, "its record gives a route, hides or renames what others contribute, or carries a core's own tables, pad or restart"))
             continue
         if rec["poll"]:
             kept.append((name, "it declares a poll, of which a description has one"))

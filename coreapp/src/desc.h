@@ -284,7 +284,7 @@ struct CoreDesc {
     const char *run_op;
     // "Restart core" (F8, a cold boot of the core without the host): the machine RAM, in bytes from address 0, that the application clears
     // through the RAM window while the core is held, as a power-on leaves it. 0: the application cannot clear this machine's RAM and the
-    // restart leaves it as it is.
+    // restart leaves it as it is. A core's menu record sets it too ([restart] clear_ram, T228 R17; cold_ram_only below).
     uint32_t cold_ram_bytes;
     // T104 5.14: the cold start of a core that has no partial bitstream to load again (a flat build, the C128's .cfw): "Restart core" calls it
     // before the restart sequence, so what the registers cannot reach is brought back by the core's own means. 0, or a reason in msg: the
@@ -343,6 +343,9 @@ struct CoreDesc {
     // T212 D3: the settings (by label, else key; comma separated) whose values make the one line of Home that says what machine this is ("AGA - Chip RAM 2M").
     // A value "None" is left out. Null: Home has no such line. Last in the record, so the positional initialisers stay as they are.
     const char *machine_info;
+    // T228 R17: "Restart core" clears cold_ram_bytes through the RAM window in its memory-only mode (CoreIo::ram_memonly: RAM under the I/O range too, as
+    // trx64u's C64 needs). A core's menu record sets it ([restart] ram_only). Last in the record, so the positional initialisers stay as they are.
+    bool cold_ram_only;
 };
 
 static inline bool desc_has_capability(const CoreDesc *d, const char *cap)
