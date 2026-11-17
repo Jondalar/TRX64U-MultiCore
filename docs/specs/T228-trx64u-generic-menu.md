@@ -304,6 +304,11 @@ overlay was fitted from a 1280x800 manual picture, so its scale on the real 960x
 - Q11 needs no answer: D7 decided it. Q13 is settled by D14.
 - All S1 questions Q1-Q14 are answered (D1-D18). Next: T212 merges (D2), then S2 is built, then Alex tests in ue2emu (D6).
 
+### Restart 2026-11-17: the generic app 100 %, the TRX64 extras fitted in (Alex)
+Alex 2026-11-17 (translated): "I want you to apply the generic APP 100 % to the TRX64U first. And then we fit the 'remaining' functions into the categories and the layout. Not the other way round. Make a concept." Concept page (discussion, not decided as a whole): (internal page) Rules it applies: T205 D1, T212 D1-D17.
+- **R1 (Alex 2026-11-17, Q1, shown three pictures):** "F1 + Hotkey": the generic layout has no F2 and no F4; Timewarp and Monitor are each opened by one F1 row under the two reset rows ("Timewarp...", "Monitor...") and by a hotkey on F7 > Hotkeys. Rail: HOME F1, LIBRARY F3, C64 F5, APP F7, SYSTEM F8.
+- Alex 2026-11-17: "and now make mocks with LVGL for every category + tab and put them on the page, a click dummy" (translated).
+
 ### Decisions during S2 (decided by Claude on Alex's delegation 2026-11-16 night; Alex can overturn each at S2b)
 Alex 2026-11-16 (translated): "you start T228 overnight ... be the advisor here, decide for me". Each decision follows a D-row or the
 S1 table where one exists; only DC2, DC6, DC7, DC9, DC11 and DC12 are new choices (DC1 and DC3 are Alex's).
