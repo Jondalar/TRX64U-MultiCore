@@ -315,6 +315,7 @@ Alex 2026-11-17 (translated): "I want you to apply the generic APP 100 % to the 
 - **R5 (Alex 2026-11-17, Q5):** "in the Audio tab, but as a group to fold open" (translated): the SID rows (SID sockets, Emulated SIDs) move into F5 > Audio as a group that opens. The generic menu has no fold-open group today (only rows that open a page, e.g. Hotkeys >); how it is built is asked next.
   - **R5b (Alex 2026-11-17, shown two pictures):** "page like Hotkeys >": two rows at the end of F5 > Audio, "SID sockets >" and "Emulated SIDs >", each opening a page with today's rows of that group (the existing page pattern, no new menu code).
 - **R6 (Alex 2026-11-17, Q6, shown three pictures):** "F8 System, pages": F8 keeps one tab "System" like every core; under the heading Network stand WiFi and rows that open a page each: "Network settings >" (DHCP, IP, host name, services, time), "Streams >" (VIC, audio, debug) and "FTP hosts >" (D18).
+- **R7 (Alex 2026-11-17, Q7, shown three pictures):** "out": the Device rows (Power on after power loss, Wake on Wi-Fi, LED select top/bottom, Color scheme - Ultimate firmware settings via `u64.fx_power` / `ui.fx`) leave the trx64u menu; F8 has no Device tab.
 
 ### Decisions during S2 (decided by Claude on Alex's delegation 2026-11-16 night; Alex can overturn each at S2b)
 Alex 2026-11-16 (translated): "you start T228 overnight ... be the advisor here, decide for me". Each decision follows a D-row or the
