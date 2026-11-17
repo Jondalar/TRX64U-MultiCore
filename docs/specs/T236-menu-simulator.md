@@ -1,6 +1,6 @@
 # T236 — The real core-app and host-app menus run natively on the Mac in a window, driven by the keyboard, rebuilt in seconds
 
-**Status:** PROPOSED (2026-11-17).
+**Status:** BUILT, MERGED into main 2026-11-17 (Alex: "go, I want to get it all finished", translated); the visible window not looked at yet. Proposed 2026-11-17.
 **Repo:** TRX64U-MultiCore — a tool, `tools/menusim/` (script, main, key table); shared pieces of the native benches move to
 `tests/coreapp/` (the core app's rig and source list). No gateware, nothing in `coreapp/src` or `uicore/` beyond generic hooks, no pipeline
 stage, no image.
@@ -121,7 +121,49 @@ No negative controls: nothing here writes flash or persists anything (settings l
 
 ## §5 Decisions taken while building
 
-(empty)
+- **D5a The menu is built as run.cc builds it, not as tests/coreapp/trx64u_menu.h does.** The simulator calls `menu_build` (the bench's
+  `board_desc`, run.cc:446) and then `bundle_merge` with the description record (run.cc:590) for every core: the TOML compiled by descrec.py,
+  else the record the application carries (bundle_read's fallback, bundle.cc:80), else none. A first version applied the record over the raw
+  c64_desc (the steps of main's trx64u_menu.h); F7 then lacked Storage and Menu and keys (Persist, Home, Hotkeys) against the t228-mock pictures
+  (31100 px). main's tests/coreapp/trx64u_menu.h still applies the record over the raw c64_desc (t228-mock has fixed it): the bench's trx64u
+  pictures on main lack those items. Not changed here (the bench is not this spec's).
+- **D7a The key that opens a closed menu is F12.** The board opens the menu with the menu button or the core's menu hotkey, neither of which is a
+  key the simulator gets; F12 stands in.
+- **D7b LVGL runs once after every key** (`lv_timer_handler`), as on the board between two keys and in the bench's steps. Without it a long walk
+  of keys (SEL:23 on the FTP hosts page) recycled rows before their layout and cut values ("No" for "Not set", 3792 px).
+- **D9a Two steps in the headless key list besides keys:** `FIND:<text>` (the selection to the first row whose label starts with the text) and
+  `SEL:<n>` (to row n), both by UP and DOWN as the bench's select_row does.
+- **D9b The screenshot is taken as the bench's mock_shot takes it:** the menu rendered, LVGL run, the whole page invalidated and drawn again.
+- **D12a The host app:** its harness moved to tests/hostapp/host_rig.h (the stubs the bench defined further down too: the unzip fakes and
+  hostzip_env, the FTP store, esp_flash_board_link); the source list to tests/hostapp/srclist.sh. hostsim runs over a fresh tree of mktree.py each
+  start, reads its Flash/boot.cfg, and starts in the chosen mode the way the bench's snap_save_scenario does (the stored choice, hostui_test_video,
+  hostui_test_mode); default 1080p, as the core simulator. Modes: 1080p, 1080p60, 720p, 720p60, 576p, 480p - the PC modes are offered by the host only to a screen whose EDID names
+  them, and the simulator's screen has none. A mode the host changes later (V) is shown in the window's first size.
+- **D13a SDL:** `pkg-config sdl2` found brew's sdl2-compat 2.32.74 (over SDL3 3.4.18). SDL's `offscreen` driver needs OpenGL and fails; the
+  `dummy` driver works with the software renderer, which the window falls back to.
+- **The build** (Mac arm64, Apple clang, make 3.81): cold 143 objects in 3.4 s (core app), one changed source (ui.cc) rebuilt and linked in
+  0.3 s. make 3.81 compares whole seconds: a source saved within the same second as the end of the previous build is not rebuilt.
+- **The trx64u picture (MultiCore's note):** the simulator places the canvas where the application asks (menu_place 0,0 1920x1080 for the
+  960x540 canvas at 1080p). The board's LVGL port writes that as PX_CTRL = 0x03 (b5:4 scale 0), PX_POS = 0, PX_OSIZE = 0x04380780
+  (host-app/software/lvgl_port/trx_lv_port.cc:86-99): the size is in PX_OSIZE only. trx64u.cor runs TRX64-Ultimate's bitstream, whose pix_layer scales by PX_CTRL b5:4 and has
+  no PX_OSIZE (ue2emu models it so): there the menu comes out at scale 1 in the top-left corner - the picture ue2emu shows. A finding for T228,
+  not changed here.
+- **Shared, not copied:** tests/coreapp/srclist.sh and tests/hostapp/srclist.sh hold the source lists, defines and include paths of the two render
+  benches and the simulator; tests/coreapp/menu_rig.h and tests/hostapp/host_rig.h the native layer, the stubs, the PNG writers and CHECK. Two pieces
+  are the simulator's own: the window loop (tools/menusim/simwin.h) and the host's frame composition in hostsim.cc (nearest sampling into the
+  host's place, the formula of the core rig's rig_compose).
+- **--tree with a tree older than T236** (t228-mock): run.sh takes this tool's srclist.sh with APPDIRS and NOT_HERE read from that tree's bench, and
+  menu_rig.h from this tree (-idirafter); --host needs the tree's own tests/hostapp/srclist.sh.
+
+- **Built** on t236-menusim (9f0791686, cfc8aa653, 27824b17b, 5d68355c5) by the C64U_emu session; reviewed and merged into main by MultiCore on
+  Alex's "go, I want to get it all finished" (2026-11-17, translated).
+- **Evidence (Mac arm64, builder):** S1 cold "menusim: 143 objects, 143 rebuilt, linked in 3.8 s", one changed source "143 objects, 1 rebuilt,
+  linked in 0.4 s"; S2/S3 "canvas 960x540 at 0,0 shown 1920x1080 (frame 1920x1080)" (trx64u, vc20, amiga1200 at 1080p), "640x480 at 0,0 shown
+  640x480 (frame 640x480)" (480p); S4/S8 key traces of the core and the host app; S5 TOML reload 0.27 s after the save, "menu rebuilt in 108 ms",
+  a broken TOML refused with descrec's sentence and the last menu kept; S6 51 of 51 t228-mock trx64u pictures "differ: 0 px"; S7 merged with main
+  (fix-1117) on the builder: "coreapp render: 297065 checks, 0 failed", "render bench: 2466 checks, 0 failed"; S9 Mac arm64 only (§4).
+- **Open:** nobody has looked at the visible window yet (the runs used SDL's dummy driver) - Alex's first run is its first look:
+  `tools/menusim/run.sh trx64u` (or `--tree <worktree> <core>`, `--host`).
 
 ---
 <!--

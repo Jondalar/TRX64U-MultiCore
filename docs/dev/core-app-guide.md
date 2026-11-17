@@ -334,6 +334,10 @@ refused as vacuous). Results are cached by the dependency list of each test and 
   (a control never rewrites a golden); read the diff, it is the menu the person will see.
 - **Render bench** `tests/coreapp/render/run.sh` draws the menu with the real `ui.cc`, `MenuCtl` and LVGL (board stubbed) at 1080p and the compact 576p layout.
   Run it when screens change.
+- **Menu simulator** (T236) `tools/menusim/run.sh <core>` runs the same build (the bench's sources and stubs, `tests/coreapp/menu_rig.h`) in a window
+  on the Mac: the keys drive the menu, the core's `menu.toml` is reloaded when it is saved, `--mode 480p|720p|1080p` places the canvas as the app does,
+  `--keys F3,DOWN,RETURN --shot out.png` runs without a window. `--host` runs the host app's menu the same way. A tool, not a test: it proves nothing
+  the bench does not.
 - An application is finished when it builds for RISC-V in the `u64-build-env` image and `ci/apptests.sh` is green; the CI reuses the by-change cache.
 
 ## 11. How the host app differs
