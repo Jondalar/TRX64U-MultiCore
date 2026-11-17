@@ -3,8 +3,14 @@
 # tests/coreapp/golden/ops_trx64u.txt); the packer puts the result into the .cor as record 6, and coreapp/cores/trx64u/menu_rec.inc carries the same bytes
 # for a start without a .cor (JTAG, ue2emu). Regenerate it with `tools/gen_menu_rec.py`; the lint stage compares.
 #
-# T228 D2: the structure is the generic core menu of T212 (F1 session and quick actions, F3 Library, F5 machine, F7 APP, F8 System); trx64u adds F2 Timewarp and F4 Monitor
-# (D3: the rail reads MONITOR; DC7: the Diagnostics tab is in F8, DC3: Save frame and Save the ring sit in F5 TRX64 > Recording). Its Drive A and cartridge port are media slots whose rows open the drive list (T212 D5); the generic items (Persist mounts, Enter home, Menu opens at, Home
+# T228 mock (Restart 2026-11-17, R1-R3; a picture mock for the design talk, not for merging): the structure is the generic core menu of T212 alone (F1 Home,
+# F3 Library, F5 machine, F7 APP, F8 System); no F2 and no F4 area. R1: Timewarp and Monitor are two rows under the reset rows of Home (as tasks: Home takes
+# no nodes and a task cannot open a screen, so neither row opens its overlay in this mock). R2: no "Reboot, clear memory" (F8's generic "Restart core"), no
+# "Pause / resume"; R3: no "Save C64 memory" and no "Save REU memory". R4: F5 has the generic four tabs: the core's one tab "C64" with headings, Video, Audio
+# (R5: "SID sockets" and "Emulated SIDs" are two rows at its end that open a page each, as "FTP hosts" does), Input. F7 is one tab of sections (T212 D12) with the apps
+# last, without Softboot (DC1: not under the MultiCore host; a node row of a list does not read `hide`, so the mock leaves it out); F8 System takes the diagnostics rows
+# (Support and Status), Network and Device stay.
+# Drive A and the cartridge port are media slots whose rows open the drive list (T212 D5); the generic items (Persist mounts, Enter home, Menu opens at, Home
 # directory, hotkeys, Picture, Scale; no Tone: the core sets no_tone) are the application's own and not declared here. A settings tab with `ui = { sections = true }` shows each of its groups under a heading made of the
 # group's id ('_' is a space; not drawn when it repeats the tab's title). Nothing is saved to flash: every setting is written to the core's .cfg at once (D9-D11).
 
@@ -18,17 +24,6 @@ name = "Home"
   id = "home"
   name = "Home"
   widget = "info"
-  n = 1
-
-[[area]]
-key = "F2"
-name = "Timewarp"
-  [[area.tab]]
-  id = "timeline"
-  name = "Timeline"
-  widget = "nodes"
-  layout = "timeline"
-  ui = { pos = "@tw.pos", info = "@tw.info", glyph = "@tw.glyph", track = "@tw.track", hint = "RETURN jump  <- cancel" }
   n = 1
 
 [[area]]
@@ -57,86 +52,50 @@ name = "Library"
   n = 3
 
 [[area]]
-key = "F4"
-name = "Monitor"
-  [[area.tab]]
-  id = "monitor"
-  name = "Monitor"
-  widget = "nodes"
-  layout = "terminal"
-  n = 1
-
-[[area]]
 key = "F5"                       # the core's short title ("C64") names it
-  [[area.tab]]
+  [[area.tab]]                    # the core's one tab (T205 D1); Recording stands last: a node lands at the end of its tab, so Save frame and Save the ring stay in their section
   id = "machine"
-  name = "Machine"
+  name = "C64"
   widget = "settings"
-  groups = ["Machine", "Drive_A", "Drive_extras"]
+  groups = ["Machine", "Drive_A", "Drive_extras", "TRX64", "Expansion", "Hardware", "Recording"]
   ui = { sections = true }
   n = 1
-  [[area.tab]]
-  id = "trx64"
-  name = "TRX64"
-  widget = "settings"
-  groups = ["TRX64", "Recording"]
-  ui = { sections = true }
-  n = 2
-  [[area.tab]]
-  id = "io"
-  name = "Memory and I/O"
-  widget = "settings"
-  groups = ["Expansion", "Hardware"]
-  ui = { sections = true }
-  n = 3
-  [[area.tab]]
+  [[area.tab]]                    # the generic Picture row first (group "video", no heading: it repeats the tab's title), then System mode and the outputs
   id = "video"
   name = "Video"
   widget = "settings"
-  groups = ["Picture", "Output"]
+  groups = ["video", "Picture", "Output"]
   ui = { sections = true }
-  n = 4
-  [[area.tab]]
+  n = 2
+  [[area.tab]]                    # no generic volume (the core has its own mixer, own_volume); R5: the SID sockets and the emulated SIDs are two rows at the end, each opens its page
   id = "audio"
   name = "Audio"
   widget = "settings"
-  groups = ["Volumes", "Pan", "Speaker"]
-  ui = { sections = true }
-  n = 5
-  [[area.tab]]
-  id = "sid"
-  name = "SID"
-  widget = "settings"
-  groups = ["SID_sockets", "Emulated_SIDs"]
-  ui = { sections = true }
-  n = 6
+  groups = ["Volumes", "Pan", "Speaker", "SID_sockets", "Emulated_SIDs"]
+  ui = { sections = true, pages = "SID_sockets,Emulated_SIDs" }
+  n = 3
   [[area.tab]]
   id = "input"
   name = "Input"
   widget = "settings"
   groups = ["input"]
-  n = 7
+  n = 4
 
 [[area]]
 key = "F7"
 name = "APP"
-  [[area.tab]]
+  [[area.tab]]                    # T212 D12: one tab, its sections shown directly; the apps (nodes) stand last, under no heading of their own
   id = "settings"
   name = "Settings"
   widget = "settings"
   groups = ["app", "Application"]
   ui = { sections = true }
   n = 1
-  [[area.tab]]
-  id = "apps"
-  name = "Apps"
-  widget = "nodes"
-  n = 2
 
 [[area]]
 key = "F8"
 name = "System"
-  [[area.tab]]
+  [[area.tab]]                    # the generic System tab; the diagnostics actions follow Support, Heap and Debug register follow Status
   id = "expert"
   name = "System"
   widget = "system"
@@ -154,25 +113,9 @@ name = "System"
   widget = "settings"
   groups = ["Device"]
   n = 3
-  [[area.tab]]                      # DC7: what F4 Diagnostics held (the monitor owns the keyboard there); the instruction trace is F5 TRX64 > Recording only (D13)
-  id = "diagnostics"
-  name = "Diagnostics"
-  widget = "nodes"
-  layout = "split"
-  ui = { title = "Diagnostics", side = "Now" }
-  n = 4
 
 [[node]]
-anchor = "F2/timeline/bar"
-kind = "op"
-label = "Resume here"
-op = "tw.resume"
-order = 10
-closes_menu = true
-ui = { primary = true }
-
-[[node]]
-anchor = "F5/trx64/Recording"
+anchor = "F5/machine/Recording"
 kind = "op"
 label = "Save frame"
 op = "tw.dump"
@@ -182,7 +125,7 @@ when_state = "tw.present"
 ui = { ask = "Save the shown frame as (name)", ask_state = "machine.suggest.tw", why = "This bitstream has no frame ring", sub = "The machine's state at the shown frame" }
 
 [[node]]
-anchor = "F5/trx64/Recording"
+anchor = "F5/machine/Recording"
 kind = "op"
 label = "Save the ring"
 op = "tw.ringdump"
@@ -192,7 +135,7 @@ when_state = "tw.present"
 ui = { ask = "Save the last seconds as (name)", ask_state = "machine.suggest.ring", why = "This bitstream has no frame ring", sub = "Up to 30 seconds, one frame in five" }
 
 [[node]]
-anchor = "F8/diagnostics"
+anchor = "F8/expert"
 kind = "op"
 label = "Debug log"
 op = "diag.nop"
@@ -200,7 +143,7 @@ order = 10
 ui = { view = "log", sub = "What the application printed, newest at the end", chip = "@diag.log", tone = "cyan" }
 
 [[node]]
-anchor = "F8/diagnostics"
+anchor = "F8/expert"
 kind = "op"
 label = "Clear debug log"
 op = "diag.clear_log"
@@ -208,7 +151,7 @@ order = 20
 ui = { chip = "Clear", tone = "amber" }
 
 [[node]]
-anchor = "F8/diagnostics"
+anchor = "F8/expert"
 kind = "op"
 label = "Save debug log"
 op = "diag.save_log"
@@ -217,7 +160,7 @@ order = 30
 ui = { ask = "Save the debug log as (name)", ask_state = "diag.suggest.log", chip = "File", tone = "violet" }
 
 [[node]]
-anchor = "F8/diagnostics"
+anchor = "F8/expert"
 kind = "op"
 label = "Screen EDID"
 op = "diag.nop"
@@ -225,7 +168,7 @@ order = 40
 ui = { view = "edid", sub = "What the screen says about itself (hex)", chip = "EDID", tone = "cyan" }
 
 [[node]]
-anchor = "F8/diagnostics"
+anchor = "F8/expert"
 kind = "op"
 label = "Save EDID"
 op = "diag.save_edid"
@@ -234,26 +177,20 @@ order = 50
 ui = { ask = "Save the EDID as (name)", ask_state = "diag.suggest.edid", chip = "File", tone = "violet" }
 
 [[node]]
-anchor = "F8/diagnostics/side"
+anchor = "F8/expert"
 kind = "state"
+state = "diag.heap"
 label = "Heap"
-order = 30
-ui = { sub = "@diag.heap" }
+order = 80
+ui = { chip = "@diag.heap" }
 
 [[node]]
-anchor = "F8/diagnostics/side"
+anchor = "F8/expert"
 kind = "state"
+state = "diag.debugreg"
 label = "Debug register"
-order = 40
-ui = { sub = "@diag.debugreg" }
-
-[[node]]
-anchor = "F4/monitor/bar"
-kind = "op"
-label = "Help"
-op = "mon.run"
-bind = [ { arg = "line", str = "?" } ]
-order = 10
+order = 81
+ui = { chip = "@diag.debugreg" }
 
 [[node]]
 anchor = "F3/online"
@@ -433,7 +370,7 @@ order = 110
 ui = { confirm = "Empty every field of the form?", tone = "muted" }
 
 [[node]]
-anchor = "F7/apps"
+anchor = "F7/settings"
 kind = "op"
 label = "Cartridge dumper"
 order = 20
@@ -442,7 +379,7 @@ action = "dump"
 ui = { sub = "Scan the cartridge in the port and save a CRT image", chip = "APP", tone = "violet" }
 
 [[node]]
-anchor = "F7/apps"
+anchor = "F7/settings"
 kind = "op"
 label = "Cartridge inspector"
 order = 30
@@ -451,22 +388,13 @@ action = "inspect"
 ui = { sub = "Browse the memory, the banks and the registers of the cartridge", chip = "APP", tone = "cyan" }
 
 [[node]]
-anchor = "F7/apps"
+anchor = "F7/settings"
 kind = "op"
 label = "Flash cartridge"
 order = 40
 app = "trex_crt"
 action = "flash"
 ui = { sub = "Write and verify a CRT image on a flash cartridge", chip = "APP", tone = "amber" }
-
-[[node]]
-anchor = "F7/apps"
-kind = "op"
-label = "Softboot"
-order = 50
-app = "softboot"
-action = "pick"
-ui = { sub = "Run an update image from RAM without flashing it", chip = "APP", tone = "violet", hide = "@host.multicore" }       # DC1: not under the MultiCore host
 
 [[node]]
 anchor = "F8/network"
@@ -646,36 +574,18 @@ op = "machine.reload_roms"
 closes_menu = true
 
 
+# R1: the two rows that stand for the overlays, under the reset rows. Neither opens its screen here (no task opens a screen; Home takes no nodes):
+# "Monitor..." runs the operation the monitor's screen runs when it is shown, "Timewarp..." the no-op (the timeline has no opening operation).
 [[task]]
 group = "top"
-label = "Pause / resume"
-op = "machine.pause_toggle"
-closes_menu = true
-
-
-[[task]]
-group = "top"
-label = "Reboot, clear memory"
-op = "machine.clear_reboot"
-closes_menu = true
+label = "Timewarp..."
+op = "diag.nop"
 
 
 [[task]]
 group = "top"
-label = "Save C64 memory"
-op = "machine.save_ram"
-bind = [ { arg = "name", text = true } ]
-ask = "Save the C64's 64 KB as (name)"
-ask_state = "machine.suggest.ram"
-
-
-[[task]]
-group = "top"
-label = "Save REU memory"
-op = "machine.save_reu"
-bind = [ { arg = "name", text = true } ]
-ask = "Save the REU's memory as (name)"
-ask_state = "machine.suggest.reu"
+label = "Monitor..."
+op = "monitor.open"
 
 
 [[task]]

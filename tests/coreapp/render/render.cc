@@ -1936,6 +1936,249 @@ static void ux_shots(const char *out)
     ui_set_canvas(960, 540);
 }
 
+// ---- T228 mock (Restart 2026-11-17, R1-R3; for the design talk, not for merging): every area and every tab of the proposed TRX64U menu (its record, the board's
+// chain: menu_build, descrec_apply, contrib_merge - trx64u::desc()) and of the A1200 (board_desc) as the reference, at 1080p (the 960 x 540 canvas, 2x) and 480p:
+// the top of each list and every further window when it is longer than its window (the last one "end"), the Library inside a folder with a file selected, and the pages the concept names (the drive list, Hotkeys, FTP
+// hosts) and R5's SID pages. Files mock-<core>-<area>-<tab>-<state>-<canvas>.png and mock-MANIFEST.json in `out`; a MOCK line per picture and a ROW line per row of each list.
+struct MockShot { std::string file, core, area, area_label, tab_label, state, canvas; int tab_index; };
+static std::vector<MockShot> g_mock;
+static int mock_overlaps, mock_bounds;
+
+static std::string mock_slug(const char *s)
+{
+    std::string o;
+    for (const char *p = s; p && *p; p++) {
+        unsigned char ch = (unsigned char)*p;
+        if (isalnum(ch)) { o += (char)tolower(ch); } else if (!o.empty() && o.back() != '-') { o += '-'; }
+    }
+    while (!o.empty() && o.back() == '-') { o.pop_back(); }
+    return o.empty() ? std::string("tab") : o;
+}
+
+static std::string mock_json(const std::string &s)
+{
+    std::string o;
+    for (char ch : s) {
+        if (ch == '"' || ch == '\\') { o += '\\'; o += ch; } else if ((unsigned char)ch < 0x20) { char b[8]; snprintf(b, sizeof(b), "\\u%04x", ch); o += b; } else { o += ch; }
+    }
+    return o;
+}
+
+static void mock_rows(Rig &r, const char *tag)
+{
+    for (int i = 0; i < r.m->rows(); i++) {
+        std::string l, v; bool a;
+        ux_rowtext(r, i, &l, &v, &a);
+        printf("ROW %s %2d %s%s%s%s\n", tag, i, r.m->heading(i) ? "[H] " : "", l.c_str(), v.empty() ? "" : " | ", v.c_str());
+    }
+}
+
+static void mock_shot(Rig &r, const char *out, const char *core, const char *cv, int fw, int fh, int tab_index, const char *tab_label, const std::string &slug,
+                      const char *state)
+{
+    const MenuTree &tr = r.m->tree();
+    int a = r.m->area();
+    const char *key = a >= 0 && a < tr.nareas ? tr.a[a].key : "F?";
+    const char *alabel = a >= 0 && a < tr.nareas && tr.a[a].name ? tr.a[a].name : "";
+    char base[300], fn[800], what[340];
+    snprintf(base, sizeof(base), "mock-%s-%s-%s-%s-%s.png", core, key, slug.c_str(), state, cv);
+    snprintf(fn, sizeof(fn), "%s/%s", out, base);
+    snprintf(what, sizeof(what), "mock %s %s %s %s %s", core, key, slug.c_str(), state, cv);
+    ui_menu_render(*r.m);
+    lv_timer_handler();
+    lv_obj_invalidate(lv_screen_active());          // the whole page into the picture: fb is shared between the rigs and LVGL repaints only what changed
+    lv_timer_handler();
+    if (fw == 960) { png(fn, 2); } else { png_out(fn, fw, fh, 0, 0, fw, fh); }
+    mock_overlaps += txt_overlaps(what);
+    mock_bounds += view_bounds(what, fw, fh);
+    UiListProbe p;
+    bool lp = ui_list_probe(&p);
+    printf("MOCK %s %s %s tab %d \"%s\" %s: tab \"%s\", %d rows, window first %d, selected %d, paged %d\n", core, cv, key, tab_index, tab_label, state,
+           r.m->tab_name(), r.m->rows(), lp ? p.first : -1, r.m->selected(), r.m->paged() ? 1 : 0);
+    g_mock.push_back({ base, core, key, alabel, tab_label, state, cv, tab_index });
+}
+
+// The windows of a list longer than its window, after its first picture: KEY_DOWN moves the selection one row and the window follows it; a window is shot
+// when it has moved on to the last three rows of the one shot before, so no row is left out ("p2", "p3", ...), and the window with the last row is `endname`.
+// A list the probe does not read (a layout of its own) gets its end as KEY_END leaves it.
+static void mock_windows(Rig &r, const char *out, const char *core, const char *cv, int fw, int fh, int ti, const char *tl, const std::string &slug,
+                         const char *prefix, const char *endname)
+{
+    UiListProbe p;
+    if (!ui_list_probe(&p)) {
+        r.m->key(KEY_END);
+        mock_shot(r, out, core, cv, fw, fh, ti, tl, slug, endname);
+        return;
+    }
+    int shot_first = p.first, shot_n = p.nrows, cur = p.first, sel = r.m->selected(), n = 0;
+    bool end_shot = false;
+    for (int k = 0; k < 200; k++) {
+        r.m->key(KEY_DOWN);
+        ui_menu_render(*r.m); lv_timer_handler();
+        if (!ui_list_probe(&p)) { break; }
+        bool at_end = r.m->selected() == sel || r.m->selected() >= r.m->rows() - 1;
+        sel = r.m->selected();
+        cur = p.first;
+        if (at_end) {
+            if (cur != shot_first) { mock_shot(r, out, core, cv, fw, fh, ti, tl, slug, endname); end_shot = true; }
+            break;
+        }
+        if (cur >= shot_first + shot_n - 3) {
+            char st[32];
+            snprintf(st, sizeof(st), "%sp%d", prefix, n + 2);
+            mock_shot(r, out, core, cv, fw, fh, ti, tl, slug, st);
+            n++;
+            shot_first = cur;
+            shot_n = p.nrows;
+        }
+    }
+    if (!end_shot && n > 0) {                                       // the last window shot is the end: its file and its manifest entry say so
+        MockShot &s = g_mock.back();
+        char base[300];
+        snprintf(base, sizeof(base), "mock-%s-%s-%s-%s-%s.png", core, s.area.c_str(), slug.c_str(), endname, cv);
+        rename((std::string(out) + "/" + s.file).c_str(), (std::string(out) + "/" + base).c_str());
+        printf("MOCK renamed %s -> %s\n", s.file.c_str(), base);
+        s.file = base;
+        s.state = endname;
+    } else if (!end_shot) {
+        r.m->key(KEY_END);
+        mock_shot(r, out, core, cv, fw, fh, ti, tl, slug, endname);
+    }
+}
+
+static int mock_find_row(Rig &r, const char *label, bool prefix)
+{
+    for (int i = 0; i < r.m->rows(); i++) {
+        std::string l, v; bool a;
+        ux_rowtext(r, i, &l, &v, &a);
+        if (prefix ? !strncmp(l.c_str(), label, strlen(label)) : l == label) { return i; }
+    }
+    return -1;
+}
+
+static void mock_shots(const char *out)
+{
+    static const struct { const char *name; int fw, fh; } cvs[] = { { "1080p", 1920, 1080 }, { "480p", 640, 480 } };
+    struct File { const char *path; size_t n; };
+    struct Page { const char *area; const char *tab; const char *row; bool prefix; const char *slug; };
+    struct Job { const char *core; bool c64; const CoreDesc *src; File files[8]; int nfiles; Page pages[6]; int npages; const char *pick; };
+    static const Job jobs[] = {
+        { "trx64u", true, 0,
+          { { "/usb0/games/Katakis.d64", 174848 }, { "/usb0/games/Elite.g64", 333744 }, { "/usb0/games/Turrican.crt", 65616 }, { "/usb0/games/Giana_Sisters.t64", 30000 },
+            { "/usb0/games/demo.prg", 2049 }, { "/usb0/games/session.c64re", 70000 }, { "/usb0/games/collection.zip", 40000 } }, 7,
+          { { "F1", "home", "Drive A", true, "drive-a" }, { "F5", "audio", "SID sockets", false, "sid-sockets" }, { "F5", "audio", "Emulated SIDs", false, "emulated-sids" },
+            { "F7", "settings", "Hotkeys", false, "hotkeys" }, { "F8", "network", "FTP hosts", false, "ftp-hosts" } }, 5, "Katakis" },
+        { "a1200", false, &amiga1200_desc,
+          { { "/usb0/games/Turrican_II.adf", 901120 }, { "/usb0/games/Lotus_III.adf", 901120 }, { "/usb0/games/Workbench.hdf", 1048576 }, { "/usb0/games/notes.txt", 100 } }, 4,
+          { { "F1", "home", "DF0", true, "df0" }, { "F7", "settings", "Hotkeys", false, "hotkeys" } }, 2, "Turrican" },
+    };
+    for (const auto &cv : cvs) {
+        TrxCanvas want = trx_canvas_for(cv.fw, cv.fh);
+        for (const Job &j : jobs) {
+            ui_set_canvas(want.w, want.h);
+            PictureEnv env = { EDID_ROW_MASK, 0, true, VID_SYS_PAL50 };
+            CoreDesc *d = j.c64 ? (CoreDesc *)trx64u::desc() : board_desc(j.src, &env);
+            char cfg[128];
+            snprintf(cfg, sizeof(cfg), "/usb0/cores/mock_%s_%s.cfg", j.core, cv.name);
+            Rig r(d, cfg, j.c64 ? trx64u::merge() : 0);
+            for (int f = 0; f < j.nfiles; f++) { r.fs.put_size(j.files[f].path, j.files[f].n); }
+            r.c.started = true;
+            r.c.program_loaded = true;
+            ui_open(j.c64 ? &c64_desc : d);
+            const MenuTree &tr = r.m->tree();
+            bool seen[MENU_AREAS_MAX][MENU_TABS_MAX] = {};
+            for (int ak = 0; ak < 8; ak++) {
+                char fk[4];
+                snprintf(fk, sizeof(fk), "F%d", ak + 1);
+                for (int tk = 0; tk <= 9; tk++) {
+                    r.m->open(); ui_menu_forget_rows();
+                    r.m->key(FKEYS[ak]);
+                    if (tk) { r.m->key('0' + tk); }
+                    int a = r.m->area(), b = r.m->tab();
+                    if (a < 0 || a >= tr.nareas || a >= MENU_AREAS_MAX || strcmp(tr.a[a].key, fk) || b < 0 || b >= tr.a[a].ntabs || tr.a[a].tabs[b].page || seen[a][b]) {
+                        continue;
+                    }
+                    seen[a][b] = true;
+                    ui_menu_render(*r.m); lv_timer_handler();
+                    const char *tl = tr.a[a].tabs[b].name ? tr.a[a].tabs[b].name : "";
+                    int ti = ui_shell_tab(*r.m) + 1;
+                    std::string slug = mock_slug(tl);
+                    char tag[96];
+                    snprintf(tag, sizeof(tag), "%s %s %s/%s", j.core, cv.name, fk, slug.c_str());
+                    mock_shot(r, out, j.core, cv.name, want.w, want.h, ti, tl, slug, "top");
+                    if (!strcmp(cv.name, "1080p")) { mock_rows(r, tag); }
+                    if (r.m->paged()) {
+                        mock_windows(r, out, j.core, cv.name, want.w, want.h, ti, tl, slug, "", "end");
+                    }
+                    auto back_to_tab = [&]() {
+                        r.m->open(); ui_menu_forget_rows();
+                        r.m->key(FKEYS[ak]);
+                        if (tk) { r.m->key('0' + tk); }
+                        ui_menu_render(*r.m); lv_timer_handler();
+                        return r.m->area() == a && r.m->tab() == b;
+                    };
+                    if (!strcmp(fk, "F3") && slug == "browse" && back_to_tab()) {             // the Library inside a folder: the media level first, then usb0, then games
+                        int u = mock_find_row(r, "usb0", true);
+                        if (u < 0) { u = mock_find_row(r, "USB", true); }
+                        if (u < 0) { u = 0; }
+                        select_row(r, u);
+                        r.m->key(KEY_RETURN);
+                        ui_menu_render(*r.m); lv_timer_handler();
+                        int g = find_dir_row(r, "games");
+                        if (g >= 0) { select_row(r, g); r.m->key(KEY_RETURN); ui_menu_render(*r.m); lv_timer_handler(); }
+                        int fr = mock_find_row(r, j.pick, true);
+                        if (fr >= 0) { select_row(r, fr); }
+                        printf("MOCK %s %s F3 folder: usb0 row %d, games row %d, %s row %d\n", j.core, cv.name, u, g, j.pick, fr);
+                        mock_shot(r, out, j.core, cv.name, want.w, want.h, ti, tl, slug, "folder");
+                        if (!strcmp(cv.name, "1080p")) { std::string t2 = std::string(tag) + "/folder"; mock_rows(r, t2.c_str()); }
+                    }
+                    for (int pi = 0; pi < j.npages; pi++) {
+                        const Page &pg = j.pages[pi];
+                        if (strcmp(pg.area, fk) || !tr.a[a].tabs[b].id || strcmp(pg.tab, tr.a[a].tabs[b].id) || !back_to_tab()) {
+                            continue;
+                        }
+                        int row = mock_find_row(r, pg.row, pg.prefix);
+                        if (row < 0) {
+                            printf("MOCK %s %s %s: no row \"%s\" on tab %s, no page picture\n", j.core, cv.name, fk, pg.row, pg.tab);
+                            CHECK(row >= 0);
+                            continue;
+                        }
+                        select_row(r, row);
+                        r.m->key(KEY_RETURN);
+                        ui_menu_render(*r.m); lv_timer_handler();
+                        int pa = r.m->area(), pt = r.m->tab();
+                        bool is_page = pa == a && pt >= 0 && pt < tr.a[pa].ntabs && tr.a[pa].tabs[pt].page;
+                        printf("MOCK %s %s %s: RETURN on \"%s\" (row %d) opens tab %d \"%s\"%s\n", j.core, cv.name, fk, pg.row, row, pt, r.m->tab_name(), is_page ? " (a page)" : " - NOT A PAGE");
+                        CHECK(is_page);
+                        const char *pl = r.m->tab_name() ? r.m->tab_name() : pg.row;
+                        mock_shot(r, out, j.core, cv.name, want.w, want.h, ti, pl, pg.slug, "page");
+                        if (!strcmp(cv.name, "1080p")) { std::string t2 = std::string(tag) + "/" + pg.slug; mock_rows(r, t2.c_str()); }
+                        if (r.m->paged()) {
+                            mock_windows(r, out, j.core, cv.name, want.w, want.h, ti, pl, pg.slug, "page-", "page-end");
+                        }
+                    }
+                }
+            }
+        }
+    }
+    ui_set_canvas(960, 540);
+    char mf[600];
+    snprintf(mf, sizeof(mf), "%s/mock-MANIFEST.json", out);
+    FILE *f = fopen(mf, "w");
+    if (f) {
+        fprintf(f, "[\n");
+        for (size_t i = 0; i < g_mock.size(); i++) {
+            const MockShot &s = g_mock[i];
+            fprintf(f, "  {\"file\": \"%s\", \"core\": \"%s\", \"area\": \"%s\", \"area_label\": \"%s\", \"tab_index\": %d, \"tab_label\": \"%s\", \"state\": \"%s\", \"canvas\": \"%s\"}%s\n",
+                    mock_json(s.file).c_str(), mock_json(s.core).c_str(), mock_json(s.area).c_str(), mock_json(s.area_label).c_str(), s.tab_index,
+                    mock_json(s.tab_label).c_str(), mock_json(s.state).c_str(), mock_json(s.canvas).c_str(), i + 1 < g_mock.size() ? "," : "");
+        }
+        fprintf(f, "]\n");
+        fclose(f);
+    }
+    printf("MOCK %zu pictures, %d text overlaps, %d objects outside or cut; manifest %s\n", g_mock.size(), mock_overlaps, mock_bounds, mf);
+}
+
 
 // ---- T205 ux-review finding 1: a 31-character file name on a Home media row (DF0) at 480p and 1080p: the value is cut in the middle, the slot label stays whole ------------
 static void ux_longname()
@@ -2140,6 +2383,11 @@ int main(int argc, char **argv)
 {
     const char *out = argc > 1 ? argv[1] : "/tmp/coreapp-render";
     char p[512];
+    if (getenv("MOCK_ONLY")) {                                      // T228 mock: only the click dummy's pictures (a second run after the whole bench)
+        mock_shots(out);
+        printf("coreapp render (MOCK_ONLY): %d checks, %d failed\n", checks, fails);
+        return fails ? 1 : 0;
+    }
 
     CoreDesc *atari_main = board_desc(&atari800_desc);
     Rig r(atari_main, "/usb0/cores/atari800.cfg");
@@ -2648,6 +2896,7 @@ int main(int argc, char **argv)
     ux_longname();
     pm_page_fixtures(out);
     ux_wifi(out);
+    mock_shots(out);                                                // T228 mock: the click dummy's pictures, last, so every check above runs as before
     printf("coreapp render: %d checks, %d failed\n", checks, fails);
     return fails ? 1 : 0;
 }

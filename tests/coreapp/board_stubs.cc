@@ -45,6 +45,16 @@ void netops_register(OpRegistry &) { }
 // they are for is the checks that need the NAMES and the SHAPES: desc_check and tools/descrec.py validate the TRX64U menu record against the registry.
 static int stub_op(CoreCtx *, const OpArgs &, OpOut &) { return OPE_OK; }
 static const char *stub_state(CoreCtx *) { return ""; }
+// T228 mock: the states that decide which rows the TRX64U menu shows, answered as the board does under the MultiCore host with the ring in the bitstream:
+// Softboot is not offered (DC1), Save frame and Save the ring can run, the Online form's twelve choice rows stay hidden until the choices are loaded
+static const char *stub_multicore(CoreCtx *) { return "MultiCore host"; }
+static const char *stub_yes(CoreCtx *) { return "1"; }
+static state_fn mock_state_of(const std::string &n)
+{
+    if (n == "host.multicore") return stub_multicore;
+    if (n == "tw.present" || (n.compare(0, 8, "online.p") == 0 && n.size() > 5 && n.compare(n.size() - 5, 5, ".hide") == 0)) return stub_yes;
+    return stub_state;
+}
 void trx64u_register(OpRegistry &r)
 {
     std::ifstream f(std::string(GOLDEN_DIR) + "/ops_trx64u.txt");
@@ -65,7 +75,7 @@ void trx64u_register(OpRegistry &r)
         keep.push_back(p[1]);
         const char *name = keep.back().c_str();
         if (p[0] == "state") {
-            if (!r.find_state(name)) r.add_state(name, stub_state);
+            if (!r.find_state(name)) r.add_state(name, mock_state_of(p[1]));
             continue;
         }
         if (p[0] != "op" || r.find_op(name)) continue;
