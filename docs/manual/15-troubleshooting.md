@@ -37,7 +37,7 @@
 | The menu of a core is cut at the right | The screen mode is narrower than 960 px and the core is an older build | Use the `.cor` of the current release: it has the compact layout (4.10) |
 | After a change of the picture the screen goes back by itself | The host and the cores ask 8 s: any key keeps the mode. **LEFT** and **ESC** go back at once | Press a key (not **LEFT** or **ESC**) within 8 s (8.4.8) |
 | ZX Spectrum Next: `wrong board revision` | The `Board issue` is higher than the `TBBLUE.FW` on the image takes | Set `Board issue` to `Auto` (the default: the core reads `TBBLUE.FW`) or to a lower issue (11.12.3a) |
-| The case LED does not flicker with the floppy | The row `LED Load Indicator` is `Off`, or the core has no such row (it has one in the Amiga, Apple IIe, Atari 800 XL, CPC and the cores with a 1541) | Set the row to `On` (the default). See 11.1.9 |
+| The case LED does not flicker with the floppy | The row `LED Load Indicator` is `Off`, or the core has no such row (it has one in the Amiga, Apple IIe, Atari 800 XL and the cores with a 1541) | Set the row to `On` (the default). See 11.1.9 |
 | Start refused: `the flash could not be protected (...); nothing was started` | The write protection of the flash did not take | Read 8.5.5 |
 | Board does not start after a power cycle | The flash is damaged | Use the cable (14.5) |
 

@@ -18,7 +18,7 @@
 loads it into the FPGA and starts its application.
 
 1.A.3 A core is a complete machine: a C64 (also with a SuperCPU, build only), a VIC-20, a Commodore PET, 264 or 128, an Amiga, an Atari 800 XL, a NES, a Super Nintendo, a Neo Geo,
-an Apple IIe, a ZX Spectrum, a ZX Spectrum Next or an Amstrad CPC. Two further cores are demos of the host, and one (`diag`) is a measuring tool with no machine (5.2).
+an Apple IIe, a ZX Spectrum, or a ZX Spectrum Next. Two further cores are demos of the host, and one (`diag`) is a measuring tool with no machine (5.2).
 
 ### B. Applicability
 
@@ -103,11 +103,10 @@ configuration pages of the flash.
 - Commodore 264: BASIC V3.5 runs as a C16. The Plus/4 model and cartridges are not tested. The 1541 drive (`.d64`, `.g64`) is built into the VIC-20, the C264, the C128 and the SuperCPU core.
 - NES: the picture fills about 93 % of the height (T95, picture per core).
 - SNES: games run on the board; the sound was fixed and heard correct on 2026-11-02. Neo Geo: plays on the board; dark stripes in the sprites were fixed in the bench and need a new look on the board.
-- USB gamepads (NES, SNES, Neo Geo) work on the board (2026-11-02); an Xbox Series Pro pad on a USB cable also works (2026-11-10, T196). The floppy LED (case LED 1) works on the Amiga 1200. On `main` every core with a drive has the same *LED Load Indicator* row (Amiga 500, Amiga 1200, Atari 800 XL, Apple IIe, CPC and the cores with a 1541: VIC-20, Commodore 264, Commodore 128, SuperCPU); it is not in the tester release and has not been seen on the board for the other cores.
+- USB gamepads (NES, SNES, Neo Geo) work on the board (2026-11-02); an Xbox Series Pro pad on a USB cable also works (2026-11-10, T196). The floppy LED (case LED 1) works on the Amiga 1200. On `main` every core with a drive has the same *LED Load Indicator* row (Amiga 500, Amiga 1200, Atari 800 XL, Apple IIe and the cores with a 1541: VIC-20, Commodore 264, Commodore 128, SuperCPU); it is not in the tester release and has not been seen on the board for the other cores.
 - Commodore 128: the black picture of the tester release (board 2026-11-02) is fixed on `main` (the RAM in the DDR2 never started, T140 section 11); the picture and the menu were seen on the board on 2026-11-06 and 2026-11-07. Known faults on the board: one character row of wrong data flickers for a few frames in *Attack of the PETSCII Robots*, loading stops after a while in stock mode (T140 D30), *Busted Boulders* stops at `Loading title screen...` (2026-11-12, T113), and the boot of a CP/M disk that was mounted after the core start hangs after a reset (`Reload core` boots it, T140 5.19). The fix of the black picture is not in the tester release.
 - ZX Spectrum 48K: the black picture is fixed (the `ula.sv` rewrite, T119 5.15); 48K and 128K run on the board (2026-11-09).
 - C64 with SuperCPU (build only): the real SuperCPU ROM boots to READY with 16M RAM on the board (2026-11-10, T182); *Metal Dust* shows picture faults while the picture scrolls, and the prefetch built against it did not remove them (2026-11-12, T208).
-- Amstrad CPC: no tape SAVE, no snapshot.
 - ZX Spectrum Next: passed on the board (2026-10-28) with an SD image named `next.img` in `cores/zxnext/roms/`. The board issue `Auto` (read from the image's `TBBLUE.FW`) is the default on `main` (T116 D11) and not in the tester release; an older release stops at issue 5. Speed below the real machine for
   programs that do not fit the cache.
 
@@ -171,7 +170,6 @@ full procedure with every screen is in [manual chapter 2](docs/manual/02-install
 | `atari800` | Atari 800 XL | Partial | Testing | Board 2026-11-01 (Alex): runs (start with **S** in the File Browser); `.atr` boots. Floppy LED row on `main` (2026-11-02), not seen on the board |
 | `nes` | Nintendo Entertainment System | Large | Testing | Board 2026-10-16: Zelda; Sam's Journey demo. Picture about 93 % of the height. USB pad worked on the board 2026-11-02; Xbox Series Pro pad on USB 2026-11-10 (T196) |
 | `apple2` | Apple IIe | Partial | Testing | Board 2026-11-01 (Alex): runs; 2026-10-30: `.dsk`, `.nib`, WOZ, saves, ProDOS from the hard disk. Floppy LED row on `main` (2026-11-02), not seen on the board; disk swap while running not tested |
-| `cpc` | Amstrad CPC 464 / 664 / 6128 | Large | Testing | Board 2026-10-22: BASIC 1.1 boots and takes typing. Board 2026-11-02: `CAT` works, a game starts with sound (GitHub issue 17). Tape, 464/664 not tried; the floppy LED row is on `main`, not seen on the board |
 | `zx` | ZX Spectrum 48K / 128K | Large | Testing | Board: 48K and 128K run (Alex, 2026-11-09; the 48K picture was black until the `ula.sv` rewrite, T119 5.15) |
 | `zxnext` | ZX Spectrum Next | Large | Testing | Board 2026-10-28 (Alex): boots from an SD card image. Older `TBBLUE.FW` images stop at board issue 5; `Auto` is the default on `main` (T116 D11) |
 | `snes` | Super Nintendo (large core: flat bitstream) | Large | Testing | Board 2026-10-29 to 10-31: games run, keys work. Board 2026-11-02: sound correct after the BRR sign fix, USB pad works; Xbox Series Pro pad on USB 2026-11-10 (T196). No ROM needed. Open: menu verdict text |
