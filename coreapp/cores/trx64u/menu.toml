@@ -4,10 +4,12 @@
 # for a start without a .cor (JTAG, ue2emu). Regenerate it with `tools/gen_menu_rec.py`; the lint stage compares.
 #
 # T228 (Restart 2026-11-17): the structure is the generic core menu of T212 alone (F1 Home, F3 Library, F5 machine, F7 APP, F8 System); no F2 and no F4
-# area (R1). R2: no "Reboot, clear memory" (F8's generic "Restart core"), no "Pause / resume"; R3: no "Save C64 memory" and no "Save REU memory". F5 has the
-# core's tab "C64" with headings, Video, Audio (R5: "SID sockets" and "Emulated SIDs" are two rows at its end that open a page each, as "FTP hosts" does),
-# Input. F7 is one tab of sections (T212 D12) with the apps last under their heading "Apps" (a group node); Softboot is hidden under the MultiCore host (DC1:
-# `hide`, read by a flat list when the menu is built); F8 System takes the diagnostics rows (Support and Status), Network and Device stay.
+# area (R1). R2: no "Reboot, clear memory" (F8's generic "Restart core"), no "Pause / resume"; R3: no "Save C64 memory" and no "Save REU memory". R9: F5 has
+# the core's tabs C64, TRX and Expansion with headings, then Video, Audio (R5: "SID sockets" and "Emulated SIDs" are two rows under the heading SID at its
+# end, each opens a page), Input. F7 is one tab of sections (T212 D12) with the apps last under their heading "Apps" (a group node); Softboot is hidden
+# under the MultiCore host (DC1: `hide`, read by a flat list when the menu is built). R6: F8 is the one generic System tab; under its Network heading
+# three rows open the pages Network settings, Streams and FTP hosts. R7: the Ultimate's device settings (power, wake on Wi-Fi, LEDs, colour scheme) are
+# in no tab (group "hidden": the stored values still apply); R8: no diagnostics rows (the generic Bug report).
 # Drive A and the cartridge port are media slots whose rows open the drive list (T212 D5); the generic items (Persist mounts, Enter home, Menu opens at, Home
 # directory, hotkeys, Picture, Scale; no Tone: the core sets no_tone) are the application's own and not declared here. A settings tab with `ui = { sections = true }` shows each of its groups under a heading made of the
 # group's id ('_' is a space; not drawn when it repeats the tab's title). Nothing is saved to flash: every setting is written to the core's .cfg at once (D9-D11).
@@ -51,33 +53,47 @@ name = "Library"
 
 [[area]]
 key = "F5"                       # the core's short title ("C64") names it
-  [[area.tab]]                    # the core's one tab (T205 D1); Recording stands last: a node lands at the end of its tab, so Save frame and Save the ring stay in their section
+  [[area.tab]]                    # R9: the core's tabs C64, TRX and Expansion (T205 D1 had one), then Video, Audio, Input as every core
   id = "machine"
   name = "C64"
   widget = "settings"
-  groups = ["Machine", "Drive_A", "Drive_extras", "TRX64", "Expansion", "Hardware", "Recording"]
+  groups = ["Machine", "Drive_A", "Drive_extras", "Hardware"]
   ui = { sections = true }
   n = 1
+  [[area.tab]]                    # Recording stands last: a node lands at the end of its tab, so Save frame and Save the ring stay in their section
+  id = "trx"
+  name = "TRX"
+  widget = "settings"
+  groups = ["TRX64", "Recording"]
+  ui = { sections = true }
+  n = 2
+  [[area.tab]]
+  id = "expansion"
+  name = "Expansion"
+  widget = "settings"
+  groups = ["Cartridge", "REU", "Ultimate"]
+  ui = { sections = true }
+  n = 3
   [[area.tab]]                    # D14: section Picture = System mode, then the generic Picture/Scale rows (routed rows follow the first block), section Output
   id = "video"
   name = "Video"
   widget = "settings"
   groups = ["Picture", "Output"]
   ui = { sections = true }
-  n = 2
-  [[area.tab]]                    # no generic volume (the core has its own mixer, own_volume); R5: the SID sockets and the emulated SIDs are two rows at the end, each opens its page
+  n = 4
+  [[area.tab]]                    # no generic volume (the core has its own mixer, own_volume); R5: the SID sockets and the emulated SIDs are two rows under a heading of their own
   id = "audio"
   name = "Audio"
   widget = "settings"
   groups = ["Volumes", "Pan", "Speaker", "SID_sockets", "Emulated_SIDs"]
-  ui = { sections = true, pages = "SID_sockets,Emulated_SIDs" }
-  n = 3
+  ui = { sections = true, pages = "SID_sockets,Emulated_SIDs", pages_head = "SID" }
+  n = 5
   [[area.tab]]
   id = "input"
   name = "Input"
   widget = "settings"
   groups = ["input"]
-  n = 4
+  n = 6
 
 [[area]]
 key = "F7"
@@ -93,27 +109,16 @@ name = "APP"
 [[area]]
 key = "F8"
 name = "System"
-  [[area.tab]]                    # the generic System tab; the diagnostics actions follow Support, Heap and Debug register follow Status
+  [[area.tab]]                    # the generic System tab (R6: the only one); its groups are pages, their rows stand under its Network heading after WiFi
   id = "expert"
   name = "System"
   widget = "system"
-  n = 1
-  [[area.tab]]
-  id = "network"
-  name = "Network"
-  widget = "settings"
   groups = ["WiFi_and_Ethernet", "Services", "Streams", "FTP_hosts"]
-  ui = { sections = true, pages = "FTP_hosts" }                # D18: "FTP hosts" is one row that opens a page with the hosts
-  n = 2
-  [[area.tab]]
-  id = "device"
-  name = "Device"
-  widget = "settings"
-  groups = ["Device"]
-  n = 3
+  ui = { pages = "Network_settings=WiFi_and_Ethernet+Services,Streams,FTP_hosts" }
+  n = 1
 
 [[node]]
-anchor = "F5/machine/Recording"
+anchor = "F5/trx/Recording"
 kind = "op"
 label = "Save frame"
 op = "tw.dump"
@@ -123,7 +128,7 @@ when_state = "tw.present"
 ui = { ask = "Save the shown frame as (name)", ask_state = "machine.suggest.tw", why = "This bitstream has no frame ring", sub = "The machine's state at the shown frame" }
 
 [[node]]
-anchor = "F5/machine/Recording"
+anchor = "F5/trx/Recording"
 kind = "op"
 label = "Save the ring"
 op = "tw.ringdump"
@@ -131,64 +136,6 @@ bind = [ { arg = "name", text = true } ]
 order = 11
 when_state = "tw.present"
 ui = { ask = "Save the last seconds as (name)", ask_state = "machine.suggest.ring", why = "This bitstream has no frame ring", sub = "Up to 30 seconds, one frame in five" }
-
-[[node]]
-anchor = "F8/expert"
-kind = "op"
-label = "Debug log"
-op = "diag.nop"
-order = 10
-ui = { view = "log", sub = "What the application printed, newest at the end", chip = "@diag.log", tone = "cyan" }
-
-[[node]]
-anchor = "F8/expert"
-kind = "op"
-label = "Clear debug log"
-op = "diag.clear_log"
-order = 20
-ui = { chip = "Clear", tone = "amber" }
-
-[[node]]
-anchor = "F8/expert"
-kind = "op"
-label = "Save debug log"
-op = "diag.save_log"
-bind = [ { arg = "name", text = true } ]
-order = 30
-ui = { ask = "Save the debug log as (name)", ask_state = "diag.suggest.log", chip = "File", tone = "violet" }
-
-[[node]]
-anchor = "F8/expert"
-kind = "op"
-label = "Screen EDID"
-op = "diag.nop"
-order = 40
-ui = { view = "edid", sub = "What the screen says about itself (hex)", chip = "EDID", tone = "cyan" }
-
-[[node]]
-anchor = "F8/expert"
-kind = "op"
-label = "Save EDID"
-op = "diag.save_edid"
-bind = [ { arg = "name", text = true } ]
-order = 50
-ui = { ask = "Save the EDID as (name)", ask_state = "diag.suggest.edid", chip = "File", tone = "violet" }
-
-[[node]]
-anchor = "F8/expert"
-kind = "state"
-state = "diag.heap"
-label = "Heap"
-order = 80
-ui = { chip = "@diag.heap" }
-
-[[node]]
-anchor = "F8/expert"
-kind = "state"
-state = "diag.debugreg"
-label = "Debug register"
-order = 81
-ui = { chip = "@diag.debugreg" }
 
 [[node]]
 anchor = "F3/online"
@@ -410,7 +357,7 @@ action = "pick"
 ui = { sub = "Run an update image from RAM without flashing it", chip = "APP", tone = "violet", hide = "@host.multicore" }       # DC1: not under the MultiCore host
 
 [[node]]
-anchor = "F8/network"
+anchor = "F8/expert/WiFi_and_Ethernet"
 kind = "state"
 state = "net.eth_status"
 label = "Ethernet status"
@@ -418,7 +365,7 @@ order = 10
 ui = { sub = "@net.eth_status", chip = "@net.eth_ip" }
 
 [[node]]
-anchor = "F8/network"
+anchor = "F8/expert/WiFi_and_Ethernet"
 kind = "state"
 state = "net.eth_mac"
 label = "Interface MAC"
@@ -426,7 +373,7 @@ order = 20
 ui = { sub = "@net.eth_mac" }
 
 [[node]]
-anchor = "F8/network"
+anchor = "F8/expert/WiFi_and_Ethernet"
 kind = "state"
 state = "wifi.state"
 label = "Wi-Fi status"
@@ -434,7 +381,7 @@ order = 30
 ui = { sub = "@wifi.state" }
 
 [[node]]
-anchor = "F8/network"
+anchor = "F8/expert/WiFi_and_Ethernet"
 kind = "state"
 state = "wifi.ssid"
 label = "Wi-Fi network"
@@ -442,7 +389,7 @@ order = 31
 ui = { sub = "@wifi.ssid" }
 
 [[node]]
-anchor = "F8/network"
+anchor = "F8/expert/WiFi_and_Ethernet"
 kind = "state"
 state = "wifi.ip"
 label = "Wi-Fi address"
@@ -450,7 +397,7 @@ order = 32
 ui = { sub = "@wifi.ip" }
 
 [[node]]
-anchor = "F8/network"
+anchor = "F8/expert/Streams"
 kind = "op"
 label = "Start VIC stream"
 op = "stream.start"
@@ -460,7 +407,7 @@ when_state = "stream.vic_off"
 ui = { sub = "@stream.vic", chip = "Stream", tone = "cyan", why = "The VIC stream runs already" }
 
 [[node]]
-anchor = "F8/network"
+anchor = "F8/expert/Streams"
 kind = "op"
 label = "Stop VIC stream"
 op = "stream.stop"
@@ -470,7 +417,7 @@ when_state = "stream.vic_on"
 ui = { chip = "Stream", tone = "amber", why = "The VIC stream is not running" }
 
 [[node]]
-anchor = "F8/network"
+anchor = "F8/expert/Streams"
 kind = "op"
 label = "Start audio stream"
 op = "stream.start"
@@ -480,7 +427,7 @@ when_state = "stream.audio_off"
 ui = { sub = "@stream.audio", chip = "Stream", tone = "cyan", why = "The audio stream runs already" }
 
 [[node]]
-anchor = "F8/network"
+anchor = "F8/expert/Streams"
 kind = "op"
 label = "Stop audio stream"
 op = "stream.stop"
@@ -490,7 +437,7 @@ when_state = "stream.audio_on"
 ui = { chip = "Stream", tone = "amber", why = "The audio stream is not running" }
 
 [[node]]
-anchor = "F8/network"
+anchor = "F8/expert/Streams"
 kind = "op"
 label = "Start debug stream"
 op = "stream.start"
@@ -500,7 +447,7 @@ when_state = "stream.debug_off"
 ui = { sub = "@stream.debug", chip = "Stream", tone = "cyan", why = "The debug stream runs already" }
 
 [[node]]
-anchor = "F8/network"
+anchor = "F8/expert/Streams"
 kind = "op"
 label = "Stop debug stream"
 op = "stream.stop"
@@ -1537,15 +1484,6 @@ apply = "settings.noop"
 
 [[core_setting]]
 group = "TRX64"
-key = "Save Changed Cartridge"
-label = "Save changed cartridge"
-list = "off_ask_auto"
-default = 1
-when = "live"
-apply = "writeback.mode"
-
-[[core_setting]]
-group = "TRX64"
 key = "Turbo Control"
 label = "Turbo control"
 list = "turbo"
@@ -1687,7 +1625,7 @@ maxlen = 60
 apply = "drive.fx_misc"
 
 [[core_setting]]
-group = "Expansion"
+group = "Cartridge"
 key = "Cartridge Preference"
 label = "Cartridge preference"
 list = "cartmodes"
@@ -1696,7 +1634,16 @@ when = "live"
 apply = "c64.fx_io"
 
 [[core_setting]]
-group = "Expansion"
+group = "Cartridge"
+key = "Save Changed Cartridge"
+label = "Save changed cartridge"
+list = "off_ask_auto"
+default = 1
+when = "live"
+apply = "writeback.mode"
+
+[[core_setting]]
+group = "REU"
 key = "RAM Expansion Unit"
 label = "RAM expansion unit"
 list = "geo"
@@ -1705,7 +1652,7 @@ when = "live"
 apply = "c64.fx_io"
 
 [[core_setting]]
-group = "Expansion"
+group = "REU"
 key = "REU Size"
 label = "REU size"
 list = "reusize"
@@ -1715,7 +1662,7 @@ apply = "c64.fx_io"
 show_state = "reu.on"
 
 [[core_setting]]
-group = "Expansion"
+group = "REU"
 key = "REU Preload"
 label = "REU preload"
 list = "en_dis"
@@ -1725,7 +1672,7 @@ apply = "c64.fx_io"
 show_state = "reu.on"
 
 [[core_setting]]
-group = "Expansion"
+group = "REU"
 key = "REU Preload Image"
 label = "REU preload image"
 text = true
@@ -1735,7 +1682,7 @@ apply = "settings.noop"
 show_state = "reu.on"
 
 [[core_setting]]
-group = "Expansion"
+group = "REU"
 key = "REU Preload Offset"
 label = "REU preload offset"
 list = "reuoffs"
@@ -1745,7 +1692,7 @@ apply = "settings.noop"
 show_state = "reu.on"
 
 [[core_setting]]
-group = "Expansion"
+group = "Ultimate"
 key = "Map Ultimate Audio $DF20-DFFF"
 label = "Ultimate audio at $DF20-$DFFF"
 list = "en_dis"
@@ -1754,7 +1701,7 @@ when = "live"
 apply = "c64.fx_io"
 
 [[core_setting]]
-group = "Expansion"
+group = "Ultimate"
 key = "Command Interface (UCI)"
 label = "Command interface (UCI)"
 list = "en_dis"
@@ -1772,7 +1719,15 @@ when = "live"
 apply = "c64.fx_io"
 
 [[core_setting]]
-group = "Hardware"
+group = "Cartridge"
+key = "GAME/EXROM"
+list = "gameexrom"
+default = 0
+when = "live"
+apply = "c64.fx_io"
+
+[[core_setting]]
+group = "Cartridge"
 key = "Bus Sharing - ROMs"
 label = "Bus sharing - ROMs"
 list = "sharing"
@@ -1781,7 +1736,7 @@ when = "live"
 apply = "c64.fx_io"
 
 [[core_setting]]
-group = "Hardware"
+group = "Cartridge"
 key = "Bus Sharing - I/O1"
 label = "Bus sharing - I/O1"
 list = "sharing"
@@ -1790,7 +1745,7 @@ when = "live"
 apply = "c64.fx_io"
 
 [[core_setting]]
-group = "Hardware"
+group = "Cartridge"
 key = "Bus Sharing - I/O2"
 label = "Bus sharing - I/O2"
 list = "sharing"
@@ -1799,19 +1754,11 @@ when = "live"
 apply = "c64.fx_io"
 
 [[core_setting]]
-group = "Hardware"
+group = "Cartridge"
 key = "Bus Sharing - Interrupts"
 label = "Bus sharing - interrupts"
 list = "sharing"
 default = 2
-when = "live"
-apply = "c64.fx_io"
-
-[[core_setting]]
-group = "Hardware"
-key = "GAME/EXROM"
-list = "gameexrom"
-default = 0
 when = "live"
 apply = "c64.fx_io"
 
@@ -1861,7 +1808,7 @@ when = "live"
 apply = "u64.fx_misc"
 
 [[core_setting]]
-group = "Device"
+group = "hidden"
 key = "Power On After Power Loss"
 label = "Power on after power loss"
 list = "poweron"
@@ -1870,7 +1817,7 @@ when = "live"
 apply = "u64.fx_power"
 
 [[core_setting]]
-group = "Device"
+group = "hidden"
 key = "Wake On Wi-Fi"
 label = "Wake on Wi-Fi"
 list = "en_dis"
@@ -1879,7 +1826,7 @@ when = "live"
 apply = "u64.fx_power"
 
 [[core_setting]]
-group = "Device"
+group = "hidden"
 key = "LED Select Top"
 label = "LED select top"
 list = "ledsel"
@@ -1888,7 +1835,7 @@ when = "live"
 apply = "u64.fx_misc"
 
 [[core_setting]]
-group = "Device"
+group = "hidden"
 key = "LED Select Bot"
 label = "LED select bottom"
 list = "ledsel"
@@ -1897,7 +1844,7 @@ when = "live"
 apply = "u64.fx_misc"
 
 [[core_setting]]
-group = "Device"
+group = "hidden"
 key = "Color Scheme"
 label = "Color scheme"
 list = "schemes"

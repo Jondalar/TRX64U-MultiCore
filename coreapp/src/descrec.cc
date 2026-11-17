@@ -210,7 +210,7 @@ int descrec_parse(const uint8_t *rec, uint32_t n, DescRecord *out, char *why, in
         if (s.groups && !s.groups[0]) {
             s.groups = 0;
         }
-        if (s.groups && widget != TW_SETTINGS && widget != TW_TASKS && widget != TW_MEDIA && widget != TW_INFO) {
+        if (s.groups && widget != TW_SETTINGS && widget != TW_TASKS && widget != TW_MEDIA && widget != TW_INFO && widget != TW_SYSTEM) {      // a System tab's groups: its pages (T228 R6)
             return r.fail("description record: tab %u lists groups, but its widget takes none", (unsigned)i);
         }
     }

@@ -23,7 +23,9 @@ Source (TOML; every key is checked, an unknown one is an error - a typo must not
       layout = "settings"          # optional: how the tab is drawn (a screen of the UX concept): home | split | settings | status | library; the flat list when absent
       ui = { title = "TRX64 behavior" }      # optional: the layout's parameters (title, crumb); `ui = { sections = true }` alone (no layout) keeps the tab a list and
                                      # draws each of its groups under a heading made from the group's id (T228; not drawn when it repeats the tab's title)
-                                     # `pages = "g1,g2"` (T228 D18): those groups are not sections; one row each opens a page that holds the group's settings
+                                     # `pages = "g1,g2"` (T228 D18): those groups are not sections; one row each opens a page that holds the group's settings (and the nodes
+                                     # anchored to the group); "Name=g1+g2" is one page named Name with both groups, each under its heading (R6). A settings tab names pages
+                                     # with `sections`; a system tab's groups are pages only, their rows stand under its Network heading. `pages_head = "SID"` heads the rows
 
     [[node]]                       # a button, a state line or a heading the core itself puts into a tab
     anchor = "F5/drives/drive_a"   # area/tab or area/tab/group
@@ -386,7 +388,7 @@ class _Strings:
 UI_NODE_KEYS = {"primary": bool, "link": bool, "goto": str, "sub": str, "chip": str, "tone": str, "off": str, "why": str, "confirm": str, "label": str, "hide": str, "ask": str, "ask_state": str, "job": bool, "pick": str, "rename": bool, "view": str, "key": str, "none": str, "nokey": bool, "empty": str, "bkey": str, "legend": str}
 UI_TONES = ("muted", "cyan", "violet", "amber", "coral")
 LAYOUTS = ("home", "desk", "split", "settings", "status", "library", "timeline", "terminal", "app", "grid")
-UI_TAB_KEYS = {"title": str, "crumb": str, "side": str, "chip": str, "sheet": str, "sheetx": str, "nodes_first": bool, "sections": bool, "pages": str, "left": str, "label": str, "frame": str, "bar": str, "hint": str, "marks": str, "pos": str, "info": str, "glyph": str, "track": str,
+UI_TAB_KEYS = {"title": str, "crumb": str, "side": str, "chip": str, "sheet": str, "sheetx": str, "nodes_first": bool, "sections": bool, "pages": str, "pages_head": str, "left": str, "label": str, "frame": str, "bar": str, "hint": str, "marks": str, "pos": str, "info": str, "glyph": str, "track": str,
                # an application's own screens (T104.3 D0, layouts app and grid): which tab is shown, where a key goes, and what the screen draws of the application's state
                "hidden": bool, "lines": str, "under": str, "back": str, "follow": str, "lock": str, "keys": str, "enter": str, "rows": str, "input": str, "grid": str, "note": str,
                "status": str, "pct": str, "pct_label": str, "pct_note": str,
@@ -433,7 +435,7 @@ def _ui_table(s, keys):
     return d
 
 
-GROUP_WIDGETS = ("settings", "tasks", "media")      # the widgets whose entries name a group
+GROUP_WIDGETS = ("settings", "tasks", "media", "system")      # the widgets whose entries name a group (a system tab's groups are its pages, T228 R6)
 
 
 def _tab_groups(tb, tid, widget):
@@ -443,7 +445,7 @@ def _tab_groups(tb, tid, widget):
     if groups is not None and (not groups or not all(isinstance(g, str) and re.fullmatch(r"[A-Za-z0-9_]+", g) for g in groups)):
         raise DescError("tab %s: groups are names" % tid)
     if groups and widget not in GROUP_WIDGETS:
-        raise DescError("tab %s: groups belong to a settings, tasks or media tab" % tid)
+        raise DescError("tab %s: groups belong to a settings, tasks, media or system tab" % tid)
     if lines is not None:
         if widget != "info":
             raise DescError("tab %s: lines belong to an info tab" % tid)
@@ -453,6 +455,37 @@ def _tab_groups(tb, tid, widget):
             raise DescError("tab %s: groups and lines together" % tid)
         return lines
     return groups
+
+
+def _tab_pages(tb, tid, widget, groups):
+    """T228 D18, R6: `pages` names groups of the tab: "g" is the page of the group g, "Name=g1+g2" one page named Name with the groups g1 and g2. Each group is on one
+    page at most; a settings tab shows pages only with `sections`, a system tab shows its groups as pages and nothing else (menutree.cc TabPages)."""
+    ui = tb.get("ui") or {}
+    pages = ui.get("pages", "")
+    if not isinstance(pages, str):
+        return                                                  # _ui_string says what is wrong with it
+    held = []
+    for item in [p for p in pages.split(",") if p] if pages else []:
+        name, _, members = item.partition("=")
+        members = members.split("+") if _ else [name]
+        if not re.fullmatch(r"[A-Za-z0-9_]{1,31}", name) or not all(members):
+            raise DescError("tab %s: ui pages %r is a group, or Name=group+group" % (tid, item))
+        for g in members:
+            if g not in (groups or []):
+                raise DescError("tab %s: ui pages names %r, a group the tab does not list" % (tid, g))
+            if g in held:
+                raise DescError("tab %s: ui pages names the group %r twice" % (tid, g))
+            held.append(g)
+    if len(pages) > 95:
+        raise DescError("tab %s: ui pages is longer than 95 characters (the application reads that much)" % tid)
+    if pages and widget == "settings" and not ui.get("sections"):
+        raise DescError("tab %s: ui pages needs `sections` (a plain list shows its groups as they are)" % tid)
+    if pages and widget not in ("settings", "system"):
+        raise DescError("tab %s: ui pages belongs to a settings or system tab" % tid)
+    if widget == "system" and groups and set(groups) != set(held):
+        raise DescError("tab %s: a system tab shows its groups as pages only - name each of them in ui pages" % tid)
+    if "pages_head" in ui and not pages:
+        raise DescError("tab %s: ui pages_head heads the rows of ui pages, and there are none" % tid)
 
 
 def _expand_apps(doc):
@@ -544,13 +577,11 @@ def compile_desc(doc, merged=()):
             seen_n.add(n)
             groups = _tab_groups(tb, tid, widget)
             layout = _opt(tb, "layout", str, "tab " + tid, None)
-            if layout is None and "ui" in tb and not set(tb["ui"]) <= {"sections", "pages"}:
-                raise DescError("tab %s: ui without a layout (only `sections` and `pages` stand alone)" % tid)
+            if layout is None and "ui" in tb and not set(tb["ui"]) <= {"sections", "pages", "pages_head"}:
+                raise DescError("tab %s: ui without a layout (only `sections`, `pages` and `pages_head` stand alone)" % tid)
             if layout is not None and layout not in LAYOUTS:
                 raise DescError("tab %s: layout %r (one of %s)" % (tid, layout, ", ".join(LAYOUTS)))
-            for pg in (tb.get("ui") or {}).get("pages", "").split(","):          # T228 D18: a page is a group of the tab
-                if pg and pg not in groups:
-                    raise DescError("tab %s: ui pages names %r, a group the tab does not list" % (tid, pg))
+            _tab_pages(tb, tid, widget, groups)
             lay = None
             if layout is not None or "ui" in tb:                         # no layout: the name is empty, the tab stays a list (T228 `sections`)
                 params = _ui_string(tb.get("ui"), UI_TAB_KEYS, "tab " + tid)
@@ -667,6 +698,7 @@ def compile_desc(doc, merged=()):
         if not 0 <= n <= 99:
             raise DescError("tab %s: n is 0 .. 99" % tid)
         groups = _tab_groups(tb, tid, widget)
+        _tab_pages(tb, tid, widget, groups)
         t["ctab"].append((st.add(area), st.add(tid), st.add(_need(tb, "name", str, "tab " + tid)), WIDGETS.index(widget), st.add(",".join(groups)) if groups else NONE, n))
 
     # ---- the core's own menu (T104.2 D10)
