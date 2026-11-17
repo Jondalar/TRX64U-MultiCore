@@ -38,9 +38,7 @@ class RomsTxt(unittest.TestCase):
         off = G.left_out()
         for r in G.rows():
             for n in r["names"]:
-                if r["core"].lower() in off:
-                    self.assertNotIn(n, self.text)                # pipeline = false (core.toml or import pin): not listed at all
-                else:
+                if r["core"].lower() not in off:                  # pipeline = false cores are not listed (test below)
                     self.assertIn(n, self.text)
 
     def test_a_core_out_of_the_pipeline_is_not_listed(self):
