@@ -453,6 +453,9 @@ OS464 + BASIC464`, every part 16 KB (README). Frame: the CRTC is programmable; t
   mount-event withdrawals (`:394-396`, H1); `cpc_fdc.v` and its toggle handshake to the DDR2 are unchanged. Which wait stays set on
   the board is not closed by reading (the benches, without the real `cpc_fdc`/DDR2, never stall it). Cheapest known-good path for
   later: u765 of 66f89900 plus the app's mount with a reset.
+- D-17f (Alex 2026-11-17, after the reading): "Write a spec. If the MiSTer disc controller is that bad, look for another one or repair
+  it. And then build the core again tonight and test it" (translated). The repair is T233 (docs/specs/T233-cpc-fdc-repair.md); its
+  branch builds the CPC again (T233 D7), `main` keeps it out of the pipeline (D-17e) until the board pass.
 
 ## §4 Out
 
