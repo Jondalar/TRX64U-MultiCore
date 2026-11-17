@@ -8,6 +8,8 @@
 void diag_register(OpRegistry &r);
 // The text or bytes the viewer shows: 0 the debug log, 1 the screen's EDID, 2 the instruction trace, 3 system information. *n is their length.
 const char *diag_text(int kind, int *n);
+// T228 D12: the keys text (diag_text kind 5) names the Timewarp bar (F2) and the monitor (F4) only when the core's menu has those areas.
+void diag_help_areas(bool timewarp, bool monitor);
 
 
 // T162: the bug report text for GET /v1/report into `body` (cap at least CORE_REPORT_MAX); its length, -1 when busy or too small. `stamp` gets the file name.

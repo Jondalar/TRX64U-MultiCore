@@ -29,7 +29,8 @@ enum EntryKind {
     EK_HEADING,         // T187 D1: a quiet divider that names the group of the rows below it; never selectable, `label` is its text
     EK_DRIVE_MOUNT,     // T212 D5, in the drive list: mount from the Library (the Library opens on the slot's file types); `index` is the media slot
     EK_DRIVE_EJECT,     // T212 D5, in the drive list: eject the slot's medium
-    EK_OPENS            // T187 D2: a row that opens a page (a hidden tab of the same area); `index` is the descriptor setting whose value the row shows
+    EK_OPENS,           // T187 D2: a row that opens a page (a hidden tab of the same area); `index` is the descriptor setting whose value the row shows
+    EK_KEYS_HELP        // T228 D12, fixed, in F8 Support of every core: Keys and help - the viewer on the keys text (diag_text kind 5)
 };
 
 // What a tab shows of the descriptor (T104.1 D8: the description names, for each tab, the widget). Contributed nodes can join a tab of the kinds

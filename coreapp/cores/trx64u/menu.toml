@@ -4,7 +4,7 @@
 # for a start without a .cor (JTAG, ue2emu). Regenerate it with `tools/gen_menu_rec.py`; the lint stage compares.
 #
 # T228 D2: the structure is the generic core menu of T212 (F1 session and quick actions, F3 Library, F5 machine, F7 APP, F8 System); trx64u adds F2 Timewarp and F4 Monitor
-# (D3: the rail reads MONITOR; the Diagnostics tab is in F4 beside the monitor until DC7 moves it to F8, step 2). Its Drive A and cartridge port are media slots whose rows open the drive list (T212 D5); the generic items (Persist mounts, Enter home, Menu opens at, Home
+# (D3: the rail reads MONITOR; DC7: the Diagnostics tab is in F8, DC3: F1 has the tab Recording). Its Drive A and cartridge port are media slots whose rows open the drive list (T212 D5); the generic items (Persist mounts, Enter home, Menu opens at, Home
 # directory, hotkeys, Picture, Scale; no Tone: the core sets no_tone) are the application's own and not declared here. A settings tab with `ui = { sections = true }` shows each of its groups under a heading made of the
 # group's id ('_' is a space; not drawn when it repeats the tab's title). Nothing is saved to flash: every setting is written to the core's .cfg at once (D9-D11).
 
@@ -19,6 +19,11 @@ name = "Home"
   name = "Home"
   widget = "info"
   n = 1
+  [[area.tab]]                      # DC3: the Timewarp actions; the ring and trace switches are F5 TRX64 > Recording (D13)
+  id = "recording"
+  name = "Recording"
+  widget = "nodes"
+  n = 2
 
 [[area]]
 key = "F2"
@@ -65,13 +70,6 @@ name = "Monitor"
   widget = "nodes"
   layout = "terminal"
   n = 1
-  [[area.tab]]
-  id = "diagnostics"
-  name = "Diagnostics"
-  widget = "nodes"
-  layout = "split"
-  ui = { title = "Diagnostics", side = "Now" }
-  n = 2
 
 [[area]]
 key = "F5"                       # the core's short title ("C64") names it
@@ -153,7 +151,7 @@ name = "System"
   name = "Network"
   widget = "settings"
   groups = ["WiFi_and_Ethernet", "Services", "Streams", "FTP_hosts"]
-  ui = { sections = true }
+  ui = { sections = true, pages = "FTP_hosts" }                # D18: "FTP hosts" is one row that opens a page with the hosts
   n = 2
   [[area.tab]]
   id = "device"
@@ -161,6 +159,13 @@ name = "System"
   widget = "settings"
   groups = ["Device"]
   n = 3
+  [[area.tab]]                      # DC7: what F4 Diagnostics held (the monitor owns the keyboard there); the instruction trace is F5 TRX64 > Recording only (D13)
+  id = "diagnostics"
+  name = "Diagnostics"
+  widget = "nodes"
+  layout = "split"
+  ui = { title = "Diagnostics", side = "Now" }
+  n = 4
 
 [[node]]
 anchor = "F2/timeline/bar"
@@ -172,7 +177,7 @@ closes_menu = true
 ui = { primary = true }
 
 [[node]]
-anchor = "F5/trx64"
+anchor = "F1/recording"
 kind = "op"
 label = "Start recording"
 op = "ring.start"
@@ -181,7 +186,7 @@ when_state = "tw.stopped"
 ui = { why = "The ring is recording already, or there is none", sub = "Starts the frame ring again, the old frames go" }
 
 [[node]]
-anchor = "F5/trx64"
+anchor = "F1/recording"
 kind = "op"
 label = "Stop recording"
 op = "ring.stop"
@@ -190,7 +195,7 @@ when_state = "tw.running"
 ui = { why = "The ring is not recording", sub = "The frames stay until it starts again" }
 
 [[node]]
-anchor = "F5/trx64"
+anchor = "F1/recording"
 kind = "op"
 label = "Marker here"
 op = "tw.mark"
@@ -199,7 +204,7 @@ when_state = "tw.present"
 ui = { why = "This bitstream has no frame ring", sub = "Marks the frame Timewarp shows" }
 
 [[node]]
-anchor = "F5/trx64"
+anchor = "F1/recording"
 kind = "op"
 label = "Clear markers"
 op = "tw.clear_marks"
@@ -208,7 +213,7 @@ when_state = "tw.present"
 ui = { why = "This bitstream has no frame ring", sub = "Forgets every marker" }
 
 [[node]]
-anchor = "F5/trx64"
+anchor = "F1/recording"
 kind = "op"
 label = "Back to live"
 op = "tw.live"
@@ -217,7 +222,7 @@ when_state = "tw.present"
 ui = { why = "This bitstream has no frame ring", sub = "The newest frame again" }
 
 [[node]]
-anchor = "F5/trx64"
+anchor = "F1/recording"
 kind = "op"
 label = "Save frame"
 op = "tw.dump"
@@ -227,7 +232,7 @@ when_state = "tw.present"
 ui = { ask = "Save the shown frame as (name)", ask_state = "machine.suggest.tw", why = "This bitstream has no frame ring", sub = "The machine's state at the shown frame" }
 
 [[node]]
-anchor = "F5/trx64"
+anchor = "F1/recording"
 kind = "op"
 label = "Save the ring"
 op = "tw.ringdump"
@@ -237,7 +242,7 @@ when_state = "tw.present"
 ui = { ask = "Save the last seconds as (name)", ask_state = "machine.suggest.ring", why = "This bitstream has no frame ring", sub = "Up to 30 seconds, one frame in five" }
 
 [[node]]
-anchor = "F4/diagnostics"
+anchor = "F8/diagnostics"
 kind = "op"
 label = "Debug log"
 op = "diag.nop"
@@ -245,7 +250,7 @@ order = 10
 ui = { view = "log", sub = "What the application printed, newest at the end", chip = "@diag.log", tone = "cyan" }
 
 [[node]]
-anchor = "F4/diagnostics"
+anchor = "F8/diagnostics"
 kind = "op"
 label = "Clear debug log"
 op = "diag.clear_log"
@@ -253,7 +258,7 @@ order = 20
 ui = { chip = "Clear", tone = "amber" }
 
 [[node]]
-anchor = "F4/diagnostics"
+anchor = "F8/diagnostics"
 kind = "op"
 label = "Save debug log"
 op = "diag.save_log"
@@ -262,7 +267,7 @@ order = 30
 ui = { ask = "Save the debug log as (name)", ask_state = "diag.suggest.log", chip = "File", tone = "violet" }
 
 [[node]]
-anchor = "F4/diagnostics"
+anchor = "F8/diagnostics"
 kind = "op"
 label = "Screen EDID"
 op = "diag.nop"
@@ -270,7 +275,7 @@ order = 40
 ui = { view = "edid", sub = "What the screen says about itself (hex)", chip = "EDID", tone = "cyan" }
 
 [[node]]
-anchor = "F4/diagnostics"
+anchor = "F8/diagnostics"
 kind = "op"
 label = "Save EDID"
 op = "diag.save_edid"
@@ -279,22 +284,14 @@ order = 50
 ui = { ask = "Save the EDID as (name)", ask_state = "diag.suggest.edid", chip = "File", tone = "violet" }
 
 [[node]]
-anchor = "F4/diagnostics"
-kind = "op"
-label = "Instruction trace"
-op = "diag.nop"
-order = 60
-ui = { view = "trace", sub = "The last 64 instructions (F5 C64 > TRX64 > Recording)", chip = "@diag.trace", tone = "cyan" }
-
-[[node]]
-anchor = "F4/diagnostics/side"
+anchor = "F8/diagnostics/side"
 kind = "state"
 label = "Heap"
 order = 30
 ui = { sub = "@diag.heap" }
 
 [[node]]
-anchor = "F4/diagnostics/side"
+anchor = "F8/diagnostics/side"
 kind = "state"
 label = "Debug register"
 order = 40
@@ -519,7 +516,7 @@ label = "Softboot"
 order = 50
 app = "softboot"
 action = "pick"
-ui = { sub = "Run an update image from RAM without flashing it", chip = "APP", tone = "violet" }
+ui = { sub = "Run an update image from RAM without flashing it", chip = "APP", tone = "violet", hide = "@host.multicore" }       # DC1: not under the MultiCore host
 
 [[node]]
 anchor = "F8/network"
@@ -684,14 +681,6 @@ state = "usb.keyboard"
 label = "USB keyboard"
 order = 71
 ui = { chip = "@usb.keyboard" }
-
-[[node]]
-anchor = "F8/expert"
-kind = "op"
-label = "Keys and help"
-op = "diag.nop"
-order = 80
-ui = { view = "help", chip = "Help", tone = "violet" }
 
 [[task]]
 group = "top"

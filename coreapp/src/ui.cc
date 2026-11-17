@@ -1164,6 +1164,8 @@ void ui_splash_close(void)
     trx_splash_close();
 }
 
+static const char *g_msg_foot;                     // the foot of the message pane: the keys of a question (T228: the picture question names its keys at the foot, as every context does)
+
 void ui_message(const char *title, const char *text, bool bad)
 {
     printf("[coreapp] %s: %s\n", title, text);
@@ -1181,6 +1183,7 @@ void ui_message(const char *title, const char *text, bool bad)
     const TrxTheme &t = trx_theme();
     TrxShellInfo info;
     shell_info(&info, "/ UI", "HELD", 0);
+    info.footer_right = g_msg_foot;
     TrxRoute empty = { 0, 0 };
     lv_obj_t *c = trx_shell(scr, info, empty, -1, -1);
     int x = t.space_xl;
@@ -1208,7 +1211,9 @@ void ui_picture_question(int left_s, const char *now, const char *prev)
         lv_label_set_text(g_msg_label, msg_text_s);
         return;
     }
+    g_msg_foot = "RETURN KEEP  LEFT/ESC BACK NOW";
     ui_message("Keep this picture?", txt, false);
+    g_msg_foot = 0;
     pq_up = true;
 }
 

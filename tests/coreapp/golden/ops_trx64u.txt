@@ -290,6 +290,7 @@ state	diag.heap
 state	diag.debugreg
 state	diag.board
 state	diag.uptime
+state	host.multicore
 state	diag.log
 state	diag.trace
 state	diag.suggest.log

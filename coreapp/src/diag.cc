@@ -1,4 +1,4 @@
-// Diagnostics of F4 (T104.2 UI): the debug log (what the application printed on the UART, kept in a ring), the EDID of the screen, the heap, the debug register, the trace as
+// Diagnostics, the F8 tab of that name (T104.2 UI; it was in F4 until T228 DC7): the debug log (what the application printed on the UART, kept in a ring), the EDID of the screen, the heap, the debug register, the trace as
 // text. Operations to save them, state values for the rows, and `diag_text()` for the viewer.
 #include "diag.h"
 #include "corereport.h"
@@ -85,6 +85,13 @@ int diag_report_rest(CoreCtx *c, char *body, int cap, char *stamp, int stamplen)
     return n;
 }
 
+static bool g_help_tw, g_help_mon;
+void diag_help_areas(bool timewarp, bool monitor)
+{
+    g_help_tw = timewarp;
+    g_help_mon = monitor;
+}
+
 // what the viewer shows: 0 log, 1 EDID (hex), 2 trace, 3 system information
 const char *diag_text(int kind, int *n)
 {
@@ -123,26 +130,47 @@ const char *diag_text(int kind, int *n)
         return g_text;
     }
     if (kind == 5) {
-        *n = snprintf(g_text, sizeof(g_text),
+        int w = snprintf(g_text, sizeof(g_text),
             "KEYS OF THE MENU\n\n"
-            "F1 .. F8        the areas (the rail names them); 1 .. 5 the tabs of an area\n"
-            "Cursor keys     move; RETURN selects; the left arrow key goes back\n"
-            "R/S, F10, the Menu key   close the menu (the machine goes on)\n"
-            "Letters         each core names a few: E eject, X remove cartridge, P pause, R reset, T Timewarp, M monitor\n\n"
+            "F1 .. F8        the areas (the rail names them)\n"
+            "1 .. 8          the tabs of an area\n"
+            "Cursor keys     move; RETURN selects\n"
+            "Left arrow      back\n"
+            "R/S, F10, Menu  close the menu (the machine goes on)\n"
+            "Letters         the foot of a list names its letters\n\n"
             "THE LIBRARY (F3)\n\n"
-            "RETURN          the actions of the file; on a folder: open it\n"
-            "RIGHT           the first action of the file; on a folder: open it; on ..: the actions of this folder\n"
+            "RETURN          the actions of the file; a folder: open it\n"
+            "RIGHT           a folder: go in; on ..: the folder's actions;\n"
+            "                else the first action of the file\n"
             "A letter        in the sheet runs the item with that letter\n"
-            "SPACE           marks a file; C= A marks all, C= N none, C= C copies, C= V pastes\n"
+            "SPACE           marks a file; C= A all, C= N none\n"
+            "C= C, C= V      copy, paste the marked files\n"
             "/               quick seek: type the name, ? is any character\n"
-            "UP on the first row   the media chips: LEFT/RIGHT choose, RETURN opens\n\n"
-            "TIMEWARP (F2)\n\n"
-            "The bar of the pixel layer: LEFT/RIGHT one frame, UP/DOWN one second, F1/F7 (PAGE) ten seconds, HOME the oldest frame, RETURN rewinds there and runs, RUN/STOP or the left arrow cancel\n\n"
-            "MONITOR (F4)\n\n"
-            "trxmon's own screen: every key is the monitor's (F1/F7 scroll, F3 help); ? lists the commands, x resumes and leaves, RUN/STOP leaves while the machine stands, diag goes to Diagnostics\n\n"
-            "BOARD HOTKEYS\n\n"
-            "C= R reset, C= Z reboot, C= B power cycle, C= K power off (every menu of the firmware); the menu switch held up for one second resets the machine.\n"
-            "At power on: Ctrl-P / Ctrl-N PAL / NTSC, Ctrl-B / S / F the model (the firmware's own, read at the start).\n");
+            "UP on 1st row   the media chips: LEFT/RIGHT, RETURN opens\n");
+        if (g_help_tw && w < (int)sizeof(g_text)) {
+            w += snprintf(g_text + w, sizeof(g_text) - w,
+                "\nTIMEWARP (F2)\n\n"
+                "LEFT/RIGHT      one frame\n"
+                "UP/DOWN         one second\n"
+                "F1/F7 (PAGE)    ten seconds\n"
+                "HOME            the oldest frame\n"
+                "RETURN          rewind there and run\n"
+                "R/S, left arrow cancel\n");
+        }
+        if (g_help_mon && w < (int)sizeof(g_text)) {
+            w += snprintf(g_text + w, sizeof(g_text) - w,
+                "\nMONITOR (F4)\n\n"
+                "Every key is the monitor's: F1/F7 scroll, F3 help,\n"
+                "? lists the commands, x resumes and leaves,\n"
+                "R/S leaves while the machine stands.\n"
+                "\nBOARD HOTKEYS\n\n"
+                "C= R reset, C= Z reboot, C= B power cycle, C= K power off\n"
+                "(every menu of the firmware); the menu switch held up\n"
+                "for one second resets the machine.\n"
+                "At power on: Ctrl-P / Ctrl-N PAL / NTSC,\n"
+                "Ctrl-B / S / F the model (the firmware's own).\n");
+        }
+        *n = w < (int)sizeof(g_text) ? w : (int)sizeof(g_text) - 1;
         return g_text;
     }
     *n = snprintf(g_text, sizeof(g_text), "Board %s (%s)\nHeap free %u bytes\nDebug register %02x\n", getProductString(), getProductFamily(),
@@ -209,6 +237,8 @@ static const char *state_uptime(CoreCtx *c)
     snprintf(sb, sizeof(sb), "%u:%02u:%02u", (unsigned)(s / 3600), (unsigned)(s / 60 % 60), (unsigned)(s % 60));
     return sb;
 }
+// T228 DC1: the application knows it was started by the MultiCore host (the ICAP loader answered, board.h); a row that hides on this state is not offered there
+static const char *state_host_multicore(CoreCtx *c) { return !c->board || c->board->can_return_host ? "MultiCore host" : 0; }
 static const char *state_log(CoreCtx *) { snprintf(sb, sizeof(sb), "%u KB", (unsigned)((g_wrapped ? LOG_N : g_head) / 1024)); return sb; }
 static const char *state_trace(CoreCtx *)
 {
@@ -265,6 +295,7 @@ void diag_register(OpRegistry &r)
     r.add_state("diag.debugreg", state_debugreg);
     r.add_state("diag.board", state_board);
     r.add_state("diag.uptime", state_uptime);
+    r.add_state("host.multicore", state_host_multicore);
     r.add_state("diag.log", state_log);
     r.add_state("diag.trace", state_trace);
     r.add_state("diag.suggest.log", state_suggest_log);

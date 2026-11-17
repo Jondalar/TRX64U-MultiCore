@@ -13,6 +13,14 @@ area F1 Home
     fixed Save as config...
     fixed Load config...
   tab 0 Drive (a page)
+  tab 2 Recording
+    node Start recording = button calls ring.start when tw.stopped from description
+    node Stop recording = button calls ring.stop when tw.running from description
+    node Marker here = button calls tw.mark when tw.present from description
+    node Clear markers = button calls tw.clear_marks when tw.present from description
+    node Back to live = button calls tw.live when tw.present from description
+    node Save frame = button calls tw.dump when tw.present from description
+    node Save the ring = button calls tw.ringdump when tw.present from description
 area F2 Timewarp
   tab 1 Timeline
     node Resume here = button calls tw.resume in group bar (closes the menu) from description
@@ -79,15 +87,6 @@ area F3 Library
 area F4 Monitor
   tab 1 Monitor
     node Help = button calls mon.run in group bar from description
-  tab 2 Diagnostics
-    node Debug log = button calls diag.nop from description
-    node Clear debug log = button calls diag.clear_log from description
-    node Save debug log = button calls diag.save_log from description
-    node Heap = state in group side from description
-    node Screen EDID = button calls diag.nop from description
-    node Debug register = state in group side from description
-    node Save EDID = button calls diag.save_edid from description
-    node Instruction trace = button calls diag.nop from description
 area F5 C64
   tab 1 Machine
     setting Fast reset = Disabled | Enabled (default Disabled, live)
@@ -115,13 +114,6 @@ area F5 C64
     heading Recording
     setting Timewarp ring = Off | On (default On, live)
     setting Instruction trace = Off | On (default Off, live)
-    node Start recording = button calls ring.start when tw.stopped from description
-    node Stop recording = button calls ring.stop when tw.running from description
-    node Marker here = button calls tw.mark when tw.present from description
-    node Clear markers = button calls tw.clear_marks when tw.present from description
-    node Back to live = button calls tw.live when tw.present from description
-    node Save frame = button calls tw.dump when tw.present from description
-    node Save the ring = button calls tw.ringdump when tw.present from description
   tab 3 Memory and I/O
     heading Expansion
     setting Cartridge preference = Auto | Internal | External | Manual (default Auto, live)
@@ -218,9 +210,8 @@ area F7 APP
     setting Persist medium mounts = No | Yes (default No, live)
     setting Enter home on startup = No | Yes (default No, live)
     setting Home directory =  (default , live)
-    heading Menu
+    heading Menu and keys
     setting Menu opens at = Home (F1) | Last screen (default Home (F1), live)
-    heading Hotkeys
     opens Hotkeys
   tab 0 Hotkeys (a page)
     setting Modifier = Off | CTRL | C= | C= + CTRL | C= + L SHIFT | C= + RUN/STOP | CTRL + L SHIFT | CTRL + RUN/STOP (default CTRL, live)
@@ -244,7 +235,7 @@ area F8 System
     fixed WiFi
     heading Support
     fixed Bug report
-    node Keys and help = button calls diag.nop from description
+    fixed Keys and help
     heading Reset
     fixed Reset to host defaults
     heading Status
@@ -286,7 +277,19 @@ area F8 System
     setting Stream audio to = 239.0.1.65:11001 (default 239.0.1.65:11001, live)
     setting Stream debug to = 239.0.1.66:11002 (default 239.0.1.66:11002, live)
     setting Debug stream mode = 6510 Only | VIC Only | 6510 & VIC | 1541 Only | 6510 & 1541 | 6510 w/IEC | 6510 & VIC w/IEC (default 6510 Only, live)
-    heading FTP hosts
+    opens FTP hosts
+    node Ethernet status = state shows net.eth_status from description
+    node Interface MAC = state shows net.eth_mac from description
+    node Wi-Fi status = state shows wifi.state from description
+    node Wi-Fi network = state shows wifi.ssid from description
+    node Wi-Fi address = state shows wifi.ip from description
+    node Start VIC stream = button calls stream.start when stream.vic_off from description
+    node Stop VIC stream = button calls stream.stop when stream.vic_on from description
+    node Start audio stream = button calls stream.start when stream.audio_off from description
+    node Stop audio stream = button calls stream.stop when stream.audio_on from description
+    node Start debug stream = button calls stream.start when stream.debug_off from description
+    node Stop debug stream = button calls stream.stop when stream.debug_on from description
+  tab 0 FTP hosts (a page)
     setting FTP 1 alias =   (default  , live)
     setting FTP 1 host =   (default  , live)
     setting FTP 1 port = 21 (default 21, live)
@@ -311,20 +314,17 @@ area F8 System
     setting FTP 4 user = anonymous (default anonymous, live)
     setting FTP 4 password =   | Not set (default  , live)
     setting FTP 4 folder = / (default /, live)
-    node Ethernet status = state shows net.eth_status from description
-    node Interface MAC = state shows net.eth_mac from description
-    node Wi-Fi status = state shows wifi.state from description
-    node Wi-Fi network = state shows wifi.ssid from description
-    node Wi-Fi address = state shows wifi.ip from description
-    node Start VIC stream = button calls stream.start when stream.vic_off from description
-    node Stop VIC stream = button calls stream.stop when stream.vic_on from description
-    node Start audio stream = button calls stream.start when stream.audio_off from description
-    node Stop audio stream = button calls stream.stop when stream.audio_on from description
-    node Start debug stream = button calls stream.start when stream.debug_off from description
-    node Stop debug stream = button calls stream.stop when stream.debug_on from description
   tab 3 Device
     setting Power on after power loss = Off | On | Last State (default Off, live)
     setting Wake on Wi-Fi = Disabled | Enabled (default Disabled, live)
     setting LED select top = On | Off | Drive A Pwr | DrvAPwr + DrvBPwr | Drive A Act | DrvAAct + DrvBAct | DrvAPwr ^ DrvAAct | USB Activity | Any Activity | !(DrvAAct) | !(DrvAAct+DrvBAct) | !(USB Act) | !(Any Act) | IRQ Line | !(IRQ Line) | Drive B Act (default On, live)
     setting LED select bottom = On | Off | Drive A Pwr | DrvAPwr + DrvBPwr | Drive A Act | DrvAAct + DrvBAct | DrvAPwr ^ DrvAAct | USB Activity | Any Activity | !(DrvAAct) | !(DrvAAct+DrvBAct) | !(USB Act) | !(Any Act) | IRQ Line | !(IRQ Line) | Drive B Act (default Drive A Act, live)
     setting Color scheme = Standard Blue | Ultimate Black | C128 Style | Commodore Blue | Commodore 1 | Commodore 2 | Commodore 3 (default Ultimate Black, live)
+  tab 4 Diagnostics
+    node Debug log = button calls diag.nop from description
+    node Clear debug log = button calls diag.clear_log from description
+    node Save debug log = button calls diag.save_log from description
+    node Heap = state in group side from description
+    node Screen EDID = button calls diag.nop from description
+    node Debug register = state in group side from description
+    node Save EDID = button calls diag.save_edid from description

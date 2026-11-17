@@ -53,7 +53,9 @@ struct BoardProfile {
     bool has_handover;           // the page at HANDOVER_ADDR is valid (sum and magic). On the monolith only the legacy start of a large .cor writes
                                  // one (T112 Q1); a .cfw start wipes it, so a block that passes is ours and carries a .cor path.
     bool can_return_host;        // the ICAP loader is there; "Return to host menu" exists only then
-    const char *cfg_dir;         // where <folder>.cfg lives when there is no hand-over path; null: in memory only
+    bool flash_cfg;              // T228 DC13: a start without a .cor keeps its settings in a cfg file in the flash. Off under the MultiCore host (D11: the menu writes and
+                                 // erases nothing in the flash); on for a standalone installation, where nothing else could persist them
+    const char *cfg_dir;         // where <folder>.cfg lives when there is no hand-over path (the flash directory when flash_cfg); null: in memory only
     const char *boot_cfg;        // the file that holds the boot-attempt counter (libguard.h); in the flash, one of the two paths fs_flash_exception lets through
     const char *rom_dir;         // searched first for the ROM files, as a directory; null: only <root>/roms/<folder>
     uint32_t probes;             // BC_* the hardware answered for

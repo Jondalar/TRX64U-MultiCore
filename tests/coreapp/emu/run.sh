@@ -30,7 +30,7 @@ emu() {   # emu NAME EXPECT_FAIL(0|1) -- script on stdin; flash image kept when 
     local name=$1 want=$2
     cat > "$W/$name.txt"
     [ -n "${KEEP:-}" ] || rm -f "$W/flash.bin"
-    (cd "$W" && nice -n 15 timeout 170 "$UE2EMU" run --board c64u --caps 25E40202 --trx-io on --headless --speed max --firmware "$APP" \
+    (cd "$W" && nice -n 15 timeout 170 "$UE2EMU" run --board c64u --caps 25E40202 --trx-io on ${EMU_EXTRA:-} --headless --speed max --firmware "$APP" \
         --roms "$C64_ROMS" --flash "$W/flash.bin" --c64-roms "$C64_ROMS" --usb-dir "$STICK" --usb-dir-work "$W/usbwork" \
         --script "$W/$name.txt" --max-seconds 150 > "$W/$name.log" 2>&1)
     local rc=$?
@@ -212,6 +212,21 @@ KEEP=1 emu set1 0 <<E2
 expect-console "settings C64 Settings: /flash/trx64u/c64.cfg" 60000
 quit
 E2
+
+# T228 DC13: the same start under the MultiCore host (--icap: the ICAP loader answers; there is no hand-over, so the core stays held, and the profile says where its settings
+# would live): the parameter flash_cfg is off, so the file path is empty (settings in memory only) and the flash image gets no cfg (D11). The control expects the flash path
+# in the console and must fail. A running core under that host always has a .cor and its cfg lies in the core folder; that part is test_board's (start_paths).
+for want in 0 1; do
+  txt='(no .cfg path, in memory only)'; [ $want = 1 ] && txt='/flash/trx64u/c64.cfg'
+  EMU_EXTRA=--icap emu "setmc$want" $want <<E2
+expect-console "board: multicore" 60000
+expect-console "settings C64 Settings: $txt" 60000
+quit
+E2
+  if [ $want = 0 ]; then
+    if grep -aq 'c64.cfg' "$W/flash.bin" 2>/dev/null; then echo "FAIL settings (MultiCore): the flash image holds a cfg"; FAIL=1; else echo "PASS settings (MultiCore): settings in memory only, no cfg in the flash image"; fi
+  fi
+done
 
 # T104.2 D10 / T228: the drive settings are in F5 tab 1 (Machine), section Drive A; the row "Drive enable" is the fifth selectable row (headings are skipped): one RETURN switches it off and the file says so; the control expects the default
 emu drivemenu0 0 <<E2

@@ -833,6 +833,10 @@ void MenuCtl::row(int i, char *left, int ln, char *right, int rn, bool *active, 
         *active = false;
         break;
     case EK_OPENS: {                                                // T187 D2: a row that opens a page; its value is the page's first setting (the Hotkeys' modifier), then ">"
+        if (e.index < 0) {                                          // T228 D18: a page of a group, no setting's value to show
+            snprintf(right, rn, ">");
+            break;
+        }
         const Setting &s = c_->desc->settings[e.index];
         snprintf(right, rn, "%s >", s.kind ? "" : s.values[c_->settings->value(e.index)]);
         break;
@@ -2393,8 +2397,8 @@ MenuCtl::Result MenuCtl::activate(bool primary, bool all)
         begin_set_load();
         return R_REDRAW;
     case EK_OPENS:                                                  // T187 D2: the page this row opens is the hidden tab of this area that names this tab as its parent
-        for (int b = 0; b < tree_.a[area_].ntabs; b++) {
-            if (tree_.a[area_].tabs[b].page && tree_.a[area_].tabs[b].parent == tab_) {
+        for (int b = 0, skip = e.index < 0 ? -e.index - 1 : 0; b < tree_.a[area_].ntabs; b++) {      // a negative index: the k-th page of this tab (T228 D18)
+            if (tree_.a[area_].tabs[b].page && tree_.a[area_].tabs[b].parent == tab_ && skip-- <= 0) {
                 go(area_, b);
                 return R_REDRAW;
             }
@@ -2402,6 +2406,17 @@ MenuCtl::Result MenuCtl::activate(bool primary, bool all)
         return R_NONE;
     case EK_NODE:
         return run_node(tree_.nodes[e.index], e.label);
+    case EK_KEYS_HELP:                                              // T228 D12: the viewer on the keys text; the areas this core has decide which parts it names
+        {
+            bool tw = false, mon = false;
+            for (int a = 0; a < tree_.nareas; a++) {
+                tw = tw || !strcmp(tree_.a[a].key, "F2");
+                mon = mon || !strcmp(tree_.a[a].key, "F4");
+            }
+            diag_help_areas(tw, mon);
+        }
+        fm_.start_view_mem(e.label, 5, false);
+        return R_REDRAW;
     case EK_HEADING:
     case EK_BROWSER:
     case EK_INFO:

@@ -16,6 +16,20 @@
 
 const char *const menu_info_labels[] = { "Core", "Application", "Network", "Media", "ROMs", "Libraries", 0 };
 
+// Is the word g (n characters, not terminated) one of the comma separated words of `list`?
+static bool name_in_list(const char *list, const char *g, size_t n)
+{
+    for (const char *p = list; p && *p;) {
+        const char *e = strchr(p, ',');
+        size_t l = e ? (size_t)(e - p) : strlen(p);
+        if (l == n && !strncmp(p, g, n)) {
+            return true;
+        }
+        p = e ? e + 1 : p + l;
+    }
+    return false;
+}
+
 // A group id as a heading: '_' reads as a space. The text lives in the tree (an entry keeps the pointer); null when the pool is full.
 static const char *menu_heading_text(MenuTree *t, const char *g, size_t n)
 {
@@ -161,9 +175,9 @@ static bool skel_has_widget(const Skeleton *sk, uint8_t widget)
 static const MenuGroupRoute g_routes[] = {
     { "video",   "F5", "video", "Video",   0,         false },
     { "audio",   "F5", "audio", "Audio",   0,         false },
-    { "hotkeys", "F7", "settings", "Hotkeys", "Hotkeys", true },        // T212 D1/D6: the app's settings stand on F7 (APP), not in the machine's F5
+    { "hotkeys", "F7", "settings", "Menu and keys", "Hotkeys", true },        // T212 D1/D6: the app's settings stand on F7 (APP), not in the machine's F5
     { "storage", "F7", "settings", "Storage", 0,      false },
-    { "menu",    "F7", "settings", "Menu",    0,      false },
+    { "menu",    "F7", "settings", "Menu and keys", 0,      false },
 };
 
 const MenuGroupRoute *menu_route_of(const Setting &s)
@@ -297,6 +311,16 @@ void menu_build(const CoreDesc *d, MenuTree *t, bool return_host, bool reload_co
             bool drive_page_wanted = false;                              // T212 D5: Home has drive rows that open a list
             const MenuGroupRoute *page_route = 0;                       // set when a row of this tab opens a page (T187 D2)
             int opens_index = -1;
+            // T228 D18: a group the tab's `pages` names is not a section: one row opens a page that holds its settings (the FTP hosts)
+            int npg = 0;
+            const char *pg_g[MENU_SECTIONS_MAX];
+            size_t pg_l[MENU_SECTIONS_MAX];
+            const char *pg_name[MENU_SECTIONS_MAX];
+            char pages_attr[96];
+            pages_attr[0] = 0;
+            if (lay) {
+                ui_attr(lay + 1, "pages", pages_attr, sizeof(pages_attr));
+            }
             switch (st.widget) {
             case TW_INFO: {
                 if (st.groups) {                                             // a description names the lines of this tab (descrec.h), in its order
@@ -417,6 +441,9 @@ void menu_build(const CoreDesc *d, MenuTree *t, bool return_host, bool reload_co
                     };
                     for (int g = 0; g < sec_n; g++) {
                         bool head_done = false;
+                        if (pages_attr[0] && name_in_list(pages_attr, sec_g[g], sec_l[g])) {
+                            continue;
+                        }
                         for (int i = 0; i < d->nsettings; i++) {
                             const MenuGroupRoute *rt = routed_here(i);
                             // a routed row that names one of the tab's groups stands in it, unless it opens a page (its EK_OPENS row is made below)
@@ -441,6 +468,23 @@ void menu_build(const CoreDesc *d, MenuTree *t, bool return_host, bool reload_co
                                 if (!machine_here(i) && rt && (rt->page || !in_section(setting_group(d, mm, i)))) {
                                     add_routed(i, rt);
                                 }
+                            }
+                        }
+                    }
+                    for (int g = 0; g < sec_n && pages_attr[0]; g++) {            // T228 D18: the rows that open the pages stand after the sections
+                        if (name_in_list(pages_attr, sec_g[g], sec_l[g]) && npg < MENU_SECTIONS_MAX) {
+                            bool any = false;
+                            for (int i = 0; i < d->nsettings && !any; i++) {
+                                const char *sg = machine_here(i) ? setting_group(d, mm, i) : 0;
+                                any = sg && strlen(sg) == sec_l[g] && !strncmp(sg, sec_g[g], sec_l[g]);
+                            }
+                            const char *h = any ? menu_heading_text(t, sec_g[g], sec_l[g]) : 0;
+                            if (h) {
+                                pg_g[npg] = sec_g[g];
+                                pg_l[npg] = sec_l[g];
+                                pg_name[npg] = h;
+                                add(t, EK_OPENS, h, -(npg + 1));
+                                npg++;
                             }
                         }
                     }
@@ -494,8 +538,14 @@ void menu_build(const CoreDesc *d, MenuTree *t, bool return_host, bool reload_co
                     }
                 }
                 if (page_route) {
-                    if (heads) {
-                        add(t, EK_HEADING, page_route->heading, 0);           // T212 D12: the page's own section, T216 D12: after the task rows
+                    if (heads) {                                                // T212 D12: the page's own section, T216 D12: after the task rows
+                        int lh = t->n - 1;                                      // T228 step 2: the section just above already has this name (Menu and keys): one heading, not two with one row each
+                        while (lh >= tb->first && t->e[lh].kind != EK_HEADING) {
+                            lh--;
+                        }
+                        if (lh < tb->first || strcmp(t->e[lh].label, page_route->heading)) {
+                            add(t, EK_HEADING, page_route->heading, 0);
+                        }
                     }
                     add(t, EK_OPENS, page_route->label, opens_index);
                 }
@@ -520,6 +570,7 @@ void menu_build(const CoreDesc *d, MenuTree *t, bool return_host, bool reload_co
                 add(t, EK_WIFI, "WiFi", 0);
                 add(t, EK_HEADING, "Support", 0);
                 add(t, EK_BUG_REPORT, "Bug report", 0);
+                add(t, EK_KEYS_HELP, "Keys and help", 0);                 // T228 D12
                 if (!nodes_first) {
                     add_nodes(1);
                     nodes_done = true;
@@ -557,6 +608,26 @@ void menu_build(const CoreDesc *d, MenuTree *t, bool return_host, bool reload_co
                     }
                     tab_end(t, a, pg);
                     pg->count = 0;                                       // the rows are reserved, not listed: MenuCtl::open_drive sets the count
+                }
+            }
+            if (npg > 0 && tb->count > 0) {                              // T228 D18: the pages of the `pages` groups: a tab with no number, back to this tab
+                int parent = a->ntabs - 1;
+                for (int k = 0; k < npg; k++) {
+                    MenuTab *pg = tab_begin(t, a, pg_name[k]);
+                    if (!pg) {
+                        break;
+                    }
+                    pg->id = pg_name[k];
+                    pg->n = 0;
+                    pg->page = true;
+                    pg->parent = (int8_t)parent;
+                    for (int i = 0; i < d->nsettings; i++) {
+                        const char *sg = setting_group(d, mm, i);
+                        if (sg && strlen(sg) == pg_l[k] && !strncmp(sg, pg_g[k], pg_l[k]) && group_in_tab(sk, TW_SETTINGS, st, sg)) {
+                            add(t, EK_SETTING, d->settings[i].label ? d->settings[i].label : d->settings[i].key, i);
+                        }
+                    }
+                    tab_end(t, a, pg);
                 }
             }
             if (page_route && tb->count > 0) {                           // the page the row opens: a tab with no number and no place on the strip, back to this tab
@@ -664,6 +735,7 @@ static const char *kind_name(EntryKind k)
     case EK_NODE: return "node";
     case EK_HEADING: return "heading";
     case EK_OPENS: return "opens";
+    case EK_KEYS_HELP: return "fixed";
     }
     return "?";
 }

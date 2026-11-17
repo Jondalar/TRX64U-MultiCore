@@ -20,12 +20,13 @@ Atari 800 XL F8/expert 3 fixed:13:Network
 Atari 800 XL F8/expert 4 fixed:9:WiFi
 Atari 800 XL F8/expert 5 fixed:13:Support
 Atari 800 XL F8/expert 6 fixed:8:Bug report
-Atari 800 XL F8/expert 7 fixed:13:Reset
-Atari 800 XL F8/expert 8 fixed:5:Reset to host defaults
-Atari 800 XL F8/expert 9 fixed:13:Status
-Atari 800 XL F8/expert 10 info:Build
-Atari 800 XL F8/expert 11 info:ROMs
-Atari 800 XL F8/expert 12 info:Libraries
+Atari 800 XL F8/expert 7 fixed:17:Keys and help
+Atari 800 XL F8/expert 8 fixed:13:Reset
+Atari 800 XL F8/expert 9 fixed:5:Reset to host defaults
+Atari 800 XL F8/expert 10 fixed:13:Status
+Atari 800 XL F8/expert 11 info:Build
+Atari 800 XL F8/expert 12 info:ROMs
+Atari 800 XL F8/expert 13 info:Libraries
 Nintendo Entertainment System F1/home 0 task:Reset
 Nintendo Entertainment System F1/home 1 media:nes.cartridge.image
 Nintendo Entertainment System F1/home 2 fixed:10:Save as config...
@@ -42,12 +43,13 @@ Nintendo Entertainment System F8/expert 3 fixed:13:Network
 Nintendo Entertainment System F8/expert 4 fixed:9:WiFi
 Nintendo Entertainment System F8/expert 5 fixed:13:Support
 Nintendo Entertainment System F8/expert 6 fixed:8:Bug report
-Nintendo Entertainment System F8/expert 7 fixed:13:Reset
-Nintendo Entertainment System F8/expert 8 fixed:5:Reset to host defaults
-Nintendo Entertainment System F8/expert 9 fixed:13:Status
-Nintendo Entertainment System F8/expert 10 info:Build
-Nintendo Entertainment System F8/expert 11 info:ROMs
-Nintendo Entertainment System F8/expert 12 info:Libraries
+Nintendo Entertainment System F8/expert 7 fixed:17:Keys and help
+Nintendo Entertainment System F8/expert 8 fixed:13:Reset
+Nintendo Entertainment System F8/expert 9 fixed:5:Reset to host defaults
+Nintendo Entertainment System F8/expert 10 fixed:13:Status
+Nintendo Entertainment System F8/expert 11 info:Build
+Nintendo Entertainment System F8/expert 12 info:ROMs
+Nintendo Entertainment System F8/expert 13 info:Libraries
 Apple IIe F1/home 0 task:Reset (Ctrl-Reset)
 Apple IIe F1/home 1 task:Cold start
 Apple IIe F1/home 2 task:Reload ROMs, cold start
@@ -71,12 +73,13 @@ Apple IIe F8/expert 3 fixed:13:Network
 Apple IIe F8/expert 4 fixed:9:WiFi
 Apple IIe F8/expert 5 fixed:13:Support
 Apple IIe F8/expert 6 fixed:8:Bug report
-Apple IIe F8/expert 7 fixed:13:Reset
-Apple IIe F8/expert 8 fixed:5:Reset to host defaults
-Apple IIe F8/expert 9 fixed:13:Status
-Apple IIe F8/expert 10 info:Build
-Apple IIe F8/expert 11 info:ROMs
-Apple IIe F8/expert 12 info:Libraries
+Apple IIe F8/expert 7 fixed:17:Keys and help
+Apple IIe F8/expert 8 fixed:13:Reset
+Apple IIe F8/expert 9 fixed:5:Reset to host defaults
+Apple IIe F8/expert 10 fixed:13:Status
+Apple IIe F8/expert 11 info:Build
+Apple IIe F8/expert 12 info:ROMs
+Apple IIe F8/expert 13 info:Libraries
 ZX Spectrum 48K / 128K F1/home 0 task:Reset
 ZX Spectrum 48K / 128K F1/home 1 task:Reload ROMs, reset
 ZX Spectrum 48K / 128K F1/home 2 media:zx.tape.image
@@ -93,12 +96,13 @@ ZX Spectrum 48K / 128K F8/expert 3 fixed:13:Network
 ZX Spectrum 48K / 128K F8/expert 4 fixed:9:WiFi
 ZX Spectrum 48K / 128K F8/expert 5 fixed:13:Support
 ZX Spectrum 48K / 128K F8/expert 6 fixed:8:Bug report
-ZX Spectrum 48K / 128K F8/expert 7 fixed:13:Reset
-ZX Spectrum 48K / 128K F8/expert 8 fixed:5:Reset to host defaults
-ZX Spectrum 48K / 128K F8/expert 9 fixed:13:Status
-ZX Spectrum 48K / 128K F8/expert 10 info:Build
-ZX Spectrum 48K / 128K F8/expert 11 info:ROMs
-ZX Spectrum 48K / 128K F8/expert 12 info:Libraries
+ZX Spectrum 48K / 128K F8/expert 7 fixed:17:Keys and help
+ZX Spectrum 48K / 128K F8/expert 8 fixed:13:Reset
+ZX Spectrum 48K / 128K F8/expert 9 fixed:5:Reset to host defaults
+ZX Spectrum 48K / 128K F8/expert 10 fixed:13:Status
+ZX Spectrum 48K / 128K F8/expert 11 info:Build
+ZX Spectrum 48K / 128K F8/expert 12 info:ROMs
+ZX Spectrum 48K / 128K F8/expert 13 info:Libraries
 Amstrad CPC 464 / 664 / 6128 F1/home 0 task:Reset
 Amstrad CPC 464 / 664 / 6128 F1/home 1 task:Reload ROMs, reset
 Amstrad CPC 464 / 664 / 6128 F1/home 2 media:cpc.a.image
@@ -118,12 +122,13 @@ Amstrad CPC 464 / 664 / 6128 F8/expert 3 fixed:13:Network
 Amstrad CPC 464 / 664 / 6128 F8/expert 4 fixed:9:WiFi
 Amstrad CPC 464 / 664 / 6128 F8/expert 5 fixed:13:Support
 Amstrad CPC 464 / 664 / 6128 F8/expert 6 fixed:8:Bug report
-Amstrad CPC 464 / 664 / 6128 F8/expert 7 fixed:13:Reset
-Amstrad CPC 464 / 664 / 6128 F8/expert 8 fixed:5:Reset to host defaults
-Amstrad CPC 464 / 664 / 6128 F8/expert 9 fixed:13:Status
-Amstrad CPC 464 / 664 / 6128 F8/expert 10 info:Build
-Amstrad CPC 464 / 664 / 6128 F8/expert 11 info:ROMs
-Amstrad CPC 464 / 664 / 6128 F8/expert 12 info:Libraries
+Amstrad CPC 464 / 664 / 6128 F8/expert 7 fixed:17:Keys and help
+Amstrad CPC 464 / 664 / 6128 F8/expert 8 fixed:13:Reset
+Amstrad CPC 464 / 664 / 6128 F8/expert 9 fixed:5:Reset to host defaults
+Amstrad CPC 464 / 664 / 6128 F8/expert 10 fixed:13:Status
+Amstrad CPC 464 / 664 / 6128 F8/expert 11 info:Build
+Amstrad CPC 464 / 664 / 6128 F8/expert 12 info:ROMs
+Amstrad CPC 464 / 664 / 6128 F8/expert 13 info:Libraries
 VIC-20 F1/home 0 task:Reset
 VIC-20 F1/home 1 task:Reload ROMs, reset
 VIC-20 F1/home 2 media:vc20.program
@@ -146,12 +151,13 @@ VIC-20 F8/expert 3 fixed:13:Network
 VIC-20 F8/expert 4 fixed:9:WiFi
 VIC-20 F8/expert 5 fixed:13:Support
 VIC-20 F8/expert 6 fixed:8:Bug report
-VIC-20 F8/expert 7 fixed:13:Reset
-VIC-20 F8/expert 8 fixed:5:Reset to host defaults
-VIC-20 F8/expert 9 fixed:13:Status
-VIC-20 F8/expert 10 info:Build
-VIC-20 F8/expert 11 info:ROMs
-VIC-20 F8/expert 12 info:Libraries
+VIC-20 F8/expert 7 fixed:17:Keys and help
+VIC-20 F8/expert 8 fixed:13:Reset
+VIC-20 F8/expert 9 fixed:5:Reset to host defaults
+VIC-20 F8/expert 10 fixed:13:Status
+VIC-20 F8/expert 11 info:Build
+VIC-20 F8/expert 12 info:ROMs
+VIC-20 F8/expert 13 info:Libraries
 Commodore 264 (C16, Plus/4) F1/home 0 task:Reset
 Commodore 264 (C16, Plus/4) F1/home 1 task:Reload ROMs, reset
 Commodore 264 (C16, Plus/4) F1/home 2 media:c264.program
@@ -175,12 +181,13 @@ Commodore 264 (C16, Plus/4) F8/expert 3 fixed:13:Network
 Commodore 264 (C16, Plus/4) F8/expert 4 fixed:9:WiFi
 Commodore 264 (C16, Plus/4) F8/expert 5 fixed:13:Support
 Commodore 264 (C16, Plus/4) F8/expert 6 fixed:8:Bug report
-Commodore 264 (C16, Plus/4) F8/expert 7 fixed:13:Reset
-Commodore 264 (C16, Plus/4) F8/expert 8 fixed:5:Reset to host defaults
-Commodore 264 (C16, Plus/4) F8/expert 9 fixed:13:Status
-Commodore 264 (C16, Plus/4) F8/expert 10 info:Build
-Commodore 264 (C16, Plus/4) F8/expert 11 info:ROMs
-Commodore 264 (C16, Plus/4) F8/expert 12 info:Libraries
+Commodore 264 (C16, Plus/4) F8/expert 7 fixed:17:Keys and help
+Commodore 264 (C16, Plus/4) F8/expert 8 fixed:13:Reset
+Commodore 264 (C16, Plus/4) F8/expert 9 fixed:5:Reset to host defaults
+Commodore 264 (C16, Plus/4) F8/expert 10 fixed:13:Status
+Commodore 264 (C16, Plus/4) F8/expert 11 info:Build
+Commodore 264 (C16, Plus/4) F8/expert 12 info:ROMs
+Commodore 264 (C16, Plus/4) F8/expert 13 info:Libraries
 Commodore PET F1/home 0 task:Reset
 Commodore PET F1/home 1 task:Reload ROMs, reset
 Commodore PET F1/home 2 media:pet.program
@@ -215,12 +222,13 @@ Commodore PET F8/expert 3 fixed:13:Network
 Commodore PET F8/expert 4 fixed:9:WiFi
 Commodore PET F8/expert 5 fixed:13:Support
 Commodore PET F8/expert 6 fixed:8:Bug report
-Commodore PET F8/expert 7 fixed:13:Reset
-Commodore PET F8/expert 8 fixed:5:Reset to host defaults
-Commodore PET F8/expert 9 fixed:13:Status
-Commodore PET F8/expert 10 info:Build
-Commodore PET F8/expert 11 info:ROMs
-Commodore PET F8/expert 12 info:Libraries
+Commodore PET F8/expert 7 fixed:17:Keys and help
+Commodore PET F8/expert 8 fixed:13:Reset
+Commodore PET F8/expert 9 fixed:5:Reset to host defaults
+Commodore PET F8/expert 10 fixed:13:Status
+Commodore PET F8/expert 11 info:Build
+Commodore PET F8/expert 12 info:ROMs
+Commodore PET F8/expert 13 info:Libraries
 Commodore 128 F1/home 0 task:Reset
 Commodore 128 F1/home 1 task:Reload ROMs, reset
 Commodore 128 F1/home 2 media:drive.drive_a.image
@@ -250,12 +258,13 @@ Commodore 128 F8/expert 3 fixed:13:Network
 Commodore 128 F8/expert 4 fixed:9:WiFi
 Commodore 128 F8/expert 5 fixed:13:Support
 Commodore 128 F8/expert 6 fixed:8:Bug report
-Commodore 128 F8/expert 7 fixed:13:Reset
-Commodore 128 F8/expert 8 fixed:5:Reset to host defaults
-Commodore 128 F8/expert 9 fixed:13:Status
-Commodore 128 F8/expert 10 info:Build
-Commodore 128 F8/expert 11 info:ROMs
-Commodore 128 F8/expert 12 info:Libraries
+Commodore 128 F8/expert 7 fixed:17:Keys and help
+Commodore 128 F8/expert 8 fixed:13:Reset
+Commodore 128 F8/expert 9 fixed:5:Reset to host defaults
+Commodore 128 F8/expert 10 fixed:13:Status
+Commodore 128 F8/expert 11 info:Build
+Commodore 128 F8/expert 12 info:ROMs
+Commodore 128 F8/expert 13 info:Libraries
 C64 with SuperCPU F1/home 0 task:Reset
 C64 with SuperCPU F1/home 1 task:Reload ROMs, reset
 C64 with SuperCPU F1/home 2 media:drive.drive_a.image
@@ -278,12 +287,13 @@ C64 with SuperCPU F8/expert 3 fixed:13:Network
 C64 with SuperCPU F8/expert 4 fixed:9:WiFi
 C64 with SuperCPU F8/expert 5 fixed:13:Support
 C64 with SuperCPU F8/expert 6 fixed:8:Bug report
-C64 with SuperCPU F8/expert 7 fixed:13:Reset
-C64 with SuperCPU F8/expert 8 fixed:5:Reset to host defaults
-C64 with SuperCPU F8/expert 9 fixed:13:Status
-C64 with SuperCPU F8/expert 10 info:Build
-C64 with SuperCPU F8/expert 11 info:ROMs
-C64 with SuperCPU F8/expert 12 info:Libraries
+C64 with SuperCPU F8/expert 7 fixed:17:Keys and help
+C64 with SuperCPU F8/expert 8 fixed:13:Reset
+C64 with SuperCPU F8/expert 9 fixed:5:Reset to host defaults
+C64 with SuperCPU F8/expert 10 fixed:13:Status
+C64 with SuperCPU F8/expert 11 info:Build
+C64 with SuperCPU F8/expert 12 info:ROMs
+C64 with SuperCPU F8/expert 13 info:Libraries
 ZX Spectrum Next F1/home 0 task:Reset
 ZX Spectrum Next F1/home 1 task:NMI: Multiface (M1 button)
 ZX Spectrum Next F1/home 2 media:zxnext.sd.image
@@ -301,12 +311,13 @@ ZX Spectrum Next F8/expert 3 fixed:13:Network
 ZX Spectrum Next F8/expert 4 fixed:9:WiFi
 ZX Spectrum Next F8/expert 5 fixed:13:Support
 ZX Spectrum Next F8/expert 6 fixed:8:Bug report
-ZX Spectrum Next F8/expert 7 fixed:13:Reset
-ZX Spectrum Next F8/expert 8 fixed:5:Reset to host defaults
-ZX Spectrum Next F8/expert 9 fixed:13:Status
-ZX Spectrum Next F8/expert 10 info:Build
-ZX Spectrum Next F8/expert 11 info:ROMs
-ZX Spectrum Next F8/expert 12 info:Libraries
+ZX Spectrum Next F8/expert 7 fixed:17:Keys and help
+ZX Spectrum Next F8/expert 8 fixed:13:Reset
+ZX Spectrum Next F8/expert 9 fixed:5:Reset to host defaults
+ZX Spectrum Next F8/expert 10 fixed:13:Status
+ZX Spectrum Next F8/expert 11 info:Build
+ZX Spectrum Next F8/expert 12 info:ROMs
+ZX Spectrum Next F8/expert 13 info:Libraries
 Super Nintendo F1/home 0 task:Reset
 Super Nintendo F1/home 1 task:Sound check
 Super Nintendo F1/home 2 media:snes.cartridge.image
@@ -325,12 +336,13 @@ Super Nintendo F8/expert 3 fixed:13:Network
 Super Nintendo F8/expert 4 fixed:9:WiFi
 Super Nintendo F8/expert 5 fixed:13:Support
 Super Nintendo F8/expert 6 fixed:8:Bug report
-Super Nintendo F8/expert 7 fixed:13:Reset
-Super Nintendo F8/expert 8 fixed:5:Reset to host defaults
-Super Nintendo F8/expert 9 fixed:13:Status
-Super Nintendo F8/expert 10 info:Build
-Super Nintendo F8/expert 11 info:ROMs
-Super Nintendo F8/expert 12 info:Libraries
+Super Nintendo F8/expert 7 fixed:17:Keys and help
+Super Nintendo F8/expert 8 fixed:13:Reset
+Super Nintendo F8/expert 9 fixed:5:Reset to host defaults
+Super Nintendo F8/expert 10 fixed:13:Status
+Super Nintendo F8/expert 11 info:Build
+Super Nintendo F8/expert 12 info:ROMs
+Super Nintendo F8/expert 13 info:Libraries
 SNK Neo Geo F1/home 0 task:Reset
 SNK Neo Geo F1/home 1 media:neogeo.cartridge.image
 SNK Neo Geo F1/home 2 fixed:10:Save as config...
@@ -353,12 +365,13 @@ SNK Neo Geo F8/expert 3 fixed:13:Network
 SNK Neo Geo F8/expert 4 fixed:9:WiFi
 SNK Neo Geo F8/expert 5 fixed:13:Support
 SNK Neo Geo F8/expert 6 fixed:8:Bug report
-SNK Neo Geo F8/expert 7 fixed:13:Reset
-SNK Neo Geo F8/expert 8 fixed:5:Reset to host defaults
-SNK Neo Geo F8/expert 9 fixed:13:Status
-SNK Neo Geo F8/expert 10 info:Build
-SNK Neo Geo F8/expert 11 info:ROMs
-SNK Neo Geo F8/expert 12 info:Libraries
+SNK Neo Geo F8/expert 7 fixed:17:Keys and help
+SNK Neo Geo F8/expert 8 fixed:13:Reset
+SNK Neo Geo F8/expert 9 fixed:5:Reset to host defaults
+SNK Neo Geo F8/expert 10 fixed:13:Status
+SNK Neo Geo F8/expert 11 info:Build
+SNK Neo Geo F8/expert 12 info:ROMs
+SNK Neo Geo F8/expert 13 info:Libraries
 TRX64U F1/home 0 task:Reset
 TRX64U F1/home 1 task:Reload ROMs, reset
 TRX64U F1/home 2 task:Pause / resume
@@ -370,6 +383,13 @@ TRX64U F1/home 7 media:c64.cartridge
 TRX64U F1/home 8 media:c64.program
 TRX64U F1/home 9 fixed:10:Save as config...
 TRX64U F1/home 10 fixed:11:Load config...
+TRX64U F1/recording 0 node:ring.start
+TRX64U F1/recording 1 node:ring.stop
+TRX64U F1/recording 2 node:tw.mark
+TRX64U F1/recording 3 node:tw.clear_marks
+TRX64U F1/recording 4 node:tw.live
+TRX64U F1/recording 5 node:tw.dump:
+TRX64U F1/recording 6 node:tw.ringdump:
 TRX64U F2/timeline 0 node:tw.resume
 TRX64U F3/online 0 node:online.search
 TRX64U F3/online 1 node:online.library
@@ -392,14 +412,6 @@ TRX64U F3/online 17 node:online.cycle:n10
 TRX64U F3/online 18 node:online.cycle:n11
 TRX64U F3/online 19 node:online.clear
 TRX64U F4/monitor 0 node:mon.run:?
-TRX64U F4/diagnostics 0 node:diag.nop
-TRX64U F4/diagnostics 1 node:diag.clear_log
-TRX64U F4/diagnostics 2 node:diag.save_log:
-TRX64U F4/diagnostics 3 node::Heap
-TRX64U F4/diagnostics 4 node:diag.nop
-TRX64U F4/diagnostics 5 node::Debug register
-TRX64U F4/diagnostics 6 node:diag.save_edid:
-TRX64U F4/diagnostics 7 node:diag.nop
 TRX64U F5/machine 0 set:Fast Reset
 TRX64U F5/machine 1 set:Kernal ROM
 TRX64U F5/machine 2 set:Basic ROM
@@ -424,13 +436,6 @@ TRX64U F5/trx64 3 set:CPU Speed
 TRX64U F5/trx64 4 fixed:13:Recording
 TRX64U F5/trx64 5 set:Timewarp Ring
 TRX64U F5/trx64 6 set:Instruction Trace
-TRX64U F5/trx64 7 node:ring.start
-TRX64U F5/trx64 8 node:ring.stop
-TRX64U F5/trx64 9 node:tw.mark
-TRX64U F5/trx64 10 node:tw.clear_marks
-TRX64U F5/trx64 11 node:tw.live
-TRX64U F5/trx64 12 node:tw.dump:
-TRX64U F5/trx64 13 node:tw.ringdump:
 TRX64U F5/io 0 fixed:13:Expansion
 TRX64U F5/io 1 set:Cartridge Preference
 TRX64U F5/io 2 set:RAM Expansion Unit
@@ -520,10 +525,9 @@ TRX64U F7/settings 5 fixed:13:Storage
 TRX64U F7/settings 6 set:Persist medium mounts
 TRX64U F7/settings 7 set:Enter Home on Startup
 TRX64U F7/settings 8 set:Home Directory
-TRX64U F7/settings 9 fixed:13:Menu
+TRX64U F7/settings 9 fixed:13:Menu and keys
 TRX64U F7/settings 10 set:Menu opens at
-TRX64U F7/settings 11 fixed:13:Hotkeys
-TRX64U F7/settings 12 fixed:16:Hotkeys
+TRX64U F7/settings 11 fixed:16:Hotkeys
 TRX64U F7/hotkeys 0 set:Hotkey modifier
 TRX64U F7/hotkeys 1 set:Hotkey menu
 TRX64U F7/hotkeys 2 set:Hotkey volume up
@@ -542,7 +546,7 @@ TRX64U F8/expert 3 fixed:13:Network
 TRX64U F8/expert 4 fixed:9:WiFi
 TRX64U F8/expert 5 fixed:13:Support
 TRX64U F8/expert 6 fixed:8:Bug report
-TRX64U F8/expert 7 node:diag.nop
+TRX64U F8/expert 7 fixed:17:Keys and help
 TRX64U F8/expert 8 fixed:13:Reset
 TRX64U F8/expert 9 fixed:5:Reset to host defaults
 TRX64U F8/expert 10 fixed:13:Status
@@ -583,47 +587,54 @@ TRX64U F8/network 22 set:Stream VIC to
 TRX64U F8/network 23 set:Stream Audio to
 TRX64U F8/network 24 set:Stream Debug to
 TRX64U F8/network 25 set:Debug Stream Mode
-TRX64U F8/network 26 fixed:13:FTP hosts
-TRX64U F8/network 27 set:FTP 1 Alias
-TRX64U F8/network 28 set:FTP 1 Host
-TRX64U F8/network 29 set:FTP 1 Port
-TRX64U F8/network 30 set:FTP 1 User
-TRX64U F8/network 31 set:FTP 1 Password
-TRX64U F8/network 32 set:FTP 1 Folder
-TRX64U F8/network 33 set:FTP 2 Alias
-TRX64U F8/network 34 set:FTP 2 Host
-TRX64U F8/network 35 set:FTP 2 Port
-TRX64U F8/network 36 set:FTP 2 User
-TRX64U F8/network 37 set:FTP 2 Password
-TRX64U F8/network 38 set:FTP 2 Folder
-TRX64U F8/network 39 set:FTP 3 Alias
-TRX64U F8/network 40 set:FTP 3 Host
-TRX64U F8/network 41 set:FTP 3 Port
-TRX64U F8/network 42 set:FTP 3 User
-TRX64U F8/network 43 set:FTP 3 Password
-TRX64U F8/network 44 set:FTP 3 Folder
-TRX64U F8/network 45 set:FTP 4 Alias
-TRX64U F8/network 46 set:FTP 4 Host
-TRX64U F8/network 47 set:FTP 4 Port
-TRX64U F8/network 48 set:FTP 4 User
-TRX64U F8/network 49 set:FTP 4 Password
-TRX64U F8/network 50 set:FTP 4 Folder
-TRX64U F8/network 51 node:net.eth_status
-TRX64U F8/network 52 node:net.eth_mac
-TRX64U F8/network 53 node:wifi.state
-TRX64U F8/network 54 node:wifi.ssid
-TRX64U F8/network 55 node:wifi.ip
-TRX64U F8/network 56 node:stream.start:n0
-TRX64U F8/network 57 node:stream.stop:n0
-TRX64U F8/network 58 node:stream.start:n1
-TRX64U F8/network 59 node:stream.stop:n1
-TRX64U F8/network 60 node:stream.start:n2
-TRX64U F8/network 61 node:stream.stop:n2
+TRX64U F8/network 26 fixed:16:FTP hosts
+TRX64U F8/network 27 node:net.eth_status
+TRX64U F8/network 28 node:net.eth_mac
+TRX64U F8/network 29 node:wifi.state
+TRX64U F8/network 30 node:wifi.ssid
+TRX64U F8/network 31 node:wifi.ip
+TRX64U F8/network 32 node:stream.start:n0
+TRX64U F8/network 33 node:stream.stop:n0
+TRX64U F8/network 34 node:stream.start:n1
+TRX64U F8/network 35 node:stream.stop:n1
+TRX64U F8/network 36 node:stream.start:n2
+TRX64U F8/network 37 node:stream.stop:n2
+TRX64U F8/FTP hosts 0 set:FTP 1 Alias
+TRX64U F8/FTP hosts 1 set:FTP 1 Host
+TRX64U F8/FTP hosts 2 set:FTP 1 Port
+TRX64U F8/FTP hosts 3 set:FTP 1 User
+TRX64U F8/FTP hosts 4 set:FTP 1 Password
+TRX64U F8/FTP hosts 5 set:FTP 1 Folder
+TRX64U F8/FTP hosts 6 set:FTP 2 Alias
+TRX64U F8/FTP hosts 7 set:FTP 2 Host
+TRX64U F8/FTP hosts 8 set:FTP 2 Port
+TRX64U F8/FTP hosts 9 set:FTP 2 User
+TRX64U F8/FTP hosts 10 set:FTP 2 Password
+TRX64U F8/FTP hosts 11 set:FTP 2 Folder
+TRX64U F8/FTP hosts 12 set:FTP 3 Alias
+TRX64U F8/FTP hosts 13 set:FTP 3 Host
+TRX64U F8/FTP hosts 14 set:FTP 3 Port
+TRX64U F8/FTP hosts 15 set:FTP 3 User
+TRX64U F8/FTP hosts 16 set:FTP 3 Password
+TRX64U F8/FTP hosts 17 set:FTP 3 Folder
+TRX64U F8/FTP hosts 18 set:FTP 4 Alias
+TRX64U F8/FTP hosts 19 set:FTP 4 Host
+TRX64U F8/FTP hosts 20 set:FTP 4 Port
+TRX64U F8/FTP hosts 21 set:FTP 4 User
+TRX64U F8/FTP hosts 22 set:FTP 4 Password
+TRX64U F8/FTP hosts 23 set:FTP 4 Folder
 TRX64U F8/device 0 set:Power On After Power Loss
 TRX64U F8/device 1 set:Wake On Wi-Fi
 TRX64U F8/device 2 set:LED Select Top
 TRX64U F8/device 3 set:LED Select Bot
 TRX64U F8/device 4 set:Color Scheme
+TRX64U F8/diagnostics 0 node:diag.nop
+TRX64U F8/diagnostics 1 node:diag.clear_log
+TRX64U F8/diagnostics 2 node:diag.save_log:
+TRX64U F8/diagnostics 3 node::Heap
+TRX64U F8/diagnostics 4 node:diag.nop
+TRX64U F8/diagnostics 5 node::Debug register
+TRX64U F8/diagnostics 6 node:diag.save_edid:
 Amiga (OCS/ECS, 68000) F1/home 0 task:Reset Amiga
 Amiga (OCS/ECS, 68000) F1/home 1 task:Reload Kickstart, Reset
 Amiga (OCS/ECS, 68000) F1/home 2 media:amiga.df0.image
@@ -656,12 +667,13 @@ Amiga (OCS/ECS, 68000) F8/expert 3 fixed:13:Network
 Amiga (OCS/ECS, 68000) F8/expert 4 fixed:9:WiFi
 Amiga (OCS/ECS, 68000) F8/expert 5 fixed:13:Support
 Amiga (OCS/ECS, 68000) F8/expert 6 fixed:8:Bug report
-Amiga (OCS/ECS, 68000) F8/expert 7 fixed:13:Reset
-Amiga (OCS/ECS, 68000) F8/expert 8 fixed:5:Reset to host defaults
-Amiga (OCS/ECS, 68000) F8/expert 9 fixed:13:Status
-Amiga (OCS/ECS, 68000) F8/expert 10 info:Build
-Amiga (OCS/ECS, 68000) F8/expert 11 info:ROMs
-Amiga (OCS/ECS, 68000) F8/expert 12 info:Libraries
+Amiga (OCS/ECS, 68000) F8/expert 7 fixed:17:Keys and help
+Amiga (OCS/ECS, 68000) F8/expert 8 fixed:13:Reset
+Amiga (OCS/ECS, 68000) F8/expert 9 fixed:5:Reset to host defaults
+Amiga (OCS/ECS, 68000) F8/expert 10 fixed:13:Status
+Amiga (OCS/ECS, 68000) F8/expert 11 info:Build
+Amiga (OCS/ECS, 68000) F8/expert 12 info:ROMs
+Amiga (OCS/ECS, 68000) F8/expert 13 info:Libraries
 Amiga 1200 (AGA, 68020) F1/home 0 task:Reset Amiga
 Amiga 1200 (AGA, 68020) F1/home 1 task:Reload Kickstart, Reset
 Amiga 1200 (AGA, 68020) F1/home 2 media:amiga.df0.image
@@ -694,12 +706,13 @@ Amiga 1200 (AGA, 68020) F8/expert 3 fixed:13:Network
 Amiga 1200 (AGA, 68020) F8/expert 4 fixed:9:WiFi
 Amiga 1200 (AGA, 68020) F8/expert 5 fixed:13:Support
 Amiga 1200 (AGA, 68020) F8/expert 6 fixed:8:Bug report
-Amiga 1200 (AGA, 68020) F8/expert 7 fixed:13:Reset
-Amiga 1200 (AGA, 68020) F8/expert 8 fixed:5:Reset to host defaults
-Amiga 1200 (AGA, 68020) F8/expert 9 fixed:13:Status
-Amiga 1200 (AGA, 68020) F8/expert 10 info:Build
-Amiga 1200 (AGA, 68020) F8/expert 11 info:ROMs
-Amiga 1200 (AGA, 68020) F8/expert 12 info:Libraries
+Amiga 1200 (AGA, 68020) F8/expert 7 fixed:17:Keys and help
+Amiga 1200 (AGA, 68020) F8/expert 8 fixed:13:Reset
+Amiga 1200 (AGA, 68020) F8/expert 9 fixed:5:Reset to host defaults
+Amiga 1200 (AGA, 68020) F8/expert 10 fixed:13:Status
+Amiga 1200 (AGA, 68020) F8/expert 11 info:Build
+Amiga 1200 (AGA, 68020) F8/expert 12 info:ROMs
+Amiga 1200 (AGA, 68020) F8/expert 13 info:Libraries
 DDT Mandelbrot (mandelbrUlt) F1/home 0 task:Reset
 DDT Mandelbrot (mandelbrUlt) F8/expert 0 fixed:13:Actions
 DDT Mandelbrot (mandelbrUlt) F8/expert 1 fixed:6:Restart core
@@ -708,12 +721,13 @@ DDT Mandelbrot (mandelbrUlt) F8/expert 3 fixed:13:Network
 DDT Mandelbrot (mandelbrUlt) F8/expert 4 fixed:9:WiFi
 DDT Mandelbrot (mandelbrUlt) F8/expert 5 fixed:13:Support
 DDT Mandelbrot (mandelbrUlt) F8/expert 6 fixed:8:Bug report
-DDT Mandelbrot (mandelbrUlt) F8/expert 7 fixed:13:Reset
-DDT Mandelbrot (mandelbrUlt) F8/expert 8 fixed:5:Reset to host defaults
-DDT Mandelbrot (mandelbrUlt) F8/expert 9 fixed:13:Status
-DDT Mandelbrot (mandelbrUlt) F8/expert 10 info:Build
-DDT Mandelbrot (mandelbrUlt) F8/expert 11 info:ROMs
-DDT Mandelbrot (mandelbrUlt) F8/expert 12 info:Libraries
+DDT Mandelbrot (mandelbrUlt) F8/expert 7 fixed:17:Keys and help
+DDT Mandelbrot (mandelbrUlt) F8/expert 8 fixed:13:Reset
+DDT Mandelbrot (mandelbrUlt) F8/expert 9 fixed:5:Reset to host defaults
+DDT Mandelbrot (mandelbrUlt) F8/expert 10 fixed:13:Status
+DDT Mandelbrot (mandelbrUlt) F8/expert 11 info:Build
+DDT Mandelbrot (mandelbrUlt) F8/expert 12 info:ROMs
+DDT Mandelbrot (mandelbrUlt) F8/expert 13 info:Libraries
 DDT Look Ma, No VIC F1/home 0 task:Reset
 DDT Look Ma, No VIC F8/expert 0 fixed:13:Actions
 DDT Look Ma, No VIC F8/expert 1 fixed:6:Restart core
@@ -722,12 +736,13 @@ DDT Look Ma, No VIC F8/expert 3 fixed:13:Network
 DDT Look Ma, No VIC F8/expert 4 fixed:9:WiFi
 DDT Look Ma, No VIC F8/expert 5 fixed:13:Support
 DDT Look Ma, No VIC F8/expert 6 fixed:8:Bug report
-DDT Look Ma, No VIC F8/expert 7 fixed:13:Reset
-DDT Look Ma, No VIC F8/expert 8 fixed:5:Reset to host defaults
-DDT Look Ma, No VIC F8/expert 9 fixed:13:Status
-DDT Look Ma, No VIC F8/expert 10 info:Build
-DDT Look Ma, No VIC F8/expert 11 info:ROMs
-DDT Look Ma, No VIC F8/expert 12 info:Libraries
+DDT Look Ma, No VIC F8/expert 7 fixed:17:Keys and help
+DDT Look Ma, No VIC F8/expert 8 fixed:13:Reset
+DDT Look Ma, No VIC F8/expert 9 fixed:5:Reset to host defaults
+DDT Look Ma, No VIC F8/expert 10 fixed:13:Status
+DDT Look Ma, No VIC F8/expert 11 info:Build
+DDT Look Ma, No VIC F8/expert 12 info:ROMs
+DDT Look Ma, No VIC F8/expert 13 info:Libraries
 Port Diagnostics F1/home 0 media:pd.port1
 Port Diagnostics F1/home 1 media:pd.port2
 Port Diagnostics F1/home 2 media:pd.cmp
@@ -760,9 +775,10 @@ Port Diagnostics F8/expert 3 fixed:13:Network
 Port Diagnostics F8/expert 4 fixed:9:WiFi
 Port Diagnostics F8/expert 5 fixed:13:Support
 Port Diagnostics F8/expert 6 fixed:8:Bug report
-Port Diagnostics F8/expert 7 fixed:13:Reset
-Port Diagnostics F8/expert 8 fixed:5:Reset to host defaults
-Port Diagnostics F8/expert 9 fixed:13:Status
-Port Diagnostics F8/expert 10 info:Build
-Port Diagnostics F8/expert 11 info:ROMs
-Port Diagnostics F8/expert 12 info:Libraries
+Port Diagnostics F8/expert 7 fixed:17:Keys and help
+Port Diagnostics F8/expert 8 fixed:13:Reset
+Port Diagnostics F8/expert 9 fixed:5:Reset to host defaults
+Port Diagnostics F8/expert 10 fixed:13:Status
+Port Diagnostics F8/expert 11 info:Build
+Port Diagnostics F8/expert 12 info:ROMs
+Port Diagnostics F8/expert 13 info:Libraries

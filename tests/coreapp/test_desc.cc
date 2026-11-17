@@ -108,7 +108,7 @@ static void every_item_once(const CoreDesc *d0)
                 case EK_SETTING: seen_set++; break;
                 case EK_INFO: seen_info++; break;
                 case EK_BROWSER: seen_browser++; break;
-                case EK_RESET_HOST: case EK_RESTART_CORE: case EK_RETURN_HOST: case EK_BUG_REPORT: case EK_WIFI: seen_fixed++; break;
+                case EK_RESET_HOST: case EK_RESTART_CORE: case EK_RETURN_HOST: case EK_BUG_REPORT: case EK_WIFI: case EK_KEYS_HELP: seen_fixed++; break;
                 case EK_SAVE_SET: case EK_LOAD_SET: seen_mset++; break;
                 case EK_HEADING: case EK_OPENS: case EK_NODE: break;
                 }
@@ -128,7 +128,7 @@ static void every_item_once(const CoreDesc *d0)
     }
     CHECK_EQ(seen_set + hidden, d->nsettings);
     CHECK(seen_browser >= 1);
-    CHECK_EQ(seen_fixed, 5);                           // Reset to host defaults, Restart core, Bug report, WiFi, Return to host menu
+    CHECK_EQ(seen_fixed, 6);                           // Reset to host defaults, Restart core, Bug report, Keys and help (T228 D12), WiFi, Return to host menu
     CHECK_EQ(seen_mset, mounts_have_slots(d) ? 2 : 0);   // T180 D5: the media tab of a core with media slots has the two config rows, no other tab does
     CHECK_EQ(seen_info, 3);                            // T212 D7: Build, ROMs, Libraries stand in F8 (Core, Network and Media are dropped)
 }
@@ -324,7 +324,7 @@ int main()
             for (int i = 0; i < d->nsettings; i++) has_reopen |= !strcasecmp(d->settings[i].key, REOPEN_KEY);
             CHECK(!has_reopen || menu_opens);
             // S2: F8 is actions: no setting, no media
-            int act = 0, wifi = 0, bug = 0, ret = 0, rst = 0;
+            int act = 0, wifi = 0, bug = 0, ret = 0, rst = 0, keys = 0;
             const MenuArea &a8 = t.a[f8];
             for (int i = 0; i < a8.ntabs; i++) {
                 for (int k = a8.tabs[i].first; k < a8.tabs[i].first + a8.tabs[i].count; k++) {
@@ -335,9 +335,10 @@ int main()
                     wifi += e.kind == EK_WIFI;
                     bug += e.kind == EK_BUG_REPORT;
                     rst += e.kind == EK_RESET_HOST;
+                    keys += e.kind == EK_KEYS_HELP;
                 }
             }
-            CHECK(act == 1 && ret == 1 && wifi == 1 && bug == 1 && rst == 1);
+            CHECK(act == 1 && ret == 1 && wifi == 1 && bug == 1 && rst == 1 && keys == 1);
             // T212 D7: Home has no information lines: the media slots of the core, then the configs when the core has slots
             const MenuTab &h = t.a[f1].tabs[0];
             int nmedia = 0, ninfo = 0, saves = 0;
@@ -814,12 +815,13 @@ int main()
             case EK_RETURN_HOST: own = !strcmp(e.label, "Return to host menu"); break;
             case EK_BUG_REPORT: own = !strcmp(e.label, "Bug report"); break;
             case EK_WIFI: own = !strcmp(e.label, "WiFi"); break;
+            case EK_KEYS_HELP: own = !strcmp(e.label, "Keys and help"); break;
             case EK_SAVE_SET: own = !strcmp(e.label, "Save as config..."); break;
             case EK_LOAD_SET: own = !strcmp(e.label, "Load config..."); break;
             case EK_HEADING: own = !strcmp(e.label, "Machine") || !strcmp(e.label, "Storage") || !strcmp(e.label, "Actions") || !strcmp(e.label, "Network") ||
-                                   !strcmp(e.label, "Support") || !strcmp(e.label, "Reset") || !strcmp(e.label, "Status"); break;
+                                   !strcmp(e.label, "Support") || !strcmp(e.label, "Reset") || !strcmp(e.label, "Status") || !strcmp(e.label, "Menu and keys"); break;
             case EK_DRIVE_MOUNT: case EK_DRIVE_EJECT: own = true; break;      // T212 D5: the drive list's own rows
-            case EK_OPENS: own = !strcmp(e.label, "Hotkeys") || !strcmp(e.label, "Storage") || !strcmp(e.label, "Menu") || !strcmp(e.label, "Keys"); break;
+            case EK_OPENS: own = !strcmp(e.label, "Hotkeys") || !strcmp(e.label, "Storage") || !strcmp(e.label, "Menu") || !strcmp(e.label, "Keys") || !strcmp(e.label, "FTP hosts"); break;
             case EK_NODE: own = false; break;
             }
             if (!own) printf("not own: kind %d label [%s] idx %d core %s i %d\n", (int)e.kind, e.label, e.index, (*p)->id, i);

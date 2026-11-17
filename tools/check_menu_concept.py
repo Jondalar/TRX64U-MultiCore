@@ -31,7 +31,7 @@ _DC4 = "T228 DC4 (the F5 machine tabs: Memory and I/O, Video, Audio, SID, Input)
 DEVIATIONS = {
     ("F3", 3): ("Online", "tab 3 is Online (the Assembly64 / CommoServe search), " + _BUILT),
     ("F4", 1): ("Monitor", "tab 1 is Monitor, " + _BUILT),
-    ("F4", 2): ("Diagnostics", "tab 2 is Diagnostics, " + _BUILT),
+    ("F1", 2): ("Recording", "tab 2 is Recording (the seven Timewarp actions, T228 DC3), " + _T228),
     ("F5", 1): ("Machine", "tab 1 is Machine (with the Drive A settings), " + _T228),
     ("F5", 2): ("TRX64", "tab 2 is TRX64 (Timewarp ring, trace), " + _T228),
     ("F5", 3): ("Memory and I/O", "tab 3 is Memory and I/O, " + _DC4),
@@ -44,6 +44,7 @@ DEVIATIONS = {
     ("F8", 1): ("System", "tab 1 is System, " + _T228),
     ("F8", 2): ("Network", "tab 2 is Network (D7, D18), " + _T228),
     ("F8", 3): ("Device", "tab 3 is Device, " + _T228),
+    ("F8", 4): ("Diagnostics", "tab 4 is Diagnostics (debug log, EDID, heap; T228 DC7, from F4), " + _T228),
 }
 # area key -> (the name the golden must show, reason): area names that differ from the concept's on purpose
 AREA_DEVIATIONS = {
