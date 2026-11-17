@@ -101,6 +101,8 @@ static void screen_tv(const uint8_t *vics, int n, uint32_t sig)
 static void tv50(uint32_t sig = 1) { static const uint8_t v[] = { 31, 19, 17, 16 }; screen_tv(v, 4, sig); }     // rows 2 1 0 8
 static void tv50_no1080(uint32_t sig = 2) { static const uint8_t v[] = { 19, 17 }; screen_tv(v, 2, sig); }       // rows 1 0
 static void tv60only(uint32_t sig = 3) { static const uint8_t v[] = { 16, 4, 3 }; screen_tv(v, 3, sig); }        // rows 8 7 6
+// T235 §5: exactly the six television rows, no PC mode - the same mask as no EDID (EDID_LIST_NONE), yet a screen that named its modes
+static void tv_six(uint32_t sig = 6) { static const uint8_t v[] = { 31, 19, 17, 16, 4, 3 }; screen_tv(v, 6, sig); }   // rows 2 1 0 8 7 6
 // a PC monitor with no CEA block: 1024 x 768 at 60 Hz in the detailed timing (row 10 only)
 static void screen_pc(uint32_t sig = 4)
 {
@@ -281,6 +283,19 @@ static void s10_lists()
     { Rig r(&nes_desc);
       CHECK_STR(list_of(r.ext).c_str(), FULL_PAL);
       CHECK_STR(named_rows(r.ext).c_str(), "-");
+      PictureModes pm; picture_modes(&r.c, &pm);
+      CHECK(pm.no_edid);
+    }
+    // T235 §5: a screen that names exactly the six television rows is not "no EDID": its rows are marked and the foot says what * means
+    tv_six();
+    { Rig r(&nes_desc);
+      CHECK_STR(list_of(r.ext).c_str(), FULL_PAL);
+      CHECK_STR(named_rows(r.ext).c_str(), "0,6,1,7,2,8");             // in the list's order
+      PictureModes pm; picture_modes(&r.c, &pm);
+      CHECK(!pm.no_edid);
+      char info[160];
+      picmodes_info(&pm, info, sizeof(info));
+      CHECK(strstr(info, "did not name its modes") == 0 && strstr(info, "* =") != 0);
     }
     // every frame-buffer core, not only one: the same list in the Atari
     tv50_no1080();

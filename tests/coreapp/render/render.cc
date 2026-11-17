@@ -2169,7 +2169,9 @@ static void pm_page_case(const char *out, const CoreDesc *src, const char *core,
     if (f.none) { memset(edid, 0, sizeof(edid)); } else { pm_make_edid(edid, &len, f.vics, f.nv, f.pc, f.bad); }
     EdidInfo ei;
     PictureEnv env = { video_modes_offered(edid, len), 0, true, VID_SYS_PAL50 };
-    env.native = len > 0 && edid_parse(edid, len, &ei) ? (uint16_t)(ei.native & env.mask) : 0;
+    bool edid_ok = len > 0 && edid_parse(edid, len, &ei);                // as picture_env_read: the flag "no or corrupt EDID" apart from the mask (T235 §5)
+    env.no_edid = !edid_ok;
+    env.native = edid_ok ? (uint16_t)(ei.native & env.mask) : 0;
     TrxCanvas want = trx_canvas_for(fw, fh);
     CoreDesc *d = board_desc(src, &env);
     snprintf(p, sizeof(p), "/usb0/cores/pmfx_%s_%s.cfg", core, f.name);
@@ -2200,8 +2202,9 @@ static void pm_page_case(const char *out, const CoreDesc *src, const char *core,
     CHECK(strstr(leg, "RETURN  USE THIS MODE") && strstr(leg, "BROWSE"));  // the key bar
     CHECK(!r.m->toast_text()[0]);                                       // R2: no chip over the question that is not there yet
     int nnow = 0;
-    uint16_t pmask = env.mask;                                           // what the app lists: a mask that names nothing is the television rows
-    { int tmp[VID_HDMI_COUNT]; if (video_modes_hdmi_list(pmask, VID_SYS_PAL50, tmp) == 0) { pmask = EDID_LIST_NONE; } }
+    uint16_t pmask = env.mask;                                           // what the app lists: a mask that names nothing is the television rows, none named
+    bool pnone = env.no_edid;
+    { int tmp[VID_HDMI_COUNT]; if (video_modes_hdmi_list(pmask, VID_SYS_PAL50, tmp) == 0) { pmask = EDID_LIST_NONE; pnone = true; } }
     int autorow = 0;
     if (!video_modes_resolve(pmask, VID_SYS_PAL50, f.autohdmi, &autorow)) { autorow = f.autohdmi; }
     for (int i = 0; i < r.m->rows() && i <= 9; i++) {                   // 1: Auto + the 9 rows in order; the rate of the row's own clock; "*" when the screen names it; native from the EDID; Auto is the choice: one "now" (T187 D9), on Auto's row
@@ -2210,7 +2213,7 @@ static void pm_page_case(const char *out, const CoreDesc *src, const char *core,
         int row = i == 0 ? autorow : kPmRows[i - 1];
         if (i == 0) { CHECK(l.compare(0, 4, "Auto") == 0); } else { CHECK(l == pm_row_name(row)); }
         unsigned dh = pm_row_dhz(row);
-        bool nat = (f.nat >> row) & 1, now = i == 0, named = i > 0 && pmask != EDID_LIST_NONE && ((pmask >> row) & 1);
+        bool nat = (f.nat >> row) & 1, now = i == 0, named = i > 0 && !pnone && ((pmask >> row) & 1);
         char ex[64];
         snprintf(ex, sizeof(ex), "%s%s%s%s%s%s%u.%u Hz", now ? "now" : "", now && nat ? " " : "", nat ? "native" : "", (now || nat) && named ? " " : "", named ? "*" : "", (now || nat || named) ? "   " : "", dh / 10, dh % 10);
         UXCHECK(v == ex, "%s: row %d says \"%s\", expected \"%s\"", what, i, v.c_str(), ex);

@@ -24,6 +24,7 @@ struct PictureEnv {
     bool vic_scale;           // T222: the gateware scales the VIC's picture with a scale register (video_gateware_vic_scale()): a core with no frame buffer gets a Scale item
     bool vic_smooth;          // T227: that gateware also smooths (video_gateware_vic_smooth(), register 0x4F0B): the Scale item gets a Smoothing item after it
     bool follow;              // T234: the gateware has Frame follow (video_gateware_follow(), register 0x4F02): a frame-buffer core gets the item Frame follow after the others. Last: the initialisers of the tests leave it 0
+    bool no_edid;             // T235 §5: no EDID or a corrupt one (mask is then EDID_LIST_NONE, which a valid EDID naming exactly the six television rows gives too). Last, as follow
 };
 
 // out = *d with the Picture item after d's own settings; for every frame-buffer core on a host whose gateware scales (env->gateware), Scale and

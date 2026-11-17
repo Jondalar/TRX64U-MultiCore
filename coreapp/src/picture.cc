@@ -11,6 +11,7 @@
 // picture_service move it.
 static uint16_t g_mask = EDID_ROW_MASK;              // the rows the screen takes
 static uint16_t g_native = 0;                        // the rows it flags as native
+static bool g_no_edid = false;                       // T235 §5: the screen named none of the listed rows (no EDID, a corrupt one, or none of the machine's family)
 static int g_msys = VID_SYS_PAL50;                   // the machine's 50 / 60 Hz family (Q6)
 static bool g_gw = false;                            // the gateware takes the mode (status register answered)
 static int g_list[PIC_ROWS_MAX], g_nlist = 0;        // T235: the table rows (family * 6 + hdmi) the Picture item lists: value n + 1 is g_list[n]
@@ -71,8 +72,9 @@ static void fill_values(void)
 {
     int hl[VID_HDMI_COUNT];
     int nh = video_modes_hdmi_list(g_mask, g_msys, hl);
-    if (nh == 0) {                                     // a mask that names nothing: the television rows (Q9)
+    if (nh == 0) {                                     // a mask that names nothing: the television rows (Q9), none of them named by the screen
         g_mask = EDID_LIST_NONE;
+        g_no_edid = true;
         nh = video_modes_hdmi_list(g_mask, g_msys, hl);
     }
     g_nlist = 0;
@@ -138,6 +140,7 @@ const char *picture_extend(const CoreDesc *d, CoreDesc *out, Setting *store, con
 {
     g_mask = env ? (env->mask & EDID_ROW_MASK) : EDID_ROW_MASK;
     g_native = env ? env->native : 0;
+    g_no_edid = env ? env->no_edid : false;
     g_gw = env ? env->gateware : false;
     g_msys = (env && env->sys >= 0) ? env->sys : current_sys();
     bool scaled = g_gw && d->video.w != 0 && d->nsettings + 3 <= SETTINGS_MAX;             // the frame buffer goes through the scaler (G14); a core with its own picture has no layer to scale
@@ -242,7 +245,9 @@ void picture_env_read(PictureEnv *env, int sys)
     }
     env->mask = video_modes_offered(edid, len);
     EdidInfo info;
-    env->native = len > 0 && edid_parse(edid, len, &info) ? (uint16_t)(info.native & env->mask) : 0;
+    bool ok = len > 0 && edid_parse(edid, len, &info);
+    env->no_edid = !ok;                            // T235 §5: apart from the mask, which a valid EDID naming the six television rows also makes EDID_LIST_NONE
+    env->native = ok ? (uint16_t)(info.native & env->mask) : 0;
     env->gateware = video_gateware_present();
     env->vic_scale = video_gateware_vic_scale();
     env->vic_smooth = video_gateware_vic_smooth();
@@ -366,7 +371,7 @@ void picture_modes(CoreCtx *c, PictureModes *out)
     int now = c->video ? current_hdmi(c) : -1;                  // a rig with no video (a bench) lists the names only
     int pi = picture_index(c->desc);
     out->cur = pi >= 0 && c->settings ? c->settings->value(pi) : g_last_value;
-    out->no_edid = g_mask == EDID_LIST_NONE;
+    out->no_edid = g_no_edid;
     out->n = 1 + g_nlist;
     Pick a = { 0, -1 };
     if (c->video) {
@@ -809,7 +814,9 @@ int picture_service(CoreCtx *c)
     g_have_sig = true;
     uint16_t mask = video_modes_offered(edid, len);
     EdidInfo ei;
-    g_native = edid_parse(edid, len, &ei) ? (uint16_t)(ei.native & mask) : 0;      // the new screen's native flags, not the last one's
+    bool ok = edid_parse(edid, len, &ei);
+    g_native = ok ? (uint16_t)(ei.native & mask) : 0;      // the new screen's native flags, not the last one's
+    g_no_edid = !ok;                                       // T235 §5: a corrupt EDID names nothing; a valid one may name exactly the television rows
     OldValues old;
     snapshot_values(&old);
     g_mask = mask;
