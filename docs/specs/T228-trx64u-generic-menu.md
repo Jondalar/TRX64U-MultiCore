@@ -312,12 +312,16 @@ S1 table where one exists; only DC2, DC3, DC6, DC7, DC9, DC11 and DC12 are new c
   not as a file action. The decision is generic, from the host context, not a core name in the code.
 - DC2 The rail heading "DIRECT" goes too, in every core (generic, like D4). Why: with SHIFTED gone it heads the only group and
   separates nothing (an all-caps heading needs a reason, ux-review R11).
-- DC3 The 7 Timewarp actions (start/stop recording, marker here, clear markers, back to live, save frame, save the ring) go to F1 Home,
-  tab 2 "Recording". The ring and trace switches stay in F5 TRX64 > Recording (D13). Why:
-  - The TRX64G Timewarp bar has keys only to move through frames (manual 07-timewarp.md), so these actions cannot live in the F2 overlay
-    (D3 keeps it unchanged).
-  - Alex put machine actions on F1 rather than F5 (D8, "you can make tabs there too"), and F5 holds settings.
-  - The tab is named "Recording", not "Timewarp", so it does not repeat the F2 rail entry.
+- DC3 (Alex 2026-11-17, replacing Claude's first DC3, which moved 7 Timewarp actions to an F1 tab "Recording"): "im Ringview Speichern IST
+  ein Dump, das ist gut. Der Ring wird bitte in TRX64 gespeichert, der dump auch" and, on where the actions come from, "lass sie erstmal weg,
+  nichts dazu erfinden wo es in Teilen noch gar keinen Code zu gibt (Marker)" (translated: "in the ring view, saving IS a dump, that is good.
+  The ring is saved in TRX64, please, the dump too"; "leave them out for now, invent nothing where in part there is no code yet (markers)").
+  - The 7 rows came from T104.2 (0c511b65b, 2026-10-28), built after the UX concept's mock-up `timewarp_actions.xml`, not from the trx64g
+    firmware, whose ring view has the frame keys and saves a dump.
+  - Out of the menu: Start recording, Stop recording, Marker here, Clear markers, Back to live. The F1 tab "Recording" is gone; F1 is Home.
+    The ring's on/off stays the F5 switch "Timewarp ring".
+  - "Save frame" (the dump, `tw.dump`) and "Save the ring" (`tw.ringdump`) go to F5 TRX64, section Recording, beside the ring switches
+    (Claude's reading of "in TRX64"; Alex can correct it at S2b).
 - DC4 F5 keeps 7 tabs (Machine, TRX64, Memory and I/O, Video, Audio, SID, Input), so the generic `TRX_TABS_MAX` goes from 6 to 8.
   Why: the tabs follow from the S1 table, D13, D14 and D16; folding Input into another tab would hide what it is.
 - DC5 The Home machine-info line names the REU only while it is enabled. Why: the line describes the machine as it runs (T212 D13).
