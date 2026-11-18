@@ -1,6 +1,6 @@
 // The network services of the Network Settings store that run in the core application (T228 R21): Ultimate ident (UDP 64, FW socket_dma.cc:531-640), the
 // syslog forwarder (FW syslog.cc, UDP 514, read once at the start), and what the REST adapter asks of the store (rest.h RestHooks). Board code. The ident
-// answer is the one of FW socket_dma.cc, built from the same product helpers; the Ultimate DMA service and the Telnet menu are not here (T228 report).
+// answer is the one of FW socket_dma.cc, built from the same product helpers; the Ultimate DMA service is not here (T228 report); the Telnet menu is telnetgui.cc.
 #ifndef COREAPP_NETSVC_H
 #define COREAPP_NETSVC_H
 
