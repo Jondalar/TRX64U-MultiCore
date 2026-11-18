@@ -288,7 +288,7 @@ core_key() { printf '%s %s impl=%s/%s\n' "$1" "$2" "${T79_PLACE:-}" "${T79_ROUTE
 # manifest_get <manifest.json> <field>: one top-level string field.
 manifest_get() { python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get(sys.argv[2], ""))' "$1" "$2"; }
 
-# The update files of stage update are the .cfw/.ue2 only (T172). trx64host_update_<sha8>.txu is stage package's file of the same package version
+# The update files of stage update are the .cfw/.ue2 only (T172). trx64host_update_<file_id>.txu is stage package's file of the same package version
 # and the sweep must not touch it (run 1128: it matched on the name prefix, the .txu was deleted and its SHA256SUMS line dropped).
 # update_file_names: the Gitea files listing (JSON, stdin) -> names of the update files in it.
 update_file_names() {
@@ -384,6 +384,13 @@ cache_gc_if_free() {
   fi
 }
 
+# file_id: what the update files of this build are named after (Alex, 2026-11-18, translated: "with a tag it becomes the tag name, EVERYWHERE"): on a tag
+# (a release, T221) the bundle version x.y.z every display shows (ci/version.sh), on any other build the commit (8 digits). The names:
+# trx64host_update_<file_id>.txu (stage package) and .cfw/.ue2 (stage update; a build that is no release adds the date). tools/check_bundle.py checks them.
+file_id() {
+  if [ "${GITHUB_REF_TYPE:-}" = tag ]; then "$ROOT/ci/version.sh" bundle; else git -C "$ROOT" rev-parse --short=8 HEAD; fi
+}
+
 # build_update_host <manifest.json> <null_full.bit> <hostapp.app> <outdir>: the MultiCore host update
 # file (trx64host_update_*.cfw/.ue2) from the same package; its bitstream is the host with the null core (T123). The application it installs
 # is our own boot app from stage trxapps, so the commit it records is the manifest's trxapps_commit.
@@ -395,7 +402,8 @@ build_update_host() {
     set +u; . /opt/esp/esp-idf/export.sh >/dev/null; set -u
   fi
   local id bitc appc
-  id="$(branch_slug)-$(git -C "$ROOT" rev-parse --short=8 HEAD)"
+  # the id the installer shows in its title: a release's version (file_id), any other build's branch and commit
+  if [ "${GITHUB_REF_TYPE:-}" = tag ]; then id="$(file_id)"; else id="$(branch_slug)-$(git -C "$ROOT" rev-parse --short=8 HEAD)"; fi
   # Eight digits, not the whole sha: the manifest record keeps 16 bytes NUL-terminated for each
   # (tools/trx_pkg.py:40-41), and a 40-character sha is refused there - which is what run 51 showed.
   bitc="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["trx64_commit"][:8])' "$manifest")"

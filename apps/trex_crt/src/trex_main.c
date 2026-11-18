@@ -177,6 +177,10 @@ int trex_main(const u2p_api_t *api, const char *action, const char *file)
 {
     g_api = api;
     u2p_ui_init(api);
+    if (!g_api->c64) {                                  // the C64 service is only in a core of the TRX64 line (appsvc_c64); the index offers the tools nowhere else
+        LOG("[TrexCrt] this core gives no C64 service: no cartridge port\n");
+        return -1;
+    }
     core_detect();
     memset(&g_ui, 0, sizeof(g_ui));
     UI_SET(type, "-");

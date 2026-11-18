@@ -1,4 +1,5 @@
 op	menu.browse	path:path:0:0:519:
+op	menu.screen	screen:string:0:0:31:	unless:string:0:0:31:
 op	app.open	app:string:0:0:15:	action:string:0:0:31:	file:string:0:0:519:
 op	machine.warm_reset
 op	machine.cold_reset
@@ -18,9 +19,10 @@ op	media.flush_for_core
 op	media.persist_apply	value:int:0:1:0:
 op	config.save	name:string:0:0:32:
 op	config.load	name:string:0:0:32:
-op	picture.apply	value:int:0:6:0:
+op	picture.apply	value:int:0:9:0:
 op	scale.apply	value:int:0:2:0:
 op	smooth.apply	value:int:0:1:0:
+op	follow.apply	value:int:0:1:0:
 op	volume.apply	value:int:0:40:0:
 op	volume.change	value:int:-2:2:0:
 op	tone.apply	value:int:0:2:0:
@@ -33,6 +35,7 @@ op	settings.reset_defaults
 op	settings.clear
 op	settings.noop	value:int:-2000:2000:0:
 op	settings.load_file	path:path:0:0:519:
+op	settings.load_staged
 op	settings.autosave	value:int:-2000:2000:0:
 op	settings.save
 op	settings.discard
@@ -43,6 +46,7 @@ op	writeback.open
 op	writeback.answer	value:int:0:1:0:
 op	writeback.leave
 op	pad.set_map	value:int:0:1:0:
+op	pad.port	value:int:0:1:0:
 op	pad.poll
 op	pad.map.begin	player:int:0:1:0:
 op	pad.map.next
@@ -56,6 +60,7 @@ op	net.fx	value:int:-2000:2000:0:
 op	wifi.toggle
 op	stream.start	id:int:0:2:0:
 op	stream.stop	id:int:0:2:0:
+op	stream.start_to	id:int:0:2:0:	dest:string:0:0:36:	stop_after:int:0:65535:0:
 op	files.copy_job
 op	files.move_job
 op	files.delete_job
@@ -101,6 +106,8 @@ state	wifi.ip
 state	wifi.onoff
 state	wifi.line
 state	net.static
+state	net.pw_scope
+state	net.unique_ids
 state	stream.vic
 state	stream.audio
 state	stream.debug

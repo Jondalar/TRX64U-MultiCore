@@ -14,6 +14,7 @@
 #include "c64_regs.h"
 #include "c64_go.h"
 #include "c64_cart.h"
+#include "appindex.h"                 // PRG_APP_OP
 #include "u64cfg.h"
 #include "ringops.h"
 #include "monitor.h"
@@ -21,6 +22,7 @@
 #include "diag.h"
 #include "netops.h"
 #include "trx64u_ops.h"
+#include "newfile.h"                 // nf_copy: no string precision in a format (the board's printf has none)
 #include "t64.h"
 #include "cbm1541.h"
 #include "d1541_drive.h"
@@ -63,7 +65,14 @@ static int put_rom(CoreCtx *c, const OpArgs &a, uint32_t ofs, uint32_t size, con
     c->io->rom_write(ofs, a.p(0), size);
     return OPE_OK;
 }
-static int op_put_basic(CoreCtx *c, const OpArgs &a, OpOut &o) { return put_rom(c, a, C64_ROM_BASIC, C64_BASIC_BYTES, "BASIC", o); }
+static int op_put_basic(CoreCtx *c, const OpArgs &a, OpOut &o)
+{
+    int rc = put_rom(c, a, C64_ROM_BASIC, C64_BASIC_BYTES, "BASIC", o);
+    if (rc == OPE_OK) {
+        trx64u_basic_put(c, a.p(0), a.len(0));                    // the SID player's cartridge carries the BASIC the machine runs with
+    }
+    return rc;
+}
 static int op_put_kernal(CoreCtx *c, const OpArgs &a, OpOut &o)
 {
     int rc = put_rom(c, a, C64_ROM_KERNAL, C64_KERNAL_BYTES, "KERNAL", o);
@@ -87,15 +96,20 @@ static const RomSpec roms[4] = {
 // ---- control -------------------------------------------------------------------------------------------------------------
 // C64_MODE: 0x04 holds the machine in reset, 0x08 lets it go (ultimate_sys.vhd). The KERNAL's own reset sets $00/$01.
 static void clear_job(CoreCtx *c);
+static void forget_program(CoreCtx *c);
 
 static int c64_init(CoreCtx *c, char *, int)
 {
+    u64cfg_power_on_keys(c);                                    // T228 R21: CTRL+P / CTRL+N at power-on, before the settings are applied (once)
     c->io->mode_reset(true);
     if (c->drive && cfg_value(c, "Resets when C64 resets", 1)) {
         char m[80];
         ((CbmDrive *)c->drive)->reset(m, sizeof(m));                // "Resets when C64 resets": the 1541 starts again with the machine
     }
     clear_job(c);                                               // a reset ends a program that was still waiting for READY
+    trx64u_sid_cancel();                                        // ... and a SID tune that was waiting for its player cartridge
+    c64_cart_player_end(c);                                     // the reset ends the SID player's cartridge (the one before it comes back)
+    forget_program(c);                                          // T228 R20 1/7: and the machine that comes up has run no program
     return 0;
 }
 
@@ -168,6 +182,11 @@ static C64State *c64_state(CoreCtx *c)
         memset(c->state, 0, sizeof(C64State));
     }
     return (C64State *)c->state;
+}
+static void forget_program(CoreCtx *c)
+{
+    c64_state(c)->program[0] = 0;
+    c64_state(c)->program_path[0] = 0;
 }
 
 static void clear_job(CoreCtx *c)
@@ -244,6 +263,14 @@ static int place(CoreCtx *c, const uint8_t *data, uint32_t size, const CbmPrgPar
     return rc;
 }
 
+// F4 "DMA load mimics ID": after a DMA load that starts a program the device number is in $BA (TRX-Ultimate c64_subsys.cc:1070 with
+// c64->cfg CFG_C64_DMA_ID, c64.cc:183: 8 .. 31, default 8), so a program that loads its next file from "the last device" finds it there.
+static void poke_dma_id(CoreCtx *c)
+{
+    uint8_t id = (uint8_t)cfg_value(c, "DMA Load Mimics ID", 8);
+    c->io->ram_write(0x00BA, &id, 1);
+}
+
 static void remember(CoreCtx *c, const char *name)
 {
     snprintf(c64_state(c)->program, sizeof(C64State::program), "%s", name);
@@ -265,6 +292,7 @@ static int queue_prg(CoreCtx *c, int kind, const char *path, uint16_t start, cha
     if (read_prg(c, path, p, &size, msg, msglen)) {
         return 1;
     }
+    trx64u_load_assoc_cfg(c, path, true);          // filetype_prg.cc:186-190: the .cfg (or .usr) beside the file goes in before the program runs
     bool p00 = is_p00(path);
     bool go = kind == J_LOAD && c64_go_available(c->io);
     if (kind == J_LOAD && !go) {
@@ -303,6 +331,7 @@ static int fire(CoreCtx *c, C64State *st, char *msg, int msglen)
         if (place(c, prgbuf, st->size, p, st->p00, &r, msg, msglen)) {
             return 1;
         }
+        poke_dma_id(c);
         cbm_prg_type_start(c->io, p, r);
         printf("[c64] %s: $%04X-$%04X, %s\n", st->name, r.load, (unsigned)(r.end - 1) & 0xFFFF, r.basic ? "RUN" : "SYS");
         return 0;
@@ -313,7 +342,11 @@ static int fire(CoreCtx *c, C64State *st, char *msg, int msglen)
             static int cb(void *u, char *m, int n)
             {
                 Pa *a = (Pa *)u;
-                return place(a->c, prgbuf, a->st->size, *a->p, a->st->p00, a->r, m, n);
+                int rc = place(a->c, prgbuf, a->st->size, *a->p, a->st->p00, a->r, m, n);
+                if (!rc) {
+                    poke_dma_id(a->c);
+                }
+                return rc;
             }
         };
         if (c64_go(c->io, st->start, F::cb, &pa, msg, msglen)) {
@@ -323,6 +356,7 @@ static int fire(CoreCtx *c, C64State *st, char *msg, int msglen)
         if (place(c, prgbuf, st->size, p, st->p00, &r, msg, msglen)) {
             return 1;
         }
+        poke_dma_id(c);
         r.start = st->start;
         cbm_prg_type_start(c->io, p, r);
     }
@@ -341,6 +375,7 @@ static void tell(CoreCtx *c, const char *what)
 static int op_service_job(CoreCtx *c);
 static int op_service(CoreCtx *c, const OpArgs &, OpOut &o)
 {
+    trx64u_sid_service(c);                                     // T228 R21 item 7: the SID player's handshake
     int rc = op_service_job(c);
     o.more = cbm1541_service(c);                               // the drive's write-back, on the same task (T104.1 D15 poll)
     return rc;
@@ -482,6 +517,65 @@ static int op_set_rom(CoreCtx *c, const OpArgs &a, OpOut &o)
 }
 static int op_run(CoreCtx *c, const OpArgs &a, OpOut &o) { return queue_prg(c, J_RUN, a.s(0), 0, o.msg, o.msglen) ? OPE_FAILED : OPE_OK; }
 static int op_load(CoreCtx *c, const OpArgs &a, OpOut &o) { return queue_prg(c, J_LOAD, a.s(0), (uint16_t)a.i(1), o.msg, o.msglen) ? OPE_FAILED : OPE_OK; }
+// T228 R21 #14, FW user_file_interaction.cc:211-296 (S_runApp): the file goes into the REU's memory behind a 32 bit little-endian length (the length at 0, the bytes
+// from 4), then /Flash/apps/<ext>.prg - ext the first three characters of the file's extension - is run as "Run PRG" runs a file. The REU memory is the DDR2
+// window from 0 (reu_load in trx64u_ops.cc); a cartridge image in it refuses (FW :215).
+static int op_run_with_app(CoreCtx *c, const OpArgs &a, OpOut &o)
+{
+    const char *path = a.s(0);
+    const char *dot = strrchr(base_name(path), '.');
+    uint64_t sz = 0;
+    bool dir = false;
+    if (!dot || !dot[1] || !c->fs->stat(path, &sz, &dir) || dir) {
+        snprintf(o.msg, o.msglen, "No file %s", path);
+        return OPE_FAILED;
+    }
+    if (sz > 0x1000000u - 4) {
+        snprintf(o.msg, o.msglen, "The file is larger than the REU's memory");
+        return OPE_FAILED;
+    }
+    if (c64_cart_active()) {
+        snprintf(o.msg, o.msglen, "A cartridge uses the REU's memory: remove it first");
+        return OPE_FAILED;
+    }
+    char app[64], ext[4];
+    app[0] = 0;
+    nf_copy(ext, sizeof(ext), dot + 1, 3);                   // the app is named by the first three letters of the extension
+    FsEntry r[6];
+    int nr = c->fs->list("/", r, 6);
+    for (int i = 0; i < nr && !app[0]; i++) {
+        if (!strcasecmp(r[i].name, "flash")) {
+            snprintf(app, sizeof(app), "/%s/apps/%s.prg", r[i].name, ext);
+        }
+    }
+    uint64_t asz = 0;
+    if (!app[0] || !c->fs->stat(app, &asz, &dir) || dir) {
+        snprintf(o.msg, o.msglen, "There is no app for .%s files in the flash's apps folder", ext);
+        return OPE_FAILED;
+    }
+    CoreFile *f = c->fs->open(path, false);
+    if (!f) {
+        snprintf(o.msg, o.msglen, "Cannot open %s", path);
+        return OPE_FAILED;
+    }
+    static uint8_t buf[0x10000];
+    uint32_t n = (uint32_t)sz;
+    bool ok = true;
+    for (uint32_t done = 0; ok && done < n;) {
+        uint32_t k = n - done < sizeof(buf) ? n - done : (uint32_t)sizeof(buf);
+        ok = f->read(done, buf, k);
+        c->io->ddr_write(4 + done, buf, k);
+        done += k;
+    }
+    c->fs->close(f);
+    if (!ok) {
+        snprintf(o.msg, o.msglen, "Cannot read %s (the medium is gone?)", path);
+        return OPE_FAILED;
+    }
+    uint8_t len[4] = { (uint8_t)n, (uint8_t)(n >> 8), (uint8_t)(n >> 16), (uint8_t)(n >> 24) };
+    c->io->ddr_write(0, len, 4);
+    return queue_prg(c, J_RUN, app, 0, o.msg, o.msglen) ? OPE_FAILED : OPE_OK;
+}
 // T104.1 D15, Mount & Run: reset, and type the script at READY (pieces of at most ten keys)
 static int op_type(CoreCtx *c, const OpArgs &a, OpOut &o)
 {
@@ -503,6 +597,7 @@ static int op_type(CoreCtx *c, const OpArgs &a, OpOut &o)
 // The Library's .crt (c64_cart.cc): the cartridge is placed and the machine reset into it. The program that was running is gone with the reset.
 static int op_run_crt(CoreCtx *c, const OpArgs &a, OpOut &o)
 {
+    trx64u_load_assoc_cfg(c, a.s(0), false);       // filetype_crt.cc:75
     if (c64_cart_run(c, a.s(0), o.msg, o.msglen)) {
         return OPE_FAILED;
     }
@@ -554,6 +649,24 @@ static int slot_eject(CoreCtx *c, int i, char *msg, int msglen)
 }
 static const MountSlots mount_slots = { 2, slot_names, slot_spec, slot_mount, slot_eject };
 
+// The Ultimate DMA service's raw write (FW socket_dma.cc:146-149, c64_subsys.cc:819-821 dma_load_raw_buffer): the bytes go into the 64 KB the machine sees, through
+// the RAM's second port (MEMONLY, as machine.write_mem and the program loads), at the 16 bit address, with no reset and no start. FW takes the offset as a 16 bit value and
+// leaves a transfer past $FFFF to the DMA; here it is refused (nothing wraps), the same as machine.write_mem.
+static int op_dma_write(CoreCtx *c, const OpArgs &a, OpOut &o)
+{
+    uint32_t addr = (uint32_t)a.i(0), n = a.len(1);
+    if (!n || n > 0x10000u - addr) {
+        snprintf(o.msg, o.msglen, "%u bytes at $%X do not lie in the 64 KB", (unsigned)n, (unsigned)addr);
+        return OPE_ARG;
+    }
+    c->io->ram_memonly(true);
+    c->io->ram_write(addr, a.p(1), n);
+    c->io->ram_memonly(false);
+    snprintf(o.msg, o.msglen, "%u bytes written at $%X", (unsigned)n, (unsigned)addr);
+    return OPE_OK;
+}
+static const ArgSpec dma_write_args[] = { ARG_INT("address", 0, 0xFFFF), ARG_BLOB("data") };
+
 static const ArgSpec text_arg[] = { ARG_STRING("text", 63) };
 static const ArgSpec run_args[] = { ARG_PATH("path") };
 static const ArgSpec t64_args[] = { ARG_PATH("path"), ARG_INT("index", 0, 255) };
@@ -572,9 +685,12 @@ static void c64_register(OpRegistry &r)
     r.add_op("c64.put_char", rom_arg, 1, op_put_char);
     r.add_op("c64.set_freeze_mode", freeze_arg, 1, op_freeze_mode);
     r.add_op("c64.run_prg", run_args, 1, op_run);
+    r.add_op(PRG_APP_OP, run_args, 1, op_run_with_app);
     r.add_op("c64.load_prg", load_args, 2, op_load);
     r.add_op("c64.run_crt", run_args, 1, op_run_crt);
     r.add_op("c64.dma_prg", run_args, 1, op_dma);
+    r.add_op("dma.write", dma_write_args, 2, op_dma_write);
+    r.add_op("dma.kernal", rom_arg, 1, op_put_kernal);          // FW socket_dma.cc:174-176 SOCKET_CMD_KERNALWRITE: enable_kernal(buf + 2), the 8 KB image (and its fast reset patch) in place, no reset
     r.add_op("c64.run_t64", t64_args, 2, op_run_t64);
     r.add_op("c64.dma_t64", t64_args, 2, op_dma_t64);
     r.add_op("c64.set_rom", rom_set_args, 2, op_set_rom);
@@ -644,5 +760,5 @@ const CoreDesc c64_desc = {
     0, 0, false,                               // pad, live_ms, menu_first
     cbm1541_media_flush, cbm1541_media_pending,   // T180 D4: the drive's write-back
     &mount_slots,                              // T180 D2, D5: Drive A and Cartridge
-    &hk_c64,                               // T181: the default hotkey map (hk_defaults.h)
+    &hk_c64, 0, true,                      // T181: the default hotkey map (hk_defaults.h); alt_video, no_tone (the TRX64-Ultimate bitstream has no host/trx_tone.v)
 };

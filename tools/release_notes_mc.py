@@ -55,6 +55,12 @@ CORES = [
     dict(id="amiga1200", match=("amiga 1200",), title="Amiga 1200 (AGA, 68020)", folder="amiga",
          files="any `.rom` of 262,144 or 524,288 bytes (Kickstart); Auto takes 3.1", needed="one Kickstart (3.x for the hard disk)",
          sources="coreapp/cores/amiga.cc:34,223 (KS_VER_31, folder amiga); coreapp/src/romset.cc"),
+    dict(id="c64scpu", match=("supercpu",), title="C64 with SuperCPU", folder="c64scpu",
+         files="the SuperCPU ROM of 131,072, 65,536 or 262,144 bytes (`scpu64.rom`, `scpu.rom`, `supercpu.rom` or `scpu64-v2.04.rom`); "
+               "`basic-901226-01.bin` (8,192), `kernal-901227-03.bin` (8,192), `chargen-901225-01.bin` (4,096); optional: the 1541 ROM "
+               "(16,384 or 32,768), the 1581 ROM (32,768), the JiffyDOS 1541 and 1581 ROMs",
+         needed="the SuperCPU ROM, BASIC, KERNAL and the character ROM",
+         sources="host-app/software/hostapp/romreq_table.inc:46-53 (the core's RomSpec rows)"),
     dict(id="c128", match=("commodore 128",), title="Commodore 128", folder="c128",
          files="one system ROM image of 73,728 bytes: `boot0.rom`, `c128.rom`, `c128-system.rom` or `c128_system.rom`",
          needed="the system ROM image",
@@ -126,6 +132,11 @@ def core_of(name):
 
 
 PARAS = {
+    "c64scpu": [
+        "Needs the **SuperCPU ROM** in `cores/c64scpu/roms/`: `scpu64.rom` (131,072 bytes; 65,536 or 262,144 bytes and the names",
+        "`scpu.rom`, `supercpu.rom`, `scpu64-v2.04.rom` work too), and the three C64 ROMs `basic-901226-01.bin`, `kernal-901227-03.bin`",
+        "and `chargen-901225-01.bin`. The 1541 and 1581 ROMs and the JiffyDOS ROMs are optional: they are for the drives.",
+    ],
     "amiga1200": [
         "Needs its own copy of a Kickstart in `cores/amiga1200/roms/` (not shared with the Amiga core): one `.rom` of 256 or 512 KB. Its **Auto**",
         "setting takes **Kickstart 3.1**. The hard disk (`.hdf`, or a folder mounted as HD0/HD1) needs a 3.x Kickstart.",
@@ -271,6 +282,7 @@ PARAS = {
 }
 
 MEDIA = {
+    "c64scpu": "`.prg` `.p00` (Load, Load + run: into the 65816's own RAM), `.d64` `.g64` on drive 8 (the 1541), `.d81` on the 1581; `.rom` sets the 1541 ROM.",
     "amiga1200": "`.adf` (Mount DF0 ... DF3), `.hdf` (Mount HD0, HD1), or a folder as a hard disk (Mount folder as HD0/HD1).",
     "c128": "`.d64` `.g64` on drive 8 (the 1541), `.d81` on the 1581; `.rom` loads a system ROM image.",
     "vc20": "`.prg` `.p00` (Run PRG: reset and run; Load PRG: into the running machine, nothing typed). The RAM expansion is a setting in F5. No disk drive yet.",
@@ -284,14 +296,14 @@ MEDIA = {
     "diag": "`.toml` test files from `cores/diag/tests/` (a test says what to plug in and press); results go to `cores/diag/results/`.",
     "apple2": "`.dsk` `.do` `.po` `.nib` (Mount D1: and cold start, Mount D1:, Mount D2:).",
     "zx": "`.sna` `.z80` (Run snapshot: the machine starts where the snapshot was taken), `.tap` `.tzx` (Insert tape, then **Tape: Play** in the Tape row of F1; real speed).",
-    "cpc": "`.dsk` (Mount A: and reset, Mount A:, Mount B:; what the disk drive writes goes back into the file), `.cdt` (Insert tape, then **Tape: Play** in the Tape row of F1; real speed).",
+    "cpc": "`.dsk` (Mount A: and reset, Mount A:, Mount B: and reset, Mount B:; the F1 drive list mounts into an empty drive with the reset and replaces the disk of a filled drive without it, so a game of several disks keeps running; what the disk drive writes goes back into the file), `.cdt` (Insert tape, then **Tape: Play** in the Tape row of F1; real speed).",
     "snes": "`.sfc` `.smc` (Run; the battery RAM is saved as `.srm`); cartridges with a DSP-n chip need its firmware (section 5).",
     "neogeo": "`.neo` (Run); a folder set through the task Load a ROM set from a folder.",
     "zxnext": "`.img` (Mount SD image and reset, Mount SD image; the whole card, written back into the file).",
 }
 
 KNOWN = {
-    "_scpu": "**C64 with SuperCPU (large core, experimental):** *Run Disk* types `LOAD\"*\",8,1` and `RUN` through the keyboard matrix at READY (no board pass yet); *Load + run* of a `.prg` on the stick and *Mount & Run* of one inside a disk image place it into the 65816's own RAM and type RUN or SYS (Load + run: board pass 2026-11-15). *Metal Dust* scrolls without picture faults (board 2026-11-15). A large core replaces the whole FPGA: power off and on to come back.",
+    "c64scpu": "**C64 with SuperCPU (large core, experimental):** *Run Disk* types `LOAD\"*\",8,1` and `RUN` through the keyboard matrix at READY (no board pass yet); *Load + run* of a `.prg` on the stick and *Mount & Run* of one inside a disk image place it into the 65816's own RAM and type RUN or SYS (Load + run: board pass 2026-11-15). *Metal Dust* scrolls without picture faults (board 2026-11-15). A large core replaces the whole FPGA: power off and on to come back.",
     "atari800": "**Atari 800 XL:** a mounted `.atr` boots. Some executables (the trainer demo) show a broken scroller and ignore input.",
     "apple2": "**Apple IIe:** swapping the disk in D1: while a game runs is not tested on the board yet.",
     "pet": "**Commodore PET (large core, experimental):** starts on the board and runs demos (2026-11-11); the models and the cassette are not checked yet. Needs your own PET ROMs. A large core replaces the whole FPGA: power off and on to come back.",
@@ -300,7 +312,7 @@ KNOWN = {
     "zx": "**ZX Spectrum:** 128K shows a picture on the board; **48K stays black** (the fix is being built). Tapes with pulses shorter than 16 T-states (turbo loaders) are refused; there is no tape SAVE.",
     "amiga1200": "**Amiga 1200 (large core):** AmigaVision runs on the board with sound. A large core replaces the whole FPGA: to come back to the boot menu, switch the power off and on.",
     "c128": "**Commodore 128 (large core):** C128 and C64 mode with picture and sound on the board. A large core replaces the whole FPGA: power off and on to come back. *Busted Boulders* stops after the title screen (the left column is missing).",
-    "cpc": "**Amstrad CPC:** never on the board. The picture position (720 x 540 at scale 2) is an estimate; there is no tape SAVE and no snapshot.",
+    "cpc": "**Amstrad CPC:** on the board 2026-11-18: the 464, 664 and 6128 boot, disks mount with and without a reset, CAT, programs load and run, SAVE writes back to the .dsk. There is no tape SAVE and no snapshot.",
     "neogeo": "**SNK Neo Geo (large core):** never on the board. The machine is held while a sprite or fix word is late from the DDR2 (about 210,000 words in a 320 ms bench run); whether that is visible is open. A large core replaces the whole FPGA: power off and on to come back.",
     "zxnext": "**ZX Spectrum Next:** never on the board; the CPU runs from the DDR2 behind a cache and waits on a miss, so the speed of a program that does not fit the cache is below the real machine's. 128K, +3 and Pentagon timing run 1.5 to 2.7 % fast (frame lock); no Sega 6-button pad, no SD pass-through.",
     "snes": "**Super Nintendo (large core):** The ROM and RAM are in the DDR2 behind caches and the machine waits on a miss (about 1 % in the benches); no SA-1, Super FX, Cx4, SPC7110, S-DD1 or ST010/ST011 cartridges (a DSP-n game needs its firmware, section 5; Super Mario Kart with DSP-1 runs on the board); the keys for the buttons are a proposal.",
@@ -338,7 +350,7 @@ def render(a, cors, bit_len, alen, dest):
     w("")
     w("One host, %d cores. The update file installs the host into the flash and copies the cores that lie beside it;" % len(cors))
     w("your old firmware stays as a core and keeps starting first. This file is the whole guide: what to download, where")
-    w("to put it, and what to press. It is for internal testers.")
+    w("to put it, and what to press.")
     w("")
     w("This bundle contains **no ROM, Kickstart or disk image**. You bring those yourself (section 5).")
     w("")
@@ -382,7 +394,10 @@ def render(a, cors, bit_len, alen, dest):
       % (format(alen, ","), dest))
     w("  Ultimate app: it is the boot menu that reads a `.cor` and starts that core.")
     w("")
-    w("Commits: bitstream `%s`, app `%s`." % (a.bit_commit, a.app_commit))
+    if re.match(r"^[0-9]+\.[0-9]+\.[0-9]+$", a.id):   # a release names its tag, no commit (Alex 2026-11-18: "with a tag it becomes the tag name, EVERYWHERE")
+        w("Built from the tag `v%s`." % a.id)
+    else:
+        w("Commits: bitstream `%s`, app `%s`." % (a.bit_commit, a.app_commit))
     w("")
     w("## 3. Install the host")
     w("")
@@ -562,8 +577,6 @@ def render(a, cors, bit_len, alen, dest):
     for c in present:
         if c["id"] in KNOWN:
             w("- " + KNOWN[c["id"]])
-    if any("supercpu" in m["name"].lower() for _, m in cors):    # c64scpu has no CORES line yet (unknown above)
-        w("- " + KNOWN["_scpu"])
     if any(c["id"] == "nes" for c in present):
         w("- The NES reads the C64's own hardware: joystick 1 and 2 give the directions and A, **space** is B")
         w("  (right shift on port 2), **F3** is Select (F7), **F1** is Start (F5). No USB pad yet.")

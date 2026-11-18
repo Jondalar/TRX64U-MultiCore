@@ -71,12 +71,12 @@ report reads `clock not set`. The host never replaces an older report.
 
 ## 10.7 Bug report of a core
 
-10.7.1 The menu of a core on the common application has the row `Bug report` on the **F8** System page (on the C64 core in the Diagnostics
-page of the F4 Tools). **RETURN** writes the report of the core. It goes to `report/` of the SD card, else of the first USB medium that takes a folder
+10.7.1 The menu of a core on the common application has the row `Bug report` on the **F8** System page, under `Support`, in every core
+including `trx64u.cor`. **RETURN** writes the report of the core. It goes to `report/` of the SD card, else of the first USB medium that takes a folder
 (10.3), with the same file names. The same text is at `http://<address>/v1/report` of the core application.
 
 10.7.2 The report of a core holds the versions, the settings of the core, the state of its media (the name and the size
-of each mounted file, no hash), the last lines of the log (up to 200 lines or 16 KB), and the values of the registers that the core names. The cores
+of each mounted file, no hash), the last lines of the log (up to 200 lines or 16 KB), the heap, the EDID of the screen, and the values of the registers that the core names. The cores
 that name registers are the Amiga, the Amiga 1200, the Apple IIe and the C64 core. The other cores print `declares no register list`. Passwords and keys are withheld as in 10.6.
 
 > **NOTE** The report of a core is built and tested in the bench. It has not been written on a real board yet.

@@ -53,116 +53,7 @@ extern const CoreDesc ddt_novic_desc;
 #include "diag_examples.h"
 #include "table.cc"                                           // T187: the board's own core table (every core), not a short copy of it
 
-// ---- the pixel layer, native ----------------------------------------------------------------------
-static uint16_t fbs[2][960 * 540];
-static uint16_t *fb = fbs[0];
-static int cvw = 960, cvh = 540;                               // T164 D10a: the canvas of the display (the port's trx_lv_set_canvas)
-static uint32_t tick_cb(void) { static uint32_t t; return t += 50; }
-
-bool trx_lv_open(void)
-{
-    lv_init();
-    lv_tick_set_cb(tick_cb);
-    lv_display_t *d = lv_display_create(cvw, cvh);
-    lv_display_set_color_format(d, LV_COLOR_FORMAT_RGB565);
-    lv_display_set_buffers(d, fbs[0], fbs[1], sizeof(fbs[0]), LV_DISPLAY_RENDER_MODE_DIRECT);
-    lv_display_set_flush_cb(d, [](lv_display_t *dd, const lv_area_t *, uint8_t *px) {
-        if (lv_display_flush_is_last(dd)) { fb = (uint16_t *)px; }
-        lv_display_flush_ready(dd);
-    });
-    ovp::install();
-    return true;
-}
-int trx_lv_handler(void) { return (int)lv_timer_handler(); }
-void trx_lv_set_canvas(int w, int h)
-{
-    if (w == cvw && h == cvh) { return; }
-    cvw = w; cvh = h;
-    lv_display_t *d = lv_display_get_default();
-    if (d) {
-        lv_display_set_resolution(d, w, h);
-        lv_display_set_buffers(d, fbs[0], fbs[1], sizeof(fbs[0]), LV_DISPLAY_RENDER_MODE_DIRECT);
-    }
-}
-void trx_lv_suspend(void) { }
-void trx_lv_resume(void) { }
-void trx_lv_refresh_now(void) { lv_timer_handler(); }
-void trx_lv_yield_layer(void) { }
-void trx_lv_set_key(bool, uint16_t) { }
-bool trx_lv_set_alpha(uint8_t) { return true; }
-
-// ---- PNG -------------------------------------------------------------------------------------------
-static void put_be(unsigned char *p, unsigned v) { p[0] = v >> 24; p[1] = v >> 16; p[2] = v >> 8; p[3] = v; }
-
-static void chunk(FILE *f, const char *t, const unsigned char *d, unsigned n)
-{
-    unsigned char h[4];
-    put_be(h, n);
-    fwrite(h, 1, 4, f);
-    uLong c = crc32(0, (const Bytef *)t, 4);
-    fwrite(t, 1, 4, f);
-    if (n) { fwrite(d, 1, n, f); c = crc32(c, d, n); }
-    put_be(h, (unsigned)c);
-    fwrite(h, 1, 4, f);
-}
-
-static void png(const char *path, int scale)
-{
-    int W = 960 * scale, H = 540 * scale;
-    unsigned char *raw = (unsigned char *)malloc((size_t)(W * 3 + 1) * H), *p = raw;
-    for (int y = 0; y < H; y++) {
-        *p++ = 0;
-        for (int x = 0; x < W; x++) {
-            uint16_t v = fb[(y / scale) * 960 + x / scale];
-            unsigned r = (v >> 11) & 31, g = (v >> 5) & 63, b = v & 31;
-            *p++ = (r << 3) | (r >> 2); *p++ = (g << 2) | (g >> 4); *p++ = (b << 3) | (b >> 2);
-        }
-    }
-    uLongf cl = compressBound((W * 3 + 1) * H);
-    unsigned char *z = (unsigned char *)malloc(cl);
-    compress(z, &cl, raw, (W * 3 + 1) * H);
-    FILE *f = fopen(path, "wb");
-    fwrite("\x89PNG\r\n\x1a\n", 1, 8, f);
-    unsigned char ih[13];
-    put_be(ih, W); put_be(ih + 4, H); ih[8] = 8; ih[9] = 2; ih[10] = ih[11] = ih[12] = 0;
-    chunk(f, "IHDR", ih, 13); chunk(f, "IDAT", z, cl); chunk(f, "IEND", 0, 0);
-    fclose(f);
-    free(raw); free(z);
-    printf("%s\n", path);
-}
-
-// T107 5.9: what the monitor gets. The menu canvas (fb, 960 x 540) scaled by nearest sampling into the box the video service gave it (the layer does
-// the same with PX_OSIZE), on a black frame of the mode's size.
-static void png_out(const char *path, int W, int H, int bx, int by, int bw, int bh)
-{
-    unsigned char *raw = (unsigned char *)calloc((size_t)(W * 3 + 1) * H, 1);
-    for (int y = 0; y < H; y++) {
-        unsigned char *row = raw + (size_t)(W * 3 + 1) * y;
-        row[0] = 0;
-        if (y < by || y >= by + bh) { continue; }
-        for (int x = bx; x < bx + bw && x < W; x++) {
-            uint16_t v = fb[((y - by) * cvh / bh) * cvw + (x - bx) * cvw / bw];
-            unsigned r = (v >> 11) & 31, g = (v >> 5) & 63, b = v & 31;
-            unsigned char *q = row + 1 + 3 * x;
-            q[0] = (r << 3) | (r >> 2); q[1] = (g << 2) | (g >> 4); q[2] = (b << 3) | (b >> 2);
-        }
-    }
-    uLongf cl = compressBound((W * 3 + 1) * H);
-    unsigned char *z = (unsigned char *)malloc(cl);
-    compress(z, &cl, raw, (W * 3 + 1) * H);
-    FILE *f = fopen(path, "wb");
-    fwrite("\x89PNG\r\n\x1a\n", 1, 8, f);
-    unsigned char ih[13];
-    put_be(ih, W); put_be(ih + 4, H); ih[8] = 8; ih[9] = 2; ih[10] = ih[11] = ih[12] = 0;
-    chunk(f, "IHDR", ih, 13); chunk(f, "IDAT", z, cl); chunk(f, "IEND", 0, 0);
-    fclose(f);
-    free(raw); free(z);
-    printf("%s\n", path);
-}
-
-// ---- checks ----------------------------------------------------------------------------------------
-static int checks, fails;
-#define CHECK(c) do { checks++; if (!(c)) { printf("FAIL %s:%d %s\n", __FILE__, __LINE__, #c); fails++; } } while (0)
+#include "menu_rig.h"                                         // T236: the native layer, PNG, CHECK, Built and Rig, shared with tools/menusim
 // T209 (UX review): no two texts of a page lie on each other (a title that wrapped into the line below, a value over a label). Returns the number of pairs.
 struct TxtBox { int x1, y1, x2, y2; };
 static void txt_collect(lv_obj_t *o, TxtBox *b, int *n, int cap)
@@ -232,42 +123,6 @@ static uint32_t inv_pixels(void)
     return n;
 }
 
-// T187: the descriptor the board's menu runs on - the core's own plus Picture, Volume, Persist, Home and the hotkeys, built by the one function run.cc calls.
-// Every bench that shows "what the board shows" goes through here; none builds its own chain. Lives for the whole run (the Settings keep pointers into it).
-struct Built {
-    CoreDesc d; Setting s[SETTINGS_MAX];
-    explicit Built(const CoreDesc *src, const PictureEnv *env = 0)
-    {
-        PictureEnv e = { EDID_ROW_MASK, 0, true, VID_SYS_PAL50 };
-        CHECK(!menu_build(src, &d, s, env ? env : &e));
-    }
-};
-static CoreDesc *board_desc(const CoreDesc *src, const PictureEnv *env = 0) { return &(new Built(src, env))->d; }
-
-// ---- the rig ---------------------------------------------------------------------------------------
-struct Host : MenuHost {
-    int returns;
-    Host() : returns(0), media_gen(0) { }
-    int media_gen;                                                   // the bench "mounts a stick": the media chip's text changes
-    void info(int which, char *out, int n) { if (which == 3) snprintf(out, n, "USB %d", media_gen); else snprintf(out, n, "line %d", which); }
-    bool return_to_host(char *msg, int n) { returns++; snprintf(msg, n, "this host has no ICAP"); return false; }
-};
-
-struct Rig {
-    FakeIo io; FakeFs fs; PxRec px; Host host; CoreCtx c; Settings *st; Video *vid; MenuCtl *m;
-    Rig(const CoreDesc *d, const char *cfg, const MenuMerge *mm = 0)
-    {
-        memset(&c, 0, sizeof(c));
-        c.desc = d; c.io = &io; c.fs = &fs; c.merge = mm;
-        px.on_canvas = ui_set_canvas;                   // the video service's canvas reaches the real view, as on the board
-        st = new Settings(d->settings, d->nsettings, d->store, &fs, cfg, 0);
-        c.settings = st;
-        vid = new Video(d->video, &px, &io);
-        c.video = vid;
-        st->load();
-        m = new MenuCtl(&c, &host);
-    }
-};
 
 
 // T104 areas (Alex, 2026-10-22): every key of the core application redraws only what changes. LVGL draws about 2.2 ms per 1,000 px on the
@@ -479,6 +334,9 @@ static void areas_core(void)
     }
 }
 
+// T235: the Picture value of a resolution at 50 Hz on a PAL machine (the list is Auto and every row of the table, the machine's rate first within a resolution)
+static int pic_value50(int hdmi) { static const int v[VID_HDMI_COUNT] = { 1, 3, 5, 7, 8, 9 }; return v[hdmi]; }
+
 // T107 5.9, the A1200 (the core with picture modes of its own): the Settings page as the monitor gets it in 1080p, in 720p, and after the mode was
 // changed from the menu itself (720p -> 1080p with the menu up). The video service hands the layer's place to the port; the bench puts the canvas there.
 static void a1200_menu(const char *out)
@@ -499,10 +357,10 @@ static void a1200_menu(const char *out)
     ui_menu_render(*r.m);
     lv_timer_handler();
     struct { const char *name; int value; int fw, fh; } steps[] = {
-        { "1080", 1 + VID_HDMI_1080P, 1920, 1080 },
-        { "720", 1 + VID_HDMI_720P, 1280, 720 },
-        { "after-switch-1080", 1 + VID_HDMI_1080P, 1920, 1080 },
-        { "800x600", 1 + VID_HDMI_800x600, 800, 600 },
+        { "1080", pic_value50(VID_HDMI_1080P), 1920, 1080 },
+        { "720", pic_value50(VID_HDMI_720P), 1280, 720 },
+        { "after-switch-1080", pic_value50(VID_HDMI_1080P), 1920, 1080 },
+        { "800x600", pic_value50(VID_HDMI_800x600), 800, 600 },
     };
     for (unsigned i = 0; i < sizeof(steps) / sizeof(steps[0]); i++) {
         if (i > 0) {
@@ -586,22 +444,22 @@ static void a1200_menu(const char *out)
         }
         CHECK(found == 2);
     }
-    // T164 WP16: the Picture page of a core that is not the A1200, on a screen that names one PC mode (a monitor): the list is Auto and 1024 x 768,
-    // Scale and Smoothing are there for every frame-buffer core. The page as the monitor gets it in 1024 x 768.
+    // T164 WP16: the Picture page of a core that is not the A1200, on a screen that names one PC mode (a monitor): the list is Auto and every row of the table (T235; the PC mode is
+    // listed at 60 Hz only, the screen names 1024 x 768), Scale and Smoothing are there for every frame-buffer core. The page as the monitor gets it in 1024 x 768.
     {
         static CoreDesc nes_ext;
         PictureEnv pc = { (uint16_t)(1u << 10), 0, true, VID_SYS_PAL50 };
         nes_ext = *board_desc(&nes_desc, &pc);
         int pi = picture_index(&nes_ext), si = scale_index(&nes_ext), mi = smooth_index(&nes_ext);
         CHECK(pi >= 0 && si >= 0 && mi >= 0);
-        CHECK(nes_ext.settings[pi].nvalues == 2 && !strcmp(nes_ext.settings[pi].values[1], "1024 x 768"));
+        CHECK(nes_ext.settings[pi].nvalues == 10 && !strcmp(nes_ext.settings[pi].values[pic_value50(VID_HDMI_1024x768)], "1024 x 768 (60 Hz)"));
         Rig n(&nes_ext, "/usb0/cores/nes.cfg");
         n.c.started = true;
         n.c.program_loaded = true;
         ui_open(&nes_ext);
         picture_start(&n.c, VID_SYS_PAL50, VID_HDMI_1080P);
         n.vid->init();
-        n.st->set(pi, 1);
+        n.st->set(pi, pic_value50(VID_HDMI_1024x768));
         n.st->set(si, VID_SCALE_FIT);
         n.st->set(mi, 1);
         n.m->open();
@@ -708,6 +566,48 @@ static void rtc_menu(const char *out)
         PxRec::Pl g = r.px.place.empty() ? PxRec::Pl{ 0, 0, 960, 540 } : r.px.place.back();
         CHECK(view_bounds(name[k], 960, 540) == 0);
         char p[512]; snprintf(p, sizeof(p), "%s/%s-settings-rtc.png", out, name[k]);
+        png_out(p, 1920, 1080, g.x, g.y, g.w, g.h);
+    }
+}
+
+// T234: the Frame follow row of both Amiga cores on the F5 Video page (tab 2) next to Picture, Scale and Smoothing, selected, at the default Off
+static void follow_menu(const char *out)
+{
+    static CoreDesc d[2];
+    const CoreDesc *src[2] = { &amiga_desc, &amiga1200_desc };
+    const char *name[2] = { "a500", "a1200" };
+    for (int k = 0; k < 2; k++) {
+        PictureEnv env = { EDID_ROW_MASK, 0, true, VID_SYS_PAL50, false, false, true };
+        d[k] = *board_desc(src[k], &env);
+        char cfg[64]; snprintf(cfg, sizeof(cfg), "/usb0/cores/%s.cfg", k ? "amiga1200" : "amiga");
+        Rig r(&d[k], cfg);
+        r.c.started = true;
+        r.c.program_loaded = true;
+        ui_open(&d[k]);
+        picture_start(&r.c, VID_SYS_PAL50, VID_HDMI_1080P);
+        r.vid->init();
+        r.m->open();
+        r.m->key(KEY_F5);
+        r.m->key('2');
+        ui_menu_render(*r.m);
+        lv_timer_handler();
+        int row = -1, nvideo = 0;
+        for (int i = 0; i < r.m->rows(); i++) {
+            char l[120], rr[120], sb[160]; bool a;
+            r.m->row(i, l, sizeof(l), rr, sizeof(rr), &a, sb, sizeof(sb));
+            if (!strcmp(l, "Picture") || !strcmp(l, "Scale") || !strcmp(l, "Smoothing")) nvideo++;
+            if (!strcmp(l, "Frame follow")) { row = i; CHECK(!strncmp(rr, "Off", 3)); }
+        }
+        CHECK(row >= 0);
+        CHECK(nvideo == 3);                                                 // D5: the row stands with the other picture rows
+        if (row >= 0) select_row(r, row);
+        ui_menu_render(*r.m);
+        lv_timer_handler();
+        lv_obj_invalidate(lv_screen_active());
+        lv_timer_handler();
+        PxRec::Pl g = r.px.place.empty() ? PxRec::Pl{ 0, 0, 960, 540 } : r.px.place.back();
+        CHECK(view_bounds(name[k], 960, 540) == 0);
+        char p[512]; snprintf(p, sizeof(p), "%s/%s-settings-frame-follow.png", out, name[k]);
         png_out(p, 1920, 1080, g.x, g.y, g.w, g.h);
     }
 }
@@ -1206,7 +1106,7 @@ static void s1_state(const char *core, const char *cv, int area, int tab, Rig &r
     S1CHECK(p.drawn_h <= p.rows_bottom - p.rows_top, "%s %s area %d tab %d: sel %d: drawn rows %d px, room %d px", core, cv, area + 1, tab, sel, p.drawn_h, p.rows_bottom - p.rows_top);
     if (p.nrows < n) {
         S1CHECK(p.pos[0] != 0, "%s %s area %d tab %d: %d rows hidden and no position label", core, cv, area + 1, tab, n - p.nrows);
-        int pa = 0, pb = 0, pc = 0;                                             // the counter counts settings: rows hidden that are only headings leave "1-13 of 13"
+        int pa = 0, pb = 0, pc = 0;                                             // the counter counts settings and information lines: rows hidden that are only headings leave "1-13 of 13"
         bool whole = sscanf(p.pos, "%d-%d of %d", &pa, &pb, &pc) == 3 && pa == 1 && pb == pc;
         S1CHECK(whole || strstr(p.pos, "above") || strstr(p.pos, "below"), "%s %s area %d tab %d: position label \"%s\" does not say what is hidden", core, cv, area + 1, tab, p.pos);
         S1CHECK(p.pos_y2 <= p.rows_top, "%s %s area %d tab %d: position label ends at y %d, the first row starts at %d", core, cv, area + 1, tab, p.pos_y2, p.rows_top);
@@ -1310,7 +1210,7 @@ static void list_rules(const char *out)
 // record). (S4) F8 takes its first focus on a row that is neither a heading nor "Reset to host defaults", which is its last row. (P4b) after a value
 // changes in place, the value's middle is the label's middle.
 static const int FKEYS[8] = { KEY_F1, KEY_F2, KEY_F3, KEY_F4, KEY_F5, KEY_F6, KEY_F7, KEY_F8 };   // the key codes are not consecutive (keyboard.h)
-struct UxLoc { std::string label; int area; std::string group; };   // area: the number of its function key (F5 = 5)
+struct UxLoc { std::string label; int area; std::string group; std::string tab; };   // area: the number of its function key (F5 = 5)
 static int uxstor, uxdev, uxfails, uxcores, uxhot, uxcmp, uxskip, uxf8, uxvals;
 #define UXCHECK(c, ...) do { int f0_ = fails; CHECK(c); if (fails > f0_) { uxfails += fails - f0_; printf("  UX context: " __VA_ARGS__); printf("\n"); } } while (0)
 
@@ -1354,7 +1254,7 @@ static void ux_collect(const char *core, Rig &r, std::vector<UxLoc> *out, int *n
                     r.m->item(i, &it);
                     if (it.kind == MenuCtl::IK_HEADING) { g = it.title; continue; }
                     if (it.kind == MenuCtl::IK_VALUE || it.kind == MenuCtl::IK_INFO || !it.title[0]) { continue; }
-                    out->push_back({ it.title, ak + 1, g });
+                    out->push_back({ it.title, ak + 1, g, tn });
                     if (getenv("UXD_OFF")) { printf("  dbgc %s F%d \"%s\" / \"%s\" : %s\n", core, ak + 1, tn.c_str(), g.c_str(), it.title); }
                 }
                 continue;
@@ -1364,7 +1264,7 @@ static void ux_collect(const char *core, Rig &r, std::vector<UxLoc> *out, int *n
                 std::string l, v; bool act;
                 ux_rowtext(r, i, &l, &v, &act);
                 if (r.m->heading(i)) { group = l; continue; }
-                out->push_back({ l, ak + 1, group });
+                out->push_back({ l, ak + 1, group, tname });
                 if (hk_page_label(l) && tname == "Input") { (*hotkey_items_in_tab)++; (void)nhot_rows; }
                 if (v.size() >= 1 && v.back() == '>' && l == "Picture") {          // T187 D5: the Picture row opens the page of the modes (a pick stage, the tab stays); it is not a sub-page of the Hotkeys kind
                     r.m->open(); ui_menu_forget_rows();
@@ -1407,7 +1307,7 @@ static void ux_collect(const char *core, Rig &r, std::vector<UxLoc> *out, int *n
                         ux_rowtext(r, j, &pl, &pv, &pa);
                         if (r.m->heading(j)) { continue; }
                         cnt++;
-                        out->push_back({ pl, ak + 1, tname + " > " + pname });
+                        out->push_back({ pl, ak + 1, tname + " > " + pname, tname });
                     }
                     *page_rows = cnt;
                     r.m->key(KEY_ESCAPE);
@@ -1427,7 +1327,7 @@ static void ux_rules(void)
     PictureEnv env0 = { EDID_ROW_MASK, 0, true, VID_SYS_PAL50 };
     std::vector<UxLoc> ref;
     {
-        CoreDesc *rd = (CoreDesc *)trx64u::desc();                      // the C64's menu is its record (as the board loads it): no chain over it
+        CoreDesc *rd = (CoreDesc *)trx64u::desc();                      // the C64's menu is its record, laid over the application's own items as the board builds it (trx64u_menu.h): no chain over it
         Rig rr(rd, "/flash/trx64u/ux_ref.cfg", trx64u::merge());
         rr.c.started = true; rr.c.program_loaded = true;
         ui_open(&c64_desc);
@@ -1447,6 +1347,9 @@ static void ux_rules(void)
         uxcores++;
         bool has_hk = false;
         for (int i = 0; i < d->nsettings; i++) { if (!strcasecmp(d->settings[i].key, HK_KEY_MOD)) { has_hk = true; } }
+        const char *swap_key = d->hotkeys && d->hotkeys->swap_key ? d->hotkeys->swap_key : "Joystick ports";
+        bool has_swap = false;
+        for (int i = 0; i < d->nsettings; i++) { has_swap = has_swap || !strcasecmp(d->settings[i].key, swap_key); }
         std::vector<UxLoc> loc;
         int nh = 0, nopens = 0, prows = 0, hk_in_tab = 0;
         ux_collect(src->cor_name, r, &loc, &nh, &nopens, &prows, &hk_in_tab);
@@ -1454,6 +1357,9 @@ static void ux_rules(void)
         if (has_hk) {
             uxhot++;
             int hkwant = HK_NACT - 1 + 1 + (d->hotkeys && d->hotkeys->core_op ? 1 : 0);     // Modifier + the six common actions + the core's own
+            if (!has_swap) {
+                hkwant--;                                      // T228 R20: the swap hotkey only where the core has the setting it toggles
+            }
             UXCHECK(nopens == 1 && prows == hkwant, "%s: %d rows open a page, the page has %d rows (want 1 and %d)", src->cor_name, nopens, prows, hkwant);
             int ones = 0, items = 0;
             for (const UxLoc &u : loc) {
@@ -1471,11 +1377,13 @@ static void ux_rules(void)
             const UxLoc *a = 0, *b = 0;
             for (const UxLoc &u : loc) { if (u.label == lab) { a = &u; break; } }
             for (const UxLoc &u : ref) { if (u.label == lab) { b = &u; break; } }
+            if (!a && !has_swap && lab == "Swap joystick ports") {
+                continue;                                      // T228 R20: hidden on purpose where the core has no setting to swap
+            }
             UXCHECK(a != 0, "%s: the generic row \"%s\" is on no page", src->cor_name, lab.c_str());
             if (!a) { continue; }
             if (lab == "Persist medium mounts" || lab == "Enter home on startup" || lab == "Home directory" || lab == "Menu opens at") {
-                // T212 D1/D6: the storage and menu rows are the app's: F7 (APP), under the headings Storage / Menu, never the machine's F5. The C64's record is the firmware's
-                // (docs/contracts/trx64u-firmware-handover.md): it keeps them in Drive A (F5) and Expert (F8), so the C64 is not the yardstick for these four.
+                // T212 D1/D6: the storage and menu rows are the app's: F7 (APP), under the headings Storage / Menu, never the machine's F5; the C64's record has them there too (T228 D10).
                 uxstor++;
                 const MenuGroupRoute *sr = menu_route_of(d->settings[i]);
                 const UxLoc *sa = 0;
@@ -1485,17 +1393,16 @@ static void ux_rules(void)
                 for (const UxLoc &u : loc) { UXCHECK(!(u.label == lab && u.area == 5), "%s: \"%s\" is still in F5 group \"%s\"", src->cor_name, lab.c_str(), u.group.c_str()); }
                 continue;
             }
-            // the C64 has no row of these labels (its record is the firmware's, with its own Settings area F6 and Video/Audio/Input pages): the C64 fixes the tab, named for the
-            // route; since T205 D1 every other core lists the route's rows in F5 (the route's area), under the same tab name; the page's rows are in "<tab> > <page>"
+            // the route names the area and the tab of the row; every core lists the route's rows in F5 (the route's area), under the same tab name, the C64's record
+            // included (T228: its Video and Audio tabs are in F5 like the other cores'); the page's rows are in "<tab> > <page>"
             const MenuGroupRoute *rt = menu_route_of(d->settings[i]);
             int fk = atoi(rt->area + 1);
-            int fref = atoi((rt->alt_area ? rt->alt_area : rt->area) + 1);
             // T212 D12: a page of the app's area F7 is reached from the section "Settings" (the strip is hidden, the title stays): "Settings > <page>"
             std::string want = rt->page ? std::string("Settings > ") + rt->label : std::string(rt->heading);
             bool in_ref = false;
-            for (const UxLoc &u : ref) { if (u.area == fref && u.group == rt->heading) { in_ref = true; break; } }
-            // the machine's groups (F5: Video, Audio) have the C64's tab as their yardstick; the app's F7 is the generic app's own area, the C64's F7 is its Actions
-            if (fk == 5) { UXCHECK(in_ref, "the C64 has no F%d tab \"%s\"", fref, rt->heading); }
+            for (const UxLoc &u : ref) { if (u.area == fk && u.tab == rt->heading) { in_ref = true; break; } }
+            // the machine's groups (F5: Video, Audio) have the C64's tab as their yardstick (a tab of that title); the app's F7 is the generic app's own area
+            if (fk == 5) { UXCHECK(in_ref, "the C64 has no F%d tab \"%s\"", fk, rt->heading); }
             for (const UxLoc &u : loc) { if (u.label == lab && u.area == fk) { a = &u; break; } }   // a label that also stands on Home (Reset) is looked up in the route's own area
             uxcmp++;
             UXCHECK(a->area == fk && a->group == want, "%s: \"%s\" is in F%d group \"%s\", the place is F%d \"%s\"", src->cor_name, lab.c_str(), a->area, a->group.c_str(), fk, want.c_str());
@@ -1549,7 +1456,7 @@ static void ux_rules(void)
 // ---- T187 UX gate 1 (R2, R3, R5, R6): the chrome and the lists at every canvas ---------------------------------------------------------------
 // Every core, at 1080p, 720p and 480p: in each tab and page the legend fits the canvas (R2) and says BACK as every list does (R5); each rail item's label ends before its
 // key (R2); no heading is printed twice in a list (R3); no row of the Hotkeys page carries the page's name as a prefix (R6).
-static int ucn_f8, ucn_leg, ucn_rail, ucn_lists, ucn_pages, ucn_hk, ucn_cores, ucn_pcnames;
+static int ucn_strip, ucn_strip_skip, ucn_f8, ucn_leg, ucn_rail, ucn_lists, ucn_pages, ucn_hk, ucn_cores, ucn_pcnames;
 static bool g_pc_core;                                             // the core under test names the keys of the USB keyboard (HkSpec::pc_keys)
 static void ux_chrome_check(const char *core, const char *cv, Rig &r, const char *where, bool page)
 {
@@ -1562,6 +1469,17 @@ static void ux_chrome_check(const char *core, const char *cv, Rig &r, const char
         bool list = strstr(txt, "F1-F8 AREA") || strstr(txt, "CHOOSE");
         if (list) {
             UXCHECK(strstr(txt, "BACK") && !strstr(txt, "BACK TO") && (!page || strstr(txt, "ESC  BACK")), "%s %s %s: the way back is not worded \"BACK\": \"%s\"", core, cv, where, txt);
+        }
+    }
+    {
+        int right, room, nt;                                        // T228 DC12: a strip must end inside the canvas; only a strip of more than 4 tabs that overflows is exempt (7 tabs on F5 of trx64u below 960), and it is said
+        if (trx_strip_probe(&right, &room, &nt)) {
+            if (right > room && nt > 4) {
+                if (ucn_strip_skip++ == 0) { printf("note: %s %s %s: %d-tab strip ends at x %d, the canvas holds %d (DC12: skipped, first of its kind)\n", core, cv, where, nt, right, room); }
+            } else {
+                ucn_strip++;
+                UXCHECK(right <= room, "%s %s %s: the tab strip ends at x %d, the canvas holds %d", core, cv, where, right, room);
+            }
         }
     }
     for (int i = 0; i < 8; i++) {
@@ -1684,8 +1602,10 @@ static void ux_chrome(void)
         }
     }
     ui_set_canvas(960, 540);
-    printf("UX chrome: %d cores x 3 canvases, %d legends, %d rail items, %d lists, %d pages, %d page rows, %d key names of non-C64 cores, %d failed\n", ucn_cores / 3, ucn_leg, ucn_rail, ucn_lists, ucn_pages, ucn_hk, ucn_pcnames, uxfails);
-    CHECK(ucn_cores >= 3 * 18 && ucn_leg > 500 && ucn_rail > 1000 && ucn_pages >= 3 * 3 && ucn_hk > 30 && ucn_pcnames > 30);
+    printf("UX chrome: %d cores x 3 canvases, %d tab strips (%d skipped, DC12), %d legends, %d rail items, %d lists, %d pages, %d page rows, %d key names of non-C64 cores, %d failed\n", ucn_cores / 3, ucn_strip, ucn_strip_skip, ucn_leg, ucn_rail, ucn_lists, ucn_pages, ucn_hk, ucn_pcnames, uxfails);
+    // T228 R1, R5b, R6-R9: trx64u's walk has 16 views per canvas instead of 22 (12 tabs instead of 19 - no F2, no F4, F5 6 tabs, F7 and F8 one each -
+    // and 4 pages instead of 3: Picture, SID sockets, Hotkeys, Network settings): 18 legends fewer, 498 in all, so the floor is 480 (was 500)
+    CHECK(ucn_cores >= 3 * 18 && ucn_leg > 480 && ucn_rail > 1000 && ucn_pages >= 3 * 3 && ucn_strip > 300 && ucn_hk > 30 && ucn_pcnames > 30);
 }
 
 // ---- T187 UX gate 1 (R6): the WiFi row of F8 in the states the person can be in --------------------------------------------------------------
@@ -1900,7 +1820,7 @@ static void ux_shots(const char *out)
                                        { "F5-input", KEY_F5, "Input", 0 }, { "F8-system", KEY_F8, 0, 0 } }, 6 },
         { &atari800_desc, false, "atari", { { "F5-core-top", KEY_F5, 0, 0 } }, 1 },
         { &apple2_desc, false, "apple2", { { "F8-system", KEY_F8, 0, 0 } }, 1 },
-        { 0, true, "c64", { { "F5-drive-a", KEY_F5, "Drive A", 0 } }, 1 },
+        { 0, true, "c64", { { "F5-c64", KEY_F5, "C64", 0 } }, 1 },               // T228 R9: the Machine and Drive A settings are sections of the tab C64
     };
     for (const auto &cv : cvs) {
         TrxCanvas want = trx_canvas_for(cv.fw, cv.fh);
@@ -1925,6 +1845,253 @@ static void ux_shots(const char *out)
         }
     }
     ui_set_canvas(960, 540);
+}
+
+// ---- T228 area shots (the click dummy's pictures, Restart 2026-11-17): every area and every tab of the TRX64U menu (its record, the board's
+// chain: menu_build, descrec_apply, contrib_merge - trx64u::desc()) and of the A1200 (board_desc) as the reference, at 1080p (the 960 x 540 canvas, 2x) and 480p:
+// the top of each list and every further window when it is longer than its window (the last one "end"), the Library inside a folder with a file selected, and the pages the concept names (the drive list, Hotkeys, FTP
+// hosts), R5's SID pages and R6's Network settings and Streams. Files mock-<core>-<area>-<tab>-<state>-<canvas>.png and mock-MANIFEST.json in `out`; a MOCK line per picture and a ROW line per row of each list.
+struct MockShot { std::string file, core, area, area_label, tab_label, state, canvas; int tab_index; };
+static std::vector<MockShot> g_mock;
+static int mock_overlaps, mock_bounds;
+
+static std::string mock_slug(const char *s)
+{
+    std::string o;
+    for (const char *p = s; p && *p; p++) {
+        unsigned char ch = (unsigned char)*p;
+        if (isalnum(ch)) { o += (char)tolower(ch); } else if (!o.empty() && o.back() != '-') { o += '-'; }
+    }
+    while (!o.empty() && o.back() == '-') { o.pop_back(); }
+    return o.empty() ? std::string("tab") : o;
+}
+
+static std::string mock_json(const std::string &s)
+{
+    std::string o;
+    for (char ch : s) {
+        if (ch == '"' || ch == '\\') { o += '\\'; o += ch; } else if ((unsigned char)ch < 0x20) { char b[8]; snprintf(b, sizeof(b), "\\u%04x", ch); o += b; } else { o += ch; }
+    }
+    return o;
+}
+
+static void mock_rows(Rig &r, const char *tag)
+{
+    for (int i = 0; i < r.m->rows(); i++) {
+        std::string l, v; bool a;
+        ux_rowtext(r, i, &l, &v, &a);
+        printf("ROW %s %2d %s%s%s%s\n", tag, i, r.m->heading(i) ? "[H] " : "", l.c_str(), v.empty() ? "" : " | ", v.c_str());
+    }
+}
+
+static void mock_shot(Rig &r, const char *out, const char *core, const char *cv, int fw, int fh, int tab_index, const char *tab_label, const std::string &slug,
+                      const char *state)
+{
+    const MenuTree &tr = r.m->tree();
+    int a = r.m->area();
+    const char *key = a >= 0 && a < tr.nareas ? tr.a[a].key : "F?";
+    const char *alabel = a >= 0 && a < tr.nareas && tr.a[a].name ? tr.a[a].name : "";
+    char base[300], fn[800], what[340];
+    snprintf(base, sizeof(base), "mock-%s-%s-%s-%s-%s.png", core, key, slug.c_str(), state, cv);
+    snprintf(fn, sizeof(fn), "%s/%s", out, base);
+    snprintf(what, sizeof(what), "mock %s %s %s %s %s", core, key, slug.c_str(), state, cv);
+    ui_menu_render(*r.m);
+    lv_timer_handler();
+    lv_obj_invalidate(lv_screen_active());          // the whole page into the picture: fb is shared between the rigs and LVGL repaints only what changed
+    lv_timer_handler();
+    if (fw == 960) { png(fn, 2); } else { png_out(fn, fw, fh, 0, 0, fw, fh); }
+    mock_overlaps += txt_overlaps(what);
+    mock_bounds += view_bounds(what, fw, fh);
+    UiListProbe p;
+    bool lp = ui_list_probe(&p);
+    printf("MOCK %s %s %s tab %d \"%s\" %s: tab \"%s\", %d rows, window first %d, selected %d, paged %d\n", core, cv, key, tab_index, tab_label, state,
+           r.m->tab_name(), r.m->rows(), lp ? p.first : -1, r.m->selected(), r.m->paged() ? 1 : 0);
+    g_mock.push_back({ base, core, key, alabel, tab_label, state, cv, tab_index });
+}
+
+// The windows of a list longer than its window, after its first picture: KEY_DOWN moves the selection one row and the window follows it; a window is shot
+// when it has moved on to the last three rows of the one shot before, so no row is left out ("p2", "p3", ...), and the window with the last row is `endname`.
+// A list the probe does not read (a layout of its own) gets its end as KEY_END leaves it.
+static void mock_windows(Rig &r, const char *out, const char *core, const char *cv, int fw, int fh, int ti, const char *tl, const std::string &slug,
+                         const char *prefix, const char *endname)
+{
+    UiListProbe p;
+    if (!ui_list_probe(&p)) {
+        r.m->key(KEY_END);
+        mock_shot(r, out, core, cv, fw, fh, ti, tl, slug, endname);
+        return;
+    }
+    int shot_first = p.first, shot_n = p.nrows, cur = p.first, sel = r.m->selected(), n = 0;
+    bool end_shot = false;
+    for (int k = 0; k < 200; k++) {
+        r.m->key(KEY_DOWN);
+        ui_menu_render(*r.m); lv_timer_handler();
+        if (!ui_list_probe(&p)) { break; }
+        bool at_end = r.m->selected() == sel || r.m->selected() >= r.m->rows() - 1;
+        sel = r.m->selected();
+        cur = p.first;
+        if (at_end) {
+            if (cur != shot_first) { mock_shot(r, out, core, cv, fw, fh, ti, tl, slug, endname); end_shot = true; }
+            break;
+        }
+        if (cur >= shot_first + shot_n - 3) {
+            char st[32];
+            snprintf(st, sizeof(st), "%sp%d", prefix, n + 2);
+            mock_shot(r, out, core, cv, fw, fh, ti, tl, slug, st);
+            n++;
+            shot_first = cur;
+            shot_n = p.nrows;
+        }
+    }
+    if (!end_shot && n > 0) {                                       // the last window shot is the end: its file and its manifest entry say so
+        MockShot &s = g_mock.back();
+        char base[300];
+        snprintf(base, sizeof(base), "mock-%s-%s-%s-%s-%s.png", core, s.area.c_str(), slug.c_str(), endname, cv);
+        rename((std::string(out) + "/" + s.file).c_str(), (std::string(out) + "/" + base).c_str());
+        printf("MOCK renamed %s -> %s\n", s.file.c_str(), base);
+        s.file = base;
+        s.state = endname;
+    } else if (!end_shot) {
+        r.m->key(KEY_END);
+        mock_shot(r, out, core, cv, fw, fh, ti, tl, slug, endname);
+    }
+}
+
+static int mock_find_row(Rig &r, const char *label, bool prefix)
+{
+    for (int i = 0; i < r.m->rows(); i++) {
+        std::string l, v; bool a;
+        if (r.m->heading(i)) {
+            continue;                                          // a heading of the same name (F7 HOTKEYS) is not the row that opens the page
+        }
+        ux_rowtext(r, i, &l, &v, &a);
+        if (prefix ? !strncmp(l.c_str(), label, strlen(label)) : l == label) { return i; }
+    }
+    return -1;
+}
+
+static void mock_shots(const char *out)
+{
+    static const struct { const char *name; int fw, fh; } cvs[] = { { "1080p", 1920, 1080 }, { "480p", 640, 480 } };
+    struct File { const char *path; size_t n; };
+    struct Page { const char *area; const char *tab; const char *row; bool prefix; const char *slug; };
+    struct Job { const char *core; bool c64; const CoreDesc *src; File files[8]; int nfiles; Page pages[8]; int npages; const char *pick; };
+    static const Job jobs[] = {
+        { "trx64u", true, 0,                                                                   // T228 R6: F8 is the one System tab (id "expert"), its Network rows open three pages
+          { { "/usb0/games/Katakis.d64", 174848 }, { "/usb0/games/Elite.g64", 333744 }, { "/usb0/games/Turrican.crt", 65616 }, { "/usb0/games/Giana_Sisters.t64", 30000 },
+            { "/usb0/games/demo.prg", 2049 }, { "/usb0/games/session.c64re", 70000 }, { "/usb0/games/collection.zip", 40000 } }, 7,
+          { { "F1", "home", "Drive A", true, "drive-a" }, { "F5", "audio", "SID sockets", false, "sid-sockets" }, { "F5", "audio", "Emulated SIDs", false, "emulated-sids" },
+            { "F7", "settings", "Hotkeys", false, "hotkeys" }, { "F8", "expert", "Network settings", false, "network-settings" }, { "F8", "expert", "Streams", false, "streams" },
+            { "F8", "expert", "FTP hosts", false, "ftp-hosts" } }, 7, "Katakis" },
+        { "a1200", false, &amiga1200_desc,
+          { { "/usb0/games/Turrican_II.adf", 901120 }, { "/usb0/games/Lotus_III.adf", 901120 }, { "/usb0/games/Workbench.hdf", 1048576 }, { "/usb0/games/notes.txt", 100 } }, 4,
+          { { "F1", "home", "DF0", true, "df0" }, { "F7", "settings", "Hotkeys", false, "hotkeys" } }, 2, "Turrican" },
+    };
+    for (const auto &cv : cvs) {
+        TrxCanvas want = trx_canvas_for(cv.fw, cv.fh);
+        for (const Job &j : jobs) {
+            ui_set_canvas(want.w, want.h);
+            PictureEnv env = { EDID_ROW_MASK, 0, true, VID_SYS_PAL50 };
+            CoreDesc *d = j.c64 ? (CoreDesc *)trx64u::desc() : board_desc(j.src, &env);
+            char cfg[128];
+            snprintf(cfg, sizeof(cfg), "/usb0/cores/mock_%s_%s.cfg", j.core, cv.name);
+            Rig r(d, cfg, j.c64 ? trx64u::merge() : 0);
+            for (int f = 0; f < j.nfiles; f++) { r.fs.put_size(j.files[f].path, j.files[f].n); }
+            r.c.started = true;
+            r.c.program_loaded = true;
+            ui_open(j.c64 ? &c64_desc : d);
+            const MenuTree &tr = r.m->tree();
+            bool seen[MENU_AREAS_MAX][MENU_TABS_MAX] = {};
+            for (int ak = 0; ak < 8; ak++) {
+                char fk[4];
+                snprintf(fk, sizeof(fk), "F%d", ak + 1);
+                for (int tk = 0; tk <= 9; tk++) {
+                    r.m->open(); ui_menu_forget_rows();
+                    r.m->key(FKEYS[ak]);
+                    if (tk) { r.m->key('0' + tk); }
+                    int a = r.m->area(), b = r.m->tab();
+                    if (a < 0 || a >= tr.nareas || a >= MENU_AREAS_MAX || strcmp(tr.a[a].key, fk) || b < 0 || b >= tr.a[a].ntabs || tr.a[a].tabs[b].page || seen[a][b]) {
+                        continue;
+                    }
+                    seen[a][b] = true;
+                    ui_menu_render(*r.m); lv_timer_handler();
+                    const char *tl = tr.a[a].tabs[b].name ? tr.a[a].tabs[b].name : "";
+                    int ti = ui_shell_tab(*r.m) + 1;
+                    std::string slug = mock_slug(tl);
+                    char tag[96];
+                    snprintf(tag, sizeof(tag), "%s %s %s/%s", j.core, cv.name, fk, slug.c_str());
+                    mock_shot(r, out, j.core, cv.name, want.w, want.h, ti, tl, slug, "top");
+                    if (!strcmp(cv.name, "1080p")) { mock_rows(r, tag); }
+                    if (r.m->paged()) {
+                        mock_windows(r, out, j.core, cv.name, want.w, want.h, ti, tl, slug, "", "end");
+                    }
+                    auto back_to_tab = [&]() {
+                        r.m->open(); ui_menu_forget_rows();
+                        r.m->key(FKEYS[ak]);
+                        if (tk) { r.m->key('0' + tk); }
+                        ui_menu_render(*r.m); lv_timer_handler();
+                        return r.m->area() == a && r.m->tab() == b;
+                    };
+                    if (!strcmp(fk, "F3") && slug == "browse" && back_to_tab()) {             // the Library inside a folder: the media level first, then usb0, then games
+                        int u = mock_find_row(r, "usb0", true);
+                        if (u < 0) { u = mock_find_row(r, "USB", true); }
+                        if (u < 0) { u = 0; }
+                        select_row(r, u);
+                        r.m->key(KEY_RETURN);
+                        ui_menu_render(*r.m); lv_timer_handler();
+                        int g = find_dir_row(r, "games");
+                        if (g >= 0) { select_row(r, g); r.m->key(KEY_RETURN); ui_menu_render(*r.m); lv_timer_handler(); }
+                        int fr = mock_find_row(r, j.pick, true);
+                        if (fr >= 0) { select_row(r, fr); }
+                        printf("MOCK %s %s F3 folder: usb0 row %d, games row %d, %s row %d\n", j.core, cv.name, u, g, j.pick, fr);
+                        mock_shot(r, out, j.core, cv.name, want.w, want.h, ti, tl, slug, "folder");
+                        if (!strcmp(cv.name, "1080p")) { std::string t2 = std::string(tag) + "/folder"; mock_rows(r, t2.c_str()); }
+                    }
+                    for (int pi = 0; pi < j.npages; pi++) {
+                        const Page &pg = j.pages[pi];
+                        if (strcmp(pg.area, fk) || !tr.a[a].tabs[b].id || strcmp(pg.tab, tr.a[a].tabs[b].id) || !back_to_tab()) {
+                            continue;
+                        }
+                        int row = mock_find_row(r, pg.row, pg.prefix);
+                        if (row < 0) {
+                            printf("MOCK %s %s %s: no row \"%s\" on tab %s, no page picture\n", j.core, cv.name, fk, pg.row, pg.tab);
+                            CHECK(row >= 0);
+                            continue;
+                        }
+                        select_row(r, row);
+                        r.m->key(KEY_RETURN);
+                        ui_menu_render(*r.m); lv_timer_handler();
+                        int pa = r.m->area(), pt = r.m->tab();
+                        bool is_page = pa == a && pt >= 0 && pt < tr.a[pa].ntabs && tr.a[pa].tabs[pt].page;
+                        printf("MOCK %s %s %s: RETURN on \"%s\" (row %d) opens tab %d \"%s\"%s\n", j.core, cv.name, fk, pg.row, row, pt, r.m->tab_name(), is_page ? " (a page)" : " - NOT A PAGE");
+                        CHECK(is_page);
+                        const char *pl = r.m->tab_name() ? r.m->tab_name() : pg.row;
+                        mock_shot(r, out, j.core, cv.name, want.w, want.h, ti, pl, pg.slug, "page");
+                        if (!strcmp(cv.name, "1080p")) { std::string t2 = std::string(tag) + "/" + pg.slug; mock_rows(r, t2.c_str()); }
+                        if (r.m->paged()) {
+                            mock_windows(r, out, j.core, cv.name, want.w, want.h, ti, pl, pg.slug, "page-", "page-end");
+                        }
+                    }
+                }
+            }
+        }
+    }
+    ui_set_canvas(960, 540);
+    char mf[600];
+    snprintf(mf, sizeof(mf), "%s/mock-MANIFEST.json", out);
+    FILE *f = fopen(mf, "w");
+    if (f) {
+        fprintf(f, "[\n");
+        for (size_t i = 0; i < g_mock.size(); i++) {
+            const MockShot &s = g_mock[i];
+            fprintf(f, "  {\"file\": \"%s\", \"core\": \"%s\", \"area\": \"%s\", \"area_label\": \"%s\", \"tab_index\": %d, \"tab_label\": \"%s\", \"state\": \"%s\", \"canvas\": \"%s\"}%s\n",
+                    mock_json(s.file).c_str(), mock_json(s.core).c_str(), mock_json(s.area).c_str(), mock_json(s.area_label).c_str(), s.tab_index,
+                    mock_json(s.tab_label).c_str(), mock_json(s.state).c_str(), mock_json(s.canvas).c_str(), i + 1 < g_mock.size() ? "," : "");
+        }
+        fprintf(f, "]\n");
+        fclose(f);
+    }
+    printf("MOCK %zu pictures, %d text overlaps, %d objects outside or cut; manifest %s\n", g_mock.size(), mock_overlaps, mock_bounds, mf);
 }
 
 
@@ -1994,7 +2161,18 @@ static void pm_make_edid(uint8_t *e, int *len, const uint8_t *vics, int nv, unsi
         *len = 256;
     }
 }
-struct PmFx { const char *name; uint8_t vics[3]; int nv; unsigned pc; bool bad, none; int n; int list[6]; unsigned nat; int autohdmi; const char *info; };
+// T235: the page lists Auto and the 9 rows of the mode table (kPmRows, the machine's rate first within a resolution), whatever the screen names; the rows it names carry "*".
+// The mark is the app's own reading of the fixture's EDID (video_modes_offered, tested on its own terms in tests/coreapp/test_edid.cc); `nat` the native row, `info` the foot line.
+struct PmFx { const char *name; uint8_t vics[3]; int nv; unsigned pc; bool bad, none; unsigned nat; int autohdmi; const char *info; };
+static const int kPmRows[9] = { 0, 6, 1, 7, 2, 8, 9, 10, 11 };            // table rows of the list on a PAL machine, in the order of the Picture values 1..9
+static const char *pm_row_name(int row) { int h = row % 6; return h == VID_HDMI_480_576 ? (row >= 6 ? "480p" : "576p") : video_hdmi_name(h); }
+static int pm_row_hdmi(int row) { return row % 6; }
+static unsigned pm_row_dhz(int row)
+{
+    const EdidRow *er = edid_row(row);
+    uint64_t tot = (uint64_t)er->htotal * er->vtotal;
+    return (unsigned)(((uint64_t)er->pixel_hz * 10 + tot / 2) / tot);
+}
 static void pm_page_case(const char *out, const CoreDesc *src, const char *core, const PmFx &f)
 {
     // the canvas is the mode's: picture_start puts it up as the board does (576p 720 x 576, 720p 1280 x 720, 1080p 1920 x 1080)
@@ -2006,7 +2184,9 @@ static void pm_page_case(const char *out, const CoreDesc *src, const char *core,
     if (f.none) { memset(edid, 0, sizeof(edid)); } else { pm_make_edid(edid, &len, f.vics, f.nv, f.pc, f.bad); }
     EdidInfo ei;
     PictureEnv env = { video_modes_offered(edid, len), 0, true, VID_SYS_PAL50 };
-    env.native = len > 0 && edid_parse(edid, len, &ei) ? (uint16_t)(ei.native & env.mask) : 0;
+    bool edid_ok = len > 0 && edid_parse(edid, len, &ei);                // as picture_env_read: the flag "no or corrupt EDID" apart from the mask (T235 §5)
+    env.no_edid = !edid_ok;
+    env.native = edid_ok ? (uint16_t)(ei.native & env.mask) : 0;
     TrxCanvas want = trx_canvas_for(fw, fh);
     CoreDesc *d = board_desc(src, &env);
     snprintf(p, sizeof(p), "/usb0/cores/pmfx_%s_%s.cfg", core, f.name);
@@ -2030,50 +2210,48 @@ static void pm_page_case(const char *out, const CoreDesc *src, const char *core,
     r.m->key(KEY_RETURN);
     ui_menu_render(*r.m); lv_timer_handler();
     CHECK(std::string(r.m->title()) == "Picture" && r.m->selected() == 0);
-    CHECK(r.m->rows() == 1 + f.n);
-    CHECK(!strcmp(r.m->status(), f.info));                               // 6: the info line, as the spec words it
+    CHECK(r.m->rows() == 10);                                           // Auto and the 9 rows of the table
+    CHECK(!strcmp(r.m->status(), f.info));                               // 6: the foot line says what the mark means (or that the screen named nothing)
     char leg[120];
     r.m->footer_legend(leg, sizeof(leg));
     CHECK(strstr(leg, "RETURN  USE THIS MODE") && strstr(leg, "BROWSE"));  // the key bar
     CHECK(!r.m->toast_text()[0]);                                       // R2: no chip over the question that is not there yet
     int nnow = 0;
-    for (int i = 0; i < r.m->rows() && i <= f.n; i++) {                 // 1: Auto + the list in order; the table's refresh; native from the EDID; Auto is the choice: one "now" (T187 D9), on Auto's row
+    uint16_t pmask = env.mask;                                           // what the app lists: a mask that names nothing is the television rows, none named
+    bool pnone = env.no_edid;
+    { int tmp[VID_HDMI_COUNT]; if (video_modes_hdmi_list(pmask, VID_SYS_PAL50, tmp) == 0) { pmask = EDID_LIST_NONE; pnone = true; } }
+    int autorow = 0;
+    if (!video_modes_resolve(pmask, VID_SYS_PAL50, f.autohdmi, &autorow)) { autorow = f.autohdmi; }
+    for (int i = 0; i < r.m->rows() && i <= 9; i++) {                   // 1: Auto + the 9 rows in order; the rate of the row's own clock; "*" when the screen names it; native from the EDID; Auto is the choice: one "now" (T187 D9), on Auto's row
         std::string l, v; bool a;
         ux_rowtext(r, i, &l, &v, &a);
-        int hdmi = i == 0 ? f.autohdmi : f.list[i - 1];
-        if (i == 0) { CHECK(l.compare(0, 4, "Auto") == 0); } else { CHECK(l == video_hdmi_name(hdmi)); }
-        int rw = hdmi <= VID_HDMI_1080P ? hdmi : 6 + hdmi;
-        const EdidRow *er = edid_row(rw);
-        uint64_t tot = (uint64_t)er->htotal * er->vtotal;
-        unsigned dh = (unsigned)(((uint64_t)er->pixel_hz * 10 + tot / 2) / tot);
-        bool nat = (f.nat >> rw) & 1, now = i == 0;
+        int row = i == 0 ? autorow : kPmRows[i - 1];
+        if (i == 0) { CHECK(l.compare(0, 4, "Auto") == 0); } else { CHECK(l == pm_row_name(row)); }
+        unsigned dh = pm_row_dhz(row);
+        bool nat = (f.nat >> row) & 1, now = i == 0, named = i > 0 && !pnone && ((pmask >> row) & 1);
         char ex[64];
-        snprintf(ex, sizeof(ex), "%s%s%s%s%u.%u Hz", now ? "now" : "", now && nat ? " " : "", nat ? "native" : "", (now || nat) ? "   " : "", dh / 10, dh % 10);
+        snprintf(ex, sizeof(ex), "%s%s%s%s%s%s%u.%u Hz", now ? "now" : "", now && nat ? " " : "", nat ? "native" : "", (now || nat) && named ? " " : "", named ? "*" : "", (now || nat || named) ? "   " : "", dh / 10, dh % 10);
         UXCHECK(v == ex, "%s: row %d says \"%s\", expected \"%s\"", what, i, v.c_str(), ex);
         nnow += v.find("now") != std::string::npos;
     }
     CHECK(nnow == 1 && r.m->selected() == 0);                           // D9: one mark, on the chosen row (Auto); the cursor opened on it
-    for (int i = 0; i <= f.n; i++) {                                    // 2, 3: every cursor position: the page lies inside the canvas, nothing is cut
+    for (int i = 0; i <= 9; i++) {                                      // 2, 3: every cursor position: the page lies inside the canvas, nothing is cut
         select_row(r, i);
         char w2[200];
         snprintf(w2, sizeof(w2), "%s cursor %d", what, i);
         CHECK(view_bounds(w2, want.w, want.h) == 0);
     }
     select_row(r, 0);
-    for (int i = 0; i <= f.n; i++) { r.m->key(KEY_DOWN); }              // 4: browsing applies nothing
-    for (int i = 0; i <= f.n; i++) { r.m->key(KEY_UP); }
+    for (int i = 0; i <= 9; i++) { r.m->key(KEY_DOWN); }                // 4: browsing applies nothing
+    for (int i = 0; i <= 9; i++) { r.m->key(KEY_UP); }
     CHECK(g_pm_applies == 0 && !picture_confirm_pending() && r.st->value(picture_index(d)) == 0);
     ui_menu_render(*r.m); lv_timer_handler();
     lv_obj_invalidate(lv_screen_active()); lv_timer_handler();
     snprintf(p, sizeof(p), "%s/pm-%s-%s-%s.png", out, core, f.name, shell);
     { PxRec::Pl g = r.px.place.empty() ? PxRec::Pl{ 32, 114, 960, 540 } : r.px.place.back(); png_out(p, fw, fh, g.x, g.y, g.w, g.h); }
-    int trow = -1;
-    for (int i = 0; i < f.n; i++) { if (f.list[i] != f.autohdmi) { trow = i + 1; break; } }
-    if (trow < 0) {                                                     // one mode: RETURN on it (the mode in force) closes the page and applies nothing
-        r.m->key(KEY_DOWN); r.m->key(KEY_RETURN);
-        CHECK(std::string(r.m->title()) != "Picture" && g_pm_applies == 0 && !picture_confirm_pending());
-        return;
-    }
+    int trow = -1;                                                      // the first row that is not the mode in force (the screen may not name it: it is tried all the same, T235)
+    for (int i = 0; i < 9; i++) { if (kPmRows[i] != autorow) { trow = i + 1; break; } }
+    CHECK(trow > 0);
     select_row(r, trow);
     r.m->key(KEY_RETURN);                                               // 4: RETURN on a mode: one apply, the question pending
     CHECK(g_pm_applies == 1 && picture_confirm_pending());
@@ -2081,12 +2259,10 @@ static void pm_page_case(const char *out, const CoreDesc *src, const char *core,
     picture_confirm_names(nw, sizeof(nw), pv, sizeof(pv));
     char want_now[96], want_prev[96];
     {
-        int rn = f.list[trow - 1] <= VID_HDMI_1080P ? f.list[trow - 1] : 6 + f.list[trow - 1], rp = f.autohdmi;
-        const EdidRow *en = edid_row(rn), *ep = edid_row(rp);
-        uint64_t tn = (uint64_t)en->htotal * en->vtotal, tp = (uint64_t)ep->htotal * ep->vtotal;
-        unsigned dn = (unsigned)(((uint64_t)en->pixel_hz * 10 + tn / 2) / tn), dp = (unsigned)(((uint64_t)ep->pixel_hz * 10 + tp / 2) / tp);
-        snprintf(want_now, sizeof(want_now), "%s, %u.%u Hz", video_hdmi_name(f.list[trow - 1]), dn / 10, dn % 10);
-        snprintf(want_prev, sizeof(want_prev), "%s, %u.%u Hz", video_hdmi_name(f.autohdmi), dp / 10, dp % 10);
+        int rn = kPmRows[trow - 1], rp = autorow;
+        unsigned dn = pm_row_dhz(rn), dp = pm_row_dhz(rp);
+        snprintf(want_now, sizeof(want_now), "%s, %u.%u Hz", video_hdmi_name(pm_row_hdmi(rn)), dn / 10, dn % 10);
+        snprintf(want_prev, sizeof(want_prev), "%s, %u.%u Hz", video_hdmi_name(pm_row_hdmi(rp)), dp / 10, dp % 10);
     }
     CHECK(!strcmp(nw, want_now) && !strcmp(pv, want_prev));             // 5: the question names the new mode and the one that comes back
     ui_picture_question(8, nw, pv);
@@ -2114,11 +2290,11 @@ static void pm_page_case(const char *out, const CoreDesc *src, const char *core,
 static void pm_page_fixtures(const char *out)
 {
     static const PmFx fx[] = {
-        { "six",     { 17, 19, 159 }, 3, 7u, false, false, 6, { 0, 1, 2, 3, 4, 5 }, 1u << 2, 2, "Your screen offers 6 modes. The 60 Hz ones are listed too: the core runs at 50 Hz." },
-        { "four",    { 17, 159, 0 },  2, 3u, false, false, 4, { 0, 2, 3, 4 },       1u << 2, 2, "Your screen offers 4 modes. The 60 Hz ones are listed too: the core runs at 50 Hz." },
-        { "one",     { 147, 0, 0 },   1, 0u, false, false, 1, { 1 },                1u << 1, 1, "Your screen offers 1 mode. Nothing changes until you pick one." },
-        { "none",    { 0, 0, 0 },     0, 0u, false, true,  3, { 0, 1, 2 },          0,       0, "The screen did not name its modes; the standard TV modes are listed." },
-        { "corrupt", { 17, 19, 159 }, 3, 7u, true,  false, 3, { 0, 1, 2 },          0,       0, "The screen did not name its modes; the standard TV modes are listed." },
+        { "six",     { 17, 19, 159 }, 3, 7u, false, false, 1u << 2, 2, "* = the screen names this mode. Others may work: RETURN tries one and asks you to keep it." },
+        { "four",    { 17, 159, 0 },  2, 3u, false, false, 1u << 2, 2, "* = the screen names this mode. Others may work: RETURN tries one and asks you to keep it." },
+        { "one",     { 147, 0, 0 },   1, 0u, false, false, 1u << 1, 1, "* = the screen names this mode. Others may work: RETURN tries one and asks you to keep it." },
+        { "none",    { 0, 0, 0 },     0, 0u, false, true,  0,       0, "The screen did not name its modes. Every mode is listed; RETURN tries one." },
+        { "corrupt", { 17, 19, 159 }, 3, 7u, true,  false, 0,       0, "The screen did not name its modes. Every mode is listed; RETURN tries one." },
     };
     for (const PmFx &f : fx) {
         pm_page_case(out, &amiga1200_desc, "a1200", f);
@@ -2131,6 +2307,11 @@ int main(int argc, char **argv)
 {
     const char *out = argc > 1 ? argv[1] : "/tmp/coreapp-render";
     char p[512];
+    if (getenv("MOCK_ONLY")) {                                      // T228: only the area shots (mock_shots, the click dummy's pictures), without the rest of the bench
+        mock_shots(out);
+        printf("coreapp render (MOCK_ONLY): %d checks, %d failed\n", checks, fails);
+        return fails ? 1 : 0;
+    }
 
     CoreDesc *atari_main = board_desc(&atari800_desc);
     Rig r(atari_main, "/usb0/cores/atari800.cfg");
@@ -2624,6 +2805,7 @@ int main(int argc, char **argv)
     a1200_menu(out);
     modes_menu(out);
     rtc_menu(out);
+    follow_menu(out);
     modes_picture_row(out);
     ddt_menu(out);
     c128_kit_menu(out);
@@ -2639,6 +2821,7 @@ int main(int argc, char **argv)
     ux_longname();
     pm_page_fixtures(out);
     ux_wifi(out);
+    mock_shots(out);                                                // T228: the area shots of TRX64U and the A1200, last, so every check above runs as before
     printf("coreapp render: %d checks, %d failed\n", checks, fails);
     return fails ? 1 : 0;
 }

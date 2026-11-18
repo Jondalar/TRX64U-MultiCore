@@ -21,8 +21,8 @@
 #
 # T100 D9: ci/plan.py names what this push changed; a target the plan does not name comes from the cache (a miss is built and
 # marked), every Vivado run has the time limit of its kind, and a red target (host, core, aux design) does not stop the others.
-# bit-ue2 runs after `package`, only when asked for (ci/select.sh ue2: dispatch
-# with ue2 set, tag, release/* branch), and publishes its own files (_100t) into
+# bit-ue2 runs after `package`, only when asked for (ci/select.sh ue2: a dispatch
+# with ue2 set, since 2026-11-18 never a tag alone), and publishes its own files (_100t) into
 # the package versions `package` made. It cleans up the run's hand-over directory.
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
@@ -43,7 +43,7 @@ esac
 out="$(stage_dir "$stage")"
 
 if [ "$board" = ue2 ] && [ "$("$ROOT/ci/select.sh" ue2)" != yes ]; then
-  echo "bit-ue2 skipped: not asked for (dispatch with ue2, tag or release/* branch; ci/select.sh)"
+  echo "bit-ue2 skipped: not asked for (only a dispatch with ue2 asks; ci/select.sh)"
   rm -rf "${HANDOFF:?}"
   exit 0
 fi

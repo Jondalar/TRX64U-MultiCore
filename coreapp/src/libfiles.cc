@@ -14,7 +14,6 @@
 #include <strings.h>
 
 #define DEPTH 6
-#define ENTS 192
 #define CHUNK 0x10000
 
 enum { FJ_COPY = 0, FJ_MOVE = 1, FJ_DELETE = 2 };
@@ -22,8 +21,8 @@ enum { FJ_COPY = 0, FJ_MOVE = 1, FJ_DELETE = 2 };
 struct Frame {
     char src[FS_PATH_MAX];
     char dst[FS_PATH_MAX];
-    FsEntry *ents;
-    int n, i;
+    FsEntry *ents;                        // the folder's entries on the heap (ListGrow: as many as the folder has, bounded by a quarter of the free heap, counted when it cannot)
+    int cap, n, i;
     bool listed;
     bool remove_after;                    // delete / a move done as copy: the directory goes when its content is done
 };
@@ -107,7 +106,7 @@ static void job_free(void)
         return;
     }
     for (int i = 0; i < DEPTH; i++) {
-        delete[] g_job->fr[i].ents;
+        free(g_job->fr[i].ents);
     }
     free(g_job->srcs);
     delete g_job;
@@ -240,9 +239,6 @@ static void push_frame(CoreCtx *c, Job *j, const char *src, const char *dst, boo
     Frame &f = j->fr[j->depth++];
     snprintf(f.src, sizeof(f.src), "%s", src);
     snprintf(f.dst, sizeof(f.dst), "%s", dst);
-    if (!f.ents) {
-        f.ents = new FsEntry[ENTS];
-    }
     f.n = f.i = 0;
     f.listed = false;
     f.remove_after = remove_after;
@@ -333,12 +329,15 @@ static int job_step(CoreCtx *c, Job *j, char *msg, int msglen)
     if (j->depth) {                                         // an entry of the folder on top of the stack
         Frame &f = j->fr[j->depth - 1];
         if (!f.listed) {
-            int k = c->fs->list(f.src, f.ents, ENTS);
+            bool cut = false;
+            int k = ListGrow::read(c->fs, f.src, &f.ents, &f.cap, 0, &cut);
             f.n = k < 0 ? 0 : k;
             f.i = 0;
             f.listed = true;
             if (k < 0) {
                 note_error(j, "cannot read folder", f.src);
+            } else if (cut) {
+                note_error(j, "folder too large for the memory, the rest is not handled", f.src);
             }
             return 0;
         }

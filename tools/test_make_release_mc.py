@@ -146,6 +146,8 @@ def core_toml(path):
             out[m.group(1)] = m.group(2)
         if re.match(r'^flash_filler\s*=\s*true\b', line):
             out["flash_filler"] = True      # T123: the null core is no core a user starts: no .cor, no notes line
+        if re.match(r'^pipeline\s*=\s*false\b', line):
+            out["off"] = True               # T92 D-17e: out of the pipeline, shipped nowhere
         if re.match(r'^build_only\s*=\s*true\b', line):
             out["build_only"] = True        # T115: the reference core (c64ref) is built to route against, never shipped
     return out
@@ -158,11 +160,14 @@ class InstallNotesTest(unittest.TestCase):
     def setUpClass(cls):
         cls.d = tempfile.mkdtemp()
         cls.cores = []
+        cls.off = set()                              # T92 D-17e: pipeline = false, no .cor in a bundle; its table line in the notes stays (code stays)
         for t in sorted(os.listdir(os.path.join(ROOT, "cores"))):
             f = os.path.join(ROOT, "cores", t, "core.toml")
             if not os.path.exists(f):                # a large core (T115 7) has its descriptor under mono/
                 f = os.path.join(ROOT, "cores", t, "mono", "core.toml")
-            if os.path.exists(f) and not core_toml(f).get("flash_filler") and not core_toml(f).get("build_only"):
+            if os.path.exists(f) and core_toml(f).get("off"):
+                cls.off.add(core_toml(f)["id"])
+            elif os.path.exists(f) and not core_toml(f).get("flash_filler") and not core_toml(f).get("build_only"):
                 cls.cores.append(core_toml(f))
         cls.cord = os.path.join(cls.d, "bundle")
         os.makedirs(cls.cord)
@@ -188,7 +193,7 @@ class InstallNotesTest(unittest.TestCase):
         self.assertEqual(self.err, "", "a core without ROM notes warns on stderr")
 
     def test_every_repo_core_has_its_own_table_line(self):
-        self.assertEqual({x["id"] for x in N.CORES}, {c["id"] for c in self.cores})
+        self.assertEqual({x["id"] for x in N.CORES}, {c["id"] for c in self.cores} | self.off)
         for c in self.cores:
             self.assertIs(N.core_of(c["name"]), self.table_line(c), "core.toml name %r" % c["name"])
 

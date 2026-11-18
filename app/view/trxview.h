@@ -48,7 +48,7 @@ lv_obj_t *trx_txt(lv_obj_t *par, int x, int y, const char *s, const lv_font_t *f
 int trx_text_w(const char *s, const lv_font_t *f);
 
 // ---- the route (T104 5.8: a function key picks an area, a number key picks a visible tab) -------------
-#define TRX_TABS_MAX  6
+#define TRX_TABS_MAX  8
 #define TRX_AREAS_MAX 8
 
 struct TrxTab {
@@ -63,7 +63,6 @@ struct TrxArea {
     const char *title;
     const TrxTab *tabs;
     uint8_t ntabs;
-    bool shifted;                    // F2/F4/F6/F8 sit under the SHIFTED heading of the rail
 };
 
 struct TrxRoute {
@@ -105,6 +104,7 @@ void trx_shell_forget(void);
 
 int trx_content_w(void);
 int trx_content_h(void);
+bool trx_strip_probe(int *right, int *room, int *ntabs);                         // bench: where the last tab of the strip ends, the strip's width, the tab count (false: no strip)
 bool trx_nav_probe(int i, int *label_end, int *label_room, int *key_x);   // bench: the rail item i's label text end, the label's room, the key's x
 bool trx_foot_probe(char *txt, int n, int *text_w);                      // bench: the legend as drawn and its text's width
 
@@ -129,6 +129,9 @@ lv_obj_t *trx_reset_mark(lv_obj_t *par, int x, int y, uint32_t col, uint32_t bg)
 int trx_reset_mark_w(void);
 // T209: `s` cut in the middle ("start...end.ext") until it is at most `w` pixels wide in `font`; `buf` holds the result (s itself when it fits).
 const char *trx_fit_mid(const char *s, int w, const lv_font_t *font, char *buf, int n);
+// T228 R21, "Filename overflow squeeze" as TRX64-Ultimate (browsable_root.h:186-233): `quarter` 0 None (the name cut at the end, no mark), 1 Beginning, 2 Middle, 3 End: the
+// `quarter` -1: T209's trx_fit_mid. The kept characters are split quarter/4 before and the rest after a '~' that takes the first character of the tail. The most characters that fit `w` pixels are kept.
+const char *trx_fit_name(const char *s, int w, const lv_font_t *font, char *buf, int n, int quarter);
 
 // Select or deselect a row that already exists: its four selection strips and the value's colour,
 // nothing rebuilt. A key that only moves the selection must not redraw the pane (T104, board 2026-10-16:

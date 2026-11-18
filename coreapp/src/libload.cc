@@ -555,6 +555,9 @@ int LibLoader::load(LibSource *src, int *handle, char *err, int errlen)
             }
             continue;
         }
+        if (!strcmp(nd.name, PRG_APP_NEED) || !strcmp(nd.name, CART_APP_NEED)) {
+            continue;                                         // not a library: AppIndex decides where such an application is offered (libfmt.h)
+        }
         const Slot *dep = find(nd.name);
         if (!dep) {
             return fail(LIB_NEEDS, err, errlen, "\"%s\" needs \"%s\" %s, which is not loaded.", name, nd.name, vw);

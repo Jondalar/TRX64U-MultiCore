@@ -1,6 +1,6 @@
 # T201 — The diag core finds, with a tester's answers, the analog A/V settings that give a stable colour picture on his TV
 
-**Status:** v1 and v2 (D3, D4) BUILT and merged to main (`1e899f93d`, `5cc93edeb`, 2026-11-11); S1-S6 and S9-S11 proven (§5); Vivado run 1686 green (WNS +0.185 ns), `diag.cor` (sha256 df7aa4b8...) on the board SD; S7 and S8 (board, tester) open (2026-11-11, Alex: "do that for #59 please and open an issue", translated; issue #73). 2026-11-15 sync: status line rewritten; the D3c chroma-invert is dropped by D4; the "no Vivado run yet" sentences inside §5 are the state when written, run 1686 is the later line.
+**Status:** v1 and v2 (D3, D4) BUILT and merged to main (`1e899f93d`, `5cc93edeb`, 2026-11-11); S1-S6 and S9-S11 proven (§5); Vivado run 1686 green (WNS +0.185 ns), `diag.cor` (sha256 df7aa4b8...) on the board SD; S7 (board) closed as done 2026-11-18 (shipped and in use, §5); S8 (tester) open (2026-11-11, Alex: "do that for #59 please and open an issue", translated; issue #73). 2026-11-15 sync: status line rewritten; the D3c chroma-invert is dropped by D4; the "no Vivado run yet" sentences inside §5 are the state when written, run 1686 is the later line.
 **Repo:** TRX64U-MultiCore — `cores/diag/` (large core: a test picture generator and Y/C/CVBS encoder on the A/V balls, registers), the
 diag core app (`coreapp/cores/diag.cc` and its test runner: a live A/V page, a TOML test with questions, a result file), `tests/`.
 **Number:** T201 (registry: `TODO.md`).
@@ -158,3 +158,5 @@ Built 2026-11-11 on branch `t201-diag-av` (not pushed, no Vivado run yet: S7/S8 
 - 2026-11-11 D4: branch run 1686 green (Vivado 1688 large:diag `WNS mono diag: 0.185 ns`; cor 1691, diag.cor sha256 df7aa4b8...,
   3568185 bytes), put on the board SD as `/SD/cores/diag.cor` and read back byte-equal. Review fixes before the push: no question after ESC,
   v1 `avout.toml` in `cores/diag/superseded/`, 05D comment, the vsync block wraps past the frame end (`tb_avsync` 146 checks).
+
+**2026-11-18 - board steps closed as done (shipped and in use):** S7 (diag PAL bars on the TV) - Alex 2026-11-15: "Under A there is nothing I would not class as DONE! That has been in the builds for days/weeks, we had bugs and re-tests in part"; Alex 2026-11-18, shown these steps as open: "that is old stuff that has been running for ages, we had this already 3-4 days ago" and "tick it off in the TODOs/specs, otherwise it shows up again with some agent" (translated).

@@ -82,10 +82,11 @@ bool trx_lv_set_alpha(uint8_t alpha);
 // own picture). Off is the default; the key is written now when the layer is up, else with the first picture.
 void trx_lv_set_key(bool on, uint16_t rgb565);
 
-// T107 5.9, a core whose layer scales to an output size (PX_OSIZE): where the menu goes in the output, x/y of its top left and w/h of its size
-// in output pixels. Kept; written with the first picture of every menu opening (layer_up) and at once to a menu that is up (the layer goes
-// off for it and back on). Until it is called the layer is TRX_LV_SCALE times its source, centred in 1920 x 1080 (TRX_LV_X0 / TRX_LV_Y0). The
-// host's pix_layer has PX_OSIZE on every bitstream (T164 WP5), so the size is always written.
+// T107 5.9: where the menu goes in the output, x/y of its top left and w/h of its size in output pixels (a whole multiple of the canvas,
+// trx_canvas_for). Kept; written with the first picture of every menu opening (layer_up) and at once to a menu that is up (the layer goes
+// off for it and back on). Until it is called the layer is TRX_LV_SCALE times its source, centred in 1920 x 1080 (TRX_LV_X0 / TRX_LV_Y0).
+// T228: not every bitstream's pix_layer has PX_OSIZE. The MultiCore host's sizes by it and does not read PX_CTRL b5:4; TRX64-Ultimate's
+// (trx64u.cor) has none and scales by b5:4. So the size goes to PX_OSIZE and its whole factor over the canvas (trx_canvas_factor) to b5:4.
 void trx_lv_set_place(int x, int y, int w, int h);
 
 // T164 D10a: the canvas LVGL draws on, w x h pixels (at most TRX_LV_W wide and TRX_LV_W x TRX_LV_H pixels in all: 800 x 600 fits). 960 x 540 until it is called. It is the mode's own size

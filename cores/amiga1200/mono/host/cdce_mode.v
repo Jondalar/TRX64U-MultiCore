@@ -1,5 +1,5 @@
 // T164 WP7 (the host, all cores; from the A1200 large core, T107 D7): host/cdce_i2c.v with the PLL registers per HDMI mode instead of the two System Mode blobs. The same
-// sequence (block write of 8 bytes from register 0x14, sent twice); bytes 0x18..0x1B come from hdmi_modes.vh (tools/hdmi_modes.py host-gen: N, Q, R, P
+// sequence (block write of 8 bytes from register 0x14, sent twice); bytes 0x18..0x1B come from hdmi_modes_amiga.vh (tools/hdmi_modes.py host-gen: N, Q, R, P
 // and the VCO range bits for the TMDS clock of the mode, out of our 37.89 MHz reference). Mode 2 (1080p50) is byte for byte the old
 // 55/14 blob. `lock` = 1 (a C64-type core, whose frame must equal the VIC frame) takes hm_cdce_lock, `lock` = 0 (a frame-buffer core) hm_cdce.
 // `mode` and `lock` have to be steady from rst on; rst starts the sequence again (a mode change).
@@ -12,7 +12,7 @@ module cdce_mode (
     input  wire [3:0] mode,
     input  wire       lock
 );
-`include "hdmi_modes.vh"
+`include "hdmi_modes_amiga.vh"   // T234: a name of its own - Vivado runs in host/, where host/hdmi_modes.vh (no rows 12..14) would be found first
     wire [31:0] pll = lock ? hm_cdce_lock(mode) : hm_cdce(mode);
     localparam NBYTES = 11;
     function [7:0] byte_at; input [3:0] i;

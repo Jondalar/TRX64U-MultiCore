@@ -358,6 +358,10 @@ public:
     struct MxWr { uint8_t m[8]; uint32_t t; };
     std::vector<MxWr> mx_log;           // T206: every write of the application's keys in the core's matrix (matrix_keys), with the virtual time
     void matrix_keys(const uint8_t m[8]) { MxWr w; memcpy(w.m, m, 8); w.t = t; mx_log.push_back(w); }
+    struct JoyWr { int port; uint8_t v; };
+    std::vector<JoyWr> joy_log;         // T228 R10: every write of the host's joystick lines (joy_lines), in order, and the lines now (1 = pressed)
+    uint8_t joy[2] = {};
+    void joy_lines(int port, uint8_t v) { joy_log.push_back({port, v}); joy[port & 1] = v; }
     uint8_t kb[8] = {};                 // T181: the physical keys the bench holds down (bit = row of the column), and the RESTORE level
     bool kb_restore = false;
     bool keys_read(uint8_t m[8], bool *r) { memcpy(m, kb, 8); *r = kb_restore; return true; }

@@ -161,8 +161,9 @@ check "select.sh" bash -c '
   EXPECT=yes t ue2 GITHUB_REF_NAME=main GITHUB_EVENT_NAME=workflow_dispatch UE2_INPUT=true &&
   EXPECT=yes t ue2 GITHUB_REF_NAME=main GITHUB_EVENT_NAME=workflow_call UE2_INPUT=true &&
   EXPECT=no  t ue2 GITHUB_REF_NAME=main GITHUB_EVENT_NAME=workflow_call UE2_INPUT= &&
-  EXPECT=yes t ue2 GITHUB_REF_NAME=v1.0 GITHUB_REF_TYPE=tag GITHUB_EVENT_NAME=push &&
-  EXPECT=yes t ue2 GITHUB_REF_NAME=release/1 GITHUB_EVENT_NAME=push &&
+  EXPECT=no  t ue2 GITHUB_REF_NAME=v1.0 GITHUB_REF_TYPE=tag GITHUB_EVENT_NAME=push &&
+  EXPECT=no  t ue2 GITHUB_REF_NAME=release/1 GITHUB_EVENT_NAME=push &&
+  EXPECT=yes t ue2 GITHUB_REF_NAME=v1.0 GITHUB_REF_TYPE=tag GITHUB_EVENT_NAME=workflow_dispatch UE2_INPUT=true &&
   EXPECT=yes t update GITHUB_REF_NAME=integ-m1 &&
   EXPECT=yes t update GITHUB_REF_NAME=main &&
   EXPECT=yes t update GITHUB_REF_NAME=v1.0 GITHUB_REF_TYPE=tag &&

@@ -95,7 +95,7 @@ Alex's decisions (2026-11-15, translated from his request):
 - **D16** (Q9b, 2026-11-15): Refines D13 (Alex): the badge is a small purple icon beside the version: "L" for a large core, "P" for a partial (small) core; mock-up and ux-review before it is built.
 - **D17** (Q12, 2026-11-15): The `.txu` and the Gitea package carry the bundle version from `bundle.toml` (release `1.4.0`, test build `1.4.0-dev+<sha8>`); the part versions are inside (bundle.toml, .cor metadata).
 - **D18** (Q13, 2026-11-15): The generic core app counts its own version (follows from D6, its own deliverable).
-- **D19** (Q14, 2026-11-15): Besides the host gateware MAJOR check (D12), an update or core install of an older version warns and lets the user go on (downgrade allowed with a warning).
+- **D19** (Q14, 2026-11-15): Besides the host gateware MAJOR check (D12), an update or core install of an older version warns and lets the user go on (downgrade allowed with a warning). The core-install part is replaced by OPEN-5's answer (2026-11-18): no warning.
 
 Everything else is open, asked one at a time, answers recorded here when given.
 
@@ -120,10 +120,41 @@ Everything else is open, asked one at a time, answers recorded here when given.
 `x.y.z-dev+13c2cde9`, not promoted ("A"). After it, `main` moves reliably to SemVer releases: "danach stellen wir den Kram hier auf Main jetzt
 verlässlich auf Release per SemVer um, also das nächste Release wird eines mit Tag und reiner Versionsnummer, ohne diesen Branchkram dahinter"
 (the next release is a tag with a plain version number, no branch/sha suffix). The release promotes the board-tested bytes (only the version
-text changes; no rebuild, no second board test - Alex: "Das ist doch Ressourcenverschwendung"). Open for that step: `release_promote.py`
+text changes; no rebuild, no second board test - Alex: "Das ist doch Ressourcenverschwendung").
+**Release 0.2.0 (Alex 2026-11-18, translated: "I still have to test, that still has to happen, and you pack the package with the CI
+(WITHOUT the commit in the display)"):** the release is the CI build of the tag `v0.2.0` (`ci/version.sh` prints the plain version on a tag,
+the update stage builds the .cfw/.ue2 on `v*` tags); Alex tests that package on the board and the same files go to GitHub. For this release
+this replaces "promote, no second board test" above (the promote does not reach the app inside the .cfw/.ue2). Open for that step: `release_promote.py`
 promotes the .cor files and the app but not the app inside the update files (.cfw/.ue2), so `release_mc.sh`'s installer check fails; the
 promote step must cover every part. How (Alex 2026-11-16): "Sonst nimm die Gitea-Registry dafür, Artefakte einchecken per Pipeline-Step, und auschecken" - a release
 pipeline step checks the tested package out of the Gitea registry, promotes every part and checks the release package back in.
+Before 0.2.0 went to GitHub, every old GitHub release (5 pre-releases `trx64mc-*`) and tag (16) was deleted (Alex 2026-11-18,
+translated: "can you clear away all the old tags and releases on GitHub?"); links to them in issues and discussions now fail.
+The first tag runs of this pipeline (2446, 2449) went red: the CI tier's tests and then lint. Four lint tests (ci/test_version.sh,
+ci/test_plan.sh, tools/test_pack_import_cor.sh, ci/test_layers_flow.sh) took the tag run's GITHUB_REF_TYPE=tag into the branch
+scenarios they build themselves; they now unset the CI ref variables. tools/test_descrec.py expected the title-case labels of before
+T228's sentence case. All five checks pass under a tag's environment; v0.2.0 moved to the commit with the fix.
+The third tag run (2454) built the package and the update files green and showed two gaps. (1) The 100T host (child ue2, its first
+run ever, 2461) stopped in Vivado: `read_checkpoint -cell l2/c64` of the c64ref checkpoint finds no cell `l2/c64` in that design.
+Alex (2026-11-18, translated: "do that"): ue2 is out of tags and release/* branches, only a dispatch with ue2 builds it, until the
+100T is needed (no 100T board is released). (2) Alex (2026-11-18, translated: "Why is the update not called ...-0.2.0.txu?" - "With
+a tag it becomes the tag name, EVERYWHERE!"): on a tag the update files are named after the version, `trx64host_update_0.2.0.txu`,
+`.cfw` and `.ue2` (no date), the installer's title shows the id `0.2.0`, the release bundle is `trx64mc-0.2.0`; any other build keeps
+the commit (and the date on .cfw/.ue2). ci/lib.sh `file_id` makes the name, tools/check_bundle.py checks it (a release whose .txu
+carries the commit is red). tools/release_mc.sh takes a tag package as it is (it carries x.y.z: no promotion) and fetches
+trex_crt.u2a and softboot.u2a, which it asked for but did not download. v0.2.0 moved to this commit.
+The fourth tag run (2462, 554bbb67e) was green: 20 .cor with trx64u, the four apps, `trx64host_update_0.2.0.txu/.cfw/.ue2`. Its app
+images differ from the board-tested 892eec45 package only in the build time and the commit text (3 and 10 bytes). The bundle tools
+then needed fixes, which run on the Mac and need no new tag: tools/release_mc.sh now leaves the package's own .cor of a build_only
+core out too; tools/gen_roms_txt.py listed a build_only core's ROMs under a made-up folder; INSTALL.md
+(tools/release_notes_mc.py) said "for internal testers" and named commits, a release now names its tag. GitHub release 0.2.0 =
+`trx64mc-0.2.0` built by tools/release_mc.sh from package v0.2.0-554bbb67 with these fixes, GitHub tag `v0.2.0` (the tag name, as
+everywhere). The first upload left the SuperCPU core out (its `build_only = true` of 2026-11-05, "until the 65816 runs"); that flag
+was stale. Alex (2026-11-18, translated: "Where did the SuperCPU core go???!" - "yes please"): the core ships. build_only is out of
+cores/c64scpu/mono/core.toml (its flat build is built once more on the next push: the descriptor is part of its key), and the release
+got the tag package's c64scpu.cor (0.1.0), INSTALL.md, ROMS.txt (now with `cores/c64scpu/roms/`), SHA256SUMS and the zip again.
+tools/release_notes_mc.py gained the core's ROM line, paragraph and media line (without them INSTALL.md said "no ROM notes" for it;
+the review before the push found it); manual 11.20.2 said "no .prg action", the core has Load and Load + run since T217.
 
 ## §4 Out
 
@@ -195,7 +226,8 @@ a release build's short strings fit), and a large core's test version is cut to 
   `-dev+<sha8>` is added by the MultiCore packer on a test build." Needs the other repo's side.
 - **OPEN-4 (D16).** BUILT 2026-11-16 as mock-up t1b (T223 D7 §5: purple square right of the version, L/P; pictogram position switchable, default t1b). Older text: not built; until then a large core is no longer marked in the list (the version replaces
   "full firmware"). Mock-ups: `scratchpad/t221/badge-*.png`.
-- **OPEN-5 (D19).** "Core install of an older version warns": the host has no install step for a `.cor` (it is copied by hand and added with A). Only the `.txu` update warns. Where the
+- **OPEN-5 (D19): answered 2026-11-18 (Alex, translated: "No warning, just do it"):** a `.cor` of an older version is copied and added (A) like
+  any other, without a warning; nothing to build. The `.txu` update keeps its warning (D19). Older text: "Core install of an older version warns": the host has no install step for a `.cor` (it is copied by hand and added with A). Only the `.txu` update warns. Where the
   core warning belongs (adding an entry whose id is already in the menu with a newer version?) is not said.
 - **OPEN-6 (D17): answered 2026-11-16 (Alex, "yes ok then", after asking whether a later move of lint and tests to GitHub with builds here by hook is hindered - it is not, the commit is the same on both):** Gitea package coordinates stay branch-sha. Older text: Gitea package coordinates stay branch-sha (see B3); changing them to the SemVer string touches `ci/lib.sh` publish/fetch and the update stage.
 - **OPEN-7.** `bundle.toml` carries only the bundle version; the part versions are written into `manifest.json` `parts` at package time (a hand-kept list would be a second copy).

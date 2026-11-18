@@ -9,7 +9,8 @@ contract     = 2
 app          = "blueprint"     # the T104 generic application with the C64SCPU descriptor (coreapp/cores/c64scpu.cc, T182 step 8): the .cfw's application is coreapp.bin of stage trxapps
 delivery     = "cfw"           # no partial, no .cor: ci/bitstream_mono.sh builds the full bitstream, tools/pack_cfw_mc.sh makes c64scpu.cfw
 order        = 15
-build_only   = true            # Alex 2026-11-05 ("yes, I want to see it locally"): in the Gitea package for the board, never in a release or the bug form, until the 65816 runs
+# build_only (Alex 2026-11-05: in the Gitea package for the board, never in a release, "until the 65816 runs") is gone since 2026-11-18:
+# the core runs and ships in release 0.2.0 (Alex, translated: "Where did the SuperCPU core go???!" - "yes please")
 experimental = true            # since T100 D9.6 a failed flat build turns the run red too (T94 D8's exemption is gone); the flag keeps the bench rows soft
 # All of cores/c64scpu (the area trial in cores/c64scpu/trial left out: it is no input of the build) plus what the core's sources read in place:
 # the c64u source tree (no descriptor, never built), icepi, the 1541's drive LEDs.

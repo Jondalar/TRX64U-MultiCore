@@ -1,6 +1,7 @@
 # T228 — trx64u runs the generic core menu (the structure of the other cores), not its own trx64u menu
 
-**Status:** IN PROGRESS (2026-11-16 night, S2 on branch t228-s2; spec 2026-11-15, Alex).
+**Status:** IN PROGRESS - integration, gate (review + ux-review PASS), gate fixes and D19 done on branch t228-int (2026-11-18, not
+merged; §5 "Integration", "Gate", "Gate fixes and D19", "After the gate"); open: the row audit (S2b's first finding), then S2b again (D6) and S3 on the board. Before that: THE UI FIRST (2026-11-17, Alex); building R1-R10 since Alex's "go, I want to get it all finished" (2026-11-17, translated): the menu's place on trx64u's layer (the scale bits), R8, then the menu. Alex 2026-11-17 on the build loop (translated): "you do not build RISC-V with all tests every time, please ... really" - steps in between are checked in the menu simulator (T236) on the Mac only; the RISC-V build and the tests run once, before the merge; not on the NAS (Alex: "not on the NAS, it takes 3-5 times as long there" ... "only when I ask for it", translated): a build that is needed waits for the builder. trx64u is deactivated in the package, not deleted: `PIPELINE=false` in `release/imports/trx64u.pin` keeps it out of the release and out of the packing (ci/package.sh) until the menu is fixed. Alex (translated): "trx64u is out of the release from now on, and it is no longer built", "I do not want to load the pipeline", then "only deactivate! do not delete .. first we fix the UI, then we build the core again". Why: the S2 result in ue2emu missed the goal - the menu is drawn unscaled in the top-left part of the screen (the step pictures were cropped to 960x540 and hid it), and Home still carries the Ultimate machine commands instead of the generic core menu the other cores have. Branch t228-s2 (1debb69b3) stays unmerged, backed up as refs/backup/t228-s2. Board and docs unchanged (Claude deleted /SD/cores/trx64u.cor unasked and put back the file of package main-13c2cde9 the same hour). Earlier: IN PROGRESS (2026-11-16 night, S2 on branch t228-s2; spec 2026-11-15, Alex).
 **Repo:** TRX64U-MultiCore — core app (`coreapp/cores/trx64u/menu.toml`, `coreapp/cores/trx64u*`), the import pin
 `release/imports/trx64u.pin` (DESC/OPS). No gateware (the bitstream stays TRX64-Ultimate's).
 **Number:** T228.
@@ -277,7 +278,7 @@ overlay was fitted from a 1280x800 manual picture, so its scale on the real 960x
   settings and its mounted media the same way the generic cores do (same mechanism, same "Persist mounts" behaviour); S2 must build it.
 - D11 (Alex 2026-11-15, Q5, translated: "we do not save to flash! and nothing is erased in flash there either!!! Reset to host
   defaults is the right one"): F8 > Reset has "Reset to host defaults" only, no "Clear flash config" row. The menu writes and erases
-  nothing in flash; settings are not stored in flash.
+  nothing in flash; settings are not stored in flash (under the MultiCore host; a standalone install may keep a flash cfg, DC13).
 - D12 (Alex 2026-11-15, Q6a, after mock-ups q06a-c): "Keys and help" is a row in F8 > Support in every core (generic), beside
   Bug report and About.
 - D13 (Alex 2026-11-15, Q7a, after mock-ups q07a/b): the Timewarp ring and Instruction trace switches go to F5 C64 > tab "TRX64",
@@ -293,25 +294,122 @@ overlay was fitted from a 1280x800 manual picture, so its scale on the real 960x
 - D17 (Alex 2026-11-15, Q12a, translated: "a .. and CURSOR RIGHT does the same as elsewhere in the file system, it goes in. So in
   folders AND zips"): Unzip is in the Library menu of the .zip (RETURN). CURSOR RIGHT enters a .zip like a folder (browse its
   contents), the same key that enters a folder.
+  - Moved to T202 (Alex 2026-11-17, asked with three options: D17 to T202 / build zip reading in T228 / settle T202 first: "D17 zu T202"):
+    the core Library has no zip reading at all (only the Unzip app, which unpacks a whole archive). T228 is finished and merged without
+    D17; browsing a .zip is built once, generically, for the host F3 and the core Library in T202.
 - D18 (Alex 2026-11-15, Q14a, after mock-ups q14a/a2/b): F8 Network is one tab with sections (WiFi/Ethernet, Services, Streams
   per D7); "FTP hosts" is one row that opens a page with the hosts (BACK returns).
+- D19 (Alex 2026-11-17, translated: "a task for later: the documentation must be updated then, both its content and the pictures"): after S2,
+  the manual pages that show the core menu get new text and new ue2emu pictures of the built menu (docs/manual, e.g. 11-cores.md and its
+  `img/core-*.png`). Part of T228, before it counts as done.
 - Q11 needs no answer: D7 decided it. Q13 is settled by D14.
 - All S1 questions Q1-Q14 are answered (D1-D18). Next: T212 merges (D2), then S2 is built, then Alex tests in ue2emu (D6).
 
+### Restart 2026-11-17: the generic app 100 %, the TRX64 extras fitted in (Alex)
+Alex 2026-11-17 (translated): "I want you to apply the generic APP 100 % to the TRX64U first. And then we fit the 'remaining' functions into the categories and the layout. Not the other way round. Make a concept." Concept page (discussion, not decided as a whole): (internal page) Rules it applies: T205 D1, T212 D1-D17.
+- **R1 (Alex 2026-11-17, Q1, shown three pictures):** "F1 + Hotkey": the generic layout has no F2 and no F4; Timewarp and Monitor are each opened by one F1 row under the two reset rows ("Timewarp...", "Monitor...") and by a hotkey on F7 > Hotkeys. Rail: HOME F1, LIBRARY F3, C64 F5, APP F7, SYSTEM F8.
+- Alex 2026-11-17: "and now make mocks with LVGL for every category + tab and put them on the page, a click dummy" (translated).
+- **R2 (Alex 2026-11-17, Q2):** "to F8 as 'restart core'" (translated): "Reboot, clear memory" is no row of its own; on F8 it is the generic "Restart core" row under Actions.
+- **R3 (Alex 2026-11-17, Q3):** "Save REU memory -> OUT; Save C64 memory -> out, for that we have the .c64re with the Save" (translated): both rows leave the menu; the C64's memory is saved with the .c64re state save.
+- **R2b (Alex 2026-11-17):** "Pause / resume" (`machine.pause_toggle`, from Gideon's "C64 Machine > Pause / Resume") leaves the menu: "Raus" ("out"). The Timewarp overlay (the ring UI) stays as it is today.
+- **R4 (Alex 2026-11-17, Q4, shown three pictures):** "one tab C64": F5 C64 has one core tab "C64" with headings (Machine, Drive A, Drive extras, TRX64, Recording, Expansion, Hardware), then Video, Audio, Input - as every core (T205 D1).
+- **R5 (Alex 2026-11-17, Q5):** "in the Audio tab, but as a group to fold open" (translated): the SID rows (SID sockets, Emulated SIDs) move into F5 > Audio as a group that opens. The generic menu has no fold-open group today (only rows that open a page, e.g. Hotkeys >); how it is built is asked next.
+  - **R5b (Alex 2026-11-17, shown two pictures):** "page like Hotkeys >": two rows at the end of F5 > Audio, "SID sockets >" and "Emulated SIDs >", each opening a page with today's rows of that group (the existing page pattern, no new menu code).
+- **R6 (Alex 2026-11-17, Q6, shown three pictures):** "F8 System, pages": F8 keeps one tab "System" like every core; under the heading Network stand WiFi and rows that open a page each: "Network settings >" (DHCP, IP, host name, services, time), "Streams >" (VIC, audio, debug) and "FTP hosts >" (D18).
+- **R7 (Alex 2026-11-17, Q7, shown three pictures):** "out": the Device rows (Power on after power loss, Wake on Wi-Fi, LED select top/bottom, Color scheme - Ultimate firmware settings via `u64.fx_power` / `ui.fx`) leave the trx64u menu; F8 has no Device tab.
+- **R8 (Alex 2026-11-17, Q8, "we have Bug report in F8 normally" ... "yes", translated):** the Diagnostics rows (Debug log, Clear/Save debug log, Heap, Screen EDID, Save EDID, Debug register) leave the trx64u menu; the generic F8 "Bug report" (`coreapp/src/corereport.cc`, already: versions, configuration, media, the core's registers, the log) also writes the heap and the screen's EDID - for every core.
+- **R9 (Alex 2026-11-17, feedback on the click dummy; replaces R4's single core tab):** "F5 (C64): tab 1 is too much. Split TRX64 + Recording into an extra tab 'TRX' and the cartridge section to 'Expansion'", then, shown two pictures, "own tab Expansion" (translated): F5 C64 = tabs C64 | TRX | EXPANSION | VIDEO | AUDIO | INPUT. C64: Machine, Drive A, Drive extras, Hardware (DMA ID, bus mode, badline, SuperCPU detect). TRX: TRX64 (Freeze mode, Turbo control, CPU speed) and Recording (Timewarp ring, Instruction trace, Save frame, Save the ring). EXPANSION: Cartridge (preference, save changed cartridge, GAME/EXROM, bus sharing ROMs/I/O1/I/O2/interrupts), REU (on, size, preload, image, offset), Ultimate audio, UCI.
+- **R10 (Alex 2026-11-17, click dummy F5 > Input):** "can we build in the USB gamepad logic here like on the Amiga? So that a pad via USB or controller can be used as a joystick, in port 1 or 2" (translated): F5 > Input gets a USB pad/controller as joystick, port 1 or 2. Notes: this is the generic pad service of T156 (`coreapp/src/pad.h`, `pad.cc`, `padwiz.cc`): a core declares a `PadSpec` (the register of each player, its button names, the default map) and gets USB pads and "Map buttons"; NES, SNES, Neo Geo, PET (T216) and the Amiga (T225) use it. Alex 2026-11-17: "SNES, NES and NeoGeo use that too?" - yes. For trx64u the same declaration; Read 2026-11-17: the TRX64-Ultimate gateware has it - `designs/c64_basic/ultimate_sys.vhd` (T38), I/O page 3, offset 0x30 = port 1, 0x31 = port 2, bits 4:0 up, down, left, right, fire written active low (inverted into `app_joy1`/`app_joy2`, OR-ed with the physical ports in `app_input.v`): no gateware change, the app writes them (WASD through `u64.fx_misc` stays as it is).
+- **R11 (Alex 2026-11-17, shown three foot lines):** "new, short": the foot of a core menu list (every core, T212 D16) reads "UP/DOWN CHOOSE   RETURN DO IT   ESC BACK" plus the core's letters and "+/- PAGE"; no "F1-F8 AREA" and no "1-N TAB" (the rail and the tab strip show them).
+- **R12 (Alex 2026-11-17, shown three pictures):** "leave the button out": Home draws the "F3 Library" button only where its rows leave room (the A1200 at 480p has none); the key F3 still opens the Library.
+- **R13 (Alex 2026-11-17, shown two pictures):** "leave the hint out": F3 Search keeps its field on one line; where it does not fit (480p) the idle hint gives way, the status line still says how to type; 1080p unchanged.
+- **R14 (Alex 2026-11-17, asked about the heading over the SID page rows):** "in the Audio menu it should be called reDIP:SID ... when it is about the interface functions between DE00 and DFFF (UltiSID on/off), then still UltiSID" (translated): F5 > Audio's heading over "SID sockets >" and "Emulated SIDs >" reads "reDIP:SID"; rows about the UltiSID's I/O interface ($DE00-$DFFF) keep the name UltiSID.
+- **R15 (Alex 2026-11-17, shown three pictures):** F5 > Expansion's last block (Ultimate audio, UCI) stands under the heading "ULTIMATE".
+- **R16 (Alex 2026-11-17, shown three pictures):** R1's hotkeys default to CTRL+T (Timewarp) and CTRL+O (Monitor, as trx64g's C= O); both can be learned anew on F7 > Hotkeys.
+- **R17 (Alex 2026-11-17, R2 follow-up, "yes, clear the RAM"):** F8 "Restart core" restarts trx64u with the C64's RAM cleared, as the removed "Reboot, clear memory" did (`machine.clear_reboot` with `ram_memonly`); generic: a core declares in its TOML whether a restart clears its RAM.
+- **R18 (Alex 2026-11-18, shown the heading in capitals and in the brand spelling, pictures question-redip-A-caps / -B-brand):** "reDIP, so branding please" (translated): F5 > Audio's heading reads "reDIP:SID"; a brand keeps its spelling inside the capitals of headings, tabs and chips (R14 stands).
+- **R19 (Alex 2026-11-18, asked whether F8 "Power cycle" is a real power cycle and what "Return to host" does):** "To keep it consistent with MultiCore it should be called 'Return to host' for a build with MultiCore" (translated). Facts given to him: "Power cycle" sends the ESP32 control module `CMD_MACHINE_REBOOT` (the board goes off and on, the FPGA then loads the host from flash 0); the other cores' "Return to host menu" is an ICAP IPROG with the T135 D3 return marker in the hand-over page (power stays on, the host shows its menu and does not start its default core); trx64u's bitstream has no ICAP. Asked whether the name alone is enough (after a power cycle no marker survives, so a host with direct boot starts its default core) or the way back must end in the host menu like the other cores', Alex the same morning: "return to host vs power cycle: leave it as it is for now" (translated): F8 keeps "Power cycle" and "Power off" under every host; no rename, nothing built for R19 now.
+- **R20 (Alex 2026-11-18, after the row audit and TRX64-Ultimate's answer, `docs/ui/trx64u-row-audit-2026-11-18.md`):** "unser Menu darf nur
+  zeigen was der Code kann" and, for the rows our app gets wrong, "reparieren. das muss ja funktionieren wenn es da steht" (translated:
+  "our menu may only show what the code can do"; "repair. It has to work if it is there"). What the bitstream cannot do leaves the
+  menu (values, rows; TOML); what our app gets wrong is repaired; TRX64-Ultimate changes nothing. D24 exception (same decision): the
+  repairs may grow trx64u's own files (`coreapp/cores/c64.cc`, `c64_cart.cc`, `cbm1541.cc`, `coreapp/src/trx64u_ops.cc`, `u64cfg.cc`,
+  `ring.cc`, `ringfile.cc`, `ringops.cc`), one ledger exception line each ("T228 R20"); the code of the 49 removed rows goes at the same
+  time. Per row of the audit's PARTIAL list:
+  - Out, the bitstream cannot: 30 and 33 the value Both (33 also External), 34 GeoRAM Mode, 35 16 MB, 36 PAL-60/L and NTSC-50/L, 44-45
+    $DE00-$DFE0, 46 Joystick input with the J hotkey, 51 Board; 31-32 bus sharing only with preference Manual; 47 (no keyboard mask in
+    the bitstream: the C64 also sees a hotkey's keys) said in the manual.
+  - Labels: 52-56 Ethernet; 58 the password is the FTP login; 50 Keys and help without C= R/Z/B/K and the power-on line, with CTRL+R.
+  - Repaired: 1/7 the program name cleared at every reset; 2 the REU in the machine line only when it is on; 3 Reload ROMs puts the
+    chosen ROM files back; 22-24 and 26 a ROM row takes effect at once, also back to built-in and 1541.rom; 6 the REU back after an
+    eject; 20 Set as 1541 ROM stores the choice; 25 Reset drive with C64 = No works (drive register b1); 29 SLOT_CTRL b1 written
+    (writes to a real cartridge); 4, 5, 27 Timewarp refused and the ring stopped while the REU is on, restarted after turbo (A08); 28
+    Save frame writes the real model and the cartridge and drive sections; 37-41 the picture follows a System mode change; 38 Auto
+    picks from the EDID; 42-43 the socket SID type detected (6581 voltage); 57 the mDNS name follows the host name; 8-19 the file
+    actions only where they work and without the 192-entry cut (/flash: Alex's answer pending).
+  - Kept: 21 (an unsupported cartridge type is refused, the message names it).
+- **R21 (Alex 2026-11-18, asked whether trx64u may write /flash "as TRX64-Ultimate does"):** "trx64-Ultimate ist eine firmware, die
+  NICHT uns gehört. DU wolltest das UI nicht in das Repo geben sondern hier bauen, weil wir noch nicht soweit dass da UI abstrahiert
+  sind. TOUGH LUCK! jetzt bau das UI so, dass es den vollen Umfang von TRX64-Ultimate schön, sauber und richtig darstellt und die
+  Dinge auch so funktionieren" (translated: "TRX64-Ultimate is a firmware that does NOT belong to us. YOU did not want to put the UI
+  into that repository but to build it here, because the UI is not abstracted there yet. TOUGH LUCK! Now build the UI so that it
+  shows the full scope of TRX64-Ultimate nicely, cleanly and correctly, and the things also work that way"). The rule for trx64u:
+  everything TRX64-Ultimate's firmware does on its bitstream is in the menu and works the same way; what does not work there either
+  (the bitstream cannot) stays out; TRX64-Ultimate's behaviour is taken over, never asked again. So: /flash is writable as there
+  (rows 8-19, 20 copies to /flash/roms); the removed rows whose function works in TRX64-Ultimate's firmware come back working; the
+  DHCP/static rows exist for Ethernet and for WiFi; the password guards what it guards there. Replaces R20 where it differs.
+- **R22 (Alex 2026-11-18, after the Telnet remote menu was built on t228-c-telnet):** "Kann telnet einfach raus bitte ? komplett ?"
+  (translated: "Can telnet just go out, please? Completely?"). Telnet is out of trx64u completely, an exception to R21: no "Telnet
+  remote menu service" row, no port 23 server, no text screen of the menu (coreapp/src/telnetgui.*, telnetscr.* deleted), and the
+  network password row does not name Telnet. Audit row F41 is closed by this decision.
+- **R23 (Alex 2026-11-18, asked whether the last two large parts of TRX64-Ultimate are built or go out like Telnet: the tape recorder -
+  "Sample tape to TAP", "Capture save to TAP", "Finish Rec. to TAP" and UCI FINISH_CAPTURE, about 600 lines; the UCI HTTP target 6,
+  about 1700 lines):** "raus" (translated: "out"). Both stay out of trx64u, an exception to R21; the UCI answers "21,UNKNOWN COMMAND"
+  for FINISH_CAPTURE and target 6. SoftIEC target 5 is out anyway: the bitstream has no iec_processor (cores/c64u/core_sources.tcl).
+- **R24 (Alex 2026-11-18):** ".g71 haben wir doch gar nicht ... ?!" (translated: "we do not have .g71 at all ...?!") - t228-a-drive had
+  built .g71 as a 1541 side 0, against T104.1 ("Out: the 1571 (.d71/.g71) - ruled out from the start"); taken out (13f864014). Asked
+  whether .d71 stays for "Load into MP3 Drv" (a GEOS RAM drive in the REU, no drive): ".d71 kommt komplett raus !" (translated: ".d71
+  goes out completely!"): no .d71 file type, a 1571 RAM drive counts as none (no Save MP3 Drv of it), the UCI refuses .d71/.g71 and
+  the RAM disk commands of a 1571 drive (1f382f502).
+- **R25 (Alex 2026-11-18, after the one RISC-V build of the R21 work: the core app's RAM region 0x30000-0xE90000 overflowed by 345,436
+  bytes; the core app is one image for every core, built once and copied into each .cor, with one fixed FreeRTOS heap of 0x7A0000):**
+  "Dann lass uns das mit der App pro Core machen beim Build bitte. Dann kann der trx64u seinen angepassten heap haben und der rest bleibt
+  wie es ist" (translated: "Then let us do the app per core in the build, please. Then trx64u can have its adjusted heap and the rest
+  stays as it is"). The build links the core app once per core, each image with its own core's code only (the objects are compiled once);
+  each .cor gets its own image. trx64u gets a heap sized for its image; every other core keeps 0x7A0000. Tests, the menu simulator and
+  the emulator keep the image with every core. The code stays generic (D24): only the link differs per core.
+  Built (t228-int d828d48c4): the mechanism links an image of its own for any core (core app Makefile target `own`, ci/trxapps.sh
+  OWN_IMAGES); used for trx64u (coreapp_trx64u: its core only, heap 0x950000). Every other core keeps the shared image, which leaves trx64u
+  out and keeps 0x7A0000. Measured: shared image 486 KB free in the RAM region, trx64u 312 KB (start-up stack and growth); both app
+  files fit the boot slot (1,763,388 and 1,755,620 of 1,966,068 bytes). Native tests and the menu simulator keep every core; the
+  emulator runs trx64u on its own image.
+- **R26 (Alex 2026-11-18, asked which of two decisions holds for trx64u's WiFi - T184 D3, Alex 2026-11-06: "WiFi settings set and
+  edited in the host under F8. In the cores only shown, and on/off", or R21, which had given trx64u TRX64-Ultimate's WiFi menu: Select AP,
+  Enter AP manually, Connect to last AP, Disconnect, Forget APs and DHCP/static address rows for WiFi; test_desc's T184 check was red on
+  them):** "A" (T184 D3). An exception to R21: trx64u sets nothing of the WiFi; it shows the WiFi state and the one row WiFi On/Off like
+  every core, and the WiFi is set in the host under F8. The five WiFi actions (audit missing function 22) and the WiFi address rows
+  (missing function 23, rows 52-56 for WiFi) go out with their code; Ethernet keeps its DHCP/static rows (R21). Replaces R21's
+  "DHCP/static rows exist ... for WiFi".
+- R1-R9 replace the earlier decisions of this spec where they differ (D3, D7, D8, D13, D16, D18 and the S2 choices DC1-DC14); branch t228-s2 stays unmerged. The proposal is rendered on branch t228-mock (render bench `mock_shots()`), shown as a click dummy on the concept page.
+
 ### Decisions during S2 (decided by Claude on Alex's delegation 2026-11-16 night; Alex can overturn each at S2b)
 Alex 2026-11-16 (translated): "you start T228 overnight ... be the advisor here, decide for me". Each decision follows a D-row or the
-S1 table where one exists; only DC1, DC2, DC3, DC6, DC7, DC9, DC11 and DC12 are new choices.
-- DC1 Softboot is a Library file action on `.cfw`/`.ue2`/`.u64` (RETURN menu of the file), not a row in F7 Apps. Why: trx64g puts
-  softboot in the context menu of those file types (Q2 facts), and D17 already made Unzip a file action of its `.zip`. A launcher
-  that needs a file belongs to the file. D5 ("TRXCRT to Apps") covers the cartridge tools only.
+S1 table where one exists; only DC2, DC6, DC7, DC9, DC11 and DC12 are new choices (DC1 and DC3 are Alex's).
+- DC1 (Alex 2026-11-17, overturning Claude's first DC1, which made Softboot a Library file action on .cfw/.ue2/.u64): "DC1 raus unter
+  Multicore" (translated: "DC1 out under MultiCore"). trx64u offers no Softboot while it runs under the MultiCore host: not in F7 Apps,
+  not as a file action. The decision is generic, from the host context, not a core name in the code.
 - DC2 The rail heading "DIRECT" goes too, in every core (generic, like D4). Why: with SHIFTED gone it heads the only group and
   separates nothing (an all-caps heading needs a reason, ux-review R11).
-- DC3 The 7 Timewarp actions (start/stop recording, marker here, clear markers, back to live, save frame, save the ring) go to F1 Home,
-  tab 2 "Recording". The ring and trace switches stay in F5 TRX64 > Recording (D13). Why:
-  - The TRX64G Timewarp bar has keys only to move through frames (manual 07-timewarp.md), so these actions cannot live in the F2 overlay
-    (D3 keeps it unchanged).
-  - Alex put machine actions on F1 rather than F5 (D8, "you can make tabs there too"), and F5 holds settings.
-  - The tab is named "Recording", not "Timewarp", so it does not repeat the F2 rail entry.
+- DC3 (Alex 2026-11-17, replacing Claude's first DC3, which moved 7 Timewarp actions to an F1 tab "Recording"): "im Ringview Speichern IST
+  ein Dump, das ist gut. Der Ring wird bitte in TRX64 gespeichert, der dump auch" and, on where the actions come from, "lass sie erstmal weg,
+  nichts dazu erfinden wo es in Teilen noch gar keinen Code zu gibt (Marker)" (translated: "in the ring view, saving IS a dump, that is good.
+  The ring is saved in TRX64, please, the dump too"; "leave them out for now, invent nothing where in part there is no code yet (markers)").
+  - The 7 rows came from T104.2 (0c511b65b, 2026-10-28), built after the UX concept's mock-up `timewarp_actions.xml`, not from the trx64g
+    firmware, whose ring view has the frame keys and saves a dump.
+  - Out of the menu: Start recording, Stop recording, Marker here, Clear markers, Back to live. The F1 tab "Recording" is gone; F1 is Home.
+    The ring's on/off stays the F5 switch "Timewarp ring".
+  - "Save frame" (the dump, `tw.dump`) and "Save the ring" (`tw.ringdump`) go to F5 TRX64, section Recording, beside the ring switches
+    (Claude's reading of "in TRX64"; Alex can correct it at S2b).
 - DC4 F5 keeps 7 tabs (Machine, TRX64, Memory and I/O, Video, Audio, SID, Input), so the generic `TRX_TABS_MAX` goes from 6 to 8.
   Why: the tabs follow from the S1 table, D13, D14 and D16; folding Input into another tab would hide what it is.
 - DC5 The Home machine-info line names the REU only while it is enabled. Why: the line describes the machine as it runs (T212 D13).
@@ -338,12 +436,19 @@ S1 table where one exists; only DC1, DC2, DC3, DC6, DC7, DC9, DC11 and DC12 are 
   - ue2emu draws trx64u on the 960 canvas in every mode, so the compact strip can never be shown in a picture (ux-review R7, finding 4),
     and code no picture can prove does not ship.
   - S3 checks the F5 strip on the board at 480p. If it overflows there, the strip comes back from commit 4737d0039.
-- DC13 (enforces D11) A trx64u start without a .cor keeps its settings in memory only, as the generic cores do on the multicore
-  profile. With a .cor the cfg is already in the core folder (`<cor dir>/<name>/<name>.cfg`). Today a start without a .cor (JTAG,
-  ue2emu, monolith profile) writes `/flash/trx64u/c64.cfg` (board.h:15). That is the last flash write and goes; `cfg_dir` is null
-  for such a start. `start_migrate_cfg` stays: it reads the old flash file once and writes nothing to flash. The emu scenario S11
-  moves to a start with a start file and a .cor. Why: Alex 2026-11-15, D11: "we do not save to flash! and nothing is erased in
-  flash there either!!!".
+- DC13 (Alex 2026-11-17, replacing Claude's first DC13, which removed the flash cfg): "Mach das mal optional mit Parameter. Evtl
+  ersetzen wir generell das UI mit unserem auch für standalone Installationen. Und dann muss man seine settings ja irgendwie
+  persistieren können. Also auch ohne Multicore als Host System." (translated: "make it optional with a parameter; we may replace the
+  UI with ours for standalone installations too, and then the settings must persist somehow, also without MultiCore as the host").
+  Today a start without a .cor writes `/flash/trx64u/c64.cfg` (board.h:15); with a .cor the cfg is in the core folder. The change:
+  - A generic parameter of the app's start context decides whether a start without a .cor keeps its settings in a flash cfg. It is not
+    a core name in the code; the builder names where it lives.
+  - Under the MultiCore host it is off (D11), so the settings of a start without a .cor stay in memory.
+  - A standalone installation, our UI in place of the stock one, turns it on, so the settings persist without a host.
+  - `start_migrate_cfg` stays: it reads an old flash file once.
+  - The emu scenario S11 covers both values of the parameter.
+- DC14 The generic F8 keeps its single-row sections (Network/WiFi, Reset) as T212 approved them. The step 1d ux-review listed folding them
+  as a low item; folding would change F8 in every core, which is T212's layout, not T228's. Not done in T228.
 - From the spec, not new:
   - F4 is the Monitor rail entry (D3, variant A), so the rail reads "MONITOR", not "TOOLS".
   - The old F4 Diagnostics content goes where the S1 table puts it: Bug report to F8 Support, System information/Board/Uptime to F8
@@ -381,12 +486,196 @@ Three Opus pre-commit reviews, the last "COMMIT: yes" (scratchpad t228/step1c/RE
   - c64_desc sets no_tone, because TRX64-Ultimate has no tone filter.
 - **Picture fix:** the Picture/Scale/Smooth lookups and menu_route_of match the op and the canonical key, because the record keeps a hidden
   "HDMI Scan Resolution" with picture.apply. Units in test_desc.cc. In ue2emu, the Picture row opens the mode page and applies 576p / 480p.
-  - Open (step 1d): the hidden setting still runs picture.apply at start, restart and config load (review 3 M1). It becomes settings.noop.
+  - The hidden setting ran picture.apply at start, restart and config load (review 3 M1); it is settings.noop since step 1d.
 - **check_menu_concept:** each exemption pins the built name (F4 "Monitor", F7 "APP"; F5 tabs 3-7 cite DC4).
-- **Tests:** dev.sh test rc 0, integrate render + apptests PASS, riscv ok, emu PASS. The 10 failing tests/ui steps are a1200/atari/c128/vc20/nes
-  features that fail the same way on main (stale since T212); they are not caused by this branch and get rewritten separately.
+- **Tests:** the step 1 "dev.sh test rc 0" came from runs that skipped desc and keywalk (dev.sh tier bug, fixed on main 7c1e47626); the real
+  run is in step 1d+1e below. The 10 failing tests/ui steps are a1200/atari/c128/vc20/nes features that fail the same way on main (stale since
+  T212); they are not caused by this branch and get rewritten separately.
+
+### S2 step 1d+1e (branch t228-s2, commit bbfb7295b, 2026-11-17, not merged)
+Opus pre-commit review 5 "COMMIT: yes" (scratchpad t228/step1e/REVIEW5.md); its comment findings 1-3 are fixed in the commit.
+- **M1:** the hidden "HDMI Scan Resolution" applies settings.noop, so the application's Picture row is the only picture setting.
+  - desc_check refuses a core setting that uses the key or the op of Picture, Scale or Smoothing. It runs in the tests only; on the board the
+    op+key match of the lookups is the guard.
+  - A Picture choice stored on main under "HDMI Scan Resolution" (or written there over REST) now does nothing; the app's Picture starts at
+    Auto once. This goes into the release notes.
+- **DC11** done: no Home picture line without a picture size, in every core.
+- **DC12** done: the compact strip is gone; trx_strip_probe reports the tab count. The render bench skips a strip wider than its canvas and
+  notes it ("c64 480p F5 tab 1: 7-tab strip ends at x 646, the canvas holds 516"). 576p is compact too (room 596), so about 50 px of tab 7
+  "Input" are cut there; the render bench checks 1080p/720p/480p only, so the S3 board check covers 480p and 576p.
+- **DC6:** pos_text skips only the title row.
+- **Audio labels:** Master, reDIP:SID n, Socket, Enable, Volume, Off (DC8 keeps Speaker). The keywalk golden moves 1025 of 113339 probes, all
+  TRX64U F5 (the key 5 jumps into Audio from every F5 tab; only status, selected label and value change).
+- **Tests** (forced runs on the builder, PASS lines quoted in REVIEW5): dev.sh test 90 units PASS (descrec, libscan, desc, keywalk, cut);
+  integrate render 0 failed (392 strips, 7 skipped by DC12; 504 legends); emu all scenarios passed; tests/ui 138 passed, 10 failed (the
+  baseline above); riscv ok; check_d24 rc 0 (the ledger can shrink: menu.toml 2229, menu_rec.inc 2328).
 - **Open:**
-  - Step 1d: review 3 M1, the ux-review FAIL findings (syslog row, F8 counter, SID row, Home picture line DC11), DC9, DC12, the F2 picture.
-  - dev.sh emu S11 expects the cfg in /flash/trx64u/c64.cfg for a start without a .cor, which contradicts D11 (no settings in flash).
-  - Step 2: D12, D17, D18, DC1, DC3, DC7.
+  - The ux-review of 1d+1e (before the merge).
+  - tools/descrec.py refuses only the key "picture" at pack time, not Scale/Smoothing and not the three ops (desc_check's rule); step 2.
+  - Step 2: D12, D17, D18, DC1 (no Softboot under the MultiCore host), DC3, DC7, DC13 (flash cfg by parameter; emu S11 both values).
+  - D19: manual text and pictures after S2.
   - The contract note (record v4, `sections`, base-settings merge) in docs/contracts/trx64u-firmware-handover.md waits until both sides change.
+
+### Integration (branch t228-int, 2026-11-17/18, not merged)
+Base: t228-menu = the S2 steps 1-2 and DC3 above, the click-dummy commit with its scaffolding taken out again (2deb16742), main merged.
+- **Steps merged** (each built on its own branch, checked in the menu simulator, T236):
+  - t228-video 57ebfe658: the core menu fills the frame on trx64u's bitstream (PX_CTRL scale bits, menu frame from the gateware).
+  - t228-report c3998fe98: R8 - the bug report names the heap and the screen's EDID (generic, every core).
+  - m4: R11 foot (9ad488b83); an empty media slot says how to fill it (a5345513b); F7 apps under the heading "Apps" (9afc4b96c); Softboot
+    hidden under the MultiCore host in flat lists too (DC1, c0e41ec8f); F5 Video without a "Picture" row over the PICTURE heading
+    (c8f6a190e); R13 (7a5295689); R12 (ca679f312).
+  - m2: R5-R9 - pages of several groups, a heading over page rows, a System tab's groups as pages (18c0fb92e); trx64u F5 C64 | TRX |
+    Expansion, the SID pages under a heading, F8 one System tab (ab5528c56).
+  - m1: R1 - the `menu.screen` op, screens a row opens, hotkeys declared by a core's tasks (a883ff0db); trx64u's two Home rows and two
+    hotkeys (d1a6b82d2).
+  - m3: R10 - the pad service drives the host's joystick lines, a menu record declares a pad (03e9bf965); F5 > Input takes a USB pad as
+    joystick in port 1 or 2 (93e1dd92a).
+  - On top: R14 and R17 (372ff53c4), the R9 trace hint (bfc4a2b73), trx64u's Picture list on the VIC path (17d3c22de), T235's no-EDID
+    flag (c8f988a8a), then main db05a4cde (5a8847010, no conflicts: main's T234 redo touches only the Amiga copies, tools/hdmi_modes.py,
+    host/sim and docs).
+- **Expectations** (e5c8e11f1, 56a2932da, fdd798729; no product code): the ops goldens get `menu.screen` and `pad.port`; trx64u has 14
+  tasks and 156 core settings, areas F1 F3 F5 F7 F8; check_menu_concept pins F5 C64 | TRX | Expansion | Video | Audio | Input, F7 Settings,
+  F8 System; test_cut opens Timewarp and the monitor through the Home rows (every key check of both screens unchanged); the render bench's
+  legend floor is 480 (trx64u walks 6 views fewer per canvas: 498 legends = 498 lists). menu_c64, ids and keywalk are written by test_desc
+  and test_keywalk (UPDATE_GOLDEN=1, diag.cor installed as run.sh does); with only the R11 foot put back, keywalk reproduces the old golden
+  for every core but TRX64U.
+- **Proof** (once, on the builder): `=== dev.sh riscv: ok`; dev.sh test green after the two stale expectations ("=== apptests ok (tier
+  fast)"); "coreapp render: 304166 checks, 0 failed", "MOCK 72 pictures, 0 text overlaps, 0 objects outside or cut"; host render "===
+  apptests hostapp_render: done in 188s"; "tests/hostapp/emu_host: all scenarios passed", "tests/coreapp/emu: all scenarios passed, every
+  control failed as it must"; tests/ui "138 passed, 10 failed, 0 errors" (the 10 = the a1200/atari/c128/vc20/nes baseline above; every
+  trx64u feature passed). ue2emu: the trx64u menu fills 1920 x 1080 (Home, F5, F7, F8 judged by Claude beside the A1200).
+- **trx64u.cor for S3** (not on the board): coreapp.bin 5b8e8855... with the pin's bitstream (main-31e69921), sha256
+  fcc3fe81959693f71b33043c503b21caf2fb9d8a043a3f614cfbc01662948445.
+- **Open:** the gate before the merge (review agents, ux-review in ue2emu); for Alex: F5 > Audio's heading draws "REDIP:SID" in capitals
+  like every heading, R14 names "reDIP:SID"; S2b (Alex in ue2emu, D6) before S3 (board); D19; check_d24 says the ledger can shrink
+  (menu.toml 2230 -> 2105, menu_rec.inc 2356 -> 2209, diag.cc ids 16 -> 15); tests/ui's rows_shots pictures (t209-*) of trx64u and the
+  A1200 share their file names.
+
+### Gate on t228-int (2026-11-18 night, fdd798729)
+Three review lenses (shared code, trx64u against the decisions, code defects), each finding re-read by a skeptic, and the ux-review in
+ue2emu (70 full frames, trx64u beside the A1200).
+- **Confirmed and fixed on the branch (2026-11-18, e72141140 .. 60e385775; how in "Gate fixes" below):**
+  - The F7 headings "Hotkeys" and "Menu" had become one "Menu and keys" for every core (from step 2's "Menu and keys section"); no
+    decision covers it, T212 D12/S7 name "Hotkeys". Back to main's headings.
+  - Power cycle and Power off (F7 More until now) were gone from trx64u without a decision; the S1 table puts them on F8 System > Actions.
+  - Timewarp's and the monitor's default keys (R16) could double a key a stored config gives a fixed action; the stored key wins.
+  - XInput pads did not reach trx64u's pad service (the claim asked the C descriptor, trx64u's pad is in its record); R10 says "like
+    on the Amiga", which takes them.
+  - The test helper for trx64u's menu skipped the board's hk_extend_tasks step, so no test saw R1/R16's hotkey items.
+  - ux-review: the sections renderer drew REU rows the model hides while the REU is off; Keys and help (D12) showed two key legends;
+    the merged volume row was labelled "Master", D15 names it "Volume".
+- **ux-review verdict PASS** (no blocker, no major). Minor findings that are older and generic (the same on the A1200) stay out of T228:
+  Home draws no status line, the pad wizard's foot, the Picture page's chip "Settings > Video", the single-tab strips, wording drifts,
+  F3 Online's empty SEARCH pane. Questions for Alex, one at a time: the REDIP:SID heading (pictures question-redip-A-caps /
+  -B-brand); a confirm on Reset to host defaults and Restart core (settled by R27); F8 Status rows focusable; Home's Program row while empty.
+
+### Gate fixes and D19 (branch t228-int, 2026-11-18 night, head bde51ad43, not merged)
+- **Fixes:** the F7 headings are Hotkeys and Menu again (e72141140). Power cycle and Power off stand on F8 System > Actions through a
+  generic anchor `<area>/<tab>/actions` the System tab places under its Actions heading (8537d5be7, cc2cc02c6). A task's hotkey never
+  doubles a fixed action's or an earlier task's key; the Hotkeys page then shows none for it (9cd489fe3). The XInput claim follows a pad
+  the record declares, set again right after the bundle is read (b636a03f8); a pad that enumerates before that point is not claimed
+  (S3 checks a pad plugged in at start). The trx64u test helper runs hk_extend_tasks as the board does; a unit asserts CTRL+T and CTRL+O
+  (30f5d3295). The monitor's `diag` goes to F8 (da958e642). A setting with show_state is left out of a flat or sections list while its
+  state does not hold, as the model already did; this also hides the PET's SuperPET rows on the other models (T216 P2) (9985e10c6).
+  The text and hex views carry one foot (11503aeb8). F5 > Audio's merged row is "Volume", key "Vol Master" kept for stored configs
+  (bb3b53b40). The biggest bug report (trx64u's menu, a 256-byte EDID, a 16 KB log) is 23166 of 24576 bytes, nothing cut; the DDC
+  enable moved inside the I2C lock (feb93403e; app/video/videomode.cc is built into the host app too). Goldens by their generators
+  (363a9ce91); d24 ledger tightened (60e385775).
+- **D19** (f78b4269d, bde51ad43): manual 11.1.3, 11.1.10, 11.1.12, 11.1.14, 11.1.16, 11.2.1 to 11.2.4 and 10.7 follow the built
+  menu; the `core-*.png` pictures remade in ue2emu at 1920 x 1080, seven new for trx64u, `core-actions.png` replaced by `core-app.png`.
+  The other cores' per-core task lists point at 11.1.3 (where tasks stand: resets and slot-free tasks on Home, a medium's tasks on its
+  slot page, machine-setting tasks in the F5 tabs - menutree.cc T212 D8); their place was not checked core by core.
+- **Proof** (once): `=== dev.sh riscv: ok`; `=== dev.sh test: ok` (`test hotkeys: PASS`, `test desc: PASS`, `test keywalk: PASS`,
+  `test corereport: PASS`); "tests/hostapp/emu_host: all scenarios passed", "tests/coreapp/emu: all scenarios passed, every control
+  failed as it must"; render "coreapp render: 310473 checks, 0 failed", "MOCK 72 pictures, 0 text overlaps, 0 objects outside or cut",
+  "=== apptests ok (tier integration)"; tests/ui "138 passed, 10 failed, 0 errors" (the same 10 a1200/atari/c128/vc20/nes steps; every
+  trx64u feature passed). ue2emu pictures of every changed screen opened by Claude (scratchpad t228fix/pics).
+- **trx64u.cor for S3** (not on the board): sha256 428333d76155227090d8464ca0681e270b485ee18f442bc1a6add8fcfdea470c (the pin's
+  bitstream; coreapp.bin 555ac58b..., version "0.3.0-dev+363a9ce9", the same bytes as the build of 60e385775 - only the ledger and
+  the manual changed after).
+- **Open:** S2b (Alex in ue2emu, D6), then S3 on the board; the REDIP:SID question.
+
+### After the gate (branch t228-int, 2026-11-18 morning, not merged)
+- **R18** (194bc959d): `shout()` (app/view/trxview.cc, also in the host app) copies the brand "reDIP:SID" verbatim and puts the rest
+  in capitals. menusim 1080p, F5 > Audio at the bottom: the heading reads "reDIP:SID" over "SID sockets >" and "Emulated SIDs >"
+  (scratchpad t228r18/f5-audio-redip.png, opened by Claude). No test or golden names "REDIP". RISC-V build and tests not run for it:
+  once before the merge.
+- The trx64u.cor of 428333d7 predates R18: S3 needs a new pack from the branch head.
+- **R19:** left as it is for now (Alex 2026-11-18); nothing built.
+- **S2b, first look (Alex 2026-11-18, ue2emu window, app of 194bc959d):** F5 > Video > OUTPUT shows rows TRX64-Ultimate does not have.
+  Alex: "Do we have analog video and scanlines? You were supposed to put ONLY things into the UI that really exist in TRX64-Ultimate.
+  Do I have to check every single thing?" (translated). Checked against the pinned bitstream (TRX64-Ultimate 31e69921): "HDMI scan
+  lines" works (C64_SCANLINES -> vic_scaler, top.v:1547); "Analog video mode" does not (no analog video, ultimate_sys.vhd:231),
+  "Digital video mode" does not (U64_HDMI_ENABLE, board IO 0x08, not decoded), "Adjust color clock" does not (app_i2c.v:138 keeps the
+  app off the CDCE). The rows came from Gideon's U64 list that TRX64-Ultimate's firmware still carries (u64_config.cc:417-421), taken
+  over without a check of the bitstream. Alex said yes to an audit of every trx64u row against the bitstream and the firmware, with
+  evidence per row (workflow, 2026-11-18).
+- **Row audit (2026-11-18, workflow wf_df16c7a6-a53):** every trx64u row against the pinned bitstream (TRX64-Ultimate
+  `designs/c64_basic` of 31e69921) and its firmware, evidence per row, every verdict other than WORKS verified a second time:
+  338 rows, 228 WORKS, 58 PARTIAL, 52 FAKE, plus 8 rows TRX64-Ultimate has that the menu lacks. The table is
+  [docs/ui/trx64u-row-audit-2026-11-18.md](../ui/trx64u-row-audit-2026-11-18.md): read it before checking a row again. Cost: 15
+  agents, 5.3 M tokens (Alex: "Wahnsinn"). TRX64-Ultimate's own analyses had the video answer already
+  (`docs/gap-audit-gideon-app.md` G11: no AVID pins in top.v; `docs/gideon-menu-tree.md`: Adjust Color Clock has no menu path); the
+  audit brief cited neither (Alex: "you could simply have looked in the TRX64-Ultimate repository", translated).
+- **The dummies out (t228-int 4383257dd, TOML only, D24):** the 49 FAKE rows of menu.toml - F5 Video: analog/digital video mode,
+  adjust color clock; F5 Audio: the Speaker group (7), paddle override, reDIP:SID filter curve/resonance/digi level (6); F5 C64:
+  freeze drive in menu, GEOS copy protection, SpeedDOS cable, DMA load mimics ID, bus operation mode, UCI; F5 Input: 5 mouse rows;
+  F7: filename squeeze, the Apps heading + 4 apps (not shipped); F8: 11 network service rows, the debug stream (4). 13 value lists
+  without a user went too; F5 Audio lists no Speaker group. The code that reads these keys keeps its defaults (u64cfg `resolve()`,
+  `cfg_value`/`cfg_text`; `push_text` keeps the stack's own value). `menu_rec.inc` regenerated (ops check against
+  `ops_trx64u.txt`). Not changed: 800 x 600 and 1024 x 768 (generic picture list, in ue2emu only; the board drops them), the J hotkey
+  (generic). Menu simulator pictures (720p) of F1, F5 1-6, F7, F8: no empty heading, no gap; `dev.sh riscv` ok (coreapp.bin
+  09808867).
+- **S2b, second look (Alex 2026-11-18, ue2emu window, app of t228-int 4383257dd):** "also beim anschauen sieht gut aus"
+  (translated: "well, looking at it, it looks good"). S2b done.
+- **Open (2026-11-18, after R20-R26):** the PARTIAL rows are decided row by row (R20, R21) and merged into t228-int with
+  R22-R26 and the per-core image (R25); the tests are aligned with the code once (unit, lint, emulator scripts, UI features).
+  Left: the one confirming test pass and its goldens (`menu_c64.txt`, `ids.txt`, `keywalk.txt`), the emulator check with
+  Alex, the review, the merge to main; then S3 on the board.
+- **R27 (Alex 2026-11-18, in the emulator; translated: "Yes, give the 3 rows the pick list, please"):** the ROM rows were text fields
+  where the firmware has a drop-down. Kernal ROM, Basic ROM,
+  Char ROM, ROM for 1541 mode and Unique ID open a pick list (FW STRFUNC: files of /flash/roms by size; Not set / Default); every
+  setting's pick list ends with "Enter manually" (FW config_menu.h:118-125). A UX pass over every page found more; fixed without a
+  question (firmware or bug): the confirm of F8 "Reset to host defaults" (FW configio.cc:147), <- on the empty pad page, the status
+  cleared on an area or tab change, the name left in F3 search results, state lines without focus, the wording. Kept: Restart core
+  without a confirm (FW "Reboot (Clr Mem)", R17), Home directory as text (FW CFG_TYPE_STRING; folder picker = T204), write actions on
+  Flash (writable on the monolith, R21).
+- **Pre-push review (2026-11-18, t228-int 64eee219b):** the cartridge tools (`trex_crt.u2a`, in every package since R21) called the
+  C64 service unchecked, which is null outside the TRX64 line: the app names the need `cart_port`, the app index offers it only where
+  the core gives that service, and the app returns at once without it. Safe mode (RESTORE held at the start) writes nothing to the
+  stored `.cfg` but a save on purpose. A pending notice is set after the menu reopens where it was left. A page that comes or goes
+  keeps the current tab by its id. Generic effects on every core, kept as the generic menu (coordinator; Alex may overturn): the
+  keys C= Z, B, K in the menu (Z restarts the core without a confirm, as the Restart core row, R17); safe mode by RESTORE; a letter
+  that no row holds starts a quick seek in the Library; Move, Cut, Rename, Delete, New folder and Paste are left out where the path
+  is not writable or the file is read only.
+- **TREX CRT in 0.2.0 (Alex 2026-11-18, translated: "No, ship it, I'll look at it right away. It is only an app"):** the cartridge
+  tools (T104.3, eight screens) ship with 0.2.0 although no person and no UX pass has seen their LVGL screens yet (never in a package
+  before R21); Alex looks at them with the package. If they are bad or do not work, they do not go to GitHub and stay in development
+  (Alex 2026-11-18, translated: "if it is crap / does not work, it does not go to GitHub but stays 'in development'").
+  Alex's look passed (2026-11-18, translated: "Yes, it may. I even dumped Lykia (PTV Megabyter) successfully."): TREX CRT goes to
+  GitHub with 0.2.0.
+- **Board test of 0.2.0 (2026-11-18):** package v0.2.0-892eec45 with a trx64u.cor packed by hand from it, the host updated by its
+  .txu; Alex (translated): "everything works" (2-3 cores, trx64u, TREX CRT).
+- **Menu speed on the board, after 0.2.0 (Alex 2026-11-18, translated: "trx64u is dead slow in the UI ... is it the big .toml? I think
+  we have to think of another concept ... but after the release"; "the A1200 is incredibly fast in comparison"; "the app re-renders
+  the whole UI on every key press .. something is very suboptimal .. I think the emulator just does not show it"):** the board reads
+  the compiled menu record (322 entries from menu.toml), it parses no TOML. Measure on the board first (time per key press, what is
+  drawn again), then the concept; the emulator runs on the Mac's CPU and hides it. Related: T231 (a cursor move redraws only what changed).
+- **Merged to main (2026-11-18):** after the final run on t228-int 22bf93132: unit tier ok (all suites), emulator scripts ok, UI
+  suite 175/175; two review rounds (the second found three faults in the first round's fixes: the app index asked the C64 service
+  before its context was set, the loader took cart_port for a library, the settings made again after the merge dropped safe mode);
+  ue2emu: TREX CRT was refused on trx64u for want of room in the state table (STATES_MAX 200 -> 320, OPS_MAX 300 -> 400, 4.4 KB);
+  now F7 lists the three tools on trx64u, the Dump screen opens, the A1200 lists none. The first tag run (2446) went red in the
+  CI tier that `dev.sh test` does not run: two negative controls (a `sed` against fsif.h before R21's fs_flash_rw(), the corereport
+  link without R8's descrec.cc) and the render/UX rules (R20 hides the swap hotkey where no setting swaps; the mock took the HOTKEYS
+  heading for the row); fixed in tests only (2f70c31c8, 76bc14370), a scan of all 215 controls found no other, coreapp:cross and
+  coreapp_render green in the integration tier; v0.2.0 moved to this second merge. Open: S3 on the board with release 0.2.0.
+- **trx64u back in the release (2026-11-18):** the line of 2026-11-17 that set PIPELINE to false in release/imports/trx64u.pin
+  stayed in at the merge, so tag run 2454 packed no trx64u.cor; the line is out. The board test of 0.2.0 runs with a trx64u.cor packed
+  by tools/pack_import_cor.sh from that package's coreapp_trx64u.bin and the pinned bitstream, as ci/package.sh packs it on a tag.
+- **After 0.2.0 (Alex 2026-11-18: "I cannot keep waiting"; option A asked, B taken for now):** RETURN on a row with fixed values opens
+  the list of the values, as FW config_menu.cc:108-114 (every core); until then RETURN steps to the next value. Also after 0.2.0: groups
+  in FTP hosts and Emulated SIDs, one name for the back key, "Hex View" in sentence case (generic). From the UX pass over all cores: the
+  F3 search status stays after <- inside F3; the 1541-mode ROM list names the built-in "Built-in" while the row shows `1541.rom`; the
+  UI state export marks a row that opens a page (Hotkeys) as not enabled; the file actions of the other C64-family cores
+  (`cbm1541_desc.h`) are still in title case.

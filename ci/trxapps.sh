@@ -6,6 +6,8 @@
 #   apps/miniz      -> miniz.u2a      the zip library unzip.u2a imports (T197), shipped beside it
 #   apps/unzip      -> unzip.u2a      Unzip to folder / Unzip here / Extract one file on .zip (T104.3, T180 D9): shipped in the package and the release, the
 #                 one copy every core reads from <root>/cores/apps/ (coreapp/src/appindex.h)
+#   apps/trex_crt   -> trex_crt.u2a   Dump / Inspect / Flash cartridge and Write to Cartridge on .crt (T228 R21: FW's trex_crt on our app ABI), shipped like unzip
+#   apps/softboot   -> softboot.u2a   Run as Softboot on .cfw/.ue2/.u64, offered off the MultiCore host only (T228 DC1), shipped like unzip
 #   app/lib/testlib -> testlib.u2a            the board's test library (T104.1 D10): a .u2a of format 3, built with the
 #                 image's riscv32-unknown-elf compiler; copied to <stick>/trx/lib/ it is loaded at the next core start
 #
@@ -41,7 +43,7 @@ out="$(stage_dir trxapps)"
 # the shell would be served out of the cache and never reach the board.
 key=""; cache=""
 if [ -z "$inplace" ]; then
-  key="$(cd "$ROOT" && set -o pipefail && git ls-files -s -- host-app coreapp uicore ci/version.sh app apps/unzip apps/miniz cores/apple2/rtl/roms vendor/gideon/software vendor/gideon/tools vendor/gideon/target vendor/gideon/roms > "$out/.keyall" && cut -f2 "$out/.keyall" | python3 ci/code_hash.py keep > "$out/.keynames" && [ -s "$out/.keynames" ] && awk -F'\t' 'NR==FNR{k[$0];next} ($2 in k)' "$out/.keynames" "$out/.keyall" | sha256sum | cut -c1-16)" || { echo "trxapps: stage key failed" >&2; exit 1; }
+  key="$(cd "$ROOT" && set -o pipefail && git ls-files -s -- host-app coreapp uicore ci/version.sh app apps/unzip apps/miniz apps/trex_crt apps/softboot cores/apple2/rtl/roms vendor/gideon/software vendor/gideon/tools vendor/gideon/target vendor/gideon/roms > "$out/.keyall" && cut -f2 "$out/.keyall" | python3 ci/code_hash.py keep > "$out/.keynames" && [ -s "$out/.keynames" ] && awk -F'\t' 'NR==FNR{k[$0];next} ($2 in k)' "$out/.keynames" "$out/.keyall" | sha256sum | cut -c1-16)" || { echo "trxapps: stage key failed" >&2; exit 1; }
   rm -f "$out/.keynames" "$out/.keyall"
   cache="${CI_TRXAPPS_CACHE:-/cache/trxapps}/$key"
 fi
@@ -55,6 +57,12 @@ fi
 # to generic!", translated). amiga1200 has no descriptor since T97 (not built); coreapp/cores/amiga.cc is the amiga source. coreapp/cores/vc20.cc and c264.cc
 # replace the machine code of the fork branch t90-c16app.
 BLUEPRINT_CORES="${BLUEPRINT_CORES:-atari800 nes apple2 zx cpc zxnext snes neogeo vc20 c264 pet amiga ddt_mandel ddt_novic diag}"
+# T228 R25 (Alex 2026-11-18): the cores with a core app image of their own, <name>:<descriptor>:<heap>. Linked from the objects of the shared
+# image (the core app Makefile's target `own`), each with its own core only and its own heap; the shared image leaves them out (table.cc).
+# trx64u: 0x950000 (the shared image keeps 0x7A0000). Its own image ends its static part at 12.4 MB of the 14.4 MB region with 0x7A0000;
+# 0x950000 leaves 312 KB between the end of the static part and the region's end, where the start-up stack grows down (linker.x
+# __crt0_stack_begin; the shared image ran with 87 KB there before R25).
+OWN_IMAGES="${OWN_IMAGES:-trx64u:c64_desc:0x950000}"
 
 if [ -n "$cache" ] && [ -f "$cache/DONE" ]; then
   echo "=== trxapps $key: from cache $cache"
@@ -110,6 +118,10 @@ else
     make -C "$H/u64ii/riscv/$a" gitinfo
     nice -n 15 make -j"$J" -C "$H/u64ii/riscv/$a"
   done
+  for spec in $OWN_IMAGES; do                       # T228 R25: the images of their own, from the same objects
+    IFS=: read -r on od oh <<<"$spec"
+    nice -n 15 make -C "$H/u64ii/riscv/coreapp" own OWN="$on" OWN_DESC="$od" OWN_HEAP="$oh"
+  done
 
   if [ -n "$compile_only" ]; then
     echo "=== trxapps --compile-only: both applications compile and link ($((SECONDS - _t_b))s)"
@@ -120,6 +132,11 @@ else
   # T104.2 S12: the boot ROM starts an application from the slot at 0x220000 and takes at most 0x1E0000 - 12 bytes of it; an image that
   # does not fit would build, flash and not start. The number goes in the log on every build.
   python3 -I "$B/tools/check_app_size.py" "$H/u64ii/riscv/coreapp/result/coreapp.app"
+  for spec in $OWN_IMAGES; do
+    on="${spec%%:*}"
+    python3 -I "$B/tools/check_app_size.py" "$H/u64ii/riscv/coreapp/result/coreapp_$on.app"
+    cp "$H/u64ii/riscv/coreapp/result/coreapp_$on.bin" "$H/u64ii/riscv/coreapp/result/coreapp_$on.elf" "$H/u64ii/riscv/coreapp/result/coreapp_$on.app" "$out/"
+  done
   cp "$H/u64ii/riscv/hostapp/result/hostapp.app" "$H/u64ii/riscv/hostapp/result/hostapp.elf" "$out/"
   cp "$H/u64ii/riscv/coreapp/result/coreapp.bin" "$H/u64ii/riscv/coreapp/result/coreapp.elf" "$H/u64ii/riscv/coreapp/result/coreapp.app" "$out/"   # the .app: what ue2emu and tools/trxdbg.sh boot staged take (T104.2)
   # T174 D2.8: the host app for the emulator (tests/hostapp/emu_host.sh): the same sources with HOSTAPP_EMU_FLASH, which only flashfw.cc reads (the emulated
@@ -139,7 +156,7 @@ else
   # instead of building and cleaning every run (the stage key above is coarser: any change in app/ or coreapp/ rebuilds the stage, but not these two).
   libapp() {   # libapp DIR NAME.u2a : DIR relative to the tree
     local d="$1" n="$2" k c
-    k="$( (cd "$ROOT" && git ls-files -s -- "$d" apps/miniz app/lib/app.mk app/sdk coreapp/src tools/u2a_pack.py > "$out/.liball" && cut -f2 "$out/.liball" | python3 ci/code_hash.py keep > "$out/.libnames" && [ -s "$out/.libnames" ] && awk -F'\t' 'NR==FNR{k[$0];next} ($2 in k)' "$out/.libnames" "$out/.liball"; rm -f "$out/.libnames" "$out/.liball"; riscv32-unknown-elf-gcc --version | head -1; echo "$d $n") | sha256sum | cut -c1-16)"
+    k="$( (cd "$ROOT" && git ls-files -s -- "$d" apps/miniz app/lib/app.mk app/sdk coreapp/src tools/u2a_pack.py tools/descrec.py > "$out/.liball" && cut -f2 "$out/.liball" | python3 ci/code_hash.py keep > "$out/.libnames" && [ -s "$out/.libnames" ] && awk -F'\t' 'NR==FNR{k[$0];next} ($2 in k)' "$out/.libnames" "$out/.liball"; rm -f "$out/.libnames" "$out/.liball"; riscv32-unknown-elf-gcc --version | head -1; echo "$d $n") | sha256sum | cut -c1-16)"
     c="${CI_TRXAPPS_CACHE:-/cache/trxapps}/lib-apps/$k"
     if [ -f "$c/$n" ]; then echo "=== trxapps $n: from cache $c (key $k)"; cp "$c/$n" "$out/"; return 0; fi
     nice -n 15 make -j"$J" -C "$B/$d" RV_PREFIX=riscv32-unknown-elf- "$n"
@@ -153,6 +170,9 @@ else
   # T197 P1: the zip code is the library (apps/miniz, resident, format 3); unzip.u2a imports it and carries none of it. S2: the size shows it - an application
   # that linked its own miniz would be as large as the library.
   libapp apps/miniz miniz.u2a
+  # T228 R21: the cartridge tools and Softboot, applications like Unzip (app/lib/app.mk); no library needed, so nothing to compare
+  libapp apps/trex_crt trex_crt.u2a
+  libapp apps/softboot softboot.u2a
   uz=$(wc -c < "$out/unzip.u2a"); mz=$(wc -c < "$out/miniz.u2a")
   echo "=== trxapps: unzip.u2a $uz bytes, miniz.u2a $mz bytes"
   [ "$uz" -lt "$mz" ] || { echo "trxapps: unzip.u2a ($uz bytes) is not smaller than the zip library ($mz): it carries its own miniz (T197 S2)" >&2; exit 1; }
@@ -180,7 +200,8 @@ fi
 printf '%s\n' "${key:-inplace}" > "$out/trxapps_key"
 ( cd "$ROOT" && git rev-parse HEAD 2>/dev/null || echo inplace ) > "$out/trxapps_commit"
 ls -l "$out" "$out/coreapps"
-sha256sum "$out/hostapp.app" "$out/coreapp.bin" "$out/testlib.u2a" "$out/unzip.u2a" "$out/miniz.u2a"; [ ! -f "$out/coreapp.app" ] || sha256sum "$out/coreapp.app"   # an older cache entry has no .app
+for spec in $OWN_IMAGES; do sha256sum "$out/coreapp_${spec%%:*}.bin"; done
+sha256sum "$out/hostapp.app" "$out/coreapp.bin" "$out/testlib.u2a" "$out/unzip.u2a" "$out/miniz.u2a" "$out/trex_crt.u2a" "$out/softboot.u2a"; [ ! -f "$out/coreapp.app" ] || sha256sum "$out/coreapp.app"   # an older cache entry has no .app
 : > "$out/DONE"
 echo "=== trxapps done in $(lap)"
 

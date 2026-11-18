@@ -5,6 +5,7 @@
 # cannot fail proves nothing. D9-7 (cache fallback), D9-8 (time limit) and D9.6 (red targets) need the stage and live in
 # ci/test_layers_flow.sh with the fake Vivado.
 set -euo pipefail
+unset GITHUB_REF_TYPE GITHUB_REF_NAME GITHUB_EVENT_NAME   # a tag run's environment must not reach the scenarios this test builds itself (run 2449)
 # T215: this test moves keys by appending a comment line to a source; it tests the plumbing (stage flow, plan, layer keys), not the normaliser, so keys are
 # the raw content hash here (the normaliser has its own test: ci/test_code_hash.py).
 export CODE_HASH=raw
@@ -245,7 +246,7 @@ G update-ref refs/heads/main "$BASE"
 echo "D9-6 ok (base = last green run 10, not the previous commit; both A's and B's cores planned; control against the previous commit fails; no green run -> merge-base)"
 # ---- D9-7 (T164) a large core's benches read its own copy of the host files, never the live host/ ---------------------------------------
 # Declared inputs of every bench owned by a large lane (ci/sims.lane) must hold no file of host/ except the shared bench models host/sim/*.v
-# (mig_ui_model.v: a model, built into no core) and the bench directories of host/sim itself (amiga1200_hdmi_timing / _modepath run the host's
+# (mig_ui_model.v: a model, built into no core) and the bench directories of host/sim itself (c128_hdmi_timing runs the host's
 # script on the copy via HOSTDIR); the key of such a bench then does not move on a host change.
 cat > "$W/largehost.py" <<'PY'
 import sys

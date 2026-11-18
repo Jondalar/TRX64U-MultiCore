@@ -16,9 +16,10 @@ Feature: Pictures of the reworked menu areas of the Amiga 1200 (a core with medi
     Then I save the picture "amiga1200-f5-audio"
     When I press 4
     Then I save the picture "amiga1200-f5-input"
-    When I move to "Hotkeys"
+    When I press F7
+    And I move to "Hotkeys"
     And I press RETURN
-    Then I save the picture "amiga1200-f5-hotkeys"
+    Then I save the picture "amiga1200-f7-hotkeys"
 
   Scenario: the System area F8 with its groups
     Given the menu is open on F8

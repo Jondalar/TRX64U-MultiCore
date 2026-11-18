@@ -29,7 +29,8 @@ enum EntryKind {
     EK_HEADING,         // T187 D1: a quiet divider that names the group of the rows below it; never selectable, `label` is its text
     EK_DRIVE_MOUNT,     // T212 D5, in the drive list: mount from the Library (the Library opens on the slot's file types); `index` is the media slot
     EK_DRIVE_EJECT,     // T212 D5, in the drive list: eject the slot's medium
-    EK_OPENS            // T187 D2: a row that opens a page (a hidden tab of the same area); `index` is the descriptor setting whose value the row shows
+    EK_OPENS,           // T187 D2: a row that opens a page (a hidden tab of the same area); `index` is the descriptor setting whose value the row shows
+    EK_KEYS_HELP        // T228 D12, fixed, in F8 Support of every core: Keys and help - the viewer on the keys text (diag_text kind 5)
 };
 
 // What a tab shows of the descriptor (T104.1 D8: the description names, for each tab, the widget). Contributed nodes can join a tab of the kinds
@@ -45,8 +46,8 @@ enum TabWidget {
 };
 
 #define MENU_AREAS_MAX 8
-#define MENU_TABS_MAX 8                  // tabs of one area in the tree; the strip of the view has room for six of them (TRX_TABS_MAX): an application's hidden screens are tabs that are not on it
-#define MENU_STRIP_TABS 6                // the tab strip of the view has room for six (TRX_TABS_MAX): a library or an application adds no tab beyond them to a core's area
+#define MENU_TABS_MAX 24                 // tabs of one area in the tree; the strip of the view has room for MENU_STRIP_TABS of them: an application's hidden screens are tabs that are not on it
+#define MENU_STRIP_TABS 8                // the tab strip of the view has room for eight (= TRX_TABS_MAX, checked in ui.cc): a library or an application adds no tab beyond them to a core's area
 #define MENU_MAX_ENTRIES 640
 #define MENU_NODES_MAX 320
 
@@ -63,6 +64,7 @@ struct FixedDef {
     const char *ok_text;            // the status line when it worked (null: the operation's own message); with it, a failure with no message says `fail_text`
     const char *fail_text;
     bool closes;                    // the menu closes when it worked
+    const char *confirm;            // RETURN first asks this (RETURN yes, <- no); null: it runs at once
 };
 // The definition of a fixed entry, null for a kind that has none.
 const FixedDef *menu_fixed(EntryKind kind, int variant);
@@ -94,7 +96,7 @@ struct MenuTab {
 struct MenuArea {
     const char *key;    // "F1".."F8", the logical key as it is printed
     const char *name;
-    bool shifted;       // F2/F4/F6/F8: the rail lists them under SHIFTED
+    bool shifted;       // the skeleton's flag for F2/F4/F6/F8; the rail draws one list in the route's order and does not read it (T228 D4)
     MenuTab tabs[MENU_TABS_MAX];
     uint8_t ntabs;
 };
@@ -112,6 +114,8 @@ struct MenuNode {
     const char *group;                // the anchor's third part, "" when none
 };
 
+#define MENU_HEADS_MAX 48
+
 struct MenuTree {
     MenuArea a[MENU_AREAS_MAX];
     uint8_t nareas;
@@ -119,6 +123,8 @@ struct MenuTree {
     int n;
     MenuNode nodes[MENU_NODES_MAX];
     int nnodes;
+    char heads[MENU_HEADS_MAX][32];  // the text of the headings made from a group id (T228: a tab with `sections`), the entries point here
+    int nheads;
 };
 
 // The fixed system information lines, in this order. Their values are the application's to fill in at run time.
@@ -133,10 +139,15 @@ extern const char *const menu_info_labels[];     // null-terminated
 // mm: what libraries, applications and the description contribute and how the description lays out the route (contrib.h); null: the default
 // route with nothing added - every core of today, and its golden dump.
 struct MenuMerge;
-void menu_build(const CoreDesc *d, MenuTree *t, bool return_host = true, bool reload_core = false, const MenuMerge *mm = 0);
+// vis: does the condition of a setting's show_state or a node's hide hold now (true: yes). With it a page, and the row that opens it, is left out while none of its
+// rows is listed (a page of a chip that is not there); without it every page that has a row is built.
+typedef bool (*MenuVisFn)(void *user, const char *cond);
+void menu_build(const CoreDesc *d, MenuTree *t, bool return_host = true, bool reload_core = false, const MenuMerge *mm = 0, MenuVisFn vis = 0, void *vis_user = 0);
 // The tree of a running core application: return_host, reload_core and the merge are the context's (the board, the .cor, the libraries).
 struct CoreCtx;
-void menu_build_for(const CoreCtx *c, MenuTree *t);
+void menu_build_for(const CoreCtx *c, MenuTree *t, MenuVisFn vis = 0, void *vis_user = 0);
+// Takes entry `i` of a tab out of the tree; the tabs behind it keep their entries (T228 DC1: MenuCtl drops a flat list's row whose `hide` holds).
+void menu_drop_entry(MenuTree *t, int area, int tab, int i);
 
 // T187 D1: the one table that says where a generic row lands in EVERY core, with or without a description record. A row the application adds to every
 // core (Picture, Scale, Smoothing, Volume, the hotkeys, Persist medium mounts, Home directory, Enter home on startup) is named by what it does (its
@@ -149,7 +160,6 @@ struct MenuGroupRoute {
     const char *heading;    // the group as a person reads it: "Video", "Audio", "Input", "Storage", "Menu"
     const char *label;      // a page's row in the tab ("Hotkeys")
     bool page;              // the rows are not in the tab: one row there opens a page of them (Hotkeys)
-    const char *alt_area;   // a description that keeps its own Settings area (the TRX64U core's F6) is looked at second, by the tab id; null: none
 };
 const MenuGroupRoute *menu_route_of(const Setting &s);
 

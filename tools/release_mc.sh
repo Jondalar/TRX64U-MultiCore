@@ -25,7 +25,7 @@
 #   5. with --publish: tools/publish_release_mc.sh, which attaches all of them, the zip included.
 #
 # A GitHub release of the same bundle (by hand, Alex's go) takes its --target from the history export (T120 D-history):
-#   gh release create trx64mc-<version> --target "$(tools/github_snapshot.py --map-lookup <the Gitea commit of the release>)" ...
+#   gh release create v<version> --target "$(tools/github_snapshot.py --map-lookup <the Gitea commit of the release>)" ...
 # The Gitea sha is what the manifest and the tag here name; release/github_map.txt maps it to the GitHub commit once it is exported.
 # The token comes from GITEA_TOKEN or tea's config and is never printed.
 set -euo pipefail
@@ -67,7 +67,7 @@ files=$(curl -sf -H "Authorization: token $TOKEN" \
     | python3 -c 'import sys, json
 want = [f["name"] for f in json.load(sys.stdin)
         if f["name"].endswith(".cor") or f["name"].startswith("trx64host_update_") or f["name"].endswith("_mono.bit")
-        or f["name"] in ("c64_basic.bit", "manifest.json", "hostapp.app", "coreapp.bin", "unzip.u2a", "miniz.u2a")]
+        or f["name"] in ("c64_basic.bit", "manifest.json", "hostapp.app", "coreapp.bin", "unzip.u2a", "miniz.u2a", "trex_crt.u2a", "softboot.u2a")]
 print(" ".join(want))') || { echo "package $VER not found" >&2; exit 1; }
 [ -n "$files" ] || { echo "package $VER holds no .cor" >&2; exit 1; }
 for f in $files; do
@@ -77,8 +77,17 @@ done
 [ -s "$PKG/c64_basic.bit" ] || { echo "the package has no bitstream" >&2; exit 1; }
 [ -s "$PKG/manifest.json" ] || { echo "the package has no manifest" >&2; exit 1; }
 # T221 D4: the release is the tested build with its version strings rewritten (x.y.z-dev+<sha8> -> x.y.z in the apps, the .cor, the .txu, the manifest);
-# the marker keeps a second run over the same downloaded package from promoting it twice
-[ -f "$PKG/.promoted" ] || { python3 "$ROOT/tools/release_promote.py" "$PKG" && touch "$PKG/.promoted"; } || { echo "the package could not be promoted to a release" >&2; exit 1; }
+# the marker keeps a second run over the same downloaded package from promoting it twice. The package of a tag (since 0.2.0 the release is the CI build of
+# tag v<x.y.z>, T221) carries x.y.z already and its update files are named after it (ci/lib.sh file_id): nothing to promote, the bundle takes that name.
+REL="$(python3 -c 'import json, re, sys
+v = json.load(open(sys.argv[1]))["version"]
+print(v if re.match(r"^[0-9]+[.][0-9]+[.][0-9]+$", v) else "")' "$PKG/manifest.json")"
+if [ -n "$REL" ]; then
+    echo "    a tag build: version $REL, nothing to promote"
+else
+    [ -f "$PKG/.promoted" ] || { python3 "$ROOT/tools/release_promote.py" "$PKG" && touch "$PKG/.promoted"; } || { echo "the package could not be promoted to a release" >&2; exit 1; }
+    REL="$VER"
+fi
 # The host app of this very run (T94 P6). Before stage trxapps existed it came from a local result/
 # directory, so a release could carry an application nobody had built from the commit it names.
 if [ -z "$APP" ]; then
@@ -109,7 +118,7 @@ echo "    host key $HOST_KEY, bitstream $BIT_COMMIT, app $APP_COMMIT"
 for b in "$PKG"/*_mono.bit; do
     [ -e "$b" ] || continue
     id=$(basename "$b" _mono.bit)
-    # build_only (c64scpu until its 65816 runs, Alex 2026-11-05): in the Gitea package for the board, never in a release
+    # build_only: a flat build the Gitea package carries for the board, never a release has it (no core since 2026-11-18; c64scpu was one)
     [ "$(python3 "$ROOT/tools/core_toml.py" get "$id" build_only)" = "true" ] && { echo "    $id is build_only: left out"; continue; }
     [ -s "$PKG/coreapp.bin" ] || { echo "FAIL $id: the package has no coreapp.bin for the large .cor" >&2; exit 1; }
     bash "$ROOT/tools/pack_large_cor.sh" --id "$id" --name "$(python3 "$ROOT/tools/core_toml.py" get "$id" name)" \
@@ -124,6 +133,9 @@ for c in "$PKG"/large/*.cor; do
     CORARGS+=(--cor "$c")
 done
 for c in "$PKG"/*.cor; do
+    # build_only holds for the package's own .cor too: the CI packs every flat build for the board, a release never has a build_only one
+    [ "$(python3 "$ROOT/tools/core_toml.py" get "$(basename "$c" .cor)" build_only 2>/dev/null || true)" = "true" ] \
+        && { echo "    $(basename "$c") is build_only: left out"; continue; }
     python3 "$ROOT/tools/cor_pack.py" check "$c" --host-key "$HOST_KEY" > /dev/null \
         || { echo "FAIL $(basename "$c") does not belong to host $HOST_KEY" >&2; exit 1; }
     CORARGS+=(--cor "$c")
@@ -157,23 +169,26 @@ TXU="$(ls "$PKG"/trx64host_update_*.txu 2>/dev/null | head -1 || true)"
 [ -s "$PKG/unzip.u2a" ] || { echo "package $VER has no unzip.u2a" >&2; exit 1; }
 # T197 P5: the zip library Unzip loads rides beside it (the updater copies every .u2a beside the update file into <cores>/apps)
 [ -s "$PKG/miniz.u2a" ] || { echo "package $VER has no miniz.u2a (the zip library unzip.u2a needs)" >&2; exit 1; }
+# T228 R21: the cartridge tools and Run as Softboot ship like Unzip (ci/trxapps.sh builds them, ci/package.sh copies them into the package)
+[ -s "$PKG/trex_crt.u2a" ] || { echo "package $VER has no trex_crt.u2a (Dump, Inspect, Flash Cartridge)" >&2; exit 1; }
+[ -s "$PKG/softboot.u2a" ] || { echo "package $VER has no softboot.u2a (Run as Softboot)" >&2; exit 1; }
 
-bash "$ROOT/tools/make_release_mc.sh" --u2a "$PKG/unzip.u2a" --u2a "$PKG/miniz.u2a" --txu "$TXU" --id "$VER" --bit "${NULL_FULL:-$PKG/c64_basic.bit}" --app "$APP" \
+bash "$ROOT/tools/make_release_mc.sh" --u2a "$PKG/unzip.u2a" --u2a "$PKG/miniz.u2a" --u2a "$PKG/trex_crt.u2a" --u2a "$PKG/softboot.u2a" --txu "$TXU" --id "$REL" --bit "${NULL_FULL:-$PKG/c64_basic.bit}" --app "$APP" \
     --bit-commit "$BIT_COMMIT" --app-commit "$APP_COMMIT" --out "$OUT" ${UPDARGS[@]+"${UPDARGS[@]}"} "${CORARGS[@]}"
 
-D="$OUT/trx64mc-$VER"
+D="$OUT/trx64mc-$REL"
 
 # The installer must write the flash the board test ran: bitstream and app byte-equal to the package's .txu, never c64_basic.bit
 # (release t164-c83a83c2, 2026-11-02). The check fails on purpose once per file (probe); no .txu, no release.
 python3 "$ROOT/tools/check_release_flash.py" --txu "$TXU" --reject "$PKG/c64_basic.bit" "$D"/trx64host_update_*.cfw "$D"/trx64host_update_*.ue2 \
     || { echo "the installer is not the tested flash: release stopped" >&2; exit 1; }
-ZIP="$OUT/trx64mc-$VER.zip"
+ZIP="$OUT/trx64mc-$REL.zip"
 [ -s "$ZIP" ] || { echo "no zip was built" >&2; exit 1; }
 # the zip has to hold every file of the bundle: a release whose archive is short of one is worse than none
 python3 "$ROOT/tools/release_check.py" zip "$D" "$ZIP" || exit 1
 
 if [ "$PUBLISH" = 1 ]; then
-    bash "$ROOT/tools/publish_release_mc.sh" --dir "$D" --zip "$ZIP" --tag "trx64mc-$VER" \
+    bash "$ROOT/tools/publish_release_mc.sh" --dir "$D" --zip "$ZIP" --tag "trx64mc-$REL" \
         --commit "$(git -C "$ROOT" rev-parse HEAD)"
 else
     echo ">>> built, not published: $D"

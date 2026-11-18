@@ -24,8 +24,8 @@ Feature: The Library: media, folders, the sheet of a file, marks (T153 S7)
     And I move to the file "alpha.d64"
     And I press RETURN
     Then the sheet is open for "alpha.d64"
-    And the sheet lists "Mount Disk" with the letter M
-    And the sheet lists "Run Disk" with the letter R
+    And the sheet lists "Mount disk" with the letter M
+    And the sheet lists "Run disk" with the letter R
     And the sheet lists "Delete" with the letter D
     When I press left-arrow
     Then no sheet is open
@@ -38,7 +38,7 @@ Feature: The Library: media, folders, the sheet of a file, marks (T153 S7)
     And I press RETURN
     And I press M
     Then no sheet is open
-    And the status line is "Mount Disk: alpha.d64"
+    And the status line is "Mount disk: alpha.d64"
 
   Scenario: SPACE marks a file and goes on to the next
     When I move to the file "games"

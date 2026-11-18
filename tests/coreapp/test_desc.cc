@@ -10,6 +10,7 @@
 #include "test_core.h"
 #include "cores.h"
 #include "desc_check.h"
+#include "picture.h"
 #include "menutree.h"
 #include "home.h"
 #include "keyboard.h"
@@ -33,7 +34,7 @@ static void golden(const CoreDesc *d0, const char *name)
     const CoreDesc *d = menu_desc(d0);
     MenuTree t;
     menu_build(d, &t, true, false, menu_merge(d0));
-    static char buf[32768];                              // the TRX64U's tree is a few hundred entries
+    static char buf[262144];                             // the TRX64U's tree is a few hundred entries (368 since T228 R21; 32 KiB no longer held it)
     int n = menu_dump(d, &t, buf, sizeof(buf));
     CHECK(n > 0);
     std::string path = std::string(GOLDEN_DIR) + "/menu_" + name + ".txt";
@@ -107,7 +108,7 @@ static void every_item_once(const CoreDesc *d0)
                 case EK_SETTING: seen_set++; break;
                 case EK_INFO: seen_info++; break;
                 case EK_BROWSER: seen_browser++; break;
-                case EK_RESET_HOST: case EK_RESTART_CORE: case EK_RETURN_HOST: case EK_BUG_REPORT: case EK_WIFI: seen_fixed++; break;
+                case EK_RESET_HOST: case EK_RESTART_CORE: case EK_RETURN_HOST: case EK_BUG_REPORT: case EK_WIFI: case EK_KEYS_HELP: seen_fixed++; break;
                 case EK_SAVE_SET: case EK_LOAD_SET: seen_mset++; break;
                 case EK_HEADING: case EK_OPENS: case EK_NODE: break;
                 }
@@ -115,28 +116,19 @@ static void every_item_once(const CoreDesc *d0)
         }
     }
     CHECK_EQ(in_tabs, t.n);                            // no entry is left out of every tab
-    if (d0 == &c64_desc) {
-        // The TRX64U's tree is its record (menu.toml): every entry is a node, the tasks, media, settings and fixed lines of the classic model do not exist as such.
-        // What the record names is checked where it is compiled (test_descrec, tools/descrec.py, gen_menu_rec.py --check) and the whole tree is the golden menu_c64.txt.
-        CHECK_EQ(seen_task, d->ntasks);                // the four disk tasks stay tables of the record
-        CHECK_EQ(seen_media, d->nmedia);               // the media lines are nodes, except the record's two media rows of the Media sets tab (T180 D5)
-        CHECK_EQ(seen_mset, 2);                        // ... which has the two config rows, no other tab does
-        CHECK(seen_set > 100 && seen_set <= d->nsettings);   // the record's settings, less those the route hides
-        CHECK(seen_browser >= 1);                      // the Library's Browse tab
-        CHECK_EQ(seen_info, 0);
-        CHECK_EQ(seen_fixed, 0);
-        CHECK(t.n > 100);
-        return;
-    }
     int claimed = 0;                                   // T212 D5: a task that a drive's list reaches is not a row of any tab
     for (int i = 0; i < d->ntasks; i++) {
         claimed += menu_task_claimed(d, i) ? 1 : 0;
     }
     CHECK_EQ(seen_task + claimed, d->ntasks);
     CHECK_EQ(seen_media, d->nmedia);
-    CHECK_EQ(seen_set, d->nsettings);
-    CHECK_EQ(seen_browser, 1);
-    CHECK_EQ(seen_fixed, 5);                           // Reset to host defaults, Restart core, Bug report, WiFi, Return to host menu
+    int hidden = 0;                                    // T228 D14: a setting of group "hidden" keeps its key and its store value and has no row
+    for (int i = 0; i < d->nsettings; i++) {
+        hidden += d->settings[i].group && !strcmp(d->settings[i].group, "hidden") ? 1 : 0;
+    }
+    CHECK_EQ(seen_set + hidden, d->nsettings);
+    CHECK(seen_browser >= 1);
+    CHECK_EQ(seen_fixed, 6);                           // Reset to host defaults, Restart core, Bug report, Keys and help (T228 D12), WiFi, Return to host menu
     CHECK_EQ(seen_mset, mounts_have_slots(d) ? 2 : 0);   // T180 D5: the media tab of a core with media slots has the two config rows, no other tab does
     CHECK_EQ(seen_info, 3);                            // T212 D7: Build, ROMs, Libraries stand in F8 (Core, Network and Media are dropped)
 }
@@ -151,7 +143,7 @@ static const MountSlots ms_ok = { 2, ms_names, ms_spec, ms_mount, ms_eject };
 int main()
 {
     for (const CoreDesc *const *p = core_table; *p; p++) {
-        const char *why = desc_check(menu_desc(*p));            // for the C64 the merged descriptor: its record's names and bindings against the registry
+        const char *why = desc_check(*p == &c64_desc ? trx64u::checked() : *p);            // for the C64 its record's names and bindings against the registry (the application's own items are not the core's to declare)
         if (why) printf("%s: %s\n", (*p)->cor_name, why);
         CHECK(!why);
         CHECK(!desc_check(*p));
@@ -168,7 +160,7 @@ int main()
             { "Atari 800 XL", "RAM size,Video standard" }, { "Amstrad CPC 464 / 664 / 6128", "Model" }, { "ZX Spectrum 48K / 128K", "Model" },
             { "Nintendo Entertainment System", "Console type" }, { "SNK Neo Geo", "System type,BIOS" },
         };
-        static const char *const none[] = { "Apple IIe", "ZX Spectrum Next", "Super Nintendo", "TRX64U" };
+        static const char *const none[] = { "Apple IIe", "ZX Spectrum Next", "Super Nintendo" };
         int found = 0, nones = 0;
         for (const CoreDesc *const *p = core_table; *p; p++) {
             const CoreDesc *d = *p;
@@ -192,7 +184,21 @@ int main()
             for (const char *nn : none) if (!strcmp(d->cor_name, nn)) { nones++; CHECK(!d->machine_info); }
         }
         CHECK_EQ(found, (int)(sizeof(want) / sizeof(want[0])));
-        CHECK_EQ(nones, 4);
+        CHECK_EQ(nones, 3);
+        // the C64's record (not the raw c64_desc): its machine_info names settings the record has, one each (T228)
+        const CoreDesc *td = trx64u::desc();
+        CHECK(td->machine_info && !strcmp(td->machine_info, "System Mode,REU Size"));
+        for (const char *q = td->machine_info; td->machine_info && *q;) {
+            const char *e = strchr(q, ',');
+            int l = e ? (int)(e - q) : (int)strlen(q), hit = 0;
+            for (int i = 0; i < td->nsettings; i++) {
+                const char *nm = td->settings[i].label ? td->settings[i].label : td->settings[i].key;
+                hit += !td->settings[i].kind && (int)strlen(nm) == l && !strncasecmp(nm, q, l);
+            }
+            CHECK_EQ(hit, 1);
+            if (!e) break;
+            q = e + 1;
+        }
     }
 
     // T206 S1, S2: wherever a disk image is mounted the same "Run Disk" is offered beside "Mount Disk", with the same names in the same order in every core.
@@ -214,7 +220,8 @@ int main()
                 for (int k = 0; k < ft.nactions; k++) {
                     const FileAction &a = ft.actions[k];
                     mounts = mounts || !strncmp(a.label, "Mount", 5);
-                    runs = runs || (a.op && (!strcmp(a.op, "drive.mount_run") || (!strcmp(a.label, "Run Disk") && !strcmp(a.op, "pet.mount_run"))));
+                    runs = runs || (a.op && (!strcmp(a.op, "drive.mount_run") ||
+                                             (!strcasecmp(a.label, "Run Disk") && (!strcmp(a.op, "pet.mount_run") || !strcmp(a.op, "drive.run_disk")))));   // TRX64U: drive.run_disk (T228 R21 #15, a .cfg beside the disk first)
                     starts = starts || strstr(a.label, "and cold start") || strstr(a.label, "and reset");
                 }
                 if (!mounts || !strcmp(ft.ext, ".hdf") || *p == &testcore::desc) continue;     // a hard disk image has nothing to run; the made-up core is no machine
@@ -223,8 +230,9 @@ int main()
                 for (const Ref &r : refs) if (!pet && !strcmp(ft.ext, r.ext)) ref = &r;
                 if (ref) {                                          // a CBM drive image
                     seen_cbm++;
-                    bool same = ft.nactions == ref->n;
-                    for (int k = 0; same && k < ft.nactions; k++) same = !strcmp(ft.actions[k].label, ref->names[k]);
+                    // the reference names first, in this order; T228 R21: the TRX64U adds TRX64-Ultimate's own after them (Load into MP3 Drv A-D, its REU RAM drives)
+                    bool same = ft.nactions >= ref->n;
+                    for (int k = 0; same && k < ref->n; k++) same = !strcasecmp(ft.actions[k].label, ref->names[k]);      // the TRX64U's are in sentence case (T228 R21 correction round), the others in Title Case
                     if (!same || !runs || !d->type_op) printf("T206: %s %s: names/order differ, or no Run Disk, or the core cannot type\n", d->cor_name, ft.ext);
                     CHECK(same);
                     CHECK(runs);
@@ -257,7 +265,7 @@ int main()
             const MenuEntry &e = t.e[i];
             if (e.kind == EK_WIFI || (e.kind == EK_NODE && !strcmp(e.label, "WiFi"))) {
                 rows++;
-                CHECK(e.kind == EK_WIFI ? *p != &c64_desc : (t.nodes[e.index].op && !strcmp(t.nodes[e.index].op, "wifi.toggle")));
+                CHECK(e.kind == EK_WIFI || (t.nodes[e.index].op && !strcmp(t.nodes[e.index].op, "wifi.toggle")));
             }
             if (e.kind == EK_NODE && t.nodes[e.index].op && !strncmp(t.nodes[e.index].op, "wifi.", 5)) {
                 CHECK(!strcmp(t.nodes[e.index].op, "wifi.toggle"));
@@ -318,7 +326,7 @@ int main()
             for (int i = 0; i < d->nsettings; i++) has_reopen |= !strcasecmp(d->settings[i].key, REOPEN_KEY);
             CHECK(!has_reopen || menu_opens);
             // S2: F8 is actions: no setting, no media
-            int act = 0, wifi = 0, bug = 0, ret = 0, rst = 0;
+            int act = 0, wifi = 0, bug = 0, ret = 0, rst = 0, keys = 0;
             const MenuArea &a8 = t.a[f8];
             for (int i = 0; i < a8.ntabs; i++) {
                 for (int k = a8.tabs[i].first; k < a8.tabs[i].first + a8.tabs[i].count; k++) {
@@ -329,9 +337,10 @@ int main()
                     wifi += e.kind == EK_WIFI;
                     bug += e.kind == EK_BUG_REPORT;
                     rst += e.kind == EK_RESET_HOST;
+                    keys += e.kind == EK_KEYS_HELP;
                 }
             }
-            CHECK(act == 1 && ret == 1 && wifi == 1 && bug == 1 && rst == 1);
+            CHECK(act == 1 && ret == 1 && wifi == 1 && bug == 1 && rst == 1 && keys == 1);
             // T212 D7: Home has no information lines: the media slots of the core, then the configs when the core has slots
             const MenuTab &h = t.a[f1].tabs[0];
             int nmedia = 0, ninfo = 0, saves = 0;
@@ -426,6 +435,15 @@ int main()
     d = testcore::desc; d.filetypes = ghost_ft; CHECK(desc_check(&d) && strstr(desc_check(&d), "test.nomount"));
     static const MediaSlot ghost_slot[1] = { { "S", "test.noslot", 0, 0, 0 } };
     d = testcore::desc; d.media = ghost_slot; CHECK(desc_check(&d) && strstr(desc_check(&d), "test.noslot"));
+    // T92 D-17b: the labels a slot mounts and replaces by name file actions of its own type (a typo would drop to the action sheet unnoticed)
+    static const MediaSlot slot_ok[1] = { { "Slot", "test.slot", 0, 0, 0, 0, ".tst", "Mount", 0, 0, false, "Mount" } };
+    d = testcore::desc; d.media = slot_ok; CHECK(!desc_check(&d));
+    static const MediaSlot slot_bad_mount[1] = { { "Slot", "test.slot", 0, 0, 0, 0, ".tst", "Mnt", 0, 0, false, 0 } };
+    d = testcore::desc; d.media = slot_bad_mount; CHECK(desc_check(&d) && strstr(desc_check(&d), "Mnt") && strstr(desc_check(&d), "no file action"));
+    static const MediaSlot slot_bad_replace[1] = { { "Slot", "test.slot", 0, 0, 0, 0, ".tst", "Mount", 0, 0, false, "Swap" } };
+    d = testcore::desc; d.media = slot_bad_replace; CHECK(desc_check(&d) && strstr(desc_check(&d), "Swap"));
+    static const MediaSlot slot_other_type[1] = { { "Slot", "test.slot", 0, 0, 0, 0, ".xyz", "Mount", 0, 0, false, 0 } };
+    d = testcore::desc; d.media = slot_other_type; CHECK(desc_check(&d) && strstr(desc_check(&d), "Mount"));
     d = testcore::desc; d.register_ops = 0; CHECK(desc_check(&d) && strstr(desc_check(&d), "test."));      // nobody registers what it names
     d = testcore::desc; d.service_op = "test.nosvc"; d.service_period_ms = 5; CHECK(desc_check(&d) && strstr(desc_check(&d), "test.nosvc"));
     d = testcore::desc; d.service_op = "test.mount"; d.service_period_ms = 5; CHECK(desc_check(&d) && strstr(desc_check(&d), "without arguments"));
@@ -604,6 +622,21 @@ int main()
         CHECK(prg && !strcmp(prg->actions[0].label, "Run PRG") && !prg->actions[0].ask);
         CHECK(prg && !strcmp(prg->actions[1].label, "Load PRG and start from") && prg->actions[1].ask);
         CHECK(prg && !strcmp(prg->actions[2].label, "DMA (load, do not run)") && !prg->actions[2].ask);
+    }
+
+    // T228 §5 (picture fix): the application's Picture row is the one the picture code finds; desc_check refuses a record setting that uses the key or the op of Picture, Scale or Smoothing, so the application's row is the only match
+    {
+        const CoreDesc *td = trx64u::desc();
+        int pi = picture_index(td);
+        CHECK(pi >= 0 && !strcasecmp(td->settings[pi].key, PICTURE_KEY));
+        int si = scale_index(td), mi = smooth_index(td);
+        CHECK(si < 0 || !strcasecmp(td->settings[si].key, SCALE_KEY));
+        CHECK(mi < 0 || !strcasecmp(td->settings[mi].key, SMOOTH_KEY));
+        int dup = 0;
+        for (int i = 0; i < td->nsettings; i++)
+            for (int j = i + 1; j < td->nsettings; j++)
+                if (!strcasecmp(td->settings[i].key, td->settings[j].key)) { dup++; printf("duplicate setting key %s\n", td->settings[i].key); }
+        CHECK_EQ(dup, 0);
     }
 
     // T104 5.2: the records the Amiga needed are checked like every other part of the descriptor, and a refusal names the field
@@ -793,12 +826,13 @@ int main()
             case EK_RETURN_HOST: own = !strcmp(e.label, "Return to host menu"); break;
             case EK_BUG_REPORT: own = !strcmp(e.label, "Bug report"); break;
             case EK_WIFI: own = !strcmp(e.label, "WiFi"); break;
+            case EK_KEYS_HELP: own = !strcmp(e.label, "Keys and help"); break;
             case EK_SAVE_SET: own = !strcmp(e.label, "Save as config..."); break;
             case EK_LOAD_SET: own = !strcmp(e.label, "Load config..."); break;
             case EK_HEADING: own = !strcmp(e.label, "Machine") || !strcmp(e.label, "Storage") || !strcmp(e.label, "Actions") || !strcmp(e.label, "Network") ||
                                    !strcmp(e.label, "Support") || !strcmp(e.label, "Reset") || !strcmp(e.label, "Status"); break;
             case EK_DRIVE_MOUNT: case EK_DRIVE_EJECT: own = true; break;      // T212 D5: the drive list's own rows
-            case EK_OPENS: own = !strcmp(e.label, "Hotkeys") || !strcmp(e.label, "Storage") || !strcmp(e.label, "Menu") || !strcmp(e.label, "Keys"); break;
+            case EK_OPENS: own = !strcmp(e.label, "Hotkeys") || !strcmp(e.label, "Storage") || !strcmp(e.label, "Menu") || !strcmp(e.label, "Keys") || !strcmp(e.label, "FTP hosts"); break;
             case EK_NODE: own = false; break;
             }
             if (!own) printf("not own: kind %d label [%s] idx %d core %s i %d\n", (int)e.kind, e.label, e.index, (*p)->id, i);

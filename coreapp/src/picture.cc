@@ -11,9 +11,10 @@
 // picture_service move it.
 static uint16_t g_mask = EDID_ROW_MASK;              // the rows the screen takes
 static uint16_t g_native = 0;                        // the rows it flags as native
+static bool g_no_edid = false;                       // T235 §5: the screen named none of the listed rows (no EDID, a corrupt one, or none of the machine's family)
 static int g_msys = VID_SYS_PAL50;                   // the machine's 50 / 60 Hz family (Q6)
 static bool g_gw = false;                            // the gateware takes the mode (status register answered)
-static int g_list[VID_HDMI_COUNT], g_nlist = 0;      // the resolutions the Picture item lists: value n + 1 is g_list[n]
+static int g_list[PIC_ROWS_MAX], g_nlist = 0;        // T235: the table rows (family * 6 + hdmi) the Picture item lists: value n + 1 is g_list[n]
 static int g_hd_hdmi = -1;            // the host's default: the mode the host handed over (D11c)
 static int g_host_hdmi = -1;          // T164 D10c: the resolution the host's own Picture is set to (host.cfg [Video] Mode); -1: "From the screen", no file, unreadable
 static int g_last_value = 0;                         // the Picture value in force
@@ -35,30 +36,83 @@ static int vic_family(int sys)
     return (sys == VID_SYS_NTSC60 || sys == VID_SYS_PAL60) ? VID_SYS_NTSC60 : VID_SYS_PAL50;
 }
 
-// "Auto" and then the resolutions the screen takes. The first value says where its mode comes from (T164 D10c amended): "Auto (1280 x 720 from host)" when the core
+// "Auto" and then the rows of the list (T235: every row of the table with its rate on the gateware path, else the resolutions the screen takes). The first value says where its mode comes from (T164 D10c amended): "Auto (1280 x 720 from host)" when the core
 // uses the mode the host stored, "Auto (1920 x 1080 from screen)" when it uses what it picked from the screen; plain "Auto" until the picture starts.
 static char g_auto_text[40] = "Auto";
-static const char *g_values[1 + VID_HDMI_COUNT];
+static const char *g_values[1 + PIC_ROWS_MAX];
+static char g_label[PIC_ROWS_MAX][32];                  // T235: the value texts of the full list ("1280 x 720 (50 Hz)"); the .cfg keeps them
+static char g_rname[PIC_ROWS_MAX][20];                  // and the names the page shows beside the rate ("1280 x 720")
+// T235: a core on the gateware path (not the VIC path, which runs the System Mode's family only) is offered every row of the table, at its own rate
+static bool full_list(void) { return g_gw && !g_vic_scale; }
+// A snapshot of the value texts before the list is rebuilt: the texts of the full list live in g_label, which the rebuild overwrites.
+struct OldValues {
+    char text[1 + PIC_ROWS_MAX][40];
+    const char *p[1 + PIC_ROWS_MAX];
+    int n;
+};
+static void snapshot_values(OldValues *o)
+{
+    o->n = 1 + g_nlist;
+    for (int i = 0; i < 1 + PIC_ROWS_MAX; i++) {
+        o->p[i] = 0;
+        o->text[i][0] = 0;
+        if (i < o->n && g_values[i]) {
+            snprintf(o->text[i], sizeof(o->text[i]), "%s", g_values[i]);
+            o->p[i] = o->text[i];
+        }
+    }
+}
 static const char *g_scale_values[VID_SCALE_COUNT];     // T107 D8: Integer, Fit, Fill
 static const char *const g_smooth_values[2] = { "Off", "On" };
+static const char *const g_follow_values[2] = { "Off", "On" };
 
 static void drop_unlocked(void);
 
 static void fill_values(void)
 {
-    g_nlist = video_modes_hdmi_list(g_mask, g_msys, g_list);
-    if (g_nlist == 0) {                                // a mask that names nothing: the television rows (Q9)
+    int hl[VID_HDMI_COUNT];
+    int nh = video_modes_hdmi_list(g_mask, g_msys, hl);
+    if (nh == 0) {                                     // a mask that names nothing: the television rows (Q9), none of them named by the screen
         g_mask = EDID_LIST_NONE;
-        g_nlist = video_modes_hdmi_list(g_mask, g_msys, g_list);
+        g_no_edid = true;
+        nh = video_modes_hdmi_list(g_mask, g_msys, hl);
     }
-    drop_unlocked();
+    g_nlist = 0;
+    if (full_list()) {                                 // every row of the table, both rates, the machine's rate first within a resolution (an old .cfg that says "1280 x 720" finds that one)
+        int own = g_msys == VID_SYS_NTSC60 ? 1 : 0;
+        for (int h = 0; h < VID_HDMI_COUNT; h++) {
+            for (int k = 0; k < 2; k++) {
+                int fam = k == 0 ? own : 1 - own;
+                int row = fam * 6 + h;
+                if (!((EDID_ROW_MASK >> row) & 1u)) {
+                    continue;                          // a PC mode has no 50 Hz row
+                }
+                const char *nm = h == VID_HDMI_480_576 ? (fam ? "480p" : "576p") : video_hdmi_name(h);
+                snprintf(g_rname[g_nlist], sizeof(g_rname[0]), "%s", nm);
+                snprintf(g_label[g_nlist], sizeof(g_label[0]), "%s (%d Hz)", nm, fam ? 60 : 50);
+                g_list[g_nlist++] = row;
+            }
+        }
+    } else {
+        for (int i = 0; i < nh; i++) {
+            int row;
+            if (video_modes_resolve(g_mask, g_msys, hl[i], &row)) {
+                snprintf(g_label[g_nlist], sizeof(g_label[0]), "%s", video_hdmi_name(hl[i]));
+                snprintf(g_rname[g_nlist], sizeof(g_rname[0]), "%s", video_hdmi_name(hl[i]));
+                g_list[g_nlist++] = row;
+            }
+        }
+        drop_unlocked();
+    }
     g_values[0] = g_auto_text;
     for (int i = 0; i < g_nlist; i++) {
-        g_values[1 + i] = video_hdmi_name(g_list[i]);
+        g_values[1 + i] = g_label[i];
     }
 }
 
-// T222: the gateware's VIC path locks 576p / 480p, 720p, 1080p and 800 x 600 only (U16 D2): 1024 x 768 and 1280 x 1024 are not offered
+// T222: the gateware's VIC path locks 576p / 480p, 720p, 1080p and 800 x 600 only (U16 D2): 1024 x 768 and 1280 x 1024 are not offered.
+// T228 R21: 800 x 600 is real only in the 60 Hz family (NTSC, PAL-60); the 50 Hz family has no PC row and runs 576p for it (FW trx_hdmi.h:14-23,
+// mode_req.v:64-77), so there it is not listed (the same code that asks the gateware, video_gw_row_for, folds it to 576p).
 static void drop_unlocked(void)
 {
     if (!g_vic_scale) {
@@ -66,7 +120,10 @@ static void drop_unlocked(void)
     }
     int n = 0;
     for (int i = 0; i < g_nlist; i++) {
-        if (g_list[i] <= VID_HDMI_800x600) {
+        int h = video_row_hdmi(g_list[i]);
+        if (h < VID_HDMI_800x600 || (h == VID_HDMI_800x600 && g_msys == VID_SYS_NTSC60)) {
+            snprintf(g_label[n], sizeof(g_label[0]), "%s", g_label[i]);
+            snprintf(g_rname[n], sizeof(g_rname[0]), "%s", g_rname[i]);
             g_list[n++] = g_list[i];
         }
     }
@@ -86,6 +143,7 @@ const char *picture_extend(const CoreDesc *d, CoreDesc *out, Setting *store, con
 {
     g_mask = env ? (env->mask & EDID_ROW_MASK) : EDID_ROW_MASK;
     g_native = env ? env->native : 0;
+    g_no_edid = env ? env->no_edid : false;
     g_gw = env ? env->gateware : false;
     g_msys = (env && env->sys >= 0) ? env->sys : current_sys();
     bool scaled = g_gw && d->video.w != 0 && d->nsettings + 3 <= SETTINGS_MAX;             // the frame buffer goes through the scaler (G14); a core with its own picture has no layer to scale
@@ -98,8 +156,9 @@ const char *picture_extend(const CoreDesc *d, CoreDesc *out, Setting *store, con
         return "settings: no room for the Picture item the application adds";
     }
     for (int i = 0; i < d->nsettings; i++) {
-        if (!strcasecmp(d->settings[i].key, PICTURE_KEY) || !strcasecmp(d->settings[i].key, SCALE_KEY) || !strcasecmp(d->settings[i].key, SMOOTH_KEY)) {
-            return "settings: the keys Picture, Scale and Smoothing belong to the application";
+        if (!strcasecmp(d->settings[i].key, PICTURE_KEY) || !strcasecmp(d->settings[i].key, SCALE_KEY) || !strcasecmp(d->settings[i].key, SMOOTH_KEY) ||
+            !strcasecmp(d->settings[i].key, FOLLOW_KEY)) {
+            return "settings: the keys Picture, Scale, Smoothing and Frame follow belong to the application";
         }
         store[i] = d->settings[i];
     }
@@ -113,7 +172,7 @@ const char *picture_extend(const CoreDesc *d, CoreDesc *out, Setting *store, con
     p.def = 0;
     p.when = WHEN_LIVE;
     p.apply = PICTURE_OP;
-    p.group = "video";                             // the TRX64U menu lists it on the Video page (HDMI Scan Resolution); a core whose menu has no such group shows it where it did
+    p.group = "video";                             // the setting group "video": the menu route sends the row by op and key (menu_route_of); the group only picks its block on a tab with sections
     if (vic_scaled) {
         for (int m = 0; m < VID_SCALE_COUNT; m++) {
             g_scale_values[m] = video_scale_name(m);
@@ -162,6 +221,18 @@ const char *picture_extend(const CoreDesc *d, CoreDesc *out, Setting *store, con
         r.apply = SMOOTH_OP;
         r.group = "video";
     }
+    if (g_gw && env && env->follow && d->video.w != 0 && d->nsettings + extra + 1 <= SETTINGS_MAX) {      // T234: the Amiga cores' Frame follow, with the other picture rows (F5 Video)
+        Setting &f = store[d->nsettings + extra];
+        f = Setting();
+        f.key = FOLLOW_KEY;
+        f.values = g_follow_values;
+        f.nvalues = 2;
+        f.def = 0;                                     // the gateware powers up Off (T234 D1)
+        f.when = WHEN_LIVE;
+        f.apply = FOLLOW_OP;
+        f.group = "video";
+        extra++;
+    }
     *out = *d;
     out->settings = store;
     out->nsettings = d->nsettings + extra;
@@ -177,35 +248,40 @@ void picture_env_read(PictureEnv *env, int sys)
     }
     env->mask = video_modes_offered(edid, len);
     EdidInfo info;
-    env->native = len > 0 && edid_parse(edid, len, &info) ? (uint16_t)(info.native & env->mask) : 0;
+    bool ok = len > 0 && edid_parse(edid, len, &info);
+    env->no_edid = !ok;                            // T235 §5: apart from the mask, which a valid EDID naming the six television rows also makes EDID_LIST_NONE
+    env->native = ok ? (uint16_t)(info.native & env->mask) : 0;
     env->gateware = video_gateware_present();
     env->vic_scale = video_gateware_vic_scale();
     env->vic_smooth = video_gateware_vic_smooth();
+    env->follow = video_gateware_follow();
     env->sys = sys;
 }
 
 int picture_index(const CoreDesc *d)
 {
     for (int i = 0; i < d->nsettings; i++) {
-        if (d->settings[i].apply && !strcmp(d->settings[i].apply, PICTURE_OP)) {
+        if (d->settings[i].apply && !strcmp(d->settings[i].apply, PICTURE_OP) && !strcasecmp(d->settings[i].key, PICTURE_KEY)) {
             return i;
         }
     }
     return -1;
 }
 
-static int index_of_op(const CoreDesc *d, const char *op)
+// op and canonical key: the application's row is the one that counts. desc_check refuses a core setting that uses either the key or the op of Picture, Scale, Smoothing or Frame follow; it runs in the tests only, so on the board this op+key match is the guard
+static int index_of_op(const CoreDesc *d, const char *op, const char *key)
 {
     for (int i = 0; i < d->nsettings; i++) {
-        if (d->settings[i].apply && !strcmp(d->settings[i].apply, op)) {
+        if (d->settings[i].apply && !strcmp(d->settings[i].apply, op) && !strcasecmp(d->settings[i].key, key)) {
             return i;
         }
     }
     return -1;
 }
 
-int scale_index(const CoreDesc *d)  { return index_of_op(d, SCALE_OP); }
-int smooth_index(const CoreDesc *d) { return index_of_op(d, SMOOTH_OP); }
+int scale_index(const CoreDesc *d)  { return index_of_op(d, SCALE_OP, SCALE_KEY); }
+int smooth_index(const CoreDesc *d) { return index_of_op(d, SMOOTH_OP, SMOOTH_KEY); }
+int follow_index(const CoreDesc *d) { return index_of_op(d, FOLLOW_OP, FOLLOW_KEY); }
 
 // A mode of the machine's family and the resolution the person means. With the gateware the row decides the family (Q6: the other one only
 // when the screen has nothing in the machine's); the firmware path of an old host has one family, the machine's.
@@ -245,25 +321,22 @@ static int current_hdmi(CoreCtx *c)
     return video_unpack(video_current, &sys, &hdmi) ? hdmi : -1;
 }
 
-// The mode a value asks for (D11c, D10c): the core's own choice when the screen takes it; else (Auto, or a choice that is gone) the host's own Picture
+// The mode a value asks for (D11c, D10c): a row of the list as it stands (a table row at its own rate on the gateware path outside the VIC path, T235, whether or not the screen names it: the 8-second confirm is the safety); Auto: the host's own Picture
 // choice (host.cfg) when it names a resolution the screen takes, else the mode the host handed over when the screen takes that; else the best the screen offers. Without the gateware Auto is still what the picture fits in (ADR-0057: the frame is fixed
-// at 1080p there and the mode is the only lever). A core that draws its own picture (Video::own_picture) has no wish, and Auto then leaves the
-// screen in the mode it is in (`now`, -1 when nobody knows).
+// at 1080p there and the mode is the only lever). On the gateware path Auto is the same for a core that draws its own picture (T228 R20: the screen's EDID decides, best_pick); without the
+// gateware a core that draws its own picture (Video::own_picture) has no wish, and Auto then leaves the screen in the mode it is in (`now`, -1 when nobody knows).
 static Pick target(CoreCtx *c, int value, int now)
 {
     Pick p;
     if (g_nlist == 0) {                            // a caller that never built the items (the list is the defaults')
         fill_values();
     }
-    if (value > 0 && value - 1 < g_nlist && resolve_pick(g_list[value - 1], &p)) {
+    if (value > 0 && value - 1 < g_nlist) {                  // a row of the list: the full list names the family, the others run the machine's
+        p.sys = full_list() ? video_row_sys(g_list[value - 1]) : g_msys;
+        p.hdmi = video_row_hdmi(g_list[value - 1]);
         return p;
     }
     if (g_gw) {
-        if (c->video->own_picture()) {
-            p.sys = current_sys();
-            p.hdmi = now;
-            return p;
-        }
         if (g_host_hdmi >= 0 && resolve_pick(g_host_hdmi, &p)) {         // D10c: Auto is the host's own choice ...
             return p;
         }
@@ -296,15 +369,23 @@ void picture_modes(CoreCtx *c, PictureModes *out)
     int now = c->video ? current_hdmi(c) : -1;                  // a rig with no video (a bench) lists the names only
     int pi = picture_index(c->desc);
     out->cur = pi >= 0 && c->settings ? c->settings->value(pi) : g_last_value;
-    out->no_edid = g_mask == EDID_LIST_NONE;
+    out->no_edid = g_no_edid;
     out->n = 1 + g_nlist;
     Pick a = { 0, -1 };
     if (c->video) {
         a = target(c, 0, now);
     }
+    bool full = full_list();
+    int now_row = full && now >= 0 ? video_row_of(now, current_sys()) : -1;
     for (int i = 0; i < out->n; i++) {
-        int hdmi = i == 0 ? a.hdmi : g_list[i - 1];
-        picmodes_set_row(out, i, g_values[i], hdmi, g_mask, g_native, g_msys, now, out->cur == 0);
+        if (full) {                                             // T235: the table row, the rate of its own clock, a mark when the screen names it
+            int row = i == 0 ? (a.hdmi >= 0 ? video_row_of(a.hdmi, a.sys) : -1) : g_list[i - 1];
+            bool named = !out->no_edid && row >= 0 && ((g_mask >> row) & 1u);
+            picmodes_set_row_at(out, i, i == 0 ? g_values[0] : g_rname[i - 1], row, named, g_native, now_row, out->cur == 0);
+        } else {
+            int hdmi = i == 0 ? a.hdmi : video_row_hdmi(g_list[i - 1]);
+            picmodes_set_row(out, i, g_values[i], hdmi, g_mask, g_native, g_msys, now, out->cur == 0);
+        }
     }
 }
 
@@ -344,7 +425,7 @@ static char g_result[80];                          // T187 D4/D5: what the chip 
 
 static void mode_text(int sys, int hdmi, char *out, int n)
 {
-    picmodes_mode_text(g_mask, g_gw ? (sys ? VID_SYS_NTSC60 : VID_SYS_PAL50) : sys, hdmi, out, n);
+    picmodes_mode_text(full_list() ? EDID_ROW_MASK : g_mask, g_gw ? (sys ? VID_SYS_NTSC60 : VID_SYS_PAL50) : sys, hdmi, out, n);       // T235: a row the screen does not name has its own rate too
 }
 
 void picture_confirm_names(char *now, int nn, char *prev, int pn)
@@ -415,6 +496,13 @@ void smooth_apply(CoreCtx *c, int value)
     }
     if (c->video) {
         c->video->set_smoothing(value == 1);
+    }
+}
+
+void follow_apply(CoreCtx *, int value)
+{
+    if (!video_set_follow_gateware(value == 1 ? 1 : 0)) {
+        printf("[core] frame follow: the gateware did not take %s\n", value == 1 ? "On" : "Off");
     }
 }
 
@@ -494,9 +582,15 @@ static int op_smooth(CoreCtx *c, const OpArgs &a, OpOut &)
     smooth_apply(c, a.i(0));
     return OPE_OK;
 }
+static int op_follow(CoreCtx *c, const OpArgs &a, OpOut &)
+{
+    follow_apply(c, a.i(0));
+    return OPE_OK;
+}
+static const ArgSpec follow_args[] = { ARG_INT("value", 0, 1) };
 static const ArgSpec scale_args[] = { ARG_INT("value", 0, VID_SCALE_COUNT - 1) };
 static const ArgSpec smooth_args[] = { ARG_INT("value", 0, 1) };
-static const ArgSpec picture_args[] = { ARG_INT("value", 0, VID_HDMI_COUNT) };
+static const ArgSpec picture_args[] = { ARG_INT("value", 0, PIC_ROWS_MAX) };
 
 // The picture as the descriptor states it, for the Home panel (menuflows.h MenuFacts): the scale it is at now, not the descriptor's.
 static const char *st_video_line(CoreCtx *c)
@@ -504,7 +598,7 @@ static const char *st_video_line(CoreCtx *c)
     static char t[64];
     const VideoDesc &v = c->desc->video;
     if (!v.w) {
-        return "the core's own picture";
+        return "";                                       // T228 DC11: no size reported, no line (the Home panel draws none)
     }
     unsigned scale = c->video ? c->video->scale() : v.scale;
     snprintf(t, sizeof(t), "%u x %u, scale %u", (unsigned)v.w, (unsigned)v.h, scale);
@@ -517,6 +611,7 @@ void picture_register(OpRegistry &r)
     r.add_op(PICTURE_OP, picture_args, 1, op_picture);
     r.add_op(SCALE_OP, scale_args, 1, op_scale);
     r.add_op(SMOOTH_OP, smooth_args, 1, op_smooth);
+    r.add_op(FOLLOW_OP, follow_args, 1, op_follow);
 }
 
 static void note_screen(void)
@@ -534,9 +629,8 @@ static void set_machine_sys(CoreCtx *c, int sys)
     if (sys == g_msys) {
         return;
     }
-    const char *old[1 + VID_HDMI_COUNT];
-    int nold = 1 + g_nlist;
-    memcpy(old, g_values, sizeof(old));
+    OldValues old;
+    snapshot_values(&old);
     g_msys = sys;
     fill_values();
     int pidx = picture_index(c->desc);
@@ -544,7 +638,7 @@ static void set_machine_sys(CoreCtx *c, int sys)
         Setting &s = const_cast<Setting &>(c->desc->settings[pidx]);
         s.nvalues = 1 + g_nlist;
         if (c->settings) {
-            c->settings->remap(pidx, old, nold);
+            c->settings->remap(pidx, old.p, old.n);
         }
     }
 }
@@ -638,6 +732,10 @@ int picture_start(CoreCtx *c, int sys, int hdmi_now)
     if (midx >= 0 && c->settings) {
         smooth_apply(c, c->settings->value(midx));
     }
+    int fidx = follow_index(c->desc);
+    if (fidx >= 0 && c->settings) {
+        follow_apply(c, c->settings->value(fidx));                   // before the mode: the gateware re-tunes for the row set once (T234)
+    }
     if (p.hdmi >= 0 && (p.hdmi != hdmi_now || (g_gw && p.sys != run_sys))) {
         printf("[core] picture %s: %s instead of %s\n", value <= 0 ? "auto" : "chosen", video_hdmi_name(p.hdmi),
                hdmi_now < 0 ? "what the screen said" : video_hdmi_name(hdmi_now));
@@ -714,10 +812,11 @@ int picture_service(CoreCtx *c)
     g_have_sig = true;
     uint16_t mask = video_modes_offered(edid, len);
     EdidInfo ei;
-    g_native = edid_parse(edid, len, &ei) ? (uint16_t)(ei.native & mask) : 0;      // the new screen's native flags, not the last one's
-    const char *old[1 + VID_HDMI_COUNT];
-    int nold = 1 + g_nlist;
-    memcpy(old, g_values, sizeof(old));
+    bool ok = edid_parse(edid, len, &ei);
+    g_native = ok ? (uint16_t)(ei.native & mask) : 0;      // the new screen's native flags, not the last one's
+    g_no_edid = !ok;                                       // T235 §5: a corrupt EDID names nothing; a valid one may name exactly the television rows
+    OldValues old;
+    snapshot_values(&old);
     g_mask = mask;
     fill_values();
     int pidx = picture_index(c->desc);
@@ -725,7 +824,7 @@ int picture_service(CoreCtx *c)
         Setting &s = const_cast<Setting &>(c->desc->settings[pidx]);
         s.nvalues = 1 + g_nlist;
         if (c->settings) {
-            c->settings->remap(pidx, old, nold);
+            c->settings->remap(pidx, old.p, old.n);
         }
     }
     ev |= PS_LIST_CHANGED;
@@ -741,6 +840,13 @@ int picture_service(CoreCtx *c)
         if (apply_mode(p.sys, p.hdmi)) {
             video_current = video_pack(p.sys, p.hdmi);
             c->video->set_mode(p.hdmi, p.sys);
+            if (full_list() && pidx >= 0 && c->settings) {         // T235: the list does not shrink with the screen, so a stored choice the new screen does not name stays on it: for this run it reads Auto (nothing is written)
+                int v = c->settings->value(pidx);
+                if (v > 0 && v - 1 < g_nlist && !((mask >> g_list[v - 1]) & 1u)) {
+                    c->settings->override_value(pidx, 0);
+                    g_last_value = 0;
+                }
+            }
         }
     }
     return ev;

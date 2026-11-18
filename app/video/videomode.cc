@@ -217,12 +217,20 @@ bool video_gw_up(const GwStatus &st, int row)
 
 bool video_gw_has_scale(const GwStatus &st)
 {
-    return st.present && st.version >= 2 && (st.flags & GW_F_C64_TYPE) != 0;
+    // T228: the C64-type flag alone decides. The MultiCore bitstreams tie c64_type to 0 wherever their mode_req is version 1 (host/top.v and every
+    // cores/*/mono/host/top.v); TRX64-Ultimate's U16 mode_req answers version 1 with the flag set, has the scale register (0x4F01 / 0x4F0A) and holds the
+    // same seven rows and the System Mode's family as T222's version 2.
+    return st.present && st.version >= 1 && (st.flags & GW_F_C64_TYPE) != 0;
 }
 
 bool video_gw_has_smooth(const GwStatus &st)
 {
     return video_gw_has_scale(st) && st.version >= 3;
+}
+
+bool video_gw_has_follow(const GwStatus &st)
+{
+    return st.present && st.version >= 4;
 }
 
 int video_gw_row_for(const GwStatus &st, int sys, int hdmi)
@@ -247,6 +255,35 @@ bool video_gw_set_scale_io(const GwIo *io, int scale, int timeout_ms)
     io->wr(GW_SCALE, (uint8_t)scale);
     for (int t = 0;; t += 10) {
         if (io->rd(GW_SCALE_AT) == (uint8_t)scale) {
+            return true;
+        }
+        if (t >= timeout_ms) {
+            return false;
+        }
+        io->wait_ms(10);
+    }
+}
+
+bool video_gw_set_follow_io(const GwIo *io, int on, int timeout_ms)
+{
+    if (on != 0 && on != 1) {
+        return false;
+    }
+    io->wr(GW_FOLLOW, (uint8_t)on);
+    int t = 0;
+    while (io->rd(GW_FOLLOW_AT) != (uint8_t)on) {
+        if (t >= timeout_ms) {
+            return false;
+        }
+        io->wait_ms(10);
+        t += 10;
+    }
+    io->wait_ms(20);                                   // the gateware starts the re-tune within a few clocks; the status of before it is not an answer
+    t += 20;
+    for (;; t += 10) {
+        GwStatus st;
+        video_gw_probe_io(io, &st);
+        if (st.present && (st.flags & GW_F_PIX_LOCKED) && (st.flags & GW_F_RUNNING)) {
             return true;
         }
         if (t >= timeout_ms) {
@@ -315,8 +352,8 @@ bool video_read_edid(uint8_t *buf, int max, int *len)
     if (!i2c || max < 128) {
         return false;
     }
-    U64_HDMI_REG = U64_HDMI_DDC_ENABLE;
     i2c->i2c_lock("video EDID");
+    U64_HDMI_REG = U64_HDMI_DDC_ENABLE;                          // gate fix 10b: inside the lock - the bug report and the Picture service both read, and the one that waits must not find the DDC lines switched off by the one that finished
     i2c->set_channel(I2C_CHANNEL_HDMI);
     bool ok = i2c->i2c_read_block(0xA0, 0x00, buf, 128) == 0;
     if (ok) {
@@ -396,6 +433,22 @@ bool video_set_smooth_gateware(int on)
     return video_gw_set_smooth_io(&k_gw_io, on, GW_SCALE_TIMEOUT_MS);
 }
 
+bool video_gateware_follow(void)
+{
+    static bool seen = false;                      // as video_gateware_vic_scale: only a yes is kept
+    if (!seen) {
+        GwStatus st;
+        video_gw_probe_io(&k_gw_io, &st);
+        seen = video_gw_has_follow(st);
+    }
+    return seen;
+}
+
+bool video_set_follow_gateware(int on)
+{
+    return video_gw_set_follow_io(&k_gw_io, on, GW_APPLY_TIMEOUT_MS);
+}
+
 bool video_apply_gateware(int sys, int hdmi)
 {
     bool ok = video_gw_apply_io(&k_gw_io, sys, hdmi, GW_APPLY_TIMEOUT_MS);   // the synthesizer, the GTP and mmcm_pix follow the request
@@ -412,8 +465,8 @@ bool video_edid_sig(uint32_t *sig)
         return false;
     }
     uint8_t b[2] = { 0, 0 };
-    U64_HDMI_REG = U64_HDMI_DDC_ENABLE;
     i2c->i2c_lock("video EDID sig");
+    U64_HDMI_REG = U64_HDMI_DDC_ENABLE;                          // gate fix 10b: inside the lock, as video_read_edid
     i2c->set_channel(I2C_CHANNEL_HDMI);
     bool ok = i2c->i2c_read_block(0xA0, 0x7E, b, 2) == 0;     // extension count, checksum
     U64_HDMI_REG = U64_HDMI_DDC_DISABLE;

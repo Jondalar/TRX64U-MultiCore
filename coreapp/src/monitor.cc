@@ -500,14 +500,14 @@ static int op_run(CoreCtx *c, const OpArgs &a, OpOut &o)
 static const ArgSpec line_arg[] = { ARG_STRING("line", 60) };
 
 // T192.3 leak 2: the monitor's keys are an operation, not a branch of the menu controller. The key table (menukeytab.cc) sends every key of the monitor's screen to it; the answer
-// is what the controller does next: "goto F4/diagnostics" (the line `diag`; the session is released first), "close" (`x`: resume and leave), else nothing.
+// is what the controller does next: "goto F8" (the line `diag`: the System tab, F8; the session is released first), "close" (`x`: resume and leave), else nothing.
 static int op_key(CoreCtx *c, const OpArgs &a, OpOut &o)
 {
     mon_key(c, a.i(0));
     o.msg[0] = 0;
     if (mon_diag_requested()) {
         mon_release();
-        snprintf(o.msg, o.msglen, "goto F4/diagnostics");
+        snprintf(o.msg, o.msglen, "goto F8");
     } else if (mon_leave_requested()) {
         snprintf(o.msg, o.msglen, "close");
     }

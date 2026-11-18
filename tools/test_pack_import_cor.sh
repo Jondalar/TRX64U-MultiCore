@@ -3,6 +3,7 @@
 # trx64g never share a core folder or .cfg. Uses a synthetic full bitstream (test_cor_pack.full_bit).
 #   tools/test_pack_import_cor.sh            runs the scenarios;  with --control the pins are NOT matched (the run must fail)
 set -euo pipefail
+unset GITHUB_REF_TYPE GITHUB_REF_NAME GITHUB_EVENT_NAME   # a tag run's environment must not reach the scenarios this test builds itself (run 2449)
 HERE="$(cd "$(dirname "$0")" && pwd)"; ROOT="$HERE/.."
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 python3 -I - "$HERE" "$W" <<'PY'

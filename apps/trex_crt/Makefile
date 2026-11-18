@@ -3,6 +3,7 @@ APP_NAME = trex_crt
 APP_VERSION = 1.1
 APP_RES = transient
 APP_REG = 1
+APP_NEEDS = cart_port>=1.0
 APP_MENU = app.toml
 APP_CSRCS = src/trex_main.c src/ui_shim.c src/cart_base.c src/cart_screen.c src/cart_dumper.c src/cart_writer.c src/cart_inspector.c src/eapi_drivers.c
 APP_CCSRCS = glue.cc

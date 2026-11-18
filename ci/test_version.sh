@@ -2,6 +2,7 @@
 # T221 S1: ci/version.sh on fake refs. A branch, an integration branch and main show X.Y.Z-dev+<sha8>, a tag shows X.Y.Z; every component reads its own
 # version file; a version file that is not SemVer is refused (negative controls: the old forms `<branch>@<sha8>` and `X.Y.Z+<sha8>` must not come back).
 set -euo pipefail
+unset GITHUB_REF_TYPE GITHUB_REF_NAME GITHUB_EVENT_NAME   # a tag run's environment must not reach the scenarios this test builds itself (run 2449)
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 fail() { echo "FAIL: $*"; exit 1; }
 sha8="$(git rev-parse --short=8 HEAD)"

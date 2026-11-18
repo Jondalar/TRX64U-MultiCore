@@ -1,6 +1,6 @@
 # T119 — VC-20 and ZX Spectrum draw into a DDR2 frame buffer of the pixel layer, not through the host's vic_scaler
 
-**Status:** DECIDED (2026-10-23, Alex). 2026-11-13 status check: built and merged (VC-20 and ZX draw through the pixel layer, Merge t119-zxblack, t164-zx48e); ZX 48K picture on the board 2026-11-04 (todo); state: in progress as in row. **2026-11-15 sync:** VC-20 part proven on the board (menu and picture fit, Alex 2026-10-23), ZX 48K picture on the board 2026-11-04; the 128K path worked earlier (todo 2026-11-01); no §2 scenario table was re-checked here.
+**Status:** DONE (2026-11-18: S3 for the VC-20 and the ZX closed as done, shipped and in use, end of §5; nothing else open). DECIDED (2026-10-23, Alex). 2026-11-13 status check: built and merged (VC-20 and ZX draw through the pixel layer, Merge t119-zxblack, t164-zx48e); ZX 48K picture on the board 2026-11-04 (todo); state: in progress as in row. **2026-11-15 sync:** VC-20 part proven on the board (menu and picture fit, Alex 2026-10-23), ZX 48K picture on the board 2026-11-04; the 128K path worked earlier (todo 2026-11-01); no §2 scenario table was re-checked here.
 **Repo:** TRX64U-MultiCore — `cores/vc20/`, `cores/zx/` (a pixel writer each, as `cores/c264/rtl/trx/c264_pixw.v`), the
 core app's per-core setup where the C264 has one. The host is not touched (frozen, `tools/host_pin.sh`).
 **Number:** T119 (TODO table; T117 unused, T118 is the HDMI geometry bench on `t118-hdmigeom`).
@@ -95,7 +95,7 @@ c64u) stay on the vic_scaler; the large `.cfw` cores are not affected.
   reported as `PASS control VC20_MUT_PIXW`. 250 s alone on the idle builder; budget 1200 s. `vc20` and `tb_vc20_pause` / `_ext` still pass.
 - **Size.** yosys `synth_xilinx` (not Vivado): `vc20_pixw` about 380 LUT, 594 FF, 2 RAMB36; `vc20_core` in all about 2,540 LUT,
   2,040 FF, 16 RAMB36 + 4 RAMB18 (yosys counts, Vivado will differ). Routing in CI is open.
-- **Not done / open.** S3 (five starts on the board, Alex) is not run; the pause keeps writing the (frozen) picture because the 6561
+- **Not done / open.** S3 (five starts on the board, Alex) is not run (closed as done 2026-11-18, end of §5); the pause keeps writing the (frozen) picture because the 6561
   runs on during a pause (nothing is gated, so the picture is the same frame again); the 5 : 3 stretch gives unevenly wide columns
   (6, 3, 6 output pixels), a choice of mine for the aspect, to be judged on the screen. The bench uses the test program, not a
   KERNAL READY screen; a local run with real ROMs (`run_boot.sh`) was not done.
@@ -131,7 +131,7 @@ c64u) stay on the vic_scaler; the large `.cfw` cores are not affected.
   and fails. Results (`pixw`, `pixw128`, `mut_pixw`): see `docs/todo/T119.md`. The S14 scaler bench now proves the lock on the dummy raster
   (`scaler`, `scaler128`; `mut_nomark` fails it); `clk48/clk128` still measure the ULA's frame (the lock marker part is trivially true on a
   free-running raster). The pause bench counts `e_*` commands while held (0). CI line `zx_pixw` (tier 2, 2400 s).
-- **5.7 Not done (ZX).** The board step S3 (five starts, centred and complete picture) is Alex's. The palette write
+- **5.7 Not done (ZX).** The board step S3 (five starts, centred and complete picture) is Alex's (closed as done 2026-11-18, end of §5). The palette write
   of the app is gone for the ZX; nothing else in the app changes. Synthesis (Vivado) was not run; the writer alone is about 310 LUT, 600 FF, 2 RAMB36
   by Yosys `synth_xilinx` (the line buffer, 128 x 128 bit).
 
@@ -307,4 +307,10 @@ c64u) stay on the vic_scaler; the large `.cfw` cores are not affected.
     `cold128` `d_hbr 746 ... 456 ... 311` `PASS`; `sw48` after the switch `d_hbr 1498 | line_starts 1499 | w12 448 rises 1498 | w13 32, 312` `PASS`. The unfixed netlist is the control that fails (above). Regression check without the whole core:
     `cores/zx/sim/fsim/run.sh [ula.sv]` (builder; ULA + `ulaw.v` synthesised in about a minute, 20 lines of each model, HBlank and HSync must rise on every line): fixed file `PASS 48K`, `PASS 128K`; the unpatched file prints `FAIL 48K` (the control).
   - Open for the board (not Alex's step yet, the build comes with the next package): 48K cold and 128K -> 48K on the flat large core with this ULA; JTAG words 10-13 expected as in the table above (48K: 448 / 32 / 312).
+    The 48K start passed on the board 2026-11-04 (board list 1.5, main-7fda7e1f; `docs/todo/T119.md`).
     The other `.sv` of the MiSTer tree that the cores read could carry the same pattern (an `else` after `else if` on complementary conditions that assigns what the sibling assigns); the ZX Next and CPC netlists were not looked at here.
+
+**2026-11-18 - board steps closed as done (shipped and in use):** S3 (VC-20: the menu fits every start; ZX: the menu fits every start, picture centred
+and complete) - Alex 2026-11-15: "Under A there is nothing I would not class as DONE! That has been in the builds for days/weeks, we had bugs and re-tests
+in part"; Alex 2026-11-18, shown these steps as open: "that is old stuff that has been running for ages, we had this already 3-4 days ago" and "tick it
+off in the TODOs/specs, otherwise it shows up again with some agent" (translated).

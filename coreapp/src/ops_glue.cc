@@ -16,6 +16,7 @@
 #include "libfiles.h"
 #include <stdio.h>
 #include <string.h>
+#include <ctype.h>
 
 // The browser enters a disk image itself (menuctl.cc intercepts the action before it gets here); the operation exists so that a descriptor's
 // action can name it and desc_check can see it.
@@ -35,10 +36,28 @@ static int op_app_open(CoreCtx *c, const OpArgs &a, OpOut &o)
 }
 static const ArgSpec app_open_args[] = { ARG_STRING("app", 15), ARG_STRING("action", 31), ARG_STRING("file", FS_PATH_MAX - 1) };
 
+// T228 R1: a row or a hotkey shows a screen of the menu, named "area/tab" ("F1/timewarp": a page of Home that the core's TOML declares). The menu takes the
+// request (CoreCtx::want_screen) when the operation returns, or when it opens: a hotkey pressed while the core runs opens the menu on that screen.
+// `unless` names a state (empty: none): while that state has a text, the screen is refused with that text (the precondition of the screen does not hold) and
+// the request is not made - the row and the hotkey take this one path.
+static int op_menu_screen(CoreCtx *c, const OpArgs &a, OpOut &o)
+{
+    const char *why = a.s(1)[0] ? ops_state(c, a.s(1)) : 0;
+    if (why && why[0]) {
+        snprintf(o.msg, o.msglen, "%s", why);
+        return OPE_FAILED;
+    }
+    snprintf(c->want_screen, sizeof(c->want_screen), "%s", a.s(0));
+    o.msg[0] = 0;
+    return OPE_OK;
+}
+static const ArgSpec screen_arg[] = { ARG_STRING("screen", 31), ARG_STRING("unless", 31) };
+
 void ops_register_base(OpRegistry &r)
 {
     r.contributor("base");
     r.add_op("menu.browse", browse_arg, 1, op_menu_browse);
+    r.add_op("menu.screen", screen_arg, 2, op_menu_screen);
     r.add_op("app.open", app_open_args, 3, op_app_open);
     boot_register(r);
     engines_register(r);
@@ -114,7 +133,48 @@ int ops_set(CoreCtx *c, const char *op, int value)
     return ops_call(c, op, &in, 1, &r);
 }
 
+// "set.<Key>" (spaces written as '_'): the label of the value the setting <Key> has, null when the core has no such setting. Lets a menu condition
+// (show_state) depend on another setting without a state of the core's own.
+static int fold(char ch)
+{
+    return ch == ' ' ? '_' : tolower((unsigned char)ch);
+}
+
+static const char *setting_state(CoreCtx *c, const char *key)
+{
+    if (!c->settings || !c->desc) {
+        return 0;
+    }
+    for (int i = 0; i < c->desc->nsettings; i++) {
+        const Setting &s = c->desc->settings[i];
+        const char *a = s.key, *b = key;
+        while (*a && *b && fold(*a) == fold(*b)) {
+            a++;
+            b++;
+        }
+        if (!*a && !*b) {
+            return s.kind ? c->settings->text(i) : s.values[c->settings->value(i)];
+        }
+    }
+    return 0;
+}
+
+static void ask_set(CoreCtx *c, uint8_t kind, const char *op, int phase, const char *prompt, const char *src, int maxlen)
+{
+    c->want_prompt.kind = kind;
+    c->want_prompt.phase = phase;
+    c->want_prompt.maxlen = maxlen;
+    snprintf(c->want_prompt.op, sizeof(c->want_prompt.op), "%s", op);
+    snprintf(c->want_prompt.prompt, sizeof(c->want_prompt.prompt), "%s", prompt);
+    snprintf(c->want_prompt.src, sizeof(c->want_prompt.src), "%s", src);
+}
+void ops_ask_text(CoreCtx *c, const char *op, int phase, const char *prompt, int maxlen, bool secret) { ask_set(c, secret ? 2 : 1, op, phase, prompt, "", maxlen); }
+void ops_ask_list(CoreCtx *c, const char *op, int phase, const char *prompt, const char *src) { ask_set(c, 3, op, phase, prompt, src, 0); }
+
 const char *ops_state(CoreCtx *c, const char *name)
 {
+    if (!strncmp(name, "set.", 4)) {
+        return setting_state(c, name + 4);
+    }
     return ops_of(c)->state(c, name, 0);
 }

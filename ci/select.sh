@@ -3,11 +3,12 @@
 #
 #   ci/select.sh sims-tier   0 (no sims) on main and feature branches since 2026-11-08 (Alex: sims only on demand); 2 on integ-*, release/tags, the dispatch
 #                            input `sims`, or "[sims]" in the head commit. The nightly workflow passes tier 2 itself.
-#   ci/select.sh ue2         yes for a workflow_dispatch with the input ue2 = true (of the
-#                            pipeline, or of bitstream.yml/package.yml alone), a tag, and a
-#                            release/* branch; else no. Alex, 2026-10-03:
+#   ci/select.sh ue2         yes only for a workflow_dispatch with the input ue2 = true (of the
+#                            pipeline, or of bitstream.yml/package.yml alone); else no. Alex, 2026-10-03:
 #                            the 100T (UE2) is built "at the end, when the thing is
-#                            round", never on a normal push.
+#                            round", never on a normal push. Since 2026-11-18 not on a tag or a
+#                            release/* branch either (Alex: "do that", T221): its first run (2461,
+#                            tag v0.2.0) was red, and no 100T board is released.
 #   ci/select.sh update      yes on integ-m1, main and tags v* (the tester update files are built for
 #                            every commit there), or when UPDATE_FORCE=true (dispatch input `update`), or
 #                            BUNDLE_INPUT=true (dispatch input `bundle`, T172), or the head commit message contains
@@ -32,8 +33,8 @@ case "${1:?sims-tier, ue2 or update}" in
     if [[ "$ref" == integ-* ]] || [ "$release" = yes ] || [ "${SIMS_INPUT:-}" = true ] || [[ "$msg" == *"[sims]"* ]]; then echo 2; else echo 0; fi ;;
   ue2)
     # UE2_INPUT is only ever true from a dispatch (a push has no such input); the event
-    # name cannot be checked, a called workflow sees "workflow_call" there
-    if [ "$release" = yes ] || [ "${UE2_INPUT:-}" = true ]; then echo yes; else echo no; fi ;;
+    # name cannot be checked, a called workflow sees "workflow_call" there; a tag or a release/* branch alone no longer asks (2026-11-18)
+    if [ "${UE2_INPUT:-}" = true ]; then echo yes; else echo no; fi ;;
   update)
     if [ "$ref" = integ-m1 ] || [ "$ref" = main ] || [ "${GITHUB_REF_TYPE:-}" = tag ] || [ "${UPDATE_FORCE:-}" = true ] \
        || [ "${BUNDLE_INPUT:-}" = true ] || [[ "$msg" == *"[bundle]"* ]]; then echo yes; else echo no; fi ;;

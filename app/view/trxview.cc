@@ -142,15 +142,31 @@ int trx_content_h(void) { return g_content_h; }
 
 // A navigation item of the rail: the label on the left, the logical key on the right, a bar of accent
 // down the left edge when it is the open area (nav_item.xml).
-// Both prototypes print the rail and the tabs in capitals, whatever the label is called elsewhere.
+// Both prototypes print the rail and the tabs in capitals, whatever the label is called elsewhere. A brand keeps its spelling inside the
+// capitals (T228 R18, Alex 2026-11-18: the heading reads "reDIP:SID", not "REDIP:SID").
+static const char *const g_brands[] = { "reDIP:SID", 0 };
+
 static const char *shout(const char *s)
 {
     static char buf[4][40];
     static int n;
     char *b = buf[n++ & 3];
     int i = 0;
-    for (; s && s[i] && i < 39; i++) {
+    while (s && s[i] && i < 39) {
+        size_t bl = 0;
+        for (int k = 0; g_brands[k] && !bl; k++) {
+            size_t l = strlen(g_brands[k]);
+            if (i + (int)l <= 39 && !strncmp(s + i, g_brands[k], l)) {
+                bl = l;
+            }
+        }
+        if (bl) {
+            memcpy(b + i, s + i, bl);
+            i += (int)bl;
+            continue;
+        }
         b[i] = (s[i] >= 'a' && s[i] <= 'z') ? (char)(s[i] - 32) : s[i];
+        i++;
     }
     b[i] = 0;
     return b;
@@ -238,6 +254,7 @@ static uint32_t top_key(const TrxShellInfo &i)
 static lv_obj_t *g_content, *g_top, *g_rail, *g_strip;
 static lv_obj_t *g_nav[TRX_AREAS_MAX], *g_tabw[TRX_TABS_MAX];
 static int g_nav_y[TRX_AREAS_MAX], g_tab_x[TRX_TABS_MAX];
+static int g_strip_w;                  // the strip's width (the bench checks the tabs end inside it)
 static uint32_t g_k_static, g_k_top, g_k_foot;
 static lv_obj_t *g_foot_lbl;
 static int g_area = -2, g_tab = -2;
@@ -319,10 +336,30 @@ static void draw_strip(const TrxRoute &route, int area, int tab)
     }
 }
 
+bool trx_strip_probe(int *right, int *room, int *ntabs)
+{
+    if (!g_content || !g_strip) {
+        return false;
+    }
+    int r = 0, n = 0;
+    for (int i = 0; i < TRX_TABS_MAX; i++) {
+        if (g_tabw[i]) {
+            n++;
+        }
+        if (g_tabw[i] && g_tab_x[i] + (int)lv_obj_get_width(g_tabw[i]) > r) {
+            r = g_tab_x[i] + (int)lv_obj_get_width(g_tabw[i]);
+        }
+    }
+    *right = r;
+    *room = g_strip_w;
+    *ntabs = n;
+    return true;
+}
+
 // The bench's look at the rail: where the label's text ends and where the key begins, in the rail item i (false: no such item).
 bool trx_nav_probe(int i, int *label_end, int *label_room, int *key_x)
 {
-    if (i < 0 || i >= TRX_AREAS_MAX || !g_nav[i]) {
+    if (!g_content || i < 0 || i >= TRX_AREAS_MAX || !g_nav[i]) {
         return false;
     }
     uint32_t n = lv_obj_get_child_count(g_nav[i]);
@@ -340,7 +377,7 @@ bool trx_nav_probe(int i, int *label_end, int *label_room, int *key_x)
 // The bench's look at the foot: the legend as drawn and how wide its text is (the line the canvas holds ends at the margin).
 bool trx_foot_probe(char *txt, int n, int *text_w)
 {
-    if (!g_foot_lbl) {
+    if (!g_content || !g_foot_lbl) {
         return false;
     }
     snprintf(txt, (size_t)n, "%s", lv_label_get_text(g_foot_lbl));
@@ -451,7 +488,7 @@ lv_obj_t *trx_shell(lv_obj_t *scr, const TrxShellInfo &info, const TrxRoute &rou
     g_top = trx_box(scr, 0, 0, SW, t.topbar_h, t.bg, 1, t.line, LV_BORDER_SIDE_BOTTOM);
     draw_top(g_top, info);
 
-    // the rail: DIRECT above, SHIFTED below, the close hint at the bottom. An application's own screens have none (T104.3 D9.1): its keys are its own.
+    // the rail: the areas in the route's order (T228 D4), the close hint at the bottom. An application's own screens have none (T104.3 D9.1): its keys are its own.
     int body_y = t.topbar_h;
     int body_h = SH - t.topbar_h - t.footer_h;
     int sbw = route.app_mode ? 0 : t.sidebar_w;
@@ -463,23 +500,12 @@ lv_obj_t *trx_shell(lv_obj_t *scr, const TrxShellInfo &info, const TrxRoute &rou
         g_rail = trx_box(scr, 0, body_y, t.sidebar_w, body_h, t.surface, 1, t.line, LV_BORDER_SIDE_RIGHT);
         lv_obj_t *rail = g_rail;
         int y = t.space_sm;
-        trx_txt(rail, t.space_sm, y, "DIRECT", t.caption, t.muted);
-        y += 14;
-        for (int pass = 0; pass < 2; pass++) {
-            if (pass == 1) {
-                y += t.space_sm;
-                trx_txt(rail, t.space_sm, y, "SHIFTED", t.caption, t.muted);
-                y += 14;
-            }
-            for (int i = 0; i < route.nareas && i < TRX_AREAS_MAX; i++) {
-                const TrxArea &a = route.areas[i];
-                if ((int)a.shifted != pass) {
-                    continue;
-                }
-                g_nav_y[i] = y;
-                g_nav[i] = nav_item(rail, y, a.title, a.key, i == area);
-                y += 19;
-            }
+        // T228 D4 / DC2: one list in the order of the route, no SHIFTED and no DIRECT heading
+        for (int i = 0; i < route.nareas && i < TRX_AREAS_MAX; i++) {
+            const TrxArea &a = route.areas[i];
+            g_nav_y[i] = y;
+            g_nav[i] = nav_item(rail, y, a.title, a.key, i == area);
+            y += 19;
         }
         if (info.footer_left) {
             trx_txt(rail, t.space_sm, body_h - 16, info.footer_left, t.caption, t.muted);
@@ -493,6 +519,7 @@ lv_obj_t *trx_shell(lv_obj_t *scr, const TrxShellInfo &info, const TrxRoute &rou
     g_strip = 0;
     if (strip) {
         g_strip = trx_box(scr, cx, cy, cw, t.tabbar_h, t.bg, 1, t.line, LV_BORDER_SIDE_BOTTOM);
+        g_strip_w = cw;
         draw_strip(route, area, tab);
         cy += t.tabbar_h;
     }
@@ -643,6 +670,46 @@ const char *trx_fit_mid(const char *s, int w, const lv_font_t *font, char *buf, 
         return buf;
     }
     snprintf(buf, n, "...");
+    return buf;
+}
+
+const char *trx_fit_name(const char *s, int w, const lv_font_t *font, char *buf, int n, int quarter)
+{
+    if (quarter < 0 || quarter > 3) {
+        return trx_fit_mid(s, w, font, buf, n);
+    }
+    if (!s || trx_text_w(s, font) <= w) {
+        return s;
+    }
+    int len = (int)strlen(s);
+    if (len >= n) {
+        len = n - 1;
+    }
+    for (int k = len - 1; k > 0; k--) {                            // k characters are kept, as many as fit
+        int cut = quarter ? k * quarter / 4 : k, tail = k - cut;
+        int a = cut, b = len - tail;
+        while (a > 0 && ((uint8_t)s[a] & 0xC0) == 0x80) {
+            a--;
+        }
+        while (b < len && ((uint8_t)s[b] & 0xC0) == 0x80) {
+            b++;
+        }
+        int o = 0;
+        for (int i = 0; i < a && o < n - 1; i++) {
+            buf[o++] = s[i];
+        }
+        if (quarter && b < len) {
+            buf[o++] = '~';                                         // FW: the first character of the tail becomes the mark
+            for (int i = b + 1; i < len && o < n - 1; i++) {
+                buf[o++] = s[i];
+            }
+        }
+        buf[o] = 0;
+        if (trx_text_w(buf, font) <= w) {
+            return buf;
+        }
+    }
+    buf[0] = 0;
     return buf;
 }
 

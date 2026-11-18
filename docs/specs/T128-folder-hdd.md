@@ -1,6 +1,6 @@
 # T128 — A folder on the stick/SD is an Amiga hard disk, read and written like an .hdf, without the .hdf
 
-**Status:** BUILT 2026-10-26 (host benches S1-S10 green; board steps B1-B6 open). Decided 2026-10-26 (all questions answered or taken as proposed, §4 settled with Alex). Where §3 and §5.3 differ, §5.3 is what was built. 2026-11-13 status check: merged to main (Merge t128-d35); built, board B1-B6 open (as row). **2026-11-15 sync:** B1 has a recorded board pass in the todo (2026-11-04, Alex, main-91f629ce, A1200: the A600 tree on the stick mounts as HD0 and boots); the follow-ups of discussion #35 (issues #36/#37, §5.7) were built on t128-d35 and merged; B2-B6 (write, delete, power cut, A500 with KS 2.05/3.x) have no recorded board result.
+**Status:** BUILT 2026-10-26 (host benches S1-S10 green; board steps B1-B6 done: B1 2026-11-04, B2-B6 closed 2026-11-18, end of §5). Decided 2026-10-26 (all questions answered or taken as proposed, §4 settled with Alex). Where §3 and §5.3 differ, §5.3 is what was built. 2026-11-13 status check: merged to main (Merge t128-d35); built. **2026-11-15 sync:** B1 has a recorded board pass in the todo (2026-11-04, Alex, main-91f629ce, A1200: the A600 tree on the stick mounts as HD0 and boots); the follow-ups of discussion #35 (issues #36/#37, §5.7) were built on t128-d35 and merged. **2026-11-18:** B2-B6 (write, delete, power cut, A500 with KS 2.05/3.x) closed as done (shipped and in use, end of §5); still open: Alex's decisions in §5.7 no. 1 (size above 1 GB) and no. 4 (write caps).
 **Repo:** TRX64U-MultiCore — the generic core application (`coreapp/src`, `coreapp/cores/amiga.cc`), the unit tests in `tests/coreapp`. No gateware change
 is planned (§3 D1); the board steps run on the A1200 core.
 **Number:** T128 (registry: the table in `TODO.md`).
@@ -161,7 +161,7 @@ plus a folder action in the file browser (Q6); `sec_eject` closes the object. No
 
 **D2 The device layout: RDB + one partition + FFS (DOS\3).** Geometry 16 heads, 63 sectors (the standard CHS limit, 1008 sectors per cylinder), cylinders = volume
 rounded up, at most 65,535 (the gateware keeps 16 bits). Cylinder 0: RDSK block and PART block (DosEnvec: DOS\3, reserved 2, bootable, BootPri 0, the partition
-starts at cylinder 1); no FSHD (the handler is the Kickstart's). FFS with international hashing = `DOS\3`; Kickstart 1.3 and 3.1 carry FFS in ROM (to be confirmed on the board, B1/B6; if a Kickstart in use has no FFS the RDB would need an FSHD, which is then a decision of its own).
+starts at cylinder 1); no FSHD (the handler is the Kickstart's). FFS with international hashing = `DOS\3`; Kickstart 1.3 and 3.1 carry FFS in ROM (B1 passed 2026-11-04, B6 closed as done 2026-11-18, §5; if a Kickstart in use has no FFS the RDB would need an FSHD, which is then a decision of its own).
 **Why FFS (and not OFS, PFS, SFS):** (a) the data block is exactly the 512 bytes of the file — block k of file F is bytes [k*512, k*512+512) of the host file; a read is one
 `read(off, 512)`, a write to an existing block is one `write(off, 512)`, no header, no checksum per data block. OFS data blocks carry a 24 byte header (488 bytes of data): file offset and block
 offset do not line up, every data write must be split and every data block checksummed, and a partial-block host read costs an extra block. (b) The ROM has it; PFS and SFS need a handler that
@@ -349,13 +349,13 @@ Latin-1 names, collisions). The root block is `num_blocks // 2` there (`BootBloc
    (console line); remounting clears both.
 8. Files left in `<root>/trx64`: `mv<n>` (a renamed object cut between its two renames) is never deleted by the mount, `.bk<n>` is kept (5.3).
 
-**5.6 Board steps** (they need the real Kickstarts and Alex's Workbench folder; nothing of this has run on the board).
+**5.6 Board steps** (they need the real Kickstarts and Alex's Workbench folder; nothing of this had run on the board then; B1 passed 2026-11-04, B2-B6 closed as done 2026-11-18, §5).
 - Before: the stick with the folder, e.g. `/usb0/amiga/horst` (Horst's A600 tree), at least 1.2 x its size free; the A1200 core with Kickstart 3.1, the A500 core with Kickstart 2.05/3.x; the firmware image built from this commit.
 - **B1** F7 -> "Mount folder as HD0" -> pick the folder (Create here) -> size `1` -> RETURN; the status line says `horst: 1024 MB, n entries`; Reset Amiga. Expect the Workbench screen (RDB bootable). Photo + console log.
 - **B2** Start a program from the folder; save a file with Notepad or `Copy ram:x to dh0:`; wait 2 s; look at the stick on the Mac: the file is in the folder, byte for byte (`cmp`). A name with `*`, `?` or `Ü` shows as `%2a`, `%3f`, `Ü` on the PC.
 - **B3** In a Shell: `Delete`, `Rename`, `MakeDir`, `Protect x +s`, `FileNote`; the folder follows (a `.uaem` appears for the protection and the comment); `Info` shows the size set and the free space.
 - **B4** Copy a few MB, press F5/reset (hold) in the middle: nothing is lost that was written one second before; then cut the power during a copy (Alex does it): the folder mounts again, no file is half written; `trx64` may hold `folderhd0.fb*`.
-- **B5** The console lines `[sectors] unit n: sector ... took ... ms` (requests above 20 ms) during Workbench boot and a big copy; time to boot Workbench from the folder against the same tree as `.hdf`; the `fast seek` lines. Choose `FH_HANDLES` (5.5 no. 1).
+- **B5** The console lines `[sectors] unit n: sector ... took ... ms` (requests above 20 ms) during Workbench boot and a big copy; time to boot Workbench from the folder against the same tree as `.hdf`; the `fast seek` lines. Choose `FH_HANDLES` (5.5 no. 1). (B5 closed 2026-11-18 without these numbers: `FH_HANDLES` stays as built.)
 - **B6** The same folder on the A500 core with Kickstart 2.05 or 3.x (1.3 has no driver for the Gayle IDE and no FFS in ROM: no hard disk, `.hdf` or folder).
 
 **5.7 Discussion #35 (2026-11-04; GitHub issues #36 "mount not stored after reboot" and #37 "the four points"; release c83a83c2, A1200, folder as HD0).** Alex's board reading
@@ -398,6 +398,12 @@ the same day: the A600 tree (`DH0_A600`, 14,271 files plus 14,270 `._*` files) b
    `MenuCtl::start_job` sets the status "Building the image ... <- cancels" (`menuctl.cc` 1106) and `job_text` the pane row "Building the image NN%" (1115), for every task that asks. A folder
    mount builds no image (it reads the folder, makes `<root>/trx64/folderhd<unit>.scratch` only at the first write). Fixed: "Mounting the folder" for `sectors.mount_folder` in both places;
    bench `test_createflow` (`check_mount_folder`: row `Mounting the folder|0%`, status without "image"), controls `cf_mountword`, `cf_frame` adjusted.
+
+**2026-11-18 - board steps closed as done (shipped and in use):** B2/B3 (folder as HD0: write, delete, Info), B4 (folder as HD0: reset and
+power cut), B5 (folder as HD0: the numbers), B6 (the A500 boots the folder as HD0) - Alex 2026-11-15: "Under A there is nothing I would not
+class as DONE! That has been in the builds for days/weeks, we had bugs and re-tests in part"; Alex 2026-11-18, shown these steps as open:
+"that is old stuff that has been running for ages, we had this already 3-4 days ago" and "tick it off in the TODOs/specs, otherwise it shows
+up again with some agent" (translated).
 
 ---
 <!--

@@ -23,6 +23,7 @@ struct HttpReq {
     char tok_q[40];                       // the token as `t=` of the query (cut out of `query`), as Authorization: Bearer, as X-Trx-Token (T192.1-S16)
     char tok_bearer[40];
     char tok_x[40];
+    char password[40];                    // X-Password (T228 R21 row 58)
     char body[HTTP_BODY_MAX + 1];
     int body_len;
 };

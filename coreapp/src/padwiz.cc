@@ -6,6 +6,7 @@
 // shows the three texts it gives and sends the keys of its stage (menukeytab.cc KS_WIZARD) to its operations. The run loop's pump calls pad.map.tick while it is up.
 #include "pad.h"
 #include "settings.h"
+#include <ctype.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -32,10 +33,15 @@ int finish(CoreCtx *c, OpOut &o)
     pad_set_custom(g_player, g_new);
     if (p->by_id) {                                                  // T225: the map is the pad's (VID:PID) and the target's, not the player's
         int sl = pad_slot(g_player);
+        char port[16];                                               // T228 R10: the port in force, "Port 2" on the Amiga
+        snprintf(port, sizeof(port), "%s", pad_port_name());
+        port[0] = (char)toupper((unsigned char)port[0]);
         if (c->settings && pad_save_id_map(c->settings, g_player)) {
-            return say(o, 0, "Port 2: mapped and saved for pad %04X:%04X.", pad_vid(sl), pad_pid(sl));
+            snprintf(o.msg, o.msglen, "%s: mapped and saved for pad %04X:%04X.", port, pad_vid(sl), pad_pid(sl));
+            return OPE_OK;
         }
-        return say(o, 1, "Port 2: mapped for this session only (the settings file cannot be written).");
+        snprintf(o.msg, o.msglen, "%s: mapped for this session only (the settings file cannot be written).", port);
+        return OPE_FAILED;
     }
     bool saved = c->settings && pad_save_map(c->settings, g_player);
     int mi = c->settings ? c->settings->find("Pad map") : -1;
@@ -107,14 +113,16 @@ int op_next(CoreCtx *c, const OpArgs &, OpOut &o)
     return OPE_OK;
 }
 
-int op_back(CoreCtx *, const OpArgs &, OpOut &o)
+int op_cancel(CoreCtx *c, const OpArgs &a, OpOut &o);
+
+int op_back(CoreCtx *c, const OpArgs &a, OpOut &o)
 {
     o.msg[0] = 0;
     if (!g_on) {
         return OPE_FAILED;
     }
-    if (g_wait) {
-        return OPE_OK;
+    if (g_wait) {                                                          // no pad yet, nothing to go back to: the left arrow leaves like RUN/STOP
+        return op_cancel(c, a, o);
     }
     if (g_i > 0) {
         g_i--;
@@ -178,7 +186,15 @@ int op_tick(CoreCtx *c, const OpArgs &, OpOut &o)
 }
 
 const char *st_active(CoreCtx *) { return g_on ? "1" : 0; }
-const char *st_title(CoreCtx *c) { return c->desc->pad && c->desc->pad->by_id ? "Map port 2 to USB pad" : "Map buttons"; }
+const char *st_title(CoreCtx *c)
+{
+    static char t[40];
+    if (!c->desc->pad || !c->desc->pad->by_id) {
+        return "Map buttons";
+    }
+    snprintf(t, sizeof(t), "Map %s to USB pad", pad_port_name());         // T228 R10: the port in force; the Amiga's is port 2 (T225)
+    return t;
+}
 
 const char *st_left(CoreCtx *c)
 {
@@ -214,7 +230,7 @@ const char *st_sub(CoreCtx *c)
         return 0;
     }
     if (g_wait) {
-        return "No USB pad is connected. The mapping continues when you plug one in. RUN/STOP cancels";
+        return "No USB pad is connected. The mapping continues when you plug one in. Left arrow or RUN/STOP cancels";
     }
     if (c->desc->pad->by_id) {
         snprintf(t, sizeof(t), "%s %04X:%04X. Now: %s. RETURN keeps it, left arrow goes back, RUN/STOP cancels", pad_name(pad_slot(g_player)), pad_vid(pad_slot(g_player)),
@@ -241,7 +257,7 @@ void padwiz_register(OpRegistry &r)
     r.add_op("pad.map.tick", 0, 0, op_tick);
     r.add_op("menu.pad_map_1", 0, 0, op_map_1);
     r.add_op("menu.pad_map_2", 0, 0, op_map_2);
-    r.add_op("menu.pad_map_port", 0, 0, op_map_1);                  // T225: the Amiga cores' game port 2 (one port, the first pad plugged)
+    r.add_op("menu.pad_map_port", 0, 0, op_map_1);                  // T225: the one port of a by_id spec (the Amiga's port 2; T228 R10: the joystick port pad.port picked), the first pad plugged
     r.add_state("pad.map.active", st_active);
     r.add_state("pad.map.title", st_title);
     r.add_state("pad.map.left", st_left);

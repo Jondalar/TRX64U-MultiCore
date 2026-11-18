@@ -20,7 +20,13 @@
 
 int cfg_value(CoreCtx *, const char *, int def) { return def; }
 void trx64u_kernal_put(CoreCtx *, const uint8_t *, uint32_t) { }
+void trx64u_uci_df1c(CoreCtx *) { }
+void trx64u_load_assoc_cfg(CoreCtx *, const char *, bool) { }
+void trx64u_basic_put(CoreCtx *, const uint8_t *, uint32_t) { }           // T228 R21 item 7: the SID player's BASIC copy
+void trx64u_sid_service(CoreCtx *) { }
+void trx64u_sid_cancel(void) { }
 void u64cfg_register(OpRegistry &) { }
+void u64cfg_power_on_keys(CoreCtx *) { }
 __attribute__((weak)) void libfiles_register(OpRegistry &) { }     // tests/coreapp/test_menuctl.cc links the real one
 void ringops_register(OpRegistry &) { }
 static int stub_mon_key(CoreCtx *c, const OpArgs &a, OpOut &o) { mon_key(c, a.i(0)); o.msg[0] = 0; return OPE_OK; }
@@ -41,10 +47,21 @@ void diag_register(OpRegistry &) { }
 void netops_register(OpRegistry &) { }
 
 // The last contributor registers what the image's export has and this build does not: every operation with its typed arguments and every state value of
-// golden/ops_trx64u.txt (tests/ui/export.py makes it from the real image) that is not registered yet. The handlers do nothing and the states are empty; what
-// they are for is the checks that need the NAMES and the SHAPES: desc_check and tools/descrec.py validate the TRX64U menu record against the registry.
+// golden/ops_trx64u.txt (tests/ui/export.py makes it from the real image) that is not registered yet. The handlers do nothing and the states are empty but
+// those stub_state_of names below; what they are for is the checks that need the NAMES and the SHAPES: desc_check and tools/descrec.py validate the TRX64U menu record against
+// the registry.
 static int stub_op(CoreCtx *, const OpArgs &, OpOut &) { return OPE_OK; }
 static const char *stub_state(CoreCtx *) { return ""; }
+// T228: the states that decide which rows the TRX64U menu shows, answered as the board does under the MultiCore host with the ring in the bitstream:
+// Softboot is not offered (DC1), Save frame and Save the ring can run, the Online form's twelve choice rows stay hidden until the choices are loaded
+static const char *stub_multicore(CoreCtx *) { return "MultiCore host"; }
+static const char *stub_yes(CoreCtx *) { return "1"; }
+static state_fn stub_state_of(const std::string &n)
+{
+    if (n == "host.multicore") return stub_multicore;
+    if (n == "tw.present" || (n.compare(0, 8, "online.p") == 0 && n.size() > 5 && n.compare(n.size() - 5, 5, ".hide") == 0)) return stub_yes;
+    return stub_state;
+}
 void trx64u_register(OpRegistry &r)
 {
     std::ifstream f(std::string(GOLDEN_DIR) + "/ops_trx64u.txt");
@@ -65,7 +82,7 @@ void trx64u_register(OpRegistry &r)
         keep.push_back(p[1]);
         const char *name = keep.back().c_str();
         if (p[0] == "state") {
-            if (!r.find_state(name)) r.add_state(name, stub_state);
+            if (!r.find_state(name)) r.add_state(name, stub_state_of(p[1]));
             continue;
         }
         if (p[0] != "op" || r.find_op(name)) continue;
@@ -123,6 +140,7 @@ const char *diag_text(int, int *n)
     }
     return "";
 }
+void diag_help_areas(const char *, const char *) { }
 const char *cfg_text(CoreCtx *, const char *) { return ""; }
 bool mon_tick(CoreCtx *) { return false; }
 void mon_run(CoreCtx *, const char *) { }

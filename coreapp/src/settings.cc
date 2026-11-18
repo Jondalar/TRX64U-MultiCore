@@ -1,5 +1,6 @@
 #include "settings.h"
 #include "cfgfile.h"
+#include "picture.h"
 #include <stdio.h>
 #include <string.h>
 #include <strings.h>
@@ -185,7 +186,7 @@ bool Settings::build(char *buf, int max, int *pos, bool all, const char *const *
         if (core_[i] >= 0 || all) {
             const char *val = items_[i].kind ? (core_[i] >= 0 && tix_[i] >= 0 ? tpool_[tix_[i]] : text(i)) : items_[i].values[stored_value(i)];   // never the override (T224 D2)
             char head[96];
-            if (!items_[i].kind && items_[i].apply && !strcmp(items_[i].apply, "picture.apply")) {   // the Picture item's Auto carries a display note that goes stale with the host's mode: the file keeps the label
+            if (!items_[i].kind && items_[i].apply && !strcmp(items_[i].apply, PICTURE_OP) && !strcasecmp(items_[i].key, PICTURE_KEY) && stored_value(i) == 0) {   // the Picture item's Auto carries a display note that goes stale with the host's mode: the file keeps the label (T235: the other values end in their rate, "(50 Hz)", and keep it)
                 snprintf(head, sizeof(head), "%s", val);
                 char *n = strstr(head, " (");
                 if (n) {
@@ -220,6 +221,10 @@ bool Settings::write_cfg()
     if (!cfg_path_[0]) {
         return false;
     }
+    if (safe_) {                                       // safe mode: the change runs, the stored file keeps what it had (set_safe)
+        dirty_ = true;
+        return true;
+    }
     static char buf[16384];
     int pos = 0;
     if (!build(buf, sizeof(buf), &pos, false, 0, 0, 0) || !fs_->save(cfg_path_, buf, pos)) {
@@ -248,6 +253,7 @@ bool Settings::export_config(const char *path, const char *const *mk, const char
 void Settings::rebind(const char *path)
 {
     snprintf(cfg_path_, sizeof(cfg_path_), "%s", path ? path : "");
+    safe_ = false;                                     // a config loaded on purpose: its changes are written as always
     save_failed_ = false;
     notice_pending_ = false;
     dirty_ = false;
@@ -257,6 +263,7 @@ void Settings::rebind(const char *path)
 
 bool Settings::save()
 {
+    safe_ = false;                                     // a save on purpose: from now on the file is written as it always is
     return write_cfg();
 }
 

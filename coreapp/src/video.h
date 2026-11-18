@@ -32,8 +32,14 @@ public:
 };
 
 
-// T210 P1: the menu canvas and its place for a mode; also called before the splash opens (the mode the host handed over).
+// T210 P1: the menu canvas and its place for a mode; also called before the splash opens (the mode video_menu_start names).
 void video_place_menu(PxPort *px, int hdmi, int sys);
+
+// T228: the mode whose frame the layer drives when the application starts, from what the gateware's status says. *sys / *hdmi come in as the hand-over's
+// mode. With the gateware (gw: 0x4F04 answers) they become the row it runs (gw_row, 0x4F07): a bitstream of its own (trx64u's, a large core's) starts in
+// its power-up row, whatever the host handed over; the hand-over's mode stays only where the gateware names no row (gw_row < 0). Without the gateware
+// the frame is 1920 x 1080 in every mode (video_frame_size): 1080p.
+void video_menu_start(bool gw, int gw_row, int *sys, int *hdmi);
 
 class Video {
 public:
@@ -66,10 +72,11 @@ public:
     // T107: the mode the picture is in. `hdmi` is a VID_HDMI_* value, `sys` the 50/60 Hz family it runs
     // in; the scale and the position follow (video_layout). The host's frame is 1920 x 1080 in every mode, so
     // they come out the same for all of them (T107 5.6). A layer whose geometry changed is rewritten at once. wanted_hdmi() keeps answering from the descriptor's own scale, not from the last mode's.
+    // With the gateware the menu's canvas and place follow the mode, for a core with its own picture too (T228: trx64u's frame is the gateware's row).
     int set_mode(int hdmi, int sys);
     int mode() const { return mode_; }
-    // T164 G14: the gateware (the host's hdmi_out, probed at 0x4F04) takes the mode and scales to any output size, for every core whose picture is a
-    // frame buffer. Without it (an old host) the frame is 1920 x 1080 and the scale at most 3. Set before the first set_mode.
+    // T164 G14: the gateware (the host's hdmi_out, or a bitstream's own mode request: U16's on trx64u; probed at 0x4F04) takes the mode and scales to any
+    // output size, for every core whose picture is a frame buffer. Without it (an old host) the frame is 1920 x 1080 and the scale at most 3. Set before the first set_mode.
     void set_gateware(bool on) { gw_ = on; }
     bool gateware() const { return gw_; }
     // T107 D8: Integer / Fit / Fill (VID_SCALE_*), with the gateware; the layout is redone at once. Without it ignored.
@@ -105,7 +112,8 @@ public:
     bool visible() const { return on_; }
     // fmt: the layer's format, 1 RGB565 or 2 32 bit (T136)
     static uint32_t ctrl_value(uint8_t scale, bool on, uint8_t fmt = 1) { return ((uint32_t)scale << 4) | ((uint32_t)fmt << 1) | (on ? 1 : 0); }
-    // PX_CTRL as the layer is written: the scale bits b5:4 only matter to an old host (the gateware's layer sizes by PX_OSIZE), b6 is bilinear smoothing (T164 Q3)
+    // PX_CTRL as the layer is written: the scale bits b5:4 only matter to a layer without PX_OSIZE (an old host; TRX64-Ultimate's, which carries no frame-buffer
+    // picture: trx64u's is its own), the gateware's layer sizes by PX_OSIZE; b6 is bilinear smoothing (T164 Q3)
     uint32_t ctrl(bool on) const { return ctrl_value(d_.scale, on, fmt()) | (gw_ && smooth_ ? 0x40u : 0u); }
     uint8_t fmt() const { return d_.pxfmt ? d_.pxfmt : d_.pixel_bytes() == 4 ? 2 : 1; }
 

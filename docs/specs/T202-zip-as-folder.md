@@ -7,6 +7,8 @@
 folder". Alex, 2026-11-11: own spec, apart from T197 (T197 unpacks a whole archive with `Z`).
 **Depends on:** T197 (miniz as a format-3 library, the host's library loader, P3).
 **Milestone:** M2.
+**Also carries:** T228 D17 (Alex 2026-11-17, "D17 zu T202"): in the core application's Library, CURSOR RIGHT enters a .zip like a
+folder and its Library menu (RETURN) offers Unzip, as on the host.
 
 ---
 

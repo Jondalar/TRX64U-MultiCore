@@ -13,6 +13,7 @@
 #define PICTURE_OP "picture.apply"
 #define SCALE_OP   "scale.apply"           // T107 D8
 #define SMOOTH_OP  "smooth.apply"          // T164 Q3
+#define FOLLOW_OP  "follow.apply"          // T234
 
 // T164 G11-G14: what the application knows about the screen and the gateware when it builds the items.
 struct PictureEnv {
@@ -22,34 +23,38 @@ struct PictureEnv {
     int sys;                  // the machine's 50/60 Hz family (VID_SYS_*), -1: what video_current says
     bool vic_scale;           // T222: the gateware scales the VIC's picture with a scale register (video_gateware_vic_scale()): a core with no frame buffer gets a Scale item
     bool vic_smooth;          // T227: that gateware also smooths (video_gateware_vic_smooth(), register 0x4F0B): the Scale item gets a Smoothing item after it
+    bool follow;              // T234: the gateware has Frame follow (video_gateware_follow(), register 0x4F02): a frame-buffer core gets the item Frame follow after the others. Last: the initialisers of the tests leave it 0
+    bool no_edid;             // T235 §5: no EDID or a corrupt one (mask is then EDID_LIST_NONE, which a valid EDID naming exactly the six television rows gives too). Last, as follow
 };
 
 // out = *d with the Picture item after d's own settings; for every frame-buffer core on a host whose gateware scales (env->gateware), Scale and
 // Smoothing follow it; a core whose picture is the VIC (no frame buffer) on a gateware with the VIC scaler (env->vic_scale, T222) gets Scale (0x4F01), and Smoothing too when env->vic_smooth (T227, 0x4F0B). `store` holds the merged array (SETTINGS_MAX items) and has to outlive `out`. Returns null, or the reason when the core has no
 // room for the items or declares a key itself. The menu, the boot sequence and the settings read the merged copy (CoreCtx::desc points at it), never
-// the table's original. The Picture list is Auto and the resolutions of video_modes_hdmi_list() for the mask and the machine's family (D11a, Q6);
+// the table's original. On the gateware path (env->gateware, not the VIC path) the Picture list is Auto and every row of the mode table at its own rate, the machine's rate first within a resolution (T235; the mask only marks the rows the screen names); without it, and on the VIC path, the resolutions of video_modes_hdmi_list() for the mask and the machine's family (D11a, Q6);
 // env null: every row, no gateware.
 const char *picture_extend(const CoreDesc *d, CoreDesc *out, Setting *store, const PictureEnv *env = 0);
 // The board's answer, for run.cc: reads the EDID and probes the gateware.
 void picture_env_read(PictureEnv *env, int sys);
 
-// T187 D5: what the mode list of the Picture page shows (PictureModes, picmodes.h; the host fills the same struct): row 0 Auto, row n the n-th resolution
-// of the Picture list (the order of the item's values).
+// T187 D5: what the mode list of the Picture page shows (PictureModes, picmodes.h; the host fills the same struct): row 0 Auto, row n the n-th entry
+// of the Picture list (the order of the item's values): on the gateware path outside the VIC path (T235) every row of the mode table at its own rate, else a resolution.
 void picture_modes(CoreCtx *c, PictureModes *out);
 
 // Index of the Picture item in c->desc->settings, -1 when the descriptor is not an extended one.
 int picture_index(const CoreDesc *d);
 
 // The item's apply (WHEN_LIVE). value 0 is Auto: the mode the host is set to (host.cfg [Video] Mode, read at picture_start; D10c) when the screen takes it,
-// else the mode the host handed over, else the best the screen offers (D11c; without the gateware the core's own wish); value n is the n-th resolution of the list. Sets the mode when it differs from the one the picture is in, then lets the scale
+// else the mode the host handed over, else the best the screen offers (D11c; without the gateware the core's own wish); value n is the n-th entry of the list (a table row at its own rate on the gateware path outside the VIC path, T235; else a resolution). Sets the mode when it differs from the one the picture is in, then lets the scale
 // and the position follow, and starts the confirm-or-revert wait of Q7 (picture_service).
 void picture_apply(CoreCtx *c, int value);
 
 // Index of the Scale / Smoothing items (a frame-buffer core on a gateware host has them), -1 otherwise; their applies.
 int scale_index(const CoreDesc *d);
 int smooth_index(const CoreDesc *d);
+int follow_index(const CoreDesc *d);                 // T234: -1 when the gateware has no Frame follow
 void scale_apply(CoreCtx *c, int value);
 void smooth_apply(CoreCtx *c, int value);
+void follow_apply(CoreCtx *c, int value);            // T234: 0 Off (the host's standard 50 Hz rows, no follow loop), 1 On (T188); the gateware re-tunes like for a mode change
 
 // Start-up: the application is in `hdmi_now` (what the host handed over, -1: nothing) in system `sys` (-1: nothing).
 // Takes the mode the stored choice says (Auto when there is none), through the same path as a change at run time.

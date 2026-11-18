@@ -24,6 +24,8 @@ LIST = os.path.join(HA, "vendor.list")
 MODIFIED = {
     "components/config.cc": "T163: ConfigBackend - with one set (host app) the stores live in the backend's file; the flash pages are only read, once, to take them over",
     "components/config.h": "T163: declares ConfigBackend, config_set_backend()",
+    "io/c64/joystick_output.cc": "T228 R10: setPadPort(), the core application's pad service as a source of its own per port, ANDed into both ports' lines",
+    "io/c64/joystick_output.h": "T228 R10: declares setPadPort() and the two sources",
     "io/c64/keyboard_c64.h": "KEYBOARD_C64_TIMER_SCAN also for -DTRX_HOSTAPP (taps shorter than one UI loop were lost); getch_nowait()",
     "io/c64/trx_io.cc": "T93: trx_io_alt_id, a core application's own ID besides \"TRX2\"; the host app never sets it",
     "io/c64/trx_io.h": "T93: declares trx_io_alt_id",

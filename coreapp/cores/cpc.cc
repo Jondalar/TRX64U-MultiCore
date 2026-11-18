@@ -256,7 +256,8 @@ static const char *disk_b(CoreCtx *c) { return cpcd_name(&cpc_state(c)->disks, 1
 
 static const OpBind drive0[] = { B_INT("drive", 0) }, drive1[] = { B_INT("drive", 1) };
 static const OpBind mount0b[] = { B_FILE("path"), B_INT("drive", 0), B_INT("boot", 1) }, mount0[] = { B_FILE("path"), B_INT("drive", 0), B_INT("boot", 0) },
-                    mount1[] = { B_FILE("path"), B_INT("drive", 1), B_INT("boot", 0) };
+                    mount1[] = { B_FILE("path"), B_INT("drive", 1), B_INT("boot", 0) },
+                    mount1b[] = { B_FILE("path"), B_INT("drive", 1), B_INT("boot", 1) };
 static const OpBind tape_play[] = { B_FILE("path"), B_INT("play", 1) }, tape_only[] = { B_FILE("path"), B_INT("play", 0) };
 
 static const OpBind new_dsk[] = { B_TEXT("path"), B_STR("format", "cpc_dsk"), B_STR("name", "") };
@@ -278,6 +279,7 @@ static const Task tasks[] = {
 static const FileAction disk_actions[] = {
     { "Mount A: and reset", "cpc.mount", mount0b, 3, true },
     { "Mount A:",           "cpc.mount", mount0,  3, false },
+    { "Mount B: and reset", "cpc.mount", mount1b, 3, true },
     { "Mount B:",           "cpc.mount", mount1,  3, false },
 };
 static const FileAction tape_actions[] = {
@@ -286,12 +288,12 @@ static const FileAction tape_actions[] = {
     { "Insert tape and play", "cpc.tape_insert", tape_play, 2, true },
 };
 static const FileType filetypes[] = {
-    { ".dsk", disk_actions, 3 }, { ".cdt", tape_actions, 2 },
+    { ".dsk", disk_actions, 4 }, { ".cdt", tape_actions, 2 },
 };
 
 static const MediaSlot media[] = {
-    { "A:",   "cpc.a.image",    "cpc.eject",      drive0, 1, 0, ".dsk", "Mount A:", "Create blank DSK", 0 },
-    { "B:",   "cpc.b.image",    "cpc.eject",      drive1, 1, 0, ".dsk", "Mount B:", "Create blank DSK", 0 },
+    { "A:",   "cpc.a.image",    "cpc.eject",      drive0, 1, 0, ".dsk", "Mount A: and reset", "Create blank DSK", 0, 0, "Mount A:" },
+    { "B:",   "cpc.b.image",    "cpc.eject",      drive1, 1, 0, ".dsk", "Mount B: and reset", "Create blank DSK", 0, 0, "Mount B:" },
     { "Tape", "cpc.tape.image", "cpc.tape_eject", 0, 0, 0, ".cdt", "Insert tape", 0, "Tape: Play,Tape: Stop,Tape: Rewind,Tape: Previous block,Tape: Next block" },
 };
 

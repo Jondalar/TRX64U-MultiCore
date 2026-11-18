@@ -4,6 +4,7 @@
 // worked out by hand.
 #include <string>
 #include <utility>
+#include <vector>
 #include "check.h"
 #include "fakes.h"
 #include "test_core.h"
@@ -13,6 +14,7 @@
 #include "picture.h"
 #include "videomode.h"
 #include "regset.h"
+#include "menutree.h"
 
 // the host: the firmware path (video_apply) and the gateware's request (video_apply_gateware), which moves the status row when it succeeds
 static std::vector<std::pair<int, int>> g_fw, g_gw;
@@ -33,6 +35,9 @@ int video_gateware_row(void) { return g_gw_row; }
 const CoreDesc *const core_table[] = { &atari800_desc, &nes_desc, &amiga_desc, &amiga1200_desc, &testcore::desc, 0 };
 
 struct L { int w, h, hdmi, sys, mode, bx, by, ow, oh, x0, y0; };
+
+// T235: the Picture value of a resolution on a PAL machine (the list is every row of the table, the machine's rate first within a resolution)
+static int pv(int hdmi) { static const int v[VID_HDMI_COUNT] = { 1, 3, 5, 7, 8, 9 }; return v[hdmi]; }
 
 static void layouts()
 {
@@ -82,8 +87,77 @@ static void layouts()
     CHECK_STR(video_scale_name(VID_SCALE_FIT), "Fit");
 }
 
+int g_follow_written = -1;
+bool video_set_follow_gateware(int on) { g_follow_written = on; return true; }              // T234: the board's write to 0x4F02
 int g_vic_scale_written = -1;
 bool video_set_scale_gateware(int scale) { g_vic_scale_written = scale; return true; }   // T222: the board's write to 0x4F01
+
+// T234: the picture rows of a core whose gateware has Frame follow (the Amiga cores): the item, its place on F5 Video, the write, the stored value
+static void follow_item()
+{
+    for (const CoreDesc *d : { &amiga_desc, &amiga1200_desc }) {
+        Setting items[SETTINGS_MAX + 4]; CoreDesc ext;
+        PictureEnv env = { EDID_ROW_MASK, 0, true, VID_SYS_PAL50, false, false, true };
+        CHECK(!picture_extend(d, &ext, items, &env));
+        CHECK_EQ(ext.nsettings, d->nsettings + 4);                                // Picture, Scale, Smoothing, Frame follow
+        int fi = follow_index(&ext);
+        CHECK_EQ(fi, d->nsettings + 3);
+        if (fi < 0) { return; }
+        const Setting &f = ext.settings[fi];
+        CHECK_STR(f.key, "Frame follow"); CHECK_EQ(f.nvalues, 2); CHECK_STR(f.values[0], "Off"); CHECK_STR(f.values[1], "On");
+        CHECK_EQ(f.def, 0); CHECK(f.when == WHEN_LIVE); CHECK_STR(f.apply, "follow.apply");
+        const MenuGroupRoute *rt = menu_route_of(f);                              // D5: with the other picture rows, F5 Video
+        CHECK(rt != 0);
+        if (rt) { CHECK_STR(rt->area, "F5"); CHECK_STR(rt->tab, "video"); }
+        CHECK_EQ(ext.settings[picture_index(&ext)].group != 0 && !strcmp(ext.settings[picture_index(&ext)].group, f.group), 1);
+        OpRegistry reg; picture_register(reg);
+        CHECK(reg.find_op(FOLLOW_OP) != 0);
+        // the gateware without the register (an older host, every other core): no item, the three rows as before
+        env.follow = false;
+        CHECK(!picture_extend(d, &ext, items, &env));
+        CHECK_EQ(ext.nsettings, d->nsettings + 3);
+        CHECK_EQ(follow_index(&ext), -1);
+    }
+    // a core that draws its own picture has no frame buffer: no item even where the gateware has the register
+    { CoreDesc own = nes_desc; own.video.w = 0;
+      Setting items[SETTINGS_MAX + 4]; CoreDesc ext;
+      PictureEnv env = { EDID_ROW_MASK, 0, true, VID_SYS_PAL50, false, false, true };
+      CHECK(!picture_extend(&own, &ext, items, &env));
+      CHECK_EQ(follow_index(&ext), -1);
+    }
+    // a descriptor may not declare the key itself
+    { CoreDesc bad = amiga1200_desc; Setting s[SETTINGS_MAX + 4]; CoreDesc ext;
+      static const char *const v[2] = { "Off", "On" };
+      for (int i = 0; i < bad.nsettings; i++) { s[i] = amiga1200_desc.settings[i]; }
+      s[bad.nsettings] = Setting(); s[bad.nsettings].key = "Frame follow"; s[bad.nsettings].values = v; s[bad.nsettings].nvalues = 2;
+      bad.settings = s; bad.nsettings++;
+      Setting items[SETTINGS_MAX + 4];
+      PictureEnv env = { EDID_ROW_MASK, 0, true, VID_SYS_PAL50, false, false, true };
+      CHECK(picture_extend(&bad, &ext, items, &env) != 0);
+    }
+    // the apply writes the register, the stored value is read back after a restart and applied by picture_start before the mode
+    { Setting items[SETTINGS_MAX + 4]; CoreDesc ext; FakeIo io; FakeFs fs; PxRec px;
+      PictureEnv env = { EDID_ROW_MASK, 0, true, VID_SYS_PAL50, false, false, true };
+      CHECK(!picture_extend(&amiga1200_desc, &ext, items, &env));
+      int fi = follow_index(&ext);
+      { Settings st(ext.settings, ext.nsettings, amiga1200_desc.store, &fs, "/usb0/cores/x.cfg", 0);
+        st.load();
+        CHECK_EQ(st.value(fi), 0);                                               // a start with no stored settings: Off
+        CHECK(st.set(fi, 1));
+        CHECK(st.save());
+      }
+      Settings st2(ext.settings, ext.nsettings, amiga1200_desc.store, &fs, "/usb0/cores/x.cfg", 0);   // after a restart
+      st2.load();
+      CHECK_EQ(st2.value(fi), 1);
+      CoreCtx c; memset(&c, 0, sizeof(c)); c.desc = &ext; c.io = &io; c.fs = &fs; c.settings = &st2;
+      Video vid(amiga1200_desc.video, &px, &io); c.video = &vid;
+      g_gw_row = 2; g_gw_ok = true; g_follow_written = -1;
+      picture_start(&c, VID_SYS_PAL50, VID_HDMI_1080P);
+      CHECK_EQ(g_follow_written, 1);
+      follow_apply(&c, 0);
+      CHECK_EQ(g_follow_written, 0);
+    }
+}
 
 struct Rig {
     FakeIo io; FakeFs fs; PxRec px; CoreDesc ext; Setting items[SETTINGS_MAX + 4]; CoreCtx c; Settings *st; Video *vid;
@@ -162,6 +236,22 @@ static void items_and_apply()
       g_vic_scale_written = -1;
       scale_apply(&c, VID_SCALE_FILL);
       CHECK_EQ(g_vic_scale_written, VID_SCALE_FILL);
+      // T228: TRX64-Ultimate's U16 mode_req answers version 1 with the C64-type flag; it holds the same seven rows and the System Mode's family, so
+      // trx64u's Picture list is the VIC path's (as on the version 2 gateware above), not the full list of both families with the PC rows it refuses
+      std::vector<std::string> vic;
+      for (int i = 0; i < ext.settings[picture_index(&ext)].nvalues; i++) vic.push_back(ext.settings[picture_index(&ext)].values[i]);
+      GwStatus u16 = GwStatus();
+      u16.present = true; u16.version = 1; u16.flags = GW_F_C64_TYPE | GW_F_RUNNING;
+      env.vic_scale = video_gw_has_scale(u16);
+      CHECK(env.vic_scale);
+      CHECK(!picture_extend(&own, &ext, items, &env));
+      CHECK_EQ(scale_index(&ext), own.nsettings + 1);
+      const Setting &pic = ext.settings[picture_index(&ext)];
+      CHECK_EQ(pic.nvalues, (int)vic.size());
+      for (int i = 0; i < pic.nvalues && i < (int)vic.size(); i++) {
+          CHECK_STR(pic.values[i], vic[i].c_str());
+          CHECK(!strstr(pic.values[i], "1024") && !strstr(pic.values[i], " Hz)"));   // no 1024 x 768 / 1280 x 1024 row, no rate of the other family
+      }
       env.vic_scale = false;                                                    // a gateware without it: Picture alone, as before
       CHECK(!picture_extend(&own, &ext, items, &env));
       CHECK_EQ(ext.nsettings, own.nsettings + 1);
@@ -191,7 +281,7 @@ static void items_and_apply()
       g_fw.clear(); g_gw.clear();
       picture_start(&r.c, VID_SYS_PAL50, VID_HDMI_1080P);
       CHECK(g_fw.empty() && g_gw.empty());                       // Auto: the A1200 wants what the screen has (1440 x 1080 at 1080p)
-      picture_apply(&r.c, 2);                                    // the item's value 2 is mode 1: 1280 x 720
+      picture_apply(&r.c, pv(VID_HDMI_720P));                    // 1280 x 720 at 50 Hz
       CHECK(g_fw.empty() && g_gw.size() == 1 && g_gw[0] == std::make_pair((int)VID_SYS_PAL50, (int)VID_HDMI_720P));
       CHECK_EQ(r.vid->out_w(), 720u);                            // Integer at 720p: x1
       scale_apply(&r.c, VID_SCALE_FIT);
@@ -211,35 +301,44 @@ static void items_and_apply()
       CHECK_EQ(r.px.last(PX_OSIZE), (270u << 16) | 360u);
       CHECK_EQ(r.px.last(PX_POS), (225u << 16) | 460u);
       // the same mode again is not applied twice
-      picture_apply(&r.c, 2);
+      picture_apply(&r.c, pv(VID_HDMI_720P));
       CHECK_EQ(g_gw.size(), 1u);
     }
-    // T107 5.10: every Picture value of the A1200 through the item's own path (Settings, regset_apply_setting, the operation, picture_apply): the byte the
-    // application writes to the gateware's request register (0x4F00) is family * 6 + the mode the value names, for each of the 12 combinations
+    // T107 5.10, T235: every Picture value of the A1200 through the item's own path (Settings, regset_apply_setting, the operation, picture_apply): the byte the
+    // application writes to the gateware's request register (0x4F00) is the row the value names - the list is every row of the table (9 rows), the machine's rate
+    // first within a resolution, and the value says the family itself (no silent fallback any more)
     for (int sys = VID_SYS_PAL50; sys <= VID_SYS_NTSC60; sys++) {
-        for (int v = 1; v <= VID_HDMI_COUNT; v++) {
+        int rows[10], n = 0;
+        for (int h = 0; h < VID_HDMI_COUNT; h++) {
+            for (int k = 0; k < 2; k++) {
+                int row = (k == 0 ? sys : 1 - sys) * 6 + h;
+                if ((EDID_ROW_MASK >> row) & 1u) rows[n++] = row;
+            }
+        }
+        CHECK_EQ(n, 9);
+        for (int v = 1; v <= n; v++) {
             Rig r(&amiga1200_desc);
             g_fw.clear(); g_gw.clear();
             picture_start(&r.c, sys, VID_HDMI_1080P);                // the gateware starts in 1080p; a 60 Hz host asks for the 60 Hz family at once
             size_t before = g_gw.size();
             int idx = picture_index(&r.ext);
+            CHECK_EQ(r.ext.settings[idx].nvalues, 10);
             CHECK(r.st->set(idx, v));
             regset_apply_setting(&r.c, idx);
-            // Q5: the PC modes exist at 60 Hz only, so a PAL machine takes the 60 Hz row of 800 x 600 and the others (Q6: silent, no Hz choice)
-            int fam = (sys == VID_SYS_NTSC60 || v - 1 >= VID_HDMI_800x600) ? VID_SYS_NTSC60 : VID_SYS_PAL50;
-            int want = fam * 6 + (v - 1);
-            if (v - 1 == VID_HDMI_1080P) {
+            int want = rows[v - 1];
+            if (want == sys * 6 + VID_HDMI_1080P) {
                 CHECK_EQ(g_gw.size(), before);                       // the mode that is up: nothing is written
-                CHECK_EQ(video_mode_index(VID_HDMI_1080P, sys), want);
             } else {
                 CHECK_EQ(g_gw.size(), before + 1);
                 if (g_gw.size() == before + 1) {
-                    CHECK_EQ(g_gw.back().first, fam);
-                    CHECK_EQ(g_gw.back().second, v - 1);
+                    CHECK_EQ(g_gw.back().first, want / 6);
+                    CHECK_EQ(g_gw.back().second, want % 6);
                     CHECK_EQ(video_mode_index(g_gw.back().second, g_gw.back().first), want);
                 }
             }
-            CHECK_STR(r.ext.settings[idx].values[v], video_hdmi_name(v - 1));   // the label the menu shows for the value is the mode it applies
+            char lbl[48];                                            // the label the menu shows for the value is the mode it applies, with its rate
+            snprintf(lbl, sizeof(lbl), "%s (%d Hz)", want % 6 == VID_HDMI_480_576 ? (want / 6 ? "480p" : "576p") : video_hdmi_name(want % 6), want / 6 ? 60 : 50);
+            CHECK_STR(r.ext.settings[idx].values[v], lbl);
         }
     }
     // the gateware starts in 1080p at 50 Hz: a host that was handed 60 Hz (or anything else) does not make it so
@@ -265,13 +364,13 @@ static void menu_places()
 {
     struct P { int value, factor, x, y, cw, ch; };       // D10a: the canvas too (960 x 540, or the mode's own size below 960 wide)
     static const P t[] = {                                       // the Picture item's value is the mode + 1
-        { 1 + VID_HDMI_1080P,     2,   0,   0, 960, 540 },                 // 1920 x 1080: x2 fills it
-        { 1 + VID_HDMI_720P,      1, 160,  90, 960, 540 },                 // 1280 x 720: x1, never 1.33
-        { 1 + VID_HDMI_800x600,   1,   0,   0, 800, 600 },                 // D10a: narrower than 960: the canvas is the frame, the compact layout, nothing cut
-        { 1 + VID_HDMI_1024x768,  1,  32, 114, 960, 540 },
-        { 1 + VID_HDMI_1280x1024, 1, 160, 242, 960, 540 },
-        { 1 + VID_HDMI_480_576,   1,   0,   0, 720, 576 },                 // 576p under PAL: 720 x 576, the canvas is the frame
-        { 1 + VID_HDMI_1080P,     2,   0,   0, 960, 540 },                 // and back: the menu is not left at the small size
+        { pv(VID_HDMI_1080P),     2,   0,   0, 960, 540 },                 // 1920 x 1080: x2 fills it
+        { pv(VID_HDMI_720P),      1, 160,  90, 960, 540 },                 // 1280 x 720: x1, never 1.33
+        { pv(VID_HDMI_800x600),   1,   0,   0, 800, 600 },                 // D10a: narrower than 960: the canvas is the frame, the compact layout, nothing cut
+        { pv(VID_HDMI_1024x768),  1,  32, 114, 960, 540 },
+        { pv(VID_HDMI_1280x1024), 1, 160, 242, 960, 540 },
+        { pv(VID_HDMI_480_576),   1,   0,   0, 720, 576 },                 // 576p under PAL: 720 x 576, the canvas is the frame
+        { pv(VID_HDMI_1080P),     2,   0,   0, 960, 540 },                 // and back: the menu is not left at the small size
     };
     Rig r(&amiga1200_desc);
     g_gw.clear();
@@ -297,7 +396,7 @@ static void menu_places()
         CHECK_EQ(r.px.w.size(), wr);                             // the menu's place is not a write of the video service's layer set
     }
     // the picture's Scale and size do not move the menu: Fill at 720p is 1280 x 720 for the picture, Integer 720 x 540
-    picture_apply(&r.c, 1 + VID_HDMI_720P);
+    picture_apply(&r.c, pv(VID_HDMI_720P));
     for (int sc : { VID_SCALE_INTEGER, VID_SCALE_FIT, VID_SCALE_FILL }) {
         scale_apply(&r.c, sc);
         CHECK(!r.px.place.empty());
@@ -317,5 +416,6 @@ int main()
     layouts();
     menu_places();
     items_and_apply();
+    follow_item();
     DONE("scale");
 }

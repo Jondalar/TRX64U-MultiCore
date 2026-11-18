@@ -54,7 +54,20 @@ struct CoreCtx {
     bool frozen;                          // the machine is stopped for the menu (Freeze); a poll of a contributor that does not
                                           // declare poll_when_frozen waits for it to end
     bool menu_open;                       // the menu is on screen, frozen or not; nothing gates a poll on it (T104.1 D6)
-    const struct MenuMerge *merge;        // what libraries, applications and the description put into the menu (contrib.h); null: nothing
+    // T228 R1: the screen of the menu an operation asks for ("F1/timewarp", the operation menu.screen of a Home row or a hotkey), taken by the menu: it goes
+    // there now, or when it opens (a hotkey while the core runs opens it). "" none.
+    char want_screen[32];
+    // A question an operation puts to the person (ops_ask_text, ops_ask_list in ops_glue.h): the menu shows a text prompt or a list of choices and calls `op` again with
+    // the answer ("phase" = the step to run next, "answer" = the text or the chosen value). kind: 0 none, 1 text, 2 secret text, 3 list (`src` is the state that holds the rows, picklist.h).
+    struct {
+        uint8_t kind;
+        int phase;
+        int maxlen;
+        char op[40];
+        char prompt[80];
+        char src[40];
+    } want_prompt;
+    const struct MenuMerge *merge;       // what libraries, applications and the description put into the menu (contrib.h); null: nothing
     struct Engines *eng;                  // the media and ROM engines' state (engines.h); null until a core that declares one asks
     OpRegistry *ops;                    // the service layer (ops.h); null until something asks for it
     Executor *exec;                       // the one task that runs operations; null: they run on the caller (tests, before the start)
@@ -77,6 +90,8 @@ struct CoreCtx {
     int (*install_files)(CoreCtx *c);
     // T104.3: the operation `app.open` asks the application host (apphost.h) to open an application; null: this build has none. The answer is the operation's.
     int (*app_open)(CoreCtx *c, const char *app, const char *action, const char *file, char *msg, int msglen);
+    // T228 R21: the action an application adds to one file when its actions are listed ("Run with App", FW user_file_interaction.cc:55-76), null: none. The application sets it.
+    const FileAction *(*file_app_action)(CoreCtx *c, const char *name, uint64_t size, bool dir);
     // T180 D4: the picture while a write-back runs ("Saving media..."); the application sets it, null: nothing to show (the media code calls it
     // through MediaSaving, engines.h; saving_depth makes nested write-backs one display).
     void (*saving)(CoreCtx *c, bool on);

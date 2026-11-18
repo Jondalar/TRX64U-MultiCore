@@ -23,7 +23,9 @@ for lib in lwip lvgl; do nice -n 15 make -j4 -C \$H/libs/riscv/\$lib >/dev/null;
 git config --global --add safe.directory /trx || true
 make -C \$H/u64ii/riscv/coreapp gitinfo >/dev/null || true
 nice -n 15 make -j6 -C \$H/u64ii/riscv/coreapp 2>&1 | tail -n 15
+nice -n 15 make -C \$H/u64ii/riscv/coreapp own OWN=trx64u OWN_DESC=c64_desc OWN_HEAP=0x950000 2>&1 | tail -n 5
 '" 
 mkdir -p "$HERE/build"
 scp -q "$B:$T/host-app/target/u64ii/riscv/coreapp/result/coreapp.app" "$HERE/build/coreapp.app"
+scp -q "$B:$T/host-app/target/u64ii/riscv/coreapp/result/coreapp_trx64u.app" "$HERE/build/coreapp_trx64u.app"   # T228 R25: trx64u runs its own image
 ls -l "$HERE/build/coreapp.app"

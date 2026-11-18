@@ -64,7 +64,7 @@ public:
     // Writes one track of a mounted .g64 back into its file at its place (length field included). false when it cannot.
     bool write_track(int track, CoreFile *f, bool align);
     // The disk of a .d64: all tracks of the binary image, track 18's ID at the places Gideon reads it from.
-    void from_bin(BinImage *bin, int twist);
+    void from_bin(BinImage *bin, int twist, int geos = 0);      // geos: b0 gaps, b1 track 36 ("D64 Geos Copy Protection")
     // Decodes every track into the binary image; returns the sectors that did not decode clean.
     int to_bin(BinImage *bin);
     void track_got_written_with_gcr(int track);

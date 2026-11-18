@@ -140,6 +140,10 @@ static volatile int pending = -1;   // the freeze menu's choice (timeline index)
 static uint32_t log_rd;             // the observer log reader (trx_ring_log_read): the next stream 1 record to look at
 static bool log_have;               // log_rd is valid
 static volatile bool scrubbing;     // a Timewarp scrub holds the machine (§16.7 below)
+// A08: the engine logs no REU memory, so while the REU is enabled there is no ring and no way into it
+static inline bool reu_on(void) { return C64_REU_ENABLE != 0; }
+static bool reu_blocked;            // the ring was stopped (or kept from starting) because the REU is on
+static bool reu_resume;             // it ran, or was due to start, then: it starts again when the REU is off
 static bool trace_on = true;       // the trace former runs with the log (trace_ctl)
 
 // LOG_CTRL as the log runs: every tap, the trace, and with flush the machine's flow cut (a
@@ -742,48 +746,115 @@ static void replay_cia(const uint32_t *w, uint32_t *count)
 }
 
 // The cartridge's banking registers (chip 7 w0 = {reg_1, reg_0} of icepi's
-// model, cart_slot.v) as bus writes to IO1, for the types whose registers are
-// plain writes there (c64_cartridge.v): EasyFlash $DE00/$DE02, MegaByter
-// $DE00/$DE02, Ocean / Magic Desk / Magic Desk 16 $DE00. Not replayed: GMod2
-// ($DE00 also drives the EEPROM's lines), C64MegaCart ($DF00 is cartridge
-// RAM too), Dinamic and C64GS (banked by the address of a read or write),
-// Action Replay, Simons' BASIC. Returns false for a cartridge it left as it
-// was.
+// model, cart_slot.v) go back as bus writes to IO1, for the types whose
+// registers are plain writes there (c64_cartridge.v). Which types those are is
+// the table below, and it is the same table the writer refuses by.
 #define W_GLUE         0
 #define W_CART         26
 #define GLUE_CART      0x08
 
+// U9 D0/D3: one list, read by the writer's gate (trx_c64re_dump_ex) and by the
+// replay below. A type is on it when a .c64re can carry its whole state back:
+// the banking registers go in as bus writes, and nothing of the cartridge's own
+// state lives outside the ROM window, the cartridge RAM and - for GMod2 - the
+// EEPROM section. A type is added to both sides at once or to neither; what is
+// not on the list is refused before a file is written, never half-loaded.
+//
+// Left off, and why: GMod2 is ON the list (its $DE00 is one register, bank in
+// bits 0-5 and mode in 6-7, and the EEPROM array travels as its own section);
+// C64MegaCart keeps state at $DF00 that is cartridge RAM too; Dinamic and C64GS
+// bank on the address of a read or write, with no register to replay; Action
+// Replay and Simons' BASIC have more state than the block carries.
+#define CR_NONE        0        // no banking register
+#define CR_DE00        1        // one byte at $DE00
+#define CR_DE00_DE02   2        // $DE00 and $DE02
+
+struct TrxCartRow {
+    uint8_t     base;           // C64_CARTRIDGE_TYPE & 0x1F
+    uint8_t     var;            // C64_CARTRIDGE_TYPE >> 5
+    bool        any_var;        // the row covers every variant of base
+    uint8_t     regs;
+    bool        eeprom;         // keeps a 93C86 the file has to carry
+    const char *name;
+};
+
+static const TrxCartRow c_cart_rows[] = {
+    { 0x01, 0, true,  CR_NONE,      false, "Normal" },
+    { 0x08, 0, false, CR_DE00,      false, "Ocean" },
+    { 0x08, 1, false, CR_DE00,      false, "Magic Desk / Domark" },
+    { 0x08, 2, false, CR_DE00,      true,  "GMod2" },
+    { 0x08, 5, false, CR_DE00,      false, "Magic Desk 16" },
+    { 0x09, 0, true,  CR_DE00,      false, "Ocean 16K" },
+    { 0x0F, 0, true,  CR_DE00_DE02, false, "MegaByter" },
+    { 0x11, 0, true,  CR_DE00_DE02, false, "EasyFlash" },
+};
+
+static const TrxCartRow *cart_row(uint8_t type)
+{
+    uint8_t base = type & 0x1F, var = uint8_t(type >> 5);
+    for (unsigned i = 0; i < sizeof(c_cart_rows) / sizeof(c_cart_rows[0]); i++) {
+        if (c_cart_rows[i].base == base && (c_cart_rows[i].any_var || c_cart_rows[i].var == var)) {
+            return &c_cart_rows[i];
+        }
+    }
+    return NULL;
+}
+
+bool trx_ring_cart_state_ok(uint8_t type, const char **name)
+{
+    const TrxCartRow *r = cart_row(type);
+    if (name) {
+        *name = r ? r->name : NULL;
+    }
+    return r != NULL;
+}
+
+bool trx_ring_cart_has_eeprom(uint8_t type)
+{
+    const TrxCartRow *r = cart_row(type);
+    return r && r->eeprom;
+}
+
+// The banking registers of the running cartridge, put back (the app has no
+// model, cart_slot.v) as bus writes to IO1. Returns false for a cartridge this
+// build cannot put back - which the writer's gate has already refused, so a
+// false here means a file from an older build or another writer.
 static bool replay_cart(const uint32_t *w, uint32_t *count)
 {
     if (!(w[W_GLUE] & GLUE_CART)) {
         return true;
     }
-    uint8_t ct = C64_CARTRIDGE_TYPE;
+    const TrxCartRow *r = cart_row(C64_CARTRIDGE_TYPE);
+    if (!r) {
+        return false;
+    }
     uint8_t r0 = uint8_t(w[W_CART]), r1 = uint8_t(w[W_CART] >> 8);
-    uint8_t var = ct >> 5;
-    switch (ct & 0x1F) {
-    case 0x11:              // EasyFlash
-    case 0x0F:              // MegaByter
+    // GMod2 rides the CR_DE00 path: the same write carries bank and mode, and it
+    // drives the EEPROM's lines to the levels they held at the freeze. The array
+    // itself is restored afterwards, out of the file's own section, so what this
+    // write does to the serial lines cannot cost a byte of it.
+    switch (r->regs) {
+    case CR_DE00_DE02:
         C64_MEM(0xDE00) = r0;
         C64_MEM(0xDE02) = r1;
         *count += 2;
         return true;
-    case 0x08:
-        if (var == 0 || var == 1 || var == 5) {     // Ocean, Magic Desk, Magic Desk 16
-            C64_MEM(0xDE00) = r0;
-            (*count)++;
-            return true;
-        }
-        return false;
-    case 0x09:              // Ocean 16K
+    case CR_DE00:
         C64_MEM(0xDE00) = r0;
         (*count)++;
         return true;
-    case 0x01:              // Normal: no registers
-        return true;
     default:
-        return false;
+        return true;
     }
+}
+
+static bool turbo_pending;
+static uint32_t turbo_pack;
+
+void trx_ring_set_turbo(uint32_t pack)
+{
+    turbo_pack = pack;
+    turbo_pending = (ioRead8(TRX_CAPS2) & TRX_CAPS2_TURBO) != 0;
 }
 
 static bool stage_and_load(const uint32_t *w)
@@ -801,10 +872,17 @@ static bool stage_and_load(const uint32_t *w)
     for (int k = 0; k < 12; k++) {
         w32(SB_DATA, w[W_CIA2H + k]);
     }
+    uint32_t mask = SB_LOAD_ALL;
+    if (turbo_pending) {                // chip 0 word 1: the turbo state, loaded with the rest (bit 0)
+        w32(SB_ADDR, (0 << 7) | 1);
+        w32(SB_DATA, turbo_pack);
+        mask |= 1;
+        turbo_pending = false;
+    }
     if (r32(SB_STATUS) & SB_REFUSED) {
         return false;
     }
-    w32(SB_LOAD, SB_LOAD_ALL);
+    w32(SB_LOAD, mask);
     return true;
 }
 
@@ -818,6 +896,7 @@ enum {
     E_STAGE = -6,
     E_MEM = -7,
     E_APPLY = -8,
+    E_REU = -9,
 };
 
 const char *trx_ring_error(int code)
@@ -832,6 +911,7 @@ const char *trx_ring_error(int code)
     case E_STAGE:   return "the state bus refused the staged words";
     case E_MEM:     return "out of memory";
     case E_APPLY:   return "the engine did not finish applying the log";
+    case E_REU:     return "Timewarp is off while the REU is enabled (A08)";
     default:        return "error";
     }
 }
@@ -1664,6 +1744,10 @@ int trx_ring_land(int index, TrxRestoreStats *stats)
     if (!lock()) {
         return E_ABSENT;
     }
+    if (reu_on()) {
+        unlock();
+        return E_REU;
+    }
     int err = land_locked(index, stats);
     unlock();
     return err;
@@ -1696,7 +1780,7 @@ bool trx_ring_reachable(int index)
 // ---- materialize -----------------------------------------------------------------
 // idx[] oldest first. From the head's copy back: the newest target first, each
 // older one from the one after it, so the records are walked once.
-static int materialize_locked(const int *idx, int n, uint8_t **rams, uint8_t **cols)
+static int materialize_locked(const int *idx, int n, uint8_t **rams, uint8_t **cols, uint8_t **carts)
 {
     for (int i = 0; i < n; i++) {
         if (idx[i] < 0 || idx[i] >= tl_n || (i && idx[i] < idx[i - 1])) {
@@ -1705,9 +1789,11 @@ static int materialize_locked(const int *idx, int n, uint8_t **rams, uint8_t **c
     }
     uint8_t *ram = (uint8_t *)malloc(65536);
     uint8_t *col = (uint8_t *)malloc(1024);
-    if (!ram || !col) {
+    uint8_t *cart = carts ? (uint8_t *)malloc(65536) : NULL;
+    if (!ram || !col || (carts && !cart)) {
         free(ram);
         free(col);
+        free(cart);
         return E_MEM;
     }
     // a pause (anywhere): RAM through the second port, colour RAM through the
@@ -1733,6 +1819,12 @@ static int materialize_locked(const int *idx, int n, uint8_t **rams, uint8_t **c
         col[a] = C64_MEM(0xD800 + a) & 0x0F;
     }
     C64_DMA_MEMONLY = memonly;
+    if (cart) {
+        // the cartridge's RAM window in DDR2 (cart_slot.v: 0xEF0000, 64 KB)
+        for (int a = 0; a < 65536; a++) {
+            cart[a] = *(volatile uint8_t *)(0x0EF0000 + a);
+        }
+    }
     // the parse may drop entries from the front: find the targets again
     uint32_t *seqs = (uint32_t *)malloc(n * sizeof(uint32_t));
     int *at = (int *)malloc(n * sizeof(int));
@@ -1769,12 +1861,17 @@ static int materialize_locked(const int *idx, int n, uint8_t **rams, uint8_t **c
         each(col_tch, 1024, col_val, [col](int a, uint8_t v) { col[a] = v; });
         memcpy(rams[i], ram, 65536);
         memcpy(cols[i], col, 1024);
+        if (cart) {
+            each(cart_tch, 65536, cart_val, [cart](int a, uint8_t v) { cart[a] = v; });
+            memcpy(carts[i], cart, 65536);
+        }
         hi = at[i];
     }
     free(seqs);
     free(at);
     free(ram);
     free(col);
+    free(cart);
     return err;
 }
 
@@ -1831,9 +1928,50 @@ bool trx_ring_start(void)
     if (!lock()) {
         return false;
     }
+    if (reu_on()) {
+        unlock();
+        return false;
+    }
     start_locked();
     unlock();
     return true;
+}
+
+const char *trx_ring_reu_refusal(void)
+{
+    return (present && reu_on()) ? trx_ring_error(E_REU) : NULL;
+}
+
+// The one place the ring follows the REU (A08), looked at by every poll. A scrub or land holds the
+// machine: the ring is left alone until it ends. Never waits for the ring: the next poll looks again.
+static void reu_sync(void)
+{
+    if (!present || scrubbing || xSemaphoreTake(mutex, 0) != pdTRUE) {
+        return;
+    }
+    bool on = reu_on();
+    if (on && !reu_blocked) {
+        reu_blocked = true;
+        reu_resume = log_on;
+        w32(LOG_CTRL, 0);
+        log_on = false;
+        pending = -1;
+        tl_clear();
+        ep_reset();
+        p2 = 0;
+        cyc_have = false;
+        cyc_acc = 0;
+        resyncs = 0;
+        printf("[RING] REU enabled: ring off, frames dropped (A08)\n");
+    } else if (!on && reu_blocked) {
+        reu_blocked = false;
+        if (reu_resume) {
+            start_locked();
+            printf("[RING] REU off: ring restarted from now (A08)\n");
+        }
+        reu_resume = false;
+    }
+    xSemaphoreGive(mutex);
 }
 
 void trx_ring_stop(void)
@@ -1855,6 +1993,7 @@ void trx_ring_status(TrxRingStatus *st)
     parse_locked();
     st->present = true;
     st->on = log_on;
+    st->reu_off = reu_on();
     st->frames = tl_n;
     for (int i = 0; i < tl_n; i++) {
         if (ent(i).block) {
@@ -1877,8 +2016,19 @@ void trx_ring_status(TrxRingStatus *st)
 
 void trx_ring_poll(void)
 {
+    reu_sync();
     if (!lock()) {
         return;
+    }
+    if (log_on && (ioRead8(TRX_CAPS2) & TRX_CAPS2_TURBO)) {
+        // the engine ran faster than 1 MHz since the last look: its RAM writes are not in the log,
+        // the ring cannot be walked back across them; start it over once the engine is off
+        uint32_t ts = r32(TRX_TURBO_STAT);
+        if ((ts & TRX_TURBO_RAN) && !(ts & TRX_TURBO_ON)) {
+            w32(TRX_TURBO_CTRL, 1);
+            start_locked();
+            printf("[RING] ring restarted: the machine ran in turbo\n");
+        }
     }
     if (log_on) {
         parse_locked();
@@ -1955,6 +2105,10 @@ int trx_ring_restore(int index, TrxRestoreStats *stats)
     if (!lock()) {
         return E_ABSENT;
     }
+    if (reu_on()) {
+        unlock();
+        return E_REU;
+    }
     int err = restore_locked(index, stats);
     unlock();
     return err;
@@ -1969,6 +2123,10 @@ int trx_ring_scrub_show(int index, TrxRestoreStats *stats)
     if (!lock()) {
         return E_ABSENT;
     }
+    if (reu_on()) {
+        unlock();
+        return E_REU;
+    }
     int err = scrub_show_locked(index, stats);
     unlock();
     return err;
@@ -1979,17 +2137,17 @@ bool trx_ring_scrubbing(void)
     return scrubbing;
 }
 
-int trx_ring_materialize(int index, uint8_t *ram, uint8_t *color)
+int trx_ring_materialize(int index, uint8_t *ram, uint8_t *color, uint8_t *cart)
 {
-    return trx_ring_materialize_many(&index, 1, &ram, &color);
+    return trx_ring_materialize_many(&index, 1, &ram, &color, cart ? &cart : NULL);
 }
 
-int trx_ring_materialize_many(const int *idx, int n, uint8_t **ram, uint8_t **color)
+int trx_ring_materialize_many(const int *idx, int n, uint8_t **ram, uint8_t **color, uint8_t **carts)
 {
     if (!lock()) {
         return E_ABSENT;
     }
-    int err = materialize_locked(idx, n, ram, color);
+    int err = materialize_locked(idx, n, ram, color, carts);
     unlock();
     return err;
 }
@@ -2036,7 +2194,7 @@ void trx_ring_unfreeze(void)
 }
 
 struct LoadCtx {
-    const uint8_t *ram, *col;
+    const TrxLoadMem *m;
     uint32_t bus;
 };
 
@@ -2044,23 +2202,44 @@ static void load_bus(void *ctx)
 {
     LoadCtx *c = (LoadCtx *)ctx;
     for (int a = 0; a < 1024; a++) {
-        C64_MEM(0xD800 + a) = c->col[a] & 0x0F;
+        C64_MEM(0xD800 + a) = c->m->col[a] & 0x0F;
     }
     c->bus += 1024;
+    bool cart_touched = false;
+    if (c->m->cart) {
+        // the cartridge RAM window in DDR2, the way restore_bus puts a ring entry's back (FW trx_ring.cc load_bus)
+        for (int a = 0; a < 65536; a++) {
+            *(volatile uint8_t *)(0x0EF0000 + a) = c->m->cart[a];
+        }
+        cart_touched = true;
+    }
+    if (c->m->rom_put) {
+        // the cartridge's image, which a rewind never puts back (the log has no flash writes): a game that programmed its own flash comes back whole
+        c->m->rom_put(c->m->rom_ctx);
+        cart_touched = true;
+    }
+    if (cart_touched) {
+        __asm__ volatile ("fence" ::: "memory");
+        ioWrite8(CART_CMD, CART_INVAL);         // the cartridge drops its cached lines
+    }
 }
 
 static void load_ram(void *ctx)
 {
     LoadCtx *c = (LoadCtx *)ctx;
     for (int a = 0; a < 65536; a++) {
-        C64_MEM(a) = c->ram[a];
+        C64_MEM(a) = c->m->ram[a];
     }
 }
 
-int trx_ring_load_state(const uint8_t *ram, const uint8_t *color, const uint32_t *w, uint16_t x)
+int trx_ring_load_state(const TrxLoadMem *mem, const uint32_t *w, uint16_t x)
 {
     if (!lock()) {
         return E_ABSENT;
+    }
+    if (reu_on()) {
+        unlock();
+        return E_REU;
     }
     if (dbg_handover()) {
         wait_reg(GATE_CTRL, GATE_HALTED, GATE_HALTED, 100);
@@ -2073,9 +2252,109 @@ int trx_ring_load_state(const uint8_t *ram, const uint8_t *color, const uint32_t
     drain();
     w32(LOG_CTRL, 0);
     w32(CAP_CTRL, 0);
-    LoadCtx c = { ram, color, 0 };
+    LoadCtx c = { mem, 0 };
     int err = put_back(w, x, sv, load_bus, load_ram, &c, &c.bus);
     start_locked();                 // a file replaces the machine: the ring starts over
+    w32(STOP_POS, POS_RELEASE);
+    unlock();
+    return err;
+}
+
+// ---- the native ring copy (FW trx_ring.cc trx_ring_area_*, trx_ring_install; .trxring) --------------------------
+uint32_t trx_ring_area_size(int s)
+{
+    return (s >= 0 && s < 3) ? area_size[s] : 0;
+}
+
+uint32_t trx_ring_rec_size(int s)
+{
+    return (s >= 0 && s < 3) ? rec_size[s] : 0;
+}
+
+void trx_ring_area_read(int s, uint32_t off, void *dst, uint32_t len)
+{
+    if (s < 0 || s >= 3 || off + len > area_size[s]) {
+        return;
+    }
+    eng_copy(area_base[s] + off, dst, len);
+}
+
+void trx_ring_area_write(int s, uint32_t off, const void *src, uint32_t len)
+{
+    if (s < 0 || s >= 3 || off + len > area_size[s]) {
+        return;
+    }
+    // the mover's COPY takes two DDR2 byte addresses, and the app's own memory is in DDR2 too: the same call the other way round
+    w32(ENG_SRC, (uint32_t)src);
+    w32(ENG_DST, area_base[s] + off);
+    w32(ENG_LEN, len);
+    w32(ENG_CMD, 1);
+    uint16_t t0 = getMsTimer();
+    while (r32(ENG_CMD) & 1) {
+        if (uint16_t(getMsTimer() - t0) > 200) {
+            printf("[RING] COPY back did not finish: %u bytes to area %d + 0x%x\n", (unsigned)len, s, (unsigned)off);
+            break;
+        }
+    }
+    __asm__ volatile ("fence" ::: "memory");
+}
+
+// A saved ring back into the engine and the machine: the log goes off and its counters to 0 first (the caller's area writes land where those counters
+// point), then the timeline is installed, then the newest entry's state goes into the machine the way a restore puts a ring entry, and only then does
+// the log run again, without a restart, so the records just written back stay the ring's history.
+int trx_ring_install(const TrxFrame *ents, int n, const TrxLoadMem *mem, trx_area_fn areas, void *ctx)
+{
+    if (n < 1 || n > TL_CAP) {
+        return E_INDEX;
+    }
+    if (!ents[n - 1].block) {
+        return E_NOBLOCK;
+    }
+    if (!lock()) {
+        return E_ABSENT;
+    }
+    if (reu_on()) {
+        unlock();
+        return E_REU;
+    }
+    if (dbg_handover()) {
+        wait_reg(GATE_CTRL, GATE_HALTED, GATE_HALTED, 100);
+    }
+    if (scrubbing) {
+        scrubbing = false;
+    }
+    Saved sv;
+    stop_machine(&sv, true);
+    drain();
+    w32(LOG_CTRL, 0);
+    w32(CAP_CTRL, 0);
+    w32(LOG_CTRL, LOG_RESTART);     // counts, positions and lost counters to 0, log still off
+    int err = areas ? areas(ctx) : 0;
+    if (!err) {
+        tl_clear();
+        for (int i = 0; i < n; i++) {
+            tl[i] = ents[i];
+        }
+        tl_first = 0;
+        tl_n = n;
+        p2 = 0;                     // the newest entry's marker is the last record written back
+        ep_reset();
+        cyc_acc = ents[n - 1].cycles;
+        cyc_last = ents[n - 1].c24;
+        cyc_have = true;
+        resyncs = 0;
+        log_rd = 0;
+        LoadCtx c = { mem, 0 };
+        err = put_back(ents[n - 1].w, ents[n - 1].x, sv, load_bus, load_ram, &c, &c.bus);
+    }
+    if (!err) {
+        w32(CAP_CTRL, 1);
+        w32(LOG_CTRL, logctl(false));   // on, without a restart: the history stays
+        log_on = true;
+    } else {
+        tl_clear();                     // nothing half-installed stays reachable
+        start_locked();
+    }
     w32(STOP_POS, POS_RELEASE);
     unlock();
     return err;
@@ -2498,7 +2777,12 @@ static void ring_task(void *)
 {
     vTaskDelay(START_AFTER_MS / portTICK_PERIOD_MS);
     if (ring_autostart) {
-        trx_ring_start();
+        if (reu_on()) {
+            reu_blocked = true;     // A08: the REU is on at boot: no ring until it is off, then it starts
+            reu_resume = true;
+        } else {
+            trx_ring_start();
+        }
     }
     printf("[RING] log %s: streams at %07x/%07x/%07x%s\n", ring_autostart ? "on" : "off (setting)", (unsigned)area_base[0], (unsigned)area_base[1],
            (unsigned)area_base[2], f4_after_blocks ? ", older engine: F4s after block records skipped" : "");

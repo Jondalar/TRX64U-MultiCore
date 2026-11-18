@@ -28,7 +28,7 @@ Feature: Pictures of the list rows of the TRX64U core (no mode choice in the emu
     Given the menu is open on F8
     Then I save the picture "t209-f8"
 
-  Scenario: Actions with greyed rows
+  Scenario: The APP settings (F7)
     Given the menu is open on F7
     Then I save the picture "t209-f7-top"
     When I press cursor-down 4 times

@@ -77,6 +77,20 @@ int boot_put_roms(CoreCtx *c, const RomResult *res, char *msg, int msglen)
     return 0;
 }
 
+int boot_put_builtin_rom(CoreCtx *c, const char *put_op, char *msg, int msglen)
+{
+    RomResult res[ROMS_MAX];
+    if (scan_roms(c, res, msg, msglen) != ROM_FOUND) {
+        return 1;
+    }
+    for (int i = 0; i < c->desc->nroms; i++) {
+        if (!c->desc->roms[i].put_op || strcmp(c->desc->roms[i].put_op, put_op)) {
+            res[i].status = ROM_MISSING;                 // only this one goes in
+        }
+    }
+    return boot_put_roms(c, res, msg, msglen);
+}
+
 void boot_apply_settings(CoreCtx *c, bool all)
 {
     regset_apply(c, all);
@@ -234,13 +248,19 @@ int boot_restart(CoreCtx *c, char *msg, int msglen)
     return reload(c, msg, msglen, true, true);
 }
 
-// The machine RAM to zero, through the RAM window (the machine is held).
+// The machine RAM to zero, through the RAM window (the machine is held); in the window's memory-only mode when the core asks for it (T228 R17).
 static void clear_machine_ram(CoreCtx *c)
 {
     static const uint8_t zero[4096] = { 0 };
+    if (c->desc->cold_ram_only) {
+        c->io->ram_memonly(true);
+    }
     for (uint32_t a = 0; a < c->desc->cold_ram_bytes; a += sizeof(zero)) {
         uint32_t n = c->desc->cold_ram_bytes - a;
         c->io->ram_write(a, zero, n < sizeof(zero) ? n : (uint32_t)sizeof(zero));
+    }
+    if (c->desc->cold_ram_only) {
+        c->io->ram_memonly(false);
     }
 }
 
@@ -254,6 +274,12 @@ static void after_partial(CoreCtx *c)
         ops_call(c, "drive.resync", 0, 0, &r);
     }
     engines_after_reload(c);
+}
+
+static bool reg_has_after_roms(CoreCtx *c)
+{
+    OpRegistry *reg = ops_of(c);
+    return reg && reg->find_op("machine.after_roms");
 }
 
 static int reload(CoreCtx *c, char *msg, int msglen, bool rescan, bool cold, bool partial)
@@ -291,6 +317,10 @@ static int reload(CoreCtx *c, char *msg, int msglen, bool rescan, bool cold, boo
     int rc = boot_put_roms(c, res, msg, msglen);
     if (rc) {
         return rc;                                // held, with the ROMs half in: the menu stays up and says so
+    }
+    if (reg_has_after_roms(c)) {
+        OpResult ar;
+        ops_call(c, "machine.after_roms", 0, 0, &ar);   // the ROM files the person chose go over the built-in ones
     }
     boot_apply_settings(c, cold);                 // a restart writes every setting, the live ones too, as the start does
     c->io->delay_ms(d->reset_ms);

@@ -69,4 +69,7 @@ Parts:
 
 ## §5 Build notes
 
-(empty)
+- **2026-11-18 - board steps closed as done (shipped and in use):** S7 (FTP login with an empty password) - Alex 2026-11-15: "Under A
+  there is nothing I would not class as DONE! That has been in the builds for days/weeks, we had bugs and re-tests in part"; Alex
+  2026-11-18, shown these steps as open: "that is old stuff that has been running for ages, we had this already 3-4 days ago" and "tick
+  it off in the TODOs/specs, otherwise it shows up again with some agent" (translated).

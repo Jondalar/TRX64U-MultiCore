@@ -1,4 +1,5 @@
 op	menu.browse	path:path:0:0:519:
+op	menu.screen	screen:string:0:0:31:	unless:string:0:0:31:
 op	app.open	app:string:0:0:15:	action:string:0:0:31:	file:string:0:0:519:
 op	machine.warm_reset
 op	machine.cold_reset
@@ -18,9 +19,10 @@ op	media.flush_for_core
 op	media.persist_apply	value:int:0:1:0:
 op	config.save	name:string:0:0:32:
 op	config.load	name:string:0:0:32:
-op	picture.apply	value:int:0:6:0:
+op	picture.apply	value:int:0:9:0:
 op	scale.apply	value:int:0:2:0:
 op	smooth.apply	value:int:0:1:0:
+op	follow.apply	value:int:0:1:0:
 op	volume.apply	value:int:0:40:0:
 op	volume.change	value:int:-2:2:0:
 op	tone.apply	value:int:0:2:0:
@@ -33,6 +35,7 @@ op	settings.reset_defaults
 op	settings.clear
 op	settings.noop	value:int:-2000:2000:0:
 op	settings.load_file	path:path:0:0:519:
+op	settings.load_staged
 op	settings.autosave	value:int:-2000:2000:0:
 op	settings.save
 op	settings.discard
@@ -43,6 +46,7 @@ op	writeback.open
 op	writeback.answer	value:int:0:1:0:
 op	writeback.leave
 op	pad.set_map	value:int:0:1:0:
+op	pad.port	value:int:0:1:0:
 op	pad.poll
 op	pad.map.begin	player:int:0:1:0:
 op	pad.map.next
@@ -56,6 +60,7 @@ op	net.fx	value:int:-2000:2000:0:
 op	wifi.toggle
 op	stream.start	id:int:0:2:0:
 op	stream.stop	id:int:0:2:0:
+op	stream.start_to	id:int:0:2:0:	dest:string:0:0:36:	stop_after:int:0:65535:0:
 op	files.copy_job
 op	files.move_job
 op	files.delete_job
@@ -76,9 +81,12 @@ op	c64.put_kernal	data:blob:0:0:0:
 op	c64.put_char	data:blob:0:0:0:
 op	c64.set_freeze_mode	value:int:0:1:0:
 op	c64.run_prg	path:path:0:0:519:
+op	files.run_with_app	path:path:0:0:519:
 op	c64.load_prg	path:path:0:0:519:	start:int:0:65535:0:
 op	c64.run_crt	path:path:0:0:519:
 op	c64.dma_prg	path:path:0:0:519:
+op	dma.write	address:int:0:65535:0:	data:blob:0:0:0:
+op	dma.kernal	data:blob:0:0:0:
 op	c64.run_t64	path:path:0:0:519:	index:int:0:255:0:
 op	c64.dma_t64	path:path:0:0:519:	index:int:0:255:0:
 op	c64.set_rom	path:path:0:0:519:	which:int:0:2:0:
@@ -104,6 +112,14 @@ op	drive.resync
 op	u64.fx_video	value:int:-2000:2000:0:
 op	u64.fx_audio	value:int:-2000:2000:0:
 op	u64.fx_sid	value:int:-2000:2000:0:
+op	u64.fx_fsid	value:int:-2000:2000:0:
+op	u64.fx_chip	value:int:-2000:2000:0:
+op	u64.arm_read1
+op	u64.arm_read2
+op	u64.fx_fsid_q10	value:int:-2000:2000:0:
+op	u64.fx_fsid_q11	value:int:-2000:2000:0:
+op	u64.fx_fsid_q20	value:int:-2000:2000:0:
+op	u64.fx_fsid_q21	value:int:-2000:2000:0:
 op	u64.fx_misc	value:int:-2000:2000:0:
 op	u64.fx_input	value:int:-2000:2000:0:
 op	u64.apply_palette	name:path:0:0:519:
@@ -116,11 +132,13 @@ op	tw.live
 op	tw.oldest
 op	tw.resume
 op	tw.cancel
+op	tw.monitor
 op	tw.mark
 op	tw.next_mark	value:int:-100000:100000:0:
 op	tw.clear_marks
 op	tw.dump	name:string:0:0:55:
 op	tw.ringdump	name:string:0:0:55:
+op	machine.save_c64re	name:string:0:0:55:
 op	tw.load	path:path:0:0:519:
 op	ring.start
 op	ring.stop
@@ -140,16 +158,33 @@ op	diag.save_edid	name:string:0:0:55:
 op	diag.clear_log
 op	diag.bug_report
 op	diag.nop
+op	dma.prg	path:path:0:0:519:	mode:int:0:2:0:
+op	dma.mount	path:path:0:0:519:	run:int:0:1:0:
+op	dma.crt	path:path:0:0:519:
+op	dma.reu	offset:int:0:16777215:0:	data:blob:0:0:0:
+op	dma.sidcrt	data:blob:0:0:0:
+op	dma.power_off
 op	ui.fx	value:int:-2000:2000:0:
 op	c64.fx_io	value:int:-2000:2000:0:
 op	c64.fx_roms	value:int:-2000:2000:0:
 op	u64.fx_power	value:int:-2000:2000:0:
 op	drive.fx_misc	value:int:-2000:2000:0:
+op	c64.sid_play	path:path:0:0:519:	song:int:0:65535:0:
+op	c64.sid_songs	path:path:0:0:519:	song:int:0:65535:0:
+op	c64.sid_valid	path:path:0:0:519:	song:int:0:65535:0:
+op	c64.sid_info	path:path:0:0:519:	song:int:0:65535:0:
 op	reu.load	path:path:0:0:519:
 op	reu.preload	path:path:0:0:519:
+op	reu.playmod	path:path:0:0:519:
 op	drive.insert_blank
 op	drive.swap
+op	machine.after_roms
+op	drive.set_rom_store	path:path:0:0:519:
 op	drive.unlink
+op	c64.load_kernal	path:path:0:0:519:
+op	drive.run_disk	slot:slot:0:0:31:	path:path:0:0:519:
+op	machine.save_mp3	drive:int:0:3:0:	name:string:0:0:63:
+op	reu.load_mp3	path:path:0:0:519:	drive:int:0:3:0:
 op	machine.pause_toggle
 op	machine.clear_reboot
 op	machine.save_ram	name:string:0:0:63:
@@ -180,6 +215,8 @@ state	wifi.ip
 state	wifi.onoff
 state	wifi.line
 state	net.static
+state	net.pw_scope
+state	net.unique_ids
 state	stream.vic
 state	stream.audio
 state	stream.debug
@@ -209,12 +246,35 @@ state	drive.suggest.d81
 state	drive.suggest.save_d64
 state	drive.suggest.save_g64
 state	u64.palette
+state	u64.palettes
 state	u64.sid1_type
 state	u64.sid2_type
+state	u64.s1_swin
+state	u64.s2_swin
+state	u64.s1_arm
+state	u64.s2_arm
+state	u64.s1_pd
+state	u64.s2_pd
+state	u64.s1_kick
+state	u64.s2_kick
+state	u64.s1_noarm
+state	u64.s2_noarm
+state	u64.s1_armver
+state	u64.s2_armver
+state	u64.fsid1_uid
+state	u64.fsid2_uid
+state	u64.fsid1_rev
+state	u64.fsid2_rev
+state	u64.fsid1_none
+state	u64.fsid2_none
+state	u64.fsid1_new
+state	u64.fsid2_new
 state	u64.sid_map0
 state	u64.sid_map1
 state	u64.sid_map2
 state	u64.sid_map3
+state	machine.suggest.c64re
+state	ring.reu_off
 state	tw.chip
 state	tw.ring
 state	tw.label
@@ -290,13 +350,28 @@ state	diag.heap
 state	diag.debugreg
 state	diag.board
 state	diag.uptime
+state	host.multicore
 state	diag.log
 state	diag.trace
 state	diag.suggest.log
 state	diag.suggest.edid
+state	reu.mp3.a
+state	reu.mp3.b
+state	reu.mp3.c
+state	reu.mp3.d
+state	reu.sampler
+state	reu.nomp3.a
+state	reu.nomp3.b
+state	reu.nomp3.c
+state	reu.nomp3.d
 state	reu.on
+state	c64.port_taken
 state	c64.cartridge
 state	c64.cartridge_path
+state	c64.roms_kernal
+state	c64.roms_basic
+state	c64.roms_char
+state	drive.roms_1541
 state	machine.pause_label
 state	machine.state
 state	machine.suggest.ram

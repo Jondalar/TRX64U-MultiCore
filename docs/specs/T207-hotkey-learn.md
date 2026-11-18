@@ -1,6 +1,6 @@
 # T207 — A hotkey is set by pressing the key, not by stepping through the keyboard
 
-**Status:** BUILT, S5 board step open (2026-11-11). Corrected 2026-11-13 (status check): merged to main (00bc8d41e, with T205); S1-S4 proven (§5); S5 board open.
+**Status:** DONE 2026-11-18: S5 on the board (learn a reset hotkey) closed as done, shipped and in use (Alex, quoted at the end of §5). Earlier status: BUILT, S5 board step open (2026-11-11). Corrected 2026-11-13 (status check): merged to main (00bc8d41e, with T205); S1-S4 proven (§5); S5 board open.
 **Repo:** TRX64U-MultiCore — the generic core app's hotkey page (T187 D2: "Hotkeys >" in Input; `test_hotkeys`), every core.
 **Number:** T207.
 **Origin:** Alex, 2026-11-11, at the board (SCPU core, hotkey rows with LEFT/RIGHT values), translated: "We wanted to *learn* the hotkeys; now you can
@@ -47,4 +47,8 @@ Action key: taken at once. Modifier: the set of held keys, taken after HK_LEARN_
 | S3 | same block: A refused, C= taken after settle, C= + CTRL pair, C= + L SHIFT released at once |
 | S4 | render bench `hotkey_learn` (render.cc): every core with a hotkey map (15) at 1080p and 480p, page found by name through the menu tree, states page / key prompt / modifier prompt / refused / learned (150 states), each with view_bounds, legend fit, and the status line (`ui_status_probe`) below the last drawn row and inside the pane; pictures for VIC-20, C128, Atari 800 XL, A1200 (`hotkeys-<core>-<1080p\|480p>-<state>.png`, opened). ux-review: pass 1 FAIL (foot did not name RETURN; fixed), pass 2 FAIL (bench capture lacked the shell, fixed with invalidate), pass 3 PASS (ux-specialist, notes: prompt hides the list = D3 entry mode; "For ..." wording; ESC repeated in row and foot) |
 | S2b | same block: LEFT / RIGHT steps over another hotkey's key (names Volume up), back again, 80 steps never land on a used key or the modifier's, modifier steps skip a preset using a hotkey's key |
-| S5 | open: Alex at the board |
+| S5 | closed as done 2026-11-18, shipped and in use (below); was open: Alex at the board |
+
+**2026-11-18 - board steps closed as done (shipped and in use):** S5 (learn a reset hotkey) - Alex 2026-11-15: "Under A there is nothing I would not class as
+DONE! That has been in the builds for days/weeks, we had bugs and re-tests in part"; Alex 2026-11-18, shown these steps as open: "that is old stuff that has been
+running for ages, we had this already 3-4 days ago" and "tick it off in the TODOs/specs, otherwise it shows up again with some agent" (translated).

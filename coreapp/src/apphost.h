@@ -71,6 +71,7 @@ public:
     const char *open_name() const { return handle_ >= 0 ? name_ : ""; }
 
     // ---- any task: what app.open calls
+    static const FileAction *file_action_op(CoreCtx *c, const char *name, uint64_t size, bool dir);
     static int open_op(CoreCtx *c, const char *app, const char *action, const char *file, char *msg, int msglen);
     int request(const char *app, const char *action, const char *file, char *msg, int msglen);
 

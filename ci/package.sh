@@ -94,10 +94,15 @@ cp "$c64u/wns.txt" "$out/wns.c64u.txt"
 # which is how trx64mc-main-51e89821 ended up carrying an application nobody had built from its commit.
 trxapps="$(need_stage trxapps)"
 cp "$trxapps/hostapp.app" "$trxapps/hostapp.elf" "$trxapps/coreapp.bin" "$trxapps/coreapp.elf" "$out/"   # T221: the ELF is stamped beside the image (release_promote.py rewrites both)
+for f in "$trxapps"/coreapp_*.bin; do [ -e "$f" ] && cp "$f" "${f%.bin}.elf" "$out/"; done   # T228 R25: the images of their own (trx64u)
 # T180 D9: Unzip, the one application every core reads from <root>/cores/apps/; the release bundle takes it from here (tools/release_mc.sh)
 [ -s "$trxapps/unzip.u2a" ] && cp "$trxapps/unzip.u2a" "$out/" || mark_red package unzip "stage trxapps made no unzip.u2a"
 # T197 P5: the zip library unzip.u2a loads (apps/miniz); the updater copies every .u2a beside the update file into <cores>/apps
 [ -s "$trxapps/miniz.u2a" ] && cp "$trxapps/miniz.u2a" "$out/" || mark_red package miniz "stage trxapps made no miniz.u2a"
+# T228 R21: the cartridge tools and Softboot, shipped the same way (the updater copies every .u2a beside the update file into <cores>/apps)
+for a in trex_crt softboot; do
+  [ -s "$trxapps/$a.u2a" ] && cp "$trxapps/$a.u2a" "$out/" || mark_red package "$a" "stage trxapps made no $a.u2a"
+done
 cp "$trxapps/trxapps_commit" "$out/trxapps_commit"
 # T172: the host app is cached by the content of its tree, so the version string it was built with is that of the run that filled the cache. The
 # copy that ships is stamped with this run's version (the field TRXVSTAMP: in the image, host-app/target/common/rules.mk), before the .txu and the
@@ -110,6 +115,11 @@ for fld in "TRXVSTAMP hostapp" "TRXHSTAMP host" "TRXBSTAMP bundle"; do
 done
 python3 -I "$ROOT/tools/stamp_version.py" stamp "$out/coreapp.bin" "$out/coreapp.elf" --version "$("$ROOT/ci/version.sh" coreapp)" \
   || mark_red package stamp "tools/stamp_version.py could not stamp the core app"
+for f in "$out"/coreapp_*.bin; do
+  [ -e "$f" ] || continue
+  python3 -I "$ROOT/tools/stamp_version.py" stamp "$f" "${f%.bin}.elf" --version "$("$ROOT/ci/version.sh" coreapp)" \
+    || mark_red package stamp "tools/stamp_version.py could not stamp $(basename "$f")"
+done
 
 # The applications the .cor bundles are packed with: the stage's blueprint image for every core that
 # has a descriptor (every core but trx64 and c64u), and for the rest the generic package trx64-coreapps.
@@ -197,8 +207,13 @@ fi
 # the two ids differ, so their core folders and .cfg differ (tools/test_pack_import_cor.sh).
 for pin in "$ROOT"/release/imports/*.pin; do
   [ -e "$pin" ] || continue
+  if grep -q '^PIPELINE=false' "$pin"; then      # deactivated, not deleted (T228, Alex 2026-11-17): the pin stays, nothing is packed
+    echo "=== imported large .cor $(basename "$pin" .pin): PIPELINE=false in the pin, not packed"
+    continue
+  fi
   echo "=== imported large .cor $(basename "$pin" .pin)"
-  if ! "$ROOT/tools/pack_import_cor.sh" --pin "$pin" --app-bin "$out/coreapp.bin" --app-commit "$(cut -c1-8 "$trxapps/trxapps_commit")" --out "$out"; then
+  app="$out/coreapp.bin"; [ -f "$out/coreapp_$(basename "$pin" .pin).bin" ] && app="$out/coreapp_$(basename "$pin" .pin).bin"   # T228 R25: its own image
+  if ! "$ROOT/tools/pack_import_cor.sh" --pin "$pin" --app-bin "$app" --app-commit "$(cut -c1-8 "$trxapps/trxapps_commit")" --out "$out"; then
     echo "the imported large .cor of $pin could not be packed" >&2
     mark_red package "cor-$(basename "$pin" .pin)" "tools/pack_import_cor.sh failed"
   fi
@@ -211,12 +226,12 @@ python3 "$ROOT/tools/check_package_layout.py" "$out" || mark_red package layout 
 
 sha="$(git -C "$ROOT" rev-parse --short=8 HEAD)"
 
-# T152 D3/D5: the MultiCore update file (.txu) of this run: the host bitstream the update stage writes into the flash (null_full.bit, the host with the null core
+# T152 D3/D5: the MultiCore update file (.txu, trx64host_update_<file_id>.txu: the version on a tag, else the commit) of this run: the host bitstream the update stage writes into the flash (null_full.bit, the host with the null core
 # in the partition, T123) and OUR host app, both from this run. The host part carries the host key (its AXSS stamp) and the host-app interface version it
 # provides; the app part the interface it needs. tools/txu_pack.py checks both like the host does before the first erase. No null_full.bit (the host lane is
 # red or left nothing): the file is not made and the red target says so - an app-only .txu is not made here on purpose, the update stage works from a whole run.
 if [ -f "$out/null_full.bit" ] && [ -f "$out/hostapp.app" ]; then
-  "$ROOT/tools/pack_txu_mc.sh" --host "$out/null_full.bit" --app "$out/hostapp.app" --branch "$(branch_slug)" --sha "$sha" --version "$("$ROOT/ci/version.sh" bundle)" \
+  "$ROOT/tools/pack_txu_mc.sh" --host "$out/null_full.bit" --app "$out/hostapp.app" --branch "$(branch_slug)" --sha "$sha" --file-id "$(file_id)" --version "$("$ROOT/ci/version.sh" bundle)" \
     --commit "$(git -C "$ROOT" rev-parse --short=15 HEAD)" --out "$out" || mark_red package txu "tools/pack_txu_mc.sh could not pack the .txu"
 else
   echo "no null_full.bit or hostapp.app in this package: no .txu"
@@ -259,6 +274,7 @@ cat "$out/manifest.json"
 publish_files "$out" reset
 stage_verdict package || exit 1
 
-# the run's hand-over directory goes, unless bit-ue2 follows and still needs it
+# the run's hand-over directory goes, unless ci/select.sh ue2 says yes here; since 2026-11-18 that needs UE2_INPUT, which the package child
+# does not get (.gitea/workflows/package.yml), so it always goes
 [ "$("$ROOT/ci/select.sh" ue2)" = yes ] || rm -rf "${HANDOFF:?}"
 echo "=== package done in $(lap)"

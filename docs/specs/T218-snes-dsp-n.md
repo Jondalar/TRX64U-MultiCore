@@ -1,7 +1,7 @@
 # T218 — SNES: cartridges with a DSP-n coprocessor (DSP-1/1B, DSP-2, DSP-3, DSP-4) run, the firmware comes from the SD card
 
-**Status:** DECIDED (2026-11-13). 2026-11-15 sync: BUILT and merged to main (c982d8392; `snes_sys.vhd:140` `USE_DSPn => '1'`, `snes.cc:83` setting, `ci/sims.txt:231` bench `snes_dsp`). Not recorded anywhere: the pipeline's area/timing result (S6), the app-test pass (S1-S4, S7), any board pass (S1/S2/S4 with real firmware); S4 for DSP-2/3/4 has no game owned.
-**Repo:** TRX64U-MultiCore — `cores/snes` (gateware, glue, sim), `coreapp/cores/snes*.{cc,h}` (loader), `tools/snes_gen.py`, manual 11.15 and 12.2.
+**Status:** DECIDED (2026-11-13). 2026-11-15 sync: BUILT and merged to main (c982d8392; `snes_sys.vhd:140` `USE_DSPn => '1'`, `snes.cc:83` setting, `ci/sims.txt:231` bench `snes_dsp`). Not recorded anywhere: the pipeline's area/timing result (S6), the app-test pass (S1-S4, S7), a board pass of S4 with real firmware; S4 for DSP-2/3/4 has no game owned. Board: S1 PASS 2026-11-15; S2 and S7 closed as done 2026-11-18 (shipped and in use, end of §5).
+**Repo:** TRX64U-MultiCore — `cores/snes` (gateware, glue, sim), `coreapp/cores/snes*.{cc,h}` (loader), `tools/snes_gen.py`, manual 11.14 and 12.2.
 **Number:** T218 (registry: the table in `TODO.md`).
 **Origin:** GitHub issue #85 "Add DSP-n coprocessor to SNES core" (Super Mario Kart is refused with the chip message). Alex, 2026-11-13: "Gut. Todo+spec+bauen." (translated, accepting the proposal D1-D3 below).
 **Depends on:** T142 (the SNES core; D8 "DSP-n out of v1", D9 "firmware never ships", S12).
@@ -77,3 +77,4 @@ SA-1, Super FX, Cx4, S-DD1, SPC7110, ST010/ST011, BSX, Sufami, MSU-1 (T142 §4, 
 - **Board:** reversed file on Mario Kart still to do.
 - Board 2026-11-16 S8 PASS (Alex, package main-aaaee0d5): Super Mario Kart runs with `dsp1b.bin` reversed (high byte first) in `/SD/cores/snes/roms/`; the original (low byte first) was put back afterwards.
 - Open (pre-push review of the release notes, 2026-11-16, from the code): the "DSP firmware" setting (F5) is read only when a game is run (`snes_run` -> `apply_dsp_choice`); a Reset does not run `snes_run` again, so the change takes effect on the next run from F3, not at the next reset as D4 and the toast "(takes effect at the next reset)" say. Fix the code or the toast and D4.
+- **2026-11-18 - board steps closed as done (shipped and in use):** S2 (Mario Kart with the firmware appended), S7 (DSP firmware setting) - Alex 2026-11-15: "Under A there is nothing I would not class as DONE! That has been in the builds for days/weeks, we had bugs and re-tests in part"; Alex 2026-11-18, shown these steps as open: "that is old stuff that has been running for ages, we had this already 3-4 days ago" and "tick it off in the TODOs/specs, otherwise it shows up again with some agent" (translated).

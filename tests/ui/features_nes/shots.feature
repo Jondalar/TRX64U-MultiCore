@@ -16,9 +16,6 @@ Feature: Pictures of the reworked menu areas of the NES (a core with no disks) (
     Then I save the picture "nes-f5-audio"
     When I press 4
     Then I save the picture "nes-f5-input"
-    When I move to "Hotkeys"
-    And I press RETURN
-    Then I save the picture "nes-f5-hotkeys"
 
   Scenario: the System area F8 with its groups
     Given the menu is open on F8

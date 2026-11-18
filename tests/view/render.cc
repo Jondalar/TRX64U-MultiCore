@@ -76,12 +76,12 @@ static const TrxTab tabs_set[]     = { { 1, "VIDEO", 6, 0 }, { 2, "AUDIO", 6, 0 
 static const TrxTab tabs_system[]  = { { 1, "STATUS", 7, 0 } };
 
 static const TrxArea areas[] = {
-    { "F1", "HOME",     tabs_home,    1, false },
-    { "F3", "LIBRARY",  tabs_library, 1, false },
-    { "F5", "VC-20",    tabs_machine, 3, false },
-    { "F7", "ACTIONS",  tabs_actions, 1, false },
-    { "F6", "SETTINGS", tabs_set,     4, true },
-    { "F8", "SYSTEM",   tabs_system,  1, true },
+    { "F1", "HOME",     tabs_home,    1 },
+    { "F3", "LIBRARY",  tabs_library, 1 },
+    { "F5", "VC-20",    tabs_machine, 3 },
+    { "F7", "ACTIONS",  tabs_actions, 1 },
+    { "F6", "SETTINGS", tabs_set,     4 },
+    { "F8", "SYSTEM",   tabs_system,  1 },
 };
 static const TrxRoute route = { areas, 6 };
 

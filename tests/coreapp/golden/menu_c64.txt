@@ -1,55 +1,80 @@
 core TRX2 TRX64U
 area F1 Home
   tab 1 Home
-    node Disk = button calls lib.show in group media from description
-    node Pause / resume = button calls machine.pause_toggle in group machine (closes the menu) from description
-    node Cartridge = button calls lib.show in group media from description
-    node Reset = button calls machine.cold_reset in group machine (closes the menu) from description
-    node Program = button calls lib.show in group media from description
-    node Settings = button in group machine from description
-    node RAM expansion = state in group machine from description
-    node Turbo = state in group machine from description
-    node Video = state in group machine from description
-area F2 Timewarp (shifted)
-  tab 1 Timeline
+    task Reset (closes the menu)
+    task Reload ROMs, reset (closes the menu)
+    task Timewarp...
+    task Monitor...
+    task Save .C64RE dump (asks a name)
+    task Save MP3 drv A (asks a name)
+    task Save MP3 drv B (asks a name)
+    task Save MP3 drv C (asks a name)
+    task Save MP3 drv D (asks a name)
+    media Drive A:
+    media Cartridge port
+    media Program
+    fixed Save as config...
+    fixed Load config...
+  tab 0 Drive (a page)
+  tab 0 Timewarp (a page)
     node Resume here = button calls tw.resume in group bar (closes the menu) from description
+  tab 0 Monitor (a page)
+    node Help = button calls mon.run in group bar from description
 area F3 Library
   tab 1 Browse
     browser Browse
       filetype .prg: Run PRG | Load PRG and start from | DMA (load, do not run)
       filetype .p00: Run PRG | Load PRG and start from | DMA (load, do not run)
       filetype .u2a: Run app
-      filetype .cfw: Run Update
-      filetype .d64: Mount Disk | Mount Disk Read Only | Mount Disk Unlinked | Run Disk | Browse Disk
-        inside .prg: Mount & Run | Real Run
-      filetype .g64: Mount Disk | Mount Disk Read Only | Mount Disk Unlinked | Run Disk
-      filetype .rom: Set as 1541 ROM
-      filetype .crt: Run Cartridge
-      filetype .reu: Load into REU | Preload on Startup
+      filetype .cfw: Run update
+      filetype .d64: Mount disk | Mount disk read only | Mount disk unlinked | Run disk | Browse disk | Load into MP3 drv A | Load into MP3 drv B | Load into MP3 drv C | Load into MP3 drv D
+        inside .prg: Mount & run | Real run
+      filetype .g64: Mount disk | Mount disk read only | Mount disk unlinked | Run disk
+      filetype .d81: Load into MP3 drv A | Load into MP3 drv B | Load into MP3 drv C | Load into MP3 drv D
+      filetype .dnp: Load into MP3 drv A | Load into MP3 drv B | Load into MP3 drv C | Load into MP3 drv D
+      filetype .rom: Set as 1541 ROM | Load drive ROM
+      filetype .crt: Run cartridge
+      filetype .sid: Play main tune | Show info | Play song %d
+      filetype .mus: Play main tune | Show info
+      filetype .str: Play main tune | Show info
+      filetype .reu: Load into REU | Preload on startup
+      filetype .mod: Play MOD | Load into REU | Preload on startup
       filetype .t64: Enter
-      filetype .cfg: Load Settings
-      filetype .vpl: Apply Palette | Set as Default
-      filetype .bin: Set as Kernal ROM | Set as BASIC ROM | Set as Char ROM
-      filetype .64c: Set as Kernal ROM
-      filetype .c64re: Load Timewarp state
+      filetype .cfg: Load settings
+      filetype .vpl: Apply palette | Set as default
+      filetype .bin: Set as Kernal ROM | Set as BASIC ROM | Set as char ROM | Load Kernal | Load drive ROM
+      filetype .64c: Set as Kernal ROM | Load Kernal
+      filetype .c64re: Load state
+      filetype .c64rering: Load state
+      filetype .trxring: Load ring
+      filetype .zip: Unzip
   tab 2 Search
     browser Browse
       filetype .prg: Run PRG | Load PRG and start from | DMA (load, do not run)
       filetype .p00: Run PRG | Load PRG and start from | DMA (load, do not run)
       filetype .u2a: Run app
-      filetype .cfw: Run Update
-      filetype .d64: Mount Disk | Mount Disk Read Only | Mount Disk Unlinked | Run Disk | Browse Disk
-        inside .prg: Mount & Run | Real Run
-      filetype .g64: Mount Disk | Mount Disk Read Only | Mount Disk Unlinked | Run Disk
-      filetype .rom: Set as 1541 ROM
-      filetype .crt: Run Cartridge
-      filetype .reu: Load into REU | Preload on Startup
+      filetype .cfw: Run update
+      filetype .d64: Mount disk | Mount disk read only | Mount disk unlinked | Run disk | Browse disk | Load into MP3 drv A | Load into MP3 drv B | Load into MP3 drv C | Load into MP3 drv D
+        inside .prg: Mount & run | Real run
+      filetype .g64: Mount disk | Mount disk read only | Mount disk unlinked | Run disk
+      filetype .d81: Load into MP3 drv A | Load into MP3 drv B | Load into MP3 drv C | Load into MP3 drv D
+      filetype .dnp: Load into MP3 drv A | Load into MP3 drv B | Load into MP3 drv C | Load into MP3 drv D
+      filetype .rom: Set as 1541 ROM | Load drive ROM
+      filetype .crt: Run cartridge
+      filetype .sid: Play main tune | Show info | Play song %d
+      filetype .mus: Play main tune | Show info
+      filetype .str: Play main tune | Show info
+      filetype .reu: Load into REU | Preload on startup
+      filetype .mod: Play MOD | Load into REU | Preload on startup
       filetype .t64: Enter
-      filetype .cfg: Load Settings
-      filetype .vpl: Apply Palette | Set as Default
-      filetype .bin: Set as Kernal ROM | Set as BASIC ROM | Set as Char ROM
-      filetype .64c: Set as Kernal ROM
-      filetype .c64re: Load Timewarp state
+      filetype .cfg: Load settings
+      filetype .vpl: Apply palette | Set as default
+      filetype .bin: Set as Kernal ROM | Set as BASIC ROM | Set as char ROM | Load Kernal | Load drive ROM
+      filetype .64c: Set as Kernal ROM | Load Kernal
+      filetype .c64re: Load state
+      filetype .c64rering: Load state
+      filetype .trxring: Load ring
+      filetype .zip: Unzip
   tab 3 Online
     node Search = button calls online.search from description
     node Library = button calls online.library from description
@@ -71,150 +96,99 @@ area F3 Library
     node Choice 11 = button calls online.cycle from description
     node Choice 12 = button calls online.cycle from description
     node Clear the form = button calls online.clear from description
-area F4 Tools (shifted)
-  tab 1 Monitor
-    node Help = button calls mon.run in group bar from description
-  tab 2 Diagnostics
-    node Debug log = button calls diag.nop from description
-    node Board = state in group side from description
-    node Clear debug log = button calls diag.clear_log from description
-    node Up for = state in group side from description
-    node Cartridge dumper = button calls app.open from description
-    node Save debug log = button calls diag.save_log from description
-    node Heap = state in group side from description
-    node Cartridge inspector = button calls app.open from description
-    node Bug report = button calls diag.bug_report from description
-    node Screen EDID = button calls diag.nop from description
-    node Debug register = state in group side from description
-    node Flash cartridge = button calls app.open from description
-    node Save EDID = button calls diag.save_edid from description
-    node Softboot = button calls app.open from description
-    node Instruction trace = button calls diag.nop from description
-    node Unzip = button calls app.open from description
-    node System information = button calls diag.nop from description
 area F5 C64
-  tab 1 Drive A
+  tab 1 C64
+    heading Machine
+    setting Fast reset = Disabled | Enabled (default Disabled, live)
+    setting Kernal ROM =   | Built-in | c64.roms_kernal (default  , live)
+    setting Basic ROM =   | Built-in | c64.roms_basic (default  , live)
+    setting Char ROM =   | Built-in | c64.roms_char (default  , live)
+    heading Drive A
     setting Drive enable = Disabled | Enabled (default Enabled, live)
     setting Drive bus ID = 8 | 9 | 10 | 11 (default 8, live)
     setting Disk swap delay = 100 ms | 200 ms | 300 ms | 400 ms | 500 ms | 600 ms | 700 ms | 800 ms | 900 ms | 1000 ms (default 100 ms, live)
-    setting Persist medium mounts = No | Yes (default No, live)
     setting Reset drive with C64 = No | Yes (default Yes, live)
     setting Freeze drive in menu = No | Yes (default Yes, live)
-    setting Leave menu on mount = No | Yes (default No, live)
+    heading Drive extras
     setting Drive extra RAM = Disabled | Enabled (default Disabled, live)
     setting GCR save align tracks = No | Yes (default Yes, live)
     setting D64 geos copy protection = None | Gaps | Track 36 | Both (default None, live)
     setting Track twist = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31 | 32 | 33 | 34 | 35 | 36 | 37 | 38 | 39 | 40 (default 27, live)
-    setting SpeedDOS parallel cable = Disabled | Enabled (default Disabled, live)
-    setting ROM for 1541 mode = 1541.rom (default 1541.rom, live)
-    node Disk = state in group side from description
-    node Eject disk = button calls drive.eject when drive.drive_a.mode != empty in group side from description
-    node Reset drive = button calls drive.reset in group side from description
-  tab 2 Machine
-    setting Fast reset = Disabled | Enabled (default Disabled, live)
-    setting Kernal ROM =   | Built-in (default  , live)
-    setting Basic ROM =   | Built-in (default  , live)
-    setting Char ROM =   | Built-in (default  , live)
-    node Machine = state in group side from description
-    node Video = state in group side from description
-    node Turbo = state in group side from description
-  tab 3 I/O
+    setting ROM for 1541 mode = 1541.rom | Built-in | drive.roms_1541 (default 1541.rom, live)
+    heading Hardware
+    setting DMA load mimics ID = 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31 (default 8, live)
+    setting Badline timing = Disabled | Enabled (default Enabled, live)
+    setting SuperCPU detect (D0BC) = Disabled | Enabled (default Disabled, live)
+  tab 2 TRX
+    heading TRX64
+    setting Freeze mode = Whole machine | CPU only (default Whole machine, at next reset)
+    setting Turbo control = Off | Manual | U64 Turbo Registers | TurboEnable Bit (default Off, live)
+    setting CPU speed = 1 | 2 | 3 | 4 | 6 | 8 | 10 | 12 | 14 | 16 | 20 | 24 | 32 | 40 | 48 | 64 (default 1, live)
+    heading Recording
+    setting Timewarp ring = Off | On (default On, live)
+    setting Instruction trace = Off | On (default Off, live)
+    node Save frame = button calls tw.dump when tw.present in group Recording from description
+    node Save the ring = button calls tw.ringdump when tw.present in group Recording from description
+  tab 3 Expansion
+    heading Cartridge
     setting Cartridge preference = Auto | Internal | External | Manual (default Auto, live)
-    setting RAM expansion unit = Disabled | Enabled | GeoRAM Mode (default Disabled, live)
+    setting Save changed cartridge = Off | Ask | Auto (default Ask, live)
+    setting GAME/EXROM = On | Off (default On, live)
+    setting Bus sharing - ROMs = Internal | External (default Internal, live) [listed while set.Cartridge_Preference==Manual]
+    setting Bus sharing - I/O1 = Internal | External (default Internal, live) [listed while set.Cartridge_Preference==Manual]
+    setting Bus sharing - I/O2 = Internal | External (default Internal, live) [listed while set.Cartridge_Preference==Manual]
+    heading REU
+    setting RAM expansion unit = Disabled | Enabled (default Disabled, live)
     setting REU size = 128 KB | 256 KB | 512 KB | 1 MB | 2 MB | 4 MB | 8 MB | 16 MB (default 2 MB, live) [listed while reu.on]
     setting REU preload = Disabled | Enabled (default Disabled, live) [listed while reu.on]
     setting REU preload image = /usb0/preload.reu (default /usb0/preload.reu, live) [listed while reu.on]
-    setting REU preload offset = 0 KB | 128 KB | 256 KB | 512 KB | 1 MB | 2 MB | 4 MB | 8 MB | 16 MB (default 0 KB, live) [listed while reu.on]
+    setting REU preload offset = 0 KB | 128 KB | 256 KB | 512 KB | 1 MB | 2 MB | 4 MB | 8 MB (default 0 KB, live) [listed while reu.on]
+    heading Ultimate
     setting Ultimate audio at $DF20-$DFFF = Disabled | Enabled (default Disabled, live)
     setting Command interface (UCI) = Disabled | Enabled (default Disabled, live)
-    node Cartridge = state in group side from description
-  tab 4 Media sets
-    media Program
-    media Drive A:
-    fixed Save as config...
-    fixed Load config...
-area F7 Actions
-  tab 1 Quick
-    node Reset = button calls machine.cold_reset (closes the menu) from description
-    node Pause = button calls machine.pause_toggle (closes the menu) from description
-    node Swap disk = button calls drive.swap when drive.drive_a.mode != empty from description
-    node Eject disk = button calls drive.eject when drive.drive_a.mode != empty from description
-    node Remove cartridge = button calls c64.remove_cart when c64.cartridge (closes the menu) from description
-    node Reset drive = button calls drive.reset from description
-    node Reload ROMs = button calls machine.reload_roms (closes the menu) from description
-  tab 2 More
-    node Disk and files = group from description
-    node Insert blank disk = button calls drive.insert_blank from description
-    node Unlink disk = button calls drive.unlink when drive.drive_a.mode != empty from description
-    node Create folder = button calls files.mkdir when files.in_media from description
-    node Machine = group from description
-    node Reboot, clear memory = button calls machine.clear_reboot (closes the menu) from description
-    node Save C64 memory = button calls machine.save_ram from description
-    node Save REU memory = button calls machine.save_reu from description
-    node Save cartridge = button calls machine.save_cart when c64.cartridge from description
-    node Timewarp = group from description
-    node Start recording = button calls ring.start when tw.stopped from description
-    node Stop recording = button calls ring.stop when tw.running from description
-    node Marker here = button calls tw.mark when tw.present from description
-    node Clear markers = button calls tw.clear_marks when tw.present from description
-    node Back to live = button calls tw.live when tw.present from description
-    node Save frame = button calls tw.dump when tw.present from description
-    node Save the ring = button calls tw.ringdump when tw.present from description
-    node Power = group from description
-    node Power cycle = button calls u64.power_cycle from description
-    node Power off = button calls u64.power_off from description
-    task Save Disk as D64 (asks a name)
-    task Save Disk as G64 (asks a name)
-    task Create blank D64 (asks a name)
-    task Create blank G64 (asks a name)
-area F6 Settings (shifted)
-  tab 1 TRX64
-    setting Freeze mode = Whole machine | CPU only (default Whole machine, at next reset)
-    setting Overlay transparency = 0 % | 25 % | 50 % | 75 % (default 25 %, live)
-    setting Splash = Off | On (default On, live)
-    setting Save changed cartridge = Off | Ask | Auto (default Ask, live)
-    setting Auto save config = Off | Ask | Auto (default Auto, live)
-    setting Turbo control = Off | Manual | U64 Turbo Registers | TurboEnable Bit (default Off, live)
-    setting CPU speed = 1 | 2 | 3 | 4 | 6 | 8 | 10 | 12 | 14 | 16 | 20 | 24 | 32 | 40 | 48 | 64 (default 1, live)
-    setting Timewarp ring = Off | On (default On, live)
-    setting Instruction trace = Off | On (default Off, live)
-    node Discard = button calls settings.discard when settings.unsaved in group bar from description
-    node Defaults = button calls settings.reset_defaults in group bar from description
-    node Save = button calls settings.save when settings.unsaved in group bar from description
-  tab 2 Video
-    setting System mode = PAL | NTSC | PAL-60 | NTSC-50 | PAL-60/L | NTSC-50/L (default PAL, live)
-    setting HDMI scan resolution = Auto | SD (480p/576p) | HD (720p) | FullHD (1080p) | PC 800 x 600 | PC 1024 x 768 | PC 1280 x 1024 (default Auto, live)
+  tab 4 Video
+    heading Picture
+    setting System mode = PAL | NTSC | PAL-60 | NTSC-50 (default PAL, live)
+    setting Picture = Auto | 576p (50 Hz) | 480p (60 Hz) | 1280 x 720 (50 Hz) | 1280 x 720 (60 Hz) | 1920 x 1080 (50 Hz) | 1920 x 1080 (60 Hz) | 800 x 600 (60 Hz) | 1024 x 768 (60 Hz) | 1280 x 1024 (60 Hz) (default Auto, live)
+    heading Output
     setting HDMI scan lines = Disabled | Enabled (default Enabled, live)
-    setting Analog video mode = CVBS + SVideo | RGB (default CVBS + SVideo, live)
-    setting Digital video mode = Auto | HDMI | DVI (default Auto, live)
-    setting Adjust color clock = -100 ppm | -99 ppm | -98 ppm | -97 ppm | -96 ppm | -95 ppm | -94 ppm | -93 ppm | -92 ppm | -91 ppm | -90 ppm | -89 ppm | -88 ppm | -87 ppm | -86 ppm | -85 ppm | -84 ppm | -83 ppm | -82 ppm | -81 ppm | -80 ppm | -79 ppm | -78 ppm | -77 ppm | -76 ppm | -75 ppm | -74 ppm | -73 ppm | -72 ppm | -71 ppm | -70 ppm | -69 ppm | -68 ppm | -67 ppm | -66 ppm | -65 ppm | -64 ppm | -63 ppm | -62 ppm | -61 ppm | -60 ppm | -59 ppm | -58 ppm | -57 ppm | -56 ppm | -55 ppm | -54 ppm | -53 ppm | -52 ppm | -51 ppm | -50 ppm | -49 ppm | -48 ppm | -47 ppm | -46 ppm | -45 ppm | -44 ppm | -43 ppm | -42 ppm | -41 ppm | -40 ppm | -39 ppm | -38 ppm | -37 ppm | -36 ppm | -35 ppm | -34 ppm | -33 ppm | -32 ppm | -31 ppm | -30 ppm | -29 ppm | -28 ppm | -27 ppm | -26 ppm | -25 ppm | -24 ppm | -23 ppm | -22 ppm | -21 ppm | -20 ppm | -19 ppm | -18 ppm | -17 ppm | -16 ppm | -15 ppm | -14 ppm | -13 ppm | -12 ppm | -11 ppm | -10 ppm | -9 ppm | -8 ppm | -7 ppm | -6 ppm | -5 ppm | -4 ppm | -3 ppm | -2 ppm | -1 ppm | 0 ppm | 1 ppm | 2 ppm | 3 ppm | 4 ppm | 5 ppm | 6 ppm | 7 ppm | 8 ppm | 9 ppm | 10 ppm | 11 ppm | 12 ppm | 13 ppm | 14 ppm | 15 ppm | 16 ppm | 17 ppm | 18 ppm | 19 ppm | 20 ppm | 21 ppm | 22 ppm | 23 ppm | 24 ppm | 25 ppm | 26 ppm | 27 ppm | 28 ppm | 29 ppm | 30 ppm | 31 ppm | 32 ppm | 33 ppm | 34 ppm | 35 ppm | 36 ppm | 37 ppm | 38 ppm | 39 ppm | 40 ppm | 41 ppm | 42 ppm | 43 ppm | 44 ppm | 45 ppm | 46 ppm | 47 ppm | 48 ppm | 49 ppm | 50 ppm | 51 ppm | 52 ppm | 53 ppm | 54 ppm | 55 ppm | 56 ppm | 57 ppm | 58 ppm | 59 ppm | 60 ppm | 61 ppm | 62 ppm | 63 ppm | 64 ppm | 65 ppm | 66 ppm | 67 ppm | 68 ppm | 69 ppm | 70 ppm | 71 ppm | 72 ppm | 73 ppm | 74 ppm | 75 ppm | 76 ppm | 77 ppm | 78 ppm | 79 ppm | 80 ppm | 81 ppm | 82 ppm | 83 ppm | 84 ppm | 85 ppm | 86 ppm | 87 ppm | 88 ppm | 89 ppm | 90 ppm | 91 ppm | 92 ppm | 93 ppm | 94 ppm | 95 ppm | 96 ppm | 97 ppm | 98 ppm | 99 ppm | 100 ppm (default 0 ppm, live)
-    node Discard = button calls settings.discard when settings.unsaved in group bar from description
-    node Defaults = button calls settings.reset_defaults in group bar from description
-    node Save = button calls settings.save when settings.unsaved in group bar from description
-  tab 3 Audio
-    setting Volume master = OFF | -42 dB | -36 dB | -30 dB | -27 dB | -24 dB | -18 dB | -17 dB | -16 dB | -15 dB | -14 dB | -13 dB | -12 dB | -11 dB | -10 dB | -9 dB | -8 dB | -7 dB | -6 dB | -5 dB | -4 dB | -3 dB | -2 dB | -1 dB | 0 dB | +1 dB | +2 dB | +3 dB | +4 dB | +5 dB | +6 dB (default 0 dB, live)
-    setting Volume UltiSID 1 = OFF | -42 dB | -36 dB | -30 dB | -27 dB | -24 dB | -18 dB | -17 dB | -16 dB | -15 dB | -14 dB | -13 dB | -12 dB | -11 dB | -10 dB | -9 dB | -8 dB | -7 dB | -6 dB | -5 dB | -4 dB | -3 dB | -2 dB | -1 dB | 0 dB | +1 dB | +2 dB | +3 dB | +4 dB | +5 dB | +6 dB (default 0 dB, live)
-    setting Volume UltiSID 2 = OFF | -42 dB | -36 dB | -30 dB | -27 dB | -24 dB | -18 dB | -17 dB | -16 dB | -15 dB | -14 dB | -13 dB | -12 dB | -11 dB | -10 dB | -9 dB | -8 dB | -7 dB | -6 dB | -5 dB | -4 dB | -3 dB | -2 dB | -1 dB | 0 dB | +1 dB | +2 dB | +3 dB | +4 dB | +5 dB | +6 dB (default 0 dB, live)
-    setting Volume socket 1 = OFF | -42 dB | -36 dB | -30 dB | -27 dB | -24 dB | -18 dB | -17 dB | -16 dB | -15 dB | -14 dB | -13 dB | -12 dB | -11 dB | -10 dB | -9 dB | -8 dB | -7 dB | -6 dB | -5 dB | -4 dB | -3 dB | -2 dB | -1 dB | 0 dB | +1 dB | +2 dB | +3 dB | +4 dB | +5 dB | +6 dB (default 0 dB, live)
-    setting Volume socket 2 = OFF | -42 dB | -36 dB | -30 dB | -27 dB | -24 dB | -18 dB | -17 dB | -16 dB | -15 dB | -14 dB | -13 dB | -12 dB | -11 dB | -10 dB | -9 dB | -8 dB | -7 dB | -6 dB | -5 dB | -4 dB | -3 dB | -2 dB | -1 dB | 0 dB | +1 dB | +2 dB | +3 dB | +4 dB | +5 dB | +6 dB (default 0 dB, live)
-    setting Volume sampler L = OFF | -42 dB | -36 dB | -30 dB | -27 dB | -24 dB | -18 dB | -17 dB | -16 dB | -15 dB | -14 dB | -13 dB | -12 dB | -11 dB | -10 dB | -9 dB | -8 dB | -7 dB | -6 dB | -5 dB | -4 dB | -3 dB | -2 dB | -1 dB | 0 dB | +1 dB | +2 dB | +3 dB | +4 dB | +5 dB | +6 dB (default 0 dB, live)
-    setting Volume sampler R = OFF | -42 dB | -36 dB | -30 dB | -27 dB | -24 dB | -18 dB | -17 dB | -16 dB | -15 dB | -14 dB | -13 dB | -12 dB | -11 dB | -10 dB | -9 dB | -8 dB | -7 dB | -6 dB | -5 dB | -4 dB | -3 dB | -2 dB | -1 dB | 0 dB | +1 dB | +2 dB | +3 dB | +4 dB | +5 dB | +6 dB (default 0 dB, live)
-    setting Volume drive = OFF | -42 dB | -36 dB | -30 dB | -27 dB | -24 dB | -18 dB | -17 dB | -16 dB | -15 dB | -14 dB | -13 dB | -12 dB | -11 dB | -10 dB | -9 dB | -8 dB | -7 dB | -6 dB | -5 dB | -4 dB | -3 dB | -2 dB | -1 dB | 0 dB | +1 dB | +2 dB | +3 dB | +4 dB | +5 dB | +6 dB (default -13 dB, live)
-    setting Pan UltiSID 1 = Left 5 | Left 4 | Left 3 | Left 2 | Left 1 | Center | Right 1 | Right 2 | Right 3 | Right 4 | Right 5 (default Center, live)
-    setting Pan UltiSID 2 = Left 5 | Left 4 | Left 3 | Left 2 | Left 1 | Center | Right 1 | Right 2 | Right 3 | Right 4 | Right 5 (default Center, live)
-    setting Pan socket 1 = Left 5 | Left 4 | Left 3 | Left 2 | Left 1 | Center | Right 1 | Right 2 | Right 3 | Right 4 | Right 5 (default Left 3, live)
-    setting Pan socket 2 = Left 5 | Left 4 | Left 3 | Left 2 | Left 1 | Center | Right 1 | Right 2 | Right 3 | Right 4 | Right 5 (default Right 3, live)
-    setting Pan sampler L = Left 5 | Left 4 | Left 3 | Left 2 | Left 1 | Center | Right 1 | Right 2 | Right 3 | Right 4 | Right 5 (default Left 3, live)
-    setting Pan sampler R = Left 5 | Left 4 | Left 3 | Left 2 | Left 1 | Center | Right 1 | Right 2 | Right 3 | Right 4 | Right 5 (default Right 3, live)
-    setting Pan drive = Left 5 | Left 4 | Left 3 | Left 2 | Left 1 | Center | Right 1 | Right 2 | Right 3 | Right 4 | Right 5 (default Left 2, live)
-    setting Speaker enable = Disabled | Enabled (default Enabled, live)
-    setting Speaker volume UltiSID 1 = OFF | -42 dB | -36 dB | -30 dB | -27 dB | -24 dB | -18 dB | -17 dB | -16 dB | -15 dB | -14 dB | -13 dB | -12 dB | -11 dB | -10 dB | -9 dB | -8 dB | -7 dB | -6 dB | -5 dB | -4 dB | -3 dB | -2 dB | -1 dB | 0 dB | +1 dB | +2 dB | +3 dB | +4 dB | +5 dB | +6 dB (default OFF, live)
-    setting Speaker volume UltiSID 2 = OFF | -42 dB | -36 dB | -30 dB | -27 dB | -24 dB | -18 dB | -17 dB | -16 dB | -15 dB | -14 dB | -13 dB | -12 dB | -11 dB | -10 dB | -9 dB | -8 dB | -7 dB | -6 dB | -5 dB | -4 dB | -3 dB | -2 dB | -1 dB | 0 dB | +1 dB | +2 dB | +3 dB | +4 dB | +5 dB | +6 dB (default OFF, live)
-    setting Speaker volume socket 1 = OFF | -42 dB | -36 dB | -30 dB | -27 dB | -24 dB | -18 dB | -17 dB | -16 dB | -15 dB | -14 dB | -13 dB | -12 dB | -11 dB | -10 dB | -9 dB | -8 dB | -7 dB | -6 dB | -5 dB | -4 dB | -3 dB | -2 dB | -1 dB | 0 dB | +1 dB | +2 dB | +3 dB | +4 dB | +5 dB | +6 dB (default OFF, live)
-    setting Speaker volume socket 2 = OFF | -42 dB | -36 dB | -30 dB | -27 dB | -24 dB | -18 dB | -17 dB | -16 dB | -15 dB | -14 dB | -13 dB | -12 dB | -11 dB | -10 dB | -9 dB | -8 dB | -7 dB | -6 dB | -5 dB | -4 dB | -3 dB | -2 dB | -1 dB | 0 dB | +1 dB | +2 dB | +3 dB | +4 dB | +5 dB | +6 dB (default OFF, live)
-    setting Speaker volume sampler L = OFF | -42 dB | -36 dB | -30 dB | -27 dB | -24 dB | -18 dB | -17 dB | -16 dB | -15 dB | -14 dB | -13 dB | -12 dB | -11 dB | -10 dB | -9 dB | -8 dB | -7 dB | -6 dB | -5 dB | -4 dB | -3 dB | -2 dB | -1 dB | 0 dB | +1 dB | +2 dB | +3 dB | +4 dB | +5 dB | +6 dB (default OFF, live)
-    setting Speaker volume sampler R = OFF | -42 dB | -36 dB | -30 dB | -27 dB | -24 dB | -18 dB | -17 dB | -16 dB | -15 dB | -14 dB | -13 dB | -12 dB | -11 dB | -10 dB | -9 dB | -8 dB | -7 dB | -6 dB | -5 dB | -4 dB | -3 dB | -2 dB | -1 dB | 0 dB | +1 dB | +2 dB | +3 dB | +4 dB | +5 dB | +6 dB (default OFF, live)
-    setting Speaker volume drive = OFF | -42 dB | -36 dB | -30 dB | -27 dB | -24 dB | -18 dB | -17 dB | -16 dB | -15 dB | -14 dB | -13 dB | -12 dB | -11 dB | -10 dB | -9 dB | -8 dB | -7 dB | -6 dB | -5 dB | -4 dB | -3 dB | -2 dB | -1 dB | 0 dB | +1 dB | +2 dB | +3 dB | +4 dB | +5 dB | +6 dB (default -15 dB, live)
+    setting Palette definition =   | Built-in | u64.palettes (default  , live)
+  tab 5 Audio
+    heading Volumes
+    setting Volume = Off | -42 dB | -36 dB | -30 dB | -27 dB | -24 dB | -18 dB | -17 dB | -16 dB | -15 dB | -14 dB | -13 dB | -12 dB | -11 dB | -10 dB | -9 dB | -8 dB | -7 dB | -6 dB | -5 dB | -4 dB | -3 dB | -2 dB | -1 dB | 0 dB | +1 dB | +2 dB | +3 dB | +4 dB | +5 dB | +6 dB (default 0 dB, live)
+    setting reDIP:SID 1 = Off | -42 dB | -36 dB | -30 dB | -27 dB | -24 dB | -18 dB | -17 dB | -16 dB | -15 dB | -14 dB | -13 dB | -12 dB | -11 dB | -10 dB | -9 dB | -8 dB | -7 dB | -6 dB | -5 dB | -4 dB | -3 dB | -2 dB | -1 dB | 0 dB | +1 dB | +2 dB | +3 dB | +4 dB | +5 dB | +6 dB (default 0 dB, live)
+    setting reDIP:SID 2 = Off | -42 dB | -36 dB | -30 dB | -27 dB | -24 dB | -18 dB | -17 dB | -16 dB | -15 dB | -14 dB | -13 dB | -12 dB | -11 dB | -10 dB | -9 dB | -8 dB | -7 dB | -6 dB | -5 dB | -4 dB | -3 dB | -2 dB | -1 dB | 0 dB | +1 dB | +2 dB | +3 dB | +4 dB | +5 dB | +6 dB (default 0 dB, live)
+    setting Socket 1 = Off | -42 dB | -36 dB | -30 dB | -27 dB | -24 dB | -18 dB | -17 dB | -16 dB | -15 dB | -14 dB | -13 dB | -12 dB | -11 dB | -10 dB | -9 dB | -8 dB | -7 dB | -6 dB | -5 dB | -4 dB | -3 dB | -2 dB | -1 dB | 0 dB | +1 dB | +2 dB | +3 dB | +4 dB | +5 dB | +6 dB (default 0 dB, live)
+    setting Socket 2 = Off | -42 dB | -36 dB | -30 dB | -27 dB | -24 dB | -18 dB | -17 dB | -16 dB | -15 dB | -14 dB | -13 dB | -12 dB | -11 dB | -10 dB | -9 dB | -8 dB | -7 dB | -6 dB | -5 dB | -4 dB | -3 dB | -2 dB | -1 dB | 0 dB | +1 dB | +2 dB | +3 dB | +4 dB | +5 dB | +6 dB (default 0 dB, live)
+    setting Sampler L = Off | -42 dB | -36 dB | -30 dB | -27 dB | -24 dB | -18 dB | -17 dB | -16 dB | -15 dB | -14 dB | -13 dB | -12 dB | -11 dB | -10 dB | -9 dB | -8 dB | -7 dB | -6 dB | -5 dB | -4 dB | -3 dB | -2 dB | -1 dB | 0 dB | +1 dB | +2 dB | +3 dB | +4 dB | +5 dB | +6 dB (default 0 dB, live)
+    setting Sampler R = Off | -42 dB | -36 dB | -30 dB | -27 dB | -24 dB | -18 dB | -17 dB | -16 dB | -15 dB | -14 dB | -13 dB | -12 dB | -11 dB | -10 dB | -9 dB | -8 dB | -7 dB | -6 dB | -5 dB | -4 dB | -3 dB | -2 dB | -1 dB | 0 dB | +1 dB | +2 dB | +3 dB | +4 dB | +5 dB | +6 dB (default 0 dB, live)
+    heading Pan
+    setting reDIP:SID 1 = Left 5 | Left 4 | Left 3 | Left 2 | Left 1 | Center | Right 1 | Right 2 | Right 3 | Right 4 | Right 5 (default Center, live)
+    setting reDIP:SID 2 = Left 5 | Left 4 | Left 3 | Left 2 | Left 1 | Center | Right 1 | Right 2 | Right 3 | Right 4 | Right 5 (default Center, live)
+    setting Socket 1 = Left 5 | Left 4 | Left 3 | Left 2 | Left 1 | Center | Right 1 | Right 2 | Right 3 | Right 4 | Right 5 (default Left 3, live)
+    setting Socket 2 = Left 5 | Left 4 | Left 3 | Left 2 | Left 1 | Center | Right 1 | Right 2 | Right 3 | Right 4 | Right 5 (default Right 3, live)
+    setting Sampler L = Left 5 | Left 4 | Left 3 | Left 2 | Left 1 | Center | Right 1 | Right 2 | Right 3 | Right 4 | Right 5 (default Left 3, live)
+    setting Sampler R = Left 5 | Left 4 | Left 3 | Left 2 | Left 1 | Center | Right 1 | Right 2 | Right 3 | Right 4 | Right 5 (default Right 3, live)
+    heading Speaker
+    setting Enable = Disabled | Enabled (default Enabled, live)
+    setting Volume = Off | -42 dB | -36 dB | -30 dB | -27 dB | -24 dB | -18 dB | -17 dB | -16 dB | -15 dB | -14 dB | -13 dB | -12 dB | -11 dB | -10 dB | -9 dB | -8 dB | -7 dB | -6 dB | -5 dB | -4 dB | -3 dB | -2 dB | -1 dB | 0 dB | +1 dB | +2 dB | +3 dB | +4 dB | +5 dB | +6 dB (default Off, live)
+    heading SID player behavior
+    setting SID player autoconfig = Disabled | Enabled (default Enabled, live)
+    setting Allow autoconfig uses reDIP:SID = No | Yes (default Yes, live)
+    heading reDIP:SID
+    opens SID sockets
+    opens Emulated SIDs
+    opens Socket 1 FPGASID
+    opens Socket 1 SwinSID
+    opens Socket 1 ARMSID
+    opens Socket 1 PDsid
+    opens Socket 1 SidKick
+    opens Socket 2 FPGASID
+    opens Socket 2 SwinSID
+    opens Socket 2 ARMSID
+    opens Socket 2 PDsid
+    opens Socket 2 SidKick
+  tab 0 SID sockets (a page)
     setting Socket 1 enable = Disabled | Enabled (default Disabled, live)
     setting Socket 2 enable = Disabled | Enabled (default Disabled, live)
     setting Socket 1 1K ohm resistor = Off | On (default Off, live)
@@ -224,56 +198,215 @@ area F6 Settings (shifted)
     setting Socket 1 address = Unmapped | $D400 | $D420 | $D440 | $D460 | $D480 | $D4A0 | $D4C0 | $D4E0 | $D500 | $D520 | $D540 | $D560 | $D580 | $D5A0 | $D5C0 | $D5E0 | $D600 | $D620 | $D640 | $D660 | $D680 | $D6A0 | $D6C0 | $D6E0 | $D700 | $D720 | $D740 | $D760 | $D780 | $D7A0 | $D7C0 | $D7E0 | $DE00 | $DE20 | $DE40 | $DE60 | $DE80 | $DEA0 | $DEC0 | $DEE0 | $DF00 | $DF20 | $DF40 | $DF60 | $DF80 | $DFA0 | $DFC0 | $DFE0 (default $D400, live)
     setting Socket 2 address = Unmapped | $D400 | $D420 | $D440 | $D460 | $D480 | $D4A0 | $D4C0 | $D4E0 | $D500 | $D520 | $D540 | $D560 | $D580 | $D5A0 | $D5C0 | $D5E0 | $D600 | $D620 | $D640 | $D660 | $D680 | $D6A0 | $D6C0 | $D6E0 | $D700 | $D720 | $D740 | $D760 | $D780 | $D7A0 | $D7C0 | $D7E0 | $DE00 | $DE20 | $DE40 | $DE60 | $DE80 | $DEA0 | $DEC0 | $DEE0 | $DF00 | $DF20 | $DF40 | $DF60 | $DF80 | $DFA0 | $DFC0 | $DFE0 (default $D400, live)
     setting Extended DualSID range split = Off | A5 | A6 | A7 | A8 | A9 (default Off, live)
-    setting UltiSID 1 address = Unmapped | $D400 | $D420 | $D440 | $D460 | $D480 | $D4A0 | $D4C0 | $D4E0 | $D500 | $D520 | $D540 | $D560 | $D580 | $D5A0 | $D5C0 | $D5E0 | $D600 | $D620 | $D640 | $D660 | $D680 | $D6A0 | $D6C0 | $D6E0 | $D700 | $D720 | $D740 | $D760 | $D780 | $D7A0 | $D7C0 | $D7E0 | $DE00 | $DE20 | $DE40 | $DE60 | $DE80 | $DEA0 | $DEC0 | $DEE0 | $DF00 | $DF20 | $DF40 | $DF60 | $DF80 | $DFA0 | $DFC0 | $DFE0 (default $D400, live)
-    setting UltiSID 2 address = Unmapped | $D400 | $D420 | $D440 | $D460 | $D480 | $D4A0 | $D4C0 | $D4E0 | $D500 | $D520 | $D540 | $D560 | $D580 | $D5A0 | $D5C0 | $D5E0 | $D600 | $D620 | $D640 | $D660 | $D680 | $D6A0 | $D6C0 | $D6E0 | $D700 | $D720 | $D740 | $D760 | $D780 | $D7A0 | $D7C0 | $D7E0 | $DE00 | $DE20 | $DE40 | $DE60 | $DE80 | $DEA0 | $DEC0 | $DEE0 | $DF00 | $DF20 | $DF40 | $DF60 | $DF80 | $DFA0 | $DFC0 | $DFE0 (default $D400, live)
-    setting UltiSID range split = Off | 1/2 (A5) | 1/2 (A6) | 1/2 (A7) | 1/2 (A8) | 1/4 (A5,A6) | 1/4 (A5,A8) | 1/4 (A7,A8) (default Off, live)
-    setting Paddle override = Disabled | Enabled (default Enabled, live)
     setting Auto address mirroring = Disabled | Enabled (default Enabled, live)
-    setting UltiSID 1 filter curve = 8580 Lo | 8580 Hi | 6581 | 6581 Alt | U2 Low | U2 Mid | U2 High (default 8580 Lo, live)
-    setting UltiSID 2 filter curve = 8580 Lo | 8580 Hi | 6581 | 6581 Alt | U2 Low | U2 Mid | U2 High (default 8580 Lo, live)
-    setting UltiSID 1 filter resonance = Low | High (default Low, live)
-    setting UltiSID 2 filter resonance = Low | High (default Low, live)
-    setting UltiSID 1 combined waveforms = 6581 | 8580 (default 6581, live)
-    setting UltiSID 2 combined waveforms = 6581 | 8580 (default 6581, live)
-    setting UltiSID 1 digi level = Off | Low | Medium | High (default Medium, live)
-    setting UltiSID 2 digi level = Off | Low | Medium | High (default Medium, live)
-    node Discard = button calls settings.discard when settings.unsaved in group bar from description
-    node Defaults = button calls settings.reset_defaults in group bar from description
-    node Save = button calls settings.save when settings.unsaved in group bar from description
-  tab 4 Input
-    setting Joystick input = Normal | Swapped | WASD Port 2 | WASD Port 1 | WASD P2 No KB | WASD P1 No KB (default Normal, live)
-    setting Mouse mode = Cursor | Mouse | Mouse + Cursor | Mouse + Wheel (default Mouse, live)
-    setting Mouse sensitivity = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 (default 8, live)
-    setting Mouse acceleration = Off | Adaptive (default Off, live)
+    node Socket 1 detected chip = state shows u64.sid1_type in group SID_sockets from description
+    node Socket 2 detected chip = state shows u64.sid2_type in group SID_sockets from description
+  tab 0 Emulated SIDs (a page)
+    setting reDIP:SID 1 address = Unmapped | $D400 | $D420 | $D440 | $D460 | $D480 | $D4A0 | $D4C0 | $D4E0 | $D500 | $D520 | $D540 | $D560 | $D580 | $D5A0 | $D5C0 | $D5E0 | $D600 | $D620 | $D640 | $D660 | $D680 | $D6A0 | $D6C0 | $D6E0 | $D700 | $D720 | $D740 | $D760 | $D780 | $D7A0 | $D7C0 | $D7E0 (default $D400, live)
+    setting reDIP:SID 2 address = Unmapped | $D400 | $D420 | $D440 | $D460 | $D480 | $D4A0 | $D4C0 | $D4E0 | $D500 | $D520 | $D540 | $D560 | $D580 | $D5A0 | $D5C0 | $D5E0 | $D600 | $D620 | $D640 | $D660 | $D680 | $D6A0 | $D6C0 | $D6E0 | $D700 | $D720 | $D740 | $D760 | $D780 | $D7A0 | $D7C0 | $D7E0 (default $D400, live)
+    setting reDIP:SID range split = Off | 1/2 (A5) | 1/2 (A6) | 1/2 (A7) | 1/2 (A8) | 1/4 (A5,A6) | 1/4 (A5,A8) | 1/4 (A7,A8) (default Off, live)
+    setting reDIP:SID 1 combined waveforms = 6581 | 8580 (default 6581, live)
+    setting reDIP:SID 2 combined waveforms = 6581 | 8580 (default 6581, live)
+    setting reDIP:SID 1 filter = On | Off (default On, live)
+    setting reDIP:SID 2 filter = On | Off (default On, live)
+    setting reDIP:SID 1 filter curve = Chip model | 6581 Follin | 6581 Galway | 6581 Average | 6581 Strong | 6581 Extreme | 6581 Custom | 8580 (default Chip model, live)
+    setting reDIP:SID 2 filter curve = Chip model | 6581 Follin | 6581 Galway | 6581 Average | 6581 Strong | 6581 Extreme | 6581 Custom | 8580 (default Chip model, live)
+    setting reDIP:SID 1 6581 base = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31 | 32 | 33 | 34 | 35 | 36 | 37 | 38 | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 | 48 | 49 | 50 | 51 | 52 | 53 | 54 | 55 | 56 | 57 | 58 | 59 | 60 | 61 | 62 | 63 | 64 | 65 | 66 | 67 | 68 | 69 | 70 | 71 | 72 | 73 | 74 | 75 | 76 | 77 | 78 | 79 | 80 | 81 | 82 | 83 | 84 | 85 | 86 | 87 | 88 | 89 | 90 | 91 | 92 | 93 | 94 | 95 | 96 | 97 | 98 | 99 | 100 | 101 | 102 | 103 | 104 | 105 | 106 | 107 | 108 | 109 | 110 | 111 | 112 | 113 | 114 | 115 | 116 | 117 | 118 | 119 | 120 | 121 | 122 | 123 | 124 | 125 | 126 | 127 | 128 | 129 | 130 | 131 | 132 | 133 | 134 | 135 | 136 | 137 | 138 | 139 | 140 | 141 | 142 | 143 | 144 | 145 | 146 | 147 | 148 | 149 | 150 | 151 | 152 | 153 | 154 | 155 | 156 | 157 | 158 | 159 | 160 | 161 | 162 | 163 | 164 | 165 | 166 | 167 | 168 | 169 | 170 | 171 | 172 | 173 | 174 | 175 | 176 | 177 | 178 | 179 | 180 | 181 | 182 | 183 | 184 | 185 | 186 | 187 | 188 | 189 | 190 | 191 | 192 | 193 | 194 | 195 | 196 | 197 | 198 | 199 | 200 | 201 | 202 | 203 | 204 | 205 | 206 | 207 | 208 | 209 | 210 | 211 | 212 | 213 | 214 | 215 | 216 | 217 | 218 | 219 | 220 | 221 | 222 | 223 | 224 | 225 | 226 | 227 | 228 | 229 | 230 | 231 | 232 | 233 | 234 | 235 | 236 | 237 | 238 | 239 | 240 | 241 | 242 | 243 | 244 | 245 | 246 | 247 | 248 | 249 | 250 | 251 | 252 | 253 | 254 | 255 | 256 | 257 | 258 | 259 | 260 | 261 | 262 | 263 | 264 | 265 | 266 | 267 | 268 | 269 | 270 | 271 | 272 | 273 | 274 | 275 | 276 | 277 | 278 | 279 | 280 | 281 | 282 | 283 | 284 | 285 | 286 | 287 | 288 | 289 | 290 | 291 | 292 | 293 | 294 | 295 | 296 | 297 | 298 | 299 | 300 | 301 | 302 | 303 | 304 | 305 | 306 | 307 | 308 | 309 | 310 | 311 | 312 | 313 | 314 | 315 | 316 | 317 | 318 | 319 | 320 | 321 | 322 | 323 | 324 | 325 | 326 | 327 | 328 | 329 | 330 | 331 | 332 | 333 | 334 | 335 | 336 | 337 | 338 | 339 | 340 | 341 | 342 | 343 | 344 | 345 | 346 | 347 | 348 | 349 | 350 | 351 | 352 | 353 | 354 | 355 | 356 | 357 | 358 | 359 | 360 | 361 | 362 | 363 | 364 | 365 | 366 | 367 | 368 | 369 | 370 | 371 | 372 | 373 | 374 | 375 | 376 | 377 | 378 | 379 | 380 | 381 | 382 | 383 | 384 | 385 | 386 | 387 | 388 | 389 | 390 | 391 | 392 | 393 | 394 | 395 | 396 | 397 | 398 | 399 | 400 | 401 | 402 | 403 | 404 | 405 | 406 | 407 | 408 | 409 | 410 | 411 | 412 | 413 | 414 | 415 | 416 | 417 | 418 | 419 | 420 | 421 | 422 | 423 | 424 | 425 | 426 | 427 | 428 | 429 | 430 | 431 | 432 | 433 | 434 | 435 | 436 | 437 | 438 | 439 | 440 | 441 | 442 | 443 | 444 | 445 | 446 | 447 | 448 | 449 | 450 | 451 | 452 | 453 | 454 | 455 | 456 | 457 | 458 | 459 | 460 | 461 | 462 | 463 | 464 | 465 | 466 | 467 | 468 | 469 | 470 | 471 | 472 | 473 | 474 | 475 | 476 | 477 | 478 | 479 | 480 | 481 | 482 | 483 | 484 | 485 | 486 | 487 | 488 | 489 | 490 | 491 | 492 | 493 | 494 | 495 | 496 | 497 | 498 | 499 | 500 | 501 | 502 | 503 | 504 | 505 | 506 | 507 | 508 | 509 | 510 | 511 (default 245, live)
+    setting reDIP:SID 2 6581 base = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31 | 32 | 33 | 34 | 35 | 36 | 37 | 38 | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 | 48 | 49 | 50 | 51 | 52 | 53 | 54 | 55 | 56 | 57 | 58 | 59 | 60 | 61 | 62 | 63 | 64 | 65 | 66 | 67 | 68 | 69 | 70 | 71 | 72 | 73 | 74 | 75 | 76 | 77 | 78 | 79 | 80 | 81 | 82 | 83 | 84 | 85 | 86 | 87 | 88 | 89 | 90 | 91 | 92 | 93 | 94 | 95 | 96 | 97 | 98 | 99 | 100 | 101 | 102 | 103 | 104 | 105 | 106 | 107 | 108 | 109 | 110 | 111 | 112 | 113 | 114 | 115 | 116 | 117 | 118 | 119 | 120 | 121 | 122 | 123 | 124 | 125 | 126 | 127 | 128 | 129 | 130 | 131 | 132 | 133 | 134 | 135 | 136 | 137 | 138 | 139 | 140 | 141 | 142 | 143 | 144 | 145 | 146 | 147 | 148 | 149 | 150 | 151 | 152 | 153 | 154 | 155 | 156 | 157 | 158 | 159 | 160 | 161 | 162 | 163 | 164 | 165 | 166 | 167 | 168 | 169 | 170 | 171 | 172 | 173 | 174 | 175 | 176 | 177 | 178 | 179 | 180 | 181 | 182 | 183 | 184 | 185 | 186 | 187 | 188 | 189 | 190 | 191 | 192 | 193 | 194 | 195 | 196 | 197 | 198 | 199 | 200 | 201 | 202 | 203 | 204 | 205 | 206 | 207 | 208 | 209 | 210 | 211 | 212 | 213 | 214 | 215 | 216 | 217 | 218 | 219 | 220 | 221 | 222 | 223 | 224 | 225 | 226 | 227 | 228 | 229 | 230 | 231 | 232 | 233 | 234 | 235 | 236 | 237 | 238 | 239 | 240 | 241 | 242 | 243 | 244 | 245 | 246 | 247 | 248 | 249 | 250 | 251 | 252 | 253 | 254 | 255 | 256 | 257 | 258 | 259 | 260 | 261 | 262 | 263 | 264 | 265 | 266 | 267 | 268 | 269 | 270 | 271 | 272 | 273 | 274 | 275 | 276 | 277 | 278 | 279 | 280 | 281 | 282 | 283 | 284 | 285 | 286 | 287 | 288 | 289 | 290 | 291 | 292 | 293 | 294 | 295 | 296 | 297 | 298 | 299 | 300 | 301 | 302 | 303 | 304 | 305 | 306 | 307 | 308 | 309 | 310 | 311 | 312 | 313 | 314 | 315 | 316 | 317 | 318 | 319 | 320 | 321 | 322 | 323 | 324 | 325 | 326 | 327 | 328 | 329 | 330 | 331 | 332 | 333 | 334 | 335 | 336 | 337 | 338 | 339 | 340 | 341 | 342 | 343 | 344 | 345 | 346 | 347 | 348 | 349 | 350 | 351 | 352 | 353 | 354 | 355 | 356 | 357 | 358 | 359 | 360 | 361 | 362 | 363 | 364 | 365 | 366 | 367 | 368 | 369 | 370 | 371 | 372 | 373 | 374 | 375 | 376 | 377 | 378 | 379 | 380 | 381 | 382 | 383 | 384 | 385 | 386 | 387 | 388 | 389 | 390 | 391 | 392 | 393 | 394 | 395 | 396 | 397 | 398 | 399 | 400 | 401 | 402 | 403 | 404 | 405 | 406 | 407 | 408 | 409 | 410 | 411 | 412 | 413 | 414 | 415 | 416 | 417 | 418 | 419 | 420 | 421 | 422 | 423 | 424 | 425 | 426 | 427 | 428 | 429 | 430 | 431 | 432 | 433 | 434 | 435 | 436 | 437 | 438 | 439 | 440 | 441 | 442 | 443 | 444 | 445 | 446 | 447 | 448 | 449 | 450 | 451 | 452 | 453 | 454 | 455 | 456 | 457 | 458 | 459 | 460 | 461 | 462 | 463 | 464 | 465 | 466 | 467 | 468 | 469 | 470 | 471 | 472 | 473 | 474 | 475 | 476 | 477 | 478 | 479 | 480 | 481 | 482 | 483 | 484 | 485 | 486 | 487 | 488 | 489 | 490 | 491 | 492 | 493 | 494 | 495 | 496 | 497 | 498 | 499 | 500 | 501 | 502 | 503 | 504 | 505 | 506 | 507 | 508 | 509 | 510 | 511 (default 245, live)
+    setting reDIP:SID 1 6581 offset = -1024 | -1023 | -1022 | -1021 | -1020 | -1019 | -1018 | -1017 | -1016 | -1015 | -1014 | -1013 | -1012 | -1011 | -1010 | -1009 | -1008 | -1007 | -1006 | -1005 | -1004 | -1003 | -1002 | -1001 | -1000 | -999 | -998 | -997 | -996 | -995 | -994 | -993 | -992 | -991 | -990 | -989 | -988 | -987 | -986 | -985 | -984 | -983 | -982 | -981 | -980 | -979 | -978 | -977 | -976 | -975 | -974 | -973 | -972 | -971 | -970 | -969 | -968 | -967 | -966 | -965 | -964 | -963 | -962 | -961 | -960 | -959 | -958 | -957 | -956 | -955 | -954 | -953 | -952 | -951 | -950 | -949 | -948 | -947 | -946 | -945 | -944 | -943 | -942 | -941 | -940 | -939 | -938 | -937 | -936 | -935 | -934 | -933 | -932 | -931 | -930 | -929 | -928 | -927 | -926 | -925 | -924 | -923 | -922 | -921 | -920 | -919 | -918 | -917 | -916 | -915 | -914 | -913 | -912 | -911 | -910 | -909 | -908 | -907 | -906 | -905 | -904 | -903 | -902 | -901 | -900 | -899 | -898 | -897 | -896 | -895 | -894 | -893 | -892 | -891 | -890 | -889 | -888 | -887 | -886 | -885 | -884 | -883 | -882 | -881 | -880 | -879 | -878 | -877 | -876 | -875 | -874 | -873 | -872 | -871 | -870 | -869 | -868 | -867 | -866 | -865 | -864 | -863 | -862 | -861 | -860 | -859 | -858 | -857 | -856 | -855 | -854 | -853 | -852 | -851 | -850 | -849 | -848 | -847 | -846 | -845 | -844 | -843 | -842 | -841 | -840 | -839 | -838 | -837 | -836 | -835 | -834 | -833 | -832 | -831 | -830 | -829 | -828 | -827 | -826 | -825 | -824 | -823 | -822 | -821 | -820 | -819 | -818 | -817 | -816 | -815 | -814 | -813 | -812 | -811 | -810 | -809 | -808 | -807 | -806 | -805 | -804 | -803 | -802 | -801 | -800 | -799 | -798 | -797 | -796 | -795 | -794 | -793 | -792 | -791 | -790 | -789 | -788 | -787 | -786 | -785 | -784 | -783 | -782 | -781 | -780 | -779 | -778 | -777 | -776 | -775 | -774 | -773 | -772 | -771 | -770 | -769 | -768 | -767 | -766 | -765 | -764 | -763 | -762 | -761 | -760 | -759 | -758 | -757 | -756 | -755 | -754 | -753 | -752 | -751 | -750 | -749 | -748 | -747 | -746 | -745 | -744 | -743 | -742 | -741 | -740 | -739 | -738 | -737 | -736 | -735 | -734 | -733 | -732 | -731 | -730 | -729 | -728 | -727 | -726 | -725 | -724 | -723 | -722 | -721 | -720 | -719 | -718 | -717 | -716 | -715 | -714 | -713 | -712 | -711 | -710 | -709 | -708 | -707 | -706 | -705 | -704 | -703 | -702 | -701 | -700 | -699 | -698 | -697 | -696 | -695 | -694 | -693 | -692 | -691 | -690 | -689 | -688 | -687 | -686 | -685 | -684 | -683 | -682 | -681 | -680 | -679 | -678 | -677 | -676 | -675 | -674 | -673 | -672 | -671 | -670 | -669 | -668 | -667 | -666 | -665 | -664 | -663 | -662 | -661 | -660 | -659 | -658 | -657 | -656 | -655 | -654 | -653 | -652 | -651 | -650 | -649 | -648 | -647 | -646 | -645 | -644 | -643 | -642 | -641 | -640 | -639 | -638 | -637 | -636 | -635 | -634 | -633 | -632 | -631 | -630 | -629 | -628 | -627 | -626 | -625 | -624 | -623 | -622 | -621 | -620 | -619 | -618 | -617 | -616 | -615 | -614 | -613 | -612 | -611 | -610 | -609 | -608 | -607 | -606 | -605 | -604 | -603 | -602 | -601 | -600 | -599 | -598 | -597 | -596 | -595 | -594 | -593 | -592 | -591 | -590 | -589 | -588 | -587 | -586 | -585 | -584 | -583 | -582 | -581 | -580 | -579 | -578 | -577 | -576 | -575 | -574 | -573 | -572 | -571 | -570 | -569 | -568 | -567 | -566 | -565 | -564 | -563 | -562 | -561 | -560 | -559 | -558 | -557 | -556 | -555 | -554 | -553 | -552 | -551 | -550 | -549 | -548 | -547 | -546 | -545 | -544 | -543 | -542 | -541 | -540 | -539 | -538 | -537 | -536 | -535 | -534 | -533 | -532 | -531 | -530 | -529 | -528 | -527 | -526 | -525 | -524 | -523 | -522 | -521 | -520 | -519 | -518 | -517 | -516 | -515 | -514 | -513 | -512 | -511 | -510 | -509 | -508 | -507 | -506 | -505 | -504 | -503 | -502 | -501 | -500 | -499 | -498 | -497 | -496 | -495 | -494 | -493 | -492 | -491 | -490 | -489 | -488 | -487 | -486 | -485 | -484 | -483 | -482 | -481 | -480 | -479 | -478 | -477 | -476 | -475 | -474 | -473 | -472 | -471 | -470 | -469 | -468 | -467 | -466 | -465 | -464 | -463 | -462 | -461 | -460 | -459 | -458 | -457 | -456 | -455 | -454 | -453 | -452 | -451 | -450 | -449 | -448 | -447 | -446 | -445 | -444 | -443 | -442 | -441 | -440 | -439 | -438 | -437 | -436 | -435 | -434 | -433 | -432 | -431 | -430 | -429 | -428 | -427 | -426 | -425 | -424 | -423 | -422 | -421 | -420 | -419 | -418 | -417 | -416 | -415 | -414 | -413 | -412 | -411 | -410 | -409 | -408 | -407 | -406 | -405 | -404 | -403 | -402 | -401 | -400 | -399 | -398 | -397 | -396 | -395 | -394 | -393 | -392 | -391 | -390 | -389 | -388 | -387 | -386 | -385 | -384 | -383 | -382 | -381 | -380 | -379 | -378 | -377 | -376 | -375 | -374 | -373 | -372 | -371 | -370 | -369 | -368 | -367 | -366 | -365 | -364 | -363 | -362 | -361 | -360 | -359 | -358 | -357 | -356 | -355 | -354 | -353 | -352 | -351 | -350 | -349 | -348 | -347 | -346 | -345 | -344 | -343 | -342 | -341 | -340 | -339 | -338 | -337 | -336 | -335 | -334 | -333 | -332 | -331 | -330 | -329 | -328 | -327 | -326 | -325 | -324 | -323 | -322 | -321 | -320 | -319 | -318 | -317 | -316 | -315 | -314 | -313 | -312 | -311 | -310 | -309 | -308 | -307 | -306 | -305 | -304 | -303 | -302 | -301 | -300 | -299 | -298 | -297 | -296 | -295 | -294 | -293 | -292 | -291 | -290 | -289 | -288 | -287 | -286 | -285 | -284 | -283 | -282 | -281 | -280 | -279 | -278 | -277 | -276 | -275 | -274 | -273 | -272 | -271 | -270 | -269 | -268 | -267 | -266 | -265 | -264 | -263 | -262 | -261 | -260 | -259 | -258 | -257 | -256 | -255 | -254 | -253 | -252 | -251 | -250 | -249 | -248 | -247 | -246 | -245 | -244 | -243 | -242 | -241 | -240 | -239 | -238 | -237 | -236 | -235 | -234 | -233 | -232 | -231 | -230 | -229 | -228 | -227 | -226 | -225 | -224 | -223 | -222 | -221 | -220 | -219 | -218 | -217 | -216 | -215 | -214 | -213 | -212 | -211 | -210 | -209 | -208 | -207 | -206 | -205 | -204 | -203 | -202 | -201 | -200 | -199 | -198 | -197 | -196 | -195 | -194 | -193 | -192 | -191 | -190 | -189 | -188 | -187 | -186 | -185 | -184 | -183 | -182 | -181 | -180 | -179 | -178 | -177 | -176 | -175 | -174 | -173 | -172 | -171 | -170 | -169 | -168 | -167 | -166 | -165 | -164 | -163 | -162 | -161 | -160 | -159 | -158 | -157 | -156 | -155 | -154 | -153 | -152 | -151 | -150 | -149 | -148 | -147 | -146 | -145 | -144 | -143 | -142 | -141 | -140 | -139 | -138 | -137 | -136 | -135 | -134 | -133 | -132 | -131 | -130 | -129 | -128 | -127 | -126 | -125 | -124 | -123 | -122 | -121 | -120 | -119 | -118 | -117 | -116 | -115 | -114 | -113 | -112 | -111 | -110 | -109 | -108 | -107 | -106 | -105 | -104 | -103 | -102 | -101 | -100 | -99 | -98 | -97 | -96 | -95 | -94 | -93 | -92 | -91 | -90 | -89 | -88 | -87 | -86 | -85 | -84 | -83 | -82 | -81 | -80 | -79 | -78 | -77 | -76 | -75 | -74 | -73 | -72 | -71 | -70 | -69 | -68 | -67 | -66 | -65 | -64 | -63 | -62 | -61 | -60 | -59 | -58 | -57 | -56 | -55 | -54 | -53 | -52 | -51 | -50 | -49 | -48 | -47 | -46 | -45 | -44 | -43 | -42 | -41 | -40 | -39 | -38 | -37 | -36 | -35 | -34 | -33 | -32 | -31 | -30 | -29 | -28 | -27 | -26 | -25 | -24 | -23 | -22 | -21 | -20 | -19 | -18 | -17 | -16 | -15 | -14 | -13 | -12 | -11 | -10 | -9 | -8 | -7 | -6 | -5 | -4 | -3 | -2 | -1 | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31 | 32 | 33 | 34 | 35 | 36 | 37 | 38 | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 | 48 | 49 | 50 | 51 | 52 | 53 | 54 | 55 | 56 | 57 | 58 | 59 | 60 | 61 | 62 | 63 | 64 | 65 | 66 | 67 | 68 | 69 | 70 | 71 | 72 | 73 | 74 | 75 | 76 | 77 | 78 | 79 | 80 | 81 | 82 | 83 | 84 | 85 | 86 | 87 | 88 | 89 | 90 | 91 | 92 | 93 | 94 | 95 | 96 | 97 | 98 | 99 | 100 | 101 | 102 | 103 | 104 | 105 | 106 | 107 | 108 | 109 | 110 | 111 | 112 | 113 | 114 | 115 | 116 | 117 | 118 | 119 | 120 | 121 | 122 | 123 | 124 | 125 | 126 | 127 | 128 | 129 | 130 | 131 | 132 | 133 | 134 | 135 | 136 | 137 | 138 | 139 | 140 | 141 | 142 | 143 | 144 | 145 | 146 | 147 | 148 | 149 | 150 | 151 | 152 | 153 | 154 | 155 | 156 | 157 | 158 | 159 | 160 | 161 | 162 | 163 | 164 | 165 | 166 | 167 | 168 | 169 | 170 | 171 | 172 | 173 | 174 | 175 | 176 | 177 | 178 | 179 | 180 | 181 | 182 | 183 | 184 | 185 | 186 | 187 | 188 | 189 | 190 | 191 | 192 | 193 | 194 | 195 | 196 | 197 | 198 | 199 | 200 | 201 | 202 | 203 | 204 | 205 | 206 | 207 | 208 | 209 | 210 | 211 | 212 | 213 | 214 | 215 | 216 | 217 | 218 | 219 | 220 | 221 | 222 | 223 | 224 | 225 | 226 | 227 | 228 | 229 | 230 | 231 | 232 | 233 | 234 | 235 | 236 | 237 | 238 | 239 | 240 | 241 | 242 | 243 | 244 | 245 | 246 | 247 | 248 | 249 | 250 | 251 | 252 | 253 | 254 | 255 | 256 | 257 | 258 | 259 | 260 | 261 | 262 | 263 | 264 | 265 | 266 | 267 | 268 | 269 | 270 | 271 | 272 | 273 | 274 | 275 | 276 | 277 | 278 | 279 | 280 | 281 | 282 | 283 | 284 | 285 | 286 | 287 | 288 | 289 | 290 | 291 | 292 | 293 | 294 | 295 | 296 | 297 | 298 | 299 | 300 | 301 | 302 | 303 | 304 | 305 | 306 | 307 | 308 | 309 | 310 | 311 | 312 | 313 | 314 | 315 | 316 | 317 | 318 | 319 | 320 | 321 | 322 | 323 | 324 | 325 | 326 | 327 | 328 | 329 | 330 | 331 | 332 | 333 | 334 | 335 | 336 | 337 | 338 | 339 | 340 | 341 | 342 | 343 | 344 | 345 | 346 | 347 | 348 | 349 | 350 | 351 | 352 | 353 | 354 | 355 | 356 | 357 | 358 | 359 | 360 | 361 | 362 | 363 | 364 | 365 | 366 | 367 | 368 | 369 | 370 | 371 | 372 | 373 | 374 | 375 | 376 | 377 | 378 | 379 | 380 | 381 | 382 | 383 | 384 | 385 | 386 | 387 | 388 | 389 | 390 | 391 | 392 | 393 | 394 | 395 | 396 | 397 | 398 | 399 | 400 | 401 | 402 | 403 | 404 | 405 | 406 | 407 | 408 | 409 | 410 | 411 | 412 | 413 | 414 | 415 | 416 | 417 | 418 | 419 | 420 | 421 | 422 | 423 | 424 | 425 | 426 | 427 | 428 | 429 | 430 | 431 | 432 | 433 | 434 | 435 | 436 | 437 | 438 | 439 | 440 | 441 | 442 | 443 | 444 | 445 | 446 | 447 | 448 | 449 | 450 | 451 | 452 | 453 | 454 | 455 | 456 | 457 | 458 | 459 | 460 | 461 | 462 | 463 | 464 | 465 | 466 | 467 | 468 | 469 | 470 | 471 | 472 | 473 | 474 | 475 | 476 | 477 | 478 | 479 | 480 | 481 | 482 | 483 | 484 | 485 | 486 | 487 | 488 | 489 | 490 | 491 | 492 | 493 | 494 | 495 | 496 | 497 | 498 | 499 | 500 | 501 | 502 | 503 | 504 | 505 | 506 | 507 | 508 | 509 | 510 | 511 | 512 | 513 | 514 | 515 | 516 | 517 | 518 | 519 | 520 | 521 | 522 | 523 | 524 | 525 | 526 | 527 | 528 | 529 | 530 | 531 | 532 | 533 | 534 | 535 | 536 | 537 | 538 | 539 | 540 | 541 | 542 | 543 | 544 | 545 | 546 | 547 | 548 | 549 | 550 | 551 | 552 | 553 | 554 | 555 | 556 | 557 | 558 | 559 | 560 | 561 | 562 | 563 | 564 | 565 | 566 | 567 | 568 | 569 | 570 | 571 | 572 | 573 | 574 | 575 | 576 | 577 | 578 | 579 | 580 | 581 | 582 | 583 | 584 | 585 | 586 | 587 | 588 | 589 | 590 | 591 | 592 | 593 | 594 | 595 | 596 | 597 | 598 | 599 | 600 | 601 | 602 | 603 | 604 | 605 | 606 | 607 | 608 | 609 | 610 | 611 | 612 | 613 | 614 | 615 | 616 | 617 | 618 | 619 | 620 | 621 | 622 | 623 | 624 | 625 | 626 | 627 | 628 | 629 | 630 | 631 | 632 | 633 | 634 | 635 | 636 | 637 | 638 | 639 | 640 | 641 | 642 | 643 | 644 | 645 | 646 | 647 | 648 | 649 | 650 | 651 | 652 | 653 | 654 | 655 | 656 | 657 | 658 | 659 | 660 | 661 | 662 | 663 | 664 | 665 | 666 | 667 | 668 | 669 | 670 | 671 | 672 | 673 | 674 | 675 | 676 | 677 | 678 | 679 | 680 | 681 | 682 | 683 | 684 | 685 | 686 | 687 | 688 | 689 | 690 | 691 | 692 | 693 | 694 | 695 | 696 | 697 | 698 | 699 | 700 | 701 | 702 | 703 | 704 | 705 | 706 | 707 | 708 | 709 | 710 | 711 | 712 | 713 | 714 | 715 | 716 | 717 | 718 | 719 | 720 | 721 | 722 | 723 | 724 | 725 | 726 | 727 | 728 | 729 | 730 | 731 | 732 | 733 | 734 | 735 | 736 | 737 | 738 | 739 | 740 | 741 | 742 | 743 | 744 | 745 | 746 | 747 | 748 | 749 | 750 | 751 | 752 | 753 | 754 | 755 | 756 | 757 | 758 | 759 | 760 | 761 | 762 | 763 | 764 | 765 | 766 | 767 | 768 | 769 | 770 | 771 | 772 | 773 | 774 | 775 | 776 | 777 | 778 | 779 | 780 | 781 | 782 | 783 | 784 | 785 | 786 | 787 | 788 | 789 | 790 | 791 | 792 | 793 | 794 | 795 | 796 | 797 | 798 | 799 | 800 | 801 | 802 | 803 | 804 | 805 | 806 | 807 | 808 | 809 | 810 | 811 | 812 | 813 | 814 | 815 | 816 | 817 | 818 | 819 | 820 | 821 | 822 | 823 | 824 | 825 | 826 | 827 | 828 | 829 | 830 | 831 | 832 | 833 | 834 | 835 | 836 | 837 | 838 | 839 | 840 | 841 | 842 | 843 | 844 | 845 | 846 | 847 | 848 | 849 | 850 | 851 | 852 | 853 | 854 | 855 | 856 | 857 | 858 | 859 | 860 | 861 | 862 | 863 | 864 | 865 | 866 | 867 | 868 | 869 | 870 | 871 | 872 | 873 | 874 | 875 | 876 | 877 | 878 | 879 | 880 | 881 | 882 | 883 | 884 | 885 | 886 | 887 | 888 | 889 | 890 | 891 | 892 | 893 | 894 | 895 | 896 | 897 | 898 | 899 | 900 | 901 | 902 | 903 | 904 | 905 | 906 | 907 | 908 | 909 | 910 | 911 | 912 | 913 | 914 | 915 | 916 | 917 | 918 | 919 | 920 | 921 | 922 | 923 | 924 | 925 | 926 | 927 | 928 | 929 | 930 | 931 | 932 | 933 | 934 | 935 | 936 | 937 | 938 | 939 | 940 | 941 | 942 | 943 | 944 | 945 | 946 | 947 | 948 | 949 | 950 | 951 | 952 | 953 | 954 | 955 | 956 | 957 | 958 | 959 | 960 | 961 | 962 | 963 | 964 | 965 | 966 | 967 | 968 | 969 | 970 | 971 | 972 | 973 | 974 | 975 | 976 | 977 | 978 | 979 | 980 | 981 | 982 | 983 | 984 | 985 | 986 | 987 | 988 | 989 | 990 | 991 | 992 | 993 | 994 | 995 | 996 | 997 | 998 | 999 | 1000 | 1001 | 1002 | 1003 | 1004 | 1005 | 1006 | 1007 | 1008 | 1009 | 1010 | 1011 | 1012 | 1013 | 1014 | 1015 | 1016 | 1017 | 1018 | 1019 | 1020 | 1021 | 1022 | 1023 (default -780, live)
+    setting reDIP:SID 2 6581 offset = -1024 | -1023 | -1022 | -1021 | -1020 | -1019 | -1018 | -1017 | -1016 | -1015 | -1014 | -1013 | -1012 | -1011 | -1010 | -1009 | -1008 | -1007 | -1006 | -1005 | -1004 | -1003 | -1002 | -1001 | -1000 | -999 | -998 | -997 | -996 | -995 | -994 | -993 | -992 | -991 | -990 | -989 | -988 | -987 | -986 | -985 | -984 | -983 | -982 | -981 | -980 | -979 | -978 | -977 | -976 | -975 | -974 | -973 | -972 | -971 | -970 | -969 | -968 | -967 | -966 | -965 | -964 | -963 | -962 | -961 | -960 | -959 | -958 | -957 | -956 | -955 | -954 | -953 | -952 | -951 | -950 | -949 | -948 | -947 | -946 | -945 | -944 | -943 | -942 | -941 | -940 | -939 | -938 | -937 | -936 | -935 | -934 | -933 | -932 | -931 | -930 | -929 | -928 | -927 | -926 | -925 | -924 | -923 | -922 | -921 | -920 | -919 | -918 | -917 | -916 | -915 | -914 | -913 | -912 | -911 | -910 | -909 | -908 | -907 | -906 | -905 | -904 | -903 | -902 | -901 | -900 | -899 | -898 | -897 | -896 | -895 | -894 | -893 | -892 | -891 | -890 | -889 | -888 | -887 | -886 | -885 | -884 | -883 | -882 | -881 | -880 | -879 | -878 | -877 | -876 | -875 | -874 | -873 | -872 | -871 | -870 | -869 | -868 | -867 | -866 | -865 | -864 | -863 | -862 | -861 | -860 | -859 | -858 | -857 | -856 | -855 | -854 | -853 | -852 | -851 | -850 | -849 | -848 | -847 | -846 | -845 | -844 | -843 | -842 | -841 | -840 | -839 | -838 | -837 | -836 | -835 | -834 | -833 | -832 | -831 | -830 | -829 | -828 | -827 | -826 | -825 | -824 | -823 | -822 | -821 | -820 | -819 | -818 | -817 | -816 | -815 | -814 | -813 | -812 | -811 | -810 | -809 | -808 | -807 | -806 | -805 | -804 | -803 | -802 | -801 | -800 | -799 | -798 | -797 | -796 | -795 | -794 | -793 | -792 | -791 | -790 | -789 | -788 | -787 | -786 | -785 | -784 | -783 | -782 | -781 | -780 | -779 | -778 | -777 | -776 | -775 | -774 | -773 | -772 | -771 | -770 | -769 | -768 | -767 | -766 | -765 | -764 | -763 | -762 | -761 | -760 | -759 | -758 | -757 | -756 | -755 | -754 | -753 | -752 | -751 | -750 | -749 | -748 | -747 | -746 | -745 | -744 | -743 | -742 | -741 | -740 | -739 | -738 | -737 | -736 | -735 | -734 | -733 | -732 | -731 | -730 | -729 | -728 | -727 | -726 | -725 | -724 | -723 | -722 | -721 | -720 | -719 | -718 | -717 | -716 | -715 | -714 | -713 | -712 | -711 | -710 | -709 | -708 | -707 | -706 | -705 | -704 | -703 | -702 | -701 | -700 | -699 | -698 | -697 | -696 | -695 | -694 | -693 | -692 | -691 | -690 | -689 | -688 | -687 | -686 | -685 | -684 | -683 | -682 | -681 | -680 | -679 | -678 | -677 | -676 | -675 | -674 | -673 | -672 | -671 | -670 | -669 | -668 | -667 | -666 | -665 | -664 | -663 | -662 | -661 | -660 | -659 | -658 | -657 | -656 | -655 | -654 | -653 | -652 | -651 | -650 | -649 | -648 | -647 | -646 | -645 | -644 | -643 | -642 | -641 | -640 | -639 | -638 | -637 | -636 | -635 | -634 | -633 | -632 | -631 | -630 | -629 | -628 | -627 | -626 | -625 | -624 | -623 | -622 | -621 | -620 | -619 | -618 | -617 | -616 | -615 | -614 | -613 | -612 | -611 | -610 | -609 | -608 | -607 | -606 | -605 | -604 | -603 | -602 | -601 | -600 | -599 | -598 | -597 | -596 | -595 | -594 | -593 | -592 | -591 | -590 | -589 | -588 | -587 | -586 | -585 | -584 | -583 | -582 | -581 | -580 | -579 | -578 | -577 | -576 | -575 | -574 | -573 | -572 | -571 | -570 | -569 | -568 | -567 | -566 | -565 | -564 | -563 | -562 | -561 | -560 | -559 | -558 | -557 | -556 | -555 | -554 | -553 | -552 | -551 | -550 | -549 | -548 | -547 | -546 | -545 | -544 | -543 | -542 | -541 | -540 | -539 | -538 | -537 | -536 | -535 | -534 | -533 | -532 | -531 | -530 | -529 | -528 | -527 | -526 | -525 | -524 | -523 | -522 | -521 | -520 | -519 | -518 | -517 | -516 | -515 | -514 | -513 | -512 | -511 | -510 | -509 | -508 | -507 | -506 | -505 | -504 | -503 | -502 | -501 | -500 | -499 | -498 | -497 | -496 | -495 | -494 | -493 | -492 | -491 | -490 | -489 | -488 | -487 | -486 | -485 | -484 | -483 | -482 | -481 | -480 | -479 | -478 | -477 | -476 | -475 | -474 | -473 | -472 | -471 | -470 | -469 | -468 | -467 | -466 | -465 | -464 | -463 | -462 | -461 | -460 | -459 | -458 | -457 | -456 | -455 | -454 | -453 | -452 | -451 | -450 | -449 | -448 | -447 | -446 | -445 | -444 | -443 | -442 | -441 | -440 | -439 | -438 | -437 | -436 | -435 | -434 | -433 | -432 | -431 | -430 | -429 | -428 | -427 | -426 | -425 | -424 | -423 | -422 | -421 | -420 | -419 | -418 | -417 | -416 | -415 | -414 | -413 | -412 | -411 | -410 | -409 | -408 | -407 | -406 | -405 | -404 | -403 | -402 | -401 | -400 | -399 | -398 | -397 | -396 | -395 | -394 | -393 | -392 | -391 | -390 | -389 | -388 | -387 | -386 | -385 | -384 | -383 | -382 | -381 | -380 | -379 | -378 | -377 | -376 | -375 | -374 | -373 | -372 | -371 | -370 | -369 | -368 | -367 | -366 | -365 | -364 | -363 | -362 | -361 | -360 | -359 | -358 | -357 | -356 | -355 | -354 | -353 | -352 | -351 | -350 | -349 | -348 | -347 | -346 | -345 | -344 | -343 | -342 | -341 | -340 | -339 | -338 | -337 | -336 | -335 | -334 | -333 | -332 | -331 | -330 | -329 | -328 | -327 | -326 | -325 | -324 | -323 | -322 | -321 | -320 | -319 | -318 | -317 | -316 | -315 | -314 | -313 | -312 | -311 | -310 | -309 | -308 | -307 | -306 | -305 | -304 | -303 | -302 | -301 | -300 | -299 | -298 | -297 | -296 | -295 | -294 | -293 | -292 | -291 | -290 | -289 | -288 | -287 | -286 | -285 | -284 | -283 | -282 | -281 | -280 | -279 | -278 | -277 | -276 | -275 | -274 | -273 | -272 | -271 | -270 | -269 | -268 | -267 | -266 | -265 | -264 | -263 | -262 | -261 | -260 | -259 | -258 | -257 | -256 | -255 | -254 | -253 | -252 | -251 | -250 | -249 | -248 | -247 | -246 | -245 | -244 | -243 | -242 | -241 | -240 | -239 | -238 | -237 | -236 | -235 | -234 | -233 | -232 | -231 | -230 | -229 | -228 | -227 | -226 | -225 | -224 | -223 | -222 | -221 | -220 | -219 | -218 | -217 | -216 | -215 | -214 | -213 | -212 | -211 | -210 | -209 | -208 | -207 | -206 | -205 | -204 | -203 | -202 | -201 | -200 | -199 | -198 | -197 | -196 | -195 | -194 | -193 | -192 | -191 | -190 | -189 | -188 | -187 | -186 | -185 | -184 | -183 | -182 | -181 | -180 | -179 | -178 | -177 | -176 | -175 | -174 | -173 | -172 | -171 | -170 | -169 | -168 | -167 | -166 | -165 | -164 | -163 | -162 | -161 | -160 | -159 | -158 | -157 | -156 | -155 | -154 | -153 | -152 | -151 | -150 | -149 | -148 | -147 | -146 | -145 | -144 | -143 | -142 | -141 | -140 | -139 | -138 | -137 | -136 | -135 | -134 | -133 | -132 | -131 | -130 | -129 | -128 | -127 | -126 | -125 | -124 | -123 | -122 | -121 | -120 | -119 | -118 | -117 | -116 | -115 | -114 | -113 | -112 | -111 | -110 | -109 | -108 | -107 | -106 | -105 | -104 | -103 | -102 | -101 | -100 | -99 | -98 | -97 | -96 | -95 | -94 | -93 | -92 | -91 | -90 | -89 | -88 | -87 | -86 | -85 | -84 | -83 | -82 | -81 | -80 | -79 | -78 | -77 | -76 | -75 | -74 | -73 | -72 | -71 | -70 | -69 | -68 | -67 | -66 | -65 | -64 | -63 | -62 | -61 | -60 | -59 | -58 | -57 | -56 | -55 | -54 | -53 | -52 | -51 | -50 | -49 | -48 | -47 | -46 | -45 | -44 | -43 | -42 | -41 | -40 | -39 | -38 | -37 | -36 | -35 | -34 | -33 | -32 | -31 | -30 | -29 | -28 | -27 | -26 | -25 | -24 | -23 | -22 | -21 | -20 | -19 | -18 | -17 | -16 | -15 | -14 | -13 | -12 | -11 | -10 | -9 | -8 | -7 | -6 | -5 | -4 | -3 | -2 | -1 | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31 | 32 | 33 | 34 | 35 | 36 | 37 | 38 | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 | 48 | 49 | 50 | 51 | 52 | 53 | 54 | 55 | 56 | 57 | 58 | 59 | 60 | 61 | 62 | 63 | 64 | 65 | 66 | 67 | 68 | 69 | 70 | 71 | 72 | 73 | 74 | 75 | 76 | 77 | 78 | 79 | 80 | 81 | 82 | 83 | 84 | 85 | 86 | 87 | 88 | 89 | 90 | 91 | 92 | 93 | 94 | 95 | 96 | 97 | 98 | 99 | 100 | 101 | 102 | 103 | 104 | 105 | 106 | 107 | 108 | 109 | 110 | 111 | 112 | 113 | 114 | 115 | 116 | 117 | 118 | 119 | 120 | 121 | 122 | 123 | 124 | 125 | 126 | 127 | 128 | 129 | 130 | 131 | 132 | 133 | 134 | 135 | 136 | 137 | 138 | 139 | 140 | 141 | 142 | 143 | 144 | 145 | 146 | 147 | 148 | 149 | 150 | 151 | 152 | 153 | 154 | 155 | 156 | 157 | 158 | 159 | 160 | 161 | 162 | 163 | 164 | 165 | 166 | 167 | 168 | 169 | 170 | 171 | 172 | 173 | 174 | 175 | 176 | 177 | 178 | 179 | 180 | 181 | 182 | 183 | 184 | 185 | 186 | 187 | 188 | 189 | 190 | 191 | 192 | 193 | 194 | 195 | 196 | 197 | 198 | 199 | 200 | 201 | 202 | 203 | 204 | 205 | 206 | 207 | 208 | 209 | 210 | 211 | 212 | 213 | 214 | 215 | 216 | 217 | 218 | 219 | 220 | 221 | 222 | 223 | 224 | 225 | 226 | 227 | 228 | 229 | 230 | 231 | 232 | 233 | 234 | 235 | 236 | 237 | 238 | 239 | 240 | 241 | 242 | 243 | 244 | 245 | 246 | 247 | 248 | 249 | 250 | 251 | 252 | 253 | 254 | 255 | 256 | 257 | 258 | 259 | 260 | 261 | 262 | 263 | 264 | 265 | 266 | 267 | 268 | 269 | 270 | 271 | 272 | 273 | 274 | 275 | 276 | 277 | 278 | 279 | 280 | 281 | 282 | 283 | 284 | 285 | 286 | 287 | 288 | 289 | 290 | 291 | 292 | 293 | 294 | 295 | 296 | 297 | 298 | 299 | 300 | 301 | 302 | 303 | 304 | 305 | 306 | 307 | 308 | 309 | 310 | 311 | 312 | 313 | 314 | 315 | 316 | 317 | 318 | 319 | 320 | 321 | 322 | 323 | 324 | 325 | 326 | 327 | 328 | 329 | 330 | 331 | 332 | 333 | 334 | 335 | 336 | 337 | 338 | 339 | 340 | 341 | 342 | 343 | 344 | 345 | 346 | 347 | 348 | 349 | 350 | 351 | 352 | 353 | 354 | 355 | 356 | 357 | 358 | 359 | 360 | 361 | 362 | 363 | 364 | 365 | 366 | 367 | 368 | 369 | 370 | 371 | 372 | 373 | 374 | 375 | 376 | 377 | 378 | 379 | 380 | 381 | 382 | 383 | 384 | 385 | 386 | 387 | 388 | 389 | 390 | 391 | 392 | 393 | 394 | 395 | 396 | 397 | 398 | 399 | 400 | 401 | 402 | 403 | 404 | 405 | 406 | 407 | 408 | 409 | 410 | 411 | 412 | 413 | 414 | 415 | 416 | 417 | 418 | 419 | 420 | 421 | 422 | 423 | 424 | 425 | 426 | 427 | 428 | 429 | 430 | 431 | 432 | 433 | 434 | 435 | 436 | 437 | 438 | 439 | 440 | 441 | 442 | 443 | 444 | 445 | 446 | 447 | 448 | 449 | 450 | 451 | 452 | 453 | 454 | 455 | 456 | 457 | 458 | 459 | 460 | 461 | 462 | 463 | 464 | 465 | 466 | 467 | 468 | 469 | 470 | 471 | 472 | 473 | 474 | 475 | 476 | 477 | 478 | 479 | 480 | 481 | 482 | 483 | 484 | 485 | 486 | 487 | 488 | 489 | 490 | 491 | 492 | 493 | 494 | 495 | 496 | 497 | 498 | 499 | 500 | 501 | 502 | 503 | 504 | 505 | 506 | 507 | 508 | 509 | 510 | 511 | 512 | 513 | 514 | 515 | 516 | 517 | 518 | 519 | 520 | 521 | 522 | 523 | 524 | 525 | 526 | 527 | 528 | 529 | 530 | 531 | 532 | 533 | 534 | 535 | 536 | 537 | 538 | 539 | 540 | 541 | 542 | 543 | 544 | 545 | 546 | 547 | 548 | 549 | 550 | 551 | 552 | 553 | 554 | 555 | 556 | 557 | 558 | 559 | 560 | 561 | 562 | 563 | 564 | 565 | 566 | 567 | 568 | 569 | 570 | 571 | 572 | 573 | 574 | 575 | 576 | 577 | 578 | 579 | 580 | 581 | 582 | 583 | 584 | 585 | 586 | 587 | 588 | 589 | 590 | 591 | 592 | 593 | 594 | 595 | 596 | 597 | 598 | 599 | 600 | 601 | 602 | 603 | 604 | 605 | 606 | 607 | 608 | 609 | 610 | 611 | 612 | 613 | 614 | 615 | 616 | 617 | 618 | 619 | 620 | 621 | 622 | 623 | 624 | 625 | 626 | 627 | 628 | 629 | 630 | 631 | 632 | 633 | 634 | 635 | 636 | 637 | 638 | 639 | 640 | 641 | 642 | 643 | 644 | 645 | 646 | 647 | 648 | 649 | 650 | 651 | 652 | 653 | 654 | 655 | 656 | 657 | 658 | 659 | 660 | 661 | 662 | 663 | 664 | 665 | 666 | 667 | 668 | 669 | 670 | 671 | 672 | 673 | 674 | 675 | 676 | 677 | 678 | 679 | 680 | 681 | 682 | 683 | 684 | 685 | 686 | 687 | 688 | 689 | 690 | 691 | 692 | 693 | 694 | 695 | 696 | 697 | 698 | 699 | 700 | 701 | 702 | 703 | 704 | 705 | 706 | 707 | 708 | 709 | 710 | 711 | 712 | 713 | 714 | 715 | 716 | 717 | 718 | 719 | 720 | 721 | 722 | 723 | 724 | 725 | 726 | 727 | 728 | 729 | 730 | 731 | 732 | 733 | 734 | 735 | 736 | 737 | 738 | 739 | 740 | 741 | 742 | 743 | 744 | 745 | 746 | 747 | 748 | 749 | 750 | 751 | 752 | 753 | 754 | 755 | 756 | 757 | 758 | 759 | 760 | 761 | 762 | 763 | 764 | 765 | 766 | 767 | 768 | 769 | 770 | 771 | 772 | 773 | 774 | 775 | 776 | 777 | 778 | 779 | 780 | 781 | 782 | 783 | 784 | 785 | 786 | 787 | 788 | 789 | 790 | 791 | 792 | 793 | 794 | 795 | 796 | 797 | 798 | 799 | 800 | 801 | 802 | 803 | 804 | 805 | 806 | 807 | 808 | 809 | 810 | 811 | 812 | 813 | 814 | 815 | 816 | 817 | 818 | 819 | 820 | 821 | 822 | 823 | 824 | 825 | 826 | 827 | 828 | 829 | 830 | 831 | 832 | 833 | 834 | 835 | 836 | 837 | 838 | 839 | 840 | 841 | 842 | 843 | 844 | 845 | 846 | 847 | 848 | 849 | 850 | 851 | 852 | 853 | 854 | 855 | 856 | 857 | 858 | 859 | 860 | 861 | 862 | 863 | 864 | 865 | 866 | 867 | 868 | 869 | 870 | 871 | 872 | 873 | 874 | 875 | 876 | 877 | 878 | 879 | 880 | 881 | 882 | 883 | 884 | 885 | 886 | 887 | 888 | 889 | 890 | 891 | 892 | 893 | 894 | 895 | 896 | 897 | 898 | 899 | 900 | 901 | 902 | 903 | 904 | 905 | 906 | 907 | 908 | 909 | 910 | 911 | 912 | 913 | 914 | 915 | 916 | 917 | 918 | 919 | 920 | 921 | 922 | 923 | 924 | 925 | 926 | 927 | 928 | 929 | 930 | 931 | 932 | 933 | 934 | 935 | 936 | 937 | 938 | 939 | 940 | 941 | 942 | 943 | 944 | 945 | 946 | 947 | 948 | 949 | 950 | 951 | 952 | 953 | 954 | 955 | 956 | 957 | 958 | 959 | 960 | 961 | 962 | 963 | 964 | 965 | 966 | 967 | 968 | 969 | 970 | 971 | 972 | 973 | 974 | 975 | 976 | 977 | 978 | 979 | 980 | 981 | 982 | 983 | 984 | 985 | 986 | 987 | 988 | 989 | 990 | 991 | 992 | 993 | 994 | 995 | 996 | 997 | 998 | 999 | 1000 | 1001 | 1002 | 1003 | 1004 | 1005 | 1006 | 1007 | 1008 | 1009 | 1010 | 1011 | 1012 | 1013 | 1014 | 1015 | 1016 | 1017 | 1018 | 1019 | 1020 | 1021 | 1022 | 1023 (default -780, live)
+    setting reDIP:SID 1 filter resonance = Auto | Low | High (default Auto, live)
+    setting reDIP:SID 2 filter resonance = Auto | Low | High (default Auto, live)
+    setting reDIP:SID 1 digi level = Auto | Off | Low | Medium | High (default Auto, live)
+    setting reDIP:SID 2 digi level = Auto | Off | Low | Medium | High (default Auto, live)
+  tab 0 Socket 1 FPGASID (a page)
+    setting Fundamental mode = Mono | Stereo (default Mono, live) [listed while u64.fsid1_uid]
+    setting Output mode = Two signals | One signal (default Two signals, live) [listed while u64.fsid1_new]
+    setting LEDs = On | Only voice | Only heart | Off (default On, live) [listed while u64.fsid1_new]
+    setting SID1: quick type select = 6581 | 8580 (default 6581, live) [listed while u64.fsid1_uid]
+    setting SID1: filter mode = 6581 | 8580 (default 6581, live) [listed while u64.fsid1_uid]
+    setting SID1: crunchy DAC = 6581 | 8580 (default 6581, live) [listed while u64.fsid1_uid]
+    setting SID1: mixed waveforms = 6581 | 8580 (default 6581, live) [listed while u64.fsid1_uid]
+    setting SID1: register delay = 6581 | 8580 (default 6581, live) [listed while u64.fsid1_uid]
+    setting SID1: register read back = Bitrot 6581 | Always Value | Always $00 | Bitrot 8580 (default Bitrot 6581, live) [listed while u64.fsid1_uid]
+    setting SID1: EXT IN source = Analog In | Disabled | Other SID | DigiFix (8580) (default Analog In, live) [listed while u64.fsid1_uid]
+    setting SID1: DigiFix value (8580) = -128 | -127 | -126 | -125 | -124 | -123 | -122 | -121 | -120 | -119 | -118 | -117 | -116 | -115 | -114 | -113 | -112 | -111 | -110 | -109 | -108 | -107 | -106 | -105 | -104 | -103 | -102 | -101 | -100 | -99 | -98 | -97 | -96 | -95 | -94 | -93 | -92 | -91 | -90 | -89 | -88 | -87 | -86 | -85 | -84 | -83 | -82 | -81 | -80 | -79 | -78 | -77 | -76 | -75 | -74 | -73 | -72 | -71 | -70 | -69 | -68 | -67 | -66 | -65 | -64 | -63 | -62 | -61 | -60 | -59 | -58 | -57 | -56 | -55 | -54 | -53 | -52 | -51 | -50 | -49 | -48 | -47 | -46 | -45 | -44 | -43 | -42 | -41 | -40 | -39 | -38 | -37 | -36 | -35 | -34 | -33 | -32 | -31 | -30 | -29 | -28 | -27 | -26 | -25 | -24 | -23 | -22 | -21 | -20 | -19 | -18 | -17 | -16 | -15 | -14 | -13 | -12 | -11 | -10 | -9 | -8 | -7 | -6 | -5 | -4 | -3 | -2 | -1 | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31 | 32 | 33 | 34 | 35 | 36 | 37 | 38 | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 | 48 | 49 | 50 | 51 | 52 | 53 | 54 | 55 | 56 | 57 | 58 | 59 | 60 | 61 | 62 | 63 | 64 | 65 | 66 | 67 | 68 | 69 | 70 | 71 | 72 | 73 | 74 | 75 | 76 | 77 | 78 | 79 | 80 | 81 | 82 | 83 | 84 | 85 | 86 | 87 | 88 | 89 | 90 | 91 | 92 | 93 | 94 | 95 | 96 | 97 | 98 | 99 | 100 | 101 | 102 | 103 | 104 | 105 | 106 | 107 | 108 | 109 | 110 | 111 | 112 | 113 | 114 | 115 | 116 | 117 | 118 | 119 | 120 | 121 | 122 | 123 | 124 | 125 | 126 | 127 (default 0, live) [listed while u64.fsid1_uid]
+    setting SID1: 6581 filter bias = -8 | -7 | -6 | -5 | -4 | -3 | -2 | -1 | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 (default 0, live) [listed while u64.fsid1_uid]
+    setting SID1: enabled voices = All | . 2 3 | 1 . 3 | . . 3 | 1 2 . | . 2 . | 1 . . | None (default All, live) [listed while u64.fsid1_uid]
+    setting SID2: quick type select = 6581 | 8580 (default 6581, live) [listed while u64.fsid1_uid]
+    setting SID2: filter mode = 6581 | 8580 (default 6581, live) [listed while u64.fsid1_uid]
+    setting SID2: crunchy DAC = 6581 | 8580 (default 6581, live) [listed while u64.fsid1_uid]
+    setting SID2: mixed waveforms = 6581 | 8580 (default 6581, live) [listed while u64.fsid1_uid]
+    setting SID2: register delay = 6581 | 8580 (default 6581, live) [listed while u64.fsid1_uid]
+    setting SID2: register read back = Bitrot 6581 | Always Value | Always $00 | Bitrot 8580 (default Bitrot 6581, live) [listed while u64.fsid1_uid]
+    setting SID2: EXT IN source = Analog In | Disabled | Other SID | DigiFix (8580) (default Analog In, live) [listed while u64.fsid1_uid]
+    setting SID2: DigiFix value (8580) = -128 | -127 | -126 | -125 | -124 | -123 | -122 | -121 | -120 | -119 | -118 | -117 | -116 | -115 | -114 | -113 | -112 | -111 | -110 | -109 | -108 | -107 | -106 | -105 | -104 | -103 | -102 | -101 | -100 | -99 | -98 | -97 | -96 | -95 | -94 | -93 | -92 | -91 | -90 | -89 | -88 | -87 | -86 | -85 | -84 | -83 | -82 | -81 | -80 | -79 | -78 | -77 | -76 | -75 | -74 | -73 | -72 | -71 | -70 | -69 | -68 | -67 | -66 | -65 | -64 | -63 | -62 | -61 | -60 | -59 | -58 | -57 | -56 | -55 | -54 | -53 | -52 | -51 | -50 | -49 | -48 | -47 | -46 | -45 | -44 | -43 | -42 | -41 | -40 | -39 | -38 | -37 | -36 | -35 | -34 | -33 | -32 | -31 | -30 | -29 | -28 | -27 | -26 | -25 | -24 | -23 | -22 | -21 | -20 | -19 | -18 | -17 | -16 | -15 | -14 | -13 | -12 | -11 | -10 | -9 | -8 | -7 | -6 | -5 | -4 | -3 | -2 | -1 | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31 | 32 | 33 | 34 | 35 | 36 | 37 | 38 | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 | 48 | 49 | 50 | 51 | 52 | 53 | 54 | 55 | 56 | 57 | 58 | 59 | 60 | 61 | 62 | 63 | 64 | 65 | 66 | 67 | 68 | 69 | 70 | 71 | 72 | 73 | 74 | 75 | 76 | 77 | 78 | 79 | 80 | 81 | 82 | 83 | 84 | 85 | 86 | 87 | 88 | 89 | 90 | 91 | 92 | 93 | 94 | 95 | 96 | 97 | 98 | 99 | 100 | 101 | 102 | 103 | 104 | 105 | 106 | 107 | 108 | 109 | 110 | 111 | 112 | 113 | 114 | 115 | 116 | 117 | 118 | 119 | 120 | 121 | 122 | 123 | 124 | 125 | 126 | 127 (default 0, live) [listed while u64.fsid1_uid]
+    setting SID2: 6581 filter bias = -8 | -7 | -6 | -5 | -4 | -3 | -2 | -1 | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 (default 0, live) [listed while u64.fsid1_uid]
+    setting SID2: enabled voices = All | . 2 3 | 1 . 3 | . . 3 | 1 2 . | . 2 . | 1 . . | None (default All, live) [listed while u64.fsid1_uid]
+    node Unique ID = state shows u64.fsid1_uid in group Socket_1_FPGASID from description
+    node FPGA revision = state shows u64.fsid1_rev in group Socket_1_FPGASID from description
+  tab 0 Socket 1 SwinSID (a page)
+    setting Fundamental mode = 6581 | 8580 (default 6581, live) [listed while u64.s1_swin]
+    setting Pitch = PAL | NTSC (default PAL, live) [listed while u64.s1_swin]
+    setting Audio in = Disabled | Enabled (default Disabled, live) [listed while u64.s1_swin]
+  tab 0 Socket 1 ARMSID (a page)
+    setting Fundamental mode = 6581 | 8580 (default 6581, live) [listed while u64.s1_arm]
+    setting 6581 filter strength = Follin- | Follin | Follin+ | Galway- | Galway | Galway+ | Average- | Average | Average+ | Strong- | Strong | Strong+ | Extreme- | Extreme | Extreme+ (default Average, live) [listed while u64.s1_arm]
+    setting 6581 lowest filter frequency = 150 | 215 | 310 (default 215, live) [listed while u64.s1_arm]
+    setting 8580 highest filter frequency = 12 kHz | 10 kHz | 8 kHz | 6 kHz | 5 kHz | 4 kHz | 3 kHz (default 6 kHz, live) [listed while u64.s1_arm]
+    setting 8580 lowest filter frequency =   30 |  ~45 |  ~70 |  100 | ~150 | ~220 |  330 (default  100, live) [listed while u64.s1_arm]
+    node Firmware version = state shows u64.s1_armver in group Socket_1_ARMSID from description
+  tab 0 Socket 1 PDsid (a page)
+    setting Emulation mode = 6581 | 8580 (default 6581, live) [listed while u64.s1_pd]
+    node PDsid 1 chip = state shows u64.s1_pd in group Socket_1_PDsid from description
+  tab 0 Socket 1 SidKick (a page)
+    setting Emulation mode = 6581 | 8580 | 8580 DigiBoost | None (default 6581, live) [listed while u64.s1_kick]
+    node SidKick 1 chip = state shows u64.s1_kick in group Socket_1_SidKick from description
+  tab 0 Socket 2 FPGASID (a page)
+    setting Fundamental mode = Mono | Stereo (default Mono, live) [listed while u64.fsid2_uid]
+    setting Output mode = Two signals | One signal (default Two signals, live) [listed while u64.fsid2_new]
+    setting LEDs = On | Only voice | Only heart | Off (default On, live) [listed while u64.fsid2_new]
+    setting SID1: quick type select = 6581 | 8580 (default 6581, live) [listed while u64.fsid2_uid]
+    setting SID1: filter mode = 6581 | 8580 (default 6581, live) [listed while u64.fsid2_uid]
+    setting SID1: crunchy DAC = 6581 | 8580 (default 6581, live) [listed while u64.fsid2_uid]
+    setting SID1: mixed waveforms = 6581 | 8580 (default 6581, live) [listed while u64.fsid2_uid]
+    setting SID1: register delay = 6581 | 8580 (default 6581, live) [listed while u64.fsid2_uid]
+    setting SID1: register read back = Bitrot 6581 | Always Value | Always $00 | Bitrot 8580 (default Bitrot 6581, live) [listed while u64.fsid2_uid]
+    setting SID1: EXT IN source = Analog In | Disabled | Other SID | DigiFix (8580) (default Analog In, live) [listed while u64.fsid2_uid]
+    setting SID1: DigiFix value (8580) = -128 | -127 | -126 | -125 | -124 | -123 | -122 | -121 | -120 | -119 | -118 | -117 | -116 | -115 | -114 | -113 | -112 | -111 | -110 | -109 | -108 | -107 | -106 | -105 | -104 | -103 | -102 | -101 | -100 | -99 | -98 | -97 | -96 | -95 | -94 | -93 | -92 | -91 | -90 | -89 | -88 | -87 | -86 | -85 | -84 | -83 | -82 | -81 | -80 | -79 | -78 | -77 | -76 | -75 | -74 | -73 | -72 | -71 | -70 | -69 | -68 | -67 | -66 | -65 | -64 | -63 | -62 | -61 | -60 | -59 | -58 | -57 | -56 | -55 | -54 | -53 | -52 | -51 | -50 | -49 | -48 | -47 | -46 | -45 | -44 | -43 | -42 | -41 | -40 | -39 | -38 | -37 | -36 | -35 | -34 | -33 | -32 | -31 | -30 | -29 | -28 | -27 | -26 | -25 | -24 | -23 | -22 | -21 | -20 | -19 | -18 | -17 | -16 | -15 | -14 | -13 | -12 | -11 | -10 | -9 | -8 | -7 | -6 | -5 | -4 | -3 | -2 | -1 | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31 | 32 | 33 | 34 | 35 | 36 | 37 | 38 | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 | 48 | 49 | 50 | 51 | 52 | 53 | 54 | 55 | 56 | 57 | 58 | 59 | 60 | 61 | 62 | 63 | 64 | 65 | 66 | 67 | 68 | 69 | 70 | 71 | 72 | 73 | 74 | 75 | 76 | 77 | 78 | 79 | 80 | 81 | 82 | 83 | 84 | 85 | 86 | 87 | 88 | 89 | 90 | 91 | 92 | 93 | 94 | 95 | 96 | 97 | 98 | 99 | 100 | 101 | 102 | 103 | 104 | 105 | 106 | 107 | 108 | 109 | 110 | 111 | 112 | 113 | 114 | 115 | 116 | 117 | 118 | 119 | 120 | 121 | 122 | 123 | 124 | 125 | 126 | 127 (default 0, live) [listed while u64.fsid2_uid]
+    setting SID1: 6581 filter bias = -8 | -7 | -6 | -5 | -4 | -3 | -2 | -1 | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 (default 0, live) [listed while u64.fsid2_uid]
+    setting SID1: enabled voices = All | . 2 3 | 1 . 3 | . . 3 | 1 2 . | . 2 . | 1 . . | None (default All, live) [listed while u64.fsid2_uid]
+    setting SID2: quick type select = 6581 | 8580 (default 6581, live) [listed while u64.fsid2_uid]
+    setting SID2: filter mode = 6581 | 8580 (default 6581, live) [listed while u64.fsid2_uid]
+    setting SID2: crunchy DAC = 6581 | 8580 (default 6581, live) [listed while u64.fsid2_uid]
+    setting SID2: mixed waveforms = 6581 | 8580 (default 6581, live) [listed while u64.fsid2_uid]
+    setting SID2: register delay = 6581 | 8580 (default 6581, live) [listed while u64.fsid2_uid]
+    setting SID2: register read back = Bitrot 6581 | Always Value | Always $00 | Bitrot 8580 (default Bitrot 6581, live) [listed while u64.fsid2_uid]
+    setting SID2: EXT IN source = Analog In | Disabled | Other SID | DigiFix (8580) (default Analog In, live) [listed while u64.fsid2_uid]
+    setting SID2: DigiFix value (8580) = -128 | -127 | -126 | -125 | -124 | -123 | -122 | -121 | -120 | -119 | -118 | -117 | -116 | -115 | -114 | -113 | -112 | -111 | -110 | -109 | -108 | -107 | -106 | -105 | -104 | -103 | -102 | -101 | -100 | -99 | -98 | -97 | -96 | -95 | -94 | -93 | -92 | -91 | -90 | -89 | -88 | -87 | -86 | -85 | -84 | -83 | -82 | -81 | -80 | -79 | -78 | -77 | -76 | -75 | -74 | -73 | -72 | -71 | -70 | -69 | -68 | -67 | -66 | -65 | -64 | -63 | -62 | -61 | -60 | -59 | -58 | -57 | -56 | -55 | -54 | -53 | -52 | -51 | -50 | -49 | -48 | -47 | -46 | -45 | -44 | -43 | -42 | -41 | -40 | -39 | -38 | -37 | -36 | -35 | -34 | -33 | -32 | -31 | -30 | -29 | -28 | -27 | -26 | -25 | -24 | -23 | -22 | -21 | -20 | -19 | -18 | -17 | -16 | -15 | -14 | -13 | -12 | -11 | -10 | -9 | -8 | -7 | -6 | -5 | -4 | -3 | -2 | -1 | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31 | 32 | 33 | 34 | 35 | 36 | 37 | 38 | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 | 48 | 49 | 50 | 51 | 52 | 53 | 54 | 55 | 56 | 57 | 58 | 59 | 60 | 61 | 62 | 63 | 64 | 65 | 66 | 67 | 68 | 69 | 70 | 71 | 72 | 73 | 74 | 75 | 76 | 77 | 78 | 79 | 80 | 81 | 82 | 83 | 84 | 85 | 86 | 87 | 88 | 89 | 90 | 91 | 92 | 93 | 94 | 95 | 96 | 97 | 98 | 99 | 100 | 101 | 102 | 103 | 104 | 105 | 106 | 107 | 108 | 109 | 110 | 111 | 112 | 113 | 114 | 115 | 116 | 117 | 118 | 119 | 120 | 121 | 122 | 123 | 124 | 125 | 126 | 127 (default 0, live) [listed while u64.fsid2_uid]
+    setting SID2: 6581 filter bias = -8 | -7 | -6 | -5 | -4 | -3 | -2 | -1 | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 (default 0, live) [listed while u64.fsid2_uid]
+    setting SID2: enabled voices = All | . 2 3 | 1 . 3 | . . 3 | 1 2 . | . 2 . | 1 . . | None (default All, live) [listed while u64.fsid2_uid]
+    node Unique ID = state shows u64.fsid2_uid in group Socket_2_FPGASID from description
+    node FPGA revision = state shows u64.fsid2_rev in group Socket_2_FPGASID from description
+  tab 0 Socket 2 SwinSID (a page)
+    setting Fundamental mode = 6581 | 8580 (default 6581, live) [listed while u64.s2_swin]
+    setting Pitch = PAL | NTSC (default PAL, live) [listed while u64.s2_swin]
+    setting Audio in = Disabled | Enabled (default Disabled, live) [listed while u64.s2_swin]
+  tab 0 Socket 2 ARMSID (a page)
+    setting Fundamental mode = 6581 | 8580 (default 6581, live) [listed while u64.s2_arm]
+    setting 6581 filter strength = Follin- | Follin | Follin+ | Galway- | Galway | Galway+ | Average- | Average | Average+ | Strong- | Strong | Strong+ | Extreme- | Extreme | Extreme+ (default Average, live) [listed while u64.s2_arm]
+    setting 6581 lowest filter frequency = 150 | 215 | 310 (default 215, live) [listed while u64.s2_arm]
+    setting 8580 highest filter frequency = 12 kHz | 10 kHz | 8 kHz | 6 kHz | 5 kHz | 4 kHz | 3 kHz (default 6 kHz, live) [listed while u64.s2_arm]
+    setting 8580 lowest filter frequency =   30 |  ~45 |  ~70 |  100 | ~150 | ~220 |  330 (default  100, live) [listed while u64.s2_arm]
+    node Firmware version = state shows u64.s2_armver in group Socket_2_ARMSID from description
+  tab 0 Socket 2 PDsid (a page)
+    setting Emulation mode = 6581 | 8580 (default 6581, live) [listed while u64.s2_pd]
+    node PDsid 2 chip = state shows u64.s2_pd in group Socket_2_PDsid from description
+  tab 0 Socket 2 SidKick (a page)
+    setting Emulation mode = 6581 | 8580 | 8580 DigiBoost | None (default 6581, live) [listed while u64.s2_kick]
+    node SidKick 2 chip = state shows u64.s2_kick in group Socket_2_SidKick from description
+  tab 6 Input
+    setting Mouse as = Cursor keys | Wheel: cursor keys | Wheel: joystick (default Cursor keys, live)
+    setting Mouse cursor sensitivity = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 (default 8, live) [listed while set.Mouse_Mode==Cursor keys]
+    setting Mouse cursor acceleration = Off | Adaptive (default Off, live) [listed while set.Mouse_Mode==Cursor keys]
     setting Mouse wheel sensitivity = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 (default 8, live)
     setting Mouse wheel direction = Normal | Reversed (default Normal, live)
-    node Discard = button calls settings.discard when settings.unsaved in group bar from description
-    node Defaults = button calls settings.reset_defaults in group bar from description
-    node Save = button calls settings.save when settings.unsaved in group bar from description
-  tab 5 Network
+    setting USB controller as joystick = Port 1 | Port 2 (default Port 2, live)
+    task Map USB controller buttons
+area F7 APP
+  tab 1 Settings
+    heading Application
+    setting Overlay transparency = 0 % | 25 % | 50 % | 75 % (default 25 %, live)
+    setting Navigation style = Quick Search | WASD Cursors (default Quick Search, live)
+    setting Filename overflow squeeze = None | Beginning | Middle | End (default None, live)
+    setting Temp auto cleanup = Disabled | Enabled (default Enabled, live)
+    setting Temp subfolders = Disabled | Enabled (default Enabled, live)
+    setting Splash = Off | On (default On, live)
+    setting Leave menu on mount = No | Yes (default No, live)
+    heading Storage
+    setting Persist medium mounts = No | Yes (default No, live)
+    setting Enter home on startup = No | Yes (default No, live)
+    setting Home directory =  (default , live)
+    heading Menu
+    setting Menu opens at = Home (F1) | Last screen (default Home (F1), live)
+    heading Hotkeys
+    opens Hotkeys
+  tab 0 Hotkeys (a page)
+    setting Modifier = Off | CTRL | C= | C= + CTRL | C= + L SHIFT | C= + RUN/STOP | CTRL + L SHIFT | CTRL + RUN/STOP (default CTRL, live)
+    setting Menu open / close = Off | DEL | RETURN | CRSR RIGHT | F7 | F1 | F3 | F5 | CRSR DOWN | 3 | W | A | 4 | Z | S | E | L SHIFT | 5 | R | D | 6 | C | F | T | X | 7 | Y | G | 8 | B | H | U | V | 9 | I | J | 0 | M | K | O | N | + | P | L | - | . | : | @ | , | POUND | * | ; | HOME | R SHIFT | = | UP ARROW | / | 1 | LEFT ARROW | CTRL | 2 | SPACE | C= | Q | RUN/STOP | RESTORE (default RESTORE, live)
+    setting Volume up = Off | DEL | RETURN | CRSR RIGHT | F7 | F1 | F3 | F5 | CRSR DOWN | 3 | W | A | 4 | Z | S | E | L SHIFT | 5 | R | D | 6 | C | F | T | X | 7 | Y | G | 8 | B | H | U | V | 9 | I | J | 0 | M | K | O | N | + | P | L | - | . | : | @ | , | POUND | * | ; | HOME | R SHIFT | = | UP ARROW | / | 1 | LEFT ARROW | CTRL | 2 | SPACE | C= | Q | RUN/STOP | RESTORE (default +, live)
+    setting Volume down = Off | DEL | RETURN | CRSR RIGHT | F7 | F1 | F3 | F5 | CRSR DOWN | 3 | W | A | 4 | Z | S | E | L SHIFT | 5 | R | D | 6 | C | F | T | X | 7 | Y | G | 8 | B | H | U | V | 9 | I | J | 0 | M | K | O | N | + | P | L | - | . | : | @ | , | POUND | * | ; | HOME | R SHIFT | = | UP ARROW | / | 1 | LEFT ARROW | CTRL | 2 | SPACE | C= | Q | RUN/STOP | RESTORE (default -, live)
+    setting Reset = Off | DEL | RETURN | CRSR RIGHT | F7 | F1 | F3 | F5 | CRSR DOWN | 3 | W | A | 4 | Z | S | E | L SHIFT | 5 | R | D | 6 | C | F | T | X | 7 | Y | G | 8 | B | H | U | V | 9 | I | J | 0 | M | K | O | N | + | P | L | - | . | : | @ | , | POUND | * | ; | HOME | R SHIFT | = | UP ARROW | / | 1 | LEFT ARROW | CTRL | 2 | SPACE | C= | Q | RUN/STOP | RESTORE (default R, live)
+    setting Swap joystick ports = Off | DEL | RETURN | CRSR RIGHT | F7 | F1 | F3 | F5 | CRSR DOWN | 3 | W | A | 4 | Z | S | E | L SHIFT | 5 | R | D | 6 | C | F | T | X | 7 | Y | G | 8 | B | H | U | V | 9 | I | J | 0 | M | K | O | N | + | P | L | - | . | : | @ | , | POUND | * | ; | HOME | R SHIFT | = | UP ARROW | / | 1 | LEFT ARROW | CTRL | 2 | SPACE | C= | Q | RUN/STOP | RESTORE (default Off, live) [listed while set.Joystick_Input]
+    setting Picture mode = Off | DEL | RETURN | CRSR RIGHT | F7 | F1 | F3 | F5 | CRSR DOWN | 3 | W | A | 4 | Z | S | E | L SHIFT | 5 | R | D | 6 | C | F | T | X | 7 | Y | G | 8 | B | H | U | V | 9 | I | J | 0 | M | K | O | N | + | P | L | - | . | : | @ | , | POUND | * | ; | HOME | R SHIFT | = | UP ARROW | / | 1 | LEFT ARROW | CTRL | 2 | SPACE | C= | Q | RUN/STOP | RESTORE (default P, live)
+    setting Swap disk = Off | DEL | RETURN | CRSR RIGHT | F7 | F1 | F3 | F5 | CRSR DOWN | 3 | W | A | 4 | Z | S | E | L SHIFT | 5 | R | D | 6 | C | F | T | X | 7 | Y | G | 8 | B | H | U | V | 9 | I | J | 0 | M | K | O | N | + | P | L | - | . | : | @ | , | POUND | * | ; | HOME | R SHIFT | = | UP ARROW | / | 1 | LEFT ARROW | CTRL | 2 | SPACE | C= | Q | RUN/STOP | RESTORE (default D, live)
+    setting Timewarp = Off | DEL | RETURN | CRSR RIGHT | F7 | F1 | F3 | F5 | CRSR DOWN | 3 | W | A | 4 | Z | S | E | L SHIFT | 5 | R | D | 6 | C | F | T | X | 7 | Y | G | 8 | B | H | U | V | 9 | I | J | 0 | M | K | O | N | + | P | L | - | . | : | @ | , | POUND | * | ; | HOME | R SHIFT | = | UP ARROW | / | 1 | LEFT ARROW | CTRL | 2 | SPACE | C= | Q | RUN/STOP | RESTORE (default T, live)
+    setting Monitor = Off | DEL | RETURN | CRSR RIGHT | F7 | F1 | F3 | F5 | CRSR DOWN | 3 | W | A | 4 | Z | S | E | L SHIFT | 5 | R | D | 6 | C | F | T | X | 7 | Y | G | 8 | B | H | U | V | 9 | I | J | 0 | M | K | O | N | + | P | L | - | . | : | @ | , | POUND | * | ; | HOME | R SHIFT | = | UP ARROW | / | 1 | LEFT ARROW | CTRL | 2 | SPACE | C= | Q | RUN/STOP | RESTORE (default O, live)
+area F8 System
+  tab 1 System
+    heading Actions
+    fixed Restart core
+    fixed Return to host menu
+    node Power cycle = button calls u64.power_cycle in group actions from description
+    node Power off = button calls u64.power_off in group actions from description
+    heading Network
+    fixed WiFi
+    opens Network settings
+    opens Streams
+    opens FTP hosts
+    heading Support
+    fixed Bug report
+    fixed Keys and help
+    heading Reset
+    fixed Reset to host defaults
+    heading Status
+    info Build
+    info ROMs
+    info Libraries
+    node Uptime = state shows diag.uptime from description
+    node SD card = state shows media.sd from description
+    node USB stick 0 = state shows media.usb0 from description
+    node USB stick 1 = state shows media.usb1 from description
+    node Flash = state shows media.flash from description
+    node USB mouse = state shows usb.mouse from description
+    node USB keyboard = state shows usb.keyboard from description
+  tab 0 Network settings (a page)
+    heading Ethernet
     setting Use DHCP = Disabled | Enabled (default Enabled, live)
     setting Static IP = 192.168.2.64 (default 192.168.2.64, live) [listed while net.static]
     setting Static netmask = 255.255.255.0 (default 255.255.255.0, live) [listed while net.static]
     setting Static gateway = 192.168.2.1 (default 192.168.2.1, live) [listed while net.static]
     setting Static DNS = 8.8.8.8 (default 8.8.8.8, live) [listed while net.static]
+    node Ethernet status = state shows net.eth_status in group Ethernet from description
+    node Interface MAC = state shows net.eth_mac in group Ethernet from description
+    heading WiFi
+    node Wi-Fi status = state shows wifi.state in group WiFi from description
+    node Wi-Fi network = state shows wifi.ssid in group WiFi from description
+    node Wi-Fi address = state shows wifi.ip in group WiFi from description
+    heading Services
     setting Host name =   (default  , live)
-    setting Unique ID = Default (default Default, live)
+    setting Unique ID = Default | Not set | net.unique_ids (default Default, live)
     setting Network password =   | Not set (default  , live)
     setting Ultimate ident service = Disabled | Enabled (default Enabled, live)
     setting Ultimate DMA service = Disabled | Enabled (default Enabled, live)
-    setting Telnet remote menu service = Disabled | Enabled (default Enabled, live)
     setting FTP file service = Disabled | Enabled (default Enabled, live)
     setting Web remote control service = Disabled | Enabled (default Enabled, live)
-    setting Log to syslog server =   (default  , live)
+    setting Log to syslog server =   | Not set (default  , live)
+    node Network password protects = state shows net.pw_scope in group Services from description
+    heading Time synchronization
     setting SNTP enable = Disabled | Enabled (default Enabled, live)
-    setting Time zone = US Baker Island (UTC -12) | America Samoa (UTC -11) | Hawaii (UTC -10) | French Polynesia (UTC -9:30) | Alaska (UTC -9) | Los Angeles (UTC -8) | Denver, Colorado (UTC -7) | Phoenix, Arizona (UTC -7) | Chicago, Illinois (UTC -6) | New York (UTC -5) | Argentina (UTC -3) | Newfoundland (UTC -2:30) | Greenland (UTC -2) | Cabo Verde (UTC -1) | Iceland (UTC 0) | UK (UTC +1) | Western Europe (UTC +2) | Greece (UTC +3) | Azerbaijan (UTC +4) | Iran (UTC +4:30) | Pakistan (UTC +5) | India (UTC +5:30) | Nepal (UTC +5:45) | Bangladesh (UTC +6) | Myanmar (UTC +6:30) | Indonesia (UTC +7) | China (UTC +8) | Western Australia (UTC +8:45) | Japan (UTC +9) | Central Australia (UTC +9:30) | Eastern Australia (UTC +10) | Lord Howe Island (UTC +10:30) | Solomon Islands (UTC +11) | New Zealand (UTC +12) | Chatham Islands (UTC +12:45) | Tonga (UTC +13) | Christmas Island (UTC +14) (default Western Europe (UTC +2), live)
-    setting Time server 1 =   (default  , live)
-    setting Time server 2 =   (default  , live)
-    setting Time server 3 =   (default  , live)
+    setting Time zone = US Baker Island | America Samoa | Hawaii | French Polynesia | Alaska | Los Angeles | Denver, Colorado | Phoenix, Arizona | Chicago, Illinois | New York | Argentina | Newfoundland | Greenland | Cabo Verde | Iceland | UK | Western Europe | Greece | Azerbaijan | Iran | Pakistan | India | Nepal | Bangladesh | Myanmar | Indonesia | China | Western Australia | Japan | Central Australia | Eastern Australia | Lord Howe Island | Solomon Islands | New Zealand | Chatham Islands | Tonga | Christmas Island (default Western Europe, live)
+    setting Time server 1 = time.windows.com (default time.windows.com, live)
+    setting Time server 2 = time.google.com (default time.google.com, live)
+    setting Time server 3 = pool.ntp.org (default pool.ntp.org, live)
+  tab 0 Streams (a page)
     setting Stream VIC to = 239.0.1.64:11000 (default 239.0.1.64:11000, live)
     setting Stream audio to = 239.0.1.65:11001 (default 239.0.1.65:11001, live)
-    setting Stream debug to = 239.0.1.66:11002 (default 239.0.1.66:11002, live)
-    setting Debug stream mode = 6510 Only | VIC Only | 6510 & VIC | 1541 Only | 6510 & 1541 | 6510 w/IEC | 6510 & VIC w/IEC (default 6510 Only, live)
+    node Start VIC stream = button calls stream.start when stream.vic_off in group Streams from description
+    node Stop VIC stream = button calls stream.stop when stream.vic_on in group Streams from description
+    node Start audio stream = button calls stream.start when stream.audio_off in group Streams from description
+    node Stop audio stream = button calls stream.stop when stream.audio_on in group Streams from description
+  tab 0 FTP hosts (a page)
     setting FTP 1 alias =   (default  , live)
     setting FTP 1 host =   (default  , live)
     setting FTP 1 port = 21 (default 21, live)
@@ -298,60 +431,3 @@ area F6 Settings (shifted)
     setting FTP 4 user = anonymous (default anonymous, live)
     setting FTP 4 password =   | Not set (default  , live)
     setting FTP 4 folder = / (default /, live)
-    node Ethernet status = state from description
-    node Discard = button calls settings.discard when settings.unsaved in group bar from description
-    node Interface MAC = state from description
-    node Defaults = button calls settings.reset_defaults in group bar from description
-    node Wi-Fi status = state from description
-    node Save = button calls settings.save when settings.unsaved in group bar from description
-    node Wi-Fi network = state from description
-    node Wi-Fi address = state from description
-    node Start VIC stream = button calls stream.start when stream.vic_off from description
-    node Stop VIC stream = button calls stream.stop when stream.vic_on from description
-    node Start audio stream = button calls stream.start when stream.audio_off from description
-    node Stop audio stream = button calls stream.stop when stream.audio_on from description
-    node Start debug stream = button calls stream.start when stream.debug_off from description
-    node Stop debug stream = button calls stream.stop when stream.debug_on from description
-area F8 System (shifted)
-  tab 1 Status
-    node Core = state from description
-    node Application = state from description
-    node ROMs = state from description
-    node Libraries = state from description
-    node Board = state from description
-    node Uptime = state from description
-    node SD card = state from description
-    node USB stick 0 = state from description
-    node USB stick 1 = state from description
-    node Flash = state from description
-    node USB mouse = state from description
-    node USB keyboard = state from description
-    node WiFi = button calls wifi.toggle from description
-    node Keys and help = button calls diag.nop from description
-  tab 2 Expert
-    setting DMA load mimics ID = 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31 (default 8, live)
-    setting Bus operation mode = Quiet | Writes | Dynamic | Dyn. & Writes | Compatibility (default Quiet, live)
-    setting Bus sharing - ROMs = Internal | External | Both (default Both, live)
-    setting Bus sharing - I/O1 = Internal | External | Both (default Both, live)
-    setting Bus sharing - I/O2 = Internal | External | Both (default Both, live)
-    setting Bus sharing - interrupts = Internal | External | Both (default Both, live)
-    setting GAME/EXROM = On | Off (default On, live)
-    setting Burst mode patch = Off | CIA1 | CIA2 (default Off, live)
-    setting Serial bus mode = All Connected | C64 <-> Internal | Ext. <-> Int. | C64 <-> External (default All Connected, live)
-    setting Badline timing = Disabled | Enabled (default Enabled, live)
-    setting SuperCPU detect (D0BC) = Disabled | Enabled (default Disabled, live)
-    setting UserPort power enable = Disabled | Enabled (default Enabled, live)
-    setting Power on after power loss = Off | On | Last State (default Off, live)
-    setting Wake on Wi-Fi = Disabled | Enabled (default Disabled, live)
-    setting LED select top = On | Off | Drive A Pwr | DrvAPwr + DrvBPwr | Drive A Act | DrvAAct + DrvBAct | DrvAPwr ^ DrvAAct | USB Activity | Any Activity | !(DrvAAct) | !(DrvAAct+DrvBAct) | !(USB Act) | !(Any Act) | IRQ Line | !(IRQ Line) | Drive B Act (default On, live)
-    setting LED select bottom = On | Off | Drive A Pwr | DrvAPwr + DrvBPwr | Drive A Act | DrvAAct + DrvBAct | DrvAPwr ^ DrvAAct | USB Activity | Any Activity | !(DrvAAct) | !(DrvAAct+DrvBAct) | !(USB Act) | !(Any Act) | IRQ Line | !(IRQ Line) | Drive B Act (default Drive A Act, live)
-    setting Color scheme = Standard Blue | Ultimate Black | C128 Style | Commodore Blue | Commodore 1 | Commodore 2 | Commodore 3 (default Ultimate Black, live)
-    setting Enter home on startup = Disabled | Enabled (default Disabled, live)
-    setting Menu opens at = Home (F1) | Last screen (default Home (F1), live)
-    setting Home directory =   (default  , live)
-    setting Filename overflow squeeze = None | Beginning | Middle | End (default None, live)
-    node Restart core = button calls machine.restart in group bar (closes the menu) from description
-    node Clear config = button calls settings.clear in group bar from description
-    node Discard = button calls settings.discard when settings.unsaved in group bar from description
-    node Defaults = button calls settings.reset_defaults in group bar from description
-    node Save = button calls settings.save when settings.unsaved in group bar from description

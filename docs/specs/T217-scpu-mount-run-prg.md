@@ -1,6 +1,6 @@
 # T217 — Start a .prg on the SuperCPU and C128 cores: from the stick and from inside a disk image
 
-**Status:** IN PROGRESS (2026-11-15; PROPOSED 2026-11-12). P1, P2, P3 (128 mode), P4 built; the C64-mode half (D4) is built, its proof is a board step.
+**Status:** IN PROGRESS (2026-11-15; PROPOSED 2026-11-12). P1, P2, P3 (128 mode), P4 built; the C64-mode half (D4) is built; the C128 board steps S7, S8 and S10 closed as done 2026-11-18 (shipped and in use, §5); open: the SCPU benches S1-S4 and S6's job (= S1) in the §5 table (S1 has a board pass, 2026-11-15).
 **Repo:** TRX64U-MultiCore — `coreapp/cores/c64scpu.cc`, `coreapp/cores/c128.cc`, the shared `cbm_run` job and the PRG library (`app/loaders/cbm_prg.*`).
 **Number:** T217 (registry: the table in `TODO.md`).
 **Origin:** found while building T206 (SCPU Run Disk, decision A, branch `t206-scpu-run`); Alex, 2026-11-12: "own task" (translated)
@@ -90,9 +90,9 @@ program itself pokes (C64 RAM `$C000`, a mirrored page, so the window sees it) a
 | S4 | SCPU pointers seen by the CPU | OPEN (second marker `PEEK(45)` in the basic case) |
 | S5 | SCPU `.prg`/`.p00` rows | ue2emu pictures, ux-review PASS (`t217-c64scpu-prg-sheet.png`) |
 | S6 | SCPU inner Mount & Run | inner rows picture PASS; the job itself = S1 (open) |
-| S7, S8 | C128 BASIC / ML .prg | bench PASS 2026-11-16 (`run_prgrun.sh basic`, `ml`, see "Board 2026-11-16"); board open |
+| S7, S8 | C128 BASIC / ML .prg | bench PASS 2026-11-16 (`run_prgrun.sh basic`, `ml`, see "Board 2026-11-16"); board closed as done 2026-11-18 (last entry) |
 | S9 | C128 rows + inner Mount & Run | ue2emu pictures, ux-review PASS |
-| S10 | C128 C64-mode program | bench PASS 2026-11-16 (`run_prgrun.sh go64`); board 11-16 failed (GO64 Y), fixed, board open |
+| S10 | C128 C64-mode program | bench PASS 2026-11-16 (`run_prgrun.sh go64`); board 11-16 failed (GO64 Y), fixed, board PASS 11-16 in 40/80 columns (the "D4 board" line of §5), the rest closed as done 2026-11-18 (last entry) |
 
 `tools/benches.sh c64scpu -f` on the commit with the new tb plusargs: emu, map, speed, mirror, irq, mdust PASS; `c64scpu_base` FAIL after 10 s in that run while memory was exhausted
 (cc1plus segfault), and PASS standalone (`run_base.sh`). The C128 set was not run. Not checked: the SCPU's real TXTTAB/READY timing on the board, the 5 s wait of
@@ -107,7 +107,7 @@ program itself pokes (C64 RAM `$C000`, a mirrored page, so the window sees it) a
   settle 500 ms, then `cbm_prg_place` + `cbm_prg_type_start` with the C64 numbers (keyboard buffer `$0277/$C6`, RUN or SYS), as the C64 core does. Every wait has a give-up with a notice.
   `Load` (no start) of a `$0801` file stays refused ("use Load + run"); a file at any other address keeps the 128-mode path (D4). `max_size` of the 128 parameters now spans `$0801`.
 - **Evidence:** `cbm_run.cc` and `c128.cc` pass a native `clang++ -fsyntax-only` (host headers). `tools/dev.sh riscv` was queued 2026-11-15 but the builder's app slots wait behind a running Vivado (large:amiga1200), so the RISC-V build result was OPEN then. Result 2026-11-16: `tools/dev.sh riscv --branch t217-prg-run` rc=0 (hostapp + coreapp link, no fix needed); behaviour stays a board step. ue2emu has no running C128, so no picture of the program.
-- **Not checked, board step for Alex:** (1) copy a BASIC .prg (`10 PRINT"HELLO":GOTO 10` at `$0801`) to the stick, C128 core, F3 file browser, "Load + run": the screen goes to C64 mode and the program runs;
+- **Not checked, board step for Alex (closed as done 2026-11-18, §5):** (1) copy a BASIC .prg (`10 PRINT"HELLO":GOTO 10` at `$0801`) to the stick, C128 core, F3 file browser, "Load + run": the screen goes to C64 mode and the program runs;
   the same for a .prg inside a .d64 (Mount & Run). (2) Unverified numbers: whether GO64 takes Y without RETURN or needs it, the 400 ms gap, the 1500 ms `c64_ready_ms`, and that the RAM window sees the C64-mode screen at `$0400`
   and the pointers in block 0 after the switch. If the notice "did not enter its second mode" appears, the typed answer did not reach GO64; "did not reach READY" means TXTTAB or the screen test did not match.
 
@@ -129,7 +129,12 @@ Alex, translated: "Load and run from the C128 on a C64 file needs GO64, (ARE YOU
 - **Bench:** `cores/c128/sim/run_prgrun.sh go64` (new; 14 s of simulated time, not in the default set): `tools/cbm_prg_sim.cc c128 go64` writes the script with the application's own strings and numbers (`C128_SWITCH_TEXT`, `c128_go64_ask`, the C64 parameters); `tb_c128.v` got `5 ms`, `6 n hex`
   (wait for screen codes) and `7 addr value` (wait for a RAM byte), `prgrun_gen.py` the `$0801` program (`POKE 49152,42` / `POKE 49153,PEEK(45)`). The bench's waits are the tb's, not the application's code: the application's polling is checked by the RISC-V build and the board.
   Result (builder, real ROMs): `PASS prgrun go64` - screen wait for the question found after 0 ms of polling, C64 banner after 2260 ms, READY after 30 ms, `ram[0c000] = 2a`, `ram[0c001] = 24`, TXTTAB `01 08`. With the same `+NODEV` fix: `PASS prgrun basic` (`ram[00b00] = 2a`, `ram[00b01] = 22`, TXTTAB `01 1c`),
-  `PASS prgrun ml` (`ram[00b02] = 2a`); `none` shows the control's `FAIL: ram[00b00] = 00` line (its check pattern was wrong, fixed, not rerun). S7, S8 and S10 therefore have a bench pass; the board step stays open.
+  `PASS prgrun ml` (`ram[00b02] = 2a`); `none` shows the control's `FAIL: ram[00b00] = 00` line (its check pattern was wrong, fixed, not rerun). S7, S8 and S10 therefore have a bench pass; the board step stays open (closed as done 2026-11-18, §5).
 - **Build:** `tools/dev.sh riscv --branch t217-go64` rc=0.
-- **Not checked, board step for Alex:** C128 core, F3 file browser, "Load + run" on a `$0801` BASIC .prg, in 40 and in 80 columns, and with a drive/disk image mounted (the boot attempt). The boot attempt on the board: "4-5 s kommt hin" (Alex 2026-11-16: 4-5 s is about right), so the 80-column blind READY wait is 6000 ms (5 s + 1 s); the 20 s phase-1 limit stays.
+- **Not checked, board step for Alex (closed as done 2026-11-18, §5):** C128 core, F3 file browser, "Load + run" on a `$0801` BASIC .prg, in 40 and in 80 columns, and with a drive/disk image mounted (the boot attempt). The boot attempt on the board: "4-5 s kommt hin" (Alex 2026-11-16: 4-5 s is about right), so the 80-column blind READY wait is 6000 ms (5 s + 1 s); the 20 s phase-1 limit stays.
 - D4 board (Board test 2026-11-16, package main-13c2cde9 (run 2344), Alex in the test list): C128 Load + run of a C64 .prg in 40 and 80 columns - PASS (GO64, "ARE YOU SURE?" Y, program runs in C64 mode).
+
+**2026-11-18 - board steps closed as done (shipped and in use):** S7, S8 and S10 on the board (C128 .prg start: 128 mode BASIC and ML, the C64-mode start
+with a disk mounted) - Alex 2026-11-15: "Under A there is nothing I would not class as DONE! That has been in the builds for days/weeks, we had bugs and
+re-tests in part"; Alex 2026-11-18, shown these steps as open: "that is old stuff that has been running for ages, we had this already 3-4 days ago" and
+"tick it off in the TODOs/specs, otherwise it shows up again with some agent" (translated).

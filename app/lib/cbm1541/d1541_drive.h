@@ -80,7 +80,10 @@ public:
     void set_extra_ram(bool on);
     void set_swap_delay(int hundred_ms);                      // 1 .. 10
     void set_twist(int hundreds) { twist_ = hundreds * 100; }  // "Track Twist" 0 .. 40 (x 100), used by the next D64 mount
+    void set_geos(int mode) { geos_ = mode & 3; }               // "D64 Geos Copy Protection" 0 none, 1 gaps, 2 track 36, 3 both; used by the next D64 mount (c1541.cc:599)
     void set_align(bool on) { align_ = on; }                   // "GCR Save Align Tracks": a G64 is written with every track starting at sector 0
+    void set_reset_with_c64(bool on);                          // "Reset drive with C64": b1 of DR_RESET (c1541.cc:337-349 of TRX-Ultimate)
+    void set_freeze(bool on) { freeze_ = on; }                 // "Freeze drive in menu": b2 of DR_RESET, written with the next drive reset (power, Reset, each mount; c1541.cc:339-348)
     int swap_delay_ms() const { return swap_ms_; }
     // T104 5.14: the core's partial bitstream was loaded again, so the drive's registers are at their configuration values. Writes what this
     // object knows (type, address, RAM map, the disk in the drive, power) into them. Nothing when the drive was never attached.
@@ -119,7 +122,11 @@ private:
     bool extra_ram_;
     int swap_ms_;
     int twist_ = 2700;
+    int geos_ = 0;
     bool align_ = true;
+    bool reset_with_c64_ = true;
+    bool freeze_ = true;
+    uint8_t reset_byte() const { return (uint8_t)((freeze_ ? 4 : 0) | (reset_with_c64_ ? 2 : 0)); }
     uint8_t rom_[3][DRIVE_ROM_BYTES];
     bool rom_have_[3];
 

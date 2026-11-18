@@ -103,6 +103,10 @@ public:
     // the physical keyboard): m[col] bit row = down, the same col * 8 + row index as hotkeys.h. All zero releases every key the application holds. A host
     // without the register ignores the write.
     virtual void matrix_keys(const uint8_t m[8]) { (void)m; }
+    // T228 R10: the application's own joystick lines, C64_JOY1_SWOUT / C64_JOY2_SWOUT (C64_IO_BASE + 0x30 / 0x31; ultimate_sys.vhd page 3 inverts bits 4:0
+    // into app_joy1 / app_joy2, app_input.v ORs them with the physical ports): port 0 = port 1, 1 = port 2; `pressed` bits 0..4 = up, down, left, right,
+    // fire, 1 = pressed. The board merges them with the mouse's lines (JoystickOutput writes both registers); a host without them ignores the write.
+    virtual void joy_lines(int port, uint8_t pressed) { (void)port; (void)pressed; }
     // T181: the physical keys now, whatever the core is shown: m[col] bit row = down, and the RESTORE level. False: this host cannot say.
     virtual bool keys_read(uint8_t m[8], bool *restore) { (void)m; (void)restore; return false; }
     // The host's machine stop (C64_STOP) and the app's reset (C64_MODE reset / unreset).

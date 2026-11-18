@@ -26,8 +26,9 @@ CBM_MARK_BLUE = "#4E6B88"
 CBM_MARK_RED = "#EF4B45"
 
 
-# T182 step 8: c64scpu is build-only until the 65816 runs (Alex 2026-11-05), but its .cor goes to the board in the Gitea package and the packer wants an icon.
-LOGO_WHILE_BUILD_ONLY = {"c64scpu"}
+# A build_only core whose .cor still goes to the board in the Gitea package needs an icon for the packer: list it here. c64scpu was one (T182 step 8,
+# 2026-11-05) until it left build_only on 2026-11-18; none is now.
+LOGO_WHILE_BUILD_ONLY: set[str] = set()
 
 
 def definitions() -> dict[str, str]:
@@ -36,7 +37,7 @@ def definitions() -> dict[str, str]:
         "amiga": "Amiga", "amiga1200": "Amiga 1200", "apple2": "Apple IIe", "atari800": "Atari 800 XL",
         "c128": "Commodore 128", "c64scpu": "C64 SuperCPU", "c264": "Commodore 264", "c64u": "C64U", "cpc": "Amstrad CPC",
         "ddt_mandel": "DDT Mandelbrot", "ddt_novic": "DDT No VIC",
-        "neogeo": "Neo Geo", "nes": "NES", "snes": "SNES", "vc20": "VIC-20", "zx": "ZX Spectrum", "zxnext": "ZX Spectrum Next",
+        "neogeo": "Neo Geo", "nes": "NES", "pet": "Commodore PET", "snes": "SNES", "vc20": "VIC-20", "zx": "ZX Spectrum", "zxnext": "ZX Spectrum Next",
     }
 
 
@@ -197,7 +198,7 @@ def icon_master(identity: str) -> Image.Image:
     """One large monochrome platform cue, intentionally free of model numbers and decoration."""
     image = Image.new("RGB", (ICON_MASTER, ICON_MASTER), BG)
     draw = ImageDraw.Draw(image)
-    if identity in {"c64u", "c264", "c128", "vc20"}:
+    if identity in {"c64u", "c264", "c128", "vc20", "pet", "c64scpu"}:
         commodore_symbol(draw)
     elif identity in {"amiga", "amiga1200"}:
         centred_text(draw, "A", 206, y_adjust=-4)
@@ -215,8 +216,6 @@ def icon_master(identity: str) -> Image.Image:
         centred_text(draw, "SNES", 70, y_adjust=-2)
     elif identity == "zx":
         centred_text(draw, "ZX", 123, y_adjust=-3)
-    elif identity == "c64scpu":
-        centred_text(draw, "SCPU", 70, y_adjust=-2)    # the letters of the name only: no CMD logo, no Commodore mark
     elif identity == "zxnext":
         centred_text(draw, "N", 198, y_adjust=-4)
     elif identity == "trx64":
@@ -294,7 +293,7 @@ def make_pixel_contact_sheet(items: dict[str, str]) -> None:
 
 
 def display_items(items: dict[str, str], extras: dict[str, str]) -> dict[str, str]:
-    order = ["trx64", "u64", "c64u", "c128", "c64scpu", "c264", "vc20", "amiga", "amiga1200",
+    order = ["trx64", "u64", "c64u", "c128", "c64scpu", "c264", "vc20", "pet", "amiga", "amiga1200",
              "apple2", "atari800", "cpc", "neogeo", "ddt_mandel", "ddt_novic", "nes", "snes", "zx", "zxnext"]
     all_items = {**items, "u64": extras["u64"], "trx64": extras["trx64"]}
     if set(order) != set(all_items):

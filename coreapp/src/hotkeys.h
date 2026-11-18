@@ -14,10 +14,15 @@
 #define HK_NKEYS 65
 
 enum { HKA_MENU, HKA_VOL_UP, HKA_VOL_DOWN, HKA_RESET, HKA_SWAP, HKA_PICTURE, HKA_CORE, HK_NACT };
+// T228 R1: the tasks of a core's menu that declare a hotkey (Task::hotkey), in the order of the tasks (tools/descrec.py refuses a fifth). Task j fires as
+// bit HK_NACT + j of HkDetect::poll and HkLoop::perform.
+#define HK_TASKS_MAX 4
 
 struct HkMap {
     uint8_t mod_a, mod_b;                 // the modifier: mod_a HK_NONE = the feature is off; mod_b HK_NONE = mod_a alone
     uint8_t act[HK_NACT];                 // the action keys (HK_NONE: that action has no hotkey)
+    uint8_t ntask;                        // T228 R1: how many of task[] hold the keys of the core's hotkey tasks (hk_tasks); 0 in a map written as a literal
+    uint8_t task[HK_TASKS_MAX];           // their keys (HK_NONE: no key)
 };
 
 // What a descriptor brings (CoreDesc::hotkeys; null = the core has no hotkeys, no items, the registers stay off).
@@ -50,6 +55,15 @@ void hk_regs(const HkMap &m, uint8_t out[HK_NREGS]);
 // out = *d with the 7 items after d's own settings (modifier, then one key per action), the defaults taken from d->hotkeys; `store` as volume_extend's.
 // A descriptor without hotkeys is copied as it is. Returns null, or the reason when there is no room.
 const char *hk_extend(const CoreDesc *d, CoreDesc *out, Setting *store);
+// T228 R1: the tasks of d that declare a hotkey (Task::hotkey), at most HK_TASKS_MAX, in their order: returns how many, idx gets their indices in d->tasks.
+// A core without hotkeys (no HkSpec) has none.
+int hk_tasks(const CoreDesc *d, int idx[HK_TASKS_MAX]);
+// T228 R1: one item per hotkey task ("Hotkey Timewarp", labelled "Timewarp" for the task "Timewarp..."), behind d's settings in `store` (cap entries; d's
+// settings are copied there first when they lie elsewhere). The core's description brings its tasks after hk_extend ran, so the bundle merge calls this
+// (bundle.cc). An item that is there already is not added again. Returns null, or the reason when there is no room (d keeps its settings).
+const char *hk_extend_tasks(CoreDesc *d, Setting *store, int cap);
+// T228 R1: the keys that run task `ti` of c->desc now ("CTRL + T"); "" when the task has no hotkey, its key is Off or the hotkeys are off.
+void hk_task_keys_text(const CoreCtx *c, int ti, char *out, int n);
 bool hk_is_generic(const Setting &s);
 int hk_modifier_presets();
 // The F8 item's index of a map's modifier, -1: the pair is not one of the presets (the item could not show it).
@@ -144,9 +158,13 @@ bool hk_swap_joystick(CoreCtx *c, char *line, int n);
 bool hk_next_picture(CoreCtx *c, char *line, int n);
 bool hk_reset(CoreCtx *c, char *line, int n);
 bool hk_core_action(CoreCtx *c, char *line, int n);      // the descriptor's own function (HkSpec::core_op); false: the core has none
+// T228 R1: runs hotkey task j (hk_tasks) with its bindings, as its row does. A task whose operation asks for a screen (menu.screen) leaves the request in
+// CoreCtx::want_screen: the loop opens the menu there. False: no such task, or the operation failed (the text says why).
+bool hk_run_task(CoreCtx *c, int j, char *line, int n);
 
 // The loop's side (run.cc, the bench): `poll` reads the physical keys (CoreIo::keys_read) and the USB keyboard's and says which actions fired, at most once per HK_POLL_MS;
 // `perform` does the actions but the menu with the operations the menu uses, and gives the line for the console (true: tell it; D4: nothing is drawn over the running core).
+// A hotkey task that asks for a screen of the menu leaves CoreCtx::want_screen set: the caller opens the menu, which goes there (T228 R1).
 struct HkLoop {
     HkDetect det;
     uint32_t last_ms;

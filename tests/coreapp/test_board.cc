@@ -219,6 +219,23 @@ int main()
         CHECK_STR(c.cfg_path, FS_FLASH_CFG_PATH);          // the one file the CoreFs lets through the flash guard (fsif.h)
         CHECK_STR(c.cfg_path, "/flash/trx64u/c64.cfg");
         CHECK(fs_flash_exception(c.cfg_path) && !fs_write_refused(c.cfg_path));
+        // T228 DC13: the parameter flash_cfg decides, not the board's kind: on for the monolith (standalone), off under the MultiCore host (D11)
+        CHECK(m.flash_cfg && !h.flash_cfg && !hd.flash_cfg);
+        {
+            BoardProfile off = m;                          // a standalone installation that turns the parameter off keeps its settings in memory
+            off.flash_cfg = false;
+            CoreCtx c2;
+            memset(&c2, 0, sizeof(c2));
+            c2.desc = &c64_desc;
+            start_paths(&c2, 0, &off);
+            CHECK(!c2.cfg_path[0]);
+            BoardProfile on = h;                           // the MultiCore profile with the parameter on: the flash file again
+            on.flash_cfg = true;
+            on.cfg_dir = BOARD_MONOLITH_CFG_DIR;
+            start_paths(&c2, 0, &on);
+            CHECK_STR(c2.cfg_path, "/flash/trx64u/c64.cfg");
+            CHECK(!start_migrate_cfg(&c2, &off));          // off: no old file is looked for
+        }
         // the MultiCore host: beside the .cor when there is a hand-over, nowhere when there is none
         Handover hv;
         handover_fill(&hv, "/usb1/cores/trx64.cor", "TRX64U", "1.0.0", 7);

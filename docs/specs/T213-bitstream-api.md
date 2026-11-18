@@ -28,6 +28,12 @@ Status: PROPOSED 2026-11-12, Alex (T192 D24).
   the core-specific files of coreapp/src); a new per-core file, a grown ledger file, a new core name/id in the generic code or core data
   embedded in the app image makes the lint red, unless an exception line with spec reference and Alex's decision is in the ledger.
   Only a lint: no migration is forced (T213 stays after the release). Every agent brief cites D24 from now on.
+- D5 (Alex 2026-11-17, on the 10 tests/ui features that fail on main since T212 - 5x "move to Hotkeys" in the a1200/atari/c128/vc20/nes
+  shots, and 5 a1200 features that expect the pre-T212 Home, R key, area name "Actions", "Menu opens at" and "Persist medium mounts" -
+  translated: "that gets fixed WITH the app split by cores too ... tests per core, one set of general ones and core-specific ones"): the
+  per-core split of the app splits the UI tests the same way. tests/ui holds one generic set that every core runs (the T212 menu structure,
+  areas, keys, Library, F7/F8) and a set per core for what only that core has (its TOML rows, drives, tasks). The stale features are
+  rewritten into these sets as part of T213, not patched one by one before it. List: scratchpad t228/step1b/UI-BASELINE.md (2026-11-16).
 
 ## §4 Out
 - Gideon's and Commodore's C64 firmware (T192 D22).

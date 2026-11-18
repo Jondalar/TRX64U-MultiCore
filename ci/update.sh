@@ -3,7 +3,7 @@
 # added to the same package version (<branch>-<8 digit commit> and <branch>-latest of $MC_PKG),
 # with its SHA256SUMS extended. Runs in u64-build-env:ci after `package`. Gideon's application is not built or
 # packed here any more (T164, Alex 2026-11-01): the monolith updater trx64_update_* is TRX64-Ultimate's.
-#   trx64host_update_<commit8>_<date>.cfw/.ue2  the MultiCore file: null_full.bit (the same host + the null core, cores/null,
+#   trx64host_update_<commit8>_<date>.cfw/.ue2  (a tag: trx64host_update_<x.y.z>.cfw/.ue2, ci/lib.sh file_id) the MultiCore file: null_full.bit (the same host + the null core, cores/null,
 #                                               T123: the flash holds no machine) + our boot application from stage
 #                                               trxapps; tools/release_mc.sh attaches it to the release (T94 P6)
 #
@@ -12,8 +12,8 @@
 # (docs/specs/T31-ci-pipeline.md, decision 2). UPDATE_FORCE=true (dispatch input `update`), BUNDLE_INPUT=true (dispatch input `bundle`)
 # or "[bundle]" in the head commit message (T172) builds on any branch, into $MC_PKG as <branch>-<sha8>.
 #
-# Hook for the release tag: TRX_UPDATE_NAME replaces the file name base (tools/make_update.sh); the
-# tag logic itself is not built here.
+# The release tag: TRX_UPDATE_NAME replaces the file name base (tools/make_update.sh); on a tag it is
+# trx64host_update_<x.y.z> without a date (ci/lib.sh file_id, Alex 2026-11-18).
 #
 #   PACKAGE_TOKEN=... ci/update.sh
 set -euo pipefail
@@ -30,6 +30,7 @@ OWNER="${GITHUB_REPOSITORY%%/*}"
 API="$GITHUB_SERVER_URL/api/packages/$OWNER/generic/$MC_PKG"
 sha8="$(git -C "$ROOT" rev-parse --short=8 HEAD)"
 ver="$(branch_slug)-$sha8"
+fid="$(file_id)"     # the name part of the update files: the version on a tag, else the commit (ci/lib.sh)
 pcurl() { curl -sf -H "Authorization: token $PACKAGE_TOKEN" "$@"; }
 
 W="$ROOT/.update"
@@ -37,14 +38,14 @@ rm -rf "$W"; mkdir -p "$W/in" "$W/out"
 
 echo "=== inputs: $MC_PKG/$ver"
 pcurl -o "$W/in/manifest.json" "$API/$ver/manifest.json" || { echo "no package $MC_PKG/$ver: stage package did not publish it" >&2; exit 1; }
-python3 - "$W/in/manifest.json" "$(git -C "$ROOT" rev-parse HEAD)" > "$W/in/files.txt" <<'PY'
+python3 - "$W/in/manifest.json" "$(git -C "$ROOT" rev-parse HEAD)" "$fid" > "$W/in/files.txt" <<'PY'
 import json, sys
 m = json.load(open(sys.argv[1]))
 if m["trx64_commit"] != sys.argv[2]:
     sys.exit("package commit %s is not the commit of this run %s" % (m["trx64_commit"], sys.argv[2]))
 # the .txu (T152) is made by stage package from this run's null_full.bit + hostapp.app and published with the package: it must be listed, and the
 # sweep below must leave it (2026-11-01, bundle t164-774497b1: it matched trx64host_update_<sha8>.txu and deleted it)
-for f in ("c64_basic.bit", "null_full.bit", "hostapp.app", "trx64host_update_%s.txu" % sys.argv[2][:8]):
+for f in ("c64_basic.bit", "null_full.bit", "hostapp.app", "trx64host_update_%s.txu" % sys.argv[3]):
     if f not in m["files"]:
         sys.exit("package manifest lists no %s" % f)
     print(f, m["files"][f]["sha256"])
@@ -69,7 +70,10 @@ pub="$W/pub"; mkdir -p "$pub"
 # so a release needed a machine with that image; now it comes out of the run that built the parts.
 echo "=== updater (host: the MultiCore boot application)"
 rm -rf "$W/out-host"; mkdir -p "$W/out-host"
-TRX_UPDATE_NAME="trx64host_update_${sha8}_$(date +%Y%m%d)" \
+# the name: a release (tag) the version alone, any other build the commit and the build date (ci/lib.sh file_id, Alex 2026-11-18)
+uname="trx64host_update_$fid"
+[ "${GITHUB_REF_TYPE:-}" = tag ] || uname="${uname}_$(date +%Y%m%d)"
+TRX_UPDATE_NAME="$uname" \
   build_update_host "$W/in/manifest.json" "$W/in/null_full.bit" "$W/in/hostapp.app" "$W/out-host"
 DH="$(ls -d "$W"/out-host/trx64-*)"
 cp "$DH"/trx64host_update_*.cfw "$DH"/trx64host_update_*.ue2 "$pub/"
@@ -95,4 +99,4 @@ done
 python3 -I "$ROOT/tools/check_bundle.py" "$W/in" "$pub" || { echo "the bundle content check failed: nothing is published" >&2; exit 1; }
 
 publish_files "$pub"
-echo "=== update done in $(lap): $(cd "$pub" && ls trx64host_update_* | tr '\n' ' ') (the package keeps trx64host_update_${sha8}.txu)"
+echo "=== update done in $(lap): $(cd "$pub" && ls trx64host_update_* | tr '\n' ' ') (the package keeps trx64host_update_${fid}.txu)"

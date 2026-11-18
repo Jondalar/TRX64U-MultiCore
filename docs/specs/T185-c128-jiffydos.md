@@ -1,6 +1,6 @@
 # T185 — The C128 core starts with the standard ROMs or with JiffyDOS, chosen in its settings
 
-**Status:** BUILT and merged (b99192658), D1-D4 (D4: files selected, never searched); Mac tests, apptests and RISC-V build PASS (§5, line 119). Board 2026-11-11 (Alex): JiffyDOS works, 'faster'; J.1/J.2 by hand; S6 timing (J.3, `LOAD"$"` against Standard, C64 mode too) not measured, so not DONE. 2026-11-15 sync: 'RISC-V build open' removed (it ran, §5); the kit-file layout line (§5) stays open for other kits than Alex's.
+**Status:** BUILT and merged (b99192658), D1-D4 (D4: files selected, never searched); Mac tests, apptests and RISC-V build PASS (§5, line 119). Board 2026-11-11 (Alex): JiffyDOS works, 'faster'; J.1/J.2 by hand; S6 timing (J.3, `LOAD"$"` against Standard, C64 mode too) not measured; S6 closed as done 2026-11-18 (shipped and in use, §5). 2026-11-15 sync: 'RISC-V build open' removed (it ran, §5); the kit-file layout line (§5) stays open for other kits than Alex's.
 **Repo:** TRX64U-MultiCore — core app only (`coreapp/cores/c128.cc`, shared drive-ROM logic with `coreapp/cores/c64scpu.cc`); no
 gateware change expected (the image goes through the existing ROM window and cache flush, `c128_regs.h` `C128_ROM_*`).
 **Number:** T185.
@@ -116,14 +116,16 @@ S2 is the unchanged standard-path tests and goldens (`menu_c128.txt` regenerated
 
 **Memory.** `C128State` is about 232 KiB (std 72 KiB, jf 32 KiB, four drive buffers of 32 KiB) of the 7.6 MiB FreeRTOS heap; the free heap was not measured.
 
-**RISC-V / host tests / renders.** Same run: "apptests hostapp: PASS", "apptests coreapp: PASS in 916s", "apptests loader: PASS"; render bench "1250 checks, 0 failed". `coreapp.app` 1708476 B, `hostapp.app` 901124 B. The test_newdisk fix keeps the path string alive (it was read after it was freed). Board J.1-J.3 open.
+**RISC-V / host tests / renders.** Same run: "apptests hostapp: PASS", "apptests coreapp: PASS in 916s", "apptests loader: PASS"; render bench "1250 checks, 0 failed". `coreapp.app` 1708476 B, `hostapp.app` 901124 B. The test_newdisk fix keeps the path string alive (it was read after it was freed). Board J.1-J.3 open (since: J.1/J.2 passed 2026-11-11, J.3 closed as done 2026-11-18).
 
 **UX review (2026-11-07).** FAIL on one blocker: the refusal status wrapped under the key bar ("JiffyDOS C128 ROM: kernal8k.bin: 8192 bytes, 16384 (the C128 KERNAL) or 32768 (the C128DCR kit's file) expected"). Every kit status is now one short line ("..., needs 16384 or 32768"; which size is which part stays in the table above), and the render bench checks that the taken and the refused status fit the pane. Later, not blocking: one word for cancel in status and key bar; a hint on "ROM set" when files are chosen but the set is Standard (D5: not now). Run after the fix (cba911a50): "tests/coreapp: 102 test programs passed, 1513 parallel controls", apptests ok, `coreapp.app` 1708252 bytes; the refused status reads "JiffyDOS C128 ROM: kernal8k.bin: 8192 bytes, needs 16384 or 32768" on one line (coordinator opened the picture).
 
 **Open / not verified.**
 - The kit file layout (U32 -> +0x0000 or the KERNAL alone at +0x2000, U35 -> +0x4000, DCR 32 KiB) and the content check are not checked against real kit files; the first real file may be refused with its reason shown.
-- S6 (board J.1-J.3: select the files, `LOAD"$",8` and a program load, C128 and C64 mode, times against Standard) is not done.
+- S6 (board J.1-J.3: select the files, `LOAD"$",8` and a program load, C128 and C64 mode, times against Standard) was not done; closed as done 2026-11-18 (J.1/J.2 by hand 2026-11-11, J.3 shipped and in use; entry below).
 - The 1541 and 1581 JiffyDOS sizes follow the stock ROM sizes, not kit files.
+
+**2026-11-18 - board steps closed as done (shipped and in use):** S6 / J.3 (C128 JiffyDOS load times: `LOAD"$",8` and a program load against Standard, C128 and C64 mode) - Alex 2026-11-15: "Under A there is nothing I would not class as DONE! That has been in the builds for days/weeks, we had bugs and re-tests in part"; Alex 2026-11-18, shown these steps as open: "that is old stuff that has been running for ages, we had this already 3-4 days ago" and "tick it off in the TODOs/specs, otherwise it shows up again with some agent" (translated).
 
 ## §6 Proposal and open questions (coordinator, for Alex)
 

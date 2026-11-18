@@ -171,6 +171,7 @@ run_one() {   # run_one suite : returns the suite's status
     mkdir -p "$eout"
     case "$s" in
       hostapp_emu) nice -n 15 "$sc" "$imgs" "$eout" || erc=$? ;;
+      coreapp_emu) nice -n 15 "$sc" "$imgs/coreapp_trx64u.app" || erc=$? ;;   # T228 R25: tests/coreapp/emu/run.sh runs trx64u, which has its own image
       *)           nice -n 15 "$sc" "$imgs/coreapp.app" || erc=$? ;;
     esac
     if [ $erc -eq 77 ]; then

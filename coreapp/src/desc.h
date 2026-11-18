@@ -9,6 +9,7 @@
 
 #include <stdint.h>
 #include <string.h>
+#include <strings.h>
 #include "io.h"
 #include "fsif.h"
 #include "ops.h"
@@ -74,6 +75,7 @@ struct RegWrite {
 #define VOLUME_KEY "Volume"
 #define SCALE_KEY   "Scale"                // T107 D8: added with Picture to every frame-buffer core on a host whose gateware scales (T164 G14)
 #define SMOOTH_KEY  "Smoothing"            // T164 Q3: added with Scale
+#define FOLLOW_KEY  "Frame follow"         // T234: added after Smoothing to a frame-buffer core whose gateware has the Frame follow register (the Amiga cores)
 struct Setting {
     const char *key;                      // the item text, also the key in <name>.cfg
     const char *const *values;            // labels, also the values in <name>.cfg
@@ -97,6 +99,8 @@ struct Setting {
     const char *show_state;
     // T104.2 UI: the name the menu shows; null: the key. The key is what the .cfg, REST and the operations name and never changes with a label.
     const char *label;
+    // T228 R21 (FW ConfigItem::setOverride, config.h:140): the name of a state; while it has a text the row shows that text in place of the value and refuses changes by the menu; the stored value stays. Null: none. Last.
+    const char *lock_state;
 };
 
 // ---- tasks, file types, media (D8) -------------------------------------------------------------------------------------
@@ -118,6 +122,11 @@ struct Task {
     const char *pick_label;
     // T104.2 D10: the group (a tasks tab lists `groups`) of a task from the description record; null as above.
     const char *group;
+    // T228 R1: the default key of the task's hotkey (an upper case letter or digit, pressed with the core's hotkey modifier): hotkeys.h gives it an item
+    // on the Hotkeys page and runs the task when it is pressed while the core runs. 0: no hotkey. Last, so the positional initialisers stay as they are.
+    char hotkey;
+    // T228 R21: the task is listed only while this condition holds (contrib.h cond_holds, a state name with the same forms as a node's when_state); null: always. Last, as hotkey.
+    const char *show_state;
 };
 
 struct FileAction {
@@ -135,6 +144,14 @@ struct FileAction {
     int nsize_in;
     // T104.2 UI: the letter that runs the item inside the action sheet (0: none). Uniform browser: the same letters in the host and in every core.
     char key;
+    // T228 R21: the action is offered only while this condition holds (contrib.h cond_holds, a state name with the same forms as a node's when_state); null: always.
+    const char *show_state;
+    // T228 R21 (SID player, "Play Song n"): `repeat_op` names an operation called with the file (the action's own binding, asked value 0); the 16 bit
+    // little endian number it returns in its data is how many entries the sheet shows for this action, each with the label's "%d" = 1..N and the number
+    // as the asked value. `index` is set on those copies (0 on a table entry). `show`: the text the operation returns is shown in the viewer.
+    const char *repeat_op;
+    int16_t index;
+    bool show;
 };
 
 struct FileType {
@@ -162,6 +179,8 @@ struct MediaSlot {
     const char *mounted_tasks;
     // T212 D11: the list's "Eject" closes the menu (the eject restarts the machine: the Atari's cartridge removal is a cold start)
     bool eject_closes;
+    // T92 D-17b: the label of the file action that replaces the file of a FILLED slot (null: `mount` serves both); `mount` then only fills an empty slot
+    const char *replace;
 };
 
 // ---- video, freeze (D9) -------------------------------------------------------------------------------------------------
@@ -280,7 +299,7 @@ struct CoreDesc {
     const char *run_op;
     // "Restart core" (F8, a cold boot of the core without the host): the machine RAM, in bytes from address 0, that the application clears
     // through the RAM window while the core is held, as a power-on leaves it. 0: the application cannot clear this machine's RAM and the
-    // restart leaves it as it is.
+    // restart leaves it as it is. A core's menu record sets it too ([restart] clear_ram, T228 R17; cold_ram_only below).
     uint32_t cold_ram_bytes;
     // T104 5.14: the cold start of a core that has no partial bitstream to load again (a flat build, the C128's .cfw): "Restart core" calls it
     // before the restart sequence, so what the registers cannot reach is brought back by the core's own means. 0, or a reason in msg: the
@@ -339,12 +358,47 @@ struct CoreDesc {
     // T212 D3: the settings (by label, else key; comma separated) whose values make the one line of Home that says what machine this is ("AGA - Chip RAM 2M").
     // A value "None" is left out. Null: Home has no such line. Last in the record, so the positional initialisers stay as they are.
     const char *machine_info;
+    // T228 R17: "Restart core" clears cold_ram_bytes through the RAM window in its memory-only mode (CoreIo::ram_memonly: RAM under the I/O range too, as
+    // trx64u's C64 needs). A core's menu record sets it ([restart] ram_only). Last in the record, so the positional initialisers stay as they are.
+    bool cold_ram_only;
 };
 
 static inline bool desc_has_capability(const CoreDesc *d, const char *cap)
 {
     for (int i = 0; d->caps && i < d->ncaps; i++) {
         if (!strcmp(d->caps[i], cap)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// T92 D-17b: the file action `label` of a type this slot takes (its `exts`, comma separated; null exts: any type); null when there is none.
+static inline const FileAction *desc_slot_action(const CoreDesc *d, const MediaSlot &m, const char *label)
+{
+    for (int i = 0; label && i < d->nfiletypes; i++) {
+        const FileType &ft = d->filetypes[i];
+        bool slot_type = !m.exts;
+        for (const char *p = m.exts; p && *p && !slot_type;) {
+            const char *e = strchr(p, ',');
+            size_t n = e ? (size_t)(e - p) : strlen(p);
+            slot_type = n == strlen(ft.ext) && !strncasecmp(p, ft.ext, n);
+            p = e ? e + 1 : 0;
+        }
+        for (int k = 0; slot_type && k < ft.nactions; k++) {
+            if (!strcmp(ft.actions[k].label, label)) {
+                return &ft.actions[k];
+            }
+        }
+    }
+    return 0;
+}
+
+// The action starts the machine afresh: it binds the argument `boot` to a value that is not 0 (the mount actions' own flag).
+static inline bool desc_action_boots(const FileAction &a)
+{
+    for (int i = 0; i < a.nbind; i++) {
+        if (a.bind[i].kind == BIND_INT && !strcmp(a.bind[i].arg, "boot") && a.bind[i].i) {
             return true;
         }
     }

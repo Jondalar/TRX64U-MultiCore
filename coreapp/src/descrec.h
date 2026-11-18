@@ -6,14 +6,21 @@
 //
 // Layout, little endian, every entry fixed size, strings in one table (NUL terminated, offsets into it, 0xFFFFFFFF = none):
 //
-//   0   u32 magic "TRXD"        4  u16 version (3; 2 is read too)   6  u16 header size (176)
+//   0   u32 magic "TRXD"        4  u16 version (5 with a pad or a restart, else 4; 2 and 3 are read too)   6  u16 header size (176; version 5: 208)
 //   8   u32 total size         12  u32 flags (bit 0: the record gives the route; bit 1: it carries the core's own menu tables)
 //   16  u32 string table offset, u32 string table size
 //   24  (offset, count) of the tables, in this order, 8 bytes each:
 //       area 20 | tab 24 | node 52 | file action 40 | setting 32 | hide 4 | rename 8 | bind 16 | ext 4 | size 4 | value 4 | contributed tab 24 |
-//       task 36 | media 24 | file type 24 | file type action 36 | core setting 32
+//       task 36 | media 44 (24 before version 4) | file type 24 | file type action 36 | core setting 36
 //   160 poll: u32 operation (string offset, none = no poll), u32 period in ms, u32 merged libraries (string offset of their names, comma separated, none = no
-//       library menu was merged: the menus of those libraries are in this record, the application does not add them again), one reserved word (0)
+//       library menu was merged: the menus of those libraries are in this record, the application does not add them again), version 4: the machine-info
+//       line (string offset of the settings whose values make Home's machine line, none = no line; before version 4: 0)
+//   176 version 5 only (T228 R10, R17: a record with a pad or a restart; the writer keeps version 4 and 176 bytes for one without): the pad (pad.h PadSpec):
+//       u32 kind (bits 7:0 the output, PAD_OUT_REGS / PAD_OUT_JOY, bit 8 by_id; none = no pad), u32 reg 0, u32 reg 1 (registers, or the ports 0 / 1), u32 the
+//       first of its button names in the value table, u32 how many (1..16), u32 its default map (string offset: two hex digits per button, a source 00-23, a
+//       role 40-47, FF none)
+//   200 version 5 only: the restart (T228 R17, CoreDesc::cold_ram_bytes): u32 the machine RAM F8 "Restart core" clears, in bytes from address 0 (0 = the
+//       core's own value; else a multiple of 256, at most 16 MiB), u32 flags (bit 0: the RAM window in its memory-only mode while it clears)
 //
 //   area   key name flags first_tab ntabs            (flags bit 0: shifted)
 //   tab    id name n widget groups layout      (layout: string offset, 0 = none: "name;key=value;..." how the tab is drawn, contrib.h ui_attr; version 2: reserved, 0)
@@ -23,13 +30,17 @@
 //   setting group key first_value nvalues lo hi def apply     (nvalues 0: a range lo .. hi)
 //   ctab   area id name widget groups n     (a tab added to an area of the route, T104.1 D8)
 //   The core's own menu (T104.2 D10), the five tables a C++ descriptor carried as Task / MediaSlot / FileType / Setting arrays:
-//   task   label op first_bind nbind flags ask ask_state pick_label group       (flags bit 0: closes the menu, bit 1: a folder is picked first)
-//   media  name state eject_op first_bind nbind group
+//   task   label op first_bind nbind flags ask ask_state pick_label group       (flags bit 0: closes the menu, bit 1: a folder is picked first,
+//                                                                               bits 15:8 the default key of its hotkey, T228 R1: 'A'-'Z', '0'-'9', 0 none;
+//                                                                               bits 31:16 the offset + 1 of its show_state text, T228 R21, 0 none)
+//   media  name state eject_op first_bind nbind group [version 4: exts mount empty_tasks mounted_tasks flags(bit 0: eject closes the menu)]
 //   ftype  ext inner_ext first_action nactions first_inner ninner                (runs into the file type action table)
-//   fact   label op first_bind nbind flags ask ask_off first_size nsize          (flags bit 0: closes the menu; ask_off a signed 16 bit word)
+//   fact   label op first_bind nbind flags ask ask_off first_size nsize          (flags bit 0: closes the menu, bit 1: repeat - the ask word names the operation that says how many
+//                                                                       entries there are, T228 R21, bit 2: the data the operation returns is shown as text;
+//                                                                       bits 15:8 the sheet letter; ask_off a signed 16 bit word)
 //   cset   key group first_value nvalues def when apply base                     (when 0: live, 1: at the next reset)
 //   A tab's `groups` string is, for an information tab, the comma separated lines it shows (the application's fixed ones); a tasks, media or settings
-//   tab lists the groups its entries name.
+//   tab lists the groups its entries name; a system tab lists the groups its layout's `pages` shows (T228 R6).
 //   hide   id         rename id label
 //   bind   arg kind i s
 //
@@ -39,11 +50,14 @@
 
 #include <stdint.h>
 #include "contrib.h"
+#include "pad.h"
 
 #define DESCREC_MAGIC 0x44585254U                 /* "TRXD" */
-#define DESCREC_VERSION 3
+#define DESCREC_VERSION 5
 #define DESCREC_VERSION_MIN 2                     /* a version 2 record has 0 in the two words version 3 uses (a tab's layout, a node's attributes) */
-#define DESCREC_HEADER 176
+#define DESCREC_HEADER 176                        /* versions 2 to 4, and the least a record has */
+#define DESCREC_HEADER_V5 208                     /* version 5: the pad's six words and the restart's two follow */
+#define DESCREC_RESTART_MAX (1u << 24)            /* the most RAM a restart clears: 16 MiB */
 #define DESCREC_NONE 0xFFFFFFFFU
 #define DESCREC_MAX_SIZE 0x20000U                 // 128 KiB: more is not a menu description
 
@@ -57,7 +71,7 @@
 #define DR_BINDS 700
 #define DR_EXTS 48
 #define DR_SIZES 16
-#define DR_VALUES 3200
+#define DR_VALUES 8192                            // T228 R21: the reDIP:SID filter ranges (FW: base 0..511, offset -1024..1023) and the socket pages
 #define DR_CTABS 16
 #define DR_TASKS 64
 #define DR_MEDIA 4
@@ -85,7 +99,13 @@ struct DescRecord {
     LibTabDecl ctabs[DR_CTABS];
     Overrides ov;
     // the core's own menu (flag bit 1): what descrec_apply puts into the descriptor in place of its C++ tables
+    const char *machine_info;                     // version 4: the settings (comma separated) whose values make Home's machine line (CoreDesc::machine_info), or null
     const char *merged;                           // the names of the libraries whose menus were merged in at pack time (comma separated), or null
+    bool has_pad;                                 // version 5 (T228 R10): the record declares the core's pad; descrec_apply makes `pad` the descriptor's
+    PadSpec pad;                                  // its names point into `values`, its def_map into pad_def
+    uint8_t pad_def[PAD_BUTTONS_MAX];
+    uint32_t restart_clear;                       // version 5 (T228 R17): the bytes "Restart core" clears (CoreDesc::cold_ram_bytes), 0: the core's own value
+    bool restart_ram_only;                        // ... through the RAM window in its memory-only mode (CoreDesc::cold_ram_only)
     bool has_own;
     Task tasks[DR_TASKS]; int ntasks;
     MediaSlot media[DR_MEDIA]; int nmedia;
@@ -97,8 +117,9 @@ struct DescRecord {
 // Reads the record. 0 and `out` filled, or a negative number and a sentence in why.
 int descrec_parse(const uint8_t *rec, uint32_t n, DescRecord *out, char *why, int whylen);
 
-// Lays the record's own menu on `base`: `out` is a copy of it whose tasks, media slots, file types and settings are the record's (a record without
-// the own tables leaves `out` equal to `base`). The arrays live in `rec`, which has to outlive `out`.
+// Lays the record's own menu on `base`: `out` is a copy of it whose tasks, media slots, file types and settings are the record's, the settings followed by
+// those of `base` (the application's own items, T228 D10; a record with no settings leaves the base's); a record without the own tables leaves `out` equal to
+// `base`, except that the record's machine-info line and its pad (T228 R10) are set whenever it has them. The arrays live in `rec`, which has to outlive `out`.
 void descrec_apply(const DescRecord &rec, const CoreDesc *base, CoreDesc *out);
 
 // Was the menu of the library `name` merged into this record when it was packed?

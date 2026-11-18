@@ -1,6 +1,6 @@
 # T112 — Every core lives in its own folder on a medium, with its .cor, its settings and its ROMs
 
-**Status:** BUILT for layer-2 cores (2026-10-26), host benches only; board steps S1 and S2 (large .cor) open. D1 and Q1 decided by Alex. 2026-11-13 status check: merged to main (Merge t112-folders); D1-D3 superseded by T148; state as in row: built, board S1/S2 open. **2026-11-15 sync:** T148 (core folder, done by Alex 2026-11-14: "proven in daily board use (core folders)") is the successor of this spec; no board result for S1/S2 is recorded under T112 itself, so whether T112 closes as superseded is Alex's call (listed in the sync report).
+**Status:** BUILT for layer-2 cores (2026-10-26), host benches only; board step S1 open; S2 (large .cor) closed as done 2026-11-18 (shipped and in use, §5). D1 and Q1 decided by Alex. 2026-11-13 status check: merged to main (Merge t112-folders); D1-D3 superseded by T148; state as in row: built, board S1/S2 open (S2 since closed, 2026-11-18). **2026-11-15 sync:** T148 (core folder, done by Alex 2026-11-14: "proven in daily board use (core folders)") is the successor of this spec; no board result for S1/S2 is recorded under T112 itself, so whether T112 closes as superseded is Alex's call (listed in the sync report).
 **Repo:** TRX64U-MultiCore — the host app (`host-app/software/hostapp/discover.cc`) and the generic application
 (`coreapp/src/romfind.cc`); no gateware, the host stays frozen.
 **Number:** T112 (registry: `TODO.md`).
@@ -135,7 +135,12 @@ and keeps `<name>.cfg` beside the file. A `.cfw` is not one of our large cores a
 - **Benches (Q1).** `tests/hostapp/test_cfw.cc` (page of both maps, large and `.cfw`; controls `cfw_hand_unmapped`, `cfw_hand_for_cfw`, `cfw_hand_nopath`);
   `tests/coreapp/test_board.cc` (monolith with a valid and an invalid page, paths, ROM order, the settings copy; controls `board_handover_mc_only`,
   `board_migrate_overwrite`, `board_migrate_move`). The old control `board_handover_trusted` is the product now and is replaced by `board_handover_mc_only`.
-- **Not measured, board step S2 (Alex):** that DDR2 at `HANDOVER_ADDR` survives the IPROG and the large core's own start (the monolith's cartridge ROM
+- **Not measured, board step S2 (Alex; closed as done 2026-11-18, §5):** that DDR2 at `HANDOVER_ADDR` survives the IPROG and the large core's own start (the monolith's cartridge ROM
   area lies there; the boot magic at 0xFFF8 survives the same way) and that the application finds a valid page. If the large core's boot clears it,
   the application falls back to the flash layout as before. Q1 (a) is built, the board proves it.
-- **Not built:** `.cfw` folders (decided out); the board steps S1 and S2.
+- **Not built:** `.cfw` folders (decided out); the board step S1 (S2 closed 2026-11-18, next entry).
+- **2026-11-18 - board steps closed as done (shipped and in use):** S2, the core folder's Kickstart wins (with it the large .cor's hand-over
+  that "Not measured, board step S2" above left to the board) - Alex 2026-11-15: "Under A there is nothing I would not class as DONE! That has
+  been in the builds for days/weeks, we had bugs and re-tests in part"; Alex 2026-11-18, shown these steps as open: "that is old stuff that has
+  been running for ages, we had this already 3-4 days ago" and "tick it off in the TODOs/specs, otherwise it shows up again with some agent"
+  (translated).

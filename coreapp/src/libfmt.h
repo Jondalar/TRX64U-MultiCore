@@ -19,6 +19,9 @@
 #define U2A3_NEED_SIZE 20
 #define U2A3_NAME_MAX 16                /* a name and its NUL */
 #define U2A3_NEEDS_MAX 4
+/* Two needs that name no library (AppIndex and LibLoader skip them): */
+#define PRG_APP_NEED "standalone"        /* offered only when the board is not the MultiCore host (T228 DC1) */
+#define CART_APP_NEED "cart_port"        /* offered only where the core gives the cartridge port service (appsvc_c64, T228 review) */
 #define U2A3_NONE 0xFFFFFFFFU           /* an entry offset the file does not have */
 
 #define U2A3_ARCH_RISCV32 2             /* as U2A_ARCH_RISCV32 of format 2 */

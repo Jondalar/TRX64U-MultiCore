@@ -9,7 +9,8 @@ order        = 12              # after the ZX Spectrum (11); the T79 core list p
 delivery     = "cfw"           # a LARGE core since 2026-11-01 (T164 Q1: pb_l2 is X0-49 rows 0-99 with 40 block RAM tiles, this core needs 46.5; Alex: "whatever does not fit becomes a
                                # large core"): this file is the only descriptor, no DFX lane; cores/cpc/mono/build_mono.tcl, lane large-cpc
 mono_env     = ["TRX_FEATURES=jtag"]   # the host features are the DFX build's (jtag on, UCI and UDP streams off)
-experimental = true            # built, benched, application written; not routed, no board test; the flat build has not run yet
+experimental = true            # board pass 2026-11-18 (T233: S1, S2, S7 on the 464, 664, 6128); experimental kept
+pipeline     = true            # T233 D7: back in the pipeline after the board pass of 2026-11-18 (T92 D-17e lifted)
 sources      = ["cores/cpc", "cores/zx/rtl", "cores/zx/gen", "cores/zx/shared"]
                                # the Z80 (rtl/T80, gen/t80pa.v), the AY (rtl/ym2149.sv) and shared/ are the Spectrum core's files: read here, never copied;
                                # a change to them rebuilds both cores. rtl/ula.sv is the Spectrum's alone but sits in the same directory and goes along.

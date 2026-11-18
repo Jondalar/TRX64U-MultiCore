@@ -3,12 +3,41 @@
 # the Inspector. Four of them are on the tab strip (1 .. 4); the other four are tabs that are not on it (`hidden`): the application shows them (`follow`) and
 # RUN/STOP stays locked while a step cannot stop (`lock`). Every value is a state of glue.cc (cart.*), every button an operation of it.
 
-# ---- the core's menu: Write to Cartridge on .crt, and the Tools rows (the core's menu.toml names them) -----------------------------------------------------
+# ---- the core's menu: Write to Cartridge on .crt (FW manifest.json filetypes) -----------------------------------------------------
 [[file_action]]
 ext = [".crt"]
 label = "Write to Cartridge"
 app = "trex_crt"
 action = "write"
+
+# T228 R21: the tasks of FW's manifest (apps/trex_crt/manifest.json: category "C64 Machine", "Dump Cartridge", "Cart Inspector", "Flash Cartridge"), shown as FW shows
+# them: when trex_crt.u2a is in the apps folder. The apps' place of the core's menu is F7 (the tab "settings"), last, under no heading of their own (T212 D12).
+[[node]]
+anchor = "F7/settings"
+kind = "op"
+label = "Dump Cartridge"
+order = 20
+app = "trex_crt"
+action = "dump"
+ui = { sub = "Scan the cartridge in the port and save a CRT image", chip = "APP", tone = "violet" }
+
+[[node]]
+anchor = "F7/settings"
+kind = "op"
+label = "Cart Inspector"
+order = 30
+app = "trex_crt"
+action = "inspect"
+ui = { sub = "Browse the memory, the banks and the registers of the cartridge", chip = "APP", tone = "cyan" }
+
+[[node]]
+anchor = "F7/settings"
+kind = "op"
+label = "Flash Cartridge"
+order = 40
+app = "trex_crt"
+action = "flash"
+ui = { sub = "Write and verify a CRT image on a flash cartridge", chip = "APP", tone = "amber" }
 
 # ---- the screens ----------------------------------------------------------------------------------------------------------------------------------------
 [[area]]

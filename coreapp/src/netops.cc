@@ -1,6 +1,6 @@
 // Network (T104.2 UI): the wired interface and the services that run on Gideon's network stack (config stores "Ethernet Settings" and "Network Settings"), and the Wi-Fi of the
-// ESP32 control module. The wired values are this core's settings (the .cfg); net.fx pushes them into Gideon's stores at the start and at every change - never into the
-// flash (the stores are not written). The WiFi's own settings are the host's (T184 D3): the core reads its state here and switches the radio.
+// ESP32 control module. The wired interface's address values are this core's settings (the .cfg); net.fx pushes them into Gideon's stores at the start and at every change - never
+// into the flash (the stores are not written). The WiFi is set in the host (T184 D3, T228 R26): the core reads its state here and switches the radio.
 #include "netops.h"
 #include "ops_glue.h"
 #include "trx64u_ops.h"
@@ -9,11 +9,13 @@
 #include "config.h"
 #include "network_config.h"
 #include "network_interface.h"
+#include "netsvc.h"
 #include "u64.h"
 #include "socket.h"
 #include "netdb.h"
 #include "FreeRTOS.h"
 #include "task.h"
+#include "newfile.h"                 // nf_copy: no string precision in a format (the board's printf has none)
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -35,27 +37,32 @@ static int fx_net(CoreCtx *c, const OpArgs &, OpOut &o)
         snprintf(o.msg, o.msglen, "The network stack is not up");
         return OPE_OK;
     }
-    eth->set_value(CFG_NET_DHCP_EN, cfg_value(c, "Use DHCP", 1));
-    push_text(eth, CFG_NET_IP, cfg_text(c, "Static IP"));
-    push_text(eth, CFG_NET_NETMASK, cfg_text(c, "Static Netmask"));
-    push_text(eth, CFG_NET_GATEWAY, cfg_text(c, "Static Gateway"));
-    push_text(eth, CFG_NET_DNS, cfg_text(c, "Static DNS"));
-    push_text(net, CFG_NETWORK_HOSTNAME, cfg_text(c, "Host Name"));
-    push_text(net, CFG_NETWORK_PASSWORD, cfg_text(c, "Network Password"));
-    push_text(net, CFG_NETWORK_UNIQUE_ID, cfg_text(c, "Unique ID"));
-    push_text(net, CFG_NETWORK_REMOTE_SYSLOG_SERVER, cfg_text(c, "Log to Syslog Server"));
-    net->set_value(CFG_NETWORK_ULTIMATE_IDENT_SERVICE, cfg_value(c, "Ultimate Ident Service", 1));
-    net->set_value(CFG_NETWORK_ULTIMATE_DMA_SERVICE, cfg_value(c, "Ultimate DMA Service", 1));
-    net->set_value(CFG_NETWORK_TELNET_SERVICE, cfg_value(c, "Telnet Remote Menu Service", 1));
-    net->set_value(CFG_NETWORK_FTP_SERVICE, cfg_value(c, "FTP File Service", 1));
-    net->set_value(CFG_NETWORK_HTTP_SERVICE, cfg_value(c, "Web Remote Control Service", 1));
-    net->set_value(CFG_NETWORK_NTP_EN, cfg_value(c, "SNTP Enable", 1));
-    net->set_value(CFG_NETWORK_NTP_ZONE, cfg_value(c, "TimeZone", 16));
-    push_text(net, CFG_NETWORK_NTP_SRV1, cfg_text(c, "Time Server 1"));
-    push_text(net, CFG_NETWORK_NTP_SRV2, cfg_text(c, "Time Server 2"));
-    push_text(net, CFG_NETWORK_NTP_SRV3, cfg_text(c, "Time Server 3"));
+    // R21: a value is pushed only when the core's settings have its key (Settings::find >= 0). net.fx runs in every core whose TOML binds it; one that does not list a key must not
+    // overwrite the stack with the key's default. The WiFi store is not touched: the host's WiFi settings are read by hostwifi_load (run.cc) (T184 D3, T228 R26).
+    auto has = [&](const char *k) { return c->settings && c->settings->find(k) >= 0; };
+    auto val = [&](ConfigStore *st, uint8_t id, const char *k, int def) { if (has(k)) st->set_value(id, cfg_value(c, k, def)); };
+    auto txt = [&](ConfigStore *st, uint8_t id, const char *k) { if (has(k)) push_text(st, id, cfg_text(c, k)); };
+    val(eth, CFG_NET_DHCP_EN, "Use DHCP", 1);
+    txt(eth, CFG_NET_IP, "Static IP");
+    txt(eth, CFG_NET_NETMASK, "Static Netmask");
+    txt(eth, CFG_NET_GATEWAY, "Static Gateway");
+    txt(eth, CFG_NET_DNS, "Static DNS");
+    txt(net, CFG_NETWORK_HOSTNAME, "Host Name");
+    if (has("Network Password")) net->set_string(CFG_NETWORK_PASSWORD, cfg_text(c, "Network Password"));   // FW: an empty password is a value too (clearing it must reach the store)
+    txt(net, CFG_NETWORK_UNIQUE_ID, "Unique ID");
+    txt(net, CFG_NETWORK_REMOTE_SYSLOG_SERVER, "Log to Syslog Server");
+    val(net, CFG_NETWORK_ULTIMATE_IDENT_SERVICE, "Ultimate Ident Service", 1);
+    val(net, CFG_NETWORK_ULTIMATE_DMA_SERVICE, "Ultimate DMA Service", 1);
+    val(net, CFG_NETWORK_FTP_SERVICE, "FTP File Service", 1);
+    val(net, CFG_NETWORK_HTTP_SERVICE, "Web Remote Control Service", 1);
+    val(net, CFG_NETWORK_NTP_EN, "SNTP Enable", 1);
+    val(net, CFG_NETWORK_NTP_ZONE, "TimeZone", 16);
+    txt(net, CFG_NETWORK_NTP_SRV1, "Time Server 1");
+    txt(net, CFG_NETWORK_NTP_SRV2, "Time Server 2");
+    txt(net, CFG_NETWORK_NTP_SRV3, "Time Server 3");
     eth->effectuate();
     net->effectuate();
+    netsvc_apply(c);
     return OPE_OK;
 }
 
@@ -203,7 +210,8 @@ static void stream_headers(CoreCtx *c, int id)
     U64_ETHSTREAM_ENA |= (uint8_t)(1 << id);
 }
 
-static int stream_start(CoreCtx *c, int id, OpOut &o)
+// `dest` is the destination the caller names (FW data_streamer.cc:129-131: a start that does not come from the menu takes it from the path, up to 36 characters); empty or null: the setting.
+static int stream_start(CoreCtx *c, int id, const char *dest, OpOut &o)
 {
     static const char *const keys[3] = { "Stream VIC to", "Stream Audio to", "Stream Debug to" };
     NetworkInterface *ni = wired();
@@ -220,7 +228,7 @@ static int stream_start(CoreCtx *c, int id, OpOut &o)
         return OPE_FAILED;
     }
     char host[40];
-    snprintf(host, sizeof(host), "%s", cfg_text(c, keys[id]));
+    nf_copy(host, sizeof(host), dest && dest[0] ? dest : cfg_text(c, keys[id]), 36);
     char *colon = strchr(host, ':');
     int port = 11000 + id;
     if (colon) {
@@ -274,9 +282,45 @@ static int stream_start(CoreCtx *c, int id, OpOut &o)
     return OPE_OK;
 }
 
-static int op_stream_start(CoreCtx *c, const OpArgs &a, OpOut &o) { return stream_start(c, a.i(0), o); }
+static uint32_t g_stream_gen[3];                                // a start or a stop calls off the stop-after of the one before
+
+// FW data_streamer.cc:228-241: a start with a buffer size stops the stream after that many ticks (xTimerChangePeriod); here a task that sleeps them.
+struct StopAfter { CoreCtx *c; int id; uint32_t gen; uint32_t ticks; };
+static void stop_after_task(void *p)
+{
+    StopAfter a = *(StopAfter *)p;
+    free(p);
+    vTaskDelay(a.ticks);
+    if (g_stream_gen[a.id] == a.gen && g_stream[a.id].on) {
+        g_stream[a.id].on = false;
+        stream_headers(a.c, a.id);
+    }
+    vTaskDelete(NULL);
+}
+
+static int start_stream(CoreCtx *c, int id, const char *dest, uint32_t stop_after, OpOut &o)
+{
+    int rc = stream_start(c, id, dest, o);
+    if (rc != OPE_OK) {
+        return rc;
+    }
+    uint32_t gen = ++g_stream_gen[id];
+    if (stop_after) {
+        StopAfter *a = (StopAfter *)malloc(sizeof(StopAfter));
+        if (a) {
+            *a = StopAfter{ c, id, gen, stop_after };
+            if (xTaskCreate(stop_after_task, "StreamStop", configMINIMAL_STACK_SIZE, a, PRIO_NETSERVICE, NULL) != pdPASS) {
+                free(a);
+            }
+        }
+    }
+    return OPE_OK;
+}
+static int op_stream_start(CoreCtx *c, const OpArgs &a, OpOut &o) { return start_stream(c, a.i(0), 0, 0, o); }
+static int op_stream_start_to(CoreCtx *c, const OpArgs &a, OpOut &o) { return start_stream(c, a.i(0), a.s(1), (uint32_t)a.i(2), o); }
 static int op_stream_stop(CoreCtx *c, const OpArgs &a, OpOut &o)
 {
+    g_stream_gen[a.i(0)]++;
     g_stream[a.i(0)].on = false;
     stream_headers(c, a.i(0));
     snprintf(o.msg, o.msglen, "Stream stopped");
@@ -293,9 +337,15 @@ static const char *st_stream1_off(CoreCtx *) { return g_stream[1].on ? 0 : "yes"
 static const char *st_stream2_off(CoreCtx *) { return g_stream[2].on ? 0 : "yes"; }
 
 static const ArgSpec stream_arg[] = { ARG_INT("id", 0, 2) };
+static const ArgSpec stream_to_args[] = { ARG_INT("id", 0, 2), ARG_STRING("dest", 36), ARG_INT("stop_after", 0, 65535) };
 static const ArgSpec value_arg[] = { ARG_INT("value", -2000, 2000) };
 
 static const char *st_net_static(CoreCtx *c) { return cfg_value(c, "Use DHCP", 1) ? 0 : "yes"; }
+// T228 R21, FW NetworkConfig::list_unique_id_choices (network_config.cc:60-67): the empty text (no ID is reported) and "Default" (the product's
+// ID, api/routes.cc:218-223); the list ends with "Enter manually" (menuctl)
+static const char *st_unique_ids(CoreCtx *) { return "\tNot set\nDefault\n"; }
+static const char *st_pw_scope(CoreCtx *) { return "FTP, web remote control (X-Password header), Ultimate DMA service (TCP 64: authenticate first)"; }   // what net_password guards in this application; ident only reports that
+
 void netops_register(OpRegistry &r)
 {
     r.contributor("net");
@@ -310,8 +360,11 @@ void netops_register(OpRegistry &r)
     r.add_state("wifi.onoff", st_wifi_onoff);
     r.add_state("wifi.line", st_wifi_line);
     r.add_state("net.static", st_net_static);
+    r.add_state("net.pw_scope", st_pw_scope);
+    r.add_state("net.unique_ids", st_unique_ids);
     r.add_op("stream.start", stream_arg, 1, op_stream_start);
     r.add_op("stream.stop", stream_arg, 1, op_stream_stop);
+    r.add_op("stream.start_to", stream_to_args, 3, op_stream_start_to);       // the Ultimate DMA service's start commands (dmasvc.cc)
     r.add_state("stream.vic", st_stream0);
     r.add_state("stream.audio", st_stream1);
     r.add_state("stream.debug", st_stream2);

@@ -15,6 +15,7 @@
 #include "menuintent.h"
 #include "menuflows.h"
 #include "menuvlist.h"
+#include "picklist.h"
 #include "filemgr.h"
 #include "hotkeys.h"
 
@@ -44,6 +45,7 @@ public:
     void note_scroll(int first) { scroll_ = first; }
     int scroll_first() const { return scroll_; }
     uint32_t scroll_rev() const { return scroll_rev_; }
+    int nav_fold(int k) const;                                     // T228 R21: FW userinterface.cc keymapper - with the setting "Navigation Style" = WASD Cursors W A S D are the cursors and a capital letter is its small one
     Result key(int k);                                             // the shim of the key table: resolve(k), then apply
     // T192.3 S6, D23: every producer enters as an intent. resolve: key -> intent through the table (nothing runs); apply: the intent runs (a row that declines hands the key on);
     // apply_named: a remote intent by name ("area" 5, "tab" 2, "move" -1, "back", "return" ...).
@@ -112,7 +114,10 @@ public:
     void set_app_mode(bool on) { app_mode_ = on; }
     bool app_mode() const { return app_mode_; }
     bool goto_spec(const char *spec);                              // "F3", "F5/drives", "APP/flash": an area, an area and a tab
-    void app_start();                                              // runs the open tab's `enter` operation (an application's screens)
+    bool take_prompt();                                            // T228 R21: an operation asked something (CoreCtx::want_prompt): the text prompt or the pick list is up; true: it is
+    bool take_screen();                                            // T228 R1: the screen an operation asked for (CoreCtx::want_screen, menu.screen) is shown; true: moved
+    bool screen_way(const char *layout, char *out, int n) const;   // T228 R1: how the screen of that layout is opened (the keys help); false: none here
+    void app_start();                                             // runs the open tab's `enter` operation (an application's screens)
     bool take_close_request() { bool r = close_req_; close_req_ = false; return r; }   // the application asked for its screens to close (follow = "close")
     bool follow_tick();                                            // the application asked for another tab through the first tab's `follow` state; true: moved
     bool locked(char *why, int n) const;                           // the open tab's `lock` state holds a reason: RUN/STOP does not close the screens now
@@ -259,7 +264,7 @@ private:
     void begin_pick_file(int idx);                                 // T185 D4: the file selector of a setting of kind 3 (folders and files, "no file" on top)
     void begin_set_save();                                         // T180 D5: the name prompt of "Save media set..."
     void begin_set_load();                                         // T180 D5: the list of the sets of "Load media set..."
-    void begin_pick_modes();                                       // T187 D5: the Picture row's page - the modes the screen names; browsing applies nothing
+    void begin_pick_modes();                                       // T187 D5: the Picture row's page - the modes (T235: every row at 50 and 60 Hz, the screen's marked); browsing applies nothing
     void pick_modes_refresh(bool keep_cursor);
     bool picture_row(const MenuEntry &e) const;                    // the entry is the Picture setting (RETURN opens the page; LEFT / RIGHT do nothing)
     void pick_status();
@@ -269,7 +274,7 @@ private:
     bool pick_key(int k, Result *out);
     Result pick_take(const char *path);                            // T185 D4: the selector chose this file (or "" for none) for setting pick_set_
     const char *setting_label(int idx) const { const Setting &s = c_->desc->settings[idx]; return s.label ? s.label : s.key; }
-    Result start_job(const Task &t, const char *name);
+    Result start_job(const Task &t, const char *name, bool bare = false);
     void job_text(char *left, int ln, char *right, int rn, char *sub, int sn) const;
     const FileAction *chooser_action(int i) const { return &chooser_acts_[i]; }
     Result start_action(const FileAction &a, const char *file);
@@ -298,6 +303,11 @@ private:
     int sel_[MENU_AREAS_MAX][MENU_TABS_MAX];
     int first_[MENU_AREAS_MAX][MENU_TABS_MAX];                      // the first row of the window each tab last showed
     void unheading();                                               // the selection is not on a heading
+    void build_tree();                                              // menu_build_for, then the rows a flat list leaves out (a hide node, a show_state setting that is off)
+    uint32_t show_sig() const;                                      // which show_state settings hold now
+    void sync_show();                                               // a show_state flipped: the tree is made again and the selection keeps its row
+    const char *setting_lock(const Setting &s) const;               // T228 R21: the text of the state that locks a setting row (Setting::lock_state), null: not locked
+    uint32_t show_sig_ = 0;
     int last_tab_[MENU_AREAS_MAX];                                  // the tab an area was left on: its key comes back to it
     char status_[200];
     static const uint32_t TOAST_MS = 2000;                          // how long a toast stays
@@ -318,7 +328,10 @@ private:
     bool search_edit_;
     uint32_t last_relist_ = 0, last_live_ = 0;                     // the pump: when the folder was last read again, when a live register was last shown
     // a copy of the file type's actions plus the ones every file has (view, copy, move, rename, delete, favourite)
-    FileAction chooser_buf_[40];
+    enum { CHOOSER_MAX = 300 };                                    // T228 R21: a tune with up to 256 songs lists them all, as FW's action list does
+    FileAction chooser_buf_[CHOOSER_MAX];
+    char chooser_lbl_[CHOOSER_MAX][16];                            // the label of a repeated entry ("Play Song 12")
+    int repeat_count(const FileAction &a, const char *file);
     bool folder_sheet_;
     int drive_slot_ = -1;                                          // T212 D5: the media slot whose list (the "drive" page) is open
     int mount_slot_ = -1;                                          // ... whose Library mount is under way: the Library lists its types, RETURN on a file mounts it there
@@ -356,6 +369,25 @@ private:
     // T180 D5: the name of a media set being typed (entry_ is up), and the list of the sets (pick_ is up, the rows are the sets, no "Create here")
     bool entry_mset_;
     bool pick_sets_;
+    // T228 R21: a pick list made at run time (picklist.h): pick_ is up, pl_ holds the rows, pick_sel_ is the cursor. The rows are re-read from the state pl_src_ while it is up
+    // (a scan that finishes). RETURN on a choice: a setting (pl_set_ >= 0) takes the value as its text, else the operation pl_op_ is called with the phase and the value.
+    bool pick_dyn_ = false;
+    PickRows pl_;
+    char pl_src_[40] = "", pl_title_[80] = "", pl_op_[40] = "";
+    int pl_phase_ = 0, pl_set_ = -1;
+    uint32_t pl_last_ = 0;
+    void begin_pick_list(const char *title, const char *src, const char *op, int phase, int setting);
+    bool pick_list_refresh();                                      // reads the rows again; true: they changed
+    Result pick_list_take();
+    // T228 R21, FW config_menu.h:118-125: the drop-down of a setting ends with "Enter Manually" (the text editor of the same setting); an operation's list has no such row
+    bool pick_manual() const { return pick_dyn_ && pl_set_ >= 0; }
+    int pick_dyn_rows() const { return pick_manual() ? pl_.n + 1 : (pl_.n ? pl_.n : 1); }
+    // T228 R21: the text prompt of an operation (ops_ask_text): RETURN calls the operation again with the text
+    bool prompt_ = false, prompt_secret_ = false;
+    char prompt_op_[40] = "", prompt_q_[80] = "";
+    int prompt_phase_ = 0;
+    void begin_prompt(const char *op, int phase, const char *q, int maxlen, bool secret);
+    Result prompt_done(const char *answer);
     bool pick_modes_ = false;                                       // T187 D5: pick_ is the page of the screen's modes (pm_ holds the rows; pick_sel_ is the cursor)
     PictureModes pm_;
     char sets_[CONFIGS_MAX][CONFIG_NAME_MAX + 1];
@@ -370,7 +402,7 @@ private:
     int pick_n_, pick_sel_;
     bool pick_ok_;
     // the job of a Create task: stepped by tick(), one chunk at a time
-    bool busy_, job_started_;
+    bool busy_, job_started_, job_bare_;
     bool app_mode_;
     char follow_last_[40];
     bool close_req_;

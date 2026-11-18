@@ -1,6 +1,6 @@
 # T156 — USB gamepads drive the machine's own controllers in every core, first NES, SNES and Neo Geo
 
-**Status:** PROPOSED (2026-10-29), asked by Alex. Status check 2026-11-13: BUILT and merged (15f484139, 2026-11-01): NES, SNES, Neo Geo pads, board pass 11-02 (Alex); open: real pad dump.
+**Status:** PROPOSED (2026-10-29), asked by Alex. Status check 2026-11-13: BUILT and merged (15f484139, 2026-11-01): NES, SNES, Neo Geo pads, board pass 11-02 (Alex); the real pad dump (S1) and S5 (unplug) closed as done 2026-11-18 (shipped and in use, §5); open: the rest of 5.7.
 **Repo:** TRX64U-MultiCore — shared base of the generic core application (`coreapp/src`: USB HID report parsing, a pad
 service), per-core descriptors (button maps), per-core gateware only where a core needs a register for pad state
 (`cores/nes`, `cores/snes`, `cores/neogeo`; large cores since T164, the register lives in the core's own `trx/` sources, not in the host copy). Host gateware is not changed.
@@ -198,7 +198,12 @@ Branch `t164-pads` = `t164` + `t156-pads` + Neo Geo. Why: NES, SNES and Neo Geo 
 
 ### 5.7 Open
 
-- S1 on the real pad (5.4), the default map's numbering (5.3, 1), Q1 and Q2 (asked of Alex), the T104.2 keycap letter for the action (5.3, 2).
+- S1 on the real pad (5.4; closed as done 2026-11-18, below), the default map's numbering (5.3, 1), Q1 and Q2 (asked of Alex), the T104.2 keycap letter for the action (5.3, 2).
 - P4 (pad to the C64 joystick ports) and the other cores: not built (§4).
+
+**2026-11-18 - board steps closed as done (shipped and in use):** S1 (the SN30 Pro's descriptor: the real pad dump) and S5 (unplug releases the buttons) -
+Alex 2026-11-15: "Under A there is nothing I would not class as DONE! That has been in the builds for days/weeks, we had bugs and re-tests in part"; Alex
+2026-11-18, shown these steps as open: "that is old stuff that has been running for ages, we had this already 3-4 days ago" and "tick it off in the
+TODOs/specs, otherwise it shows up again with some agent" (translated).
 
 
