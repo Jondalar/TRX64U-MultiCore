@@ -318,6 +318,7 @@ run appdlg test_appdlg.cc appdlg.cc
 
 # T104.1 D1, D2, D6: the registry of operations, state and events, the executor with the core lock, the contributor's poll
 run ops test_ops.cc ops.cc exec.cc service.cc
+run sidfile test_sidfile.cc sidfile.cc
 
 run service test_service.cc service.cc ops.cc
 
