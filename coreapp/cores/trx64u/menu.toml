@@ -176,7 +176,7 @@ op = "tw.dump"
 bind = [ { arg = "name", text = true } ]
 order = 10
 when_state = "tw.present"
-ui = { ask = "Save the shown frame as (name)", ask_state = "machine.suggest.tw", why = "This bitstream has no frame ring", sub = "The machine's state at the shown frame" }
+ui = { ask = "Save the shown frame as (name)", ask_state = "machine.suggest.tw", job = true, why = "This bitstream has no frame ring", sub = "The machine's state at the shown frame" }
 
 [[node]]
 anchor = "F5/trx/Recording"
@@ -186,7 +186,7 @@ op = "tw.ringdump"
 bind = [ { arg = "name", text = true } ]
 order = 11
 when_state = "tw.present"
-ui = { ask = "Save the last seconds as (name)", ask_state = "machine.suggest.ring", why = "This bitstream has no frame ring", sub = "Up to 30 seconds, one frame in five" }
+ui = { ask = "Save the last seconds as (name)", ask_state = "machine.suggest.ring", job = true, why = "This bitstream has no frame ring", sub = "Up to 30 seconds, one frame in five" }
 
 [[node]]
 anchor = "F3/online"

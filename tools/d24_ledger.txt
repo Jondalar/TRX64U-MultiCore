@@ -3,7 +3,7 @@
 #   exception <file> +<lines> <spec ref> (<decision of Alex>)
 exception coreapp/src/u64cfg.cc +683 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
 exception coreapp/cores/trx64u/menu.toml +1270 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
-exception coreapp/cores/trx64u/menu_rec.inc +2489 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
+exception coreapp/cores/trx64u/menu_rec.inc +2490 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
 file coreapp/cores/6502/xexboot.asm 161
 file coreapp/cores/6502/xexboot_bin.h 26
 file coreapp/cores/amiga.cc 345
@@ -188,7 +188,7 @@ ids uicore/uic_svc.cc null 1
 # board PASS); portdiag_tests.inc (2236 lines of embedded core data) is gone, the tests ride in diag.cor record 8. t217-go64 merged (7e680157d): its four exceptions folded in, measured the same (+45).
 exception coreapp/src/ring.cc +240 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
 exception coreapp/src/ringfile.cc +1364 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
-exception coreapp/src/ringops.cc +130 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
+exception coreapp/src/ringops.cc +195 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
 exception coreapp/src/trx_c64re.h +31 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
 exception coreapp/src/trx_ring.h +19 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
 exception coreapp/cores/c64.cc +78 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")

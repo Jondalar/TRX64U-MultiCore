@@ -10,6 +10,8 @@
 #include "cbm1541.h"
 #include "d1541_drive.h"
 #include "filemanager.h"
+#include "FreeRTOS.h"
+#include "task.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -243,43 +245,132 @@ static void dump_progress(int done, int total, void *ctx)
     }
 }
 
-static int op_dump(CoreCtx *c, const OpArgs &a, OpOut &o)
-{
-    char p[260];
-    if (!trx_target_path(c, a.s(0), ".c64re", p, sizeof(p))) {
-        snprintf(o.msg, o.msglen, "No medium to save to");
-        return OPE_FAILED;
-    }
-    // T228 R20/R21: what the file says of the machine, as FW's trx_c64re_dump has it: the System Mode, the cartridge image as it stands in DDR2 (streamed
-    // into the file), the GMod2's EEPROM, the image on drive A and whether drive A is powered (its CPU and VIA state go into the file), the REU setting
+// FW shows the progress box while trx_c64re_dump_ex writes (trx_timewarp_ui.cc:361-376); the menu draws a progress only for an operation that answers `more` and is called
+// again (CoreCtx::job_step, newdisk.cc is the pattern), so with job_step the write runs on a task of its own and the operation answers `more` until it is done, the share
+// written going into CoreCtx::job_pct. Without job_step (REST, a hotkey) the write runs on the caller as before.
+struct DumpJob {
+    volatile int state;                         // 0 idle, 1 the task writes, 2 it is done (result in why / bytes / entries)
+    CoreCtx *c;
+    bool ring;                                  // .c64rering (the last seconds) instead of one frame
+    int idx;
+    int secs;
+    char path[260];
+    uint32_t bytes;
+    int entries;
+    const char *why;
     TrxC64reSrc src;
-    memset(&src, 0, sizeof(src));
-    src_fill(c, &src);
-    static uint8_t eeprom[2048];
+    uint8_t eeprom[2048];
+};
+static DumpJob g_dj;
+
+static void dump_run(DumpJob *j)
+{
+    if (j->ring) {
+        j->why = trx_c64rering_dump_ex(j->path, j->secs, 5, &j->bytes, &j->entries, dump_progress, j->c);
+        return;
+    }
+    trx_c64re_set_source(&j->src);
+    j->why = trx_c64re_dump_ex(j->path, j->idx, &j->bytes, dump_progress, j->c);
+    trx_c64re_set_source(NULL);
+}
+
+static void dump_task(void *arg)
+{
+    DumpJob *j = (DumpJob *)arg;
+    dump_run(j);
+    __asm__ volatile ("fence" ::: "memory");
+    j->state = 2;
+    vTaskDelete(NULL);
+}
+
+// T228 R20/R21: what the file says of the machine, as FW's trx_c64re_dump has it: the System Mode, the cartridge image as it stands in DDR2 (streamed into the file), the
+// GMod2's EEPROM, the image on drive A and whether drive A is powered (its CPU and VIA state go into the file), the REU setting
+static void dump_prepare(CoreCtx *c, DumpJob *j)
+{
+    memset(&j->src, 0, sizeof(j->src));
+    src_fill(c, &j->src);
     if (c64_cart_active()) {
-        src.rom_bytes = c64_cart_image_bytes();
-        src.rom_read = rom_read;
-        src.rom_ctx = c;
-        src.cart_name = c64_cart_name();
-        src.cart_src = c64_cart_path();
-        src.cart_type = c64_cart_crt_type();
-        if (src.cart_type == 60) {                      // GMod2: the saved game is in the 93C86, outside the ROM window (io.h: the array is at +2048)
-            c->io->eeprom_read(2048, eeprom, sizeof(eeprom));
-            src.eeprom = eeprom;
+        j->src.rom_bytes = c64_cart_image_bytes();
+        j->src.rom_read = rom_read;
+        j->src.rom_ctx = c;
+        j->src.cart_name = c64_cart_name();
+        j->src.cart_src = c64_cart_path();
+        j->src.cart_type = c64_cart_crt_type();
+        if (j->src.cart_type == 60) {                   // GMod2: the saved game is in the 93C86, outside the ROM window (io.h: the array is at +2048)
+            c->io->eeprom_read(2048, j->eeprom, sizeof(j->eeprom));
+            j->src.eeprom = j->eeprom;
         }
     }
-    trx_c64re_set_source(&src);
-    uint32_t bytes = 0;
-    const char *why = trx_c64re_dump_ex(p, shown(), &bytes, dump_progress, c);
-    c->job_pct = 0;
-    trx_c64re_set_source(NULL);
-    if (why) {
-        snprintf(o.msg, o.msglen, "%s", why);
+}
+
+static int dump_op(CoreCtx *c, const OpArgs &a, OpOut &o, bool ring)
+{
+    DumpJob *j = &g_dj;
+    o.more = false;
+    if (j->state == 1 && !c->job_step) {
+        snprintf(o.msg, o.msglen, "A save is still being written");
         return OPE_FAILED;
     }
-    snprintf(o.msg, o.msglen, "Saved %s (%u KB)", p, (unsigned)((bytes + 1023) >> 10));
+    if (j->state == 0) {
+        if (!trx_target_path(c, a.s(0), ring ? ".c64rering" : ".c64re", j->path, sizeof(j->path))) {
+            snprintf(o.msg, o.msglen, "No medium to save to");
+            return OPE_FAILED;
+        }
+        j->c = c;
+        j->ring = ring;
+        j->idx = shown();
+        j->secs = 1;
+        j->bytes = 0;
+        j->entries = 0;
+        j->why = NULL;
+        if (ring) {
+            int fps = trx_ring_fps() ? trx_ring_fps() : 50;
+            j->secs = trx_ring_count() / fps;
+            j->secs = j->secs < 1 ? 1 : (j->secs > 30 ? 30 : j->secs);
+        } else {
+            dump_prepare(c, j);
+        }
+        if (c->job_step) {
+            c->job_pct = 0;
+            snprintf(c->job_path, sizeof(c->job_path), "%s", j->path);
+            j->state = 1;
+            if (xTaskCreate(dump_task, "Ring dump", 12 * configMINIMAL_STACK_SIZE, j, tskIDLE_PRIORITY + 1, NULL) == pdPASS) {
+                o.more = true;
+                return OPE_OK;
+            }
+            j->state = 0;                               // no task: write on the caller, without the bar
+        }
+        dump_run(j);
+        j->state = 2;
+    }
+    if (j->state == 1) {                                // the task writes: the share it has written is in job_pct
+        o.more = true;
+        return OPE_OK;
+    }
+    j->state = 0;
+    c->job_pct = 0;
+    c->job_path[0] = 0;
+    if (c->job_cancel) {                                // FW's write cannot be stopped half way: it ran to its end, the file goes
+        c->job_cancel = false;
+        if (!j->why) {
+            FileManager::getFileManager()->delete_file(j->path);
+        }
+        snprintf(o.msg, o.msglen, "Cancelled: nothing was written.");
+        return OPE_OK;
+    }
+    if (j->why) {
+        snprintf(o.msg, o.msglen, "%s", j->why);
+        return OPE_FAILED;
+    }
+    if (ring) {
+        snprintf(o.msg, o.msglen, "Saved %s: %d entries, %u KB", j->path, j->entries, (unsigned)((j->bytes + 1023) >> 10));
+    } else {
+        snprintf(o.msg, o.msglen, "Saved %s (%u KB)", j->path, (unsigned)((j->bytes + 1023) >> 10));
+    }
     return OPE_OK;
 }
+
+static int op_dump(CoreCtx *c, const OpArgs &a, OpOut &o) { return dump_op(c, a, o, false); }
 
 // "Save .C64RE Dump" (FW apps/c64re/manifest.json, category "C64 Machine"): the machine as it stands, no ring needed; the media that are in it go inside
 static int op_c64re_dump(CoreCtx *c, const OpArgs &a, OpOut &o)
@@ -309,25 +400,7 @@ static int op_c64re_dump(CoreCtx *c, const OpArgs &a, OpOut &o)
 
 static const char *st_suggest_c64re(CoreCtx *) { return "c64re"; }
 
-static int op_ringdump(CoreCtx *c, const OpArgs &a, OpOut &o)
-{
-    char p[260];
-    if (!trx_target_path(c, a.s(0), ".c64rering", p, sizeof(p))) {
-        snprintf(o.msg, o.msglen, "No medium to save to");
-        return OPE_FAILED;
-    }
-    uint32_t bytes = 0;
-    int entries = 0;
-    int secs = trx_ring_count() / (trx_ring_fps() ? trx_ring_fps() : 50);
-    secs = secs < 1 ? 1 : (secs > 30 ? 30 : secs);
-    const char *why = trx_c64rering_dump(p, secs, 5, &bytes, &entries);
-    if (why) {
-        snprintf(o.msg, o.msglen, "%s", why);
-        return OPE_FAILED;
-    }
-    snprintf(o.msg, o.msglen, "Saved %s: %d entries, %u KB", p, entries, (unsigned)((bytes + 1023) >> 10));
-    return OPE_OK;
-}
+static int op_ringdump(CoreCtx *c, const OpArgs &a, OpOut &o) { return dump_op(c, a, o, true); }
 
 static int op_load(CoreCtx *c, const OpArgs &a, OpOut &o)
 {
