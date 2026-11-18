@@ -378,6 +378,11 @@ Alex 2026-11-17 (translated): "I want you to apply the generic APP 100 % to the 
   stays as it is"). The build links the core app once per core, each image with its own core's code only (the objects are compiled once);
   each .cor gets its own image. trx64u gets a heap sized for its image; every other core keeps 0x7A0000. Tests, the menu simulator and
   the emulator keep the image with every core. The code stays generic (D24): only the link differs per core.
+  Built (t228-int d828d48c4): the mechanism links an image of its own for any core (core app Makefile target `own`, ci/trxapps.sh
+  OWN_IMAGES); used for trx64u (coreapp_trx64u: its core only, heap 0x950000). Every other core keeps the shared image, which leaves trx64u
+  out and keeps 0x7A0000. Measured: shared image 486 KB free in the RAM region, trx64u 312 KB (start-up stack and growth); both app
+  files fit the boot slot (1,763,388 and 1,755,620 of 1,966,068 bytes). Native tests and the menu simulator keep every core; the
+  emulator runs trx64u on its own image.
 - R1-R9 replace the earlier decisions of this spec where they differ (D3, D7, D8, D13, D16, D18 and the S2 choices DC1-DC14); branch t228-s2 stays unmerged. The proposal is rendered on branch t228-mock (render bench `mock_shots()`), shown as a click dummy on the concept page.
 
 ### Decisions during S2 (decided by Claude on Alex's delegation 2026-11-16 night; Alex can overturn each at S2b)
