@@ -87,6 +87,7 @@ static const RomSpec roms[4] = {
 // ---- control -------------------------------------------------------------------------------------------------------------
 // C64_MODE: 0x04 holds the machine in reset, 0x08 lets it go (ultimate_sys.vhd). The KERNAL's own reset sets $00/$01.
 static void clear_job(CoreCtx *c);
+static void forget_program(CoreCtx *c);
 
 static int c64_init(CoreCtx *c, char *, int)
 {
@@ -96,6 +97,7 @@ static int c64_init(CoreCtx *c, char *, int)
         ((CbmDrive *)c->drive)->reset(m, sizeof(m));                // "Resets when C64 resets": the 1541 starts again with the machine
     }
     clear_job(c);                                               // a reset ends a program that was still waiting for READY
+    forget_program(c);                                          // T228 R20 1/7: and the machine that comes up has run no program
     return 0;
 }
 
@@ -168,6 +170,11 @@ static C64State *c64_state(CoreCtx *c)
         memset(c->state, 0, sizeof(C64State));
     }
     return (C64State *)c->state;
+}
+static void forget_program(CoreCtx *c)
+{
+    c64_state(c)->program[0] = 0;
+    c64_state(c)->program_path[0] = 0;
 }
 
 static void clear_job(CoreCtx *c)

@@ -4,6 +4,7 @@ op	app.open	app:string:0:0:15:	action:string:0:0:31:	file:string:0:0:519:
 op	machine.warm_reset
 op	machine.cold_reset
 op	machine.reload_roms
+op	machine.after_roms
 op	machine.restart
 op	window.mount	path:path:0:0:519:	slot:int:0:3:0:
 op	window.eject	slot:int:0:3:0:
@@ -94,6 +95,7 @@ op	drive.save	slot:slot:0:0:31:	path:string:0:0:255:	format:enum:0:1:0:d64|g64
 op	drive.create	path:string:0:0:255:	format:enum:0:2:0:d64|g64|d81	name:string:0:0:24:
 op	drive.reset	slot:slot:0:0:31:
 op	drive.set_rom	slot:slot:0:0:31:	path:path:0:0:519:
+op	drive.set_rom_store	path:path:0:0:519:
 op	drive.mount_run	slot:slot:0:0:31:	path:path:0:0:519:
 op	drive.mount_run_file	slot:slot:0:0:31:	path:path:0:0:519:	how:enum:0:1:0:dma|load
 op	drive.put_rom	data:blob:0:0:0:

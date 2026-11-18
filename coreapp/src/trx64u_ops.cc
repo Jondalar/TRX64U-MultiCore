@@ -102,10 +102,12 @@ static void fast_reset(CoreCtx *c)
 }
 
 static int reu_load(CoreCtx *c, const char *path, char *msg, int msglen);
+#define TRX_SLOT_CTRL 0x7000                                       // TRX_IO_BASE + 0x7000 = 0x101A7000
 
 static int fx_io(CoreCtx *c, const OpArgs &, OpOut &)
 {
     CoreIo *io = c->io;
+    io->wr(TRX_SLOT_CTRL, 2);                                                        // T228 R20 29: CPU writes reach a real cartridge (TRX-Ultimate trx_cart.cc:364-406 keeps it at 2)
     io->bus_wr(0x2A, bus_mode_values[cfg_value(c, "Bus Operation Mode", 0)]);        // C64_BUS_BRIDGE
     bool cart = c64_cart_active();
     if (!cart) {
@@ -248,8 +250,16 @@ static int load_rom(CoreCtx *c, const char *key, const char *put_op, uint32_t si
     return 0;
 }
 
+// the chosen file goes in; an empty choice puts the built-in file back (not at the start: the boot has put it)
+static bool roms_after_reload;
 static int fx_roms(CoreCtx *c, const OpArgs &, OpOut &o)
 {
+    static const struct { const char *key, *put_op; } roles[3] = { { "Kernal ROM", "c64.put_kernal" }, { "Basic ROM", "c64.put_basic" }, { "Char ROM", "c64.put_char" } };
+    for (int i = 0; i < 3 && c->started && !roms_after_reload; i++) {
+        if (!cfg_text(c, roles[i].key)[0] && boot_put_builtin_rom(c, roles[i].put_op, o.msg, o.msglen)) {
+            return OPE_FAILED;
+        }
+    }
     if (load_rom(c, "Kernal ROM", "c64.put_kernal", C64_KERNAL_BYTES, o.msg, o.msglen) ||
         load_rom(c, "Basic ROM", "c64.put_basic", C64_BASIC_BYTES, o.msg, o.msglen) ||
         load_rom(c, "Char ROM", "c64.put_char", C64_CHAR_BYTES, o.msg, o.msglen)) {
@@ -306,8 +316,16 @@ static int fx_drive_misc(CoreCtx *c, const OpArgs &, OpOut &o)
     }
     d->set_twist(cfg_value(c, "Track Twist", 27));
     d->set_align(cfg_value(c, "GCR Save Align Tracks", 1) != 0);
+    d->set_reset_with_c64(cfg_value(c, "Resets when C64 resets", 1) != 0);
     const char *rom = cfg_text(c, "ROM for 1541 mode");
-    if (rom[0] && strcasecmp(rom, "1541.rom")) {                    // another file than the standard one
+    static char last_rom[64];                                       // the choice the drive has now; a change is applied at once, the other settings leave the ROM alone
+    bool changed = strncmp(last_rom, rom, sizeof(last_rom) - 1) != 0;
+    snprintf(last_rom, sizeof(last_rom), "%s", rom);
+    if (changed && c->started && (!rom[0] || !strcasecmp(rom, "1541.rom"))) {      // back to the standard ROM
+        if (boot_put_builtin_rom(c, "drive.put_rom", o.msg, o.msglen)) {
+            return OPE_FAILED;
+        }
+    } else if (rom[0] && strcasecmp(rom, "1541.rom") && (changed || roms_after_reload)) {      // another file than the standard one
         char path[200];
         snprintf(path, sizeof(path), "%s%s", rom[0] == '/' ? "" : "/flash/roms/", rom);
         OpIn in[2] = { in_str("slot", "iec:drive_a"), in_str("path", path) };
@@ -317,6 +335,59 @@ static int fx_drive_misc(CoreCtx *c, const OpArgs &, OpOut &o)
             return OPE_FAILED;
         }
     }
+    return OPE_OK;
+}
+
+// "Reload ROMs": after the built-in files went in, the files chosen in F5 > C64 and the drive ROM go over them again
+static int op_after_roms(CoreCtx *c, const OpArgs &, OpOut &o)
+{
+    roms_after_reload = true;
+    OpArgs none;
+    memset(&none, 0, sizeof(none));
+    int rc = fx_roms(c, none, o);
+    if (rc == OPE_OK) {
+        rc = fx_drive_misc(c, none, o);
+    }
+    roms_after_reload = false;
+    return rc;
+}
+
+// F3 on a .rom: "Set as 1541 ROM" - the file is copied to /flash/roms and its name stored in "ROM for 1541 mode" (TRX-Ultimate filetype_bin.cc:208-215, c1541.cc:1208-1214).
+// Needs /flash writable for the app (fsif.h, lifted in another step); without it the file's own path is stored and the message says so.
+static int op_set_rom_store(CoreCtx *c, const OpArgs &a, OpOut &o)
+{
+    const char *src = a.s(0);
+    const char *base = strrchr(src, '/');
+    base = base ? base + 1 : src;
+    char dst[200];
+    snprintf(dst, sizeof(dst), "/flash/roms/%s", base);
+    const char *store = base;
+    const char *note = "";
+    if (strcmp(src, dst)) {
+        static uint8_t buf[DRIVE_ROM_BYTES];
+        int n = c->fs->load(src, buf, sizeof(buf));
+        if (n != 16384 && n != 32768) {
+            snprintf(o.msg, o.msglen, "%s: a drive ROM is 16 or 32 KB", src);
+            return OPE_FAILED;
+        }
+        c->fs->mkdir("/flash/roms");
+        if (!c->fs->save(dst, buf, (uint32_t)n)) {
+            store = src;
+            note = " (not copied to /flash/roms)";
+        }
+    }
+    OpIn in[2] = { in_str("key", "ROM for 1541 mode"), in_str("value", store) };
+    OpResult r;
+    if (ops_call(c, "settings.set", in, 2, &r)) {
+        snprintf(o.msg, o.msglen, "%s", r.msg);
+        return OPE_FAILED;
+    }
+    OpIn d[2] = { in_str("slot", "iec:drive_a"), in_str("path", store == base ? dst : src) };
+    if (ops_call(c, "drive.set_rom", d, 2, &r)) {
+        snprintf(o.msg, o.msglen, "%s", r.msg);
+        return OPE_FAILED;
+    }
+    snprintf(o.msg, o.msglen, "%s is the ROM for 1541 mode%s", base, note);
     return OPE_OK;
 }
 
@@ -578,7 +649,7 @@ static const char *state_suggest_ring(CoreCtx *) { return "ring"; }
 
 // ---- states ----------------------------------------------------------------------------------------------------------------------------------------
 // the rows of the REU (size, preload) are listed while the expansion is not Disabled
-static const char *state_reu_on(CoreCtx *c) { return cfg_value(c, "RAM Expansion Unit", 0) != 0 ? "yes" : 0; }
+static const char *state_reu_on(CoreCtx *c) { return cfg_value(c, "RAM Expansion Unit", 0) == 1 && !c64_cart_active() ? "yes" : 0; }   // T228 R20 2: the REU is there only as the REU (not GeoRAM) and while no cartridge has the port
 static const char *state_cartridge(CoreCtx *) { return c64_cart_active() ? c64_cart_name() : 0; }
 static const char *state_cartridge_path(CoreCtx *) { return c64_cart_active() ? c64_cart_path() : 0; }
 
@@ -598,6 +669,8 @@ void trx64u_register(OpRegistry &r)
     r.add_op("reu.preload", path_arg, 1, op_reu_preload);
     r.add_op("drive.insert_blank", 0, 0, op_insert_blank);
     r.add_op("drive.swap", 0, 0, op_swap);
+    r.add_op("machine.after_roms", 0, 0, op_after_roms);
+    r.add_op("drive.set_rom_store", path_arg, 1, op_set_rom_store);
     r.add_op("drive.unlink", 0, 0, op_unlink);
     r.add_state("reu.on", state_reu_on);
     r.add_state("c64.cartridge", state_cartridge);

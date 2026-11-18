@@ -81,6 +81,7 @@ public:
     void set_swap_delay(int hundred_ms);                      // 1 .. 10
     void set_twist(int hundreds) { twist_ = hundreds * 100; }  // "Track Twist" 0 .. 40 (x 100), used by the next D64 mount
     void set_align(bool on) { align_ = on; }                   // "GCR Save Align Tracks": a G64 is written with every track starting at sector 0
+    void set_reset_with_c64(bool on);                          // "Reset drive with C64": b1 of DR_RESET (c1541.cc:337-349 of TRX-Ultimate)
     int swap_delay_ms() const { return swap_ms_; }
     // T104 5.14: the core's partial bitstream was loaded again, so the drive's registers are at their configuration values. Writes what this
     // object knows (type, address, RAM map, the disk in the drive, power) into them. Nothing when the drive was never attached.
@@ -120,6 +121,7 @@ private:
     int swap_ms_;
     int twist_ = 2700;
     bool align_ = true;
+    bool reset_with_c64_ = true;
     uint8_t rom_[3][DRIVE_ROM_BYTES];
     bool rom_have_[3];
 

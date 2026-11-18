@@ -183,3 +183,6 @@ ids uicore/uic_svc.cc null 1
 # instruction to build the gate (T213 D4); delete each line when its branch is merged and the file lines above are raised by the same amount, or when the code moved out.
 # followup-1116 merged into main 2026-11-16 (449e1148a): its four exceptions folded into the file lines above (T175 menu_input + T196 S7 xpad test,
 # board PASS); portdiag_tests.inc (2236 lines of embedded core data) is gone, the tests ride in diag.cor record 8. t217-go64 merged (7e680157d): its four exceptions folded in, measured the same (+45).
+exception coreapp/cores/c64.cc +7 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
+exception coreapp/cores/c64_cart.cc +6 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
+exception coreapp/src/trx64u_ops.cc +67 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
