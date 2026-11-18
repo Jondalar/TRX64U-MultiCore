@@ -134,6 +134,15 @@ The first tag runs of this pipeline (2446, 2449) went red: the CI tier's tests a
 ci/test_plan.sh, tools/test_pack_import_cor.sh, ci/test_layers_flow.sh) took the tag run's GITHUB_REF_TYPE=tag into the branch
 scenarios they build themselves; they now unset the CI ref variables. tools/test_descrec.py expected the title-case labels of before
 T228's sentence case. All five checks pass under a tag's environment; v0.2.0 moved to the commit with the fix.
+The third tag run (2454) built the package and the update files green and showed two gaps. (1) The 100T host (child ue2, its first
+run ever, 2461) stopped in Vivado: `read_checkpoint -cell l2/c64` of the c64ref checkpoint finds no cell `l2/c64` in that design.
+Alex (2026-11-18, translated: "do that"): ue2 is out of tags and release/* branches, only a dispatch with ue2 builds it, until the
+100T is needed (no 100T board is released). (2) Alex (2026-11-18, translated: "Why is the update not called ...-0.2.0.txu?" - "With
+a tag it becomes the tag name, EVERYWHERE!"): on a tag the update files are named after the version, `trx64host_update_0.2.0.txu`,
+`.cfw` and `.ue2` (no date), the installer's title shows the id `0.2.0`, the release bundle is `trx64mc-0.2.0`; any other build keeps
+the commit (and the date on .cfw/.ue2). ci/lib.sh `file_id` makes the name, tools/check_bundle.py checks it (a release whose .txu
+carries the commit is red). tools/release_mc.sh takes a tag package as it is (it carries x.y.z: no promotion) and fetches
+trex_crt.u2a and softboot.u2a, which it asked for but did not download. v0.2.0 moved to this commit.
 
 ## §4 Out
 

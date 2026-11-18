@@ -8,7 +8,7 @@
 #   ci/version.sh coreapp         coreapp/version.toml   the generic core application
 #   ci/version.sh host            contract/version.toml  the host gateware
 #   ci/version.sh with <X.Y.Z>    a given base (a core's core.toml version) in the form of this build
-# The kind of build is read from GITHUB_REF_TYPE (tag) else from the checkout: a checkout of a tag has no branch, so `git describe --exact-match`.
+# The kind of build is read from GITHUB_REF_TYPE alone: tag = a release.
 set -eu
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 what="${1:-bundle}"

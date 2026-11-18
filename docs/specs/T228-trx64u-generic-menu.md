@@ -661,6 +661,9 @@ ue2emu (70 full frames, trx64u beside the A1200).
   link without R8's descrec.cc) and the render/UX rules (R20 hides the swap hotkey where no setting swaps; the mock took the HOTKEYS
   heading for the row); fixed in tests only (2f70c31c8, 76bc14370), a scan of all 215 controls found no other, coreapp:cross and
   coreapp_render green in the integration tier; v0.2.0 moved to this second merge. Open: S3 on the board with release 0.2.0.
+- **trx64u back in the release (2026-11-18):** the line of 2026-11-17 that set PIPELINE to false in release/imports/trx64u.pin
+  stayed in at the merge, so tag run 2454 packed no trx64u.cor; the line is out. The board test of 0.2.0 runs with a trx64u.cor packed
+  by tools/pack_import_cor.sh from that package's coreapp_trx64u.bin and the pinned bitstream, as ci/package.sh packs it on a tag.
 - **After 0.2.0 (Alex 2026-11-18: "I cannot keep waiting"; option A asked, B taken for now):** RETURN on a row with fixed values opens
   the list of the values, as FW config_menu.cc:108-114 (every core); until then RETURN steps to the next value. Also after 0.2.0: groups
   in FTP hosts and Emulated SIDs, one name for the back key, "Hex View" in sentence case (generic). From the UX pass over all cores: the

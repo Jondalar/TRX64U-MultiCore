@@ -226,12 +226,12 @@ python3 "$ROOT/tools/check_package_layout.py" "$out" || mark_red package layout 
 
 sha="$(git -C "$ROOT" rev-parse --short=8 HEAD)"
 
-# T152 D3/D5: the MultiCore update file (.txu) of this run: the host bitstream the update stage writes into the flash (null_full.bit, the host with the null core
+# T152 D3/D5: the MultiCore update file (.txu, trx64host_update_<file_id>.txu: the version on a tag, else the commit) of this run: the host bitstream the update stage writes into the flash (null_full.bit, the host with the null core
 # in the partition, T123) and OUR host app, both from this run. The host part carries the host key (its AXSS stamp) and the host-app interface version it
 # provides; the app part the interface it needs. tools/txu_pack.py checks both like the host does before the first erase. No null_full.bit (the host lane is
 # red or left nothing): the file is not made and the red target says so - an app-only .txu is not made here on purpose, the update stage works from a whole run.
 if [ -f "$out/null_full.bit" ] && [ -f "$out/hostapp.app" ]; then
-  "$ROOT/tools/pack_txu_mc.sh" --host "$out/null_full.bit" --app "$out/hostapp.app" --branch "$(branch_slug)" --sha "$sha" --version "$("$ROOT/ci/version.sh" bundle)" \
+  "$ROOT/tools/pack_txu_mc.sh" --host "$out/null_full.bit" --app "$out/hostapp.app" --branch "$(branch_slug)" --sha "$sha" --file-id "$(file_id)" --version "$("$ROOT/ci/version.sh" bundle)" \
     --commit "$(git -C "$ROOT" rev-parse --short=15 HEAD)" --out "$out" || mark_red package txu "tools/pack_txu_mc.sh could not pack the .txu"
 else
   echo "no null_full.bit or hostapp.app in this package: no .txu"

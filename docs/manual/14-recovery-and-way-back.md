@@ -52,14 +52,14 @@ write up to three times. It shows `Restore OK, installed <id>` (with `Yes`: `Res
 
 14.4.1 The updater of a vendor firmware replaces the host, if the flash is not protected (8.5, 13.2.7).
 
-14.4.2 To get the host back: run the installer of the release (`trx64host_update_<id>.ue2` on the Commodore firmware 1.1.0) with **Run Update**
+14.4.2 To get the host back: run the installer of the release (`trx64host_update_<version>.ue2` on the Commodore firmware 1.1.0) with **Run Update**
 as in chapter 2.
 
 ## 14.5 The cable
 
 14.5.1 You need a USB-Blaster. The cable is the way back when the board does not start.
 
-14.5.2 The flash holds the bitstream at `0x000000` (the host with the null core) and the host application at `0x220000`. The release has no separate files for them: they are the two parts of the installer, `trx64host_update_<id>.ue2`. Write them with `openFPGALoader`:
+14.5.2 The flash holds the bitstream at `0x000000` (the host with the null core) and the host application at `0x220000`. The release has no separate files for them: they are the two parts of the installer, `trx64host_update_<version>.ue2`. Write them with `openFPGALoader`:
 
 ```
 openFPGALoader -c usb-blaster --fpga-part xc7a50tfgg484 -f <bitstream>

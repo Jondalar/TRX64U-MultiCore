@@ -54,7 +54,8 @@ if [ -n "$UPD_CFW" ] || [ -n "$UPD_UE2" ]; then
 fi
 for f in "$BIT" "$APP" "${CORS[@]}" ${U2AS[@]+"${U2AS[@]}"}; do [ -s "$f" ] || { echo "$f: missing or empty" >&2; exit 1; }; done
 
-NAME="${NAME:-trx64host_update_${ID##*-}_$(date +%Y%m%d)}"
+# a release id x.y.z names the update file alone, as ci/update.sh does on a tag (ci/lib.sh file_id); any other id its commit and the date
+if [[ "$ID" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then NAME="${NAME:-trx64host_update_$ID}"; else NAME="${NAME:-trx64host_update_${ID##*-}_$(date +%Y%m%d)}"; fi
 D="$OUT/trx64mc-$ID"
 rm -rf "$D"; mkdir -p "$D"
 

@@ -2,13 +2,13 @@
 
 ## 2.1 What is in the release
 
-2.1.1 A release of the multi-core firmware contains these files. `<id>` is `<commit>_<date>` (for example `1a2b3c4d_20261102`); the name of a `.txu` ends in `<commit>`.
+2.1.1 A release of the multi-core firmware contains these files. `<version>` is the version of the release (for example `0.2.0`).
 
 | File | What it is |
 |---|---|
-| `trx64host_update_<id>.ue2` | The installer. Use it on a board that runs the Commodore firmware 1.1.0 |
-| `trx64host_update_<id>.cfw` | The same installer, with a pre-header. For a board whose file browser takes a `.cfw` |
-| `trx64host_update_<commit>.txu` | The update of a host that runs already (2.1.4). It has no date in its name |
+| `trx64host_update_<version>.ue2` | The installer. Use it on a board that runs the Commodore firmware 1.1.0 |
+| `trx64host_update_<version>.cfw` | The same installer, with a pre-header. For a board whose file browser takes a `.cfw` |
+| `trx64host_update_<version>.txu` | The update of a host that runs already (2.1.4) |
 | `<core>.cor` | One file per core |
 | `unzip.u2a`, `miniz.u2a` | The applications that unpack a `.zip` (File Browser **Z**, core menus). The installer copies them to `cores/apps` (2.4.4) |
 | `SHA256SUMS` | The checksums of the files above |
@@ -24,7 +24,7 @@
 
 2.1.3 The cores are not written to the flash. The installer copies them to a stick or a card (2.4.4).
 
-2.1.4 A `.txu` file (`trx64host_update_<commit>.txu`) updates a board that runs the host already. It is not an installer. Use it as in 9.3.
+2.1.4 A `.txu` file (`trx64host_update_<version>.txu`) updates a board that runs the host already. It is not an installer. Use it as in 9.3.
 
 ## 2.2 The procedure in short
 

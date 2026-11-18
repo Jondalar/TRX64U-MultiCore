@@ -2,7 +2,8 @@
 """The content check of a MultiCore installer bundle before hand-over (T172 S5).
 
   tools/check_bundle.py DIR [DIR...]      DIR holds the package files: manifest.json, c64_basic.bit, null_full.bit, hostapp.app,
-                                          trx64host_update_<sha8>.txu and trx64host_update_<sha8>_<date>.cfw/.ue2 (several DIRs are one set,
+                                          trx64host_update_<sha8>.txu and trx64host_update_<sha8>_<date>.cfw/.ue2, of a release build (tag,
+                                          manifest version x.y.z) trx64host_update_<x.y.z>.txu/.cfw/.ue2 (several DIRs are one set,
                                           ci/update.sh passes the downloaded inputs and the freshly built update files)
   tools/check_bundle.py selftest          a good fixture passes, every fault below turns it red
 
@@ -13,7 +14,9 @@ What it asserts, from the files and not from their names:
   - the .txu: parses and verifies (txu_pack), host part == null_full.bit, app part == hostapp.app, host key == AXSS of null_full.bit,
     version field == the bundle version of manifest.json (T221 D17), commit == the manifest's trx64_commit
   - the .cfw and the .ue2 (both must exist): tools/trx_pkg_check.py with the bitstream and app (byte-equal, CRC, CHK, AXSS, app record), the
-    manifest id of the package names the same <sha8> as the manifest.json
+    manifest id of the package names the same <sha8> as the manifest.json; a release build's id is its version
+  - the names (Alex 2026-11-18, translated: "with a tag it becomes the tag name, everywhere"): a release build's three update files are named
+    after its version alone (ci/lib.sh file_id); any other build's .txu carries the commit
   - the host app: the versions it carries are the manifest.json ones: TRXVSTAMP = parts.host_menu, TRXHSTAMP = parts.host_gateware, TRXBSTAMP = version, every field
 Exit 0 when everything holds, 1 with one line per fault.
 """
@@ -71,6 +74,9 @@ def check(dirs):
     if errs:
         return errs
     sha8 = man["trx64_commit"][:8]
+    # a release build (tag v*, T221: the manifest version is a plain x.y.z) names its update files after that version (ci/lib.sh file_id)
+    release = re.match(r"^\d+\.\d+\.\d+$", man["version"]) is not None
+    fid = man["version"] if release else sha8
     data = {}
     for n in INPUTS:
         f = find(dirs, n)
@@ -134,7 +140,9 @@ def check(dirs):
         except X.TxuError as e:
             err("%s: %s" % (os.path.basename(t), e))
             continue
-        if sha8 not in os.path.basename(t):
+        if release and os.path.basename(t) != "trx64host_update_%s.txu" % fid:
+            err("%s: a release names it trx64host_update_%s.txu" % (os.path.basename(t), fid))
+        elif not release and sha8 not in os.path.basename(t):
             err("%s: the file name does not carry the commit %s" % (os.path.basename(t), sha8))
         parts = {q["kind"]: blob[q["off"]:q["off"] + q["size"]] for q in m["parts"]}
         if parts.get(X.KIND_HOST) != bit:
@@ -151,10 +159,12 @@ def check(dirs):
 
     # the .cfw and the .ue2
     for ext in ("cfw", "ue2"):
-        fs = find(dirs, "trx64host_update_*_*.%s" % ext)
+        fs = find(dirs, "trx64host_update_*.%s" % ext)
         if len(fs) != 1:
             err(".%s: %d found, expected 1" % (ext, len(fs)))
         for f in fs:
+            if release and os.path.basename(f) != "trx64host_update_%s.%s" % (fid, ext):
+                err("%s: a release names it trx64host_update_%s.%s" % (os.path.basename(f), fid, ext))
             e, _notes = K.check_file(f, bit, app)
             for x in e:
                 err("%s: %s" % (os.path.basename(f), x))
@@ -162,7 +172,9 @@ def check(dirs):
                 d = open(f, "rb").read()
                 img = d[(36 if d[:4] == P.PRE_FINGERPRINT else 0) + 12:]
                 _off, v, _why = K.find_manifest(img)
-                if not v["id"].endswith("-" + sha8):
+                if release and v["id"] != fid:
+                    err("%s: manifest id '%s', a release's is its version %s" % (os.path.basename(f), v["id"], fid))
+                elif not release and not v["id"].endswith("-" + sha8):
                     err("%s: manifest id '%s' does not end in -%s" % (os.path.basename(f), v["id"], sha8))
     return errs
 
@@ -187,14 +199,18 @@ def _fixture(root, branch="t172", sha="0123456789abcdef0123456789abcdef01234567"
            "layers": {"host": {"host_key": "%08x" % P.axss(bit) + "00000000"}},
            "files": {n: {"sha256": hashlib.sha256(b).hexdigest(), "size": len(b)} for n, b in files.items()}}
     json.dump(man, open(os.path.join(root, "manifest.json"), "w"))
-    open(os.path.join(root, "trx64host_update_%s.txu" % sha8), "wb").write(X.pack(bit, app, ver, sha[:15]))
+    release = re.match(r"^\d+\.\d+\.\d+$", ver) is not None      # a tag build: its files and the id carry the version (ci/lib.sh file_id)
+    stem = "trx64host_update_%s" % (ver if release else sha8)
+    open(os.path.join(root, stem + ".txu"), "wb").write(X.pack(bit, app, ver, sha[:15]))
     code = bytes(range(256)) * 4
-    blobs = P.build_blobs(bit, app, "%s-%s" % (branch, sha8), sha[:15], sha[:15])
+    blobs = P.build_blobs(bit, app, ver if release else "%s-%s" % (branch, sha8), sha[:15], sha[:15])
     img = code + blobs
     rec = struct.pack("<III", P.RECORD_LOAD, len(img), P.RECORD_LOAD) + img
-    open(os.path.join(root, "trx64host_update_%s_20261107.cfw" % sha8), "wb").write(
+    if not release:
+        stem += "_20261107"
+    open(os.path.join(root, stem + ".cfw"), "wb").write(
         P.PRE_FINGERPRINT + b"U64MK2".ljust(16, b"\0") + b"\0" * 16 + rec)
-    open(os.path.join(root, "trx64host_update_%s_20261107.ue2" % sha8), "wb").write(rec)
+    open(os.path.join(root, stem + ".ue2"), "wb").write(rec)
     return sha8, files
 
 
@@ -211,6 +227,21 @@ def selftest():
             fails += ["the good fixture is refused: %s" % e]
         else:
             print("good bundle: PASS (txu, cfw, ue2, versions, host key, design)")
+        rel = os.path.join(W, "release")
+        _fixture(rel, branch="v0.2.0", ver="0.2.0")
+        e = check([rel])
+        if e:
+            fails += ["the good release fixture (a tag build, its files named 0.2.0) is refused: %s" % e]
+        else:
+            print("good release bundle: PASS (files and id named after the version 0.2.0)")
+        d = os.path.join(W, "release_commit_name")      # a release whose .txu still carries the commit
+        shutil.copytree(rel, d)
+        os.rename(os.path.join(d, "trx64host_update_0.2.0.txu"), os.path.join(d, "trx64host_update_%s.txu" % sha8))
+        e = check([d])
+        if not any("a release names it trx64host_update_0.2.0.txu" in x for x in e):
+            fails.append("release_commit_name: expected the name fault, got %s" % e)
+        else:
+            print("control %-22s FAIL as it must: %s" % ("release_commit_name", [x for x in e if "a release names it" in x][0]))
 
         def mutant(name, edit, want):
             d = os.path.join(W, name)
