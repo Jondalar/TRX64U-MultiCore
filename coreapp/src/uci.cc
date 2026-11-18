@@ -509,7 +509,9 @@ public:
             if (strncasecmp(ffi->extension, "d64", 3) == 0 || strncasecmp(ffi->extension, "g64", 3) == 0) {
                 image_type = 1541;
             } else if (strncasecmp(ffi->extension, "d71", 3) == 0 || strncasecmp(ffi->extension, "g71", 3) == 0) {
-                image_type = 1571;
+                *status = &c_status_incompatible_image;              // no 1571 here: .d71 / .g71 are out (T104.1, Alex: "ruled out from the start")
+                delete ffi;
+                break;
             } else if (strncasecmp(ffi->extension, "d81", 3) == 0) {
                 image_type = 1581;
             } else {

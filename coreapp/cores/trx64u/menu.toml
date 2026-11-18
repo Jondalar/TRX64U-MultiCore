@@ -728,7 +728,7 @@ name = "Drive A:"
 state = "drive.drive_a.image"
 eject_op = "drive.eject"
 eject_bind = [ { arg = "slot", str = "iec:drive_a" } ]
-exts = ".d64,.g64,.g71"
+exts = ".d64,.g64"
 mount = "Mount Disk"
 empty_tasks = "Insert blank disk,Create blank D64,Create blank G64"
 mounted_tasks = "Swap disk,Reset drive,Unlink disk,Save Disk as D64,Save Disk as G64"
@@ -878,34 +878,6 @@ inner_ext = ".prg"
 
 [[filetype]]
 ext = ".g64"
-  [[filetype.action]]
-  label = "Mount Disk"
-  key = "M"
-  op = "drive.mount"
-  bind = [ { arg = "slot", str = "iec:drive_a" }, { arg = "path", file = true }, { arg = "mode", str = "rw" } ]
-  closes_menu = true
-  [[filetype.action]]
-  label = "Mount Disk Read Only"
-  key = "O"
-  op = "drive.mount"
-  bind = [ { arg = "slot", str = "iec:drive_a" }, { arg = "path", file = true }, { arg = "mode", str = "ro" } ]
-  closes_menu = true
-  [[filetype.action]]
-  label = "Mount Disk Unlinked"
-  key = "U"
-  op = "drive.mount"
-  bind = [ { arg = "slot", str = "iec:drive_a" }, { arg = "path", file = true }, { arg = "mode", str = "unlinked" } ]
-  closes_menu = true
-  [[filetype.action]]
-  label = "Run Disk"
-  key = "R"
-  op = "drive.run_disk"
-  bind = [ { arg = "slot", str = "iec:drive_a" }, { arg = "path", file = true } ]
-  closes_menu = true
-
-# a .g71 (GCR-1571): side 0 mounts in drive A as a 1541 disk; the 1571 is not in this gateware, so side 1 stays untouched in the file (TRX-Ultimate filetype_g64.cc:110-111 offers it the G64 actions)
-[[filetype]]
-ext = ".g71"
   [[filetype.action]]
   label = "Mount Disk"
   key = "M"

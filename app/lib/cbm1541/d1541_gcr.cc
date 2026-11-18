@@ -498,15 +498,19 @@ bool GcrImage::load(CoreFile *f, char *why, int whylen)
         snprintf(why, whylen, n < 20 ? "not a .g64 (too short)" : "cannot read the image (the medium is gone?)");
         return false;
     }
-    // A .g71 (GCR-1571) is the same table layout with 168 entries: side 0 is the first 84, which is all a 1541 head can reach. The tables lie behind
-    // the count the header reports (disk_image.cc:698-728 reads the speed zones at 3 + reported_tracks), so the position is the file's, the loop is ours.
-    if (strncmp((const char *)mem_, "GCR-1541", 8) != 0 && strncmp((const char *)mem_, "GCR-1571", 8) != 0) {
+    if (!strncmp((const char *)mem_, "GCR-1571", 8)) {
+        snprintf(why, whylen, "a double sided image (GCR-1571): the drive is a single sided 1541");
+        return false;
+    }
+    if (strncmp((const char *)mem_, "GCR-1541", 8) != 0) {
         snprintf(why, whylen, "not a .g64 (no GCR-1541 signature)");
         return false;
     }
-    uint32_t count = mem_[9];
-    uint32_t reported = count > GCR_TRACKS ? GCR_TRACKS : count;
-    if (12 + count * 8 > n) {
+    uint32_t reported = mem_[9];
+    if (reported > GCR_TRACKS) {
+        reported = GCR_TRACKS;
+    }
+    if (12 + reported * 8 > n) {
         snprintf(why, whylen, "not a .g64 (the track tables are cut off)");
         return false;
     }
@@ -515,7 +519,7 @@ bool GcrImage::load(CoreFile *f, char *why, int whylen)
         if (!offset) {
             continue;
         }
-        if (offset < 12 + count * 8 || offset + 2 > n) {
+        if (offset < 12 + reported * 8 || offset + 2 > n) {
             snprintf(why, whylen, "track %u points outside the file", (unsigned)i);
             return false;
         }
@@ -531,7 +535,7 @@ bool GcrImage::load(CoreFile *f, char *why, int whylen)
         tracks[i].track_used = true;
         tracks[i].in_image_file = true;
         tracks[i].track_is_mfm = (w & 0x8000) != 0;
-        tracks[i].speed_zone = (int)le32(mem_ + 12 + 4 * count + 4 * i);
+        tracks[i].speed_zone = (int)le32(mem_ + 12 + 4 * reported + 4 * i);
     }
     used_ = n;
     add_blank_tracks(mem_ + n);
