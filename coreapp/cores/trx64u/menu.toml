@@ -1118,8 +1118,7 @@ ext = ".64c"
   size_in = [8192]
   closes_menu = true
 
-# R21 #11 (FW filetypes/filetype_c64re.cc:75-78): "Load State" on a .c64re and a .c64rering. The FW's "Load Ring" on a .trxring needs the ring's own file (T20 §10.2),
-# which this app does not write or read yet: no row for it.
+# R21 #11 (FW filetypes/filetype_c64re.cc:75-78): "Load State" on a .c64re and a .c64rering, "Load Ring" on a .trxring (the whole ring back, trx_trxring_load).
 [[filetype]]
 ext = ".c64re"
   [[filetype.action]]
@@ -1133,6 +1132,15 @@ ext = ".c64re"
 ext = ".c64rering"
   [[filetype.action]]
   label = "Load State"
+  key = "L"
+  op = "tw.load"
+  bind = [ { arg = "path", file = true } ]
+  closes_menu = true
+
+[[filetype]]
+ext = ".trxring"
+  [[filetype.action]]
+  label = "Load Ring"
   key = "L"
   op = "tw.load"
   bind = [ { arg = "path", file = true } ]

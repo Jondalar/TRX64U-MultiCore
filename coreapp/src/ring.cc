@@ -2260,6 +2260,106 @@ int trx_ring_load_state(const TrxLoadMem *mem, const uint32_t *w, uint16_t x)
     return err;
 }
 
+// ---- the native ring copy (FW trx_ring.cc trx_ring_area_*, trx_ring_install; .trxring) --------------------------
+uint32_t trx_ring_area_size(int s)
+{
+    return (s >= 0 && s < 3) ? area_size[s] : 0;
+}
+
+uint32_t trx_ring_rec_size(int s)
+{
+    return (s >= 0 && s < 3) ? rec_size[s] : 0;
+}
+
+void trx_ring_area_read(int s, uint32_t off, void *dst, uint32_t len)
+{
+    if (s < 0 || s >= 3 || off + len > area_size[s]) {
+        return;
+    }
+    eng_copy(area_base[s] + off, dst, len);
+}
+
+void trx_ring_area_write(int s, uint32_t off, const void *src, uint32_t len)
+{
+    if (s < 0 || s >= 3 || off + len > area_size[s]) {
+        return;
+    }
+    // the mover's COPY takes two DDR2 byte addresses, and the app's own memory is in DDR2 too: the same call the other way round
+    w32(ENG_SRC, (uint32_t)src);
+    w32(ENG_DST, area_base[s] + off);
+    w32(ENG_LEN, len);
+    w32(ENG_CMD, 1);
+    uint16_t t0 = getMsTimer();
+    while (r32(ENG_CMD) & 1) {
+        if (uint16_t(getMsTimer() - t0) > 200) {
+            printf("[RING] COPY back did not finish: %u bytes to area %d + 0x%x\n", (unsigned)len, s, (unsigned)off);
+            break;
+        }
+    }
+    __asm__ volatile ("fence" ::: "memory");
+}
+
+// A saved ring back into the engine and the machine: the log goes off and its counters to 0 first (the caller's area writes land where those counters
+// point), then the timeline is installed, then the newest entry's state goes into the machine the way a restore puts a ring entry, and only then does
+// the log run again, without a restart, so the records just written back stay the ring's history.
+int trx_ring_install(const TrxFrame *ents, int n, const TrxLoadMem *mem, trx_area_fn areas, void *ctx)
+{
+    if (n < 1 || n > TL_CAP) {
+        return E_INDEX;
+    }
+    if (!ents[n - 1].block) {
+        return E_NOBLOCK;
+    }
+    if (!lock()) {
+        return E_ABSENT;
+    }
+    if (reu_on()) {
+        unlock();
+        return E_REU;
+    }
+    if (dbg_handover()) {
+        wait_reg(GATE_CTRL, GATE_HALTED, GATE_HALTED, 100);
+    }
+    if (scrubbing) {
+        scrubbing = false;
+    }
+    Saved sv;
+    stop_machine(&sv, true);
+    drain();
+    w32(LOG_CTRL, 0);
+    w32(CAP_CTRL, 0);
+    w32(LOG_CTRL, LOG_RESTART);     // counts, positions and lost counters to 0, log still off
+    int err = areas ? areas(ctx) : 0;
+    if (!err) {
+        tl_clear();
+        for (int i = 0; i < n; i++) {
+            tl[i] = ents[i];
+        }
+        tl_first = 0;
+        tl_n = n;
+        p2 = 0;                     // the newest entry's marker is the last record written back
+        ep_reset();
+        cyc_acc = ents[n - 1].cycles;
+        cyc_last = ents[n - 1].c24;
+        cyc_have = true;
+        resyncs = 0;
+        log_rd = 0;
+        LoadCtx c = { mem, 0 };
+        err = put_back(ents[n - 1].w, ents[n - 1].x, sv, load_bus, load_ram, &c, &c.bus);
+    }
+    if (!err) {
+        w32(CAP_CTRL, 1);
+        w32(LOG_CTRL, logctl(false));   // on, without a restart: the history stays
+        log_on = true;
+    } else {
+        tl_clear();                     // nothing half-installed stays reachable
+        start_locked();
+    }
+    w32(STOP_POS, POS_RELEASE);
+    unlock();
+    return err;
+}
+
 // ---- the instruction trace (T21 §4.11) ---------------------------------------------
 // Records are TRX64's DeltaEntry: three little-endian 64-bit words per instruction in
 // stream 3 (the area at TR_AREA, TRACE_CAP records, trx_engine.v). What the app sees

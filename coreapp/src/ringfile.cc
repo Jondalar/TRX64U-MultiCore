@@ -1970,6 +1970,10 @@ const char *trx_c64re_load(const char *path)
     FileManager *fm = FileManager::getFileManager();
     File *file;
     g_missed = "";
+    if (trx_trxring_is_one(path)) {
+        // one way in for every file the ring can load (FW trx_c64re_load_entry): a .trxring brings the ring back as well
+        return trx_trxring_load(path);
+    }
     if (fm->fopen(path, FA_READ, &file) != FR_OK) {
         return "The file could not be opened";
     }
@@ -2112,5 +2116,322 @@ const char *trx_c64re_load(const char *path)
     }
     free(ram);
     free(col);
+    return err;
+}
+
+// ---- the .trxring: the whole frame ring in a file (FW io/c64/trx_trxring.cc, load side) ---------------------------
+//   0..7 "TRXRING1", 8..11 u32 header length, then the JSON header, then in this order the parts its "lengths" give: the timeline (TrxFrame entries,
+//   oldest first, the newest entry's counts rebased to 0), C64 RAM, colour RAM, cartridge RAM, the records of streams 0 and 1. sha256State covers the
+//   first four parts and is checked before anything is put back; sha256Log covers the records, a mismatch is a message, not a refusal.
+#define TRXRING_HDR_MAX    2048
+#define TRXRING_VERSION    1
+#define TRXRING_CHUNK      0x8000
+
+struct TrxRingBuf {
+    uint8_t *raw, *p;
+};
+
+static bool trb_alloc(TrxRingBuf *b, uint32_t n)
+{
+    b->raw = (uint8_t *)malloc(n + 15);
+    b->p = b->raw ? (uint8_t *)(((uintptr_t)b->raw + 15) & ~(uintptr_t)15) : NULL;
+    return b->p != NULL;
+}
+
+static void trb_free(TrxRingBuf *b)
+{
+    free(b->raw);
+    b->raw = NULL;
+    b->p = NULL;
+}
+
+static bool tr_hexeq(const char *hex, const uint8_t *d, int n)
+{
+    static const char h[] = "0123456789abcdef";
+    for (int i = 0; i < n; i++) {
+        if (hex[2 * i] != h[d[i] >> 4] || hex[2 * i + 1] != h[d[i] & 15]) {
+            return false;
+        }
+    }
+    return true;
+}
+
+struct TrxRingLoad {
+    File *f;
+    char *hdr;
+    jsmntok_t *tok;
+    int ntok;
+    TrxRingBuf buf, stage;
+    uint32_t s0_bytes, s1_bytes, s0_first, s1_first;
+    uint8_t digest_log[32];
+};
+
+static int64_t tr_hget(const TrxRingLoad *j, const char *a, const char *b, int64_t dflt)
+{
+    int o = key(j->hdr, j->tok, j->ntok, 0, a);
+    if (b) {
+        o = key(j->hdr, j->tok, j->ntok, o, b);
+    }
+    return o < 0 ? dflt : tok_int(j->hdr, j->tok, o);
+}
+
+static void tr_area_rd(void *ctx, uint32_t off, uint8_t *p, uint32_t len)
+{
+    trx_ring_area_read(*(int *)ctx, off, p, len);
+}
+
+static void tr_area_wr(void *ctx, uint32_t off, const uint8_t *p, uint32_t len)
+{
+    trx_ring_area_write(*(int *)ctx, off, p, len);
+}
+
+// Moves a run of records back into one of the engine's areas (FW trx_ring_recs.h trx_recs_out): an area is a ring, a run starts at
+// (count * record size) & (size - 1) and wraps at its end; the mover takes 16-byte aligned addresses and whole 16-byte groups, so the group at each
+// end is read first and written back with the new bytes in it, and the records beside it keep what they have.
+static void tr_recs_out(int s, uint32_t from, const uint8_t *src, uint32_t n, uint8_t *stage)
+{
+    uint32_t size = trx_ring_area_size(s);
+    uint32_t off = (from * trx_ring_rec_size(s)) & (size - 1);
+    uint32_t done = 0;
+    uint8_t edge[16];
+    while (done < n) {
+        uint32_t want = n - done;
+        if (off + want > size) {
+            want = size - off;              // the rest goes on at the area's start
+        }
+        uint32_t pre = off & 15u;
+        if (pre) {
+            uint32_t take = 16 - pre;
+            if (take > want) {
+                take = want;
+            }
+            tr_area_rd(&s, off - pre, edge, 16);
+            memcpy(edge + pre, src + done, take);
+            tr_area_wr(&s, off - pre, edge, 16);
+            done += take;
+            off += take;
+        } else if (want >= 16) {
+            uint32_t whole = want & ~15u;
+            if (whole > TRXRING_CHUNK) {
+                whole = TRXRING_CHUNK;
+            }
+            memcpy(stage, src + done, whole);
+            tr_area_wr(&s, off, stage, whole);
+            done += whole;
+            off += whole;
+        } else {
+            tr_area_rd(&s, off, edge, 16);
+            memcpy(edge, src + done, want);
+            tr_area_wr(&s, off, edge, 16);
+            done += want;
+            off += want;
+        }
+        if (off >= size) {
+            off = 0;
+        }
+    }
+}
+
+// the install's callback: the records out of the file and into the areas, at the offsets the rebased counts give
+static int tr_areas_back(void *ctx)
+{
+    TrxRingLoad *j = (TrxRingLoad *)ctx;
+    Sha256 sh;
+    sha_init(&sh);
+    for (int s = 0; s < 2; s++) {
+        uint32_t left = s ? j->s1_bytes : j->s0_bytes;
+        uint32_t rec = trx_ring_rec_size(s);
+        uint32_t cnt = s ? j->s1_first : j->s0_first;
+        while (left) {
+            uint32_t want = left > TRXRING_CHUNK ? uint32_t(TRXRING_CHUNK) : left;
+            want = (want / rec) * rec;
+            uint32_t got = 0;
+            if (!want || j->f->read(j->buf.p, want, &got) != FR_OK || got != want) {
+                return -1;
+            }
+            sha_add(&sh, j->buf.p, want);
+            tr_recs_out(s, cnt, j->buf.p, want, j->stage.p);
+            cnt = (cnt + want / rec) & 0x0FFFFFFFu;
+            left -= want;
+        }
+    }
+    sha_final(&sh, j->digest_log);
+    return 0;
+}
+
+// the header into hdr/tok (FW's first half of trx_trxring_load and of trx_trxring_check): NULL, or what is wrong
+static const char *tr_open(TrxRingLoad *j)
+{
+    uint8_t head[12];
+    uint32_t got = 0;
+    if (j->f->read(head, 12, &got) != FR_OK || got != 12 || memcmp(head, "TRXRING1", 8)) {
+        return "Not a .trxring";
+    }
+    uint32_t hl = uint32_t(head[8]) | (uint32_t(head[9]) << 8) | (uint32_t(head[10]) << 16) | (uint32_t(head[11]) << 24);
+    if (hl < 2 || hl > TRXRING_HDR_MAX) {
+        return "The header's length is not right";
+    }
+    j->hdr = (char *)malloc(hl + 1);
+    if (!j->hdr || j->f->read(j->hdr, hl, &got) != FR_OK || got != hl) {
+        return "The header could not be read";
+    }
+    j->hdr[hl] = 0;
+    jsmn_parser p;
+    jsmn_init(&p);
+    int need = jsmn_parse(&p, j->hdr, hl, NULL, 0);
+    if (need < 1) {
+        return "The header is not JSON";
+    }
+    j->tok = (jsmntok_t *)malloc(sizeof(jsmntok_t) * need);
+    jsmn_init(&p);
+    j->ntok = j->tok ? jsmn_parse(&p, j->hdr, hl, j->tok, need) : -1;
+    if (j->ntok < 1) {
+        return "The header is not JSON";
+    }
+    if (tr_hget(j, "version", NULL, -1) != TRXRING_VERSION) {
+        return "A .trxring of another version";
+    }
+    if (tr_hget(j, "blockWords", NULL, -1) != TRX_BLOCK_WORDS || tr_hget(j, "frameBytes", NULL, -1) != int64_t(sizeof(TrxFrame))) {
+        return "A .trxring of another build (the timeline's shape differs)";
+    }
+    if (uint32_t(tr_hget(j, "bitstreamId", NULL, 0)) != trx_io_read32(TRX_ID)) {
+        return "A .trxring of another bitstream";
+    }
+    return NULL;
+}
+
+bool trx_trxring_is_one(const char *path)
+{
+    File *f = NULL;
+    if (FileManager::getFileManager()->fopen(path, FA_READ, &f) != FR_OK) {
+        return false;
+    }
+    char magic[8];
+    uint32_t got = 0;
+    bool ok = f->read(magic, 8, &got) == FR_OK && got == 8 && !memcmp(magic, "TRXRING1", 8);
+    FileManager::getFileManager()->fclose(f);
+    return ok;
+}
+
+// Is this a .trxring this build can load (the header only, nothing is kept)? NULL, or what is wrong with it.
+const char *trx_trxring_check(const char *path)
+{
+    TrxRingLoad j;
+    memset(&j, 0, sizeof(j));
+    if (FileManager::getFileManager()->fopen(path, FA_READ, &j.f) != FR_OK) {
+        return "The file could not be opened";
+    }
+    const char *err = tr_open(&j);
+    if (!err && tr_hget(&j, "frames", NULL, 0) < 1) {
+        err = "The .trxring holds no frame";
+    }
+    if (!err) {
+        err = trx_ring_reu_refusal();
+    }
+    free(j.hdr);
+    free(j.tok);
+    FileManager::getFileManager()->fclose(j.f);
+    return err;
+}
+
+// Reads it and puts the ring and the machine back.
+const char *trx_trxring_load(const char *path)
+{
+    TrxRingLoad j;
+    memset(&j, 0, sizeof(j));
+    FileManager *fm = FileManager::getFileManager();
+    if (fm->fopen(path, FA_READ, &j.f) != FR_OK) {
+        return "The file could not be opened";
+    }
+    uint32_t got = 0;
+    int frames = 0;
+    uint32_t tl_bytes = 0, ram_bytes = 0, col_bytes = 0, cart_bytes = 0;
+    TrxFrame *ents = NULL;
+    uint8_t *ram = NULL, *col = NULL, *cart = NULL;
+    const char *err = tr_open(&j);
+    if (!err) {
+        int rb = key(j.hdr, j.tok, j.ntok, 0, "recBytes");
+        bool recs_ok = rb >= 0 && j.tok[rb].type == JSMN_ARRAY && j.tok[rb].size == 2 &&
+                       tok_int(j.hdr, j.tok, rb + 1) == int64_t(trx_ring_rec_size(0)) &&
+                       tok_int(j.hdr, j.tok, rb + 2) == int64_t(trx_ring_rec_size(1));
+        if (!recs_ok) {
+            err = "A .trxring whose records are not this engine's size";
+        }
+    }
+    if (!err) {
+        frames = int(tr_hget(&j, "frames", NULL, 0));
+        tl_bytes = uint32_t(tr_hget(&j, "lengths", "timeline", 0));
+        ram_bytes = uint32_t(tr_hget(&j, "lengths", "ram", 0));
+        col_bytes = uint32_t(tr_hget(&j, "lengths", "color", 0));
+        cart_bytes = uint32_t(tr_hget(&j, "lengths", "cart", 0));
+        j.s0_bytes = uint32_t(tr_hget(&j, "lengths", "s0", 0));
+        j.s1_bytes = uint32_t(tr_hget(&j, "lengths", "s1", 0));
+        j.s0_first = uint32_t(tr_hget(&j, "s0First", NULL, 0));
+        j.s1_first = uint32_t(tr_hget(&j, "s1First", NULL, 0));
+        if (frames < 1 || tl_bytes != uint32_t(frames) * sizeof(TrxFrame) || ram_bytes != 65536 || col_bytes != 1024 ||
+            (cart_bytes && cart_bytes != TRX_CART_RAM_BYTES)) {
+            err = "The header's lengths do not fit";
+        }
+    }
+    if (!err) {
+        ents = (TrxFrame *)malloc(tl_bytes);
+        ram = (uint8_t *)malloc(ram_bytes);
+        col = (uint8_t *)malloc(col_bytes);
+        cart = cart_bytes ? (uint8_t *)malloc(cart_bytes) : NULL;
+        trb_alloc(&j.buf, TRXRING_CHUNK + 32);
+        trb_alloc(&j.stage, TRXRING_CHUNK + 32);
+        if (!ents || !ram || !col || !j.buf.p || !j.stage.p || (cart_bytes && !cart)) {
+            err = "Out of memory";
+        }
+    }
+    if (!err) {
+        Sha256 sh;
+        sha_init(&sh);
+        struct {
+            uint8_t *p;
+            uint32_t len;
+        } state[4] = { { (uint8_t *)ents, tl_bytes }, { ram, ram_bytes }, { col, col_bytes }, { cart, cart_bytes } };
+        for (int i = 0; !err && i < 4; i++) {
+            if (!state[i].len) {
+                continue;
+            }
+            if (j.f->read(state[i].p, state[i].len, &got) != FR_OK || got != state[i].len) {
+                err = "The file ends inside the state";
+            } else {
+                sha_add(&sh, state[i].p, state[i].len);
+            }
+        }
+        uint8_t d[32];
+        sha_final(&sh, d);
+        int sd = key(j.hdr, j.tok, j.ntok, 0, "sha256State");
+        if (!err && (sd < 0 || !tr_hexeq(j.hdr + j.tok[sd].start, d, 32))) {
+            err = "The ring's state does not match its hash";
+        }
+    }
+    if (!err) {
+        int ld = key(j.hdr, j.tok, j.ntok, 0, "sha256Log");
+        const char *log_hex = ld >= 0 ? j.hdr + j.tok[ld].start : NULL;
+        TrxLoadMem mem = { ram, col, cart, NULL, NULL };
+        int e = trx_ring_install(ents, frames, &mem, tr_areas_back, &j);
+        if (e == -1) {
+            err = "The file ends inside the log";
+        } else if (e) {
+            err = trx_ring_error(e);
+        } else {
+            if (log_hex && !tr_hexeq(log_hex, j.digest_log, 32)) {
+                printf("[RING] the .trxring's log does not match its hash: the machine is where the file says, but a rewind may not be\n");
+            }
+            printf("[RING] .trxring loaded: %d frames, %lu + %lu record bytes\n", frames, (unsigned long)j.s0_bytes, (unsigned long)j.s1_bytes);
+        }
+    }
+    fm->fclose(j.f);
+    free(j.hdr);
+    free(j.tok);
+    free(ents);
+    free(ram);
+    free(col);
+    free(cart);
+    trb_free(&j.buf);
+    trb_free(&j.stage);
     return err;
 }

@@ -64,6 +64,12 @@ const char *trx_c64rering_dump_ex(const char *path, int seconds, int stride, uin
 const char *trx_c64re_load(const char *path);
 const char *trx_c64re_missed(void);
 
+// The .trxring (FW io/c64/trx_trxring.h): the whole frame ring in a file. is_one: the file starts with the magic; check: the header only, NULL or what is
+// wrong; load: the ring and the machine back (trx_c64re_load sends such a file here, so one path loads whichever kind it is).
+bool trx_trxring_is_one(const char *path);
+const char *trx_trxring_check(const char *path);
+const char *trx_trxring_load(const char *path);
+
 #else
 
 struct TrxC64reSrc;
