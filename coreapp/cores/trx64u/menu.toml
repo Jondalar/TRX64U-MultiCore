@@ -768,14 +768,14 @@ ext = ".g64"
   bind = [ { arg = "slot", str = "iec:drive_a" }, { arg = "path", file = true } ]
   closes_menu = true
 
-# a ROM file picked in the browser (16 or 32 KB, the operation checks): the drive takes it for this session
+# a ROM file picked in the browser (16 or 32 KB, the operation checks): copied to /flash/roms, stored as "ROM for 1541 mode", the drive takes it now
 [[filetype]]
 ext = ".rom"
   [[filetype.action]]
   label = "Set as 1541 ROM"
   key = "S"
-  op = "drive.set_rom"
-  bind = [ { arg = "slot", str = "iec:drive_a" }, { arg = "path", file = true } ]
+  op = "drive.set_rom_store"
+  bind = [ { arg = "path", file = true } ]
 
 # A cartridge stays in the port until "Remove Cartridge": the Reset task starts it again (c64_cart.cc)
 [[filetype]]

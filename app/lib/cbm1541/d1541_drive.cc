@@ -119,7 +119,15 @@ void CbmDrive::drive_reset_regs(uint8_t doit)
 {
     w(DR_RESET, doit);
     io_->delay_ms(1);
-    w(DR_RESET, 6);                    // b1: the drive resets with the machine, b2: it stands still while the machine is held for the menu
+    w(DR_RESET, reset_with_c64_ ? 6 : 4);   // b1: the drive resets with the machine (the setting), b2: it stands still while the machine is held for the menu
+}
+
+void CbmDrive::set_reset_with_c64(bool on)
+{
+    reset_with_c64_ = on;
+    if (attached_) {
+        w(DR_RESET, on ? 6 : 4);
+    }
 }
 
 void CbmDrive::set_hw_address(int id)

@@ -2,6 +2,7 @@
 #include "c64_cart_desc.h"
 #include "c64_regs.h"
 #include "boot.h"
+#include "ops_glue.h"
 #include "engines.h"
 #include "writeback.h"
 #include "writeback_crt.h"
@@ -699,6 +700,11 @@ int c64_cart_remove(CoreCtx *c, char *msg, int msglen)
     bool block = (io->rd(C64_CAPS) & C64_CAPS_CART) != 0;
     io->mode_reset(true);
     set_type(io, block, 0);
+    {
+        OpIn v[1] = { in_int("value", 0) };                           // T228 R20 6: the REU, the sampler and the UCI of F5 are the machine's again
+        OpResult r;
+        ops_call(c, "c64.fx_io", v, 1, &r);
+    }
     printf("[c64] cartridge removed\n");
     mount_notify(c, 1);                                               // T180 D2
     return boot_cold_reset(c, msg, msglen);

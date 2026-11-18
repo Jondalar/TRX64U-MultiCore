@@ -46,6 +46,9 @@ int boot_finish(CoreCtx *c, char *msg, int msglen);
 // One pass of D5's put loop: loads each found file and gives it to the spec's put operation. 0 or a reason.
 int boot_put_roms(CoreCtx *c, const RomResult *res, char *msg, int msglen);
 
+// The built-in file of one ROM (the spec whose put operation is put_op) goes into the machine again, as at the start. 0 or a reason.
+int boot_put_builtin_rom(CoreCtx *c, const char *put_op, char *msg, int msglen);
+
 // The shared resets as operations of the base contributor: machine.warm_reset, machine.cold_reset, machine.reload_roms.
 void boot_register(OpRegistry &r);
 
