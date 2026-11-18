@@ -39,5 +39,25 @@ int main()
     c = sid_type_change(5);                        // another chip: enabled
     CHECK_EQ(c.enable, 1);
     CHECK_EQ(c.caps, -1);
+
+    // the FPGASID's bytes (sid_device_fpgasid.cc getByte30/31): stereo 1 (4 with a Dukestah), output mode << 3, LED bit 7 per SID, voices << 4
+    FsidSet f = {};
+    f.mode = 1;
+    f.outmode = 1;
+    f.leds = 3;
+    f.sid[0] = { 1, 0, 1, 0, 3, 2, -5, -8, 3 };
+    f.sid[1] = { 0, 1, 0, 1, 0, 0, 127, 7, 7 };
+    uint8_t r[8];
+    fsid_bytes(f, false, r);
+    CHECK_EQ(r[0], 0x80 | 0x30 | 0x08 | 0x01);
+    CHECK_EQ(r[1], 1 | 4 | (3 << 4) | (2 << 6));
+    CHECK_EQ(r[2], 0x08);
+    CHECK_EQ(r[3], 0xFB);
+    CHECK_EQ(r[4], 0x80 | 0x70);
+    CHECK_EQ(r[5], 2 | 8);
+    CHECK_EQ(r[6], 7);
+    CHECK_EQ(r[7], 127);
+    fsid_bytes(f, true, r);
+    CHECK_EQ(r[0], 0x80 | 0x30 | 0x08 | 0x04);
     DONE("sid_decide");
 }

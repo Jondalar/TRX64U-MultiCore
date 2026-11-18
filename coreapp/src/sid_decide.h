@@ -40,4 +40,34 @@ static inline SidChange sid_type_change(int type)
     return c;
 }
 
+// The FPGASID's configuration bytes (FW sid_device_fpgasid.cc getByte30Sid1/2, getByte31Sid1/2, S_effectuate): the values of the settings, the bytes written to its
+// registers 30, 31, 28, 29 of SID 1 (r[0..3]) and of SID 2 (r[4..7]). With a Dukestah adapter the stereo mode is 4, else 1.
+struct FsidChip {
+    int filter, crunchy, mixed, delay, readback, extin, digifix, bias, voices;
+};
+struct FsidSet {
+    int mode, outmode, leds;
+    FsidChip sid[2];
+};
+static inline void fsid_bytes(const FsidSet &f, bool dukestah, uint8_t r[8])
+{
+    for (int k = 0; k < 2; k++) {
+        const FsidChip &c = f.sid[k];
+        uint8_t b30 = 0;
+        if (!k) {
+            b30 = f.mode == 1 ? (dukestah ? 0x04 : 0x01) : 0x00;
+            b30 |= (uint8_t)(f.outmode << 3);
+        }
+        if (f.leds & (1 << k)) {
+            b30 |= 0x80;
+        }
+        b30 |= (uint8_t)(c.voices << 4);
+        uint8_t b31 = (uint8_t)(c.filter | (c.crunchy << 1) | (c.mixed << 2) | (c.delay << 3) | (c.readback << 4) | (c.extin << 6));
+        r[4 * k] = b30;
+        r[4 * k + 1] = b31;
+        r[4 * k + 2] = (uint8_t)((int8_t)c.bias & 0x0F);
+        r[4 * k + 3] = (uint8_t)(int8_t)c.digifix;
+    }
+}
+
 #endif
