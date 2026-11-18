@@ -53,6 +53,7 @@ flash (W25Q128). Nothing written."
 
 ## 1.5 Limits
 
-1.5.1 Every core is experimental. The state of each core and its evidence are in the
+1.5.1 Every core is experimental. Each core, the host and the core application carry their own version (SemVer); all of
+them are still at 0.y.z, so anything may still change. The boot menu shows the version of each core. The state of each core and its evidence are in the
 [core table on GitHub Discussions](https://github.com/Jondalar/TRX64U-MultiCore/discussions/66) and in chapter 11. The code of the C64 bitstream (`trx64u`, `trx64g`)
 is in the TRX64 Ultimate project; this project packs it into `.cor` files and builds the core menu of `trx64u`. This manual follows `main` as of 2026-11-13.

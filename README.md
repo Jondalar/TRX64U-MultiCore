@@ -16,8 +16,9 @@
 - Cores: C64 (`trx64u`, `trx64g`), VIC-20, Commodore PET, Commodore 16/Plus/4, Commodore 128, Amiga 500, Amiga 1200,
   Atari 800 XL, NES, Super Nintendo, Neo Geo, Apple IIe, ZX Spectrum 48K/128K, ZX Spectrum Next, Amstrad CPC, two demo
   cores and a port diagnostics core.
-- **Every core is experimental.** The state of each core is in the
-  [core table on GitHub Discussions](https://github.com/Jondalar/TRX64U-MultiCore/discussions/66) and in
+- **Every core is experimental.** Every part has its own version (SemVer): each core, the host and the core
+  application. All of them are below 1.0, so anything may still change. The boot menu shows the version of each core;
+  the state of each core is in the [core table on GitHub Discussions](https://github.com/Jondalar/TRX64U-MultiCore/discussions/66) and in
   [manual chapter 11](docs/manual/11-cores.md).
 - The C64 cores: the code of their bitstream is in the TRX64 Ultimate project. This repository packs it into
   `trx64u.cor` and `trx64g.cor` and builds the core menu of `trx64u`; `trx64g` runs the Ultimate application.
