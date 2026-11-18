@@ -63,8 +63,14 @@ const char *cfg_text(CoreCtx *c, const char *key)
 
 // ---- the look of the menu ---------------------------------------------------------------------------------------------------------------------
 #include "tempdisk.h"
+#include "product.h"
 static int fx_ui(CoreCtx *c, const OpArgs &, OpOut &)
 {
+    // FW userinterface.cc:244-248: a machine that has never been set up starts with WASD Cursors on the C64 Ultimate product (isCommodoreBoard); a value the person stored stays.
+    int nv = c->settings ? c->settings->find("Navigation Style") : -1;
+    if (nv >= 0 && c->settings->layer(nv) == Settings::L_DEFAULT && isCommodoreBoard()) {
+        c->settings->override_value(nv, 1);
+    }
     ui_set_look(cfg_value(c, "Overlay Transparency", 1), cfg_value(c, "Color Scheme", 1));
     ui_set_name_squeeze(cfg_value(c, "Filename overflow squeeze", 0));
     tempdisk_set(cfg_value(c, "Temp Auto Cleanup", 1) != 0, cfg_value(c, "Temp Subfolders", 1) != 0);
@@ -997,7 +1003,6 @@ static const char *state_suggest_ring(CoreCtx *) { return "ring"; }
 // the rows of the REU (size, preload) are listed while the expansion is not Disabled
 static const char *state_reu_on(CoreCtx *c) { return cfg_value(c, "RAM Expansion Unit", 0) == 1 && !port_taken(c) ? "yes" : 0; }   // T228 R20 2: the REU is there only as the REU (not GeoRAM) and while no cartridge has the port
 // the three rows of the port's devices (REU, Ultimate audio, UCI) are listed while the port is free; while it is taken a row of the same name says why they are off (c64.cc:424-428)
-static const char *state_port_free(CoreCtx *c) { return port_taken(c) ? 0 : "yes"; }
 static const char *state_port_taken(CoreCtx *c) { return port_taken(c) ? "Disabled (cartridge)" : 0; }
 static const char *state_cartridge(CoreCtx *) { return c64_cart_active() ? c64_cart_name() : 0; }
 static const char *state_cartridge_path(CoreCtx *) { return c64_cart_active() ? c64_cart_path() : 0; }
@@ -1179,6 +1184,19 @@ static int op_sid_songs(CoreCtx *c, const OpArgs &a, OpOut &o)
     return OPE_OK;
 }
 
+// FW FileTypeSID::fetch_context_items: a file whose header is not valid has no actions - 1 here when the header reads, else 0 (the count of a `repeat_op` action without "%d")
+static int op_sid_valid(CoreCtx *c, const OpArgs &a, OpOut &o)
+{
+    char m[80];
+    int n = sid_open(c, a.s(0), &g_sf, false, m, sizeof(m)) ? 0 : 1;
+    if (o.datacap >= 2) {
+        o.data[0] = (uint8_t)n;
+        o.data[1] = 0;
+        o.ndata = 2;
+    }
+    return OPE_OK;
+}
+
 static int op_sid_info(CoreCtx *c, const OpArgs &a, OpOut &o)
 {
     SidFile *sf = &g_sf;
@@ -1193,6 +1211,18 @@ static int op_sid_info(CoreCtx *c, const OpArgs &a, OpOut &o)
 
 // ---- the job: the handshake with the cartridge, then the tune ------------------------------------------------------------------------------------
 static uint8_t g_img[0x4000];
+static uint8_t g_sidcrt[0x2000];                                   // SOCKET_CMD_LOADSIDCRT's player image (kept until the next LOADSIDCRT or the app's reset)
+static bool g_sidcrt_set;
+static int op_dma_sidcrt(CoreCtx *, const OpArgs &a, OpOut &)
+{
+    uint32_t n = a.len(0) > 0x2000 ? 0x2000 : a.len(0);            // FW: min(len, 0x2000) bytes over the start of the cartridge buffer, the rest of the buffer stays
+    if (!g_sidcrt_set) {
+        memset(g_sidcrt, 0, sizeof(g_sidcrt));
+    }
+    memcpy(g_sidcrt, a.p(0), n);
+    g_sidcrt_set = true;
+    return OPE_OK;
+}
 static struct {
     bool active;
     uint32_t last_ms, ran_ms;
@@ -1412,15 +1442,19 @@ static int op_sid_play(CoreCtx *c, const OpArgs &a, OpOut &o)
     }
     memset(g_img, 0, sizeof(g_img));
     snprintf(pp, sizeof(pp), "%s/" SIDP_DIR "/%s", dir, sf->t.mus ? "muscrt.bin" : "sidcrt.bin");
-    CoreFile *f = c->fs->open(pp, false);
-    if (!f || f->size() > 0x2000 || !f->read(0, g_img, (uint32_t)f->size())) {
-        if (f) {
-            c->fs->close(f);
+    if (!sf->t.mus && g_sidcrt_set) {
+        memcpy(g_img, g_sidcrt, 0x2000);                            // FW socket_dma.cc:182-188: the DMA-sent player stays in sid_cart until the next load (the MUS cart is not touched)
+    } else {
+        CoreFile *f = c->fs->open(pp, false);
+        if (!f || f->size() > 0x2000 || !f->read(0, g_img, (uint32_t)f->size())) {
+            if (f) {
+                c->fs->close(f);
+            }
+            snprintf(o.msg, o.msglen, "cannot read %s (installed from the core's .cor)", pp);
+            return OPE_FAILED;
         }
-        snprintf(o.msg, o.msglen, "cannot read %s (installed from the core's .cor)", pp);
-        return OPE_FAILED;
+        c->fs->close(f);
     }
-    c->fs->close(f);
     memcpy(g_img + 0x2000, g_basic, 0x2000);
     sid_song_lengths(c, sf, path);
     // the machine as FW leaves it for the cartridge, then the cartridge and the reset
@@ -1557,6 +1591,7 @@ static int op_dma_power_off(CoreCtx *c, const OpArgs &, OpOut &o)
 }
 static const ArgSpec dma_prg_args[] = { ARG_PATH("path"), ARG_INT("mode", 0, 2) };
 static const ArgSpec dma_mount_args[] = { ARG_PATH("path"), ARG_INT("run", 0, 1) };
+static const ArgSpec dma_sidcrt_args[] = { ARG_BLOB("data") };
 static const ArgSpec dma_reu_args[] = { ARG_INT("offset", 0, 0xFFFFFF), ARG_BLOB("data") };
 
 void trx64u_register(OpRegistry &r)
@@ -1566,6 +1601,7 @@ void trx64u_register(OpRegistry &r)
     r.add_op("dma.mount", dma_mount_args, 2, op_dma_mount);
     r.add_op("dma.crt", path_arg, 1, op_dma_crt);
     r.add_op("dma.reu", dma_reu_args, 2, op_dma_reu);
+    r.add_op("dma.sidcrt", dma_sidcrt_args, 1, op_dma_sidcrt);
     r.add_op("dma.power_off", 0, 0, op_dma_power_off);
     r.add_op("ui.fx", value_arg, 1, fx_ui);
     r.add_op("c64.fx_io", value_arg, 1, fx_io);
@@ -1574,6 +1610,7 @@ void trx64u_register(OpRegistry &r)
     r.add_op("drive.fx_misc", value_arg, 1, fx_drive_misc);
     r.add_op("c64.sid_play", sid_args, 2, op_sid_play);
     r.add_op("c64.sid_songs", sid_args, 2, op_sid_songs);
+    r.add_op("c64.sid_valid", sid_args, 2, op_sid_valid);
     r.add_op("c64.sid_info", sid_args, 2, op_sid_info);
     r.add_op("reu.load", path_arg, 1, op_reu_load);
     r.add_op("reu.preload", path_arg, 1, op_reu_preload);
@@ -1597,7 +1634,6 @@ void trx64u_register(OpRegistry &r)
     r.add_state("reu.nomp3.c", state_nomp3<2>);
     r.add_state("reu.nomp3.d", state_nomp3<3>);
     r.add_state("reu.on", state_reu_on);
-    r.add_state("c64.port_free", state_port_free);
     r.add_state("c64.port_taken", state_port_taken);
     r.add_state("c64.cartridge", state_cartridge);
     r.add_state("c64.cartridge_path", state_cartridge_path);

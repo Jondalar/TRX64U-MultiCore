@@ -131,33 +131,6 @@ name = "System"
   ui = { pages = "Network_settings=Ethernet+WiFi+Services+Time_synchronization,Streams,FTP_hosts" }
   n = 1
 
-# T228 R21 (FW c64.cc:424-428): while a cartridge has the port the row of the device says "Disabled (cartridge)" instead of its setting
-[[node]]
-anchor = "F5/expansion/REU"
-kind = "state"
-state = "c64.port_taken"
-when_state = "c64.port_taken"
-label = "RAM expansion unit"
-order = 1
-
-# T228 R21 (FW c64.cc:424-428): while a cartridge has the port the row of the device says "Disabled (cartridge)" instead of its setting
-[[node]]
-anchor = "F5/expansion/Ultimate"
-kind = "state"
-state = "c64.port_taken"
-when_state = "c64.port_taken"
-label = "Ultimate audio at $DF20-$DFFF"
-order = 2
-
-# T228 R21 (FW c64.cc:424-428): while a cartridge has the port the row of the device says "Disabled (cartridge)" instead of its setting
-[[node]]
-anchor = "F5/expansion/Ultimate"
-kind = "state"
-state = "c64.port_taken"
-when_state = "c64.port_taken"
-label = "Command interface (UCI)"
-order = 3
-
 [[node]]
 anchor = "F5/trx/Recording"
 kind = "op"
@@ -592,7 +565,7 @@ hotkey = "O"
 # R21 #13 (FW apps/c64re/manifest.json, category "C64 Machine"): the machine as it stands as a .c64re, no ring needed
 [[task]]
 group = "top"
-label = "Save .C64RE Dump"
+label = "Save .C64RE dump"
 op = "machine.save_c64re"
 bind = [ { arg = "name", text = true } ]
 ask = "Save the .C64RE dump as (name)"
@@ -601,7 +574,7 @@ ask_state = "machine.suggest.c64re"
 # T228 R21 (#4): "Save MP3 Drv A-D" - FW c64_subsys.cc:425-455 (category "C64 Machine"): the GEOS RAM drives in the REU as a file; a row is there only while a drive of that letter is in the REU
 [[task]]
 group = "top"
-label = "Save MP3 Drv A"
+label = "Save MP3 drv A"
 op = "machine.save_mp3"
 bind = [ { arg = "drive", int = 0 }, { arg = "name", text = true } ]
 ask = "Save RAMDISK as (name)"
@@ -609,7 +582,7 @@ show_state = "reu.mp3.a"
 
 [[task]]
 group = "top"
-label = "Save MP3 Drv B"
+label = "Save MP3 drv B"
 op = "machine.save_mp3"
 bind = [ { arg = "drive", int = 1 }, { arg = "name", text = true } ]
 ask = "Save RAMDISK as (name)"
@@ -617,7 +590,7 @@ show_state = "reu.mp3.b"
 
 [[task]]
 group = "top"
-label = "Save MP3 Drv C"
+label = "Save MP3 drv C"
 op = "machine.save_mp3"
 bind = [ { arg = "drive", int = 2 }, { arg = "name", text = true } ]
 ask = "Save RAMDISK as (name)"
@@ -625,7 +598,7 @@ show_state = "reu.mp3.c"
 
 [[task]]
 group = "top"
-label = "Save MP3 Drv D"
+label = "Save MP3 drv D"
 op = "machine.save_mp3"
 bind = [ { arg = "drive", int = 3 }, { arg = "name", text = true } ]
 ask = "Save RAMDISK as (name)"
@@ -1018,11 +991,13 @@ ext = ".sid"
   label = "Play Main Tune"
   op = "c64.sid_play"
   bind = [ { arg = "path", file = true }, { arg = "song", int = 0 } ]
+  repeat_op = "c64.sid_valid"
   closes_menu = true
   [[filetype.action]]
   label = "Show Info"
   op = "c64.sid_info"
   bind = [ { arg = "path", file = true }, { arg = "song", int = 0 } ]
+  repeat_op = "c64.sid_valid"
   show = true
   [[filetype.action]]
   label = "Play Song %d"
@@ -1037,11 +1012,13 @@ ext = ".mus"
   label = "Play Main Tune"
   op = "c64.sid_play"
   bind = [ { arg = "path", file = true }, { arg = "song", int = 0 } ]
+  repeat_op = "c64.sid_valid"
   closes_menu = true
   [[filetype.action]]
   label = "Show Info"
   op = "c64.sid_info"
   bind = [ { arg = "path", file = true }, { arg = "song", int = 0 } ]
+  repeat_op = "c64.sid_valid"
   show = true
 
 [[filetype]]
@@ -1050,11 +1027,13 @@ ext = ".str"
   label = "Play Main Tune"
   op = "c64.sid_play"
   bind = [ { arg = "path", file = true }, { arg = "song", int = 0 } ]
+  repeat_op = "c64.sid_valid"
   closes_menu = true
   [[filetype.action]]
   label = "Show Info"
   op = "c64.sid_info"
   bind = [ { arg = "path", file = true }, { arg = "song", int = 0 } ]
+  repeat_op = "c64.sid_valid"
   show = true
 
 [[filetype]]
@@ -1971,6 +1950,14 @@ when = "live"
 apply = "u64.fx_chip"
 show_state = "u64.s1_arm"
 
+[[node]]
+anchor = "F5/audio/Socket_1_PDsid"
+kind = "state"
+state = "u64.s1_pd"
+label = "PDsid 1 chip"
+order = 10
+ui = { hide = "@u64.s1_pd", open = "u64.arm_read1" }   # never shown (hidden while the page itself shows): the page's open runs the chip read, as FW at_open_config
+
 [[core_setting]]
 group = "Socket_1_PDsid"
 key = "PDsid 1 Emulation Mode"
@@ -1980,6 +1967,14 @@ default = 0
 when = "live"
 apply = "u64.fx_chip"
 show_state = "u64.s1_pd"
+
+[[node]]
+anchor = "F5/audio/Socket_1_SidKick"
+kind = "state"
+state = "u64.s1_kick"
+label = "SidKick 1 chip"
+order = 10
+ui = { hide = "@u64.s1_kick", open = "u64.arm_read1" }   # never shown (hidden while the page itself shows): the page's open runs the chip read, as FW at_open_config
 
 [[core_setting]]
 group = "Socket_1_SidKick"
@@ -2329,6 +2324,14 @@ when = "live"
 apply = "u64.fx_chip"
 show_state = "u64.s2_arm"
 
+[[node]]
+anchor = "F5/audio/Socket_2_PDsid"
+kind = "state"
+state = "u64.s2_pd"
+label = "PDsid 2 chip"
+order = 10
+ui = { hide = "@u64.s2_pd", open = "u64.arm_read2" }   # never shown (hidden while the page itself shows): the page's open runs the chip read, as FW at_open_config
+
 [[core_setting]]
 group = "Socket_2_PDsid"
 key = "PDsid 2 Emulation Mode"
@@ -2338,6 +2341,14 @@ default = 0
 when = "live"
 apply = "u64.fx_chip"
 show_state = "u64.s2_pd"
+
+[[node]]
+anchor = "F5/audio/Socket_2_SidKick"
+kind = "state"
+state = "u64.s2_kick"
+label = "SidKick 2 chip"
+order = 10
+ui = { hide = "@u64.s2_kick", open = "u64.arm_read2" }   # never shown (hidden while the page itself shows): the page's open runs the chip read, as FW at_open_config
 
 [[core_setting]]
 group = "Socket_2_SidKick"
@@ -2563,10 +2574,11 @@ default = 1
 when = "live"
 apply = "ui.fx"
 
-# FW userinterface.cc:163, 339, 1081: the keys of the lists and sheets (menuctl.cc nav_fold); the default of a machine that has never been set up is Quick Search
+# FW userinterface.cc:163, 339, 1081: the keys of the lists and sheets (menuctl.cc nav_fold); the default of a machine that has never been set up is Quick Search, WASD Cursors on the C64 Ultimate product (fx_ui)
 [[core_setting]]
 group = "Application"
 key = "Navigation Style"
+label = "Navigation style"
 list = "navstyles"
 default = 0
 when = "live"
@@ -2583,6 +2595,7 @@ apply = "ui.fx"
 [[core_setting]]
 group = "Application"
 key = "Temp Auto Cleanup"
+label = "Temp auto cleanup"
 list = "en_dis"
 default = 1
 when = "live"
@@ -2591,6 +2604,7 @@ apply = "ui.fx"
 [[core_setting]]
 group = "Application"
 key = "Temp Subfolders"
+label = "Temp subfolders"
 list = "en_dis"
 default = 1
 when = "live"
@@ -2763,7 +2777,7 @@ list = "geo"
 default = 0
 when = "live"
 apply = "c64.fx_io"
-show_state = "c64.port_free"
+lock_state = "c64.port_taken"
 
 [[core_setting]]
 group = "REU"
@@ -2813,7 +2827,7 @@ list = "en_dis"
 default = 0
 when = "live"
 apply = "c64.fx_io"
-show_state = "c64.port_free"
+lock_state = "c64.port_taken"
 
 [[core_setting]]
 group = "Ultimate"
@@ -2823,7 +2837,7 @@ list = "en_dis"
 default = 0
 when = "live"
 apply = "c64.fx_io"
-show_state = "c64.port_free"
+lock_state = "c64.port_taken"
 
 [[core_setting]]
 group = "Cartridge"
@@ -3114,8 +3128,8 @@ apply = "net.fx"
 
 [[core_setting]]
 group = "Services"
-key = "Web Remote Control Service"
-label = "Web remote control service"
+key = "FTP File Service"
+label = "FTP file service"
 list = "en_dis"
 default = 1
 when = "live"
@@ -3123,8 +3137,8 @@ apply = "net.fx"
 
 [[core_setting]]
 group = "Services"
-key = "FTP File Service"
-label = "FTP file service"
+key = "Web Remote Control Service"
+label = "Web remote control service"
 list = "en_dis"
 default = 1
 when = "live"

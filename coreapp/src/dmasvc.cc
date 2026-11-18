@@ -14,8 +14,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-// The command words and their order follow FW socket_dma.cc:24-55. 0xFF71 / 0xFF72 (the Ultimate's own SID and boot cartridge buffers of its DMA boot handshake) are read and
-// dropped: nothing here has such a buffer.
+// The command words and their order follow FW socket_dma.cc:24-55. 0xFF71 replaces the SID player's image (dma.sidcrt). 0xFF72 is read and dropped: FW's boot cartridge buffer is overwritten with its
+// built-in image before every DMA load (c64_subsys.cc:1027), so the sent bytes never run.
 #define CMD_DMA 0xFF01
 #define CMD_DMARUN 0xFF02
 #define CMD_KEYB 0xFF03
@@ -220,6 +220,11 @@ static bool perform(int fd, uint8_t *buf, uint16_t cmd, uint32_t len, bool &auth
         }
         break;
     case CMD_LOADSIDCRT:
+        if (len) {
+            OpIn in[1] = { in_blob("data", buf, len > 0x2000 ? 0x2000 : len) };
+            call("dma.sidcrt", in, 1);
+        }
+        break;
     case CMD_LOADBOOTCRT:
         break;
     case CMD_MOUNT_IMG:

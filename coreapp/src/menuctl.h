@@ -306,6 +306,7 @@ private:
     void build_tree();                                              // menu_build_for, then the rows a flat list leaves out (a hide node, a show_state setting that is off)
     uint32_t show_sig() const;                                      // which show_state settings hold now
     void sync_show();                                               // a show_state flipped: the tree is made again and the selection keeps its row
+    const char *setting_lock(const Setting &s) const;               // T228 R21: the text of the state that locks a setting row (Setting::lock_state), null: not locked
     uint32_t show_sig_ = 0;
     int last_tab_[MENU_AREAS_MAX];                                  // the tab an area was left on: its key comes back to it
     char status_[200];

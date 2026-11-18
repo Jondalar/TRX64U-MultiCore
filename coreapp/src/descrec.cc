@@ -483,6 +483,13 @@ int descrec_parse(const uint8_t *rec, uint32_t n, DescRecord *out, char *why, in
             d.show_state = r.str((when >> 8) - 1, &bad);
             when &= 0xFF;
         }
+        if (when & 4) {                                        // T228 R21: the last value string is the state that locks the row (its text replaces the value); old records never set the flag
+            if (nv >= 1 && (uint64_t)fv + nv <= tb[V].count) {
+                d.lock_state = out->values[fv + nv - 1];
+                nv--;
+            }
+            when &= 3;
+        }
         d.apply = r.str(W(e, 6), &bad);
         d.base = (int32_t)W(e, 7);
         d.label = r.str(W(e, 8), &bad);                          // what the menu shows (null: the key); the key stays what the .cfg and REST name

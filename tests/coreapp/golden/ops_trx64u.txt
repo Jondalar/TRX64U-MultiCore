@@ -168,6 +168,7 @@ op	dma.prg	path:path:0:0:519:	mode:int:0:2:0:
 op	dma.mount	path:path:0:0:519:	run:int:0:1:0:
 op	dma.crt	path:path:0:0:519:
 op	dma.reu	offset:int:0:16777215:0:	data:blob:0:0:0:
+op	dma.sidcrt	data:blob:0:0:0:
 op	dma.power_off
 op	ui.fx	value:int:-2000:2000:0:
 op	c64.fx_io	value:int:-2000:2000:0:
@@ -176,6 +177,7 @@ op	u64.fx_power	value:int:-2000:2000:0:
 op	drive.fx_misc	value:int:-2000:2000:0:
 op	c64.sid_play	path:path:0:0:519:	song:int:0:65535:0:
 op	c64.sid_songs	path:path:0:0:519:	song:int:0:65535:0:
+op	c64.sid_valid	path:path:0:0:519:	song:int:0:65535:0:
 op	c64.sid_info	path:path:0:0:519:	song:int:0:65535:0:
 op	reu.load	path:path:0:0:519:
 op	reu.preload	path:path:0:0:519:
@@ -370,7 +372,6 @@ state	reu.nomp3.c
 state	reu.nomp3.d
 state	reu.on
 state	c64.cartridge
-state	c64.port_free
 state	c64.port_taken
 state	c64.cartridge_path
 state	machine.pause_label
