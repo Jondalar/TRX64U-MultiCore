@@ -632,3 +632,13 @@ ue2emu (70 full frames, trx64u beside the A1200).
   R22-R26 and the per-core image (R25); the tests are aligned with the code once (unit, lint, emulator scripts, UI features).
   Left: the one confirming test pass and its goldens (`menu_c64.txt`, `ids.txt`, `keywalk.txt`), the emulator check with
   Alex, the review, the merge to main; then S3 on the board.
+- **R27 (Alex 2026-11-18, in the emulator):** the ROM rows were text fields where the firmware has a drop-down. Kernal ROM, Basic ROM,
+  Char ROM, ROM for 1541 mode and Unique ID open a pick list (FW STRFUNC: files of /flash/roms by size; Not set / Default); every
+  setting's pick list ends with "Enter manually" (FW config_menu.h:118-125). A UX pass over every page found more; fixed without a
+  question (firmware or bug): the confirm of F8 "Reset to host defaults" (FW configio.cc:147), <- on the empty pad page, the status
+  cleared on an area or tab change, the name left in F3 search results, state lines without focus, the wording. Kept: Restart core
+  without a confirm (FW "Reboot (Clr Mem)", R17), Home directory as text (FW CFG_TYPE_STRING; folder picker = T204), write actions on
+  Flash (writable on the monolith, R21).
+- **After 0.2.0 (Alex 2026-11-18: "I cannot keep waiting"; option A asked, B taken for now):** RETURN on a row with fixed values opens
+  the list of the values, as FW config_menu.cc:108-114 (every core); until then RETURN steps to the next value. Also after 0.2.0: groups
+  in FTP hosts and Emulated SIDs, one name for the back key, "Hex View" in sentence case (generic).
