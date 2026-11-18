@@ -348,6 +348,16 @@ Alex 2026-11-17 (translated): "I want you to apply the generic APP 100 % to the 
     picks from the EDID; 42-43 the socket SID type detected (6581 voltage); 57 the mDNS name follows the host name; 8-19 the file
     actions only where they work and without the 192-entry cut (/flash: Alex's answer pending).
   - Kept: 21 (an unsupported cartridge type is refused, the message names it).
+- **R21 (Alex 2026-11-18, asked whether trx64u may write /flash "as TRX64-Ultimate does"):** "trx64-Ultimate ist eine firmware, die
+  NICHT uns gehört. DU wolltest das UI nicht in das Repo geben sondern hier bauen, weil wir noch nicht soweit dass da UI abstrahiert
+  sind. TOUGH LUCK! jetzt bau das UI so, dass es den vollen Umfang von TRX64-Ultimate schön, sauber und richtig darstellt und die
+  Dinge auch so funktionieren" (translated: "TRX64-Ultimate is a firmware that does NOT belong to us. YOU did not want to put the UI
+  into that repository but to build it here, because the UI is not abstracted there yet. TOUGH LUCK! Now build the UI so that it
+  shows the full scope of TRX64-Ultimate nicely, cleanly and correctly, and the things also work that way"). The rule for trx64u:
+  everything TRX64-Ultimate's firmware does on its bitstream is in the menu and works the same way; what does not work there either
+  (the bitstream cannot) stays out; TRX64-Ultimate's behaviour is taken over, never asked again. So: /flash is writable as there
+  (rows 8-19, 20 copies to /flash/roms); the removed rows whose function works in TRX64-Ultimate's firmware come back working; the
+  DHCP/static rows exist for Ethernet and for WiFi; the password guards what it guards there. Replaces R20 where it differs.
 - R1-R9 replace the earlier decisions of this spec where they differ (D3, D7, D8, D13, D16, D18 and the S2 choices DC1-DC14); branch t228-s2 stays unmerged. The proposal is rendered on branch t228-mock (render bench `mock_shots()`), shown as a click dummy on the concept page.
 
 ### Decisions during S2 (decided by Claude on Alex's delegation 2026-11-16 night; Alex can overturn each at S2b)
