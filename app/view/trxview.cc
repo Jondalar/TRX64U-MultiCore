@@ -142,15 +142,31 @@ int trx_content_h(void) { return g_content_h; }
 
 // A navigation item of the rail: the label on the left, the logical key on the right, a bar of accent
 // down the left edge when it is the open area (nav_item.xml).
-// Both prototypes print the rail and the tabs in capitals, whatever the label is called elsewhere.
+// Both prototypes print the rail and the tabs in capitals, whatever the label is called elsewhere. A brand keeps its spelling inside the
+// capitals (T228 R18, Alex 2026-11-18: the heading reads "reDIP:SID", not "REDIP:SID").
+static const char *const g_brands[] = { "reDIP:SID", 0 };
+
 static const char *shout(const char *s)
 {
     static char buf[4][40];
     static int n;
     char *b = buf[n++ & 3];
     int i = 0;
-    for (; s && s[i] && i < 39; i++) {
+    while (s && s[i] && i < 39) {
+        size_t bl = 0;
+        for (int k = 0; g_brands[k] && !bl; k++) {
+            size_t l = strlen(g_brands[k]);
+            if (i + (int)l <= 39 && !strncmp(s + i, g_brands[k], l)) {
+                bl = l;
+            }
+        }
+        if (bl) {
+            memcpy(b + i, s + i, bl);
+            i += (int)bl;
+            continue;
+        }
         b[i] = (s[i] >= 'a' && s[i] <= 'z') ? (char)(s[i] - 32) : s[i];
+        i++;
     }
     b[i] = 0;
     return b;
