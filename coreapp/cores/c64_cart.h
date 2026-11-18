@@ -15,8 +15,8 @@
 // start (header, chip packets, type and the window are checked first).
 int c64_cart_run(CoreCtx *c, const char *path, char *msg, int msglen);
 
-// The MOD player's cartridge (FW start_modplayer): started with the REU at 16 MB, the sampler and the UCI. The module is in the REU already. 0 or a reason.
-int c64_cart_run_modplayer(CoreCtx *c, char *msg, int msglen);
+// The MOD player's cartridge (FW start_modplayer): started with the REU at 16 MB, the sampler and the UCI. The module is in the REU already; rom is the 16 KB image (module.bin, core data: <core folder>/modplayer/). 0 or a reason.
+int c64_cart_run_modplayer(CoreCtx *c, const uint8_t *rom, uint32_t n, char *msg, int msglen);
 
 // The cartridge in the port: its file name and CRT type, empty / 0 when there is none. A cartridge started from the Library stays until it is removed.
 bool c64_cart_active(void);

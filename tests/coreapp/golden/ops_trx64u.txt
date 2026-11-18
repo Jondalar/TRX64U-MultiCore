@@ -347,6 +347,7 @@ state	reu.mp3.a
 state	reu.mp3.b
 state	reu.mp3.c
 state	reu.mp3.d
+state	reu.sampler
 state	reu.nomp3.a
 state	reu.nomp3.b
 state	reu.nomp3.c

@@ -1028,6 +1028,7 @@ ext = ".mod"
   bind = [ { arg = "path", file = true } ]
   key = "M"
   closes_menu = true
+  show_state = "reu.sampler"
   [[filetype.action]]
   label = "Load into REU"
   op = "reu.load"
