@@ -1328,7 +1328,7 @@ void MenuCtl::begin_text(const Task &t)
         }
     }
     entry_load(sug, 24);
-    set_status("Type the name; RETURN takes it, an empty name is a free one", false);
+    set_status("Type the name; RETURN takes it. Empty: the next free name", false);
 }
 
 void MenuCtl::begin_confirm_job(const Task *t, const char *question)

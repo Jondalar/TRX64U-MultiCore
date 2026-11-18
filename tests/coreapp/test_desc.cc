@@ -221,7 +221,7 @@ int main()
                     const FileAction &a = ft.actions[k];
                     mounts = mounts || !strncmp(a.label, "Mount", 5);
                     runs = runs || (a.op && (!strcmp(a.op, "drive.mount_run") ||
-                                             (!strcmp(a.label, "Run Disk") && (!strcmp(a.op, "pet.mount_run") || !strcmp(a.op, "drive.run_disk")))));   // TRX64U: drive.run_disk (T228 R21 #15, a .cfg beside the disk first)
+                                             (!strcasecmp(a.label, "Run Disk") && (!strcmp(a.op, "pet.mount_run") || !strcmp(a.op, "drive.run_disk")))));   // TRX64U: drive.run_disk (T228 R21 #15, a .cfg beside the disk first)
                     starts = starts || strstr(a.label, "and cold start") || strstr(a.label, "and reset");
                 }
                 if (!mounts || !strcmp(ft.ext, ".hdf") || *p == &testcore::desc) continue;     // a hard disk image has nothing to run; the made-up core is no machine
@@ -232,7 +232,7 @@ int main()
                     seen_cbm++;
                     // the reference names first, in this order; T228 R21: the TRX64U adds TRX64-Ultimate's own after them (Load into MP3 Drv A-D, its REU RAM drives)
                     bool same = ft.nactions >= ref->n;
-                    for (int k = 0; same && k < ref->n; k++) same = !strcmp(ft.actions[k].label, ref->names[k]);
+                    for (int k = 0; same && k < ref->n; k++) same = !strcasecmp(ft.actions[k].label, ref->names[k]);      // the TRX64U's are in sentence case (T228 R21 correction round), the others in Title Case
                     if (!same || !runs || !d->type_op) printf("T206: %s %s: names/order differ, or no Run Disk, or the core cannot type\n", d->cor_name, ft.ext);
                     CHECK(same);
                     CHECK(runs);

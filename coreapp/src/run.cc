@@ -310,9 +310,11 @@ public:
                      ctx.desc->id[1], ctx.desc->id[2], ctx.desc->id[3]);
             break;
         case 1:
-            if (APP_VERSION_STRING[0]) {
+            if (APP_VERSION_STRING[0] && APP_BUILD_DATE[0]) {                       // "built" only when the image has a date
                 snprintf(out, n, "%s built %s", APP_VERSION_STRING, APP_BUILD_DATE);
-            } else {
+            } else if (APP_VERSION_STRING[0]) {
+                snprintf(out, n, "%s", APP_VERSION_STRING);
+            } else if (APP_BUILD_DATE[0]) {
                 snprintf(out, n, "built %s", APP_BUILD_DATE);
             }
             break;

@@ -252,7 +252,7 @@ int main(int argc, char **argv)
         CHECK_STR(o->machine_info, "System Mode,REU Size");        // T228 version 4: the machine line's settings
         CHECK_STR(o->tasks[2].label, "Timewarp...");               // T228 R1: the row and its hotkey (the modifier + T, R16)
         CHECK_EQ(o->tasks[2].hotkey, 'T');
-        CHECK_STR(o->tasks[14].label, "Save Disk as D64");
+        CHECK_STR(o->tasks[14].label, "Save disk as D64");
         CHECK(o->tasks[14].ask && o->tasks[14].ask_state && !o->tasks[14].pick_dir && !o->tasks[14].closes_menu);
         CHECK_STR(o->tasks[14].group, "c64");
         CHECK_STR(o->tasks[16].label, "Create blank D64");
@@ -264,8 +264,8 @@ int main(int argc, char **argv)
         CHECK_STR(o->media[0].name, "Drive A:");
         CHECK_STR(o->media[0].eject_op, "drive.eject");
         CHECK_STR(o->media[0].exts, ".d64,.g64");                  // T212 D5: the drive list's data
-        CHECK_STR(o->media[0].mount, "Mount Disk");
-        CHECK_STR(o->media[0].mounted_tasks, "Swap disk,Reset drive,Unlink disk,Save Disk as D64,Save Disk as G64");
+        CHECK_STR(o->media[0].mount, "Mount disk");
+        CHECK_STR(o->media[0].mounted_tasks, "Swap disk,Reset drive,Unlink disk,Save disk as D64,Save disk as G64");
         CHECK(!o->media[0].eject_closes && o->media[1].eject_closes);
         CHECK_STR(o->media[1].name, "Cartridge port");
         CHECK(!o->media[2].eject_op && o->media[2].neject_bind == 0 && !o->media[2].exts);
@@ -277,7 +277,7 @@ int main(int argc, char **argv)
         CHECK_STR(o->ftypes[4].ext, ".d64");
         CHECK_STR(o->ftypes[4].inner_ext, ".prg");
         CHECK_EQ(o->ftypes[4].ninner, 2);
-        CHECK_STR(o->ftypes[4].inner[1].label, "Real Run");
+        CHECK_STR(o->ftypes[4].inner[1].label, "Real run");
         CHECK(!o->ftypes[5].inner && o->ftypes[5].ninner == 0);
         CHECK_EQ(o->ncsettings, 216);                              // the four tables of the record and the settings its nodes declare (R10: USB Controller Port; R21, R26: no WiFi rows)
         CHECK_STR(o->csettings[0].key, "Freeze mode");
