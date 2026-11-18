@@ -362,6 +362,10 @@ Alex 2026-11-17 (translated): "I want you to apply the generic APP 100 % to the 
   (translated: "Can telnet just go out, please? Completely?"). Telnet is out of trx64u completely, an exception to R21: no "Telnet
   remote menu service" row, no port 23 server, no text screen of the menu (coreapp/src/telnetgui.*, telnetscr.* deleted), and the
   network password row does not name Telnet. Audit row F41 is closed by this decision.
+- **R23 (Alex 2026-11-18, asked whether the last two large parts of TRX64-Ultimate are built or go out like Telnet: the tape recorder -
+  "Sample tape to TAP", "Capture save to TAP", "Finish Rec. to TAP" and UCI FINISH_CAPTURE, about 600 lines; the UCI HTTP target 6,
+  about 1700 lines):** "raus" (translated: "out"). Both stay out of trx64u, an exception to R21; the UCI answers "21,UNKNOWN COMMAND"
+  for FINISH_CAPTURE and target 6. SoftIEC target 5 is out anyway: the bitstream has no iec_processor (cores/c64u/core_sources.tcl).
 - R1-R9 replace the earlier decisions of this spec where they differ (D3, D7, D8, D13, D16, D18 and the S2 choices DC1-DC14); branch t228-s2 stays unmerged. The proposal is rendered on branch t228-mock (render bench `mock_shots()`), shown as a click dummy on the concept page.
 
 ### Decisions during S2 (decided by Claude on Alex's delegation 2026-11-16 night; Alex can overturn each at S2b)
