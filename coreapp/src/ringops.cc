@@ -6,6 +6,10 @@
 #include "trx_ring.h"
 #include "trx_c64re.h"
 #include "ops_glue.h"
+#include "c64_cart.h"
+#include "cbm1541.h"
+#include "d1541_drive.h"
+#include "filemanager.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -105,7 +109,8 @@ static int op_resume(CoreCtx *, const OpArgs &, OpOut &o)
 static int op_start(CoreCtx *, const OpArgs &, OpOut &o)
 {
     if (!trx_ring_start()) {
-        snprintf(o.msg, o.msglen, "This bitstream has no frame ring");
+        const char *why = trx_ring_reu_refusal();
+        snprintf(o.msg, o.msglen, "%s", why ? why : "This bitstream has no frame ring");
         return OPE_FAILED;
     }
     g_sel = -1;
@@ -175,8 +180,44 @@ static int op_dump(CoreCtx *c, const OpArgs &a, OpOut &o)
         snprintf(o.msg, o.msglen, "No medium to save to");
         return OPE_FAILED;
     }
+    // T228 R20: what the file says of the machine: the System Mode, the cartridge as it stands (written as a .crt beside the file, read into it and deleted),
+    // the GMod2's EEPROM and the image on drive A
+    TrxC64reSrc src;
+    memset(&src, 0, sizeof(src));
+    src.machine = cfg_value(c, "System Mode", 0);
+    char tmp[272];
+    tmp[0] = 0;
+    static uint8_t eeprom[2048];
+    if (c64_cart_active()) {
+        char m[96];
+        snprintf(tmp, sizeof(tmp), "%s.crt.tmp", p);
+        if (c64_cart_save(c, tmp, m, sizeof(m))) {
+            snprintf(o.msg, o.msglen, "The cartridge could not be read: %s", m);
+            return OPE_FAILED;
+        }
+        src.cart_file = tmp;
+        src.cart_name = c64_cart_name();
+        src.cart_src = c64_cart_path();
+        src.cart_type = c64_cart_crt_type();
+        if (src.cart_type == 60) {                      // GMod2: the saved game is in the 93C86, outside the ROM window (io.h: the array is at +2048)
+            c->io->eeprom_read(2048, eeprom, sizeof(eeprom));
+            src.eeprom = eeprom;
+        }
+    }
+    CbmDrive *d = (CbmDrive *)c->drive;
+    if (d && d->type() != DT_UNSET) {
+        src.drive_type = d->type() == DT_1581 ? "1581" : (d->type() == DT_1571 ? "1571" : "1541");
+        src.drive_power = d->powered();
+        src.drive_unit = d->bus_id();
+        src.disk_path = d->image_path();
+    }
+    trx_c64re_set_source(&src);
     uint32_t bytes = 0;
     const char *why = trx_c64re_dump(p, shown(), &bytes);
+    trx_c64re_set_source(NULL);
+    if (tmp[0]) {
+        FileManager::getFileManager()->delete_file(tmp);
+    }
     if (why) {
         snprintf(o.msg, o.msglen, "%s", why);
         return OPE_FAILED;
@@ -242,7 +283,7 @@ static const char *st_chip(CoreCtx *)
 {
     TrxRingStatus st;
     trx_ring_status(&st);
-    return !st.present ? "N/A" : (trx_ring_scrubbing() ? "Scrubbing" : (st.on ? "Recording" : "Stopped"));
+    return !st.present ? "N/A" : (st.reu_off ? "Off: REU on" : (trx_ring_scrubbing() ? "Scrubbing" : (st.on ? "Recording" : "Stopped")));
 }
 static const char *st_ring(CoreCtx *)
 {
@@ -250,6 +291,9 @@ static const char *st_ring(CoreCtx *)
     trx_ring_status(&st);
     if (!st.present) {
         return "No frame ring in this bitstream";
+    }
+    if (st.reu_off) {
+        return "Off while the REU is enabled";
     }
     int fps = trx_ring_fps() ? trx_ring_fps() : 50;
     snprintf(b1, sizeof(b1), "%s, %d.%d s", st.on ? "Recording" : "Stopped", st.frames / fps, (st.frames % fps) * 10 / fps);
