@@ -1999,6 +1999,14 @@ when = "live"
 apply = "u64.fx_chip"
 show_state = "u64.s1_arm"
 
+[[node]]
+anchor = "F5/audio/Socket_1_PDsid"
+kind = "state"
+state = "u64.s1_pd"
+label = "PDsid 1 chip"
+order = 10
+ui = { hide = "@u64.s1_pd", open = "u64.arm_read1" }   # never shown (hidden while the page itself shows): the page's open runs the chip read, as FW at_open_config
+
 [[core_setting]]
 group = "Socket_1_PDsid"
 key = "PDsid 1 Emulation Mode"
@@ -2008,6 +2016,14 @@ default = 0
 when = "live"
 apply = "u64.fx_chip"
 show_state = "u64.s1_pd"
+
+[[node]]
+anchor = "F5/audio/Socket_1_SidKick"
+kind = "state"
+state = "u64.s1_kick"
+label = "SidKick 1 chip"
+order = 10
+ui = { hide = "@u64.s1_kick", open = "u64.arm_read1" }   # never shown (hidden while the page itself shows): the page's open runs the chip read, as FW at_open_config
 
 [[core_setting]]
 group = "Socket_1_SidKick"
@@ -2357,6 +2373,14 @@ when = "live"
 apply = "u64.fx_chip"
 show_state = "u64.s2_arm"
 
+[[node]]
+anchor = "F5/audio/Socket_2_PDsid"
+kind = "state"
+state = "u64.s2_pd"
+label = "PDsid 2 chip"
+order = 10
+ui = { hide = "@u64.s2_pd", open = "u64.arm_read2" }   # never shown (hidden while the page itself shows): the page's open runs the chip read, as FW at_open_config
+
 [[core_setting]]
 group = "Socket_2_PDsid"
 key = "PDsid 2 Emulation Mode"
@@ -2366,6 +2390,14 @@ default = 0
 when = "live"
 apply = "u64.fx_chip"
 show_state = "u64.s2_pd"
+
+[[node]]
+anchor = "F5/audio/Socket_2_SidKick"
+kind = "state"
+state = "u64.s2_kick"
+label = "SidKick 2 chip"
+order = 10
+ui = { hide = "@u64.s2_kick", open = "u64.arm_read2" }   # never shown (hidden while the page itself shows): the page's open runs the chip read, as FW at_open_config
 
 [[core_setting]]
 group = "Socket_2_SidKick"
