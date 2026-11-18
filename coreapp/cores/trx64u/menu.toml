@@ -99,7 +99,7 @@ key = "F5"                       # the core's short title ("C64") names it
   id = "audio"
   name = "Audio"
   widget = "settings"
-  groups = ["Volumes", "Pan", "Speaker", "SID_sockets", "Emulated_SIDs"]
+  groups = ["Volumes", "Pan", "SID_sockets", "Emulated_SIDs"]
   ui = { sections = true, pages = "SID_sockets,Emulated_SIDs", pages_head = "reDIP:SID" }
   n = 5
   [[area.tab]]
@@ -344,48 +344,6 @@ op = "u64.power_off"
 order = 402
 ui = { confirm = "Power off the board?", sub = "Switches the board off" }
 
-[[node]]                          # the heading of the apps (a group node is a heading in a list as on a screen); the apps follow it in their order
-anchor = "F7/settings"
-kind = "group"
-label = "Apps"
-order = 10
-
-[[node]]
-anchor = "F7/settings"
-kind = "op"
-label = "Cartridge dumper"
-order = 20
-app = "trex_crt"
-action = "dump"
-ui = { sub = "Scan the cartridge in the port and save a CRT image", chip = "APP", tone = "violet" }
-
-[[node]]
-anchor = "F7/settings"
-kind = "op"
-label = "Cartridge inspector"
-order = 30
-app = "trex_crt"
-action = "inspect"
-ui = { sub = "Browse the memory, the banks and the registers of the cartridge", chip = "APP", tone = "cyan" }
-
-[[node]]
-anchor = "F7/settings"
-kind = "op"
-label = "Flash cartridge"
-order = 40
-app = "trex_crt"
-action = "flash"
-ui = { sub = "Write and verify a CRT image on a flash cartridge", chip = "APP", tone = "amber" }
-
-[[node]]
-anchor = "F7/settings"
-kind = "op"
-label = "Softboot"
-order = 50
-app = "softboot"
-action = "pick"
-ui = { sub = "Run an update image from RAM without flashing it", chip = "APP", tone = "violet", hide = "@host.multicore" }       # DC1: not under the MultiCore host
-
 [[node]]
 anchor = "F8/expert/WiFi_and_Ethernet"
 kind = "state"
@@ -465,26 +423,6 @@ bind = [ { arg = "id", int = 1 } ]
 order = 53
 when_state = "stream.audio_on"
 ui = { chip = "Stream", tone = "amber", why = "The audio stream is not running" }
-
-[[node]]
-anchor = "F8/expert/Streams"
-kind = "op"
-label = "Start debug stream"
-op = "stream.start"
-bind = [ { arg = "id", int = 2 } ]
-order = 54
-when_state = "stream.debug_off"
-ui = { sub = "@stream.debug", chip = "Stream", tone = "cyan", why = "The debug stream runs already" }
-
-[[node]]
-anchor = "F8/expert/Streams"
-kind = "op"
-label = "Stop debug stream"
-op = "stream.stop"
-bind = [ { arg = "id", int = 2 } ]
-order = 55
-when_state = "stream.debug_on"
-ui = { chip = "Stream", tone = "amber", why = "The debug stream is not running" }
 
 [[node]]
 anchor = "F8/expert"
@@ -955,8 +893,6 @@ period_ms = 16
 
 [lists]
 scanres_auto =["Auto", "SD (480p/576p)", "HD (720p)", "FullHD (1080p)", "PC 800 x 600", "PC 1024 x 768", "PC 1280 x 1024"]
-zones = ["US Baker Island (UTC -12)", "America Samoa (UTC -11)", "Hawaii (UTC -10)", "French Polynesia (UTC -9:30)", "Alaska (UTC -9)", "Los Angeles (UTC -8)", "Denver, Colorado (UTC -7)", "Phoenix, Arizona (UTC -7)", "Chicago, Illinois (UTC -6)", "New York (UTC -5)", "Argentina (UTC -3)", "Newfoundland (UTC -2:30)", "Greenland (UTC -2)", "Cabo Verde (UTC -1)", "Iceland (UTC 0)", "UK (UTC +1)", "Western Europe (UTC +2)", "Greece (UTC +3)", "Azerbaijan (UTC +4)", "Iran (UTC +4:30)", "Pakistan (UTC +5)", "India (UTC +5:30)", "Nepal (UTC +5:45)", "Bangladesh (UTC +6)", "Myanmar (UTC +6:30)", "Indonesia (UTC +7)", "China (UTC +8)", "Western Australia (UTC +8:45)", "Japan (UTC +9)", "Central Australia (UTC +9:30)", "Eastern Australia (UTC +10)", "Lord Howe Island (UTC +10:30)", "Solomon Islands (UTC +11)", "New Zealand (UTC +12)", "Chatham Islands (UTC +12:45)", "Tonga (UTC +13)", "Christmas Island (UTC +14)"]
-streammodes = ["6510 Only", "VIC Only", "6510 & VIC", "1541 Only", "6510 & 1541", "6510 w/IEC", "6510 & VIC w/IEC"]
 en_dis = ["Disabled", "Enabled"]
 yes_no = ["No", "Yes"]
 menu_opens = ["Home (F1)", "Last screen"]
@@ -965,8 +901,6 @@ vols = ["Off", "-42 dB", "-36 dB", "-30 dB", "-27 dB", "-24 dB", "-18 dB", "-17 
 pans = ["Left 5", "Left 4", "Left 3", "Left 2", "Left 1", "Center", "Right 1", "Right 2", "Right 3", "Right 4", "Right 5"]
 sysmodes = ["PAL", "NTSC", "PAL-60", "NTSC-50", "PAL-60/L", "NTSC-50/L"]
 scanres = ["SD (480p/576p)", "HD (720p)", "FullHD (1080p)", "PC 800 x 600", "PC 1024 x 768", "PC 1280 x 1024"]
-analog = ["CVBS + SVideo", "RGB"]
-digital = ["Auto", "HDMI", "DVI"]
 sidbase = ["Unmapped", "$D400", "$D420", "$D440", "$D460", "$D480", "$D4A0", "$D4C0", "$D4E0", "$D500", "$D520", "$D540", "$D560", "$D580", "$D5A0", "$D5C0", "$D5E0", "$D600", "$D620", "$D640", "$D660", "$D680", "$D6A0", "$D6C0", "$D6E0", "$D700", "$D720", "$D740", "$D760", "$D780", "$D7A0", "$D7C0", "$D7E0", "$DE00", "$DE20", "$DE40", "$DE60", "$DE80", "$DEA0", "$DEC0", "$DEE0", "$DF00", "$DF20", "$DF40", "$DF60", "$DF80", "$DFA0", "$DFC0", "$DFE0"]
 stereo = ["Off", "A5", "A6", "A7", "A8", "A9"]
 split = ["Off", "1/2 (A5)", "1/2 (A6)", "1/2 (A7)", "1/2 (A8)", "1/4 (A5,A6)", "1/4 (A5,A8)", "1/4 (A7,A8)"]
@@ -974,14 +908,8 @@ sidtypes = ["None", "6581", "8580", "FPGASID", "SwinSID Ultimate", "ARMSID", "AR
 onoff = ["Off", "On"]
 splash = ["Off", "On"]
 caps = ["470 pF", "22 nF"]
-filters = ["8580 Lo", "8580 Hi", "6581", "6581 Alt", "U2 Low", "U2 Mid", "U2 High"]
-reslist = ["Low", "High"]
 waves = ["6581", "8580"]
-digis = ["Off", "Low", "Medium", "High"]
 joyswaps = ["Normal", "Swapped", "WASD Port 2", "WASD Port 1", "WASD P2 No KB", "WASD P1 No KB"]
-mousemodes = ["Cursor", "Mouse", "Mouse + Cursor", "Mouse + Wheel"]
-mouseacc = ["Off", "Adaptive"]
-wheeldir = ["Normal", "Reversed"]
 iecmodes = ["All Connected", "C64 <-> Internal", "Ext. <-> Int.", "C64 <-> External"]
 burst = ["Off", "CIA1", "CIA2"]
 turbo = ["Off", "Manual", "U64 Turbo Registers", "TurboEnable Bit"]
@@ -990,15 +918,12 @@ poweron = ["Off", "On", "Last State"]
 ledsel = ["On", "Off", "Drive A Pwr", "DrvAPwr + DrvBPwr", "Drive A Act", "DrvAAct + DrvBAct", "DrvAPwr ^ DrvAAct", "USB Activity", "Any Activity", "!(DrvAAct)", "!(DrvAAct+DrvBAct)", "!(USB Act)", "!(Any Act)", "IRQ Line", "!(IRQ Line)", "Drive B Act"]
 alpha = ["0 %", "25 %", "50 %", "75 %"]
 schemes = ["Standard Blue", "Ultimate Black", "C128 Style", "Commodore Blue", "Commodore 1", "Commodore 2", "Commodore 3"]
-squeeze = ["None", "Beginning", "Middle", "End"]
 cartmodes = ["Auto", "Internal", "External", "Manual"]
-busmodes = ["Quiet", "Writes", "Dynamic", "Dyn. & Writes", "Compatibility"]
 sharing = ["Internal", "External", "Both"]
 gameexrom = ["On", "Off"]
 geo = ["Disabled", "Enabled", "GeoRAM Mode"]
 reusize = ["128 KB", "256 KB", "512 KB", "1 MB", "2 MB", "4 MB", "8 MB", "16 MB"]
 reuoffs = ["0 KB", "128 KB", "256 KB", "512 KB", "1 MB", "2 MB", "4 MB", "8 MB", "16 MB"]
-geos = ["None", "Gaps", "Track 36", "Both"]
 
 [[core_setting]]
 group = "TRX64"
@@ -1056,33 +981,6 @@ label = "HDMI scan lines"
 list = "en_dis"
 default = 1
 when = "live"
-apply = "u64.fx_video"
-
-[[core_setting]]
-group = "Output"
-key = "Analog Video Mode"
-label = "Analog video mode"
-list = "analog"
-default = 0
-when = "live"
-apply = "u64.fx_video"
-
-[[core_setting]]
-group = "Output"
-key = "Digital Video Mode"
-label = "Digital video mode"
-list = "digital"
-default = 0
-when = "live"
-apply = "u64.fx_video"
-
-[[core_setting]]
-group = "Output"
-key = "Adjust Color Clock"
-label = "Adjust color clock"
-range = [-100, 100]
-unit = " ppm"
-default = 0
 apply = "u64.fx_video"
 
 [[core_setting]]
@@ -1229,69 +1127,6 @@ when = "live"
 apply = "u64.fx_audio"
 
 [[core_setting]]
-group = "Speaker"
-key = "Speaker Enable"
-label = "Enable"
-list = "en_dis"
-default = 1
-when = "live"
-apply = "u64.fx_audio"
-
-[[core_setting]]
-group = "Speaker"
-key = "Spk Vol UltiSid 1"
-label = "Volume reDIP:SID 1"
-list = "vols"
-default = 0
-when = "live"
-apply = "u64.fx_audio"
-
-[[core_setting]]
-group = "Speaker"
-key = "Spk Vol UltiSid 2"
-label = "Volume reDIP:SID 2"
-list = "vols"
-default = 0
-when = "live"
-apply = "u64.fx_audio"
-
-[[core_setting]]
-group = "Speaker"
-key = "Spk Vol Socket 1"
-label = "Volume socket 1"
-list = "vols"
-default = 0
-when = "live"
-apply = "u64.fx_audio"
-
-[[core_setting]]
-group = "Speaker"
-key = "Spk Vol Socket 2"
-label = "Volume socket 2"
-list = "vols"
-default = 0
-when = "live"
-apply = "u64.fx_audio"
-
-[[core_setting]]
-group = "Speaker"
-key = "Spk Vol Sampler L"
-label = "Volume sampler L"
-list = "vols"
-default = 0
-when = "live"
-apply = "u64.fx_audio"
-
-[[core_setting]]
-group = "Speaker"
-key = "Spk Vol Sampler R"
-label = "Volume sampler R"
-list = "vols"
-default = 0
-when = "live"
-apply = "u64.fx_audio"
-
-[[core_setting]]
 group = "hidden"
 key = "Spk Vol Drive 1"
 label = "Speaker volume drive"
@@ -1410,55 +1245,10 @@ apply = "u64.fx_sid"
 
 [[core_setting]]
 group = "SID_sockets"
-key = "Paddle Override"
-label = "Paddle override"
-list = "en_dis"
-default = 1
-when = "live"
-apply = "u64.fx_sid"
-
-[[core_setting]]
-group = "SID_sockets"
 key = "Auto Address Mirroring"
 label = "Auto address mirroring"
 list = "en_dis"
 default = 1
-when = "live"
-apply = "u64.fx_sid"
-
-[[core_setting]]
-group = "Emulated_SIDs"
-key = "UltiSID 1 Filter Curve"
-label = "reDIP:SID 1 filter curve"
-list = "filters"
-default = 0
-when = "live"
-apply = "u64.fx_sid"
-
-[[core_setting]]
-group = "Emulated_SIDs"
-key = "UltiSID 2 Filter Curve"
-label = "reDIP:SID 2 filter curve"
-list = "filters"
-default = 0
-when = "live"
-apply = "u64.fx_sid"
-
-[[core_setting]]
-group = "Emulated_SIDs"
-key = "UltiSID 1 Filter Resonance"
-label = "reDIP:SID 1 filter resonance"
-list = "reslist"
-default = 0
-when = "live"
-apply = "u64.fx_sid"
-
-[[core_setting]]
-group = "Emulated_SIDs"
-key = "UltiSID 2 Filter Resonance"
-label = "reDIP:SID 2 filter resonance"
-list = "reslist"
-default = 0
 when = "live"
 apply = "u64.fx_sid"
 
@@ -1481,24 +1271,6 @@ when = "live"
 apply = "u64.fx_sid"
 
 [[core_setting]]
-group = "Emulated_SIDs"
-key = "UltiSID 1 Digis Level"
-label = "reDIP:SID 1 digi level"
-list = "digis"
-default = 2
-when = "live"
-apply = "u64.fx_sid"
-
-[[core_setting]]
-group = "Emulated_SIDs"
-key = "UltiSID 2 Digis Level"
-label = "reDIP:SID 2 digi level"
-list = "digis"
-default = 2
-when = "live"
-apply = "u64.fx_sid"
-
-[[core_setting]]
 group = "input"
 key = "Joystick Input"
 label = "Joystick input"
@@ -1506,51 +1278,6 @@ list = "joyswaps"
 default = 0
 when = "live"
 apply = "u64.fx_misc"
-
-[[core_setting]]
-group = "input"
-key = "Mouse Mode"
-label = "Mouse mode"
-list = "mousemodes"
-default = 1
-when = "live"
-apply = "u64.fx_input"
-
-[[core_setting]]
-group = "input"
-key = "Mouse Sensitivity"
-label = "Mouse sensitivity"
-range = [1, 16]
-unit = ""
-default = 8
-apply = "u64.fx_input"
-
-[[core_setting]]
-group = "input"
-key = "Mouse Acceleration"
-label = "Mouse acceleration"
-list = "mouseacc"
-default = 0
-when = "live"
-apply = "u64.fx_input"
-
-[[core_setting]]
-group = "input"
-key = "Mouse Wheel Sensitivity"
-label = "Mouse wheel sensitivity"
-range = [1, 16]
-unit = ""
-default = 8
-apply = "u64.fx_input"
-
-[[core_setting]]
-group = "input"
-key = "Mouse Wheel Direction"
-label = "Mouse wheel direction"
-list = "wheeldir"
-default = 0
-when = "live"
-apply = "u64.fx_input"
 
 # T228 R10 (Alex 2026-11-17): a USB pad or controller as a joystick in port 1 or 2, through the generic pad service (coreapp/src/pad.h) as the Amiga's port 2
 # (T225): one port, fed by the first pad plugged, its button map kept per pad (VID:PID) in the .cfg. The pad's lines are the host's own (C64_JOY1/2_SWOUT),
@@ -1637,27 +1364,9 @@ maxlen = 60
 apply = "c64.fx_roms"
 
 [[core_setting]]
-group = "Hardware"
-key = "DMA Load Mimics ID"
-label = "DMA load mimics ID"
-range = [8, 31]
-unit = ""
-default = 8
-apply = "c64.fx_io"
-
-[[core_setting]]
 group = "Drive_A"
 key = "Resets when C64 resets"
 label = "Reset drive with C64"
-list = "yes_no"
-default = 1
-when = "live"
-apply = "drive.fx_misc"
-
-[[core_setting]]
-group = "Drive_A"
-key = "Freezes in menu"
-label = "Freeze drive in menu"
 list = "yes_no"
 default = 1
 when = "live"
@@ -1691,30 +1400,12 @@ apply = "drive.fx_misc"
 
 [[core_setting]]
 group = "Drive_extras"
-key = "D64 Geos Copy Protection"
-label = "D64 geos copy protection"
-list = "geos"
-default = 0
-when = "live"
-apply = "drive.fx_misc"
-
-[[core_setting]]
-group = "Drive_extras"
 key = "Track Twist"
 label = "Track twist"
 range = [0, 40]
 unit = ""
 default = 27
 apply = "drive.fx_misc"
-
-[[core_setting]]
-group = "Drive_extras"
-key = "SpeedDOS Parallel Cable"
-label = "SpeedDOS parallel cable"
-list = "en_dis"
-default = 0
-when = "live"
-apply = "u64.fx_misc"
 
 [[core_setting]]
 group = "Drive_extras"
@@ -1796,24 +1487,6 @@ group = "Ultimate"
 key = "Map Ultimate Audio $DF20-DFFF"
 label = "Ultimate audio at $DF20-$DFFF"
 list = "en_dis"
-default = 0
-when = "live"
-apply = "c64.fx_io"
-
-[[core_setting]]
-group = "Ultimate"
-key = "Command Interface (UCI)"
-label = "Command interface (UCI)"
-list = "en_dis"
-default = 0
-when = "live"
-apply = "c64.fx_io"
-
-[[core_setting]]
-group = "Hardware"
-key = "Bus Operation Mode"
-label = "Bus operation mode"
-list = "busmodes"
 default = 0
 when = "live"
 apply = "c64.fx_io"
@@ -1953,14 +1626,6 @@ when = "live"
 apply = "ui.fx"
 
 [[core_setting]]
-group = "Application"
-key = "Filename overflow squeeze"
-list = "squeeze"
-default = 0
-when = "live"
-apply = "ui.fx"
-
-[[core_setting]]
 group = "Recording"
 key = "Timewarp Ring"
 label = "Timewarp ring"
@@ -2035,14 +1700,6 @@ apply = "net.fx"
 
 [[core_setting]]
 group = "Services"
-key = "Unique ID"
-text = true
-default = "Default"
-maxlen = 16
-apply = "net.fx"
-
-[[core_setting]]
-group = "Services"
 key = "Network Password"
 label = "Network password"
 empty = "Not set"
@@ -2053,101 +1710,11 @@ apply = "net.fx"
 
 [[core_setting]]
 group = "Services"
-key = "Ultimate Ident Service"
-label = "Ultimate ident service"
-list = "en_dis"
-default = 1
-when = "live"
-apply = "net.fx"
-
-[[core_setting]]
-group = "Services"
-key = "Ultimate DMA Service"
-label = "Ultimate DMA service"
-list = "en_dis"
-default = 1
-when = "live"
-apply = "net.fx"
-
-[[core_setting]]
-group = "Services"
-key = "Telnet Remote Menu Service"
-label = "Telnet remote menu service"
-list = "en_dis"
-default = 1
-when = "live"
-apply = "net.fx"
-
-[[core_setting]]
-group = "Services"
 key = "FTP File Service"
 label = "FTP file service"
 list = "en_dis"
 default = 1
 when = "live"
-apply = "net.fx"
-
-[[core_setting]]
-group = "Services"
-key = "Web Remote Control Service"
-label = "Web remote control service"
-list = "en_dis"
-default = 1
-when = "live"
-apply = "net.fx"
-
-[[core_setting]]
-group = "Services"
-key = "Log to Syslog Server"
-label = "Log to syslog server"
-text = true
-default = ""
-maxlen = 31
-apply = "net.fx"
-
-[[core_setting]]
-group = "Services"
-key = "SNTP Enable"
-label = "SNTP enable"
-list = "en_dis"
-default = 1
-when = "live"
-apply = "net.fx"
-
-[[core_setting]]
-group = "Services"
-key = "TimeZone"
-label = "Time zone"
-list = "zones"
-default = 16
-when = "live"
-apply = "net.fx"
-
-[[core_setting]]
-group = "Services"
-key = "Time Server 1"
-label = "Time server 1"
-text = true
-default = ""
-maxlen = 31
-apply = "net.fx"
-
-[[core_setting]]
-group = "Services"
-key = "Time Server 2"
-label = "Time server 2"
-text = true
-default = ""
-maxlen = 31
-apply = "net.fx"
-
-[[core_setting]]
-group = "Services"
-key = "Time Server 3"
-label = "Time server 3"
-text = true
-default = ""
-maxlen = 31
 apply = "net.fx"
 
 [[core_setting]]
@@ -2165,24 +1732,6 @@ label = "Stream audio to"
 text = true
 default = "239.0.1.65:11001"
 maxlen = 36
-apply = "settings.noop"
-
-[[core_setting]]
-group = "Streams"
-key = "Stream Debug to"
-label = "Stream debug to"
-text = true
-default = "239.0.1.66:11002"
-maxlen = 36
-apply = "settings.noop"
-
-[[core_setting]]
-group = "Streams"
-key = "Debug Stream Mode"
-label = "Debug stream mode"
-list = "streammodes"
-default = 0
-when = "live"
 apply = "settings.noop"
 
 [[core_setting]]
