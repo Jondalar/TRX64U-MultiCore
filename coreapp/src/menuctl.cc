@@ -406,7 +406,8 @@ bool MenuCtl::heading(int i)
     }
     const MenuEntry &e = tree_.e[cur().first + i];
     // T212 R10: a row that only shows (a heading, an information line, a media slot that is no drive) takes no focus
-    return e.kind == EK_HEADING || e.kind == EK_INFO || (e.kind == EK_MEDIA && !menu_slot_is_drive(c_->desc->media[e.index]));
+    return e.kind == EK_HEADING || e.kind == EK_INFO || (e.kind == EK_MEDIA && !menu_slot_is_drive(c_->desc->media[e.index]))
+        || (e.kind == EK_NODE && tree_.nodes[e.index].kind == LN_STATE);          // a state line of a TOML (Uptime, SD card, Ethernet status ...) only shows
 }
 
 bool MenuCtl::title_row(int i)
