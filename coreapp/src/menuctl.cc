@@ -346,7 +346,7 @@ void MenuCtl::go(int area, int tab)
     area_ = area;
     tab_ = (tab >= 0 && tab < tree_.a[area].ntabs) ? tab : 0;
     last_tab_[area] = cur().page && cur().parent >= 0 ? cur().parent : tab_;      // the key of the area comes back to the tab, not to the page it opened
-    if (moved && cur().layout && cur().layout[0]) {                  // a screen shows its own state: a message of the tab before it is not about this one
+    if (moved) {                                                     // a message of the tab before is not about this one; a switch that has a message of its own sets it after go()
         status_[0] = 0;
         status_bad_ = false;
     }
