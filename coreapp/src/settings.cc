@@ -221,6 +221,10 @@ bool Settings::write_cfg()
     if (!cfg_path_[0]) {
         return false;
     }
+    if (safe_) {                                       // safe mode: the change runs, the stored file keeps what it had (set_safe)
+        dirty_ = true;
+        return true;
+    }
     static char buf[16384];
     int pos = 0;
     if (!build(buf, sizeof(buf), &pos, false, 0, 0, 0) || !fs_->save(cfg_path_, buf, pos)) {
@@ -258,6 +262,7 @@ void Settings::rebind(const char *path)
 
 bool Settings::save()
 {
+    safe_ = false;                                     // a save on purpose: from now on the file is written as it always is
     return write_cfg();
 }
 

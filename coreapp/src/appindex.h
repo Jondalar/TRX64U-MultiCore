@@ -27,6 +27,7 @@
 #define PRG_APPS_MAX 16                   // T228 R21 #14: the <ext>.prg files of the flash's apps folder that the library offers as "Run with App" (FW user_file_interaction.cc:55-76)
 #define PRG_APP_OP "files.run_with_app"   // the operation a core registers to take them; a core without it gets no such action
 #define PRG_APP_NEED "standalone"         // an application that names this need is offered only when the board is not the MultiCore host (T228 DC1); it is not a library
+#define CART_APP_NEED "cart_port"         // an application that names this need is offered only when the core gives the cartridge port service (appsvc_c64); not a library
 #define APP_AREA "APP"                    // the key of the area an application's own route is made of
 
 struct AppEntry {
@@ -39,6 +40,7 @@ struct AppEntry {
     uint8_t *menu_bytes;
     LibRecord host;                       // what joins the core's menu: file actions, settings and the nodes anchored in the core's own route
     bool standalone_only;                 // PRG_APP_NEED
+    bool cart_only;                       // CART_APP_NEED
     LibRecord screens;                    // the application's own nodes, anchored in "APP"
     LibNodeDecl *nodes;                   // both halves of the node list, host first
     bool has_screens;                     // the record gives the application a route of its own
@@ -102,6 +104,8 @@ public:
     int contributors(Contributor *out, int max) const;
     // T228 DC1: under the MultiCore host the applications that need PRG_APP_NEED are not offered. Set before scan().
     void set_multicore(bool mc) { multicore_ = mc; }
+    // The applications that need CART_APP_NEED (the cartridge tools call that service unchecked) are offered only where the core gives it. Set before scan().
+    void set_cart_port(bool on) { cart_ = on; }
     // T228 R21 #14: "Run with App" is offered for a file when <flash>/apps/<its extension>.prg exists (prg_action). Set before scan(), and only when the core registered PRG_APP_OP.
     void set_prg_apps(bool on) { prg_on_ = on; }
     // The action "Run with App" for a file as it is listed, null when there is none (see appindex.cc). The object is reused by the next call.
@@ -119,6 +123,7 @@ private:
     AppEntry extra_;
     bool has_extra_;
     bool multicore_ = false;
+    bool cart_ = false;
     bool prg_on_ = false;
     char prg_dir_[40] = "";
 };

@@ -185,11 +185,30 @@ void MenuCtl::sync_show()
         return;
     }
     const MenuTab &was = cur();
+    char was_id[40];
+    snprintf(was_id, sizeof(was_id), "%s", was.id ? was.id : "");
     MenuEntry keep = { EK_HEADING, 0, -1, false };
     if (was.count > 0 && sel_[area_][tab_] >= 0 && sel_[area_][tab_] < was.count) {
         keep = tree_.e[was.first + sel_[area_][tab_]];
     }
     build_tree();
+    if (area_ >= tree_.nareas) {                                       // a page that came or went moves the tabs after it: find this one again by its id
+        area_ = 0;
+    }
+    {
+        int t = -1;
+        for (int b = 0; was_id[0] && b < tree_.a[area_].ntabs; b++) {
+            if (tree_.a[area_].tabs[b].id && !strcmp(tree_.a[area_].tabs[b].id, was_id)) {
+                t = b;
+                break;
+            }
+        }
+        if (t >= 0) {
+            tab_ = t;
+        } else if (tab_ >= tree_.a[area_].ntabs) {
+            tab_ = 0;
+        }
+    }
     for (int a = 0; a < tree_.nareas; a++) {
         for (int b = 0; b < tree_.a[a].ntabs; b++) {
             const int n = tree_.a[a].tabs[b].count;
@@ -513,13 +532,6 @@ void MenuCtl::open()
     status_[0] = 0;
     status_bad_ = false;
     fm_.open_home_if_set();                                         // the Library opens where the host's File Browser does: on the media level ("/"), and later where it was left (T104.2, Alex 2026-10-29)
-    if (!closable() && c_->desc->needs_program) {
-        set_status(c_->desc->needs_program, false);
-    }
-    if (c_->notice_pending) {
-        set_status(c_->notice, true);
-        c_->notice_pending = false;
-    }
     fm_.load_dir();
     settle();
     if (reopen_.valid && !app_mode_ && closable() && fm_.reopen_last()) {   // T192.3 D30: where it was left
@@ -527,6 +539,13 @@ void MenuCtl::open()
     }
     if (!app_mode_) {
         take_screen();                                                  // T228 R1: a hotkey of the core asked for a screen (Timewarp, Monitor): the menu opens there
+    }
+    if (!closable() && c_->desc->needs_program) {                  // after the moves above: go() clears the status of the place it leaves
+        set_status(c_->desc->needs_program, false);
+    }
+    if (c_->notice_pending) {
+        set_status(c_->notice, true);
+        c_->notice_pending = false;
     }
 }
 
@@ -1413,6 +1432,7 @@ void MenuCtl::begin_confirm(const MenuNode *n, const char *question)
 void MenuCtl::begin_ask(const MenuNode *n, const char *prompt)
 {
     note_folder();
+    prompt_ = false;
     entry_ = true;
     entry_text_mode_ = true;
     entry_task_ = 0;
@@ -2392,6 +2412,7 @@ bool MenuCtl::text_key(int k, Result *out)
         entry_ = false;
         entry_set_ = -1;
         entry_mset_ = false;
+        prompt_ = false;
         return false;
     default: {
         // T180 D8: the one line editor (app/edit) takes every other key of a text: characters go in at the cursor, DEL (INST/DEL) takes the one before

@@ -37,7 +37,7 @@ static int fx_net(CoreCtx *c, const OpArgs &, OpOut &o)
         snprintf(o.msg, o.msglen, "The network stack is not up");
         return OPE_OK;
     }
-    // R21: a value is pushed only when the core's settings have its key (Settings::find >= 0). net.fx runs for every core; one that does not list a key must not
+    // R21: a value is pushed only when the core's settings have its key (Settings::find >= 0). net.fx runs in every core whose TOML binds it; one that does not list a key must not
     // overwrite the stack with the key's default. The WiFi store is not touched: the host's WiFi settings are read by hostwifi_load (run.cc) (T184 D3, T228 R26).
     auto has = [&](const char *k) { return c->settings && c->settings->find(k) >= 0; };
     auto val = [&](ConfigStore *st, uint8_t id, const char *k, int def) { if (has(k)) st->set_value(id, cfg_value(c, k, def)); };
