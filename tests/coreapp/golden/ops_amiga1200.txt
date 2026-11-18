@@ -107,6 +107,7 @@ state	wifi.onoff
 state	wifi.line
 state	net.static
 state	net.pw_scope
+state	net.unique_ids
 state	stream.vic
 state	stream.audio
 state	stream.debug
