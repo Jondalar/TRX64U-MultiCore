@@ -46,7 +46,7 @@ enum TabWidget {
 };
 
 #define MENU_AREAS_MAX 8
-#define MENU_TABS_MAX 8                  // tabs of one area in the tree; the strip of the view has room for MENU_STRIP_TABS of them: an application's hidden screens are tabs that are not on it
+#define MENU_TABS_MAX 24                 // tabs of one area in the tree; the strip of the view has room for MENU_STRIP_TABS of them: an application's hidden screens are tabs that are not on it
 #define MENU_STRIP_TABS 8                // the tab strip of the view has room for eight (= TRX_TABS_MAX, checked in ui.cc): a library or an application adds no tab beyond them to a core's area
 #define MENU_MAX_ENTRIES 640
 #define MENU_NODES_MAX 320
@@ -113,7 +113,7 @@ struct MenuNode {
     const char *group;                // the anchor's third part, "" when none
 };
 
-#define MENU_HEADS_MAX 32
+#define MENU_HEADS_MAX 48
 
 struct MenuTree {
     MenuArea a[MENU_AREAS_MAX];
@@ -138,10 +138,13 @@ extern const char *const menu_info_labels[];     // null-terminated
 // mm: what libraries, applications and the description contribute and how the description lays out the route (contrib.h); null: the default
 // route with nothing added - every core of today, and its golden dump.
 struct MenuMerge;
-void menu_build(const CoreDesc *d, MenuTree *t, bool return_host = true, bool reload_core = false, const MenuMerge *mm = 0);
+// vis: does the condition of a setting's show_state or a node's hide hold now (true: yes). With it a page, and the row that opens it, is left out while none of its
+// rows is listed (a page of a chip that is not there); without it every page that has a row is built.
+typedef bool (*MenuVisFn)(void *user, const char *cond);
+void menu_build(const CoreDesc *d, MenuTree *t, bool return_host = true, bool reload_core = false, const MenuMerge *mm = 0, MenuVisFn vis = 0, void *vis_user = 0);
 // The tree of a running core application: return_host, reload_core and the merge are the context's (the board, the .cor, the libraries).
 struct CoreCtx;
-void menu_build_for(const CoreCtx *c, MenuTree *t);
+void menu_build_for(const CoreCtx *c, MenuTree *t, MenuVisFn vis = 0, void *vis_user = 0);
 // Takes entry `i` of a tab out of the tree; the tabs behind it keep their entries (T228 DC1: MenuCtl drops a flat list's row whose `hide` holds).
 void menu_drop_entry(MenuTree *t, int area, int tab, int i);
 

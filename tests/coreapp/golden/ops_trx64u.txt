@@ -113,6 +113,12 @@ op	drive.resync
 op	u64.fx_video	value:int:-2000:2000:0:
 op	u64.fx_audio	value:int:-2000:2000:0:
 op	u64.fx_sid	value:int:-2000:2000:0:
+op	u64.fx_fsid	value:int:-2000:2000:0:
+op	u64.fx_chip	value:int:-2000:2000:0:
+op	u64.fx_fsid_q10	value:int:-2000:2000:0:
+op	u64.fx_fsid_q11	value:int:-2000:2000:0:
+op	u64.fx_fsid_q20	value:int:-2000:2000:0:
+op	u64.fx_fsid_q21	value:int:-2000:2000:0:
 op	u64.fx_misc	value:int:-2000:2000:0:
 op	u64.fx_input	value:int:-2000:2000:0:
 op	u64.apply_palette	name:path:0:0:519:
@@ -222,6 +228,26 @@ state	drive.suggest.save_g64
 state	u64.palette
 state	u64.sid1_type
 state	u64.sid2_type
+state	u64.s1_swin
+state	u64.s2_swin
+state	u64.s1_arm
+state	u64.s2_arm
+state	u64.s1_pd
+state	u64.s2_pd
+state	u64.s1_kick
+state	u64.s2_kick
+state	u64.s1_noarm
+state	u64.s2_noarm
+state	u64.s1_armver
+state	u64.s2_armver
+state	u64.fsid1_uid
+state	u64.fsid2_uid
+state	u64.fsid1_rev
+state	u64.fsid2_rev
+state	u64.fsid1_none
+state	u64.fsid2_none
+state	u64.fsid1_new
+state	u64.fsid2_new
 state	u64.sid_map0
 state	u64.sid_map1
 state	u64.sid_map2

@@ -12,7 +12,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#define MENU_SECTIONS_MAX 8
+#define MENU_SECTIONS_MAX 16
 
 const char *const menu_info_labels[] = { "Core", "Application", "Network", "Media", "ROMs", "Libraries", 0 };
 
@@ -301,7 +301,7 @@ bool menu_slot_is_drive(const MediaSlot &m)
     return m.eject_op || m.mount || m.empty_tasks || m.mounted_tasks;
 }
 
-void menu_build(const CoreDesc *d, MenuTree *t, bool return_host, bool reload_core, const MenuMerge *mm)
+void menu_build(const CoreDesc *d, MenuTree *t, bool return_host, bool reload_core, const MenuMerge *mm, MenuVisFn vis, void *vis_user)
 {
     memset(t, 0, sizeof(*t));
     const Skeleton *sk = mm && mm->skel ? mm->skel : contrib_default_skeleton();
@@ -338,7 +338,7 @@ void menu_build(const CoreDesc *d, MenuTree *t, bool return_host, bool reload_co
             const bool sections = lay && ui_attr(lay + 1, "sections");
             const char *tab_title = st.name ? st.name : a->name;
             // T228 D18, R6: the pages of the tab (`pages`, TabPages); the k-th row that opens one is entry -(k+1), its page the k-th page tab after this one
-            char pages_attr[96];
+            char pages_attr[256];
             pages_attr[0] = 0;
             if (lay && (st.widget == TW_SYSTEM || (st.widget == TW_SETTINGS && sections))) {     // a plain list shows the groups as they are
                 ui_attr(lay + 1, "pages", pages_attr, sizeof(pages_attr));
@@ -383,14 +383,22 @@ void menu_build(const CoreDesc *d, MenuTree *t, bool return_host, bool reload_co
                 const char *sg = setting_group(d, mm, i);
                 return !(r && route_tab(sk, r)) && sg && strlen(sg) == gl && !strncmp(sg, g, gl) && group_in_tab(sk, TW_SETTINGS, st, sg);
             };
+            // Does the group have a row to show? With `vis` a setting whose show_state does not hold now is not one. A group that has settings is made or not by them
+            // alone (its state lines and nodes only stand on a page that is there); a group of nodes only by its nodes, minus those whose `hide` holds.
             auto group_has_rows = [&](const char *g, size_t gl) {
+                bool own = false;
                 for (int i = 0; i < d->nsettings; i++) {
                     if (setting_in(i, g, gl)) {
-                        return true;
+                        own = true;
+                        if (!(vis && d->settings[i].show_state && !vis(vis_user, d->settings[i].show_state))) {
+                            return true;
+                        }
                     }
                 }
-                for (int k = 0; mm && k < mm->nnodes; k++) {
-                    if (node_in(mm->nodes[k], g, gl)) {
+                for (int k = 0; !own && mm && k < mm->nnodes; k++) {
+                    char hs[64];
+                    const bool off = vis && mm->nodes[k].n.attr && ui_attr(mm->nodes[k].n.attr, "hide", hs, sizeof(hs)) && hs[0] == '@' && vis(vis_user, hs + 1);
+                    if (node_in(mm->nodes[k], g, gl) && !off) {
                         return true;
                     }
                 }
@@ -822,9 +830,9 @@ const FixedDef *menu_fixed(EntryKind kind, int variant)
     return 0;
 }
 
-void menu_build_for(const CoreCtx *c, MenuTree *t)
+void menu_build_for(const CoreCtx *c, MenuTree *t, MenuVisFn vis, void *vis_user)
 {
-    menu_build(c->desc, t, !c->board || c->board->can_return_host, reload_is_dfx(c), c->merge);
+    menu_build(c->desc, t, !c->board || c->board->can_return_host, reload_is_dfx(c), c->merge, vis, vis_user);
 }
 
 void menu_drop_entry(MenuTree *t, int area, int tab, int i)

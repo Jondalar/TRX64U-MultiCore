@@ -500,8 +500,8 @@ def _tab_pages(tb, tid, widget, groups):
             if g in held:
                 raise DescError("tab %s: ui pages names the group %r twice" % (tid, g))
             held.append(g)
-    if len(pages) > 95:
-        raise DescError("tab %s: ui pages is longer than 95 characters (the application reads that much)" % tid)
+    if len(pages) > 255:
+        raise DescError("tab %s: ui pages is longer than 255 characters (the application reads that much)" % tid)
     if pages and widget == "settings" and not ui.get("sections"):
         raise DescError("tab %s: ui pages needs `sections` (a plain list shows its groups as they are)" % tid)
     if pages and widget not in ("settings", "system"):
