@@ -870,7 +870,7 @@ def compile_desc(doc, merged=()):
     seen_set = set()
     lists = _opt(doc, "lists", dict, "description", {})
     for cs in _opt(doc, "core_setting", list, "description", []):
-        _only(cs, {"key", "group", "values", "list", "range", "unit", "default", "when", "apply", "base", "text", "secret", "maxlen", "show_state", "label", "empty", "pick"}, "core_setting")
+        _only(cs, {"key", "group", "values", "list", "range", "unit", "default", "when", "apply", "base", "text", "secret", "maxlen", "show_state", "lock_state", "label", "empty", "pick"}, "core_setting")
         key = _need(cs, "key", str, "core_setting")
         what = "core_setting " + key
         if key.lower() in seen_set:
@@ -926,6 +926,10 @@ def compile_desc(doc, merged=()):
         show = _opt(cs, "show_state", str, what, None)         # the row is listed only while this condition holds (contrib.h cond_holds); packed above the time code
         if show:
             wcode |= (st.add(show) + 1) << 8
+        lock = _opt(cs, "lock_state", str, what, None)         # T228 R21: while this state has a text the row shows it in place of the value and refuses edits (FW set_override); the record keeps it as the last value string, flag 4 of the time code
+        if lock:
+            vals = list(vals) + [lock]
+            wcode |= 4
         fv = len(t["value"])
         big = tuple(vals) if len(vals) > 256 else None       # a long range (a number with hundreds of steps) is stored once, however many settings share it
         if big is not None and big in t.setdefault("_big", {}):
@@ -1233,10 +1237,17 @@ def parse_desc(blob):
         base = base - 2 ** 32 if base >= 2 ** 31 else base
         show = s((when >> 8) - 1) if when >> 8 else None
         when &= 0xFF
+        lock = None
+        if when & 4:                                                  # the last value string is the state that locks the row (T228 R21)
+            if nv < 1 or fv + nv > len(out["value"]):
+                raise DescError("description record: a bad core setting")
+            lock = out["value"][fv + nv - 1]
+            nv -= 1
+            when &= 3
         if not s(key) or not s(apply) or nv < (1 if when >= 2 else 2) or fv + nv > len(out["value"]) or df >= nv or when > 3:
             raise DescError("description record: a bad core setting")
         out["cset"].append({"key": s(key), "group": s(group), "values": out["value"][fv:fv + nv], "default": df, "when": {0: "live", 1: "reset", 2: "text", 3: "secret"}[when],
-                            "apply": s(apply), "base": base, "show_state": show, "label": s(label)})
+                            "apply": s(apply), "base": base, "show_state": show, "label": s(label), "lock_state": lock})
     if out["own"] != bool(out["task"] or out["media"] or out["ftype"] or out["cset"]):
         raise DescError("description record: the own-menu flag and the tables of the own menu disagree")
     return out
@@ -1419,6 +1430,8 @@ def decoded_to_doc(rec):
                 d["label"] = c["label"]
             if c.get("show_state"):
                 d["show_state"] = c["show_state"]
+            if c.get("lock_state"):
+                d["lock_state"] = c["lock_state"]
             doc["core_setting"].append(d)
     return doc
 

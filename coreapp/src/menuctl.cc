@@ -963,6 +963,10 @@ void MenuCtl::row(int i, char *left, int ln, char *right, int rn, bool *active, 
             }
             break;
         }
+        if (const char *lk = setting_lock(s)) {                          // T228 R21 (FW ConfigItem override): the state's text stands in place of the value
+            snprintf(right, rn, "%s", lk);
+            break;
+        }
         if (s.apply && !strcmp(s.apply, PICTURE_OP) && !strcasecmp(s.key, PICTURE_KEY)) {                  // T187 D5: the row opens the page of the modes; its value is the mode in force
             snprintf(right, rn, "%s >", s.values[v]);
             break;
@@ -2486,6 +2490,16 @@ MenuCtl::Result MenuCtl::run_action(const FileAction &a, const char *file, int32
     return menu_action_closes(c_, a) ? R_CLOSE : R_REDRAW;
 }
 
+// The text of the state that locks a setting's row (Setting::lock_state), null while it has none.
+const char *MenuCtl::setting_lock(const Setting &s) const
+{
+    if (!s.lock_state) {
+        return 0;
+    }
+    const char *t = ops_state(c_, s.lock_state);
+    return t && t[0] ? t : 0;
+}
+
 MenuCtl::Result MenuCtl::change_setting(int dir)
 {
     const MenuEntry &e = tree_.e[cur().first + sel_[area_][tab_]];
@@ -2496,6 +2510,10 @@ MenuCtl::Result MenuCtl::change_setting(int dir)
         return R_NONE;
     }
     const Setting &s = c_->desc->settings[e.index];
+    if (const char *lk = setting_lock(s)) {                          // T228 R21: FW refuses the edit of an overridden item; the stored value stays
+        set_status(lk, true);
+        return R_REDRAW;
+    }
     int v = (c_->settings->value(e.index) + dir + s.nvalues) % s.nvalues;
     char first[96];
     first[0] = 0;
@@ -2761,8 +2779,10 @@ MenuCtl::Result MenuCtl::activate(bool primary, bool all)
                 chooser_buf_[n].repeat_op = 0;
                 chooser_buf_[n].index = (int16_t)j;
                 chooser_buf_[n].key = 0;
-                int pre = pc ? (int)(pc - acts[k].label) : (int)strlen(acts[k].label);
-                snprintf(chooser_lbl_[n], sizeof(chooser_lbl_[n]), "%.*s%d%s", pre, acts[k].label, j, pc ? pc + 2 : "");
+                if (!pc) {                                                  // no "%d": the action is offered once, as it is, while the counting operation says yes (a file check)
+                    continue;
+                }
+                snprintf(chooser_lbl_[n], sizeof(chooser_lbl_[n]), "%.*s%d%s", (int)(pc - acts[k].label), acts[k].label, j, pc + 2);
                 chooser_buf_[n].label = chooser_lbl_[n];
             }
         }
@@ -3759,7 +3779,7 @@ void MenuCtl::item(int i, Item *it)
         snprintf(it->value, sizeof(it->value), "%s", right);
         it->reset = row_reset(i);
         it->dirty = c_->settings && c_->settings->item_held(e.index);
-        it->toggle = !s.kind && is_switch(s);
+        it->toggle = !s.kind && is_switch(s) && !setting_lock(s);
         it->on = it->toggle && c_->settings->value(e.index) == 1;
         snprintf(it->group, sizeof(it->group), "%s", s.group ? s.group : "");
         it->hidden = s.show_state && !cond_holds(s.show_state, node_state_text, c_);       // a row of a feature that is off is not listed

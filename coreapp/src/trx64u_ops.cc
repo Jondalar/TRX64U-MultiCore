@@ -63,8 +63,14 @@ const char *cfg_text(CoreCtx *c, const char *key)
 
 // ---- the look of the menu ---------------------------------------------------------------------------------------------------------------------
 #include "tempdisk.h"
+#include "product.h"
 static int fx_ui(CoreCtx *c, const OpArgs &, OpOut &)
 {
+    // FW userinterface.cc:244-248: a machine that has never been set up starts with WASD Cursors on the C64 Ultimate product (isCommodoreBoard); a value the person stored stays.
+    int nv = c->settings ? c->settings->find("Navigation Style") : -1;
+    if (nv >= 0 && c->settings->layer(nv) == Settings::L_DEFAULT && isCommodoreBoard()) {
+        c->settings->override_value(nv, 1);
+    }
     ui_set_look(cfg_value(c, "Overlay Transparency", 1), cfg_value(c, "Color Scheme", 1));
     ui_set_name_squeeze(cfg_value(c, "Filename overflow squeeze", 0));
     tempdisk_set(cfg_value(c, "Temp Auto Cleanup", 1) != 0, cfg_value(c, "Temp Subfolders", 1) != 0);
@@ -997,7 +1003,6 @@ static const char *state_suggest_ring(CoreCtx *) { return "ring"; }
 // the rows of the REU (size, preload) are listed while the expansion is not Disabled
 static const char *state_reu_on(CoreCtx *c) { return cfg_value(c, "RAM Expansion Unit", 0) == 1 && !port_taken(c) ? "yes" : 0; }   // T228 R20 2: the REU is there only as the REU (not GeoRAM) and while no cartridge has the port
 // the three rows of the port's devices (REU, Ultimate audio, UCI) are listed while the port is free; while it is taken a row of the same name says why they are off (c64.cc:424-428)
-static const char *state_port_free(CoreCtx *c) { return port_taken(c) ? 0 : "yes"; }
 static const char *state_port_taken(CoreCtx *c) { return port_taken(c) ? "Disabled (cartridge)" : 0; }
 static const char *state_cartridge(CoreCtx *) { return c64_cart_active() ? c64_cart_name() : 0; }
 static const char *state_cartridge_path(CoreCtx *) { return c64_cart_active() ? c64_cart_path() : 0; }
@@ -1174,6 +1179,19 @@ static int op_sid_songs(CoreCtx *c, const OpArgs &a, OpOut &o)
     if (o.datacap >= 2) {
         o.data[0] = (uint8_t)n;
         o.data[1] = (uint8_t)(n >> 8);
+        o.ndata = 2;
+    }
+    return OPE_OK;
+}
+
+// FW FileTypeSID::fetch_context_items: a file whose header is not valid has no actions - 1 here when the header reads, else 0 (the count of a `repeat_op` action without "%d")
+static int op_sid_valid(CoreCtx *c, const OpArgs &a, OpOut &o)
+{
+    char m[80];
+    int n = sid_open(c, a.s(0), &g_sf, false, m, sizeof(m)) ? 0 : 1;
+    if (o.datacap >= 2) {
+        o.data[0] = (uint8_t)n;
+        o.data[1] = 0;
         o.ndata = 2;
     }
     return OPE_OK;
@@ -1592,6 +1610,7 @@ void trx64u_register(OpRegistry &r)
     r.add_op("drive.fx_misc", value_arg, 1, fx_drive_misc);
     r.add_op("c64.sid_play", sid_args, 2, op_sid_play);
     r.add_op("c64.sid_songs", sid_args, 2, op_sid_songs);
+    r.add_op("c64.sid_valid", sid_args, 2, op_sid_valid);
     r.add_op("c64.sid_info", sid_args, 2, op_sid_info);
     r.add_op("reu.load", path_arg, 1, op_reu_load);
     r.add_op("reu.preload", path_arg, 1, op_reu_preload);
@@ -1615,7 +1634,6 @@ void trx64u_register(OpRegistry &r)
     r.add_state("reu.nomp3.c", state_nomp3<2>);
     r.add_state("reu.nomp3.d", state_nomp3<3>);
     r.add_state("reu.on", state_reu_on);
-    r.add_state("c64.port_free", state_port_free);
     r.add_state("c64.port_taken", state_port_taken);
     r.add_state("c64.cartridge", state_cartridge);
     r.add_state("c64.cartridge_path", state_cartridge_path);

@@ -177,6 +177,7 @@ op	u64.fx_power	value:int:-2000:2000:0:
 op	drive.fx_misc	value:int:-2000:2000:0:
 op	c64.sid_play	path:path:0:0:519:	song:int:0:65535:0:
 op	c64.sid_songs	path:path:0:0:519:	song:int:0:65535:0:
+op	c64.sid_valid	path:path:0:0:519:	song:int:0:65535:0:
 op	c64.sid_info	path:path:0:0:519:	song:int:0:65535:0:
 op	reu.load	path:path:0:0:519:
 op	reu.preload	path:path:0:0:519:
@@ -371,7 +372,6 @@ state	reu.nomp3.c
 state	reu.nomp3.d
 state	reu.on
 state	c64.cartridge
-state	c64.port_free
 state	c64.port_taken
 state	c64.cartridge_path
 state	machine.pause_label
