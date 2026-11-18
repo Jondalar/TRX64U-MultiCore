@@ -145,6 +145,13 @@ uint32_t MenuCtl::show_sig() const
             h = (h ^ (setting_off(c_, i) ? 1u : 2u)) * 16777619u;
         }
     }
+    for (int i = 0; i < tree_.nnodes; i++) {                           // T228 R21: a node's `hide` in a flat list is read when the tree is made: a change of the state makes it again
+        char spec[64], v[16];
+        if (ui_attr(tree_.nodes[i].attr, "hide", spec, sizeof(spec))) {
+            spec_text(spec, v, sizeof(v));
+            h = (h ^ (v[0] ? 1u : 2u)) * 16777619u;
+        }
+    }
     return h;
 }
 
@@ -454,6 +461,7 @@ void MenuCtl::settle()
 
 void MenuCtl::open()
 {
+    sync_show();                            // T228 R21: what the machine holds may have changed while the menu was closed (a GEOS RAM drive in the REU)
     chooser_ = false;
     entry_ = false;
     learn_ = -1;
@@ -2379,11 +2387,14 @@ MenuCtl::Result MenuCtl::activate(bool primary, bool all)
             // T104.1 D4 size_in: an action a library contributed for files of certain sizes is offered for those files only
             bool sized = false;
             for (int k = 0; k < nacts; k++) {
-                sized |= acts[k].nsize_in > 0;
+                sized |= acts[k].nsize_in > 0 || acts[k].show_state;
             }
             if (sized) {
                 int w = 0;
                 for (int k = 0; k < nacts && w < FILT_MAX; k++) {
+                    if (acts[k].show_state && !cond_holds(acts[k].show_state, node_state_text, c_)) {     // T228 R21: offered only while its state holds
+                        continue;
+                    }
                     bool ok = acts[k].nsize_in == 0;
                     for (int z = 0; z < acts[k].nsize_in; z++) {
                         ok |= (uint64_t)f.size == acts[k].size_in[z];

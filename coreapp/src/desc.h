@@ -139,6 +139,8 @@ struct FileAction {
     int nsize_in;
     // T104.2 UI: the letter that runs the item inside the action sheet (0: none). Uniform browser: the same letters in the host and in every core.
     char key;
+    // T228 R21: the action is offered only while this condition holds (contrib.h cond_holds, a state name with the same forms as a node's when_state); null: always.
+    const char *show_state;
 };
 
 struct FileType {

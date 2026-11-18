@@ -12,6 +12,7 @@
 #include "iomap.h"
 #include <stdio.h>
 #include <string.h>
+#include <ctype.h>
 #include <strings.h>
 #include <stdlib.h>
 
@@ -501,43 +502,73 @@ static int op_insert_blank(CoreCtx *c, const OpArgs &, OpOut &o)
     return OPE_OK;
 }
 
-static int cmp_name(const void *a, const void *b) { return strcasecmp(((const FsEntry *)a)->name, ((const FsEntry *)b)->name); }
-
-// "Swap Disk": the next disk image of the folder (by name, round and round) takes the place of this one after the swap delay, in the mode of this one
+// "Swap Disk" and CTRL + D (TRX-Ultimate c1541.cc:653-727, userinterface.cc:444-445): the disk's file name has a denominating character - the last digit that
+// no digit follows, or the last letter between two non-letters - and the next file that has the next character there (digits 0-9, letters A-Z, round and
+// round, names compared in upper case) takes the place of this one after the swap delay, in the mode of this one. The walk is the firmware's own: its
+// wrap-around lands on the second character (a `continue` before the loop's c++), so after 9 comes 1 and after Z comes B, as there.
 static int swap_next(CoreCtx *c, CbmDrive *d, FsEntry *ents, int cap, OpOut &o)
 {
-    int k = c->fs->list(d->last_dir(), ents, cap), n = 0;
-    for (int i = 0; i < k; i++) {
-        int l = (int)strlen(ents[i].name);
-        if (!ents[i].dir && l > 4 && (!strcasecmp(ents[i].name + l - 4, ".d64") || !strcasecmp(ents[i].name + l - 4, ".g64") || !strcasecmp(ents[i].name + l - 4, ".g71"))) {
-            ents[n++] = ents[i];
+    const char *cur = d->image_name();
+    char work[FS_NAME_MAX + 1];
+    int len = (int)strlen(cur);
+    if (len < 5 || len > FS_NAME_MAX) {
+        snprintf(o.msg, o.msglen, "No other disk in the series of %s", cur);
+        return OPE_FAILED;
+    }
+    for (int i = 0; i <= len; i++) {
+        work[i] = (char)toupper((unsigned char)cur[i]);
+    }
+    int index = -1;
+    for (int k = len - 5; k >= 0; k--) {
+        bool found = isdigit((unsigned char)work[k]) && !isdigit((unsigned char)work[k + 1]);
+        if (k > 0) {
+            found |= isalpha((unsigned char)work[k]) && !isalpha((unsigned char)work[k - 1]) && !isalpha((unsigned char)work[k + 1]);
+        } else {
+            found |= isalpha((unsigned char)work[k]) && !isalpha((unsigned char)work[k + 1]);
+        }
+        if (found) {
+            index = k;
+            break;
         }
     }
-    if (n < 2) {
-        snprintf(o.msg, o.msglen, "There is no other disk image in %s to swap to", d->last_dir());
+    if (index < 0) {
+        snprintf(o.msg, o.msglen, "No denominating character found in %s", cur);
         return OPE_FAILED;
     }
-    qsort(ents, n, sizeof(FsEntry), cmp_name);
-    int at = 0;
-    for (int i = 0; i < n; i++) {
-        if (!strcasecmp(ents[i].name, d->image_name())) {
-            at = i;
+    int k = c->fs->list(d->last_dir(), ents, cap);
+    char current = work[index];
+    char top = isalpha((unsigned char)current) ? 'A' : '0';
+    char bottom = isalpha((unsigned char)current) ? 'Z' : '9';
+    int steps = 0;                                              // the firmware's loop never ends with no match when the character is the first of its range (A or 0); here it stops after a round
+    for (char ch = (char)(current + 1); ch != current && steps < 40; ch++, steps++) {
+        if (ch > bottom) {
+            ch = top;
+            continue;
+        }
+        work[index] = ch;
+        for (int i = 0; i < k; i++) {
+            if (ents[i].dir || strcasecmp(ents[i].name, work)) {
+                continue;
+            }
+            char next[FS_PATH_MAX];
+            snprintf(next, sizeof(next), "%s/%s", d->last_dir(), ents[i].name);
+            char name[FS_NAME_MAX + 1];
+            snprintf(name, sizeof(name), "%s", ents[i].name);
+            int mode = !strcmp(d->mode_name(), "ro") ? MM_RO : (!strcmp(d->mode_name(), "unlinked") ? MM_UNLINKED : MM_RW);
+            if (d->eject(o.msg, o.msglen)) {                  // c1541.cc:712: what the head wrote goes back to the file first
+                return OPE_FAILED;
+            }
+            c->io->delay_ms((uint32_t)d->swap_delay_ms());
+            if (d->mount(next, mode, o.msg, o.msglen)) {
+                return OPE_FAILED;
+            }
+            snprintf(o.msg, o.msglen, "Swapped to %s", name);
+            return OPE_OK;
         }
     }
-    char next[FS_PATH_MAX];
-    snprintf(next, sizeof(next), "%s/%s", d->last_dir(), ents[(at + 1) % n].name);
-    int mode = !strcmp(d->mode_name(), "ro") ? MM_RO : (!strcmp(d->mode_name(), "unlinked") ? MM_UNLINKED : MM_RW);
-    if (d->eject(o.msg, o.msglen)) {
-        return OPE_FAILED;
-    }
-    c->io->delay_ms((uint32_t)d->swap_delay_ms());
-    if (d->mount(next, mode, o.msg, o.msglen)) {
-        return OPE_FAILED;
-    }
-    snprintf(o.msg, o.msglen, "Swapped to %s", ents[(at + 1) % n].name);
-    return OPE_OK;
+    snprintf(o.msg, o.msglen, "No matching image found for %s", cur);
+    return OPE_FAILED;
 }
-
 
 static int op_swap(CoreCtx *c, const OpArgs &, OpOut &o)
 {
@@ -697,6 +728,165 @@ static int op_save_reu(CoreCtx *c, const OpArgs &a, OpOut &o)
     return write_ddr(c, p, 0, 128u * 1024u << cfg_value(c, "REU Size", 4), false, o.msg, o.msglen) ? OPE_FAILED : OPE_OK;
 }
 
+// ---- F7 #4 the GEOS RAM drives in the REU (TRX-Ultimate c64.cc:2354-2391, c64_subsys.cc:852-912, filetype_d64.cc:121-124, 161-240) -------------------------------------
+// MegaPatch 3 keeps up to four RAM drives in the REU: the type byte of drive n is at $BB0E + n (GEOS 64: at $798E + n, one table further, $81 .. $84), its first
+// bank at $7DC7 + n; a native one (type $84 / $A4) is as large as its track count says (the drive's table at the address kept at $BAFE + n / $BB02 + n). The REU's
+// memory is the DDR2 window from offset 0; with a cartridge in the port it holds the cartridge's image and there is no drive.
+#define MP3_DNP 31
+static uint8_t reu_byte(CoreCtx *c, uint32_t at)
+{
+    uint8_t b = 0;
+    c->io->ddr_read(at, &b, 1);
+    return b;
+}
+
+static int mp3_type(CoreCtx *c, int n)
+{
+    if (c64_cart_active()) {
+        return 0;
+    }
+    uint8_t head[4], real = reu_byte(c, 0xBB0E + (uint32_t)n);
+    c->io->ddr_read(0xBB0E, head, 4);
+    if (head[0] == 0x03 && head[1] == 0xA9 && head[2] == 0x06 && head[3] == 0x8D) {          // GEOS 64
+        real = reu_byte(c, 0x798E + (uint32_t)n);
+        if (real > 0x83) {
+            real = 0;
+        }
+    }
+    int t = 0;
+    t = real == 0x81 ? 1541 : t;
+    t = real == 0x82 ? 1571 : t;
+    t = real == 0x83 ? 1581 : t;
+    t = real == 0x84 || real == 0xA4 ? MP3_DNP : t;
+    return reu_byte(c, 0x7DC7 + (uint32_t)n) > 0x40 ? 0 : t;
+}
+
+static uint32_t mp3_size(CoreCtx *c, int n, int type)
+{
+    if (type == 1541) {
+        return 174848;
+    }
+    if (type == 1571) {
+        return 2 * 174848;
+    }
+    if (type == 1581) {
+        return 819200;
+    }
+    uint32_t base = reu_byte(c, 0xBAFE + (uint32_t)n) | ((uint32_t)reu_byte(c, 0xBAFE + 4 + (uint32_t)n) << 8);
+    return (uint32_t)reu_byte(c, base + 0x84) << 16;
+}
+
+template <int N> static const char *state_mp3(CoreCtx *c)
+{
+    switch (mp3_type(c, N)) {
+    case 1541: return "1541";
+    case 1571: return "1571";
+    case 1581: return "1581";
+    case MP3_DNP: return "DNP";
+    default: return 0;
+    }
+}
+template <int N> static const char *state_nomp3(CoreCtx *c) { return mp3_type(c, N) ? 0 : "none"; }
+
+// "Save MP3 Drv A..D": the drive's bytes (a 1571's two sides lie 700 sectors apart) into a file named by the person
+static int op_save_mp3(CoreCtx *c, const OpArgs &a, OpOut &o)
+{
+    int n = a.i(0), type = mp3_type(c, n);
+    char p[260];
+    if (!type) {
+        snprintf(o.msg, o.msglen, "No GEOS RAM drive %c in the REU", 'A' + n);
+        return OPE_FAILED;
+    }
+    if (!trx_target_path(c, a.s(1), type == 1541 ? ".d64" : type == 1571 ? ".d71" : type == 1581 ? ".d81" : ".dnp", p, sizeof(p))) {
+        snprintf(o.msg, o.msglen, "No medium to save to");
+        return OPE_FAILED;
+    }
+    uint32_t len = mp3_size(c, n, type), at = (uint32_t)reu_byte(c, 0x7DC7 + (uint32_t)n) << 16;
+    if (type == 1571) {
+        if (write_ddr(c, p, at, len / 2, false, o.msg, o.msglen)) {
+            return OPE_FAILED;
+        }
+        static uint8_t buf[0x10000];
+        CoreFile *f = c->fs->open(p, true);
+        bool ok = f && f->writable();
+        for (uint32_t done = 0; ok && done < len / 2;) {
+            uint32_t k = len / 2 - done < sizeof(buf) ? len / 2 - done : (uint32_t)sizeof(buf);
+            c->io->ddr_read(at + 700 * 256 + done, buf, k);
+            ok = f->write(len / 2 + done, buf, k);
+            done += k;
+        }
+        ok = ok && f->sync();
+        if (f) {
+            c->fs->close(f);
+        }
+        if (!ok) {
+            snprintf(o.msg, o.msglen, "%s: writing failed (medium full or gone)", p);
+            return OPE_FAILED;
+        }
+        snprintf(o.msg, o.msglen, "Saved %s (%u bytes)", p, (unsigned)len);
+        return OPE_OK;
+    }
+    return write_ddr(c, p, at, len, false, o.msg, o.msglen) ? OPE_FAILED : OPE_OK;
+}
+
+// "Load into MP3 Drv A..D" on a .d64 / .d71 / .d81 / .dnp: the drive must be of the file's type (a native one: of the file's size, at most 12 MB)
+static int op_load_mp3(CoreCtx *c, const OpArgs &a, OpOut &o)
+{
+    const char *path = a.s(0);
+    int n = a.i(1), type = mp3_type(c, n);
+    const char *dot = strrchr(path, '.');
+    int want = !dot ? 0 : !strcasecmp(dot, ".d64") ? 1541 : !strcasecmp(dot, ".d71") ? 1571 : !strcasecmp(dot, ".d81") ? 1581 : !strcasecmp(dot, ".dnp") ? MP3_DNP : 0;
+    if (!type || type != want) {
+        snprintf(o.msg, o.msglen, "Invalid operation: RAM drive %c is not of this type", 'A' + n);
+        return OPE_FAILED;
+    }
+    uint32_t len = mp3_size(c, n, type), at = (uint32_t)reu_byte(c, 0x7DC7 + (uint32_t)n) << 16;
+    uint64_t sz = 0;
+    bool dir = false;
+    if (!c->fs->stat(path, &sz, &dir) || dir) {
+        snprintf(o.msg, o.msglen, "No file %s", path);
+        return OPE_FAILED;
+    }
+    if (type == MP3_DNP) {
+        if (sz != len) {
+            snprintf(o.msg, o.msglen, "Size does not match");
+            return OPE_FAILED;
+        }
+        if (len > 12u * 1024u * 1024u) {
+            snprintf(o.msg, o.msglen, "DNP file too large");
+            return OPE_FAILED;
+        }
+    }
+    CoreFile *f = c->fs->open(path, false);
+    if (!f) {
+        snprintf(o.msg, o.msglen, "Cannot open %s", path);
+        return OPE_FAILED;
+    }
+    static uint8_t buf[0x10000];
+    uint32_t half = type == 1571 ? len / 2 : len, total = 0;
+    bool ok = true;
+    for (int part = 0; part < (type == 1571 ? 2 : 1); part++) {         // a 1571's second side lies 700 sectors behind the first
+        uint32_t from = part ? half : 0, dst = at + (part ? 700 * 256 : 0);
+        for (uint32_t done = 0; ok && done < half && from + done < sz;) {
+            uint32_t k = half - done < sizeof(buf) ? half - done : (uint32_t)sizeof(buf);
+            if ((uint64_t)from + done + k > sz) {
+                k = (uint32_t)(sz - from - done);
+            }
+            ok = f->read(from + done, buf, k);
+            c->io->ddr_write(dst + done, buf, k);
+            done += k;
+            total += k;
+        }
+    }
+    c->fs->close(f);
+    if (!ok) {
+        snprintf(o.msg, o.msglen, "Cannot read %s (the medium is gone?)", path);
+        return OPE_FAILED;
+    }
+    snprintf(o.msg, o.msglen, "Bytes loaded: %u ($%08x)", (unsigned)total, (unsigned)total);
+    return OPE_OK;
+}
+
 static int op_save_cart(CoreCtx *c, const OpArgs &a, OpOut &o)
 {
     char p[260];
@@ -722,6 +912,8 @@ static const char *state_cartridge_path(CoreCtx *) { return c64_cart_active() ? 
 static const ArgSpec value_arg[] = { ARG_INT("value", -2000, 2000) };
 static const ArgSpec name_arg[] = { ARG_STRING("name", 63) };
 static const ArgSpec path_arg[] = { ARG_PATH("path") };
+static const ArgSpec save_mp3_args[] = { ARG_INT("drive", 0, 3), ARG_STRING("name", 63) };
+static const ArgSpec load_mp3_args[] = { ARG_PATH("path"), ARG_INT("drive", 0, 3) };
 static const ArgSpec run_disk_args[] = { ARG_SLOT("slot"), ARG_PATH("path") };
 
 void trx64u_register(OpRegistry &r)
@@ -741,6 +933,16 @@ void trx64u_register(OpRegistry &r)
     r.add_op("drive.unlink", 0, 0, op_unlink);
     r.add_op("c64.load_kernal", path_arg, 1, op_load_kernal);
     r.add_op("drive.run_disk", run_disk_args, 2, op_run_disk);
+    r.add_op("machine.save_mp3", save_mp3_args, 2, op_save_mp3);
+    r.add_op("reu.load_mp3", load_mp3_args, 2, op_load_mp3);
+    r.add_state("reu.mp3.a", state_mp3<0>);
+    r.add_state("reu.mp3.b", state_mp3<1>);
+    r.add_state("reu.mp3.c", state_mp3<2>);
+    r.add_state("reu.mp3.d", state_mp3<3>);
+    r.add_state("reu.nomp3.a", state_nomp3<0>);
+    r.add_state("reu.nomp3.b", state_nomp3<1>);
+    r.add_state("reu.nomp3.c", state_nomp3<2>);
+    r.add_state("reu.nomp3.d", state_nomp3<3>);
     r.add_state("reu.on", state_reu_on);
     r.add_state("c64.cartridge", state_cartridge);
     r.add_state("c64.cartridge_path", state_cartridge_path);
