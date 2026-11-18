@@ -42,7 +42,6 @@ extern "C" bool rtc_time_valid(void);
 #include "restsrv.h"
 #include "rest.h"
 #include "uiapp.h"
-#include "telnetgui.h"
 #include "bundle.h"
 #include "instfiles.h"
 #include "apphost.h"
@@ -1041,18 +1040,6 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
                 ui_toast_render(app_host.session() ? *app_host.session() : *menu);
             }
             vTaskDelay(pdMS_TO_TICKS(10));
-        }
-        {
-            // the Telnet remote menu (telnetgui.h): its keys enter through the board's own key door, so this comes before the pass that applies them and before the close below
-            TelnetEnv te;
-            te.menu = app_host.session() ? app_host.session() : menu;
-            te.offered = ctx.settings && ctx.settings->find("Telnet Remote Menu Service") >= 0;
-            te.menu_open = menu_open;
-            te.dlg = app_host.dialog_open() ? &app_host.dialog_view() : 0;
-            if (telnetgui_pass(te)) {
-                ui_changed = true;
-                redraw_next = true;
-            }
         }
         if (uiapp_pass(ui_changed)) {
             redraw_next = true;                           // a remote intent changed the menu: the next pass draws it

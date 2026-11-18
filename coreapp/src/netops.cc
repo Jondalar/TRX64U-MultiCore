@@ -52,7 +52,6 @@ static int fx_net(CoreCtx *c, const OpArgs &, OpOut &o)
     txt(net, CFG_NETWORK_REMOTE_SYSLOG_SERVER, "Log to Syslog Server");
     val(net, CFG_NETWORK_ULTIMATE_IDENT_SERVICE, "Ultimate Ident Service", 1);
     val(net, CFG_NETWORK_ULTIMATE_DMA_SERVICE, "Ultimate DMA Service", 1);
-    val(net, CFG_NETWORK_TELNET_SERVICE, "Telnet Remote Menu Service", 1);
     val(net, CFG_NETWORK_FTP_SERVICE, "FTP File Service", 1);
     val(net, CFG_NETWORK_HTTP_SERVICE, "Web Remote Control Service", 1);
     val(net, CFG_NETWORK_NTP_EN, "SNTP Enable", 1);
@@ -473,7 +472,7 @@ static const ArgSpec stream_to_args[] = { ARG_INT("id", 0, 2), ARG_STRING("dest"
 static const ArgSpec value_arg[] = { ARG_INT("value", -2000, 2000) };
 
 static const char *st_net_static(CoreCtx *c) { return cfg_value(c, "Use DHCP", 1) ? 0 : "yes"; }
-static const char *st_pw_scope(CoreCtx *) { return "FTP, Telnet, web remote control (X-Password header), Ultimate DMA service (TCP 64: authenticate first)"; }   // what net_password guards in this application; ident only reports that
+static const char *st_pw_scope(CoreCtx *) { return "FTP, web remote control (X-Password header), Ultimate DMA service (TCP 64: authenticate first)"; }   // what net_password guards in this application; ident only reports that
 static const char *st_wifi_static(CoreCtx *c) { return cfg_value(c, "WiFi Use DHCP", 1) ? 0 : "yes"; }
 
 void netops_register(OpRegistry &r)

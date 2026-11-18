@@ -244,8 +244,6 @@ SRCS_CC	 =  u64ii_init.cc \
 			ringops.cc \
 			monitor.cc \
 			monsrv.cc \
-			telnetgui.cc \
-			telnetscr.cc \
 			diag.cc \
 			diagtest.cc \
 			bugreport.cc \
