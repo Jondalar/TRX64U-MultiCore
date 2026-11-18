@@ -353,7 +353,7 @@ static int op_after_roms(CoreCtx *c, const OpArgs &, OpOut &o)
 }
 
 // F3 on a .rom: "Set as 1541 ROM" - the file is copied to /flash/roms and its name stored in "ROM for 1541 mode" (TRX-Ultimate filetype_bin.cc:208-215, c1541.cc:1208-1214).
-// /flash is writable for the app on the monolith profile (fsif.h fs_flash_writable, T228 R21); where it is not (the MultiCore host) the file's own path is stored and the message says so.
+// /flash is writable for the app on the monolith profile (fsif.h fs_flash_rw, T228 R21); where it is not (the MultiCore host) the file's own path is stored and the message says so.
 static int op_set_rom_store(CoreCtx *c, const OpArgs &a, OpOut &o)
 {
     const char *src = a.s(0);
