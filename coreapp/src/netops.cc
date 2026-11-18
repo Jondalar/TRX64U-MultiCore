@@ -9,7 +9,7 @@
 #include "config.h"
 #include "network_config.h"
 #include "network_interface.h"
-#include "rest.h"
+#include "netsvc.h"
 #include "u64.h"
 #include "socket.h"
 #include "netdb.h"
@@ -73,6 +73,7 @@ static int fx_net(CoreCtx *c, const OpArgs &, OpOut &o)
         wf->effectuate();
     }
     net->effectuate();
+    netsvc_apply();
     return OPE_OK;
 }
 
@@ -162,6 +163,37 @@ static int op_wifi_toggle(CoreCtx *, const OpArgs &, OpOut &o)
     }
     snprintf(o.msg, o.msglen, on ? "WiFi is on" : "WiFi is off");
     return OPE_OK;
+}
+
+// T228 R21 #22, FW network_esp32.cc:41-45, 214-227: the WiFi actions. Disconnect, Connect to last AP and Forget APs are the driver's own calls (the driver runs them on
+// a task of their own; false = one is under way). Enter AP manually takes the name, the authentication and the password from the rows "WiFi AP ..." (FW asks for them
+// in three boxes, network_esp32.cc:259-300; the password is asked only for an authentication other than Open).
+static int wifi_started(bool ok, OpOut &o, const char *msg)
+{
+    if (!ok) {
+        snprintf(o.msg, o.msglen, "A WiFi action is under way already");
+        return OPE_FAILED;
+    }
+    snprintf(o.msg, o.msglen, "%s", msg);
+    return OPE_OK;
+}
+static int op_wifi_disconnect(CoreCtx *, const OpArgs &, OpOut &o) { return wifi_started(wifi_net_disconnect(), o, "Disconnecting"); }
+static int op_wifi_connect_last(CoreCtx *, const OpArgs &, OpOut &o) { return wifi_started(wifi_net_autoconnect(), o, "Connecting to the last access point"); }
+static int op_wifi_forget(CoreCtx *, const OpArgs &, OpOut &o) { return wifi_started(wifi_net_forget(), o, "The stored access points are erased"); }
+static int op_wifi_connect_manual(CoreCtx *c, const OpArgs &, OpOut &o)
+{
+    const char *ssid = cfg_text(c, "WiFi AP Name");
+    int auth = cfg_value(c, "WiFi AP Authentication", 0);
+    const char *pw = cfg_text(c, "WiFi AP Password");
+    if (!ssid[0]) {
+        snprintf(o.msg, o.msglen, "Set \"Access point name\" first");
+        return OPE_FAILED;
+    }
+    if (auth > 0 && !pw[0]) {
+        snprintf(o.msg, o.msglen, "Set \"Access point password\" first");
+        return OPE_FAILED;
+    }
+    return wifi_started(wifi_net_connect(ssid, auth > 0 ? pw : "", (uint8_t)auth, false), o, "Connecting");
 }
 
 // ---- the data streams: VIC, audio and the debug bus as UDP from the hardware (Gideon's DataStreamer, vendor/gideon/software/io/network/data_streamer.cc: the header of the
@@ -316,17 +348,15 @@ static const char *st_net_static(CoreCtx *c) { return cfg_value(c, "Use DHCP", 1
 static const char *st_pw_scope(CoreCtx *) { return "FTP and REST (X-Password header)"; }       // what net_password guards in this application; Telnet, DMA and ident join when they exist here
 static const char *st_wifi_static(CoreCtx *c) { return cfg_value(c, "WiFi Use DHCP", 1) ? 0 : "yes"; }
 
-// T228 R21 row 58: the network password as REST asks for it (rest.h: rest_set_password_source), the same string FTP's PASS compares (ftpd.cc:515)
-static const char *net_password(void)
-{
-    return networkConfig.cfg->get_string(CFG_NETWORK_PASSWORD);
-}
 void netops_register(OpRegistry &r)
 {
-    rest_set_password_source(net_password);
     r.contributor("net");
     r.add_op("net.fx", value_arg, 1, fx_net);
     r.add_op("wifi.toggle", 0, 0, op_wifi_toggle);
+    r.add_op("wifi.disconnect", 0, 0, op_wifi_disconnect);
+    r.add_op("wifi.connect_last", 0, 0, op_wifi_connect_last);
+    r.add_op("wifi.forget", 0, 0, op_wifi_forget);
+    r.add_op("wifi.connect_manual", 0, 0, op_wifi_connect_manual);
     r.add_state("net.eth_status", st_eth_status);
     r.add_state("net.eth_ip", st_eth_ip);
     r.add_state("net.eth_mac", st_eth_mac);

@@ -23,10 +23,16 @@
 // when the request was a WebSocket handshake that was accepted: out then holds the 101 and the caller speaks frames from here.
 int rest_serve(CoreCtx *c, const HttpReq &q, char *out, int cap, bool *ws);
 
-// T228 R21 row 58, as TRX64-Ultimate's REST (api/routes.h:325-335): when the source returns a non-empty password, a request without the header
-// `X-Password: <it>` is answered 401 before any route (the token gate included). The WebSocket of the UI (/v1/ui/ws) is checked by its token alone: a
-// browser cannot set the header on a socket. No source (the benches), or an empty password: nothing is asked.
-void rest_set_password_source(const char *(*get)(void));
+// T228 R21, the network settings as TRX64-Ultimate's REST reads them. password (api/routes.h:325-335): when it returns a non-empty string, a request without the
+// header `X-Password: <it>` is answered 401 before any route (the token gate included); /v1/ui/ws is checked by its token alone, a browser cannot set the header on
+// a socket. enabled (httpd.cc:24, 32): false = every request is refused 503 (FW closes the port; here the shared transport stays open, see restsrv.cc). unique_id
+// (api/routes.cc:218-223): a non-empty string is added to /v1/info. No hooks (the benches): nothing is asked, nothing is added.
+struct RestHooks {
+    const char *(*password)(void);
+    bool (*enabled)(void);
+    const char *(*unique_id)(void);
+};
+void rest_set_hooks(const RestHooks &h);
 
 // The start gate (T192.3 section 5, board 2026-11-09): the application opens its port before its start sequence, which can wait for as long as it
 // takes (a missing ROM, the medium), so a client reaches it then and learns why. While the gate is on, every request is answered 503

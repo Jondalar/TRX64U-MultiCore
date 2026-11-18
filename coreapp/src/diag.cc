@@ -12,6 +12,7 @@
 #include "u64.h"
 #include "FreeRTOS.h"
 #include "product.h"
+#include "netsvc.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -31,6 +32,7 @@ extern "C" void __wrap_outbyte(int c)
             g_wrapped = true;
         }
     }
+    netsvc_log_char(c);                                     // T228 R21: the syslog forwarder, when "Log to Syslog Server" is set
     __real_outbyte(c);
 }
 
