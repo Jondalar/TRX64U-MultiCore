@@ -58,6 +58,7 @@ public:
     void set_autosave(int mode) { autosave_ = mode; }
     // T228 R21 safe mode (RESTORE held at the start): the defaults run and no change reaches the stored file, only a save on purpose (save()).
     void set_safe(bool on) { safe_ = on; }
+    bool safe() const { return safe_; }
     int autosave() const { return autosave_; }
     bool dirty() const { return dirty_; }
     bool item_held(int i) const { return i >= 0 && i < n_ && held_[i]; }   // T192.3 S11: this setting was changed and waits for save()

@@ -121,6 +121,10 @@ int AppHost::request(const char *app, const char *action, const char *file, char
         snprintf(msg, msglen, "There is no application \"%s\" in the apps folder of this core.", app);
         return OPE_NOT_FOUND;
     }
+    if (!idx_->offered(*e)) {                                                       // by name (REST, a .u2a in the Library) as in the menu
+        snprintf(msg, msglen, e->cart_only ? "%s needs the cartridge port, which this core does not give." : "%s does not run under the MultiCore host.", e->name);
+        return OPE_FAILED;
+    }
     os_->lock(mu_);
     int rc = OPE_OK;
     if (req_pending_) {

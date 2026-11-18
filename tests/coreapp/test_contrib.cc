@@ -469,10 +469,7 @@ int main(int argc, char **argv)
         CHECK_STR(r.right(sl).c_str(), "idle");
         g_state = "busy";
         CHECK_STR(r.right(sl).c_str(), "busy");
-        g_beeps = 0;
-        r.go_to("State");
-        CHECK_EQ(r.m->key(KEY_RETURN), MenuCtl::R_NONE);
-        CHECK_EQ(g_beeps, 0);
+        CHECK(r.m->heading(sl));                                      // 6bd837e8d: a state line takes no focus, so no RETURN reaches it
         // a condition: "Only when busy" works while the state says so
         r.m->key(KEY_F7);                                              // T212 D6: the library's buttons stand in the APP area (the Quick tab is gone)
         int ob = r.find_row("Only when busy");

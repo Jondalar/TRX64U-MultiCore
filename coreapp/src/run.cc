@@ -625,6 +625,7 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
         static char app_folders[APP_FOLDERS_MAX][APP_PATH_MAX];
         int nf = AppIndex::folders(&ctx, app_folders, APP_FOLDERS_MAX);
         app_index.set_multicore(!ctx.board || ctx.board->can_return_host);                  // the predicate of the state host.multicore (diag.cc)
+        appsvc_init(&ctx);                                                                 // appsvc_c64() reads the context (it is set again below, harmless)
         app_index.set_cart_port(appsvc_c64() != 0);                                        // the cartridge tools only where the core gives that service (CART_APP_NEED)
         app_index.set_prg_apps(ops_of(&ctx)->find_op(PRG_APP_OP) != 0);                    // T228 R21 #14: a core that registered the operation gets "Run with App"
         app_index.scan(ctx.fs, app_folders, nf, &say_out);
@@ -633,7 +634,14 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
         if (merge.ncontributed_settings || merged_desc.nsettings != desc->nsettings) {
             delete ctx.settings;
             ctx.settings = new Settings(ctx.desc->settings, ctx.desc->nsettings, desc->store, ctx.fs, ctx_settings_path(&ctx), 0);
-            ctx.settings->load();
+            if (restore_down) {
+                ctx.settings->set_safe(true);                // safe mode (above): the defaults; the stored file is neither read nor written
+            } else {
+                ctx.settings->load();
+            }
+            if (file_safe || (h && handover_valid(h) && handover_safe(h))) {
+                picture_safe(&ctx);                          // T224 D2: the overrides of this start belong to the new object too
+            }
         }
         menu->rebuild();
     }

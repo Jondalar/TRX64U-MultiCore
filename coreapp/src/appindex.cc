@@ -459,7 +459,7 @@ int AppIndex::contributors(Contributor *out, int max) const
 {
     int k = 0;
     for (int i = 0; i < n_ && k < max; i++) {
-        if (app_[i].menu && !(app_[i].standalone_only && multicore_) && !(app_[i].cart_only && !cart_) && available(app_[i], room_ld_)) {
+        if (app_[i].menu && offered(app_[i]) && available(app_[i], room_ld_)) {
             out[k].name = app_[i].name;
             out[k].rank = CR_APP;
             out[k].rec = &app_[i].host;

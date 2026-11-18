@@ -253,6 +253,7 @@ bool Settings::export_config(const char *path, const char *const *mk, const char
 void Settings::rebind(const char *path)
 {
     snprintf(cfg_path_, sizeof(cfg_path_), "%s", path ? path : "");
+    safe_ = false;                                     // a config loaded on purpose: its changes are written as always
     save_failed_ = false;
     notice_pending_ = false;
     dirty_ = false;

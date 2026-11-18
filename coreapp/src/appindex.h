@@ -26,8 +26,6 @@
 #define APP_WORK_BYTES (64u * 1024u)      // T197 P4: what a running application needs from the heap beside its image (miniz's inflate state and window, a zip directory, buffers)
 #define PRG_APPS_MAX 16                   // T228 R21 #14: the <ext>.prg files of the flash's apps folder that the library offers as "Run with App" (FW user_file_interaction.cc:55-76)
 #define PRG_APP_OP "files.run_with_app"   // the operation a core registers to take them; a core without it gets no such action
-#define PRG_APP_NEED "standalone"         // an application that names this need is offered only when the board is not the MultiCore host (T228 DC1); it is not a library
-#define CART_APP_NEED "cart_port"         // an application that names this need is offered only when the core gives the cartridge port service (appsvc_c64); not a library
 #define APP_AREA "APP"                    // the key of the area an application's own route is made of
 
 struct AppEntry {
@@ -106,6 +104,8 @@ public:
     void set_multicore(bool mc) { multicore_ = mc; }
     // The applications that need CART_APP_NEED (the cartridge tools call that service unchecked) are offered only where the core gives it. Set before scan().
     void set_cart_port(bool on) { cart_ = on; }
+    // Whether this core offers the application at all (the two needs above); the menu and AppHost::request both ask.
+    bool offered(const AppEntry &a) const { return !(a.standalone_only && multicore_) && !(a.cart_only && !cart_); }
     // T228 R21 #14: "Run with App" is offered for a file when <flash>/apps/<its extension>.prg exists (prg_action). Set before scan(), and only when the core registered PRG_APP_OP.
     void set_prg_apps(bool on) { prg_on_ = on; }
     // The action "Run with App" for a file as it is listed, null when there is none (see appindex.cc). The object is reused by the next call.

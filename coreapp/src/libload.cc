@@ -555,8 +555,8 @@ int LibLoader::load(LibSource *src, int *handle, char *err, int errlen)
             }
             continue;
         }
-        if (!strcmp(nd.name, "standalone")) {
-            continue;                                         // not a library: AppIndex offers such an application only off the MultiCore host (T228 DC1)
+        if (!strcmp(nd.name, PRG_APP_NEED) || !strcmp(nd.name, CART_APP_NEED)) {
+            continue;                                         // not a library: AppIndex decides where such an application is offered (libfmt.h)
         }
         const Slot *dep = find(nd.name);
         if (!dep) {
