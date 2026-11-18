@@ -10,7 +10,7 @@ MK="$ROOT/host-app/target/u64ii/riscv/coreapp/Makefile"
 APPDIRS="$SRC $CORES $ROOT/app/loaders $ROOT/app/lib/cbm1541 $ROOT/app/edit $ROOT/app/view $ROOT/app/video $HA $ROOT/uicore"   # $HA: handover, bootcfg
 NOT_HERE="table.cc hw.cc run.cc fm_fs.cc fm_medium.cc tempdisk.cc fastseek.cc libboard.cc nettransport.cc restsrv.cc uiapp_board.cc"
 # the TRX64U's board-side contributors and what they stand on (the U64 registers, USB HID, the network stack, FreeRTOS tasks, lwIP sockets): tests/coreapp/board_stubs.cc stands in
-NOT_HERE="$NOT_HERE u64cfg.cc libfiles.cc ringops.cc ring.cc ringfile.cc monitor.cc monsrv.cc online.cc diag.cc netops.cc netsvc.cc hostwifi.cc netfs.cc ftp_client.cc a64_http.cc a64_assembly.cc trx64u_ops.cc dma_uart.cc appsvc.cc network_esp32.cc wifi.cc wifi_cmd.cc esp32.cc wifinet.cc usb_xinput.cc"   # usb_xinput.cc: the XInput USB driver (T196), on the USB stack
+NOT_HERE="$NOT_HERE u64cfg.cc libfiles.cc ringops.cc ring.cc ringfile.cc monitor.cc monsrv.cc online.cc diag.cc netops.cc netsvc.cc hostwifi.cc netfs.cc ftp_client.cc a64_http.cc a64_assembly.cc trx64u_ops.cc dma_uart.cc appsvc.cc uci.cc network_esp32.cc wifi.cc wifi_cmd.cc esp32.cc wifinet.cc usb_xinput.cc"   # usb_xinput.cc: the XInput USB driver (T196), on the USB stack
 # test-only sources: the descriptor check, sha256.c (a SRCS_C file of the Makefile) built as C++, the board's video stubbed
 TEST_SRCS="$SRC/desc_check.cc $ROOT/tests/coreapp/video_stub.cc $ROOT/tests/coreapp/sha256_cc.cc $ROOT/tests/coreapp/board_stubs.cc"
 # the defines and the include path (LV_CONF_INCLUDE_SIMPLE: lv_conf.h comes from the directory the caller puts first)

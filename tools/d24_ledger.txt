@@ -225,3 +225,5 @@ exception coreapp/src/trx64u_ops.cc +317 T228-R20 (Alex 2026-11-18: "repair. It 
 exception coreapp/cores/trx64u/menu.toml +211 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
 exception coreapp/cores/trx64u/menu_rec.inc +201 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
 exception coreapp/cores/hk_defaults.h +4 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
+exception coreapp/cores/trx64u/menu.toml +8 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
+exception coreapp/cores/trx64u/menu_rec.inc +6 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")

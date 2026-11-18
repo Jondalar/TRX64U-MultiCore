@@ -2726,6 +2726,15 @@ when = "live"
 apply = "c64.fx_io"
 
 [[core_setting]]
+group = "Ultimate"
+key = "Command Interface (UCI)"
+label = "Command interface (UCI)"
+list = "en_dis"
+default = 0
+when = "live"
+apply = "c64.fx_io"
+
+[[core_setting]]
 group = "Cartridge"
 key = "GAME/EXROM"
 list = "gameexrom"
