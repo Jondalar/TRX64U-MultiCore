@@ -385,6 +385,14 @@ order = 32
 ui = { sub = "@wifi.ip" }
 
 [[node]]
+anchor = "F8/expert/Services"
+kind = "state"
+state = "net.pw_scope"
+label = "Network password protects"
+order = 40
+ui = { sub = "@net.pw_scope" }
+
+[[node]]
 anchor = "F8/expert/Streams"
 kind = "op"
 label = "Start VIC stream"
