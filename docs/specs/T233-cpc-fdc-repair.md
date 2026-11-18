@@ -111,4 +111,23 @@ patched per race.
 
 ## §5 Build log
 
-(empty)
+**2026-11-18 morning - D1-D4 finished and pushed for the first Vivado build (D8; branch t233-cpc-fdc, run 2425).**
+- **Branch:** rebased on origin/main (b79e90c03) with T92 #17's commit (t92-cpc17b: D-17a/b app, its u765 lock fixes replaced by D1),
+  D5's bench (not run, D8), the WIP of D1-D4, D7 (`pipeline = true` on the branch only) and the review fixes (287c12412). The rebase's one
+  conflict: origin/main's manual has no CPC section (the CPC is out of the packages, T92 D-17e); taken as on main - the merge after the
+  board pass must bring 11.13 (CPC) back with T92 #17's media sentence.
+- **Checks (no bench, no sim, D8):** `tools/cpc_gen.py --check` "u765.sv matches"; `verilator --lint-only -Wall` of gen/u765.sv and
+  trx/cpc_fdc.v: 0 errors, the same warning kinds as origin/main (u765 9 lines both; cpc_fdc 39 against 35, all PROCASSINIT).
+- **Review before the push** (3 lenses - synthesis, protocol against D2-D4, clock crossing - read only): no blocker, no major; nine minor
+  findings, none on the S1/S2/S7 path. Synthesis lens: sys_clk 31.5278 MHz, SD_TIMEOUT 630000 = 19.98 ms in the 20-bit counter; yosys
+  synth_xilinx on origin/main and the branch: 3 RAMB18E1 and 36 RAM32M in both (no RAM turned into flip-flops), u765 957 -> 1088 FF,
+  cpc_fdc 836 -> 865 FF. Fixed (287c12412): a command waits while any scan holds the shared sector buffer (D2: before, a READ on A could
+  run while B's scan read its header from the same buffer); a sector search whose drive lost its image starts over (an eject applied in
+  the clock the search picked that drive left it waiting for good, and the other drive's commands with it); an event never ends a read
+  that offers a byte and drops RQM as it ends a command, a failed block withdraws an offered byte (else the CPU could read ST0 as data and
+  take the shifted results as a good read); a seek in flight ends with its interrupt (SENSE INT: not ready; before, 0x80 for good);
+  cpc_fdc takes the write data at the request, when the previous line is done; its header comment. Not changed, answered: a read that
+  the DDR2 does not answer within U_LIM (0.87 ms) is given up while it may still be queued in mig_arb, so its late answer could be taken
+  by the next read - the c_* port has the first priority at mig_arb, so U_LIM does not fire in use, and without U_LIM a lost read would
+  hold the ui side for good.
+- **Open:** the run (large:cpc, S8), then the board with Alex (S1, S2, S7).
