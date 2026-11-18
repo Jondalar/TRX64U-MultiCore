@@ -500,7 +500,7 @@ closes_menu = true
 group = "top"
 label = "Timewarp..."
 op = "menu.screen"
-bind = [ { arg = "screen", str = "F1/timewarp" } ]
+bind = [ { arg = "screen", str = "F1/timewarp" }, { arg = "unless", str = "ring.reu_off" } ]
 hotkey = "T"
 
 
@@ -508,7 +508,7 @@ hotkey = "T"
 group = "top"
 label = "Monitor..."
 op = "menu.screen"
-bind = [ { arg = "screen", str = "F1/monitor" } ]
+bind = [ { arg = "screen", str = "F1/monitor" }, { arg = "unless", str = "" } ]
 hotkey = "O"
 
 

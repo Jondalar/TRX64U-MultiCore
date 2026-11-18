@@ -3187,7 +3187,7 @@ bool MenuCtl::screen_way(const char *layout, char *out, int n) const
             const CoreDesc *d = c_->desc;
             for (int i = 0; i < d->ntasks; i++) {
                 const Task &t = d->tasks[i];
-                if (!t.op || strcmp(t.op, "menu.screen") || t.nbind != 1 || !t.bind[0].s || strcmp(t.bind[0].s, spec)) {
+                if (!t.op || strcmp(t.op, "menu.screen") || t.nbind < 1 || !t.bind[0].s || strcmp(t.bind[0].s, spec)) {
                     continue;
                 }
                 char keys[40];

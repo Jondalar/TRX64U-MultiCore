@@ -279,6 +279,9 @@ static int fx_ring(CoreCtx *c, const OpArgs &, OpOut &)
 // ---- states ---------------------------------------------------------------------------------------------------------------------------------------------
 static char b1[64], b2[64], b3[64], b4[24], b5[64];
 
+// A08: the Timewarp page is refused while the REU is on (FW io/c64/trx_timewarp_ui.cc:323-326, the popup text of io/c64/trx_ring_reu.h:10); menu.screen's `unless`
+static const char *st_reu_off(CoreCtx *) { return trx_ring_reu_refusal() ? "Timewarp is off while REU is on" : 0; }
+
 static const char *st_chip(CoreCtx *)
 {
     TrxRingStatus st;
@@ -415,6 +418,7 @@ void ringops_register(OpRegistry &r)
     r.add_op("ring.start", 0, 0, op_start);
     r.add_op("ring.stop", 0, 0, op_stop);
     r.add_op("ring.fx", value_arg, 1, fx_ring);
+    r.add_state("ring.reu_off", st_reu_off);
     r.add_state("tw.chip", st_chip);
     r.add_state("tw.ring", st_ring);
     r.add_state("tw.label", st_label);

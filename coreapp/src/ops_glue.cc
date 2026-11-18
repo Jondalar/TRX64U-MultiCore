@@ -38,19 +38,26 @@ static const ArgSpec app_open_args[] = { ARG_STRING("app", 15), ARG_STRING("acti
 
 // T228 R1: a row or a hotkey shows a screen of the menu, named "area/tab" ("F1/timewarp": a page of Home that the core's TOML declares). The menu takes the
 // request (CoreCtx::want_screen) when the operation returns, or when it opens: a hotkey pressed while the core runs opens the menu on that screen.
+// `unless` names a state (empty: none): while that state has a text, the screen is refused with that text (the precondition of the screen does not hold) and
+// the request is not made - the row and the hotkey take this one path.
 static int op_menu_screen(CoreCtx *c, const OpArgs &a, OpOut &o)
 {
+    const char *why = a.s(1)[0] ? ops_state(c, a.s(1)) : 0;
+    if (why && why[0]) {
+        snprintf(o.msg, o.msglen, "%s", why);
+        return OPE_FAILED;
+    }
     snprintf(c->want_screen, sizeof(c->want_screen), "%s", a.s(0));
     o.msg[0] = 0;
     return OPE_OK;
 }
-static const ArgSpec screen_arg[] = { ARG_STRING("screen", 31) };
+static const ArgSpec screen_arg[] = { ARG_STRING("screen", 31), ARG_STRING("unless", 31) };
 
 void ops_register_base(OpRegistry &r)
 {
     r.contributor("base");
     r.add_op("menu.browse", browse_arg, 1, op_menu_browse);
-    r.add_op("menu.screen", screen_arg, 1, op_menu_screen);
+    r.add_op("menu.screen", screen_arg, 2, op_menu_screen);
     r.add_op("app.open", app_open_args, 3, op_app_open);
     boot_register(r);
     engines_register(r);
