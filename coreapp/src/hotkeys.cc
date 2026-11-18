@@ -477,6 +477,22 @@ const char *hk_extend(const CoreDesc *d, CoreDesc *out, Setting *store)
         s.values = pc ? g_pc_vals : g_vals;
         s.nvalues = HK_NKEYS + 1;
         s.def = val_of_key(sp->def.act[a]);
+        if (a == HKA_SWAP) {                               // R20: the swap hotkey is offered only while the core has the setting it toggles (menu condition "set.<key>")
+            const char *sk = sp->swap_key ? sp->swap_key : "Joystick ports";
+            bool has = false;
+            for (int i = 0; i < d->nsettings; i++) {
+                has = has || !strcasecmp(d->settings[i].key, sk);
+            }
+            static char cond[96];
+            snprintf(cond, sizeof(cond), "set.%s", sk);
+            for (char *p = cond; *p; p++) {
+                *p = *p == ' ' ? '_' : *p;
+            }
+            s.show_state = cond;
+            if (!has) {
+                s.def = 0;                                 // no key: the J combination reaches the C64 as it is
+            }
+        }
         s.when = WHEN_LIVE;
         s.apply = HK_OP;
         s.group = "input";
