@@ -57,6 +57,16 @@ struct CoreCtx {
     // T228 R1: the screen of the menu an operation asks for ("F1/timewarp", the operation menu.screen of a Home row or a hotkey), taken by the menu: it goes
     // there now, or when it opens (a hotkey while the core runs opens it). "" none.
     char want_screen[32];
+    // A question an operation puts to the person (ops_ask_text, ops_ask_list in ops_glue.h): the menu shows a text prompt or a list of choices and calls `op` again with
+    // the answer ("phase" = the step to run next, "answer" = the text or the chosen value). kind: 0 none, 1 text, 2 secret text, 3 list (`src` is the state that holds the rows, picklist.h).
+    struct {
+        uint8_t kind;
+        int phase;
+        int maxlen;
+        char op[40];
+        char prompt[80];
+        char src[40];
+    } want_prompt;
     const struct MenuMerge *merge;       // what libraries, applications and the description put into the menu (contrib.h); null: nothing
     struct Engines *eng;                  // the media and ROM engines' state (engines.h); null until a core that declares one asks
     OpRegistry *ops;                    // the service layer (ops.h); null until something asks for it

@@ -15,6 +15,7 @@
 #include "menuintent.h"
 #include "menuflows.h"
 #include "menuvlist.h"
+#include "picklist.h"
 #include "filemgr.h"
 #include "hotkeys.h"
 
@@ -112,6 +113,7 @@ public:
     void set_app_mode(bool on) { app_mode_ = on; }
     bool app_mode() const { return app_mode_; }
     bool goto_spec(const char *spec);                              // "F3", "F5/drives", "APP/flash": an area, an area and a tab
+    bool take_prompt();                                            // T228 R21: an operation asked something (CoreCtx::want_prompt): the text prompt or the pick list is up; true: it is
     bool take_screen();                                            // T228 R1: the screen an operation asked for (CoreCtx::want_screen, menu.screen) is shown; true: moved
     bool screen_way(const char *layout, char *out, int n) const;   // T228 R1: how the screen of that layout is opened (the keys help); false: none here
     void app_start();                                             // runs the open tab's `enter` operation (an application's screens)
@@ -365,6 +367,22 @@ private:
     // T180 D5: the name of a media set being typed (entry_ is up), and the list of the sets (pick_ is up, the rows are the sets, no "Create here")
     bool entry_mset_;
     bool pick_sets_;
+    // T228 R21: a pick list made at run time (picklist.h): pick_ is up, pl_ holds the rows, pick_sel_ is the cursor. The rows are re-read from the state pl_src_ while it is up
+    // (a scan that finishes). RETURN on a choice: a setting (pl_set_ >= 0) takes the value as its text, else the operation pl_op_ is called with the phase and the value.
+    bool pick_dyn_ = false;
+    PickRows pl_;
+    char pl_src_[40] = "", pl_title_[80] = "", pl_op_[40] = "";
+    int pl_phase_ = 0, pl_set_ = -1;
+    uint32_t pl_last_ = 0;
+    void begin_pick_list(const char *title, const char *src, const char *op, int phase, int setting);
+    bool pick_list_refresh();                                      // reads the rows again; true: they changed
+    Result pick_list_take();
+    // T228 R21: the text prompt of an operation (ops_ask_text): RETURN calls the operation again with the text
+    bool prompt_ = false, prompt_secret_ = false;
+    char prompt_op_[40] = "", prompt_q_[80] = "";
+    int prompt_phase_ = 0;
+    void begin_prompt(const char *op, int phase, const char *q, int maxlen, bool secret);
+    Result prompt_done(const char *answer);
     bool pick_modes_ = false;                                       // T187 D5: pick_ is the page of the screen's modes (pm_ holds the rows; pick_sel_ is the cursor)
     PictureModes pm_;
     char sets_[CONFIGS_MAX][CONFIG_NAME_MAX + 1];

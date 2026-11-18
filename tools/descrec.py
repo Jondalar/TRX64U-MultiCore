@@ -864,7 +864,7 @@ def compile_desc(doc, merged=()):
     seen_set = set()
     lists = _opt(doc, "lists", dict, "description", {})
     for cs in _opt(doc, "core_setting", list, "description", []):
-        _only(cs, {"key", "group", "values", "list", "range", "unit", "default", "when", "apply", "base", "text", "secret", "maxlen", "show_state", "label", "empty"}, "core_setting")
+        _only(cs, {"key", "group", "values", "list", "range", "unit", "default", "when", "apply", "base", "text", "secret", "maxlen", "show_state", "label", "empty", "pick"}, "core_setting")
         key = _need(cs, "key", str, "core_setting")
         what = "core_setting " + key
         if key.lower() in seen_set:
@@ -884,8 +884,11 @@ def compile_desc(doc, merged=()):
             default = 0
             if vals[0] == "":
                 vals = [" "]                # the record has no empty strings; a blank is trimmed at the reader's use
-            if _opt(cs, "empty", str, what, ""):
-                vals.append(cs["empty"])    # what the row shows while the text is empty (values[1])
+            pick = _opt(cs, "pick", str, what, "")
+            if _opt(cs, "empty", str, what, "") or pick:
+                vals.append(cs.get("empty") or "Not set")    # what the row shows while the text is empty (values[1])
+            if pick:
+                vals.append(pick)           # T228 R21: the state whose text holds the rows of the list RETURN opens (picklist.h); values[2]
         else:
             if "list" in cs:
                 vals = lists.get(cs["list"])
@@ -1400,6 +1403,8 @@ def decoded_to_doc(rec):
                 d["secret" if c["when"] == "secret" else "text"] = True
                 if len(c["values"]) > 1:
                     d["empty"] = c["values"][1]
+                if len(c["values"]) > 2:
+                    d["pick"] = c["values"][2]
             if c["group"] is not None:
                 d["group"] = c["group"]
             if c.get("label"):
