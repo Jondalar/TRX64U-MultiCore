@@ -329,6 +329,25 @@ Alex 2026-11-17 (translated): "I want you to apply the generic APP 100 % to the 
 - **R17 (Alex 2026-11-17, R2 follow-up, "yes, clear the RAM"):** F8 "Restart core" restarts trx64u with the C64's RAM cleared, as the removed "Reboot, clear memory" did (`machine.clear_reboot` with `ram_memonly`); generic: a core declares in its TOML whether a restart clears its RAM.
 - **R18 (Alex 2026-11-18, shown the heading in capitals and in the brand spelling, pictures question-redip-A-caps / -B-brand):** "reDIP, so branding please" (translated): F5 > Audio's heading reads "reDIP:SID"; a brand keeps its spelling inside the capitals of headings, tabs and chips (R14 stands).
 - **R19 (Alex 2026-11-18, asked whether F8 "Power cycle" is a real power cycle and what "Return to host" does):** "To keep it consistent with MultiCore it should be called 'Return to host' for a build with MultiCore" (translated). Facts given to him: "Power cycle" sends the ESP32 control module `CMD_MACHINE_REBOOT` (the board goes off and on, the FPGA then loads the host from flash 0); the other cores' "Return to host menu" is an ICAP IPROG with the T135 D3 return marker in the hand-over page (power stays on, the host shows its menu and does not start its default core); trx64u's bitstream has no ICAP. Asked whether the name alone is enough (after a power cycle no marker survives, so a host with direct boot starts its default core) or the way back must end in the host menu like the other cores', Alex the same morning: "return to host vs power cycle: leave it as it is for now" (translated): F8 keeps "Power cycle" and "Power off" under every host; no rename, nothing built for R19 now.
+- **R20 (Alex 2026-11-18, after the row audit and TRX64-Ultimate's answer, `docs/ui/trx64u-row-audit-2026-11-18.md`):** "unser Menu darf nur
+  zeigen was der Code kann" and, for the rows our app gets wrong, "reparieren. das muss ja funktionieren wenn es da steht" (translated:
+  "our menu may only show what the code can do"; "repair. It has to work if it is there"). What the bitstream cannot do leaves the
+  menu (values, rows; TOML); what our app gets wrong is repaired; TRX64-Ultimate changes nothing. D24 exception (same decision): the
+  repairs may grow trx64u's own files (`coreapp/cores/c64.cc`, `c64_cart.cc`, `cbm1541.cc`, `coreapp/src/trx64u_ops.cc`, `u64cfg.cc`,
+  `ring.cc`, `ringfile.cc`, `ringops.cc`), one ledger exception line each ("T228 R20"); the code of the 49 removed rows goes at the same
+  time. Per row of the audit's PARTIAL list:
+  - Out, the bitstream cannot: 30 and 33 the value Both (33 also External), 34 GeoRAM Mode, 35 16 MB, 36 PAL-60/L and NTSC-50/L, 44-45
+    $DE00-$DFE0, 46 Joystick input with the J hotkey, 51 Board; 31-32 bus sharing only with preference Manual; 47 (no keyboard mask in
+    the bitstream: the C64 also sees a hotkey's keys) said in the manual.
+  - Labels: 52-56 Ethernet; 58 the password is the FTP login; 50 Keys and help without C= R/Z/B/K and the power-on line, with CTRL+R.
+  - Repaired: 1/7 the program name cleared at every reset; 2 the REU in the machine line only when it is on; 3 Reload ROMs puts the
+    chosen ROM files back; 22-24 and 26 a ROM row takes effect at once, also back to built-in and 1541.rom; 6 the REU back after an
+    eject; 20 Set as 1541 ROM stores the choice; 25 Reset drive with C64 = No works (drive register b1); 29 SLOT_CTRL b1 written
+    (writes to a real cartridge); 4, 5, 27 Timewarp refused and the ring stopped while the REU is on, restarted after turbo (A08); 28
+    Save frame writes the real model and the cartridge and drive sections; 37-41 the picture follows a System mode change; 38 Auto
+    picks from the EDID; 42-43 the socket SID type detected (6581 voltage); 57 the mDNS name follows the host name; 8-19 the file
+    actions only where they work and without the 192-entry cut (/flash: Alex's answer pending).
+  - Kept: 21 (an unsupported cartridge type is refused, the message names it).
 - R1-R9 replace the earlier decisions of this spec where they differ (D3, D7, D8, D13, D16, D18 and the S2 choices DC1-DC14); branch t228-s2 stays unmerged. The proposal is rendered on branch t228-mock (render bench `mock_shots()`), shown as a click dummy on the concept page.
 
 ### Decisions during S2 (decided by Claude on Alex's delegation 2026-11-16 night; Alex can overturn each at S2b)
