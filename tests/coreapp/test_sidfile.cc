@@ -38,8 +38,8 @@ int main()
     CHECK_EQ(t.end, 0x1000 + 0x100 - 2);
     CHECK_EQ(t.header_location, 0x0340);
     CHECK_EQ(t.song, 2);                                   // the default song
-    CHECK_EQ(t.hdr[0x10], 0);                              // song - 1, written back
-    CHECK_EQ(t.hdr[0x11], 1);
+    CHECK_EQ(t.hdr[0x10], 1);                              // song - 1, written back big endian, then turned little endian with the other six words (FW filetype_sid.cc:692-700)
+    CHECK_EQ(t.hdr[0x11], 0);
     CHECK_EQ(t.hdr[4], 2);                                 // the words are little endian now: version 2 = 02 00
     CHECK_EQ(t.hdr[5], 0);
     CHECK_EQ(t.hdr[0x7E], (uint8_t)t.end);

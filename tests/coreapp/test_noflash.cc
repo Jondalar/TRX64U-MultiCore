@@ -68,9 +68,10 @@ int main()
             if (n.size() < 3 || (n.substr(n.size() - 3) != ".cc" && n.substr(n.size() - 2) != ".h")) continue;
             std::string text = slurp(std::string(dir) + "/" + n);
             scanned++;
-            // T104.3: appsvc.cc is the one file that holds the driver pointer, to give an application the flash's bytes to READ (the softboot app checks the bitstream there);
-            // the write calls stay forbidden in it like everywhere, and so does every other use of the pointer in every other file.
-            bool reader = n == "appsvc.cc";
+            // T104.3: appsvc.cc holds the driver pointer to give an application the flash's bytes to READ (the softboot app checks the bitstream there); T228 R21:
+            // dmasvc.cc too, for the Ultimate DMA service's READFLASH (page size, page count, one page: FW socket_dma.cc). The write calls stay forbidden in both
+            // like everywhere, and so does every other use of the pointer in every other file.
+            bool reader = n == "appsvc.cc" || n == "dmasvc.cc";
             for (int i = 0; forbidden[i]; i++) {
                 if (reader && (!strcmp(forbidden[i], "get_flash") || !strcmp(forbidden[i], "Flash *"))) continue;
                 // settings.h names "FlashLayer", the read-only host layer: "Flash *" would be a pointer to the driver class
