@@ -567,7 +567,7 @@ ue2emu (70 full frames, trx64u beside the A1200).
 - **ux-review verdict PASS** (no blocker, no major). Minor findings that are older and generic (the same on the A1200) stay out of T228:
   Home draws no status line, the pad wizard's foot, the Picture page's chip "Settings > Video", the single-tab strips, wording drifts,
   F3 Online's empty SEARCH pane. Questions for Alex, one at a time: the REDIP:SID heading (pictures question-redip-A-caps /
-  -B-brand); a confirm on Reset to host defaults and Restart core; F8 Status rows focusable; Home's Program row while empty.
+  -B-brand); a confirm on Reset to host defaults and Restart core (settled by R27); F8 Status rows focusable; Home's Program row while empty.
 
 ### Gate fixes and D19 (branch t228-int, 2026-11-18 night, head bde51ad43, not merged)
 - **Fixes:** the F7 headings are Hotkeys and Menu again (e72141140). Power cycle and Power off stand on F8 System > Actions through a
@@ -632,13 +632,25 @@ ue2emu (70 full frames, trx64u beside the A1200).
   R22-R26 and the per-core image (R25); the tests are aligned with the code once (unit, lint, emulator scripts, UI features).
   Left: the one confirming test pass and its goldens (`menu_c64.txt`, `ids.txt`, `keywalk.txt`), the emulator check with
   Alex, the review, the merge to main; then S3 on the board.
-- **R27 (Alex 2026-11-18, in the emulator):** the ROM rows were text fields where the firmware has a drop-down. Kernal ROM, Basic ROM,
+- **R27 (Alex 2026-11-18, in the emulator; translated: "Yes, give the 3 rows the pick list, please"):** the ROM rows were text fields
+  where the firmware has a drop-down. Kernal ROM, Basic ROM,
   Char ROM, ROM for 1541 mode and Unique ID open a pick list (FW STRFUNC: files of /flash/roms by size; Not set / Default); every
   setting's pick list ends with "Enter manually" (FW config_menu.h:118-125). A UX pass over every page found more; fixed without a
   question (firmware or bug): the confirm of F8 "Reset to host defaults" (FW configio.cc:147), <- on the empty pad page, the status
   cleared on an area or tab change, the name left in F3 search results, state lines without focus, the wording. Kept: Restart core
   without a confirm (FW "Reboot (Clr Mem)", R17), Home directory as text (FW CFG_TYPE_STRING; folder picker = T204), write actions on
   Flash (writable on the monolith, R21).
+- **Pre-push review (2026-11-18, t228-int 64eee219b):** the cartridge tools (`trex_crt.u2a`, in every package since R21) called the
+  C64 service unchecked, which is null outside the TRX64 line: the app names the need `cart_port`, the app index offers it only where
+  the core gives that service, and the app returns at once without it. Safe mode (RESTORE held at the start) writes nothing to the
+  stored `.cfg` but a save on purpose. A pending notice is set after the menu reopens where it was left. A page that comes or goes
+  keeps the current tab by its id. Generic effects on every core, kept as the generic menu (coordinator; Alex may overturn): the
+  keys C= Z, B, K in the menu (Z restarts the core without a confirm, as the Restart core row, R17); safe mode by RESTORE; a letter
+  that no row holds starts a quick seek in the Library; Move, Cut, Rename, Delete, New folder and Paste are left out where the path
+  is not writable or the file is read only.
 - **After 0.2.0 (Alex 2026-11-18: "I cannot keep waiting"; option A asked, B taken for now):** RETURN on a row with fixed values opens
   the list of the values, as FW config_menu.cc:108-114 (every core); until then RETURN steps to the next value. Also after 0.2.0: groups
-  in FTP hosts and Emulated SIDs, one name for the back key, "Hex View" in sentence case (generic).
+  in FTP hosts and Emulated SIDs, one name for the back key, "Hex View" in sentence case (generic). From the UX pass over all cores: the
+  F3 search status stays after <- inside F3; the 1541-mode ROM list names the built-in "Built-in" while the row shows `1541.rom`; the
+  UI state export marks a row that opens a page (Hotkeys) as not enabled; the file actions of the other C64-family cores
+  (`cbm1541_desc.h`) are still in title case.
