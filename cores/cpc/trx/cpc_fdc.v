@@ -2,8 +2,8 @@
 // the way the MiSTer framework's SD interface is asked: sd_rd / sd_wr (one bit per drive) with sd_lba, then it waits for sd_ack to rise and
 // fall; while sd_ack is high the requester moves the 512 bytes through sd_buff_addr / sd_buff_dout / sd_buff_wr (a read) or reads
 // sd_buff_din (a write). Here the image is a block of the DDR2 that the app filled (D0_BASE / D1_BASE, size in bytes), so a block is 32
-// lines of 16 bytes through the host's real-time port c_* (ui_clk): a request by toggle, the line held stable until the next request, the
-// same circuit as the tape engine's and the NES cartridge's. A line (16 bytes) beyond the end of the image reads as zeros (oob is set) and a
+// lines of 16 bytes through the host's real-time port c_* (ui_clk): a request by toggle, compared as a level with the done toggle (at most one
+// line in flight, T233 D3 below), its address and data held stable until the next request. A line (16 bytes) beyond the end of the image reads as zeros (oob is set) and a
 // write of it is dropped; the lines of a block that are inside the image are served (an image of 204,544 bytes ends 256 bytes into block 399).
 // A written block sets one bit per 16 KB of the image in `dirty` (the app flushes those chunks to the file and clears the bits). Written for this project (TREX), no upstream code.
 // T233 D3: every wait is bounded. The ui_clk side gives up a line the DDR2 does not take or answer within U_LIM ui clocks; the sys_clk side gives
@@ -144,16 +144,14 @@ module cpc_fdc (
             S_WGET2: begin
                 ldata[8 * k[3:0] +: 8] <= sd_buff_din;
                 k <= k + 5'd1;
-                if (k[3:0] == 4'd15) begin
-                    rq_data <= {sd_buff_din, ldata[119:0]};
-                    st <= S_WSEND;
-                end else st <= S_WGET0;
+                if (k[3:0] == 4'd15) st <= S_WSEND;   // ldata holds the 16 bytes; rq_data takes them at the request (S_WSEND)
+                else st <= S_WGET0;
             end
             S_WSEND: begin
                 if (!in_img) oob <= 1'b1;
                 if (in_img) begin
-                    if (dn_s[2] == rq_tgl) begin           // the previous line is done
-                        rq_addr <= byte_a[27:1]; rq_wr <= 1'b1; rq_tgl <= ~rq_tgl; tmr <= 17'd0;
+                    if (dn_s[2] == rq_tgl) begin           // the previous line is done: its data may change now
+                        rq_addr <= byte_a[27:1]; rq_data <= ldata; rq_wr <= 1'b1; rq_tgl <= ~rq_tgl; tmr <= 17'd0;
                         any_w <= 1'b1;
                         st <= S_WWAIT;
                     end else if (tmr == S_LIM) st <= S_FAIL;

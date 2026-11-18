@@ -7,7 +7,8 @@ and Vivado may take either way; the intent is one evaluation per call, so the de
 synthesis read gen/, never rtl/ (one artifact for both).
 (2) T233 (docs/specs/T233-cpc-fdc-repair.md), on the base of the board-good build 66f89900 (T233 D1):
   D2  RQM in COMMAND_IDLE no longer waits for a disk scan; a command that reads the image (READ/WRITE DATA, READ TRACK, READ ID) waits in
-      COMMAND_WAIT_IMG while its drive's disk event or scan is pending, and the scan may start there as in COMMAND_IDLE.
+      COMMAND_WAIT_IMG while its drive's disk event or scan is pending or any scan holds the shared sector buffer (i_scan_lock), and the
+      scan may start there as in COMMAND_IDLE.
   D3  The SD channel (upstream: the always block sdcontrol) moves into the always block fdc: a request flag is cleared when its block is
       issued (no owner withdraws an untaken request any more), a block not ended within SD_TIMEOUT sys clocks or ended with the new input
       sd_err is withdrawn and marks sd_fail_* for its owner (a scan ends with the drive not ready, a trackinfo load with an empty track, a
@@ -15,7 +16,8 @@ synthesis read gen/, never rtl/ (one artifact for both).
       block in flight only (sd_live).
   D4  A mount/eject strobe is only latched (ev_pend, ev_size, ev_wp); the ce-gated FDC applies it when no block of that drive is in flight
       and its scan, trackinfo load and sector search hold nothing (none of them takes the lock for that drive while the event waits); a
-      command on that drive ends with ST0 0x40 / ST1 0x05 first; a reset applies it at once. The scan, the trackinfo load and the sector
+      command on that drive ends with ST0 0x40 / ST1 0x05 first, never while a read offers a byte (RQM is dropped as it ends), and a seek
+      in flight ends with its interrupt; a sector search whose drive lost its image starts over; a reset applies it at once. The scan, the trackinfo load and the sector
       search take the one track table resource (i_scan_lock / tinfo_lock) through lk_take, so two of them never take it in the same clock;
       a reset ends a sector search (it releases the lock the search holds).
   tools/cpc_gen.py          (re)make cores/cpc/gen/u765.sv
@@ -193,7 +195,9 @@ edit("""\
                 tinfo_lock <= 1;
 """, """\
             1:
-            if (!image_trackinfo_dirty[sector_search_ds0] && !tinfo_lock && !i_scan_lock && !lk_take && !ev_pend[sector_search_ds0]) begin
+            if (!image_ready[sector_search_ds0]) begin
+                sector_search_state <= 0; // T233 D4: the drive lost its image while the search waited (an event applied as it was picked, a failed scan)
+            end else if (!image_trackinfo_dirty[sector_search_ds0] && !tinfo_lock && !i_scan_lock && !lk_take && !ev_pend[sector_search_ds0]) begin
                 lk_take = 1;
                 tinfo_lock <= 1;
 """)
@@ -256,7 +260,7 @@ edit("""\
                     7: begin
                             i_dtl <= din;
                             i_substate <= 0;
-                            if (motor[ds0] & ready[ds0] & (image_scan_state[ds0] != 0 | ev_pend[ds0])) begin // T233 D2: the image is being read
+                            if (motor[ds0] & ready[ds0] & (image_scan_state[ds0] != 0 | ev_pend[ds0] | i_scan_lock)) begin // T233 D2: the image is being read, or a scan holds the sector buffer
                                 m_status[UPD765_MAIN_RQM] <= 0;
                                 state <= COMMAND_WAIT_IMG;
                             end else if (~motor[ds0] | ~ready[ds0] | ~image_ready[ds0]) begin
@@ -265,8 +269,8 @@ edit("""\
             COMMAND_READ_RESULTS:
             begin
 """, """\
-            COMMAND_WAIT_IMG: // T233 D2: the checks of SETUP / READ ID once the drive's event is applied and its scan is over
-            if (!image_scan_state[ds0] && !ev_pend[ds0]) begin
+            COMMAND_WAIT_IMG: // T233 D2: the checks of SETUP / READ ID once the drive's event is applied, its scan is over and no scan holds the sector buffer
+            if (!image_scan_state[ds0] && !ev_pend[ds0] && !i_scan_lock && !lk_take) begin   // lk_take: a scan that starts in this clock
                 if (~motor[ds0] | ~ready[ds0] | ~image_ready[ds0]) begin
                     status[0] <= 8'h40;
                     status[1] <= 8'b101;
@@ -349,6 +353,7 @@ endmodule
             sd_fail_sector <= 0;
             sd_rd_sector <= 0;
             sd_wr_sector <= 0;
+            m_status[UPD765_MAIN_RQM] <= 0;   // a byte EXEC6 offers in this clock is withdrawn: the CPU never reads ST0 as data
 """ + not_ready(3, "i_c", "i_h", "i_r", "i_n") + """\
         end
 
@@ -356,7 +361,8 @@ endmodule
         // trackinfo load and sector search hold nothing (none of them takes the lock for e while the event waits). A command on e ends first.
         for (int e = 0; e < 2; e++) begin
             if (ev_pend[e] && !ev_new[e] && (sd_quiet || sd_drv != e) && image_scan_state[e] < 2 && seek_state[e] < 4 &&
-                !(sector_search_ds0 == e && sector_search_state >= 2)) begin
+                !(sector_search_ds0 == e && sector_search_state >= 2) &&
+                !(ds0 == e && state == COMMAND_RW_DATA_EXEC6 && !i_write && m_status[UPD765_MAIN_RQM])) begin   // not while a read offers a byte
                 ev_go[e] = 1;
                 ev_pend[e] <= 0;
                 image_wp[e] <= ev_wp[e];
@@ -365,7 +371,7 @@ endmodule
                 image_ready[e] <= 0;
                 image_trackinfo_dirty[e] <= 1;
                 disk_changed[e] <= 1;
-                int_state[e] <= 0;
+                int_state[e] <= int_state[e] | (seek_state[e] == 1) | (seek_state[e] == 2) | i_seek_start[e];   // a seek in flight ends with its interrupt (SENSE INT: not ready)
                 seek_state[e] <= 0;
                 i_seek_start[e] <= 0;
                 next_weak_sector[e] <= 0;
@@ -377,6 +383,7 @@ endmodule
                 sd_wr_sector[e] <= 0;
                 if (sector_search_ds0 == e && sector_search_state == 1) sector_search_state <= 0;
                 if (ds0 == e && state >= COMMAND_RW_DATA_EXEC && state <= COMMAND_RW_DATA_EXEC8) begin
+                    m_status[UPD765_MAIN_RQM] <= 0;   // a byte EXEC6 offers in this clock is withdrawn
 """ + not_ready(5, "i_c", "i_h", "i_r", "i_n") + """\
                 end
                 if (ds0 == e && state == COMMAND_READ_ID_WAIT_ID) begin

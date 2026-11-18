@@ -619,7 +619,9 @@ always @(posedge clk_sys) begin : fdc
 			end
 
 			1:
-			if (!image_trackinfo_dirty[sector_search_ds0] && !tinfo_lock && !i_scan_lock && !lk_take && !ev_pend[sector_search_ds0]) begin
+			if (!image_ready[sector_search_ds0]) begin
+				sector_search_state <= 0; // T233 D4: the drive lost its image while the search waited (an event applied as it was picked, a failed scan)
+			end else if (!image_trackinfo_dirty[sector_search_ds0] && !tinfo_lock && !i_scan_lock && !lk_take && !ev_pend[sector_search_ds0]) begin
 				lk_take = 1;
 				tinfo_lock <= 1;
 				image_track_offsets_addr <= { sector_search_ds0, pcn[sector_search_ds0], sector_search_hds };
@@ -1384,7 +1386,7 @@ always @(posedge clk_sys) begin : fdc
 					7: begin
 							i_dtl <= din;
 							i_substate <= 0;
-							if (motor[ds0] & ready[ds0] & (image_scan_state[ds0] != 0 | ev_pend[ds0])) begin // T233 D2: the image is being read
+							if (motor[ds0] & ready[ds0] & (image_scan_state[ds0] != 0 | ev_pend[ds0] | i_scan_lock)) begin // T233 D2: the image is being read, or a scan holds the sector buffer
 								m_status[UPD765_MAIN_RQM] <= 0;
 								state <= COMMAND_WAIT_IMG;
 							end else if (~motor[ds0] | ~ready[ds0] | ~image_ready[ds0]) begin
@@ -1405,8 +1407,8 @@ always @(posedge clk_sys) begin : fdc
 				endcase
 			end
 
-			COMMAND_WAIT_IMG: // T233 D2: the checks of SETUP / READ ID once the drive's event is applied and its scan is over
-			if (!image_scan_state[ds0] && !ev_pend[ds0]) begin
+			COMMAND_WAIT_IMG: // T233 D2: the checks of SETUP / READ ID once the drive's event is applied, its scan is over and no scan holds the sector buffer
+			if (!image_scan_state[ds0] && !ev_pend[ds0] && !i_scan_lock && !lk_take) begin   // lk_take: a scan that starts in this clock
 				if (~motor[ds0] | ~ready[ds0] | ~image_ready[ds0]) begin
 					status[0] <= 8'h40;
 					status[1] <= 8'b101;
@@ -1485,6 +1487,7 @@ always @(posedge clk_sys) begin : fdc
 			sd_fail_sector <= 0;
 			sd_rd_sector <= 0;
 			sd_wr_sector <= 0;
+			m_status[UPD765_MAIN_RQM] <= 0;   // a byte EXEC6 offers in this clock is withdrawn: the CPU never reads ST0 as data
 			i_sector_c <= i_c;
 			i_sector_h <= i_h;
 			i_sector_r <= i_r;
@@ -1499,7 +1502,8 @@ always @(posedge clk_sys) begin : fdc
 		// trackinfo load and sector search hold nothing (none of them takes the lock for e while the event waits). A command on e ends first.
 		for (int e = 0; e < 2; e++) begin
 			if (ev_pend[e] && !ev_new[e] && (sd_quiet || sd_drv != e) && image_scan_state[e] < 2 && seek_state[e] < 4 &&
-				!(sector_search_ds0 == e && sector_search_state >= 2)) begin
+				!(sector_search_ds0 == e && sector_search_state >= 2) &&
+				!(ds0 == e && state == COMMAND_RW_DATA_EXEC6 && !i_write && m_status[UPD765_MAIN_RQM])) begin   // not while a read offers a byte
 				ev_go[e] = 1;
 				ev_pend[e] <= 0;
 				image_wp[e] <= ev_wp[e];
@@ -1508,7 +1512,7 @@ always @(posedge clk_sys) begin : fdc
 				image_ready[e] <= 0;
 				image_trackinfo_dirty[e] <= 1;
 				disk_changed[e] <= 1;
-				int_state[e] <= 0;
+				int_state[e] <= int_state[e] | (seek_state[e] == 1) | (seek_state[e] == 2) | i_seek_start[e];   // a seek in flight ends with its interrupt (SENSE INT: not ready)
 				seek_state[e] <= 0;
 				i_seek_start[e] <= 0;
 				next_weak_sector[e] <= 0;
@@ -1520,6 +1524,7 @@ always @(posedge clk_sys) begin : fdc
 				sd_wr_sector[e] <= 0;
 				if (sector_search_ds0 == e && sector_search_state == 1) sector_search_state <= 0;
 				if (ds0 == e && state >= COMMAND_RW_DATA_EXEC && state <= COMMAND_RW_DATA_EXEC8) begin
+					m_status[UPD765_MAIN_RQM] <= 0;   // a byte EXEC6 offers in this clock is withdrawn
 					i_sector_c <= i_c;
 					i_sector_h <= i_h;
 					i_sector_r <= i_r;
