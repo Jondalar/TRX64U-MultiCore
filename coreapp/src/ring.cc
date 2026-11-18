@@ -140,6 +140,10 @@ static volatile int pending = -1;   // the freeze menu's choice (timeline index)
 static uint32_t log_rd;             // the observer log reader (trx_ring_log_read): the next stream 1 record to look at
 static bool log_have;               // log_rd is valid
 static volatile bool scrubbing;     // a Timewarp scrub holds the machine (§16.7 below)
+// A08: the engine logs no REU memory, so while the REU is enabled there is no ring and no way into it
+static inline bool reu_on(void) { return C64_REU_ENABLE != 0; }
+static bool reu_blocked;            // the ring was stopped (or kept from starting) because the REU is on
+static bool reu_resume;             // it ran, or was due to start, then: it starts again when the REU is off
 static bool trace_on = true;       // the trace former runs with the log (trace_ctl)
 
 // LOG_CTRL as the log runs: every tap, the trace, and with flush the machine's flow cut (a
@@ -818,6 +822,7 @@ enum {
     E_STAGE = -6,
     E_MEM = -7,
     E_APPLY = -8,
+    E_REU = -9,
 };
 
 const char *trx_ring_error(int code)
@@ -832,6 +837,7 @@ const char *trx_ring_error(int code)
     case E_STAGE:   return "the state bus refused the staged words";
     case E_MEM:     return "out of memory";
     case E_APPLY:   return "the engine did not finish applying the log";
+    case E_REU:     return "Timewarp is off while the REU is enabled (A08)";
     default:        return "error";
     }
 }
@@ -1664,6 +1670,10 @@ int trx_ring_land(int index, TrxRestoreStats *stats)
     if (!lock()) {
         return E_ABSENT;
     }
+    if (reu_on()) {
+        unlock();
+        return E_REU;
+    }
     int err = land_locked(index, stats);
     unlock();
     return err;
@@ -1696,7 +1706,7 @@ bool trx_ring_reachable(int index)
 // ---- materialize -----------------------------------------------------------------
 // idx[] oldest first. From the head's copy back: the newest target first, each
 // older one from the one after it, so the records are walked once.
-static int materialize_locked(const int *idx, int n, uint8_t **rams, uint8_t **cols)
+static int materialize_locked(const int *idx, int n, uint8_t **rams, uint8_t **cols, uint8_t **carts)
 {
     for (int i = 0; i < n; i++) {
         if (idx[i] < 0 || idx[i] >= tl_n || (i && idx[i] < idx[i - 1])) {
@@ -1705,9 +1715,11 @@ static int materialize_locked(const int *idx, int n, uint8_t **rams, uint8_t **c
     }
     uint8_t *ram = (uint8_t *)malloc(65536);
     uint8_t *col = (uint8_t *)malloc(1024);
-    if (!ram || !col) {
+    uint8_t *cart = carts ? (uint8_t *)malloc(65536) : NULL;
+    if (!ram || !col || (carts && !cart)) {
         free(ram);
         free(col);
+        free(cart);
         return E_MEM;
     }
     // a pause (anywhere): RAM through the second port, colour RAM through the
@@ -1733,6 +1745,12 @@ static int materialize_locked(const int *idx, int n, uint8_t **rams, uint8_t **c
         col[a] = C64_MEM(0xD800 + a) & 0x0F;
     }
     C64_DMA_MEMONLY = memonly;
+    if (cart) {
+        // the cartridge's RAM window in DDR2 (cart_slot.v: 0xEF0000, 64 KB)
+        for (int a = 0; a < 65536; a++) {
+            cart[a] = *(volatile uint8_t *)(0x0EF0000 + a);
+        }
+    }
     // the parse may drop entries from the front: find the targets again
     uint32_t *seqs = (uint32_t *)malloc(n * sizeof(uint32_t));
     int *at = (int *)malloc(n * sizeof(int));
@@ -1769,12 +1787,17 @@ static int materialize_locked(const int *idx, int n, uint8_t **rams, uint8_t **c
         each(col_tch, 1024, col_val, [col](int a, uint8_t v) { col[a] = v; });
         memcpy(rams[i], ram, 65536);
         memcpy(cols[i], col, 1024);
+        if (cart) {
+            each(cart_tch, 65536, cart_val, [cart](int a, uint8_t v) { cart[a] = v; });
+            memcpy(carts[i], cart, 65536);
+        }
         hi = at[i];
     }
     free(seqs);
     free(at);
     free(ram);
     free(col);
+    free(cart);
     return err;
 }
 
@@ -1831,9 +1854,50 @@ bool trx_ring_start(void)
     if (!lock()) {
         return false;
     }
+    if (reu_on()) {
+        unlock();
+        return false;
+    }
     start_locked();
     unlock();
     return true;
+}
+
+const char *trx_ring_reu_refusal(void)
+{
+    return (present && reu_on()) ? trx_ring_error(E_REU) : NULL;
+}
+
+// The one place the ring follows the REU (A08), looked at by every poll. A scrub or land holds the
+// machine: the ring is left alone until it ends. Never waits for the ring: the next poll looks again.
+static void reu_sync(void)
+{
+    if (!present || scrubbing || xSemaphoreTake(mutex, 0) != pdTRUE) {
+        return;
+    }
+    bool on = reu_on();
+    if (on && !reu_blocked) {
+        reu_blocked = true;
+        reu_resume = log_on;
+        w32(LOG_CTRL, 0);
+        log_on = false;
+        pending = -1;
+        tl_clear();
+        ep_reset();
+        p2 = 0;
+        cyc_have = false;
+        cyc_acc = 0;
+        resyncs = 0;
+        printf("[RING] REU enabled: ring off, frames dropped (A08)\n");
+    } else if (!on && reu_blocked) {
+        reu_blocked = false;
+        if (reu_resume) {
+            start_locked();
+            printf("[RING] REU off: ring restarted from now (A08)\n");
+        }
+        reu_resume = false;
+    }
+    xSemaphoreGive(mutex);
 }
 
 void trx_ring_stop(void)
@@ -1855,6 +1919,7 @@ void trx_ring_status(TrxRingStatus *st)
     parse_locked();
     st->present = true;
     st->on = log_on;
+    st->reu_off = reu_on();
     st->frames = tl_n;
     for (int i = 0; i < tl_n; i++) {
         if (ent(i).block) {
@@ -1877,8 +1942,19 @@ void trx_ring_status(TrxRingStatus *st)
 
 void trx_ring_poll(void)
 {
+    reu_sync();
     if (!lock()) {
         return;
+    }
+    if (log_on && (ioRead8(TRX_CAPS2) & TRX_CAPS2_TURBO)) {
+        // the engine ran faster than 1 MHz since the last look: its RAM writes are not in the log,
+        // the ring cannot be walked back across them; start it over once the engine is off
+        uint32_t ts = r32(TRX_TURBO_STAT);
+        if ((ts & TRX_TURBO_RAN) && !(ts & TRX_TURBO_ON)) {
+            w32(TRX_TURBO_CTRL, 1);
+            start_locked();
+            printf("[RING] ring restarted: the machine ran in turbo\n");
+        }
     }
     if (log_on) {
         parse_locked();
@@ -1955,6 +2031,10 @@ int trx_ring_restore(int index, TrxRestoreStats *stats)
     if (!lock()) {
         return E_ABSENT;
     }
+    if (reu_on()) {
+        unlock();
+        return E_REU;
+    }
     int err = restore_locked(index, stats);
     unlock();
     return err;
@@ -1969,6 +2049,10 @@ int trx_ring_scrub_show(int index, TrxRestoreStats *stats)
     if (!lock()) {
         return E_ABSENT;
     }
+    if (reu_on()) {
+        unlock();
+        return E_REU;
+    }
     int err = scrub_show_locked(index, stats);
     unlock();
     return err;
@@ -1979,17 +2063,17 @@ bool trx_ring_scrubbing(void)
     return scrubbing;
 }
 
-int trx_ring_materialize(int index, uint8_t *ram, uint8_t *color)
+int trx_ring_materialize(int index, uint8_t *ram, uint8_t *color, uint8_t *cart)
 {
-    return trx_ring_materialize_many(&index, 1, &ram, &color);
+    return trx_ring_materialize_many(&index, 1, &ram, &color, cart ? &cart : NULL);
 }
 
-int trx_ring_materialize_many(const int *idx, int n, uint8_t **ram, uint8_t **color)
+int trx_ring_materialize_many(const int *idx, int n, uint8_t **ram, uint8_t **color, uint8_t **carts)
 {
     if (!lock()) {
         return E_ABSENT;
     }
-    int err = materialize_locked(idx, n, ram, color);
+    int err = materialize_locked(idx, n, ram, color, carts);
     unlock();
     return err;
 }
@@ -2061,6 +2145,10 @@ int trx_ring_load_state(const uint8_t *ram, const uint8_t *color, const uint32_t
 {
     if (!lock()) {
         return E_ABSENT;
+    }
+    if (reu_on()) {
+        unlock();
+        return E_REU;
     }
     if (dbg_handover()) {
         wait_reg(GATE_CTRL, GATE_HALTED, GATE_HALTED, 100);
@@ -2498,7 +2586,12 @@ static void ring_task(void *)
 {
     vTaskDelay(START_AFTER_MS / portTICK_PERIOD_MS);
     if (ring_autostart) {
-        trx_ring_start();
+        if (reu_on()) {
+            reu_blocked = true;     // A08: the REU is on at boot: no ring until it is off, then it starts
+            reu_resume = true;
+        } else {
+            trx_ring_start();
+        }
     }
     printf("[RING] log %s: streams at %07x/%07x/%07x%s\n", ring_autostart ? "on" : "off (setting)", (unsigned)area_base[0], (unsigned)area_base[1],
            (unsigned)area_base[2], f4_after_blocks ? ", older engine: F4s after block records skipped" : "");

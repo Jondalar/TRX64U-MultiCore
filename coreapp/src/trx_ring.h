@@ -42,6 +42,7 @@ struct TrxFrame {
 struct TrxRingStatus {
     bool     present;        // the bitstream has the engine
     bool     on;             // the log runs
+    bool     reu_off;        // the REU is enabled: no ring (A08)
     int      frames;         // timeline entries
     int      targets;        // entries a restore can go to
     uint32_t head_seq, oldest_seq;
@@ -136,6 +137,8 @@ bool trx_ring_start(void);
 // start, which empties it).
 void trx_ring_stop(void);
 void trx_ring_status(TrxRingStatus *st);
+// A08: the text why the ring refuses while the REU is on, NULL when it does not
+const char *trx_ring_reu_refusal(void);
 
 // Reads the markers that came since the last call into the timeline.
 void trx_ring_poll(void);
@@ -161,10 +164,11 @@ const char *trx_ring_error(int code);
 // pause to read RAM and colour RAM, then the undo applied in software.
 // ram: 65536 bytes (C64 RAM, $D800-$DBFF the RAM under the I/O), color: 1024
 // (low nibbles). Returns 0 or a negative error.
-int  trx_ring_materialize(int index, uint8_t *ram, uint8_t *color);
+// cart, when not NULL: 65536 bytes of the cartridge RAM window, read in the same pause and undone with the rest
+int  trx_ring_materialize(int index, uint8_t *ram, uint8_t *color, uint8_t *cart = 0);
 // Many entries at once (oldest first in idx[], n of them): one pause, the
 // undo walked back from the head once. ram/color: n buffers each.
-int  trx_ring_materialize_many(const int *idx, int n, uint8_t **ram, uint8_t **color);
+int  trx_ring_materialize_many(const int *idx, int n, uint8_t **ram, uint8_t **color, uint8_t **carts = 0);
 
 // The freeze menu's deferred rewind: the menu chooses an entry, the restore
 // happens when the menu closes (C64::unfreeze() asks).
@@ -219,6 +223,7 @@ static inline int  trx_ring_log_read(uint64_t *, int, uint32_t *lost) { *lost = 
 static inline int  trx_ring_trace_writes(uint32_t, uint32_t, TrxWriteRec *) { return 0; }
 static inline int  trx_ring_trace_whowrote(uint16_t, int, TrxTraceHit *, bool *e) { *e = true; return 0; }
 static inline void trx_ring_stop(void) { }
+static inline const char *trx_ring_reu_refusal(void) { return 0; }
 static inline void trx_ring_status(TrxRingStatus *st) { st->present = false; }
 static inline int  trx_ring_count(void) { return 0; }
 static inline bool trx_ring_frame(int, TrxFrame *) { return false; }

@@ -20,6 +20,7 @@
 
 #include "trx_c64re.h"
 #include "trx_ring.h"
+#include "c64.h"
 #include "filemanager.h"
 #include "itu.h"
 #include "FreeRTOS.h"
@@ -299,6 +300,50 @@ public:
         str("\"}");
     }
 
+    // a string as JSON text: the quote, the backslash and the control characters escaped
+    void jstr(const char *s)
+    {
+        char esc[8];
+        for (const char *p = s; *p; p++) {
+            unsigned char c = (unsigned char)*p;
+            if (c == '"' || c == '\\') {
+                esc[0] = '\\';
+                esc[1] = char(c);
+                put(esc, 2);
+            } else if (c < 0x20) {
+                static const char hex[] = "0123456789abcdef";
+                esc[0] = '\\'; esc[1] = 'u'; esc[2] = '0'; esc[3] = '0';
+                esc[4] = hex[c >> 4]; esc[5] = hex[c & 15];
+                put(esc, 6);
+            } else {
+                put((const char *)p, 1);
+            }
+        }
+    }
+
+    // a file as a typed array, streamed (3072 bytes a piece is a whole number of base64 groups): a cartridge or a disk image goes into the document without
+    // a copy of it in memory. A read that fails leaves the array short; failed is set.
+    void file_ta(File *f, uint32_t len)
+    {
+        str("{\"$ta\":\"Uint8Array\",\"b64\":\"");
+        uint8_t piece[3072];
+        uint32_t done = 0;
+        while (done < len && !failed) {
+            uint32_t want = len - done;
+            if (want > sizeof(piece)) {
+                want = sizeof(piece);
+            }
+            uint32_t got = 0;
+            if (f->read(piece, want, &got) != FR_OK || got != want) {
+                failed = true;
+                break;
+            }
+            b64(piece, int(want));
+            done += want;
+        }
+        str("\"}");
+    }
+
     void array(const uint8_t *data, int count, int mask)
     {
         char out[4 * 64 + 4];
@@ -461,7 +506,147 @@ static void write_turbo(Gz &g, const TrxFrame &)
     g.str("\"turbo\":{\"enable\":1,\"menuIndex\":0,\"menuStalls\":true,\"d031\":0,\"d030\":0,\"resetHold\":0}");
 }
 
-static void write_checkpoint(Gz &g, const TrxFrame &f, uint8_t *ram, const uint8_t *col)
+// ---- what the file says of the machine (T228 R20) ---------------------------------
+static const char *const machine_names[6] = { "c64-pal", "c64-ntsc", "c64-pal60", "c64-ntsc50", "c64-pal60l", "c64-ntsc50l" };
+static TrxC64reSrc g_src;
+static bool g_src_on;
+
+void trx_c64re_set_source(const TrxC64reSrc *src)
+{
+    if (src) {
+        g_src = *src;
+    }
+    g_src_on = src != NULL;
+}
+
+static const char *machine_name(void)
+{
+    return (g_src_on && g_src.machine >= 0 && g_src.machine < 6) ? machine_names[g_src.machine] : machine_names[0];
+}
+
+#define TRX_CART_RAM_BYTES 65536
+#define W_GLUE         0
+#define W_CART         26
+#define GLUE_CART      0x08
+
+// The cartridge as the single frame has it: cartBytes the .crt of the cartridge at the freeze (read out of DDR2 as it stands, not the file on the stick: a
+// game may have programmed the flash since), cartState the banking registers (chip 7 word 0), the type, the source path, the 64 KB RAM window as it was at
+// this frame and, for a GMod2, the 93C86's array (ours: "eeprom", the shape of the other typed arrays).
+static void write_cart(Gz &g, const uint32_t *w, const uint8_t *cart)
+{
+    if (!(w[W_GLUE] & GLUE_CART)) {
+        g.str("\"cartBytes\":null,\"cartFlash\":null,\"cartState\":null");
+        return;
+    }
+    File *cf = NULL;
+    uint32_t crt_len = 0;
+    if (g_src_on && g_src.cart_file && FileManager::getFileManager()->fopen(g_src.cart_file, FA_READ, &cf) == FR_OK) {
+        crt_len = uint32_t(cf->get_size());
+    }
+    g.str("\"cartBytes\":");
+    if (!crt_len) {
+        g.str("null");
+    } else {
+        g.file_ta(cf, crt_len);
+    }
+    if (cf) {
+        FileManager::getFileManager()->fclose(cf);
+    }
+    g.str(",\"cartFlash\":null,\"cartState\":{");
+    g.num("\"currentBank\":", uint8_t(w[W_CART]));
+    g.num(",\"controlRegister\":", uint8_t(w[W_CART] >> 8));
+    g.num(",\"cartridgeType\":", C64_CARTRIDGE_TYPE);
+    g.str(",\"source\":\"");
+    g.jstr(g_src_on && g_src.cart_src ? g_src.cart_src : "");
+    g.str("\"");
+    if (cart) {
+        g.str(",\"cartRam\":");
+        g.ta(cart, TRX_CART_RAM_BYTES);
+    }
+    if (g_src_on && g_src.eeprom) {
+        g.str(",\"eeprom\":");
+        g.ta(g_src.eeprom, 2048);
+    }
+    g.str("}");
+}
+
+// "drivePart" and "media": which image drive A holds and whether it is powered (the image itself is in mediaPayloads)
+static void write_media(Gz &g)
+{
+    g.str("\"drivePart\":");
+    if (!g_src_on || !g_src.drive_type) {
+        g.str("null,\"media\":null");
+        return;
+    }
+    g.str(g_src.drive_power ? "{\"power\":true" : "{\"power\":false");
+    g.num(",\"unit\":", g_src.drive_unit);
+    g.str(",\"driveType\":\"");
+    g.jstr(g_src.drive_type);
+    g.str("\"}");
+    g.str(",\"media\":");
+    if (!g_src.disk_path) {
+        g.str("null");
+        return;
+    }
+    g.str("{\"diskPath\":\"");
+    g.jstr(g_src.disk_path);
+    g.str("\",\"imageFormat\":\"");
+    const char *dot = strrchr(g_src.disk_path, '.');
+    g.jstr(dot ? dot + 1 : "");
+    g.str("\"}");
+}
+
+// The media of the manifest: media0 the disk image, media1 (or media0 without a disk) the cartridge, each hashed here and streamed into mediaPayloads.
+struct MediaFile {
+    const char *path;
+    const char *role;
+    char name[80];
+    char format[8];
+    uint32_t size;
+    uint8_t digest[32];
+};
+
+static bool media_probe(MediaFile *m, const char *path, const char *role, const char *name)
+{
+    m->path = path;
+    m->role = role;
+    const char *base = name ? name : path;
+    const char *sl = strrchr(base, '/');
+    strncpy(m->name, sl ? sl + 1 : base, sizeof(m->name) - 1);
+    m->name[sizeof(m->name) - 1] = 0;
+    const char *dot = strrchr(m->name, '.');
+    m->format[0] = 0;
+    for (int i = 0; dot && dot[1 + i] && i < int(sizeof(m->format)) - 1; i++) {
+        char c = dot[1 + i];
+        m->format[i] = (c >= 'A' && c <= 'Z') ? char(c + 32) : c;
+        m->format[i + 1] = 0;
+    }
+    File *f = NULL;
+    if (FileManager::getFileManager()->fopen(path, FA_READ, &f) != FR_OK) {
+        return false;
+    }
+    m->size = uint32_t(f->get_size());
+    Sha256 sh;
+    sha_init(&sh);
+    uint8_t piece[3072];
+    uint32_t left = m->size;
+    bool ok = m->size != 0;
+    while (ok && left) {
+        uint32_t want = left > sizeof(piece) ? uint32_t(sizeof(piece)) : left;
+        uint32_t got = 0;
+        if (f->read(piece, want, &got) != FR_OK || got != want) {
+            ok = false;
+            break;
+        }
+        sha_add(&sh, piece, want);
+        left -= want;
+    }
+    sha_final(&sh, m->digest);
+    FileManager::getFileManager()->fclose(f);
+    return ok;
+}
+
+static void write_checkpoint(Gz &g, const TrxFrame &f, uint8_t *ram, const uint8_t *col, const uint8_t *cart = NULL, bool full = false)
 {
     const uint32_t *w = f.w;
     static uint8_t under_io[1024];  // one writer at a time (the REST task or the menu)
@@ -490,7 +675,14 @@ static void write_checkpoint(Gz &g, const TrxFrame &f, uint8_t *ram, const uint8
     write_cia(g, "cia2", w, W_CIA2, W_CIA2H, f.cycles);
     g.str(",");
     write_vic(g, w, col, f.line, cycle);
-    g.str(",\"alarmsMaincpu\":[],\"cartBytes\":null");
+    g.str(",\"alarmsMaincpu\":[],");
+    if (full) {
+        write_cart(g, w, cart);
+        g.str(",");
+        write_media(g);
+    } else {
+        g.str("\"cartBytes\":null");
+    }
     g.str(",");
     write_turbo(g, f);
     g.num(",\"trx64Hw\":{\"layout\":", LAYOUT);
@@ -528,6 +720,7 @@ const char *trx_c64re_dump(const char *path, int idx, uint32_t *bytes)
     TrxFrame *f = (TrxFrame *)malloc(sizeof(TrxFrame));
     uint8_t *ram = (uint8_t *)malloc(65536);
     uint8_t *col = (uint8_t *)malloc(1024);
+    uint8_t *cart = NULL;
     const char *err = NULL;
     File *file = NULL;
     if (!f || !ram || !col) {
@@ -536,10 +729,16 @@ const char *trx_c64re_dump(const char *path, int idx, uint32_t *bytes)
         err = "No such frame";
     } else if (!f->block) {
         err = "The frame has no chip block";
-    } else if (int e = trx_ring_materialize(idx, ram, col)) {
-        err = trx_ring_error(e);
     } else {
-        err = open_out(path, &file);
+        // with a cartridge on, its RAM window comes out of the same pause
+        if (f->w[W_GLUE] & GLUE_CART) {
+            cart = (uint8_t *)malloc(TRX_CART_RAM_BYTES);
+        }
+        if (int e = trx_ring_materialize(idx, ram, col, cart)) {
+            err = trx_ring_error(e);
+        } else {
+            err = open_out(path, &file);
+        }
     }
     if (!err) {
         uint8_t header[41];
@@ -550,12 +749,55 @@ const char *trx_c64re_dump(const char *path, int idx, uint32_t *bytes)
         file->write(header, sizeof(header), &tr);
         Gz g(file, true);
         g.str("{\"manifest\":{\"kind\":\"c64re-runtime-snapshot\",\"version\":1,\"createdAt\":\"1970-01-01T00:00:00Z\"");
-        g.str(",\"machine\":{\"model\":\"c64-pal\",\"runtimeVersion\":\"trx64-ultimate/t20-app\"}");
+        g.str(",\"machine\":{\"model\":\"");
+        g.str(machine_name());
+        g.str("\",\"runtimeVersion\":\"trx64-ultimate/t20-app\"}");
         g.num(",\"checkpoint\":{\"encoding\":\"ta-json-gz/1\",\"payloadRef\":\"checkpoint\",\"cycle\":", int64_t(f->cycles));
         g.num(",\"pc\":", int((f->w[W_CPU + 1] & 0xFFFF) - PC_ADJ) & 0xFFFF);
-        g.str("},\"media\":[]},\"checkpoint\":");
-        write_checkpoint(g, *f, ram, col);
-        g.str(",\"mediaPayloads\":{}}");
+        MediaFile mf[2];
+        int nm = 0;
+        if (g_src_on && g_src.disk_path && media_probe(&mf[nm], g_src.disk_path, "drive8", NULL)) {
+            nm++;
+        }
+        if (g_src_on && (f->w[W_GLUE] & GLUE_CART) && g_src.cart_file &&
+            media_probe(&mf[nm], g_src.cart_file, "cartridge", g_src.cart_name ? g_src.cart_name : g_src.cart_src)) {
+            nm++;
+        }
+        g.str("},\"media\":[");
+        for (int i = 0; i < nm; i++) {
+            static const char hex[] = "0123456789abcdef";
+            char sha[65];
+            for (int k = 0; k < 32; k++) {
+                sha[2 * k] = hex[mf[i].digest[k] >> 4];
+                sha[2 * k + 1] = hex[mf[i].digest[k] & 15];
+            }
+            sha[64] = 0;
+            g.str(i ? ",{\"role\":\"" : "{\"role\":\"");
+            g.str(mf[i].role);
+            g.str("\",\"format\":\"");
+            g.jstr(mf[i].format);
+            g.str("\",\"sha256\":\"");
+            g.str(sha);
+            g.str("\",\"sourceName\":\"");
+            g.jstr(mf[i].name);
+            g.num("\",\"embeddedPayloadRef\":\"media", i);
+            g.str("\"}");
+        }
+        g.str("]},\"checkpoint\":");
+        write_checkpoint(g, *f, ram, col, cart, true);
+        g.str(",\"mediaPayloads\":{");
+        for (int i = 0; i < nm && !g.failed; i++) {
+            File *mfile = NULL;
+            g.num(i ? ",\"media" : "\"media", i);
+            g.str("\":");
+            if (FileManager::getFileManager()->fopen(mf[i].path, FA_READ, &mfile) == FR_OK) {
+                g.file_ta(mfile, mf[i].size);
+                FileManager::getFileManager()->fclose(mfile);
+            } else {
+                g.failed = true;
+            }
+        }
+        g.str("}}");
         uint8_t digest[32];
         if (!g.finish(digest)) {
             err = "The file could not be written";
@@ -571,6 +813,7 @@ const char *trx_c64re_dump(const char *path, int idx, uint32_t *bytes)
     free(f);
     free(ram);
     free(col);
+    free(cart);
     return err;
 }
 
