@@ -398,3 +398,64 @@ Totals: 338 rows, 228 WORKS, 58 PARTIAL, 52 FAKE; 8 rows missing (below).
 | Any area: the menu opens with this question when a REST client asks for a destructive operation | Remote question for a destructive operation, e.g. 'Restart the core?', 'Reset the machine (cold)?', 'Delete the file(s)?', 'Run the update?', 'Reset the settings to the host's?', or a node's confirm text (RETURN confirms, <- cancels) | uiapp.cc:134-158 (dest_refresh: question texts); uiapp.cc:892-972 (UD_OP -> act()->remote_ask at :958); menuctl.cc:3541-3553 (remote_ask) |
 | F3 > 2 Search, under the empty 'Name contains' field before the first search. RETURN asks for the name; it does not open the medium | Medium rows '> SD', '> Flash', '> USB0' with the side panel Size / Contents / Access and 'RETURN opens it' | picture t228gate/ux/ui-g-trx-f3-search.png; screens.cc:804-807 (medium rows at the media level); screens.cc:664-702 (draw_medium_panel); menuctl.cc:349-353 empties the list on entry, then the 2-second relist (menuctl.cc:2270, 613-619) fills it again; menuctl.cc:2304-2306 (RETURN = begin_search_edit) |
 | Header bar (every area) | Header chips: 'Settings > Video' (while the Picture page is open, in place of the media chip), a message chip (toast, e.g. 'Volume 110%'), and 'UNSAVED' (settings not written yet) | ui.cc:135-154 (shell_info: path chip at :136, toast chip at :144, UNSAVED chip at :151; unsaved() = settings->dirty(), menuctl.h:110) |
+
+## Reconciliation with TRX64-Ultimate (2026-11-18, TRX64U-FW session, code read only)
+
+Asked at Alex's request ("Gleich die Liste mit der TRX64U-FW session ab", translated: "reconcile the list with the TRX64U-FW
+session"). The PARTIAL rows, one letter each: a = TRX64-Ultimate's firmware has the same gap, b = its firmware handles it,
+c = bitstream gap ("not planned" = no decision by Alex), d = the MultiCore app only. TU = `designs/c64_basic` (main-31e69921 =
+034db309), FW = `software/ultimate-app/software` (submodule 18af6de9).
+
+| # | Letter | TRX64-Ultimate evidence | Note |
+|---|---|---|---|
+| 1 | d | FW/userinterface/userinterface.cc:835-861 | fixed product title, no session title |
+| 2 | d | FW/userinterface/system_info.cc:97; FW/io/c64/c64.cc:422-426 | no machine line; System Info reads the live C64_REU_ENABLE |
+| 3 | b | FW/io/c64/c64_subsys.cc:623-629 -> c64.cc:1885 init_system_roms, 1700, 1712-1713 | Reboot C64 reloads Kernal/Basic/Char from the settings; Basic empty has no built-in fallback there |
+| 4 | b | FW/io/c64/trx_timewarp_ui.cc:323-326; trx_ring.cc:2044-2069 | page refused while the REU is on; ring stopped, frames dropped |
+| 5 | b | FW/io/c64/trx_ring.cc:1801-1804, 2163-2166, 2181-2184, 2337-2339 | every way back into the ring returns E_REU while the REU is on |
+| 6 | b | FW/io/c64/c64.cc:1953-1973, 1997 -> 566-588, 1891 | no Eject; ending a cartridge restores REU, sampler, UCI and bus |
+| 7 | d | - | no Program row |
+| 8 | b | FW/filesystem/blockdev_flash.cc:25-31, 172; FW/filetypes/filetype_bin.cc:208-215; FW/io/c64/c64_crt.h:8; FW/filesystem/filesystem_ftp.h:13; FW/userinterface/user_file_interaction.cc:45-55 | /flash is a normal writable FAT in its own window (FLASH_ID_FLASHDRIVE); bitstream and app images lie outside it; "no reason on our side to keep you out" if the same window is used; /flash is not mounted with RESTORE held at boot (blockdev_flash.cc:160-163) |
+| 9 | b | user_file_interaction.cc:45-48; FW/filesystem/file_system.cc:5-17 | Move only for writable entries |
+| 10 | d | FW/userinterface/tree_browser.cc:574-579 | no Cut, only Ctrl+C/V |
+| 11 | b | user_file_interaction.cc:51-55 | Rename only when writable |
+| 12 | b | user_file_interaction.cc:51-55 | Delete only when writable; Shift+DEL is not gated (tree_browser.cc:599-600, 726-729) |
+| 13 | b | FW/filemanager/filemanager.cc:1347; FW/components/indexed_list.h:93-94 | recursive copy has no entry or depth cap |
+| 14 | b | user_file_interaction.cc:45-48, 331-363 | Move only for writable entries; no cap |
+| 15 | d | - | no Cut |
+| 16 | b | user_file_interaction.cc:51-55 | Rename only when writable |
+| 17 | b | user_file_interaction.cc:51-55; filemanager.cc:1167-1192 | Delete only when writable; no cap |
+| 18 | b | user_file_interaction.cc:87-93; tree_browser.cc:515 | Create > Directory only in a writable path |
+| 19 | a | tree_browser.cc:578-579, 671-695 | Ctrl+V not gated on a writable target; no 192 cap |
+| 20 | b | FW/filetypes/filetype_bin.cc:114/118, 208-215 -> FW/drive/c1541.cc:1208-1214 | copies to /flash/roms, sets and stores the setting; session-only action "Load Drive ROM" (:109) |
+| 21 | a (theirs worse) | FW/io/c64/c64_crt.cc:236-247; trx_cart.cc:257-264 | no refusal; a type without a descriptor starts a cold machine with the cartridge off. Keep ours |
+| 22-24 | a (theirs worse) | FW/io/c64/c64.cc:388-402, 891, 104-113, 1885 | every ROM change waits for Reboot C64 or a cartridge start; only "Set as ..." acts at once (c64.cc:479-498) |
+| 25 | d | FW/drive/c1541.cc:337-349; c1541_timing.vhd:78, 90; TU/top.v:596, 625, 906, 684 | the bitstream gates on b1; "No" works once drive_reset_regs writes b1 from the setting |
+| 26 | b | FW/drive/c1541.cc:192-193 -> 926-929; FW/userinterface/config_menu.h:236-243 | leaving the page reloads the configured drive ROM, also back to 1541.rom |
+| 27 | b | trx_ring.cc:1986-1989, 2044-2069, 2073-2074, 2078-2086, 2849-2853; c64.cc:402, 607, 2119; FW/api/route_timewarp.cc:170-193 | REU guard and restart after turbo; no on/off row there |
+| 28 | b | FW/io/c64/trx_c64re.cc:1013-1016, 1042, 865-871, 504-550 | model = the real System Mode; cartridge ROM/RAM, drive A and EEPROM sections; no REU |
+| 29 | b | FW/io/c64/trx_cart.cc:364-366, 388-406, 408-413; c64.cc:2260, 2342, 2247, 394-395; FW/app_loader/app_api_net.cc:596 | firmware writes TRX_IO 0x101A7000 = 2 at start and keeps it (Alex 2026-10-04: always on); one write in fx_io is enough |
+| 30 | a + c | c64.cc:149, 163, 2283-2292; TU/slot_port.v:129 | the RTL treats Both as Internal; greyed out unless Manual there (c64.cc:300-310) |
+| 31 | d | c64.cc:164, 2306-2315; TU/slot_port.v:134, 177; TU/c64_core.v:719 | in the RTL Both differs from External with a CRT configured; ours forces 15/0 for every CRT |
+| 32 | d | c64.cc:165, 2317-2326; TU/slot_port.v:135-136, 178 | as 31 |
+| 33 | a + c | c64.cc:166, 2294-2304; TU/slot_port.v:137 | m_int[3] has no reader: External = Both |
+| 34 | a | c64.cc:150, 177, 573-575, 1968-1972; trx_cart.cc:258-264 | GeoRAM sets CART_TYPE 0x1F without a descriptor: nothing runs |
+| 35 | b | FW/io/c64/reu_preloader.cc:105-114 | "16 MB" offered, an offset at or beyond the REU size is skipped with a message |
+| 36 | a (fix c, not planned) | TU/mode_ctl.v:74-75; FW/u64/color_timings.cc:6-11; u64_config.cc:293, 393, 1495 | PAL-60/L and NTSC-50/L give the same machine; dropping them matches the RTL |
+| 37 | b | FW/u64/u64_config.cc:1471-1508, 1173-1200 | a System Mode change asks for the HDMI row again in the new family |
+| 38 | d | u64_config.cc:271-278 | no Auto there |
+| 39-41 | b | u64_config.cc:1173-1200; FW/io/c64/trx_hdmi.h:14-23 | the row is picked from the running family |
+| 42-43 | b (board not proven) | u64_config.cc:1260 -> 864 detect (FPGASID :781, ARMSID/SIDKick/PDsid :804-860, S_SidDetector :2708 -> DetectSidImpl :2601); :917, 919-923, 962, 974/997, 1017 | detection over DMA on the stopped machine (voice 3, OSC3 read 16 times); a new 6581 switches its socket off until enabled (12 V question); reg = 3 for a 6581. T37 not proven on the board |
+| 44-45 | a + c | cores/trx_sid/rtl/trx_sid.v:99-101; cores/icepi/c64_bus_arbiter.v:471, 495-499; u64_config.cc:233-238, 465-466 | reSID8 is not decoded at $DE00-$DFE0 (the socket SIDs are); their firmware offers the dead values too |
+| 46 | a (fix c, not planned) | TU/c64_core.v:28; TU/ultimate_sys.vhd:1193-1195, 1319-1324; u64_config.cc:286, 400/402, 1424-1431, 2765-2780; FW/system/product.cc:67-74 | Normal is the bitstream's only state; their swap and WASD values do nothing either |
+| 47 | d (shield would be c, not planned) | TU/app_input.v:30, 33; TU/ultimate_sys.vhd:816-836; c64.cc:2232-2242; FW/userinterface/machine_hotkeys.h:15-42 | no keyboard mask register; their firmware has no running-machine hotkeys (menu by the board button, C= R/Z/B/K only inside the menu) |
+| 48 | d | FW/network/network_config.cc:16-33; socket_dma.cc:78-79; socket_gui.cc:71; httpd.cc:24, 32; syslog.cc:14 | real services there (removed here as FAKE) |
+| 49 | a | FW/io/network/data_streamer.cc:31-32, 265-266, 402-409; TU/top.v:1170, 1179 | no debug sender in the bitstream (stream_ena b0/b1 only) |
+| 50 | d | FW/userinterface/machine_hotkeys.h:12-42 | C= R/Z/B/K are theirs, wrong in our help |
+| 51 | a (fix c, not planned) | TU/ultimate_sys.vhd:725; TU/bling_io.v:71; FW/system/product.cc:92-108, 133; FW/system/u64.h:43 | "C64 Ultimate" on every board there too; needs real bling detection in the bitstream |
+| 52-56 | b | FW/io/network/network_interface.cc:27-31, 177; network_esp32.cc:47-51, 119 | separate DHCP/static rows for Ethernet and for WiFi |
+| 57 | a (theirs worse) | FW/network/network_config.cc:74-78; network_interface.cc:284-285, 384-397 | a host name change only restarts SNTP; mDNS never renamed |
+| 58 | b | FW/network/ftpd.cc:515; socket_gui.cc:86, 126; socket_dma.cc:117, 484, 607; FW/api/routes.h:325-335 | the password guards FTP, Telnet, DMA/ident and REST (X-Password) |
+
+The FAKE list (Analog/Digital Video Mode, Adjust Color Clock and the others still in TRX64-Ultimate's firmware) goes to Alex as
+cleanup on the TRX64-Ultimate side; nothing decided there.
