@@ -3829,6 +3829,9 @@ MenuCtl::Result MenuCtl::run_row_op(const KeyRow &row, int k, bool *took)
         if (!strncmp(r.msg, "goto ", 5)) {
             goto_spec(r.msg + 5);
         }
+        if (rc != 0 && r.msg[0]) {                           // a directive that failed has no directive: its text is the reason, the status line shows it (FW trx_timewarp_ui.cc: C= O says why)
+            set_status(r.msg, true);
+        }
         return R_REDRAW;
     }
     if (row.flags & (KF_STATUS | KF_STATUS_OK)) {
