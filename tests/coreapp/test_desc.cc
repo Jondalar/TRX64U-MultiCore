@@ -34,7 +34,7 @@ static void golden(const CoreDesc *d0, const char *name)
     const CoreDesc *d = menu_desc(d0);
     MenuTree t;
     menu_build(d, &t, true, false, menu_merge(d0));
-    static char buf[32768];                              // the TRX64U's tree is a few hundred entries
+    static char buf[262144];                             // the TRX64U's tree is a few hundred entries (368 since T228 R21; 32 KiB no longer held it)
     int n = menu_dump(d, &t, buf, sizeof(buf));
     CHECK(n > 0);
     std::string path = std::string(GOLDEN_DIR) + "/menu_" + name + ".txt";
@@ -220,7 +220,8 @@ int main()
                 for (int k = 0; k < ft.nactions; k++) {
                     const FileAction &a = ft.actions[k];
                     mounts = mounts || !strncmp(a.label, "Mount", 5);
-                    runs = runs || (a.op && (!strcmp(a.op, "drive.mount_run") || (!strcmp(a.label, "Run Disk") && !strcmp(a.op, "pet.mount_run"))));
+                    runs = runs || (a.op && (!strcmp(a.op, "drive.mount_run") ||
+                                             (!strcmp(a.label, "Run Disk") && (!strcmp(a.op, "pet.mount_run") || !strcmp(a.op, "drive.run_disk")))));   // TRX64U: drive.run_disk (T228 R21 #15, a .cfg beside the disk first)
                     starts = starts || strstr(a.label, "and cold start") || strstr(a.label, "and reset");
                 }
                 if (!mounts || !strcmp(ft.ext, ".hdf") || *p == &testcore::desc) continue;     // a hard disk image has nothing to run; the made-up core is no machine
@@ -229,8 +230,9 @@ int main()
                 for (const Ref &r : refs) if (!pet && !strcmp(ft.ext, r.ext)) ref = &r;
                 if (ref) {                                          // a CBM drive image
                     seen_cbm++;
-                    bool same = ft.nactions == ref->n;
-                    for (int k = 0; same && k < ft.nactions; k++) same = !strcmp(ft.actions[k].label, ref->names[k]);
+                    // the reference names first, in this order; T228 R21: the TRX64U adds TRX64-Ultimate's own after them (Load into MP3 Drv A-D, its REU RAM drives)
+                    bool same = ft.nactions >= ref->n;
+                    for (int k = 0; same && k < ref->n; k++) same = !strcmp(ft.actions[k].label, ref->names[k]);
                     if (!same || !runs || !d->type_op) printf("T206: %s %s: names/order differ, or no Run Disk, or the core cannot type\n", d->cor_name, ft.ext);
                     CHECK(same);
                     CHECK(runs);

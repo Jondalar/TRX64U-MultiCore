@@ -340,7 +340,8 @@ const char *desc_check_with(const CoreDesc *d, const OpRegistry &reg)
         for (int j = 0; j < f.nactions; j++) {
             if (!text(f.actions[j].label) || !text(f.actions[j].op)) return "filetypes: action label and op";
             const FileAction &fa = f.actions[j];
-            const char *why = check_call(reg, "filetypes", fa.label, fa.op, fa.bind, fa.nbind, true, text(fa.ask));
+            // T228 R21: a repeat action ("Play Song %d") hands each of its copies the number 1..N as the asked value, so it may bind it like an ask
+            const char *why = check_call(reg, "filetypes", fa.label, fa.op, fa.bind, fa.nbind, true, text(fa.ask) || text(fa.repeat_op));
             if (why) return why;
             if (text(fa.ask)) {
                 int asked = 0;

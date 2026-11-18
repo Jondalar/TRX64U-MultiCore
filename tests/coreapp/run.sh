@@ -263,37 +263,37 @@ run joyswap test_joyswap.cc amiga.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk
 run ledcores test_ledcores.cc amiga.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zx.cc zx_snap.cc tape_pulses.cc tape_deck.cc cpc.cc cpc_disk.cc zxnext.cc snes.cc snes_rom.cc vc20.cc c264.cc pet.cc c128.cc ddt_mandel.cc ddt_novic.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 descrec.cc
 # T181: the hotkeys while a core runs (hotkeys.h): the mask registers, S1 within 100 ms, S2 a non-hotkey changes nothing, S3 held = once (volume repeats), the USB keyboard's filter,
 # S5 the default of every core is no key use of that core
-run hotkeys test_hotkeys.cc menuctl.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc amiga.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zx.cc zx_snap.cc tape_pulses.cc tape_deck.cc cpc.cc cpc_disk.cc zxnext.cc snes.cc snes_rom.cc vc20.cc c264.cc pet.cc c128.cc ddt_mandel.cc ddt_novic.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 descrec.cc c64scpu.cc neogeo.cc neoset.cc
+run hotkeys test_hotkeys.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc amiga.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zx.cc zx_snap.cc tape_pulses.cc tape_deck.cc cpc.cc cpc_disk.cc zxnext.cc snes.cc snes_rom.cc vc20.cc c264.cc pet.cc c128.cc ddt_mandel.cc ddt_novic.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 descrec.cc c64scpu.cc neogeo.cc neoset.cc
 # T181 D4: a hotkey action while the menu is closed draws nothing (no ui_show, no toast, no layer)
 ca_in shared && python3 "$ROOT/tools/check_hotkey_nooverlay.py"
 ca_in shared && python3 "$ROOT/tools/check_hotkey_nooverlay.py" --selftest
 # T180 D10 (#40): the home folder of every core (the A1200 here): Set as home folder lands in its .cfg, Enter Home on Startup decides where F3 opens
-run home test_home.cc menuctl.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc amiga.cc nes.cc ines.cc libfiles.cc $ATARI
-control home_not_stored libfiles.cc 's/    ops_call(c, "settings.set", in, 2, &r);/    (void)r;/' test_home.cc menuctl.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc amiga.cc nes.cc ines.cc libfiles.cc $ATARI
+run home test_home.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc amiga.cc nes.cc ines.cc libfiles.cc $ATARI
+control home_not_stored libfiles.cc 's/    ops_call(c, "settings.set", in, 2, &r);/    (void)r;/' test_home.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc amiga.cc nes.cc ines.cc libfiles.cc $ATARI
 # T192.3 D30: the menu opens where it was left ("Menu opens at" = Last screen): area, tab, row, Library folder and file, scroll; Home (F1) as before; what is gone falls back
-run reopen test_reopen.cc menuctl.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc amiga.cc nes.cc ines.cc libfiles.cc $ATARI
+run reopen test_reopen.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc amiga.cc nes.cc ines.cc libfiles.cc $ATARI
 # T160: the A1200's Volume setting and the menu's SHIFT+ / SHIFT- (C64 '{' '}', USB '+' '_' '-')
-run volume test_volume.cc menuctl.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc amiga.cc nes.cc ines.cc $ATARI
+run volume test_volume.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc amiga.cc nes.cc ines.cc $ATARI
 # T189 S7: the generic Tone setting (the register write 0x51, the .cfg, a new session, own Tone / no_tone / own_volume)
-run tone test_tone.cc menuctl.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc amiga.cc nes.cc ines.cc $ATARI
+run tone test_tone.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc amiga.cc nes.cc ines.cc $ATARI
 # T164 WP11: the host's master volume for every core (the generic item, the register write, the toast on every page)
 # T104.1 Q10: the capability list the loader asks
 # a tab that silently drops the last of its entries: the golden would differ, and so must the count check
 # T184 D3: the one WiFi row of every core (test_desc.cc): a core without it, and a core with a second row, are both seen
 # T104.2 D10: tasks and media list by group like settings, an information tab names its lines
 
-run menuctl test_menuctl.cc menuctl.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc nes.cc ines.cc libfiles.cc $ATARI
+run menuctl test_menuctl.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc nes.cc ines.cc libfiles.cc $ATARI
 # T180 D3, D6, D7 (S4-S6): the F3 Library of a core that is not the C64 - no [Recent]/[Favorites], the file operations of the common part, + / - paging with the volume on SHIFT.
-run f3 test_f3.cc menuctl.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc nes.cc ines.cc libfiles.cc $ATARI
+run f3 test_f3.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc nes.cc ines.cc libfiles.cc $ATARI
 # GitHub #93 (T209 "File Browser, n entries"): the Library and the copy/move folder pick list a folder of 784 / 3000 entries to its end; a heap budget cuts the list and says so
-run library_n test_library_n.cc menuctl.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc nes.cc ines.cc libfiles.cc $ATARI
+run library_n test_library_n.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc nes.cc ines.cc libfiles.cc $ATARI
 # #38: the name limit back to 55 (the prefill and the typing), the field without scrolling, the operation's argument back to 55
 # T180 D8: a cursor in every entry - the editor is wired in (CRSR left dropped), inserts at the cursor, draws it where it is
 # T180 #38: a file with a FAT long name (80 and 255 characters) in the F3 Library: listed, the sheet, mounted, renamed, copied, moved, deleted by its whole name. Controls: the entry
 # back at 55 characters, the path buffers back at 260, the list row not cut with "..", the path argument of an operation back at 255, the clipboard path cut, a folder frame cut.
 
 # T107: the Picture setting, the layout that follows a mode, and the start-up path that uses the same layout
-PICSRC="desc_check.cc menutree.cc menuctl.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc $ATARI nes.cc ines.cc $C64"
+PICSRC="desc_check.cc menutree.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc $ATARI nes.cc ines.cc $C64"
 # T164 S10 (WP15): the EDID into the row mask, the best row (Q6), the list without an EDID (Q9); the row table against host/hdmi_modes.vh
 run edid test_edid.cc edid.cc
 run sid_decide test_sid_decide.cc
@@ -305,7 +305,7 @@ run pictfollow test_pictfollow.cc $PICSRC
 # T164 D10c amended (Alex 2026-11-04): the Auto value names its mode and whose it is; plain "Auto" has to fail, and so does a first value that a stored label no longer finds
 
 # T107 D7/D8: a core whose gateware owns the picture (the A1200): real frame per mode, Integer without the cap / Fit / Fill, the Scale item for that core only
-SCSRC="desc_check.cc menutree.cc menuctl.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc amiga.cc $ATARI nes.cc ines.cc $C64"
+SCSRC="desc_check.cc menutree.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc amiga.cc $ATARI nes.cc ines.cc $C64"
 run scale test_scale.cc $SCSRC
 # T107 5.9: the menu laid out again with the mode: no relayout, the origin not centred, a fractional factor
 # T164 D10a: the compact canvas below 960 wide: the old fixed 960 x 540 canvas at 800 x 600 / 576p, and a canvas the port is not told of
@@ -328,7 +328,7 @@ run fs64 test_fs64.cc $ROMF atari_atr.cc
 # T104.2 (the generic application on the TRX64 Ultimate monolith). Controls break one expression of the product; the bench has to go red.
 # The C64 model (c64_model.h) is the bench's reading of ultimate_sys.vhd / trx_sys.v / trx_dbg.v, not the gateware: what the board does
 # is the board steps of the spec.
-ALLC="$ATARI nes.cc ines.cc $C64 start.cc handover.cc menutree.cc menuctl.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc desc_check.cc descrec.cc"
+ALLC="$ATARI nes.cc ines.cc $C64 start.cc handover.cc menutree.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc desc_check.cc descrec.cc"
 
 # S2, S4, S11: the profile from the ICAP byte and the hand-over, the capabilities the probes strike, the settings file, the menu without a way back
 run board test_board.cc $ALLC
@@ -379,7 +379,7 @@ control wb_ef3_evt_hi c64_cart.cc 's/ | (hi << 21)) \& (g_flash->chip_size - 1)/
 control wb_ef3_chip_erase c64_cart.cc 's/        size = p->chip_size;/        size = 0x10000;/' test_writeback.cc $WBL
 control wb_failed_write_dropped writeback.cc 's/^        end(false);$/        end(true);/' test_writeback.cc $WBL
 control wb_ask_no_forget writeback.cc 's/^        wb_forget();$/        (void)0;/' test_writeback.cc $WBL
-WBM="menuctl.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc nes.cc ines.cc $ATARI"
+WBM="menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc nes.cc ines.cc $ATARI"
 run writeback_menu test_writeback_menu.cc $WBM
 # T192.3 leak 4 (persistence): the answer "no" of the module's question keeps the file as it is
 control wbm_answer_ignored writeback.cc 's/wb_answer(c, a.i(0) != 0, o.msg, o.msglen)/wb_answer(c, true, o.msg, o.msglen)/' test_writeback_menu.cc $WBM
@@ -432,7 +432,7 @@ control cpc_disk_marks cpc_disk.cc 's/c->io->wr(dirty_reg\[drive\] + m, 0xFF);/(
 control cpc_disk_flushinit cpc.cc 's/    cpcd_flush_all(c, \&st->disks);   .*$/    (void)0;/;s/^static int cpc_media_flush.*$/static int cpc_media_flush(CoreCtx *, char *, int) { return 0; }/' test_cpc.cc $CPC
 
 # T83 (the VIC-20 on the generic application): the descriptor against a model of the register block and the ROM aperture; the PRG job (cbm_run.cc) is shared with the 264
-VC20="vc20.cc cbm_run.cc cbm_prg.cc freeze.cc menuctl.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc $DRV $BASEL"
+VC20="vc20.cc cbm_run.cc cbm_prg.cc freeze.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc $DRV $BASEL"
 run vc20 test_vc20.cc $VC20
 
 # T90 (the Commodore 264 on the generic application): the descriptor against a model of the register block and the 16 KB aperture
@@ -441,7 +441,7 @@ run c264 test_c264.cc $C264
 
 # T113 5.5 (the Commodore 128 on the generic application): the descriptor against a model of register page E and the DDR2 window; the extra keys are pure
 C128="c128.cc cbm_run.cc cbm_prg.cc freeze.cc $DRV $BASEL"
-C128X="$C128 menuctl.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc nes.cc ines.cc libfiles.cc"   # T185 D4: the bench also drives the file selector of the settings rows
+C128X="$C128 menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc nes.cc ines.cc libfiles.cc"   # T185 D4: the bench also drives the file selector of the settings rows
 run c128 test_c128.cc $C128X
 # T194 S3: the C128's two pictures on the one layer (the VDC, and the VIC-IIe's capture in format 3): Integer / Fit / Fill, 1080p and 720p, 50 and 60 Hz family, Smoothing, the switch both ways
 run c128pic test_c128pic.cc $C128X
@@ -467,7 +467,7 @@ control sec_eject_sync sectors.cc 's/^    bool ok = h.file->sync();/    bool ok 
 
 # T180 D4/D1 (S1, S7): every path that lets go of a writable medium writes back first, completely; a failed write-back keeps the medium, stops the action and says why;
 # a mount on an occupied slot lets the old medium go the same way. The A1200 record on its model: a floppy, a hard disk image and a folder disk with writes no sync has taken yet.
-MWB="test_media_writeback.cc menuctl.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc $AM"
+MWB="test_media_writeback.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc $AM"
 run media_writeback $MWB
 control mwb_return_host engines.cc 's/if (media_writeback(c, WB_WHY_CORE, o.msg, o.msglen)) {/if (wb_flush(c, WB_WHY_CORE, o.msg, o.msglen)) {/' $MWB
 control mwb_reset_writes_nothing boot.cc 's/    if (media_writeback(c, why, msg, msglen)) {/    if (false) {/' $MWB
@@ -483,11 +483,11 @@ control mwb_saving engines.h 's/if (c_ \&\& c_->saving_depth++ == 0) {/if (false
 
 # T180 D2/D5 (S2, S3, S8): "Persist medium mounts" keeps the mounts in the .cfg and the next start mounts them before the release; a missing medium leaves its slot empty with a
 # note; a media set is the same keys in <core folder>/media/<name>.mnt, loaded with a write-back first and one reset. The A1200 record again, a .cfg and a core folder in the fake file system.
-MNT="test_media_mounts.cc menuctl.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc $AM"
+MNT="test_media_mounts.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc $AM"
 run media_mounts $MNT
 # T198 S1, S7, S8, S10, S11, S14, S15: the configs (save, start with one, load, legacy media sets, no folder, many files)
-run configs test_configs.cc menuctl.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc $AM
-CFG="test_configs.cc menuctl.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc $AM"
+run configs test_configs.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc $AM
+CFG="test_configs.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc $AM"
 control cfg_save_inplace mediamounts.cc 's/export_config(tmp, pk, pv, count, &ns)/export_config(path, pk, pv, count, \&ns)/' test_configs.cc ${CFG#test_configs.cc }
 control cfg_save_no_swap mediamounts.cc 's/        ok = c->fs->rename(tmp, path);/        ok = true;/' test_configs.cc ${CFG#test_configs.cc }
 control cfg_no_recovery mediamounts.cc 's/        configlist_fix_plan(&fix, n, G::get, raw);/        fix.n = 0;/' test_configs.cc ${CFG#test_configs.cc }
@@ -694,7 +694,7 @@ control drv_bare newfile.cc 's/^            if (fs->stat(full, \&sz, \&isdir)) {
 
 # T122: Create blank DSK / ADF / ATR / DSK on the Apple IIe, the Amiga 500 and 1200, the Atari 800 XL and the CPC. The images are read back by
 # checkers written from the format definitions; the entries are the real descriptors' tasks, run by the menu.
-NDSRC="atari800.cc atari_media.cc atari_sio.cc atari_atr.cc atari_xex.cc atari_cart.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc cpc.cc cpc_disk.cc tape_deck.cc tape_pulses.cc amiga.cc menuctl.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc freeze.cc $BASEL"
+NDSRC="atari800.cc atari_media.cc atari_sio.cc atari_atr.cc atari_xex.cc atari_cart.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc cpc.cc cpc_disk.cc tape_deck.cc tape_pulses.cc amiga.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc freeze.cc $BASEL"
 run newdisk test_newdisk.cc $NDSRC
 control nd_exists newfile.cc 's/^        if (fs->stat(full, \&sz, \&isdir)) {/        if (false) {/' test_newdisk.cc $NDSRC
 control nd_bare newfile.cc 's/^            if (fs->stat(full, \&sz, \&isdir)) {/            if (false) {/' test_newdisk.cc $NDSRC
@@ -764,12 +764,12 @@ unset CARGS RARGS
 run rest test_rest.cc $RESTSRC
 # T192.1 MVP: the UI service on the real menu - ids, intents through the key path, questions, the token on the routes
 # T192.1 D21: the API is generated from the declaration; this walks the declaration of every core and asserts every row, setting value and operation is reachable
-run uicover test_uicover.cc uiapp.cc menuctl.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc table.cc amiga.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zx.cc zx_snap.cc tape_pulses.cc tape_deck.cc cpc.cc cpc_disk.cc zxnext.cc snes.cc neogeo.cc snes_rom.cc neoset.cc vc20.cc c264.cc pet.cc c128.cc c64scpu.cc ddt_mandel.cc ddt_novic.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 descrec.cc $SVC
+run uicover test_uicover.cc uiapp.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc table.cc amiga.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zx.cc zx_snap.cc tape_pulses.cc tape_deck.cc cpc.cc cpc_disk.cc zxnext.cc snes.cc neogeo.cc snes_rom.cc neoset.cc vc20.cc c264.cc pet.cc c128.cc c64scpu.cc ddt_mandel.cc ddt_novic.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 descrec.cc $SVC
 # T192.3 S6 / S15: every key of the menu on every core of the table: one hash per (core, tab, start state), the golden made before the intent cut; the controller as a client of the key table reproduces it
-run keywalk test_keywalk.cc menuctl.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc table.cc amiga.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zx.cc zx_snap.cc tape_pulses.cc tape_deck.cc cpc.cc cpc_disk.cc zxnext.cc snes.cc neogeo.cc snes_rom.cc neoset.cc vc20.cc c264.cc pet.cc c128.cc c64scpu.cc ddt_mandel.cc ddt_novic.cc portdiag.cc xinput.cc diagtest.cc instfiles.cc instcore.cc cbm_run.cc $C64 descrec.cc
+run keywalk test_keywalk.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc table.cc amiga.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zx.cc zx_snap.cc tape_pulses.cc tape_deck.cc cpc.cc cpc_disk.cc zxnext.cc snes.cc neogeo.cc snes_rom.cc neoset.cc vc20.cc c264.cc pet.cc c128.cc c64scpu.cc ddt_mandel.cc ddt_novic.cc portdiag.cc xinput.cc diagtest.cc instfiles.cc instcore.cc cbm_run.cc $C64 descrec.cc
 # T192.3: Timewarp's and the monitor's keys of the record menu are operations, the file manager module on its own, DEL deletes nothing, the neighbour takes a vanished row's place, the table is whole
-run cut test_cut.cc menuctl.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc table.cc amiga.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zx.cc zx_snap.cc tape_pulses.cc tape_deck.cc cpc.cc cpc_disk.cc zxnext.cc snes.cc neogeo.cc snes_rom.cc neoset.cc vc20.cc c264.cc pet.cc c128.cc c64scpu.cc ddt_mandel.cc ddt_novic.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 descrec.cc
-run uiapp test_uiapp.cc uiapp.cc menuctl.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc amiga.cc nes.cc ines.cc libfiles.cc $SVC $ATARI
+run cut test_cut.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc table.cc amiga.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zx.cc zx_snap.cc tape_pulses.cc tape_deck.cc cpc.cc cpc_disk.cc zxnext.cc snes.cc neogeo.cc snes_rom.cc neoset.cc vc20.cc c264.cc pet.cc c128.cc c64scpu.cc ddt_mandel.cc ddt_novic.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64 descrec.cc
+run uiapp test_uiapp.cc uiapp.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc amiga.cc nes.cc ines.cc libfiles.cc $SVC $ATARI
 
 # T162: the core application's bug report - sections, the descriptor's named registers (and no others), the file, GET /v1/report, no secrets
 CRSRC="$RESTSRC corereport.cc bugreport.cc amiga.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc"
@@ -790,10 +790,10 @@ run hidpad test_hidpad.cc hidpad.cc
 run pad test_pad.cc $PADSRC descrec.cc                   # descrec.cc: T228 R10, the menu record's pad (trx64u's record)
 run xinput test_xinput.cc xinput.cc $PADSRC     # T196: XInput pads (claim, 360 and GIP reports through the pad service, start sequences)
 control pad_cfgkeys settings.cc 's/if (!strncasecmp(key, "Pad ", 4)) {/if (false) {/' test_pad.cc $PADSRC descrec.cc
-run padmenu test_padmenu.cc menuctl.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc $PADSRC
+run padmenu test_padmenu.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc $PADSRC
 # T192.3 leak 1 (persistence): the wizard module saves the map through pad_save_map and tells the truth about it
-control pad_wiz_not_saved padwiz.cc 's/bool saved = c->settings \&\& pad_save_map(c->settings, g_player);/bool saved = false;/' test_padmenu.cc menuctl.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc $PADSRC
-control pad_wiz_saved_lie padwiz.cc 's/bool saved = c->settings \&\& pad_save_map(c->settings, g_player);/bool saved = true;/' test_padmenu.cc menuctl.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc $PADSRC
+control pad_wiz_not_saved padwiz.cc 's/bool saved = c->settings \&\& pad_save_map(c->settings, g_player);/bool saved = false;/' test_padmenu.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc $PADSRC
+control pad_wiz_saved_lie padwiz.cc 's/bool saved = c->settings \&\& pad_save_map(c->settings, g_player);/bool saved = true;/' test_padmenu.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc $PADSRC
 
 # T142 (board, 2026-10-29): the board's printf (small_printf.cc) has no precision: "%.*s" / "%.8s" print wrong text, and the Mac's printf is
 # fine with them, so no test sees it. No format string of the application may carry one (newfile.h nf_copy copies instead).
@@ -836,7 +836,7 @@ PASS=$((PASS + 1))
 # and the Mac build of apps/unzip runs inside the real loader over the FakeFs; the test needs no RISC-V instruction.
 python3 -I "$TST/gen_unzip.py" "$T/unzipfx" "$ROOT"
 UZ="$T/unzipfx"; ATARI_NOSTUB="${ATARI/appindex_stub.cc/appindex.cc}"   # the real index instead of the stub the base links
-UZSRC="descrec.cc libmenu.cc bundle.cc libload.cc libscan.cc unzip.c miniz.c miniz_tinfl.c miniz_zip.c miniz_lib.cc u2p_compat.c glue.cc desc_check.cc menutree.cc menuctl.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc $ATARI_NOSTUB nes.cc ines.cc $C64"
+UZSRC="descrec.cc libmenu.cc bundle.cc libload.cc libscan.cc unzip.c miniz.c miniz_tinfl.c miniz_zip.c miniz_lib.cc u2p_compat.c glue.cc desc_check.cc menutree.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc $ATARI_NOSTUB nes.cc ines.cc $C64"
 CC_EXTRA="$UZ/unzip.u2a $UZ/unzip2.u2a $UZ/miniz.u2a $UZ/ziplist.u2a $UZ/otherlib.u2a $UZ/plain.u2a $UZ/t.zip $UZ/manifest.txt"
 CARGS="$UZ" RARGS="$UZ"
 run unzip test_unzip.cc $UZSRC
