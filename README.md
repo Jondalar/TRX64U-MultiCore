@@ -95,5 +95,4 @@ Read the warnings in [manual chapter 1](docs/manual/01-safety-and-applicability.
 ## 7. More
 
 - Reporting a fault, asking for a function, sending a patch: [CONTRIBUTING.md](CONTRIBUTING.md)
-- C64 Reverse Engineering (C64RE): https://github.com/Jondalar/C64ReverseEngineeringMCP
 - Thanks: [THANKYOU.md](THANKYOU.md)
