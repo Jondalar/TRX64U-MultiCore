@@ -3088,6 +3088,15 @@ apply = "net.fx"
 
 [[core_setting]]
 group = "Services"
+key = "Ultimate DMA Service"
+label = "Ultimate DMA service"
+list = "en_dis"
+default = 1
+when = "live"
+apply = "net.fx"
+
+[[core_setting]]
+group = "Services"
 key = "Web Remote Control Service"
 label = "Web remote control service"
 list = "en_dis"
