@@ -808,7 +808,7 @@ int menu_tab_of_number(const MenuTree *t, int area, int n)
 // ---- the fixed entries as data -------------------------------------------------------------------------------------------------------------------
 static const FixedDef g_fixed[] = {
     // kind, variant, op, pre_op, value_state, value_none, value_suffix, sub_state, ok_text, fail_text, closes
-    { EK_RESET_HOST, 0, "settings.reset_to_host", 0, 0, 0, 0, 0, 0, 0, false },
+    { EK_RESET_HOST, 0, "settings.reset_to_host", 0, 0, 0, 0, 0, 0, 0, false, "Reset every setting to the host's defaults?" },
     // a cold boot of the core without the host: on a DFX core its partial bitstream loaded again, then every ROM scanned and put, the RAM cleared, every setting written, released
     { EK_RESTART_CORE, 0, "machine.restart", 0, 0, 0, 0, 0, "Core restarted: ROMs loaded again", "The core did not restart", true },
     { EK_RESTART_CORE, 1, "machine.restart", 0, 0, 0, 0, 0, "Core reloaded: bitstream and ROMs loaded again", "The core did not reload", true },

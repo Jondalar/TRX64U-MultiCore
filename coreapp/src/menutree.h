@@ -64,6 +64,7 @@ struct FixedDef {
     const char *ok_text;            // the status line when it worked (null: the operation's own message); with it, a failure with no message says `fail_text`
     const char *fail_text;
     bool closes;                    // the menu closes when it worked
+    const char *confirm;            // RETURN first asks this (RETURN yes, <- no); null: it runs at once
 };
 // The definition of a fixed entry, null for a kind that has none.
 const FixedDef *menu_fixed(EntryKind kind, int variant);

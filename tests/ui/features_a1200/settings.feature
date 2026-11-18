@@ -32,12 +32,14 @@ Feature: Settings of the Amiga 1200: a change is applied or stored at once, rese
     When I press RETURN
     Then the setting "Persist medium mounts" is "No"
 
-  Scenario: Reset to host defaults puts the defaults back and does not ask
+  Scenario: Reset to host defaults asks first, then puts the defaults back
     When I set "Chip RAM" to "1M"
     And I step "LED Load Indicator" up 1 times
     And I press F8
     And I move to "Reset to host defaults"
     And I press RETURN
+    Then a question is open: "Reset every setting to the host's defaults?"
+    When I press RETURN
     Then no dialog is open
     And the status line says "Settings are the host's again"
     When I press F5

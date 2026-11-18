@@ -3085,6 +3085,15 @@ MenuCtl::Result MenuCtl::run_fixed(const MenuEntry &e)
         }
         return R_REDRAW;
     }
+    if (fd->confirm) {                                               // the firmware asks before it clears (configio.cc): the question, then this entry's operation
+        static MenuNode fixed_q;
+        memset(&fixed_q, 0, sizeof(fixed_q));
+        fixed_q.kind = LN_OP;
+        fixed_q.op = fd->op;
+        fixed_q.closes_menu = fd->closes;
+        begin_confirm(&fixed_q, fd->confirm);
+        return R_REDRAW;
+    }
     int rc = ops_call(c_, fd->op, 0, 0, &r);
     if (fd->ok_text) {
         if (rc) {
