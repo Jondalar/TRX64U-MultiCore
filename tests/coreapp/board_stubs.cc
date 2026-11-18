@@ -20,6 +20,7 @@
 
 int cfg_value(CoreCtx *, const char *, int def) { return def; }
 void trx64u_kernal_put(CoreCtx *, const uint8_t *, uint32_t) { }
+void trx64u_load_assoc_cfg(CoreCtx *, const char *, bool) { }
 void u64cfg_register(OpRegistry &) { }
 __attribute__((weak)) void libfiles_register(OpRegistry &) { }     // tests/coreapp/test_menuctl.cc links the real one
 void ringops_register(OpRegistry &) { }

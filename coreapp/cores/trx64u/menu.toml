@@ -85,7 +85,7 @@ key = "F5"                       # the core's short title ("C64") names it
   id = "expansion"
   name = "Expansion"
   widget = "settings"
-  groups = ["Cartridge", "REU", "Ultimate"]
+  groups = ["Cartridge", "Ultimate", "REU"]
   ui = { sections = true }
   n = 3
   [[area.tab]]                    # D14: section Picture = System mode, then the generic Picture/Scale rows (routed rows follow the first block), section Output
