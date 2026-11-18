@@ -113,14 +113,16 @@ int op_next(CoreCtx *c, const OpArgs &, OpOut &o)
     return OPE_OK;
 }
 
-int op_back(CoreCtx *, const OpArgs &, OpOut &o)
+int op_cancel(CoreCtx *c, const OpArgs &a, OpOut &o);
+
+int op_back(CoreCtx *c, const OpArgs &a, OpOut &o)
 {
     o.msg[0] = 0;
     if (!g_on) {
         return OPE_FAILED;
     }
-    if (g_wait) {
-        return OPE_OK;
+    if (g_wait) {                                                          // no pad yet, nothing to go back to: the left arrow leaves like RUN/STOP
+        return op_cancel(c, a, o);
     }
     if (g_i > 0) {
         g_i--;
@@ -228,7 +230,7 @@ const char *st_sub(CoreCtx *c)
         return 0;
     }
     if (g_wait) {
-        return "No USB pad is connected. The mapping continues when you plug one in. RUN/STOP cancels";
+        return "No USB pad is connected. The mapping continues when you plug one in. Left arrow or RUN/STOP cancels";
     }
     if (c->desc->pad->by_id) {
         snprintf(t, sizeof(t), "%s %04X:%04X. Now: %s. RETURN keeps it, left arrow goes back, RUN/STOP cancels", pad_name(pad_slot(g_player)), pad_vid(pad_slot(g_player)),
