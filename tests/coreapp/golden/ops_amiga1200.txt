@@ -58,10 +58,6 @@ op	menu.pad_map_2
 op	menu.pad_map_port
 op	net.fx	value:int:-2000:2000:0:
 op	wifi.toggle
-op	wifi.disconnect
-op	wifi.connect_last
-op	wifi.forget
-op	wifi.connect_manual
 op	stream.start	id:int:0:2:0:
 op	stream.stop	id:int:0:2:0:
 op	stream.start_to	id:int:0:2:0:	dest:string:0:0:36:	stop_after:int:0:65535:0:
@@ -110,7 +106,6 @@ state	wifi.ip
 state	wifi.onoff
 state	wifi.line
 state	net.static
-state	net.wifi_static
 state	net.pw_scope
 state	stream.vic
 state	stream.audio

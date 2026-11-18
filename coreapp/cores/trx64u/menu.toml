@@ -393,48 +393,6 @@ order = 40
 ui = { sub = "@net.pw_scope" }
 
 [[node]]
-anchor = "F8/expert/WiFi"
-kind = "op"
-label = "Connect to last access point"
-op = "wifi.connect_last"
-order = 40
-ui = { sub = "Connects to the access point used last" }
-
-[[node]]
-anchor = "F8/expert/WiFi"
-kind = "op"
-label = "Select AP from list"
-op = "wifi.select_ap"
-bind = [ { arg = "phase", int = 0 }, { arg = "answer", str = "-" } ]
-order = 41
-ui = { sub = "Scans, lists the networks with their signal, asks the password" }
-
-[[node]]
-anchor = "F8/expert/WiFi"
-kind = "op"
-label = "Enter AP manually"
-op = "wifi.connect_manual"
-bind = [ { arg = "phase", int = 0 }, { arg = "answer", str = "-" } ]
-order = 42
-ui = { sub = "Asks the name, the authentication and the password" }
-
-[[node]]
-anchor = "F8/expert/WiFi"
-kind = "op"
-label = "Disconnect"
-op = "wifi.disconnect"
-order = 43
-ui = { sub = "Leaves the access point" }
-
-[[node]]
-anchor = "F8/expert/WiFi"
-kind = "op"
-label = "Forget access points"
-op = "wifi.forget"
-order = 44
-ui = { confirm = "Erase all stored access points?", sub = "The module forgets every stored access point" }
-
-[[node]]
 anchor = "F8/expert/Streams"
 kind = "op"
 label = "Start VIC stream"
@@ -2999,55 +2957,6 @@ apply = "net.fx"
 group = "Ethernet"
 key = "Static DNS"
 show_state = "net.static"
-text = true
-default = "8.8.8.8"
-maxlen = 15
-apply = "net.fx"
-
-[[core_setting]]
-group = "WiFi"
-key = "WiFi Use DHCP"
-label = "Use DHCP"
-list = "en_dis"
-default = 1
-when = "live"
-apply = "net.fx"
-
-[[core_setting]]
-group = "WiFi"
-key = "WiFi Static IP"
-label = "Static IP"
-show_state = "net.wifi_static"
-text = true
-default = "192.168.2.64"
-maxlen = 15
-apply = "net.fx"
-
-[[core_setting]]
-group = "WiFi"
-key = "WiFi Static Netmask"
-label = "Static netmask"
-show_state = "net.wifi_static"
-text = true
-default = "255.255.255.0"
-maxlen = 15
-apply = "net.fx"
-
-[[core_setting]]
-group = "WiFi"
-key = "WiFi Static Gateway"
-label = "Static gateway"
-show_state = "net.wifi_static"
-text = true
-default = "192.168.2.1"
-maxlen = 15
-apply = "net.fx"
-
-[[core_setting]]
-group = "WiFi"
-key = "WiFi Static DNS"
-label = "Static DNS"
-show_state = "net.wifi_static"
 text = true
 default = "8.8.8.8"
 maxlen = 15
