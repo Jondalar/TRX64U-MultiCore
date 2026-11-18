@@ -541,4 +541,12 @@ ue2emu (70 full frames, trx64u beside the A1200).
   once before the merge.
 - The trx64u.cor of 428333d7 predates R18: S3 needs a new pack from the branch head.
 - **R19:** left as it is for now (Alex 2026-11-18); nothing built.
-- **Open:** S2b (Alex in ue2emu, D6), then S3 on the board.
+- **S2b, first look (Alex 2026-11-18, ue2emu window, app of 194bc959d):** F5 > Video > OUTPUT shows rows TRX64-Ultimate does not have.
+  Alex: "Do we have analog video and scanlines? You were supposed to put ONLY things into the UI that really exist in TRX64-Ultimate.
+  Do I have to check every single thing?" (translated). Checked against the pinned bitstream (TRX64-Ultimate 31e69921): "HDMI scan
+  lines" works (C64_SCANLINES -> vic_scaler, top.v:1547); "Analog video mode" does not (no analog video, ultimate_sys.vhd:231),
+  "Digital video mode" does not (U64_HDMI_ENABLE, board IO 0x08, not decoded), "Adjust color clock" does not (app_i2c.v:138 keeps the
+  app off the CDCE). The rows came from Gideon's U64 list that TRX64-Ultimate's firmware still carries (u64_config.cc:417-421), taken
+  over without a check of the bitstream. Alex said yes to an audit of every trx64u row against the bitstream and the firmware, with
+  evidence per row (workflow, 2026-11-18).
+- **Open:** the row audit and its removals, then S2b again (Alex in ue2emu, D6), then S3 on the board.
