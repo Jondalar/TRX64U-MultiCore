@@ -392,7 +392,7 @@ run prompt test_prompt.cc $ALLC
 # T104.2 Q1: the flash stays closed to the application except for the one settings file
 control noflash_exception fsif.h 's/    return !strcasecmp(path, FS_FLASH_CFG_PATH) .*/    return fs_path_is_flash(path);/' test_noflash.cc
 control noflash_exact fsif.h 's/!strcasecmp(path, FS_FLASH_CFG_PATH)/!strncasecmp(path, FS_FLASH_CFG_PATH, 20)/' test_noflash.cc
-control noflash_refuse fsif.h 's/return fs_path_is_flash(path) \&\& !fs_flash_exception(path);/return false;/' test_noflash.cc
+control noflash_refuse fsif.h 's/return fs_path_is_flash(path) \&\& !fs_flash_rw() \&\& !fs_flash_exception(path);/return false;/' test_noflash.cc
 control noflash_boot_exact fsif.h 's/!strcasecmp(path, FS_FLASH_BOOT_MONOLITH)/!strncasecmp(path, FS_FLASH_BOOT_MONOLITH, 20)/' test_noflash.cc
 control noflash_boot_mc_exact fsif.h 's/!strcasecmp(path, FS_FLASH_BOOT_MULTICORE)/!strncasecmp(path, FS_FLASH_BOOT_MULTICORE, 12)/' test_noflash.cc
 control noflash_boot_missing fsif.h 's/ || !strcasecmp(path, FS_FLASH_BOOT_MONOLITH)//' test_noflash.cc
