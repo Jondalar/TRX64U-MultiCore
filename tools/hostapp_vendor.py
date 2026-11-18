@@ -40,6 +40,7 @@ MODIFIED = {
     "io/wifi/wifi.cc": "T184: -DTRX_HOSTAPP leaves out the U64Config power-mode store and low-voltage message and the Browsable access-point list, connectWithFeedback (the host page reads wifi_aps and getConnectionFeedback() itself)",
     "io/wifi/wifi.h": "T184 D4: connectWithFeedback (popup + progress box of the Ultimate menu) is left out with -DTRX_HOSTAPP",
     "io/wifi/esp32.h": "T184: no menu.h (the Ultimate menu classes are not in the host or core app; nothing in esp32.h or esp32.cc uses them)",
+    "io/network/network_interface.cc": "T228 R21 row 57: effectuate_settings renames the mDNS responder to the new host name (mdns_follow_unsafe, a tcpip callback)",
     "io/network/network_esp32.cc": "T184: -DTRX_HOSTAPP leaves out the tree browser, popups and string boxes of the Ultimate menu (getDisplayString, context actions, AP list/enter); the settings store, effectuate_settings and on_edit are unchanged",
     "io/network/network_esp32.h": "T184: declares only what network_esp32.cc keeps with -DTRX_HOSTAPP",
     "filesystem/blockdev_flash.cc": "T139: write() erases every sector of the run, not only the first (FatFS writes runs of sectors; the rest was programmed over old data)",

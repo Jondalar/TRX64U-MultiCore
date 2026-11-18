@@ -81,6 +81,46 @@ void set_dns_server_unsafe(void* arg)
     }
 }
  
+// T228 R21 row 57: the mDNS name follows the host name (netif->hostname points at NetworkInterface::hostname, which effectuate_settings rewrites; the DHCP
+// client reads it from there at its next request). mdns_resp_rename_netif needs the tcpip core lock, so it runs as a tcpip callback; the name last given to
+// the responder is kept per netif so that an unchanged name does not restart the probing at every settings change.
+struct MdnsName { struct netif *n; char name[32]; };
+static MdnsName mdns_names[4];
+static void mdns_note(struct netif *n, const char *name)
+{
+    MdnsName *slot = 0;
+    for (int i = 0; i < 4 && !slot; i++) {
+        if (mdns_names[i].n == n) {
+            slot = &mdns_names[i];
+        }
+    }
+    for (int i = 0; i < 4 && !slot; i++) {
+        if (!mdns_names[i].n) {
+            slot = &mdns_names[i];
+        }
+    }
+    if (slot) {
+        slot->n = n;
+        strncpy(slot->name, name, sizeof(slot->name) - 1);
+        slot->name[sizeof(slot->name) - 1] = 0;
+    }
+}
+static void mdns_follow_unsafe(void *arg)
+{
+    struct netif *n = (struct netif *)arg;
+    if (!n->hostname || !mdns_resp_netif_active(n)) {
+        return;
+    }
+    for (int i = 0; i < 4; i++) {
+        if (mdns_names[i].n == n && !strncmp(mdns_names[i].name, n->hostname, sizeof(mdns_names[i].name) - 1)) {
+            return;                                         // the responder has this name
+        }
+    }
+    if (mdns_resp_rename_netif(n, n->hostname) == ERR_OK) {
+        mdns_note(n, n->hostname);
+    }
+}
+
 err_t NetworkInterface :: lwip_output_callback(struct netif *netif, struct pbuf *pbuf)
 {
 	static uint8_t temporary_out_buffer[1536];
@@ -283,6 +323,7 @@ void NetworkInterface :: init_callback( )
 
     mdns_resp_remove_netif(&my_net_if); // In case we are reinitializing the interface, remove the old one
     mdns_resp_add_netif(&my_net_if, this->hostname);
+    mdns_note(&my_net_if, this->hostname);
 
     netif_set_status_callback(&my_net_if, NetworkInterface :: statusCallback);
 }
@@ -402,6 +443,7 @@ void NetworkInterface :: effectuate_settings(void)
  * NetIF is running (link up). State != NULL. DHCP may be started and may need to be restarted.
  */
     if (my_net_if.state) { // is it initialized?
+        tcpip_callback(mdns_follow_unsafe, &my_net_if);
         if (netif_is_link_up(&my_net_if)) {
             if (dhcp_enable) {
                 // Only start the client when it is not already running.
