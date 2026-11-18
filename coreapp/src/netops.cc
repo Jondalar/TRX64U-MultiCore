@@ -47,7 +47,7 @@ static int fx_net(CoreCtx *c, const OpArgs &, OpOut &o)
     txt(eth, CFG_NET_GATEWAY, "Static Gateway");
     txt(eth, CFG_NET_DNS, "Static DNS");
     txt(net, CFG_NETWORK_HOSTNAME, "Host Name");
-    txt(net, CFG_NETWORK_PASSWORD, "Network Password");
+    if (has("Network Password")) net->set_string(CFG_NETWORK_PASSWORD, cfg_text(c, "Network Password"));   // FW: an empty password is a value too (clearing it must reach the store)
     txt(net, CFG_NETWORK_UNIQUE_ID, "Unique ID");
     txt(net, CFG_NETWORK_REMOTE_SYSLOG_SERVER, "Log to Syslog Server");
     val(net, CFG_NETWORK_ULTIMATE_IDENT_SERVICE, "Ultimate Ident Service", 1);
@@ -228,7 +228,7 @@ static int op_wifi_select_ap(CoreCtx *c, const OpArgs &a, OpOut &o)
 {
     const int phase = a.i(0);
     if (phase == 0) {
-        if (!wifi_active(true)) {
+        if (!wifi_active(false)) {                    // FW cfg_show_aps: only NotConnected/Connected
             snprintf(o.msg, o.msglen, "Can only show APs when active");
             return OPE_FAILED;
         }

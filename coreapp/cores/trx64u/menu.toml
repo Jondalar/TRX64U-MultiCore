@@ -3142,8 +3142,8 @@ apply = "net.fx"
 
 [[core_setting]]
 group = "Services"
-key = "Web Remote Control Service"
-label = "Web remote control service"
+key = "FTP File Service"
+label = "FTP file service"
 list = "en_dis"
 default = 1
 when = "live"
@@ -3151,8 +3151,8 @@ apply = "net.fx"
 
 [[core_setting]]
 group = "Services"
-key = "FTP File Service"
-label = "FTP file service"
+key = "Web Remote Control Service"
+label = "Web remote control service"
 list = "en_dis"
 default = 1
 when = "live"
