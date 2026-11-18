@@ -119,14 +119,14 @@ void CbmDrive::drive_reset_regs(uint8_t doit)
 {
     w(DR_RESET, doit);
     io_->delay_ms(1);
-    w(DR_RESET, reset_with_c64_ ? 6 : 4);   // b1: the drive resets with the machine (the setting), b2: it stands still while the machine is held for the menu
+    w(DR_RESET, reset_byte());               // b1: the drive resets with the machine, b2: it stands still while the machine is held for the menu (both settings; c1541.cc:343-348)
 }
 
 void CbmDrive::set_reset_with_c64(bool on)
 {
     reset_with_c64_ = on;
     if (attached_) {
-        w(DR_RESET, on ? 6 : 4);
+        w(DR_RESET, reset_byte());
     }
 }
 
@@ -464,7 +464,7 @@ int CbmDrive::mount_gcr(CoreFile *f, bool is_g64, bool protect, char *msg, int m
             snprintf(msg, msglen, "%s", why);
             return 1;
         }
-        gcr_->from_bin(bin_, twist_);
+        gcr_->from_bin(bin_, twist_, geos_);
     }
     insert_disk_regs(protect);
     return 0;
