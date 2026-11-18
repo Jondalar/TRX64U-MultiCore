@@ -50,7 +50,7 @@ file coreapp/cores/cbm1541_desc.h 79
 file coreapp/cores/cbm_run.cc 503
 file coreapp/cores/cbm_run.h 50
 file coreapp/cores/cores.h 23
-file coreapp/cores/cpc.cc 315
+file coreapp/cores/cpc.cc 317
 file coreapp/cores/cpc_disk.cc 238
 file coreapp/cores/cpc_disk.h 27
 file coreapp/cores/cpc_regs.h 41
@@ -183,4 +183,4 @@ ids uicore/uic_svc.cc null 1
 # instruction to build the gate (T213 D4); delete each line when its branch is merged and the file lines above are raised by the same amount, or when the code moved out.
 # followup-1116 merged into main 2026-11-16 (449e1148a): its four exceptions folded into the file lines above (T175 menu_input + T196 S7 xpad test,
 # board PASS); portdiag_tests.inc (2236 lines of embedded core data) is gone, the tests ride in diag.cor record 8. t217-go64 merged (7e680157d): its four exceptions folded in, measured the same (+45).
-exception coreapp/cores/cpc.cc +2 T92-D-17a/D-17b (Alex 2026-11-16/17: drive list mounts with reset into an empty drive)
+# t233-cpc-fdc merged into main 2026-11-18 (e6f960c1f): T92 D-17a/D-17b's exception (+2, Alex 2026-11-16/17) folded into the file line above.

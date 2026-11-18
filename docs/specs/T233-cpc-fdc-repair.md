@@ -1,6 +1,6 @@
 # T233 — The CPC's floppy controller never stops the machine: a disk event at any moment ends in a working drive or an answered "not ready", and the CPC always reaches Ready
 
-**Status:** DONE (board pass by Alex 2026-11-18: S1 on 664 and 6128, S2, S7, write path, swap; merged into main e6f960c1f, pushed with Alex's go; D8/D9: no bench, no sim).
+**Status:** DONE (board pass by Alex 2026-11-18: S1 on 664 and 6128, S2, S7, write path, swap; merged into main (e6f960c1f) with Alex's go; D8/D9: no bench, no sim).
 Order before (Alex 2026-11-17): T228, T235, T234, T232, then this; Alex 2026-11-18 moved it forward (D8).
 **Repo:** TRX64U-MultiCore — gateware of the CPC core (`cores/cpc/rtl/u765` via `tools/cpc_gen.py` -> `cores/cpc/gen/u765.sv`,
 `cores/cpc/trx/cpc_fdc.v`), its benches (`cores/cpc/sim`), the CPC's app files only where §3 names them.
@@ -145,6 +145,8 @@ patched per race.
 - **Not run (D8):** S0 and the bench rows S3-S6. S8 passed in run 2425.
 - **D9 (Alex 2026-11-18, after the board pass: "push cpc and amiga ok, vivado is ok, I can play, so no more benches, right?",
   translated).** No bench runs for T233: S0 and the bench rows S3-S6 stay unrun; the board pass and the route report are the proof.
+  With the CPC back in the pipeline the nightly (tier <= 2) runs the CPC benches again, cpc_fdcscan3 (about 2 h) among them; the CPC is
+  experimental, so a red one is reported, not fatal; a red one becomes a T233 item for Alex to decide.
 - **Merged** into main (e6f960c1f, with the lint fix 5cff055c0): the CPC is back in the pipeline (`pipeline = true`), the manual's
   section 11.13 and the README rows are back (revert of 37cd21837, T92 D-17g) with T92 #17's media sentence; README's core table
   names the board pass.

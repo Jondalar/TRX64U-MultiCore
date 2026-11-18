@@ -133,7 +133,7 @@ amiga_fastpat: cores/amiga/sim cores/amiga/rtl cores/amiga1200 host/sim/mig_ui_m
 amiga_fbwin: cores/amiga/sim cores/amiga/rtl cores/amiga1200 host/sim/mig_ui_model.v
 amiga_z3: cores/amiga/sim cores/amiga/rtl cores/amiga1200 host/sim/mig_ui_model.v
 pixscale: host/sim/pixscale/run.sh host/sim/pixscale/tb_pixscale.v host/sim/pixscale/model.py host/sim/pixscale/mutate.py host/pix_layer.v host/sim/pixlayer/tgl_client.v cores/common/trx_io.v @mig
-amiga1200_hdmi_timing: host/sim/hdmi_timing cores/amiga1200/mono/host/hdmi_timing.v cores/amiga1200/mono/host/hdmi_modes.vh
+amiga1200_hdmi_timing: host/sim/hdmi_timing cores/amiga1200/mono/host/hdmi_timing.v cores/amiga1200/mono/host/hdmi_modes_amiga.vh
 c128_hdmi_timing: host/sim/hdmi_timing cores/c128/mono/host/hdmi_timing.v cores/c128/mono/host/hdmi_modes.vh
 hdmi_enc: host/sim/hdmi_enc host/hdmi_enc host/hdmi_modes.vh vendor/icepi/hdmi
 amiga_audio: cores/amiga/sim cores/amiga/rtl/trx/amiga_audio.v
@@ -285,7 +285,7 @@ amiga1200_motorpath: cores/amiga1200/sim/motorpath cores/amiga/sim cores/amiga/r
 amiga1200_motorwire: cores/amiga1200/sim/motorwire cores/amiga1200/mono/host/bling_io.v cores/amiga1200/mono/host/top.v cores/amiga1200/mono/build_mono.tcl cores/amiga/layer2_amiga.v cores/amiga1200/mono/host/case_leds.v
 amiga_motorpath: cores/amiga/sim cores/amiga/rtl cores/amiga/layer2_amiga.v host/sim/mig_ui_model.v cores/amiga/mono/host/ddr2_port.v
 atari_led: @reads
-amiga1200_modepath: host/sim/modepath cores/amiga1200/mono/host/mode_req.v cores/amiga1200/mono/host/cdce_mode.v cores/amiga1200/mono/host/hdmi_timing.v cores/amiga1200/mono/host/hdmi_modes.vh
+amiga1200_modepath: host/sim/modepath cores/amiga1200/mono/host/mode_req.v cores/amiga1200/mono/host/cdce_mode.v cores/amiga1200/mono/host/hdmi_timing.v cores/amiga1200/mono/host/hdmi_modes_amiga.vh
 
 # T168: the DDT Mandelbrot benches build layer2_ddt_mandel under Verilator from cores/ddt_mandel (DDT's engines in rtl/, our glue in trx/, the models of CARRY4 and
 # xpm_memory_tdpram in sim/) and read the host's overlay font; the model (mandel_model.py) reads the palette colours, the text screen and the font.

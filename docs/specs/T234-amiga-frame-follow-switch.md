@@ -1,6 +1,6 @@
 # T234 — The Amiga cores' frame follow (T188) is a setting, off by default; off gives the standard HDMI rows of before T188
 
-**Status:** DONE (board pass by Alex 2026-11-18: S4, S5 and the A500); merged into main locally (not pushed) 2026-11-17 late; board: A1200 Off and
+**Status:** DONE (board pass by Alex 2026-11-18: S4, S5 and the A500); merged into main (1b8f69485) 2026-11-17 late; board: A1200 Off and
 On checked by Claude (JTAG) 11-17. Proposed 2026-11-17.
 **Repo:** TRX64U-MultiCore — the Amiga cores' own host copies (`cores/amiga/mono/host/`, `cores/amiga1200/mono/host/`: `hdmi_timing.v`,
 the mode rows, `tools/hdmi_modes.py`), the cores' register blocks, the setting in the core app (through the generic settings path),
@@ -119,3 +119,8 @@ below: "Try it. I am sleeping. You have to start the A1200 in the host yourself"
 - The A500 (amiga.cor): Frame follow Off, On, Off - a picture in both settings, the menu works. Alex: "both Amigas good !!!" (translated).
 - S6: runs 2420 / 2421 (`vivado large:amiga`, `large:amiga1200`) green on t234-switch.
 - Still open outside T234's scenarios: the core app's "[amiga] frames core N out 0" read-out (wrong while HDMI runs).
+- Found by the review before the push of 2026-11-18: the benches amiga1200_hdmi_timing and amiga1200_modepath (host/sim/hdmi_timing,
+  host/sim/modepath, ci/sims.txt) were put back by the revert of 11-17 and still test T188's first layout (rows 0..2 bent, version 1); the
+  redo was proven by `tools/hdmi_modes.py check` and the board. They fail when they run (nightly: reported, not fatal - amiga1200 is
+  experimental). ci/sims.deps now names hdmi_modes_amiga.vh. Open for Alex: redo the bench edits with the roles swapped, or take the
+  two rows out (D9's "no more benches").
