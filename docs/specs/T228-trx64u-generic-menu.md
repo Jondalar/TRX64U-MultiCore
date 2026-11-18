@@ -650,7 +650,8 @@ ue2emu (70 full frames, trx64u beside the A1200).
   is not writable or the file is read only.
 - **TREX CRT in 0.2.0 (Alex 2026-11-18, translated: "No, ship it, I'll look at it right away. It is only an app"):** the cartridge
   tools (T104.3, eight screens) ship with 0.2.0 although no person and no UX pass has seen their LVGL screens yet (never in a package
-  before R21); Alex looks at them with the package.
+  before R21); Alex looks at them with the package. If they are bad or do not work, they do not go to GitHub and stay in development
+  (Alex 2026-11-18, translated: "if it is crap / does not work, it does not go to GitHub but stays 'in development'").
 - **After 0.2.0 (Alex 2026-11-18: "I cannot keep waiting"; option A asked, B taken for now):** RETURN on a row with fixed values opens
   the list of the values, as FW config_menu.cc:108-114 (every core); until then RETURN steps to the next value. Also after 0.2.0: groups
   in FTP hosts and Emulated SIDs, one name for the back key, "Hex View" in sentence case (generic). From the UX pass over all cores: the
