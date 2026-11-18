@@ -439,8 +439,17 @@ int main()
         // SHIFT held alone past the settle time does not end the learn; SHIFT + cursor down then learns cursor up (code 7 + shift)
         m->key(KEY_RETURN); g.io.key(15, true); g.io.delay_ms(500); m->pump(true); CHECK(m->learning());
         press(7); release(7); g.io.key(15, false); m->pump(true); CHECK(!m->learning() && !m->status_bad()); CHECK_EQ(g.st->value(ifr), 13);
-        // SHIFT + cursor: the cursor up (code 7 + shift)
-        m->key(KEY_RETURN); g.io.key(15, true); press(7); release(7); g.io.key(15, false); m->pump(true); CHECK_EQ(g.st->value(ifr), 13);
+        // SHIFT and cursor down in one poll (they arrive together): another value first, so the check can fail
+        m->key(KEY_RETURN); press(9); release(9); CHECK(!m->learning()); CHECK_EQ(g.st->value(ifr), 20);
+        m->key(KEY_RETURN); g.io.key(15, true); press(7); release(7); g.io.key(15, false); m->pump(true);
+        CHECK(!m->learning() && !m->status_bad()); CHECK_EQ(g.st->value(ifr), 13);
+        // the right SHIFT (matrix 52) is a SHIFT too
+        m->key(KEY_RETURN); press(9); release(9); CHECK(!m->learning()); CHECK_EQ(g.st->value(ifr), 20);
+        m->key(KEY_RETURN); g.io.key(52, true); press(7); release(7); g.io.key(52, false); m->pump(true);
+        CHECK(!m->learning() && !m->status_bad()); CHECK_EQ(g.st->value(ifr), 13);
+        // RESTORE is no entry of the list: refused with the reason, the value stays
+        m->key(KEY_RETURN); press(64); release(64);
+        CHECK(!m->learning() && m->status_bad() && strstr(m->status(), "not available") != 0); CHECK_EQ(g.st->value(ifr), 13);
     }
     // ---- T228 R1/R16 (gate fixes 3 and 5): trx64u's Timewarp and Monitor tasks hold CTRL+T and CTRL+O by default; a key the stored settings give a fixed action is not doubled
     {

@@ -912,6 +912,10 @@ int hk_learn_value(CoreCtx *c, int set, const HkKeys &got, char *line, int n)
         return -1;
     }
     if (set >= 0 && set < c->desc->nsettings && padkey_row(c->desc->settings[set])) {         // T232: pad-key row: the key's matrix place picks the list entry
+        if (got.restore) {                                  // RESTORE has no matrix place, so it is no entry of the list (it said "No key" before)
+            snprintf(line, n, "%s", PADKEY_NOT_AVAILABLE);
+            return -1;
+        }
         return padkey_learn_value(got.k, line, n);
     }
     if (hk_learn_is_modifier(c, set)) {

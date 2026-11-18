@@ -3403,7 +3403,7 @@ void MenuCtl::footer_legend_keys(char *out, int n)
     // T232: a pad-key row on a tab learns by RETURN, as a hotkey row on a page does (the page's foot above)
     const int tsel = cur().count > 0 ? sel_[area_][tab_] : -1;
     const bool tab_learn = tsel >= 0 && tree_.e[cur().first + tsel].kind == EK_SETTING && hk_learn_item(c_, tree_.e[cur().first + tsel].index);
-    int p = snprintf(out, n, "%s", tab_learn ? "UP/DOWN  CHOOSE   RETURN  LEARN KEY   ESC  BACK" : "UP/DOWN  CHOOSE   RETURN  DO IT   ESC  BACK");
+    int p = snprintf(out, n, "%s", tab_learn ? "UP/DOWN  CHOOSE   RETURN  LEARN KEY   <- ->  CHANGE   ESC  BACK" : "UP/DOWN  CHOOSE   RETURN  DO IT   ESC  BACK");
     // the letters of this page's buttons first, then the core's own that this page does not claim, as far as the line holds (about 92 characters)
     for (int i = cur().first; i < cur().first + cur().count && i < tree_.n && p < n - 12; i++) {
         const MenuEntry &e = tree_.e[i];

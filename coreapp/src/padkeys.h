@@ -45,6 +45,7 @@ static inline bool padkey_row(const Setting &s)
 {
     return s.kind == 0 && s.nvalues == PADKEY_COUNT && s.bind && s.bind->bytes && s.bind->mask == 0xFF && memcmp(s.bind->bytes, padkey_codes, sizeof(padkey_codes)) == 0;
 }
+#define PADKEY_NOT_AVAILABLE "That key is not available - use A-Z, 0-9, Space or a cursor key"
 // T232: learn a key by pressing it. `down` = the keys down as the hotkey learn reads them (bit = matrix index col*8+row, the USB keyboard's raw matrix, SHIFT = bit 15 / 52).
 // Returns the row's new value (an index of the list), or -1 with the reason in `line` (not one key, or a key that is not available).
 static inline int padkey_learn_value(uint64_t down, char *line, int n)
@@ -76,7 +77,7 @@ static inline int padkey_learn_value(uint64_t down, char *line, int n)
             }
         }
     }
-    snprintf(line, n, "That key is not available - use A-Z, 0-9, Space or a cursor key");
+    snprintf(line, n, "%s", PADKEY_NOT_AVAILABLE);
     return -1;
 }
 

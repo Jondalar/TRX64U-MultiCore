@@ -4,7 +4,8 @@ Feature: T232 pad keys A-Z and learn by key press on the PET Input tab (ux-revie
   Scenario: pad rows, learn prompt, L, ESC
     Given the menu is open on F5 tab 4
     When I move to "Pad / joystick up"
-    Then I save the picture "t232-pet-input-pad"
+    Then the footer shows "RETURN  LEARN KEY"
+    And I save the picture "t232-pet-input-pad"
     When I press RETURN
     Then I save the picture "t232-pet-learn-prompt"
     When I press L
@@ -12,7 +13,8 @@ Feature: T232 pad keys A-Z and learn by key press on the PET Input tab (ux-revie
     And I save the picture "t232-pet-after-l"
     When I press RETURN
     And I press RUN/STOP
-    Then I save the picture "t232-pet-after-esc-menu-closed"
+    Then the status line says "Cancelled"
+    And I save the picture "t232-pet-after-runstop"
     Given the menu is open on F5 tab 4
     When I move to "Pad / joystick up"
     Then I save the picture "t232-pet-after-esc"
