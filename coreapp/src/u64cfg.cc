@@ -643,8 +643,13 @@ static void fsid_put(CoreCtx *c, int s)
 }
 
 // FW access_socket_pre/post (u64_config.cc:2915): the machine stops, the sockets are at the detection addresses, and afterwards the addresses are the settings' again
-static bool fsid_write(CoreCtx *c, int s)
+static bool g_in_detect;                                          // the start: the machine is stopped and the sockets are at the detection addresses already
+static bool sock_run(CoreCtx *c, int s, void (*fn)(CoreCtx *, int))
 {
+    if (g_in_detect) {
+        fn(c, s);
+        return true;
+    }
     CoreIo *io = c->io;
     bool was = (STOPREG(1) & 0x02) != 0;
     if (!was) {
@@ -658,7 +663,7 @@ static bool fsid_write(CoreCtx *c, int s)
         }
     }
     detect_addresses(c);
-    fsid_put(c, s);
+    fn(c, s);
     write_sid_addressing(c);
     C64_SID1_EN = V(c, K_S1_EN) ? 1 : 0;
     C64_SID2_EN = V(c, K_S2_EN) ? 1 : 0;
@@ -667,6 +672,7 @@ static bool fsid_write(CoreCtx *c, int s)
     }
     return true;
 }
+static bool fsid_write(CoreCtx *c, int s) { return sock_run(c, s, fsid_put); }
 
 // a settings change (FW's change hooks, :180-203 of the device, all rewrite what the item makes of the bytes): written when the bytes differ from the chip's
 static int fsid_sync(CoreCtx *c, int s)
@@ -717,6 +723,235 @@ static int fx_fsid_q11(CoreCtx *c, const OpArgs &a, OpOut &) { return fsid_quick
 static int fx_fsid_q20(CoreCtx *c, const OpArgs &a, OpOut &) { return fsid_quick(c, 1, 0, (int)a.i(0)); }
 static int fx_fsid_q21(CoreCtx *c, const OpArgs &a, OpOut &) { return fsid_quick(c, 1, 1, (int)a.i(0)); }
 
+// ---- the other chips with a page of their own (FW sid_device_swinsid.cc, sid_device_armsid.cc, sid_device_pdsid.cc, sid_device_sidkick.cc) ----------------------------
+// keys "<chip> <n> <item>"; the device is made where the probe finds it (u64_config.cc:826-857), SwinSID sets itself up from its settings, the others read what the chip is in
+enum { CK_SWIN, CK_ARM, CK_PD, CK_KICK, CK_N };
+static const struct {
+    const char *pre;
+    int n;
+    const char *item[5];
+} ck_def[CK_N] = {
+    { "SwinSID", 3, { "Fundamental Mode", "Pitch", "Audio In", 0, 0 } },
+    { "ARMSID", 5, { "Fundamental Mode", "6581 Filter Strength", "6581 Lowest Filt Freq", "8580 Highest Filt Freq", "8580 Lowest Filt Freq" } },
+    { "PDsid", 1, { "Emulation Mode", 0, 0, 0, 0 } },
+    { "SidKick", 1, { "Emulation Mode", 0, 0, 0, 0 } } };
+static int g_ckind[2] = { -1, -1 };
+static const Settings *g_cset;
+static int16_t g_cix[2][CK_N][5];
+static int g_clast[2][5];
+static bool g_chave[2];
+static char g_armver[2][12];
+
+static int ck_of_type(int t)
+{
+    switch (t) {
+    case 4: return CK_SWIN;
+    case 5: case 6: return CK_ARM;
+    case 9: return CK_PD;
+    case 10: case 11: return CK_KICK;
+    }
+    return -1;
+}
+
+static void ck_resolve(CoreCtx *c)
+{
+    if (g_cset == c->settings) {
+        return;
+    }
+    g_cset = c->settings;
+    for (int s = 0; s < 2; s++) {
+        for (int k = 0; k < CK_N; k++) {
+            for (int i = 0; i < ck_def[k].n; i++) {
+                char key[48];
+                snprintf(key, sizeof(key), "%s %d %s", ck_def[k].pre, s + 1, ck_def[k].item[i]);
+                g_cix[s][k][i] = (int16_t)(c->settings ? c->settings->find(key) : -1);
+            }
+        }
+    }
+}
+
+static int CV(CoreCtx *c, int s, int i)
+{
+    ck_resolve(c);
+    int ix = g_cix[s][g_ckind[s]][i];
+    return ix >= 0 ? c->settings->value(ix) : 0;
+}
+
+static void ck_store(CoreCtx *c, int s, int i, int v)                // the value the chip is in becomes the setting (FW setValueQuietly, clamped as check_bounds)
+{
+    int ix = g_cix[s][g_ckind[s]][i];
+    if (ix >= 0) {
+        int mx = c->desc->settings[ix].nvalues - 1;
+        c->settings->set(ix, v > mx ? mx : v);
+    }
+}
+
+static void ck_snapshot(CoreCtx *c, int s)
+{
+    for (int i = 0; i < ck_def[g_ckind[s]].n; i++) {
+        g_clast[s][i] = CV(c, s, i);
+    }
+    g_chave[s] = true;
+}
+
+#define PEEK2() ((void)SDMA(2))
+static void ck_put(CoreCtx *c, int s)
+{
+    CoreIo *io = c->io;
+    volatile uint8_t *b = (volatile uint8_t *)(C64_MEMORY_BASE + 0xD400 + 0x100 * s);
+    switch (g_ckind[s]) {
+    case CK_SWIN:                                                  // S_effectuate, sid_device_swinsid.cc:84
+        b[29] = 'S'; PEEK2();
+        b[30] = 'E'; PEEK2();
+        b[31] = CV(c, s, 0) ? '8' : '6';
+        io->delay_ms(5);
+        b[31] = CV(c, s, 1) ? 'S' : 'L';
+        io->delay_ms(5);
+        b[31] = CV(c, s, 2) ? 'A' : 'D';
+        io->delay_ms(5);
+        b[29] = 0;
+        break;
+    case CK_ARM: {                                                 // S_effectuate and S_set_filt, sid_device_armsid.cc:178, :236
+        b[29] = 'S'; PEEK2();
+        b[30] = 'I'; PEEK2();
+        b[31] = 'D';
+        io->delay_ms(10);
+        b[29] = 'S'; PEEK2();
+        b[30] = 'E'; PEEK2();
+        b[31] = CV(c, s, 0) ? '8' : '6';
+        io->delay_ms(10);
+        const int v[4] = { CV(c, s, 1) - 7, CV(c, s, 2) - 1, CV(c, s, 3) - 3, CV(c, s, 4) - 3 };
+        for (int i = 0; i < 4; i++) {
+            b[31] = (uint8_t)(((uint8_t)(v[i] & 15)) | (0x80 + 0x10 * i));
+            PEEK2();
+            b[30] = 'E';
+            io->delay_ms(10);
+        }
+        b[31] = 0xC0; PEEK2();                                     // S_save_ram
+        b[30] = 'E';
+        io->delay_ms(10);
+        b[29] = 0;
+        break;
+    }
+    case CK_PD:                                                    // SetSidType, sid_device_pdsid.cc:39
+        b[29] = 'P'; PEEK2();
+        b[30] = 'D'; PEEK2();
+        b[31] = CV(c, s, 0) ? 0x01 : 0x00; PEEK2();
+        b[29] = 0; PEEK2();
+        break;
+    case CK_KICK:                                                  // SidKickConfig::effectuate, sid_device_sidkick.cc:117
+        b[0x1f] = 0xFF;
+        b[0x1e] = 0x00;
+        b[0x1d] = (uint8_t)(CV(c, s, 0) & 3);
+        b[0x1f] = 0xFD;
+        io->delay_ms(5);
+        break;
+    }
+}
+
+// what the chip is in, into the settings: ARMSID readParams (sid_device_armsid.cc:101), PDsid at_open_config (:89), SidKick at_open_config (:146)
+static void ck_read(CoreCtx *c, int s)
+{
+    CoreIo *io = c->io;
+    volatile uint8_t *b = (volatile uint8_t *)(C64_MEMORY_BASE + 0xD400 + 0x100 * s);
+    ck_resolve(c);
+    switch (g_ckind[s]) {
+    case CK_ARM: {
+        b[29] = 'S'; PEEK2();
+        b[30] = 'I'; PEEK2();
+        b[31] = 'D';
+        io->delay_ms(2);
+        b[31] = 'V'; PEEK2();
+        b[30] = 'I'; PEEK2();
+        io->delay_ms(2);
+        uint8_t vh = b[27]; PEEK2();
+        uint8_t vl = b[28]; PEEK2();
+        b[31] = 'F'; PEEK2();
+        b[30] = 'I'; PEEK2();
+        io->delay_ms(2);
+        uint8_t chip = b[27]; PEEK2();
+        b[31] = 'U'; PEEK2();
+        b[30] = 'I'; PEEK2();
+        io->delay_ms(10);
+        (void)b[27]; PEEK2();
+        (void)b[28];
+        b[31] = 'H'; PEEK2();
+        b[30] = 'I'; PEEK2();
+        io->delay_ms(10);
+        uint8_t p = b[27]; PEEK2();
+        uint8_t q = b[28];
+        ck_store(c, s, 1, ((p >> 4) + 7) & 15);
+        ck_store(c, s, 2, ((p & 15) + 1) & 15);
+        ck_store(c, s, 3, ((q >> 4) + 3) & 15);
+        ck_store(c, s, 4, ((q & 15) + 3) & 15);
+        ck_store(c, s, 0, chip == '6' ? 0 : 1);
+        snprintf(g_armver[s], sizeof(g_armver[s]), "%d.%d", vh, vl);
+        b[29] = 0;
+        break;
+    }
+    case CK_PD:
+        b[29] = 'P'; PEEK2();
+        b[30] = 'D'; PEEK2();
+        ck_store(c, s, 0, b[31] & 1);
+        b[29] = 0;
+        break;
+    case CK_KICK: {
+        b[0x1f] = 0xFF;
+        b[0x1e] = 0x00;
+        uint8_t first = 0;
+        for (int i = 0; i < 64; i++) {
+            uint8_t v = b[0x1d];
+            first = i ? first : v;
+        }
+        b[0x1f] = 0xFD;
+        ck_store(c, s, 0, first & 3);
+        io->delay_ms(5);
+        break;
+    }
+    }
+}
+
+// the device of a probe that found this type: SwinSID effectuates its stored settings, the others take what the chip is in
+static void ck_init(CoreCtx *c, int s, int type)
+{
+    g_ckind[s] = ck_of_type(type);
+    g_chave[s] = false;
+    g_armver[s][0] = 0;
+    if (g_ckind[s] < 0) {
+        return;
+    }
+    ck_resolve(c);
+    if (g_ckind[s] == CK_SWIN) {
+        ck_put(c, s);
+    } else {
+        ck_read(c, s);
+    }
+    ck_snapshot(c, s);
+}
+
+static int fx_chip(CoreCtx *c, const OpArgs &, OpOut &)
+{
+    int rc = OPE_OK;
+    for (int s = 0; s < 2; s++) {
+        if (g_ckind[s] < 0 || !c->settings) {
+            continue;
+        }
+        bool same = g_chave[s];
+        for (int i = 0; i < ck_def[g_ckind[s]].n; i++) {
+            same = same && g_clast[s][i] == CV(c, s, i);
+        }
+        if (same) {
+            continue;
+        }
+        if (sock_run(c, s, ck_put)) {
+            ck_snapshot(c, s);
+        } else {
+            rc = OPE_FAILED;
+        }
+    }
+    return rc;
+}
+
 // FW U64Config::detectDukestahAdapter (:746): SID 1 of the FPGASID in stereo mode, SID 2's register 28 reads back what socket 2's address wrote when the adapter
 // maps socket 2 onto it. The probe leaves the chip as its writes did, so the device's settings go in again (:773-774).
 static bool detect_dukestah(CoreCtx *c)
@@ -750,6 +985,8 @@ static void detect_sids(CoreCtx *c, int type[2])
     memset(g_fsid, 0, sizeof(g_fsid));
     memset(g_fhave, 0, sizeof(g_fhave));
     g_dukestah = false;
+    g_ckind[0] = g_ckind[1] = -1;
+    g_in_detect = true;
     for (int s = 0; s < 2; s++) {
         detect_addresses(c);
         type[s] = detect_fpgasid((volatile uint8_t *)(C64_MEMORY_BASE + 0xD400 + 0x100 * s), s);
@@ -767,6 +1004,9 @@ static void detect_sids(CoreCtx *c, int type[2])
                 type[s] = detect_remakes(c, (volatile uint8_t *)(C64_MEMORY_BASE + 0xD400 + 0x100 * s));
             }
         }
+    }
+    for (int s = 0; s < 2; s++) {
+        ck_init(c, s, type[s]);                                      // FW: the device of the chip the probe found
     }
     if (!type[0] || !type[1]) {
         detect_addresses(c);
@@ -797,6 +1037,7 @@ static void detect_sids(CoreCtx *c, int type[2])
             type[0] = type[1] = 8;
         }
     }
+    g_in_detect = false;
     printf("[u64cfg] SID detect: socket 1 = %d, socket 2 = %d\n", type[0], type[1]);
 }
 
@@ -970,6 +1211,21 @@ static const char *fsid_rev(int s)
 // the info lines of the page hide while there is no device (a node's `hide`: "not shown while the state has a value")
 static const char *state_fsid1_none(CoreCtx *) { return g_fsid[0].dev ? "" : "none"; }
 static const char *state_fsid2_none(CoreCtx *) { return g_fsid[1].dev ? "" : "none"; }
+static const char *ck_state(int s, int k) { return g_ckind[s] == k ? "yes" : ""; }
+static const char *ck_none(int s, int k) { return g_ckind[s] == k ? "" : "none"; }
+static const char *state_s1_swin(CoreCtx *) { return ck_state(0, CK_SWIN); }
+static const char *state_s2_swin(CoreCtx *) { return ck_state(1, CK_SWIN); }
+static const char *state_s1_arm(CoreCtx *) { return ck_state(0, CK_ARM); }
+static const char *state_s2_arm(CoreCtx *) { return ck_state(1, CK_ARM); }
+static const char *state_s1_pd(CoreCtx *) { return ck_state(0, CK_PD); }
+static const char *state_s2_pd(CoreCtx *) { return ck_state(1, CK_PD); }
+static const char *state_s1_kick(CoreCtx *) { return ck_state(0, CK_KICK); }
+static const char *state_s2_kick(CoreCtx *) { return ck_state(1, CK_KICK); }
+static const char *state_s1_noarm(CoreCtx *) { return ck_none(0, CK_ARM); }
+static const char *state_s2_noarm(CoreCtx *) { return ck_none(1, CK_ARM); }
+static const char *state_s1_armver(CoreCtx *) { return g_armver[0]; }
+static const char *state_s2_armver(CoreCtx *) { return g_armver[1]; }
+
 static const char *state_fsid1_uid(CoreCtx *) { return fsid_uid(0); }
 static const char *state_fsid2_uid(CoreCtx *) { return fsid_uid(1); }
 static const char *state_fsid1_rev(CoreCtx *) { return fsid_rev(0); }
@@ -1086,6 +1342,7 @@ void u64cfg_register(OpRegistry &r)
     r.add_op("u64.fx_audio", value_arg, 1, fx_audio);
     r.add_op("u64.fx_sid", value_arg, 1, fx_sid);
     r.add_op("u64.fx_fsid", value_arg, 1, fx_fsid);
+    r.add_op("u64.fx_chip", value_arg, 1, fx_chip);
     r.add_op("u64.fx_fsid_q10", value_arg, 1, fx_fsid_q10);
     r.add_op("u64.fx_fsid_q11", value_arg, 1, fx_fsid_q11);
     r.add_op("u64.fx_fsid_q20", value_arg, 1, fx_fsid_q20);
@@ -1099,6 +1356,18 @@ void u64cfg_register(OpRegistry &r)
     r.add_state("u64.palette", state_palette);
     r.add_state("u64.sid1_type", state_sid1);
     r.add_state("u64.sid2_type", state_sid2);
+    r.add_state("u64.s1_swin", state_s1_swin);
+    r.add_state("u64.s2_swin", state_s2_swin);
+    r.add_state("u64.s1_arm", state_s1_arm);
+    r.add_state("u64.s2_arm", state_s2_arm);
+    r.add_state("u64.s1_pd", state_s1_pd);
+    r.add_state("u64.s2_pd", state_s2_pd);
+    r.add_state("u64.s1_kick", state_s1_kick);
+    r.add_state("u64.s2_kick", state_s2_kick);
+    r.add_state("u64.s1_noarm", state_s1_noarm);
+    r.add_state("u64.s2_noarm", state_s2_noarm);
+    r.add_state("u64.s1_armver", state_s1_armver);
+    r.add_state("u64.s2_armver", state_s2_armver);
     r.add_state("u64.fsid1_uid", state_fsid1_uid);
     r.add_state("u64.fsid2_uid", state_fsid2_uid);
     r.add_state("u64.fsid1_rev", state_fsid1_rev);

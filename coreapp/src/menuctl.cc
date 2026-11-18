@@ -106,9 +106,14 @@ static bool setting_off(const CoreCtx *c, int idx)
     return s.show_state && !cond_holds(s.show_state, node_state_text, const_cast<CoreCtx *>(c));
 }
 
+static bool page_cond(void *user, const char *cond)
+{
+    return cond_holds(cond, node_state_text, user);
+}
+
 void MenuCtl::build_tree()
 {
-    menu_build_for(c_, &tree_);
+    menu_build_for(c_, &tree_, page_cond, const_cast<CoreCtx *>(c_));
     // T228 DC1: a node's `hide` ("not shown while the state has a value") holds in a flat list too. A screen reads it at every draw (item()); a list's
     // rows are fixed, so the row is taken out here, when the menu is built (at start and once the libraries are loaded)
     for (int a = 0; a < tree_.nareas; a++) {

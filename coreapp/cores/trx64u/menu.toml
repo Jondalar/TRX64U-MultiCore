@@ -99,8 +99,8 @@ key = "F5"                       # the core's short title ("C64") names it
   id = "audio"
   name = "Audio"
   widget = "settings"
-  groups = ["Volumes", "Pan", "SID_sockets", "Emulated_SIDs"]
-  ui = { sections = true, pages = "SID_sockets,Emulated_SIDs", pages_head = "reDIP:SID" }
+  groups = ["Volumes", "Pan", "SID_sockets", "Emulated_SIDs", "Socket_1_FPGASID","Socket_1_SwinSID","Socket_1_ARMSID","Socket_1_PDsid","Socket_1_SidKick","Socket_2_FPGASID","Socket_2_SwinSID","Socket_2_ARMSID","Socket_2_PDsid","Socket_2_SidKick"]
+  ui = { sections = true, pages = "SID_sockets,Emulated_SIDs,Socket_1_FPGASID,Socket_1_SwinSID,Socket_1_ARMSID,Socket_1_PDsid,Socket_1_SidKick,Socket_2_FPGASID,Socket_2_SwinSID,Socket_2_ARMSID,Socket_2_PDsid,Socket_2_SidKick", pages_head = "reDIP:SID" }
   n = 5
   [[area.tab]]
   id = "input"
@@ -905,6 +905,13 @@ fs_extins = ["Analog In", "Disabled", "Other SID", "DigiFix (8580)"]
 fs_outmodes = ["Two signals", "One signal"]
 fs_ledmodes = ["On", "Only voice", "Only heart", "Off"]
 fs_voices = ["All", ". 2 3", "1 . 3", ". . 3", "1 2 .", ". 2 .", "1 . .", "None"]
+sw_pitch = ["PAL", "NTSC"]
+sw_audio = ["Disabled", "Enabled"]
+arm_filt6 = ["Follin-", "Follin", "Follin+", "Galway-", "Galway", "Galway+", "Average-", "Average", "Average+", "Strong-", "Strong", "Strong+", "Extreme-", "Extreme", "Extreme+"]
+arm_low6 = ["150", "215", "310"]
+arm_hi8 = ["12 kHz", "10 kHz", "8 kHz", "6 kHz", "5 kHz", "4 kHz", "3 kHz"]
+arm_low8 = ["  30", " ~45", " ~70", " 100", "~150", "~220", " 330"]
+kick_modes = ["6581", "8580", "8580 DigiBoost", "None"]
 onoff = ["Off", "On"]
 splash = ["Off", "On"]
 caps = ["470 pF", "22 nF"]
@@ -1251,10 +1258,26 @@ default = 1
 when = "live"
 apply = "u64.fx_sid"
 
+[[node]]
+anchor = "F5/audio/Socket_1_FPGASID"
+kind = "state"
+state = "u64.fsid1_uid"
+label = "Unique ID"
+order = 10
+ui = { sub = "@u64.fsid1_uid", hide = "@u64.fsid1_none" }
+
+[[node]]
+anchor = "F5/audio/Socket_1_FPGASID"
+kind = "state"
+state = "u64.fsid1_rev"
+label = "FPGA revision"
+order = 11
+ui = { sub = "@u64.fsid1_rev", hide = "@u64.fsid1_none" }
+
 [[core_setting]]
-group = "SID_sockets"
+group = "Socket_1_FPGASID"
 key = "FPGASID 1 Fundamental Mode"
-label = "FPGASID 1: Fundamental mode"
+label = "Fundamental mode"
 list = "fs_modes"
 default = 0
 when = "live"
@@ -1262,9 +1285,9 @@ apply = "u64.fx_fsid"
 show_state = "u64.fsid1_uid"
 
 [[core_setting]]
-group = "SID_sockets"
+group = "Socket_1_FPGASID"
 key = "FPGASID 1 Output Mode"
-label = "FPGASID 1: Output mode"
+label = "Output mode"
 list = "fs_outmodes"
 default = 0
 when = "live"
@@ -1272,9 +1295,9 @@ apply = "u64.fx_fsid"
 show_state = "u64.fsid1_new"
 
 [[core_setting]]
-group = "SID_sockets"
+group = "Socket_1_FPGASID"
 key = "FPGASID 1 LEDs"
-label = "FPGASID 1: LEDs"
+label = "LEDs"
 list = "fs_ledmodes"
 default = 0
 when = "live"
@@ -1282,9 +1305,9 @@ apply = "u64.fx_fsid"
 show_state = "u64.fsid1_new"
 
 [[core_setting]]
-group = "SID_sockets"
+group = "Socket_1_FPGASID"
 key = "FPGASID 1 SID1 Quick type select"
-label = "FPGASID 1: SID1 quick type select"
+label = "SID1: quick type select"
 list = "fs_chips"
 default = 0
 when = "live"
@@ -1292,9 +1315,9 @@ apply = "u64.fx_fsid_q10"
 show_state = "u64.fsid1_uid"
 
 [[core_setting]]
-group = "SID_sockets"
+group = "Socket_1_FPGASID"
 key = "FPGASID 1 SID1 Filter Mode"
-label = "FPGASID 1: SID1 filter mode"
+label = "SID1: filter mode"
 list = "fs_chips"
 default = 0
 when = "live"
@@ -1302,9 +1325,9 @@ apply = "u64.fx_fsid"
 show_state = "u64.fsid1_uid"
 
 [[core_setting]]
-group = "SID_sockets"
+group = "Socket_1_FPGASID"
 key = "FPGASID 1 SID1 Crunchy DAC"
-label = "FPGASID 1: SID1 crunchy DAC"
+label = "SID1: crunchy DAC"
 list = "fs_chips"
 default = 0
 when = "live"
@@ -1312,9 +1335,9 @@ apply = "u64.fx_fsid"
 show_state = "u64.fsid1_uid"
 
 [[core_setting]]
-group = "SID_sockets"
+group = "Socket_1_FPGASID"
 key = "FPGASID 1 SID1 Mixed Waveforms"
-label = "FPGASID 1: SID1 mixed waveforms"
+label = "SID1: mixed waveforms"
 list = "fs_chips"
 default = 0
 when = "live"
@@ -1322,9 +1345,9 @@ apply = "u64.fx_fsid"
 show_state = "u64.fsid1_uid"
 
 [[core_setting]]
-group = "SID_sockets"
+group = "Socket_1_FPGASID"
 key = "FPGASID 1 SID1 Register Delay"
-label = "FPGASID 1: SID1 register delay"
+label = "SID1: register delay"
 list = "fs_chips"
 default = 0
 when = "live"
@@ -1332,9 +1355,9 @@ apply = "u64.fx_fsid"
 show_state = "u64.fsid1_uid"
 
 [[core_setting]]
-group = "SID_sockets"
+group = "Socket_1_FPGASID"
 key = "FPGASID 1 SID1 Register Read Back"
-label = "FPGASID 1: SID1 register read back"
+label = "SID1: register read back"
 list = "fs_readbacks"
 default = 0
 when = "live"
@@ -1342,9 +1365,9 @@ apply = "u64.fx_fsid"
 show_state = "u64.fsid1_uid"
 
 [[core_setting]]
-group = "SID_sockets"
+group = "Socket_1_FPGASID"
 key = "FPGASID 1 SID1 EXT IN Source"
-label = "FPGASID 1: SID1 EXT IN source"
+label = "SID1: EXT IN source"
 list = "fs_extins"
 default = 0
 when = "live"
@@ -1352,9 +1375,9 @@ apply = "u64.fx_fsid"
 show_state = "u64.fsid1_uid"
 
 [[core_setting]]
-group = "SID_sockets"
+group = "Socket_1_FPGASID"
 key = "FPGASID 1 SID1 DigiFix Value"
-label = "FPGASID 1: SID1 DigiFix value (8580)"
+label = "SID1: DigiFix value (8580)"
 range = [-128, 127]
 unit = ""
 default = 0
@@ -1363,9 +1386,9 @@ apply = "u64.fx_fsid"
 show_state = "u64.fsid1_uid"
 
 [[core_setting]]
-group = "SID_sockets"
+group = "Socket_1_FPGASID"
 key = "FPGASID 1 SID1 6581 Filter Bias"
-label = "FPGASID 1: SID1 6581 filter bias"
+label = "SID1: 6581 filter bias"
 range = [-8, 7]
 unit = ""
 default = 0
@@ -1374,9 +1397,9 @@ apply = "u64.fx_fsid"
 show_state = "u64.fsid1_uid"
 
 [[core_setting]]
-group = "SID_sockets"
+group = "Socket_1_FPGASID"
 key = "FPGASID 1 SID1 Enabled Voices"
-label = "FPGASID 1: SID1 enabled voices"
+label = "SID1: enabled voices"
 list = "fs_voices"
 default = 0
 when = "live"
@@ -1384,9 +1407,9 @@ apply = "u64.fx_fsid"
 show_state = "u64.fsid1_uid"
 
 [[core_setting]]
-group = "SID_sockets"
+group = "Socket_1_FPGASID"
 key = "FPGASID 1 SID2 Quick type select"
-label = "FPGASID 1: SID2 quick type select"
+label = "SID2: quick type select"
 list = "fs_chips"
 default = 0
 when = "live"
@@ -1394,9 +1417,9 @@ apply = "u64.fx_fsid_q11"
 show_state = "u64.fsid1_uid"
 
 [[core_setting]]
-group = "SID_sockets"
+group = "Socket_1_FPGASID"
 key = "FPGASID 1 SID2 Filter Mode"
-label = "FPGASID 1: SID2 filter mode"
+label = "SID2: filter mode"
 list = "fs_chips"
 default = 0
 when = "live"
@@ -1404,9 +1427,9 @@ apply = "u64.fx_fsid"
 show_state = "u64.fsid1_uid"
 
 [[core_setting]]
-group = "SID_sockets"
+group = "Socket_1_FPGASID"
 key = "FPGASID 1 SID2 Crunchy DAC"
-label = "FPGASID 1: SID2 crunchy DAC"
+label = "SID2: crunchy DAC"
 list = "fs_chips"
 default = 0
 when = "live"
@@ -1414,9 +1437,9 @@ apply = "u64.fx_fsid"
 show_state = "u64.fsid1_uid"
 
 [[core_setting]]
-group = "SID_sockets"
+group = "Socket_1_FPGASID"
 key = "FPGASID 1 SID2 Mixed Waveforms"
-label = "FPGASID 1: SID2 mixed waveforms"
+label = "SID2: mixed waveforms"
 list = "fs_chips"
 default = 0
 when = "live"
@@ -1424,9 +1447,9 @@ apply = "u64.fx_fsid"
 show_state = "u64.fsid1_uid"
 
 [[core_setting]]
-group = "SID_sockets"
+group = "Socket_1_FPGASID"
 key = "FPGASID 1 SID2 Register Delay"
-label = "FPGASID 1: SID2 register delay"
+label = "SID2: register delay"
 list = "fs_chips"
 default = 0
 when = "live"
@@ -1434,9 +1457,9 @@ apply = "u64.fx_fsid"
 show_state = "u64.fsid1_uid"
 
 [[core_setting]]
-group = "SID_sockets"
+group = "Socket_1_FPGASID"
 key = "FPGASID 1 SID2 Register Read Back"
-label = "FPGASID 1: SID2 register read back"
+label = "SID2: register read back"
 list = "fs_readbacks"
 default = 0
 when = "live"
@@ -1444,9 +1467,9 @@ apply = "u64.fx_fsid"
 show_state = "u64.fsid1_uid"
 
 [[core_setting]]
-group = "SID_sockets"
+group = "Socket_1_FPGASID"
 key = "FPGASID 1 SID2 EXT IN Source"
-label = "FPGASID 1: SID2 EXT IN source"
+label = "SID2: EXT IN source"
 list = "fs_extins"
 default = 0
 when = "live"
@@ -1454,9 +1477,9 @@ apply = "u64.fx_fsid"
 show_state = "u64.fsid1_uid"
 
 [[core_setting]]
-group = "SID_sockets"
+group = "Socket_1_FPGASID"
 key = "FPGASID 1 SID2 DigiFix Value"
-label = "FPGASID 1: SID2 DigiFix value (8580)"
+label = "SID2: DigiFix value (8580)"
 range = [-128, 127]
 unit = ""
 default = 0
@@ -1465,9 +1488,9 @@ apply = "u64.fx_fsid"
 show_state = "u64.fsid1_uid"
 
 [[core_setting]]
-group = "SID_sockets"
+group = "Socket_1_FPGASID"
 key = "FPGASID 1 SID2 6581 Filter Bias"
-label = "FPGASID 1: SID2 6581 filter bias"
+label = "SID2: 6581 filter bias"
 range = [-8, 7]
 unit = ""
 default = 0
@@ -1476,9 +1499,9 @@ apply = "u64.fx_fsid"
 show_state = "u64.fsid1_uid"
 
 [[core_setting]]
-group = "SID_sockets"
+group = "Socket_1_FPGASID"
 key = "FPGASID 1 SID2 Enabled Voices"
-label = "FPGASID 1: SID2 enabled voices"
+label = "SID2: enabled voices"
 list = "fs_voices"
 default = 0
 when = "live"
@@ -1486,9 +1509,133 @@ apply = "u64.fx_fsid"
 show_state = "u64.fsid1_uid"
 
 [[core_setting]]
-group = "SID_sockets"
+group = "Socket_1_SwinSID"
+key = "SwinSID 1 Fundamental Mode"
+label = "Fundamental mode"
+list = "fs_chips"
+default = 0
+when = "live"
+apply = "u64.fx_chip"
+show_state = "u64.s1_swin"
+
+[[core_setting]]
+group = "Socket_1_SwinSID"
+key = "SwinSID 1 Pitch"
+label = "Pitch"
+list = "sw_pitch"
+default = 0
+when = "live"
+apply = "u64.fx_chip"
+show_state = "u64.s1_swin"
+
+[[core_setting]]
+group = "Socket_1_SwinSID"
+key = "SwinSID 1 Audio In"
+label = "Audio in"
+list = "sw_audio"
+default = 0
+when = "live"
+apply = "u64.fx_chip"
+show_state = "u64.s1_swin"
+
+[[node]]
+anchor = "F5/audio/Socket_1_ARMSID"
+kind = "state"
+state = "u64.s1_armver"
+label = "Firmware version"
+order = 10
+ui = { sub = "@u64.s1_armver", hide = "@u64.s1_noarm" }
+
+[[core_setting]]
+group = "Socket_1_ARMSID"
+key = "ARMSID 1 Fundamental Mode"
+label = "Fundamental mode"
+list = "fs_chips"
+default = 0
+when = "live"
+apply = "u64.fx_chip"
+show_state = "u64.s1_arm"
+
+[[core_setting]]
+group = "Socket_1_ARMSID"
+key = "ARMSID 1 6581 Filter Strength"
+label = "6581 filter strength"
+list = "arm_filt6"
+default = 7
+when = "live"
+apply = "u64.fx_chip"
+show_state = "u64.s1_arm"
+
+[[core_setting]]
+group = "Socket_1_ARMSID"
+key = "ARMSID 1 6581 Lowest Filt Freq"
+label = "6581 lowest filter frequency"
+list = "arm_low6"
+default = 1
+when = "live"
+apply = "u64.fx_chip"
+show_state = "u64.s1_arm"
+
+[[core_setting]]
+group = "Socket_1_ARMSID"
+key = "ARMSID 1 8580 Highest Filt Freq"
+label = "8580 highest filter frequency"
+list = "arm_hi8"
+default = 3
+when = "live"
+apply = "u64.fx_chip"
+show_state = "u64.s1_arm"
+
+[[core_setting]]
+group = "Socket_1_ARMSID"
+key = "ARMSID 1 8580 Lowest Filt Freq"
+label = "8580 lowest filter frequency"
+list = "arm_low8"
+default = 3
+when = "live"
+apply = "u64.fx_chip"
+show_state = "u64.s1_arm"
+
+[[core_setting]]
+group = "Socket_1_PDsid"
+key = "PDsid 1 Emulation Mode"
+label = "Emulation mode"
+list = "fs_chips"
+default = 0
+when = "live"
+apply = "u64.fx_chip"
+show_state = "u64.s1_pd"
+
+[[core_setting]]
+group = "Socket_1_SidKick"
+key = "SidKick 1 Emulation Mode"
+label = "Emulation mode"
+list = "kick_modes"
+default = 0
+when = "live"
+apply = "u64.fx_chip"
+show_state = "u64.s1_kick"
+
+[[node]]
+anchor = "F5/audio/Socket_2_FPGASID"
+kind = "state"
+state = "u64.fsid2_uid"
+label = "Unique ID"
+order = 10
+ui = { sub = "@u64.fsid2_uid", hide = "@u64.fsid2_none" }
+
+[[node]]
+anchor = "F5/audio/Socket_2_FPGASID"
+kind = "state"
+state = "u64.fsid2_rev"
+label = "FPGA revision"
+order = 11
+ui = { sub = "@u64.fsid2_rev", hide = "@u64.fsid2_none" }
+
+[[core_setting]]
+group = "Socket_2_FPGASID"
 key = "FPGASID 2 Fundamental Mode"
-label = "FPGASID 2: Fundamental mode"
+label = "Fundamental mode"
 list = "fs_modes"
 default = 0
 when = "live"
@@ -1496,9 +1643,9 @@ apply = "u64.fx_fsid"
 show_state = "u64.fsid2_uid"
 
 [[core_setting]]
-group = "SID_sockets"
+group = "Socket_2_FPGASID"
 key = "FPGASID 2 Output Mode"
-label = "FPGASID 2: Output mode"
+label = "Output mode"
 list = "fs_outmodes"
 default = 0
 when = "live"
@@ -1506,9 +1653,9 @@ apply = "u64.fx_fsid"
 show_state = "u64.fsid2_new"
 
 [[core_setting]]
-group = "SID_sockets"
+group = "Socket_2_FPGASID"
 key = "FPGASID 2 LEDs"
-label = "FPGASID 2: LEDs"
+label = "LEDs"
 list = "fs_ledmodes"
 default = 0
 when = "live"
@@ -1516,9 +1663,9 @@ apply = "u64.fx_fsid"
 show_state = "u64.fsid2_new"
 
 [[core_setting]]
-group = "SID_sockets"
+group = "Socket_2_FPGASID"
 key = "FPGASID 2 SID1 Quick type select"
-label = "FPGASID 2: SID1 quick type select"
+label = "SID1: quick type select"
 list = "fs_chips"
 default = 0
 when = "live"
@@ -1526,9 +1673,9 @@ apply = "u64.fx_fsid_q20"
 show_state = "u64.fsid2_uid"
 
 [[core_setting]]
-group = "SID_sockets"
+group = "Socket_2_FPGASID"
 key = "FPGASID 2 SID1 Filter Mode"
-label = "FPGASID 2: SID1 filter mode"
+label = "SID1: filter mode"
 list = "fs_chips"
 default = 0
 when = "live"
@@ -1536,9 +1683,9 @@ apply = "u64.fx_fsid"
 show_state = "u64.fsid2_uid"
 
 [[core_setting]]
-group = "SID_sockets"
+group = "Socket_2_FPGASID"
 key = "FPGASID 2 SID1 Crunchy DAC"
-label = "FPGASID 2: SID1 crunchy DAC"
+label = "SID1: crunchy DAC"
 list = "fs_chips"
 default = 0
 when = "live"
@@ -1546,9 +1693,9 @@ apply = "u64.fx_fsid"
 show_state = "u64.fsid2_uid"
 
 [[core_setting]]
-group = "SID_sockets"
+group = "Socket_2_FPGASID"
 key = "FPGASID 2 SID1 Mixed Waveforms"
-label = "FPGASID 2: SID1 mixed waveforms"
+label = "SID1: mixed waveforms"
 list = "fs_chips"
 default = 0
 when = "live"
@@ -1556,9 +1703,9 @@ apply = "u64.fx_fsid"
 show_state = "u64.fsid2_uid"
 
 [[core_setting]]
-group = "SID_sockets"
+group = "Socket_2_FPGASID"
 key = "FPGASID 2 SID1 Register Delay"
-label = "FPGASID 2: SID1 register delay"
+label = "SID1: register delay"
 list = "fs_chips"
 default = 0
 when = "live"
@@ -1566,9 +1713,9 @@ apply = "u64.fx_fsid"
 show_state = "u64.fsid2_uid"
 
 [[core_setting]]
-group = "SID_sockets"
+group = "Socket_2_FPGASID"
 key = "FPGASID 2 SID1 Register Read Back"
-label = "FPGASID 2: SID1 register read back"
+label = "SID1: register read back"
 list = "fs_readbacks"
 default = 0
 when = "live"
@@ -1576,9 +1723,9 @@ apply = "u64.fx_fsid"
 show_state = "u64.fsid2_uid"
 
 [[core_setting]]
-group = "SID_sockets"
+group = "Socket_2_FPGASID"
 key = "FPGASID 2 SID1 EXT IN Source"
-label = "FPGASID 2: SID1 EXT IN source"
+label = "SID1: EXT IN source"
 list = "fs_extins"
 default = 0
 when = "live"
@@ -1586,9 +1733,9 @@ apply = "u64.fx_fsid"
 show_state = "u64.fsid2_uid"
 
 [[core_setting]]
-group = "SID_sockets"
+group = "Socket_2_FPGASID"
 key = "FPGASID 2 SID1 DigiFix Value"
-label = "FPGASID 2: SID1 DigiFix value (8580)"
+label = "SID1: DigiFix value (8580)"
 range = [-128, 127]
 unit = ""
 default = 0
@@ -1597,9 +1744,9 @@ apply = "u64.fx_fsid"
 show_state = "u64.fsid2_uid"
 
 [[core_setting]]
-group = "SID_sockets"
+group = "Socket_2_FPGASID"
 key = "FPGASID 2 SID1 6581 Filter Bias"
-label = "FPGASID 2: SID1 6581 filter bias"
+label = "SID1: 6581 filter bias"
 range = [-8, 7]
 unit = ""
 default = 0
@@ -1608,9 +1755,9 @@ apply = "u64.fx_fsid"
 show_state = "u64.fsid2_uid"
 
 [[core_setting]]
-group = "SID_sockets"
+group = "Socket_2_FPGASID"
 key = "FPGASID 2 SID1 Enabled Voices"
-label = "FPGASID 2: SID1 enabled voices"
+label = "SID1: enabled voices"
 list = "fs_voices"
 default = 0
 when = "live"
@@ -1618,9 +1765,9 @@ apply = "u64.fx_fsid"
 show_state = "u64.fsid2_uid"
 
 [[core_setting]]
-group = "SID_sockets"
+group = "Socket_2_FPGASID"
 key = "FPGASID 2 SID2 Quick type select"
-label = "FPGASID 2: SID2 quick type select"
+label = "SID2: quick type select"
 list = "fs_chips"
 default = 0
 when = "live"
@@ -1628,9 +1775,9 @@ apply = "u64.fx_fsid_q21"
 show_state = "u64.fsid2_uid"
 
 [[core_setting]]
-group = "SID_sockets"
+group = "Socket_2_FPGASID"
 key = "FPGASID 2 SID2 Filter Mode"
-label = "FPGASID 2: SID2 filter mode"
+label = "SID2: filter mode"
 list = "fs_chips"
 default = 0
 when = "live"
@@ -1638,9 +1785,9 @@ apply = "u64.fx_fsid"
 show_state = "u64.fsid2_uid"
 
 [[core_setting]]
-group = "SID_sockets"
+group = "Socket_2_FPGASID"
 key = "FPGASID 2 SID2 Crunchy DAC"
-label = "FPGASID 2: SID2 crunchy DAC"
+label = "SID2: crunchy DAC"
 list = "fs_chips"
 default = 0
 when = "live"
@@ -1648,9 +1795,9 @@ apply = "u64.fx_fsid"
 show_state = "u64.fsid2_uid"
 
 [[core_setting]]
-group = "SID_sockets"
+group = "Socket_2_FPGASID"
 key = "FPGASID 2 SID2 Mixed Waveforms"
-label = "FPGASID 2: SID2 mixed waveforms"
+label = "SID2: mixed waveforms"
 list = "fs_chips"
 default = 0
 when = "live"
@@ -1658,9 +1805,9 @@ apply = "u64.fx_fsid"
 show_state = "u64.fsid2_uid"
 
 [[core_setting]]
-group = "SID_sockets"
+group = "Socket_2_FPGASID"
 key = "FPGASID 2 SID2 Register Delay"
-label = "FPGASID 2: SID2 register delay"
+label = "SID2: register delay"
 list = "fs_chips"
 default = 0
 when = "live"
@@ -1668,9 +1815,9 @@ apply = "u64.fx_fsid"
 show_state = "u64.fsid2_uid"
 
 [[core_setting]]
-group = "SID_sockets"
+group = "Socket_2_FPGASID"
 key = "FPGASID 2 SID2 Register Read Back"
-label = "FPGASID 2: SID2 register read back"
+label = "SID2: register read back"
 list = "fs_readbacks"
 default = 0
 when = "live"
@@ -1678,9 +1825,9 @@ apply = "u64.fx_fsid"
 show_state = "u64.fsid2_uid"
 
 [[core_setting]]
-group = "SID_sockets"
+group = "Socket_2_FPGASID"
 key = "FPGASID 2 SID2 EXT IN Source"
-label = "FPGASID 2: SID2 EXT IN source"
+label = "SID2: EXT IN source"
 list = "fs_extins"
 default = 0
 when = "live"
@@ -1688,9 +1835,9 @@ apply = "u64.fx_fsid"
 show_state = "u64.fsid2_uid"
 
 [[core_setting]]
-group = "SID_sockets"
+group = "Socket_2_FPGASID"
 key = "FPGASID 2 SID2 DigiFix Value"
-label = "FPGASID 2: SID2 DigiFix value (8580)"
+label = "SID2: DigiFix value (8580)"
 range = [-128, 127]
 unit = ""
 default = 0
@@ -1699,9 +1846,9 @@ apply = "u64.fx_fsid"
 show_state = "u64.fsid2_uid"
 
 [[core_setting]]
-group = "SID_sockets"
+group = "Socket_2_FPGASID"
 key = "FPGASID 2 SID2 6581 Filter Bias"
-label = "FPGASID 2: SID2 6581 filter bias"
+label = "SID2: 6581 filter bias"
 range = [-8, 7]
 unit = ""
 default = 0
@@ -1710,46 +1857,138 @@ apply = "u64.fx_fsid"
 show_state = "u64.fsid2_uid"
 
 [[core_setting]]
-group = "SID_sockets"
+group = "Socket_2_FPGASID"
 key = "FPGASID 2 SID2 Enabled Voices"
-label = "FPGASID 2: SID2 enabled voices"
+label = "SID2: enabled voices"
 list = "fs_voices"
 default = 0
 when = "live"
 apply = "u64.fx_fsid"
 show_state = "u64.fsid2_uid"
 
+[[core_setting]]
+group = "Socket_2_SwinSID"
+key = "SwinSID 2 Fundamental Mode"
+label = "Fundamental mode"
+list = "fs_chips"
+default = 0
+when = "live"
+apply = "u64.fx_chip"
+show_state = "u64.s2_swin"
+
+[[core_setting]]
+group = "Socket_2_SwinSID"
+key = "SwinSID 2 Pitch"
+label = "Pitch"
+list = "sw_pitch"
+default = 0
+when = "live"
+apply = "u64.fx_chip"
+show_state = "u64.s2_swin"
+
+[[core_setting]]
+group = "Socket_2_SwinSID"
+key = "SwinSID 2 Audio In"
+label = "Audio in"
+list = "sw_audio"
+default = 0
+when = "live"
+apply = "u64.fx_chip"
+show_state = "u64.s2_swin"
+
 [[node]]
-anchor = "F5/audio/SID_sockets"
+anchor = "F5/audio/Socket_2_ARMSID"
 kind = "state"
-state = "u64.fsid1_uid"
-label = "FPGASID 1: Unique ID"
-order = 310
-ui = { sub = "@u64.fsid1_uid", hide = "@u64.fsid1_none" }
+state = "u64.s2_armver"
+label = "Firmware version"
+order = 10
+ui = { sub = "@u64.s2_armver", hide = "@u64.s2_noarm" }
+
+[[core_setting]]
+group = "Socket_2_ARMSID"
+key = "ARMSID 2 Fundamental Mode"
+label = "Fundamental mode"
+list = "fs_chips"
+default = 0
+when = "live"
+apply = "u64.fx_chip"
+show_state = "u64.s2_arm"
+
+[[core_setting]]
+group = "Socket_2_ARMSID"
+key = "ARMSID 2 6581 Filter Strength"
+label = "6581 filter strength"
+list = "arm_filt6"
+default = 7
+when = "live"
+apply = "u64.fx_chip"
+show_state = "u64.s2_arm"
+
+[[core_setting]]
+group = "Socket_2_ARMSID"
+key = "ARMSID 2 6581 Lowest Filt Freq"
+label = "6581 lowest filter frequency"
+list = "arm_low6"
+default = 1
+when = "live"
+apply = "u64.fx_chip"
+show_state = "u64.s2_arm"
+
+[[core_setting]]
+group = "Socket_2_ARMSID"
+key = "ARMSID 2 8580 Highest Filt Freq"
+label = "8580 highest filter frequency"
+list = "arm_hi8"
+default = 3
+when = "live"
+apply = "u64.fx_chip"
+show_state = "u64.s2_arm"
+
+[[core_setting]]
+group = "Socket_2_ARMSID"
+key = "ARMSID 2 8580 Lowest Filt Freq"
+label = "8580 lowest filter frequency"
+list = "arm_low8"
+default = 3
+when = "live"
+apply = "u64.fx_chip"
+show_state = "u64.s2_arm"
+
+[[core_setting]]
+group = "Socket_2_PDsid"
+key = "PDsid 2 Emulation Mode"
+label = "Emulation mode"
+list = "fs_chips"
+default = 0
+when = "live"
+apply = "u64.fx_chip"
+show_state = "u64.s2_pd"
+
+[[core_setting]]
+group = "Socket_2_SidKick"
+key = "SidKick 2 Emulation Mode"
+label = "Emulation mode"
+list = "kick_modes"
+default = 0
+when = "live"
+apply = "u64.fx_chip"
+show_state = "u64.s2_kick"
 
 [[node]]
 anchor = "F5/audio/SID_sockets"
 kind = "state"
-state = "u64.fsid1_rev"
-label = "FPGASID 1: FPGA revision"
-order = 311
-ui = { sub = "@u64.fsid1_rev", hide = "@u64.fsid1_none" }
+state = "u64.sid1_type"
+label = "Socket 1 detected chip"
+order = 201
+ui = { sub = "@u64.sid1_type" }
 
 [[node]]
 anchor = "F5/audio/SID_sockets"
 kind = "state"
-state = "u64.fsid2_uid"
-label = "FPGASID 2: Unique ID"
-order = 320
-ui = { sub = "@u64.fsid2_uid", hide = "@u64.fsid2_none" }
-
-[[node]]
-anchor = "F5/audio/SID_sockets"
-kind = "state"
-state = "u64.fsid2_rev"
-label = "FPGASID 2: FPGA revision"
-order = 321
-ui = { sub = "@u64.fsid2_rev", hide = "@u64.fsid2_none" }
+state = "u64.sid2_type"
+label = "Socket 2 detected chip"
+order = 202
+ui = { sub = "@u64.sid2_type" }
 
 [[core_setting]]
 group = "Emulated_SIDs"
