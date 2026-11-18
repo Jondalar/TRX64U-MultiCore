@@ -1,6 +1,6 @@
 // Network (T104.2 UI): the wired interface and the services that run on Gideon's network stack (config stores "Ethernet Settings" and "Network Settings"), and the Wi-Fi of the
-// ESP32 control module. The wired values are this core's settings (the .cfg); net.fx pushes them into Gideon's stores at the start and at every change - never into the
-// flash (the stores are not written). The WiFi's own settings are the host's (T184 D3): the core reads its state here and switches the radio.
+// ESP32 control module. The wired and the WiFi address values are this core's settings (the .cfg); net.fx pushes them into Gideon's stores at the start and at every change - never into the
+// flash (the stores are not written). The WiFi's access point is the host's (T184 D3): the core reads its state here and switches the radio.
 #include "netops.h"
 #include "ops_glue.h"
 #include "trx64u_ops.h"
@@ -9,6 +9,7 @@
 #include "config.h"
 #include "network_config.h"
 #include "network_interface.h"
+#include "netsvc.h"
 #include "u64.h"
 #include "socket.h"
 #include "netdb.h"
@@ -35,27 +36,44 @@ static int fx_net(CoreCtx *c, const OpArgs &, OpOut &o)
         snprintf(o.msg, o.msglen, "The network stack is not up");
         return OPE_OK;
     }
-    eth->set_value(CFG_NET_DHCP_EN, cfg_value(c, "Use DHCP", 1));
-    push_text(eth, CFG_NET_IP, cfg_text(c, "Static IP"));
-    push_text(eth, CFG_NET_NETMASK, cfg_text(c, "Static Netmask"));
-    push_text(eth, CFG_NET_GATEWAY, cfg_text(c, "Static Gateway"));
-    push_text(eth, CFG_NET_DNS, cfg_text(c, "Static DNS"));
-    push_text(net, CFG_NETWORK_HOSTNAME, cfg_text(c, "Host Name"));
-    push_text(net, CFG_NETWORK_PASSWORD, cfg_text(c, "Network Password"));
-    push_text(net, CFG_NETWORK_UNIQUE_ID, cfg_text(c, "Unique ID"));
-    push_text(net, CFG_NETWORK_REMOTE_SYSLOG_SERVER, cfg_text(c, "Log to Syslog Server"));
-    net->set_value(CFG_NETWORK_ULTIMATE_IDENT_SERVICE, cfg_value(c, "Ultimate Ident Service", 1));
-    net->set_value(CFG_NETWORK_ULTIMATE_DMA_SERVICE, cfg_value(c, "Ultimate DMA Service", 1));
-    net->set_value(CFG_NETWORK_TELNET_SERVICE, cfg_value(c, "Telnet Remote Menu Service", 1));
-    net->set_value(CFG_NETWORK_FTP_SERVICE, cfg_value(c, "FTP File Service", 1));
-    net->set_value(CFG_NETWORK_HTTP_SERVICE, cfg_value(c, "Web Remote Control Service", 1));
-    net->set_value(CFG_NETWORK_NTP_EN, cfg_value(c, "SNTP Enable", 1));
-    net->set_value(CFG_NETWORK_NTP_ZONE, cfg_value(c, "TimeZone", 16));
-    push_text(net, CFG_NETWORK_NTP_SRV1, cfg_text(c, "Time Server 1"));
-    push_text(net, CFG_NETWORK_NTP_SRV2, cfg_text(c, "Time Server 2"));
-    push_text(net, CFG_NETWORK_NTP_SRV3, cfg_text(c, "Time Server 3"));
+    // R21: a value is pushed only when the core's settings have its key (Settings::find >= 0). net.fx runs for every core; one that does not list a key must not
+    // overwrite the stack with the key's default (the MultiCore host's WiFi settings, T184 D3, are read by hostwifi_load at run.cc:480, before the first net.fx).
+    auto has = [&](const char *k) { return c->settings && c->settings->find(k) >= 0; };
+    auto val = [&](ConfigStore *st, uint8_t id, const char *k, int def) { if (has(k)) st->set_value(id, cfg_value(c, k, def)); };
+    auto txt = [&](ConfigStore *st, uint8_t id, const char *k) { if (has(k)) push_text(st, id, cfg_text(c, k)); };
+    val(eth, CFG_NET_DHCP_EN, "Use DHCP", 1);
+    txt(eth, CFG_NET_IP, "Static IP");
+    txt(eth, CFG_NET_NETMASK, "Static Netmask");
+    txt(eth, CFG_NET_GATEWAY, "Static Gateway");
+    txt(eth, CFG_NET_DNS, "Static DNS");
+    txt(net, CFG_NETWORK_HOSTNAME, "Host Name");
+    txt(net, CFG_NETWORK_PASSWORD, "Network Password");
+    txt(net, CFG_NETWORK_UNIQUE_ID, "Unique ID");
+    txt(net, CFG_NETWORK_REMOTE_SYSLOG_SERVER, "Log to Syslog Server");
+    val(net, CFG_NETWORK_ULTIMATE_IDENT_SERVICE, "Ultimate Ident Service", 1);
+    val(net, CFG_NETWORK_ULTIMATE_DMA_SERVICE, "Ultimate DMA Service", 1);
+    val(net, CFG_NETWORK_TELNET_SERVICE, "Telnet Remote Menu Service", 1);
+    val(net, CFG_NETWORK_FTP_SERVICE, "FTP File Service", 1);
+    val(net, CFG_NETWORK_HTTP_SERVICE, "Web Remote Control Service", 1);
+    val(net, CFG_NETWORK_NTP_EN, "SNTP Enable", 1);
+    val(net, CFG_NETWORK_NTP_ZONE, "TimeZone", 16);
+    txt(net, CFG_NETWORK_NTP_SRV1, "Time Server 1");
+    txt(net, CFG_NETWORK_NTP_SRV2, "Time Server 2");
+    txt(net, CFG_NETWORK_NTP_SRV3, "Time Server 3");
+    ConfigStore *wf = cm->find_store("WiFi settings");        // T228 R21 rows 52-56: the WiFi interface has its own store with the same five items (FW network_esp32.cc:47-51)
+    if (wf) {
+        val(wf, CFG_NET_DHCP_EN, "WiFi Use DHCP", 1);
+        txt(wf, CFG_NET_IP, "WiFi Static IP");
+        txt(wf, CFG_NET_NETMASK, "WiFi Static Netmask");
+        txt(wf, CFG_NET_GATEWAY, "WiFi Static Gateway");
+        txt(wf, CFG_NET_DNS, "WiFi Static DNS");
+    }
     eth->effectuate();
+    if (wf && has("WiFi Use DHCP")) {
+        wf->effectuate();
+    }
     net->effectuate();
+    netsvc_apply();
     return OPE_OK;
 }
 
@@ -145,6 +163,37 @@ static int op_wifi_toggle(CoreCtx *, const OpArgs &, OpOut &o)
     }
     snprintf(o.msg, o.msglen, on ? "WiFi is on" : "WiFi is off");
     return OPE_OK;
+}
+
+// T228 R21 #22, FW network_esp32.cc:41-45, 214-227: the WiFi actions. Disconnect, Connect to last AP and Forget APs are the driver's own calls (the driver runs them on
+// a task of their own; false = one is under way). Enter AP manually takes the name, the authentication and the password from the rows "WiFi AP ..." (FW asks for them
+// in three boxes, network_esp32.cc:259-300; the password is asked only for an authentication other than Open).
+static int wifi_started(bool ok, OpOut &o, const char *msg)
+{
+    if (!ok) {
+        snprintf(o.msg, o.msglen, "A WiFi action is under way already");
+        return OPE_FAILED;
+    }
+    snprintf(o.msg, o.msglen, "%s", msg);
+    return OPE_OK;
+}
+static int op_wifi_disconnect(CoreCtx *, const OpArgs &, OpOut &o) { return wifi_started(wifi_net_disconnect(), o, "Disconnecting"); }
+static int op_wifi_connect_last(CoreCtx *, const OpArgs &, OpOut &o) { return wifi_started(wifi_net_autoconnect(), o, "Connecting to the last access point"); }
+static int op_wifi_forget(CoreCtx *, const OpArgs &, OpOut &o) { return wifi_started(wifi_net_forget(), o, "The stored access points are erased"); }
+static int op_wifi_connect_manual(CoreCtx *c, const OpArgs &, OpOut &o)
+{
+    const char *ssid = cfg_text(c, "WiFi AP Name");
+    int auth = cfg_value(c, "WiFi AP Authentication", 0);
+    const char *pw = cfg_text(c, "WiFi AP Password");
+    if (!ssid[0]) {
+        snprintf(o.msg, o.msglen, "Set \"Access point name\" first");
+        return OPE_FAILED;
+    }
+    if (auth > 0 && !pw[0]) {
+        snprintf(o.msg, o.msglen, "Set \"Access point password\" first");
+        return OPE_FAILED;
+    }
+    return wifi_started(wifi_net_connect(ssid, auth > 0 ? pw : "", (uint8_t)auth, false), o, "Connecting");
 }
 
 // ---- the data streams: VIC, audio and the debug bus as UDP from the hardware (Gideon's DataStreamer, vendor/gideon/software/io/network/data_streamer.cc: the header of the
@@ -296,11 +345,18 @@ static const ArgSpec stream_arg[] = { ARG_INT("id", 0, 2) };
 static const ArgSpec value_arg[] = { ARG_INT("value", -2000, 2000) };
 
 static const char *st_net_static(CoreCtx *c) { return cfg_value(c, "Use DHCP", 1) ? 0 : "yes"; }
+static const char *st_pw_scope(CoreCtx *) { return "FTP and REST (X-Password header)"; }       // what net_password guards in this application; Telnet, DMA and ident join when they exist here
+static const char *st_wifi_static(CoreCtx *c) { return cfg_value(c, "WiFi Use DHCP", 1) ? 0 : "yes"; }
+
 void netops_register(OpRegistry &r)
 {
     r.contributor("net");
     r.add_op("net.fx", value_arg, 1, fx_net);
     r.add_op("wifi.toggle", 0, 0, op_wifi_toggle);
+    r.add_op("wifi.disconnect", 0, 0, op_wifi_disconnect);
+    r.add_op("wifi.connect_last", 0, 0, op_wifi_connect_last);
+    r.add_op("wifi.forget", 0, 0, op_wifi_forget);
+    r.add_op("wifi.connect_manual", 0, 0, op_wifi_connect_manual);
     r.add_state("net.eth_status", st_eth_status);
     r.add_state("net.eth_ip", st_eth_ip);
     r.add_state("net.eth_mac", st_eth_mac);
@@ -310,6 +366,8 @@ void netops_register(OpRegistry &r)
     r.add_state("wifi.onoff", st_wifi_onoff);
     r.add_state("wifi.line", st_wifi_line);
     r.add_state("net.static", st_net_static);
+    r.add_state("net.wifi_static", st_wifi_static);
+    r.add_state("net.pw_scope", st_pw_scope);
     r.add_op("stream.start", stream_arg, 1, op_stream_start);
     r.add_op("stream.stop", stream_arg, 1, op_stream_stop);
     r.add_state("stream.vic", st_stream0);

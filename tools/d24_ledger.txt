@@ -194,3 +194,6 @@ exception coreapp/cores/c64_cart.cc +6 T228-R20 (Alex 2026-11-18: "repair. It ha
 exception coreapp/src/trx64u_ops.cc +70 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
 exception coreapp/cores/trx64u/menu.toml +22 T228-R21 (Alex 2026-11-18: "repair. It has to work if it is there")
 exception coreapp/cores/trx64u/menu_rec.inc +14 T228-R21 (Alex 2026-11-18: "repair. It has to work if it is there")
+exception coreapp/src/trx64u_ops.cc +67 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
+exception coreapp/cores/trx64u/menu.toml +179 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
+exception coreapp/cores/trx64u/menu_rec.inc +170 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")

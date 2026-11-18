@@ -147,6 +147,10 @@ static void parse_head(HttpReq *q)
             char *v = strchr(p, ':') + 1;
             while (*v == ' ') v++;
             snprintf(q->tok_x, sizeof(q->tok_x), "%s", v);
+        } else if (ieq_prefix(p, "X-Password")) {
+            char *v = strchr(p, ':') + 1;
+            while (*v == ' ') v++;
+            snprintf(q->password, sizeof(q->password), "%s", v);
         } else if (ieq_prefix(p, "Transfer-Encoding")) {
             bad(q, 501);                                           // chunked requests are not read here
             return;

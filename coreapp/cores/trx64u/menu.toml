@@ -127,8 +127,8 @@ name = "System"
   id = "expert"
   name = "System"
   widget = "system"
-  groups = ["WiFi_and_Ethernet", "Services", "Streams", "FTP_hosts"]
-  ui = { pages = "Network_settings=WiFi_and_Ethernet+Services,Streams,FTP_hosts" }
+  groups = ["Ethernet", "WiFi", "Services", "Time_synchronization", "Streams", "FTP_hosts"]
+  ui = { pages = "Network_settings=Ethernet+WiFi+Services+Time_synchronization,Streams,FTP_hosts" }
   n = 1
 
 [[node]]
@@ -345,7 +345,7 @@ order = 402
 ui = { confirm = "Power off the board?", sub = "Switches the board off" }
 
 [[node]]
-anchor = "F8/expert/WiFi_and_Ethernet"
+anchor = "F8/expert/Ethernet"
 kind = "state"
 state = "net.eth_status"
 label = "Ethernet status"
@@ -353,7 +353,7 @@ order = 10
 ui = { sub = "@net.eth_status", chip = "@net.eth_ip" }
 
 [[node]]
-anchor = "F8/expert/WiFi_and_Ethernet"
+anchor = "F8/expert/Ethernet"
 kind = "state"
 state = "net.eth_mac"
 label = "Interface MAC"
@@ -361,7 +361,7 @@ order = 20
 ui = { sub = "@net.eth_mac" }
 
 [[node]]
-anchor = "F8/expert/WiFi_and_Ethernet"
+anchor = "F8/expert/WiFi"
 kind = "state"
 state = "wifi.state"
 label = "Wi-Fi status"
@@ -369,7 +369,7 @@ order = 30
 ui = { sub = "@wifi.state" }
 
 [[node]]
-anchor = "F8/expert/WiFi_and_Ethernet"
+anchor = "F8/expert/WiFi"
 kind = "state"
 state = "wifi.ssid"
 label = "Wi-Fi network"
@@ -377,12 +377,52 @@ order = 31
 ui = { sub = "@wifi.ssid" }
 
 [[node]]
-anchor = "F8/expert/WiFi_and_Ethernet"
+anchor = "F8/expert/WiFi"
 kind = "state"
 state = "wifi.ip"
 label = "Wi-Fi address"
 order = 32
 ui = { sub = "@wifi.ip" }
+
+[[node]]
+anchor = "F8/expert/Services"
+kind = "state"
+state = "net.pw_scope"
+label = "Network password protects"
+order = 40
+ui = { sub = "@net.pw_scope" }
+
+[[node]]
+anchor = "F8/expert/WiFi"
+kind = "op"
+label = "Connect to last access point"
+op = "wifi.connect_last"
+order = 40
+ui = { sub = "Connects to the access point used last" }
+
+[[node]]
+anchor = "F8/expert/WiFi"
+kind = "op"
+label = "Connect to the access point above"
+op = "wifi.connect_manual"
+order = 41
+ui = { sub = "Uses the name, authentication and password above" }
+
+[[node]]
+anchor = "F8/expert/WiFi"
+kind = "op"
+label = "Disconnect"
+op = "wifi.disconnect"
+order = 42
+ui = { sub = "Leaves the access point" }
+
+[[node]]
+anchor = "F8/expert/WiFi"
+kind = "op"
+label = "Forget access points"
+op = "wifi.forget"
+order = 43
+ui = { confirm = "Erase all stored access points?", sub = "The module forgets every stored access point" }
 
 [[node]]
 anchor = "F8/expert/Streams"
@@ -886,6 +926,8 @@ period_ms = 16
 [lists]
 scanres_auto =["Auto", "SD (480p/576p)", "HD (720p)", "FullHD (1080p)", "PC 800 x 600", "PC 1024 x 768", "PC 1280 x 1024"]
 en_dis = ["Disabled", "Enabled"]
+wifi_auth = ["Open", "WEP", "WPA PSK", "WPA2 PSK", "WPA/WPA2 PSK", "WPA2 Enterprise", "WPA3 PSK", "WPA2/WPA3 PSK", "WAPI PSK"]
+time_zones = ["US Baker Island", "America Samoa", "Hawaii", "French Polynesia", "Alaska", "Los Angeles", "Denver, Colorado", "Phoenix, Arizona", "Chicago, Illinois", "New York", "Argentina", "Newfoundland", "Greenland", "Cabo Verde", "Iceland", "UK", "Western Europe", "Greece", "Azerbaijan", "Iran", "Pakistan", "India", "Nepal", "Bangladesh", "Myanmar", "Indonesia", "China", "Western Australia", "Japan", "Central Australia", "Eastern Australia", "Lord Howe Island", "Solomon Islands", "New Zealand", "Chatham Islands", "Tonga", "Christmas Island"]
 yes_no = ["No", "Yes"]
 menu_opens = ["Home (F1)", "Last screen"]
 off_ask_auto = ["Off", "Ask", "Auto"]
@@ -1646,7 +1688,7 @@ when = "live"
 apply = "ring.fx"
 
 [[core_setting]]
-group = "WiFi_and_Ethernet"
+group = "Ethernet"
 key = "Use DHCP"
 list = "en_dis"
 default = 1
@@ -1654,7 +1696,7 @@ when = "live"
 apply = "net.fx"
 
 [[core_setting]]
-group = "WiFi_and_Ethernet"
+group = "Ethernet"
 key = "Static IP"
 show_state = "net.static"
 text = true
@@ -1663,7 +1705,7 @@ maxlen = 15
 apply = "net.fx"
 
 [[core_setting]]
-group = "WiFi_and_Ethernet"
+group = "Ethernet"
 key = "Static Netmask"
 label = "Static netmask"
 show_state = "net.static"
@@ -1673,7 +1715,7 @@ maxlen = 15
 apply = "net.fx"
 
 [[core_setting]]
-group = "WiFi_and_Ethernet"
+group = "Ethernet"
 key = "Static Gateway"
 label = "Static gateway"
 show_state = "net.static"
@@ -1683,7 +1725,7 @@ maxlen = 15
 apply = "net.fx"
 
 [[core_setting]]
-group = "WiFi_and_Ethernet"
+group = "Ethernet"
 key = "Static DNS"
 show_state = "net.static"
 text = true
@@ -1692,12 +1734,98 @@ maxlen = 15
 apply = "net.fx"
 
 [[core_setting]]
+group = "WiFi"
+key = "WiFi Use DHCP"
+label = "Use DHCP"
+list = "en_dis"
+default = 1
+when = "live"
+apply = "net.fx"
+
+[[core_setting]]
+group = "WiFi"
+key = "WiFi Static IP"
+label = "Static IP"
+show_state = "net.wifi_static"
+text = true
+default = "192.168.2.64"
+maxlen = 15
+apply = "net.fx"
+
+[[core_setting]]
+group = "WiFi"
+key = "WiFi Static Netmask"
+label = "Static netmask"
+show_state = "net.wifi_static"
+text = true
+default = "255.255.255.0"
+maxlen = 15
+apply = "net.fx"
+
+[[core_setting]]
+group = "WiFi"
+key = "WiFi Static Gateway"
+label = "Static gateway"
+show_state = "net.wifi_static"
+text = true
+default = "192.168.2.1"
+maxlen = 15
+apply = "net.fx"
+
+[[core_setting]]
+group = "WiFi"
+key = "WiFi Static DNS"
+label = "Static DNS"
+show_state = "net.wifi_static"
+text = true
+default = "8.8.8.8"
+maxlen = 15
+apply = "net.fx"
+
+[[core_setting]]
+group = "WiFi"
+key = "WiFi AP Name"
+label = "Access point name"
+text = true
+default = ""
+maxlen = 32
+apply = "settings.noop"
+
+[[core_setting]]
+group = "WiFi"
+key = "WiFi AP Authentication"
+label = "Access point authentication"
+list = "wifi_auth"
+default = 3
+when = "live"
+apply = "settings.noop"
+
+[[core_setting]]
+group = "WiFi"
+key = "WiFi AP Password"
+label = "Access point password"
+empty = "Not set"
+secret = true
+default = ""
+maxlen = 62
+apply = "settings.noop"
+
+[[core_setting]]
 group = "Services"
 key = "Host Name"
 label = "Host name"
 text = true
 default = ""
 maxlen = 31
+apply = "net.fx"
+
+[[core_setting]]
+group = "Services"
+key = "Unique ID"
+label = "Unique ID"
+text = true
+default = "Default"
+maxlen = 16
 apply = "net.fx"
 
 [[core_setting]]
@@ -1712,11 +1840,84 @@ apply = "net.fx"
 
 [[core_setting]]
 group = "Services"
+key = "Ultimate Ident Service"
+label = "Ultimate ident service"
+list = "en_dis"
+default = 1
+when = "live"
+apply = "net.fx"
+
+[[core_setting]]
+group = "Services"
+key = "Web Remote Control Service"
+label = "Web remote control service"
+list = "en_dis"
+default = 1
+when = "live"
+apply = "net.fx"
+
+[[core_setting]]
+group = "Services"
 key = "FTP File Service"
 label = "FTP file service"
 list = "en_dis"
 default = 1
 when = "live"
+apply = "net.fx"
+
+[[core_setting]]
+group = "Services"
+key = "Log to Syslog Server"
+label = "Log to syslog server"
+text = true
+empty = "Not set"
+default = ""
+maxlen = 31
+apply = "net.fx"
+
+[[core_setting]]
+group = "Time_synchronization"
+key = "SNTP Enable"
+label = "SNTP enable"
+list = "en_dis"
+default = 1
+when = "live"
+apply = "net.fx"
+
+[[core_setting]]
+group = "Time_synchronization"
+key = "TimeZone"
+label = "Time zone"
+list = "time_zones"
+default = 16
+when = "live"
+apply = "net.fx"
+
+[[core_setting]]
+group = "Time_synchronization"
+key = "Time Server 1"
+label = "Time server 1"
+text = true
+default = "time.windows.com"
+maxlen = 31
+apply = "net.fx"
+
+[[core_setting]]
+group = "Time_synchronization"
+key = "Time Server 2"
+label = "Time server 2"
+text = true
+default = "time.google.com"
+maxlen = 31
+apply = "net.fx"
+
+[[core_setting]]
+group = "Time_synchronization"
+key = "Time Server 3"
+label = "Time server 3"
+text = true
+default = "pool.ntp.org"
+maxlen = 31
 apply = "net.fx"
 
 [[core_setting]]

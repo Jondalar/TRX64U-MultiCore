@@ -107,6 +107,8 @@ SRCS_CC	 =  u64ii_init.cc \
 			usb_ms_cbi.cc \
 			keyboard_usb.cc \
 			network_config.cc \
+			sntp_time.cc \
+			syslog.cc \
 			network_interface.cc \
 			vfs.cc \
 			ftpd.cc \
@@ -251,6 +253,7 @@ SRCS_CC	 =  u64ii_init.cc \
 			a64_assembly.cc \
 			online.cc \
 			netops.cc \
+			netsvc.cc \
 			hostwifi.cc \
 			ringfile.cc \
 			libfiles.cc \
@@ -315,6 +318,7 @@ VPATH +=	$(PATH_SW)/../../vendor/gideon/software/io/audio
 VPATH +=	$(PATH_SW)/../../coreapp/src/trxmon
 VPATH +=	$(PATH_SW)/../../vendor/gideon/software/appsdk/include
 VPATH +=	$(PATH_SW)/httpd/c-version/lib
+VPATH +=	$(PATH_SW)/../../vendor/gideon/software/network
 
 SRCS_ASM =
 SRCS_ASMS = crt0.S port_asm.S
