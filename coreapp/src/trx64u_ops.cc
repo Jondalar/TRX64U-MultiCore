@@ -317,6 +317,8 @@ static int fx_drive_misc(CoreCtx *c, const OpArgs &, OpOut &o)
     d->set_twist(cfg_value(c, "Track Twist", 27));
     d->set_align(cfg_value(c, "GCR Save Align Tracks", 1) != 0);
     d->set_reset_with_c64(cfg_value(c, "Resets when C64 resets", 1) != 0);
+    d->set_freeze(cfg_value(c, "Freezes in menu", 1) != 0);            // c1541.cc:343-344: b2 of the reset register, written at the next drive reset
+    d->set_geos(cfg_value(c, "D64 Geos Copy Protection", 0));           // c1541.cc:599: the D64 -> GCR conversion of the next mount
     const char *rom = cfg_text(c, "ROM for 1541 mode");
     static char last_rom[64];                                       // the choice the drive has now; a change is applied at once, the other settings leave the ROM alone
     bool changed = strncmp(last_rom, rom, sizeof(last_rom) - 1) != 0;
@@ -335,6 +337,29 @@ static int fx_drive_misc(CoreCtx *c, const OpArgs &, OpOut &o)
             return OPE_FAILED;
         }
     }
+    return OPE_OK;
+}
+
+// F3 on a .bin / .64c of 8 KB: "Load Kernal" - the file goes into the KERNAL window for this session only, nothing is stored, and the machine resets
+// (TRX-Ultimate filetype_bin.cc:95, 242-257: C64_SET_KERNAL, then MENU_C64_RESET). "Reload ROMs, reset" brings the chosen / built-in KERNAL back.
+static int op_load_kernal(CoreCtx *c, const OpArgs &a, OpOut &o)
+{
+    static uint8_t buf[C64_KERNAL_BYTES];
+    int n = c->fs->load(a.s(0), buf, sizeof(buf));
+    if (n != (int)C64_KERNAL_BYTES) {
+        snprintf(o.msg, o.msglen, "%s: a KERNAL is %u bytes", a.s(0), (unsigned)C64_KERNAL_BYTES);
+        return OPE_FAILED;
+    }
+    OpIn in[1] = { in_blob("data", buf, C64_KERNAL_BYTES) };
+    OpResult r;
+    if (ops_call(c, "c64.put_kernal", in, 1, &r)) {
+        snprintf(o.msg, o.msglen, "%s", r.msg);
+        return OPE_FAILED;
+    }
+    if (boot_cold_reset(c, o.msg, o.msglen)) {
+        return OPE_FAILED;
+    }
+    snprintf(o.msg, o.msglen, "KERNAL from %s for this session, machine restarted", a.s(0));
     return OPE_OK;
 }
 
@@ -672,6 +697,7 @@ void trx64u_register(OpRegistry &r)
     r.add_op("machine.after_roms", 0, 0, op_after_roms);
     r.add_op("drive.set_rom_store", path_arg, 1, op_set_rom_store);
     r.add_op("drive.unlink", 0, 0, op_unlink);
+    r.add_op("c64.load_kernal", path_arg, 1, op_load_kernal);
     r.add_state("reu.on", state_reu_on);
     r.add_state("c64.cartridge", state_cartridge);
     r.add_state("c64.cartridge_path", state_cartridge_path);

@@ -768,6 +768,12 @@ ext = ".rom"
   key = "S"
   op = "drive.set_rom_store"
   bind = [ { arg = "path", file = true } ]
+  [[filetype.action]]
+  label = "Load Drive ROM"
+  key = "L"
+  op = "drive.set_rom"
+  bind = [ { arg = "slot", str = "iec:drive_a" }, { arg = "path", file = true } ]
+  size_in = [16384, 32768]
 
 # A cartridge stays in the port until "Remove Cartridge": the Reset task starts it again (c64_cart.cc)
 [[filetype]]
@@ -842,6 +848,19 @@ ext = ".bin"
   op = "c64.set_rom"
   bind = [ { arg = "path", file = true }, { arg = "which", int = 2 } ]
   size_in = [4096]
+  [[filetype.action]]
+  label = "Load Kernal"
+  key = "L"
+  op = "c64.load_kernal"
+  bind = [ { arg = "path", file = true } ]
+  size_in = [8192]
+  closes_menu = true
+  [[filetype.action]]
+  label = "Load Drive ROM"
+  key = "D"
+  op = "drive.set_rom"
+  bind = [ { arg = "slot", str = "iec:drive_a" }, { arg = "path", file = true } ]
+  size_in = [16384, 32768]
 
 [[filetype]]
 ext = ".64c"
@@ -851,6 +870,13 @@ ext = ".64c"
   op = "c64.set_rom"
   bind = [ { arg = "path", file = true }, { arg = "which", int = 0 } ]
   size_in = [8192]
+  [[filetype.action]]
+  label = "Load Kernal"
+  key = "L"
+  op = "c64.load_kernal"
+  bind = [ { arg = "path", file = true } ]
+  size_in = [8192]
+  closes_menu = true
 
 [[filetype]]
 ext = ".c64re"
@@ -914,6 +940,7 @@ cartmodes = ["Auto", "Internal", "External", "Manual"]
 sharing = ["Internal", "External"]
 gameexrom = ["On", "Off"]
 geo = ["Disabled", "Enabled"]
+geos = ["None", "Gaps", "Track 36", "Both"]
 reusize = ["128 KB", "256 KB", "512 KB", "1 MB", "2 MB", "4 MB", "8 MB", "16 MB"]
 reuoffs = ["0 KB", "128 KB", "256 KB", "512 KB", "1 MB", "2 MB", "4 MB", "8 MB"]
 
@@ -1347,9 +1374,27 @@ maxlen = 60
 apply = "c64.fx_roms"
 
 [[core_setting]]
+group = "Hardware"
+key = "DMA Load Mimics ID"
+label = "DMA load mimics ID"
+range = [8, 31]
+unit = ""
+default = 8
+apply = "c64.fx_io"
+
+[[core_setting]]
 group = "Drive_A"
 key = "Resets when C64 resets"
 label = "Reset drive with C64"
+list = "yes_no"
+default = 1
+when = "live"
+apply = "drive.fx_misc"
+
+[[core_setting]]
+group = "Drive_A"
+key = "Freezes in menu"
+label = "Freeze drive in menu"
 list = "yes_no"
 default = 1
 when = "live"
@@ -1378,6 +1423,15 @@ key = "GCR Save Align Tracks"
 label = "GCR save align tracks"
 list = "yes_no"
 default = 1
+when = "live"
+apply = "drive.fx_misc"
+
+[[core_setting]]
+group = "Drive_extras"
+key = "D64 Geos Copy Protection"
+label = "D64 geos copy protection"
+list = "geos"
+default = 0
 when = "live"
 apply = "drive.fx_misc"
 
