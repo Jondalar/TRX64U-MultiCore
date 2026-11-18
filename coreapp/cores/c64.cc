@@ -14,6 +14,7 @@
 #include "c64_regs.h"
 #include "c64_go.h"
 #include "c64_cart.h"
+#include "appindex.h"                 // PRG_APP_OP
 #include "u64cfg.h"
 #include "ringops.h"
 #include "monitor.h"
@@ -505,6 +506,64 @@ static int op_set_rom(CoreCtx *c, const OpArgs &a, OpOut &o)
 }
 static int op_run(CoreCtx *c, const OpArgs &a, OpOut &o) { return queue_prg(c, J_RUN, a.s(0), 0, o.msg, o.msglen) ? OPE_FAILED : OPE_OK; }
 static int op_load(CoreCtx *c, const OpArgs &a, OpOut &o) { return queue_prg(c, J_LOAD, a.s(0), (uint16_t)a.i(1), o.msg, o.msglen) ? OPE_FAILED : OPE_OK; }
+// T228 R21 #14, FW user_file_interaction.cc:211-296 (S_runApp): the file goes into the REU's memory behind a 32 bit little-endian length (the length at 0, the bytes
+// from 4), then /Flash/apps/<ext>.prg - ext the first three characters of the file's extension - is run as "Run PRG" runs a file. The REU memory is the DDR2
+// window from 0 (reu_load in trx64u_ops.cc); a cartridge image in it refuses (FW :215).
+static int op_run_with_app(CoreCtx *c, const OpArgs &a, OpOut &o)
+{
+    const char *path = a.s(0);
+    const char *dot = strrchr(base_name(path), '.');
+    uint64_t sz = 0;
+    bool dir = false;
+    if (!dot || !dot[1] || !c->fs->stat(path, &sz, &dir) || dir) {
+        snprintf(o.msg, o.msglen, "No file %s", path);
+        return OPE_FAILED;
+    }
+    if (sz > 0x1000000u - 4) {
+        snprintf(o.msg, o.msglen, "The file is larger than the REU's memory");
+        return OPE_FAILED;
+    }
+    if (c64_cart_active()) {
+        snprintf(o.msg, o.msglen, "A cartridge uses the REU's memory: remove it first");
+        return OPE_FAILED;
+    }
+    char app[64];
+    app[0] = 0;
+    FsEntry r[6];
+    int nr = c->fs->list("/", r, 6);
+    for (int i = 0; i < nr && !app[0]; i++) {
+        if (!strcasecmp(r[i].name, "flash")) {
+            snprintf(app, sizeof(app), "/%s/apps/%.3s.prg", r[i].name, dot + 1);
+        }
+    }
+    uint64_t asz = 0;
+    if (!app[0] || !c->fs->stat(app, &asz, &dir) || dir) {
+        snprintf(o.msg, o.msglen, "There is no app for .%.3s files in the flash's apps folder", dot + 1);
+        return OPE_FAILED;
+    }
+    CoreFile *f = c->fs->open(path, false);
+    if (!f) {
+        snprintf(o.msg, o.msglen, "Cannot open %s", path);
+        return OPE_FAILED;
+    }
+    static uint8_t buf[0x10000];
+    uint32_t n = (uint32_t)sz;
+    bool ok = true;
+    for (uint32_t done = 0; ok && done < n;) {
+        uint32_t k = n - done < sizeof(buf) ? n - done : (uint32_t)sizeof(buf);
+        ok = f->read(done, buf, k);
+        c->io->ddr_write(4 + done, buf, k);
+        done += k;
+    }
+    c->fs->close(f);
+    if (!ok) {
+        snprintf(o.msg, o.msglen, "Cannot read %s (the medium is gone?)", path);
+        return OPE_FAILED;
+    }
+    uint8_t len[4] = { (uint8_t)n, (uint8_t)(n >> 8), (uint8_t)(n >> 16), (uint8_t)(n >> 24) };
+    c->io->ddr_write(0, len, 4);
+    return queue_prg(c, J_RUN, app, 0, o.msg, o.msglen) ? OPE_FAILED : OPE_OK;
+}
 // T104.1 D15, Mount & Run: reset, and type the script at READY (pieces of at most ten keys)
 static int op_type(CoreCtx *c, const OpArgs &a, OpOut &o)
 {
@@ -596,6 +655,7 @@ static void c64_register(OpRegistry &r)
     r.add_op("c64.put_char", rom_arg, 1, op_put_char);
     r.add_op("c64.set_freeze_mode", freeze_arg, 1, op_freeze_mode);
     r.add_op("c64.run_prg", run_args, 1, op_run);
+    r.add_op(PRG_APP_OP, run_args, 1, op_run_with_app);
     r.add_op("c64.load_prg", load_args, 2, op_load);
     r.add_op("c64.run_crt", run_args, 1, op_run_crt);
     r.add_op("c64.dma_prg", run_args, 1, op_dma);

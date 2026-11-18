@@ -555,6 +555,9 @@ int LibLoader::load(LibSource *src, int *handle, char *err, int errlen)
             }
             continue;
         }
+        if (!strcmp(nd.name, "standalone")) {
+            continue;                                         // not a library: AppIndex offers such an application only off the MultiCore host (T228 DC1)
+        }
         const Slot *dep = find(nd.name);
         if (!dep) {
             return fail(LIB_NEEDS, err, errlen, "\"%s\" needs \"%s\" %s, which is not loaded.", name, nd.name, vw);

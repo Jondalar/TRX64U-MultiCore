@@ -24,6 +24,9 @@
 #define APP_PATH_MAX 200
 #define LIBS_MAX 4                        // T197: libraries found in the same folders (miniz), kept as a name, a version, a path and a size
 #define APP_WORK_BYTES (64u * 1024u)      // T197 P4: what a running application needs from the heap beside its image (miniz's inflate state and window, a zip directory, buffers)
+#define PRG_APPS_MAX 16                   // T228 R21 #14: the <ext>.prg files of the flash's apps folder that the library offers as "Run with App" (FW user_file_interaction.cc:55-76)
+#define PRG_APP_OP "files.run_with_app"   // the operation a core registers to take them; a core without it gets no such action
+#define PRG_APP_NEED "standalone"         // an application that names this need is offered only when the board is not the MultiCore host (T228 DC1); it is not a library
 #define APP_AREA "APP"                    // the key of the area an application's own route is made of
 
 struct AppEntry {
@@ -35,6 +38,7 @@ struct AppEntry {
     DescRecord *menu;                     // the menu record the file carries; null: none
     uint8_t *menu_bytes;
     LibRecord host;                       // what joins the core's menu: file actions, settings and the nodes anchored in the core's own route
+    bool standalone_only;                 // PRG_APP_NEED
     LibRecord screens;                    // the application's own nodes, anchored in "APP"
     LibNodeDecl *nodes;                   // both halves of the node list, host first
     bool has_screens;                     // the record gives the application a route of its own
@@ -94,7 +98,13 @@ public:
     bool prepare_open(CoreFs *fs, LibLoader *ld, const AppEntry &a, char *err, int errlen) const;
 
     // The contributors for the menu merge: one per application whose record has something for the core's menu (rank CR_APP, by name).
+    // At most APPS_MAX + 1 contributors (the applications, then the flash's .prg apps).
     int contributors(Contributor *out, int max) const;
+    // T228 DC1: under the MultiCore host the applications that need PRG_APP_NEED are not offered. Set before scan().
+    void set_multicore(bool mc) { multicore_ = mc; }
+    // T228 R21 #14: scan() lists <flash>/apps/*.prg and offers each as "Run with App" for the files of its extension. Set before scan(), and only when the core registered PRG_APP_OP.
+    void set_prg_apps(bool on) { prg_on_ = on; }
+    int nprg() const { return nprg_; }
 
 private:
     bool read_file(CoreFs *fs, const char *path, AppEntry &a, LibLog *log, LibFile *lib = 0);
@@ -107,6 +117,15 @@ private:
     uint32_t sig_;
     AppEntry extra_;
     bool has_extra_;
+    bool multicore_ = false;
+    bool prg_on_ = false;
+    void scan_prg(CoreFs *fs, FsEntry *e);
+    int nprg_ = 0;
+    char prg_ext_[PRG_APPS_MAX][8];
+    const char *prg_extp_[PRG_APPS_MAX];
+    OpBind prg_bind_[1];
+    LibFileActionDecl prg_fa_[PRG_APPS_MAX];
+    LibRecord prg_rec_;
 };
 
 // A LibSource over a CoreFile (the file stays open as long as the source is used).

@@ -202,6 +202,7 @@ exception coreapp/src/ringops.cc +42 T228-R20 (Alex 2026-11-18: "repair. It has 
 exception coreapp/src/trx_c64re.h +15 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
 exception coreapp/src/trx_ring.h +3 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
 exception coreapp/cores/c64.cc +8 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
+exception coreapp/cores/c64.cc +64 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
 exception coreapp/cores/c64_cart.cc +6 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
 exception coreapp/src/trx64u_ops.cc +70 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
 exception coreapp/cores/trx64u/menu.toml +22 T228-R21 (Alex 2026-11-18: "repair. It has to work if it is there")

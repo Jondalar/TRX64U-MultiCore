@@ -651,6 +651,8 @@ def compile_desc(doc, merged=()):
                 kv = uit.get(kk)
                 if kv is None:
                     continue
+                if kk == "key" and anchor.startswith("APP/") and re.fullmatch(r"F[1-8]", kv):      # an application's own screen names its function keys ("F3 DUMP" in the foot, menuctl.cc)
+                    continue
                 if not (len(kv) == 1 and kv.isalpha() and kv == kv.upper()):
                     raise DescError("node %s: ui %s is one upper case letter (digits and the F keys belong to the navigation)" % (label, kk))
                 if kv in page_keys.setdefault(page, {}):
