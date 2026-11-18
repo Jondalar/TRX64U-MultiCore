@@ -127,8 +127,8 @@ name = "System"
   id = "expert"
   name = "System"
   widget = "system"
-  groups = ["WiFi_and_Ethernet", "Services", "Streams", "FTP_hosts"]
-  ui = { pages = "Network_settings=WiFi_and_Ethernet+Services,Streams,FTP_hosts" }
+  groups = ["Ethernet", "WiFi", "Services", "Streams", "FTP_hosts"]
+  ui = { pages = "Network_settings=Ethernet+WiFi+Services,Streams,FTP_hosts" }
   n = 1
 
 [[node]]
@@ -345,7 +345,7 @@ order = 402
 ui = { confirm = "Power off the board?", sub = "Switches the board off" }
 
 [[node]]
-anchor = "F8/expert/WiFi_and_Ethernet"
+anchor = "F8/expert/Ethernet"
 kind = "state"
 state = "net.eth_status"
 label = "Ethernet status"
@@ -353,7 +353,7 @@ order = 10
 ui = { sub = "@net.eth_status", chip = "@net.eth_ip" }
 
 [[node]]
-anchor = "F8/expert/WiFi_and_Ethernet"
+anchor = "F8/expert/Ethernet"
 kind = "state"
 state = "net.eth_mac"
 label = "Interface MAC"
@@ -361,7 +361,7 @@ order = 20
 ui = { sub = "@net.eth_mac" }
 
 [[node]]
-anchor = "F8/expert/WiFi_and_Ethernet"
+anchor = "F8/expert/WiFi"
 kind = "state"
 state = "wifi.state"
 label = "Wi-Fi status"
@@ -369,7 +369,7 @@ order = 30
 ui = { sub = "@wifi.state" }
 
 [[node]]
-anchor = "F8/expert/WiFi_and_Ethernet"
+anchor = "F8/expert/WiFi"
 kind = "state"
 state = "wifi.ssid"
 label = "Wi-Fi network"
@@ -377,7 +377,7 @@ order = 31
 ui = { sub = "@wifi.ssid" }
 
 [[node]]
-anchor = "F8/expert/WiFi_and_Ethernet"
+anchor = "F8/expert/WiFi"
 kind = "state"
 state = "wifi.ip"
 label = "Wi-Fi address"
@@ -1621,7 +1621,7 @@ when = "live"
 apply = "ring.fx"
 
 [[core_setting]]
-group = "WiFi_and_Ethernet"
+group = "Ethernet"
 key = "Use DHCP"
 list = "en_dis"
 default = 1
@@ -1629,7 +1629,7 @@ when = "live"
 apply = "net.fx"
 
 [[core_setting]]
-group = "WiFi_and_Ethernet"
+group = "Ethernet"
 key = "Static IP"
 show_state = "net.static"
 text = true
@@ -1638,7 +1638,7 @@ maxlen = 15
 apply = "net.fx"
 
 [[core_setting]]
-group = "WiFi_and_Ethernet"
+group = "Ethernet"
 key = "Static Netmask"
 label = "Static netmask"
 show_state = "net.static"
@@ -1648,7 +1648,7 @@ maxlen = 15
 apply = "net.fx"
 
 [[core_setting]]
-group = "WiFi_and_Ethernet"
+group = "Ethernet"
 key = "Static Gateway"
 label = "Static gateway"
 show_state = "net.static"
@@ -1658,9 +1658,58 @@ maxlen = 15
 apply = "net.fx"
 
 [[core_setting]]
-group = "WiFi_and_Ethernet"
+group = "Ethernet"
 key = "Static DNS"
 show_state = "net.static"
+text = true
+default = "8.8.8.8"
+maxlen = 15
+apply = "net.fx"
+
+[[core_setting]]
+group = "WiFi"
+key = "WiFi Use DHCP"
+label = "Use DHCP"
+list = "en_dis"
+default = 1
+when = "live"
+apply = "net.fx"
+
+[[core_setting]]
+group = "WiFi"
+key = "WiFi Static IP"
+label = "Static IP"
+show_state = "net.wifi_static"
+text = true
+default = "192.168.2.64"
+maxlen = 15
+apply = "net.fx"
+
+[[core_setting]]
+group = "WiFi"
+key = "WiFi Static Netmask"
+label = "Static netmask"
+show_state = "net.wifi_static"
+text = true
+default = "255.255.255.0"
+maxlen = 15
+apply = "net.fx"
+
+[[core_setting]]
+group = "WiFi"
+key = "WiFi Static Gateway"
+label = "Static gateway"
+show_state = "net.wifi_static"
+text = true
+default = "192.168.2.1"
+maxlen = 15
+apply = "net.fx"
+
+[[core_setting]]
+group = "WiFi"
+key = "WiFi Static DNS"
+label = "Static DNS"
+show_state = "net.wifi_static"
 text = true
 default = "8.8.8.8"
 maxlen = 15

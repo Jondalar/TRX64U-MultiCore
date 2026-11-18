@@ -1,6 +1,6 @@
 // Network (T104.2 UI): the wired interface and the services that run on Gideon's network stack (config stores "Ethernet Settings" and "Network Settings"), and the Wi-Fi of the
-// ESP32 control module. The wired values are this core's settings (the .cfg); net.fx pushes them into Gideon's stores at the start and at every change - never into the
-// flash (the stores are not written). The WiFi's own settings are the host's (T184 D3): the core reads its state here and switches the radio.
+// ESP32 control module. The wired and the WiFi address values are this core's settings (the .cfg); net.fx pushes them into Gideon's stores at the start and at every change - never into the
+// flash (the stores are not written). The WiFi's access point is the host's (T184 D3): the core reads its state here and switches the radio.
 #include "netops.h"
 #include "ops_glue.h"
 #include "trx64u_ops.h"
@@ -9,6 +9,7 @@
 #include "config.h"
 #include "network_config.h"
 #include "network_interface.h"
+#include "rest.h"
 #include "u64.h"
 #include "socket.h"
 #include "netdb.h"
@@ -54,7 +55,18 @@ static int fx_net(CoreCtx *c, const OpArgs &, OpOut &o)
     push_text(net, CFG_NETWORK_NTP_SRV1, cfg_text(c, "Time Server 1"));
     push_text(net, CFG_NETWORK_NTP_SRV2, cfg_text(c, "Time Server 2"));
     push_text(net, CFG_NETWORK_NTP_SRV3, cfg_text(c, "Time Server 3"));
+    ConfigStore *wf = cm->find_store("WiFi settings");        // T228 R21 rows 52-56: the WiFi interface has its own store with the same five items (FW network_esp32.cc:47-51)
+    if (wf) {
+        wf->set_value(CFG_NET_DHCP_EN, cfg_value(c, "WiFi Use DHCP", 1));
+        push_text(wf, CFG_NET_IP, cfg_text(c, "WiFi Static IP"));
+        push_text(wf, CFG_NET_NETMASK, cfg_text(c, "WiFi Static Netmask"));
+        push_text(wf, CFG_NET_GATEWAY, cfg_text(c, "WiFi Static Gateway"));
+        push_text(wf, CFG_NET_DNS, cfg_text(c, "WiFi Static DNS"));
+    }
     eth->effectuate();
+    if (wf) {
+        wf->effectuate();
+    }
     net->effectuate();
     return OPE_OK;
 }
@@ -296,8 +308,16 @@ static const ArgSpec stream_arg[] = { ARG_INT("id", 0, 2) };
 static const ArgSpec value_arg[] = { ARG_INT("value", -2000, 2000) };
 
 static const char *st_net_static(CoreCtx *c) { return cfg_value(c, "Use DHCP", 1) ? 0 : "yes"; }
+static const char *st_wifi_static(CoreCtx *c) { return cfg_value(c, "WiFi Use DHCP", 1) ? 0 : "yes"; }
+
+// T228 R21 row 58: the network password as REST asks for it (rest.h: rest_set_password_source), the same string FTP's PASS compares (ftpd.cc:515)
+static const char *net_password(void)
+{
+    return networkConfig.cfg->get_string(CFG_NETWORK_PASSWORD);
+}
 void netops_register(OpRegistry &r)
 {
+    rest_set_password_source(net_password);
     r.contributor("net");
     r.add_op("net.fx", value_arg, 1, fx_net);
     r.add_op("wifi.toggle", 0, 0, op_wifi_toggle);
@@ -310,6 +330,7 @@ void netops_register(OpRegistry &r)
     r.add_state("wifi.onoff", st_wifi_onoff);
     r.add_state("wifi.line", st_wifi_line);
     r.add_state("net.static", st_net_static);
+    r.add_state("net.wifi_static", st_wifi_static);
     r.add_op("stream.start", stream_arg, 1, op_stream_start);
     r.add_op("stream.stop", stream_arg, 1, op_stream_stop);
     r.add_state("stream.vic", st_stream0);
