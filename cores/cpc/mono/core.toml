@@ -10,7 +10,7 @@ delivery     = "cfw"           # a LARGE core since 2026-11-01 (T164 Q1: pb_l2 i
                                # large core"): this file is the only descriptor, no DFX lane; cores/cpc/mono/build_mono.tcl, lane large-cpc
 mono_env     = ["TRX_FEATURES=jtag"]   # the host features are the DFX build's (jtag on, UCI and UDP streams off)
 experimental = true            # application written; no board test passed (T92 #17)
-pipeline     = false           # T92 D-17e (Alex 2026-11-17): out of the pipeline, code stays
+pipeline     = true            # T233 D7: built on the T233 branch for the board test; main keeps false (T92 D-17e) until the board pass
 sources      = ["cores/cpc", "cores/zx/rtl", "cores/zx/gen", "cores/zx/shared"]
                                # the Z80 (rtl/T80, gen/t80pa.v), the AY (rtl/ym2149.sv) and shared/ are the Spectrum core's files: read here, never copied;
                                # a change to them rebuilds both cores. rtl/ula.sv is the Spectrum's alone but sits in the same directory and goes along.

@@ -361,6 +361,10 @@ const char *desc_check_with(const CoreDesc *d, const OpRegistry &reg)
             const char *why = check_call(reg, "media", m.name, m.eject_op, m.eject_bind, m.neject_bind, false);
             if (why) return why;
         }
+        // T92 D-17b: the labels the list's mount runs are found by name; a label that names no file action of the slot's type would drop to the action sheet unnoticed
+        if (m.mount && !desc_slot_action(d, m, m.mount)) return fail("media: \"%s\" mounts by \"%s\", which is no file action of its type", m.name, m.mount);
+        if (m.replace && !m.mount) return fail("media: \"%s\" has a replace action but no mount action", m.name);
+        if (m.replace && !desc_slot_action(d, m, m.replace)) return fail("media: \"%s\" replaces by \"%s\", which is no file action of its type", m.name, m.replace);
     }
     if (d->type_op) {
         const OpDef *o = reg.find_op(d->type_op);

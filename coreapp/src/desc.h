@@ -9,6 +9,7 @@
 
 #include <stdint.h>
 #include <string.h>
+#include <strings.h>
 #include "io.h"
 #include "fsif.h"
 #include "ops.h"
@@ -163,6 +164,8 @@ struct MediaSlot {
     const char *mounted_tasks;
     // T212 D11: the list's "Eject" closes the menu (the eject restarts the machine: the Atari's cartridge removal is a cold start)
     bool eject_closes;
+    // T92 D-17b: the label of the file action that replaces the file of a FILLED slot (null: `mount` serves both); `mount` then only fills an empty slot
+    const char *replace;
 };
 
 // ---- video, freeze (D9) -------------------------------------------------------------------------------------------------
@@ -346,6 +349,38 @@ static inline bool desc_has_capability(const CoreDesc *d, const char *cap)
 {
     for (int i = 0; d->caps && i < d->ncaps; i++) {
         if (!strcmp(d->caps[i], cap)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// T92 D-17b: the file action `label` of a type this slot takes (its `exts`, comma separated; null exts: any type); null when there is none.
+static inline const FileAction *desc_slot_action(const CoreDesc *d, const MediaSlot &m, const char *label)
+{
+    for (int i = 0; label && i < d->nfiletypes; i++) {
+        const FileType &ft = d->filetypes[i];
+        bool slot_type = !m.exts;
+        for (const char *p = m.exts; p && *p && !slot_type;) {
+            const char *e = strchr(p, ',');
+            size_t n = e ? (size_t)(e - p) : strlen(p);
+            slot_type = n == strlen(ft.ext) && !strncasecmp(p, ft.ext, n);
+            p = e ? e + 1 : 0;
+        }
+        for (int k = 0; slot_type && k < ft.nactions; k++) {
+            if (!strcmp(ft.actions[k].label, label)) {
+                return &ft.actions[k];
+            }
+        }
+    }
+    return 0;
+}
+
+// The action starts the machine afresh: it binds the argument `boot` to a value that is not 0 (the mount actions' own flag).
+static inline bool desc_action_boots(const FileAction &a)
+{
+    for (int i = 0; i < a.nbind; i++) {
+        if (a.bind[i].kind == BIND_INT && !strcmp(a.bind[i].arg, "boot") && a.bind[i].i) {
             return true;
         }
     }

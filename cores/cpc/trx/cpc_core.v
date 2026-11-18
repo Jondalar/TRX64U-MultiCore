@@ -246,14 +246,14 @@ module cpc_core #(
     end
     wire [31:0] sd_lba;
     wire [1:0]  sd_rd, sd_wr;
-    wire        sd_ack, sd_buff_wr, fdc_busy, fdc_oob, fdc_ui_busy;
+    wire        sd_ack, sd_buff_wr, fdc_busy, fdc_oob, fdc_ui_busy, sd_err;
     wire [8:0]  sd_buff_addr;
     wire [7:0]  sd_buff_dout, sd_buff_din;
     u765 fdc (
         .reset(board_reset), .clk_sys(sys_clk), .ce(ce_fdc), .ready(u765_ready), .motor({motor, motor}), .available(2'b11), .fast(1'b0),
         .a0(fdc_sel[0]), .nRD(~(u765_sel & io_rd)), .nWR(~(u765_sel & io_wr)), .din(cpu_dout), .dout(u765_dout),
         .img_mounted(img_mounted), .img_wp(img_wp), .img_size(img_size),
-        .sd_lba(sd_lba), .sd_rd(sd_rd), .sd_wr(sd_wr), .sd_ack(sd_ack),
+        .sd_lba(sd_lba), .sd_rd(sd_rd), .sd_wr(sd_wr), .sd_ack(sd_ack), .sd_err(sd_err),
         .sd_buff_addr(sd_buff_addr), .sd_buff_dout(sd_buff_dout), .sd_buff_din(sd_buff_din), .sd_buff_wr(sd_buff_wr)
     );
     wire [63:0] dirty0, dirty1;
@@ -266,7 +266,7 @@ module cpc_core #(
     cpc_fdc fdca (
         .clk(sys_clk), .rst(board_reset), .hold(1'b0),
         .sd_lba(sd_lba), .sd_rd(sd_rd), .sd_wr(sd_wr), .sd_ack(sd_ack), .sd_buff_addr(sd_buff_addr), .sd_buff_dout(sd_buff_dout),
-        .sd_buff_wr(sd_buff_wr), .sd_buff_din(sd_buff_din),
+        .sd_buff_wr(sd_buff_wr), .sd_buff_din(sd_buff_din), .sd_err(sd_err),
         .d0_base(d0b_l), .d0_size(d0s_l), .d1_base(d1b_l), .d1_size(d1s_l), .dirty0(dirty0), .dirty1(dirty1),
         .clr_tgl(r_clr_tgl), .clr_d(r_clr_d), .clr_i(r_clr_i), .clr_a(r_clr_a), .busy(fdc_busy), .oob(fdc_oob),
         .ui_clk(ui_clk), .ui_rst(ui_rst), .c_addr(f_addr), .c_cmd(f_cmd), .c_en(f_en), .c_rdy(f_rdy),

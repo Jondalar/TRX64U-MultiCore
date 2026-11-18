@@ -51,6 +51,7 @@ SCPU_ROM = bytes([0xEA]) * 0xFFFC + bytes([0x00, 0x80, 0x00, 0x00])        # T21
 
 ROMFILES = {"c64scpu": (("scpu64.rom", SCPU_ROM), ("basic.bin", 8192), ("kernal.bin", 8192), ("chars.bin", 4096)), "vc20": (("basic.bin", 8192), ("kernal.bin", 8192), ("char.bin", 4096)), "c128": (("c128.rom", 73728),),
             "atari800": (("ATARIXL.ROM", 16384), ("BASIC.ROM", 8192)),
+            "cpc": tuple((n, 16384) for n in ("os464.rom", "basic464.rom", "os664.rom", "basic664.rom", "os6128.rom", "basic6128.rom", "amsdos.rom")),
             "pet": (("basic.bin", 12288), ("edit.bin", 2048), ("kernal.bin", 4096), ("chargen.bin", 4096), ("dos4040.bin", 12288), ("ctl4040.bin", 2048))}
 
 
@@ -70,7 +71,7 @@ def make_stick(stick, roms_dir, core="trx64u"):
     """The USB stick of the test machine: games/ with two disks and a program, roms/c64/ with the three ROMs of the emulator's firmware tree."""
     shutil.rmtree(stick, ignore_errors=True)
     os.makedirs(os.path.join(stick, "games"))
-    if core in ("amiga1200", "vc20", "c128", "atari800", "pet", "c64scpu"):
+    if core in ("amiga1200", "vc20", "c128", "atari800", "pet", "c64scpu", "cpc"):
         # the core folder (a blank Kickstart image stands in: no ROM is in the repository), two floppies and a program
         os.makedirs(os.path.join(stick, "cores", core, "roms"))
         with open(os.path.join(stick, "cores", core, "roms", "kick31.rom"), "wb") as f:
@@ -101,6 +102,10 @@ def make_stick(stick, roms_dir, core="trx64u"):
         if core in ("pet", "vc20", "c128", "c64scpu"):  # T206: a disk to run (the PET core mounts .d64); T212: the CBM cores mount one from their drive list; T217: a program inside a disk
             with open(os.path.join(stick, "games", "alpha.d64"), "wb") as f:
                 f.write(make_d64("ALPHA", "hello", HELLO_PRG))
+        if core == "cpc":                            # T92 #17: two disks for the F1 drive list (a blank CPCEMU image, nothing third-party)
+            for n in ("alpha.dsk", "beta.dsk"):
+                with open(os.path.join(stick, "games", n), "wb") as f:
+                    f.write(b"MV - CPCEMU Disk-File\r\nDisk-Info\r\n".ljust(256, b"\0") + bytes(40000))
         _big(stick, "adf")
         return
     if core == "snes":
