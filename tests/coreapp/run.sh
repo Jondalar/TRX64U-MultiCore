@@ -773,8 +773,8 @@ run cut test_cut.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc
 run uiapp test_uiapp.cc uiapp.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc amiga.cc nes.cc ines.cc libfiles.cc $SVC $ATARI
 
 # T162: the core application's bug report - sections, the descriptor's named registers (and no others), the file, GET /v1/report, no secrets
-CRSRC="$RESTSRC corereport.cc bugreport.cc amiga.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc"
-run corereport test_corereport.cc $CRSRC descrec.cc
+CRSRC="$RESTSRC corereport.cc bugreport.cc amiga.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc descrec.cc"   # descrec.cc: T228 R8
+run corereport test_corereport.cc $CRSRC
 control cr_overwrite corereport.cc 's|if (c->fs->stat(path, \&sz, \&dir)) {|if (false) {|' test_corereport.cc $CRSRC
 control cr_no_folder corereport.cc 's|if (c->fs->mkdir(dirs\[i\])) {|if (true) {|' test_corereport.cc $CRSRC
 control rs_setop settings_ops.cc 's/    bool saved = c->settings->set(i, v);/    bool saved = true; (void)v;/' test_rest.cc $RESTSRC
