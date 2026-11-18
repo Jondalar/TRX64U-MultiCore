@@ -1204,6 +1204,7 @@ poweron = ["Off", "On", "Last State"]
 ledsel = ["On", "Off", "Drive A Pwr", "DrvAPwr + DrvBPwr", "Drive A Act", "DrvAAct + DrvBAct", "DrvAPwr ^ DrvAAct", "USB Activity", "Any Activity", "!(DrvAAct)", "!(DrvAAct+DrvBAct)", "!(USB Act)", "!(Any Act)", "IRQ Line", "!(IRQ Line)", "Drive B Act"]
 alpha = ["0 %", "25 %", "50 %", "75 %"]
 squeeze = ["None", "Beginning", "Middle", "End"]
+navstyles = ["Quick Search", "WASD Cursors"]
 schemes = ["Standard Blue", "Ultimate Black", "C128 Style", "Commodore Blue", "Commodore 1", "Commodore 2", "Commodore 3"]
 cartmodes = ["Auto", "Internal", "External", "Manual"]
 sharing = ["Internal", "External"]
@@ -2478,6 +2479,15 @@ key = "Overlay Transparency"
 label = "Overlay transparency"
 list = "alpha"
 default = 1
+when = "live"
+apply = "ui.fx"
+
+# FW userinterface.cc:163, 339, 1081: the keys of the lists and sheets (menuctl.cc nav_fold); the default of a machine that has never been set up is Quick Search
+[[core_setting]]
+group = "Application"
+key = "Navigation Style"
+list = "navstyles"
+default = 0
 when = "live"
 apply = "ui.fx"
 

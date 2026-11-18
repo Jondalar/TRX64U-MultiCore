@@ -2,8 +2,8 @@
 # A grown file, a new file in coreapp/cores/, a new core name/id string in generic code or core data embedded in the app is red, unless an exception line says why.
 #   exception <file> +<lines> <spec ref> (<decision of Alex>)
 exception coreapp/src/u64cfg.cc +712 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
-exception coreapp/cores/trx64u/menu.toml +1259 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
-exception coreapp/cores/trx64u/menu_rec.inc +2477 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
+exception coreapp/cores/trx64u/menu.toml +1267 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
+exception coreapp/cores/trx64u/menu_rec.inc +2482 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
 file coreapp/cores/6502/xexboot.asm 161
 file coreapp/cores/6502/xexboot_bin.h 26
 file coreapp/cores/amiga.cc 345

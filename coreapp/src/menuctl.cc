@@ -3785,9 +3785,36 @@ MenuCtl::Result MenuCtl::apply_run(const MenuIntent &in)
     return R_NONE;
 }
 
+// FW UserInterface::keymapper (userinterface.cc:1081-1093): with the navigation style WASD Cursors a letter that no text takes - the list, the sheet - is folded to lower
+// case and w, a, s, d are Up, Left, Down, Right. The style is the core's setting "Navigation Style" (0 Quick Search, 1 WASD Cursors); a core without it has the first.
+int MenuCtl::nav_fold(int k) const
+{
+    if (k <= 0x20 || k >= 0x7F || fm_.seek_on || !c_->settings) {
+        return k;
+    }
+    int i = c_->settings->find("Navigation Style");
+    if (i < 0 || c_->settings->value(i) != 1) {
+        return k;
+    }
+    const MenuIntent in = resolve(k);
+    if (in.id != MI_CHAR && in.id != MI_SHEET_LETTER) {
+        return k;
+    }
+    if (k >= 'A' && k <= 'Z') {
+        return k | 0x20;
+    }
+    switch (k) {
+    case 'w': return KEY_UP;
+    case 'a': return KEY_LEFT;
+    case 's': return KEY_DOWN;
+    case 'd': return KEY_RIGHT;
+    }
+    return k;
+}
+
 MenuCtl::Result MenuCtl::key(int k)
 {
-    return apply(resolve(k));
+    return apply(resolve(nav_fold(k)));
 }
 
 // An intent by its name in the table ("return", "back", "area" 5, "tab" 2, "move" -1): the key the table gives it, resolved where the screen stands now - so "return" while a question is
@@ -4025,7 +4052,12 @@ MenuCtl::Result MenuCtl::run_intent(const MenuIntent &in, bool *took)
             return R_REDRAW;
         }
         if (k > 0x20 && k < 0x7F && !chooser_) {
-            return hotkey(k);
+            Result hr = hotkey(k);
+            if (hr == R_NONE && is_browser() && fm_.image_ft < 0 && !search_tab()) {   // FW's quick search: a letter nothing else holds starts the seek with it
+                fm_.seek_key(k);                                       // the letters of one seek follow each other within 1.5 s, as FW's
+                return R_REDRAW;
+            }
+            return hr;
         }
         return R_NONE;
     case MI_SHEET_LETTER: {                                  // a letter of the sheet runs its item
