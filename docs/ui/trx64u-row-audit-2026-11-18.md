@@ -512,7 +512,7 @@ TRX64-Ultimate functions with no trx64u row (working on its bitstream):
 | 7 | SID player (.sid/.mus/.str: Play Main Tune, Show Info, Play Song n; Autoconfig, Allow reSID8) | filetype_sid.cc:405-412; u64_config.cc:431-432, 3367 | |
 | 8 | .mod: Play MOD (Ultimate Audio), Load into REU, Preload | filetype_reu.cc:42-47 | |
 | 9 | .bin: Load Kernal / Load Drive ROM for this session | filetype_bin.cc:95, 109, 114 | |
-| 10 | .g71 mounts in drive A | filetype_g64.cc:110 | |
+| 10 | .g71 mounts in drive A | filetype_g64.cc:110 | out: the 1571 and .d71/.g71 are ruled out (T104.1, Alex); built by mistake on t228-a-drive, removed 2026-11-18 |
 | 11 | Load State on .c64rering, Load Ring on .trxring | filetype_c64re.cc:77 | |
 | 12 | Timewarp bar: C= O opens the monitor at the frame shown | trx_timewarp_ui.cc:284 | |
 | 13 | Save .C64RE Dump (c64re app) | apps/c64re/manifest.json:6 | |
