@@ -4,7 +4,7 @@
 # Every scenario is a control script of ue2emu (docs/specs/S08) with an expectation that makes the script fail; every scenario also runs
 # once with a WRONG expectation and must fail (the negative control: an expectation that cannot fail proves nothing).
 #
-#   tests/coreapp/emu/run.sh [coreapp.app]
+#   tests/coreapp/emu/run.sh [coreapp_trx64u.app]   (T228 R25: the C64 is only in its own image)
 #
 # The emulator is ci/ue2emu.sh (T174 D2.8): the local macOS binary when there is one, else the Linux image UE2EMU_IMAGE (ci/lib.sh) through docker with the
 # sources, the work dir and the ROMs mounted; UE2EMU=<path> replaces it. No ROM is in the repository: C64_ROMS names a directory (kernal.901227-03.bin,
@@ -20,7 +20,7 @@ if [ -z "${C64_ROMS:-}" ]; then
 fi
 [ -f "$C64_ROMS/1541.bin" ] || { echo "coreapp_emu SKIPPED out loud: no ROMs ($C64_ROMS/1541.bin), see tools/ue2emu_kit.sh" >&2; exit 77; }
 "$UE2EMU" run --help >/dev/null 2>&1 || { echo "coreapp_emu SKIPPED out loud: no emulator ($UE2EMU)" >&2; exit 77; }
-APP="${1:-$ROOT/host-app/target/u64ii/riscv/coreapp/result/coreapp.app}"
+APP="${1:-$ROOT/host-app/target/u64ii/riscv/coreapp/result/coreapp_trx64u.app}"
 [ -f "$APP" ] || { echo "coreapp_emu SKIPPED out loud: no coreapp.app ($APP)" >&2; exit 77; }
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 STICK="$W/stick"; mkdir -p "$STICK"
@@ -44,8 +44,8 @@ BOOT='expect-console "released" 60000
 wait 2000'
 OPEN='rocker up
 wait 1000'
-# into /USB0 (the stick: ../ roms/ big.prg low.prg t1042.d64 test.prg), then N downs and Return
-browse() { printf 'key f3\nwait 800\nkey down\nkey down\nkey return\nwait 1200\n'; for ((i=0;i<$1;i++)); do echo key down; done; echo key return; echo wait 1000; }
+# into /USB0 (the media list: SD, Flash, Temp - the RAM disk of T228 R21 - then USB0; the stick: ../ roms/ big.prg low.prg t1042.d64 test.prg), then N downs and Return
+browse() { printf 'key f3\nwait 800\nkey down\nkey down\nkey down\nkey return\nwait 1200\n'; for ((i=0;i<$1;i++)); do echo key down; done; echo key return; echo wait 1000; }
 
 [ "${ONLY:-}" = crt ] || {   # ONLY=crt runs just the "Run Cartridge" scenarios at the end
 # S1, S2, S3, S6, S7 (boot): board profile, descriptor, ROMs from /flash/roms, released, READY on the C64's own picture
@@ -171,7 +171,7 @@ if grep -q '^\.;100b' "$W/low0.log" && grep -q '^>R:2000  42' "$W/low0.log"; the
 
 # S10 reset: Home (F1), its first row Reset asks "Reset the machine?" (RETURN confirms) and brings READY back while a program runs
 for want in 0 1; do
-  txt='READY.'; [ $want = 1 ] && txt='T9999 NO'
+  txt='BASIC BYTES FREE'; [ $want = 1 ] && txt='T9999 NO'
   emu "reset$want" $want <<E2
 $BOOT
 $OPEN
@@ -256,6 +256,7 @@ $BOOT
 $OPEN
 key f3
 wait 800
+key down
 key down
 key down
 key return
