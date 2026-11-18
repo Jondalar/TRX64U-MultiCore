@@ -112,6 +112,7 @@ struct FileMgr {
     // ---- the viewer ----
     void start_view(const char *path, bool hex);
     void start_view_mem(const char *title, int kind, bool hex);
+    void start_view_text(const char *title, const uint8_t *text, uint32_t n);     // T228 R21: text an operation returned
     void view_setup(const char *title, uint32_t n, bool hex);
     void view_line(int row, char *out, int n) const;
     void view_status(char *out, int n) const;

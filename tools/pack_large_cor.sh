@@ -12,7 +12,7 @@
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
-ID="" NAME="" VER="" BIT="" APPBIN="" ICON="" BITC="" APPC="" OUT="$ROOT/dist" DESC="" OPS="" ORIGIN="" FLASHID="" SHORT=""
+ID="" NAME="" VER="" BIT="" APPBIN="" ICON="" BITC="" APPC="" OUT="$ROOT/dist" DESC="" OPS="" ORIGIN="" FLASHID="" SHORT="" FILESDIR=""
 usage() { sed -n '2,12p' "$0"; exit 2; }
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -30,6 +30,7 @@ while [ $# -gt 0 ]; do
         --out) OUT="$2"; shift 2;;
         --desc) DESC="$2"; shift 2;;
         --ops) OPS="$2"; shift 2;;
+        --files) FILESDIR="$2"; shift 2;;          # record 8 from a folder of the caller (an imported core has no cores/<id>/core.toml: trx64u, T228 R21 item 7)
         -h|--help) usage;;
         *) echo "unknown option $1" >&2; usage;;
     esac
@@ -47,6 +48,7 @@ args=(--id "$ID" --name "$NAME" --version "$VER" --bit "$BIT" --app "$APPBIN")
 [ -z "$OPS" ] || args+=(--ops "$OPS")
 [ -z "$ORIGIN" ] || args+=(--origin "$ORIGIN")
 [ -z "$FLASHID" ] || args+=(--flash-id "$FLASHID")
+[ -z "$FILESDIR" ] || args+=(--files "$FILESDIR")
 # the files the core installs on the SD (record 8): the folders its descriptor names (core.toml install_dir / install_old, relative to cores/<id>/)
 for d in "$ROOT/cores/$ID/mono/core.toml" "$ROOT/cores/$ID/core.toml"; do
     [ -f "$d" ] || continue

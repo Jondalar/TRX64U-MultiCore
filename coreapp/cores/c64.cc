@@ -64,7 +64,14 @@ static int put_rom(CoreCtx *c, const OpArgs &a, uint32_t ofs, uint32_t size, con
     c->io->rom_write(ofs, a.p(0), size);
     return OPE_OK;
 }
-static int op_put_basic(CoreCtx *c, const OpArgs &a, OpOut &o) { return put_rom(c, a, C64_ROM_BASIC, C64_BASIC_BYTES, "BASIC", o); }
+static int op_put_basic(CoreCtx *c, const OpArgs &a, OpOut &o)
+{
+    int rc = put_rom(c, a, C64_ROM_BASIC, C64_BASIC_BYTES, "BASIC", o);
+    if (rc == OPE_OK) {
+        trx64u_basic_put(c, a.p(0), a.len(0));                    // the SID player's cartridge carries the BASIC the machine runs with
+    }
+    return rc;
+}
 static int op_put_kernal(CoreCtx *c, const OpArgs &a, OpOut &o)
 {
     int rc = put_rom(c, a, C64_ROM_KERNAL, C64_KERNAL_BYTES, "KERNAL", o);
@@ -99,6 +106,8 @@ static int c64_init(CoreCtx *c, char *, int)
         ((CbmDrive *)c->drive)->reset(m, sizeof(m));                // "Resets when C64 resets": the 1541 starts again with the machine
     }
     clear_job(c);                                               // a reset ends a program that was still waiting for READY
+    trx64u_sid_cancel();                                        // ... and a SID tune that was waiting for its player cartridge
+    c64_cart_player_end(c);                                     // the reset ends the SID player's cartridge (the one before it comes back)
     forget_program(c);                                          // T228 R20 1/7: and the machine that comes up has run no program
     return 0;
 }
@@ -365,6 +374,7 @@ static void tell(CoreCtx *c, const char *what)
 static int op_service_job(CoreCtx *c);
 static int op_service(CoreCtx *c, const OpArgs &, OpOut &o)
 {
+    trx64u_sid_service(c);                                     // T228 R21 item 7: the SID player's handshake
     int rc = op_service_job(c);
     o.more = cbm1541_service(c);                               // the drive's write-back, on the same task (T104.1 D15 poll)
     return rc;

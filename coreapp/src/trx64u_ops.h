@@ -19,5 +19,10 @@ void trx64u_kernal_put(CoreCtx *c, const uint8_t *data, uint32_t n);
 
 // The command interface at $DF1C for a cartridge that requires it (c64_cart.cc: the module player).
 void trx64u_uci_df1c(CoreCtx *c);
+// The SID player (T228 R21 item 7): c64.cc hands the BASIC ROM on for the player cartridge's image, the poll of c64.service drives the handshake, a reset of
+// the application ends it.
+void trx64u_basic_put(CoreCtx *c, const uint8_t *data, uint32_t n);
+void trx64u_sid_service(CoreCtx *c);
+void trx64u_sid_cancel(void);
 
 #endif

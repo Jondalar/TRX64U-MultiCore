@@ -7,6 +7,9 @@
 #include "hw.h"
 #include "c64_regs.h"
 #include "c64_cart.h"
+#include "sidfile.h"
+#include "u64cfg.h"
+#include "corefolder.h"
 #include "boot.h"
 #include "uci.h"
 #include "u64.h"
@@ -1008,6 +1011,427 @@ static const UciHost *uci_host(void)
     return &h;
 }
 
+
+// ---- the SID player (T228 R21 item 7) ---------------------------------------------------------------------------------------------------------
+// FW filetypes/filetype_sid.cc (Gideon Zweijtzer, GPL-3.0): FileTypeSID::execute, prepare (:600), readSongLengths (:520), load (:742), loadFile (:808),
+// tryLoadStereoMus (:560), configureMusEnv (:850), the handshake with the player cartridge (software/6502/sidcrt/basecrt.asm: initMem, start). The header work
+// is sidfile.cc; the auto mapping on the SIDs is u64cfg.cc (u64cfg_sid_autoconfig). The player itself is FW's cartridge program, unchanged: sidcrt.bin, muscrt.bin and
+// musplayer.bin of TRX64-Ultimate's software/ultimate-app/software/6502/sidcrt (Wilfred Bos / Gideon Zweijtzer, GPL-3.0), built there by 64tass. They are core
+// data: the .cor of trx64u carries them (record 8, files) and the application installs them into <core folder>/sidplayer/ at the start; nothing of them is in the
+// application image. FW's cartridge is 16 KB: its own 8 KB at $8000 and a copy of the BASIC ROM at $A000 (FW embeds basic.bin); here the BASIC ROM is the one the
+// machine runs with (the file the ROM manager found, kept as c64.put_basic passes it on), the song lengths at +0x3000 of the image as FW has them.
+// Different from FW: (1) the RAM is written through the RAM's second port (MEMONLY), where FW writes through the DMA window while the machine is stopped: the
+// bytes land in RAM under the I/O area and the ROMs, which is where the player cartridge has the PLA ($01 = $34) anyway; (2) $DD0D is not poked, the reset
+// that starts the cartridge clears the CIA again; (3) the wait for the cartridge's handshake (FW: 30 x 25 ms of stop and resume) is 1000 ms of the machine's
+// running time, read through the second port; (4) the cartridge before it is put back by the next reset of the application (c64_cart_player_end), where FW
+// restores it when its reset interrupt comes.
+#define SIDP_DIR      "sidplayer"
+#define SID_WAIT_MS   1000
+static uint8_t g_basic[0x2000];
+static bool g_have_basic;
+void trx64u_basic_put(CoreCtx *, const uint8_t *data, uint32_t n)
+{
+    if (n == sizeof(g_basic)) {
+        memcpy(g_basic, data, n);
+        g_have_basic = true;
+    }
+}
+
+static bool ext_is(const char *path, const char *e)
+{
+    const char *d = strrchr(path, '.');
+    return d && !strcasecmp(d + 1, e);
+}
+
+// FW set_extension: the part behind the last dot is replaced (or the extension added)
+static void with_ext(const char *in, const char *ext, char *out, int n)
+{
+    snprintf(out, n, "%s", in);
+    char *d = strrchr(out, '.');
+    char *sl = strrchr(out, '/');
+    if (d && (!sl || d > sl)) {
+        *d = 0;
+    }
+    int l = (int)strlen(out);
+    snprintf(out + l, n - l, "%s", ext);
+}
+
+static const char *file_name(const char *path)
+{
+    const char *sl = strrchr(path, '/');
+    return sl ? sl + 1 : path;
+}
+
+struct SidFile {
+    SidTune t;
+    uint32_t fsize;
+    uint16_t load_le;
+    bool load0;                       // the header names no load address: the first two bytes of the data do
+    char use[FS_PATH_MAX];            // the file whose bytes are the tune (a .str selects its .mus)
+};
+static SidFile g_sf;
+
+static int sid_open(CoreCtx *c, const char *path, SidFile *sf, bool for_play, char *msg, int msglen)
+{
+    bool ext_mus = ext_is(path, "mus") || ext_is(path, "str");
+    if (for_play && ext_mus) {
+        with_ext(path, ".mus", sf->use, sizeof(sf->use));            // a .str selected: the .mus is loaded first
+    } else {
+        snprintf(sf->use, sizeof(sf->use), "%s", path);
+    }
+    CoreFile *f = c->fs->open(sf->use, false);
+    if (!f) {
+        snprintf(msg, msglen, "Can't open file");
+        return 1;
+    }
+    sf->fsize = fs_size32(f->size());
+    uint8_t head[SID_HDR_READ];
+    uint32_t n = sf->fsize < sizeof(head) ? sf->fsize : (uint32_t)sizeof(head);
+    bool ok = n == 0 || f->read(0, head, n);
+    sf->load0 = false;
+    sf->load_le = 0;
+    if (ok && !ext_mus && n >= SID_HDR_READ) {
+        uint32_t doff = ((uint32_t)head[6] << 8) | head[7];
+        sf->load0 = (head[8] | head[9]) == 0 && !(head[0x77] & 1);
+        uint8_t w[2];
+        if (sf->load0 && sf->fsize >= doff + 2 && f->read(doff, w, 2)) {
+            sf->load_le = (uint16_t)(w[0] | (w[1] << 8));
+        }
+    }
+    c->fs->close(f);
+    if (!ok) {
+        snprintf(msg, msglen, "Can't read header");
+        return 1;
+    }
+    if (!sid_parse(head, n, file_name(path), ext_mus, &sf->t)) {
+        snprintf(msg, msglen, "File type error");
+        return 1;
+    }
+    return 0;
+}
+
+static const ArgSpec sid_args[] = { ARG_PATH("path"), ARG_INT("song", 0, 65535) };
+
+// "Play Song n" is offered for a tune with more than one song (FW fetch_context_items); the browser asks here how many entries to make
+static int op_sid_songs(CoreCtx *c, const OpArgs &a, OpOut &o)
+{
+    SidFile *sf = &g_sf;
+    char m[80];
+    int n = 0;
+    if (!sid_open(c, a.s(0), sf, false, m, sizeof(m)) && sf->t.songs > 1) {
+        n = sf->t.songs > 256 ? 256 : sf->t.songs;
+    }
+    if (o.datacap >= 2) {
+        o.data[0] = (uint8_t)n;
+        o.data[1] = (uint8_t)(n >> 8);
+        o.ndata = 2;
+    }
+    return OPE_OK;
+}
+
+static int op_sid_info(CoreCtx *c, const OpArgs &a, OpOut &o)
+{
+    SidFile *sf = &g_sf;
+    if (sid_open(c, a.s(0), sf, false, o.msg, o.msglen)) {
+        return OPE_FAILED;
+    }
+    int n = sid_info_text(sf->t, (char *)o.data, o.datacap - 1);
+    o.data[n] = 0;
+    o.ndata = n;
+    return OPE_OK;
+}
+
+// ---- the job: the handshake with the cartridge, then the tune ------------------------------------------------------------------------------------
+static uint8_t g_img[0x4000];
+static struct {
+    bool active;
+    uint32_t last_ms, ran_ms;
+    char path[FS_PATH_MAX];           // the file as selected (the song lengths and the .str are looked for beside it)
+} g_sj;
+
+static void ram_put(CoreIo *io, uint32_t addr, const uint8_t *p, uint32_t n)
+{
+    addr &= 0xFFFF;
+    if (addr + n > 0x10000) {                                       // the load wraps past $FFFF (FW loadFile)
+        uint32_t k = 0x10000 - addr;
+        io->ram_write(addr, p, k);
+        io->ram_write(0, p + k, n - k);
+    } else {
+        io->ram_write(addr, p, n);
+    }
+}
+
+static void poke(CoreIo *io, uint32_t addr, uint8_t v)
+{
+    io->ram_write(addr, &v, 1);
+}
+
+// FW loadFile: from `pos` of the file to its end (at most 64 KB) into the C64's RAM at `offset`; returns the offset behind the last byte
+static uint32_t load_file(CoreCtx *c, const char *path, uint32_t pos, uint32_t offset)
+{
+    CoreFile *f = c->fs->open(path, false);
+    if (!f) {
+        return offset;
+    }
+    uint32_t size = fs_size32(f->size());
+    uint8_t buf[512];
+    uint32_t left = 65536;
+    while (pos < size && left) {
+        uint32_t n = size - pos < sizeof(buf) ? size - pos : (uint32_t)sizeof(buf);
+        if (n > left) {
+            n = left;
+        }
+        if (!f->read(pos, buf, n)) {
+            break;
+        }
+        ram_put(c->io, offset, buf, n);
+        offset = (offset + n) & 0xFFFF;
+        pos += n;
+        left -= n;
+    }
+    c->fs->close(f);
+    return offset;
+}
+
+static uint8_t mus_rd(void *user, uint32_t a)
+{
+    uint8_t b = 0;
+    ((CoreIo *)user)->ram_read(a & 0xFFFF, &b, 1);
+    return b;
+}
+
+// the tune and the player's data into the machine, with the cartridge waiting at $02 == 1
+static int sid_fire(CoreCtx *c, char *msg, int msglen)
+{
+    CoreIo *io = c->io;
+    SidFile *sf = &g_sf;
+    SidTune &t = sf->t;
+    io->stop(true);
+    io->ram_memonly(true);
+    static const uint8_t zero[512] = { 0 };
+    for (uint32_t a = 0x0340; a < 0x10000; a += sizeof(zero)) {     // clear the entire memory
+        io->ram_write(a, zero, 0x10000 - a < sizeof(zero) ? 0x10000 - a : (uint32_t)sizeof(zero));
+    }
+    uint32_t pos = t.mus && !t.sid ? 2 : t.data_offset + ((t.mus || sf->load0) ? 2 : 0);
+    uint32_t off_end = load_file(c, sf->use, pos, t.start);
+    if (t.mus) {
+        uint32_t first_end;
+        bool stereo = sid_mus_stereo(t, off_end, mus_rd, io, &first_end);
+        if (stereo) {
+            off_end = first_end;
+        } else if (ext_is(g_sj.path, "mus") || ext_is(g_sj.path, "str")) {      // tryLoadStereoMus: the .str of the same name
+            char str[FS_PATH_MAX];
+            with_ext(g_sj.path, ".str", str, sizeof(str));
+            CoreFile *f = c->fs->open(str, false);
+            if (f) {
+                c->fs->close(f);
+                uint32_t e = load_file(c, str, 2, off_end);
+                if (e > off_end) {
+                    t.end = (uint16_t)e;
+                    stereo = true;
+                }
+            }
+        }
+        static uint8_t player[0x2000];
+        uint32_t pn = 0;
+        char dir[FS_PATH_MAX], pp[FS_PATH_MAX];
+        if (!corefolder_dir(c->cor_path, dir, sizeof(dir))) {
+            io->ram_memonly(false);
+            io->stop(false);
+            snprintf(msg, msglen, "the SID player files are in the .cor's folder: this start has no .cor");
+            return 1;
+        }
+        snprintf(pp, sizeof(pp), "%s/" SIDP_DIR "/musplayer.bin", dir);
+        CoreFile *f = c->fs->open(pp, false);
+        if (f && f->size() <= sizeof(player) && f->read(0, player, (uint32_t)f->size())) {
+            pn = (uint32_t)f->size();
+        }
+        if (f) {
+            c->fs->close(f);
+        }
+        if (!pn) {
+            io->ram_memonly(false);
+            io->stop(false);
+            snprintf(msg, msglen, "cannot read %s", pp);
+            return 1;
+        }
+        ram_put(io, 0xE000, player, pn);                            // install the MUS player
+        poke(io, 0xEC6E, (uint8_t)t.start);
+        poke(io, 0xEC70, (uint8_t)(t.start >> 8));
+        sid_mus_header(&t, stereo);
+        if (stereo) {
+            poke(io, 0xFC6E, (uint8_t)off_end);
+            poke(io, 0xFC70, (uint8_t)(off_end >> 8));
+        }
+    }
+    t.hdr[0x7E] = (uint8_t)(t.end & 0xFF);
+    t.hdr[0x7F] = (uint8_t)(t.end >> 8);
+    SidReq req[3];
+    int count = sid_requests(t, req);
+    ram_put(io, t.header_location, t.hdr, 0x80);                    // the SID header goes into the C64's memory
+    poke(io, 0x0164, (uint8_t)t.header_location);
+    poke(io, 0x0165, (uint8_t)(t.header_location >> 8));
+    static const uint16_t endptr[] = { 0x2D, 0x2F, 0x31, 0xAE };
+    for (unsigned i = 0; i < sizeof(endptr) / sizeof(endptr[0]); i++) {
+        poke(io, endptr[i], (uint8_t)t.end);
+        poke(io, endptr[i] + 1u, (uint8_t)(t.end >> 8));
+    }
+    poke(io, 0x0162, 0xAA);                                         // the handshake
+    poke(io, 0x00BA, 8);                                            // load drive
+    poke(io, 0x0090, 0x40);                                         // load status
+    poke(io, 0x0035, 0);                                            // FRESPC
+    poke(io, 0x0036, 0xA0);
+    io->ram_memonly(false);
+    uint8_t base[3], type[3];
+    for (int i = 0; i < count; i++) {
+        base[i] = req[i].base;
+        type[i] = req[i].type;
+    }
+    u64cfg_sid_autoconfig(c, count, base, type);                    // ConfigSIDs (a failure leaves the SIDs unmapped; FW goes on)
+    io->stop(false);
+    printf("[sid] %s: song %d of %d, $%04X-$%04X, header at $%04X, %d SID(s)\n", file_name(g_sj.path), (int)t.song, t.songs, (unsigned)t.start,
+           (unsigned)t.end, (unsigned)t.header_location, count);
+    return 0;
+}
+
+// FW readSongLengths: SONGLENGTHS/<name>.ssl beside the file, 512 bytes at +0x3000 of the cartridge image
+static void sid_song_lengths(CoreCtx *c, SidFile *sf, const char *path)
+{
+    SidTune &t = sf->t;
+    uint8_t *rom = g_img;
+    memset(rom + 0x3000, 0, SID_SSL_BYTES);                         // no song lengths loaded unless the file is read
+    char folder[FS_PATH_MAX], name[FS_PATH_MAX], ssl[FS_PATH_MAX];
+    snprintf(folder, sizeof(folder), "%s", path);
+    char *sl = strrchr(folder, '/');
+    if (sl) {
+        *sl = 0;
+    }
+    with_ext(file_name(path), ".ssl", name, sizeof(name));
+    snprintf(ssl, sizeof(ssl), "%s/SONGLENGTHS/%s", folder, name);
+    CoreFile *f = c->fs->open(ssl, false);
+    if (f) {
+        uint32_t n = fs_size32(f->size());
+        if (n > SID_SSL_BYTES) {
+            n = SID_SSL_BYTES;
+        }
+        f->read(0, rom + 0x3000, n);
+        c->fs->close(f);
+    } else if (t.hdr[0x04] == 2) {                                  // a hacked .sid: the song length of the first song only
+        if ((t.hdr[0x7B] < 0xA0) && ((t.hdr[0x7B] & 0x0F) < 0x0A) && (t.hdr[0x7A] < 0xA0) && ((t.hdr[0x7A] & 0x0F) < 0x0A)) {
+            int ix = (t.default_song - 1) * 2;
+            rom[0x3000 + ix] = t.hdr[0x7B];
+            rom[0x3001 + ix] = t.hdr[0x7A];
+        }
+        t.hdr[0x7A] = 0;                                            // clean up the SID header
+        t.hdr[0x7B] = 0;
+    }
+    for (int i = 0; i < t.songs * 2 && i < SID_SSL_BYTES; i += 2) {  // not all set or invalid: the default
+        uint8_t minutes = rom[0x3000 + i], seconds = rom[0x3001 + i];
+        if (minutes > 0x99 || (minutes & 0x0F) > 0x09 || seconds > 0x59 || (seconds & 0x0F) > 0x09) {
+            rom[0x3000 + i] = rom[0x3001 + i] = 0;
+            minutes = seconds = 0;
+        }
+        if (!minutes && !seconds) {
+            rom[0x3000 + i] = t.mus ? 3 : 5;                        // DEFAULT_SONG_LENGTH_MUS / _SID, minutes
+        }
+    }
+}
+
+static int op_sid_play(CoreCtx *c, const OpArgs &a, OpOut &o)
+{
+    SidFile *sf = &g_sf;
+    const char *path = a.s(0);
+    int song = a.i(1);
+    if (sid_open(c, path, sf, true, o.msg, o.msglen)) {
+        return OPE_FAILED;
+    }
+    const char *why = 0;
+    if (sid_plan(&sf->t, sf->fsize, sf->load_le, song, &why)) {
+        snprintf(o.msg, o.msglen, "%s", why);
+        return OPE_FAILED;
+    }
+    // the cartridge image: the player's 8 KB, the BASIC ROM, the song lengths (initSidCart, readSongLengths)
+    char dir[FS_PATH_MAX], pp[FS_PATH_MAX];
+    if (!corefolder_dir(c->cor_path, dir, sizeof(dir))) {
+        snprintf(o.msg, o.msglen, "the SID player files are in the .cor's folder: this start has no .cor");
+        return OPE_FAILED;
+    }
+    if (!g_have_basic) {
+        snprintf(o.msg, o.msglen, "the BASIC ROM is not loaded");
+        return OPE_FAILED;
+    }
+    memset(g_img, 0, sizeof(g_img));
+    snprintf(pp, sizeof(pp), "%s/" SIDP_DIR "/%s", dir, sf->t.mus ? "muscrt.bin" : "sidcrt.bin");
+    CoreFile *f = c->fs->open(pp, false);
+    if (!f || f->size() > 0x2000 || !f->read(0, g_img, (uint32_t)f->size())) {
+        if (f) {
+            c->fs->close(f);
+        }
+        snprintf(o.msg, o.msglen, "cannot read %s (installed from the core's .cor)", pp);
+        return OPE_FAILED;
+    }
+    c->fs->close(f);
+    memcpy(g_img + 0x2000, g_basic, 0x2000);
+    sid_song_lengths(c, sf, path);
+    // the machine as FW leaves it for the cartridge, then the cartridge and the reset
+    CoreIo *io = c->io;
+    io->ram_memonly(true);
+    static const uint8_t zero[1024] = { 0 };
+    io->ram_write(0, zero, sizeof(zero));
+    poke(io, 0x0282, 0x08);                                         // make the memory test obsolete
+    poke(io, 0x0284, 0xA0);
+    poke(io, 0x0288, 0x04);
+    poke(io, 2, 0xAA);                                              // tells the cartridge that the SID player is wanted
+    poke(io, 0x0162, 0);                                            // the address of the handshake DMA load
+    io->ram_memonly(false);
+    snprintf(g_sj.path, sizeof(g_sj.path), "%s", path);
+    if (c64_cart_run_image(c, sf->t.mus ? "MUS Player Cartridge" : "SID Player Cartridge", g_img, o.msg, o.msglen)) {
+        return OPE_FAILED;
+    }
+    if (boot_cold_reset(c, o.msg, o.msglen)) {
+        return OPE_FAILED;
+    }
+    g_sj.active = true;
+    g_sj.last_ms = g_sj.ran_ms = 0;
+    return OPE_OK;
+}
+
+void trx64u_sid_cancel(void)
+{
+    g_sj.active = false;
+}
+
+// the poll of c64.service: the cartridge sets $02 to 1 when it waits for the tune
+void trx64u_sid_service(CoreCtx *c)
+{
+    if (!g_sj.active) {
+        return;
+    }
+    uint32_t now = c->io->now_ms();
+    if (g_sj.last_ms) {
+        uint32_t dt = now - g_sj.last_ms;
+        g_sj.ran_ms += dt > 200 ? 100 : dt;                         // a gap is the menu's: the machine did not run in it
+    }
+    g_sj.last_ms = now;
+    uint8_t b = 0;
+    c->io->ram_read(2, &b, 1);
+    char msg[160];
+    msg[0] = 0;
+    if (b == 0x01) {
+        g_sj.active = false;
+        if (sid_fire(c, msg, sizeof(msg))) {
+            snprintf(c->notice, sizeof(c->notice), "%s", msg);
+            c->notice_pending = true;
+        }
+    } else if (g_sj.ran_ms > SID_WAIT_MS) {
+        g_sj.active = false;
+        printf("[sid] time out: the player cartridge did not answer\n");
+        snprintf(c->notice, sizeof(c->notice), "Time out: the SID player cartridge did not start");
+        c->notice_pending = true;
+        boot_cold_reset(c, msg, sizeof(msg));                      // FW init_cartridge: the machine as it was
+    }
+}
+
 void trx64u_register(OpRegistry &r)
 {
     r.contributor("trx64u");
@@ -1016,6 +1440,9 @@ void trx64u_register(OpRegistry &r)
     r.add_op("c64.fx_roms", value_arg, 1, fx_roms);
     r.add_op("u64.fx_power", value_arg, 1, fx_power);
     r.add_op("drive.fx_misc", value_arg, 1, fx_drive_misc);
+    r.add_op("c64.sid_play", sid_args, 2, op_sid_play);
+    r.add_op("c64.sid_songs", sid_args, 2, op_sid_songs);
+    r.add_op("c64.sid_info", sid_args, 2, op_sid_info);
     r.add_op("reu.load", path_arg, 1, op_reu_load);
     r.add_op("reu.preload", path_arg, 1, op_reu_preload);
     r.add_op("reu.playmod", path_arg, 1, op_reu_playmod);

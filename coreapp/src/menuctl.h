@@ -324,7 +324,10 @@ private:
     bool search_edit_;
     uint32_t last_relist_ = 0, last_live_ = 0;                     // the pump: when the folder was last read again, when a live register was last shown
     // a copy of the file type's actions plus the ones every file has (view, copy, move, rename, delete, favourite)
-    FileAction chooser_buf_[40];
+    enum { CHOOSER_MAX = 300 };                                    // T228 R21: a tune with up to 256 songs lists them all, as FW's action list does
+    FileAction chooser_buf_[CHOOSER_MAX];
+    char chooser_lbl_[CHOOSER_MAX][16];                            // the label of a repeated entry ("Play Song 12")
+    int repeat_count(const FileAction &a, const char *file);
     bool folder_sheet_;
     int drive_slot_ = -1;                                          // T212 D5: the media slot whose list (the "drive" page) is open
     int mount_slot_ = -1;                                          // ... whose Library mount is under way: the Library lists its types, RETURN on a file mounts it there

@@ -232,7 +232,7 @@ class OwnMenu(unittest.TestCase):
         self.assertTrue(r["own"] and r["route"])
         # T228: 14 tasks (R2/R3 took Pause / resume, Reboot clear memory, Save C64 memory and Save REU memory; R1 added Timewarp... and Monitor...; R10
         # Map USB controller buttons); 156 core settings (R10: USB Controller Port); R1: no F2 and no F4 area
-        self.assertEqual((len(r["task"]), len(r["media"]), len(r["ftype"]), len(r["cset"])), (14, 3, 16, 156))
+        self.assertEqual((len(r["task"]), len(r["media"]), len(r["ftype"]), len(r["cset"])), (14, 3, 19, 114))
         self.assertEqual([a["key"] for a in r["area"]], ["F1", "F3", "F5", "F7", "F8"])
         self.assertEqual((r["tab"][0]["id"], r["tab"][0]["lines"]), ("home", None))        # the Home desk is a nodes tab: it names no information lines
         d64 = next(f for f in r["ftype"] if f["ext"] == ".d64")

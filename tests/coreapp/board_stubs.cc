@@ -22,6 +22,9 @@ int cfg_value(CoreCtx *, const char *, int def) { return def; }
 void trx64u_kernal_put(CoreCtx *, const uint8_t *, uint32_t) { }
 void trx64u_uci_df1c(CoreCtx *) { }
 void trx64u_load_assoc_cfg(CoreCtx *, const char *, bool) { }
+void trx64u_basic_put(CoreCtx *, const uint8_t *, uint32_t) { }           // T228 R21 item 7: the SID player's BASIC copy
+void trx64u_sid_service(CoreCtx *) { }
+void trx64u_sid_cancel(void) { }
 void u64cfg_register(OpRegistry &) { }
 void u64cfg_power_on_keys(CoreCtx *) { }
 __attribute__((weak)) void libfiles_register(OpRegistry &) { }     // tests/coreapp/test_menuctl.cc links the real one

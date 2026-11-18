@@ -44,7 +44,7 @@ extern "C" void ResetHdmiPll(void);
     X(S1_CAPS, "SID Socket 1 Capacitors") X(S2_CAPS, "SID Socket 2 Capacitors")                                                                      \
     X(S1_ADDR, "SID Socket 1 Address") X(S2_ADDR, "SID Socket 2 Address") X(STEREO, "Ext DualSID Range Split")                                       \
     X(U1_ADDR, "UltiSID 1 Address") X(U2_ADDR, "UltiSID 2 Address") X(USPLIT, "UltiSID Range Split") X(PADDLE, "Paddle Override")                    \
-    X(MIRROR, "Auto Address Mirroring")                                                                                                              \
+    X(MIRROR, "Auto Address Mirroring") X(PLAYER_AUTO, "SID Player Autoconfig") X(ALLOW_EMU, "Allow Autoconfig uses UltiSid")                          \
     X(U1_FILTER, "UltiSID 1 Filter Curve") X(U2_FILTER, "UltiSID 2 Filter Curve") X(U1_RES, "UltiSID 1 Filter Resonance")                            \
     X(U2_RES, "UltiSID 2 Filter Resonance") X(U1_WAVES, "UltiSID 1 Combined Waveforms") X(U2_WAVES, "UltiSID 2 Combined Waveforms")                  \
     X(U1_DIGI, "UltiSID 1 Digis Level") X(U2_DIGI, "UltiSID 2 Digis Level")                                                                          \
@@ -436,6 +436,7 @@ static void auto_mirror(uint8_t *base, uint8_t *mask, uint8_t *split, int count)
 
 // the resulting decodes, for the address map view (cfg state "u64.sid_map")
 static uint8_t g_base[4], g_mask[4], g_split[4];
+static uint8_t g_stereo_bak;                                       // FW C64_STEREO_ADDRSEL_BAK
 
 static void write_sid_addressing(CoreCtx *c)
 {
@@ -463,6 +464,7 @@ static void write_sid_addressing(CoreCtx *c)
     C64_EMUSID1_MASK = mask[2];
     C64_EMUSID2_MASK = mask[3];
     C64_STEREO_ADDRSEL = (uint8_t)V(c, K_STEREO);
+    g_stereo_bak = (uint8_t)V(c, K_STEREO);
     C64_EMUSID_SPLIT = (uint8_t)V(c, K_USPLIT);
     memcpy(g_base, base, 4);
     memcpy(g_mask, mask, 4);
@@ -1065,6 +1067,7 @@ static void detect_sids(CoreCtx *c, int type[2])
 
 static const char *const type_keys[2] = { "Pad SID Detected Socket 1", "Pad SID Detected Socket 2" };   // the settings keep only "Pad " extras (Settings::extra_set)
 static bool g_detected;
+static CoreCtx *g_ctx_sid;
 
 // FW U64SidSockets::detect and its tail: the machine is let out of reset and stopped, the chips are looked at, the type is stored, and a changed type
 // sets the socket's enable, caps and shunt (sid_type_change). The machine goes back into reset: boot_start's init holds it until the release. The
@@ -1250,6 +1253,278 @@ static const char *state_fsid2_rev(CoreCtx *) { return fsid_rev(1); }
 // FW sid_device_fpgasid.cc:134: output mode and LEDs are disabled for a revision up to 9
 static const char *state_fsid1_new(CoreCtx *) { return g_fsid[0].dev && g_fsid[0].rev > 9 ? "yes" : ""; }
 static const char *state_fsid2_new(CoreCtx *) { return g_fsid[1].dev && g_fsid[1].rev > 9 ? "yes" : ""; }
+
+// ---- the SID player's autoconfig (T228 R21 item 7) ---------------------------------------------------------------------------------------------
+// PROVENANCE: TRX64-Ultimate software/ultimate-app/software/u64/u64_config.cc (Gideon Zweijtzer, GPL-3.0): U64Config::SidAutoConfig (:2409), MapSid (:2318),
+// SetSidAddress (:2253), GetSidType (:2159), unmapAllSids (:2397), SetMixerAutoSid (:2352), SetSidType (:2305), access_socket_pre / post (:2915, :2938) and the
+// SetSidType of sid_device_fpgasid.cc:97, sid_device_swinsid.cc:35, sid_device_armsid.cc:318, sid_device_pdsid.cc:39, sid_device_sidkick.cc:61. What is different:
+// FW's *_BAK shadows are g_base / g_mask / g_stereo_bak (the values the settings last wrote, which the map view shows), the stored socket type is g_sid_type
+// (the last detection), the machine is stopped by the caller (FW's load() has it stopped, so access_socket_pre does not stop it), no interrupt lock, and FW's
+// skipReset is not needed: this application writes the settings again only when it resets the machine itself (boot_apply_settings).
+#define UNMAPPED_BASE 0x01
+#define UNMAPPED_MASK 0xFE
+#define MODEREG       (*(volatile uint8_t *)(C64_CARTREGS_BASE + 0x0))
+#define MODE_ULTIMAX  0x02
+
+static void unmap_all_sids(void)
+{
+    C64_SID1_BASE = g_base[0] = UNMAPPED_BASE;
+    C64_SID1_MASK = g_mask[0] = UNMAPPED_MASK;
+    C64_SID2_BASE = g_base[1] = UNMAPPED_BASE;
+    C64_SID2_MASK = g_mask[1] = UNMAPPED_MASK;
+    C64_EMUSID1_BASE = g_base[2] = UNMAPPED_BASE;
+    C64_EMUSID1_MASK = g_mask[2] = UNMAPPED_MASK;
+    C64_EMUSID2_BASE = g_base[3] = UNMAPPED_BASE;
+    C64_EMUSID2_MASK = g_mask[3] = UNMAPPED_MASK;
+}
+
+// the types a logical SID can be: 0 none, 1 6581, 2 8580, 3 either (a chip that can be told)
+static uint8_t get_sid_type(CoreCtx *c, int slot)
+{
+    switch (slot) {
+    case 0:
+    case 1: {
+        if (!V(c, slot ? K_S2_EN : K_S1_EN)) {
+            return 0;
+        }
+        switch (g_sid_type[slot]) {
+        case 1: return 1;
+        case 2: return 2;
+        case 3: case 5: case 6: case 4: case 8: return 3;          // FPGASID, ARMSID, ARM2SID, SwinSID, Dukestah: we can TELL the chip its type
+        default: return 0;
+        }
+    }
+    case 2: case 3: case 6: case 7:
+        return V(c, K_ALLOW_EMU, 1) ? 3 : 0;
+    case 4: return g_sid_type[0] > 2 ? 3 : 0;                       // the other channel of a socket
+    case 5: return g_sid_type[1] > 2 ? 3 : 0;
+    }
+    return 0;
+}
+
+static bool set_sid_address(int slot, bool single, uint8_t actual_type, uint8_t base)
+{
+    uint8_t other = 0x00;
+    if (actual_type >= 3) {
+        other = stereo_bits[g_stereo_bak];
+    }
+    if (single) {
+        other = 0x3F;                                              // the only SID: every address bit
+    }
+    if (slot < 4) {
+        if (base & other) {
+            return false;
+        }
+        g_base[slot] = base;
+        g_mask[slot] = (uint8_t)(0xFE & ~other);
+        switch (slot) {
+        case 0: C64_SID1_BASE = g_base[0]; C64_SID1_MASK = g_mask[0]; break;
+        case 1: C64_SID2_BASE = g_base[1]; C64_SID2_MASK = g_mask[1]; break;
+        case 2: C64_EMUSID1_BASE = g_base[2]; C64_EMUSID1_MASK = g_mask[2]; break;
+        case 3: C64_EMUSID2_BASE = g_base[3]; C64_EMUSID2_MASK = g_mask[3]; break;
+        }
+        return true;
+    }
+    switch (slot) {                                                 // the odd ones: the existing mapping of the other channel
+    case 4: return (uint8_t)(g_base[0] | other) == base;
+    case 5: return (uint8_t)(g_base[1] | other) == base;
+    case 6: return (uint8_t)(g_base[2] | other) == base;
+    case 7: return (uint8_t)(g_base[3] | other) == base;
+    }
+    return false;
+}
+
+// access_socket_post: the registers go back to the mapping so far
+static void restore_detection_addresses(void)
+{
+    C64_SID1_BASE = g_base[0];
+    C64_SID2_BASE = g_base[1];
+    C64_SID1_MASK = g_mask[0];
+    C64_SID2_MASK = g_mask[1];
+    C64_EMUSID1_BASE = g_base[2];
+    C64_EMUSID2_BASE = g_base[3];
+    C64_EMUSID1_MASK = g_mask[2];
+    C64_EMUSID2_MASK = g_mask[3];
+    C64_SID1_EN = V(g_ctx_sid, K_S1_EN) ? 1 : 0;
+    C64_SID2_EN = V(g_ctx_sid, K_S2_EN) ? 1 : 0;
+    C64_STEREO_ADDRSEL = g_stereo_bak;
+}
+
+// U64Config::SetSidType (the socket's chip is told its type): FW's device classes by the detected type
+static void set_sid_type(CoreCtx *c, int slot, uint8_t sid_type)
+{
+    if (slot >= 2) {
+        return;
+    }
+    int chip = g_sid_type[slot];
+    if (chip < 3 || chip == 7 || chip == 8) {
+        return;                                                     // no device class tells a plain chip (FW: dev is null or has no effect)
+    }
+    CoreIo *io = c->io;
+    io->ram_memonly(false);                                         // the chips are on the bus
+    detect_addresses(c);                                            // access_socket_pre
+    volatile uint8_t *b = (volatile uint8_t *)(C64_MEMORY_BASE + (slot ? 0xD500 : 0xD400));
+    uint8_t pre_mode = MODEREG;
+    MODEREG = MODE_ULTIMAX;                                         // force the I/O range on
+    int t = sid_type - 1;                                           // received 1 = 6581, 2 = 8580 => 0 and 1
+    switch (chip) {
+    case 3:                                                         // FPGASID
+        b[25] = 0x80;
+        b[26] = 0x65;
+        b[31] = t ? 0xFF : 0x40;                                    // bit 7 and 5..0 set when 8580: ExtIn is DigiFix for an 8580 and disabled for a 6581
+        b[25] = 0x00;
+        b[26] = 0x00;
+        break;
+    case 4:                                                         // SwinSID Ultimate
+        b[29] = 'S'; (void)SDMA(2);
+        b[30] = 'E'; (void)SDMA(2);
+        b[31] = t ? '8' : '6'; (void)SDMA(2);
+        break;
+    case 5: case 6:                                                 // ARMSID, ARM2SID: config mode, then the mode
+        b[29] = 'S'; (void)SDMA(2);
+        b[30] = 'I'; (void)SDMA(2);
+        b[31] = 'D';
+        io->delay_ms(10);
+        b[29] = 'S'; (void)SDMA(2);
+        b[30] = 'E'; (void)SDMA(2);
+        b[31] = t ? '8' : '6';
+        io->delay_ms(10);
+        break;
+    case 9:                                                         // PDsid
+        b[29] = 'P'; (void)SDMA(2);
+        b[30] = 'D'; (void)SDMA(2);
+        b[31] = (sid_type == 1) ? 0x00 : 0x01; (void)SDMA(2);
+        b[29] = 0; (void)SDMA(2);                                   // exit config mode
+        break;
+    case 10: case 11:                                               // SIDKick
+        b[0x1f] = 0xFF;                                             // enter config mode
+        b[0x1e] = 0x00;                                             // choose the profile to update
+        b[0x1d] = t ? 0x0C : 0x08;                                  // SID_TYPE_8580_BOOST / SID_TYPE_6581 of sid_device_sidkick.h
+        b[0x1f] = 0xfd;                                             // leave config mode
+        io->delay_ms(5);
+        break;
+    }
+    MODEREG = pre_mode;
+    restore_detection_addresses();                                  // access_socket_post
+}
+
+static bool map_sid(CoreCtx *c, int index, int total, uint16_t &mapped, uint8_t *on_slot, const uint8_t *base, const uint8_t *type, bool any)
+{
+    for (int i = 0; i < 8; i++) {
+        if (mapped & (1 << i)) {
+            continue;
+        }
+        uint8_t actual = get_sid_type(c, i);
+        if ((actual & type[index]) || (any && actual)) {
+            if (set_sid_address(i, total == 1, actual, base[index])) {
+                mapped |= (uint16_t)(1 << i);
+                on_slot[index] = (uint8_t)i;
+                printf("[u64cfg] SID %d (type %d) on logical SID %d (type %d), at $D%02x0\n", index, type[index] & 3, i, actual, base[index]);
+                if (actual == 3) {
+                    set_sid_type(c, i, type[index]);
+                }
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+static uint8_t combine_gain(uint8_t source_raw, uint8_t master_raw)
+{
+    if (!source_raw || !master_raw) {
+        return 0;
+    }
+    uint16_t combined = (uint16_t)(((uint16_t)source_raw * master_raw + 0x40) >> 7);
+    if (combined > 0xFF) {
+        combined = 0xFF;
+    }
+    return combined ? (uint8_t)combined : 1;                        // both on: never rounded to 0 (mute)
+}
+
+static void set_mixer_auto_sid(CoreCtx *c, const uint8_t *slots, int count)
+{
+    static const uint8_t channel_map[4] = { 4, 6, 0, 2 };
+    uint8_t sel[4], vol[4];
+    uint8_t master = volume_ctrl[V(c, K_MASTER, 24)];
+    sel[0] = (uint8_t)V(c, K_VOL2, 24);
+    sel[1] = (uint8_t)V(c, K_VOL3, 24);
+    sel[2] = (uint8_t)V(c, K_VOL0, 24);
+    sel[3] = (uint8_t)V(c, K_VOL1, 24);
+    for (int i = 0; i < 4; i++) {
+        vol[i] = combine_gain(volume_ctrl[sel[i]], master);
+    }
+    volatile uint8_t *mixer = (volatile uint8_t *)U64_AUDIO_MIXER;
+    for (int i = 0; i < 8; i++) {
+        mixer[i] = 0;                                               // first mute the SIDs
+    }
+    if (count > 4) {
+        count = 4;
+    }
+    static const int panning[20] = { 0, 0, 0, 0, 5, 0, 0, 0, 3, 7, 0, 0, 5, 2, 8, 0, 3, 7, 1, 9 };
+    for (int i = 0; i < count; i++) {
+        uint8_t slot = slots[i];
+        uint8_t ms = slot & 3;
+        uint8_t v = vol[ms];
+        if (!v && master && !sel[ms]) {
+            v = 0x80;
+        }
+        int pan = panning[4 * count + i];
+        mixer[0 + channel_map[ms]] = mixer_side(v, 0x80, pan_ctrl[10 - pan]);
+        mixer[1 + channel_map[ms]] = mixer_side(v, 0x80, pan_ctrl[pan]);
+    }
+}
+
+bool u64cfg_sid_autoconfig(CoreCtx *c, int count, const uint8_t *base, const uint8_t *type)
+{
+    g_ctx_sid = c;
+    if (!V(c, K_PLAYER_AUTO, 1)) {
+        printf("[u64cfg] SID Player Autoconfig disabled, not configuring\n");
+        return true;
+    }
+    sid_types_detect(c);
+    uint16_t mapped = 0;
+    uint8_t on_slot[8];
+    if (count > 8) {
+        count = 8;
+    }
+    memset(on_slot, 0, sizeof(on_slot));
+    unmap_all_sids();
+    bool failed = false;
+    for (int i = 0; i < count; i++) {
+        if (!map_sid(c, i, count, mapped, on_slot, base, type, false)) {
+            failed = true;
+        }
+    }
+    if (failed) {                                                   // again, from the last one down
+        unmap_all_sids();
+        mapped = 0;
+        memset(on_slot, 0, sizeof(on_slot));
+        failed = false;
+        for (int i = count - 1; i >= 0; i--) {
+            if (!map_sid(c, i, count, mapped, on_slot, base, type, false)) {
+                failed = true;
+            }
+        }
+    }
+    if (failed) {                                                   // again, any chip that exists
+        unmap_all_sids();
+        mapped = 0;
+        memset(on_slot, 0, sizeof(on_slot));
+        failed = false;
+        for (int i = 0; i < count; i++) {
+            if (!map_sid(c, i, count, mapped, on_slot, base, type, true)) {
+                failed = true;
+            }
+        }
+    }
+    if (failed) {
+        printf("[u64cfg] SID player: no valid mapping found\n");
+        return false;
+    }
+    set_mixer_auto_sid(c, on_slot, count);
+    return true;
+}
 
 // ---- the rest: joystick, user port, turbo, serial bus, LEDs ---------------------------------------------------------------------------------
 static const uint8_t speedregs_regvalues[] = { 0x00, 0x00, 0x01, 0x05 };

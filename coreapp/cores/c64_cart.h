@@ -37,4 +37,10 @@ int c64_cart_for_state(CoreCtx *c, const char *path, char *msg, int msglen);
 // Takes the cartridge away (type 0, no descriptor) and cold resets. 0 or a reason.
 int c64_cart_remove(CoreCtx *c, char *msg, int msglen);
 
+// The SID player's cartridge (T228 R21 item 7): a 16 KB normal cartridge from RAM, the machine held in reset and not released (the caller writes the RAM the
+// player expects, then resets). The cartridge in the port before it is put back by the next reset (c64_cart_player_end, called from the reset's hold).
+int c64_cart_run_image(CoreCtx *c, const char *name, const uint8_t *img, char *msg, int msglen);
+void c64_cart_player_end(CoreCtx *c);
+bool c64_cart_player_active(void);
+
 #endif

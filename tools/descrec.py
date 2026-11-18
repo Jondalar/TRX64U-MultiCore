@@ -792,10 +792,15 @@ def compile_desc(doc, merged=()):
         first = len(t["fact"])
         for f in lst:
             fact_labels.add(f.get("label"))
-            _only(f, {"label", "op", "bind", "closes_menu", "ask", "ask_off", "size_in", "key", "show_state"}, what)
+            _only(f, {"label", "op", "bind", "closes_menu", "ask", "ask_off", "size_in", "key", "show_state", "repeat_op", "show"}, what)
             label = _need(f, "label", str, what)
             w2 = "%s action %s" % (what, label)
             ask = text_key(f, "ask", w2)
+            rep = text_key(f, "repeat_op", w2)                  # T228 R21: the action is offered once per N, N from this operation; the ask word holds its name
+            if rep is not None and (ask is not None or "ask_off" in f):
+                raise DescError("%s: repeat_op and ask do not go together" % w2)
+            if rep is not None:
+                ask = rep
             if "ask_off" in f and ask is None:
                 raise DescError("%s: ask_off needs an ask" % w2)
             off = _opt(f, "ask_off", int, w2, 0)
@@ -821,6 +826,7 @@ def compile_desc(doc, merged=()):
                 if so >= 0x10000:
                     raise DescError("%s: show_state lies beyond the first 64 KB of the strings" % w2)
                 fl |= so << 16
+            fl |= (2 if rep is not None else 0) | (4 if _opt(f, "show", bool, w2, False) else 0)       # bit 1 repeat (ask = the count's op), bit 2 shows the op's text
             t["fact"].append((st.add(label), st.add(_need(f, "op", str, w2)), fb, nb, fl, st.add(ask),
                               off & 0xFFFFFFFF, fz, len(sizes)))
         return first, len(lst)
@@ -1200,10 +1206,10 @@ def parse_desc(blob):
     out["fact"] = []
     for label, op, fb, nb, fl, ask, off, fz, nz in tabs["fact"]:
         off = off - 2 ** 32 if off >= 2 ** 31 else off
-        if not s(label) or not s(op) or fl & 0xFFFF & ~0xFF01 or fb + nb > len(out["bind"]) or fz + nz > len(out["size"]) or not -32768 <= off <= 32767 or (s(ask) is None and off):
+        if not s(label) or not s(op) or fl & 0xFFFF & ~0xFF07 or fb + nb > len(out["bind"]) or fz + nz > len(out["size"]) or not -32768 <= off <= 32767 or (s(ask) is None and (off or fl & 2)) or (fl & 2 and off):
             raise DescError("description record: a bad file type action")
-        out["fact"].append({"label": s(label), "op": s(op), "bind": out["bind"][fb:fb + nb], "closes_menu": bool(fl & 1), "key": chr((fl >> 8) & 0xFF) if (fl >> 8) & 0xFF else "", "ask": s(ask), "ask_off": off,
-                            "size_in": out["size"][fz:fz + nz], "show_state": s((fl >> 16) - 1) if fl >> 16 else None})
+        out["fact"].append({"label": s(label), "op": s(op), "bind": out["bind"][fb:fb + nb], "closes_menu": bool(fl & 1), "key": chr((fl >> 8) & 0xFF) if (fl >> 8) & 0xFF else "", "ask": None if fl & 2 else s(ask), "ask_off": off,
+                            "size_in": out["size"][fz:fz + nz], "show_state": s((fl >> 16) - 1) if fl >> 16 else None, "repeat_op": s(ask) if fl & 2 else None, "show": bool(fl & 4)})
     out["ftype"] = []
     seen = set()
     for ext, inner_ext, fa, na, fi, ni in tabs["ftype"]:
@@ -1367,6 +1373,10 @@ def decoded_to_doc(rec):
                 if a["ask"] is not None:
                     d["ask"] = a["ask"]
                     d["ask_off"] = a["ask_off"]
+                if a.get("repeat_op"):
+                    d["repeat_op"] = a["repeat_op"]
+                if a.get("show"):
+                    d["show"] = True
                 if a["size_in"]:
                     d["size_in"] = a["size_in"]
                 if a.get("key"):
@@ -1557,7 +1567,9 @@ def check_ops(rec, ops, states):
             add(_bind_problem(ops, "media", m["name"], m["eject_op"], m["eject_bind"], False, False, False))
     for ft in rec["ftype"]:
         for a in ft["actions"]:
-            add(_bind_problem(ops, "filetype " + ft["ext"], a["label"], a["op"], a["bind"], True, bool(a["ask"]), False))
+            add(_bind_problem(ops, "filetype " + ft["ext"], a["label"], a["op"], a["bind"], True, bool(a["ask"]) or bool(a.get("repeat_op")), False))
+            if a.get("repeat_op"):                                       # T228 R21: the counting operation takes the same binding (asked value 0)
+                add(_bind_problem(ops, "filetype " + ft["ext"], a["label"], a["repeat_op"], a["bind"], True, True, False))
             if a["ask"] and sum(b["kind"] == BIND_KINDS["ask"] for b in a["bind"]) != 1:
                 bad.append('filetype %s: "%s" asks for an address but binds it %d times (once)' % (ft["ext"], a["label"], sum(b["kind"] == BIND_KINDS["ask"] for b in a["bind"])))
         for a in ft["inner"]:

@@ -421,8 +421,8 @@ int descrec_parse(const uint8_t *rec, uint32_t n, DescRecord *out, char *why, in
         d.ask = r.str(W(e, 5), &bad);
         int32_t off = (int32_t)W(e, 6);
         uint32_t fz = W(e, 7), nz = W(e, 8);
-        if (bad || !d.label || !d.label[0] || !d.op || !d.op[0] || (fl & 0xFFFFu & ~0xFF01u) || (uint64_t)fb + nb > tb[B].count || (uint64_t)fz + nz > tb[Z].count || off < -32768 ||
-            off > 32767 || (!d.ask && off != 0)) {
+        if (bad || !d.label || !d.label[0] || !d.op || !d.op[0] || (fl & 0xFFFFu & ~0xFF07u) || (uint64_t)fb + nb > tb[B].count || (uint64_t)fz + nz > tb[Z].count || off < -32768 ||
+            off > 32767 || (!d.ask && (off != 0 || (fl & 2))) || ((fl & 2) && off != 0)) {
             return r.fail("description record: file type action %u has a bad string, flag or run", (unsigned)i);
         }
         d.bind = nb ? out->binds + fb : 0;
@@ -430,6 +430,11 @@ int descrec_parse(const uint8_t *rec, uint32_t n, DescRecord *out, char *why, in
         d.closes_menu = fl & 1;
         d.key = (char)((fl >> 8) & 0xFF);
         d.ask_off = (int16_t)off;
+        if (fl & 2) {                                    // T228 R21: repeat - the ask word is the name of the operation that counts
+            d.repeat_op = d.ask;
+            d.ask = 0;
+        }
+        d.show = (fl & 4) != 0;
         d.size_in = nz ? out->sizes + fz : 0;
         d.nsize_in = (int)nz;
         if (fl >> 16) {                                        // the condition that offers the action (the offset + 1 of its text above the flags' low 16 bits)

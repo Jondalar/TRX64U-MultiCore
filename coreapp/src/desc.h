@@ -141,6 +141,12 @@ struct FileAction {
     char key;
     // T228 R21: the action is offered only while this condition holds (contrib.h cond_holds, a state name with the same forms as a node's when_state); null: always.
     const char *show_state;
+    // T228 R21 (SID player, "Play Song n"): `repeat_op` names an operation called with the file (the action's own binding, asked value 0); the 16 bit
+    // little endian number it returns in its data is how many entries the sheet shows for this action, each with the label's "%d" = 1..N and the number
+    // as the asked value. `index` is set on those copies (0 on a table entry). `show`: the text the operation returns is shown in the viewer.
+    const char *repeat_op;
+    int16_t index;
+    bool show;
 };
 
 struct FileType {
