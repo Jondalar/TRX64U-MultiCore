@@ -4,6 +4,7 @@
 #include "ops_glue.h"
 #include "diag.h"
 #include "home.h"
+#include "newfile.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -469,7 +470,10 @@ void FileMgr::browse_row(int i, BrowseRow *r, const char *marks_spec) const
     snprintf(r->value, sizeof(r->value), "%s", r->sub);
     if (vmode && i < VROWS) {                                                  // the folder it lies in
         snprintf(r->sub, sizeof(r->sub), "%s", vfull[i]);
-        snprintf(r->value, sizeof(r->value), "%s", vfull[i]);
+        char dir[FS_PATH_MAX];                                                 // the right column is the folder, the name stays on the left
+        const char *sl = strrchr(vfull[i], '/');
+        nf_copy(dir, sizeof(dir), vfull[i], sl ? (size_t)(sl == vfull[i] ? 1 : sl - vfull[i]) : 0);
+        snprintf(r->value, sizeof(r->value), "%s", dir);
     }
     const FileType *ft = 0;
     r->tone = 1;
