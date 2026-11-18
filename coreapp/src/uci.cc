@@ -216,14 +216,14 @@ class Dos : CommandTarget
     }
 
     // dos.cc:578-740: a file into / out of a MegaPatch 3 RAM drive of the REU. The drive's type, size and first bank come from the machine (UciHost::ramdrive);
-    // the file's bytes go through the data-cache-safe door (a 1571's second side lies 700 sectors behind the first).
+    // the file's bytes go through the data-cache-safe door. No 1571 drive and no .d71: out of trx64u (Alex 2026-11-18).
     static int ext_type(const char *name)
     {
         const char *dot = strrchr(name, '.');
         if (!dot) {
             return 0;
         }
-        return !strcasecmp(dot, ".d64") ? 1541 : !strcasecmp(dot, ".d71") ? 1571 : !strcasecmp(dot, ".d81") ? 1581 : !strcasecmp(dot, ".dnp") ? DRVTYPE_MP3_DNP : 0;
+        return !strcasecmp(dot, ".d64") ? 1541 : !strcasecmp(dot, ".d81") ? 1581 : !strcasecmp(dot, ".dnp") ? DRVTYPE_MP3_DNP : 0;
     }
     void ramdisk(Message *command, bool load, Message **reply, Message **status)
     {
@@ -260,8 +260,6 @@ class Dos : CommandTarget
         }
         if (ftype == 1541) {
             expSize = 174848;
-        } else if (ftype == 1571) {
-            expSize = 2 * 174848;
         } else if (ftype == 1581) {
             expSize = 819200;
         }
@@ -291,10 +289,9 @@ class Dos : CommandTarget
             return;
         }
         uint8_t *buf = new uint8_t[4096];
-        int parts = ftype == 1571 ? 2 : 1;
-        uint32_t half = ftype == 1571 ? expSize / 2 : expSize;
-        for (int part = 0; part < parts; part++) {
-            uint32_t dst = at + (part ? 700 * 256 : 0);
+        uint32_t half = expSize;
+        {
+            uint32_t dst = at;
             for (uint32_t done = 0; done < half;) {
                 uint32_t n = half - done < 4096 ? half - done : 4096, got = 0;
                 if (load) {
@@ -1357,8 +1354,6 @@ public:
                 unsigned char ty = 0, si = 0;
                 if (typ == 1541) {
                     ty = 0x41;
-                } else if (typ == 1571) {
-                    ty = 0x71;
                 } else if (typ == 1581) {
                     ty = 0x81;
                 } else if (typ == DRVTYPE_MP3_DNP) {

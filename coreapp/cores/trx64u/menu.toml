@@ -878,33 +878,6 @@ ext = ".g64"
 
 # T228 R21: a disk image the GEOS RAM drives of the REU can take (TRX-Ultimate filetype_d64.cc:121-124): each action is offered while that drive is of the file's type
 [[filetype]]
-ext = ".d71"
-  [[filetype.action]]
-  label = "Load into MP3 Drv A"
-  key = "1"
-  op = "reu.load_mp3"
-  bind = [ { arg = "path", file = true }, { arg = "drive", int = 0 } ]
-  show_state = "reu.mp3.a == 1571"
-  [[filetype.action]]
-  label = "Load into MP3 Drv B"
-  key = "2"
-  op = "reu.load_mp3"
-  bind = [ { arg = "path", file = true }, { arg = "drive", int = 1 } ]
-  show_state = "reu.mp3.b == 1571"
-  [[filetype.action]]
-  label = "Load into MP3 Drv C"
-  key = "3"
-  op = "reu.load_mp3"
-  bind = [ { arg = "path", file = true }, { arg = "drive", int = 2 } ]
-  show_state = "reu.mp3.c == 1571"
-  [[filetype.action]]
-  label = "Load into MP3 Drv D"
-  key = "4"
-  op = "reu.load_mp3"
-  bind = [ { arg = "path", file = true }, { arg = "drive", int = 3 } ]
-  show_state = "reu.mp3.d == 1571"
-
-[[filetype]]
 ext = ".d81"
   [[filetype.action]]
   label = "Load into MP3 Drv A"

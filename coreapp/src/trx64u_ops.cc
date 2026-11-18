@@ -841,7 +841,7 @@ static int mp3_type(CoreCtx *c, int n)
     }
     int t = 0;
     t = real == 0x81 ? 1541 : t;
-    t = real == 0x82 ? 1571 : t;
+    // 0x82, a 1571 RAM drive, counts as none: .d71 is out of trx64u (Alex 2026-11-18: ".d71 goes out completely")
     t = real == 0x83 ? 1581 : t;
     t = real == 0x84 || real == 0xA4 ? MP3_DNP : t;
     return reu_byte(c, 0x7DC7 + (uint32_t)n) > 0x40 ? 0 : t;
@@ -851,9 +851,6 @@ static uint32_t mp3_size(CoreCtx *c, int n, int type)
 {
     if (type == 1541) {
         return 174848;
-    }
-    if (type == 1571) {
-        return 2 * 174848;
     }
     if (type == 1581) {
         return 819200;
@@ -874,7 +871,6 @@ template <int N> static const char *state_mp3(CoreCtx *c)
 {
     switch (mp3_type(c, N)) {
     case 1541: return "1541";
-    case 1571: return "1571";
     case 1581: return "1581";
     case MP3_DNP: return "DNP";
     default: return 0;
@@ -884,7 +880,7 @@ template <int N> static const char *state_mp3(CoreCtx *c)
 static const char *state_sampler(CoreCtx *) { return (getFpgaCapabilities() & CAPAB_SAMPLER) ? "yes" : 0; }
 template <int N> static const char *state_nomp3(CoreCtx *c) { return mp3_type(c, N) ? 0 : "none"; }
 
-// "Save MP3 Drv A..D": the drive's bytes (a 1571's two sides lie 700 sectors apart) into a file named by the person
+// "Save MP3 Drv A..D": the drive's bytes into a file named by the person
 static int op_save_mp3(CoreCtx *c, const OpArgs &a, OpOut &o)
 {
     int n = a.i(0), type = mp3_type(c, n);
@@ -893,45 +889,21 @@ static int op_save_mp3(CoreCtx *c, const OpArgs &a, OpOut &o)
         snprintf(o.msg, o.msglen, "No GEOS RAM drive %c in the REU", 'A' + n);
         return OPE_FAILED;
     }
-    if (!trx_target_path(c, a.s(1), type == 1541 ? ".d64" : type == 1571 ? ".d71" : type == 1581 ? ".d81" : ".dnp", p, sizeof(p))) {
+    if (!trx_target_path(c, a.s(1), type == 1541 ? ".d64" : type == 1581 ? ".d81" : ".dnp", p, sizeof(p))) {
         snprintf(o.msg, o.msglen, "No medium to save to");
         return OPE_FAILED;
     }
     uint32_t len = mp3_size(c, n, type), at = (uint32_t)reu_byte(c, 0x7DC7 + (uint32_t)n) << 16;
-    if (type == 1571) {
-        if (write_ddr(c, p, at, len / 2, false, o.msg, o.msglen)) {
-            return OPE_FAILED;
-        }
-        static uint8_t buf[0x10000];
-        CoreFile *f = c->fs->open(p, true);
-        bool ok = f && f->writable();
-        for (uint32_t done = 0; ok && done < len / 2;) {
-            uint32_t k = len / 2 - done < sizeof(buf) ? len / 2 - done : (uint32_t)sizeof(buf);
-            c->io->ddr_read(at + 700 * 256 + done, buf, k);
-            ok = f->write(len / 2 + done, buf, k);
-            done += k;
-        }
-        ok = ok && f->sync();
-        if (f) {
-            c->fs->close(f);
-        }
-        if (!ok) {
-            snprintf(o.msg, o.msglen, "%s: writing failed (medium full or gone)", p);
-            return OPE_FAILED;
-        }
-        snprintf(o.msg, o.msglen, "Saved %s (%u bytes)", p, (unsigned)len);
-        return OPE_OK;
-    }
     return write_ddr(c, p, at, len, false, o.msg, o.msglen) ? OPE_FAILED : OPE_OK;
 }
 
-// "Load into MP3 Drv A..D" on a .d64 / .d71 / .d81 / .dnp: the drive must be of the file's type (a native one: of the file's size, at most 12 MB)
+// "Load into MP3 Drv A..D" on a .d64 / .d81 / .dnp: the drive must be of the file's type (a native one: of the file's size, at most 12 MB)
 static int op_load_mp3(CoreCtx *c, const OpArgs &a, OpOut &o)
 {
     const char *path = a.s(0);
     int n = a.i(1), type = mp3_type(c, n);
     const char *dot = strrchr(path, '.');
-    int want = !dot ? 0 : !strcasecmp(dot, ".d64") ? 1541 : !strcasecmp(dot, ".d71") ? 1571 : !strcasecmp(dot, ".d81") ? 1581 : !strcasecmp(dot, ".dnp") ? MP3_DNP : 0;
+    int want = !dot ? 0 : !strcasecmp(dot, ".d64") ? 1541 : !strcasecmp(dot, ".d81") ? 1581 : !strcasecmp(dot, ".dnp") ? MP3_DNP : 0;
     if (!type || type != want) {
         snprintf(o.msg, o.msglen, "Invalid operation: RAM drive %c is not of this type", 'A' + n);
         return OPE_FAILED;
@@ -959,10 +931,10 @@ static int op_load_mp3(CoreCtx *c, const OpArgs &a, OpOut &o)
         return OPE_FAILED;
     }
     static uint8_t buf[0x10000];
-    uint32_t half = type == 1571 ? len / 2 : len, total = 0;
+    uint32_t half = len, total = 0;
     bool ok = true;
-    for (int part = 0; part < (type == 1571 ? 2 : 1); part++) {         // a 1571's second side lies 700 sectors behind the first
-        uint32_t from = part ? half : 0, dst = at + (part ? 700 * 256 : 0);
+    {
+        uint32_t from = 0, dst = at;
         for (uint32_t done = 0; ok && done < half && from + done < sz;) {
             uint32_t k = half - done < sizeof(buf) ? half - done : (uint32_t)sizeof(buf);
             if ((uint64_t)from + done + k > sz) {
