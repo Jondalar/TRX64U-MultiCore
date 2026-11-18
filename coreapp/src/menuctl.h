@@ -273,7 +273,7 @@ private:
     bool pick_key(int k, Result *out);
     Result pick_take(const char *path);                            // T185 D4: the selector chose this file (or "" for none) for setting pick_set_
     const char *setting_label(int idx) const { const Setting &s = c_->desc->settings[idx]; return s.label ? s.label : s.key; }
-    Result start_job(const Task &t, const char *name);
+    Result start_job(const Task &t, const char *name, bool bare = false);
     void job_text(char *left, int ln, char *right, int rn, char *sub, int sn) const;
     const FileAction *chooser_action(int i) const { return &chooser_acts_[i]; }
     Result start_action(const FileAction &a, const char *file);
@@ -397,7 +397,7 @@ private:
     int pick_n_, pick_sel_;
     bool pick_ok_;
     // the job of a Create task: stepped by tick(), one chunk at a time
-    bool busy_, job_started_;
+    bool busy_, job_started_, job_bare_;
     bool app_mode_;
     char follow_last_[40];
     bool close_req_;

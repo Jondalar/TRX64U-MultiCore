@@ -10,6 +10,7 @@ exception coreapp/cores/trx64u/menu_rec.inc +2489 T228-R20 (Alex 2026-11-18: "re
 exception coreapp/src/u64cfg.cc +699 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
 exception coreapp/cores/trx64u/menu.toml +1262 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
 exception coreapp/cores/trx64u/menu_rec.inc +2483 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
+exception coreapp/cores/trx64u/menu_rec.inc +2490 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
 file coreapp/cores/6502/xexboot.asm 161
 file coreapp/cores/6502/xexboot_bin.h 26
 file coreapp/cores/amiga.cc 345
@@ -204,6 +205,12 @@ exception coreapp/cores/c64_cart.h +8 T228-R20 (Alex 2026-11-18: "repair. It has
 exception coreapp/src/u64cfg.h +2 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
 exception coreapp/src/trx64u_ops.h +5 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
 exception coreapp/cores/c64.cc +94 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
+exception coreapp/src/ring.cc +240 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
+exception coreapp/src/ringfile.cc +1486 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
+exception coreapp/src/ringops.cc +223 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
+exception coreapp/src/trx_c64re.h +34 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
+exception coreapp/src/trx_ring.h +19 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
+exception coreapp/cores/c64.cc +78 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
 exception coreapp/cores/c64_cart.cc +97 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
 exception coreapp/src/trx64u_ops.cc +472 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
 exception coreapp/cores/c64_cart.h +5 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")

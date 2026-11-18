@@ -22,7 +22,7 @@ static bool fm_on_browser(void *user);
 
 MenuCtl::MenuCtl(CoreCtx *c, MenuHost *h) : c_(c), h_(h), fm_(c, FileMgr::Port{ this, fm_say, fm_on_browser }), area_(0), tab_(0), status_bad_(false), chooser_(false),
     chooser_ft_(0), chooser_sel_(0), chooser_acts_(0), chooser_n_(0), entry_text_mode_(false), entry_task_(0),
-    pick_(false), pick_task_(0), pick_set_(-1), pick_n_(0), pick_sel_(0), pick_ok_(true), busy_(false), job_started_(false), job_task_(0),
+    pick_(false), pick_task_(0), pick_set_(-1), pick_n_(0), pick_sel_(0), pick_ok_(true), busy_(false), job_started_(false), job_bare_(false), job_task_(0),
     entry_(false), entry_act_(0), entry_def_(0), entry_n_(0), entry_fresh_(false), app_mode_(false), flow_q_(0)
 {
     pick_list_ = 0;
@@ -2002,18 +2002,27 @@ bool MenuCtl::pick_key(int k, Result *out)
 }
 
 // ---- the job: a new file written in steps, with a progress display ---------------------------------------------------------------------------
-MenuCtl::Result MenuCtl::start_job(const Task &t, const char *name)
+MenuCtl::Result MenuCtl::start_job(const Task &t, const char *name, bool bare)
 {
     const char *dir = c_->media_dir;
     int dl = (int)strlen(dir);
-    snprintf(job_name_, sizeof(job_name_), "%s%s%s", dir, dl && dir[dl - 1] != '/' ? "/" : "", name ? name : "");
+    if (bare) {                                                      // the operation places the name itself (trx_target_path)
+        snprintf(job_name_, sizeof(job_name_), "%s", name ? name : "");
+    } else {
+        snprintf(job_name_, sizeof(job_name_), "%s%s%s", dir, dl && dir[dl - 1] != '/' ? "/" : "", name ? name : "");
+    }
     busy_ = true;
     job_started_ = false;
     job_task_ = &t;
     c_->job_pct = 0;
     c_->job_path[0] = 0;
     c_->job_cancel = false;
-    set_status(t.op && !strcmp(t.op, "sectors.mount_folder") ? "Mounting the folder ... <- cancels" : "Building the image ... <- cancels", false);   // a folder mount builds no image (T128, discussion #36)
+    job_bare_ = bare;
+    char sj[80];
+    if (bare) {
+        snprintf(sj, sizeof(sj), "%s ... <- cancels", t.label);
+    }
+    set_status(bare ? sj : t.op && !strcmp(t.op, "sectors.mount_folder") ? "Mounting the folder ... <- cancels" : "Building the image ... <- cancels", false);   // a folder mount builds no image (T128, discussion #36)
     return R_REDRAW;
 }
 
@@ -2022,7 +2031,7 @@ void MenuCtl::job_text(char *left, int ln, char *right, int rn, char *sub, int s
     if (c_->job_path[0]) {
         snprintf(left, ln, "Writing %s", c_->job_path);
     } else {
-        snprintf(left, ln, "%s", job_task_ && job_task_->op && !strcmp(job_task_->op, "sectors.mount_folder") ? "Mounting the folder" : "Building the image");
+        snprintf(left, ln, "%s", job_bare_ && job_task_ ? job_task_->label : job_task_ && job_task_->op && !strcmp(job_task_->op, "sectors.mount_folder") ? "Mounting the folder" : "Building the image");
     }
     snprintf(right, rn, "%d%s", c_->job_pct, "%");                  // the firmware's printf has no %%
     if (sub && sn) {
@@ -2280,6 +2289,15 @@ bool MenuCtl::text_key(int k, Result *out)
         int l = (int)strlen(text);
         while (l > 0 && text[l - 1] == ' ') {
             text[--l] = 0;
+        }
+        if (ui_attr(n->attr, "job")) {                                // T228 R21: a named file written in steps with the progress display (Save frame)
+            memset(&node_task_, 0, sizeof(node_task_));
+            node_task_.label = "Saving the state";
+            node_task_.op = n->op;
+            node_task_.bind = n->bind;
+            node_task_.nbind = n->nbind;
+            *out = start_job(node_task_, text, true);
+            return true;
         }
         OpResult r;
         int rc = ops_run_bound(c_, n->op, n->bind, n->nbind, 0, &r, 0, text);
@@ -3047,7 +3065,7 @@ MenuCtl::Result MenuCtl::run_node(const MenuNode &n, const char *label)
             begin_rename(c_->lib.cur);
             return R_REDRAW;
         }
-        if (ui_attr(n.attr, "job") || ui_attr(n.attr, "pick")) {
+        if ((ui_attr(n.attr, "job") && !ui_attr(n.attr, "ask")) || ui_attr(n.attr, "pick")) {          // job + ask: the name first (below), the job starts with it
             fm_.lib_sync();
             memset(&node_task_, 0, sizeof(node_task_));
             node_task_.label = label;
@@ -4089,6 +4107,9 @@ MenuCtl::Result MenuCtl::run_row_op(const KeyRow &row, int k, bool *took)
         }
         if (!strncmp(r.msg, "goto ", 5)) {
             goto_spec(r.msg + 5);
+        }
+        if (rc != 0 && r.msg[0]) {                           // a directive that failed has no directive: its text is the reason, the status line shows it (FW trx_timewarp_ui.cc: C= O says why)
+            set_status(r.msg, true);
         }
         return R_REDRAW;
     }

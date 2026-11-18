@@ -37,6 +37,11 @@ struct TrxC64reSrc {
     void (*rom_write)(void *ctx, uint32_t off, const uint8_t *src, uint32_t n);
     int (*cart_for_state)(void *ctx, const char *crt_path);
     void (*eeprom_put)(void *ctx, const uint8_t *data);
+    // drive A's mount mode for a dump (0 read/write, 1 read only, 2 unlinked). For a load: the System Mode the file is of, put in for this run only (0: done), and
+    // the image drive A had, mounted without a reset ("ro <path>" / "unlinked <path>" / "<path>", 0: done). Both get rom_ctx.
+    int disk_mode;
+    int (*machine_set)(void *ctx, int machine);
+    int (*drive_mount)(void *ctx, const char *spec);
 };
 void trx_c64re_set_source(const TrxC64reSrc *src);
 
@@ -63,6 +68,12 @@ const char *trx_c64rering_dump_ex(const char *path, int seconds, int stride, uin
 // RAM, image and EEPROM) is named by trx_c64re_missed() until the next load; it is empty when nothing was left out.
 const char *trx_c64re_load(const char *path);
 const char *trx_c64re_missed(void);
+
+// The .trxring (FW io/c64/trx_trxring.h): the whole frame ring in a file. is_one: the file starts with the magic; check: the header only, NULL or what is
+// wrong; load: the ring and the machine back (trx_c64re_load sends such a file here, so one path loads whichever kind it is).
+bool trx_trxring_is_one(const char *path);
+const char *trx_trxring_check(const char *path);
+const char *trx_trxring_load(const char *path);
 
 #else
 

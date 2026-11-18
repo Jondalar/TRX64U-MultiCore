@@ -223,6 +223,16 @@ bool trx_ring_cart_has_eeprom(uint8_t type);
 void trx_ring_set_turbo(uint32_t pack);
 int  trx_ring_load_state(const TrxLoadMem *mem, const uint32_t *w, uint16_t x);
 
+// The native ring copy (.trxring, FW trx_ring.h): the three log areas through the engine's mover (off and len multiples of 16), and the install of a saved
+// ring. Every count in ents is rebased so that the newest entry's are 0; areas(ctx) runs with the log off and the counters at 0 and writes the records
+// back with trx_ring_area_write(), returning 0 or a negative error of its own.
+uint32_t trx_ring_area_size(int s);
+uint32_t trx_ring_rec_size(int s);
+void trx_ring_area_read(int s, uint32_t off, void *dst, uint32_t len);
+void trx_ring_area_write(int s, uint32_t off, const void *src, uint32_t len);
+typedef int (*trx_area_fn)(void *ctx);
+int trx_ring_install(const TrxFrame *ents, int n, const TrxLoadMem *mem, trx_area_fn areas, void *ctx);
+
 #else
 
 // Other products: no frame ring (the REST verbs answer 503).

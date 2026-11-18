@@ -176,7 +176,7 @@ op = "tw.dump"
 bind = [ { arg = "name", text = true } ]
 order = 10
 when_state = "tw.present"
-ui = { ask = "Save the shown frame as (name)", ask_state = "machine.suggest.tw", why = "This bitstream has no frame ring", sub = "The machine's state at the shown frame" }
+ui = { ask = "Save the shown frame as (name)", ask_state = "machine.suggest.tw", job = true, why = "This bitstream has no frame ring", sub = "The machine's state at the shown frame" }
 
 [[node]]
 anchor = "F5/trx/Recording"
@@ -186,7 +186,7 @@ op = "tw.ringdump"
 bind = [ { arg = "name", text = true } ]
 order = 11
 when_state = "tw.present"
-ui = { ask = "Save the last seconds as (name)", ask_state = "machine.suggest.ring", why = "This bitstream has no frame ring", sub = "Up to 30 seconds, one frame in five" }
+ui = { ask = "Save the last seconds as (name)", ask_state = "machine.suggest.ring", job = true, why = "This bitstream has no frame ring", sub = "Up to 30 seconds, one frame in five" }
 
 [[node]]
 anchor = "F3/online"
@@ -1174,8 +1174,7 @@ ext = ".64c"
   size_in = [8192]
   closes_menu = true
 
-# R21 #11 (FW filetypes/filetype_c64re.cc:75-78): "Load State" on a .c64re and a .c64rering. The FW's "Load Ring" on a .trxring needs the ring's own file (T20 §10.2),
-# which this app does not write or read yet: no row for it.
+# R21 #11 (FW filetypes/filetype_c64re.cc:75-78): "Load State" on a .c64re and a .c64rering, "Load Ring" on a .trxring (the whole ring back, trx_trxring_load).
 [[filetype]]
 ext = ".c64re"
   [[filetype.action]]
@@ -1189,6 +1188,15 @@ ext = ".c64re"
 ext = ".c64rering"
   [[filetype.action]]
   label = "Load State"
+  key = "L"
+  op = "tw.load"
+  bind = [ { arg = "path", file = true } ]
+  closes_menu = true
+
+[[filetype]]
+ext = ".trxring"
+  [[filetype.action]]
+  label = "Load Ring"
   key = "L"
   op = "tw.load"
   bind = [ { arg = "path", file = true } ]
