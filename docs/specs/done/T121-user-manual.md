@@ -47,6 +47,15 @@ Style: engineering-manual (numbered paragraphs, scope and applicability first, W
 short imperative steps, Simplified Technical English, no narrative). Content from the code and measured results
 only; development history stays in `docs/todo/` and the specs.
 
+README (Alex 2026-11-18, translated): "The README does not have to be redundant with the manual, it is enough to jump there.
+And when someone comes to the repo after the release, they want to know: what can it do? Is my device supported? How do
+I install/flash it? What is my risk? And I want: a DISCLAIMER that we take *no support or liability for bricked boards*.
+So: short, the essential points, links into the documentation/wiki." On its content: every core is experimental, the state
+table in the Discussions and in the manual is what counts; the TRX64 Ultimate project holds the code of the C64 bitstream,
+this repository packs `trx64u.cor` / `trx64g.cor` and builds the core menu; HDMI is in, analogue video is in development.
+The README answers the four questions in a few lines each and links the manual; per-core details, release history and
+screenshots stay in the manual.
+
 ## §4 Out
 
 - Rewriting specs, ADRs or `docs/todo/`.
