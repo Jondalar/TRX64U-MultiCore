@@ -251,6 +251,9 @@ SRCS_CC	 =  u64ii_init.cc \
 			netops.cc \
 			hostwifi.cc \
 			ringfile.cc \
+			uci.cc \
+			command_intf.cc \
+			network_target.cc \
 			libfiles.cc \
 			t64.cc \
 			trx64u_ops.cc \

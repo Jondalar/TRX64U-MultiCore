@@ -8,6 +8,7 @@
 #include "c64_regs.h"
 #include "c64_cart.h"
 #include "boot.h"
+#include "uci.h"
 #include "u64.h"
 #include "iomap.h"
 #include <stdio.h>
@@ -102,6 +103,7 @@ static void fast_reset(CoreCtx *c)
 }
 
 static int reu_load(CoreCtx *c, const char *path, char *msg, int msglen);
+static const UciHost *uci_host(void);
 #define TRX_SLOT_CTRL 0x7000                                       // TRX_IO_BASE + 0x7000 = 0x101A7000
 
 static int fx_io(CoreCtx *c, const OpArgs &, OpOut &)
@@ -142,9 +144,12 @@ static int fx_io(CoreCtx *c, const OpArgs &, OpOut &)
         io->cart_wr(0x09, (uint8_t)cfg_value(c, "REU Size", 4));
         io->cart_wr(C64_CARTREG_SAMPLER, (uint8_t)cfg_value(c, "Map Ultimate Audio $DF20-DFFF", 0));
         if (desc_has_capability(c->desc, "uci") && (!c->board || (c->board->probes & BC_UCI))) {
+            uci_start(c, uci_host());                                               // the server and its targets (uci.cc), once
             CMD_IF_SLOT_ENABLE_REG = cfg_value(c, "Command Interface (UCI)", 0) ? 1 : 0;
             CMD_IF_SLOT_BASE_REG = 0x47;                                            // $DF1C
         }
+    } else if (desc_has_capability(c->desc, "uci") && (!c->board || (c->board->probes & BC_UCI))) {
+        CMD_IF_SLOT_ENABLE_REG = 0;                                                 // c64.cc:426-445: a running cartridge has the port, the UCI is off (the saved value stays)
     }
     fast_reset(c);
     static bool preloaded;                                               // "REU Preload": the image goes into the REU once, at the start
@@ -656,6 +661,52 @@ static const char *state_cartridge_path(CoreCtx *) { return c64_cart_active() ? 
 static const ArgSpec value_arg[] = { ARG_INT("value", -2000, 2000) };
 static const ArgSpec name_arg[] = { ARG_STRING("name", 63) };
 static const ArgSpec path_arg[] = { ARG_PATH("path") };
+
+// ---- the command interface's machine side (uci.cc): the REU and drive A -------------------------------------------------------------------------------------------
+static int uci_reu(CoreCtx *c, uint32_t *size, uint32_t *offset, char *img, int imgn, char *busy, int busyn)
+{
+    if (cfg_value(c, "RAM Expansion Unit", 0) != 1) {
+        return -2;
+    }
+    if (c64_cart_active()) {
+        snprintf(busy, busyn, "A cartridge uses the REU's memory: remove it first");
+        return -4;
+    }
+    *size = 0x20000u << cfg_value(c, "REU Size", 4);
+    *offset = reu_offset(c);
+    snprintf(img, imgn, "%s", cfg_text(c, "REU Preload Image"));
+    return 0;
+}
+
+static bool uci_drive_info(CoreCtx *c, int idx, uint8_t *type, uint8_t *addr, bool *power)
+{
+    CbmDrive *d = idx == 0 ? cbm1541_drive(c) : 0;
+    if (!d) {
+        return false;
+    }
+    *type = (uint8_t)(d->type() == DT_UNSET ? DT_1541 : d->type());
+    *addr = (uint8_t)d->bus_id();
+    *power = d->powered();
+    return true;
+}
+
+static int uci_drive_do(CoreCtx *c, int idx, int what, const char *path, char *msg, int msglen)
+{
+    static const char *const names[] = { "drive.mount", "drive.eject", "drive.swap", "drive.set_power", "drive.set_power" };
+    OpIn in[3] = { in_str("slot", "iec:drive_a"), in_str("path", path ? path : ""), in_str("mode", "rw") };
+    OpIn pw[1] = { in_int("value", what == 4 ? 1 : 0) };
+    OpResult *r = new OpResult;
+    int rc = idx != 0 ? OPE_FAILED : ops_call(c, names[what], what == 0 ? in : what == 1 ? in : what == 2 ? in + 3 : pw, what == 0 ? 3 : what == 1 ? 1 : what == 2 ? 0 : 1, r);
+    snprintf(msg, msglen, "%s", r->msg);
+    delete r;
+    return rc == OPE_OK ? 0 : 1;
+}
+
+static const UciHost *uci_host(void)
+{
+    static const UciHost h = { uci_reu, uci_drive_info, uci_drive_do };
+    return &h;
+}
 
 void trx64u_register(OpRegistry &r)
 {
