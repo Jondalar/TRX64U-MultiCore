@@ -21,9 +21,12 @@ Alex, 2026-11-18 (translated): "And then we change ADR-015, please: it becomes a
 
 ## Consequences
 
-- The points of T120 D2 for a public repository are still open: the VC-20 files that say "run on Replay hardware only" (C4), the
-  files without a licence text (C7, C8, C9, C10), reDIP under CERN-OHL-S v2 in one bitstream with GPL-3 code (H11), and the
-  submodule `apps/ultimate`, which points to the private Gitea (H5).
+- All cores are released. This is the distribution decision of 2026-10-24 (Alex, translated: "We will definitely release our host
+  and the cores too. So for the AMD parts as well: if we violate something there, we will gladly take it offline.").
+  `PROVENANCE.md` names the origin and the licence of every part. A rights holder who sees a problem contacts us, and we remove the
+  part concerned (`PROVENANCE.md` §2, `LICENSING.md`).
+- The parts that T120 D2 lists (restrictive or missing licence texts: C4, C5, C7 to C10, H5, H11) do not block the release. They are
+  the parts that a rights holder can ask about.
 - T120 Q1 and Q3 are answered by this ADR.
 
 ## Links
