@@ -13,11 +13,13 @@
 #include "color_timings.h"
 #include "videomode.h"
 #include "picture.h"
+#include "sid_decide.h"
 #include "i2c_drv.h"
 extern "C" {
 #include "sid_coeff.h"
 }
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <strings.h>
 
@@ -446,9 +448,10 @@ static void write_sid_addressing(CoreCtx *c)
 }
 
 // ---- the SID in a socket (FW u64_config.cc U64SidSockets::detect, detectFPGASID, detectRemakes, S_SidDetector, DetectSidImpl) ---------------------
-// Run on the stopped machine (the menu's freeze) over the DMA window. Types as sid_type_names: 1 6581, 2 8580, 3 FPGASID, 4 SwinSID, 5 ARMSID, 6 ARM2SID,
-// 9 PDsid, 10 SIDKick, 11 SIDKick Pico. The 6581's supply is raised only for a type 1 that both read-outs agreed on; everything else keeps the 8580 setting.
-// Not ported: the Dukestah adapter probe (type 8).
+// Run once at the start, as FW runs it in U64Config's constructor, on the machine let out of reset and stopped, over the DMA window. Types as sid_type_names:
+// 1 6581, 2 8580, 3 FPGASID, 4 SwinSID, 5 ARMSID, 6 ARM2SID, 9 PDsid, 10 SIDKick, 11 SIDKick Pico. Not ported: the Dukestah adapter probe (type 8): FW follows it with
+// the FPGASID device's effectuate_settings (u64_config.cc:773-774, sid_device_fpgasid.cc), which this application does not have; the probe alone would leave the chip in the
+// state of its writes.
 #define SDMA(a) (*(volatile uint8_t *)(C64_MEMORY_BASE + (a)))
 
 static void detect_addresses(CoreCtx *c)
@@ -578,18 +581,8 @@ static void detect_sids(CoreCtx *c, int type[2])
             }
             bool ok = true;
             for (int s = 0; s < 2; s++) {
-                const uint8_t *p = buf + 32 * s;
-                if (p[16 + 1] == 2 && p[1] == 0) {
-                    r[s] = 2;
-                } else if (p[16 + 1] == 2 && p[1] == 1) {
-                    r[s] = 1;
-                }
-                for (int i = 2; i < 16 && r[s]; i++) {                // all 16 reads must agree, else the socket is unknown
-                    if (p[i] != p[1] || p[16 + i] != p[16 + 1]) {
-                        r[s] = 0;
-                        ok = false;
-                    }
-                }
+                r[s] = sid_osc3_type(buf + 32 * s);
+                ok &= r[s] != 0 || type[s] != 0;                      // FW: a socket that answered nothing sane gives the next attempt
             }
             for (int s = 0; s < 2; s++) {
                 if (r[s] && !type[s]) {
@@ -604,40 +597,67 @@ static void detect_sids(CoreCtx *c, int type[2])
     printf("[u64cfg] SID detect: socket 1 = %d, socket 2 = %d\n", type[0], type[1]);
 }
 
-static bool g_tried[2];
+#define STOPREG(o) (*(volatile uint8_t *)(C64_CARTREGS_BASE + (o)))
+static const char *const type_keys[2] = { "Pad SID Detected Socket 1", "Pad SID Detected Socket 2" };   // the settings keep only "Pad " extras (Settings::extra_set)
+static bool g_detected;
 
-// The type is not stored: a swapped chip must never keep a 6581's supply, so every run looks again. A socket that is switched on while its chip is unknown is looked at once, with the machine stopped for the menu. A new 6581 gets FW's 12 V
-// defaults (caps off, shunt on), a new 8580 the 9 V ones. Nothing else changes: unknown or disagreeing keeps type 0 and the 8580 supply.
+// FW U64SidSockets::detect and its tail: the machine is let out of reset and stopped, the chips are looked at, the type is stored, and a changed type
+// sets the socket's enable, caps and shunt (sid_type_change). The machine goes back into reset: boot_start's init holds it until the release. The
+// supply of a 6581 is only ever raised for a type 1 (write_sid_sockets) that the read-outs agreed on, and a new one switches its socket off. If the
+// machine does not stop in time nothing is written to a chip and every type stays 0 (FW would have used the stored type; a swapped chip must never
+// keep a 6581's supply). The type is stored after FW's CFG_SID1_TYPE (the settings file), and compared with the one of the last start.
 static void sid_types_detect(CoreCtx *c)
 {
-    bool want = false;
-    for (int s = 0; s < 2; s++) {
-        if (!V(c, s ? K_S2_EN : K_S1_EN)) {
-            g_tried[s] = false;
-        } else if (!g_sid_type[s] && !g_tried[s]) {
-            want = true;
-        }
-    }
-    if (!want || !c->frozen) {
+    if (g_detected || c->started || c->frozen || !c->settings) {
         return;
     }
-    int t[2];
-    detect_sids(c, t);
+    g_detected = true;
+    CoreIo *io = c->io;
+    io->mode_reset(false);                                            // C64_MODE_UNRESET
+    uint32_t t0 = io->now_ms();
+    while ((STOPREG(3) & 0x10) && io->now_ms() - t0 < 500) {        // while c64_reset_detect()
+    }
+    STOPREG(2) = 0x02;                                                // C64_STOP_MODE = STOP_COND_FORCE
+    STOPREG(1) = 0x01;                                                // C64_STOP
+    t0 = io->now_ms();
+    while (!(STOPREG(1) & 0x02) && io->now_ms() - t0 < 500) {       // C64_HAS_STOPPED
+    }
+    int t[2] = { 0, 0 };
+    bool stopped = (STOPREG(1) & 0x02) != 0;
+    if (stopped) {
+        detect_sids(c, t);
+    } else {
+        printf("[u64cfg] SID detect: the machine did not stop, no chip was touched\n");
+    }
+    io->stop(false);
+    io->mode_reset(true);
+    if (!stopped) {
+        return;
+    }
+    char note[80] = "";
     for (int s = 0; s < 2; s++) {
-        if (!V(c, s ? K_S2_EN : K_S1_EN) || g_sid_type[s]) {
-            continue;
-        }
-        g_tried[s] = true;
         g_sid_type[s] = t[s];
-        if (!t[s]) {
+        char v[8];
+        int old = c->settings->extra_get(type_keys[s], v, sizeof(v)) ? atoi(v) : 0;
+        if (t[s] == old) {
             continue;
         }
-        if (t[s] == 1 || t[s] == 2) {
-            resolve(c);
-            int ci = g_ix[s ? K_S2_CAPS : K_S1_CAPS], si = g_ix[s ? K_S2_SHUNT : K_S1_SHUNT];
-            if (ci >= 0) { c->settings->set(ci, t[s] == 2); }
-            if (si >= 0) { c->settings->set(si, t[s] == 1); }
+        snprintf(v, sizeof(v), "%d", t[s]);
+        c->settings->extra_set(type_keys[s], v);
+        SidChange ch = sid_type_change(t[s]);
+        resolve(c);
+        int ix[3] = { g_ix[s ? K_S2_EN : K_S1_EN], g_ix[s ? K_S2_CAPS : K_S1_CAPS], g_ix[s ? K_S2_SHUNT : K_S1_SHUNT] };
+        int val[3] = { ch.enable, ch.caps, ch.shunt };
+        for (int k = 0; k < 3; k++) {
+            if (val[k] >= 0 && ix[k] >= 0) {
+                c->settings->set(ix[k], val[k]);                      // the start, before the executor: one task, no menu yet; a write of the settings file at most
+            }
         }
+        snprintf(note, sizeof(note), "SID changed. Please review settings");
+    }
+    if (note[0] && !c->notice_pending) {
+        snprintf(c->notice, sizeof(c->notice), "%s", note);
+        c->notice_pending = true;
     }
 }
 

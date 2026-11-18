@@ -296,6 +296,7 @@ run library_n test_library_n.cc menuctl.cc filemgr.cc menukeytab.cc menuflows.cc
 PICSRC="desc_check.cc menutree.cc menuctl.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc $ATARI nes.cc ines.cc $C64"
 # T164 S10 (WP15): the EDID into the row mask, the best row (Q6), the list without an EDID (Q9); the row table against host/hdmi_modes.vh
 run edid test_edid.cc edid.cc
+run sid_decide test_sid_decide.cc
 run picture test_picture.cc $PICSRC
 # T164 WP16 (G2, G14): the gateware is found by its magic and a requested mode is waited for by the status register
 run gwstatus test_gwstatus.cc videomode.cc edid.cc
