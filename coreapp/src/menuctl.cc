@@ -1717,6 +1717,11 @@ bool MenuCtl::pick_key(int k, Result *out)
                 *out = R_REDRAW;
                 return true;
             }
+            if (!c_->fs->writable(pick_path_)) {                    // T228 R21: nothing is written, copied or created into a place that is read only
+                set_status("That folder is read only", true);
+                *out = R_REDRAW;
+                return true;
+            }
             snprintf(c_->media_dir, sizeof(c_->media_dir), "%s", pick_path_);
             pick_ = false;
             pick_release();
@@ -2295,6 +2300,21 @@ bool MenuCtl::toast_expire()
     return false;
 }
 
+// T228 R21 (FW user_file_interaction.cc:45-55, 87-93; tree_browser.cc:515): what changes a place is offered only where the place is writable. Move, Cut, Rename and
+// Delete follow the entry (a read-only attribute also takes them away, FileInfo::is_writable, file_system.cc:5-17); New folder and Paste follow the folder.
+static bool sheet_offers(CoreCtx *c, const FileAction &a, const char *path, bool entry_ro)
+{
+    if (!a.op) {
+        return true;
+    }
+    bool entry_op = !strcmp(a.op, "ui.move") || !strcmp(a.op, "ui.clip1") || !strcmp(a.op, "ui.rename") || !strcmp(a.op, "ui.delete");
+    bool folder_op = !strcmp(a.op, "ui.mkdir") || !strcmp(a.op, "ui.paste");
+    if (!entry_op && !folder_op) {
+        return true;
+    }
+    return c->fs->writable(path) && !(entry_op && entry_ro);
+}
+
 MenuCtl::Result MenuCtl::activate(bool primary, bool all)
 {
     if (is_browser()) {
@@ -2320,11 +2340,16 @@ MenuCtl::Result MenuCtl::activate(bool primary, bool all)
             bool inside = strrchr(fm_.path, '/') != fm_.path && !fm_.vmode;     // a folder below a medium's top: what is done to a folder applies to it (the top of a medium and "/" are no folder to rename or delete)
             if (inside) {
                 for (int k = 2; k < nuni; k++) {
-                    chooser_buf_[n++] = uni[k];
+                    if (sheet_offers(c_, uni[k], fm_.path, false)) {
+                        chooser_buf_[n++] = uni[k];
+                    }
                 }
             }
             for (int k = 0; k < nitems; k++) {
                 if (k == 1 && !c_->lib.nclip) {
+                    continue;
+                }
+                if (!sheet_offers(c_, items[k], fm_.path, false)) {
                     continue;
                 }
                 chooser_buf_[n++] = items[k];
@@ -2423,7 +2448,9 @@ MenuCtl::Result MenuCtl::activate(bool primary, bool all)
             int nuni;
             const FileAction *uni = FileMgr::universal(&nuni);
             for (int k = 0; k < nuni; k++) {
-                chooser_buf_[n++] = uni[k];
+                if (sheet_offers(c_, uni[k], full, (f.attr & FS_ATTR_RDONLY) != 0)) {
+                    chooser_buf_[n++] = uni[k];
+                }
             }
         }
         chooser_ = true;

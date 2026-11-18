@@ -724,6 +724,21 @@ bool NetFs::medium_info(const char *name, MediumInfo *out)
     return in_->medium_info(name, out);
 }
 
+bool NetFs::writable(const char *path)
+{
+    const char *orel;
+    if (is_online(path, &orel)) {
+        return false;                                           // the results are read only
+    }
+    int host;
+    char remote[FS_PATH_MAX];
+    Host h;
+    if (!split(c_, path, &host, remote, sizeof(remote), &h)) {
+        return in_->writable(path);
+    }
+    return host >= 0;                                           // an FTP host: the server decides
+}
+
 bool NetFs::mkdir(const char *path)
 {
     {

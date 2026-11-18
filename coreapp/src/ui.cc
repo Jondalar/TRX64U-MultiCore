@@ -1241,6 +1241,14 @@ void ui_set_look(int transparency, int scheme)
     g_look_dirty = true;
 }
 
+static volatile int g_squeeze = -1;                          // -1: no such setting in this core, T209's "start...end.ext" cut stays
+void ui_set_name_squeeze(int quarter)
+{
+    g_squeeze = quarter < 0 || quarter > 3 ? -1 : quarter;
+    g_look_dirty = true;
+}
+int ui_name_squeeze(void) { return g_squeeze; }
+
 // the layer's global alpha from the transparency (Gideon "Overlay Transparency": 0, 25, 50, 75 %)
 static void apply_alpha(void)
 {

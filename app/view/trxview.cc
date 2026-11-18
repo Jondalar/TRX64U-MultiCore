@@ -673,6 +673,46 @@ const char *trx_fit_mid(const char *s, int w, const lv_font_t *font, char *buf, 
     return buf;
 }
 
+const char *trx_fit_name(const char *s, int w, const lv_font_t *font, char *buf, int n, int quarter)
+{
+    if (quarter < 0 || quarter > 3) {
+        return trx_fit_mid(s, w, font, buf, n);
+    }
+    if (!s || trx_text_w(s, font) <= w) {
+        return s;
+    }
+    int len = (int)strlen(s);
+    if (len >= n) {
+        len = n - 1;
+    }
+    for (int k = len - 1; k > 0; k--) {                            // k characters are kept, as many as fit
+        int cut = quarter ? k * quarter / 4 : k, tail = k - cut;
+        int a = cut, b = len - tail;
+        while (a > 0 && ((uint8_t)s[a] & 0xC0) == 0x80) {
+            a--;
+        }
+        while (b < len && ((uint8_t)s[b] & 0xC0) == 0x80) {
+            b++;
+        }
+        int o = 0;
+        for (int i = 0; i < a && o < n - 1; i++) {
+            buf[o++] = s[i];
+        }
+        if (quarter && b < len) {
+            buf[o++] = '~';                                         // FW: the first character of the tail becomes the mark
+            for (int i = b + 1; i < len && o < n - 1; i++) {
+                buf[o++] = s[i];
+            }
+        }
+        buf[o] = 0;
+        if (trx_text_w(buf, font) <= w) {
+            return buf;
+        }
+    }
+    buf[0] = 0;
+    return buf;
+}
+
 // A value that would squeeze its label is cut in the middle (a file name keeps its start and its extension): the label keeps its own width up to 45% of the row's room.
 static const char *fit_value(const char *label, const char *val, int w, char *buf, int n)
 {

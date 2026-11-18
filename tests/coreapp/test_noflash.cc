@@ -46,6 +46,15 @@ int main()
     CHECK(!fs_write_refused("/usb0/trx64u/c64.cfg"));             // other media are not the flash's business
     CHECK(!fs_write_refused("/sd/cores/atari800.cfg"));
 
+    // T228 R21: on the monolith profile the startup sets the flag and the flash drive is written as in TRX64-Ultimate's firmware; the medium panel and the
+    // file actions ask the same function
+    fs_flash_rw() = true;
+    CHECK(!fs_write_refused("/flash/roms/kernal.bin") && !fs_write_refused("/Flash/carts/x.crt") && !fs_write_refused("/flash/trx64u/c64.cfg"));
+    CHECK(!fs_write_refused("/flash"));
+    CHECK(fs_path_is_flash("/flash/roms"));                         // still the flash: only the refusal is lifted
+    fs_flash_rw() = false;
+    CHECK(fs_write_refused("/flash/roms/kernal.bin"));
+
     const char *forbidden[] = { "write_page", "erase_sector", "write_config_page", "clear_config_page", "->write()", "get_flash", "Flash *",
                                 "flash_write", "FlashWrite", 0 };
     int scanned = 0;

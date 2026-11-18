@@ -13,6 +13,7 @@
 
 // The media level of the Library lives in fm_medium.cc (host-app headers and FreeRTOS); the fs64 bench links a stub.
 bool fm_medium_info(const char *name, MediumInfo *out);
+bool fm_path_writable(const char *path);
 
 namespace {
 
@@ -253,6 +254,7 @@ public:
         return w;
     }
     bool medium_info(const char *name, MediumInfo *out) { return fm_medium_info(name, out); }
+    bool writable(const char *path) { return fm_path_writable(path); }
     void close(CoreFile *cf)
     {
         FmFile *w = (FmFile *)cf;

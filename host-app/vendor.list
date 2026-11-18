@@ -36,6 +36,8 @@ filesystem/blockdev.cc
 filesystem/blockdev.h
 filesystem/blockdev_flash.cc
 filesystem/blockdev_flash.h
+filesystem/blockdev_ram.cc
+filesystem/blockdev_ram.h
 filesystem/chanfat_manager.h
 filesystem/directory.cc
 filesystem/directory.h
