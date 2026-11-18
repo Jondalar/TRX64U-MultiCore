@@ -154,7 +154,7 @@ HEADER_V5 = 208             # version 5: + the pad (kind, reg 0, reg 1, first na
 RESTART_CLEAR_MAX = 1 << 24 # the most RAM a restart clears (16 MiB)
 NONE = 0xFFFFFFFF
 MAX_SIZE = 0x20000
-LIMITS = dict(area=8, tab=32, node=320, action=24, setting=16, hide=16, rename=16, bind=700, ext=48, size=16, value=3200, ctab=16,
+LIMITS = dict(area=8, tab=32, node=320, action=24, setting=16, hide=16, rename=16, bind=700, ext=48, size=16, value=3600, ctab=16,
               task=64, media=4, ftype=32, fact=200, cset=330)
 ESIZE = dict(area=20, tab=24, node=52, action=40, setting=32, hide=4, rename=8, bind=16, ext=4, size=4, value=4, ctab=24,
              task=36, media=44, ftype=24, fact=36, cset=36)
@@ -901,7 +901,13 @@ def compile_desc(doc, merged=()):
         if show:
             wcode |= (st.add(show) + 1) << 8
         fv = len(t["value"])
-        t["value"].extend((st.add(v),) for v in vals)
+        big = tuple(vals) if len(vals) > 256 else None       # a long range (a number with hundreds of steps) is stored once, however many settings share it
+        if big is not None and big in t.setdefault("_big", {}):
+            fv = t["_big"][big]
+        else:
+            t["value"].extend((st.add(v),) for v in vals)
+            if big is not None:
+                t["_big"][big] = fv
         t["cset"].append((st.add(key), st.add(group_name(cs, what)), fv, len(vals), default, wcode, st.add(_need(cs, "apply", str, what)), base & 0xFFFFFFFF, st.add(_opt(cs, "label", str, what, None))))
 
     poll_op, poll_ms = NONE, 0

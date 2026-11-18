@@ -99,7 +99,7 @@ key = "F5"                       # the core's short title ("C64") names it
   id = "audio"
   name = "Audio"
   widget = "settings"
-  groups = ["Volumes", "Pan", "SID_sockets", "Emulated_SIDs"]
+  groups = ["Volumes", "Pan", "Speaker", "SID_sockets", "Emulated_SIDs"]
   ui = { sections = true, pages = "SID_sockets,Emulated_SIDs", pages_head = "reDIP:SID" }
   n = 5
   [[area.tab]]
@@ -902,6 +902,10 @@ onoff = ["Off", "On"]
 splash = ["Off", "On"]
 caps = ["470 pF", "22 nF"]
 waves = ["6581", "8580"]
+filters = ["Chip Model", "6581 Follin", "6581 Galway", "6581 Average", "6581 Strong", "6581 Extreme", "6581 Custom", "8580"]
+filter_on = ["On", "Off"]
+reslist = ["Auto", "Low", "High"]
+digis = ["Auto", "Off", "Low", "Medium", "High"]
 iecmodes = ["All Connected", "C64 <-> Internal", "Ext. <-> Int.", "C64 <-> External"]
 burst = ["Off", "CIA1", "CIA2"]
 turbo = ["Off", "Manual", "U64 Turbo Registers", "TurboEnable Bit"]
@@ -1119,11 +1123,20 @@ when = "live"
 apply = "u64.fx_audio"
 
 [[core_setting]]
-group = "hidden"
-key = "Spk Vol Drive 1"
-label = "Speaker volume drive"
+group = "Speaker"
+key = "Speaker Enable"
+label = "Enable"
+list = "en_dis"
+default = 1
+when = "live"
+apply = "u64.fx_audio"
+
+[[core_setting]]
+group = "Speaker"
+key = "Spk Vol UltiSid 1"
+label = "Volume"
 list = "vols"
-default = 9
+default = 0
 when = "live"
 apply = "u64.fx_audio"
 
@@ -1258,6 +1271,114 @@ group = "Emulated_SIDs"
 key = "UltiSID 2 Combined Waveforms"
 label = "reDIP:SID 2 combined waveforms"
 list = "waves"
+default = 0
+when = "live"
+apply = "u64.fx_sid"
+
+[[core_setting]]
+group = "Emulated_SIDs"
+key = "UltiSID 1 Filter"
+label = "reDIP:SID 1 filter"
+list = "filter_on"
+default = 0
+when = "live"
+apply = "u64.fx_sid"
+
+[[core_setting]]
+group = "Emulated_SIDs"
+key = "UltiSID 2 Filter"
+label = "reDIP:SID 2 filter"
+list = "filter_on"
+default = 0
+when = "live"
+apply = "u64.fx_sid"
+
+[[core_setting]]
+group = "Emulated_SIDs"
+key = "UltiSID 1 Filter Curve"
+label = "reDIP:SID 1 filter curve"
+list = "filters"
+default = 0
+when = "live"
+apply = "u64.fx_sid"
+
+[[core_setting]]
+group = "Emulated_SIDs"
+key = "UltiSID 2 Filter Curve"
+label = "reDIP:SID 2 filter curve"
+list = "filters"
+default = 0
+when = "live"
+apply = "u64.fx_sid"
+
+[[core_setting]]
+group = "Emulated_SIDs"
+key = "UltiSID 1 6581 Base"
+label = "reDIP:SID 1 6581 base"
+range = [0, 511]
+default = 245
+when = "live"
+apply = "u64.fx_sid"
+
+[[core_setting]]
+group = "Emulated_SIDs"
+key = "UltiSID 2 6581 Base"
+label = "reDIP:SID 2 6581 base"
+range = [0, 511]
+default = 245
+when = "live"
+apply = "u64.fx_sid"
+
+[[core_setting]]
+group = "Emulated_SIDs"
+key = "UltiSID 1 6581 Offset"
+label = "reDIP:SID 1 6581 offset"
+range = [-1024, 1023]
+default = -780
+when = "live"
+apply = "u64.fx_sid"
+
+[[core_setting]]
+group = "Emulated_SIDs"
+key = "UltiSID 2 6581 Offset"
+label = "reDIP:SID 2 6581 offset"
+range = [-1024, 1023]
+default = -780
+when = "live"
+apply = "u64.fx_sid"
+
+[[core_setting]]
+group = "Emulated_SIDs"
+key = "UltiSID 1 Filter Resonance"
+label = "reDIP:SID 1 filter resonance"
+list = "reslist"
+default = 0
+when = "live"
+apply = "u64.fx_sid"
+
+[[core_setting]]
+group = "Emulated_SIDs"
+key = "UltiSID 2 Filter Resonance"
+label = "reDIP:SID 2 filter resonance"
+list = "reslist"
+default = 0
+when = "live"
+apply = "u64.fx_sid"
+
+[[core_setting]]
+group = "Emulated_SIDs"
+key = "UltiSID 1 Digis Level"
+label = "reDIP:SID 1 digi level"
+list = "digis"
+default = 0
+when = "live"
+apply = "u64.fx_sid"
+
+[[core_setting]]
+group = "Emulated_SIDs"
+key = "UltiSID 2 Digis Level"
+label = "reDIP:SID 2 digi level"
+list = "digis"
 default = 0
 when = "live"
 apply = "u64.fx_sid"
