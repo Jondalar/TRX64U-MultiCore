@@ -280,6 +280,7 @@ static int queue_prg(CoreCtx *c, int kind, const char *path, uint16_t start, cha
     if (read_prg(c, path, p, &size, msg, msglen)) {
         return 1;
     }
+    trx64u_load_assoc_cfg(c, path, true);          // filetype_prg.cc:186-190: the .cfg (or .usr) beside the file goes in before the program runs
     bool p00 = is_p00(path);
     bool go = kind == J_LOAD && c64_go_available(c->io);
     if (kind == J_LOAD && !go) {
@@ -524,6 +525,7 @@ static int op_type(CoreCtx *c, const OpArgs &a, OpOut &o)
 // The Library's .crt (c64_cart.cc): the cartridge is placed and the machine reset into it. The program that was running is gone with the reset.
 static int op_run_crt(CoreCtx *c, const OpArgs &a, OpOut &o)
 {
+    trx64u_load_assoc_cfg(c, a.s(0), false);       // filetype_crt.cc:75
     if (c64_cart_run(c, a.s(0), o.msg, o.msglen)) {
         return OPE_FAILED;
     }

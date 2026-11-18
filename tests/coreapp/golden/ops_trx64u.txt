@@ -156,6 +156,7 @@ op	drive.insert_blank
 op	drive.swap
 op	drive.unlink
 op	c64.load_kernal	path:path:0:0:519:
+op	drive.run_disk	slot:slot:0:0:31:	path:path:0:0:519:
 op	machine.pause_toggle
 op	machine.clear_reboot
 op	machine.save_ram	name:string:0:0:63:

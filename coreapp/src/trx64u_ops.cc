@@ -216,6 +216,47 @@ static int op_reu_preload(CoreCtx *c, const OpArgs &a, OpOut &o)
     return OPE_OK;
 }
 
+// F6 "A .cfg/.usr beside a PRG, D64, G64 or CRT is loaded before it runs" (TRX-Ultimate configio.cc:460-474, filetype_prg.cc:186-190, filetype_d64.cc:150,
+// filetype_g64.cc:95, filetype_crt.cc:75): the file of the same name with the extension .cfg is read like a settings file (quietly); a PRG that has none tries .usr.
+void trx64u_load_assoc_cfg(CoreCtx *c, const char *path, bool usr_too)
+{
+    static const char *const exts[2] = { ".cfg", ".usr" };
+    for (int k = 0; k < (usr_too ? 2 : 1); k++) {
+        char p[FS_PATH_MAX];
+        snprintf(p, sizeof(p), "%s", path);
+        char *slash = strrchr(p, '/');
+        char *dot = strrchr(p, '.');
+        if (dot && (!slash || dot > slash)) {
+            *dot = 0;
+        }
+        size_t l = strlen(p);
+        if (l + 5 > sizeof(p)) {
+            return;
+        }
+        strcpy(p + l, exts[k]);
+        uint64_t sz = 0;
+        bool dir = false;
+        if (c->fs->stat(p, &sz, &dir) && !dir) {
+            OpIn in[1] = { in_str("path", p) };
+            OpResult r;
+            ops_call(c, "settings.load_file", in, 1, &r);
+            printf("[cfg] %s: %s\n", p, r.msg);
+            return;
+        }
+    }
+}
+
+// "Run Disk": the .cfg of the disk first, then mount and run
+static int op_run_disk(CoreCtx *c, const OpArgs &a, OpOut &o)
+{
+    trx64u_load_assoc_cfg(c, a.s(1), false);
+    OpIn in[2] = { in_str("slot", a.s(0)), in_str("path", a.s(1)) };
+    OpResult r;
+    int rc = ops_call(c, "drive.mount_run", in, 2, &r);
+    snprintf(o.msg, o.msglen, "%s", r.msg);
+    return rc ? OPE_FAILED : OPE_OK;
+}
+
 // ---- the ROM files of the machine ----------------------------------------------------------------------------------------------------------------
 static int load_rom(CoreCtx *c, const char *key, const char *put_op, uint32_t size, char *msg, int msglen)
 {
@@ -468,7 +509,7 @@ static int swap_next(CoreCtx *c, CbmDrive *d, FsEntry *ents, int cap, OpOut &o)
     int k = c->fs->list(d->last_dir(), ents, cap), n = 0;
     for (int i = 0; i < k; i++) {
         int l = (int)strlen(ents[i].name);
-        if (!ents[i].dir && l > 4 && (!strcasecmp(ents[i].name + l - 4, ".d64") || !strcasecmp(ents[i].name + l - 4, ".g64"))) {
+        if (!ents[i].dir && l > 4 && (!strcasecmp(ents[i].name + l - 4, ".d64") || !strcasecmp(ents[i].name + l - 4, ".g64") || !strcasecmp(ents[i].name + l - 4, ".g71"))) {
             ents[n++] = ents[i];
         }
     }
@@ -681,6 +722,7 @@ static const char *state_cartridge_path(CoreCtx *) { return c64_cart_active() ? 
 static const ArgSpec value_arg[] = { ARG_INT("value", -2000, 2000) };
 static const ArgSpec name_arg[] = { ARG_STRING("name", 63) };
 static const ArgSpec path_arg[] = { ARG_PATH("path") };
+static const ArgSpec run_disk_args[] = { ARG_SLOT("slot"), ARG_PATH("path") };
 
 void trx64u_register(OpRegistry &r)
 {
@@ -698,6 +740,7 @@ void trx64u_register(OpRegistry &r)
     r.add_op("drive.set_rom_store", path_arg, 1, op_set_rom_store);
     r.add_op("drive.unlink", 0, 0, op_unlink);
     r.add_op("c64.load_kernal", path_arg, 1, op_load_kernal);
+    r.add_op("drive.run_disk", run_disk_args, 2, op_run_disk);
     r.add_state("reu.on", state_reu_on);
     r.add_state("c64.cartridge", state_cartridge);
     r.add_state("c64.cartridge_path", state_cartridge_path);

@@ -490,9 +490,9 @@ int CbmDrive::mount(const char *path, int mode, char *msg, int msglen)
         return 1;
     }
     const char *ext = ext_of(path);
-    int fmt = !strcasecmp(ext, ".d64") ? DF_D64 : !strcasecmp(ext, ".g64") ? DF_G64 : !strcasecmp(ext, ".d81") ? DF_D81 : -1;
+    int fmt = !strcasecmp(ext, ".d64") ? DF_D64 : (!strcasecmp(ext, ".g64") || !strcasecmp(ext, ".g71")) ? DF_G64 : !strcasecmp(ext, ".d81") ? DF_D81 : -1;
     if (fmt < 0) {
-        snprintf(msg, msglen, "%s is no disk image (.d64, .g64 or .d81).", base_of(path));
+        snprintf(msg, msglen, "%s is no disk image (.d64, .g64, .g71 or .d81).", base_of(path));
         return 1;
     }
     int need = fmt == DF_D81 ? DT_1581 : DT_1541;

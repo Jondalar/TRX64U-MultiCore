@@ -11,6 +11,7 @@ void trx64u_register(OpRegistry &r);
 // where a file named in the menu goes: the folder the menu was on, else the first medium; `ext` is added when the name has none
 bool trx_target_path(CoreCtx *c, const char *name, const char *ext, char *out, int n);
 int cfg_value(CoreCtx *c, const char *key, int def);
+void trx64u_load_assoc_cfg(CoreCtx *c, const char *path, bool usr_too);   // the .cfg (a PRG: or .usr) beside a file, loaded before it runs
 const char *cfg_text(CoreCtx *c, const char *key);
 
 // c64.cc tells the module every KERNAL image it puts into the aperture (the fast reset patch is made against that copy).
