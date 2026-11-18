@@ -1,6 +1,7 @@
 # T233 — The CPC's floppy controller never stops the machine: a disk event at any moment ends in a working drive or an answered "not ready", and the CPC always reaches Ready
 
-**Status:** PROPOSED (2026-11-17); paused with WIP on t233-cpc-fdc (fe4bc90ab). Order (Alex 2026-11-17): T228, T235, T234, T232, then this.
+**Status:** IN PROGRESS (2026-11-18, D8: code, Vivado build, board test with Alex; no bench, no sim); WIP on t233-cpc-fdc (fe4bc90ab).
+Order before (Alex 2026-11-17): T228, T235, T234, T232, then this; Alex 2026-11-18 moved it forward (D8).
 **Repo:** TRX64U-MultiCore — gateware of the CPC core (`cores/cpc/rtl/u765` via `tools/cpc_gen.py` -> `cores/cpc/gen/u765.sv`,
 `cores/cpc/trx/cpc_fdc.v`), its benches (`cores/cpc/sim`), the CPC's app files only where §3 names them.
 **Number:** T233 (TODO.md table).
@@ -96,6 +97,10 @@ patched per race.
   API cannot drive becomes at most three steps for Alex in the morning. Never a power cycle.
 - **D7 Pipeline.** T92 D-17e takes the CPC out of the pipeline on `main` (`pipeline = false`, branch t92-off). The T233 branch sets it
   back to `true`, so only that branch builds the CPC; the merge to `main` after the board pass brings the CPC back into the packages.
+- **D8 (Alex 2026-11-18, asked whether the CPC was fixed: "Would you just code the fix and build it directly with Vivado, and I test
+  it with you then? Without bench, sim etc.", translated).** D1-D4 are finished on t233-cpc-fdc and built through the pipeline (the
+  branch push, D7); D5's bench, S0 and the bench rows of S3-S6 are not run. The proof is the board with Alex (S1, S2, S7) and the
+  route report (S8). Before the push: an elaboration check of the changed RTL (no bench) and the review agent of every push.
 
 ## §4 Out
 
