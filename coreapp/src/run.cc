@@ -29,6 +29,7 @@
 #include "mediamounts.h"
 #include "home.h"
 #include "freeze.h"
+#include "uci.h"
 #include "menuctl.h"
 #include "romfind.h"
 #include "ops_glue.h"
@@ -967,7 +968,7 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
                     continue;
                 }
             }
-            bool want = hw_menu_button_pressed();
+            bool want = hw_menu_button_pressed() | uci_take_freeze_request();   // the command interface's FREEZE (control_target.cc: C64_PUSH_BUTTON) is the menu button pressed
             int k;
             while ((k = getch_nowait()) >= 0) {
                 if (picture_confirm_pending()) {
@@ -983,6 +984,7 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
             app_host.service(false);
             vTaskDelay(1);
         } else {
+            uci_take_freeze_request();                // the menu is open already: the request is answered
             if (!app_host.session() && !menu->learning() && (hotkey_poll() & (1u << HKA_MENU))) {   // T207: not while a key is being learned
                 uiapp_local_leave();                  // T181: the menu hotkey closes it again (the leave intent; the loop closes below)
                 if (!close_req) {

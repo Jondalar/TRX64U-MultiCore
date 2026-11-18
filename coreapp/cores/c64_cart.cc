@@ -784,6 +784,30 @@ void c64_cart_image_write(CoreCtx *c, uint32_t off, const uint8_t *src, uint32_t
     }
 }
 
+// CONTROL EASYFLASH 0 (control_target.cc:223-246): the 8 banks of 8 KB that start at `bank` (the firmware's mask 0x38) in the ROML or ROMH half become $FF, as a sector erase of an
+// EasyFlash does, and the change goes to the write-back service (C64_CRT::note_change). The firmware does not look where the image ends; here a bank outside the image is left alone.
+bool c64_cart_ef_clear(CoreCtx *c, uint8_t bank, bool high)
+{
+    if (!c64_cart_active()) {
+        return false;
+    }
+    static uint8_t ff[1024];
+    if (ff[0] != 0xFF) {
+        memset(ff, 0xFF, sizeof(ff));
+    }
+    for (uint32_t b = 0; b < 8; b++) {
+        uint32_t off = ((uint32_t)bank + b) * BANK + (high ? 0x2000u : 0u);
+        if (off + 0x2000 > g_image_max) {
+            continue;
+        }
+        for (uint32_t k = 0; k < 0x2000; k += sizeof(ff)) {
+            c->io->ddr_write(g_img_base + off + k, ff, sizeof(ff));
+        }
+        wb_mark(off, 0x2000);
+    }
+    return true;
+}
+
 int c64_cart_remove(CoreCtx *c, char *msg, int msglen)
 {
     CoreIo *io = c->io;

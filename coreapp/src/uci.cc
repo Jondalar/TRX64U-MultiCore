@@ -14,6 +14,9 @@
 #include "rtc.h"
 #include "product.h"
 #include "endianness.h"
+#include "palette_command.h"
+#include "settings_ops.h"
+#include "iomap.h"
 #include <string.h>
 #include <strings.h>
 #include <stdio.h>
@@ -91,6 +94,8 @@ static uint32_t reu_to_file(File *f, uint32_t addr, uint32_t len, FRESULT *res)
 #define DOS_CMD_GET_TIME       0x26
 #define DOS_CMD_SET_TIME       0x27
 #define DOS_CMD_ECHO           0xF0
+#define DOS_CMD_LOAD_INTO_RAMDISK 0x41                                      // dos.h:36-37 (named CTRL_CMD_ there)
+#define DOS_CMD_SAVE_RAMDISK      0x42
 
 static Message c_message_identification_dos = { 20, true, (uint8_t *)"ULTIMATE-II DOS V1.2" };
 static Message c_status_directory_empty     = { 18, true, (uint8_t *)"01,DIRECTORY EMPTY" };
@@ -208,6 +213,109 @@ class Dos : CommandTarget
         if (g_host->drive_do(g_ctx, idx, what, file_path, msg, sizeof(msg)) != 0) {
             *status = &c_status_incompatible_image;
         }
+    }
+
+    // dos.cc:578-740: a file into / out of a MegaPatch 3 RAM drive of the REU. The drive's type, size and first bank come from the machine (UciHost::ramdrive);
+    // the file's bytes go through the data-cache-safe door (a 1571's second side lies 700 sectors behind the first).
+    static int ext_type(const char *name)
+    {
+        const char *dot = strrchr(name, '.');
+        if (!dot) {
+            return 0;
+        }
+        return !strcasecmp(dot, ".d64") ? 1541 : !strcasecmp(dot, ".d71") ? 1571 : !strcasecmp(dot, ".d81") ? 1581 : !strcasecmp(dot, ".dnp") ? DRVTYPE_MP3_DNP : 0;
+    }
+    void ramdisk(Message *command, bool load, Message **reply, Message **status)
+    {
+        *reply = &c_message_empty;
+        *status = &c_status_ok;
+        command->message[command->length] = 0;
+        int drvNo = command->message[2];
+        bool whatIf = false;
+        if (load && (drvNo & 0x80)) {
+            drvNo &= 0x7F;
+            whatIf = true;
+        }
+        char *filename = (char *)&command->message[3];
+        FileInfo *ffi = 0;
+        if (load) {
+            ffi = new FileInfo(INFO_SIZE);
+            if (fm->fstat(path, filename, *ffi) != FR_OK) {
+                *status = &c_status_file_not_found;
+                delete ffi;
+                return;
+            }
+        }
+        int ftype = 0;
+        uint32_t expSize = 1, base = 0;
+        if (g_host->ramdrive && drvNo < 4) {
+            g_host->ramdrive(g_ctx, drvNo, &ftype, &expSize, &base);       // a native drive's size comes from the machine; the others have a fixed one
+        }
+        // dos.cc:605-618 compares the type of the file's extension with the drive's. A drive that is not there (type 0) and a file of no known type are equal in the firmware, which
+        // then moves one byte to the first bank of nothing; here the drive must exist.
+        if (ftype == 0 || ext_type(filename) != ftype) {
+            *status = &c_status_incompatible_image;
+            delete ffi;
+            return;
+        }
+        if (ftype == 1541) {
+            expSize = 174848;
+        } else if (ftype == 1571) {
+            expSize = 2 * 174848;
+        } else if (ftype == 1581) {
+            expSize = 819200;
+        }
+        if (load && ftype == DRVTYPE_MP3_DNP && expSize != (uint32_t)ffi->size32()) {
+            *status = &c_status_incompatible_image;
+            delete ffi;
+            return;
+        }
+        if (expSize > 12u * 1024u * 1024u || (base >> 16) > 0x40) {
+            *status = &c_status_incompatible_image;
+            delete ffi;
+            return;
+        }
+        delete ffi;
+        if (whatIf) {
+            return;
+        }
+        uint32_t at = base;                                                 // the first byte of the drive: bank << 16
+        if (!load && refused(filename)) {
+            *status = &c_status_internal_error;                             // dos.cc answers 87 whenever the file cannot be opened
+            return;
+        }
+        File *f = 0;
+        fm->fopen(path, filename, load ? FA_READ : (FA_WRITE | FA_CREATE_NEW | FA_CREATE_ALWAYS), &f);
+        if (!f) {
+            *status = &c_status_internal_error;
+            return;
+        }
+        uint8_t *buf = new uint8_t[4096];
+        int parts = ftype == 1571 ? 2 : 1;
+        uint32_t half = ftype == 1571 ? expSize / 2 : expSize;
+        for (int part = 0; part < parts; part++) {
+            uint32_t dst = at + (part ? 700 * 256 : 0);
+            for (uint32_t done = 0; done < half;) {
+                uint32_t n = half - done < 4096 ? half - done : 4096, got = 0;
+                if (load) {
+                    f->read(buf, n, &got);                                  // dos.cc ignores the result: a short file leaves the rest of the drive as it was
+                    if (got) {
+                        g_ctx->io->ddr_write(dst + done, buf, got);
+                    }
+                    if (got != n) {
+                        done = half;
+                    } else {
+                        done += n;
+                    }
+                } else {
+                    g_ctx->io->ddr_read(dst + done, buf, n);
+                    f->write(buf, n, &got);
+                    done += n;
+                }
+            }
+        }
+        delete[] buf;
+        fm->fclose(f);
     }
 
 public:
@@ -375,6 +483,10 @@ public:
             }
             break;
         }
+        case DOS_CMD_LOAD_INTO_RAMDISK:
+        case DOS_CMD_SAVE_RAMDISK:
+            ramdisk(command, command->message[1] == DOS_CMD_LOAD_INTO_RAMDISK, reply, status);
+            break;
         case DOS_CMD_MOUNT_DISK: {
             *reply = &c_message_empty;
             *status = &c_status_ok;
@@ -633,6 +745,15 @@ public:
 
 // ---- CONTROL (control_target.cc) -----------------------------------------------------------------------------------------------------------------------
 #define CTRL_CMD_IDENTIFY       0x01
+#define CTRL_CMD_FREEZE         0x05
+#define CTRL_CMD_U64_SAVEMEM    0x0F
+#define CTRL_CMD_DECODE_TRACK   0x11
+#define CTRL_CMD_EASYFLASH      0x20
+#define CTRL_CMD_LOAD_CONFIG    0x50
+#define CTRL_CMD_GET_PALETTE    0x51
+#define CTRL_CMD_SET_PALETTE    0x52
+#define CTRL_CMD_SET_PALETTE_COLOR 0x53
+#define CTRL_CMD_RESET_PALETTE  0x54
 #define CTRL_CMD_REBOOT         0x06
 #define CTRL_CMD_LOAD_REU       0x08
 #define CTRL_CMD_SAVE_REU       0x09
@@ -648,9 +769,21 @@ public:
 
 static Message c_message_identification = { 19, true, (uint8_t *)"CONTROL TARGET V1.1" };
 static Message c_status_invalid_params  = { 17, true, (uint8_t *)"81,INVALID PARAMS" };
+static Message c_status_errors_on_track = { 18, true, (uint8_t *)"82,ERRORS ON TRACK" };
+static Message c_status_no_data_ctrl    = { 19, true, (uint8_t *)"83,NOT IN DATA MODE" };
 static Message c_status_reu_disabled    = { 18, true, (uint8_t *)"84,REU NOT ENABLED" };
 static Message c_status_cannot_open_file = { 28, true, (uint8_t *)"85,REU FILE CANNOT BE OPENED" };
 static Message c_status_reu_not_saved   = { 31, true, (uint8_t *)"86,REU OFFSET > SIZE. NOT SAVED" };
+static Message c_status_cannot_open_config = { 26, true, (uint8_t *)"88,CANNOT OPEN CONFIG FILE" };
+static Message c_status_config_had_errors  = { 25, true, (uint8_t *)"89,CONFIG FILE HAD ERRORS" };
+
+static volatile bool g_freeze_request;
+bool uci_take_freeze_request(void)
+{
+    bool r = g_freeze_request;
+    g_freeze_request = false;
+    return r;
+}
 
 class ControlTarget : CommandTarget
 {
@@ -728,6 +861,285 @@ class ControlTarget : CommandTarget
         *status = &c_status_ok;
     }
 
+    // control_target.cc:save_u64_memory: the 64 KB of the C64 through the DMA window in memory-only mode (so $D000-$DFFF is RAM) into a file. The message after the command is the name.
+    void save_u64_memory(Message *command)
+    {
+        FileManager *fm = FileManager::getFileManager();
+        File *f;
+        char fn[160];
+        snprintf(fn, sizeof(fn), "%s", command->length > 2 ? (const char *)command->message + 2 : (g_host->memory_file ? g_host->memory_file : "/temp/memory.bin"));
+        FRESULT res = fs_write_refused(fn) ? FR_WRITE_PROTECTED : fm->fopen(fn, FA_WRITE | FA_CREATE_NEW | FA_CREATE_ALWAYS, &f);
+        if (res == FR_OK) {
+            uint8_t *dest = new uint8_t[65536];
+            g_ctx->io->ram_memonly(true);
+            g_ctx->io->ram_read(0, dest, 65536);
+            g_ctx->io->ram_memonly(false);
+            uint32_t bytes_written;
+            res = f->write(dest, 0x10000, &bytes_written);
+            fm->fclose(f);
+            delete[] dest;
+        }
+        if (res == FR_OK) {
+            sprintf((char *)status_message.message, "00,OK");
+        } else {
+            sprintf((char *)status_message.message, "87,DISK ERR: %s", FileSystem::get_error_string(res));
+        }
+        status_message.length = strlen((char *)status_message.message);
+    }
+
+    // control_target.cc:decode_track: the GCR of a track in the REU (offset, 24 bits) decoded into 256-byte sectors in the REU, by the GCR decoder of the bitstream (iomap.h
+    // GCR_CODER_BASE). The firmware passes the uninitialised `secs` as the length of the status area (control_target.cc:76); 2 * maxSector, what it is meant to be, is used here.
+    static uint8_t *find_sync(uint8_t *gcr_data, uint8_t *begin, uint8_t *end)
+    {
+        bool wrap = false;
+        int sync_count = 0;
+        do {
+            if (gcr_data >= end) {
+                gcr_data = begin;
+                if (wrap) {
+                    return NULL;
+                }
+                wrap = true;
+            }
+            if (*gcr_data == 0xFF) {
+                sync_count++;
+            } else {
+                if (sync_count >= 2) {
+                    return gcr_data;
+                }
+                sync_count = 0;
+            }
+            gcr_data++;
+        } while (1);
+        return NULL;
+    }
+    static void conv_5bytes_gcr2bin(uint8_t **gcr, uint8_t *bin)
+    {
+        uint8_t *b = *gcr;
+        *(volatile uint8_t *)(GCR_CODER_BASE + 0x00) = *(b++);
+        *(volatile uint8_t *)(GCR_CODER_BASE + 0x00) = *(b++);
+        *(volatile uint8_t *)(GCR_CODER_BASE + 0x00) = *(b++);
+        *(volatile uint8_t *)(GCR_CODER_BASE + 0x00) = *(b++);
+        *(volatile uint8_t *)(GCR_CODER_BASE + 0x00) = *(b++);
+        *(bin++) = *(volatile uint8_t *)(GCR_CODER_BASE + 0x00);
+        *(bin++) = *(volatile uint8_t *)(GCR_CODER_BASE + 0x01);
+        *(bin++) = *(volatile uint8_t *)(GCR_CODER_BASE + 0x02);
+        *(bin++) = *(volatile uint8_t *)(GCR_CODER_BASE + 0x03);
+        *gcr = b;
+    }
+    static uint8_t *wrap_bits(uint8_t **current, uint8_t *begin, uint8_t *end, int count, uint8_t *buffer, uint8_t shift)
+    {
+        uint8_t *gcr = *current;
+        if (shift == 0) {
+            if (gcr > (end - count)) {
+                uint8_t *d = buffer;
+                uint8_t *s = gcr;
+                *current = (gcr + count) - (end - begin);
+                while (count--) {
+                    if (s == end) {
+                        s = begin;
+                    }
+                    *(d++) = *(s++);
+                }
+                return buffer;
+            }
+            *current = gcr + count;
+            return gcr;
+        }
+        uint8_t *d = buffer;
+        uint8_t *s = gcr;
+        uint8_t curByte = *(s++) << shift;
+        if (gcr > (end - count)) {
+            *current = (gcr + count) - (end - begin);
+        } else {
+            *current = gcr + count;
+        }
+        while (count--) {
+            if (s == end) {
+                s = begin;
+            }
+            curByte |= *s >> (8 - shift);
+            *(d++) = curByte;
+            curByte = *s << shift;
+            s++;
+        }
+        return buffer;
+    }
+    int gcr_track_to_bin(uint8_t *gcr, int trackNumber, int trackLen, int maxSector, uint8_t *bin, uint8_t *status, int statlen)
+    {
+        static uint8_t header[8];
+        int t, s;
+        uint8_t *begin = gcr, *end = begin + trackLen, *current = gcr, *pntr, *dest = bin, *gcr_data, *new_gcr, *st = status;
+        bool expect_data = false, wrapped = false;
+        int secs = 0;
+        uint8_t sector_buffer[352];
+        while (secs < maxSector) {
+            new_gcr = find_sync(current, begin, end);
+            if (!new_gcr) {
+                break;
+            }
+            if (new_gcr < current) {
+                if (wrapped) {
+                    break;
+                }
+                wrapped = true;
+            }
+            pntr = current = new_gcr;
+            uint8_t shift = 0;
+            uint8_t firstByte = *new_gcr;
+            while (firstByte & 0x80) {
+                shift++;
+                firstByte <<= 1;
+                if (shift == 8) {
+                    break;
+                }
+            }
+            gcr_data = wrap_bits(&pntr, begin, end, 5, sector_buffer, shift);
+            conv_5bytes_gcr2bin(&gcr_data, &header[0]);
+            if (header[0] == 8) {
+                gcr_data = wrap_bits(&pntr, begin, end, 5, sector_buffer, shift);
+                conv_5bytes_gcr2bin(&gcr_data, &header[4]);
+                t = (int)header[3];
+                s = (int)header[2];
+                dest = bin + (256 * s);
+                if (expect_data && st && statlen > 0) {
+                    *(st++) = 0xE4;
+                    statlen--;
+                }
+                if (st && statlen > 0) {
+                    *(st++) = s;
+                    statlen--;
+                }
+                expect_data = true;
+                if (t != trackNumber) {
+                    if (st && statlen > 0) {
+                        *(st++) = 0xE1;
+                        statlen--;
+                        expect_data = false;
+                    }
+                } else if (s >= maxSector) {
+                    if (st && statlen > 0) {
+                        *(st++) = 0xE2;
+                        statlen--;
+                        expect_data = false;
+                    }
+                }
+                if (expect_data) {
+                    current = pntr;
+                }
+                continue;
+            }
+            if (header[0] == 7 && expect_data) {
+                expect_data = false;
+                secs++;
+                uint8_t *binarySector = dest;
+                memcpy(dest, &header[1], 3);
+                dest += 3;
+                gcr_data = wrap_bits(&pntr, begin, end, 320, sector_buffer, shift);
+                for (int i = 0; i < 63; i++) {
+                    conv_5bytes_gcr2bin(&gcr_data, dest);
+                    dest += 4;
+                }
+                conv_5bytes_gcr2bin(&gcr_data, &header[4]);
+                *(dest++) = header[4];
+                if (st && statlen > 0) {
+                    uint8_t chk = 0;
+                    for (int i = 0; i < 256; i++) {
+                        chk ^= *(binarySector++);
+                    }
+                    if (chk != header[5]) {
+                        *(st++) = 0xE3;
+                    } else {
+                        *(st++) = 0x00;
+                        current = pntr;
+                    }
+                    statlen--;
+                }
+            }
+        }
+        return secs;
+    }
+    void decode_track(Message *command, Message **reply, Message **status)
+    {
+        if (command->length != 14) {
+            *reply = &c_message_empty;
+            *status = &c_status_invalid_params;
+            return;
+        }
+        int track = command->message[2];
+        int maxSector = command->message[3];
+        uint32_t gcrAddress = (uint32_t)command->message[4] | ((uint32_t)command->message[5] << 8) | ((uint32_t)command->message[6] << 16);
+        uint32_t binAddress = (uint32_t)command->message[8] | ((uint32_t)command->message[9] << 8) | ((uint32_t)command->message[10] << 16);
+        uint16_t trackLen = (uint16_t)command->message[12] | ((uint16_t)command->message[13] << 8);
+        if (!trackLen || (gcrAddress + trackLen) > UCI_REU_BYTES || (binAddress + 256u * (uint32_t)maxSector) > UCI_REU_BYTES) {
+            *reply = &c_message_empty;                                      // the firmware would work on whatever lies there; the REU ends at 16 MB
+            *status = &c_status_invalid_params;
+            return;
+        }
+        uint8_t *gcr = new uint8_t[trackLen];
+        uint8_t *bin = new uint8_t[256u * maxSector + 1];
+        g_ctx->io->ddr_read(gcrAddress, gcr, trackLen);
+        g_ctx->io->ddr_read(binAddress, bin, 256u * maxSector);
+        int secs = gcr_track_to_bin(gcr, track, trackLen, maxSector, bin, data_message.message + 1, 2 * maxSector);
+        g_ctx->io->ddr_write(binAddress, bin, 256u * maxSector);
+        delete[] gcr;
+        delete[] bin;
+        data_message.message[0] = (uint8_t)secs;
+        data_message.length = 1 + 2 * secs;
+        data_message.last_part = true;
+        *reply = &data_message;
+        *status = &c_status_ok;
+        if (secs == maxSector) {
+            uint8_t *code = data_message.message + 2;
+            for (int i = 0; i < secs; i++) {
+                if (*code) {
+                    *status = &c_status_errors_on_track;
+                    break;
+                }
+                code += 2;
+            }
+        } else {
+            *status = &c_status_errors_on_track;
+        }
+    }
+
+    // control_target.cc:load_config: the file is read here, the operation applies it (settings_ops.cc); the reply is the log of the lines that could not be applied.
+    void load_config(Message *command, Message **reply, Message **status)
+    {
+        FileManager *fm = FileManager::getFileManager();
+        File *f;
+        const char *fn = "/temp/uci_config.cfg";
+        if (command->length > 2) {
+            fn = (const char *)command->message + 2;
+        }
+        FRESULT res = fm->fopen(fn, FA_READ, &f);
+        if (res != FR_OK) {
+            *reply = &c_message_empty;
+            *status = &c_status_cannot_open_config;
+            return;
+        }
+        uint8_t *text = new uint8_t[16384];
+        uint32_t got = 0, tot = 0;
+        while (tot < 16384 && f->read(text + tot, 16384 - tot, &got) == FR_OK && got) {
+            tot += got;
+        }
+        fm->fclose(f);
+        settings_stage((const char *)text, (int)tot);
+        delete[] text;
+        OpResult *r = new OpResult;
+        int rc = ops_call(g_ctx, "settings.load_staged", NULL, 0, r);
+        delete r;
+        int loglen = (int)strlen(settings_load_log());
+        if (loglen > 511) {
+            loglen = 511;
+        }
+        memcpy(data_message.message, settings_load_log(), loglen);
+        data_message.length = loglen;
+        data_message.last_part = true;
+        *reply = &data_message;
+        *status = rc == OPE_OK ? &c_status_ok : &c_status_config_had_errors;
+    }
+
 public:
     ControlTarget(int id)
     {
@@ -759,6 +1171,83 @@ public:
             *status = &c_message_empty;                                     // control_target.cc does the same
             break;
         }
+        case CTRL_CMD_FREEZE:
+            g_freeze_request = true;                                        // the run loop opens the menu as the menu button does (run.cc)
+            *status = &c_message_empty;                                     // control_target.cc does the same
+            break;
+        case CTRL_CMD_U64_SAVEMEM:
+            *reply = &c_message_empty;
+            *status = &status_message;
+            save_u64_memory(command);
+            break;
+        case CTRL_CMD_DECODE_TRACK:
+            decode_track(command, reply, status);
+            break;
+        case CTRL_CMD_GET_PALETTE:
+            if (command->length != 2) {
+                *status = &c_status_invalid_params;
+            } else if (g_host->palette) {
+                g_host->palette(g_ctx, 0, 0, (uint8_t (*)[3])data_message.message);
+                data_message.length = UCI_PALETTE_BYTES;
+                data_message.last_part = true;
+                *reply = &data_message;
+                *status = &c_status_ok;
+            }
+            break;
+        case CTRL_CMD_SET_PALETTE: {
+            uint8_t rgb[UCI_PALETTE_COLORS][3];
+            if (!decode_palette_set(command->message, command->length, rgb)) {
+                *status = &c_status_invalid_params;
+            } else if (g_host->palette) {
+                g_host->palette(g_ctx, 1, 0, rgb);
+                *status = &c_status_ok;
+            }
+            break;
+        }
+        case CTRL_CMD_SET_PALETTE_COLOR: {
+            uint8_t index;
+            uint8_t rgb[3];
+            if (!decode_palette_color_set(command->message, command->length, &index, rgb)) {
+                *status = &c_status_invalid_params;
+            } else if (g_host->palette) {
+                uint8_t one[UCI_PALETTE_COLORS][3];
+                memcpy(one[0], rgb, 3);
+                g_host->palette(g_ctx, 2, index, one);
+                *status = &c_status_ok;
+            }
+            break;
+        }
+        case CTRL_CMD_RESET_PALETTE:
+            if (!valid_palette_reset(command->length)) {
+                *status = &c_status_invalid_params;
+            } else if (g_host->palette) {
+                g_host->palette(g_ctx, 3, 0, NULL);
+                *status = &c_status_ok;
+            }
+            break;
+        case CTRL_CMD_EASYFLASH:
+            if (command->length < 3) {
+                *status = &c_status_invalid_params;
+                *reply = &c_message_empty;
+            } else if (command->message[2] == 0) {
+                if (command->length < 5) {
+                    *status = &c_status_invalid_params;
+                    *reply = &c_message_empty;
+                    break;
+                }
+                if (g_host->ef_clear) {
+                    g_host->ef_clear(g_ctx, command->message[3] & 0x38, (command->message[4] & 0x20) != 0);
+                }
+                *reply = &c_message_empty;
+                *status = &c_status_ok;
+            } else {
+                *reply = &c_message_empty;
+                *status = &c_status_invalid_params;
+            }
+            break;
+        case CTRL_CMD_LOAD_CONFIG:
+            load_config(command, reply, status);
+            break;
         case CTRL_CMD_ENABLE_DISK_A:
             power(0, true, status);
             break;
@@ -835,35 +1324,66 @@ public:
                 *status = &c_status_cannot_open_file;
             }
             break;
-        case CTRL_CMD_GET_HWINFO:
-            if (command->length < 3 || command->message[2] == 0) {
+        case CTRL_CMD_GET_HWINFO: {
+            int device = command->length < 3 ? 0 : command->message[2];
+            if (device == 0) {
                 strcpy((char *)data_message.message, getProductString());
                 data_message.length = strlen((char *)data_message.message);
                 *status = &c_status_ok;
                 data_message.last_part = true;
                 *reply = &data_message;
+            } else if (device == 1 && g_host->sid_map) {
+                data_message.length = g_host->sid_map(g_ctx, data_message.message);
+                *status = &c_status_ok;
+                data_message.last_part = true;
+                *reply = &data_message;
+            } else {
+                *reply = &c_message_empty;
+                *status = &c_status_invalid_params;
             }
             break;
-        case CTRL_CMD_GET_RAMDISKINFO:                                      // no MegaPatch RAM drive in this machine: the firmware answers eight zero bytes then
+        }
+        case CTRL_CMD_GET_RAMDISKINFO: {
             data_message.length = 8;
-            memset(data_message.message, 0, 8);
+            unsigned char *data = (unsigned char *)data_message.message;
+            for (int i = 0; i < 4; i++) {
+                int typ = 0;
+                uint32_t size = 0, base = 0;
+                if (g_host->ramdrive) {
+                    g_host->ramdrive(g_ctx, i, &typ, &size, &base);
+                }
+                unsigned char ty = 0, si = 0;
+                if (typ == 1541) {
+                    ty = 0x41;
+                } else if (typ == 1571) {
+                    ty = 0x71;
+                } else if (typ == 1581) {
+                    ty = 0x81;
+                } else if (typ == DRVTYPE_MP3_DNP) {
+                    ty = 0xDD;
+                    si = (unsigned char)(size >> 16);
+                }
+                data[2 * i] = ty;
+                data[2 * i + 1] = si;
+            }
             *status = &c_status_ok;
             data_message.last_part = true;
             *reply = &data_message;
             break;
         }
+        }
     }
     void get_more_data(Message **reply, Message **status)
     {
         *reply = &c_message_empty;
-        *status = &c_status_unknown_command;
+        *status = &c_status_no_data_ctrl;
     }
     void abort(int) { }
 };
 
-// Not answered (unknown command, 21): DOS 0x41/0x42 RAM disk load/save and CONTROL 0x40 for a real RAM drive (the machine has none), CONTROL FREEZE 0x05, FINISH_CAPTURE 0x03,
-// U64_SAVEMEM 0x0F, DECODE/ENCODE_TRACK 0x11/0x12, EASYFLASH 0x20, HWINFO device 1 (SID map), LOAD_CONFIG 0x50, the palette commands 0x51-0x54; the SoftIEC target 5 and the
-// HTTP target 6 are not built.
+// Not answered (unknown command, 21 - or, for target 5 and 6, no such target): CONTROL FINISH_CAPTURE 0x03 (the application has no tape recorder, though the bitstream has the
+// recorder), the SoftIEC target 5 (the bitstream has no software IEC processor) and the HTTP target 6 (not built: it needs the firmware's HTTP client and request streams).
+// The firmware has no case for CONTROL READ_RTC 0x02 and ENCODE_TRACK 0x12 either.
 
 void uci_start(CoreCtx *c, const UciHost *host)
 {

@@ -36,6 +36,7 @@ op	settings.reset_defaults
 op	settings.clear
 op	settings.noop	value:int:-2000:2000:0:
 op	settings.load_file	path:path:0:0:519:
+op	settings.load_staged
 op	settings.autosave	value:int:-2000:2000:0:
 op	settings.save
 op	settings.discard
@@ -351,6 +352,8 @@ state	reu.nomp3.c
 state	reu.nomp3.d
 state	reu.on
 state	c64.cartridge
+state	c64.port_free
+state	c64.port_taken
 state	c64.cartridge_path
 state	machine.pause_label
 state	machine.state

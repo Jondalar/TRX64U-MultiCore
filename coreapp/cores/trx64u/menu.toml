@@ -132,6 +132,33 @@ name = "System"
   n = 1
 
 # T228 R21 (#4): "Save MP3 Drv A-D" - the GEOS RAM drives in the REU as a file (TRX-Ultimate c64_subsys.cc:452-455, 488-491, 852-912); a row is there only while that drive is
+# T228 R21 (FW c64.cc:424-428): while a cartridge has the port the row of the device says "Disabled (cartridge)" instead of its setting
+[[node]]
+anchor = "F5/expansion/REU"
+kind = "state"
+state = "c64.port_taken"
+when_state = "c64.port_taken"
+label = "RAM expansion unit"
+order = 1
+
+# T228 R21 (FW c64.cc:424-428): while a cartridge has the port the row of the device says "Disabled (cartridge)" instead of its setting
+[[node]]
+anchor = "F5/expansion/Ultimate"
+kind = "state"
+state = "c64.port_taken"
+when_state = "c64.port_taken"
+label = "Ultimate audio at $DF20-$DFFF"
+order = 2
+
+# T228 R21 (FW c64.cc:424-428): while a cartridge has the port the row of the device says "Disabled (cartridge)" instead of its setting
+[[node]]
+anchor = "F5/expansion/Ultimate"
+kind = "state"
+state = "c64.port_taken"
+when_state = "c64.port_taken"
+label = "Command interface (UCI)"
+order = 3
+
 [[node]]
 anchor = "F5/expansion/REU"
 kind = "op"
@@ -2675,6 +2702,7 @@ list = "geo"
 default = 0
 when = "live"
 apply = "c64.fx_io"
+show_state = "c64.port_free"
 
 [[core_setting]]
 group = "REU"
@@ -2724,6 +2752,7 @@ list = "en_dis"
 default = 0
 when = "live"
 apply = "c64.fx_io"
+show_state = "c64.port_free"
 
 [[core_setting]]
 group = "Ultimate"
@@ -2733,6 +2762,7 @@ list = "en_dis"
 default = 0
 when = "live"
 apply = "c64.fx_io"
+show_state = "c64.port_free"
 
 [[core_setting]]
 group = "Cartridge"

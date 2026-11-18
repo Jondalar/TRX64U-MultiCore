@@ -141,6 +141,39 @@ static void program_palette(const uint8_t rgb[16][3])
     }
 }
 
+// CONTROL 0x51-0x54 of the command interface (control_target.cc:158-199, U64Config::get_palette_rgb / set_palette_rgb / set_palette_color / reset_palette, u64_config.cc:3099-3170).
+// what 0 reads the 16 colours in force, 1 sets all, 2 sets colour idx from rgb[0], 3 back to the default colours. A palette set here is not the setting's: the next change of the
+// palette's group loads the configured one again (the name is forgotten, as the firmware's effectuate always reads the file again).
+void u64cfg_palette(CoreCtx *, int what, uint8_t idx, uint8_t (*rgb)[3])
+{
+    if (what == 0) {
+        memcpy(rgb, g_palette_valid ? g_palette : default_colors, sizeof(g_palette));
+        return;
+    }
+    if (what == 2) {
+        if (!g_palette_valid) {
+            memcpy(g_palette, default_colors, sizeof(g_palette));
+            g_palette_valid = true;
+        }
+        memcpy(g_palette[idx], rgb[0], 3);
+        uint8_t yuv[3];
+        rgb_to_yuv(rgb[0], yuv);
+        volatile uint8_t *rgbr = (volatile uint8_t *)(C64_PALETTE + idx * 4);
+        volatile uint8_t *yuvr = (volatile uint8_t *)(C64_PALETTE + 0x400 + idx * 4);
+        volatile uint8_t *hdmi = (volatile uint8_t *)(U64II_HDMI_PALETTE + idx * 4);
+        for (int k = 0; k < 3; k++) {
+            rgbr[k] = rgb[0][k];
+            hdmi[k] = rgb[0][k];
+            yuvr[k] = yuv[k];
+        }
+    } else {
+        uint8_t all[16][3];
+        memcpy(all, what == 1 ? rgb : default_colors, sizeof(all));
+        program_palette(all);
+    }
+    g_palette_name[0] = 0;
+}
+
 // A .vpl (Gideon FileTypePalette::parseVplFile): lines of three hex numbers r g b, '#' starts a comment; 16 of them.
 static bool parse_vpl(const char *text, int n, uint8_t rgb[16][3])
 {
@@ -467,6 +500,31 @@ static void write_sid_addressing(CoreCtx *c)
     memcpy(g_base, base, 4);
     memcpy(g_mask, mask, 4);
     memcpy(g_split, split, 4);
+}
+
+// CONTROL GET_HWINFO device 1 on the U64 (control_target.cc:290-340): the SID map the machine decodes now - the two UltiSIDs, then each enabled socket - as 5 bytes each: address low
+// ($D4 + base << 4), high, 0, 0 (the stereo address of a socket value 4 would go in bytes 3-4: this core's enable is a switch, never 4) and the type (2 / 3 an UltiSID by its mask,
+// 4 / 5 a socket, bit 7 set). Returns the length.
+int u64cfg_sid_map(CoreCtx *c, uint8_t *data)
+{
+    bool s1 = V(c, K_S1_EN) != 0, s2 = V(c, K_S2_EN) != 0;
+    data[0] = (uint8_t)(2 + (s1 ? 1 : 0) + (s2 ? 1 : 0));
+    int len = 11 + (s1 ? 5 : 0) + (s2 ? 5 : 0);
+    int at = 1;
+    for (int k = 0; k < 4; k++) {
+        if ((k == 2 && !s1) || (k == 3 && !s2)) {
+            continue;
+        }
+        int d = k >= 2 ? k - 2 : k + 2;                                  // g_base order: socket 1, socket 2, UltiSID 1, UltiSID 2; the firmware lists the UltiSIDs first
+        unsigned base = g_base[d], mask = g_mask[d];
+        data[at + 0] = (uint8_t)(base << 4);
+        data[at + 1] = (uint8_t)(0xd0 | (base >> 4));
+        data[at + 2] = 0;
+        data[at + 3] = 0;
+        data[at + 4] = (uint8_t)((d >= 2 ? (mask == 0xFE ? 2 : 3) : (mask == 0xFE ? 4 : 5)) | 128);
+        at += 5;
+    }
+    return len;
 }
 
 // ---- the SID in a socket (FW u64_config.cc U64SidSockets::detect, detectFPGASID, detectRemakes, S_SidDetector, DetectSidImpl) ---------------------
