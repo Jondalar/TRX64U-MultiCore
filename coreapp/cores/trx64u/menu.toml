@@ -793,6 +793,26 @@ ext = ".reu"
   bind = [ { arg = "path", file = true } ]
   key = "P"
 
+# FW filetype_reu.cc:42-48: .mod = Play MOD (through the sampler), Load into REU, Preload on Startup
+[[filetype]]
+ext = ".mod"
+  [[filetype.action]]
+  label = "Play MOD"
+  op = "reu.playmod"
+  bind = [ { arg = "path", file = true } ]
+  key = "M"
+  closes_menu = true
+  [[filetype.action]]
+  label = "Load into REU"
+  op = "reu.load"
+  bind = [ { arg = "path", file = true } ]
+  key = "L"
+  [[filetype.action]]
+  label = "Preload on Startup"
+  op = "reu.preload"
+  bind = [ { arg = "path", file = true } ]
+  key = "P"
+
 [[filetype]]
 ext = ".t64"
   [[filetype.action]]

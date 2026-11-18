@@ -16,4 +16,7 @@ const char *cfg_text(CoreCtx *c, const char *key);
 // c64.cc tells the module every KERNAL image it puts into the aperture (the fast reset patch is made against that copy).
 void trx64u_kernal_put(CoreCtx *c, const uint8_t *data, uint32_t n);
 
+// The command interface at $DF1C for a cartridge that requires it (c64_cart.cc: the module player).
+void trx64u_uci_df1c(CoreCtx *c);
+
 #endif

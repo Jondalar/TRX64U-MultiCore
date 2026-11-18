@@ -152,6 +152,7 @@ op	u64.fx_power	value:int:-2000:2000:0:
 op	drive.fx_misc	value:int:-2000:2000:0:
 op	reu.load	path:path:0:0:519:
 op	reu.preload	path:path:0:0:519:
+op	reu.playmod	path:path:0:0:519:
 op	drive.insert_blank
 op	drive.swap
 op	drive.unlink

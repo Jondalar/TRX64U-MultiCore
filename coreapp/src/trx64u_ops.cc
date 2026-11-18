@@ -10,6 +10,7 @@
 #include "boot.h"
 #include "u64.h"
 #include "iomap.h"
+#include "itu.h"
 #include <stdio.h>
 #include <string.h>
 #include <strings.h>
@@ -101,7 +102,7 @@ static void fast_reset(CoreCtx *c)
     }
 }
 
-static int reu_load(CoreCtx *c, const char *path, char *msg, int msglen);
+static int reu_load(CoreCtx *c, const char *path, char *msg, int msglen, bool at_start = false);
 #define TRX_SLOT_CTRL 0x7000                                       // TRX_IO_BASE + 0x7000 = 0x101A7000
 
 static int fx_io(CoreCtx *c, const OpArgs &, OpOut &)
@@ -168,7 +169,7 @@ static uint32_t reu_offset(CoreCtx *c)
     return i == 0 ? 0 : (128u * 1024u) << (i - 1);
 }
 
-static int reu_load(CoreCtx *c, const char *path, char *msg, int msglen)
+static int reu_load(CoreCtx *c, const char *path, char *msg, int msglen, bool at_start)
 {
     uint64_t sz = 0;
     bool dir = false;
@@ -180,7 +181,7 @@ static int reu_load(CoreCtx *c, const char *path, char *msg, int msglen)
         snprintf(msg, msglen, "A cartridge uses the REU's memory: remove it first");
         return 1;
     }
-    uint32_t off = reu_offset(c), room = 0x1000000u - off;
+    uint32_t off = at_start ? 0 : reu_offset(c), room = 0x1000000u - off;     // Play MOD: REU_MEMORY_BASE (FW filetype_reu.cc:125, 135)
     CoreFile *f = c->fs->open(path, false);
     if (!f) {
         snprintf(msg, msglen, "Cannot open %s", path);
@@ -205,6 +206,43 @@ static int reu_load(CoreCtx *c, const char *path, char *msg, int msglen)
 }
 
 static int op_reu_load(CoreCtx *c, const OpArgs &a, OpOut &o) { return reu_load(c, a.s(0), o.msg, o.msglen) ? OPE_FAILED : OPE_OK; }
+// FW filetype_reu.cc:42-45, 103-105, 143-150 (REUFILE_PLAYMOD): the sampler's registers cleared, the module into the REU, the sampler's output selected
+// (audio_select.h:41-55), the module player's cartridge started with the REU, the sampler and the UCI. Without the sampler there is nothing to play it with
+// (route_runners.cc:244-248: "Sampler module not available").
+static int op_reu_playmod(CoreCtx *c, const OpArgs &a, OpOut &o)
+{
+    if (!(getFpgaCapabilities() & CAPAB_SAMPLER)) {
+        snprintf(o.msg, o.msglen, "Sampler module not available");
+        return OPE_FAILED;
+    }
+    if (c64_cart_active()) {
+        snprintf(o.msg, o.msglen, "A cartridge uses the REU's memory: remove it first");
+        return OPE_FAILED;
+    }
+    for (int i = 0; i < 64; i++) {
+        ioWrite8(SAMPLER_BASE + i, 0);
+    }
+    if (reu_load(c, a.s(0), o.msg, o.msglen, true)) {
+        return OPE_FAILED;
+    }
+    ioWrite8(AUDIO_SEL_BASE + 0x00, 6);                                          // AUDIO_SELECT_LEFT: the sampler's MOD output
+    ioWrite8(AUDIO_SEL_BASE + 0x01, 7);                                          // AUDIO_SELECT_RIGHT
+    if (c64_cart_run_modplayer(c, o.msg, o.msglen)) {
+        return OPE_FAILED;
+    }
+    snprintf(o.msg, o.msglen, "Playing %s", a.s(0));
+    return OPE_OK;
+}
+
+// the module player's cartridge asks for the command interface at $DF1C (c64.cc:2019-2024; the same condition as fx_io)
+void trx64u_uci_df1c(CoreCtx *c)
+{
+    if (desc_has_capability(c->desc, "uci") && (!c->board || (c->board->probes & BC_UCI))) {
+        CMD_IF_SLOT_ENABLE_REG = 1;
+        CMD_IF_SLOT_BASE_REG = 0x47;
+    }
+}
+
 static int op_reu_preload(CoreCtx *c, const OpArgs &a, OpOut &o)
 {
     OpIn in[2] = { in_str("key", "REU Preload Image"), in_str("value", a.s(0)) };
@@ -667,6 +705,7 @@ void trx64u_register(OpRegistry &r)
     r.add_op("drive.fx_misc", value_arg, 1, fx_drive_misc);
     r.add_op("reu.load", path_arg, 1, op_reu_load);
     r.add_op("reu.preload", path_arg, 1, op_reu_preload);
+    r.add_op("reu.playmod", path_arg, 1, op_reu_playmod);
     r.add_op("drive.insert_blank", 0, 0, op_insert_blank);
     r.add_op("drive.swap", 0, 0, op_swap);
     r.add_op("machine.after_roms", 0, 0, op_after_roms);
