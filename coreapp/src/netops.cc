@@ -36,35 +36,40 @@ static int fx_net(CoreCtx *c, const OpArgs &, OpOut &o)
         snprintf(o.msg, o.msglen, "The network stack is not up");
         return OPE_OK;
     }
-    eth->set_value(CFG_NET_DHCP_EN, cfg_value(c, "Use DHCP", 1));
-    push_text(eth, CFG_NET_IP, cfg_text(c, "Static IP"));
-    push_text(eth, CFG_NET_NETMASK, cfg_text(c, "Static Netmask"));
-    push_text(eth, CFG_NET_GATEWAY, cfg_text(c, "Static Gateway"));
-    push_text(eth, CFG_NET_DNS, cfg_text(c, "Static DNS"));
-    push_text(net, CFG_NETWORK_HOSTNAME, cfg_text(c, "Host Name"));
-    push_text(net, CFG_NETWORK_PASSWORD, cfg_text(c, "Network Password"));
-    push_text(net, CFG_NETWORK_UNIQUE_ID, cfg_text(c, "Unique ID"));
-    push_text(net, CFG_NETWORK_REMOTE_SYSLOG_SERVER, cfg_text(c, "Log to Syslog Server"));
-    net->set_value(CFG_NETWORK_ULTIMATE_IDENT_SERVICE, cfg_value(c, "Ultimate Ident Service", 1));
-    net->set_value(CFG_NETWORK_ULTIMATE_DMA_SERVICE, cfg_value(c, "Ultimate DMA Service", 1));
-    net->set_value(CFG_NETWORK_TELNET_SERVICE, cfg_value(c, "Telnet Remote Menu Service", 1));
-    net->set_value(CFG_NETWORK_FTP_SERVICE, cfg_value(c, "FTP File Service", 1));
-    net->set_value(CFG_NETWORK_HTTP_SERVICE, cfg_value(c, "Web Remote Control Service", 1));
-    net->set_value(CFG_NETWORK_NTP_EN, cfg_value(c, "SNTP Enable", 1));
-    net->set_value(CFG_NETWORK_NTP_ZONE, cfg_value(c, "TimeZone", 16));
-    push_text(net, CFG_NETWORK_NTP_SRV1, cfg_text(c, "Time Server 1"));
-    push_text(net, CFG_NETWORK_NTP_SRV2, cfg_text(c, "Time Server 2"));
-    push_text(net, CFG_NETWORK_NTP_SRV3, cfg_text(c, "Time Server 3"));
+    // R21: a value is pushed only when the core's settings have its key (Settings::find >= 0). net.fx runs for every core; one that does not list a key must not
+    // overwrite the stack with the key's default (the MultiCore host's WiFi settings, T184 D3, are read by hostwifi_load at run.cc:480, before the first net.fx).
+    auto has = [&](const char *k) { return c->settings && c->settings->find(k) >= 0; };
+    auto val = [&](ConfigStore *st, uint8_t id, const char *k, int def) { if (has(k)) st->set_value(id, cfg_value(c, k, def)); };
+    auto txt = [&](ConfigStore *st, uint8_t id, const char *k) { if (has(k)) push_text(st, id, cfg_text(c, k)); };
+    val(eth, CFG_NET_DHCP_EN, "Use DHCP", 1);
+    txt(eth, CFG_NET_IP, "Static IP");
+    txt(eth, CFG_NET_NETMASK, "Static Netmask");
+    txt(eth, CFG_NET_GATEWAY, "Static Gateway");
+    txt(eth, CFG_NET_DNS, "Static DNS");
+    txt(net, CFG_NETWORK_HOSTNAME, "Host Name");
+    txt(net, CFG_NETWORK_PASSWORD, "Network Password");
+    txt(net, CFG_NETWORK_UNIQUE_ID, "Unique ID");
+    txt(net, CFG_NETWORK_REMOTE_SYSLOG_SERVER, "Log to Syslog Server");
+    val(net, CFG_NETWORK_ULTIMATE_IDENT_SERVICE, "Ultimate Ident Service", 1);
+    val(net, CFG_NETWORK_ULTIMATE_DMA_SERVICE, "Ultimate DMA Service", 1);
+    val(net, CFG_NETWORK_TELNET_SERVICE, "Telnet Remote Menu Service", 1);
+    val(net, CFG_NETWORK_FTP_SERVICE, "FTP File Service", 1);
+    val(net, CFG_NETWORK_HTTP_SERVICE, "Web Remote Control Service", 1);
+    val(net, CFG_NETWORK_NTP_EN, "SNTP Enable", 1);
+    val(net, CFG_NETWORK_NTP_ZONE, "TimeZone", 16);
+    txt(net, CFG_NETWORK_NTP_SRV1, "Time Server 1");
+    txt(net, CFG_NETWORK_NTP_SRV2, "Time Server 2");
+    txt(net, CFG_NETWORK_NTP_SRV3, "Time Server 3");
     ConfigStore *wf = cm->find_store("WiFi settings");        // T228 R21 rows 52-56: the WiFi interface has its own store with the same five items (FW network_esp32.cc:47-51)
     if (wf) {
-        wf->set_value(CFG_NET_DHCP_EN, cfg_value(c, "WiFi Use DHCP", 1));
-        push_text(wf, CFG_NET_IP, cfg_text(c, "WiFi Static IP"));
-        push_text(wf, CFG_NET_NETMASK, cfg_text(c, "WiFi Static Netmask"));
-        push_text(wf, CFG_NET_GATEWAY, cfg_text(c, "WiFi Static Gateway"));
-        push_text(wf, CFG_NET_DNS, cfg_text(c, "WiFi Static DNS"));
+        val(wf, CFG_NET_DHCP_EN, "WiFi Use DHCP", 1);
+        txt(wf, CFG_NET_IP, "WiFi Static IP");
+        txt(wf, CFG_NET_NETMASK, "WiFi Static Netmask");
+        txt(wf, CFG_NET_GATEWAY, "WiFi Static Gateway");
+        txt(wf, CFG_NET_DNS, "WiFi Static DNS");
     }
     eth->effectuate();
-    if (wf) {
+    if (wf && has("WiFi Use DHCP")) {
         wf->effectuate();
     }
     net->effectuate();
