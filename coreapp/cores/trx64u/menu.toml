@@ -334,7 +334,7 @@ kind = "op"
 label = "Power cycle"
 op = "u64.power_cycle"
 order = 401
-ui = { confirm = "Power cycle the board? Everything in memory is lost.", sub = "Switches the board off and on" }
+ui = { confirm = "Power cycle the board? Everything in memory is lost.", sub = "Switches the board off and on", ctrl = "B" }
 
 [[node]]
 anchor = "F8/expert/actions"
@@ -342,7 +342,7 @@ kind = "op"
 label = "Power off"
 op = "u64.power_off"
 order = 402
-ui = { confirm = "Power off the board?", sub = "Switches the board off" }
+ui = { confirm = "Power off the board?", sub = "Switches the board off", ctrl = "K" }
 
 [[node]]
 anchor = "F8/expert/WiFi_and_Ethernet"

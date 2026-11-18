@@ -407,7 +407,7 @@ class _Strings:
         return self.idx[s]
 
 
-UI_NODE_KEYS = {"primary": bool, "link": bool, "goto": str, "sub": str, "chip": str, "tone": str, "off": str, "why": str, "confirm": str, "label": str, "hide": str, "ask": str, "ask_state": str, "job": bool, "pick": str, "rename": bool, "view": str, "key": str, "none": str, "nokey": bool, "empty": str, "bkey": str, "legend": str}
+UI_NODE_KEYS = {"primary": bool, "link": bool, "goto": str, "sub": str, "chip": str, "tone": str, "off": str, "why": str, "confirm": str, "label": str, "hide": str, "ask": str, "ask_state": str, "job": bool, "pick": str, "rename": bool, "view": str, "key": str, "none": str, "nokey": bool, "empty": str, "bkey": str, "ctrl": str, "legend": str}
 UI_TONES = ("muted", "cyan", "violet", "amber", "coral")
 LAYOUTS = ("home", "desk", "split", "settings", "status", "library", "timeline", "terminal", "app", "grid")
 UI_TAB_KEYS = {"title": str, "crumb": str, "side": str, "chip": str, "sheet": str, "sheetx": str, "nodes_first": bool, "sections": bool, "pages": str, "pages_head": str, "left": str, "label": str, "frame": str, "bar": str, "hint": str, "marks": str, "pos": str, "info": str, "glyph": str, "track": str,
@@ -644,6 +644,9 @@ def compile_desc(doc, merged=()):
         if ui:                                                      # a letter belongs to its page: no two elements of a page claim one, none claims a digit or a key of the navigation
             uit = _ui_table(ui, UI_NODE_KEYS)
             page = "/".join(anchor.split("/")[:2])
+            cv = uit.get("ctrl")
+            if cv is not None and not (len(cv) == 1 and cv.isalpha() and cv == cv.upper()):
+                raise DescError("node %s: ui ctrl is one upper case letter (C= + that letter runs the node)" % label)
             for kk in ("key", "bkey"):
                 kv = uit.get(kk)
                 if kv is None:

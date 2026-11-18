@@ -65,6 +65,7 @@ enum MenuIntentId {
     MI_APP_TERMKEY,     // a key of an application's terminal goes to the operation the tab names
     MI_BUSY_CANCEL,     // ESC while a job runs
     MI_RAW,             // the stage's raw handler takes the key (text field, picker, address prompt): not in the table
+    MI_CTRL,            // T228 R21: C= + letter (arg) runs the node whose ui `ctrl` is that letter; Z is the fixed Restart core; declines where there is none
     MI_COUNT
 };
 
