@@ -7,7 +7,7 @@
 #include <stdint.h>
 #include "ctx.h"
 
-#define CORE_REPORT_MAX 24576               // the text: the sections (about 6 KB) and the log (D2: at most 16 KB)
+#define CORE_REPORT_MAX 28672               // the text: the sections (about 9 KB with the TRX64U's 216 settings, T228 R21) and the log (D2: at most 16 KB)
 #define CORE_REPORT_DIR "/sd/report"
 
 // Builds the text into out[0..cap). Returns its length. `log` is the application's log, in order (the last lines are taken).

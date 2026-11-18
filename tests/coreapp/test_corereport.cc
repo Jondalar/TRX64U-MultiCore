@@ -78,7 +78,7 @@ static std::string get(Rig &r, const char *method, const char *path, int *status
     HttpReq *q = new HttpReq;
     http_init(q);
     http_feed(q, raw.data(), (int)raw.size());
-    static char out[28672];
+    static char out[32768];                 // restsrv.cc out_max
     bool ws;
     int n = rest_serve(&r.c, *q, out, sizeof(out), &ws);
     delete q;

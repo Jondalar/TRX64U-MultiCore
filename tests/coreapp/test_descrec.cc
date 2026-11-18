@@ -269,7 +269,7 @@ int main(int argc, char **argv)
         CHECK(!o->media[0].eject_closes && o->media[1].eject_closes);
         CHECK_STR(o->media[1].name, "Cartridge port");
         CHECK(!o->media[2].eject_op && o->media[2].neject_bind == 0 && !o->media[2].exts);
-        CHECK_EQ(o->nftypes, 16);
+        CHECK_EQ(o->nftypes, 24);                                  // T228 R21: TRX64-Ultimate's file types (R24: no .g71, no .d71)
         CHECK_STR(o->ftypes[0].ext, ".prg");
         CHECK_EQ(o->ftypes[0].nactions, 3);
         CHECK_STR(o->ftypes[0].actions[1].ask, "Start address");
@@ -279,7 +279,7 @@ int main(int argc, char **argv)
         CHECK_EQ(o->ftypes[4].ninner, 2);
         CHECK_STR(o->ftypes[4].inner[1].label, "Real Run");
         CHECK(!o->ftypes[5].inner && o->ftypes[5].ninner == 0);
-        CHECK_EQ(o->ncsettings, 156);                              // the four tables of the record and the settings its nodes declare (R10: USB Controller Port)
+        CHECK_EQ(o->ncsettings, 216);                              // the four tables of the record and the settings its nodes declare (R10: USB Controller Port; R21, R26: no WiFi rows)
         CHECK_STR(o->csettings[0].key, "Freeze mode");
         CHECK_EQ(o->csettings[0].when, WHEN_RESET);
         CHECK_EQ(o->csettings[1].def, 1);
@@ -297,8 +297,8 @@ int main(int argc, char **argv)
         descrec_apply(*o, &base, &out);
         CHECK(o->restart_clear == 65536 && o->restart_ram_only);  // T228 R17: [restart] - "Restart core" clears the C64's 64 KiB, memory-only
         CHECK(out.cold_ram_bytes == 65536 && out.cold_ram_only);
-        CHECK(out.tasks == o->tasks && out.ntasks == 14 && out.nmedia == 3 && out.nfiletypes == 16 && out.nsettings == 156 && !strcmp(out.machine_info, "System Mode,REU Size"));
-        {   // T228 D10: the base's settings stand behind the record's 156, in the base's order, and a second call gives the same table
+        CHECK(out.tasks == o->tasks && out.ntasks == 19 && out.nmedia == 3 && out.nfiletypes == 24 && out.nsettings == 216 && !strcmp(out.machine_info, "System Mode,REU Size"));
+        {   // T228 D10: the base's settings stand behind the record's 216, in the base's order, and a second call gives the same table
             static Setting bs[2];
             memset(bs, 0, sizeof(bs));
             bs[0].key = "Base A";
@@ -307,19 +307,19 @@ int main(int argc, char **argv)
             b2.settings = bs; b2.nsettings = 2;
             descrec_apply(*o, &b2, &r1);
             descrec_apply(*o, &b2, &r2);
-            CHECK_EQ(r1.nsettings, 158);
+            CHECK_EQ(r1.nsettings, 218);
             CHECK_STR(r1.settings[0].key, "Freeze mode");
-            CHECK_STR(r1.settings[156].key, "Base A");
-            CHECK_STR(r1.settings[157].key, "Base B");
-            CHECK(r1.settings == r2.settings && r2.nsettings == 158 && !strcmp(r2.settings[157].key, "Base B"));
+            CHECK_STR(r1.settings[216].key, "Base A");
+            CHECK_STR(r1.settings[217].key, "Base B");
+            CHECK(r1.settings == r2.settings && r2.nsettings == 218 && !strcmp(r2.settings[217].key, "Base B"));
         }
 
         // the refusals of the new tables
         Bytes b;
         b = own; wr(b, 12, rd(b, 12) & ~2u);                       // the flag says no own tables, the tables are there
         CHECK(parse(b, o, why) != 0 && strstr(why, "own-menu flag"));
-        b = own; wr(b, entry(b, K, 9) + 20, DESCREC_NONE);                    // an ask_state without an ask (task 9 has both)
-        CHECK(parse(b, o, why) != 0 && strstr(why, "task 9"));
+        b = own; wr(b, entry(b, K, 14) + 20, DESCREC_NONE);                   // an ask_state without an ask (task 14, Save Disk as D64, has both)
+        CHECK(parse(b, o, why) != 0 && strstr(why, "task 14"));
         b = own; wr(b, entry(b, K, 0) + 16, 8);                               // a flag nobody defined
         CHECK(parse(b, o, why) != 0 && strstr(why, "task 0"));
         b = own; wr(b, entry(b, K, 0) + 8, DR_BINDS);                         // a binding run past the table
