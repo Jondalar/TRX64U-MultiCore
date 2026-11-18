@@ -49,8 +49,8 @@ def cores():
 
 def left_out():
     """Lower-case names of what ROMS.txt does not list: a core with `pipeline = false` (T92 D-17e, by id and manifest name), a `build_only` core
-    (never in a release; its RomSpec rows came out under a made-up folder, 2026-11-18) and an imported core whose pin in release/imports/ says
-    PIPELINE=false (ci/package.sh packs neither)."""
+    (never in a release; its RomSpec rows came out under a made-up folder, 2026-11-18; ci/package.sh still packs it for the board, whose ROMS.txt
+    then has no section for it) and an imported core whose pin in release/imports/ says PIPELINE=false (ci/package.sh packs neither of the other two)."""
     out = set()
     for name, _, t in core_toml.descriptors() + core_toml.large_descriptors():
         if not core_toml.in_pipeline(t) or t.get("build_only"):

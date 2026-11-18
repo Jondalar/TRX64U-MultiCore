@@ -148,7 +148,9 @@ images differ from the board-tested 892eec45 package only in the build time and 
 then needed three fixes, which run on the Mac and need no new tag: tools/release_mc.sh put the package's own c64scpu.cor (build_only:
 never in a release) into the bundle; tools/gen_roms_txt.py listed the build_only SuperCPU's ROMs under a made-up folder; INSTALL.md
 (tools/release_notes_mc.py) said "for internal testers" and named commits, a release now names its tag. GitHub release 0.2.0 =
-`trx64mc-0.2.0` built by tools/release_mc.sh from package v0.2.0-554bbb67 with these fixes.
+`trx64mc-0.2.0` built by tools/release_mc.sh from package v0.2.0-554bbb67 with these fixes, GitHub tag `v0.2.0` (the tag name, as
+everywhere). After 0.2.0: the board package's ROMS.txt lists no build_only core now; its SuperCPU section belongs back under the
+folder of the RomSpec table (`c64scpu`, host-app/software/hostapp/romreq_table.inc), which tools/gen_roms_txt.py reads but drops.
 
 ## §4 Out
 

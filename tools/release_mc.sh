@@ -25,7 +25,7 @@
 #   5. with --publish: tools/publish_release_mc.sh, which attaches all of them, the zip included.
 #
 # A GitHub release of the same bundle (by hand, Alex's go) takes its --target from the history export (T120 D-history):
-#   gh release create trx64mc-<version> --target "$(tools/github_snapshot.py --map-lookup <the Gitea commit of the release>)" ...
+#   gh release create v<version> --target "$(tools/github_snapshot.py --map-lookup <the Gitea commit of the release>)" ...
 # The Gitea sha is what the manifest and the tag here name; release/github_map.txt maps it to the GitHub commit once it is exported.
 # The token comes from GITEA_TOKEN or tea's config and is never printed.
 set -euo pipefail
