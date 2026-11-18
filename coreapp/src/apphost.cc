@@ -62,6 +62,7 @@ void AppHost::install()
 {
     g_host = this;
     c_->app_open = open_op;
+    c_->file_app_action = file_action_op;
     ld_->set_ctx(c_);
     ld_->set_dlg(ui_available() ? &dlg_tab_ : 0);
     dlg_.set_headless(!ui_available());
@@ -81,6 +82,11 @@ void AppHost::set_machine_groups(const SvcTrx *trx, const SvcNet *net, const Svc
 int AppHost::open_op(CoreCtx *, const char *app, const char *action, const char *file, char *msg, int msglen)
 {
     return g_host ? g_host->request(app, action, file, msg, msglen) : OPE_UNSUPPORTED;
+}
+
+const FileAction *AppHost::file_action_op(CoreCtx *c, const char *name, uint64_t size, bool dir)
+{
+    return g_host && g_host->idx_ ? g_host->idx_->prg_action(c->fs, name, size, dir) : 0;
 }
 
 namespace {

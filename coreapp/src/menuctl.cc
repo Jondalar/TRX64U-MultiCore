@@ -2494,6 +2494,11 @@ MenuCtl::Result MenuCtl::activate(bool primary, bool all)
                     chooser_buf_[n++] = uni[k];
                 }
             }
+            if (c_->file_app_action && n < 30) {                       // T228 R21: an application's action for this file, looked up now (FW: after Rename and Delete)
+                if (const FileAction *pa = c_->file_app_action(c_, f.name, f.size, f.dir)) {
+                    chooser_buf_[n++] = *pa;
+                }
+            }
         }
         chooser_ = true;
         folder_sheet_ = false;
