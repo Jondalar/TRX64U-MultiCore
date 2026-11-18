@@ -27,9 +27,9 @@ everything that is a development diary out. Everything in Boeing engineering man
 
 ```gherkin
 Scenario: S1 a reader who knows nothing finds out what this is from README.md alone
-  Then README.md states purpose, applicability (U64 Elite II, C64 Ultimate), what works, what does not, that the
-       original firmware (.cfw/.ue2) stays usable, the core list with a state per core and its evidence, and screenshots
-  And  every state claim names its evidence (board test, bench, or "not tested on the board")
+  Then README.md says what it does, which boards it supports, how to install it and what the risk is, with the
+       disclaimer (no support, no liability for bricked boards), and links the manual for everything else (§3, 2026-11-18)
+  And  the state of each core is where the README links it: the Discussions table and manual chapter 11
 
 Scenario: S2 a user installs and uses it from docs/manual/ only
   Then docs/manual/ has numbered chapters: install, first start, host menu and boot loader, cores, ROMs, full

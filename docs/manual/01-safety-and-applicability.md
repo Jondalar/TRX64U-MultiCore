@@ -53,5 +53,6 @@ flash (W25Q128). Nothing written."
 
 ## 1.5 Limits
 
-1.5.1 Every core is experimental (`experimental = true` in its `core.toml`) except the Apple IIe. The TRX64 core comes from the TRX64 Ultimate project and has no descriptor here. The table in the README of the project gives the state of each core and
-the evidence. This manual follows `main` as of 2026-11-13.
+1.5.1 Every core is experimental. The state of each core and its evidence are in the
+[core table on GitHub Discussions](https://github.com/Jondalar/TRX64U-MultiCore/discussions/66) and in chapter 11. The code of the C64 bitstream (`trx64u`, `trx64g`)
+is in the TRX64 Ultimate project; this project packs it into `.cor` files and builds the core menu of `trx64u`. This manual follows `main` as of 2026-11-13.

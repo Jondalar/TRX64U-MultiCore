@@ -628,5 +628,7 @@ ue2emu (70 full frames, trx64u beside the A1200).
   09808867).
 - **S2b, second look (Alex 2026-11-18, ue2emu window, app of t228-int 4383257dd):** "also beim anschauen sieht gut aus"
   (translated: "well, looking at it, it looks good"). S2b done.
-- **Open:** the 58 PARTIAL rows (Alex asked for the list, 2026-11-18; #48 and #49 of the list, the F8 network and stream pages,
-  are settled by the removal above); goldens `menu_c64.txt`/`ids.txt` and the test run before the merge; then S3 on the board.
+- **Open (2026-11-18, after R20-R26):** the PARTIAL rows are decided row by row (R20, R21) and merged into t228-int with
+  R22-R26 and the per-core image (R25); the tests are aligned with the code once (unit, lint, emulator scripts, UI features).
+  Left: the one confirming test pass and its goldens (`menu_c64.txt`, `ids.txt`, `keywalk.txt`), the emulator check with
+  Alex, the review, the merge to main; then S3 on the board.

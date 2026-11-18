@@ -46,9 +46,11 @@ Every step with its screens: [manual chapter 2](docs/manual/02-installation.md).
 
 - The installer writes the flash of the board. A power loss while it writes can leave the board unable to start.
 - Before it writes, the installer saves the flash to the stick and keeps the old firmware as a `.cor`. **R** in the file
-  browser restores it. If the host menu stays black, the way back is the installer or a USB-Blaster cable
-  ([chapter 14](docs/manual/14-recovery-and-way-back.md)).
-- The original updater replaces this host when `Protect Flash from updates` is off.
+  browser restores it ([chapter 14](docs/manual/14-recovery-and-way-back.md)).
+- No picture: press **V** for the Picture page ([3.6](docs/manual/03-first-start.md)). A board that does not start
+  needs a USB-Blaster cable ([14.5](docs/manual/14-recovery-and-way-back.md)).
+- The updater of the original firmware replaces this host; the installer of the release brings it back
+  ([14.4](docs/manual/14-recovery-and-way-back.md)).
 - By default FTP and the web page ask for no password. Use a network you trust.
 - Read the [warnings in chapter 1](docs/manual/01-safety-and-applicability.md) before you start. The disclaimer above applies.
 
