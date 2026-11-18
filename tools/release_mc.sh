@@ -133,6 +133,10 @@ for c in "$PKG"/large/*.cor; do
     CORARGS+=(--cor "$c")
 done
 for c in "$PKG"/*.cor; do
+    # build_only (c64scpu, Alex 2026-11-05) holds for the package's own .cor too: the CI packs it for the board, a release never has it
+    # (the bundle of 0.2.0 had it, 2026-11-18)
+    [ "$(python3 "$ROOT/tools/core_toml.py" get "$(basename "$c" .cor)" build_only 2>/dev/null || true)" = "true" ] \
+        && { echo "    $(basename "$c") is build_only: left out"; continue; }
     python3 "$ROOT/tools/cor_pack.py" check "$c" --host-key "$HOST_KEY" > /dev/null \
         || { echo "FAIL $(basename "$c") does not belong to host $HOST_KEY" >&2; exit 1; }
     CORARGS+=(--cor "$c")

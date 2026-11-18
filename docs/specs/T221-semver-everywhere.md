@@ -143,6 +143,12 @@ a tag it becomes the tag name, EVERYWHERE!"): on a tag the update files are name
 the commit (and the date on .cfw/.ue2). ci/lib.sh `file_id` makes the name, tools/check_bundle.py checks it (a release whose .txu
 carries the commit is red). tools/release_mc.sh takes a tag package as it is (it carries x.y.z: no promotion) and fetches
 trex_crt.u2a and softboot.u2a, which it asked for but did not download. v0.2.0 moved to this commit.
+The fourth tag run (2462, 554bbb67e) was green: 20 .cor with trx64u, the four apps, `trx64host_update_0.2.0.txu/.cfw/.ue2`. Its app
+images differ from the board-tested 892eec45 package only in the build time and the commit text (3 and 10 bytes). The bundle tools
+then needed three fixes, which run on the Mac and need no new tag: tools/release_mc.sh put the package's own c64scpu.cor (build_only:
+never in a release) into the bundle; tools/gen_roms_txt.py listed the build_only SuperCPU's ROMs under a made-up folder; INSTALL.md
+(tools/release_notes_mc.py) said "for internal testers" and named commits, a release now names its tag. GitHub release 0.2.0 =
+`trx64mc-0.2.0` built by tools/release_mc.sh from package v0.2.0-554bbb67 with these fixes.
 
 ## §4 Out
 
