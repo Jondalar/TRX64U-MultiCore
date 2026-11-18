@@ -34,7 +34,9 @@
 //                                                                               bits 15:8 the default key of its hotkey, T228 R1: 'A'-'Z', '0'-'9', 0 none)
 //   media  name state eject_op first_bind nbind group [version 4: exts mount empty_tasks mounted_tasks flags(bit 0: eject closes the menu)]
 //   ftype  ext inner_ext first_action nactions first_inner ninner                (runs into the file type action table)
-//   fact   label op first_bind nbind flags ask ask_off first_size nsize          (flags bit 0: closes the menu; ask_off a signed 16 bit word)
+//   fact   label op first_bind nbind flags ask ask_off first_size nsize          (flags bit 0: closes the menu, bit 1: repeat - the ask word names the operation that says how many
+//                                                                       entries there are, T228 R21, bit 2: the data the operation returns is shown as text;
+//                                                                       bits 15:8 the sheet letter; ask_off a signed 16 bit word)
 //   cset   key group first_value nvalues def when apply base                     (when 0: live, 1: at the next reset)
 //   A tab's `groups` string is, for an information tab, the comma separated lines it shows (the application's fixed ones); a tasks, media or settings
 //   tab lists the groups its entries name; a system tab lists the groups its layout's `pages` shows (T228 R6).

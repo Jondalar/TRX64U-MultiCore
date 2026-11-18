@@ -704,6 +704,23 @@ void FileMgr::start_view_mem(const char *title, int kind, bool hex)
     view_setup(title, (uint32_t)n, hex);
 }
 
+void FileMgr::start_view_text(const char *title, const uint8_t *text, uint32_t n)
+{
+    if (!view_data) {
+        view_data = (uint8_t *)malloc(VIEW_MAX + 1);
+        view_lines = (uint32_t *)malloc(sizeof(uint32_t) * (VIEW_LINES_MAX + 2));
+    }
+    if (!view_data || !view_lines) {
+        say("No memory for the viewer", true);
+        return;
+    }
+    if (n > VIEW_MAX) {
+        n = VIEW_MAX;
+    }
+    memcpy(view_data, text, n);
+    view_setup(title, n, false);
+}
+
 void FileMgr::start_view(const char *file, bool hex)
 {
     CoreFile *f = c->fs->open(file, false);

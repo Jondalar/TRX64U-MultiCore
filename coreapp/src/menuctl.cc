@@ -2131,6 +2131,15 @@ MenuCtl::Result MenuCtl::run_task(const Task &t, const char *text)
 
 
 // An action that asks for an address shows the prompt first; one that does not runs at once.
+int MenuCtl::repeat_count(const FileAction &a, const char *file)
+{
+    OpResult r;
+    if (ops_run_bound(c_, a.repeat_op, a.bind, a.nbind, file, &r, 0) || r.ndata < 2) {
+        return 0;
+    }
+    return r.data[0] | (r.data[1] << 8);
+}
+
 MenuCtl::Result MenuCtl::start_action(const FileAction &a, const char *file)
 {
     if (a.ask) {
@@ -2162,9 +2171,17 @@ MenuCtl::Result MenuCtl::run_action(const FileAction &a, const char *file, int32
         return R_REDRAW;
     }
     OpResult r;
+    if (a.index) {
+        ask = a.index;                                                    // T228 R21: the number of the repeated entry goes to the bound asked value
+    }
     int rc = ops_run_bound(c_, a.op, a.bind, a.nbind, file, &r, ask);
     if (rc) {
         set_status(r.msg[0] ? r.msg : "failed", true);
+        return R_REDRAW;
+    }
+    if (a.show && r.ndata > 0) {                                          // T228 R21: the text the operation returned (SID "Show Info")
+        chooser_ = false;
+        fm_.start_view_text(a.label, r.data, (uint32_t)r.ndata);
         return R_REDRAW;
     }
     const char *slash = strrchr(file, '/');
@@ -2417,7 +2434,21 @@ MenuCtl::Result MenuCtl::activate(bool primary, bool all)
         }
         int n = 0;
         for (int k = 0; k < nacts && n < 30; k++) {
-            chooser_buf_[n++] = acts[k];
+            if (!acts[k].repeat_op) {
+                chooser_buf_[n++] = acts[k];
+                continue;
+            }
+            int cnt = repeat_count(acts[k], full);                        // T228 R21: one entry per song ("Play Song %d")
+            const char *pc = strstr(acts[k].label, "%d");
+            for (int j = 1; j <= cnt && n < CHOOSER_MAX - 8; j++, n++) {
+                chooser_buf_[n] = acts[k];
+                chooser_buf_[n].repeat_op = 0;
+                chooser_buf_[n].index = (int16_t)j;
+                chooser_buf_[n].key = 0;
+                int pre = pc ? (int)(pc - acts[k].label) : (int)strlen(acts[k].label);
+                snprintf(chooser_lbl_[n], sizeof(chooser_lbl_[n]), "%.*s%d%s", pre, acts[k].label, j, pc ? pc + 2 : "");
+                chooser_buf_[n].label = chooser_lbl_[n];
+            }
         }
         if (fm_.image_ft < 0) {
             int nuni;
