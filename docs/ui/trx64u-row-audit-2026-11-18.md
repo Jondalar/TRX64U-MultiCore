@@ -453,7 +453,7 @@ c = bitstream gap ("not planned" = no decision by Alex), d = the MultiCore app o
 | 49 | a | FW/io/network/data_streamer.cc:31-32, 265-266, 402-409; TU/top.v:1170, 1179 | no debug sender in the bitstream (stream_ena b0/b1 only) |
 | 50 | d | FW/userinterface/machine_hotkeys.h:12-42 | C= R/Z/B/K are theirs, wrong in our help |
 | 51 | a (fix c, not planned) | TU/ultimate_sys.vhd:725; TU/bling_io.v:71; FW/system/product.cc:92-108, 133; FW/system/u64.h:43 | "C64 Ultimate" on every board there too; needs real bling detection in the bitstream |
-| 52-56 | b | FW/io/network/network_interface.cc:27-31, 177; network_esp32.cc:47-51, 119 | separate DHCP/static rows for Ethernet and for WiFi |
+| 52-56 | b | FW/io/network/network_interface.cc:27-31, 177; network_esp32.cc:47-51, 119 | separate DHCP/static rows for Ethernet and for WiFi; the WiFi part is out by T228 R26 (T184 D3: the WiFi is set in the host) |
 | 57 | a (theirs worse) | FW/network/network_config.cc:74-78; network_interface.cc:284-285, 384-397 | a host name change only restarts SNTP; mDNS never renamed |
 | 58 | b | FW/network/ftpd.cc:515; socket_gui.cc:86, 126; socket_dma.cc:117, 484, 607; FW/api/routes.h:325-335 | the password guards FTP, Telnet, DMA/ident and REST (X-Password) |
 
@@ -524,8 +524,8 @@ TRX64-Ultimate functions with no trx64u row (working on its bitstream):
 | 19 | reSID8 Filter On/Off per engine, 6581 Base, 6581 Offset | u64_config.cc:487-488, 491-494, 1036 | |
 | 20 | SID Detected Socket 1/2, chip pages (FPGASID, SwinSID) | u64_config.cc:453-454; sid_device_fpgasid.cc:126; sid_device_swinsid.cc:62 | |
 | 21 | Menu Mouse Navigation | u64_config.cc:409, 3318; usb_hid.cc:177-184 | dropped by T104 (Alex 2026-10-29) |
-| 22 | WiFi: Disconnect, Connect to last AP, Select AP, Enter AP manually, Forget APs | network_esp32.cc:41-45, 214-227 | |
-| 23 | WiFi: DHCP, static IP/netmask/gateway/DNS | network_esp32.cc:47-51 | |
+| 22 | WiFi: Disconnect, Connect to last AP, Select AP, Enter AP manually, Forget APs | network_esp32.cc:41-45, 214-227 | out: T184 D3 holds (T228 R26, Alex 2026-11-18): the WiFi is set in the host under F8, a core shows it and switches it on/off; built on t228-c-pick, removed 2026-11-18 |
+| 23 | WiFi: DHCP, static IP/netmask/gateway/DNS | network_esp32.cc:47-51 | out: T228 R26 (T184 D3); Ethernet keeps its rows (R21) |
 | 24 | Temp RAM disk, Temp Auto Cleanup / Subfolders | ramdisk.cc:38; userinterface.cc:175-176 | |
 | 25 | UI look: User Interface, Navigation Style, Color Scheme | userinterface.cc:161, 163, 164 | Color Scheme hidden (T228 R7) |
 | 26 | C= Z reboot, C= B power cycle, C= K power off in every menu | machine_hotkeys.h:29-38 | |

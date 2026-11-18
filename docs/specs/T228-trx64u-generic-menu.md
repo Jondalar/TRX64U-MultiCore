@@ -383,6 +383,13 @@ Alex 2026-11-17 (translated): "I want you to apply the generic APP 100 % to the 
   out and keeps 0x7A0000. Measured: shared image 486 KB free in the RAM region, trx64u 312 KB (start-up stack and growth); both app
   files fit the boot slot (1,763,388 and 1,755,620 of 1,966,068 bytes). Native tests and the menu simulator keep every core; the
   emulator runs trx64u on its own image.
+- **R26 (Alex 2026-11-18, asked which of two decisions holds for trx64u's WiFi - T184 D3, Alex 2026-11-06: "WiFi settings set and
+  edited in the host under F8. In the cores only shown, and on/off", or R21, which had given trx64u TRX64-Ultimate's WiFi menu: Select AP,
+  Enter AP manually, Connect to last AP, Disconnect, Forget APs and DHCP/static address rows for WiFi; test_desc's T184 check was red on
+  them):** "A" (T184 D3). An exception to R21: trx64u sets nothing of the WiFi; it shows the WiFi state and the one row WiFi On/Off like
+  every core, and the WiFi is set in the host under F8. The five WiFi actions (audit missing function 22) and the WiFi address rows
+  (missing function 23, rows 52-56 for WiFi) go out with their code; Ethernet keeps its DHCP/static rows (R21). Replaces R21's
+  "DHCP/static rows exist ... for WiFi".
 - R1-R9 replace the earlier decisions of this spec where they differ (D3, D7, D8, D13, D16, D18 and the S2 choices DC1-DC14); branch t228-s2 stays unmerged. The proposal is rendered on branch t228-mock (render bench `mock_shots()`), shown as a click dummy on the concept page.
 
 ### Decisions during S2 (decided by Claude on Alex's delegation 2026-11-16 night; Alex can overturn each at S2b)
