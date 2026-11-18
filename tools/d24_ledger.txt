@@ -81,8 +81,8 @@ file coreapp/cores/tape_deck.cc 138
 file coreapp/cores/tape_deck.h 31
 file coreapp/cores/tape_pulses.cc 485
 file coreapp/cores/tape_pulses.h 24
-file coreapp/cores/trx64u/menu.toml 2230
-file coreapp/cores/trx64u/menu_rec.inc 2356
+file coreapp/cores/trx64u/menu.toml 2119
+file coreapp/cores/trx64u/menu_rec.inc 2229
 file coreapp/cores/vc20.cc 273
 file coreapp/cores/vc20_regs.h 25
 file coreapp/cores/zx.cc 311
@@ -147,7 +147,7 @@ file coreapp/src/u64cfg.cc 583
 file coreapp/src/u64cfg.h 9
 ids coreapp/src/board.h trx64u 1
 ids coreapp/src/desc_check.cc null 1
-ids coreapp/src/diag.cc diag 16
+ids coreapp/src/diag.cc diag 15
 ids coreapp/src/diag.cc trx64u 1
 ids coreapp/src/filemgr.cc diag 1
 ids coreapp/src/folderhd.cc amiga 2
