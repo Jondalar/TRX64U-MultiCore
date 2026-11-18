@@ -1,6 +1,6 @@
 # T141 — A USB keyboard types into every core, not only into the menus
 
-**Status:** BUILDING (2026-10-31, A1200 first, D4), PROPOSED 2026-10-28, asked by Alex. 2026-11-13 status check: merged in parts (w1-a500, w1-t141); A1200 board ok; A500 and C128 built, Vivado + board open (as row). 2026-11-15 sync: C128 P2 is in main (1d85da7fa, 2026-11-07): `coreapp/cores/c128.cc:1108-1111` hands the held usages to `c128_xkeys_apply` (c128.cc:1240), tests in `tests/coreapp/test_c128.cc:651-672`; the commit says 'not yet run', no pass is recorded here; S2 board open. The row text 'C128 later' is outdated.
+**Status:** BUILDING (2026-10-31, A1200 first, D4), PROPOSED 2026-10-28, asked by Alex. 2026-11-13 status check: merged in parts (w1-a500, w1-t141); A1200 board ok; A500 and C128 built, Vivado + board closed as done 2026-11-18 (shipped and in use; with S1 on the VC-20 and the C264, §5). 2026-11-15 sync: C128 P2 is in main (1d85da7fa, 2026-11-07): `coreapp/cores/c128.cc:1108-1111` hands the held usages to `c128_xkeys_apply` (c128.cc:1240), tests in `tests/coreapp/test_c128.cc:651-672`; the commit says 'not yet run', no pass is recorded here; S2 board closed as done 2026-11-18 (§5). The row text 'C128 later' is outdated. Open: only the parts left out on purpose, to decide with Alex (§5: the reset combination Ctrl + Amiga + Amiga on USB, the caps LED).
 **Repo:** TRX64U-MultiCore — the core application (`coreapp/`), the cores' keyboard inputs (`cores/c128`, `cores/amiga`,
 `cores/amiga1200`), possibly the host's keyboard block (a host change needs Alex's approval).
 **Number:** T141.
@@ -129,12 +129,12 @@ except C128, SNES and NeoGeo. The A500 had no RAWKEY, so a USB keyboard typed no
 (`amiga_regs.diff` / `amiga_core.diff` regenerated, they hold only the A1200's own changes; `check_wrapper_fork.sh` and `core_sources.tcl` follow). The queue logic is the A1200's, line for
 line. Core app: the A500 variant has `usbkeys = true` (same `RawKeySpec`, same table). Proof: bench `amiga_rawkey` (the former `amiga1200_rawkey`, now `cores/amiga/sim/run_rawkey.sh`, the same
 four mutants) on the shared file, `amiga_input` unchanged, `test_rawkeys.cc` has the A500 press / release / room case in place of "the A500 untouched". Open: Vivado run (A500 and A1200 both rebuild:
-their sources include cores/amiga), board (key tester on the A500).
+their sources include cores/amiga), board (key tester on the A500); both closed as done 2026-11-18 (shipped and in use, end of §5).
 
 **Left out, on purpose (to decide with Alex).** The reset combination Ctrl + Amiga + Amiga works from the C64 matrix only (`reset_kbd`); on USB the machine's
 own keyboard reset is not built. The keyboard's caps LED is not driven from the machine. More than 6 keys at once are the boot report's limit.
 
-**C128 P2 (2026-11-07, 1d85da7fa, in main).** The C128 descriptor takes the USB keyboard through `rawkeys` in held mode (`rawkeys.cc`), `c128_xkeys_apply` writes XKEYS / XSPECIAL (registers of T113 already in `cores/c128/c128_regs.v`); no gateware change. Test and controls in `tests/coreapp/test_c128.cc`, `run.sh`; no run result recorded here; board S2 open.
+**C128 P2 (2026-11-07, 1d85da7fa, in main).** The C128 descriptor takes the USB keyboard through `rawkeys` in held mode (`rawkeys.cc`), `c128_xkeys_apply` writes XKEYS / XSPECIAL (registers of T113 already in `cores/c128/c128_regs.v`); no gateware change. Test and controls in `tests/coreapp/test_c128.cc`, `run.sh`; no run result recorded here; board S2 closed as done 2026-11-18 (end of §5).
 
 **What C128 (P2) and the A500 can reuse.** The USB hook (`usb_hid_set_keyboard_sink`, `rawkeys_usb_report`), the report ring, the press / release
 difference, the menu handling (open: release, close: baseline) and the test rig (`test_rawkeys.cc`, the register model with room) are core-independent.
@@ -154,7 +154,8 @@ The C128 needs only its own translation of the held usages (`c128_xkeys_apply(io
   compare, the register's 8-bit data + toggle + a 2-flop room sync and one word in the read mux: about 50-70 LUT and 45 flip-flops, under 0.3 % of the
   XC7A50T. The path `rk_q` -> `ev_data` is one 16:1 mux inside `sys_clk`. Not measured: a Vivado run is the coordinator's.
 - Assumption (as the mouse's): two RAWKEY writes are at least 3 `sys_clk` apart (the register's acknowledge alone takes 3 `cpu_clk`).
-- Open: the Vivado run (coordinator), the board (S3 with a key tester on the Workbench, S4).
+- Open: the Vivado run (coordinator), the board (S3 with a key tester on the Workbench, S4); closed: the A1200 board 2026-10-31 (docs/todo/T141.md), the rest
+  2026-11-18 (end of §5).
 - A500 Vivado (run 1277, 2026-11-08): with the queue the A500 missed timing by 0.051 ns (`hout/mtim`, before: +0.019 ns, run 1244). Cause: the
   A500 still had the floppy buffer and the sd fifos in LUTs (`paula_floppy` 1,699 LUT / 999 LUTRAM, `amiga_sdc` 190 LUTRAM; the A1200 435 / 7 and 0
   since T97 5.8/5.11). Fix: the A500 gets copies of the A1200's files (Alex: "copies, not links"): `cores/amiga/rtl/a500/` paula_floppy.v,
@@ -162,3 +163,9 @@ The C128 needs only its own translation of the held usages (`c128_xkeys_apply(io
 - 2026-11-08: the A1200 has its own copy of `amiga_input.v` again (`cores/amiga1200/rtl/amiga_input.v`, Alex: "copies, not links"); the w1-a500
   merge had made both Amigas read `cores/amiga/rtl/trx/amiga_input.v`. Same logic in both (the files differ in comments only); the raw key bench
   `amiga_rawkey` runs on the A500's file.
+
+**2026-11-18 - board steps closed as done (shipped and in use):** S3/S4 on the A500 (USB keyboard into the A500), S1 on the VC-20 (USB keyboard types into
+the VC-20), S1 on the C264 (USB keyboard types into the C264), S1/S2 on the C128 (USB keyboard and the C128 extra keys) - Alex 2026-11-15: "Under A there
+is nothing I would not class as DONE! That has been in the builds for days/weeks, we had bugs and re-tests in part"; Alex 2026-11-18, shown these steps as
+open: "that is old stuff that has been running for ages, we had this already 3-4 days ago" and "tick it off in the TODOs/specs, otherwise it shows up
+again with some agent" (translated).

@@ -1,6 +1,6 @@
 # T108 — the Atari 800 XL starts what you give it: a disk, an executable or a cartridge
 
-**Status:** IN PROGRESS. D1 built and green 2026-10-17 (S1, S2, S4 and their controls, §5); S3, S5-S8 open. 2026-10-28 (Alex): the cartridge works on the board; S8 still needs a game from D1: and a .xex. **2026-11-15 sync:** the application stop of 5.6 (2026-10-23) is overtaken: the Atari application ran on the board on 2026-11-01 (`.atr` boots, README of 11-02) and its menu row (floppy LED) passed on 2026-11-04 (T159, 76ad599fa); the native tests for S5-S7 exist (`tests/coreapp/test_atari_xex.cc`, `test_atari_media.cc`, `test_atari_sio.cc`) but this sync did not re-check that each §2 scenario has its proof, and S3 (OPTION/BASIC off) and S8 (a .xex, a game from D1: with a photo) have no recorded pass; not DONE. The row's "recheck the 10-23 app stop" is outdated.
+**Status:** IN PROGRESS. D1 built and green 2026-10-17 (S1, S2, S4 and their controls, §5); S3, S5-S8 open then (S8 closed 2026-11-18). 2026-10-28 (Alex): the cartridge works on the board; S8 still needs a game from D1: and a .xex. **2026-11-15 sync:** the application stop of 5.6 (2026-10-23) is overtaken: the Atari application ran on the board on 2026-11-01 (`.atr` boots, README of 11-02) and its menu row (floppy LED) passed on 2026-11-04 (T159, 76ad599fa); the native tests for S5-S7 exist (`tests/coreapp/test_atari_xex.cc`, `test_atari_media.cc`, `test_atari_sio.cc`) but this sync did not re-check that each §2 scenario has its proof, and S3 (OPTION/BASIC off) and S8 (a .xex, a game from D1: with a photo) have no recorded pass; not DONE. The row's "recheck the 10-23 app stop" is outdated. **2026-11-18:** S8 closed as done (shipped and in use, end of §5); its run with BASIC off goes with S3, which stays open (`coreapp/cores/atari800.cc` has no BASIC setting).
 **Repo:** TRX64U-MultiCore — the core application (`coreapp/cores/atari_*.cc`), the core's SIO and console
 inputs (`cores/atari800/trx/`), a new simulation under `cores/atari800/sim/`, `ci/sims.txt`.
 **Number:** T108 (registry: the table in `TODO.md`).
@@ -288,7 +288,7 @@ The discriminator is one JTAG snapshot with the application dead: `tools/trxdbg.
 
 ### 5.4 Not done, and why
 
-- **S3, S5-S8** are open, as the table says; S8 (the board, Alex's `boulderdash.atr`) is the proof that matters and is not
+- **S3, S5-S8** are open, as the table says (S8 closed as done 2026-11-18, end of §5); S8 (the board, Alex's `boulderdash.atr`) is the proof that matters and is not
   replaced by any of this. Boulder Dash may need BASIC off (P4).
 - **CI: not in the pipeline, on the NAS by hand only** (Alex, 2026-10-17: "Raus. Wofür haben wir das NAS ? Und das soll
   nicht immer stundenlang dauern ... Nur auf Knopfdruck", translated: out; that is what the NAS is for; it must not take
@@ -299,3 +299,8 @@ The discriminator is one JTAG snapshot with the application dead: `tools/trxdbg.
   rows. Unchanged Atari sources give a cached PASS in seconds. Start it before an Atari release. `empty` (6.6 s of
   simulated time, about 3 h) stays by hand.
 - **The access cost** (2 us) and the loop model are the bench's assumptions; a slower bridge or loop moves the 5 ms.
+
+**2026-11-18 - board steps closed as done (shipped and in use):** S8 (Atari on the board: a game from D1: and a `.xex`; the cartridge passed 2026-10-28;
+the run with BASIC off goes with S3, which stays open) - Alex 2026-11-15: "Under A there is nothing I would not class as DONE! That has been in the builds
+for days/weeks, we had bugs and re-tests in part"; Alex 2026-11-18, shown these steps as open: "that is old stuff that has been running for ages, we had
+this already 3-4 days ago" and "tick it off in the TODOs/specs, otherwise it shows up again with some agent" (translated).

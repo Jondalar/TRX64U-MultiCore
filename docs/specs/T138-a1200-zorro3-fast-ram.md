@@ -1,6 +1,6 @@
 # T138 — The A1200 has 32 MB Zorro III fast RAM
 
-**Status:** BUILT and merged (2026-11-15 sync: the first words "PROPOSED, building on t136-a1200-colour" were outdated; benches green and CI run 1027 WNS +0.107 ns, todo 2026-10-28), board S5 half passed, rest open. Original: PROPOSED (2026-10-28). 2026-11-13 status check: merged to main (Merge t136-a1200-colour into t148-core-folder); board S5 half: avail shows 32 MB (Alex 10-31); Deep Meet not tried (as row).
+**Status:** DONE 2026-11-18 (board S5 closed as done, shipped and in use: Alex 2026-11-18, §5). Earlier status: BUILT and merged (2026-11-15 sync: the first words "PROPOSED, building on t136-a1200-colour" were outdated; benches green and CI run 1027 WNS +0.107 ns, todo 2026-10-28), board S5 half passed, rest open. Original: PROPOSED (2026-10-28). 2026-11-13 status check: merged to main (Merge t136-a1200-colour into t148-core-folder); board S5 half: avail shows 32 MB (Alex 10-31); Deep Meet not tried (as row).
 **Repo:** TRX64U-MultiCore — the A1200 large core (`cores/amiga1200/`), its benches, the core application (`coreapp/cores/amiga.cc`).
 **Number:** T138.
 **Origin:** Alex, 2026-10-28, at the board: the AGA demo "Deep Meet" (2024) runs on the Analogue Pocket's Amiga core, which "kommt aber
@@ -70,3 +70,7 @@ Scenario: S5 board
   configures, holds data at DDR2 0x6000000, all address bits count; three controls failed)"; S2 fastpat still passes; S3 coreapp
   tests + 3 controls. D3 corrected: the board is switched by FAST_CFG bit 2 alone (the A1200 app writes CPU_CFG 0; tg68k_020
   forces the 68020). S4: CI run 1027, A1200 mono WNS +0.107 ns, all constraints met. S5 (board: avail, Deep Meet) open.
+- **2026-11-18 - board steps closed as done (shipped and in use):** S5 (Deep Meet with 32 MB fast RAM) - Alex 2026-11-15: "Under A
+  there is nothing I would not class as DONE! That has been in the builds for days/weeks, we had bugs and re-tests in part"; Alex
+  2026-11-18, shown these steps as open: "that is old stuff that has been running for ages, we had this already 3-4 days ago" and "tick
+  it off in the TODOs/specs, otherwise it shows up again with some agent" (translated).

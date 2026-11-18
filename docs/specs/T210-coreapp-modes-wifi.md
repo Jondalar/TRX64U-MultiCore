@@ -1,6 +1,6 @@
 # T210 — The core app is placed for the running HDMI mode from its first frame, and F8 WiFi shows the real state in every core
 
-**Status:** BUILT in ue2emu (2026-11-12), S3 board pending; was PROPOSED (2026-11-12, found by the ue2emu S45 check; release batch of Alex's "build it, integrate", 2026-11-11). Corrected 2026-11-13 (status check): merged to main (b1d5ab019); ue2emu proofs in §5; S3 board open.
+**Status:** DONE 2026-11-18. BUILT in ue2emu (2026-11-12), S3 board closed as done 2026-11-18 (shipped and in use, §5); was PROPOSED (2026-11-12, found by the ue2emu S45 check; release batch of Alex's "build it, integrate", 2026-11-11). Corrected 2026-11-13 (status check): merged to main (b1d5ab019); ue2emu proofs in §5.
 **Repo:** TRX64U-MultiCore — core app (`coreapp/src/run.cc`, `video.cc`, `netops.cc`, `coreapp/cores/*.cc`), port (`host-app/software/lvgl_port/trx_lv_port.cc`).
 **Number:** T210.
 **Origin:** ue2emu S45 (the MultiCore host's HDMI modes in the emulator, C64U_emu 2026-11-11) run against the core app at 480p and 720p.
@@ -65,3 +65,4 @@ Nothing.
 - PET (07713664b heap buffers): `tests/coreapp/emu/profiles/pet.toml`, `tests/ui/features_cores/t210_pet.feature`; ROMs with a 0xA5 pattern are put
   with read-back (log: all four ROMs and the 4040 DOS and controller, released), a D64 mount (`[pet] drive 8:0 alpha.d64, 174848 bytes`) and a PRG
   load (`[pet] hello.prg: $0801-$080C loaded`) work. The Waterloo ROM path (SuperPET) was not run.
+- **2026-11-18 - board steps closed as done (shipped and in use):** S3 (splash at 480p, F8 WiFi) - Alex 2026-11-15: "Under A there is nothing I would not class as DONE! That has been in the builds for days/weeks, we had bugs and re-tests in part"; Alex 2026-11-18, shown these steps as open: "that is old stuff that has been running for ages, we had this already 3-4 days ago" and "tick it off in the TODOs/specs, otherwise it shows up again with some agent" (translated).

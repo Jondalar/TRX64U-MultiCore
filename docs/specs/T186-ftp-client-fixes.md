@@ -1,6 +1,6 @@
 # T186 — The core application's FTP client survives servers behind NAT, dead connections and late transfer replies
 
-**Status:** BUILT in the code and the Mac tests (2026-11-06), S1-S3; RISC-V build and app tests: see §5; S4 (board) open. Status check 2026-11-13: BUILT and in main (476da487f); S4 (board, with T184 S3) open. 2026-11-15 sync: consistent with main (fixes in `coreapp/src/ftp_client.cc`).
+**Status:** DONE 2026-11-18: S4 on the board (F.1, the FTP client against the NAS) closed as done, shipped and in use (Alex, quoted at the end of §5). Earlier status: BUILT in the code and the Mac tests (2026-11-06), S1-S3; RISC-V build and app tests: see §5; S4 (board) open. Status check 2026-11-13: BUILT and in main (476da487f); S4 (board, with T184 S3) open. 2026-11-15 sync: consistent with main (fixes in `coreapp/src/ftp_client.cc`).
 **Repo:** TRX64U-MultiCore — core app only (`coreapp/src/ftp_client.cc`, the `/ftp` mount of NetFs).
 **Number:** T186.
 **Origin:** T184 D4 (2026-11-05): the evaluation of the fork omnicron-c64/ultimate-community-edition f7f665ab (GPL-3) listed three FTP
@@ -77,5 +77,10 @@ The test run: 65 checks, 0 failed; all five controls fail as they must (run of `
 `ci/apptests.sh`: hostapp PASS (46 s, units from the cache), coreapp PASS (902 s; 100 test programs incl. `ftp`, 1498 controls, all failed as they must; the five
 `ftp_*` controls red with 2/6/1/2/15 checks), loader PASS (2 s). Render benches (view, core app, host app) PASS from the cache: no rendered screen changed.
 
-**Open / not verified.** S4: browse and load from a real FTP server through `/ftp` on the board (with T184 S3). The fake server models replies and timing,
+**Was open / not verified (S4 closed as done 2026-11-18, below).** S4: browse and load from a real FTP server through `/ftp` on the board (with T184 S3). The fake server models replies and timing,
 not a real TCP stack: a real server behind NAT and a real dead link are the board's part.
+
+**2026-11-18 - board steps closed as done (shipped and in use):** S4 (F.1: the FTP client against the NAS, browse and load through `/ftp`) - Alex 2026-11-15:
+"Under A there is nothing I would not class as DONE! That has been in the builds for days/weeks, we had bugs and re-tests in part"; Alex 2026-11-18, shown
+these steps as open: "that is old stuff that has been running for ages, we had this already 3-4 days ago" and "tick it off in the TODOs/specs, otherwise it
+shows up again with some agent" (translated).

@@ -1,6 +1,6 @@
 # T230 — The TRX64 Ultimate firmware's version reaches the boot menu, and trx64u starts with a config, its media and an autostart
 
-**Status:** PROPOSED (2026-11-16). Nothing built; §3 items marked "proposal" wait for Alex and, where the contract moves, for the
+**Status:** BUILDING: P-1/P-2 built, S1 board PASS 2026-11-16, S3/S4/S5/S8 closed as done 2026-11-18; open: S6 autostart (D7) and the D6 page check. PROPOSED (2026-11-16), then nothing built; §3 items marked "proposal" wait for Alex and, where the contract moves, for the
 TRX64-Ultimate firmware session (§3a, one question at a time).
 **Repo:** TRX64U-MultiCore (host app, generic core app, `tools/pack_import_cor.sh`, `release/imports/*.pin`) and TREX/TRX64-Ultimate
 (its CI package, `ci/package.sh`). The shared text is `docs/contracts/trx64u-firmware-handover.md`, the same in both repositories.
@@ -204,3 +204,7 @@ Only one stick root is waited for: a second stick that comes up later is not see
 - S7 (2026-11-16): contract v4 committed on both sides with the same bytes - MultiCore 91f6f3cf6, TRX64-Ultimate 31e69921 (branch u16, pushed with their next batch), `docs/contracts/trx64u-firmware-handover.md` sha256 5be42f9fedd02403...; their manifest "version" field is commit 65775d54. S1 waits for a pin bump to their next green main package.
 - S1 pin bump (2026-11-16): `release/imports/trx64u.pin` and `trx64g.pin` -> `main-31e69921` (TRX64-Ultimate release 0.3.0, Gitea prerelease `trx64-main-31e69921`, release run 2323 green; U16 HDMI modes, U12, manifest "version", contract v4). Read from the package: manifest `"version": "0.3.0"`, `c64_basic.bit` sha256 149b4dfb3cba0948..., `ultimate.app` sha256 fa70a66d4663ceee... S1 proof = the package log of the next main run (no "no version" line) and the boot menu rows 0.3.0 on the board.
 - S1 board (Board test 2026-11-16, package main-13c2cde9 (run 2344), Alex in the test list): PASS - the trx64u and trx64g rows show 0.3.0 and start (pin main-31e69921). S1 done.
+- **2026-11-18 - board steps closed as done (shipped and in use):** S3/S4 (trx64u starts with a chosen config), S5 (trx64u restores a
+  persisted mount), S8 (trx64g leaves nothing that disturbs trx64u) - Alex 2026-11-18, shown these steps as open: "that
+  is old stuff that has been running for ages, we had this already 3-4 days ago" and "tick it off in the TODOs/specs, otherwise it shows
+  up again with some agent" (translated).

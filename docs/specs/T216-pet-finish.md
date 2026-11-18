@@ -1,6 +1,6 @@
 # T216 — The PET core works on every model with the right keyboard and menu, and its drive ROMs are documented
 
-**Status:** BUILT except P9 (waits for T214, D-Q6); open: 5 UX questions for Alex, S12 wrong-content question, board steps (2026-11-15 night, merged with main). PROPOSED (2026-11-12). Reopened 2026-11-15 as the one PET spec (Alex: "bundle all PET bugs/enhancements into one spec", translated): GitHub #78, #79, #80, #82, #87 and the PET part of #86 are parts P6-P10 below; the parts built so far (P1-P3, P5 and their S1-S5) stay recorded as built, P4 stays decided (D4). Corrected 2026-11-13 (status check): merged to main (81fdcf008); S1, S2 bench, S3 golden, S5 guide built; S4 board and the board cause of S1 open. 2026-11-15 sync: verified in main - S1/S2 bench `tb_pet_models` runs in CI through `run_boot.sh` (`pet_boot`, `ci/sims.txt:48`), S3 row `pet.superpet` (`pet.cc:75`), S5 guide in `tools/release_notes_mc.py:165-171`; the stale 'Open: 2 KiB' note in §5 is removed (D3 says 1 KiB since cc1b7c55f).
+**Status:** BUILT except P9 (waits for T214, D-Q6); the 5 UX questions and S12 answered by D10-D15 (2026-11-15; 2026-11-15 night merged with main); board steps S1, S4, S7, S8, S9, S11, S14, S15 closed as done 2026-11-18 (shipped and in use, Alex; §5), the D14 board check (§5, 2026-11-16) stays open. PROPOSED (2026-11-12). Reopened 2026-11-15 as the one PET spec (Alex: "bundle all PET bugs/enhancements into one spec", translated): GitHub #78, #79, #80, #82, #87 and the PET part of #86 are parts P6-P10 below; the parts built so far (P1-P3, P5 and their S1-S5) stay recorded as built, P4 stays decided (D4). Corrected 2026-11-13 (status check): merged to main (81fdcf008); S1, S2 bench, S3 golden, S5 guide built; S4 board and the board cause of S1 closed as done 2026-11-18 (§5). 2026-11-15 sync: verified in main - S1/S2 bench `tb_pet_models` runs in CI through `run_boot.sh` (`pet_boot`, `ci/sims.txt:48`), S3 row `pet.superpet` (`pet.cc:75`), S5 guide in `tools/release_notes_mc.py:165-171`; the stale 'Open: 2 KiB' note in §5 is removed (D3 says 1 KiB since cc1b7c55f).
 **Repo:** TRX64U-MultiCore — `cores/pet/` (keys, model select), `coreapp/cores/pet.cc` (menu), `INSTALL.md` (docs).
 **Number:** T216 (registry: the table in `TODO.md`).
 **Origin:** Alex, 2026-11-12, after a tester's report (2026-11-12): "spec, plan it in, let's get the PET round, more or less" (translated). Reopens T134 (closed "as is" 11-11).
@@ -56,7 +56,7 @@ Reported on GitHub after the first test release (2026-11-13/14), bundled here 20
 | S12 | P8 | Given the 2001 with a mismatched BASIC file, When reset, Then the app tells which file does not belong (no black screen without a message) | app test of the ROM check | app tests |
 | S13 | P9 | Given an external datasette with a tape, When `SAVE"X"` runs on the PET, Then a `.tap`/real tape written by it loads back (also on the C64U's tape reader); with the write line off nothing is written | board: save on a real datasette, load it on the PET and the C64; bench `tb_pet_tape` for the write-line level and polarity if it exists | board session; negative control only here (tape write is a persistence operation) |
 | S14 | P10 | Given 4032 (graphics keyboard), When the host keys 0-9 and the C64 special characters are typed, Then each key gives the PET character at the position Q4's answer decides (no C= needed for digits) | `tb_pet_models` mode 0 (digits) plus the host keyboard map test; board: type the digits | `ci/sims.txt`, app tests, board session |
-| S15 | P4 | Per Q5 (direction keys, joystick, USB pad on the digits), the PET game mode | per the answer | open |
+| S15 | P4 | Per Q5 (direction keys, joystick, USB pad on the digits), the PET game mode | per the answer | closed as done 2026-11-18, §5 |
 
 ## §3 Decision
 
@@ -107,7 +107,7 @@ P4 (game mode): moved to the generic app's key bundles (D4). P5: documentation o
   `VICE-Team/svn-mirror`, `vice/data/PET/`) and, independently, against the key-decode table inside the VICE editor ROMs `edit-4-80-b-60Hz.901474-03.bin` and
   `-50Hz.901474-04.bin` (rows 0-9 at $06F5 descending, 8 bytes per row, stored right to left): Q is row 5 column 0 in all three, S is row 2 column 1, so the
   matrix cannot make Q type S. In the graphics matrix S is row 5 column 0, the position of the business Q: "Q types S" is what a business-ROM machine
-  reads through the graphics matrix. The cause on the board is therefore not found by reading; open for the board session (S1 board line).
+  reads through the graphics matrix. The cause on the board is therefore not found by reading; open for the board session (S1 board line; closed as done 2026-11-18, §5).
 - **S1/S2 bench:** `sim/gen_key_expect.py` writes `sim/keys_expect.vh` from copies of VICE's `gtk3_buuk_pos.vkm` / `gtk3_grus_pos.vkm` (`sim/vice/`); `tb_pet_models`
   mode 0 presses every business key (letters, digits, keypad digits via C=, punctuation, cursor, ESC/TAB/REPEAT/RVS-off stand-ins, both shifts) and the graphics
   letters/digits/RETURN/SPACE and requires exactly one bit at VICE's row and column, nothing on the other rows.
@@ -135,6 +135,8 @@ P4 (game mode): moved to the generic app's key bundles (D4). P5: documentation o
 - **Real-ROM finding, closed (agent, 2026-11-15): no core defect, the 350 ms run was too short.** The 8032 editor's reset code (`LE60F`, called from `LE04B`) ends with the bell: `LDA #$10 / STA $E7` (note length), `JSR $E6A4`; `$E6A4` is `JSR $E6A7` falling into `$E6A7`, and the `BEQ $E6A4` after the first call is taken (Z from the last `DEX`), so the routine runs twice per call = four beeps of seven notes each. The note timing is pure software (`DEY` loop at `$E6BF`, `A = $E7` outer count, T2 at `$E848` only sets the pitch of the shift register on CB2; no flag or counter of the VIA is waited for): 4 x 7 x 16 x 256 x 5 cycles, about 570 ms at 1 MHz. Only after that does `LE04B` call `LE07A`, which writes the CRTC table `$E72A` (R1 = `$28`, R12 = `$10`). The bench stopped at 350 ms, inside the second beep; the 6502, the VIA and the shift register behave as the editor expects. The tester's sequence "80 columns, four beeps, then 40 columns" is the old `col80 = r1 >= 60` (reset R1 = 80 shows 80 columns until `LE07A` writes R1 = 40): fixed with the R1 part above. `tb_pet_real` now prints every 50 ms, checks READY on the screen, R12 = `$10` for CRTC boards, and has `+fastbeep` (the editors' note length `$10` patched to 1 in the loaded ROM copy: 120 instead of 2304 CB2 edges).
 
 ### 2026-11-15 scenario evidence (builder `tools/benches.sh pet -f`: pet_boot 360 s, pet_spet 10 s, pet_keys, pet_tape PASS; pet_wl 440 s PASS)
+_The board rows of this table are closed as done 2026-11-18, §5._
+
 | # | Evidence |
 |---|---|
 | S1, S2 | `pet_keys` PASS: 312 key checks, positional against VICE's two .vkm, business and graphics; `tb_pet_models` mode 0 PASS. Board (Q types Q): open |
@@ -165,6 +167,8 @@ LUT/BRAM: +1 BRAM18 (character ROM 4 KiB); no BRAM for 96 KiB (`pet_ram64` alrea
 - ue2emu pictures (480p/720p/1080p, real core app) of every changed PET screen: PET tab top/end, SuperPET, 2001 + BASIC 2, Video, Input (4 positions, positional), F7, F1, missing-ROM message. ux-review: PASS for placement and wording (Refresh rate / Phosphor on Video, pad rows on Input, "Key 8"); R2 FAIL stays for the clipped two-part foot note until Q1 is answered; the emulator still lists the RAM / SuperPET rows for every model (conditional rows are board-only).
 - Question pictures, one per option, `questions.md` with the German sentences (scratchpad t216/q): Q1 foot note, Q2 chevron on Map buttons, Q3 Hotkeys position, Q4 "Diag" wording, Q5 long missing list (mock-ups are scratch commits, dropped). Found while making Q5: a message is at most `OP_MSG_MAX` 240 bytes; the four-file list of every model fits (largest about 195), ten files (SuperPET + Waterloo) would be cut.
 - Gateware: `cores/pet/rtl` changed on this branch (R1/col80, 4 KiB character ROM with R12 bit 5, `pet_padkeys.v`, symbolic `pet_keys`, SuperPET RAM flag) and never went through Vivado: a Vivado run of `pet` is needed. `cores/common`, `host`, `contract` unchanged by this work.
+
+_The board rows of this table are closed as done 2026-11-18, §5._
 
 | # | State after the night |
 |---|---|
@@ -226,3 +230,4 @@ LUT/BRAM: +1 BRAM18 (character ROM 4 KiB); no BRAM for 96 KiB (`pet_ram64` alrea
 - **Bench:** `tb_pet_models` mode 0 (in `run_models.sh`, case of `pet_boot`, already listed in `ci/sims.txt`) now writes R10 = 0, R11 = 0 like the editor (R14/R15 stay at their reset value 0) and checks cell (0,0) scan 0 = dots 0 and 7 only.
   Before (RTL of main): `FAIL 80 col cell0`, `FAIL alternate character set (R12 bit 5)`, 2 errors. After: `PASS tb_pet_models mode 0`.
 - S13 board (Board test 2026-11-16, package main-13c2cde9 (run 2344), Alex in the test list): PET 8032/8096/SuperPET, no "_" left at the top after the power-on message, "*" intact - PASS (pet_vid.v CRTC cursor overlay removed).
+- **2026-11-18 - board steps closed as done (shipped and in use):** S1/S14 (PET keyboards type the right keys), S9 (8096 and SuperPET stay 80 columns), S7/S8 (SuperPET 6809: Waterloo, 96 KiB), S11 (2001 + BASIC 2 reads a disk), S4 (4040 ROMs joined by the guide), S15 (USB pad drives a PET game) - Alex 2026-11-15: "Under A there is nothing I would not class as DONE! That has been in the builds for days/weeks, we had bugs and re-tests in part"; Alex 2026-11-18, shown these steps as open: "that is old stuff that has been running for ages, we had this already 3-4 days ago" and "tick it off in the TODOs/specs, otherwise it shows up again with some agent" (translated).

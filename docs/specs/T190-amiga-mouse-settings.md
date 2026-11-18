@@ -1,6 +1,6 @@
 # T190 — A fast USB mouse can be tamed in the Amiga cores' menu
 
-**Status:** DECIDED (2026-11-06); BUILT, merged to main (01b55e397); S1, S2 proven (§5); S3 board (Lemmings, A500) open, so not DONE. 2026-11-15 sync: 'build open' removed.
+**Status:** DONE 2026-11-18. DECIDED (2026-11-06); BUILT, merged to main (01b55e397); S1, S2 proven (§5); S3 board (Lemmings, A500) closed as done 2026-11-18 (shipped and in use, §5). 2026-11-15 sync: 'build open' removed.
 **Repo:** TRX64U-MultiCore — core app (Amiga descriptors `coreapp/cores/amiga*.cc`, the USB mouse path); no gateware.
 **Number:** T190.
 **Origin:** GitHub issue #51 (a tester, 2026-11-06): with a 1000 DPI mouse the pointer in Lemmings on the A500 core moves too far; the
@@ -45,3 +45,5 @@ canvas (the Smoothing row, y 475-494). Main (145b1807a) rendered on the builder:
 row of the clipping list pane (108,68 - 639,453) below the 480-line canvas. The row is not drawn (the pane clips it; the selection scrolls it in; R1 is tested by the
 render case); `tests/view_bounds.h` now skips an object that lies wholly outside its clipping parent. Not a layout change: the page looks as before.
 Final run on ab4a4148a (git archive, builder, shared cache): RISC-V hostapp + coreapp build, coreapp.app 1705692 B (slot 1966068, 260376 unused), `ci/apptests.sh hostapp coreapp loader` ok (coreapp: 102 test programs, 1507 controls, render included). S3 (board, Lemmings on the A500) open.
+
+**2026-11-18 - board steps closed as done (shipped and in use):** S3 (Lemmings with a 1000 DPI mouse) - Alex 2026-11-15: "Under A there is nothing I would not class as DONE! That has been in the builds for days/weeks, we had bugs and re-tests in part"; Alex 2026-11-18, shown these steps as open: "that is old stuff that has been running for ages, we had this already 3-4 days ago" and "tick it off in the TODOs/specs, otherwise it shows up again with some agent" (translated).

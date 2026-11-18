@@ -1,6 +1,6 @@
 # T181 — Hotkeys while a core runs: act without opening the menu
 
-**Status:** BUILT and in main (decided 2026-11-04, Alex; host register `host/app_input.v`, app `coreapp/src/hotkeys.cc`); board 2026-11-07 S1-S4 pass (Alex); S5 (C= + CTRL on Apple II, Atari, ZX, CPC) never pressed, so not DONE. 2026-11-15 sync: the Depends-on T177 is not built (RESTORE for the hotkeys comes from T181's own mask register, bit 64, not from T177).
+**Status:** BUILT and in main (decided 2026-11-04, Alex; host register `host/app_input.v`, app `coreapp/src/hotkeys.cc`); board 2026-11-07 S1-S4 pass (Alex); S5 (C= + CTRL on Apple II, Atari, ZX, CPC) and D3's "Hotkey modifier" Off (board list K.5) closed as done 2026-11-18 (shipped and in use, §5); the rest of §5 "Open (not built, not verified)" stays open, so not DONE. 2026-11-15 sync: the Depends-on T177 is not built (RESTORE for the hotkeys comes from T181's own mask register, bit 64, not from T177).
 **Repo:** TRX64U-MultiCore — the core app (`coreapp/src/`), possibly `host/app_input.v` (see §1, P3) and then every large core's host copy.
 **Number:** T181.
 **Origin:** Alex, 2026-11-04: "that is worth its own spec. Create it. Then we should also talk about 'what do we make controllable by
@@ -197,5 +197,7 @@ Also: `ci/apptests.sh hostapp coreapp loader` PASS, RISC-V build of host app and
 
 **Open (not built, not verified):**
 - Physical modifier held with an action key on the USB keyboard: that action key is not hidden from the core (the host mask sees only the physical keys, the USB filter only the USB keys).
-- C= + CTRL as the modifier on Apple II, Atari, ZX, CPC is unverified on the board (no function of that pair read in the cores' key tables; nobody has pressed it).
-- Board test of the hotkeys (no overlay, the volume changes; reset hotkey) is open (not run on hardware).
+- ~~C= + CTRL as the modifier on Apple II, Atari, ZX, CPC is unverified on the board (no function of that pair read in the cores' key tables; nobody has pressed it).~~ **Closed as done 2026-11-18** (shipped and in use, entry below).
+- Board test of the hotkeys (no overlay, the volume changes; reset hotkey) was open here; S1-S4 passed on the board 2026-11-07, S5 and K.5 closed as done 2026-11-18 (§5).
+
+**2026-11-18 - board steps closed as done (shipped and in use):** D3 (K.5, "Hotkey modifier" Off), S5 (C= + CTRL hotkeys on the ZX, the Apple II, the Atari and the CPC) - Alex 2026-11-15: "Under A there is nothing I would not class as DONE! That has been in the builds for days/weeks, we had bugs and re-tests in part"; Alex 2026-11-18, shown these steps as open: "that is old stuff that has been running for ages, we had this already 3-4 days ago" and "tick it off in the TODOs/specs, otherwise it shows up again with some agent" (translated).

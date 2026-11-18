@@ -1,6 +1,6 @@
 # T235 — The Picture list always offers every resolution at 50 Hz and at 60 Hz; the modes the screen names are marked, not the only ones
 
-**Status:** BUILT, MERGED into main 2026-11-17 (Alex: "merge and build"); board (S5) open; one defect open (§5: an EDID naming exactly the six TV rows reads as none). Proposed 2026-11-17.
+**Status:** BUILT, MERGED into main 2026-11-17 (Alex: "merge and build"); board (S5) closed as done 2026-11-18 (shipped and in use, §5); one defect open (§5: an EDID naming exactly the six TV rows reads as none). Proposed 2026-11-17.
 **Repo:** TRX64U-MultiCore — the generic core application only (`coreapp/src/picture.cc` `picture_modes`, the Picture page in
 `menuctl.cc`/`run.cc`, its unit `test_picture`), the manual's Picture paragraph. No gateware, no per-core C.
 **Number:** T235 (TODO.md table).
@@ -47,7 +47,7 @@ No mutation tests (T174 D5.4).
 
 ## §5 Build log
 
-**2026-11-17 - built on t235-picture-5060 (962a803fe, a0ee97294), merged into main (df06808c6) on Alex's "merge and build"; S1-S4 proven in units, S5 board open.**
+**2026-11-17 - built on t235-picture-5060 (962a803fe, a0ee97294), merged into main (df06808c6) on Alex's "merge and build"; S1-S4 proven in units, S5 board open (closed 2026-11-18, below).**
 - **Built (generic app only, `check_d24.py` rc 0):** the gateware-path core apps list `Auto` plus the 9 rows of the host's mode table, one per resolution and rate, the machine's rate first within a resolution; values read `<name> (<50|60> Hz)`; rows the EDID names carry `*` left of the rate, the foot line explains it (or says the screen named nothing). How a mode is applied and the 8-second confirm are unchanged. The VIC-scaler path and the firmware path of an old host keep the EDID-only list; the host's F8 page is untouched (§4).
 - **Deviation from D2:** the PC modes (800x600, 1024x768, 1280x1024) exist at 60 Hz only in the mode table, so they are listed at 60 Hz only: 9 rows, not 12. A 50 Hz PC row would be a gateware row (not in this app-only spec). Alex 2026-11-17: "that is ok like this" (translated).
 - **Compatibility:** the .cfg keeps the rate (only Auto's display note is cut; `settings.cc` cut every value at " (" before). `Picture=1280 x 720` still loads and takes the machine's rate; the old value `576p / 480p` no longer matches (now `576p (50 Hz)` / `480p (60 Hz)`) and falls back to Auto. A new screen that does not name the running mode still gets the best mode once; a stored unnamed choice then reads Auto for that run. REST `picture.apply` takes 0..9.
@@ -60,3 +60,5 @@ No mutation tests (T174 D5.4).
   1080p50, 480p60, 720p60, 1080p60) and no PC mode yields the mask `EDID_LIST_NONE` (`app/video/edid.h:14`, 0x01C7), which the app also uses
   for "no EDID or a corrupt one": `picture.cc:368` sets `no_edid`, so no row gets `*` and the foot says the screen named nothing. Fix: a flag for
   "no or corrupt EDID" apart from the mask. To be fixed before T235 counts as done.
+
+**2026-11-18 - board steps closed as done (shipped and in use):** S5 (1080p50 picked from the Picture list) - the T234 board pass of 2026-11-18 ran the A1200 at 1080p50 and 720p50 (T234 §5); Alex 2026-11-18, shown these steps as open: "that is old stuff that has been running for ages, we had this already 3-4 days ago" and "tick it off in the TODOs/specs, otherwise it shows up again with some agent" (translated).

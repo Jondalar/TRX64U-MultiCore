@@ -1,6 +1,6 @@
 # T92 — An Amstrad/Schneider CPC core, ported from the MiSTer core, run as a swappable core in the T79 host/core split
 
-**Status:** BUILT, ROUTED, ON THE BOARD (2026-11-15 sync). Decided 2026-10-13 (Q1-Q5, §3 end). Routed in CI run 125 (§5), on the board since 2026-10-22 (Alex: BASIC, `print 1+1`), 2026-11-02 CAT works and a game starts with sound (t164-c83a83c2, GitHub #17), floppy LED works 2026-11-04 (T159, `tests/coreapp/test_ledcores.cc`, board main-7fda7e1f). Not recorded in this spec: the 464/664 models, tape and Freeze on the board; the §2 scenario table was not re-checked (not DONE).
+**Status:** BUILT, ROUTED, ON THE BOARD (2026-11-15 sync). Decided 2026-10-13 (Q1-Q5, §3 end). Routed in CI run 125 (§5), on the board since 2026-10-22 (Alex: BASIC, `print 1+1`), 2026-11-02 CAT works and a game starts with sound (t164-c83a83c2, GitHub #17), floppy LED works 2026-11-04 (T159, `tests/coreapp/test_ledcores.cc`, board main-7fda7e1f). Not recorded in this spec: Freeze on the board; the §2 scenario table was not re-checked (not DONE). 2026-11-18: the board steps S4, S5 (RAM banks per model, the 464/664/6128), S7, S10 (tape), S11, S12 and S14 closed as done (shipped and in use, Alex; §5).
 **Repo:** TRX64U-MultiCore, gateware `cores/cpc/` (2026-11-15 sync: the first text named TRX64-Ultimate `designs/cpc/` and `cores/zxcpc/`; those paths are not in this repository) (original text: TRX64-Ultimate, gateware under new `designs/cpc/` plus the shared parts under `cores/zxcpc/` that T91 builds, the
 core's application on Gideon's base as for the VC-20 and the Amiga, tools). The sources are read from outside
 (MiSTer-devel); nothing is copied into this repo by this spec.
@@ -433,11 +433,11 @@ OS464 + BASIC464`, every part 16 KB (README). Frame: the CRTC is programmable; t
 - Board test 1 of t92-cpc17b FAILED (Alex 2026-11-17, `cpc.cor` 011cdc4d of run 2358): after "Mount A: and reset" into an empty A:
   "no cursor any more .. so NOT fixed .. every time the same" and "the floppy LED does nothing either ... so broken. Take the CPC
   core out" (translated). Cause being read (`scratchpad/cpc-regress/RESET-HANG.md`).
-- D-17d (Alex 2026-11-17, asked with options board + packages / board only / also the published GitHub pre-release): "Board +
+- D-17d (lifted 2026-11-18 with T233's board pass, §5; Alex 2026-11-17, asked with options board + packages / board only / also the published GitHub pre-release): "Board +
   packages". `cpc.cor` is deleted from the board's `/SD/cores` (the old `cpc_probe_backup.cor` there was not touched). The CI
   package and the next GitHub releases ship no CPC until #17 is fixed and passes on the board; the CPC is still built, so a fix can
   be tested. The published pre-release main-13c2cde9 stays as it is.
-- D-17e (Alex 2026-11-17, right after D-17d): "Do not even build it. The code stays, leave it out of the pipeline! Pure waste of
+- D-17e (lifted 2026-11-18 with T233's board pass, §5; Alex 2026-11-17, right after D-17d): "Do not even build it. The code stays, leave it out of the pipeline! Pure waste of
   time" (translated). Replaces D-17d's "still built": the CPC's code stays in the tree, no pipeline stage builds, packs, ships or
   benches it (core.toml `pipeline = false`, branch t92-off). The reading agent was stopped; the coordinator read it the same day (next entry). Left for whoever picks it up: Alex's photo of
   the hang shows "Amstrad 64K Microcomputer (v2)" and the copyright lines, then nothing - the 664 banner, not the 6128's; the
@@ -456,7 +456,7 @@ OS464 + BASIC464`, every part 16 KB (README). Frame: the CRTC is programmable; t
 - D-17f (Alex 2026-11-17, after the reading): "Write a spec. If the MiSTer disc controller is that bad, look for another one or repair
   it. And then build the core again tonight and test it" (translated). The repair is T233 (docs/specs/T233-cpc-fdc-repair.md); its
   branch builds the CPC again (T233 D7), `main` keeps it out of the pipeline (D-17e) until the board pass.
-- D-17g (Alex 2026-11-17): "and please take the core out of the docs, completely" (translated). The CPC leaves the README and the
+- D-17g (lifted 2026-11-18 with T233's board pass, §5; Alex 2026-11-17): "and please take the core out of the docs, completely" (translated). The CPC leaves the README and the
   manual (chapters 11, 12, 15; the sections after 11.13 move up one number); specs, TODO and internal test lists keep it. It comes back
   with the T233 board pass. GitHub Discussion #66 (core overview) lost its `cpc` row the same day (Alex: "#66 too?").
 
@@ -487,7 +487,7 @@ shared parts, the application's tape deck and the ROM aperture finding are in T9
 
 - **2026-10-22, what exists.** Gateware `cores/cpc` (the Gate Array, CRTC, PPI, MMU, ink table and FDC vendored in `rtl/` and `gen/`, our parts in `trx/`, the
   Spectrum core's Z80, AY and shared parts, `layer2_cpc.v`), four bench rows and the pin check, the application side (`coreapp/cores/cpc.cc`, `cpc_disk.*`,
-  `cpc_regs.h`, the tape deck of T91), the logo. Not done and not measurable here: routing (S14, CI's), the board.
+  `cpc_regs.h`, the tape deck of T91), the logo. Not done and not measurable here: routing (S14, CI's), the board. (Since done: CI routed the CPC, run 2435 on 2026-11-18; the board steps closed as done 2026-11-18, §5.)
 - **2026-10-22, scenarios, where each is green.**
 
   | S | Proof | Result (source line) |
@@ -497,14 +497,14 @@ shared parts, the application's tape deck and the ROM aperture finding are in T9
   | S4 | `cpc_video` | `PASS clk: the CRTC frame = 628992 sys_clk, 319,488 Gate Array clocks (312 lines x 1,024), lock event every frame` |
   | S5 | `cpc_cpu` | `PASS page`, `page664`, `page464` (each with `window: RAM banks and ROM markers read through the app's window equal the Z80's`), `PASS model 6128` / `model 464` |
   | S6 | `cpc_cpu` | `PASS slots: 82 opcode fetches of 34 instructions (twice) fall on the T-states the 1 us slot rule gives`; control `mut_nowait` fails |
-  | S7 | `cpc_video` | `PASS video: modes 0, 1 and 2 ... equal the CPC's rules in all 256,000 samples of each mode`, `PASS bars: an ink change in every raster line shows on its own line`; the 5-minute board run is open |
+  | S7 | `cpc_video` | `PASS video: modes 0, 1 and 2 ... equal the CPC's rules in all 256,000 samples of each mode`, `PASS bars: an ink change in every raster line shows on its own line`; the 5-minute board run: closed as done 2026-11-18, §5 |
   | S8 | `cpc_io` | `PASS audio: the AY tone period is within 0.3 % of the programmed value` (-0.002 %), silence exactly 0 |
   | S9 | `cpc_io` | `PASS keys: 701 key sets (matrix, joysticks, injection) read back exactly as the table lists them`; control `mut_keyrow` fails |
   | S10 | `cpc_io` and `tests/coreapp` | `PASS tape window: the motor bit stops and restarts the stream, block A loads at tape speed and passes its XOR, block B (one bit flipped) is refused`; control `mut_tape` fails |
   | S11 | `cpc_io` and `tests/coreapp` | `PASS disk: the FDC read a sector of the DSK image from the DDR2 byte-exact, wrote one back ..., marked its 16 KB chunk dirty, the app cleared it`; the application's write-back: `test_cpc` |
   | S12 | `test_cpc`, golden `menu_cpc.txt`, bench `cpc_pins` | the menu holds reset, model, CRTC, joysticks, disks A:/B:, tape and nothing of the C64 machine; `PASS pins` |
   | S13 | `cpc_pause` | `PASS pause hashes: all 24 frames of the paused run equal the reference run's`; control `mut_nohold` fails |
-  | S14 | CI core stage | open: the first route (the line buffer's last measurement on the t92-core branch: pb_l2 8,075 LUT, 46.5 BRAM tiles, commit 22f03c26) |
+  | S14 | CI core stage | done: routed in CI (run 2435, 2026-11-18); before the first route (the line buffer's last measurement on the t92-core branch: pb_l2 8,075 LUT, 46.5 BRAM tiles, commit 22f03c26) |
 
 - **2026-10-22, D11 is superseded: the application is the generic one** (as T91 §5): `app = "blueprint"`, `coreapp/cores/cpc.cc`, `cpc.app` from `ci/trxapps.sh`.
 - **2026-10-22, the core id is `CPC_`, not `CPC ` (a deviation from D11).** `desc_check` takes four printable characters (a space is none), the NES's is `NES_`. Changed in
@@ -615,3 +615,12 @@ in the same commit as the code.
   leaves out `pipeline = false` cores and imported cores whose pin says `PIPELINE=false` (read as `ci/package.sh` reads it, a prefix match), so ROMS.txt
   names neither the CPC nor trx64u (`tools/test_roms_txt.py`: "Ran 9 tests ... OK"). The core application keeps the CPC's code (`table.cc`) and its
   unit tests still run; CLAUDE.md and `tools/core_toml.py` say so.
+- **2026-11-18 - board steps closed as done (shipped and in use):** S10 (CPC tape loads), S11 (the saved file is in the DSK), S5 (RAM
+  banks per model), S4, S7, S12, S14 (the CPC board checks by Claude: frame counter, 5-minute picture run, menu state over REST, swap
+  round trip) - Alex 2026-11-15: "Under A there is nothing I would not class as DONE! That has been in the builds for days/weeks, we
+  had bugs and re-tests in part"; Alex 2026-11-18, shown these steps as open: "that is old stuff that has been running for ages, we had
+  this already 3-4 days ago" and "tick it off in the TODOs/specs, otherwise it shows up again with some agent" (translated).
+- **2026-11-18 - D-17d, D-17e and D-17g lifted (T233 board PASS, Alex 2026-11-18).** The CPC is built again (`pipeline = true`,
+  826780741, T233 D7), `cpc.cor` of run 2425 is on the board's `/SD/cores` (07:50) and passed there; manual 11.13 and the README
+  carry the CPC again (2a3bc9eee, revert of 37cd21837); merged into main e6f960c1f, pushed with 01fb5460d (run 2431 green, large:cpc
+  2435). #17 is fixed by T233. Open with Alex: the `cpc` row of GitHub Discussion #66.
