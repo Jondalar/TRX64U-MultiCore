@@ -21,7 +21,7 @@ number. The drop-in line stays in `TREX/TRX64-Ultimate`.
 
 | ID | M | Status | Task | Open | Details |
 |---|---|---|---|---|---|
-| T92 | 3 | 🔨 | Amstrad/Schneider CPC core from Amstrad_MiSTer in the host/core split (after T91, which builds the shared modules) | #17 fix 011cdc4d failed on board 11-17 (no cursor after mount+reset); CPC out of the pipeline (D-17e) | [T92](docs/todo/T92.md) |
+| T92 | 3 | 🔨 | Amstrad/Schneider CPC core from Amstrad_MiSTer in the host/core split (after T91, which builds the shared modules) | #17 fixed by T233 (board PASS 11-18); CPC back in the pipeline and the manual (11.13) | [T92](docs/todo/T92.md) |
 | T97 | 3 | ✅ | Amiga 1200 runs AmigaVision from HDF: 68020, fast RAM, images above 4 GiB | Done (Alex 11-08); RAM line in Home > Status dropped | [T97](docs/todo/T97.md) |
 | T104.2 | 2 | 🔨 | The generic app boots on the TRX64 Ultimate monolith, then a C64 descriptor and cbm1541 (D10) | Wanted (Alex 10-28): TRX64 runs our app; next: drive pages to main, RISC-V build, board run (S1) | [T104.2](docs/specs/T104.2-generic-app-on-trx64-ultimate.md) |
 | T116 | 3 | 🔨 | ZX Spectrum Next core: the original FPGA source, RAM on DDR2, SD card served from an image | Board passed (Alex 10-28); D11 Auto passed (11-04); open: frame-lock and S6 picture-bench decisions (5.3) | [T116](docs/todo/T116.md) |
@@ -107,7 +107,7 @@ Built and benched; what is left is a step on the board (Alex, 2026-10-28, transl
 | T230 | 2 | 📝 | TRX64 FW version in the menu; trx64u starts with config, media, autostart (FW contract) | v4 (D5), P-1/P-2, D6-D8; S1 board PASS 11-16 (0.3.0); open: autostart row (D7), page survival | [T230](docs/specs/T230-trx64-fw-version-and-start.md) |
 | T231 | 3 | 📝 | Diag core: a cursor move redraws only what changed, not the whole screen | PROPOSED 11-16 (Alex, board test); with or after the app rework (T213) | [T231](docs/specs/T231-diag-redraw.md) |
 | T232 | 1 | 🔨 | Pad/joystick keys: A-Z plus learn by key press (GitHub #80); merge 4th, after T228, T235, T234 (Alex 11-17) | Spec 11-16 (Alex) | [T232](docs/specs/T232-padkeys-letters-learn.md) |
-| T233 | 3 | 🔨 | CPC floppy controller repair: RQM never waits for a scan, bounded waits, one owner of drive state | Spec 11-17 (Alex); board PASS 11-18 (Alex); merge open | [T233](docs/specs/T233-cpc-fdc-repair.md) |
+| T233 | 3 | ✅ | CPC floppy controller repair: RQM never waits for a scan, bounded waits, one owner of drive state | Board PASS 11-18 (Alex); merged into main (e6f960c1f) | [T233](docs/specs/T233-cpc-fdc-repair.md) |
 | T234 | 2 | ✅ | Amiga frame follow (T188) as a setting, default Off = standard HDMI rows (Worms DC, 1080p50 reports) | Board PASS 11-18 (Alex: S4, S5, A500); on local main, not pushed | [T234](docs/specs/T234-amiga-frame-follow-switch.md) |
 | T235 | 2 | 🔨 | Picture list always offers 50 Hz and 60 Hz per resolution; EDID modes marked (T187 D5 changed) | Merged 11-17 (Alex: "merge and build"); board S5 open; defect: EDID of exactly the 6 TV rows reads as none | [T235](docs/specs/T235-picture-always-50-60.md) |
 | T236 | 2 | 🔨 | Native menu simulator (Mac): real coreapp UI with board stubs, live keys, menu TOML reloaded at run time | Merged 11-17 (C64U_emu built it); window not looked at yet: tools/menusim/run.sh | [T236](docs/specs/T236-menu-simulator.md) |
