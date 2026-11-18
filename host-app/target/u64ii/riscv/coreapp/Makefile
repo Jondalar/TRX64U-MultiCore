@@ -202,6 +202,7 @@ SRCS_CC	 =  u64ii_init.cc \
 			menukeytab.cc \
 			menuflows.cc \
 			menuvlist.cc \
+			picklist.cc \
 			lineedit.cc \
 			boot.cc \
 			atari800.cc \

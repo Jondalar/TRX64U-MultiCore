@@ -166,8 +166,9 @@ static int op_wifi_toggle(CoreCtx *, const OpArgs &, OpOut &o)
 }
 
 // T228 R21 #22, FW network_esp32.cc:41-45, 214-227: the WiFi actions. Disconnect, Connect to last AP and Forget APs are the driver's own calls (the driver runs them on
-// a task of their own; false = one is under way). Enter AP manually takes the name, the authentication and the password from the rows "WiFi AP ..." (FW asks for them
-// in three boxes, network_esp32.cc:259-300; the password is asked only for an authentication other than Open).
+// a task of their own; false = one is under way). Select AP from list (cfg_show_aps, BrowsableWifiAP::connect_ap, wifi.cc:427-447) and Enter AP manually (cfg_enter_ap,
+// manual_connect, network_esp32.cc:259-300) ask the person in steps: the operation asks (ops_ask_list / ops_ask_text) and is called again with the answer. The password
+// goes to the module with the connect call and is kept nowhere here: the module stores it in its own flash (u64ctrl wifi_modem.c store_password), as in FW.
 static int wifi_started(bool ok, OpOut &o, const char *msg)
 {
     if (!ok) {
@@ -180,21 +181,110 @@ static int wifi_started(bool ok, OpOut &o, const char *msg)
 static int op_wifi_disconnect(CoreCtx *, const OpArgs &, OpOut &o) { return wifi_started(wifi_net_disconnect(), o, "Disconnecting"); }
 static int op_wifi_connect_last(CoreCtx *, const OpArgs &, OpOut &o) { return wifi_started(wifi_net_autoconnect(), o, "Connecting to the last access point"); }
 static int op_wifi_forget(CoreCtx *, const OpArgs &, OpOut &o) { return wifi_started(wifi_net_forget(), o, "The stored access points are erased"); }
-static int op_wifi_connect_manual(CoreCtx *c, const OpArgs &, OpOut &o)
+
+#define WIFI_SNAP_MAX 32
+static WifiNetAp g_ap_snap[WIFI_SNAP_MAX];                      // the list the person was shown last (the value of a row is its index)
+static int g_ap_n;
+static char g_pick_ssid[33];                                    // the access point chosen or typed, until its connect call
+static uint8_t g_pick_auth;
+
+// FW: "Can only show APs when active" / "Can only connect when active" (the driver is up: link down or up; the list also while a scan runs).
+static bool wifi_active(bool scan_ok)
 {
-    const char *ssid = cfg_text(c, "WiFi AP Name");
-    int auth = cfg_value(c, "WiFi AP Authentication", 0);
-    const char *pw = cfg_text(c, "WiFi AP Password");
-    if (!ssid[0]) {
-        snprintf(o.msg, o.msglen, "Set \"Access point name\" first");
-        return OPE_FAILED;
-    }
-    if (auth > 0 && !pw[0]) {
-        snprintf(o.msg, o.msglen, "Set \"Access point password\" first");
-        return OPE_FAILED;
-    }
-    return wifi_started(wifi_net_connect(ssid, auth > 0 ? pw : "", (uint8_t)auth, false), o, "Connecting");
+    WifiNetStatus w;
+    wifi_net_status(&w);
+    return w.state == WN_LINK_DOWN || w.state == WN_LINK_UP || (scan_ok && w.state == WN_SCANNING);
 }
+
+// The rows of the pick list: the scan's access points with their signal (BrowsableWifiAP::getDisplayString: name and dBm), a note while there are none.
+static const char *st_wifi_aps(CoreCtx *)
+{
+    static char t[WIFI_SNAP_MAX * 56];
+    WifiNetStatus w;
+    wifi_net_status(&w);
+    g_ap_n = wifi_net_aps(g_ap_snap, WIFI_SNAP_MAX);
+    int p = 0;
+    for (int i = 0; i < g_ap_n; i++) {
+        p += snprintf(t + p, sizeof(t) - p, "%d\t%s\t%d dBm\n", i, g_ap_snap[i].name, (int)g_ap_snap[i].rssi);
+    }
+    if (!g_ap_n) {
+        snprintf(t, sizeof(t), "%s", w.scan == WS_EMPTY ? "!No access point found" : w.scan == WS_FAILED ? "!The module did not answer the scan" : "!Scanning...");
+    }
+    return t;
+}
+static const char *st_wifi_auth_modes(CoreCtx *)                // network_esp32.cc:23 authmodes
+{
+    static char t[WIFI_AUTH_N * 24];
+    int p = 0;
+    for (int i = 0; i < WIFI_AUTH_N; i++) {
+        p += snprintf(t + p, sizeof(t) - p, "%d\t%s\n", i, wifi_auth_names[i]);
+    }
+    return t;
+}
+static int wifi_connect_now(const char *pw, OpOut &o)
+{
+    return wifi_started(wifi_net_connect(g_pick_ssid, g_pick_auth > 0 ? pw : "", g_pick_auth, false), o, "Connecting");
+}
+static int op_wifi_select_ap(CoreCtx *c, const OpArgs &a, OpOut &o)
+{
+    const int phase = a.i(0);
+    if (phase == 0) {
+        if (!wifi_active(true)) {
+            snprintf(o.msg, o.msglen, "Can only show APs when active");
+            return OPE_FAILED;
+        }
+        g_ap_n = 0;
+        wifi_net_rescan();
+        ops_ask_list(c, "wifi.select_ap", 1, "Select access point", "wifi.aps");
+        return OPE_OK;
+    }
+    if (phase == 1) {
+        const int i = atoi(a.s(1));
+        if (i < 0 || i >= g_ap_n) {
+            snprintf(o.msg, o.msglen, "The list changed, choose again");
+            return OPE_FAILED;
+        }
+        snprintf(g_pick_ssid, sizeof(g_pick_ssid), "%s", g_ap_snap[i].ssid);
+        g_pick_auth = g_ap_snap[i].auth;
+        if (g_pick_auth) {
+            ops_ask_text(c, "wifi.select_ap", 2, "Enter password", 64, true);
+            return OPE_OK;
+        }
+        return wifi_connect_now("", o);
+    }
+    return wifi_connect_now(a.s(1), o);
+}
+static int op_wifi_connect_manual(CoreCtx *c, const OpArgs &a, OpOut &o)
+{
+    const int phase = a.i(0);
+    if (phase == 0) {
+        if (!wifi_active(false)) {
+            snprintf(o.msg, o.msglen, "Can only connect when active");
+            return OPE_FAILED;
+        }
+        ops_ask_text(c, "wifi.connect_manual", 1, "Name of Access Point (SSID)", 32, false);
+        return OPE_OK;
+    }
+    if (phase == 1) {
+        if (!a.s(1)[0]) {
+            snprintf(o.msg, o.msglen, "Cancelled");                // FW: an empty name aborts
+            return OPE_OK;
+        }
+        snprintf(g_pick_ssid, sizeof(g_pick_ssid), "%s", a.s(1));
+        ops_ask_list(c, "wifi.connect_manual", 2, "Authentication", "wifi.auth_modes");
+        return OPE_OK;
+    }
+    if (phase == 2) {
+        g_pick_auth = (uint8_t)atoi(a.s(1));
+        if (g_pick_auth) {
+            ops_ask_text(c, "wifi.connect_manual", 3, "Password", 62, true);
+            return OPE_OK;
+        }
+        return wifi_connect_now("", o);
+    }
+    return wifi_connect_now(a.s(1), o);                           // an empty password is allowed (FW: ret == 1)
+}
+static const ArgSpec wifi_ask_args[] = { ARG_INT("phase", 0, 9), ARG_STRING("answer", 70) };
 
 // ---- the data streams: VIC, audio and the debug bus as UDP from the hardware (Gideon's DataStreamer, vendor/gideon/software/io/network/data_streamer.cc: the header of the
 // packet is built here and written to U64_UDP_BASE, the stream is enabled in U64_ETHSTREAM_ENA) -------------------------------------------------------------------
@@ -356,7 +446,10 @@ void netops_register(OpRegistry &r)
     r.add_op("wifi.disconnect", 0, 0, op_wifi_disconnect);
     r.add_op("wifi.connect_last", 0, 0, op_wifi_connect_last);
     r.add_op("wifi.forget", 0, 0, op_wifi_forget);
-    r.add_op("wifi.connect_manual", 0, 0, op_wifi_connect_manual);
+    r.add_op("wifi.connect_manual", wifi_ask_args, 2, op_wifi_connect_manual);
+    r.add_op("wifi.select_ap", wifi_ask_args, 2, op_wifi_select_ap);
+    r.add_state("wifi.aps", st_wifi_aps);
+    r.add_state("wifi.auth_modes", st_wifi_auth_modes);
     r.add_state("net.eth_status", st_eth_status);
     r.add_state("net.eth_ip", st_eth_ip);
     r.add_state("net.eth_mac", st_eth_mac);

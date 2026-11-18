@@ -284,6 +284,24 @@ static int op_palette_default(CoreCtx *c, const OpArgs &a, OpOut &o)
     return OPE_OK;
 }
 
+// T228 R21 #16, FW U64Config::list_palettes (u64_config.cc:3072-3097): the choices of "Palette Definition" are the empty text and the files with the extension .vpl in the
+// data folder of the flash. The rows of the pick list (picklist.h): value, label.
+static const char *state_palettes(CoreCtx *c)
+{
+    static char t[24 * 60];
+    static FsEntryShort ent[24];
+    int p = snprintf(t, sizeof(t), "\tBuilt-in\n");
+    int n = c->fs->list_short(palette_dir(), ent, 24);
+    for (int i = 0; i < n; i++) {
+        const char *x = strrchr(ent[i].name, '.');
+        if (ent[i].dir || ent[i].cut || !x || strcasecmp(x, ".vpl") || p + (int)strlen(ent[i].name) + 3 >= (int)sizeof(t)) {
+            continue;
+        }
+        p += snprintf(t + p, sizeof(t) - p, "%s\n", ent[i].name);
+    }
+    return t;
+}
+
 static const char *state_palette(CoreCtx *)
 {
     return g_palette_name[0] ? g_palette_name : "Default colours";
@@ -1375,6 +1393,7 @@ void u64cfg_register(OpRegistry &r)
     r.add_op("u64.power_off", 0, 0, op_power_off);
     r.add_op("u64.power_cycle", 0, 0, op_power_cycle);
     r.add_state("u64.palette", state_palette);
+    r.add_state("u64.palettes", state_palettes);
     r.add_state("u64.sid1_type", state_sid1);
     r.add_state("u64.sid2_type", state_sid2);
     r.add_state("u64.s1_swin", state_s1_swin);

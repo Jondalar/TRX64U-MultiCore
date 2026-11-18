@@ -159,6 +159,18 @@ static const char *setting_state(CoreCtx *c, const char *key)
     return 0;
 }
 
+static void ask_set(CoreCtx *c, uint8_t kind, const char *op, int phase, const char *prompt, const char *src, int maxlen)
+{
+    c->want_prompt.kind = kind;
+    c->want_prompt.phase = phase;
+    c->want_prompt.maxlen = maxlen;
+    snprintf(c->want_prompt.op, sizeof(c->want_prompt.op), "%s", op);
+    snprintf(c->want_prompt.prompt, sizeof(c->want_prompt.prompt), "%s", prompt);
+    snprintf(c->want_prompt.src, sizeof(c->want_prompt.src), "%s", src);
+}
+void ops_ask_text(CoreCtx *c, const char *op, int phase, const char *prompt, int maxlen, bool secret) { ask_set(c, secret ? 2 : 1, op, phase, prompt, "", maxlen); }
+void ops_ask_list(CoreCtx *c, const char *op, int phase, const char *prompt, const char *src) { ask_set(c, 3, op, phase, prompt, src, 0); }
+
 const char *ops_state(CoreCtx *c, const char *name)
 {
     if (!strncmp(name, "set.", 4)) {

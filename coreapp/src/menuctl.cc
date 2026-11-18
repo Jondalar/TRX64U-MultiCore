@@ -39,11 +39,13 @@ MenuCtl::MenuCtl(CoreCtx *c, MenuHost *h) : c_(c), h_(h), fm_(c, FileMgr::Port{ 
     entry_rename_ = false;
     entry_mset_ = false;
     pick_sets_ = false;
+    pick_dyn_ = false;
     pick_modes_ = false;
     rename_path_[0] = 0;
     confirm_node_ = 0;
     confirm_q_[0] = 0;
     ask_node_ = 0;
+    prompt_ = false;
     ask_q_[0] = 0;
     pick_path_[0] = 0;
     job_name_[0] = 0;
@@ -87,6 +89,7 @@ void MenuCtl::held_open()
             entry_task_ = 0;
             entry_set_ = -1;
             ask_node_ = 0;
+            prompt_ = false;
             confirm_node_ = 0;
             confirm_task_ = 0;
             flow_q_ = &fl[i];
@@ -337,6 +340,7 @@ void MenuCtl::go(int area, int tab)
     pick_ = false;
     pick_release();
     pick_sets_ = false;
+    pick_dyn_ = false;
     pick_modes_ = false;
     fm_.view = false;
     search_edit_ = false;
@@ -603,7 +607,7 @@ void MenuCtl::reopen_restore()
 const char *MenuCtl::title() const
 {
     if (pick_) {
-        return pick_modes_ ? "Picture" : pick_sets_ ? "Load config" : pick_path_;
+        return pick_modes_ ? "Picture" : pick_sets_ ? "Load config" : pick_dyn_ ? pl_title_ : pick_path_;
     }
     if (busy_) {
         return job_task_->label;
@@ -652,7 +656,7 @@ int MenuCtl::rows()
         return 1;
     }
     if (pick_) {
-        return pick_modes_ ? pm_.n : pick_sets_ ? pick_n_ : 1 + pick_n_;
+        return pick_modes_ ? pm_.n : pick_sets_ ? pick_n_ : pick_dyn_ ? (pl_.n ? pl_.n : 1) : 1 + pick_n_;
     }
     if (entry_ && entry_text_mode_) {
         return 1;
@@ -734,6 +738,23 @@ void MenuCtl::row(int i, char *left, int ln, char *right, int rn, bool *active, 
         }
         return;
     }
+    if (pick_ && pick_dyn_) {                                       // T228 R21: a list made at run time
+        if (i < pl_.n) {
+            const PickRow &pr = pl_.row[i];
+            *active = !pr.note;
+            snprintf(left, ln, "%s", pr.label);
+            if (right && rn) {
+                snprintf(right, rn, "%s", pr.right);
+            }
+            if (sub && sn) {
+                snprintf(sub, sn, "%s", pr.note ? "Wait, the list fills by itself" : "RETURN takes this one, <- cancels");
+            }
+        } else {
+            *active = false;
+            snprintf(left, ln, "Nothing to choose from");
+        }
+        return;
+    }
     if (pick_ && pick_sets_) {
         if (i < pick_n_) {
             snprintf(left, ln, "%s", sets_[i]);
@@ -809,6 +830,14 @@ void MenuCtl::row(int i, char *left, int ln, char *right, int rn, bool *active, 
             entry_row(right, rn);
             if (sub && sn) {
                 snprintf(sub, sn, search_edit_ ? "? is any character - RETURN searches, DEL deletes, <- cancels" : "DEL deletes, RETURN renames, <- cancels");
+            }
+            return;
+        }
+        if (prompt_) {
+            snprintf(left, ln, "%s", prompt_q_);
+            entry_row(right, rn, prompt_secret_ ? '*' : 0);
+            if (sub && sn) {
+                snprintf(sub, sn, "Type the text, DEL deletes, RETURN takes it, <- cancels");
             }
             return;
         }
@@ -1244,6 +1273,7 @@ void MenuCtl::begin_text(const Task &t)
     entry_text_mode_ = true;
     entry_task_ = &t;
     ask_node_ = 0;
+    prompt_ = false;
     confirm_node_ = 0;
     char sug[LE_MAX + 1];
     sug[0] = 0;
@@ -1270,6 +1300,7 @@ void MenuCtl::begin_confirm_job(const Task *t, const char *question)
     entry_task_ = 0;
     entry_set_ = -1;
     ask_node_ = 0;
+    prompt_ = false;
     confirm_node_ = 0;
     confirm_task_ = t;
     snprintf(confirm_q_, sizeof(confirm_q_), "%s", question);
@@ -1285,6 +1316,7 @@ void MenuCtl::begin_learn(int set)
     entry_task_ = 0;
     entry_set_ = -1;
     ask_node_ = 0;
+    prompt_ = false;
     confirm_node_ = 0;
     confirm_task_ = 0;
     learn_ = set;
@@ -1334,6 +1366,7 @@ void MenuCtl::begin_confirm(const MenuNode *n, const char *question)
     entry_task_ = 0;
     entry_set_ = -1;
     ask_node_ = 0;
+    prompt_ = false;
     confirm_node_ = n;
     snprintf(confirm_q_, sizeof(confirm_q_), "%s", question);
     set_status("RETURN confirms, <- cancels", false);
@@ -1372,6 +1405,7 @@ void MenuCtl::begin_text_setting(int idx)
     entry_text_mode_ = true;
     entry_task_ = 0;
     ask_node_ = 0;
+    prompt_ = false;
     confirm_node_ = 0;
     entry_set_ = idx;
     const int smax = s.base > 0 && s.base <= LE_MAX ? (int)s.base : 40;
@@ -1465,6 +1499,7 @@ void MenuCtl::begin_pick_file(int idx)
     pick_task_ = 0;
     pick_set_ = idx;
     pick_sets_ = false;
+    pick_dyn_ = false;
     pick_path_[0] = 0;
     const char *cur = c_->settings->text(idx);
     const char *slash = strrchr(cur, '/');
@@ -1506,11 +1541,154 @@ void MenuCtl::begin_set_save()
     entry_task_ = 0;
     entry_set_ = -1;
     ask_node_ = 0;
+    prompt_ = false;
     confirm_node_ = 0;
     entry_rename_ = false;
     entry_mset_ = true;
     entry_load("", CONFIG_NAME_MAX);
     set_status("Type the name of the config; RETURN saves the media and the settings, <- cancels", false);
+}
+
+// ---- T228 R21: the pick list made at run time and the text prompt of an operation -------------------------------------------------------------
+void MenuCtl::begin_pick_list(const char *title, const char *src, const char *op, int phase, int setting)
+{
+    pick_ = true;
+    pick_dyn_ = true;
+    pick_modes_ = pick_sets_ = false;
+    pick_task_ = 0;
+    pick_set_ = -1;
+    pick_n_ = 0;
+    pick_path_[0] = 0;
+    snprintf(pl_title_, sizeof(pl_title_), "%s", title);
+    snprintf(pl_src_, sizeof(pl_src_), "%s", src);
+    snprintf(pl_op_, sizeof(pl_op_), "%s", op);
+    pl_phase_ = phase;
+    pl_set_ = setting;
+    pl_last_ = c_->io->now_ms();
+    pick_list_refresh();
+    pick_sel_ = 0;
+    if (setting >= 0) {                                              // the cursor starts on the value in force
+        int f = picklist_find(pl_, c_->settings->text(setting));
+        if (f < 0 && !c_->settings->text(setting)[0]) {
+            f = picklist_find(pl_, "");
+        }
+        pick_sel_ = f >= 0 ? f : 0;
+    }
+    for (int k = 0; k < pl_.n && pick_sel_ < pl_.n && pl_.row[pick_sel_].note; k++) {
+        pick_sel_ = pick_sel_ + 1 < pl_.n ? pick_sel_ + 1 : 0;
+    }
+    set_status("Choose; RETURN takes it, <- cancels", false);
+}
+
+// The rows come from the state's text each time: a scan that finishes fills the list while it is up. The cursor stays on the same value.
+bool MenuCtl::pick_list_refresh()
+{
+    const char *t = ops_state(c_, pl_src_);
+    PickRows nr;
+    picklist_parse(&nr, t);
+    char cur[sizeof(pl_.row[0].value)] = "";
+    bool had = pick_sel_ >= 0 && pick_sel_ < pl_.n && !pl_.row[pick_sel_].note;
+    if (had) {
+        snprintf(cur, sizeof(cur), "%s", pl_.row[pick_sel_].value);
+    }
+    bool same = nr.n == pl_.n;
+    for (int i = 0; same && i < nr.n; i++) {
+        same = !strcmp(nr.row[i].value, pl_.row[i].value) && !strcmp(nr.row[i].label, pl_.row[i].label) && !strcmp(nr.row[i].right, pl_.row[i].right) && nr.row[i].note == pl_.row[i].note;
+    }
+    if (same) {
+        return false;
+    }
+    pl_ = nr;
+    int f = had ? picklist_find(pl_, cur) : -1;
+    if (f >= 0) {
+        pick_sel_ = f;
+    } else {
+        pick_sel_ = 0;
+        while (pick_sel_ + 1 < pl_.n && pl_.row[pick_sel_].note) {
+            pick_sel_++;
+        }
+    }
+    return true;
+}
+
+MenuCtl::Result MenuCtl::pick_list_take()
+{
+    char value[sizeof(pl_.row[0].value)];
+    snprintf(value, sizeof(value), "%s", pl_.row[pick_sel_].value);
+    const int set = pl_set_;
+    char op[sizeof(pl_op_)];
+    snprintf(op, sizeof(op), "%s", pl_op_);
+    const int phase = pl_phase_;
+    pick_ = pick_dyn_ = false;
+    OpResult r;
+    int rc;
+    if (set >= 0) {                                                  // a setting: the same operation a REST client calls (a blank text clears it)
+        rc = settings_set(c_, c_->desc->settings[set].key, value[0] ? value : " ", &r);
+        set_status(r.msg, rc != 0);
+        return R_REDRAW;
+    }
+    OpIn in[2] = { in_int("phase", phase), in_str("answer", value) };
+    rc = ops_call(c_, op, in, 2, &r);
+    if (rc) {
+        set_status(r.msg[0] ? r.msg : "failed", true);
+        return R_REDRAW;
+    }
+    if (take_prompt()) {
+        return R_REDRAW;
+    }
+    set_status(r.msg[0] ? r.msg : "done", false);
+    return R_REDRAW;
+}
+
+void MenuCtl::begin_prompt(const char *op, int phase, const char *q, int maxlen, bool secret)
+{
+    entry_ = true;
+    entry_text_mode_ = true;
+    entry_task_ = 0;
+    entry_set_ = -1;
+    ask_node_ = 0;
+    confirm_node_ = 0;
+    prompt_ = true;
+    prompt_secret_ = secret;
+    prompt_phase_ = phase;
+    snprintf(prompt_op_, sizeof(prompt_op_), "%s", op);
+    snprintf(prompt_q_, sizeof(prompt_q_), "%s", q);
+    entry_load("", maxlen > 0 ? maxlen : 40);
+    set_status("Type the text; RETURN takes it, <- cancels", false);
+}
+
+MenuCtl::Result MenuCtl::prompt_done(const char *answer)
+{
+    char op[sizeof(prompt_op_)];
+    snprintf(op, sizeof(op), "%s", prompt_op_);
+    OpIn in[2] = { in_int("phase", prompt_phase_), in_str("answer", answer) };
+    OpResult r;
+    int rc = ops_call(c_, op, in, 2, &r);
+    if (rc) {
+        set_status(r.msg[0] ? r.msg : "failed", true);
+        return R_REDRAW;
+    }
+    if (take_prompt()) {
+        return R_REDRAW;
+    }
+    set_status(r.msg[0] ? r.msg : "done", false);
+    return R_REDRAW;
+}
+
+// An operation asked something (ops_ask_text / ops_ask_list): the prompt or the list is up now.
+bool MenuCtl::take_prompt()
+{
+    if (!c_->want_prompt.kind) {
+        return false;
+    }
+    const auto w = c_->want_prompt;
+    c_->want_prompt.kind = 0;
+    if (w.kind == 3) {
+        begin_pick_list(w.prompt, w.src, w.op, w.phase, -1);
+    } else {
+        begin_prompt(w.op, w.phase, w.prompt, w.maxlen, w.kind == 2);
+    }
+    return true;
 }
 
 void MenuCtl::begin_set_load()
@@ -1591,6 +1769,7 @@ void MenuCtl::begin_pick_modes()
     pick_ = true;
     pick_modes_ = true;
     pick_sets_ = false;
+    pick_dyn_ = false;
     pick_set_ = -1;
     pick_task_ = 0;
     pick_path_[0] = 0;
@@ -1650,6 +1829,38 @@ bool MenuCtl::pick_key(int k, Result *out)
         case KEY_F1: case KEY_F2: case KEY_F3: case KEY_F4: case KEY_F5: case KEY_F6: case KEY_F7: case KEY_F8:
         case KEY_BREAK: case KEY_F10: case KEY_SCRLOCK: case KEY_MENU:
             pick_ = pick_modes_ = false;
+            return false;
+        default:
+            *out = R_NONE;
+            return true;
+        }
+    }
+    if (pick_dyn_) {
+        const int cnt = pl_.n ? pl_.n : 1;
+        switch (k) {
+        case KEY_UP: if (pick_sel_ > 0) pick_sel_--; *out = R_REDRAW; return true;
+        case KEY_DOWN: if (pick_sel_ < cnt - 1) pick_sel_++; *out = R_REDRAW; return true;
+        case KEY_PAGEUP: pick_sel_ = pick_sel_ > 10 ? pick_sel_ - 10 : 0; *out = R_REDRAW; return true;
+        case KEY_PAGEDOWN: pick_sel_ = pick_sel_ + 10 < cnt ? pick_sel_ + 10 : cnt - 1; *out = R_REDRAW; return true;
+        case KEY_HOME: pick_sel_ = 0; *out = R_REDRAW; return true;
+        case KEY_END: pick_sel_ = cnt - 1; *out = R_REDRAW; return true;
+        case KEY_RETURN:
+        case KEY_SPACE:
+            if (pick_sel_ >= pl_.n || pl_.row[pick_sel_].note) {
+                *out = R_NONE;
+                return true;
+            }
+            *out = pick_list_take();
+            return true;
+        case KEY_LEFT:
+        case KEY_ESCAPE:
+            pick_ = pick_dyn_ = false;
+            set_status("Cancelled", false);
+            *out = R_REDRAW;
+            return true;
+        case KEY_F1: case KEY_F2: case KEY_F3: case KEY_F4: case KEY_F5: case KEY_F6: case KEY_F7: case KEY_F8:
+        case KEY_BREAK: case KEY_F10: case KEY_SCRLOCK: case KEY_MENU:
+            pick_ = pick_dyn_ = false;
             return false;
         default:
             *out = R_NONE;
@@ -2048,9 +2259,21 @@ bool MenuCtl::text_key(int k, Result *out)
     if (search_edit_ && k == KEY_ESCAPE) {
         search_edit_ = false;
     }
+    if (prompt_ && k == KEY_RETURN) {                                  // T228 R21: the answer of an operation's text prompt
+        char text[LE_MAX + 1];
+        snprintf(text, sizeof(text), "%s", entry_le_.buf);
+        prompt_ = false;
+        entry_ = false;
+        *out = prompt_done(text);
+        return true;
+    }
+    if (prompt_ && k == KEY_ESCAPE) {
+        prompt_ = false;
+    }
     if (ask_node_ && k == KEY_RETURN) {
         const MenuNode *n = ask_node_;
         ask_node_ = 0;
+        prompt_ = false;
         entry_ = false;
         char text[LE_MAX + 1];
         snprintf(text, sizeof(text), "%s", entry_le_.buf);
@@ -2066,6 +2289,7 @@ bool MenuCtl::text_key(int k, Result *out)
     }
     if (ask_node_ && k == KEY_ESCAPE) {
         ask_node_ = 0;
+        prompt_ = false;
     }
     switch (k) {
     case KEY_ESCAPE:
@@ -2265,6 +2489,13 @@ bool MenuCtl::pump(bool quiet)
         changed = true;
     }
     uint32_t now = c_->io->now_ms();
+    if (nk == 0 && pick_ && pick_dyn_ && now - pl_last_ >= 500) {      // T228 R21: a list that fills while it is up (the access points of a scan)
+        pl_last_ = now;
+        if (pick_list_refresh()) {
+            nk++;
+            changed = true;
+        }
+    }
     char ln[24];
     ui_name(cur().layout, ln, sizeof(ln));
     if (!nk && menu_layout_tick(ln)) {                               // the monitor's stops, finished run-tos and live log
@@ -2528,6 +2759,11 @@ MenuCtl::Result MenuCtl::activate(bool primary, bool all)
         }
         if (c_->desc->settings[e.index].kind == 3) {
             begin_pick_file(e.index);
+            return R_REDRAW;
+        }
+        if (c_->desc->settings[e.index].kind == 1 && c_->desc->settings[e.index].nvalues > 2) {       // a text with a pick list: values[2] names the state that holds the rows
+            const Setting &ps = c_->desc->settings[e.index];
+            begin_pick_list(ps.label ? ps.label : ps.key, ps.values[2], "", 0, e.index);
             return R_REDRAW;
         }
         if (c_->desc->settings[e.index].kind) {
@@ -2816,6 +3052,9 @@ MenuCtl::Result MenuCtl::run_node(const MenuNode &n, const char *label)
             set_status(r.msg[0] ? r.msg : "failed", true);
             return R_REDRAW;
         }
+        if (take_prompt()) {                                                    // T228 R21: the operation asks the person something
+            return R_REDRAW;
+        }
         if (take_screen()) {                                                    // T228 R1: a row that opens a screen (menu.screen)
             return R_REDRAW;
         }
@@ -2897,6 +3136,10 @@ void MenuCtl::footer_legend_keys(char *out, int n)
     }
     if (pick_ && pick_modes_) {
         snprintf(out, n, "UP/DOWN  BROWSE   RETURN  USE THIS MODE   <-  BACK");
+        return;
+    }
+    if (pick_ && pick_dyn_) {
+        snprintf(out, n, "UP/DOWN  CHOOSE   RETURN  TAKE   <-  CANCEL");
         return;
     }
     if (pick_ && pick_sets_) {
@@ -3344,7 +3587,7 @@ const char *MenuCtl::dialog(char *text, int n) const
         return "busy";
     }
     if (pick_) {
-        snprintf(text, n, "%s", pick_modes_ ? pm_.row[pick_sel_].name : pick_sets_ ? sets_[pick_sel_] : pick_path_);
+        snprintf(text, n, "%s", pick_modes_ ? pm_.row[pick_sel_].name : pick_sets_ ? sets_[pick_sel_] : pick_dyn_ ? (pick_sel_ < pl_.n ? pl_.row[pick_sel_].label : "") : pick_path_);
         return "pick";
     }
     if (entry_) {
@@ -3358,6 +3601,10 @@ const char *MenuCtl::dialog(char *text, int n) const
         }
         if (ask_node_) {
             snprintf(text, n, "%s: %s", ask_q_, entry_le_.buf);
+            return "ask";
+        }
+        if (prompt_) {
+            snprintf(text, n, "%s: %s", prompt_q_, prompt_secret_ ? "" : entry_le_.buf);      // a secret is not told over the state query
             return "ask";
         }
         if (entry_text_mode_) {
@@ -3588,6 +3835,7 @@ void MenuCtl::remote_ask(const char *question)
     entry_task_ = 0;
     entry_set_ = -1;
     ask_node_ = 0;
+    prompt_ = false;
     confirm_node_ = 0;
     confirm_task_ = 0;
     remote_q_ = true;
@@ -4154,6 +4402,7 @@ void MenuCtl::begin_search_edit()
     entry_task_ = 0;
     entry_set_ = -1;
     ask_node_ = 0;
+    prompt_ = false;
     confirm_node_ = 0;
     confirm_task_ = 0;
     entry_rename_ = false;
@@ -4171,6 +4420,7 @@ void MenuCtl::begin_rename(const char *path)
     entry_task_ = 0;
     entry_set_ = -1;
     ask_node_ = 0;
+    prompt_ = false;
     confirm_node_ = 0;
     confirm_task_ = 0;
     search_edit_ = false;
@@ -4214,6 +4464,7 @@ MenuCtl::Result MenuCtl::ui_action(const char *op, const char *file)
         entry_task_ = 0;
         entry_set_ = -1;
         ask_node_ = 0;
+        prompt_ = false;
         confirm_node_ = 0;
         confirm_task_ = 0;
         search_edit_ = false;

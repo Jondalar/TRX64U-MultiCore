@@ -61,7 +61,8 @@ op	wifi.toggle
 op	wifi.disconnect
 op	wifi.connect_last
 op	wifi.forget
-op	wifi.connect_manual
+op	wifi.connect_manual	phase:int:0:9:0:	answer:string:0:0:70:
+op	wifi.select_ap	phase:int:0:9:0:	answer:string:0:0:70:
 op	stream.start	id:int:0:2:0:
 op	stream.stop	id:int:0:2:0:
 op	files.copy_job
@@ -193,6 +194,8 @@ state	pad.1
 state	pad.2
 state	pad.1.descriptor
 state	pad.2.descriptor
+state	wifi.aps
+state	wifi.auth_modes
 state	net.eth_status
 state	net.eth_ip
 state	net.eth_mac
@@ -233,6 +236,7 @@ state	drive.suggest.d81
 state	drive.suggest.save_d64
 state	drive.suggest.save_g64
 state	u64.palette
+state	u64.palettes
 state	u64.sid1_type
 state	u64.sid2_type
 state	u64.s1_swin

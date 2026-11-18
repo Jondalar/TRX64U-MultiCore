@@ -440,17 +440,27 @@ ui = { sub = "Connects to the access point used last" }
 [[node]]
 anchor = "F8/expert/WiFi"
 kind = "op"
-label = "Connect to the access point above"
-op = "wifi.connect_manual"
+label = "Select AP from list"
+op = "wifi.select_ap"
+bind = [ { arg = "phase", int = 0 }, { arg = "answer", str = "-" } ]
 order = 41
-ui = { sub = "Uses the name, authentication and password above" }
+ui = { sub = "Scans, lists the networks with their signal, asks the password" }
+
+[[node]]
+anchor = "F8/expert/WiFi"
+kind = "op"
+label = "Enter AP manually"
+op = "wifi.connect_manual"
+bind = [ { arg = "phase", int = 0 }, { arg = "answer", str = "-" } ]
+order = 42
+ui = { sub = "Asks the name, the authentication and the password" }
 
 [[node]]
 anchor = "F8/expert/WiFi"
 kind = "op"
 label = "Disconnect"
 op = "wifi.disconnect"
-order = 42
+order = 43
 ui = { sub = "Leaves the access point" }
 
 [[node]]
@@ -458,7 +468,7 @@ anchor = "F8/expert/WiFi"
 kind = "op"
 label = "Forget access points"
 op = "wifi.forget"
-order = 43
+order = 44
 ui = { confirm = "Erase all stored access points?", sub = "The module forgets every stored access point" }
 
 [[node]]
@@ -1163,7 +1173,6 @@ period_ms = 16
 [lists]
 scanres_auto =["Auto", "SD (480p/576p)", "HD (720p)", "FullHD (1080p)", "PC 800 x 600", "PC 1024 x 768", "PC 1280 x 1024"]
 en_dis = ["Disabled", "Enabled"]
-wifi_auth = ["Open", "WEP", "WPA PSK", "WPA2 PSK", "WPA/WPA2 PSK", "WPA2 Enterprise", "WPA3 PSK", "WPA2/WPA3 PSK", "WAPI PSK"]
 time_zones = ["US Baker Island", "America Samoa", "Hawaii", "French Polynesia", "Alaska", "Los Angeles", "Denver, Colorado", "Phoenix, Arizona", "Chicago, Illinois", "New York", "Argentina", "Newfoundland", "Greenland", "Cabo Verde", "Iceland", "UK", "Western Europe", "Greece", "Azerbaijan", "Iran", "Pakistan", "India", "Nepal", "Bangladesh", "Myanmar", "Indonesia", "China", "Western Australia", "Japan", "Central Australia", "Eastern Australia", "Lord Howe Island", "Solomon Islands", "New Zealand", "Chatham Islands", "Tonga", "Christmas Island"]
 yes_no = ["No", "Yes"]
 menu_opens = ["Home (F1)", "Last screen"]
@@ -1279,6 +1288,7 @@ group = "Output"
 key = "Palette Definition"
 label = "Palette definition"
 text = true
+pick = "u64.palettes"
 empty = "Built-in"
 default = ""
 maxlen = 60
@@ -2974,34 +2984,6 @@ text = true
 default = "8.8.8.8"
 maxlen = 15
 apply = "net.fx"
-
-[[core_setting]]
-group = "WiFi"
-key = "WiFi AP Name"
-label = "Access point name"
-text = true
-default = ""
-maxlen = 32
-apply = "settings.noop"
-
-[[core_setting]]
-group = "WiFi"
-key = "WiFi AP Authentication"
-label = "Access point authentication"
-list = "wifi_auth"
-default = 3
-when = "live"
-apply = "settings.noop"
-
-[[core_setting]]
-group = "WiFi"
-key = "WiFi AP Password"
-label = "Access point password"
-empty = "Not set"
-secret = true
-default = ""
-maxlen = 62
-apply = "settings.noop"
 
 [[core_setting]]
 group = "Services"
