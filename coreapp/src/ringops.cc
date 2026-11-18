@@ -10,6 +10,8 @@
 #include "cbm1541.h"
 #include "d1541_drive.h"
 #include "filemanager.h"
+#include "regset.h"
+#include "settings.h"
 #include "FreeRTOS.h"
 #include "task.h"
 #include <stdio.h>
@@ -211,6 +213,31 @@ static int cart_for_state(void *ctx, const char *path)
     }
     return rc;
 }
+// FW build_machine_mode: the file's System Mode for this run only (u64_set_system_mode over set_oneshot: nothing reaches the config); the setting's effect applies it
+static int machine_set(void *ctx, int machine)
+{
+    CoreCtx *c = (CoreCtx *)ctx;
+    int ix = c->settings ? c->settings->find("System Mode") : -1;
+    if (ix < 0) {
+        return 1;
+    }
+    if (c->settings->value(ix) == machine) {
+        return 0;
+    }
+    c->settings->override_value(ix, machine);
+    if (c->settings->value(ix) != machine) {
+        return 1;
+    }
+    regset_apply_setting(c, ix);
+    printf("[C64RE] system mode -> %d\n", machine);
+    return 0;
+}
+// FW build_drive: drive A's image goes in before the drive's own state (a mount resets the drive); spec is cbm1541's own, "ro <path>" / "unlinked <path>" / "<path>"
+static int drive_mount(void *ctx, const char *spec)
+{
+    char m[96];
+    return cbm1541_slot_mount((CoreCtx *)ctx, spec, m, sizeof(m));
+}
 static void eeprom_put(void *ctx, const uint8_t *data)           // the GMod2's 93C86 array at +2048 and its valid flag at 0 (c64_cart.cc load_eeprom)
 {
     uint8_t one = 1;
@@ -231,6 +258,7 @@ static void src_fill(CoreCtx *c, TrxC64reSrc *src)
         src->drive_power = d->powered();
         src->drive_unit = d->bus_id();
         src->disk_path = d->image_path();
+        src->disk_mode = d->mount_mode() == MM_UNLINKED ? 2 : d->mount_mode() == MM_RO ? 1 : 0;
     }
 }
 
@@ -411,6 +439,8 @@ static int op_load(CoreCtx *c, const OpArgs &a, OpOut &o)
     src.rom_write = rom_write;
     src.cart_for_state = cart_for_state;
     src.eeprom_put = eeprom_put;
+    src.machine_set = machine_set;
+    src.drive_mount = drive_mount;
     trx_c64re_set_source(&src);
     const char *why = trx_c64re_load(a.s(0));
     trx_c64re_set_source(NULL);

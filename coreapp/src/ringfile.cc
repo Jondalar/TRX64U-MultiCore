@@ -1183,7 +1183,7 @@ static int header_json(char *dst, int cap, const TrxFrame &f, uint32_t rom_len)
     if (g_src_on && g_src.drive_type && g_src.disk_path && g_src.disk_path[0]) {
         n += snprintf(dst + n, cap - n, "\"drive\":{\"image\":\"");
         n += json_str(dst + n, cap - n, g_src.disk_path);
-        n += snprintf(dst + n, cap - n, "\",\"mode\":\"rw\"},");
+        n += snprintf(dst + n, cap - n, "\",\"mode\":\"%s\"},", g_src.disk_mode == 2 ? "unlinked" : g_src.disk_mode == 1 ? "ro" : "rw");
     }
     n += snprintf(dst + n, cap - n, "\"settings\":{\"uci\":%s,\"reu\":%u,\"reuSize\":%u,\"sampler\":%s}}}",
                   (getFpgaCapabilities() & CAPAB_COMMAND_INTF) && CMD_IF_SLOT_ENABLE ? "true" : "false",
@@ -1517,6 +1517,116 @@ static void rom_put_cb(void *)
     }
 }
 
+// What a load could not put back, named once each (FW note())
+static void note_missed(char *missed, int cap, const char *what)
+{
+    int n = int(strlen(missed));
+    if (n + int(strlen(what)) + 3 >= cap) {
+        return;
+    }
+    if (n) {
+        missed[n++] = ',';
+        missed[n++] = ' ';
+    }
+    strcpy(missed + n, what);
+}
+
+static bool is_there(const char *path)
+{
+    File *f = NULL;
+    if (FileManager::getFileManager()->fopen(path, FA_READ, &f) != FR_OK) {
+        return false;
+    }
+    FileManager::getFileManager()->fclose(f);
+    return true;
+}
+
+// the string value after pat (a `"key":"` prefix) in the header, up to its closing quote; false when the key is not there
+static bool hdr_str(const char *hdr, const char *pat, char *out, int cap)
+{
+    const char *p = strstr(hdr, pat);
+    if (!p) {
+        return false;
+    }
+    p += strlen(pat);
+    int k = 0;
+    while (*p && *p != '"' && k < cap - 1) {
+        if (*p == '\\' && p[1]) {
+            p++;
+        }
+        out[k++] = *p++;
+    }
+    out[k] = 0;
+    return true;
+}
+
+#define CMD_IF_SLOT_BASE       *((volatile uint8_t *)(CMD_IF_BASE + 0x0))
+
+// FW build_settings (D4): the registers, directly, for as long as this state runs; the setting values are not written, so nothing reaches the card
+static void build_settings(const char *ms, char *missed, int cap)
+{
+    const char *se = strstr(ms, "\"settings\":{");
+    if (!se) {
+        return;
+    }
+    const bool uci = strstr(se, "\"uci\":true") != NULL;
+    const bool sampler = strstr(se, "\"sampler\":true") != NULL;
+    const char *rp = strstr(se, "\"reu\":");
+    const char *sp = strstr(se, "\"reuSize\":");
+    const int reu = rp ? atoi(rp + 6) : 0;
+    const int reu_size = sp ? atoi(sp + 10) : 0;
+    if (getFpgaCapabilities() & CAPAB_COMMAND_INTF) {
+        CMD_IF_SLOT_ENABLE = uci ? 1 : 0;
+        if (uci) {
+            CMD_IF_SLOT_BASE = 0x47;                        // $DF1C
+        }
+    } else if (uci) {
+        note_missed(missed, cap, "UCI");
+    }
+    if (getFpgaCapabilities() & CAPAB_SAMPLER) {
+        C64_SAMPLER_ENABLE = sampler ? 1 : 0;
+    } else if (sampler) {
+        note_missed(missed, cap, "the sampler");
+    }
+    // the REU is off in every state a ring can produce (A08); this only puts back an "off" that the machine may currently contradict
+    C64_REU_ENABLE = reu ? 1 : 0;
+    C64_REU_SIZE = uint8_t(reu_size);
+}
+
+// FW build_drive: the image drive A had, mounted before the drive's own state goes in (a mount resets the drive and would overwrite it); the state decides,
+// not what happens to be in the drive. A path that is gone is looked for under the same name beside the file being loaded (FW resolve_medium).
+static void build_drive(const char *ms, char *missed, int cap)
+{
+    char img[144], mode[12];
+    if (!g_src_on || !g_src.drive_mount || !hdr_str(ms, "\"drive\":{\"image\":\"", img, sizeof(img)) || !img[0]) {
+        return;
+    }
+    if (!hdr_str(ms, "\"mode\":\"", mode, sizeof(mode))) {
+        mode[0] = 0;
+    }
+    char spec[200];
+    if (!is_there(img)) {
+        const char *base = strrchr(img, '/');
+        const char *cut = strrchr(g_load_path, '/');
+        char tmp[200];
+        if (base && cut && int(cut - g_load_path) + int(strlen(base)) < int(sizeof(tmp))) {
+            memcpy(tmp, g_load_path, cut - g_load_path);
+            strcpy(tmp + (cut - g_load_path), base);
+            if (is_there(tmp)) {
+                printf("[C64RE] '%s' is not there; '%s' is used instead\n", img, tmp);
+                snprintf(img, sizeof(img), "%s", tmp);
+            }
+        }
+    }
+    snprintf(spec, sizeof(spec), "%s%s", !strcmp(mode, "unlinked") ? "unlinked " : !strcmp(mode, "ro") ? "ro " : "", img);
+    if (g_src.drive_mount(g_src.rom_ctx, spec) != 0) {
+        printf("[C64RE] drive A: '%s' was not mounted\n", img);
+        note_missed(missed, cap, "the disk in drive A");
+    } else {
+        printf("[C64RE] drive A: '%s' mounted\n", img);
+    }
+}
+
 static const char *load_v2(File *file, uint32_t size)
 {
     const char *err = NULL;
@@ -1574,7 +1684,22 @@ static const char *load_v2(File *file, uint32_t size)
         err = "The file could not be read";
     }
     hdr[hl <= HDR_JSON_MAX ? hl : 0] = 0;
-    bool has_ms = strstr(hdr, "\"machineState\"") != NULL;
+    const char *ms_at = strstr(hdr, "\"machineState\"");
+    bool has_ms = ms_at != NULL;
+    int machine = -1;                                   // the video standard the file is of (FW stage_v2: a name this build does not run refuses before anything moves)
+    char mname[40];
+    if (!err && hdr_str(hdr, "\"machine\":\"", mname, sizeof(mname))) {
+        for (int i = 0; i < 6; i++) {
+            if (!strcmp(mname, machine_names[i])) {
+                machine = i;
+            }
+        }
+        if (machine < 0) {
+            static char msg[96];
+            snprintf(msg, sizeof(msg), "The file is for machine \"%.40s\", which this build does not run", mname);
+            err = msg;
+        }
+    }
     int cart_type = 0;
     static char cart_src[160];
     cart_src[0] = 0;
@@ -1669,16 +1794,24 @@ static const char *load_v2(File *file, uint32_t size)
     }
     // the cartridge the state needs goes into the port first, without a reset (FW trx_c64re_apply: build_machine before the state; U9 D2): the .crt the file
     // names, or an empty port when the state had none. What the file holds of the cartridge goes in with the state.
+    // FW build_machine_mode: the video standard first, it drives the PLL and the colour timing the chip block that follows was running at
+    if (!err && machine >= 0 && g_src_on && g_src.machine_set && g_src.machine_set(g_src.rom_ctx, machine) != 0) {
+        note_missed(missed, sizeof(missed), "the video standard");
+    }
     bool cart_ok = false;
     if (!err && has_ms) {
         if (g_src_on && g_src.cart_for_state) {
             cart_ok = g_src.cart_for_state(g_src.rom_ctx, cart_type > 0 ? cart_src : NULL) == 0;
         }
         if (!cart_ok && cart_type > 0) {
-            snprintf(missed, sizeof(missed), "the cartridge");
+            note_missed(missed, sizeof(missed), "the cartridge");
         }
     } else if (!err && (cartram || rom_len || eeprom)) {
-        snprintf(missed, sizeof(missed), "the cartridge");           // a file that does not name its machine
+        note_missed(missed, sizeof(missed), "the cartridge");           // a file that does not name its machine
+    }
+    if (!err && has_ms) {                                                   // FW build_machine: cartridge, then drive A's image, then the registers; all before the state
+        build_drive(ms_at, missed, sizeof(missed));
+        build_settings(ms_at, missed, sizeof(missed));
     }
     if (!err) {
         bool cart_in = cart_ok && cart_type > 0;
@@ -1699,7 +1832,7 @@ static const char *load_v2(File *file, uint32_t size)
         const char *derr = drive_write(drive);
         if (derr) {
             printf("[C64RE] drive A was not put back: %s\n", derr);
-            snprintf(missed + strlen(missed), sizeof(missed) - strlen(missed), "%sdrive A", missed[0] ? ", " : "");
+            note_missed(missed, sizeof(missed), "drive A");
         }
     }
     free(chunk);
@@ -1965,11 +2098,14 @@ static bool tok_ta(const char *js, const jsmntok_t *t, int n, int i, uint8_t *ou
 
 // A .c64re, or the current entry of a .c64rering (checkpoint_ring.current_id;
 // the entry's payload is the same checkpoint node), written by this board.
+static char g_load_path[192];                      // the file being loaded: a medium that is gone is looked for beside it (FW resolve_medium)
+
 const char *trx_c64re_load(const char *path)
 {
     FileManager *fm = FileManager::getFileManager();
     File *file;
     g_missed = "";
+    snprintf(g_load_path, sizeof(g_load_path), "%s", path);
     if (trx_trxring_is_one(path)) {
         // one way in for every file the ring can load (FW trx_c64re_load_entry): a .trxring brings the ring back as well
         return trx_trxring_load(path);
