@@ -1008,9 +1008,92 @@ static const UciHost *uci_host(void)
     return &h;
 }
 
+// ---- the Ultimate DMA service (dmasvc.cc, FW network/socket_dma.cc:129-232): what a command of port 64 does here, by the names the server calls (dma.*). The server stages
+// a PRG, a disk image or a cartridge image as a file in /Temp (FW's save_temp_file) and hands the path; the rest is the operations the menu uses. ------------------------
+static int dma_call(CoreCtx *c, const char *op, const OpIn *in, int n, OpOut &o)
+{
+    OpResult r;
+    int rc = ops_call(c, op, in, n, &r);
+    snprintf(o.msg, o.msglen, "%s", r.msg);
+    return rc ? OPE_FAILED : OPE_OK;
+}
+
+// SOCKET_CMD_DMA / DMARUN / DMAJUMP (FW :134-145: RUNCODE_DMALOAD, _RUN, _JUMP): 0 = into RAM at the load address, nothing started (c64.dma_prg); 1 = and run it (c64.run_prg: the machine
+// is reset and the program started at READY, the menu's Run); 2 = and jump to the load address (c64.load_prg with the file's own first two bytes, FW c64_subsys.cc:1056-1060).
+static int op_dma_prg(CoreCtx *c, const OpArgs &a, OpOut &o)
+{
+    OpIn p[2] = { in_str("path", a.s(0)), in_int("start", 0) };
+    if (a.i(1) == 0) {
+        return dma_call(c, "c64.dma_prg", p, 1, o);
+    }
+    if (a.i(1) == 1) {
+        return dma_call(c, "c64.run_prg", p, 1, o);
+    }
+    uint8_t b[2];
+    CoreFile *f = c->fs->open(a.s(0), false);
+    bool ok = f && f->size() >= 2 && f->read(0, b, 2);
+    if (f) {
+        c->fs->close(f);
+    }
+    if (!ok) {
+        snprintf(o.msg, o.msglen, "No load address in %s", a.s(0));
+        return OPE_FAILED;
+    }
+    p[1] = in_int("start", b[0] | (b[1] << 8));
+    return dma_call(c, "c64.load_prg", p, 2, o);
+}
+// SOCKET_CMD_MOUNT_IMG / RUN_IMG (FW :178-196): the image in drive A read-write, and for RUN_IMG the real LOAD"*",8,1 and RUN (RUNCODE_MOUNT_LOAD_RUN: drive.mount_run).
+static int op_dma_mount(CoreCtx *c, const OpArgs &a, OpOut &o)
+{
+    if (a.i(1)) {
+        OpIn in[2] = { in_str("slot", "iec:drive_a"), in_str("path", a.s(0)) };
+        return dma_call(c, "drive.mount_run", in, 2, o);
+    }
+    OpIn in[3] = { in_str("slot", "iec:drive_a"), in_str("path", a.s(0)), in_str("mode", "rw") };
+    return dma_call(c, "drive.mount", in, 3, o);
+}
+// SOCKET_CMD_RUN_CRT (FW :197-210, FileTypeCRT::execute_st): the cartridge is placed and the machine reset into it, as the Library's Run does.
+static int op_dma_crt(CoreCtx *c, const OpArgs &a, OpOut &o)
+{
+    OpIn in[1] = { in_str("path", a.s(0)) };
+    return dma_call(c, "c64.run_crt", in, 1, o);
+}
+// SOCKET_CMD_REUWRITE (FW :165-173): the bytes into the REU's memory at the 24 bit offset, wrapping at 16 MB; dropped while a cartridge image is in that memory (FW reu_memory_usable).
+static int op_dma_reu(CoreCtx *c, const OpArgs &a, OpOut &o)
+{
+    if (c64_cart_active()) {
+        snprintf(o.msg, o.msglen, "REU write dropped: a cartridge uses the REU's memory");
+        return OPE_FAILED;
+    }
+    uint32_t off = (uint32_t)a.i(0), n = a.len(1);
+    const uint8_t *p = a.p(1);
+    while (n) {
+        uint32_t k = 0x1000000u - off < n ? 0x1000000u - off : n;
+        c->io->ddr_write(off, p, k);
+        p += k;
+        n -= k;
+        off = 0;
+    }
+    snprintf(o.msg, o.msglen, "%u bytes written into the REU", (unsigned)a.len(1));
+    return OPE_OK;
+}
+// SOCKET_CMD_POWEROFF (FW :161-163, MENU_C64_POWEROFF): the menu's Power off.
+static int op_dma_power_off(CoreCtx *c, const OpArgs &, OpOut &o)
+{
+    return dma_call(c, "u64.power_off", 0, 0, o);
+}
+static const ArgSpec dma_prg_args[] = { ARG_PATH("path"), ARG_INT("mode", 0, 2) };
+static const ArgSpec dma_mount_args[] = { ARG_PATH("path"), ARG_INT("run", 0, 1) };
+static const ArgSpec dma_reu_args[] = { ARG_INT("offset", 0, 0xFFFFFF), ARG_BLOB("data") };
+
 void trx64u_register(OpRegistry &r)
 {
     r.contributor("trx64u");
+    r.add_op("dma.prg", dma_prg_args, 2, op_dma_prg);
+    r.add_op("dma.mount", dma_mount_args, 2, op_dma_mount);
+    r.add_op("dma.crt", path_arg, 1, op_dma_crt);
+    r.add_op("dma.reu", dma_reu_args, 2, op_dma_reu);
+    r.add_op("dma.power_off", 0, 0, op_dma_power_off);
     r.add_op("ui.fx", value_arg, 1, fx_ui);
     r.add_op("c64.fx_io", value_arg, 1, fx_io);
     r.add_op("c64.fx_roms", value_arg, 1, fx_roms);

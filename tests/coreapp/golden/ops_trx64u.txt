@@ -64,6 +64,7 @@ op	wifi.forget
 op	wifi.connect_manual
 op	stream.start	id:int:0:2:0:
 op	stream.stop	id:int:0:2:0:
+op	stream.start_to	id:int:0:2:0:	dest:string:0:0:36:	stop_after:int:0:65535:0:
 op	files.copy_job
 op	files.move_job
 op	files.delete_job
@@ -87,6 +88,8 @@ op	c64.run_prg	path:path:0:0:519:
 op	c64.load_prg	path:path:0:0:519:	start:int:0:65535:0:
 op	c64.run_crt	path:path:0:0:519:
 op	c64.dma_prg	path:path:0:0:519:
+op	dma.write	address:int:0:65535:0:	data:blob:0:0:0:
+op	dma.kernal	data:blob:0:0:0:
 op	c64.run_t64	path:path:0:0:519:	index:int:0:255:0:
 op	c64.dma_t64	path:path:0:0:519:	index:int:0:255:0:
 op	c64.set_rom	path:path:0:0:519:	which:int:0:2:0:
@@ -157,6 +160,11 @@ op	diag.save_edid	name:string:0:0:55:
 op	diag.clear_log
 op	diag.bug_report
 op	diag.nop
+op	dma.prg	path:path:0:0:519:	mode:int:0:2:0:
+op	dma.mount	path:path:0:0:519:	run:int:0:1:0:
+op	dma.crt	path:path:0:0:519:
+op	dma.reu	offset:int:0:16777215:0:	data:blob:0:0:0:
+op	dma.power_off
 op	ui.fx	value:int:-2000:2000:0:
 op	c64.fx_io	value:int:-2000:2000:0:
 op	c64.fx_roms	value:int:-2000:2000:0:

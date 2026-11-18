@@ -63,6 +63,7 @@ op	wifi.forget
 op	wifi.connect_manual
 op	stream.start	id:int:0:2:0:
 op	stream.stop	id:int:0:2:0:
+op	stream.start_to	id:int:0:2:0:	dest:string:0:0:36:	stop_after:int:0:65535:0:
 op	files.copy_job
 op	files.move_job
 op	files.delete_job

@@ -254,6 +254,7 @@ SRCS_CC	 =  u64ii_init.cc \
 			online.cc \
 			netops.cc \
 			netsvc.cc \
+			dmasvc.cc \
 			hostwifi.cc \
 			ringfile.cc \
 			uci.cc \

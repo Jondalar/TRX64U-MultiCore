@@ -637,6 +637,24 @@ static int slot_eject(CoreCtx *c, int i, char *msg, int msglen)
 }
 static const MountSlots mount_slots = { 2, slot_names, slot_spec, slot_mount, slot_eject };
 
+// The Ultimate DMA service's raw write (FW socket_dma.cc:146-149, c64_subsys.cc:819-821 dma_load_raw_buffer): the bytes go into the 64 KB the machine sees, through
+// the RAM's second port (MEMONLY, as machine.write_mem and the program loads), at the 16 bit address, with no reset and no start. FW takes the offset as a 16 bit value and
+// leaves a transfer past $FFFF to the DMA; here it is refused (nothing wraps), the same as machine.write_mem.
+static int op_dma_write(CoreCtx *c, const OpArgs &a, OpOut &o)
+{
+    uint32_t addr = (uint32_t)a.i(0), n = a.len(1);
+    if (!n || n > 0x10000u - addr) {
+        snprintf(o.msg, o.msglen, "%u bytes at $%X do not lie in the 64 KB", (unsigned)n, (unsigned)addr);
+        return OPE_ARG;
+    }
+    c->io->ram_memonly(true);
+    c->io->ram_write(addr, a.p(1), n);
+    c->io->ram_memonly(false);
+    snprintf(o.msg, o.msglen, "%u bytes written at $%X", (unsigned)n, (unsigned)addr);
+    return OPE_OK;
+}
+static const ArgSpec dma_write_args[] = { ARG_INT("address", 0, 0xFFFF), ARG_BLOB("data") };
+
 static const ArgSpec text_arg[] = { ARG_STRING("text", 63) };
 static const ArgSpec run_args[] = { ARG_PATH("path") };
 static const ArgSpec t64_args[] = { ARG_PATH("path"), ARG_INT("index", 0, 255) };
@@ -659,6 +677,8 @@ static void c64_register(OpRegistry &r)
     r.add_op("c64.load_prg", load_args, 2, op_load);
     r.add_op("c64.run_crt", run_args, 1, op_run_crt);
     r.add_op("c64.dma_prg", run_args, 1, op_dma);
+    r.add_op("dma.write", dma_write_args, 2, op_dma_write);
+    r.add_op("dma.kernal", rom_arg, 1, op_put_kernal);          // FW socket_dma.cc:174-176 SOCKET_CMD_KERNALWRITE: enable_kernal(buf + 2), the 8 KB image (and its fast reset patch) in place, no reset
     r.add_op("c64.run_t64", t64_args, 2, op_run_t64);
     r.add_op("c64.dma_t64", t64_args, 2, op_dma_t64);
     r.add_op("c64.set_rom", rom_set_args, 2, op_set_rom);
