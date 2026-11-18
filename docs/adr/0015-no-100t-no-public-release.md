@@ -2,7 +2,8 @@
 
 Date: 2026-10-04
 
-Status: Accepted (supersedes [ADR-0004](0004-m1-release-candidate-internal-testers.md))
+Status: Accepted (supersedes [ADR-0004](0004-m1-release-candidate-internal-testers.md)); the "no public release" part is superseded by
+[ADR-0064](0064-open-source-non-commercial.md) (2026-11-18: open source, non-commercial)
 
 ## Context
 

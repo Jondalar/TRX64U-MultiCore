@@ -22,7 +22,7 @@ Rules: a new decision gets the next number, a changed decision gets a new record
 | [0012](0012-app-dma-into-io-in-m1.md) | App DMA into I/O while the C64 runs is built in M1 (G06) | 2026-10-04 | Accepted |  | T63 |
 | [0013](0013-sampler-joins-the-sid-work.md) | The sampler / Ultimate Audio (G14) is built together with the SID work | 2026-10-04 | Accepted |  | T25 |
 | [0014](0014-goal-private-alex-firmware.md) | Goal: a private "Alex firmware" only (EF3 and Wasteland) | 2026-10-04 | Superseded by 0016 |  |  |
-| [0015](0015-no-100t-no-public-release.md) | No 100T and no public release; T53 dropped | 2026-10-04 | Accepted |  | T49, T53 |
+| [0015](0015-no-100t-no-public-release.md) | No 100T and no public release; T53 dropped | 2026-10-04 | Accepted; "no public release" superseded by 0064 |  | T49, T53 |
 | [0016](0016-back-to-the-drawing-board.md) | Back to the drawing board: drop-in C64U, TRX64 monitor, Timewarp | 2026-10-04 | Accepted |  |  |
 | [0017](0017-d01-1541-emulation-stays.md) | 1541 emulation stays | 2026-10-05 | Accepted | decision 1 | T56 |
 | [0018](0018-d02-turbo-out-of-the-budget.md) | Turbo out of the budget | 2026-10-05 | Superseded by 0027 | decision 2 | T29 |
@@ -71,6 +71,7 @@ Rules: a new decision gets the next number, a changed decision gets a new record
 | [0061](0061-one-video-out-for-the-host-and-the-large-cores.md) | One video-out source for the host and every large core | 2026-10-31 | Accepted | – | T164, T107 |
 | [0062](0062-the-screen-decides-which-modes-are-offered.md) | The screen decides which modes are offered; the host holds a default, each core its own | 2026-10-31 | Accepted | – | T164, T107, T163 |
 | [0063](0063-pb-l1-grows-cores-that-do-not-fit-become-large.md) | The host block grows with the video path; a core that no longer fits becomes a large core | 2026-10-31 | Accepted in principle, size Proposed | – | T164, T107 |
+| [0064](0064-open-source-non-commercial.md) | The project goes public: open source, non-commercial | 2026-11-18 | Accepted |  | T120, T221 |
 
 ## Decisions that were left where they are
 
