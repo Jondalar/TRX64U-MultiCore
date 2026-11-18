@@ -31,7 +31,8 @@
 //   ctab   area id name widget groups n     (a tab added to an area of the route, T104.1 D8)
 //   The core's own menu (T104.2 D10), the five tables a C++ descriptor carried as Task / MediaSlot / FileType / Setting arrays:
 //   task   label op first_bind nbind flags ask ask_state pick_label group       (flags bit 0: closes the menu, bit 1: a folder is picked first,
-//                                                                               bits 15:8 the default key of its hotkey, T228 R1: 'A'-'Z', '0'-'9', 0 none)
+//                                                                               bits 15:8 the default key of its hotkey, T228 R1: 'A'-'Z', '0'-'9', 0 none;
+//                                                                               bits 31:16 the offset + 1 of its show_state text, T228 R21, 0 none)
 //   media  name state eject_op first_bind nbind group [version 4: exts mount empty_tasks mounted_tasks flags(bit 0: eject closes the menu)]
 //   ftype  ext inner_ext first_action nactions first_inner ninner                (runs into the file type action table)
 //   fact   label op first_bind nbind flags ask ask_off first_size nsize          (flags bit 0: closes the menu, bit 1: repeat - the ask word names the operation that says how many

@@ -45,6 +45,7 @@ public:
     void note_scroll(int first) { scroll_ = first; }
     int scroll_first() const { return scroll_; }
     uint32_t scroll_rev() const { return scroll_rev_; }
+    int nav_fold(int k) const;                                     // T228 R21: FW userinterface.cc keymapper - with the setting "Navigation Style" = WASD Cursors W A S D are the cursors and a capital letter is its small one
     Result key(int k);                                             // the shim of the key table: resolve(k), then apply
     // T192.3 S6, D23: every producer enters as an intent. resolve: key -> intent through the table (nothing runs); apply: the intent runs (a row that declines hands the key on);
     // apply_named: a remote intent by name ("area" 5, "tab" 2, "move" -1, "back", "return" ...).

@@ -758,14 +758,12 @@ int c64_cart_run(CoreCtx *c, const char *path, char *msg, int msglen)
 
 // The MOD player's cartridge image (FW filetype_reu.cc start_modplayer, the 16 KB ModPlayer_16k/module.bin): a .crt of a 16 KB normal cartridge made in memory
 // - the 64 bytes of header, one CHIP packet, the image behind it - and started like any other, with the REU at 16 MB, the sampler and the UCI.
-static const uint8_t modplayer_rom[] = {
-#include "../src/modplayer_bin.inc"
-};
-
 class ModCrt : public CoreFile {
     uint8_t head_[0x50];
+    const uint8_t *rom_;
+    uint32_t n_;
 public:
-    ModCrt()
+    ModCrt(const uint8_t *rom, uint32_t n) : rom_(rom), n_(n)
     {
         memset(head_, 0, sizeof(head_));
         memcpy(head_, "C64 CARTRIDGE   ", 16);
@@ -773,12 +771,12 @@ public:
         head_[0x14] = 1;                                     // version 1.0; the type (0x16) and EXROM, GAME (0x18, 0x19) stay 0: a 16 KB cartridge
         memcpy(head_ + 0x20, "MOD Player Cartridge", 20);
         memcpy(head_ + 0x40, "CHIP", 4);
-        uint32_t len = 0x10 + sizeof(modplayer_rom);
+        uint32_t len = 0x10 + n_;
         head_[0x44] = (uint8_t)(len >> 24); head_[0x45] = (uint8_t)(len >> 16); head_[0x46] = (uint8_t)(len >> 8); head_[0x47] = (uint8_t)len;
         head_[0x4C] = 0x80;                                  // load $8000, type 0 (ROM), bank 0
-        head_[0x4E] = (uint8_t)(sizeof(modplayer_rom) >> 8); // 16 KB
+        head_[0x4E] = (uint8_t)(n_ >> 8); // 16 KB
     }
-    uint64_t size() override { return sizeof(head_) + sizeof(modplayer_rom); }
+    uint64_t size() override { return sizeof(head_) + n_; }
     bool writable() override { return false; }
     bool read(uint64_t off, void *buf, uint32_t len) override
     {
@@ -787,7 +785,7 @@ public:
         }
         uint8_t *d = (uint8_t *)buf;
         for (uint32_t i = 0; i < len; i++, off++) {
-            d[i] = off < sizeof(head_) ? head_[off] : modplayer_rom[off - sizeof(head_)];
+            d[i] = off < sizeof(head_) ? head_[off] : rom_[off - sizeof(head_)];
         }
         return true;
     }
@@ -795,9 +793,9 @@ public:
     bool sync() override { return true; }
 };
 
-int c64_cart_run_modplayer(CoreCtx *c, char *msg, int msglen)
+int c64_cart_run_modplayer(CoreCtx *c, const uint8_t *rom, uint32_t n, char *msg, int msglen)
 {
-    ModCrt crt;
+    ModCrt crt(rom, n);
     CartNeeds need = { true, true, true };
     return run_image(c, &crt, "MOD player", "MOD Player Cartridge", &need, true, msg, msglen);
 }

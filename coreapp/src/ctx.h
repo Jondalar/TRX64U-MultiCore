@@ -90,6 +90,8 @@ struct CoreCtx {
     int (*install_files)(CoreCtx *c);
     // T104.3: the operation `app.open` asks the application host (apphost.h) to open an application; null: this build has none. The answer is the operation's.
     int (*app_open)(CoreCtx *c, const char *app, const char *action, const char *file, char *msg, int msglen);
+    // T228 R21: the action an application adds to one file when its actions are listed ("Run with App", FW user_file_interaction.cc:55-76), null: none. The application sets it.
+    const FileAction *(*file_app_action)(CoreCtx *c, const char *name, uint64_t size, bool dir);
     // T180 D4: the picture while a write-back runs ("Saving media..."); the application sets it, null: nothing to show (the media code calls it
     // through MediaSaving, engines.h; saving_depth makes nested write-backs one display).
     void (*saving)(CoreCtx *c, bool on);

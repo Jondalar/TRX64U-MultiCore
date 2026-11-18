@@ -102,9 +102,10 @@ public:
     int contributors(Contributor *out, int max) const;
     // T228 DC1: under the MultiCore host the applications that need PRG_APP_NEED are not offered. Set before scan().
     void set_multicore(bool mc) { multicore_ = mc; }
-    // T228 R21 #14: scan() lists <flash>/apps/*.prg and offers each as "Run with App" for the files of its extension. Set before scan(), and only when the core registered PRG_APP_OP.
+    // T228 R21 #14: "Run with App" is offered for a file when <flash>/apps/<its extension>.prg exists (prg_action). Set before scan(), and only when the core registered PRG_APP_OP.
     void set_prg_apps(bool on) { prg_on_ = on; }
-    int nprg() const { return nprg_; }
+    // The action "Run with App" for a file as it is listed, null when there is none (see appindex.cc). The object is reused by the next call.
+    const FileAction *prg_action(CoreFs *fs, const char *name, uint64_t size, bool dir);
 
 private:
     bool read_file(CoreFs *fs, const char *path, AppEntry &a, LibLog *log, LibFile *lib = 0);
@@ -119,13 +120,7 @@ private:
     bool has_extra_;
     bool multicore_ = false;
     bool prg_on_ = false;
-    void scan_prg(CoreFs *fs, FsEntry *e);
-    int nprg_ = 0;
-    char prg_ext_[PRG_APPS_MAX][8];
-    const char *prg_extp_[PRG_APPS_MAX];
-    OpBind prg_bind_[1];
-    LibFileActionDecl prg_fa_[PRG_APPS_MAX];
-    LibRecord prg_rec_;
+    char prg_dir_[40] = "";
 };
 
 // A LibSource over a CoreFile (the file stays open as long as the source is used).

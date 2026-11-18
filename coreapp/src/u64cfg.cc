@@ -783,6 +783,7 @@ static int16_t g_cix[2][CK_N][5];
 static int g_clast[2][5];
 static bool g_chave[2];
 static char g_armver[2][12];
+static bool g_flash_save;                                         // a change the person made: the ARMSID's own flash takes it, not only its RAM
 
 static int ck_of_type(int t)
 {
@@ -873,6 +874,16 @@ static void ck_put(CoreCtx *c, int s)
         b[30] = 'E';
         io->delay_ms(10);
         b[29] = 0;
+        if (g_flash_save) {                                        // ArmSidConfig::write (:192): S_config_mode, S_save_flash. Every setting is saved at once here (D9-D11), as FW's save of the config
+            b[29] = 'S'; PEEK2();
+            b[30] = 'I'; PEEK2();
+            b[31] = 'D';
+            io->delay_ms(10);
+            b[31] = 0xCF; PEEK2();                                 // S_save_flash
+            b[30] = 'E';
+            io->delay_ms(10);
+            b[29] = 0;
+        }
         break;
     }
     case CK_PD:                                                    // SetSidType, sid_device_pdsid.cc:39
@@ -953,6 +964,21 @@ static void ck_read(CoreCtx *c, int s)
     }
 }
 
+// FW SidDeviceArmSid::at_open_config (:177): the page opens, the chip's own settings are read again (and PDsid, SidKick the same, :89, :146)
+static int ck_open(CoreCtx *c, int s)
+{
+    if (!c->settings || g_ckind[s] < 0 || g_ckind[s] == CK_SWIN) {
+        return OPE_OK;
+    }
+    if (!sock_run(c, s, ck_read)) {
+        return OPE_FAILED;
+    }
+    ck_snapshot(c, s);
+    return OPE_OK;
+}
+static int fx_arm_read1(CoreCtx *c, const OpArgs &, OpOut &) { return ck_open(c, 0); }
+static int fx_arm_read2(CoreCtx *c, const OpArgs &, OpOut &) { return ck_open(c, 1); }
+
 // the device of a probe that found this type: SwinSID effectuates its stored settings, the others take what the chip is in
 static void ck_init(CoreCtx *c, int s, int type)
 {
@@ -985,7 +1011,10 @@ static int fx_chip(CoreCtx *c, const OpArgs &, OpOut &)
         if (same) {
             continue;
         }
-        if (sock_run(c, s, ck_put)) {
+        g_flash_save = true;
+        const bool ok = sock_run(c, s, ck_put);
+        g_flash_save = false;
+        if (ok) {
             ck_snapshot(c, s);
         } else {
             rc = OPE_FAILED;
@@ -1657,6 +1686,8 @@ void u64cfg_register(OpRegistry &r)
     r.add_op("u64.fx_sid", value_arg, 1, fx_sid);
     r.add_op("u64.fx_fsid", value_arg, 1, fx_fsid);
     r.add_op("u64.fx_chip", value_arg, 1, fx_chip);
+    r.add_op("u64.arm_read1", 0, 0, fx_arm_read1);
+    r.add_op("u64.arm_read2", 0, 0, fx_arm_read2);
     r.add_op("u64.fx_fsid_q10", value_arg, 1, fx_fsid_q10);
     r.add_op("u64.fx_fsid_q11", value_arg, 1, fx_fsid_q11);
     r.add_op("u64.fx_fsid_q20", value_arg, 1, fx_fsid_q20);

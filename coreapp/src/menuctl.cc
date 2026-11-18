@@ -109,6 +109,12 @@ static bool setting_off(const CoreCtx *c, int idx)
     return s.show_state && !cond_holds(s.show_state, node_state_text, const_cast<CoreCtx *>(c));
 }
 
+static bool task_off(const CoreCtx *c, int idx)
+{
+    const Task &t = c->desc->tasks[idx];
+    return t.show_state && !cond_holds(t.show_state, node_state_text, const_cast<CoreCtx *>(c));
+}
+
 static bool page_cond(void *user, const char *cond)
 {
     return cond_holds(cond, node_state_text, user);
@@ -132,6 +138,10 @@ void MenuCtl::build_tree()
                     menu_drop_entry(&tree_, a, b, i);
                     continue;
                 }
+                if (e.kind == EK_TASK && task_off(c_, e.index)) {                 // T228 R21: a task whose show_state does not hold is not listed
+                    menu_drop_entry(&tree_, a, b, i);
+                    continue;
+                }
                 if (tb.layout || e.kind != EK_NODE || !ui_attr(tree_.nodes[e.index].attr, "hide", spec, sizeof(spec))) {
                     continue;
                 }
@@ -151,6 +161,11 @@ uint32_t MenuCtl::show_sig() const
     for (int i = 0; i < c_->desc->nsettings; i++) {
         if (c_->desc->settings[i].show_state) {
             h = (h ^ (setting_off(c_, i) ? 1u : 2u)) * 16777619u;
+        }
+    }
+    for (int i = 0; i < c_->desc->ntasks; i++) {
+        if (c_->desc->tasks[i].show_state) {
+            h = (h ^ (task_off(c_, i) ? 3u : 4u)) * 16777619u;
         }
     }
     for (int i = 0; i < tree_.nnodes; i++) {                           // T228 R21: a node's `hide` in a flat list is read when the tree is made: a change of the state makes it again
@@ -354,6 +369,17 @@ void MenuCtl::go(int area, int tab)
         if (const char *eop = menu_layout_enter(ln)) {              // a screen of the core that starts something when it is shown (the monitor's session)
             OpResult er;
             ops_call(c_, eop, 0, 0, &er);
+        }
+    }
+    if (moved && cur().page) {                                      // T228 R21: a page that is opened reads what its device holds (FW at_open_config): a node with ui `open = <op>` runs it
+        const MenuTab &pg = cur();
+        for (int i = 0; i < pg.count; i++) {
+            const MenuEntry &pe = tree_.e[pg.first + i];
+            char oop[64];
+            if (pe.kind == EK_NODE && tree_.nodes[pe.index].attr && ui_attr(tree_.nodes[pe.index].attr, "open", oop, sizeof(oop)) && oop[0]) {
+                OpResult pr;
+                ops_call(c_, oop, 0, 0, &pr);
+            }
         }
     }
     if (is_browser()) {
@@ -2748,6 +2774,11 @@ MenuCtl::Result MenuCtl::activate(bool primary, bool all)
                     chooser_buf_[n++] = uni[k];
                 }
             }
+            if (c_->file_app_action && n < 30) {                       // T228 R21: an application's action for this file, looked up now (FW: after Rename and Delete)
+                if (const FileAction *pa = c_->file_app_action(c_, f.name, f.size, f.dir)) {
+                    chooser_buf_[n++] = *pa;
+                }
+            }
         }
         chooser_ = true;
         folder_sheet_ = false;
@@ -3740,6 +3771,7 @@ void MenuCtl::item(int i, Item *it)
         snprintf(it->sub, sizeof(it->sub), "%s", t.ask ? t.ask : "");
         snprintf(it->chip, sizeof(it->chip), "%s", t.ask ? (t.pick_dir ? "folder" : "name") : "");
         it->tone = 0;
+        it->hidden = task_off(c_, e.index);
         break;
     }
     case EK_HEADING:                                                  // T187 S1: a heading names a block; it takes no focus
@@ -4050,9 +4082,36 @@ MenuCtl::Result MenuCtl::apply_run(const MenuIntent &in)
     return R_NONE;
 }
 
+// FW UserInterface::keymapper (userinterface.cc:1081-1093): with the navigation style WASD Cursors a letter that no text takes - the list, the sheet - is folded to lower
+// case and w, a, s, d are Up, Left, Down, Right. The style is the core's setting "Navigation Style" (0 Quick Search, 1 WASD Cursors); a core without it has the first.
+int MenuCtl::nav_fold(int k) const
+{
+    if (k <= 0x20 || k >= 0x7F || fm_.seek_on || !c_->settings) {
+        return k;
+    }
+    int i = c_->settings->find("Navigation Style");
+    if (i < 0 || c_->settings->value(i) != 1) {
+        return k;
+    }
+    const MenuIntent in = resolve(k);
+    if (in.id != MI_CHAR && in.id != MI_SHEET_LETTER) {
+        return k;
+    }
+    if (k >= 'A' && k <= 'Z') {
+        return k | 0x20;
+    }
+    switch (k) {
+    case 'w': return KEY_UP;
+    case 'a': return KEY_LEFT;
+    case 's': return KEY_DOWN;
+    case 'd': return KEY_RIGHT;
+    }
+    return k;
+}
+
 MenuCtl::Result MenuCtl::key(int k)
 {
-    return apply(resolve(k));
+    return apply(resolve(nav_fold(k)));
 }
 
 // An intent by its name in the table ("return", "back", "area" 5, "tab" 2, "move" -1): the key the table gives it, resolved where the screen stands now - so "return" while a question is
@@ -4293,7 +4352,12 @@ MenuCtl::Result MenuCtl::run_intent(const MenuIntent &in, bool *took)
             return R_REDRAW;
         }
         if (k > 0x20 && k < 0x7F && !chooser_) {
-            return hotkey(k);
+            Result hr = hotkey(k);
+            if (hr == R_NONE && is_browser() && fm_.image_ft < 0 && !search_tab()) {   // FW's quick search: a letter nothing else holds starts the seek with it
+                fm_.seek_key(k);                                       // the letters of one seek follow each other within 1.5 s, as FW's
+                return R_REDRAW;
+            }
+            return hr;
         }
         return R_NONE;
     case MI_SHEET_LETTER: {                                  // a letter of the sheet runs its item

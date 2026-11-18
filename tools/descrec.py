@@ -407,7 +407,7 @@ class _Strings:
         return self.idx[s]
 
 
-UI_NODE_KEYS = {"primary": bool, "link": bool, "goto": str, "sub": str, "chip": str, "tone": str, "off": str, "why": str, "confirm": str, "label": str, "hide": str, "ask": str, "ask_state": str, "job": bool, "pick": str, "rename": bool, "view": str, "key": str, "none": str, "nokey": bool, "empty": str, "bkey": str, "ctrl": str, "legend": str}
+UI_NODE_KEYS = {"primary": bool, "link": bool, "goto": str, "sub": str, "chip": str, "tone": str, "off": str, "why": str, "confirm": str, "label": str, "hide": str, "ask": str, "ask_state": str, "job": bool, "pick": str, "rename": bool, "view": str, "key": str, "none": str, "nokey": bool, "empty": str, "bkey": str, "ctrl": str, "legend": str, "open": str}
 UI_TONES = ("muted", "cyan", "violet", "amber", "coral")
 LAYOUTS = ("home", "desk", "split", "settings", "status", "library", "timeline", "terminal", "app", "grid")
 UI_TAB_KEYS = {"title": str, "crumb": str, "side": str, "chip": str, "sheet": str, "sheetx": str, "nodes_first": bool, "sections": bool, "pages": str, "pages_head": str, "left": str, "label": str, "frame": str, "bar": str, "hint": str, "marks": str, "pos": str, "info": str, "glyph": str, "track": str,
@@ -749,7 +749,7 @@ def compile_desc(doc, merged=()):
 
     hotkeys = []
     for tk in _opt(doc, "task", list, "description", []):
-        _only(tk, {"group", "label", "op", "bind", "closes_menu", "ask", "ask_state", "pick_dir", "pick_label", "hotkey"}, "task")
+        _only(tk, {"group", "label", "op", "bind", "closes_menu", "ask", "ask_state", "pick_dir", "pick_label", "hotkey", "show_state"}, "task")
         label = _need(tk, "label", str, "task")
         what = "task " + label
         fb, nb = bind_list(_opt(tk, "bind", list, what, []), what)
@@ -766,11 +766,17 @@ def compile_desc(doc, merged=()):
         if hk:
             hotkeys.append(label)
         flags = (1 if _opt(tk, "closes_menu", bool, what, False) else 0) | (2 if _opt(tk, "pick_dir", bool, what, False) else 0) | (ord(hk) << 8 if hk else 0)   # bits 15:8 the hotkey
+        show = _opt(tk, "show_state", str, what, None)                   # the row is listed only while this condition holds (contrib.h cond_holds); bits 31:16 the text's offset + 1, as a file action's
+        if show:
+            so = st.add(show) + 1
+            if so >= 0x10000:
+                raise DescError("%s: show_state lies beyond the first 64 KB of the strings" % what)
+            flags |= so << 16
         t["task"].append((st.add(label), st.add(_need(tk, "op", str, what)), fb, nb, flags, st.add(ask), st.add(text_key(tk, "ask_state", what)),
                           st.add(text_key(tk, "pick_label", what)), st.add(group_name(tk, what))))
     if len(hotkeys) > HOTKEY_TASKS:
         raise DescError("tasks: %d declare a hotkey (%s); the application takes %d (coreapp/src/hotkeys.h HK_TASKS_MAX)" % (len(hotkeys), ", ".join(hotkeys), HOTKEY_TASKS))
-    hk_keys = [chr(e[4] >> 8) for e in t["task"] if e[4] >> 8]
+    hk_keys = [chr((e[4] >> 8) & 0xFF) for e in t["task"] if (e[4] >> 8) & 0xFF]
     if len(set(hk_keys)) != len(hk_keys):
         raise DescError("tasks: two hotkeys have the same default key (%s)" % ", ".join(hk_keys))
 
@@ -1192,12 +1198,12 @@ def parse_desc(blob):
                                "apply": s(apply)})
     out["task"] = []
     for label, op, fb, nb, fl, ask, ask_state, pick_label, group in tabs["task"]:
-        hk = fl >> 8
-        if not s(label) or not s(op) or fl & ~0xFF03 or fb + nb > len(out["bind"]) or (s(ask) is None and (ask_state != NONE or fl & 2 or pick_label != NONE)) or \
+        hk = (fl >> 8) & 0xFF
+        if not s(label) or not s(op) or fl & 0xFFFF & ~0xFF03 or fb + nb > len(out["bind"]) or (s(ask) is None and (ask_state != NONE or fl & 2 or pick_label != NONE)) or \
                 (pick_label != NONE and not fl & 2) or (hk and not (chr(hk).isalnum() and chr(hk).isascii() and chr(hk) == chr(hk).upper())):
             raise DescError("description record: a bad task")
         out["task"].append({"label": s(label), "op": s(op), "bind": out["bind"][fb:fb + nb], "closes_menu": bool(fl & 1), "pick_dir": bool(fl & 2),
-                            "ask": s(ask), "ask_state": s(ask_state), "pick_label": s(pick_label), "group": s(group), "hotkey": chr(hk) if hk else ""})
+                            "ask": s(ask), "ask_state": s(ask_state), "pick_label": s(pick_label), "group": s(group), "hotkey": chr(hk) if hk else "", "show_state": s((fl >> 16) - 1) if fl >> 16 else None})
     out["media"] = []
     for me in tabs["media"]:
         name, state, eject, fb, nb, group = me[:6]
@@ -1347,6 +1353,8 @@ def decoded_to_doc(rec):
                 d["pick_dir"] = True
             if t.get("hotkey"):
                 d["hotkey"] = t["hotkey"]
+            if t.get("show_state"):
+                d["show_state"] = t["show_state"]
             doc["task"].append(d)
     if rec["media"]:
         doc["media"] = []
@@ -1566,6 +1574,8 @@ def check_ops(rec, ops, states):
             if sum(b["kind"] == BIND_KINDS["text"] for b in tk["bind"]) != 1:
                 bad.append('task: "%s" asks for a name but binds it %d times (once)' % (tk["label"], sum(b["kind"] == BIND_KINDS["text"] for b in tk["bind"])))
             state_ok("task", tk["label"], tk["ask_state"])
+        if tk.get("show_state"):
+            state_ok("task", tk["label"], tk["show_state"].split()[0])
     for m in rec["media"]:
         state_ok("media", m["name"], m["state"])
         if m["eject_op"]:
@@ -1594,6 +1604,10 @@ def check_ops(rec, ops, states):
                 state_ok("node", n["label"], ui[k][1:].split("|")[0])
         if n["when_state"]:
             state_ok("node", n["label"], n["when_state"].split()[0])
+        if "open" in ui:                         # the page this row stands on runs it when opened: an operation without arguments
+            a = ops.get(ui["open"])
+            if a is None or a:
+                add('node "%s": ui open "%s" is not an exported operation without arguments' % (n["label"], ui["open"]))
     for a in rec["action"]:
         add(_bind_problem(ops, "file_action", a["label"], a["op"], a["bind"], True, False, False))
     for st_ in rec["setting"]:

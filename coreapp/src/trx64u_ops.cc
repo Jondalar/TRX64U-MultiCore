@@ -15,6 +15,7 @@
 #include "u64.h"
 #include "iomap.h"
 #include "itu.h"
+#include "corefolder.h"
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
@@ -110,7 +111,7 @@ static void fast_reset(CoreCtx *c)
     }
 }
 
-static int reu_load(CoreCtx *c, const char *path, char *msg, int msglen, bool at_start = false);
+static int reu_load(CoreCtx *c, const char *path, char *msg, int msglen, bool at_zero = true);
 static const UciHost *uci_host(void);
 #define TRX_SLOT_CTRL 0x7000                                       // TRX_IO_BASE + 0x7000 = 0x101A7000
 
@@ -165,7 +166,7 @@ static int fx_io(CoreCtx *c, const OpArgs &, OpOut &)
         preloaded = true;
         char m[100];
         const char *img = cfg_text(c, "REU Preload Image");
-        if (img[0] && reu_load(c, img, m, sizeof(m))) {
+        if (img[0] && reu_load(c, img, m, sizeof(m), false)) {
             printf("[reu] preload: %s\n", m);
         } else if (img[0]) {
             printf("[reu] %s\n", m);
@@ -181,7 +182,7 @@ static uint32_t reu_offset(CoreCtx *c)
     return i == 0 ? 0 : (128u * 1024u) << (i - 1);
 }
 
-static int reu_load(CoreCtx *c, const char *path, char *msg, int msglen, bool at_start)
+static int reu_load(CoreCtx *c, const char *path, char *msg, int msglen, bool at_zero)
 {
     uint64_t sz = 0;
     bool dir = false;
@@ -193,7 +194,7 @@ static int reu_load(CoreCtx *c, const char *path, char *msg, int msglen, bool at
         snprintf(msg, msglen, "A cartridge uses the REU's memory: remove it first");
         return 1;
     }
-    uint32_t off = at_start ? 0 : reu_offset(c), room = 0x1000000u - off;     // Play MOD: REU_MEMORY_BASE (FW filetype_reu.cc:125, 135)
+    uint32_t off = at_zero ? 0 : reu_offset(c), room = 0x1000000u - off;     // Load into REU and Play MOD: REU_MEMORY_BASE (FW filetype_reu.cc:125, 135); only the start's preload takes "REU Preload Offset"
     CoreFile *f = c->fs->open(path, false);
     if (!f) {
         snprintf(msg, msglen, "Cannot open %s", path);
@@ -231,15 +232,33 @@ static int op_reu_playmod(CoreCtx *c, const OpArgs &a, OpOut &o)
         snprintf(o.msg, o.msglen, "A cartridge uses the REU's memory: remove it first");
         return OPE_FAILED;
     }
+    static uint8_t player[0x4000];                                               // FW's _module_bin: the 16 KB module player, core data installed from the .cor (<core folder>/modplayer/module.bin)
+    uint32_t pn = 0;
+    char dir[FS_PATH_MAX], pp[FS_PATH_MAX];
+    if (!corefolder_dir(c->cor_path, dir, sizeof(dir))) {
+        snprintf(o.msg, o.msglen, "the MOD player is in the .cor's folder: this start has no .cor");
+        return OPE_FAILED;
+    }
+    snprintf(pp, sizeof(pp), "%s/modplayer/module.bin", dir);
+    if (CoreFile *pf = c->fs->open(pp, false)) {
+        if (pf->size() == sizeof(player) && pf->read(0, player, sizeof(player))) {
+            pn = sizeof(player);
+        }
+        c->fs->close(pf);
+    }
+    if (!pn) {
+        snprintf(o.msg, o.msglen, "cannot read %s (installed from the core's .cor)", pp);
+        return OPE_FAILED;
+    }
     for (int i = 0; i < 64; i++) {
         ioWrite8(SAMPLER_BASE + i, 0);
     }
-    if (reu_load(c, a.s(0), o.msg, o.msglen, true)) {
+    if (reu_load(c, a.s(0), o.msg, o.msglen)) {
         return OPE_FAILED;
     }
     ioWrite8(AUDIO_SEL_BASE + 0x00, 6);                                          // AUDIO_SELECT_LEFT: the sampler's MOD output
     ioWrite8(AUDIO_SEL_BASE + 0x01, 7);                                          // AUDIO_SELECT_RIGHT
-    if (c64_cart_run_modplayer(c, o.msg, o.msglen)) {
+    if (c64_cart_run_modplayer(c, player, pn, o.msg, o.msglen)) {
         return OPE_FAILED;
     }
     snprintf(o.msg, o.msglen, "Playing %s", a.s(0));
@@ -835,6 +854,8 @@ template <int N> static const char *state_mp3(CoreCtx *c)
     default: return 0;
     }
 }
+// FW filetype_reu.cc:41: "Play MOD" is offered only with the sampler in the gateware
+static const char *state_sampler(CoreCtx *) { return (getFpgaCapabilities() & CAPAB_SAMPLER) ? "yes" : 0; }
 template <int N> static const char *state_nomp3(CoreCtx *c) { return mp3_type(c, N) ? 0 : "none"; }
 
 // "Save MP3 Drv A..D": the drive's bytes (a 1571's two sides lie 700 sectors apart) into a file named by the person
@@ -1541,6 +1562,7 @@ void trx64u_register(OpRegistry &r)
     r.add_state("reu.mp3.b", state_mp3<1>);
     r.add_state("reu.mp3.c", state_mp3<2>);
     r.add_state("reu.mp3.d", state_mp3<3>);
+    r.add_state("reu.sampler", state_sampler);
     r.add_state("reu.nomp3.a", state_nomp3<0>);
     r.add_state("reu.nomp3.b", state_nomp3<1>);
     r.add_state("reu.nomp3.c", state_nomp3<2>);
