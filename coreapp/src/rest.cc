@@ -500,6 +500,12 @@ bool rest_start_gate(void)
     return s_start_gate;
 }
 
+static const char *(*s_password_source)(void);
+void rest_set_password_source(const char *(*get)(void))
+{
+    s_password_source = get;
+}
+
 int rest_serve(CoreCtx *c, const HttpReq &q, char *out, int cap, bool *ws)
 {
     *ws = false;
@@ -524,6 +530,12 @@ int rest_serve(CoreCtx *c, const HttpReq &q, char *out, int cap, bool *ws)
             keep -= keep > 16 ? 16 : keep;
         }
         return respond(out, cap, 503, b, p);
+    }
+    if (s_password_source && !(rest_uic && !strcmp(q.path, "/v1/ui/ws"))) {
+        const char *pw = s_password_source();
+        if (pw && pw[0] && strcmp(q.password, pw) != 0) {                // a missing header is an empty string: it never equals a set password
+            return respond_text(out, cap, 401, "The network password is needed: header X-Password");
+        }
     }
     if (rest_uic) {                                                       // T192.1 D-G: the token gate comes before every route (S2)
         const bool is_ws_path = !strcmp(q.path, "/v1/ws") || !strcmp(q.path, "/v1/ui/ws");
