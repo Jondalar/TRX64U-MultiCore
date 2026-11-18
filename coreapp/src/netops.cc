@@ -341,6 +341,9 @@ static const ArgSpec stream_to_args[] = { ARG_INT("id", 0, 2), ARG_STRING("dest"
 static const ArgSpec value_arg[] = { ARG_INT("value", -2000, 2000) };
 
 static const char *st_net_static(CoreCtx *c) { return cfg_value(c, "Use DHCP", 1) ? 0 : "yes"; }
+// T228 R21, FW NetworkConfig::list_unique_id_choices (network_config.cc:60-67): the empty text (no ID is reported) and "Default" (the product's
+// ID, api/routes.cc:218-223); the list ends with "Enter manually" (menuctl)
+static const char *st_unique_ids(CoreCtx *) { return "\tNot set\nDefault\n"; }
 static const char *st_pw_scope(CoreCtx *) { return "FTP, web remote control (X-Password header), Ultimate DMA service (TCP 64: authenticate first)"; }   // what net_password guards in this application; ident only reports that
 
 void netops_register(OpRegistry &r)
@@ -358,6 +361,7 @@ void netops_register(OpRegistry &r)
     r.add_state("wifi.line", st_wifi_line);
     r.add_state("net.static", st_net_static);
     r.add_state("net.pw_scope", st_pw_scope);
+    r.add_state("net.unique_ids", st_unique_ids);
     r.add_op("stream.start", stream_arg, 1, op_stream_start);
     r.add_op("stream.stop", stream_arg, 1, op_stream_stop);
     r.add_op("stream.start_to", stream_to_args, 3, op_stream_start_to);       // the Ultimate DMA service's start commands (dmasvc.cc)

@@ -378,6 +378,28 @@ static int load_rom(CoreCtx *c, const char *key, const char *put_op, uint32_t si
     return 0;
 }
 
+// T228 R21, FW C64::list_kernals / list_basics / list_chars (c64.cc:2353-2440) and C1541::list_roms (c1541.cc): the choices of a ROM row are the
+// files in /flash/roms of that ROM's size (Kernal and Basic 8192 bytes, Char 4096, a 1541 ROM 16384 or 32768), after the built-in one; the list ends
+// with "Enter manually" (menuctl). The rows of the pick list (picklist.h): value TAB label.
+static const char *rom_choices(CoreCtx *c, char *t, int tlen, const char *builtin, uint64_t size, uint64_t size2)
+{
+    static FsEntryShort ent[24];
+    int p = snprintf(t, tlen, "%s\tBuilt-in\n", builtin);
+    int n = c->fs->list_short("/flash/roms", ent, 24);
+    for (int i = 0; i < n; i++) {
+        if (ent[i].dir || ent[i].cut || (ent[i].size != size && ent[i].size != size2) || !strcasecmp(ent[i].name, builtin) ||
+            p + (int)strlen(ent[i].name) + 2 >= tlen) {
+            continue;
+        }
+        p += snprintf(t + p, tlen - p, "%s\n", ent[i].name);
+    }
+    return t;
+}
+static const char *state_roms_kernal(CoreCtx *c) { static char t[24 * 60]; return rom_choices(c, t, sizeof(t), "", C64_KERNAL_BYTES, C64_KERNAL_BYTES); }
+static const char *state_roms_basic(CoreCtx *c)  { static char t[24 * 60]; return rom_choices(c, t, sizeof(t), "", C64_BASIC_BYTES, C64_BASIC_BYTES); }
+static const char *state_roms_char(CoreCtx *c)   { static char t[24 * 60]; return rom_choices(c, t, sizeof(t), "", C64_CHAR_BYTES, C64_CHAR_BYTES); }
+static const char *state_roms_1541(CoreCtx *c)   { static char t[24 * 60]; return rom_choices(c, t, sizeof(t), "1541.rom", 16384, 32768); }   // "1541.rom" is the built-in one (drive.fx_misc)
+
 // the chosen file goes in; an empty choice puts the built-in file back (not at the start: the boot has put it)
 static bool roms_after_reload;
 static int fx_roms(CoreCtx *c, const OpArgs &, OpOut &o)
@@ -1609,6 +1631,10 @@ void trx64u_register(OpRegistry &r)
     r.add_state("c64.port_taken", state_port_taken);
     r.add_state("c64.cartridge", state_cartridge);
     r.add_state("c64.cartridge_path", state_cartridge_path);
+    r.add_state("c64.roms_kernal", state_roms_kernal);
+    r.add_state("c64.roms_basic", state_roms_basic);
+    r.add_state("c64.roms_char", state_roms_char);
+    r.add_state("drive.roms_1541", state_roms_1541);
     r.add_op("machine.pause_toggle", 0, 0, op_pause_toggle);
     r.add_op("machine.clear_reboot", 0, 0, op_clear_reboot);
     r.add_op("machine.save_ram", name_arg, 1, op_save_ram);

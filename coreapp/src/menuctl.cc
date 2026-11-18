@@ -683,7 +683,7 @@ int MenuCtl::rows()
         return 1;
     }
     if (pick_) {
-        return pick_modes_ ? pm_.n : pick_sets_ ? pick_n_ : pick_dyn_ ? (pl_.n ? pl_.n : 1) : 1 + pick_n_;
+        return pick_modes_ ? pm_.n : pick_sets_ ? pick_n_ : pick_dyn_ ? pick_dyn_rows() : 1 + pick_n_;
     }
     if (entry_ && entry_text_mode_) {
         return 1;
@@ -775,6 +775,12 @@ void MenuCtl::row(int i, char *left, int ln, char *right, int rn, bool *active, 
             }
             if (sub && sn) {
                 snprintf(sub, sn, "%s", pr.note ? "Wait, the list fills by itself" : "RETURN takes this one, <- cancels");
+            }
+        } else if (pick_manual()) {                                  // the last row: type the value
+            *active = true;
+            snprintf(left, ln, "Enter manually");
+            if (sub && sn) {
+                snprintf(sub, sn, "RETURN opens the text editor, <- cancels");
             }
         } else {
             *active = false;
@@ -1600,10 +1606,14 @@ void MenuCtl::begin_pick_list(const char *title, const char *src, const char *op
     pick_sel_ = 0;
     if (setting >= 0) {                                              // the cursor starts on the value in force
         int f = picklist_find(pl_, c_->settings->text(setting));
-        if (f < 0 && !c_->settings->text(setting)[0]) {
+        const char *v = c_->settings->text(setting);
+        while (*v == ' ') {
+            v++;
+        }
+        if (f < 0 && !v[0]) {
             f = picklist_find(pl_, "");
         }
-        pick_sel_ = f >= 0 ? f : 0;
+        pick_sel_ = f >= 0 ? f : v[0] ? pl_.n : 0;                 // a value that is in no row was typed: the cursor on "Enter manually"
     }
     for (int k = 0; k < pl_.n && pick_sel_ < pl_.n && pl_.row[pick_sel_].note; k++) {
         pick_sel_ = pick_sel_ + 1 < pl_.n ? pick_sel_ + 1 : 0;
@@ -1867,7 +1877,7 @@ bool MenuCtl::pick_key(int k, Result *out)
         }
     }
     if (pick_dyn_) {
-        const int cnt = pl_.n ? pl_.n : 1;
+        const int cnt = pick_dyn_rows();
         switch (k) {
         case KEY_UP: if (pick_sel_ > 0) pick_sel_--; *out = R_REDRAW; return true;
         case KEY_DOWN: if (pick_sel_ < cnt - 1) pick_sel_++; *out = R_REDRAW; return true;
@@ -1877,6 +1887,13 @@ bool MenuCtl::pick_key(int k, Result *out)
         case KEY_END: pick_sel_ = cnt - 1; *out = R_REDRAW; return true;
         case KEY_RETURN:
         case KEY_SPACE:
+            if (pick_manual() && pick_sel_ == pl_.n) {               // "Enter manually": the text editor of the same setting (FW requestString)
+                const int set = pl_set_;
+                pick_ = pick_dyn_ = false;
+                begin_text_setting(set);
+                *out = R_REDRAW;
+                return true;
+            }
             if (pick_sel_ >= pl_.n || pl_.row[pick_sel_].note) {
                 *out = R_NONE;
                 return true;

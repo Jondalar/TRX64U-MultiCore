@@ -379,6 +379,9 @@ private:
     void begin_pick_list(const char *title, const char *src, const char *op, int phase, int setting);
     bool pick_list_refresh();                                      // reads the rows again; true: they changed
     Result pick_list_take();
+    // T228 R21, FW config_menu.h:118-125: the drop-down of a setting ends with "Enter Manually" (the text editor of the same setting); an operation's list has no such row
+    bool pick_manual() const { return pick_dyn_ && pl_set_ >= 0; }
+    int pick_dyn_rows() const { return pick_manual() ? pl_.n + 1 : (pl_.n ? pl_.n : 1); }
     // T228 R21: the text prompt of an operation (ops_ask_text): RETURN calls the operation again with the text
     bool prompt_ = false, prompt_secret_ = false;
     char prompt_op_[40] = "", prompt_q_[80] = "";
