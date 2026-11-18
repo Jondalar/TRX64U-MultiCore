@@ -122,5 +122,6 @@ below: "Try it. I am sleeping. You have to start the A1200 in the host yourself"
 - Found by the review before the push of 2026-11-18: the benches amiga1200_hdmi_timing and amiga1200_modepath (host/sim/hdmi_timing,
   host/sim/modepath, ci/sims.txt) were put back by the revert of 11-17 and still test T188's first layout (rows 0..2 bent, version 1); the
   redo was proven by `tools/hdmi_modes.py check` and the board. They fail when they run (nightly: reported, not fatal - amiga1200 is
-  experimental). ci/sims.deps now names hdmi_modes_amiga.vh. Open for Alex: redo the bench edits with the roles swapped, or take the
-  two rows out (D9's "no more benches").
+  experimental). ci/sims.deps now names hdmi_modes_amiga.vh. Alex chose the second (2026-11-18, translated: "drop them? is that
+  possible?"): the two rows are out of ci/sims.txt, ci/sims.lane and ci/sims.deps. The bench scripts stay (host_hdmi_timing, host_modepath,
+  c128_hdmi_timing use them); the A1200's copy is checked by `tools/hdmi_modes.py check` in the lint and by the board.
