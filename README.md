@@ -91,3 +91,9 @@ Read the warnings in [manual chapter 1](docs/manual/01-safety-and-applicability.
 - Third-party parts keep their licences. [PROVENANCE.md](PROVENANCE.md) lists the origin and the licence of each
   part.
 - If you hold the rights to a part and see a problem, contact us. We then remove that part.
+
+## 7. More
+
+- Reporting a fault, asking for a function, sending a patch: [CONTRIBUTING.md](CONTRIBUTING.md)
+- C64 Reverse Engineering (C64RE): https://github.com/Jondalar/C64ReverseEngineeringMCP
+- Thanks: [THANKYOU.md](THANKYOU.md)
