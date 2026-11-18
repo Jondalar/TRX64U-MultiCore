@@ -1,7 +1,7 @@
 # T228 — trx64u runs the generic core menu (the structure of the other cores), not its own trx64u menu
 
-**Status:** IN PROGRESS - integration built and tested on branch t228-int (2026-11-18, not merged; §5 "Integration"); open: the gate
-before the merge, S2b (Alex in ue2emu, D6), S3 board, D19. Before that: THE UI FIRST (2026-11-17, Alex); building R1-R10 since Alex's "go, I want to get it all finished" (2026-11-17, translated): the menu's place on trx64u's layer (the scale bits), R8, then the menu. Alex 2026-11-17 on the build loop (translated): "you do not build RISC-V with all tests every time, please ... really" - steps in between are checked in the menu simulator (T236) on the Mac only; the RISC-V build and the tests run once, before the merge; not on the NAS (Alex: "not on the NAS, it takes 3-5 times as long there" ... "only when I ask for it", translated): a build that is needed waits for the builder. trx64u is deactivated in the package, not deleted: `PIPELINE=false` in `release/imports/trx64u.pin` keeps it out of the release and out of the packing (ci/package.sh) until the menu is fixed. Alex (translated): "trx64u is out of the release from now on, and it is no longer built", "I do not want to load the pipeline", then "only deactivate! do not delete .. first we fix the UI, then we build the core again". Why: the S2 result in ue2emu missed the goal - the menu is drawn unscaled in the top-left part of the screen (the step pictures were cropped to 960x540 and hid it), and Home still carries the Ultimate machine commands instead of the generic core menu the other cores have. Branch t228-s2 (1debb69b3) stays unmerged, backed up as refs/backup/t228-s2. Board and docs unchanged (Claude deleted /SD/cores/trx64u.cor unasked and put back the file of package main-13c2cde9 the same hour). Earlier: IN PROGRESS (2026-11-16 night, S2 on branch t228-s2; spec 2026-11-15, Alex).
+**Status:** IN PROGRESS - integration, gate (review + ux-review PASS), gate fixes and D19 done on branch t228-int (2026-11-18, not
+merged; §5 "Integration", "Gate", "Gate fixes and D19"); open: S2b (Alex in ue2emu, D6), S3 board, the REDIP:SID question. Before that: THE UI FIRST (2026-11-17, Alex); building R1-R10 since Alex's "go, I want to get it all finished" (2026-11-17, translated): the menu's place on trx64u's layer (the scale bits), R8, then the menu. Alex 2026-11-17 on the build loop (translated): "you do not build RISC-V with all tests every time, please ... really" - steps in between are checked in the menu simulator (T236) on the Mac only; the RISC-V build and the tests run once, before the merge; not on the NAS (Alex: "not on the NAS, it takes 3-5 times as long there" ... "only when I ask for it", translated): a build that is needed waits for the builder. trx64u is deactivated in the package, not deleted: `PIPELINE=false` in `release/imports/trx64u.pin` keeps it out of the release and out of the packing (ci/package.sh) until the menu is fixed. Alex (translated): "trx64u is out of the release from now on, and it is no longer built", "I do not want to load the pipeline", then "only deactivate! do not delete .. first we fix the UI, then we build the core again". Why: the S2 result in ue2emu missed the goal - the menu is drawn unscaled in the top-left part of the screen (the step pictures were cropped to 960x540 and hid it), and Home still carries the Ultimate machine commands instead of the generic core menu the other cores have. Branch t228-s2 (1debb69b3) stays unmerged, backed up as refs/backup/t228-s2. Board and docs unchanged (Claude deleted /SD/cores/trx64u.cor unasked and put back the file of package main-13c2cde9 the same hour). Earlier: IN PROGRESS (2026-11-16 night, S2 on branch t228-s2; spec 2026-11-15, Alex).
 **Repo:** TRX64U-MultiCore — core app (`coreapp/cores/trx64u/menu.toml`, `coreapp/cores/trx64u*`), the import pin
 `release/imports/trx64u.pin` (DESC/OPS). No gateware (the bitstream stays TRX64-Ultimate's).
 **Number:** T228.
@@ -491,7 +491,7 @@ Base: t228-menu = the S2 steps 1-2 and DC3 above, the click-dummy commit with it
 ### Gate on t228-int (2026-11-18 night, fdd798729)
 Three review lenses (shared code, trx64u against the decisions, code defects), each finding re-read by a skeptic, and the ux-review in
 ue2emu (70 full frames, trx64u beside the A1200).
-- **Confirmed; fixes on the branch in progress (2026-11-18 night):**
+- **Confirmed and fixed on the branch (2026-11-18, e72141140 .. 60e385775; how in "Gate fixes" below):**
   - The F7 headings "Hotkeys" and "Menu" had become one "Menu and keys" for every core (from step 2's "Menu and keys section"); no
     decision covers it, T212 D12/S7 name "Hotkeys". Back to main's headings.
   - Power cycle and Power off (F7 More until now) were gone from trx64u without a decision; the S1 table puts them on F8 System > Actions.
@@ -505,3 +505,29 @@ ue2emu (70 full frames, trx64u beside the A1200).
   Home draws no status line, the pad wizard's foot, the Picture page's chip "Settings > Video", the single-tab strips, wording drifts,
   F3 Online's empty SEARCH pane. Questions for Alex, one at a time: the REDIP:SID heading (pictures question-redip-A-caps /
   -B-brand); a confirm on Reset to host defaults and Restart core; F8 Status rows focusable; Home's Program row while empty.
+
+### Gate fixes and D19 (branch t228-int, 2026-11-18 night, head bde51ad43, not merged)
+- **Fixes:** the F7 headings are Hotkeys and Menu again (e72141140). Power cycle and Power off stand on F8 System > Actions through a
+  generic anchor `<area>/<tab>/actions` the System tab places under its Actions heading (8537d5be7, cc2cc02c6). A task's hotkey never
+  doubles a fixed action's or an earlier task's key; the Hotkeys page then shows none for it (9cd489fe3). The XInput claim follows a pad
+  the record declares, set again right after the bundle is read (b636a03f8); a pad that enumerates before that point is not claimed
+  (S3 checks a pad plugged in at start). The trx64u test helper runs hk_extend_tasks as the board does; a unit asserts CTRL+T and CTRL+O
+  (30f5d3295). The monitor's `diag` goes to F8 (da958e642). A setting with show_state is left out of a flat or sections list while its
+  state does not hold, as the model already did; this also hides the PET's SuperPET rows on the other models (T216 P2) (9985e10c6).
+  The text and hex views carry one foot (11503aeb8). F5 > Audio's merged row is "Volume", key "Vol Master" kept for stored configs
+  (bb3b53b40). The biggest bug report (trx64u's menu, a 256-byte EDID, a 16 KB log) is 23166 of 24576 bytes, nothing cut; the DDC
+  enable moved inside the I2C lock (feb93403e; app/video/videomode.cc is built into the host app too). Goldens by their generators
+  (363a9ce91); d24 ledger tightened (60e385775).
+- **D19** (f78b4269d, bde51ad43): manual 11.1.3, 11.1.10, 11.1.12, 11.1.14, 11.1.16, 11.2.1 to 11.2.4 and 10.7 follow the built
+  menu; the `core-*.png` pictures remade in ue2emu at 1920 x 1080, seven new for trx64u, `core-actions.png` replaced by `core-app.png`.
+  The other cores' per-core task lists point at 11.1.3 (where tasks stand: resets and slot-free tasks on Home, a medium's tasks on its
+  slot page, machine-setting tasks in the F5 tabs - menutree.cc T212 D8); their place was not checked core by core.
+- **Proof** (once): `=== dev.sh riscv: ok`; `=== dev.sh test: ok` (`test hotkeys: PASS`, `test desc: PASS`, `test keywalk: PASS`,
+  `test corereport: PASS`); "tests/hostapp/emu_host: all scenarios passed", "tests/coreapp/emu: all scenarios passed, every control
+  failed as it must"; render "coreapp render: 310473 checks, 0 failed", "MOCK 72 pictures, 0 text overlaps, 0 objects outside or cut",
+  "=== apptests ok (tier integration)"; tests/ui "138 passed, 10 failed, 0 errors" (the same 10 a1200/atari/c128/vc20/nes steps; every
+  trx64u feature passed). ue2emu pictures of every changed screen opened by Claude (scratchpad t228fix/pics).
+- **trx64u.cor for S3** (not on the board): sha256 428333d76155227090d8464ca0681e270b485ee18f442bc1a6add8fcfdea470c (the pin's
+  bitstream; coreapp.bin 555ac58b..., version "0.3.0-dev+363a9ce9", the same bytes as the build of 60e385775 - only the ledger and
+  the manual changed after).
+- **Open:** S2b (Alex in ue2emu, D6), then S3 on the board; the REDIP:SID question.
