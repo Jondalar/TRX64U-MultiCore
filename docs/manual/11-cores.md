@@ -20,7 +20,7 @@ still while the menu is open (the top bar says `FROZEN`).
 | **F7** | App | One page, `Settings`: the headings `Storage` and `Menu` with the generic rows (11.1.10), `Hotkeys` (a row that opens the page of 11.1.14), and, where the core has apps, the heading `Apps` |
 | **F8** | System | One tab with the headings `Actions` (`Restart core`, in a partial core `Reload core`; `Return to host menu`, 11.1.4), `Network` (`WiFi`), `Support` (`Bug report`, `Keys and help`), `Reset` (`Reset to host defaults`) and `Status` (`Build`, `ROMs`, `Libraries`) |
 
-TRX64 (`trx64u.cor`) uses the same five areas with more rows and tabs (11.2.1). A tab is picked with the number keys **1** to **8**, or with the cursor keys and **RETURN**; an area that has one tab shows no tab strip beside its heading. There are no areas F2, F4 and F6. Where a core declares tasks (reset, eject, create a blank disk, map buttons), they stand where they belong: the resets and the tasks of no slot on Home, the tasks of a medium on the page of its slot, and the tasks that are settings of the machine (`Map buttons`, 11.1.12) in the tabs of F5.
+TRX64 (`trx64u.cor`) uses the same five areas with more rows and tabs (11.2.1). A tab is picked with the number keys **1** to **8**, or with the cursor keys and **RETURN**. There are no areas F2, F4 and F6. Where a core declares tasks (reset, eject, create a blank disk, map buttons), they stand where they belong: the resets and the tasks of no slot on Home, the tasks of a medium on the page of its slot, and the tasks that are settings of the machine (`Map buttons`, 11.1.12) in the tabs of F5.
 
 ![Home of the VIC-20 core: the session box with the reset rows, the drive slot, the configs and the button F3 Library](img/core-home-vc20.png)
 
