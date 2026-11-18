@@ -173,6 +173,26 @@ static int op_clear_marks(CoreCtx *, const OpArgs &, OpOut &o)
     return OPE_OK;
 }
 
+static void rom_read(void *ctx, uint32_t off, uint8_t *dst, uint32_t n)
+{
+    c64_cart_image_read((CoreCtx *)ctx, off, dst, n);
+}
+
+// The part of the file's source that does not depend on a cartridge: the System Mode, drive A (type, power, unit, image) and the REU setting.
+static void src_fill(CoreCtx *c, TrxC64reSrc *src)
+{
+    src->machine = cfg_value(c, "System Mode", 0);
+    src->reu = cfg_value(c, "RAM Expansion Unit", 0);
+    src->reu_size = cfg_value(c, "REU Size", 0);
+    CbmDrive *d = (CbmDrive *)c->drive;
+    if (d && d->type() != DT_UNSET) {
+        src->drive_type = d->type() == DT_1581 ? "1581" : (d->type() == DT_1571 ? "1571" : "1541");
+        src->drive_power = d->powered();
+        src->drive_unit = d->bus_id();
+        src->disk_path = d->image_path();
+    }
+}
+
 static int op_dump(CoreCtx *c, const OpArgs &a, OpOut &o)
 {
     char p[260];
@@ -180,22 +200,16 @@ static int op_dump(CoreCtx *c, const OpArgs &a, OpOut &o)
         snprintf(o.msg, o.msglen, "No medium to save to");
         return OPE_FAILED;
     }
-    // T228 R20: what the file says of the machine: the System Mode, the cartridge as it stands (written as a .crt beside the file, read into it and deleted),
-    // the GMod2's EEPROM and the image on drive A
+    // T228 R20/R21: what the file says of the machine, as FW's trx_c64re_dump has it: the System Mode, the cartridge image as it stands in DDR2 (streamed
+    // into the file), the GMod2's EEPROM, the image on drive A and whether drive A is powered (its CPU and VIA state go into the file), the REU setting
     TrxC64reSrc src;
     memset(&src, 0, sizeof(src));
-    src.machine = cfg_value(c, "System Mode", 0);
-    char tmp[272];
-    tmp[0] = 0;
+    src_fill(c, &src);
     static uint8_t eeprom[2048];
     if (c64_cart_active()) {
-        char m[96];
-        snprintf(tmp, sizeof(tmp), "%s.crt.tmp", p);
-        if (c64_cart_save(c, tmp, m, sizeof(m))) {
-            snprintf(o.msg, o.msglen, "The cartridge could not be read: %s", m);
-            return OPE_FAILED;
-        }
-        src.cart_file = tmp;
+        src.rom_bytes = c64_cart_image_bytes();
+        src.rom_read = rom_read;
+        src.rom_ctx = c;
         src.cart_name = c64_cart_name();
         src.cart_src = c64_cart_path();
         src.cart_type = c64_cart_crt_type();
@@ -204,20 +218,10 @@ static int op_dump(CoreCtx *c, const OpArgs &a, OpOut &o)
             src.eeprom = eeprom;
         }
     }
-    CbmDrive *d = (CbmDrive *)c->drive;
-    if (d && d->type() != DT_UNSET) {
-        src.drive_type = d->type() == DT_1581 ? "1581" : (d->type() == DT_1571 ? "1571" : "1541");
-        src.drive_power = d->powered();
-        src.drive_unit = d->bus_id();
-        src.disk_path = d->image_path();
-    }
     trx_c64re_set_source(&src);
     uint32_t bytes = 0;
     const char *why = trx_c64re_dump(p, shown(), &bytes);
     trx_c64re_set_source(NULL);
-    if (tmp[0]) {
-        FileManager::getFileManager()->delete_file(tmp);
-    }
     if (why) {
         snprintf(o.msg, o.msglen, "%s", why);
         return OPE_FAILED;
@@ -246,16 +250,25 @@ static int op_ringdump(CoreCtx *c, const OpArgs &a, OpOut &o)
     return OPE_OK;
 }
 
-static int op_load(CoreCtx *, const OpArgs &a, OpOut &o)
+static int op_load(CoreCtx *c, const OpArgs &a, OpOut &o)
 {
+    TrxC64reSrc src;                                    // drive A's power: the file's drive state goes back only into a powered drive
+    memset(&src, 0, sizeof(src));
+    src_fill(c, &src);
+    trx_c64re_set_source(&src);
     const char *why = trx_c64re_load(a.s(0));
+    trx_c64re_set_source(NULL);
     if (why) {
         snprintf(o.msg, o.msglen, "%s", why);
         return OPE_FAILED;
     }
     g_sel = -1;
     g_nmark = 0;
-    snprintf(o.msg, o.msglen, "State loaded from %s", a.s(0));
+    if (trx_c64re_missed()[0]) {
+        snprintf(o.msg, o.msglen, "State loaded from %s; not put back: %s", a.s(0), trx_c64re_missed());
+    } else {
+        snprintf(o.msg, o.msglen, "State loaded from %s", a.s(0));
+    }
     return OPE_OK;
 }
 

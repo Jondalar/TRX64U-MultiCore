@@ -690,6 +690,20 @@ int c64_cart_save(CoreCtx *c, const char *path, char *msg, int msglen)
     return 0;
 }
 
+// The image as it stands in DDR2: whole banks up to the highest the file has, read piece by piece (the .c64re's cartridge section).
+uint32_t c64_cart_image_bytes(void)
+{
+    uint32_t top = 0;
+    for (int i = 0; i < g_nchip; i++) {
+        top = g_chip[i].bank + 1u > top ? g_chip[i].bank + 1u : top;
+    }
+    return c64_cart_active() ? top * BANK : 0;
+}
+void c64_cart_image_read(CoreCtx *c, uint32_t off, uint8_t *dst, uint32_t n)
+{
+    c->io->ddr_read(g_img_base + off, dst, n);
+}
+
 int c64_cart_remove(CoreCtx *c, char *msg, int msglen)
 {
     CoreIo *io = c->io;
