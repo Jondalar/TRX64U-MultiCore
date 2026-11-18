@@ -81,8 +81,8 @@ file coreapp/cores/tape_deck.cc 138
 file coreapp/cores/tape_deck.h 31
 file coreapp/cores/tape_pulses.cc 485
 file coreapp/cores/tape_pulses.h 24
-file coreapp/cores/trx64u/menu.toml 2119
-file coreapp/cores/trx64u/menu_rec.inc 2229
+file coreapp/cores/trx64u/menu.toml 1706
+file coreapp/cores/trx64u/menu_rec.inc 1625
 file coreapp/cores/vc20.cc 273
 file coreapp/cores/vc20_regs.h 25
 file coreapp/cores/zx.cc 311

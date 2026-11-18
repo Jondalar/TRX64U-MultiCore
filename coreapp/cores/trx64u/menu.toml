@@ -427,14 +427,6 @@ ui = { chip = "Stream", tone = "amber", why = "The audio stream is not running" 
 [[node]]
 anchor = "F8/expert"
 kind = "state"
-state = "diag.board"
-label = "Board"
-order = 50
-ui = { chip = "@diag.board" }
-
-[[node]]
-anchor = "F8/expert"
-kind = "state"
 state = "diag.uptime"
 label = "Uptime"
 order = 51
@@ -899,9 +891,10 @@ menu_opens = ["Home (F1)", "Last screen"]
 off_ask_auto = ["Off", "Ask", "Auto"]
 vols = ["Off", "-42 dB", "-36 dB", "-30 dB", "-27 dB", "-24 dB", "-18 dB", "-17 dB", "-16 dB", "-15 dB", "-14 dB", "-13 dB", "-12 dB", "-11 dB", "-10 dB", "-9 dB", "-8 dB", "-7 dB", "-6 dB", "-5 dB", "-4 dB", "-3 dB", "-2 dB", "-1 dB", "0 dB", "+1 dB", "+2 dB", "+3 dB", "+4 dB", "+5 dB", "+6 dB"]
 pans = ["Left 5", "Left 4", "Left 3", "Left 2", "Left 1", "Center", "Right 1", "Right 2", "Right 3", "Right 4", "Right 5"]
-sysmodes = ["PAL", "NTSC", "PAL-60", "NTSC-50", "PAL-60/L", "NTSC-50/L"]
+sysmodes = ["PAL", "NTSC", "PAL-60", "NTSC-50"]
 scanres = ["SD (480p/576p)", "HD (720p)", "FullHD (1080p)", "PC 800 x 600", "PC 1024 x 768", "PC 1280 x 1024"]
 sidbase = ["Unmapped", "$D400", "$D420", "$D440", "$D460", "$D480", "$D4A0", "$D4C0", "$D4E0", "$D500", "$D520", "$D540", "$D560", "$D580", "$D5A0", "$D5C0", "$D5E0", "$D600", "$D620", "$D640", "$D660", "$D680", "$D6A0", "$D6C0", "$D6E0", "$D700", "$D720", "$D740", "$D760", "$D780", "$D7A0", "$D7C0", "$D7E0", "$DE00", "$DE20", "$DE40", "$DE60", "$DE80", "$DEA0", "$DEC0", "$DEE0", "$DF00", "$DF20", "$DF40", "$DF60", "$DF80", "$DFA0", "$DFC0", "$DFE0"]
+sidbase_u = ["Unmapped", "$D400", "$D420", "$D440", "$D460", "$D480", "$D4A0", "$D4C0", "$D4E0", "$D500", "$D520", "$D540", "$D560", "$D580", "$D5A0", "$D5C0", "$D5E0", "$D600", "$D620", "$D640", "$D660", "$D680", "$D6A0", "$D6C0", "$D6E0", "$D700", "$D720", "$D740", "$D760", "$D780", "$D7A0", "$D7C0", "$D7E0"]
 stereo = ["Off", "A5", "A6", "A7", "A8", "A9"]
 split = ["Off", "1/2 (A5)", "1/2 (A6)", "1/2 (A7)", "1/2 (A8)", "1/4 (A5,A6)", "1/4 (A5,A8)", "1/4 (A7,A8)"]
 sidtypes = ["None", "6581", "8580", "FPGASID", "SwinSID Ultimate", "ARMSID", "ARM2SID", "SidFx", "FPGASID Dukestah", "PDsid", "SIDKick (Teensy)", "SIDKick Pico"]
@@ -909,7 +902,6 @@ onoff = ["Off", "On"]
 splash = ["Off", "On"]
 caps = ["470 pF", "22 nF"]
 waves = ["6581", "8580"]
-joyswaps = ["Normal", "Swapped", "WASD Port 2", "WASD Port 1", "WASD P2 No KB", "WASD P1 No KB"]
 iecmodes = ["All Connected", "C64 <-> Internal", "Ext. <-> Int.", "C64 <-> External"]
 burst = ["Off", "CIA1", "CIA2"]
 turbo = ["Off", "Manual", "U64 Turbo Registers", "TurboEnable Bit"]
@@ -919,11 +911,11 @@ ledsel = ["On", "Off", "Drive A Pwr", "DrvAPwr + DrvBPwr", "Drive A Act", "DrvAA
 alpha = ["0 %", "25 %", "50 %", "75 %"]
 schemes = ["Standard Blue", "Ultimate Black", "C128 Style", "Commodore Blue", "Commodore 1", "Commodore 2", "Commodore 3"]
 cartmodes = ["Auto", "Internal", "External", "Manual"]
-sharing = ["Internal", "External", "Both"]
+sharing = ["Internal", "External"]
 gameexrom = ["On", "Off"]
-geo = ["Disabled", "Enabled", "GeoRAM Mode"]
+geo = ["Disabled", "Enabled"]
 reusize = ["128 KB", "256 KB", "512 KB", "1 MB", "2 MB", "4 MB", "8 MB", "16 MB"]
-reuoffs = ["0 KB", "128 KB", "256 KB", "512 KB", "1 MB", "2 MB", "4 MB", "8 MB", "16 MB"]
+reuoffs = ["0 KB", "128 KB", "256 KB", "512 KB", "1 MB", "2 MB", "4 MB", "8 MB"]
 
 [[core_setting]]
 group = "TRX64"
@@ -1220,7 +1212,7 @@ apply = "u64.fx_sid"
 group = "Emulated_SIDs"
 key = "UltiSID 1 Address"
 label = "reDIP:SID 1 address"
-list = "sidbase"
+list = "sidbase_u"
 default = 1
 when = "live"
 apply = "u64.fx_sid"
@@ -1229,7 +1221,7 @@ apply = "u64.fx_sid"
 group = "Emulated_SIDs"
 key = "UltiSID 2 Address"
 label = "reDIP:SID 2 address"
-list = "sidbase"
+list = "sidbase_u"
 default = 1
 when = "live"
 apply = "u64.fx_sid"
@@ -1270,18 +1262,9 @@ default = 0
 when = "live"
 apply = "u64.fx_sid"
 
-[[core_setting]]
-group = "input"
-key = "Joystick Input"
-label = "Joystick input"
-list = "joyswaps"
-default = 0
-when = "live"
-apply = "u64.fx_misc"
-
 # T228 R10 (Alex 2026-11-17): a USB pad or controller as a joystick in port 1 or 2, through the generic pad service (coreapp/src/pad.h) as the Amiga's port 2
 # (T225): one port, fed by the first pad plugged, its button map kept per pad (VID:PID) in the .cfg. The pad's lines are the host's own (C64_JOY1/2_SWOUT),
-# OR-ed with the physical ports, so the joysticks and WASD (Joystick input) keep working. [pad] and [poll] declare it; the task opens the dialog
+# OR-ed with the physical ports, so the joysticks keep working. R20: no "Joystick input" row and no J hotkey - the bitstream has only the normal port mapping (no swap, no WASD). [pad] and [poll] declare it; the task opens the dialog
 # (a task of a settings tab stands after its settings: this setting is the group's last, so that the two rows stay together).
 [[core_setting]]
 group = "input"
@@ -1504,36 +1487,40 @@ group = "Cartridge"
 key = "Bus Sharing - ROMs"
 label = "Bus sharing - ROMs"
 list = "sharing"
-default = 2
+default = 0
 when = "live"
 apply = "c64.fx_io"
+show_state = "set.Cartridge_Preference==Manual"
 
 [[core_setting]]
 group = "Cartridge"
 key = "Bus Sharing - I/O1"
 label = "Bus sharing - I/O1"
 list = "sharing"
-default = 2
+default = 0
 when = "live"
 apply = "c64.fx_io"
+show_state = "set.Cartridge_Preference==Manual"
 
 [[core_setting]]
 group = "Cartridge"
 key = "Bus Sharing - I/O2"
 label = "Bus sharing - I/O2"
 list = "sharing"
-default = 2
+default = 0
 when = "live"
 apply = "c64.fx_io"
+show_state = "set.Cartridge_Preference==Manual"
 
 [[core_setting]]
 group = "Cartridge"
 key = "Bus Sharing - Interrupts"
 label = "Bus sharing - interrupts"
 list = "sharing"
-default = 2
+default = 0
 when = "live"
 apply = "c64.fx_io"
+show_state = "set.Cartridge_Preference==Manual"
 
 [[core_setting]]
 group = "hidden"
