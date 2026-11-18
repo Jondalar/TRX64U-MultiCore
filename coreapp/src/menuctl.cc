@@ -4123,13 +4123,7 @@ int MenuCtl::nav_fold(int k) const
     if (k >= 'A' && k <= 'Z') {
         return k | 0x20;
     }
-    switch (k) {
-    case 'w': return KEY_UP;
-    case 'a': return KEY_LEFT;
-    case 's': return KEY_DOWN;
-    case 'd': return KEY_RIGHT;
-    }
-    return k;
+    return menu_keymap_wasd(k);                                     // the keys are the table's (T192.3 S6)
 }
 
 MenuCtl::Result MenuCtl::key(int k)
