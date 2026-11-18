@@ -32,11 +32,22 @@ struct TrxC64reSrc {
     const char *drive_type;
     int reu;
     int reu_size;
+    // for a load: put a piece of the cartridge image into DDR2; make the cartridge in the port the one the state names (the .crt at that path) WITHOUT a
+    // reset, or an empty port for NULL (0: done); put the GMod2's 2 KB EEPROM back. All get rom_ctx.
+    void (*rom_write)(void *ctx, uint32_t off, const uint8_t *src, uint32_t n);
+    int (*cart_for_state)(void *ctx, const char *crt_path);
+    void (*eeprom_put)(void *ctx, const uint8_t *data);
 };
 void trx_c64re_set_source(const TrxC64reSrc *src);
 
 // Writes timeline entry idx as a .c64re. NULL, or what went wrong.
 const char *trx_c64re_dump(const char *path, int idx, uint32_t *bytes);
+// The same, calling progress(done, total, ctx) once before the first section (done 0) and after every piece written.
+typedef void (*trx_progress_fn)(int done, int total, void *ctx);
+const char *trx_c64re_dump_ex(const char *path, int idx, uint32_t *bytes, trx_progress_fn progress, void *ctx);
+
+// The machine as it stands, with no frame ring: RAM, VIC registers, colour RAM and the media in the machine, format 1 (FW apps/c64re "Save .C64RE Dump").
+const char *trx_c64re_dump_machine(const char *path, uint32_t *bytes);
 
 // Writes the newest "seconds" of the ring, one entry in every "stride"
 // frames (oldest first, the newest entry is the cursor), as a .c64rering.
@@ -44,7 +55,6 @@ const char *trx_c64rering_dump(const char *path, int seconds, int stride, uint32
 
 // The same, calling progress(done, total, ctx) once the memories are read
 // (done 0) and after every entry written.
-typedef void (*trx_progress_fn)(int done, int total, void *ctx);
 const char *trx_c64rering_dump_ex(const char *path, int seconds, int stride, uint32_t *bytes, int *entries,
                                   trx_progress_fn progress, void *ctx);
 
@@ -57,12 +67,14 @@ const char *trx_c64re_missed(void);
 #else
 
 struct TrxC64reSrc;
+typedef void (*trx_progress_fn)(int done, int total, void *ctx);
 static inline void trx_c64re_set_source(const TrxC64reSrc *) { }
 static inline const char *trx_c64re_dump(const char *, int, uint32_t *) { return "No frame ring"; }
 static inline const char *trx_c64rering_dump(const char *, int, int, uint32_t *, int *) { return "No frame ring"; }
 static inline const char *trx_c64re_load(const char *) { return "No frame ring"; }
 static inline const char *trx_c64re_missed(void) { return ""; }
-typedef void (*trx_progress_fn)(int done, int total, void *ctx);
+static inline const char *trx_c64re_dump_machine(const char *, uint32_t *) { return "No frame ring"; }
+static inline const char *trx_c64re_dump_ex(const char *, int, uint32_t *, trx_progress_fn, void *) { return "No frame ring"; }
 static inline const char *trx_c64rering_dump_ex(const char *, int, int, uint32_t *, int *, trx_progress_fn, void *)
 { return "No frame ring"; }
 

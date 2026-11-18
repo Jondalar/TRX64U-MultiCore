@@ -512,6 +512,15 @@ bind = [ { arg = "screen", str = "F1/monitor" }, { arg = "unless", str = "" } ]
 hotkey = "O"
 
 
+# R21 #13 (FW apps/c64re/manifest.json, category "C64 Machine"): the machine as it stands as a .c64re, no ring needed
+[[task]]
+group = "top"
+label = "Save .C64RE Dump"
+op = "machine.save_c64re"
+bind = [ { arg = "name", text = true } ]
+ask = "Save the .C64RE dump as (name)"
+ask_state = "machine.suggest.c64re"
+
 # R1: the Timewarp page - its keys are the layout's (coreapp/src/menukeytab.cc, KS_TIMELINE); this node is what RETURN does, and the page needs an entry
 [[node]]
 anchor = "F1/timewarp/bar"
@@ -852,10 +861,21 @@ ext = ".64c"
   bind = [ { arg = "path", file = true }, { arg = "which", int = 0 } ]
   size_in = [8192]
 
+# R21 #11 (FW filetypes/filetype_c64re.cc:75-78): "Load State" on a .c64re and a .c64rering. The FW's "Load Ring" on a .trxring needs the ring's own file (T20 §10.2),
+# which this app does not write or read yet: no row for it.
 [[filetype]]
 ext = ".c64re"
   [[filetype.action]]
-  label = "Load Timewarp state"
+  label = "Load State"
+  key = "L"
+  op = "tw.load"
+  bind = [ { arg = "path", file = true } ]
+  closes_menu = true
+
+[[filetype]]
+ext = ".c64rering"
+  [[filetype.action]]
+  label = "Load State"
   key = "L"
   op = "tw.load"
   bind = [ { arg = "path", file = true } ]

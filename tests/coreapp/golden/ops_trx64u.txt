@@ -121,11 +121,13 @@ op	tw.live
 op	tw.oldest
 op	tw.resume
 op	tw.cancel
+op	tw.monitor
 op	tw.mark
 op	tw.next_mark	value:int:-100000:100000:0:
 op	tw.clear_marks
 op	tw.dump	name:string:0:0:55:
 op	tw.ringdump	name:string:0:0:55:
+op	machine.save_c64re	name:string:0:0:55:
 op	tw.load	path:path:0:0:519:
 op	ring.start
 op	ring.stop
@@ -220,6 +222,7 @@ state	u64.sid_map0
 state	u64.sid_map1
 state	u64.sid_map2
 state	u64.sid_map3
+state	machine.suggest.c64re
 state	ring.reu_off
 state	tw.chip
 state	tw.ring

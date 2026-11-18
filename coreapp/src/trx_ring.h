@@ -205,7 +205,23 @@ bool trx_ring_reachable(int index);
 // Loads a machine state that is not in the ring (a .c64re with our chip
 // block): RAM, colour RAM and the block put in as a restore puts a ring entry,
 // then the ring restarts. ram as above.
-int  trx_ring_load_state(const uint8_t *ram, const uint8_t *color, const uint32_t *w, uint16_t x);
+// The memories a loaded state brings with it (FW io/c64/trx_ring.h TrxLoadMem): ram and col always; the cartridge RAM only when the file carries it, and the
+// cartridge image through rom_put, called while the machine stands (it writes the image piece by piece: a cartridge is megabytes). All go into DDR2 before
+// the machine is let go.
+struct TrxLoadMem {
+    const uint8_t *ram;      // 65536 (C64 RAM, $D800-$DBFF the RAM under the I/O)
+    const uint8_t *col;      // 1024, low nibbles
+    const uint8_t *cart;     // 65536 of cartridge RAM, or NULL
+    void (*rom_put)(void *ctx);   // puts the cartridge image into DDR2, or NULL
+    void *rom_ctx;
+};
+// The cartridge types a .c64re can carry back whole (FW trx_ring.cc c_cart_rows: banking registers replayed, state only in the ROM window, the cartridge RAM
+// and the EEPROM): true when type (C64_CARTRIDGE_TYPE) is on the list, name its row; the types that keep a 93C86. The writer refuses by the same list.
+bool trx_ring_cart_state_ok(uint8_t type, const char **name);
+bool trx_ring_cart_has_eeprom(uint8_t type);
+// The turbo state a loaded file carries (the packed word of block_section), put in with the next load_state.
+void trx_ring_set_turbo(uint32_t pack);
+int  trx_ring_load_state(const TrxLoadMem *mem, const uint32_t *w, uint16_t x);
 
 #else
 

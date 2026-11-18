@@ -82,6 +82,7 @@ static const KeyRow g_rows[] = {
     ROW(KS_TIMELINE, K(KEY_PAGEDOWN), MI_OP, 10, "tw.seconds", KF_ARG | KF_STATUS, 0),
     ROW(KS_TIMELINE, K(KEY_F7), MI_OP, 10, "tw.seconds", KF_ARG | KF_STATUS, 0),
     ROW(KS_TIMELINE, K(KEY_HOME), MI_OP, 0, "tw.oldest", KF_STATUS, 0),
+    ROW(KS_TIMELINE, K(KEY_CTRL_O), MI_OP, 0, "tw.monitor", KF_DIRECTIVE, 0),
     ROW(KS_TIMELINE, K(KEY_BREAK), MI_OP, 0, "tw.cancel", KF_CLOSE, 0),
     ROW(KS_TIMELINE, K(KEY_ESCAPE), MI_OP, 0, "tw.cancel", KF_CLOSE, 0),
     ROW(KS_TIMELINE, K(KEY_RETURN), MI_OP, 0, "tw.resume", KF_STATUS_OK | KF_CLOSE, 0),

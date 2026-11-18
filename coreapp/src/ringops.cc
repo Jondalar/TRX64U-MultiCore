@@ -106,6 +106,24 @@ static int op_resume(CoreCtx *, const OpArgs &, OpOut &o)
     return OPE_OK;
 }
 
+// C= O on the Timewarp bar: into the monitor, on the frame shown (FW io/c64/trx_timewarp_ui.cc:284-289, 341-344): the monitor puts the machine on that entry itself
+// (trx_ring_land) and holds it there; no rewind is made pending, so the timeline is not cut. The menu goes on to the monitor's screen (menu.screen's "goto").
+static int op_monitor(CoreCtx *, const OpArgs &, OpOut &o)
+{
+    if (trx_ring_count() <= 0) {
+        snprintf(o.msg, o.msglen, "The ring holds no frame yet");
+        return OPE_FAILED;
+    }
+    int err = trx_ring_land(shown(), NULL);
+    if (err) {
+        snprintf(o.msg, o.msglen, "%s", trx_ring_error(err));
+        return OPE_FAILED;
+    }
+    g_sel = -1;
+    snprintf(o.msg, o.msglen, "goto F1/monitor");
+    return OPE_OK;
+}
+
 static int op_start(CoreCtx *, const OpArgs &, OpOut &o)
 {
     if (!trx_ring_start()) {
@@ -178,6 +196,27 @@ static void rom_read(void *ctx, uint32_t off, uint8_t *dst, uint32_t n)
     c64_cart_image_read((CoreCtx *)ctx, off, dst, n);
 }
 
+static void rom_write(void *ctx, uint32_t off, const uint8_t *src, uint32_t n)
+{
+    c64_cart_image_write((CoreCtx *)ctx, off, src, n);
+}
+static int cart_for_state(void *ctx, const char *path)
+{
+    char m[96];
+    int rc = c64_cart_for_state((CoreCtx *)ctx, path, m, sizeof(m));
+    if (rc) {
+        printf("[C64RE] the state's cartridge: %s\n", m);
+    }
+    return rc;
+}
+static void eeprom_put(void *ctx, const uint8_t *data)           // the GMod2's 93C86 array at +2048 and its valid flag at 0 (c64_cart.cc load_eeprom)
+{
+    uint8_t one = 1;
+    CoreIo *io = ((CoreCtx *)ctx)->io;
+    io->eeprom_write(2048, data, 2048);
+    io->eeprom_write(0, &one, 1);
+}
+
 // The part of the file's source that does not depend on a cartridge: the System Mode, drive A (type, power, unit, image) and the REU setting.
 static void src_fill(CoreCtx *c, TrxC64reSrc *src)
 {
@@ -190,6 +229,17 @@ static void src_fill(CoreCtx *c, TrxC64reSrc *src)
         src->drive_power = d->powered();
         src->drive_unit = d->bus_id();
         src->disk_path = d->image_path();
+    }
+}
+
+// FW's progress feedback (trx_c64re_dump_ex): the share written goes into the job's percentage (CoreCtx::job_pct, which the menu's progress display reads)
+// and the console. The op is one call, so the screen shows it when the menu next draws.
+static void dump_progress(int done, int total, void *ctx)
+{
+    CoreCtx *c = (CoreCtx *)ctx;
+    c->job_pct = total ? done * 100 / total : 0;
+    if (total && (done == 0 || done == total || (done * 10 / total) != ((done - 1) * 10 / total))) {
+        printf("[C64RE] dump %d%s\n", c->job_pct, "%");
     }
 }
 
@@ -220,7 +270,8 @@ static int op_dump(CoreCtx *c, const OpArgs &a, OpOut &o)
     }
     trx_c64re_set_source(&src);
     uint32_t bytes = 0;
-    const char *why = trx_c64re_dump(p, shown(), &bytes);
+    const char *why = trx_c64re_dump_ex(p, shown(), &bytes, dump_progress, c);
+    c->job_pct = 0;
     trx_c64re_set_source(NULL);
     if (why) {
         snprintf(o.msg, o.msglen, "%s", why);
@@ -229,6 +280,34 @@ static int op_dump(CoreCtx *c, const OpArgs &a, OpOut &o)
     snprintf(o.msg, o.msglen, "Saved %s (%u KB)", p, (unsigned)((bytes + 1023) >> 10));
     return OPE_OK;
 }
+
+// "Save .C64RE Dump" (FW apps/c64re/manifest.json, category "C64 Machine"): the machine as it stands, no ring needed; the media that are in it go inside
+static int op_c64re_dump(CoreCtx *c, const OpArgs &a, OpOut &o)
+{
+    char p[260];
+    if (!trx_target_path(c, a.s(0), ".c64re", p, sizeof(p))) {
+        snprintf(o.msg, o.msglen, "No medium to save to");
+        return OPE_FAILED;
+    }
+    TrxC64reSrc src;
+    memset(&src, 0, sizeof(src));
+    src_fill(c, &src);
+    if (c64_cart_active()) {
+        src.cart_src = c64_cart_path();
+    }
+    trx_c64re_set_source(&src);
+    uint32_t bytes = 0;
+    const char *why = trx_c64re_dump_machine(p, &bytes);
+    trx_c64re_set_source(NULL);
+    if (why) {
+        snprintf(o.msg, o.msglen, "%s", why);
+        return OPE_FAILED;
+    }
+    snprintf(o.msg, o.msglen, "Saved %s (%u KB)", p, (unsigned)((bytes + 1023) >> 10));
+    return OPE_OK;
+}
+
+static const char *st_suggest_c64re(CoreCtx *) { return "c64re"; }
 
 static int op_ringdump(CoreCtx *c, const OpArgs &a, OpOut &o)
 {
@@ -255,6 +334,10 @@ static int op_load(CoreCtx *c, const OpArgs &a, OpOut &o)
     TrxC64reSrc src;                                    // drive A's power: the file's drive state goes back only into a powered drive
     memset(&src, 0, sizeof(src));
     src_fill(c, &src);
+    src.rom_ctx = c;
+    src.rom_write = rom_write;
+    src.cart_for_state = cart_for_state;
+    src.eeprom_put = eeprom_put;
     trx_c64re_set_source(&src);
     const char *why = trx_c64re_load(a.s(0));
     trx_c64re_set_source(NULL);
@@ -422,11 +505,14 @@ void ringops_register(OpRegistry &r)
     r.add_op("tw.oldest", 0, 0, op_oldest);
     r.add_op("tw.resume", 0, 0, op_resume);
     r.add_op("tw.cancel", 0, 0, op_cancel);
+    r.add_op("tw.monitor", 0, 0, op_monitor);
     r.add_op("tw.mark", 0, 0, op_mark);
     r.add_op("tw.next_mark", value_arg, 1, op_next_mark);
     r.add_op("tw.clear_marks", 0, 0, op_clear_marks);
     r.add_op("tw.dump", name_arg, 1, op_dump);
     r.add_op("tw.ringdump", name_arg, 1, op_ringdump);
+    r.add_op("machine.save_c64re", name_arg, 1, op_c64re_dump);
+    r.add_state("machine.suggest.c64re", st_suggest_c64re);
     r.add_op("tw.load", path_arg, 1, op_load);
     r.add_op("ring.start", 0, 0, op_start);
     r.add_op("ring.stop", 0, 0, op_stop);
