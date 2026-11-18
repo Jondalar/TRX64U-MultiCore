@@ -1347,6 +1347,9 @@ static void ux_rules(void)
         uxcores++;
         bool has_hk = false;
         for (int i = 0; i < d->nsettings; i++) { if (!strcasecmp(d->settings[i].key, HK_KEY_MOD)) { has_hk = true; } }
+        const char *swap_key = d->hotkeys && d->hotkeys->swap_key ? d->hotkeys->swap_key : "Joystick ports";
+        bool has_swap = false;
+        for (int i = 0; i < d->nsettings; i++) { has_swap = has_swap || !strcasecmp(d->settings[i].key, swap_key); }
         std::vector<UxLoc> loc;
         int nh = 0, nopens = 0, prows = 0, hk_in_tab = 0;
         ux_collect(src->cor_name, r, &loc, &nh, &nopens, &prows, &hk_in_tab);
@@ -1354,6 +1357,9 @@ static void ux_rules(void)
         if (has_hk) {
             uxhot++;
             int hkwant = HK_NACT - 1 + 1 + (d->hotkeys && d->hotkeys->core_op ? 1 : 0);     // Modifier + the six common actions + the core's own
+            if (!has_swap) {
+                hkwant--;                                      // T228 R20: the swap hotkey only where the core has the setting it toggles
+            }
             UXCHECK(nopens == 1 && prows == hkwant, "%s: %d rows open a page, the page has %d rows (want 1 and %d)", src->cor_name, nopens, prows, hkwant);
             int ones = 0, items = 0;
             for (const UxLoc &u : loc) {
@@ -1371,6 +1377,9 @@ static void ux_rules(void)
             const UxLoc *a = 0, *b = 0;
             for (const UxLoc &u : loc) { if (u.label == lab) { a = &u; break; } }
             for (const UxLoc &u : ref) { if (u.label == lab) { b = &u; break; } }
+            if (!a && !has_swap && lab == "Swap joystick ports") {
+                continue;                                      // T228 R20: hidden on purpose where the core has no setting to swap
+            }
             UXCHECK(a != 0, "%s: the generic row \"%s\" is on no page", src->cor_name, lab.c_str());
             if (!a) { continue; }
             if (lab == "Persist medium mounts" || lab == "Enter home on startup" || lab == "Home directory" || lab == "Menu opens at") {
@@ -1952,6 +1961,9 @@ static int mock_find_row(Rig &r, const char *label, bool prefix)
 {
     for (int i = 0; i < r.m->rows(); i++) {
         std::string l, v; bool a;
+        if (r.m->heading(i)) {
+            continue;                                          // a heading of the same name (F7 HOTKEYS) is not the row that opens the page
+        }
         ux_rowtext(r, i, &l, &v, &a);
         if (prefix ? !strncmp(l.c_str(), label, strlen(label)) : l == label) { return i; }
     }

@@ -656,7 +656,11 @@ ue2emu (70 full frames, trx64u beside the A1200).
   suite 175/175; two review rounds (the second found three faults in the first round's fixes: the app index asked the C64 service
   before its context was set, the loader took cart_port for a library, the settings made again after the merge dropped safe mode);
   ue2emu: TREX CRT was refused on trx64u for want of room in the state table (STATES_MAX 200 -> 320, OPS_MAX 300 -> 400, 4.4 KB);
-  now F7 lists the three tools on trx64u, the Dump screen opens, the A1200 lists none. Open: S3 on the board with release 0.2.0.
+  now F7 lists the three tools on trx64u, the Dump screen opens, the A1200 lists none. The first tag run (2446) went red in the
+  CI tier that `dev.sh test` does not run: two negative controls (a `sed` against fsif.h before R21's fs_flash_rw(), the corereport
+  link without R8's descrec.cc) and the render/UX rules (R20 hides the swap hotkey where no setting swaps; the mock took the HOTKEYS
+  heading for the row); fixed in tests only (2f70c31c8, 76bc14370), a scan of all 215 controls found no other, coreapp:cross and
+  coreapp_render green in the integration tier; v0.2.0 moved to this second merge. Open: S3 on the board with release 0.2.0.
 - **After 0.2.0 (Alex 2026-11-18: "I cannot keep waiting"; option A asked, B taken for now):** RETURN on a row with fixed values opens
   the list of the values, as FW config_menu.cc:108-114 (every core); until then RETURN steps to the next value. Also after 0.2.0: groups
   in FTP hosts and Emulated SIDs, one name for the back key, "Hex View" in sentence case (generic). From the UX pass over all cores: the
