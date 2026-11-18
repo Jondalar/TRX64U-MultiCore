@@ -15,6 +15,8 @@ void u64cfg_register(OpRegistry &r);
 
 // The mixer's registers are write only: the freeze silences the SIDs through them and gives them back from the settings (Gideon u64_mute_sids / unmute).
 void u64cfg_mute_sids(void);
+// T228 R21 (FW u64_config.cc:1277-1283): CTRL+P / CTRL+N held at power-on = PAL / NTSC for this start only (the setting is overridden, never stored). Once per start.
+void u64cfg_power_on_keys(CoreCtx *c);
 void u64cfg_restore_mixer(CoreCtx *c);
 
 // Which SID sits in a socket (the last detection, 0 none, 1 6581, 2 8580, ...) and the names for the screen.

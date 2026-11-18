@@ -526,7 +526,23 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
 
     cs_step(0, "Reading the settings");           // step 3: the views are built when the menu opens, none at the first open
     ctx.settings = new Settings(ctx.desc->settings, ctx.desc->nsettings, desc->store, ctx.fs, ctx_settings_path(&ctx), 0);
-    ctx.settings->load();
+    bool restore_down = false;                           // T228 R21 (FW components/config.cc:233): RESTORE held at the start = safe mode for the configuration: the defaults, the stored file is not read
+    {
+        uint8_t km[8];
+        bool rs = false;
+        restore_down = ctx.io && ctx.io->keys_read(km, &rs) && rs;
+        if (restore_down) {
+            ctx.io->delay_ms(20);
+            restore_down = ctx.io->keys_read(km, &rs) && rs;       // twice: a brush is not a hold
+        }
+    }
+    if (restore_down) {
+        printf("[core] RESTORE held: safe mode, the settings file is not read this start\n");
+        snprintf(ctx.notice, sizeof(ctx.notice), "Safe mode (RESTORE held): the stored settings were not read, the defaults run.");
+        ctx.notice_pending = true;
+    } else {
+        ctx.settings->load();
+    }
     {                                                   // the "Splash" setting (T153, Alex 2026-10-29): Off takes the start screen away as soon as the settings are known
         int ix = ctx.settings->find("Splash");
         if (ix >= 0 && ctx.settings->value(ix) == 0) {

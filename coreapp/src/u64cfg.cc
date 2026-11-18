@@ -347,6 +347,30 @@ static int fx_audio(CoreCtx *c, const OpArgs &, OpOut &)
     return OPE_OK;
 }
 
+void u64cfg_power_on_keys(CoreCtx *c)
+{
+    static bool done;
+    if (done) {
+        return;
+    }
+    done = true;
+    int ix = c->settings ? c->settings->find("System Mode") : -1;
+    if (ix < 0 || !c->io) {
+        return;
+    }
+    const int ctrl = 58, key_p = 41, key_n = 39;                   // the matrix index col * 8 + row (hotkeys.h): CTRL, P, N
+    uint8_t m[8];
+    bool rs;
+    if (!c->io->keys_read(m, &rs) || !((m[ctrl >> 3] >> (ctrl & 7)) & 1)) {
+        return;
+    }
+    int mode = ((m[key_p >> 3] >> (key_p & 7)) & 1) ? 0 : ((m[key_n >> 3] >> (key_n & 7)) & 1) ? 1 : -1;   // PAL = 0, NTSC = 1: the first two values of System Mode
+    if (mode >= 0) {
+        c->settings->override_value(ix, mode);
+        printf("[u64cfg] power-on key: %s for this start\n", mode ? "NTSC" : "PAL");
+    }
+}
+
 void u64cfg_mute_sids(void)
 {
     volatile uint8_t *mixer = (volatile uint8_t *)U64_AUDIO_MIXER;
