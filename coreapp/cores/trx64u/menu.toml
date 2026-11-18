@@ -909,6 +909,7 @@ speeds = ["1", "2", "3", "4", "6", "8", "10", "12", "14", "16", "20", "24", "32"
 poweron = ["Off", "On", "Last State"]
 ledsel = ["On", "Off", "Drive A Pwr", "DrvAPwr + DrvBPwr", "Drive A Act", "DrvAAct + DrvBAct", "DrvAPwr ^ DrvAAct", "USB Activity", "Any Activity", "!(DrvAAct)", "!(DrvAAct+DrvBAct)", "!(USB Act)", "!(Any Act)", "IRQ Line", "!(IRQ Line)", "Drive B Act"]
 alpha = ["0 %", "25 %", "50 %", "75 %"]
+squeeze = ["None", "Beginning", "Middle", "End"]
 schemes = ["Standard Blue", "Ultimate Black", "C128 Style", "Commodore Blue", "Commodore 1", "Commodore 2", "Commodore 3"]
 cartmodes = ["Auto", "Internal", "External", "Manual"]
 sharing = ["Internal", "External"]
@@ -1280,6 +1281,30 @@ group = "Application"
 key = "Overlay Transparency"
 label = "Overlay transparency"
 list = "alpha"
+default = 1
+when = "live"
+apply = "ui.fx"
+
+[[core_setting]]
+group = "Application"
+key = "Filename overflow squeeze"
+list = "squeeze"
+default = 0
+when = "live"
+apply = "ui.fx"
+
+[[core_setting]]
+group = "Application"
+key = "Temp Auto Cleanup"
+list = "en_dis"
+default = 1
+when = "live"
+apply = "ui.fx"
+
+[[core_setting]]
+group = "Application"
+key = "Temp Subfolders"
+list = "en_dis"
 default = 1
 when = "live"
 apply = "ui.fx"

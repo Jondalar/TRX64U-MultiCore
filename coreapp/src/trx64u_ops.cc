@@ -54,9 +54,12 @@ const char *cfg_text(CoreCtx *c, const char *key)
 }
 
 // ---- the look of the menu ---------------------------------------------------------------------------------------------------------------------
+#include "tempdisk.h"
 static int fx_ui(CoreCtx *c, const OpArgs &, OpOut &)
 {
     ui_set_look(cfg_value(c, "Overlay Transparency", 1), cfg_value(c, "Color Scheme", 1));
+    ui_set_name_squeeze(cfg_value(c, "Filename overflow squeeze", 0));
+    tempdisk_set(cfg_value(c, "Temp Auto Cleanup", 1) != 0, cfg_value(c, "Temp Subfolders", 1) != 0);
     return OPE_OK;
 }
 

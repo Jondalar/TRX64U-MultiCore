@@ -75,6 +75,9 @@ void ui_menu_forget_rows(void);
 
 // "Overlay Transparency" (0..3 = 0, 25, 50, 75 %) and "Color Scheme" (0..6, trxview.h trx_scheme_set): from any task; the UI task takes them at its next render.
 void ui_set_look(int transparency, int scheme);
+// "Filename overflow squeeze" (T228 R21; 0 None, 1 Beginning, 2 Middle, 3 End): how a file name too long for its row is cut (trx_fit_name).
+void ui_set_name_squeeze(int quarter);
+int ui_name_squeeze(void);
 
 // One pass of LVGL (render what changed). Returns the ms until the next pass is wanted, -1 when the layer is gone.
 int ui_poll(void);

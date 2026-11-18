@@ -814,7 +814,7 @@ static void build_library(lv_obj_t *c, MenuCtl &m, int sel)
         const int vw = r.value[0] ? trx_text_w(r.value, t.caption) + t.space_md : 0;
         const int fixed = (r.marked ? trx_text_w("* ", t.body) : 0) + trx_text_w(dirsl, t.body) + (r.badge[0] ? trx_text_w("  ", t.body) + trx_text_w(r.badge, t.body) : 0);
         const int tx = t.space_sm + 4 + t.space_md + t.space_sm;
-        snprintf(title, sizeof(title), "%s%s%s%s%s", r.marked ? "* " : "", trx_fit_mid(r.name, lw_row - tx - vw - fixed - 4, t.body, nm, sizeof(nm)), dirsl, r.badge[0] ? "  " : "", r.badge);
+        snprintf(title, sizeof(title), "%s%s%s%s%s", r.marked ? "* " : "", trx_fit_name(r.name, lw_row - tx - vw - fixed - 4, t.body, nm, sizeof(nm), ui_name_squeeze()), dirsl, r.badge[0] ? "  " : "", r.badge);
         TrxStatusRow row = { title, r.value[0] ? r.value : 0, (TrxTone)r.tone, w.first + k == sel, false };
         g_win[k] = trx_status_row(card, t.space_md, ry, lw - 2 * t.space_md, row, &ry);
     }

@@ -129,6 +129,8 @@ SRCS_CC	 =  u64ii_init.cc \
 			start.cc \
 			mediumwait.cc \
 			board.cc \
+			tempdisk.cc \
+			blockdev_ram.cc \
 			table.cc \
 			cfgfile.cc \
 			settings.cc \
