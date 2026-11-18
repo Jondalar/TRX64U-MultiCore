@@ -163,12 +163,8 @@ const char *diag_text(int kind, int *n)
                 "Every key is the monitor's: F1/F7 scroll, F3 help,\n"
                 "? lists the commands, x resumes and leaves,\n"
                 "R/S leaves while the machine stands.\n"
-                "\nBOARD HOTKEYS\n\n"
-                "C= R reset, C= Z reboot, C= B power cycle, C= K power off\n"
-                "(every menu of the firmware); the menu switch held up\n"
-                "for one second resets the machine.\n"
-                "At power on: Ctrl-P / Ctrl-N PAL / NTSC,\n"
-                "Ctrl-B / S / F the model (the firmware's own).\n", g_help_mon);
+                "\nRESET\n\n"
+                "CTRL+R resets the machine (the default of F7 > Hotkeys).\n", g_help_mon);
         }
         *n = w < (int)sizeof(g_text) ? w : (int)sizeof(g_text) - 1;
         return g_text;

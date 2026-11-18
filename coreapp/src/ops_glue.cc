@@ -16,6 +16,7 @@
 #include "libfiles.h"
 #include <stdio.h>
 #include <string.h>
+#include <ctype.h>
 
 // The browser enters a disk image itself (menuctl.cc intercepts the action before it gets here); the operation exists so that a descriptor's
 // action can name it and desc_check can see it.
@@ -125,7 +126,36 @@ int ops_set(CoreCtx *c, const char *op, int value)
     return ops_call(c, op, &in, 1, &r);
 }
 
+// "set.<Key>" (spaces written as '_'): the label of the value the setting <Key> has, null when the core has no such setting. Lets a menu condition
+// (show_state) depend on another setting without a state of the core's own.
+static int fold(char ch)
+{
+    return ch == ' ' ? '_' : tolower((unsigned char)ch);
+}
+
+static const char *setting_state(CoreCtx *c, const char *key)
+{
+    if (!c->settings || !c->desc) {
+        return 0;
+    }
+    for (int i = 0; i < c->desc->nsettings; i++) {
+        const Setting &s = c->desc->settings[i];
+        const char *a = s.key, *b = key;
+        while (*a && *b && fold(*a) == fold(*b)) {
+            a++;
+            b++;
+        }
+        if (!*a && !*b) {
+            return s.kind ? c->settings->text(i) : s.values[c->settings->value(i)];
+        }
+    }
+    return 0;
+}
+
 const char *ops_state(CoreCtx *c, const char *name)
 {
+    if (!strncmp(name, "set.", 4)) {
+        return setting_state(c, name + 4);
+    }
     return ops_of(c)->state(c, name, 0);
 }
