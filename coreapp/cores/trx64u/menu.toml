@@ -334,7 +334,7 @@ kind = "op"
 label = "Power cycle"
 op = "u64.power_cycle"
 order = 401
-ui = { confirm = "Power cycle the board? Everything in memory is lost.", sub = "Switches the board off and on" }
+ui = { confirm = "Power cycle the board? Everything in memory is lost.", sub = "Switches the board off and on", ctrl = "B" }
 
 [[node]]
 anchor = "F8/expert/actions"
@@ -342,7 +342,7 @@ kind = "op"
 label = "Power off"
 op = "u64.power_off"
 order = 402
-ui = { confirm = "Power off the board?", sub = "Switches the board off" }
+ui = { confirm = "Power off the board?", sub = "Switches the board off", ctrl = "K" }
 
 [[node]]
 anchor = "F8/expert/Ethernet"
@@ -1053,9 +1053,11 @@ when = "live"
 apply = "u64.fx_video"
 
 [[core_setting]]
-group = "hidden"
+group = "Output"
 key = "Palette Definition"
+label = "Palette definition"
 text = true
+empty = "Built-in"
 default = ""
 maxlen = 60
 apply = "u64.fx_video"
@@ -2070,6 +2072,56 @@ list = "waves"
 default = 0
 when = "live"
 apply = "u64.fx_sid"
+
+# T228 R21 (Alex 2026-11-18): the USB mouse as TRX64-Ultimate's driver has it, only what the bitstream does. Motion reaches the C64 as cursor keys through the keyboard
+# matrix (usb_hid.cc:1413-1417, 1562); the 1351 pots are not decoded, so the values that move a 1351 are out. The wheel is pulsed through the joystick output
+# (joystick_output.cc:130). The list's three values are the driver's modes 0, 2, 3 (u64cfg.cc maps them).
+[[core_setting]]
+group = "input"
+key = "Mouse Mode"
+label = "Mouse as"
+values = ["Cursor keys", "Wheel: cursor keys", "Wheel: joystick"]
+default = 0
+when = "live"
+apply = "u64.fx_input"
+
+[[core_setting]]
+group = "input"
+key = "Mouse Sensitivity"
+label = "Mouse cursor sensitivity"
+range = [1, 16]
+unit = ""
+default = 8
+apply = "u64.fx_input"
+show_state = "set.Mouse_Mode==Cursor keys"
+
+[[core_setting]]
+group = "input"
+key = "Mouse Acceleration"
+label = "Mouse cursor acceleration"
+values = ["Off", "Adaptive"]
+default = 0
+when = "live"
+apply = "u64.fx_input"
+show_state = "set.Mouse_Mode==Cursor keys"
+
+[[core_setting]]
+group = "input"
+key = "Mouse Wheel Sensitivity"
+label = "Mouse wheel sensitivity"
+range = [1, 16]
+unit = ""
+default = 8
+apply = "u64.fx_input"
+
+[[core_setting]]
+group = "input"
+key = "Mouse Wheel Direction"
+label = "Mouse wheel direction"
+values = ["Normal", "Reversed"]
+default = 0
+when = "live"
+apply = "u64.fx_input"
 
 # T228 R10 (Alex 2026-11-17): a USB pad or controller as a joystick in port 1 or 2, through the generic pad service (coreapp/src/pad.h) as the Amiga's port 2
 # (T225): one port, fed by the first pad plugged, its button map kept per pad (VID:PID) in the .cfg. The pad's lines are the host's own (C64_JOY1/2_SWOUT),

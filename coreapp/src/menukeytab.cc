@@ -124,6 +124,9 @@ static const KeyRow g_rows[] = {
     ROW(KS_MAIN, K(KEY_CTRL_C), MI_COPY, 0, 0, 0, 0),
     ROW(KS_MAIN, K(KEY_CTRL_V), MI_PASTE, 0, 0, 0, 0),
     ROW(KS_MAIN, K(KEY_CTRL_N), MI_MARK_NONE, 0, 0, 0, 0),
+    ROW(KS_MAIN, K(KEY_CTRL_Z), MI_CTRL, 'Z', 0, 0, 0),             // T228 R21 (FW machine_hotkeys.h:29-38): C= Z reboot, C= B power cycle, C= K power off, in every menu
+    ROW(KS_MAIN, K(KEY_CTRL_B), MI_CTRL, 'B', 0, 0, 0),
+    ROW(KS_MAIN, K(KEY_CTRL_K), MI_CTRL, 'K', 0, 0, 0),
     ROW(KS_MAIN, K(KEY_ESCAPE), MI_BACK, 0, 0, 0, 0),
     CLOSEKEYS(KS_MAIN, MI_CLOSE),
     ROW(KS_MAIN, K('/'), MI_SLASH, 0, 0, 0, 0),
@@ -151,7 +154,7 @@ static const bool g_swallow[KS_COUNT] = {
 static const char *const g_names[MI_COUNT] = {
     "none", "decline", "swallow", "as", "area", "tab", "move", "page", "left", "right", "del", "space", "return", "back", "close", "leave", "mark_all", "mark_none", "copy", "paste",
     "slash", "char", "sheet_letter", "search_open", "page_browser", "op", "view_scroll", "view_close", "view_leave", "wiz_next", "wiz_back", "wiz_cancel",
-    "app_close", "app_back", "app_grid", "app_fkey", "app_termkey", "busy_cancel", "raw"
+    "app_close", "app_back", "app_grid", "app_fkey", "app_termkey", "busy_cancel", "raw", "ctrl"
 };
 
 const KeyRow *menu_keymap(int *n)

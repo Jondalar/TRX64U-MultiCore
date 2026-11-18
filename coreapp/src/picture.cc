@@ -110,7 +110,9 @@ static void fill_values(void)
     }
 }
 
-// T222: the gateware's VIC path locks 576p / 480p, 720p, 1080p and 800 x 600 only (U16 D2): 1024 x 768 and 1280 x 1024 are not offered
+// T222: the gateware's VIC path locks 576p / 480p, 720p, 1080p and 800 x 600 only (U16 D2): 1024 x 768 and 1280 x 1024 are not offered.
+// T228 R21: 800 x 600 is real only in the 60 Hz family (NTSC, PAL-60); the 50 Hz family has no PC row and runs 576p for it (FW trx_hdmi.h:14-23,
+// mode_req.v:64-77), so there it is not listed (the same code that asks the gateware, video_gw_row_for, folds it to 576p).
 static void drop_unlocked(void)
 {
     if (!g_vic_scale) {
@@ -118,7 +120,8 @@ static void drop_unlocked(void)
     }
     int n = 0;
     for (int i = 0; i < g_nlist; i++) {
-        if (video_row_hdmi(g_list[i]) <= VID_HDMI_800x600) {
+        int h = video_row_hdmi(g_list[i]);
+        if (h < VID_HDMI_800x600 || (h == VID_HDMI_800x600 && g_msys == VID_SYS_NTSC60)) {
             snprintf(g_label[n], sizeof(g_label[0]), "%s", g_label[i]);
             snprintf(g_rname[n], sizeof(g_rname[0]), "%s", g_rname[i]);
             g_list[n++] = g_list[i];

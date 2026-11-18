@@ -4004,6 +4004,30 @@ MenuCtl::Result MenuCtl::run_intent(const MenuIntent &in, bool *took)
         return R_REDRAW;
     case MI_OP:
         return row ? run_row_op(*row, k, took) : R_NONE;
+    case MI_CTRL: {                                                  // T228 R21: C= Z / B / K as in every menu of the firmware (machine_hotkeys.h): the row of the menu does what its RETURN does
+        for (int i = 0; i < tree_.n; i++) {
+            const MenuEntry &e = tree_.e[i];
+            if (in.arg == 'Z' && e.kind == EK_RESTART_CORE) {
+                return run_fixed(e);
+            }
+            if (e.kind != EK_NODE) {
+                continue;
+            }
+            const MenuNode &n = tree_.nodes[e.index];
+            char kb[8];
+            if (!ui_attr(n.attr, "ctrl", kb, sizeof(kb)) || kb[0] != in.arg) {
+                continue;
+            }
+            char why[120];
+            if (n.kind == LN_OP && !node_ready(n)) {
+                set_status(ui_attr(n.attr, "why", why, sizeof(why)) ? why : "Not available now", false);
+                return R_REDRAW;
+            }
+            return run_node(n, e.label);
+        }
+        *took = false;
+        return R_NONE;
+    }
     case MI_VIEW_SCROLL:
         fm_.view_scroll(in.arg);
         return R_REDRAW;

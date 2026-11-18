@@ -21,6 +21,7 @@
 int cfg_value(CoreCtx *, const char *, int def) { return def; }
 void trx64u_kernal_put(CoreCtx *, const uint8_t *, uint32_t) { }
 void u64cfg_register(OpRegistry &) { }
+void u64cfg_power_on_keys(CoreCtx *) { }
 __attribute__((weak)) void libfiles_register(OpRegistry &) { }     // tests/coreapp/test_menuctl.cc links the real one
 void ringops_register(OpRegistry &) { }
 static int stub_mon_key(CoreCtx *c, const OpArgs &a, OpOut &o) { mon_key(c, a.i(0)); o.msg[0] = 0; return OPE_OK; }

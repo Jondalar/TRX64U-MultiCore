@@ -91,6 +91,7 @@ static void forget_program(CoreCtx *c);
 
 static int c64_init(CoreCtx *c, char *, int)
 {
+    u64cfg_power_on_keys(c);                                    // T228 R21: CTRL+P / CTRL+N at power-on, before the settings are applied (once)
     c->io->mode_reset(true);
     if (c->drive && cfg_value(c, "Resets when C64 resets", 1)) {
         char m[80];

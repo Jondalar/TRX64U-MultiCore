@@ -347,6 +347,30 @@ static int fx_audio(CoreCtx *c, const OpArgs &, OpOut &)
     return OPE_OK;
 }
 
+void u64cfg_power_on_keys(CoreCtx *c)
+{
+    static bool done;
+    if (done) {
+        return;
+    }
+    done = true;
+    int ix = c->settings ? c->settings->find("System Mode") : -1;
+    if (ix < 0 || !c->io) {
+        return;
+    }
+    const int ctrl = 58, key_p = 41, key_n = 39;                   // the matrix index col * 8 + row (hotkeys.h): CTRL, P, N
+    uint8_t m[8];
+    bool rs;
+    if (!c->io->keys_read(m, &rs) || !((m[ctrl >> 3] >> (ctrl & 7)) & 1)) {
+        return;
+    }
+    int mode = ((m[key_p >> 3] >> (key_p & 7)) & 1) ? 0 : ((m[key_n >> 3] >> (key_n & 7)) & 1) ? 1 : -1;   // PAL = 0, NTSC = 1: the first two values of System Mode
+    if (mode >= 0) {
+        c->settings->override_value(ix, mode);
+        printf("[u64cfg] power-on key: %s for this start\n", mode ? "NTSC" : "PAL");
+    }
+}
+
 void u64cfg_mute_sids(void)
 {
     volatile uint8_t *mixer = (volatile uint8_t *)U64_AUDIO_MIXER;
@@ -1283,7 +1307,11 @@ extern "C" int u64_get_usb_hid_config_value(int key, int default_value)
         return default_value;
     }
     switch (key) {
-    case 0x55: return V(g_ctx, K_MOUSEMODE, 1);                  // CFG_MOUSE_MODE
+    case 0x55: {                                                 // CFG_MOUSE_MODE: the menu offers the modes that work (motion as cursor keys; wheel to cursor / to the joystick output): the driver's 0, 2, 3
+        static const int driver_mode[3] = { 0, 2, 3 };
+        int m = V(g_ctx, K_MOUSEMODE, 0);
+        return driver_mode[m >= 0 && m < 3 ? m : 0];
+    }
     case 0x56: return V(g_ctx, K_WHEELSENS, 7) + 1;              // CFG_SCROLL_FACTOR 1..16
     case 0x57: return V(g_ctx, K_WHEELDIR);                      // CFG_WHEEL_DIRECTION
     case 0x58: return 0; // CFG_MENU_MOUSE_NAV: never. Our menus are keys only (T104.1, Alex 2026-10-29: "menumouse raus"); the driver queues no menu key from the mouse
