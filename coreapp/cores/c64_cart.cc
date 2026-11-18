@@ -492,6 +492,8 @@ static void load_eeprom(CoreIo *io, CoreFile *f, uint64_t fsize, uint32_t pos)
     io->eeprom_write(0, &one, 1);
 }
 
+static bool g_for_state;                                       // a loaded state's cartridge: inserted, not booted (no hold, no reset: the state goes in next)
+
 int c64_cart_run(CoreCtx *c, const char *path, char *msg, int msglen)
 {
     CoreIo *io = c->io;
@@ -584,7 +586,9 @@ int c64_cart_run(CoreCtx *c, const char *path, char *msg, int msglen)
     wb_flush(c, WB_WHY_EJECT, fm, sizeof(fm));
 
     // ---- the machine held, the image placed, the registers set, the reset
-    io->mode_reset(true);
+    if (!g_for_state) {
+        io->mode_reset(true);
+    }
     io->cart_wr(C64_CARTREG_TYPE, 0);                                 // the previous cartridge off before its image goes
     io->cart_wr(C64_CARTREG_REU, 0);                                  // one module in the port: the image lies in the REU's memory, the REU is off
     io->cart_wr(C64_CARTREG_SAMPLER, 0);
@@ -690,6 +694,26 @@ int c64_cart_save(CoreCtx *c, const char *path, char *msg, int msglen)
     return 0;
 }
 
+// The image as it stands in DDR2: whole banks up to the highest the file has, read piece by piece (the .c64re's cartridge section).
+uint32_t c64_cart_image_bytes(void)
+{
+    uint32_t top = 0;
+    for (int i = 0; i < g_nchip; i++) {
+        top = g_chip[i].bank + 1u > top ? g_chip[i].bank + 1u : top;
+    }
+    return c64_cart_active() ? top * BANK : 0;
+}
+void c64_cart_image_read(CoreCtx *c, uint32_t off, uint8_t *dst, uint32_t n)
+{
+    c->io->ddr_read(g_img_base + off, dst, n);
+}
+void c64_cart_image_write(CoreCtx *c, uint32_t off, const uint8_t *src, uint32_t n)
+{
+    if (c64_cart_active() && off < g_image_max && n <= g_image_max - off) {       // the file's image never goes past the window the cartridge was inserted with
+        c->io->ddr_write(g_img_base + off, src, n);
+    }
+}
+
 int c64_cart_remove(CoreCtx *c, char *msg, int msglen)
 {
     CoreIo *io = c->io;
@@ -698,7 +722,9 @@ int c64_cart_remove(CoreCtx *c, char *msg, int msglen)
     g_cart_name[0] = 0;
     g_cart_crt = -1;
     bool block = (io->rd(C64_CAPS) & C64_CAPS_CART) != 0;
-    io->mode_reset(true);
+    if (!g_for_state) {
+        io->mode_reset(true);
+    }
     set_type(io, block, 0);
     {
         OpIn v[1] = { in_int("value", 0) };                           // T228 R20 6: the REU, the sampler and the UCI of F5 are the machine's again
@@ -707,5 +733,15 @@ int c64_cart_remove(CoreCtx *c, char *msg, int msglen)
     }
     printf("[c64] cartridge removed\n");
     mount_notify(c, 1);                                               // T180 D2
-    return boot_cold_reset(c, msg, msglen);
+    return g_for_state ? 0 : boot_cold_reset(c, msg, msglen);
+}
+
+// A loaded state's cartridge (FW trx_c64re.cc build_cartridge): the .crt at `path` is inserted, or the port emptied for NULL, and nothing is reset - the state
+// goes in next. 0, or a reason in msg.
+int c64_cart_for_state(CoreCtx *c, const char *path, char *msg, int msglen)
+{
+    g_for_state = true;
+    int rc = path ? c64_cart_run(c, path, msg, msglen) : c64_cart_remove(c, msg, msglen);
+    g_for_state = false;
+    return rc;
 }

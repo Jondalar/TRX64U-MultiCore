@@ -24,6 +24,13 @@ int c64_cart_crt_type(void);
 // Writes the cartridge in the port out as a .crt (header and chip layout of its file, the data from DDR2 as it is now). 0 or a reason.
 int c64_cart_save(CoreCtx *c, const char *path, char *msg, int msglen);
 
+// The image as it stands in DDR2 now (whole 16 KB banks up to the highest the file has; 0 without a cartridge) and a piece of it.
+uint32_t c64_cart_image_bytes(void);
+void c64_cart_image_read(CoreCtx *c, uint32_t off, uint8_t *dst, uint32_t n);
+void c64_cart_image_write(CoreCtx *c, uint32_t off, const uint8_t *src, uint32_t n);
+// A loaded state's cartridge: the .crt at path inserted, or the port emptied for NULL, with no reset. 0, or a reason in msg.
+int c64_cart_for_state(CoreCtx *c, const char *path, char *msg, int msglen);
+
 // Takes the cartridge away (type 0, no descriptor) and cold resets. 0 or a reason.
 int c64_cart_remove(CoreCtx *c, char *msg, int msglen);
 

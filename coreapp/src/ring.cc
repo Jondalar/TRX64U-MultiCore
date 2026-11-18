@@ -746,48 +746,115 @@ static void replay_cia(const uint32_t *w, uint32_t *count)
 }
 
 // The cartridge's banking registers (chip 7 w0 = {reg_1, reg_0} of icepi's
-// model, cart_slot.v) as bus writes to IO1, for the types whose registers are
-// plain writes there (c64_cartridge.v): EasyFlash $DE00/$DE02, MegaByter
-// $DE00/$DE02, Ocean / Magic Desk / Magic Desk 16 $DE00. Not replayed: GMod2
-// ($DE00 also drives the EEPROM's lines), C64MegaCart ($DF00 is cartridge
-// RAM too), Dinamic and C64GS (banked by the address of a read or write),
-// Action Replay, Simons' BASIC. Returns false for a cartridge it left as it
-// was.
+// model, cart_slot.v) go back as bus writes to IO1, for the types whose
+// registers are plain writes there (c64_cartridge.v). Which types those are is
+// the table below, and it is the same table the writer refuses by.
 #define W_GLUE         0
 #define W_CART         26
 #define GLUE_CART      0x08
 
+// U9 D0/D3: one list, read by the writer's gate (trx_c64re_dump_ex) and by the
+// replay below. A type is on it when a .c64re can carry its whole state back:
+// the banking registers go in as bus writes, and nothing of the cartridge's own
+// state lives outside the ROM window, the cartridge RAM and - for GMod2 - the
+// EEPROM section. A type is added to both sides at once or to neither; what is
+// not on the list is refused before a file is written, never half-loaded.
+//
+// Left off, and why: GMod2 is ON the list (its $DE00 is one register, bank in
+// bits 0-5 and mode in 6-7, and the EEPROM array travels as its own section);
+// C64MegaCart keeps state at $DF00 that is cartridge RAM too; Dinamic and C64GS
+// bank on the address of a read or write, with no register to replay; Action
+// Replay and Simons' BASIC have more state than the block carries.
+#define CR_NONE        0        // no banking register
+#define CR_DE00        1        // one byte at $DE00
+#define CR_DE00_DE02   2        // $DE00 and $DE02
+
+struct TrxCartRow {
+    uint8_t     base;           // C64_CARTRIDGE_TYPE & 0x1F
+    uint8_t     var;            // C64_CARTRIDGE_TYPE >> 5
+    bool        any_var;        // the row covers every variant of base
+    uint8_t     regs;
+    bool        eeprom;         // keeps a 93C86 the file has to carry
+    const char *name;
+};
+
+static const TrxCartRow c_cart_rows[] = {
+    { 0x01, 0, true,  CR_NONE,      false, "Normal" },
+    { 0x08, 0, false, CR_DE00,      false, "Ocean" },
+    { 0x08, 1, false, CR_DE00,      false, "Magic Desk / Domark" },
+    { 0x08, 2, false, CR_DE00,      true,  "GMod2" },
+    { 0x08, 5, false, CR_DE00,      false, "Magic Desk 16" },
+    { 0x09, 0, true,  CR_DE00,      false, "Ocean 16K" },
+    { 0x0F, 0, true,  CR_DE00_DE02, false, "MegaByter" },
+    { 0x11, 0, true,  CR_DE00_DE02, false, "EasyFlash" },
+};
+
+static const TrxCartRow *cart_row(uint8_t type)
+{
+    uint8_t base = type & 0x1F, var = uint8_t(type >> 5);
+    for (unsigned i = 0; i < sizeof(c_cart_rows) / sizeof(c_cart_rows[0]); i++) {
+        if (c_cart_rows[i].base == base && (c_cart_rows[i].any_var || c_cart_rows[i].var == var)) {
+            return &c_cart_rows[i];
+        }
+    }
+    return NULL;
+}
+
+bool trx_ring_cart_state_ok(uint8_t type, const char **name)
+{
+    const TrxCartRow *r = cart_row(type);
+    if (name) {
+        *name = r ? r->name : NULL;
+    }
+    return r != NULL;
+}
+
+bool trx_ring_cart_has_eeprom(uint8_t type)
+{
+    const TrxCartRow *r = cart_row(type);
+    return r && r->eeprom;
+}
+
+// The banking registers of the running cartridge, put back (the app has no
+// model, cart_slot.v) as bus writes to IO1. Returns false for a cartridge this
+// build cannot put back - which the writer's gate has already refused, so a
+// false here means a file from an older build or another writer.
 static bool replay_cart(const uint32_t *w, uint32_t *count)
 {
     if (!(w[W_GLUE] & GLUE_CART)) {
         return true;
     }
-    uint8_t ct = C64_CARTRIDGE_TYPE;
+    const TrxCartRow *r = cart_row(C64_CARTRIDGE_TYPE);
+    if (!r) {
+        return false;
+    }
     uint8_t r0 = uint8_t(w[W_CART]), r1 = uint8_t(w[W_CART] >> 8);
-    uint8_t var = ct >> 5;
-    switch (ct & 0x1F) {
-    case 0x11:              // EasyFlash
-    case 0x0F:              // MegaByter
+    // GMod2 rides the CR_DE00 path: the same write carries bank and mode, and it
+    // drives the EEPROM's lines to the levels they held at the freeze. The array
+    // itself is restored afterwards, out of the file's own section, so what this
+    // write does to the serial lines cannot cost a byte of it.
+    switch (r->regs) {
+    case CR_DE00_DE02:
         C64_MEM(0xDE00) = r0;
         C64_MEM(0xDE02) = r1;
         *count += 2;
         return true;
-    case 0x08:
-        if (var == 0 || var == 1 || var == 5) {     // Ocean, Magic Desk, Magic Desk 16
-            C64_MEM(0xDE00) = r0;
-            (*count)++;
-            return true;
-        }
-        return false;
-    case 0x09:              // Ocean 16K
+    case CR_DE00:
         C64_MEM(0xDE00) = r0;
         (*count)++;
         return true;
-    case 0x01:              // Normal: no registers
-        return true;
     default:
-        return false;
+        return true;
     }
+}
+
+static bool turbo_pending;
+static uint32_t turbo_pack;
+
+void trx_ring_set_turbo(uint32_t pack)
+{
+    turbo_pack = pack;
+    turbo_pending = (ioRead8(TRX_CAPS2) & TRX_CAPS2_TURBO) != 0;
 }
 
 static bool stage_and_load(const uint32_t *w)
@@ -805,10 +872,17 @@ static bool stage_and_load(const uint32_t *w)
     for (int k = 0; k < 12; k++) {
         w32(SB_DATA, w[W_CIA2H + k]);
     }
+    uint32_t mask = SB_LOAD_ALL;
+    if (turbo_pending) {                // chip 0 word 1: the turbo state, loaded with the rest (bit 0)
+        w32(SB_ADDR, (0 << 7) | 1);
+        w32(SB_DATA, turbo_pack);
+        mask |= 1;
+        turbo_pending = false;
+    }
     if (r32(SB_STATUS) & SB_REFUSED) {
         return false;
     }
-    w32(SB_LOAD, SB_LOAD_ALL);
+    w32(SB_LOAD, mask);
     return true;
 }
 
@@ -2120,7 +2194,7 @@ void trx_ring_unfreeze(void)
 }
 
 struct LoadCtx {
-    const uint8_t *ram, *col;
+    const TrxLoadMem *m;
     uint32_t bus;
 };
 
@@ -2128,20 +2202,37 @@ static void load_bus(void *ctx)
 {
     LoadCtx *c = (LoadCtx *)ctx;
     for (int a = 0; a < 1024; a++) {
-        C64_MEM(0xD800 + a) = c->col[a] & 0x0F;
+        C64_MEM(0xD800 + a) = c->m->col[a] & 0x0F;
     }
     c->bus += 1024;
+    bool cart_touched = false;
+    if (c->m->cart) {
+        // the cartridge RAM window in DDR2, the way restore_bus puts a ring entry's back (FW trx_ring.cc load_bus)
+        for (int a = 0; a < 65536; a++) {
+            *(volatile uint8_t *)(0x0EF0000 + a) = c->m->cart[a];
+        }
+        cart_touched = true;
+    }
+    if (c->m->rom_put) {
+        // the cartridge's image, which a rewind never puts back (the log has no flash writes): a game that programmed its own flash comes back whole
+        c->m->rom_put(c->m->rom_ctx);
+        cart_touched = true;
+    }
+    if (cart_touched) {
+        __asm__ volatile ("fence" ::: "memory");
+        ioWrite8(CART_CMD, CART_INVAL);         // the cartridge drops its cached lines
+    }
 }
 
 static void load_ram(void *ctx)
 {
     LoadCtx *c = (LoadCtx *)ctx;
     for (int a = 0; a < 65536; a++) {
-        C64_MEM(a) = c->ram[a];
+        C64_MEM(a) = c->m->ram[a];
     }
 }
 
-int trx_ring_load_state(const uint8_t *ram, const uint8_t *color, const uint32_t *w, uint16_t x)
+int trx_ring_load_state(const TrxLoadMem *mem, const uint32_t *w, uint16_t x)
 {
     if (!lock()) {
         return E_ABSENT;
@@ -2161,7 +2252,7 @@ int trx_ring_load_state(const uint8_t *ram, const uint8_t *color, const uint32_t
     drain();
     w32(LOG_CTRL, 0);
     w32(CAP_CTRL, 0);
-    LoadCtx c = { ram, color, 0 };
+    LoadCtx c = { mem, 0 };
     int err = put_back(w, x, sv, load_bus, load_ram, &c, &c.bus);
     start_locked();                 // a file replaces the machine: the ring starts over
     w32(STOP_POS, POS_RELEASE);

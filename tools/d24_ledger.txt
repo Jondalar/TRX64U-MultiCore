@@ -84,8 +84,8 @@ file coreapp/cores/tape_deck.cc 138
 file coreapp/cores/tape_deck.h 31
 file coreapp/cores/tape_pulses.cc 485
 file coreapp/cores/tape_pulses.h 24
-file coreapp/cores/trx64u/menu.toml 1697
-file coreapp/cores/trx64u/menu_rec.inc 1618
+file coreapp/cores/trx64u/menu.toml 1712
+file coreapp/cores/trx64u/menu_rec.inc 1635
 file coreapp/cores/vc20.cc 273
 file coreapp/cores/vc20_regs.h 25
 file coreapp/cores/zx.cc 311
@@ -186,16 +186,18 @@ ids uicore/uic_svc.cc null 1
 # instruction to build the gate (T213 D4); delete each line when its branch is merged and the file lines above are raised by the same amount, or when the code moved out.
 # followup-1116 merged into main 2026-11-16 (449e1148a): its four exceptions folded into the file lines above (T175 menu_input + T196 S7 xpad test,
 # board PASS); portdiag_tests.inc (2236 lines of embedded core data) is gone, the tests ride in diag.cor record 8. t217-go64 merged (7e680157d): its four exceptions folded in, measured the same (+45).
-exception coreapp/src/ring.cc +85 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
-exception coreapp/src/ringfile.cc +223 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
-exception coreapp/src/ringops.cc +42 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
-exception coreapp/src/trx_c64re.h +15 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
-exception coreapp/src/trx_ring.h +3 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
+exception coreapp/src/ring.cc +150 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
+exception coreapp/src/ringfile.cc +1070 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
+exception coreapp/src/ringops.cc +130 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
+exception coreapp/src/trx_c64re.h +28 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
+exception coreapp/src/trx_ring.h +13 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
 exception coreapp/cores/c64.cc +7 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
 exception coreapp/cores/c64_cart.cc +6 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
 exception coreapp/src/trx64u_ops.cc +70 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
 exception coreapp/cores/trx64u/menu.toml +22 T228-R21 (Alex 2026-11-18: "repair. It has to work if it is there")
 exception coreapp/cores/trx64u/menu_rec.inc +14 T228-R21 (Alex 2026-11-18: "repair. It has to work if it is there")
+exception coreapp/cores/c64_cart.cc +36 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
+exception coreapp/cores/c64_cart.h +4 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
 exception coreapp/src/trx64u_ops.cc +67 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
 exception coreapp/cores/trx64u/menu.toml +179 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
 exception coreapp/cores/trx64u/menu_rec.inc +170 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
