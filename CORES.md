@@ -30,6 +30,7 @@ done.
 | C264 | Commodore 16 / Plus/4 | 64K, 1541 drive, PRG and cartridges | Plus/4 model not tested | runs | n/a |
 | C128 | Commodore 128, C128 and C64 mode, Z80 | 40 and 80 columns, JiffyDOS, 1541/1581, C128 extra keys on USB and C64 keyboard; #19/#21 fixed on `main` | No cartridge port, no REU; Fill/Fit in 40 columns not yet (#63) | beta | in progress |
 | C64 + SuperCPU | C64 with 65816 and SuperRAM | Real SuperCPU ROM boots to READY in simulation | Not in releases; REU with SuperCPU not finished; needs your own SuperCPU ROM | alpha | in progress |
+| TI-99/4A | Texas Instruments TI-99/4A (port of zeldin/Mega99) | Title screen, TI BASIC, keyboard as printed on the C64 keys; needs your own console ROM and GROMs | Sound, joysticks, cartridges, disks and PAL/NTSC modes not tried | alpha | in progress |
 | Amiga 500 | OCS/ECS, 68000 | Kickstart 1.3, `.adf`, USB mouse settings, RTC option | - | runs | n/a |
 | Amiga 1200 | AGA, 68020 | `.adf` and `.hdf`, Workbench, scale/smoothing/picture modes, USB mouse, RTC option | Second pad button (#22) open | runs | in progress |
 | Atari 800 XL | Atari 800 XL | `.atr` boots, BASIC | - | runs | done |

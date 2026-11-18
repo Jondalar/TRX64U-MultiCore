@@ -1,0 +1,51 @@
+TI-99/4A core: the machine is zeldin/Mega99 (https://github.com/zeldin/Mega99), vendored from commit 82ce2157f62688eb0cd58332b52eba0eeed77538.
+Licence: LGPL-3.0 (LICENSE-Mega99.txt in rtl/src); the files carry their own headers, listed below as found (first licence line of each file).
+Not vendored: the board level files (tops, clock wizards, HyperRAM, MIG, QSPI, ICAP, the OpenRISC service processor and its MMIO, keyboard/PS2 front ends,
+TMDS/audio DACs) and clkgen.v, which rtl/trx/clkgen_nco.v replaces (a phase accumulator per clock enable that follows the host's System Mode, with a hold input).
+No ROM is part of this repository: the console ROM and the GROMs come from the person's stick (MAME ti99_4a set names).
+
+Changes against upstream (full diff: rtl/mega99-trims.patch):
+  mainboard.v   parameters INCLUDE_VSP, INCLUDE_TIPI, NUM_GROMS; ports clk_mode and clk_hold (to the replacement clkgen)
+  peb.v         parameter INCLUDE_TIPI (generate wrapper with tie-offs)
+  grom_storage_bram.v   per GROM and 2K page arrays so that NUM_GROMS cuts block RAM (equivalent behaviour, checked by simulation)
+
+Files (path, sha256 of the file as vendored, sha256 of the pristine upstream file at 82ce2157f62688eb0cd58332b52eba0eeed77538, licence line):
+  address_decoder.v  14bb9b3f6d632eb2  14bb9b3f6d632eb2  same  no header
+  artix7_hyperphy.v  a07eeb15eab099eb  a07eeb15eab099eb  same  no header
+  cartridge_rom.v  357a5b42a75a5386  357a5b42a75a5386  same  no header
+  cdc_flag.v  be3a1cf5dcbf8879  be3a1cf5dcbf8879  same  no header
+  console_rom.v  bb73dee54becc2c8  bb73dee54becc2c8  same  no header
+  fdc1771/fdc1771_mockdrive.v  1c985cda5e2a0965  1c985cda5e2a0965  same  no header
+  fdc1771/fdc1771.v  6b78867b831cdd4d  6b78867b831cdd4d  same  no header
+  grom_storage_bram.v  90bd9b0b53dda6cb  348dd700301df1c9  CHANGED  no header
+  grom_storage_dma.v  f6bc10325bd66305  f6bc10325bd66305  same  no header
+  groms.v  36cdad674582d818  36cdad674582d818  same  no header
+  keymatrix.v  6e619cf9c3dcfd78  6e619cf9c3dcfd78  same  no header
+  mainboard.v  7cb60ef95d52a015  6483607146db795e  CHANGED  no header
+  multiplexer.v  381d3946ef3dc9ac  381d3946ef3dc9ac  same  no header
+  peb_fdc.v  e7be472b24f2d59d  e7be472b24f2d59d  same  no header
+  peb_pcode.v  9dca9588068fc03c  9dca9588068fc03c  same  no header
+  peb_ram32k.v  18e3d1a943ac50c6  18e3d1a943ac50c6  same  no header
+  peb_tipi.v  03f67a8d89d7ea14  03f67a8d89d7ea14  same  no header
+  peb.v  20c46a37b1152fd1  986b6dbcfad86826  CHANGED  no header
+  scratchpad_ram.v  968603db18f65e8c  968603db18f65e8c  same  no header
+  tms5200/tms5200_bstack.v  641fa530f4fa9e04  641fa530f4fa9e04  same  no header
+  tms5200/tms5200_crom.v  d1c9f4fc670b1023  d1c9f4fc670b1023  same  no header
+  tms5200/tms5200_dac.v  79ed835b073abbc2  79ed835b073abbc2  same  no header
+  tms5200/tms5200_fifo.v  7ad0cb8b75a921fb  7ad0cb8b75a921fb  same  no header
+  tms5200/tms5200_kstack.v  35b4701f4d93c043  35b4701f4d93c043  same  no header
+  tms5200/tms5200_multiplier.v  a81d7a7067261d40  a81d7a7067261d40  same  no header
+  tms5200/tms5200_pram.v  ae2ff40191ffc5d3  ae2ff40191ffc5d3  same  no header
+  tms5200/tms5200_prom.v  ed3e955baa2a8b51  ed3e955baa2a8b51  same  no header
+  tms5200/tms5200_vsp.v  a0718cabf9d6e006  a0718cabf9d6e006  same  no header
+  tms5200/tms5200_wrapper.v  10f2d7d146f50a05  10f2d7d146f50a05  same  no header
+  tms5200/tms6100_vsm.v  598a23b0ae8f2259  598a23b0ae8f2259  same  no header
+  tms9900/tms9900_cpu.v  98f6b49d132cf7c4  98f6b49d132cf7c4  same  no header
+  tms9900/tms9901_psi.v  4625019874c72cbe  4625019874c72cbe  same  no header
+  tms9918/tms9918_color_to_rgb.v  c6e27575b8cda591  c6e27575b8cda591  same  no header
+  tms9918/tms9918_cpuifc.v  f73511d4a090bd07  f73511d4a090bd07  same  no header
+  tms9918/tms9918_scandoubler.v  f1334c5e704730a1  f1334c5e704730a1  same  no header
+  tms9918/tms9918_vdpram.v  b3155950add4d9f3  b3155950add4d9f3  same  no header
+  tms9918/tms9918_vdp.v  77f8b3503e5197c4  77f8b3503e5197c4  same  no header
+  tms9918/tms9918_wrapper.v  538d4ef03fa4d177  538d4ef03fa4d177  same  no header
+  tms9919/tms9919_sgc.v  bfd0da5892832a4d  bfd0da5892832a4d  same  no header

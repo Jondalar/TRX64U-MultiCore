@@ -28,6 +28,7 @@ Origin, licence as the files state it and our changes, per block: [PROVENANCE.md
 | Amiga 500 / 1200 (NanoMig) | `cores/amiga/rtl`, `cores/amiga1200/rtl` | mostly GPL-3.0 or later; FX68K GPL-3.0; TG68K LGPL-3.0 or later | files without licence text, see NOTICE |
 | Apple //e (NanoApple2) | `cores/apple2/rtl` | GPL-3.0 as declared by the repository; credit lines only in several files | see NOTICE |
 | VIC-20 (VIC20Nano) | `cores/vc20/rtl` | GPL-3.0 as a repository; three files carry "Replay hardware only" headers; T65 BSD-style | see NOTICE |
+| TI-99/4A (zeldin/Mega99) | `cores/ti99/rtl` | LGPL-3.0 (files carry their own headers); the console ROM and GROMs are never in the repository | see NOTICE |
 | Atari 800 XL (Atari800_MiSTer) | `cores/atari800/rtl` | upstream headers: non-commercial use, contact the author for other use; three LGPL files | see NOTICE |
 
 Distribution: the sources of every part go with a bitstream or app we publish, under the licence of that part. The host

@@ -219,6 +219,7 @@ SRCS_CC	 =  u64ii_init.cc \
 			cpc.cc \
 			cpc_disk.cc \
 			vc20.cc \
+			ti99.cc \
 			c264.cc \
 			pet.cc \
 			c128.cc \

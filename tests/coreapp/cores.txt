@@ -14,6 +14,7 @@ ddt: ddt_mandel.cc ddt_novic.cc ddt_regs.h
 neogeo: neogeo.cc neogeo_regs.h neoset.cc neoset.h
 nes: nes.cc nes_regs.h ines.cc ines.h
 snes: snes.cc snes_regs.h snes_rom.cc snes_rom.h
+ti99: ti99.cc ti99_regs.h
 vc20: vc20.cc vc20_regs.h
 zx: zx.cc zx_regs.h zx_snap.cc zx_snap.h
 zxnext: zxnext.cc zxnext_fw.h zxnext_regs.h
