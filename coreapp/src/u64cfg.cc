@@ -15,10 +15,8 @@
 #include "picture.h"
 #include "sid_decide.h"
 #include "i2c_drv.h"
-extern "C" {
-#include "resid8_filter.h"
+#include "resid8_filter.h"                  // C++ headers: trx_io.cc defines these with C++ linkage
 #include "trx_io.h"
-}
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
