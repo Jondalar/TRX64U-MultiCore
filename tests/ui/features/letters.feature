@@ -33,8 +33,10 @@ Feature: Letters: the menu claims few letters, a letter nobody claims does nothi
     Then the footer does not show "TAB"
 
   Scenario: no letter acts inside a question
-    Given the menu is open on F3
-    When I open the medium "USB0"
+    Given the menu is open on F7
+    When I set "Navigation style" to "Quick Search"
+    And I press F3
+    And I open the medium "USB0"
     And I move to the file "games"
     And I press RETURN
     And I move to the file "alpha.d64"

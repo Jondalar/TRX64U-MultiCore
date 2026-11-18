@@ -24,7 +24,8 @@ Feature: Settings of the Amiga 1200: a change is applied or stored at once, rese
     And the top bar does not show "UNSAVED"
 
   Scenario: a toggle on the settings page changes with RETURN
-    When I move to "Persist medium mounts"
+    When I press F7
+    And I move to "Persist medium mounts"
     And I press RETURN
     Then the setting "Persist medium mounts" is "Yes"
     And the status line is "Persist medium mounts: Yes"

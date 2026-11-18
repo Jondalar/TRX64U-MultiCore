@@ -16,7 +16,7 @@ Feature: Letters on the Amiga 1200: the menu claims few letters, a letter nobody
     When I press R
     Then no dialog is open
     And the area is "Home"
-    When I press F7
+    When I move to "Reset Amiga"
     And I press RETURN
     Then the menu is closed
     When the menu is open

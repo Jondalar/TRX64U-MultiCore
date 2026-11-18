@@ -19,8 +19,8 @@ Feature: Navigation of the Amiga 1200 menu (T153 S1-S3 on the A1200: areas F1/F3
     Then the area is "A1200"
     And the page title is "A1200"
     When I press F7
-    Then the area is "Actions"
-    And the page title is "Quick"
+    Then the area is "APP"
+    And the page title is "Settings"
     When I press F8
     Then the area is "System"
     And the page title is "System"

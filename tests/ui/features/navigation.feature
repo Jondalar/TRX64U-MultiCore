@@ -86,7 +86,9 @@ Feature: Navigation of the TRX64U menu (T153 S1-S3; T228 R1/R9 the generic core 
     Then the menu is closed
 
   Scenario: RUN/STOP closes the menu with a question open
-    When I press F3
+    When I press F7
+    And I set "Navigation style" to "Quick Search"
+    And I press F3
     And I open the medium "USB0"
     And I move to the file "games"
     And I press RETURN

@@ -46,7 +46,9 @@ class Emu:
 
     # ---- life -------------------------------------------------------------------------------------------------------------------------
     def start(self):
-        app = APP_TRX64U if self.core == "trx64u" and os.path.exists(APP_TRX64U) else APP     # T228 R25: an older build has the C64 in the shared image
+        app = APP_TRX64U if self.core == "trx64u" else APP     # T228 R25: the shared image has no TRX64U C64; trx64u runs its own image
+        if not os.path.exists(app):
+            raise EmuError("no core app image %s (tools/dev.sh riscv builds both)" % app)
         for need, what in ((EMU, "ue2emu (UE2EMU)"), (ROMS, "the emulator's ROM folder (UE2EMU_ROMS)"), (app, "the coreapp image (COREAPP, tests/ui/build.sh)")):
             if not os.path.exists(need):
                 raise EmuError("%s not found: %s" % (what, need))

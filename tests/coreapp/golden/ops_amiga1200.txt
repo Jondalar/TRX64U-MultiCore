@@ -1,5 +1,5 @@
 op	menu.browse	path:path:0:0:519:
-op	menu.screen	screen:string:0:0:31:
+op	menu.screen	screen:string:0:0:31:	unless:string:0:0:31:
 op	app.open	app:string:0:0:15:	action:string:0:0:31:	file:string:0:0:519:
 op	machine.warm_reset
 op	machine.cold_reset
