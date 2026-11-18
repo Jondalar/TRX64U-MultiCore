@@ -459,3 +459,76 @@ c = bitstream gap ("not planned" = no decision by Alex), d = the MultiCore app o
 
 The FAKE list (Analog/Digital Video Mode, Adjust Color Clock and the others still in TRX64-Ultimate's firmware) goes to Alex as
 cleanup on the TRX64-Ultimate side; nothing decided there.
+
+## TRX64-Ultimate: the 52 FAKE rows and its functions trx64u lacks (2026-11-18, TRX64U-FW session, code read only)
+
+Basis: bitstream main-31e69921 (`designs/c64_basic`), firmware submodule 18af6de9 built with -DU64=2. W = works with
+TRX64-Ultimate's firmware on its bitstream, D = dead (the bitstream cannot). Board evidence is from October 2026, before 0.3.0.
+
+| F | Row | Letter | TRX64-Ultimate path | Note |
+|---|---|---|---|---|
+| F1 | Freeze drive in menu | W | FW/drive/c1541.cc:59 -> :343-344 (b2) -> drive_registers.vhd:75 -> c1541_drive.vhd:168-169 | written by drive_reset only (power, Reset, each mount) |
+| F2 | D64 GEOS copy protection | W | FW/drive/c1541.cc:62 -> :599 -> FW/drive/disk_image.cc:299-302, 334-345, 640ff | applied in the D64->GCR conversion at mount |
+| F3 | SpeedDOS parallel cable | D | u64_config.cc:423, :1463 -> 0x10100409 | not decoded (TU/ultimate_sys.vhd:1169-1201); VIA1 port A open |
+| F4 | DMA load mimics ID | W | FW/io/c64/c64.cc:183 -> c64_subsys.cc:776, 815, 1036, 1070 (C64_POKE $BA) | firmware only |
+| F5 | Bus operation mode | D | c64.cc:162, 2249, 2350 -> 0x1018002A | not decoded |
+| F6 | Command interface (UCI) | W | c64.cc:202, 586-588 ($DF1C); TU/uci_unit.vhd:124, TU/top.v:1401-1403 | board: T28-uci.md:160; forced off while a cartridge runs (c64.cc:426-445) |
+| F7-F9 | Analog/Digital video mode, Adjust color clock | D | u64_config.cc:417-420 | no analog pins; 0x10100408 not decoded; app_i2c blocks 0xC8 |
+| F10 | 800 x 600 | W (60 Hz only) | u64_config.cc:398 -> :1173-1201 -> trx_hdmi.h:14-23 -> mode_req.v:64-77 | real 800x600 only under NTSC or PAL-60 |
+| F11 | 1024 x 768 | D | trx_hdmi.h:22 maps it to 800x600/576p | no such row in hdmi_modes.vh |
+| F12 | Speaker enable | W | U2PIO_SPEAKER_EN 0x1010000C (u64_config.cc:1445-1447); levels 0x10100540 | with U64==2 the speaker items do not exist there (u64_config.cc:427-430), the enable ends up 1; write b0 = 1 |
+| F13, F15 | Speaker volume reSID 1 / socket 1 | W (partial) | 0x10100540/41/44/45 | one gain for the whole mono mix |
+| F14, F16-F18 | Speaker volume reSID 2, socket 2, sampler L/R | D | 0x42/43, 0x46-0x4B | not decoded |
+| F19 | Paddle override | D | 0x10180013 | not decoded |
+| F20-F21 | Filter curve SID 1/2 | W | u64_config.cc:489/490 -> setResid8 :577-594 -> trx_io 0x040/0x041, base/offset 0x044-0x04B | board: menu and REST, 2026-10-07 |
+| F22-F23 | Filter resonance SID 1/2 | W | u64_config.cc:495/496 -> :587/590; Auto = b0 of trx_io 0x042/0x043 | Low/High clear Auto; also applied at boot (:1067-1071) |
+| F24-F25 | Digi level SID 1/2 | W | u64_config.cc:497/498 -> :588/591; trx_io 0x042/0x043 b1 | Auto follows the chip model |
+| F26 | Mouse mode | W (partial) | usb_hid.cc:1413-1417, 1562; keyboard matrix 0x10100300; wheel -> joystick_output.cc:130 | "Mouse" (1351) dead: POT not decoded; Cursor and wheel work |
+| F27-F28 | Mouse sensitivity / acceleration | W (Cursor only) | usb_hid.cc:1462, 1466 | |
+| F29-F30 | Wheel sensitivity / direction | W | usb_hid.cc:1514-1528, 1603, 1631 | dead in "Mouse" mode |
+| F31 | Filename overflow squeeze | W | userinterface.cc:172 -> :338 -> browsable_root.h:186-233 | |
+| F32-F35 | Apps heading, Cartridge dumper / inspector / Flash cartridge | W | app_registry.cc:551-575; apps/trex_crt (main.c, cart_base.c, cart_inspector.c) | board: T57 (EF1, MegaByter, GMod2, EF3) |
+| F36 | Softboot | W | apps/softboot/src/softboot.c:216-300 -> app_api_impl.cc:886-915 | emulator only |
+| F37 | Swap joystick ports hotkey | D | u64_config.cc:2763-2783 | joy_invert constant 0 |
+| F38 | Unique ID | W | network_config.cc:17 -> socket_dma.cc:629-634, api/routes.cc:218-223; product.cc:253-273 | |
+| F39 | Ident service | W | socket_dma.cc:531-563 (UDP 64) | |
+| F40 | DMA service | W | socket_dma.cc:426 (TCP 64), :129-232 | tests/app_c64_test.py passed 2026-10-01 |
+| F41 | Telnet remote menu | W | socket_gui.cc:30, 71/77, 252 (port 23) | board: T57 session driven over telnet |
+| F42 | Web remote control | W | httpd.cc:24, 32, 53-66 (Disabled closes port 80) | |
+| F43 | Syslog | W | ultimate.cc:112 -> syslog.cc:14-55 (UDP 514) | read once at boot |
+| F44-F48 | SNTP, time zone, time servers | W | sntp_time.cc:18-32 <- network_interface.cc:242, network_config.cc:67-78 | board: T61 (clock right) |
+| F49-F52 | Debug stream | D | data_streamer.cc; TU/top.v:1166-1190 | no sender for id 2 |
+
+TRX64-Ultimate functions with no trx64u row (working on its bitstream):
+
+| # | Function | TRX64-Ultimate file:line | Note |
+|---|---|---|---|
+| 1 | Interface Type = Overlay (menu over the running C64), C= I | userinterface.cc:154; tree_browser.cc:493 | trx64u freezes (T104.1, Alex 2026-10-20) |
+| 2 | Save C64 Memory (.bin) | c64_subsys.cc:450, 694 | removed by T228 R3 |
+| 3 | Save REU Memory (.reu) | c64_subsys.cc:449, 641 | removed by T228 R3 |
+| 4 | Save / Load MP3 Drv A-D (GEOS REU RAM drives) | c64_subsys.cc:452-455, 852; filetype_d64.cc:121-124 | only with a GEOS RAM drive in the REU |
+| 5 | Developer > Clear / Save Debug Log, C= L | configio.cc:31-32; tree_browser.cc:553 | T228 R8 |
+| 6 | Developer > Save EDID to file | u64_config.cc:2049, 2087 | T228 R8 |
+| 7 | SID player (.sid/.mus/.str: Play Main Tune, Show Info, Play Song n; Autoconfig, Allow reSID8) | filetype_sid.cc:405-412; u64_config.cc:431-432, 3367 | |
+| 8 | .mod: Play MOD (Ultimate Audio), Load into REU, Preload | filetype_reu.cc:42-47 | |
+| 9 | .bin: Load Kernal / Load Drive ROM for this session | filetype_bin.cc:95, 109, 114 | |
+| 10 | .g71 mounts in drive A | filetype_g64.cc:110 | |
+| 11 | Load State on .c64rering, Load Ring on .trxring | filetype_c64re.cc:77 | |
+| 12 | Timewarp bar: C= O opens the monitor at the frame shown | trx_timewarp_ui.cc:284 | |
+| 13 | Save .C64RE Dump (c64re app) | apps/c64re/manifest.json:6 | |
+| 14 | Run with App (/Flash/apps/<EXT>.prg through REU memory) | user_file_interaction.cc:72-73 | |
+| 15 | A .cfg/.usr beside a PRG, D64, G64 or CRT is loaded first | configio.cc:460, 474; filetype_prg.cc:186 | |
+| 16 | Video > Palette Definition | u64_config.cc:416, 3297 | hidden in the TOML |
+| 17 | LED Lighting > Power LED Output 1/2 | u64_config.cc:425-426, 3305-3308 | hidden (T228 R7) |
+| 18 | Power On After Power Loss, Wake On Wi-Fi | u64_config.cc:445-446, 1244-1245 | hidden (T228 R7) |
+| 19 | reSID8 Filter On/Off per engine, 6581 Base, 6581 Offset | u64_config.cc:487-488, 491-494, 1036 | |
+| 20 | SID Detected Socket 1/2, chip pages (FPGASID, SwinSID) | u64_config.cc:453-454; sid_device_fpgasid.cc:126; sid_device_swinsid.cc:62 | |
+| 21 | Menu Mouse Navigation | u64_config.cc:409, 3318; usb_hid.cc:177-184 | dropped by T104 (Alex 2026-10-29) |
+| 22 | WiFi: Disconnect, Connect to last AP, Select AP, Enter AP manually, Forget APs | network_esp32.cc:41-45, 214-227 | |
+| 23 | WiFi: DHCP, static IP/netmask/gateway/DNS | network_esp32.cc:47-51 | |
+| 24 | Temp RAM disk, Temp Auto Cleanup / Subfolders | ramdisk.cc:38; userinterface.cc:175-176 | |
+| 25 | UI look: User Interface, Navigation Style, Color Scheme | userinterface.cc:161, 163, 164 | Color Scheme hidden (T228 R7) |
+| 26 | C= Z reboot, C= B power cycle, C= K power off in every menu | machine_hotkeys.h:29-38 | |
+| 27 | CTRL+D swaps the disk without the menu | userinterface.cc:444-445 | |
+| 28 | Power-on keys: RESTORE safe mode, CTRL+P/N PAL/NTSC once | config.cc:233; u64_config.cc:1277-1283 | |
+| 29 | Save to Flash, Reset from Flash (undo), Auto Save Config | configio.cc:26-30; userinterface.cc:170 | trx64u saves every change at once |
