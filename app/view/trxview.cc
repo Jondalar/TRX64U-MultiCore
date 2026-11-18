@@ -675,7 +675,10 @@ const char *trx_fit_mid(const char *s, int w, const lv_font_t *font, char *buf, 
 
 const char *trx_fit_name(const char *s, int w, const lv_font_t *font, char *buf, int n, int quarter)
 {
-    if (!s || trx_text_w(s, font) <= w || quarter < 0 || quarter > 3) {
+    if (quarter < 0 || quarter > 3) {
+        return trx_fit_mid(s, w, font, buf, n);
+    }
+    if (!s || trx_text_w(s, font) <= w) {
         return s;
     }
     int len = (int)strlen(s);

@@ -46,6 +46,8 @@ Own code (this repo's licence): `host-app/software/hostapp/`, `coreapp/` (T93, b
 | `software/filesystem/blockdev.h` | `software/filesystem/blockdev.h` | a8505581473d |
 | `software/filesystem/blockdev_flash.cc` | `software/filesystem/blockdev_flash.cc` | 0d2463a23d1d (MODIFIED: T139: write() erases every sector of the run, not only the first (FatFS writes runs of sectors; the rest was programmed over old data)) |
 | `software/filesystem/blockdev_flash.h` | `software/filesystem/blockdev_flash.h` | 54a98e81a1ac |
+| `software/filesystem/blockdev_ram.cc` | `software/filesystem/blockdev_ram.cc` | c578ffc3d622 |
+| `software/filesystem/blockdev_ram.h` | `software/filesystem/blockdev_ram.h` | 940459ff6ef7 |
 | `software/filesystem/chanfat_manager.h` | `software/filesystem/chanfat_manager.h` | 668e42feb723 |
 | `software/filesystem/directory.cc` | `software/filesystem/directory.cc` | 5067c1ef30f2 |
 | `software/filesystem/directory.h` | `software/filesystem/directory.h` | a5aa7279d2e1 |

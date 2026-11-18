@@ -130,7 +130,7 @@ int trx_reset_mark_w(void);
 // T209: `s` cut in the middle ("start...end.ext") until it is at most `w` pixels wide in `font`; `buf` holds the result (s itself when it fits).
 const char *trx_fit_mid(const char *s, int w, const lv_font_t *font, char *buf, int n);
 // T228 R21, "Filename overflow squeeze" as TRX64-Ultimate (browsable_root.h:186-233): `quarter` 0 None (the name cut at the end, no mark), 1 Beginning, 2 Middle, 3 End: the
-// kept characters are split quarter/4 before and the rest after a '~' that takes the first character of the tail. The most characters that fit `w` pixels are kept.
+// `quarter` -1: T209's trx_fit_mid. The kept characters are split quarter/4 before and the rest after a '~' that takes the first character of the tail. The most characters that fit `w` pixels are kept.
 const char *trx_fit_name(const char *s, int w, const lv_font_t *font, char *buf, int n, int quarter);
 
 // Select or deselect a row that already exists: its four selection strips and the value's colour,
