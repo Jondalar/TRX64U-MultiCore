@@ -371,6 +371,13 @@ Alex 2026-11-17 (translated): "I want you to apply the generic APP 100 % to the 
   whether .d71 stays for "Load into MP3 Drv" (a GEOS RAM drive in the REU, no drive): ".d71 kommt komplett raus !" (translated: ".d71
   goes out completely!"): no .d71 file type, a 1571 RAM drive counts as none (no Save MP3 Drv of it), the UCI refuses .d71/.g71 and
   the RAM disk commands of a 1571 drive (1f382f502).
+- **R25 (Alex 2026-11-18, after the one RISC-V build of the R21 work: the core app's RAM region 0x30000-0xE90000 overflowed by 345,436
+  bytes; the core app is one image for every core, built once and copied into each .cor, with one fixed FreeRTOS heap of 0x7A0000):**
+  "Dann lass uns das mit der App pro Core machen beim Build bitte. Dann kann der trx64u seinen angepassten heap haben und der rest bleibt
+  wie es ist" (translated: "Then let us do the app per core in the build, please. Then trx64u can have its adjusted heap and the rest
+  stays as it is"). The build links the core app once per core, each image with its own core's code only (the objects are compiled once);
+  each .cor gets its own image. trx64u gets a heap sized for its image; every other core keeps 0x7A0000. Tests, the menu simulator and
+  the emulator keep the image with every core. The code stays generic (D24): only the link differs per core.
 - R1-R9 replace the earlier decisions of this spec where they differ (D3, D7, D8, D13, D16, D18 and the S2 choices DC1-DC14); branch t228-s2 stays unmerged. The proposal is rendered on branch t228-mock (render bench `mock_shots()`), shown as a click dummy on the concept page.
 
 ### Decisions during S2 (decided by Claude on Alex's delegation 2026-11-16 night; Alex can overturn each at S2b)
