@@ -8,6 +8,6 @@ version      = "0.1.0"           # T89.1: WOZ bit level Disk II, the ProDOS hard
 contract     = 2
 app          = "blueprint"     # T89 §5 2026-10-19: the T104 generic application (coreapp/cores/apple2.cc), not Gideon's base (supersedes D13)
 order        = 10              # after the C64U (9); core order of docs/todo/T79.md
-experimental = false           # done (Alex, 2026-10-30): .dsk/.nib/WOZ, Wasteland saves, ProDOS 2.4 from the HDD on the board
+experimental = true            # every core is experimental (Alex 2026-11-18); board 2026-10-30: .dsk/.nib/WOZ, Wasteland saves, ProDOS 2.4 from the HDD
 sources      = ["cores/apple2", ":(exclude)cores/apple2/sim"]   # a bench edit stays out of the key (as nes/atari800)
 roms         = ["apple2e.rom", "apple2e-video.rom", "diskii.rom"]   # names only: never in the repository, the CI or a .cor; from the stick
