@@ -492,7 +492,13 @@ static void load_eeprom(CoreIo *io, CoreFile *f, uint64_t fsize, uint32_t pos)
     io->eeprom_write(0, &one, 1);
 }
 
+static int cart_run(CoreCtx *c, const char *path, char *msg, int msglen, bool do_reset);
 int c64_cart_run(CoreCtx *c, const char *path, char *msg, int msglen)
+{
+    return cart_run(c, path, msg, msglen, true);
+}
+
+static int cart_run(CoreCtx *c, const char *path, char *msg, int msglen, bool do_reset)
 {
     CoreIo *io = c->io;
     MediaLoading loading(c);                               // T226 S1
@@ -636,7 +642,87 @@ int c64_cart_run(CoreCtx *c, const char *path, char *msg, int msglen)
     snprintf(g_cart_path, sizeof(g_cart_path), "%s", path);
     g_cart_crt = crt;
     mount_notify(c, 1);                                               // T180 D2
-    return boot_cold_reset(c, msg, msglen);
+    return do_reset ? boot_cold_reset(c, msg, msglen) : 0;
+}
+
+// ---- the SID player's cartridge (T228 R21 item 7) --------------------------------------------------------------------------------------------
+// FW FileTypeSID::prepare starts a 16 KB cartridge it builds in RAM (sid_cart / mus_cart: C64_START_CART with cart_def type CART_TYPE_16K, custom_addr) and
+// restores the cartridge the machine had at the next reset (C64::restoreCart). Here: the 16 KB are the image of bank 0, a normal cartridge (hw 0x01: EXROM and
+// GAME low), placed as c64_cart_run places a CHIP packet; the cartridge before it is remembered by path, and the next reset of the application puts it back
+// (c64_cart_player_end, called from the reset's hold). The player cartridge is not "in the port" for the Library: c64_cart_active() is false for it.
+static bool g_player;
+static bool g_fresh;                                                   // the reset that starts the player is not the one that ends it
+static char g_prev_path[FS_PATH_MAX];
+
+bool c64_cart_player_active(void) { return g_player; }
+
+int c64_cart_run_image(CoreCtx *c, const char *name, const uint8_t *img, char *msg, int msglen)
+{
+    CoreIo *io = c->io;
+    bool block = (io->rd(C64_CAPS) & C64_CAPS_CART) != 0;
+    if (block && !find_desc(0x01)) {
+        snprintf(msg, msglen, "the bitstream has no mapping for a 16 KB cartridge");
+        return 1;
+    }
+    bool shared = block && xport_shared(io);
+    uint32_t base = shared ? XPORT_OFS : GIDEON_OFS;
+    char fm[160];
+    wb_flush(c, WB_WHY_EJECT, fm, sizeof(fm));                         // what the cartridge before it changed goes to its file first
+    if (!g_player) {
+        snprintf(g_prev_path, sizeof(g_prev_path), "%s", g_cart_name[0] ? g_cart_path : "");
+    }
+    io->mode_reset(true);
+    io->cart_wr(C64_CARTREG_TYPE, 0);
+    io->cart_wr(C64_CARTREG_REU, 0);
+    io->cart_wr(C64_CARTREG_SAMPLER, 0);
+    io->bus_wr(C64_BUSREG_INTERNAL, 15);
+    io->bus_wr(C64_BUSREG_EXTERNAL, 0);
+    if (shared) {
+        io->wr(C64_CART_ROM_SEL, 1);
+        io->wr(C64_CART_CMD, C64_CART_CMD_INVAL);
+    }
+    g_image_max = IMAGE_MAX;
+    io->ddr_write(base, img, BANK);
+    g_nchip = 0;
+    g_img_base = base;
+    set_type(io, block, 0x01);
+    static uint8_t zero[4096];
+    for (uint32_t a = 0; a < CART_RAM_BYTES; a += sizeof(zero)) {
+        io->ddr_abs_write(CART_RAM_ABS + a, zero, sizeof(zero));
+    }
+    printf("[c64] cartridge %s: 16 KB image, CART_TYPE 01, image at %s\n", name, shared ? "0x01000000 (ROM_SEL)" : "0x03C00000");
+    g_cart_name[0] = 0;
+    g_player = true;
+    g_fresh = true;
+    mount_notify(c, 1);
+    return 0;                                                          // the caller resets the machine when the RAM is ready
+}
+
+// The reset of the application ends the player's cartridge: the one before it is placed again (or none), the machine is held by the caller.
+void c64_cart_player_end(CoreCtx *c)
+{
+    if (!g_player) {
+        return;
+    }
+    if (g_fresh) {
+        g_fresh = false;
+        return;
+    }
+    g_player = false;
+    char m[160];
+    m[0] = 0;
+    if (g_prev_path[0]) {
+        char path[FS_PATH_MAX];
+        snprintf(path, sizeof(path), "%s", g_prev_path);
+        g_prev_path[0] = 0;
+        if (!cart_run(c, path, m, sizeof(m), false)) {
+            return;
+        }
+    }
+    g_prev_path[0] = 0;
+    set_type(c->io, (c->io->rd(C64_CAPS) & C64_CAPS_CART) != 0, 0);
+    g_cart_name[0] = 0;
+    mount_notify(c, 1);
 }
 
 // "Save Cartridge": the image as it is in DDR2 now, written as a .crt with the header and the chip layout of the file it came from.

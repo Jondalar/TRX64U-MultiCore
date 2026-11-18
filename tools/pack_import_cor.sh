@@ -35,7 +35,7 @@ while [ $# -gt 0 ]; do
     esac
 done
 [ -f "$PIN" ] && [ -n "$OUT" ] || { sed -n '2,10p' "$0" >&2; exit 2; }
-ID="" NAME="" VERSION="" SEMVER="" PKG_VERSION="" BIT_FILE="" BIT_SHA256="" ICON="" APP_FILE="" APP_SHA256="" DESC="" OPS=""
+ID="" NAME="" VERSION="" SEMVER="" PKG_VERSION="" BIT_FILE="" BIT_SHA256="" ICON="" APP_FILE="" APP_SHA256="" DESC="" OPS="" FILES=""
 # shellcheck disable=SC1090
 . "$PIN"
 # T221 D15 / T230 P-1: the version of an imported core is the SemVer its pin copies from the TRX64-Ultimate package (SEMVER=); a pin without one shows the commit.
@@ -83,5 +83,5 @@ cp "$BIT" "$W/${ID}_mono.bit"
 # the menu of a core of ours (T104.2 D10): record 6, every name and binding checked against what the application exports; a menu without the check is no menu
 rel() { case "$1" in /*) echo "$1";; *) echo "$ROOT/$1";; esac; }
 [ -z "$DESC$OPS" ] || { [ -n "$DESC" ] && [ -n "$OPS" ] && [ -f "$(rel "$DESC")" ] && [ -f "$(rel "$OPS")" ]; } || { echo "$PIN: DESC and OPS go together and name existing files" >&2; exit 2; }
-"$HERE/pack_large_cor.sh" ${DESC:+--desc "$(rel "$DESC")" --ops "$(rel "$OPS")"} --id "$ID" --name "$NAME" --version "$VERSION" --bit "$W/${ID}_mono.bit" --app-bin "$APPBIN" \
+"$HERE/pack_large_cor.sh" ${DESC:+--desc "$(rel "$DESC")" --ops "$(rel "$OPS")"} ${FILES:+--files "$(rel "$FILES")"} --id "$ID" --name "$NAME" --version "$VERSION" --bit "$W/${ID}_mono.bit" --app-bin "$APPBIN" \
     --icon "$ROOT/$ICON" --bit-commit "${PKG_VERSION##*-}" ${APPC:+--app-commit "$APPC"} --out "$OUT"

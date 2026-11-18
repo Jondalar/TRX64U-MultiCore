@@ -150,6 +150,9 @@ op	c64.fx_io	value:int:-2000:2000:0:
 op	c64.fx_roms	value:int:-2000:2000:0:
 op	u64.fx_power	value:int:-2000:2000:0:
 op	drive.fx_misc	value:int:-2000:2000:0:
+op	c64.sid_play	path:path:0:0:519:	song:int:0:65535:0:
+op	c64.sid_songs	path:path:0:0:519:	song:int:0:65535:0:
+op	c64.sid_info	path:path:0:0:519:	song:int:0:65535:0:
 op	reu.load	path:path:0:0:519:
 op	reu.preload	path:path:0:0:519:
 op	drive.insert_blank

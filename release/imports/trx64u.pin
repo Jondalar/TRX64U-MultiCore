@@ -12,6 +12,8 @@ BIT_SHA256=149b4dfb3cba0948949d9cf83420b0113cd65d3a8ecf9e4c644a89b50b368733
 ICON=tools/core_logos/trx64/icon.rgb565
 DESC=coreapp/cores/trx64u/menu.toml
 OPS=tests/coreapp/golden/ops_trx64u.txt
+# T228 R21 item 7: record 8 of the .cor, the files the application installs into the core folder (the SID player's C64 programs, release/imports/trx64u_files/README)
+FILES=release/imports/trx64u_files
 # T228 (Alex 2026-11-17, "only deactivate! do not delete .. first we fix the UI, then we build the core again", translated): out of the
 # release and not packed by ci/package.sh while PIPELINE=false; PIPELINE=true (or the line removed) brings trx64u back.
 PIPELINE=false

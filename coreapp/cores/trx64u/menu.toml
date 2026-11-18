@@ -99,7 +99,7 @@ key = "F5"                       # the core's short title ("C64") names it
   id = "audio"
   name = "Audio"
   widget = "settings"
-  groups = ["Volumes", "Pan", "SID_sockets", "Emulated_SIDs"]
+  groups = ["Volumes", "Pan", "SID_sockets", "Emulated_SIDs", "SID_player_behavior"]
   ui = { sections = true, pages = "SID_sockets,Emulated_SIDs", pages_head = "reDIP:SID" }
   n = 5
   [[area.tab]]
@@ -780,6 +780,52 @@ ext = ".crt"
   closes_menu = true
 
 
+# The SID player (T228 R21 item 7): FW filetypes/filetype_sid.cc:405-412, the same three actions and one "Play Song n" per song of a tune that has more than one
+[[filetype]]
+ext = ".sid"
+  [[filetype.action]]
+  label = "Play Main Tune"
+  op = "c64.sid_play"
+  bind = [ { arg = "path", file = true }, { arg = "song", int = 0 } ]
+  closes_menu = true
+  [[filetype.action]]
+  label = "Show Info"
+  op = "c64.sid_info"
+  bind = [ { arg = "path", file = true }, { arg = "song", int = 0 } ]
+  show = true
+  [[filetype.action]]
+  label = "Play Song %d"
+  op = "c64.sid_play"
+  bind = [ { arg = "path", file = true }, { arg = "song", ask = true } ]
+  repeat_op = "c64.sid_songs"
+  closes_menu = true
+
+[[filetype]]
+ext = ".mus"
+  [[filetype.action]]
+  label = "Play Main Tune"
+  op = "c64.sid_play"
+  bind = [ { arg = "path", file = true }, { arg = "song", int = 0 } ]
+  closes_menu = true
+  [[filetype.action]]
+  label = "Show Info"
+  op = "c64.sid_info"
+  bind = [ { arg = "path", file = true }, { arg = "song", int = 0 } ]
+  show = true
+
+[[filetype]]
+ext = ".str"
+  [[filetype.action]]
+  label = "Play Main Tune"
+  op = "c64.sid_play"
+  bind = [ { arg = "path", file = true }, { arg = "song", int = 0 } ]
+  closes_menu = true
+  [[filetype.action]]
+  label = "Show Info"
+  op = "c64.sid_info"
+  bind = [ { arg = "path", file = true }, { arg = "song", int = 0 } ]
+  show = true
+
 [[filetype]]
 ext = ".reu"
   [[filetype.action]]
@@ -1207,6 +1253,24 @@ list = "stereo"
 default = 0
 when = "live"
 apply = "u64.fx_sid"
+
+[[core_setting]]                   # T228 R21 item 7 (FW u64_config.cc:431, group "SID Player Behavior" :3367): read when a tune is played (u64cfg_sid_autoconfig)
+group = "SID_player_behavior"
+key = "SID Player Autoconfig"
+label = "SID player autoconfig"
+list = "en_dis"
+default = 1
+when = "live"
+apply = "settings.noop"
+
+[[core_setting]]
+group = "SID_player_behavior"
+key = "Allow Autoconfig uses UltiSid"
+label = "Allow autoconfig uses reDIP:SID"
+list = "yes_no"
+default = 1
+when = "live"
+apply = "settings.noop"
 
 [[core_setting]]
 group = "Emulated_SIDs"

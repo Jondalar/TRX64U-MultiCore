@@ -20,4 +20,9 @@ void u64cfg_restore_mixer(CoreCtx *c);
 // Which SID sits in a socket (the last detection, 0 none, 1 6581, 2 8580, ...) and the names for the screen.
 const char *u64cfg_sid_type_name(int type);
 
+// The SID player's autoconfig (T228 R21 item 7, FW U64Config::SidAutoConfig): `count` SIDs (1 to 8) the tune asks for, each with its base (0x40 = $D400)
+// and type (1 6581, 2 8580, 3 either) are mapped on the sockets and the emulated SIDs, the mixer follows. The machine must be stopped. False: no mapping
+// was found (every SID is left unmapped). True also when the setting "SID Player Autoconfig" is off (nothing is done then).
+bool u64cfg_sid_autoconfig(CoreCtx *c, int count, const uint8_t *base, const uint8_t *type);
+
 #endif
