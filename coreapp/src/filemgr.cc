@@ -462,6 +462,12 @@ void FileMgr::browse_row(int i, BrowseRow *r, const char *marks_spec) const
         snprintf(r->sub, sizeof(r->sub), "%s", strcmp(f.name, "..") ? "Folder" : "Parent folder");
         snprintf(r->primary, sizeof(r->primary), "Open");
         r->tone = 0;
+        if (vmode && i < VROWS && strcmp(f.name, "..")) {                      // a folder found by the search: the folder it lies in, as for a file
+            char dir[FS_PATH_MAX];
+            const char *sl = strrchr(vfull[i], '/');
+            nf_copy(dir, sizeof(dir), vfull[i], sl ? (size_t)(sl == vfull[i] ? 1 : sl - vfull[i]) : 0);
+            snprintf(r->value, sizeof(r->value), "%s", dir);
+        }
         return;
     }
     const char *dot = strrchr(f.name, '.');
