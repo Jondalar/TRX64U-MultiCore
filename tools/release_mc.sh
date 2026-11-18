@@ -157,8 +157,11 @@ TXU="$(ls "$PKG"/trx64host_update_*.txu 2>/dev/null | head -1 || true)"
 [ -s "$PKG/unzip.u2a" ] || { echo "package $VER has no unzip.u2a" >&2; exit 1; }
 # T197 P5: the zip library Unzip loads rides beside it (the updater copies every .u2a beside the update file into <cores>/apps)
 [ -s "$PKG/miniz.u2a" ] || { echo "package $VER has no miniz.u2a (the zip library unzip.u2a needs)" >&2; exit 1; }
+# T228 R21: the cartridge tools and Run as Softboot ship like Unzip (ci/trxapps.sh builds them, ci/package.sh copies them into the package)
+[ -s "$PKG/trex_crt.u2a" ] || { echo "package $VER has no trex_crt.u2a (Dump, Inspect, Flash Cartridge)" >&2; exit 1; }
+[ -s "$PKG/softboot.u2a" ] || { echo "package $VER has no softboot.u2a (Run as Softboot)" >&2; exit 1; }
 
-bash "$ROOT/tools/make_release_mc.sh" --u2a "$PKG/unzip.u2a" --u2a "$PKG/miniz.u2a" --txu "$TXU" --id "$VER" --bit "${NULL_FULL:-$PKG/c64_basic.bit}" --app "$APP" \
+bash "$ROOT/tools/make_release_mc.sh" --u2a "$PKG/unzip.u2a" --u2a "$PKG/miniz.u2a" --u2a "$PKG/trex_crt.u2a" --u2a "$PKG/softboot.u2a" --txu "$TXU" --id "$VER" --bit "${NULL_FULL:-$PKG/c64_basic.bit}" --app "$APP" \
     --bit-commit "$BIT_COMMIT" --app-commit "$APP_COMMIT" --out "$OUT" ${UPDARGS[@]+"${UPDARGS[@]}"} "${CORARGS[@]}"
 
 D="$OUT/trx64mc-$VER"

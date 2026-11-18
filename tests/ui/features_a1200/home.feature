@@ -4,7 +4,7 @@ Feature: The Home page and the media rows of the Amiga 1200 (T153 S8 on the A120
   Scenario: Home lists what the machine is and has a row for each drive
     Given the menu is open
     Then the layout is "list"
-    And the page has the items "Core, Application, Network, Media, ROMs, Libraries"
+    And the page has the items "Reset Amiga, Save as config..., Load config..."
     And the page has the items "DF0, DF1, DF2, DF3, HD0, HD1"
 
   Scenario: an empty drive says so
@@ -33,6 +33,8 @@ Feature: The Home page and the media rows of the Amiga 1200 (T153 S8 on the A120
   Scenario: RETURN on a mounted drive row ejects it, and the status line is gone when the menu is closed and opened again
     Given the menu is open
     When I move to "DF0"
+    And I press RETURN
+    And I move to "Eject"
     And I press RETURN
     Then the status line is "DF0 ejected"
     And the item "DF0" shows "No image"

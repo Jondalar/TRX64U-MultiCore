@@ -1,12 +1,16 @@
 // LVGL on the TRX64 Ultimate pixel layer. See trx_lv_port.h.
 //
 // Registers (pix_layer.v; 32-bit, byte 3 commits, trx_io.h):
-//   0x101A6080 PX_CTRL   b0 enable, b3:1 format (1 RGB565), b5:4 scale
+//   0x101A6080 PX_CTRL   b0 enable, b3:1 format (1 RGB565), b5:4 scale S
 //   0x101A6084 PX_FRONT  the shown buffer;  6088 PX_BACK: shown from the next frame start
-//   6090 PX_SIZE {h, w}, 6094 PX_STRIDE, 6098 PX_POS {y0, x0}, 609C PX_GALPHA, 60A0 PX_KEY
+//   6090 PX_SIZE {h, w}, 6094 PX_STRIDE, 6098 PX_POS {y0, x0}, 609C PX_GALPHA, 60A0 PX_KEY, 60A8 PX_OSIZE {h, w}
+// Two pix_layers take them (T228). The MultiCore host's (host/pix_layer.v, and its copies in the large cores) sizes the picture by PX_OSIZE and does
+// not read b5:4. TRX64-Ultimate's (designs/c64_basic/pix_layer.v, the bitstream of trx64u.cor) has no PX_OSIZE: it shows each source pixel as S x S
+// output pixels (b5:4, 0 counting as 1). So the port writes both, the menu's output size and its whole factor over the canvas (px_ctrl).
 
 #include "trx_lv_port.h"
 #include "trx_io.h"
+#include "trxcanvas.h"
 #include "lvgl.h"
 #include "FreeRTOS.h"
 #include "task.h"
@@ -24,8 +28,7 @@
 #define PX_GALPHA      (TRX_IO_BASE + 0x609C)
 #define PX_KEY         (TRX_IO_BASE + 0x60A0)
 #define PX_OSIZE       (TRX_IO_BASE + 0x60A8)
-#define PX_CTRL_OFF    0x02 // RGB565, nearest sampling (b6 smoothing off), disabled; the size is PX_OSIZE (b5:4 are not read any more, T164 WP5)
-#define PX_CTRL_ON     (PX_CTRL_OFF | 1)
+#define PX_CTRL_FMT    0x02 // RGB565, nearest sampling (b6 smoothing off)
 
 #define BUF_BYTES      (TRX_LV_W * 2 * TRX_LV_H)   // the buffers hold the largest canvas (960 x 540); every other canvas has fewer pixels (T164 D10a)
 #define FLIP_TIMEOUT   pdMS_TO_TICKS(100)
@@ -80,10 +83,19 @@ static inline void stores_done(const uint16_t *last)
     (void)*(volatile const uint16_t *)last;
 }
 
+// PX_CTRL, on or off: b5:4 is the whole factor of the menu's output size over its canvas (trx_canvas_factor; TRX_LV_SCALE until trx_lv_set_place),
+// the scale of TRX64-Ultimate's layer; the MultiCore layer does not read it and takes PX_OSIZE. With the lock held.
+static uint32_t px_ctrl(bool on)
+{
+    int ow = place_set ? int(place_osize & 0xFFFF) : cv_w * TRX_LV_SCALE;
+    int oh = place_set ? int(place_osize >> 16) : cv_h * TRX_LV_SCALE;
+    return (uint32_t(trx_canvas_factor(ow, oh, cv_w, cv_h)) << 4) | PX_CTRL_FMT | (on ? 1u : 0u);
+}
+
 // First picture: shown opaque over everything, the whole output. With the lock held.
 static void layer_up(const uint16_t *fb)
 {
-    trx_io_write32(PX_CTRL, PX_CTRL_OFF);
+    trx_io_write32(PX_CTRL, px_ctrl(false));
     trx_io_write32(PX_SIZE, (uint32_t(cv_h) << 16) | (uint32_t)cv_w);
     trx_io_write32(PX_STRIDE, cv_w * 2);
     if (place_set) {
@@ -91,12 +103,12 @@ static void layer_up(const uint16_t *fb)
         trx_io_write32(PX_OSIZE, place_osize);
     } else {
         trx_io_write32(PX_POS, (uint32_t((1080 - cv_h * TRX_LV_SCALE) / 2) << 16) | (uint32_t)((1920 - cv_w * TRX_LV_SCALE) / 2));
-        trx_io_write32(PX_OSIZE, (uint32_t(cv_h * TRX_LV_SCALE) << 16) | (uint32_t)(cv_w * TRX_LV_SCALE));   // the host's pix_layer scales to this size
+        trx_io_write32(PX_OSIZE, (uint32_t(cv_h * TRX_LV_SCALE) << 16) | (uint32_t)(cv_w * TRX_LV_SCALE));   // the MultiCore pix_layer scales to this size
     }
     trx_io_write32(PX_GALPHA, 255);
     trx_io_write32(PX_KEY, key_reg);
     trx_io_write32(PX_FRONT, (uint32_t)fb);
-    trx_io_write32(PX_CTRL, PX_CTRL_ON);
+    trx_io_write32(PX_CTRL, px_ctrl(true));
     layer_on = true;
 }
 
@@ -264,7 +276,7 @@ void trx_lv_close(void)
     }
     xSemaphoreTake(lock, portMAX_DELAY);
     if (layer_on && !taken) {
-        trx_io_write32(PX_CTRL, PX_CTRL_OFF);
+        trx_io_write32(PX_CTRL, px_ctrl(false));
         trx_io_write32(PX_GALPHA, 255);
     }
     layer_on = false;
@@ -285,7 +297,7 @@ void trx_lv_yield_layer(void)
     xSemaphoreTake(lock, portMAX_DELAY);
     if (disp && !taken) {
         if (layer_on) {
-            trx_io_write32(PX_CTRL, PX_CTRL_OFF);
+            trx_io_write32(PX_CTRL, px_ctrl(false));
             trx_io_write32(PX_GALPHA, 255);
             layer_on = false;
         }
@@ -307,7 +319,7 @@ void trx_lv_suspend(void)
     xSemaphoreTake(lock, portMAX_DELAY);
     if (disp && !taken && !suspended) {
         if (layer_on) {
-            trx_io_write32(PX_CTRL, PX_CTRL_OFF);
+            trx_io_write32(PX_CTRL, px_ctrl(false));
             trx_io_write32(PX_GALPHA, 255);
             layer_on = false;
         }
@@ -348,7 +360,7 @@ void trx_lv_set_canvas(int w, int h)
         cv_w = w;
         cv_h = h;
         if (layer_on && !taken && !suspended) {
-            trx_io_write32(PX_CTRL, PX_CTRL_OFF);
+            trx_io_write32(PX_CTRL, px_ctrl(false));
         }
         layer_on = false;
         if (disp) {
@@ -374,10 +386,10 @@ void trx_lv_set_place(int x, int y, int w, int h)
     place_pos = pos;
     place_osize = osize;
     if (!same && layer_on && !taken && !suspended) {
-        trx_io_write32(PX_CTRL, PX_CTRL_OFF);
+        trx_io_write32(PX_CTRL, px_ctrl(false));
         trx_io_write32(PX_POS, place_pos);
         trx_io_write32(PX_OSIZE, place_osize);
-        trx_io_write32(PX_CTRL, PX_CTRL_ON);
+        trx_io_write32(PX_CTRL, px_ctrl(true));
     }
     xSemaphoreGive(lock);
 }

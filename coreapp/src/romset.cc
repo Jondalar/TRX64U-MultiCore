@@ -180,8 +180,8 @@ RomStatus romset_scan(CoreCtx *c, char *summary, int sumlen)
         for (int i = 0; i <= ROMSET_MAX; i++) {
             strncat(after, s.labels->text[i], sizeof(after) - strlen(after) - 1);
         }
-        if (strcmp(before, after) != 0 && c->settings) {
-            c->settings->load();                      // the .cfg may name a file that was not in the list before
+        if (strcmp(before, after) != 0 && c->settings && !c->settings->safe()) {
+            c->settings->load();                      // the .cfg may name a file that was not in the list before (not in safe mode: it is not read)
         }
         summary[0] = 0;
         return ROM_FOUND;

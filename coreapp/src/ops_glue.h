@@ -20,6 +20,12 @@ int ops_call_direct(CoreCtx *c, const char *name, const OpIn *in, int nin, OpRes
 // `ask` is what a B_ASK binding stands for: the address the person typed (FileAction::ask).
 int ops_run_bound(CoreCtx *c, const char *op, const OpBind *bind, int nbind, const char *file, OpResult *r, int32_t ask = 0, const char *ask_text = 0);
 
+// T228 R21: an operation asks the person something and is called again with the answer. ops_ask_text: a text prompt (secret: shown as stars); ops_ask_list: a list of choices
+// whose rows are the text of the state `src` (picklist.h). The menu calls `op` with the arguments "phase" (the value given here) and "answer" (the typed text, or the chosen
+// row's value); the operation may ask again. An operation that asks has the arguments ARG_INT("phase"), ARG_STRING("answer"). Nothing happens when the person cancels.
+void ops_ask_text(CoreCtx *c, const char *op, int phase, const char *prompt, int maxlen, bool secret);
+void ops_ask_list(CoreCtx *c, const char *op, int phase, const char *prompt, const char *src);
+
 // A setting's apply: the operation with one argument "value".
 int ops_set(CoreCtx *c, const char *op, int value);
 

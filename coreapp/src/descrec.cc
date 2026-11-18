@@ -68,10 +68,12 @@ int descrec_parse(const uint8_t *rec, uint32_t n, DescRecord *out, char *why, in
         return r.fail("description record: not a description (magic)");
     }
     uint32_t vh = r.u32(4);
-    if ((vh & 0xFFFF) != DESCREC_VERSION && (vh & 0xFFFF) != DESCREC_VERSION_MIN) {         // version 2 is version 3 without a layout and attributes (those words were 0)
-        return r.fail("description record: version %u, this application reads %u and %u", (unsigned)(vh & 0xFFFF), DESCREC_VERSION_MIN, DESCREC_VERSION);
+    const uint32_t ver = vh & 0xFFFF;
+    if (ver < DESCREC_VERSION_MIN || ver > DESCREC_VERSION) {         // version 2 is version 3 without a layout and attributes (those words were 0); 4 widens the media slot and gives the header's last word a use
+        return r.fail("description record: version %u, this application reads %u to %u", (unsigned)ver, DESCREC_VERSION_MIN, DESCREC_VERSION);
     }
-    if ((vh >> 16) != DESCREC_HEADER || r.u32(8) != n) {
+    const uint32_t hdr = ver >= 5 ? DESCREC_HEADER_V5 : DESCREC_HEADER;    // version 5 carries the pad's words behind the machine-info line
+    if ((vh >> 16) != hdr || r.u32(8) != n || n < hdr) {
         return r.fail("description record: the header or the length does not match the file");
     }
     uint32_t flags = r.u32(12);
@@ -80,10 +82,10 @@ int descrec_parse(const uint8_t *rec, uint32_t n, DescRecord *out, char *why, in
     }
     r.str_off = r.u32(16);
     r.str_size = r.u32(20);
-    if (r.str_off < DESCREC_HEADER || (uint64_t)r.str_off + r.str_size > n || r.str_size == 0) {
+    if (r.str_off < hdr || (uint64_t)r.str_off + r.str_size > n || r.str_size == 0) {
         return r.fail("description record: the string table lies outside the record");
     }
-    static const uint32_t esize[DR_TABLES] = { 20, 24, 52, 40, 32, 4, 8, 16, 4, 4, 4, 24, 36, 24, 24, 36, 36 };
+    const uint32_t esize[DR_TABLES] = { 20, 24, 52, 40, 32, 4, 8, 16, 4, 4, 4, 24, 36, ver >= 4 ? 44u : 24u, 24, 36, 36 };
     static const uint32_t emax[DR_TABLES] = { DR_AREAS, DR_TABS, DR_NODES, DR_ACTIONS, DR_SETTINGS, DR_HIDE, DR_RENAME, DR_BINDS, DR_EXTS, DR_SIZES, DR_VALUES, DR_CTABS,
                                               DR_TASKS, DR_MEDIA, DR_FTYPES, DR_FACTS, DR_CSETS };
     static const char *const ename[DR_TABLES] = { "areas", "tabs", "nodes", "file actions", "settings", "hide list", "rename list", "bindings", "extensions",
@@ -95,7 +97,7 @@ int descrec_parse(const uint8_t *rec, uint32_t n, DescRecord *out, char *why, in
         if (tb[i].count > emax[i]) {
             return r.fail("description record: %u %s (this application takes %u)", (unsigned)tb[i].count, ename[i], (unsigned)emax[i]);
         }
-        if (tb[i].count && (tb[i].off < DESCREC_HEADER || (uint64_t)tb[i].off + (uint64_t)tb[i].count * esize[i] > n)) {
+        if (tb[i].count && (tb[i].off < hdr || (uint64_t)tb[i].off + (uint64_t)tb[i].count * esize[i] > n)) {
             return r.fail("description record: the table of %s lies outside the record", ename[i]);
         }
     }
@@ -148,7 +150,8 @@ int descrec_parse(const uint8_t *rec, uint32_t n, DescRecord *out, char *why, in
     // the poll, and the libraries whose menus were merged into this record when it was packed
     {
         uint32_t po = r.u32(24 + 8 * DR_TABLES), pms = r.u32(28 + 8 * DR_TABLES), mg = r.u32(32 + 8 * DR_TABLES);
-        if (r.u32(36 + 8 * DR_TABLES) != 0 || ((po == DESCREC_NONE) != (pms == 0)) || pms > 60000) {
+        uint32_t mi = r.u32(36 + 8 * DR_TABLES);                      // version 4: the string offset of the machine-info line's settings (T228); before: 0
+        if ((ver < 4 && mi != 0) || ((po == DESCREC_NONE) != (pms == 0)) || pms > 60000) {
             return r.fail("description record: the poll has a bad operation or period");
         }
         out->rec.poll.op = r.str(po, &bad);
@@ -157,10 +160,59 @@ int descrec_parse(const uint8_t *rec, uint32_t n, DescRecord *out, char *why, in
         }
         out->rec.poll.period_ms = (uint16_t)pms;
         out->rec.poll.when_frozen = false;
+        out->machine_info = ver >= 4 ? r.str(mi, &bad) : 0;
+        if (bad || (ver >= 4 && mi != DESCREC_NONE && !out->machine_info[0])) {
+            return r.fail("description record: the machine info is empty or outside the table");
+        }
         out->merged = r.str(mg, &bad);
         if (bad || (mg != DESCREC_NONE && !out->merged[0])) {
             return r.fail("description record: the list of merged libraries is empty or outside the table");
         }
+    }
+    // T228 R10, version 5: the core's pad (pad.h PadSpec): the output and by_id, two registers (or ports), the button names (a run of the value table) and the
+    // default map (two hex digits per button)
+    if (ver >= 5 && r.u32(DESCREC_HEADER) != DESCREC_NONE) {
+        uint32_t kind = r.u32(DESCREC_HEADER), r0 = r.u32(DESCREC_HEADER + 4), r1 = r.u32(DESCREC_HEADER + 8);
+        uint32_t fv = r.u32(DESCREC_HEADER + 12), nv = r.u32(DESCREC_HEADER + 16);
+        const char *def = r.str(r.u32(DESCREC_HEADER + 20), &bad);
+        if (bad || (kind & ~0x1FFu) || (kind & 0xFF) > PAD_OUT_JOY || r0 > 0xFFFF || r1 > 0xFFFF || nv < 1 || nv > PAD_BUTTONS_MAX ||
+            (uint64_t)fv + nv > tb[V].count || !def || strlen(def) != 2 * nv) {
+            return r.fail("description record: the pad has a bad kind, register, run of button names or default map");
+        }
+        for (uint32_t i = 0; i < nv; i++) {
+            unsigned v = 0;
+            for (int k = 0; k < 2; k++) {
+                char ch = def[2 * i + k];
+                int d = (ch >= '0' && ch <= '9') ? ch - '0' : (ch >= 'A' && ch <= 'F') ? ch - 'A' + 10 : -1;
+                if (d < 0) {
+                    return r.fail("description record: the pad's default map is not hex");
+                }
+                v = v * 16 + (unsigned)d;
+            }
+            if (v > 35 && v != PAD_SRC_NONE && (v < PAD_ROLE_RIGHT || v > PAD_ROLE_START)) {
+                return r.fail("description record: entry %u of the pad's default map is no source", (unsigned)i);
+            }
+            out->pad_def[i] = (uint8_t)v;
+        }
+        PadSpec &p = out->pad;
+        memset(&p, 0, sizeof(p));
+        p.reg[0] = (uint16_t)r0;
+        p.reg[1] = (uint16_t)r1;
+        p.nbuttons = (uint8_t)nv;
+        p.names = out->values + fv;
+        p.def_map = out->pad_def;
+        p.by_id = (uint8_t)((kind >> 8) & 1);
+        p.out = (uint8_t)(kind & 0xFF);
+        out->has_pad = true;
+    }
+    // T228 R17, version 5: what "Restart core" clears (CoreDesc::cold_ram_bytes, cold_ram_only)
+    if (ver >= 5) {
+        uint32_t clear = r.u32(DESCREC_HEADER + 24), fl = r.u32(DESCREC_HEADER + 28);
+        if ((fl & ~1u) || clear > DESCREC_RESTART_MAX || (clear & 0xFF) || (fl && !clear)) {
+            return r.fail("description record: the restart clears a bad amount of RAM or has unknown flags");
+        }
+        out->restart_clear = clear;
+        out->restart_ram_only = (fl & 1) != 0;
     }
     // contributed tabs
     for (uint32_t i = 0; i < tb[C].count; i++) {
@@ -204,7 +256,7 @@ int descrec_parse(const uint8_t *rec, uint32_t n, DescRecord *out, char *why, in
         if (s.groups && !s.groups[0]) {
             s.groups = 0;
         }
-        if (s.groups && widget != TW_SETTINGS && widget != TW_TASKS && widget != TW_MEDIA && widget != TW_INFO) {
+        if (s.groups && widget != TW_SETTINGS && widget != TW_TASKS && widget != TW_MEDIA && widget != TW_INFO && widget != TW_SYSTEM) {      // a System tab's groups: its pages (T228 R6)
             return r.fail("description record: tab %u lists groups, but its widget takes none", (unsigned)i);
         }
     }
@@ -320,14 +372,22 @@ int descrec_parse(const uint8_t *rec, uint32_t n, DescRecord *out, char *why, in
         d.ask_state = r.str(W(e, 6), &bad);
         d.pick_label = r.str(W(e, 7), &bad);
         d.group = r.str(W(e, 8), &bad);
-        if (bad || !d.label || !d.label[0] || !d.op || !d.op[0] || (fl & ~3u) || (uint64_t)fb + nb > tb[B].count || (!d.ask && (d.ask_state || (fl & 2) || d.pick_label)) ||
-            (d.pick_label && !(fl & 2))) {
+        const char hk = (char)(fl >> 8);                       // T228 R1: bits 15:8 the default key of the task's hotkey, 0 none
+        if (bad || !d.label || !d.label[0] || !d.op || !d.op[0] || (fl & 0xFFFFu & ~0xFF03u) || (uint64_t)fb + nb > tb[B].count || (!d.ask && (d.ask_state || (fl & 2) || d.pick_label)) ||
+            (d.pick_label && !(fl & 2)) || (hk && !((hk >= 'A' && hk <= 'Z') || (hk >= '0' && hk <= '9')))) {
             return r.fail("description record: task %u has a bad string, flag or binding run", (unsigned)i);
         }
         d.bind = nb ? out->binds + fb : 0;
         d.nbind = (int)nb;
         d.closes_menu = fl & 1;
         d.pick_dir = (fl & 2) != 0;
+        d.hotkey = hk;
+        if (fl >> 16) {                                        // the condition that lists the task (the offset + 1 of its text above the flags' low 16 bits)
+            d.show_state = r.str((fl >> 16) - 1, &bad);
+            if (bad) {
+                return r.fail("description record: task %u has a bad condition", (unsigned)i);
+            }
+        }
     }
     out->ntasks = (int)tb[K].count;
     for (uint32_t i = 0; i < tb[M].count; i++) {
@@ -344,6 +404,17 @@ int descrec_parse(const uint8_t *rec, uint32_t n, DescRecord *out, char *why, in
         }
         d.eject_bind = nb ? out->binds + fb : 0;
         d.neject_bind = (int)nb;
+        if (ver >= 4) {                                              // T212 D5 / D11: the drive list's data (media.mount, exts, empty_tasks, mounted_tasks, eject_closes)
+            d.exts = r.str(W(e, 6), &bad);
+            d.mount = r.str(W(e, 7), &bad);
+            d.empty_tasks = r.str(W(e, 8), &bad);
+            d.mounted_tasks = r.str(W(e, 9), &bad);
+            uint32_t mf = W(e, 10);
+            if (bad || (mf & ~1u)) {
+                return r.fail("description record: media slot %u has a bad drive-list field", (unsigned)i);
+            }
+            d.eject_closes = mf & 1;
+        }
     }
     out->nmedia = (int)tb[M].count;
     for (uint32_t i = 0; i < tb[X].count; i++) {
@@ -356,17 +427,28 @@ int descrec_parse(const uint8_t *rec, uint32_t n, DescRecord *out, char *why, in
         d.ask = r.str(W(e, 5), &bad);
         int32_t off = (int32_t)W(e, 6);
         uint32_t fz = W(e, 7), nz = W(e, 8);
-        if (bad || !d.label || !d.label[0] || !d.op || !d.op[0] || (fl & ~0xFF01u) || (uint64_t)fb + nb > tb[B].count || (uint64_t)fz + nz > tb[Z].count || off < -32768 ||
-            off > 32767 || (!d.ask && off != 0)) {
+        if (bad || !d.label || !d.label[0] || !d.op || !d.op[0] || (fl & 0xFFFFu & ~0xFF07u) || (uint64_t)fb + nb > tb[B].count || (uint64_t)fz + nz > tb[Z].count || off < -32768 ||
+            off > 32767 || (!d.ask && (off != 0 || (fl & 2))) || ((fl & 2) && off != 0)) {
             return r.fail("description record: file type action %u has a bad string, flag or run", (unsigned)i);
         }
         d.bind = nb ? out->binds + fb : 0;
         d.nbind = (int)nb;
         d.closes_menu = fl & 1;
-        d.key = (char)(fl >> 8);
+        d.key = (char)((fl >> 8) & 0xFF);
         d.ask_off = (int16_t)off;
+        if (fl & 2) {                                    // T228 R21: repeat - the ask word is the name of the operation that counts
+            d.repeat_op = d.ask;
+            d.ask = 0;
+        }
+        d.show = (fl & 4) != 0;
         d.size_in = nz ? out->sizes + fz : 0;
         d.nsize_in = (int)nz;
+        if (fl >> 16) {                                        // the condition that offers the action (the offset + 1 of its text above the flags' low 16 bits)
+            d.show_state = r.str((fl >> 16) - 1, &bad);
+            if (bad) {
+                return r.fail("description record: file type action %u has a bad condition", (unsigned)i);
+            }
+        }
     }
     for (uint32_t i = 0; i < tb[Y].count; i++) {
         const uint8_t *e = ENT(Y, i);
@@ -400,6 +482,13 @@ int descrec_parse(const uint8_t *rec, uint32_t n, DescRecord *out, char *why, in
         if (when >> 8) {                                       // the condition that lists the row (the offset + 1 of its text above the time code)
             d.show_state = r.str((when >> 8) - 1, &bad);
             when &= 0xFF;
+        }
+        if (when & 4) {                                        // T228 R21: the last value string is the state that locks the row (its text replaces the value); old records never set the flag
+            if (nv >= 1 && (uint64_t)fv + nv <= tb[V].count) {
+                d.lock_state = out->values[fv + nv - 1];
+                nv--;
+            }
+            when &= 3;
         }
         d.apply = r.str(W(e, 6), &bad);
         d.base = (int32_t)W(e, 7);
@@ -443,6 +532,16 @@ int descrec_parse(const uint8_t *rec, uint32_t n, DescRecord *out, char *why, in
 void descrec_apply(const DescRecord &rec, const CoreDesc *base, CoreDesc *out)
 {
     *out = *base;
+    if (rec.machine_info) {
+        out->machine_info = rec.machine_info;
+    }
+    if (rec.has_pad) {
+        out->pad = &rec.pad;                                   // T228 R10: the record's pad is the core's
+    }
+    if (rec.restart_clear) {
+        out->cold_ram_bytes = rec.restart_clear;               // T228 R17: what "Restart core" clears, as the core's TOML declares it
+        out->cold_ram_only = rec.restart_ram_only;
+    }
     if (!rec.has_own) {
         return;
     }
@@ -452,8 +551,26 @@ void descrec_apply(const DescRecord &rec, const CoreDesc *base, CoreDesc *out)
     out->nmedia = rec.nmedia;
     out->filetypes = rec.nftypes ? rec.ftypes : 0;
     out->nfiletypes = rec.nftypes;
-    out->settings = rec.ncsettings ? rec.csettings : 0;
-    out->nsettings = rec.ncsettings;
+    if (rec.ncsettings) {
+        out->settings = rec.csettings;
+        out->nsettings = rec.ncsettings;
+        // T228 D10: the settings of `base` (the core's C++ ones, and the items the application added before the record came: Picture, Persist medium mounts, Home
+        // Directory, Hotkeys, menubuild.cc) stand behind the record's own, so a core whose menu is a record has them as every other core does. The copy goes to
+        // fixed places in the record's table, so a second call with the same base gives the same table. A record that has no settings of its own leaves the
+        // base's as they are. When both do not fit into DR_CSETS the base's are dropped and the line says so.
+        if (base->nsettings > 0) {
+            if (rec.ncsettings + base->nsettings <= DR_CSETS) {
+                Setting *tab = const_cast<DescRecord &>(rec).csettings;
+                for (int i = 0; i < base->nsettings; i++) {
+                    tab[rec.ncsettings + i] = base->settings[i];
+                }
+                out->nsettings = rec.ncsettings + base->nsettings;
+            } else {
+                printf("[menu] description: %d settings and %d of the application's do not fit into %d; the application's are not listed\n", rec.ncsettings,
+                       base->nsettings, DR_CSETS);
+            }
+        }
+    }
 }
 
 bool descrec_merged(const DescRecord &rec, const char *name)

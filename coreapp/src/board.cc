@@ -12,7 +12,8 @@ BoardProfile board_detect(BoardProbe *p)
     b.kind = mc ? BOARD_MULTICORE : BOARD_MONOLITH;
     b.has_handover = p->handover_valid();              // T112 Q1: a large .cor start fills the page for the monolith profile too
     b.can_return_host = mc;
-    b.cfg_dir = mc ? 0 : BOARD_MONOLITH_CFG_DIR;
+    b.flash_cfg = !mc;                                 // DC13: the parameter; the standalone installation has no host to keep its settings
+    b.cfg_dir = b.flash_cfg ? BOARD_MONOLITH_CFG_DIR : 0;
     b.boot_cfg = mc ? FS_FLASH_BOOT_MULTICORE : FS_FLASH_BOOT_MONOLITH;
     b.rom_dir = mc ? 0 : BOARD_MONOLITH_ROM_DIR;
 

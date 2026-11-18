@@ -4,6 +4,7 @@
 #include "ops_glue.h"
 #include "diag.h"
 #include "home.h"
+#include "newfile.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -461,6 +462,12 @@ void FileMgr::browse_row(int i, BrowseRow *r, const char *marks_spec) const
         snprintf(r->sub, sizeof(r->sub), "%s", strcmp(f.name, "..") ? "Folder" : "Parent folder");
         snprintf(r->primary, sizeof(r->primary), "Open");
         r->tone = 0;
+        if (vmode && i < VROWS && strcmp(f.name, "..")) {                      // a folder found by the search: the folder it lies in, as for a file
+            char dir[FS_PATH_MAX];
+            const char *sl = strrchr(vfull[i], '/');
+            nf_copy(dir, sizeof(dir), vfull[i], sl ? (size_t)(sl == vfull[i] ? 1 : sl - vfull[i]) : 0);
+            snprintf(r->value, sizeof(r->value), "%s", dir);
+        }
         return;
     }
     const char *dot = strrchr(f.name, '.');
@@ -469,7 +476,10 @@ void FileMgr::browse_row(int i, BrowseRow *r, const char *marks_spec) const
     snprintf(r->value, sizeof(r->value), "%s", r->sub);
     if (vmode && i < VROWS) {                                                  // the folder it lies in
         snprintf(r->sub, sizeof(r->sub), "%s", vfull[i]);
-        snprintf(r->value, sizeof(r->value), "%s", vfull[i]);
+        char dir[FS_PATH_MAX];                                                 // the right column is the folder, the name stays on the left
+        const char *sl = strrchr(vfull[i], '/');
+        nf_copy(dir, sizeof(dir), vfull[i], sl ? (size_t)(sl == vfull[i] ? 1 : sl - vfull[i]) : 0);
+        snprintf(r->value, sizeof(r->value), "%s", dir);
     }
     const FileType *ft = 0;
     r->tone = 1;
@@ -704,6 +714,23 @@ void FileMgr::start_view_mem(const char *title, int kind, bool hex)
     view_setup(title, (uint32_t)n, hex);
 }
 
+void FileMgr::start_view_text(const char *title, const uint8_t *text, uint32_t n)
+{
+    if (!view_data) {
+        view_data = (uint8_t *)malloc(VIEW_MAX + 1);
+        view_lines = (uint32_t *)malloc(sizeof(uint32_t) * (VIEW_LINES_MAX + 2));
+    }
+    if (!view_data || !view_lines) {
+        say("No memory for the viewer", true);
+        return;
+    }
+    if (n > VIEW_MAX) {
+        n = VIEW_MAX;
+    }
+    memcpy(view_data, text, n);
+    view_setup(title, n, false);
+}
+
 void FileMgr::start_view(const char *file, bool hex)
 {
     CoreFile *f = c->fs->open(file, false);
@@ -806,9 +833,9 @@ void FileMgr::view_line(int row, char *out, int n) const
 void FileMgr::view_status(char *out, int n) const
 {
     if (view_hex) {
-        snprintf(out, n, "HEX  %08X of %08X   UP/DOWN  PAGE  HOME/END  <- BACK", (unsigned)view_top, (unsigned)view_len);
+        snprintf(out, n, "HEX  %08X of %08X", (unsigned)view_top, (unsigned)view_len);
     } else {
-        snprintf(out, n, "TEXT  line %d of %d   UP/DOWN  PAGE  HOME/END  <- BACK", (int)view_top + 1, view_nlines);
+        snprintf(out, n, "TEXT  line %d of %d", (int)view_top + 1, view_nlines);
     }
 }
 

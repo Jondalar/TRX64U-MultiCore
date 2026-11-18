@@ -6,6 +6,13 @@ tools/test_descrec.py compile the same sources and read them with both). Little 
 
 Source (TOML; every key is checked, an unknown one is an error - a typo must not silently become a menu without its entry):
 
+    machine_info = "System Mode,REU Size"   # top-level, optional: the names of the settings whose values the Home machine line prints (record v4); a setting with
+                                   # show_state is named only while that state holds (T228 DC5)
+
+    [restart]                      # optional (T228 R17, record v5): what F8 "Restart core" clears before the core starts again (CoreDesc::cold_ram_bytes)
+    clear_ram = 65536              # the machine RAM in bytes from address 0, cleared through the RAM window while the core is held (256 .. 16 MiB, whole 256s)
+    ram_only = true                # optional: the window in its memory-only mode while it clears (io.h ram_memonly: RAM under the I/O range too)
+
     [[area]]                       # optional; without any, the default route stays (T104 5.8)
     key = "F5"                     # F1 .. F8
     name = "C64"                   # optional: the core's short title
@@ -18,7 +25,14 @@ Source (TOML; every key is checked, an unknown one is an error - a typo must not
       n = 3                        # the printed number; 0 or absent: the next free one
 
       layout = "settings"          # optional: how the tab is drawn (a screen of the UX concept): home | split | settings | status | library; the flat list when absent
-      ui = { title = "TRX64 behavior" }      # optional: the layout's parameters (title, crumb)
+      ui = { title = "TRX64 behavior" }      # optional: the layout's parameters (title, crumb); `ui = { sections = true }` alone (no layout) keeps the tab a list and
+                                     # draws each of its groups under a heading made from the group's id (T228; not drawn when it repeats the tab's title)
+                                     # `pages = "g1,g2"` (T228 D18): those groups are not sections; one row each opens a page that holds the group's settings (and the nodes
+                                     # anchored to the group); "Name=g1+g2" is one page named Name with both groups, each under its heading (R6). A settings tab names pages
+                                     # with `sections`; a system tab's groups are pages only, their rows stand under its Network heading. `pages_head = "SID"` is a heading
+                                     # above the page rows
+                                     # `page = "home"` (T228 R1): the tab is a page of that tab of the area (an earlier one): no number, not on the strip, back to it;
+                                     # a task with op menu.screen opens it (the Timewarp and Monitor screens of Home)
 
     [[node]]                       # a button, a state line or a heading the core itself puts into a tab
     anchor = "F5/drives/drive_a"   # area/tab or area/tab/group
@@ -60,7 +74,8 @@ Source (TOML; every key is checked, an unknown one is an error - a typo must not
     n = 0                          # 0: the next free number
 
     # T104.2 D10: the tables of the core's OWN menu (what C++ descriptors carry as Task / FileType / MediaSlot / Setting tables). A record that has
-    # any of them takes the core's menu from the record alone; the entries a library contributes are merged after them.
+    # any of them takes the core's tasks, media slots, file types and settings from the record; the application's own settings (Picture, Persist, Home,
+    # hotkeys) follow the record's, and the entries a library contributes are merged after them.
     [[task]]                       # a button of a tasks tab; `group` names the tab (the tab's groups list) it belongs on, none: the tabs that list no group
     group = "machine"
     label = "Reset"
@@ -71,6 +86,8 @@ Source (TOML; every key is checked, an unknown one is an error - a typo must not
     ask_state = "drive.suggest.d64"
     pick_dir = true
     pick_label = "Create here"
+    hotkey = "T"                   # optional (T228 R1): one upper case letter or digit, the default key of the task's hotkey (the core's modifier + it, F7 > Hotkeys);
+                                   # at most 4 tasks, none that asks (ask)
 
     [[media]]                      # a slot of a media tab: what is in it (state), and how it is ejected
     group = "drives"
@@ -78,6 +95,11 @@ Source (TOML; every key is checked, an unknown one is an error - a typo must not
     state = "drive.drive_a.image"
     eject_op = "drive.eject"
     eject_bind = [ { arg = "slot", str = "iec:drive_a" } ]
+    exts = ".d64,.g64"             # the drive list (T212 D5/D11): what Mount from Library offers; mount = a file action's label, empty_tasks / mounted_tasks = task labels
+    mount = "Mount Disk"           # (comma separated) listed while the slot is empty / mounted; each must name an existing file action or task (the pack fails otherwise)
+    empty_tasks = "Insert blank D64"
+    mounted_tasks = "Save disk"
+    eject_closes = true            # optional: the Eject row closes the menu
 
     [[filetype]]                   # what the browser offers for files of an extension (and, for a disk image, for the files inside it)
     ext = ".d64"
@@ -108,6 +130,14 @@ Source (TOML; every key is checked, an unknown one is an error - a typo must not
     op = "drive.poll"
     period_ms = 10
 
+    [pad]                          # T228 R10: the core's USB pads through the pad service (coreapp/src/pad.h PadSpec); a record with it is version 5
+    output = "joystick"            # "joystick": the host's joystick lines, port 1 (reg 0) and port 2 (reg 1), at most 5 buttons (up down left right fire);
+                                   # "registers" (the default): a 16 bit pair per player in the core's register block, `regs = [r1, r2]`
+    per_pad = true                 # one port, fed by the first pad plugged, its map kept per pad (VID:PID) - as the Amiga's port 2 (pad.h by_id)
+    buttons = ["Up", "Down", "Left", "Right", "Fire"]       # bit n of the word = buttons[n], the names the "Map buttons" dialog asks for
+    default = ["up", "down", "left", "right", "face_bottom"]  # per button: up down left right (D-pad or stick), a position face_right face_bottom
+                                   # face_left face_top l r select start (resolved per pad, pad.h PAD_ROLE_*), button1 .. button32, none
+
     hide = ["some_node_id"]        # nodes of other contributors the description hides; a key at the top of the file, before the first table
     [[rename]]
     id = "some_node_id"
@@ -117,15 +147,18 @@ import re
 import struct
 
 MAGIC = 0x44585254          # "TRXD"
-VERSION = 3                 # 2 is read too: version 3 gives the two reserved words of 2 a use (a tab's layout, a node's attributes)
+VERSION = 5                 # 5 (T228 R10, R17) adds the pad's six words and the restart's two to the header (208 bytes) - written only for a record with a [pad] or a [restart], one without stays version 4; 4 (T228) widens a media slot by the drive list's fields and gives the header's last word the machine-info line; 3 gave the two reserved words of 2 a use (a tab's layout, a node's attributes); 2 and 3 are read too
 VERSION_MIN = 2
-HEADER = 176
+HEADER = 176                # versions 2 to 4
+HEADER_V5 = 208             # version 5: + the pad (kind, reg 0, reg 1, first name, names, default map; kind NONE: no pad) + the restart (clear_ram bytes, flags bit 0 ram_only)
+RESTART_CLEAR_MAX = 1 << 24 # the most RAM a restart clears (16 MiB)
 NONE = 0xFFFFFFFF
 MAX_SIZE = 0x20000
-LIMITS = dict(area=8, tab=32, node=320, action=24, setting=16, hide=16, rename=16, bind=700, ext=48, size=16, value=3200, ctab=16,
+LIMITS = dict(area=8, tab=32, node=320, action=24, setting=16, hide=16, rename=16, bind=700, ext=48, size=16, value=8192, ctab=16,
               task=64, media=4, ftype=32, fact=200, cset=330)
 ESIZE = dict(area=20, tab=24, node=52, action=40, setting=32, hide=4, rename=8, bind=16, ext=4, size=4, value=4, ctab=24,
-             task=36, media=24, ftype=24, fact=36, cset=36)
+             task=36, media=44, ftype=24, fact=36, cset=36)
+ESIZE_V3_MEDIA = 24
 ORDER = ("area", "tab", "node", "action", "setting", "hide", "rename", "bind", "ext", "size", "value", "ctab", "task", "media", "ftype", "fact", "cset")
 OWN = ("task", "media", "ftype", "fact", "cset")          # the tables of the core's own menu (flag bit 1)
 INFO_LINES = ("Core", "Application", "Network", "Media", "ROMs", "Libraries")   # menutree.cc menu_info_labels, the application's fixed lines
@@ -133,7 +166,10 @@ WHEN = {"live": 0, "reset": 1}
 WIDGETS = ("info", "browser", "media", "settings", "tasks", "system", "nodes")
 NODE_KINDS = {"op": 0, "setting": 1, "state": 2, "widget": 3, "group": 4}
 BIND_KINDS = {"file": 0, "int": 1, "str": 2, "ask": 3, "text": 4}
-TABS_PER_AREA = 8                  # = MENU_TABS_MAX; the tab strip of the view has room for six of them (an application's hidden screens are tabs that are not on it)
+PAD_OUTPUTS = {"registers": 0, "joystick": 1}       # pad.h PAD_OUT_REGS, PAD_OUT_JOY
+PAD_ROLES = ("face_right", "face_bottom", "face_left", "face_top", "l", "r", "select", "start")   # pad.h PAD_ROLE_RIGHT (0x40) .. PAD_ROLE_START (0x47)
+PAD_DIRS = ("up", "down", "left", "right")          # pad.h PAD_SRC_UP (32) .. PAD_SRC_RIGHT (35)
+TABS_PER_AREA = 8                  # = MENU_TABS_MAX; the tab strip of the view has room for eight of them (TRX_TABS_MAX) (an application's hidden screens are tabs that are not on it)
 
 
 class DescError(Exception):
@@ -371,11 +407,12 @@ class _Strings:
         return self.idx[s]
 
 
-UI_NODE_KEYS = {"primary": bool, "link": bool, "goto": str, "sub": str, "chip": str, "tone": str, "off": str, "why": str, "confirm": str, "label": str, "hide": str, "ask": str, "ask_state": str, "job": bool, "pick": str, "rename": bool, "view": str, "key": str, "none": str, "nokey": bool, "empty": str, "bkey": str, "legend": str}
+UI_NODE_KEYS = {"primary": bool, "link": bool, "goto": str, "sub": str, "chip": str, "tone": str, "off": str, "why": str, "confirm": str, "label": str, "hide": str, "ask": str, "ask_state": str, "job": bool, "pick": str, "rename": bool, "view": str, "key": str, "none": str, "nokey": bool, "empty": str, "bkey": str, "ctrl": str, "legend": str, "open": str}
 UI_TONES = ("muted", "cyan", "violet", "amber", "coral")
 LAYOUTS = ("home", "desk", "split", "settings", "status", "library", "timeline", "terminal", "app", "grid")
-UI_TAB_KEYS = {"title": str, "crumb": str, "side": str, "chip": str, "sheet": str, "sheetx": str, "nodes_first": bool, "left": str, "label": str, "frame": str, "bar": str, "hint": str, "marks": str, "pos": str, "info": str, "glyph": str, "track": str,
+UI_TAB_KEYS = {"title": str, "crumb": str, "side": str, "chip": str, "sheet": str, "sheetx": str, "nodes_first": bool, "sections": bool, "pages": str, "pages_head": str, "left": str, "label": str, "frame": str, "bar": str, "hint": str, "marks": str, "pos": str, "info": str, "glyph": str, "track": str,
                # an application's own screens (T104.3 D0, layouts app and grid): which tab is shown, where a key goes, and what the screen draws of the application's state
+               "page": str,
                "hidden": bool, "lines": str, "under": str, "back": str, "follow": str, "lock": str, "keys": str, "enter": str, "rows": str, "input": str, "grid": str, "note": str,
                "status": str, "pct": str, "pct_label": str, "pct_note": str,
                "map1": str, "map1_s": str, "map1_d": str, "map1_t": str, "map2": str, "map2_s": str, "map2_d": str, "map2_t": str}
@@ -421,7 +458,8 @@ def _ui_table(s, keys):
     return d
 
 
-GROUP_WIDGETS = ("settings", "tasks", "media")      # the widgets whose entries name a group
+GROUP_WIDGETS = ("settings", "tasks", "media", "system")      # the widgets whose entries name a group (a system tab's groups are its pages, T228 R6)
+HOTKEY_TASKS = 4                                    # T228 R1: the tasks that may declare a hotkey (coreapp/src/hotkeys.h HK_TASKS_MAX)
 
 
 def _tab_groups(tb, tid, widget):
@@ -431,7 +469,7 @@ def _tab_groups(tb, tid, widget):
     if groups is not None and (not groups or not all(isinstance(g, str) and re.fullmatch(r"[A-Za-z0-9_]+", g) for g in groups)):
         raise DescError("tab %s: groups are names" % tid)
     if groups and widget not in GROUP_WIDGETS:
-        raise DescError("tab %s: groups belong to a settings, tasks or media tab" % tid)
+        raise DescError("tab %s: groups belong to a settings, tasks, media or system tab" % tid)
     if lines is not None:
         if widget != "info":
             raise DescError("tab %s: lines belong to an info tab" % tid)
@@ -441,6 +479,37 @@ def _tab_groups(tb, tid, widget):
             raise DescError("tab %s: groups and lines together" % tid)
         return lines
     return groups
+
+
+def _tab_pages(tb, tid, widget, groups):
+    """T228 D18, R6: `pages` names groups of the tab: "g" is the page of the group g, "Name=g1+g2" one page named Name with the groups g1 and g2. Each group is on one
+    page at most; a settings tab shows pages only with `sections`, a system tab shows its groups as pages and nothing else (menutree.cc TabPages)."""
+    ui = tb.get("ui") or {}
+    pages = ui.get("pages", "")
+    if not isinstance(pages, str):
+        return                                                  # _ui_string says what is wrong with it
+    held = []
+    for item in [p for p in pages.split(",") if p] if pages else []:
+        name, _, members = item.partition("=")
+        members = members.split("+") if _ else [name]
+        if not re.fullmatch(r"[A-Za-z0-9_]{1,31}", name) or not all(members):
+            raise DescError("tab %s: ui pages %r is a group, or Name=group+group" % (tid, item))
+        for g in members:
+            if g not in (groups or []):
+                raise DescError("tab %s: ui pages names %r, a group the tab does not list" % (tid, g))
+            if g in held:
+                raise DescError("tab %s: ui pages names the group %r twice" % (tid, g))
+            held.append(g)
+    if len(pages) > 255:
+        raise DescError("tab %s: ui pages is longer than 255 characters (the application reads that much)" % tid)
+    if pages and widget == "settings" and not ui.get("sections"):
+        raise DescError("tab %s: ui pages needs `sections` (a plain list shows its groups as they are)" % tid)
+    if pages and widget not in ("settings", "system"):
+        raise DescError("tab %s: ui pages belongs to a settings or system tab" % tid)
+    if widget == "system" and groups and set(groups) != set(held):
+        raise DescError("tab %s: a system tab shows its groups as pages only - name each of them in ui pages" % tid)
+    if "pages_head" in ui and not pages:
+        raise DescError("tab %s: ui pages_head heads the rows of ui pages, and there are none" % tid)
 
 
 def _expand_apps(doc):
@@ -475,7 +544,8 @@ def _expand_apps(doc):
 def compile_desc(doc, merged=()):
     """doc: the parsed TOML (a dict). Returns the record's bytes. `merged`: the names of the libraries whose menus were merged into it (merge_lib_menus)."""
     _expand_apps(doc)
-    _only(doc, {"area", "node", "file_action", "setting", "hide", "rename", "tab", "poll", "task", "media", "filetype", "core_setting", "lists"}, "description")
+    _only(doc, {"area", "node", "file_action", "setting", "hide", "rename", "tab", "poll", "task", "media", "filetype", "core_setting", "lists", "machine_info",
+                "pad", "restart"}, "description")
     st = _Strings()
     t = {k: [] for k in ORDER}
 
@@ -532,14 +602,18 @@ def compile_desc(doc, merged=()):
             seen_n.add(n)
             groups = _tab_groups(tb, tid, widget)
             layout = _opt(tb, "layout", str, "tab " + tid, None)
-            if layout is None and "ui" in tb:
-                raise DescError("tab %s: ui without a layout" % tid)
+            if layout is None and "ui" in tb and not set(tb["ui"]) <= {"sections", "pages", "pages_head"}:
+                raise DescError("tab %s: ui without a layout (only `sections`, `pages` and `pages_head` stand alone)" % tid)
             if layout is not None and layout not in LAYOUTS:
                 raise DescError("tab %s: layout %r (one of %s)" % (tid, layout, ", ".join(LAYOUTS)))
+            _tab_pages(tb, tid, widget, groups)
+            parent = (tb.get("ui") or {}).get("page")
+            if parent is not None and (parent == tid or parent not in seen_id or n):    # T228 R1: a page of an earlier tab of this area, with no number
+                raise DescError("tab %s: ui page names %r, which is no earlier tab of area %s, or the page has a number (n)" % (tid, parent, key))
             lay = None
-            if layout is not None:
+            if layout is not None or "ui" in tb:                         # no layout: the name is empty, the tab stays a list (T228 `sections`)
                 params = _ui_string(tb.get("ui"), UI_TAB_KEYS, "tab " + tid)
-                lay = layout + (";" + params if params else "")
+                lay = (layout or "") + (";" + params if params else "")
             t["tab"].append((st.add(tid), st.add(_opt(tb, "name", str, "tab " + tid, "")), n, WIDGETS.index(widget),
                              st.add(",".join(groups)) if groups else NONE, st.add(lay) if lay else 0))
         t["area"].append((st.add(key), st.add(_opt(a, "name", str, "area " + key, None)), 1 if _opt(a, "shifted", bool, "area", False) else 0,
@@ -570,9 +644,14 @@ def compile_desc(doc, merged=()):
         if ui:                                                      # a letter belongs to its page: no two elements of a page claim one, none claims a digit or a key of the navigation
             uit = _ui_table(ui, UI_NODE_KEYS)
             page = "/".join(anchor.split("/")[:2])
+            cv = uit.get("ctrl")
+            if cv is not None and not (len(cv) == 1 and cv.isalpha() and cv == cv.upper()):
+                raise DescError("node %s: ui ctrl is one upper case letter (C= + that letter runs the node)" % label)
             for kk in ("key", "bkey"):
                 kv = uit.get(kk)
                 if kv is None:
+                    continue
+                if kk == "key" and anchor.startswith("APP/") and re.fullmatch(r"F[1-8]", kv):      # an application's own screen names its function keys ("F3 DUMP" in the foot, menuctl.cc)
                     continue
                 if not (len(kv) == 1 and kv.isalpha() and kv == kv.upper()):
                     raise DescError("node %s: ui %s is one upper case letter (digits and the F keys belong to the navigation)" % (label, kk))
@@ -605,6 +684,7 @@ def compile_desc(doc, merged=()):
         _only(s, {"group", "key", "values", "range", "default", "apply"}, "setting")
         key = _need(s, "key", str, "setting")
         apply = _need(s, "apply", str, "setting " + key)
+        _app_owned("setting " + key, key, apply)
         group = _opt(s, "group", str, "setting " + key, None)
         if ("values" in s) == ("range" in s):
             raise DescError("setting %s: exactly one of values and range" % key)
@@ -651,6 +731,7 @@ def compile_desc(doc, merged=()):
         if not 0 <= n <= 99:
             raise DescError("tab %s: n is 0 .. 99" % tid)
         groups = _tab_groups(tb, tid, widget)
+        _tab_pages(tb, tid, widget, groups)
         t["ctab"].append((st.add(area), st.add(tid), st.add(_need(tb, "name", str, "tab " + tid)), WIDGETS.index(widget), st.add(",".join(groups)) if groups else NONE, n))
 
     # ---- the core's own menu (T104.2 D10)
@@ -666,8 +747,9 @@ def compile_desc(doc, merged=()):
             raise DescError("%s: group %r is a name of letters, digits and _" % (what, g))
         return g
 
+    hotkeys = []
     for tk in _opt(doc, "task", list, "description", []):
-        _only(tk, {"group", "label", "op", "bind", "closes_menu", "ask", "ask_state", "pick_dir", "pick_label"}, "task")
+        _only(tk, {"group", "label", "op", "bind", "closes_menu", "ask", "ask_state", "pick_dir", "pick_label", "hotkey", "show_state"}, "task")
         label = _need(tk, "label", str, "task")
         what = "task " + label
         fb, nb = bind_list(_opt(tk, "bind", list, what, []), what)
@@ -676,28 +758,55 @@ def compile_desc(doc, merged=()):
             raise DescError("%s: ask_state, pick_dir and pick_label need an ask" % what)
         if "pick_label" in tk and not tk.get("pick_dir"):
             raise DescError("%s: pick_label needs pick_dir" % what)
-        flags = (1 if _opt(tk, "closes_menu", bool, what, False) else 0) | (2 if _opt(tk, "pick_dir", bool, what, False) else 0)
+        hk = _opt(tk, "hotkey", str, what, "")
+        if hk and not (len(hk) == 1 and hk.isalnum() and hk.isascii() and hk == hk.upper()):
+            raise DescError("%s: hotkey is one upper case letter or digit (the default key with the core's hotkey modifier)" % what)
+        if hk and ask is not None:
+            raise DescError("%s: a hotkey runs the task while the core runs, where nothing can be asked; a task with ask has none" % what)
+        if hk:
+            hotkeys.append(label)
+        flags = (1 if _opt(tk, "closes_menu", bool, what, False) else 0) | (2 if _opt(tk, "pick_dir", bool, what, False) else 0) | (ord(hk) << 8 if hk else 0)   # bits 15:8 the hotkey
+        show = _opt(tk, "show_state", str, what, None)                   # the row is listed only while this condition holds (contrib.h cond_holds); bits 31:16 the text's offset + 1, as a file action's
+        if show:
+            so = st.add(show) + 1
+            if so >= 0x10000:
+                raise DescError("%s: show_state lies beyond the first 64 KB of the strings" % what)
+            flags |= so << 16
         t["task"].append((st.add(label), st.add(_need(tk, "op", str, what)), fb, nb, flags, st.add(ask), st.add(text_key(tk, "ask_state", what)),
                           st.add(text_key(tk, "pick_label", what)), st.add(group_name(tk, what))))
+    if len(hotkeys) > HOTKEY_TASKS:
+        raise DescError("tasks: %d declare a hotkey (%s); the application takes %d (coreapp/src/hotkeys.h HK_TASKS_MAX)" % (len(hotkeys), ", ".join(hotkeys), HOTKEY_TASKS))
+    hk_keys = [chr((e[4] >> 8) & 0xFF) for e in t["task"] if (e[4] >> 8) & 0xFF]
+    if len(set(hk_keys)) != len(hk_keys):
+        raise DescError("tasks: two hotkeys have the same default key (%s)" % ", ".join(hk_keys))
 
     for m in _opt(doc, "media", list, "description", []):
-        _only(m, {"group", "name", "state", "eject_op", "eject_bind"}, "media")
+        _only(m, {"group", "name", "state", "eject_op", "eject_bind", "exts", "mount", "empty_tasks", "mounted_tasks", "eject_closes"}, "media")
         name = _need(m, "name", str, "media")
         what = "media " + name
         if "eject_op" not in m and "eject_bind" in m:
             raise DescError("%s: eject_bind without eject_op" % what)
         fb, nb = bind_list(_opt(m, "eject_bind", list, what, []), what)
-        t["media"].append((st.add(name), st.add(_need(m, "state", str, what)), st.add(text_key(m, "eject_op", what)), fb, nb, st.add(group_name(m, what))))
+        t["media"].append((st.add(name), st.add(_need(m, "state", str, what)), st.add(text_key(m, "eject_op", what)), fb, nb, st.add(group_name(m, what)),
+                           st.add(text_key(m, "exts", what)), st.add(text_key(m, "mount", what)), st.add(text_key(m, "empty_tasks", what)),
+                           st.add(text_key(m, "mounted_tasks", what)), 1 if _opt(m, "eject_closes", bool, what, False) else 0))
 
     seen_ft = set()
     sheet_keys = {}
+    fact_labels = set()
     def file_actions(lst, what):
         first = len(t["fact"])
         for f in lst:
-            _only(f, {"label", "op", "bind", "closes_menu", "ask", "ask_off", "size_in", "key"}, what)
+            fact_labels.add(f.get("label"))
+            _only(f, {"label", "op", "bind", "closes_menu", "ask", "ask_off", "size_in", "key", "show_state", "repeat_op", "show"}, what)
             label = _need(f, "label", str, what)
             w2 = "%s action %s" % (what, label)
             ask = text_key(f, "ask", w2)
+            rep = text_key(f, "repeat_op", w2)                  # T228 R21: the action is offered once per N, N from this operation; the ask word holds its name
+            if rep is not None and (ask is not None or "ask_off" in f):
+                raise DescError("%s: repeat_op and ask do not go together" % w2)
+            if rep is not None:
+                ask = rep
             if "ask_off" in f and ask is None:
                 raise DescError("%s: ask_off needs an ask" % w2)
             off = _opt(f, "ask_off", int, w2, 0)
@@ -717,6 +826,13 @@ def compile_desc(doc, merged=()):
             if key and not (len(key) == 1 and key.isalnum() and key == key.upper()):
                 raise DescError("%s: key is one upper case letter or digit (the letter that runs the item in the sheet)" % w2)
             fl = (1 if _opt(f, "closes_menu", bool, w2, False) else 0) | (ord(key) << 8 if key else 0)      # bits 15:8 the key
+            show = _opt(f, "show_state", str, w2, None)                  # the action is offered only while this condition holds (contrib.h cond_holds); bits 31:16 the text's offset + 1
+            if show:
+                so = st.add(show) + 1
+                if so >= 0x10000:
+                    raise DescError("%s: show_state lies beyond the first 64 KB of the strings" % w2)
+                fl |= so << 16
+            fl |= (2 if rep is not None else 0) | (4 if _opt(f, "show", bool, w2, False) else 0)       # bit 1 repeat (ask = the count's op), bit 2 shows the op's text
             t["fact"].append((st.add(label), st.add(_need(f, "op", str, w2)), fb, nb, fl, st.add(ask),
                               off & 0xFFFFFFFF, fz, len(sizes)))
         return first, len(lst)
@@ -740,14 +856,26 @@ def compile_desc(doc, merged=()):
         fi, ni = file_actions(inner, "filetype " + ext + " inner")
         t["ftype"].append((st.add(ext), st.add(inner_ext), fa, na, fi, ni))
 
+    # a media slot's drive list names its entries by label: a typo would silently drop the row, so every name has to exist
+    task_labels = {tk.get("label") for tk in _opt(doc, "task", list, "description", [])}
+    for m in _opt(doc, "media", list, "description", []):
+        what = "media " + m["name"]
+        if m.get("mount") is not None and m["mount"] not in fact_labels:
+            raise DescError("%s: mount %r is not the label of a file action of any filetype" % (what, m["mount"]))
+        for k_ in ("empty_tasks", "mounted_tasks"):
+            for lab in (m.get(k_) or "").split(","):
+                if lab and lab not in task_labels:
+                    raise DescError("%s: %s names %r, which is not a task" % (what, k_, lab))
+
     seen_set = set()
     lists = _opt(doc, "lists", dict, "description", {})
     for cs in _opt(doc, "core_setting", list, "description", []):
-        _only(cs, {"key", "group", "values", "list", "range", "unit", "default", "when", "apply", "base", "text", "secret", "maxlen", "show_state", "label", "empty"}, "core_setting")
+        _only(cs, {"key", "group", "values", "list", "range", "unit", "default", "when", "apply", "base", "text", "secret", "maxlen", "show_state", "lock_state", "label", "empty", "pick"}, "core_setting")
         key = _need(cs, "key", str, "core_setting")
         what = "core_setting " + key
-        if key.lower() in seen_set or key.lower() == "picture":
-            raise DescError("%s: the key is taken (Picture belongs to the application)" % what)
+        if key.lower() in seen_set:
+            raise DescError("%s: the key is taken" % what)
+        _app_owned(what, key, _need(cs, "apply", str, what))
         seen_set.add(key.lower())
         when = _opt(cs, "when", str, what, "live")
         if when not in WHEN:
@@ -762,8 +890,11 @@ def compile_desc(doc, merged=()):
             default = 0
             if vals[0] == "":
                 vals = [" "]                # the record has no empty strings; a blank is trimmed at the reader's use
-            if _opt(cs, "empty", str, what, ""):
-                vals.append(cs["empty"])    # what the row shows while the text is empty (values[1])
+            pick = _opt(cs, "pick", str, what, "")
+            if _opt(cs, "empty", str, what, "") or pick:
+                vals.append(cs.get("empty") or "Not set")    # what the row shows while the text is empty (values[1])
+            if pick:
+                vals.append(pick)           # T228 R21: the state whose text holds the rows of the list RETURN opens (picklist.h); values[2]
         else:
             if "list" in cs:
                 vals = lists.get(cs["list"])
@@ -795,8 +926,18 @@ def compile_desc(doc, merged=()):
         show = _opt(cs, "show_state", str, what, None)         # the row is listed only while this condition holds (contrib.h cond_holds); packed above the time code
         if show:
             wcode |= (st.add(show) + 1) << 8
+        lock = _opt(cs, "lock_state", str, what, None)         # T228 R21: while this state has a text the row shows it in place of the value and refuses edits (FW set_override); the record keeps it as the last value string, flag 4 of the time code
+        if lock:
+            vals = list(vals) + [lock]
+            wcode |= 4
         fv = len(t["value"])
-        t["value"].extend((st.add(v),) for v in vals)
+        big = tuple(vals) if len(vals) > 256 else None       # a long range (a number with hundreds of steps) is stored once, however many settings share it
+        if big is not None and big in t.setdefault("_big", {}):
+            fv = t["_big"][big]
+        else:
+            t["value"].extend((st.add(v),) for v in vals)
+            if big is not None:
+                t["_big"][big] = fv
         t["cset"].append((st.add(key), st.add(group_name(cs, what)), fv, len(vals), default, wcode, st.add(_need(cs, "apply", str, what)), base & 0xFFFFFFFF, st.add(_opt(cs, "label", str, what, None))))
 
     poll_op, poll_ms = NONE, 0
@@ -811,11 +952,16 @@ def compile_desc(doc, merged=()):
         if not re.fullmatch(r"[a-z0-9_]{1,15}", m_):
             raise DescError("merged library name %r: 1 to 15 characters of a-z, 0-9 and _" % m_)
     merged_off = st.add(",".join(merged)) if merged else NONE
+    mi = _opt(doc, "machine_info", str, "description", None)
+    mi_off = st.add(mi) if mi else NONE
+    pad_words = _pad_words(_opt(doc, "pad", dict, "description", None), t, st)
+    restart_words = _restart_words(_opt(doc, "restart", dict, "description", None))
     for k in ORDER:
         if len(t[k]) > LIMITS[k]:
             raise DescError("%d %s entries; the board takes %d" % (len(t[k]), k, LIMITS[k]))
     # layout: header, tables in ORDER, strings last
-    pos = HEADER
+    version, header = (VERSION, HEADER_V5) if pad_words or restart_words else (4, HEADER)
+    pos = header
     offs = {}
     for k in ORDER:
         offs[k] = pos if t[k] else 0
@@ -824,11 +970,14 @@ def compile_desc(doc, merged=()):
     total = str_off + len(st.buf)
     if total > MAX_SIZE:
         raise DescError("the record is %d bytes; the board takes %d" % (total, MAX_SIZE))
-    out = bytearray(struct.pack("<IHHIIII", MAGIC, VERSION, HEADER, total, (1 if t["area"] else 0) | (2 if any(t[k] for k in OWN) else 0), str_off, len(st.buf)))
+    out = bytearray(struct.pack("<IHHIIII", MAGIC, version, header, total, (1 if t["area"] else 0) | (2 if any(t[k] for k in OWN) else 0), str_off, len(st.buf)))
     for k in ORDER:
         out += struct.pack("<II", offs[k], len(t[k]))
-    out += struct.pack("<IIII", poll_op, poll_ms, merged_off, 0)
-    assert len(out) == HEADER, len(out)
+    out += struct.pack("<IIII", poll_op, poll_ms, merged_off, mi_off)
+    if version >= 5:
+        out += struct.pack("<6I", *(pad_words or (NONE, 0, 0, 0, 0, NONE)))
+        out += struct.pack("<II", *(restart_words or (0, 0)))
+    assert len(out) == header, len(out)
     for k in ORDER:
         for e in t[k]:
             out += struct.pack("<%dI" % (ESIZE[k] // 4), *e)
@@ -841,6 +990,72 @@ def compile_text(text):
     return compile_desc(toml_loads(text))
 
 
+def _pad_code(tok):
+    """A [pad] default entry -> the source id of pad.h: a direction 32..35, a position (role) 0x40..0x47, button1..32 -> 0..31, none -> 0xFF."""
+    if tok in PAD_DIRS:
+        return 32 + PAD_DIRS.index(tok)
+    if tok in PAD_ROLES:
+        return 0x40 + PAD_ROLES.index(tok)
+    if tok == "none":
+        return 0xFF
+    m = re.fullmatch(r"button([1-9][0-9]?)", tok) if isinstance(tok, str) else None
+    if m and int(m.group(1)) <= 32:
+        return int(m.group(1)) - 1
+    raise DescError("pad: default %r is not a source (%s, %s, button1 .. button32, none)" % (tok, ", ".join(PAD_DIRS), ", ".join(PAD_ROLES)))
+
+
+def _pad_token(code):
+    if 32 <= code <= 35:
+        return PAD_DIRS[code - 32]
+    if 0x40 <= code <= 0x47:
+        return PAD_ROLES[code - 0x40]
+    if code == 0xFF:
+        return "none"
+    return "button%d" % (code + 1)
+
+
+def _restart_words(rs):
+    """[restart] -> the two header words of version 5 (T228 R17): the bytes F8 "Restart core" clears from address 0, flags (bit 0: memory-only). None: no table."""
+    if rs is None:
+        return None
+    _only(rs, {"clear_ram", "ram_only"}, "restart")
+    n = _need(rs, "clear_ram", int, "restart")
+    if isinstance(n, bool) or not 256 <= n <= RESTART_CLEAR_MAX or n % 256:
+        raise DescError("restart: clear_ram is 256 .. %d bytes, a multiple of 256" % RESTART_CLEAR_MAX)
+    return n, 1 if _opt(rs, "ram_only", bool, "restart", False) else 0
+
+
+def _pad_words(pad, t, st):
+    """[pad] -> the six header words of version 5 (kind, reg 0, reg 1, first name, names, default map); the names go into the value table. None: no pad."""
+    if pad is None:
+        return None
+    _only(pad, {"output", "per_pad", "regs", "buttons", "default"}, "pad")
+    output = _opt(pad, "output", str, "pad", "registers")
+    if output not in PAD_OUTPUTS:
+        raise DescError("pad: output %r (one of %s)" % (output, ", ".join(PAD_OUTPUTS)))
+    names = _need(pad, "buttons", list, "pad")
+    if not 1 <= len(names) <= 16 or not all(isinstance(x, str) and x for x in names):
+        raise DescError("pad: buttons are 1 to 16 names")
+    if output == "joystick":
+        if "regs" in pad:
+            raise DescError("pad: the joystick output has its ports (1 and 2), no regs")
+        if len(names) > 5:
+            raise DescError("pad: a joystick has 5 lines (up, down, left, right, fire)")
+        regs = [0, 1]
+    else:
+        regs = _need(pad, "regs", list, "pad")
+        if len(regs) != 2 or not all(isinstance(x, int) and not isinstance(x, bool) and 0 < x <= 0xFFFF for x in regs):
+            raise DescError("pad: regs are the two players' registers")
+    dflt = _need(pad, "default", list, "pad")
+    if len(dflt) != len(names):
+        raise DescError("pad: default has one source per button")
+    codes = [_pad_code(x) for x in dflt]
+    fv = len(t["value"])
+    t["value"].extend((st.add(x),) for x in names)
+    kind = PAD_OUTPUTS[output] | (0x100 if _opt(pad, "per_pad", bool, "pad", False) else 0)
+    return (kind, regs[0], regs[1], fv, len(names), st.add("".join("%02X" % c for c in codes)))
+
+
 # ---- the reader (the same checks as descrec.cc) ----------------------------------------------------------------------------
 
 def parse_desc(blob):
@@ -851,20 +1066,24 @@ def parse_desc(blob):
     magic, ver, hsz, total, flags, so, ss = struct.unpack_from("<IHHIIII", blob, 0)
     if magic != MAGIC:
         raise DescError("description record: magic")
-    if ver not in (VERSION, VERSION_MIN):
-        raise DescError("description record: version %d, this tool reads %d and %d" % (ver, VERSION_MIN, VERSION))
-    if hsz != HEADER or total != n or flags & ~3:
+    if not VERSION_MIN <= ver <= VERSION:
+        raise DescError("description record: version %d, this tool reads %d to %d" % (ver, VERSION_MIN, VERSION))
+    esz = dict(ESIZE)
+    if ver < 4:
+        esz["media"] = ESIZE_V3_MEDIA
+    hdr = HEADER_V5 if ver >= 5 else HEADER
+    if hsz != hdr or total != n or flags & ~3 or n < hdr:
         raise DescError("description record: header or length does not match")
-    if so < HEADER or so + ss > n or ss == 0:
+    if so < hdr or so + ss > n or ss == 0:
         raise DescError("description record: string table outside the record")
     tabs = {}
     for i, k in enumerate(ORDER):
         off, cnt = struct.unpack_from("<II", blob, 24 + 8 * i)
         if cnt > LIMITS[k]:
             raise DescError("description record: %d %s entries" % (cnt, k))
-        if cnt and (off < HEADER or off + cnt * ESIZE[k] > n):
+        if cnt and (off < hdr or off + cnt * esz[k] > n):
             raise DescError("description record: table of %s outside the record" % k)
-        tabs[k] = [struct.unpack_from("<%dI" % (ESIZE[k] // 4), blob, off + j * ESIZE[k]) for j in range(cnt)]
+        tabs[k] = [struct.unpack_from("<%dI" % (esz[k] // 4), blob, off + j * esz[k]) for j in range(cnt)]
 
     def s(o):
         if o == NONE:
@@ -881,7 +1100,10 @@ def parse_desc(blob):
 
     out = {"route": bool(flags & 1), "own": bool(flags & 2)}
     pop, pms, merged, r2 = struct.unpack_from("<IIII", blob, 24 + 8 * len(ORDER))
-    if r2 or (pop == NONE) != (pms == 0) or pms > 60000 or (pop != NONE and not s(pop)) or (merged != NONE and not s(merged)):
+    if ver < 4 and r2:
+        raise DescError("description record: a bad poll or merged-libraries list")
+    out["machine_info"] = s(r2) if ver >= 4 and r2 != NONE else None
+    if (pop == NONE) != (pms == 0) or pms > 60000 or (pop != NONE and not s(pop)) or (merged != NONE and not s(merged)):
         raise DescError("description record: a bad poll or merged-libraries list")
     out["merged"] = s(merged).split(",") if merged != NONE else []
     out["poll"] = {"op": s(pop), "period_ms": pms} if pop != NONE else None
@@ -900,6 +1122,26 @@ def parse_desc(blob):
     out["value"] = [s(e[0]) for e in tabs["value"]]
     if any(not e or not e.startswith(".") for e in out["ext"]) or any(not v for v in out["value"]):
         raise DescError("description record: an extension without a dot or an empty value")
+    out["pad"] = None
+    if ver >= 5 and struct.unpack_from("<I", blob, HEADER)[0] != NONE:
+        kind, r0, r1, fv, nv, dm = struct.unpack_from("<6I", blob, HEADER)
+        dmap = s(dm)
+        outs = {v: k for k, v in PAD_OUTPUTS.items()}
+        if kind & ~0x1FF or (kind & 0xFF) not in outs or r0 > 0xFFFF or r1 > 0xFFFF or not 1 <= nv <= 16 or fv + nv > len(out["value"]) or dmap is None \
+                or not re.fullmatch(r"([0-9A-F]{2})*", dmap) or len(dmap) != 2 * nv:
+            raise DescError("description record: a bad pad")
+        codes = [int(dmap[2 * i:2 * i + 2], 16) for i in range(nv)]
+        if any(c > 35 and c != 0xFF and not 0x40 <= c <= 0x47 for c in codes):
+            raise DescError("description record: a bad pad")
+        out["pad"] = {"output": outs[kind & 0xFF], "per_pad": bool(kind & 0x100), "regs": [r0, r1], "buttons": out["value"][fv:fv + nv],
+                      "default": [_pad_token(c) for c in codes]}
+    out["restart"] = None
+    if ver >= 5:
+        clear, rfl = struct.unpack_from("<II", blob, HEADER + 24)
+        if rfl & ~1 or clear > RESTART_CLEAR_MAX or clear % 256 or (rfl and not clear):
+            raise DescError("description record: a bad restart")
+        if clear:
+            out["restart"] = {"clear_ram": clear, "ram_only": bool(rfl & 1)}
     out["hide"] = [s(e[0]) for e in tabs["hide"]]
     out["rename"] = [(s(a), s(b)) for a, b in tabs["rename"]]
     if any(not h for h in out["hide"]) or any(not a or not b for a, b in out["rename"]):
@@ -960,23 +1202,27 @@ def parse_desc(blob):
                                "apply": s(apply)})
     out["task"] = []
     for label, op, fb, nb, fl, ask, ask_state, pick_label, group in tabs["task"]:
-        if not s(label) or not s(op) or fl & ~3 or fb + nb > len(out["bind"]) or (s(ask) is None and (ask_state != NONE or fl & 2 or pick_label != NONE)) or \
-                (pick_label != NONE and not fl & 2):
+        hk = (fl >> 8) & 0xFF
+        if not s(label) or not s(op) or fl & 0xFFFF & ~0xFF03 or fb + nb > len(out["bind"]) or (s(ask) is None and (ask_state != NONE or fl & 2 or pick_label != NONE)) or \
+                (pick_label != NONE and not fl & 2) or (hk and not (chr(hk).isalnum() and chr(hk).isascii() and chr(hk) == chr(hk).upper())):
             raise DescError("description record: a bad task")
         out["task"].append({"label": s(label), "op": s(op), "bind": out["bind"][fb:fb + nb], "closes_menu": bool(fl & 1), "pick_dir": bool(fl & 2),
-                            "ask": s(ask), "ask_state": s(ask_state), "pick_label": s(pick_label), "group": s(group)})
+                            "ask": s(ask), "ask_state": s(ask_state), "pick_label": s(pick_label), "group": s(group), "hotkey": chr(hk) if hk else "", "show_state": s((fl >> 16) - 1) if fl >> 16 else None})
     out["media"] = []
-    for name, state, eject, fb, nb, group in tabs["media"]:
-        if not s(name) or not s(state) or fb + nb > len(out["bind"]) or (eject == NONE and nb):
+    for me in tabs["media"]:
+        name, state, eject, fb, nb, group = me[:6]
+        ext_ = me[6:] if len(me) > 6 else (NONE, NONE, NONE, NONE, 0)
+        if not s(name) or not s(state) or fb + nb > len(out["bind"]) or (eject == NONE and nb) or ext_[4] & ~1:
             raise DescError("description record: a bad media slot")
-        out["media"].append({"name": s(name), "state": s(state), "eject_op": s(eject), "eject_bind": out["bind"][fb:fb + nb], "group": s(group)})
+        out["media"].append({"name": s(name), "state": s(state), "eject_op": s(eject), "eject_bind": out["bind"][fb:fb + nb], "group": s(group),
+                             "exts": s(ext_[0]), "mount": s(ext_[1]), "empty_tasks": s(ext_[2]), "mounted_tasks": s(ext_[3]), "eject_closes": bool(ext_[4] & 1)})
     out["fact"] = []
     for label, op, fb, nb, fl, ask, off, fz, nz in tabs["fact"]:
         off = off - 2 ** 32 if off >= 2 ** 31 else off
-        if not s(label) or not s(op) or fl & ~0xFF01 or fb + nb > len(out["bind"]) or fz + nz > len(out["size"]) or not -32768 <= off <= 32767 or (s(ask) is None and off):
+        if not s(label) or not s(op) or fl & 0xFFFF & ~0xFF07 or fb + nb > len(out["bind"]) or fz + nz > len(out["size"]) or not -32768 <= off <= 32767 or (s(ask) is None and (off or fl & 2)) or (fl & 2 and off):
             raise DescError("description record: a bad file type action")
-        out["fact"].append({"label": s(label), "op": s(op), "bind": out["bind"][fb:fb + nb], "closes_menu": bool(fl & 1), "key": chr(fl >> 8) if fl >> 8 else "", "ask": s(ask), "ask_off": off,
-                            "size_in": out["size"][fz:fz + nz]})
+        out["fact"].append({"label": s(label), "op": s(op), "bind": out["bind"][fb:fb + nb], "closes_menu": bool(fl & 1), "key": chr((fl >> 8) & 0xFF) if (fl >> 8) & 0xFF else "", "ask": None if fl & 2 else s(ask), "ask_off": off,
+                            "size_in": out["size"][fz:fz + nz], "show_state": s((fl >> 16) - 1) if fl >> 16 else None, "repeat_op": s(ask) if fl & 2 else None, "show": bool(fl & 4)})
     out["ftype"] = []
     seen = set()
     for ext, inner_ext, fa, na, fi, ni in tabs["ftype"]:
@@ -991,10 +1237,17 @@ def parse_desc(blob):
         base = base - 2 ** 32 if base >= 2 ** 31 else base
         show = s((when >> 8) - 1) if when >> 8 else None
         when &= 0xFF
+        lock = None
+        if when & 4:                                                  # the last value string is the state that locks the row (T228 R21)
+            if nv < 1 or fv + nv > len(out["value"]):
+                raise DescError("description record: a bad core setting")
+            lock = out["value"][fv + nv - 1]
+            nv -= 1
+            when &= 3
         if not s(key) or not s(apply) or nv < (1 if when >= 2 else 2) or fv + nv > len(out["value"]) or df >= nv or when > 3:
             raise DescError("description record: a bad core setting")
         out["cset"].append({"key": s(key), "group": s(group), "values": out["value"][fv:fv + nv], "default": df, "when": {0: "live", 1: "reset", 2: "text", 3: "secret"}[when],
-                            "apply": s(apply), "base": base, "show_state": show, "label": s(label)})
+                            "apply": s(apply), "base": base, "show_state": show, "label": s(label), "lock_state": lock})
     if out["own"] != bool(out["task"] or out["media"] or out["ftype"] or out["cset"]):
         raise DescError("description record: the own-menu flag and the tables of the own menu disagree")
     return out
@@ -1016,6 +1269,8 @@ def decoded_to_doc(rec):
     """The TOML document (a dict, as toml_loads makes it) that compiles to the record `rec` (parse_desc's answer): what the packer needs to put more
     into a record that is already compiled. compile_desc(decoded_to_doc(parse_desc(b)), merged) == b."""
     doc = {}
+    if rec.get("machine_info"):
+        doc["machine_info"] = rec["machine_info"]
     if rec["area"]:
         doc["area"], used = [], 0
         for a in rec["area"]:
@@ -1030,7 +1285,8 @@ def decoded_to_doc(rec):
                     d["lines"] = tb["lines"]
                 if tb.get("layout"):
                     name, _, params = tb["layout"].partition(";")
-                    d["layout"] = name
+                    if name:
+                        d["layout"] = name
                     if params:
                         d["ui"] = _ui_table(params, UI_TAB_KEYS)
                 tabs.append(d)
@@ -1085,6 +1341,16 @@ def decoded_to_doc(rec):
             doc["tab"].append(d)
     if rec["poll"]:
         doc["poll"] = dict(rec["poll"])
+    if rec.get("pad"):
+        p = rec["pad"]
+        d = {"output": p["output"], "buttons": list(p["buttons"]), "default": list(p["default"])}
+        if p["per_pad"]:
+            d["per_pad"] = True
+        if p["output"] != "joystick":
+            d["regs"] = list(p["regs"])
+        doc["pad"] = d
+    if rec.get("restart"):
+        doc["restart"] = dict(rec["restart"])
     if rec["task"]:
         doc["task"] = []
         for t in rec["task"]:
@@ -1096,6 +1362,10 @@ def decoded_to_doc(rec):
                     d[k] = t[k]
             if t["pick_dir"]:
                 d["pick_dir"] = True
+            if t.get("hotkey"):
+                d["hotkey"] = t["hotkey"]
+            if t.get("show_state"):
+                d["show_state"] = t["show_state"]
             doc["task"].append(d)
     if rec["media"]:
         doc["media"] = []
@@ -1103,6 +1373,11 @@ def decoded_to_doc(rec):
             d = {"name": m["name"], "state": m["state"]}
             if m["group"] is not None:
                 d["group"] = m["group"]
+            for k_ in ("exts", "mount", "empty_tasks", "mounted_tasks"):
+                if m[k_] is not None:
+                    d[k_] = m[k_]
+            if m["eject_closes"]:
+                d["eject_closes"] = True
             if m["eject_op"] is not None:
                 d["eject_op"] = m["eject_op"]
                 if m["eject_bind"]:
@@ -1120,10 +1395,16 @@ def decoded_to_doc(rec):
                 if a["ask"] is not None:
                     d["ask"] = a["ask"]
                     d["ask_off"] = a["ask_off"]
+                if a.get("repeat_op"):
+                    d["repeat_op"] = a["repeat_op"]
+                if a.get("show"):
+                    d["show"] = True
                 if a["size_in"]:
                     d["size_in"] = a["size_in"]
                 if a.get("key"):
                     d["key"] = a["key"]                  # the sheet letter (bits 15:8 of the flags)
+                if a.get("show_state"):
+                    d["show_state"] = a["show_state"]    # bits 31:16 of the flags
                 out.append(d)
             return out
         for f in rec["ftype"]:
@@ -1141,12 +1422,16 @@ def decoded_to_doc(rec):
                 d["secret" if c["when"] == "secret" else "text"] = True
                 if len(c["values"]) > 1:
                     d["empty"] = c["values"][1]
+                if len(c["values"]) > 2:
+                    d["pick"] = c["values"][2]
             if c["group"] is not None:
                 d["group"] = c["group"]
             if c.get("label"):
                 d["label"] = c["label"]
             if c.get("show_state"):
                 d["show_state"] = c["show_state"]
+            if c.get("lock_state"):
+                d["lock_state"] = c["lock_state"]
             doc["core_setting"].append(d)
     return doc
 
@@ -1163,8 +1448,8 @@ def merge_lib_menus(desc_blob, libs):
     kept = []
     for name, blob in sorted(libs, key=lambda x: x[0]):
         rec = parse_desc(blob)
-        if rec["route"] or rec["hide"] or rec["rename"] or rec["own"]:
-            kept.append((name, "its record gives a route, hides or renames what others contribute, or carries a core's own tables"))
+        if rec["route"] or rec["hide"] or rec["rename"] or rec["own"] or rec.get("pad") or rec.get("restart"):
+            kept.append((name, "its record gives a route, hides or renames what others contribute, or carries a core's own tables, pad or restart"))
             continue
         if rec["poll"]:
             kept.append((name, "it declares a poll, of which a description has one"))
@@ -1259,6 +1544,18 @@ def _bind_problem(ops, what, label, op, binds, file_ok, ask_ok, text_ok):
     return None
 
 
+APP_KEYS = ("picture", "scale", "smoothing", "frame follow")   # the application's own rows (coreapp/src/desc.h PICTURE_KEY, SCALE_KEY, SMOOTH_KEY, FOLLOW_KEY)
+APP_OPS = ("picture.apply", "scale.apply", "smooth.apply", "follow.apply")  # and their operations (picture.h); desc_check.cc refuses the same
+
+
+def _app_owned(what, key, apply):
+    """T228 step 2: refuse at pack time what desc_check refuses (a core setting that takes the key or the operation of Picture, Scale, Smoothing or Frame follow)."""
+    if key.lower() in APP_KEYS:
+        raise DescError("%s: the keys Picture, Scale, Smoothing and Frame follow belong to the application" % what)
+    if apply in APP_OPS:
+        raise DescError("%s: the operations picture.apply, scale.apply, smooth.apply and follow.apply belong to the application's own Picture, Scale, Smoothing and Frame follow rows" % what)
+
+
 def _setting_problem(ops, what, key, apply, nvalues, base):
     if "$slot" in apply:
         return None
@@ -1290,13 +1587,17 @@ def check_ops(rec, ops, states):
             if sum(b["kind"] == BIND_KINDS["text"] for b in tk["bind"]) != 1:
                 bad.append('task: "%s" asks for a name but binds it %d times (once)' % (tk["label"], sum(b["kind"] == BIND_KINDS["text"] for b in tk["bind"])))
             state_ok("task", tk["label"], tk["ask_state"])
+        if tk.get("show_state"):
+            state_ok("task", tk["label"], tk["show_state"].split()[0])
     for m in rec["media"]:
         state_ok("media", m["name"], m["state"])
         if m["eject_op"]:
             add(_bind_problem(ops, "media", m["name"], m["eject_op"], m["eject_bind"], False, False, False))
     for ft in rec["ftype"]:
         for a in ft["actions"]:
-            add(_bind_problem(ops, "filetype " + ft["ext"], a["label"], a["op"], a["bind"], True, bool(a["ask"]), False))
+            add(_bind_problem(ops, "filetype " + ft["ext"], a["label"], a["op"], a["bind"], True, bool(a["ask"]) or bool(a.get("repeat_op")), False))
+            if a.get("repeat_op"):                                       # T228 R21: the counting operation takes the same binding (asked value 0)
+                add(_bind_problem(ops, "filetype " + ft["ext"], a["label"], a["repeat_op"], a["bind"], True, True, False))
             if a["ask"] and sum(b["kind"] == BIND_KINDS["ask"] for b in a["bind"]) != 1:
                 bad.append('filetype %s: "%s" asks for an address but binds it %d times (once)' % (ft["ext"], a["label"], sum(b["kind"] == BIND_KINDS["ask"] for b in a["bind"])))
         for a in ft["inner"]:
@@ -1316,6 +1617,10 @@ def check_ops(rec, ops, states):
                 state_ok("node", n["label"], ui[k][1:].split("|")[0])
         if n["when_state"]:
             state_ok("node", n["label"], n["when_state"].split()[0])
+        if "open" in ui:                         # the page this row stands on runs it when opened: an operation without arguments
+            a = ops.get(ui["open"])
+            if a is None or a:
+                add('node "%s": ui open "%s" is not an exported operation without arguments' % (n["label"], ui["open"]))
     for a in rec["action"]:
         add(_bind_problem(ops, "file_action", a["label"], a["op"], a["bind"], True, False, False))
     for st_ in rec["setting"]:

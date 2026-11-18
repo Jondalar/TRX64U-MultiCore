@@ -500,6 +500,12 @@ bool rest_start_gate(void)
     return s_start_gate;
 }
 
+static RestHooks s_hooks;
+void rest_set_hooks(const RestHooks &h)
+{
+    s_hooks = h;
+}
+
 int rest_serve(CoreCtx *c, const HttpReq &q, char *out, int cap, bool *ws)
 {
     *ws = false;
@@ -524,6 +530,15 @@ int rest_serve(CoreCtx *c, const HttpReq &q, char *out, int cap, bool *ws)
             keep -= keep > 16 ? 16 : keep;
         }
         return respond(out, cap, 503, b, p);
+    }
+    if (s_hooks.enabled && !s_hooks.enabled()) {
+        return respond_text(out, cap, 503, "The web remote control service is disabled");
+    }
+    if (s_hooks.password && !(rest_uic && !strcmp(q.path, "/v1/ui/ws"))) {
+        const char *pw = s_hooks.password();
+        if (pw && pw[0] && strcmp(q.password, pw) != 0) {                // a missing header is an empty string: it never equals a set password
+            return respond_text(out, cap, 401, "The network password is needed: header X-Password");
+        }
     }
     if (rest_uic) {                                                       // T192.1 D-G: the token gate comes before every route (S2)
         const bool is_ws_path = !strcmp(q.path, "/v1/ws") || !strcmp(q.path, "/v1/ui/ws");
@@ -558,7 +573,7 @@ int rest_serve(CoreCtx *c, const HttpReq &q, char *out, int cap, bool *ws)
         if (!get) {
             return respond_text(out, cap, 405, "GET only");
         }
-        char b[420];
+        char b[520];
         int p = 0;
         OpRegistry *reg = ops_of(c);
         json_put(b, sizeof(b), &p, "{\"api\":1,\"core\":");
@@ -569,7 +584,13 @@ int rest_serve(CoreCtx *c, const HttpReq &q, char *out, int cap, bool *ws)
         json_put_string(b, sizeof(b), &p, APP_VERSION_STRING);
         json_put(b, sizeof(b), &p, ",\"host\":");
         json_put_string(b, sizeof(b), &p, c->host_version);
-        json_put(b, sizeof(b), &p, ",\"ops\":%d,\"state\":%d,\"events\":%d}", reg->nops(), reg->nstates(), reg->nevents());
+        json_put(b, sizeof(b), &p, ",\"ops\":%d,\"state\":%d,\"events\":%d", reg->nops(), reg->nstates(), reg->nevents());
+        const char *uid = s_hooks.unique_id ? s_hooks.unique_id() : 0;
+        if (uid && uid[0]) {
+            json_put(b, sizeof(b), &p, ",\"unique_id\":");
+            json_put_string(b, sizeof(b), &p, uid);
+        }
+        json_put(b, sizeof(b), &p, "}");
         return respond(out, cap, 200, b, p);
     }
     if (rest_uic && strncmp(q.path, "/v1/ui/", 7) == 0) {

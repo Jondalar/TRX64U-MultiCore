@@ -11,6 +11,9 @@
 #include "rest.h"
 #include "ops_glue.h"
 #include "desc_check.h"
+#include "listgrow.h"
+#include "settings.h"
+#include "trx64u_menu.h"
 extern const CoreDesc amiga_desc, amiga1200_desc, apple2_desc, c64_desc;
 
 const CoreDesc *const core_table[] = { &testcore::desc, &amiga_desc, &amiga1200_desc, &apple2_desc, &c64_desc, 0 };
@@ -75,7 +78,7 @@ static std::string get(Rig &r, const char *method, const char *path, int *status
     HttpReq *q = new HttpReq;
     http_init(q);
     http_feed(q, raw.data(), (int)raw.size());
-    static char out[28672];
+    static char out[32768];                 // restsrv.cc out_max
     bool ws;
     int n = rest_serve(&r.c, *q, out, sizeof(out), &ws);
     delete q;
@@ -92,6 +95,20 @@ static void reg_img(OpRegistry &r)
     r.add_state("t.img", img_state);
 }
 static const MediaSlot img_media[] = { { "Disk", "t.img", 0, 0, 0 }, { "Cart", "t.cart", 0, 0, 0 } };
+
+// R8: the heap and the screen's EDID, through the seams the board wires
+static uint32_t fake_heap(void) { return 123456u; }
+static int g_edid_len;
+static uint8_t g_edid[256];
+static bool fake_edid(uint8_t *buf, int max, int *len)
+{
+    if (g_edid_len <= 0) {
+        return false;
+    }
+    memcpy(buf, g_edid, g_edid_len < max ? g_edid_len : max);
+    *len = g_edid_len;
+    return true;
+}
 
 int main()
 {
@@ -267,6 +284,83 @@ int main()
         g_img = "other.adf";
         n = core_report_build(&r.c, 0, false, "", 0, g_out, sizeof(g_out));
         CHECK(has(std::string(g_out, n), "Disk: other.adf, size not known"));
+    }
+    // ---- R8: Heap and Screen (EDID) -----------------------------------------------------------------------------------------------------
+    {
+        Rig r;
+        int n = core_report_build(&r.c, 0, false, "log\n", 4, g_out, sizeof(g_out));
+        std::string t(g_out, n);
+        CHECK(has(t, "== Heap =="));
+        CHECK(has(t, "== Screen (EDID) =="));
+        CHECK(has(t, "Heap free: not known"));
+        CHECK(has(t, "The screen answered no EDID"));
+        ListGrow::free_heap() = fake_heap;
+        core_report_edid_reader() = fake_edid;
+        n = core_report_build(&r.c, 0, false, "log\n", 4, g_out, sizeof(g_out));
+        t.assign(g_out, n);
+        CHECK(has(t, "Heap free: 123456 bytes (120 KB)"));
+        CHECK(has(t, "The screen answered no EDID"));               // the reader answers false: plainly no EDID
+        memset(g_edid, 0, sizeof(g_edid));
+        static const uint8_t hdr[8] = { 0, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0 };
+        memcpy(g_edid, hdr, 8);
+        g_edid[8] = 0x12;
+        uint8_t sum = 0;
+        for (int i = 0; i < 127; i++) { sum = (uint8_t)(sum + g_edid[i]); }
+        g_edid[127] = (uint8_t)(0x100 - sum);
+        g_edid_len = 128;
+        n = core_report_build(&r.c, 0, false, "log\n", 4, g_out, sizeof(g_out));
+        t.assign(g_out, n);
+        CHECK(!has(t, "The screen answered no EDID"));
+        CHECK(has(t, "128 bytes"));
+        CHECK(has(t, "000: 00 FF FF FF FF FF FF 00 12 00"));
+        CHECK(has(t, "070: 00 00 00 00 00 00 00 "));
+        CHECK(has(t, "Decoded: valid"));
+        CHECK(has(t, "Mode: "));
+        size_t a = t.find("== Heap =="), b = t.find("== Log");
+        printf("--- excerpt ---\n%s--- end ---\n", t.substr(a, b - a).c_str());
+        ListGrow::free_heap() = 0;
+        core_report_edid_reader() = 0;
+    }
+    // ---- gate fix 10a: the biggest report there is - trx64u's whole menu (the most settings), the largest EDID the reader returns, a log of the full 16 KB - fits, nothing is cut
+    {
+        const CoreDesc *d = trx64u::desc();
+        SpyIo io; FakeFs fs; CoreCtx c;
+        memset(&c, 0, sizeof(c));
+        c.desc = d; c.io = &io; c.fs = &fs; c.merge = trx64u::merge();
+        Settings st(d->settings, d->nsettings, d->store, &fs, "/sd/cores/worst.cfg", 0);
+        st.load();
+        c.settings = &st;
+        ListGrow::free_heap() = fake_heap;
+        core_report_edid_reader() = fake_edid;
+        memset(g_edid, 0, sizeof(g_edid));
+        static const uint8_t hdr[8] = { 0, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0 };
+        memcpy(g_edid, hdr, 8);
+        g_edid[8] = 0x12;
+        g_edid[126] = 1;
+        g_edid[128] = 0x02; g_edid[129] = 3; g_edid[130] = 4;
+        for (int b = 0; b < 2; b++) {
+            uint8_t sum = 0;
+            for (int i = 0; i < 127; i++) { sum = (uint8_t)(sum + g_edid[b * 128 + i]); }
+            g_edid[b * 128 + 127] = (uint8_t)(0x100 - sum);
+        }
+        g_edid_len = 256;
+        std::string log;
+        for (int i = 0; log.size() < (size_t)BR_LOG_BYTES; i++) {
+            char l[96];
+            snprintf(l, sizeof(l), "[core] line %03d of the log, filled up to a width of about eighty characters now\n", i);
+            log += l;
+        }
+        int n = core_report_build(&c, 0, false, log.c_str(), (int)log.size(), g_out, sizeof(g_out));
+        std::string t(g_out, n);
+        size_t a = t.find("== Heap =="), b = t.find("== Log"), l0 = t.find("== Configuration =="), l1 = t.find("== Media");
+        printf("worst case: %d of %d bytes; configuration %d, heap and EDID %d, log %d\n", n, (int)CORE_REPORT_MAX, (int)(l1 - l0), (int)(b - a), (int)(n - b));
+        CHECK(has(t, "256 bytes"));
+        CHECK(!has(t, "report cut"));
+        CHECK(has(t, "line 000 of the log") || has(t, "of the log"));
+        CHECK(n < CORE_REPORT_MAX - 512);
+        ListGrow::free_heap() = 0;
+        core_report_edid_reader() = 0;
+        g_edid_len = 0;
     }
     DONE("test_corereport");
 }

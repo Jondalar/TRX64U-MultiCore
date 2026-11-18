@@ -10,33 +10,33 @@ file, press **ENTER**. All other cores, `trx64u.cor` included, use the common co
 the **Menu** key or the menu hotkey. **Esc** (the left arrow on the C64 keyboard) goes back one step: out of a folder, to the first tab, to Home; on Home it closes the menu. The machine stands
 still while the menu is open (the top bar says `FROZEN`).
 
-11.1.3 **The common menu.** The areas are picked with the function keys. On the C64 keyboard the areas that the screen lists under `SHIFTED` are **SHIFT** + the key of the next lower odd number (F2 is **SHIFT** + **F1**, F8 is **SHIFT** + **F7**); a USB keyboard has the keys themselves.
+11.1.3 **The common menu.** The rail at the left names the areas and their keys: Home **F1**, Library **F3**, the machine **F5**, App **F7**, System **F8**. On the C64 keyboard **F8** is **SHIFT** + **F7**; a USB keyboard has the keys themselves. The foot line reads `UP/DOWN CHOOSE`, `RETURN DO IT`, `ESC BACK`, plus the letters of the list and `+/- PAGE` where a list has pages; it does not repeat the keys of the areas and tabs, the rail and the tab strip show them. The top bar shows chips for the core, the media (`SD Flash USB0`) and the network (`LAN` and the address), and `FROZEN` while the menu is open.
 
 | Key | Area | Content |
 |---|---|---|
-| **F1** | Home | The media slots of the core (**RETURN** ejects), `Save as config...` and `Load config...` (11.1.13); at the right the status lines `Core`, `Application`, `Network`, `Media`, `ROMs`, `Libraries` |
+| **F1** | Home | The session: the reset rows of the core (`Reset`, `Reload ROMs, reset`, ...), the media slots (**RETURN** opens the page of the slot: mount from the Library, eject, and the tasks of that medium, 11.1.16), the tasks that no slot owns, `Save as config...` and `Load config...` (11.1.13). The button `F3 Library` is drawn where the rows leave room; **F3** works either way |
 | **F3** | Library | The file browser. **RETURN** on a file opens the sheet of what to do with it (11.1.5) |
 | **F5** | The machine (the area carries the short name of the core: `ATARI`, `A1200`, `C64`) | Tab 1: the settings of the machine (named after the core), then the tabs `Video`, `Audio`, `Input` (11.1.10) |
-| **F7** | Actions | Tab `Quick`: reset and the other tasks of the core |
-| **F8** (shifted) | System | `Restart core` (a partial core: `Reload core`), `Return to host menu`, `WiFi`, `Bug report`, `Reset to host defaults` |
+| **F7** | App | One page, `Settings`: the headings `Storage` and `Menu` with the generic rows (11.1.10), `Hotkeys` (a row that opens the page of 11.1.14), and, where the core has apps, the heading `Apps` |
+| **F8** | System | One tab with the headings `Actions` (`Restart core`, in a partial core `Reload core`; `Return to host menu`, 11.1.4), `Network` (`WiFi`), `Support` (`Bug report`, `Keys and help`), `Reset` (`Reset to host defaults`) and `Status` (`Build`, `ROMs`, `Libraries`) |
 
-TRX64 (`trx64u.cor`) has more areas (11.2.1). A tab is picked with the number keys **1** to **8**, or with the cursor keys and **RETURN**. There is no F6 area in the common menu: what it held is on **F5**.
+TRX64 (`trx64u.cor`) uses the same five areas with more rows and tabs (11.2.1). A tab is picked with the number keys **1** to **8**, or with the cursor keys and **RETURN**. There are no areas F2, F4 and F6. Where a core declares tasks (reset, eject, create a blank disk, map buttons), they stand where they belong: the resets and the tasks of no slot on Home, the tasks of a medium on the page of its slot, and the tasks that are settings of the machine (`Map buttons`, 11.1.12) in the tabs of F5.
 
-![Home of the VIC-20 core: the media slots, the configs, the status lines](img/core-home-vc20.png)
+![Home of the VIC-20 core: the session box with the reset rows, the drive slot, the configs and the button F3 Library](img/core-home-vc20.png)
 
-*Figure 11-1. F1 Home of the VIC-20 core in ue2emu. The status lines at the right (`Core`, `Application`, `Network`, ...) show the values of the emulator, not of your board.*
+*Figure 11-1. F1 Home of the VIC-20 core in ue2emu at 1920 x 1080. The rail names the areas and their keys; the chips in the top bar show the core, the media and the network of the emulator, not of your board.*
 
 ![The Library page of a core: the media SD, Flash and USB0](img/core-library.png)
 
-*Figure 11-2. F3 Library: the file browser of the core opens on the list of the media. **RETURN** on a file offers what to do with it (Figure 11-8).*
+*Figure 11-2. F3 Library (shown in TRX64): the file browser opens on the list of the media. **RETURN** opens a medium; on a file it offers what to do with it (Figure 11-8).*
 
-![The Actions page of a core: Reset, Cold start, Reload ROMs, Remove cartridge, Eject and Create blank](img/core-actions.png)
+![The App page of a core: Storage, Menu and Hotkeys](img/core-app.png)
 
-*Figure 11-3. F7 Actions of the Atari 800 XL core. The side bar names the areas and their keys.*
+*Figure 11-3. F7 App of the Atari 800 XL core: the page `Settings` with the generic rows and the row `Hotkeys`.*
 
-![The System page of a core: Reload core, Return to host menu, WiFi, Bug report, Reset to host defaults](img/core-system.png)
+![The System page of a core: Reload core, Return to host menu, WiFi, Bug report, Keys and help, Reset to host defaults, status lines](img/core-system.png)
 
-*Figure 11-4. F8 System. `Return to host menu` is there when the core can give the FPGA back to the host (11.1.4).*
+*Figure 11-4. F8 System of the Atari 800 XL core. `Return to host menu` is there when the core can give the FPGA back to the host (11.1.4).*
 
 11.1.4 **Return to the host.** `Return to host menu` exists where the board answers as a MultiCore host with its loader (`board.cc`: the ID byte `0x7A`); every core on the common application has it except TRX64 (`trx64u.cor`, `trx64g.cor`, 11.2.4).
 
@@ -54,7 +54,7 @@ asked for 8 s: `Keep this picture?`. Any key keeps it. Without a key the core go
 
 11.1.9 **Floppy LED.** Case LED 1 of the board can follow the drive of the machine, like a floppy LED: it lights while the drive runs and flickers with the access. The row `LED Load Indicator` (`On`, `Off`; default `On`) is in the menu of the Amiga 500, the Amiga 1200, the Atari 800 XL, the Apple IIe, the CPC, the VIC-20, the C264, the C128 and the C64 with SuperCPU (not in the NES, SNES, Neo Geo, ZX Spectrum, PET, ZX Spectrum Next and the demo cores). Whether the LED follows the drive has been checked on the board for the Amiga 1200 only.
 
-11.1.10 **The settings of F5.** The first tab holds the settings of the machine (listed per core below). The settings are kept in `<name>.cfg` in the core's own folder (`cores/<name>/<name>.cfg`). A ring beside a name says that the value is used from the next reset; a row without a ring acts at once. Every core adds the same generic rows, so that the page ends with:
+11.1.10 **The settings.** The first tab of **F5** holds the settings of the machine (listed per core below). The settings are kept in `<name>.cfg` in the core's own folder (`cores/<name>/<name>.cfg`). A ring beside a name says that the value is used from the next reset; a row without a ring acts at once. Every core has the same generic rows on **F7** (App), so that the page `Settings` reads:
 
 | Heading | Row | Values (default) |
 |---|---|---|
@@ -63,15 +63,15 @@ asked for 8 s: `Keep this picture?`. Any key keeps it. Without a key the core go
 | `Storage` | `Home directory` | a folder name, up to 60 characters (not set) |
 | `Menu` | `Menu opens at` | `Home (F1)`, `Last screen` (`Home (F1)`) |
 
-The tab `Audio` holds `Volume` (0 % to 200 % in steps of 5 %, default 100 %) where the core takes the generic volume. The tab `Input` holds the hotkeys (11.1.14) and, for a core that has them, the mouse rows (11.1.12) and `Pad map` (11.1.12).
+The tab `Audio` holds `Volume` (0 % to 200 % in steps of 5 %, default 100 %) where the core takes the generic volume. The tab `Input` holds, for a core that has them, the mouse rows and the rows `Map buttons` (11.1.12). The hotkeys are on **F7** (11.1.14).
 
-![The settings of the Amiga 1200: Kickstart file, memory, chipset, floppy drives, real-time clock, joystick ports, LED Load Indicator, Storage and Menu](img/core-settings-a1200.png)
+![The settings of the Amiga 1200: Kickstart file, memory, chipset, floppy drives, real-time clock, joystick ports, LED Load Indicator](img/core-settings-a1200.png)
 
-*Figure 11-5. F5, the first tab of the Amiga 1200: its machine settings, then the generic rows `Storage` and `Menu`. The tabs `Video`, `Audio` and `Input` follow.*
+*Figure 11-5. F5, the first tab of the Amiga 1200: its machine settings. The tabs `Video`, `Audio` and `Input` follow; the generic rows `Storage` and `Menu` are on F7 (Figure 11-3).*
 
 11.1.11 **Compact layout.** At 576p, 480p and 800 x 600 the core menu has a compact layout that is not cut. The pictures of the compact layout of the core menu are *picture pending*: ue2emu shows the 960 x 540 canvas of the core menu at 1080p only, so the compact layout cannot be photographed there.
 
-11.1.12 **USB gamepads and mouse.** NES, SNES and Neo Geo take USB gamepads (T156): two pads in the order they are plugged in (the first is player 1), the stick counts as the D-pad. HID gamepads work, and so do Xbox 360 and Xbox One pads (XInput, T196). The default map follows the SNES layout that is printed on most pads. The setting `Pad map` (`Default`, `Custom`) and the tasks `Map buttons, pad 1` and `Map buttons, pad 2` (on **F7**) let you press each
+11.1.12 **USB gamepads and mouse.** NES, SNES and Neo Geo take USB gamepads (T156): two pads in the order they are plugged in (the first is player 1), the stick counts as the D-pad. HID gamepads work, and so do Xbox 360 and Xbox One pads (XInput, T196). The default map follows the SNES layout that is printed on most pads. The setting `Pad map` (`Default`, `Custom`; first tab of **F5**) and the rows `Map buttons, pad 1` and `Map buttons, pad 2` (tab `Input` of **F5**) let you press each
 button once to map it; the map is kept in the `.cfg` of the core. A pad with an unusual report may not be
 understood. The other cores keep the keyboard and the joystick ports. The Amiga 500 and the Amiga 1200 take a USB mouse (T104). Two settings in the Input group scale it, as the Ultimate's own menu does (T190, GitHub #51): `Mouse sensitivity` (1 to 16,
 default 8 = 1:1; 1 is an eighth of the movement, 16 is twice) and `Mouse acceleration` (`Off`, `Adaptive`; default `Off`). A change acts at once and is kept in the `.cfg` of the core.
@@ -79,36 +79,71 @@ A high-resolution mouse (1000 DPI and more) that moves the pointer too far wants
 
 11.1.13 **Configs.** `Save as config...` (F1 Home) asks for a name and writes `<core folder>/configs/<name>.cfg`: a full copy of the settings and one line for each mounted medium. `Load config...` lists them (the row shows how many are saved) and applies one. A set of media made before the configs (`<core folder>/media/<name>.mnt`) is listed as a config. The host's boot menu lists the configs of a core too.
 
-11.1.14 **Hotkeys and volume.** The tab `Input` of **F5** opens the page `Hotkeys`: a `Modifier` (`Off` and seven key pairs: `CTRL`, `C=`, `C= + CTRL`, `C= + L SHIFT`, `C= + RUN/STOP`, `CTRL + L SHIFT`, `CTRL + RUN/STOP`) and six keys, each of which runs its action while the machine runs, with the modifier held: `Menu open / close`, `Volume up`, `Volume down`, `Reset`, `Swap joystick ports`, `Picture mode`. A core can name one more key (the C128: `Picture 40 / 80`, **CTRL** + **D**). **RETURN** on a row learns the key you press. The defaults are the modifier **CTRL** and **RESTORE** (menu), **+**, **-**, **R**, **J**, **P** in TRX64, the VIC-20, the C264, the C128, the SuperCPU, the PET, the NES, the SNES and the Neo Geo; in the Apple IIe, the Atari, the ZX Spectrum, the ZX Spectrum Next and the CPC the modifier is `C= + CTRL`; in the Amiga cores `C= + RUN/STOP`. On a USB keyboard the C64 keys read **WIN** / **CMD** (C=), **ESC** (RUN/STOP) and **F12** (RESTORE).
+11.1.14 **Hotkeys and volume.** The row `Hotkeys` on **F7** (App; its value names the modifier) opens the page `Hotkeys`: a `Modifier` (`Off` and seven key pairs: `CTRL`, `C=`, `C= + CTRL`, `C= + L SHIFT`, `C= + RUN/STOP`, `CTRL + L SHIFT`, `CTRL + RUN/STOP`) and six keys, each of which runs its action while the machine runs, with the modifier held: `Menu open / close`, `Volume up`, `Volume down`, `Reset`, `Swap joystick ports`, `Picture mode`. A core can name one more key (the C128: `Picture 40 / 80`, **CTRL** + **D**). **RETURN** on a row learns the key you press. The defaults are the modifier **CTRL** and **RESTORE** (menu), **+**, **-**, **R**, **J**, **P** in TRX64, the VIC-20, the C264, the C128, the SuperCPU, the PET, the NES, the SNES and the Neo Geo; in the Apple IIe, the Atari, the ZX Spectrum, the ZX Spectrum Next and the CPC the modifier is `C= + CTRL`; in the Amiga cores `C= + RUN/STOP`. On a USB keyboard the C64 keys read **WIN** / **CMD** (C=), **ESC** (RUN/STOP) and **F12** (RESTORE).
 In the open menu **SHIFT** + **+** makes the sound louder, **SHIFT** + **-** quieter; the host applies the gain and shows the value for a moment. In the Library the bare **+** and **-** page the list, so there the volume is on **SHIFT** only.
 
 ![The Hotkeys page of the Amiga 1200: Modifier, Menu open / close, Volume up, Volume down, Reset, Swap joystick ports, Picture mode](img/core-hotkeys-a1200.png)
 
-*Figure 11-6. The page `Hotkeys` (tab 4 `Input` of **F5**) of the Amiga 1200: the keys are the ones of a USB keyboard (**WIN** / **CMD** + **ESC** is the modifier).*
+*Figure 11-6. The page `Hotkeys` (**F7** > `Hotkeys`) of the Amiga 1200: the keys are the ones of a USB keyboard (**WIN** / **CMD** + **ESC** is the modifier).*
 
 11.1.15 **Datasette.** The VIC-20, the C264, the PET, the C128 and the C64 with SuperCPU have the setting `Datasette port` (`Off (file only)`, `External datasette`; default `Off (file only)`, live): with `External datasette` a real Commodore datasette on the cassette port of the board is driven (motor, read, sense). The PET also takes a `.tap` file (11.19). Saving to a real tape is not proven.
 
-11.1.16 **Drives of the C64 family.** The VIC-20, the C264, the C128 and the C64 with SuperCPU have drive A as a 1541 (the C128 and the SuperCPU also a 1581) on the IEC bus, with the same rows: `Drive` (`Disabled`, `Enabled`; default `Enabled`), `Drive Bus ID` (8 to 11; default 8), `Extra RAM` (`Disabled`, `Enabled`; default `Disabled`), `Disk swap delay` (100 ms to 1000 ms; default 100 ms). A disk image has the actions `Mount Disk`, `Mount Disk Read Only`, `Mount Disk Unlinked`, `Run Disk`, `Browse Disk` (a `.prg` inside a `.d64` or `.d81`: `Mount & Run`, `Real Run`); `.g64` has the first four. A `.rom` has `Set as 1541 ROM`. On **F7**: `Reset Drive`, `Create blank D64`, `Create blank G64`, `Save Disk as D64`, `Save Disk as G64` (and `Create blank D81` in the C128 and the SuperCPU); each asks a name. The 1541 ROM (`1541.rom`, 16,384 or 32,768 bytes, 12.2.7) is optional: without it the machine runs without a drive.
+11.1.16 **Drives of the C64 family.** The VIC-20, the C264, the C128 and the C64 with SuperCPU have drive A as a 1541 (the C128 and the SuperCPU also a 1581) on the IEC bus, with the same rows: `Drive` (`Disabled`, `Enabled`; default `Enabled`), `Drive Bus ID` (8 to 11; default 8), `Extra RAM` (`Disabled`, `Enabled`; default `Disabled`), `Disk swap delay` (100 ms to 1000 ms; default 100 ms). A disk image has the actions `Mount Disk`, `Mount Disk Read Only`, `Mount Disk Unlinked`, `Run Disk`, `Browse Disk` (a `.prg` inside a `.d64` or `.d81`: `Mount & Run`, `Real Run`); `.g64` has the first four. A `.rom` has `Set as 1541 ROM`. **RETURN** on the row `Drive A:` of Home opens the page of the drive. Empty it lists `Mount from Library...`, `Create blank D64`, `Create blank G64` (and `Create blank D81` in the C128 and the SuperCPU); with a disk in it, `Eject`, `Replace from Library...`, `Swap disk`, `Reset drive`, `Unlink disk`, `Save Disk as D64`, `Save Disk as G64`. The rows that make or save a file ask a name. The 1541 ROM (`1541.rom`, 16,384 or 32,768 bytes, 12.2.7) is optional: without it the machine runs without a drive.
 
 ## 11.2 TRX64 (C64)
 
-11.2.1 The C64 reference core, the gateware of TRX64 Ultimate. It comes as two `.cor` files with the same gateware: `trx64u.cor` runs our common application (the menu of 11.1.3 with the extra areas
-**F2** Timewarp (tab Timeline), **F4** Tools (Monitor, Diagnostics) and **F6** Settings (TRX64, Video, Audio, Input, Network)), `trx64g.cor` runs Gideon's Ultimate application (11.3). On `trx64u.cor` **F3** has the tabs `Browse`, `Search` and `Online` (Assembly64 and CommoServe), **F5** the tabs `Drive A`, `Machine`, `I/O` and `Media sets`, **F7** the tabs `Quick` and `More`, **F8** the tabs `Status` and `Expert`.
+11.2.1 The C64 reference core, the gateware of TRX64 Ultimate. It comes as two `.cor` files with the same gateware: `trx64u.cor` runs our common application (the menu of 11.1.3), `trx64g.cor` runs Gideon's Ultimate application (11.3). `trx64u.cor` has the five areas of 11.1.3 and no others; what the common menu does not have as an area is a row:
 
-![The Machine page of the C64 core: Fast reset, Kernal ROM, Basic ROM, Char ROM, the machine now](img/core-settings-c64.png)
+- **F1** Home (Figure 11-7): `Reset`, `Reload ROMs, reset`, `Timewarp...` and `Monitor...` (they open the Timewarp overlay and the monitor), the slots `Drive A:` and `Cartridge port`, `Program`, `Save as config...`, `Load config...`. The hotkeys **CTRL** + **T** (Timewarp) and **CTRL** + **O** (Monitor) open the same two screens; both are rows on the page `Hotkeys` of **F7** and can be learned anew there (11.1.14).
+- **F3** Library: the tabs `Browse`, `Search` and `Online` (Assembly64 and CommoServe).
+- **F5** (named `C64`), six tabs: `C64` (headings `Machine`: `Fast reset`, `Kernal ROM`, `Basic ROM`, `Char ROM`; `Drive A`; `Drive extras`; `Hardware`: `DMA load mimics ID`, `Bus operation mode`, `Badline timing`, `SuperCPU detect (D0BC)`; Figure 11-9), `TRX` (`TRX64`: `Freeze mode`, `Turbo control`, `CPU speed`; `Recording`: `Timewarp ring`, `Instruction trace`, `Save frame`, `Save the ring`; Figure 11-10), `Expansion` (`Cartridge`, `REU` and `Ultimate`: `Ultimate audio at $DF20-$DFFF`, `Command interface (UCI)`; Figure 11-11), `Video` (`Picture`: `System mode`, `Picture`; `Output`), `Audio` (`Volumes` with `Volume`, `Pan`, `Speaker`, and the heading `reDIP:SID` with the rows `SID sockets >` and `Emulated SIDs >`, each of which opens a page with the settings of that group; Figure 11-12) and `Input` (the mouse rows, `USB controller as joystick` and `Map USB controller buttons >`; Figure 11-13). The REU rows are listed only while the REU is on. The names of the rows about the UltiSID's I/O interface at `$DE00` to `$DFFF` keep the name UltiSID.
+- **F7** App: the generic page of 11.1.3 with the rows of TRX64 on it: `Overlay transparency`, `Splash`, `Leave menu on mount` and `Filename overflow squeeze` under `Application`, and under `Apps` `Cartridge dumper`, `Cartridge inspector`, `Flash cartridge` and `Softboot` (not under the MultiCore host). The page `Hotkeys` (Figure 11-14) lists, after the keys of 11.1.14 (without `Swap joystick ports`), `Timewarp` and `Monitor`. A hotkey typed on the keyboard of the C64 Ultimate itself also reaches the C64 (the bitstream has no keyboard mask); a USB keyboard is shielded.
+- **F8** System: the page of 11.1.3 with `Restart core`, `Power cycle` and `Power off` under `Actions`, `Network settings >` (DHCP, address, host name, services, time), `Streams >` and `FTP hosts >` under `Network` (Figure 11-15). `Restart core` clears the C64's RAM. `Bug report` also writes the heap and the EDID of the screen.
 
-*Figure 11-7. The Machine tab of the C64 core on the common application (tab 2 of **F5**).*
+The USB gamepad service of 11.1.12 drives the joystick lines of TRX64: `USB controller as joystick` makes a USB pad or controller joystick port 1 or 2, and `Map USB controller buttons` lets you press each button once to map it. The bitstream has only the normal port mapping: there is no `Joystick input` row (no port swap, no WASD keys) and no `Swap joystick ports` hotkey. The Device rows of the Ultimate firmware (power on after power loss, LED select, colour scheme) and the debug-log, heap and EDID rows are not in this menu.
+
+![Home of TRX64: Reset, Reload ROMs, Timewarp, Monitor, Drive A, Cartridge port, Program, configs](img/core-home-trx64u.png)
+
+*Figure 11-7. F1 Home of `trx64u.cor` in ue2emu at 1920 x 1080.*
 
 ![The file sheet of the C64 core: Mount Disk, Run Disk, Browse Disk, View, Copy, Move, Rename, Delete](img/core-chooser-c64.png)
 
 *Figure 11-8. **RETURN** on a file in the Library of the C64 core opens the sheet of what to do with it.*
 
-11.2.2 ROMs. The core needs BASIC (`basic-901226-01.bin` or `basic.bin`, 8,192 bytes), KERNAL (`kernal-901227-03.bin` or `kernal.bin`, 8,192) and the character ROM (`chargen-901225-01.bin` or `chars.bin`, 4,096); at its first start the core copies them from the board's flash (`/flash/roms`) into its own folder (12.1.2). The 1541 ROM is optional. In the C64 settings the items `Kernal ROM`, `Basic ROM` and `Char ROM` (tab 2 of **F5**) name another file: the default is empty and reads `Built-in` (the files above); a name is read from `/flash/roms` (or a full path with a leading `/`) and must be exactly 8,192, 8,192 and 4,096 bytes, else the setting is refused with a message. A `.bin` in the Library has `Set as Kernal ROM`, `Set as BASIC ROM`, `Set as Char ROM`, a `.64c` has `Set as Kernal ROM`.
+![The first tab of F5 in TRX64: the C64 with the headings Machine, Drive A, Drive extras](img/core-settings-c64.png)
+
+*Figure 11-9. F5, tab 1 `C64` of `trx64u.cor`; the list goes on to `Drive extras` and `Hardware` (`+/-` page it).*
+
+![The TRX tab: Freeze mode, Turbo control, CPU speed, the Recording rows](img/core-trx-tab-trx64u.png)
+
+*Figure 11-10. F5, tab 2 `TRX`.*
+
+![The Expansion tab: Cartridge, REU and Ultimate rows](img/core-expansion-trx64u.png)
+
+*Figure 11-11. F5, tab 3 `Expansion`. The REU is off, so its rows are not listed.*
+
+![The end of the Audio tab: Pan, Speaker, Volume rows and the reDIP:SID pages](img/core-audio-trx64u.png)
+
+*Figure 11-12. F5, tab 5 `Audio`, scrolled to its end: the heading `reDIP:SID` (drawn in capitals like every heading) over `SID sockets >` and `Emulated SIDs >`.*
+
+![The Input tab: mouse rows, USB controller as joystick, Map USB controller buttons](img/core-input-trx64u.png)
+
+*Figure 11-13. F5, tab 6 `Input`.*
+
+![The Hotkeys page of TRX64: the six keys, Timewarp and Monitor](img/core-hotkeys-trx64u.png)
+
+*Figure 11-14. **F7** > `Hotkeys`: the modifier **CTRL**, the keys of 11.1.14 and the keys of Timewarp (**T**) and the monitor (**O**).*
+
+![The System page of TRX64: Restart core, Power cycle, Power off, Network, Support, Reset, Status](img/core-system-trx64u.png)
+
+*Figure 11-15. F8 System of `trx64u.cor`.*
+
+11.2.2 ROMs. The core needs BASIC (`basic-901226-01.bin` or `basic.bin`, 8,192 bytes), KERNAL (`kernal-901227-03.bin` or `kernal.bin`, 8,192) and the character ROM (`chargen-901225-01.bin` or `chars.bin`, 4,096); at its first start the core copies them from the board's flash (`/flash/roms`) into its own folder (12.1.2). The 1541 ROM is optional. In the C64 settings the items `Kernal ROM`, `Basic ROM` and `Char ROM` (tab 1 of **F5**) name another file: the default is empty and reads `Built-in` (the files above); a name is read from `/flash/roms` (or a full path with a leading `/`) and must be exactly 8,192, 8,192 and 4,096 bytes, else the setting is refused with a message. A `.bin` in the Library has `Set as Kernal ROM`, `Set as BASIC ROM`, `Set as Char ROM`, a `.64c` has `Set as Kernal ROM`.
 `trx64g.cor` (the Ultimate application) uses the flash as the original firmware does: a Kernal that is missing or not exactly 8,192 bytes is replaced by the built-in one; so is a missing Char ROM; Basic has no built-in copy.
 
 11.2.3 Media of `trx64u.cor` (the file types of the Library): `.d64` and `.g64` (drive A; a `.prg` inside a `.d64`), `.prg` and `.p00` (`Run PRG`, `Load PRG and start from`, `DMA (load, do not run)`), `.crt` (`Run Cartridge`), `.reu` (`Load into REU`, `Preload on Startup`), `.t64` (`Enter`), `.rom` (`Set as 1541 ROM`), `.cfg` (`Load Settings`), `.vpl` (`Apply Palette`, `Set as Default`), `.c64re` (`Load Timewarp state`), `.u2a` (`Run app`), `.cfw` (`Run Update`). `trx64g.cor` takes what the Ultimate application takes (`.d64` `.d71` `.d81` `.dnp` `.g64`, `.prg`, `.crt`, `.tap`, `.t64`, `.reu`, `.sid`).
 
-11.2.4 Back to the host: switch the power off and on (`trx64u.cor` has no `Return to host menu`: its bitstream is the monolith of TRX64 Ultimate, which does not answer as the host's loader, 11.1.4).
+11.2.4 Back to the host: switch the power off and on (`trx64u.cor` has no `Return to host menu`: its bitstream is the monolith of TRX64 Ultimate, which does not answer as the host's loader, 11.1.4). **F8** System > `Actions` has `Power cycle` and `Power off`.
 
 ## 11.3 TRX64 with the Ultimate application (`trx64g.cor`)
 
@@ -155,9 +190,9 @@ any Kickstart.
 11.6.3 The core needs a plain image. A file whose first two bytes are not `11 11` or `11 14`, or whose version word (offset 12) is not between 30 and 60, is not recognised. A file that needs
 a `rom.key` of the package maker must be converted by you first.
 
-11.6.4 A plain reset reloads the Kickstart when you picked another file. **Reload Kickstart, Reset** (**F7**) always does.
+11.6.4 A plain reset reloads the Kickstart when you picked another file. **Reload Kickstart, Reset** (on Home) always does.
 
-11.6.5 Media from the **F3** Library: `.adf` (`Mount DF0`, `Mount DF0 and reset`, `Mount DF1` to `Mount DF3`), `.hdf` (`Mount HD0`, `Mount HD1`). The drive is empty after start. F7: `Reset Amiga`, `Reload Kickstart, Reset`, `Eject DF0` to `Eject HD1`, `Create blank ADF`, `Mount folder as HD0`, `Mount folder as HD1` (each asks a name; a folder of the card as a hard disk).
+11.6.5 Media from the **F3** Library: `.adf` (`Mount DF0`, `Mount DF0 and reset`, `Mount DF1` to `Mount DF3`), `.hdf` (`Mount HD0`, `Mount HD1`). The drive is empty after start. Tasks (11.1.3): `Reset Amiga`, `Reload Kickstart, Reset`, `Eject DF0` to `Eject HD1`, `Create blank ADF`, `Mount folder as HD0`, `Mount folder as HD1` (each asks a name; a folder of the card as a hard disk).
 
 11.6.6 Settings (F5), all at next reset unless noted: `Chip RAM` (`512K`, `1M`, `1.5M`, `2M`; default `512K`), `Slow RAM` (`None`, `512K`, `1M`, `1.5M`; default `512K`), `Fast RAM` (`None`, `2M`, `4M`; default `None`), `Chipset` (`OCS`, `ECS`; default `OCS`), `Floppy drives` (1 to 4; default 2), `Floppy write protect` (`No`, `Yes`; default `No`), `Real-time clock`, `Joystick ports` (`Normal`, `Swapped`; live), `LED Load Indicator` (live), and in the tab `Input` the mouse rows (11.1.12).
 
@@ -198,7 +233,7 @@ any 3.0 or later, else any Kickstart (`Auto (3.1 first)`).
 | Select | **F3** | **F7** |
 | Start | **F1** | **F5** |
 
-11.9.3 Settings (F5): `Console type` (`NTSC`, `PAL`, `Dendy`; default `NTSC`, at next reset), `Joystick ports` (`Normal`, `Swapped`; live), `Pad map`. F7: `Reset`, `Map buttons, pad 1`, `Map buttons, pad 2`. Home slot: `Cartridge`.
+11.9.3 Settings (F5): `Console type` (`NTSC`, `PAL`, `Dendy`; default `NTSC`, at next reset), `Joystick ports` (`Normal`, `Swapped`; live), `Pad map`. Home: `Reset`; tab `Input` of F5: `Map buttons, pad 1`, `Map buttons, pad 2`. Home slot: `Cartridge`.
 
 ## 11.10 Apple IIe
 
@@ -216,8 +251,8 @@ swaps the disk without a reset, `Mount D2:` only mounts). `.po` and `.2mg` take 
 11.11.1 ROMs in `cores/zx/roms/`: `48.rom` (16,384 bytes) for the 48K, `128.rom` (32,768 bytes) for the 128K. One of the two is
 enough. If the **Model** setting names the model whose file is missing, the other model runs and the screen says so.
 
-11.11.2 Media: `.sna` and `.z80` (`Run snapshot`: the machine starts where the snapshot was taken). `.tap` and `.tzx` (`Insert tape`, `Insert tape and play`, or **Tape: Play** on **F7**; real speed). Tapes with pulses shorter than 16 T-states are refused. There is no
-tape SAVE. F7 also has `Tape: Stop`, `Tape: Rewind`, `Tape: Previous block`, `Tape: Next block`, `Tape: Eject`, `Reset`, `Reload ROMs, reset`.
+11.11.2 Media: `.sna` and `.z80` (`Run snapshot`: the machine starts where the snapshot was taken). `.tap` and `.tzx` (`Insert tape`, `Insert tape and play`, or the task **Tape: Play**; real speed). Tapes with pulses shorter than 16 T-states are refused. There is no
+tape SAVE. The tasks also include `Tape: Stop`, `Tape: Rewind`, `Tape: Previous block`, `Tape: Next block`, `Tape: Eject`, `Reset`, `Reload ROMs, reset`.
 
 11.11.3 Settings (F5): `Model` (`48K`, `128K`; default `48K`, at next reset), `Joystick port 1` (`None`, `Kempston`, `Sinclair 1 (keys 6-0)`, `Sinclair 2 (keys 1-5)`, `Cursor (5 6 7 8 0)`; default `None`), `Joystick port 2` (same values; default `Kempston`), `Tape sound` (`Off`, `On`; default `Off`).
 
@@ -228,7 +263,7 @@ FAT with the operating system files). Another name is not found by itself: pick 
 Nothing of the Next's system is shipped here.
 
 11.12.2 Alternative: pick an `.img` in the **F3** Library and use `Mount SD image and reset` (or `Mount SD image`). What the machine writes to
-its card goes back into the file. F7: `Reset`, `Eject the SD image`, `F3: 50 / 60 Hz`, `F8: CPU speed`, `NMI: Multiface (M1 button)`.
+its card goes back into the file. Tasks (11.1.3): `Reset`, `Eject the SD image`, `F3: 50 / 60 Hz`, `F8: CPU speed`, `NMI: Multiface (M1 button)`.
 
 11.12.3 Without an image the boot ROM stops with `Error initializing SD card!`. The core looks for the image again once a second, so a stick that mounts late is found and the machine starts over with it.
 
@@ -264,7 +299,7 @@ out of it and name them as in 11.13.1 (12.4.6).
 ## 11.15 Super Nintendo
 
 11.15.1 No ROM and no BIOS: the 64-byte boot ROM of the sound processor is part of the core. A game is a `.sfc` or `.smc` file from the **F3** Library (`Run`). The core reads the header, refuses what it cannot run, and puts the
-image into the memory of the board. Battery RAM is written back to `cores/snes/saves/<image name>.srm` when it has changed (F7 `Save the battery RAM now`).
+image into the memory of the board. Battery RAM is written back to `cores/snes/saves/<image name>.srm` when it has changed (task `Save the battery RAM now`).
 
 11.15.2 The controllers are the C64 joysticks and the keyboard, or USB gamepads (11.1.12). Settings (F5): `Video standard` (`Auto (cartridge)`, `NTSC`, `PAL`; default `Auto (cartridge)`, at next reset), `Pseudo high resolution` (`Blend`, `512 wide`; default `Blend`, at next reset), `Pad map`, `DSP firmware` (`Auto`, `DSP-1` to `DSP-4`; default `Auto`, at next reset; 11.15.3). F7: `Reset`, `Save the battery RAM now`, `Sound check`, `Map buttons, pad 1`, `Map buttons, pad 2`.
 
@@ -273,9 +308,9 @@ image into the memory of the board. Battery RAM is written back to `cores/snes/s
 ## 11.16 SNK Neo Geo
 
 11.16.1 Files in `cores/neogeo/roms/`: a BIOS (`sp-s2.sp1` or `sp-s1.sp1` for the MVS, `neo-epo.sp1` or `neo-po.sp1` for the AES, or `uni-bios.rom`, 131,072 bytes each), the zoom table `000-lo.lo` (65,536 or 131,072 bytes) and the fix ROM
-`sfix.sfix` (131,072 bytes). The BIOS is chosen by a setting. A game is a `.neo` file (`Run`), or a folder with the files of a cartridge and an entry in the `romsets.xml` that you provide (F7 `Load a ROM set from a folder`, asks a name). No ROM, BIOS or game is part of the firmware.
+`sfix.sfix` (131,072 bytes). The BIOS is chosen by a setting. A game is a `.neo` file (`Run`), or a folder with the files of a cartridge and an entry in the `romsets.xml` that you provide (task `Load a ROM set from a folder`, asks a name). No ROM, BIOS or game is part of the firmware.
 
-11.16.2 Save data (the backup RAM and the memory card, 72 KB) goes to `cores/neogeo/saves/<game>.sav` (F7 `Save the memory card and backup RAM now`).
+11.16.2 Save data (the backup RAM and the memory card, 72 KB) goes to `cores/neogeo/saves/<game>.sav` (task `Save the memory card and backup RAM now`).
 
 11.16.3 Settings (F5): `System type` (`Console (AES)`, `Arcade (MVS)`; default `Console (AES)`, at next reset), `BIOS` (`Universe BIOS`, `Original BIOS`; default `Universe BIOS`, at next reset), `Video mode` (`NTSC`, `PAL`; at next reset), `Memory card` (`Plugged`, `Unplugged`; at next reset), the DIP switches `[DIP] Settings menu`, `[DIP] Free play`, `[DIP] Freeze` (`Off`, `On`; live), `Joystick ports`, `Pad map`.
 
@@ -284,13 +319,13 @@ made.
 
 ## 11.17 Showcase: mandelbrUlt and Look Ma, No VIC
 
-11.17.1 Two C64U demos by DDT as cores that show their picture over the HDMI of the host: `DDT Mandelbrot (mandelbrUlt)` and `DDT Look Ma, No VIC`. No ROM and no media. The menu has the areas Home (status lines only), Library (no file type), Actions (`Reset`) and System. Both are experimental.
+11.17.1 Two C64U demos by DDT as cores that show their picture over the HDMI of the host: `DDT Mandelbrot (mandelbrUlt)` and `DDT Look Ma, No VIC`. No ROM and no media. The menu has the areas of 11.1.3; its task is `Reset`. Both are experimental.
 
 ## 11.18 Port Diagnostics
 
 11.18.1 The core `diag` (T175) has no machine. It measures the joystick and paddle ports with test files that are `.toml` files in the folder `tests/` of its core folder, and writes the result (`<test>_<date>.toml` and `.txt`) to `results/` there. It is for development and for testers. It is a large core (packed as a `.cor` like the other large cores) and experimental.
 
-11.18.2 Library: a `.toml` has `Run test` and `Load A/V preset`. F7: `Pick a test and run it`, `Write the example tests` (writes the example tests into `tests/`), `Save A/V preset` (asks a name). Home slots: `Port 1`, `Port 2`, `Comparators`, `Last test`. The settings of **F5** (tab `DIAG`) are those of the A/V test picture, all live: `Standard` (`PAL 50 Hz`, `NTSC 60 Hz`, `PAL 60 Hz`, `NTSC 50 Hz`), `Groups`, `Bits A`, `Bits B`, `Bits C`, `V sign`, `Subcarrier trim`, `Burst start`, `Burst end`, `Burst level`, `Chroma gain`, `Sync level`, `Blank level`, `White level`, `Equalizing`, `Vsync length`, `Vsync position`, `Lines 60 Hz`.
+11.18.2 Library: a `.toml` has `Run test` and `Load A/V preset`. Tasks (11.1.3): `Pick a test and run it`, `Write the example tests` (writes the example tests into `tests/`), `Save A/V preset` (asks a name). Home slots: `Port 1`, `Port 2`, `Comparators`, `Last test`. The settings of **F5** (tab `DIAG`) are those of the A/V test picture, all live: `Standard` (`PAL 50 Hz`, `NTSC 60 Hz`, `PAL 60 Hz`, `NTSC 50 Hz`), `Groups`, `Bits A`, `Bits B`, `Bits C`, `V sign`, `Subcarrier trim`, `Burst start`, `Burst end`, `Burst level`, `Chroma gain`, `Sync level`, `Blank level`, `White level`, `Equalizing`, `Vsync length`, `Vsync position`, `Lines 60 Hz`.
 
 ## 11.19 Commodore PET
 

@@ -17,6 +17,8 @@
 #include <stdio.h>
 #include <string.h>
 
+static_assert(MENU_STRIP_TABS == TRX_TABS_MAX, "the tab strip of the tree and of the view hold the same number of tabs");
+
 // The canvas is the view's (T164 D10a): 960 x 540, or the mode's own size below 960 wide.
 #define SW trx_canvas_w()
 #define SH trx_canvas_h()
@@ -232,7 +234,6 @@ static void build_route(const MenuTree &tr, bool app_mode)
         areas[a].title = tr.a[a].name;
         areas[a].tabs = tabs[a];
         areas[a].ntabs = (uint8_t)nv;
-        areas[a].shifted = tr.a[a].shifted;
     }
     route.areas = areas;
     route.nareas = (uint8_t)(tr.nareas < TRX_AREAS_MAX ? tr.nareas : TRX_AREAS_MAX);
@@ -333,10 +334,10 @@ static TrxWindow list_window(MenuCtl &m, int *room_out)
 // "3-20 of 23" and, when rows are hidden, how many lie above and below.
 static void pos_text(char *out, int n, const TrxWindow &w_rows, MenuCtl &m)
 {
-    TrxWindow w = { 0, 0, 0 };                                      // the counter counts settings, not the headings between them
+    TrxWindow w = { 0, 0, 0 };                                      // the counter counts the rows the list draws as lines, not the headings between them (an information line is a line)
     int total = m.rows();
     for (int i = 0; i < total; i++) {
-        if (m.heading(i)) {
+        if (m.title_row(i)) {
             continue;
         }
         if (i < w_rows.first) {
@@ -825,22 +826,26 @@ static void ui_home(lv_obj_t *c, MenuCtl &m, int x, int y)
                                    left_w - 2 * t.space_lg), LV_LABEL_LONG_MODE_CLIP);
     char mode[80];
     m.video_line(mode, sizeof(mode));
-    lv_label_set_long_mode(trx_txt(left, t.space_lg, cy + d_what + d_mode, trx_fit_mid(mode, left_w - 2 * t.space_lg - 4, t.caption, mfit, sizeof(mfit)), t.caption, t.muted,
-                                   left_w - 2 * t.space_lg), LV_LABEL_LONG_MODE_CLIP);
-    trx_button(left, t.space_md, h - 28, 0, "F3  Library", false);
+    char mach[96];
+    m.machine_line(mach, sizeof(mach));                       // T212 D3: what machine this is, from the core's own setting values
+    const bool hv = mode[0] != 0;                              // T228 DC11: a core that reports no picture size has no video line; the machine line then takes its place
+    if (hv) {
+        lv_label_set_long_mode(trx_txt(left, t.space_lg, cy + d_what + d_mode, trx_fit_mid(mode, left_w - 2 * t.space_lg - 4, t.caption, mfit, sizeof(mfit)), t.caption, t.muted,
+                                       left_w - 2 * t.space_lg), LV_LABEL_LONG_MODE_CLIP);
+    }
     int n = m.rows();
     char l[120], r[120];
     bool active;
     g_homen = 0;
-    // T212: the rows of the Home tab (reset, drives, configs) stand in the session panel under the video line, as the same rows a list draws; g_home keeps one object per row.
-    int ly = cy + d_what + d_mode + d_rows;
-    char mach[96];
-    m.machine_line(mach, sizeof(mach));                       // T212 D3: what machine this is, from the core's own setting values
+    // T212: the rows of the Home tab (reset, drives, configs) stand in the session panel under the video and machine lines, whichever the core has (right under the title when it has neither), as the same rows a list draws; g_home keeps one object per row.
+    int ly = cy + d_what + d_mode + (hv || mach[0] ? d_rows : 0);
     if (mach[0]) {
         char mfit2[96];
-        lv_label_set_long_mode(trx_txt(left, t.space_lg, cy + d_what + d_mode + (cp ? 20 : 22), trx_fit_mid(mach, left_w - 2 * t.space_lg - 4, t.caption, mfit2, sizeof(mfit2)),
+        lv_label_set_long_mode(trx_txt(left, t.space_lg, cy + d_what + d_mode + (hv ? (cp ? 20 : 22) : 0), trx_fit_mid(mach, left_w - 2 * t.space_lg - 4, t.caption, mfit2, sizeof(mfit2)),
                                        t.caption, t.muted, left_w - 2 * t.space_lg), LV_LABEL_LONG_MODE_CLIP);
-        ly += cp ? 18 : 20;
+        if (hv) {
+            ly += cp ? 18 : 20;
+        }
     }
     for (int i = 0; i < n; i++) {
         m.row(i, l, sizeof(l), r, sizeof(r), &active, 0, 0);
@@ -855,6 +860,9 @@ static void ui_home(lv_obj_t *c, MenuCtl &m, int x, int y)
             g_home[i] = ar;
             g_homen = i + 1;
         }
+    }
+    if (ly + t.space_sm <= h - 28) {                // the button stands under the rows where they leave it room; a core with many rows (A1200 at 480p: ten) keeps
+        trx_button(left, t.space_md, h - 28, 0, "F3  Library", false);       // the rows, and the rail names F3 LIBRARY as well
     }
     g_homelist = g_homen == n;                     // every row kept: a selection move needs no build
     g_homehead = home_head_sig(m);
@@ -1158,6 +1166,8 @@ void ui_splash_close(void)
     trx_splash_close();
 }
 
+static const char *g_msg_foot;                     // the foot of the message pane: the keys of a question (T228: the picture question names its keys at the foot, as every context does)
+
 void ui_message(const char *title, const char *text, bool bad)
 {
     printf("[coreapp] %s: %s\n", title, text);
@@ -1175,6 +1185,7 @@ void ui_message(const char *title, const char *text, bool bad)
     const TrxTheme &t = trx_theme();
     TrxShellInfo info;
     shell_info(&info, "/ UI", "HELD", 0);
+    info.footer_right = g_msg_foot;
     TrxRoute empty = { 0, 0 };
     lv_obj_t *c = trx_shell(scr, info, empty, -1, -1);
     int x = t.space_xl;
@@ -1202,7 +1213,9 @@ void ui_picture_question(int left_s, const char *now, const char *prev)
         lv_label_set_text(g_msg_label, msg_text_s);
         return;
     }
+    g_msg_foot = "RETURN KEEP  LEFT/ESC BACK NOW";
     ui_message("Keep this picture?", txt, false);
+    g_msg_foot = 0;
     pq_up = true;
 }
 
@@ -1227,6 +1240,14 @@ void ui_set_look(int transparency, int scheme)
     g_look_scheme = scheme;
     g_look_dirty = true;
 }
+
+static volatile int g_squeeze = -1;                          // -1: no such setting in this core, T209's "start...end.ext" cut stays
+void ui_set_name_squeeze(int quarter)
+{
+    g_squeeze = quarter < 0 || quarter > 3 ? -1 : quarter;
+    g_look_dirty = true;
+}
+int ui_name_squeeze(void) { return g_squeeze; }
 
 // the layer's global alpha from the transparency (Gideon "Overlay Transparency": 0, 25, 50, 75 %)
 static void apply_alpha(void)

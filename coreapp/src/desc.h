@@ -99,6 +99,8 @@ struct Setting {
     const char *show_state;
     // T104.2 UI: the name the menu shows; null: the key. The key is what the .cfg, REST and the operations name and never changes with a label.
     const char *label;
+    // T228 R21 (FW ConfigItem::setOverride, config.h:140): the name of a state; while it has a text the row shows that text in place of the value and refuses changes by the menu; the stored value stays. Null: none. Last.
+    const char *lock_state;
 };
 
 // ---- tasks, file types, media (D8) -------------------------------------------------------------------------------------
@@ -120,6 +122,11 @@ struct Task {
     const char *pick_label;
     // T104.2 D10: the group (a tasks tab lists `groups`) of a task from the description record; null as above.
     const char *group;
+    // T228 R1: the default key of the task's hotkey (an upper case letter or digit, pressed with the core's hotkey modifier): hotkeys.h gives it an item
+    // on the Hotkeys page and runs the task when it is pressed while the core runs. 0: no hotkey. Last, so the positional initialisers stay as they are.
+    char hotkey;
+    // T228 R21: the task is listed only while this condition holds (contrib.h cond_holds, a state name with the same forms as a node's when_state); null: always. Last, as hotkey.
+    const char *show_state;
 };
 
 struct FileAction {
@@ -137,6 +144,14 @@ struct FileAction {
     int nsize_in;
     // T104.2 UI: the letter that runs the item inside the action sheet (0: none). Uniform browser: the same letters in the host and in every core.
     char key;
+    // T228 R21: the action is offered only while this condition holds (contrib.h cond_holds, a state name with the same forms as a node's when_state); null: always.
+    const char *show_state;
+    // T228 R21 (SID player, "Play Song n"): `repeat_op` names an operation called with the file (the action's own binding, asked value 0); the 16 bit
+    // little endian number it returns in its data is how many entries the sheet shows for this action, each with the label's "%d" = 1..N and the number
+    // as the asked value. `index` is set on those copies (0 on a table entry). `show`: the text the operation returns is shown in the viewer.
+    const char *repeat_op;
+    int16_t index;
+    bool show;
 };
 
 struct FileType {
@@ -284,7 +299,7 @@ struct CoreDesc {
     const char *run_op;
     // "Restart core" (F8, a cold boot of the core without the host): the machine RAM, in bytes from address 0, that the application clears
     // through the RAM window while the core is held, as a power-on leaves it. 0: the application cannot clear this machine's RAM and the
-    // restart leaves it as it is.
+    // restart leaves it as it is. A core's menu record sets it too ([restart] clear_ram, T228 R17; cold_ram_only below).
     uint32_t cold_ram_bytes;
     // T104 5.14: the cold start of a core that has no partial bitstream to load again (a flat build, the C128's .cfw): "Restart core" calls it
     // before the restart sequence, so what the registers cannot reach is brought back by the core's own means. 0, or a reason in msg: the
@@ -343,6 +358,9 @@ struct CoreDesc {
     // T212 D3: the settings (by label, else key; comma separated) whose values make the one line of Home that says what machine this is ("AGA - Chip RAM 2M").
     // A value "None" is left out. Null: Home has no such line. Last in the record, so the positional initialisers stay as they are.
     const char *machine_info;
+    // T228 R17: "Restart core" clears cold_ram_bytes through the RAM window in its memory-only mode (CoreIo::ram_memonly: RAM under the I/O range too, as
+    // trx64u's C64 needs). A core's menu record sets it ([restart] ram_only). Last in the record, so the positional initialisers stay as they are.
+    bool cold_ram_only;
 };
 
 static inline bool desc_has_capability(const CoreDesc *d, const char *cap)

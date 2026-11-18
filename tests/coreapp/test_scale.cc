@@ -4,6 +4,7 @@
 // worked out by hand.
 #include <string>
 #include <utility>
+#include <vector>
 #include "check.h"
 #include "fakes.h"
 #include "test_core.h"
@@ -235,6 +236,22 @@ static void items_and_apply()
       g_vic_scale_written = -1;
       scale_apply(&c, VID_SCALE_FILL);
       CHECK_EQ(g_vic_scale_written, VID_SCALE_FILL);
+      // T228: TRX64-Ultimate's U16 mode_req answers version 1 with the C64-type flag; it holds the same seven rows and the System Mode's family, so
+      // trx64u's Picture list is the VIC path's (as on the version 2 gateware above), not the full list of both families with the PC rows it refuses
+      std::vector<std::string> vic;
+      for (int i = 0; i < ext.settings[picture_index(&ext)].nvalues; i++) vic.push_back(ext.settings[picture_index(&ext)].values[i]);
+      GwStatus u16 = GwStatus();
+      u16.present = true; u16.version = 1; u16.flags = GW_F_C64_TYPE | GW_F_RUNNING;
+      env.vic_scale = video_gw_has_scale(u16);
+      CHECK(env.vic_scale);
+      CHECK(!picture_extend(&own, &ext, items, &env));
+      CHECK_EQ(scale_index(&ext), own.nsettings + 1);
+      const Setting &pic = ext.settings[picture_index(&ext)];
+      CHECK_EQ(pic.nvalues, (int)vic.size());
+      for (int i = 0; i < pic.nvalues && i < (int)vic.size(); i++) {
+          CHECK_STR(pic.values[i], vic[i].c_str());
+          CHECK(!strstr(pic.values[i], "1024") && !strstr(pic.values[i], " Hz)"));   // no 1024 x 768 / 1280 x 1024 row, no rate of the other family
+      }
       env.vic_scale = false;                                                    // a gateware without it: Picture alone, as before
       CHECK(!picture_extend(&own, &ext, items, &env));
       CHECK_EQ(ext.nsettings, own.nsettings + 1);

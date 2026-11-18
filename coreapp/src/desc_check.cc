@@ -8,6 +8,7 @@
 #include "settings.h"
 #include "ops_glue.h"
 #include "libfmt.h"
+#include "picture.h"
 #include "engines.h"
 #include "mediamounts.h"
 
@@ -169,10 +170,17 @@ static const char *check_engines(const CoreDesc *d, const OpRegistry &reg)
     if (d->pad) {
         const PadSpec &p = *d->pad;
         if (p.nbuttons < 1 || p.nbuttons > PAD_BUTTONS_MAX || !p.names || !p.def_map) return "pad: 1..16 buttons with names and a default map are needed";
-        for (int i = 0; i < (p.by_id ? 1 : PAD_PLAYERS); i++) {
-            if (!p.reg[i] || p.reg[i] + 1u >= REG_LIMIT) return "pad: a register outside the register block";
+        if (p.out == PAD_OUT_JOY) {                                    // T228 R10: the host's joystick lines, port 1 and 2 (pad.port picks either, so both are named)
+            if (p.nbuttons > 5) return "pad: a joystick has 5 lines (up, down, left, right, fire)";
+            if (p.reg[0] > 1 || p.reg[1] > 1 || p.reg[0] == p.reg[1]) return "pad: the joystick output names port 0 and port 1";
+        } else if (p.out != PAD_OUT_REGS) {
+            return "pad: an unknown output";
+        } else {
+            for (int i = 0; i < (p.by_id ? 1 : PAD_PLAYERS); i++) {
+                if (!p.reg[i] || p.reg[i] + 1u >= REG_LIMIT) return "pad: a register outside the register block";
+            }
+            if (!p.by_id && (p.reg[0] == p.reg[1] || p.reg[0] + 1u == p.reg[1] || p.reg[1] + 1u == p.reg[0])) return "pad: the two players' registers overlap";
         }
-        if (!p.by_id && (p.reg[0] == p.reg[1] || p.reg[0] + 1u == p.reg[1] || p.reg[1] + 1u == p.reg[0])) return "pad: the two players' registers overlap";
         for (int i = 0; i < p.nbuttons; i++) {
             if (!p.names[i] || !p.names[i][0]) return "pad: a button without a name";
             if (p.def_map[i] > 35 && p.def_map[i] != PAD_SRC_NONE && (p.def_map[i] < PAD_ROLE_RIGHT || p.def_map[i] > PAD_ROLE_START)) return "pad: a default map entry is no source";
@@ -305,6 +313,7 @@ const char *desc_check_with(const CoreDesc *d, const OpRegistry &reg)
             if (!strcasecmp(d->settings[j].key, s.key)) return "settings: two items with the same key";
         }
         if (!strcasecmp(s.key, PICTURE_KEY) || !strcasecmp(s.key, SCALE_KEY) || !strcasecmp(s.key, SMOOTH_KEY) || !strcasecmp(s.key, FOLLOW_KEY)) return "settings: the keys Picture, Scale, Smoothing and Frame follow belong to the application";
+        if (s.apply && (!strcmp(s.apply, PICTURE_OP) || !strcmp(s.apply, SCALE_OP) || !strcmp(s.apply, SMOOTH_OP) || !strcmp(s.apply, FOLLOW_OP))) return "settings: the operations picture.apply, scale.apply, smooth.apply and follow.apply belong to the application's own Picture, Scale, Smoothing and Frame follow rows";
     }
     for (int i = 0; i < d->ntasks; i++) {
         if (!text(d->tasks[i].label) || !text(d->tasks[i].op)) return "tasks: label and op";
@@ -331,7 +340,8 @@ const char *desc_check_with(const CoreDesc *d, const OpRegistry &reg)
         for (int j = 0; j < f.nactions; j++) {
             if (!text(f.actions[j].label) || !text(f.actions[j].op)) return "filetypes: action label and op";
             const FileAction &fa = f.actions[j];
-            const char *why = check_call(reg, "filetypes", fa.label, fa.op, fa.bind, fa.nbind, true, text(fa.ask));
+            // T228 R21: a repeat action ("Play Song %d") hands each of its copies the number 1..N as the asked value, so it may bind it like an ask
+            const char *why = check_call(reg, "filetypes", fa.label, fa.op, fa.bind, fa.nbind, true, text(fa.ask) || text(fa.repeat_op));
             if (why) return why;
             if (text(fa.ask)) {
                 int asked = 0;

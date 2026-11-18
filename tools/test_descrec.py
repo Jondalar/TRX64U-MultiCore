@@ -230,8 +230,10 @@ class OwnMenu(unittest.TestCase):
     def test_the_menu_of_trx64u_compiles_and_reads_back(self):
         r = D.parse_desc(D.compile_text(menu_text()))
         self.assertTrue(r["own"] and r["route"])
-        self.assertEqual((len(r["task"]), len(r["media"]), len(r["ftype"]), len(r["cset"])), (4, 2, 15, 160))
-        self.assertEqual([a["key"] for a in r["area"]], ["F1", "F2", "F3", "F4", "F5", "F7", "F6", "F8"])
+        # T228: 14 tasks (R2/R3 took Pause / resume, Reboot clear memory, Save C64 memory and Save REU memory; R1 added Timewarp... and Monitor...; R10
+        # Map USB controller buttons; R21: Save .C64RE Dump, Save MP3 Drv A-D); 216 core settings and 24 file types after the R21 merge (R22: no Telnet row; no .g71, no .d71; R26: no WiFi address rows); R1: no F2 and no F4 area
+        self.assertEqual((len(r["task"]), len(r["media"]), len(r["ftype"]), len(r["cset"])), (19, 3, 24, 216))
+        self.assertEqual([a["key"] for a in r["area"]], ["F1", "F3", "F5", "F7", "F8"])
         self.assertEqual((r["tab"][0]["id"], r["tab"][0]["lines"]), ("home", None))        # the Home desk is a nodes tab: it names no information lines
         d64 = next(f for f in r["ftype"] if f["ext"] == ".d64")
         self.assertEqual((d64["inner_ext"], [a["label"] for a in d64["inner"]]), (".prg", ["Mount & Run", "Real Run"]))
@@ -263,6 +265,22 @@ class OwnMenu(unittest.TestCase):
             "default outside": '[[core_setting]]\nkey="K"\nvalues=["a","b"]\ndefault=2\napply="x"\n',
             "when neither": '[[core_setting]]\nkey="K"\nvalues=["a","b"]\nwhen="soon"\napply="x"\n',
             "Picture": '[[core_setting]]\nkey="picture"\nvalues=["a","b"]\napply="x"\n',
+            "Scale": '[[core_setting]]\nkey="Scale"\nvalues=["a","b"]\napply="x"\n',
+            "Smoothing": '[[core_setting]]\nkey="smoothing"\nvalues=["a","b"]\napply="x"\n',
+            "picture.apply": '[[core_setting]]\nkey="K"\nvalues=["a","b"]\napply="picture.apply"\n',
+            "scale.apply": '[[core_setting]]\nkey="K"\nvalues=["a","b"]\napply="scale.apply"\n',
+            "smooth.apply": '[[core_setting]]\nkey="K"\nvalues=["a","b"]\napply="smooth.apply"\n',
+            "Frame follow": '[[core_setting]]\nkey="frame follow"\nvalues=["a","b"]\napply="x"\n',
+            "follow.apply": '[[core_setting]]\nkey="K"\nvalues=["a","b"]\napply="follow.apply"\n',
+            "setting with picture.apply": '[[setting]]\nkey="K"\nvalues=["a","b"]\napply="picture.apply"\n',
+            "setting named Scale": '[[setting]]\nkey="Scale"\nvalues=["a","b"]\napply="x"\n',
+            "pages names a group the tab lacks": MIN.replace('"nodes"', '"settings"\n  groups = ["a", "b"]\n  ui = { sections = true, pages = "c" }'),
+            "a page group the tab lacks": MIN.replace('"nodes"', '"settings"\n  groups = ["a", "b"]\n  ui = { sections = true, pages = "P=b+c" }'),
+            "a group on two pages": MIN.replace('"nodes"', '"settings"\n  groups = ["a", "b"]\n  ui = { sections = true, pages = "b,P=a+b" }'),
+            "pages without sections": MIN.replace('"nodes"', '"settings"\n  groups = ["a", "b"]\n  ui = { pages = "b" }'),
+            "a system group that is no page": MIN.replace('"nodes"', '"system"\n  groups = ["a", "b"]\n  ui = { pages = "a" }'),
+            "pages_head without pages": MIN.replace('"nodes"', '"settings"\n  groups = ["a", "b"]\n  ui = { sections = true, pages_head = "H" }'),
+            "groups on a browser tab named as pages": MIN.replace('"nodes"', '"browser"\n  ui = { pages = "a" }'),
             "key twice": '[[core_setting]]\nkey="K"\nvalues=["a","b"]\napply="x"\n[[core_setting]]\nkey="k"\nvalues=["a","b"]\napply="x"\n',
             "info lines on a browser": MIN.replace('"nodes"', '"browser"\n  lines = ["Core"]'),
             "an info line that is not one": MIN.replace('"nodes"', '"info"\n  lines = ["Moon"]'),
@@ -272,6 +290,16 @@ class OwnMenu(unittest.TestCase):
         for what, text in bad.items():
             with self.assertRaises(D.DescError, msg=what):
                 D.compile_text(text)
+
+    def test_a_tab_may_name_pages(self):                      # T228 D18: a group of the tab that opens as a page
+        b = D.compile_text(MIN.replace('"nodes"', '"settings"\n  groups = ["a", "b"]\n  ui = { sections = true, pages = "b" }'))
+        self.assertIn(b"pages=b", b)
+
+    def test_pages_of_several_groups_and_of_a_system_tab(self):  # T228 R5/R6: "Name=g1+g2", a heading over the page rows, a System tab's pages
+        b = D.compile_text(MIN.replace('"nodes"', '"settings"\n  groups = ["a", "b", "c"]\n  ui = { sections = true, pages = "P=b+c", pages_head = "H" }'))
+        self.assertIn(b"pages=P=b+c;pages_head=H", b)
+        r = D.parse_desc(D.compile_text(MIN.replace('"nodes"', '"system"\n  groups = ["a", "b"]\n  ui = { pages = "N=a,b" }')))
+        self.assertEqual((r["tab"][0]["widget"], r["tab"][0]["groups"]), ("system", "a,b"))
 
     def test_groups_of_tasks_and_media_tabs(self):
         D.compile_text(MIN.replace('"nodes"', '"tasks"\n  groups = ["quick"]'))
@@ -296,6 +324,121 @@ class OwnMenu(unittest.TestCase):
         for text in [menu_text()] + [src(f) for f in FIXTURES + ("menu_alpha.toml",)]:
             b = D.compile_text(text)
             self.assertEqual(D.compile_desc(D.decoded_to_doc(D.parse_desc(b))), b)
+
+
+PAD = """
+[pad]
+output = "joystick"
+per_pad = true
+buttons = ["Up", "Down", "Left", "Right", "Fire"]
+default = ["up", "down", "left", "right", "face_bottom"]
+"""
+
+
+class Pad(unittest.TestCase):
+    """T228 R10: [pad], the core's USB pads through the pad service (pad.h PadSpec): version 5 and its six header words, only when there is a pad."""
+
+    def test_a_pad_makes_version_5_and_reads_back(self):
+        b = D.compile_text(MIN + PAD)
+        self.assertEqual((b[4] | b[5] << 8, b[6] | b[7] << 8), (5, D.HEADER_V5))
+        r = D.parse_desc(b)
+        self.assertEqual(r["pad"], {"output": "joystick", "per_pad": True, "regs": [0, 1], "buttons": ["Up", "Down", "Left", "Right", "Fire"],
+                                    "default": ["up", "down", "left", "right", "face_bottom"]})
+        self.assertEqual(D.compile_desc(D.decoded_to_doc(r)), b)
+
+    def test_a_record_without_a_pad_stays_version_4(self):
+        b = D.compile_text(MIN)
+        self.assertEqual((b[4] | b[5] << 8, b[6] | b[7] << 8), (4, D.HEADER))
+        self.assertIsNone(D.parse_desc(b)["pad"])
+
+    def test_the_register_output_and_every_kind_of_source(self):
+        text = MIN + '[pad]\nregs = [0x100, 0x102]\nbuttons = ["A", "B", "C", "D"]\ndefault = ["face_right", "button12", "none", "start"]\n'
+        r = D.parse_desc(D.compile_text(text))
+        self.assertEqual((r["pad"]["output"], r["pad"]["per_pad"], r["pad"]["regs"]), ("registers", False, [0x100, 0x102]))
+        self.assertEqual(r["pad"]["default"], ["face_right", "button12", "none", "start"])
+
+    def test_refusals(self):
+        cases = [
+            (PAD.replace('"joystick"', '"lines"'), "output"),
+            (PAD.replace('"Fire"]', '"Fire", "Fire 2"]').replace('"face_bottom"]', '"face_bottom", "face_right"]'), "5 lines"),
+            (PAD.replace('"face_bottom"', '"fire"'), "not a source"),
+            (PAD.replace('"face_bottom"', '"button33"'), "not a source"),
+            (PAD.replace(', "face_bottom"]', ']'), "one source per button"),
+            (PAD.replace('per_pad = true', 'regs = [0, 1]'), "no regs"),
+            (PAD.replace('output = "joystick"\n', ''), "regs"),
+            (PAD + 'extra = 1\n', "extra"),
+        ]
+        for text, part in cases:
+            with self.assertRaises(D.DescError, msg=part) as e:
+                D.compile_text(MIN + text)
+            self.assertIn(part, str(e.exception))
+
+    def test_the_reader_refuses_a_damaged_pad(self):
+        good = D.compile_text(MIN + PAD)
+        for word, val in ((0, 0x200), (0, 0x2), (16, 0), (16, 17), (12, 0xFFFF)):
+            b = bytearray(good)
+            b[D.HEADER + word:D.HEADER + word + 4] = val.to_bytes(4, "little")
+            with self.assertRaises(D.DescError):
+                D.parse_desc(bytes(b))
+        b = bytearray(good)
+        i = b.index(b"2021222341")                                  # the default map's text: up down left right face_bottom
+        b[i] = ord("x")
+        with self.assertRaises(D.DescError):
+            D.parse_desc(bytes(b))
+
+    def test_the_menu_of_trx64u_declares_its_joystick_pad(self):
+        r = D.parse_desc(D.compile_text(menu_text()))
+        self.assertEqual((r["pad"]["output"], r["pad"]["per_pad"], len(r["pad"]["buttons"])), ("joystick", True, 5))
+        self.assertEqual(r["poll"], {"op": "pad.poll", "period_ms": 16})
+        port = next(c for c in r["cset"] if c["apply"] == "pad.port")
+        self.assertEqual((port["group"], port["values"], port["default"]), ("input", ["Port 1", "Port 2"], 1))
+        self.assertIn(("input", "menu.pad_map_port"), [(t["group"], t["op"]) for t in r["task"]])
+
+
+RESTART = """
+[restart]
+clear_ram = 65536
+ram_only = true
+"""
+
+
+class Restart(unittest.TestCase):
+    """T228 R17: a core declares what F8 "Restart core" clears (record version 5, the two words behind the pad's)."""
+
+    def test_a_restart_makes_version_5_without_a_pad_and_reads_back(self):
+        b = D.compile_text(MIN + RESTART)
+        self.assertEqual((b[4] | b[5] << 8, b[6] | b[7] << 8), (5, D.HEADER_V5))
+        r = D.parse_desc(b)
+        self.assertEqual((r["restart"], r["pad"]), ({"clear_ram": 65536, "ram_only": True}, None))
+        self.assertEqual(D.compile_desc(D.decoded_to_doc(r)), b)
+        self.assertIsNone(D.parse_desc(D.compile_text(MIN + PAD))["restart"])
+
+    def test_ram_only_is_optional(self):
+        r = D.parse_desc(D.compile_text(MIN + RESTART.replace("ram_only = true\n", "")))
+        self.assertEqual(r["restart"], {"clear_ram": 65536, "ram_only": False})
+
+    def test_refusals(self):
+        cases = [
+            (RESTART.replace("65536", "1000"), "multiple of 256"),
+            (RESTART.replace("65536", "0"), "clear_ram"),
+            (RESTART.replace("65536", str(1 << 25)), "clear_ram"),
+            (RESTART + "wipe = 1\n", "wipe"),
+        ]
+        for text, part in cases:
+            with self.assertRaises(D.DescError, msg=part) as e:
+                D.compile_text(MIN + text)
+            self.assertIn(part, str(e.exception))
+
+    def test_the_reader_refuses_a_damaged_restart(self):
+        good = D.compile_text(MIN + RESTART)
+        for word, val in ((24, 100), (24, 1 << 25), (28, 2)):
+            b = bytearray(good)
+            b[D.HEADER + word:D.HEADER + word + 4] = val.to_bytes(4, "little")
+            with self.assertRaises(D.DescError):
+                D.parse_desc(bytes(b))
+
+    def test_the_menu_of_trx64u_clears_the_c64_ram_on_a_restart(self):
+        self.assertEqual(D.parse_desc(D.compile_text(menu_text()))["restart"], {"clear_ram": 65536, "ram_only": True})
 
 
 class AgainstTheApplication(unittest.TestCase):

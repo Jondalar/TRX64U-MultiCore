@@ -23,6 +23,7 @@ public:
     void close(CoreFile *f);
     bool free_bytes(const char *path, uint64_t *out);
     bool medium_info(const char *name, MediumInfo *out);
+    bool writable(const char *path);
     bool mkdir(const char *path);
     bool rename(const char *from, const char *to);
     // what the last FTP command said, for a status line

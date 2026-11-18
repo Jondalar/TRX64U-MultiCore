@@ -152,7 +152,12 @@ int main()
     r.m->key(KEY_DOWN);
     CHECK(r.fs.has("/usb0/cores/atari800.cfg"));                  // and neither does moving away and back
     r.m->key(KEY_RETURN);
-    CHECK(!r.fs.has("/usb0/cores/atari800.cfg"));                 // one RETURN is enough
+    CHECK(r.fs.has("/usb0/cores/atari800.cfg"));                  // RETURN asks first (the firmware asks "Are you sure to clear settings?")
+    r.m->key(KEY_ESCAPE);
+    CHECK(r.fs.has("/usb0/cores/atari800.cfg"));                  // <- says no
+    r.m->key(KEY_RETURN);
+    r.m->key(KEY_RETURN);
+    CHECK(!r.fs.has("/usb0/cores/atari800.cfg"));                 // the second RETURN says yes
     CHECK_EQ(r.st->value(0), 0);
     CHECK_EQ(r.io.regs[A8_THROTTLE], 1);
     // T212 D7: Home has no information lines any more (Core, Network, Media went; Build, ROMs, Libraries stand in F8)

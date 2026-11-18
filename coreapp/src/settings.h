@@ -56,6 +56,9 @@ public:
 
     // Auto Save Config (T104.2 UI, Gideon's item): 0 Off and 1 Ask keep a change in memory until save() writes the .cfg, 2 Auto writes at once (the default).
     void set_autosave(int mode) { autosave_ = mode; }
+    // T228 R21 safe mode (RESTORE held at the start): the defaults run and no change reaches the stored file, only a save on purpose (save()).
+    void set_safe(bool on) { safe_ = on; }
+    bool safe() const { return safe_; }
     int autosave() const { return autosave_; }
     bool dirty() const { return dirty_; }
     bool item_held(int i) const { return i >= 0 && i < n_ && held_[i]; }   // T192.3 S11: this setting was changed and waits for save()
@@ -108,6 +111,7 @@ private:
     int8_t hix_[SETTINGS_MAX];        // T212 D2/S9: a text setting's host value, its place in hpool_, -1 none
     char hpool_[HTEXT_N][TEXT_LEN];
     int autosave_;
+    bool safe_ = false;
     bool dirty_;
     bool held_[SETTINGS_MAX];         // per setting: changed, not written yet (Auto Save Config Off or Ask)
     enum { EXTRA_MAX = 4 };

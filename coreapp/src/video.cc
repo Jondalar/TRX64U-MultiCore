@@ -1,5 +1,6 @@
 #include "video.h"
 #include "videomode.h"
+#include "edid.h"
 #include "trxcanvas.h"
 #include <string.h>
 
@@ -127,6 +128,16 @@ void video_place_menu(PxPort *px, int hdmi, int sys)
     px->menu_place(c.x0, c.y0, c.w * c.factor, c.h * c.factor);
 }
 
+void video_menu_start(bool gw, int gw_row, int *sys, int *hdmi)
+{
+    if (gw && gw_row >= 0) {
+        *sys = video_row_sys(gw_row);
+        *hdmi = video_row_hdmi(gw_row);
+    } else if (!gw) {
+        *hdmi = VID_HDMI_1080P;
+    }
+}
+
 void Video::place_menu(int hdmi, int sys)
 {
     video_place_menu(px_, hdmi, sys);
@@ -195,8 +206,8 @@ int Video::set_mode(int hdmi, int sys)
 {
     if (own_picture()) {                           // own picture: the mode is kept, there is no layout to move
         mode_ = hdmi;
-        if (video_gateware_vic_scale()) {          // T222: with U16's VIC scaler (c64scpu) the menu canvas follows the mode; other own-picture cores keep the start-time placement
-            sys_ = sys;
+        if (gw_) {                                 // T222, T228: the gateware's frame is the mode's (c64scpu's VIC scaler, trx64u's U16): the menu canvas follows it.
+            sys_ = sys;                            // Without the gateware the frame is fixed and the menu stays where video_menu_start put it
             place_menu(hdmi, sys);
         }
         return mode_;

@@ -92,7 +92,7 @@ void restsrv_start(CoreCtx *c, bool (*net_up)(char *, int))
     cfg.port = RESTSRV_PORT;
     cfg.clients_max = RESTSRV_CLIENTS_MAX;
     cfg.ws_max = RESTSRV_CLIENTS_MAX;        // as before: a WS client may take any slot
-    cfg.out_max = 28672;                     // T162: the bug report (CORE_REPORT_MAX) goes out in one piece
+    cfg.out_max = 32768;                     // T162: the bug report (CORE_REPORT_MAX) and its HTTP header go out in one piece
     cfg.share_out = false;                   // a request must not wait for another's operation
     cfg.stack_words = 8 * configMINIMAL_STACK_SIZE;
     cfg.ws_msg_max = 12288;                  // an answer of the contract's read_memory is base64 of up to 6 KB

@@ -1,6 +1,7 @@
 #include "appindex.h"
 #include "corefolder.h"
 #include "libmenu.h"
+#include <ctype.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -153,7 +154,11 @@ bool AppIndex::read_file(CoreFs *fs, const char *path, AppEntry &a, LibLog *log,
         U2a3Need nd;
         if (src.read(h.needs_offset + k * U2A3_NEED_SIZE, &nd, sizeof(nd))) {
             nd.name[U2A3_NAME_MAX - 1] = 0;
-            if (strcmp(nd.name, "base")) {
+            if (!strcmp(nd.name, PRG_APP_NEED)) {
+                a.standalone_only = true;
+            } else if (!strcmp(nd.name, CART_APP_NEED)) {
+                a.cart_only = true;
+            } else if (strcmp(nd.name, "base")) {
                 a.needs[a.nneeds++] = nd;
             }
         }
@@ -245,7 +250,69 @@ void AppIndex::scan(CoreFs *fs, char folders[][APP_PATH_MAX], int nf, LibLog *lo
             app_[n_++] = tmp;
         }
     }
+    prg_dir_[0] = 0;                                     // the apps folder of the flash is found when a file's actions are listed (prg_action)
     free(e);
+}
+
+// T228 R21 #14, FW user_file_interaction.cc:55-76: a file whose extension has a <ext>.prg in the flash's apps folder gets "Run with App", looked up when the
+// file's actions are listed. The extension is cut to three characters (FW's FileInfo extension), the folder is "<flash root>/apps", the root the filesystem calls
+// "flash". Files of 16 MB - 3 bytes and more and folders get none.
+const FileAction *AppIndex::prg_action(CoreFs *fs, const char *name, uint64_t size, bool dir)
+{
+    if (!prg_on_ || dir || size > 16u * 1024 * 1024 - 4) {
+        return 0;
+    }
+    const char *dot = strrchr(name, '.');
+    char stem[4];
+    int n = 0;
+    for (const char *p = dot ? dot + 1 : ""; *p && n < 3; p++) {
+        stem[n++] = (char)tolower((unsigned char)*p);
+    }
+    stem[n] = 0;
+    if (!n) {
+        return 0;
+    }
+    if (!prg_dir_[0]) {
+        FsEntry *e = (FsEntry *)malloc(sizeof(FsEntry) * LIB_LIST_MAX);
+        if (!e) {
+            return 0;
+        }
+        int nr = fs->list("/", e, LIB_LIST_MAX);
+        for (int i = 0; i < nr && !prg_dir_[0]; i++) {
+            if (!strcasecmp(e[i].name, "flash") && strlen(e[i].name) < 20) {
+                snprintf(prg_dir_, sizeof(prg_dir_), "/%s/apps", e[i].name);
+            }
+        }
+        free(e);
+        if (!prg_dir_[0]) {
+            return 0;
+        }
+    }
+    char pp[64];
+    uint64_t sz = 0;
+    bool d = false;
+    snprintf(pp, sizeof(pp), "%s/%s.prg", prg_dir_, stem);
+    if (!fs->stat(pp, &sz, &d) || d) {
+        for (char *c = pp + strlen(prg_dir_) + 1; *c && *c != '.'; c++) {              // a filesystem that tells upper and lower case apart
+            *c = (char)toupper((unsigned char)*c);
+        }
+        if (!fs->stat(pp, &sz, &d) || d) {
+            return 0;
+        }
+    }
+    static OpBind bind[1];
+    bind[0].arg = "path";
+    bind[0].kind = BIND_FILE;
+    bind[0].i = 0;
+    bind[0].s = 0;
+    static FileAction act;
+    memset(&act, 0, sizeof(act));
+    act.label = "Run with App";
+    act.op = PRG_APP_OP;
+    act.bind = bind;
+    act.nbind = 1;
+    act.closes_menu = true;
+    return &act;
 }
 
 // An application file that is not in the apps folder: a .u2a the person opened in the Library. It is an entry of its own until the next scan.
@@ -392,7 +459,7 @@ int AppIndex::contributors(Contributor *out, int max) const
 {
     int k = 0;
     for (int i = 0; i < n_ && k < max; i++) {
-        if (app_[i].menu && available(app_[i], room_ld_)) {
+        if (app_[i].menu && offered(app_[i]) && available(app_[i], room_ld_)) {
             out[k].name = app_[i].name;
             out[k].rank = CR_APP;
             out[k].rec = &app_[i].host;

@@ -652,6 +652,11 @@ ue2emu (70 full frames, trx64u beside the A1200).
   tools (T104.3, eight screens) ship with 0.2.0 although no person and no UX pass has seen their LVGL screens yet (never in a package
   before R21); Alex looks at them with the package. If they are bad or do not work, they do not go to GitHub and stay in development
   (Alex 2026-11-18, translated: "if it is crap / does not work, it does not go to GitHub but stays 'in development'").
+- **Merged to main (2026-11-18):** after the final run on t228-int 22bf93132: unit tier ok (all suites), emulator scripts ok, UI
+  suite 175/175; two review rounds (the second found three faults in the first round's fixes: the app index asked the C64 service
+  before its context was set, the loader took cart_port for a library, the settings made again after the merge dropped safe mode);
+  ue2emu: TREX CRT was refused on trx64u for want of room in the state table (STATES_MAX 200 -> 320, OPS_MAX 300 -> 400, 4.4 KB);
+  now F7 lists the three tools on trx64u, the Dump screen opens, the A1200 lists none. Open: S3 on the board with release 0.2.0.
 - **After 0.2.0 (Alex 2026-11-18: "I cannot keep waiting"; option A asked, B taken for now):** RETURN on a row with fixed values opens
   the list of the values, as FW config_menu.cc:108-114 (every core); until then RETURN steps to the next value. Also after 0.2.0: groups
   in FTP hosts and Emulated SIDs, one name for the back key, "Hex View" in sentence case (generic). From the UX pass over all cores: the

@@ -14,11 +14,6 @@ Feature: Pictures of F1, F5 (core, Video, Audio, Input) and F8 of the vc20 core 
     Then I save the picture "vc20-f5-video"
     When I press 3
     Then I save the picture "vc20-f5-audio"
-    When I press 4
-    Then I save the picture "vc20-f5-input"
-    When I move to "Hotkeys"
-    And I press RETURN
-    Then I save the picture "vc20-f5-hotkeys"
 
   Scenario: the System area F8
     Given the menu is open on F8

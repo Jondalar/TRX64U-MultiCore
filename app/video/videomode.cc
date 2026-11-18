@@ -217,7 +217,10 @@ bool video_gw_up(const GwStatus &st, int row)
 
 bool video_gw_has_scale(const GwStatus &st)
 {
-    return st.present && st.version >= 2 && (st.flags & GW_F_C64_TYPE) != 0;
+    // T228: the C64-type flag alone decides. The MultiCore bitstreams tie c64_type to 0 wherever their mode_req is version 1 (host/top.v and every
+    // cores/*/mono/host/top.v); TRX64-Ultimate's U16 mode_req answers version 1 with the flag set, has the scale register (0x4F01 / 0x4F0A) and holds the
+    // same seven rows and the System Mode's family as T222's version 2.
+    return st.present && st.version >= 1 && (st.flags & GW_F_C64_TYPE) != 0;
 }
 
 bool video_gw_has_smooth(const GwStatus &st)
@@ -349,8 +352,8 @@ bool video_read_edid(uint8_t *buf, int max, int *len)
     if (!i2c || max < 128) {
         return false;
     }
-    U64_HDMI_REG = U64_HDMI_DDC_ENABLE;
     i2c->i2c_lock("video EDID");
+    U64_HDMI_REG = U64_HDMI_DDC_ENABLE;                          // gate fix 10b: inside the lock - the bug report and the Picture service both read, and the one that waits must not find the DDC lines switched off by the one that finished
     i2c->set_channel(I2C_CHANNEL_HDMI);
     bool ok = i2c->i2c_read_block(0xA0, 0x00, buf, 128) == 0;
     if (ok) {
@@ -462,8 +465,8 @@ bool video_edid_sig(uint32_t *sig)
         return false;
     }
     uint8_t b[2] = { 0, 0 };
-    U64_HDMI_REG = U64_HDMI_DDC_ENABLE;
     i2c->i2c_lock("video EDID sig");
+    U64_HDMI_REG = U64_HDMI_DDC_ENABLE;                          // gate fix 10b: inside the lock, as video_read_edid
     i2c->set_channel(I2C_CHANNEL_HDMI);
     bool ok = i2c->i2c_read_block(0xA0, 0x7E, b, 2) == 0;     // extension count, checksum
     U64_HDMI_REG = U64_HDMI_DDC_DISABLE;

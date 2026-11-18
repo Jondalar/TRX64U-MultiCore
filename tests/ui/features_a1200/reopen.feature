@@ -9,8 +9,10 @@ Feature: Where the menu opens (T192.3 D30): Home (F1) by default, or the screen 
     Then the area key is F1
 
   Scenario: Last screen brings the area, the tab and the row back
-    Given the menu is open on F5 tab 1
+    Given the menu is open on F7
     When I set "Menu opens at" to "Last screen"
+    And I press F5
+    And I press 1
     And I move to "Chipset"
     And I press RUN/STOP
     Then the menu is closed
@@ -34,7 +36,7 @@ Feature: Where the menu opens (T192.3 D30): Home (F1) by default, or the screen 
     And the focused item is "beta.adf"
 
   Scenario: Home (F1) puts the menu on Home again
-    Given the menu is open on F5 tab 1
+    Given the menu is open on F7
     When I set "Menu opens at" to "Home (F1)"
     And I press RUN/STOP
     And the menu is open

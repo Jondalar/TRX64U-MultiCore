@@ -15,6 +15,7 @@
 #include "boot.h"
 #include "video.h"
 #include "videomode.h"
+#include "corereport.h"
 #include "start.h"
 #include "mediumwait.h"
 #include "corefolder.h"
@@ -28,6 +29,7 @@
 #include "mediamounts.h"
 #include "home.h"
 #include "freeze.h"
+#include "uci.h"
 #include "menuctl.h"
 #include "romfind.h"
 #include "ops_glue.h"
@@ -308,9 +310,11 @@ public:
                      ctx.desc->id[1], ctx.desc->id[2], ctx.desc->id[3]);
             break;
         case 1:
-            if (APP_VERSION_STRING[0]) {
+            if (APP_VERSION_STRING[0] && APP_BUILD_DATE[0]) {                       // "built" only when the image has a date
                 snprintf(out, n, "%s built %s", APP_VERSION_STRING, APP_BUILD_DATE);
-            } else {
+            } else if (APP_VERSION_STRING[0]) {
+                snprintf(out, n, "%s", APP_VERSION_STRING);
+            } else if (APP_BUILD_DATE[0]) {
                 snprintf(out, n, "built %s", APP_BUILD_DATE);
             }
             break;
@@ -421,9 +425,13 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
     STARTLOG("phase core app run: pixel layer");
     ui_open(desc);
     {
-        // T210 P1: the splash is placed for the running mode from its first frame (layer_up writes the place of the first picture).
+        // T210 P1: the splash is placed for the running mode from its first frame (layer_up writes the place of the first picture). T228: the running mode
+        // is the gateware's row, not always the hand-over's (trx64u's bitstream starts in 1080p50), and 1080p without the gateware (video_menu_start).
         int sys = -1, hdmi = -1;
         video_unpack(h && handover_valid(h) ? h->video : 0, &sys, &hdmi);
+        bool gw = video_gateware_present();
+        video_menu_start(gw, gw ? video_gateware_row() : -1, &sys, &hdmi);
+        printf("[core] menu frame: %s %s (%s)\n", video_sys_name(sys), video_hdmi_name(hdmi), gw ? "the gateware's row" : "no gateware: the fixed 1080p frame");
         video_place_menu(&px, hdmi, sys);
     }
     {
@@ -471,6 +479,7 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
     netfs_set(&net_fs);
     ctx.fs = &net_fs;
     ListGrow::free_heap() = []() -> uint32_t { return (uint32_t)xPortGetFreeHeapSize(); };   // the Library and the folder pick size their lists against it (listgrow.h)
+    core_report_edid_reader() = video_read_edid;       // R8: the bug report names the screen's EDID
     hostwifi_load(ctx.fs);                              // T184 D3: the WiFi settings are the host's (F8); read once, never written
     start_paths(&ctx, h, board);
     char file_config[HANDOVER_CONFIG_MAX + 2] = "";     // T223 D4: a large core's choice comes in a file beside the page
@@ -520,7 +529,24 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
 
     cs_step(0, "Reading the settings");           // step 3: the views are built when the menu opens, none at the first open
     ctx.settings = new Settings(ctx.desc->settings, ctx.desc->nsettings, desc->store, ctx.fs, ctx_settings_path(&ctx), 0);
-    ctx.settings->load();
+    bool restore_down = false;                           // T228 R21 (FW components/config.cc:233): RESTORE held at the start = safe mode for the configuration: the defaults, the stored file is not read
+    {
+        uint8_t km[8];
+        bool rs = false;
+        restore_down = ctx.io && ctx.io->keys_read(km, &rs) && rs;
+        if (restore_down) {
+            ctx.io->delay_ms(20);
+            restore_down = ctx.io->keys_read(km, &rs) && rs;       // twice: a brush is not a hold
+        }
+    }
+    if (restore_down) {
+        printf("[core] RESTORE held: safe mode, the settings file is not read this start\n");
+        snprintf(ctx.notice, sizeof(ctx.notice), "Safe mode (RESTORE held): the defaults run for this start. The stored settings are kept.");
+        ctx.settings->set_safe(true);
+        ctx.notice_pending = true;
+    } else {
+        ctx.settings->load();
+    }
     {                                                   // the "Splash" setting (T153, Alex 2026-10-29): Off takes the start screen away as soon as the settings are known
         int ix = ctx.settings->find("Splash");
         if (ix >= 0 && ctx.settings->value(ix) == 0) {
@@ -565,6 +591,9 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
         if (bundle.why[0]) {
             printf("[core] %s\n", bundle.why);
         }
+        // gate fix 4 (T228 R10): a pad the core's record declares ([pad]) is a pad as the capability is: the XInput claim follows the descriptor the menu will be built from. This is the
+        // first place that knows the record; a pad enumerated before it (the call near the sink registration decided on the C descriptor alone) is not claimed.
+        usb_xinput_set_sink(&pad_sink, desc_has_capability(desc, "pad") || (bundle.desc && bundle.desc->has_pad));
         lib_board_load(&ctx, &lr, &bundle);
         if (lr.screen[0]) {                       // a refusal, or why no library was loaded at all (the Commodore key, a start that did not finish)
             board_ui.message(lr.title ? lr.title : "Library not loaded", lr.screen, true);
@@ -595,13 +624,24 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
     {
         static char app_folders[APP_FOLDERS_MAX][APP_PATH_MAX];
         int nf = AppIndex::folders(&ctx, app_folders, APP_FOLDERS_MAX);
+        app_index.set_multicore(!ctx.board || ctx.board->can_return_host);                  // the predicate of the state host.multicore (diag.cc)
+        appsvc_init(&ctx);                                                                 // appsvc_c64() reads the context (it is set again below, harmless)
+        app_index.set_cart_port(appsvc_c64() != 0);                                        // the cartridge tools only where the core gives that service (CART_APP_NEED)
+        app_index.set_prg_apps(ops_of(&ctx)->find_op(PRG_APP_OP) != 0);                    // T228 R21 #14: a core that registered the operation gets "Run with App"
         app_index.scan(ctx.fs, app_folders, nf, &say_out);
         printf("[app] %d application(s) in %s\n", app_index.count(), nf ? app_folders[0] : "(no folder)");
         do_merge();
         if (merge.ncontributed_settings || merged_desc.nsettings != desc->nsettings) {
             delete ctx.settings;
             ctx.settings = new Settings(ctx.desc->settings, ctx.desc->nsettings, desc->store, ctx.fs, ctx_settings_path(&ctx), 0);
-            ctx.settings->load();
+            if (restore_down) {
+                ctx.settings->set_safe(true);                // safe mode (above): the defaults; the stored file is neither read nor written
+            } else {
+                ctx.settings->load();
+            }
+            if (file_safe || (h && handover_valid(h) && handover_safe(h))) {
+                picture_safe(&ctx);                          // T224 D2: the overrides of this start belong to the new object too
+            }
         }
         menu->rebuild();
     }
@@ -935,8 +975,12 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
             }
             if (hf) {
                 hotkey_act(hf);
+                if (ctx.want_screen[0] && ctx.started) {  // T228 R1: a hotkey of the core asked for a screen of the menu (Timewarp, Monitor): it opens there
+                    uiapp_local_open();
+                    continue;
+                }
             }
-            bool want = hw_menu_button_pressed();
+            bool want = hw_menu_button_pressed() | uci_take_freeze_request();   // the command interface's FREEZE (control_target.cc: C64_PUSH_BUTTON) is the menu button pressed
             int k;
             while ((k = getch_nowait()) >= 0) {
                 if (picture_confirm_pending()) {
@@ -952,6 +996,7 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
             app_host.service(false);
             vTaskDelay(1);
         } else {
+            uci_take_freeze_request();                // the menu is open already: the request is answered
             if (!app_host.session() && !menu->learning() && (hotkey_poll() & (1u << HKA_MENU))) {   // T207: not while a key is being learned
                 uiapp_local_leave();                  // T181: the menu hotkey closes it again (the leave intent; the loop closes below)
                 if (!close_req) {

@@ -1,5 +1,6 @@
 #include "bundle.h"
 #include "ops_glue.h"
+#include "hotkeys.h"
 #include <stdio.h>
 #include <string.h>
 #include <strings.h>
@@ -91,7 +92,7 @@ void bundle_read(CoreCtx *c, BundleExtras *out)
 
 int bundle_merge(CoreCtx *c, const CoreDesc *base, const BundleExtras *x, LibLoader *loader, LibLog *log, CoreDesc *out, MenuMerge *mm, const AppIndex *apps)
 {
-    Contributor cs[LIB_MAX * 2 + 1 + APPS_MAX];
+    Contributor cs[LIB_MAX * 2 + 1 + APPS_MAX + 1];
     int n = 0;
     const Skeleton *skel = 0;
     const Overrides *ov = 0;
@@ -123,11 +124,16 @@ int bundle_merge(CoreCtx *c, const CoreDesc *base, const BundleExtras *x, LibLoa
         }
     }
     if (apps) {
-        n += apps->contributors(cs + n, APPS_MAX);
+        n += apps->contributors(cs + n, APPS_MAX + 1);
     }
     CoreDesc own;
-    if (x && x->desc && x->desc->has_own) {
-        descrec_apply(*x->desc, base, &own);                      // the core's own tasks, media, file types and settings are the record's (T104.2 D10)
+    if (x && x->desc && (x->desc->has_own || x->desc->has_pad || x->desc->restart_clear)) {
+        descrec_apply(*x->desc, base, &own);                      // the core's own tasks, media, file types and settings are the record's (T104.2 D10), its pad
+                                                                  // (T228 R10) and what its restart clears (R17) too
+        // T228 R1: a task of the record that declares a hotkey gets its item on the Hotkeys page, behind the application's own (the record's table holds them)
+        if (const char *why = hk_extend_tasks(&own, const_cast<DescRecord *>(x->desc)->csettings, DR_CSETS)) {
+            printf("[menu] description: %s\n", why);
+        }
         base = &own;
     }
     int refused = contrib_merge(base, skel, ov, cs, n, ops_of(c), out, mm);

@@ -1106,7 +1106,7 @@ static void s1_state(const char *core, const char *cv, int area, int tab, Rig &r
     S1CHECK(p.drawn_h <= p.rows_bottom - p.rows_top, "%s %s area %d tab %d: sel %d: drawn rows %d px, room %d px", core, cv, area + 1, tab, sel, p.drawn_h, p.rows_bottom - p.rows_top);
     if (p.nrows < n) {
         S1CHECK(p.pos[0] != 0, "%s %s area %d tab %d: %d rows hidden and no position label", core, cv, area + 1, tab, n - p.nrows);
-        int pa = 0, pb = 0, pc = 0;                                             // the counter counts settings: rows hidden that are only headings leave "1-13 of 13"
+        int pa = 0, pb = 0, pc = 0;                                             // the counter counts settings and information lines: rows hidden that are only headings leave "1-13 of 13"
         bool whole = sscanf(p.pos, "%d-%d of %d", &pa, &pb, &pc) == 3 && pa == 1 && pb == pc;
         S1CHECK(whole || strstr(p.pos, "above") || strstr(p.pos, "below"), "%s %s area %d tab %d: position label \"%s\" does not say what is hidden", core, cv, area + 1, tab, p.pos);
         S1CHECK(p.pos_y2 <= p.rows_top, "%s %s area %d tab %d: position label ends at y %d, the first row starts at %d", core, cv, area + 1, tab, p.pos_y2, p.rows_top);
@@ -1210,7 +1210,7 @@ static void list_rules(const char *out)
 // record). (S4) F8 takes its first focus on a row that is neither a heading nor "Reset to host defaults", which is its last row. (P4b) after a value
 // changes in place, the value's middle is the label's middle.
 static const int FKEYS[8] = { KEY_F1, KEY_F2, KEY_F3, KEY_F4, KEY_F5, KEY_F6, KEY_F7, KEY_F8 };   // the key codes are not consecutive (keyboard.h)
-struct UxLoc { std::string label; int area; std::string group; };   // area: the number of its function key (F5 = 5)
+struct UxLoc { std::string label; int area; std::string group; std::string tab; };   // area: the number of its function key (F5 = 5)
 static int uxstor, uxdev, uxfails, uxcores, uxhot, uxcmp, uxskip, uxf8, uxvals;
 #define UXCHECK(c, ...) do { int f0_ = fails; CHECK(c); if (fails > f0_) { uxfails += fails - f0_; printf("  UX context: " __VA_ARGS__); printf("\n"); } } while (0)
 
@@ -1254,7 +1254,7 @@ static void ux_collect(const char *core, Rig &r, std::vector<UxLoc> *out, int *n
                     r.m->item(i, &it);
                     if (it.kind == MenuCtl::IK_HEADING) { g = it.title; continue; }
                     if (it.kind == MenuCtl::IK_VALUE || it.kind == MenuCtl::IK_INFO || !it.title[0]) { continue; }
-                    out->push_back({ it.title, ak + 1, g });
+                    out->push_back({ it.title, ak + 1, g, tn });
                     if (getenv("UXD_OFF")) { printf("  dbgc %s F%d \"%s\" / \"%s\" : %s\n", core, ak + 1, tn.c_str(), g.c_str(), it.title); }
                 }
                 continue;
@@ -1264,7 +1264,7 @@ static void ux_collect(const char *core, Rig &r, std::vector<UxLoc> *out, int *n
                 std::string l, v; bool act;
                 ux_rowtext(r, i, &l, &v, &act);
                 if (r.m->heading(i)) { group = l; continue; }
-                out->push_back({ l, ak + 1, group });
+                out->push_back({ l, ak + 1, group, tname });
                 if (hk_page_label(l) && tname == "Input") { (*hotkey_items_in_tab)++; (void)nhot_rows; }
                 if (v.size() >= 1 && v.back() == '>' && l == "Picture") {          // T187 D5: the Picture row opens the page of the modes (a pick stage, the tab stays); it is not a sub-page of the Hotkeys kind
                     r.m->open(); ui_menu_forget_rows();
@@ -1307,7 +1307,7 @@ static void ux_collect(const char *core, Rig &r, std::vector<UxLoc> *out, int *n
                         ux_rowtext(r, j, &pl, &pv, &pa);
                         if (r.m->heading(j)) { continue; }
                         cnt++;
-                        out->push_back({ pl, ak + 1, tname + " > " + pname });
+                        out->push_back({ pl, ak + 1, tname + " > " + pname, tname });
                     }
                     *page_rows = cnt;
                     r.m->key(KEY_ESCAPE);
@@ -1327,7 +1327,7 @@ static void ux_rules(void)
     PictureEnv env0 = { EDID_ROW_MASK, 0, true, VID_SYS_PAL50 };
     std::vector<UxLoc> ref;
     {
-        CoreDesc *rd = (CoreDesc *)trx64u::desc();                      // the C64's menu is its record (as the board loads it): no chain over it
+        CoreDesc *rd = (CoreDesc *)trx64u::desc();                      // the C64's menu is its record, laid over the application's own items as the board builds it (trx64u_menu.h): no chain over it
         Rig rr(rd, "/flash/trx64u/ux_ref.cfg", trx64u::merge());
         rr.c.started = true; rr.c.program_loaded = true;
         ui_open(&c64_desc);
@@ -1374,8 +1374,7 @@ static void ux_rules(void)
             UXCHECK(a != 0, "%s: the generic row \"%s\" is on no page", src->cor_name, lab.c_str());
             if (!a) { continue; }
             if (lab == "Persist medium mounts" || lab == "Enter home on startup" || lab == "Home directory" || lab == "Menu opens at") {
-                // T212 D1/D6: the storage and menu rows are the app's: F7 (APP), under the headings Storage / Menu, never the machine's F5. The C64's record is the firmware's
-                // (docs/contracts/trx64u-firmware-handover.md): it keeps them in Drive A (F5) and Expert (F8), so the C64 is not the yardstick for these four.
+                // T212 D1/D6: the storage and menu rows are the app's: F7 (APP), under the headings Storage / Menu, never the machine's F5; the C64's record has them there too (T228 D10).
                 uxstor++;
                 const MenuGroupRoute *sr = menu_route_of(d->settings[i]);
                 const UxLoc *sa = 0;
@@ -1385,17 +1384,16 @@ static void ux_rules(void)
                 for (const UxLoc &u : loc) { UXCHECK(!(u.label == lab && u.area == 5), "%s: \"%s\" is still in F5 group \"%s\"", src->cor_name, lab.c_str(), u.group.c_str()); }
                 continue;
             }
-            // the C64 has no row of these labels (its record is the firmware's, with its own Settings area F6 and Video/Audio/Input pages): the C64 fixes the tab, named for the
-            // route; since T205 D1 every other core lists the route's rows in F5 (the route's area), under the same tab name; the page's rows are in "<tab> > <page>"
+            // the route names the area and the tab of the row; every core lists the route's rows in F5 (the route's area), under the same tab name, the C64's record
+            // included (T228: its Video and Audio tabs are in F5 like the other cores'); the page's rows are in "<tab> > <page>"
             const MenuGroupRoute *rt = menu_route_of(d->settings[i]);
             int fk = atoi(rt->area + 1);
-            int fref = atoi((rt->alt_area ? rt->alt_area : rt->area) + 1);
             // T212 D12: a page of the app's area F7 is reached from the section "Settings" (the strip is hidden, the title stays): "Settings > <page>"
             std::string want = rt->page ? std::string("Settings > ") + rt->label : std::string(rt->heading);
             bool in_ref = false;
-            for (const UxLoc &u : ref) { if (u.area == fref && u.group == rt->heading) { in_ref = true; break; } }
-            // the machine's groups (F5: Video, Audio) have the C64's tab as their yardstick; the app's F7 is the generic app's own area, the C64's F7 is its Actions
-            if (fk == 5) { UXCHECK(in_ref, "the C64 has no F%d tab \"%s\"", fref, rt->heading); }
+            for (const UxLoc &u : ref) { if (u.area == fk && u.tab == rt->heading) { in_ref = true; break; } }
+            // the machine's groups (F5: Video, Audio) have the C64's tab as their yardstick (a tab of that title); the app's F7 is the generic app's own area
+            if (fk == 5) { UXCHECK(in_ref, "the C64 has no F%d tab \"%s\"", fk, rt->heading); }
             for (const UxLoc &u : loc) { if (u.label == lab && u.area == fk) { a = &u; break; } }   // a label that also stands on Home (Reset) is looked up in the route's own area
             uxcmp++;
             UXCHECK(a->area == fk && a->group == want, "%s: \"%s\" is in F%d group \"%s\", the place is F%d \"%s\"", src->cor_name, lab.c_str(), a->area, a->group.c_str(), fk, want.c_str());
@@ -1449,7 +1447,7 @@ static void ux_rules(void)
 // ---- T187 UX gate 1 (R2, R3, R5, R6): the chrome and the lists at every canvas ---------------------------------------------------------------
 // Every core, at 1080p, 720p and 480p: in each tab and page the legend fits the canvas (R2) and says BACK as every list does (R5); each rail item's label ends before its
 // key (R2); no heading is printed twice in a list (R3); no row of the Hotkeys page carries the page's name as a prefix (R6).
-static int ucn_f8, ucn_leg, ucn_rail, ucn_lists, ucn_pages, ucn_hk, ucn_cores, ucn_pcnames;
+static int ucn_strip, ucn_strip_skip, ucn_f8, ucn_leg, ucn_rail, ucn_lists, ucn_pages, ucn_hk, ucn_cores, ucn_pcnames;
 static bool g_pc_core;                                             // the core under test names the keys of the USB keyboard (HkSpec::pc_keys)
 static void ux_chrome_check(const char *core, const char *cv, Rig &r, const char *where, bool page)
 {
@@ -1462,6 +1460,17 @@ static void ux_chrome_check(const char *core, const char *cv, Rig &r, const char
         bool list = strstr(txt, "F1-F8 AREA") || strstr(txt, "CHOOSE");
         if (list) {
             UXCHECK(strstr(txt, "BACK") && !strstr(txt, "BACK TO") && (!page || strstr(txt, "ESC  BACK")), "%s %s %s: the way back is not worded \"BACK\": \"%s\"", core, cv, where, txt);
+        }
+    }
+    {
+        int right, room, nt;                                        // T228 DC12: a strip must end inside the canvas; only a strip of more than 4 tabs that overflows is exempt (7 tabs on F5 of trx64u below 960), and it is said
+        if (trx_strip_probe(&right, &room, &nt)) {
+            if (right > room && nt > 4) {
+                if (ucn_strip_skip++ == 0) { printf("note: %s %s %s: %d-tab strip ends at x %d, the canvas holds %d (DC12: skipped, first of its kind)\n", core, cv, where, nt, right, room); }
+            } else {
+                ucn_strip++;
+                UXCHECK(right <= room, "%s %s %s: the tab strip ends at x %d, the canvas holds %d", core, cv, where, right, room);
+            }
         }
     }
     for (int i = 0; i < 8; i++) {
@@ -1584,8 +1593,10 @@ static void ux_chrome(void)
         }
     }
     ui_set_canvas(960, 540);
-    printf("UX chrome: %d cores x 3 canvases, %d legends, %d rail items, %d lists, %d pages, %d page rows, %d key names of non-C64 cores, %d failed\n", ucn_cores / 3, ucn_leg, ucn_rail, ucn_lists, ucn_pages, ucn_hk, ucn_pcnames, uxfails);
-    CHECK(ucn_cores >= 3 * 18 && ucn_leg > 500 && ucn_rail > 1000 && ucn_pages >= 3 * 3 && ucn_hk > 30 && ucn_pcnames > 30);
+    printf("UX chrome: %d cores x 3 canvases, %d tab strips (%d skipped, DC12), %d legends, %d rail items, %d lists, %d pages, %d page rows, %d key names of non-C64 cores, %d failed\n", ucn_cores / 3, ucn_strip, ucn_strip_skip, ucn_leg, ucn_rail, ucn_lists, ucn_pages, ucn_hk, ucn_pcnames, uxfails);
+    // T228 R1, R5b, R6-R9: trx64u's walk has 16 views per canvas instead of 22 (12 tabs instead of 19 - no F2, no F4, F5 6 tabs, F7 and F8 one each -
+    // and 4 pages instead of 3: Picture, SID sockets, Hotkeys, Network settings): 18 legends fewer, 498 in all, so the floor is 480 (was 500)
+    CHECK(ucn_cores >= 3 * 18 && ucn_leg > 480 && ucn_rail > 1000 && ucn_pages >= 3 * 3 && ucn_strip > 300 && ucn_hk > 30 && ucn_pcnames > 30);
 }
 
 // ---- T187 UX gate 1 (R6): the WiFi row of F8 in the states the person can be in --------------------------------------------------------------
@@ -1800,7 +1811,7 @@ static void ux_shots(const char *out)
                                        { "F5-input", KEY_F5, "Input", 0 }, { "F8-system", KEY_F8, 0, 0 } }, 6 },
         { &atari800_desc, false, "atari", { { "F5-core-top", KEY_F5, 0, 0 } }, 1 },
         { &apple2_desc, false, "apple2", { { "F8-system", KEY_F8, 0, 0 } }, 1 },
-        { 0, true, "c64", { { "F5-drive-a", KEY_F5, "Drive A", 0 } }, 1 },
+        { 0, true, "c64", { { "F5-c64", KEY_F5, "C64", 0 } }, 1 },               // T228 R9: the Machine and Drive A settings are sections of the tab C64
     };
     for (const auto &cv : cvs) {
         TrxCanvas want = trx_canvas_for(cv.fw, cv.fh);
@@ -1825,6 +1836,250 @@ static void ux_shots(const char *out)
         }
     }
     ui_set_canvas(960, 540);
+}
+
+// ---- T228 area shots (the click dummy's pictures, Restart 2026-11-17): every area and every tab of the TRX64U menu (its record, the board's
+// chain: menu_build, descrec_apply, contrib_merge - trx64u::desc()) and of the A1200 (board_desc) as the reference, at 1080p (the 960 x 540 canvas, 2x) and 480p:
+// the top of each list and every further window when it is longer than its window (the last one "end"), the Library inside a folder with a file selected, and the pages the concept names (the drive list, Hotkeys, FTP
+// hosts), R5's SID pages and R6's Network settings and Streams. Files mock-<core>-<area>-<tab>-<state>-<canvas>.png and mock-MANIFEST.json in `out`; a MOCK line per picture and a ROW line per row of each list.
+struct MockShot { std::string file, core, area, area_label, tab_label, state, canvas; int tab_index; };
+static std::vector<MockShot> g_mock;
+static int mock_overlaps, mock_bounds;
+
+static std::string mock_slug(const char *s)
+{
+    std::string o;
+    for (const char *p = s; p && *p; p++) {
+        unsigned char ch = (unsigned char)*p;
+        if (isalnum(ch)) { o += (char)tolower(ch); } else if (!o.empty() && o.back() != '-') { o += '-'; }
+    }
+    while (!o.empty() && o.back() == '-') { o.pop_back(); }
+    return o.empty() ? std::string("tab") : o;
+}
+
+static std::string mock_json(const std::string &s)
+{
+    std::string o;
+    for (char ch : s) {
+        if (ch == '"' || ch == '\\') { o += '\\'; o += ch; } else if ((unsigned char)ch < 0x20) { char b[8]; snprintf(b, sizeof(b), "\\u%04x", ch); o += b; } else { o += ch; }
+    }
+    return o;
+}
+
+static void mock_rows(Rig &r, const char *tag)
+{
+    for (int i = 0; i < r.m->rows(); i++) {
+        std::string l, v; bool a;
+        ux_rowtext(r, i, &l, &v, &a);
+        printf("ROW %s %2d %s%s%s%s\n", tag, i, r.m->heading(i) ? "[H] " : "", l.c_str(), v.empty() ? "" : " | ", v.c_str());
+    }
+}
+
+static void mock_shot(Rig &r, const char *out, const char *core, const char *cv, int fw, int fh, int tab_index, const char *tab_label, const std::string &slug,
+                      const char *state)
+{
+    const MenuTree &tr = r.m->tree();
+    int a = r.m->area();
+    const char *key = a >= 0 && a < tr.nareas ? tr.a[a].key : "F?";
+    const char *alabel = a >= 0 && a < tr.nareas && tr.a[a].name ? tr.a[a].name : "";
+    char base[300], fn[800], what[340];
+    snprintf(base, sizeof(base), "mock-%s-%s-%s-%s-%s.png", core, key, slug.c_str(), state, cv);
+    snprintf(fn, sizeof(fn), "%s/%s", out, base);
+    snprintf(what, sizeof(what), "mock %s %s %s %s %s", core, key, slug.c_str(), state, cv);
+    ui_menu_render(*r.m);
+    lv_timer_handler();
+    lv_obj_invalidate(lv_screen_active());          // the whole page into the picture: fb is shared between the rigs and LVGL repaints only what changed
+    lv_timer_handler();
+    if (fw == 960) { png(fn, 2); } else { png_out(fn, fw, fh, 0, 0, fw, fh); }
+    mock_overlaps += txt_overlaps(what);
+    mock_bounds += view_bounds(what, fw, fh);
+    UiListProbe p;
+    bool lp = ui_list_probe(&p);
+    printf("MOCK %s %s %s tab %d \"%s\" %s: tab \"%s\", %d rows, window first %d, selected %d, paged %d\n", core, cv, key, tab_index, tab_label, state,
+           r.m->tab_name(), r.m->rows(), lp ? p.first : -1, r.m->selected(), r.m->paged() ? 1 : 0);
+    g_mock.push_back({ base, core, key, alabel, tab_label, state, cv, tab_index });
+}
+
+// The windows of a list longer than its window, after its first picture: KEY_DOWN moves the selection one row and the window follows it; a window is shot
+// when it has moved on to the last three rows of the one shot before, so no row is left out ("p2", "p3", ...), and the window with the last row is `endname`.
+// A list the probe does not read (a layout of its own) gets its end as KEY_END leaves it.
+static void mock_windows(Rig &r, const char *out, const char *core, const char *cv, int fw, int fh, int ti, const char *tl, const std::string &slug,
+                         const char *prefix, const char *endname)
+{
+    UiListProbe p;
+    if (!ui_list_probe(&p)) {
+        r.m->key(KEY_END);
+        mock_shot(r, out, core, cv, fw, fh, ti, tl, slug, endname);
+        return;
+    }
+    int shot_first = p.first, shot_n = p.nrows, cur = p.first, sel = r.m->selected(), n = 0;
+    bool end_shot = false;
+    for (int k = 0; k < 200; k++) {
+        r.m->key(KEY_DOWN);
+        ui_menu_render(*r.m); lv_timer_handler();
+        if (!ui_list_probe(&p)) { break; }
+        bool at_end = r.m->selected() == sel || r.m->selected() >= r.m->rows() - 1;
+        sel = r.m->selected();
+        cur = p.first;
+        if (at_end) {
+            if (cur != shot_first) { mock_shot(r, out, core, cv, fw, fh, ti, tl, slug, endname); end_shot = true; }
+            break;
+        }
+        if (cur >= shot_first + shot_n - 3) {
+            char st[32];
+            snprintf(st, sizeof(st), "%sp%d", prefix, n + 2);
+            mock_shot(r, out, core, cv, fw, fh, ti, tl, slug, st);
+            n++;
+            shot_first = cur;
+            shot_n = p.nrows;
+        }
+    }
+    if (!end_shot && n > 0) {                                       // the last window shot is the end: its file and its manifest entry say so
+        MockShot &s = g_mock.back();
+        char base[300];
+        snprintf(base, sizeof(base), "mock-%s-%s-%s-%s-%s.png", core, s.area.c_str(), slug.c_str(), endname, cv);
+        rename((std::string(out) + "/" + s.file).c_str(), (std::string(out) + "/" + base).c_str());
+        printf("MOCK renamed %s -> %s\n", s.file.c_str(), base);
+        s.file = base;
+        s.state = endname;
+    } else if (!end_shot) {
+        r.m->key(KEY_END);
+        mock_shot(r, out, core, cv, fw, fh, ti, tl, slug, endname);
+    }
+}
+
+static int mock_find_row(Rig &r, const char *label, bool prefix)
+{
+    for (int i = 0; i < r.m->rows(); i++) {
+        std::string l, v; bool a;
+        ux_rowtext(r, i, &l, &v, &a);
+        if (prefix ? !strncmp(l.c_str(), label, strlen(label)) : l == label) { return i; }
+    }
+    return -1;
+}
+
+static void mock_shots(const char *out)
+{
+    static const struct { const char *name; int fw, fh; } cvs[] = { { "1080p", 1920, 1080 }, { "480p", 640, 480 } };
+    struct File { const char *path; size_t n; };
+    struct Page { const char *area; const char *tab; const char *row; bool prefix; const char *slug; };
+    struct Job { const char *core; bool c64; const CoreDesc *src; File files[8]; int nfiles; Page pages[8]; int npages; const char *pick; };
+    static const Job jobs[] = {
+        { "trx64u", true, 0,                                                                   // T228 R6: F8 is the one System tab (id "expert"), its Network rows open three pages
+          { { "/usb0/games/Katakis.d64", 174848 }, { "/usb0/games/Elite.g64", 333744 }, { "/usb0/games/Turrican.crt", 65616 }, { "/usb0/games/Giana_Sisters.t64", 30000 },
+            { "/usb0/games/demo.prg", 2049 }, { "/usb0/games/session.c64re", 70000 }, { "/usb0/games/collection.zip", 40000 } }, 7,
+          { { "F1", "home", "Drive A", true, "drive-a" }, { "F5", "audio", "SID sockets", false, "sid-sockets" }, { "F5", "audio", "Emulated SIDs", false, "emulated-sids" },
+            { "F7", "settings", "Hotkeys", false, "hotkeys" }, { "F8", "expert", "Network settings", false, "network-settings" }, { "F8", "expert", "Streams", false, "streams" },
+            { "F8", "expert", "FTP hosts", false, "ftp-hosts" } }, 7, "Katakis" },
+        { "a1200", false, &amiga1200_desc,
+          { { "/usb0/games/Turrican_II.adf", 901120 }, { "/usb0/games/Lotus_III.adf", 901120 }, { "/usb0/games/Workbench.hdf", 1048576 }, { "/usb0/games/notes.txt", 100 } }, 4,
+          { { "F1", "home", "DF0", true, "df0" }, { "F7", "settings", "Hotkeys", false, "hotkeys" } }, 2, "Turrican" },
+    };
+    for (const auto &cv : cvs) {
+        TrxCanvas want = trx_canvas_for(cv.fw, cv.fh);
+        for (const Job &j : jobs) {
+            ui_set_canvas(want.w, want.h);
+            PictureEnv env = { EDID_ROW_MASK, 0, true, VID_SYS_PAL50 };
+            CoreDesc *d = j.c64 ? (CoreDesc *)trx64u::desc() : board_desc(j.src, &env);
+            char cfg[128];
+            snprintf(cfg, sizeof(cfg), "/usb0/cores/mock_%s_%s.cfg", j.core, cv.name);
+            Rig r(d, cfg, j.c64 ? trx64u::merge() : 0);
+            for (int f = 0; f < j.nfiles; f++) { r.fs.put_size(j.files[f].path, j.files[f].n); }
+            r.c.started = true;
+            r.c.program_loaded = true;
+            ui_open(j.c64 ? &c64_desc : d);
+            const MenuTree &tr = r.m->tree();
+            bool seen[MENU_AREAS_MAX][MENU_TABS_MAX] = {};
+            for (int ak = 0; ak < 8; ak++) {
+                char fk[4];
+                snprintf(fk, sizeof(fk), "F%d", ak + 1);
+                for (int tk = 0; tk <= 9; tk++) {
+                    r.m->open(); ui_menu_forget_rows();
+                    r.m->key(FKEYS[ak]);
+                    if (tk) { r.m->key('0' + tk); }
+                    int a = r.m->area(), b = r.m->tab();
+                    if (a < 0 || a >= tr.nareas || a >= MENU_AREAS_MAX || strcmp(tr.a[a].key, fk) || b < 0 || b >= tr.a[a].ntabs || tr.a[a].tabs[b].page || seen[a][b]) {
+                        continue;
+                    }
+                    seen[a][b] = true;
+                    ui_menu_render(*r.m); lv_timer_handler();
+                    const char *tl = tr.a[a].tabs[b].name ? tr.a[a].tabs[b].name : "";
+                    int ti = ui_shell_tab(*r.m) + 1;
+                    std::string slug = mock_slug(tl);
+                    char tag[96];
+                    snprintf(tag, sizeof(tag), "%s %s %s/%s", j.core, cv.name, fk, slug.c_str());
+                    mock_shot(r, out, j.core, cv.name, want.w, want.h, ti, tl, slug, "top");
+                    if (!strcmp(cv.name, "1080p")) { mock_rows(r, tag); }
+                    if (r.m->paged()) {
+                        mock_windows(r, out, j.core, cv.name, want.w, want.h, ti, tl, slug, "", "end");
+                    }
+                    auto back_to_tab = [&]() {
+                        r.m->open(); ui_menu_forget_rows();
+                        r.m->key(FKEYS[ak]);
+                        if (tk) { r.m->key('0' + tk); }
+                        ui_menu_render(*r.m); lv_timer_handler();
+                        return r.m->area() == a && r.m->tab() == b;
+                    };
+                    if (!strcmp(fk, "F3") && slug == "browse" && back_to_tab()) {             // the Library inside a folder: the media level first, then usb0, then games
+                        int u = mock_find_row(r, "usb0", true);
+                        if (u < 0) { u = mock_find_row(r, "USB", true); }
+                        if (u < 0) { u = 0; }
+                        select_row(r, u);
+                        r.m->key(KEY_RETURN);
+                        ui_menu_render(*r.m); lv_timer_handler();
+                        int g = find_dir_row(r, "games");
+                        if (g >= 0) { select_row(r, g); r.m->key(KEY_RETURN); ui_menu_render(*r.m); lv_timer_handler(); }
+                        int fr = mock_find_row(r, j.pick, true);
+                        if (fr >= 0) { select_row(r, fr); }
+                        printf("MOCK %s %s F3 folder: usb0 row %d, games row %d, %s row %d\n", j.core, cv.name, u, g, j.pick, fr);
+                        mock_shot(r, out, j.core, cv.name, want.w, want.h, ti, tl, slug, "folder");
+                        if (!strcmp(cv.name, "1080p")) { std::string t2 = std::string(tag) + "/folder"; mock_rows(r, t2.c_str()); }
+                    }
+                    for (int pi = 0; pi < j.npages; pi++) {
+                        const Page &pg = j.pages[pi];
+                        if (strcmp(pg.area, fk) || !tr.a[a].tabs[b].id || strcmp(pg.tab, tr.a[a].tabs[b].id) || !back_to_tab()) {
+                            continue;
+                        }
+                        int row = mock_find_row(r, pg.row, pg.prefix);
+                        if (row < 0) {
+                            printf("MOCK %s %s %s: no row \"%s\" on tab %s, no page picture\n", j.core, cv.name, fk, pg.row, pg.tab);
+                            CHECK(row >= 0);
+                            continue;
+                        }
+                        select_row(r, row);
+                        r.m->key(KEY_RETURN);
+                        ui_menu_render(*r.m); lv_timer_handler();
+                        int pa = r.m->area(), pt = r.m->tab();
+                        bool is_page = pa == a && pt >= 0 && pt < tr.a[pa].ntabs && tr.a[pa].tabs[pt].page;
+                        printf("MOCK %s %s %s: RETURN on \"%s\" (row %d) opens tab %d \"%s\"%s\n", j.core, cv.name, fk, pg.row, row, pt, r.m->tab_name(), is_page ? " (a page)" : " - NOT A PAGE");
+                        CHECK(is_page);
+                        const char *pl = r.m->tab_name() ? r.m->tab_name() : pg.row;
+                        mock_shot(r, out, j.core, cv.name, want.w, want.h, ti, pl, pg.slug, "page");
+                        if (!strcmp(cv.name, "1080p")) { std::string t2 = std::string(tag) + "/" + pg.slug; mock_rows(r, t2.c_str()); }
+                        if (r.m->paged()) {
+                            mock_windows(r, out, j.core, cv.name, want.w, want.h, ti, pl, pg.slug, "page-", "page-end");
+                        }
+                    }
+                }
+            }
+        }
+    }
+    ui_set_canvas(960, 540);
+    char mf[600];
+    snprintf(mf, sizeof(mf), "%s/mock-MANIFEST.json", out);
+    FILE *f = fopen(mf, "w");
+    if (f) {
+        fprintf(f, "[\n");
+        for (size_t i = 0; i < g_mock.size(); i++) {
+            const MockShot &s = g_mock[i];
+            fprintf(f, "  {\"file\": \"%s\", \"core\": \"%s\", \"area\": \"%s\", \"area_label\": \"%s\", \"tab_index\": %d, \"tab_label\": \"%s\", \"state\": \"%s\", \"canvas\": \"%s\"}%s\n",
+                    mock_json(s.file).c_str(), mock_json(s.core).c_str(), mock_json(s.area).c_str(), mock_json(s.area_label).c_str(), s.tab_index,
+                    mock_json(s.tab_label).c_str(), mock_json(s.state).c_str(), mock_json(s.canvas).c_str(), i + 1 < g_mock.size() ? "," : "");
+        }
+        fprintf(f, "]\n");
+        fclose(f);
+    }
+    printf("MOCK %zu pictures, %d text overlaps, %d objects outside or cut; manifest %s\n", g_mock.size(), mock_overlaps, mock_bounds, mf);
 }
 
 
@@ -1917,7 +2172,9 @@ static void pm_page_case(const char *out, const CoreDesc *src, const char *core,
     if (f.none) { memset(edid, 0, sizeof(edid)); } else { pm_make_edid(edid, &len, f.vics, f.nv, f.pc, f.bad); }
     EdidInfo ei;
     PictureEnv env = { video_modes_offered(edid, len), 0, true, VID_SYS_PAL50 };
-    env.native = len > 0 && edid_parse(edid, len, &ei) ? (uint16_t)(ei.native & env.mask) : 0;
+    bool edid_ok = len > 0 && edid_parse(edid, len, &ei);                // as picture_env_read: the flag "no or corrupt EDID" apart from the mask (T235 §5)
+    env.no_edid = !edid_ok;
+    env.native = edid_ok ? (uint16_t)(ei.native & env.mask) : 0;
     TrxCanvas want = trx_canvas_for(fw, fh);
     CoreDesc *d = board_desc(src, &env);
     snprintf(p, sizeof(p), "/usb0/cores/pmfx_%s_%s.cfg", core, f.name);
@@ -1948,8 +2205,9 @@ static void pm_page_case(const char *out, const CoreDesc *src, const char *core,
     CHECK(strstr(leg, "RETURN  USE THIS MODE") && strstr(leg, "BROWSE"));  // the key bar
     CHECK(!r.m->toast_text()[0]);                                       // R2: no chip over the question that is not there yet
     int nnow = 0;
-    uint16_t pmask = env.mask;                                           // what the app lists: a mask that names nothing is the television rows
-    { int tmp[VID_HDMI_COUNT]; if (video_modes_hdmi_list(pmask, VID_SYS_PAL50, tmp) == 0) { pmask = EDID_LIST_NONE; } }
+    uint16_t pmask = env.mask;                                           // what the app lists: a mask that names nothing is the television rows, none named
+    bool pnone = env.no_edid;
+    { int tmp[VID_HDMI_COUNT]; if (video_modes_hdmi_list(pmask, VID_SYS_PAL50, tmp) == 0) { pmask = EDID_LIST_NONE; pnone = true; } }
     int autorow = 0;
     if (!video_modes_resolve(pmask, VID_SYS_PAL50, f.autohdmi, &autorow)) { autorow = f.autohdmi; }
     for (int i = 0; i < r.m->rows() && i <= 9; i++) {                   // 1: Auto + the 9 rows in order; the rate of the row's own clock; "*" when the screen names it; native from the EDID; Auto is the choice: one "now" (T187 D9), on Auto's row
@@ -1958,7 +2216,7 @@ static void pm_page_case(const char *out, const CoreDesc *src, const char *core,
         int row = i == 0 ? autorow : kPmRows[i - 1];
         if (i == 0) { CHECK(l.compare(0, 4, "Auto") == 0); } else { CHECK(l == pm_row_name(row)); }
         unsigned dh = pm_row_dhz(row);
-        bool nat = (f.nat >> row) & 1, now = i == 0, named = i > 0 && pmask != EDID_LIST_NONE && ((pmask >> row) & 1);
+        bool nat = (f.nat >> row) & 1, now = i == 0, named = i > 0 && !pnone && ((pmask >> row) & 1);
         char ex[64];
         snprintf(ex, sizeof(ex), "%s%s%s%s%s%s%u.%u Hz", now ? "now" : "", now && nat ? " " : "", nat ? "native" : "", (now || nat) && named ? " " : "", named ? "*" : "", (now || nat || named) ? "   " : "", dh / 10, dh % 10);
         UXCHECK(v == ex, "%s: row %d says \"%s\", expected \"%s\"", what, i, v.c_str(), ex);
@@ -2037,6 +2295,11 @@ int main(int argc, char **argv)
 {
     const char *out = argc > 1 ? argv[1] : "/tmp/coreapp-render";
     char p[512];
+    if (getenv("MOCK_ONLY")) {                                      // T228: only the area shots (mock_shots, the click dummy's pictures), without the rest of the bench
+        mock_shots(out);
+        printf("coreapp render (MOCK_ONLY): %d checks, %d failed\n", checks, fails);
+        return fails ? 1 : 0;
+    }
 
     CoreDesc *atari_main = board_desc(&atari800_desc);
     Rig r(atari_main, "/usb0/cores/atari800.cfg");
@@ -2546,6 +2809,7 @@ int main(int argc, char **argv)
     ux_longname();
     pm_page_fixtures(out);
     ux_wifi(out);
+    mock_shots(out);                                                // T228: the area shots of TRX64U and the A1200, last, so every check above runs as before
     printf("coreapp render: %d checks, %d failed\n", checks, fails);
     return fails ? 1 : 0;
 }

@@ -36,6 +36,8 @@ int g_nact;                      // T225: the buttons of the target in force (0 
 int g_type;                      // T225: its type number
 bool id_seen;                    // T225 by_id: the pad whose stored map is in force ...
 uint16_t id_vid, id_pid;         // ... (0:0 = none)
+int g_port;                      // T228 R10: the register index the first pad drives (pad.port)
+int g_clear = -1;                // the register index that is to be released at the next pace (the one pad.port left), -1: none
 
 struct Capture {
     bool active;
@@ -122,6 +124,8 @@ void pad_configure(const PadSpec *s)
     g_nact = 0;
     g_type = 0;
     id_seen = false;
+    g_port = 0;
+    g_clear = -1;
 }
 
 void pad_reset()
@@ -343,6 +347,49 @@ void pad_ensure(CoreCtx *c)
     }
 }
 
+void pad_set_port(int i)
+{
+    Guard g;
+    i = i ? 1 : 0;
+    if (i && spec && spec->out == PAD_OUT_REGS && !spec->reg[1]) {
+        i = 0;                                            // a register spec without a second register (the Amiga's by_id one) keeps its one
+    }
+    if (i != g_port) {
+        g_clear = g_port;                                 // what the old register holds is let go at the next pace, before the words go to the new one
+        g_port = i;
+    }
+    for (int p = 0; p < PAD_PLAYERS; p++) sent_valid[p] = false;
+}
+
+int pad_port() { return g_port; }
+
+const char *pad_port_name()
+{
+    static char t[12];
+    if (spec && spec->out == PAD_OUT_JOY) {
+        snprintf(t, sizeof(t), "port %u", (unsigned)spec->reg[g_port] + 1u);
+        return t;
+    }
+    return "port 2";
+}
+
+// The register (index into spec->reg) that player p's word goes to: the one pad.port picked for the first pad, the other one for the second.
+static int reg_of(int p)
+{
+    return spec->by_id ? g_port : (p ^ g_port);
+}
+
+// A word into register index ri: the core's 16 bit pair, or the host's joystick lines of a port (PAD_OUT_JOY: bits 0..4).
+static void put_word(CoreCtx *c, int ri, uint16_t w)
+{
+    if (spec->out == PAD_OUT_JOY) {
+        c->io->joy_lines(spec->reg[ri], (uint8_t)(w & 0x1F));
+        return;
+    }
+    c->io->wr(spec->reg[ri], (uint8_t)w);
+    c->io->wr(spec->reg[ri] + 1u, (uint8_t)(w >> 8));       // the high byte commits the pair in the gateware
+}
+
 bool pad_pace(CoreCtx *c)
 {
     pad_ensure(c);
@@ -350,6 +397,16 @@ bool pad_pace(CoreCtx *c)
         return false;
     }
     bool wrote = false;
+    int clr;
+    {
+        Guard g;
+        clr = g_clear;
+        g_clear = -1;
+    }
+    if (clr >= 0) {
+        put_word(c, clr, 0);
+        wrote = true;
+    }
     if (spec->by_id) id_refresh(c);
     for (int p = 0; p < (spec->by_id ? 1 : PAD_PLAYERS); p++) {
         uint16_t w;
@@ -377,8 +434,7 @@ bool pad_pace(CoreCtx *c)
             sent[p] = w;
             sent_valid[p] = true;
         }
-        c->io->wr(spec->reg[p], (uint8_t)w);
-        c->io->wr(spec->reg[p] + 1u, (uint8_t)(w >> 8));       // the high byte commits the pair in the gateware
+        put_word(c, reg_of(p), w);
         wrote = true;
     }
     return wrote;

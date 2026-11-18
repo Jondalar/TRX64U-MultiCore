@@ -12,7 +12,77 @@
 #include <stdio.h>
 #include <string.h>
 
+#define MENU_SECTIONS_MAX 16
+
 const char *const menu_info_labels[] = { "Core", "Application", "Network", "Media", "ROMs", "Libraries", 0 };
+
+// Calls f(word, length) for each word of `s` (l characters, not terminated) between the separators `sep`.
+template <class F> static void each_word(const char *s, size_t l, char sep, F f)
+{
+    for (const char *p = s, *end = s + l; s && p < end;) {
+        const char *e = (const char *)memchr(p, sep, (size_t)(end - p));
+        size_t wl = e ? (size_t)(e - p) : (size_t)(end - p);
+        f(p, wl);
+        p = e ? e + 1 : end;
+    }
+}
+
+// T228 D18, R6: the pages a tab's `pages` names, in that order. "G" is the page of the group G; "Name=G1+G2" is a page named Name that holds the groups G1 and
+// G2, each under its heading. A group a page holds is no section of the tab, and a node anchored to it (area/tab/G) stands on that page after the group's settings.
+struct TabPages {
+    int n = 0;
+    const char *name[MENU_SECTIONS_MAX];
+    size_t name_l[MENU_SECTIONS_MAX];
+    const char *groups[MENU_SECTIONS_MAX];                              // '+' separated, not terminated
+    size_t groups_l[MENU_SECTIONS_MAX];
+
+    explicit TabPages(const char *attr)
+    {
+        size_t l = attr ? strlen(attr) : 0;
+        each_word(attr, l, ',', [&](const char *w, size_t wl) {
+            if (n >= MENU_SECTIONS_MAX) {
+                printf("[menu] a tab names more than %d pages: the rest are not drawn\n", MENU_SECTIONS_MAX);
+                return;
+            }
+            const char *eq = (const char *)memchr(w, '=', wl);
+            name[n] = w;
+            name_l[n] = eq ? (size_t)(eq - w) : wl;
+            groups[n] = eq ? eq + 1 : w;
+            groups_l[n] = eq ? wl - (size_t)(eq - w) - 1 : wl;
+            n++;
+        });
+    }
+    // the page that holds the group g (gl characters), or -1
+    int of(const char *g, size_t gl) const
+    {
+        for (int k = 0; g && k < n; k++) {
+            bool in = false;
+            each_word(groups[k], groups_l[k], '+', [&](const char *w, size_t wl) { in = in || (wl == gl && !strncmp(w, g, gl)); });
+            if (in) {
+                return k;
+            }
+        }
+        return -1;
+    }
+};
+
+// A group id as a heading: '_' reads as a space. The text lives in the tree (an entry keeps the pointer); null when the pool is full.
+static const char *menu_heading_text(MenuTree *t, const char *g, size_t n)
+{
+    if (t->nheads >= MENU_HEADS_MAX) {
+        printf("[menu] more than %d section headings: the rest are not drawn\n", MENU_HEADS_MAX);
+        return 0;
+    }
+    char *o = t->heads[t->nheads++];
+    if (n > sizeof(t->heads[0]) - 1) {
+        n = sizeof(t->heads[0]) - 1;
+    }
+    for (size_t i = 0; i < n; i++) {
+        o[i] = g[i] == '_' ? ' ' : g[i];
+    }
+    o[n] = 0;
+    return o;
+}
 
 static void add(MenuTree *t, EntryKind k, const char *label, int index)
 {
@@ -90,7 +160,7 @@ static bool group_in_tab(const Skeleton *sk, uint8_t widget, const SkelTab &tb, 
     for (int a = 0; a < sk->nareas; a++) {
         for (int t = 0; t < sk->areas[a].ntabs; t++) {
             const SkelTab &o = sk->areas[a].tabs[t];
-            if (o.widget == widget && groups_have(o.groups, g)) {
+            if ((o.widget == widget || (widget == TW_SETTINGS && o.widget == TW_SYSTEM)) && groups_have(o.groups, g)) {      // a System tab's groups are its pages (R6)
                 return false;
             }
         }
@@ -139,11 +209,11 @@ static bool skel_has_widget(const Skeleton *sk, uint8_t widget)
 
 // ---- T187 D1: where a generic row lands, one table for every core ---------------------------------------------------------------------------
 static const MenuGroupRoute g_routes[] = {
-    { "video",   "F5", "video", "Video",   0,         false, "F6" },
-    { "audio",   "F5", "audio", "Audio",   0,         false, "F6" },
-    { "hotkeys", "F7", "settings", "Hotkeys", "Hotkeys", true, 0 },        // T212 D1/D6: the app's settings stand on F7 (APP), not in the machine's F5
-    { "storage", "F7", "settings", "Storage", 0,      false, 0 },
-    { "menu",    "F7", "settings", "Menu",    0,      false, 0 },
+    { "video",   "F5", "video", "Video",   0,         false },
+    { "audio",   "F5", "audio", "Audio",   0,         false },
+    { "hotkeys", "F7", "settings", "Hotkeys", "Hotkeys", true },        // T212 D1/D6: the app's settings stand on F7 (APP), not in the machine's F5
+    { "storage", "F7", "settings", "Storage", 0,      false },
+    { "menu",    "F7", "settings", "Menu",    0,      false },
 };
 
 const MenuGroupRoute *menu_route_of(const Setting &s)
@@ -152,7 +222,10 @@ const MenuGroupRoute *menu_route_of(const Setting &s)
     if (!s.apply) {
         return 0;
     }
-    if (!strcmp(s.apply, PICTURE_OP) || !strcmp(s.apply, SCALE_OP) || !strcmp(s.apply, SMOOTH_OP) || !strcmp(s.apply, FOLLOW_OP)) {
+    // the application's own Picture, Scale, Smoothing and Frame follow items, matched by op and key: this branch routes them into the Video tab.
+    // desc_check refuses a core setting that uses either the key or the op (tests only); on the board this match is the guard
+    if ((!strcmp(s.apply, PICTURE_OP) && !strcasecmp(s.key, PICTURE_KEY)) || (!strcmp(s.apply, SCALE_OP) && !strcasecmp(s.key, SCALE_KEY)) ||
+        (!strcmp(s.apply, SMOOTH_OP) && !strcasecmp(s.key, SMOOTH_KEY)) || (!strcmp(s.apply, FOLLOW_OP) && !strcasecmp(s.key, FOLLOW_KEY))) {
         g = "video";
     } else if (volume_is_generic(s) || tone_is_generic(s)) {
         g = "audio";
@@ -176,23 +249,20 @@ const MenuGroupRoute *menu_route_of(const Setting &s)
 static const SkelTab *route_tab(const Skeleton *sk, const MenuGroupRoute *r)
 {
     const SkelTab *fb = 0;
-    for (int pass = 0; pass < 2; pass++) {                           // the route's area first, then (a description with a Settings area of its own) the alternative one, by the tab id
-        const char *key = pass ? r->alt_area : r->area;
-        for (int a = 0; key && a < sk->nareas; a++) {
-            if (strcmp(sk->areas[a].key, key)) {
+    for (int a = 0; a < sk->nareas; a++) {
+        if (strcmp(sk->areas[a].key, r->area)) {
+            continue;
+        }
+        for (int i = 0; i < sk->areas[a].ntabs; i++) {
+            const SkelTab &tb = sk->areas[a].tabs[i];
+            if (tb.widget != TW_SETTINGS) {
                 continue;
             }
-            for (int i = 0; i < sk->areas[a].ntabs; i++) {
-                const SkelTab &tb = sk->areas[a].tabs[i];
-                if (tb.widget != TW_SETTINGS) {
-                    continue;
-                }
-                if (tb.id && !strcmp(tb.id, r->tab)) {
-                    return &tb;
-                }
-                if (!pass && tb.id && !strcmp(tb.id, "settings")) {
-                    fb = &tb;
-                }
+            if (tb.id && !strcmp(tb.id, r->tab)) {
+                return &tb;
+            }
+            if (tb.id && !strcmp(tb.id, "settings")) {
+                fb = &tb;
             }
         }
     }
@@ -231,7 +301,7 @@ bool menu_slot_is_drive(const MediaSlot &m)
     return m.eject_op || m.mount || m.empty_tasks || m.mounted_tasks;
 }
 
-void menu_build(const CoreDesc *d, MenuTree *t, bool return_host, bool reload_core, const MenuMerge *mm)
+void menu_build(const CoreDesc *d, MenuTree *t, bool return_host, bool reload_core, const MenuMerge *mm, MenuVisFn vis, void *vis_user)
 {
     memset(t, 0, sizeof(*t));
     const Skeleton *sk = mm && mm->skel ? mm->skel : contrib_default_skeleton();
@@ -245,22 +315,119 @@ void menu_build(const CoreDesc *d, MenuTree *t, bool return_host, bool reload_co
                 continue;
             }
             tb->id = st.id;
-            tb->layout = st.layout;
+            tb->layout = st.layout && st.layout[0] != ';' ? st.layout : 0;      // a layout with no name only carries attributes (`sections`): the tab is a list
             if (st.n) {
                 tb->n = st.n;
             }
             // `nodes_first` (a tab's ui): what the description puts into the tab stands above the widget's own rows (a page of actions with its settings below)
             const char *lay = st.layout ? strchr(st.layout, ';') : 0;
-            bool nodes_first = lay && ui_attr(lay + 1, "nodes_first");
-            auto add_nodes = [&]() {
-                for (int k = 0; mm && k < mm->nnodes; k++) {
-                    const MergedNode &m = mm->nodes[k];
-                    if (strcmp(m.area, sa.key) || strcmp(m.tab, st.id) || t->nnodes >= MENU_NODES_MAX) {
-                        continue;
+            // T228 R1 (`page`, a tab's ui): a screen a row opens (menu.screen) is a page of the tab it names, an earlier one of this area: no number, no place
+            // on the strip, and leaving it returns there (the Timewarp and Monitor screens of Home)
+            char page_of[32];
+            if (lay && ui_attr(lay + 1, "page", page_of, sizeof(page_of))) {
+                for (int b = 0; b < a->ntabs; b++) {
+                    if (a->tabs[b].id && !strcmp(a->tabs[b].id, page_of)) {
+                        tb->page = true;
+                        tb->parent = (int8_t)b;
+                        tb->n = 0;
                     }
+                }
+            }
+            bool nodes_first = lay && ui_attr(lay + 1, "nodes_first");
+            // `sections` (a tab's ui, T228 D13/D14/D16/DC6): a settings tab that lists several groups draws each one under a heading made from the group's id
+            const bool sections = lay && ui_attr(lay + 1, "sections");
+            const char *tab_title = st.name ? st.name : a->name;
+            // T228 D18, R6: the pages of the tab (`pages`, TabPages); the k-th row that opens one is entry -(k+1), its page the k-th page tab after this one
+            char pages_attr[256];
+            pages_attr[0] = 0;
+            if (lay && (st.widget == TW_SYSTEM || (st.widget == TW_SETTINGS && sections))) {     // a plain list shows the groups as they are
+                ui_attr(lay + 1, "pages", pages_attr, sizeof(pages_attr));
+            }
+            const TabPages pages(pages_attr);
+            int npg = 0;
+            int pg_of[MENU_SECTIONS_MAX];                                // the k-th page row: its index in `pages`
+            const char *pg_name[MENU_SECTIONS_MAX];
+            auto node_here = [&](const MergedNode &m) { return !strcmp(m.area, sa.key) && !strcmp(m.tab, st.id); };
+            auto node_in = [&](const MergedNode &m, const char *g, size_t gl) { return node_here(m) && m.n.group && strlen(m.n.group) == gl && !strncmp(m.n.group, g, gl); };
+            auto add_node = [&](const MergedNode &m) {
+                if (t->nnodes < MENU_NODES_MAX) {
                     t->nodes[t->nnodes] = m.n;
                     add(t, EK_NODE, m.label, t->nnodes);
                     t->nnodes++;
+                }
+            };
+            // want: 0 every node of the tab, 1 those that are not state lines, 2 the state lines (T228: the System tab's Status block takes the description's state lines);
+            // a node anchored to a group a page holds stands on that page
+            auto add_nodes = [&](int want = 0) {
+                for (int k = 0; mm && k < mm->nnodes; k++) {
+                    const MergedNode &m = mm->nodes[k];
+                    if (!node_here(m) || (m.n.group && pages.of(m.n.group, strlen(m.n.group)) >= 0)) {
+                        continue;
+                    }
+                    if (st.widget == TW_SYSTEM && node_in(m, "actions", 7)) {   // gate fix 2: the System tab's own Actions heading takes these (below)
+                        continue;
+                    }
+                    if ((want == 1 && m.n.kind == LN_STATE) || (want == 2 && m.n.kind != LN_STATE)) {
+                        continue;
+                    }
+                    if (m.n.kind == LN_GROUP && !tb->layout) {                // a group node names the rows after it: in a flat list a heading, as a screen draws it (IK_HEADING)
+                        add(t, EK_HEADING, m.label, 0);
+                        continue;
+                    }
+                    add_node(m);
+                }
+            };
+            // a setting of this tab in the group g (gl characters): not one the route places in a tab of its own
+            auto setting_in = [&](int i, const char *g, size_t gl) {
+                const MenuGroupRoute *r = menu_route_of(d->settings[i]);
+                const char *sg = setting_group(d, mm, i);
+                return !(r && route_tab(sk, r)) && sg && strlen(sg) == gl && !strncmp(sg, g, gl) && group_in_tab(sk, TW_SETTINGS, st, sg);
+            };
+            // Does the group have a row to show? With `vis` a setting whose show_state does not hold now is not one. A group that has settings is made or not by them
+            // alone (its state lines and nodes only stand on a page that is there); a group of nodes only by its nodes, minus those whose `hide` holds.
+            auto group_has_rows = [&](const char *g, size_t gl) {
+                bool own = false;
+                for (int i = 0; i < d->nsettings; i++) {
+                    if (setting_in(i, g, gl)) {
+                        own = true;
+                        if (!(vis && d->settings[i].show_state && !vis(vis_user, d->settings[i].show_state))) {
+                            return true;
+                        }
+                    }
+                }
+                for (int k = 0; !own && mm && k < mm->nnodes; k++) {
+                    char hs[64];
+                    const bool off = vis && mm->nodes[k].n.attr && ui_attr(mm->nodes[k].n.attr, "hide", hs, sizeof(hs)) && hs[0] == '@' && vis(vis_user, hs + 1);
+                    if (node_in(mm->nodes[k], g, gl) && !off) {
+                        return true;
+                    }
+                }
+                return false;
+            };
+            // the rows that open the pages, in the order `pages` names them; a page with no row of its own has none. `pages_head` (a tab's ui) is a heading above them
+            auto add_page_rows = [&]() {
+                char head[32];
+                bool head_done = !(lay && ui_attr(lay + 1, "pages_head", head, sizeof(head)) && head[0]);
+                for (int k = 0; k < pages.n && npg < MENU_SECTIONS_MAX; k++) {
+                    bool any = false;
+                    each_word(pages.groups[k], pages.groups_l[k], '+', [&](const char *g, size_t gl) { any = any || group_has_rows(g, gl); });
+                    if (!any) {
+                        continue;
+                    }
+                    if (!head_done) {
+                        head_done = true;
+                        const char *h = menu_heading_text(t, head, strlen(head));
+                        if (h) {
+                            add(t, EK_HEADING, h, 0);
+                        }
+                    }
+                    const char *h = menu_heading_text(t, pages.name[k], pages.name_l[k]);
+                    if (h) {
+                        pg_of[npg] = k;
+                        pg_name[npg] = h;
+                        add(t, EK_OPENS, h, -(npg + 1));
+                        npg++;
+                    }
                 }
             };
             if (nodes_first) {
@@ -360,6 +527,74 @@ void menu_build(const CoreDesc *d, MenuTree *t, bool return_host, bool reload_co
                         add(t, EK_SETTING, d->settings[i].label ? d->settings[i].label : d->settings[i].key, i);
                     }
                 };
+                // T228 D13/D14/D16: a tab with `sections` that lists several groups of the description's own (not "app") shows each group's block under a heading made
+                // from the group's id ("Picture", "SID_sockets" -> "SID sockets"; not drawn when it repeats the tab's title, DC6), in the order the tab lists them;
+                // the routed rows (Picture, Scale, Volume) follow the first block, in the APP tab the routed blocks come after all of them
+                int sec_n = 0;
+                const char *sec_g[MENU_SECTIONS_MAX];
+                size_t sec_l[MENU_SECTIONS_MAX];
+                for (const char *p = sections ? st.groups : 0; p && *p;) {
+                    const char *e = strchr(p, ',');
+                    size_t n = e ? (size_t)(e - p) : strlen(p);
+                    if (!(n == 3 && !strncmp(p, "app", 3))) {
+                        if (sec_n >= MENU_SECTIONS_MAX) {
+                            printf("[menu] tab %s lists more than %d groups: the rest are not drawn\n", st.id ? st.id : "?", MENU_SECTIONS_MAX);
+                            break;
+                        }
+                        sec_g[sec_n] = p;
+                        sec_l[sec_n++] = n;
+                    }
+                    p = e ? e + 1 : p + n;
+                }
+                if (sec_n > 1 || (app_tab && sec_n >= 1)) {
+                    auto in_section = [&](const char *sg) {
+                        for (int k = 0; sg && k < sec_n; k++) {
+                            if (strlen(sg) == sec_l[k] && !strncmp(sg, sec_g[k], sec_l[k])) {
+                                return true;
+                            }
+                        }
+                        return false;
+                    };
+                    for (int g = 0; g < sec_n; g++) {
+                        bool head_done = false;
+                        if (pages.of(sec_g[g], sec_l[g]) >= 0) {
+                            continue;
+                        }
+                        for (int i = 0; i < d->nsettings; i++) {
+                            const MenuGroupRoute *rt = routed_here(i);
+                            // a routed row that names one of the tab's groups stands in it, unless it opens a page (its EK_OPENS row is made below)
+                            const char *sg = (machine_here(i) || (!heads && rt && !rt->page)) ? setting_group(d, mm, i) : 0;
+                            if (!sg || strlen(sg) != sec_l[g] || strncmp(sg, sec_g[g], sec_l[g])) {
+                                continue;
+                            }
+                            if (!head_done) {
+                                head_done = true;
+                                const char *h = menu_heading_text(t, sec_g[g], sec_l[g]);
+                                if (h && strcasecmp(h, tab_title ? tab_title : "")) {
+                                    add(t, EK_HEADING, h, 0);
+                                } else if (h) {
+                                    t->nheads--;                         // DC6: the heading repeats the tab's title
+                                }
+                            }
+                            add(t, EK_SETTING, d->settings[i].label ? d->settings[i].label : d->settings[i].key, i);
+                        }
+                        if (g == 0 && !heads) {
+                            for (int i = 0; i < d->nsettings; i++) {
+                                const MenuGroupRoute *rt = routed_here(i);
+                                if (!machine_here(i) && rt && (rt->page || !in_section(setting_group(d, mm, i)))) {
+                                    add_routed(i, rt);
+                                }
+                            }
+                        }
+                    }
+                    add_page_rows();                                         // T228 D18: the rows that open the pages stand after the sections
+                    for (int i = 0; i < d->nsettings; i++) {                 // a row of group "app" in a tab that lists other groups too has no block: it stands last, under none
+                        const char *sg = setting_group(d, mm, i);
+                        if (machine_here(i) && sg && !strcmp(sg, "app")) {
+                            add(t, EK_SETTING, d->settings[i].label ? d->settings[i].label : d->settings[i].key, i);
+                        }
+                    }
+                } else {
                 if (heads && nmachine > 0) {
                     add(t, EK_HEADING, "Machine", 0);
                 }
@@ -369,6 +604,7 @@ void menu_build(const CoreDesc *d, MenuTree *t, bool return_host, bool reload_co
                     } else if (!heads && routed_here(i)) {
                         add_routed(i, routed_here(i));
                     }
+                }
                 }
                 if (heads) {                                                 // one block per route group (Storage, Menu), each under its heading
                     for (int g = 0; g < (int)(sizeof(g_routes) / sizeof(g_routes[0])); g++) {
@@ -402,7 +638,7 @@ void menu_build(const CoreDesc *d, MenuTree *t, bool return_host, bool reload_co
                     }
                 }
                 if (page_route) {
-                    if (heads) {
+                    if (heads) {                                                // T212 D12: the page's own section, T216 D12: after the task rows
                         add(t, EK_HEADING, page_route->heading, 0);           // T212 D12: the page's own section, T216 D12: after the task rows
                     }
                     add(t, EK_OPENS, page_route->label, opens_index);
@@ -424,12 +660,19 @@ void menu_build(const CoreDesc *d, MenuTree *t, bool return_host, bool reload_co
                 if (return_host) {
                     add(t, EK_RETURN_HOST, "Return to host menu", 0);
                 }
+                for (int k = 0; mm && k < mm->nnodes; k++) {                 // gate fix 2: a node anchored to <area>/<tab>/actions stands under Actions, after the generic rows
+                    if (node_in(mm->nodes[k], "actions", 7)) {
+                        add_node(mm->nodes[k]);
+                    }
+                }
                 add(t, EK_HEADING, "Network", 0);
                 add(t, EK_WIFI, "WiFi", 0);
+                add_page_rows();                                             // T228 R6: the core's network settings, streams and hosts, one page each
                 add(t, EK_HEADING, "Support", 0);
                 add(t, EK_BUG_REPORT, "Bug report", 0);
+                add(t, EK_KEYS_HELP, "Keys and help", 0);                 // T228 D12
                 if (!nodes_first) {
-                    add_nodes();
+                    add_nodes(1);
                     nodes_done = true;
                 }
                 add(t, EK_HEADING, "Reset", 0);
@@ -439,6 +682,9 @@ void menu_build(const CoreDesc *d, MenuTree *t, bool return_host, bool reload_co
                 add(t, EK_INFO, "Build", 1);
                 add(t, EK_INFO, "ROMs", 4);
                 add(t, EK_INFO, "Libraries", 5);
+                if (!nodes_first) {                                      // with `nodes_first` every node of the tab stands on top already
+                    add_nodes(2);
+                }
                 break;
             default:
                 break;
@@ -462,6 +708,44 @@ void menu_build(const CoreDesc *d, MenuTree *t, bool return_host, bool reload_co
                     }
                     tab_end(t, a, pg);
                     pg->count = 0;                                       // the rows are reserved, not listed: MenuCtl::open_drive sets the count
+                }
+            }
+            if (npg > 0 && tb->count > 0) {                              // T228 D18, R6: the pages: a tab with no number, back to this tab
+                int parent = a->ntabs - 1;
+                for (int k = 0; k < npg; k++) {
+                    MenuTab *pg = tab_begin(t, a, pg_name[k]);
+                    if (!pg) {
+                        break;
+                    }
+                    pg->id = pg_name[k];
+                    pg->n = 0;
+                    pg->page = true;
+                    pg->parent = (int8_t)parent;
+                    const int p = pg_of[k];
+                    const bool several = memchr(pages.groups[p], '+', pages.groups_l[p]) != 0;
+                    // each group of the page: its heading (a page of several groups; not drawn when it repeats the page's title), its settings, the nodes anchored to it
+                    each_word(pages.groups[p], pages.groups_l[p], '+', [&](const char *g, size_t gl) {
+                        if (!group_has_rows(g, gl)) {
+                            return;
+                        }
+                        const char *h = several ? menu_heading_text(t, g, gl) : 0;
+                        if (h && strcasecmp(h, pg_name[k])) {
+                            add(t, EK_HEADING, h, 0);
+                        } else if (h) {
+                            t->nheads--;
+                        }
+                        for (int i = 0; i < d->nsettings; i++) {
+                            if (setting_in(i, g, gl)) {
+                                add(t, EK_SETTING, d->settings[i].label ? d->settings[i].label : d->settings[i].key, i);
+                            }
+                        }
+                        for (int n = 0; mm && n < mm->nnodes; n++) {
+                            if (node_in(mm->nodes[n], g, gl)) {
+                                add_node(mm->nodes[n]);
+                            }
+                        }
+                    });
+                    tab_end(t, a, pg);
                 }
             }
             if (page_route && tb->count > 0) {                           // the page the row opens: a tab with no number and no place on the strip, back to this tab
@@ -524,7 +808,7 @@ int menu_tab_of_number(const MenuTree *t, int area, int n)
 // ---- the fixed entries as data -------------------------------------------------------------------------------------------------------------------
 static const FixedDef g_fixed[] = {
     // kind, variant, op, pre_op, value_state, value_none, value_suffix, sub_state, ok_text, fail_text, closes
-    { EK_RESET_HOST, 0, "settings.reset_to_host", 0, 0, 0, 0, 0, 0, 0, false },
+    { EK_RESET_HOST, 0, "settings.reset_to_host", 0, 0, 0, 0, 0, 0, 0, false, "Reset every setting to the host's defaults?" },
     // a cold boot of the core without the host: on a DFX core its partial bitstream loaded again, then every ROM scanned and put, the RAM cleared, every setting written, released
     { EK_RESTART_CORE, 0, "machine.restart", 0, 0, 0, 0, 0, "Core restarted: ROMs loaded again", "The core did not restart", true },
     { EK_RESTART_CORE, 1, "machine.restart", 0, 0, 0, 0, 0, "Core reloaded: bitstream and ROMs loaded again", "The core did not reload", true },
@@ -546,9 +830,28 @@ const FixedDef *menu_fixed(EntryKind kind, int variant)
     return 0;
 }
 
-void menu_build_for(const CoreCtx *c, MenuTree *t)
+void menu_build_for(const CoreCtx *c, MenuTree *t, MenuVisFn vis, void *vis_user)
 {
-    menu_build(c->desc, t, !c->board || c->board->can_return_host, reload_is_dfx(c), c->merge);
+    menu_build(c->desc, t, !c->board || c->board->can_return_host, reload_is_dfx(c), c->merge, vis, vis_user);
+}
+
+void menu_drop_entry(MenuTree *t, int area, int tab, int i)
+{
+    MenuTab &tb = t->a[area].tabs[tab];
+    const int at = tb.first + i;
+    if (i < 0 || i >= tb.count || at >= t->n) {
+        return;
+    }
+    memmove(&t->e[at], &t->e[at + 1], (size_t)(t->n - at - 1) * sizeof(t->e[0]));
+    t->n--;
+    tb.count--;
+    for (int a = 0; a < t->nareas; a++) {                               // the tabs behind it (and a page's reserved rows) move up with their entries
+        for (int b = 0; b < t->a[a].ntabs; b++) {
+            if (t->a[a].tabs[b].first > at) {
+                t->a[a].tabs[b].first--;
+            }
+        }
+    }
 }
 
 static const char *kind_name(EntryKind k)
@@ -569,6 +872,7 @@ static const char *kind_name(EntryKind k)
     case EK_NODE: return "node";
     case EK_HEADING: return "heading";
     case EK_OPENS: return "opens";
+    case EK_KEYS_HELP: return "fixed";
     }
     return "?";
 }

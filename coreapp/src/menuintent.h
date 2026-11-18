@@ -65,6 +65,7 @@ enum MenuIntentId {
     MI_APP_TERMKEY,     // a key of an application's terminal goes to the operation the tab names
     MI_BUSY_CANCEL,     // ESC while a job runs
     MI_RAW,             // the stage's raw handler takes the key (text field, picker, address prompt): not in the table
+    MI_CTRL,            // T228 R21: C= + letter (arg) runs the node whose ui `ctrl` is that letter; Z is the fixed Restart core; declines where there is none
     MI_COUNT
 };
 
@@ -102,6 +103,8 @@ int menu_intent_by_name(const char *name);
 bool menu_stage_swallows(int stage);                  // a live stage in which no row took the key ends the walk: nothing happens
 // The key of the first row with this intent and argument (an area by its number, a tab by its digit), -1 when none: a remote intent by name needs it.
 int menu_keymap_key_of(int intent, int arg);
+// T228 R21, FW UserInterface::keymapper (userinterface.cc:1081-1093): the navigation style WASD Cursors - w, a, s, d are Up, Left, Down, Right; any other key stays.
+int menu_keymap_wasd(int k);
 
 // One translated key: what a producer sends. `stage`/`row` say where the table walk stands; a row that declines continues from the next one.
 struct MenuIntent {

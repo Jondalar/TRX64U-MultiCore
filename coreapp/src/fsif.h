@@ -8,9 +8,11 @@
 #include <string.h>
 #include <strings.h>
 
-// T93 S14, D11 of T84: a core application never writes the flash. The board's CoreFs refuses every write, delete and read-write
-// open under /flash (any case, "/flash" itself or "/flash/..."), so a .cfg beside a .cor that lies in the flash stays in memory -
-// except the one file below.
+// T93 S14, D11 of T84: on the MultiCore host a core application never writes the flash. The board's CoreFs refuses every write, delete
+// and read-write open under /flash (any case, "/flash" itself or "/flash/..."), so a .cfg beside a .cor that lies in the flash stays in
+// memory - except the files below. T228 R21: on the monolith board profile the flash drive is writable as in TRX64-Ultimate's firmware
+// (its FLASH_ID_FLASHDRIVE window, vendor blockdev_flash.cc, is the only part of the chip the block device can reach); the startup sets
+// fs_flash_rw() from the board profile and fs_write_refused then lets /flash through.
 static inline bool fs_path_is_flash(const char *path)
 {
     return !strncasecmp(path, "/flash", 6) && (path[6] == 0 || path[6] == '/');
@@ -31,10 +33,17 @@ static inline bool fs_flash_exception(const char *path)
     return !strcasecmp(path, FS_FLASH_CFG_PATH) || !strcasecmp(path, FS_FLASH_BOOT_MONOLITH) || !strcasecmp(path, FS_FLASH_BOOT_MULTICORE);
 }
 
+// One flag for the whole app (a function-local static of an extern inline function is one object across translation units).
+inline bool &fs_flash_rw()
+{
+    static bool v = false;
+    return v;
+}
+
 // What the board's CoreFs asks before every write, delete and read-write open.
 static inline bool fs_write_refused(const char *path)
 {
-    return fs_path_is_flash(path) && !fs_flash_exception(path);
+    return fs_path_is_flash(path) && !fs_flash_rw() && !fs_flash_exception(path);
 }
 
 // T104.1 D16: sizes and offsets are 64 bit, an image on an exFAT stick can be 4 GiB and more (an Amiga HDF). Code that keeps a size in 32 bit
@@ -169,6 +178,9 @@ public:
     virtual bool free_bytes(const char *path, uint64_t *out) { (void)path; (void)out; return false; }
     // The media level of the Library (T104.2, as the host's File Browser): what the medium `name` (an entry of "/") is. False when the board cannot tell (a name that is no medium).
     virtual bool medium_info(const char *name, MediumInfo *out) { (void)name; (void)out; return false; }
+    // T228 R21 (FW user_file_interaction.cc:45-55, 87-93; file_system.cc:5-17): may a file or folder at `path`, or a new one in it, be written, moved, renamed or deleted?
+    // The menu offers Move, Cut, Rename, Delete, New folder and Paste only where this says yes. The default: yes (a medium that has no read-only places).
+    virtual bool writable(const char *path) { (void)path; return true; }
     // A new empty directory; false when it exists already as a file or cannot be made. An existing directory is success.
     virtual bool mkdir(const char *path) { (void)path; return false; }
     // Moves a file or directory; the target must not exist (FatFs f_rename).

@@ -4,7 +4,7 @@
 # Every scenario is a control script of ue2emu (docs/specs/S08) with an expectation that makes the script fail; every scenario also runs
 # once with a WRONG expectation and must fail (the negative control: an expectation that cannot fail proves nothing).
 #
-#   tests/coreapp/emu/run.sh [coreapp.app]
+#   tests/coreapp/emu/run.sh [coreapp_trx64u.app]   (T228 R25: the C64 is only in its own image)
 #
 # The emulator is ci/ue2emu.sh (T174 D2.8): the local macOS binary when there is one, else the Linux image UE2EMU_IMAGE (ci/lib.sh) through docker with the
 # sources, the work dir and the ROMs mounted; UE2EMU=<path> replaces it. No ROM is in the repository: C64_ROMS names a directory (kernal.901227-03.bin,
@@ -20,7 +20,7 @@ if [ -z "${C64_ROMS:-}" ]; then
 fi
 [ -f "$C64_ROMS/1541.bin" ] || { echo "coreapp_emu SKIPPED out loud: no ROMs ($C64_ROMS/1541.bin), see tools/ue2emu_kit.sh" >&2; exit 77; }
 "$UE2EMU" run --help >/dev/null 2>&1 || { echo "coreapp_emu SKIPPED out loud: no emulator ($UE2EMU)" >&2; exit 77; }
-APP="${1:-$ROOT/host-app/target/u64ii/riscv/coreapp/result/coreapp.app}"
+APP="${1:-$ROOT/host-app/target/u64ii/riscv/coreapp/result/coreapp_trx64u.app}"
 [ -f "$APP" ] || { echo "coreapp_emu SKIPPED out loud: no coreapp.app ($APP)" >&2; exit 77; }
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 STICK="$W/stick"; mkdir -p "$STICK"
@@ -30,7 +30,7 @@ emu() {   # emu NAME EXPECT_FAIL(0|1) -- script on stdin; flash image kept when 
     local name=$1 want=$2
     cat > "$W/$name.txt"
     [ -n "${KEEP:-}" ] || rm -f "$W/flash.bin"
-    (cd "$W" && nice -n 15 timeout 170 "$UE2EMU" run --board c64u --caps 25E40202 --trx-io on --headless --speed max --firmware "$APP" \
+    (cd "$W" && nice -n 15 timeout 170 "$UE2EMU" run --board c64u --caps 25E40202 --trx-io on ${EMU_EXTRA:-} --headless --speed max --firmware "$APP" \
         --roms "$C64_ROMS" --flash "$W/flash.bin" --c64-roms "$C64_ROMS" --usb-dir "$STICK" --usb-dir-work "$W/usbwork" \
         --script "$W/$name.txt" --max-seconds 150 > "$W/$name.log" 2>&1)
     local rc=$?
@@ -44,8 +44,8 @@ BOOT='expect-console "released" 60000
 wait 2000'
 OPEN='rocker up
 wait 1000'
-# into /USB0 (the stick: ../ roms/ big.prg low.prg t1042.d64 test.prg), then N downs and Return
-browse() { printf 'key f3\nwait 800\nkey down\nkey down\nkey return\nwait 1200\n'; for ((i=0;i<$1;i++)); do echo key down; done; echo key return; echo wait 1000; }
+# into /USB0 (the media list: SD, Flash, Temp - the RAM disk of T228 R21 - then USB0; the stick: ../ roms/ big.prg low.prg t1042.d64 test.prg), then N downs and Return
+browse() { printf 'key f3\nwait 800\nkey down\nkey down\nkey down\nkey return\nwait 1200\n'; for ((i=0;i<$1;i++)); do echo key down; done; echo key return; echo wait 1000; }
 
 [ "${ONLY:-}" = crt ] || {   # ONLY=crt runs just the "Run Cartridge" scenarios at the end
 # S1, S2, S3, S6, S7 (boot): board profile, descriptor, ROMs from /flash/roms, released, READY on the C64's own picture
@@ -169,9 +169,9 @@ E2
 done
 if grep -q '^\.;100b' "$W/low0.log" && grep -q '^>R:2000  42' "$W/low0.log"; then echo "PASS low.prg: PC=\$100B, \$2000=\$42"; else echo "FAIL low.prg: not at \$100B"; grep -E '^\.;|^>R' "$W/low0.log"; FAIL=1; fi
 
-# S10 reset: Actions (F7, Quick tab) > Reset asks "Reset the machine?" (RETURN confirms) and brings READY back while a program runs
+# S10 reset: Home (F1), its first row Reset asks "Reset the machine?" (RETURN confirms) and brings READY back while a program runs
 for want in 0 1; do
-  txt='READY.'; [ $want = 1 ] && txt='T9999 NO'
+  txt='BASIC BYTES FREE'; [ $want = 1 ] && txt='T9999 NO'
   emu "reset$want" $want <<E2
 $BOOT
 $OPEN
@@ -182,7 +182,7 @@ key runstop
 wait 3000
 rocker up
 wait 1000
-key f7
+key f1
 wait 500
 key return
 wait 800
@@ -197,9 +197,9 @@ done
 emu set0 0 <<E2
 $BOOT
 $OPEN
-key f6
+key f5
 wait 500
-key 1
+key 2
 wait 800
 key return
 wait 800
@@ -213,7 +213,22 @@ expect-console "settings C64 Settings: /flash/trx64u/c64.cfg" 60000
 quit
 E2
 
-# T104.2 D10: the drive settings are on F5 tab 1 (Drive A), the first row is "Drive": one RETURN switches it off and the file says so; the control expects the default
+# T228 DC13: the same start under the MultiCore host (--icap: the ICAP loader answers; there is no hand-over, so the core stays held, and the profile says where its settings
+# would live): the parameter flash_cfg is off, so the file path is empty (settings in memory only) and the flash image gets no cfg (D11). The control expects the flash path
+# in the console and must fail. A running core under that host always has a .cor and its cfg lies in the core folder; that part is test_board's (start_paths).
+for want in 0 1; do
+  txt='(no .cfg path, in memory only)'; [ $want = 1 ] && txt='/flash/trx64u/c64.cfg'
+  EMU_EXTRA=--icap emu "setmc$want" $want <<E2
+expect-console "board: multicore" 60000
+expect-console "settings C64 Settings: $txt" 60000
+quit
+E2
+  if [ $want = 0 ]; then
+    if grep -aq 'c64.cfg' "$W/flash.bin" 2>/dev/null; then echo "FAIL settings (MultiCore): the flash image holds a cfg"; FAIL=1; else echo "PASS settings (MultiCore): settings in memory only, no cfg in the flash image"; fi
+  fi
+done
+
+# T104.2 D10 / T228: the drive settings are in F5 tab 1 (Machine), section Drive A; the row "Drive enable" is the fifth selectable row (headings are skipped): one RETURN switches it off and the file says so; the control expects the default
 emu drivemenu0 0 <<E2
 $BOOT
 $OPEN
@@ -221,11 +236,15 @@ key f5
 wait 500
 key 1
 wait 800
+key down
+key down
+key down
+key down
 key return
 wait 800
 quit
 E2
-if grep -aq '^Drive=Disabled' "$W/flash.bin"; then echo "PASS drive settings: Drive=Disabled after RETURN on F5 tab 1"; else echo "FAIL drive settings: no Drive=Disabled in the file"; FAIL=1; fi
+if grep -aq '^Drive=Disabled' "$W/flash.bin"; then echo "PASS drive settings: Drive=Disabled after RETURN on 'Drive enable' (F5 tab 1)"; else echo "FAIL drive settings: no Drive=Disabled in the file"; FAIL=1; fi
 if grep -aq '^Drive=Enabled' "$W/flash.bin"; then echo "FAIL control drive settings: the default is in the file"; FAIL=1; else echo "  control drive settings: the default is not in the file, as it must"; fi
 
 # D9.1 cbm1541: the 1541 ROM is chosen from the stick (a stick is not up at the ROM scan, see spec 5), a .d64 is mounted, the drive answers
@@ -237,6 +256,7 @@ $BOOT
 $OPEN
 key f3
 wait 800
+key down
 key down
 key down
 key return

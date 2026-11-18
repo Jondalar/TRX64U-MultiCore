@@ -255,12 +255,13 @@ int main()
         CHECK_EQ((int)r.io.getbits(r.io.ff, C64Model::B_CTRL + 12, 1), 0);
         CHECK_EQ(r.io.cpu_loads, 1);
         int diff = 0;
-        for (size_t i = 0; i < body.size(); i++) diff += r.io.ram[i] != body[i];
+        for (size_t i = 0; i < body.size(); i++) diff += i != 0xBA && r.io.ram[i] != body[i];
         CHECK_EQ(diff, 0);
+        CHECK_EQ(r.io.ram[0xBA], 8);                                 // T228 R21: "DMA Load Mimics ID" (default 8) goes into $BA after the load (FW c64_subsys.cc:1070)
         CHECK_EQ(r.io.ddr, 0x2F);                                    // $00/$01 went into the RAM under the port, not into the port
         CHECK_EQ(r.io.port, 0x37);
         CHECK_EQ(r.io.writes_while_stopped, 0);                      // the app's C64_STOP was never used ...
-        CHECK_EQ(r.io.writes_while_debug_stop, (int)body.size());    // ... the debugger held the machine while the file went in
+        CHECK_EQ(r.io.writes_while_debug_stop, (int)body.size() + 1);   // ... the debugger held the machine while the file and the device number in $BA went in
         CHECK_EQ(r.io.bus_cycles, 0);
         CHECK(!r.io.memonly);
         CHECK(r.io.cpu_a == 0x11 && r.io.cpu_x == 0x22 && r.io.cpu_y == 0x33 && r.io.cpu_s == 0xF5);   // A X Y S stay

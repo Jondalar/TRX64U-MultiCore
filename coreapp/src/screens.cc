@@ -762,9 +762,19 @@ static void build_library(lv_obj_t *c, MenuCtl &m, int sel)
     char p[200], items[24];
     if (m.in_search_tab()) {                                       // a field, not a path: what is looked for, and how many were found
         trx_box(card, t.space_sm, 2, lw - 2 * t.space_sm, 22, t.surface2, 1, t.accent);
-        snprintf(p, sizeof(p), "Name contains:  %s", m.search_active() ? m.search_query() : "press RETURN to type");
-        trx_txt(card, t.space_md, 5, p, t.caption, m.search_active() ? t.ink : t.muted, lw - 200);
         snprintf(items, sizeof(items), m.search_active() ? "%d found" : "", m.rows());
+        // one line in the field, beside the counter (a label with a width wraps): what does not fit is cut, the end of a typed text stays in sight; the idle
+        // hint gives way first, the status line under the list says how to type
+        const int room = lw - 2 * t.space_md - t.space_sm - (items[0] ? trx_text_w(items, t.caption) + t.space_md : 0);
+        const char *q = m.search_active() ? m.search_query() : "press RETURN to type";
+        snprintf(p, sizeof(p), "Name contains:  %s", q);
+        if (trx_text_w(p, t.caption) > room && !m.search_active()) {
+            snprintf(p, sizeof(p), "Name contains:");
+        }
+        while (m.search_active() && trx_text_w(p, t.caption) > room && *q) {
+            snprintf(p, sizeof(p), "Name contains:  ...%s", ++q);
+        }
+        trx_txt(card, t.space_md, 5, p, t.caption, m.search_active() ? t.ink : t.muted);
     } else {
         upper(p, sizeof(p), m.browse_path());
         trx_txt(card, t.space_md, t.space_sm, p, t.caption, t.muted, lw - 160);
@@ -804,7 +814,7 @@ static void build_library(lv_obj_t *c, MenuCtl &m, int sel)
         const int vw = r.value[0] ? trx_text_w(r.value, t.caption) + t.space_md : 0;
         const int fixed = (r.marked ? trx_text_w("* ", t.body) : 0) + trx_text_w(dirsl, t.body) + (r.badge[0] ? trx_text_w("  ", t.body) + trx_text_w(r.badge, t.body) : 0);
         const int tx = t.space_sm + 4 + t.space_md + t.space_sm;
-        snprintf(title, sizeof(title), "%s%s%s%s%s", r.marked ? "* " : "", trx_fit_mid(r.name, lw_row - tx - vw - fixed - 4, t.body, nm, sizeof(nm)), dirsl, r.badge[0] ? "  " : "", r.badge);
+        snprintf(title, sizeof(title), "%s%s%s%s%s", r.marked ? "* " : "", trx_fit_name(r.name, lw_row - tx - vw - fixed - 4, t.body, nm, sizeof(nm), ui_name_squeeze()), dirsl, r.badge[0] ? "  " : "", r.badge);
         TrxStatusRow row = { title, r.value[0] ? r.value : 0, (TrxTone)r.tone, w.first + k == sel, false };
         g_win[k] = trx_status_row(card, t.space_md, ry, lw - 2 * t.space_md, row, &ry);
     }

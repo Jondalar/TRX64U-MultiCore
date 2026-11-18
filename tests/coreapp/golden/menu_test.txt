@@ -20,6 +20,7 @@ area F8 System (shifted)
     fixed WiFi
     heading Support
     fixed Bug report
+    fixed Keys and help
     heading Reset
     fixed Reset to host defaults
     heading Status

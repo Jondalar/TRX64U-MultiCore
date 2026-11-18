@@ -150,7 +150,13 @@ int main()
         GwStatus s = GwStatus();
         s.present = true; s.version = 2; s.flags = GW_F_C64_TYPE | GW_F_RUNNING;
         CHECK(video_gw_has_scale(s));
-        s.version = 1;                                                              // the host's generic mode_req: no scale register
+        s.version = 1;                                                              // T228: TRX64-Ultimate's U16 mode_req (version 1, the flag, 0x4F01/0x4F0A)
+        CHECK(video_gw_has_scale(s));
+        CHECK(!video_gw_has_smooth(s));                                             // no smoothing register below version 3
+        CHECK_EQ(video_gw_row_for(s, VID_SYS_NTSC60, VID_HDMI_1024x768), 9);        // U16 holds the same seven rows: 800 x 600 at 60 Hz
+        CHECK_EQ(video_gw_row_for(s, VID_SYS_PAL50, VID_HDMI_800x600), 0);          // 576p
+        CHECK_EQ(video_gw_row_for(s, VID_SYS_PAL60, VID_HDMI_720P), 7);             // the 60 Hz family
+        s.flags = GW_F_RUNNING;                                                     // the host's generic mode_req (version 1, c64_type tied to 0): no scale register
         CHECK(!video_gw_has_scale(s));
         s.version = 2; s.flags = GW_F_RUNNING;                                      // version 2 without the flag
         CHECK(!video_gw_has_scale(s));
