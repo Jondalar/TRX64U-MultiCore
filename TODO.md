@@ -118,7 +118,7 @@ Built and benched; what is left is a step on the board (Alex, 2026-10-28, transl
 | T178 | 3 | 📅 | JTAG tools (trxdbg, load, jtag_stat, partial load) through an FT232H as well as the USB-Blaster | Decided (Alex 11-03): pin Chris's repo + PRs; tools + JTAG recovery kit; --cable or TOML; build open | [T178](docs/todo/T178.md) |
 | T179 | 3 | 📅 | A USB trace shows why a core on a USB stick is slow or missing at power-on | Spec decided (Alex 11-04, Q1-Q4); nothing built | [T179](docs/todo/T179.md) |
 | T180 | 3 | ✅ | Media housekeeping: a mount replaces what is mounted, mounts persist (F8), Recent/Favorites, file ops | Done 11-15 (Alex: in builds for weeks) | [T180](docs/todo/T180.md) |
-| T182 | 3 | 🔨 | C64 with SuperCPU (65816, SuperRAM) as its own core C64SCPU | CMD 1.4, JiffyDOS, S4 board done 11-18 (Alex: shipped = done); step 7 (REU, cart, Mount&Run) unbuilt | [T182](docs/todo/T182.md) |
+| T182 | 3 | 🔨 | C64 with SuperCPU (65816, SuperRAM) as its own core C64SCPU | CMD 1.4, JiffyDOS, S4 board done 11-18 (Alex: shipped = done); in release 0.2.0; step 7 (REU, cart, Mount&Run) unbuilt | [T182](docs/todo/T182.md) |
 | T181 | 3 | 🔨 | Hotkeys while a core runs (menu, volume, ...) without opening the menu | Board S1-S4 11-07; S5, K.5 done 11-18 (shipped = done); mixed press (modifier + USB key) not built | [T181](docs/todo/T181.md) |
 | T166 | 3 | 📅 | Tester checklists: a GitHub wiki page or discussion with tickable test lists per core | Reminder (Alex 10-31): with the next test release; nothing posted yet | [T166](docs/todo/T166.md) |
 | T167 | 3 | ✅ | UI: a changing progress bar or percentage in an overlay shows what lies behind it while redrawing | Done 11-15 (Alex: in builds for weeks) | [T167](docs/todo/T167.md) |

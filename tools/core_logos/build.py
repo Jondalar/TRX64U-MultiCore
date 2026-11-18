@@ -26,8 +26,9 @@ CBM_MARK_BLUE = "#4E6B88"
 CBM_MARK_RED = "#EF4B45"
 
 
-# T182 step 8: c64scpu is build-only until the 65816 runs (Alex 2026-11-05), but its .cor goes to the board in the Gitea package and the packer wants an icon.
-LOGO_WHILE_BUILD_ONLY = {"c64scpu"}
+# A build_only core whose .cor still goes to the board in the Gitea package needs an icon for the packer: list it here. c64scpu was one (T182 step 8,
+# 2026-11-05) until it left build_only on 2026-11-18; none is now.
+LOGO_WHILE_BUILD_ONLY: set[str] = set()
 
 
 def definitions() -> dict[str, str]:

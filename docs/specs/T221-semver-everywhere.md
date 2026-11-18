@@ -145,12 +145,16 @@ carries the commit is red). tools/release_mc.sh takes a tag package as it is (it
 trex_crt.u2a and softboot.u2a, which it asked for but did not download. v0.2.0 moved to this commit.
 The fourth tag run (2462, 554bbb67e) was green: 20 .cor with trx64u, the four apps, `trx64host_update_0.2.0.txu/.cfw/.ue2`. Its app
 images differ from the board-tested 892eec45 package only in the build time and the commit text (3 and 10 bytes). The bundle tools
-then needed three fixes, which run on the Mac and need no new tag: tools/release_mc.sh put the package's own c64scpu.cor (build_only:
-never in a release) into the bundle; tools/gen_roms_txt.py listed the build_only SuperCPU's ROMs under a made-up folder; INSTALL.md
+then needed fixes, which run on the Mac and need no new tag: tools/release_mc.sh now leaves the package's own .cor of a build_only
+core out too; tools/gen_roms_txt.py listed a build_only core's ROMs under a made-up folder; INSTALL.md
 (tools/release_notes_mc.py) said "for internal testers" and named commits, a release now names its tag. GitHub release 0.2.0 =
 `trx64mc-0.2.0` built by tools/release_mc.sh from package v0.2.0-554bbb67 with these fixes, GitHub tag `v0.2.0` (the tag name, as
-everywhere). After 0.2.0: the board package's ROMS.txt lists no build_only core now; its SuperCPU section belongs back under the
-folder of the RomSpec table (`c64scpu`, host-app/software/hostapp/romreq_table.inc), which tools/gen_roms_txt.py reads but drops.
+everywhere). The first upload left the SuperCPU core out (its `build_only = true` of 2026-11-05, "until the 65816 runs"); that flag
+was stale. Alex (2026-11-18, translated: "Where did the SuperCPU core go???!" - "yes please"): the core ships. build_only is out of
+cores/c64scpu/mono/core.toml (its flat build is built once more on the next push: the descriptor is part of its key), and the release
+got the tag package's c64scpu.cor (0.1.0), INSTALL.md, ROMS.txt (now with `cores/c64scpu/roms/`), SHA256SUMS and the zip again.
+tools/release_notes_mc.py gained the core's ROM line, paragraph and media line (without them INSTALL.md said "no ROM notes" for it;
+the review before the push found it); manual 11.20.2 said "no .prg action", the core has Load and Load + run since T217.
 
 ## §4 Out
 

@@ -118,7 +118,7 @@ echo "    host key $HOST_KEY, bitstream $BIT_COMMIT, app $APP_COMMIT"
 for b in "$PKG"/*_mono.bit; do
     [ -e "$b" ] || continue
     id=$(basename "$b" _mono.bit)
-    # build_only (c64scpu until its 65816 runs, Alex 2026-11-05): in the Gitea package for the board, never in a release
+    # build_only: a flat build the Gitea package carries for the board, never a release has it (no core since 2026-11-18; c64scpu was one)
     [ "$(python3 "$ROOT/tools/core_toml.py" get "$id" build_only)" = "true" ] && { echo "    $id is build_only: left out"; continue; }
     [ -s "$PKG/coreapp.bin" ] || { echo "FAIL $id: the package has no coreapp.bin for the large .cor" >&2; exit 1; }
     bash "$ROOT/tools/pack_large_cor.sh" --id "$id" --name "$(python3 "$ROOT/tools/core_toml.py" get "$id" name)" \
@@ -133,8 +133,7 @@ for c in "$PKG"/large/*.cor; do
     CORARGS+=(--cor "$c")
 done
 for c in "$PKG"/*.cor; do
-    # build_only (c64scpu, Alex 2026-11-05) holds for the package's own .cor too: the CI packs it for the board, a release never has it
-    # (the bundle of 0.2.0 had it, 2026-11-18)
+    # build_only holds for the package's own .cor too: the CI packs every flat build for the board, a release never has a build_only one
     [ "$(python3 "$ROOT/tools/core_toml.py" get "$(basename "$c" .cor)" build_only 2>/dev/null || true)" = "true" ] \
         && { echo "    $(basename "$c") is build_only: left out"; continue; }
     python3 "$ROOT/tools/cor_pack.py" check "$c" --host-key "$HOST_KEY" > /dev/null \

@@ -55,6 +55,12 @@ CORES = [
     dict(id="amiga1200", match=("amiga 1200",), title="Amiga 1200 (AGA, 68020)", folder="amiga",
          files="any `.rom` of 262,144 or 524,288 bytes (Kickstart); Auto takes 3.1", needed="one Kickstart (3.x for the hard disk)",
          sources="coreapp/cores/amiga.cc:34,223 (KS_VER_31, folder amiga); coreapp/src/romset.cc"),
+    dict(id="c64scpu", match=("supercpu",), title="C64 with SuperCPU", folder="c64scpu",
+         files="the SuperCPU ROM of 131,072, 65,536 or 262,144 bytes (`scpu64.rom`, `scpu.rom`, `supercpu.rom` or `scpu64-v2.04.rom`); "
+               "`basic-901226-01.bin` (8,192), `kernal-901227-03.bin` (8,192), `chargen-901225-01.bin` (4,096); optional: the 1541 ROM "
+               "(16,384 or 32,768), the 1581 ROM (32,768), the JiffyDOS 1541 and 1581 ROMs",
+         needed="the SuperCPU ROM, BASIC, KERNAL and the character ROM",
+         sources="host-app/software/hostapp/romreq_table.inc:46-53 (the core's RomSpec rows)"),
     dict(id="c128", match=("commodore 128",), title="Commodore 128", folder="c128",
          files="one system ROM image of 73,728 bytes: `boot0.rom`, `c128.rom`, `c128-system.rom` or `c128_system.rom`",
          needed="the system ROM image",
@@ -126,6 +132,11 @@ def core_of(name):
 
 
 PARAS = {
+    "c64scpu": [
+        "Needs the **SuperCPU ROM** in `cores/c64scpu/roms/`: `scpu64.rom` (131,072 bytes; 65,536 or 262,144 bytes and the names",
+        "`scpu.rom`, `supercpu.rom`, `scpu64-v2.04.rom` work too), and the three C64 ROMs `basic-901226-01.bin`, `kernal-901227-03.bin`",
+        "and `chargen-901225-01.bin`. The 1541 and 1581 ROMs and the JiffyDOS ROMs are optional: they are for the drives.",
+    ],
     "amiga1200": [
         "Needs its own copy of a Kickstart in `cores/amiga1200/roms/` (not shared with the Amiga core): one `.rom` of 256 or 512 KB. Its **Auto**",
         "setting takes **Kickstart 3.1**. The hard disk (`.hdf`, or a folder mounted as HD0/HD1) needs a 3.x Kickstart.",
@@ -271,6 +282,7 @@ PARAS = {
 }
 
 MEDIA = {
+    "c64scpu": "`.prg` `.p00` (Load, Load + run: into the 65816's own RAM), `.d64` `.g64` on drive 8 (the 1541), `.d81` on the 1581; `.rom` sets the 1541 ROM.",
     "amiga1200": "`.adf` (Mount DF0 ... DF3), `.hdf` (Mount HD0, HD1), or a folder as a hard disk (Mount folder as HD0/HD1).",
     "c128": "`.d64` `.g64` on drive 8 (the 1541), `.d81` on the 1581; `.rom` loads a system ROM image.",
     "vc20": "`.prg` `.p00` (Run PRG: reset and run; Load PRG: into the running machine, nothing typed). The RAM expansion is a setting in F5. No disk drive yet.",
@@ -291,7 +303,7 @@ MEDIA = {
 }
 
 KNOWN = {
-    "_scpu": "**C64 with SuperCPU (large core, experimental):** *Run Disk* types `LOAD\"*\",8,1` and `RUN` through the keyboard matrix at READY (no board pass yet); *Load + run* of a `.prg` on the stick and *Mount & Run* of one inside a disk image place it into the 65816's own RAM and type RUN or SYS (Load + run: board pass 2026-11-15). *Metal Dust* scrolls without picture faults (board 2026-11-15). A large core replaces the whole FPGA: power off and on to come back.",
+    "c64scpu": "**C64 with SuperCPU (large core, experimental):** *Run Disk* types `LOAD\"*\",8,1` and `RUN` through the keyboard matrix at READY (no board pass yet); *Load + run* of a `.prg` on the stick and *Mount & Run* of one inside a disk image place it into the 65816's own RAM and type RUN or SYS (Load + run: board pass 2026-11-15). *Metal Dust* scrolls without picture faults (board 2026-11-15). A large core replaces the whole FPGA: power off and on to come back.",
     "atari800": "**Atari 800 XL:** a mounted `.atr` boots. Some executables (the trainer demo) show a broken scroller and ignore input.",
     "apple2": "**Apple IIe:** swapping the disk in D1: while a game runs is not tested on the board yet.",
     "pet": "**Commodore PET (large core, experimental):** starts on the board and runs demos (2026-11-11); the models and the cassette are not checked yet. Needs your own PET ROMs. A large core replaces the whole FPGA: power off and on to come back.",
@@ -565,8 +577,6 @@ def render(a, cors, bit_len, alen, dest):
     for c in present:
         if c["id"] in KNOWN:
             w("- " + KNOWN[c["id"]])
-    if any("supercpu" in m["name"].lower() for _, m in cors):    # c64scpu has no CORES line yet (unknown above)
-        w("- " + KNOWN["_scpu"])
     if any(c["id"] == "nes" for c in present):
         w("- The NES reads the C64's own hardware: joystick 1 and 2 give the directions and A, **space** is B")
         w("  (right shift on port 2), **F3** is Select (F7), **F1** is Start (F5). No USB pad yet.")
