@@ -99,7 +99,7 @@ key = "F5"                       # the core's short title ("C64") names it
   id = "audio"
   name = "Audio"
   widget = "settings"
-  groups = ["Volumes", "Pan", "SID_sockets", "Emulated_SIDs", "Socket_1_FPGASID","Socket_1_SwinSID","Socket_1_ARMSID","Socket_1_PDsid","Socket_1_SidKick","Socket_2_FPGASID","Socket_2_SwinSID","Socket_2_ARMSID","Socket_2_PDsid","Socket_2_SidKick"]
+  groups = ["Volumes", "Pan", "Speaker", "SID_sockets", "Emulated_SIDs", "Socket_1_FPGASID","Socket_1_SwinSID","Socket_1_ARMSID","Socket_1_PDsid","Socket_1_SidKick","Socket_2_FPGASID","Socket_2_SwinSID","Socket_2_ARMSID","Socket_2_PDsid","Socket_2_SidKick"]
   ui = { sections = true, pages = "SID_sockets,Emulated_SIDs,Socket_1_FPGASID,Socket_1_SwinSID,Socket_1_ARMSID,Socket_1_PDsid,Socket_1_SidKick,Socket_2_FPGASID,Socket_2_SwinSID,Socket_2_ARMSID,Socket_2_PDsid,Socket_2_SidKick", pages_head = "reDIP:SID" }
   n = 5
   [[area.tab]]
@@ -842,6 +842,26 @@ ext = ".reu"
   bind = [ { arg = "path", file = true } ]
   key = "P"
 
+# FW filetype_reu.cc:42-48: .mod = Play MOD (through the sampler), Load into REU, Preload on Startup
+[[filetype]]
+ext = ".mod"
+  [[filetype.action]]
+  label = "Play MOD"
+  op = "reu.playmod"
+  bind = [ { arg = "path", file = true } ]
+  key = "M"
+  closes_menu = true
+  [[filetype.action]]
+  label = "Load into REU"
+  op = "reu.load"
+  bind = [ { arg = "path", file = true } ]
+  key = "L"
+  [[filetype.action]]
+  label = "Preload on Startup"
+  op = "reu.preload"
+  bind = [ { arg = "path", file = true } ]
+  key = "P"
+
 [[filetype]]
 ext = ".t64"
   [[filetype.action]]
@@ -978,6 +998,10 @@ onoff = ["Off", "On"]
 splash = ["Off", "On"]
 caps = ["470 pF", "22 nF"]
 waves = ["6581", "8580"]
+filters = ["Chip Model", "6581 Follin", "6581 Galway", "6581 Average", "6581 Strong", "6581 Extreme", "6581 Custom", "8580"]
+filter_on = ["On", "Off"]
+reslist = ["Auto", "Low", "High"]
+digis = ["Auto", "Off", "Low", "Medium", "High"]
 iecmodes = ["All Connected", "C64 <-> Internal", "Ext. <-> Int.", "C64 <-> External"]
 burst = ["Off", "CIA1", "CIA2"]
 turbo = ["Off", "Manual", "U64 Turbo Registers", "TurboEnable Bit"]
@@ -1198,11 +1222,20 @@ when = "live"
 apply = "u64.fx_audio"
 
 [[core_setting]]
-group = "hidden"
-key = "Spk Vol Drive 1"
-label = "Speaker volume drive"
+group = "Speaker"
+key = "Speaker Enable"
+label = "Enable"
+list = "en_dis"
+default = 1
+when = "live"
+apply = "u64.fx_audio"
+
+[[core_setting]]
+group = "Speaker"
+key = "Spk Vol UltiSid 1"
+label = "Volume"
 list = "vols"
-default = 9
+default = 0
 when = "live"
 apply = "u64.fx_audio"
 
@@ -2122,6 +2155,114 @@ values = ["Normal", "Reversed"]
 default = 0
 when = "live"
 apply = "u64.fx_input"
+
+[[core_setting]]
+group = "Emulated_SIDs"
+key = "UltiSID 1 Filter"
+label = "reDIP:SID 1 filter"
+list = "filter_on"
+default = 0
+when = "live"
+apply = "u64.fx_sid"
+
+[[core_setting]]
+group = "Emulated_SIDs"
+key = "UltiSID 2 Filter"
+label = "reDIP:SID 2 filter"
+list = "filter_on"
+default = 0
+when = "live"
+apply = "u64.fx_sid"
+
+[[core_setting]]
+group = "Emulated_SIDs"
+key = "UltiSID 1 Filter Curve"
+label = "reDIP:SID 1 filter curve"
+list = "filters"
+default = 0
+when = "live"
+apply = "u64.fx_sid"
+
+[[core_setting]]
+group = "Emulated_SIDs"
+key = "UltiSID 2 Filter Curve"
+label = "reDIP:SID 2 filter curve"
+list = "filters"
+default = 0
+when = "live"
+apply = "u64.fx_sid"
+
+[[core_setting]]
+group = "Emulated_SIDs"
+key = "UltiSID 1 6581 Base"
+label = "reDIP:SID 1 6581 base"
+range = [0, 511]
+default = 245
+when = "live"
+apply = "u64.fx_sid"
+
+[[core_setting]]
+group = "Emulated_SIDs"
+key = "UltiSID 2 6581 Base"
+label = "reDIP:SID 2 6581 base"
+range = [0, 511]
+default = 245
+when = "live"
+apply = "u64.fx_sid"
+
+[[core_setting]]
+group = "Emulated_SIDs"
+key = "UltiSID 1 6581 Offset"
+label = "reDIP:SID 1 6581 offset"
+range = [-1024, 1023]
+default = -780
+when = "live"
+apply = "u64.fx_sid"
+
+[[core_setting]]
+group = "Emulated_SIDs"
+key = "UltiSID 2 6581 Offset"
+label = "reDIP:SID 2 6581 offset"
+range = [-1024, 1023]
+default = -780
+when = "live"
+apply = "u64.fx_sid"
+
+[[core_setting]]
+group = "Emulated_SIDs"
+key = "UltiSID 1 Filter Resonance"
+label = "reDIP:SID 1 filter resonance"
+list = "reslist"
+default = 0
+when = "live"
+apply = "u64.fx_sid"
+
+[[core_setting]]
+group = "Emulated_SIDs"
+key = "UltiSID 2 Filter Resonance"
+label = "reDIP:SID 2 filter resonance"
+list = "reslist"
+default = 0
+when = "live"
+apply = "u64.fx_sid"
+
+[[core_setting]]
+group = "Emulated_SIDs"
+key = "UltiSID 1 Digis Level"
+label = "reDIP:SID 1 digi level"
+list = "digis"
+default = 0
+when = "live"
+apply = "u64.fx_sid"
+
+[[core_setting]]
+group = "Emulated_SIDs"
+key = "UltiSID 2 Digis Level"
+label = "reDIP:SID 2 digi level"
+list = "digis"
+default = 0
+when = "live"
+apply = "u64.fx_sid"
 
 # T228 R10 (Alex 2026-11-17): a USB pad or controller as a joystick in port 1 or 2, through the generic pad service (coreapp/src/pad.h) as the Amiga's port 2
 # (T225): one port, fed by the first pad plugged, its button map kept per pad (VID:PID) in the .cfg. The pad's lines are the host's own (C64_JOY1/2_SWOUT),

@@ -68,7 +68,7 @@
 #define DR_BINDS 700
 #define DR_EXTS 48
 #define DR_SIZES 16
-#define DR_VALUES 3200
+#define DR_VALUES 8192                            // T228 R21: the reDIP:SID filter ranges (FW: base 0..511, offset -1024..1023) and the socket pages
 #define DR_CTABS 16
 #define DR_TASKS 64
 #define DR_MEDIA 4

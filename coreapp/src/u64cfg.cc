@@ -16,7 +16,8 @@
 #include "sid_decide.h"
 #include "i2c_drv.h"
 extern "C" {
-#include "sid_coeff.h"
+#include "resid8_filter.h"
+#include "trx_io.h"
 }
 #include <stdio.h>
 #include <stdlib.h>
@@ -38,8 +39,7 @@ extern "C" void ResetHdmiPll(void);
     X(PAN0, "Pan UltiSID 1") X(PAN1, "Pan UltiSID 2") X(PAN2, "Pan Socket 1") X(PAN3, "Pan Socket 2") X(PAN4, "Pan Sampler L") X(PAN5, "Pan Sampler R") \
     X(PAN6, "Pan Drive 1")                                                                                                                           \
     X(SPK_EN, "Speaker Enable")                                                                                                                      \
-    X(SPK0, "Spk Vol UltiSid 1") X(SPK1, "Spk Vol UltiSid 2") X(SPK2, "Spk Vol Socket 1") X(SPK3, "Spk Vol Socket 2") X(SPK4, "Spk Vol Sampler L")      \
-    X(SPK5, "Spk Vol Sampler R") X(SPK6, "Spk Vol Drive 1")                                                                                          \
+    X(SPK0, "Spk Vol UltiSid 1")                                                                                                                     \
     X(S1_EN, "SID Socket 1") X(S2_EN, "SID Socket 2") X(S1_SHUNT, "SID Socket 1 1K Ohm Resistor") X(S2_SHUNT, "SID Socket 2 1K Ohm Resistor")          \
     X(S1_CAPS, "SID Socket 1 Capacitors") X(S2_CAPS, "SID Socket 2 Capacitors")                                                                      \
     X(S1_ADDR, "SID Socket 1 Address") X(S2_ADDR, "SID Socket 2 Address") X(STEREO, "Ext DualSID Range Split")                                       \
@@ -48,6 +48,8 @@ extern "C" void ResetHdmiPll(void);
     X(U1_FILTER, "UltiSID 1 Filter Curve") X(U2_FILTER, "UltiSID 2 Filter Curve") X(U1_RES, "UltiSID 1 Filter Resonance")                            \
     X(U2_RES, "UltiSID 2 Filter Resonance") X(U1_WAVES, "UltiSID 1 Combined Waveforms") X(U2_WAVES, "UltiSID 2 Combined Waveforms")                  \
     X(U1_DIGI, "UltiSID 1 Digis Level") X(U2_DIGI, "UltiSID 2 Digis Level")                                                                          \
+    X(U1_FON, "UltiSID 1 Filter") X(U2_FON, "UltiSID 2 Filter") X(U1_BASE, "UltiSID 1 6581 Base") X(U2_BASE, "UltiSID 2 6581 Base")                  \
+    X(U1_OFFS, "UltiSID 1 6581 Offset") X(U2_OFFS, "UltiSID 2 6581 Offset")                                                                          \
     X(JOY, "Joystick Input") X(USERPORT, "UserPort Power Enable") X(TURBO, "Turbo Control") X(SPEED, "CPU Speed") X(BADLINE, "Badline Timing")        \
     X(SUPERCPU, "SuperCPU Detect (D0BC)") X(IECMODE, "Serial Bus Mode") X(PARCABLE, "SpeedDOS Parallel Cable") X(BURST, "Burst Mode Patch")          \
     X(LED0, "LED Select Top") X(LED1, "LED Select Bot")                                                                                              \
@@ -309,7 +311,6 @@ static uint8_t mixer_side(uint8_t source_raw, uint8_t master_raw, uint16_t pan)
 // the channels Gideon's mixer has that this board has no source for (drive 2, tape read, tape write): his defaults
 static const uint8_t spare_vol[3] = { 11, 4, 4 };
 static const uint8_t spare_pan[3] = { 7, 5, 5 };
-static const uint8_t spare_spk[3] = { 9, 2, 2 };
 
 static void write_mixer(CoreCtx *c)
 {
@@ -324,18 +325,15 @@ static void write_mixer(CoreCtx *c)
     }
 }
 
+// FW u64_config.cc:1445-1447 (U2PIO_SPEAKER_EN b0) and setSpeakerMixer :1749-1765. The bitstream decodes ONE gain for the whole mono mix
+// (0x10100540/41/44/45), so the one speaker volume goes to all ten pairs; the per-source volumes of the FW are not decoded and stay out.
 static void write_speaker(CoreCtx *c)
 {
     volatile uint8_t *mixer = (volatile uint8_t *)U64_SPEAKER_MIXER;
-    if (V(c, K_SPK_EN, 1) == 0) {
-        for (int i = 0; i < 20; i++) {
-            *(mixer++) = 0;
-        }
-        return;
-    }
-    for (int i = 0; i < 10; i++) {
-        uint8_t vol = volume_ctrl[i < 7 ? V(c, K_SPK0 + i, i == 6 ? 9 : 0) : spare_spk[i - 7]];
-        *(mixer++) = vol;
+    bool on = V(c, K_SPK_EN, 1) != 0;
+    U2PIO_SPEAKER_EN = on ? 1 : 0;
+    uint8_t vol = on ? volume_ctrl[V(c, K_SPK0, 0)] : 0;
+    for (int i = 0; i < 20; i++) {
         *(mixer++) = vol;
     }
 }
@@ -1154,29 +1152,24 @@ static void write_sid_sockets(CoreCtx *c)
     C64_SID2_EN = V(c, K_S2_EN) ? 1 : 0;
 }
 
+// FW u64_config.cc setResid8 :577-594: the plan of resid8_filter.h (a copy of the FW header) -> trx_io 0x040-0x04C and the UltiSID RES / DIGI registers
 static void write_ultisid(CoreCtx *c)
 {
     for (int u = 0; u < 2; u++) {
-        volatile uint8_t *base = (volatile uint8_t *)(C64_SID_BASE + 0x1000 + (u ? 0x800 : 0));
-        const uint16_t *coef = sid8580_filter_coefficients;
-        int mul = 1, div = 4;
-        switch (V(c, u ? K_U2_FILTER : K_U1_FILTER)) {
-        case 0: coef = sid8580_filter_coefficients; mul = 7; div = 32; break;
-        case 1: coef = sid8580_filter_coefficients; mul = 2; div = 7; break;
-        case 2: coef = sid6581_filter_coefficients; break;
-        case 3: coef = sid6581_filter_coefficients_temp; break;
-        case 4: coef = sid_curve_original; mul = 2; div = 3; break;
-        case 5: coef = sid_curve_original; div = 1; break;
-        case 6: coef = sid_curve_original; mul = 3; div = 2; break;
+        Resid8Plan p = resid8_plan(V(c, u ? K_U2_FILTER : K_U1_FILTER), V(c, u ? K_U2_RES : K_U1_RES), V(c, u ? K_U2_DIGI : K_U1_DIGI),
+                                   V(c, u ? K_U2_BASE : K_U1_BASE, 245), V(c, u ? K_U2_OFFS : K_U1_OFFS, -780), V(c, u ? K_U2_FON : K_U1_FON) == 0);
+        if (u == 0) {
+            C64_EMUSID1_RES = p.res_reg;
+            C64_EMUSID1_DIGI = p.digi_reg;
+        } else {
+            C64_EMUSID2_RES = p.res_reg;
+            C64_EMUSID2_DIGI = p.digi_reg;
         }
-        set_sid_coefficients(base, coef, mul, div);
+        trx_io_resid8_filter(u, p.src, p.auto_bits, p.base, p.offset);
+        trx_io_resid8_bypass(u, p.bypass != 0);
     }
-    C64_EMUSID1_RES = (uint8_t)V(c, K_U1_RES);
-    C64_EMUSID2_RES = (uint8_t)V(c, K_U2_RES);
     C64_EMUSID1_WAVES = (uint8_t)V(c, K_U1_WAVES);
     C64_EMUSID2_WAVES = (uint8_t)V(c, K_U2_WAVES);
-    C64_EMUSID1_DIGI = (uint8_t)V(c, K_U1_DIGI, 2);
-    C64_EMUSID2_DIGI = (uint8_t)V(c, K_U2_DIGI, 2);
 }
 
 static int fx_sid(CoreCtx *c, const OpArgs &, OpOut &)
