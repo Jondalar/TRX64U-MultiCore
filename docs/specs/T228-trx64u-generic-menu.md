@@ -358,6 +358,10 @@ Alex 2026-11-17 (translated): "I want you to apply the generic APP 100 % to the 
   (the bitstream cannot) stays out; TRX64-Ultimate's behaviour is taken over, never asked again. So: /flash is writable as there
   (rows 8-19, 20 copies to /flash/roms); the removed rows whose function works in TRX64-Ultimate's firmware come back working; the
   DHCP/static rows exist for Ethernet and for WiFi; the password guards what it guards there. Replaces R20 where it differs.
+- **R22 (Alex 2026-11-18, after the Telnet remote menu was built on t228-c-telnet):** "Kann telnet einfach raus bitte ? komplett ?"
+  (translated: "Can telnet just go out, please? Completely?"). Telnet is out of trx64u completely, an exception to R21: no "Telnet
+  remote menu service" row, no port 23 server, no text screen of the menu (coreapp/src/telnetgui.*, telnetscr.* deleted), and the
+  network password row does not name Telnet. Audit row F41 is closed by this decision.
 - R1-R9 replace the earlier decisions of this spec where they differ (D3, D7, D8, D13, D16, D18 and the S2 choices DC1-DC14); branch t228-s2 stays unmerged. The proposal is rendered on branch t228-mock (render bench `mock_shots()`), shown as a click dummy on the concept page.
 
 ### Decisions during S2 (decided by Claude on Alex's delegation 2026-11-16 night; Alex can overturn each at S2b)

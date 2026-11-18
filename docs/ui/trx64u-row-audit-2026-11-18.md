@@ -493,7 +493,7 @@ TRX64-Ultimate's firmware on its bitstream, D = dead (the bitstream cannot). Boa
 | F38 | Unique ID | W | network_config.cc:17 -> socket_dma.cc:629-634, api/routes.cc:218-223; product.cc:253-273 | |
 | F39 | Ident service | W | socket_dma.cc:531-563 (UDP 64) | |
 | F40 | DMA service | W | socket_dma.cc:426 (TCP 64), :129-232 | tests/app_c64_test.py passed 2026-10-01 |
-| F41 | Telnet remote menu | W | socket_gui.cc:30, 71/77, 252 (port 23) | board: T57 session driven over telnet |
+| F41 | Telnet remote menu | W | socket_gui.cc:30, 71/77, 252 (port 23) | board: T57 session driven over telnet; out of trx64u by T228 R22 (Alex 2026-11-18) |
 | F42 | Web remote control | W | httpd.cc:24, 32, 53-66 (Disabled closes port 80) | |
 | F43 | Syslog | W | ultimate.cc:112 -> syslog.cc:14-55 (UDP 514) | read once at boot |
 | F44-F48 | SNTP, time zone, time servers | W | sntp_time.cc:18-32 <- network_interface.cc:242, network_config.cc:67-78 | board: T61 (clock right) |
