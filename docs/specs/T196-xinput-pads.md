@@ -1,6 +1,6 @@
 # T196 — An Xbox-style (XInput) controller on a USB cable works in the console cores (NES, SNES, Neo Geo), as a HID gamepad does
 
-**Status:** BUILT, merged to main (3887b1dbf); S1-S4 native tests; S5 board PASS 2026-11-10 (Series Pro pad on a USB cable; HID pad and keyboard beside it not checked); S6 (third-party pad, X mode, #55) tester open, so not DONE. 2026-11-15 sync: the old 'BUILDING ... S5/S6 open' text removed.
+**Status:** BUILT, merged to main (3887b1dbf); S1-S4 native tests; S5 board PASS 2026-11-10 (Series Pro pad on a USB cable; the HID pad and keyboard beside it closed as done 2026-11-18, shipped and in use, §5); S6 (third-party pad, X mode, #55) tester open, so not DONE. 2026-11-15 sync: the old 'BUILDING ... S5/S6 open' text removed.
 **Repo:** TRX64U-MultiCore — the USB host driver the apps compile (`host-app/software/io/usb/`, our copy with patches) and the core app's pad
 service (`coreapp/src/pad.cc`, `hidpad.cc`). No gateware. Host app: nothing (the host menu takes no gamepad).
 **Number:** T196.
@@ -146,3 +146,4 @@ Parts:
   Reading: press = release = 20 and no sequence gaps with 4 ms but fewer with 20 ms = A; losses also at 4 ms, or OUT failed / slow, or losses vanish with
   `xpad4noack` = B.
 - 2026-11-16 (merge diag-joy-menu into followup-1116): the diag test's `xi_cfg.poll_ms` forced every pad to 20 ms; with the #55 fix in main it is 0 = "the endpoint's own rate" (`poll_interval`), a test sets 1..255 ms explicitly, the screen shows "want endpoint" when not forced.
+- **2026-11-18 - board steps closed as done (shipped and in use):** S5, the part not checked on 11-10 (Xbox pad beside a HID pad and a keyboard) - Alex 2026-11-15: "Under A there is nothing I would not class as DONE! That has been in the builds for days/weeks, we had bugs and re-tests in part"; Alex 2026-11-18, shown these steps as open: "that is old stuff that has been running for ages, we had this already 3-4 days ago" and "tick it off in the TODOs/specs, otherwise it shows up again with some agent" (translated).

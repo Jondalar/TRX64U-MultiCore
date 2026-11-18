@@ -14,18 +14,18 @@ Status: 🔨 in progress · ⏭ next · ⏸ later · 📅 planned · ✅ done ·
 marked 1 or 2 came over from TRX64-Ultimate with the decoupling (own UI, own API; Alex, 2026-10-16) and keep their
 number. The drop-in line stays in `TREX/TRX64-Ultimate`.
 
-**Board:** open board steps in [docs/board-tests.md](docs/board-tests.md) (package main-7fda7e1f; older lists in docs/archive/board-tests/). Older overview paragraphs:
+**Board:** no open board list (closed 2026-11-18: a board list carries only what is new since the last board session, Alex); the old lists are in docs/archive/board-tests/. Older overview paragraphs:
 [docs/todo/overview-history.md](docs/todo/overview-history.md).
 
 ## In progress
 
 | ID | M | Status | Task | Open | Details |
 |---|---|---|---|---|---|
-| T92 | 3 | 🔨 | Amstrad/Schneider CPC core from Amstrad_MiSTer in the host/core split (after T91, which builds the shared modules) | #17 fix 011cdc4d failed on board 11-17 (no cursor after mount+reset); CPC out of the pipeline (D-17e) | [T92](docs/todo/T92.md) |
+| T92 | 3 | 🔨 | Amstrad/Schneider CPC core from Amstrad_MiSTer in the host/core split (after T91, which builds the shared modules) | #17 fixed by T233 (board PASS 11-18); CPC back in pipeline and manual; old board steps closed 11-18 | [T92](docs/todo/T92.md) |
 | T97 | 3 | ✅ | Amiga 1200 runs AmigaVision from HDF: 68020, fast RAM, images above 4 GiB | Done (Alex 11-08); RAM line in Home > Status dropped | [T97](docs/todo/T97.md) |
-| T104.2 | 2 | 🔨 | The generic app boots on the TRX64 Ultimate monolith, then a C64 descriptor and cbm1541 (D10) | Wanted (Alex 10-28): TRX64 runs our app; next: drive pages to main, RISC-V build, board run (S1) | [T104.2](docs/specs/T104.2-generic-app-on-trx64-ultimate.md) |
+| T104.2 | 2 | 🔨 | The generic app boots on the TRX64 Ultimate monolith, then a C64 descriptor and cbm1541 (D10) | S10/S11/S15/S16 board done 11-18 (Alex: shipped = done); open: board S1 (monolith), S13 flash boot | [T104.2](docs/specs/T104.2-generic-app-on-trx64-ultimate.md) |
 | T116 | 3 | 🔨 | ZX Spectrum Next core: the original FPGA source, RAM on DDR2, SD card served from an image | Board passed (Alex 10-28); D11 Auto passed (11-04); open: frame-lock and S6 picture-bench decisions (5.3) | [T116](docs/todo/T116.md) |
-| T119 | 3 | 🔨 | VC-20 and ZX draw into a DDR2 frame buffer of the pixel layer, not via the vic_scaler | ZX 48K picture on the board (11-04, 5.15 fix holds) | [T119](docs/todo/T119.md) |
+| T119 | 3 | ✅ | VC-20 and ZX draw into a DDR2 frame buffer of the pixel layer, not via the vic_scaler | Done 11-18 (Alex: shipped = done) | [T119](docs/todo/T119.md) |
 
 ## Board test required
 
@@ -34,13 +34,13 @@ Built and benched; what is left is a step on the board (Alex, 2026-10-28, transl
 | ID | M | Status | Task | Open | Details |
 |---|---|---|---|---|---|
 | T89 | 3 | ✅ | Apple IIe core from NanoApple2 as a core in the host/core split | Done (Alex 10-30); rest open to contributors | [T89](docs/todo/T89.md) |
-| T108 | 3 | 🔨 | The Atari 800 XL starts what you give it: a disk, an executable or a cartridge | Board S8: a game from D1: and a .xex (cartridge works, Alex 10-28); recheck the 10-23 app stop | [T108](docs/specs/T108-atari800-media.md) |
-| T95 | 3 | 🔨 | NES core: NES_MiSTer (GPL v3), cycle accurate, 10 mapper modules | Board: NES switches to 720p and fills ~93 % of the height (T107 picture per core) | [T95](docs/todo/T95.md) |
+| T108 | 3 | 🔨 | The Atari 800 XL starts what you give it: a disk, an executable or a cartridge | S3 (BASIC off setting) not built; S5-S7 proofs not re-checked; S8 done 11-18 (Alex: shipped = done) | [T108](docs/specs/T108-atari800-media.md) |
+| T95 | 3 | 🔨 | NES core: NES_MiSTer (GPL v3), cycle accurate, 10 mapper modules | Unbuilt mappers (prices spec 5.10, Q2 for Alex); 720p done 11-18 (Alex: shipped = done) | [T95](docs/todo/T95.md) |
 | T107 | 1 | ✅ | Every application chooses its own video mode, the host re-asserts its own when a core returns | Done 11-15 (Alex: in builds for weeks) | [T107](docs/todo/T107.md) |
-| T104.1 | 2 | 🔨 | Contribution model: libraries and apps register ops, state, menus; one service layer | Board: REST/WS to the core app of a running DFX core returns status and memory (Claude by curl) | [T104.1](docs/specs/T104.1-contribution-model.md) |
+| T104.1 | 2 | ✅ | Contribution model: libraries and apps register ops, state, menus; one service layer | Done 11-18 (Alex: shipped = done) | [T104.1](docs/specs/T104.1-contribution-model.md) |
 | T104.3 | 2 | ✅ | Applications: ABI 3 svc table, the app runner, declarative UI rendered by the app (Alex 10-26) | Done 11-15 (Alex: in builds for weeks) | [T104.3](docs/specs/done/T104.3-applications.md) |
-| T122 | 3 | 🔨 | Every core with a drive creates a new, formatted disk image from its menu (D81, Apple II, ADF, ATR, CPC) | Built; board B1, B3-B8 for all cores go to the testers (Alex 10-31); B2 A1200 passed | [T122](docs/specs/T122-create-blank-media.md) |
-| T128 | 3 | 🔨 | A folder on the stick/SD as an Amiga hard disk, instead of an .hdf image | Board B1 passed 11-04 (A1200 boots a folder as HD0); B2-B6 open: write, delete, power cut, A500 KS 2.05/3.x | [T128](docs/todo/T128.md) |
+| T122 | 3 | 🔨 | Every core with a drive creates a new, formatted disk image from its menu (D81, Apple II, ADF, ATR, CPC) | Built; board B1, B3-B8 for all cores go to the testers (Alex 10-31); B2 done (A500 11-18) | [T122](docs/specs/T122-create-blank-media.md) |
+| T128 | 3 | 🔨 | A folder on the stick/SD as an Amiga hard disk, instead of an .hdf image | B2-B6 done 11-18 (Alex: shipped = done); open: decisions §5.7 no. 1 (size > 1 GB), no. 4 (write caps) | [T128](docs/todo/T128.md) |
 
 ## Planned
 
@@ -49,77 +49,77 @@ Built and benched; what is left is a step on the board (Alex, 2026-10-28, transl
 | T99 | 2 | 📅 | Two SIDs, each with its own of Dag's filter settings (reDIP wrapper with NS=2) | Spec PROPOSED; the engine index is hardwired to 4 SIDs, so two SIDs share one engine | [T99](docs/todo/T99.md) |
 | T110 | 3 | 📅 | What we ship is still the T79 debug build: reSID8, UCI, streams, REU, sampler and turbo are all off | bitstream.yml:92-95 decide it for host and cores (jtag_dbg out, was T46); the rebuild moves host_pin | [T110](docs/todo/T110.md) |
 | T111 | 3 | ✅ | A host application formats a stick or SD card as exFAT, for images above 4 GiB | Done 11-15 (Alex: in builds for weeks) | [T111](docs/todo/T111.md) |
-| T112 | 3 | 🔨 | One folder per core (.cor, .cfg, roms/); ROM search starts beside the core | Layer-2 and large .cor: ROMs and .cfg beside the .cor, benches green; board S1/S2 open | [T112](docs/todo/T112.md) |
+| T112 | 3 | 🔨 | One folder per core (.cor, .cfg, roms/); ROM search starts beside the core | Layer-2 and large .cor: ROMs and .cfg beside the .cor, benches green; board S1 open (S2 done 11-18) | [T112](docs/todo/T112.md) |
 | T125 | 3 | 📅 | BBC Micro core | Spec PROPOSED 2026-11-05: BeebFpga/MiSTer core, non-commercial licence; 10 questions open | [T125](docs/todo/T125.md) |
 | T165 | 3 | 📅 | Acorn Archimedes core | On the core list (Alex, 2026-10-31); source and licence not chosen, spec not written | [T165](docs/todo/T165.md) |
 | T173 | 3 | 📅 | Game Boy / Game Boy Color core | Spec PROPOSED (Alex 11-05): licence checked, DFX plausible (8-12.5k LUT est.); 10 questions open, nothing built | [T173](docs/todo/T173.md) |
 | T183 | 3 | 📅 | Game Boy Advance core (large core, if it fits the XC7A50T) | Spec PROPOSED (Alex 11-05): expected no-go (est. 18.5-20k LUT vs 17k usable); synth trial decides, nothing built | [T183](docs/todo/T183.md) |
 | T184 | 3 | ✅ | WiFi in the host menu and the core apps: FTP over WiFi as over Ethernet (#45) | Done 11-15 (Alex: in builds for weeks) | [T184](docs/todo/T184.md) |
-| T185 | 3 | 🔨 | C128: start with the standard ROMs or JiffyDOS, chosen in the settings (#46) | D4 built + tested (files selected, Stock default); board 11-11: works, faster (J.3 timing not measured) | [T185](docs/specs/T185-c128-jiffydos.md) |
-| T186 | 3 | 🔨 | Core app FTP client: passive address of the control peer, no QUIT on a dead link, late 226 read | Built, Mac tests + 5 controls green; RISC-V + apptests green (20 min); board S4 open | [T186](docs/specs/T186-ftp-client-fixes.md) |
+| T185 | 3 | 🔨 | C128: start with the standard ROMs or JiffyDOS, chosen in the settings (#46) | D4 built; board 11-11 works, faster; J.3 closed 11-18; open: layout of kits other than Alex's | [T185](docs/specs/T185-c128-jiffydos.md) |
+| T186 | 3 | ✅ | Core app FTP client: passive address of the control peer, no QUIT on a dead link, late 226 read | Done 11-18 (Alex: shipped = done) | [T186](docs/specs/T186-ftp-client-fixes.md) |
 | T187 | 3 | ✅ | Core app menus: same layout in every core, selection visible, no overlap (board 11-06, UX review) | Done 11-15 (Alex: in builds for weeks) | [T187](docs/specs/done/T187-core-app-ux-rework.md) |
 | T188 | 3 | ✅ | Amiga cores: output frame follows the core (#48) | Done (Alex 11-15); merged 11-13 (run 1796 green) | [T188](docs/specs/done/T188-amiga-frame-lock.md) |
-| T189 | 3 | 📅 | Host audio: tone preset Flat/Bass/Treble beside the master volume (#49) | D8 go 11-15: host filter + bench on `t189-tone`; large copies, app row, UX open | [T189](docs/specs/T189-host-tone-preset.md) |
-| T190 | 3 | 🔨 | Amiga cores: USB mouse sensitivity and acceleration settings (#51) | Merged main; S1-S2 proven; S3 board (Lemmings, A500) open | [T190](docs/specs/T190-amiga-mouse-settings.md) |
+| T189 | 3 | 🔨 | Host audio: tone preset Flat/Bass/Treble beside the master volume (#49) | Built, shipped; S8 done 11-18 (Alex: shipped = done); open: S6 report line, UX review, neogeo (D6) | [T189](docs/specs/T189-host-tone-preset.md) |
+| T190 | 3 | ✅ | Amiga cores: USB mouse sensitivity and acceleration settings (#51) | Done 11-18 (Alex: shipped = done) | [T190](docs/specs/T190-amiga-mouse-settings.md) |
 | T191 | 3 | 🔨 | Amiga cores: optional battery-backed clock at $DC0000, time from the board (#52) | Merged main; S8 board PASS 11-08; S7 Vivado per-module line open (yosys 248 LUT) | [T191](docs/specs/T191-amiga-rtc.md) |
 | T192 | 3 | 🔨 | Epic: one C++ functional core, many UIs (host + core app): contract, bundles, search, TUI, remote | MVP merged main 11-09 (0c5612d2d); T192.1-3 built, T192.4-6 PROPOSED; board open | [T192](docs/specs/T192-ui-architecture-epic.md) |
 | T192.1 | 3 | ✅ | Shared UI core framework (both apps): state, intents + ids, events, jobs, token, WebSocket | Done 11-15 (Alex: in builds for weeks) | [T192.1](docs/specs/done/T192.1-ui-core-framework.md) |
 | T192.2 | 3 | ✅ | Host app on the framework: host_core domain + declarative host menu, 1:1 parity in ue2emu | Done 11-15 (Alex: in builds for weeks) | [T192.2](docs/specs/done/T192.2-host-app-on-core.md) |
-| T192.3 | 3 | 🔨 | Core app on the framework: MenuCtl leaks out, intents and stable ids | D23 cut, D30, D31 built; open: board steps, D27 replacement (cursor left = up) unbuilt | [T192.3](docs/specs/T192.3-core-app-on-core.md) |
+| T192.3 | 3 | 🔨 | Core app on the framework: MenuCtl leaks out, intents and stable ids | D23 cut, D30, D31 built; board steps done 11-18; open: D27 replacement (cursor left = up) unbuilt | [T192.3](docs/specs/T192.3-core-app-on-core.md) |
 | T192.4 | 3 | 📅 | Search overlay (C= SPACE) for host and core app: settings, pages, actions | Spec PROPOSED 11-07 (open questions in §6); after the MVP (D20) | [T192.4](docs/specs/T192.4-search-overlay.md) |
 | T192.5 | 3 | 📅 | Text UI for both apps: local on HDMI and remote over ws:// | Spec PROPOSED 11-07 (open questions in §6); after the MVP (D20) | [T192.5](docs/specs/T192.5-text-ui.md) |
 | T192.6 | 3 | 📅 | Key/interface bundles (TOML) and safe mode C=+S | Spec PROPOSED 11-07 (open questions in §6); after the MVP (D20) | [T192.6](docs/specs/T192.6-bundles-safe-mode.md) |
 | T193 | 3 | 📅 | Further CI simplification: generated run.yml per push, Gitea shows the children as a graph | Spec PROPOSED 11-08 (idea only) | [T193](docs/specs/T193-further-ci-simplification.md) |
 | T194 | 2 | ✅ | C128 40 columns through the pixel layer: Integer/Fit/Fill as every core (#63) | In main since 11-09 (4d7c8b30f), #63 done; D12 Auto switch missed PETSCII Robots title (open) | [T194](docs/specs/done/T194-c128-40col-scaling.md) |
 | T195 | 2 | ✅ | Board buttons UI_BUTTON[2:0] (header reset as on the U64 Elite) in host and every core | Done 11-15 (Alex: in builds for weeks) | [T195](docs/specs/done/T195-board-buttons.md) |
-| T196 | 2 | 🔨 | XInput (Xbox) pads on a USB cable, console cores only (#55) | Merged main; S5 PASS 11-10; #55 fix: poll at EP bInterval, board PASS 11-15 | [T196](docs/specs/T196-xinput-pads.md) |
+| T196 | 2 | 🔨 | XInput (Xbox) pads on a USB cable, console cores only (#55) | S5 PASS 11-10 + rest done 11-18 (shipped = done); #55 fix PASS 11-15; S6 X-mode pad (tester) open | [T196](docs/specs/T196-xinput-pads.md) |
 | T197 | 2 | ✅ | Zip library (miniz) for any app; unzip in host F3 and cores with room | Done 11-15 (Alex: in builds for weeks) | [T197](docs/specs/done/T197-zip-everywhere.md) |
 | T198 | 2 | ✅ | Per-core configs: boot menu overlay starts a core with a saved config (#58) | Done 11-15 (Alex: in builds for weeks) | [T198](docs/specs/done/T198-per-core-configs.md) |
 | T199 | 2 | ✅ | VC-20: JiffyDOS setting switches KERNAL and 1541 ROM together (#59) | Merged main; S1-S5 tests, S6 board PASS 11-11 | [T199](docs/specs/done/T199-vc20-jiffydos.md) |
 | T200 | 2 | 📅 | Network security: token on every changing route, grant, all cores, monitor, update (review) | Spec 11-10 (Alex), step by step | [T200](docs/specs/T200-network-security.md) |
-| T201 | 2 | 🔨 | Diag core A/V test: test picture, live encoder knobs on HDMI, question sequence finds NTSC/colour settings (#59) | v2 D4 (60 Hz vsync walk) run 1686 green, WNS +0.185, diag.cor on SD; release with go; S7, S8 open | [T201](docs/specs/T201-diag-av-out.md) |
+| T201 | 2 | 🔨 | Diag core A/V test: test picture, live encoder knobs on HDMI, question sequence finds NTSC/colour settings (#59) | v2 run 1686 green, diag.cor on SD; release with go; S7 done 11-18 (shipped = done); S8 (tester) open | [T201](docs/specs/T201-diag-av-out.md) |
 | T202 | 2 | 📅 | Zip as a folder: browse a .zip in F3, use one entry without unpacking all (#72) | Spec 11-11 (Alex), questions open | [T202](docs/specs/T202-zip-as-folder.md) |
 | T203 | 2 | ✅ | Start log file: each host start writes what it saw (keys, cfg, decision) to SD, last 10 (#69) | Merged main; S1-S6 tests, S7 board PASS 11-11 | [T203](docs/specs/done/T203-start-log-file.md) |
 | T204 | 3 | 📅 | Core app: Home directory picked with a folder browser (starts at the saved folder, else /) | Spec 11-11 (Alex D1); after the test release (D2) | [T204](docs/specs/T204-home-dir-picker.md) |
-| T205 | 2 | 🔨 | Core app: settings in one place (F5: core, Video, Audio, Input); F6 goes | Built, T207 merged; ux-review PASS (emulator); board S6 open | [T205](docs/specs/T205-core-settings-one-place.md) |
-| T206 | 2 | 🔨 | Core app: "Run Disk" beside every "Mount Disk" (SCPU, C128, Amiga, PET built; S3 board) | Built (SCPU key matrix, C128, Amiga, PET); S3 board open, no pass recorded | [T206](docs/specs/T206-run-disk-everywhere.md) |
-| T207 | 2 | 🔨 | Core app: hotkeys learned by pressing the key, not stepped through with LEFT/RIGHT | Built; S1-S4 proofs in §5; S5 board (Alex) | [T207](docs/specs/T207-hotkey-learn.md) |
+| T205 | 2 | 🔨 | Core app: settings in one place (F5: core, Video, Audio, Input); F6 goes | Built, T207 merged; ux-review PASS (emulator); board S6 done 11-18; open: TRX64U core's own F6 (§4) | [T205](docs/specs/T205-core-settings-one-place.md) |
+| T206 | 2 | ✅ | Core app: "Run Disk" beside every "Mount Disk" (SCPU, C128, Amiga, PET built; S3 board) | Done 11-18 (Alex: shipped = done) | [T206](docs/specs/T206-run-disk-everywhere.md) |
+| T207 | 2 | ✅ | Core app: hotkeys learned by pressing the key, not stepped through with LEFT/RIGHT | Done 11-18 (Alex: shipped = done) | [T207](docs/specs/T207-hotkey-learn.md) |
 | T208 | 2 | ✅ | SCPU: Metal Dust picture faults while scrolling, menu speed (mirror queue / IRQ timing) | Done (Alex 11-15); BA write hold, run 1925 green, board S4 PASS 11-15 | [T208](docs/specs/done/T208-scpu-metal-dust.md) |
 | T209 | 2 | 🔨 | Host + core app: one line per row (no sublines), closer rows, scroll before the edge, paging keys in the foot | D1-D21 built; #93 n files board PASS 11-16 (host, core); open: S8 board, 2 UX questions | [T209](docs/specs/T209-one-line-rows.md) |
-| T210 | 2 | 🔨 | Core app: splash placed for 480p/720p from the first frame; F8 WiFi real state in every core | Merged main; ue2emu proofs; S3 board (splash 480p, F8 WiFi) open | [T210](docs/specs/T210-coreapp-modes-wifi.md) |
+| T210 | 2 | ✅ | Core app: splash placed for 480p/720p from the first frame; F8 WiFi real state in every core | Done 11-18 (Alex: shipped = done) | [T210](docs/specs/T210-coreapp-modes-wifi.md) |
 | T211 | 2 | 🔨 | Host UI: own key names, F keys as navigation (no PAGEUP=F1 aliasing) | Built on t211-key-names; D2 page keys page lists (Alex 11-15) | [T211](docs/specs/T211-own-key-names.md) |
 | T212 | 2 | 🔨 | Core app areas: F1 quick actions, F5 machine, F7 app settings (host value as default), status to F8 | D1-D17 built; ue2emu 11-16; board PASS 11-16 (Alex: "F1 makes so much more sense") | [T212](docs/specs/T212-core-menu-areas.md) |
 | T213 | 2 | 📅 | Epic: bitstream API (a) - API TOML per core, C modules in the service, child spec per core; D24 lint gate built 11-16 | Alex 11-12 | [T213](docs/specs/T213-bitstream-api.md) |
 | T214 | 2 | 🔨 | Real datasette in C128, SCPU, VC-20, C16/Plus4 as on the PET | C16 parked 11-15: inverted READ fails too; later c264 debug trace + borrowed datasette | [T214](docs/specs/T214-real-datasette-commodore-cores.md) |
 | T215 | 2 | 🔨 | CI keys and the plan hash code only: a comment moves no key and starts no build | Merged to main, a-h proven (11-14); key_alias fixed (a1e69bf78), cache migrated, run 1906 green | [T215](docs/specs/T215-ci-hash-code-only.md) |
-| T216 | 3 | 🔨 | PET: D10-D15 in main; 11-16: 4 KiB char window (Vivado); D16 Reset reloads ROMs: board PASS 11-16; S13 stuck cursor glyph (0,0) fixed | Alex 11-16; S13 80-column cursor board PASS 11-16 | [T216](docs/specs/T216-pet-finish.md) |
-| T217 | 2 | 🔧 | Start a .prg on SCPU and C128: stick + in disk image; SCPU via SRAM window; C128 $0801 = GO64, board step | Alex 11-15; 11-16 GO64 board PASS (40 + 80 columns) | [T217](docs/specs/T217-scpu-mount-run-prg.md) |
-| T218 | 3 | 🔨 | SNES: DSP-n cartridges (DSP-1/1B, 2, 3, 4) run; firmware from the SD (appended to the .sfc first, else dsp*.bin) | Board S1 PASS 11-15 (Mario Kart); D6 board PASS 11-16 (reversed fw); open: S2/S4, S6 | [T218](docs/specs/T218-snes-dsp-n.md) |
+| T216 | 3 | 🔨 | PET: D10-D15 in main; 11-16: 4 KiB char window (Vivado); D16 Reset reloads ROMs: board PASS 11-16; S13 stuck cursor glyph (0,0) fixed | Board steps done 11-18 (Alex: shipped = done); open: P9 tape SAVE (waits for T214), D14 board check | [T216](docs/specs/T216-pet-finish.md) |
+| T217 | 2 | 🔧 | Start a .prg on SCPU and C128: stick + in disk image; SCPU via SRAM window; C128 $0801 = GO64, board step | C128 S7/S8/S10 board done 11-18 (Alex: shipped = done); open: SCPU benches S1-S4, S6 (S1 board PASS) | [T217](docs/specs/T217-scpu-mount-run-prg.md) |
+| T218 | 3 | 🔨 | SNES: DSP-n cartridges (DSP-1/1B, 2, 3, 4) run; firmware from the SD (appended to the .sfc first, else dsp*.bin) | S2/S7 done 11-18 (Alex: shipped = done); open: S4 (no DSP-2/3/4 game), S6, setting timing (§5) | [T218](docs/specs/T218-snes-dsp-n.md) |
 | T219 | 2 | ✅ | RIGHT enters a folder in every file browser, LEFT goes up (#90) | Done 11-15 (Alex: in builds for weeks) | [T219](docs/specs/done/T219-right-enters.md) |
 | T220 | 3 | 📅 | Host network chip stale: "no network" while LAN works (#84 comment) | Backlog; read 11-15: 3 s poll, cause open | [T220](docs/specs/T220-net-chip-stale.md) |
 | T221 | 2 | 🔨 | SemVer for host, host menu, core app, every core; displays: branch SemVer+commit, release SemVer | in main; L/P badge (T223 D7); next release: tag + plain SemVer (Alex 11-16); open: TRX64-U contract (D15) | [T221](docs/specs/T221-semver-everywhere.md) |
 | T222 | 2 | ✅ | SCPU core: every HDMI row of U16 (576p/720p/1080p 50, 480p/720p/1080p/800x600 60) at Integer/Fit/Fill | Board PASS 11-15 (Alex: everything works); merged to main | [T222](docs/specs/T222-scpu-hdmi-modes.md) |
 | T223 | 2 | 🔨 | Boot menu: 32 entries, only visible rows read, clear full-menu message; large cores take configs (D4) | Board 11-16 table ok; D7 (version x.y.z, L/P badge, tick right) board PASS 11-16 | [T223](docs/specs/T223-boot-menu-32.md) |
 | T225 | 2 | ✅ | Amiga: USB pad on game port 2 (1-/2-button, CD32), mapping dialog, saved per pad ID | Done 11-15, board amiga1200 (Alex) | [T225](docs/specs/T225-amiga-usb-pad-port2.md) |
-| T226 | 2 | 🔨 | Core app: "Loading cartridge" note; pad mapping on the Input tab, not Actions F7 | Spec 11-15 (Alex, board) | [T226](docs/specs/T226-coreapp-board-ux-1115.md) |
-| T228 | 2 | 🔨 | trx64u on the generic core menu; UI fix first (11-17); trx64u deactivated in the package (pin PIPELINE=false) | Spec 11-15 (Alex) | [T228](docs/specs/T228-trx64u-generic-menu.md) |
+| T226 | 2 | 🔨 | Core app: "Loading cartridge" note; pad mapping on the Input tab, not Actions F7 | Built; S3 board done 11-18 (Alex: shipped = done); open: Pad map setting onto Input? (Alex) | [T226](docs/specs/T226-coreapp-board-ux-1115.md) |
+| T228 | 2 | 🔨 | trx64u on the generic core menu; t228-int: R20-R26 merged (TRX64-Ultimate scope; out: Telnet, tape, UCI HTTP, .g71/.d71, WiFi edits), own app image (R25), tests aligned; emu with Alex, S3 open; pin PIPELINE=false | Spec 11-15 (Alex) | [T228](docs/specs/T228-trx64u-generic-menu.md) |
 | T229 | 2 | 🔨 | Boot menu: row data cached like the picture, stat-only check in the background, keys win | Flash boot frame 3.0 s (was 11.9 s); S1/S9 + package board PASS 11-16; Q4 bound 180 ms (Alex) | [T229](docs/specs/T229-boot-menu-data-cache.md) |
-| T230 | 2 | 📝 | TRX64 FW version in the menu; trx64u starts with config, media, autostart (FW contract) | v4 (D5), P-1/P-2, D6-D8; S1 board PASS 11-16 (0.3.0); open: autostart row (D7), page survival | [T230](docs/specs/T230-trx64-fw-version-and-start.md) |
+| T230 | 2 | 📝 | TRX64 FW version in the menu; trx64u starts with config, media, autostart (FW contract) | S1 PASS 11-16; S3/S4/S5/S8 done 11-18 (Alex: shipped = done); open: autostart row (D7), page survival | [T230](docs/specs/T230-trx64-fw-version-and-start.md) |
 | T231 | 3 | 📝 | Diag core: a cursor move redraws only what changed, not the whole screen | PROPOSED 11-16 (Alex, board test); with or after the app rework (T213) | [T231](docs/specs/T231-diag-redraw.md) |
 | T232 | 1 | 🔨 | Pad/joystick keys: A-Z plus learn by key press (GitHub #80); merge 4th, after T228, T235, T234 (Alex 11-17) | Spec 11-16 (Alex) | [T232](docs/specs/T232-padkeys-letters-learn.md) |
-| T233 | 3 | 📝 | CPC floppy controller repair: RQM never waits for a scan, bounded waits, one owner of drive state | Spec 11-17 (Alex); order 5 (Alex 11-17: T228, T235, T234, T232, CPC) | [T233](docs/specs/T233-cpc-fdc-repair.md) |
-| T234 | 2 | 🔨 | Amiga frame follow (T188) as a setting, default Off = standard HDMI rows (Worms DC, 1080p50 reports) | Redone 11-17 late (Off = old rows, On = T188 rows 12..14); A1200 Off/On checked on the board (JTAG); A500 open | [T234](docs/specs/T234-amiga-frame-follow-switch.md) |
-| T235 | 2 | 🔨 | Picture list always offers 50 Hz and 60 Hz per resolution; EDID modes marked (T187 D5 changed) | Merged 11-17 (Alex: "merge and build"); board S5 open; defect: EDID of exactly the 6 TV rows reads as none | [T235](docs/specs/T235-picture-always-50-60.md) |
+| T233 | 3 | ✅ | CPC floppy controller repair: RQM never waits for a scan, bounded waits, one owner of drive state | Board PASS 11-18 (Alex); merged into main (e6f960c1f) | [T233](docs/specs/T233-cpc-fdc-repair.md) |
+| T234 | 2 | ✅ | Amiga frame follow (T188) as a setting, default Off = standard HDMI rows (Worms DC, 1080p50 reports) | Board PASS 11-18 (Alex: S4, S5, A500); merged into main (1b8f69485) | [T234](docs/specs/T234-amiga-frame-follow-switch.md) |
+| T235 | 2 | 🔨 | Picture list always offers 50 Hz and 60 Hz per resolution; EDID modes marked (T187 D5 changed) | Merged 11-17; S5 done 11-18 (shipped = done); defect: EDID of exactly the 6 TV rows reads as none | [T235](docs/specs/T235-picture-always-50-60.md) |
 | T236 | 2 | 🔨 | Native menu simulator (Mac): real coreapp UI with board stubs, live keys, menu TOML reloaded at run time | Merged 11-17 (C64U_emu built it); window not looked at yet: tools/menusim/run.sh | [T236](docs/specs/T236-menu-simulator.md) |
-| T224 | 2 | 🔨 | "Boot safe graphics mode" in the config overlay (RIGHT): one start with Picture Auto, Scale Integer, Smoothing Off | Built on t224-picture-reset 11-15 (D1-D3, Alex); ue2emu 3 modes ok incl. large core; tests unrun | [T224](docs/specs/T224-picture-reset.md) |
-| T175 | 3 | 🔨 | Diag core: a timed probe engine plus TOML tests measure the joystick/paddle ports, results to SD | Merged; tests in diag.cor (rec 8) board PASS 11-16; S4, S7 board, S8 open; redraw UX -> T231 | [T175](docs/todo/T175.md) |
+| T224 | 2 | ✅ | "Boot safe graphics mode" in the config overlay (RIGHT): one start with Picture Auto, Scale Integer, Smoothing Off | Done 11-18 (Alex: shipped = done) | [T224](docs/specs/T224-picture-reset.md) |
+| T175 | 3 | 🔨 | Diag core: a timed probe engine plus TOML tests measure the joystick/paddle ports, results to SD | Merged; tests in diag.cor (rec 8) board PASS 11-16; S4 board, S8 open; redraw UX -> T231 | [T175](docs/todo/T175.md) |
 | T176 | 3 | 📅 | Core menus on the screen at once from a saved picture (split out of T146 P5, issue #4) | Deferred (Alex 11-02): split out of T146 P5; not started | [T176](docs/todo/T176.md) |
 | T177 | 3 | 📅 | Recovery boot: a key held at power-on starts a recovery image, even with a black host menu | DECIDED (Alex 11-02): app, RESTORE+F1, recovery.cor/backup, no flash, LED; build open | [T177](docs/todo/T177.md) |
 | T178 | 3 | 📅 | JTAG tools (trxdbg, load, jtag_stat, partial load) through an FT232H as well as the USB-Blaster | Decided (Alex 11-03): pin Chris's repo + PRs; tools + JTAG recovery kit; --cable or TOML; build open | [T178](docs/todo/T178.md) |
 | T179 | 3 | 📅 | A USB trace shows why a core on a USB stick is slow or missing at power-on | Spec decided (Alex 11-04, Q1-Q4); nothing built | [T179](docs/todo/T179.md) |
 | T180 | 3 | ✅ | Media housekeeping: a mount replaces what is mounted, mounts persist (F8), Recent/Favorites, file ops | Done 11-15 (Alex: in builds for weeks) | [T180](docs/todo/T180.md) |
-| T182 | 3 | 🔨 | C64 with SuperCPU (65816, SuperRAM) as its own core C64SCPU | Board 11-10: SCPU ROM to READY, 1581; step 7 (REU, cart, Mount&Run) not built; CMD 1.4, JiffyDOS board open | [T182](docs/todo/T182.md) |
-| T181 | 3 | 🔨 | Hotkeys while a core runs (menu, volume, ...) without opening the menu | Board 11-07: works (Alex, S1-S4); S5 C= + CTRL on Apple II, Atari, ZX, CPC never pressed | [T181](docs/todo/T181.md) |
+| T182 | 3 | 🔨 | C64 with SuperCPU (65816, SuperRAM) as its own core C64SCPU | CMD 1.4, JiffyDOS, S4 board done 11-18 (Alex: shipped = done); step 7 (REU, cart, Mount&Run) unbuilt | [T182](docs/todo/T182.md) |
+| T181 | 3 | 🔨 | Hotkeys while a core runs (menu, volume, ...) without opening the menu | Board S1-S4 11-07; S5, K.5 done 11-18 (shipped = done); mixed press (modifier + USB key) not built | [T181](docs/todo/T181.md) |
 | T166 | 3 | 📅 | Tester checklists: a GitHub wiki page or discussion with tickable test lists per core | Reminder (Alex 10-31): with the next test release; nothing posted yet | [T166](docs/todo/T166.md) |
 | T167 | 3 | ✅ | UI: a changing progress bar or percentage in an overlay shows what lies behind it while redrawing | Done 11-15 (Alex: in builds for weeks) | [T167](docs/todo/T167.md) |
 | T170 | 3 | 📅 | C128 core with real drives on the IEC port: 1541, and 1571 with fast serial (SRQ) | Spec proposed (Alex 10-31); D1/D2 decided; nothing built, needs room (T140 D24) | [T170](docs/specs/T170-c128-real-drives.md) |
@@ -132,24 +132,24 @@ Built and benched; what is left is a step on the board (Alex, 2026-10-28, transl
 | T135 | 3 | ✅ | Direct boot of the default core, menu on a held key | Done 11-15 (Alex: in builds for weeks) | [T135](docs/todo/T135.md) |
 | T136 | 3 | ✅ | A1200 in full AGA colour (24 bit to HDMI) | Done: S1-S5 passed (board: frame buffer holds 8-bit colour, WNS +0.380); merged to main with t148-core-folder | [T136](docs/todo/T136.md) |
 | T137 | 3 | ✅ | Host app: convert .cfw/.ue2 to .cor (built), restore original firmware (R, built), update | Done 11-15 (Alex: in builds for weeks) | [T137](docs/todo/T137.md) |
-| T140 | 3 | 🔨 | Analogue picture on the A/V port: S-Video and composite, PAL and NTSC | #19/#21 fixed 11-09; #67 board pass 11-11; hang after warm reset, Reload core works (5.17); load stop; T170 SRQ | [T140](docs/todo/T140.md) |
-| T141 | 3 | 🔨 | USB keyboard types into every core (C128 extra keys, Amiga raw keys), not only the menus | A1200 board ok; A500 queue + C128 extra keys built (Vivado+board open) | [T141](docs/todo/T141.md) |
-| T142 | 3 | 🔨 | SNES as a large core from MiSTer SNES (snestang Verilog) | Board 11-02: sound correct (BRR sign), USB pad ok; open: menu verdict text | [T142](docs/todo/T142.md) |
-| T143 | 3 | 🔨 | Neo Geo as a large core from MiSTer NeoGeo | Board 10-31: plays; stripes fixed in pixw (needs board); USB pad ok 11-02 (T156); load progress open | [T143](docs/todo/T143.md) |
+| T140 | 3 | 🔨 | Analogue picture on the A/V port: S-Video and composite, PAL and NTSC | S3 AV + 5.17 done 11-18 (Alex: shipped = done); open: CP/M hang after reset (5.19), load stop, T170 SRQ | [T140](docs/todo/T140.md) |
+| T141 | 3 | 🔨 | USB keyboard types into every core (C128 extra keys, Amiga raw keys), not only the menus | Board steps closed 11-18; open: USB Ctrl+Amiga+Amiga reset, caps LED (left out, decide with Alex) | [T141](docs/todo/T141.md) |
+| T142 | 3 | 🔨 | SNES as a large core from MiSTer SNES (snestang Verilog) | Board 11-02: sound correct (BRR sign), USB pad ok; S10 closed 11-18; open: menu verdict text | [T142](docs/todo/T142.md) |
+| T143 | 3 | 🔨 | Neo Geo as a large core from MiSTer NeoGeo | Stripes + S5 done 11-18 (Alex: shipped = done); USB pad ok 11-02 (T156); load progress open | [T143](docs/todo/T143.md) |
 | T146 | 3 | ✅ | The host menu is on the screen at once: a saved picture of the last menu, LVGL builds behind it | Done 11-15 (Alex: in builds for weeks) | [T146](docs/todo/T146.md) |
 | T147 | 3 | 📅 | A logo on the host app's start screen | Planned (Alex 10-28); no spec | [T147](docs/todo/T147.md) |
 | T152 | 3 | ✅ | Our update as .txu (host, app), split from foreign firmware; flash locked under large cores (F8) | Done 11-15 (Alex: in builds for weeks) | [T152](docs/todo/T152.md) |
-| T154 | 3 | 🔨 | Cartridge and battery-RAM saves go back to the user's file (Off/Ask/Auto), shared app base, all cores | Merged 10-29: service, C64 flash/EEPROM, EF3 built and benched; board S1 and P3/P4 open | [T154](docs/todo/T154.md) |
+| T154 | 3 | 🔨 | Cartridge and battery-RAM saves go back to the user's file (Off/Ask/Auto), shared app base, all cores | Merged 10-29: service, C64 flash/EEPROM, EF3; board S1/S2/S4 closed 11-18; P3/P4 open | [T154](docs/todo/T154.md) |
 | T155 | 3 | 📅 | C128: run a cartridge from the generic app, then its write-back on the T154 service | Planned (Alex 10-29); spec to write later | [T155](docs/todo/T155.md) |
-| T156 | 3 | 🔨 | USB gamepads drive the cores' own controllers, generic HID parsing in the app base; NES, SNES, Neo Geo | Board 11-02: NES, SNES, Neo Geo pads ok (Neo Geo map by position); open: real pad dump | [T156](docs/todo/T156.md) |
-| T157 | 3 | 🔨 | Every core can swap the two joystick ports from its menu (generic app), issue #9 | Built: amiga, a1200, nes, c128, neogeo; vc20 none (Alex), snes none; CI bitstreams + board S5 open | [T157](docs/todo/T157.md) |
-| T159 | 3 | 🔨 | Case LED 1 = floppy LED (drive motor + hard disk), menu On/Off, A1200 first | Board 11-04: A500, Atari, Apple II, CPC, C128 pass; C264 and VC-20 not seen yet | [T159](docs/todo/T159.md) |
+| T156 | 3 | 🔨 | USB gamepads drive the cores' own controllers, generic HID parsing in the app base; NES, SNES, Neo Geo | Pads ok (board 11-02); S1/S5 done 11-18 (Alex: shipped = done); open: map numbering, keycap (5.7) | [T156](docs/todo/T156.md) |
+| T157 | 3 | 🔨 | Every core can swap the two joystick ports from its menu (generic app), issue #9 | Built: amiga, a1200, nes, c128, neogeo; vc20 none (Alex), snes none; S5 done 11-18; CI bitstreams open | [T157](docs/todo/T157.md) |
+| T159 | 3 | ✅ | Case LED 1 = floppy LED (drive motor + hard disk), menu On/Off, A1200 first | Done 11-18 (Alex: shipped = done) | [T159](docs/todo/T159.md) |
 | T160 | 3 | ✅ | Every core has a master volume (SHIFT+/SHIFT- in the menu), gain in the host | Done 11-15 (Alex: in builds for weeks) | [T160](docs/todo/T160.md) |
 | T161 | 3 | ✅ | A GitHub bug report needs version, core, steps, photos and the T162 report (issue forms) | Done 11-15 (Alex: in builds for weeks) | [T161](docs/todo/T161.md) |
 | T162 | 3 | ✅ | The host app writes a bug report file (F8 menu, /SD/report/, GET /v1/report) | Done 11-15 (Alex: in builds for weeks) | [T162](docs/todo/T162.md) |
 | T163 | 2 | ✅ | Host and core settings in our own store, apart from Gideon's (FTP off after 1.1.0) | Done 11-15 (Alex: in builds for weeks) | [T163](docs/todo/T163.md) |
 | T164 | 2 | ✅ | Next host package: HDMI modes + scaler in the host, flash lock, volume, lamp, port clock, NTP | Done 11-15 (Alex: in builds for weeks) | [T164](docs/todo/T164.md) |
-| T138 | 3 | 🔨 | A1200 with 32 MB Zorro III fast RAM | Board S5 half: avail shows 32 MB (Alex 10-31); Deep Meet not tried yet | [T138](docs/todo/T138.md) |
+| T138 | 3 | ✅ | A1200 with 32 MB Zorro III fast RAM | Done 11-18 (Alex: shipped = done) | [T138](docs/todo/T138.md) |
 
 ## Done
 

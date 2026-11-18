@@ -1,5 +1,5 @@
 // T164 WP7 (G2, all cores): the HDMI mode request and its status, in the overlay window of the application (0x10144xxx, byte addresses 0x4Fxx).
-//   write 0x4F00  request = family * 6 + hdmi (hdmi_modes.vh). A value with bits 7:4 set, above 11, or not a row of the table (hm_valid 0:
+//   write 0x4F00  request = family * 6 + hdmi (hdmi_modes_amiga.vh). A value with bits 7:4 set, above 11, or not a row of the table (hm_valid 0:
 //                 family 0 with hdmi 3..5) is refused: nothing changes, the CDCE is not touched. A C64-type core (c64_type = 1) is held to
 //                 its family: the family part of the request is replaced by fam_v60 (mode_ctl cdce_v60, the System Mode) and only a locked
 //                 row (hm_locked, the 1080p rows) is accepted. A frame-buffer core (c64_type = 0) gets the request as it is.
@@ -11,7 +11,7 @@
 //         0x4F09  requests processed (clk50 count, crossed as 8 bits, so one read may be torn; equal to 0x4F08 = the refused bit is current)
 // T234 (the Amiga copies only; redo 2026-11-17: the default path is the one of before T188): write 0x4F02 bit 0 = Frame follow (0 Off, the power-up
 //   value; 1 On); read 0x4F0C = the value taken. Off: every row is the host's own, rows 0..2 included, and the power-up row is 2, exactly as before
-//   T188. On: a request for row 0, 1 or 2 (the 50 Hz television rows) runs T188's Amiga rows 12, 13, 14 of hdmi_modes.vh, on which hdmi_timing
+//   T188. On: a request for row 0, 1 or 2 (the 50 Hz television rows) runs T188's Amiga rows 12, 13, 14 of hdmi_modes_amiga.vh, on which hdmi_timing
 //   follows the core. 0x4F07 reports the requested row (0..2) either way. A change of the value is a change of the effective row: the CDCE is
 //   written again and the timing generator restarts like after a request. The version byte (0x4F05) is 4.
 // An accepted request (and any change of the effective row, e.g. the family bit) holds vm_rst for 8 clk50 clocks: cdce_mode starts its two

@@ -29,7 +29,7 @@ module hdmi_timing #(
 ) (
     input  wire        clk,
     input  wire        rst,             // sync to clk; mode is taken while it is high
-    input  wire [3:0]  mode,            // family * 6 + hdmi (hdmi_modes.vh)
+    input  wire [3:0]  mode,            // family * 6 + hdmi (hdmi_modes_amiga.vh)
     input  wire        align,           // pulse (clk): re-phase the frame on a locked row
     output wire        valid,           // the captured mode is a row of the table
     output reg         aligned,         // an align pulse was accepted since rst

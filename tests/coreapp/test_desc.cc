@@ -435,6 +435,15 @@ int main()
     d = testcore::desc; d.filetypes = ghost_ft; CHECK(desc_check(&d) && strstr(desc_check(&d), "test.nomount"));
     static const MediaSlot ghost_slot[1] = { { "S", "test.noslot", 0, 0, 0 } };
     d = testcore::desc; d.media = ghost_slot; CHECK(desc_check(&d) && strstr(desc_check(&d), "test.noslot"));
+    // T92 D-17b: the labels a slot mounts and replaces by name file actions of its own type (a typo would drop to the action sheet unnoticed)
+    static const MediaSlot slot_ok[1] = { { "Slot", "test.slot", 0, 0, 0, 0, ".tst", "Mount", 0, 0, false, "Mount" } };
+    d = testcore::desc; d.media = slot_ok; CHECK(!desc_check(&d));
+    static const MediaSlot slot_bad_mount[1] = { { "Slot", "test.slot", 0, 0, 0, 0, ".tst", "Mnt", 0, 0, false, 0 } };
+    d = testcore::desc; d.media = slot_bad_mount; CHECK(desc_check(&d) && strstr(desc_check(&d), "Mnt") && strstr(desc_check(&d), "no file action"));
+    static const MediaSlot slot_bad_replace[1] = { { "Slot", "test.slot", 0, 0, 0, 0, ".tst", "Mount", 0, 0, false, "Swap" } };
+    d = testcore::desc; d.media = slot_bad_replace; CHECK(desc_check(&d) && strstr(desc_check(&d), "Swap"));
+    static const MediaSlot slot_other_type[1] = { { "Slot", "test.slot", 0, 0, 0, 0, ".xyz", "Mount", 0, 0, false, 0 } };
+    d = testcore::desc; d.media = slot_other_type; CHECK(desc_check(&d) && strstr(desc_check(&d), "Mount"));
     d = testcore::desc; d.register_ops = 0; CHECK(desc_check(&d) && strstr(desc_check(&d), "test."));      // nobody registers what it names
     d = testcore::desc; d.service_op = "test.nosvc"; d.service_period_ms = 5; CHECK(desc_check(&d) && strstr(desc_check(&d), "test.nosvc"));
     d = testcore::desc; d.service_op = "test.mount"; d.service_period_ms = 5; CHECK(desc_check(&d) && strstr(desc_check(&d), "without arguments"));

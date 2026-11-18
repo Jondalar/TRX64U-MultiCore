@@ -107,10 +107,8 @@
 2|amiga_fbwin|2400|sh cores/amiga/sim/run_fbwin.sh
 # T164 S7 (replaces T107 D8's A1200 bench): the host's pixel layer scales Integer / Fit / Fill / 3/4 of two sources in 4 HDMI modes (1080p, 720p, 576p, 480p) at their gear, nearest exact and bilinear within 1 LSB (Python model), formats 1 and 2, the SMOOTH 0 build
 2|pixscale|7200|sh host/sim/pixscale/run.sh
-# T164 WP18: the mode timing generator and the mode request path as the A1200 builds them (cores/amiga1200/mono/host, its copy of the host files): host_hdmi_timing / host_modepath with HOSTDIR
-1|amiga1200_hdmi_timing|1800|HOSTDIR=cores/amiga1200/mono/host sh host/sim/hdmi_timing/run.sh
+# T164 WP18: the mode timing generator as a large core builds it (cores/<core>/mono/host, its copy of the host files): host_hdmi_timing with HOSTDIR. The A1200 rows (amiga1200_hdmi_timing, amiga1200_modepath) are out (T234, Alex 2026-11-18): they tested T188's first layout; tools/hdmi_modes.py check (lint) and the board cover the A1200
 1|c128_hdmi_timing|1800|HOSTDIR=cores/c128/mono/host sh host/sim/hdmi_timing/run.sh
-1|amiga1200_modepath|3000|HOSTDIR=cores/amiga1200/mono/host sh host/sim/modepath/run.sh
 # T164 WP4 (S4): the host HDMI encoder fork (host/hdmi_enc: ce, runtime frame, AVI, ACR, 3 packets) decoded in the 9 rows of hdmi_modes.vh on 576p
 1|hdmi_enc|3000|sh host/sim/hdmi_enc/run.sh
 2|amiga_fuzz|900|sh cores/amiga/sim/run_fuzz_suite.sh
@@ -206,6 +204,7 @@
 2|cpc_io|2400|sh cores/cpc/sim/run.sh audio keys
 2|cpc_media|3600|sh cores/cpc/sim/run.sh tape disk
 2|cpc_fdcscan|900|sh cores/cpc/sim/run.sh fdcscan
+2|cpc_fdcscan3|7200|sh cores/cpc/sim/run.sh fdcscan3
 2|cpc_fdcfix|600|sh cores/cpc/sim/run.sh fdcfix
 2|cpc_pause|1800|sh cores/cpc/sim/run.sh pause
 # T92 S12: the same for layer2_cpc.v

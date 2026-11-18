@@ -66,3 +66,7 @@ Scenario: S6 the gateware builds
   t214-read-inv): it does not work either. "It goes to the back until we have a solution ... a C264 core with full debug read-along,
   and I borrow a datasette or so." Next step when resumed: a c264 debug build that records the cassette lines (READ, WRITE, MOTOR,
   SENSE, the 7501 port) into the trace ring, plus a borrowed datasette at the board. Nothing is built until then.
+- **2026-11-18 - board steps closed as done (shipped and in use):** S3/S5 (Datasette port register) in the VC-20, the C264, the SCPU
+  and the C128 - Alex 2026-11-15: "Under A there is nothing I would not class as DONE! That has been in the builds for days/weeks, we
+  had bugs and re-tests in part"; Alex 2026-11-18, shown these steps as open: "that is old stuff that has been running for ages, we had
+  this already 3-4 days ago" and "tick it off in the TODOs/specs, otherwise it shows up again with some agent" (translated).

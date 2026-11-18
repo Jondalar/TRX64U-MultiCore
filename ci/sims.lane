@@ -86,7 +86,6 @@ amiga_fastpat: large:amiga1200
 amiga_fbwin: large:amiga1200
 amiga_z3: large:amiga1200
 pixscale: host
-amiga1200_hdmi_timing: large:amiga1200
 c128_hdmi_timing: large:c128
 hdmi_enc: host
 amiga1200_motorled: large:amiga1200
@@ -138,6 +137,7 @@ cpc_io: large:cpc
 cpc_media: large:cpc
 cpc_pause: large:cpc
 cpc_fdcscan: large:cpc
+cpc_fdcscan3: large:cpc
 cpc_fdcfix: large:cpc
 cpc_pins: large:cpc
 zxnext_boot: large:zxnext
@@ -204,7 +204,6 @@ amiga1200_motorpath: large:amiga1200
 amiga1200_motorwire: large:amiga1200
 amiga_motorpath: large:amiga
 atari_led: core:atari800
-amiga1200_modepath: large:amiga1200
 # T168 (DDT's demos as partial cores)
 ddt_mandel_pix: core:ddt_mandel
 ddt_mandel_joy: core:ddt_mandel

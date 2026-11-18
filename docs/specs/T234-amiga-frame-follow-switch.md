@@ -1,6 +1,7 @@
 # T234 — The Amiga cores' frame follow (T188) is a setting, off by default; off gives the standard HDMI rows of before T188
 
-**Status:** BUILT on t234-switch, merged into main locally (not pushed) 2026-11-17 late; board: A1200 Off and On checked by Claude (JTAG). Proposed 2026-11-17.
+**Status:** DONE (board pass by Alex 2026-11-18: S4, S5 and the A500); merged into main (1b8f69485) 2026-11-17 late; board: A1200 Off and
+On checked by Claude (JTAG) 11-17. Proposed 2026-11-17.
 **Repo:** TRX64U-MultiCore — the Amiga cores' own host copies (`cores/amiga/mono/host/`, `cores/amiga1200/mono/host/`: `hdmi_timing.v`,
 the mode rows, `tools/hdmi_modes.py`), the cores' register blocks, the setting in the core app (through the generic settings path),
 the manual (11.6, 11.7).
@@ -109,3 +110,18 @@ below: "Try it. I am sleeping. You have to start the A1200 in the host yourself"
   (JTAG: 50 frames/s) - a wrong read-out, not a dead output.
 - **Wrong turn, taken back:** a start-path change of T235 (b23a54ecd, a stored unnamed Picture row would run at the screen's named rate) rested on
   a wrong guess (the screen takes 1080p50 although its EDID does not name it); reverted (dd0512243) before any board use.
+
+**2026-11-18 - board pass (Alex, page "Board Test 11-18", cores of t234-switch 3f67dce2 on /SD/cores since 11-17 22:23, host main-13c2cde9).**
+- S4: the A1200 with Frame follow Off at 1080p50 and at 720p50, a few minutes with sound: picture and sound stay; Worms DC with Off: picture and
+  sound (GitHub Discussion #94).
+- S5: Pinball Dreams with Frame follow On: no hitch in the scrolling; picture and sound stay (T188's rows 2638 x 1125 on a screen for the first
+  time, see the redo above).
+- The A500 (amiga.cor): Frame follow Off, On, Off - a picture in both settings, the menu works. Alex: "both Amigas good !!!" (translated).
+- S6: runs 2420 / 2421 (`vivado large:amiga`, `large:amiga1200`) green on t234-switch.
+- Still open outside T234's scenarios: the core app's "[amiga] frames core N out 0" read-out (wrong while HDMI runs).
+- Found by the review before the push of 2026-11-18: the benches amiga1200_hdmi_timing and amiga1200_modepath (host/sim/hdmi_timing,
+  host/sim/modepath, ci/sims.txt) were put back by the revert of 11-17 and still test T188's first layout (rows 0..2 bent, version 1); the
+  redo was proven by `tools/hdmi_modes.py check` and the board. They fail when they run (nightly: reported, not fatal - amiga1200 is
+  experimental). ci/sims.deps now names hdmi_modes_amiga.vh. Alex chose the second (2026-11-18, translated: "drop them? is that
+  possible?"): the two rows are out of ci/sims.txt, ci/sims.lane and ci/sims.deps. The bench scripts stay (host_hdmi_timing, host_modepath,
+  c128_hdmi_timing use them); the A1200's copy is checked by `tools/hdmi_modes.py check` in the lint and by the board.

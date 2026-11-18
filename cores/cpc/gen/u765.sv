@@ -1,6 +1,8 @@
-// T92 D3: cores/cpc/rtl/u765/u765.sv with two changes made by tools/cpc_gen.py (the initialiser of `logical_size` in SECTOR_SIZE is an
-// assignment per call; T92 #17: a new image event releases the scan lock its drive's running scan held). Everything else, the licence header
-// included, is the upstream file. Do not edit.
+// T92 D3, T233: cores/cpc/rtl/u765/u765.sv with the changes tools/cpc_gen.py makes (the initialiser of `logical_size` in SECTOR_SIZE is an
+// assignment per call; T233 D2: RQM never waits for a disk scan, a command that reads the image waits for it in COMMAND_WAIT_IMG; D3: the SD
+// channel inside the FDC's always block, every block bounded (SD_TIMEOUT, sd_err) with a failure answer; D4: a disk event is latched and applied
+// by the FDC at a safe point, one taker of the track table resource per clock). Everything else, the licence header included, is the upstream
+// file. Do not edit.
 // ====================================================================
 //
 //  NEC upd765 FDC with EDSK-based floppy drive
@@ -32,7 +34,8 @@
 //for accurate head stepping rate, set CYCLES to cycles/ms
 //8MHz = 4000 (default)
 //SPECCY_SPEEDLOCK_HACK: auto mess-up weak sector on C0H0S2
-module u765 #(parameter CYCLES = 20'd4000, SPECCY_SPEEDLOCK_HACK = 0)
+module u765 #(parameter CYCLES = 20'd4000, SPECCY_SPEEDLOCK_HACK = 0,
+	SD_TIMEOUT = 20'd630000) // T233 D3: sys clocks a block may take from its issue to the fall of sd_ack (20 ms at 31.5 MHz)
 (
 	input            clk_sys,   // sys clock
 	input            ce,        // chip enable
@@ -54,6 +57,7 @@ module u765 #(parameter CYCLES = 20'd4000, SPECCY_SPEEDLOCK_HACK = 0)
 	output reg [1:0] sd_rd,
 	output reg [1:0] sd_wr,
 	input            sd_ack,
+	input            sd_err,      // T233 D3: the block that ends with this fall of sd_ack failed (cpc_fdc: a DDR2 line not answered)
 	input      [8:0] sd_buff_addr,
 	input      [7:0] sd_buff_dout,
 	output     [7:0] sd_buff_din,
@@ -162,7 +166,9 @@ typedef enum
  COMMAND_READ_RESULTS, // 42
 
  COMMAND_INVALID, // 43
- COMMAND_INVALID1
+ COMMAND_INVALID1,
+
+ COMMAND_WAIT_IMG // T233 D2: a command that reads the image waits for its drive's disk event and scan (last: the others keep their numbers)
 } state_t;
 
 // sector/trackinfo buffers
@@ -170,6 +176,7 @@ reg    [7:0] buff_data_in, buff_data_out, tinfo_data;
 reg    [8:0] buff_addr, tinfo_addr;
 reg          buff_wr, buff_wait;
 reg          sd_buff_type;
+reg          sd_live;     // T233 D3: a block is in flight: only its bytes go into the buffers (a withdrawn one may still be answered)
 reg          tinfo_hds, tinfo_ds0, tinfo_lock, tinfo_wait;
 reg          hds, ds0;
 
@@ -179,7 +186,7 @@ u765_dpram #(8, 11) tinfo_ram
 
 	.address_a({tinfo_ds0,tinfo_hds,sd_buff_addr}),
 	.data_a(sd_buff_dout),
-	.wren_a(sd_buff_wr & sd_ack & sd_buff_type == UPD765_SD_BUFF_TRACKINFO),
+	.wren_a(sd_buff_wr & sd_ack & sd_live & sd_buff_type == UPD765_SD_BUFF_TRACKINFO),
 	.q_a(),
 
 	.address_b({tinfo_ds0,tinfo_hds,tinfo_addr}),
@@ -194,7 +201,7 @@ u765_dpram #(8, 9) sector_ram
 
 	.address_a(sd_buff_addr),
 	.data_a(sd_buff_dout),
-	.wren_a(sd_buff_wr & sd_ack & sd_buff_type == UPD765_SD_BUFF_SECTOR),
+	.wren_a(sd_buff_wr & sd_ack & sd_live & sd_buff_type == UPD765_SD_BUFF_SECTOR),
 	.q_a(sd_buff_din),
 
 	.address_b(buff_addr),
@@ -232,43 +239,11 @@ reg        sd_busy_sector;
 reg [31:0] i_seek_pos;
 reg        i_write_prev;
 
-always @(posedge clk_sys) begin : sdcontrol
-
-		ack <= {ack[4:0], sd_ack};
-		if(ack[5:4] == 'b01)	begin
-			sd_rd <= 0;
-			sd_wr <= 0;
-		end
-		if(ack[5:4] == 'b10) begin
-			sd_busy_mount <= 0;
-			sd_busy_tinfo <= 0;
-			sd_busy_sector <= 0;
-		end
-
-		if (!sd_busy_mount & !sd_busy_tinfo & !sd_busy_sector) begin
-			if (sd_rd_mount != 2'b00) begin
-				sd_lba <= 0;
-				sd_rd  <= sd_rd_mount;
-				sd_buff_type <= UPD765_SD_BUFF_SECTOR;
-				sd_busy_mount <= 1;
-			end else if (sd_rd_tinfo != 2'b00) begin
-				sd_lba <= image_track_offsets_in[15:1];
-				sd_rd  <= sd_rd_tinfo;
-				sd_buff_type <= UPD765_SD_BUFF_TRACKINFO;
-				sd_busy_tinfo <= 1;
-			end else if (sd_rd_sector != 2'b00) begin
-				sd_lba <= i_seek_pos[31:9];
-				sd_rd  <= sd_rd_sector;
-				sd_buff_type <= UPD765_SD_BUFF_SECTOR;
-				sd_busy_sector <= 1;
-			end else if (sd_wr_sector != 2'b00) begin
-				sd_lba <= i_seek_pos[31:9] - i_write_prev;
-				sd_wr  <= sd_wr_sector;
-				sd_buff_type <= UPD765_SD_BUFF_SECTOR;
-				sd_busy_sector <= 1;
-			end
-		end
-end
+// T233 D3: the SD channel is driven at the end of the always block fdc (it clears a request flag when it issues the block); its own state:
+reg        sd_drv;          // the drive of the block in flight (or of the last one)
+reg [19:0] sd_tmr;          // sys clocks since the block was issued
+reg        sd_fail_mount, sd_fail_tinfo, sd_fail_sector;   // the last block of that kind was withdrawn or ended with sd_err (its owner takes the mark)
+wire       sd_quiet = !sd_busy_mount & !sd_busy_tinfo & !sd_busy_sector & ack == 6'd0 & !sd_ack;   // nothing in flight, no answer under way
 
 ////
 
@@ -349,6 +324,9 @@ always @(posedge clk_sys) begin : fdc
 	reg [15:0] i_bytes_to_read;
 	reg [2:0] i_substate;
 	reg [1:0] old_mounted;
+	reg [1:0] ev_pend, ev_wp, ev_new, ev_go; // T233 D4: a disk event waits / its write protect / a strobe in this clock / applied in this clock
+	reg[31:0] ev_size[2];
+	reg       lk_take;  // T233: the track table resource (i_scan_lock / tinfo_lock) was taken in this clock
 	reg [15:0] i_track_offset;
 	reg [19:0] i_timeout;
 	reg [7:0] i_head_timer;
@@ -377,22 +355,16 @@ always @(posedge clk_sys) begin : fdc
 	buff_wait <= 0;
 	tinfo_wait <= 0;
 
-	//new image mounted
-	for(int i=0;i<2;i++) begin 
+	//new image mounted: T233 D4 latches it only; the FDC applies it below (or the reset at once)
+	lk_take = 0;
+	ev_go = 0;
+	ev_new = ~old_mounted & img_mounted;
+	for(int i=0;i<2;i++) begin
 		old_mounted[i] <= img_mounted[i];
-		if(~old_mounted[i] & img_mounted[i]) begin
-			image_wp[i] <= img_wp;
-			image_size[i] <= img_size;
-			image_scan_state[i] <= {1'b0, |img_size};
-			if (image_scan_state[i] >= 2'd2) i_scan_lock <= 0; // T92 #17: this drive's running scan held the lock
-			image_ready[i] <= 0;
-			disk_changed[i] <= 1;
-			int_state[i] <= 0;
-			seek_state[i] <= 0;
-			i_seek_start[i] <= 0;
-			next_weak_sector[i] <= 0;
-			i_current_sector_pos[i] <= '{ 0, 0 };
-			i_secinfo_valid[i] <= '{ 0, 0 };
+		if (ev_new[i]) begin
+			ev_pend[i] <= 1;
+			ev_wp[i] <= img_wp;
+			ev_size[i] <= img_size;
 		end
 	end
 
@@ -413,7 +385,8 @@ always @(posedge clk_sys) begin : fdc
 		case (image_scan_state[i_current_drive])
 			0: ;//no new image
 			1: //read the first 512 byte
-				if (!sd_busy_mount & !i_scan_lock & state == COMMAND_IDLE) begin
+				if (!sd_busy_mount & !i_scan_lock & !tinfo_lock & !lk_take & !ev_pend[i_current_drive] & (state == COMMAND_IDLE | state == COMMAND_WAIT_IMG)) begin
+					lk_take = 1;
 					i_scan_lock <= 1;
 					sd_rd_mount[i_current_drive] <= 1;
 					i_track_offset<= 16'h1; //offset 100h
@@ -424,7 +397,12 @@ always @(posedge clk_sys) begin : fdc
 				end
 			2: //process the header
 			if (!sd_busy_mount & sd_rd_mount == 2'b00) begin
-				if (!buff_wait) begin
+				if (sd_fail_mount) begin // T233 D3: the block did not come: the drive is not ready
+					sd_fail_mount <= 0;
+					image_ready[i_current_drive] <= 0;
+					image_scan_state[i_current_drive] <= 0;
+					i_scan_lock <= 0;
+				end else if (!buff_wait) begin
 					if (buff_addr == 0) begin
 						if (buff_data_in == "E")
 							image_edsk[i_current_drive] <= 1;
@@ -459,8 +437,6 @@ always @(posedge clk_sys) begin : fdc
 					buff_addr <= buff_addr + 1'd1;
 					buff_wait <= 1;
 				end
-			end else begin
-				sd_rd_mount <= 0;
 			end
 			3: begin
 					image_track_offsets_wr <= 0;
@@ -496,6 +472,16 @@ always @(posedge clk_sys) begin : fdc
 		i_scan_lock <= 0;
 		i_srt <= 4;
 		tinfo_lock <= 0;
+		sector_search_state <= 0; // T233 D4
+		for (int e = 0; e < 2; e++) if (ev_pend[e] && !ev_new[e]) begin // T233 D4: a disk event waiting is applied in reset at once
+			ev_pend[e] <= 0;
+			image_wp[e] <= ev_wp[e];
+			image_size[e] <= ev_size[e];
+			image_scan_state[e] <= {1'b0, |ev_size[e]};
+			image_ready[e] <= 0;
+			next_weak_sector[e] <= 0;
+			i_current_sector_pos[e] <= '{ 0, 0 };
+		end
 	end else if (ce) begin
 
 		old_wr <= wr;
@@ -538,7 +524,8 @@ always @(posedge clk_sys) begin : fdc
 			3: // reload trackinfo for the new track
 			begin
 				$display("reload trackinfo: drive %d track %d", i_current_drive, pcn[i_current_drive]);
-				if (!tinfo_lock) begin
+				if (!tinfo_lock && !i_scan_lock && !lk_take && !ev_pend[i_current_drive]) begin
+					lk_take = 1;
 					sector_byte_pos[i_current_drive] <= '{ 0, 0 };
 					i_current_track_sectors[i_current_drive] <= '{ 0, 0 };
 					next_weak_sector[i_current_drive] <= 0;
@@ -567,11 +554,17 @@ always @(posedge clk_sys) begin : fdc
 
 			5:
 			if (!sd_busy_tinfo & sd_rd_tinfo == 2'b00) begin
-				tinfo_addr <= {image_track_offsets_in[0], 8'h16}; //gap3 length
-				tinfo_wait <= 1;
-				seek_state[i_current_drive] <= 6;
-			end else begin
-				sd_rd_tinfo <= 0;
+				if (sd_fail_tinfo) begin // T233 D3: the block did not come: an empty track
+					sd_fail_tinfo <= 0;
+					i_current_track_sectors[i_current_drive][tinfo_hds] <= 0;
+					tinfo_lock <= 0;
+					image_trackinfo_dirty[i_current_drive] <= 0;
+					seek_state[i_current_drive] <= 0;
+				end else begin
+					tinfo_addr <= {image_track_offsets_in[0], 8'h16}; //gap3 length
+					tinfo_wait <= 1;
+					seek_state[i_current_drive] <= 6;
+				end
 			end
 
 			6:
@@ -626,7 +619,10 @@ always @(posedge clk_sys) begin : fdc
 			end
 
 			1:
-			if (!image_trackinfo_dirty[sector_search_ds0] && !tinfo_lock) begin
+			if (!image_ready[sector_search_ds0]) begin
+				sector_search_state <= 0; // T233 D4: the drive lost its image while the search waited (an event applied as it was picked, a failed scan)
+			end else if (!image_trackinfo_dirty[sector_search_ds0] && !tinfo_lock && !i_scan_lock && !lk_take && !ev_pend[sector_search_ds0]) begin
+				lk_take = 1;
 				tinfo_lock <= 1;
 				image_track_offsets_addr <= { sector_search_ds0, pcn[sector_search_ds0], sector_search_hds };
 				tinfo_wait <= 1;
@@ -772,9 +768,9 @@ always @(posedge clk_sys) begin : fdc
 			COMMAND_IDLE:
 			begin
 				m_status[UPD765_MAIN_DIO] <= 0;
-				m_status[UPD765_MAIN_RQM] <= !image_scan_state[0] & !image_scan_state[1];
+				m_status[UPD765_MAIN_RQM] <= 1; // T233 D2: never held for a disk scan (AMSDOS polls RQM without a time limit)
 
-				if (~old_wr & wr & a0 & !image_scan_state[0] & !image_scan_state[1]) begin
+				if (~old_wr & wr & a0) begin
 					i_mt <= din[7];
 					//i_mfm <= din[6];
 					i_sk <= din[5];
@@ -916,7 +912,12 @@ always @(posedge clk_sys) begin : fdc
 			COMMAND_READ_ID1:
 			if (~old_wr & wr & a0) begin
 				ds0 <= din[0];
-				if (~motor[din[0]] | ~ready[din[0]] | ~image_ready[din[0]]) begin
+				if (motor[din[0]] & ready[din[0]] & (image_scan_state[din[0]] != 0 | ev_pend[din[0]])) begin // T233 D2: the image is being read
+					hds <= din[2];
+					i_command <= COMMAND_READ_ID_WAIT_ID;
+					m_status[UPD765_MAIN_RQM] <= 0;
+					state <= COMMAND_WAIT_IMG;
+				end else if (~motor[din[0]] | ~ready[din[0]] | ~image_ready[din[0]]) begin
 					status[0] <= 8'h40;
 					status[1] <= 8'b101;
 					status[2] <= 0;
@@ -1150,9 +1151,6 @@ always @(posedge clk_sys) begin : fdc
 				buff_addr <= i_seek_pos[8:0];
 				buff_wait <= 1;
 				state <= COMMAND_RW_DATA_EXEC6;
-			end else begin
-				sd_rd_sector <= 0;
-				sd_wr_sector <= 0;
 			end
 
 			//Read from/write to Speccy
@@ -1206,9 +1204,6 @@ always @(posedge clk_sys) begin : fdc
 				end else begin
 					i_timeout <= i_timeout - 1'd1;
 				end
-			end else begin
-				sd_rd_sector <= 0;
-				sd_wr_sector <= 0;
 			end
 
 			COMMAND_RW_DATA_EXEC7:
@@ -1265,9 +1260,6 @@ always @(posedge clk_sys) begin : fdc
 					if (~i_mt | hds | ~image_sides[ds0]) i_r <= i_r + 1'd1;
 					state <= COMMAND_RW_DATA_EXEC2;
 				end
-			end else begin
-				sd_rd_sector <= 0;
-				sd_wr_sector <= 0;
 			end
 
 			COMMAND_FORMAT_TRACK:
@@ -1394,7 +1386,10 @@ always @(posedge clk_sys) begin : fdc
 					7: begin
 							i_dtl <= din;
 							i_substate <= 0;
-							if (~motor[ds0] | ~ready[ds0] | ~image_ready[ds0]) begin
+							if (motor[ds0] & ready[ds0] & (image_scan_state[ds0] != 0 | ev_pend[ds0] | i_scan_lock)) begin // T233 D2: the image is being read, or a scan holds the sector buffer
+								m_status[UPD765_MAIN_RQM] <= 0;
+								state <= COMMAND_WAIT_IMG;
+							end else if (~motor[ds0] | ~ready[ds0] | ~image_ready[ds0]) begin
 								status[0] <= 8'h40;
 								status[1] <= 8'b101;
 								status[2] <= 0;
@@ -1410,6 +1405,24 @@ always @(posedge clk_sys) begin : fdc
 							end
 						end
 				endcase
+			end
+
+			COMMAND_WAIT_IMG: // T233 D2: the checks of SETUP / READ ID once the drive's event is applied, its scan is over and no scan holds the sector buffer
+			if (!image_scan_state[ds0] && !ev_pend[ds0] && !i_scan_lock && !lk_take) begin   // lk_take: a scan that starts in this clock
+				if (~motor[ds0] | ~ready[ds0] | ~image_ready[ds0]) begin
+					status[0] <= 8'h40;
+					status[1] <= 8'b101;
+					status[2] <= 0;
+					state <= COMMAND_READ_RESULTS;
+				end else if (hds & ~image_sides[ds0]) begin
+					if (i_command != COMMAND_READ_ID_WAIT_ID) hds <= 0;
+					status[0] <= 8'h48; //no side B
+					status[1] <= 0;
+					status[2] <= 0;
+					state <= COMMAND_READ_RESULTS;
+				end else begin
+					state <= i_command;
+				end
 			end
 
 			COMMAND_READ_RESULTS:
@@ -1468,6 +1481,147 @@ always @(posedge clk_sys) begin : fdc
 
 		endcase //status
 
+		// T233 D3: a sector block that did not come, or a write that did not go, ends the command as SETUP answers a missing image
+		if (sd_fail_sector && !sd_busy_sector && sd_rd_sector == 2'b00 && sd_wr_sector == 2'b00 &&
+			(state == COMMAND_RW_DATA_EXEC5 || state == COMMAND_RW_DATA_EXEC6 || state == COMMAND_RW_DATA_EXEC8)) begin   // the states that wait for a block
+			sd_fail_sector <= 0;
+			sd_rd_sector <= 0;
+			sd_wr_sector <= 0;
+			m_status[UPD765_MAIN_RQM] <= 0;   // a byte EXEC6 offers in this clock is withdrawn: the CPU never reads ST0 as data
+			i_sector_c <= i_c;
+			i_sector_h <= i_h;
+			i_sector_r <= i_r;
+			i_sector_n <= i_n;
+			status[0] <= 8'h40;
+			status[1] <= 8'b101;
+			status[2] <= 0;
+			state <= COMMAND_READ_RESULTS;
+		end
+
+		// T233 D4: the disk event of drive e is applied here and nowhere else (the reset aside): when no block of e is in flight and its scan,
+		// trackinfo load and sector search hold nothing (none of them takes the lock for e while the event waits). A command on e ends first.
+		for (int e = 0; e < 2; e++) begin
+			if (ev_pend[e] && !ev_new[e] && (sd_quiet || sd_drv != e) && image_scan_state[e] < 2 && seek_state[e] < 4 &&
+				!(sector_search_ds0 == e && sector_search_state >= 2) &&
+				!(ds0 == e && state == COMMAND_RW_DATA_EXEC6 && !i_write && m_status[UPD765_MAIN_RQM])) begin   // not while a read offers a byte
+				ev_go[e] = 1;
+				ev_pend[e] <= 0;
+				image_wp[e] <= ev_wp[e];
+				image_size[e] <= ev_size[e];
+				image_scan_state[e] <= {1'b0, |ev_size[e]};
+				image_ready[e] <= 0;
+				image_trackinfo_dirty[e] <= 1;
+				disk_changed[e] <= 1;
+				int_state[e] <= int_state[e] | (seek_state[e] == 1) | (seek_state[e] == 2) | i_seek_start[e];   // a seek in flight ends with its interrupt (SENSE INT: not ready)
+				seek_state[e] <= 0;
+				i_seek_start[e] <= 0;
+				next_weak_sector[e] <= 0;
+				i_current_sector_pos[e] <= '{ 0, 0 };
+				i_secinfo_valid[e] <= '{ 0, 0 };
+				sd_rd_mount[e] <= 0;
+				sd_rd_tinfo[e] <= 0;
+				sd_rd_sector[e] <= 0;
+				sd_wr_sector[e] <= 0;
+				if (sector_search_ds0 == e && sector_search_state == 1) sector_search_state <= 0;
+				if (ds0 == e && state >= COMMAND_RW_DATA_EXEC && state <= COMMAND_RW_DATA_EXEC8) begin
+					m_status[UPD765_MAIN_RQM] <= 0;   // a byte EXEC6 offers in this clock is withdrawn
+					i_sector_c <= i_c;
+					i_sector_h <= i_h;
+					i_sector_r <= i_r;
+					i_sector_n <= i_n;
+					status[0] <= 8'h40;
+					status[1] <= 8'b101;
+					status[2] <= 0;
+					state <= COMMAND_READ_RESULTS;
+				end
+				if (ds0 == e && state == COMMAND_READ_ID_WAIT_ID) begin
+					i_sector_c <= pcn[ds0];
+					i_sector_h <= {7'd0, hds};
+					i_sector_r <= 8'h00;
+					i_sector_n <= 8'h00;
+					status[0] <= 8'h40;
+					status[1] <= 8'b101;
+					status[2] <= 0;
+					state <= COMMAND_READ_RESULTS;
+				end
+			end
+		end
+	end
+
+	// T233 D3: the SD channel (upstream: the always block sdcontrol). One block at a time, in the order mount, trackinfo, sector read, sector write;
+	// the flag of a request is cleared here when its block is issued, so its owner waits for flag and busy both low. A block not ended within
+	// SD_TIMEOUT, or ended with sd_err, is withdrawn and marks sd_fail_* for its owner. The next block goes out only when sd_ack and its history
+	// are low (a late answer of a withdrawn block never ends the next one); never a request of a drive whose event is applied in this clock.
+	ack <= {ack[4:0], sd_ack};
+	if (reset) begin
+		sd_rd <= 0;
+		sd_wr <= 0;
+		sd_busy_mount <= 0;
+		sd_busy_tinfo <= 0;
+		sd_busy_sector <= 0;
+		sd_live <= 0;
+		sd_fail_mount <= 0;
+		sd_fail_tinfo <= 0;
+		sd_fail_sector <= 0;
+	end else if (sd_busy_mount | sd_busy_tinfo | sd_busy_sector) begin
+		if (ack[5:4] == 'b01) begin
+			sd_rd <= 0;
+			sd_wr <= 0;
+		end
+		if (ack[5:4] == 'b10 || sd_tmr == SD_TIMEOUT) begin
+			if (sd_err || sd_tmr == SD_TIMEOUT) begin
+				if (sd_busy_mount) sd_fail_mount <= 1;
+				if (sd_busy_tinfo) sd_fail_tinfo <= 1;
+				if (sd_busy_sector) sd_fail_sector <= 1;
+			end
+			sd_rd <= 0;
+			sd_wr <= 0;
+			sd_busy_mount <= 0;
+			sd_busy_tinfo <= 0;
+			sd_busy_sector <= 0;
+			sd_live <= 0;
+		end else begin
+			sd_tmr <= sd_tmr + 1'd1;
+		end
+	end else if (ack == 6'd0 && !sd_ack) begin
+		sd_tmr <= 0;
+		if (sd_rd_mount != 2'b00 && (sd_rd_mount & ev_go) == 2'b00) begin
+			sd_lba <= 0;
+			sd_rd  <= sd_rd_mount;
+			sd_drv <= sd_rd_mount[1];
+			sd_rd_mount <= 0;
+			sd_buff_type <= UPD765_SD_BUFF_SECTOR;
+			sd_busy_mount <= 1;
+			sd_fail_mount <= 0;
+			sd_live <= 1;
+		end else if (sd_rd_tinfo != 2'b00 && (sd_rd_tinfo & ev_go) == 2'b00) begin
+			sd_lba <= image_track_offsets_in[15:1];
+			sd_rd  <= sd_rd_tinfo;
+			sd_drv <= sd_rd_tinfo[1];
+			sd_rd_tinfo <= 0;
+			sd_buff_type <= UPD765_SD_BUFF_TRACKINFO;
+			sd_busy_tinfo <= 1;
+			sd_fail_tinfo <= 0;
+			sd_live <= 1;
+		end else if (sd_rd_sector != 2'b00 && (sd_rd_sector & ev_go) == 2'b00) begin
+			sd_lba <= i_seek_pos[31:9];
+			sd_rd  <= sd_rd_sector;
+			sd_drv <= sd_rd_sector[1];
+			sd_rd_sector <= 0;
+			sd_buff_type <= UPD765_SD_BUFF_SECTOR;
+			sd_busy_sector <= 1;
+			sd_fail_sector <= 0;
+			sd_live <= 1;
+		end else if (sd_wr_sector != 2'b00 && (sd_wr_sector & ev_go) == 2'b00) begin
+			sd_lba <= i_seek_pos[31:9] - i_write_prev;
+			sd_wr  <= sd_wr_sector;
+			sd_drv <= sd_wr_sector[1];
+			sd_wr_sector <= 0;
+			sd_buff_type <= UPD765_SD_BUFF_SECTOR;
+			sd_busy_sector <= 1;
+			sd_fail_sector <= 0;
+			sd_live <= 1;
+		end
 	end
 end
 

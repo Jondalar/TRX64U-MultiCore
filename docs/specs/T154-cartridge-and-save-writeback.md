@@ -1,6 +1,6 @@
 # T154 — What a game writes to its cartridge or battery RAM goes back to the user's file, in the shared app base, for every core
 
-**Status:** BUILDING (2026-10-29), asked by Alex. P1, P2 built and benched; P3 and P4 as listed in section 5. Status check 2026-11-13: BUILDING stays: P1/P2 and EF3 merged 2026-10-29 (52b0addec); board S1 and P3/P4 open. 2026-11-15 sync: the inventory rows 'SNES (branch t142-snes, not on this base)' and 'Neo Geo (branch t143-neogeo...)' are outdated - both merged and carry their own battery-save code (`coreapp/cores/snes.cc` saves/<image>.srm, `coreapp/cores/neogeo.cc` load_save / saves/<game>.sav; Neo Geo save seen on the board 2026-10-31, T143 todo), NOT through `wb_raw_write` (no use outside writeback.cc and tests); NES has no battery path in `coreapp/cores/nes.cc`. P4 is therefore built per core, not through the shared service; S8 (NES and SNES battery game on the board) not recorded.
+**Status:** BUILDING (2026-10-29), asked by Alex. P1, P2 built and benched; P3 and P4 as listed in section 5. Status check 2026-11-13: BUILDING stays: P1/P2 and EF3 merged 2026-10-29 (52b0addec); board S1 closed as done 2026-11-18 with S2 and S4 (shipped and in use, §5); P3/P4 open. 2026-11-15 sync: the inventory rows 'SNES (branch t142-snes, not on this base)' and 'Neo Geo (branch t143-neogeo...)' are outdated - both merged and carry their own battery-save code (`coreapp/cores/snes.cc` saves/<image>.srm, `coreapp/cores/neogeo.cc` load_save / saves/<game>.sav; Neo Geo save seen on the board 2026-10-31, T143 todo), NOT through `wb_raw_write` (no use outside writeback.cc and tests); NES has no battery path in `coreapp/cores/nes.cc`. P4 is therefore built per core, not through the shared service; S8 (NES and SNES battery game on the board) not recorded.
 **Repo:** TRX64U-MultiCore — shared base of the generic core application (`coreapp/src`), the C64 cartridge code
 (`coreapp/cores/c64_cart.cc`), per-core descriptors; gateware only where a core cannot report a write today (inventory, §1).
 **Number:** T154.
@@ -222,7 +222,7 @@ as its own bitstream task; the app side is then three menu rows and one register
 - **ue2emu cannot show S1/S2/S4 for the cartridge**: its TRX block answers page 0 only; "Page 4 ... read 0" and CAPS b4 (the cartridge block) stays off
   (`u64-emulator/crates/ue2-core/src/devices/trx.rs:12`, `:45`), UE2 raises IRQ_CAUSE vsync and flip only (`crates/ue2emu/src/monitor/devices.rs:44`). The C64
   path needs the cartridge block, so this is for the board: one EasyFlash game save (spec table), with the bitstream's real responder, the ISR timing (an
-  EasyFlash program is one interrupt per byte), the SD card write time and the D-cache-less store ordering (`fence` + read-back, as the reference). The
+  EasyFlash program is one interrupt per byte), the SD card write time and the D-cache-less store ordering (`fence` + read-back, as the reference); closed as done 2026-11-18 (end of §5). The
   EEPROM window address (`EEPROM_BASE`, `0x1004C000`) on the MultiCore `trx64` core is read from the RTL comment, not measured.
 - The menu question is proven in the bench on the Atari descriptor, not on the C64's new-UI screens (ue2emu / `tests/ui` BDD).
 - The existing C64 benches (`test_c64_cart.cc`, `test_menuctl.cc`) do not link or pass on this branch (they need the board sources `diag`, `monitor`,
@@ -241,3 +241,8 @@ as its own bitstream task; the app side is then three menu rows and one register
 4. A game that reprograms flash in the first seconds after a Return-to-host or a rocker power-off (4 s, no warning to the application) loses the last change
    younger than the quiet time on Auto: the power-off request of the menu and REST is flushed, the rocker is not.
 5. The Auto task runs under the core lock, so a long write (a 1 MiB image on a slow card) delays menu operations for its duration.
+
+**2026-11-18 - board steps closed as done (shipped and in use):** S1, S2, S4 (EasyFlash save goes back to the .crt: Auto, Ask, before reset / eject / core
+change; the same board step as T192.3's "write-back question") - Alex 2026-11-15: "Under A there is nothing I would not class as DONE! That has been in the
+builds for days/weeks, we had bugs and re-tests in part"; Alex 2026-11-18, shown these steps as open: "that is old stuff that has been running for ages, we
+had this already 3-4 days ago" and "tick it off in the TODOs/specs, otherwise it shows up again with some agent" (translated).

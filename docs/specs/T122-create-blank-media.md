@@ -1,6 +1,6 @@
 # T122 — Every core with a drive can create a new, formatted disk image from its menu
 
-**Status:** BUILT (2026-10-23), native tests in `tests/coreapp/run.sh`; the board follow-up of 2026-10-24 (clean prompt, folder choice, progress) BUILT 2026-10-28 (Alex): on the A1200 a newly created ADF takes files from the Workbench (B2, A1200 half). 2026-11-13 status check: state confirmed: merged (Merge t122-create); built, board B1, B3-B8 go to the testers, B2 A1200 passed (as row).
+**Status:** BUILT (2026-10-23), native tests in `tests/coreapp/run.sh`; the board follow-up of 2026-10-24 (clean prompt, folder choice, progress) BUILT 2026-10-28 (Alex): on the A1200 a newly created ADF takes files from the Workbench (B2, A1200 half). 2026-11-13 status check: state confirmed: merged (Merge t122-create); built, board B1, B3-B8 go to the testers, B2 A1200 passed (as row). 2026-11-18: B2's A500 half closed as done (shipped and in use, end of §5); B2 is done.
 **2026-11-15 sync:** a stale leftover sentence ("the board has not run either yet") is removed: B2 on the A1200 passed (Alex 2026-10-31), B1 and B3-B8 are left to the testers by decision (§5, 2026-10-31); no tester result is recorded here.
 **Repo:** TRX64U-MultiCore — the generic core application (`coreapp/`), per-core descriptors and libraries; no gateware.
 **Number:** T122.
@@ -10,7 +10,7 @@ Gideon's core/app" (translated). Asked whether a new disk is formatted or raw: "
 **Depends on:** T104 (generic application), T104.1 (contribution model: tasks with a name prompt, `drive.create` of `cbm1541`).
 **Milestone:** M3.
 
-Open (one line, as in the TODO table): Built; board B1, B3-B8 for all cores go to the testers (Alex 10-31); B2 A1200 passed
+Open (one line, as in the TODO table): Built; board B1, B3-B8 for all cores go to the testers (Alex 10-31); B2 done (A500 11-18)
 
 ---
 
@@ -221,3 +221,8 @@ and writes); a run on the board.
 **Run (2026-10-24):** builder, `trx64-sim-env:4`, `tests/coreapp/run.sh` whole: "50 test programs passed, every negative control failed as it must" (635 controls); `createflow: 564 checks, 0 failed`,
 `newdisk: 43289 checks, 0 failed`, `cbm1541: 1032 checks, 0 failed`. RISC-V: `u64-build-env:ci`, the coreapp make as `ci/trxapps.sh` runs it: links, no undefined `std::nothrow`;
 `coreapp.app` 842,928 bytes at 0x30000 (the slot takes 1,966,068; `tools/check_app_size.py` ok). `bash tools/host_pin.sh --check`: the host is unchanged.
+
+**2026-11-18 - board steps closed as done (shipped and in use):** B2, A500 half (A500: Create blank ADF, mount DF1, Workbench takes a file; the A1200 half
+passed earlier) - Alex 2026-11-15: "Under A there is nothing I would not class as DONE! That has been in the builds for days/weeks, we had bugs and
+re-tests in part"; Alex 2026-11-18, shown these steps as open: "that is old stuff that has been running for ages, we had this already 3-4 days ago" and
+"tick it off in the TODOs/specs, otherwise it shows up again with some agent" (translated).

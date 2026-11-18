@@ -1,6 +1,7 @@
 # T233 — The CPC's floppy controller never stops the machine: a disk event at any moment ends in a working drive or an answered "not ready", and the CPC always reaches Ready
 
-**Status:** PROPOSED (2026-11-17); paused with WIP on t233-cpc-fdc (fe4bc90ab). Order (Alex 2026-11-17): T228, T235, T234, T232, then this.
+**Status:** DONE (board pass by Alex 2026-11-18: S1 on 664 and 6128, S2, S7, write path, swap; merged into main (e6f960c1f) with Alex's go; D8/D9: no bench, no sim).
+Order before (Alex 2026-11-17): T228, T235, T234, T232, then this; Alex 2026-11-18 moved it forward (D8).
 **Repo:** TRX64U-MultiCore — gateware of the CPC core (`cores/cpc/rtl/u765` via `tools/cpc_gen.py` -> `cores/cpc/gen/u765.sv`,
 `cores/cpc/trx/cpc_fdc.v`), its benches (`cores/cpc/sim`), the CPC's app files only where §3 names them.
 **Number:** T233 (TODO.md table).
@@ -96,6 +97,10 @@ patched per race.
   API cannot drive becomes at most three steps for Alex in the morning. Never a power cycle.
 - **D7 Pipeline.** T92 D-17e takes the CPC out of the pipeline on `main` (`pipeline = false`, branch t92-off). The T233 branch sets it
   back to `true`, so only that branch builds the CPC; the merge to `main` after the board pass brings the CPC back into the packages.
+- **D8 (Alex 2026-11-18, asked whether the CPC was fixed: "Would you just code the fix and build it directly with Vivado, and I test
+  it with you then? Without bench, sim etc.", translated).** D1-D4 are finished on t233-cpc-fdc and built through the pipeline (the
+  branch push, D7); D5's bench, S0 and the bench rows of S3-S6 are not run. The proof is the board with Alex (S1, S2, S7) and the
+  route report (S8). Before the push: an elaboration check of the changed RTL (no bench) and the review agent of every push.
 
 ## §4 Out
 
@@ -106,4 +111,42 @@ patched per race.
 
 ## §5 Build log
 
-(empty)
+**2026-11-18 morning - D1-D4 finished and pushed for the first Vivado build (D8; branch t233-cpc-fdc, run 2425).**
+- **Branch:** rebased on origin/main (b79e90c03) with T92 #17's commit (t92-cpc17b: D-17a/b app, its u765 lock fixes replaced by D1),
+  D5's bench (not run, D8), the WIP of D1-D4, D7 (`pipeline = true` on the branch only) and the review fixes (287c12412). The rebase's one
+  conflict: origin/main's manual has no CPC section (the CPC is out of the packages, T92 D-17e); taken as on main - the merge after the
+  board pass must bring 11.13 (CPC) back with T92 #17's media sentence.
+- **Checks (no bench, no sim, D8):** `tools/cpc_gen.py --check` "u765.sv matches"; `verilator --lint-only -Wall` of gen/u765.sv and
+  trx/cpc_fdc.v: 0 errors, the same warning kinds as origin/main (u765 9 lines both; cpc_fdc 39 against 35, all PROCASSINIT).
+- **Review before the push** (3 lenses - synthesis, protocol against D2-D4, clock crossing - read only): no blocker, no major; nine minor
+  findings, none on the S1/S2/S7 path. Synthesis lens: sys_clk 31.5278 MHz, SD_TIMEOUT 630000 = 19.98 ms in the 20-bit counter; yosys
+  synth_xilinx on origin/main and the branch: 3 RAMB18E1 and 36 RAM32M in both (no RAM turned into flip-flops), u765 957 -> 1088 FF,
+  cpc_fdc 836 -> 865 FF. Fixed (287c12412): a command waits while any scan holds the shared sector buffer (D2: before, a READ on A could
+  run while B's scan read its header from the same buffer); a sector search whose drive lost its image starts over (an eject applied in
+  the clock the search picked that drive left it waiting for good, and the other drive's commands with it); an event never ends a read
+  that offers a byte and drops RQM as it ends a command, a failed block withdraws an offered byte (else the CPU could read ST0 as data and
+  take the shifted results as a good read); a seek in flight ends with its interrupt (SENSE INT: not ready; before, 0x80 for good);
+  cpc_fdc takes the write data at the request, when the previous line is done; its header comment. Not changed, answered: a read that
+  the DDR2 does not answer within U_LIM (0.87 ms) is given up while it may still be queued in mig_arb, so its late answer could be taken
+  by the next read - the c_* port has the first priority at mig_arb, so U_LIM does not fire in use, and without U_LIM a lost read would
+  hold the ui side for good.
+- **Run 2425** (287c1241, scope branch): `vivado large:cpc` green in 8m21s, "=== impl pass 1 (ExtraTimingOpt): WNS 0.039 ns", "WNS mono
+  cpc: 0.039 ns" (S8 PASS; the first pass routed at -0.132 ns), `cpc_mono.bit` 1,732,321 bytes; apptests, images, emu, `cor large:cpc`
+  green; the parent red only for lint "FAILED: ROMS.txt test": `test_a_core_out_of_the_pipeline_is_not_listed` named the CPC
+  (`os464.rom`) as the core out of the pipeline. Fixed on the branch (5cff055c0, the cores out of the pipeline are read from the
+  descriptors and the pins; 9 of 9 tests OK), not pushed yet.
+- **cpc.cor for the board:** sha256 45a45f4d43f54f742306ee086542a3d6b1176b03d8b6ae49f2c56d26dcfb1dfe, 3,585,886 bytes (the builder's
+  /cache/multicore/runs/parent-2425/cor-large-cpc/), `cor_pack.py check`: bit and app commit 287c1241, bit 1,732,321 bytes.
+- **Board pass (Alex, 2026-11-18 08:05-08:08, cpc.cor 45a45f4d on /SD/cores, page "Board Test 11-18 CPC", all PASS):** start of
+  the 6128 without a disk; S1 "Mount A: and reset" on the 6128 and on the 664 (Ready, CAT lists the disk; the 664 is where 011cdc4d
+  stopped on 11-17); S7 CAT; RUN"name" of a program; the write path (SAVE"T233", CAT, reset, LOAD, LIST); S2 the start with A: and B:
+  stored (both mounted again, CAT of A: and B:, the saved file still there); the swap of a filled A: without a reset (optional, T92
+  D-17c); the 464 (BASIC 1.0). Alex: "CPC is ok" (translated).
+- **Not run (D8):** S0 and the bench rows S3-S6. S8 passed in run 2425.
+- **D9 (Alex 2026-11-18, after the board pass: "push cpc and amiga ok, vivado is ok, I can play, so no more benches, right?",
+  translated).** No bench runs for T233: S0 and the bench rows S3-S6 stay unrun; the board pass and the route report are the proof.
+  With the CPC back in the pipeline the nightly (tier <= 2) runs the CPC benches again, cpc_fdcscan3 (about 2 h) among them; the CPC is
+  experimental, so a red one is reported, not fatal; a red one becomes a T233 item for Alex to decide.
+- **Merged** into main (e6f960c1f, with the lint fix 5cff055c0): the CPC is back in the pipeline (`pipeline = true`), the manual's
+  section 11.13 and the README rows are back (revert of 37cd21837, T92 D-17g) with T92 #17's media sentence; README's core table
+  names the board pass.

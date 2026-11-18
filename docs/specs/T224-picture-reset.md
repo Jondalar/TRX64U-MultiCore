@@ -1,6 +1,6 @@
 # T224 — A core stuck in "Setting the picture" can be recovered, and the host can reset a core's video settings
 
-**Status:** BUILT on branch t224-picture-reset (2026-11-15), not merged; P1 closed, P2 decided D1-D3 and built.
+**Status:** DONE (2026-11-18): merged to main through host-menu-32 (43a196eaf) and shipped; the board steps S4 and S5 closed as done, shipped and in use (§5, 2026-11-18). Built on branch t224-picture-reset (2026-11-15); P1 closed, P2 decided D1-D3 and built.
 **Repo:** TRX64U-MultiCore — core app (`coreapp/src/picture.cc`, `run.cc`), host app (boot menu), the A1200 gateware copy of `mode_req.v` (read only here).
 **Number:** T224 (TODO.md: T221 was the last row on main).
 **Origin:** Alex, 2026-11-15 (translated), photo of the start screen "TRX64 / Amiga 1200 (AGA, 68020) / 093e598 2026-11-13 15:55 / Setting the picture", bar at about a quarter: "The Amiga does not get out of there any more ... We need something so that we can 'reset' a core's video settings from the HOST." Then "Ja" to one spec covering both.
@@ -105,3 +105,5 @@ Nothing decided yet. Gateware changes (A1200 576p lock) are out of this spec unt
 
 ### Render bench fixes on integ-1116 (2026-11-16)
 - `tests/hostapp/render/render.cc` (T198 scenarios): RIGHT on a core without configs now opens the overlay (D1 replaces T198 D9) and the boot foot offers "RIGHT configs" on every non-full row: the D9 check expects the open overlay (`l.n == 0`, Plain start, the safe row as the second stop, LEFT closes); the 10-config overlay has Plain start + 11 configs + the safe row = 13 rows ("of 13", last cursor 12); DEL on the safe row asks nothing, the ask-over-a-scrolled-list check runs on the last config.
+
+**2026-11-18 - board steps closed as done (shipped and in use):** S4 (safe graphics start of a large core), S5 on the VC-20 (safe graphics start, core with no config) - Alex 2026-11-15: "Under A there is nothing I would not class as DONE! That has been in the builds for days/weeks, we had bugs and re-tests in part"; Alex 2026-11-18, shown these steps as open: "that is old stuff that has been running for ages, we had this already 3-4 days ago" and "tick it off in the TODOs/specs, otherwise it shows up again with some agent" (translated).

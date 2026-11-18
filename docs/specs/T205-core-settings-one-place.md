@@ -1,6 +1,6 @@
 # T205 — Every core has its settings in one place: F5 (core settings first, then Video, Audio, Input)
 
-**Status:** PROPOSED (2026-11-11). Corrected 2026-11-13 (status check): BUILT, merged to main (00bc8d41e); ux-review PASS on emulator pictures; S6 board open. 2026-11-15 sync: checked against code, consistent; the TRX64U core's own F6 (`coreapp/cores/trx64u/menu.toml`) is still there (§4 open).
+**Status:** PROPOSED (2026-11-11). Corrected 2026-11-13 (status check): BUILT, merged to main (00bc8d41e); ux-review PASS on emulator pictures; S6 board closed as done 2026-11-18 (shipped and in use, Alex; §5). 2026-11-15 sync: checked against code, consistent; the TRX64U core's own F6 (`coreapp/cores/trx64u/menu.toml`) is still there (§4 open).
 **Repo:** TRX64U-MultiCore — the generic core app (`coreapp/src/menutree.*`, the area/tab tables), so every core (T192.3 D31: the menu is in every core).
 **Number:** T205.
 **Origin:** Alex, 2026-11-11, at the board in the VC-20 core (photos of F5, F6, F8), translated: "what kind of UX mess is that? 3 times settings ...
@@ -51,7 +51,7 @@ media/config rows are on Home (session panel); "Menu opens at" in the core tab. 
 | S1, S2, S3 | `tools/dev.sh test` rc=0, all groups incl. amiga; `test_contrib`, `test_configs`, `test_uiapp` updated; keywalk/ids/menu goldens regenerated (grep: F6 and F5/summary gone, `F1/home` gains media + config rows) |
 | S4 | render bench `ui_list_probe` (row y/height/name/value per drawn row, 5166 selection states, 18 cores, 480p/720p/1080p): 0 failed. It does not reproduce Alex's "value one row low" (P3): the cause on the board is NOT explained by the bench; in-place path `trx_row_retext` read once, nothing found |
 | S5 | pictures `ux-{a1200,vc20,c128,atari}-F1/F5/F8-*` (render bench, 1080p + 480p) exist; ux-review round 1 FAIL, round 2 (emulator pictures) PASS, see below |
-| S6 | Alex at the board, open |
+| S6 | Alex at the board; closed as done 2026-11-18, §5 |
 
 ux-review round 1 FAIL (render-bench pictures), fixed: long Home values are cut in the middle (`fit_value`, label keeps up to 45% of the row); the stale F5 label
 came from `static_key` hashing the route array's pointer but not its titles (a bench process rendering many cores reused one array; the product starts one
@@ -64,3 +64,8 @@ Render bench (2026-11-11): 2385 checks, 0 failed. The T207 hotkey block failed o
 row; since T205 the Hotkeys page starts with the modifier row, so RETURN asked for a modifier, not the key (bench wrong, product right: `menuctl.cc`
 `EK_SETTING` -> `hk_learn_item` -> `begin_learn`). The bench now finds the Reset row by its name. The Amiga 1200 UI features (`tests/ui/features_a1200/`) followed the
 new layout (F5 tabs A1200/Video/Audio/Input, drive rows on Home, "Menu opens at" in the F5 core tab); `tests/ui/run.sh` 110 passed, 0 failed.
+
+- **2026-11-18 - board steps closed as done (shipped and in use):** S6 (VC-20 F5 tabs and F8 aligned) - Alex 2026-11-15: "Under A
+  there is nothing I would not class as DONE! That has been in the builds for days/weeks, we had bugs and re-tests in part"; Alex
+  2026-11-18, shown these steps as open: "that is old stuff that has been running for ages, we had this already 3-4 days ago" and "tick
+  it off in the TODOs/specs, otherwise it shows up again with some agent" (translated).

@@ -124,6 +124,10 @@ Scenario: S8 the sound (P5) - board, by hand
   time-out), so a write or read is one clock later. Shared `drive_unit.vhd` / `drive_l2.vhd` stay (host key). null routed with the defaults (cache).
   Board 2026-11-16 (Alex, package main-aaaee0d5): the VC-20 loads from the 1541 - the drive's register bus through the new stage works.
 - S4 DC criterion: 0.01 dB is not reachable with 18-bit coefficients for the bass shelf (1 + a1 + a2 is 32 counts of 65536); measured 0.0206 dB, bench limit 0.05 dB. Confirmed by Alex 2026-11-16 ("0.05 dB ok (recommended)"): the limit is 0.05 dB, S4 passes, no gateware change.
+- **2026-11-18 - board steps closed as done (shipped and in use):** S8 (tone preset by ear: Flat / Bass / Treble on HDMI and analogue) - Alex 2026-11-15:
+  "Under A there is nothing I would not class as DONE! That has been in the builds for days/weeks, we had bugs and re-tests in part"; Alex 2026-11-18,
+  shown these steps as open: "that is old stuff that has been running for ages, we had this already 3-4 days ago" and "tick it off in the TODOs/specs,
+  otherwise it shows up again with some agent" (translated).
 
 ## §6 Design options and questions
 

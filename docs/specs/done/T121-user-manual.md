@@ -27,9 +27,9 @@ everything that is a development diary out. Everything in Boeing engineering man
 
 ```gherkin
 Scenario: S1 a reader who knows nothing finds out what this is from README.md alone
-  Then README.md states purpose, applicability (U64 Elite II, C64 Ultimate), what works, what does not, that the
-       original firmware (.cfw/.ue2) stays usable, the core list with a state per core and its evidence, and screenshots
-  And  every state claim names its evidence (board test, bench, or "not tested on the board")
+  Then README.md says what it does, which boards it supports, how to install it and what the risk is, with the
+       disclaimer (no support, no liability for bricked boards), and links the manual for everything else (§3, 2026-11-18)
+  And  the state of each core is where the README links it: the Discussions table and manual chapter 11
 
 Scenario: S2 a user installs and uses it from docs/manual/ only
   Then docs/manual/ has numbered chapters: install, first start, host menu and boot loader, cores, ROMs, full
@@ -46,6 +46,18 @@ Scenario: S3 the architecture site shows architecture only
 Style: engineering-manual (numbered paragraphs, scope and applicability first, WARNING / CAUTION / NOTE blocks,
 short imperative steps, Simplified Technical English, no narrative). Content from the code and measured results
 only; development history stays in `docs/todo/` and the specs.
+
+README (Alex 2026-11-18, translated): "The README does not have to be redundant with the manual, it is enough to jump there.
+And when someone comes to the repo after the release, they want to know: what can it do? Is my device supported? How do
+I install/flash it? What is my risk? And I want: a DISCLAIMER that we take *no support or liability for bricked boards*.
+So: short, the essential points, links into the documentation/wiki." On its content: every core is experimental, the state
+table in the Discussions and in the manual is what counts; the TRX64 Ultimate project holds the code of the C64 bitstream,
+this repository packs `trx64u.cor` / `trx64g.cor` and builds the core menu; HDMI is in, analogue video is in development.
+The README answers the four questions in a few lines each and links the manual; per-core details, release history and
+screenshots stay in the manual.
+Style (Alex 2026-11-18, translated, on the first rewrite: "The README is awful. AI, AI, AI ... in every sentence. What really helps
+is this Boeing engineering-manual writing style. Keep it simple. No AI-slop phrasing."): the README is written like the manual
+(short statements, numbered steps, NOTE/WARNING blocks); the final text is Alex's, with the corrections of the review.
 
 ## §4 Out
 

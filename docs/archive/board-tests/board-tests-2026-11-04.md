@@ -1,5 +1,9 @@
 # Board test — packages main-7fda7e1f, main-91f629ce (2026-11-04), main-126c2078 (2026-11-05) and main-b8b6bcf7 (2026-11-06)
 
+**Closed 2026-11-18.** Every step of this list is done or closed in its spec (Alex 2026-11-18: "that is old stuff that has
+long been running" and "above all you must tick it off in the TODOs/specs, or it turns up again with some agent", translated).
+A new board list carries only what is new since the last board session; it never re-lists the steps of this file.
+
 One list, one session. The board runs the tester release t164-c83a83c2 (Alex, 11-03); this package is `main` at
 `7fda7e1f`, CI run 1147 green, Gitea package `trx64u-multicore` version `main-7fda7e1f`. Earlier lists are in
 `docs/archive/board-tests/`.

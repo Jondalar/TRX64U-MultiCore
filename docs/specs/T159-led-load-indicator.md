@@ -1,6 +1,6 @@
 # T159 — case LED 1 as a floppy LED (D2; D1 was a slow blinker), switchable in the menu, tried in the A1200 first
 
-**Status:** ACCEPTED (2026-10-29), asked by Alex; D2 (2026-10-30) replaced the blinker. Status check 2026-11-13: built and merged (ecc69ebfb, 34cff5f46); board 11-04 pass A500, Atari, Apple II, CPC, C128; C264 and VC-20 not seen. 2026-11-15 sync: the pointer 'T163 D3 rework' in D5 was wrong (T163 D3 is order/scope); the host lamp is T164 and is in `host/bling_io.v`. C264/VC-20 board still not recorded (maps built: `cores/c1541/drive_leds_map.v`).
+**Status:** DONE 2026-11-18 (Alex 2026-11-18, shown the open board steps: "that is old stuff that has been running for ages, we had this already 3-4 days ago", translated; shipped and in use = done, as on 2026-11-15): S3 on the VC-20 and on the C264 closed as done (end of §5); nothing else is open. Earlier status: ACCEPTED (2026-10-29), asked by Alex; D2 (2026-10-30) replaced the blinker. Status check 2026-11-13: built and merged (ecc69ebfb, 34cff5f46); board 11-04 pass A500, Atari, Apple II, CPC, C128; C264 and VC-20 not seen. 2026-11-15 sync: the pointer 'T163 D3 rework' in D5 was wrong (T163 D3 is order/scope); the host lamp is T164 and is in `host/bling_io.v`. C264/VC-20 board still not recorded (maps built: `cores/c1541/drive_leds_map.v`).
 **Repo:** TRX64U-MultiCore — the generic core application (`coreapp/src`): a setting that writes the case LED selector once; since D2 also the A1200's own
 gateware that drives the source (no host change). D1 was application-only. The host already wires case LED 1 to `case_leds` (`host/top.v:1541-1549`), selected by
 `U64_CASELED_SELECT` (`host-app/software/system/u64.h:80`; the core app writes it already, `coreapp/src/u64cfg.cc:568`).
@@ -110,7 +110,7 @@ c264 and c64ref already do. Cores without a drive keep it off.
   selector every 250 ms, the first step is Off; after that it writes On once and never again. Time is `io->now_ms()`.
 - **Reads are not marked:** the floppy images sit in the core's DDR2 window and the gateware reads tracks from it on its own, the application
   does not see a track read. So LED 1 blinks while a disk is mounted, while Kickstart goes in, while the machine writes a disk and while
-  the hard disk is served - not during pure floppy reads. Measured on the board in S3 (open).
+  the hard disk is served - not during pure floppy reads. Measured on the board in S3 (closed as done 2026-11-18, §5).
 - **LED 2:** once the selector is written, `sel_set` latches and the high nibble takes effect, so it is written with every byte. The
   bring-up meaning of LED 2 is "transmitters running and the picture locked" (`host/top.v`), which no selector source is; with the
   core running it is on, so the nibble is 0 (On). Selector bytes written: `0x00` (LED 1 On) and `0x01` (LED 1 Off).
@@ -257,4 +257,8 @@ c264 and c64ref already do. Cores without a drive keep it off.
   C128, C264, VC-20 only; `cores/c64ref` (host pin), `cores/c64u` and `cores/trx64` (firmware project, no `core.toml`) are not touched and keep the pass-through.
   Benches `c1541leds_c128`, `c1541leds_c264`, `c1541leds_vc20` (`cores/c1541/sim/run_leds.sh <core>`): `tb_drive_leds_map` over all eight inputs (the PWM motor LED alone: all bits 1; activity: [0] = 0) plus
   `check_wiring.py` (the drive's `leds_n` goes through the map, nothing else drives the port, the core's host top reads [0] as the case LED and [1] as the lamp). Controls that must fail: the old pass-through in the
-  map (`PASSTHRU`) and in the wrapper (`NOMAP`), motor LED on bit 1 (`MOTOR_B1`), motor LED ORed into the floppy bit (`MOTOR_OR`), map output open (`OPEN`). Board proof (C128 lamp steady at READY, lit while the drive's LED is) is Alex's.
+  map (`PASSTHRU`) and in the wrapper (`NOMAP`), motor LED on bit 1 (`MOTOR_B1`), motor LED ORed into the floppy bit (`MOTOR_OR`), map output open (`OPEN`). Board proof (C128 lamp steady at READY, lit while the drive's LED is) is Alex's (board 2026-11-04; closed as done 2026-11-18, §5).
+- **2026-11-18 - board steps closed as done (shipped and in use):** S3 on the VC-20 and S3 on the C264 (the case LED and the lamp follow the 1541's
+  activity LED through `drive_leds_map.v`, as on the C128) - Alex 2026-11-15: "Under A there is nothing I would not class as DONE! That has been in the
+  builds for days/weeks, we had bugs and re-tests in part"; Alex 2026-11-18, shown these steps as open: "that is old stuff that has been running for ages,
+  we had this already 3-4 days ago" and "tick it off in the TODOs/specs, otherwise it shows up again with some agent" (translated).

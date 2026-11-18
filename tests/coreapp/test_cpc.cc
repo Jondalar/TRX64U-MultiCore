@@ -185,13 +185,31 @@ int main()
         // B: is a swap, no reset
         fs.put("/usb0/h.dsk", dsk(30000, true));
         asserts = io.reset_asserts;
-        CHECK_STR(act(".dsk", 2).label, "Mount B:");
-        CHECK_EQ(run(c, act(".dsk", 2), "/usb0/h.dsk", r), 0);
+        CHECK_STR(act(".dsk", 3).label, "Mount B:");
+        CHECK_EQ(run(c, act(".dsk", 3), "/usb0/h.dsk", r), 0);
         CHECK_EQ(io.reset_asserts, asserts);
         CHECK_EQ(r32(CPC_D1_BASE), 0x01100000u);
         CHECK_EQ(r32(CPC_D1_SIZE), 30000u);
         CHECK_EQ(io.ctrl_writes.back(), CPC_DISK_MOUNT(1));
         CHECK_STR(ops_state(&c, "cpc.b.image"), "h.dsk");
+        // T92 #17 (D-17a/b): the F1 drive list runs the file action whose label is the slot's `mount` into an empty drive (menuctl): the "and reset" one for each
+        // drive, a cold start that clears every FDC lock (the menu holds the machine frozen); a filled drive runs `replace`, the plain swap
+        CHECK_STR(cpc_desc.media[0].mount, "Mount A: and reset");
+        CHECK_STR(cpc_desc.media[1].mount, "Mount B: and reset");
+        CHECK_STR(cpc_desc.media[0].replace, "Mount A:");               // D-17b: a filled drive swaps by the plain action (the menu picks it, test_cpc_menu)
+        CHECK_STR(cpc_desc.media[1].replace, "Mount B:");
+        for (int d = 0; d < 2; d++) {
+            const FileAction *fa = 0;
+            for (int k = 0; k < cpc_desc.filetypes[0].nactions; k++) {
+                if (!strcmp(cpc_desc.filetypes[0].actions[k].label, cpc_desc.media[d].mount)) fa = &cpc_desc.filetypes[0].actions[k];
+            }
+            CHECK(fa != 0);
+            if (!fa) continue;
+            asserts = io.reset_asserts;
+            CHECK_EQ(run(c, *fa, d ? "/usb0/h.dsk" : "/usb0/g.dsk", r), 0);
+            CHECK_EQ(io.reset_asserts, asserts + 1);
+            CHECK_STR(ops_state(&c, d ? "cpc.b.image" : "cpc.a.image"), d ? "h.dsk" : "g.dsk");
+        }
         // refusals leave the drives as they are
         size_t n = io.log.size();
         fs.put("/usb0/x.dsk", std::vector<uint8_t>(40000, 0));
@@ -326,7 +344,7 @@ int main()
         CHECK_EQ(run(c, act(".dsk", 1), "/usb0/h.dsk", r), 0);
         CHECK_EQ(io.ctrl_writes.back(), CPC_DISK_MOUNT(0) | CPC_DISK_WP(0));
         st->set(st->find("Disks write protected"), 0); ops_set(&c, "cpc.set_wp", 0);
-        CHECK_EQ(run(c, act(".dsk", 2), "/usb0/g.dsk", r), 0);
+        CHECK_EQ(run(c, act(".dsk", 3), "/usb0/g.dsk", r), 0);
         CHECK_EQ(io.ctrl_writes.back(), CPC_DISK_MOUNT(1) | CPC_DISK_WP(0));   // drive A: keeps its protect bit, B: has none
     }
     // --- T180 D4 / D1 (S7): what the FDC wrote is in the file before the disk is let go - also when the poll has not taken the marks yet; a sync the medium refuses

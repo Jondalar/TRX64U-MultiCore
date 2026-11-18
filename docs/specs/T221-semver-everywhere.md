@@ -95,7 +95,7 @@ Alex's decisions (2026-11-15, translated from his request):
 - **D16** (Q9b, 2026-11-15): Refines D13 (Alex): the badge is a small purple icon beside the version: "L" for a large core, "P" for a partial (small) core; mock-up and ux-review before it is built.
 - **D17** (Q12, 2026-11-15): The `.txu` and the Gitea package carry the bundle version from `bundle.toml` (release `1.4.0`, test build `1.4.0-dev+<sha8>`); the part versions are inside (bundle.toml, .cor metadata).
 - **D18** (Q13, 2026-11-15): The generic core app counts its own version (follows from D6, its own deliverable).
-- **D19** (Q14, 2026-11-15): Besides the host gateware MAJOR check (D12), an update or core install of an older version warns and lets the user go on (downgrade allowed with a warning).
+- **D19** (Q14, 2026-11-15): Besides the host gateware MAJOR check (D12), an update or core install of an older version warns and lets the user go on (downgrade allowed with a warning). The core-install part is replaced by OPEN-5's answer (2026-11-18): no warning.
 
 Everything else is open, asked one at a time, answers recorded here when given.
 
@@ -120,7 +120,11 @@ Everything else is open, asked one at a time, answers recorded here when given.
 `x.y.z-dev+13c2cde9`, not promoted ("A"). After it, `main` moves reliably to SemVer releases: "danach stellen wir den Kram hier auf Main jetzt
 verlässlich auf Release per SemVer um, also das nächste Release wird eines mit Tag und reiner Versionsnummer, ohne diesen Branchkram dahinter"
 (the next release is a tag with a plain version number, no branch/sha suffix). The release promotes the board-tested bytes (only the version
-text changes; no rebuild, no second board test - Alex: "Das ist doch Ressourcenverschwendung"). Open for that step: `release_promote.py`
+text changes; no rebuild, no second board test - Alex: "Das ist doch Ressourcenverschwendung").
+**Release 0.2.0 (Alex 2026-11-18, translated: "I still have to test, that still has to happen, and you pack the package with the CI
+(WITHOUT the commit in the display)"):** the release is the CI build of the tag `v0.2.0` (`ci/version.sh` prints the plain version on a tag,
+the update stage builds the .cfw/.ue2 on `v*` tags); Alex tests that package on the board and the same files go to GitHub. For this release
+this replaces "promote, no second board test" above (the promote does not reach the app inside the .cfw/.ue2). Open for that step: `release_promote.py`
 promotes the .cor files and the app but not the app inside the update files (.cfw/.ue2), so `release_mc.sh`'s installer check fails; the
 promote step must cover every part. How (Alex 2026-11-16): "Sonst nimm die Gitea-Registry dafür, Artefakte einchecken per Pipeline-Step, und auschecken" - a release
 pipeline step checks the tested package out of the Gitea registry, promotes every part and checks the release package back in.
@@ -195,7 +199,8 @@ a release build's short strings fit), and a large core's test version is cut to 
   `-dev+<sha8>` is added by the MultiCore packer on a test build." Needs the other repo's side.
 - **OPEN-4 (D16).** BUILT 2026-11-16 as mock-up t1b (T223 D7 §5: purple square right of the version, L/P; pictogram position switchable, default t1b). Older text: not built; until then a large core is no longer marked in the list (the version replaces
   "full firmware"). Mock-ups: `scratchpad/t221/badge-*.png`.
-- **OPEN-5 (D19).** "Core install of an older version warns": the host has no install step for a `.cor` (it is copied by hand and added with A). Only the `.txu` update warns. Where the
+- **OPEN-5 (D19): answered 2026-11-18 (Alex, translated: "No warning, just do it"):** a `.cor` of an older version is copied and added (A) like
+  any other, without a warning; nothing to build. The `.txu` update keeps its warning (D19). Older text: "Core install of an older version warns": the host has no install step for a `.cor` (it is copied by hand and added with A). Only the `.txu` update warns. Where the
   core warning belongs (adding an entry whose id is already in the menu with a newer version?) is not said.
 - **OPEN-6 (D17): answered 2026-11-16 (Alex, "yes ok then", after asking whether a later move of lint and tests to GitHub with builds here by hook is hindered - it is not, the commit is the same on both):** Gitea package coordinates stay branch-sha. Older text: Gitea package coordinates stay branch-sha (see B3); changing them to the SemVer string touches `ci/lib.sh` publish/fetch and the update stage.
 - **OPEN-7.** `bundle.toml` carries only the bundle version; the part versions are written into `manifest.json` `parts` at package time (a hand-kept list would be a second copy).

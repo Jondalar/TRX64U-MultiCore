@@ -1,6 +1,8 @@
 // T92: a model of the host's real-time DDR2 port c_* (ui_clk) for the CPC benches: 128 bit words, a command is taken when `c_rdy` is up
 // (randomly down a quarter of the clocks), a read returns its word LAT_MIN..LAT_MIN+LAT_RND ui clocks after its command, in order, a write
-// offers command and data at once (mask bit 1 = byte not written). The memory is 1 MB (65,536 words) at BASE; `mem` is public for the bench.
+// offers command and data at once (mask bit 1 = byte not written). The memory is 4 MB (262,144 words) at BASE; `mem` is public for the bench.
+// T233 D5: a bench may set `drop_next` (the next read gets no answer: S3) or `slow_next` (the next read answers after `slow_lat` ui clocks: S4);
+// the model clears the flag when it takes that read.
 `timescale 1ns / 1ps
 module ddr2c_model #(
     parameter [31:0] BASE = 32'h01800000,
@@ -24,6 +26,8 @@ module ddr2c_model #(
     reg [127:0] q_data [0:15];
     integer     q_due  [0:15];
     integer     q_wr = 0, q_rd = 0, last_due = 0, lat, k;
+    reg         drop_next = 1'b0, slow_next = 1'b0;
+    integer     slow_lat = 20000, dropped = 0;
     wire [31:0] byte_addr = {c_addr, 1'b0};
     wire [17:0] widx = (byte_addr - BASE) >> 4;
     reg [127:0] w;
@@ -34,11 +38,15 @@ module ddr2c_model #(
         if (c_en && c_rdy) begin
             if (c_cmd == 3'b001) begin
                 reads <= reads + 1;
-                q_data[q_wr % 16] = mem[widx];
-                lat = LAT_MIN + ({$random(seed)} % (LAT_RND + 1));
-                q_due[q_wr % 16] = (cyc + lat > last_due + 1) ? cyc + lat : last_due + 1;
-                last_due = q_due[q_wr % 16];
-                q_wr = q_wr + 1;
+                if (drop_next) begin drop_next = 1'b0; dropped = dropped + 1; end
+                else begin
+                    q_data[q_wr % 16] = mem[widx];
+                    lat = slow_next ? slow_lat : LAT_MIN + ({$random(seed)} % (LAT_RND + 1));
+                    slow_next = 1'b0;
+                    q_due[q_wr % 16] = (cyc + lat > last_due + 1) ? cyc + lat : last_due + 1;
+                    last_due = q_due[q_wr % 16];
+                    q_wr = q_wr + 1;
+                end
             end else if (c_cmd == 3'b000 && c_wdf_wren) begin
                 writes <= writes + 1;
                 w = mem[widx];

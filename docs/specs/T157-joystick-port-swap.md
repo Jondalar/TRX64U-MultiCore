@@ -1,6 +1,6 @@
 # T157 — every core can swap the two joystick ports from its menu, one setting, kept per core
 
-**Status:** ACCEPTED (2026-10-29), asked by Alex; D1 decided. Status check 2026-11-13: BUILT in amiga, a1200, nes, c128 (merged 51a88f3cd, 10-29); vc20 none; board S5 open, CI bitstream proof not recorded. 2026-11-15 sync: SNES and Neo Geo were to get the swap 'on their merge' (§3, §5): Neo Geo has it (`coreapp/cores/neogeo.cc:77`, `NEO_PAD` -> `pad_swap` in neo_regs.v:55,132, from T143; no T157 bench or board record); SNES has none (`coreapp/cores/snes.cc` has no Joystick ports setting, no swap in cores/snes) - not built, not decided out.
+**Status:** ACCEPTED (2026-10-29), asked by Alex; D1 decided. Status check 2026-11-13: BUILT in amiga, a1200, nes, c128 (merged 51a88f3cd, 10-29); vc20 none; board S5 closed as done 2026-11-18 (shipped and in use, Alex; §5), CI bitstream proof not recorded. 2026-11-15 sync: SNES and Neo Geo were to get the swap 'on their merge' (§3, §5): Neo Geo has it (`coreapp/cores/neogeo.cc:77`, `NEO_PAD` -> `pad_swap` in neo_regs.v:55,132, from T143; no T157 bench or board record); SNES has none (`coreapp/cores/snes.cc` has no Joystick ports setting, no swap in cores/snes) - not built, not decided out.
 **Repo:** TRX64U-MultiCore — the generic core application (`coreapp/src`: one "Joystick ports" setting for every core) and
 the swap bit in each core's own registers (D1). The host is not changed.
 **Number:** T157.
@@ -108,6 +108,10 @@ Scenario: S5 board
   - `cores/amiga1200/tools/check_wrapper_fork.sh`: all forks `ok` (the two `.diff` regenerated).
   - Whole-core runs with the changed sources: `cores/amiga/sim/run_l2.sh` (Verilator, `amiga_core` with the new register and sync): `PASS tb_l2 errors=0`; `cores/nes/sim/run_l2.sh`: `PASS run_l2`. `layer2_c128.v` has no simulation bench that elaborates it (the machine benches build `c64_core_c128` only); its three changed lines are compiled first by the CI bitstream. `core_sources.tcl` of the C128 lists its files by name, so `c128_joyswap.v` is added there; `ci/sims.txt` / `.lane` / `.deps` get `nes_padswap` (`amiga_input` and `c128_regs` were in already).
   - `tests/coreapp/run.sh` whole (builder): exit 0, 1011 controls all red as they must (6 new); `tests/hostapp/run.sh` exit 0; `tests/loader/run.sh`: 1 program, 40 controls, all as they must; `tools/host_pin.sh --check`: the host is unchanged (315 files).
-- **Open:** board S5 (Amiga with a joystick in physical port 2); the bitstreams of amiga, amiga1200, nes, c128 from CI (WNS, `pr_verify`; the Vivado lane of T89.1 §5 S11 is run by the coordinator's push).
+- **Open:** the bitstreams of amiga, amiga1200, nes, c128 from CI (WNS, `pr_verify`; the Vivado lane of T89.1 §5 S11 is run by the coordinator's push). Board S5 (Amiga with a joystick in physical port 2): closed as done 2026-11-18 (last entry).
 - **2026-10-29, vc20 decided (Alex: "a"):** no setting on the VC-20. Its one joystick port takes both physical ports (OR), so a
   joystick works in either port already; S3 holds for every core with two ports.
+- **2026-11-18 - board steps closed as done (shipped and in use):** S5 (joystick port swap, then trx64u) - Alex 2026-11-15: "Under A
+  there is nothing I would not class as DONE! That has been in the builds for days/weeks, we had bugs and re-tests in part"; Alex
+  2026-11-18, shown these steps as open: "that is old stuff that has been running for ages, we had this already 3-4 days ago" and "tick
+  it off in the TODOs/specs, otherwise it shows up again with some agent" (translated).
