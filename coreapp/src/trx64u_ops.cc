@@ -12,6 +12,7 @@
 #include "corefolder.h"
 #include "boot.h"
 #include "uci.h"
+#include "u64cfg.h"
 #include "u64.h"
 #include "iomap.h"
 #include "itu.h"
@@ -115,15 +116,25 @@ static int reu_load(CoreCtx *c, const char *path, char *msg, int msglen, bool at
 static const UciHost *uci_host(void);
 #define TRX_SLOT_CTRL 0x7000                                       // TRX_IO_BASE + 0x7000 = 0x101A7000
 
+// c64.cc:421: the expansion port is taken when a .crt runs, a cartridge was seen in the port at the last bus setup (trx_ext_cart_seen: GAME or EXROM pulled low) or the slot is armed for one
+// (TRX_SLOT_STATUS b16, valid with b31). The REU, the Ultimate Audio mapping and the UCI are off then (the saved values stay), and the rows say "Disabled (cartridge)".
+static bool g_ext_cart_seen;
+static bool port_taken(CoreCtx *c)
+{
+    bool armed = (c->io->rd(0x7007) & 0x80) && (c->io->rd(0x7006) & 0x01);   // SLOT_STATUS +004: b31 the block is there, b16 armed for a cartridge
+    return c64_cart_active() || g_ext_cart_seen || armed;
+}
+
 static int fx_io(CoreCtx *c, const OpArgs &, OpOut &)
 {
     CoreIo *io = c->io;
+    g_ext_cart_seen = ((*(volatile uint8_t *)(U64_IO_BASE + 3) & 3) != 3);         // U64_CART_DETECT: GAME and EXROM both high = nothing in the port
     io->wr(TRX_SLOT_CTRL, 2);                                                        // T228 R20 29: CPU writes reach a real cartridge (TRX-Ultimate trx_cart.cc:364-406 keeps it at 2)
     io->bus_wr(0x2A, bus_mode_values[cfg_value(c, "Bus Operation Mode", 0)]);        // C64_BUS_BRIDGE
     bool cart = c64_cart_active();
     if (!cart) {
         uint8_t internal = 0, external = 0;
-        bool ext_cart = ((*(volatile uint8_t *)(U64_IO_BASE + 3) & 3) != 3);       // U64_CART_DETECT: GAME and EXROM both high = nothing in the port
+        bool ext_cart = g_ext_cart_seen;
         if (cfg_value(c, "GAME/EXROM", 0) == 1) {                                  // Off: the external cartridge is hidden completely
             internal = 15;
         } else {
@@ -149,12 +160,13 @@ static int fx_io(CoreCtx *c, const OpArgs &, OpOut &)
         io->bus_wr(C64_BUSREG_INTERNAL, internal);
         io->bus_wr(C64_BUSREG_EXTERNAL, external);
         // one module in the expansion port: the REU, the Ultimate Audio and the UCI are the machine's only while no cartridge runs
-        io->cart_wr(C64_CARTREG_REU, cfg_value(c, "RAM Expansion Unit", 0) == 1 ? 1 : 0);
+        bool taken = port_taken(c);                                                  // a cartridge in the port (seen or armed): off, whatever the settings say
+        io->cart_wr(C64_CARTREG_REU, !taken && cfg_value(c, "RAM Expansion Unit", 0) == 1 ? 1 : 0);
         io->cart_wr(0x09, (uint8_t)cfg_value(c, "REU Size", 4));
-        io->cart_wr(C64_CARTREG_SAMPLER, (uint8_t)cfg_value(c, "Map Ultimate Audio $DF20-DFFF", 0));
+        io->cart_wr(C64_CARTREG_SAMPLER, taken ? 0 : (uint8_t)cfg_value(c, "Map Ultimate Audio $DF20-DFFF", 0));
         if (desc_has_capability(c->desc, "uci") && (!c->board || (c->board->probes & BC_UCI))) {
             uci_start(c, uci_host());                                               // the server and its targets (uci.cc), once
-            CMD_IF_SLOT_ENABLE_REG = cfg_value(c, "Command Interface (UCI)", 0) ? 1 : 0;
+            CMD_IF_SLOT_ENABLE_REG = !taken && cfg_value(c, "Command Interface (UCI)", 0) ? 1 : 0;
             CMD_IF_SLOT_BASE_REG = 0x47;                                            // $DF1C
         }
     } else if (desc_has_capability(c->desc, "uci") && (!c->board || (c->board->probes & BC_UCI))) {
@@ -844,6 +856,14 @@ static uint32_t mp3_size(CoreCtx *c, int n, int type)
     return (uint32_t)reu_byte(c, base + 0x84) << 16;
 }
 
+// The command interface's view of a RAM drive (CONTROL 0x40, DOS 0x41 / 0x42): its type, its size (a native one by its track count) and where its first byte lies in the REU.
+static void uci_ramdrive(CoreCtx *c, int n, int *type, uint32_t *size, uint32_t *base)
+{
+    *type = mp3_type(c, n);
+    *size = *type ? mp3_size(c, n, *type) : 0;
+    *base = (uint32_t)reu_byte(c, 0x7DC7 + (uint32_t)n) << 16;
+}
+
 template <int N> static const char *state_mp3(CoreCtx *c)
 {
     switch (mp3_type(c, N)) {
@@ -975,7 +995,10 @@ static const char *state_suggest_ring(CoreCtx *) { return "ring"; }
 
 // ---- states ----------------------------------------------------------------------------------------------------------------------------------------
 // the rows of the REU (size, preload) are listed while the expansion is not Disabled
-static const char *state_reu_on(CoreCtx *c) { return cfg_value(c, "RAM Expansion Unit", 0) == 1 && !c64_cart_active() ? "yes" : 0; }   // T228 R20 2: the REU is there only as the REU (not GeoRAM) and while no cartridge has the port
+static const char *state_reu_on(CoreCtx *c) { return cfg_value(c, "RAM Expansion Unit", 0) == 1 && !port_taken(c) ? "yes" : 0; }   // T228 R20 2: the REU is there only as the REU (not GeoRAM) and while no cartridge has the port
+// the three rows of the port's devices (REU, Ultimate audio, UCI) are listed while the port is free; while it is taken a row of the same name says why they are off (c64.cc:424-428)
+static const char *state_port_free(CoreCtx *c) { return port_taken(c) ? 0 : "yes"; }
+static const char *state_port_taken(CoreCtx *c) { return port_taken(c) ? "Disabled (cartridge)" : 0; }
 static const char *state_cartridge(CoreCtx *) { return c64_cart_active() ? c64_cart_name() : 0; }
 static const char *state_cartridge_path(CoreCtx *) { return c64_cart_active() ? c64_cart_path() : 0; }
 
@@ -1026,9 +1049,15 @@ static int uci_drive_do(CoreCtx *c, int idx, int what, const char *path, char *m
     return rc == OPE_OK ? 0 : 1;
 }
 
+static void uci_ramdrive(CoreCtx *c, int n, int *type, uint32_t *size, uint32_t *base);
+
+static bool uci_ef_clear(CoreCtx *c, uint8_t bank, bool high) { return c64_cart_ef_clear(c, bank, high); }
+static int uci_sid_map(CoreCtx *c, uint8_t *data) { return u64cfg_sid_map(c, data); }
+static void uci_palette(CoreCtx *c, int what, uint8_t idx, uint8_t (*rgb)[3]) { u64cfg_palette(c, what, idx, rgb); }
+
 static const UciHost *uci_host(void)
 {
-    static const UciHost h = { uci_reu, uci_drive_info, uci_drive_do };
+    static const UciHost h = { uci_reu, uci_drive_info, uci_drive_do, uci_sid_map, "/temp/c64_memory.bin", uci_ef_clear, uci_ramdrive, uci_palette };
     return &h;
 }
 
@@ -1568,6 +1597,8 @@ void trx64u_register(OpRegistry &r)
     r.add_state("reu.nomp3.c", state_nomp3<2>);
     r.add_state("reu.nomp3.d", state_nomp3<3>);
     r.add_state("reu.on", state_reu_on);
+    r.add_state("c64.port_free", state_port_free);
+    r.add_state("c64.port_taken", state_port_taken);
     r.add_state("c64.cartridge", state_cartridge);
     r.add_state("c64.cartridge_path", state_cartridge_path);
     r.add_op("machine.pause_toggle", 0, 0, op_pause_toggle);

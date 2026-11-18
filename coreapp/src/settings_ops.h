@@ -11,6 +11,11 @@
 // settings.reset_to_host(): removes the core layer (the .cfg), applies the live items again.
 void settings_register(OpRegistry &r);
 
+// The text of a .cfg for settings.load_staged (the command interface's CONTROL LOAD_CONFIG reads the file itself and has the operation apply it on the executor, with the
+// firmware's log: Line n: ...). settings_stage copies at most 16 KB and returns the length kept; settings_load_log is the log of the last run.
+int settings_stage(const char *text, int len);
+const char *settings_load_log(void);
+
 // The menu's call of settings.set (a switch, a choice, a text): the same operation a REST client calls. 0 or an OpErr; r->msg says how it went.
 int settings_set(CoreCtx *c, const char *key, const char *value, OpResult *r);
 

@@ -4,6 +4,9 @@
 exception coreapp/src/u64cfg.cc +983 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
 exception coreapp/cores/trx64u/menu.toml +1325 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
 exception coreapp/cores/trx64u/menu_rec.inc +2538 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
+exception coreapp/src/u64cfg.cc +733 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
+exception coreapp/cores/trx64u/menu.toml +1289 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
+exception coreapp/cores/trx64u/menu_rec.inc +2498 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
 file coreapp/cores/6502/xexboot.asm 161
 file coreapp/cores/6502/xexboot_bin.h 26
 file coreapp/cores/amiga.cc 345
@@ -197,4 +200,15 @@ exception coreapp/src/trx64u_ops.cc +878 T228-R20 (Alex 2026-11-18: "repair. It 
 exception coreapp/cores/c64_cart.h +8 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
 exception coreapp/src/u64cfg.h +2 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
 exception coreapp/src/trx64u_ops.h +5 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
+exception coreapp/src/ring.cc +150 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
+exception coreapp/src/ringfile.cc +1070 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
+exception coreapp/src/ringops.cc +130 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
+exception coreapp/src/trx_c64re.h +28 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
+exception coreapp/src/trx_ring.h +13 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
+exception coreapp/cores/c64.cc +78 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
+exception coreapp/cores/c64_cart.cc +118 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
+exception coreapp/src/trx64u_ops.cc +422 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
+exception coreapp/cores/c64_cart.h +6 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
+exception coreapp/src/u64cfg.h +3 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
+exception coreapp/src/trx64u_ops.h +2 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
 exception coreapp/cores/hk_defaults.h +4 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")

@@ -35,6 +35,7 @@ op	settings.reset_defaults
 op	settings.clear
 op	settings.noop	value:int:-2000:2000:0:
 op	settings.load_file	path:path:0:0:519:
+op	settings.load_staged
 op	settings.autosave	value:int:-2000:2000:0:
 op	settings.save
 op	settings.discard
