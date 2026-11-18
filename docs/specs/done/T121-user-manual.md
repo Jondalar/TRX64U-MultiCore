@@ -55,6 +55,9 @@ table in the Discussions and in the manual is what counts; the TRX64 Ultimate pr
 this repository packs `trx64u.cor` / `trx64g.cor` and builds the core menu; HDMI is in, analogue video is in development.
 The README answers the four questions in a few lines each and links the manual; per-core details, release history and
 screenshots stay in the manual.
+Style (Alex 2026-11-18, translated, on the first rewrite: "The README is awful. AI, AI, AI ... in every sentence. What really helps
+is this Boeing engineering-manual writing style. Keep it simple. No AI-slop phrasing."): the README is written like the manual
+(short statements, numbered steps, NOTE/WARNING blocks); the final text is Alex's, with the corrections of the review.
 
 ## §4 Out
 
