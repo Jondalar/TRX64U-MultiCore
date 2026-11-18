@@ -128,6 +128,8 @@ this replaces "promote, no second board test" above (the promote does not reach 
 promotes the .cor files and the app but not the app inside the update files (.cfw/.ue2), so `release_mc.sh`'s installer check fails; the
 promote step must cover every part. How (Alex 2026-11-16): "Sonst nimm die Gitea-Registry dafür, Artefakte einchecken per Pipeline-Step, und auschecken" - a release
 pipeline step checks the tested package out of the Gitea registry, promotes every part and checks the release package back in.
+Before 0.2.0 went to GitHub, every old GitHub release (5 pre-releases `trx64mc-*`) and tag (16) was deleted (Alex 2026-11-18,
+translated: "can you clear away all the old tags and releases on GitHub?"); links to them in issues and discussions now fail.
 
 ## §4 Out
 
