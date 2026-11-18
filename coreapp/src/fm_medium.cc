@@ -8,6 +8,24 @@
 #include <stdio.h>
 #include <string.h>
 
+// May `path` be written: not a place CoreFs refuses (fsif.h) and not on a medium whose block device is write protected (FW file_system.cc:5-17: the file system is writable).
+bool fm_path_writable(const char *path)
+{
+    if (!path || fs_write_refused(path)) {
+        return false;
+    }
+    char name[24];
+    const char *s = path[0] == '/' ? path + 1 : path;
+    size_t n = strcspn(s, "/");
+    if (n == 0 || n >= sizeof(name)) {
+        return n == 0 ? false : true;
+    }
+    memcpy(name, s, n);
+    name[n] = 0;
+    FileDevice *d = FileDevice::find(name);
+    return !d || !(d->get_block_device()->status() & STA_PROTECT);
+}
+
 // The media level of the Library: what the medium is, as the host's File Browser says it (T111 words: size and file system). The sectors that tell are read once per
 // medium and ten seconds; a medium that comes or goes is seen at once (ready, sector count).
 bool fm_medium_info(const char *name, MediumInfo *out)

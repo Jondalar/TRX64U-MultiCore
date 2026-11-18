@@ -178,6 +178,9 @@ public:
     virtual bool free_bytes(const char *path, uint64_t *out) { (void)path; (void)out; return false; }
     // The media level of the Library (T104.2, as the host's File Browser): what the medium `name` (an entry of "/") is. False when the board cannot tell (a name that is no medium).
     virtual bool medium_info(const char *name, MediumInfo *out) { (void)name; (void)out; return false; }
+    // T228 R21 (FW user_file_interaction.cc:45-55, 87-93; file_system.cc:5-17): may a file or folder at `path`, or a new one in it, be written, moved, renamed or deleted?
+    // The menu offers Move, Cut, Rename, Delete, New folder and Paste only where this says yes. The default: yes (a medium that has no read-only places).
+    virtual bool writable(const char *path) { (void)path; return true; }
     // A new empty directory; false when it exists already as a file or cannot be made. An existing directory is success.
     virtual bool mkdir(const char *path) { (void)path; return false; }
     // Moves a file or directory; the target must not exist (FatFs f_rename).
