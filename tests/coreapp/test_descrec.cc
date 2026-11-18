@@ -245,21 +245,21 @@ int main(int argc, char **argv)
         DescRecord *o = new DescRecord;
         CHECK_EQ(parse(own, o, why), 0);
         CHECK(o->has_own);
-        CHECK_EQ(o->ntasks, 14);                                   // T228: the resets, R1's Timewarp... and Monitor..., the drive lists' tasks, R10's pad map last
+        CHECK_EQ(o->ntasks, 19);                                   // T228: the resets, R1's Timewarp... and Monitor..., R21's Save .C64RE dump and Save MP3 drv A-D, the drive lists' tasks, R10's pad map last
         CHECK_STR(o->tasks[0].label, "Reset");
         CHECK(o->tasks[0].closes_menu && !o->tasks[0].ask);
         CHECK_STR(o->tasks[0].group, "top");
         CHECK_STR(o->machine_info, "System Mode,REU Size");        // T228 version 4: the machine line's settings
         CHECK_STR(o->tasks[2].label, "Timewarp...");               // T228 R1: the row and its hotkey (the modifier + T, R16)
         CHECK_EQ(o->tasks[2].hotkey, 'T');
-        CHECK_STR(o->tasks[9].label, "Save Disk as D64");
-        CHECK(o->tasks[9].ask && o->tasks[9].ask_state && !o->tasks[9].pick_dir && !o->tasks[9].closes_menu);
-        CHECK_STR(o->tasks[9].group, "c64");
-        CHECK_STR(o->tasks[11].label, "Create blank D64");
-        CHECK(o->tasks[11].pick_dir && o->tasks[11].ask && o->tasks[11].ask_state && !o->tasks[11].closes_menu);
-        CHECK_STR(o->tasks[11].ask_state, "drive.suggest.d64");
-        CHECK_EQ(o->tasks[11].nbind, 3);
-        CHECK_EQ(o->tasks[11].bind[0].kind, BIND_TEXT);
+        CHECK_STR(o->tasks[14].label, "Save Disk as D64");
+        CHECK(o->tasks[14].ask && o->tasks[14].ask_state && !o->tasks[14].pick_dir && !o->tasks[14].closes_menu);
+        CHECK_STR(o->tasks[14].group, "c64");
+        CHECK_STR(o->tasks[16].label, "Create blank D64");
+        CHECK(o->tasks[16].pick_dir && o->tasks[16].ask && o->tasks[16].ask_state && !o->tasks[16].closes_menu);
+        CHECK_STR(o->tasks[16].ask_state, "drive.suggest.d64");
+        CHECK_EQ(o->tasks[16].nbind, 3);
+        CHECK_EQ(o->tasks[16].bind[0].kind, BIND_TEXT);
         CHECK_EQ(o->nmedia, 3);
         CHECK_STR(o->media[0].name, "Drive A:");
         CHECK_STR(o->media[0].eject_op, "drive.eject");
