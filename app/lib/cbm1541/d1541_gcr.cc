@@ -133,7 +133,6 @@ uint8_t *GcrImage::convert_block(uint8_t *bin, uint8_t *gcr, int len)
 uint8_t *GcrImage::convert_track(uint8_t logical_track_1b, int region, uint8_t *bin, uint8_t *gcr, uint8_t *errors, int errors_size,
                                  int geosgaps, int twist)
 {
-    (void)geosgaps;
     uint8_t *orig_dest = gcr;
     gcr = track_buffer_;
     uint8_t *end = gcr + track_lengths[region];
@@ -170,6 +169,10 @@ uint8_t *GcrImage::convert_track(uint8_t logical_track_1b, int region, uint8_t *
         for (int i = 0; i < 9; i++) {
             *(gcr++) = 0x55;
         }
+        if (geosgaps & 1) {                                // disk_image.cc:299-302
+            *(gcr - 1) = 0x67;
+            *(gcr - 4) = 0x67;
+        }
         for (int i = 0; i < 5; i++) {
             *(gcr++) = errorcode != 3 ? 0xFF : 0x00;
         }
@@ -185,9 +188,16 @@ uint8_t *GcrImage::convert_track(uint8_t logical_track_1b, int region, uint8_t *
         for (int i = 0; i < sector_gap_lengths[region]; i++) {
             *(gcr++) = 0x55;
         }
+        if (geosgaps & 1) {                                // disk_image.cc:334-337
+            *(gcr - 1) = 0x67;
+            *(gcr - 4) = 0x67;
+        }
     }
     while (gcr < end) {
         *(gcr++) = 0x55;
+    }
+    if (geosgaps & 1) {                                    // disk_image.cc:344-345
+        *(gcr - 1) = 0x67;
     }
     // now copy with some offset, depending on the track
     int len = track_lengths[region];
@@ -198,7 +208,7 @@ uint8_t *GcrImage::convert_track(uint8_t logical_track_1b, int region, uint8_t *
     return orig_dest + len;
 }
 
-void GcrImage::from_bin(BinImage *bin, int twist)
+void GcrImage::from_bin(BinImage *bin, int twist, int geos)
 {
     id1_ = bin->bin_data[91554];
     id2_ = bin->bin_data[91555];
@@ -216,11 +226,39 @@ void GcrImage::from_bin(BinImage *bin, int twist)
             error_size = bin->error_size - sec;
         }
         tracks[pt].track_address = gcr;
-        uint8_t *newgcr = convert_track((uint8_t)(lt + 1), region, bin->track_start[lt], gcr, error_bytes, error_size, 0, twist);
+        uint8_t *newgcr = convert_track((uint8_t)(lt + 1), region, bin->track_start[lt], gcr, error_bytes, error_size, geos & 1, twist);
         tracks[pt].track_length = (int)(newgcr - gcr);
         tracks[pt].speed_zone = region_speed_codes[region];
         tracks[pt].track_used = true;
         gcr = newgcr;
+    }
+    if ((geos & 2) && bin->num_tracks == 35 && gcr + 7692 <= mem_ + GCR_MAXSIZE) {     // "Track 36": disk_image.cc:640-668, the copy protection track
+        int pt = 70;
+        tracks[pt].track_length = 7692;
+        tracks[pt].track_address = gcr;
+        tracks[pt].speed_zone = 3;
+        tracks[pt].track_used = true;
+        memset(gcr, 0x55, 7692);
+        uint8_t data[12] = { 0x2f, 0x53, 0x77, 0x7d, 0x67, 0x45, 0xb5, 0xdd, 0x77, 0x62, 0x73, 0x77 };
+        uint8_t *w = gcr;
+        for (int s = 0; s < 0x18; s++) {
+            for (int l = 0; l < 4; l++) {
+                for (int i = 0; i < 0x15; i++) {
+                    *(w++) = data[3 * l + 0];
+                    *(w++) = data[3 * l + 1];
+                    *(w++) = data[3 * l + 2];
+                }
+            }
+            for (int l = 0; l < 4; l++) {
+                uint8_t ovl0 = data[3 * l] > 127 ? 1 : 0;
+                uint8_t ovl1 = data[3 * l + 1] > 127 ? 1 : 0;
+                uint8_t ovl2 = data[3 * l + 2] > 127 ? 1 : 0;
+                data[3 * l + 2] = (uint8_t)((data[3 * l + 2] << 1) + ovl0);
+                data[3 * l + 1] = (uint8_t)((data[3 * l + 1] << 1) + ovl2);
+                data[3 * l + 0] = (uint8_t)((data[3 * l + 0] << 1) + ovl1);
+            }
+        }
+        gcr += 7692;
     }
     used_ = (uint32_t)(gcr - mem_);
     add_blank_tracks(gcr);
@@ -460,19 +498,15 @@ bool GcrImage::load(CoreFile *f, char *why, int whylen)
         snprintf(why, whylen, n < 20 ? "not a .g64 (too short)" : "cannot read the image (the medium is gone?)");
         return false;
     }
-    if (!strncmp((const char *)mem_, "GCR-1571", 8)) {
-        snprintf(why, whylen, "a double sided image (GCR-1571): the drive is a single sided 1541");
-        return false;
-    }
-    if (strncmp((const char *)mem_, "GCR-1541", 8) != 0) {
+    // A .g71 (GCR-1571) is the same table layout with 168 entries: side 0 is the first 84, which is all a 1541 head can reach. The tables lie behind
+    // the count the header reports (disk_image.cc:698-728 reads the speed zones at 3 + reported_tracks), so the position is the file's, the loop is ours.
+    if (strncmp((const char *)mem_, "GCR-1541", 8) != 0 && strncmp((const char *)mem_, "GCR-1571", 8) != 0) {
         snprintf(why, whylen, "not a .g64 (no GCR-1541 signature)");
         return false;
     }
-    uint32_t reported = mem_[9];
-    if (reported > GCR_TRACKS) {
-        reported = GCR_TRACKS;
-    }
-    if (12 + reported * 8 > n) {
+    uint32_t count = mem_[9];
+    uint32_t reported = count > GCR_TRACKS ? GCR_TRACKS : count;
+    if (12 + count * 8 > n) {
         snprintf(why, whylen, "not a .g64 (the track tables are cut off)");
         return false;
     }
@@ -481,7 +515,7 @@ bool GcrImage::load(CoreFile *f, char *why, int whylen)
         if (!offset) {
             continue;
         }
-        if (offset < 12 + reported * 8 || offset + 2 > n) {
+        if (offset < 12 + count * 8 || offset + 2 > n) {
             snprintf(why, whylen, "track %u points outside the file", (unsigned)i);
             return false;
         }
@@ -497,7 +531,7 @@ bool GcrImage::load(CoreFile *f, char *why, int whylen)
         tracks[i].track_used = true;
         tracks[i].in_image_file = true;
         tracks[i].track_is_mfm = (w & 0x8000) != 0;
-        tracks[i].speed_zone = (int)le32(mem_ + 12 + 4 * reported + 4 * i);
+        tracks[i].speed_zone = (int)le32(mem_ + 12 + 4 * count + 4 * i);
     }
     used_ = n;
     add_blank_tracks(mem_ + n);

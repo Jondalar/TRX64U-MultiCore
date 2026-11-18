@@ -252,6 +252,14 @@ static int place(CoreCtx *c, const uint8_t *data, uint32_t size, const CbmPrgPar
     return rc;
 }
 
+// F4 "DMA load mimics ID": after a DMA load that starts a program the device number is in $BA (TRX-Ultimate c64_subsys.cc:1070 with
+// c64->cfg CFG_C64_DMA_ID, c64.cc:183: 8 .. 31, default 8), so a program that loads its next file from "the last device" finds it there.
+static void poke_dma_id(CoreCtx *c)
+{
+    uint8_t id = (uint8_t)cfg_value(c, "DMA Load Mimics ID", 8);
+    c->io->ram_write(0x00BA, &id, 1);
+}
+
 static void remember(CoreCtx *c, const char *name)
 {
     snprintf(c64_state(c)->program, sizeof(C64State::program), "%s", name);
@@ -273,6 +281,7 @@ static int queue_prg(CoreCtx *c, int kind, const char *path, uint16_t start, cha
     if (read_prg(c, path, p, &size, msg, msglen)) {
         return 1;
     }
+    trx64u_load_assoc_cfg(c, path, true);          // filetype_prg.cc:186-190: the .cfg (or .usr) beside the file goes in before the program runs
     bool p00 = is_p00(path);
     bool go = kind == J_LOAD && c64_go_available(c->io);
     if (kind == J_LOAD && !go) {
@@ -311,6 +320,7 @@ static int fire(CoreCtx *c, C64State *st, char *msg, int msglen)
         if (place(c, prgbuf, st->size, p, st->p00, &r, msg, msglen)) {
             return 1;
         }
+        poke_dma_id(c);
         cbm_prg_type_start(c->io, p, r);
         printf("[c64] %s: $%04X-$%04X, %s\n", st->name, r.load, (unsigned)(r.end - 1) & 0xFFFF, r.basic ? "RUN" : "SYS");
         return 0;
@@ -321,7 +331,11 @@ static int fire(CoreCtx *c, C64State *st, char *msg, int msglen)
             static int cb(void *u, char *m, int n)
             {
                 Pa *a = (Pa *)u;
-                return place(a->c, prgbuf, a->st->size, *a->p, a->st->p00, a->r, m, n);
+                int rc = place(a->c, prgbuf, a->st->size, *a->p, a->st->p00, a->r, m, n);
+                if (!rc) {
+                    poke_dma_id(a->c);
+                }
+                return rc;
             }
         };
         if (c64_go(c->io, st->start, F::cb, &pa, msg, msglen)) {
@@ -331,6 +345,7 @@ static int fire(CoreCtx *c, C64State *st, char *msg, int msglen)
         if (place(c, prgbuf, st->size, p, st->p00, &r, msg, msglen)) {
             return 1;
         }
+        poke_dma_id(c);
         r.start = st->start;
         cbm_prg_type_start(c->io, p, r);
     }
@@ -511,6 +526,7 @@ static int op_type(CoreCtx *c, const OpArgs &a, OpOut &o)
 // The Library's .crt (c64_cart.cc): the cartridge is placed and the machine reset into it. The program that was running is gone with the reset.
 static int op_run_crt(CoreCtx *c, const OpArgs &a, OpOut &o)
 {
+    trx64u_load_assoc_cfg(c, a.s(0), false);       // filetype_crt.cc:75
     if (c64_cart_run(c, a.s(0), o.msg, o.msglen)) {
         return OPE_FAILED;
     }

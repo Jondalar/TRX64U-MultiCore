@@ -85,7 +85,7 @@ key = "F5"                       # the core's short title ("C64") names it
   id = "expansion"
   name = "Expansion"
   widget = "settings"
-  groups = ["Cartridge", "REU", "Ultimate"]
+  groups = ["Cartridge", "Ultimate", "REU"]
   ui = { sections = true }
   n = 3
   [[area.tab]]                    # D14: section Picture = System mode, then the generic Picture/Scale rows (routed rows follow the first block), section Output
@@ -130,6 +130,43 @@ name = "System"
   groups = ["Ethernet", "WiFi", "Services", "Time_synchronization", "Streams", "FTP_hosts"]
   ui = { pages = "Network_settings=Ethernet+WiFi+Services+Time_synchronization,Streams,FTP_hosts" }
   n = 1
+
+# T228 R21 (#4): "Save MP3 Drv A-D" - the GEOS RAM drives in the REU as a file (TRX-Ultimate c64_subsys.cc:452-455, 488-491, 852-912); a row is there only while that drive is
+[[node]]
+anchor = "F5/expansion/REU"
+kind = "op"
+label = "Save MP3 Drv A"
+op = "machine.save_mp3"
+bind = [ { arg = "drive", int = 0 }, { arg = "name", text = true } ]
+order = 40
+ui = { ask = "Save RAMDISK as (name)", hide = "@reu.nomp3.a" }
+
+[[node]]
+anchor = "F5/expansion/REU"
+kind = "op"
+label = "Save MP3 Drv B"
+op = "machine.save_mp3"
+bind = [ { arg = "drive", int = 1 }, { arg = "name", text = true } ]
+order = 41
+ui = { ask = "Save RAMDISK as (name)", hide = "@reu.nomp3.b" }
+
+[[node]]
+anchor = "F5/expansion/REU"
+kind = "op"
+label = "Save MP3 Drv C"
+op = "machine.save_mp3"
+bind = [ { arg = "drive", int = 2 }, { arg = "name", text = true } ]
+order = 42
+ui = { ask = "Save RAMDISK as (name)", hide = "@reu.nomp3.c" }
+
+[[node]]
+anchor = "F5/expansion/REU"
+kind = "op"
+label = "Save MP3 Drv D"
+op = "machine.save_mp3"
+bind = [ { arg = "drive", int = 3 }, { arg = "name", text = true } ]
+order = 43
+ui = { ask = "Save RAMDISK as (name)", hide = "@reu.nomp3.d" }
 
 [[node]]
 anchor = "F5/trx/Recording"
@@ -658,7 +695,7 @@ name = "Drive A:"
 state = "drive.drive_a.image"
 eject_op = "drive.eject"
 eject_bind = [ { arg = "slot", str = "iec:drive_a" } ]
-exts = ".d64,.g64"
+exts = ".d64,.g64,.g71"
 mount = "Mount Disk"
 empty_tasks = "Insert blank disk,Create blank D64,Create blank G64"
 mounted_tasks = "Swap disk,Reset drive,Unlink disk,Save Disk as D64,Save Disk as G64"
@@ -761,7 +798,7 @@ inner_ext = ".prg"
   [[filetype.action]]
   label = "Run Disk"
   key = "R"
-  op = "drive.mount_run"
+  op = "drive.run_disk"
   bind = [ { arg = "slot", str = "iec:drive_a" }, { arg = "path", file = true } ]
   closes_menu = true
   [[filetype.action]]
@@ -769,6 +806,30 @@ inner_ext = ".prg"
   key = "B"
   op = "menu.browse"
   bind = [ { arg = "path", file = true } ]
+  [[filetype.action]]
+  label = "Load into MP3 Drv A"
+  key = "1"
+  op = "reu.load_mp3"
+  bind = [ { arg = "path", file = true }, { arg = "drive", int = 0 } ]
+  show_state = "reu.mp3.a == 1541"
+  [[filetype.action]]
+  label = "Load into MP3 Drv B"
+  key = "2"
+  op = "reu.load_mp3"
+  bind = [ { arg = "path", file = true }, { arg = "drive", int = 1 } ]
+  show_state = "reu.mp3.b == 1541"
+  [[filetype.action]]
+  label = "Load into MP3 Drv C"
+  key = "3"
+  op = "reu.load_mp3"
+  bind = [ { arg = "path", file = true }, { arg = "drive", int = 2 } ]
+  show_state = "reu.mp3.c == 1541"
+  [[filetype.action]]
+  label = "Load into MP3 Drv D"
+  key = "4"
+  op = "reu.load_mp3"
+  bind = [ { arg = "path", file = true }, { arg = "drive", int = 3 } ]
+  show_state = "reu.mp3.d == 1541"
   [[filetype.inner]]
   label = "Mount & Run"
   key = "R"
@@ -805,9 +866,119 @@ ext = ".g64"
   [[filetype.action]]
   label = "Run Disk"
   key = "R"
-  op = "drive.mount_run"
+  op = "drive.run_disk"
   bind = [ { arg = "slot", str = "iec:drive_a" }, { arg = "path", file = true } ]
   closes_menu = true
+
+# a .g71 (GCR-1571): side 0 mounts in drive A as a 1541 disk; the 1571 is not in this gateware, so side 1 stays untouched in the file (TRX-Ultimate filetype_g64.cc:110-111 offers it the G64 actions)
+[[filetype]]
+ext = ".g71"
+  [[filetype.action]]
+  label = "Mount Disk"
+  key = "M"
+  op = "drive.mount"
+  bind = [ { arg = "slot", str = "iec:drive_a" }, { arg = "path", file = true }, { arg = "mode", str = "rw" } ]
+  closes_menu = true
+  [[filetype.action]]
+  label = "Mount Disk Read Only"
+  key = "O"
+  op = "drive.mount"
+  bind = [ { arg = "slot", str = "iec:drive_a" }, { arg = "path", file = true }, { arg = "mode", str = "ro" } ]
+  closes_menu = true
+  [[filetype.action]]
+  label = "Mount Disk Unlinked"
+  key = "U"
+  op = "drive.mount"
+  bind = [ { arg = "slot", str = "iec:drive_a" }, { arg = "path", file = true }, { arg = "mode", str = "unlinked" } ]
+  closes_menu = true
+  [[filetype.action]]
+  label = "Run Disk"
+  key = "R"
+  op = "drive.run_disk"
+  bind = [ { arg = "slot", str = "iec:drive_a" }, { arg = "path", file = true } ]
+  closes_menu = true
+
+# T228 R21: a disk image the GEOS RAM drives of the REU can take (TRX-Ultimate filetype_d64.cc:121-124): each action is offered while that drive is of the file's type
+[[filetype]]
+ext = ".d71"
+  [[filetype.action]]
+  label = "Load into MP3 Drv A"
+  key = "1"
+  op = "reu.load_mp3"
+  bind = [ { arg = "path", file = true }, { arg = "drive", int = 0 } ]
+  show_state = "reu.mp3.a == 1571"
+  [[filetype.action]]
+  label = "Load into MP3 Drv B"
+  key = "2"
+  op = "reu.load_mp3"
+  bind = [ { arg = "path", file = true }, { arg = "drive", int = 1 } ]
+  show_state = "reu.mp3.b == 1571"
+  [[filetype.action]]
+  label = "Load into MP3 Drv C"
+  key = "3"
+  op = "reu.load_mp3"
+  bind = [ { arg = "path", file = true }, { arg = "drive", int = 2 } ]
+  show_state = "reu.mp3.c == 1571"
+  [[filetype.action]]
+  label = "Load into MP3 Drv D"
+  key = "4"
+  op = "reu.load_mp3"
+  bind = [ { arg = "path", file = true }, { arg = "drive", int = 3 } ]
+  show_state = "reu.mp3.d == 1571"
+
+[[filetype]]
+ext = ".d81"
+  [[filetype.action]]
+  label = "Load into MP3 Drv A"
+  key = "1"
+  op = "reu.load_mp3"
+  bind = [ { arg = "path", file = true }, { arg = "drive", int = 0 } ]
+  show_state = "reu.mp3.a == 1581"
+  [[filetype.action]]
+  label = "Load into MP3 Drv B"
+  key = "2"
+  op = "reu.load_mp3"
+  bind = [ { arg = "path", file = true }, { arg = "drive", int = 1 } ]
+  show_state = "reu.mp3.b == 1581"
+  [[filetype.action]]
+  label = "Load into MP3 Drv C"
+  key = "3"
+  op = "reu.load_mp3"
+  bind = [ { arg = "path", file = true }, { arg = "drive", int = 2 } ]
+  show_state = "reu.mp3.c == 1581"
+  [[filetype.action]]
+  label = "Load into MP3 Drv D"
+  key = "4"
+  op = "reu.load_mp3"
+  bind = [ { arg = "path", file = true }, { arg = "drive", int = 3 } ]
+  show_state = "reu.mp3.d == 1581"
+
+[[filetype]]
+ext = ".dnp"
+  [[filetype.action]]
+  label = "Load into MP3 Drv A"
+  key = "1"
+  op = "reu.load_mp3"
+  bind = [ { arg = "path", file = true }, { arg = "drive", int = 0 } ]
+  show_state = "reu.mp3.a == DNP"
+  [[filetype.action]]
+  label = "Load into MP3 Drv B"
+  key = "2"
+  op = "reu.load_mp3"
+  bind = [ { arg = "path", file = true }, { arg = "drive", int = 1 } ]
+  show_state = "reu.mp3.b == DNP"
+  [[filetype.action]]
+  label = "Load into MP3 Drv C"
+  key = "3"
+  op = "reu.load_mp3"
+  bind = [ { arg = "path", file = true }, { arg = "drive", int = 2 } ]
+  show_state = "reu.mp3.c == DNP"
+  [[filetype.action]]
+  label = "Load into MP3 Drv D"
+  key = "4"
+  op = "reu.load_mp3"
+  bind = [ { arg = "path", file = true }, { arg = "drive", int = 3 } ]
+  show_state = "reu.mp3.d == DNP"
 
 # a ROM file picked in the browser (16 or 32 KB, the operation checks): copied to /flash/roms, stored as "ROM for 1541 mode", the drive takes it now
 [[filetype]]
@@ -817,6 +988,12 @@ ext = ".rom"
   key = "S"
   op = "drive.set_rom_store"
   bind = [ { arg = "path", file = true } ]
+  [[filetype.action]]
+  label = "Load Drive ROM"
+  key = "L"
+  op = "drive.set_rom"
+  bind = [ { arg = "slot", str = "iec:drive_a" }, { arg = "path", file = true } ]
+  size_in = [16384, 32768]
 
 # A cartridge stays in the port until "Remove Cartridge": the Reset task starts it again (c64_cart.cc)
 [[filetype]]
@@ -911,6 +1088,19 @@ ext = ".bin"
   op = "c64.set_rom"
   bind = [ { arg = "path", file = true }, { arg = "which", int = 2 } ]
   size_in = [4096]
+  [[filetype.action]]
+  label = "Load Kernal"
+  key = "L"
+  op = "c64.load_kernal"
+  bind = [ { arg = "path", file = true } ]
+  size_in = [8192]
+  closes_menu = true
+  [[filetype.action]]
+  label = "Load Drive ROM"
+  key = "D"
+  op = "drive.set_rom"
+  bind = [ { arg = "slot", str = "iec:drive_a" }, { arg = "path", file = true } ]
+  size_in = [16384, 32768]
 
 [[filetype]]
 ext = ".64c"
@@ -920,6 +1110,13 @@ ext = ".64c"
   op = "c64.set_rom"
   bind = [ { arg = "path", file = true }, { arg = "which", int = 0 } ]
   size_in = [8192]
+  [[filetype.action]]
+  label = "Load Kernal"
+  key = "L"
+  op = "c64.load_kernal"
+  bind = [ { arg = "path", file = true } ]
+  size_in = [8192]
+  closes_menu = true
 
 # R21 #11 (FW filetypes/filetype_c64re.cc:75-78): "Load State" on a .c64re and a .c64rering. The FW's "Load Ring" on a .trxring needs the ring's own file (T20 §10.2),
 # which this app does not write or read yet: no row for it.
@@ -1015,6 +1212,7 @@ cartmodes = ["Auto", "Internal", "External", "Manual"]
 sharing = ["Internal", "External"]
 gameexrom = ["On", "Off"]
 geo = ["Disabled", "Enabled"]
+geos = ["None", "Gaps", "Track 36", "Both"]
 reusize = ["128 KB", "256 KB", "512 KB", "1 MB", "2 MB", "4 MB", "8 MB", "16 MB"]
 reuoffs = ["0 KB", "128 KB", "256 KB", "512 KB", "1 MB", "2 MB", "4 MB", "8 MB"]
 
@@ -2373,9 +2571,27 @@ maxlen = 60
 apply = "c64.fx_roms"
 
 [[core_setting]]
+group = "Hardware"
+key = "DMA Load Mimics ID"
+label = "DMA load mimics ID"
+range = [8, 31]
+unit = ""
+default = 8
+apply = "c64.fx_io"
+
+[[core_setting]]
 group = "Drive_A"
 key = "Resets when C64 resets"
 label = "Reset drive with C64"
+list = "yes_no"
+default = 1
+when = "live"
+apply = "drive.fx_misc"
+
+[[core_setting]]
+group = "Drive_A"
+key = "Freezes in menu"
+label = "Freeze drive in menu"
 list = "yes_no"
 default = 1
 when = "live"
@@ -2404,6 +2620,15 @@ key = "GCR Save Align Tracks"
 label = "GCR save align tracks"
 list = "yes_no"
 default = 1
+when = "live"
+apply = "drive.fx_misc"
+
+[[core_setting]]
+group = "Drive_extras"
+key = "D64 Geos Copy Protection"
+label = "D64 geos copy protection"
+list = "geos"
+default = 0
 when = "live"
 apply = "drive.fx_misc"
 

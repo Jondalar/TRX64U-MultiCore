@@ -790,7 +790,7 @@ def compile_desc(doc, merged=()):
         first = len(t["fact"])
         for f in lst:
             fact_labels.add(f.get("label"))
-            _only(f, {"label", "op", "bind", "closes_menu", "ask", "ask_off", "size_in", "key"}, what)
+            _only(f, {"label", "op", "bind", "closes_menu", "ask", "ask_off", "size_in", "key", "show_state"}, what)
             label = _need(f, "label", str, what)
             w2 = "%s action %s" % (what, label)
             ask = text_key(f, "ask", w2)
@@ -813,6 +813,12 @@ def compile_desc(doc, merged=()):
             if key and not (len(key) == 1 and key.isalnum() and key == key.upper()):
                 raise DescError("%s: key is one upper case letter or digit (the letter that runs the item in the sheet)" % w2)
             fl = (1 if _opt(f, "closes_menu", bool, w2, False) else 0) | (ord(key) << 8 if key else 0)      # bits 15:8 the key
+            show = _opt(f, "show_state", str, w2, None)                  # the action is offered only while this condition holds (contrib.h cond_holds); bits 31:16 the text's offset + 1
+            if show:
+                so = st.add(show) + 1
+                if so >= 0x10000:
+                    raise DescError("%s: show_state lies beyond the first 64 KB of the strings" % w2)
+                fl |= so << 16
             t["fact"].append((st.add(label), st.add(_need(f, "op", str, w2)), fb, nb, fl, st.add(ask),
                               off & 0xFFFFFFFF, fz, len(sizes)))
         return first, len(lst)
@@ -1192,10 +1198,10 @@ def parse_desc(blob):
     out["fact"] = []
     for label, op, fb, nb, fl, ask, off, fz, nz in tabs["fact"]:
         off = off - 2 ** 32 if off >= 2 ** 31 else off
-        if not s(label) or not s(op) or fl & ~0xFF01 or fb + nb > len(out["bind"]) or fz + nz > len(out["size"]) or not -32768 <= off <= 32767 or (s(ask) is None and off):
+        if not s(label) or not s(op) or fl & 0xFFFF & ~0xFF01 or fb + nb > len(out["bind"]) or fz + nz > len(out["size"]) or not -32768 <= off <= 32767 or (s(ask) is None and off):
             raise DescError("description record: a bad file type action")
-        out["fact"].append({"label": s(label), "op": s(op), "bind": out["bind"][fb:fb + nb], "closes_menu": bool(fl & 1), "key": chr(fl >> 8) if fl >> 8 else "", "ask": s(ask), "ask_off": off,
-                            "size_in": out["size"][fz:fz + nz]})
+        out["fact"].append({"label": s(label), "op": s(op), "bind": out["bind"][fb:fb + nb], "closes_menu": bool(fl & 1), "key": chr((fl >> 8) & 0xFF) if (fl >> 8) & 0xFF else "", "ask": s(ask), "ask_off": off,
+                            "size_in": out["size"][fz:fz + nz], "show_state": s((fl >> 16) - 1) if fl >> 16 else None})
     out["ftype"] = []
     seen = set()
     for ext, inner_ext, fa, na, fi, ni in tabs["ftype"]:
@@ -1363,6 +1369,8 @@ def decoded_to_doc(rec):
                     d["size_in"] = a["size_in"]
                 if a.get("key"):
                     d["key"] = a["key"]                  # the sheet letter (bits 15:8 of the flags)
+                if a.get("show_state"):
+                    d["show_state"] = a["show_state"]    # bits 31:16 of the flags
                 out.append(d)
             return out
         for f in rec["ftype"]:

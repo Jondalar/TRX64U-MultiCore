@@ -421,17 +421,23 @@ int descrec_parse(const uint8_t *rec, uint32_t n, DescRecord *out, char *why, in
         d.ask = r.str(W(e, 5), &bad);
         int32_t off = (int32_t)W(e, 6);
         uint32_t fz = W(e, 7), nz = W(e, 8);
-        if (bad || !d.label || !d.label[0] || !d.op || !d.op[0] || (fl & ~0xFF01u) || (uint64_t)fb + nb > tb[B].count || (uint64_t)fz + nz > tb[Z].count || off < -32768 ||
+        if (bad || !d.label || !d.label[0] || !d.op || !d.op[0] || (fl & 0xFFFFu & ~0xFF01u) || (uint64_t)fb + nb > tb[B].count || (uint64_t)fz + nz > tb[Z].count || off < -32768 ||
             off > 32767 || (!d.ask && off != 0)) {
             return r.fail("description record: file type action %u has a bad string, flag or run", (unsigned)i);
         }
         d.bind = nb ? out->binds + fb : 0;
         d.nbind = (int)nb;
         d.closes_menu = fl & 1;
-        d.key = (char)(fl >> 8);
+        d.key = (char)((fl >> 8) & 0xFF);
         d.ask_off = (int16_t)off;
         d.size_in = nz ? out->sizes + fz : 0;
         d.nsize_in = (int)nz;
+        if (fl >> 16) {                                        // the condition that offers the action (the offset + 1 of its text above the flags' low 16 bits)
+            d.show_state = r.str((fl >> 16) - 1, &bad);
+            if (bad) {
+                return r.fail("description record: file type action %u has a bad condition", (unsigned)i);
+            }
+        }
     }
     for (uint32_t i = 0; i < tb[Y].count; i++) {
         const uint8_t *e = ENT(Y, i);
