@@ -130,4 +130,11 @@ patched per race.
   the DDR2 does not answer within U_LIM (0.87 ms) is given up while it may still be queued in mig_arb, so its late answer could be taken
   by the next read - the c_* port has the first priority at mig_arb, so U_LIM does not fire in use, and without U_LIM a lost read would
   hold the ui side for good.
-- **Open:** the run (large:cpc, S8), then the board with Alex (S1, S2, S7).
+- **Run 2425** (287c1241, scope branch): `vivado large:cpc` green in 8m21s, "=== impl pass 1 (ExtraTimingOpt): WNS 0.039 ns", "WNS mono
+  cpc: 0.039 ns" (S8 PASS; the first pass routed at -0.132 ns), `cpc_mono.bit` 1,732,321 bytes; apptests, images, emu, `cor large:cpc`
+  green; the parent red only for lint "FAILED: ROMS.txt test": `test_a_core_out_of_the_pipeline_is_not_listed` named the CPC
+  (`os464.rom`) as the core out of the pipeline. Fixed on the branch (5cff055c0, the cores out of the pipeline are read from the
+  descriptors and the pins; 9 of 9 tests OK), not pushed yet.
+- **cpc.cor for the board:** sha256 45a45f4d43f54f742306ee086542a3d6b1176b03d8b6ae49f2c56d26dcfb1dfe, 3,585,886 bytes (the builder's
+  /cache/multicore/runs/parent-2425/cor-large-cpc/), `cor_pack.py check`: bit and app commit 287c1241, bit 1,732,321 bytes.
+- **Open:** the board with Alex (S1, S2, S7).
