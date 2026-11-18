@@ -565,6 +565,7 @@ ue2emu (70 full frames, trx64u beside the A1200).
   `ops_trx64u.txt`). Not changed: 800 x 600 and 1024 x 768 (generic picture list, in ue2emu only; the board drops them), the J hotkey
   (generic). Menu simulator pictures (720p) of F1, F5 1-6, F7, F8: no empty heading, no gap; `dev.sh riscv` ok (coreapp.bin
   09808867).
-- **Open:** S2b again (Alex in ue2emu, D6); the 58 PARTIAL rows with Alex (e.g. Reload ROMs forgets the chosen ROM files,
-  Timewarp has no REU gate (A08), the title line keeps an old PRG name after a reset); goldens `menu_c64.txt`/`ids.txt` and the
-  test run before the merge; then S3 on the board.
+- **S2b, second look (Alex 2026-11-18, ue2emu window, app of t228-int 4383257dd):** "also beim anschauen sieht gut aus"
+  (translated: "well, looking at it, it looks good"). S2b done.
+- **Open:** the 58 PARTIAL rows (Alex asked for the list, 2026-11-18; #48 and #49 of the list, the F8 network and stream pages,
+  are settled by the removal above); goldens `menu_c64.txt`/`ids.txt` and the test run before the merge; then S3 on the board.
