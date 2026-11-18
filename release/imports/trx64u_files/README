@@ -9,3 +9,8 @@ there by 64tass from sidcrt.asm, muscrt.asm, musplayer.asm; source commit f0c51d
   18aef177afc8d80806aa874ee18952249ab5b41fcc9bada7d1178d334e5187b5  sidplayer/muscrt.bin
   92bb91eb94556efa404a5af03104cc387851c7c7080e3238bba477b50db66999  sidplayer/musplayer.bin
 They hold no Commodore ROM: the 16 KB cartridge image is made at play time from sidcrt.bin (8 KB) and the BASIC ROM the machine runs with.
+
+modplayer/module.bin: the 16 KB MOD player cartridge image that "Play MOD" starts, byte for byte TRX64-Ultimate's software/ModPlayer_16k/module.bin (that
+firmware links it into its application, target/u2/zpu/ultimate/Makefile:156 SRCS_BIN). It carries no licence header; TRX64-Ultimate's GitHub export treats it
+as third-party content at Gideon's path and leaves it out (tools/gh_export.py:61), and tools/github_snapshot.py leaves it out here too. sha256:
+  fa1484bdd494c83cfe6436febde768b2c368f1ed0af7837b6a8c06fde96af038  modplayer/module.bin
