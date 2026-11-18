@@ -42,8 +42,8 @@ class RomsTxt(unittest.TestCase):
                     self.assertIn(n, self.text)
 
     def test_a_core_out_of_the_pipeline_is_not_listed(self):
-        self.assertNotIn("os464.rom", self.text)
-        self.assertNotIn("cores/trx64u", self.text)
+        for cid in G.left_out():                                  # pipeline = false (T92 D-17e) or an import pin with PIPELINE=false
+            self.assertNotIn("cores/%s/roms/" % cid, self.text)
 
     def test_no_link_leaves_the_legal_domains(self):
         self.assertEqual(N.bad_links(self.text), [])
