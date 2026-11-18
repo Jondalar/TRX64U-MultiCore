@@ -9,6 +9,7 @@
 #include "FreeRTOS.h"
 #include "task.h"
 #include "socket.h"
+#include "newfile.h"                 // nf_copy: no string precision in a format (the board's printf has none)
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -134,7 +135,7 @@ static void stream_on(int id, int stop_id, uint8_t *buf, uint32_t len)
     char dest[37];
     dest[0] = 0;
     if (len > 2) {                                             // FW :210-216: the destination follows the two bytes of the stop-after
-        snprintf(dest, sizeof(dest), "%.36s", (const char *)buf + 2);
+        nf_copy(dest, sizeof(dest), (const char *)buf + 2, (size_t)(len - 2 < 36 ? len - 2 : 36));
     }
     OpIn in[3] = { in_int("id", id), in_str("dest", dest), in_int("stop_after", len >= 2 ? (buf[0] | (buf[1] << 8)) : 0) };
     call("stream.start_to", in, 3);

@@ -9,6 +9,7 @@
 #include "menuflows.h"
 #include "picmodes.h"
 #include "picture.h"
+#include "newfile.h"                 // nf_copy: no string precision in a format (the board's printf has none)
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -2782,7 +2783,9 @@ MenuCtl::Result MenuCtl::activate(bool primary, bool all)
                 if (!pc) {                                                  // no "%d": the action is offered once, as it is, while the counting operation says yes (a file check)
                     continue;
                 }
-                snprintf(chooser_lbl_[n], sizeof(chooser_lbl_[n]), "%.*s%d%s", (int)(pc - acts[k].label), acts[k].label, j, pc + 2);
+                nf_copy(chooser_lbl_[n], sizeof(chooser_lbl_[n]), acts[k].label, (size_t)(pc - acts[k].label));   // the label up to its "%d"
+                size_t used = strlen(chooser_lbl_[n]);
+                snprintf(chooser_lbl_[n] + used, sizeof(chooser_lbl_[n]) - used, "%d%s", j, pc + 2);
                 chooser_buf_[n].label = chooser_lbl_[n];
             }
         }

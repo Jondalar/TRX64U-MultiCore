@@ -34,6 +34,7 @@
 
 #define JSMN_STATIC
 #include "jsmn.h"
+#include "newfile.h"                 // nf_copy: no string precision in a format (the board's printf has none)
 
 #define LAYOUT         1
 #define PC_ADJ         0     // chip 1 w1's PC at the snap edge minus the next opcode's address
@@ -1697,7 +1698,9 @@ static const char *load_v2(File *file, uint32_t size)
         }
         if (machine < 0) {
             static char msg[96];
-            snprintf(msg, sizeof(msg), "The file is for machine \"%.40s\", which this build does not run", mname);
+            char mn[41];
+            nf_copy(mn, sizeof(mn), mname, 40);
+            snprintf(msg, sizeof(msg), "The file is for machine \"%s\", which this build does not run", mn);
             err = msg;
         }
     }

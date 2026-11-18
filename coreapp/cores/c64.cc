@@ -22,6 +22,7 @@
 #include "diag.h"
 #include "netops.h"
 #include "trx64u_ops.h"
+#include "newfile.h"                 // nf_copy: no string precision in a format (the board's printf has none)
 #include "t64.h"
 #include "cbm1541.h"
 #include "d1541_drive.h"
@@ -537,18 +538,19 @@ static int op_run_with_app(CoreCtx *c, const OpArgs &a, OpOut &o)
         snprintf(o.msg, o.msglen, "A cartridge uses the REU's memory: remove it first");
         return OPE_FAILED;
     }
-    char app[64];
+    char app[64], ext[4];
     app[0] = 0;
+    nf_copy(ext, sizeof(ext), dot + 1, 3);                   // the app is named by the first three letters of the extension
     FsEntry r[6];
     int nr = c->fs->list("/", r, 6);
     for (int i = 0; i < nr && !app[0]; i++) {
         if (!strcasecmp(r[i].name, "flash")) {
-            snprintf(app, sizeof(app), "/%s/apps/%.3s.prg", r[i].name, dot + 1);
+            snprintf(app, sizeof(app), "/%s/apps/%s.prg", r[i].name, ext);
         }
     }
     uint64_t asz = 0;
     if (!app[0] || !c->fs->stat(app, &asz, &dir) || dir) {
-        snprintf(o.msg, o.msglen, "There is no app for .%.3s files in the flash's apps folder", dot + 1);
+        snprintf(o.msg, o.msglen, "There is no app for .%s files in the flash's apps folder", ext);
         return OPE_FAILED;
     }
     CoreFile *f = c->fs->open(path, false);

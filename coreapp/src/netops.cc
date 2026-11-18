@@ -15,6 +15,7 @@
 #include "netdb.h"
 #include "FreeRTOS.h"
 #include "task.h"
+#include "newfile.h"                 // nf_copy: no string precision in a format (the board's printf has none)
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -227,7 +228,7 @@ static int stream_start(CoreCtx *c, int id, const char *dest, OpOut &o)
         return OPE_FAILED;
     }
     char host[40];
-    snprintf(host, sizeof(host), "%.36s", dest && dest[0] ? dest : cfg_text(c, keys[id]));
+    nf_copy(host, sizeof(host), dest && dest[0] ? dest : cfg_text(c, keys[id]), 36);
     char *colon = strchr(host, ':');
     int port = 11000 + id;
     if (colon) {
