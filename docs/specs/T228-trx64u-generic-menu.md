@@ -366,6 +366,11 @@ Alex 2026-11-17 (translated): "I want you to apply the generic APP 100 % to the 
   "Sample tape to TAP", "Capture save to TAP", "Finish Rec. to TAP" and UCI FINISH_CAPTURE, about 600 lines; the UCI HTTP target 6,
   about 1700 lines):** "raus" (translated: "out"). Both stay out of trx64u, an exception to R21; the UCI answers "21,UNKNOWN COMMAND"
   for FINISH_CAPTURE and target 6. SoftIEC target 5 is out anyway: the bitstream has no iec_processor (cores/c64u/core_sources.tcl).
+- **R24 (Alex 2026-11-18):** ".g71 haben wir doch gar nicht ... ?!" (translated: "we do not have .g71 at all ...?!") - t228-a-drive had
+  built .g71 as a 1541 side 0, against T104.1 ("Out: the 1571 (.d71/.g71) - ruled out from the start"); taken out (13f864014). Asked
+  whether .d71 stays for "Load into MP3 Drv" (a GEOS RAM drive in the REU, no drive): ".d71 kommt komplett raus !" (translated: ".d71
+  goes out completely!"): no .d71 file type, a 1571 RAM drive counts as none (no Save MP3 Drv of it), the UCI refuses .d71/.g71 and
+  the RAM disk commands of a 1571 drive (1f382f502).
 - R1-R9 replace the earlier decisions of this spec where they differ (D3, D7, D8, D13, D16, D18 and the S2 choices DC1-DC14); branch t228-s2 stays unmerged. The proposal is rendered on branch t228-mock (render bench `mock_shots()`), shown as a click dummy on the concept page.
 
 ### Decisions during S2 (decided by Claude on Alex's delegation 2026-11-16 night; Alex can overturn each at S2b)
