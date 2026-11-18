@@ -1595,6 +1595,7 @@ static void build_settings(const char *ms, char *missed, int cap)
 
 // FW build_drive: the image drive A had, mounted before the drive's own state goes in (a mount resets the drive and would overwrite it); the state decides,
 // not what happens to be in the drive. A path that is gone is looked for under the same name beside the file being loaded (FW resolve_medium).
+static char g_load_path[192];                      // the file being loaded: a medium that is gone is looked for beside it (FW resolve_medium)
 static void build_drive(const char *ms, char *missed, int cap)
 {
     char img[144], mode[12];
@@ -2098,7 +2099,6 @@ static bool tok_ta(const char *js, const jsmntok_t *t, int n, int i, uint8_t *ou
 
 // A .c64re, or the current entry of a .c64rering (checkpoint_ring.current_id;
 // the entry's payload is the same checkpoint node), written by this board.
-static char g_load_path[192];                      // the file being loaded: a medium that is gone is looked for beside it (FW resolve_medium)
 
 const char *trx_c64re_load(const char *path)
 {
