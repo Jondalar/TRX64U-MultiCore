@@ -373,7 +373,7 @@ int descrec_parse(const uint8_t *rec, uint32_t n, DescRecord *out, char *why, in
         d.pick_label = r.str(W(e, 7), &bad);
         d.group = r.str(W(e, 8), &bad);
         const char hk = (char)(fl >> 8);                       // T228 R1: bits 15:8 the default key of the task's hotkey, 0 none
-        if (bad || !d.label || !d.label[0] || !d.op || !d.op[0] || (fl & ~0xFF03u) || (uint64_t)fb + nb > tb[B].count || (!d.ask && (d.ask_state || (fl & 2) || d.pick_label)) ||
+        if (bad || !d.label || !d.label[0] || !d.op || !d.op[0] || (fl & 0xFFFFu & ~0xFF03u) || (uint64_t)fb + nb > tb[B].count || (!d.ask && (d.ask_state || (fl & 2) || d.pick_label)) ||
             (d.pick_label && !(fl & 2)) || (hk && !((hk >= 'A' && hk <= 'Z') || (hk >= '0' && hk <= '9')))) {
             return r.fail("description record: task %u has a bad string, flag or binding run", (unsigned)i);
         }
@@ -382,6 +382,12 @@ int descrec_parse(const uint8_t *rec, uint32_t n, DescRecord *out, char *why, in
         d.closes_menu = fl & 1;
         d.pick_dir = (fl & 2) != 0;
         d.hotkey = hk;
+        if (fl >> 16) {                                        // the condition that lists the task (the offset + 1 of its text above the flags' low 16 bits)
+            d.show_state = r.str((fl >> 16) - 1, &bad);
+            if (bad) {
+                return r.fail("description record: task %u has a bad condition", (unsigned)i);
+            }
+        }
     }
     out->ntasks = (int)tb[K].count;
     for (uint32_t i = 0; i < tb[M].count; i++) {

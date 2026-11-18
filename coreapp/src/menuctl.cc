@@ -106,6 +106,12 @@ static bool setting_off(const CoreCtx *c, int idx)
     return s.show_state && !cond_holds(s.show_state, node_state_text, const_cast<CoreCtx *>(c));
 }
 
+static bool task_off(const CoreCtx *c, int idx)
+{
+    const Task &t = c->desc->tasks[idx];
+    return t.show_state && !cond_holds(t.show_state, node_state_text, const_cast<CoreCtx *>(c));
+}
+
 static bool page_cond(void *user, const char *cond)
 {
     return cond_holds(cond, node_state_text, user);
@@ -129,6 +135,10 @@ void MenuCtl::build_tree()
                     menu_drop_entry(&tree_, a, b, i);
                     continue;
                 }
+                if (e.kind == EK_TASK && task_off(c_, e.index)) {                 // T228 R21: a task whose show_state does not hold is not listed
+                    menu_drop_entry(&tree_, a, b, i);
+                    continue;
+                }
                 if (tb.layout || e.kind != EK_NODE || !ui_attr(tree_.nodes[e.index].attr, "hide", spec, sizeof(spec))) {
                     continue;
                 }
@@ -148,6 +158,11 @@ uint32_t MenuCtl::show_sig() const
     for (int i = 0; i < c_->desc->nsettings; i++) {
         if (c_->desc->settings[i].show_state) {
             h = (h ^ (setting_off(c_, i) ? 1u : 2u)) * 16777619u;
+        }
+    }
+    for (int i = 0; i < c_->desc->ntasks; i++) {
+        if (c_->desc->tasks[i].show_state) {
+            h = (h ^ (task_off(c_, i) ? 3u : 4u)) * 16777619u;
         }
     }
     for (int i = 0; i < tree_.nnodes; i++) {                           // T228 R21: a node's `hide` in a flat list is read when the tree is made: a change of the state makes it again
@@ -3455,6 +3470,7 @@ void MenuCtl::item(int i, Item *it)
         snprintf(it->sub, sizeof(it->sub), "%s", t.ask ? t.ask : "");
         snprintf(it->chip, sizeof(it->chip), "%s", t.ask ? (t.pick_dir ? "folder" : "name") : "");
         it->tone = 0;
+        it->hidden = task_off(c_, e.index);
         break;
     }
     case EK_HEADING:                                                  // T187 S1: a heading names a block; it takes no focus

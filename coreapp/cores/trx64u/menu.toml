@@ -85,7 +85,7 @@ key = "F5"                       # the core's short title ("C64") names it
   id = "expansion"
   name = "Expansion"
   widget = "settings"
-  groups = ["Cartridge", "Ultimate", "REU"]
+  groups = ["Cartridge", "REU", "Ultimate"]
   ui = { sections = true }
   n = 3
   [[area.tab]]                    # D14: section Picture = System mode, then the generic Picture/Scale rows (routed rows follow the first block), section Output
@@ -130,43 +130,6 @@ name = "System"
   groups = ["Ethernet", "WiFi", "Services", "Time_synchronization", "Streams", "FTP_hosts"]
   ui = { pages = "Network_settings=Ethernet+WiFi+Services+Time_synchronization,Streams,FTP_hosts" }
   n = 1
-
-# T228 R21 (#4): "Save MP3 Drv A-D" - the GEOS RAM drives in the REU as a file (TRX-Ultimate c64_subsys.cc:452-455, 488-491, 852-912); a row is there only while that drive is
-[[node]]
-anchor = "F5/expansion/REU"
-kind = "op"
-label = "Save MP3 Drv A"
-op = "machine.save_mp3"
-bind = [ { arg = "drive", int = 0 }, { arg = "name", text = true } ]
-order = 40
-ui = { ask = "Save RAMDISK as (name)", hide = "@reu.nomp3.a" }
-
-[[node]]
-anchor = "F5/expansion/REU"
-kind = "op"
-label = "Save MP3 Drv B"
-op = "machine.save_mp3"
-bind = [ { arg = "drive", int = 1 }, { arg = "name", text = true } ]
-order = 41
-ui = { ask = "Save RAMDISK as (name)", hide = "@reu.nomp3.b" }
-
-[[node]]
-anchor = "F5/expansion/REU"
-kind = "op"
-label = "Save MP3 Drv C"
-op = "machine.save_mp3"
-bind = [ { arg = "drive", int = 2 }, { arg = "name", text = true } ]
-order = 42
-ui = { ask = "Save RAMDISK as (name)", hide = "@reu.nomp3.c" }
-
-[[node]]
-anchor = "F5/expansion/REU"
-kind = "op"
-label = "Save MP3 Drv D"
-op = "machine.save_mp3"
-bind = [ { arg = "drive", int = 3 }, { arg = "name", text = true } ]
-order = 43
-ui = { ask = "Save RAMDISK as (name)", hide = "@reu.nomp3.d" }
 
 [[node]]
 anchor = "F5/trx/Recording"
@@ -597,6 +560,39 @@ op = "machine.save_c64re"
 bind = [ { arg = "name", text = true } ]
 ask = "Save the .C64RE dump as (name)"
 ask_state = "machine.suggest.c64re"
+
+# T228 R21 (#4): "Save MP3 Drv A-D" - FW c64_subsys.cc:425-455 (category "C64 Machine"): the GEOS RAM drives in the REU as a file; a row is there only while a drive of that letter is in the REU
+[[task]]
+group = "top"
+label = "Save MP3 Drv A"
+op = "machine.save_mp3"
+bind = [ { arg = "drive", int = 0 }, { arg = "name", text = true } ]
+ask = "Save RAMDISK as (name)"
+show_state = "reu.nomp3.a != none"
+
+[[task]]
+group = "top"
+label = "Save MP3 Drv B"
+op = "machine.save_mp3"
+bind = [ { arg = "drive", int = 1 }, { arg = "name", text = true } ]
+ask = "Save RAMDISK as (name)"
+show_state = "reu.nomp3.b != none"
+
+[[task]]
+group = "top"
+label = "Save MP3 Drv C"
+op = "machine.save_mp3"
+bind = [ { arg = "drive", int = 2 }, { arg = "name", text = true } ]
+ask = "Save RAMDISK as (name)"
+show_state = "reu.nomp3.c != none"
+
+[[task]]
+group = "top"
+label = "Save MP3 Drv D"
+op = "machine.save_mp3"
+bind = [ { arg = "drive", int = 3 }, { arg = "name", text = true } ]
+ask = "Save RAMDISK as (name)"
+show_state = "reu.nomp3.d != none"
 
 # R1: the Timewarp page - its keys are the layout's (coreapp/src/menukeytab.cc, KS_TIMELINE); this node is what RETURN does, and the page needs an entry
 [[node]]

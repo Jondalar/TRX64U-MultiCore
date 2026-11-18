@@ -122,6 +122,8 @@ struct Task {
     // T228 R1: the default key of the task's hotkey (an upper case letter or digit, pressed with the core's hotkey modifier): hotkeys.h gives it an item
     // on the Hotkeys page and runs the task when it is pressed while the core runs. 0: no hotkey. Last, so the positional initialisers stay as they are.
     char hotkey;
+    // T228 R21: the task is listed only while this condition holds (contrib.h cond_holds, a state name with the same forms as a node's when_state); null: always. Last, as hotkey.
+    const char *show_state;
 };
 
 struct FileAction {
