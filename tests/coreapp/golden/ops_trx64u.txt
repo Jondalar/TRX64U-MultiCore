@@ -168,6 +168,7 @@ op	dma.prg	path:path:0:0:519:	mode:int:0:2:0:
 op	dma.mount	path:path:0:0:519:	run:int:0:1:0:
 op	dma.crt	path:path:0:0:519:
 op	dma.reu	offset:int:0:16777215:0:	data:blob:0:0:0:
+op	dma.sidcrt	data:blob:0:0:0:
 op	dma.power_off
 op	ui.fx	value:int:-2000:2000:0:
 op	c64.fx_io	value:int:-2000:2000:0:

@@ -1193,6 +1193,18 @@ static int op_sid_info(CoreCtx *c, const OpArgs &a, OpOut &o)
 
 // ---- the job: the handshake with the cartridge, then the tune ------------------------------------------------------------------------------------
 static uint8_t g_img[0x4000];
+static uint8_t g_sidcrt[0x2000];                                   // SOCKET_CMD_LOADSIDCRT's player image (kept until the next LOADSIDCRT or the app's reset)
+static bool g_sidcrt_set;
+static int op_dma_sidcrt(CoreCtx *, const OpArgs &a, OpOut &)
+{
+    uint32_t n = a.len(0) > 0x2000 ? 0x2000 : a.len(0);            // FW: min(len, 0x2000) bytes over the start of the cartridge buffer, the rest of the buffer stays
+    if (!g_sidcrt_set) {
+        memset(g_sidcrt, 0, sizeof(g_sidcrt));
+    }
+    memcpy(g_sidcrt, a.p(0), n);
+    g_sidcrt_set = true;
+    return OPE_OK;
+}
 static struct {
     bool active;
     uint32_t last_ms, ran_ms;
@@ -1412,15 +1424,19 @@ static int op_sid_play(CoreCtx *c, const OpArgs &a, OpOut &o)
     }
     memset(g_img, 0, sizeof(g_img));
     snprintf(pp, sizeof(pp), "%s/" SIDP_DIR "/%s", dir, sf->t.mus ? "muscrt.bin" : "sidcrt.bin");
-    CoreFile *f = c->fs->open(pp, false);
-    if (!f || f->size() > 0x2000 || !f->read(0, g_img, (uint32_t)f->size())) {
-        if (f) {
-            c->fs->close(f);
+    if (!sf->t.mus && g_sidcrt_set) {
+        memcpy(g_img, g_sidcrt, 0x2000);                            // FW socket_dma.cc:182-188: the DMA-sent player stays in sid_cart until the next load (the MUS cart is not touched)
+    } else {
+        CoreFile *f = c->fs->open(pp, false);
+        if (!f || f->size() > 0x2000 || !f->read(0, g_img, (uint32_t)f->size())) {
+            if (f) {
+                c->fs->close(f);
+            }
+            snprintf(o.msg, o.msglen, "cannot read %s (installed from the core's .cor)", pp);
+            return OPE_FAILED;
         }
-        snprintf(o.msg, o.msglen, "cannot read %s (installed from the core's .cor)", pp);
-        return OPE_FAILED;
+        c->fs->close(f);
     }
-    c->fs->close(f);
     memcpy(g_img + 0x2000, g_basic, 0x2000);
     sid_song_lengths(c, sf, path);
     // the machine as FW leaves it for the cartridge, then the cartridge and the reset
@@ -1557,6 +1573,7 @@ static int op_dma_power_off(CoreCtx *c, const OpArgs &, OpOut &o)
 }
 static const ArgSpec dma_prg_args[] = { ARG_PATH("path"), ARG_INT("mode", 0, 2) };
 static const ArgSpec dma_mount_args[] = { ARG_PATH("path"), ARG_INT("run", 0, 1) };
+static const ArgSpec dma_sidcrt_args[] = { ARG_BLOB("data") };
 static const ArgSpec dma_reu_args[] = { ARG_INT("offset", 0, 0xFFFFFF), ARG_BLOB("data") };
 
 void trx64u_register(OpRegistry &r)
@@ -1566,6 +1583,7 @@ void trx64u_register(OpRegistry &r)
     r.add_op("dma.mount", dma_mount_args, 2, op_dma_mount);
     r.add_op("dma.crt", path_arg, 1, op_dma_crt);
     r.add_op("dma.reu", dma_reu_args, 2, op_dma_reu);
+    r.add_op("dma.sidcrt", dma_sidcrt_args, 1, op_dma_sidcrt);
     r.add_op("dma.power_off", 0, 0, op_dma_power_off);
     r.add_op("ui.fx", value_arg, 1, fx_ui);
     r.add_op("c64.fx_io", value_arg, 1, fx_io);
