@@ -12,6 +12,7 @@
 #include "iomap.h"
 #include "color_timings.h"
 #include "videomode.h"
+#include "picture.h"
 #include "i2c_drv.h"
 extern "C" {
 #include "sid_coeff.h"
@@ -227,19 +228,11 @@ static int fx_video(CoreCtx *c, const OpArgs &, OpOut &o)
     const t_video_color_timing *ct = color_timings[sys];
     C64_PHASE_INCR = ct->phase_inc;
     int ppm = V(c, K_PPM, 100) - 100;                 // the range -100 .. 100 ppm is stored as the index 0 .. 200
+    C64_VIDEOFORMAT = (uint8_t)(ct->mode_bits | format);
     if (sys != g_sys) {
-        int hdmi = -1, ssys = -1;
-        if (!video_unpack(video_current, &ssys, &hdmi) || hdmi < 0) {
-            hdmi = VID_HDMI_1080P;
-        }
-        if (video_current != video_pack(sys, hdmi)) {
-            printf("[u64cfg] system mode %s\n", video_sys_name(sys));
-            if (!video_gateware_present()) {          // with the gateware the System Mode moves the synthesizer's family itself (mode_req.v, WP7)
-                video_apply(sys, hdmi);               // PLL, scan registers, HDMI reset: what the host does at a change of the picture
-            }
-            video_current = video_pack(sys, hdmi);
-            g_ppm = 0;
-        }
+        printf("[u64cfg] system mode %s\n", video_sys_name(sys));
+        picture_set_system(c, sys);                   // the picture layer takes the new family: its mode and the Picture row are picked again (FW u64_config.cc:1471-1508)
+        g_ppm = 0;
         g_sys = sys;
         set_resample_filter((t_video_mode)sys);
     }
@@ -248,7 +241,6 @@ static int fx_video(CoreCtx *c, const OpArgs &, OpOut &o)
         ResetHdmiPll();
         g_ppm = ppm;
     }
-    C64_VIDEOFORMAT = (uint8_t)(ct->mode_bits | format);
     // the palette: the file named in the setting, else the default colours
     resolve(c);
     const char *pal = g_ix[K_PALETTE] >= 0 ? c->settings->text(g_ix[K_PALETTE]) : "";
@@ -453,8 +445,205 @@ static void write_sid_addressing(CoreCtx *c)
     memcpy(g_split, split, 4);
 }
 
+// ---- the SID in a socket (FW u64_config.cc U64SidSockets::detect, detectFPGASID, detectRemakes, S_SidDetector, DetectSidImpl) ---------------------
+// Run on the stopped machine (the menu's freeze) over the DMA window. Types as sid_type_names: 1 6581, 2 8580, 3 FPGASID, 4 SwinSID, 5 ARMSID, 6 ARM2SID,
+// 9 PDsid, 10 SIDKick, 11 SIDKick Pico. The 6581's supply is raised only for a type 1 that both read-outs agreed on; everything else keeps the 8580 setting.
+// Not ported: the Dukestah adapter probe (type 8).
+#define SDMA(a) (*(volatile uint8_t *)(C64_MEMORY_BASE + (a)))
+
+static void detect_addresses(CoreCtx *c)
+{
+    C64_SID1_BASE = 0x40;                                             // FW S_SetupDetectionAddresses: socket 1 at $D400, socket 2 at $D500, the UltiSIDs out of the way
+    C64_SID2_BASE = 0x50;
+    C64_SID1_MASK = 0xF0;
+    C64_SID2_MASK = 0xF0;
+    C64_EMUSID1_BASE = 0x60;
+    C64_EMUSID2_BASE = 0x60;
+    C64_EMUSID1_MASK = 0xFE;
+    C64_EMUSID2_MASK = 0xFE;
+    C64_SID1_EN = 1;
+    C64_SID2_EN = 1;
+    C64_STEREO_ADDRSEL = 0;
+    c->io->delay_ms(1);
+}
+
+static int detect_fpgasid(volatile uint8_t *b)
+{
+    b[25] = 0xEE;
+    b[26] = 0xAB;
+    uint8_t id1 = b[0], id2 = b[1];
+    b[25] = 0x00;
+    b[26] = 0x00;
+    return (id1 == 0x1D && id2 == 0xF5) ? 3 : 0;
+}
+
+static int detect_remakes(CoreCtx *c, volatile uint8_t *b)
+{
+    CoreIo *io = c->io;
+    b[29] = 'S'; io->delay_us(10);
+    b[30] = 'I'; io->delay_us(10);
+    b[31] = 'D'; io->delay_us(10);
+    io->delay_ms(10);
+    uint8_t id1 = b[27];
+    io->delay_us(10);
+    uint8_t id2 = b[28];
+    io->delay_us(10);
+    if (id1 == 'S' && id2 == 'W') {
+        b[29] = 0;
+        return 4;
+    }
+    if (id1 == 'N' && id2 == 'O') {
+        b[31] = 'I'; io->delay_us(10);
+        b[30] = 'I'; io->delay_us(10);
+        io->delay_ms(10);
+        uint8_t l = b[27];
+        io->delay_us(10);
+        b[29] = 0;
+        io->delay_us(10);
+        return (l == 'L' || l == 'R') ? 6 : 5;
+    }
+    b[29] = 'P';
+    (void)SDMA(2);
+    b[30] = 'D';
+    (void)SDMA(2);
+    if (b[30] == 'S') {
+        return 9;
+    }
+    uint8_t v[32];
+    b[0x1f] = 0xff;
+    for (int i = 0; i < 32; i++) {
+        b[0x1e] = (uint8_t)(224 + i);
+        v[i] = b[0x1d];
+    }
+    b[0x1f] = 0xfd;
+    static const uint8_t pico[] = { 0x53, 0x4b, 0x10, 0x09, 0x03, 0x0f };
+    static const uint8_t teen[] = { 0x53, 0x49, 0x44, 0x4b, 0x09, 0x03, 0x0b };
+    if (!memcmp(v, pico, sizeof(pico))) {
+        return 11;
+    }
+    if (!memcmp(v, teen, sizeof(teen))) {
+        return 10;
+    }
+    return 0;
+}
+
+// OSC3 of both sockets: voltage-independent 6581 / 8580 test. buf[0..15] socket 1 first read, 16..31 second, 32.. socket 2 (DetectSidImpl)
+static bool detect_osc3(uint8_t *buf)
+{
+    uint32_t timeout = 1000000;
+    while (SDMA(0xD012) != 0xFF) {
+        if (!timeout--) {
+            return false;
+        }
+    }
+    for (int x = 0; x < 16; x++) {
+        for (int s = 0; s < 2; s++) {
+            uint16_t o = (uint16_t)(0xD400 + 0x100 * s);
+            SDMA(o + 0x12) = 0x48;
+            SDMA(o + 0x0F) = 0x48;
+            SDMA(o + 0x12) = 0x24;
+            for (int i = 0; i < 3; i++) { SDMA(o + 0x1F) = 0; }
+            buf[32 * s + x] = SDMA(o + 0x1B);
+            for (int i = 0; i < 4; i++) { SDMA(o + 0x1F) = 0; }
+            buf[32 * s + 16 + x] = SDMA(o + 0x1B);
+        }
+    }
+    return true;
+}
+
+static void detect_sids(CoreCtx *c, int type[2])
+{
+    c->io->ram_memonly(false);                                        // the SIDs are on the bus, not in the RAM behind them
+    type[0] = type[1] = 0;
+    for (int s = 0; s < 2; s++) {
+        detect_addresses(c);
+        type[s] = detect_fpgasid((volatile uint8_t *)(C64_MEMORY_BASE + 0xD400 + 0x100 * s));
+    }
+    if (!type[0] || !type[1]) {
+        c->io->delay_ms(100);
+        for (int s = 0; s < 2; s++) {
+            detect_addresses(c);
+            if (!type[s]) {
+                type[s] = detect_remakes(c, (volatile uint8_t *)(C64_MEMORY_BASE + 0xD400 + 0x100 * s));
+            }
+        }
+    }
+    if (!type[0] || !type[1]) {
+        detect_addresses(c);
+        uint8_t buf[64];
+        for (int attempt = 0; attempt < 3; attempt++) {
+            int r[2] = { 0, 0 };
+            if (!detect_osc3(buf)) {
+                break;
+            }
+            bool ok = true;
+            for (int s = 0; s < 2; s++) {
+                const uint8_t *p = buf + 32 * s;
+                if (p[16 + 1] == 2 && p[1] == 0) {
+                    r[s] = 2;
+                } else if (p[16 + 1] == 2 && p[1] == 1) {
+                    r[s] = 1;
+                }
+                for (int i = 2; i < 16 && r[s]; i++) {                // all 16 reads must agree, else the socket is unknown
+                    if (p[i] != p[1] || p[16 + i] != p[16 + 1]) {
+                        r[s] = 0;
+                        ok = false;
+                    }
+                }
+            }
+            for (int s = 0; s < 2; s++) {
+                if (r[s] && !type[s]) {
+                    type[s] = r[s];
+                }
+            }
+            if (ok) {
+                break;
+            }
+        }
+    }
+    printf("[u64cfg] SID detect: socket 1 = %d, socket 2 = %d\n", type[0], type[1]);
+}
+
+static bool g_tried[2];
+
+// The type is not stored: a swapped chip must never keep a 6581's supply, so every run looks again. A socket that is switched on while its chip is unknown is looked at once, with the machine stopped for the menu. A new 6581 gets FW's 12 V
+// defaults (caps off, shunt on), a new 8580 the 9 V ones. Nothing else changes: unknown or disagreeing keeps type 0 and the 8580 supply.
+static void sid_types_detect(CoreCtx *c)
+{
+    bool want = false;
+    for (int s = 0; s < 2; s++) {
+        if (!V(c, s ? K_S2_EN : K_S1_EN)) {
+            g_tried[s] = false;
+        } else if (!g_sid_type[s] && !g_tried[s]) {
+            want = true;
+        }
+    }
+    if (!want || !c->frozen) {
+        return;
+    }
+    int t[2];
+    detect_sids(c, t);
+    for (int s = 0; s < 2; s++) {
+        if (!V(c, s ? K_S2_EN : K_S1_EN) || g_sid_type[s]) {
+            continue;
+        }
+        g_tried[s] = true;
+        g_sid_type[s] = t[s];
+        if (!t[s]) {
+            continue;
+        }
+        if (t[s] == 1 || t[s] == 2) {
+            resolve(c);
+            int ci = g_ix[s ? K_S2_CAPS : K_S1_CAPS], si = g_ix[s ? K_S2_SHUNT : K_S1_SHUNT];
+            if (ci >= 0) { c->settings->set(ci, t[s] == 2); }
+            if (si >= 0) { c->settings->set(si, t[s] == 1); }
+        }
+    }
+}
+
 static void write_sid_sockets(CoreCtx *c)
 {
+    sid_types_detect(c);
     uint8_t ctrl = 0;
     for (int s = 0; s < 2; s++) {
         int typ = g_sid_type[s];
