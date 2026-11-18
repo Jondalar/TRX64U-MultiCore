@@ -100,7 +100,7 @@ lap "$mode on $host (rc=$rc)"
 
 case "$mode" in riscv|emu|cor|integrate)
   out=".ci/dev/$slug"; mkdir -p "$out"
-  for f in hostapp.app hostapp.elf coreapp.app coreapp.bin coreapp.elf testlib.u2a unzip.u2a miniz.u2a; do
+  for f in hostapp.app hostapp.elf coreapp.app coreapp.bin coreapp.elf coreapp_trx64u.app coreapp_trx64u.bin coreapp_trx64u.elf testlib.u2a unzip.u2a miniz.u2a; do   # T228 R25: trx64u's own image
     scp -q "$host:$tree/.dev-out/trxapps/$f" "$out/" 2>/dev/null || echo "(no $f in the result)"
   done
   ls -l "$out"; shasum -a 256 "$out"/hostapp.app "$out"/coreapp.bin 2>/dev/null || sha256sum "$out"/hostapp.app "$out"/coreapp.bin
@@ -128,7 +128,7 @@ if [ "$mode" = emu ] || [ "$mode" = integrate ]; then
     {
       printf '#!/bin/bash\ncd "%s" || exit 1\nrc=0\nexport EMU_OUT="%s/.dev-out/emu"\n' "$abs" "$abs"
       [ -z "$host_touched" ] || printf 'tests/hostapp/emu_host.sh "%s/.dev-out/trxapps" "%s/.dev-out/emu/host" || { [ $? = 77 ] || rc=1; }\n' "$abs" "$abs"
-      [ -z "$core_touched" ] || printf 'tests/coreapp/emu/run.sh "%s/.dev-out/trxapps/coreapp.app" || { [ $? = 77 ] || rc=1; }\n' "$abs"
+      [ -z "$core_touched" ] || printf 'tests/coreapp/emu/run.sh "%s/.dev-out/trxapps/coreapp_trx64u.app" || { [ $? = 77 ] || rc=1; }\n' "$abs"   # T228 R25: the script runs trx64u
       printf 'exit $rc\n'
     } | ssh "$host" "cat > $tree/.dev-emu.sh"
     echo "=== dev.sh $mode: emulator scripts on $host (ue2emu in the container image $(grep -o 'UE2EMU_IMAGE:-[^}]*' ci/lib.sh | head -1 | cut -d- -f2))"
@@ -141,7 +141,7 @@ if [ "$mode" = emu ] || [ "$mode" = integrate ]; then
   emu="${UE2EMU:-$HOME/Development/u64-emulator/target/release/ue2emu}"
   if [ -n "$core_touched" ] && [ -x "$emu" ] && [ -f "$out/coreapp.app" ]; then
     echo "=== dev.sh $mode: tests/ui on the Mac (local ue2emu) with $out/coreapp.app"
-    COREAPP="$ROOT/$out/coreapp.app" nice -n 15 tests/ui/run.sh
+    COREAPP="$ROOT/$out/coreapp.app" COREAPP_TRX64U="$ROOT/$out/coreapp_trx64u.app" nice -n 15 tests/ui/run.sh   # T228 R25: trx64u runs its own image
     lap "tests/ui"
   fi
 fi

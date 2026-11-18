@@ -19,6 +19,8 @@ ROOT = os.path.dirname(os.path.dirname(HERE))
 EMU = os.environ.get("UE2EMU", os.path.expanduser("~/Development/u64-emulator/target/release/ue2emu"))
 ROMS = os.environ.get("UE2EMU_ROMS", os.path.expanduser("~/Development/u64-emulator/firmware/1541ultimate/roms"))
 APP = os.environ.get("COREAPP", os.path.join(HERE, "build", "coreapp.app"))
+# T228 R25: trx64u has a core app image of its own (coreapp_trx64u.app, beside the shared one); the other cores run the shared image
+APP_TRX64U = os.environ.get("COREAPP_TRX64U", os.path.join(os.path.dirname(APP), "coreapp_trx64u.app"))
 CTL_PORT = int(os.environ.get("UI_CTL_PORT", "47411"))
 REST_PORT = int(os.environ.get("UI_REST_PORT", "47480"))
 WORK = os.path.join(HERE, "work")
@@ -44,7 +46,8 @@ class Emu:
 
     # ---- life -------------------------------------------------------------------------------------------------------------------------
     def start(self):
-        for need, what in ((EMU, "ue2emu (UE2EMU)"), (ROMS, "the emulator's ROM folder (UE2EMU_ROMS)"), (APP, "the coreapp image (COREAPP, tests/ui/build.sh)")):
+        app = APP_TRX64U if self.core == "trx64u" and os.path.exists(APP_TRX64U) else APP     # T228 R25: an older build has the C64 in the shared image
+        for need, what in ((EMU, "ue2emu (UE2EMU)"), (ROMS, "the emulator's ROM folder (UE2EMU_ROMS)"), (app, "the coreapp image (COREAPP, tests/ui/build.sh)")):
             if not os.path.exists(need):
                 raise EmuError("%s not found: %s" % (what, need))
         shutil.rmtree(WORK, ignore_errors=True)
@@ -58,7 +61,7 @@ class Emu:
         os.makedirs(mk)
         script = os.path.join(mk, "quit.txt")
         open(script, "w").write("wait 1000\nquit\n")
-        subprocess.run(["nice", "-n", "15", EMU, "run", "--board", "c64u", "--caps", "25E40202", "--trx-io", "on", "--firmware", APP, "--roms", ROMS, "--c64-roms", ROMS,
+        subprocess.run(["nice", "-n", "15", EMU, "run", "--board", "c64u", "--caps", "25E40202", "--trx-io", "on", "--firmware", app, "--roms", ROMS, "--c64-roms", ROMS,
                         "--flash", os.path.join(mk, "flash.bin"), "--usb-dir", sd_dir, "--usb-dir-work", os.path.join(mk, "work"), "--headless", "--speed", "max",
                         "--script", script], stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT, cwd=mk, timeout=120)
         sd_img = os.path.join(WORK, "sd.img")
@@ -66,7 +69,7 @@ class Emu:
         if not made:
             raise EmuError("the emulator made no volume for the SD card")
         shutil.copy(made[0], sd_img)
-        cmd = ["nice", "-n", "15", EMU, "run", "--board", "c64u", "--caps", "25E40202", "--trx-io", "on", "--firmware", APP, "--roms", ROMS,
+        cmd = ["nice", "-n", "15", EMU, "run", "--board", "c64u", "--caps", "25E40202", "--trx-io", "on", "--firmware", app, "--roms", ROMS,
                "--flash", os.path.join(WORK, "flash.bin"), "--c64-roms", ROMS, "--usb-dir", stick, "--usb-dir-work", os.path.join(WORK, "usbwork"), "--sd", sd_img,
                "--headless", "--speed", "max", "--control", "127.0.0.1:%d" % CTL_PORT, "--net", "user",
                "--hostfwd", "tcp:127.0.0.1:%d:80" % REST_PORT]

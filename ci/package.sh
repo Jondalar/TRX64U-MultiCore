@@ -94,6 +94,7 @@ cp "$c64u/wns.txt" "$out/wns.c64u.txt"
 # which is how trx64mc-main-51e89821 ended up carrying an application nobody had built from its commit.
 trxapps="$(need_stage trxapps)"
 cp "$trxapps/hostapp.app" "$trxapps/hostapp.elf" "$trxapps/coreapp.bin" "$trxapps/coreapp.elf" "$out/"   # T221: the ELF is stamped beside the image (release_promote.py rewrites both)
+for f in "$trxapps"/coreapp_*.bin; do [ -e "$f" ] && cp "$f" "${f%.bin}.elf" "$out/"; done   # T228 R25: the images of their own (trx64u)
 # T180 D9: Unzip, the one application every core reads from <root>/cores/apps/; the release bundle takes it from here (tools/release_mc.sh)
 [ -s "$trxapps/unzip.u2a" ] && cp "$trxapps/unzip.u2a" "$out/" || mark_red package unzip "stage trxapps made no unzip.u2a"
 # T197 P5: the zip library unzip.u2a loads (apps/miniz); the updater copies every .u2a beside the update file into <cores>/apps
@@ -114,6 +115,11 @@ for fld in "TRXVSTAMP hostapp" "TRXHSTAMP host" "TRXBSTAMP bundle"; do
 done
 python3 -I "$ROOT/tools/stamp_version.py" stamp "$out/coreapp.bin" "$out/coreapp.elf" --version "$("$ROOT/ci/version.sh" coreapp)" \
   || mark_red package stamp "tools/stamp_version.py could not stamp the core app"
+for f in "$out"/coreapp_*.bin; do
+  [ -e "$f" ] || continue
+  python3 -I "$ROOT/tools/stamp_version.py" stamp "$f" "${f%.bin}.elf" --version "$("$ROOT/ci/version.sh" coreapp)" \
+    || mark_red package stamp "tools/stamp_version.py could not stamp $(basename "$f")"
+done
 
 # The applications the .cor bundles are packed with: the stage's blueprint image for every core that
 # has a descriptor (every core but trx64 and c64u), and for the rest the generic package trx64-coreapps.
@@ -206,7 +212,8 @@ for pin in "$ROOT"/release/imports/*.pin; do
     continue
   fi
   echo "=== imported large .cor $(basename "$pin" .pin)"
-  if ! "$ROOT/tools/pack_import_cor.sh" --pin "$pin" --app-bin "$out/coreapp.bin" --app-commit "$(cut -c1-8 "$trxapps/trxapps_commit")" --out "$out"; then
+  app="$out/coreapp.bin"; [ -f "$out/coreapp_$(basename "$pin" .pin).bin" ] && app="$out/coreapp_$(basename "$pin" .pin).bin"   # T228 R25: its own image
+  if ! "$ROOT/tools/pack_import_cor.sh" --pin "$pin" --app-bin "$app" --app-commit "$(cut -c1-8 "$trxapps/trxapps_commit")" --out "$out"; then
     echo "the imported large .cor of $pin could not be packed" >&2
     mark_red package "cor-$(basename "$pin" .pin)" "tools/pack_import_cor.sh failed"
   fi
