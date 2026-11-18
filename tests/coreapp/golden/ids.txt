@@ -202,8 +202,6 @@ Commodore PET F5/settings 2 set:Diag (at next reset)
 Commodore PET F5/settings 3 set:RAM (at next reset)
 Commodore PET F5/settings 4 set:Drive 8 (at next reset)
 Commodore PET F5/settings 5 set:Datasette port
-Commodore PET F5/settings 6 set:SuperPET CPU (at next reset)
-Commodore PET F5/settings 7 set:SuperPET RAM (at next reset)
 Commodore PET F5/video 0 set:Picture rate
 Commodore PET F5/video 1 set:Phosphor
 Commodore PET F5/input 0 set:Keyboard mapping
@@ -445,13 +443,9 @@ TRX64U F5/expansion 6 set:Bus Sharing - I/O2
 TRX64U F5/expansion 7 set:Bus Sharing - Interrupts
 TRX64U F5/expansion 8 fixed:13:REU
 TRX64U F5/expansion 9 set:RAM Expansion Unit
-TRX64U F5/expansion 10 set:REU Size
-TRX64U F5/expansion 11 set:REU Preload
-TRX64U F5/expansion 12 set:REU Preload Image
-TRX64U F5/expansion 13 set:REU Preload Offset
-TRX64U F5/expansion 14 fixed:13:Ultimate
-TRX64U F5/expansion 15 set:Map Ultimate Audio $DF20-DFFF
-TRX64U F5/expansion 16 set:Command Interface (UCI)
+TRX64U F5/expansion 10 fixed:13:Ultimate
+TRX64U F5/expansion 11 set:Map Ultimate Audio $DF20-DFFF
+TRX64U F5/expansion 12 set:Command Interface (UCI)
 TRX64U F5/video 0 fixed:13:Picture
 TRX64U F5/video 1 set:System Mode
 TRX64U F5/video 2 set:Picture
@@ -525,13 +519,14 @@ TRX64U F7/settings 5 fixed:13:Storage
 TRX64U F7/settings 6 set:Persist medium mounts
 TRX64U F7/settings 7 set:Enter Home on Startup
 TRX64U F7/settings 8 set:Home Directory
-TRX64U F7/settings 9 fixed:13:Menu and keys
+TRX64U F7/settings 9 fixed:13:Menu
 TRX64U F7/settings 10 set:Menu opens at
-TRX64U F7/settings 11 fixed:16:Hotkeys
-TRX64U F7/settings 12 fixed:13:Apps
-TRX64U F7/settings 13 node:app.open:trex_crt:dump:
-TRX64U F7/settings 14 node:app.open:trex_crt:inspect:
-TRX64U F7/settings 15 node:app.open:trex_crt:flash:
+TRX64U F7/settings 11 fixed:13:Hotkeys
+TRX64U F7/settings 12 fixed:16:Hotkeys
+TRX64U F7/settings 13 fixed:13:Apps
+TRX64U F7/settings 14 node:app.open:trex_crt:dump:
+TRX64U F7/settings 15 node:app.open:trex_crt:inspect:
+TRX64U F7/settings 16 node:app.open:trex_crt:flash:
 TRX64U F7/hotkeys 0 set:Hotkey modifier
 TRX64U F7/hotkeys 1 set:Hotkey menu
 TRX64U F7/hotkeys 2 set:Hotkey volume up
@@ -539,57 +534,57 @@ TRX64U F7/hotkeys 3 set:Hotkey volume down
 TRX64U F7/hotkeys 4 set:Hotkey reset
 TRX64U F7/hotkeys 5 set:Hotkey swap joystick
 TRX64U F7/hotkeys 6 set:Hotkey picture mode
+TRX64U F7/hotkeys 7 set:Hotkey Timewarp
+TRX64U F7/hotkeys 8 set:Hotkey Monitor
 TRX64U F8/expert 0 fixed:13:Actions
 TRX64U F8/expert 1 fixed:6:Restart core
 TRX64U F8/expert 2 fixed:7:Return to host menu
-TRX64U F8/expert 3 fixed:13:Network
-TRX64U F8/expert 4 fixed:9:WiFi
-TRX64U F8/expert 5 fixed:16:Network settings
-TRX64U F8/expert 6 fixed:16:Streams
-TRX64U F8/expert 7 fixed:16:FTP hosts
-TRX64U F8/expert 8 fixed:13:Support
-TRX64U F8/expert 9 fixed:8:Bug report
-TRX64U F8/expert 10 fixed:17:Keys and help
-TRX64U F8/expert 11 fixed:13:Reset
-TRX64U F8/expert 12 fixed:5:Reset to host defaults
-TRX64U F8/expert 13 fixed:13:Status
-TRX64U F8/expert 14 info:Build
-TRX64U F8/expert 15 info:ROMs
-TRX64U F8/expert 16 info:Libraries
-TRX64U F8/expert 17 node:diag.board
-TRX64U F8/expert 18 node:diag.uptime
-TRX64U F8/expert 19 node:media.sd
-TRX64U F8/expert 20 node:media.usb0
-TRX64U F8/expert 21 node:media.usb1
-TRX64U F8/expert 22 node:media.flash
-TRX64U F8/expert 23 node:usb.mouse
-TRX64U F8/expert 24 node:usb.keyboard
+TRX64U F8/expert 3 node:u64.power_cycle
+TRX64U F8/expert 4 node:u64.power_off
+TRX64U F8/expert 5 fixed:13:Network
+TRX64U F8/expert 6 fixed:9:WiFi
+TRX64U F8/expert 7 fixed:16:Network settings
+TRX64U F8/expert 8 fixed:16:Streams
+TRX64U F8/expert 9 fixed:16:FTP hosts
+TRX64U F8/expert 10 fixed:13:Support
+TRX64U F8/expert 11 fixed:8:Bug report
+TRX64U F8/expert 12 fixed:17:Keys and help
+TRX64U F8/expert 13 fixed:13:Reset
+TRX64U F8/expert 14 fixed:5:Reset to host defaults
+TRX64U F8/expert 15 fixed:13:Status
+TRX64U F8/expert 16 info:Build
+TRX64U F8/expert 17 info:ROMs
+TRX64U F8/expert 18 info:Libraries
+TRX64U F8/expert 19 node:diag.board
+TRX64U F8/expert 20 node:diag.uptime
+TRX64U F8/expert 21 node:media.sd
+TRX64U F8/expert 22 node:media.usb0
+TRX64U F8/expert 23 node:media.usb1
+TRX64U F8/expert 24 node:media.flash
+TRX64U F8/expert 25 node:usb.mouse
+TRX64U F8/expert 26 node:usb.keyboard
 TRX64U F8/Network settings 0 fixed:13:WiFi and Ethernet
 TRX64U F8/Network settings 1 set:Use DHCP
-TRX64U F8/Network settings 2 set:Static IP
-TRX64U F8/Network settings 3 set:Static Netmask
-TRX64U F8/Network settings 4 set:Static Gateway
-TRX64U F8/Network settings 5 set:Static DNS
-TRX64U F8/Network settings 6 node:net.eth_status
-TRX64U F8/Network settings 7 node:net.eth_mac
-TRX64U F8/Network settings 8 node:wifi.state
-TRX64U F8/Network settings 9 node:wifi.ssid
-TRX64U F8/Network settings 10 node:wifi.ip
-TRX64U F8/Network settings 11 fixed:13:Services
-TRX64U F8/Network settings 12 set:Host Name
-TRX64U F8/Network settings 13 set:Unique ID
-TRX64U F8/Network settings 14 set:Network Password
-TRX64U F8/Network settings 15 set:Ultimate Ident Service
-TRX64U F8/Network settings 16 set:Ultimate DMA Service
-TRX64U F8/Network settings 17 set:Telnet Remote Menu Service
-TRX64U F8/Network settings 18 set:FTP File Service
-TRX64U F8/Network settings 19 set:Web Remote Control Service
-TRX64U F8/Network settings 20 set:Log to Syslog Server
-TRX64U F8/Network settings 21 set:SNTP Enable
-TRX64U F8/Network settings 22 set:TimeZone
-TRX64U F8/Network settings 23 set:Time Server 1
-TRX64U F8/Network settings 24 set:Time Server 2
-TRX64U F8/Network settings 25 set:Time Server 3
+TRX64U F8/Network settings 2 node:net.eth_status
+TRX64U F8/Network settings 3 node:net.eth_mac
+TRX64U F8/Network settings 4 node:wifi.state
+TRX64U F8/Network settings 5 node:wifi.ssid
+TRX64U F8/Network settings 6 node:wifi.ip
+TRX64U F8/Network settings 7 fixed:13:Services
+TRX64U F8/Network settings 8 set:Host Name
+TRX64U F8/Network settings 9 set:Unique ID
+TRX64U F8/Network settings 10 set:Network Password
+TRX64U F8/Network settings 11 set:Ultimate Ident Service
+TRX64U F8/Network settings 12 set:Ultimate DMA Service
+TRX64U F8/Network settings 13 set:Telnet Remote Menu Service
+TRX64U F8/Network settings 14 set:FTP File Service
+TRX64U F8/Network settings 15 set:Web Remote Control Service
+TRX64U F8/Network settings 16 set:Log to Syslog Server
+TRX64U F8/Network settings 17 set:SNTP Enable
+TRX64U F8/Network settings 18 set:TimeZone
+TRX64U F8/Network settings 19 set:Time Server 1
+TRX64U F8/Network settings 20 set:Time Server 2
+TRX64U F8/Network settings 21 set:Time Server 3
 TRX64U F8/Streams 0 set:Stream VIC to
 TRX64U F8/Streams 1 set:Stream Audio to
 TRX64U F8/Streams 2 set:Stream Debug to

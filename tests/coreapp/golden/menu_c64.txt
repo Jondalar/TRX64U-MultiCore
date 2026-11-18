@@ -139,7 +139,7 @@ area F5 C64
     setting Adjust color clock = -100 ppm | -99 ppm | -98 ppm | -97 ppm | -96 ppm | -95 ppm | -94 ppm | -93 ppm | -92 ppm | -91 ppm | -90 ppm | -89 ppm | -88 ppm | -87 ppm | -86 ppm | -85 ppm | -84 ppm | -83 ppm | -82 ppm | -81 ppm | -80 ppm | -79 ppm | -78 ppm | -77 ppm | -76 ppm | -75 ppm | -74 ppm | -73 ppm | -72 ppm | -71 ppm | -70 ppm | -69 ppm | -68 ppm | -67 ppm | -66 ppm | -65 ppm | -64 ppm | -63 ppm | -62 ppm | -61 ppm | -60 ppm | -59 ppm | -58 ppm | -57 ppm | -56 ppm | -55 ppm | -54 ppm | -53 ppm | -52 ppm | -51 ppm | -50 ppm | -49 ppm | -48 ppm | -47 ppm | -46 ppm | -45 ppm | -44 ppm | -43 ppm | -42 ppm | -41 ppm | -40 ppm | -39 ppm | -38 ppm | -37 ppm | -36 ppm | -35 ppm | -34 ppm | -33 ppm | -32 ppm | -31 ppm | -30 ppm | -29 ppm | -28 ppm | -27 ppm | -26 ppm | -25 ppm | -24 ppm | -23 ppm | -22 ppm | -21 ppm | -20 ppm | -19 ppm | -18 ppm | -17 ppm | -16 ppm | -15 ppm | -14 ppm | -13 ppm | -12 ppm | -11 ppm | -10 ppm | -9 ppm | -8 ppm | -7 ppm | -6 ppm | -5 ppm | -4 ppm | -3 ppm | -2 ppm | -1 ppm | 0 ppm | 1 ppm | 2 ppm | 3 ppm | 4 ppm | 5 ppm | 6 ppm | 7 ppm | 8 ppm | 9 ppm | 10 ppm | 11 ppm | 12 ppm | 13 ppm | 14 ppm | 15 ppm | 16 ppm | 17 ppm | 18 ppm | 19 ppm | 20 ppm | 21 ppm | 22 ppm | 23 ppm | 24 ppm | 25 ppm | 26 ppm | 27 ppm | 28 ppm | 29 ppm | 30 ppm | 31 ppm | 32 ppm | 33 ppm | 34 ppm | 35 ppm | 36 ppm | 37 ppm | 38 ppm | 39 ppm | 40 ppm | 41 ppm | 42 ppm | 43 ppm | 44 ppm | 45 ppm | 46 ppm | 47 ppm | 48 ppm | 49 ppm | 50 ppm | 51 ppm | 52 ppm | 53 ppm | 54 ppm | 55 ppm | 56 ppm | 57 ppm | 58 ppm | 59 ppm | 60 ppm | 61 ppm | 62 ppm | 63 ppm | 64 ppm | 65 ppm | 66 ppm | 67 ppm | 68 ppm | 69 ppm | 70 ppm | 71 ppm | 72 ppm | 73 ppm | 74 ppm | 75 ppm | 76 ppm | 77 ppm | 78 ppm | 79 ppm | 80 ppm | 81 ppm | 82 ppm | 83 ppm | 84 ppm | 85 ppm | 86 ppm | 87 ppm | 88 ppm | 89 ppm | 90 ppm | 91 ppm | 92 ppm | 93 ppm | 94 ppm | 95 ppm | 96 ppm | 97 ppm | 98 ppm | 99 ppm | 100 ppm (default 0 ppm, live)
   tab 5 Audio
     heading Volumes
-    setting Master = Off | -42 dB | -36 dB | -30 dB | -27 dB | -24 dB | -18 dB | -17 dB | -16 dB | -15 dB | -14 dB | -13 dB | -12 dB | -11 dB | -10 dB | -9 dB | -8 dB | -7 dB | -6 dB | -5 dB | -4 dB | -3 dB | -2 dB | -1 dB | 0 dB | +1 dB | +2 dB | +3 dB | +4 dB | +5 dB | +6 dB (default 0 dB, live)
+    setting Volume = Off | -42 dB | -36 dB | -30 dB | -27 dB | -24 dB | -18 dB | -17 dB | -16 dB | -15 dB | -14 dB | -13 dB | -12 dB | -11 dB | -10 dB | -9 dB | -8 dB | -7 dB | -6 dB | -5 dB | -4 dB | -3 dB | -2 dB | -1 dB | 0 dB | +1 dB | +2 dB | +3 dB | +4 dB | +5 dB | +6 dB (default 0 dB, live)
     setting reDIP:SID 1 = Off | -42 dB | -36 dB | -30 dB | -27 dB | -24 dB | -18 dB | -17 dB | -16 dB | -15 dB | -14 dB | -13 dB | -12 dB | -11 dB | -10 dB | -9 dB | -8 dB | -7 dB | -6 dB | -5 dB | -4 dB | -3 dB | -2 dB | -1 dB | 0 dB | +1 dB | +2 dB | +3 dB | +4 dB | +5 dB | +6 dB (default 0 dB, live)
     setting reDIP:SID 2 = Off | -42 dB | -36 dB | -30 dB | -27 dB | -24 dB | -18 dB | -17 dB | -16 dB | -15 dB | -14 dB | -13 dB | -12 dB | -11 dB | -10 dB | -9 dB | -8 dB | -7 dB | -6 dB | -5 dB | -4 dB | -3 dB | -2 dB | -1 dB | 0 dB | +1 dB | +2 dB | +3 dB | +4 dB | +5 dB | +6 dB (default 0 dB, live)
     setting Socket 1 = Off | -42 dB | -36 dB | -30 dB | -27 dB | -24 dB | -18 dB | -17 dB | -16 dB | -15 dB | -14 dB | -13 dB | -12 dB | -11 dB | -10 dB | -9 dB | -8 dB | -7 dB | -6 dB | -5 dB | -4 dB | -3 dB | -2 dB | -1 dB | 0 dB | +1 dB | +2 dB | +3 dB | +4 dB | +5 dB | +6 dB (default 0 dB, live)
@@ -208,8 +208,9 @@ area F7 APP
     setting Persist medium mounts = No | Yes (default No, live)
     setting Enter home on startup = No | Yes (default No, live)
     setting Home directory =  (default , live)
-    heading Menu and keys
+    heading Menu
     setting Menu opens at = Home (F1) | Last screen (default Home (F1), live)
+    heading Hotkeys
     opens Hotkeys
     heading Apps
     node Cartridge dumper = button calls app.open from description
@@ -224,11 +225,15 @@ area F7 APP
     setting Reset = Off | DEL | RETURN | CRSR RIGHT | F7 | F1 | F3 | F5 | CRSR DOWN | 3 | W | A | 4 | Z | S | E | L SHIFT | 5 | R | D | 6 | C | F | T | X | 7 | Y | G | 8 | B | H | U | V | 9 | I | J | 0 | M | K | O | N | + | P | L | - | . | : | @ | , | POUND | * | ; | HOME | R SHIFT | = | UP ARROW | / | 1 | LEFT ARROW | CTRL | 2 | SPACE | C= | Q | RUN/STOP | RESTORE (default R, live)
     setting Swap joystick ports = Off | DEL | RETURN | CRSR RIGHT | F7 | F1 | F3 | F5 | CRSR DOWN | 3 | W | A | 4 | Z | S | E | L SHIFT | 5 | R | D | 6 | C | F | T | X | 7 | Y | G | 8 | B | H | U | V | 9 | I | J | 0 | M | K | O | N | + | P | L | - | . | : | @ | , | POUND | * | ; | HOME | R SHIFT | = | UP ARROW | / | 1 | LEFT ARROW | CTRL | 2 | SPACE | C= | Q | RUN/STOP | RESTORE (default J, live)
     setting Picture mode = Off | DEL | RETURN | CRSR RIGHT | F7 | F1 | F3 | F5 | CRSR DOWN | 3 | W | A | 4 | Z | S | E | L SHIFT | 5 | R | D | 6 | C | F | T | X | 7 | Y | G | 8 | B | H | U | V | 9 | I | J | 0 | M | K | O | N | + | P | L | - | . | : | @ | , | POUND | * | ; | HOME | R SHIFT | = | UP ARROW | / | 1 | LEFT ARROW | CTRL | 2 | SPACE | C= | Q | RUN/STOP | RESTORE (default P, live)
+    setting Timewarp = Off | DEL | RETURN | CRSR RIGHT | F7 | F1 | F3 | F5 | CRSR DOWN | 3 | W | A | 4 | Z | S | E | L SHIFT | 5 | R | D | 6 | C | F | T | X | 7 | Y | G | 8 | B | H | U | V | 9 | I | J | 0 | M | K | O | N | + | P | L | - | . | : | @ | , | POUND | * | ; | HOME | R SHIFT | = | UP ARROW | / | 1 | LEFT ARROW | CTRL | 2 | SPACE | C= | Q | RUN/STOP | RESTORE (default T, live)
+    setting Monitor = Off | DEL | RETURN | CRSR RIGHT | F7 | F1 | F3 | F5 | CRSR DOWN | 3 | W | A | 4 | Z | S | E | L SHIFT | 5 | R | D | 6 | C | F | T | X | 7 | Y | G | 8 | B | H | U | V | 9 | I | J | 0 | M | K | O | N | + | P | L | - | . | : | @ | , | POUND | * | ; | HOME | R SHIFT | = | UP ARROW | / | 1 | LEFT ARROW | CTRL | 2 | SPACE | C= | Q | RUN/STOP | RESTORE (default O, live)
 area F8 System
   tab 1 System
     heading Actions
     fixed Restart core
     fixed Return to host menu
+    node Power cycle = button calls u64.power_cycle in group actions from description
+    node Power off = button calls u64.power_off in group actions from description
     heading Network
     fixed WiFi
     opens Network settings
