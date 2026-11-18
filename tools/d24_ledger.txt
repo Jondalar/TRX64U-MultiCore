@@ -4,6 +4,9 @@
 exception coreapp/src/u64cfg.cc +938 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
 exception coreapp/cores/trx64u/menu.toml +1320 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
 exception coreapp/cores/trx64u/menu_rec.inc +2538 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
+exception coreapp/src/u64cfg.cc +683 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
+exception coreapp/cores/trx64u/menu.toml +1270 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
+exception coreapp/cores/trx64u/menu_rec.inc +2489 T228-R20 (Alex 2026-11-18: "repair. It has to work if it is there")
 file coreapp/cores/6502/xexboot.asm 161
 file coreapp/cores/6502/xexboot_bin.h 26
 file coreapp/cores/amiga.cc 345

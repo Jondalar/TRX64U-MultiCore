@@ -3115,6 +3115,15 @@ apply = "net.fx"
 
 [[core_setting]]
 group = "Services"
+key = "Telnet Remote Menu Service"
+label = "Telnet remote menu service"
+list = "en_dis"
+default = 1
+when = "live"
+apply = "net.fx"
+
+[[core_setting]]
+group = "Services"
 key = "FTP File Service"
 label = "FTP file service"
 list = "en_dis"

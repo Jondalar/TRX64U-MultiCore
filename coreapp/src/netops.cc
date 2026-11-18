@@ -345,7 +345,7 @@ static const ArgSpec stream_arg[] = { ARG_INT("id", 0, 2) };
 static const ArgSpec value_arg[] = { ARG_INT("value", -2000, 2000) };
 
 static const char *st_net_static(CoreCtx *c) { return cfg_value(c, "Use DHCP", 1) ? 0 : "yes"; }
-static const char *st_pw_scope(CoreCtx *) { return "FTP and REST (X-Password header)"; }       // what net_password guards in this application; Telnet, DMA and ident join when they exist here
+static const char *st_pw_scope(CoreCtx *) { return "FTP, Telnet and REST (X-Password header)"; }       // what net_password guards in this application; DMA and ident join when they exist here
 static const char *st_wifi_static(CoreCtx *c) { return cfg_value(c, "WiFi Use DHCP", 1) ? 0 : "yes"; }
 
 void netops_register(OpRegistry &r)
