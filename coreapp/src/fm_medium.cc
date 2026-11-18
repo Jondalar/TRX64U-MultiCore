@@ -23,7 +23,9 @@ bool fm_medium_info(const char *name, MediumInfo *out)
         snprintf(out->contents, sizeof(out->contents), "no medium");
         return true;
     }
-    out->writable = !(b->status() & STA_PROTECT);
+    char probe[40];
+    snprintf(probe, sizeof(probe), "/%s/.", name);                 // the flash medium is as writable as CoreFs lets a write through (fsif.h: fs_write_refused), not what its block device reports
+    out->writable = !(b->status() & STA_PROTECT) && !fs_write_refused(probe);
     uint32_t ss = 512, cnt = 0;
     b->ioctl(GET_SECTOR_SIZE, &ss);
     if (b->ioctl(GET_SECTOR_COUNT, &cnt) != RES_OK) {

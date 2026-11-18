@@ -18,6 +18,7 @@
 #include "ui.h"
 #include "hw.h"
 #include "board.h"
+#include "fsif.h"
 #include "run.h"
 
 #include "videomode.h"
@@ -81,6 +82,7 @@ extern "C" void ultimate_main(void *a)
     STARTLOG("phase USB hardware initialised (the USB task enumerates in the background)");
     board = board_detect(hw_board_probe());
     printf("[core] board: %s (%s)\n", board_name(board), board.why);
+    fs_flash_writable() = board.kind == BOARD_MONOLITH;       // T228 R21: /flash writable as in TRX64-Ultimate's firmware, the MultiCore host keeps its protection (T93 S14)
     video_init(board.has_handover ? (const Handover *)HANDOVER_ADDR : 0);
     STARTLOG("phase video mode up (the host's, from the hand-over)");
     hw_release_expansion_port();                  // T135 D6: before the machine runs
