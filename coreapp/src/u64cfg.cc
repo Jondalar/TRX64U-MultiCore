@@ -794,7 +794,11 @@ extern "C" int u64_get_usb_hid_config_value(int key, int default_value)
         return default_value;
     }
     switch (key) {
-    case 0x55: return V(g_ctx, K_MOUSEMODE, 1);                  // CFG_MOUSE_MODE
+    case 0x55: {                                                 // CFG_MOUSE_MODE: the menu offers the modes that work (motion as cursor keys; wheel to cursor / to the joystick output): the driver's 0, 2, 3
+        static const int driver_mode[3] = { 0, 2, 3 };
+        int m = V(g_ctx, K_MOUSEMODE, 0);
+        return driver_mode[m >= 0 && m < 3 ? m : 0];
+    }
     case 0x56: return V(g_ctx, K_WHEELSENS, 7) + 1;              // CFG_SCROLL_FACTOR 1..16
     case 0x57: return V(g_ctx, K_WHEELDIR);                      // CFG_WHEEL_DIRECTION
     case 0x58: return 0; // CFG_MENU_MOUSE_NAV: never. Our menus are keys only (T104.1, Alex 2026-10-29: "menumouse raus"); the driver queues no menu key from the mouse
