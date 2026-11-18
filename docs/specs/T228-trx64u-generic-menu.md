@@ -549,4 +549,22 @@ ue2emu (70 full frames, trx64u beside the A1200).
   app off the CDCE). The rows came from Gideon's U64 list that TRX64-Ultimate's firmware still carries (u64_config.cc:417-421), taken
   over without a check of the bitstream. Alex said yes to an audit of every trx64u row against the bitstream and the firmware, with
   evidence per row (workflow, 2026-11-18).
-- **Open:** the row audit and its removals, then S2b again (Alex in ue2emu, D6), then S3 on the board.
+- **Row audit (2026-11-18, workflow wf_df16c7a6-a53):** every trx64u row against the pinned bitstream (TRX64-Ultimate
+  `designs/c64_basic` of 31e69921) and its firmware, evidence per row, every verdict other than WORKS verified a second time:
+  338 rows, 228 WORKS, 58 PARTIAL, 52 FAKE, plus 8 rows TRX64-Ultimate has that the menu lacks. The table is
+  [docs/ui/trx64u-row-audit-2026-11-18.md](../ui/trx64u-row-audit-2026-11-18.md): read it before checking a row again. Cost: 15
+  agents, 5.3 M tokens (Alex: "Wahnsinn"). TRX64-Ultimate's own analyses had the video answer already
+  (`docs/gap-audit-gideon-app.md` G11: no AVID pins in top.v; `docs/gideon-menu-tree.md`: Adjust Color Clock has no menu path); the
+  audit brief cited neither (Alex: "you could simply have looked in the TRX64-Ultimate repository", translated).
+- **The dummies out (t228-int 4383257dd, TOML only, D24):** the 49 FAKE rows of menu.toml - F5 Video: analog/digital video mode,
+  adjust color clock; F5 Audio: the Speaker group (7), paddle override, reDIP:SID filter curve/resonance/digi level (6); F5 C64:
+  freeze drive in menu, GEOS copy protection, SpeedDOS cable, DMA load mimics ID, bus operation mode, UCI; F5 Input: 5 mouse rows;
+  F7: filename squeeze, the Apps heading + 4 apps (not shipped); F8: 11 network service rows, the debug stream (4). 13 value lists
+  without a user went too; F5 Audio lists no Speaker group. The code that reads these keys keeps its defaults (u64cfg `resolve()`,
+  `cfg_value`/`cfg_text`; `push_text` keeps the stack's own value). `menu_rec.inc` regenerated (ops check against
+  `ops_trx64u.txt`). Not changed: 800 x 600 and 1024 x 768 (generic picture list, in ue2emu only; the board drops them), the J hotkey
+  (generic). Menu simulator pictures (720p) of F1, F5 1-6, F7, F8: no empty heading, no gap; `dev.sh riscv` ok (coreapp.bin
+  09808867).
+- **Open:** S2b again (Alex in ue2emu, D6); the 58 PARTIAL rows with Alex (e.g. Reload ROMs forgets the chosen ROM files,
+  Timewarp has no REU gate (A08), the title line keeps an old PRG name after a reset); goldens `menu_c64.txt`/`ids.txt` and the
+  test run before the merge; then S3 on the board.
