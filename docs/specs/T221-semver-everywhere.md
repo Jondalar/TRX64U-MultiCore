@@ -130,6 +130,10 @@ promote step must cover every part. How (Alex 2026-11-16): "Sonst nimm die Gitea
 pipeline step checks the tested package out of the Gitea registry, promotes every part and checks the release package back in.
 Before 0.2.0 went to GitHub, every old GitHub release (5 pre-releases `trx64mc-*`) and tag (16) was deleted (Alex 2026-11-18,
 translated: "can you clear away all the old tags and releases on GitHub?"); links to them in issues and discussions now fail.
+The first tag runs of this pipeline (2446, 2449) went red: the CI tier's tests and then lint. Four lint tests (ci/test_version.sh,
+ci/test_plan.sh, tools/test_pack_import_cor.sh, ci/test_layers_flow.sh) took the tag run's GITHUB_REF_TYPE=tag into the branch
+scenarios they build themselves; they now unset the CI ref variables. tools/test_descrec.py expected the title-case labels of before
+T228's sentence case. All five checks pass under a tag's environment; v0.2.0 moved to the commit with the fix.
 
 ## §4 Out
 
