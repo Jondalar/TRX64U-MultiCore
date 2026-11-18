@@ -352,6 +352,17 @@ void MenuCtl::go(int area, int tab)
             ops_call(c_, eop, 0, 0, &er);
         }
     }
+    if (moved && cur().page) {                                      // T228 R21: a page that is opened reads what its device holds (FW at_open_config): a node with ui `open = <op>` runs it
+        const MenuTab &pg = cur();
+        for (int i = 0; i < pg.count; i++) {
+            const MenuEntry &pe = tree_.e[pg.first + i];
+            char oop[64];
+            if (pe.kind == EK_NODE && tree_.nodes[pe.index].attr && ui_attr(tree_.nodes[pe.index].attr, "open", oop, sizeof(oop)) && oop[0]) {
+                OpResult pr;
+                ops_call(c_, oop, 0, 0, &pr);
+            }
+        }
+    }
     if (is_browser()) {
         if (fm_.vmode == 1 && !search_tab()) {                         // the search's list belongs to its own tab
             fm_.vmode = 0;

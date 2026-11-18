@@ -115,6 +115,8 @@ op	u64.fx_audio	value:int:-2000:2000:0:
 op	u64.fx_sid	value:int:-2000:2000:0:
 op	u64.fx_fsid	value:int:-2000:2000:0:
 op	u64.fx_chip	value:int:-2000:2000:0:
+op	u64.arm_read1
+op	u64.arm_read2
 op	u64.fx_fsid_q10	value:int:-2000:2000:0:
 op	u64.fx_fsid_q11	value:int:-2000:2000:0:
 op	u64.fx_fsid_q20	value:int:-2000:2000:0:

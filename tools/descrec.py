@@ -407,7 +407,7 @@ class _Strings:
         return self.idx[s]
 
 
-UI_NODE_KEYS = {"primary": bool, "link": bool, "goto": str, "sub": str, "chip": str, "tone": str, "off": str, "why": str, "confirm": str, "label": str, "hide": str, "ask": str, "ask_state": str, "job": bool, "pick": str, "rename": bool, "view": str, "key": str, "none": str, "nokey": bool, "empty": str, "bkey": str, "ctrl": str, "legend": str}
+UI_NODE_KEYS = {"primary": bool, "link": bool, "goto": str, "sub": str, "chip": str, "tone": str, "off": str, "why": str, "confirm": str, "label": str, "hide": str, "ask": str, "ask_state": str, "job": bool, "pick": str, "rename": bool, "view": str, "key": str, "none": str, "nokey": bool, "empty": str, "bkey": str, "ctrl": str, "legend": str, "open": str}
 UI_TONES = ("muted", "cyan", "violet", "amber", "coral")
 LAYOUTS = ("home", "desk", "split", "settings", "status", "library", "timeline", "terminal", "app", "grid")
 UI_TAB_KEYS = {"title": str, "crumb": str, "side": str, "chip": str, "sheet": str, "sheetx": str, "nodes_first": bool, "sections": bool, "pages": str, "pages_head": str, "left": str, "label": str, "frame": str, "bar": str, "hint": str, "marks": str, "pos": str, "info": str, "glyph": str, "track": str,
@@ -1577,6 +1577,10 @@ def check_ops(rec, ops, states):
                 state_ok("node", n["label"], ui[k][1:].split("|")[0])
         if n["when_state"]:
             state_ok("node", n["label"], n["when_state"].split()[0])
+        if "open" in ui:                         # the page this row stands on runs it when opened: an operation without arguments
+            a = ops.get(ui["open"])
+            if a is None or a:
+                add('node "%s": ui open "%s" is not an exported operation without arguments' % (n["label"], ui["open"]))
     for a in rec["action"]:
         add(_bind_problem(ops, "file_action", a["label"], a["op"], a["bind"], True, False, False))
     for st_ in rec["setting"]:

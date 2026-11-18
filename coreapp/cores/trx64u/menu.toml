@@ -1840,7 +1840,7 @@ kind = "state"
 state = "u64.s1_armver"
 label = "Firmware version"
 order = 10
-ui = { sub = "@u64.s1_armver", hide = "@u64.s1_noarm" }
+ui = { sub = "@u64.s1_armver", hide = "@u64.s1_noarm", open = "u64.arm_read1" }
 
 [[core_setting]]
 group = "Socket_1_ARMSID"
@@ -2198,7 +2198,7 @@ kind = "state"
 state = "u64.s2_armver"
 label = "Firmware version"
 order = 10
-ui = { sub = "@u64.s2_armver", hide = "@u64.s2_noarm" }
+ui = { sub = "@u64.s2_armver", hide = "@u64.s2_noarm", open = "u64.arm_read2" }
 
 [[core_setting]]
 group = "Socket_2_ARMSID"
