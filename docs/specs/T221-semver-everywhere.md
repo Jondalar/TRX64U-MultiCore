@@ -120,7 +120,11 @@ Everything else is open, asked one at a time, answers recorded here when given.
 `x.y.z-dev+13c2cde9`, not promoted ("A"). After it, `main` moves reliably to SemVer releases: "danach stellen wir den Kram hier auf Main jetzt
 verlässlich auf Release per SemVer um, also das nächste Release wird eines mit Tag und reiner Versionsnummer, ohne diesen Branchkram dahinter"
 (the next release is a tag with a plain version number, no branch/sha suffix). The release promotes the board-tested bytes (only the version
-text changes; no rebuild, no second board test - Alex: "Das ist doch Ressourcenverschwendung"). Open for that step: `release_promote.py`
+text changes; no rebuild, no second board test - Alex: "Das ist doch Ressourcenverschwendung").
+**Release 0.2.0 (Alex 2026-11-18, translated: "I still have to test, that still has to happen, and you pack the package with the CI
+(WITHOUT the commit in the display)"):** the release is the CI build of the tag `v0.2.0` (`ci/version.sh` prints the plain version on a tag,
+the update stage builds the .cfw/.ue2 on `v*` tags); Alex tests that package on the board and the same files go to GitHub. For this release
+this replaces "promote, no second board test" above (the promote does not reach the app inside the .cfw/.ue2). Open for that step: `release_promote.py`
 promotes the .cor files and the app but not the app inside the update files (.cfw/.ue2), so `release_mc.sh`'s installer check fails; the
 promote step must cover every part. How (Alex 2026-11-16): "Sonst nimm die Gitea-Registry dafür, Artefakte einchecken per Pipeline-Step, und auschecken" - a release
 pipeline step checks the tested package out of the Gitea registry, promotes every part and checks the release package back in.
