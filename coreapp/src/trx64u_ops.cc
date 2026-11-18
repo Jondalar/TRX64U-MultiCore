@@ -353,7 +353,7 @@ static int op_after_roms(CoreCtx *c, const OpArgs &, OpOut &o)
 }
 
 // F3 on a .rom: "Set as 1541 ROM" - the file is copied to /flash/roms and its name stored in "ROM for 1541 mode" (TRX-Ultimate filetype_bin.cc:208-215, c1541.cc:1208-1214).
-// Needs /flash writable for the app (fsif.h, lifted in another step); without it the file's own path is stored and the message says so.
+// /flash is writable for the app on the monolith profile (fsif.h fs_flash_writable, T228 R21); where it is not (the MultiCore host) the file's own path is stored and the message says so.
 static int op_set_rom_store(CoreCtx *c, const OpArgs &a, OpOut &o)
 {
     const char *src = a.s(0);
@@ -363,7 +363,7 @@ static int op_set_rom_store(CoreCtx *c, const OpArgs &a, OpOut &o)
     snprintf(dst, sizeof(dst), "/flash/roms/%s", base);
     const char *store = base;
     const char *note = "";
-    if (strcmp(src, dst)) {
+    if (strcasecmp(src, dst)) {                                       // the file lies in /flash/roms already: no copy onto itself
         static uint8_t buf[DRIVE_ROM_BYTES];
         int n = c->fs->load(src, buf, sizeof(buf));
         if (n != 16384 && n != 32768) {
