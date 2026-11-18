@@ -92,7 +92,7 @@ void bundle_read(CoreCtx *c, BundleExtras *out)
 
 int bundle_merge(CoreCtx *c, const CoreDesc *base, const BundleExtras *x, LibLoader *loader, LibLog *log, CoreDesc *out, MenuMerge *mm, const AppIndex *apps)
 {
-    Contributor cs[LIB_MAX * 2 + 1 + APPS_MAX];
+    Contributor cs[LIB_MAX * 2 + 1 + APPS_MAX + 1];
     int n = 0;
     const Skeleton *skel = 0;
     const Overrides *ov = 0;
@@ -124,7 +124,7 @@ int bundle_merge(CoreCtx *c, const CoreDesc *base, const BundleExtras *x, LibLoa
         }
     }
     if (apps) {
-        n += apps->contributors(cs + n, APPS_MAX);
+        n += apps->contributors(cs + n, APPS_MAX + 1);
     }
     CoreDesc own;
     if (x && x->desc && (x->desc->has_own || x->desc->has_pad || x->desc->restart_clear)) {

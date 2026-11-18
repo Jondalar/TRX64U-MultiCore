@@ -604,6 +604,8 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
     {
         static char app_folders[APP_FOLDERS_MAX][APP_PATH_MAX];
         int nf = AppIndex::folders(&ctx, app_folders, APP_FOLDERS_MAX);
+        app_index.set_multicore(!ctx.board || ctx.board->can_return_host);                  // the predicate of the state host.multicore (diag.cc)
+        app_index.set_prg_apps(ops_of(&ctx)->find_op(PRG_APP_OP) != 0);                    // T228 R21 #14: a core that registered the operation gets "Run with App"
         app_index.scan(ctx.fs, app_folders, nf, &say_out);
         printf("[app] %d application(s) in %s\n", app_index.count(), nf ? app_folders[0] : "(no folder)");
         do_merge();
