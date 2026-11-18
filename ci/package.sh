@@ -274,6 +274,7 @@ cat "$out/manifest.json"
 publish_files "$out" reset
 stage_verdict package || exit 1
 
-# the run's hand-over directory goes, unless bit-ue2 follows and still needs it
+# the run's hand-over directory goes, unless ci/select.sh ue2 says yes here; since 2026-11-18 that needs UE2_INPUT, which the package child
+# does not get (.gitea/workflows/package.yml), so it always goes
 [ "$("$ROOT/ci/select.sh" ue2)" = yes ] || rm -rf "${HANDOFF:?}"
 echo "=== package done in $(lap)"

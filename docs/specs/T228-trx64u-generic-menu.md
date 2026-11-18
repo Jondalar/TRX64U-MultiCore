@@ -652,6 +652,15 @@ ue2emu (70 full frames, trx64u beside the A1200).
   tools (T104.3, eight screens) ship with 0.2.0 although no person and no UX pass has seen their LVGL screens yet (never in a package
   before R21); Alex looks at them with the package. If they are bad or do not work, they do not go to GitHub and stay in development
   (Alex 2026-11-18, translated: "if it is crap / does not work, it does not go to GitHub but stays 'in development'").
+  Alex's look passed (2026-11-18, translated: "Yes, it may. I even dumped Lykia (PTV Megabyter) successfully."): TREX CRT goes to
+  GitHub with 0.2.0.
+- **Board test of 0.2.0 (2026-11-18):** package v0.2.0-892eec45 with a trx64u.cor packed by hand from it, the host updated by its
+  .txu; Alex (translated): "everything works" (2-3 cores, trx64u, TREX CRT).
+- **Menu speed on the board, after 0.2.0 (Alex 2026-11-18, translated: "trx64u is dead slow in the UI ... is it the big .toml? I think
+  we have to think of another concept ... but after the release"; "the A1200 is incredibly fast in comparison"; "the app re-renders
+  the whole UI on every key press .. something is very suboptimal .. I think the emulator just does not show it"):** the board reads
+  the compiled menu record (322 entries from menu.toml), it parses no TOML. Measure on the board first (time per key press, what is
+  drawn again), then the concept; the emulator runs on the Mac's CPU and hides it. Related: T231 (a cursor move redraws only what changed).
 - **Merged to main (2026-11-18):** after the final run on t228-int 22bf93132: unit tier ok (all suites), emulator scripts ok, UI
   suite 175/175; two review rounds (the second found three faults in the first round's fixes: the app index asked the C64 service
   before its context was set, the loader took cart_port for a library, the settings made again after the merge dropped safe mode);

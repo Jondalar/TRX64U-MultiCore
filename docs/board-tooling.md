@@ -112,7 +112,7 @@ It lands in the package `trx64u-multicore/<branch>-<commit8>`; `tools/release_mc
    switches itself off; switch it on again. The update writes 0x000000 and 0x220000, so Commodore's firmware is gone
    from the flash afterwards (way back: its own `.ue2`, run from a firmware whose file browser offers Run Update).
 
-Updating from the MultiCore host application itself is built since T152: the package also holds `trx64host_update_<commit8>.txu`
+Updating from the MultiCore host application itself is built since T152: the package also holds `trx64host_update_<commit8>.txu` (a tag's package: `trx64host_update_<x.y.z>.txu`)
 (`tools/txu_pack.py`: the host `null_full.bit` and the host app of the run, SHA-256 per part, the host key and the host-app interface
 in its header). On the stick, File Browser (F3), select it, **U**; two questions (Y, then RETURN after a second); only the parts that
 differ are written, read back, then switch the power off and on. It never carries cores (a changed host key makes the partial cores
