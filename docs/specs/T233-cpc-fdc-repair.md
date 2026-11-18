@@ -1,6 +1,6 @@
 # T233 — The CPC's floppy controller never stops the machine: a disk event at any moment ends in a working drive or an answered "not ready", and the CPC always reaches Ready
 
-**Status:** IN PROGRESS (2026-11-18, D8: code, Vivado build, board test with Alex; no bench, no sim); WIP on t233-cpc-fdc (fe4bc90ab).
+**Status:** BOARD PASS (Alex 2026-11-18: S1 on 664 and 6128, S2, S7, write path, swap); branch t233-cpc-fdc built in run 2425, not merged (D8: no bench, no sim).
 Order before (Alex 2026-11-17): T228, T235, T234, T232, then this; Alex 2026-11-18 moved it forward (D8).
 **Repo:** TRX64U-MultiCore — gateware of the CPC core (`cores/cpc/rtl/u765` via `tools/cpc_gen.py` -> `cores/cpc/gen/u765.sv`,
 `cores/cpc/trx/cpc_fdc.v`), its benches (`cores/cpc/sim`), the CPC's app files only where §3 names them.
@@ -137,4 +137,11 @@ patched per race.
   descriptors and the pins; 9 of 9 tests OK), not pushed yet.
 - **cpc.cor for the board:** sha256 45a45f4d43f54f742306ee086542a3d6b1176b03d8b6ae49f2c56d26dcfb1dfe, 3,585,886 bytes (the builder's
   /cache/multicore/runs/parent-2425/cor-large-cpc/), `cor_pack.py check`: bit and app commit 287c1241, bit 1,732,321 bytes.
-- **Open:** the board with Alex (S1, S2, S7).
+- **Board pass (Alex, 2026-11-18 08:05-08:08, cpc.cor 45a45f4d on /SD/cores, page "Board Test 11-18 CPC", all PASS):** start of
+  the 6128 without a disk; S1 "Mount A: and reset" on the 6128 and on the 664 (Ready, CAT lists the disk; the 664 is where 011cdc4d
+  stopped on 11-17); S7 CAT; RUN"name" of a program; the write path (SAVE"T233", CAT, reset, LOAD, LIST); S2 the start with A: and B:
+  stored (both mounted again, CAT of A: and B:, the saved file still there); the swap of a filled A: without a reset (optional, T92
+  D-17c); the 464 (BASIC 1.0). Alex: "CPC is ok" (translated).
+- **Not run (D8):** S0 and the bench rows S3-S6. S8 passed in run 2425.
+- **Open:** push the branch's lint fix (5cff055c0), then the merge into main with the CPC back in the pipeline (`pipeline = true`),
+  the manual's CPC section (11.13) back, and T92 #17 closed - with Alex's go.
