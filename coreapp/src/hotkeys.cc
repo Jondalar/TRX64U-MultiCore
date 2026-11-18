@@ -3,6 +3,7 @@
 #include "ops_glue.h"
 #include "io.h"
 #include "settings.h"
+#include "padkeys.h"
 #include <string.h>
 #include <stdio.h>
 #include <strings.h>
@@ -786,8 +787,9 @@ HkKeys hk_read_keys(CoreCtx *c)
 }
 
 // ---- learning (T207) ---------------------------------------------------------------------------------------------------------------------
-void HkLearn::begin(const HkKeys &now, bool modifier, uint32_t t)
+void HkLearn::begin(const HkKeys &now, bool modifier, uint32_t t, bool pad)
 {
+    pad_ = pad;
     ign_k_ = now.k;
     ign_r_ = now.restore;
     peak_k_ = last_k_ = 0;
@@ -802,6 +804,18 @@ bool HkLearn::poll(const HkKeys &now, uint32_t t, HkKeys *got)
     ign_r_ = ign_r_ && now.restore;
     const uint64_t ck = now.k & ~ign_k_;
     const bool cr = now.restore && !ign_r_;
+    const uint64_t shifts = (1ull << 15) | (1ull << 52);
+    if (pad_ && ck && !(ck & ~shifts) && !cr) {            // pad-key row: SHIFT held alone is the start of SHIFT + cursor, keep waiting
+        if (peak_k_ & ~shifts) {                           // the key was released while SHIFT is still held: the keys that were held
+            got->k = peak_k_;
+            got->restore = false;
+            return true;
+        }
+        peak_k_ = 0;
+        last_k_ = 0;
+        since_ = t;
+        return false;
+    }
     if (!ck && !cr) {
         if (mod_ && (peak_k_ || peak_r_)) {                // released before it settled: the keys that were held
             got->k = peak_k_;
@@ -876,7 +890,7 @@ bool hk_learn_is_modifier(const CoreCtx *c, int set)
 
 bool hk_learn_item(const CoreCtx *c, int set)
 {
-    return hk_learn_is_modifier(c, set) || action_of(c, set) >= 0;
+    return hk_learn_is_modifier(c, set) || action_of(c, set) >= 0 || (set >= 0 && set < c->desc->nsettings && padkey_row(c->desc->settings[set]));   // T232: the pad-key rows learn the same way
 }
 
 int hk_learn_value(CoreCtx *c, int set, const HkKeys &got, char *line, int n)
@@ -896,6 +910,13 @@ int hk_learn_value(CoreCtx *c, int set, const HkKeys &got, char *line, int n)
     if (nk == 0) {
         snprintf(line, n, "No key");
         return -1;
+    }
+    if (set >= 0 && set < c->desc->nsettings && padkey_row(c->desc->settings[set])) {         // T232: pad-key row: the key's matrix place picks the list entry
+        if (got.restore) {                                  // RESTORE has no matrix place, so it is no entry of the list (it said "No key" before)
+            snprintf(line, n, "%s", PADKEY_NOT_AVAILABLE);
+            return -1;
+        }
+        return padkey_learn_value(got.k, line, n);
     }
     if (hk_learn_is_modifier(c, set)) {
         for (int p = 1; p < NPRE; p++) {

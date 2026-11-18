@@ -348,7 +348,7 @@ private:
     bool entry_text_mode_;
     const Task *entry_task_;
     LineEdit entry_le_;                                            // the text being typed: buffer, cursor, limit and window (app/edit; T180 D8)
-    int learn_ = -1;                                               // T207: >= 0: the hotkey item (setting index) whose key is learned from the physical keys; entry_ is up
+    int learn_ = -1;                                               // T207: >= 0: the hotkey item or pad-key row (setting index) whose key is learned from the physical keys; entry_ is up
     HkLearn lrn_;
     void begin_learn(int set);
     bool learn_poll();                                             // one look at the physical keys while learn_ is up; true: the screen changed

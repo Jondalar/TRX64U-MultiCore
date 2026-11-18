@@ -1,6 +1,6 @@
 # T232 — A pad or joystick can press any letter key, chosen by pressing it, so a game on IJKL (or WASD) plays from a USB pad
 
-**Status:** IN PROGRESS (2026-11-16, Alex). Order (Alex 2026-11-17): T228, T235, T234, then this, then the CPC (T233).
+**Status:** MERGED 2026-11-18, after release 0.2.0; S4 (the board with a USB pad) open. Order (Alex 2026-11-17): T228, T235, T234, then this, then the CPC (T233).
 **Repo:** TRX64U-MultiCore — the generic core application (`coreapp/src/padkeys.h`, the input tab, the hotkey learn path); no core
 RTL, no per-core C.
 **Number:** T232.
@@ -34,7 +34,7 @@ I, J, K and L are not in the list, so a game that plays on IJKL cannot be set up
 |---|---|---|---|
 | S1 | P1 | Given the PET with Pad up/down/left/right set to I, K, J, L, when the pad's up is held, the core gets the key code of I (`col*8+row` of the C64 matrix, the code the PET translates), released with the pad | coreapp unit (happy path) on the same function the board uses |
 | S2 | P1 | On the Input tab, every letter A-Z is offered. The old names and defaults are unchanged, and a stored `.cfg` value from T216 still loads as the same key | coreapp unit + ue2emu pictures of the Input tab |
-| S3 | P2 | On a pad-key row, RETURN asks for a key. The person presses L on the USB keyboard and the row reads "L"; ESC leaves the old value | ue2emu step + pictures, ux-review PASS |
+| S3 | P2 | On a pad-key row, RETURN asks for a key. The person presses L on the C64 keyboard and the row reads "L"; ESC leaves the old value (the USB keyboard: T237, Alex 2026-11-18 "B") | ue2emu step + pictures, ux-review PASS |
 | S4 | P1, P2 | On the board with a USB pad, up/left/down/right press I/J/K/L in a PET game and the game moves | board step by hand, with T216's pending USB pad test |
 
 ## §3 Decision
@@ -76,3 +76,13 @@ I, J, K and L are not in the list, so a game that plays on IJKL cannot be set up
 - "Key Stop" cannot be learned (RUN/STOP and ESC cancel the learn); it stays reachable with LEFT/RIGHT.
 - **Open:** S4, the board with a USB pad. The ux-review's two inherited findings (the "ESC cancels" wording twice, the foot spacing)
   belong to the hotkey learn and are not changed here.
+- **Merge onto main (2026-11-18, after release 0.2.0):** main (T228) merged into t232-padkeys (7d1320a23). Three conflicts: the tab
+  foot takes T228's words (T212 D16) and a pad-key row says "RETURN  LEARN KEY   <- ->  CHANGE", as a learn row on a page does;
+  both new test blocks of `test_hotkeys.cc` (T232, T228) are kept; `keywalk.txt` is made again by the test (UPDATE_GOLDEN=1).
+- **Review before the merge (2026-11-18, two reviewers):** the learn never sees a USB keyboard on the board: `hk_usb_keys()` is
+  written only by a USB matrix filter that has no matrix to run on, so only the C64 keyboard is learned (inherited from T207; the
+  unit test and the ue2emu step press C64 matrix keys). Alex, between "A: repair now" and "B: merge with the C64 keyboard, the USB
+  learn as its own item together with T207": "B". S3 names the C64 keyboard; the USB learn is T237. Fixed from the review: the pad
+  row's foot names `<- ->  CHANGE`; RESTORE at the learn says "That key is not available ..." (it said "No key"); the one-poll
+  SHIFT + cursor test starts from another value and checks the learn ended clean, the right SHIFT (matrix 52) and RESTORE are
+  checked; the ue2emu feature asserts the foot and "Cancelled" after RUN/STOP; manual 11.19.5 names the letters and RETURN.
