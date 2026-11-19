@@ -26,6 +26,14 @@ Open (one line, as in the TODO table): Spec PROPOSED 11-19; tools copied (dis658
     the mirror table and its index (`scpu_mem.v:148-160`, VICE `scpu64mem.c:81-86` and `:1472-1475`); the speed (`scpu_mem.v:107`, VICE
     `scpu64mem.c:734`, `:742`). In the comment's order (`$D07F`, `$D074`, `$D07E`) both ignore the `$D074` write. What remains is "hardware
     registers on": 20 MHz whatever the switch, the map index bit `hw`, the vector reroute (`scpu_mem.v:140`).
+  - "Hardware registers on" sends every emulation-mode IRQ through the SuperCPU ROM (`scpu64`, SHA-256 `1ca7732d7d61d1e6...`, read with
+    `tools/dis65816`): vector `$F8:FFFE` = `$FC94` = `JML $008054`; the handler builds code on the stack and switches registers and map
+    inside the IRQ (`$D073`, `$D0BF`, then `$D07E`, `$D0B7`, `$D0B6`, `$D07F` around the KERNAL's `JMP ($FFFE)`, `$D0BC` and `$D0B2`
+    restored on the way out). Metal Dust (T208) never ran this path (native mode, its own vectors).
+  - A deviation from VICE, read from the code: a write to `$D200-$D3FF` (the SuperCPU's I/O RAM) lands in VICE only with the hardware
+    registers on (`$D27E` always) and only in the SuperCPU's SRAM (`scpu64mem.c:838-855`); here it lands always (`scpu_mem.v:193`) and,
+    because its class is a RAM write inside the mirror window, also in the C64 RAM at `$D200-$D3FF` (`scpu_mem.v:220`). The ROM writes
+    there in its reset and RAM test (`$F8:815D-81EE`), not in the IRQ path.
   - Boom +4's packed file holds `SEI; STA $D07A; LDX #$FF; TXS` as plain bytes (a program start; `$D07A` = software 1 MHz); the decruncher
     before it runs at 20 MHz. Boom +2 holds `DEC $D0B6` (bootmap off, needs the hardware registers on) in its unpacked part.
 - **Parts:**
