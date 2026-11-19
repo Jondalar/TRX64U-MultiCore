@@ -12,7 +12,7 @@ repo already) and the other cores I do not know yet. Plus a registry for cores a
 **Depends on:** T192 and T213 (app layers, D24), T221 (SemVer per deliverable), T238 (support model), T100 D8 (releases on GitHub).
 **Milestone:** after release 0.2.0.
 
-Open (one line, as in the TODO table): PROPOSED 11-19; D1 vision, D2 SDK builds DFX + large, gateware = platform; open: rebuilds, registry
+Open (one line, as in the TODO table): PROPOSED 11-19; D1-D4 (vision, SDK DFX+large, red, maintainer rebuilds); open: repos, registry
 
 ---
 
@@ -51,6 +51,13 @@ Written after the decisions.
   host + bitstream, so someone can build their DFX core against it ... everything is open source" and the consequence above:
   "Ja, das heisst es" (yes, that is what it means). Large cores stay self-contained (their own host copy, back to the host menu
   by IPROG to flash address 0, `coreapp/src/hw.cc:498`).
+- **D3 (Alex, 2026-11-19): a DFX core that does not fit the installed host stays visible, marked red.** Asked whether such a core
+  disappears from the list: "They do not disappear, they are red" (translated).
+- **D4 (Alex, 2026-11-19): the maintainer of a core builds it again for a new platform; no central rebuild of other people's
+  cores.** Alex (translated): "Only someone who has Vivado can build himself and develop a core" (with a community core
+  developer as the example). Asked against a central rebuild in our CI (other people's Tcl on our builder) and a mix.
+- Idea under discussion (Alex, 2026-11-19, translated): "We could take cores into the monorepo/subrepos, the maintainer could
+  build himself." Not decided yet.
 
 ## §4 Out
 
