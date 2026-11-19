@@ -99,3 +99,13 @@ Open.
   BASIC goes on with the registers off. Where exactly is open (S3).
 - Alex on CSDb 5043 (translated): "the problem in the other version is, in my opinion, the intro". The two releases show two symptoms:
   the DMAgic intro's pixel data (photo on #108), Master's game timing and freeze (video above).
+
+### 2026-11-19: the DMAgic intro (CSDb 5043) on the board (Alex, video, kept outside the repository)
+- Alex (translated): "The intro is 'broken' .. in my opinion that points to a timing error with the VIC."
+- Read from the frames (2 per second, 8.8 s): the outline of the "DMAgic" logo stays; its fill and the whole picture below change from
+  frame to frame (bars, dots, a black block, half-drawn rows). Wrong data that stays put would look the same in every frame; this moves.
+- A mechanism in the core that fits, read from the code, not measured: the 65816's memory is the DDR2 behind an 8 KiB cache; a cycle whose
+  line is not in the cache withholds the CPU's enable (`ok`/`mem_ok`, `scpu_mem.v:392-404`), counted in DEV_CYC ("the deviation from the
+  original", register page `0x064`, `c64scpu_regs.v`). At 1 MHz the enable is the PHI2 pulse (`tick = ce_raw`), so a withheld enable costs
+  a whole PHI2 cycle; the real SuperCPU (SRAM) and VICE have no such wait. Code that races the beam drifts against the VIC. No application
+  path reads DEV_CYC or the cache counters today.
