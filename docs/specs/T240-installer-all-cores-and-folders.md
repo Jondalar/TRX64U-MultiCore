@@ -9,9 +9,10 @@ cores and sets up the initial boot menu, and it appears to only add 16 ... when 
 stop at 32)". Alex, 2026-11-19 (translated): "#107 apparently has 16 cores for the initial boot menu fill. And while that is
 being worked on, the folder structures should please be made for every core found at install as well, the one for the ROMs too."
 **Depends on:** T223 D1 (the boot menu holds 32 entries), T148 (the core folder), T135 (the installer writes boot.cfg).
-**Milestone:** after release 0.2.0.
+**Milestone:** release 0.2.1 (Alex, 2026-11-19, translated: "I'll tag it 0.2.1 and we keep collecting"; GitHub has no CI
+yet, so a release is the Gitea tag run plus the GitHub release by hand, T239.1 D1).
 
-Open (one line, as in the TODO table): Emulator S1-S3 PASS 11-19 (s13-s16, control s16 shows #107); board S4 open
+Open (one line, as in the TODO table): Emulator S1-S3 PASS 11-19 (s13-s16, control s16 shows #107); board S4 open; ships in 0.2.1
 
 ---
 
