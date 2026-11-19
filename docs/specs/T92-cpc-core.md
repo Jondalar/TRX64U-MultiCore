@@ -454,7 +454,7 @@ OS464 + BASIC464`, every part 16 KB (README). Frame: the CRTC is programmable; t
   the board is not closed by reading (the benches, without the real `cpc_fdc`/DDR2, never stall it). Cheapest known-good path for
   later: u765 of 66f89900 plus the app's mount with a reset.
 - D-17f (Alex 2026-11-17, after the reading): "Write a spec. If the MiSTer disc controller is that bad, look for another one or repair
-  it. And then build the core again tonight and test it" (translated). The repair is T233 (docs/specs/T233-cpc-fdc-repair.md); its
+  it. And then build the core again tonight and test it" (translated). The repair is T233 (docs/specs/done/T233-cpc-fdc-repair.md); its
   branch builds the CPC again (T233 D7), `main` keeps it out of the pipeline (D-17e) until the board pass.
 - D-17g (lifted 2026-11-18 with T233's board pass, §5; Alex 2026-11-17): "and please take the core out of the docs, completely" (translated). The CPC leaves the README and the
   manual (chapters 11, 12, 15; the sections after 11.13 move up one number); specs, TODO and internal test lists keep it. It comes back

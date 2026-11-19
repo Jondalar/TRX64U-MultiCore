@@ -5,7 +5,7 @@ the changes below, each an exact replacement that must match the upstream file o
 In a static function the initialiser runs once at time 0, which Verilator rejects ("static variable initializer dependent on function I/O")
 and Vivado may take either way; the intent is one evaluation per call, so the declaration is split from the assignment. The benches and the
 synthesis read gen/, never rtl/ (one artifact for both).
-(2) T233 (docs/specs/T233-cpc-fdc-repair.md), on the base of the board-good build 66f89900 (T233 D1):
+(2) T233 (docs/specs/done/T233-cpc-fdc-repair.md), on the base of the board-good build 66f89900 (T233 D1):
   D2  RQM in COMMAND_IDLE no longer waits for a disk scan; a command that reads the image (READ/WRITE DATA, READ TRACK, READ ID) waits in
       COMMAND_WAIT_IMG while its drive's disk event or scan is pending or any scan holds the shared sector buffer (i_scan_lock), and the
       scan may start there as in COMMAND_IDLE.

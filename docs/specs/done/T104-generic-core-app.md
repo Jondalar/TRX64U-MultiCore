@@ -986,7 +986,7 @@ Former heading of D2: "Three layers, and the middle one is meant to be empty (Al
 > - ~~**An application-loader ABI implementation** (D6): the boundary and the refusal path are designed,
 >   nothing is built. The first module to use it will be the Atari's SIO, and only after the five
 >   declarative cores prove that it is the exception (S8).~~ In since D9.4 (2026-10-18): libraries load
->   dynamically through the `.u2a` door; the design is [T104.1](../T104.1-contribution-model.md) D10-D12.
+>   dynamically through the `.u2a` door; the design is [T104.1](T104.1-contribution-model.md) D10-D12.
 
 **Former §5.3 bullets:**
 
