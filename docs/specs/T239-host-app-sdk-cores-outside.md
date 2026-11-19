@@ -12,7 +12,7 @@ repo already) and the other cores I do not know yet. Plus a registry for cores a
 **Depends on:** T192 and T213 (app layers, D24), T221 (SemVer per deliverable), T238 (support model), T100 D8 (releases on GitHub).
 **Milestone:** after release 0.2.0.
 
-Open (one line, as in the TODO table): Epic 11-19; D1-D13; children decided (T239.1 D1-D9, .2 D1-D5, .3 D1-D5, .4 D1-D6); build A next
+Open (one line, as in the TODO table): Epic 11-19; D1-D13; children decided (T239.1 D1-D10, .2 D1-D5, .3 D1-D5, .4 D1-D6); build A next
 
 ---
 
@@ -53,7 +53,7 @@ The children carry the scenarios. Order by D13 (Alex 2026-11-19: "machst Du eine
 | T239.4 | C | The host menu lists the central registry over HTTPS, installs a core or a host update from it, and refuses what does not check out | D3, D5-D9; T239.2, T239.3 | [T239.4](T239.4-registry-tls.md) |
 
 Each child lists its open questions for Alex in its §3; none is built before they are answered. State 2026-11-19, evening: every
-question of every child is answered (T239.1 D1-D9, T239.2 D1-D5, T239.3 D1-D5, T239.4 D1-D6); T239.1 is the next to build.
+question of every child is answered (T239.1 D1-D10, T239.2 D1-D5, T239.3 D1-D5, T239.4 D1-D6); T239.1 is the next to build.
 
 ## §3 Decision
 
