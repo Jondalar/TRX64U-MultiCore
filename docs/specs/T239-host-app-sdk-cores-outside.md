@@ -12,7 +12,7 @@ repo already) and the other cores I do not know yet. Plus a registry for cores a
 **Depends on:** T192 and T213 (app layers, D24), T221 (SemVer per deliverable), T238 (support model), T100 D8 (releases on GitHub).
 **Milestone:** after release 0.2.0.
 
-Open (one line, as in the TODO table): PROPOSED 11-19; D1-D10 (vision, SDK, registry, app core + libraries); open: CI/CD, other cores
+Open (one line, as in the TODO table): PROPOSED 11-19; D1-D11 (SDK, registry, app core + libs, GitHub home); open: other cores, order
 
 ---
 
@@ -101,6 +101,13 @@ Written after the decisions.
   drive library `app/lib/cbm1541/` (T104.1 D15) is source in this repository and built into the core app for VC-20, C264 and
   C64, not loaded; the `.u2a` loader exists (T104.1 D10-D12: `libfmt.h` format 3, `libapi.h`, `lib_register`). D24 stays: no
   per-core code in `coreapp/` or `uicore/`.
+- **D11 (Alex, 2026-11-19): GitHub becomes the development home of host, app and SDK.** Pull requests and CI run there; GitHub
+  Actions uses our builder as a self-hosted runner, Vivado stays on our machine. Gitea keeps only private material as a side
+  repository (ROMs, bench media, session material); the history replay and its filters (`tools/github_snapshot.py`) go away.
+  Asked against "Gitea stays home, GitHub mirrors" and "software on GitHub, gateware on Gitea", with two facts: Vivado does
+  not fit GitHub-hosted runners (tens of GB, AMD's licence lets us not publish the image), and a self-hosted runner on a public
+  repository may build pull requests from forks only after approval. Alex (translated): "Yes, 2 sounds the most sensible."
+  Price: ROMs and bench media leave the tree.
 
 ## §4 Out
 
