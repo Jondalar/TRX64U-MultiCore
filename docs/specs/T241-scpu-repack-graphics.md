@@ -87,3 +87,15 @@ Open.
   nothing moves. Read as: the raster IRQs come at the wrong time, then the IRQ chain dies or the CPU runs off.
 - So the symptom of this program is IRQ timing and a crash, not wrong pixel data like the DMAgic intro of the photo on #108. Agent A
   (S1) got the observation and reads the game's IRQ side with the same weight.
+
+### 2026-11-19: the comment's POKE line on the board (Alex)
+- At READY, `POKE 53375,0:POKE 53364,0:POKE 53374,0` clears the screen and prints `READY.`; the cursor blinks and typing works.
+  A cleared screen with `READY.` is BASIC's warm start (the path of STOP/RESTORE or a BRK through `$0316` = `$FE66`: RESTOR, IOINIT,
+  CINT, `JMP ($A002)`), not the plain `READY.` under the typed line. This is what "not pass in the core" means.
+- Read with it: after `$D07E` the next emulation-mode IRQ goes through the CMD 1.40 handler (`$FC94` = `JML $00FC14`), and with the
+  hardware registers on `$E000-$FFFF` reads class KS (SRAM bank 1 `$6000-$7FFF`, the kernal shadow) instead of KT (bank 1
+  `$E000-$FFFF`): `scpu_cfgtab.txt` rows `0x07` and `0x27`, equal to VICE (`scpu64_kernalshadow_read` = `mem_sram[0x8000 + addr]`,
+  `scpu64mem.c:406-410`). Somewhere on that path the core reaches the warm start; the handler wrote `$D07F` before the KERNAL IRQ, so
+  BASIC goes on with the registers off. Where exactly is open (S3).
+- Alex on CSDb 5043 (translated): "the problem in the other version is, in my opinion, the intro". The two releases show two symptoms:
+  the DMAgic intro's pixel data (photo on #108), Master's game timing and freeze (video above).
