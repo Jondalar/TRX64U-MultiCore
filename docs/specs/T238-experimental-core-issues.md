@@ -75,6 +75,8 @@ Scenarios for P2-P5 follow their decisions.
   the files), the report file (as D3); optional: photo or video, anything else. Asked against "report optional" and "without
   diag and demos"; Alex chose "Ohne Diag und Demos" (without diag and demos). The core list is the shipped cores minus the
   supported areas minus `diag`, `ddt_mandel` and `ddt_novic`: 15 in 0.2.0. The lint names the three exceptions.
+  The exception is the issue form's list only: every core stays in the CI and in the package (Alex 2026-11-19, translated: "and
+  please do not take any core out of the CI and the package building").
 - **D5 (Alex, 2026-11-19): the `CONTRIBUTING.md` text as proposed** ("Ja"): "What we do not support" becomes "Experimental cores"
   (the 15 cores, no guarantee, the form, the triage steps of D2, demos and Port Diagnostics in Discussions, pull requests welcome
   for every core); "What an issue must contain" names the release example `0.2.0`, the core and its width, the report file and
