@@ -12,7 +12,7 @@ repo already) and the other cores I do not know yet. Plus a registry for cores a
 **Depends on:** T192 and T213 (app layers, D24), T221 (SemVer per deliverable), T238 (support model), T100 D8 (releases on GitHub).
 **Milestone:** after release 0.2.0.
 
-Open (one line, as in the TODO table): PROPOSED 11-19 (Alex vision D1); open: DFX or large outside, other cores, registry, CI/CD
+Open (one line, as in the TODO table): PROPOSED 11-19; D1 vision, D2 SDK builds DFX + large, gateware = platform; open: rebuilds, registry
 
 ---
 
@@ -41,6 +41,16 @@ Written after the decisions.
 
 - **D1 (Alex, 2026-11-19): the vision.** This repository builds host + app + SDK. The TRX64 core moves out to TRX64-Ultimate. A
   registry offers the host and the cores centrally, as a convenience. Large cores may come from anywhere. Open: the other cores.
+- **D2 (Alex, 2026-11-19): the SDK builds outside cores of both kinds; the host gateware becomes a platform.** Outside DFX cores
+  are built like ours: `host/core.tcl` routes the core into the partition of the host's `static_routed.dcp` (TRX_HOST_DCP). So
+  the SDK ships, per release of the host gateware, exactly that checkpoint (today it lives only in the builder cache), with
+  `host/core.tcl`, the contract (`contract/`) and a `core_sources.tcl` template; Vivado 2024.1 as the checkpoint's. A partial fits
+  one host build only: the host refuses a manifest `host_key` of another build (`host-app/software/hostapp/cor.cc:285`, T84
+  D5b). So the host gateware changes rarely, and every change means all DFX cores are built again; host app and core app
+  releases do not touch it. The registry records per DFX core the host key it fits. Alex, on "the charm of DFX is that we ship
+  host + bitstream, so someone can build their DFX core against it ... everything is open source" and the consequence above:
+  "Ja, das heisst es" (yes, that is what it means). Large cores stay self-contained (their own host copy, back to the host menu
+  by IPROG to flash address 0, `coreapp/src/hw.cc:498`).
 
 ## §4 Out
 
