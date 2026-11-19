@@ -14,7 +14,7 @@ discussion stays open for 2-3 days.
 **Depends on:** T161 (the issue forms and their lint).
 **Milestone:** after release 0.2.0.
 
-Open (one line, as in the TODO table): PROPOSED 11-19 (Alex); D1 own form, D2 one-program faults closed (edge-case); roles, texts open
+Open (one line, as in the TODO table): PROPOSED 11-19 (Alex); D1 own form, D2 edge-case closed, D3 photo optional; fields, texts open
 
 ---
 
@@ -60,7 +60,14 @@ Scenarios for P2-P5 follow their decisions.
   across several programs or as a general fault sets `confirmed` (open); missing information gets `needs-info` (open); one
   program or demo or rare hardware gets `edge-case` and is closed: it stays searchable and is reopened when more programs show the
   same fault. Alex picks his work from `confirmed`.
-- Open: P2 wording, P3 roles, P4 text, P5 changes, when it goes to GitHub (#103 runs 2-3 days).
+- **D3 (Alex, 2026-11-19): in the bug form the report file stays required, the photo or video becomes optional.** Asked with
+  #107's filler texts and three ways (report required and photo optional / both required as T161 / both optional); Alex chose
+  "Report Pflicht, Foto optional" (report required, photo optional). The photo field says it is needed when the fault shows on the
+  screen (GitHub forms have no conditional requirement); the report field names F8 "Bug report", `/SD/report/<date>.txt` and
+  `http://<board>/v1/report` without "once your release has it" (T162 ships since 0.2.0). Changes T161 §1 P1 (photos required).
+- P3 roles (read 2026-11-19): the 7 testers have the GitHub role Write, which already sets labels and closes issues; no change is
+  needed for the triage. Write also allows pushes; the role "Triage" would be enough. That is Alex's setting, outside this spec.
+- Open: P2 wording, P4 text, the experimental form's fields, when it goes to GitHub (#103 runs 2-3 days).
 
 ## §4 Out
 
