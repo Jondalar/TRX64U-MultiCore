@@ -125,3 +125,8 @@ Open.
 - Fits the video: if the core's 1 MHz CPU is slower than a 6510, the logic IRQ overruns, the next frame's IRQs come late (HUD with the
   playfield's scroll, multiplexer rows late, a sprite left on the HUD) until the chain dies. Mechanism candidate, read not measured: the
   withheld enables of DEV_CYC (entry above). Open: a measurement of DEV_CYC / the cycles from `$588C` to `RTI` per frame on the core.
+
+### 2026-11-19: 1 MHz timing on the board (Alex)
+- `T=TI:FORI=1TO5000:A=I*I+A:NEXT:PRINTTI-T`, PAL, screen on: C64 core of Gideon's firmware 3.15a **1865**; this core after `POKE53370,0`
+  (software 1 MHz) **1871** (+0.3 %). Plain code at 1 MHz runs at the C64's speed here: the withheld enables do not make it slow. The
+  mechanism of the DMAgic entry above is not the cause for code like this; the run had the reset mirror mode (`$0200-$FFFF`) and no sprites.
