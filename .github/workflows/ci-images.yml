@@ -1,0 +1,110 @@
+name: CI images
+
+# T239.1 D12, D23: the build image and the emulator image of GitHub's runners, pushed to ghcr.io with GITHUB_TOKEN. A push builds them when a
+# Dockerfile of them or this file changes; by hand on request. Every action is pinned by its full commit SHA (the tag is in the comment).
+on:
+  push:
+    paths:
+      - ci/build/Dockerfile
+      - ci/emu/Dockerfile
+      - .github/workflows/ci-images.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-images-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image: ${{ steps.name.outputs.build }}
+      digest: ${{ steps.push.outputs.digest }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683   # v4.2.2
+      - name: Image names
+        id: name
+        run: |
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          echo "build=ghcr.io/${owner}/trx64u-build" >> "$GITHUB_OUTPUT"
+          echo "emu=ghcr.io/${owner}/trx64u-emu" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e   # v4.3.0
+      - uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6   # v4.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push
+        id: push
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a   # v7.3.0
+        with:
+          context: ci/build
+          file: ci/build/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.name.outputs.build }}:ci
+            ${{ steps.name.outputs.build }}:${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+      - name: Proof, the compiler of D12
+        env:
+          IMAGE: ${{ steps.name.outputs.build }}@${{ steps.push.outputs.digest }}
+        run: |
+          out="$(docker run --rm "$IMAGE" riscv32-unknown-elf-gcc --version)"
+          printf '%s\n' "$out"
+          printf '%s\n' "$out" | head -n 1 | grep -F ' 11.3.0'
+          docker run --rm "$IMAGE" sh -c 'c++ --version | head -1; make --version | head -1; python3 --version; ccache --version | head -1'
+
+  emu:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683   # v4.2.2
+      - name: Image names
+        id: name
+        run: |
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          echo "emu=ghcr.io/${owner}/trx64u-emu" >> "$GITHUB_OUTPUT"
+          echo "tag=$(sed -n 's/^ARG UE2EMU_TAG=//p' ci/emu/Dockerfile)" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e   # v4.3.0
+      - uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6   # v4.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push
+        id: push
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a   # v7.3.0
+        with:
+          context: ci/emu
+          file: ci/emu/Dockerfile
+          push: true
+          build-args: |
+            BASE=${{ needs.build.outputs.image }}@${{ needs.build.outputs.digest }}
+          tags: |
+            ${{ steps.name.outputs.emu }}:${{ steps.name.outputs.tag }}
+            ${{ steps.name.outputs.emu }}:${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+      - name: Proof, the emulator
+        env:
+          IMAGE: ${{ steps.name.outputs.emu }}@${{ steps.push.outputs.digest }}
+          TAG: ${{ steps.name.outputs.tag }}
+        run: |
+          out="$(docker run --rm "$IMAGE" ue2emu --version)"
+          printf '%s\n' "$out"
+          [ "$out" = "ue2emu ${TAG#v}" ]
+          docker run --rm "$IMAGE" riscv32-unknown-elf-gcc --version | head -n 1 | grep -F ' 11.3.0'
