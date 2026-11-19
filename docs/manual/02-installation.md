@@ -48,7 +48,7 @@ bundle, the `.cor` of the old firmware and the files that you copy. The updater 
 2.3.2 Copy the `.ue2` to the medium. Copy the `.cor` files of the release into the **same folder** as the `.ue2`.
 
 2.3.3 The updater searches the media for the `.ue2` or `.cfw` of this very package (the root of each medium and up to three folder levels). It copies every `.cor`, `.cfw`
-and `.u2a` that lies in the same folder to the chosen medium (up to 24 files in all): `.cor` and `.cfw` to `cores`, `.u2a` to `cores/apps`. It does not copy a file whose name starts
+and `.u2a` that lies in the same folder to the chosen medium (up to 64 files in all): `.cor` and `.cfw` to `cores`, `.u2a` to `cores/apps`. It does not copy a file whose name starts
 with `trx64host_update`, `trx64_update` or `trxbk`, and not the installer itself.
 
 ## 2.4 Install the host
@@ -97,16 +97,17 @@ writes the flash:
 | `TRXBK_<date>_nnn.CFW` | An installable package of the previous state: bitstream, application and the configuration pages (2.5) |
 | `<vendor>-<version>.cor` | The previous firmware as a large `.cor` (for example `commodore-110.cor`). The boot menu shows it with the badge `backup` |
 | The `.cor` and `.cfw` files from the folder of the `.ue2` | The cores of the release (2.3.3). A file that exists with the same content is skipped |
+| `<medium>/cores/<name>/`, with `roms/`, `saves/` and `configs/` | The core folder (2.7.1) of every `.cor` the updater copied, and of the backup `.cor`. A folder that exists stays as it is. A `.cfw` file gets none |
 | `<medium>/cores/apps/*.u2a` | The applications from the folder of the `.ue2` (`unzip.u2a`, `miniz.u2a`). They are not menu entries |
 
-The updater ends the copy with `Files: n copied, n same, n failed`. If a file failed it asks `Not every file could be copied. Go on anyway?`.
+The updater ends the copy with `Files: n copied, n same, n failed`. If a file failed it asks `Not every file could be copied. Go on anyway?`. If the folder holds more files than the updater takes (64), it shows `n more file(s) left out`. It shows `Core folders: n, m could not be made`.
 
 2.4.5 `<date>` is the date of the board's clock (`YYYYMMDD`). With no valid date, the names are `TRXBKnnn.BIN` and `TRXBKnnn.CFW`. The name of
 the `.cor` is the vendor and the version of the old firmware without dots (for example `commodore-110.cor`, `gideon-315.cor`; a version that starts with another digit gives `firmware-<version>.cor`). If the
 updater cannot read the version, the name is `backup<date>.cor` (`backup20261113.cor`; `backup.cor` with no date) and the entry shows `Backup <date>`. `nnn` counts up from 000, so a new backup never replaces an older one. After each file the updater reads it back and compares it.
 
 2.4.6 The updater writes `Flash:/boot.cfg` (the boot menu, 8.9). The old `boot.cfg` of an earlier install is kept as `boot.cfg.bak`. The new
-file holds: countdown 5, direct boot on, the backup `.cor` as the default (entry 1), and one entry for every copied core. If it cannot
+file holds: countdown 5, direct boot on, the backup `.cor` as the default (entry 1), and one entry for every copied core, up to 32 entries. If more cores were copied, it shows `n core(s) not added: the menu holds 32.` If it cannot
 write `boot.cfg`, it asks `Flash:/boot.cfg cannot be written. The cores stay on the medium. Go on anyway?`
 
 2.4.7 If the backup cannot be written, the updater shows `The backup could not be written. Nothing is written to the flash.` and returns to
@@ -152,7 +153,7 @@ are in 4.7.
 /cores/                  the .cor files of the release, the backup .cor, TRXBK_*.BIN and TRXBK_*.CFW
     trx64.cor  vc20.cor  amiga.cor  ...
     apps/                unzip.u2a, miniz.u2a: applications that every core and the File Browser can start
-    <name>/              one folder per core, made by the core at its first start; never part of a release
+    <name>/              one folder per core, made by the installer for every `.cor` it copies, else by the core at its first start; never part of a release
         <name>.cfg       its settings
         roms/            its ROM files (chapter 12)
         saves/           what it saves

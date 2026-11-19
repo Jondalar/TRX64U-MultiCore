@@ -1049,8 +1049,9 @@ static void cfw_seg_add_to(cfw_seg *segs, int *n, uint32_t *cursor, uint32_t len
 #define CORE_APP_ADDR  0x30000u         // cor_pack.py LARGE_APP_ADDR: load and entry of the application of a full bitstream
 #define CORE_IDCODE_50T 0x0362C093u     // cor_pack.py IDCODE_XC7A50T
 #define CORE_MAN_MAX   2048u            // the host reads at most this much manifest
-#define BUNDLE_MAX     24
-#define BOOT_ENTRIES   16               // bootcfg.h BOOT_MAX
+#define BUNDLE_MAX     64               // T240 P2: files of the bundle folder the fill and the copy hold (sizeof(bundle_file) x 64 = 4608 bytes of RAM)
+#define BOOT_ENTRIES   32               // bootcfg.h BOOT_MAX (T223 D1)
+#define BOOT_TEXT_MAX  (BOOT_ENTRIES * 200 + 128)   // a core= line is at most path 95 + name 47 + size, mtime and digest fields: under 200
 
 static bool package_manages_cores(void)
 {
@@ -1370,6 +1371,7 @@ struct bundle_file {
 
 static bundle_file bundle[BUNDLE_MAX];
 static int bundle_n;
+static int bundle_left_out;          // T240 P2: files of the folder that matched but did not fit into bundle[]
 static char bundle_dir[96];
 
 // The bytes of this update file from the first byte of its record: the updater code in front of the manifest, then the blobs.
@@ -1434,14 +1436,19 @@ static bool find_bundle(const char *dir, int depth, bool *found)
     }
     if (here) {
         bundle_n = 0;
+        bundle_left_out = 0;
         snprintf(bundle_dir, sizeof(bundle_dir), "%s", dir);
         for (int i = 0; i < ents.get_elements(); i++) {
             FileInfo *fi = ents[i];
             if ((fi->attrib & AM_DIR) || (!ext_is(fi, "COR") && !ext_is(fi, "CFW") && !ext_is(fi, "U2A")) || is_update_name(fi->lfname) || strlen(fi->lfname) >= sizeof(bundle[0].name) ||
-                fi->size == 0 || fi->size > 0xFFFFFFF0ull || bundle_n >= BUNDLE_MAX) {
+                fi->size == 0 || fi->size > 0xFFFFFFF0ull) {
                 continue;
             }
             if (ext_is(fi, "CFW") && is_this_package(dir, fi->lfname, fi->size)) {
+                continue;
+            }
+            if (bundle_n >= BUNDLE_MAX) {                    // T240 P2: a file the copy would need but has no room for is counted, and the screen says so
+                bundle_left_out++;
                 continue;
             }
             snprintf(bundle[bundle_n].name, sizeof(bundle[0].name), "%s", fi->lfname);
@@ -1634,10 +1641,13 @@ struct cfg_entry {
 
 static cfg_entry cfg_ent[BOOT_ENTRIES];
 static int cfg_n;
+static int cfg_dropped;              // T240 P1: cores that did not fit into the menu
+static int core_folders, core_folders_failed;   // T240 P3: core folders made or found, and the ones that could not be made
 
 static void cfg_add(const char *name, const char *dir, const char *file, uint32_t size)
 {
     if (cfg_n >= BOOT_ENTRIES) {
+        cfg_dropped++;
         return;
     }
     cfg_entry &e = cfg_ent[cfg_n++];
@@ -1650,7 +1660,7 @@ static void cfg_add(const char *name, const char *dir, const char *file, uint32_
 // once at its first start, and an entry without one starts as it is: T135 section 5 "Failure").
 static bool write_boot_cfg(void)
 {
-    static char text[2048];
+    static char text[BOOT_TEXT_MAX];
     int n = snprintf(text, sizeof(text), "# TRX64 boot menu\ncountdown=5\ndirect=1\ndefault=%d\nvideo=-1,-1\n", cfg_n ? 0 : -1);
     for (int i = 0; i < cfg_n && n > 0 && n < (int)sizeof(text); i++) {
         n += snprintf(text + n, sizeof(text) - n, "core=%s|%s||%u|0|00000000\n", cfg_ent[i].path, cfg_ent[i].name, (unsigned)cfg_ent[i].size);
@@ -1669,7 +1679,7 @@ static bool write_boot_cfg(void)
     if (fm->save_file(true, BOOT_CFG_DIR, BOOT_CFG_NAME, (const uint8_t *)text, n, &tr) != FR_OK || tr != (uint32_t)n) {
         return false;
     }
-    static char back[2048];                                                // read it back
+    static char back[BOOT_TEXT_MAX];                                              // read it back
     uint32_t got = 0;
     memset(back, 0, sizeof(back));
     return fm->load_file(BOOT_CFG_DIR, BOOT_CFG_NAME, (uint8_t *)back, sizeof(back) - 1, &got) == FR_OK && got == (uint32_t)n && !memcmp(back, text, n);
@@ -1680,11 +1690,38 @@ static void mb_text(char *out, int n, uint32_t bytes)
     snprintf(out, n, "%d.%d MB", (int)(bytes / 1000000), (int)((bytes / 100000) % 10));
 }
 
+// T240 P3: the core folder of <dir>/<file> (a .cor): <dir>/<name>/ with roms/, saves/ and configs/, the set coreapp/src/corefolder.cc
+// corefolder_ensure() makes (T148, T198 D10). What exists stays. Returns false after saying on the screen which folder could not be made.
+static bool make_core_folder(const char *dir, const char *file)
+{
+    char base[200];
+    int n = snprintf(base, sizeof(base), "%s/%s", dir, file);
+    if (n <= 4 || n >= (int)sizeof(base) - 10) {
+        console_print(screen, C_BAD "No core folder for %s: name too long\n" C_NORM, file);
+        return false;
+    }
+    base[n - 4] = 0;                                          // without ".cor"
+    static const char *const subs[] = { "", "/roms", "/saves", "/configs" };
+    FileManager *fm = FileManager::getFileManager();
+    bool ok = true;
+    for (int i = 0; i < 4 && ok; i++) {
+        char p[216];
+        snprintf(p, sizeof(p), "%s%s", base, subs[i]);
+        FRESULT r = fm->create_dir(p);
+        if (r != FR_OK && r != FR_EXIST) {
+            console_print(screen, C_BAD "Cannot create %s: %s\n" C_NORM, p, FileSystem::get_error_string(r));
+            ok = false;
+        }
+    }
+    return ok;
+}
+
 // false = the person cancelled (nothing is written to the flash yet)
 static bool install_cores(Flash *fl, uint32_t installed_axss)
 {
     char t[24], msg[96];
     cfg_n = 0;
+    cfg_dropped = 0;
     bk_date_init();
     cfw_prepare(fl);                                          // what the flash holds, as a restore bundle (the .CFW beside the raw backup)
     if (!plan.ok) {
@@ -1702,6 +1739,9 @@ static bool install_cores(Flash *fl, uint32_t installed_axss)
     }
     if (locate_bundle()) {
         console_print(screen, "Firmware files beside the update file:\n  %s, %d file(s)\n", bundle_dir, bundle_n);
+        if (bundle_left_out) {
+            console_print(screen, C_BAD "%d more file(s) left out: the updater takes %d.\n" C_NORM, bundle_left_out, BUNDLE_MAX);
+        }
     } else {
         console_print(screen, C_BAD "The update file was not found on SD or USB,\nso no firmware files are copied.\n" C_NORM);
     }
@@ -1770,6 +1810,8 @@ static bool install_cores(Flash *fl, uint32_t installed_axss)
         strcpy(backup_name, bname);
         console_print(screen, C_OK "Backup %s\n  CRC32 %08X  CHK %08X\n" C_NORM, bname, bs.crc, bs.chk);
     }
+    core_folders = 0;                                         // T240 P3: core folders made or found, and the ones that could not be made
+    core_folders_failed = 0;
     if (have_cor) {
         char file[40];
         snprintf(file, sizeof(file), "%s.cor", cplan.stem);
@@ -1780,6 +1822,10 @@ static bool install_cores(Flash *fl, uint32_t installed_axss)
             return false;
         }
         cfg_add(cplan.name, cores, file, cplan.total);
+        if (!make_core_folder(cores, file)) {
+            core_folders_failed++;
+        }
+        core_folders++;
     }
     int copied = 0, same = 0, failed = 0;
     for (int i = 0; i < bundle_n; i++) {
@@ -1813,11 +1859,20 @@ static bool install_cores(Flash *fl, uint32_t installed_axss)
         if (bundle[i].is_app) {
             continue;
         }
+        if (bundle[i].is_cor) {                              // T240 P3: every .cor is a core with a T148 folder; a vendor .cfw is none
+            if (!make_core_folder(cores, bundle[i].name)) {
+                core_folders_failed++;
+            }
+            core_folders++;
+        }
         char en[48];
         entry_name(cores, bundle[i], en, sizeof(en));
         cfg_add(en, cores, bundle[i].name, bundle[i].size);
     }
     console_print(screen, "                                        \rFiles: %d copied, %d same, %d failed\n", copied, same, failed);
+    if (core_folders) {
+        console_print(screen, "Core folders: %d, %d could not be made\n", core_folders, core_folders_failed);
+    }
     if (failed) {
         const char *names[] = { " No ", " Yes " };
         if (user_interface->popup("Not every file could be copied.\nGo on anyway?", 2, names, "ny") != 2) {
@@ -1832,6 +1887,9 @@ static bool install_cores(Flash *fl, uint32_t installed_axss)
         }
     } else {
         console_print(screen, C_OK "boot.cfg written, %d entr%s.\nDefault: %s\n" C_NORM, cfg_n, cfg_n == 1 ? "y" : "ies", have_cor ? cplan.name : "(none)");
+        if (cfg_dropped) {                                   // T240 P1: more cores than the boot menu holds
+            console_print(screen, C_BAD "%d core(s) not added: the menu holds %d.\n" C_NORM, cfg_dropped, BOOT_ENTRIES);
+        }
     }
     return true;
 }
@@ -2190,6 +2248,15 @@ void do_update(void)
         console_print(screen, C_OK "\n%s OK, installed %s%s\n" C_NORM, restoring ? "Restore" : "Update", pkg_id, restore_cfg ? " with settings" : "");
         if (setup_machine && cplan.ok) {
             console_print(screen, "First start: %s\nC= at power-on shows the menu.\n", cplan.name);
+        }
+        if (cfg_n || core_folders) {                          // T240: the copy phase's lines are gone by now; the result stays on this screen
+            console_print(screen, "Boot menu: %d entr%s\n", cfg_n, cfg_n == 1 ? "y" : "ies");
+            if (cfg_dropped) {
+                console_print(screen, C_BAD "%d core(s) not added: the menu holds %d.\n" C_NORM, cfg_dropped, BOOT_ENTRIES);
+            }
+            if (core_folders) {
+                console_print(screen, "Core folders: %d, %d could not be made\n", core_folders, core_folders_failed);
+            }
         }
     }
 

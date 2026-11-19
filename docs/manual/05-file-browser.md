@@ -159,7 +159,7 @@ date. The host compares the bitstream with the flash file at every start.
 | `refused: routed against host <key>, this host is <key>` | The `.cor` was built for another host bitstream |
 | `refused: not a usable bundle` | The file is damaged or not a bundle |
 | `refused: <reason>` | The firmware image is not usable, or a large `.cor` failed the check |
-| `cannot add: the menu is full or the name has a '|'` | The menu holds 16 entries, or the name has the character `\|` |
+| `cannot add: the menu is full or the name has a '|'` | The menu holds 32 entries, or the name has the character `\|` |
 
 ## 5.5 Start once
 

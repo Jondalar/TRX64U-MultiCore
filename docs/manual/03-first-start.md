@@ -37,7 +37,7 @@ contract (`contract`), the key of the host bitstream (`host <key>`) and the vers
 3. Select the `.cor` or `.cfw`. The right panel shows the manifest of the file (5.3).
 4. Press **A**.
 
-3.3.2 The host checks the bundle (SHA-256 and host contract). The note line reads `<name> is in the boot menu`. The menu holds up to 16
+3.3.2 The host checks the bundle (SHA-256 and host contract). The note line reads `<name> is in the boot menu`. The menu holds up to 32
 entries.
 
 3.3.3 The host refuses a bundle that is built for another host contract or routed against another host. The note line says why (5.4.5).
