@@ -113,6 +113,10 @@ Written after the decisions.
   moves it to his own repository, from where it comes through the registry (D5). Alex, on "stay as reference cores" versus "stay
   until adopted, then move": "1 und 2 widerspricht sich doch gar nicht" (1 and 2 do not contradict each other), then "Ja" to
   the combination.
+- **D13 (Alex, 2026-11-19): the order of work is A, D, B, C.** A: GitHub becomes the home (D11). D: the platform checkpoint is
+  published with each host gateware release (D2). B: the app core with its API for sub-apps and libraries, the SDK cut (D10).
+  C: the registry with TLS in the host and the TRNG in the null core (D6-D8). Reason given with the question: after A nothing
+  has to go through the export any more. Alex: "passt" (fits), and asked for an epic with the todos as specs.
 
 ## §4 Out
 
