@@ -2,7 +2,7 @@
 
 ## 11.1 General
 
-11.1.1 This chapter lists each core that is built into a release set: the machine, the ROMs it needs, the media it takes, the rows of its menu, and its state. Every core is experimental; the state of each core is in its section below and in the [core table on GitHub Discussions](https://github.com/Jondalar/TRX64U-MultiCore/discussions/66). A core with `build_only = true` (the C64 with SuperCPU, 11.20) is built for the board but never packed into a release.
+11.1.1 This chapter lists each core that is built into a release set: the machine, the ROMs it needs, the media it takes, the rows of its menu, and its state. Every core is experimental; the state of each core is in its section below and in the [core table on GitHub Discussions](https://github.com/Jondalar/TRX64U-MultiCore/discussions/66).
 
 11.1.2 **Open the menu.** `trx64g.cor` shows the Ultimate menu: press the Menu button on the board, pick a
 file, press **ENTER**. All other cores, `trx64u.cor` included, use the common core menu. Open it with the Menu button on the board, with

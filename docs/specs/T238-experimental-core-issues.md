@@ -14,7 +14,7 @@ discussion stays open for 2-3 days.
 **Depends on:** T161 (the issue forms and their lint).
 **Milestone:** after release 0.2.0.
 
-Open (one line, as in the TODO table): Built on main 11-19 (D1-D4, text OK); GitHub push + 4 labels wait for Alex's go (#103)
+Open (one line, as in the TODO table): Built 11-19 (D1-D6); to GitHub now as interim, adjusted after discussion #103
 
 ---
 
@@ -79,11 +79,14 @@ Scenarios for P2-P5 follow their decisions.
   (the 15 cores, no guarantee, the form, the triage steps of D2, demos and Port Diagnostics in Discussions, pull requests welcome
   for every core); "What an issue must contain" names the release example `0.2.0`, the core and its width, the report file and
   photos when the fault shows on the screen.
-- Open: when it goes to GitHub (#103 runs 2-3 days).
+- **D6 (Alex, 2026-11-19): to GitHub now, as built; adjusted after discussion #103.** Asked "right after the review, or after
+  #103?", Alex (translated): "No - this goes to GitHub as it is. And then we adjust it again." The go covers the snapshot push
+  (everything on main since the last export) and the four labels.
 
 ## §4 Out
 
-Nothing decided yet.
+Nothing is left out. The feature form stays as it is (not part of the request). Changes from discussion #103 come as a
+new decision here.
 
 ## §5 Built
 
@@ -95,5 +98,8 @@ Nothing decided yet.
   intro names the report file instead of the photos. `tools/check_issue_forms.py`: the experimental form must exist; its core
   list equals the shipped cores (`tools/core_toml.py`, the filter of `tools/gen_roms_txt.py`) minus the supported areas minus
   `EXCLUDED` (`diag`, `ddt_mandel`, `ddt_novic`); the photos are optional in both forms; five controls. `CONTRIBUTING.md` (D5).
-- **Open on GitHub (Alex's go):** the snapshot push, and the labels `triage`, `confirmed`, `needs-info`, `edge-case` (a label a
-  form names that does not exist in the repository is not set; `experimentalCore` exists). Date: after #103 (2-3 days)?
+- **Review 2026-11-19 (agent, before the push):** no blockers; the manual's 11.1.1 still called the SuperCPU core `build_only`
+  (wrong since 2026-11-18), fixed in the same push. Kept: the bug form's "Area" field keeps the id `core` (T161); the lint stays
+  without a YAML library (the lint image carries none; a Ruby parse by hand checked the files).
+- **GitHub (D6):** the snapshot push, and the labels `triage`, `confirmed`, `needs-info`, `edge-case` (a label a form names that
+  does not exist in the repository is not set; `experimentalCore` exists).
