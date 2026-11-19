@@ -6,8 +6,8 @@ stage `update` into `trx64host_update_<id>.ue2/.cfw`). No gateware; no `coreapp/
 **Number:** T240.
 **Origin:** GitHub issue #107 (a tester, release 0.2.0, C64U): "TRX64 installer only adds first 16 cores" - "the installer reads the
 cores and sets up the initial boot menu, and it appears to only add 16 ... when it should add all of the cores (or at least only
-stop at 32)". Alex, 2026-11-19 (translated): "#107 apparently has 16 cores for the initial boot menu fill. And while he is at it,
-he should please also create the folder structures for every core found at install, the one for the ROMs too."
+stop at 32)". Alex, 2026-11-19 (translated): "#107 apparently has 16 cores for the initial boot menu fill. And while that is
+being worked on, the folder structures should please be made for every core found at install as well, the one for the ROMs too."
 **Depends on:** T223 D1 (the boot menu holds 32 entries), T148 (the core folder), T135 (the installer writes boot.cfg).
 **Milestone:** after release 0.2.0.
 
