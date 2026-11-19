@@ -4,7 +4,7 @@
 #     what lib.sh computes with the options of ci/vivado.env (host_key / core_key by hand)
 #  2. a caller's stray option variables do not move a name
 #  3. CI_BRANCH / CI_REF_TYPE win over GITHUB_REF_NAME / GITHUB_REF_TYPE in branch_slug and pin_entry
-#  4. heavy_lock refuses under CI without the lock directory; without CI it runs on
+#  4. heavy_lock required refuses under CI without the lock directory; plain heavy_lock and runs without CI go on
 #  5. cache_put leaves a world-readable entry directory and no temp directory
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
@@ -48,10 +48,11 @@ by_hand="$(bash "$W/hand.sh")"
   CI_BRANCH=feat/x GITHUB_REF_NAME=builder-ref pin_entry "$e" grp
   [ -s "$e/pins/branch.feat_x" ] || exit 14 ) || fail "branch / tag handling (code $?)"
 
-# 4 heavy_lock: under CI without the lock directory it refuses, outside CI it lets the run go on (a Mac without /cache)
+# 4 heavy_lock: 'required' under CI without the lock directory refuses, plain and outside CI it lets the run go on (a Mac without /cache)
 if [ ! -d /cache ]; then
-  ( source ci/lib.sh; CI=true heavy_lock ) 2>/dev/null && fail "heavy_lock ran under CI without /cache"
-  ( source ci/lib.sh; unset CI; heavy_lock ) || fail "heavy_lock failed outside CI without /cache"
+  ( source ci/lib.sh; CI=true heavy_lock required ) 2>/dev/null && fail "heavy_lock ran under CI without /cache"
+  ( source ci/lib.sh; CI=true heavy_lock ) || fail "plain heavy_lock refused under CI without /cache"
+  ( source ci/lib.sh; unset CI; heavy_lock required ) || fail "heavy_lock failed outside CI without /cache"
 else
   echo "note: /cache exists here, heavy_lock refusal not tried"
 fi
@@ -62,5 +63,5 @@ fi
   cache_put "$W/src" "$W/bit/host-1"; cache_put "$W/src" "$W/bit/host-1"
   [ -f "$W/bit/host-1/DONE" ] && [ -f "$W/bit/host-1/pins/p" ] || exit 31
   [ "$(ls "$W/bit")" = "host-1" ] || exit 32
-  [ "$(stat -f %Lp "$W/bit/host-1" 2>/dev/null || stat -c %a "$W/bit/host-1")" = 755 ] || exit 33 ) || fail "cache_put (code $?)"
+  [ "$(stat -c %a "$W/bit/host-1" 2>/dev/null || stat -f %Lp "$W/bit/host-1")" = 755 ] || exit 33 ) || fail "cache_put (code $?)"
 echo "keys test ok ($n names)"

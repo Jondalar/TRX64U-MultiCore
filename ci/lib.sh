@@ -335,13 +335,14 @@ publish_files() {
 # of one host because they share its kernel; the builder reaches /cache over NFS, where flock becomes a POSIX lock on the NAS - the
 # slot files are on the same volume, so all builder jobs see each other, while a NAS-local process does not see a builder lock
 # (NAS and builder each run their own heavy stages). Idempotent: a script that calls it again keeps its slot; held until it exits.
-# Tests: CI_HEAVY_LOCK (slot 0 file) and CI_HEAVY_SLOT_DIR (directory of the other slots) replace the /cache paths.
+# heavy_lock required: the Vivado callers (bitstream*.sh) refuse to run under CI without the lock. Tests: CI_HEAVY_LOCK (slot 0 file) and CI_HEAVY_SLOT_DIR (directory of the other slots) replace the /cache paths.
 heavy_lock() {
   [ -z "${HEAVY_SLOT:-}" ] || return 0
   local lock0="${CI_HEAVY_LOCK:-/cache/heavy.lock}" dir="${CI_HEAVY_SLOT_DIR:-/cache/multicore}" n i f waited=""
   if ! { [ -d "$(dirname "$lock0")" ] && [ -w "$(dirname "$lock0")" ] && command -v flock >/dev/null; }; then
-    # under CI a Vivado run without the lock would break the two-slot limit (D27): fail instead of running unlocked
-    [ -z "${CI:-}" ] || [ -n "${CI_HEAVY_LOCK:-}" ] || { echo "heavy_lock: no $lock0 or no flock under CI: not running without the lock" >&2; return 1; }
+    # a Vivado caller passes "required": under CI a Vivado run without the lock would break the two-slot limit (D27), so it fails
+    # instead of running unlocked; every other caller keeps running without the lock when there is none
+    [ "${1:-}" != required ] || [ -z "${CI:-}" ] || { echo "heavy_lock: no $lock0 or no flock under CI: not running without the lock" >&2; return 1; }
     return 0
   fi
   n="${CI_HEAVY_SLOTS:-2}"

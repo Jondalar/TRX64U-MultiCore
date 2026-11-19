@@ -475,6 +475,8 @@ for i in "${!names[@]}"; do
   case "$verdict" in
     PASS*) ;;
     SKIPPED*) note="  (T239.1 S3: not red)" ;;
+    "FAIL (ROM:"*) # a wrong ROM hash is the ROM supply failing, not the core: red whoever owns the bench (T239.1 S16)
+       failed+=("$name"); failed_at+=("other $name: $verdict") ;;
     *) # reported and not fatal only when the lane that owns the bench is an experimental core (T94 D8, the owner by ci/sims.lane since D10);
        # the host lane's and an unowned bench's failure is always the pipeline's problem
        core="$(owner_core "$name")"

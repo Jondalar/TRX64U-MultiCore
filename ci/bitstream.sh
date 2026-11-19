@@ -80,7 +80,7 @@ elif [ -n "${CI_COLLECT_ONLY:-}" ]; then
   echo "=== $board: the aux designs are not in the cache: NOT built (collect only reads)"
   aux_failed=1; mark_red "$stage" aux "not in the cache (collect builds nothing)"; [ "$layered" != 1 ] || plan_note "$out" aux "RED: not in the cache"
 else
-  heavy_lock
+  heavy_lock required
   export HOME=/tmp/vivado-home
   export TRX_CACHE="${TRX_CACHE:-/cache/multicore}"
   mkdir -p "$HOME"

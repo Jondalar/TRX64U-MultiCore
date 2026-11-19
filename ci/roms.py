@@ -3,7 +3,7 @@
 
   roms.py fetch [--root DIR] [--list FILE] [--store DIR] [--bench NAME] [--strict] [PATH ...]
       makes each pinned file exist at DIR/<path> (DIR defaults to the repository root) with the pinned size and SHA-256:
-      kept when it is there, else copied from the store (ROMS_STORE or --store; files named by their SHA-256), else downloaded
+      kept when it is there, else copied from the store (--store, ROMS_STORE, else /cache/multicore/roms when that directory exists; files named by their SHA-256), else downloaded
       (and then put into the store). PATH ... or --bench NAME limit the work to those files.
       exit 0 all present (or, without --strict, a source could not be reached: a MISSING line says so),
       exit 1 a size or hash is wrong (the bad file is never written; a kept file with a wrong hash stays and is reported),
@@ -79,7 +79,7 @@ def main(a):
     if not a or a[0] not in ("fetch", "need", "paths"):
         sys.stderr.write(__doc__); return 2
     cmd, a = a[0], a[1:]
-    opt = {"--root": ROOT, "--list": None, "--store": os.environ.get("ROMS_STORE"), "--bench": None}
+    opt = {"--root": ROOT, "--list": None, "--store": os.environ.get("ROMS_STORE") or ("/cache/multicore/roms" if os.path.isdir("/cache/multicore/roms") else None), "--bench": None}
     strict, rest = False, []
     i = 0
     while i < len(a):

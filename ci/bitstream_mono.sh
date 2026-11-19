@@ -69,7 +69,7 @@ for core in "${cores[@]}"; do
     if [ -n "$named" ]; then plan_note "$out" "large:$core" "building (named)"; else plan_note "$out" "large:$core" "cache miss of an unnamed target: building"; fi
     echo "mono cache miss $core $K: building the flat design"
     BUILD_WHY=""
-    heavy_lock
+    heavy_lock required
     export HOME=/tmp/vivado-home TRX_CACHE="${TRX_CACHE:-/cache/multicore}"
     mkdir -p "$HOME"
     b="$ROOT/host/build_mono_$core"
