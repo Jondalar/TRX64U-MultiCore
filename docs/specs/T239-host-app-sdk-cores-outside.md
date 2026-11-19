@@ -12,7 +12,7 @@ repo already) and the other cores I do not know yet. Plus a registry for cores a
 **Depends on:** T192 and T213 (app layers, D24), T221 (SemVer per deliverable), T238 (support model), T100 D8 (releases on GitHub).
 **Milestone:** after release 0.2.0.
 
-Open (one line, as in the TODO table): PROPOSED 11-19; D1-D8 (vision, SDK, central registry read by the host); open: TRX64, app, CI/CD
+Open (one line, as in the TODO table): PROPOSED 11-19; D1-D9 (vision, SDK, registry, TRX64 from it); open: app/SDK cut, CI/CD
 
 ---
 
@@ -86,6 +86,11 @@ Written after the decisions.
   registry (a GitHub repository with an index file, entries by pull request that we review), several registries (as MiSTer's
   downloader databases, added by the user in the host menu) and both: "Lieber erstmal 1, falls sich überhaupt eine Community
   findet, dann später 3" (translated: rather 1 first; if a community forms at all, then 3 later).
+- **D9 (Alex, 2026-11-19): TRX64 comes from the registry; our release package stops carrying trx64u/trx64g.** Until the host
+  reads the registry, the pins in `release/imports/` stay and TRX64 stays in the package. Alex (translated): "Yes, and that also
+  fits that we abstract/cut the SDK and UI accordingly. Then the heap problems are where they belong": trx64u's menu TOML and
+  its code in `coreapp/cores/trx64u/` (the D24 ledger exceptions of T228-R20) and its table and memory limits (STATES_MAX and
+  OPS_MAX were raised on 2026-11-18 for it) belong to TRX64-Ultimate, built against the SDK.
 
 ## §4 Out
 
