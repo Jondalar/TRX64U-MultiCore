@@ -42,7 +42,7 @@ Open (one line, as in the TODO table): Built on branch t240-installer-cores 11-1
 
 | # | Part | Scenario | Proof |
 |---|---|---|---|
-| S1 | P1 | A bundle folder with 20 `.cor` and 4 `.u2a`: `Flash:/boot.cfg` gets 20 core lines; with 33 `.cor` it gets 32 and the updater says that one was not added | the updater emulator run (`tests/updater/emu_t135.sh` or its successor) with such a medium, `boot.cfg` read back |
+| S1 | P1 | A bundle folder with 20 `.cor` and 4 `.u2a`: `Flash:/boot.cfg` gets the backup entry of the old firmware (always the first, T135) plus 20 core lines; the apps are no entries. With 33 `.cor` the menu is full at 32 and the screen says that 2 were not added | the updater emulator run (`tests/updater/emu_t135.sh` s13, s15; control s16 with the updater before T240) |
 | S2 | P2 | The same folder plus three firmware files (`.cfw`) of other vendors: still every core is found and added | updater emulator run |
 | S3 | P3 | After the install every found core has `<dir>/<name>/`, `roms/`, `saves/` and `configs/`; a folder or a file that was there stays as it was | updater emulator run, listing of the medium afterwards |
 | S4 | P1-P3 | Board: install the next release's `.ue2` from a stock firmware with the release folder: the boot menu lists every core, the folders exist | Alex on the board: the boot menu, and the file browser shows the folders |
