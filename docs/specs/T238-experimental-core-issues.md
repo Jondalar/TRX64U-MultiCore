@@ -14,7 +14,7 @@ discussion stays open for 2-3 days.
 **Depends on:** T161 (the issue forms and their lint).
 **Milestone:** after release 0.2.0.
 
-Open (one line, as in the TODO table): PROPOSED 11-19 (Alex); D1 own form, D2 edge-case closed, D3 photo optional; fields, texts open
+Open (one line, as in the TODO table): PROPOSED 11-19 (Alex); D1-D4 forms decided; CONTRIBUTING text and GitHub date open
 
 ---
 
@@ -67,7 +67,15 @@ Scenarios for P2-P5 follow their decisions.
   `http://<board>/v1/report` without "once your release has it" (T162 ships since 0.2.0). Changes T161 §1 P1 (photos required).
 - P3 roles (read 2026-11-19): the 7 testers have the GitHub role Write, which already sets labels and closes issues; no change is
   needed for the triage. Write also allows pushes; the role "Triage" would be enough. That is Alex's setting, outside this spec.
-- Open: P2 wording, P4 text, the experimental form's fields, when it goes to GitHub (#103 runs 2-3 days).
+- **D4 (Alex, 2026-11-19): the experimental form as previewed, without the Port Diagnostics core and the two DDT demos.** The
+  preview: labels `experimentalCore` + `triage`; a note that experimental cores come without guarantee, testers triage, a fault in
+  one program or with rare hardware is closed as `edge-case` and reopened when more programs show it (#103); required: release
+  (placeholder `0.2.0`), board, core, "How wide is it?" (every program or a general fault / several programs / one program or demo
+  only / rare hardware or add-on), steps, what happened, what was expected, programs used (names and where they came from, never
+  the files), the report file (as D3); optional: photo or video, anything else. Asked against "report optional" and "without
+  diag and demos"; Alex chose "Ohne Diag und Demos" (without diag and demos). The core list is the shipped cores minus the
+  supported areas minus `diag`, `ddt_mandel` and `ddt_novic`: 15 in 0.2.0. The lint names the three exceptions.
+- Open: P4 text, when it goes to GitHub (#103 runs 2-3 days).
 
 ## §4 Out
 
