@@ -14,7 +14,7 @@ discussion stays open for 2-3 days.
 **Depends on:** T161 (the issue forms and their lint).
 **Milestone:** after release 0.2.0.
 
-Open (one line, as in the TODO table): PROPOSED 11-19 (Alex); D1 own form for experimental cores; P2-P5 open
+Open (one line, as in the TODO table): PROPOSED 11-19 (Alex); D1 own form, D2 one-program faults closed (edge-case); roles, texts open
 
 ---
 
@@ -54,7 +54,13 @@ Scenarios for P2-P5 follow their decisions.
   "How wide is it?" (every program or a general fault / several programs / one program or demo only / rare hardware or add-on),
   steps, what happened, what was expected, programs used (names and source), photo or video optional; the field details are a
   draft until built.
-- Open: P2 wording, P3 labels and roles, P4 text, P5 changes, when it goes to GitHub (#103 runs 2-3 days).
+- **D2 (Alex, 2026-11-19): a fault in one program or demo only, or with rare hardware, is closed with a label after triage.**
+  Asked with three ways (close with a label / keep open with `help wanted` / convert to a discussion); Alex chose "Schließen mit
+  Label" (close with a label). The flow he chose: a new report carries `experimentalCore` + `triage`; a tester who reproduces it
+  across several programs or as a general fault sets `confirmed` (open); missing information gets `needs-info` (open); one
+  program or demo or rare hardware gets `edge-case` and is closed: it stays searchable and is reopened when more programs show the
+  same fault. Alex picks his work from `confirmed`.
+- Open: P2 wording, P3 roles, P4 text, P5 changes, when it goes to GitHub (#103 runs 2-3 days).
 
 ## §4 Out
 
