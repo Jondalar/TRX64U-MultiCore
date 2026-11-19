@@ -142,3 +142,10 @@ Open.
 - Effect on what T241 found: Master's Boom sets `$D077` with the registers on (`$1087`), so nothing changes for it; the comment's POKE line
   would switch to "mirror `$8000-$BFFF` only" (the BASIC screen at `$0400` is no longer written to the C64 RAM) and still end in the warm
   start. A C64 program that writes the VIC's mirrors `$D074-$D077` (for example a loop over `$D000-$D0FF`) would change the mirror mode.
+- Follow-up in the same mode (Alex, board): the timing line again, **1712** jiffies (28.5 s) against a stopwatch of about **30.2 s**
+  (the C64 core: 31.1 s): the jiffy clock loses about 6 % of its ticks, and the program runs about 2-3 % faster than on the C64 (the
+  stopwatch's error is a few tenths). Stores are right: `A=0:FORI=1TO5000:A=A+1:NEXT:PRINTA,I` prints `5000 5001`. Read-modify-write in
+  zero page is right outside IRQs: 51,200 x `INC $FB` with carry into `$FC` (`$C100`) leaves `0 200`. (A `BREAK` and a `?SYNTAX ERROR`
+  on the photos came from typing errors, not from the core.)
+- So the deviation sits in what mirror-everything changes at 1 MHz around interrupts and VIC cycles: lost or skipped IRQ ticks, and
+  cycles the VIC should take that the CPU keeps. Next: a bench in the core's simulation that shows where (S2 under D1).
