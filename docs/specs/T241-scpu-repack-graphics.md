@@ -39,7 +39,8 @@ Open (one line, as in the TODO table): D1 static read of Master's Boom first (ag
     because its class is a RAM write inside the mirror window, also in the C64 RAM at `$D200-$D3FF` (`scpu_mem.v:220`). ROM V0.07 writes
     there in its reset and RAM test (`$F8:815D-81EE`), not in the IRQ path; CMD 1.40's IRQ path above writes none of it.
   - Boom +4's packed file holds `SEI; STA $D07A; LDX #$FF; TXS` as plain bytes (a program start; `$D07A` = software 1 MHz); the decruncher
-    before it runs at 20 MHz. Boom +2 holds `DEC $D0B6` (bootmap off, needs the hardware registers on) in its unpacked part.
+    before it runs at 20 MHz. A byte scan found `DEC $D0B6` in Boom +2's file; S1 showed it is inside the packed stream, not code: the program never writes
+    `$D0B6`.
 - **Parts:**
   - **P1** What the programs do: SCPU registers in their order, speed, mirror mode, VIC bank and graphics addresses, how they are written
     (STA, long, MVN/MVP; at 1 or 20 MHz), SuperRAM use; whether the releases linked by Master share one loader.
@@ -109,3 +110,18 @@ Open.
   original", register page `0x064`, `c64scpu_regs.v`). At 1 MHz the enable is the PHI2 pulse (`tick = ce_raw`), so a withheld enable costs
   a whole PHI2 cycle; the real SuperCPU (SRAM) and VICE have no such wait. Code that races the beam drifts against the VIC. No application
   path reads DEV_CYC or the cache counters today.
+
+### 2026-11-19: S1 - Master's Boom read statically (agent A; listings and data outside the repository)
+- Stage 1 `boom scpu!` is a Pucrunch stage (depacked in `tools/emu816`, 6502 mode, from `$080D` to `JMP $510A`). Stage 2 reads `boom datas`
+  through the KERNAL (OPEN/CHKIN/BASIN) and depacks it with `STA [$FD],Y` into SuperRAM banks `$02-$09`, then runs `$1087`:
+  `STA $D07E; STA $D077; STA $D07F` (registers on, mirror everything, registers off; checked in the bytes),
+  `$D011 = $1B`, BASIC menu "(M)IT/(O)HNE INTRO". The RAM-disk loader copied to bank `$20` moves each file into bank 0 with MVN at 20 MHz
+  (`STA $D07B`, `$01 = $34`), then `STA $D07A`: the game and all its IRQs run at 1 MHz, emulation mode, hardware registers off. No access
+  to `$D200-$D3FF`.
+- IRQs (level engine "02", setup at `$56A4`, checked in the bytes): RAM vectors `$0314 = $5748`, `$FFFE = $5743`; per frame an IRQ at line
+  `$57` (sprite pointers, `$D016` playfield scroll), 1-7 sprite multiplexer IRQs, and one at line `$D9` (`$588C`) that sets `$D016 = $18`
+  for the HUD and then runs the whole game logic inside the IRQ until `RTI` at `$5B35`. It has to end before line `$57` of the next frame,
+  about 182 lines (about 11,500 PHI2 cycles at 1 MHz). The CMD ROM's IRQ path is not used while the game runs.
+- Fits the video: if the core's 1 MHz CPU is slower than a 6510, the logic IRQ overruns, the next frame's IRQs come late (HUD with the
+  playfield's scroll, multiplexer rows late, a sprite left on the HUD) until the chain dies. Mechanism candidate, read not measured: the
+  withheld enables of DEV_CYC (entry above). Open: a measurement of DEV_CYC / the cycles from `$588C` to `RTI` per frame on the core.
