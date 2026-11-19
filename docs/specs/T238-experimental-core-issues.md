@@ -14,7 +14,7 @@ discussion stays open for 2-3 days.
 **Depends on:** T161 (the issue forms and their lint).
 **Milestone:** after release 0.2.0.
 
-Open (one line, as in the TODO table): Built 11-19 (D1-D6); to GitHub now as interim, adjusted after discussion #103
+Open (one line, as in the TODO table): On GitHub 11-19 (e5e0b6fcb, 4 labels); S3 Alex looks; adjusted after discussion #103
 
 ---
 
@@ -103,5 +103,6 @@ new decision here.
 - **Review 2026-11-19 (agent, before the push):** no blockers; the manual's 11.1.1 still called the SuperCPU core `build_only`
   (wrong since 2026-11-18), fixed in the same push. Kept: the bug form's "Area" field keeps the id `core` (T161); the lint stays
   without a YAML library (the lint image carries none; a Ruby parse by hand checked the files).
-- **GitHub (D6):** the snapshot push, and the labels `triage`, `confirmed`, `needs-info`, `edge-case` (a label a form names that
-  does not exist in the repository is not set; `experimentalCore` exists).
+- **GitHub (D6), 2026-11-19:** exported up to Gitea b0b6108fb = GitHub main e5e0b6fcb (14 commits replayed, a fast-forward; the
+  forms bug, experimental, feature and config are on GitHub). Labels created: `triage`, `confirmed`, `needs-info`, `edge-case` (a
+  label a form names that does not exist in the repository is not set; `experimentalCore` existed). S3: Alex looks.
