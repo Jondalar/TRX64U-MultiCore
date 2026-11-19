@@ -43,3 +43,5 @@ cores/c64scpu/sim/build_slow/
 cores/c64scpu/sim/emu_run/
 cores/c64scpu/sim/*.lock
 .gitnexus/
+# dis65816 default output: listings of a program are its data, never committed (tools/dis65816/README.md)
+/analysis/
