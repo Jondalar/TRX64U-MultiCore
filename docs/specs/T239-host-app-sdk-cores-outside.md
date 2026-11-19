@@ -12,7 +12,7 @@ repo already) and the other cores I do not know yet. Plus a registry for cores a
 **Depends on:** T192 and T213 (app layers, D24), T221 (SemVer per deliverable), T238 (support model), T100 D8 (releases on GitHub).
 **Milestone:** after release 0.2.0.
 
-Open (one line, as in the TODO table): PROPOSED 11-19; D1-D9 (vision, SDK, registry, TRX64 from it); open: app/SDK cut, CI/CD
+Open (one line, as in the TODO table): PROPOSED 11-19; D1-D10 (vision, SDK, registry, app core + libraries); open: CI/CD, other cores
 
 ---
 
@@ -91,6 +91,16 @@ Written after the decisions.
   fits that we abstract/cut the SDK and UI accordingly. Then the heap problems are where they belong": trx64u's menu TOML and
   its code in `coreapp/cores/trx64u/` (the D24 ledger exceptions of T228-R20) and its table and memory limits (STATES_MAX and
   OPS_MAX were raised on 2026-11-18 for it) belong to TRX64-Ultimate, built against the SDK.
+- **D10 (Alex, 2026-11-19): data by default, a core's own library where no generic module fits; one app core with an API for
+  sub-apps and libraries.** Asked between data only, data plus the core's own `.u2a` library, and both: "Auf jeden Fall 3 ...
+  eine sauber abgegrenzten App-Kern mit API für 'Sub-Apps' und 'Libraries'. Und wir bauen das für unseren Teil selbst"
+  (translated: definitely 3, a cleanly delimited app core with an API for sub-apps and libraries, and we build that for our part
+  ourselves). "TRX64U has what it needs and does it individually in its own place. Things like 1541/71/81 benefit the other
+  Commodore cores, so TRX64U gives it back into the central repo as a library with source. The VIC-20 then uses it to build its
+  app." This is layer 2 of his three-layer model (T192 D24: core UI <-> core service with modules <-> bitstream). Today the
+  drive library `app/lib/cbm1541/` (T104.1 D15) is source in this repository and built into the core app for VC-20, C264 and
+  C64, not loaded; the `.u2a` loader exists (T104.1 D10-D12: `libfmt.h` format 3, `libapi.h`, `lib_register`). D24 stays: no
+  per-core code in `coreapp/` or `uicore/`.
 
 ## §4 Out
 
