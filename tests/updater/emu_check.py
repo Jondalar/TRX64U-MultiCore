@@ -171,7 +171,14 @@ def main():
             names = sorted(os.listdir(cdir))
             bks = [n for n in names if n.startswith("TRXBK")]
             want = sorted(["commodore-110.cor"] + [c for c in a.cores.split(",") if c])
-            ok([n for n in names if n not in bks] == want, "cores folder holds %s" % names)
+            dirs = [n for n in names if os.path.isdir(os.path.join(cdir, n))]
+            ok([n for n in names if n not in bks and n not in dirs] == want, "cores folder holds %s" % names)
+            # T240 P3: every .cor has its core folder with roms/, saves/, configs/; no other folder but apps/
+            stems = sorted(c[:-4] for c in want if c.endswith(".cor"))
+            core_dirs = sorted(d for d in dirs if d + ".cor" in names)
+            ok(core_dirs == stems and not [d for d in dirs if d not in core_dirs and d != "apps"] and
+               all(os.path.isdir(os.path.join(cdir, d, sub)) for d in core_dirs for sub in ("roms", "saves", "configs")),
+               "T240: a core folder with roms/, saves/, configs/ for every .cor (%s)" % dirs)
             ok(any(n.endswith(".BIN") for n in bks) and any(n.endswith(".CFW") for n in bks), "the raw backup and the restore bundle are in the cores folder: %s" % bks)
             ok(not [n for t in trees for n in os.listdir(t) if n.startswith("TRXBK")], "no backup file anywhere else on the media")
             sys.path.insert(0, os.path.dirname(os.path.abspath(a.cor_pack)))

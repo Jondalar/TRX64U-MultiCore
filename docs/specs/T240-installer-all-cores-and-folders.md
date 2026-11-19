@@ -11,7 +11,7 @@ he should please also create the folder structures for every core found at insta
 **Depends on:** T223 D1 (the boot menu holds 32 entries), T148 (the core folder), T135 (the installer writes boot.cfg).
 **Milestone:** after release 0.2.0.
 
-Open (one line, as in the TODO table): Built on branch t240-installer-cores 11-19; emulator run + board S4 open
+Open (one line, as in the TODO table): Emulator S1-S3 PASS 11-19 (s13-s16, control s16 shows #107); board S4 open
 
 ---
 
@@ -92,3 +92,10 @@ Nothing decided yet.
   `tests/hostapp/test_startcheck.cc` ("16 entries" -> BOOT_MAX), the "Core folders" line only when a folder was made. Known and
   older than T240: when the bundle folder is the cores folder itself, the backup `.cor` can be met twice (a second boot entry, a
   second folder count); the emulator scenarios do not reach it.
+- **Emulator run 2026-11-19 (coordinator):** `tests/updater/emu_t135.sh` with the emu-test `.ue2` of this branch over the v0.2.0
+  package (`null_full.bit`, `hostapp.app`), Commodore 1.1.0 as the vendor firmware: every scenario s1-s16 passes, "emu_t135: 0
+  scenario(s) failed", 351 checks ok. The control s16 (the updater of main before T240) writes 16 lines and makes no folder: the
+  fault of #107 reproduced. Found during the run: the copy phase's count lines stay on the screen only milliseconds before the
+  flash phase clears it, so an expect saw them only now and then and a person would not see them at all. The final screen now
+  repeats them: "Boot menu: n entries", "n core(s) not added: the menu holds 32." (red) and "Core folders: n, m could not be
+  made"; the scenarios read the final screen. S1-S3 proven in the emulator; S4 (board) open.

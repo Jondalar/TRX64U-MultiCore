@@ -1642,6 +1642,7 @@ struct cfg_entry {
 static cfg_entry cfg_ent[BOOT_ENTRIES];
 static int cfg_n;
 static int cfg_dropped;              // T240 P1: cores that did not fit into the menu
+static int core_folders, core_folders_failed;   // T240 P3: core folders made or found, and the ones that could not be made
 
 static void cfg_add(const char *name, const char *dir, const char *file, uint32_t size)
 {
@@ -1809,7 +1810,8 @@ static bool install_cores(Flash *fl, uint32_t installed_axss)
         strcpy(backup_name, bname);
         console_print(screen, C_OK "Backup %s\n  CRC32 %08X  CHK %08X\n" C_NORM, bname, bs.crc, bs.chk);
     }
-    int folders = 0, folder_failed = 0;                       // T240 P3: core folders made or found, and the ones that could not be made
+    core_folders = 0;                                         // T240 P3: core folders made or found, and the ones that could not be made
+    core_folders_failed = 0;
     if (have_cor) {
         char file[40];
         snprintf(file, sizeof(file), "%s.cor", cplan.stem);
@@ -1821,9 +1823,9 @@ static bool install_cores(Flash *fl, uint32_t installed_axss)
         }
         cfg_add(cplan.name, cores, file, cplan.total);
         if (!make_core_folder(cores, file)) {
-            folder_failed++;
+            core_folders_failed++;
         }
-        folders++;
+        core_folders++;
     }
     int copied = 0, same = 0, failed = 0;
     for (int i = 0; i < bundle_n; i++) {
@@ -1859,17 +1861,17 @@ static bool install_cores(Flash *fl, uint32_t installed_axss)
         }
         if (bundle[i].is_cor) {                              // T240 P3: every .cor is a core with a T148 folder; a vendor .cfw is none
             if (!make_core_folder(cores, bundle[i].name)) {
-                folder_failed++;
+                core_folders_failed++;
             }
-            folders++;
+            core_folders++;
         }
         char en[48];
         entry_name(cores, bundle[i], en, sizeof(en));
         cfg_add(en, cores, bundle[i].name, bundle[i].size);
     }
     console_print(screen, "                                        \rFiles: %d copied, %d same, %d failed\n", copied, same, failed);
-    if (folders) {
-        console_print(screen, "Core folders: %d, %d could not be made\n", folders, folder_failed);
+    if (core_folders) {
+        console_print(screen, "Core folders: %d, %d could not be made\n", core_folders, core_folders_failed);
     }
     if (failed) {
         const char *names[] = { " No ", " Yes " };
@@ -2246,6 +2248,15 @@ void do_update(void)
         console_print(screen, C_OK "\n%s OK, installed %s%s\n" C_NORM, restoring ? "Restore" : "Update", pkg_id, restore_cfg ? " with settings" : "");
         if (setup_machine && cplan.ok) {
             console_print(screen, "First start: %s\nC= at power-on shows the menu.\n", cplan.name);
+        }
+        if (cfg_n || core_folders) {                          // T240: the copy phase's lines are gone by now; the result stays on this screen
+            console_print(screen, "Boot menu: %d entr%s\n", cfg_n, cfg_n == 1 ? "y" : "ies");
+            if (cfg_dropped) {
+                console_print(screen, C_BAD "%d core(s) not added: the menu holds %d.\n" C_NORM, cfg_dropped, BOOT_ENTRIES);
+            }
+            if (core_folders) {
+                console_print(screen, "Core folders: %d, %d could not be made\n", core_folders, core_folders_failed);
+            }
         }
     }
 

@@ -305,16 +305,14 @@ t240_dir() {   # name, cor count, cfw count -> $W/d_<name> with the update file,
 t240_run() {   # name, cor count, cfw count: the stick alone, no SD card; the install runs to the end
   local n="$1" nc="$2" nf="$3"
   t240_dir "$n" "$nc" "$nf"
+  # The counts are read from the final screen (Boot menu / not added / Core folders): the copy phase's lines last only milliseconds
+  # before the updater clears the screen for the flash phase, so an expect on them misses now and then.
   run "$n" "$W/flash_vendor.bin" --usb-dir "$(stick "$n" "$n")" --usb-dir-work "$out/$n/usbwork" < <(nav 3 $((nc + 4 + nf)); cat <<'EOF'
 expect-c64 "leaving the warranty" 150000
 key y
 expect-c64 "really want" 20000
 key y
-expect-c64 "Core folders" 200000
-wait 400
-c64screen
-png @OUT@/01_folders.png
-expect-c64 "Update OK" 150000
+expect-c64 "Update OK" 350000
 wait 400
 c64screen
 png @OUT@/02_result.png
@@ -336,12 +334,9 @@ key y
 expect-c64 "the cores go" 60000
 key right
 key return
-expect-c64 "Core folders" 200000
+expect-c64 "Update OK" 350000
 wait 400
 c64screen
-png @OUT@/01_folders.png
-expect-c64 "Update OK" 150000
-wait 400
 png @OUT@/02_result.png
 quit
 EOF
