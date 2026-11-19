@@ -4,6 +4,8 @@
   emu_check.py <rundir> installed --bit B --app A --medium IMG [--medium IMG ..] --cores-dir /SD --cores-src DIR --cores a.cor,b.cor
   emu_check.py <rundir> unchanged                 flash_after.bin byte-identical to flash_before.bin (read back, SHA-256 shown)
   emu_check.py <rundir> written --bit B --app A   only the bitstream and application are checked (a package that sets nothing up)
+  emu_check.py <rundir> t240 --medium IMG .. --src DIR --n-cor N [--n-app N] [--n-cfw N] --expect-lines L --folders yes|no [--keep REL=TEXT]
+                         [--log-has TEXT] [--menu-only]   T240: the boot menu holds L core lines, every .cor has its folder with roms/saves/configs
   emu_check.py <rundir> noboot                    no boot.cfg on the flash drive and no cores folder on the media (--medium)
 
 <rundir> holds flash_before.bin and flash_after.bin. The backup .cor is compared with what tools/cor_pack.py (the T137 packer, `--cor-pack`)
@@ -64,7 +66,7 @@ def flash_boot_cfg(after):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("run")
-    ap.add_argument("mode", choices=("installed", "unchanged", "written", "noboot", "nobackup", "hasbackup"))
+    ap.add_argument("mode", choices=("installed", "unchanged", "written", "noboot", "nobackup", "hasbackup", "t240"))
     ap.add_argument("--bit")
     ap.add_argument("--app")
     ap.add_argument("--medium", action="append", default=[])
@@ -73,6 +75,15 @@ def main():
     ap.add_argument("--cores", default="")
     ap.add_argument("--cor-pack", default=os.path.join(HERE, "..", "..", "tools", "cor_pack.py"))
     ap.add_argument("--default-name", default="Commodore 1.1.0")
+    ap.add_argument("--src", help="t240: the folder the dummy files were made in")
+    ap.add_argument("--n-cor", type=int, default=0)
+    ap.add_argument("--n-app", type=int, default=0)
+    ap.add_argument("--n-cfw", type=int, default=0)
+    ap.add_argument("--expect-lines", type=int, default=-1)
+    ap.add_argument("--folders", choices=("yes", "no"), default="yes")
+    ap.add_argument("--keep", action="append", default=[], help="t240: <path below cores>=<text>: a file that was on the medium before and must be as it was")
+    ap.add_argument("--log-has", action="append", default=[], help="t240: text the run's screen dump (emu.log) must hold")
+    ap.add_argument("--menu-only", action="store_true", help="t240: check only boot.cfg and the folders, not the copied files (the control updater copies fewer)")
     a = ap.parse_args()
     before = open(os.path.join(a.run, "flash_before.bin"), "rb").read()
     after = open(os.path.join(a.run, "flash_after.bin"), "rb").read()
@@ -107,6 +118,51 @@ def main():
             else:
                 ok(found, "the backup of the flash is on a medium")
             ok(flash_boot_cfg(after) is None, "no boot.cfg on the flash drive")
+        if a.mode == "t240":
+            holders = [t for t in trees if os.path.isdir(os.path.join(t, "cores"))]
+            ok(len(holders) == 1, "exactly one medium holds a cores folder (%s)" % holders)
+            cdir = os.path.join(holders[0], "cores")
+            cors = ["dummy%02d" % i for i in range(1, a.n_cor + 1)]
+            cfws = ["commodore_x%d" % i for i in range(1, a.n_cfw + 1)]
+            apps = ["app%d" % i for i in range(1, a.n_app + 1)]
+            if not a.menu_only:
+                for c in cors + cfws:
+                    ext = ".cor" if c in cors else ".cfw"
+                    p = os.path.join(cdir, c + ext)
+                    ok(os.path.isfile(p) and open(p, "rb").read() == open(os.path.join(a.src, c + ext), "rb").read(), "%s%s copied byte-equal" % (c, ext))
+                for c in apps:
+                    p = os.path.join(cdir, "apps", c + ".u2a")
+                    ok(os.path.isfile(p) and open(p, "rb").read() == open(os.path.join(a.src, c + ".u2a"), "rb").read(), "apps/%s.u2a copied byte-equal" % c)
+            cfg = flash_boot_cfg(after)
+            ok(cfg is not None, "Flash:/boot.cfg exists")
+            if cfg:
+                lines = [l for l in cfg.splitlines() if l.startswith("core=")]
+                print("    boot.cfg: %d core lines" % len(lines))
+                ok(len(lines) == a.expect_lines, "boot.cfg holds %d core lines (has %d)" % (a.expect_lines, len(lines)))
+                paths = [l[5:].split("|")[0] for l in lines]
+                ok(bool(paths) and paths[0].endswith("/cores/commodore-110.cor"), "the first entry is the backup .cor")
+                ok(len(set(paths)) == len(paths), "no path twice")
+                if not a.menu_only and a.expect_lines >= 1 + len(cors) + len(cfws):
+                    for c in cors:
+                        ok(any(p.endswith("/cores/%s.cor" % c) for p in paths), "boot.cfg has %s.cor" % c)
+                    for c in cfws:
+                        ok(any(p.endswith("/cores/%s.cfw" % c) for p in paths), "boot.cfg has %s.cfw" % c)
+                ok(not any("/apps/" in p or p.endswith(".u2a") for p in paths), "no application is a boot entry")
+            for c in cors + ["commodore-110"]:
+                d = os.path.join(cdir, c)
+                if a.folders == "yes":
+                    ok(all(os.path.isdir(os.path.join(d, sub)) for sub in ("", "roms", "saves", "configs")), "%s/ has roms/, saves/ and configs/" % c)
+                else:
+                    ok(not os.path.exists(d), "no folder %s/" % c)
+            for c in cfws:
+                ok(not os.path.exists(os.path.join(cdir, c)), "no core folder for the vendor file %s.cfw" % c)
+            for k in a.keep:
+                rel, text = k.split("=", 1)
+                p = os.path.join(cdir, rel)
+                ok(os.path.isfile(p) and open(p, "rb").read() == text.encode(), "%s stays as it was" % rel)
+            log = open(os.path.join(a.run, "emu.log"), errors="replace").read()
+            for t in a.log_has:
+                ok(t in log, "the screen dump says %r" % t)
         if a.mode == "installed":
             # the cores folder is /<medium>/cores: the medium is the image whose name matches --cores-dir (SD, USB0), the first one that has it
             holders = [t for t in trees if os.path.isdir(os.path.join(t, "cores"))]

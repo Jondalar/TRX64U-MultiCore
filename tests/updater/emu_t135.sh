@@ -8,6 +8,7 @@
 #        --cores "a.cor,b.cor,c.cor" --cores-src <dir holding them> --vendor <Commodore/Gideon .ue2> --out <dir>
 #        [--old-updater <.ue2 built before T132>] [--tester-update <emu-test .ue2 of a package whose application is not the host>]
 #        [--cor-pack <tools/cor_pack.py with origin/flash_id (branch t137-updater)>]
+#        [--t240-control <emu-test .ue2 built from main before T240: BOOT_ENTRIES 16, BUNDLE_MAX 24, no core folders>]
 #        [--title-control <emu-test .ue2 with the title as before T132: setup("  ** TRX64 Ultimate Updater **\n"), no title_in_colour>]
 #
 # --update is copied next to the cores; the file names of the cores are the ones the package's release bundle has. Every scenario starts from a
@@ -16,12 +17,12 @@ set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 U="${UE2EMU_DIR:-/path/to/Development/u64-emulator}"
 BIN="$U/target/release/ue2emu"
-upd="" bit="" app="" cores="" csrc="" vendor="" out="" old="" tester="" tctl="" corpack="$HERE/../../tools/cor_pack.py"
+upd="" bit="" app="" cores="" csrc="" vendor="" out="" old="" tester="" tctl="" t240ctl="" corpack="$HERE/../../tools/cor_pack.py"
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --update) upd="$2"; shift 2 ;; --bit) bit="$2"; shift 2 ;; --app) app="$2"; shift 2 ;; --cores) cores="$2"; shift 2 ;;
     --cores-src) csrc="$2"; shift 2 ;; --vendor) vendor="$2"; shift 2 ;; --out) out="$2"; shift 2 ;; --old-updater) old="$2"; shift 2 ;;
-    --tester-update) tester="$2"; shift 2 ;; --cor-pack) corpack="$2"; shift 2 ;; --title-control) tctl="$2"; shift 2 ;;
+    --tester-update) tester="$2"; shift 2 ;; --cor-pack) corpack="$2"; shift 2 ;; --title-control) tctl="$2"; shift 2 ;; --t240-control) t240ctl="$2"; shift 2 ;;
     *) echo "emu_t135: unknown argument $1" >&2; exit 2 ;;
   esac
 done
@@ -279,6 +280,104 @@ quit
 EOF
 )
   centre s12_title_control off
+fi
+
+
+# ---- T240: the boot menu takes every core found (up to 32), the bundle scan keeps every file, every .cor gets its folder -------------------
+# Dummy files (a .cor here is any file the updater copies; its menu name is the file name). The names sort before the update file's, so the
+# update file is the last in the file browser: its file number is the number of files beside it.
+GEN="$W/t240gen"; mkdir -p "$GEN"
+python3 -I - "$GEN" <<'PY'
+import os, sys
+d = sys.argv[1]
+def mk(name):
+    open(os.path.join(d, name), "wb").write(("T240 %s " % name).encode().ljust(2048, b"."))
+for i in range(1, 34): mk("dummy%02d.cor" % i)
+for i in range(1, 5): mk("app%d.u2a" % i)
+for i in range(1, 4): mk("commodore_x%d.cfw" % i)
+PY
+t240_dir() {   # name, cor count, cfw count -> $W/d_<name> with the update file, the .cor files, 4 .u2a and the .cfw files
+  local n="$1" nc="$2" nf="$3"; mkdir -p "$W/d_$n"; cp "$upd" "$W/d_$n/"
+  for ((i = 1; i <= nc; i++)); do cp "$GEN/$(printf 'dummy%02d.cor' $i)" "$W/d_$n/"; done
+  for i in 1 2 3 4; do cp "$GEN/app$i.u2a" "$W/d_$n/"; done
+  for ((i = 1; i <= nf; i++)); do cp "$GEN/commodore_x$i.cfw" "$W/d_$n/"; done
+}
+t240_run() {   # name, cor count, cfw count: the stick alone, no SD card; the install runs to the end
+  local n="$1" nc="$2" nf="$3"
+  t240_dir "$n" "$nc" "$nf"
+  run "$n" "$W/flash_vendor.bin" --usb-dir "$(stick "$n" "$n")" --usb-dir-work "$out/$n/usbwork" < <(nav 3 $((nc + 4 + nf)); cat <<'EOF'
+expect-c64 "leaving the warranty" 150000
+key y
+expect-c64 "really want" 20000
+key y
+expect-c64 "Core folders" 200000
+wait 400
+c64screen
+png @OUT@/01_folders.png
+expect-c64 "Update OK" 150000
+wait 400
+c64screen
+png @OUT@/02_result.png
+quit
+EOF
+)
+}
+
+# S1 + S3: 20 .cor and 4 .u2a. The SD card already holds cores/dummy01/roms/keep.bin: the install goes onto it, the file must stay.
+mkdir -p "$W/d_sd_keep/cores/dummy01/roms"; printf 'T240-KEEP' > "$W/d_sd_keep/cores/dummy01/roms/keep.bin"
+mkimg sd_keep "$W/d_sd_keep"
+cp "$W/sd_keep.img" "$W/s13_sd.img"
+t240_dir s13_t240_20 20 0
+run s13_t240_20 "$W/flash_vendor.bin" --usb-dir "$(stick s13_t240_20 s13_t240_20)" --usb-dir-work "$out/s13_t240_20/usbwork" --sd "$W/s13_sd.img" < <(nav 3 24; cat <<'EOF'
+expect-c64 "leaving the warranty" 150000
+key y
+expect-c64 "really want" 20000
+key y
+expect-c64 "the cores go" 60000
+key right
+key return
+expect-c64 "Core folders" 200000
+wait 400
+c64screen
+png @OUT@/01_folders.png
+expect-c64 "Update OK" 150000
+wait 400
+png @OUT@/02_result.png
+quit
+EOF
+)
+check s13_t240_20 t240 --medium "$W/s13_sd.img" --medium "$(usbimg s13_t240_20)" --src "$GEN" --n-cor 20 --n-app 4 --expect-lines 21 --folders yes \
+  --keep "dummy01/roms/keep.bin=T240-KEEP" --log-has "Core folders: 21"
+
+# S2: the same, and three firmware files of another vendor in the folder: 20 + 4 + 3 = 27 files, every core still found (the .cfw files are menu entries too)
+t240_run s14_t240_cfw 20 3
+check s14_t240_cfw t240 --medium "$(usbimg s14_t240_cfw)" --src "$GEN" --n-cor 20 --n-app 4 --n-cfw 3 --expect-lines 24 --folders yes --log-has "Core folders: 21"
+
+# S1: 33 .cor: the menu holds 32 (the backup and 31 of them), the screen says that 2 were not added; the folders are made for all 33
+t240_run s15_t240_33 33 0
+check s15_t240_33 t240 --medium "$(usbimg s15_t240_33)" --src "$GEN" --n-cor 33 --n-app 4 --expect-lines 32 --folders yes --log-has "2 core(s) not added" --log-has "Core folders: 34"
+
+# control for s13-s15: the updater of main before T240 (16 entries, 24 files, no folders) on the 33-core stick; the T240 checks must call it wrong
+if [[ -n "$t240ctl" ]]; then
+  t240_dir s16_t240_ctl 33 0; cp "$t240ctl" "$W/d_s16_t240_ctl/$UPD_NAME"
+  run s16_t240_ctl "$W/flash_vendor.bin" --usb-dir "$(stick s16_t240_ctl s16_t240_ctl)" --usb-dir-work "$out/s16_t240_ctl/usbwork" < <(nav 3 37; cat <<'EOF'
+expect-c64 "leaving the warranty" 150000
+key y
+expect-c64 "really want" 20000
+key y
+expect-c64 "Update OK" 200000
+wait 400
+c64screen
+png @OUT@/01_result.png
+quit
+EOF
+)
+  echo "== s16_t240_ctl (the old updater: 16 entries and no folders is what is expected here)"
+  if python3 -I "$HERE/emu_check.py" "$out/s16_t240_ctl" t240 --medium "$(usbimg s16_t240_ctl)" --src "$GEN" --n-cor 33 --expect-lines 16 --folders no --menu-only | tee "$out/s16_t240_ctl/check.txt"; then :; else fails=$((fails + 1)); fi
+  echo "== s16_t240_ctl against the T240 expectation (must FAIL)"
+  if python3 -I "$HERE/emu_check.py" "$out/s16_t240_ctl" t240 --medium "$(usbimg s16_t240_ctl)" --src "$GEN" --n-cor 33 --expect-lines 32 --folders yes --menu-only > "$out/s16_t240_ctl/check_t240.txt" 2>&1; then
+    echo "emu_t135: the T240 checks passed on the old updater: they cannot fail" >&2; fails=$((fails + 1))
+  else echo "  ok   the T240 checks fail on the old updater, as they must"; fi
 fi
 
 echo "emu_t135: $fails scenario(s) failed"
