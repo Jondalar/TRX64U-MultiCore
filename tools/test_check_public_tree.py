@@ -23,7 +23,17 @@ class T(unittest.TestCase):
         files, wins = cpt.load_private()
         self.assertEqual(sum(len(v) for v in files.values()), 20)
         self.assertTrue(all(len(sha) == 64 for sha, _, _ in sum(files.values(), [])))
-        self.assertGreaterEqual(len(wins), 20)
+        self.assertGreaterEqual(sum(len(v) for v in wins.values()), 20)
+        lines = [ln.split() for ln in open(cpt.PRIVATE) if ln.startswith("win ")]
+        self.assertTrue(all(len(f[1]) == 8 and len(f[2]) == 64 for f in lines), "window lines hold hashes only")
+
+    def test_selftest_with_real_list(self):
+        pl = os.environ.get("T2391_PLANTS")
+        if not pl:
+            self.skipTest("T2391_PLANTS not set")
+        r = run(sys.executable, "-I", TOOL, "--selftest")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertNotIn("not exercised", r.stdout)
 
     def test_scratch_repo_and_hook(self):
         td = tempfile.mkdtemp()
@@ -52,6 +62,15 @@ class T(unittest.TestCase):
             g("add", "-f", "."); g("commit", "-q", "-m", "planted path")
             r = hook(g("rev-parse", "HEAD").stdout.strip())
             self.assertEqual(r.returncode, 1); self.assertIn("PUBLIC-TREE: cores/a/roms/x.rom", r.stdout)
+            g("reset", "-q", "--hard", clean)
+            # a private file added in one pushed commit and removed by the next: the head's tree is clean, the history is not
+            os.makedirs(os.path.join(td, "cores/b/roms")); open(os.path.join(td, "cores/b/roms/y.rom"), "w").write("y")
+            g("add", "-f", "."); g("commit", "-q", "-m", "adds a private file")
+            g("rm", "-q", "-r", "cores"); g("commit", "-q", "-m", "removes it again")
+            head = g("rev-parse", "HEAD").stdout.strip()
+            self.assertEqual(run("python3", "-I", "tools/check_public_tree.py", "--rev", head, cwd=td).returncode, 0)
+            r = hook(head)
+            self.assertEqual(r.returncode, 1); self.assertIn("PUBLIC-TREE: commit", r.stdout); self.assertIn("cores/b/roms/y.rom", r.stdout)
             g("reset", "-q", "--hard", clean)
             open(os.path.join(td, "m"), "w").write("m"); g("add", "m"); g("commit", "-q", "-m", "x\n\nClaude-Session: abc")
             r = hook(g("rev-parse", "HEAD").stdout.strip())
