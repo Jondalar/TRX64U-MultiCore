@@ -1,6 +1,6 @@
 # TI-99/4A core (experimental)
 
-A community-built core, ported from [zeldin/Mega99](https://github.com/zeldin/Mega99) (LGPL-3.0) by rix with Claude's help,
+A community-built core, ported from [zeldin/Mega99](https://github.com/zeldin/Mega99) (LGPL-3.0) by [OldMan2525](https://github.com/OldMan2525) with Claude's help,
 as an early effort and a proof that a core can be built on this host without the maintainers' involvement.
 It is **experimental**: it boots to the TI title screen and TI BASIC and takes keyboard input on a C64 Ultimate. Everything
 else below is untested or not done. No support is promised (see CONTRIBUTING.md).
