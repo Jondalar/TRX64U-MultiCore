@@ -5,14 +5,14 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thank you for testing. A report we can reproduce gets fixed; a report without release, steps and photos usually
-        cannot be checked. Never attach ROMs or disk images, only their names and where they came from.
+        Thank you for testing. A report we can reproduce gets fixed; a report without release, steps and the report file
+        usually cannot be checked. Never attach ROMs or disk images, only their names and where they came from.
   - type: input
     id: release
     attributes:
       label: Release
       description: The release or pre-release name from the GitHub release page.
-      placeholder: trx64mc-main-922deb78
+      placeholder: 0.2.0
     validations:
       required: true
   - type: dropdown
@@ -30,7 +30,8 @@ body:
       label: Area
       description: >-
         Only the host, the official firmwares, the generic core application and TRX64 are supported (CONTRIBUTING.md).
-        For other cores use Discussions.
+        For an experimental core use the form "Experimental core: bug"; for the demos and the Port Diagnostics core use
+        Discussions.
       options:
         - host - boot menu, host application, update, core folders
         - firmware - an official firmware (.cfw) does not start from the host
@@ -74,16 +75,14 @@ body:
     id: photos
     attributes:
       label: Photos or video of the screen
-      description: Drag the photos or a short video in here. Show the fault and the menu settings.
-    validations:
-      required: true
+      description: Needed when the fault shows on the screen. Drag the photos or a short video in here; show the fault and the menu settings.
   - type: textarea
     id: report
     attributes:
-      label: Report and configuration files
+      label: Report file
       description: |
-        Attach the bug report file of the host application (F8, "Bug report": /SD/report/<date>.txt, or http://<board>/v1/report)
-        once your release has it. Until then attach the core's configuration /SD/cores/<core>.cfg.
+        The bug report file of the host application: F8, "Bug report". It is in /SD/report/<date>.txt, or at
+        http://<board>/v1/report.
     validations:
       required: true
   - type: textarea

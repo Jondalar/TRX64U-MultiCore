@@ -9,7 +9,7 @@ so an issue or a pull request lands where it can be finished. The overview of al
 - **The host system.** The host gateware and the host application: boot menu, update, core folders and the
   multi-boot of the C64U / U64 Elite II.
 - **The generic core application** (`coreapp/`). The application a core runs: menus from the core's TOML, media,
-  settings, saves. It is the blueprint for building a core of your own; the unsupported cores are its example
+  settings, saves. It is the blueprint for building a core of your own; the experimental cores are its example
   implementations.
 - **Official firmwares.** Every official firmware (`.cfw`) has to start from the host. If one does not, that is a
   fault of the host.
@@ -19,17 +19,27 @@ so an issue or a pull request lands where it can be finished. The overview of al
 
 For these, issues, enhancement requests and pull requests are welcome.
 
-## What we do not support
+## Experimental cores
 
-**Every other core comes without any support.** Amiga, C128, C64 with SuperCPU, C16/Plus4, VIC-20, PET, Atari,
-Apple, CPC, Spectrum, Next, NES, SNES, Neo Geo, the demos and the tools are here as examples of how a core is
-built on the host and the generic core application, and as an invitation to the community to make something of
-them. We may add a core or improve one now and then, for fun, **without any
-guarantee**: no fix, no answer and no release date is promised.
+The other cores are experimental: Amiga (OCS/ECS), Amiga 1200, Apple IIe, Atari 800 XL, C128, C16/Plus4,
+C64 with SuperCPU, CPC, Neo Geo, NES, PET, SNES, VIC-20, ZX Spectrum and ZX Spectrum Next. They show how a core
+is built on the host and the generic core application. They are also an invitation to the community to make
+something of them.
 
-Faults in these cores are therefore not tracked as issues. Use
-[Discussions](https://github.com/Jondalar/TRX64U-MultiCore/discussions) to share what you found, and a pull
-request if you fixed it.
+**Experimental cores come without any guarantee.** No fix, no answer and no release date is promised.
+
+Report a fault in an experimental core with the form "Experimental core: bug". Testers of the community triage
+these reports:
+
+1. A general fault, or a fault in several programs: a tester reproduces it and sets `confirmed`. We take our
+   work from these issues, one at a time.
+2. Information is missing: the issue gets `needs-info`.
+3. A fault in one program or demo only, or with rare hardware: the issue gets `edge-case` and is closed. It stays
+   searchable. When more programs show the same fault, the issue is opened again.
+
+The demos and the Port Diagnostics core have no issue form. Use
+[Discussions](https://github.com/Jondalar/TRX64U-MultiCore/discussions) for them. A pull request that fixes
+a fault is welcome for every core.
 
 ## Before you open an issue
 
@@ -40,13 +50,15 @@ request if you fixed it.
 ## What an issue must contain
 
 We take an issue only if we can reproduce it end to end, exactly as you saw it. The
-[bug form](https://github.com/Jondalar/TRX64U-MultiCore/issues/new/choose) asks for all of it:
+[forms](https://github.com/Jondalar/TRX64U-MultiCore/issues/new/choose) ask for all of it:
 
-- **Release:** the name from the release page.
+- **Release:** the name from the release page, for example `0.2.0`.
 - **Board:** C64 Ultimate or Ultimate 64 Elite II.
+- **Core:** in the experimental core form, and how wide the fault is.
 - **The exact steps from switching on**, one per line: menus, keys, files.
 - **What you expected and what happened.**
-- **Photos or a short video of the screen.**
+- **The report file:** F8, "Bug report". It is in `/SD/report/<date>.txt`, or at `http://<board>/v1/report`.
+- **Photos or a short video of the screen**, when the fault shows on the screen.
 - **The media you used, by name only:** title, file name and where it came from.
 
 ## What must never go into an issue or a pull request

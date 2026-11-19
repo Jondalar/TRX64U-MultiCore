@@ -1,6 +1,6 @@
 # T238 — Faults in the experimental cores are reported through their own issue form, and the issue forms fit the released packages
 
-**Status:** PROPOSED (2026-11-19, Alex).
+**Status:** BUILT on main (2026-11-19); goes to GitHub with Alex's go. Earlier: PROPOSED (2026-11-19, Alex).
 **Repo:** TRX64U-MultiCore — `.github/ISSUE_TEMPLATE/`, `CONTRIBUTING.md`, `tools/check_issue_forms.py` (lint); carried to
 GitHub by `tools/github_snapshot.py` (only with Alex's go). No gateware, no application.
 **Number:** T238.
@@ -14,7 +14,7 @@ discussion stays open for 2-3 days.
 **Depends on:** T161 (the issue forms and their lint).
 **Milestone:** after release 0.2.0.
 
-Open (one line, as in the TODO table): PROPOSED 11-19 (Alex); D1-D4 forms decided; CONTRIBUTING text and GitHub date open
+Open (one line, as in the TODO table): Built on main 11-19 (D1-D4, text OK); GitHub push + 4 labels wait for Alex's go (#103)
 
 ---
 
@@ -40,8 +40,8 @@ Open (one line, as in the TODO table): PROPOSED 11-19 (Alex); D1-D4 forms decide
 
 | # | Part | Scenario | Proof |
 |---|---|---|---|
-| S1 | P1 | The new form parses: every required field has an id and a label, no dropdown is empty | `tools/check_issue_forms.py` in lint; control: a field without id fails |
-| S2 | P1 | The experimental form's core list names exactly the shipped cores that are not supported (T161's list) | lint; control: a core added to the tree without the form fails |
+| S1 | P1 | The new form parses: every required field has an id and a label, no dropdown is empty | `tools/check_issue_forms.py` in lint; control: a field without id fails. Run 2026-11-19: "issue forms: 5 controls fail as required"; all four files also parse with Ruby's YAML |
+| S2 | P1 | The experimental form's core list names exactly the shipped cores that are not supported (T161's list) and not excluded (D4) | lint; controls: a core missing from the form fails, `diag` in the form fails. Run 2026-11-19: "issue forms ok (3 forms, 5 supported areas, 15 experimental cores)" |
 | S3 | P1 | On GitHub, "New issue" offers the bug report, the experimental core form, the feature request and the Discussions link; the experimental form sets `experimentalCore` | Alex looks after the snapshot push (his go) |
 
 Scenarios for P2-P5 follow their decisions.
@@ -75,7 +75,11 @@ Scenarios for P2-P5 follow their decisions.
   the files), the report file (as D3); optional: photo or video, anything else. Asked against "report optional" and "without
   diag and demos"; Alex chose "Ohne Diag und Demos" (without diag and demos). The core list is the shipped cores minus the
   supported areas minus `diag`, `ddt_mandel` and `ddt_novic`: 15 in 0.2.0. The lint names the three exceptions.
-- Open: P4 text, when it goes to GitHub (#103 runs 2-3 days).
+- **D5 (Alex, 2026-11-19): the `CONTRIBUTING.md` text as proposed** ("Ja"): "What we do not support" becomes "Experimental cores"
+  (the 15 cores, no guarantee, the form, the triage steps of D2, demos and Port Diagnostics in Discussions, pull requests welcome
+  for every core); "What an issue must contain" names the release example `0.2.0`, the core and its width, the report file and
+  photos when the fault shows on the screen.
+- Open: when it goes to GitHub (#103 runs 2-3 days).
 
 ## §4 Out
 
@@ -83,4 +87,13 @@ Nothing decided yet.
 
 ## §5 Built
 
-Nothing yet.
+- **2026-11-19, main.** `.github/ISSUE_TEMPLATE/experimental.yml` (D1, D4): labels `experimentalCore` + `triage`; the note of D4;
+  required release (placeholder `0.2.0`), board, core, "How wide is it?", steps, what happened, what was expected, programs
+  used, report file; optional photos, anything else. Core options are written `<id> - <name>` like the bug form's areas, so the
+  lint reads the id. `bug.yml` (D3): photo optional ("Needed when the fault shows on the screen"), "Report file" required with
+  F8 / `/SD/report/<date>.txt` / `/v1/report`, release placeholder `0.2.0`, the area text points to the experimental form, the
+  intro names the report file instead of the photos. `tools/check_issue_forms.py`: the experimental form must exist; its core
+  list equals the shipped cores (`tools/core_toml.py`, the filter of `tools/gen_roms_txt.py`) minus the supported areas minus
+  `EXCLUDED` (`diag`, `ddt_mandel`, `ddt_novic`); the photos are optional in both forms; five controls. `CONTRIBUTING.md` (D5).
+- **Open on GitHub (Alex's go):** the snapshot push, and the labels `triage`, `confirmed`, `needs-info`, `edge-case` (a label a
+  form names that does not exist in the repository is not set; `experimentalCore` exists). Date: after #103 (2-3 days)?

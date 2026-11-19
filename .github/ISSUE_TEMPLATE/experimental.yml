@@ -1,0 +1,113 @@
+name: "Experimental core: bug"
+description: Something does not work in an experimental core (Amiga, C128, PET, SuperCPU, ...). No guarantee; testers triage.
+labels: ["experimentalCore", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Experimental cores come without any guarantee: no fix, no answer and no release date is promised (CONTRIBUTING.md).
+        Testers triage these reports. A general fault, or a fault in several programs, is confirmed; we take our work from
+        these issues, one at a time. A fault in one program or demo only, or with rare hardware, is closed as edge-case. It
+        is opened again when more programs show the same fault. Never attach ROMs or disk images, only their names and where
+        they came from.
+  - type: input
+    id: release
+    attributes:
+      label: Release
+      description: The release name from the GitHub release page.
+      placeholder: 0.2.0
+    validations:
+      required: true
+  - type: dropdown
+    id: board
+    attributes:
+      label: Board
+      options:
+        - C64 Ultimate (C64U)
+        - Ultimate 64 Elite II
+    validations:
+      required: true
+  - type: dropdown
+    id: core
+    attributes:
+      label: Core
+      description: The demos and the Port Diagnostics core have no issue form; use Discussions for them.
+      options:
+        - amiga - Amiga (OCS/ECS, 68000)
+        - amiga1200 - Amiga 1200 (AGA, 68020)
+        - apple2 - Apple IIe
+        - atari800 - Atari 800 XL
+        - c128 - Commodore 128
+        - c264 - Commodore 264 (C16, Plus/4)
+        - c64scpu - C64 with SuperCPU
+        - cpc - Amstrad CPC 464 / 664 / 6128
+        - neogeo - SNK Neo Geo
+        - nes - Nintendo Entertainment System
+        - pet - Commodore PET
+        - snes - Super Nintendo
+        - vc20 - VIC-20
+        - zx - ZX Spectrum 48K / 128K
+        - zxnext - ZX Spectrum Next
+    validations:
+      required: true
+  - type: dropdown
+    id: scope
+    attributes:
+      label: How wide is it?
+      description: Try more than one program before you choose.
+      options:
+        - every program, or a general fault of the core
+        - several programs
+        - one program or demo only
+        - rare hardware or an add-on
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps
+      description: From switching on, what you did, one step per line (menus, keys, files).
+      placeholder: |
+        1. Switch on, the boot menu shows
+        2. Choose the core, it starts
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: input
+    id: media
+    attributes:
+      label: Programs used
+      description: Names of the programs and images and where they came from (site, collection, version). Never the files.
+      placeholder: Turrican.adf from the TOSEC set 2023-01
+    validations:
+      required: true
+  - type: textarea
+    id: report
+    attributes:
+      label: Report file
+      description: |
+        The bug report file of the host application: F8, "Bug report". It is in /SD/report/<date>.txt, or at
+        http://<board>/v1/report.
+    validations:
+      required: true
+  - type: textarea
+    id: photos
+    attributes:
+      label: Photos or video of the screen
+      description: Needed when the fault shows on the screen. Drag the photos or a short video in here.
+  - type: textarea
+    id: more
+    attributes:
+      label: Anything else
