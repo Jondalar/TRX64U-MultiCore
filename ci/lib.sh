@@ -77,7 +77,11 @@ plan_note() { echo "plan: $2 - $3"; printf '%s: %s\n' "$2" "$3" >> "$1/plan_resu
 _lap_t=$SECONDS
 lap() { local d=$((SECONDS - _lap_t)); _lap_t=$SECONDS; printf '%dm%02ds' $((d / 60)) $((d % 60)); }
 
-branch_slug() { printf '%s' "${GITHUB_REF_NAME:-$(git -C "$ROOT" rev-parse --abbrev-ref HEAD)}" | tr '/' '_'; }
+# ci_branch / ci_ref_type: the ref the run is for. CI_BRANCH and CI_REF_TYPE come first: on a runner of the builder repository GITHUB_REF_NAME names
+# that repository's ref, not the ref of the commit that is built (T239.1 D9).
+ci_branch() { printf '%s' "${CI_BRANCH:-${GITHUB_REF_NAME:-$(git -C "$ROOT" rev-parse --abbrev-ref HEAD)}}"; }
+ci_ref_type() { printf '%s' "${CI_REF_TYPE:-${GITHUB_REF_TYPE:-}}"; }
+branch_slug() { ci_branch | tr '/' '_'; }
 
 # T215: every content key hashes the NORMALISED content of a file (ci/code_hash.py: comments cut out, tree-sitter), the same function ci/plan.py
 # decides "changed" with; a comment never moves a key, and neither does a documentation file (is_doc: FROM, *.md, README*, PROVENANCE*, LICENSE*, COPYING*; 2026-11-15).
@@ -195,10 +199,11 @@ aux_key() {
 cache_put() {
   local src="$1" dst="$2"
   mkdir -p "$(dirname "$dst")"
-  rm -rf "$dst.tmp.$$"
-  cp -R "$src" "$dst.tmp.$$"
+  local tmp; tmp="$(mktemp -d "$dst.tmp.XXXXXX")"
+  chmod 755 "$tmp"
+  cp -R "$src/." "$tmp/"
   rm -rf "$dst"
-  mv "$dst.tmp.$$" "$dst"
+  mv "$tmp" "$dst"
 }
 
 # pin_entry <entry dir> [group]: this branch uses the entry (T87 D14). Writes pins/branch.<slug>
@@ -210,9 +215,9 @@ pin_entry() {
   local entry="$1" base group slug other
   base="$(basename "$entry")"
   group="${2:-${base%-*}}"
-  if [ "${GITHUB_REF_TYPE:-}" = tag ]; then
+  if [ "$(ci_ref_type)" = tag ]; then
     mkdir -p "$entry/pins"
-    git -C "$ROOT" rev-parse HEAD > "$entry/pins/tag.${GITHUB_REF_NAME:-unknown}"
+    git -C "$ROOT" rev-parse HEAD > "$entry/pins/tag.$(ci_branch)"
     return 0
   fi
   slug="$(branch_slug)"
@@ -334,7 +339,11 @@ publish_files() {
 heavy_lock() {
   [ -z "${HEAVY_SLOT:-}" ] || return 0
   local lock0="${CI_HEAVY_LOCK:-/cache/heavy.lock}" dir="${CI_HEAVY_SLOT_DIR:-/cache/multicore}" n i f waited=""
-  [ -d "$(dirname "$lock0")" ] && [ -w "$(dirname "$lock0")" ] && command -v flock >/dev/null || return 0
+  if ! { [ -d "$(dirname "$lock0")" ] && [ -w "$(dirname "$lock0")" ] && command -v flock >/dev/null; }; then
+    # under CI a Vivado run without the lock would break the two-slot limit (D27): fail instead of running unlocked
+    [ -z "${CI:-}" ] || [ -n "${CI_HEAVY_LOCK:-}" ] || { echo "heavy_lock: no $lock0 or no flock under CI: not running without the lock" >&2; return 1; }
+    return 0
+  fi
   n="${CI_HEAVY_SLOTS:-2}"
   mkdir -p "$dir" 2>/dev/null || n=1
   while :; do
@@ -388,7 +397,7 @@ cache_gc_if_free() {
 # (a release, T221) the bundle version x.y.z every display shows (ci/version.sh), on any other build the commit (8 digits). The names:
 # trx64host_update_<file_id>.txu (stage package) and .cfw/.ue2 (stage update; a build that is no release adds the date). tools/check_bundle.py checks them.
 file_id() {
-  if [ "${GITHUB_REF_TYPE:-}" = tag ]; then "$ROOT/ci/version.sh" bundle; else git -C "$ROOT" rev-parse --short=8 HEAD; fi
+  if [ "$(ci_ref_type)" = tag ]; then "$ROOT/ci/version.sh" bundle; else git -C "$ROOT" rev-parse --short=8 HEAD; fi
 }
 
 # build_update_host <manifest.json> <null_full.bit> <hostapp.app> <outdir>: the MultiCore host update
@@ -403,7 +412,7 @@ build_update_host() {
   fi
   local id bitc appc
   # the id the installer shows in its title: a release's version (file_id), any other build's branch and commit
-  if [ "${GITHUB_REF_TYPE:-}" = tag ]; then id="$(file_id)"; else id="$(branch_slug)-$(git -C "$ROOT" rev-parse --short=8 HEAD)"; fi
+  if [ "$(ci_ref_type)" = tag ]; then id="$(file_id)"; else id="$(branch_slug)-$(git -C "$ROOT" rev-parse --short=8 HEAD)"; fi
   # Eight digits, not the whole sha: the manifest record keeps 16 bytes NUL-terminated for each
   # (tools/trx_pkg.py:40-41), and a 40-character sha is refused there - which is what run 51 showed.
   bitc="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["trx64_commit"][:8])' "$manifest")"
