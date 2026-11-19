@@ -30,6 +30,14 @@ Baseline read on 2026-11-19 (three read-only agents over TODO, specs, ADRs and c
 - **CI/CD.** Everything runs on private infrastructure (Gitea, builder, NAS, the Vivado image, the content-keyed cache, the
   heavy.lock shared with TRX64-Ultimate). GitHub receives a filtered history replay and hand-made releases; outside pull requests
   are applied as patches on Gitea. No decision covers GitHub Actions; T100 D8 says "until I want to move the pipeline there".
+- **TLS for a registry on the board** (read 2026-11-19 in GideonZ/1541ultimate, read only): our host has no TLS client (lwIP
+  without TLS). Upstream issue #952 (open since 2026-10-04) plans TLS client sockets on the ESP32 for C64 programs (UCI `$21`
+  OPEN_TLS, TLS 1.3, mbedTLS of ESP-IDF 6.0.3, a vendored Mozilla root store, five PRs), first for the U64/U64 Elite MK1
+  (`raw_u64`); the Elite II and C64U firmware (`u64ctrl`) get only `GET_RANDOM`. The upstream maintainer stopped it until an
+  approach is agreed and prefers TLS on the Ultimate itself for every product; the issue notes that the main CPU has no entropy
+  source (`LWIP_RAND()` is an unseeded `rand()`). Upstream `u64ctrl` already uses HTTPS inside the ESP32 for its Wi-Fi recovery
+  from a signed manifest (commits 56689d2d8 of 2026-10-18 and dc3a31f24, Mozilla roots), not as a service for the main CPU; its
+  identity is V1.29. We build no ESP32 firmware (our updater builds with `NO_ESP=1`); we own the host gateware.
 - **Parts:** P1 the product boundary (host, app, SDK); P2 cores outside this repository (TRX64 first, the others open); P3 the
   registry for host and cores; P4 CI/CD with GitHub as the main channel.
 
