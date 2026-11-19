@@ -63,6 +63,7 @@ check "layer-2 contract" python3 tools/contract_ports.py --check
 # Alex, 2026-11-08 (T115 section 5): the old DFX trx64 core stays deleted; the selftest plants each fault
 check "no old core (trx64 directory and paths)" python3 tools/check_no_old_core.py
 check "no old core: selftest" python3 tools/check_no_old_core.py --selftest
+check "TODO rows and specs (Open lines, DONE specs in docs/specs/done/)" python3 -I tools/check_todo.py
 # T107 D7 / T164 WP1: the HDMI mode tables (A1200 and host editions) against every limit, the committed .vh files, and one negative control per rule
 check "hdmi modes (A1200 + host)" bash -c 'python3 tools/hdmi_modes.py check && python3 tools/hdmi_modes.py selftest >/dev/null'
 # T168 S9: DDT's ported files are byte-identical to the pinned upstream or have their .diff, NOTICE names licence / repository / commit, no character ROM, the palette is the tool's

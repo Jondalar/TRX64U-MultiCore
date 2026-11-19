@@ -1,7 +1,7 @@
 # Alex's requirements for the generic app (consolidated 2026-11-12)
 
 Sources: all of Alex's chat messages 2026-09-13..11-12 (TRX64U-MultiCore, TRX64-Ultimate, C64U-TRX-UI, 1541ultimate sessions), specs, TODO and commit messages, plus the D-lines and Alex decisions in
-docs/specs/done/T104.1-contribution-model.md, T104.2-generic-app-on-trx64-ultimate.md, T93-core-app-blueprint.md.
+docs/specs/done/T104.1-contribution-model.md, docs/specs/T104.2-generic-app-on-trx64-ultimate.md, docs/specs/done/T93-core-app-blueprint.md.
 Dates earliest first. Quotes are Alex's own (German); where a spec only keeps a translation, the English quote is marked (tr.).
 "replaces" = an earlier decision of Alex that the current one overrides.
 

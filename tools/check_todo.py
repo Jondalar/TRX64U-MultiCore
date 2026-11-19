@@ -28,7 +28,8 @@ for row in open("TODO.md", encoding="utf-8"):
 # A spec whose status is DONE lives in docs/specs/done/ (Alex, 2026-11-19).
 for f in sorted(os.listdir("docs/specs")):
     p = os.path.join("docs/specs", f)
-    if f.endswith(".md") and os.path.isfile(p) and re.search(r"^\*\*Status:\*\*\s*(✅\s*)?DONE", open(p, encoding="utf-8").read(), re.M | re.I):
+    head = re.search(r"^\**Status\**:\**\s*(.*)", open(p, encoding="utf-8").read(), re.M) if f.endswith(".md") and os.path.isfile(p) else None
+    if head and re.match(r"(✅\s*)?DONE\b", head.group(1)):
         print("%-8s status DONE but not in docs/specs/done/: %s" % (f.split("-")[0], p))
         bad += 1
 print("check_todo: %s" % ("ok" if not bad else "%d problem(s)" % bad))

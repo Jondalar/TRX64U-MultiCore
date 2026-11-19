@@ -1,6 +1,6 @@
 # T222 — The C64 + SuperCPU core respects the HDMI resolutions: 576p, 720p, 1080p at 50 Hz; 480p, 720p, 1080p, 800 x 600 at 60 Hz, each locked to the VIC frame, at Integer / Fit / Fill
 
-**Status:** IN PROGRESS (2026-11-15, Alex): gateware and app built, benches S1-S6 green on the builder (§5); open: the Vivado run (S9), the app tests in CI (S7), the board (S11). Branch `scpu-hdmi-modes`, not pushed.
+**Status:** DONE (board pass 2026-11-15, Alex: "everything works"; merged to main, as the TODO row records). Before: IN PROGRESS (2026-11-15): gateware and app built, benches S1-S6 green on the builder (§5).
 **Repo:** TRX64U-MultiCore — the core `cores/c64scpu` (its own copy of the host video files `mono/host/`, `mono/top.v`), the generic core app (`coreapp/src/picture.*`, `app/video/videomode.*`), CI (`ci/sims.*`). `host/`, `cores/common/`, `contract/` are not touched.
 **Number:** T222 (registry: the table in `TODO.md`; T221 was the last row).
 **Origin:** Alex, 2026-11-15 (translated): "the SuperCPU is done; what is missing is respecting the resolutions, TRX64-Ultimate just built that."

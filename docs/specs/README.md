@@ -19,7 +19,6 @@ Specs of the TRX64U MultiCore line (one host, n swappable cores; layout since 20
 
 | Spec | Task | State |
 |---|---|---|
-| [T104.1](done/T104.1-contribution-model.md) | Contribution model: libraries and apps register ops, state, menus; one service layer | Board: REST/WS to the core app of a running DFX core returns status and memory (Claude by curl) |
 | [T104.2](T104.2-generic-app-on-trx64-ultimate.md) | The generic app boots on the TRX64 Ultimate monolith, then a C64 descriptor and cbm1541 (D10) | Wanted (Alex 10-28): TRX64 runs our app; next: drive pages to main, RISC-V build, board run (S1) |
 | [T104.3](done/T104.3-applications.md) | Applications: ABI 3 svc table, the app runner, declarative UI rendered by the app (Alex 10-26) | Runner, host, 4 apps proven in ue2emu (merged 10-29, trxmon stays linked); board S8, overlay Q1 open |
 | [T107](done/T107-application-owns-the-picture.md) | Every application chooses its own video mode, the host re-asserts its own when a core returns | D7/D8/D11 designed in T164 (host); Sony cause found (pixel repetition, §5); host app 720-wide UI open |
@@ -28,13 +27,11 @@ Specs of the TRX64U MultiCore line (one host, n swappable cores; layout since 20
 | [T112](T112-core-folders.md) | One folder per core (.cor, .cfg, roms/); ROM search starts beside the core | Layer-2 and large .cor: ROMs and .cfg beside the .cor, benches green; board S1/S2 open |
 | [T116](T116-zx-next-core.md) | ZX Spectrum Next core: the original FPGA source, RAM on DDR2, SD card served from an image | Board passed (Alex 10-28); D11 Auto passed (11-04); open: frame-lock and S6 picture-bench decisions (5.3) |
 | [T118](T118-hdmi-geometry-per-core.md) | The HDMI picture is the same for every core, or we know which signal differs | Bench: encoder input identical for VC-20 and A1200 (hypothesis refuted); board difference open |
-| [T119](done/T119-vc20-zx-pixel-layer.md) | VC-20 and ZX draw into a DDR2 frame buffer of the pixel layer, not via the vic_scaler | ZX 48K picture on the board (11-04, 5.15 fix holds) |
 | [T122](T122-create-blank-media.md) | Every core with a drive creates a new, formatted disk image from its menu (D81, Apple II, ADF, ATR, CPC) | Built; board B1, B3-B8 for all cores go to the testers (Alex 10-31); B2 A1200 passed |
 | [T125](T125-bbc-micro-core.md) | BBC Micro core | Spec PROPOSED 2026-11-05: BeebFpga/MiSTer core, non-commercial licence; 10 questions open |
 | [T128](T128-folder-hdd.md) | A folder on the stick/SD as an Amiga hard disk, instead of an .hdf image | Board B1-B6: mount a folder as HD0 on the A1200 (and A500 with KS 2.05/3.x), write, delete, power cut |
 | [T135](done/T135-direct-boot.md) | Direct boot of the default core, menu on a held key | S1-S7 proven in ue2emu; open: S8, S10, S12, B1, B2; board S1/S3/S8/S9/S13/B2 |
 | [T137](done/T137-host-convert-and-restore.md) | Host app: convert .cfw/.ue2 to .cor (built), restore original firmware (R, built), update | Restore passed; D11 look passed on the board (11-02); D10 restart built (T152 D11), board step open; P board step |
-| [T138](done/T138-a1200-zorro3-fast-ram.md) | A1200 with 32 MB Zorro III fast RAM | Board S5 half: avail shows 32 MB (Alex 10-31); Deep Meet not tried yet |
 | [T140](T140-analog-video-out.md) | Analogue picture on the A/V port: S-Video and composite, PAL and NTSC | #19/#21 fixed 11-09; #67 board pass 11-11; hang after warm reset, Reload core works (5.17); load stop; T170 SRQ |
 | [T141](T141-usb-keyboard-in-cores.md) | USB keyboard types into every core (C128 extra keys, Amiga raw keys), not only the menus | A1200 board ok; A500 shares the queue (built, Vivado+board open); C128 later |
 | [T142](T142-snes.md) | SNES as a large core from MiSTer SNES (snestang Verilog) | Board 11-02: sound correct (BRR sign), USB pad ok; open: menu verdict text |
@@ -44,7 +41,6 @@ Specs of the TRX64U MultiCore line (one host, n swappable cores; layout since 20
 | [T154](T154-cartridge-and-save-writeback.md) | Cartridge and battery-RAM saves go back to the user's file (Off/Ask/Auto), shared app base, all cores | Merged 10-29: service, C64 flash/EEPROM, EF3 built and benched; board S1 and P3/P4 open |
 | [T156](T156-usb-gamepads.md) | USB gamepads drive the cores' own controllers, generic HID parsing in the app base; NES, SNES, Neo Geo | Board 11-02: NES, SNES, Neo Geo pads ok (Neo Geo map by position); open: real pad dump |
 | [T157](T157-joystick-port-swap.md) | Every core can swap the two joystick ports from its menu (generic app), issue #9 | Built: amiga, a1200, nes, c128; vc20 none (Alex); CI bitstreams + board S5 open |
-| [T159](done/T159-led-load-indicator.md) | Case LED 1 = floppy LED (drive motor + hard disk), menu On/Off, A1200 first | Board 11-04: A500, Atari, Apple II, CPC, C128 pass; C264 and VC-20 not seen yet |
 | [T160](done/T160-master-volume.md) | Every core has a master volume (SHIFT+/SHIFT- in the menu), gain in the host | A1200 board S3 passed; host gain + toast on every page built (T164 WP11), board S3 on another core open |
 | [T161](done/T161-github-issue-forms.md) | A GitHub bug report needs version, core, steps, photos and the T162 report (issue forms) | Forms + lint built, on GitHub; S3 Alex looks |
 | [T162](done/T162-bug-report-dump.md) | The host app writes a bug report file (F8 menu, /SD/report/, GET /v1/report) | Host and core app built and tested; board step open |
@@ -64,11 +60,9 @@ Specs of the TRX64U MultiCore line (one host, n swappable cores; layout since 20
 | [T183](T183-gba-core.md) | Game Boy Advance core (large core, if it fits the XC7A50T) | Spec PROPOSED (Alex 11-05): expected no-go (est. 18.5-20k LUT vs 17k usable); synth trial decides, nothing built |
 | [T184](done/T184-wifi-in-host.md) | WiFi in the host menu and the core apps: FTP over WiFi as over Ethernet (#45) | D1-D5 built; board 11-07: works (Alex); S2-S4 (power cycle, static address, boot without WiFi) open |
 | [T185](T185-c128-jiffydos.md) | C128: start with the standard ROMs or JiffyDOS, chosen in the settings (#46) | D4 built + tested (files selected, Stock default); board 11-11: works, faster (J.3 timing not measured) |
-| [T186](done/T186-ftp-client-fixes.md) | Core app FTP client: passive address of the control peer, no QUIT on a dead link, late 226 read | Built, Mac tests + 5 controls green; RISC-V + apptests green (20 min); board S4 open |
 | [T187](done/T187-core-app-ux-rework.md) | Core app menus: same layout in every core, selection visible, no overlap (board 11-06, UX review) | Built D1-D9 incl. host Picture page, ux-review PASS (core+host), merged 11-11; open: S2, S5, S6 |
 | [T188](done/T188-amiga-frame-lock.md) | Amiga cores: output frame follows the core (#48) | Done (Alex 11-15); merged 11-13 (run 1796 green) |
 | [T189](T189-host-tone-preset.md) | Host audio: tone preset Flat/Bass/Treble beside the master volume (#49) | DECIDED 11-07 (D1-D7): shelf before gain, 2 DSP, per-core .cfg, all cores; build open |
-| [T190](done/T190-amiga-mouse-settings.md) | Amiga cores: USB mouse sensitivity and acceleration settings (#51) | Merged main; S1-S2 proven; S3 board (Lemmings, A500) open |
 | [T191](T191-amiga-rtc.md) | Amiga cores: optional battery-backed clock at $DC0000, time from the board (#52) | Merged main; S8 board PASS 11-08; S7 Vivado per-module line open (yosys 248 LUT) |
 | [T192 arc42](T192-arc42.md) | Architecture of the UI framework (arc42), companion of the T192 epic | Draft |
 | [T192](T192-ui-architecture-epic.md) | Epic: one C++ functional core, many UIs (host + core app): contract, bundles, search, TUI, remote | MVP merged main 11-09 (0c5612d2d); T192.1-3 built, T192.4-6 PROPOSED; board open |
@@ -88,11 +82,8 @@ Specs of the TRX64U MultiCore line (one host, n swappable cores; layout since 20
 | [T202](T202-zip-as-folder.md) | Zip as a folder: browse a .zip in F3, use one entry without unpacking all (#72) | Spec 11-11 (Alex), questions open |
 | [T204](T204-home-dir-picker.md) | Core app: Home directory picked with a folder browser (starts at the saved folder, else /) | Spec 11-11 (Alex D1); after the test release (D2) |
 | [T205](T205-core-settings-one-place.md) | Core app: settings in one place (F5: core, Video, Audio, Input); F6 goes | Built, T207 merged; ux-review PASS (emulator); board S6 open |
-| [T206](done/T206-run-disk-everywhere.md) | Core app: "Run Disk" beside every "Mount Disk" (SCPU, C128, Amiga, PET built; S3 board) | Alex D1 11-11 |
-| [T207](done/T207-hotkey-learn.md) | Core app: hotkeys learned by pressing the key, not stepped through with LEFT/RIGHT | Built; S1-S4 proofs in §5; S5 board (Alex) |
 | [T208](done/T208-scpu-metal-dust.md) | SCPU: Metal Dust picture faults while scrolling, menu speed (mirror queue / IRQ timing) | Done (Alex 11-15); BA write hold, board S4 PASS 11-15; trace code only in refs/backup/t208-trace |
 | [T209](T209-one-line-rows.md) | Host + core app: one line per row (no sublines), closer rows, scroll before the edge, paging keys in the foot | Merged main; D1-D20 built; open: host paging keys, S8 board |
-| [T210](done/T210-coreapp-modes-wifi.md) | Core app: splash placed for 480p/720p from the first frame; F8 WiFi real state in every core | Merged main; ue2emu proofs; S3 board (splash 480p, F8 WiFi) open |
 | [T211](T211-own-key-names.md) | Host UI: own key names, F keys as navigation (no PAGEUP=F1 aliasing) | Alex 11-12 |
 | [T212](T212-core-menu-areas.md) | Core app areas: F1 quick actions, F5 machine, F7 app settings (host value as default), status to F8 | D1-D17 decided; built on branch t212-core-areas (not merged); board open |
 | [T213](T213-bitstream-api.md) | Epic: bitstream API (a) - API TOML per core, C modules in the service, child spec per core | Alex 11-12 |
