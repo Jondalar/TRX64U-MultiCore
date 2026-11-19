@@ -102,7 +102,7 @@ int main(int argc, char **argv)
     CHECK(cnt.bytes * 100 < add_bytes);                                        // under 1 % of what adding reads
     printf("bytes read: add %u, start %u (file %u)\n", (unsigned)add_bytes, (unsigned)cnt.bytes, (unsigned)fsize);
 
-    // START over a full menu: 16 entries, still no listing and no part
+    // START over a full menu (BOOT_MAX entries), still no listing and no part
     {
         memset(&cnt, 0, sizeof(cnt));
         for (int i = 0; i < BOOT_MAX; i++) CHECK(startcheck_entry(e, fs, ci, st) == EC_OK);

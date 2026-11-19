@@ -1868,7 +1868,9 @@ static bool install_cores(Flash *fl, uint32_t installed_axss)
         cfg_add(en, cores, bundle[i].name, bundle[i].size);
     }
     console_print(screen, "                                        \rFiles: %d copied, %d same, %d failed\n", copied, same, failed);
-    console_print(screen, "Core folders: %d, %d could not be made\n", folders, folder_failed);
+    if (folders) {
+        console_print(screen, "Core folders: %d, %d could not be made\n", folders, folder_failed);
+    }
     if (failed) {
         const char *names[] = { " No ", " Yes " };
         if (user_interface->popup("Not every file could be copied.\nGo on anyway?", 2, names, "ny") != 2) {

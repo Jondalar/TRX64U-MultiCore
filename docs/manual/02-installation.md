@@ -48,7 +48,7 @@ bundle, the `.cor` of the old firmware and the files that you copy. The updater 
 2.3.2 Copy the `.ue2` to the medium. Copy the `.cor` files of the release into the **same folder** as the `.ue2`.
 
 2.3.3 The updater searches the media for the `.ue2` or `.cfw` of this very package (the root of each medium and up to three folder levels). It copies every `.cor`, `.cfw`
-and `.u2a` that lies in the same folder to the chosen medium (up to 24 files in all): `.cor` and `.cfw` to `cores`, `.u2a` to `cores/apps`. It does not copy a file whose name starts
+and `.u2a` that lies in the same folder to the chosen medium (up to 64 files in all): `.cor` and `.cfw` to `cores`, `.u2a` to `cores/apps`. It does not copy a file whose name starts
 with `trx64host_update`, `trx64_update` or `trxbk`, and not the installer itself.
 
 ## 2.4 Install the host

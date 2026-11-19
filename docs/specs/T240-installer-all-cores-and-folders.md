@@ -88,3 +88,7 @@ Nothing decided yet.
 | S2 | s14 (20 `.cor` + 4 `.u2a` + 3 `.cfw`: all 20 copied and in the menu, 24 lines); the pre-T240 updater (24 files) is the control through s16 | written, not run |
 | S3 | s13 (SD with `cores/dummy01/roms/keep.bin`: the file stays, the other subfolders are made; folders of all 20 and the backup), s14, s15 (folders for all 33, also those not in the menu), none for `.cfw` | written, not run |
 | S4 | board, Alex | open |
+- **Review 2026-11-19 (agent, before the merge):** no blockers. Fixed: the manual's "up to 24 files" (now 64), the comment of
+  `tests/hostapp/test_startcheck.cc` ("16 entries" -> BOOT_MAX), the "Core folders" line only when a folder was made. Known and
+  older than T240: when the bundle folder is the cores folder itself, the backup `.cor` can be met twice (a second boot entry, a
+  second folder count); the emulator scenarios do not reach it.
