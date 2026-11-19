@@ -1,6 +1,6 @@
 # T240 — The installer puts every core it finds into the boot menu, up to 32, and makes each core's folder with roms/, saves/ and configs/
 
-**Status:** PROPOSED (2026-11-19, Alex).
+**Status:** BUILT on branch `t240-installer-cores` (2026-11-19); emulator run and board S4 open. PROPOSED 2026-11-19 (Alex).
 **Repo:** TRX64U-MultiCore — the TRX updater `vendor/gideon/software/application/update_u2p/update_trx.cc` (built by the CI
 stage `update` into `trx64host_update_<id>.ue2/.cfw`). No gateware; no `coreapp/` or `uicore/` code (T192 D24, T213 D4).
 **Number:** T240.
@@ -11,7 +11,7 @@ he should please also create the folder structures for every core found at insta
 **Depends on:** T223 D1 (the boot menu holds 32 entries), T148 (the core folder), T135 (the installer writes boot.cfg).
 **Milestone:** after release 0.2.0.
 
-Open (one line, as in the TODO table): PROPOSED 11-19 (Alex, #107): boot menu fill up to 32, BUNDLE_MAX, core folders at install
+Open (one line, as in the TODO table): Built on branch t240-installer-cores 11-19; emulator run + board S4 open
 
 ---
 
@@ -60,4 +60,31 @@ Nothing decided yet.
 
 ## §5 Built
 
-Nothing yet.
+2026-11-19, branch `t240-installer-cores`. Not built, not run: the RISC-V build and the emulator run are the coordinator's.
+
+- **P1** `update_trx.cc:1053` `BOOT_ENTRIES 32` (comment now true: bootcfg.h BOOT_MAX, T223 D1). The text buffers of `write_boot_cfg()`
+  were 2048 bytes: 32 lines of about 90 bytes do not fit, so `text` and `back` are `BOOT_TEXT_MAX` = 32 x 200 + 128 = 6528 bytes each
+  (`:1054`, `:1662`, `:1681`; the host's own buffer is `BOOT_MAX * 260 + 128`). `cfg_add()` counts what it cannot take in `cfg_dropped`
+  (`:1644-1649`); after the `boot.cfg written` line the screen says `n core(s) not added: the menu holds 32.` (`:1886`). The backup `.cor`
+  is entry 1, so 33 `.cor` files in the folder give 32 lines and 2 not added.
+- **P2** `BUNDLE_MAX 64` (`:1052`). RAM: `sizeof(bundle_file)` = 64 + 4 + 1 + 1 padded = 72 bytes, 64 entries = 4608 bytes of static
+  RAM (was 24 = 1728; +2880). `find_bundle()` no longer drops files silently: a matching file with no room is counted in
+  `bundle_left_out` (`:1451`) and the screen says `n more file(s) left out: the updater takes 64.` (`:1741`). A 0.2.0 folder (24 files)
+  plus other vendors' files fits up to 64 files together.
+- **P3** `make_core_folder()` (`:1694`) makes `<dir>/<name>/`, `roms/`, `saves/`, `configs/` with `FileManager::create_dir()` (FR_EXIST is
+  fine: what exists stays), the set `corefolder_ensure()` makes. It is called for the backup `.cor` (`:1823`) and for every copied `.cor`
+  of the bundle, also a large-core `.cor` and one whose copy was `same` (`:1861`); not for a `.cfw` (no `.cor` extension: the core
+  application's `corefolder_dir()` refuses it) and not for a `.u2a`. A file whose copy failed gets none. A folder that cannot be made is
+  named on the screen and the install goes on; the line `Core folders: n, m could not be made` follows the file summary (`:1871`).
+  No `coreapp/` or `uicore/` code is linked or changed.
+- A `.cfw` of another vendor is still a boot entry (as before T240; `cfg_add()` for every non-`.u2a` file) and counts against the 32.
+- Manual: the menu size 16 -> 32 in 3.3.2, 5.x table, 6.5.1, 8.9.3; 2.4.4, 2.4.6 and 2.7.1 say what the installer makes.
+- Tests: `tests/updater/emu_t135.sh` s13-s16, `tests/updater/emu_check.py` mode `t240`; dummy files are made by the script (any bytes; the
+  menu name is the file name).
+
+| # | Proof written | Status |
+|---|---|---|
+| S1 | s13 (20 `.cor` + 4 `.u2a`: 21 lines = backup + 20) and s15 (33 `.cor`: 32 lines, screen `2 core(s) not added`); control s16: the pre-T240 updater gives 16 lines and the T240 checks must fail on it | written, not run |
+| S2 | s14 (20 `.cor` + 4 `.u2a` + 3 `.cfw`: all 20 copied and in the menu, 24 lines); the pre-T240 updater (24 files) is the control through s16 | written, not run |
+| S3 | s13 (SD with `cores/dummy01/roms/keep.bin`: the file stays, the other subfolders are made; folders of all 20 and the backup), s14, s15 (folders for all 33, also those not in the menu), none for `.cfw` | written, not run |
+| S4 | board, Alex | open |

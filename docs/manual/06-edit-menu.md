@@ -90,7 +90,7 @@ empty, no auto entry is set.
 
 ## 6.5 Notes
 
-6.5.1 The menu holds up to 16 entries.
+6.5.1 The menu holds up to 32 entries.
 
 6.5.2 `Flash:/boot.cfg` can be edited over FTP (7.2). The host reads the file once at the start. A change over FTP while the
 host application runs shows after the next start.

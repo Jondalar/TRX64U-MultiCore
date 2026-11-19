@@ -243,7 +243,7 @@ them only when a core folder holds a copy with the same bytes (12.2.3).
 | `lib_attempt=<n>` | A counter of the host. The host writes the line only when n is above 0. Do not edit | 0 |
 | `core=<path>\|<name>\|<sha256>\|<size>\|<date>\|<header>\|<config>` | One entry. The last four fields are optional. The file stores the SHA-256 of the first part for a `.cor` and nothing for a firmware. `<header>` is 8 hex digits. `<config>` is the auto config of the entry (4.11, 6.1.3); it is read only when it is a valid config name (4.11.1) | |
 
-8.9.3 The menu holds up to 16 `core=` lines. A name holds up to 47 characters and no `|`.
+8.9.3 The menu holds up to 32 `core=` lines. A name holds up to 47 characters and no `|`.
 
 8.9.4 The host reads the file once at the start. You can edit it over FTP (7.2) when the host application does not run.
 
