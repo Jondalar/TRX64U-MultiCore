@@ -12,7 +12,7 @@ repo already) and the other cores I do not know yet. Plus a registry for cores a
 **Depends on:** T192 and T213 (app layers, D24), T221 (SemVer per deliverable), T238 (support model), T100 D8 (releases on GitHub).
 **Milestone:** after release 0.2.0.
 
-Open (one line, as in the TODO table): PROPOSED 11-19; D1-D7 (vision, SDK, registry in host menu, TRNG in null core); open: registry form
+Open (one line, as in the TODO table): PROPOSED 11-19; D1-D8 (vision, SDK, central registry read by the host); open: TRX64, app, CI/CD
 
 ---
 
@@ -82,6 +82,10 @@ Written after the decisions.
   AES/SHA only if a measurement asks for them. A new null core leaves the static routing and the host key as they are: no DFX core
   breaks. On the upstream side (#952) the U2 and U2+ FPGAs are 99 % full, so an all-Ultimates solution has no room; this one
   serves the C64U and U64 Elite II with our own host only.
+- **D8 (Alex, 2026-11-19): one central registry first; several later, if a community forms.** Asked between one central
+  registry (a GitHub repository with an index file, entries by pull request that we review), several registries (as MiSTer's
+  downloader databases, added by the user in the host menu) and both: "Lieber erstmal 1, falls sich überhaupt eine Community
+  findet, dann später 3" (translated: rather 1 first; if a community forms at all, then 3 later).
 
 ## §4 Out
 
