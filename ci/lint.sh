@@ -99,6 +99,8 @@ check "release bundle test" python3 tools/test_make_release_mc.py
 # T148 D8, S5: a package holds .cor files, never a core folder; ROMS.txt comes from the descriptors' ROM table and the manual
 check "package layout: no core folder (selftest)" python3 tools/check_package_layout.py selftest
 check "ROMS.txt test" python3 tools/test_roms_txt.py
+# T239.1 D12: the bench ROMs from the pinned upstream: fetch, size and SHA-256, store, unreachable source (local file, no network)
+check "bench ROMs fetch test (T239.1 D12)" python3 -I ci/test_roms.py
 # T100 D12: the host tests of the applications (tests/{hostapp,coreapp,loader}/run.sh) are in stage trxapps (ci/apptests.sh), cached by key; here only
 # their key and parallel machinery is checked, without a compiler
 check "apptests keys, markers, parallel jobs" ci/test_apptests.sh
