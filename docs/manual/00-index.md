@@ -1,6 +1,6 @@
 # TRX64U MultiCore - User Manual
 
-Multi-core FPGA firmware for the Ultimate 64 Elite II (and so the C64 Ultimate, same board).
+Multi-core FPGA firmware for the C64 Ultimate (C64U). Other boards: see 1.2.
 
 This manual follows `main` as of 2026-11-13 (commit `5a87975ed`).
 

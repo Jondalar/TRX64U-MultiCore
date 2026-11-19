@@ -8,8 +8,9 @@
 
 ## 1.2 Applicability
 
-1.2.1 The firmware is for the **Ultimate 64 Elite II** and the **C64 Ultimate**. Both have the same mainboard with the
-XC7A50T FPGA.
+1.2.1 The firmware is known to work only on the **C64 Ultimate** (C64U). The C64U has the XC7A50T FPGA. The
+**Ultimate 64 Elite II** has the same mainboard and the same FPGA. It is not tested. The **C64C Ultimate** is not tested. It
+can contain the newer XC7A100T FPGA. The firmware does not work with the XC7A100T (1.2.2).
 
 1.2.2 The updater reads the FPGA type. It refuses every type other than XC7A50T. It shows "No bitstream for this
 board. Nothing written." and writes nothing.

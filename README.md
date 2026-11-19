@@ -1,6 +1,6 @@
 # TRX64U MultiCore
 
-TRX64U MultiCore is a firmware for the Ultimate 64 Elite II and the C64 Ultimate. It runs different FPGA cores.
+TRX64U MultiCore is a firmware for the C64 Ultimate (C64U). It runs different FPGA cores.
 
 > **DISCLAIMER.** This is a hobby project. You install it at your own risk. We give no support. We accept no
 > liability for bricked boards or for any other damage.
@@ -36,11 +36,15 @@ This repository packs the bitstream into `trx64u.cor` and `trx64g.cor`. It also 
 
 ## 2. Applicability
 
-The firmware is for the C64 Ultimate and the Ultimate 64 Elite II. The two boards have the same mainboard and the same
-FPGA. It is not known yet whether the C64C works.
+> **IMPORTANT.** The firmware is known to work **only on the C64 Ultimate (C64U)**. Every other board is not tested.
 
-The C77 (Artix-7 100T) and the other Ultimate boards (Cyclone based) are not supported. The installer checks the FPGA
-and the flash chip. On a different board it refuses to install.
+- **C64 Ultimate (C64U):** tested. It has the XC7A50T FPGA.
+- **Ultimate 64 Elite II:** not tested. It has the same mainboard and the same FPGA as the C64U.
+- **C64C Ultimate:** not tested. It can contain the newer XC7A100T FPGA. The firmware does not work with the XC7A100T.
+- **C77 (XC7A100T) and the other Ultimate boards (Cyclone based):** not supported.
+
+The installer shows the FPGA type in its header ("Detected FPGA Type"). It accepts only the XC7A50T FPGA and the
+W25Q128 flash chip. On any other FPGA or flash chip it stops before it writes anything.
 
 ## 3. Installation
 

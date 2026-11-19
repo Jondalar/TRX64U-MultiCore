@@ -121,3 +121,12 @@ Chapters 00-16 and the README were matched to the code by three sync passes, the
 - `docs/img/` keeps only what the README and other documents use (`readme-*`, `core-icons-32.png`, the older `host-*` files that a document still names). `docs/img/host-*` as named in the 2026-10-23 entry above are superseded by `docs/manual/img/`; `host-browser-large`, `host-bugreport` and `host-update-panel` were deleted (no reference).
 - Figures 2-1 to 2-4 and 8-1 to 8-4 of the first plan no longer exist under those numbers; the figure list is the one of the chapters.
 - Known gaps: the unzip run page is blank in the emulator (no figure of it); the host-part update figures show a host-app-only update; the colour page cannot be reached after **C** and has no vertical-lines key (defect, chapter 7 says so).
+
+### 2026-11-19: applicability narrowed (Alex)
+
+Alex (translated): "The README must make CLEAR that we know *only* of the C64U that it works, and that the C64C Ultimate may
+contain the new chip and may therefore not work." Trigger: a board reported the FPGA IDCODE 0x13631093 (XC7A100T). README
+(line 3, section 2), manual 1.2.1 and the index line, and the bundle's INSTALL text (`tools/release_notes_mc.py`) now say: known
+to work only on the C64U (XC7A50T); the Ultimate 64 Elite II (same mainboard and FPGA) is not tested; the C64C Ultimate is not
+tested and can contain the XC7A100T, on which the firmware does not work; the installer refuses every FPGA other than the
+XC7A50T (`update_trx.cc:2131`, read, not run on a 100T). The text of the GitHub release 0.2.0 got the same line.
