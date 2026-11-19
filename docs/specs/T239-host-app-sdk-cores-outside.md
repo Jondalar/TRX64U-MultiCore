@@ -12,7 +12,7 @@ repo already) and the other cores I do not know yet. Plus a registry for cores a
 **Depends on:** T192 and T213 (app layers, D24), T221 (SemVer per deliverable), T238 (support model), T100 D8 (releases on GitHub).
 **Milestone:** after release 0.2.0.
 
-Open (one line, as in the TODO table): PROPOSED 11-19; D1-D11 (SDK, registry, app core + libs, GitHub home); open: other cores, order
+Open (one line, as in the TODO table): PROPOSED 11-19; D1-D12 decided (SDK, registry, app core, GitHub home, cores); open: order of work
 
 ---
 
@@ -108,6 +108,11 @@ Written after the decisions.
   not fit GitHub-hosted runners (tens of GB, AMD's licence lets us not publish the image), and a self-hosted runner on a public
   repository may build pull requests from forks only after approval. Alex (translated): "Yes, 2 sounds the most sensible."
   Price: ROMs and bench media leave the tree.
+- **D12 (Alex, 2026-11-19): our 15 experimental cores stay in this repository; whoever adopts one chooses where it lives.** Our
+  CI builds and packs them as today. An adopting maintainer either keeps the core here with his folder under CODEOWNERS, or
+  moves it to his own repository, from where it comes through the registry (D5). Alex, on "stay as reference cores" versus "stay
+  until adopted, then move": "1 und 2 widerspricht sich doch gar nicht" (1 and 2 do not contradict each other), then "Ja" to
+  the combination.
 
 ## §4 Out
 
