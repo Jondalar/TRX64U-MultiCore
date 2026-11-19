@@ -1,0 +1,31 @@
+name: Public tree
+
+# T239.1 D24: the public-tree check runs on every push and pull request. No paths-ignore on purpose: a documentation-only push
+# can carry a leaked file or an internal address, and pushes from other clones pass no pre-push hook.
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  public-tree:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Tree
+        run: |
+          python3 -I tools/check_public_tree.py --selftest
+          python3 -I tools/check_public_tree.py
+      - name: Commit messages
+        run: |
+          if [ "${{ github.event_name }}" = pull_request ]; then
+            python3 -I tools/check_public_tree.py --messages "${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}"
+          elif [ "${{ github.event.before }}" != 0000000000000000000000000000000000000000 ] && git cat-file -e "${{ github.event.before }}" 2>/dev/null; then
+            python3 -I tools/check_public_tree.py --messages "${{ github.event.before }}..${{ github.sha }}"
+          else
+            python3 -I tools/check_public_tree.py --messages "${{ github.sha }} --not --remotes"
+          fi

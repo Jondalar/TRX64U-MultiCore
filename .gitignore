@@ -45,3 +45,12 @@ cores/c64scpu/sim/*.lock
 .gitnexus/
 # dis65816 default output: listings of a program are its data, never committed (tools/dis65816/README.md)
 /analysis/
+# T239.1 D5/D24: private material lives in the side repository and is overlaid at these paths; it is never tracked here
+/roms/*.bin
+/cores/*/roms/*.rom
+/cores/*/sim/media/
+/<removed>/
+/release/imports/trx64u_files/modplayer/module.bin
+/.claude/context.md
+/.claude/handover*
+/.claude/settings.local.json
