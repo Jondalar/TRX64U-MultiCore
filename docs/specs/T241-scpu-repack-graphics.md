@@ -77,3 +77,13 @@ Open.
 - Unit tests in this repository: emu816 95 tests OK, dis65816 45 tests OK (Mac).
 - Listings and depacked bytes of a program are its data: written outside the repository; `/analysis/` (dis65816's default output) is in
   `.gitignore`.
+
+### 2026-11-19: Master's Boom on the board (Alex, video IMG_0501.MOV, kept outside the repository)
+- Core c64scpu, CMD 1.40 ROM. This release has no intro. The game starts
+  and plays (the score rises from 0003346 to 0004474 in the last 15 s), but "it stutters hard and then everything crashes".
+- Read from the frames (1 and 3 per second, the last 24 s): the top HUD changes from frame to frame - the "PLAYER1" label above the score
+  is missing in some frames, the HUD text is doubled sideways in others (the HUD row shown with the playfield's X scroll). At about 111.8 s
+  of the video the picture freezes: the HUD boxes change colour (the raster colour splits stop), one enemy sprite stays over the HUD line,
+  nothing moves. Read as: the raster IRQs come at the wrong time, then the IRQ chain dies or the CPU runs off.
+- So the symptom of this program is IRQ timing and a crash, not wrong pixel data like the DMAgic intro of the photo on #108. Agent A
+  (S1) got the observation and reads the game's IRQ side with the same weight.
