@@ -130,3 +130,7 @@ Open.
 - `T=TI:FORI=1TO5000:A=I*I+A:NEXT:PRINTTI-T`, PAL, screen on: C64 core of Gideon's firmware 3.15a **1865**; this core after `POKE53370,0`
   (software 1 MHz) **1871** (+0.3 %). Plain code at 1 MHz runs at the C64's speed here: the withheld enables do not make it slow. The
   mechanism of the DMAgic entry above is not the cause for code like this; the run had the reset mirror mode (`$0200-$FFFF`) and no sprites.
+- Same line after setting Master's mirror mode `$D077` (mirror everything) under `SEI` (`$C000`: `SEI; STA $D07E; STA $D077; STA $D07F;
+  CLI; RTS`, then `NEW`): **1716**, 8 % less than the C64 core. A real SuperCPU and VICE run 1 MHz at the C64's speed whatever the mirror
+  mode, so this is a deviation of the core, in the mode Master's Boom plays in. Open: whether the CPU really runs faster (cycles the VIC
+  takes, e.g. badlines, not taken from it) or the jiffy clock loses ticks (IRQs lost); a stopwatch tells them apart (the C64 needs 31.1 s).
