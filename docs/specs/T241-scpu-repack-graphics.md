@@ -12,7 +12,7 @@ for debugging."
 **Depends on:** T182 (the core), T208 (mirror queue, BA write hold), T217 (the PRG start bench `cores/c64scpu/sim/run_prgrun.sh`).
 **Milestone:** M2.
 
-Open (one line, as in the TODO table): Spec PROPOSED 11-19; tools copied (dis65816, emu816); S1 static read, S2/S3 sim, S4 board open
+Open (one line, as in the TODO table): D1 static read of Master's Boom first (agent A); tools copied; S2/S3 sim only to confirm; S4 board
 
 ---
 
@@ -51,14 +51,17 @@ Open (one line, as in the TODO table): Spec PROPOSED 11-19; tools copied (dis658
 
 | # | Solves | Scenario | Test | Where it runs |
 |---|---|---|---|---|
-| S1 | P1 | Boom +4 and Boom +2 depacked and read: the items of P1 for each | `tools/emu816` (depack), `tools/dis65816` (listing) | Mac; program data only outside the repository |
-| S2 | P2 | Boom +4 runs in the core's simulation with the real ROMs until the intro shows: SRAM bank 0 equals C64 RAM in the VIC's ranges | the `run_prgrun.sh` path (real ROMs) | local bench, never in CI |
+| S1 | P1 | Master's Boom +2 depacked and read (D1): the items of P1, each compared with the core's code and VICE | `tools/emu816` (depack), `tools/dis65816` (listing) | Mac; program data only outside the repository |
+| S2 | P2 | Only to confirm what S1 leaves open (D1): Boom runs in the core's simulation with the real ROMs until the intro shows: SRAM bank 0 equals C64 RAM in the VIC's ranges | the `run_prgrun.sh` path (real ROMs) | local bench, never in CI |
 | S3 | P2 | The comment's POKE line typed in BASIC: the machine returns to READY | same bench | local bench |
 | S4 | P3 | Both Booms show their intro and run; Metal Dust unchanged | board step | board, Alex |
 
 ## §3 Decision
 
-Open.
+- **D1 (Alex, 2026-11-19): read first, simulate only to confirm; Master's Boom only.** Translated: "Wait - and what if you did NOT have
+  the sim, but disassembled the game code, i.e. A, and then looked at what happens? That is how we found what was stuck in Metal Dust
+  too." - "And it is enough to understand Master's Boom, so only one Boom for now." Master's release is CSDb 210475 (Boom +2 [1581],
+  SuperCPU); the photo on #108 shows the DMAgic intro of CSDb 5043, which the tester names beside it ("or").
 
 ## §4 Out of scope
 
