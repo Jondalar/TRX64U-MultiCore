@@ -134,3 +134,11 @@ Open.
   CLI; RTS`, then `NEW`): **1716**, 8 % less than the C64 core. A real SuperCPU and VICE run 1 MHz at the C64's speed whatever the mirror
   mode, so this is a deviation of the core, in the mode Master's Boom plays in. Open: whether the CPU really runs faster (cycles the VIC
   takes, e.g. badlines, not taken from it) or the jiffy clock loses ticks (IRQs lost); a stopwatch tells them apart (the C64 needs 31.1 s).
+
+### 2026-11-19: a contributor's patch on #108 (`scpu-d07x-ungated.patch`), read
+- It drops the hwenable gate of `$D074-$D077` (`scpu_mem.v:430`: `optim` written whatever `hw`) and changes the bench's VICE model
+  (`tools/gen_c64scpu_speed.py`, class `Vice`) the same way, so the bench keeps passing without checking VICE any more.
+- VICE gates these writes (`scpu64mem.c:701-708`, `if (mem_reg_hwenable)`), and T182 decided "only with hwenable" (T182 line 258).
+- Effect on what T241 found: Master's Boom sets `$D077` with the registers on (`$1087`), so nothing changes for it; the comment's POKE line
+  would switch to "mirror `$8000-$BFFF` only" (the BASIC screen at `$0400` is no longer written to the C64 RAM) and still end in the warm
+  start. A C64 program that writes the VIC's mirrors `$D074-$D077` (for example a loop over `$D000-$D0FF`) would change the mirror mode.
