@@ -12,7 +12,7 @@ repo already) and the other cores I do not know yet. Plus a registry for cores a
 **Depends on:** T192 and T213 (app layers, D24), T221 (SemVer per deliverable), T238 (support model), T100 D8 (releases on GitHub).
 **Milestone:** after release 0.2.0.
 
-Open (one line, as in the TODO table): PROPOSED 11-19; D1-D5 (vision, SDK, red, maintainer rebuilds, subrepo via registry); open: registry
+Open (one line, as in the TODO table): PROPOSED 11-19; D1-D7 (vision, SDK, registry in host menu, TRNG in null core); open: registry form
 
 ---
 
@@ -72,6 +72,16 @@ Written after the decisions.
   ausliefern" (translated: I would like to resolve a core in a subrepo with a core registry, instead of pinning and building and
   shipping it along). Consequence to confirm: TRX64 (D1, already a foreign repository) then comes from the registry, and the
   release package stops carrying trx64u/trx64g through release/imports/*.pin.
+- **D6 (Alex, 2026-11-19): the host reads the registry itself, from the host menu.** Asked board, PC, or PC first: "am liebsten
+  wäre mir dass wir das aus dem Hostmenu machen" (translated: I would most like us to do it from the host menu), "because only
+  we need it". The host therefore needs a TLS client (GitHub serves HTTPS only).
+- **D7 (Alex, 2026-11-19): the hardware TLS needs goes into the null core.** Alex (translated): "the empty 'null core' would be
+  exactly the place to stuff things into the hardware, right?" Checked: the null core (T123) sits in the partition while the host
+  menu runs (the flash image at 0x0 is host + null) and already has a register block the host app reads (`cores/null/null_regs.v`:
+  ID, build stamp, pixel page). A true random generator (ring oscillators with health tests, seeding mbedTLS's DRBG) goes there,
+  AES/SHA only if a measurement asks for them. A new null core leaves the static routing and the host key as they are: no DFX core
+  breaks. On the upstream side (#952) the U2 and U2+ FPGAs are 99 % full, so an all-Ultimates solution has no room; this one
+  serves the C64U and U64 Elite II with our own host only.
 
 ## §4 Out
 
