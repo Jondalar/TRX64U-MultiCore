@@ -73,6 +73,8 @@ check "no Apple ROM content" bash -c 'tools/check_no_roms.sh --selftest && tools
 # T239.1 D24, S1, D6: no private file and no internal host, home path, Gitea host, builder login or claude link in a tracked file; the selftest plants every rule.
 # The same check runs in .github/workflows/public-tree.yml on every push (no paths-ignore) and in .githooks/pre-push.
 check "public tree (T239.1 D24)" bash -c 'python3 -I tools/check_public_tree.py --selftest >/dev/null && python3 -I tools/check_public_tree.py'
+# T239.1 D9: while .gitea/workflows/vivado.yml exists, its Vivado env is a copy of ci/vivado.env; the two must agree
+check "vivado env copies (T239.1 D9)" bash -c 'python3 tools/check_vivado_env.py --selftest >/dev/null && python3 tools/check_vivado_env.py'
 check "cor_pack test" python3 tools/test_cor_pack.py
 # T104.2: the pinned TRX64 bitstream is packed with the generic application, any other file is refused (the control must fail)
 check "import .cor pack test" bash -c 'tools/test_pack_import_cor.sh && ! tools/test_pack_import_cor.sh --control >/dev/null 2>&1'
