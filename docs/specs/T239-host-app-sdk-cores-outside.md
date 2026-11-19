@@ -12,7 +12,7 @@ repo already) and the other cores I do not know yet. Plus a registry for cores a
 **Depends on:** T192 and T213 (app layers, D24), T221 (SemVer per deliverable), T238 (support model), T100 D8 (releases on GitHub).
 **Milestone:** after release 0.2.0.
 
-Open (one line, as in the TODO table): PROPOSED 11-19; D1-D4 (vision, SDK DFX+large, red, maintainer rebuilds); open: repos, registry
+Open (one line, as in the TODO table): PROPOSED 11-19; D1-D5 (vision, SDK, red, maintainer rebuilds, subrepo via registry); open: registry
 
 ---
 
@@ -58,6 +58,12 @@ Written after the decisions.
   developer as the example). Asked against a central rebuild in our CI (other people's Tcl on our builder) and a mix.
 - Idea under discussion (Alex, 2026-11-19, translated): "We could take cores into the monorepo/subrepos, the maintainer could
   build himself." Not decided yet.
+- **D5 (Alex, 2026-11-19): a core in its own repository (subrepo) is resolved through the core registry, not pinned, built or
+  shipped by us.** Asked whether such a core is pinned here like trx64u today (version + SHA-256, its maintainer builds and
+  delivers the .cor): "Core im Subrepo würde ich gerne mit einer Core-Registry auflösen ... statt pinnen und mit bauen und
+  ausliefern" (translated: I would like to resolve a core in a subrepo with a core registry, instead of pinning and building and
+  shipping it along). Consequence to confirm: TRX64 (D1, already a foreign repository) then comes from the registry, and the
+  release package stops carrying trx64u/trx64g through release/imports/*.pin.
 
 ## §4 Out
 
