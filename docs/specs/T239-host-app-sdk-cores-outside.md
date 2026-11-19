@@ -1,6 +1,6 @@
 # T239 — This repository delivers host, app and SDK; cores are built outside it and found through a registry
 
-**Status:** PROPOSED (2026-11-19, Alex); the architecture discussion is running.
+**Status:** EPIC, PROPOSED (2026-11-19, Alex); D1-D13 decided; the children T239.1-T239.4 carry the work (§2).
 **Repo:** TRX64U-MultiCore (host, app, SDK); TREX/TRX64-Ultimate (the TRX64 core); the registry (place open).
 **Number:** T239.
 **Origin:** Alex, 2026-11-19 (translated): "We already have as a 'big' todo: the abstraction of the app (framework, services,
@@ -12,7 +12,7 @@ repo already) and the other cores I do not know yet. Plus a registry for cores a
 **Depends on:** T192 and T213 (app layers, D24), T221 (SemVer per deliverable), T238 (support model), T100 D8 (releases on GitHub).
 **Milestone:** after release 0.2.0.
 
-Open (one line, as in the TODO table): PROPOSED 11-19; D1-D12 decided (SDK, registry, app core, GitHub home, cores); open: order of work
+Open (one line, as in the TODO table): Epic 11-19; D1-D13 decided; children T239.1-4 in order A, D, B, C; their questions open
 
 ---
 
@@ -43,7 +43,16 @@ Baseline read on 2026-11-19 (three read-only agents over TODO, specs, ADRs and c
 
 ## §2 Scenarios
 
-Written after the decisions.
+The children carry the scenarios. Order by D13 (Alex 2026-11-19: "machst Du einen Plan bitte mit Epic, und dann Todos als Specs?").
+
+| Child | Step | What is true when it is done | Builds on | Spec |
+|---|---|---|---|---|
+| T239.1 | A | GitHub is the development home of host, app and SDK: pull requests and CI run there, private material sits in a Gitea side repository | D11 | [T239.1](T239.1-github-home.md) |
+| T239.2 | D | Every host gateware release publishes its static checkpoint and a core template, so DFX cores are built outside this repository | D2, D3; T239.1 | [T239.2](T239.2-platform-checkpoint.md) |
+| T239.3 | B | The app core has an API for sub-apps and libraries; trx64u and the drive libraries ride on it, and the SDK ships it | D9, D10; T239.1, T239.2 | [T239.3](T239.3-app-core-sdk.md) |
+| T239.4 | C | The host menu lists the central registry over HTTPS, installs a core or a host update from it, and refuses what does not check out | D3, D5-D9; T239.2, T239.3 | [T239.4](T239.4-registry-tls.md) |
+
+Each child lists its open questions for Alex in its §3; none is built before they are answered.
 
 ## §3 Decision
 
