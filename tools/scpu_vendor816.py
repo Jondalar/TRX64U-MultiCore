@@ -21,6 +21,10 @@ Changes against the upstream files (all of them, nothing else is touched):
     after its 8-bit read, which has STATE_CTRL 110 and VA 10; every other row of these instructions has another state control). In it RMW_DW = 1: D_OUT = DR (the byte of
     the read, latched at its enable), WE = 0, VDA = 1, and the address increment is 0 (the row's is 01, its address would be the read's + 1). Native mode (EF = 0; VICE:
     LOAD_LONG_DUMMY, no store) and the number of cycles of every instruction are unchanged.
+  - RTI in emulation mode (EF = 1) takes 6 cycles, as on the W65C816S (datasheet: 7 cycles with E = 0, 6 with E = 1) and in VICE (65816core.c:2217-2240: INC_PC, two
+    FETCH_PARAM_DUMMY, three PULL, one clock each, and the opcode fetch); upstream gave it 5 (state control 111 of the third pull: `EF = 1 and IR = x"40"` ends it). The pull of the
+    high byte of PC (state 4, STATE_CTRL 111) now goes on to state 7 in that case, and the microcode row of RTI's state 7 (all zero upstream, never visited: native RTI ends in state 6)
+    becomes STATE_CTRL 010 with everything else 0: an internal cycle (no VDA, no VPA, no register load) that ends the instruction. Native mode (EF = 0, 7 cycles) is unchanged. T241 S2.
 """
 import os
 import re
@@ -47,6 +51,9 @@ def rename(t):
     return t
 
 
+RTI_E_ROW = 0x40 * 8 + 6      # the microcode ROM is indexed by IR * 8 + (STATE - 1): row of opcode $40 (RTI) in state 7
+
+
 def mcode(t):
     body = t[t.index('constant M_TAB'):t.index('type ALUCtrl_t')]
     rows = re.findall(r'^\s*\(((?:"[^"]*",?){16})\)', body, flags=re.M)
@@ -56,6 +63,8 @@ def mcode(t):
         f = re.findall(r'"([^"]*)"', r)
         assert [len(x) for x in f] == FIELDS, f
         words.append(''.join(f).replace('X', '0'))
+    assert words[RTI_E_ROW] == '0' * 53, words[RTI_E_ROW]
+    words[RTI_E_ROW] = '010' + '0' * 50          # T241 S2: RTI's state 7 = the internal last cycle of the emulation-mode RTI (STATE_CTRL 010, nothing else; see cpu() rti_emul)
     lines = ',\n'.join('\t\t"%s"' % w for w in words)
     alu = t[t.index('type ALUCtrl_t'):t.index('signal MI ')]
     reset = '000' + '0000' + '00' + '000' + '00' + '00' + '00000000' + '001' + '000' + '000' + '00' + '000000' + '00000' + '00' + '000' + '11'
@@ -155,6 +164,12 @@ def rmw_write(t):
     return t
 
 
+def rti_emul(t):
+    """T241 S2: RTI in emulation mode takes 6 cycles (docstring above): after the pull of PCH (state 4) one more internal cycle, state 7 (the row patched in mcode())"""
+    return sub1(t, "\t\t\t\telsif EF = '1' and IR = x\"40\" then\t--RTI Emulation mode\n\t\t\t\t\tNextState <= \"0000\";\n",
+                "\t\t\t\telsif EF = '1' and IR = x\"40\" then\t--RTI Emulation mode (T241: one internal cycle more, state 7)\n\t\t\t\t\tNextState <= \"0111\";\n")
+
+
 def cpu(t):
     n = len(t)
     t = re.sub(r'(RDY_OUT\s*:\s*out std_logic;)', r'\1\n\t\t  E_OUT \t: out std_logic;', t, count=1)
@@ -169,6 +184,7 @@ def cpu(t):
     assert t.count(old) == 1
     t = t.replace(old, "(P(4) and not (GotInterrupt and EF))", 1)     # T182 (real ROM, 2026-11-08): P(4) is 1 all through emulation mode, so a hardware IRQ/NMI pushed B = 1 and the KERNAL's IRQ entry ($FF48) took every IRQ for a BRK
     t = rmw_write(t)
+    t = rti_emul(t)
     i = t.index('port(')
     j = t.index('end P65C816;') if 'end P65C816;' in t else t.index('end s816_cpu;')
     t = t[:i] + t[i:j].lower().replace('std_logic_vector', 'std_logic_vector') + t[j:]      # port names in lower case: the Verilog that instantiates the entity spells them so
