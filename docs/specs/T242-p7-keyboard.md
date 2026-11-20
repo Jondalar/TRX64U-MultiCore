@@ -1,0 +1,49 @@
+# T242 — A C64 keyboard on header P7 works in the host menu and in every core app
+
+**Status:** BUILDING (2026-11-20): fix on `t239.1`; board scenarios open.
+**Repo:** TRX64U-MultiCore — the host app and the generic core app (`host-app/software/system/u64ii_init.cc`, built into both). No gateware change.
+**Number:** T242.
+**Origin:** GitHub issue #111, "P7 Keyboard on Motherboard does not work in Host- and Coreapps". The TRX64U-FW session read the cause from the code. Alex, 2026-11-20 (translated): "regarding the P7 bug, in my opinion the fix is in issue #111"; "wouldn't that be a nice attempt then, to build the host and all core apps once?"
+**Depends on:** nothing. It rides on the first full GitHub run of `t239.1` (D3).
+**Milestone:** M1.
+
+---
+
+## §1 The problem
+
+- **Who:** a UE2 owner with a classic C64 keyboard on header P7 of the board, or a C64U owner who plugs one in there.
+- **What they try:** to use the host menu and a core's menu (core app) with that keyboard, and to hold C= at power-on (T135 D2).
+- **What happens:** no key reaches either menu.
+  - The P7 matrix is scanned by the gateware's I2C keyboard scanner on the 1V8 bus.
+  - `host/app_i2c.v` parks the scanner as soon as the app sends a command while `scan_en` is 0 (`want`, `kb_pause`). It hands the bus back only when the app writes `scan_en = 1` (register +8, bit 0) and its master is idle.
+  - The driver's constructor writes `scan_enable = 0` (`io/i2c/hw_i2c_drv.h`). Then `custom_hardware_init()` talks to the codec and the two port expanders, so the scanner is parked from the first command on.
+  - `i2c_lock` and `i2c_unlock` switch the scanner only when it was switched on by hand (`enable_scan(true, false)` sets `scanning`, `io/i2c/hw_i2c_drv.cc`). Neither the host app nor the core app makes that call; Gideon's firmware makes it in `u64/u64_config.cc:1168`.
+  - On a C64U the built-in keyboard comes over the Bling UART (`bl_keys`), not over I2C, so it works and the fault stays hidden.
+- **Why it matters:** a UE2 owner has no keyboard in the menus, and the power-on C= check cannot see a key on P7.
+
+## §2 Scenarios
+
+| # | Solves | Scenario | Test | Where it runs |
+|---|---|---|---|---|
+| S1 | P1 | A key on P7 moves the cursor in the host menu | by hand, keyboard on P7 | board |
+| S2 | P1 | A key on P7 works in a core's menu (the core app) | by hand, keyboard on P7 | board |
+| S3 | P1 | C= held on P7 at power-on is seen by `menukeys.cc` (T135 D2) | by hand | board |
+| S4 | P1 | The legacy start of the firmware from the host still brings up its clocks (`legacy_clocks()`) | by hand | board |
+| S5 | P1 | The built-in C64U keyboard (Bling) still works in both menus | by hand | board |
+
+## §3 Decision
+
+- **D1:** `custom_hardware_init()` ends with `i2c->enable_scan(true, false)`. From then on `i2c_lock` parks the scanner and `i2c_unlock` hands the bus back after each transaction.
+  - The call only writes the register; FreeRTOS is needed only to switch the scanner off. So it is safe before the scheduler, and nothing between it and the scheduler start takes the lock (`portable/riscv/riscv_main.c`).
+  - One place serves both apps, because both build this file. No per-core code (T192 D24).
+- **D2:** `legacy_clocks()` (`hostapp/legacy.cc`) stays as it is. Its CDCE writes stay inside the lock, with CDCE open. The unlock's `scan_enable` write closes CDCE again, after the last I2C use before the hand-over.
+- **D3:** the fix is a commit on `t239.1`, so the first full GitHub run builds the host and all core apps with it (Alex, Origin).
+
+## §4 Out
+
+- The gateware: `host/app_i2c.v` and the keyboard scanner are the same as in TRX64-Ultimate.
+- The Ultimate app (`trx64g`, built from `vendor/gideon`) already makes the call.
+
+## §5 Built
+
+- (filled when the commit and the run exist)
