@@ -23,6 +23,7 @@ void ui_message(const char *title, const char *text, bool bad);
 // T164 Q7 (amended 2026-11-04): the question after a picture change: the seconds left, a blank line, then its key - inside the box (T152 D10).
 void ui_picture_question(int left_s, const char *now, const char *prev);   // T187 D5: names the mode that came up and the one that comes back
 const char *ui_chip_say_text(void);                       // the message chip of the top bar as last drawn (the bench compares it with the whole message)
+int ui_note_extra_h(const char *s, int w);                // the height a note of the foot needs beyond its one line when wrapped to w pixels (0 for one line)
 const char *ui_message_text(void);                        // what the message view shows now (the bench reads it)
 
 // T101 S9: the first picture, before the slow work (settings, picture mode, libraries, ROM search). Drawn once on LVGL's top layer;

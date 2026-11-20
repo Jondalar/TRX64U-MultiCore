@@ -26,7 +26,7 @@ static uint32_t g_sig;
 static int g_area = -1, g_tab = -1;
 static int g_sel = -1;                            // the selection as drawn
 static lv_obj_t *g_hint;                          // the line at the pane's foot
-static char g_hint_text[200];
+static char g_hint_text[OP_MSG_MAX];
 static bool g_hint_bad;
 static uint32_t g_cheap;
 static int g_mfirst;                              // the first unit of the main list in the window (a tab with more rows than the panel holds)
@@ -114,7 +114,8 @@ static void hint_make(lv_obj_t *c, MenuCtl &m)
     const TrxTheme &t = trx_theme();
     hint_text(m, g_hint_text, sizeof(g_hint_text), &g_hint_bad);
     int room = trx_content_w() - 2 * X0;
-    g_hint = trx_txt(c, X0, trx_content_h() - 22, g_hint_text, t.caption, g_hint_bad ? t.bad : t.muted, room);
+    g_hint = trx_txt(c, X0, trx_content_h() - 22 - ui_note_extra_h(g_hint_text, room), g_hint_text, t.caption, g_hint_bad ? t.bad : t.muted, room);
+    lv_label_set_long_mode(g_hint, LV_LABEL_LONG_MODE_WRAP);       // a long note takes more lines above its first, it is not cut
     int w = trx_text_w(g_hint_text, t.caption) + 4;
     lv_obj_set_width(g_hint, w < room ? (w < 1 ? 1 : w) : room);
 }
@@ -122,7 +123,7 @@ static void hint_make(lv_obj_t *c, MenuCtl &m)
 static void hint_update(MenuCtl &m)
 {
     const TrxTheme &t = trx_theme();
-    char s[200];
+    char s[OP_MSG_MAX];
     bool bad;
     hint_text(m, s, sizeof(s), &bad);
     if (!g_hint) {
@@ -133,6 +134,7 @@ static void hint_update(MenuCtl &m)
         int w = trx_text_w(s, t.caption) + 4;
         lv_obj_set_width(g_hint, w < room ? (w < 1 ? 1 : w) : room);
         lv_label_set_text(g_hint, s);
+        lv_obj_set_y(g_hint, trx_content_h() - 22 - ui_note_extra_h(s, room));
         snprintf(g_hint_text, sizeof(g_hint_text), "%s", s);
     }
     if (bad != g_hint_bad) {
