@@ -10,9 +10,9 @@ ARG XPACK_SHA256=1c99fb1573ff2ed5deffce64cb96bb9272f351f054684c49dfd5ad41c6dd804
 ENV DEBIAN_FRONTEND=noninteractive
 
 # make, python3, git, curl, ccache and a host C/C++ compiler: ci/apptests.sh exits without c++, tools/make_update.sh builds hex2bin, checksum and swap with make.
-# zip and unzip: the app suites and the package steps read and write archives.
+# zip and unzip: the app suites and the package steps read and write archives. python3-pip: for the code-hash libraries below.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        ca-certificates curl git make build-essential ccache python3 zip unzip xz-utils \
+        ca-certificates curl git make build-essential ccache python3 python3-pip zip unzip xz-utils \
     && rm -rf /var/lib/apt/lists/*
 
 # xPack riscv-none-elf-gcc, checked against the SHA-256 the publisher lists in the .sha file of the same release. The makefiles call the
@@ -28,6 +28,18 @@ RUN set -eux; \
         ln -s "$t" "/usr/local/bin/riscv32-unknown-elf-${t##*/riscv-none-elf-}"; \
     done; \
     riscv32-unknown-elf-gcc --version | head -1 | grep -F '11.3.0'
+
+# The pinned tree-sitter libraries of ci/code_hash.py (D13): the cache keys of the gateware targets hash the sources through them, and ci/plan.py
+# needs them. ubuntu:22.04 has Python 3.10, so this is the cp310 install of the builder's pylibs-cp310. ci/install_codehash.sh and its requirements
+# file come from the build context "codehash" (the ci/ folder: build-contexts of ci-images.yml, or --build-context codehash=ci with docker build),
+# the grammars are downloaded here (checked by the language pack's manifest), so a run needs no network for them.
+COPY --from=codehash install_codehash.sh codehash-requirements.txt /tmp/codehash/
+RUN bash /tmp/codehash/install_codehash.sh /opt/codehash \
+    && rm -rf /tmp/codehash \
+    && CODE_HASH_LIBS=/opt/codehash TREE_SITTER_LANGUAGE_PACK_CACHE_DIR=/opt/codehash/grammars python3 -c \
+       "import sys; sys.path.insert(0, '/opt/codehash'); import tree_sitter, tree_sitter_language_pack as p; p.get_parser('verilog'); print('code-hash libs ok, python', sys.version.split()[0])"
+ENV CODE_HASH_LIBS=/opt/codehash \
+    TREE_SITTER_LANGUAGE_PACK_CACHE_DIR=/opt/codehash/grammars
 
 ENV CCACHE_DIR=/ccache
 WORKDIR /work

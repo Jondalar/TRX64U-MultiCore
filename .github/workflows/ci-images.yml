@@ -2,6 +2,9 @@ name: CI images
 
 # T239.1 D12, D23: the build image and the emulator image of GitHub's runners, pushed to ghcr.io with GITHUB_TOKEN. A push builds them when a
 # Dockerfile of them or this file changes; by hand on request. Every action is pinned by its full commit SHA (the tag is in the comment).
+# Only main, integration and t239.1 (the branches the ruleset "protected" covers) log in and push: any account with Write access can push a
+# feature branch, and that branch's run must not be able to overwrite the images. Every other ref builds only, to prove the Dockerfile.
+# The workflows that use the images name them by digest (ghcr.io/<owner>/trx64u-build@sha256:...), never by the moving :ci tag (step 7).
 on:
   push:
     paths:
@@ -19,6 +22,8 @@ concurrency:
 
 jobs:
   build:
+    env:
+      PUSH: ${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/integration' || github.ref == 'refs/heads/t239.1' }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
     permissions:
@@ -36,7 +41,8 @@ jobs:
           echo "build=ghcr.io/${owner}/trx64u-build" >> "$GITHUB_OUTPUT"
           echo "emu=ghcr.io/${owner}/trx64u-emu" >> "$GITHUB_OUTPUT"
       - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e   # v4.3.0
-      - uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6   # v4.7.0
+      - if: env.PUSH == 'true'
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6   # v4.7.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -47,7 +53,10 @@ jobs:
         with:
           context: ci/build
           file: ci/build/Dockerfile
-          push: true
+          build-contexts: |
+            codehash=ci
+          push: ${{ env.PUSH == 'true' }}
+          load: ${{ env.PUSH != 'true' }}
           tags: |
             ${{ steps.name.outputs.build }}:ci
             ${{ steps.name.outputs.build }}:${{ github.sha }}
@@ -56,15 +65,21 @@ jobs:
             org.opencontainers.image.revision=${{ github.sha }}
       - name: Proof, the compiler of D12
         env:
-          IMAGE: ${{ steps.name.outputs.build }}@${{ steps.push.outputs.digest }}
+          IMAGE: ${{ env.PUSH == 'true' && format('{0}@{1}', steps.name.outputs.build, steps.push.outputs.digest) || format('{0}:ci', steps.name.outputs.build) }}
         run: |
           out="$(docker run --rm "$IMAGE" riscv32-unknown-elf-gcc --version)"
           printf '%s\n' "$out"
           printf '%s\n' "$out" | head -n 1 | grep -F ' 11.3.0'
           docker run --rm "$IMAGE" sh -c 'c++ --version | head -1; make --version | head -1; python3 --version; ccache --version | head -1'
+          docker run --rm "$IMAGE" python3 -c "import os, sys; sys.path.insert(0, os.environ['CODE_HASH_LIBS']); import tree_sitter, tree_sitter_language_pack; print('code-hash libs', os.environ['CODE_HASH_LIBS'])"
 
+  # The emulator image is built on top of the build image from the registry, so it is built where the build image was pushed; on other refs the
+  # job does not run (its Dockerfile is proved on the next push to a protected branch).
   emu:
     needs: build
+    if: needs.build.outputs.digest != ''
+    env:
+      PUSH: ${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/integration' || github.ref == 'refs/heads/t239.1' }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
     permissions:
@@ -79,7 +94,8 @@ jobs:
           echo "emu=ghcr.io/${owner}/trx64u-emu" >> "$GITHUB_OUTPUT"
           echo "tag=$(sed -n 's/^ARG UE2EMU_TAG=//p' ci/emu/Dockerfile)" >> "$GITHUB_OUTPUT"
       - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e   # v4.3.0
-      - uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6   # v4.7.0
+      - if: env.PUSH == 'true'
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6   # v4.7.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
