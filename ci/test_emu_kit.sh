@@ -41,7 +41,11 @@ for n in .git .GIT; do
 done
 mkfifo "$W/roms/sub/pipe.bin"
 if run "$sha"; then fail "a ROM folder with a FIFO was accepted"; fi
-rm "$W/roms/sub/pipe.bin"; run "$sha" || { cat "$W/out"; fail "the pinned folder was refused after the .git and FIFO plants"; }
+rm "$W/roms/sub/pipe.bin"
+# an empty folder (git add skips it silently, so the tree id stays the pinned one) is refused
+mkdir "$W/roms/sub/empty.d"
+if run "$sha"; then fail "a ROM folder with an empty folder was accepted"; fi
+rmdir "$W/roms/sub/empty.d"; run "$sha" || { cat "$W/out"; fail "the pinned folder was refused after the .git, FIFO and empty-folder plants"; }
 rm "$W/x.ue2"
 if run "$sha"; then fail "a missing .ue2 was accepted"; fi
 echo "emulator kit: ok"
