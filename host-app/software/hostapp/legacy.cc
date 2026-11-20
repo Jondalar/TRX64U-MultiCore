@@ -528,6 +528,10 @@ void legacy_jump(const LegacyPlan *p)
     uint8_t seq[CFW_IPROG_LEN];
     cfw_iprog_seq(p->flash_addr, seq);
 
+    // #111: scanner off and parked again, as it was before the scan was enabled. Otherwise the i2c_unlock()
+    // in legacy_clocks() writes scan_enable = 1 to +8, and every write there clears CDCE open.
+    i2c->enable_scan(false, false);
+
     legacy_clocks();
 
     // what core_jump does: pixel layer off, nothing writing into the old memory, no interrupts
