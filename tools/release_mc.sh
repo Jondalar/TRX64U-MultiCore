@@ -25,7 +25,7 @@
 #   5. checks every .cor against that key and the contract version - a bundle for another host stops the release;
 #   6. tools/make_release_mc.sh: the update file (.cfw/.ue2), INSTALL.md, SHA256SUMS, and a zip that holds
 #      every file of the bundle;
-#   7. tools/check_public_tree.py --files --allow-trx on the bundle and the zip: only the two TRX64 .cor may carry what the fourth exception allows;
+#   7. tools/check_public_tree.py --allow-trx --files on the bundle and the zip: only the two TRX64 .cor may carry what the fourth exception allows;
 #   8. with --publish: gh release create v<x.y.z> --verify-tag in $MC_SRC_REPO, as a draft with every file, then published. The tag v<x.y.z> is made by
 #      Alex alone (D28) and has to name the commit the package was built from; a missing tag stops the release.
 set -euo pipefail
@@ -207,7 +207,7 @@ ZIP="$OUT/trx64mc-$REL.zip"
 python3 "$ROOT/tools/release_check.py" zip "$D" "$ZIP" || exit 1
 
 # T239.1 D16, D22: the bundle is the one place a ROM-bearing file may be, and only inside the two TRX64 .cor (the fourth exception of the maintainer's rules)
-python3 -I "$ROOT/tools/check_public_tree.py" --files --allow-trx "$D" "$ZIP" || { echo "the bundle holds private content outside the TRX64 .cor: release stopped" >&2; exit 1; }
+python3 -I "$ROOT/tools/check_public_tree.py" --allow-trx --files "$D" "$ZIP" || { echo "the bundle holds private content outside the TRX64 .cor: release stopped" >&2; exit 1; }
 
 if [ "$PUBLISH" = 1 ]; then
     # D28: the release is made for a tag that only Alex creates; --verify-tag makes gh refuse to make one. The tag has to be the commit the package was built from.
