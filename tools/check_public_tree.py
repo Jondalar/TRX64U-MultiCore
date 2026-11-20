@@ -173,8 +173,9 @@ def private_rows(src):
             if DROP_RE.match(p) or ROM_EXT.search(p) or p == MODPLAYER]
 
 
-# D22 / CLAUDE.md, fourth exception: which .cor may carry which file. The BASIC ROM only trx64g.cor, the MOD player image both.
-COR_ALLOWED = (("basic.901226-01.bin", ("trx64g.cor",)), ("module.bin", ("trx64g.cor", "trx64u.cor")))
+# D22 / CLAUDE.md, fourth exception: which .cor may carry which file. The BASIC ROM and (T239.1 D44) the character ROM only trx64g.cor (Gideon's
+# application holds them), the MOD player image both.
+COR_ALLOWED = (("basic.901226-01.bin", ("trx64g.cor",)), ("characters.901225-01.bin", ("trx64g.cor",)), ("module.bin", ("trx64g.cor", "trx64u.cor")))
 
 
 def public_blobs(src, private):
