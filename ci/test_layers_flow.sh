@@ -5,6 +5,7 @@
 # it only lets the shell side (keys, cache layout, host_sha rule, pins, failure handling) be run.
 set -euo pipefail
 unset GITHUB_REF_TYPE GITHUB_REF_NAME GITHUB_EVENT_NAME   # a tag run's environment must not reach the scenarios this test builds itself (run 2449)
+unset CI_BRANCH CI_REF_TYPE   # nor the job's: ci_branch (ci/lib.sh) reads CI_BRANCH before GITHUB_REF_NAME, and the lint job sets it (run 44733578835)
 # T215: this test moves keys by appending a comment line to a source; it tests the plumbing (stage flow, plan, layer keys), not the normaliser, so keys are
 # the raw content hash here (the normaliser has its own test: ci/test_code_hash.py).
 export CODE_HASH=raw
