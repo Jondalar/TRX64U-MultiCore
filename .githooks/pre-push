@@ -4,15 +4,31 @@
 # commit, every file each new commit adds or changes (so a file removed again by a later commit is still found) and the messages of the
 # commits the remote does not have are checked (messages: internal hosts and paths, and the Claude attribution lines the maintainer's
 # sessions never write). Seconds, no build, no lint.
+# Path rule (the hook only; CI has no list): git config trx.side names a local repository of the private files; every path it tracks (minus README.md)
+# is refused in the pushed tree and in the paths of each pushed commit, whatever the content. Unset: one line says the rule is off.
 set -u
 cd "$(git rev-parse --show-toplevel)" || exit 1
 zero=0000000000000000000000000000000000000000
 rc=0
+priv="$(mktemp)"; trap 'rm -f "$priv"' EXIT
+side="$(git config --get trx.side || true)"
+if [ -n "$side" ] && git -C "$side" rev-parse --git-dir >/dev/null 2>&1; then
+  git -C "$side" -c core.quotepath=off ls-files | grep -v '^README\.md$' > "$priv"
+  [ -s "$priv" ] || { echo "pre-push: the side repository $side lists no files, refused" >&2; exit 1; }
+else
+  [ -z "$side" ] && echo "pre-push: git config trx.side is not set, the private-path rule is off (content rules still run)" || { echo "pre-push: trx.side=$side is no git repository, refused" >&2; exit 1; }
+  : > "$priv"
+fi
 while read -r lref lsha rref rsha; do
   [ "$lsha" = "$zero" ] && continue
   echo "pre-push: $lref -> $rref"
   python3 -I tools/check_public_tree.py --rev "$lsha" || rc=1
   if [ "$rsha" = "$zero" ] || ! git cat-file -e "$rsha^{commit}" 2>/dev/null; then range="$lsha --not --remotes"; else range="$rsha..$lsha"; fi
+  if [ -s "$priv" ]; then
+    hits="$( { git -c core.quotepath=off ls-tree -r --name-only "$lsha"
+               for c in $(git rev-list $range); do git -c core.quotepath=off diff-tree -r --root -m --no-commit-id --no-renames --name-only --diff-filter=AMRT "$c"; done; } | sort -u | grep -Fxf "$priv" || true)"
+    if [ -n "$hits" ]; then echo "PRIVATE-PATH: refused, a path of the private list (trx.side) is pushed:" >&2; echo "$hits" | sed 's/^/  /' >&2; rc=1; fi
+  fi
   python3 -I tools/check_public_tree.py --commits "$range" || rc=1
   python3 -I tools/check_public_tree.py --messages "$range" --trailers || rc=1
 done
