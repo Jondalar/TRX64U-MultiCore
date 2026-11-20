@@ -167,8 +167,8 @@ def publish(api, repo, tag, sha, d, log=print):
         if len(items) < 100:
             break
     branch = (api.call("GET", "repos/%s" % repo) or {}).get("default_branch", "main")
-    body = ("Package of commit `%s` of the source repository, made by its pipeline.\n\nSHA256SUMS lists every file; GitHub shows the same digests. "
-            "The package holds no trx64u.cor and no trx64g.cor (T239.1 D16)." % sha)
+    body = ("Release bundle of commit `%s` of the source repository, made by its pipeline (T239.1 D42): the .cor files, the update files, INSTALL.md, "
+            "ROMS.txt and the zip of all of them.\n\nSHA256SUMS lists every file; GitHub shows the same digests." % sha)
     rel = api.call("POST", "repos/%s/releases" % repo, {"tag_name": tag, "target_commitish": branch, "name": tag, "body": body,
                                                          "draft": True, "prerelease": True, "make_latest": "false"})
     try:

@@ -443,9 +443,10 @@ def pack(name, version, partial, app, load, entry, host_key, contract=CONTRACT, 
     return MAGIC + struct.pack("<I", len(body)) + body
 
 
-def retag(blob, version, app_fn=None):
+def retag(blob, version, app_fn=None, **fields):
     """the same .cor with another manifest `version` (T221 D4: a release is the tested build with its version strings rewritten) and, when `app_fn` is
-    given, the application image (record 3) it returns for the old one, the manifest's app_size / app_sha256 following. Everything else stays byte for byte."""
+    given, the application image (record 3) it returns for the old one, the manifest's app_size / app_sha256 following. `fields` are further manifest
+    fields to set (ci/imports.py: app_commit). Everything else stays byte for byte."""
     if blob[:8] != MAGIC:
         raise CorError("not a .cor")
     recs, pos = [], 12
@@ -457,6 +458,7 @@ def retag(blob, version, app_fn=None):
         raise CorError("expected one manifest first and one app record")
     m = json.loads(recs[0][1])
     m["version"] = version
+    m.update(fields)
     for r in recs:
         if r[0] == T_APP and app_fn is not None:
             r[1] = app_fn(r[1])

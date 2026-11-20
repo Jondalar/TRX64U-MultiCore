@@ -9,8 +9,8 @@
 # out of the entries ci/collect.sh restored. What the plan names only decides what was built fresh. A red target of an earlier stage (host, a core, a large core)
 # leaves its file out; the others are packed (D9.6); the pipeline starts the package only when every job before it is green.
 #
-# trx64u.cor and trx64g.cor are not packed here (T239.1 D16, D22): TRX64-Ultimate builds them, and the hand-made release packs them on the Mac from
-# release/imports/*.pin (tools/release_mc.sh). The package still carries the application image coreapp_trx64u.bin (stage trxapps builds it).
+# trx64u.cor and trx64g.cor (T239.1 D43, replacing D16): the builder packs them from release/imports/*.pin (ci/imports.py) and publishes them as entries
+# imp-<id>-<key>; collect hands them over as bit-imports, and they get the version form of this run here, trx64u.cor this run's coreapp_trx64u.bin.
 #
 # The 100T bitstream is not part of this: the builder's target ue2 makes it by hand (T239.1 D16).
 #
@@ -181,6 +181,25 @@ if [ -n "$mono" ]; then
   cat "$mono/plan_result.txt" 2>/dev/null || true
 else
   echo "no large-core lane handed anything over: no large core in this package"
+fi
+
+# T239.1 D43: trx64u.cor and trx64g.cor from the builder's entries (collect: bit-imports). A pin without APP_FILE (trx64u) gets this run's stamped image
+# coreapp_<id>.bin (else coreapp.bin) and its commit; every one gets the version form of this run (ci/imports.py finish).
+if [ -f "$HANDOFF/bit-imports/DONE" ]; then
+  for c in "$HANDOFF/bit-imports"/*.cor; do
+    [ -e "$c" ] || continue
+    id="$(basename "$c" .cor)"
+    if grep -q '^APP_FILE=' "$ROOT/release/imports/$id.pin" 2>/dev/null; then appargs=()
+    else
+      app="$out/coreapp_$id.bin"; [ -f "$app" ] || app="$out/coreapp.bin"
+      appargs=(--app "$app" --app-commit "$(cut -c1-8 "$trxapps/trxapps_commit")")
+    fi
+    python3 -I "$ROOT/ci/imports.py" finish "$c" -o "$out/$id.cor" ${appargs[@]+"${appargs[@]}"} \
+      && python3 "$ROOT/tools/cor_pack.py" check "$out/$id.cor" > /dev/null \
+      || { rm -f "$out/$id.cor"; mark_red package "cor-$id" "ci/imports.py could not finish $id.cor"; }
+  done
+else
+  echo "no bit-imports handed over: no trx64u.cor, no trx64g.cor"
 fi
 
 # T148 D8: ROMS.txt (what each core needs in its own folder, the legal sources; made from the descriptors' ROM table and the manual) is part of the

@@ -2,7 +2,8 @@
 """T239.1 D19, S5, S8: restore cache entries of $CI_BIT_CACHE from the bit-<entry> releases of the builds repository, so ci/collect.sh, ci/pack_one.sh and
 ci/bitstream*.sh read them as they read the builder's cache.
 
-  ci/fetch_bits.sh [core:<id> | large:<id>]    no argument: every entry of ci/keys.sh; core:<id>: the host, the reference core and that core; large:<id>: its flat entry
+  ci/fetch_bits.sh [core:<id> | large:<id>]    no argument: every entry of ci/keys.sh and of ci/imports.py (imp-<id>-<key>: trx64u.cor, trx64g.cor, D43);
+                                               core:<id>: the host, the reference core and that core; large:<id>: its flat entry
   ci/fetch_bits.sh --names [core:<id> | large:<id>]   print the entry names only (the collect job keys GitHub's cache with them, D40)
     env  CI_BIT_CACHE   the directory the entries are restored into (default $RUNNER_TEMP/bit)
          CI_HANDOFF     gets bit-releases.json: per entry the release tag and id and the SHA-256 of SHA256SUMS and of every asset (ci/package.sh puts it into manifest.json)
@@ -34,7 +35,7 @@ import urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-ENTRY = re.compile(r"^(host|aux|core-[A-Za-z0-9_]+(?:-[A-Za-z0-9_]+)*|mono-[A-Za-z0-9_]+(?:-[A-Za-z0-9_]+)*)-([0-9a-f]{16})$")
+ENTRY = re.compile(r"^(host|aux|core-[A-Za-z0-9_]+(?:-[A-Za-z0-9_]+)*|mono-[A-Za-z0-9_]+(?:-[A-Za-z0-9_]+)*|imp-[A-Za-z0-9_]+)-([0-9a-f]{16})$")
 NAME_OK = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._+-]{0,99}$")
 MAX_FILE = 1900 * 1024 * 1024
 MAX_MEMBERS = 200
@@ -70,6 +71,11 @@ def entry_names():
         if r.returncode != 0:
             raise FetchError("ci/keys.sh failed: " + r.stderr.strip()[-300:])
         text = r.stdout
+        # T239.1 D43: trx64u.cor and trx64g.cor, packed by the builder from release/imports/*.pin (ci/imports.py); a target never selects them
+        r = subprocess.run([sys.executable, "-I", os.path.join(HERE, "imports.py"), "names"], capture_output=True, text=True)
+        if r.returncode != 0:
+            raise FetchError("ci/imports.py names failed: " + r.stderr.strip()[-300:])
+        text += r.stdout
     names = [l.strip() for l in text.splitlines() if l.strip()]
     for n in names:
         if not ENTRY.match(n):
