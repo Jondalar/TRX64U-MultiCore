@@ -21,8 +21,8 @@ Changes against the upstream files (all of them, nothing else is touched):
     after its 8-bit read, which has STATE_CTRL 110 and VA 10; every other row of these instructions has another state control). In it RMW_DW = 1: D_OUT = DR (the byte of
     the read, latched at its enable), WE = 0, VDA = 1, and the address increment is 0 (the row's is 01, its address would be the read's + 1). Native mode (EF = 0; VICE:
     LOAD_LONG_DUMMY, no store) and the number of cycles of every instruction are unchanged.
-  - RTI in emulation mode (EF = 1) takes 6 cycles, as on the W65C816S (datasheet: 7 cycles with E = 0, 6 with E = 1) and in VICE (65816core.c:2217-2240: INC_PC, two
-    FETCH_PARAM_DUMMY, three PULL, one clock each, and the opcode fetch); upstream gave it 5 (state control 111 of the third pull: `EF = 1 and IR = x"40"` ends it). The pull of the
+  - RTI in emulation mode (EF = 1) takes 6 cycles, as on the W65C816S (datasheet: 7 cycles with E = 0, 6 with E = 1) and in VICE (65816core.c:2217-2240: INC_PC makes no clock, two
+    FETCH_PARAM_DUMMY, three PULL (four in native mode), one clock each, and the opcode fetch at the loop top, :2585/:2589); upstream gave it 5 (state control 111 of the third pull: `EF = 1 and IR = x"40"` ends it). The pull of the
     high byte of PC (state 4, STATE_CTRL 111) now goes on to state 7 in that case, and the microcode row of RTI's state 7 (all X upstream, read as zero, never visited: native RTI ends in state 6)
     becomes STATE_CTRL 010 with everything else 0: an internal cycle (no VDA, no VPA, no register load) that ends the instruction. Native mode (EF = 0, 7 cycles) is unchanged. T241 S2.
 """
