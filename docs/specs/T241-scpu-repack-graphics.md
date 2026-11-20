@@ -164,7 +164,7 @@ Open.
   cycles the VIC should take that the CPU keeps. Next: a bench in the core's simulation that shows where (S2 under D1).
 
 ### 2026-11-19/20: S2 - the mirror-everything bench (overnight agent) and its review (read-only agent)
-- The bench: branch `t241-bench` (local; commits 88afc905f, f7fef04ae, ca3d5b062): `tools/gen_c64scpu_irqmir.py`,
+- The bench: branch `t241-bench` (on Gitea, commits 88afc905f, f7fef04ae, ca3d5b062; on GitHub in `t241-scpu`, D3): `tools/gen_c64scpu_irqmir.py`,
   `cores/c64scpu/sim/{tb_irqmir.vh,run_irqmir.sh,check_irqmir.py}`. Four phases at software 1 MHz with the display on: A0/A1 reset mirror
   mode `$C7`, IRQs masked/on; B0/B1 mirror everything (`SEI; STA $D07E; STA $D077; STA $D07F`), IRQs masked/on. IRQ: CIA1 timer A,
   latch `$4025`, vector `$01:FFFE`. Two synthetic programs ("simple"; "kernal", shaped like the KERNAL IRQ and BASIC arithmetic).
@@ -352,4 +352,8 @@ Open.
   status and the fix's sections of `t241-rmw`; the TODO row is `main`'s), carried over file by file onto `integration`. Every code file
   the branches change was the same on GitHub as on Gitea `main`; the text went through the export's rules (`tools/github_snapshot.py`
   `PATTERNS`, `NAMES`), which changed nothing.
+- `run_irqmir.sh` stays out of `ci/sims.txt` on purpose: it is the diagnosis bench of S2, with no negative control, not a proof.
+- Review before the push (agent, 2026-11-20): no blocker. The code files equal the merged Gitea tree byte for byte; every added line of
+  both branches is there; `tools/scpu_vendor816.py --check` is ok (the VHDL is the generator's); native mode and the cycle counts are
+  unchanged (`RMW_DW` needs `EF = '1'`); the generators embed no ROM or program bytes. Fixed: the stale "local" of the bench branch.
 - Not run for this step: no sim, bench or Vivado run (the pipeline builds the c64scpu core on the push; its sims run on `integration`).
