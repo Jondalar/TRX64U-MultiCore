@@ -23,20 +23,20 @@ on:
       - '**.md'
       - 'docs/**'
       - '.claude/**'
+  # D39: the extra parts of a dispatched run are one dropdown in GitHub's "Run workflow" panel; GitHub shows that panel only for workflows on the default
+  # branch, so it appears with the switch. update = the .cfw/.ue2 update files and, after them, the emulator job (always on main, integration, t239.1 and
+  # v* tags); sims = the benches of the changed owners (always on integration). A fork pull request cannot be dispatched; it keeps "[bundle]" in its head commit.
   workflow_dispatch:
     inputs:
-      bundle:
-        description: 'Build the update files (.cfw/.ue2) of this branch too'
-        type: boolean
-        default: false
-      update:
-        description: 'Build the .cfw/.ue2 update files on this branch too (always built on main, integration, t239.1 and v* tags)'
-        type: boolean
-        default: false
-      sims:
-        description: 'Run the benches of the changed owners too (sims only on demand, Alex 2026-11-08; always on integration)'
-        type: boolean
-        default: false
+      extra:
+        description: 'Extra parts of this run: update = the .cfw/.ue2 update files and the emulator job; sims = the benches of the changed owners'
+        type: choice
+        options:
+          - none
+          - update
+          - sims
+          - update and sims
+        default: none
 
 permissions:
   contents: read
@@ -88,9 +88,9 @@ jobs:
       - name: Children
         id: children
         env:
-          SIMS_INPUT: ${{ github.event.inputs.sims }}
-          UPDATE_FORCE: ${{ github.event.inputs.update }}
-          BUNDLE_INPUT: ${{ github.event.inputs.bundle }}
+          # D39: the dropdown `extra` sets both; a push or a pull request has no inputs, so both are false there
+          SIMS_INPUT: ${{ contains(github.event.inputs.extra, 'sims') }}
+          UPDATE_FORCE: ${{ contains(github.event.inputs.extra, 'update') }}
         run: |
           set -eu
           tier="$(ci/select.sh sims-tier)"

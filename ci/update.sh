@@ -6,8 +6,8 @@
 #                                               cores/null, T123: the flash holds no machine) + our boot application from stage trxapps; tools/release_mc.sh attaches it to the release
 #
 # Only for integ-m1, integration, main, t239.1 and v* tags (ci/select.sh update); any other ref prints "update SKIPPED" and ends green at once. The decision is made here,
-# never by a job-level `if:` (docs/specs/T31-ci-pipeline.md, decision 2). UPDATE_FORCE=true (dispatch input `update`; ci/child.sh sets it), BUNDLE_INPUT=true (dispatch input
-# `bundle`) or "[bundle]" in the head commit message (T172) builds on any branch.
+# never by a job-level `if:` (docs/specs/T31-ci-pipeline.md, decision 2). UPDATE_FORCE=true (ci/child.sh sets it; on GitHub from the dispatch choice `extra`, T239.1 D39), BUNDLE_INPUT=true
+# (Gitea: the dispatch input `bundle`, until the switch) or "[bundle]" in the head commit message (T172) builds on any branch.
 #
 # The release tag: TRX_UPDATE_NAME replaces the file name base (tools/make_update.sh); on a tag it is trx64host_update_<x.y.z> without a date (ci/lib.sh file_id, Alex 2026-11-18).
 #

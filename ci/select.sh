@@ -2,11 +2,12 @@
 # Which optional parts a run does, one answer per call.
 #
 #   ci/select.sh sims-tier   0 (no sims) on main and feature branches since 2026-11-08 (Alex: sims only on demand); 2 on integ-* and integration, release/tags,
-#                            the dispatch input `sims`, or "[sims]" in the head commit. The nightly workflow passes tier 2 itself.
+#                            SIMS_INPUT=true (GitHub: the dispatch choice `extra` with sims, T239.1 D39; Gitea: the dispatch input `sims`), or "[sims]" in the head commit. The nightly workflow passes tier 2 itself.
 #   ci/select.sh ue2         yes only when UE2_INPUT=true: the builder's manual dispatch of the 100T host (T239.1 D16); no workflow of this repository sets it.
 #   ci/select.sh update      yes on integ-m1, integration, main, t239.1 (during T239.1 D9) and tags v* (the tester update files are built for
-#                            every commit there), or when UPDATE_FORCE=true (dispatch input `update`), or
-#                            BUNDLE_INPUT=true (dispatch input `bundle`, T172), or the head commit message contains
+#                            every commit there), or when UPDATE_FORCE=true (GitHub: the dispatch choice `extra` with update, T239.1 D39;
+#                            Gitea: the dispatch input `update`), or BUNDLE_INPUT=true (Gitea: the dispatch input `bundle`, T172; until the switch),
+#                            or the head commit message contains
 #                            "[bundle]" (T172 D1), for any other branch; else no.
 #
 # Read from GITHUB_REF_NAME (CI_BRANCH first: on a pull request the workflow sets it to pr-<number>, a name no branch has, so the scope is branch), GITHUB_REF_TYPE, GITHUB_EVENT_NAME, UE2_INPUT,
