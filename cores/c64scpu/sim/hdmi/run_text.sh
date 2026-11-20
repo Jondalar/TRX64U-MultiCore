@@ -5,7 +5,7 @@
 set -e
 here=$(cd "$(dirname "$0")" && pwd)
 hd=$(cd "$here/../../mono/host" && pwd)
-out=$here/build
+out=$here/build/text   # its own folder: the nightly runs this bench and run_scaler.sh at the same time (runs 2492, 2534)
 mkdir -p "$out"
 iverilog -g2012 -y "$hd" -y "$here" -I "$hd" -o "$out/tb.vvp" "$here/tb_text_geom.v"
 : > "$out/cases.txt"

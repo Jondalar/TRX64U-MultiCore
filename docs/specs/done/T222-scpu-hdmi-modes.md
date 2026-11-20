@@ -121,3 +121,8 @@ Consumers read: `x_text` (still driven by the scaler: calibration, unchanged sem
 - **Board 2026-11-15, Scale (Alex):** Scale works: at 720p Integer/Fit/Fill change the picture (at 1080p50 Integer and Fit are the
   same geometry by design, hm_geom). Smoothing does not exist for the VIC path (neither here nor in U16's vic_scaler); Alex
   2026-11-15: "it would be cool" -> separate spec T227 (measure slice headroom first).
+- **Benches 2026-11-20 (S4, S5):** `c64scpu_scaler` was red in the nightlies 2492 and 2534 and `c64scpu_text_geom` in 2534, with no
+  change under `cores/c64scpu/` since the green nightly 2424. `run_scaler.sh` and `run_text.sh` both wrote `tb.vvp`, `cases.txt` and
+  the logs `m<row>_s<scale>.log` into `cores/c64scpu/sim/hdmi/build/`. `ci/sims.sh` runs benches in place, side by side: in 2424 the
+  two ran one after the other, in 2492 and 2534 the second started while the first ran, and each read the other's files. Each bench
+  writes into its own folder now (`build/scaler`, `build/text`). Proof: the next nightly.
