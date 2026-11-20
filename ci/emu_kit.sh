@@ -5,8 +5,10 @@
 #   KIT/profiles/VIC-20.toml   docs/examples/core-vic20.toml of the emulator's pinned release, SHA-256 checked
 #   KIT/cors/vc20.cor    this run's VIC-20 .cor (the host finds its partial by the SHA-256, so any .cor of the same core serves)
 #
-#   ci/emu_kit.sh KIT --update <file.ue2> --cor <vc20.cor> [--roms DIR] [--profile FILE --profile-sha256 HEX]
-#     --roms DIR: use a restored copy of the ROM folder instead of fetching it (actions/cache of the workflow; the files are public upstream files)
+#   ci/emu_kit.sh KIT --update <file.ue2> --cor <vc20.cor> [--roms DIR] [--roms-tree ID] [--profile FILE --profile-sha256 HEX]
+#     --roms DIR: use a restored copy of the ROM folder instead of fetching it (actions/cache of the workflow, keyed by the commit pinned below; the folder is
+#                 checked against the git tree id of roms/ at that commit, so a cache entry that holds anything else is refused)
+#     --roms-tree ID: tests only: another tree id
 #     --profile FILE: tests only: a local profile, with its own hash
 # env: UE2EMU_BIN or `ue2emu` on PATH (ci/ue2emu.sh). The emulator is the one of the emu image (ci/emu/Dockerfile).
 # The installed flash.bin is the one the emulator's `install` makes; whether tests/hostapp/emu_host.sh expects exactly that one is not proven (D23).
@@ -14,13 +16,14 @@ set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 GIDEON_REPO="https://github.com/GideonZ/1541ultimate.git"
 GIDEON_COMMIT="700c7f2fab0b7d52da418d21f0c2e65e99725805"
+GIDEON_ROMS_TREE="e308506696d7507486b7b0981eeacc4ae5bfe373"     # git tree id of roms/ at that commit (gh api repos/GideonZ/1541ultimate/git/trees/<commit>)
 UE2_RAW="https://raw.githubusercontent.com/Jondalar/UE2-C64U-Emulator/4612884e7a633d52375277060f1a7e9bbf6552ba/docs/examples/core-vic20.toml"
 UE2_PROFILE_SHA256="828d90974b921a440b2c83e1ef2fddac1c1d4de12d39efef1b6f77dac47cd24a"
 kit="${1:?usage: ci/emu_kit.sh KIT --update FILE.ue2 --cor FILE.cor [--roms DIR]}"; shift
-upd="" cor="" roms="" prof="" prof_sha="$UE2_PROFILE_SHA256"
+upd="" cor="" roms="" roms_tree="$GIDEON_ROMS_TREE" prof="" prof_sha="$UE2_PROFILE_SHA256"
 while [ $# -gt 0 ]; do
   case "$1" in
-    --update) upd="$2"; shift 2 ;; --cor) cor="$2"; shift 2 ;; --roms) roms="$2"; shift 2 ;;
+    --update) upd="$2"; shift 2 ;; --cor) cor="$2"; shift 2 ;; --roms) roms="$2"; shift 2 ;; --roms-tree) roms_tree="$2"; shift 2 ;;
     --profile) prof="$2"; shift 2 ;; --profile-sha256) prof_sha="$2"; shift 2 ;;
     *) echo "emu_kit: unknown argument $1" >&2; exit 2 ;;
   esac
@@ -40,6 +43,9 @@ else
   git -C "$src" -c advice.detachedHead=false checkout -q FETCH_HEAD -- roms
   cp -R "$src/roms" "$kit/roms"
 fi
+# the git tree id of a folder: the id git gives the folder's content (names, modes, bytes), made in a scratch repository
+tree_of() { local g; g="$(mktemp -d)"; git -C "$g" init -q; git -C "$g" -c core.autocrlf=false -c core.excludesFile=/dev/null --work-tree="$1" add -A; git -C "$g" write-tree; rm -rf "${g:?}"; }
+[ "$(tree_of "$kit/roms")" = "$roms_tree" ] || { echo "emu_kit: the ROM folder is not the roms/ of $GIDEON_COMMIT (tree id $roms_tree)" >&2; exit 1; }
 [ -n "$(ls -A "$kit/roms")" ] || { echo "emu_kit: the ROM folder is empty" >&2; exit 1; }
 if [ -z "$prof" ]; then prof="$kit/profiles/.download"; curl -fsSL --retry 3 -o "$prof" "$UE2_RAW"; fi
 [ "$(sha256 "$prof")" = "$prof_sha" ] || { echo "emu_kit: the VIC-20 profile does not match its SHA-256 $prof_sha" >&2; exit 1; }
