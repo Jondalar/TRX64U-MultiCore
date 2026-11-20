@@ -2,9 +2,10 @@ name: CI images
 
 # T239.1 D12, D23: the build image, the emulator image and the simulation image (lint, benches) of GitHub's runners, pushed to ghcr.io with GITHUB_TOKEN. A push builds them when a
 # Dockerfile of them or this file changes; by hand on request. Every action is pinned by its full commit SHA (the tag is in the comment).
-# Only main, integration and t239.1 (the branches the ruleset "protected" covers) log in and push: any account with Write access can push a
-# feature branch, and that branch's run must not be able to overwrite the images. Every other ref builds only, to prove the Dockerfile.
-# The workflows that use the images name them by digest (ghcr.io/<owner>/trx64u-build@sha256:...), never by the moving :ci tag (step 7).
+# Only a run on main, integration or t239.1 logs in and pushes (the PUSH expression); a run on any other ref builds only, to prove the Dockerfile. This is no
+# protection against an account with Write access: it can push a feature branch with its own copy of this file, whose jobs get packages: write and push as
+# they like. What keeps such an image out of the pipeline is that the workflows name the images by digest (ghcr.io/<owner>/trx64u-build@sha256:...), never
+# by the moving :ci tag (step 7), and that a digest changes only in a commit that a review merged.
 on:
   push:
     paths:
@@ -33,6 +34,7 @@ jobs:
     outputs:
       image: ${{ steps.name.outputs.build }}
       digest: ${{ steps.push.outputs.digest }}
+      push: ${{ env.PUSH }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683   # v4.2.2
       - name: Image names
@@ -115,11 +117,11 @@ jobs:
         run: |
           docker run --rm "$IMAGE" sh -c 'yosys -V; ghdl --version | head -1; shellcheck --version | head -2; ruff --version; python3 -c "import yaml; print(\"yaml ok\")"'
 
-  # The emulator image is built on top of the build image from the registry, so it is built where the build image was pushed; on other refs the
-  # job does not run (its Dockerfile is proved on the next push to a protected branch).
+  # The emulator image is built on top of the build image from the registry, so it is built where the build image was pushed (the build job's output
+  # push); on other refs the job does not run (its Dockerfile is proved on the next push to main, integration or t239.1).
   emu:
     needs: build
-    if: needs.build.outputs.digest != ''
+    if: needs.build.outputs.push == 'true'
     env:
       PUSH: ${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/integration' || github.ref == 'refs/heads/t239.1' }}
     runs-on: ubuntu-latest
@@ -148,7 +150,7 @@ jobs:
         with:
           context: ci/emu
           file: ci/emu/Dockerfile
-          push: true
+          push: ${{ env.PUSH == 'true' }}
           build-args: |
             BASE=${{ needs.build.outputs.image }}@${{ needs.build.outputs.digest }}
           tags: |
