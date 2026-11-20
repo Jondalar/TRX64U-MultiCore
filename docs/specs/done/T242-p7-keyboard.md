@@ -64,3 +64,4 @@ C64 header keyboard on P7 (D7).
   start), S1 (P7 keys in the host menu), S2 (P7 keys in a core's menu), S4 (a full firmware started from the host), S5 (the built-in
   C64U keyboard in the host menu and in a core's menu). Alex: "alles geklappt !!!" (everything worked). T242 is DONE and moves to
   `docs/specs/done/`.
+- Issue #111 closed on 2026-11-20 with the board confirmation and "ships with release 0.2.1" (Alex chose: comment now and close).
