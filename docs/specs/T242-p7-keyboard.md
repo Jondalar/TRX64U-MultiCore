@@ -51,3 +51,4 @@
 - `69db9dec` (D1) on `t239.1`, pushed at Alex's word ("I would push it, the review looks anyway", translated).
 - Review of `69db9dec`: two readers (the bus hand-over; regressions), 643k tokens. Two findings, both checked against the code: the sleep in `i2c_lock` (D4) and the expander writes of the init (D5). Minor: `nau8822_enable_hpout` writes without the lock; nothing calls it.
 - `d478ae57` (D4, D5) on `t239.1`; the run with the unfixed D1 was cancelled. Full GitHub run 44737131946 carries D1-D5.
+- Run 44737131946: apptests and images green with D1-D5 (host app, core app and every core's app built). Its collect went red for a reason outside T242 (T239.1 §5, step 17).
