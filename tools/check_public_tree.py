@@ -35,7 +35,7 @@ CLAUDE_PUBLIC = ("CLAUDE.md", ".claude/agents/", ".claude/skills/", ".claude/trx
 
 # ---- text rules (D6): generic forms, no list of values ----
 # Not private: the documentation examples (192.0.2.0/24, 198.51.100.0/24, 203.0.113.0/24 are outside every private range) and the export's
-# placeholders: /path/to/ for a home path, gitea.example for a host, builder for a login's host (the last one is the allowed value of its group).
+# placeholders: /path/to/ for a home path, gitea.example for a host, builder for a login's host (the bare word; <name>@builder is a hit).
 M32 = 0xFFFFFFFF
 _oct = r"(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)"
 _EDGE_L, _EDGE_R = rb"(?<![\w.])", rb"(?![\w-])(?!\.\d)"
@@ -45,7 +45,7 @@ RULES = (   # (name in the report, regex, exclusions, kind)
     ("home path", re.compile(rb"(?<![\w.-])/(?:Users|home)/([A-Za-z0-9._-]+)/"), (b"x", b"user", b"you", b"name", b"username", b"runner"), None),
     ("internal host", re.compile(rb"(?<![\w.-])((?:[a-z0-9-]+\.)+(?:box|lan|local|home\.arpa))(?![\w-])(?!\.[A-Za-z0-9])", re.I), (), None),
     ("login on an internal host", re.compile(rb"(?<![\w.@-])[a-z][a-z0-9._-]{2,}@(?![0-9a-f]{6,}(?![\w-]))([A-Za-z][A-Za-z0-9-]{2,})(?![\w-])(?!\.[A-Za-z0-9])"),
-     (b"builder", b"host", b"hostname", b"localhost", b"sha", b"sha256", b"address", b"refs", b"example"), None),
+     (b"host", b"hostname", b"localhost", b"sha", b"sha256", b"address", b"refs", b"example"), None),
     ("claude.ai link", re.compile(rb"\bclaude\.ai/", re.I), (), None),
 )
 TRAILER = ("claude trailer", re.compile(rb"^(co-authored-by:\s*claude|claude-session:)", re.I | re.M), (), None)
@@ -390,10 +390,10 @@ SYNTH = (("private address", "see 10.0.0.5\n"), ("private address", "http://172.
          ("private address", "ssh 192.168.1.20\n"), ("private address", "link 169.254.10.1.\n"),
          ("home path", "at /Users/jdoe/src/x\n"), ("home path", "at /home/jdoe/src/x\n"),
          ("internal host", "see devhost.lan\n"), ("internal host", "see nas.box/share\n"), ("internal host", "ping printer.local.\n"),
-         ("internal host", "see ci.home.arpa\n"), ("login on an internal host", "ssh jdoe@devhost\n"),
+         ("internal host", "see ci.home.arpa\n"), ("login on an internal host", "ssh jdoe@devhost\n"), ("login on an internal host", "ssh someone@builder\n"),
          ("claude.ai link", "see https://claude.ai/code/session_x\n"))
 SYNTH_CLEAN = (b"docs 192.0.2.7 198.51.100.7 203.0.113.7\n", b"public 11.1.2.3 172.15.0.1 172.32.0.1 192.169.1.1 1.10.0.0.1\n",
-               b"version 10.1.2.3.4 v10.0.0.1\n", b"cp /path/to/file /Users/x/y /home/runner/work\n", b"a@example.org git@github.com ssh builder@builder\n",
+               b"version 10.1.2.3.4 v10.0.0.1\n", b"cp /path/to/file /Users/x/y /home/runner/work\n", b"a@example.org git@github.com ssh builder\n",
                b"gitea.example/owner/repo settings.local.json CLAUDE.local.md x.local.y\n", b"https://claude.com/x https://docs.claude.com/\n",
                b"npm i @types/node image@sha256:abc\n")
 SYNTH_LINKS = (("a.dat", "/Users/jdoe/x"), ("docs/l", "../roms/k.bin"), ("docs/l", "/home/jdoe/x"))
