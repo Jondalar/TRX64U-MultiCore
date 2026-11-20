@@ -8,10 +8,9 @@
 #  - python: byte-compile and ruff's syntax/undefined-name rules (E9, F63, F7, F82)
 #  - the RTL (designs/*/*.v): syntax only (yosys -defer), no elaboration; the VHDL and the
 #    benches are analysed by the benches of stage sims
-#  - the workflows: parse, every `needs:` names a job, every `uses:` a file
+#  - the workflows: parse, every `needs:` names a job, every `uses:` a file; the children table against pipeline.yml (ci/orchestrate.py check)
 #  - ci/select.sh: its answers for the cases the workflows rely on
-#  - T87: the pipeline's queue job (wait_turn), host/layers.txt, the layer cache keys,
-#    the host_sha rule of the core entries and the cache janitor, on generated data
+#  - host/layers.txt, the layer cache keys, the host_sha rule of the core entries and the cache janitor, on generated data
 #  - ci/sims.txt: every bench's script exists
 #  - ci/apptests.sh and tests/parallel.sh: key, marker and parallel-job scenarios (the app host tests themselves run in stage render, T174 D1)
 #  - the XDC files: no Tcl control command, which Vivado would silently drop (T95 5.15)
@@ -73,7 +72,7 @@ check "no Apple ROM content" bash -c 'tools/check_no_roms.sh --selftest && tools
 # T239.1 D24, S1, D6: no private file and no internal host, home path, Gitea host, builder login or claude link in a tracked file; the selftest plants every rule.
 # The same check runs in .github/workflows/public-tree.yml on every push (no paths-ignore) and in .githooks/pre-push.
 check "public tree (T239.1 D24)" bash -c 'python3 -I tools/check_public_tree.py --selftest >/dev/null && python3 -I tools/check_public_tree.py'
-# T239.1 D9: while .gitea/workflows/vivado.yml exists, its Vivado env is a copy of ci/vivado.env; the two must agree
+# T239.1 D9: while a Gitea workflow carries a copy of the Vivado env (vivado.yml, package.yml), it must agree with ci/vivado.env
 check "vivado env copies (T239.1 D9)" bash -c 'python3 tools/check_vivado_env.py --selftest >/dev/null && python3 tools/check_vivado_env.py'
 check "cor_pack test" python3 tools/test_cor_pack.py
 # T104.2: the pinned TRX64 bitstream is packed with the generic application, any other file is refused (the control must fail)
@@ -139,7 +138,6 @@ check "xdc without Tcl" bash -c '
   t=$(mktemp -d); trap "rm -rf $t" EXIT
   printf "if {1} { set_false_path -from [get_cells x] }\n" > "$t/control.xdc"
   [ -n "$(scan "$t/control.xdc")" ] || { echo "the control passed: the scanner cannot see an if in an XDC file"; exit 1; }'
-check "wait_turn" ci/wait_turn.sh --selftest
 check "layers_check selftest" ci/layers_check.sh --selftest
 check "layers.txt" ci/layers_check.sh
 check "host pin (T94 D13)" tools/host_pin.sh --check
@@ -158,10 +156,18 @@ check "plan scenarios D9-1..6" ci/test_plan.sh
 check "large stage flow (fake vivado)" ci/test_large_flow.sh
 check "constraint fail-fast in the host builds" ci/test_constraint_check.sh
 check "treesync: persistent build tree touches only what changed (T174)" ci/test_treesync.sh
-# T174 D4: the parent dispatches the children of ci/children.txt; every child workflow takes sha/parent/target/plan and checks out inputs.sha, the parent
-# is one job on the NAS pool, nothing defers red; every bench has one owner (ci/sims.lane). The test runs the parent against a fake Gitea, with controls.
-check "children table and workflows (D4)" python3 ci/orchestrate.py check
-check "parent orchestration (D4, fake Gitea)" ci/test_orchestrate.sh
+# T174 D4, T239.1 S6: pipeline.yml has one job for each child of ci/children.txt, with the table's needs, and calls the child's workflow, which checks out the
+# run's commit and runs ci/child.sh; the environments vivado and builds sit only where D1 and D14 want them; every bench has one owner (ci/sims.lane).
+check "children table and workflows (D4, S6)" python3 ci/orchestrate.py check
+check "children table: graph, outputs, check (S6)" python3 -I ci/test_orchestrate.py
+# T239.1 S6: no call of the Gitea API in ci/ or tools/ (releases and statuses are GitHub's now). The one named exception is the Gitea read of the .cor import on the
+# Mac (D22). This file and the scanner's own selftest strings are not calls.
+check "no Gitea API calls (T239.1 S6)" bash -c '
+  hits=$(git ls-files -- ci tools | grep -vE "^(tools/pack_import_cor\.sh|ci/lint\.sh|ci/check_pkg\.py)$" \
+    | xargs grep -nE "/api/v1|/api/packages" 2>/dev/null || true)
+  [ -z "$hits" ] || { echo "$hits"; exit 1; }'
+check "emulator kit (T239.1 D23)" ci/test_emu_kit.sh
+check "pre-release staging (T239.1 D1, D16)" ci/test_prerelease.sh
 check "select.sh" bash -c '
   t() { [ "$(env -i HOME="$HOME" PATH="$PATH" "${@:2}" ci/select.sh $1)" = "$EXPECT" ]; }
   EXPECT=no  t ue2 GITHUB_REF_NAME=main GITHUB_EVENT_NAME=push &&
@@ -174,6 +180,11 @@ check "select.sh" bash -c '
   EXPECT=yes t ue2 GITHUB_REF_NAME=v1.0 GITHUB_REF_TYPE=tag GITHUB_EVENT_NAME=workflow_dispatch UE2_INPUT=true &&
   EXPECT=yes t update GITHUB_REF_NAME=integ-m1 &&
   EXPECT=yes t update GITHUB_REF_NAME=main &&
+  EXPECT=yes t update GITHUB_REF_NAME=integration &&
+  EXPECT=yes t update GITHUB_REF_NAME=t239.1 &&
+  EXPECT=no  t update GITHUB_REF_NAME=feature SELECT_MSG=x CI_BRANCH=feature &&
+  EXPECT=yes t update GITHUB_REF_NAME=12/merge CI_BRANCH=main &&
+  EXPECT=2   t sims-tier GITHUB_REF_NAME=integration GITHUB_EVENT_NAME=push &&
   EXPECT=yes t update GITHUB_REF_NAME=v1.0 GITHUB_REF_TYPE=tag &&
   EXPECT=no  t update GITHUB_REF_NAME=t40 SELECT_MSG=x &&
   EXPECT=yes t update GITHUB_REF_NAME=t40 UPDATE_FORCE=true &&
@@ -192,7 +203,7 @@ check "version strings (T221 S1)" ci/test_version.sh
 check "workflow" python3 - <<'PY'
 import glob, os, sys, yaml
 ok = True
-for p in glob.glob(".gitea/workflows/*.yml"):
+for p in glob.glob(".github/workflows/*.yml"):
     jobs = yaml.safe_load(open(p))["jobs"]
     for name, j in jobs.items():
         needs = j.get("needs", [])

@@ -2,7 +2,7 @@
 # Job `plan` (T100 D9, build by change): which files did this push change since the last GREEN run of this branch, and which
 # targets does that make. The answer is plan.json (format: ci/plan.py); the parent hands it to its children (ci/orchestrate.py, ci/child.sh).
 #
-#   ci/plan.sh [--out plan.json]     env: TOKEN, GITHUB_API_URL / GITHUB_SERVER_URL, GITHUB_REPOSITORY, GITHUB_REF_NAME, RUN_ID,
+#   ci/plan.sh [--out plan.json]     env: TOKEN (the run's GITHUB_TOKEN), GITHUB_API_URL, GITHUB_REPOSITORY, GITHUB_REF_NAME, RUN_ID,
 #                                    PLAN_BASE (a commit: skip the API, for tests and by hand), WORKFLOW (default pipeline.yml)
 #   ci/plan.sh --selftest            the choice of the base on canned API answers
 #
@@ -18,11 +18,11 @@ ROOT="$(cd "$HERE/.." && pwd)"
 # pick_base <run id> <workflow> <branch>: reads the runs JSON on stdin, prints "<sha> <run id>" of the newest green run, if any.
 pick_base() {
   python3 -c '
-import json, sys
+import json, os, sys
 me, wf, br = int(sys.argv[1] or 0), sys.argv[2], sys.argv[3]
 best = None
 for r in json.load(sys.stdin).get("workflow_runs", []):
-    if r["id"] == me or r["path"].split("@")[0] != wf or r.get("head_branch") != br or r.get("status") != "completed":
+    if r["id"] == me or os.path.basename(r["path"].split("@")[0]) != wf or r.get("head_branch") != br or r.get("status") != "completed":
         continue
     if r.get("conclusion", "success" if r.get("status") == "success" else "") != "success":
         continue
@@ -35,7 +35,7 @@ if best:
 
 if [ "${1:-}" = --selftest ]; then
   json='{"workflow_runs":[
-   {"id":30,"path":"pipeline.yml@refs/heads/b","status":"in_progress","head_branch":"b","head_sha":"3333"},
+   {"id":30,"path":".github/workflows/pipeline.yml","status":"in_progress","head_branch":"b","head_sha":"3333"},
    {"id":29,"path":"pipeline.yml@refs/heads/b","status":"completed","conclusion":"failure","head_branch":"b","head_sha":"2222"},
    {"id":28,"path":"pipeline.yml@refs/heads/b","status":"completed","conclusion":"success","head_branch":"b","head_sha":"1111"},
    {"id":27,"path":"pipeline.yml@refs/heads/b","status":"completed","conclusion":"success","head_branch":"b","head_sha":"0000"},
@@ -67,14 +67,14 @@ merge_base_main() {
 
 # find_base: prints "<commit> <source text>"
 find_base() {
-  local branch="${GITHUB_REF_NAME:-$(git -C "$ROOT" rev-parse --abbrev-ref HEAD)}" api body g="" run="" mb page
+  local branch="${CI_BRANCH:-${GITHUB_REF_NAME:-$(git -C "$ROOT" rev-parse --abbrev-ref HEAD)}}" api body g="" run="" mb page
   if [ -n "${PLAN_BASE:-}" ]; then
     echo "$PLAN_BASE given"; return 0
   fi
   if [ -n "${TOKEN:-}" ] && [ -n "${GITHUB_REPOSITORY:-}" ]; then
-    api="${GITHUB_API_URL:-${GITHUB_SERVER_URL:-}/api/v1}"
+    api="${GITHUB_API_URL:-https://api.github.com}"
     for page in 1 2 3 4; do
-      body="$(curl -sf -m 30 -H "Authorization: token $TOKEN" "$api/repos/$GITHUB_REPOSITORY/actions/runs?limit=50&page=$page&branch=$branch")" || { echo "plan: the run list is not available (page $page)" >&2; break; }
+      body="$(curl -sf -m 30 -H "Authorization: Bearer $TOKEN" -H "Accept: application/vnd.github+json" "$api/repos/$GITHUB_REPOSITORY/actions/runs?per_page=50&page=$page&branch=$branch")" || { echo "plan: the run list is not available (page $page)" >&2; break; }
       read -r g run < <(printf '%s' "$body" | pick_base "${RUN_ID:-0}" "${WORKFLOW:-pipeline.yml}" "$branch") || true
       [ -z "${g:-}" ] || break
     done

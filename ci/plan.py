@@ -3,7 +3,7 @@
 
   ci/plan.py make --base <commit>|none [--head HEAD] [--branch B] [--source <text>] [--out plan.json] [--files-out f] [--pretty]
                                     the plan of the diff base..head (base none = no base known: everything is named; --branch B or
-                                    GITHUB_REF_NAME / the checkout decides the scope: main, integ-*, release/* and tags build everything
+                                    GITHUB_REF_NAME / the checkout decides the scope: main, integration, integ-*, release/* and tags build everything
                                     that changed (D2.6-8), any other branch only the cores it touches plus host, reference core and null (D2 addendum))
   ci/plan.py has <plan.json> <target>      exit 0 when the plan names the target ("host", "dfx:vc20", "large:amiga1200", "aux",
                                            "app:core", ...), the lane runs ("lane:host", "lane:dfx:vc20", "lane:large:amiga1200") or "fundamental" (full benches);
@@ -106,8 +106,9 @@ def fundamental_specs(kind="benches"):
 
 
 def full_scope(branch):
-    """main, integration branches, release branches and tags build and test everything that changed; any other branch only its own core(s) and app(s)."""
-    return branch == "main" or branch.startswith(("integ-", "release/")) or os.environ.get("GITHUB_REF_TYPE") == "tag"
+    """main, integration, integration branches, release branches and tags build and test everything that changed; any other branch only its own core(s)
+    and app(s). t239.1 counts as main while T239.1 D9 lasts (its S8 proof needs the package)."""
+    return branch in ("main", "integration", "t239.1") or branch.startswith(("integ-", "release/")) or os.environ.get("GITHUB_REF_TYPE") == "tag"
 
 
 # ---- ci/targets.txt -------------------------------------------------------------------------------------------------
@@ -282,7 +283,7 @@ def make(base, head, source, files_out=None, branch=None):
     everything = base == "none"
     changed = set()
     notes = []
-    branch = branch or os.environ.get("GITHUB_REF_NAME") or git("rev-parse", "--abbrev-ref", "HEAD").strip()
+    branch = branch or os.environ.get("CI_BRANCH") or os.environ.get("GITHUB_REF_NAME") or git("rev-parse", "--abbrev-ref", "HEAD").strip()
     scoped = not full_scope(branch)
     docs_only = False
     if not everything:

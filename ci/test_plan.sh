@@ -5,7 +5,7 @@
 # cannot fail proves nothing. D9-7 (cache fallback), D9-8 (time limit) and D9.6 (red targets) need the stage and live in
 # ci/test_layers_flow.sh with the fake Vivado.
 set -euo pipefail
-unset GITHUB_REF_TYPE GITHUB_REF_NAME GITHUB_EVENT_NAME   # a tag run's environment must not reach the scenarios this test builds itself (run 2449)
+unset GITHUB_REF_TYPE GITHUB_REF_NAME GITHUB_EVENT_NAME CI_BRANCH CI_REF_TYPE   # a tag run's environment must not reach the scenarios this test builds itself (run 2449)
 # T215: this test moves keys by appending a comment line to a source; it tests the plumbing (stage flow, plan, layer keys), not the normaliser, so keys are
 # the raw content hash here (the normaliser has its own test: ci/test_code_hash.py).
 export CODE_HASH=raw
@@ -13,7 +13,7 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."
 SRC="$PWD"
 W="$(mktemp -d)"; trap 'rm -rf "${W:?}"' EXIT
 git clone -q "$SRC" "$W/repo" 2>/dev/null
-git -C "$SRC" ls-files -z -m -o --exclude-standard -- ci host cores vendor tools coreapp .gitea | while IFS= read -r -d '' f; do
+git -C "$SRC" ls-files -z -m -o --exclude-standard -- ci host cores vendor tools coreapp .gitea .github | while IFS= read -r -d '' f; do
   [ -f "$f" ] && { mkdir -p "$W/repo/$(dirname "$f")"; cp "$f" "$W/repo/$f"; }
 done
 R="$W/repo"
@@ -220,7 +220,7 @@ JSON
 CURL
 chmod +x "$W/bin/curl"
 planrun() { # planrun <extra env...>: the plan job's script, in the clone
-  env "$@" PATH="$W/bin:$PATH" TOKEN=x GITHUB_REPOSITORY=o/r GITHUB_API_URL=http://gitea/api/v1 GITHUB_REF_NAME=scratch RUN_ID=12 \
+  env "$@" PATH="$W/bin:$PATH" TOKEN=x GITHUB_REPOSITORY=o/r GITHUB_API_URL=http://api.invalid GITHUB_REF_NAME=scratch RUN_ID=12 \
     "$R/ci/plan.sh" --out "$W/p.json" > "$W/plan.log" 2>&1 || { cat "$W/plan.log"; fail "plan.sh"; }
 }
 planrun X=1

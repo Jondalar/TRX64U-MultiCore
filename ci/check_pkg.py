@@ -3,7 +3,7 @@
 
 The literal of the firmware repository's package (FW_PKG in ci/pkg.env) may appear only in the files that import
 its output: tools/pack_import_cor.sh (reads, through $FW_PKG) and release/imports/*.pin. Everywhere else in
-ci/, tools/, tests/ and .gitea/ a code line naming it is an error; comment lines are not code and are skipped.
+ci/, tools/, tests/ and .github/ a code line naming it is an error; comment lines are not code and are skipped.
 
   ci/check_pkg.py            check the tree
   ci/check_pkg.py --selftest negative control: a generated script that PUTs into FW_PKG has to be refused
@@ -16,7 +16,7 @@ import tempfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ALLOWED = {"tools/pack_import_cor.sh", "ci/check_pkg.py", "ci/pkg.env"}
-SCAN = ("ci/", "tools/", "tests/", ".gitea/", "release/")
+SCAN = ("ci/", "tools/", "tests/", ".github/", "release/")
 
 
 def env():
