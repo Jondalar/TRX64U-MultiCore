@@ -137,10 +137,12 @@ wire ce_raw = g_edge && phi2_l;
 wire core_ce;
 
 // T241 S2: the IRQ is decided on the level of the cycle before an instruction's last cycle: the 6502 and the 65816 poll before the last cycle (VICE 65816core.c:129 CHECK_INTERRUPT, placed at
-// least one cycle before the last access of an instruction, e.g. :851, :1498, :2230). s816_cpu takes the interrupt at the end of the last cycle with the level it is given then, so it is given
+// least one cycle before the last access of an instruction, e.g. :851, :1499, :2231). s816_cpu takes the interrupt at the end of the last cycle with the level it is given then, so it is given
 // the level of the end of the cycle before: irq_pen is irq_latched registered at each CPU enable (core_ce: one per PHI2 cycle at 1 MHz, one per 20 MHz cycle at 20 MHz, a held cycle included).
-// An IRQ that rises in an instruction's last cycle (a write that enables the source) is taken after the next instruction. The low-phase drop above stays: it still ends the level as soon as the
-// line falls. NMI needs nothing: s816_cpu latches the falling edge at each enable (NMI_SYNC) and reads the latch at the last cycle, which is the same one-cycle delay.
+// An IRQ that rises in the PHI2-high half of an instruction's last cycle (a raster compare match: vicii_c64scpu.v:535) is taken after the next instruction. A register write that enables a
+// source is not that case: the VIC takes it at the PHI2 fall, where irq_r above is sampled, so the line is first seen in the next cycle with or without irq_pen. The low-phase drop above stays:
+// it still ends the level as soon as the line falls. NMI needs nothing: s816_cpu latches the falling edge at each enable (NMI_SYNC) and reads the latch at the last cycle, which is the same
+// one-cycle delay.
 reg irq_pen = 1'b0;
 always @(posedge clk2x) begin
   if (rst_q) irq_pen <= 1'b0;

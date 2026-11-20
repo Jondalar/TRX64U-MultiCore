@@ -23,7 +23,7 @@ Changes against the upstream files (all of them, nothing else is touched):
     LOAD_LONG_DUMMY, no store) and the number of cycles of every instruction are unchanged.
   - RTI in emulation mode (EF = 1) takes 6 cycles, as on the W65C816S (datasheet: 7 cycles with E = 0, 6 with E = 1) and in VICE (65816core.c:2217-2240: INC_PC, two
     FETCH_PARAM_DUMMY, three PULL, one clock each, and the opcode fetch); upstream gave it 5 (state control 111 of the third pull: `EF = 1 and IR = x"40"` ends it). The pull of the
-    high byte of PC (state 4, STATE_CTRL 111) now goes on to state 7 in that case, and the microcode row of RTI's state 7 (all zero upstream, never visited: native RTI ends in state 6)
+    high byte of PC (state 4, STATE_CTRL 111) now goes on to state 7 in that case, and the microcode row of RTI's state 7 (all X upstream, read as zero, never visited: native RTI ends in state 6)
     becomes STATE_CTRL 010 with everything else 0: an internal cycle (no VDA, no VPA, no register load) that ends the instruction. Native mode (EF = 0, 7 cycles) is unchanged. T241 S2.
 """
 import os
@@ -58,12 +58,13 @@ def mcode(t):
     body = t[t.index('constant M_TAB'):t.index('type ALUCtrl_t')]
     rows = re.findall(r'^\s*\(((?:"[^"]*",?){16})\)', body, flags=re.M)
     assert len(rows) == 2048, len(rows)
-    words = []
+    words, raw = [], []
     for r in rows:
         f = re.findall(r'"([^"]*)"', r)
         assert [len(x) for x in f] == FIELDS, f
-        words.append(''.join(f).replace('X', '0'))
-    assert words[RTI_E_ROW] == '0' * 53, words[RTI_E_ROW]
+        raw.append(''.join(f))
+        words.append(raw[-1].replace('X', '0'))
+    assert raw[RTI_E_ROW] == 'X' * 53, raw[RTI_E_ROW]      # upstream's row of RTI state 7 is all X (don't care): MCode.vhd, row after "-- 40 RTI" + 6
     words[RTI_E_ROW] = '010' + '0' * 50          # T241 S2: RTI's state 7 = the internal last cycle of the emulation-mode RTI (STATE_CTRL 010, nothing else; see cpu() rti_emul)
     lines = ',\n'.join('\t\t"%s"' % w for w in words)
     alu = t[t.index('type ALUCtrl_t'):t.index('signal MI ')]
