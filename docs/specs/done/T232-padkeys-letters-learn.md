@@ -1,6 +1,6 @@
 # T232 — A pad or joystick can press any letter key, chosen by pressing it, so a game on IJKL (or WASD) plays from a USB pad
 
-**Status:** MERGED 2026-11-18, after release 0.2.0; S4 (the board with a USB pad) open. Order (Alex 2026-11-17): T228, T235, T234, then this, then the CPC (T233).
+**Status:** DONE (2026-11-20, closed by Alex with GitHub #80, §5); merged 2026-11-18, after release 0.2.0. Order (Alex 2026-11-17): T228, T235, T234, then this, then the CPC (T233).
 **Repo:** TRX64U-MultiCore — the generic core application (`coreapp/src/padkeys.h`, the input tab, the hotkey learn path); no core
 RTL, no per-core C.
 **Number:** T232.
@@ -86,3 +86,7 @@ I, J, K and L are not in the list, so a game that plays on IJKL cannot be set up
   row's foot names `<- ->  CHANGE`; RESTORE at the learn says "That key is not available ..." (it said "No key"); the one-poll
   SHIFT + cursor test starts from another value and checks the learn ended clean, the right SHIFT (matrix 52) and RESTORE are
   checked; the ue2emu feature asserts the foot and "Cancelled" after RUN/STOP; manual 11.19.5 names the letters and RETURN.
+- **Closed (2026-11-20, Alex, translated):** "So I can teach a USB pad .. whether that is really good UX is another matter.
+  Close it!" T232 is DONE with these words, and GitHub #80 is closed. S4 has no separate board report. The code is in `main`
+  since 2026-11-18 and ships with the next release; the pre-releases `t239.1-*` of 2026-11-20 carry it (package A). Learning a
+  key from a USB keyboard stays T237.
