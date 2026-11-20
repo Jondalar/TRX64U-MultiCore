@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 # Stage `update`: the host update file of this run, from exactly the parts of this commit's CI package (the artifact `package`, read from $CI_PACKAGE_IN), left in
 # $ROOT/.update/out for the workflow to upload as the artifact `update`; ci/prerelease.sh adds it to the package's pre-release and writes the SHA256SUMS over both.
 # Gideon's application is not built or packed here (T164, Alex 2026-11-01): the monolith updater trx64_update_* is TRX64-Ultimate's.
