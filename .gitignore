@@ -7,12 +7,15 @@
 /.claude/context.md
 /.claude/handover*
 /.claude/settings.local.json
+/CLAUDE.local.md
 .DS_Store
 *.jou
 *.log
 *.str
 .Xil/
 build/
+# T239.1 D12: the build image's Dockerfile folder. A later line wins, so this has to stay below 'build/' (above it, it does nothing).
+!/ci/build/
 *.cache/
 *.runs/
 *.hw/
@@ -54,4 +57,3 @@ cores/c64scpu/sim/*.lock
 .gitnexus/
 # dis65816 default output: listings of a program are its data, never committed (tools/dis65816/README.md)
 /analysis/
-!/ci/build/
