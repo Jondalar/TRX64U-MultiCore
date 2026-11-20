@@ -4,7 +4,8 @@
 # On main the package packs every .cor.
 #
 #   ci/cor.sh core:<id>     a DFX core: ci/pack_one.sh (the partial of the cache under this tree's keys, bound to the host it was routed against)
-#   ci/cor.sh large:<id>    a large core: tools/pack_large_cor.sh on the flat bitstream the child `vivado large:<id>` of this parent handed over
+#   ci/cor.sh large:<id>    a large core: tools/pack_large_cor.sh on the flat bitstream the child `vivado large:<id>` of this parent handed over,
+#                           else the one ci/fetch_bits.sh restored into the cache (T239.1 D19)
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 target="${1:?usage: ci/cor.sh core:<id>|large:<id>}"
@@ -15,6 +16,12 @@ case "$target" in
     "$ROOT/ci/pack_one.sh" "${target#core:}" --app-dir "$trxapps/coreapps" --out "$out" ;;
   large:?*)
     core="${target#large:}"
+    if [ ! -f "$HANDOFF/large-$core/DONE" ]; then
+      # T239.1 D19, D21: no vivado child runs in this parent; ci/fetch_bits.sh restored the core's entry into the cache, and the lane is
+      # collected from it as ci/collect.sh does for the package (collect only reads: a cache miss is red). A flat build takes no build
+      # options, so ci/vivado.env is not loaded (ci/keys.sh makes the mono keys without them too).
+      CI_COLLECT_ONLY=1 "$ROOT/ci/bitstream_mono.sh" --lane "$core"
+    fi
     mono="$(need_stage "large-$core")"
     [ -f "$mono/${core}_mono.bit" ] || { echo "ci/cor.sh: no ${core}_mono.bit in $mono" >&2; exit 1; }
     desc="$ROOT/cores/$core/mono/core.toml"
