@@ -11,8 +11,9 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 # make, python3, git, curl, ccache and a host C/C++ compiler: ci/apptests.sh exits without c++, tools/make_update.sh builds hex2bin, checksum and swap with make.
 # zip and unzip: the app suites and the package steps read and write archives. python3-pip: for the code-hash libraries below.
+# zlib1g-dev: the render benches (tests/view, tests/coreapp/render, tests/hostapp/render) include zlib.h and link -lz.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        ca-certificates curl git make build-essential ccache python3 python3-pip zip unzip xz-utils \
+        ca-certificates curl git make build-essential ccache python3 python3-pip zip unzip xz-utils zlib1g-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # xPack riscv-none-elf-gcc, checked against the SHA-256 the publisher lists in the .sha file of the same release. The makefiles call the
