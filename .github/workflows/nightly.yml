@@ -1,0 +1,56 @@
+name: Nightly
+
+# T100 D7 replaced (Alex, 2026-10-30): the benches are not in the push pipeline. Once a night every tier-2 bench of ci/sims.txt runs on the default branch
+# (schedule), also on demand; the render benches and file benches of the applications run with them. A leg per bench owner (a hosted job stops after 6 h).
+# The per-bench PASS markers of the cache skip the benches whose inputs did not change, and reading that cache every night keeps the bench ROMs in it alive
+# (entries go after 7 days unused; GitHub stops schedules after 60 days without activity). A red nightly is reported, nothing else.
+# D9: `schedule` and `workflow_dispatch` need this file on the default branch, which has no workflows until the switch. Until then a push to a branch
+# scratch/nightly/<name> whose head commit says [nightly] runs it; the marker, the branch pattern and the push trigger go at the switch.
+on:
+  schedule:
+    - cron: '0 1 * * *'
+  workflow_dispatch:
+  push:
+    branches: ['scratch/nightly/**']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  owners:
+    name: Bench owners of tier 2
+    if: ${{ github.event_name != 'push' || contains(github.event.head_commit.message, '[nightly]') }}
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/jondalar/trx64u-build@sha256:0000000000000000000000000000000000000000000000000000000000000001
+    timeout-minutes: 10
+    outputs:
+      owners: ${{ steps.owners.outputs.owners }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683   # v4.2.2
+        with:
+          persist-credentials: false
+      - id: owners
+        run: echo "owners=$(python3 ci/orchestrate.py owners --tier 2)" >> "$GITHUB_OUTPUT"
+  sims:
+    name: Benches (tier 2)
+    needs: owners
+    strategy:
+      fail-fast: false
+      max-parallel: 6
+      matrix:
+        owner: ${{ fromJSON(needs.owners.outputs.owners) }}
+    uses: ./.github/workflows/sim.yml
+    with:
+      target: ${{ matrix.owner }}
+      tier: '2'
+  # T174 D2.6: the render benches and file benches of the applications also run once a night (a push of a branch runs them only when a fundamental file is
+  # touched, ci/fundamental.txt); the stage's own PASS marker skips them when nothing they read changed.
+  apptests:
+    name: Application tests, render and file benches
+    needs: owners
+    uses: ./.github/workflows/apptests.yml

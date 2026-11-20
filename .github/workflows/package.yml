@@ -1,0 +1,124 @@
+name: Package
+
+# T239.1 S6, D12: a child of the pipeline (ci/children.txt). Concern: the complete package (ci/package.sh). Job `collect` fetches the bitstream entries of this run's keys from the builds repository and hands them over
+# (ci/fetch_bits.sh, ci/collect.sh); both jobs wait at the environment `bitstreams` (D21), where the builder releases the run once the keys are published.
+# It checks out the run's commit (the head of a pull request, else github.sha), takes the plan and the hand-over of the jobs before it from their artifacts
+# and runs ci/child.sh, which is red at once with its reason. The image is named by digest; the digest is filled from the ci-images run (step 16).
+run-name: "package @${{ github.event.pull_request.head.sha || github.sha }}"
+
+permissions:
+  contents: read
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+jobs:
+  collect:
+    name: Collect the bitstreams
+    runs-on: ubuntu-latest
+    environment: bitstreams
+    container:
+      image: ghcr.io/jondalar/trx64u-build@sha256:0000000000000000000000000000000000000000000000000000000000000001
+    timeout-minutes: 60
+    env:
+      CI_BRANCH: ${{ github.head_ref || github.ref_name }}
+      CI_REF_TYPE: ${{ github.ref_type }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683   # v4.2.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Environment
+        run: |
+          {
+            echo "CI_HANDOFF=$RUNNER_TEMP/handoff"
+            echo "CI_RUN_ID=$GITHUB_RUN_ID"
+            echo "CI_APPTESTS_OK=$RUNNER_TEMP/ci-cache/apptests-ok"
+            echo "CI_RENDER_OK=$RUNNER_TEMP/ci-cache/render-ok"
+            echo "CI_TRXAPPS_CACHE=$RUNNER_TEMP/ci-cache/trxapps"
+            echo "CONTROLS_CACHE=$RUNNER_TEMP/ci-cache/controls-ok"
+            echo "CI_SIMS_OK=$RUNNER_TEMP/ci-cache/sims-ok"
+            echo "ROMS_STORE=$RUNNER_TEMP/ci-cache/roms"
+            echo "CCACHE_DIR=$RUNNER_TEMP/ccache"
+            echo "CI_BIT_CACHE=$RUNNER_TEMP/bit"
+          } >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/handoff"
+      - uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684   # v4.2.3
+        with:
+          path: ${{ runner.temp }}/ci-cache
+          key: ci-cache-collect-${{ github.sha }}
+          restore-keys: |
+            ci-cache-collect-
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093   # v4.3.0
+        continue-on-error: true
+        with:
+          name: plan
+          path: ${{ runner.temp }}/handoff
+      - name: Bitstreams
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: ci/fetch_bits.sh
+      - name: Collect
+        run: ci/child.sh collect
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02   # v4.6.2
+        with:
+          name: handoff-bits
+          path: |
+            ${{ runner.temp }}/handoff/bit-*
+            ${{ runner.temp }}/handoff/large-*
+          retention-days: 1
+          if-no-files-found: error
+
+  package:
+    name: Package
+    needs: collect
+    runs-on: ubuntu-latest
+    environment: bitstreams
+    container:
+      image: ghcr.io/jondalar/trx64u-build@sha256:0000000000000000000000000000000000000000000000000000000000000001
+    timeout-minutes: 30
+    env:
+      CI_BRANCH: ${{ github.head_ref || github.ref_name }}
+      CI_REF_TYPE: ${{ github.ref_type }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683   # v4.2.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Environment
+        run: |
+          {
+            echo "CI_HANDOFF=$RUNNER_TEMP/handoff"
+            echo "CI_RUN_ID=$GITHUB_RUN_ID"
+            echo "CI_APPTESTS_OK=$RUNNER_TEMP/ci-cache/apptests-ok"
+            echo "CI_RENDER_OK=$RUNNER_TEMP/ci-cache/render-ok"
+            echo "CI_TRXAPPS_CACHE=$RUNNER_TEMP/ci-cache/trxapps"
+            echo "CONTROLS_CACHE=$RUNNER_TEMP/ci-cache/controls-ok"
+            echo "CI_SIMS_OK=$RUNNER_TEMP/ci-cache/sims-ok"
+            echo "ROMS_STORE=$RUNNER_TEMP/ci-cache/roms"
+            echo "CCACHE_DIR=$RUNNER_TEMP/ccache"
+            echo "CI_BIT_CACHE=$RUNNER_TEMP/bit"
+          } >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/handoff"
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093   # v4.3.0
+        continue-on-error: true
+        with:
+          name: plan
+          path: ${{ runner.temp }}/handoff
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093   # v4.3.0
+        with:
+          name: handoff-trxapps
+          path: ${{ runner.temp }}/handoff/trxapps
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093   # v4.3.0
+        with:
+          name: handoff-bits
+          path: ${{ runner.temp }}/handoff
+      - name: Package
+        run: ci/child.sh package
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02   # v4.6.2
+        with:
+          name: package
+          path: ${{ github.workspace }}/out
+          retention-days: 14
+          if-no-files-found: error

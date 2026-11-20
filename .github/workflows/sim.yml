@@ -1,0 +1,74 @@
+name: Sim
+
+# T239.1 S6, D12: a child of the pipeline (ci/children.txt). Concern: the simulation benches of one owner (host, core:<id>, large:<id>; ci/sims.lane) that the plan names, in the plan's tier; `all` = every bench of the
+# tier. The caller makes one leg per owner (a hosted job stops after 6 h). A bench TIMEOUT is red with "TIMEOUT after N s".
+# It checks out the run's commit (the head of a pull request, else github.sha), takes the plan and the hand-over of the jobs before it from their artifacts
+# and runs ci/child.sh, which is red at once with its reason. The image is named by digest; the digest is filled from the ci-images run (step 16).
+run-name: "sim ${{ inputs.target }} @${{ github.event.pull_request.head.sha || github.sha }}"
+
+permissions:
+  contents: read
+
+on:
+  workflow_call:
+    inputs:
+      target:
+        type: string
+        default: 'all'
+      tier:
+        type: string
+        default: '2'
+  workflow_dispatch:
+    inputs:
+      target:
+        type: string
+        default: 'all'
+      tier:
+        type: string
+        default: '2'
+
+jobs:
+  sim:
+    name: Sim
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/jondalar/trx64u-sim@sha256:0000000000000000000000000000000000000000000000000000000000000003
+    timeout-minutes: 350
+    env:
+      CI_BRANCH: ${{ github.head_ref || github.ref_name }}
+      CI_REF_TYPE: ${{ github.ref_type }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683   # v4.2.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Environment
+        run: |
+          {
+            echo "CI_HANDOFF=$RUNNER_TEMP/handoff"
+            echo "CI_RUN_ID=$GITHUB_RUN_ID"
+            echo "CI_APPTESTS_OK=$RUNNER_TEMP/ci-cache/apptests-ok"
+            echo "CI_RENDER_OK=$RUNNER_TEMP/ci-cache/render-ok"
+            echo "CI_TRXAPPS_CACHE=$RUNNER_TEMP/ci-cache/trxapps"
+            echo "CONTROLS_CACHE=$RUNNER_TEMP/ci-cache/controls-ok"
+            echo "CI_SIMS_OK=$RUNNER_TEMP/ci-cache/sims-ok"
+            echo "ROMS_STORE=$RUNNER_TEMP/ci-cache/roms"
+            echo "CCACHE_DIR=$RUNNER_TEMP/ccache"
+            echo "CI_BIT_CACHE=$RUNNER_TEMP/bit"
+          } >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/handoff"
+      - uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684   # v4.2.3
+        with:
+          path: ${{ runner.temp }}/ci-cache
+          key: ci-cache-sim-${{ github.sha }}
+          restore-keys: |
+            ci-cache-sim-
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093   # v4.3.0
+        continue-on-error: true
+        with:
+          name: plan
+          path: ${{ runner.temp }}/handoff
+      - name: Benches
+        env:
+          SIMS_TIER: ${{ inputs.tier }}
+        run: ci/child.sh sim "${{ inputs.target }}"

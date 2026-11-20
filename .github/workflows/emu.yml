@@ -1,0 +1,70 @@
+name: Emu
+
+# T239.1 S6, D12: a child of the pipeline (ci/children.txt). Concern: the emulator scenarios (ue2emu, in the emulator image) on the images of this run (tests/hostapp/emu_host.sh, tests/coreapp/emu). D23: the flash image is made
+# from this run's update file and the VIC-20 .cor is this run's, so the job runs after `update`.
+# It checks out the run's commit (the head of a pull request, else github.sha), takes the plan and the hand-over of the jobs before it from their artifacts
+# and runs ci/child.sh, which is red at once with its reason. The image is named by digest; the digest is filled from the ci-images run (step 16).
+run-name: "emu @${{ github.event.pull_request.head.sha || github.sha }}"
+
+permissions:
+  contents: read
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+jobs:
+  emu:
+    name: Emu
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/jondalar/trx64u-emu@sha256:0000000000000000000000000000000000000000000000000000000000000002
+    timeout-minutes: 45
+    env:
+      CI_BRANCH: ${{ github.head_ref || github.ref_name }}
+      CI_REF_TYPE: ${{ github.ref_type }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683   # v4.2.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Environment
+        run: |
+          {
+            echo "CI_HANDOFF=$RUNNER_TEMP/handoff"
+            echo "CI_RUN_ID=$GITHUB_RUN_ID"
+            echo "CI_APPTESTS_OK=$RUNNER_TEMP/ci-cache/apptests-ok"
+            echo "CI_RENDER_OK=$RUNNER_TEMP/ci-cache/render-ok"
+            echo "CI_TRXAPPS_CACHE=$RUNNER_TEMP/ci-cache/trxapps"
+            echo "CONTROLS_CACHE=$RUNNER_TEMP/ci-cache/controls-ok"
+            echo "CI_SIMS_OK=$RUNNER_TEMP/ci-cache/sims-ok"
+            echo "ROMS_STORE=$RUNNER_TEMP/ci-cache/roms"
+            echo "CCACHE_DIR=$RUNNER_TEMP/ccache"
+            echo "CI_BIT_CACHE=$RUNNER_TEMP/bit"
+          } >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/handoff"
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093   # v4.3.0
+        continue-on-error: true
+        with:
+          name: plan
+          path: ${{ runner.temp }}/handoff
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093   # v4.3.0
+        with:
+          name: handoff-trxapps
+          path: ${{ runner.temp }}/handoff/trxapps
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093   # v4.3.0
+        with:
+          name: package
+          path: ${{ runner.temp }}/package
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093   # v4.3.0
+        with:
+          name: update
+          path: ${{ runner.temp }}/update
+      - name: Kit
+        run: |
+          set -eu
+          ue2="$(ls "$RUNNER_TEMP"/update/*.ue2 | head -n 1)"
+          ci/emu_kit.sh "$RUNNER_TEMP/kit" --update "$ue2" --cor "$RUNNER_TEMP/package/vc20.cor"
+          echo "UE2EMU_KIT=$RUNNER_TEMP/kit" >> "$GITHUB_ENV"
+      - name: Scenarios
+        run: ci/child.sh emu

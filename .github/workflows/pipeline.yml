@@ -1,0 +1,283 @@
+name: Pipeline
+
+# T239.1 S6 (replaces the dispatching parent of T174 D4): the job graph of the pipeline. One job per child of ci/children.txt (job id = child name; `ci/orchestrate.py check`
+# holds this file to the table), each calling its own workflow with `uses:`. The plan job decides which children run (`if:`); a job whose need was red or
+# cancelled does not start. The bitstreams are not a job: the builder builds the keys the plan job's work order names as missing (D11, D13) and releases the
+# environment `bitstreams`, where the jobs that need them wait without a runner (D21). Environment `vivado` (job approve) is Alex's click for a commit the builder
+# does not trust by itself (D14); environment `builds` (job prerelease) is the D1 publish.
+#
+# Pushes of this repository's branches run on `push`; a pull request from a fork runs on `pull_request` (a pull request from a branch of this repository
+# is the push's run). A documentation-only push starts no run here; the public-tree check (public-tree.yml) has no paths-ignore and runs for it.
+# D9: schedule and workflow_dispatch work only for workflows on the default branch, so the nightly and sims-long run from a push to a scratch branch
+# (scratch/nightly/**, scratch/sims-long/**) whose head commit carries a marker; this pipeline ignores those branches.
+on:
+  push:
+    branches: ['**', '!scratch/nightly/**', '!scratch/sims-long/**']
+    tags: ['v*']
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.claude/**'
+  pull_request:
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.claude/**'
+  workflow_dispatch:
+    inputs:
+      bundle:
+        description: 'Build the update files (.cfw/.ue2) of this branch too'
+        type: boolean
+        default: false
+      update:
+        description: 'Build the .cfw/.ue2 update files on this branch too (always built on main, integration, t239.1 and v* tags)'
+        type: boolean
+        default: false
+      sims:
+        description: 'Run the benches of the changed owners too (sims only on demand, Alex 2026-11-08; always on integration)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+# One run per ref at a time, in the order they started waiting (D9; replaces the queue script of T87). The group is the branch, or the pull request's head branch.
+concurrency:
+  group: pipeline-${{ github.head_ref || github.ref }}
+  queue: max
+
+jobs:
+  plan:
+    name: Plan (what changed, which children, which keys are missing)
+    # a pull request from a branch of this repository is the push's run; a fork's pull request runs here
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository }}
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/jondalar/trx64u-build@sha256:0000000000000000000000000000000000000000000000000000000000000001
+    timeout-minutes: 30
+    env:
+      CI_BRANCH: ${{ github.head_ref || github.ref_name }}
+      CI_REF_TYPE: ${{ github.ref_type }}
+    outputs:
+      children: ${{ steps.children.outputs.children }}
+      sim_owners: ${{ steps.children.outputs.sim_owners }}
+      cor_targets: ${{ steps.children.outputs.cor_targets }}
+      sims_tier: ${{ steps.children.outputs.sims_tier }}
+      update: ${{ steps.children.outputs.update }}
+      docs_only: ${{ steps.children.outputs.docs_only }}
+      missing: ${{ steps.order.outputs.missing }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683   # v4.2.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Environment
+        run: |
+          echo "CI_HANDOFF=$RUNNER_TEMP/handoff" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/handoff"
+      - name: Plan
+        env:
+          TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.run_id }}
+          WORKFLOW: pipeline.yml
+        run: |
+          set -eu
+          ci/plan.sh --out "$CI_HANDOFF/plan.json"
+          cat "$CI_HANDOFF/plan.json.files" >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
+      - name: Children
+        id: children
+        env:
+          SIMS_INPUT: ${{ github.event.inputs.sims }}
+          UPDATE_FORCE: ${{ github.event.inputs.update }}
+          BUNDLE_INPUT: ${{ github.event.inputs.bundle }}
+        run: |
+          set -eu
+          tier="$(ci/select.sh sims-tier)"
+          update="$(ci/select.sh update)"
+          python3 ci/orchestrate.py stamp "$CI_HANDOFF/plan.json" --tier "$tier"
+          python3 ci/orchestrate.py outputs "$CI_HANDOFF/plan.json" --tier "$tier" --update "$update" | tee -a "$GITHUB_OUTPUT"
+      - name: Work order
+        id: order
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PLAN_JSON_FILE: ${{ runner.temp }}/handoff/plan.json
+          WORK_ORDER_OUT: ${{ runner.temp }}/handoff/work-order.json
+        run: python3 ci/order.py
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02   # v4.6.2
+        with:
+          name: plan
+          path: ${{ runner.temp }}/handoff/plan.json
+          retention-days: 3
+          if-no-files-found: error
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02   # v4.6.2
+        with:
+          name: work-order
+          path: ${{ runner.temp }}/handoff/work-order.json
+          retention-days: 3
+          if-no-files-found: error
+
+  # D14: Alex's click for a commit the builder does not build by itself. The builder reads the approval through the API; this job only holds the question.
+  approve:
+    name: Approve the builder's work (environment vivado)
+    needs: plan
+    if: ${{ needs.plan.outputs.missing == 'true' && !(github.event_name == 'push' && github.actor_id == '682272' && github.triggering_actor == github.actor) }}
+    runs-on: ubuntu-latest
+    environment: vivado
+    timeout-minutes: 5
+    steps:
+      - run: echo "approved; the builder builds the missing keys of this commit"
+
+  lint:
+    name: Lint
+    needs: plan
+    if: ${{ !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.docs_only != 'true' }}
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/jondalar/trx64u-sim@sha256:0000000000000000000000000000000000000000000000000000000000000003
+    timeout-minutes: 60
+    env:
+      CI_BRANCH: ${{ github.head_ref || github.ref_name }}
+      CI_REF_TYPE: ${{ github.ref_type }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683   # v4.2.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Lint
+        run: ci/lint.sh
+
+  # ci/test_keys.sh needs the Python 3.10 code-hash libraries of the build image (lint runs in the simulation image, Python 3.12)
+  keys:
+    name: Key tests (ci/keys.sh)
+    needs: plan
+    if: ${{ !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.docs_only != 'true' }}
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/jondalar/trx64u-build@sha256:0000000000000000000000000000000000000000000000000000000000000001
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683   # v4.2.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Key tests
+        run: ci/test_keys.sh
+
+  apptests:
+    needs: plan
+    if: ${{ !cancelled() && needs.plan.result == 'success' && contains(fromJSON(needs.plan.outputs.children), 'apptests') }}
+    uses: ./.github/workflows/apptests.yml
+
+  images:
+    needs: [plan, apptests]
+    if: ${{ !cancelled() && needs.plan.result == 'success' && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && contains(fromJSON(needs.plan.outputs.children), 'images') }}
+    uses: ./.github/workflows/images.yml
+
+  # one leg per bench owner (ci/sims.lane); a hosted job stops after 6 h
+  sim:
+    needs: plan
+    if: ${{ !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.sim_owners != '[]' }}
+    strategy:
+      fail-fast: false
+      max-parallel: 6
+      matrix:
+        owner: ${{ fromJSON(needs.plan.outputs.sim_owners) }}
+    uses: ./.github/workflows/sim.yml
+    with:
+      target: ${{ matrix.owner }}
+      tier: ${{ needs.plan.outputs.sims_tier }}
+
+  # a feature branch: one .cor per touched core, from the builder's bitstream (the legs wait at the environment bitstreams)
+  cor:
+    needs: [plan, images]
+    if: ${{ !cancelled() && needs.plan.result == 'success' && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && needs.plan.outputs.cor_targets != '[]' }}
+    strategy:
+      fail-fast: false
+      max-parallel: 6
+      matrix:
+        target: ${{ fromJSON(needs.plan.outputs.cor_targets) }}
+    uses: ./.github/workflows/cor.yml
+    with:
+      target: ${{ matrix.target }}
+
+  package:
+    needs: [plan, lint, keys, apptests, images, sim, cor]
+    if: ${{ !cancelled() && needs.plan.result == 'success' && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && contains(fromJSON(needs.plan.outputs.children), 'package') }}
+    uses: ./.github/workflows/package.yml
+
+  update:
+    needs: [plan, package]
+    if: ${{ !cancelled() && needs.plan.result == 'success' && needs.package.result == 'success' && contains(fromJSON(needs.plan.outputs.children), 'update') }}
+    uses: ./.github/workflows/update.yml
+
+  # D23: after update; it runs where update ran (its flash image is made from this run's .ue2)
+  emu:
+    needs: [plan, images, update]
+    if: ${{ !cancelled() && needs.plan.result == 'success' && needs.images.result == 'success' && needs.update.result == 'success' && contains(fromJSON(needs.plan.outputs.children), 'emu') }}
+    uses: ./.github/workflows/emu.yml
+
+  # D1: the package of a push to main, t239.1 (during D9) or a v* tag becomes a pre-release of the builds repository. The environment `builds` lets only those refs in; the
+  # job runs the commit's own scripts with the token of that environment, so the push must be one of Alex's (rulesets of main and v* tags, D15, D28).
+  prerelease:
+    name: Pre-release
+    needs: [plan, package, update, emu]
+    if: >-
+      ${{ !cancelled() && needs.plan.result == 'success' && needs.package.result == 'success' && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled')
+      && github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/t239.1' || startsWith(github.ref, 'refs/tags/v'))
+      && contains(fromJSON(needs.plan.outputs.children), 'prerelease') }}
+    runs-on: ubuntu-latest
+    environment: builds
+    container:
+      image: ghcr.io/jondalar/trx64u-build@sha256:0000000000000000000000000000000000000000000000000000000000000001
+    timeout-minutes: 30
+    env:
+      CI_BRANCH: ${{ github.head_ref || github.ref_name }}
+      CI_REF_TYPE: ${{ github.ref_type }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683   # v4.2.2
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Environment
+        run: |
+          echo "CI_HANDOFF=$RUNNER_TEMP/handoff" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/handoff"
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093   # v4.3.0
+        with:
+          name: package
+          path: ${{ runner.temp }}/package
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093   # v4.3.0
+        continue-on-error: true
+        with:
+          name: update
+          path: ${{ runner.temp }}/update
+      - name: Pre-release
+        env:
+          CI_PACKAGE_IN: ${{ runner.temp }}/package
+          CI_UPDATE_IN: ${{ runner.temp }}/update
+          CI_STAGE: ${{ runner.temp }}/prerelease-stage
+          MC_BUILDS_REPO: Jondalar/trx64mc-builds
+          BUILDS_TOKEN: ${{ secrets.BUILDS_TOKEN }}
+        run: ci/child.sh prerelease
+
+  summary:
+    name: Result
+    needs: [plan, approve, lint, keys, apptests, images, sim, cor, package, update, emu, prerelease]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Table
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          python3 - <<'PY'
+          import json, os, sys
+          needs = json.loads(os.environ["NEEDS"])
+          lines = ["| job | result |", "|---|---|"] + ["| %s | %s |" % (k, v.get("result")) for k, v in needs.items()]
+          open(os.environ["GITHUB_STEP_SUMMARY"], "a").write("\n".join(lines) + "\n")
+          print("\n".join(lines))
+          bad = [k for k, v in needs.items() if v.get("result") in ("failure", "cancelled")]
+          if bad:
+              sys.exit("red: " + ", ".join(bad))
+          PY
