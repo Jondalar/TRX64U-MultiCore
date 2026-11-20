@@ -1,6 +1,7 @@
 # T243 — RUN/STOP on the ROM wait screen takes the way back to the host
 
 **Status:** BUILDING (2026-11-20).
+Open (one line, as in the TODO table): Built on t239.1 (8b2279f9); units S1-S4 PASS; ue2emu S5 and board S6 open
 **Repo:** TRX64U-MultiCore — the generic core application (`coreapp/src/boot.cc`, `run.cc`, `ui.cc`), its unit test.
 **Number:** T243 (GitHub #106 is the origin; the row in `TODO.md` is the coordinator's).
 **Origin:** GitHub issue #106 (Alex, 2026-11-19, bug): the core's ROM screen offers "RUN/STOP to return to host" and RUN/STOP does nothing. Alex asked for the fix before the integration (2026-11-20).

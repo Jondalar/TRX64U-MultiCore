@@ -1,6 +1,7 @@
 # T244 — Every message of the core application shows its whole text on the screen
 
 **Status:** BUILDING (2026-11-20).
+Open (one line, as in the TODO table): Built on t239.1 (0210226e); menusim S1-S4; render tests and ue2emu open
 **Repo:** TRX64U-MultiCore — the core application (`coreapp/src/ui.cc`, `coreapp/src/screens.cc`, `coreapp/src/menuctl.h`) and the menu simulator (`tools/menusim`).
 **Number:** T244.
 **Origin:** GitHub issue #109 (a tester, release 0.2.0, C64 Ultimate): "SNES Core - Warning text off screen". A DSP game without the DSP ROM gives an error whose text runs off the screen. Expected: the text is readable. Same for any cartridge that produces a missing ROM at launch. Alex asked for #109 before the integration (2026-11-20).
