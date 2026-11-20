@@ -9,7 +9,7 @@
 #   T241 emulation mode, hwenable off: a VIC raster IRQ acknowledged with ASL $D019 (1 MHz), INC $D019 (1 MHz), ASL $D019 (20 MHz): 2..3 handler runs in 40,000 PHI2 cycles each
 #       (verdicts $0327-$0329); ASL $0B02 on RAM writes three times with its STA, the native INC $0B03 twice with its STA (check_irq.py counts the tb's "mark|n|...|frame" lines).
 #   T241 S2 emulation mode, hwenable off, software 1 MHz, display off: phase 10, an IRQ that rises in the high half of the last cycle of `INC $D012` (the raster compare is set to the line the
-#       INC runs on by its modify cycle, the VIC matches in the last cycle) is taken after the NEXT instruction (verdict $032A; the handler sees the first instruction after the INC done and the
+#       INC runs on, $F8 = 248 (synced after line $F7: one low byte per frame), by its modify cycle, the VIC matches in the last cycle) is taken after the NEXT instruction (verdict $032A; the handler sees the first instruction after the INC done and the
 #       second not). Phase 11: RTI takes 6 cycles in emulation mode, phase 12: 7 in native mode (check_irq.py: the PHI2 cycles between the tb's marks 0 and 1 around loops of 20 and 10 RTI,
 #       difference 240 / 230). Phases 10 and 11 fail on the logic before T241 S2 (the IRQ right after the INC; the old RTI of 5 cycles: 230); phase 12 passes on it as well: it is a guard of the native
 #       RTI. The sources of the expected values are in the docstring of tools/gen_c64scpu_irq.py. The raw bytes of every phase ($0330-$033F, "raw" of expect.json) are the "dump|" line.
