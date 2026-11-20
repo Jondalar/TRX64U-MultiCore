@@ -1,0 +1,280 @@
+diff --git a/gateware/grom_storage_bram.v b/gateware/grom_storage_bram.v
+index ac184fb..add7994 100644
+--- a/gateware/grom_storage_bram.v
++++ b/gateware/grom_storage_bram.v
+@@ -1,4 +1,11 @@
+-module grom_storage_bram(input		  clk,
++// grom_storage_bram.v - drop-in replacement for Mega99's gateware/grom_storage_bram.v.
++// Same ports and behaviour; the GROM storage is split into one 2K x 8 array per (page, GROM)
++// instead of three arrays of 2048*NUM_GROMS bytes addressed by a 14-bit index. Vivado sized the
++// original arrays by their 14-bit address (16K deep) whatever NUM_GROMS was; this version costs
++// 3 * NUM_GROMS RAMB18 (NUM_GROMS = 6: 9 RAMB36 tiles; NUM_GROMS = 8: 12, as before).
++// GROM ids >= NUM_GROMS read as 0 and ignore writes.
++module grom_storage_bram #(parameter NUM_GROMS = 8)
++			(input		  clk,
+ 
+ 			 input [0:3]	  prefetch_grom_set,
+ 			 input [0:15]	  prefetch_grom_addr,
+@@ -16,40 +23,78 @@ module grom_storage_bram(input		  clk,
+ 			 output		  wb_ack_o,
+ 			 input		  wb_cyc_i);
+ 
+-   localparam NUM_GROMS = 8;
++   wire [0:2]  grom_id = prefetch_grom_addr[0:2];
++   wire [0:10] pf_off  = prefetch_grom_addr[5:15];
++   wire [0:2]  wb_id   = wb_adr_i[0:2];
++   wire [0:10] wb_off  = wb_adr_i[5:15];
+ 
+-   wire [0:2]  grom_id;
+-   wire [0:13] prefetch_page_addr;
+-
+-   assign grom_id = prefetch_grom_addr[0:2];
+-   assign prefetch_page_addr = { grom_id, prefetch_grom_addr[5:15] };
+-
+-   reg [0:7]  grom_page0_byte;
+-   reg [0:7]  grom_page1_byte;
+-   reg [0:7]  grom_page2_byte;
+    reg [0:2]  grom_page_active;
+    reg	      wb_read_complete;
++   reg [0:2]  sel_id;
+ 
+    assign prefetch_complete = 1'b1;
+-   assign prefetch_data = (grom_page_active[0] ? grom_page0_byte : 8'h00) |
+-			  (grom_page_active[1] ? grom_page1_byte : 8'h00) |
+-			  (grom_page_active[2] ? grom_page2_byte : 8'h00);
+-
+    assign wb_ack_o = (wb_cyc_i && wb_stb_i && wb_we_i) || wb_read_complete;
+ 
+-   wire [0:13] wb_page_addr;
+-
+-   assign wb_page_addr = { wb_adr_i[0:2], wb_adr_i[5:15] };
+-
+-   reg [0:7] grom_page0[0:(2048*NUM_GROMS-1)];
+-   reg [0:7] grom_page1[0:(2048*NUM_GROMS-1)];
+-   reg [0:7] grom_page2[0:(2048*NUM_GROMS-1)];
+-
+    initial begin
+       grom_page_active <= 3'b000;
+       wb_read_complete <= 1'b0;
+    end
+ 
++   wire	       wr_en = wb_cyc_i && wb_stb_i && wb_we_i && wb_sel_i[0];
++   wire	       rd_en = do_prefetch || (wb_cyc_i && wb_stb_i && !wb_we_i && !wb_read_complete);
++   wire [0:2]  rd_id  = do_prefetch ? grom_id : wb_id;
++   wire [0:10] rd_off = do_prefetch ? pf_off : wb_off;
++
++   // the outputs of the arrays: byte of GROM g in page 0 / 1 / 2
++   wire [0:8*NUM_GROMS-1] q0, q1, q2;
++
++   genvar g;
++   generate
++      for (g = 0; g < NUM_GROMS; g = g + 1) begin : gr
++	 reg [0:7] m0 [0:2047];
++	 reg [0:7] m1 [0:2047];
++	 reg [0:7] m2 [0:2047];
++	 reg [0:7] r0, r1, r2;
++	 wire	   we_g = wr_en && (wb_id == g);
++	 wire	   rd_g = rd_en && (rd_id == g);
++	 always @(posedge clk) begin
++	    if (we_g && wb_adr_i[3:4] == 2'b00) m0[wb_off] <= wb_dat_i;
++	    if (we_g && wb_adr_i[3:4] == 2'b01) m1[wb_off] <= wb_dat_i;
++	    if (we_g && wb_adr_i[3:4] == 2'b10) m2[wb_off] <= wb_dat_i;
++	    if (rd_g) begin
++	       r0 <= m0[rd_off];
++	       r1 <= m1[rd_off];
++	       r2 <= m2[rd_off];
++	    end
++	 end
++	 assign q0[8*g +: 8] = r0;
++	 assign q1[8*g +: 8] = r1;
++	 assign q2[8*g +: 8] = r2;
++      end
++   endgenerate
++
++   always @(posedge clk)
++     if (rd_en) sel_id <= rd_id;
++
++   // the byte registers of the original: the array outputs of the GROM read last
++   reg [0:7] grom_page0_byte, grom_page1_byte, grom_page2_byte;
++   integer   i;
++   always @(*) begin
++      grom_page0_byte = 8'h00;
++      grom_page1_byte = 8'h00;
++      grom_page2_byte = 8'h00;
++      for (i = 0; i < NUM_GROMS; i = i + 1)
++	if (sel_id == i) begin
++	   grom_page0_byte = q0[8*i +: 8];
++	   grom_page1_byte = q1[8*i +: 8];
++	   grom_page2_byte = q2[8*i +: 8];
++	end
++   end
++
++   assign prefetch_data = (grom_page_active[0] ? grom_page0_byte : 8'h00) |
++			  (grom_page_active[1] ? grom_page1_byte : 8'h00) |
++			  (grom_page_active[2] ? grom_page2_byte : 8'h00);
++
+    always @(*)
+      case (wb_adr_i[3:4])
+        2'b00: wb_dat_o = grom_page0_byte;
+@@ -57,28 +102,9 @@ module grom_storage_bram(input		  clk,
+        2'b10: wb_dat_o = grom_page2_byte;
+        2'b11: wb_dat_o = grom_page1_byte | grom_page2_byte;
+        default: wb_dat_o = 8'h00;
+-     endcase // case (wb_adr_i[3:4])
++     endcase
+ 
+    always @(posedge clk) begin
+-
+-      if (wb_cyc_i && wb_stb_i && wb_we_i && wb_sel_i[0])
+-	case (wb_adr_i[3:4])
+-	  2'b00: grom_page0[wb_page_addr] <= wb_dat_i;
+-	  2'b01: grom_page1[wb_page_addr] <= wb_dat_i;
+-	  2'b10: grom_page2[wb_page_addr] <= wb_dat_i;
+-	  default: ;
+-	endcase // case (wb_adr_i[3:4])
+-
+-      if (do_prefetch ||
+-	  (wb_cyc_i && wb_stb_i && !wb_we_i && !wb_read_complete)) begin
+-	 grom_page0_byte <= grom_page0[do_prefetch ?
+-				       prefetch_page_addr : wb_page_addr];
+-	 grom_page1_byte <= grom_page1[do_prefetch ?
+-				       prefetch_page_addr : wb_page_addr];
+-	 grom_page2_byte <= grom_page2[do_prefetch ?
+-				       prefetch_page_addr : wb_page_addr];
+-      end
+-
+       if (wb_read_complete)
+ 	wb_read_complete <= 1'b0;
+       else
+@@ -92,7 +118,5 @@ module grom_storage_bram(input		  clk,
+ 	 else
+ 	   grom_page_active <= 3'b000;
+       end
+-
+    end
+-
+ endmodule // grom_storage_bram
+diff --git a/gateware/mainboard.v b/gateware/mainboard.v
+index ed3ce05..a31b4b3 100644
+--- a/gateware/mainboard.v
++++ b/gateware/mainboard.v
+@@ -15,11 +15,19 @@ module mainboard #(
+ 		   parameter	     CROM_BANKS = 64,
+ 		   // set to 0 to disable PCODE card
+ 		   parameter         INCLUDE_PCODE = 1,
++		   // set to 0 to leave out the TMS5200 speech synthesizer
++		   parameter         INCLUDE_VSP = 1,
++		   // set to 0 to leave out the TIPI interface
++		   parameter         INCLUDE_TIPI = 1,
++		   // # of 6K GROMs kept in block RAM (8 = all; 6 = console + 3 cartridge GROMs)
++		   parameter         NUM_GROMS = 8,
+ 		   // set to 0 to use local storage instead of DMA for GROM
+ 		   parameter         USE_GROM_DMA = 1
+ 		)
+                 (input			   clk,
+ 		 input			   ext_reset,
++		 input [1:0]		   clk_mode,   // the host's System Mode (clkgen_nco.v)
++		 input			   clk_hold,   // pause (clkgen_nco.v)
+ 		 output			   sys_reset,
+ 		 input			   reset_9900,
+ 		 input			   reset_9901,
+@@ -309,7 +317,7 @@ module mainboard #(
+ 	    .cpu_clk_multiplier(cpu_clk_multiplier),
+ 	    .vsp_clk_multiplier(vsp_clk_multiplier),
+ 	    .generate_overlay_clk_en(generate_overlay_clk_en))
+-   cg(.ext_reset_in(ext_reset), .clk(clk), .cpu_turbo(cpu_turbo),
++   cg(.ext_reset_in(ext_reset), .vmode(clk_mode), .hold(clk_hold), .clk(clk), .cpu_turbo(cpu_turbo),
+       .reset_out(reset),
+       .vdp_clk_en(vdp_clk_en), .vdp_clk_en_next(vdp_clk_en_next),
+       .vga_clk_en(vga_clk_en), .overlay_clk_en(overlay_clk_en),
+@@ -370,7 +378,10 @@ module mainboard #(
+ 	 .d(q[0:7]), .cs(sound_sel), .we(we), .ready(ready_sgc),
+ 	 .audioin(audio_mix_sat), .audioout(audio_out));
+ 
+-   tms5200_wrapper #(.audio_bits(audio_bits), .vsm_size(32768))
++   generate
++      if (INCLUDE_VSP) begin : g_vsp
++
++tms5200_wrapper #(.audio_bits(audio_bits), .vsm_size(32768))
+      vsp(.reset(reset|reset_5200), .clk(clk), .clk_en(vsp_clk_en),
+ 	 .dd(q8), .dq(d8_vsp),
+ 	 .rs(enable_vsp && sbe && !a[5]), .ws(enable_vsp && sbe && a[5]),
+@@ -380,6 +391,15 @@ module mainboard #(
+ 	 .wb_sel_i(wb_sel_i), .wb_stb_i(wb_stb_sprom),
+ 	 .wb_ack_o(wb_ack_sprom), .wb_cyc_i(wb_cyc_i));
+ 
++      end else begin : g_no_vsp   // speech synthesizer left out (saves its 32 KB ROM and ~800 LUT)
++         assign d8_vsp = 8'h00;
++         assign ready_vsp = 1'b1;
++         assign audio_vsp = {audio_bits{1'b0}};
++         assign wb_dat_sprom = 8'h00;
++         assign wb_ack_sprom = 1'b1;
++      end
++   endgenerate
++
+    console_rom rom(.clk(clk), .cs(romen), .a(a), .q(d_rom),
+ 		   .wb_adr_i(wb_adr_i[23 -: 16]), .wb_dat_i(wb_dat_i),
+ 		   .wb_dat_o(wb_dat_rom), .wb_we_i(wb_we_i),
+@@ -416,8 +436,7 @@ module mainboard #(
+ 
+       end else begin
+ 
+-	 grom_storage_bram
+-	   grom_storage(.clk(clk), .prefetch_grom_set(prefetch_grom_set),
++	 grom_storage_bram #(.NUM_GROMS(NUM_GROMS)) grom_storage(.clk(clk), .prefetch_grom_set(prefetch_grom_set),
+ 			.prefetch_grom_addr(prefetch_grom_addr),
+ 			.do_prefetch(grom_do_prefetch),
+ 			.prefetch_complete(grom_prefetch_complete),
+@@ -441,7 +460,7 @@ module mainboard #(
+ 		      .wb_sel_i(wb_sel_i), .wb_stb_i(wb_stb_crom),
+ 		      .wb_ack_o(wb_ack_crom), .wb_cyc_i(wb_cyc_i));
+ 
+-   peb #(.INCLUDE_PCODE(INCLUDE_PCODE)) peb(.clk(clk), .cpu_clk_en(cpu_clk_en),
++   peb #(.INCLUDE_PCODE(INCLUDE_PCODE), .INCLUDE_TIPI(INCLUDE_TIPI)) peb(.clk(clk), .cpu_clk_en(cpu_clk_en),
+ 	   .clk_3mhz_en(clk_3mhz_en), .grom_clk_en(grom_clk_en),
+ 	   .reset(reset|reset_peb), .drive_activity(drive_activity),
+ 	   .enable_ram32k(enable_ram32k), .enable_fdc(enable_fdc),
+diff --git a/gateware/peb.v b/gateware/peb.v
+index 607217b..1cdb3fc 100644
+--- a/gateware/peb.v
++++ b/gateware/peb.v
+@@ -38,6 +38,7 @@ module peb(input            clk,
+ 	   input	    wb_cyc_i);
+ 
+    parameter INCLUDE_PCODE = 1;
++   parameter INCLUDE_TIPI = 1;
+ 
+    wire	      q_select_fdc;
+    wire	      q_select_ram32k;
+@@ -118,7 +119,10 @@ module peb(input            clk,
+ 	       .wb_stb_i(wb_stb_fdc), .wb_ack_o(wb_ack_fdc),
+ 	       .wb_cyc_i(wb_cyc_i));
+ 
+-   peb_tipi tipi(.clk(clk), .reset(reset), .enable(enable_tipi),
++   generate
++      if (INCLUDE_TIPI) begin : g_tipi
++
++peb_tipi tipi(.clk(clk), .reset(reset), .enable(enable_tipi),
+ 		 .crubase(tipi_crubase),
+ 		 .a(a), .d(d), .q(q_tipi), .q_select(q_select_tipi),
+ 		 .memen(memen), .we(we), .cruclk(cruclk), .cruin(cruin_tipi),
+@@ -131,6 +135,19 @@ module peb(input            clk,
+ 		 .wb_sel_i(wb_sel_i), .wb_stb_i(wb_stb_tipi),
+ 		 .wb_ack_o(wb_ack_tipi), .wb_cyc_i(wb_cyc_i));
+ 
++      end else begin : g_no_tipi   // TIPI (Raspberry Pi interface) left out
++         assign q_tipi = 8'h00;
++         assign q_select_tipi = 1'b0;
++         assign cruin_tipi = 1'b0;
++         assign cru_select_tipi = 1'b0;
++         assign ready_tipi = 1'b1;
++         assign wb_dat_tipi = 8'h00;
++         assign wb_ack_tipi = 1'b1;
++         assign tipi_reset = 1'b0;
++         assign tipi_din = 1'b0;
++      end
++   endgenerate
++
+    generate
+       if (INCLUDE_PCODE)
+ 	peb_pcode pcode(.clk(clk), .grclk_en(grom_clk_en), .reset(reset),

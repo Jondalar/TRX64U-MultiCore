@@ -21,6 +21,7 @@ const CoreDesc *const core_table[] = {
     &zxnext_desc,
     &snes_desc,
     &neogeo_desc,
+    &ti99_desc,
 #ifndef CORE_OWN_IMAGE_C64
     &c64_desc,                    // T228 R25: the TRX64U C64 has an image of its own (coreapp_trx64u); the shared RISC-V image leaves it out
 #endif

@@ -37,7 +37,7 @@ if [ -f "$R/coreapp.app" ]; then
     mkdir -p "$ROOT/dist/coreapps"
     # Only the cores that have a descriptor in coreapp/src/table.cc. Not "every core whose core.toml says blueprint": the Amiga and
     # the A1200 say so too (spec 5.2) and their applications are Gideon-base builds that must never be overwritten here.
-    for c in ${BLUEPRINT_CORES:-atari800 nes apple2 zx cpc zxnext snes neogeo vc20 c264 pet c128 c64scpu amiga diag}; do
+    for c in ${BLUEPRINT_CORES:-atari800 nes apple2 zx cpc zxnext snes neogeo ti99 vc20 c264 pet c128 c64scpu amiga diag}; do
       # The .bin, never the .app: a .app is the image behind a 12-byte header (load, length, entry), which the host
       # update file wants and a bundle does not - cor_pack puts record 3 at app_load as it is and jumps to app_entry,
       # so the header would sit on the entry point. That is what shipped on 2026-10-15 and left the Atari and the NES
