@@ -7,9 +7,14 @@
 # agreed with the TRX64-Ultimate session 2026-10-13). Only /cache/heavy.lock stays shared (slot 0 of
 # heavy_lock below, which gives this repository CI_HEAVY_SLOTS Vivado runs at a time). A stage
 # that finished writes its directory completely and a file DONE last.
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Two trees: CI_CODE is the one this file sits in, and every script and Python file below runs from it; ROOT is the one whose files are read (the git
+# index, host/layers.txt, the cores' descriptors, ci/vivado.env, ci/bitstream.sh). They are the same tree unless CI_DATA_ROOT names another checkout:
+# ci/keys.sh --data sets it, so the builder can run the key code of its trusted ref from a folder of its own over an outside commit's tree, which is
+# only read (T239.1 D14). Python runs with -I: nothing of ROOT is on a module path.
+CI_CODE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT="${CI_DATA_ROOT:-$CI_CODE}"
 # shellcheck source=pkg.env
-source "$ROOT/ci/pkg.env"
+source "$CI_CODE/ci/pkg.env"
 RUN_ID="${CI_RUN_ID:-${GITHUB_RUN_ID:-local}}"
 if [ -n "${CI_HANDOFF:-}" ]; then
   HANDOFF="$CI_HANDOFF"
@@ -38,9 +43,9 @@ need_stage() {
 # --- build by change (T100 D9, ci/plan.py) -----------------------------------------------------------------------
 # plan_has <target>: 0 when the plan of this run names the target (host, aux, dfx:<core>, large:<core>, app:<kind>). Without a
 # plan (a stage run alone, the release, a local run) everything is named: the stage builds as it did before D9.
-plan_has() { python3 "$ROOT/ci/plan.py" has "$HANDOFF/plan.json" "$1"; }
+plan_has() { CI_DATA_ROOT="$ROOT" python3 -I "$CI_CODE/ci/plan.py" has "$HANDOFF/plan.json" "$1"; }
 # plan_limit <host|core|large>: the minutes one Vivado run of that kind may take (CI_LIMIT_SECONDS replaces it, for the benches).
-plan_limit() { python3 "$ROOT/ci/plan.py" limit "$1" "$HANDOFF/plan.json"; }
+plan_limit() { CI_DATA_ROOT="$ROOT" python3 -I "$CI_CODE/ci/plan.py" limit "$1" "$HANDOFF/plan.json"; }
 
 # vivado_limited <kind> <rc file> <command...>: the command with the time limit of its kind; its exit code goes to the rc file
 # (the caller pipes the output into a filter, which would lose it). 124 = stopped at the limit (D9.4: that target is red, the
@@ -91,7 +96,7 @@ branch_slug() { ci_branch | tr '/' '_'; }
 # and the free text in $KEY_EXTRA. Only the content counts, not commits: a push
 # that leaves these files alone gets the same key.
 tree_key() {
-  python3 "$ROOT/ci/code_hash.py" check >&2 || return 1
+  python3 -I "$CI_CODE/ci/code_hash.py" check >&2 || return 1
   # the body goes to a file first, in a subshell with pipefail: a failing index / sha256 stage fails the key, it never yields a key from fewer lines
   local body; body="$(mktemp)"
   (
@@ -100,7 +105,7 @@ tree_key() {
     # set -e / pipefail are off on the left of `|| {...}` (bash ignores them there): every stage ends in an explicit `|| exit 1`
     local idx; idx="$(mktemp)" || exit 1
     git -C "$ROOT" ls-files -s -- "$@" ':(exclude,glob)cores/*/logo/**' > "$idx" || { rm -f "$idx"; exit 1; }
-    (cd "$ROOT" && python3 ci/code_hash.py index < "$idx") || { rm -f "$idx"; exit 1; }
+    (cd "$ROOT" && python3 -I "$CI_CODE/ci/code_hash.py" index < "$idx") || { rm -f "$idx"; exit 1; }
     rm -f "$idx"
     if [ -d "$ROOT/vendor/gideon" ]; then
       # Only what the gateware reads: the VHDL and the files beside it (vendor_gideon.sh `files`). The software of the two
@@ -111,7 +116,7 @@ tree_key() {
       (cd "$ROOT" && { find vendor/gideon/fpga vendor/gideon/target/simulation -type f || exit 1
                         ls vendor/gideon/LICENSE.txt vendor/gideon/software/io/usb/nano_minimal.nan vendor/gideon/software/portable/riscv/bootloader_u64ii.c vendor/gideon/tools/parse_nano.py || exit 1; }) > "$gl" || { rm -f "$gl"; exit 1; }
       LC_ALL=C sort "$gl" > "$gl.s" || { rm -f "$gl" "$gl.s"; exit 1; }
-      (cd "$ROOT" && xargs python3 ci/code_hash.py sha256 < "$gl.s") || { rm -f "$gl" "$gl.s"; exit 1; }
+      (cd "$ROOT" && xargs python3 -I "$CI_CODE/ci/code_hash.py" sha256 < "$gl.s") || { rm -f "$gl" "$gl.s"; exit 1; }
       rm -f "$gl" "$gl.s"
     fi
     printf '%s\n' "${KEY_EXTRA:-}"
@@ -128,7 +133,7 @@ tree_key() {
 # ':(exclude)' only narrows the others.
 files_key() {
   local spec list names
-  python3 "$ROOT/ci/code_hash.py" check >&2 || return 1
+  python3 -I "$CI_CODE/ci/code_hash.py" check >&2 || return 1
   for spec in "$@"; do
     case "$spec" in ':(exclude)'*) continue ;; esac
     if [ -z "$(git -C "$ROOT" ls-files -- "$spec" | head -1)" ]; then
@@ -139,13 +144,13 @@ files_key() {
   list="$(mktemp)"; names="$(mktemp)"
   git -C "$ROOT" ls-files -s -- "$@" > "$list" || { rm -f "$list" "$names"; echo "files_key: git ls-files failed, no key" >&2; return 1; }
   # documentation (ci/code_hash.py is_doc) never enters a key: `keep` drops it from the list
-  awk -F'\t' '{ split($1, a, " "); if (a[1] != "160000") print $2 }' "$list" | (cd "$ROOT" && python3 ci/code_hash.py keep) > "$names" || { rm -f "$list" "$names"; return 1; }
+  awk -F'\t' '{ split($1, a, " "); if (a[1] != "160000") print $2 }' "$list" | (cd "$ROOT" && python3 -I "$CI_CODE/ci/code_hash.py" keep) > "$names" || { rm -f "$list" "$names"; return 1; }
   local body; body="$(mktemp)"
   (
     set -eo pipefail
     awk -F'\t' '{ split($1, a, " "); if (a[1] == "160000") print "submodule", a[2], $2 }' "$list" || exit 1
     local hp; hp="$(mktemp)" || exit 1
-    (cd "$ROOT" && python3 ci/code_hash.py hash-paths < "$names") > "$hp" || { rm -f "$hp"; exit 1; }
+    (cd "$ROOT" && python3 -I "$CI_CODE/ci/code_hash.py" hash-paths < "$names") > "$hp" || { rm -f "$hp"; exit 1; }
     paste -d' ' "$hp" "$names" || { rm -f "$hp"; exit 1; }
     rm -f "$hp"
   ) > "$body" || { rm -f "$list" "$names" "$body"; echo "files_key: a stage failed, no key" >&2; return 1; }
@@ -181,7 +186,7 @@ mono_key() {
   done < <(layer_specs "$lf" shared)
   while IFS= read -r l; do specs+=("$l"); done < <(layer_specs "$lf" "core:$2")
   specs+=(":(exclude)cores/$2/sim" ":(exclude)cores/$2/mono/reports")
-  env="$(python3 "$(layer_root "$lf")/tools/core_toml.py" env "$2" | tr '\n' ' ')"
+  env="$(core_toml_of "$(layer_root "$lf")" env "$2" | tr '\n' ' ')"
   KEY_EXTRA="mono $2 $1 vivado-env:2024.1 env=$env" tree_key "${specs[@]}"
 }
 
@@ -233,16 +238,18 @@ pin_entry() {
 # layer_root <layers file>: the repository the file belongs to (host/layers.txt -> the root), so
 # the helpers also work on a scratch clone whose path is not $ROOT.
 layer_root() { local d="${1%/layers.txt}"; printf '%s' "${d%/host}"; }
+# core_toml_of <tree> <args...>: tools/core_toml.py of CI_CODE over the core descriptors of <tree> (the code never comes from the tree it reads).
+core_toml_of() { local t="$1"; shift; CI_DATA_ROOT="$t" python3 -I "$CI_CODE/tools/core_toml.py" "$@"; }
 # layer_sections <layers file>: the names of the sections ("host", "shared", "ignore") plus one
 # "core:<name>" per core descriptor (T94 D1: cores/<name>/core.toml replaced the core: sections).
 layer_sections() {
   sed -n -E 's/^(host|shared|ignore):[[:space:]]*$/\1/p' "$1"
-  python3 "$(layer_root "$1")/tools/core_toml.py" list | sed 's/^/core:/'
+  core_toml_of "$(layer_root "$1")" list | sed 's/^/core:/'
 }
 # layer_specs <layers file> <section>: the pathspecs of one section, one per line. A core's are
 # the sources of its descriptor.
 layer_specs() {
-  case "$2" in core:*) python3 "$(layer_root "$1")/tools/core_toml.py" sources "${2#core:}"; return ;; esac
+  case "$2" in core:*) core_toml_of "$(layer_root "$1")" sources "${2#core:}"; return ;; esac
   awk -v want="$2" '
     /^[[:space:]]*(#|$)/ { next }
     /^(host|shared|ignore):[[:space:]]*$/ { sec = $0; sub(/:.*/, "", sec); next }
@@ -251,7 +258,7 @@ layer_specs() {
     sec == want { sub(/[[:space:]]+$/, ""); print }' "$1"
 }
 # layer_cores <layers file>: the core names in build order (core.toml order field).
-layer_cores() { python3 "$(layer_root "$1")/tools/core_toml.py" list; }
+layer_cores() { core_toml_of "$(layer_root "$1")" list; }
 # layer_reference <layers file>: the core the static is routed with.
 layer_reference() { sed -n 's/^reference:[[:space:]]*//p' "$1" | head -1; }
 
@@ -297,11 +304,11 @@ manifest_get() { python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))
 # SHA256SUMS of the others. Draft, one file at a time with a retry, digests compared with SHA256SUMS, then published; on main, t239.1 and a v* tag it fails without
 # BUILDS_TOKEN. ci/publish_release.py has the rest.
 publish_files() {
-  python3 -I "$ROOT/ci/publish_release.py" --dir "$1" --tag "$(branch_slug)-$(git -C "$ROOT" rev-parse --short=8 HEAD)" --sha "$(git -C "$ROOT" rev-parse HEAD)"
+  python3 -I "$CI_CODE/ci/publish_release.py" --dir "$1" --tag "$(branch_slug)-$(git -C "$ROOT" rev-parse --short=8 HEAD)" --sha "$(git -C "$ROOT" rev-parse HEAD)"
 }
 
 # image_id <build|sim>: what the keys of the caches that hold the image's tools' output add (ci/image_id.sh).
-image_id() { "$ROOT/ci/image_id.sh" "$1"; }
+image_id() { "$CI_CODE/ci/image_id.sh" "$1"; }
 
 # heavy_lock: the Vivado runs of one machine are limited by SLOTS (T100 D11). Slot 0 is /cache/heavy.lock, the lock the
 # TRX64-Ultimate repository takes as well (its semantics are unchanged: one holder); the further slots are this repository's own,
@@ -368,7 +375,7 @@ cache_gc_if_free() {
     return 0
   fi
   if heavy_trylock; then
-    "$ROOT/ci/cache_gc.sh" || echo "cache_gc failed (the build is fine)"
+    "$CI_CODE/ci/cache_gc.sh" || echo "cache_gc failed (the build is fine)"
   else
     echo "cache_gc skipped: every heavy slot is busy (a Vivado run elsewhere); a later run cleans up"
   fi
@@ -378,7 +385,7 @@ cache_gc_if_free() {
 # (a release, T221) the bundle version x.y.z every display shows (ci/version.sh), on any other build the commit (8 digits). The names:
 # trx64host_update_<file_id>.txu (stage package) and .cfw/.ue2 (stage update; a build that is no release adds the date). tools/check_bundle.py checks them.
 file_id() {
-  if [ "$(ci_ref_type)" = tag ]; then "$ROOT/ci/version.sh" bundle; else git -C "$ROOT" rev-parse --short=8 HEAD; fi
+  if [ "$(ci_ref_type)" = tag ]; then "$CI_CODE/ci/version.sh" bundle; else git -C "$ROOT" rev-parse --short=8 HEAD; fi
 }
 
 # build_update_host <manifest.json> <null_full.bit> <hostapp.app> <outdir>: the MultiCore host update
@@ -398,7 +405,7 @@ build_update_host() {
   # (tools/trx_pkg.py:40-41), and a 40-character sha is refused there - which is what run 51 showed.
   bitc="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["trx64_commit"][:8])' "$manifest")"
   appc="$(python3 -c 'import json,sys; m=json.load(open(sys.argv[1])); print((m.get("trxapps_commit") or m["trx64_commit"])[:8])' "$manifest")"
-  "$ROOT/tools/make_update.sh" --native --id "$id" --bit-commit "$bitc" --app-commit "$appc" \
+  "$CI_CODE/tools/make_update.sh" --native --id "$id" --bit-commit "$bitc" --app-commit "$appc" \
       --out "$out" "$bit" "$app"
 }
 

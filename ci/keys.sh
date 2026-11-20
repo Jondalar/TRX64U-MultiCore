@@ -3,13 +3,25 @@
 #   host-<H>   aux-<A>   core-<id>-<C> (the reference core first, it comes out of the host run)   mono-<id>-<K>
 # The names are the directory names of /cache/multicore/bit and, with a "bit-" in front, the tags of the bitstream releases. Build options come
 # from ci/vivado.env, the part from the c64u branch of ci/bitstream.sh: nothing is read from the caller's environment, so every caller gets the same names.
-#   ci/keys.sh [--env FILE]    FILE replaces ci/vivado.env (tests)
+#   ci/keys.sh [--env FILE] [--data DIR]
+#     --env FILE   replaces ci/vivado.env (tests)
+#     --data DIR   the checkout whose files are hashed and read (default: the tree this script sits in). Every script and Python file still runs
+#                  from this script's tree (ci/lib.sh: CI_CODE, ROOT; python3 -I), so DIR is only read and nothing is written into it. The builder
+#                  copies the key code of its trusted ref into a folder of its own and runs it with --data <a checkout of the commit> (T239.1 D14).
 set -euo pipefail
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-envfile="$ROOT/ci/vivado.env"
-if [ "${1:-}" = "--env" ]; then envfile="${2:?ci/keys.sh --env FILE}"; shift 2; fi
-[ $# -eq 0 ] || { echo "usage: ci/keys.sh [--env FILE]" >&2; exit 2; }
-source "$ROOT/ci/lib.sh"
+CODE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+data="$CODE"; envfile=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --env) envfile="${2:?ci/keys.sh --env FILE}"; shift 2 ;;
+    --data) data="${2:?ci/keys.sh --data DIR}"; shift 2 ;;
+    *) echo "usage: ci/keys.sh [--env FILE] [--data DIR]" >&2; exit 2 ;;
+  esac
+done
+CI_DATA_ROOT="$(cd "$data" && pwd)"
+export CI_DATA_ROOT
+source "$CODE/ci/lib.sh"      # CI_CODE = this tree, ROOT = the tree that is read
+[ -n "$envfile" ] || envfile="$ROOT/ci/vivado.env"
 
 # vivado_env_load <file>: export the KEY=VALUE lines, after dropping every option variable the caller had (a stray T79_ROUTE would move the keys).
 # The file is the commit's own data and this code runs over it with the builder's rights, so a line is taken only when its name is one of the
@@ -39,10 +51,10 @@ echo "aux-$(aux_key "$part")"
 ref="$(layer_reference "$ROOT/host/layers.txt")"
 echo "core-$ref-$(core_key "$H" "$(ooc_key "$part" "$ref")")"
 while IFS= read -r core; do
-  CP="$(python3 "$ROOT/tools/core_toml.py" get "$core" place)"; CP="${CP:-${T79_PLACE:-}}"
-  CR="$(python3 "$ROOT/tools/core_toml.py" get "$core" route)"; CR="${CR:-${T79_ROUTE:-}}"
+  CP="$(core_toml_of "$ROOT" get "$core" place)"; CP="${CP:-${T79_PLACE:-}}"
+  CR="$(core_toml_of "$ROOT" get "$core" route)"; CR="${CR:-${T79_ROUTE:-}}"
   echo "core-$core-$(T79_PLACE="$CP" T79_ROUTE="$CR" core_key "$H" "$(ooc_key "$part" "$core")")"
-done < <(python3 "$ROOT/ci/plan.py" lanes | sed -n 's/^core://p')
+done < <(CI_DATA_ROOT="$ROOT" python3 -I "$CI_CODE/ci/plan.py" lanes | sed -n 's/^core://p')
 # a large core's flat build gets no build options (ci/bitstream_mono.sh), so its key is made without them
 for k in $(compgen -e); do case "$k" in TRX_*|T79_*|T16_*) unset "$k" ;; esac; done
-while IFS= read -r core; do echo "mono-$core-$(mono_key "$part" "$core")"; done < <(python3 "$ROOT/ci/plan.py" lanes | sed -n 's/^large://p')
+while IFS= read -r core; do echo "mono-$core-$(mono_key "$part" "$core")"; done < <(CI_DATA_ROOT="$ROOT" python3 -I "$CI_CODE/ci/plan.py" lanes | sed -n 's/^large://p')

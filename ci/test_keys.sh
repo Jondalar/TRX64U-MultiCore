@@ -7,15 +7,42 @@
 #  4. heavy_lock required refuses under CI without the lock directory; plain heavy_lock and runs without CI go on
 #  5. cache_put leaves a world-readable entry directory and no temp directory
 #  6. ci/vivado.env lines that are no build option (PATH, LD_PRELOAD, a value with a space or $(...)) end ci/keys.sh with exit 1 and the line number
+#  7. the builder's way (T239.1 D14): the key code alone in a folder of its own runs with --data over a checkout of HEAD made as the builder makes it
+#     (core.symlinks=false: a symlink is a plain file holding its link text). Its names are those of a plain checkout of HEAD, and no file of the read
+#     tree runs or is written: every script and module the key code could start or import is planted there and leaves a marker when it runs.
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 W="$(mktemp -d)"; trap 'rm -rf "${W:?}"' EXIT
 fail() { echo "FAIL: $*"; exit 1; }
 
-# two runs side by side (each hashes the whole tree, minutes): the plain one and one with option variables in the caller's environment
+# 7, set up here so that its two runs go beside those of 1 and 2. The key code under test is this working tree's; KEYCODE is the list of files the
+# builder copies from its trusted ref (a file missing here makes the --data run fail, which is the point).
+KEYCODE="ci/keys.sh ci/lib.sh ci/pkg.env ci/code_hash.py ci/codehash-requirements.txt ci/plan.py ci/simreads.py tools/core_toml.py"
+head_checkout() {   # head_checkout <dir> <core.symlinks true|false>: HEAD of this repository, no hooks, no history
+  git init -q "$1" && git -C "$1" config core.symlinks "$2" && git -C "$1" fetch -q --no-tags --depth 1 "$PWD" HEAD \
+    && git -C "$1" -c core.hooksPath=/dev/null checkout -q --detach FETCH_HEAD
+}
+head_checkout "$W/ref" true || fail "plain checkout of HEAD"
+head_checkout "$W/data" false || fail "checkout of HEAD with core.symlinks=false"
+for f in $KEYCODE; do
+  mkdir -p "$W/code/$(dirname "$f")"; cp "$f" "$W/code/$f"; cp "$f" "$W/ref/$f"
+done
+[ -z "$(find "$W/data" -path "$W/data/.git" -prune -o -type l -print)" ] || fail "the core.symlinks=false checkout holds a symlink"
+for f in ci/keys.sh ci/lib.sh ci/pkg.env; do printf 'touch "%s/ran.%s"\n' "$W" "${f//\//_}" > "$W/data/$f"; done
+for f in ci/plan.py ci/code_hash.py ci/simreads.py tools/core_toml.py ci/json.py ci/re.py ci/subprocess.py ci/hashlib.py tools/json.py tools/re.py \
+         json.py re.py subprocess.py hashlib.py sitecustomize.py; do
+  printf 'open("%s/ran.%s", "w").close()\n' "$W" "${f//\//_}" > "$W/data/$f"
+done
+git -C "$W/data" status --porcelain --ignored --untracked-files=all > "$W/data_before.txt"
+
+# four runs side by side (each hashes the whole tree, minutes): the plain one, one with option variables in the caller's environment, and the two of 7
 ci/keys.sh > "$W/a.txt" & pa=$!
 T79_ROUTE=zzz TRX_SID=other TRX_FEATURES=none ci/keys.sh > "$W/b.txt" & pb=$!
+"$W/ref/ci/keys.sh" > "$W/r.txt" & pr=$!
+"$W/code/ci/keys.sh" --data "$W/data" > "$W/s.txt" 2> "$W/s.err" & ps=$!
 wait "$pa" || fail "ci/keys.sh failed"; wait "$pb" || fail "ci/keys.sh with stray options failed"
+wait "$pr" || fail "ci/keys.sh in a plain checkout of HEAD failed"
+wait "$ps" || fail "the key code with --data over the checkout failed: $(tail -3 "$W/s.err")"
 a="$(cat "$W/a.txt")"; b="$(cat "$W/b.txt")"
 [ "$a" = "$b" ] || fail "a stray TRX_SID / T79_ROUTE of the caller moved the names"
 n="$(printf '%s\n' "$a" | wc -l | tr -d ' ')"
@@ -82,3 +109,11 @@ for c in path:4 ld:2 space:1 sub:1 tick:1 libs:1; do
 done
 [ ! -e "$W/pwned" ] || fail "a command substitution in ci/vivado.env ran"
 echo "ok: keys.sh refuses lines that are no build option"
+
+# 7 (the runs are above)
+[ -s "$W/r.txt" ] || fail "no names from the plain checkout of HEAD"
+[ "$(cat "$W/s.txt")" = "$(cat "$W/r.txt")" ] || fail "--data over the core.symlinks=false checkout gave other names than the plain checkout: $(diff "$W/r.txt" "$W/s.txt" | head -4)"
+ran="$(cd "$W" && ls ran.* 2>/dev/null || true)"
+[ -z "$ran" ] || fail "a file of the read tree ran inside the key run: $ran"
+git -C "$W/data" status --porcelain --ignored --untracked-files=all | cmp -s - "$W/data_before.txt" || fail "the key run changed the read tree"
+echo "ok: the key code from its own folder over a checkout it only reads ($(wc -l < "$W/s.txt" | tr -d ' ') names, equal to the plain checkout; nothing of the tree ran)"
