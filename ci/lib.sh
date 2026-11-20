@@ -293,39 +293,15 @@ core_key() { printf '%s %s impl=%s/%s\n' "$1" "$2" "${T79_PLACE:-}" "${T79_ROUTE
 # manifest_get <manifest.json> <field>: one top-level string field.
 manifest_get() { python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get(sys.argv[2], ""))' "$1" "$2"; }
 
-# The update files of stage update are the .cfw/.ue2 only (T172). trx64host_update_<file_id>.txu is stage package's file of the same package version
-# and the sweep must not touch it (run 1128: it matched on the name prefix, the .txu was deleted and its SHA256SUMS line dropped).
-# update_file_names: the Gitea files listing (JSON, stdin) -> names of the update files in it.
-update_file_names() {
-  python3 -c 'import json,sys
-for r in json.load(sys.stdin):
-    n = r["name"]
-    if n.startswith(("trx64_update_", "trx64host_update_")) and n.endswith((".cfw", ".ue2")): print(n)'
-}
-# update_sums_without_ours: a SHA256SUMS (stdin) without the lines of update files (.cfw/.ue2).
-update_sums_without_ours() { grep -vE ' (trx64_update_|trx64host_update_).*\.(cfw|ue2)$'; }
-
-# publish_files <dir> [reset]: every file of <dir> into the generic package
-# $MC_PKG (ci/pkg.env, never the firmware repository's), versions <branch>-<8 digit commit> and <branch>-latest of the
-# Gitea registry. A file cannot be replaced in place, so the old one is deleted
-# first; with "reset" the whole version goes first. Needs PACKAGE_TOKEN.
+# publish_files <dir>: the pre-release <branch>-<8 digit commit> of the builds repository ($MC_BUILDS_REPO, ci/pkg.env) from the files of <dir>, which must hold the
+# SHA256SUMS of the others. Draft, one file at a time with a retry, digests compared with SHA256SUMS, then published; on main, t239.1 and a v* tag it fails without
+# BUILDS_TOKEN. ci/publish_release.py has the rest.
 publish_files() {
-  local dir="$1" reset="${2:-}" owner version f
-  if [ -z "${PACKAGE_TOKEN:-}" ]; then
-    echo "PACKAGE_TOKEN is not set for this repository; nothing is published"
-    return 0
-  fi
-  owner="${GITHUB_REPOSITORY%%/*}"
-  local api="${GITHUB_SERVER_URL}/api/packages/${owner}/generic/${MC_PKG}"
-  for version in "$(branch_slug)-$(git -C "$ROOT" rev-parse --short=8 HEAD)" "$(branch_slug)-latest"; do
-    [ -z "$reset" ] || curl -s -o /dev/null -X DELETE -H "Authorization: token ${PACKAGE_TOKEN}" "$api/$version" || true
-    for f in "$dir"/*; do
-      curl -s -o /dev/null -X DELETE -H "Authorization: token ${PACKAGE_TOKEN}" "$api/$version/$(basename "$f")" || true
-      curl -sf -X PUT -H "Authorization: token ${PACKAGE_TOKEN}" --upload-file "$f" "$api/$version/$(basename "$f")"
-    done
-    echo "published $MC_PKG $version"
-  done
+  python3 -I "$ROOT/ci/publish_release.py" --dir "$1" --tag "$(branch_slug)-$(git -C "$ROOT" rev-parse --short=8 HEAD)" --sha "$(git -C "$ROOT" rev-parse HEAD)"
 }
+
+# image_id <build|sim>: what the keys of the caches that hold the image's tools' output add (ci/image_id.sh).
+image_id() { "$ROOT/ci/image_id.sh" "$1"; }
 
 # heavy_lock: the Vivado runs of one machine are limited by SLOTS (T100 D11). Slot 0 is /cache/heavy.lock, the lock the
 # TRX64-Ultimate repository takes as well (its semantics are unchanged: one holder); the further slots are this repository's own,
@@ -387,6 +363,10 @@ heavy_trylock() {
 
 # cache_gc_if_free: the janitor under a heavy slot when one is free; skipped, not waited for, when every slot is busy.
 cache_gc_if_free() {
+  if [ -e "${CI_BIT_CACHE:-/cache/multicore/bit}/.fetched" ]; then
+    echo "cache_gc skipped: $CI_BIT_CACHE holds entries restored from the builds repository (ci/fetch_bits.sh), not a cache to keep"
+    return 0
+  fi
   if heavy_trylock; then
     "$ROOT/ci/cache_gc.sh" || echo "cache_gc failed (the build is fine)"
   else

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""T171 guard: this repository writes (and reads back its own artefacts) only through MC_PKG.
+"""T171 guard, T239.1: this repository publishes only through MC_BUILDS_REPO (ci/publish_release.py) and never touches the firmware repository's package.
 
 The literal of the firmware repository's package (FW_PKG in ci/pkg.env) may appear only in the files that import
 its output: tools/pack_import_cor.sh (reads, through $FW_PKG) and release/imports/*.pin. Everywhere else in
@@ -48,15 +48,15 @@ def scan(files, fw, root=ROOT):
 
 def main():
     e = env()
-    mc, fw = e.get("MC_PKG"), e.get("FW_PKG")
+    fw = e.get("FW_PKG")
     errs = []
-    if not mc or not fw or mc == fw:
-        errs.append("ci/pkg.env: MC_PKG and FW_PKG must be set and different")
+    if not fw or not e.get("MC_BUILDS_REPO") or not e.get("MC_SRC_REPO") or e["MC_BUILDS_REPO"] == e["MC_SRC_REPO"]:
+        errs.append("ci/pkg.env: FW_PKG, MC_BUILDS_REPO and MC_SRC_REPO must be set, and the builds repository is not the source repository")
     if "--selftest" in sys.argv:
         with tempfile.TemporaryDirectory() as d:
             open(os.path.join(d, "bad.sh"), "w").write(
                 f'curl -X PUT --upload-file x "http://h/api/packages/TREX/generic/{fw}/v/x"\n')
-            open(os.path.join(d, "ok.sh"), "w").write(f"# {fw} in a comment\ncurl \"$API/$MC_PKG/v\"\n")
+            open(os.path.join(d, "ok.sh"), "w").write(f"# {fw} in a comment\ncurl \"$API/$MC_BUILDS_REPO/v\"\n")
             if not scan(["bad.sh"], fw, d):
                 print("selftest: a write into FW_PKG was NOT refused")
                 return 1
@@ -67,9 +67,8 @@ def main():
         return 0
     out = subprocess.run(["git", "-C", ROOT, "ls-files", "--", *SCAN], capture_output=True, text=True, check=True)
     errs += scan(out.stdout.split(), fw)
-    for p in ("ci/lib.sh",):
-        if "generic/${MC_PKG}" not in open(os.path.join(ROOT, p)).read():
-            errs.append(p + ": publish_files does not write through MC_PKG")
+    if "ci/publish_release.py" not in open(os.path.join(ROOT, "ci/lib.sh")).read().split("publish_files()", 1)[-1].split("}", 1)[0]:
+        errs.append("ci/lib.sh: publish_files does not publish through ci/publish_release.py")
     print("\n".join(errs))
     return 1 if errs else 0
 

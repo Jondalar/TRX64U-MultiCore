@@ -168,6 +168,10 @@ check "no Gitea API calls (T239.1 S6)" bash -c '
   [ -z "$hits" ] || { echo "$hits"; exit 1; }'
 check "emulator kit (T239.1 D23)" ci/test_emu_kit.sh
 check "pre-release staging (T239.1 D1, D16)" ci/test_prerelease.sh
+# T239.1 D13, D19, D1: the work order, the bitstream fetch and the pre-release publication, each against a fake builds repository (ci/fakegh.py, no network)
+check "work order (T239.1 D13, S15)" python3 -W ignore ci/test_order.py
+check "bitstream fetch (T239.1 D19)" python3 -W ignore ci/test_fetch_bits.py
+check "pre-release publication (T239.1 D1)" python3 -W ignore ci/test_publish_release.py
 check "select.sh" bash -c '
   t() { [ "$(env -i HOME="$HOME" PATH="$PATH" "${@:2}" ci/select.sh $1)" = "$EXPECT" ]; }
   EXPECT=no  t ue2 GITHUB_REF_NAME=main GITHUB_EVENT_NAME=push &&
