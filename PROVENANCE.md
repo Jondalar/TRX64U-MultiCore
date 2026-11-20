@@ -226,7 +226,7 @@ Kickstarts, character ROMs and Disk II ROMs are written by the application from 
   901226-01, character ROM 901225-01, 1541-II; Commodore, Cloanto), the Atari bench the Atari XL OS, Atari BASIC and the
   upstream core's PBI BIOS from `cores/atari800/roms/`. The images are not part of the published source: one README per
   folder (`roms/README.md`, `cores/atari800/roms/README.md`) names the files the benches expect, their size and hash, and
-  links to legal sources. `tools/github_snapshot.py` makes the published copy and checks it: no file with a ROM or image
+  links to legal sources. `tools/check_public_tree.py` (T239.1 D24) checks the tree and every commit: no file with a ROM or image
   extension, no private host name or address.
 - **Not a ROM**: `cores/zxnext/rtl/rom/bootrom.vhd` and `bootrom_ab.vhd` are the VHDL source of the Spectrum Next FPGA
   core's own boot ROM (section 6); they are part of the published source. NextZXOS and the Spectrum ROMs come from the user's own
