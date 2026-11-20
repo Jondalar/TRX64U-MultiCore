@@ -12,8 +12,10 @@ zero=0000000000000000000000000000000000000000
 rc=0
 priv="$(mktemp)"; trap 'rm -f "$priv"' EXIT
 side="$(git config --get trx.side || true)"
-if [ -n "$side" ] && git -C "$side" rev-parse --git-dir >/dev/null 2>&1; then
-  git -C "$side" -c core.quotepath=off ls-files | grep -v '^README\.md$' > "$priv"
+# In a linked worktree git runs this hook with GIT_DIR set, which would point `git -C "$side"` at this repository: the side calls drop it.
+sidegit() { env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR -u GIT_OBJECT_DIRECTORY git -C "$side" "$@"; }
+if [ -n "$side" ] && sidegit rev-parse --git-dir >/dev/null 2>&1; then
+  sidegit -c core.quotepath=off ls-files | grep -v '^README\.md$' > "$priv"
   [ -s "$priv" ] || { echo "pre-push: the side repository $side lists no files, refused" >&2; exit 1; }
 else
   [ -z "$side" ] && echo "pre-push: git config trx.side is not set, the private-path rule is off (content rules still run)" || { echo "pre-push: trx.side=$side is no git repository, refused" >&2; exit 1; }
