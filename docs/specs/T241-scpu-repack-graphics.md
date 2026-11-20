@@ -1,7 +1,7 @@
 # T241 — SuperCPU releases show on the C64SCPU core the picture their CPU wrote (GitHub #108)
 
 **Status:** LATER (2026-11-20): the intro's cause is fixed (the RMW write, §5) and goes into `integration` (D3); Master's Boom in play:
-the S2 fix (IRQ poll point, RTI cycles) is built on the branch `t241-s2-irq` (§5, 2026-11-21), its sims and the board are open. PROPOSED 2026-11-19 (Alex).
+the S2 fix (IRQ poll point, RTI cycles) is built on the branch `t241-s2-irq` (§5, 2026-11-20), its sims and the board are open. PROPOSED 2026-11-19 (Alex).
 **Repo:** TRX64U-MultiCore — the core `cores/c64scpu/` (`scpu_mem.v`: register file, memory map, mirror queue; `scpu_cache.v`), its
 benches `cores/c64scpu/sim/`; the debugging tools `tools/dis65816` and `tools/emu816`.
 **Number:** T241.
@@ -331,7 +331,7 @@ Open.
   and line 219 (`$18`, HUD); `$D018` never.
 - Cause (read, then a proxy run): the core decides on an IRQ at the end of an instruction's last cycle with the live line
   (`cpu65816_c64scpu.v:103,111`, `cpu/s816_cpu.vhd:496,508-510`); VICE polls it before the last cycle (`65816core.c:129`
-  `CHECK_INTERRUPT`, placed e.g. at `:851`, `:1498`, `:2230`). An IRQ that rises in an instruction's last cycle is taken one
+  `CHECK_INTERRUPT`, placed e.g. at `:851`, `:1499`, `:2231`). An IRQ that rises in an instruction's last cycle is taken one
   instruction early on the core. Then the dispatcher reads 145, takes the multiplexer path `$1D2A`, which writes `$D012 = $91` again,
   and the chain stops for that frame: no mid and no bottom handler (no `$D016 = $18` for the HUD, no game logic, no re-arm), no top
   handler in the next frame. That is the stutter with the HUD at the playfield's scroll. Once the main loop's spin (`$42D1`) puts the
@@ -359,10 +359,10 @@ Open.
   unchanged (`RMW_DW` needs `EF = '1'`); the generators embed no ROM or program bytes. Fixed: the stale "local" of the bench branch.
 - Not run for this step: no sim, bench or Vivado run (the pipeline builds the c64scpu core on the push; its sims run on `integration`).
 
-### 2026-11-21: S2 fix built (agent)
+### 2026-11-20: S2 fix built (agent), reviewed and corrected
 - Read first (D1), against VICE and the core's sources, before any change. Fault 1: `s816_cpu.vhd` decides on an interrupt at the clock enable that ends an instruction's last cycle
   (`LAST_CYCLE`, `GotInterrupt <= IRQ_ACTIVE or NMI_ACTIVE`) with `IRQ_N` as it is then, and the wrapper gave it the live level (`irq_latched`, `cpu65816_c64scpu.v`). VICE's `CHECK_INTERRUPT`
-  (`65816core.c:129`) is placed before the last access of an instruction (`ABS_FUNC` :851, `BRANCH` :1499, `RTI` :2230) and before the opcode fetch at the loop's top (:2584, :2588); an
+  (`65816core.c:129`) is placed before the last access of an instruction (`ABS_FUNC` :851, `BRANCH` :1499, `RTI` :2231, the emulation-mode read-modify-write :889-890) and before the opcode fetch at the loop's top (:2584, :2588); an
   interrupt is taken at the top only from a check made earlier (:2575). An IRQ that rises in the last cycle is seen first by the next instruction's check, so that instruction runs.
   Fault 2: the microcode of RTI (opcode $40) has the rows of states 1-4 (dummy, P, PCL, PCH) and, for native mode, 5 (internal) and 6 (PBR); in emulation mode the third pull ends it
   (`s816_cpu.vhd` state control 111, `EF = '1' and IR = x"40"` gives `NextState = 0000`): 5 cycles. VICE's `RTI` (`65816core.c:2217-2240`) makes one clock for `INC_PC`'s opcode fetch, two
@@ -371,21 +371,24 @@ Open.
   is one per PHI2 cycle (the level of the end of the previous cycle is the one the CPU reads at the end of the last), at 20 MHz one per 20 MHz cycle; a cycle held by RDY is a cycle too (the
   register keeps following the line). The low-phase drop of `irq_latched` (the 20 MHz handler tail inside the acknowledging write's PHI2 cycle) stays: the register only delays the level by
   one enable (50 ns at 20 MHz, one PHI2 cycle at 1 MHz). (2) `tools/scpu_vendor816.py` (`rti_emul`, `RTI_E_ROW`, one more item in its list of changes; `--check` ok): the emulation-mode RTI
-  goes from state 4 to state 7 (`NextState <= "0111"`), and the microcode row of RTI's state 7 (all zero upstream, never visited) is STATE_CTRL 010 and nothing else: an internal cycle (no
+  goes from state 4 to state 7 (`NextState <= "0111"`), and the microcode row of RTI's state 7 (all X upstream, read as zero, never visited) is STATE_CTRL 010 and nothing else: an internal cycle (no
   VDA, no VPA, no load) that ends the instruction. Walked on the generated ROM: RTI with EF = 1 visits states 0, 1, 2, 3, 4, 7 (6 cycles), with EF = 0 states 0-6 (7 cycles).
   The microcode ROM of the SNES core `cores/snes/rtl/65C816` is untouched.
 - NMI, decided: no change. `s816_cpu` latches the falling edge of `NMI_N` at each enable (`NMI_SYNC`, set at the enable that sees the line low) and `NMI_ACTIVE` reads the latch at the last
   cycle: an edge in the last cycle is not seen yet, one in the cycle before is. That is the rule the IRQ now follows. The I flag stays live at the last cycle: it changes only at the end of an
   instruction's last cycle (CLI, PLP) or earlier in RTI (state 2), so the delay of CLI and the early take after SEI stay as they were.
 - The bench, `tools/gen_c64scpu_irq.py` / `cores/c64scpu/sim/run_irq.sh` / `check_irq.py` (phases 0-9 and their expectations unchanged), emulation mode, hwenable off, software 1 MHz, display off:
-  - Phase 10 (verdict `$032A` = `$AA`, raw `$033A` = R0 + 2 R1 + 4 runs = 5): the VIC's raster flag of line $80 is set with the mask off; `LDA #1; CLI; NOP; STA $D01A; INC M0; INC M1`. The
-    line rises in the STA's write, its last cycle. Expected: the handler runs once, M0 = 1 (the instruction after the STA ran), M1 = 0 (the second did not). Source: VICE as above (the
-    check of `STA abs` is before the operand's high byte, the loop's top check sees the line only after the next instruction began); a 6502/65816 samples before the last cycle.
+  - Phase 10 (verdict `$032A` = `$AA`, raw `$033A` = R0 + 2 R1 + 4 runs = 5; rebuilt after the review, see "Review of the bench" below): emulation mode, hwenable off, software 1 MHz, display off, no sprite.
+    The VIC's raster compare is set to line `$A0`, the CPU syncs to line `$20`, clears the flag, switches the mask on (a guard), `CLI`, then `INC $D012; INC M0; INC M1`. The modify cycle of the INC
+    writes the byte it read, line `$20`, into the compare; the VIC matches in the high half of the INC's last cycle, so the line rises after the poll point. Expected: the handler runs once,
+    M0 = 1 (the instruction after the INC ran), M1 = 0. Source: VICE `65816core.c:889-890` (CHECK_INTERRUPT before the emulation-mode dummy `STORE_LONG`, the modify cycle finds no IRQ), `viciisc/vicii-cycle.c:467-474`
+    (the match is found in the next cycle, the last), `65816core.c:2588` (the check before the next opcode fetch finds it) and `:2575` (taken at the top only from a check made earlier): the next
+    instruction runs, the IRQ is taken before the second.
   - Phase 11 and 12 (check_irq.py, `rti|` line): a subroutine times X returns through RTI between the tb's marks 0 and 1 (writes to `$0B00` and `$0B01`, their PHI2 cycles); called with 20
     (warm-up, ignored), 20 and 10. Emulation: `LDA #hi; PHA; LDA #lo; PHA; PHP; RTI; DEX; BNE`, native (8-bit): `PHK; PEA ret; PHP; RTI; DEX; BNE`. The difference of the long and the short
     loop is 10 x (2+3+2+3+3+RTI+2+3) = 240 with a 6-cycle RTI (230 with 5) and 10 x (3+5+3+7+2+3) = 230 with a 7-cycle RTI. Source of the instruction cycles: the W65C816S datasheet
     (PHA, PHP, PHK 3; PEA 5; LDA #, DEX 2; BNE 3 taken, +1 across a page with E = 1: the generator asserts the loop is on one page); RTI as above. The constants of the marks cancel.
-  - Light checks run on the Mac (no simulation): the generator writes its program (tail 1,664 of 2,048 bytes, native image 615 of 1,536); the new code read back with `tools/dis65816` (phase 10,
+  - Light checks run on the Mac (no simulation): the generator writes its program (tail 1,668 of 2,048 bytes, native image 614 of 1,536); the new code read back with `tools/dis65816` (phase 10,
     both RTI loops, the handler; `PEA $017E` is the native loop's DEX); `check_irq.py` on made-up logs (24/23-cycle loops: ok; 23/23: FAIL); `sh -n run_irq.sh`.
 - The other c64scpu benches, read (grep for CLI, RTI, IRQ, NMI in the generators and checkers), not run. `c64scpu_base` (6510 in): no 65816, unchanged. `c64scpu_emu`: no IRQ, no RTI in the program (cycles
   between markers unchanged). `c64scpu_speed`, `c64scpu_map`: no IRQ source, no RTI found. `c64scpu_mirror`: a BRK handler that ends in RTI, 1,024-store loops judged within +-3 %: one cycle is far inside. `c64scpu_irq` phases 0-9:
@@ -394,9 +397,42 @@ Open.
   35 times a frame; `stars` also counts handlers whose first I/O is before cycle 12 (at least 8) and compares medians: the main loop is `BRA` at 20 MHz (3 enables = 0.15 PHI2 cycles), so an IRQ
   taken one instruction later moves a handler's start by at most that. I expect no expectation to move; a change shows only in a run. `run_irqmir.sh` (diagnosis bench, not in `ci/sims.txt`): its masked
   phases have no IRQ; in its IRQ phases the IRQ-edge-to-vector latency statistic and the cycles per pass move by the RTI's extra cycle; its model of the pass cycles covers the masked phases only.
-- Not verified: no simulation, bench or Vivado run (the pipeline runs the sims after the coordinator pushes with `[sims]`); whether the old core already passes phase 10 (it depends on whether the VIC's
-  line is seen before the clock enable that ends the STA; if it does, phase 10 does not discriminate and only guards against a regression); the 20 MHz case of fault 1 (no phase: at 20 MHz the
+- Review of the bench (read-only review agent, 2026-11-20; every point checked against the code before it was acted on). Facts the reading rests on: a CPU cycle runs from the enable `e` (`core_ce`
+  at `phi2_l`, phase 9 of the 16 dot4x clocks of the PHI2-low half: `vicii_c64scpu.v:461`) to the next one; between them lie the PHI2-high half (`clk_phi` = 1) and the PHI2 fall `phi2_n`
+  (first clock of the low half: `:464`), where the wrapper samples `irq_r <= irq` (`cpu65816_c64scpu.v:103`) and where the VIC takes a register write (`registers_scaled.v:1469`: `aec` and
+  `phi_phase_start[DATA_DAV]`, `DATA_DAV` 0 in `common.vh:130`; `aec` is `clk_phi` one clock late, `vicii_c64scpu.v:828`; the register itself changes one clock later). `s816_cpu.vhd`: `LAST_CYCLE` is
+  `NextState = 0000` (:160), `GotInterrupt` is loaded at the enable that ends the last cycle from `IRQ_ACTIVE` (:496, :508-510). Old logic: `irq_n = !irq_latched`, `irq_latched = clk_phi ? irq : irq_r & irq`
+  (`cpu65816_c64scpu.v:111`, in the low half at `e`: `irq_r & irq`). New logic: `irq_n = !irq_pen`, `irq_pen` = `irq_latched` of the previous enable.
+  - Finding 1 (HIGH, true): the first phase 10 (`STA $D01A` as the source switch) did not discriminate. The write is the STA's last cycle k; the VIC takes it at `phi2_n` of k and `erst` is set one clock
+    later, so `irq_r` of that edge is 0 and `irq` is 0 until after it. At the enable that ends k, old: `irq_r & irq` = 0; new: `irq_pen` = 0. Both take the IRQ only after the next instruction (its last
+    enable sees `irq_r` = 1 on both). The old core passed that phase too. Only a line that rises between the enable that starts the last cycle and its `phi2_n` (the PHI2-high half) separates the logics.
+  - Phase 10 as rebuilt (the proposal of the review holds): `INC $D012` in emulation mode, cycles c1 opcode, c2 low, c3 high, c4 read `$D012` (line `$20`), c5 modify cycle (writes the byte read,
+    the T241 RMW write), c6 last cycle (writes `$21`). The compare was `$A0`, the flag clear, the mask on (the guard), I = 0 after the `CLI`. c5: `phi2_n(c5)` writes compare = `$20`
+    (`registers_scaled.v:1526`); `irq_r` <= 0. The enable e6 that starts c6 follows in the same low half: old and new `irq` = 0, so `irq_pen` <= 0. The PHI2-high half of c6, about 8 clocks after e6:
+    `raster_irq_compare_d <= raster_irq_compare` (`vicii_c64scpu.v:526-527`), at `phi_phase_start[1]` the line equals the compare, `raster_irq_triggered` was 0 (the compare was another line, :540), so
+    `irst <= 1` (:534-537) and `irq` rises (:554). `phi2_n(c6)`: `irq_r` <= 1, the VIC takes the write of `$21`. The enable e7 that ends c6 (`LAST_CYCLE`): old `irq_latched = irq_r & irq` = 1 and
+    `IRQ_ACTIVE` = 1 (P(2) = 0) so the IRQ is taken right after the INC: M0 = 0, R0 = 0, the verdict is `$EE`. New: `irq_pen` = `irq_latched` of e6 = 0, no IRQ; the next instruction `INC M0` ends with
+    `irq_pen` = 1 (`irq_r` = 1, `irq` = 1 at its previous enable): taken after it, M0 = 1, M1 = 0, one run, the verdict `$AA`. VICE agrees (sources in the phase 10 bullet above). The compare and the line
+    are the same register value on both sides: `$D012` reads `raster_line_d` (`vicii_c64scpu.v:1024`), the match compares `raster_line_d`.
+  - Badline and BA at the synced line: line `$20` = 32 is below the first badline (`raster_line >= 48`, `vicii_c64scpu.v:508`), DEN is off (`$D011` = `$0B`), and the program now writes `$D015` = 0 (no sprite
+    DMA): `rdy` stays high, `RDY_IN_DELAYED` = 1, the enables are one per PHI2 cycle and e6 and the match keep their places. The line changes under the INC only if more than 63 (PAL) cycles pass between
+    the line change the poll sees and the INC's last cycle: at most 9 (poll period) + 18 + 6 = 33. Not run: the proposal is read, not simulated.
+  - Finding 2 (MEDIUM, true): "a write that enables the source" was the wrong example (it is finding 1); the wrapper comment, the generator docstring, `run_irq.sh` and this section now name the raster
+    compare match (`vicii_c64scpu.v:535`) and say that a register write is first seen in the next cycle on both logics. A timer underflow is not claimed (not read). VICE lines: BRANCH is `:1499`, RTI `:2231`
+    (the text said :1498, :2230; fixed here, in the wrapper and in the entry of the S2 reading above); `:889-890` is the emulation-mode RMW.
+  - Findings 3-9 (LOW, NIT; all true): `PROVENANCE.md` counts four changes of behaviour; `ci/sims.txt` describes phases 10-12; the date of this entry is 2026-11-20; the sizes are those of the new generator
+    (tail 1,668, native 614); the tb's `+DUMP=0330` prints sixteen bytes now (`$0330-$033F`, the tb is the only user) and `expect.json` "raw" lists the ten slots the phases write (0-5, 7-10), so
+    `$033A` reaches the log; phase 12 (native RTI, 7 cycles) passes on the old core as well, it is a guard: **phases 10 and 11 discriminate** (11: the old emulation-mode RTI took 5 cycles, 230 instead of
+    240), 12 does not; `scpu_vendor816.py` asserts the upstream row of RTI state 7 (`MCode.vhd:605`) is all `X` before it writes the new row (`--check` ok, the generated files are unchanged).
+  - Found, not fixed (pre-existing, outside this change, read in `cores/c64scpu/cpu/s816_cpu.vhd`):
+    (a) NMI lost: `NMI_SYNC` is set at the enable that sees the falling edge (:483-484) and cleared at the last cycle of every instruction or interrupt sequence while it is set (:485-486; `GotInterrupt` is
+    reloaded to 0 at the sequence's last cycle, :511-512, and no NMI is taken there). An NMI edge that arrives during a hardware interrupt sequence is cleared at that sequence's last cycle: the edge is
+    lost, and a CIA 2 NMI source that stays asserted gives no new edge (`OLD_NMI_N` is 0), so no further NMI follows until the line has risen and fallen again. Not measured.
+    (b) Interrupt deferred: `IRQ_ACTIVE` and `NMI_ACTIVE` include `RDY_IN_DELAYED` (:496-497), `RDY_IN` of the previous enable (:490-492). An instruction whose last cycle follows a cycle held by RDY (BA) at
+    the previous enable reaches its last-cycle enable with `RDY_IN_DELAYED` = 0: the interrupt is not taken there, it waits one more instruction. Not measured.
+- Not verified: no simulation, bench or Vivado run (the pipeline runs the sims after the coordinator pushes with `[sims]`); in particular phase 10 as rebuilt (the cycle reading above is from the RTL, the
+  VIC's one-clock register delay and the enable's place in the low half are read, not seen on a waveform) and the claim that the old core fails it; the 20 MHz case of fault 1 (no phase: at 20 MHz the
   line's rise relative to the enable depends on the PHI2-synchronous I/O write, so no exact expectation can be taken from VICE); the timing of the new register and of the row's `NextState`
   against `build_mono.tcl`'s multicycle constraints (irq_pen sits on clk2x with the enable, one register in front of the CPU's IRQ input; the `NextState` change is one more constant in a mux the
   state register already takes); Master's Boom in play (board); VICE's own deviations from the real chip (its check sits one or more cycles before the last cycle for long instructions, where the
-  chip samples in the cycle before the last): the bench takes only the case on which both agree, a rise in the last cycle.
+  chip samples in the cycle before the last): the bench takes only the case on which both agree, a rise in the high half of the last cycle.
