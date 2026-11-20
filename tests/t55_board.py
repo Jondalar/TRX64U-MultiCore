@@ -111,22 +111,19 @@ def port_open(port=4312, timeout=2.0):
         return False
 
 
-def tea_token():
-    cfg = os.path.expanduser("~/.config/tea/config.yml")
-    for line in open(cfg):
-        m = re.match(r"\s*token:\s*(\S+)", line)
-        if m:
-            return m.group(1)
-    return ""
-
-
 def load_package(version):
     """Bitstream into SRAM, then the package's firmware staged in DDR2 (the boot ROM starts it)."""
-    # ultimate.app is TRX64-Ultimate's (T100 D15): APP_PKG names its generic package, APP_VERSION its <branch>-<sha8> (default: version)
-    tmp = "/tmp/t55_board_%s.app" % version
-    url = "http://gitea.example/api/packages/TREX/generic/%s/%s/ultimate.app" % (os.environ["APP_PKG"], os.environ.get("APP_VERSION", version))
-    req = urllib.request.Request(url, headers={"Authorization": "token " + tea_token()})
-    open(tmp, "wb").write(urllib.request.urlopen(req, timeout=120).read())
+    # tools/load.sh takes the bitstream of the CI pre-release <version> of the public builds repository. ultimate.app is TRX64-Ultimate's (T100 D15):
+    # APP_FILE names a local copy of it; without that, GITEA_URL, APP_PKG (its generic package) and APP_VERSION (<branch>-<sha8>, default: version) name
+    # the registry file, which is read with the token of the maintainer's tea login (the one read of that registry besides tools/pack_import_cor.sh).
+    tmp = os.environ.get("APP_FILE")
+    if not tmp:
+        tmp = "/tmp/t55_board_%s.app" % version
+        cfg = os.path.expanduser("~/.config/tea/config.yml")
+        token = next((m.group(1) for m in (re.match(r"\s*token:\s*(\S+)", l) for l in open(cfg)) if m), "")
+        url = "%s/api/packages/TREX/generic/%s/%s/ultimate.app" % (os.environ["GITEA_URL"].rstrip("/"), os.environ["APP_PKG"], os.environ.get("APP_VERSION", version))
+        req = urllib.request.Request(url, headers={"Authorization": "token " + token})
+        open(tmp, "wb").write(urllib.request.urlopen(req, timeout=120).read())
     for cmd in (["tools/load.sh", "c64_basic", version], ["tools/trxdbg.sh", "boot", "staged", tmp]):
         r = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True, timeout=300)
         if r.returncode != 0:

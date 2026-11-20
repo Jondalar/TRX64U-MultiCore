@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Pack one .cor per core out of a CI package, against the host that package built (T94 P5).
 #
-#   tools/pack_cores_mc.sh --pkg <branch>-<8 hex> --app-dir <dir> [--out <dir>] [--core <id>]...
+#   tools/pack_cores_mc.sh --pkg <release tag> --app-dir <dir> [--out <dir>] [--core <id>]...
 #   tools/pack_cores_mc.sh --bits <dir>           --app-dir <dir> [--out <dir>] [--core <id>]...
 #
-# --pkg downloads what it needs out of the generic package trx64u-multicore/<version>
-# (c64_basic.bit and every <core>_partial.bit); --bits takes the same files from a directory.
+# --pkg downloads what it needs out of the CI pre-release <release tag> (<branch>-<8 hex>) of the public builds repository, through
+# tools/builds.sh and without a token (c64_basic.bit and every <core>_partial.bit); --bits takes the same files from a directory.
 # --app-dir holds one <core>.app per core - the application that rides in the bundle, loaded at
 # 0x30000. A core without an application there is skipped and named; the core applications are
 # built outside this repository until T93 lands.
@@ -21,7 +21,6 @@
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
-source "$ROOT/ci/pkg.env"
 PKG="" BITS="" APPDIR="" OUT="" ONLY=()
 
 usage() { sed -n '2,20p' "$0"; exit 2; }
@@ -55,11 +54,9 @@ fi
 # the files: from the package or from a directory
 if [ -n "$PKG" ]; then
     BITS="$OUT/.bits"; mkdir -p "$BITS"
-    TOKEN="$(awk '/token:/{print $2; exit}' "$HOME/.config/tea/config.yml")"
-    API="http://gitea.example/api/packages/TREX/generic/$MC_PKG/$PKG"
     for f in c64_basic.bit $(for c in "${CORES[@]}"; do echo "${c}_partial.bit"; done); do
         [ -s "$BITS/$f" ] && continue
-        curl -fsS -H "Authorization: token $TOKEN" -o "$BITS/$f" "$API/$f" 2>/dev/null ||
+        "$HERE/builds.sh" fetch "$PKG" "$f" "$BITS/$f" ||
             { echo "    $f: not in package $PKG"; rm -f "$BITS/$f"; }
     done
 fi
