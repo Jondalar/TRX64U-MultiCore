@@ -1186,6 +1186,7 @@ void ui_message(const char *title, const char *text, bool bad)
     TrxShellInfo info;
     shell_info(&info, "/ UI", "HELD", 0);
     info.footer_right = g_msg_foot;
+    info.footer_left = 0;                          // a message pane closes with no key of its own; the text names the keys that do something
     TrxRoute empty = { 0, 0 };
     lv_obj_t *c = trx_shell(scr, info, empty, -1, -1);
     int x = t.space_xl;

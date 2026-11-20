@@ -6,6 +6,7 @@
 
 #include "ctx.h"
 #include "romfind.h"
+#include <stdio.h>
 
 class BootUi {
 public:
@@ -14,7 +15,16 @@ public:
     virtual void clear() = 0;
     // The wait loop calls this between two passes: the board renders and reads keys here.
     virtual void tick() = 0;
+    // The ROM wait asks this every 50 ms: did the person ask to leave (RUN/STOP, ESC)? Only asked where the board offers the way back.
+    virtual bool leave_asked() { return false; }
+    // The host's own way back. False and a reason when it cannot (it does not come back otherwise).
+    virtual bool return_to_host(char *msg, int n) { snprintf(msg, n, "no way back here"); return false; }
 };
+
+// The ROM wait offers the way back to the host where the board has an ICAP loader (board.can_return_host); a context without a board is the MultiCore host.
+bool boot_offers_return(const CoreCtx *c);
+// The keys that ask for it: the C64 matrix's RUN/STOP and the USB keyboard's ESC.
+bool boot_leave_key(int key);
 
 enum BootResult {
     BOOT_RUNNING = 0,          // the core is released and runs
@@ -23,7 +33,7 @@ enum BootResult {
 
 // Steps 1-7 of D4 with the core held: descriptor init, ROM search and wait (never leaves without every required ROM), ROMs
 // into the core, frame buffers and layer, settings into the registers, release. The settings object and the video object
-// must be set in the context. Does not return while a required ROM is missing.
+// must be set in the context. Does not return while a required ROM is missing, except by the way back to the host (BootUi::return_to_host), which does not come back.
 BootResult boot_start(CoreCtx *c, BootUi *ui);
 
 // Writes every setting whose `when` is WHEN_RESET (the core must be held) or every one (all = true) into the core.
