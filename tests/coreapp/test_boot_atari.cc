@@ -2,11 +2,15 @@
 // registers while held, the picture's buffers, release last - and the resets. The descriptor under test is the real one
 // (coreapp/cores/atari800.cc).
 #include <string>
+#include <setjmp.h>
 #include "check.h"
 #include "fakes.h"
 #include "boot.h"
+#include "keyboard.h"
 #include "cores.h"
 #include "atari800_regs.h"
+
+static jmp_buf g_gone;                               // the host's way back does not return: the model leaves boot_start the same way
 
 struct Ui : BootUi {
     std::vector<std::string> msgs, titles;
@@ -17,6 +21,11 @@ struct Ui : BootUi {
     FakeFs *fs = 0;
     int insert_at = -1;
     bool released_early = false;
+    int leave_at_ms = -1;                            // RUN/STOP is pressed once, at this time
+    int asks = 0, returns = 0;
+    bool return_works = false;                       // a way back that works does not come back: the model throws
+    bool leave_asked() { asks++; if (leave_at_ms >= 0 && (int)io->t >= leave_at_ms) { leave_at_ms = -1; return true; } return false; }
+    bool return_to_host(char *msg, int n) { returns++; if (return_works) longjmp(g_gone, 1); snprintf(msg, n, "no ICAP"); return false; }
     void message(const char *t, const char *m, bool) { titles.push_back(t); msgs.push_back(m); msg_t.push_back(io->t); }
     void clear() { clears++; }
     void tick()
@@ -174,5 +183,54 @@ int main()
         CHECK_EQ(io.rom[1][100], 0x66);
         CHECK_STR(io.events.back().c_str(), "mode_unreset");
     }
+    // --- T243 S1: a ROM missing, RUN/STOP on the wait screen: the host's way back is taken, the core was never released
+    {
+        AtariIo io; FakeFs fs; PxRec px; CoreCtx c; Settings *st; Video *v;
+        setup(c, io, fs, px, st, v);
+        Ui ui; ui.io = &io; ui.fs = &fs; ui.leave_at_ms = 12000; ui.return_works = true;
+        bool left = false;
+        if (setjmp(g_gone)) {
+            left = true;
+        } else {
+            boot_start(&c, &ui);
+        }
+        CHECK(left);
+        CHECK_EQ(ui.returns, 1);
+        CHECK_EQ(io.reset_releases, 0);
+        CHECK(!c.started);
+        CHECK(ui.msgs.size() && ui.msgs[0].find("RUN/STOP") != std::string::npos);
+    }
+    // --- T243 S3: the way back fails (told, the wait goes on), then the ROMs arrive: the core starts as before
+    {
+        AtariIo io; FakeFs fs; PxRec px; CoreCtx c; Settings *st; Video *v;
+        setup(c, io, fs, px, st, v);
+        Ui ui; ui.io = &io; ui.fs = &fs; ui.insert_at = 40; ui.leave_at_ms = 12000;
+        CHECK_EQ(boot_start(&c, &ui), BOOT_RUNNING);
+        CHECK_EQ(ui.returns, 1);
+        CHECK_EQ(ui.msgs.size(), 2);
+        CHECK(ui.msgs.size() > 1 && ui.msgs[1].find("did not work: no ICAP") != std::string::npos);
+        CHECK(!ui.released_early);
+        CHECK_EQ(io.reset_releases, 1);
+        CHECK(c.started);
+    }
+    // --- T243 S2: a board without the ICAP loader: no promise on the screen, RUN/STOP is not even asked
+    {
+        AtariIo io; FakeFs fs; PxRec px; CoreCtx c; Settings *st; Video *v;
+        setup(c, io, fs, px, st, v);
+        BoardProfile bp;
+        memset(&bp, 0, sizeof(bp));
+        bp.can_return_host = false;
+        c.board = &bp;
+        Ui ui; ui.io = &io; ui.fs = &fs; ui.insert_at = 25; ui.leave_at_ms = 12000; ui.return_works = true;
+        CHECK_EQ(boot_start(&c, &ui), BOOT_RUNNING);
+        CHECK_EQ(ui.asks, 0);
+        CHECK_EQ(ui.returns, 0);
+        CHECK(ui.msgs.size() && ui.msgs[0].find("RUN/STOP") == std::string::npos);
+    }
+    // --- T243 S4: the USB keyboard's ESC asks as the matrix's RUN/STOP does; no other key does
+    CHECK(boot_leave_key(KEY_BREAK));
+    CHECK(boot_leave_key(KEY_ESCAPE));
+    CHECK(!boot_leave_key(KEY_RETURN));
+    CHECK(!boot_leave_key(KEY_SPACE));
     DONE("test_boot_atari");
 }

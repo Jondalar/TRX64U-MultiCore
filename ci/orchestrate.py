@@ -1,22 +1,25 @@
 #!/usr/bin/env python3
-"""T174 D4 (Alex, 2026-11-08): the parent of the push pipeline starts child pipelines, one concern each, and ends with one table.
+"""T174 D4 (Alex, 2026-11-08), T239.1 S6: the children of the pipeline and the one table they come from.
 
-  ci/orchestrate.py graph <plan.json> [--tier N] [--update yes|no] [--ue2 yes|no]
-        the children this plan asks for, in dispatch order, with what each needs (nothing is started)
-  ci/orchestrate.py run <plan.json> [--tier N] [--update yes|no] [--ue2 yes|no] [--lint CMD] [--fake SPEC]
-        dispatch the children through the Gitea API (workflow_dispatch, inputs sha / parent / target / plan), run the lint (a step of the
-        parent) meanwhile, wait, print the table; exit 1 when a child is red or was not started. --fake SPEC: a fake Gitea for the tests
-        (ci/test_orchestrate.sh), SPEC = {"red": [ids], "never": [ids], "log": file}
-  ci/orchestrate.py tier <plan.json>             the sims tier of the parent's plan;  benches <plan.json> <owner>: that owner's benches
+On GitHub the parent is the job graph of .github/workflows/pipeline.yml: every child is a job that calls its own workflow file with `uses:`, `if:`
+asks the plan whether it runs, `needs:` is the table's needs. Nothing is dispatched any more; this file only reads the table and the plan.
+
+  ci/orchestrate.py graph <plan.json> [--tier N] [--update yes|no]
+        the children this plan asks for, in dependency order, with what each needs (nothing is started)
+  ci/orchestrate.py graph --json <plan.json> [...]
+        the same as one JSON line: {"children": [names], "targets": {child: [targets]}, "ids": [...], "tier": N}
+  ci/orchestrate.py outputs <plan.json> [--tier N] [--update yes|no]
+        `key=value` lines for $GITHUB_OUTPUT: children, sim_owners, cor_targets (JSON), sims_tier, update, docs_only
+  ci/orchestrate.py stamp <plan.json> --tier N   write the run's sims tier into the plan (ci/child.sh sim reads it back)
+  ci/orchestrate.py owners [--tier N]            JSON list of every bench owner that has a bench up to tier N (the nightly's matrix)
+  ci/orchestrate.py tier <plan.json>             the sims tier of the plan (env SIMS_TIER, default 2, without one);  benches <plan.json> <owner>: that owner's
+                                                 benches (every bench of the tier, without a plan)
   ci/orchestrate.py check
         ci/children.txt against the workflow files and pipeline.yml; every bench of ci/sims.txt has exactly one owner in ci/sims.lane
 
-The graph: ci/children.txt (the one table: child, workflow, when, needs). A child id is "<child>" or "<child>/<target>"
-(sim/host, vivado/core:vc20, cor/large:amiga). Env of `run`: GITHUB_SERVER_URL, GITHUB_REPOSITORY, GITHUB_REF, GITHUB_SHA, GITHUB_RUN_ID,
-ORCH_TOKEN (dispatch; ORCH_TOKEN2 is tried when it is refused), CI_CHILD_START_MIN (240: a child not running that long after its dispatch is
-red), CI_CHILD_POLL (30 s), CI_DISPATCH_GAP (1 s between two dispatches).
+The table: ci/children.txt (child, workflow, when, needs). A child id is "<child>" or "<child>/<target>" (sim/host, cor/core:vc20).
 """
-import json, os, re, signal, subprocess, sys, time, urllib.error, urllib.request
+import json, os, re, sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -24,7 +27,7 @@ sys.path.insert(0, HERE)
 import plan as P  # noqa: E402
 
 TABLE = os.environ.get("ORCH_TABLE") or os.path.join(HERE, "children.txt")   # ORCH_TABLE: the tests' controls
-WF = os.path.join(ROOT, ".gitea", "workflows")
+WF = os.environ.get("ORCH_WORKFLOWS") or os.path.join(ROOT, ".github", "workflows")
 
 
 # --- the table ---------------------------------------------------------------------------------------------------------
@@ -70,7 +73,7 @@ def sim_benches(plan, tier):
     return out
 
 
-def targets_of(row, plan, tier, update, ue2):
+def targets_of(row, plan, tier, update):
     """the targets this child runs with in this plan: [] = not started, [""] = once without a target."""
     w, apps = row["when"], plan.get("apps", {})
     app_any = any(apps.values())
@@ -84,8 +87,8 @@ def targets_of(row, plan, tier, update, ue2):
         return [""] if app_any or plan.get("tests") or plan.get("fundamental") and full else []
     if w == "images":
         return [""] if app_any or package or (not full and cors) else []
-    if w == "emu":
-        return [""] if apps.get("host") or apps.get("core") else []
+    if w == "emu":      # D23: only where update runs (its kit reads no update file since T239.1 step 17)
+        return [""] if (apps.get("host") or apps.get("core")) and update else []
     if w == "owners":
         return sorted(sim_benches(plan, tier))
     if w == "gateware":
@@ -97,8 +100,8 @@ def targets_of(row, plan, tier, update, ue2):
         return [""] if package else []
     if w == "update":
         return [""] if update else []
-    if w == "ue2":
-        return [""] if ue2 else []
+    if w == "prerelease":
+        return [""] if package else []
     raise SystemExit("ci/children.txt: unknown when %r" % w)
 
 
@@ -106,14 +109,14 @@ def nid(child, target):
     return child + ("/" + target if target else "")
 
 
-def graph(plan, tier=1, update=False, ue2=False, rows=None):
+def graph(plan, tier=1, update=False, rows=None):
     """[(id, child, target, workflow, [needed ids])] in an order that respects every need; [] for a docs-only plan."""
     if plan.get("docs_only"):
         return []
     rows = rows or read_children()
     nodes = []
     for r in rows:
-        for t in targets_of(r, plan, tier, update, ue2):
+        for t in targets_of(r, plan, tier, update):
             nodes.append({"id": nid(r["child"], t), "child": r["child"], "target": t, "workflow": r["workflow"], "row": r})
     ids = [n["id"] for n in nodes]
     for n in nodes:
@@ -149,236 +152,8 @@ def graph(plan, tier=1, update=False, ue2=False, rows=None):
     return [(n["id"], n["child"], n["target"], n["workflow"], n["needs"]) for n in order]
 
 
-# --- Gitea ------------------------------------------------------------------------------------------------------------
-class Gitea:
-    def __init__(self):
-        self.api = os.environ["GITHUB_SERVER_URL"].rstrip("/") + "/api/v1/repos/" + os.environ["GITHUB_REPOSITORY"]
-        self.tokens = [t for t in (os.environ.get("ORCH_TOKEN"), os.environ.get("ORCH_TOKEN2")) if t]
-        if not self.tokens:
-            raise SystemExit("orchestrate: no ORCH_TOKEN: nothing can be dispatched")
-
-    def call(self, method, path, body=None, tok=None):
-        req = urllib.request.Request(self.api + path, method=method, data=json.dumps(body).encode() if body is not None else None,
-                                     headers={"Authorization": "token " + (tok or self.tokens[0]), "Content-Type": "application/json"})
-        with urllib.request.urlopen(req, timeout=60) as r:
-            data = r.read()
-        return data
-
-    def dispatch(self, workflow, inputs, node=""):
-        body = {"ref": os.environ.get("GITHUB_REF") or "refs/heads/" + os.environ["GITHUB_REF_NAME"], "inputs": inputs}
-        err = None
-        for tok in self.tokens:
-            try:
-                d = json.loads(self.call("POST", "/actions/workflows/%s/dispatches?return_run_details=true" % workflow, body, tok) or b"{}")
-                if d.get("workflow_run_id"):
-                    if tok != self.tokens[0]:
-                        self.tokens.remove(tok)
-                        self.tokens.insert(0, tok)
-                    return d["workflow_run_id"], d.get("html_url", "")
-                err = "no run id in the answer: %s" % d
-            except urllib.error.HTTPError as e:
-                err = "HTTP %s %s" % (e.code, e.read()[:200].decode(errors="replace"))
-            except OSError as e:
-                err = str(e)
-        raise RuntimeError(err)
-
-    def status(self, run):
-        d = json.loads(self.call("GET", "/actions/runs/%s" % run))
-        return d.get("status", ""), d.get("conclusion") or "", d.get("run_number"), d.get("started_at"), d.get("completed_at")
-
-    def reason(self, run):
-        """the line ci/child.sh prints when the child is red ("CHILD RED: ..."), else the last lines of the failed job's log."""
-        try:
-            jobs = json.loads(self.call("GET", "/actions/runs/%s/jobs" % run)).get("jobs", [])
-            for j in jobs:
-                if j.get("conclusion") not in ("failure", "cancelled"):
-                    continue
-                log = self.call("GET", "/actions/jobs/%s/logs" % j["id"]).decode(errors="replace").splitlines()
-                red = [l for l in log if "CHILD RED:" in l]
-                if red:
-                    return red[-1].split("CHILD RED:", 1)[1].strip()
-                tail = [re.sub(r"^\S+Z\s+", "", l).strip() for l in log if l.strip()][-3:]
-                return "%s: %s" % (j.get("name", "job"), " | ".join(tail))[:300]
-        except (OSError, ValueError) as e:
-            return "no reason (log not readable: %s)" % e
-        return "no failed job"
-
-    def cancel(self, run):
-        return False   # Gitea 1.27.3 has no cancel in its API; the child stops itself when its parent is gone (ci/child.sh)
 
 
-class Fake:
-    """for ci/test_orchestrate.sh: every child is green after one poll, unless the spec lists it red or never-starting."""
-    def __init__(self, spec):
-        self.s = json.load(open(spec))
-        self.runs, self.n = {}, 100
-
-    def log(self, line):
-        with open(self.s["log"], "a") as fh:
-            fh.write(line + "\n")
-
-    def dispatch(self, workflow, inputs, node=""):
-        self.n += 1
-        i = node
-        self.runs[self.n] = {"id": i, "polls": 0}
-        self.log("dispatch %s %s %s target=%s sha=%s parent=%s" % (self.n, node, workflow, inputs["target"], inputs["sha"], inputs["parent"]))
-        return self.n, "fake://%d" % self.n
-
-    def status(self, run):
-        r = self.runs[run]
-        r["polls"] += 1
-        if r["id"] in self.s.get("never", []):
-            return "queued", "", run, None, None
-        if r["polls"] < 2:
-            return "in_progress", "", run, None, None
-        self.log("done %s %s" % (run, r["id"]))
-        return "completed", "failure" if r["id"] in self.s.get("red", []) else "success", run, None, None
-
-    def reason(self, run):
-        return "fake red " + self.runs[run]["id"]
-
-    def cancel(self, run):
-        self.log("cancel %s" % run)
-        return True
-
-
-def tdelta(a, b):
-    from datetime import datetime
-    try:
-        f = lambda s: datetime.fromisoformat(s.replace("Z", "+00:00"))
-        s = int((f(b) - f(a)).total_seconds())
-    except (TypeError, ValueError, AttributeError):
-        return None
-    return s
-
-
-def fmt(s):
-    return "-" if s is None else "%dm%02ds" % (s // 60, s % 60)
-
-
-def run(plan, nodes, gitea, lint_cmd=None, poll=30.0, gap=1.0, start_min=240.0, lint_log="lint.log"):
-    st = {i: {"state": "pending", "run": None, "number": None, "url": "", "t0": None, "t1": None, "reason": "", "secs": None}
-          for i, *_ in nodes}
-    by = {n[0]: n for n in nodes}
-    planjson = json.dumps(plan, separators=(",", ":"))
-    sha, parent = plan.get("head") or os.environ.get("GITHUB_SHA", ""), os.environ.get("GITHUB_RUN_ID", "local")
-    lint = None
-    stop = {"why": ""}
-
-    def on_term(sig, _):
-        stop["why"] = "the parent was cancelled (signal %d)" % sig
-    signal.signal(signal.SIGTERM, on_term)
-    signal.signal(signal.SIGINT, on_term)
-
-    def red_at_once(i):
-        print("RED %s: %s" % (i.replace("/", " "), st[i]["reason"]), flush=True)
-
-    while True:
-        if stop["why"]:
-            for i, s in st.items():
-                if s["state"] in ("running", "queued"):
-                    ok = gitea.cancel(s["run"])
-                    s["state"], s["reason"] = "red", stop["why"] + ("" if ok else "; the child stops itself when it sees its parent ended")
-                elif s["state"] == "pending":
-                    s["state"], s["reason"] = "skipped", stop["why"]
-            if lint and lint.poll() is None:
-                lint.terminate()
-            break
-        progressed = False
-        for i, child, target, wf, needs in nodes:
-            s = st[i]
-            if s["state"] != "pending":
-                continue
-            bad = [d for d in needs if st[d]["state"] in ("red", "skipped")]
-            if bad:
-                d = bad[0]
-                root = d if st[d]["state"] == "red" else st[d]["reason"].split("not started: ", 1)[-1].split(" red")[0]
-                s["state"], s["reason"] = "skipped", "not started: %s red" % root.replace("/", " ")
-                progressed = True
-                continue
-            if any(st[d]["state"] != "green" for d in needs):
-                continue
-            s["t0"] = time.time()
-            if wf == "-":
-                print("=== %s: a step of this job (%s)" % (i, lint_cmd or "nothing"), flush=True)
-                if lint_cmd:
-                    lint = subprocess.Popen(lint_cmd, shell=True, stdout=open(lint_log, "w"), stderr=subprocess.STDOUT, start_new_session=True)
-                    s["state"] = "running"
-                else:
-                    s["state"] = "green"
-                progressed = True
-                continue
-            try:
-                # a workflow that serves two children (vivado.yml: vivado and ue2) gets the child's name as its target
-                tgt = target or ("" if wf.split(".")[0] == child else child)
-                s["run"], s["url"] = gitea.dispatch(wf, {"sha": sha, "parent": str(parent), "target": tgt, "plan": planjson}, i)
-                s["state"] = "queued"
-                print("=== dispatched %s: %s" % (i.replace("/", " "), s["url"]), flush=True)
-            except RuntimeError as e:
-                s["state"], s["reason"] = "red", "dispatch refused: %s" % e
-                red_at_once(i)
-            progressed = True
-            time.sleep(gap)
-        active = [i for i, s in st.items() if s["state"] in ("running", "queued")]
-        if not active and not progressed:
-            break
-        if not progressed:
-            time.sleep(poll)
-        for i in active:
-            s = st[i]
-            if by[i][3] == "-":
-                rc = lint.poll()
-                if rc is None:
-                    continue
-                s["t1"], s["secs"] = time.time(), int(time.time() - s["t0"])
-                if rc == 0:
-                    s["state"] = "green"
-                else:
-                    tail = [l.strip() for l in open(lint_log, errors="replace") if l.strip()]
-                    fails = [l for l in tail if "FAIL" in l or "fail" in l]
-                    s["state"], s["reason"] = "red", (fails[-1] if fails else (tail[-1] if tail else "exit %d" % rc))[:300]
-                    red_at_once(i)
-                continue
-            try:
-                status, concl, number, t0, t1 = gitea.status(s["run"])
-            except (OSError, ValueError) as e:
-                print("=== %s: status not readable (%s), asking again" % (i, e), flush=True)
-                continue
-            s["number"] = number
-            if status in ("queued", "waiting", "blocked", ""):
-                if time.time() - s["t0"] > start_min * 60:
-                    gitea.cancel(s["run"])
-                    s["state"], s["reason"] = "red", "never started: still %s %d min after its dispatch" % (status or "queued", start_min)
-                    red_at_once(i)
-                continue
-            s["state"] = "running"
-            if status != "completed":
-                continue
-            s["secs"] = tdelta(t0, t1)
-            if s["secs"] is None:
-                s["secs"] = int(time.time() - s["t0"])
-            if concl == "success":
-                s["state"] = "green"
-                print("=== green %s (%s)" % (i.replace("/", " "), fmt(s["secs"])), flush=True)
-            else:
-                s["state"], s["reason"] = "red", "%s: %s" % (concl, gitea.reason(s["run"]))
-                red_at_once(i)
-    return st
-
-
-def table(nodes, st, head=""):
-    lines = [head] if head else []
-    w = max([len(i) for i, *_ in nodes] + [5])
-    lines.append("%-*s  %-8s  %-11s  %-7s  %s" % (w, "child", "run", "result", "time", "reason / link"))
-    for i, *_ in nodes:
-        s = st[i]
-        res = {"green": "green", "red": "RED", "skipped": "not started"}.get(s["state"], s["state"])
-        run = ("#%s" % s["number"]) if s["number"] else ("id %s" % s["run"] if s["run"] else "-")
-        lines.append("%-*s  %-8s  %-11s  %-7s  %s" % (w, i.replace("/", " "), run, res, fmt(s["secs"]), s["reason"] or s["url"]))
-    return "\n".join(lines)
-
-
-# --- check ------------------------------------------------------------------------------------------------------------
 def check_benches():
     errs = []
     owners = bench_owners()
@@ -420,63 +195,141 @@ def check_benches():
     return errs
 
 
-def check():
+
+
+def outputs(plan, tier, update):
+    """what the jobs of .github/workflows/pipeline.yml ask the plan: which children run, and the matrix targets of sim and cor."""
+    nodes = graph(plan, tier, update)
+    names = list(dict.fromkeys(n[1] for n in nodes))
+    targets = {}
+    for _, child, target, _, _ in nodes:
+        targets.setdefault(child, [])
+        if target:
+            targets[child].append(target)
+    return {"children": names, "targets": targets, "ids": [n[0] for n in nodes], "tier": tier}
+
+
+def job_map(path):
     import yaml
+    return (yaml.safe_load(open(path, encoding="utf-8")) or {}).get("jobs", {})
+
+
+def read_yaml(path):
+    import yaml
+    text = open(path, encoding="utf-8").read()
+    return text, yaml.safe_load(text)
+
+
+def triggers(y):
+    return y.get("on", y.get(True, {})) or {}
+
+
+def check():
     errs = []
     rows = read_children()
+    names = {r["child"] for r in rows}
     for r in rows:
+        if r["when"] not in ("local", "apps", "images", "emu", "owners", "gateware", "cor", "package", "update", "prerelease"):
+            errs.append("ci/children.txt: child %s: unknown when %r" % (r["child"], r["when"]))
+        for tok in r["needs"]:
+            m = re.match(r"^-?([a-z0-9_]+)", tok)
+            if tok != "*" and m and m.group(1) not in names:
+                errs.append("ci/children.txt: child %s needs %s, which is no child" % (r["child"], m.group(1)))
         if r["workflow"] == "-":
             continue
         p = os.path.join(WF, r["workflow"])
         if not os.path.exists(p):
             errs.append("child %s: no workflow %s" % (r["child"], r["workflow"]))
             continue
-        text = open(p, encoding="utf-8").read()
-        y = yaml.safe_load(text)
-        on = y.get("on", y.get(True, {})) or {}
-        ins = ((on.get("workflow_dispatch") or {}).get("inputs") or {})
-        for k in ("sha", "parent", "target", "plan"):
-            if k not in ins:
-                errs.append("%s: workflow_dispatch lacks the input %s" % (r["workflow"], k))
-        if "inputs.target" not in str(y.get("run-name", "")) or "inputs.sha" not in str(y.get("run-name", "")):
-            errs.append("%s: run-name must say what it is (inputs.target, inputs.sha)" % r["workflow"])
+        text, y = read_yaml(p)
+        if "workflow_call" not in triggers(y):
+            errs.append("%s: not a called workflow (no workflow_call)" % r["workflow"])
         if "ci/child.sh" not in text:
             errs.append("%s: the child does not run through ci/child.sh" % r["workflow"])
-        if not re.search(r"SHA: \$\{\{ inputs\.sha", text):
-            errs.append("%s: the child does not check out inputs.sha" % r["workflow"])
+        if not re.search(r"ref: \$\{\{ github\.event\.pull_request\.head\.sha \|\| github\.sha \}\}", text):
+            errs.append("%s: the child does not check out the run's commit (the head of a pull request, else github.sha)" % r["workflow"])
+        if (y.get("permissions") or {}).get("contents") != "read":
+            errs.append("%s: top-level permissions contents: read is missing" % r["workflow"])
     for f in sorted(os.listdir(WF)):
         t = open(os.path.join(WF, f), encoding="utf-8").read()
-        for bad in ("defer_red", "CI_RED_DEFER", "verdict.yml", "lanes.py"):
+        for bad in ("defer_red", "CI_RED_DEFER", "verdict.yml", "lanes.py", "wait_turn", "/api/" + "v1/", "GITEA_TOKEN", "self-hosted"):
             if bad in t:
-                errs.append("%s: %s is gone (T174 D4: red is red at once, no deferred verdict)" % (f, bad))
-    y = yaml.safe_load(open(os.path.join(WF, "pipeline.yml"), encoding="utf-8"))
-    jobs = y.get("jobs", {})
-    if list(jobs) != ["parent"]:
-        errs.append("pipeline.yml: one job `parent` and nothing else (the children are dispatched), found %s" % list(jobs))
+                errs.append("%s: %s has no place on GitHub (T239.1)" % (f, bad))
+    pp = os.path.join(WF, "pipeline.yml")
+    if not os.path.exists(pp):
+        errs.append("no pipeline.yml")
     else:
-        j = jobs["parent"]
-        names = [s.get("name") for s in j.get("steps", [])]
-        if j.get("runs-on") != "nas":
-            errs.append("pipeline.yml: the parent runs on the nas pool (the builder's slots are the children's)")
-        for want in ("Wait for my turn", "Plan", "Children"):
-            if want not in names:
-                errs.append("pipeline.yml: the parent has no step %r" % want)
-        if names.index("Wait for my turn") > names.index("Plan") if {"Wait for my turn", "Plan"} <= set(names) else False:
-            errs.append("pipeline.yml: the parent waits for its turn before it plans")
-    nightly = open(os.path.join(WF, "nightly.yml"), encoding="utf-8").read()
-    for w in ("sim.yml", "apptests.yml"):
-        if "./.gitea/workflows/" + w not in nightly:
-            errs.append("nightly.yml does not call %s" % w)
+        text, y = read_yaml(pp)
+        jobs = y.get("jobs", {})
+        if (y.get("permissions") or {}).get("contents") != "read":
+            errs.append("pipeline.yml: top-level permissions contents: read is missing")
+        if not (y.get("concurrency") or {}).get("group"):
+            errs.append("pipeline.yml: no concurrency group (one per ref, D9)")
+        for j in ("plan", "lint", "approve", "summary"):
+            if j not in jobs:
+                errs.append("pipeline.yml: no job %s" % j)
+        for r in rows:
+            if r["workflow"] == "-" and r["when"] in ("local", "gateware"):
+                continue                      # lint is a job of the file itself; gateware is the builder's, awaited at an environment
+            j = jobs.get(r["child"])
+            if j is None:
+                errs.append("pipeline.yml: child %s has no job" % r["child"])
+                continue
+            if r["workflow"] != "-" and j.get("uses") != "./.github/workflows/" + r["workflow"]:
+                errs.append("pipeline.yml: job %s calls %r, the table says ./.github/workflows/%s" % (r["child"], j.get("uses"), r["workflow"]))
+            need = j.get("needs", [])
+            need = [need] if isinstance(need, str) else need
+            if "plan" not in need:
+                errs.append("pipeline.yml: job %s does not need plan (its `if` reads the plan)" % r["child"])
+            for tok in r["needs"]:
+                m = re.match(r"^([a-z0-9_]+)", tok)
+                if tok == "*" or tok.startswith("-") or not m:
+                    continue
+                dep = m.group(1)
+                drow = next((x for x in rows if x["child"] == dep), None)
+                if drow and drow["when"] in ("gateware",):
+                    continue
+                if dep not in need:
+                    errs.append("pipeline.yml: job %s must need %s (ci/children.txt)" % (r["child"], dep))
+            if "*" in r["needs"]:
+                minus = {t[1:] for t in r["needs"] if t.startswith("-")}
+                for x in rows:
+                    if x["child"] != r["child"] and x["child"] not in minus and x["workflow"] != "-" and x["child"] not in need:
+                        errs.append("pipeline.yml: job %s must need %s (ci/children.txt, *)" % (r["child"], x["child"]))
+        for jn, j in jobs.items():
+            need = j.get("needs", [])
+            for n in [need] if isinstance(need, str) else need:
+                if n not in jobs:
+                    errs.append("pipeline.yml: job %s needs %s, which does not exist" % (jn, n))
+            if "uses" in j and not os.path.exists(os.path.join(ROOT, j["uses"])):
+                errs.append("pipeline.yml: job %s uses %s, which does not exist" % (jn, j["uses"]))
+        # the environments (D1, D14): vivado only in `approve`, builds only in `prerelease`
+        for jn, j in jobs.items():
+            env = j.get("environment")
+            env = env.get("name") if isinstance(env, dict) else env
+            if env == "vivado" and jn != "approve":
+                errs.append("pipeline.yml: environment vivado outside job approve (job %s)" % jn)
+            if env == "builds" and jn != "prerelease":
+                errs.append("pipeline.yml: environment builds outside job prerelease (job %s)" % jn)
+    for f, calls in (("nightly.yml", ("sim.yml", "apptests.yml")),):
+        p = os.path.join(WF, f)
+        if not os.path.exists(p):
+            errs.append("no %s" % f)
+            continue
+        t = open(p, encoding="utf-8").read()
+        for w in calls:
+            if "./.github/workflows/" + w not in t:
+                errs.append("%s does not call %s" % (f, w))
     errs += check_benches()
     for e in errs:
         print("orchestrate: " + e)
     if errs:
         sys.exit(1)
-    print("orchestrate ok: %d children in ci/children.txt, every workflow takes sha/parent/target/plan, every bench has one owner" % len(rows))
+    print("orchestrate ok: %d children in ci/children.txt, pipeline.yml has a job for each with the table's needs, every bench has one owner" % len(rows))
 
 
 def opts(a):
-    o = {"--tier": "1", "--update": "no", "--ue2": "no", "--lint": "", "--fake": ""}
+    o = {"--tier": "1", "--update": "no"}
     it = iter(a)
     for k in it:
         if k not in o:
@@ -490,40 +343,55 @@ def main():
     if a[:1] == ["check"]:
         check()
         return
-    if a[:1] == ["tier"] and len(a) == 2:      # the sims tier the parent chose (ci/child.sh sim)
-        print(json.load(open(a[1])).get("ci", {}).get("sims_tier", 1) if os.path.exists(a[1]) else 1)
+    if a[:1] == ["tier"] and len(a) == 2:      # the sims tier the pipeline chose (ci/child.sh sim)
+        has = os.path.exists(a[1])
+        print(json.load(open(a[1])).get("ci", {}).get("sims_tier", 1) if has else int(os.environ.get("SIMS_TIER") or 2))
         return
     if a[:1] == ["benches"] and len(a) == 3:   # the benches of one owner that the plan names in its tier (ci/child.sh sim)
-        p = json.load(open(a[1]))
-        print("\n".join(sim_benches(p, int(p.get("ci", {}).get("sims_tier", 1))).get(a[2], [])))
+        if os.path.exists(a[1]):
+            p = json.load(open(a[1]))
+            tier = int(p.get("ci", {}).get("sims_tier", 1))
+        else:                                  # run alone (nightly): every bench there is
+            p, tier = {"sims": sorted(sims_tiers())}, int(os.environ.get("SIMS_TIER") or 2)
+        print("\n".join(sim_benches(p, tier).get(a[2], [])))
         return
-    if a[:1] not in (["graph"], ["run"]) or len(a) < 2:
+    if a[:1] == ["owners"]:
+        o = opts(a[1:]) if len(a) > 1 else {"--tier": "2"}
+        print(json.dumps(sorted(sim_benches({"sims": sorted(sims_tiers())}, int(o["--tier"]))), separators=(",", ":")))
+        return
+    if a[:1] == ["stamp"] and len(a) >= 2:
+        o = opts(a[2:])
+        p = json.load(open(a[1]))
+        p.setdefault("ci", {})["sims_tier"] = int(o["--tier"])
+        json.dump(p, open(a[1], "w"))
+        return
+    as_json = a[:2] == ["graph", "--json"]
+    if as_json:
+        a = ["graph"] + a[2:]
+    if a[:1] not in (["graph"], ["outputs"]) or len(a) < 2:
         raise SystemExit(__doc__)
     plan = json.load(open(a[1]))
     o = opts(a[2:])
-    tier, update, ue2 = int(o["--tier"]), o["--update"] == "yes", o["--ue2"] == "yes"
+    tier, update = int(o["--tier"]), o["--update"] == "yes"
     plan.setdefault("ci", {})["sims_tier"] = tier
-    nodes = graph(plan, tier, update, ue2)
-    head = "=== children of parent %s (%s, scope %s, sims tier %d)" % (os.environ.get("GITHUB_RUN_ID", "local"), (plan.get("head") or "")[:8],
-                                                                    plan.get("scope", "full"), tier)
+    if a[0] == "outputs":
+        d = outputs(plan, tier, update)
+        print("children=" + json.dumps(d["children"], separators=(",", ":")))
+        print("sim_owners=" + json.dumps(d["targets"].get("sim", []), separators=(",", ":")))
+        print("cor_targets=" + json.dumps(d["targets"].get("cor", []), separators=(",", ":")))
+        print("sims_tier=%d" % tier)
+        print("update=%s" % ("yes" if update else "no"))
+        print("docs_only=%s" % ("true" if plan.get("docs_only") else "false"))
+        return
+    if as_json:
+        print(json.dumps(outputs(plan, tier, update), separators=(",", ":")))
+        return
+    nodes = graph(plan, tier, update)
     if not nodes:
         print("nothing to do (docs only)" if plan.get("docs_only") else "nothing to do (the plan names nothing)")
         return
-    if a[0] == "graph":
-        for i, child, target, wf, needs in nodes:
-            print("%s <- %s" % (i, " ".join(needs) or "-"))
-        return
-    gitea = Fake(o["--fake"]) if o["--fake"] else Gitea()
-    fast = bool(o["--fake"])
-    st = run(plan, nodes, gitea, o["--lint"] or None, poll=0 if fast else float(os.environ.get("CI_CHILD_POLL", "30")),
-             gap=0 if fast else float(os.environ.get("CI_DISPATCH_GAP", "1")),
-             start_min=float(os.environ.get("CI_CHILD_START_MIN", "240")), lint_log=os.path.abspath(a[1]) + ".lint.log")
-    t = table(nodes, st, head)
-    print(t)
-    if os.environ.get("GITHUB_STEP_SUMMARY"):
-        with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as fh:
-            fh.write("```\n" + t + "\n```\n")
-    sys.exit(1 if any(s["state"] != "green" for s in st.values()) else 0)
+    for i, child, target, wf, needs in nodes:
+        print("%s <- %s" % (i, " ".join(needs) or "-"))
 
 
 if __name__ == "__main__":

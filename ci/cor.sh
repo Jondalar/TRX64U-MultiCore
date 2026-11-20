@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# T174 D2.7 + D4: the child `cor` of a feature branch - ONE core's .cor from this parent's images (child `images`) and the core's bitstream, published
-# into this commit's package version (<branch>-<sha8> and <branch>-latest of $MC_PKG) beside nothing else. On main the package packs every .cor.
+# T174 D2.7 + D4: the child `cor` of a feature branch - ONE core's .cor from this run's images (child `images`) and the core's bitstream, left in
+# $HANDOFF/cor-<target>/; the workflow (.github/workflows/cor.yml) uploads it as the artifact cor-<target> (T239.1 D1: only main gets a pre-release).
+# On main the package packs every .cor.
 #
 #   ci/cor.sh core:<id>     a DFX core: ci/pack_one.sh (the partial of the cache under this tree's keys, bound to the host it was routed against)
 #   ci/cor.sh large:<id>    a large core: tools/pack_large_cor.sh on the flat bitstream the child `vivado large:<id>` of this parent handed over
@@ -27,5 +28,4 @@ esac
 rm -f "$out/DONE"
 ls -l "$out"
 (cd "$out" && sha256sum ./*.cor)
-publish_files "$out"
 : > "$out/DONE"

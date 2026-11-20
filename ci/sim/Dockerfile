@@ -6,11 +6,11 @@
 # icepi-zero-c64's image, plus what that image lacks: a C++ compiler for the
 # Verilator benches, make, 64tass and a RISC-V assembler for the bench programs
 # (tools/flashgate_test.py calls it riscv64-elf-as, Arch naming), shellcheck, ruff.
-# Ubuntu 24.04: the suite's libgrt (GHDL's runtime, linked into every elaborated
+# Ubuntu 24.04 (by digest, the index digest read from the registry): the suite's libgrt (GHDL's runtime, linked into every elaborated
 # bench) is built against glibc 2.38+ (__isoc23_strtol); 22.04 cannot link it.
 # 24.04's tar uses fchmodat2, which the NAS Docker's seccomp profile rejects, so
 # the suite is unpacked with Python (chmod(2)).
-FROM ubuntu:24.04
+FROM ubuntu:24.04@sha256:73b999393d07f2bf65a40373778a44dc9a6d54ad7718d29247d8ff9413c4d6a8
 
 ARG OSS_CAD_SUITE_DATE=2026-09-27
 

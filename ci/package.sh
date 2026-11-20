@@ -1,20 +1,19 @@
 #!/usr/bin/env bash
-# Stage `package`: what the earlier stages made, as the generic package
-# trx64u-multicore (MC_PKG, ci/pkg.env) in the Gitea registry, version <branch>-<8 digit commit> and
-# <branch>-latest (the same versions and file names as the single job used:
-# <design>.bit, <design>.timing.rpt, <design>.utilization*.rpt; tools/load.sh
-# reads <design>.bit). New: manifest.json and SHA256SUMS over all of it, and one <core>.cor per core that has an
-# application - the file the board loads, ready to copy onto the stick.
+# Stage `package`: what the earlier stages made, in $ROOT/out (the workflow uploads it as the artifact `package`; ci/update.sh and ci/prerelease.sh read it from there,
+# and only the job `prerelease` of a push to main, t239.1 or a v* tag publishes it, ci/publish_release.py). Nothing is published here. The files: <design>.bit,
+# <design>.timing.rpt, <design>.utilization*.rpt (tools/load.sh reads <design>.bit), manifest.json and SHA256SUMS over all of it, and one <core>.cor per core that has an
+# application - the file the board loads, ready to copy onto the stick. The manifest records, per bitstream entry, the release (tag, id, SHA-256 of its SHA256SUMS and of
+# each asset) the entry was fetched from (ci/fetch_bits.sh, T239.1 D19).
 #
-# T100 D9: the package is published whole (a version is reset before it is filled), so it carries every core's .cor and every large
-# core's large .cor whatever the plan named: a target the plan did not name came out of the cache in its stage. What the plan names
-# only decides what was built fresh. A red target of an earlier stage (host, a core, a large core) leaves its file out; the others
-# are packed (D9.6); T174 D4: the parent starts the package only when every child before it is green.
+# T100 D9: the package is whole, so it carries every core's .cor and every large core's large .cor whatever the plan named: a target the plan did not name came
+# out of the entries ci/collect.sh restored. What the plan names only decides what was built fresh. A red target of an earlier stage (host, a core, a large core)
+# leaves its file out; the others are packed (D9.6); the pipeline starts the package only when every job before it is green.
 #
-# The 100T bitstream is not part of this: stage bit-ue2 comes after it and adds
-# its own files (_100t) to the same package versions, only when asked for.
+# trx64u.cor and trx64g.cor (T239.1 D43, replacing D16): the builder packs them from release/imports/*.pin (ci/imports.py) and publishes them as entries
+# imp-<id>-<key>; collect hands them over as bit-imports, and they get the version form of this run here, trx64u.cor this run's coreapp_trx64u.bin.
 #
-#   PACKAGE_TOKEN=... ci/package.sh
+# The 100T bitstream is not part of this: the builder's target ue2 makes it by hand (T239.1 D16).
+#
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
@@ -85,8 +84,7 @@ for g in "$c64u"/*.bit "$c64u"/*.rpt "$c64u"/*.gz "$c64u"/*.steps.txt; do [ ! -e
 [ ! -f "$c64u/layers.json" ] || cp "$c64u/layers.json" "$out/layers.json"
 cp "$c64u/wns.txt" "$out/wns.c64u.txt"
 [ -f "$c64u/plan_result.txt" ] && cat "$c64u/plan_result.txt"
-# Every core's partial and full image goes into the package: the generic packages are how a build reaches the Mac and
-# the board. The published .cor files come from these.
+# Every core's partial and full image goes into the package: the pre-release is how a build reaches the Mac and the board. The .cor files come from these.
 
 # Our own applications (T94 P6): the host boot app goes into the package so an update file can be made
 # from exactly this run, and the blueprint images are what the .cor bundles below are packed with. Until
@@ -121,27 +119,11 @@ for f in "$out"/coreapp_*.bin; do
     || mark_red package stamp "tools/stamp_version.py could not stamp $(basename "$f")"
 done
 
-# The applications the .cor bundles are packed with: the stage's blueprint image for every core that
-# has a descriptor (every core but trx64 and c64u), and for the rest the generic package trx64-coreapps.
-# trx64 is a Gideon-base build that lives in another tree and is not built in this repository (T93 5.2) - for it
-# the uploaded package is still the only source, and a core without an application anywhere is named and skipped
-# by pack_cores_mc.sh. (amiga1200 since 2026-10-20, vc20 and c264 since
-# 2026-10-22 and amiga since 2026-10-24 run the generic image.) The stage always wins: a hand-uploaded
-# file must never overwrite an image built from this commit.
-#
-# The version of that package is a number, and the number moves when one of those five is rebuilt: a
-# generic package refuses to take a file name twice (409), so a new build is a new version with all
-# seven files in it. Version 2 (2026-10-16) carries the two Amiga applications of ADR-0056 - Kickstart
-# by the image's version word, no disk in a drive at start-up - and the other five unchanged.
+# The applications the .cor bundles are packed with: the stage's blueprint image of every core that has a descriptor (stage trxapps, coreapps/). trx64 is a
+# Gideon-base build that lives in another tree and is not built in this repository (T93 5.2); a core without an application is named and skipped by
+# pack_cores_mc.sh.
 coreapps="$out/.coreapps"
 mkdir -p "$coreapps"
-if [ -n "${PACKAGE_TOKEN:-}" ]; then
-  capi="${GITHUB_SERVER_URL}/api/packages/${GITHUB_REPOSITORY%%/*}/generic/trx64-coreapps/${COREAPPS_VERSION:-2}"
-  for c in $(python3 "$ROOT/tools/core_toml.py" list-cor); do
-    curl -sf -H "Authorization: token ${PACKAGE_TOKEN}" "$capi/$c.app" -o "$coreapps/$c.app" \
-      || rm -f "$coreapps/$c.app"
-  done
-fi
 cp "$trxapps/coreapps"/*.app "$coreapps/"
 python3 -I "$ROOT/tools/stamp_version.py" stamp "$coreapps"/*.app --version "$("$ROOT/ci/version.sh" coreapp)" \
   || mark_red package stamp "tools/stamp_version.py could not stamp the version into the blueprint core apps"
@@ -201,23 +183,24 @@ else
   echo "no large-core lane handed anything over: no large core in this package"
 fi
 
-# T104.2: the large TRX64 .cor files (trx64u.cor runs OUR generic application). Its bitstream is the TRX64 Ultimate monolith of TREX/TRX64-Ultimate
-# (never built here): the file pinned in release/imports/trx64u.pin is fetched from that repository's CI package, checked against the pin's SHA-256
-# and packed with this run's coreapp.bin. trx64g.cor (T104.2 Q5) is the same bitstream with Gideon's application, which the pin also takes from that package (APP_FILE);
-# the two ids differ, so their core folders and .cfg differ (tools/test_pack_import_cor.sh).
-for pin in "$ROOT"/release/imports/*.pin; do
-  [ -e "$pin" ] || continue
-  if grep -q '^PIPELINE=false' "$pin"; then      # deactivated, not deleted (T228, Alex 2026-11-17): the pin stays, nothing is packed
-    echo "=== imported large .cor $(basename "$pin" .pin): PIPELINE=false in the pin, not packed"
-    continue
-  fi
-  echo "=== imported large .cor $(basename "$pin" .pin)"
-  app="$out/coreapp.bin"; [ -f "$out/coreapp_$(basename "$pin" .pin).bin" ] && app="$out/coreapp_$(basename "$pin" .pin).bin"   # T228 R25: its own image
-  if ! "$ROOT/tools/pack_import_cor.sh" --pin "$pin" --app-bin "$app" --app-commit "$(cut -c1-8 "$trxapps/trxapps_commit")" --out "$out"; then
-    echo "the imported large .cor of $pin could not be packed" >&2
-    mark_red package "cor-$(basename "$pin" .pin)" "tools/pack_import_cor.sh failed"
-  fi
-done
+# T239.1 D43: trx64u.cor and trx64g.cor from the builder's entries (collect: bit-imports). A pin without APP_FILE (trx64u) gets this run's stamped image
+# coreapp_<id>.bin (else coreapp.bin) and its commit; every one gets the version form of this run (ci/imports.py finish).
+if [ -f "$HANDOFF/bit-imports/DONE" ]; then
+  for c in "$HANDOFF/bit-imports"/*.cor; do
+    [ -e "$c" ] || continue
+    id="$(basename "$c" .cor)"
+    if grep -q '^APP_FILE=' "$ROOT/release/imports/$id.pin" 2>/dev/null; then appargs=()
+    else
+      app="$out/coreapp_$id.bin"; [ -f "$app" ] || app="$out/coreapp.bin"
+      appargs=(--app "$app" --app-commit "$(cut -c1-8 "$trxapps/trxapps_commit")")
+    fi
+    python3 -I "$ROOT/ci/imports.py" finish "$c" -o "$out/$id.cor" ${appargs[@]+"${appargs[@]}"} \
+      && python3 "$ROOT/tools/cor_pack.py" check "$out/$id.cor" > /dev/null \
+      || { rm -f "$out/$id.cor"; mark_red package "cor-$id" "ci/imports.py could not finish $id.cor"; }
+  done
+else
+  echo "no bit-imports handed over: no trx64u.cor, no trx64g.cor"
+fi
 
 # T148 D8: ROMS.txt (what each core needs in its own folder, the legal sources; made from the descriptors' ROM table and the manual) is part of the
 # package, and the package holds .cor files only - never a core folder, which is the user's (tools/check_package_layout.py).
@@ -236,7 +219,7 @@ if [ -f "$out/null_full.bit" ] && [ -f "$out/hostapp.app" ]; then
 else
   echo "no null_full.bit or hostapp.app in this package: no .txu"
 fi
-BITDIR="$c64u" python3 - "$out" "$sha" "$(git -C "$ROOT" rev-parse HEAD)" "$(branch_slug)" "$(cat "$trxapps/trxapps_commit")" "$("$ROOT/ci/version.sh" bundle)" \
+BITDIR="$c64u" HANDOFF_DIR="$HANDOFF" python3 - "$out" "$sha" "$(git -C "$ROOT" rev-parse HEAD)" "$(branch_slug)" "$(cat "$trxapps/trxapps_commit")" "$("$ROOT/ci/version.sh" bundle)" \
   "$("$ROOT/ci/version.sh" host)" "$("$ROOT/ci/version.sh" hostapp)" "$("$ROOT/ci/version.sh" coreapp)" "$ROOT" <<'PY'
 import hashlib, json, os, sys
 out, short, full, branch, trxapps, version, v_host, v_menu, v_coreapp, root = sys.argv[1:]
@@ -252,6 +235,9 @@ def cor_versions():          # T221 D6: the version of every core in the package
 def wns(name):
     p = os.path.join(out, name)
     return dict(l.split() for l in open(p)) if os.path.exists(p) else {}
+# the releases the bitstream entries came from (ci/fetch_bits.py wrote bit-releases.json into the hand-over directory)
+rp = os.path.join(os.environ["HANDOFF_DIR"], "bit-releases.json")
+bitstreams = json.load(open(rp)) if os.path.exists(rp) else None
 files = {}
 for f in sorted(os.listdir(out)):
     if (f.endswith(".txt") and f.startswith("wns.")) or f in ("layers.json", "trxapps_commit"):
@@ -264,6 +250,7 @@ json.dump({"trx64_commit": full, "trxapps_commit": trxapps, "branch": branch, "v
            "bitstream_from": open(os.path.join(os.environ["BITDIR"], "from")).read().strip(),
            "wns_ns": wns("wns.c64u.txt"),
            "layers": json.load(open(os.path.join(out, "layers.json"))) if os.path.exists(os.path.join(out, "layers.json")) else None,
+           "bitstreams": bitstreams,
            "files": files}, open(os.path.join(out, "manifest.json"), "w"), indent=2)
 PY
 rm -f "$out"/wns.*.txt "$out/layers.json" "$out/trxapps_commit"
@@ -271,10 +258,8 @@ rm -f "$out"/wns.*.txt "$out/layers.json" "$out/trxapps_commit"
 ls -l "$out"
 cat "$out/manifest.json"
 
-publish_files "$out" reset
 stage_verdict package || exit 1
 
-# the run's hand-over directory goes, unless ci/select.sh ue2 says yes here; since 2026-11-18 that needs UE2_INPUT, which the package child
-# does not get (.gitea/workflows/package.yml), so it always goes
+# the run's hand-over directory goes, unless ci/select.sh ue2 says yes here; that needs UE2_INPUT, which the package job does not get, so it always goes
 [ "$("$ROOT/ci/select.sh" ue2)" = yes ] || rm -rf "${HANDOFF:?}"
 echo "=== package done in $(lap)"

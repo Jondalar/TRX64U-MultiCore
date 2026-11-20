@@ -7,6 +7,7 @@ atari_led:
   cores/atari800/sim/led/run.sh
   cores/atari800/sim/led/tb_sio_led.v
 atari_machine:
+  ci/roms.txt
   cores/atari800/cpu.vhd
   cores/atari800/gen/a8core/address_decoder.vhdl
   cores/atari800/gen/a8core/antic.vhdl
@@ -48,8 +49,6 @@ atari_machine:
   cores/atari800/gen/sioemu/sio_handler.vhdl
   cores/atari800/proc_core_a8.vhd
   cores/atari800/proc_interrupt_a8.vhd
-  cores/atari800/roms/ataribas.rom
-  cores/atari800/roms/atarixl.rom
   cores/atari800/sim/files.sh
   cores/atari800/sim/machine/gen_images.py
   cores/atari800/sim/machine/rom2hex.py

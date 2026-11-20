@@ -1,0 +1,170 @@
+name: CI images
+
+# T239.1 D12, D23: the build image, the emulator image and the simulation image (lint, benches) of GitHub's runners, pushed to ghcr.io with GITHUB_TOKEN. A push builds them when a
+# Dockerfile of them or this file changes; by hand on request. Every action is pinned by its full commit SHA (the tag is in the comment).
+# Only a run on main, integration or t239.1 logs in and pushes (the PUSH expression); a run on any other ref builds only, to prove the Dockerfile. This is no
+# protection against an account with Write access: it can push a feature branch with its own copy of this file, whose jobs get packages: write and push as
+# they like. What keeps such an image out of the pipeline is that the workflows name the images by digest (ghcr.io/<owner>/trx64u-build@sha256:...), never
+# by the moving :ci tag (step 7), and that a digest changes only in a commit that a review merged.
+on:
+  push:
+    paths:
+      - ci/build/Dockerfile
+      - ci/emu/Dockerfile
+      - ci/sim/Dockerfile
+      - .github/workflows/ci-images.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-images-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    env:
+      PUSH: ${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/integration' || github.ref == 'refs/heads/t239.1' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image: ${{ steps.name.outputs.build }}
+      digest: ${{ steps.push.outputs.digest }}
+      push: ${{ env.PUSH }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683   # v4.2.2
+      - name: Image names
+        id: name
+        run: |
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          echo "build=ghcr.io/${owner}/trx64u-build" >> "$GITHUB_OUTPUT"
+          echo "emu=ghcr.io/${owner}/trx64u-emu" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e   # v4.3.0
+      - if: env.PUSH == 'true'
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6   # v4.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push
+        id: push
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a   # v7.3.0
+        with:
+          context: ci/build
+          file: ci/build/Dockerfile
+          build-contexts: |
+            codehash=ci
+          push: ${{ env.PUSH == 'true' }}
+          load: ${{ env.PUSH != 'true' }}
+          tags: |
+            ${{ steps.name.outputs.build }}:ci
+            ${{ steps.name.outputs.build }}:${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+      - name: Proof, the compiler of D12
+        env:
+          IMAGE: ${{ env.PUSH == 'true' && format('{0}@{1}', steps.name.outputs.build, steps.push.outputs.digest) || format('{0}:ci', steps.name.outputs.build) }}
+        run: |
+          out="$(docker run --rm "$IMAGE" riscv32-unknown-elf-gcc --version)"
+          printf '%s\n' "$out"
+          printf '%s\n' "$out" | head -n 1 | grep -F ' 11.3.0'
+          docker run --rm "$IMAGE" sh -c 'c++ --version | head -1; make --version | head -1; python3 --version; ccache --version | head -1'
+          docker run --rm "$IMAGE" python3 -c "import os, sys; sys.path.insert(0, os.environ['CODE_HASH_LIBS']); import tree_sitter, tree_sitter_language_pack; print('code-hash libs', os.environ['CODE_HASH_LIBS'])"
+
+  # The simulation image (lint and the benches, ci/sim/Dockerfile, T31) has no dependency on the others.
+  sim:
+    env:
+      PUSH: ${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/integration' || github.ref == 'refs/heads/t239.1' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683   # v4.2.2
+      - name: Image names
+        id: name
+        run: echo "sim=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/trx64u-sim" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e   # v4.3.0
+      - if: env.PUSH == 'true'
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6   # v4.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push
+        id: push
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a   # v7.3.0
+        with:
+          context: ci/sim
+          file: ci/sim/Dockerfile
+          push: ${{ env.PUSH == 'true' }}
+          load: ${{ env.PUSH != 'true' }}
+          tags: |
+            ${{ steps.name.outputs.sim }}:ci
+            ${{ steps.name.outputs.sim }}:${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+      - name: Proof, the tools
+        env:
+          IMAGE: ${{ env.PUSH == 'true' && format('{0}@{1}', steps.name.outputs.sim, steps.push.outputs.digest) || format('{0}:ci', steps.name.outputs.sim) }}
+        run: |
+          docker run --rm "$IMAGE" sh -c 'yosys -V; ghdl --version | head -1; shellcheck --version | head -2; ruff --version; python3 -c "import yaml; print(\"yaml ok\")"'
+
+  # The emulator image is built on top of the build image from the registry, so it is built where the build image was pushed (the build job's output
+  # push); on other refs the job does not run (its Dockerfile is proved on the next push to main, integration or t239.1).
+  emu:
+    needs: build
+    if: needs.build.outputs.push == 'true'
+    env:
+      PUSH: ${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/integration' || github.ref == 'refs/heads/t239.1' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683   # v4.2.2
+      - name: Image names
+        id: name
+        run: |
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          echo "emu=ghcr.io/${owner}/trx64u-emu" >> "$GITHUB_OUTPUT"
+          echo "tag=$(sed -n 's/^ARG UE2EMU_TAG=//p' ci/emu/Dockerfile)" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e   # v4.3.0
+      - if: env.PUSH == 'true'
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6   # v4.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push
+        id: push
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a   # v7.3.0
+        with:
+          context: ci/emu
+          file: ci/emu/Dockerfile
+          push: ${{ env.PUSH == 'true' }}
+          build-args: |
+            BASE=${{ needs.build.outputs.image }}@${{ needs.build.outputs.digest }}
+          tags: |
+            ${{ steps.name.outputs.emu }}:${{ steps.name.outputs.tag }}
+            ${{ steps.name.outputs.emu }}:${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+      - name: Proof, the emulator
+        env:
+          IMAGE: ${{ steps.name.outputs.emu }}@${{ steps.push.outputs.digest }}
+          TAG: ${{ steps.name.outputs.tag }}
+        run: |
+          out="$(docker run --rm "$IMAGE" ue2emu --version)"
+          printf '%s\n' "$out"
+          [ "$out" = "ue2emu ${TAG#v}" ]
+          docker run --rm "$IMAGE" riscv32-unknown-elf-gcc --version | head -n 1 | grep -F ' 11.3.0'

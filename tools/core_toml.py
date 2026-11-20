@@ -25,7 +25,9 @@ of strings), so no toml library is required on any runner.
 """
 import os, re, sys
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# the tree whose descriptors are read: this file's own, or the checkout CI_DATA_ROOT names (ci/lib.sh core_toml_of, ci/plan.py, ci/keys.sh --data:
+# this file of the trusted tree over another tree's cores/, which is only read; T239.1 D14)
+ROOT = os.environ.get("CI_DATA_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CORES = os.path.join(ROOT, "cores")
 # name: (type, required)
 SCHEMA = {

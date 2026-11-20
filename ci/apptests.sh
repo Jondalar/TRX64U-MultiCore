@@ -171,7 +171,7 @@ run_one() {   # run_one suite : returns the suite's status
     mkdir -p "$eout"
     case "$s" in
       hostapp_emu) nice -n 15 "$sc" "$imgs" "$eout" || erc=$? ;;
-      coreapp_emu) nice -n 15 "$sc" "$imgs/coreapp_trx64u.app" || erc=$? ;;   # T228 R25: tests/coreapp/emu/run.sh runs trx64u, which has its own image
+      coreapp_emu) EMU_LOGS="$eout" nice -n 15 "$sc" "$imgs/coreapp_trx64u.app" || erc=$? ;;   # T228 R25: tests/coreapp/emu/run.sh runs trx64u, which has its own image
       *)           nice -n 15 "$sc" "$imgs/coreapp.app" || erc=$? ;;
     esac
     if [ $erc -eq 77 ]; then
@@ -180,7 +180,7 @@ run_one() {   # run_one suite : returns the suite's status
       return 0
     fi
     if [ $erc -ne 0 ]; then echo "=== apptests $s: FAIL after $((SECONDS - t1))s" >&2; return 1; fi
-    echo "=== apptests $s: done in $((SECONDS - t1))s (PNGs and logs in $eout)"
+    echo "=== apptests $s: done in $((SECONDS - t1))s (output in $eout)"
     if [ -z "$plan" ] && [ -n "$cache_on" ]; then printf '%s %s\n' "$(git -C "$ROOT" rev-parse --short=8 HEAD)" "$(date -u +%FT%TZ)" > "$ok_dir/$s.$key"; fi
     return 0
   fi

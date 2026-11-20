@@ -6,7 +6,7 @@
 #   ci/bitstream.sh c64u --lane host        one lane (T100 D10): the host routed with the reference core, plus ddr2_test / hdmi_test; stage dir bit-host
 #   ci/bitstream.sh c64u --lane core:<id>   one lane: that DFX core against the host of the cache (the host lane made it); stage dir bit-<id>
 # A lane runs in its own job (pipeline.yml). The plan says whether its triggers fired (ci/plan.py lanes_of); a lane that did not fire builds
-# nothing it can take from the cache ("not in the plan: handing over from the cache") - the package is published whole and needs its files -
+# nothing it can take from the cache ("not in the plan: handing over from the cache") - the package is whole and needs its files -
 # and a cache miss is built and marked, as for every unnamed target.
 #
 # A bitstream is built only when something that goes into it changed
@@ -21,9 +21,8 @@
 #
 # T100 D9: ci/plan.py names what this push changed; a target the plan does not name comes from the cache (a miss is built and
 # marked), every Vivado run has the time limit of its kind, and a red target (host, core, aux design) does not stop the others.
-# bit-ue2 runs after `package`, only when asked for (ci/select.sh ue2: a dispatch
-# with ue2 set, since 2026-11-18 never a tag alone), and publishes its own files (_100t) into
-# the package versions `package` made. It cleans up the run's hand-over directory.
+# bit-ue2 runs only when asked for (ci/select.sh ue2: UE2_INPUT=true, the builder's target ue2, T239.1 D16), leaves its own files (_100t) in out-ue2/ and
+# publishes nothing. It cleans up the run's hand-over directory.
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
@@ -80,7 +79,7 @@ elif [ -n "${CI_COLLECT_ONLY:-}" ]; then
   echo "=== $board: the aux designs are not in the cache: NOT built (collect only reads)"
   aux_failed=1; mark_red "$stage" aux "not in the cache (collect builds nothing)"; [ "$layered" != 1 ] || plan_note "$out" aux "RED: not in the cache"
 else
-  heavy_lock
+  heavy_lock required
   export HOME=/tmp/vivado-home
   export TRX_CACHE="${TRX_CACHE:-/cache/multicore}"
   mkdir -p "$HOME"
@@ -176,7 +175,7 @@ files = {f: hashlib.sha256(open(os.path.join(pub, f), "rb").read()).hexdigest() 
 json.dump({"part": "xc7a100tfgg484-1", "gateware_key": key, "from": open(os.path.join(src, "from")).read().strip(),
            "wns_ns": wns, "files": files}, open(os.path.join(pub, "manifest_100t.json"), "w"), indent=2)
 PY
-  publish_files "$pub"
+  echo "bit-ue2: the 100T files are in $pub; the builder's target ue2 (T239.1 D16) keeps them, nothing is published from here"
   rm -rf "${HANDOFF:?}"
 fi
 echo "=== $stage done in $(lap)"

@@ -1,9 +1,20 @@
+# T239.1 D5/D24: private material lives in the side repository and is overlaid at these paths; it is never tracked here
+/roms/*.bin
+/cores/*/roms/*.rom
+/cores/*/sim/media/
+/release/imports/trx64u_files/modplayer/module.bin
+/.claude/context.md
+/.claude/handover*
+/.claude/settings.local.json
+/CLAUDE.local.md
 .DS_Store
 *.jou
 *.log
 *.str
 .Xil/
 build/
+# T239.1 D12: the build image's Dockerfile folder. A later line wins, so this has to stay below 'build/' (above it, it does nothing).
+!/ci/build/
 *.cache/
 *.runs/
 *.hw/

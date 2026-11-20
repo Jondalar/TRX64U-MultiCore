@@ -60,7 +60,7 @@ PY
 build_host() {
   local entry="$1" H="$2" part="$3" ref="$4" okey="$5" d b tmp wns r
   d="$ROOT/host"; b="$d/build_host"; tmp="$(mktemp -d)"
-  heavy_lock
+  heavy_lock required
   export HOME=/tmp/vivado-home TRX_CACHE="${TRX_CACHE:-/cache/multicore}"
   mkdir -p "$HOME" "$b"
   rm -f "${b:?}/routed.dcp" "${b:?}/host.bit" "${b:?}/vivado.rc"
@@ -129,7 +129,7 @@ build_core() {
   local entry="$1" core="$2" C="$3" H="$4" part="$5" host="$6" okey="$7" d b tmp wns f k8
   k8="$(host_axss "$host")" || { echo "core $core: the host entry $host has no AXSS host key in its full image"; return 1; }
   d="$ROOT/host"; b="$d/build_core_$core"; tmp="$(mktemp -d)"
-  heavy_lock
+  heavy_lock required
   export HOME=/tmp/vivado-home TRX_CACHE="${TRX_CACHE:-/cache/multicore}"
   mkdir -p "$HOME" "$b"
   rm -f "${b:?}/${core}_partial.bit" "${b:?}/${core}_full.bit" "${b:?}/timing.rpt" "${b:?}/vivado.rc"
