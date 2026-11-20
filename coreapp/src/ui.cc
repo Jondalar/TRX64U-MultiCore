@@ -312,12 +312,32 @@ static int list_row_h(int, void *)
     return trx_row_h() + 1;
 }
 
-static int list_foot(void) { return 24; }
+// The height a note of the foot needs beyond its one line, wrapped to `w` (a long note takes more lines; a word wider than the line breaks inside it).
+int ui_note_extra_h(const char *s, int w)
+{
+    if (!s || !*s || w < 1) {
+        return 0;
+    }
+    const lv_font_t *f = trx_theme().caption;
+    lv_point_t p;
+    lv_text_get_size(&p, s, f, 0, 0, w, LV_TEXT_FLAG_NONE);
+    int one = lv_font_get_line_height(f);
+    return p.y > one ? p.y - one : 0;
+}
+
+static const char *status_line(MenuCtl &m);
+
+static int status_extra(MenuCtl &m)
+{
+    return ui_note_extra_h(status_line(m), trx_content_w() - 2 * trx_theme().space_lg);
+}
+
+static int list_foot(MenuCtl &m) { return 24 + status_extra(m); }     // the status line's single line, and the lines a long note adds above it
 
 static TrxWindow list_window(MenuCtl &m, int *room_out)
 {
     const TrxTheme &t = trx_theme();
-    int room = trx_content_h() - (t.space_md + 26) - list_foot();
+    int room = trx_content_h() - (t.space_md + 26) - list_foot(m);
     if (room < 1) {
         room = 1;
     }
@@ -475,6 +495,7 @@ static bool list_inplace(MenuCtl &m, TrxWindow *w_out, uint32_t *rowh, uint32_t 
     uint32_t sh = 2166136261u;                                          // the title is written in place (a folder with as many rows is the same pane)
     sh = (sh ^ (uint32_t)w.count) * 16777619u;
     sh = (sh ^ (uint32_t)(w.count < m.rows())) * 16777619u;
+    sh = (sh ^ (uint32_t)status_extra(m)) * 16777619u;                  // the lines of the status note: the label stands higher and the window is shorter
     char left[120], right[120];
     bool active;
     for (int i = 0; i < w.count; i++) {
@@ -520,7 +541,7 @@ bool ui_list_probe(UiListProbe *p)
     p->sel = g_rowsel;
     p->pane_h = trx_content_h();
     p->rows_top = t.space_md + 26;
-    p->rows_bottom = trx_content_h() - list_foot();
+    p->rows_bottom = g_status ? lv_obj_get_y(g_status) - 4 : trx_content_h() - 24;     // the status line stands 4 px under the rows
     for (int i = 0; i < g_rown; i++) {
         int y1 = lv_obj_get_y(g_row[i]), h = lv_obj_get_height(g_row[i]);
         p->drawn_h += h + 1;
@@ -793,10 +814,11 @@ void ui_menu_render(MenuCtl &m)
 
     {
         const char *st = status_line(m);
-        g_status = trx_txt(c, x, trx_content_h() - 20, st, t.caption, m.status_bad() ? t.bad : t.muted,
-                           trx_content_w() - 2 * x);
+        int room = trx_content_w() - 2 * x;
+        g_status = trx_txt(c, x, trx_content_h() - 20 - status_extra(m), st, t.caption, m.status_bad() ? t.bad : t.muted, room);
+        lv_label_set_long_mode(g_status, LV_LABEL_LONG_MODE_WRAP);     // a long note takes more lines, it is not cut
         g_status_bad = m.status_bad();
-        lv_obj_set_width(g_status, trx_text_w(st, t.caption) + 4 < trx_content_w() - 2 * x ? trx_text_w(st, t.caption) + 4 : trx_content_w() - 2 * x);
+        lv_obj_set_width(g_status, trx_text_w(st, t.caption) + 4 < room ? trx_text_w(st, t.caption) + 4 : room);
     }
 }
 
@@ -1199,7 +1221,8 @@ void ui_message(const char *title, const char *text, bool bad)
     lv_obj_set_width(l, trx_content_w() - 2 * x - 2 * t.space_lg);
     lv_obj_update_layout(l);
     int ph = t.space_lg + 34 + lv_obj_get_height(l) + t.space_lg;
-    lv_obj_set_height(panel, ph < 220 ? ph : 220);
+    int cap = trx_content_h() - 60 - t.space_lg;     // what the pane holds under its top: the content area less the margin
+    lv_obj_set_height(panel, ph < cap ? ph : cap);
     g_msg_label = l;
     g_msg_panel = panel;
 }

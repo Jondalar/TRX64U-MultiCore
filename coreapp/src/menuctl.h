@@ -309,7 +309,7 @@ private:
     const char *setting_lock(const Setting &s) const;               // T228 R21: the text of the state that locks a setting row (Setting::lock_state), null: not locked
     uint32_t show_sig_ = 0;
     int last_tab_[MENU_AREAS_MAX];                                  // the tab an area was left on: its key comes back to it
-    char status_[200];
+    char status_[OP_MSG_MAX];                  // an operation's whole message (OpResult::msg)
     static const uint32_t TOAST_MS = 2000;                          // how long a toast stays
     char toast_[96] = "";
     mutable char foot_[240] = "";

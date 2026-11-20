@@ -47,7 +47,7 @@
 
 // ---- options ---------------------------------------------------------------------------------------
 struct Opts {
-    const char *core = 0, *mode = "1080p", *keys = 0, *shot = 0, *toml = 0, *ops = 0, *stick = 0, *root = ".";
+    const char *core = 0, *mode = "1080p", *keys = 0, *shot = 0, *toml = 0, *ops = 0, *stick = 0, *root = ".", *say = 0, *msg_title = 0, *msg_text = 0;
     int scale = 0;
 };
 static Opts o;
@@ -55,7 +55,7 @@ static Opts o;
 static void usage(void)
 {
     fprintf(stderr, "menusim <core> [--root TREE] [--mode 1080p|1080p60|720p|720p60|576p|480p|800x600|1024x768|1280x1024] [--toml FILE] [--ops FILE]\n"
-                    "        [--stick FILE] [--scale N] [--keys K1,K2,... --shot out.png]\n");
+                    "        [--stick FILE] [--scale N] [--keys K1,K2,... --shot out.png] [--say TEXT] [--message TITLE TEXT]\n");
     exit(2);
 }
 
@@ -330,6 +330,8 @@ int main(int argc, char **argv)
         else if (a == "--toml") { o.toml = val(); }
         else if (a == "--ops") { o.ops = val(); }
         else if (a == "--stick") { o.stick = val(); }
+        else if (a == "--say") { o.say = val(); }
+        else if (a == "--message") { o.msg_title = val(); o.msg_text = val(); }
         else if (a == "--root") { o.root = val(); }
         else if (a == "--scale") { o.scale = atoi(val()); }
         else if (a == "--list") {
@@ -401,6 +403,14 @@ int main(int argc, char **argv)
             give_key(code, true);
             for (int i = 0; i < 4 && g_rig->m->tick(); i++) { ui_menu_render(*g_rig->m); }
             lv_timer_handler();
+        }
+        if (o.say) {                                              // the status line as an error of a start leaves it (MenuCtl::set_status, bad)
+            g_rig->m->say(o.say, true);
+            ui_menu_render(*g_rig->m);
+        }
+        if (o.msg_title) {                                        // the message pane of the application (ui_message), as run.cc raises it
+            g_open = false;
+            ui_message(o.msg_title, o.msg_text, true);
         }
         if (o.shot) { shot(o.shot); }
         return 0;
