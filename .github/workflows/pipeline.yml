@@ -103,6 +103,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           PLAN_JSON_FILE: ${{ runner.temp }}/handoff/plan.json
           WORK_ORDER_OUT: ${{ runner.temp }}/handoff/work-order.json
+          CHILDREN: ${{ steps.children.outputs.children }}
+          COR_TARGETS: ${{ steps.children.outputs.cor_targets }}
         run: python3 ci/order.py
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02   # v4.6.2
         with:
