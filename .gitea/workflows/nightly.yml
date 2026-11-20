@@ -4,8 +4,7 @@ name: Nightly
 # main (schedule runs on the default branch), also on demand (so do the render benches, below). No plan: ci/sims.sh considers every bench and the per-bench PASS markers
 # in /cache/sims-ok skip the ones whose inputs did not change; tools/benches.sh shares the same markers. A red nightly is reported, nothing else.
 on:
-  schedule:
-    - cron: '0 1 * * *'
+  # T239.1 D45 (Alex, 2026-11-20): since the switch to GitHub the nightly runs only by hand; no schedule.
   workflow_dispatch:
 
 jobs:

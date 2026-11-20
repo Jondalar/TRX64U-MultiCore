@@ -1,19 +1,7 @@
 name: Pipeline
 
 on:
-  push:
-    branches: ['**']
-    tags: ['v*']
-    # A NEW branch is judged by its head commit alone: its first push with a documentation-only head commit starts no run (t174-d4, 2026-11-08).
-    paths-ignore:
-      - '**.md'
-      - 'docs/**'
-      # not 'tests/**': the host tests of the applications live there (T100 D12, ci/apptests.sh); a push that only touched them
-      # built nothing (t115-hostnext, 2026-10-26). The plan (T100 D9) keeps such a run short.
-      - '.claude/**'  # session material and the documentation site; nothing here is a build input
-                      # (checked: no script under ci/, tools/ or .gitea reads it). The site pages are
-                      # .html, so '**.md' did not cover them and a documentation commit built the
-                      # whole pipeline (run 808).
+  # T239.1 D45 (Alex, 2026-11-20): since the switch to GitHub this pipeline runs only by hand; no push starts it.
   workflow_dispatch:
     inputs:
       ue2:
