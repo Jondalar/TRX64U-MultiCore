@@ -5,6 +5,9 @@
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 export CI_COLLECT_ONLY=1   # Alex 2026-11-08: collecting never builds; a lane the cache lacks is red here (its vivado child builds it)
+# the build options of the lanes (ci/vivado.env, the one place that has them) are part of the host and core keys: without them collect
+# looks for other entries than ci/keys.sh named (run 44737131946: host-8ac9fb31... instead of host-cd508203...). Loaded as ci/pack_one.sh does.
+while IFS='=' read -r k v; do case "$k" in ''|'#'*) continue ;; esac; export "$k=$v"; done < "$ROOT/ci/vivado.env"
 n=0
 for lane in $(python3 "$ROOT/ci/plan.py" lanes); do
   case "$lane" in host) st=bit-host ;; core:*) st="bit-${lane#core:}" ;; large:*) st="large-${lane#large:}" ;; *) continue ;; esac
