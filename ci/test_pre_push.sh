@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # T239.1 S1: the path rule of .githooks/pre-push, with a temporary side repository (neutral names) and a stub of the content checker.
-# An edited copy at a listed path is refused (also when a later commit removes it), a clean branch passes, an unset trx.side switches the rule off.
+# An edited copy at a listed path (in any letter case) is refused (also when a later commit removes it), a clean branch passes, an unset trx.side switches the rule off.
 set -euo pipefail
 HK="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/.githooks/pre-push"
 W="$(mktemp -d)"; trap 'rm -rf "${W:?}"' EXIT
@@ -16,6 +16,10 @@ g config trx.side "$W/side"
 push "$base" "$base" >/dev/null || fail "the clean branch was refused"
 out="$(push "$plant" "$base")" && fail "an edited copy of a listed path was accepted"
 echo "$out" | grep -q 'zz/neutral-one.dat' || fail "the refusal does not name the path"
+# the same path in other letter case is refused too
+mkdir -p "$W/r/ZZ"; echo edited > "$W/r/ZZ/Neutral-One.dat"; g add ZZ; g commit -qm case; casep="$(g rev-parse HEAD)"
+out="$(push "$casep" "$plant")" && fail "a listed path in another letter case was accepted"
+echo "$out" | grep -qi 'zz/neutral-one.dat' || fail "the refusal does not name the case variant"
 g config --unset trx.side
 out="$(push "$plant" "$base")" || fail "unset trx.side refused"
 echo "$out" | grep -q 'rule is off' || fail "no line that the path rule is off"

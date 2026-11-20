@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Unit tests of tools/check_public_tree.py (T239.1 D24): its selftest, tree mode on the git objects of a scratch repository (a renamed
 copy of a private file, a planted path, a clean tree) and the pre-push hook run by hand with the arguments git passes."""
-import os, shutil, subprocess, sys, tempfile, unittest
+import os, re, shutil, subprocess, sys, tempfile, unittest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -21,7 +21,11 @@ class T(unittest.TestCase):
 
     def test_private_list_matches_generator_shape(self):
         files, wins = cpt.load_private()
-        self.assertEqual(sum(len(v) for v in files.values()), 20)
+        lines = [ln.split() for ln in open(cpt.PRIVATE) if ln.startswith("file ")]
+        side = [f for f in lines if f[3].startswith("side-")]
+        self.assertEqual(len(lines) - len(side), 20)
+        self.assertEqual(sum(len(v) for v in files.values()), len(lines))
+        self.assertTrue(all(re.fullmatch(r"side-[0-9a-f]{8}", f[3]) and len(f[2]) == 64 and f[1].isdigit() for f in side), "side lines: size, sha, side-<8 hex>")
         self.assertTrue(all(len(sha) == 64 for sha, _, _ in sum(files.values(), [])))
         self.assertGreaterEqual(sum(len(v) for v in wins.values()), 20)
         lines = [ln.split() for ln in open(cpt.PRIVATE) if ln.startswith("win ")]

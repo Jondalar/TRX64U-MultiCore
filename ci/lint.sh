@@ -170,6 +170,8 @@ check "no Gitea API calls (T239.1 S6)" bash -c '
     | xargs grep -nE "/api/v1|/api/packages" 2>/dev/null || true)
   [ -z "$hits" ] || { echo "$hits"; exit 1; }'
 check "emulator kit (T239.1 D23)" ci/test_emu_kit.sh
+check "public-tree checker unit tests (T239.1 D24)" python3 -I tools/test_check_public_tree.py
+check "pre-push path rule (T239.1 D24)" ci/test_pre_push.sh
 check "pre-release staging (T239.1 D1, D16)" ci/test_prerelease.sh
 # T239.1 D13, D19, D1: the work order, the bitstream fetch and the pre-release publication, each against a fake builds repository (ci/fakegh.py, no network)
 check "work order (T239.1 D13, S15)" python3 -W ignore ci/test_order.py

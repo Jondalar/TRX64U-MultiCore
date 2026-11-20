@@ -5,7 +5,7 @@
 # commits the remote does not have are checked (messages: internal hosts and paths, and the Claude attribution lines the maintainer's
 # sessions never write). Seconds, no build, no lint.
 # Path rule (the hook only; CI has no list): git config trx.side names a local repository of the private files; every path it tracks (minus README.md)
-# is refused in the pushed tree and in the paths of each pushed commit, whatever the content. Unset: one line says the rule is off.
+# is refused in the pushed tree and in the paths of each pushed commit, whatever the content and the letter case (a case-insensitive file system holds both spellings as one file). Unset: one line says the rule is off.
 set -u
 cd "$(git rev-parse --show-toplevel)" || exit 1
 zero=0000000000000000000000000000000000000000
@@ -26,7 +26,7 @@ while read -r lref lsha rref rsha; do
   if [ "$rsha" = "$zero" ] || ! git cat-file -e "$rsha^{commit}" 2>/dev/null; then range="$lsha --not --remotes"; else range="$rsha..$lsha"; fi
   if [ -s "$priv" ]; then
     hits="$( { git -c core.quotepath=off ls-tree -r --name-only "$lsha"
-               for c in $(git rev-list $range); do git -c core.quotepath=off diff-tree -r --root -m --no-commit-id --no-renames --name-only --diff-filter=AMRT "$c"; done; } | sort -u | grep -Fxf "$priv" || true)"
+               for c in $(git rev-list $range); do git -c core.quotepath=off diff-tree -r --root -m --no-commit-id --no-renames --name-only --diff-filter=AMRT "$c"; done; } | sort -u | grep -iFxf "$priv" || true)"
     if [ -n "$hits" ]; then echo "PRIVATE-PATH: refused, a path of the private list (trx.side) is pushed:" >&2; echo "$hits" | sed 's/^/  /' >&2; rc=1; fi
   fi
   python3 -I tools/check_public_tree.py --commits "$range" || rc=1
