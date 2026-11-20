@@ -32,10 +32,16 @@ rm "$W/roms/.gitignore" "$W/roms/extra.bin"
 printf '*.bin text\n' > "$W/roms/.gitattributes"; printf 'rom\r\n' > "$W/roms/kernal.bin"
 if run "$sha"; then fail "a ROM folder with a .gitattributes and a converted kernal.bin was accepted"; fi
 rm "$W/roms/.gitattributes"; printf 'rom\n' > "$W/roms/kernal.bin"; run "$sha" || { cat "$W/out"; fail "the pinned folder was refused after the plants"; }
-# a junk .git file (git add skips it silently) is refused
-printf 'gitdir: x\n' > "$W/roms/sub/.GIT"
-if run "$sha"; then fail "a ROM folder with a planted .git file was accepted"; fi
-rm "$W/roms/sub/.GIT"; run "$sha" || { cat "$W/out"; fail "the pinned folder was refused after the .git plant"; }
+# a junk .git file in either case (git add skips .git silently; on Linux it refuses .GIT by itself, so both names are planted) and a FIFO
+# (git add skips it silently) are refused
+for n in .git .GIT; do
+  printf 'gitdir: x\n' > "$W/roms/sub/$n"
+  if run "$sha"; then fail "a ROM folder with a planted $n file was accepted"; fi
+  rm "$W/roms/sub/$n"
+done
+mkfifo "$W/roms/sub/pipe.bin"
+if run "$sha"; then fail "a ROM folder with a FIFO was accepted"; fi
+rm "$W/roms/sub/pipe.bin"; run "$sha" || { cat "$W/out"; fail "the pinned folder was refused after the .git and FIFO plants"; }
 rm "$W/x.ue2"
 if run "$sha"; then fail "a missing .ue2 was accepted"; fi
 echo "emulator kit: ok"
