@@ -11,14 +11,13 @@ so this runs before every push (.githooks/pre-push) and in CI on every push and 
   tools/check_public_tree.py --files PATH...     files mode: package directories, .cor files and the members of .zip and .tar.gz
                                                  against the file and window lines of ci/private.txt (--allow-trx: the fourth exception of
                                                  CLAUDE.md, a file only inside the .cor files its cor= tag names)
-  tools/check_public_tree.py --selftest          plants one hit per rule; a rule that does not fire fails the selftest (T2391_PLANTS: see there)
+  tools/check_public_tree.py --selftest          plants one hit per rule with generic examples; a rule that does not fire fails the selftest
   tools/check_public_tree.py --gen-private SRC   write ci/private.txt from the private files of the checkout SRC (their bytes stay there)
-  tools/check_public_tree.py --gen-hashes FILE   print HASHED from a file of "kind<TAB>value" lines that stays outside the public tree
 
 Tree mode refuses a path of the private list (ROM images, bench media, licence folder, MOD player image, session material outside the
 D5 whitelist), a file of a known size with a known SHA-256 under any name, a 64-byte window of a private file anywhere in a blob, and in every
-blob without a NUL in its first 8000 bytes an internal address, host, home path, builder login, web link or NAS path (D6). Those text rules are
-generic forms; a match counts only when the SHA-256 of its normalised key is in HASHED. Exit 1 on any hit, every hit printed."""
+blob without a NUL in its first 8000 bytes a private-network address, home path, internal host name, login on a host without a dot or claude.ai link
+(D6). The text rules are generic forms that need no list of values. A symlink counts with its path and its target. Exit 1 on any hit, every hit printed."""
 import argparse, hashlib, io, os, random, re, shlex, subprocess, sys, tarfile, tempfile, zipfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -32,57 +31,63 @@ DROP_DIRS = ("<removed>/",)
 DROP_FILES = ("<removed>", "<removed>", "<removed>", MODPLAYER)
 CLAUDE_PUBLIC = ("CLAUDE.md", ".claude/agents/", ".claude/skills/", ".claude/trx64-site/")     # D5: everything else under .claude/ is private
 
-# ---- text rules (D6): generic forms; a match is refused only when the SHA-256 of its normalised key is in HASHED ----
-# No internal value stands in this file in readable form. HASHED holds SHA-256 of the lowercase keys, written by --gen-hashes FILE from a
-# list of "kind<TAB>value" lines that stays outside the public tree. A guessable key (a short user name, a private address prefix) can be found by
-# trying candidates, so this hides the values from a casual reader of the repository, it is no secret store.
+# ---- text rules (D6): generic forms, no list of values ----
+# Not private: the documentation examples (192.0.2.0/24, 198.51.100.0/24, 203.0.113.0/24 are outside every private range) and the export's
+# placeholders: /path/to/ for a home path, gitea.example for a host, builder for a login's host (the last one is the allowed value of its group).
 M32 = 0xFFFFFFFF
-HASHED = {
-    "ip3": {"<removed>"},
-    "host": {"<removed>"},
-    "home": {"<removed>"},
-    "appsup": {"<removed>"},
-    "login": {"<removed>"},
-    "url": {"<removed>"},
-    "nas": {"<removed>"},
-    "caps": {"<removed>"},
-}
-_dec = lambda b: b.decode("latin-1").lower()
-_labels = lambda host: _dec(host).split(".")
-_suffixes = lambda host: [".".join(_labels(host)[i:]) for i in range(len(_labels(host)) - 1)]
-RULES = (   # (name in the report, regex, kind, keys of a match)
-    ("internal address", re.compile(rb"\b(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.\d{1,3}\b"), "ip3", lambda m: [".".join(_dec(g) for g in m.groups())]),
-    ("internal host", re.compile(rb"\b((?:[a-z0-9-]+\.)+(?:box|lan|local|internal|home|corp|intranet))\b", re.I), "host", lambda m: _suffixes(m.group(1))),
-    ("home path", re.compile(rb"/Users/([A-Za-z0-9._-]+)"), "home", lambda m: [_dec(m.group(1))]),
-    ("home path", re.compile(rb"Application Support/([A-Za-z0-9._-]+)", re.I), "appsup", lambda m: [_dec(m.group(1))]),
-    ("builder login", re.compile(rb"\b([A-Za-z0-9._-]+)@[A-Za-z0-9]"), "login", lambda m: [_dec(m.group(1))]),
-    ("web link", re.compile(rb"(?:https?://|\b)((?:[a-z0-9-]+\.)+[a-z]{2,})/", re.I), "url", lambda m: [_dec(m.group(1))] + _suffixes(m.group(1))[-1:]),
-    ("NAS path", re.compile(rb"/share/([A-Za-z0-9_]+)/"), "nas", lambda m: [_dec(m.group(1))]),
-    ("NAS volume", re.compile(rb"\b([A-Z]{6,})"), "caps", lambda m: [_dec(m.group(1))]),
+_oct = r"(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)"
+_EDGE_L, _EDGE_R = rb"(?<![\w.])", rb"(?![\w-])(?!\.\d)"
+RULES = (   # (name in the report, regex, exclusions, kind)
+    ("private address", re.compile(_EDGE_L + (r"(?:10\.%s\.%s\.%s|172\.(?:1[6-9]|2\d|3[01])\.%s\.%s|192\.168\.%s\.%s|169\.254\.%s\.%s)" % (
+        (_oct,) * 3 + (_oct,) * 2 + (_oct,) * 2 + (_oct,) * 2)).encode() + _EDGE_R), (), None),
+    ("home path", re.compile(rb"(?<![\w.-])/(?:Users|home)/([A-Za-z0-9._-]+)/"), (b"x", b"user", b"you", b"name", b"username", b"runner"), None),
+    ("internal host", re.compile(rb"(?<![\w.-])((?:[a-z0-9-]+\.)+(?:box|lan|local|home\.arpa))(?![\w-])(?!\.[A-Za-z0-9])", re.I), (), None),
+    ("login on an internal host", re.compile(rb"(?<![\w.@-])[a-z][a-z0-9._-]{2,}@(?![0-9a-f]{6,}(?![\w-]))([A-Za-z][A-Za-z0-9-]{2,})(?![\w-])(?!\.[A-Za-z0-9])"),
+     (b"builder", b"host", b"hostname", b"localhost", b"sha", b"address", b"refs", b"example"), None),
+    ("claude.ai link", re.compile(rb"\bclaude\.ai/", re.I), (), None),
 )
-TRAILER = ("claude trailer", re.compile(rb"^(co-authored-by:\s*claude|claude-session:)", re.I | re.M), None, None)
-_known = {}
+TRAILER = ("claude trailer", re.compile(rb"^(co-authored-by:\s*claude|claude-session:)", re.I | re.M), (), None)
+# Narrow, named exceptions of the whole-tree run: (reason, rule, paths). Each path is one file; nothing is allowed by folder or by pattern. A new
+# hit in any other file is red.
+_ADDR = "private address"
+_TEXT_ALLOW = (
+    ("vendor default of the ESP32 network settings (192.168.2.x) and its documentation, mock-ups and golden pages of the settings screens", _ADDR, (
+        "coreapp/cores/trx64u/menu.toml", "docs/lvgl_ui_project/screens/settings_network.xml", "docs/lvgl_ui_terminal/screens/settings_network.xml",
+        "docs/mockups/T198-config-overlay.html", "docs/ultimate-app-hw-spec.md", "host-app/software/hostapp/host_core_flow_wifi.cc",
+        "host-app/software/io/network/network_esp32.cc", "host-app/software/io/network/network_interface.cc",
+        "vendor/gideon/software/io/network/network_esp32.cc", "vendor/gideon/software/io/network/network_interface.cc",
+        "vendor/gideon/software/api/route_streams.cc", "tests/coreapp/golden/menu_c64.txt", "tests/hostapp/golden/hostwifi.txt",
+        "tests/hostapp/render/golden/hostrows.txt")),
+    ("example addresses typed into the unit tests, the renderers and the specs of the network screens and the FTP client", _ADDR, (
+        "host-app/software/hostapp/hostui.cc", "tests/coreapp/render/render.cc", "tests/coreapp/test_ftp.cc", "tests/coreapp/test_hostwifi.cc",
+        "tests/coreapp/test_wifistate.cc", "tests/hostapp/render/render.cc", "tests/hostapp/test_hostwifi.cc", "tests/hostapp/test_nettransport.cc",
+        "tests/hostapp/test_report.cc", "tests/hostapp/test_webnet.cc", "tests/hostapp/test_webui.cc", "docs/specs/done/T186-ftp-client-fixes.md")),
+    ("QEMU/SLIRP guest and gateway addresses (10.0.2.x) of the emulator and the simulation", _ADDR, (
+        "docs/specs/done/T164-host-package-2.md", "docs/ui/trx64u-row-audit-2026-11-18.md", "tests/hostapp/emu/parity_walk.py", "host/sim/tb_udp_audio.v")),
+    ("link-local and mDNS constants and examples of the lwIP sources", _ADDR, (
+        "vendor/gideon/software/lwip/src/apps/mdns/mdns_domain.c", "vendor/gideon/software/lwip/src/core/ipv4/autoip.c",
+        "vendor/gideon/software/lwip/src/include/lwip/prot/autoip.h")),
+    ("a struct member or variable (in.local, x.local, r.box) that has the shape of a host name", "internal host", (
+        "coreapp/src/uiapp.cc", "host-app/software/hostapp/hostdomain.cc", "host-app/software/hostapp/hostui.cc", "tests/uicore/test_uicore.cc",
+        "uicore/uic_net.cc", "uicore/uic_svc.cc")),
+    ("host names of an example URL in a unit test (nas.local) and of the lwIP sources (hostname.local, msg.ad.local)", "internal host", (
+        "tests/coreapp/test_corereport.cc", "tests/coreapp/test_ftp.cc", "vendor/gideon/software/lwip/src/apps/mdns/mdns_out.c",
+        "vendor/gideon/software/lwip/src/api/api_msg.c")),
+    ("a redaction test: user:password@host of an example FTP URL", "login on an internal host", ("tests/hostapp/test_report.cc",)),
+    ("the obfuscated contact line of the stb_image author (name@company, no dot)", "login on an internal host",
+     ("vendor/gideon/software/lvgl/src/libs/gltf/stb_image/stb_image.h",)),
+    ("this tool and its test: the planted examples of the selftest (private ranges, made-up account, host names) are generic values",
+     "*", ("tools/check_public_tree.py", "tools/test_check_public_tree.py")),
+)
+TEXT_ALLOW = {(p, r): why for why, r, ps in _TEXT_ALLOW for p in ps}
 
 
-def _h(key):
-    return hashlib.sha256(key.encode()).hexdigest()
-
-
-def rule_fires(rule, data, hashed):
-    name, rx, kind, keys = rule
-    if kind is None:
-        return rx.search(data) is not None
-    ok = hashed.get(kind)
-    if not ok:
+def rule_fires(rule, data, path=None):
+    """Whether the rule matches data. rule[2] lists the values of the rule's first group that are placeholders or the GitHub runner account."""
+    name, rx, allowed, _ = rule
+    if (path, name) in TEXT_ALLOW or (path, "*") in TEXT_ALLOW:
         return False
-    for m in rx.finditer(data):
-        for k in keys(m):
-            v = _known.get((kind, k))
-            if v is None:
-                v = _known[(kind, k)] = _h(k) in ok
-            if v:
-                return True
-    return False
+    return any(not (rx.groups and m.group(1).lower() in allowed) for m in rx.finditer(data))
 
 
 def path_hits(path):
@@ -91,17 +96,18 @@ def path_hits(path):
         hits.append("private file type (ROM image or bench medium)")
     if path in DROP_FILES or any(path.startswith(d) for d in DROP_DIRS):
         hits.append("private file (licence folder, T120, MOD player image)")
+    if path == "CLAUDE.local.md":
+        hits.append("private file (the maintainer's local session notes)")
     if path.startswith(".claude/") and not any(path.startswith(w) for w in CLAUDE_PUBLIC):
         hits.append("session material outside the D5 whitelist")
-    hits += ["%s in the path" % r[0] for r in RULES if rule_fires(r, path.encode("utf-8", "surrogateescape"), HASHED)]
+    hits += ["%s in the path" % r[0] for r in RULES if rule_fires(r, path.encode("utf-8", "surrogateescape"), path)]
     return hits
 
 
-def text_hits(data, rules=RULES, hashed=None):
+def text_hits(data, path=None, rules=RULES):
     if b"\0" in data[:8000]:
         return []
-    hashed = HASHED if hashed is None else hashed
-    return [r[0] for r in rules if rule_fires(r, data, hashed)]
+    return [r[0] for r in rules if rule_fires(r, data, path)]
 
 
 # ---- ci/private.txt: size + SHA-256 per private binary, windows of 64 bytes as hashes only (no file bytes) ----
@@ -239,34 +245,46 @@ def window_hits(data, wins, allow_trx=False, base=""):
 def tracked(rev):
     if rev:
         out = subprocess.run(["git", "-C", ROOT, "ls-tree", "-r", "-z", rev], capture_output=True, check=True).stdout.decode()
-        return [(r.split("\t", 1)[1], r.split()[2]) for r in out.split("\0") if r and r.split()[1] == "blob"]
+        return [(r.split("\t", 1)[1], r.split()[2], r.split()[0]) for r in out.split("\0") if r and r.split()[1] == "blob"]
     out = subprocess.run(["git", "-C", ROOT, "ls-files", "-z"], capture_output=True, check=True).stdout.decode()
-    return [(p, None) for p in out.split("\0") if p]
+    return [(p, None, None) for p in out.split("\0") if p]
 
 
 def tree_items(rev):
-    """(path, bytes) of every tracked file; with --rev from the git objects through one cat-file process."""
+    """(path, bytes[, link target]) of every tracked file; with --rev from the git objects through one cat-file process. A symlink gives its
+    target as the bytes and as the third member, so its path and its target are both checked."""
     ents = tracked(rev)
     if not rev:
-        for p, _ in ents:
+        for p, _, _ in ents:
             fp = os.path.join(ROOT, p)
-            if os.path.isfile(fp) and not os.path.islink(fp):
+            if os.path.islink(fp):
+                t = os.readlink(fp)
+                yield p, t.encode("utf-8", "surrogateescape"), t
+            elif os.path.isfile(fp):
                 yield p, open(fp, "rb").read()
         return
     pr = subprocess.Popen(["git", "-C", ROOT, "cat-file", "--batch"], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-    for p, sha in ents:
+    for p, sha, mode in ents:
         pr.stdin.write(sha.encode() + b"\n"); pr.stdin.flush()
         h = pr.stdout.readline().split()
         d = pr.stdout.read(int(h[2])); pr.stdout.read(1)
-        yield p, d
+        yield (p, d, d.decode("utf-8", "surrogateescape")) if mode == "120000" else (p, d)
     pr.stdin.close(); pr.wait()
+
+
+def link_path(p, target):
+    """The path a symlink at p points to, relative to the tree root when the target is relative."""
+    return os.path.normpath(target if os.path.isabs(target) else os.path.join(os.path.dirname(p), target))
 
 
 def check_items(items, files, wins=()):
     bad = []
-    for p, d in items:
+    for it in items:
+        p, d = it[0], it[1]
+        if len(it) > 2:                                  # a symlink: its target is a path of the tree, too
+            bad += ["%s: symlink target %s: %s" % (p, it[2], h) for h in path_hits(link_path(p, it[2])) + path_hits(it[2])]
         bad += ["%s: %s" % (p, h) for h in path_hits(p)]
-        bad += ["%s: %s" % (p, h) for h in text_hits(d)]
+        bad += ["%s: %s" % (p, h) for h in text_hits(d, p)]
         bad += ["%s: is a copy of the private file %s (size and SHA-256)" % (p, n) for n, _ in known_file(d, files)]
         bad += ["%s: holds a window of %s" % (p, h) for h in (window_hits(d, wins) if wins else [])]
     return bad
@@ -280,7 +298,7 @@ def check_messages(rng, trailers, root=None):
     bad = []
     for r in revs:
         m = subprocess.run(["git", "-C", root, "log", "-1", "--format=%an <%ae>%n%B", r], capture_output=True, check=True).stdout
-        bad += ["commit %s: %s in the message" % (r[:10], rule[0]) for rule in rules if rule_fires(rule, m, HASHED)]
+        bad += ["commit %s: %s in the message" % (r[:10], rule[0]) for rule in rules if rule_fires(rule, m)]
     return bad, len(revs)
 
 
@@ -292,7 +310,7 @@ def commit_blobs(root, c):
     for meta, path in zip(out[0::2], out[1::2]):
         f = meta.lstrip(":").split()
         if f[1] != "160000":
-            ents.append((path, f[3]))
+            ents.append((path, f[3], f[1] == "120000"))
     return ents
 
 
@@ -301,16 +319,17 @@ def check_commits(rng, files, wins, root=None):
     revs = subprocess.run(["git", "-C", root, "rev-list", "--reverse"] + rng, capture_output=True, check=True).stdout.decode().split()
     seen, todo = set(), []
     for c in revs:
-        for path, blob in commit_blobs(root, c):
+        for path, blob, link in commit_blobs(root, c):
             if (path, blob) not in seen:
-                seen.add((path, blob)); todo.append((c, path, blob))
+                seen.add((path, blob)); todo.append((c, path, blob, link))
     bad = []
     pr = subprocess.Popen(["git", "-C", root, "cat-file", "--batch"], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-    for c, path, blob in todo:
+    for c, path, blob, link in todo:
         pr.stdin.write(blob.encode() + b"\n"); pr.stdin.flush()
         h = pr.stdout.readline().split()
         d = pr.stdout.read(int(h[2])); pr.stdout.read(1)
-        bad += ["commit %s: %s" % (c[:10], b) for b in check_items([(path, d)], files, wins)]
+        item = (path, d, d.decode("utf-8", "surrogateescape")) if link else (path, d)
+        bad += ["commit %s: %s" % (c[:10], b) for b in check_items([item], files, wins)]
     pr.stdin.close(); pr.wait()
     return bad, len(revs), len(todo)
 
@@ -344,62 +363,37 @@ def check_files(paths, files, wins, allow_trx):
             bad += ["%s: is a copy of the private file %s" % (name, n) for n, cors in known_file(d, files)
                     if not (allow_trx and os.path.basename(leaf) in cors)]
             bad += ["%s: holds %s" % (name, h) for h in window_hits(d, wins, allow_trx, leaf)]
-            bad += ["%s: %s" % (name, h) for h in text_hits(d)]
+            bad += ["%s: %s" % (name, h) for h in text_hits(d, name)]
     return bad
 
 
 # ---- selftest ----
-# The planted values of the text rules are synthetic (their hashes are put into HASHED for the run). The real list is exercised only when
-# T2391_PLANTS names a file of "kind<TAB>value" lines (the list's source, kept outside the public tree): then every kind of HASHED must be
-# backed by a value and each value must fire its rule. gen_hashes() reads the same file.
-SYNTH = (("ip3", "10.77.5", "see 10.77.5.9\n"), ("host", "box.lan", "see a.box.lan\n"), ("home", "someuser", "at /Users/someuser/x\n"),
-         ("appsup", "sometool", "Library/Application Support/sometool/c\n"), ("login", "someuser", "ssh someuser@build\n"),
-         ("url", "example.test", "see https://example.test/p\n"), ("nas", "vault", "mount /share/vault/x\n"), ("caps", "zzzzzz", "ZZZZZZ9_DATA\n"))
-KIND_RULE = {r[2]: r for r in RULES}
-
-
-def plants_file():
-    p = os.environ.get("T2391_PLANTS")
-    return [ln.rstrip("\n").split("\t", 1) for ln in open(p) if "\t" in ln] if p and os.path.exists(p) else None
-
-
-def gen_hashes(src):
-    h = {k: [] for k in HASHED}
-    for kind, val in (ln.rstrip("\n").split("\t", 1) for ln in open(src) if "\t" in ln):
-        h[kind].append(_h(val.lower()))
-    out = ["HASHED = {"]
-    for k, v in h.items():
-        out.append('    "%s": {%s},' % (k, ", ".join('"%s"' % x for x in sorted(v))))
-    return "\n".join(out) + "\n}"
-
-
-def plant_text(kind, val):
-    return {"ip3": "see %s.9\n", "host": "see a.%s\n", "home": "at /Users/%s/x\n", "appsup": "Library/Application Support/%s/c\n",
-            "login": "ssh %s@build\n", "url": "see https://%s/p\n", "nas": "mount /share/%s/x\n", "caps": "%s9_DATA\n"}[kind] % val
+# The planted values are generic examples of the rules' forms (private ranges of RFC 1918 and 3927, a made-up account and host names), never a
+# value of this project. The documentation ranges and the placeholders of the export must pass.
+SYNTH = (("private address", "see 10.0.0.5\n"), ("private address", "http://172.16.4.4:8080/x\n"),
+         ("private address", "ssh 192.168.1.20\n"), ("private address", "link 169.254.10.1.\n"),
+         ("home path", "at /Users/jdoe/src/x\n"), ("home path", "at /home/jdoe/src/x\n"),
+         ("internal host", "see devhost.lan\n"), ("internal host", "see nas.box/share\n"), ("internal host", "ping printer.local.\n"),
+         ("internal host", "see ci.home.arpa\n"), ("login on an internal host", "ssh jdoe@devhost\n"),
+         ("claude.ai link", "see https://claude.ai/code/session_x\n"))
+SYNTH_CLEAN = (b"docs 192.0.2.7 198.51.100.7 203.0.113.7\n", b"public 11.1.2.3 172.15.0.1 172.32.0.1 192.169.1.1 1.10.0.0.1\n",
+               b"version 10.1.2.3.4 v10.0.0.1\n", b"cp /path/to/file /Users/x/y /home/runner/work\n", b"a@example.org git@github.com ssh builder@builder\n",
+               b"gitea.example/owner/repo settings.local.json CLAUDE.local.md x.local.y\n", b"https://claude.com/x https://docs.claude.com/\n",
+               b"npm i @types/node\n")
+SYNTH_LINKS = (("a.dat", "/Users/jdoe/x"), ("docs/l", "../roms/k.bin"), ("docs/l", "/home/jdoe/x"))
 
 
 def selftest():
-    saved = {k: set(v) for k, v in HASHED.items()}
-    for k in HASHED:
-        HASHED[k].clear()
-    _known.clear()
-    try:
-        return _selftest(saved)
-    finally:
-        for k, v in saved.items():
-            HASHED[k].clear(); HASHED[k].update(v)
-        _known.clear()
+    return _selftest()
 
 
-def _selftest(saved):
+def _selftest():
     errs = []
 
     def want(label, cond):
         if not cond:
             errs.append(label)
 
-    for kind, val, txt in SYNTH:
-        HASHED[kind].add(_h(val))
     rom = random.Random(7).randbytes(8192)
     sha = hashlib.sha256(rom).hexdigest()
     win = windows_of(rom)
@@ -419,10 +413,17 @@ def _selftest(saved):
     for path in ("roms/k.bin", "cores/a/roms/x.rom", "cores/a/sim/media/m.bin", "x/y/disk.d81", "<removed>", MODPLAYER,
                  ".claude/context.md", ".claude/handover-1.md", ".claude/settings.local.json", "<removed>"):
         want("path " + path, check_items([(path, b"x")], files, wins) != [])
-    for kind, val, txt in SYNTH:
-        want("text " + kind, check_items([("docs/a.md", txt.encode())], files, wins) != [])
-    want("host in a path", path_hits("docs/a.box.lan.md") != [])
-    want("binary skipped by the text rules", check_items([("a.dat", b"\0\0" + SYNTH[0][2].encode())], files, wins) == [])
+    for name, txt in SYNTH:
+        want("text " + txt.strip(), name in text_hits(txt.encode(), "docs/a.md"))
+    for txt in SYNTH_CLEAN:
+        want("clean text " + txt.decode().strip(), text_hits(txt, "docs/a.md") == [])
+    want("host in a path", path_hits("docs/devhost.lan") != [])
+    want("CLAUDE.local.md at the root", path_hits("CLAUDE.local.md") != [] and path_hits("docs/CLAUDE.local.md") == [])
+    want("binary skipped by the text rules", check_items([("a.dat", b"\0\0" + SYNTH[0][1].encode())], files, wins) == [])
+    for path, target in SYNTH_LINKS:
+        want("symlink %s -> %s" % (path, target), check_items([(path, target.encode(), target)], files, wins) != [])
+    want("clean symlink", check_items([("docs/l", b"../docs/b.md", "../docs/b.md")], files, wins) == [])
+    want("symlink target is a private file path", any("symlink target" in b for b in check_items([("docs/l", b"../cores/a/roms/x.rom", "../cores/a/roms/x.rom")], files, wins)))
     want("renamed copy (size and SHA-256)", check_items([("docs/img/blob.dat", rom)], files) != [])
     want("window in a larger blob", check_items([("a.dat", os.urandom(300) + rom[1000:5000] + os.urandom(99))], files, wins) != [])
     want("unrelated binary passes", check_items([("a.dat", os.urandom(5000))], files, wins) == [])
@@ -466,35 +467,20 @@ def _selftest(saved):
     with tempfile.TemporaryDirectory() as td:        # message and commits mode against a scratch repository
         g = lambda *a: subprocess.run(("git", "-C", td, "-c", "user.name=t", "-c", "user.email=t@example.org") + a, capture_output=True, check=True)
         g("init", "-q")
-        for msg in ("fine", "see " + SYNTH[0][2], "x\n\nCo-Authored-By: Claude <n@example.org>"):
+        for msg in ("fine", "see " + SYNTH[0][1], "x\n\nCo-Authored-By: Claude <n@example.org>"):
             open(os.path.join(td, "f"), "w").write(msg); g("add", "f"); g("commit", "-q", "-m", msg)
         both = check_messages(["HEAD"], True, td)[0]
         plain = check_messages(["HEAD"], False, td)[0]
-        want("message: address", any("internal address" in b for b in both))
+        want("message: address", any("private address" in b for b in both))
         want("message: trailer with --trailers", any("claude trailer" in b for b in both))
         want("message: trailer ignored without --trailers", not any("claude trailer" in b for b in plain))
-        want("message: address without --trailers", any("internal address" in b for b in plain))
+        want("message: address without --trailers", any("private address" in b for b in plain))
         first = g("rev-list", "--max-parents=0", "HEAD").stdout.decode().strip()
         open(os.path.join(td, "leak.dat"), "wb").write(rom); g("add", "leak.dat"); g("commit", "-q", "-m", "adds a private copy")
         g("rm", "-q", "leak.dat"); g("commit", "-q", "-m", "removes it again")
         bad, nc, nb = check_commits([first + "..HEAD"], files, wins, td)
         want("commits mode: a file added and removed later is found", any("leak.dat" in b and "copy of the private file" in b for b in bad))
         want("commits mode: counts", nc == 4 and nb >= 1)
-    real = plants_file()
-    for k in HASHED:
-        HASHED[k].clear()
-    HASHED.update({k: set(v) for k, v in saved.items()})
-    _known.clear()
-    if real is None:
-        print("note: T2391_PLANTS is not set, the real list of HASHED was not exercised")
-    else:
-        for kind in HASHED:
-            vals = [v for k, v in real if k == kind]
-            want("real list: kind %s has hashes and a source value" % kind, bool(vals) and bool(HASHED[kind]))
-            want("real list: kind %s hashes are exactly the source" % kind, {_h(v.lower()) for v in vals} == HASHED[kind])
-        for kind, val in real:
-            want("real list: %s fires" % kind, check_items([("docs/a.md", plant_text(kind, val).encode())], {}, {}) != [])
-        want("real list: clean text passes", check_items([("docs/a.md", b"hello 1.2.3.4 someone@example.org /Users/x/y\n")], {}, {}) == [])
     if errs:
         print("selftest FAILED: " + "; ".join(errs))
         return 1
@@ -507,14 +493,11 @@ def main():
     ap.add_argument("--rev"); ap.add_argument("--messages", metavar="RANGE"); ap.add_argument("--trailers", action="store_true")
     ap.add_argument("--files", nargs="+"); ap.add_argument("--allow-trx", action="store_true")
     ap.add_argument("--commits", metavar="RANGE")
-    ap.add_argument("--selftest", action="store_true"); ap.add_argument("--gen-private", metavar="SRC"); ap.add_argument("--gen-hashes", metavar="FILE")
+    ap.add_argument("--selftest", action="store_true"); ap.add_argument("--gen-private", metavar="SRC")
     ap.add_argument("--private", default=PRIVATE)
     a = ap.parse_args()
     if a.selftest:
         return selftest()
-    if a.gen_hashes:
-        print(gen_hashes(a.gen_hashes))
-        return 0
     if a.gen_private:
         print("wrote %s: %d private binary files" % (a.private, gen_private(a.gen_private, a.private)))
         return 0

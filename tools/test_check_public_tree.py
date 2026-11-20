@@ -27,13 +27,37 @@ class T(unittest.TestCase):
         lines = [ln.split() for ln in open(cpt.PRIVATE) if ln.startswith("win ")]
         self.assertTrue(all(len(f[1]) == 8 and len(f[2]) == 64 for f in lines), "window lines hold hashes only")
 
-    def test_selftest_with_real_list(self):
-        pl = os.environ.get("T2391_PLANTS")
-        if not pl:
-            self.skipTest("T2391_PLANTS not set")
-        r = run(sys.executable, "-I", TOOL, "--selftest")
-        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        self.assertNotIn("not exercised", r.stdout)
+    def test_no_value_list_left(self):
+        src = open(TOOL).read()
+        for word in ("HASHED", "sha256 of its normalised key", "T2391_PLANTS", "gen-hashes"):
+            self.assertNotIn(word, src)
+
+    def test_symlinks_tree_rev_and_commits(self):
+        td = tempfile.mkdtemp()
+        try:
+            g = lambda *a: run("git", "-c", "user.name=t", "-c", "user.email=t@example.org", *a, cwd=td)
+            os.makedirs(os.path.join(td, "tools")); os.makedirs(os.path.join(td, "ci"))
+            shutil.copy(os.path.join(ROOT, "tools/check_public_tree.py"), os.path.join(td, "tools/check_public_tree.py"))
+            shutil.copy(os.path.join(ROOT, "ci/private.txt"), os.path.join(td, "ci/private.txt"))
+            open(os.path.join(td, "a.md"), "w").write("clean\n")
+            g("init", "-q"); g("add", "."); g("commit", "-q", "-m", "clean")
+            clean = g("rev-parse", "HEAD").stdout.strip()
+            tool = lambda *a: run("python3", "-I", "tools/check_public_tree.py", *a, cwd=td)
+            self.assertEqual(tool().returncode, 0)
+            os.symlink("a.md", os.path.join(td, "ok_link")); g("add", "ok_link")
+            self.assertEqual(tool().returncode, 0)
+            g("commit", "-q", "-m", "clean link")
+            for target, why in (("/Users/jdoe/notes", "home path"), ("cores/a/roms/x.rom", "private file type")):
+                os.symlink(target, os.path.join(td, "bad_link")); g("add", "bad_link")
+                r = tool(); self.assertEqual(r.returncode, 1, r.stdout); self.assertIn("PUBLIC-TREE: bad_link:", r.stdout); self.assertIn(why, r.stdout)
+                g("commit", "-q", "-m", "link")
+                head = g("rev-parse", "HEAD").stdout.strip()
+                r = tool("--rev", head); self.assertEqual(r.returncode, 1, r.stdout); self.assertIn("bad_link", r.stdout)
+                r = tool("--commits", clean + ".." + head); self.assertEqual(r.returncode, 1, r.stdout); self.assertIn("bad_link", r.stdout)
+                g("reset", "-q", "--hard", clean); os.path.lexists(os.path.join(td, "bad_link")) and os.unlink(os.path.join(td, "bad_link"))
+                g("reset", "-q", "--hard", clean)
+        finally:
+            shutil.rmtree(td, ignore_errors=True)
 
     def test_scratch_repo_and_hook(self):
         td = tempfile.mkdtemp()
