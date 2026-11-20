@@ -8,6 +8,9 @@
 #       $03:0000 is +DEXPECT (absolute DDR2 bytes, computed in the generator by hand from the instructions, not read from the machine).
 #   T241 emulation mode, hwenable off: a VIC raster IRQ acknowledged with ASL $D019 (1 MHz), INC $D019 (1 MHz), ASL $D019 (20 MHz): 2..3 handler runs in 40,000 PHI2 cycles each
 #       (verdicts $0327-$0329); ASL $0B02 on RAM writes three times with its STA, the native INC $0B03 twice with its STA (check_irq.py counts the tb's "mark|n|...|frame" lines).
+#   T241 S2 emulation mode, hwenable off, software 1 MHz, display off: an IRQ that rises in the last cycle of `STA $D01A` is taken after the NEXT instruction (verdict $032A; the handler sees
+#       the first instruction after the STA done and the second not); RTI takes 6 cycles in emulation mode and 7 in native mode (check_irq.py: the PHI2 cycles between the tb's marks 0 and 1 around
+#       loops of 20 and 10 RTI, difference 240 / 230). The sources of the expected values are in the docstring of tools/gen_c64scpu_irq.py.
 # Negative controls (the mutated machine must FAIL, lines prefixed "ctl| "):
 #   ctl_noreroute SCPU_MUT_NOREROUTE   the vector pull always reads the SRAM of bank 0 (empty): every rerouted phase fails
 #   ctl_emuonly   SCPU_MUT_EMUONLY     XCE is fetched as NOP: the 65816 stays in emulation mode, the native phases and the S3 block fail
