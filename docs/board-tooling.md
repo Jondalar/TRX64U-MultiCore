@@ -3,12 +3,12 @@
 Written by the 1541ultimate session on 2026-10-13 and ingested here with T94; the board rules are in `CLAUDE.md`,
 the restore points below. Checked on ingest: the JTAG library API this describes matches
 `~/Development/1541ultimate-tools/tooling` as it is today, and `tools/load.sh` fetched from the generic
-package `trx64-ultimate`. Since T171 (2026-10-31) this repository's CI writes only into its own generic package
-`trx64u-multicore` (`MC_PKG` in `ci/pkg.env`): stage `package` and stage `update` (`ci/update.sh`) write `<branch>-<commit8>`
-and `<branch>-latest` into it, and `tools/release_mc.sh` makes the Gitea releases (with a tag) from it. `trx64-ultimate`
-(`FW_PKG`) is the firmware repository's; we only read it, for the files named by `release/imports/*.pin`
-(`tools/pack_import_cor.sh`). `ci/lint.sh` guards that no write path names it. Versions that MultiCore published into
-`trx64-ultimate` before T171 stay there (not deleted) and are no longer reachable through the default of `load.sh`. `tools/load.sh <local file>` needs no package at all.
+package `trx64-ultimate`. Since T239.1 (2026-11-20) this repository's CI publishes a pre-release `<branch>-<commit8>` of the public builds
+repository for a push to `main` (and for a `v*` tag): the release bundle of `tools/make_release_mc.sh` (stage `package`, stage `update`, `ci/prerelease.sh`).
+`tools/builds.sh` reads it without a token (`MC_BUILDS_REPO` in `ci/pkg.env`), `tools/load.sh` and `tools/release_mc.sh` take their files from it, and
+`tools/release_mc.sh` makes the GitHub release (with a tag) from it. `trx64-ultimate` (`FW_PKG`) is the firmware repository's Gitea package; we only read it,
+for the files named by `release/imports/*.pin` (`tools/pack_import_cor.sh`). `ci/lint.sh` guards that no write path names it.
+Packages that MultiCore published into the Gitea registry before the switch stay there. `tools/load.sh <local file>` needs no pre-release at all.
 
 ## Board tooling
 
@@ -41,10 +41,10 @@ Board: C64U (= U64 Elite II mainboard), XC7A50T, USB-Blaster on the dock. Same b
 ### Load into SRAM (no flash write)
 ```
 tools/load.sh path/to/c64_basic.bit                   # local file
-tools/load.sh c64_basic <package-version>             # fetched from the Gitea generic package
+tools/load.sh c64_basic <pre-release tag>             # fetched from a pre-release of the builds repository, e.g. main-<sha8>
 openFPGALoader -c usb-blaster -m file.bit             # what load.sh runs (retries 3x, checks "done 1")
 ```
-`load.sh` fetches from the package `TREX/generic/trx64u-multicore/<version>/<design>.bit` (`MC_PKG`, T171).
+`load.sh` fetches `<design>.bit` from the pre-release `<tag>` of the builds repository (`tools/builds.sh fetch`); without a tag it takes the newest `main-<sha8>` one.
 After an SRAM load the boot ROM finds no matching app in flash and waits for one over JTAG:
 ```
 tools/trxdbg.sh boot staged ultimate.app follow       # flash-format image via DDR2, boot ROM starts it
