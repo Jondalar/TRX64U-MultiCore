@@ -32,7 +32,7 @@ jobs:
     name: Sim
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/jondalar/trx64u-sim@sha256:3c83780bf1d40e0b1fd7755b25a29f85650247bd650845c86f8b1def8063b30c
+      image: ghcr.io/jondalar/trx64u-sim@sha256:3e366a085f3ff5bfec33b5fa08359a625034038803b8b89f3406691683a625e0
     timeout-minutes: 350
     env:
       CI_BRANCH: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.number) || github.ref_name }}

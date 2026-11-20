@@ -18,7 +18,7 @@ jobs:
     name: Emu
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/jondalar/trx64u-emu@sha256:0ace866bf31ab804b0fb442e11dbb1a3a0459e3ca941bc1c326fc5dc7b878bc4
+      image: ghcr.io/jondalar/trx64u-emu@sha256:250f08bb1a00e66fccec6c136e3e132ad542b430ab668cd98ccf87b541382281
     timeout-minutes: 45
     env:
       CI_BRANCH: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.number) || github.ref_name }}

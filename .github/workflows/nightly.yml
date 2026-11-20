@@ -26,7 +26,7 @@ jobs:
     if: ${{ github.event_name != 'push' || contains(github.event.head_commit.message, '[nightly]') }}
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/jondalar/trx64u-build@sha256:7e2a0d14a100dfdd5c949e6d6ac281a63dc01e7086fa7c971fcccb20f1e7c3a1
+      image: ghcr.io/jondalar/trx64u-build@sha256:706a976b56de400970d5af3bac9358d063c1d87defe6a3630d3ed26c5bae0c08
     timeout-minutes: 10
     outputs:
       owners: ${{ steps.owners.outputs.owners }}
