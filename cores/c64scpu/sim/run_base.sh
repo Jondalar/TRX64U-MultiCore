@@ -12,9 +12,9 @@ here=$(cd "$(dirname "$0")" && pwd)
 root=$(cd "$here/../../.." && pwd)
 build=${C64SCPU_BUILD:-$here/build}
 progs=${*:-"boot ctl_nobasic ctl_nochars"}
-if [ ! -x "$build/obj/tb_c64scpu" ]; then
-  sh "$here/build_machine.sh" "$build" || exit 1
-fi
+# the lock of run_emu.sh: both build this folder with the same defines, and the stage runs them side by side (run 2535: two
+# Verilator builds in one obj folder, a link error)
+( flock 9; [ -x "$build/obj/tb_c64scpu" ] || sh "$here/build_machine.sh" "$build" ) 9>"$build.lock" || exit 1
 rc=0
 for p in $progs; do
   run="$build/run_$p"

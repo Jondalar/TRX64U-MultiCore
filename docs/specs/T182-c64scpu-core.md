@@ -687,3 +687,11 @@ Board symptom (Alex, 2026-11-10): `scpu-dos-1.4.bin` as `scpu64.rom`: light-gree
   JiffyDOS 1541 ROM in drive A, the load speed by hand), S4 (20 MHz against 1 MHz) - Alex 2026-11-15: "Under A there is nothing I would not class as DONE!
   That has been in the builds for days/weeks, we had bugs and re-tests in part"; Alex 2026-11-18, shown these steps as open: "that is old stuff that has
   been running for ages, we had this already 3-4 days ago" and "tick it off in the TODOs/specs, otherwise it shows up again with some agent" (translated).
+
+### 5.12 The machine benches' build folder (2026-11-20)
+- `c64scpu_base` failed in run 2535 after 13 s with a link error (`undefined reference ... ___stl_comb__TOP__2`). `run_base.sh` and
+  `run_emu.sh` both build `cores/c64scpu/sim/build` with the same defines; `run_emu.sh` takes `flock` on `build.lock`, `run_base.sh`
+  took no lock. The stage runs the two side by side, so two Verilator builds wrote one `obj` folder. `run_base.sh` and the local
+  `run_real.sh` (same folder) take the same lock now. Proof: the next run of both.
+- Seen while reading, not changed: `run_prgrun.sh` and `run_realscpu.sh` (local) share `build_real` with different defines
+  (`C64SCPU_PCHIST` only in the second), and each reuses a binary the other built.

@@ -12,7 +12,7 @@ build=${C64SCPU_BUILD:-$here/build}
 : "${C64_ROMDIR:?set C64_ROMDIR to the directory with the ROM files}"
 ms=${1:-3600}
 frame=${2:-170}
-[ -x "$build/obj/tb_c64scpu" ] || sh "$here/build_machine.sh" "$build" || exit 1
+( flock 9; [ -x "$build/obj/tb_c64scpu" ] || sh "$here/build_machine.sh" "$build" ) 9>"$build.lock" || exit 1   # the lock of run_emu.sh and run_base.sh (same folder)
 run="$build/run_real"
 rm -rf "$run"; mkdir -p "$run"; cp -a "$build/run/." "$run/"
 python3 "$root/tools/c64scpu_rom_image.py" "$C64_ROMDIR" "$run/mem/c64scpu_rom.mem" --mem || exit 1
