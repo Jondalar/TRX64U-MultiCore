@@ -81,7 +81,8 @@ class Api:
                 if e.code == 404 and method == "GET":
                     return None
                 if e.code < 500 and e.code != 429:
-                    raise PublishError("%s %s: %s %s" % (method, url.split("?")[0], last, e.read()[:200].decode("utf-8", "replace")))
+                    # the whole answer: GitHub names the refused field and why only at its end (run 44760578882 cut it after 200 bytes)
+                    raise PublishError("%s %s: %s %s" % (method, url.split("?")[0], last, e.read()[:4000].decode("utf-8", "replace")))
             except (urllib.error.URLError, OSError) as e:
                 last = str(e)
             finally:

@@ -22,7 +22,8 @@ fi
 "$UE2EMU" run --help >/dev/null 2>&1 || { echo "coreapp_emu SKIPPED out loud: no emulator ($UE2EMU)" >&2; exit 77; }
 APP="${1:-$ROOT/host-app/target/u64ii/riscv/coreapp/result/coreapp_trx64u.app}"
 [ -f "$APP" ] || { echo "coreapp_emu SKIPPED out loud: no coreapp.app ($APP)" >&2; exit 77; }
-W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
+# EMU_LOGS (ci/apptests.sh: the suite's output folder): each run's emulator output is kept there; the emu job uploads the logs (no pictures)
+W="$(mktemp -d)"; trap '{ [ -z "${EMU_LOGS:-}" ] || cp "$W"/*.log "$EMU_LOGS"/ 2>/dev/null || true; }; rm -rf "$W"' EXIT
 STICK="$W/stick"; mkdir -p "$STICK"
 python3 -I "$HERE/media.py" "$STICK" "$C64_ROMS/1541.bin" "$W/big.ref" || exit 1
 FAIL=0
