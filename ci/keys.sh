@@ -11,13 +11,22 @@ if [ "${1:-}" = "--env" ]; then envfile="${2:?ci/keys.sh --env FILE}"; shift 2; 
 [ $# -eq 0 ] || { echo "usage: ci/keys.sh [--env FILE]" >&2; exit 2; }
 source "$ROOT/ci/lib.sh"
 
-# vivado_env_load <file>: export the KEY=VALUE lines, after dropping every option variable the caller had (a stray T79_ROUTE would move the keys)
+# vivado_env_load <file>: export the KEY=VALUE lines, after dropping every option variable the caller had (a stray T79_ROUTE would move the keys).
+# The file is the commit's own data and this code runs over it with the builder's rights, so a line is taken only when its name is one of the
+# build options (TRX_*, T79_*, T16_*: never PATH, PYTHONPATH, CODE_HASH_LIBS, LD_PRELOAD) and its value has no character a shell or a path could use
+# ([A-Za-z0-9_.,:+-] only). Comments and empty lines are skipped; anything else ends the run with exit 1 and the line number.
 vivado_env_load() {
-  local k v
+  local k v line n=0
   while IFS= read -r k; do case "$k" in TRX_*|T79_*|T16_*) unset "$k" ;; esac; done < <(compgen -e)
-  while IFS='=' read -r k v; do
-    case "$k" in ''|'#'*) continue ;; esac
-    export "$k=$v"
+  while IFS= read -r line || [ -n "$line" ]; do
+    n=$((n + 1))
+    [[ "$line" =~ ^[[:space:]]*(#.*)?$ ]] && continue
+    if [[ "$line" =~ ^((TRX|T79|T16)_[A-Z0-9_]+)=([A-Za-z0-9_.,:+-]*)$ ]]; then
+      export "${BASH_REMATCH[1]}=${BASH_REMATCH[3]}"
+    else
+      echo "ci/keys.sh: $1 line $n is not a build option (NAME is TRX_*, T79_* or T16_*; value only A-Za-z0-9_.,:+-)" >&2
+      exit 1
+    fi
   done < "$1"
 }
 vivado_env_load "$envfile"

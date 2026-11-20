@@ -6,6 +6,7 @@
 #  3. CI_BRANCH / CI_REF_TYPE win over GITHUB_REF_NAME / GITHUB_REF_TYPE in branch_slug and pin_entry
 #  4. heavy_lock required refuses under CI without the lock directory; plain heavy_lock and runs without CI go on
 #  5. cache_put leaves a world-readable entry directory and no temp directory
+#  6. ci/vivado.env lines that are no build option (PATH, LD_PRELOAD, a value with a space or $(...)) end ci/keys.sh with exit 1 and the line number
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 W="$(mktemp -d)"; trap 'rm -rf "${W:?}"' EXIT
@@ -65,3 +66,19 @@ fi
   [ "$(ls "$W/bit")" = "host-1" ] || exit 32
   [ "$(stat -c %a "$W/bit/host-1" 2>/dev/null || stat -f %Lp "$W/bit/host-1")" = 755 ] || exit 33 ) || fail "cache_put (code $?)"
 echo "keys test ok ($n names)"
+
+# 6 the commit's own ci/vivado.env is data: only TRX_/T79_/T16_ names with plain values, anything else is exit 1 with the line number
+printf '# c\n\nTRX_SID=redip2\nPATH=/tmp/x\n' > "$W/e_path"
+printf 'T79_FLOOR=B\nLD_PRELOAD=/tmp/x.so\n' > "$W/e_ld"
+printf 'TRX_A=a b\n' > "$W/e_space"
+printf 'TRX_A=$(touch %s/pwned)\n' "$W" > "$W/e_sub"
+printf 'T16_X=`id`\n' > "$W/e_tick"
+printf 'CODE_HASH_LIBS=/tmp/x\n' > "$W/e_libs"
+for c in path:4 ld:2 space:1 sub:1 tick:1 libs:1; do
+  f="$W/e_${c%%:*}"
+  rc=0; out="$(ci/keys.sh --env "$f" 2>&1 >/dev/null)" || rc=$?
+  [ "$rc" = 1 ] || fail "ci/keys.sh --env $(basename "$f") exited $rc, expected 1"
+  case "$out" in *"line ${c##*:} "*) ;; *) fail "$(basename "$f"): no 'line ${c##*:}' in: $out" ;; esac
+done
+[ ! -e "$W/pwned" ] || fail "a command substitution in ci/vivado.env ran"
+echo "ok: keys.sh refuses lines that are no build option"
