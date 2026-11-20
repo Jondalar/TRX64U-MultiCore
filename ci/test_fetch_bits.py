@@ -2,7 +2,8 @@
 """T239.1 D19, S5, S8: ci/fetch_bits.sh on a fake builds repository (ci/fakegh.py). Happy path: the entries are restored the way the builder's cache holds them
 (DONE last, reports unpacked, no static_routed.dcp) and bit-releases.json records the releases. The refusals: a draft, a missing release, an asset whose digest GitHub lists
 differently, SHA256SUMS that disagrees with the assets, a reports.tar.gz that leaves its directory, a manifest that does not match, a host.bit that is not the host_sha, a core routed
-against another host. A refused entry leaves nothing in the cache. Unit and happy path."""
+against another host. A refused entry leaves nothing in the cache. D40: a second fetch takes every entry from the cache without a request, an entry
+whose file changed is fetched again, a shorter list removes the other entries, and --names prints the list. Unit and happy path."""
 import hashlib
 import io
 import json
@@ -73,14 +74,45 @@ class FetchTest(unittest.TestCase):
             self.gh.add_release("bit-" + n, release_files({c + "_partial.bit": b"p " + c.encode(), c + "_full.bit": b"f " + c.encode()}, {c + ".steps.txt": b"s"}, {"host_sha": self.hsha}))
         self.gh.add_release("bit-" + M, release_files({"amiga1200_mono.bit": b"mono"}, {}, {"wns_ns": "0.1"}))
 
-    def fetch(self, target=None, ok=True):
+    def fetch(self, target=None, ok=True, names_only=False):
         env = {"PATH": os.environ["PATH"], "CI_BIT_CACHE": self.cache, "CI_HANDOFF": self.hand, "FETCH_KEYS": os.path.join(self.tmp, "keys"), "MC_BUILDS_REPO": self.gh.repo, "BUILDS_API": self.gh.base}
-        r = subprocess.run([os.path.join(HERE, "fetch_bits.sh")] + ([target] if target else []), env=env, capture_output=True, text=True)
+        r = subprocess.run([os.path.join(HERE, "fetch_bits.sh")] + (["--names"] if names_only else []) + ([target] if target else []), env=env, capture_output=True, text=True)
         self.assertEqual(r.returncode == 0, ok, r.stdout + r.stderr)
         return r
 
     def entries(self):
-        return sorted(n for n in os.listdir(self.cache) if n != ".fetched") if os.path.isdir(self.cache) else []
+        return sorted(n for n in os.listdir(self.cache) if not n.startswith(".")) if os.path.isdir(self.cache) else []
+
+    def test_cache_reused(self):
+        self.fetch()
+        first = open(os.path.join(self.hand, "bit-releases.json")).read()
+        self.gh.log.clear()
+        r = self.fetch()
+        self.assertEqual(self.gh.log, [], "a cached entry needs no request")
+        self.assertIn("(%d from the cache, 0 fetched)" % len(self.names), r.stdout)
+        self.assertEqual(open(os.path.join(self.hand, "bit-releases.json")).read(), first)
+
+    def test_cache_changed_file_fetched_again(self):
+        self.fetch()
+        open(os.path.join(self.cache, V, "vc20_partial.bit"), "wb").write(b"changed")
+        self.gh.log.clear()
+        r = self.fetch()
+        self.assertIn("fetched bit-" + V, r.stdout)
+        self.assertEqual({p for _, p in self.gh.log if "/releases/tags/" in p}, {"/repos/%s/releases/tags/bit-%s" % (self.gh.repo, V)})
+        self.assertEqual(open(os.path.join(self.cache, V, "vc20_partial.bit"), "rb").read(), b"p vc20")
+
+    def test_cache_pruned_to_the_list(self):
+        self.fetch()
+        open(os.path.join(self.tmp, "keys"), "w").write("\n".join([H, R, V]) + "\n")
+        self.fetch()
+        self.assertEqual(self.entries(), sorted([H, R, V]))
+        self.assertEqual(sorted(os.listdir(os.path.join(self.cache, ".releases"))), sorted(n + ".json" for n in (H, R, V)))
+
+    def test_names(self):
+        self.assertEqual(self.fetch(names_only=True).stdout.split(), self.names)
+        self.assertEqual(self.fetch("core:vc20", names_only=True).stdout.split(), [H, R, V])
+        self.assertEqual(self.gh.log, [])
+        self.assertEqual(self.entries(), [])
 
     def test_all_entries(self):
         self.fetch()

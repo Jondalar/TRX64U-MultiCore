@@ -3,16 +3,21 @@
 ci/bitstream*.sh read them as they read the builder's cache.
 
   ci/fetch_bits.sh [core:<id> | large:<id>]    no argument: every entry of ci/keys.sh; core:<id>: the host, the reference core and that core; large:<id>: its flat entry
+  ci/fetch_bits.sh --names [core:<id> | large:<id>]   print the entry names only (the collect job keys GitHub's cache with them, D40)
     env  CI_BIT_CACHE   the directory the entries are restored into (default $RUNNER_TEMP/bit)
          CI_HANDOFF     gets bit-releases.json: per entry the release tag and id and the SHA-256 of SHA256SUMS and of every asset (ci/package.sh puts it into manifest.json)
          MC_BUILDS_REPO default from ci/pkg.env; BUILDS_API default https://api.github.com; GH_TOKEN optional (rate limit only; the assets are public)
-         FETCH_KEYS     a file with the entry names, instead of ci/keys.sh (tests)
+         FETCH_KEYS     a file with the entry names, instead of ci/keys.sh (tests; the collect job passes the list it printed with --names)
 
 Per entry, nothing is trusted before it has passed these checks: the release is published (not a draft); it has SHA256SUMS; every asset has the SHA-256 that GitHub lists
 for it (`digest`) and the one SHA256SUMS lists, and SHA256SUMS lists no asset that is missing; reports.tar.gz holds plain files with plain names only; manifest.json (when
 the entry has one) lists files whose SHA-256 are the ones restored - a *.dcp is the one kind that may be absent (the host's static_routed.dcp is never published, the host
 checkpoint stays in the builder's cache); host.bit, when present, has the SHA-256 the manifest names as host_sha; every core entry names the host_sha of the host entry fetched with
 it. The directory is made beside the cache and renamed into place with DONE as its last file, so a failed fetch leaves no entry.
+
+D40: the collect job restores $CI_BIT_CACHE from GitHub's cache. An entry found there is used again when it has DONE, its record in .releases/<entry>.json
+(written after its fetch) and every asset file the record lists with that SHA-256 (reports.tar.gz is unpacked at the fetch, so it is not on disk); any other entry
+is fetched. Without a target, the entries that are not in the list are removed with their records, so the cache holds one set.
 """
 import hashlib
 import json
@@ -231,13 +236,58 @@ def fetch_entry(api, entry, cache):
     except BaseException:
         shutil.rmtree(tmp, ignore_errors=True)
         raise
-    return {"tag": tag, "release_id": rel.get("id"), "sha256sums": sums_sha, "assets": got}, manifest
+    rec = {"tag": tag, "release_id": rel.get("id"), "sha256sums": sums_sha, "assets": got}
+    os.makedirs(os.path.join(cache, ".releases"), exist_ok=True)
+    with open(os.path.join(cache, ".releases", entry + ".json"), "w") as f:
+        json.dump(rec, f, indent=2, sort_keys=True)
+    return rec, manifest
+
+
+def cached_entry(entry, cache):
+    """D40: (record, manifest) of an entry that is in the cache with its record and unchanged asset files, else None."""
+    d, rp = os.path.join(cache, entry), os.path.join(cache, ".releases", entry + ".json")
+    if not (os.path.isfile(os.path.join(d, "DONE")) and os.path.isfile(rp)):
+        return None
+    try:
+        rec = json.load(open(rp))
+        assets = rec["assets"]
+        if rec.get("tag") != "bit-" + entry or not isinstance(assets, dict):
+            return None
+        for n, want in assets.items():
+            if n == "reports.tar.gz":
+                continue
+            p = os.path.join(d, n)
+            if not NAME_OK.match(n) or not os.path.isfile(p) or sha256_file(p) != want:
+                return None
+        mp = os.path.join(d, "manifest.json")
+        return rec, (json.load(open(mp)) if os.path.isfile(mp) else None)
+    except (ValueError, KeyError, TypeError, OSError):
+        return None
+
+
+def prune(cache, keep):
+    """D40: remove the entries that are not in keep, with their records, and half-made directories."""
+    for n in os.listdir(cache):
+        p = os.path.join(cache, n)
+        if ".tmp." in n or (ENTRY.match(n) and n not in keep):
+            shutil.rmtree(p, ignore_errors=True)
+            try:
+                os.unlink(os.path.join(cache, ".releases", n + ".json"))
+            except OSError:
+                pass
 
 
 def main():
-    target = sys.argv[1] if len(sys.argv) > 1 else ""
-    if len(sys.argv) > 2:
-        raise FetchError("usage: ci/fetch_bits.sh [core:<id>|large:<id>]")
+    args = sys.argv[1:]
+    names_only = bool(args) and args[0] == "--names"
+    if names_only:
+        args = args[1:]
+    target = args[0] if args else ""
+    if len(args) > 1:
+        raise FetchError("usage: ci/fetch_bits.sh [--names] [core:<id>|large:<id>]")
+    if names_only:
+        print("\n".join(select(entry_names(), target, reference_core())))
+        return 0
     cache = os.environ.get("CI_BIT_CACHE") or (os.path.join(os.environ["RUNNER_TEMP"], "bit") if os.environ.get("RUNNER_TEMP") else "")
     if not cache:
         raise FetchError("CI_BIT_CACHE is not set")
@@ -247,8 +297,17 @@ def main():
     repo = os.environ.get("MC_BUILDS_REPO") or pkg["MC_BUILDS_REPO"]
     api = Api(os.environ.get("BUILDS_API", "https://api.github.com"), repo, os.environ.get("GH_TOKEN", ""))
     names = select(entry_names(), target, reference_core())
+    if not target:
+        prune(cache, set(names))
     records, manifests = {}, {}
+    reused = 0
     for n in names:
+        hit = cached_entry(n, cache)
+        if hit:
+            records[n], manifests[n] = hit
+            reused += 1
+            print("cached  %s (%d assets)" % (hit[0]["tag"], len(hit[0]["assets"])))
+            continue
         rec, man = fetch_entry(api, n, cache)
         records[n], manifests[n] = rec, man
         print("fetched %s (%d assets)" % (rec["tag"], len(rec["assets"])))
@@ -265,7 +324,7 @@ def main():
     if os.environ.get("CI_HANDOFF"):
         os.makedirs(os.environ["CI_HANDOFF"], exist_ok=True)
         json.dump({"repository": repo, "entries": records}, open(os.path.join(os.environ["CI_HANDOFF"], "bit-releases.json"), "w"), indent=2, sort_keys=True)
-    print("fetch_bits: %d entries restored into %s" % (len(names), cache))
+    print("fetch_bits: %d entries restored into %s (%d from the cache, %d fetched)" % (len(names), cache, reused, len(names) - reused))
     return 0
 
 
