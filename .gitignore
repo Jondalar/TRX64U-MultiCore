@@ -2,7 +2,6 @@
 /roms/*.bin
 /cores/*/roms/*.rom
 /cores/*/sim/media/
-/<removed>/
 /release/imports/trx64u_files/modplayer/module.bin
 /.claude/context.md
 /.claude/handover*
