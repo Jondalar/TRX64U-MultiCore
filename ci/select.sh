@@ -9,7 +9,7 @@
 #                            BUNDLE_INPUT=true (dispatch input `bundle`, T172), or the head commit message contains
 #                            "[bundle]" (T172 D1), for any other branch; else no.
 #
-# Read from GITHUB_REF_NAME (CI_BRANCH first: on a pull request the workflow sets it to the head branch), GITHUB_REF_TYPE, GITHUB_EVENT_NAME, UE2_INPUT,
+# Read from GITHUB_REF_NAME (CI_BRANCH first: on a pull request the workflow sets it to pr-<number>, a name no branch has, so the scope is branch), GITHUB_REF_TYPE, GITHUB_EVENT_NAME, UE2_INPUT,
 # SIMS_INPUT, UPDATE_FORCE, BUNDLE_INPUT (the dispatch inputs; the workflows pass them on as env) and the message of HEAD, so the same call answers on the
 # Mac for the checkout there.
 set -eu

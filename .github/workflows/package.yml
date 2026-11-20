@@ -22,7 +22,7 @@ jobs:
       image: ghcr.io/jondalar/trx64u-build@sha256:0000000000000000000000000000000000000000000000000000000000000001
     timeout-minutes: 60
     env:
-      CI_BRANCH: ${{ github.head_ref || github.ref_name }}
+      CI_BRANCH: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.number) || github.ref_name }}
       CI_REF_TYPE: ${{ github.ref_type }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683   # v4.2.2
@@ -79,7 +79,7 @@ jobs:
       image: ghcr.io/jondalar/trx64u-build@sha256:0000000000000000000000000000000000000000000000000000000000000001
     timeout-minutes: 30
     env:
-      CI_BRANCH: ${{ github.head_ref || github.ref_name }}
+      CI_BRANCH: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.number) || github.ref_name }}
       CI_REF_TYPE: ${{ github.ref_type }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683   # v4.2.2

@@ -212,10 +212,11 @@ cat > "$W/bin/curl" <<CURL
 #!/usr/bin/env bash
 cat <<JSON
 {"workflow_runs":[
- {"id":12,"path":"pipeline.yml@refs/heads/scratch","status":"in_progress","head_branch":"scratch","head_sha":"$B6"},
- {"id":11,"path":"pipeline.yml@refs/heads/scratch","status":"completed","conclusion":"failure","head_branch":"scratch","head_sha":"$A6"},
- {"id":10,"path":"pipeline.yml@refs/heads/scratch","status":"completed","conclusion":"success","head_branch":"scratch","head_sha":"$G0"},
- {"id":9,"path":"pipeline.yml@refs/heads/scratch","status":"completed","conclusion":"success","head_branch":"scratch","head_sha":"$BASE"}]}
+ {"id":13,"path":"pipeline.yml@refs/pull/4/merge","status":"completed","conclusion":"success","head_branch":"scratch","event":"pull_request","head_repository":{"full_name":"fork/r"},"head_sha":"$B6"},
+ {"id":12,"path":"pipeline.yml@refs/heads/scratch","status":"in_progress","head_branch":"scratch","event":"push","head_repository":{"full_name":"o/r"},"head_sha":"$B6"},
+ {"id":11,"path":"pipeline.yml@refs/heads/scratch","status":"completed","conclusion":"failure","head_branch":"scratch","event":"push","head_repository":{"full_name":"o/r"},"head_sha":"$A6"},
+ {"id":10,"path":"pipeline.yml@refs/heads/scratch","status":"completed","conclusion":"success","head_branch":"scratch","event":"push","head_repository":{"full_name":"o/r"},"head_sha":"$G0"},
+ {"id":9,"path":"pipeline.yml@refs/heads/scratch","status":"completed","conclusion":"success","head_branch":"scratch","event":"push","head_repository":{"full_name":"o/r"},"head_sha":"$BASE"}]}
 JSON
 CURL
 chmod +x "$W/bin/curl"
@@ -234,7 +235,7 @@ if chk "$D96"; then fail "D9-6 control: a plan diffed against the previous commi
 # pipeline has no origin/main: run 159).
 cat > "$W/bin/curl" <<'CURL'
 #!/usr/bin/env bash
-echo '{"workflow_runs":[{"id":11,"path":"pipeline.yml@refs/heads/scratch","status":"completed","conclusion":"failure","head_branch":"scratch","head_sha":"0000"}]}'
+echo '{"workflow_runs":[{"id":11,"path":"pipeline.yml@refs/heads/scratch","status":"completed","conclusion":"failure","head_branch":"scratch","event":"push","head_repository":{"full_name":"o/r"},"head_sha":"0000"}]}'
 CURL
 G remote remove origin
 G update-ref refs/remotes/origin/main "$BASE"
@@ -332,4 +333,10 @@ cp "$R/ci/fundamental.txt" "$W/fund.bak"; printf 'stray/path\n%s\n' "$(cat "$W/f
 python3 "$R/ci/plan.py" fundamental benches >/dev/null 2>&1 && fail "D2.6 control: a path before any section header was accepted"
 cp "$W/fund.bak" "$R/ci/fundamental.txt"
 echo "D2.6 ok (app change: no full benches on a branch; app/view: yes; main: always)"
+# fork pull request whose branch is called main: the workflows set CI_BRANCH to pr-<number>, so the scope is branch and the update is not built; the same
+# run under the name of the fork's branch (what github.head_ref gave before) takes the full scope and the update - the control that proves the check can fail
+[ "$(CI_BRANCH=pr-7 python3 -c 'import os, sys; sys.path.insert(0, sys.argv[1] + "/ci"); import plan; print(plan.full_scope(os.environ["CI_BRANCH"]))' "$R")" = False ] || fail "fork PR: pr-7 has the full scope"
+[ "$(CI_BRANCH=main python3 -c 'import os, sys; sys.path.insert(0, sys.argv[1] + "/ci"); import plan; print(plan.full_scope(os.environ["CI_BRANCH"]))' "$R")" = True ] || fail "fork PR control: main has not the full scope"
+[ "$(env -u UPDATE_FORCE -u BUNDLE_INPUT CI_BRANCH=pr-7 GITHUB_EVENT_NAME=pull_request SELECT_MSG=x "$R/ci/select.sh" update)" = no ] || fail "fork PR: select.sh update says yes for pr-7"
+[ "$(env -u UPDATE_FORCE -u BUNDLE_INPUT CI_BRANCH=main GITHUB_EVENT_NAME=pull_request SELECT_MSG=x "$R/ci/select.sh" update)" = yes ] || fail "fork PR control: select.sh update says no for main"
 echo "plan test ok"
