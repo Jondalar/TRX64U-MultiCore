@@ -1,6 +1,7 @@
 # T242 — A C64 keyboard on header P7 works in the host menu and in every core app
 
-**Status:** BUILT (2026-11-20): D1-D6 on `integration` (`748d1d75`); board S1-S5 with package A `t239.1-0210226e` (D7).
+**Status:** DONE (2026-11-20): D1-D6 on `integration` (`748d1d75`); board S1-S5 PASS with package A `t239.1-0210226e` and a
+C64 header keyboard on P7 (D7).
 **Repo:** TRX64U-MultiCore — the host app and the generic core app (`host-app/software/system/u64ii_init.cc`, built into both). No gateware change.
 **Number:** T242.
 **Origin:** GitHub issue #111, "P7 Keyboard on Motherboard does not work in Host- and Coreapps". The TRX64U-FW session read the cause from the code. Alex, 2026-11-20 (translated): "regarding the P7 bug, in my opinion the fix is in issue #111"; "wouldn't that be a nice attempt then, to build the host and all core apps once?"
@@ -58,3 +59,9 @@
 - `d478ae57` (D4, D5) on `t239.1`; the run with the unfixed D1 was cancelled. Full GitHub run 44737131946 carries D1-D5.
 - Run 44737131946: apptests and images green with D1-D5 (host app, core app and every core's app built). Its collect went red for a reason outside T242 (T239.1 §5, step 17).
 - `b4b6f086` (D6) on `t239.1`, co-author the PR's author; PR #112 commented (it is not merged as it is). D1-D5 are in the pre-release `t239.1-7eb32b4b` (run 44780149112); D6 comes with the next run.
+- Board test 2026-11-20 (Alex; package A `t239.1-0210226e`, the host updated from the File Browser first; checklist "Board Test
+  11-20", 21:46-21:58 CET), every item PASS: S3 (C= held on the P7 keyboard at power-on with Direct boot on: the host menu, no direct
+  start), S1 (P7 keys in the host menu), S2 (P7 keys in a core's menu), S4 (a full firmware started from the host), S5 (the built-in
+  C64U keyboard in the host menu and in a core's menu). Alex: "alles geklappt !!!" (everything worked). T242 is DONE and moves to
+  `docs/specs/done/`.
+- Issue #111 closed on 2026-11-20 with the board confirmation and "ships with release 0.2.1" (Alex chose: comment now and close).
