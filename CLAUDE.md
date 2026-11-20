@@ -54,8 +54,9 @@ No code for a change that has no spec section to point at; a one-line fix points
 - **The pipeline** (parent and children, T174 D4, Alex 2026-11-08: "separation of concerns in the CI too"): a push runs
   `.github/workflows/pipeline.yml`; its jobs and the reusable workflows it calls run in dependency order, and the dependents of a red
   job do not start: plan (`ci/plan.py`: what changed, which children, which bitstream
-  keys are missing), lint, apptests, images, collect (the bitstreams by content key from the builder), package, update, emu and the
-  pre-release `<branch>-<sha8>` in the builds repository (the release bundle, T239.1 D42). Pushes queue; none is cancelled. A push that
+  keys are missing), lint, keys, apptests, images, sim, cor, package (it first collects the bitstreams by content key from the
+  builder), update, emu and the pre-release. Only a push to `main` or a `v*` tag publishes a pre-release `<branch>-<sha8>` in the
+  builds repository (the release bundle, T239.1 D1, D42; `t239.1` too while it exists). Pushes queue; none is cancelled. A push that
   changes only `**.md`, `docs/**` or `.claude/**` starts no run. Everything unchanged comes from the content-keyed cache. The Gitea
   workflows of the old home stay in `.gitea/workflows/` and run only by hand (T239.1 D45).
 - Only the coordinating session pushes code that builds, and only when no CI run is in progress or waiting. Agents commit locally and
@@ -68,8 +69,9 @@ No code for a change that has no spec section to point at; a one-line fix points
 - **No pre-push lint** (Alex, 2026-11-08: "if the CI runs the linter anyway, why the pre-push lint?" - "yes, comment it out",
   translated): the pipeline runs `ci/lint.sh`; a red lint is fixed with the next push. `tools/prepush.sh` stays for use by hand.
 - **Sims only on demand** (Alex, 2026-11-08, translated: "the sims come out of the CI ... build the app, build the bitstream, tie the
-  package; sims only on demand"): a push starts no sim child (`ci/select.sh sims-tier` = 0); sims run on `integ-*` branches,
-  releases/tags, the pipeline dispatch input `sims`, or "[sims]" in the head commit.
+  package; sims only on demand"; "after W1 we introduce an integration branch, a sim can run there"): a push to `main` or a feature
+  branch starts no sim child (`ci/select.sh sims-tier` = 0); sims run on every push to `integration` and `integ-*` branches, on
+  releases/tags, with the pipeline dispatch input `sims`, or with "[sims]" in the head commit.
 - **Benches are not in the push pipeline** (Alex, 2026-10-30: "yes, please", after days spent waiting on runs). All tier-2 benches run
   nightly on `main` (`.github/workflows/nightly.yml`) and on demand. **No benches before a merge** (Alex, 2026-11-15, translated: "we once had only sims and benches at night, didn't we?" -
   yes): build, Vivado through the pipeline, board test; agents run no `tools/benches.sh` unless Alex asks for one.
@@ -98,7 +100,9 @@ No code for a change that has no spec section to point at; a one-line fix points
   passing bench, with a negative control only for flash/persistence, or a recorded board pass); one missing = no merge, not in a
   package. Agents get the full scenario list and return one row per scenario with its evidence; dropping or deferring is forbidden,
   blocked = stop and report. Tests build the state with the same function the board uses (no test-only setup). Every UI change runs in
-  ue2emu with the `ux-review` skill (PASS, the coordinator opens the pictures) before it goes to a person.
+  ue2emu with the `ux-review` skill (PASS, the coordinator opens the pictures) before it goes to a person. No new spec is built while
+  the finish plan (waves 1-3, 2026-11-07) is open, unless Alex says so (he did for the T192 MVP, 2026-11-08, epic D20: agents again,
+  emulator tests only, features merged into `integ-1`, test builds from there).
 - **Dev loop (T174 D1):** `tools/dev.sh build|test|riscv|emu|cor CORE|integrate [--branch B] [--clean]` on the Mac runs on the builder
   (app slot, persistent tree per branch, incremental, CI's cache); `riscv` is the pipeline's build stage (`ci/trxapps.sh`, images only),
   tests/benches are the separate stage `ci/render.sh`. `emu` = the Mac-side emulator scripts of the touched app, `cor CORE` = one .cor
@@ -116,7 +120,7 @@ No code for a change that has no spec section to point at; a one-line fix points
 - Short-lived feature branches (hours to days), merged into `integration`; a core in development lives in the tree as a directory with
   `experimental` in its `core.toml` (T94 D8).
 - Decisions by Alex are recorded at once, quoted, in the spec/TODO of the task; ask one question at a time.
-- **Releases are made by hand, on GitHub** (Alex, 2026-10-28, T100 D8). The pipeline publishes pre-releases only (T239.1 D42); a
+- **Releases are made by hand, on GitHub** (Alex, 2026-10-28, T100 D8). The pipeline publishes pre-releases only (T239.1 D1, D42); a
   release needs Alex's go.
 
 ## Board
@@ -130,7 +134,7 @@ No code for a change that has no spec section to point at; a one-line fix points
   in the `vivado-env` image.
 
 ## Clean room and licences
-- Never open Gideon's UltiSID, Copper, lp_filter or sampler VHDL; never open `~/Downloads/ultisid_on_mister_v77`.
+- Never open Gideon's UltiSID, Copper, lp_filter or sampler VHDL; never open the UltiSID-on-MiSTer sources (v77).
 - ROM, Kickstart and disk images never go into this repository, a release, a `.cor` or a package. The exceptions:
   - The Atari XL OS and BASIC, so the benches can boot a real machine (Alex, 2026-10-14), and the disk images for benches (Alex,
     2026-10-29): both are in the private side repository (T239.1 D5), never here.

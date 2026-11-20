@@ -34,8 +34,9 @@ series of experiments.
 
 ## 2. Budget and density
 
-- `pb_l2` (core): 18,000 LUT, 50 RAMB36 tiles, 80 DSP. Routing against the fixed host is reliable up to about 80 % LUT;
-  above that a result depends on the build. `pb_l1` (host): 13,000 LUT; it routed at 75-78 %, not at 82 %.
+- The budgets come from the floorplan: `T79_FLOOR` in `ci/vivado.env` picks the pblocks of `host/build.tcl`. Read the LUT,
+  RAMB36 and DSP of `pb_l1` (host) and `pb_l2` (core) there and in the last green run's utilisation report before planning.
+  Routing against the fixed host was reliable up to about 80 % LUT of `pb_l2`; above that a result depends on the build.
 - Routing failures were always density inside a pblock, never the number of partition pins.
 - Measure before guessing: per-module utilisation from `utilization_hier_synth.rpt`, compared with the last green run.
 - Gate control at the edge (request, enable, valid, ack, toggles, resets), not wide data buses whose consumers already
@@ -88,7 +89,7 @@ series of experiments.
 ## 6. Simulation benches
 
 - Benches run on the builder only (container `trx64-sim-env:4`, `nice -n 15`, every run in `timeout`, only when
-  `docker ps` there shows no `GITEA-ACTIONS-*` container, at most 2). **Nothing heavy on the Mac.** Leave nothing running.
+  no CI job runs there (`docker ps`), at most 2). **Nothing heavy on the Mac.** Leave nothing running.
 - Every bench has a control (mutation or `ctl_*`) that MUST fail; a bench that cannot fail proves nothing.
 - `ci/sims.sh` reads the bench's verdict from its output: a control's own lines carry the prefix `ctl| ` or its
   expected FAIL reads as the bench's (CI 940). The CI log shows only the last 25 lines of a bench.
@@ -117,7 +118,8 @@ series of experiments.
 
 ## 8. Releases and the board
 
-- Every push's pipeline publishes a pre-release `<branch>-<sha8>` in the builds repository: the release bundle (T239.1 D42).
+- A push to `main` or a `v*` tag publishes a pre-release `<branch>-<sha8>` in the builds repository: the release bundle (T239.1
+  D1, D42).
   A release is made by hand on GitHub with Alex's go; only Alex creates tags (T239.1 D28). Tell Alex which `.cor` changed
   against the previous release (SHA256SUMS diff) - "rebuilt" is not "new". A change in the generic core app changes every
   blueprint core's `.cor`.
