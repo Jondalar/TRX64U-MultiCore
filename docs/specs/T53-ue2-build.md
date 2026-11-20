@@ -1,6 +1,6 @@
 # T53 — Ultimate 64 Elite II (XC7A100T) build
 
-**Status:** placeholder (Alex, 2026-11-01: "that is only a placeholder until we know the 100T geometry ... that only comes with the C77 board, which comes out from February or so"): stage `bit-ue2` stays; no board has a 100T yet. **2026-11-15 sync:** the stage still exists, but in this repository it builds the host, not `designs/c64_basic` (which is not here): `ci/bitstream.sh ue2` (part xc7a100tfgg484-1, `_100t` files, on dispatch with ue2, tag or release/* branch, `ci/children.txt:28`); §1 and §2 describe the old monolith build and are history. Spec body records the task as dropped (Alex 2026-10-04, ADR-0015) and TODO.md has no T53 row. Spec 2026-10-03, branch `t53-ue2` (on top of `t31-ci`). **Task:** TODO.md T53 (M1, RC item).
+**Status:** LIFTED (Alex, 2026-11-20, translated: "T53 is lifted - we are seeing 100T machines at the users right now. REMEMBER: we have to prepare for it! The emulator should build it too. As soon as we can test a 100T bitstream we have to adapt the structures to 50T+100T, universal packages so to speak"). Until then: ue2emu builds the 100T machine (its S46/S47, ordered 2026-11-20); the packages, the updater and the `.txu` stay 50T until a 100T bitstream can be tested. History: placeholder (Alex, 2026-11-01: "that is only a placeholder until we know the 100T geometry ... that only comes with the C77 board, which comes out from February or so"): stage `bit-ue2` stays; no board has a 100T yet. **2026-11-15 sync:** the stage still exists, but in this repository it builds the host, not `designs/c64_basic` (which is not here): `ci/bitstream.sh ue2` (part xc7a100tfgg484-1, `_100t` files, on dispatch with ue2, tag or release/* branch, `ci/children.txt:28`); §1 and §2 describe the old monolith build and are history. Spec body records the task as dropped (Alex 2026-10-04, ADR-0015) and TODO.md has no T53 row. Spec 2026-10-03, branch `t53-ue2` (on top of `t31-ci`). **Task:** TODO.md T53 (M1, RC item).
 **Shares with:** T31 (the pipeline stage `bit-ue2`), T49 (the update package carries both bitstreams),
 T15 (boot ROM picks the app address by FPGA type), T50 (updater picks the bitstream).
 Evidence: Gideon's public constraints (GitHub issue 615, copy in the tools fork `pinmap/c64u_gideon_issue615.xdc`),
@@ -119,7 +119,7 @@ The TODO.md table is an overview only; the row detail lives here (convention at 
 
 T53: UE2 build (XC7A100T) as a second CI bitstream
 
-Milestone M1, status ✖. Open (one line, as in the TODO table): – (dropped)
+Milestone M2, status 📅 (lifted 2026-11-20; was ✖, dropped). Open (one line, as in the TODO table): Lifted 11-20 (Alex); emu builds 100T (S46/S47); structures once a 100T bitstream can be tested
 
 Decisions: [ADR-0015 No 100T and no public release; T53 dropped](../adr/0015-no-100t-no-public-release.md); [ADR-0004 M1 release candidate for TREX-internal testers](../adr/0004-m1-release-candidate-internal-testers.md).
 

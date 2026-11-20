@@ -1,6 +1,6 @@
 # T240 — The installer puts every core it finds into the boot menu, up to 32, and makes each core's folder with roms/, saves/ and configs/
 
-**Status:** BUILT on branch `t240-installer-cores` (2026-11-19); emulator run and board S4 open. PROPOSED 2026-11-19 (Alex).
+**Status:** BUILT, merged to `main` (`30986066f`, 2026-11-19) and on `t239.1`; emulator S1-S3 PASS; board S4 open. PROPOSED 2026-11-19 (Alex).
 **Repo:** TRX64U-MultiCore — the TRX updater `vendor/gideon/software/application/update_u2p/update_trx.cc` (built by the CI
 stage `update` into `trx64host_update_<id>.ue2/.cfw`). No gateware; no `coreapp/` or `uicore/` code (T192 D24, T213 D4).
 **Number:** T240.
