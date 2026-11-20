@@ -1,6 +1,7 @@
 # T240 — The installer puts every core it finds into the boot menu, up to 32, and makes each core's folder with roms/, saves/ and configs/
 
-**Status:** BUILT, merged to `main` (`30986066f`, 2026-11-19) and on `integration` (`748d1d75`); emulator S1-S3 PASS; board S4 open. PROPOSED 2026-11-19 (Alex).
+**Status:** DONE (2026-11-20): S1-S4 proven in ue2emu, S4 without a board run (D3). Merged to `main` (`30986066f`, 2026-11-19)
+and on `integration` (`748d1d75`). PROPOSED 2026-11-19 (Alex).
 **Repo:** TRX64U-MultiCore — the TRX updater `vendor/gideon/software/application/update_u2p/update_trx.cc` (built by the CI
 stage `update` into `trx64host_update_<id>.ue2/.cfw`). No gateware; no `coreapp/` or `uicore/` code (T192 D24, T213 D4).
 **Number:** T240.
@@ -12,7 +13,7 @@ being worked on, the folder structures should please be made for every core foun
 **Milestone:** release 0.2.1 (Alex, 2026-11-19, translated: "I'll tag it 0.2.1 and we keep collecting"; GitHub has no CI
 yet, so a release is the Gitea tag run plus the GitHub release by hand, T239.1 D1).
 
-Open (one line, as in the TODO table): Emulator S1-S3 PASS (11-19 emu-test, 11-20 tester .ue2 on W25Q); board S4 open; ships in 0.2.1
+Open (one line, as in the TODO table): Done 11-20: S1-S4 in ue2emu (S4 without board, Alex); ships in 0.2.1
 
 ---
 
@@ -46,7 +47,7 @@ Open (one line, as in the TODO table): Emulator S1-S3 PASS (11-19 emu-test, 11-2
 | S1 | P1 | A bundle folder with 20 `.cor` and 4 `.u2a`: `Flash:/boot.cfg` gets the backup entry of the old firmware (always the first, T135) plus 20 core lines; the apps are no entries. With 33 `.cor` the menu is full at 32 and the screen says that 2 were not added | the updater emulator run (`tests/updater/emu_t135.sh` s13, s15; control s16 with the updater before T240) |
 | S2 | P2 | The same folder plus three firmware files (`.cfw`) of other vendors: still every core is found and added | updater emulator run |
 | S3 | P3 | After the install every found core has `<dir>/<name>/`, `roms/`, `saves/` and `configs/`; a folder or a file that was there stays as it was | updater emulator run, listing of the medium afterwards |
-| S4 | P1-P3 | Board: install the next release's `.ue2` from a stock firmware with the release folder: the boot menu lists every core, the folders exist | Alex on the board: the boot menu, and the file browser shows the folders |
+| S4 | P1-P3 | Board: install the next release's `.ue2` from a stock firmware with the release folder: the boot menu lists every core, the folders exist | ue2emu with the tester `.ue2` (the board build), s13-s15; no board run (D3) |
 
 ## §3 Decision
 
@@ -54,10 +55,13 @@ Open (one line, as in the TODO table): Emulator S1-S3 PASS (11-19 emu-test, 11-2
 - **D2 (Alex, 2026-11-19): while installing, the installer makes the folder structure of every core it finds, the ROM folder
   included** ("die Ordner Strukturen anlegen für jeden gefundenen Core beim Install, also auch den für die Roms"). The layout is
   T148's (`roms/`, `saves/`, `configs/`), the same set `corefolder_ensure()` makes.
+- **D3 (Alex, 2026-11-20): S4 is proven in the emulator; no board run.** Asked whether to test S4 on the board with the detour
+  through the stock firmware (R on the backup `.cor`, then the package's `.ue2`), Alex (translated): "No. In the emulator, and
+  that's it." The proof is the emulator run of the tester `.ue2` of 2026-11-20 (§5).
 
 ## §4 Out
 
-Nothing decided yet.
+- The board run of S4 (D3).
 
 ## §5 Built
 
@@ -85,10 +89,10 @@ Nothing decided yet.
 
 | # | Proof written | Status |
 |---|---|---|
-| S1 | s13 (20 `.cor` + 4 `.u2a`: 21 lines = backup + 20) and s15 (33 `.cor`: 32 lines, screen `2 core(s) not added`); control s16: the pre-T240 updater gives 16 lines and the T240 checks must fail on it | written, not run |
-| S2 | s14 (20 `.cor` + 4 `.u2a` + 3 `.cfw`: all 20 copied and in the menu, 24 lines); the pre-T240 updater (24 files) is the control through s16 | written, not run |
-| S3 | s13 (SD with `cores/dummy01/roms/keep.bin`: the file stays, the other subfolders are made; folders of all 20 and the backup), s14, s15 (folders for all 33, also those not in the menu), none for `.cfw` | written, not run |
-| S4 | board, Alex | open |
+| S1 | s13 (20 `.cor` + 4 `.u2a`: 21 lines = backup + 20) and s15 (33 `.cor`: 32 lines, screen `2 core(s) not added`); control s16: the pre-T240 updater gives 16 lines and the T240 checks must fail on it | PASS (11-19 emu-test build; 11-20 board build) |
+| S2 | s14 (20 `.cor` + 4 `.u2a` + 3 `.cfw`: all 20 copied and in the menu, 24 lines); the pre-T240 updater (24 files) is the control through s16 | PASS (11-19 emu-test build; 11-20 board build) |
+| S3 | s13 (SD with `cores/dummy01/roms/keep.bin`: the file stays, the other subfolders are made; folders of all 20 and the backup), s14, s15 (folders for all 33, also those not in the menu), none for `.cfw` | PASS (11-19 emu-test build; 11-20 board build) |
+| S4 | ue2emu 0.7.4, the tester `.ue2` (board build), s13-s15 (D3) | PASS |
 - **Review 2026-11-19 (agent, before the merge):** no blockers. Fixed: the manual's "up to 24 files" (now 64), the comment of
   `tests/hostapp/test_startcheck.cc` ("16 entries" -> BOOT_MAX), the "Core folders" line only when a folder was made. Known and
   older than T240: when the bundle folder is the cores folder itself, the backup `.cor` can be met twice (a second boot entry, a
@@ -113,3 +117,4 @@ Nothing decided yet.
   equals Commodore's again byte for byte. Seen in both runs: the updater erases only the sectors it writes, so the old content stays
   behind the new bitstream (0x17B000-0x2172F8 after s5) and behind the restored app (our app's tail, 0x31B000-0x32E257). Not checked:
   whether such a tail can matter.
+- **D3, 2026-11-20:** S4 needs no board run (Alex). With S1-S4 proven, T240 is DONE and moves to `docs/specs/done/`.
