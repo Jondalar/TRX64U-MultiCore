@@ -72,6 +72,15 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
           persist-credentials: false
+      - name: Container paths and git
+        # T239.1: in a container job the expressions runner.temp and github.workspace can name the host's paths (a runner feature flag
+        # decides), while $RUNNER_TEMP and $GITHUB_WORKSPACE are the container's; every later step names them as env.CI_TEMP and env.CI_WS.
+        # The runner's user owns the checkout and git runs as root here, so git refuses it ("dubious ownership") unless the system config
+        # trusts it; the system config holds for every later git call, also one under env -i.
+        run: |
+          git config --system --add safe.directory '*'
+          echo "CI_TEMP=$RUNNER_TEMP" >> "$GITHUB_ENV"
+          echo "CI_WS=$GITHUB_WORKSPACE" >> "$GITHUB_ENV"
       - name: Environment
         run: |
           echo "CI_HANDOFF=$RUNNER_TEMP/handoff" >> "$GITHUB_ENV"
@@ -101,21 +110,21 @@ jobs:
         id: order
         env:
           GH_TOKEN: ${{ github.token }}
-          PLAN_JSON_FILE: ${{ runner.temp }}/handoff/plan.json
-          WORK_ORDER_OUT: ${{ runner.temp }}/handoff/work-order.json
+          PLAN_JSON_FILE: ${{ env.CI_TEMP }}/handoff/plan.json
+          WORK_ORDER_OUT: ${{ env.CI_TEMP }}/handoff/work-order.json
           CHILDREN: ${{ steps.children.outputs.children }}
           COR_TARGETS: ${{ steps.children.outputs.cor_targets }}
         run: python3 ci/order.py
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02   # v4.6.2
         with:
           name: plan
-          path: ${{ runner.temp }}/handoff/plan.json
+          path: ${{ env.CI_TEMP }}/handoff/plan.json
           retention-days: 3
           if-no-files-found: error
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02   # v4.6.2
         with:
           name: work-order
-          path: ${{ runner.temp }}/handoff/work-order.json
+          path: ${{ env.CI_TEMP }}/handoff/work-order.json
           retention-days: 3
           if-no-files-found: error
 
@@ -146,6 +155,15 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
+      - name: Container paths and git
+        # T239.1: in a container job the expressions runner.temp and github.workspace can name the host's paths (a runner feature flag
+        # decides), while $RUNNER_TEMP and $GITHUB_WORKSPACE are the container's; every later step names them as env.CI_TEMP and env.CI_WS.
+        # The runner's user owns the checkout and git runs as root here, so git refuses it ("dubious ownership") unless the system config
+        # trusts it; the system config holds for every later git call, also one under env -i.
+        run: |
+          git config --system --add safe.directory '*'
+          echo "CI_TEMP=$RUNNER_TEMP" >> "$GITHUB_ENV"
+          echo "CI_WS=$GITHUB_WORKSPACE" >> "$GITHUB_ENV"
       - name: Lint
         run: ci/lint.sh
 
@@ -163,6 +181,15 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
+      - name: Container paths and git
+        # T239.1: in a container job the expressions runner.temp and github.workspace can name the host's paths (a runner feature flag
+        # decides), while $RUNNER_TEMP and $GITHUB_WORKSPACE are the container's; every later step names them as env.CI_TEMP and env.CI_WS.
+        # The runner's user owns the checkout and git runs as root here, so git refuses it ("dubious ownership") unless the system config
+        # trusts it; the system config holds for every later git call, also one under env -i.
+        run: |
+          git config --system --add safe.directory '*'
+          echo "CI_TEMP=$RUNNER_TEMP" >> "$GITHUB_ENV"
+          echo "CI_WS=$GITHUB_WORKSPACE" >> "$GITHUB_ENV"
       - name: Key tests
         run: ci/test_keys.sh
 
@@ -241,6 +268,15 @@ jobs:
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
+      - name: Container paths and git
+        # T239.1: in a container job the expressions runner.temp and github.workspace can name the host's paths (a runner feature flag
+        # decides), while $RUNNER_TEMP and $GITHUB_WORKSPACE are the container's; every later step names them as env.CI_TEMP and env.CI_WS.
+        # The runner's user owns the checkout and git runs as root here, so git refuses it ("dubious ownership") unless the system config
+        # trusts it; the system config holds for every later git call, also one under env -i.
+        run: |
+          git config --system --add safe.directory '*'
+          echo "CI_TEMP=$RUNNER_TEMP" >> "$GITHUB_ENV"
+          echo "CI_WS=$GITHUB_WORKSPACE" >> "$GITHUB_ENV"
       - name: Environment
         run: |
           echo "CI_HANDOFF=$RUNNER_TEMP/handoff" >> "$GITHUB_ENV"
@@ -248,17 +284,17 @@ jobs:
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093   # v4.3.0
         with:
           name: package
-          path: ${{ runner.temp }}/package
+          path: ${{ env.CI_TEMP }}/package
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093   # v4.3.0
         continue-on-error: true
         with:
           name: update
-          path: ${{ runner.temp }}/update
+          path: ${{ env.CI_TEMP }}/update
       - name: Pre-release
         env:
-          CI_PACKAGE_IN: ${{ runner.temp }}/package
-          CI_UPDATE_IN: ${{ runner.temp }}/update
-          CI_STAGE: ${{ runner.temp }}/prerelease-stage
+          CI_PACKAGE_IN: ${{ env.CI_TEMP }}/package
+          CI_UPDATE_IN: ${{ env.CI_TEMP }}/update
+          CI_STAGE: ${{ env.CI_TEMP }}/prerelease-stage
           MC_BUILDS_REPO: Jondalar/trx64mc-builds
           BUILDS_TOKEN: ${{ secrets.BUILDS_TOKEN }}
         run: ci/child.sh prerelease

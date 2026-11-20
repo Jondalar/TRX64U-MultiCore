@@ -42,6 +42,15 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
+      - name: Container paths and git
+        # T239.1: in a container job the expressions runner.temp and github.workspace can name the host's paths (a runner feature flag
+        # decides), while $RUNNER_TEMP and $GITHUB_WORKSPACE are the container's; every later step names them as env.CI_TEMP and env.CI_WS.
+        # The runner's user owns the checkout and git runs as root here, so git refuses it ("dubious ownership") unless the system config
+        # trusts it; the system config holds for every later git call, also one under env -i.
+        run: |
+          git config --system --add safe.directory '*'
+          echo "CI_TEMP=$RUNNER_TEMP" >> "$GITHUB_ENV"
+          echo "CI_WS=$GITHUB_WORKSPACE" >> "$GITHUB_ENV"
       - name: Environment
         run: |
           {
@@ -59,7 +68,7 @@ jobs:
           mkdir -p "$RUNNER_TEMP/handoff"
       - uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684   # v4.2.3
         with:
-          path: ${{ runner.temp }}/ci-cache
+          path: ${{ env.CI_TEMP }}/ci-cache
           key: ci-cache-sim-${{ github.sha }}
           restore-keys: |
             ci-cache-sim-
@@ -67,7 +76,7 @@ jobs:
         continue-on-error: true
         with:
           name: plan
-          path: ${{ runner.temp }}/handoff
+          path: ${{ env.CI_TEMP }}/handoff
       - name: Benches
         env:
           SIMS_TIER: ${{ inputs.tier }}
