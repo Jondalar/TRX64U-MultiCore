@@ -99,6 +99,7 @@ check "host key names (T211 S1)" bash -c 'python3 -I tools/check_host_keys.py --
 check "u2a_pack test" python3 tools/test_u2a_pack.py
 check "release checks test" python3 tools/test_release_check.py
 check "release bundle test" python3 tools/test_make_release_mc.py
+check "builds repository reader (T239.1 S8)" python3 -W ignore tools/test_builds.py
 # T148 D8, S5: a package holds .cor files, never a core folder; ROMS.txt comes from the descriptors' ROM table and the manual
 check "package layout: no core folder (selftest)" python3 tools/check_package_layout.py selftest
 check "ROMS.txt test" python3 tools/test_roms_txt.py
