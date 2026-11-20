@@ -129,11 +129,8 @@ void custom_hardware_init()
     i2c->i2c_write_byte(0x40, 0x03, 0x00); // All pins output
     i2c->i2c_write_byte(0x40, 0x02, 0x00); // No polarity inversion
 
-    // Column is A  (drive), Row is B  (read)
-    // Port 0,               Port 1
-    i2c->i2c_write_byte(0x42, 0x06, 0x00); // All pins output on port 0
-    i2c->i2c_write_byte(0x42, 0x07, 0xFF); // All pins input on port 1
-    i2c->i2c_write_byte(0x42, 0x02, 0x00); // Output Port, all columns selected
+    // T242 D5: no writes to the keyboard expander 0x42 here. host/c64u_keyboard.v sets its port directions before every line it
+    // scans; writes from here would change them while the scanner is parked inside a line, and that line would read as all keys down.
 
     // T242 D1: hand the 1V8 bus back to the keyboard scanner of header P7. The commands above parked it (host/app_i2c.v); only a
     // manual enable makes i2c_lock/i2c_unlock park it and hand it back around each later transaction (the firmware: u64_config.cc).
