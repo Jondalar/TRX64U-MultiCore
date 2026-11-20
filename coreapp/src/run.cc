@@ -99,6 +99,16 @@ public:
     }
     void clear() { ui_message_clear(); }
     void tick() { ui_poll(); }
+    bool leave_asked()
+    {
+        bool leave = false;
+        int k;
+        while ((k = getch_nowait()) > 0) {
+            leave |= boot_leave_key(k);
+        }
+        return leave;
+    }
+    bool return_to_host(char *msg, int n) { return hw_return_to_host(msg, n); }
 };
 
 class LogStdout : public LibLog {
