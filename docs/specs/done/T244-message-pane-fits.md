@@ -1,7 +1,7 @@
 # T244 — Every message of the core application shows its whole text on the screen
 
-**Status:** BUILDING (2026-11-20).
-Open (one line, as in the TODO table): Built on t239.1 (0210226e); menusim S1-S4; render tests and ue2emu open
+**Status:** DONE (2026-11-20).
+Open (one line, as in the TODO table): Done 11-20: menusim S1-S4, render tests (CI 748d1d75), ue2emu 480p/720p/1080p; UX PASS, 2 low findings (§5)
 **Repo:** TRX64U-MultiCore — the core application (`coreapp/src/ui.cc`, `coreapp/src/screens.cc`, `coreapp/src/menuctl.h`) and the menu simulator (`tools/menusim`).
 **Number:** T244.
 **Origin:** GitHub issue #109 (a tester, release 0.2.0, C64 Ultimate): "SNES Core - Warning text off screen". A DSP game without the DSP ROM gives an error whose text runs off the screen. Expected: the text is readable. Same for any cartridge that produces a missing ROM at launch. Alex asked for #109 before the integration (2026-11-20).
@@ -69,3 +69,22 @@ D7. The simulator gets `--say TEXT` (the status as a failed start leaves it) and
 
 - The coordinator's brief assumed the text goes through `ui_message()`. The photo and the code show the status line. The first reproduction (`before/s1_status_dsp.png`) matches the photo. The message pane already wrapped and showed the DSP sentence and a long path in full (`before/s2_msg_longpath.png`).
 - The RISC-V build and the render benches have not run (brief). `ui_list_probe` now reads `rows_bottom` from the status label, and the render bench's probe asserts depend on it. The coordinator's single test run covers it.
+
+### 2026-11-20 late: render tests, ue2emu, UX review (coordinator)
+
+- **Render tests:** the integration run of `748d1d75` (GitHub 44804475619, job apptests, which holds the T244 merge `0210226e`):
+  `render_coreapp` 310803 checks, 0 failed, PASS; `render_main` 2466 checks, 0 failed, PASS; `render_view` 20 checks, 0 failed, PASS.
+- **ue2emu** (0.7.4, the core app of package A `t239.1-0210226e`, profile `snes`; a coordinator check with a scratch stick, not a
+  repository test: the fixture's synthetic `test.sfc` with chipset byte `03` and the title PILOTWINGS, plus the folder `big/` of 31
+  entries with a synthetic DSP-1 file last):
+  - S1: RETURN, Run on the DSP-1 file: the status line says "... coprocessor and its firmware (8192 bytes) is missing ..." (asserted);
+    the whole sentence is above the foot, on 2 lines at 720p and 1080p and on 3 lines at 480p.
+  - The long folder with the last row selected, the status line shown: the selection stays in view above the 3 lines at 480p ("12-31
+    of 31 (11 above)"); no row, value or foot is covered at 480p, 720p or 1080p.
+  - The repository's `t226_snes.feature` (the loading note) passes unchanged: 2 scenarios.
+- **UX review (ux-review skill, coordinator): PASS.** Two low findings, not fixed here:
+  - At 720p and 1080p the line breaks inside the file name `dsp1.bin` ("dsp1." | "bin"): LVGL breaks after `.` (the default
+    `LV_TXT_BREAK_CHARS`, `vendor/gideon/software/lvgl/include/lvgl/config/lv_conf_internal.h:1912`). Breaking at spaces only would
+    change every wrapped text: a question for Alex.
+  - The message names the drive `/Usb0/` (the file system's path, as built by `coreapp/cores/snes.cc`), while the Library shows
+    `/USB0`. It was there before T244.
