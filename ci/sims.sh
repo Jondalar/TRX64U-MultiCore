@@ -112,7 +112,7 @@ fi
 # those changes, and say in the commit why.
 # driver=2 (2026-10-16): what a PASS is worth changed - the output of a negative control, marked
 # "ctl| ", no longer counts as the bench's own FAIL. Every bench is measured again once.
-versions="trx64-sim-env:4 driver=2 $(tool_versions)"
+versions="trx64-sim-env:4 image=$(image_id sim) driver=2 $(tool_versions)"
 
 # deps_of <bench>: the specs of its line in ci/sims.deps, macros replaced, on one line.
 # Exit 3: no line for it; 1: the file is wrong (a macro that is not defined).
