@@ -411,7 +411,8 @@ build_update_host() {
 
 # T174 D2.8: the emulator the app suites run in (tests/coreapp/emu/run.sh, tests/hostapp/emu_host.sh). A Linux image whose entrypoint is `ue2emu`; the
 # tag is the pinned emulator release (u64-emulator v0.7.0 = 4612884e7a63, S44). This is the ONE place that names it (UE2EMU_IMAGE in the environment
-# overrides); ci/ue2emu.sh runs it. The CI jobs have no docker: they run in u64-build-env:emu-$UE2EMU_TAG (ci/emu/build.sh), which has ue2emu on PATH.
+# overrides); ci/ue2emu.sh runs it. The CI jobs have no docker: on GitHub they run in the image ghcr.io/<owner>/trx64u-emu (ci/emu/Dockerfile, built by ci-images.yml), in the Gitea
+# workflows (by hand, T239.1 D45) in u64-build-env:emu-$UE2EMU_TAG (ci/emu/build.sh); both have ue2emu on PATH.
 UE2EMU_TAG="v0.7.0"
 UE2EMU_IMAGE="${UE2EMU_IMAGE:-ue2emu:$UE2EMU_TAG}"
 # The kit the emulator needs and the repository must not hold (ROMs, the flash image, the VIC-20 profile, a DFX .cor): a directory, never in git.
