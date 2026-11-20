@@ -124,6 +124,7 @@ Built and benched; what is left is a step on the board (Alex, 2026-10-28, transl
 | T242 | 1 | ✅ | P7 keyboard dead in host and core apps (#111): no app hands the I2C bus back to the scanner | Done 11-20: board S1-S5 PASS (package A, C64 keyboard on P7) |
 | T243 | 1 | ✅ | ROM wait screen: RUN/STOP and ESC take the way back to the host (#106) | Done 11-20: units S1-S4, ue2emu S5-S6 (S6 without board, Alex) | [T243](docs/specs/done/T243-rom-wait-run-stop.md) |
 | T244 | 1 | ✅ | A long status line or message stays on the screen (#109) | Done 11-20: menusim S1-S4, render tests (CI 748d1d75), ue2emu 480p/720p/1080p; UX PASS, 2 low findings (§5) | [T244](docs/specs/done/T244-message-pane-fits.md) |
+| T245 | 1 | 📝 | Both update paths as BDD features in ue2emu: updater from stock firmware, host .txu, T152 lock | PROPOSED 11-20 (Alex); questions Q1-Q5 open | [T245](docs/specs/T245-update-paths-bdd.md) |
 | T224 | 2 | ✅ | "Boot safe graphics mode" in the config overlay (RIGHT): one start with Picture Auto, Scale Integer, Smoothing Off | Done 11-18 (Alex: shipped = done) | [T224](docs/specs/done/T224-picture-reset.md) |
 | T175 | 3 | 🔨 | Diag core: a timed probe engine plus TOML tests measure the joystick/paddle ports, results to SD | Merged; tests in diag.cor (rec 8) board PASS 11-16; S4 board, S8 open; redraw UX -> T231 | [T175](docs/todo/T175.md) |
 | T176 | 3 | 📅 | Core menus on the screen at once from a saved picture (split out of T146 P5, issue #4) | Deferred (Alex 11-02): split out of T146 P5; not started | [T176](docs/todo/T176.md) |
