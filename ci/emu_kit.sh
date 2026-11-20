@@ -43,8 +43,15 @@ else
   git -C "$src" -c advice.detachedHead=false checkout -q FETCH_HEAD -- roms
   cp -R "$src/roms" "$kit/roms"
 fi
-# the git tree id of a folder: the id git gives the folder's content (names, modes, bytes), made in a scratch repository
-tree_of() { local g; g="$(mktemp -d)"; git -C "$g" init -q; git -C "$g" -c core.autocrlf=false -c core.excludesFile=/dev/null --work-tree="$1" add -A; git -C "$g" write-tree; rm -rf "${g:?}"; }
+# the git tree id of a folder: the id git gives the folder's content (names, modes, bytes), made in a scratch repository. No ignore rule and no
+# attribute applies (no .gitignore, .gitattributes or info files are read: a name starting with .git anywhere in the folder is refused first, and add -f,
+# core.attributesFile and core.excludesFile point at nothing), so a planted file or a converted line ending changes the id.
+tree_of() {
+  if [ -n "$(find "$1" -name '.git*' -print -quit)" ]; then echo "emu_kit: the ROM folder holds a name starting with .git" >&2; echo refused; return 0; fi
+  local g; g="$(mktemp -d)"; git -C "$g" init -q
+  git -C "$g" -c core.autocrlf=false -c core.safecrlf=false -c core.attributesFile=/dev/null -c core.excludesFile=/dev/null --work-tree="$1" add -A -f
+  git -C "$g" write-tree; rm -rf "${g:?}"
+}
 [ "$(tree_of "$kit/roms")" = "$roms_tree" ] || { echo "emu_kit: the ROM folder is not the roms/ of $GIDEON_COMMIT (tree id $roms_tree)" >&2; exit 1; }
 [ -n "$(ls -A "$kit/roms")" ] || { echo "emu_kit: the ROM folder is empty" >&2; exit 1; }
 if [ -z "$prof" ]; then prof="$kit/profiles/.download"; curl -fsSL --retry 3 -o "$prof" "$UE2_RAW"; fi
