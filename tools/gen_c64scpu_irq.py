@@ -19,16 +19,22 @@ Program (the C64 RAM verdict bytes $0320+n are $AA when the phase's handler coun
      (each IRQ once a frame; without the write of the byte read in the modify cycle the flag stays set, the IRQ is taken again at the end of every RTI and the main program stops in phase 7: the verdicts stay $00)
      then ASL $0B02 on RAM at 20 MHz: three completed writes to $0B02 (STA, the byte read, the new byte; run_irq.sh counts the tb's "mark|2|...|frame" lines) and $0B02 = $82
   T241 S2, emulation mode, hwenable off, software 1 MHz, display off:
-  10  an IRQ that rises in the last cycle of an instruction is taken after the NEXT instruction: the VIC's raster flag is set with its mask off, then `STA $D01A` enables it (the line rises in
-      the write, the last cycle of the STA); the one instruction after the STA runs before the handler, the second does not (verdict $032A, raw $033A = R0 + 2 R1 + 4 taken)
-      source: VICE 65816core.c:129 CHECK_INTERRUPT is placed before the last access of an instruction (ABS_FUNC, `STA abs`: :851, before the operand's high byte; the store is the last cycle) and
-      at the top of the loop, before the opcode fetch (:2584, :2588), and an interrupt is taken at the top only from a check made earlier (:2575): the line that rises in the STA's last
-      cycle is first seen by the check of the next instruction, so that instruction runs
+  10  an IRQ that rises in the HIGH half of an instruction's last cycle is taken after the NEXT instruction (the 65816 polls one cycle before the last): the raster compare of the VIC is set
+      to the line $20 by `INC $D012` while the raster is on line $20 (mask on, flag clear, display off). In emulation mode the modify cycle writes the byte read, the current line, back into
+      the compare; the VIC matches in the high half of the last cycle (the write of line + 1), so the line rises after the CPU's poll point. The handler must see M0 = 1 (the `INC M0` after the
+      `INC $D012` ran) and M1 = 0 (verdict $032A, raw $033A = R0 + 2 R1 + 4 taken). The old logic (the live level at the end of the last cycle) takes the IRQ right after the `INC $D012`: M0 = 0.
+      A write that enables the source (`STA $D01A`) does NOT discriminate: the VIC takes a register write at the PHI2 fall, the wrapper samples the line at that same edge, so old and new logic
+      both see it first during the next instruction.
+      source: VICE 65816core.c:889-890 (LOAD_ABS_FUNC_RRW, emulation mode: CHECK_INTERRUPT, then the dummy STORE_LONG of the byte read, the modify cycle), :2588 (CHECK_INTERRUPT before the
+      next opcode fetch) and :2575 (an interrupt is taken at the top only from a check made earlier); viciisc/vicii-cycle.c:467-474 (the compare match is found in the cycle after the compare write): the
+      check in the modify cycle finds nothing, the match comes in the last cycle, the check before the next opcode fetch finds it, that instruction (`INC M0`) runs, the IRQ is taken before the second (`INC M1`)
   11  RTI in emulation mode takes 6 cycles: a subroutine that runs X times `LDA #hi; PHA; LDA #lo; PHA; PHP; RTI; DEX; BNE` between a write to $0B00 and one to $0B01 (the tb's marks 0 and 1
       print their PHI2 cycles), called with X = 20 (warm-up, ignored), 20 and 10; the difference of the last two is 10 x (2+3+2+3+3+RTI+2+3) = 240 (check_irq.py)
   native mode: 12  RTI in native mode takes 7 cycles: the same with `PHK; PEA ret; PHP; RTI; DEX; BNE` at 1 MHz: 10 x (3+5+3+7+2+3) = 230
       source of the cycle counts: W65C816S datasheet (WDC, instruction table: RTI 7 cycles with E = 0, 6 with E = 1; PHA, PHP, PHK 3; PEA 5; LDA #, DEX 2; BNE 3 taken, +1 when it crosses a page with E = 1);
       VICE 65816core.c:2217-2240 (RTI: INC_PC, two FETCH_PARAM_DUMMY, PULL P, PULL PCL, PULL PCH and, in native mode, PULL PBR: one clock each, plus the opcode fetch)
+      Which phases discriminate (fail on the logic before T241 S2): 10 and 11 (the old RTI took 5 cycles in emulation mode: 230 instead of 240). Phase 12 passes on the old core as well (native RTI was 7
+      cycles): it guards the native RTI against a regression of the same change.
   native mode ($02:0000), hwenable: 4 CIA 1 IRQ (vector $FFEE) 25 +- 1, 5 CIA 2 NMI (vector $FFEA) 25 +- 1, 6 ten RESTORE pulses (tb: a write to $0B08 pulses ext_restore) = exactly 10 NMIs,
   BRK x3 ($FFE6) and COP x2 ($FFE4) = exactly 3 and 2, then the S3 block: 16-bit arithmetic, MVN across banks, the 16-bit stack beyond page 1, [dp],Y, XBA, long,X, JSL/RTL, in SuperRAM $03:0000,
   and (T241) an 8-bit INC $0B03 in native mode: one write (the modify cycle stays an internal one), two marker-3 lines with the STA before it, the result $80 at $03:0030.
@@ -84,8 +90,10 @@ VERD, RAW = 0x0320, 0x0330
 BFLAG = 0x0319          # bit 4 of the P byte pushed by the emulation-mode interrupts (T182 real-ROM boot: it must stay 0)
 CNT16 = 0x031A          # T241: the 16-bit handler count of phases 7-9 (low, high)
 M0, M1, R0, R1, NTAKEN, TMP = 0x0350, 0x0351, 0x0352, 0x0353, 0x0354, 0x0355     # T241 S2 phase 10: the two instructions' marks, what the handler saw, handler runs, scratch
+SYNC_LINE = 0x20      # T241 S2 phase 10: the raster line the INC $D012 starts on (below the first badline, line 48)
 RTI_N = (20, 10)         # T241 S2: the iterations of the two RTI loops (phases 11, 12)
 RTI_EMU, RTI_NAT = 10 * (2 + 3 + 2 + 3 + 3 + 6 + 2 + 3), 10 * (3 + 5 + 3 + 7 + 2 + 3)    # the cycle differences of the two loops (docstring)
+RAW_SLOTS = (0, 1, 2, 3, 4, 5, 7, 8, 9, 10)       # the phases that write a raw byte at RAW + slot (6 is the RESTORE count, kept in CNT["rst"]); run_irq.sh dumps $0330-$033F
 MARKS = {"2": 3, "3": 2}    # T241: completed 65816 writes to $0B02 (emulation ASL: STA + 2) and $0B03 (native INC: STA + 1), counted by run_irq.sh (check_irq.py)
 
 
@@ -176,34 +184,40 @@ def rmw_handlers(t):
 
 
 def last_handler(t):
-    """T241 S2 phase 10: copies what the main program did before the IRQ was taken (M0, M1) and counts the entry; switches the VIC source off and acknowledges it. PHA/PLA keep A."""
+    """T241 S2 phase 10: switches the VIC source off first (the compare is line + 1 after the INC: the next line matches again), copies what the main program did before the IRQ was taken
+    (M0, M1), counts the entry and acknowledges the flag. PHA/PLA keep A."""
     t.label("hlast")
     t.e(0x48)                                            # PHA
+    t.lda_i(0); t.sta_a(0xD01A)                          # the source off
     t.lda_a(M0); t.sta_a(R0)
     t.lda_a(M1); t.sta_a(R1)
     t.inc_a(NTAKEN)
-    t.lda_i(0); t.sta_a(0xD01A)                          # the source off
     t.lda_i(0xFF); t.sta_a(0xD019)                       # the flag acknowledged
     t.e(0x68)                                            # PLA
     t.e(0x40)                                            # RTI
 
 
 def vic_last(t, tag, handler, slot):
-    """T241 S2 phase 10 (docstring). Emulation mode, hwenable off (vector $01:FFFE = handler), software 1 MHz, display off. The raster flag of line $80 is set with the mask off; CLI; NOP; `STA $D01A`
-    raises the line in its last cycle; INC M0 is the one instruction after it (it must run before the handler), INC M1 the second (it must not). The handler copies M0 and M1 to R0 and R1.
-    Verdict $AA when R0 = 1, R1 = 0 and the handler ran once; the raw byte is R0 + 2 R1 + 4 runs."""
+    """T241 S2 phase 10 (docstring). Emulation mode, hwenable off (vector $01:FFFE = handler), software 1 MHz, display off. The compare is set to line $A0, the CPU waits for line $20 (a line
+    before the first badline: no BA hold in any case) and clears the flag (the compare is not line $20: nothing is pending), the mask is switched on (a guard: no match, no IRQ), CLI, then
+    `INC $D012`: the byte read (line $20) is written back by the modify cycle (T241 RMW write), the VIC matches in the high half of the last cycle (the write of $21) and the line rises there.
+    INC M0 is the first instruction after it (it must run before the handler), INC M1 the second (it must not). The handler copies M0 and M1 to R0 and R1.
+    Verdict $AA when R0 = 1, R1 = 0 and the handler ran once; the raw byte is R0 + 2 R1 + 4 runs.
+    From the line change to the INC's last cycle at most 9 (the poll loop's period) + 18 (CMP, BNE, LDA #, STA, LDA #, STA, CLI after the poll's read) + 6 (the INC) = 33 PHI2 cycles; the line has
+    63 (PAL) or 65: it does not change under the INC."""
     stop_all(t)
     for a in (M0, M1, R0, R1, NTAKEN):
         t.lda_i(0); t.sta_a(a)
     t.lda_i(handler & 255); t.sta_l(0x01FFFE); t.lda_i(handler >> 8); t.sta_l(0x01FFFF)
     t.sta_a(0xD07A)                                      # software 1 MHz
-    t.lda_i(0x0B); t.sta_a(0xD011); t.lda_i(0x80); t.sta_a(0xD012)    # display off: no badline, the CPU is not held
-    t.lda_i(0xFF); t.sta_a(0xD019)                       # clear the flags, the mask is 0 (stop_all)
-    t.label("wf" + tag); t.lda_a(0xD019); t.and_i(1); t.br(0xF0, "wf" + tag)      # the flag of line $80
-    t.lda_i(1)
+    t.lda_i(0); t.sta_a(0xD015)                          # no sprite: no sprite DMA, the CPU is not held
+    t.lda_i(0x0B); t.sta_a(0xD011)                       # display off (DEN = 0): no badline, the CPU is not held
+    t.lda_i(0xA0); t.sta_a(0xD012)                       # the compare: a line other than the one the INC starts on
+    t.label("wf" + tag); t.lda_a(0xD012); t.cmp_i(SYNC_LINE); t.br(0xD0, "wf" + tag)     # sync to line $20
+    t.lda_i(0xFF); t.sta_a(0xD019)                       # clear the flags (the compare did not match on this line)
+    t.lda_i(1); t.sta_a(0xD01A)                          # the mask on (a guard: the flag is clear, the compare is not this line)
     t.e(0x58)                                            # CLI
-    t.e(0xEA)                                            # NOP
-    t.sta_a(0xD01A)                                      # the mask on: the line rises in this write, the STA's last cycle
+    t.e(0xEE, 0x12, 0xD0)                                # INC $D012: read $20, modify cycle writes $20, last cycle writes $21; the match comes in the last cycle
     t.inc_a(M0)                                          # the first instruction after it
     t.inc_a(M1)                                          # the second
     t.e(0xEA, 0xEA, 0xEA, 0xEA)                          # (an IRQ taken late still finds a place here)
@@ -310,7 +324,7 @@ def tail(pre=None):
     vic_rmw(t, "8", pre.get("hinc", 0), 8, True)
     vic_rmw(t, "9", pre.get("hasl", 0), 9, False)
     t.lda_i(0x41); t.sta_a(0x0B02); t.e(0x0E, 0x02, 0x0B)          # LDA #$41, STA $0B02, ASL $0B02 (20 MHz): three writes to $0B02, $82 at the end
-    # T241 S2 (hwenable still off, emulation mode): an IRQ that rises in the last cycle of a write (phase 10), then RTI's cycles (phase 11)
+    # T241 S2 (hwenable still off, emulation mode): an IRQ that rises in the high half of an instruction's last cycle (phase 10), then RTI's cycles (phase 11)
     vic_last(t, "10", pre.get("hlast", 0), 10)
     rti_phase(t, False)
     t.sta_a(0xD07E)                                      # hwenable on
@@ -451,7 +465,7 @@ def main():
     m = s3_model()
     dexp = [(0x02000000 + 0x030000 + a, v) for a, v in sorted(m.items())]
     with open(os.path.join(out, "expect.json"), "w") as fh:
-        json.dump({"probes": len(exp), "dprobes": len(dexp), "raw": [hex(RAW + i) for i in range(10)], "marks": MARKS,
+        json.dump({"probes": len(exp), "dprobes": len(dexp), "raw": [hex(RAW + i) for i in RAW_SLOTS], "marks": MARKS,
                    "rti": {"n": list(RTI_N), "emu": RTI_EMU, "nat": RTI_NAT}}, fh)
     print("+EXPECT=" + ",".join("%04x:%02x" % (a, v) for a, v in exp) + " +DEXPECT=" + ",".join("%08x:%02x" % (a, v) for a, v in dexp))
 
