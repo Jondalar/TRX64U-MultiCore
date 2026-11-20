@@ -54,6 +54,7 @@ architecture rtl of s816_cpu is
 	signal NMI_ACTIVE, IRQ_ACTIVE : std_logic;
 	signal OLD_NMI_N, OLD_NMI2_N : std_logic;
 	signal RDY_IN_DELAYED : std_logic;
+	signal RMW_DW : std_logic;		-- T241: the modify cycle of a read-modify-write instruction in emulation mode writes the byte it read (tools/scpu_vendor816.py)
 	signal ADDR_BUS : std_logic_vector(23 downto 0);
 	
 	-- s816_alu 
@@ -458,13 +459,13 @@ begin
 				PBR when MC.OUT_BUS = "100" else
 				SB(15 downto 8) when MC.OUT_BUS = "101" and MC.BYTE_SEL(1) = '1' else
 				SB(7 downto 0) when MC.OUT_BUS = "101" and MC.BYTE_SEL(1) = '0' else
-				DR when MC.OUT_BUS = "110" else
+				DR when MC.OUT_BUS = "110" or RMW_DW = '1' else
 				x"00";
 		
-	process(MC, IsResetInterrupt)
+	process(MC, IsResetInterrupt, RMW_DW)
 	begin
 		WE <= '1';
-		if MC.OUT_BUS /= "000" and IsResetInterrupt = '0' then
+		if (MC.OUT_BUS /= "000" or RMW_DW = '1') and IsResetInterrupt = '0' then
 			WE <= '0';
 		end if;
 	end process;
@@ -549,10 +550,10 @@ begin
 	
 	
 	--Address bus
-	process(MC, PC, AA, DX, SP, EF, PBR, DBR, AB, IsResetInterrupt, IsABORTInterrupt, IsNMIInterrupt, IsIRQInterrupt, IsCOPInterrupt)
+	process(MC, PC, AA, DX, SP, EF, PBR, DBR, AB, IsResetInterrupt, IsABORTInterrupt, IsNMIInterrupt, IsIRQInterrupt, IsCOPInterrupt, RMW_DW)
 	variable ADDR_INC : unsigned(15 downto 0);
 	begin
-		ADDR_INC := (15 downto 2 => '0', 1 => MC.ADDR_INC(1), 0 => MC.ADDR_INC(0));
+		ADDR_INC := (15 downto 2 => '0', 1 => MC.ADDR_INC(1) and not RMW_DW, 0 => MC.ADDR_INC(0) and not RMW_DW);	-- T241: the write goes to the read's address
 		case MC.ADDR_BUS is
 			when "0000" => 
 				ADDR_BUS <= PBR & PC; 
@@ -604,9 +605,10 @@ begin
 	
 	A_OUT <= ADDR_BUS;
 
-	process(MC, IR, LAST_CYCLE, STATE, IRQ_ACTIVE, NMI_ACTIVE, IsBRKInterrupt, IsCOPInterrupt, GotInterrupt )
+	process(MC, IR, LAST_CYCLE, STATE, IRQ_ACTIVE, NMI_ACTIVE, IsBRKInterrupt, IsCOPInterrupt, GotInterrupt, EF )
 		variable rmw : std_logic;
 		variable twoCls, softInt : std_logic;
+		variable rmwWr : std_logic;
 	begin
 		 if IR = x"06" or IR = x"0E" or IR = x"16" or IR = x"1E" or 
 			 IR = x"C6" or IR = x"CE" or IR = x"D6" or IR = x"DE" or 
@@ -619,6 +621,13 @@ begin
 		else
 			rmw := '0';
 		end if;
+		-- T241: emulation mode, the modify cycle (state control 110 without VDA/VPA, the row after the 8-bit read): write the byte read, as VICE's 65816 in emulation mode
+		if rmw = '1' and EF = '1' and MC.STATE_CTRL = "110" and MC.VA = "00" then
+			rmwWr := '1';
+		else
+			rmwWr := '0';
+		end if;
+		RMW_DW <= rmwWr;
 				
 		if MC.ADDR_BUS = "1111" then
 			VPB <= '0';
@@ -644,7 +653,7 @@ begin
 			softInt := '0';
 		end if;
 		
-		VDA <= MC.VA(1);
+		VDA <= MC.VA(1) or rmwWr;
 		VPA <= MC.VA(0) or (twoCls and (IRQ_ACTIVE or NMI_ACTIVE)) or softInt;
 	end process;
 	
