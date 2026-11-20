@@ -1,6 +1,6 @@
 # T240 — The installer puts every core it finds into the boot menu, up to 32, and makes each core's folder with roms/, saves/ and configs/
 
-**Status:** BUILT, merged to `main` (`30986066f`, 2026-11-19) and on `t239.1`; emulator S1-S3 PASS; board S4 open. PROPOSED 2026-11-19 (Alex).
+**Status:** BUILT, merged to `main` (`30986066f`, 2026-11-19) and on `integration` (`748d1d75`); emulator S1-S3 PASS; board S4 open. PROPOSED 2026-11-19 (Alex).
 **Repo:** TRX64U-MultiCore — the TRX updater `vendor/gideon/software/application/update_u2p/update_trx.cc` (built by the CI
 stage `update` into `trx64host_update_<id>.ue2/.cfw`). No gateware; no `coreapp/` or `uicore/` code (T192 D24, T213 D4).
 **Number:** T240.
@@ -12,7 +12,7 @@ being worked on, the folder structures should please be made for every core foun
 **Milestone:** release 0.2.1 (Alex, 2026-11-19, translated: "I'll tag it 0.2.1 and we keep collecting"; GitHub has no CI
 yet, so a release is the Gitea tag run plus the GitHub release by hand, T239.1 D1).
 
-Open (one line, as in the TODO table): Emulator S1-S3 PASS 11-19 (s13-s16, control s16 shows #107); board S4 open; ships in 0.2.1
+Open (one line, as in the TODO table): Emulator S1-S3 PASS (11-19 emu-test, 11-20 tester .ue2 on W25Q); board S4 open; ships in 0.2.1
 
 ---
 
@@ -100,3 +100,16 @@ Nothing decided yet.
   flash phase clears it, so an expect saw them only now and then and a person would not see them at all. The final screen now
   repeats them: "Boot menu: n entries", "n core(s) not added: the menu holds 32." (red) and "Core folders: n, m could not be
   made"; the scenarios read the final screen. S1-S3 proven in the emulator; S4 (board) open.
+- **Emulator run 2026-11-20 (coordinator), the tester `.ue2` itself:** ue2emu 0.7.4 (its S47: `--board c64u` is the XC7A50T with the
+  W25Q128, so the board build of the updater runs). `tests/updater/emu_t135.sh` with `trx64host_update_b4b6f086_20261120.ue2` of
+  pre-release `t239.1-b4b6f086` and two of its .cor, Commodore 1.1.0 as the vendor firmware. The updater prints "Detected Flash: Winbond
+  W25Q128" and "Detected FPGA Type: XC7A50T.". s1, s5, s6, s8 and s9 end in "Update OK"; the flash at 0x000000 and 0x220000 equals what
+  `ue2emu install --update` writes for the package's `.txu` (host 1549789 bytes, app 1106520 bytes). s13-s15 pass (20 and 33 cores,
+  folders). s2, s3 and s10 write nothing; their expect of "CMD_MACHINE_REBOOT" is emu-test text and fails with the board build. The five
+  "bitstream equals the package" failures of that run compared with the wrong file (`--bit` was the package's `c64_basic.bit`, not the
+  host bitstream).
+- **Restore bundle, 2026-11-20:** the `TRXBK_20261120_000.CFW` that s5 wrote, run from Gideon's firmware (3.15 `ultimate.elf` of the
+  emulator, file browser, Run Update) on the flash after s5: "Restore OK, installed TRXBK_20261120_000 with settings"; the bitstream slot
+  equals Commodore's again byte for byte. Seen in both runs: the updater erases only the sectors it writes, so the old content stays
+  behind the new bitstream (0x17B000-0x2172F8 after s5) and behind the restored app (our app's tail, 0x31B000-0x32E257). Not checked:
+  whether such a tail can matter.

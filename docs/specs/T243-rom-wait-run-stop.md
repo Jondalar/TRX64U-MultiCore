@@ -1,7 +1,7 @@
 # T243 — RUN/STOP on the ROM wait screen takes the way back to the host
 
-**Status:** BUILDING (2026-11-20).
-Open (one line, as in the TODO table): Built on t239.1 (8b2279f9); units S1-S4 PASS; ue2emu S5 and board S6 open
+**Status:** BUILT (2026-11-20), on `integration` (`748d1d75`); S1-S5 proven, S6 in ue2emu; board S6 open.
+Open (one line, as in the TODO table): Units S1-S4 PASS; ue2emu S5 PASS, S6 PASS in ue2emu; board S6 open
 **Repo:** TRX64U-MultiCore — the generic core application (`coreapp/src/boot.cc`, `run.cc`, `ui.cc`), its unit test.
 **Number:** T243 (GitHub #106 is the origin; the row in `TODO.md` is the coordinator's).
 **Origin:** GitHub issue #106 (Alex, 2026-11-19, bug): the core's ROM screen offers "RUN/STOP to return to host" and RUN/STOP does nothing. Alex asked for the fix before the integration (2026-11-20).
@@ -49,4 +49,8 @@ A core starts, a required ROM is missing, and the application waits for it.
 
 - The literal hint of the issue is not in the tree; the footer `R/S  CLOSE` of the message shell (`ui.cc` `shell_info`) is the nearest text. D6 removes it for message panes.
 - Native test run (this Mac, `c++`, the flags of `tests/coreapp/run.sh`): `test_boot_atari: 74 checks, 0 failed`. The test models "the way back does not come back" with `longjmp` (the suite builds with `-fno-exceptions`).
-- S5 and S6 are open for the coordinator's ue2emu run.
+- ue2emu run 2026-11-20 (coordinator; ue2emu 0.7.4, the images of run 44792692726, `0210226e`): the host starts `vc20.cor` from USB0 with
+  an empty `cores/vc20/roms/`. The wait screen reads "ROM files", "BASIC: basic.bin or basic or basic-901486-01.bin is missing in
+  /USB0/cores/vc20/roms/" and "Press RUN/STOP to return to the host menu.", with no footer key (S5). `key runstop` (the C64 matrix) and,
+  with `--usb-keyboard`, `usbkey escape` each bring the host back: the log has "icap: IPROG WBSTAR 0: the host bitstream, ... the menu
+  marker set" and "direct boot: decision ... marker 1", the screen the host's boot menu (S6 in the emulator). The board step of S6 is open.
