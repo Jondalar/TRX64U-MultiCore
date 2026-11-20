@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# T239.1 D23: ci/emu_kit.sh makes the kit with a fake ue2emu (local ROM folder and profile, no network); a wrong profile hash and a missing input are refused.
+# T239.1 D23, step 17: ci/emu_kit.sh makes the kit with a fake ue2emu (local ROM folder and profile, no network); a wrong profile hash and a missing input are refused.
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 W="$(mktemp -d)"; trap 'rm -rf "${W:?}"' EXIT
@@ -7,18 +7,22 @@ fail() { echo "FAIL: $*"; exit 1; }
 mkdir -p "$W/bin" "$W/roms"
 cat > "$W/bin/ue2emu" <<'EOS'
 #!/usr/bin/env bash
-# the arguments of D23's install line, in this order
-[ "$1" = install ] && [ "$2" = --update ] && [ "$4" = --flash ] && [ "$6" = --roms ] && [ "$8" = --yes ] && [ "$9" = --c64-roms ] || { echo "bad ue2emu line: $*" >&2; exit 3; }
-[ -f "$3" ] && [ -d "$7" ] || exit 4
-printf 'flash from %s\n' "$(basename "$3")" > "$5"
+# the kit's run line: the machine of tests/hostapp/emu_host.sh (--board c64u --trx-io=on, no --caps), the C64 ROMs before boot, a script
+a=" $* "
+case "$a" in *" --caps "*) echo "the kit sets --caps: $*" >&2; exit 3 ;; esac
+for w in " run " " --board c64u " " --trx-io=on " " --c64-roms "; do case "$a" in *"$w"*) ;; *) echo "bad ue2emu line, no$w: $*" >&2; exit 3 ;; esac; done
+fw="" fl="" roms="" ctl=""
+while [ $# -gt 0 ]; do case "$1" in --firmware) fw="$2" ;; --flash) fl="$2" ;; --roms) roms="$2" ;; --script) ctl="$2" ;; esac; shift; done
+[ -f "$fw" ] && [ -d "$roms" ] && [ -f "$ctl" ] && [ -n "$fl" ] || exit 4
+printf 'flash for %s\n' "$(basename "$fw")" > "$fl"
 EOS
 chmod +x "$W/bin/ue2emu"
-printf 'rom\n' > "$W/roms/kernal.bin"; mkdir -p "$W/roms/sub"; printf '*.tmp\n' > "$W/roms/sub/.gitignore"; printf 'ue2\n' > "$W/x.ue2"; printf 'cor\n' > "$W/vc20.cor"; printf 'name = "vc20"\n' > "$W/p.toml"
+printf 'rom\n' > "$W/roms/kernal.bin"; mkdir -p "$W/roms/sub"; printf '*.tmp\n' > "$W/roms/sub/.gitignore"; printf 'elf\n' > "$W/hostapp_emu.elf"; printf 'cor\n' > "$W/vc20.cor"; printf 'name = "vc20"\n' > "$W/p.toml"
 sha="$(python3 -I -c 'import hashlib,sys; print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' "$W/p.toml")"
 tree="$(g=$(mktemp -d); git -C "$g" init -q; git -C "$g" -c core.autocrlf=false -c core.excludesFile=/dev/null --work-tree="$W/roms" add -A -f; git -C "$g" write-tree; rm -rf "$g")"
-run() { PATH="$W/bin:$PATH" UE2EMU_BIN="$W/bin/ue2emu" ci/emu_kit.sh "$W/kit" --update "$W/x.ue2" --cor "$W/vc20.cor" --roms "$W/roms" --roms-tree "${2:-$tree}" --profile "$W/p.toml" --profile-sha256 "$1" > "$W/out" 2>&1; }
+run() { PATH="$W/bin:$PATH" UE2EMU_BIN="$W/bin/ue2emu" ci/emu_kit.sh "$W/kit" --firmware "$W/hostapp_emu.elf" --cor "$W/vc20.cor" --roms "$W/roms" --roms-tree "${2:-$tree}" --profile "$W/p.toml" --profile-sha256 "$1" > "$W/out" 2>&1; }
 run "$sha" || { cat "$W/out"; fail "the kit was not made"; }
-[ "$(cat "$W/kit/flash.bin")" = "flash from x.ue2" ] || fail "flash.bin is not made from this run's .ue2"
+[ "$(cat "$W/kit/flash.bin")" = "flash for hostapp_emu.elf" ] || fail "flash.bin is not made by a run of this run's host image"
 [ -f "$W/kit/roms/kernal.bin" ] && [ -f "$W/kit/profiles/VIC-20.toml" ] && [ -f "$W/kit/cors/vc20.cor" ] || fail "the kit lacks a part"
 if run 0000000000000000000000000000000000000000000000000000000000000000; then fail "a profile with another hash was accepted"; fi
 # a restored cache entry that is not the pinned folder (a planted file, the exploit) is refused; the pinned tree id is what the kit demands without the test option
@@ -46,6 +50,6 @@ rm "$W/roms/sub/pipe.bin"
 mkdir "$W/roms/sub/empty.d"
 if run "$sha"; then fail "a ROM folder with an empty folder was accepted"; fi
 rmdir "$W/roms/sub/empty.d"; run "$sha" || { cat "$W/out"; fail "the pinned folder was refused after the .git, FIFO and empty-folder plants"; }
-rm "$W/x.ue2"
-if run "$sha"; then fail "a missing .ue2 was accepted"; fi
+rm "$W/hostapp_emu.elf"
+if run "$sha"; then fail "a missing host image was accepted"; fi
 echo "emulator kit: ok"

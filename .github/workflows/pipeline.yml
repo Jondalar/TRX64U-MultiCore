@@ -240,7 +240,7 @@ jobs:
     if: ${{ !cancelled() && needs.plan.result == 'success' && needs.package.result == 'success' && contains(fromJSON(needs.plan.outputs.children), 'update') }}
     uses: ./.github/workflows/update.yml
 
-  # D23: after update; it runs where update ran (its flash image is made from this run's .ue2)
+  # D23: after update, where update ran; its kit takes this run's VIC-20 .cor and host image (no .ue2 since T239.1 step 17)
   emu:
     needs: [plan, images, update]
     if: ${{ !cancelled() && needs.plan.result == 'success' && needs.images.result == 'success' && needs.update.result == 'success' && contains(fromJSON(needs.plan.outputs.children), 'emu') }}

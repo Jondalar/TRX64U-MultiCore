@@ -6,7 +6,7 @@
 #   child     workflow       when          needs
 #     when:  apps     an app, the app tests or a fundamental file changed (plan apps / tests / fundamental)
 #            images   an app changed, or a child that reads the images runs (cor, package)
-#            emu      the host or core application changed, and update runs (D23: the emulator kit is made from this run's .ue2)
+#            emu      the host or core application changed, and update runs (D23)
 #            owners   one leg per bench owner (ci/sims.lane) the plan names a bench of, in the run's tier
 #            gateware one target per named gateware lane: host (host or aux), core:<id> (plan dfx), large:<id> (plan large). Not a job: the builder
 #                     builds the missing keys (T239.1 D11) and releases the environment `bitstreams`, where the jobs that need them wait (D21)
@@ -18,7 +18,7 @@
 #     needs: a child name; name(=) the same target of that child; name(x) that child with target x; * every other child that is not
 #            named after the star with a minus (-update); [p] after a need: only for targets that start with p. A need that is not in
 #            this run's graph is ignored.
-# emu runs after update (D23): its flash image is made from this run's .ue2, its VIC-20 .cor is this run's. prerelease is the last job, after
+# emu runs after update (D23); its kit takes this run's VIC-20 .cor and host image, no .ue2 (T239.1 step 17). prerelease is the last job, after
 # everything that produced a file.
 lint       -              local         -
 apptests   apptests.yml   apps          -

@@ -87,7 +87,7 @@ def targets_of(row, plan, tier, update):
         return [""] if app_any or plan.get("tests") or plan.get("fundamental") and full else []
     if w == "images":
         return [""] if app_any or package or (not full and cors) else []
-    if w == "emu":      # D23: its flash image is made from this run's update file, so it runs only where update runs
+    if w == "emu":      # D23: only where update runs (its kit reads no update file since T239.1 step 17)
         return [""] if (apps.get("host") or apps.get("core")) and update else []
     if w == "owners":
         return sorted(sim_benches(plan, tier))
