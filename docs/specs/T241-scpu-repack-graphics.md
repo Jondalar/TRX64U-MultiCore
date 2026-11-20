@@ -352,7 +352,8 @@ Open.
   status and the fix's sections of `t241-rmw`; the TODO row is `main`'s), carried over file by file onto `integration`. Every code file
   the branches change was the same on GitHub as on Gitea `main`; the text went through the export's rules (`tools/github_snapshot.py`
   `PATTERNS`, `NAMES`), which changed nothing.
-- `run_irqmir.sh` stays out of `ci/sims.txt` on purpose: it is the diagnosis bench of S2, with no negative control, not a proof.
+- `run_irqmir.sh` stays out of `ci/sims.txt` on purpose and is listed in `ci/sims_excluded.txt` with that reason (the lint of the first
+  PR run was red without it): it is the diagnosis bench of S2, with no negative control, not a proof.
 - Review before the push (agent, 2026-11-20): no blocker. The code files equal the merged Gitea tree byte for byte; every added line of
   both branches is there; `tools/scpu_vendor816.py --check` is ok (the VHDL is the generator's); native mode and the cycle counts are
   unchanged (`RMW_DW` needs `EF = '1'`); the generators embed no ROM or program bytes. Fixed: the stale "local" of the bench branch.
