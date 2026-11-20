@@ -1,7 +1,7 @@
 # T243 — RUN/STOP on the ROM wait screen takes the way back to the host
 
-**Status:** BUILT (2026-11-20), on `integration` (`748d1d75`); S1-S5 proven, S6 in ue2emu; board S6 open.
-Open (one line, as in the TODO table): Units S1-S4 PASS; ue2emu S5 PASS, S6 PASS in ue2emu; board S6 open
+**Status:** DONE (2026-11-20), on `integration` (`748d1d75`); S1-S6 proven, S6 in ue2emu without a board run (D7).
+Open (one line, as in the TODO table): Done 11-20: units S1-S4, ue2emu S5-S6 (S6 without board, Alex)
 **Repo:** TRX64U-MultiCore — the generic core application (`coreapp/src/boot.cc`, `run.cc`, `ui.cc`), its unit test.
 **Number:** T243 (GitHub #106 is the origin; the row in `TODO.md` is the coordinator's).
 **Origin:** GitHub issue #106 (Alex, 2026-11-19, bug): the core's ROM screen offers "RUN/STOP to return to host" and RUN/STOP does nothing. Alex asked for the fix before the integration (2026-11-20).
@@ -28,7 +28,7 @@ A core starts, a required ROM is missing, and the application waits for it.
 | S3 | P2 | The way back fails (told with its reason, the wait goes on); then the ROMs arrive and the core starts as before. | `test_boot_atari`, block "T243 S3"; the unchanged first block of the test covers a ROM arriving with no key pressed. |
 | S4 | P2 | The USB keyboard's ESC asks as RUN/STOP does; no other key does. | `test_boot_atari`, block "T243 S4" (`boot_leave_key`). |
 | S5 | P1 | The picture of the ROM screen: the text names RUN/STOP only where the way back exists; the footer promises no close. | ue2emu by the coordinator (the menu simulator does not run `boot_start`; it cannot show this screen). |
-| S6 | P2 | On the real board the matrix RUN/STOP reaches `getch_nowait` during the wait and the host comes back. | ue2emu / board by the coordinator. |
+| S6 | P2 | On the real board the matrix RUN/STOP reaches `getch_nowait` during the wait and the host comes back. | ue2emu by the coordinator; no board run (D7). |
 
 ## §3 Decision
 
@@ -38,12 +38,15 @@ A core starts, a required ROM is missing, and the application waits for it.
 - **D4 The wait polls every 50 ms.** The pass's sleep is cut in 50 ms slices; `leave_asked()` runs in each. The scan and `tick()` still run once per pass.
 - **D5 The text names the key.** The ROM text gets "Press RUN/STOP to return to the host menu." only when D1 offers it. A failure appends "The way back did not work: <reason>".
 - **D6 The message pane's left footer is empty.** `ui_message` no longer shows `R/S  CLOSE`: nothing on a message pane closes with that key. Keys of a pane stay in its text or in `g_msg_foot`.
+- **D7 (Alex, 2026-11-20): S6 is proven in the emulator; no board run.** Asked whether S6 needs the board (package A, `atarixl.rom`
+  renamed for the test) or the ue2emu proof is enough, Alex: "A reicht" (A is enough).
 
 ## §4 Out
 
 - No change to the held page (RETURN there, T115).
 - No per-core code; no ROM-wait screen of its own.
 - No other message pane gets a key.
+- The board run of S6 (D7).
 
 ## §5 Decisions taken while building
 
@@ -53,4 +56,5 @@ A core starts, a required ROM is missing, and the application waits for it.
   an empty `cores/vc20/roms/`. The wait screen reads "ROM files", "BASIC: basic.bin or basic or basic-901486-01.bin is missing in
   /USB0/cores/vc20/roms/" and "Press RUN/STOP to return to the host menu.", with no footer key (S5). `key runstop` (the C64 matrix) and,
   with `--usb-keyboard`, `usbkey escape` each bring the host back: the log has "icap: IPROG WBSTAR 0: the host bitstream, ... the menu
-  marker set" and "direct boot: decision ... marker 1", the screen the host's boot menu (S6 in the emulator). The board step of S6 is open.
+  marker set" and "direct boot: decision ... marker 1", the screen the host's boot menu (S6 in the emulator).
+- D7, 2026-11-20: S6 needs no board run (Alex). With S1-S6 proven, T243 is DONE and moves to `docs/specs/done/`.
