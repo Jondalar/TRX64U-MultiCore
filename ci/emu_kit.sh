@@ -43,11 +43,12 @@ else
   git -C "$src" -c advice.detachedHead=false checkout -q FETCH_HEAD -- roms
   cp -R "$src/roms" "$kit/roms"
 fi
-# the git tree id of a folder: the id git gives the folder's content (names, modes, bytes), made in a scratch repository. No ignore rule and no
-# attribute applies (no .gitignore, .gitattributes or info files are read: a name starting with .git anywhere in the folder is refused first, and add -f,
-# core.attributesFile and core.excludesFile point at nothing), so a planted file or a converted line ending changes the id.
+# the git tree id of a folder: the id git gives the folder's content (names, modes, bytes), made in a scratch repository. add -A -f takes ignored files too and
+# core.attributesFile and core.excludesFile point at nothing, so a .gitignore or .gitattributes inside the folder (the pinned folder holds one at
+# roms/c64rom/.gitignore) is just a file in the id: a planted one is an extra file and changes the id, and it hides and converts nothing.
+# Only a name equal to .git (any case) is refused first, because git add skips it without a word.
 tree_of() {
-  if [ -n "$(find "$1" -name '.git*' -print -quit)" ]; then echo "emu_kit: the ROM folder holds a name starting with .git" >&2; echo refused; return 0; fi
+  if [ -n "$(find "$1" -iname '.git' -print -quit)" ]; then echo "emu_kit: the ROM folder holds a name .git" >&2; echo refused; return 0; fi
   local g; g="$(mktemp -d)"; git -C "$g" init -q
   git -C "$g" -c core.autocrlf=false -c core.safecrlf=false -c core.attributesFile=/dev/null -c core.excludesFile=/dev/null --work-tree="$1" add -A -f
   git -C "$g" write-tree; rm -rf "${g:?}"
