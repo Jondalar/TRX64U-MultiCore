@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""T239.1 D9: ci/vivado.env is the one place for the gateware build options, but while .gitea/workflows/vivado.yml exists it carries a copy
-of them in the env of its Vivado job or step. This check reads both and is red when a key of ci/vivado.env is missing from that workflow's
-env or has another value there. A repository without the workflow file passes (the copy is gone).
+"""T239.1 D9: ci/vivado.env is the one place for the gateware build options, but while .gitea/workflows/vivado.yml and package.yml exist each
+carries a copy of them in the env of a job or step. This check reads them all and is red when a key of ci/vivado.env is missing from a workflow's
+env or has another value there. A workflow file that does not exist passes (that copy is gone).
 
-  tools/check_vivado_env.py [--env FILE] [--workflow FILE]
+  tools/check_vivado_env.py [--env FILE] [--workflow FILE]...   (default: both workflows)
   tools/check_vivado_env.py --selftest"""
 import os, sys, tempfile
 
@@ -32,12 +32,17 @@ def workflow_envs(path):
     return seen
 
 
-def check(env_file, workflow):
-    if not os.path.exists(workflow):
-        return []
-    want, have = read_env(env_file), workflow_envs(workflow)
-    return ["%s: %s in the workflow, %s in ci/vivado.env" % (k, sorted(have[k]) if k in have else "missing", v)
-            for k, v in want.items() if have.get(k) != {v}]
+def check(env_file, workflows):
+    if isinstance(workflows, str):
+        workflows = [workflows]
+    want, bad = read_env(env_file), []
+    for workflow in workflows:
+        if not os.path.exists(workflow):
+            continue
+        have = workflow_envs(workflow)
+        bad += ["%s: %s: %s in the workflow, %s in ci/vivado.env" % (os.path.basename(workflow), k, sorted(have[k]) if k in have else "missing", v)
+                for k, v in want.items() if have.get(k) != {v}]
+    return bad
 
 
 def selftest():
@@ -57,6 +62,11 @@ def selftest():
             errs.append("missing key passed")
         if check(e, os.path.join(td, "none.yml")):
             errs.append("absent workflow refused")
+        w2 = os.path.join(td, "w2.yml")
+        open(w2, "w").write("jobs:\n  j:\n    steps:\n      - env:\n          A: x\n          B: \"2\"\n")
+        wf("x", "1")
+        if not any(b.startswith("w2.yml") for b in check(e, [w, w2])) or any(b.startswith("w.yml") for b in check(e, [w, w2])):
+            errs.append("second workflow's difference not reported on its own")
     print("selftest FAILED: " + "; ".join(errs) if errs else "selftest ok")
     return 1 if errs else 0
 
@@ -66,7 +76,8 @@ if __name__ == "__main__":
     if a == ["--selftest"]:
         sys.exit(selftest())
     opt = dict(zip(a[::2], a[1::2]))
-    bad = check(opt.get("--env", os.path.join(ROOT, "ci/vivado.env")), opt.get("--workflow", os.path.join(ROOT, ".gitea/workflows/vivado.yml")))
+    wfs = [v for k, v in zip(a[::2], a[1::2]) if k == "--workflow"] or [os.path.join(ROOT, ".gitea/workflows", n) for n in ("vivado.yml", "package.yml")]
+    bad = check(opt.get("--env", os.path.join(ROOT, "ci/vivado.env")), wfs)
     for b in bad:
         print("VIVADO-ENV: " + b)
     print("vivado env copies: %s" % ("%d differences" % len(bad) if bad else "agree"))
