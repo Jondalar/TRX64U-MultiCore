@@ -329,6 +329,10 @@ module tb_c64scpu;
     end
 `endif
 
+`ifndef C64SCPU_CPU6510
+    // T241 S2 (run_irqmir.sh): +IRQMIR, the probe of the mirror-everything bench (phases, IRQ edges against vector pulls, BA runs, steps that break the RDY rule)
+`include "tb_irqmir.vh"
+`endif
     reg [8*8192-1:0] expect_s;
     reg [8*4096-1:0] dexp_s;
     reg [31:0] dacc;
