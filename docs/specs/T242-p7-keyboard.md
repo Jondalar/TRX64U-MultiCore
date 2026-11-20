@@ -1,6 +1,6 @@
 # T242 — A C64 keyboard on header P7 works in the host menu and in every core app
 
-**Status:** BUILDING (2026-11-20): fix on `t239.1`; board scenarios open.
+**Status:** BUILDING (2026-11-20): D1-D5 on `t239.1`; board scenarios open.
 **Repo:** TRX64U-MultiCore — the host app and the generic core app (`host-app/software/system/u64ii_init.cc`, built into both). No gateware change.
 **Number:** T242.
 **Origin:** GitHub issue #111, "P7 Keyboard on Motherboard does not work in Host- and Coreapps". The TRX64U-FW session read the cause from the code. Alex, 2026-11-20 (translated): "regarding the P7 bug, in my opinion the fix is in issue #111"; "wouldn't that be a nice attempt then, to build the host and all core apps once?"
@@ -38,6 +38,8 @@
   - One place serves both apps, because both build this file. No per-core code (T192 D24).
 - **D2:** `legacy_clocks()` (`hostapp/legacy.cc`) stays as it is. Its CDCE writes stay inside the lock, with CDCE open. The unlock's `scan_enable` write closes CDCE again, after the last I2C use before the hand-over.
 - **D3:** the fix is a commit on `t239.1`, so the first full GitHub run builds the host and all core apps with it (Alex, Origin).
+- **D4:** `enable_scan()` no longer sleeps after `scan_enable = 0`. `host/app_i2c.v` keeps the master busy until the scanner has stopped between two transactions, so the first command waits in hardware. With the scanner on, the firmware's `vTaskDelay(2)` cost every `i2c_lock` 5-10 ms; the core app takes the lock every 500 ms for its EDID poll in the main loop, ahead of `Video::poll`.
+- **D5:** `custom_hardware_init()` no longer writes the keyboard expander 0x42. `host/c64u_keyboard.v` sets its port directions before every line it scans and may be parked inside a line; writes from the init changed them there, and after the enable that line could read as all keys down for one scan, on any board. With C= in that line the power-on check (T135 D2) would stop in the menu.
 
 ## §4 Out
 
@@ -46,4 +48,6 @@
 
 ## §5 Built
 
-- (filled when the commit and the run exist)
+- `69db9dec` (D1) on `t239.1`, pushed at Alex's word ("I would push it, the review looks anyway", translated).
+- Review of `69db9dec`: two readers (the bus hand-over; regressions), 643k tokens, started without naming the cost first (against Alex's rule; he objected). Two findings, both checked against the code: the sleep in `i2c_lock` (D4) and the expander writes of the init (D5). Minor: `nau8822_enable_hpout` writes without the lock; nothing calls it.
+- `d478ae57` (D4, D5) on `t239.1`; the run with the unfixed D1 was cancelled. Full GitHub run 44737131946 carries D1-D5.
