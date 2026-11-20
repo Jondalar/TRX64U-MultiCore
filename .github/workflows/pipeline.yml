@@ -53,7 +53,7 @@ jobs:
     if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository }}
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/jondalar/trx64u-build@sha256:0000000000000000000000000000000000000000000000000000000000000001
+      image: ghcr.io/jondalar/trx64u-build@sha256:7e2a0d14a100dfdd5c949e6d6ac281a63dc01e7086fa7c971fcccb20f1e7c3a1
     timeout-minutes: 30
     env:
       CI_BRANCH: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.number) || github.ref_name }}
@@ -136,7 +136,7 @@ jobs:
     if: ${{ !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.docs_only != 'true' }}
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/jondalar/trx64u-sim@sha256:0000000000000000000000000000000000000000000000000000000000000003
+      image: ghcr.io/jondalar/trx64u-sim@sha256:3c83780bf1d40e0b1fd7755b25a29f85650247bd650845c86f8b1def8063b30c
     timeout-minutes: 60
     env:
       CI_BRANCH: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.number) || github.ref_name }}
@@ -156,7 +156,7 @@ jobs:
     if: ${{ !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.docs_only != 'true' }}
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/jondalar/trx64u-build@sha256:0000000000000000000000000000000000000000000000000000000000000001
+      image: ghcr.io/jondalar/trx64u-build@sha256:7e2a0d14a100dfdd5c949e6d6ac281a63dc01e7086fa7c971fcccb20f1e7c3a1
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683   # v4.2.2
@@ -231,7 +231,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: builds
     container:
-      image: ghcr.io/jondalar/trx64u-build@sha256:0000000000000000000000000000000000000000000000000000000000000001
+      image: ghcr.io/jondalar/trx64u-build@sha256:7e2a0d14a100dfdd5c949e6d6ac281a63dc01e7086fa7c971fcccb20f1e7c3a1
     timeout-minutes: 30
     env:
       CI_BRANCH: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.number) || github.ref_name }}

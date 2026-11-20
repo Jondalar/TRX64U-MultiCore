@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: bitstreams
     container:
-      image: ghcr.io/jondalar/trx64u-build@sha256:0000000000000000000000000000000000000000000000000000000000000001
+      image: ghcr.io/jondalar/trx64u-build@sha256:7e2a0d14a100dfdd5c949e6d6ac281a63dc01e7086fa7c971fcccb20f1e7c3a1
     timeout-minutes: 45
     env:
       CI_BRANCH: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.number) || github.ref_name }}
