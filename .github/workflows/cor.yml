@@ -87,6 +87,7 @@ jobs:
         run: ci/child.sh cor "$TARGET"
       - name: Artifact name
         id: art
+        shell: bash   # ${TARGET//:/-}: a container job runs run: under sh (dash) unless a step names bash
         env:
           TARGET: ${{ inputs.target }}
         run: echo "name=cor-${TARGET//:/-}" >> "$GITHUB_OUTPUT"

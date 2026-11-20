@@ -79,6 +79,7 @@ jobs:
           path: ${{ env.CI_TEMP }}/gideon-roms
           key: gideon-roms-${{ steps.gideon.outputs.commit }}
       - name: Kit
+        shell: bash   # arrays: a container job runs run: under sh (dash) unless a step names bash
         run: |
           set -eu
           ue2="$(ls "$RUNNER_TEMP"/update/*.ue2 | head -n 1)"
