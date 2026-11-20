@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
-# One multi-core release, from a finished CI package to a tagged Gitea release (T94 P5; before this
-# existed the chain lived in a session scratchpad and died with it).
+# One multi-core release, from a finished CI pre-release of the builds repository to a GitHub release of this repository (T94 P5; T239.1 S12).
 #
-#   tools/release_mc.sh <package version> [options]
-#       --publish                 also create the Gitea release with its tag (without it: build and check only)
+#   tools/release_mc.sh <pre-release tag> [options]
+#       --publish                 also create the GitHub release v<x.y.z> (without it: build and check only)
 #       --app <hostapp.app>       the host boot app that goes into the update file
 #                                 [default: the hostapp.app of the package itself, built by stage
 #                                 trxapps of the same run; only an override needs this option]
@@ -11,35 +10,36 @@
 #       --out <dir>               where the bundle is written [default: dist]
 #       --null-full <bit>         the run's null_full.bit (host + null core), only when the package has no
 #                                 trx64host_update_* (a branch package): the update file is built from it
-#       --keep                    keep the downloaded package (default: it stays in <out>/pkg-<version>)
+#       --keep                    keep the downloaded package (default: it stays in <out>/pkg-<tag>)
 #
-# <package version> is the generic package the pipeline wrote, e.g. main-51e89821 (git rev-parse
-# --short=8 of the commit that was built).
+# <pre-release tag> is the pre-release the pipeline published in the builds repository (MC_BUILDS_REPO of ci/pkg.env), <branch>-<8 hex of the commit>,
+# e.g. main-51e89821. `latest` takes the newest main-<sha8> one (tools/builds.sh latest). No token is needed to read it.
 #
 # What it does, in this order:
-#   1. downloads the package's .cor, the bitstream and manifest.json from Gitea (never the reports);
-#   2. reads the host key out of the bitstream and the bitstream's commit out of the manifest;
-#   3. checks every .cor against that key and the contract version - a bundle for another host stops the release;
-#   4. tools/make_release_mc.sh: the update file (.cfw/.ue2), INSTALL.md, SHA256SUMS, and a zip that holds
+#   1. downloads the pre-release's .cor, the bitstream and manifest.json (never the reports), each file checked against the SHA-256
+#      GitHub and SHA256SUMS list (tools/builds.sh);
+#   2. tools/check_public_tree.py --files on them: no ROM byte of the private list (T239.1 D16: a CI pre-release carries no ROM and no TRX64 .cor);
+#   3. packs trx64u.cor and trx64g.cor from release/imports/*.pin (D22; tools/pack_import_cor.sh, the one Gitea read, needs GITHUB_SERVER_URL,
+#      GITHUB_REPOSITORY and PACKAGE_TOKEN for the registry of the TRX64-Ultimate package) into the package, before it is promoted;
+#   4. reads the host key out of the bitstream and the bitstream's commit out of the manifest;
+#   5. checks every .cor against that key and the contract version - a bundle for another host stops the release;
+#   6. tools/make_release_mc.sh: the update file (.cfw/.ue2), INSTALL.md, SHA256SUMS, and a zip that holds
 #      every file of the bundle;
-#   5. with --publish: tools/publish_release_mc.sh, which attaches all of them, the zip included.
-#
-# A GitHub release of the same bundle (by hand, Alex's go) takes its --target from the history export (T120 D-history):
-#   gh release create v<version> --target "$(tools/github_snapshot.py --map-lookup <the Gitea commit of the release>)" ...
-# The Gitea sha is what the manifest and the tag here name; release/github_map.txt maps it to the GitHub commit once it is exported.
-# The token comes from GITEA_TOKEN or tea's config and is never printed.
+#   7. tools/check_public_tree.py --files --allow-trx on the bundle and the zip: only the two TRX64 .cor may carry what the fourth exception allows;
+#   8. with --publish: gh release create v<x.y.z> --verify-tag in $MC_SRC_REPO, as a draft with every file, then published. The tag v<x.y.z> is made by
+#      Alex alone (D28) and has to name the commit the package was built from; a missing tag stops the release.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 source "$ROOT/ci/pkg.env"
-GITEA="${GITEA_URL:-http://192.0.2.50}"
 OUT="$ROOT/dist"
 PUBLISH=0
 APP=""
 APP_COMMIT=""
 VER="${1:-}"
-[ -n "$VER" ] || { sed -n '2,16p' "$0"; exit 2; }
+[ -n "$VER" ] || { sed -n '2,13p' "$0"; exit 2; }
 shift
+[ "$VER" != latest ] || VER="$("$HERE/builds.sh" latest)"
 while [ $# -gt 0 ]; do
     case "$1" in
         --publish) PUBLISH=1; shift;;
@@ -48,32 +48,34 @@ while [ $# -gt 0 ]; do
         --out) OUT="$2"; shift 2;;
         --null-full) NULL_FULL="$2"; shift 2;;
         --keep) shift;;
-        -h|--help) sed -n '2,16p' "$0"; exit 0;;
+        -h|--help) sed -n '2,13p' "$0"; exit 0;;
         *) echo "unknown option $1" >&2; exit 2;;
     esac
 done
 
-TOKEN="${GITEA_TOKEN:-$(awk '/token:/{print $2; exit}' "$HOME/.config/tea/config.yml" 2>/dev/null || true)}"
-[ -n "$TOKEN" ] || { echo "no Gitea token (GITEA_TOKEN or tea config)" >&2; exit 1; }
 [ -z "$APP" ] || [ -f "$APP" ] || { echo "no host app at $APP" >&2; exit 1; }
 
 PKG="$OUT/pkg-$VER"
-API="$GITEA/api/packages/TREX/generic/$MC_PKG/$VER"
 mkdir -p "$PKG"
 
-echo ">>> package $VER"
-files=$(curl -sf -H "Authorization: token $TOKEN" \
-    "$GITEA/api/v1/packages/TREX/generic/$MC_PKG/$VER/files" \
-    | python3 -c 'import sys, json
-want = [f["name"] for f in json.load(sys.stdin)
-        if f["name"].endswith(".cor") or f["name"].startswith("trx64host_update_") or f["name"].endswith("_mono.bit")
-        or f["name"] in ("c64_basic.bit", "manifest.json", "hostapp.app", "coreapp.bin", "unzip.u2a", "miniz.u2a", "trex_crt.u2a", "softboot.u2a")]
-print(" ".join(want))') || { echo "package $VER not found" >&2; exit 1; }
-[ -n "$files" ] || { echo "package $VER holds no .cor" >&2; exit 1; }
+echo ">>> pre-release $VER"
+files=$("$HERE/builds.sh" files "$VER" | python3 -c 'import sys
+want = [n for n in sys.stdin.read().split()
+        if n.endswith(".cor") or n.startswith("trx64host_update_") or n.endswith("_mono.bit")
+        or n in ("c64_basic.bit", "manifest.json", "hostapp.app", "coreapp.bin", "unzip.u2a", "miniz.u2a", "trex_crt.u2a", "softboot.u2a")
+        or n.startswith("coreapp_") and n.endswith(".bin")]
+print(" ".join(want))') || { echo "pre-release $VER not found" >&2; exit 1; }
+[ -n "$files" ] || { echo "pre-release $VER holds no .cor" >&2; exit 1; }
 for f in $files; do
-    [ -s "$PKG/$f" ] || curl -sf -H "Authorization: token $TOKEN" "$API/$f" -o "$PKG/$f" \
-        || { echo "cannot fetch $f" >&2; exit 1; }
+    case "$f" in trx64u.cor|trx64g.cor) echo "pre-release $VER holds $f: a CI pre-release carries no TRX64 .cor (T239.1 D16)" >&2; exit 1;; esac
 done
+fetched=()
+for f in $files; do
+    [ -s "$PKG/$f" ] || "$HERE/builds.sh" fetch "$VER" "$f" "$PKG/$f" || { echo "cannot fetch $f" >&2; exit 1; }
+    fetched+=("$PKG/$f")
+done
+# D16: what a CI pre-release carries holds no ROM; checked on the downloaded files themselves, before anything is added to them
+python3 -I "$ROOT/tools/check_public_tree.py" --files "${fetched[@]}" || { echo "pre-release $VER holds private content: release stopped" >&2; exit 1; }
 [ -s "$PKG/c64_basic.bit" ] || { echo "the package has no bitstream" >&2; exit 1; }
 [ -s "$PKG/manifest.json" ] || { echo "the package has no manifest" >&2; exit 1; }
 # T221 D4: the release is the tested build with its version strings rewritten (x.y.z-dev+<sha8> -> x.y.z in the apps, the .cor, the .txu, the manifest);
@@ -82,6 +84,23 @@ done
 REL="$(python3 -c 'import json, re, sys
 v = json.load(open(sys.argv[1]))["version"]
 print(v if re.match(r"^[0-9]+[.][0-9]+[.][0-9]+$", v) else "")' "$PKG/manifest.json")"
+# D22: the two TRX64 .cor are packed here, from the pins and the package's own coreapp_<id>.bin (else coreapp.bin), in the version form of the package (a tag build:
+# x.y.z; else x.y.z-dev+<sha8>, which the promotion below turns into x.y.z like every other .cor). A second run keeps the ones of the first.
+pack_imports() {
+    local pin id app
+    for pin in "$ROOT"/release/imports/*.pin; do
+        [ -e "$pin" ] || continue
+        id="$(basename "$pin" .pin)"
+        if grep -q '^PIPELINE=false' "$pin"; then echo "    $id: PIPELINE=false in the pin, not packed"; continue; fi
+        [ ! -e "$PKG/$id.cor" ] || { echo "    $id.cor: already in the package, kept"; continue; }
+        app="$PKG/coreapp.bin"; [ ! -f "$PKG/coreapp_$id.bin" ] || app="$PKG/coreapp_$id.bin"
+        [ -s "$app" ] || { echo "the package has no coreapp.bin for $id.cor" >&2; exit 1; }
+        ${REL:+env GITHUB_REF_TYPE=tag} bash "$ROOT/tools/pack_import_cor.sh" --pin "$pin" --app-bin "$app" --app-commit "$(python3 -I -c 'import json, sys
+print(json.load(open(sys.argv[1])).get("trxapps_commit", "")[:8])' "$PKG/manifest.json")" --out "$PKG" > /dev/null || { echo "FAIL packing $id.cor" >&2; exit 1; }
+        echo "    $id.cor packed from $(basename "$pin")"
+    done
+}
+pack_imports
 if [ -n "$REL" ]; then
     echo "    a tag build: version $REL, nothing to promote"
 else
@@ -187,9 +206,30 @@ ZIP="$OUT/trx64mc-$REL.zip"
 # the zip has to hold every file of the bundle: a release whose archive is short of one is worse than none
 python3 "$ROOT/tools/release_check.py" zip "$D" "$ZIP" || exit 1
 
+# T239.1 D16, D22: the bundle is the one place a ROM-bearing file may be, and only inside the two TRX64 .cor (the fourth exception of the maintainer's rules)
+python3 -I "$ROOT/tools/check_public_tree.py" --files --allow-trx "$D" "$ZIP" || { echo "the bundle holds private content outside the TRX64 .cor: release stopped" >&2; exit 1; }
+
 if [ "$PUBLISH" = 1 ]; then
-    bash "$ROOT/tools/publish_release_mc.sh" --dir "$D" --zip "$ZIP" --tag "trx64mc-$REL" \
-        --commit "$(git -C "$ROOT" rev-parse HEAD)"
+    # D28: the release is made for a tag that only Alex creates; --verify-tag makes gh refuse to make one. The tag has to be the commit the package was built from.
+    TAGVER="$(python3 -I -c 'import json, re, sys
+v = json.load(open(sys.argv[1]))["version"]
+print(v if re.match(r"^[0-9]+[.][0-9]+[.][0-9]+$", v) else "")' "$PKG/manifest.json")"
+    [ -n "$TAGVER" ] || { echo "the package version is no x.y.z: nothing to publish" >&2; exit 1; }
+    for f in "$D"/* "$ZIP"; do
+        printf '%s' "$(basename "$f")" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9._+-]{0,99}$' || { echo "$(basename "$f"): GitHub would rename this asset: release stopped" >&2; exit 1; }
+        [ -f "$f" ] || { echo "$f is no plain file: release stopped" >&2; exit 1; }
+    done
+    TAGSHA="$(gh api "repos/$MC_SRC_REPO/commits/v$TAGVER" --jq .sha 2>/dev/null || true)"
+    [ -n "$TAGSHA" ] || { echo "no tag v$TAGVER in $MC_SRC_REPO: Alex creates the tag (D28), then run this again" >&2; exit 1; }
+    case "$TAGSHA" in "$(python3 -I -c 'import json, sys; print(json.load(open(sys.argv[1]))["trx64_commit"])' "$PKG/manifest.json")"*) ;;
+        *) echo "tag v$TAGVER is $TAGSHA, the package was built from another commit: release stopped" >&2; exit 1;; esac
+    echo ">>> release v$TAGVER in $MC_SRC_REPO"
+    gh release create "v$TAGVER" --repo "$MC_SRC_REPO" --verify-tag --draft --title "TRX64 MultiCore $TAGVER" --notes-file "$D/INSTALL.md" "$D"/* "$ZIP"
+    want=$(( $(ls "$D" | wc -l) + 1 ))
+    have="$(gh release view "v$TAGVER" --repo "$MC_SRC_REPO" --json assets --jq '.assets | length')"
+    [ "$have" = "$want" ] || { echo "the draft holds $have assets, $want were attached: left as a draft" >&2; exit 1; }
+    gh release edit "v$TAGVER" --repo "$MC_SRC_REPO" --draft=false
+    gh release view "v$TAGVER" --repo "$MC_SRC_REPO" --json url,isImmutable --jq '">>> \(.url)  immutable: \(.isImmutable)"'
 else
     echo ">>> built, not published: $D"
     echo "    publish it with: tools/release_mc.sh $VER --publish"
