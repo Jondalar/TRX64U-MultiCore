@@ -13,7 +13,7 @@ for debugging."
 **Depends on:** T182 (the core), T208 (mirror queue, BA write hold), T217 (the PRG start bench `cores/c64scpu/sim/run_prgrun.sh`).
 **Milestone:** M2.
 
-Open (one line, as in the TODO table): D4 11-21: branch t241-scpu-fix = T241 + S2, T249, T250, branch IRQ rule, 20 MHz RAM; build open
+Open (one line, as in the TODO table): D4 11-21 board: scpu4, scpu5 b/c, scpu6 conf/code fixed; open: picture dropouts, boot colours, scpu5 d, bigr
 
 ---
 
@@ -595,3 +595,18 @@ Open.
 - Board file (2026-11-21): `/SD/cores/c64scpu_t241fix.cor`, 3,562,795 bytes, sha256 `10f97775184d3e95...` (read back the same), packed at
   `b7571876` (only the spec differs from the build's tree) with the core application of `tools/dev.sh riscv`. Its folder has the ROMs and
   the settings of `c64scpu_t241` (Picture 1920 x 1080, Scale Fit).
+- The board run (2026-11-21, `c64scpu_t241fix.cor` started from the file browser at 14:58 with the settings of `c64scpu_t241`:
+  1920 x 1080, Fit, 20 MHz; `tests/c64scpu/rest.py`, the token by `POST /v1/ui/grant`, Alex: "ja du darfst dir gerne das token
+  holen"):
+  - scpu1 22/0: `$02a6` = 1 (PAL). The CINT replay is unchanged: at 20 MHz a CINT that starts at line 0-200 still finds NTSC;
+    this boot started it later.
+  - scpu2 402/0, scpu3 28/0, scpu7 48/0, scpu8 8/0.
+  - scpu4 40/0: the taken branch decides as the 6510 does (t250: 4 failed).
+  - scpu5 20/2: a, b and c equal the reference (b any 58, c any 78; t250: 59, 79). d all 43, the reference 44 (as on t250);
+    the soak at k = 44 has 0 early IRQs in 500 frames.
+  - scpu6 9/1: conf 10513 (10512) and code 1161 (1155) pass (t250: 20381, 1780). bigr 7137 (6461): +676 PHI2 cycles, the
+    first sweep's misses (about 2048 at 0.3 PHI2 cycles each), as expected.
+- Seen by Alex on this core (2026-11-21, translated): "the SuperCPU animation is 'not colourful any more' .. weird"; "the picture
+  dropouts are in, unfortunately". The baseline `c64scpu_t241.cor` (gateware and application of `f59163935`, branch `t241-rmw`,
+  2026-11-20) has none. Every core with dropouts (t248 `1131711e`, t250 `6c86f802`, t241fix `b7571876`) has S2 and an
+  application of 2026-11-21: the two are not separated yet.
