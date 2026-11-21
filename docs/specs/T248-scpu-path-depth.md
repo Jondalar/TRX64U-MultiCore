@@ -1,7 +1,7 @@
 # T248 — c64scpu: the class table in LUTs and the decimal adder with a carry select, so the path into the 65C816 is shorter
 
 **Status:** IN PROGRESS (2026-11-21). Asked by Alex, 2026-11-21.
-Open (one line, as in the TODO table): IN PROGRESS 11-21: S1-S3 PASS; S4 FAIL, +0.648 ns of +3 (was +0.015); next step with Alex
+Open (one line, as in the TODO table): IN PROGRESS 11-21: S1-S3, S5 PASS; S4 FAIL, +0.648 ns of +3 (was +0.015); next step with Alex
 **Repo:** TRX64U-MultiCore — the core `cores/c64scpu/`: `scpu_cfgtab.v` (made by `tools/scpu_cfgtab.py`) and
 `cpu/s816_addsubbcd.vhd` (made by `tools/scpu_vendor816.py`). No application code.
 **Number:** T248.
@@ -130,4 +130,7 @@ the .cor of S4.
     `b_a` clock-to-out 0.478 ns; the address decode to `rd_mem` 5 LUT levels, 5.162 ns; the data mux 0.713 ns; in the CPU the
     adder for 16 bits and the result mux to `X_reg[13]` 11 LUT levels, 7.896 ns, no CARRY4. 17 levels, 14.249 ns, route 79 %.
   - LUT 23,344 (it was 23,360), slices 96.7 %.
-- **Open:** the next step after S4 (with Alex), S5 (board, with the T241 S2 steps).
+- **S5 (board, Alex, 2026-11-21):** `/SD/cores/c64scpu_t248.cor`, the `.cor` of run 44875582642. The DMAgic intro runs, Metal Dust
+  runs, Master's Boom in play crashes as with the earlier cores (T241 §5 on `t241-s2-irq`). The `.cor` of run 44854024836 was not on
+  the board; against the earlier board runs nothing changed. S5 PASS.
+- **Open:** the next step after S4 (with Alex).
