@@ -26,7 +26,7 @@ import argparse, hashlib, io, os, random, re, shlex, subprocess, sys, tarfile, t
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PRIVATE = os.path.join(ROOT, "ci", "private.txt")
 
-# ---- path rules (the export's rules of tools/github_snapshot.py, D5 whitelist) ----
+# ---- path rules (the rules of the former GitHub export, D5 whitelist) ----
 DROP_RE = re.compile(r"^(roms/.*\.bin|cores/[^/]+/roms/.*\.rom|cores/[^/]+/sim/media/.*)$")
 ROM_EXT = re.compile(r"\.(rom|img|adf|adz|d64|d71|d81|g64|crt|tap|tzx|t64|dsk|hdf|nib|po)$", re.I)
 MODPLAYER = "release/imports/trx64u_files/modplayer/module.bin"

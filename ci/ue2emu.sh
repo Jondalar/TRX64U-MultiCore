@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # T174 D2.8: ONE way to run ue2emu, for every script that needs the emulator: `ci/ue2emu.sh run --board c64u ...` = `ue2emu run --board c64u ...`.
 #   1. UE2EMU_BIN, or on macOS the local build ~/Development/u64-emulator/target/release/ue2emu: run it as it is.
-#   2. else `ue2emu` on PATH (the CI job image u64-build-env:emu-<tag>, ci/emu/build.sh).
+#   2. else `ue2emu` on PATH (the CI job image: ci/emu/Dockerfile on GitHub, u64-build-env:emu-<tag> from ci/emu/build.sh in the Gitea workflows).
 #   3. else the Linux image $UE2EMU_IMAGE (ci/lib.sh, entrypoint `ue2emu`) with docker: the working directory and every absolute path in the arguments that exists
 #      (a file: its directory) are mounted at the SAME path, so the arguments mean the same inside; the container runs as the caller, without a network.
 #      ROMs, firmware and the flash image are mounted from where they are (the kit, tools/ue2emu_kit.sh), never copied.
