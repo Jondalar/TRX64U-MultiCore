@@ -625,5 +625,40 @@ int main()
             CHECK(!cbm_key_for(0xA0, &k));
         }
     }
+    // ---- T250 S2: machine.read_mem / machine.write_mem. Each region of T250 D2 reaches its window offset; a write into the 65816's RAM
+    // is followed by one cache flush, a write into the C64 RAM by none; the ROM banks $F8-$FF are not mapped
+    {
+        Rig r;
+        for (uint32_t i = 0; i < 4; i++) {
+            r.io.ddr[0x0200C000u + i] = (uint8_t)(0x11 + i);              // SRAM bank 0, $00C000
+            r.io.ddr[0x0201F000u + i] = (uint8_t)(0x21 + i);              // SRAM bank 1, $01F000
+            r.io.ddr[0x01020000u + i] = (uint8_t)(0x31 + i);              // SuperRAM, $020000
+            r.io.ddr[0x01000010u + i] = (uint8_t)(0x41 + i);              // SuperRAM byte $10, seen at $F60010
+            r.io.ram[0x0400u + i] = (uint8_t)(0x51 + i);                  // C64 RAM $0400, seen at $1000400
+        }
+        struct Rd { int32_t addr; uint8_t first; } rds[] = { { 0x00C000, 0x11 }, { 0x01F000, 0x21 }, { 0x020000, 0x31 }, { 0xF60010, 0x41 }, { 0x1000400, 0x51 } };
+        for (auto &x : rds) {
+            OpIn in[2] = { in_int("address", x.addr), in_int("length", 4) };
+            OpResult rr;
+            CHECK_EQ(ops_call(&r.c, "machine.read_mem", in, 2, &rr), OPE_OK);
+            CHECK_EQ(rr.ndata, 4);
+            CHECK_EQ(rr.data[0], x.first);
+            CHECK_EQ(rr.data[3], (uint8_t)(x.first + 3));
+        }
+        int f0 = r.io.flushes;
+        OpResult rw;
+        OpIn w1[2] = { in_int("address", 0x01F100), in_str("data", "A1B2C3D4") };
+        CHECK_EQ(ops_call(&r.c, "machine.write_mem", w1, 2, &rw), OPE_OK);
+        CHECK_EQ(r.io.ddr[0x0201F100u], 0xA1);
+        CHECK_EQ(r.io.ddr[0x0201F103u], 0xD4);
+        CHECK_EQ(r.io.flushes, f0 + 1);
+        OpIn w2[2] = { in_int("address", 0x100C000), in_str("data", "5A5B") };
+        CHECK_EQ(ops_call(&r.c, "machine.write_mem", w2, 2, &rw), OPE_OK);
+        CHECK_EQ(r.io.ram[0xC000u], 0x5A);
+        CHECK_EQ(r.io.ram[0xC001u], 0x5B);
+        CHECK_EQ(r.io.flushes, f0 + 1);
+        OpIn x1[2] = { in_int("address", 0xF80000), in_int("length", 1) };
+        CHECK_EQ(ops_call(&r.c, "machine.read_mem", x1, 2, &rw), OPE_ARG);
+    }
     DONE("test_c64scpu");
 }

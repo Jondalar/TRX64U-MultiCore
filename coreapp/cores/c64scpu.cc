@@ -15,6 +15,7 @@
 #include "cbm_run.h"
 #include "cores.h"
 #include "drive_rom_pick.h"
+#include "memops.h"
 #include "ops_glue.h"
 #include "picture.h"
 #include <stdio.h>
@@ -402,6 +403,24 @@ static const MediaSlot media[] = {
     CBM1541_1581_MEDIA,
 };
 
+// T250 D2, D3: machine.read_mem / machine.write_mem. The 65816's addresses where scpu_mem.v puts them in the DDR2, and the C64 RAM above
+// them through the RAM window (the RAM under the I/O). The ROM banks $F8-$FF are not mapped (T250 D2). A write into the 65816's RAM goes
+// past the CPU's cache, so the cache is flushed after it; reads need nothing, the cache writes through.
+static const MemRegion scpu_mem_regions[] = {
+    { 0x000000u, 0x020000u, MK_DDR, SCPU_SRAM_WIN_OFF, 0, "SRAM (banks 0 and 1)" },
+    { 0x020000u, 0xF40000u, MK_DDR, SCPU_SUPERRAM_WIN_OFF + 0x020000u, 0, "SuperRAM (banks $02-$F5)" },
+    { 0xF60000u, 0x020000u, MK_DDR, SCPU_SUPERRAM_WIN_OFF, 0, "SuperRAM window (banks $F6-$F7)" },
+    { 0x1000000u, 0x010000u, MK_RAM, 0, 0, "C64 RAM (at $1000000)" },
+};
+static const MemMap scpu_mem = { scpu_mem_regions, 4, true, 0 };
+
+static int op_write_mem(CoreCtx *c, const OpArgs &a, OpOut &o)
+{
+    int e = mem_write(scpu_mem, c, a, o);
+    if (e == OPE_OK && (uint32_t)a.i(0) < 0x1000000u && flush_cache(c, "machine.write_mem", o.msg, o.msglen)) return OPE_FAILED;
+    return e;
+}
+
 static void c64scpu_register(OpRegistry &r)
 {
     r.contributor("c64scpu");
@@ -422,6 +441,10 @@ static void c64scpu_register(OpRegistry &r)
     r.add_op("c64scpu.service", 0, 0, op_service);
     r.add_op("c64scpu.type_script", text_arg, 1, op_type);
     r.add_op("c64scpu.run_prg", path_arg, 1, op_run);
+    static const ArgSpec rd_[] = { ARG_INT("address", 0, 0x100FFFF), ARG_INT("length", 1, OP_DATA_MAX) };
+    static const ArgSpec wr_[] = { ARG_INT("address", 0, 0x100FFFF), ARG_STRING("data", 254) };
+    r.add_op("machine.read_mem", rd_, 2, mem_op_read<&scpu_mem>);
+    r.add_op("machine.write_mem", wr_, 2, op_write_mem);
     cbm1541_register(r);
 }
 

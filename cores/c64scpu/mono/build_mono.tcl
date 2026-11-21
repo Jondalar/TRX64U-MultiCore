@@ -7,7 +7,7 @@
 # Environment (all optional):
 #   TRX_BUILD   output directory under host/ (default build_mono)
 #   TRX_STOP    synth | place | route (default route = also writes the bitstream)
-#   TRX_DEFS    extra Verilog defines for the whole design, space separated (e.g. "SOCK_AUDIO TAPE NO_NET")
+#   TRX_DEFS    extra Verilog defines for the whole design, space separated (e.g. "SOCK_AUDIO")
 #   TRX_REU=1   keeps the REU (the core_sources.tcl define NO_REU is dropped)
 #   TRX_STUB    host modules replaced by a port-compatible stub (cores/c64scpu/mono/stubs): overlay con_ring
 #   TRX_TOP_OFF host switches top.v knows, appended to the defines: NO_UCI NO_JTAG_DBG NO_STREAMS
@@ -42,7 +42,8 @@ if {$k < 0} { error "gideon_vhdl.tcl lists no cache_cfg_pkg.vhd" }
 set gvhdl [lreplace $gvhdl $k $k $c64scpu/mono/cache_cfg_pkg.vhd]
 puts "=== T133 mono: cache sizes from cores/c64scpu/mono/cache_cfg_pkg.vhd"
 
-# T140 Q2b/Q2c: no Ethernet MAC in this build (the WiFi UART stays): the copy's ultimate_sys.vhd with g_net = 0, top.v passes it under the define NO_NET (TRX_DEFS).
+# T140 Q2b/Q2c, T250: the copy's ultimate_sys.vhd takes g_net from top.v (0 under the define NO_NET); since T250 this core does not define it, so the
+# Ethernet interface is in.
 
 # Defines: the core's (core_synth, minus the OOC-only parts) and the variant's
 set defs {}

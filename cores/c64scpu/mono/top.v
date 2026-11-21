@@ -1,4 +1,4 @@
-// T140 D1 / T164 WP18: this large core's copy of the host copy's top.v (first made for the C128 core) (mono/host/top.v; mono/top.v.diff): the A/V port (AVID_*) driven by c64scpu_avout.v and c64_type 1 (a C64-type core: held to the System Mode's family and the VIC-locked rows). Built with NO_NET (no Ethernet MAC, the WiFi UART stays). Everything else is the host's.
+// T140 D1 / T164 WP18: this large core's copy of the host copy's top.v (first made for the C128 core) (mono/host/top.v; mono/top.v.diff): the A/V port (AVID_*) driven by c64scpu_avout.v and c64_type 1 (a C64-type core: held to the System Mode's family and the VIC-locked rows). Built with the Ethernet interface since T250 (no NO_NET; T164's console builds define it). Everything else is the host's.
 // c64_basic: the icepi-zero-c64 C64 core (6502n, vicii-kawari, reDIP SID and
 // CIA) on the C64 Ultimate, with HDMI out and nothing else.
 //
