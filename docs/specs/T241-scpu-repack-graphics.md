@@ -1,7 +1,7 @@
 # T241 — SuperCPU releases show on the C64SCPU core the picture their CPU wrote (GitHub #108)
 
-**Status:** LATER (2026-11-20): the intro's cause is fixed (the RMW write, §5) and goes into `integration` (D3); Master's Boom in play
-is open (S2). PROPOSED 2026-11-19 (Alex).
+**Status:** LATER (2026-11-20): the intro's cause is fixed (the RMW write, §5) and goes into `integration` (D3); Master's Boom in play:
+the S2 fix (IRQ poll point, RTI cycles) is built on the branch `t241-s2-irq` (§5, 2026-11-20), its sims and the board are open. PROPOSED 2026-11-19 (Alex).
 **Repo:** TRX64U-MultiCore — the core `cores/c64scpu/` (`scpu_mem.v`: register file, memory map, mirror queue; `scpu_cache.v`), its
 benches `cores/c64scpu/sim/`; the debugging tools `tools/dis65816` and `tools/emu816`.
 **Number:** T241.
@@ -13,7 +13,7 @@ for debugging."
 **Depends on:** T182 (the core), T208 (mirror queue, BA write hold), T217 (the PRG start bench `cores/c64scpu/sim/run_prgrun.sh`).
 **Milestone:** M2.
 
-Open (one line, as in the TODO table): intro fixed (RMW write; into integration, D3); play: IRQ one instruction early, RTI 5 cycles (S2)
+Open (one line, as in the TODO table): D4 11-21 board: Boom plays, scpu4/5b-c/6 conf-code fixed; open: picture dropouts, boot colours, scpu5 d, bigr
 
 ---
 
@@ -76,6 +76,14 @@ Open (one line, as in the TODO table): intro fixed (RMW write; into integration,
 - **D3 (Alex, 2026-11-20): T241 goes to GitHub and into `integration`; D2 is lifted.** Translated: "T241 can come along now; get it
   ready, i.e. a branch, and then into integration too, please." The branch `t241-scpu` on GitHub carries the fix of `t241-rmw` and the
   bench of `t241-bench` (S2); `integration` gets it by Alex's merge (T239.1 D15).
+
+- **D4 (Alex, 2026-11-21): one clean branch on the T241 core, with the debug parts and the fixes.** Translated: "I would like you to work
+  concentrated on a working core now ... on a branch, clean ... and since the HDMI fault only came between 241 and 248, I think I would like 241
+  as the base, gladly with the debug stuff you just built in for good, and then fix the problems found." Then: "In T241 there are NO
+  dropouts. That is the baseline. Build the CPU and RAM fixes in there." The branch `t241-scpu-fix` starts from `integration` (its c64scpu
+  gateware and application are the T241 core's, `f5916393`; only benches differ, compared 2026-11-21) and takes: S2 (PR #120), T249 (no
+  datasette), T250 (Ethernet, memory over REST), the taken-branch rule (§5, 2026-11-21) and the 20 MHz memory path (T241.1 scpu6: the CPU
+  fixes and the RAM fix). T248 stays out.
 
 ## §4 Out of scope
 
@@ -331,7 +339,7 @@ Open.
   and line 219 (`$18`, HUD); `$D018` never.
 - Cause (read, then a proxy run): the core decides on an IRQ at the end of an instruction's last cycle with the live line
   (`cpu65816_c64scpu.v:103,111`, `cpu/s816_cpu.vhd:496,508-510`); VICE polls it before the last cycle (`65816core.c:129`
-  `CHECK_INTERRUPT`, placed e.g. at `:851`, `:1498`, `:2230`). An IRQ that rises in an instruction's last cycle is taken one
+  `CHECK_INTERRUPT`, placed e.g. at `:851`, `:1499`, `:2231`). An IRQ that rises in an instruction's last cycle is taken one
   instruction early on the core. Then the dispatcher reads 145, takes the multiplexer path `$1D2A`, which writes `$D012 = $91` again,
   and the chain stops for that frame: no mid and no bottom handler (no `$D016 = $18` for the HUD, no game logic, no re-arm), no top
   handler in the next frame. That is the stutter with the HUD at the playfield's scroll. Once the main loop's spin (`$42D1`) puts the
@@ -358,3 +366,262 @@ Open.
   both branches is there; `tools/scpu_vendor816.py --check` is ok (the VHDL is the generator's); native mode and the cycle counts are
   unchanged (`RMW_DW` needs `EF = '1'`); the generators embed no ROM or program bytes. Fixed: the stale "local" of the bench branch.
 - Not run for this step: no sim, bench or Vivado run (the pipeline builds the c64scpu core on the push; its sims run on `integration`).
+
+### 2026-11-20: S2 fix built (agent), reviewed and corrected
+- Read first (D1), against VICE and the core's sources, before any change. Fault 1: `s816_cpu.vhd` decides on an interrupt at the clock enable that ends an instruction's last cycle
+  (`LAST_CYCLE`, `GotInterrupt <= IRQ_ACTIVE or NMI_ACTIVE`) with `IRQ_N` as it is then, and the wrapper gave it the live level (`irq_latched`, `cpu65816_c64scpu.v`). VICE's `CHECK_INTERRUPT`
+  (`65816core.c:129`) is placed before the last access of an instruction (`ABS_FUNC` :851, `BRANCH` :1499, `RTI` :2231, the emulation-mode read-modify-write :889-890) and before the opcode fetch at the loop's top (:2584, :2588); an
+  interrupt is taken at the top only from a check made earlier (:2575). An IRQ that rises in the last cycle is seen first by the next instruction's check, so that instruction runs.
+  Fault 2: the microcode of RTI (opcode $40) has the rows of states 1-4 (dummy, P, PCL, PCH) and, for native mode, 5 (internal) and 6 (PBR); in emulation mode the third pull ends it
+  (`s816_cpu.vhd` state control 111, `EF = '1' and IR = x"40"` gives `NextState = 0000`): 5 cycles. VICE's `RTI` (`65816core.c:2217-2240`): `INC_PC` makes no clock; two
+  `FETCH_PARAM_DUMMY` (one `scpu64_clock_inc` each), three `PULL` (four in native mode: PBR) and the opcode fetch at the loop top (`:2585`/`:2589`): 6 and 7. The W65C816S datasheet gives RTI 7 cycles with E = 0 and 6 with E = 1.
+- What changed. (1) `cores/c64scpu/cpu65816_c64scpu.v`: `irq_pen`, `irq_latched` registered at each `core_ce` (a reset clears it), and `s816_cpu`'s `irq_n` is `!irq_pen`. At 1 MHz `core_ce`
+  is one per PHI2 cycle (the level of the end of the previous cycle is the one the CPU reads at the end of the last), at 20 MHz one per 20 MHz cycle; a cycle held by RDY is a cycle too (the
+  register keeps following the line). The low-phase drop of `irq_latched` (the 20 MHz handler tail inside the acknowledging write's PHI2 cycle) stays: the register only delays the level by
+  one enable (50 ns at 20 MHz, one PHI2 cycle at 1 MHz). (2) `tools/scpu_vendor816.py` (`rti_emul`, `RTI_E_ROW`, one more item in its list of changes; `--check` ok): the emulation-mode RTI
+  goes from state 4 to state 7 (`NextState <= "0111"`), and the microcode row of RTI's state 7 (all X upstream, read as zero, never visited) is STATE_CTRL 010 and nothing else: an internal cycle (no
+  VDA, no VPA, no load) that ends the instruction. Walked on the generated ROM: RTI with EF = 1 visits states 0, 1, 2, 3, 4, 7 (6 cycles), with EF = 0 states 0-6 (7 cycles).
+  The microcode ROM of the SNES core `cores/snes/rtl/65C816` is untouched.
+- NMI, decided: no change. `s816_cpu` latches the falling edge of `NMI_N` at each enable (`NMI_SYNC`, set at the enable that sees the line low) and `NMI_ACTIVE` reads the latch at the last
+  cycle: an edge in the last cycle is not seen yet, one in the cycle before is. That is the rule the IRQ now follows. The I flag stays live at the last cycle: it changes only at the end of an
+  instruction's last cycle (CLI, PLP) or earlier in RTI (state 2), so the delay of CLI and the early take after SEI stay as they were.
+- The bench, `tools/gen_c64scpu_irq.py` / `cores/c64scpu/sim/run_irq.sh` / `check_irq.py` (phases 0-9 and their expectations unchanged), emulation mode, hwenable off, software 1 MHz, display off:
+  - Phase 10 (verdict `$032A` = `$AA`, raw `$033A` = R0 + 2 R1 + 4 runs = 5; rebuilt after the review, see "Review of the bench" below): emulation mode, hwenable off, software 1 MHz, display off, no sprite.
+    The VIC's raster compare is set to line `$A0`, the CPU syncs to line `$F8` (since the second review; first `$20`, see 2026-11-21), clears the flag, switches the mask on (a guard), `CLI`, then `INC $D012; INC M0; INC M1`. The modify cycle of the INC
+    writes the byte it read, line `$F8`, into the compare; the VIC matches in the high half of the INC's last cycle, so the line rises after the poll point. Expected: the handler runs once,
+    M0 = 1 (the instruction after the INC ran), M1 = 0. Source: VICE `65816core.c:889-890` (CHECK_INTERRUPT before the emulation-mode dummy `STORE_LONG`, the modify cycle finds no IRQ), `viciisc/vicii-cycle.c:467-474`
+    (the match is found in the next cycle, the last), `65816core.c:2588` (the check before the next opcode fetch finds it) and `:2575` (taken at the top only from a check made earlier): the next
+    instruction runs, the IRQ is taken before the second.
+  - Phase 11 and 12 (check_irq.py, `rti|` line): a subroutine times X returns through RTI between the tb's marks 0 and 1 (writes to `$0B00` and `$0B01`, their PHI2 cycles); called with 20
+    (warm-up, ignored), 20 and 10. Emulation: `LDA #hi; PHA; LDA #lo; PHA; PHP; RTI; DEX; BNE`, native (8-bit): `PHK; PEA ret; PHP; RTI; DEX; BNE`. The difference of the long and the short
+    loop is 10 x (2+3+2+3+3+RTI+2+3) = 240 with a 6-cycle RTI (230 with 5) and 10 x (3+5+3+7+2+3) = 230 with a 7-cycle RTI. Source of the instruction cycles: the W65C816S datasheet
+    (PHA, PHP, PHK 3; PEA 5; LDA #, DEX 2; BNE 3 taken, +1 across a page with E = 1: the generator asserts the loop is on one page); RTI as above. The constants of the marks cancel.
+  - Light checks run on the Mac (no simulation): the generator writes its program (tail 1,668 of 2,048 bytes, native image 614 of 1,536); the new code read back with `tools/dis65816` (phase 10,
+    both RTI loops, the handler; `PEA $017E` is the native loop's DEX); `check_irq.py` on made-up logs (24/23-cycle loops: ok; 23/23: FAIL); `sh -n run_irq.sh`.
+- The other c64scpu benches, read (grep for CLI, RTI, IRQ, NMI in the generators and checkers), not run. `c64scpu_base` (6510 in): no 65816, unchanged. `c64scpu_emu`: no IRQ, no RTI in the program (cycles
+  between markers unchanged). `c64scpu_speed`, `c64scpu_map`: no IRQ source, no RTI found. `c64scpu_mirror`: a BRK handler that ends in RTI, 1,024-store loops judged within +-3 %: one cycle is far inside. `c64scpu_irq` phases 0-9:
+  handler counts per 100,000 cycles come from the timers (25 +- 1, 5..6, 10 NMIs, 3 BRK, 2 COP), not from the CPU's latency or the RTI's cycles; phases 7-9 acknowledge in the modify cycle, so the line is low
+  before the RTI's last cycle (the level the RTI reads is that of its cycle before). `c64scpu_mdust`: the HUD chain is judged from its first to its last write, the menu's IRQ once per frame, the stars chain
+  35 times a frame; `stars` also counts handlers whose first I/O is before cycle 12 (at least 8) and compares medians: the main loop is `BRA` at 20 MHz (3 enables = 0.15 PHI2 cycles), so an IRQ
+  taken one instruction later moves a handler's start by at most that. I expect no expectation to move; a change shows only in a run. `run_irqmir.sh` (diagnosis bench, not in `ci/sims.txt`): its masked
+  phases have no IRQ; in its IRQ phases the IRQ-edge-to-vector latency statistic and the cycles per pass move by the RTI's extra cycle; its model of the pass cycles covers the masked phases only.
+- Review of the bench (read-only review agent, 2026-11-20; every point checked against the code before it was acted on). Facts the reading rests on: a CPU cycle runs from the enable `e` (`core_ce`
+  at `phi2_l`, phase 9 of the 16 dot4x clocks of the PHI2-low half: `vicii_c64scpu.v:461`) to the next one; between them lie the PHI2-high half (`clk_phi` = 1) and the PHI2 fall `phi2_n`
+  (first clock of the low half: `:464`), where the wrapper samples `irq_r <= irq` (`cpu65816_c64scpu.v:103`) and where the VIC takes a register write (`registers_scaled.v:1469`: `aec` and
+  `phi_phase_start[DATA_DAV]`, `DATA_DAV` 0 in `common.vh:130`; `aec` is `clk_phi` one clock late, `vicii_c64scpu.v:828`; the register itself changes one clock later). `s816_cpu.vhd`: `LAST_CYCLE` is
+  `NextState = 0000` (:160), `GotInterrupt` is loaded at the enable that ends the last cycle from `IRQ_ACTIVE` (:496, :508-510). Old logic: `irq_n = !irq_latched`, `irq_latched = clk_phi ? irq : irq_r & irq`
+  (`cpu65816_c64scpu.v:111`, in the low half at `e`: `irq_r & irq`). New logic: `irq_n = !irq_pen`, `irq_pen` = `irq_latched` of the previous enable.
+  - Finding 1 (HIGH, true): the first phase 10 (`STA $D01A` as the source switch) did not discriminate. The write is the STA's last cycle k; the VIC takes it at `phi2_n` of k and `erst` is set one clock
+    later, so `irq_r` of that edge is 0 and `irq` is 0 until after it. At the enable that ends k, old: `irq_r & irq` = 0; new: `irq_pen` = 0. Both take the IRQ only after the next instruction (its last
+    enable sees `irq_r` = 1 on both). The old core passed that phase too. Only a line that rises between the enable that starts the last cycle and its `phi2_n` (the PHI2-high half) separates the logics.
+  - Phase 10 as rebuilt (the proposal of the review holds): `INC $D012` in emulation mode, cycles c1 opcode, c2 low, c3 high, c4 read `$D012` (line `$F8`), c5 modify cycle (writes the byte read,
+    the T241 RMW write), c6 last cycle (writes `$F9`). The compare was `$A0`, the flag clear, the mask on (the guard), I = 0 after the `CLI`. c5: `phi2_n(c5)` writes compare = `$F8`
+    (`registers_scaled.v:1526`); `irq_r` <= 0. The enable e6 that starts c6 follows in the same low half: old and new `irq` = 0, so `irq_pen` <= 0. The PHI2-high half of c6, about 8 clocks after e6:
+    `raster_irq_compare_d <= raster_irq_compare` (`vicii_c64scpu.v:526-527`), at `phi_phase_start[1]` the line equals the compare, `raster_irq_triggered` was 0 (the compare was another line, :540), so
+    `irst <= 1` (:534-537) and `irq` rises (:554). `phi2_n(c6)`: `irq_r` <= 1, the VIC takes the write of `$F9`. The enable e7 that ends c6 (`LAST_CYCLE`): old `irq_latched = irq_r & irq` = 1 and
+    `IRQ_ACTIVE` = 1 (P(2) = 0) so the IRQ is taken right after the INC: M0 = 0, R0 = 0, the verdict is `$EE`. New: `irq_pen` = `irq_latched` of e6 = 0, no IRQ; the next instruction `INC M0` ends with
+    `irq_pen` = 1 (`irq_r` = 1, `irq` = 1 at its previous enable): taken after it, M0 = 1, M1 = 0, one run, the verdict `$AA`. VICE agrees (sources in the phase 10 bullet above). The compare and the line
+    are the same register value on both sides: `$D012` reads `raster_line_d` (`vicii_c64scpu.v:1024`), the match compares `raster_line_d`.
+  - Badline and BA at the synced line: line `$F8` = 248 is below the last badline (badlines are 48..247 and need DEN; `raster_line >= 48`, `vicii_c64scpu.v:508`), DEN is off (`$D011` = `$0B`), and the program now writes `$D015` = 0 (no sprite
+    DMA): `rdy` stays high, `RDY_IN_DELAYED` = 1, the enables are one per PHI2 cycle and e6 and the match keep their places. The line changes under the INC only if more than 63 (PAL) cycles pass between
+    the line change the poll sees and the INC's last cycle: at most 9 (poll period) + 18 + 6 = 33 (this is the first version's sync on `$20`; it was wrong, see 2026-11-21). Not run: the proposal is read, not simulated.
+  - Finding 2 (MEDIUM, true): "a write that enables the source" was the wrong example (it is finding 1); the wrapper comment, the generator docstring, `run_irq.sh` and this section now name the raster
+    compare match (`vicii_c64scpu.v:535`) and say that a register write is first seen in the next cycle on both logics. A timer underflow is not claimed (not read). VICE lines: BRANCH is `:1499`, RTI `:2231`
+    (the text said :1498, :2230; fixed here, in the wrapper and in the entry of the S2 reading above); `:889-890` is the emulation-mode RMW.
+  - Findings 3-9 (LOW, NIT; all true): `PROVENANCE.md` counts four changes of behaviour; `ci/sims.txt` describes phases 10-12; the date of this entry is 2026-11-20; the sizes are those of the new generator
+    (tail 1,668, native 614); the tb's `+DUMP=0330` prints sixteen bytes now (`$0330-$033F`, the tb is the only user) and `expect.json` "raw" lists the ten slots the phases write (0-5, 7-10), so
+    `$033A` reaches the log; phase 12 (native RTI, 7 cycles) passes on the old core as well, it is a guard: **phases 10 and 11 discriminate** (11: the old emulation-mode RTI took 5 cycles, 230 instead of
+    240), 12 does not; `scpu_vendor816.py` asserts the upstream row of RTI state 7 (`MCode.vhd:605`) is all `X` before it writes the new row (`--check` ok, the generated files are unchanged).
+  - Found, not fixed (pre-existing, outside this change, read in `cores/c64scpu/cpu/s816_cpu.vhd`):
+    (a) NMI lost: `NMI_SYNC` is set at the enable that sees the falling edge (:483-484) and cleared at the last cycle of every instruction or interrupt sequence while it is set (:485-486; `GotInterrupt` is
+    reloaded to 0 at the sequence's last cycle, :511-512, and no NMI is taken there). An NMI edge that arrives during a hardware interrupt sequence is cleared at that sequence's last cycle: the edge is
+    lost, and a CIA 2 NMI source that stays asserted gives no new edge (`OLD_NMI_N` is 0), so no further NMI follows until the line has risen and fallen again. Not measured.
+    (b) Interrupt deferred: `IRQ_ACTIVE` and `NMI_ACTIVE` include `RDY_IN_DELAYED` (:496-497), `RDY_IN` of the previous enable (:490-492). An instruction whose last cycle follows a cycle held by RDY (BA) at
+    the previous enable reaches its last-cycle enable with `RDY_IN_DELAYED` = 0: the interrupt is not taken there, it waits one more instruction. Not measured.
+- Not verified: no simulation, bench or Vivado run (the pipeline runs the sims after the coordinator pushes with `[sims]`); in particular phase 10 as rebuilt (the cycle reading above is from the RTL, the
+  VIC's one-clock register delay and the enable's place in the low half are read, not seen on a waveform) and the claim that the old core fails it; the 20 MHz case of fault 1 (no phase: at 20 MHz the
+  line's rise relative to the enable depends on the PHI2-synchronous I/O write, so no exact expectation can be taken from VICE); the timing of the new register and of the row's `NextState`
+  against `build_mono.tcl`'s multicycle constraints (irq_pen sits on clk2x with the enable, one register in front of the CPU's IRQ input; the `NextState` change is one more constant in a mux the
+  state register already takes); Master's Boom in play (board); VICE's own deviations from the real chip (its check sits one or more cycles before the last cycle for long instructions, where the
+  chip samples in the cycle before the last): the bench takes only the case on which both agree, a rise in the high half of the last cycle.
+
+### 2026-11-21: second review of the S2 fix
+- Verdict FAIL (read-only review agent; the RTL and the microcode were found right and are unchanged). Three findings, each checked against the code before the change:
+  - Finding 1 (HIGH, true): phase 10's raster sync could stop on a line that makes the phase read `$EE` on the old and the new logic alike. The VIC is PAL with 312 lines (`vicii_c64scpu.v:219`,
+    `raster_y_max = 311`); a `$D012` read returns only `raster_line[7:0]` (`registers_scaled.v:996`), so `LDA $D012; CMP #$20; BNE` stopped on line 32 or on line 288 (`$120`). The compare is 9 bits and its
+    bit 8 is `$D011` bit 7 (`:1524`), 0 here: on line 288 `INC $D012` writes `$20` then `$21`, neither is `$120`, no IRQ. Second fault: a poll that starts while the raster is already on the sync line
+    exits anywhere in it, so the bound of 33 cycles from the line change did not hold. Changed (`tools/gen_c64scpu_irq.py`: `SYNC_LINE`, `vic_last`, docstring): the sync is line 248 (`$F8`), whose low byte
+    occurs once in a 312-line frame (`$38`-`$FF` do), after a pre-sync on line 247 (`$F7`): poll until `$F7`, then until `$F8`. Line 248 is outside the badlines (`raster_line < 248`, `:508`) and DEN is off.
+    The two poll loops each lie on one page (`$1528-$152E`, `$152F-$1535`), so the BNE takes no page-crossing cycle and the exit is at most 9 PHI2 cycles after the change to `$F8`: 9 + 18 + 6 = 33 < 63.
+    Updated: the generator docstring and comments, `cores/c64scpu/sim/run_irq.sh` header, this spec's 2026-11-20 entry. The other phases write `$D012` (line `$80`) but poll it nowhere: unchanged.
+    T208 met the same trap (`tools/gen_c64scpu_mdust.py:205`).
+  - Finding 2 (LOW, true): the VICE RTI cycle count was worded wrong: `INC_PC` (`65816core.c:1345`) makes no clock. The clocks are two `FETCH_PARAM_DUMMY` (one `scpu64_clock_inc` each, `scpu64cpu.c:406`), three
+    `PULL` (four in native mode) and the opcode fetch at the loop top (`:2585`/`:2589`): 6 and 7, as before. Reworded in `tools/scpu_vendor816.py`, `tools/gen_c64scpu_irq.py` and the entry above.
+  - Finding 3 (NIT, true): the wrapper comment said `irq_pen` updates in a held cycle. That holds for an RDY hold (`core_ce` fires with `EN = 0`, `s816_cpu.vhd:82`); a cycle that `scpu_mem` withholds gets no
+    enable (`core_ce = tick && ok`, `scpu_mem.v:402-404`: memory not ready, flush, write buffer busy, I/O sync at 20 MHz) and `irq_pen` keeps its value. Comment text only, in `cpu65816_c64scpu.v`.
+- Phase 10 on line `$F8`, old logic and new side by side (1 MHz; PHI2 cycle P_k = low half L0..L15, then high half H0..H15; the CPU enable e_k is the end of L9 of P_k; cycle c_k runs from e_k to e_{k+1}, its bus
+  access is in the high half of P_k; `irq_r <= irq` at the PHI2 fall, `cpu65816_c64scpu.v:101-103`; a VIC register write is taken there, `registers_scaled.v:1469`). `INC $D012` in emulation mode: c4 reads `$F8`;
+  c5 (modify) writes `$F8` back (`RMW_DW`); c6 (last) writes `$F9`. End of L0 of P6: the compare takes `$F8` (`:1526`). End of H0 of P6: `raster_irq_compare_d` takes it (`vicii_c64scpu.v:526-527`). End of H1 of
+  P6, inside c6: `raster_line_d` = compare_d = 248 and `raster_irq_triggered` = 0 (the compare was 160), so `irst` <- 1 and `irq` = 1 (`:534-537`, `:554`). At e7, the decision of the last cycle: old logic
+  (`irq_n = !irq_latched`): `irq_r & irq` = 1, I = 0, `RDY_IN_DELAYED` = 1, the IRQ comes before `INC M0`: R0 = 0, verdict `$EE`, raw 4. New logic: `irq_pen` = 0, no IRQ, `irq_pen` <- 1; at e13, the last cycle
+  of `INC M0`, the IRQ is taken before `INC M1`: R0 = 1, R1 = 0, one run, verdict `$AA`, raw 5. Read from the RTL, not simulated.
+- Reviewer's notes, recorded (not acted on):
+  - VICE checks earlier than the chip in some instructions: emulation-mode RTI before the PCL pull (`65816core.c:2230-2233`), 8-bit ABS before the operand-high fetch (`:850-852`). An IRQ that rises in the
+    second-to-last cycle of such an instruction is taken one instruction later in VICE than on the core. No phase covers it.
+  - The mdust bench argument (2026-11-20, "other benches") misses nested raster IRQs; `check_mdust.py:184` judges only non-nested handlers, by medians.
+  - The two pre-existing findings (a) NMI lost during an IRQ sequence and (b) `RDY_IN_DELAYED` defers the decision stay as recorded above; whether to track them is Alex's decision.
+- Not verified: no simulation, bench or Vivado run (the pipeline runs the sims after the coordinator pushes with `[sims]`); phase 10 on line `$F8` is read, not seen on a waveform, as before. Generator run on the
+  Mac: asserts pass, the emulation tail is 1,675 of 2,048 bytes (was 1,668), the native image 614 of 1,536.
+
+### 2026-11-21: run 44840485574 (`684efe93`, `[sims]`): benches, the c64scpu build, the bench fix and the recipe
+
+- Benches (sim job 136648296355, per-bench lines): `c64scpu_irq` PASS (884 s, phases 10-12 included), `c64scpu_map` PASS, `c64scpu_speed`
+  PASS, `c64scpu_mirror` PASS, `c64scpu_mdust` PASS. `c64scpu_base` and `c64scpu_emu` "FAIL (exit 1), 1s": the testbench did not build
+  ("Can't find definition of 'wbuf_ok' in dotted variable/method: 'dut.c64.cpu_0.smem.wbuf_ok'", `tb_irqmir.vh:56`). The job stayed green
+  because c64scpu is experimental ("reported, not fatal").
+- Cause of the two: `tb_irqmir.vh` came with `fc4fe0a6` (D3, the mirror-everything bench) and reads `smem.wbuf_ok`, which `scpu_mem.v`
+  declares only outside `SCPU_FLATMAP` (`:393-401`); the base bench builds the FLATMAP machine by default (`build_machine.sh:15`), the emu
+  bench names `SCPU_FLATMAP` in its own list for all four of its builds (`run_emu.sh:23`). Since
+  `fc4fe0a6` both fail to build wherever they run; nothing in this branch caused it. Fix: the line is inside `ifndef SCPU_FLATMAP`.
+- The c64scpu bitstream (builder run 2711 on Gitea, key `mono-c64scpu-a6e36dd29f9e64a6`): routed at WNS -0.247 ns, TNS -2.145 ns (path group
+  `sid2x_mmcm`; the post-route phys_opt worked on nets in `cpu_0/cpu/s816_mcode` (the ALU's adders, X, PCr, P, T, DR) and in `cpu_0/smem/tab`
+  (`cls`, `rd_mem`: the class bits into the CPU's data mux, single-period on purpose, `build_mono.tcl` T182 step 4)) and
+  had reached -0.010 ns when Vivado 2024.1 ended with "segfault in ... vivado" in "Phase 2 Critical Path Optimization" of that phys_opt
+  (6,456 MB physical memory free at the start of that phys_opt). No bitstream; the builder rejected `bitstreams`, the `cor` job went red. The previous build of the same script
+  (`f5916393`, Gitea run 2538) routed at WNS +0.076 ns. The worst path is not known: the crash came before `report_timing_summary`, so no timing report was written, and the job log carries the
+  last 40 lines of `vivado.log` (`ci/bitstream_mono.sh`).
+- The multicycle recipe of `cores/c64scpu/mono/build_mono.tcl` (T182 T2) did not cover the new `irq_pen`: its paths into the CPU were
+  single-period, while `irq_r` and the CPU's own registers have two or three periods. `irq_pen` is loaded at a CPU enable and read at the next
+  one, as the CPU's registers are; it is now in the sampled-input set (setup 2, hold 1). This completes the recipe; it is not a known cause
+  of the miss: none of the nets above is `irq_pen`'s, and before S2 the IRQ level reached the same CPU logic single-period too (`irq_n =
+  !irq_latched`). The change of the file changes the key, so the next push builds again; whether the timing closes and whether the segfault
+  comes again, only that build shows.
+- The review of these changes (read-only agent): the constraint is safe (enables at least 3 clk2x periods apart at 20 MHz, `settled` =
+  `age[1]` in `scpu_mem.v`; 64 at 1 MHz), the bench guard is right. It also found that `nmi_r` was in the two-period set although it reaches
+  `OLD_NMI_N` and `NMI_SYNC` at every enable, and at 20 MHz the enable of a cycle that is not PHI2-synchronous can come one clk2x after the
+  PHI2 fall (since T182 step 4, not from S2): `nmi_r` is out of the set now and keeps one period. The block's stale comments (the enable
+  `g_edge && phi2_l`, the XCE branch that ignored EN, the rule list) now say what the code does.
+
+### 2026-11-21: run 44848905276 (`83358f17`, `[sims]`): all seven benches pass, the build crashes again
+
+- Benches (sim job 136676547470): `c64scpu_base` PASS (112 s), `c64scpu_emu` PASS (95 s), `c64scpu_map`, `c64scpu_speed`, `c64scpu_mirror`
+  PASS, `c64scpu_irq` PASS (1099 s), `c64scpu_mdust` PASS (1803 s).
+- The build (key `mono-c64scpu-3eca68ce5a883edf`): "sampled-input regs 11" (`irq_pen` in, `nmi_r` out). Routed at WNS -0.185 ns, TNS
+  -0.843 ns. The post-route phys_opt (AggressiveExplore) brought it to -0.012 ns on nets of the ALU's adders (`s816_alu/AddSub`, the binary
+  and the BCD correction adders), X, T and `pout_i`; then Vivado 2024.1 ended with the same segfault in "Phase 2 Critical Path Optimization".
+  The build's full `vivado.log` (7,477 lines, read in the builder's work directory of the run) ends there. No bitstream; `bitstreams` rejected, `cor` red.
+- It is the path T208 met (done/T208 §5, 2026-11-14: `smem/tab/q_reg` -> `cpu/T_reg[14]`, 18 logic levels, -0.018 to -0.006 ns after the
+  retries then). The crash came again on a second placement at the same step.
+- Next build (pushed without `[sims]`: the benches ran on this RTL): `build_mono.tcl` writes the routed timing to
+  `timing_route_<directive>.rpt` before the post-route phys_opt, and that phys_opt runs Explore instead of AggressiveExplore. Explore
+  completed as a retry in T208 run 1873, after a phys_opt that had ended (T208 run 1863 also segfaulted, where is not recorded); whether it
+  avoids the crash as the first post-route step is untested. Whether this stays is Alex's decision.
+
+### 2026-11-21: run 44854024836 (`98abe651`): the c64scpu bitstream is built
+
+- The build (key `mono-c64scpu-d9f3659d12445d77`, the same netlist as the build of `83358f17`): routed at WNS -0.185 ns; the post-route
+  phys_opt with Explore ran to its end without a crash: "=== impl pass 1 (ExtraTimingOpt): WNS 0.015 ns", "=== bitstream:
+  build_mono_c64scpu/c64scpu_mono.bit 1795345 bytes". The builder published the entry and approved `bitstreams`; `cor (large:c64scpu)` green.
+- The worst path, from `timing_route_ExtraTimingOpt.rpt` (after routing) and `timing.rpt` (the end): `cpu_0/smem/tab/q_reg` (the class
+  table's block RAM) -> `cpu_0/cpu/P_reg[1]/D`, 20 logic levels, data path 15.227 ns (-0.185 ns) and 15.028 ns (+0.015 ns); the next one ends
+  at `X_reg[13]` (-0.135 ns after routing) and `PCr_reg[13]/CE` (+0.026 ns at the end). It is T208's path, with 15 ps to spare.
+- `c64scpu.cor` (artifact `cor-large-c64scpu` of the run): 3,559,895 bytes, sha256 `9539de011be1a470805e10c5dbddb64d6a0e54c3c2bfcccc07f82f1d3d9c51e8`
+  (package A's, the one on the board, is 3,532,344 bytes, `42c8b9ee…`). Board step open (S4, Alex): Master's Boom in play, the DMAgic intro,
+  Metal Dust unchanged.
+
+### 2026-11-21: the S2 core on the board (Alex)
+- The core: `/SD/cores/c64scpu_t248.cor`, the `.cor` of run 44875582642 (branch `t248-scpu-depth`: this branch's S2 change plus
+  T248), 3,521,191 bytes, sha256 `3c6d6a7fdb442b05197d0f177e4e113e52f141c9b25637c274be4a6bcd99970b`.
+- Alex (translated): "2. The intro still works, yes. 1. The same crash, video comes. 3. Metal Dust still great."
+- So the DMAgic intro runs and Metal Dust runs. Master's Boom in play crashes as on 2026-11-19. The S2 change (the IRQ decided one
+  cycle before the last, RTI in emulation mode in 6 cycles) does not fix the crash. S4 stays open.
+- The video (Alex, IMG_0509.MOV, 15.6 s, kept outside the repository), read from frames at 1 and 3 per second and from the sound's
+  spectrogram:
+  - The game plays (score 0002064 to 0005556). The "PLAYER1" label above the score is missing in some frames, and the HUD text is
+    doubled sideways in others.
+  - At about 9.8 s, during an explosion at the ship, the picture freezes: nothing moves, the HUD boxes change colour (the raster colour
+    splits stop). The sound effects stop at about 9.4 s.
+  - This is the picture of 2026-11-19 (IMG_0501.MOV above). The S2 change does not change the symptom.
+- Still open from 2026-11-19: in Master's mirror mode (`$D077`, mirror everything) the BASIC line ran 1716 instead of 1865, and the
+  measuring board run (CIA timers, IRQ count, TI, loop count) was never made. The dispatcher has no margin (it reads `$D012` 62
+  cycles after the IRQ starts and needs line 146). A CPU that is one cycle early there reads 145, which has the effect that S2 assumed
+  from a different cause.
+
+### 2026-11-21: the T241.1 suite on the c64scpu, over REST
+- The core: `c64scpu_t250.cor` (branch `t250-scpu-net`: this branch's S2 change, T248, T249 and T250's Ethernet). The
+  suite ran over REST (`tests/c64scpu/rest.py`) with no person at the screen. The reference is the board's C64 core trx64g
+  (T241.1 D4). The screens are in T241.1 §5.
+- **Reference (Alex, 2026-11-21):** Master developed and tested Boom on a real SuperCPU, not in VICE alone. So the real
+  SuperCPU runs Boom's interrupt chain. Whether a real 65C816 takes an interrupt after a taken branch as the 6510 does is
+  not an open question for this task: where the c64scpu's timing makes Boom fail, the c64scpu is at fault.
+- **The interrupt in a taken branch (scpu4):** a sled of taken `BNE` gives the lowest and the highest d as 11 and 13;
+  trx64g gives 12 and 14. The nine other sleds give trx64g's values. Both ends move by one cycle and the span stays 3: the
+  values fit a c64scpu that decides the interrupt before the last cycle of a taken branch, as S2 does for every
+  instruction. The 6510 decides it before the second cycle of a taken branch that stays in its page, so an interrupt that
+  rises in that branch's second cycle waits one instruction more.
+- **Boom's spin (scpu5 b and c: `LDA abs`, taken `BEQ`):** the earliest interrupt start is trx64g's (`all` 62 and 82); the
+  latest comes one cycle earlier (`any` 59 and 79, trx64g 58 and 78). The 7-cycle loop gives the same: the 6510 decides
+  before its cycles 4 and 6 (1 to 5 cycles to the start), the c64scpu before its cycles 4 and 7 (1 to 4). So in the spin
+  only the slowest phase is shorter, and the spin alone does not make the dispatcher read line 145.
+- With sprites (scpu5 d) the c64scpu is one cycle later than trx64g (`all` 43 against 44), not earlier. d also measures
+  the VIC (T241.1 D4). The soak at K = 44 (500 frames in each mirror mode): 0 early, 0 out of order.
+- **20 MHz (scpu6):** the loads with cache misses take longer than scpu6 expects (the full factor of scpu3's load):
+  `bigr` 8989 against 6461, `conf` 20381 against 10512, `code` 1780 against 1155 PHI2 cycles. The register load, the I/O
+  reads, the mirrored and the fast writes, and the badline writes give the expected values.
+- **`$02a6` after the reset (scpu1):** the VIC is PAL (312 lines), but `$02a6` is 0 and timer A 17048 (the NTSC values).
+  scpu1 runs CINT again from nine start lines: at 1 MHz it decides PAL from every one; at 20 MHz it decides NTSC from lines
+  0, 100, 180 and 200 and PAL from 210 on. scpu1's model gives the same from the time `$e518` takes at 20 MHz (3504
+  cycles; 40556 at 1 MHz). So at 20 MHz a CINT that starts before about line 200 reaches its PAL test (`$d012` = 0) at
+  line 256, before line 311 has come.
+- Open: the code that runs when the crash's interrupt comes, and whether it is in a taken branch there; S4.
+
+### 2026-11-21: the branch `t241-scpu-fix` (D4)
+- From `integration`: `t241-s2-irq` merged (S2), T249's two commits and T250's two commits picked; none conflicted.
+- The taken-branch rule: `tools/scpu_vendor816.py` `branch_int()`, the generated `s816_cpu.vhd` (`--check` ok). In emulation mode, in the last
+  cycle of a taken conditional branch that stays in its page (`BR_LAST`: IR = `$x0` with bit 4 set, state 2, the next state 0), IRQ_ACTIVE
+  takes the IRQ level and NMI_ACTIVE the NMI latch of one enable earlier (`IRQ_N_D`, `NMI_SYNC_D`, loaded at each CE). NMI_SYNC is cleared only
+  when the NMI is taken, so an edge that came in the branch's second cycle waits for the next instruction. The new registers are under
+  `cpu_0/cpu`, so the build's multicycle recipe counts them with the CPU's (`build_mono.tcl`, `cpu_r`). Expected on the board: scpu4 `bne
+  taken` 12/14, scpu5 b and c `any` 58 and 78.
+- The 20 MHz memory path (D4, "RAM fixes"): `scpu_cache.v` has the parameter `IW`; the build sets 11 (`scpu_mem.v` `CIW`): 2048 lines of 16
+  bytes, 32 KiB direct mapped, 8 RAMB36 instead of 2. The suite's scpu6 gave every miss at about 0.3 PHI2 cycles at 20 MHz (conf: 32768 misses,
+  +9869; code: 2048, +625; bigr: 8192, +2528), and with 8 KiB conf and code miss in every access. 11 is the most the continuous lookup allows:
+  class C_KS adds $8000 (`scpu_mem.v`), so only the low 15 bits of p are the CPU address's in every class. Expected: scpu6 conf and code at
+  the full factor; bigr keeps the misses of its first sweep (2048 of 8192 reads). `tb_scpu_cache.v` runs the module at `IW` = 9: PASS
+  (iverilog on the Mac, 2026-11-21). The Metal Dust benches' collisions (hudx, smc) lie below `$2000` in their banks, so they still meet.
+- The build (2026-11-21, builder, `vivado-env:2024.1`, as T250 D5: `docker run --init`, the heavy lock in the container; tree of
+  `1ca8ae66`, 13 min): routed, 0 routing errors; WNS +0.028 ns (sid2x_mmcm), TNS 0, WHS +0.052 ns; cpu_mmcm +0.158 ns, pix_mmcm
+  +0.071 ns. 23,683 LUT; 48 RAMB36 + 36 RAMB18 (66 of 75 tiles; `smem/cache` 8 RAMB36). Bitstream sha256 `1d4c3ab052d252a1...`.
+- Board file (2026-11-21): `/SD/cores/c64scpu_t241fix.cor`, 3,562,795 bytes, sha256 `10f97775184d3e95...` (read back the same), packed at
+  `b7571876` (only the spec differs from the build's tree) with the core application of `tools/dev.sh riscv`. Its folder has the ROMs and
+  the settings of `c64scpu_t241` (Picture 1920 x 1080, Scale Fit).
+- The board run (2026-11-21, `c64scpu_t241fix.cor` started from the file browser at 14:58 with the settings of `c64scpu_t241`:
+  1920 x 1080, Fit, 20 MHz; `tests/c64scpu/rest.py`, the token by `POST /v1/ui/grant`, Alex: "ja du darfst dir gerne das token
+  holen"):
+  - scpu1 22/0: `$02a6` = 1 (PAL). The CINT replay is unchanged: at 20 MHz a CINT that starts at line 0-200 still finds NTSC;
+    this boot started it later.
+  - scpu2 402/0, scpu3 28/0, scpu7 48/0, scpu8 8/0.
+  - scpu4 40/0: the taken branch decides as the 6510 does (t250: 4 failed).
+  - scpu5 20/2: a, b and c equal the reference (b any 58, c any 78; t250: 59, 79). d all 43, the reference 44 (as on t250);
+    the soak at k = 44 has 0 early IRQs in 500 frames.
+  - scpu6 9/1: conf 10513 (10512) and code 1161 (1155) pass (t250: 20381, 1780). bigr 7137 (6461): +676 PHI2 cycles, the
+    first sweep's misses (about 2048 at 0.3 PHI2 cycles each), as expected.
+- Seen by Alex on this core (2026-11-21, translated): "the SuperCPU animation is 'not colourful any more' .. weird"; "the picture
+  dropouts are in, unfortunately". The baseline `c64scpu_t241.cor` (gateware and application of `f59163935`, branch `t241-rmw`,
+  2026-11-20) has none. Every core with dropouts (t248 `1131711e`, t250 `6c86f802`, t241fix `b7571876`) has S2 and an
+  application of 2026-11-21: the two are not separated yet.
+- Boom on this core (2026-11-21, after the suite): Alex started it: "Läuft" ("it runs"), "aber nicht spielbar mit den
+  Aussetzern" ("but not playable with the dropouts"); asked whether it runs in play, where every build since S2
+  crashed: "Ja, ich kann spielen" ("yes, I can play"), "Ohne ruckler oder absturz" ("without stutter or crash").
+- The split of the dropouts (Alex, 2026-11-21, translated: "Just build the old app with the running bitstream, as 241_oldapp ..
+  if that works, we know who the culprit is. It is only packing"): `/SD/cores/c64scpu_241_oldapp.cor` = the bitstream of
+  t241fix (`b7571876`, sha256 `1d4c3ab052d252a1...`) and the application of `c64scpu_t241.cor` (`f59163935`, 1,761,208 bytes),
+  joined with `tools/cor_pack.py` `replace_app`; `app_commit` in the manifest set to `f5916393`; `cor_pack.py check` passes;
+  3,561,655 bytes, sha256 `fedcb583720b9e68...`, read back the same. Its folder has the ROMs and the settings of t241fix.
+- `c64scpu_241_oldapp` on the board (Alex, 2026-11-21, translated): "no picture dropouts, and the start animation was correct too ..
+  so we have a regression in the application?!" The same bitstream with the application of 2026-11-21 has both faults: the
+  dropouts and the colours come from the application. Between the two applications 15 files differ (`coreapp`, `host-app/software`;
+  `uicore`, `app` and `host/` are equal). Three of them are T242's (#111, the P7 keyboard): `u64ii_init.cc` hands the I2C bus to
+  the keyboard scanner (`enable_scan(true, false)`) instead of setting the expander 0x42, `hw_i2c_drv.cc` has no 2 ms wait after
+  the scanner is parked, `legacy.cc` switches the scanner off before the IPROG. The CDCE synthesizers are on the same buses
+  (`host/app_i2c.v`, the header). Not yet proven which file it is.

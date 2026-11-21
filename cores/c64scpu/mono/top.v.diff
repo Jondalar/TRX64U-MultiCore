@@ -1,5 +1,5 @@
 0a1
-> // T140 D1 / T164 WP18: this large core's copy of the host copy's top.v (first made for the C128 core) (mono/host/top.v; mono/top.v.diff): the A/V port (AVID_*) driven by c64scpu_avout.v and c64_type 1 (a C64-type core: held to the System Mode's family and the VIC-locked rows). Built with NO_NET (no Ethernet MAC, the WiFi UART stays). Everything else is the host's.
+> // T140 D1 / T164 WP18: this large core's copy of the host copy's top.v (first made for the C128 core) (mono/host/top.v; mono/top.v.diff): the A/V port (AVID_*) driven by c64scpu_avout.v and c64_type 1 (a C64-type core: held to the System Mode's family and the VIC-locked rows). Built with the Ethernet interface since T250 (no NO_NET; T164's console builds define it). Everything else is the host's.
 115c116,120
 <     output wire        LED_DATA, LED_CLOCK  // case LED strip, WS2812 or APA102
 ---
@@ -8,16 +8,16 @@
 >     // (balls and channel assignment from the boundary scan of 2026-09-30, bit order inside a channel not yet measured: avid_pins.xdc)
 >     output wire [9:2]  AVID_R, AVID_G, AVID_B,
 >     output wire        AVID_CLK, AVID_SYNCn, AVID_FB
-1394c1399,1400
+1398c1403,1404
 <     // GTPs. c64_type 0: no DFX core ships on the VIC path (T164 Q4), so the request is not held to the System Mode's family.
 ---
 >     // GTPs. T222: every row of U16 D2 and the scale at 0x4F01; the request is held to the System Mode's family and to the seven VIC-locked rows
 >     // (this core's mode_req is a C64-type one without a switch); vmode gives the encoder the clock rate of the System Mode.
-1398c1404
+1402c1408
 <         .cdce_rst(por_rst | ~clocks_ok), .gt_rst(gt_rst), .c64_type(1'b0), .fam_v60(mc_cdce_v60), .core_decouple(core_decouple),
 ---
 >         .cdce_rst(por_rst | ~clocks_ok), .gt_rst(gt_rst), .fam_v60(mc_cdce_v60), .vmode(vmode),
-1416a1423,1437
+1420a1427,1441
 >     // T140 D1: the VIC's native picture as S-Video and composite on the A/V port (HDMI and analogue at the same time). The DAC words
 >     // change on sys_clk's rising edge, the DAC takes them on its CLK, the inverted sys_clk, half a clock later.
 >     wire [7:0] av_y, av_c, av_cv;

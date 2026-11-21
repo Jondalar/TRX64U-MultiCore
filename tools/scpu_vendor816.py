@@ -21,6 +21,15 @@ Changes against the upstream files (all of them, nothing else is touched):
     after its 8-bit read, which has STATE_CTRL 110 and VA 10; every other row of these instructions has another state control). In it RMW_DW = 1: D_OUT = DR (the byte of
     the read, latched at its enable), WE = 0, VDA = 1, and the address increment is 0 (the row's is 01, its address would be the read's + 1). Native mode (EF = 0; VICE:
     LOAD_LONG_DUMMY, no store) and the number of cycles of every instruction are unchanged.
+  - RTI in emulation mode (EF = 1) takes 6 cycles, as on the W65C816S (datasheet: 7 cycles with E = 0, 6 with E = 1) and in VICE (65816core.c:2217-2240: INC_PC makes no clock, two
+    FETCH_PARAM_DUMMY, three PULL (four in native mode), one clock each, and the opcode fetch at the loop top, :2585/:2589); upstream gave it 5 (state control 111 of the third pull: `EF = 1 and IR = x"40"` ends it). The pull of the
+    high byte of PC (state 4, STATE_CTRL 111) now goes on to state 7 in that case, and the microcode row of RTI's state 7 (all X upstream, read as zero, never visited: native RTI ends in state 6)
+    becomes STATE_CTRL 010 with everything else 0: an internal cycle (no VDA, no VPA, no register load) that ends the instruction. Native mode (EF = 0, 7 cycles) is unchanged. T241 S2.
+  - a taken conditional branch that stays in its page, in emulation mode (EF = 1; IR = $10, $30, ... $F0, the last cycle is state 2), decides IRQ and NMI on their state one enable
+    earlier than every other instruction: the 6510 polls such a branch before its second cycle and not before its last, so an interrupt that comes in its second cycle waits
+    for the next instruction (T241.1 scpu4, 2026-11-21: the taken-branch sled gave 11/13 against the C64's 12/14, every other sled the C64's values). BR_LAST marks that cycle;
+    IRQ_N_D and NMI_SYNC_D hold IRQ_N and NMI_SYNC of the enable before; there IRQ_ACTIVE and NMI_ACTIVE take them, and NMI_SYNC is cleared only when the NMI is taken.
+    A branch that crosses a page (4 cycles) and native mode are unchanged. T241 D4.
 """
 import os
 import re
@@ -47,15 +56,21 @@ def rename(t):
     return t
 
 
+RTI_E_ROW = 0x40 * 8 + 6      # the microcode ROM is indexed by IR * 8 + (STATE - 1): row of opcode $40 (RTI) in state 7
+
+
 def mcode(t):
     body = t[t.index('constant M_TAB'):t.index('type ALUCtrl_t')]
     rows = re.findall(r'^\s*\(((?:"[^"]*",?){16})\)', body, flags=re.M)
     assert len(rows) == 2048, len(rows)
-    words = []
+    words, raw = [], []
     for r in rows:
         f = re.findall(r'"([^"]*)"', r)
         assert [len(x) for x in f] == FIELDS, f
-        words.append(''.join(f).replace('X', '0'))
+        raw.append(''.join(f))
+        words.append(raw[-1].replace('X', '0'))
+    assert raw[RTI_E_ROW] == 'X' * 53, raw[RTI_E_ROW]      # upstream's row of RTI state 7 is all X (don't care): MCode.vhd, row after "-- 40 RTI" + 6
+    words[RTI_E_ROW] = '010' + '0' * 50          # T241 S2: RTI's state 7 = the internal last cycle of the emulation-mode RTI (STATE_CTRL 010, nothing else; see cpu() rti_emul)
     lines = ',\n'.join('\t\t"%s"' % w for w in words)
     alu = t[t.index('type ALUCtrl_t'):t.index('signal MI ')]
     reset = '000' + '0000' + '00' + '000' + '00' + '00' + '00000000' + '001' + '000' + '000' + '00' + '000000' + '00000' + '00' + '000' + '11'
@@ -155,6 +170,33 @@ def rmw_write(t):
     return t
 
 
+def rti_emul(t):
+    """T241 S2: RTI in emulation mode takes 6 cycles (docstring above): after the pull of PCH (state 4) one more internal cycle, state 7 (the row patched in mcode())"""
+    return sub1(t, "\t\t\t\telsif EF = '1' and IR = x\"40\" then\t--RTI Emulation mode\n\t\t\t\t\tNextState <= \"0000\";\n",
+                "\t\t\t\telsif EF = '1' and IR = x\"40\" then\t--RTI Emulation mode (T241: one internal cycle more, state 7)\n\t\t\t\t\tNextState <= \"0111\";\n")
+
+
+def branch_int(t):
+    """T241 D4: the last cycle of a taken branch in its page (emulation mode) decides IRQ and NMI on their state one enable earlier (docstring above)"""
+    t = sub1(t, "\tsignal NMI_ACTIVE, IRQ_ACTIVE : std_logic;\n",
+             "\tsignal NMI_ACTIVE, IRQ_ACTIVE : std_logic;\n"
+             "\tsignal BR_LAST, IRQ_N_D, NMI_SYNC_D : std_logic;\t-- T241: the last cycle of a taken branch in its page; IRQ_N and NMI_SYNC one enable older (tools/scpu_vendor816.py)\n")
+    t = sub1(t, "\tLAST_CYCLE <= '1' when NextState = \"0000\" else '0';\n",
+             "\tLAST_CYCLE <= '1' when NextState = \"0000\" else '0';\n"
+             "\tBR_LAST <= '1' when IR(4 downto 0) = \"10000\" and STATE = \"0010\" and NextState = \"0000\" and EF = '1' else '0';\t-- T241: Bcc taken, no page crossed\n")
+    t = sub1(t, "\t\t\tOLD_NMI_N <= '1';\n\t\t\tNMI_SYNC <= '0';\n",
+             "\t\t\tOLD_NMI_N <= '1';\n\t\t\tNMI_SYNC <= '0';\n\t\t\tIRQ_N_D <= '1';\n\t\t\tNMI_SYNC_D <= '0';\n")
+    t = sub1(t, "\t\t\t\telsif LAST_CYCLE = '1' and NMI_SYNC = '1' and RDY_IN_DELAYED = '1' and EN = '1' then\n",
+             "\t\t\t\telsif LAST_CYCLE = '1' and NMI_SYNC = '1' and (BR_LAST = '0' or NMI_SYNC_D = '1') and RDY_IN_DELAYED = '1' and EN = '1' then\t-- T241: cleared only when taken\n")
+    t = sub1(t, "\t\t\tif CE = '1' then\n\t\t\t\tRDY_IN_DELAYED <= RDY_IN;\n\t\t\tend if;\n",
+             "\t\t\tif CE = '1' then\n\t\t\t\tRDY_IN_DELAYED <= RDY_IN;\n\t\t\t\tIRQ_N_D <= IRQ_N;\t\t\t-- T241\n\t\t\t\tNMI_SYNC_D <= NMI_SYNC;\n\t\t\tend if;\n")
+    t = sub1(t, "\tIRQ_ACTIVE <= not IRQ_N and not P(2) and RDY_IN_DELAYED;\n",
+             "\tIRQ_ACTIVE <= (not IRQ_N_D and not P(2) and RDY_IN_DELAYED) when BR_LAST = '1' else (not IRQ_N and not P(2) and RDY_IN_DELAYED);\t-- T241\n")
+    t = sub1(t, "\tNMI_ACTIVE <= NMI_SYNC and RDY_IN_DELAYED;\n",
+             "\tNMI_ACTIVE <= (NMI_SYNC_D and RDY_IN_DELAYED) when BR_LAST = '1' else (NMI_SYNC and RDY_IN_DELAYED);\t-- T241\n")
+    return t
+
+
 def cpu(t):
     n = len(t)
     t = re.sub(r'(RDY_OUT\s*:\s*out std_logic;)', r'\1\n\t\t  E_OUT \t: out std_logic;', t, count=1)
@@ -169,6 +211,8 @@ def cpu(t):
     assert t.count(old) == 1
     t = t.replace(old, "(P(4) and not (GotInterrupt and EF))", 1)     # T182 (real ROM, 2026-11-08): P(4) is 1 all through emulation mode, so a hardware IRQ/NMI pushed B = 1 and the KERNAL's IRQ entry ($FF48) took every IRQ for a BRK
     t = rmw_write(t)
+    t = rti_emul(t)
+    t = branch_int(t)
     i = t.index('port(')
     j = t.index('end P65C816;') if 'end P65C816;' in t else t.index('end s816_cpu;')
     t = t[:i] + t[i:j].lower().replace('std_logic_vector', 'std_logic_vector') + t[j:]      # port names in lower case: the Verilog that instantiates the entity spells them so

@@ -527,9 +527,11 @@ module tb_c64scpu;
                 else $display("ok   ddr[%08x] = %02x", dacc, vacc);
             end
         end
-        if ($value$plusargs("DUMP=%h", dmp_a)) begin   // +DUMP=aaaa: eight C64 RAM bytes, printed (the raw counts of a bench)
-            $display("dump|%04x|%02x %02x %02x %02x %02x %02x %02x %02x", dmp_a[15:0], ram_byte(dmp_a[15:0]), ram_byte(dmp_a[15:0] + 1), ram_byte(dmp_a[15:0] + 2), ram_byte(dmp_a[15:0] + 3),
-                     ram_byte(dmp_a[15:0] + 4), ram_byte(dmp_a[15:0] + 5), ram_byte(dmp_a[15:0] + 6), ram_byte(dmp_a[15:0] + 7));
+        if ($value$plusargs("DUMP=%h", dmp_a)) begin   // +DUMP=aaaa: sixteen C64 RAM bytes, printed (the raw counts of a bench: run_irq.sh dumps $0330-$033F)
+            $display("dump|%04x|%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x", dmp_a[15:0], ram_byte(dmp_a[15:0]), ram_byte(dmp_a[15:0] + 1), ram_byte(dmp_a[15:0] + 2), ram_byte(dmp_a[15:0] + 3),
+                     ram_byte(dmp_a[15:0] + 4), ram_byte(dmp_a[15:0] + 5), ram_byte(dmp_a[15:0] + 6), ram_byte(dmp_a[15:0] + 7),
+                     ram_byte(dmp_a[15:0] + 8), ram_byte(dmp_a[15:0] + 9), ram_byte(dmp_a[15:0] + 10), ram_byte(dmp_a[15:0] + 11),
+                     ram_byte(dmp_a[15:0] + 12), ram_byte(dmp_a[15:0] + 13), ram_byte(dmp_a[15:0] + 14), ram_byte(dmp_a[15:0] + 15));
         end
         $display("scpu|hits %0d|misses %0d|dev_cyc %0d|boot %0d|hw %0d|dos %0d", scpu_n_hit, scpu_n_miss, scpu_dev_cyc, scpu_bootmap, scpu_hwenable, scpu_dosext);
         $display("romc|%0d|%0d|%0d|%0d|bad %0d", dut.mem.romc.n_hit, dut.mem.romc.n_miss, dut.mem.romc.n_wait, dut.mem.romc.fill_max, rc_bad);

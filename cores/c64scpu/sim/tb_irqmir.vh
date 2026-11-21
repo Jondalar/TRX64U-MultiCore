@@ -53,7 +53,9 @@
                     im_hold[im_ph] = im_hold[im_ph] + 1;
                     if (!dut.c64.cpu_0.smem.settled) im_h_set[im_ph] = im_h_set[im_ph] + 1;
                     if (!dut.c64.cpu_0.smem.mem_ok) im_h_mem[im_ph] = im_h_mem[im_ph] + 1;
+`ifndef SCPU_FLATMAP   // wbuf_ok exists only in the SCPU map (scpu_mem.v): the FLATMAP builds of c64scpu_base and c64scpu_emu include this file too
                     if (!dut.c64.cpu_0.smem.wbuf_ok) im_h_wbuf[im_ph] = im_h_wbuf[im_ph] + 1;
+`endif
                     if (!dut.c64.cpu_0.smem.bus_go) im_h_bus[im_ph] = im_h_bus[im_ph] + 1;
                     if (dut.c64.cpu_0.smem.flushing) im_h_fl[im_ph] = im_h_fl[im_ph] + 1;
                     if (!dut.c64.cpu_0.smem.rom_valid) im_h_rv[im_ph] = im_h_rv[im_ph] + 1;
