@@ -527,3 +527,14 @@ Open.
 - Alex (translated): "2. The intro still works, yes. 1. The same crash, video comes. 3. Metal Dust still great."
 - So the DMAgic intro runs and Metal Dust runs. Master's Boom in play crashes as on 2026-11-19. The S2 change (the IRQ decided one
   cycle before the last, RTI in emulation mode in 6 cycles) does not fix the crash. S4 stays open.
+- The video (Alex, IMG_0509.MOV, 15.6 s, kept outside the repository), read from frames at 1 and 3 per second and from the sound's
+  spectrogram:
+  - The game plays (score 0002064 to 0005556). The "PLAYER1" label above the score is missing in some frames, and the HUD text is
+    doubled sideways in others.
+  - At about 9.8 s, during an explosion at the ship, the picture freezes: nothing moves, the HUD boxes change colour (the raster colour
+    splits stop). The sound effects stop at about 9.4 s.
+  - This is the picture of 2026-11-19 (IMG_0501.MOV above). The S2 change does not change the symptom.
+- Still open from 2026-11-19: in Master's mirror mode (`$D077`, mirror everything) the BASIC line ran 1716 instead of 1865, and the
+  measuring board run (CIA timers, IRQ count, TI, loop count) was never made. The dispatcher has no margin (it reads `$D012` 62
+  cycles after the IRQ starts and needs line 146). A CPU that is one cycle early there reads 145, which has the effect that S2 assumed
+  from a different cause.
