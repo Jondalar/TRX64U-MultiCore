@@ -271,13 +271,12 @@ C64 with SuperCPU F1/home 4 fixed:11:Load config...
 C64 with SuperCPU F5/settings 0 set:SuperCPU speed
 C64 with SuperCPU F5/settings 1 set:JiffyDOS
 C64 with SuperCPU F5/settings 2 set:Joystick ports
-C64 with SuperCPU F5/settings 3 set:Datasette port
-C64 with SuperCPU F5/settings 4 set:System Mode
-C64 with SuperCPU F5/settings 5 set:Drive
-C64 with SuperCPU F5/settings 6 set:Drive Bus ID
-C64 with SuperCPU F5/settings 7 set:Extra RAM
-C64 with SuperCPU F5/settings 8 set:Disk swap delay
-C64 with SuperCPU F5/settings 9 set:LED Load Indicator
+C64 with SuperCPU F5/settings 3 set:System Mode
+C64 with SuperCPU F5/settings 4 set:Drive
+C64 with SuperCPU F5/settings 5 set:Drive Bus ID
+C64 with SuperCPU F5/settings 6 set:Extra RAM
+C64 with SuperCPU F5/settings 7 set:Disk swap delay
+C64 with SuperCPU F5/settings 8 set:LED Load Indicator
 C64 with SuperCPU F8/expert 0 fixed:13:Actions
 C64 with SuperCPU F8/expert 1 fixed:6:Restart core
 C64 with SuperCPU F8/expert 2 fixed:7:Return to host menu
