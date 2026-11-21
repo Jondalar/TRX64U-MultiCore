@@ -70,3 +70,5 @@ Scenario: S6 the gateware builds
   and the C128 - Alex 2026-11-15: "Under A there is nothing I would not class as DONE! That has been in the builds for days/weeks, we
   had bugs and re-tests in part"; Alex 2026-11-18, shown these steps as open: "that is old stuff that has been running for ages, we had
   this already 3-4 days ago" and "tick it off in the TODOs/specs, otherwise it shows up again with some agent" (translated).
+- **2026-11-21 - the SuperCPU leaves this spec (T249):** Alex (translated): "the datasette out of the core, there is no SuperCPU
+  software for the datasette." The c64scpu loses its `TAPE` define and its "Datasette port" setting; the other cores keep theirs.
