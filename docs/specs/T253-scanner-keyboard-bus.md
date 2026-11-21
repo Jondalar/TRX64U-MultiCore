@@ -120,4 +120,8 @@ Scenario: S4 (P1) every core and the host
   (`host-app/software/io/i2c/i2c_drv.cc:176-185`). So the expander answers on channel 1, which is bus 0 of the gateware
   (`app_i2c.v:81`), the one bus the scan has after D1. A key typed on the P7 keyboard was not seen: the keyboard is not
   attached (Alex: attaching it means opening the case).
+- **The other keyboards (2026-11-21):** Alex (translated): "The USB/bling-board keyboard works in any case, I can operate
+  the menus." Neither goes through the I2C scan: the bling board's keyboard comes on its own serial line
+  (`bling_keyboard bkb`, `.rx(bk_s[1])` in `cores/c64scpu/mono/top.v`), the USB keyboard through USB. D1 touches only the
+  P7 header keyboard.
 
