@@ -21,67 +21,63 @@ end s816_addsubbcd;
 
 architecture rtl of s816_addsubbcd is
 
-	signal VO1, VO3 : std_logic;
-	signal CO0, CO1, CO2, CO3 : std_logic;
+	-- T248: carry select. One nibble of s816_bcdadder (binary sum, decimal correction) for a given carry in, with `+` so that the carry chain is used.
+	type nib_t is record
+		S  : std_logic_vector(3 downto 0);
+		CO : std_logic;
+		VO : std_logic;
+	end record;
+	type nib_a is array(0 to 3) of nib_t;
+
+	function nibble(A, B : std_logic_vector(3 downto 0); c, ADD, BCD : std_logic) return nib_t is
+		variable B2     : std_logic_vector(3 downto 0);
+		variable BIN    : unsigned(4 downto 0);
+		variable BIN_S  : std_logic_vector(3 downto 0);
+		variable BIN_CO : std_logic;
+		variable BCD_CO : std_logic;
+		variable BCD_B  : std_logic_vector(3 downto 0);
+		variable CIN    : natural range 0 to 1;
+		variable CC     : natural range 0 to 1;
+		variable CORR   : unsigned(3 downto 0);
+		variable r      : nib_t;
+	begin
+		B2 := B xor (3 downto 0 => not ADD);
+		CIN := 0;
+		if c = '1' then CIN := 1; end if;
+		BIN := ('0' & unsigned(A)) + ('0' & unsigned(B2)) + CIN;
+		BIN_S := std_logic_vector(BIN(3 downto 0));
+		BIN_CO := BIN(4);
+		BCD_CO := (((BIN_S(3) and BIN_S(2)) or (BIN_S(3) and BIN_S(1))) and ADD) or (not (BIN_CO xor ADD));
+		BCD_B := not ADD & ((BCD_CO and BCD) xor not ADD) & ((BCD_CO and BCD) xor not ADD) & not ADD;
+		CC := 0;
+		if ADD = '0' then CC := 1; end if;
+		CORR := unsigned(BIN_S) + unsigned(BCD_B) + CC;
+		r.S := std_logic_vector(CORR);
+		if BCD = '0' then
+			r.CO := BIN_CO;
+		else
+			r.CO := BCD_CO xor not ADD;
+		end if;
+		r.VO := (not (A(3) xor B2(3))) and (A(3) xor BIN_S(3));
+		return r;
+	end function;
+
+	signal n0, n1 : nib_a;			-- every nibble for carry in 0 and for carry in 1
+	signal cy     : std_logic_vector(4 downto 0);	-- cy(i) = the real carry into nibble i
+	signal VOn    : std_logic_vector(3 downto 0);
 
 begin
-	
-	add0 : entity work.s816_bcdadder
-	port map (
-		A => A(3 downto 0),
-		B => B(3 downto 0),
-		CI => CI,
-		
-		S => S(3 downto 0),
-		CO => CO0,
-		
-		ADD => ADD,
-		BCD => BCD
-	);
-	
-	add1 : entity work.s816_bcdadder
-	port map (
-		A => A(7 downto 4),
-		B => B(7 downto 4),
-		CI => CO0,
-		
-		S => S(7 downto 4),
-		CO => CO1,
-		VO => VO1,
-		
-		ADD => ADD,
-		BCD => BCD
-	);
-	
-	add2 : entity work.s816_bcdadder
-	port map (
-		A => A(11 downto 8),
-		B => B(11 downto 8),
-		CI => CO1,
-		
-		S => S(11 downto 8),
-		CO => CO2,
-		
-		ADD => ADD,
-		BCD => BCD
-	);
-	
-	add3 : entity work.s816_bcdadder
-	port map (
-		A => A(15 downto 12),
-		B => B(15 downto 12),
-		CI => CO2,
-		
-		S => S(15 downto 12),
-		CO => CO3,
-		VO => VO3,
-		
-		ADD => ADD,
-		BCD => BCD
-	);
-	
-	
-	VO <= VO1 when w16 = '0' else VO3;
-	CO <= CO1 when w16 = '0' else CO3;
+
+	gn : for i in 0 to 3 generate
+		n0(i) <= nibble(A(4*i+3 downto 4*i), B(4*i+3 downto 4*i), '0', ADD, BCD);
+		n1(i) <= nibble(A(4*i+3 downto 4*i), B(4*i+3 downto 4*i), '1', ADD, BCD);
+		S(4*i+3 downto 4*i) <= n1(i).S when cy(i) = '1' else n0(i).S;
+		cy(i+1)             <= n1(i).CO when cy(i) = '1' else n0(i).CO;
+		VOn(i)              <= n1(i).VO when cy(i) = '1' else n0(i).VO;
+	end generate;
+	cy(0) <= CI;
+
+	VO <= VOn(1) when w16 = '0' else VOn(3);
+	CO <= cy(2) when w16 = '0' else cy(4);
 
 end rtl;

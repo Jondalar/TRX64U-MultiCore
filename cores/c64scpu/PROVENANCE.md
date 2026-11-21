@@ -33,7 +33,7 @@ applies here as it did to the C128 core). `cores/c128/PROVENANCE.md` has the ups
   in complete cases (the fix `tools/snes_gen.py` makes for GHDL), the microcode ROM as one flat 2048 x 53 bit array, and four changes of behaviour: the XCE branch of X, Y
   and SP gated with EN (T182 step 3a), bit 4 (B) = 0 in the P byte an IRQ or NMI pushes in emulation mode (T182), and in emulation mode the modify cycle of a
   read-modify-write instruction writes the byte read, as the 6510 and VICE's W65C816S do (T241), and RTI in emulation mode takes 6 cycles, one internal cycle more than upstream, as
-  the W65C816S does (T241 S2). Nothing in `cores/snes` is edited.
+  the W65C816S does (T241 S2), and the decimal adder `s816_addsubbcd` as a carry select with `+` (per nibble the sum for carry in 0 and 1, the carry only selects; same S, CO and VO for every input, T248; `s816_bcdadder` is still made, no longer used). Nothing in `cores/snes` is edited.
 - `scpu_pport.v`: the 6510 port `$00/$01` out of `vendor/icepi/cpu6510.v` (Copyright 2026 Mateusz Nalewajski, GPL-3.0-or-later), without the turbo and state-bus paths.
 
 ## Ours (written for this project)

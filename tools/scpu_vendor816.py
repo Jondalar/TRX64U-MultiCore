@@ -25,6 +25,10 @@ Changes against the upstream files (all of them, nothing else is touched):
     FETCH_PARAM_DUMMY, three PULL (four in native mode), one clock each, and the opcode fetch at the loop top, :2585/:2589); upstream gave it 5 (state control 111 of the third pull: `EF = 1 and IR = x"40"` ends it). The pull of the
     high byte of PC (state 4, STATE_CTRL 111) now goes on to state 7 in that case, and the microcode row of RTI's state 7 (all X upstream, read as zero, never visited: native RTI ends in state 6)
     becomes STATE_CTRL 010 with everything else 0: an internal cycle (no VDA, no VPA, no register load) that ends the instruction. Native mode (EF = 0, 7 cycles) is unchanged. T241 S2.
+  - the decimal adder (s816_addsubbcd) is a carry select with `+`: per nibble the binary sum and the decimal correction of s816_bcdadder are computed for carry in 0 and for carry in 1
+    in parallel (numeric_std `+`, so Vivado uses the carry chain), the real carry into the nibble only selects S, CO and VO; the same S, CO and VO for every input (the proof is
+    cores/c64scpu/sim/run_addsub_equiv.sh against the upstream adder, which `ref_adder()` below makes). s816_bcdadder, s816_adder4 and s816_bit_adder are still made, no longer instantiated
+    by the CPU. T248.
 """
 import os
 import re
@@ -132,6 +136,77 @@ end rtl;
 ''' % (lines, alu.rstrip() + '\n', reset, assign)
 
 
+ADDSUB_ARCH = """architecture rtl of s816_addsubbcd is
+
+	-- T248: carry select. One nibble of s816_bcdadder (binary sum, decimal correction) for a given carry in, with `+` so that the carry chain is used.
+	type nib_t is record
+		S  : std_logic_vector(3 downto 0);
+		CO : std_logic;
+		VO : std_logic;
+	end record;
+	type nib_a is array(0 to 3) of nib_t;
+
+	function nibble(A, B : std_logic_vector(3 downto 0); c, ADD, BCD : std_logic) return nib_t is
+		variable B2     : std_logic_vector(3 downto 0);
+		variable BIN    : unsigned(4 downto 0);
+		variable BIN_S  : std_logic_vector(3 downto 0);
+		variable BIN_CO : std_logic;
+		variable BCD_CO : std_logic;
+		variable BCD_B  : std_logic_vector(3 downto 0);
+		variable CIN    : natural range 0 to 1;
+		variable CC     : natural range 0 to 1;
+		variable CORR   : unsigned(3 downto 0);
+		variable r      : nib_t;
+	begin
+		B2 := B xor (3 downto 0 => not ADD);
+		CIN := 0;
+		if c = '1' then CIN := 1; end if;
+		BIN := ('0' & unsigned(A)) + ('0' & unsigned(B2)) + CIN;
+		BIN_S := std_logic_vector(BIN(3 downto 0));
+		BIN_CO := BIN(4);
+		BCD_CO := (((BIN_S(3) and BIN_S(2)) or (BIN_S(3) and BIN_S(1))) and ADD) or (not (BIN_CO xor ADD));
+		BCD_B := not ADD & ((BCD_CO and BCD) xor not ADD) & ((BCD_CO and BCD) xor not ADD) & not ADD;
+		CC := 0;
+		if ADD = '0' then CC := 1; end if;
+		CORR := unsigned(BIN_S) + unsigned(BCD_B) + CC;
+		r.S := std_logic_vector(CORR);
+		if BCD = '0' then
+			r.CO := BIN_CO;
+		else
+			r.CO := BCD_CO xor not ADD;
+		end if;
+		r.VO := (not (A(3) xor B2(3))) and (A(3) xor BIN_S(3));
+		return r;
+	end function;
+
+	signal n0, n1 : nib_a;			-- every nibble for carry in 0 and for carry in 1
+	signal cy     : std_logic_vector(4 downto 0);	-- cy(i) = the real carry into nibble i
+	signal VOn    : std_logic_vector(3 downto 0);
+
+begin
+
+	gn : for i in 0 to 3 generate
+		n0(i) <= nibble(A(4*i+3 downto 4*i), B(4*i+3 downto 4*i), '0', ADD, BCD);
+		n1(i) <= nibble(A(4*i+3 downto 4*i), B(4*i+3 downto 4*i), '1', ADD, BCD);
+		S(4*i+3 downto 4*i) <= n1(i).S when cy(i) = '1' else n0(i).S;
+		cy(i+1)             <= n1(i).CO when cy(i) = '1' else n0(i).CO;
+		VOn(i)              <= n1(i).VO when cy(i) = '1' else n0(i).VO;
+	end generate;
+	cy(0) <= CI;
+
+	VO <= VOn(1) when w16 = '0' else VOn(3);
+	CO <= cy(2) when w16 = '0' else cy(4);
+
+end rtl;
+"""
+
+
+def addsub(t):
+    """T248: the carry-select architecture of s816_addsubbcd (docstring above); the entity and ports are upstream's"""
+    i = t.index('architecture rtl of s816_addsubbcd is')
+    return t[:i] + ADDSUB_ARCH
+
+
 def sub1(t, old, new):
     assert t.count(old) == 1, old
     return t.replace(old, new, 1)
@@ -192,6 +267,16 @@ def cpu(t):
     return t
 
 
+def ref_adder():
+    """upstream's adder (ring of s816_bcdadder), the entities suffixed _ref: the reference of cores/c64scpu/sim/run_addsub_equiv.sh (T248). Returns (name, text) pairs, not written to cpu/"""
+    res = []
+    for s in ('BCDAdder.vhd', 'AddSubBCD.vhd'):
+        t = rename(open(os.path.join(SRC, s)).read())
+        t = re.sub(r'(?<![A-Za-z0-9_])(s816_(?:bcdadder|adder4|bit_adder|addsubbcd))(?![A-Za-z0-9_])', r'\1_ref', t, flags=re.I)
+        res.append((s, t))
+    return res
+
+
 def make():
     out = {}
     for s, d in FILES.items():
@@ -200,6 +285,8 @@ def make():
             t = mcode(rename(t))
         elif s == 'P65C816.vhd':
             t = rename(cpu(t))
+        elif s == 'AddSubBCD.vhd':
+            t = addsub(rename(t))
         else:
             t = rename(t)
         t = snes_gen.exhaustive_cases(t, s)
@@ -208,6 +295,12 @@ def make():
 
 
 if __name__ == '__main__':
+    if '--ref' in sys.argv:         # --ref DIR: write the reference adder (the upstream one, entities suffixed _ref) into DIR
+        refdir = sys.argv[sys.argv.index('--ref') + 1]
+        os.makedirs(refdir, exist_ok=True)
+        for n, t in ref_adder():
+            open(os.path.join(refdir, n.replace('.vhd', '_ref.vhd')), 'w').write(t)
+        sys.exit(0)
     out = make()
     if '--check' in sys.argv:
         bad = [d for d, t in out.items() if not os.path.exists(os.path.join(DST, d)) or open(os.path.join(DST, d)).read() != t]
