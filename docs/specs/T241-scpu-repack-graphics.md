@@ -520,3 +520,10 @@ Open.
 - `c64scpu.cor` (artifact `cor-large-c64scpu` of the run): 3,559,895 bytes, sha256 `9539de011be1a470805e10c5dbddb64d6a0e54c3c2bfcccc07f82f1d3d9c51e8`
   (package A's, the one on the board, is 3,532,344 bytes, `42c8b9ee…`). Board step open (S4, Alex): Master's Boom in play, the DMAgic intro,
   Metal Dust unchanged.
+
+### 2026-11-21: the S2 core on the board (Alex)
+- The core: `/SD/cores/c64scpu_t248.cor`, the `.cor` of run 44875582642 (branch `t248-scpu-depth`: this branch's S2 change plus
+  T248), 3,521,191 bytes, sha256 `3c6d6a7fdb442b05197d0f177e4e113e52f141c9b25637c274be4a6bcd99970b`.
+- Alex (translated): "2. The intro still works, yes. 1. The same crash, video comes. 3. Metal Dust still great."
+- So the DMAgic intro runs and Metal Dust runs. Master's Boom in play crashes as on 2026-11-19. The S2 change (the IRQ decided one
+  cycle before the last, RTI in emulation mode in 6 cycles) does not fix the crash. S4 stays open.
