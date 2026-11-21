@@ -828,7 +828,7 @@ void MenuCtl::row(int i, char *left, int ln, char *right, int rn, bool *active, 
             const FsEntry &fe = pick_list_[i - 1];
             snprintf(left, ln, "%s%s", fe.name, fe.dir && strcmp(fe.name, "..") ? "/" : "");
             if (!fe.dir && right && rn) {
-                snprintf(right, rn, "%llu bytes", (unsigned long long)fe.size);
+                snprintf(right, rn, "%u bytes", (unsigned)fe.size);      // T251: the board's printf has no length modifier; a file is below 4 GiB
             }
             if (!pick_ok_ && sub && sn) {
                 snprintf(sub, sn, "This folder cannot be read");

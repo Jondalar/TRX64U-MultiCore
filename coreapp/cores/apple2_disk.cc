@@ -480,9 +480,9 @@ int a2_mount(CoreCtx *c, const char *path, int drive, char *msg, int msglen)
     } else {
         c->fs->close(f);
         if (size == 409600 || size == 819200) {
-            snprintf(msg, msglen, "%s is a 3.5\" image (%llu bytes): the 3.5\" drive is not supported; a ProDOS block image (.po, .2mg) mounts in slot 7", path, (unsigned long long)size);
+            snprintf(msg, msglen, "%s is a 3.5\" image (%u bytes): the 3.5\" drive is not supported; a ProDOS block image (.po, .2mg) mounts in slot 7", path, (unsigned)size);
         } else {
-            snprintf(msg, msglen, "%s is %llu bytes: a floppy image is 143360 (.dsk .do .po) or 232960 (.nib), or a .woz", path, (unsigned long long)size);
+            snprintf(msg, msglen, "%s is %u bytes: a floppy image is 143360 (.dsk .do .po) or 232960 (.nib), or a .woz", path, (unsigned)size);   // T251
         }
         return 1;
     }

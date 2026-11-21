@@ -80,7 +80,7 @@ static void put_media(BrOut *o, CoreCtx *c)
         uint64_t size = 0;
         bool dir = false;
         if (path && c->fs && c->fs->stat(path, &size, &dir) && !dir) {
-            br_kv(o, d->media[i].name, "%s, %llu bytes (%s)", copy, (unsigned long long)size, path);
+            br_kv(o, d->media[i].name, "%s, %u bytes (%s)", copy, (unsigned)size, path);     // T251: the board's printf has no length modifier
         } else {
             br_kv(o, d->media[i].name, "%s, size not known", copy);
         }
