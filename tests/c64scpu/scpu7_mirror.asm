@@ -158,7 +158,7 @@ onecell ldx ai                  ; the address ai, the mode mi, the speed sp: A =
         pla
         rts
 
-speed   lda sp                  ; 0: 1 MHz, 1: 20 MHz (a C64 ignores both writes: unused VIC registers)
+speed   lda sp                  ; 0: 1 MHz, 1: 20 MHz (without a SuperCPU spd1 and spd20 write nothing)
         beq +
         jmp spd20
 +       jmp spd1

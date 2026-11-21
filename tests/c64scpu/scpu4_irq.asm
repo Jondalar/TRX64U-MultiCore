@@ -4,8 +4,8 @@
 ; reload to the read: the time the CPU takes to finish the interrupted instruction, plus the interrupt sequence, plus
 ; the read. The handler moves the latch by 0-15 cycles per interrupt, so the interrupt meets every cycle of the
 ; instruction. Shown per sled: the lowest and the highest d, in mirror mode $c7 (the reset's) and $c0 (Master's Boom's:
-; the stack page is mirrored too, and an interrupt pushes three bytes there). A C64 ignores the mode writes and shows the
-; same values twice. Expected: the board's C64 core trx64g (step 0, 2026-11-21), whose CIA takes an interrupt as an 8521
+; the stack page is mirrored too, and an interrupt pushes three bytes there). Without a SuperCPU `mode` writes nothing,
+; and a C64 core shows the same values twice. Expected: the board's C64 core trx64g (step 0, 2026-11-21), whose CIA takes an interrupt as an 8521
 ; does, as the c64scpu's CIAs; the c64re runtime counts one cycle more everywhere (a 6526). "*" marks a value off them.
 ; Screen off, no sprites, the KERNAL banked out ($01 = $35, the vector at $fffe).
 ; The sleds: nop (2 cycles), lda zp (3), lda abs (4), lda (zp),y (5), inc zp (5), inc abs (6), inc abs,x (7),

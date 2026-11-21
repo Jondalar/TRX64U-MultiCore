@@ -14,10 +14,14 @@ Spec: [docs/specs/T241.1-scpu-board-suite.md](../../docs/specs/T241.1-scpu-board
 - `build.sh` assembles everything. `vice.sh` fetches the VICE-testprogs SCPU programs at a pinned commit into a cache
   outside the repository. `put.sh` copies the programs and the fetched VICE programs to `/SD/tests/scpu/`
   (`BOARD=<address> tests/c64scpu/put.sh`).
-- `rest.py` runs programs on the board over REST and prints each last screen (`BOARD=<address> tests/c64scpu/rest.py
-  [program ...]`). The core must answer `runners:run_prg` and `machine:readmem`: the board's C64 cores do, the c64scpu
-  since T250. A memory read is a DMA on these cores: it holds the CPU. `rest.py` reads only after a program's run
-  time; a read while a program measures spoils the measurement (2026-11-21: scpu5 read every 2 s gave other edges).
+- `rest.py` runs programs on the board over REST and prints each last screen (`BOARD=<address> [TRX_TOKEN=<token>]
+  tests/c64scpu/rest.py [program ...]`). It speaks Gideon's REST (trx64g: `runners:run_prg`, `machine:readmem` with a
+  hex address) and the TRX64 core application's (the c64scpu since T250: a token on every route, `POST
+  /v1/ops/c64scpu.run_prg`, `machine.read_mem` in blocks of 256 bytes, decimal addresses, base64 data). The token comes
+  from `TRX_TOKEN`; the script never asks for one (`POST /v1/ui/grant` gives it to the first caller). A memory read can
+  disturb a running measurement (on Gideon's cores it is a DMA that holds the CPU; 2026-11-21: reading scpu5's screen
+  every 2 s gave other edges), so `rest.py` reads only after a program's run time and says how many reads came before
+  the end. Its exit status is 0 only when every program ended with `0 failed`.
 
 Each program prints a table and a last line `n checks, m failed`. `*` marks a value that differs from the expected one.
 All numbers are PHI2 cycles, counted by CIA2 timers A and B chained.
@@ -26,7 +30,9 @@ scpu2, scpu4 and scpu5 measure everything twice: in mirror mode `$c7` (the reset
 page and stack mirrored too). Without a SuperCPU the mode switch (`lib.inc` `mode`) writes nothing, so a C64 core
 shows the same values twice.
 
-The 20 MHz parts (scpu1 rows `20` and `md`, scpu6) need the SuperCPU's speed switch at 20 MHz. When the switch holds
+The 20 MHz parts (scpu1 rows `20` and `md`, scpu6, the 20 MHz half of scpu7, the 20 MHz columns of scpu8) need the
+SuperCPU's speed switch at 20 MHz. Without a SuperCPU the speed switches write nothing: `$d07a` and `$d07b` are also
+the turbo registers of this repository's C64 cores (`cores/c64u/c64_turbo_c64u.v`). When the switch holds
 1 MHz (`$d0b9` bit 6), the program prints `speed switch at 1 mhz: 20 mhz parts void` and counts one failed check.
 
 ## Order of the runs
@@ -35,7 +41,9 @@ The 20 MHz parts (scpu1 rows `20` and `md`, scpu6) need the SuperCPU's speed swi
 `no supercpu` (2026-11-21, `ref/stock_pal.txt`). The expected values in the programs are trx64g's. The c64re runtime
 differs in two places, both known: scpu4 one cycle more in every row (its CIA is a 6526; trx64g and the c64scpu use the
 8521, whose interrupt comes one cycle earlier), and scpu5 condition d one cycle less (`39 43`: the sprite DMA). A
-failure on trx64g is a fault of the suite or of that core, not of the SuperCPU.
+failure on trx64g is a fault of the suite or of that core, not of the SuperCPU. Condition d also measures the VIC: the
+cycle at which sprite DMA takes the bus. The c64scpu has its own VIC (`vicii_c64scpu.v`), trx64g Gideon's; a `*` in d
+alone does not point at the CPU, one in a, b or c does.
 
 Then on the c64scpu core, in this order. Each step rules out one cause when it passes.
 

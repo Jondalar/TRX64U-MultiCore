@@ -4,7 +4,7 @@
 ; Each case runs once in a stub between "STA $DD0E" (CIA2 timer A starts) and "LDA $DD04"; its cycles are the empty
 ; stub's reading minus its own. Screen off, no sprites, no interrupt source: the count is exact on a C64.
 ; All cases run in mirror mode $c7 (the reset's) and again in $c0 (Master's Boom's: zero page and stack are mirrored
-; too), each pass with its own empty-stub reading. A C64 ignores the mode writes.
+; too), each pass with its own empty-stub reading. Without a SuperCPU `mode` writes nothing.
 ; Shown: every case whose cycles differ, as  <m> <opcode><variant> <expected>><measured>  (m: 7 = $c7, 0 = $c0).
 ; The expected cycles are the 6502's; a stock C64 shows none different. On the 65C816 (emulation mode) a case that
 ; differs is the core's fault or a documented 65C816 difference; none is known for the documented 6502 opcodes.

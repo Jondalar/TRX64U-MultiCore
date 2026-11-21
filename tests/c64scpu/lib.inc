@@ -434,20 +434,26 @@ detect  lda #0                  ; issc = 1 when the SuperCPU registers answer ($
         inc issc
 +       rts
 
-spd1    sta $d07a               ; software 1 MHz
+spd1    pha                     ; software 1 MHz. Only on a SuperCPU: $d07a and $d07b are also the turbo registers of this repository's
+        lda issc                ; C64 cores (cores/c64u/c64_turbo_c64u.v), where $d07b would switch the turbo on. A is kept, P changes.
+        beq +
+        sta $d07a
++       pla
         rts
 
-spd20   sta $d07b               ; 20 MHz (the speed switch permitting). On a SuperCPU, $d0b9 bit 6 = 1 MHz in effect: the switch
-        lda issc                ; holds 1 MHz, the write did nothing, and slow20 says so (summary). A, P change.
+spd20   pha                     ; 20 MHz (the speed switch permitting), only on a SuperCPU (see spd1). $d0b9 bit 6 = 1 MHz in effect: the
+        lda issc                ; switch holds 1 MHz, the write did nothing, and slow20 says so (summary). A is kept, P changes.
         beq +
+        sta $d07b
         lda $d0b9
         and #$40
         beq +
         sta slow20
-+       rts
++       pla
+        rts
 
 mode    pha                     ; mirror mode A: $c7 (the reset mode), $c0 ($d077), $80 ($d076), $40 ($d075), $00 ($d074)
-        lda issc                ; without a SuperCPU nothing is written: these addresses are not idle on every C64 core
+        lda issc                ; only on a SuperCPU, as spd1 and spd20: a C64 core gets no SuperCPU register writes
         bne +
         pla
         rts
@@ -473,9 +479,7 @@ mode    pha                     ; mirror mode A: $c7 (the reset mode), $c0 ($d07
 _off    sta $d07f               ; hardware registers off
         rts
 
-head    sta hti                 ; A/Y = the title: clear the screen, then <title>  sc:<0|1> b3:.. b9:.. b6:..
-        sty hti+1
-        jsr $e544
+head    pha                     ; A/Y = the title, at the program's start: the counters and flags to 0, then htitle
         lda #0
         sta nfail
         sta nfail+1
@@ -483,6 +487,10 @@ head    sta hti                 ; A/Y = the title: clear the screen, then <title
         sta nchk+1
         sta mstyle
         sta slow20
+        pla
+htitle  sta hti                 ; A/Y = the title: clear the screen, then <title>  sc:<0|1> b3:.. b9:.. b6:.. (counters and flags kept)
+        sty hti+1
+        jsr $e544
         jsr detect
         ldx #0
         ldy #0

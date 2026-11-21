@@ -363,7 +363,7 @@ _set    sta mdl,x
 
 report  lda #<title
         ldy #>title
-        jsr head
+        jsr htitle              ; not head: slow20 of the 20 MHz replays must stay
         #print t_vic            ; vic
         ldx #2
 -       lda f_cyc,x

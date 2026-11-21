@@ -8,19 +8,25 @@
 ; phase: the margin Boom's dispatcher has).
 ; The phases: between two interrupts the main loop runs one frame minus the handler, so its phase at the next interrupt
 ; moves by that difference. The handler takes the same time whatever the read gives. The first 8 interrupts of a K so
-; move by one constant step and meet every phase of the 7-cycle spin, unless the step is a multiple of 7; the handler
-; of the last 6 is one cycle longer, so their step is another one. One of the two series meets every phase. Without
-; this, which phases were met depended on where the code lay (2026-11-21: c gave 79/82 or 78/80 on the same machine).
+; move by one constant step and meet every phase of the 7-cycle spin, unless the step is a multiple of 7; the handlers
+; of the 8th to the 13th interrupt are one cycle longer, so the last 7 interrupts (8-14) move by another step. One of the
+; two series meets every phase. Without this, which phases were met depended on where the code lay (2026-11-21: c gave
+; 79/82 or 78/80 on the same machine). The proof needs the handler's time to be the same in every phase; that holds in
+; a-c. In d the handler crosses the sprite DMA, and a write on the first cycle of a BA window shortens that stall for
+; one phase only; d's coverage rests on measurement (the review's cycle model found the true edge from 343 starts).
 ;   a  screen off, the main loop a NOP sled (2 cycles per instruction)
 ;   b  screen off, the main loop Boom's spin: LDA abs, BEQ back (4 + 3 cycles)
 ;   c  the interrupt at line 144, line 145 a badline (screen on, y-scroll 1): the read comes after the badline's stall
 ;   d  8 sprites over lines 141-161, screen on (y-scroll 3), the spin
 ; Part 2, the soak: the three-interrupt chain of Boom for 500 frames in condition d, the dispatcher's read at the
 ; reference's K of d (zero margin), about 6000 cycles of work in the line-217 handler, the spin as the main loop. The
-; line-217 handler is one cycle longer in every second block of 7 frames, for the same reason as in part 1.
+; line-217 handler is one cycle longer in every second block of 7 frames, for the same reason as in part 1. The frame's
+; handlers take 3K+6152 cycles plus that one. The handler that changes pex, every 7th frame, takes 15 more (so the step
+; that leaves a block differs), from frame 256 on every handler takes 8 more (the carry frame 5): within a block of 7 the
+; 6 steps are equal, except in the block of frame 256.
 ; Counted: reads that see line 145 (early), and interrupts out of order. The reference shows 0 and 0.
-; Both parts run in mirror mode $c7 (the reset's) and $c0 (Boom's: the stack page is mirrored too). A C64 ignores the
-; mode writes and shows the same values twice. Expected values: the board's C64 core trx64g (step 0, 2026-11-21); the
+; Both parts run in mirror mode $c7 (the reset's) and $c0 (Boom's: the stack page is mirrored too). Without a SuperCPU
+; `mode` writes nothing, and a C64 core shows the same values twice. Expected values: the board's C64 core trx64g (step 0, 2026-11-21); the
 ; c64re runtime differs in d only (39, 43). "*" marks a value off them.
 
         .cpu "6502"
@@ -345,7 +351,7 @@ _adv    lda #0
         cmp #19+NSL+1
         bcs fin                 ; kall stays 0: the edge was not found
         jsr setk
-_ph     lda samp                ; pex = 1 from the 9th interrupt on, without a branch
+_ph     lda samp                ; pex = 1 in the handlers of the 8th to the 13th interrupt (samp 8-13), without a branch
         cmp #8
         lda #0
         rol a
