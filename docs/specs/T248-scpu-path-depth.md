@@ -1,7 +1,7 @@
 # T248 — c64scpu: the class table in LUTs and the decimal adder with a carry select, so the path into the 65C816 is shorter
 
 **Status:** IN PROGRESS (2026-11-21). Asked by Alex, 2026-11-21.
-Open (one line, as in the TODO table): IN PROGRESS 11-21 (Alex: "1+2"); branch t248-scpu-depth (on t241-s2-irq)
+Open (one line, as in the TODO table): IN PROGRESS 11-21 (Alex: "1+2"); S1-S3 PASS; branch t248-scpu-depth, S4 run open
 **Repo:** TRX64U-MultiCore — the core `cores/c64scpu/`: `scpu_cfgtab.v` (made by `tools/scpu_cfgtab.py`) and
 `cpu/s816_addsubbcd.vhd` (made by `tools/scpu_vendor816.py`). No application code.
 **Number:** T248.
@@ -40,10 +40,11 @@ the build this starts from).
 - **Why not a register stage:** at 20 MHz the CPU's enable comes 3 clk2x after the previous one (63.056 / 20 = 3.15 clocks per
   cycle). A fourth clock limits the CPU to 15.8 MHz.
 - **The parts:**
-  - **P1** The class table is a LUT ROM behind an address register, not a block RAM. Same values, same clock.
+  - **P1** The class table is a LUT ROM in front of its output register, not a block RAM. Same values, same clock.
   - **P2** The decimal adder computes each nibble for carry in 0 and for carry in 1 in parallel, the binary sums with `+` (carry
     chain); the incoming carry only selects. The same outputs for every input.
-  - **P3** The build writes a timing report of the paths from `scpu_mem` into the CPU, so S4 can be read.
+  - **P3** The build writes a timing report of the paths from `scpu_mem` into the CPU (appended to `timing.rpt`, which the
+    pipeline publishes, and one log line), so S4 can be read.
 
 ## §2 Scenarios — what proves it is solved
 
@@ -82,8 +83,12 @@ the .cor of S4.
 - Alex, 2026-11-21 (translated): "Let's start like that. 1+2." Of the three levers he was shown, lever 1 (the table in LUTs) and
   lever 2 (the adder with a carry select) are built.
 - Lever 3 (read the table one clock earlier, a register before the data mux) is not built now. It is built only if S4 fails.
-- **D1 (P1):** `scpu_cfgtab` keeps its ports. `a` goes into a 12-bit register at every clk2x edge; `q = t[a_q]` comes from a LUT
-  ROM. The block RAM latched its address at the same edge, so the class arrives in the same clock as before.
+- **D1 (P1):** `scpu_cfgtab` keeps its ports and its registered output: `q <= t[a]` at every clk2x edge, the table in LUTs
+  (`rom_style = "distributed"`) in front of `q`, so the class arrives in the same clock as from the block RAM. The ROM sits on
+  the address side, which has two periods from the CPU (`cpu_r -> smm_r`) and one from the configuration registers; the path
+  into the CPU starts at the flip-flop `q`. The first form (a 12-bit address register `a_q`, then `q = t[a_q]`) kept the whole ROM
+  on the one-period path into the CPU and was changed after the review of 2026-11-21 (a guess there: -0.5 to +0.9 ns for that
+  form, about 2 ns for this one).
 - **D2 (P2):** `s816_addsubbcd` keeps its entity and ports. Per nibble: the binary sum for carry in 0 and for carry in 1 with `+`,
   the decimal correction of `s816_bcdadder` on each, then the incoming carry selects S, CO and VO. `tools/scpu_vendor816.py` makes
   the file and lists the change as a difference, as `cores/c64scpu/PROVENANCE.md` does.
@@ -96,4 +101,25 @@ the .cor of S4.
 
 ## §5 Built
 
-Nothing yet.
+- **2026-11-21, branch `t248-scpu-depth`:** 11 commits on `t241-s2-irq` (fdc9959d), head 1131711e, pushed; run 44875582642.
+  - **P1:** `tools/scpu_cfgtab.py` writes `scpu_cfgtab` as a `(* rom_style = "distributed" *)` table with
+    `always @(posedge clk) q <= t[a];` (7176ec77). The first form, an address register `a_q` and `q = t[a_q]` (dc31fcd9), was
+    changed after the review (D1). `--from-txt` writes the .v from the .txt without the VICE oracle. `--check`: "ok: the table
+    equals the oracle", "ok: cores/c64scpu/scpu_cfgtab.v is what scpu_cfgtab.txt makes".
+  - **P2:** `tools/scpu_vendor816.py` writes `s816_addsubbcd` as a carry select (f3185d07, bcbeb4fa): per nibble the function
+    `nibble` (the binary sum with `+`, then the decimal correction of `s816_bcdadder`) for carry in 0 and for carry in 1; the real
+    carry selects S, CO and VO. `s816_bcdadder.vhd` is still made and read, no longer instantiated. `--check`: "ok:
+    cores/c64scpu/cpu is what tools/scpu_vendor816.py makes". GHDL `-a --std=93c -fsynopsys -fexplicit -frelaxed-rules` of
+    `s816_pkg.vhd` and `s816_addsubbcd.vhd`: no output, exit 0.
+  - **P3:** `build_mono.tcl` appends the five worst setup paths from `cpu_0/smem` into `cpu_0/cpu` to `timing.rpt` and writes the
+    log line `=== T248 smem->cpu worst setup slack: ...` (b98158e6, e5404222).
+  - **S1 PASS:** `cores/c64scpu/sim/run_cfgtab.sh` (iverilog, image `trx64-sim-env:5` on the builder), on the final form of P1:
+    "S1 PASS 4096/4096", exit 0.
+  - **S2 PASS, S3 PASS:** `cores/c64scpu/sim/run_addsub_equiv.sh` (GHDL 6.0.0, image `trx-ghdl6`; the reference is made from
+    upstream `AddSubBCD.vhd` and `BCDAdder.vhd` by the script's `--ref`), on the code of bcbeb4fa (1131711e changed only
+    comments in that file): "S2 PASS 524288/524288", "S3 PASS 4194304/4194304".
+  - Both benches run by hand; `ci/sims_excluded.txt` lists them (827d91d5).
+  - **Review (one agent): FAIL**, fixed before the push: two lint checks (the benches were not listed; a script comment held a
+    login on an internal host) and the timing of P1's first form. The commit with the login was rebuilt out of the branch, so no
+    pushed commit holds it.
+- **Open:** S4 (run 44875582642), S5 (board, with the T241 S2 steps).
