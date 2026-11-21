@@ -1,7 +1,7 @@
 # T251 — The core application's texts show their numbers on the board: no format with a length modifier
 
 **Status:** IN PROGRESS (2026-11-21). Asked by Alex, 2026-11-21.
-Open (one line, as in the TODO table): IN PROGRESS 11-21: the nine formats fixed; open: S2 in ue2emu, review, PR
+Open (one line, as in the TODO table): IN PROGRESS 11-21: S1, S2 PASS; open: review, PR
 **Repo:** TRX64U-MultiCore — the core application (`coreapp/src`, `coreapp/cores`).
 **Number:** T251.
 **Origin:** GitHub issue #121 (a tester, release 0.2.0, C64 Ultimate): "Browsing for ROM shows "%llu" as file size" (the C128
@@ -51,7 +51,7 @@ Scenario: S2 (P1) the size in the file browser
 | # | Solves | Test | Where it runs |
 |---|---|---|---|
 | S1 | P1, P2 | `git grep` with the pattern of §5 | Mac |
-| S2 | P1 | a picture of the browser from ue2emu (the RISC-V image, so the board's printf) | builder (`tools/dev.sh emu`) |
+| S2 | P1 | `tests/ui/features_cores/t251_c128_pick.feature`: the RISC-V image (so the board's printf) in ue2emu | Mac (`tests/ui/run.sh`) |
 
 ## §3 Decision
 
@@ -70,3 +70,6 @@ Nothing is left out.
 - **2026-11-21, branch `t251-printf-sizes`:** the nine formats of §1 (D1). `tools/check_d24.py` ok (the diag message stays one line).
 - **S1 PASS (2026-11-21):** `git grep -nE '"[^"]*%[-+ 0#]*[0-9*]*(\.[0-9*]+)?(hh|h|ll|l|z|j|t|L)[diouxXcsfeg]' -- coreapp/src
   coreapp/cores` finds only the comment of `coreapp/src/ops.cc:250` ("the firmware's printf has no %ld").
+- **S2 PASS (2026-11-21):** `COREAPP=.ci/dev/t251-printf-sizes/coreapp.app tests/ui/run.sh features_cores/t251_c128_pick.feature`:
+  "1 passed, 0 failed". The C128's "JiffyDOS C128 ROM" row opens the picker; in `games/` the row of `alpha.d64` shows
+  "174848 bytes" and `hello.prg` "14 bytes" (picture `t251-c128-pick`: the `.adf` files show "901120 bytes").
