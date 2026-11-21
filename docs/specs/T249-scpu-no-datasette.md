@@ -1,7 +1,7 @@
 # T249 — c64scpu: no datasette
 
 **Status:** IN PROGRESS (2026-11-21). Asked by Alex, 2026-11-21.
-Open (one line, as in the TODO table): IN PROGRESS 11-21: TAPE out of the c64scpu build, the Datasette port row out; branch t249-scpu-no-tape
+Open (one line, as in the TODO table): IN PROGRESS 11-21: S1 PASS (run 44880276432), S3 by reading; open: S2 unit result from a log, merge
 **Repo:** TRX64U-MultiCore — `cores/c64scpu/mono/core.toml`, `coreapp/cores/c64scpu.cc`, `coreapp/cores/c64scpu_regs.h`.
 **Number:** T249.
 **Origin:** Alex, 2026-11-21 (translated): "And then, before you optimise further: the datasette out of the core, there is no
@@ -63,4 +63,19 @@ Scenario: S3 (P2) an old settings file still loads
 
 ## §5 Built
 
-Nothing yet.
+- **2026-11-21, branch `t249-scpu-no-tape`** (from `t248-scpu-depth`, D3):
+  - `36bd6abb`: P1, `TAPE` out of `mono_env`; P2, no "Datasette port" row, no op `c64scpu.set_dset`, no `SCPU_PIN_CTRL`;
+    the S2 unit checks; the D24 ledger shrinks.
+  - `ea2586e5`: the review's fixes (below).
+- **Review (one agent): FAIL** before the push: the goldens (`menu_c64scpu`, the ids) and the manual (11.1.15, 11.20.2)
+  still had the Datasette row. Fixed in `ea2586e5`; with it, the capability word names the C2N streamer and recorder only
+  with `TAPE` (D1, `cf1c0e48`).
+- **S1 PASS** (run 44880276432, green; T241 S2, T248 and T249 together): no `c64u_c2n_l2` in `utilization_hier.rpt`; the
+  design meets timing. WNS +0.093 ns (T248's run 44875582642: +0.432 ns); the T248 line "smem->cpu worst setup slack"
+  +0.334 ns (`b_a_reg[9]` -> `P_reg[1]`; it was +0.648 ns). LUT 22,952 (70.40 %), 392 fewer than run 44875582642.
+- **S2:** the menu simulator's picture of the c64scpu settings has no Datasette row (kept outside the repository). The
+  unit result is not read from a log: the apptests job of run 44880276432 skipped the coreapp units ("will run: nothing").
+- **S3:** by reading `coreapp/src/settings.cc:103-107` (each row is read by its own key). Not run.
+- `tools/dev.sh test` failed (rc 1): tree-sitter is missing in the dev container. Not fixed; the pipeline's apptests job
+  ran green.
+- **Open:** the S2 unit result from a log; the merge, together with T248 and T241 S2.
