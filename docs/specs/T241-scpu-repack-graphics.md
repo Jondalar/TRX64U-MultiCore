@@ -13,7 +13,7 @@ for debugging."
 **Depends on:** T182 (the core), T208 (mirror queue, BA write hold), T217 (the PRG start bench `cores/c64scpu/sim/run_prgrun.sh`).
 **Milestone:** M2.
 
-Open (one line, as in the TODO table): intro fixed (RMW write; in integration, D3); S2 fix (IRQ poll, RTI 6) built on t241-s2-irq, sims pending
+Open (one line, as in the TODO table): intro fixed (integration, D3); S2 in PR #120: 5/7 benches pass (base/emu tb fixed), build red (segfault), rebuild due
 
 ---
 
@@ -464,3 +464,32 @@ Open.
   - The two pre-existing findings (a) NMI lost during an IRQ sequence and (b) `RDY_IN_DELAYED` defers the decision stay as recorded above; whether to track them is Alex's decision.
 - Not verified: no simulation, bench or Vivado run (the pipeline runs the sims after the coordinator pushes with `[sims]`); phase 10 on line `$F8` is read, not seen on a waveform, as before. Generator run on the
   Mac: asserts pass, the emulation tail is 1,675 of 2,048 bytes (was 1,668), the native image 614 of 1,536.
+
+### 2026-11-21: run 44840485574 (`684efe93`, `[sims]`): benches, the c64scpu build, the bench fix and the recipe
+
+- Benches (sim job 136648296355, per-bench lines): `c64scpu_irq` PASS (884 s, phases 10-12 included), `c64scpu_map` PASS, `c64scpu_speed`
+  PASS, `c64scpu_mirror` PASS, `c64scpu_mdust` PASS. `c64scpu_base` and `c64scpu_emu` "FAIL (exit 1), 1s": the testbench did not build
+  ("Can't find definition of 'wbuf_ok' in dotted variable/method: 'dut.c64.cpu_0.smem.wbuf_ok'", `tb_irqmir.vh:56`). The job stayed green
+  because c64scpu is experimental ("reported, not fatal").
+- Cause of the two: `tb_irqmir.vh` came with `fc4fe0a6` (D3, the mirror-everything bench) and reads `smem.wbuf_ok`, which `scpu_mem.v`
+  declares only outside `SCPU_FLATMAP` (`:393-401`); the base bench builds the FLATMAP machine by default (`build_machine.sh:15`), the emu
+  bench names `SCPU_FLATMAP` in its own list for all four of its builds (`run_emu.sh:23`). Since
+  `fc4fe0a6` both fail to build wherever they run; nothing in this branch caused it. Fix: the line is inside `ifndef SCPU_FLATMAP`.
+- The c64scpu bitstream (builder run 2711 on Gitea, key `mono-c64scpu-a6e36dd29f9e64a6`): routed at WNS -0.247 ns, TNS -2.145 ns (path group
+  `sid2x_mmcm`; the post-route phys_opt worked on nets in `cpu_0/cpu/s816_mcode` (the ALU's adders, X, PCr, P, T, DR) and in `cpu_0/smem/tab`
+  (`cls`, `rd_mem`: the class bits into the CPU's data mux, single-period on purpose, `build_mono.tcl` T182 step 4)) and
+  had reached -0.010 ns when Vivado 2024.1 ended with "segfault in ... vivado" in "Phase 2 Critical Path Optimization" of that phys_opt
+  (6,456 MB physical memory free at the start of that phys_opt). No bitstream; the builder rejected `bitstreams`, the `cor` job went red. The previous build of the same script
+  (`f5916393`, Gitea run 2538) routed at WNS +0.076 ns. The worst path is not known: the crash came before `report_timing_summary`, so no timing report was written, and the job log carries the
+  last 40 lines of `vivado.log` (`ci/bitstream_mono.sh`).
+- The multicycle recipe of `cores/c64scpu/mono/build_mono.tcl` (T182 T2) did not cover the new `irq_pen`: its paths into the CPU were
+  single-period, while `irq_r` and the CPU's own registers have two or three periods. `irq_pen` is loaded at a CPU enable and read at the next
+  one, as the CPU's registers are; it is now in the sampled-input set (setup 2, hold 1). This completes the recipe; it is not a known cause
+  of the miss: none of the nets above is `irq_pen`'s, and before S2 the IRQ level reached the same CPU logic single-period too (`irq_n =
+  !irq_latched`). The change of the file changes the key, so the next push builds again; whether the timing closes and whether the segfault
+  comes again, only that build shows.
+- The review of these changes (read-only agent): the constraint is safe (enables at least 3 clk2x periods apart at 20 MHz, `settled` =
+  `age[1]` in `scpu_mem.v`; 64 at 1 MHz), the bench guard is right. It also found that `nmi_r` was in the two-period set although it reaches
+  `OLD_NMI_N` and `NMI_SYNC` at every enable, and at 20 MHz the enable of a cycle that is not PHI2-synchronous can come one clk2x after the
+  PHI2 fall (since T182 step 4, not from S2): `nmi_r` is out of the set now and keeps one period. The block's stale comments (the enable
+  `g_edge && phi2_l`, the XCE branch that ignored EN, the rule list) now say what the code does.
