@@ -1,7 +1,7 @@
 # T250 — The c64scpu has Ethernet and memory access over REST, so its tests run without a person at the screen
 
 **Status:** IN PROGRESS (2026-11-21). Asked by Alex, 2026-11-21.
-Open (one line, as in the TODO table): IN PROGRESS 11-21: S1, S2 PASS; c64scpu_t250.cor on the SD; open: S3, S4 over REST after Alex starts it
+Open (one line, as in the TODO table): IN PROGRESS 11-21: S1-S4 PASS; open: the merge (the branch stacks on T248, whose S4 is open)
 **Repo:** TRX64U-MultiCore — the c64scpu build (`cores/c64scpu/mono/core.toml`) and its application part
 (`coreapp/cores/c64scpu.cc`).
 **Number:** T250.
@@ -47,14 +47,14 @@ Scenario: S2 (P2) the operations
   Then each reaches the window offset of D2, and a write into the 65816's RAM is followed by the cache flush
 
 Scenario: S3 (P1, P2) the board
-  Given the c64scpu of this build on the board, started from the menu
-  When GET /v1/version is sent to the board's LAN address
-  And PUT /v1/runners:run_prg runs scpu1_env from /SD/tests/scpu
-  Then GET /v1/machine:readmem gives the program's screen, and its last line reads "n checks, m failed"
+  Given the c64scpu of this build on the board, started from the menu, and the token of POST /v1/ui/grant
+  When GET /v1/info is sent to the board's LAN address
+  And POST /v1/ops/c64scpu.run_prg runs scpu1_env from /SD/tests/scpu
+  Then POST /v1/ops/machine.read_mem gives the program's screen, and its last line reads "n checks, m failed"
 
 Scenario: S4 (P2) a write over REST
-  When PUT /v1/machine:writemem writes 16 bytes to $01F000 and to $1000C000
-  Then GET /v1/machine:readmem gives the same 16 bytes back from both addresses
+  When POST /v1/ops/machine.write_mem writes 16 bytes to $020000 (SuperRAM) and to $100C000 (the C64 RAM at $C000)
+  Then POST /v1/ops/machine.read_mem gives the same 16 bytes back from both addresses
 ```
 
 | # | Solves | Test | Where it runs |
@@ -77,6 +77,13 @@ Scenario: S4 (P2) a write over REST
   - `$1000000-$100FFFF` the C64 RAM, through the RAM window with the RAM under the I/O (as the C64-family cores).
   - The ROM banks `$F8-$FF` are not mapped: they hold the person's ROM image, and a write would change the running
     firmware. Proposed; Alex confirms or adds them.
+  - Bank 0 is the SRAM store, where the CPU writes. In the reset configuration the CPU reads `$A000-$BFFF` and
+    `$E000-$FFFF` from bank 1 (the BASIC and KERNAL copies) and `$D000-$DFFF` from the I/O, so a read of bank 0 there
+    gives the RAM below. A write to `$01A000-$01BFFF` or `$01E000-$01FFFF` changes the running BASIC or KERNAL.
+  - A write over REST to bank 0 does not reach the C64 RAM: the CPU's own writes are mirrored there, these are not. A
+    byte that the CPU and the VIC both see is written at both addresses (`$0400` and `$1000400`).
+  - The operations take the address as a number (JSON, or decimal in a query string): `$0400` is 1024, `$100C000` is
+    16826368.
 - **D3 (P2):** a write into the 65816's RAM goes straight to the DDR2. The CPU's 8 KiB cache (`scpu_cache.v`) does not
   see it, so `machine.write_mem` flushes the cache after the write, with the flush the ROM load uses
   (`flush_cache`). Reads need nothing: the cache writes through (`scpu_cache.v`, every write is a byte job to the DDR2).
@@ -110,5 +117,22 @@ Scenario: S4 (P2) a write over REST
   `--init`. That run also had no lock: `heavy_lock` found no writable `/cache` on the host and ran without one. D5 now
   says how the second run was made.
 - **Board:** `c64scpu_t250.cor` (3,544,191 bytes, sha256 `98d7a670...`) in `/SD/cores/`, with the ROMs and the settings
-  of `c64scpu_t248`. S3 and S4 wait for Alex to start the core once; the tests then run over REST
-  (`tests/c64scpu/rest.py`, T241.1).
+  of `c64scpu_t248`. Alex started it from the menu on 2026-11-21.
+- **S3 and S4 changed (2026-11-21), before they ran:** the first text used the REST of Gideon's application. The core
+  application has another one (`coreapp/src/rest.cc`): no `/v1/version` (it has `/v1/info`), a token on every route
+  except `/` and `/v1/ui/hello`, and the alias `runners:run_prg` needs `prg.run` or `c64.run_prg`, while this core
+  registers `c64scpu.run_prg`. S4's `$01F000` is in the running KERNAL copy (D2), and `$1000C000` was a typo outside
+  the map.
+- **S3 PASS (2026-11-21, board, over the LAN):** `GET /` answered "TRX64 core application". `POST /v1/ui/grant` gave
+  the token (Alex: "ja bitte"). `GET /v1/info` gave the core "C64 with SuperCPU" with 111 operations.
+  `POST /v1/ops/c64scpu.run_prg` ran all eight T241.1 programs one after the other, and `machine.read_mem` read each
+  screen with its last line `n checks, m failed` (`tests/c64scpu/rest.py`; the screens are in T241.1 §5).
+- **S4 PASS (2026-11-21):** the bytes `A0`-`AF` written to `$020000` (SuperRAM) and to `$100C000` (C64 RAM `$C000`)
+  read back the same at both addresses. The old bytes were written back and read back the same.
+- **Seen on the way, not changed here (the core application's REST, not this core's):**
+  - `PUT /v1/runners:run_prg` answers code -6: "/v1/runners:run_prg needs the operation prg.run|c64.run_prg, which
+    this core did not register".
+  - `GET /v1/machine:readmem?address=1024&length=16` works with the token. `address=0400` reads `$0190`: the core
+    application reads the address as decimal, Gideon's application as hex, so the same URL reads another address.
+- **The picture (Alex, 2026-11-21, translated):** "the picture is black every now and then" - "but less often than with
+  248" - "the dropout comes about every 5-6 or 2-3 seconds". Not looked at in this spec.
