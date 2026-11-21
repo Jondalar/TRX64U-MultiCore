@@ -589,3 +589,6 @@ Open.
   class C_KS adds $8000 (`scpu_mem.v`), so only the low 15 bits of p are the CPU address's in every class. Expected: scpu6 conf and code at
   the full factor; bigr keeps the misses of its first sweep (2048 of 8192 reads). `tb_scpu_cache.v` runs the module at `IW` = 9: PASS
   (iverilog on the Mac, 2026-11-21). The Metal Dust benches' collisions (hudx, smc) lie below `$2000` in their banks, so they still meet.
+- The build (2026-11-21, builder, `vivado-env:2024.1`, as T250 D5: `docker run --init`, the heavy lock in the container; tree of
+  `1ca8ae66`, 13 min): routed, 0 routing errors; WNS +0.028 ns (sid2x_mmcm), TNS 0, WHS +0.052 ns; cpu_mmcm +0.158 ns, pix_mmcm
+  +0.071 ns. 23,683 LUT; 48 RAMB36 + 36 RAMB18 (66 of 75 tiles; `smem/cache` 8 RAMB36). Bitstream sha256 `1d4c3ab052d252a1...`.
