@@ -246,6 +246,7 @@ SRCS_CC	 =  u64ii_init.cc \
 			monsrv.cc \
 			diag.cc \
 			diagtest.cc \
+			i2csw.cc \
 			bugreport.cc \
 			corereport.cc \
 			netfs.cc \

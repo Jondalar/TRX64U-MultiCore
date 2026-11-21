@@ -72,6 +72,11 @@ void picture_set_system(CoreCtx *c, int sys);
 
 void picture_register(OpRegistry &r);       // Picture, Scale and Smoothing
 
+// T252: the screen check of picture_service (the hot-plug line and the EDID signature, every PICTURE_POLL_MS) on or off; on unless the I2C switches (i2csw.h)
+// turn it off. The confirm-or-revert wait of a changed mode runs either way.
+void picture_set_poll(bool on);
+bool picture_poll_on(void);
+
 // T164 G12, Q7: called on every pass of the application's loop, menu open or not. Every ~500 ms it looks at the hot-plug line and the screen's
 // signature; a screen it has not seen is read again, the list is rebuilt, and when the running row is not in the new mask the best row is applied
 // once. Every mode change (menu, REST, web) is held for PICTURE_CONFIRM_MS: picture_confirm_key() keeps it, the time running out puts the

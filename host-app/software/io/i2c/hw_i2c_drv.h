@@ -9,6 +9,7 @@ class Hw_I2C_Driver : public I2C_Driver
     int channel;
     volatile t_hw_i2c *i2c_regs;
     bool scanning;
+    int park_ticks;                 // T252: 0 (T242 D4), or the 2 of the firmware
 
 public:
     Hw_I2C_Driver(volatile t_hw_i2c *regs)
@@ -17,6 +18,7 @@ public:
         i2c_regs->scan_enable = 0;
         channel = 0;
         scanning = false;
+        park_ticks = 0;
     }
 
     void set_channel(int channel);
@@ -26,6 +28,7 @@ public:
     int i2c_send_byte(const uint8_t byte);
     uint8_t i2c_receive_byte(int ack);
     bool enable_scan(bool enable, bool automatic);
+    void set_park_wait(int ticks) { park_ticks = ticks; }
 };
 
 #endif /* HW_I2C_DRV_H_ */

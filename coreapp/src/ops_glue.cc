@@ -14,6 +14,7 @@
 #include "writeback.h"
 #include "pad.h"
 #include "libfiles.h"
+#include "i2csw.h"
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
@@ -82,6 +83,9 @@ OpRegistry *ops_of(CoreCtx *c)
         ops_register_base(*c->ops);
         if (c->desc && c->desc->register_ops) {
             c->desc->register_ops(*c->ops);
+        }
+        if (c->desc && desc_has_capability(c->desc, I2CSW_CAP)) {
+            i2csw_register(*c->ops);                                 // T252: the operations of the I2C switches' rows
         }
     }
     return c->ops;

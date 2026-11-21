@@ -42,6 +42,8 @@ public:
     virtual int i2c_send_byte(const uint8_t byte);
     virtual uint8_t i2c_receive_byte(int ack);
     virtual bool enable_scan(bool enable, bool automatic) { return false; }
+    // T252: the ticks enable_scan() sleeps after scan_enable = 0 (T242 D4: none; before T242: 2). The core application's I2C switches set it.
+    virtual void set_park_wait(int ticks) { }
 
     bool i2c_lock(const char *caller)
     {

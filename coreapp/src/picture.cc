@@ -22,6 +22,7 @@ static uint32_t g_sig = 0;                           // the signature of the scr
 static bool g_have_sig = false;
 static uint32_t g_next_poll = 0;
 static bool g_poll_armed = false;
+static bool g_poll_on = true;                        // T252: the I2C switches can stop the screen check (the EDID read every PICTURE_POLL_MS)
 static bool g_vic_scale = false;                     // T222: the core's picture is the VIC through the gateware's scaler, which has a scale register
 static bool g_list_dirty = false;                    // the Picture list was rebuilt outside picture_service (the C128's System Mode): the next picture_service says so
 static void set_machine_sys(CoreCtx *c, int sys);
@@ -605,6 +606,9 @@ static const char *st_video_line(CoreCtx *c)
     return t;
 }
 
+void picture_set_poll(bool on) { g_poll_on = on; }
+bool picture_poll_on(void) { return g_poll_on; }
+
 void picture_register(OpRegistry &r)
 {
     r.add_state("video.line", st_video_line);
@@ -791,7 +795,7 @@ int picture_service(CoreCtx *c)
         picmodes_back_text(t, g_result, sizeof(g_result));
         ev |= PS_CONFIRM_END | PS_LIST_CHANGED;
     }
-    if (g_poll_armed && (int32_t)(now - g_next_poll) < 0) {
+    if (!g_poll_on || (g_poll_armed && (int32_t)(now - g_next_poll) < 0)) {
         return ev;
     }
     g_poll_armed = true;

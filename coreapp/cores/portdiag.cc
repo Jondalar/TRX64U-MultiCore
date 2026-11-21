@@ -436,7 +436,7 @@ static const FileAction toml_actions[] = {
     { "Run test", "pd.run", run_bind, 1, false, 0, 0, 0, 0, 'R' },
     { "Load A/V preset", "pd.av_load", load_bind, 1, false, 0, 0, 0, 0, 'L' },
 };
-static const char *const pd_caps[] = { "pad" };
+static const char *const pd_caps[] = { "pad", "i2c_switches" };
 static const FileType filetypes[] = {
     { ".toml", toml_actions, 2, 0, 0, 0 },
 };
@@ -499,7 +499,7 @@ const CoreDesc portdiag_desc = {
     0, 0, false,
     0, 0,
     pd_register,
-    pd_caps, 1,                                            // caps: `pad` only lets the XInput driver claim a pad for the xpad test (T196 S7); the core has no PadSpec
+    pd_caps, 2,                                            // caps: `pad` only lets the XInput driver claim a pad for the xpad test (T196 S7), the core has no PadSpec; `i2c_switches` the I2C rows (T252)
     false,                                                 // board_caps
     false, 0, 0, 0, 0, 0, 0, 0,                            // id_shared, reset_writes, romset, window_media, sector_media, mouse, fbwin
     0, 0,                                                  // type_op, run_op

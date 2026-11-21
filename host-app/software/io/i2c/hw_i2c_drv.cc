@@ -49,15 +49,22 @@ uint8_t Hw_I2C_Driver :: i2c_receive_byte(int ack)
 
 // No sleep after scan_enable = 0 (T242 D4): host/app_i2c.v keeps the master busy until the keyboard scanner has stopped between two
 // transactions, so the first command waits in hardware. The firmware's vTaskDelay(2) here cost every i2c_lock 5-10 ms.
+// park_ticks (T252) brings the firmware's sleep back, for the core application's I2C switches; it is 0 unless one sets it.
 bool Hw_I2C_Driver :: enable_scan(bool enable, bool automatic)
 {
     if (automatic) {
         if (scanning) { // was it manually enabled?
             i2c_regs->scan_enable = enable ? 1 : 0;
+            if (!enable && park_ticks) {
+                vTaskDelay(park_ticks);
+            }
         }
     } else { // manual call to this function
         i2c_regs->scan_enable = enable ? 1 : 0;
         scanning = enable;
+        if (!enable && park_ticks) {
+            vTaskDelay(park_ticks);
+        }
     }
     return true;
 }

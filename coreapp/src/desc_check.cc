@@ -9,6 +9,7 @@
 #include "ops_glue.h"
 #include "libfmt.h"
 #include "picture.h"
+#include "i2csw.h"
 #include "engines.h"
 #include "mediamounts.h"
 
@@ -212,6 +213,12 @@ const char *desc_check(const CoreDesc *d)
         d->register_ops(reg);
         if (reg.error()[0]) {
             return fail("%s: %s", d->cor_name ? d->cor_name : "?", reg.error());
+        }
+    }
+    if (desc_has_capability(d, I2CSW_CAP)) {                     // T252: as ops_of
+        i2csw_register(reg);
+        if (reg.error()[0]) {
+            return fail("i2csw: %s", reg.error());
         }
     }
     return desc_check_with(d, reg);
