@@ -625,7 +625,7 @@ Open.
   the keyboard scanner (`enable_scan(true, false)`) instead of setting the expander 0x42, `hw_i2c_drv.cc` has no 2 ms wait after
   the scanner is parked, `legacy.cc` switches the scanner off before the IPROG. The CDCE synthesizers are on the same buses
   (`host/app_i2c.v`, the header). Not yet proven which file it is.
-- **2026-11-21, the dropouts proven and fixed (T253):** of the 15 files, only T242's touch the hardware while the core runs. The P7
+- **2026-11-21, the cause of the dropouts proven and fixed in T253 (its S2 first look: 0; the ten-minute look is open):** of the 15 files, only T242's touch the hardware while the core runs. The P7
   scan ran on the HDMI bus too; the screen check's EDID read got `NACK on address A0` and applied 1080p50 again (78 times
   `[core] screen changed`, `c64scpu_t253`). With the scan on the 1.8 V bus only (T253 D1, `c64scpu_t253k`): 0.
 - **2026-11-21, the colours:** Alex (translated), on `c64scpu_t253k`: "Boot colours of the CMD start? Super. All good."

@@ -114,8 +114,10 @@ Scenario: S4 (P1) every core and the host
 
 ## §5 Built
 
-- **2026-11-21, branch `t253-pr112`** (from `integration` `3ec353c7`): D2 (`b3d8f946`, `cf0f6f73`, `46180837`).
+- **2026-11-21, branch `t253-pr112`** (from `integration` `3ec353c7`): D2 (`b3d8f946`, `cf0f6f73`, `e47c184a`).
 - **2026-11-21, branch `t253-scpu-test`** (from `t241-scpu-fix`): D2, and D1 in `cores/c64scpu/mono/top.v` (`c64e74e3`).
+  `t253-scpu-test` (with `c64e74e3` and `fd6b4d47`, the trees of the board files) is a local branch and is not pushed;
+  `integ-0.2.1` carries the same changes: D1 in `9c038ee5`, D2 in `b3d8f946`, `cf0f6f73`, `e47c184a`.
 - **S1 PASS (2026-11-21):** builder, `t253-vivado.sh` as T250 D5 (`docker run --init`, the heavy lock in the container),
   tree `c64e74e3`. `route_status.rpt`: 0 nets with routing errors. `timing.rpt`: "All user specified timing constraints
   are met", WNS +0.008 ns, TNS 0, WHS +0.052 ns. `utilization_hier.rpt`: top 23,696 LUT.
@@ -147,7 +149,10 @@ Scenario: S4 (P1) every core and the host
 - **The bench `host/sim/tb_app_i2c.v`** modelled the old mux (the scan on all three buses, `sda_in` the AND of the
   three). It models D1 now (the scan on the 1.8 V bus; the synthesizer master is not in the bench). Run on the builder
   in `trx64-sim-env:5` with `ci/sim_iv.sh tb_app_i2c.v`: "codec writes 11, keyboard transactions 130, kb NACKs 0",
-  "errors 0: PASS"; the old model gives the same lines.
+  "errors 0: PASS"; the old model gives the same lines. So the bench does not tell D1 from the old mux (no check counts
+  traffic on bus 1 or 2 during the scan), and no bench reads the block of `top.v`: it proves the application's master
+  and the scan with SDA read from bus 0 alone. The comment of `host/app_i2c.v` (and its 13 copies) says D1 now; the
+  host pin moves with it (`host/app_i2c.v` only).
 - **The build of every core:** a feature branch builds only the cores it touches, so after a host change the DFX
   cores have no bitstream against the new host and the package fails (`ci/plan.py` `full_scope`). The bundle is
   pushed as `integ-0.2.1`: full scope, every core, the sims, the package.

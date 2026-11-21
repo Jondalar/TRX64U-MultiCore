@@ -81,7 +81,7 @@ a7a39e954a1da7a25a9f21e475060466e96caeea cores/common/drv_dbg.v
 54cc6541854fb8d5450da94fc67e1df06593f821 cores/common/trx_engine.v
 d917bf6b9355e5eb781e214d2d7a5f9f843913a5 cores/common/trx_io.v
 a0f286560cdb313a32232aa18a167215ad9864d1 cores/common/trx_sys.v
-c58a7f7fb2360e5faf578c3658ab9829fa9b2d84 host/app_i2c.v
+233932782e4c4607ea3746782b1a8dfd010cca7c host/app_i2c.v
 8a15b7b3a882c00363a135c1f94bcc3ee348abee host/app_input.v
 a9c6227d75bc92b19436f1223bfbb6180456eaee host/bling_io.v
 9f20c2013e4947b13306a14767c12354c84508f2 host/bling_keyboard.v

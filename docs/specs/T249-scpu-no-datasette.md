@@ -1,7 +1,7 @@
 # T249 — c64scpu: no datasette
 
 **Status:** IN PROGRESS (2026-11-21). Asked by Alex, 2026-11-21.
-Open (one line, as in the TODO table): IN PROGRESS 11-21: S1 PASS (run 44880276432), S3 by reading, keywalk golden new; open: S2 on bundle-0.2.1, merge
+Open (one line, as in the TODO table): IN PROGRESS 11-21: S1 PASS (run 44880276432), S3 by reading, keywalk golden new; open: S2 on integ-0.2.1, merge
 **Repo:** TRX64U-MultiCore — `cores/c64scpu/mono/core.toml`, `coreapp/cores/c64scpu.cc`, `coreapp/cores/c64scpu_regs.h`.
 **Number:** T249.
 **Origin:** Alex, 2026-11-21 (translated): "And then, before you optimise further: the datasette out of the core, there is no
@@ -79,7 +79,7 @@ Scenario: S3 (P2) an old settings file still loads
 - `tools/dev.sh test` failed (rc 1): tree-sitter is missing in the dev container. Not fixed; the pipeline's apptests job
   ran green.
 - **Open:** the S2 unit result from a log; the merge, together with T248 and T241 S2.
-- **2026-11-21, `bundle-0.2.1`:** T249's two commits (`6b3e7bbc`, `121360a2`) are on `t241-scpu-fix` without T248
+- **2026-11-21, `integ-0.2.1`:** T249's two commits (`6b3e7bbc`, `121360a2`) are on `t241-scpu-fix` without T248
   (T241 §5), not on `t248-scpu-depth` as D3 said. `tests/coreapp/golden/keywalk.txt` was not made again for the row this
   removes (the review): `CA_GROUP=cross UPDATE_GOLDEN=1 tests/coreapp/run.sh` moves 85 lines, all of them "C64 with
   SuperCPU" (F1, F3, F5, F8); no other core's line moves.
