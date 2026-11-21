@@ -13,7 +13,7 @@ for debugging."
 **Depends on:** T182 (the core), T208 (mirror queue, BA write hold), T217 (the PRG start bench `cores/c64scpu/sim/run_prgrun.sh`).
 **Milestone:** M2.
 
-Open (one line, as in the TODO table): D4 11-21 board: scpu4, scpu5 b/c, scpu6 conf/code fixed; open: picture dropouts, boot colours, scpu5 d, bigr
+Open (one line, as in the TODO table): D4 11-21 board: Boom plays, scpu4/5b-c/6 conf-code fixed; open: picture dropouts, boot colours, scpu5 d, bigr
 
 ---
 
@@ -611,4 +611,5 @@ Open.
   2026-11-20) has none. Every core with dropouts (t248 `1131711e`, t250 `6c86f802`, t241fix `b7571876`) has S2 and an
   application of 2026-11-21: the two are not separated yet.
 - Boom on this core (2026-11-21, after the suite): Alex started it: "Läuft" ("it runs"), "aber nicht spielbar mit den
-  Aussetzern" ("but not playable with the dropouts").
+  Aussetzern" ("but not playable with the dropouts"); asked whether it runs in play, where every build since S2
+  crashed: "Ja, ich kann spielen" ("yes, I can play").
