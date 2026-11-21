@@ -1,0 +1,99 @@
+The suite on a stock C64 (T241.1): the screens of the c64re runtime, model c64-pal (VIC-II 6569, 63 x 312 cycles,
+985248 Hz), 2026-11-21, of the .prg files as committed with this file. scpu1 also on c64-ntsc (6567R8, 65 x 263).
+The board's own C64 core is the second reference (README.md, step 0).
+
+scpu1_env (c64-pal)
+  SCPU1 ENV  SC:0 B3:FF B9:FF B6:FF
+  VIC FRAME  19655 CYC LINES 312 PAL OK
+  KERNAL $02A6=1 TA PERIOD  16422 OK
+  TOD CYCLES/S  985265 OK
+  CINT REPLAY (P=PAL N=NTSC), START LINE:
+       0 100 180 200 210 220 230 240 250
+  1M  P   P   P   P   P   P   P   P   P
+  20  P   P   P   P   P   P   P   P   P
+  MD  P   P   P   P   P   P   P   P   P
+  $E518 1MHZ  40550  20MHZ  40549
+  $E544 CLEAR 20MHZ  39728 OK
+   23 CHECKS,  0 FAILED
+
+scpu1_env (c64-ntsc)
+  VIC FRAME  17095 CYC LINES 263 NTSC OK
+  KERNAL $02A6=0 TA PERIOD  17045 OK
+  TOD CYCLES/S 1022801 OK
+  1M  N   N   N   N   N   N   N   N   N
+  20  N   N   N   N   N   N   N   N   N
+  MD  N   N   N   N   N   N   N   N   N
+  $E518 1MHZ  40976  20MHZ  40974
+  $E544 CLEAR 20MHZ  40209 OK
+   23 CHECKS,  0 FAILED
+
+scpu2_ops
+  CASES DIFFERING: OP VAR EXP>GOT
+  201 CHECKS,  0 FAILED
+
+scpu3_1mhz
+  LOAD   A.OFF    B.OFF    A.SPR    B.SPR
+  REG   257215   257215   277851   277851
+  ZP   1025215  1025215  1107309  1107308
+  MEM   215295   215295   232609   232609
+  BIGR  131147   131147   141465   141464
+  CONF  213391   213391   230649   230649
+  CODE   23439    23439    24911    24913
+  WCNF  229775   229775   247818   247831
+   28 CHECKS,  0 FAILED
+
+scpu4_irq
+  SLED        LOW  HI   (CYCLES)
+  NOP          12  13
+  LDA ZP       12  14
+  LDA ABS      12  15
+  LDA (ZP),Y   12  16
+  INC ZP       12  16
+  INC ABS      12  17
+  INC ABS,X    12  18
+  JMP NEXT     12  14
+  BNE TAKEN    13  15
+  PHA PLA      12  15
+   20 CHECKS,  0 FAILED
+
+scpu5_chain
+  C  ANY  ALL  (K IN CYCLES)
+  A   61   62
+  B   58   62
+  C   79   82
+  D   39   43
+  SOAK (COND D) AT K= 43
+  FRAMES  500 EARLY    0  ORDER    0
+    6 CHECKS,  0 FAILED
+
+scpu6_20mhz
+  NO SUPERCPU: NOTHING TO MEASURE
+    0 CHECKS,  0 FAILED
+
+scpu7_mirror
+  ADDR  C7  C0  80  40  00  (1/20 MHZ)
+  00F0  11  11  11  11  11
+  0110  11  11  11  11  11
+  0340  11  11  11  11  11
+  07F0  11  11  11  11  11
+  2800  11  11  11  11  11
+  5000  11  11  11  11  11
+  A800  11  11  11  11  11
+  C800  11  11  11  11  11
+  BURST  111  111
+  RMW    10  10
+  16BIT  --
+  MVN    --
+   44 CHECKS,  0 FAILED
+
+scpu8_shadow
+  01 RD  WR   RD  WR   (1 MHZ, 20 MHZ)
+  30 RRR RRR  RRR RRR
+  31 RCR RRR  RCR RRR
+  32 RCK RRR  RCK RRR
+  33 BCK RRR  BCK RRR
+  34 RRR RRR  RRR RRR
+  35 RIR RIR  RIR RIR
+  36 RIK RIR  RIK RIR
+  37 BIK RIR  BIK RIR
+    8 CHECKS,  0 FAILED
