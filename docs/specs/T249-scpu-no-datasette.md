@@ -48,8 +48,10 @@ Scenario: S3 (P2) an old settings file still loads
 ## §3 Decision
 
 - Alex, 2026-11-21 (translated): "the datasette out of the core, there is no SuperCPU software for the datasette."
-- **D1 (P1):** `TRX_DEFS` in `mono_env` loses `TAPE`. `layer2_c64scpu.v` is not changed: its `else` branches tie the C2N pins
-  and answer the two register pages of the block (data 0, ack 1).
+- **D1 (P1):** `TRX_DEFS` in `mono_env` loses `TAPE`. `layer2_c64scpu.v` builds its `else` branches: they release the C2N pins
+  (the IOBUFs of `mono/top.v` get enable 0) and answer the two register pages of the block (data 0, ack 1). The C64 reads READ
+  idle and SENSE high. The capability word names `CAPAB_C2N_STREAMER` and `CAPAB_C2N_RECORDER` only with `TAPE`. No code reads
+  these bits today; the word names only blocks the core has (review, 2026-11-21).
 - **D2 (P2):** the row "Datasette port", the op `c64scpu.set_dset` and the register name `SCPU_PIN_CTRL` go out of the core app.
 - **D3:** branch `t249-scpu-no-tape` from `t248-scpu-depth`, so one pipeline run shows T248 and T249 together.
 - T214 gave the c64scpu its datasette. From 2026-11-21 the c64scpu is not in the scope of T214 (recorded in T214 §5).
