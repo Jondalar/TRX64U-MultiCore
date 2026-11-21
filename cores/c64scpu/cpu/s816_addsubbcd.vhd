@@ -29,7 +29,7 @@ architecture rtl of s816_addsubbcd is
 	end record;
 	type nib_a is array(0 to 3) of nib_t;
 
-	function nibble(A, B : std_logic_vector(3 downto 0); c, ADD, BCD : std_logic) return nib_t is
+	function nibble(xa, xb : std_logic_vector(3 downto 0); c, xadd, xbcd : std_logic) return nib_t is
 		variable B2     : std_logic_vector(3 downto 0);
 		variable BIN    : unsigned(4 downto 0);
 		variable BIN_S  : std_logic_vector(3 downto 0);
@@ -41,24 +41,24 @@ architecture rtl of s816_addsubbcd is
 		variable CORR   : unsigned(3 downto 0);
 		variable r      : nib_t;
 	begin
-		B2 := B xor (3 downto 0 => not ADD);
+		B2 := xb xor (3 downto 0 => not xadd);
 		CIN := 0;
 		if c = '1' then CIN := 1; end if;
-		BIN := ('0' & unsigned(A)) + ('0' & unsigned(B2)) + CIN;
+		BIN := ('0' & unsigned(xa)) + ('0' & unsigned(B2)) + CIN;
 		BIN_S := std_logic_vector(BIN(3 downto 0));
 		BIN_CO := BIN(4);
-		BCD_CO := (((BIN_S(3) and BIN_S(2)) or (BIN_S(3) and BIN_S(1))) and ADD) or (not (BIN_CO xor ADD));
-		BCD_B := not ADD & ((BCD_CO and BCD) xor not ADD) & ((BCD_CO and BCD) xor not ADD) & not ADD;
+		BCD_CO := (((BIN_S(3) and BIN_S(2)) or (BIN_S(3) and BIN_S(1))) and xadd) or (not (BIN_CO xor xadd));
+		BCD_B := not xadd & ((BCD_CO and xbcd) xor not xadd) & ((BCD_CO and xbcd) xor not xadd) & not xadd;
 		CC := 0;
-		if ADD = '0' then CC := 1; end if;
+		if xadd = '0' then CC := 1; end if;
 		CORR := unsigned(BIN_S) + unsigned(BCD_B) + CC;
 		r.S := std_logic_vector(CORR);
-		if BCD = '0' then
+		if xbcd = '0' then
 			r.CO := BIN_CO;
 		else
-			r.CO := BCD_CO xor not ADD;
+			r.CO := BCD_CO xor not xadd;
 		end if;
-		r.VO := (not (A(3) xor B2(3))) and (A(3) xor BIN_S(3));
+		r.VO := (not (xa(3) xor B2(3))) and (xa(3) xor BIN_S(3));
 		return r;
 	end function;
 
