@@ -26,7 +26,7 @@ Changes against the upstream files (all of them, nothing else is touched):
     high byte of PC (state 4, STATE_CTRL 111) now goes on to state 7 in that case, and the microcode row of RTI's state 7 (all X upstream, read as zero, never visited: native RTI ends in state 6)
     becomes STATE_CTRL 010 with everything else 0: an internal cycle (no VDA, no VPA, no register load) that ends the instruction. Native mode (EF = 0, 7 cycles) is unchanged. T241 S2.
   - the decimal adder (s816_addsubbcd) is a carry select with `+`: per nibble the binary sum and the decimal correction of s816_bcdadder are computed for carry in 0 and for carry in 1
-    in parallel (numeric_std `+`, so Vivado uses the carry chain), the real carry into the nibble only selects S, CO and VO; the same S, CO and VO for every input (the proof is
+    in parallel (numeric_std `+`, so that Vivado can use the carry chain), the real carry into the nibble only selects S, CO and VO; the same S, CO and VO for every input (the proof is
     cores/c64scpu/sim/run_addsub_equiv.sh against the upstream adder, which `ref_adder()` below makes). s816_bcdadder, s816_adder4 and s816_bit_adder are still made, no longer instantiated
     by the CPU. T248.
 """
@@ -138,7 +138,7 @@ end rtl;
 
 ADDSUB_ARCH = """architecture rtl of s816_addsubbcd is
 
-	-- T248: carry select. One nibble of s816_bcdadder (binary sum, decimal correction) for a given carry in, with `+` so that the carry chain is used.
+	-- T248: carry select. One nibble of s816_bcdadder (binary sum, decimal correction) for a given carry in, with `+` so that Vivado can use the carry chain.
 	type nib_t is record
 		S  : std_logic_vector(3 downto 0);
 		CO : std_logic;
@@ -268,7 +268,7 @@ def cpu(t):
 
 
 def ref_adder():
-    """upstream's adder (ring of s816_bcdadder), the entities suffixed _ref: the reference of cores/c64scpu/sim/run_addsub_equiv.sh (T248). Returns (name, text) pairs, not written to cpu/"""
+    """upstream's adder (chain of s816_bcdadder), the entities suffixed _ref: the reference of cores/c64scpu/sim/run_addsub_equiv.sh (T248). Returns (name, text) pairs, not written to cpu/"""
     res = []
     for s in ('BCDAdder.vhd', 'AddSubBCD.vhd'):
         t = rename(open(os.path.join(SRC, s)).read())
@@ -296,7 +296,10 @@ def make():
 
 if __name__ == '__main__':
     if '--ref' in sys.argv:         # --ref DIR: write the reference adder (the upstream one, entities suffixed _ref) into DIR
-        refdir = sys.argv[sys.argv.index('--ref') + 1]
+        i = sys.argv.index('--ref') + 1
+        if i >= len(sys.argv):
+            sys.exit('usage: scpu_vendor816.py --ref DIR')
+        refdir = sys.argv[i]
         os.makedirs(refdir, exist_ok=True)
         for n, t in ref_adder():
             open(os.path.join(refdir, n.replace('.vhd', '_ref.vhd')), 'w').write(t)

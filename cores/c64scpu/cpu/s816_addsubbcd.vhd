@@ -21,7 +21,7 @@ end s816_addsubbcd;
 
 architecture rtl of s816_addsubbcd is
 
-	-- T248: carry select. One nibble of s816_bcdadder (binary sum, decimal correction) for a given carry in, with `+` so that the carry chain is used.
+	-- T248: carry select. One nibble of s816_bcdadder (binary sum, decimal correction) for a given carry in, with `+` so that Vivado can use the carry chain.
 	type nib_t is record
 		S  : std_logic_vector(3 downto 0);
 		CO : std_logic;
