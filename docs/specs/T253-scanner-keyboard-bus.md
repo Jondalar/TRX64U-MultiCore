@@ -108,3 +108,9 @@ Scenario: S4 (P1) every core and the host
 - **The board file:** `c64scpu_t253k.cor` (3,586,939 bytes) in `/SD/cores/`, with the ROMs and the settings of
   `c64scpu_t253`: the bitstream of `c64e74e3` (sha256 `083a03c0...`), the application of `fd6b4d47` (PR #112 as it is,
   sha256 `b5a5265a...`, the same as in `c64scpu_t253`). Between the two builds only D1 differs.
+- **S2, first look (2026-11-21 20:07):** `c64scpu_t253k` started by Alex from the file browser. `GET /v1/report`: 0 lines
+  `screen changed`, 0 lines `NACK on address A0` (the T253 build without D1 had 78 and most of them NACKs). The check
+  after ten minutes follows.
+- **S3, the picture (2026-11-21):** Alex (translated): "Basically it is OK for the SCPU core for now." The start animation's
+  colour and the P7 keys were not named.
+
