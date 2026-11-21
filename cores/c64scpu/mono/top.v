@@ -866,11 +866,12 @@ module top #(
     wire scl_low, sda_low, i2c_done;
     wire mc_cdce_v60;
     // (the sequencer is cdce_mode in hdmi_out.v: the PLL registers of the HDMI mode, T164 WP8)
-    // After the synthesizers, the keyboard scan takes the buses over. Which of
-    // the three buses the keyboard expander sits on differs between board
-    // versions (Gideon's bootloader swaps them by board revision), so the scan
-    // runs on all three at once: the buses are open drain, the expander answers
-    // on its own one and the others stay high.
+    // The synthesizer master drives the 1.8 V and the HDMI bus until i2c_done (the
+    // two PLLs change between those two with the board revision: u64ii_init.cc,
+    // hw_version 0x15). After i2c_done the keyboard scan has the 1.8 V bus only:
+    // the keyboard expander 0x21 is there on every revision (u64ii_init.cc writes
+    // it on I2C_CHANNEL_1V8 with no condition). The HDMI bus (the monitor's DDC)
+    // and the 3.3 V bus are released, as before the scan ran (T253 D1).
     wire kb_scl_low, kb_sda_low, sda18_in, sdahd_in, sda33_in;
     wire bus_scl_low = i2c_done ? kb_scl_low : scl_low;
     wire bus_sda_low = i2c_done ? kb_sda_low : sda_low;
@@ -882,9 +883,9 @@ module top #(
     // The app's master has them while it owns them (app_i2c.v: claimed with
     // scan_enable 0 once the keyboard scan stands between two transactions).
     wire [2:0]  scl_lo = ovr ? i2c_ovr[2:0] : (ai2c_own & i2c_done) ? ai2c_scl_lo :
-                         {i2c_done & kb_scl_low, bus_scl_low, bus_scl_low};
+                         {1'b0, ~i2c_done & scl_low, bus_scl_low};
     wire [2:0]  sda_lo = ovr ? i2c_ovr[5:3] : (ai2c_own & i2c_done) ? ai2c_sda_lo :
-                         {i2c_done & kb_sda_low, bus_sda_low, bus_sda_low};
+                         {1'b0, ~i2c_done & sda_low, bus_sda_low};
     wire scl18_in, sclhd_in, scl33_in;
     IOBUF b_scl18 (.IO(I2C18_SCL), .I(1'b0), .T(~scl_lo[0]), .O(scl18_in));
     IOBUF b_sda18 (.IO(I2C18_SDA), .I(1'b0), .T(~sda_lo[0]), .O(sda18_in));
@@ -892,7 +893,7 @@ module top #(
     IOBUF b_sdahd (.IO(HDMI_SDA),  .I(1'b0), .T(~sda_lo[1]), .O(sdahd_in));
     IOBUF b_scl33 (.IO(I2C33_SCL), .I(1'b0), .T(~scl_lo[2]), .O(scl33_in));
     IOBUF b_sda33 (.IO(I2C33_SDA), .I(1'b0), .T(~sda_lo[2]), .O(sda33_in));
-    wire kb_sda_in = sda18_in & sdahd_in & sda33_in;
+    wire kb_sda_in = sda18_in;                  // the expander answers on the 1.8 V bus only (T253 D1)
     app_i2c ai2c (
         .clk(cpu_clk), .rst(cpu_rst), .we(ai2c_we), .re(ai2c_re), .addr(ai2c_addr),
         .wdata(ai2c_wdata), .rdata(ai2c_rdata), .scan_en(ai2c_scan),
