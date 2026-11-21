@@ -1,7 +1,7 @@
 # T241 — SuperCPU releases show on the C64SCPU core the picture their CPU wrote (GitHub #108)
 
-**Status:** LATER (2026-11-20): the intro's cause is fixed (the RMW write, §5) and goes into `integration` (D3); Master's Boom in play:
-the S2 fix (IRQ poll point, RTI cycles) is built on the branch `t241-s2-irq` (§5, 2026-11-20), its sims and the board are open. PROPOSED 2026-11-19 (Alex).
+**Status:** LATER (2026-11-21): for 0.2.1 Boom plays on the board, the CMD start has its colours and the picture does not drop
+out (the dropouts were T242's, fixed by T253); open for 0.3.0: scpu5 d, bigr (§5). PROPOSED 2026-11-19 (Alex).
 **Repo:** TRX64U-MultiCore — the core `cores/c64scpu/` (`scpu_mem.v`: register file, memory map, mirror queue; `scpu_cache.v`), its
 benches `cores/c64scpu/sim/`; the debugging tools `tools/dis65816` and `tools/emu816`.
 **Number:** T241.
@@ -13,7 +13,7 @@ for debugging."
 **Depends on:** T182 (the core), T208 (mirror queue, BA write hold), T217 (the PRG start bench `cores/c64scpu/sim/run_prgrun.sh`).
 **Milestone:** M2.
 
-Open (one line, as in the TODO table): D4 11-21 board: Boom plays, scpu4/5b-c/6 conf-code fixed; open: picture dropouts, boot colours, scpu5 d, bigr
+Open (one line, as in the TODO table): 11-21 board: Boom plays, CMD colours OK, no dropouts (T253); open for 0.3.0: scpu5 d, bigr
 
 ---
 
@@ -625,3 +625,10 @@ Open.
   the keyboard scanner (`enable_scan(true, false)`) instead of setting the expander 0x42, `hw_i2c_drv.cc` has no 2 ms wait after
   the scanner is parked, `legacy.cc` switches the scanner off before the IPROG. The CDCE synthesizers are on the same buses
   (`host/app_i2c.v`, the header). Not yet proven which file it is.
+- **2026-11-21, the dropouts proven and fixed (T253):** of the 15 files, only T242's touch the hardware while the core runs. The P7
+  scan ran on the HDMI bus too; the screen check's EDID read got `NACK on address A0` and applied 1080p50 again (78 times
+  `[core] screen changed`, `c64scpu_t253`). With the scan on the 1.8 V bus only (T253 D1, `c64scpu_t253k`): 0.
+- **2026-11-21, the colours:** Alex (translated), on `c64scpu_t253k`: "Boot colours of the CMD start? Super. All good."
+- **2026-11-21, #108 for 0.2.1:** asked whether Boom's state is enough for 0.2.1 and the rest of #108 moves to 0.3.0, Alex
+  answered (translated) "All good." Open for 0.3.0: scpu5 d, bigr.
+

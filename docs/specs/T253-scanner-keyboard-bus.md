@@ -1,7 +1,7 @@
 # T253 — The P7 keyboard scan uses the keyboard's I2C bus only, and the applications start it as PR #112 does
 
 **Status:** IN PROGRESS (2026-11-21). Asked by Alex, 2026-11-21.
-Open (one line, as in the TODO table): IN PROGRESS 11-21: S1 PASS; open: S2-S4, the host pin
+Open (one line, as in the TODO table): IN PROGRESS 11-21: S1 PASS, S3 picture and colours; open: S2 10 min, S3 P7 key, S4, host pin
 **Repo:** TRX64U-MultiCore — the I2C wiring in the top of every large core (`cores/*/mono/top.v`, `cores/*/mono/host/top.v`)
 and of the host (`host/top.v`); the start of the scan in the applications (`coreapp/src/coreapp.cc`,
 `host-app/software/hostapp/hostapp.cc`, `host-app/software/system/u64ii_init.cc`, `host-app/software/io/i2c/hw_i2c_drv.cc`).
@@ -124,4 +124,6 @@ Scenario: S4 (P1) every core and the host
   the menus." Neither goes through the I2C scan: the bling board's keyboard comes on its own serial line
   (`bling_keyboard bkb`, `.rx(bk_s[1])` in `cores/c64scpu/mono/top.v`), the USB keyboard through USB. D1 touches only the
   P7 header keyboard.
+- **S3, the colours (2026-11-21):** Alex (translated): "Boot colours of the CMD start? Super. All good." S3's picture and colour
+  parts hold; its P7 key part waits for the keyboard (not attached).
 
