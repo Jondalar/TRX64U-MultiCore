@@ -1,99 +1,223 @@
-The suite on a stock C64 (T241.1): the screens of the c64re runtime, model c64-pal (VIC-II 6569, 63 x 312 cycles,
-985248 Hz), 2026-11-21, of the .prg files as committed with this file. scpu1 also on c64-ntsc (6567R8, 65 x 263).
-The board's own C64 core is the second reference (README.md, step 0).
+The suite's references (T241.1), 2026-11-21, of the .prg files as committed with this file.
 
-scpu1_env (c64-pal)
-  SCPU1 ENV  SC:0 B3:FF B9:FF B6:FF
-  VIC FRAME  19655 CYC LINES 312 PAL OK
-  KERNAL $02A6=1 TA PERIOD  16422 OK
-  TOD CYCLES/S  985265 OK
-  CINT REPLAY (P=PAL N=NTSC), START LINE:
+trx64g: the board's C64 core, run and read over REST (rest.py). The expected values in the programs are these.
+c64re: the c64re runtime, model c64-pal (VIC-II 6569, 63 x 312 cycles, 985248 Hz); scpu1 also on c64-ntsc (6567R8,
+65 x 263). It differs from trx64g in two places: scpu4, one cycle more in every row (its CIA is a 6526; trx64g and the
+c64scpu use the 8521, whose interrupt comes one cycle earlier), and scpu5 condition d, one cycle less (the sprite DMA).
+Values that vary from run to run on both: the TOD rate and the $e518 time of scpu1, the spr columns of scpu3 (checked
+within 64).
+
+== trx64g ==
+
+scpu1_env
+  scpu1 env  sc:0 b3:ff b9:ff b6:ff
+  vic frame  19655 cyc lines 312 pal ok
+  kernal $02a6=1 ta period  16422 ok
+  tod cycles/s  985151 ok
+  cint replay (p=pal n=ntsc), start line:
        0 100 180 200 210 220 230 240 250
-  1M  P   P   P   P   P   P   P   P   P
-  20  P   P   P   P   P   P   P   P   P
-  MD  P   P   P   P   P   P   P   P   P
-  $E518 1MHZ  40550  20MHZ  40549
-  $E544 CLEAR 20MHZ  39728 OK
-   23 CHECKS,  0 FAILED
-
-scpu1_env (c64-ntsc)
-  VIC FRAME  17095 CYC LINES 263 NTSC OK
-  KERNAL $02A6=0 TA PERIOD  17045 OK
-  TOD CYCLES/S 1022801 OK
-  1M  N   N   N   N   N   N   N   N   N
-  20  N   N   N   N   N   N   N   N   N
-  MD  N   N   N   N   N   N   N   N   N
-  $E518 1MHZ  40976  20MHZ  40974
-  $E544 CLEAR 20MHZ  40209 OK
-   23 CHECKS,  0 FAILED
+  1m  p   p   p   p   p   p   p   p   p
+  20  p   p   p   p   p   p   p   p   p
+  md  p   p   p   p   p   p   p   p   p
+  $e518 1mhz  40549  20mhz  40549
+  $e544 clear 20mhz  39728 ok
+     23 checks,    0 failed
 
 scpu2_ops
-  CASES DIFFERING: OP VAR EXP>GOT
-  201 CHECKS,  0 FAILED
+  scpu2 ops  sc:0 b3:ff b9:ff b6:ff
+  differing: m op var exp>got, m 7=c7 0=c0
+    402 checks,    0 failed
 
 scpu3_1mhz
-  LOAD   A.OFF    B.OFF    A.SPR    B.SPR
-  REG   257215   257215   277851   277851
-  ZP   1025215  1025215  1107309  1107308
-  MEM   215295   215295   232609   232609
-  BIGR  131147   131147   141465   141464
-  CONF  213391   213391   230649   230649
-  CODE   23439    23439    24911    24913
-  WCNF  229775   229775   247818   247831
-   28 CHECKS,  0 FAILED
+  scpu3 1mhz  sc:0 b3:ff b9:ff b6:ff
+  load   a.off    b.off    a.spr    b.spr
+  reg   257215   257215   277851   277851
+  zp   1025215  1025215  1107312  1107314
+  mem   215295   215295   232605   232606
+  bigr  131147   131147   141465   141465
+  conf  213391   213391   230692   230692
+  code   23439    23439    24911    24913
+  wcnf  229775   229775   247866   247867
+  a=$c7 b=$c0 off:exact spr:+-64 *=not c64
+     28 checks,    0 failed
 
 scpu4_irq
-  SLED        LOW  HI   (CYCLES)
-  NOP          12  13
-  LDA ZP       12  14
-  LDA ABS      12  15
-  LDA (ZP),Y   12  16
-  INC ZP       12  16
-  INC ABS      12  17
-  INC ABS,X    12  18
-  JMP NEXT     12  14
-  BNE TAKEN    13  15
-  PHA PLA      12  15
-   20 CHECKS,  0 FAILED
+  scpu4 irq  sc:0 b3:ff b9:ff b6:ff
+  sled     c7  lo  hi c0  lo  hi cycles
+  nop          11  12     11  12
+  lda zp       11  13     11  13
+  lda abs      11  14     11  14
+  lda (zp),y   11  15     11  15
+  inc zp       11  15     11  15
+  inc abs      11  16     11  16
+  inc abs,x    11  17     11  17
+  jmp next     11  13     11  13
+  bne taken    12  14     12  14
+  pha pla      11  14     11  14
+     40 checks,    0 failed
 
 scpu5_chain
-  C  ANY  ALL  (K IN CYCLES)
-  A   61   62
-  B   58   62
-  C   79   82
-  D   39   43
-  SOAK (COND D) AT K= 43
-  FRAMES  500 EARLY    0  ORDER    0
-    6 CHECKS,  0 FAILED
+  scpu5 chain  sc:0 b3:ff b9:ff b6:ff
+  c c7  any  all  c0 any  all  k cycles
+  a      61   62      61   62
+  b      58   62      58   62
+  c      78   82      78   82
+  d      40   44      40   44
+  soak (cond d) at k= 44
+  c7 frames  500 early    0  order    0
+  c0 frames  500 early    0  order    0
+     20 checks,    0 failed
 
 scpu6_20mhz
-  NO SUPERCPU: NOTHING TO MEASURE
-    0 CHECKS,  0 FAILED
+  scpu6 20mhz  sc:0 b3:ff b9:ff b6:ff
+  no supercpu: nothing to measure
+      0 checks,    0 failed
 
 scpu7_mirror
-  ADDR  C7  C0  80  40  00  (1/20 MHZ)
-  00F0  11  11  11  11  11
+  scpu7 mirror  sc:0 b3:ff b9:ff b6:ff
+  addr  c7  c0  80  40  00  (1/20 mhz)
+  00f0  11  11  11  11  11
   0110  11  11  11  11  11
   0340  11  11  11  11  11
-  07F0  11  11  11  11  11
+  07f0  11  11  11  11  11
   2800  11  11  11  11  11
   5000  11  11  11  11  11
-  A800  11  11  11  11  11
-  C800  11  11  11  11  11
-  BURST  111  111
-  RMW    10  10
-  16BIT  --
-  MVN    --
-   44 CHECKS,  0 FAILED
+  a800  11  11  11  11  11
+  c800  11  11  11  11  11
+  burst  111  111
+  rmw    10  10
+  16bit  --
+  mvn    --
+     44 checks,    0 failed
 
 scpu8_shadow
-  01 RD  WR   RD  WR   (1 MHZ, 20 MHZ)
-  30 RRR RRR  RRR RRR
-  31 RCR RRR  RCR RRR
-  32 RCK RRR  RCK RRR
-  33 BCK RRR  BCK RRR
-  34 RRR RRR  RRR RRR
-  35 RIR RIR  RIR RIR
-  36 RIK RIR  RIK RIR
-  37 BIK RIR  BIK RIR
-    8 CHECKS,  0 FAILED
+  scpu8 shadow  sc:0 b3:ff b9:ff b6:ff
+  01 rd  wr   rd  wr   (1 mhz, 20 mhz)
+  30 rrr rrr  rrr rrr
+  31 rcr rrr  rcr rrr
+  32 rck rrr  rck rrr
+  33 bck rrr  bck rrr
+  34 rrr rrr  rrr rrr
+  35 rir rir  rir rir
+  36 rik rir  rik rir
+  37 bik rir  bik rir
+      8 checks,    0 failed
+
+== c64re, c64-pal ==
+
+scpu1_env
+  scpu1 env  sc:0 b3:ff b9:ff b6:ff
+  vic frame  19655 cyc lines 312 pal ok
+  kernal $02a6=1 ta period  16422 ok
+  tod cycles/s  985265 ok
+  cint replay (p=pal n=ntsc), start line:
+       0 100 180 200 210 220 230 240 250
+  1m  p   p   p   p   p   p   p   p   p
+  20  p   p   p   p   p   p   p   p   p
+  md  p   p   p   p   p   p   p   p   p
+  $e518 1mhz  40550  20mhz  40549
+  $e544 clear 20mhz  39728 ok
+     23 checks,    0 failed
+
+scpu2_ops
+  scpu2 ops  sc:0 b3:ff b9:ff b6:ff
+  differing: m op var exp>got, m 7=c7 0=c0
+    402 checks,    0 failed
+
+scpu3_1mhz
+  scpu3 1mhz  sc:0 b3:ff b9:ff b6:ff
+  load   a.off    b.off    a.spr    b.spr
+  reg   257215   257215   277851   277851
+  zp   1025215  1025215  1107311  1107309
+  mem   215295   215295   232604   232601
+  bigr  131147   131147   141464   141465
+  conf  213391   213391   230692   230692
+  code   23439    23439    24911    24913
+  wcnf  229775   229775   247866   247867
+  a=$c7 b=$c0 off:exact spr:+-64 *=not c64
+     28 checks,    0 failed
+
+scpu4_irq (the 6526: one cycle more than trx64g in every row)
+  scpu4 irq  sc:0 b3:ff b9:ff b6:ff
+  sled     c7  lo  hi c0  lo  hi cycles
+  nop          12* 13*    12* 13*
+  lda zp       12* 14*    12* 14*
+  lda abs      12* 15*    12* 15*
+  lda (zp),y   12* 16*    12* 16*
+  inc zp       12* 16*    12* 16*
+  inc abs      12* 17*    12* 17*
+  inc abs,x    12* 18*    12* 18*
+  jmp next     12* 14*    12* 14*
+  bne taken    13* 15*    13* 15*
+  pha pla      12* 15*    12* 15*
+
+     40 checks,   40 failed
+
+scpu5_chain (condition d one cycle less than trx64g)
+  scpu5 chain  sc:0 b3:ff b9:ff b6:ff
+  c c7  any  all  c0 any  all  k cycles
+  a      61   62      61   62
+  b      58   62      58   62
+  c      78   82      78   82
+  d      39*  43*     39*  43*
+
+  soak (cond d) at k= 44
+  c7 frames  500 early    0  order    0
+  c0 frames  500 early    0  order    0
+
+     20 checks,    4 failed
+
+scpu6_20mhz
+  scpu6 20mhz  sc:0 b3:ff b9:ff b6:ff
+  no supercpu: nothing to measure
+      0 checks,    0 failed
+
+scpu7_mirror
+  scpu7 mirror  sc:0 b3:ff b9:ff b6:ff
+  addr  c7  c0  80  40  00  (1/20 mhz)
+  00f0  11  11  11  11  11
+  0110  11  11  11  11  11
+  0340  11  11  11  11  11
+  07f0  11  11  11  11  11
+  2800  11  11  11  11  11
+  5000  11  11  11  11  11
+  a800  11  11  11  11  11
+  c800  11  11  11  11  11
+
+  burst  111  111
+  rmw    10  10
+  16bit  --
+  mvn    --
+
+     44 checks,    0 failed
+
+scpu8_shadow
+  scpu8 shadow  sc:0 b3:ff b9:ff b6:ff
+  01 rd  wr   rd  wr   (1 mhz, 20 mhz)
+  30 rrr rrr  rrr rrr
+  31 rcr rrr  rcr rrr
+  32 rck rrr  rck rrr
+  33 bck rrr  bck rrr
+  34 rrr rrr  rrr rrr
+  35 rir rir  rir rir
+  36 rik rir  rik rir
+  37 bik rir  bik rir
+
+
+      8 checks,    0 failed
+
+== c64re, c64-ntsc ==
+
+scpu1_env
+  scpu1 env  sc:0 b3:ff b9:ff b6:ff
+  vic frame  17095 cyc lines 263 ntsc ok
+  kernal $02a6=0 ta period  17045 ok
+  tod cycles/s 1022801 ok
+  cint replay (p=pal n=ntsc), start line:
+       0 100 180 200 210 220 230 240 250
+  1m  n   n   n   n   n   n   n   n   n
+  20  n   n   n   n   n   n   n   n   n
+  md  n   n   n   n   n   n   n   n   n
+  $e518 1mhz  40976  20mhz  40974
+  $e544 clear 20mhz  40209 ok
+     23 checks,    0 failed

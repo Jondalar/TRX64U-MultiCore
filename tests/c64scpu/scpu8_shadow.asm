@@ -73,10 +73,10 @@ nextc   lda ci
         lda #1
         sta sp
         jsr onecfg
-        inc nchk
+        jsr cntchk
         lda nbad
         beq +
-        inc nfail
+        jsr cntfail
         lda #$2a
         jsr put
 +       inc ci

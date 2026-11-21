@@ -123,10 +123,10 @@ _cmp    cmp res
         jmp done
 
 mark    php                     ; Z from the compare: " " when equal, "*" when not; counts
-        inc nchk
+        jsr cntchk
         plp
         beq +
-        inc nfail
+        jsr cntfail
         lda #$2a
         jmp put
 +       jmp space

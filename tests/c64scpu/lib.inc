@@ -9,7 +9,6 @@ zp_t    = $fd                   ; string pointer
 L       = $c000                 ; the library's data block ($c000-$c03f); the programs use $c040 and up
 el      = L+$00                 ; 4: elapsed PHI2 cycles of the last c2start/c2stop pair, calibrated
 el0     = L+$04                 ; 4: the cycles of an empty c2start/c2stop pair (calib)
-nfail   = L+$08                 ; checks that failed
 d24     = L+$09                 ; 3: dec24 work
 dtmp    = L+$0c                 ; 2: dec24 work
 dcnt    = L+$0e
@@ -18,10 +17,12 @@ ex      = L+$10                 ; 4: the expected value of chkx/chkt/chkge
 tol     = L+$14                 ; 2: the tolerance of chkt
 issc    = L+$16                 ; 1 if a SuperCPU answers
 crow    = L+$17                 ; the row of the last at
-nchk    = L+$18                 ; checks made
 hti     = L+$19                 ; 2: the title of head
 mstyle  = L+$1b                 ; 0: a check prints " ok" / " *"; 1: one mark, " " / "*"
 wvec    = L+$1c                 ; 2: callw jumps here
+nfail   = L+$20                 ; 2: checks that failed (16 bit: scpu2 makes 402)
+nchk    = L+$22                 ; 2: checks made
+slow20  = L+$1e                 ; not 0: a "20 MHz" part ran at 1 MHz (spd20 on a SuperCPU whose speed switch holds 1 MHz)
 
 print   .macro                  ; print a 0-terminated screen-code string at the cursor
         lda #<\1
@@ -97,17 +98,7 @@ hex4    and #$0f                ; the low nibble of A as one hex digit
 +       ora #$30
         jmp put
 
-prel    lda el+3                ; el as a decimal number, 8 columns ("ovf" above 24 bits)
-        beq +
-        #print t_ovf
-        rts
-+       lda el
-        sta d24
-        lda el+1
-        sta d24+1
-        lda el+2
-        sta d24+2
-prel7   lda el                  ; el in decimal, 7 columns
+prel7   lda el                  ; el in decimal, 7 columns: the low 24 bits, right for values up to 9,999,999
         sta d24
         lda el+1
         sta d24+1
@@ -118,9 +109,6 @@ prel7   lda el                  ; el in decimal, 7 columns
         sta dlead
         jmp decx
 
-dec24   ldx #7                  ; d24 (24 bit) in decimal, right-aligned in 8 columns
-        lda #0
-        sta dlead
 decx    lda #0
         sta dcnt
 _sub    sec
@@ -180,15 +168,15 @@ chkx    jsr cmp32               ; el == ex
 chkge   jsr cmp32               ; el >= ex (unsigned)
         bcc bad
         jmp good
-bad     inc nfail
-        inc nchk
+bad     jsr cntfail
+        jsr cntchk
         lda mstyle
         beq +
         lda #$2a                ; "*"
         jmp put
 +       #print t_bad
         rts
-good    inc nchk
+good    jsr cntchk
         lda mstyle
         beq +
         lda #$20
@@ -255,14 +243,42 @@ cmp32   lda el+3                ; compare el with ex, high byte first: Z and C a
         cmp ex
 +       rts
 
-summary jsr nl                  ; the last line: "n checks, m failed"
+summary lda slow20              ; the last line: "n checks, m failed"; before it, the 20 MHz parts that ran at 1 MHz (one failed check)
+        beq +
+        jsr nl
+        #print t_slow20
+        jsr cntchk
+        jsr cntfail
++       jsr nl
         lda nchk
-        jsr dec8
+        sta d24
+        lda nchk+1
+        sta d24+1
+        jsr dec16
         #print t_chk
         lda nfail
-        jsr dec8
+        sta d24
+        lda nfail+1
+        sta d24+1
+        jsr dec16
         #print t_failed
         rts
+
+cntchk  inc nchk                ; one more check, 16 bit; A, X and Y are kept
+        bne +
+        inc nchk+1
++       rts
+
+cntfail inc nfail               ; one more failed check, 16 bit; A, X and Y are kept
+        bne +
+        inc nfail+1
++       rts
+
+dec16   lda #0                  ; d24 (16 bit) in 5 columns
+        sta d24+2
+        sta dlead
+        ldx #4
+        jmp decx
 
 ; ---- timing ------------------------------------------------------------------------------------------------------------
 
@@ -421,11 +437,21 @@ detect  lda #0                  ; issc = 1 when the SuperCPU registers answer ($
 spd1    sta $d07a               ; software 1 MHz
         rts
 
-spd20   sta $d07b               ; 20 MHz (the speed switch permitting)
-        rts
+spd20   sta $d07b               ; 20 MHz (the speed switch permitting). On a SuperCPU, $d0b9 bit 6 = 1 MHz in effect: the switch
+        lda issc                ; holds 1 MHz, the write did nothing, and slow20 says so (summary). A, P change.
+        beq +
+        lda $d0b9
+        and #$40
+        beq +
+        sta slow20
++       rts
 
 mode    pha                     ; mirror mode A: $c7 (the reset mode), $c0 ($d077), $80 ($d076), $40 ($d075), $00 ($d074)
-        sta $d07e               ; hardware registers on
+        lda issc                ; without a SuperCPU nothing is written: these addresses are not idle on every C64 core
+        bne +
+        pla
+        rts
++       sta $d07e               ; hardware registers on
         pla
         cmp #$c7
         bne +
@@ -452,7 +478,11 @@ head    sta hti                 ; A/Y = the title: clear the screen, then <title
         jsr $e544
         lda #0
         sta nfail
+        sta nfail+1
         sta nchk
+        sta nchk+1
+        sta mstyle
+        sta slow20
         jsr detect
         ldx #0
         ldy #0
@@ -498,8 +528,8 @@ done    jsr summary             ; restore what the program changed, then return 
 
         .enc "screen"
 t_ok    .null " ok"
+t_slow20 .null "speed switch at 1 mhz: 20 mhz parts void"
 t_bad   .null " *"
-t_ovf   .null "     ovf"
 t_chk   .null " checks,"
 t_failed .null " failed"
 t_sc    .null "  sc:"

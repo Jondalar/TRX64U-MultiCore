@@ -9,31 +9,46 @@ Spec: [docs/specs/T241.1-scpu-board-suite.md](../../docs/specs/T241.1-scpu-board
 - `scpu1_env.asm` ... `scpu8_shadow.asm`: the programs (64tass). The `.prg` files are committed.
 - `lib.inc`: the shared code: screen output, the 32-bit CIA2 cycle count, the checks, the speed and mirror-mode switches.
 - `gen_ops.py` writes `ops_tab.inc`, the 201 opcode cases of scpu2.
-- `ref/stock_pal.txt`: every program's screen on a stock PAL C64 (c64re runtime).
+- `ref/stock_pal.txt`: every program's screen on the board's C64 core trx64g (the reference) and on the c64re
+  runtime.
 - `build.sh` assembles everything. `vice.sh` fetches the VICE-testprogs SCPU programs at a pinned commit into a cache
   outside the repository. `put.sh` copies the programs and the fetched VICE programs to `/SD/tests/scpu/`
   (`BOARD=<address> tests/c64scpu/put.sh`).
+- `rest.py` runs programs on the board over REST and prints each last screen (`BOARD=<address> tests/c64scpu/rest.py
+  [program ...]`). The core must answer `runners:run_prg` and `machine:readmem`: the board's C64 cores do, the c64scpu
+  since T250. A memory read is a DMA on these cores: it holds the CPU. `rest.py` reads only after a program's run
+  time; a read while a program measures spoils the measurement (2026-11-21: scpu5 read every 2 s gave other edges).
 
 Each program prints a table and a last line `n checks, m failed`. `*` marks a value that differs from the expected one.
 All numbers are PHI2 cycles, counted by CIA2 timers A and B chained.
 
+scpu2, scpu4 and scpu5 measure everything twice: in mirror mode `$c7` (the reset's) and `$c0` (Master's Boom's: zero
+page and stack mirrored too). Without a SuperCPU the mode switch (`lib.inc` `mode`) writes nothing, so a C64 core
+shows the same values twice.
+
+The 20 MHz parts (scpu1 rows `20` and `md`, scpu6) need the SuperCPU's speed switch at 20 MHz. When the switch holds
+1 MHz (`$d0b9` bit 6), the program prints `speed switch at 1 mhz: 20 mhz parts void` and counts one failed check.
+
 ## Order of the runs
 
-**Step 0, the reference.** Run all eight programs on a 6510 C64 core of the same board. Each must show `0 failed`;
-scpu6 shows `no supercpu`. A failure here is a fault of the suite or of that core, not of the SuperCPU.
+**Step 0, the reference.** Run all eight programs on the board's C64 core trx64g. Each shows `0 failed`; scpu6 shows
+`no supercpu` (2026-11-21, `ref/stock_pal.txt`). The expected values in the programs are trx64g's. The c64re runtime
+differs in two places, both known: scpu4 one cycle more in every row (its CIA is a 6526; trx64g and the c64scpu use the
+8521, whose interrupt comes one cycle earlier), and scpu5 condition d one cycle less (`39 43`: the sprite DMA). A
+failure on trx64g is a fault of the suite or of that core, not of the SuperCPU.
 
 Then on the c64scpu core, in this order. Each step rules out one cause when it passes.
 
 | Step | Program | Passes when | Then this is not the cause |
 |---|---|---|---|
 | 1 | `scpu1_env` | the VIC is PAL; `$02a6` = 1; the `20` row agrees with the `md` row; `$e544` takes 2000 or more | the PAL test of the KERNAL (see below) |
-| 2 | `scpu2_ops` | no case differs | the cycle count of an opcode at 1 MHz |
+| 2 | `scpu2_ops` | no case differs, in both modes | the cycle count of an opcode at 1 MHz |
 | 3 | `scpu3_1mhz` | `off` columns exact, `spr` columns within 64 | cache misses or DDR2 at 1 MHz, sprite DMA stalls |
-| 4 | `scpu4_irq` | low and high as on the C64 for all 10 sleds | the point where the CPU takes an interrupt |
-| 5 | `scpu5_chain` | `all` as on the C64 in a-d; soak `early 0`, `order 0` | Boom's dispatcher edge (line 145/146) |
+| 4 | `scpu4_irq` | low and high as on trx64g for all 10 sleds, in both modes | the point where the CPU takes an interrupt |
+| 5 | `scpu5_chain` | `any` and `all` as on trx64g in a-d; soak `early 0`, `order 0` | Boom's dispatcher edge (line 145/146) |
 | 6 | `scpu6_20mhz` | all rows within their tolerance | 20 MHz speed, I/O and bus-write timing |
 | 7 | `scpu7_mirror` | the table and the four rows as expected | the write-through to the C64 RAM |
-| 8 | `scpu8_shadow` | all eight `$01` rows as on the C64, at both speeds | the ROM images and the RAM under ROM and I/O |
+| 8 | `scpu8_shadow` | all eight `$01` rows as on trx64g, at both speeds | the ROM images and the RAM under ROM and I/O |
 
 When steps 2-5 pass and Boom still freezes, CPU and interrupt timing at 1 MHz are ruled out; steps 7 and 8 come next.
 

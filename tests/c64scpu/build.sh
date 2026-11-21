@@ -4,7 +4,8 @@
 set -eu
 cd "$(dirname "$0")"
 command -v 64tass >/dev/null || { echo "64tass is not installed" >&2; exit 2; }
-python3 gen_ops.py > ops_tab.inc
+python3 gen_ops.py > ops_tab.inc.tmp
+mv ops_tab.inc.tmp ops_tab.inc
 for src in scpu*.asm; do
     64tass -a -q -o "${src%.asm}.prg" "$src"
     echo "${src%.asm}.prg $(wc -c < "${src%.asm}.prg" | tr -d ' ') bytes"

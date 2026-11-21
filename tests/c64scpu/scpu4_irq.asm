@@ -3,8 +3,11 @@
 ; handler's first instruction reads the timer's low byte. d = the latch - that value = the cycles from the timer's
 ; reload to the read: the time the CPU takes to finish the interrupted instruction, plus the interrupt sequence, plus
 ; the read. The handler moves the latch by 0-15 cycles per interrupt, so the interrupt meets every cycle of the
-; instruction. Shown per sled: the lowest and the highest d. Expected: a stock PAL C64's values (ref/stock_pal.txt);
-; "*" marks a value off the C64's. Screen off, no sprites, the KERNAL banked out ($01 = $35, the vector at $fffe).
+; instruction. Shown per sled: the lowest and the highest d, in mirror mode $c7 (the reset's) and $c0 (Master's Boom's:
+; the stack page is mirrored too, and an interrupt pushes three bytes there). A C64 ignores the mode writes and shows the
+; same values twice. Expected: the board's C64 core trx64g (step 0, 2026-11-21), whose CIA takes an interrupt as an 8521
+; does, as the c64scpu's CIAs; the c64re runtime counts one cycle more everywhere (a 6526). "*" marks a value off them.
+; Screen off, no sprites, the KERNAL banked out ($01 = $35, the vector at $fffe).
 ; The sleds: nop (2 cycles), lda zp (3), lda abs (4), lda (zp),y (5), inc zp (5), inc abs (6), inc abs,x (7),
 ; jmp abs to the next instruction (3), bne taken to the next instruction (3, no page crossed), pha/pla (3/4).
 
@@ -29,6 +32,7 @@ dmin    = $c045
 dmax    = $c046
 plen    = $c047
 pofs    = $c048
+mi      = $c049                 ; the mirror mode: 0 $c7, 1 $c0
 samp    = $c100                 ; NS bytes: d
 
 start   sei
@@ -57,6 +61,11 @@ start   sei
         jsr at
         #print t_hd
         lda #0
+        sta mi
+nextm   ldx mi
+        lda mtab,x
+        jsr mode
+        lda #0
         sta si
 nexts   jsr fill
         jsr runsled
@@ -65,15 +74,19 @@ nexts   jsr fill
         clc
         adc #2
         tax
-        ldy #0
+        ldy mi
+        lda mcol,y
+        tay
         jsr at
+        lda mi                  ; the name in the first pass
+        bne +
         ldx si
         lda nmlo,x
         sta zp_t
         lda nmhi,x
         sta zp_t+1
         jsr prs
-        lda dmin
++       lda dmin
         jsr dec8
         lda si                  ; check the lowest
         asl a
@@ -93,6 +106,12 @@ nexts   jsr fill
         lda si
         cmp #NSLED
         bne nexts
+        inc mi
+        lda mi
+        cmp #2
+        bne nextm
+        lda #$c7                ; the reset's mode again
+        jsr mode
         lda $02a6               ; the KERNAL's timer A again (latch by $02a6), its interrupt on
         beq +
         lda #$25
@@ -111,10 +130,10 @@ nexts   jsr fill
         jmp done
 
 mark    php                     ; Z from the compare: " " when equal, "*" when not; counts
-        inc nchk
+        jsr cntchk
         plp
         beq +
-        inc nfail
+        jsr cntfail
         lda #$2a
         jmp put
 +       jmp space
@@ -272,26 +291,29 @@ pat     .byte 1, $ea                    ; 0 nop
         .byte 2, $48, $68               ; 31 pha pla
 pidx    .byte 0, 2, 5, 9, 12, 15, 19, 23, 27, 30
 
+mtab    .byte $c7, $c0
+mcol    .byte 0, 23             ; where each mode's row part starts: the name and $c7's values, then $c0's values
+
 nmlo    .byte <n0, <n1, <n2, <n3, <n4, <n5, <n6, <n7, <n8, <n9
 nmhi    .byte >n0, >n1, >n2, >n3, >n4, >n5, >n6, >n7, >n8, >n9
 
-; the stock PAL C64's lowest and highest d per sled
-exd     .byte 12, 13                ; nop
-        .byte 12, 14                ; lda zp
-        .byte 12, 15                ; lda abs
-        .byte 12, 16                ; lda (zp),y
-        .byte 12, 16                ; inc zp
-        .byte 12, 17                ; inc abs
-        .byte 12, 18                ; inc abs,x
-        .byte 12, 14                ; jmp
-        .byte 13, 15                ; bne taken (one more than the other sleds on the C64)
-        .byte 12, 15                ; pha pla
+; the lowest and highest d per sled on the board's C64 core trx64g (step 0, 2026-11-21; c64re: one more in every cell)
+exd     .byte 11, 12                ; nop
+        .byte 11, 13                ; lda zp
+        .byte 11, 14                ; lda abs
+        .byte 11, 15                ; lda (zp),y
+        .byte 11, 15                ; inc zp
+        .byte 11, 16                ; inc abs
+        .byte 11, 17                ; inc abs,x
+        .byte 11, 13                ; jmp
+        .byte 12, 14                ; bne taken (one more than the other sleds on the C64)
+        .byte 11, 14                ; pha pla
 
         .include "lib.inc"
 
         .enc "screen"
 title   .null "scpu4 irq"
-t_hd    .null "sled        low  hi   (cycles)"
+t_hd    .null "sled     c7  lo  hi c0  lo  hi cycles"
 n0      .null "nop         "
 n1      .null "lda zp      "
 n2      .null "lda abs     "

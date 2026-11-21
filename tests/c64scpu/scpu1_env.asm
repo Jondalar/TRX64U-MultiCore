@@ -216,7 +216,7 @@ _r      lda cra0
         sta $dc0e
         rts
 
-tenth   lda $dc08               ; wait for the next tenth; C = 1 after about 4 s at 1 MHz (no TOD)
+tenth   lda $dc08               ; wait for the next tenth; C = 1 after about 1 s at 1 MHz (no TOD): 200 x 256 x 19 cycles
         sta tlast
         lda #0
         sta tw
@@ -424,8 +424,8 @@ _vchk   lda #4
         lda a6_0
         bne +
         #print t_ntscpal
-        inc nfail
-+       inc nchk
+        jsr cntfail
++       jsr cntchk
         jsr nl                  ; tod
         #print t_tod
         ldx #2
@@ -518,10 +518,10 @@ entry   sta dtmp                ; "  P " / "  N*": A = the outcome (0 N, 1 P), Y
         lda dtmp+1
         cmp #2
         beq _sp
-        inc nchk
+        jsr cntchk
         cmp dtmp
         beq _sp
-        inc nfail
+        jsr cntfail
         lda #$2a
         jmp put
 _sp     jmp space

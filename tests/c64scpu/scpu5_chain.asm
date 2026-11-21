@@ -3,17 +3,25 @@
 ; the interrupt sequence starts and takes the mid handler only for line 146: on a stock C64 the earliest read lands at
 ; line 146 cycle 0, no margin. A CPU that is one cycle early there reads 145 and the chain stops (stutter, then freeze).
 ; Part 1, the edge: a raster interrupt at line 145, the handler reads $d012 K cycles after the interrupt sequence starts
-; (K = 19 + the length of a delay sled). K rises from a start value; 8 interrupts per K, each in another phase of the
-; main loop. Shown per condition: the first K at which a read sees line 146 (information: which phases a K meets is
-; not fixed), and the first K at which all 8 do (checked: the earliest read, the margin Boom's dispatcher has).
+; (K = 19 + the length of a delay sled). K rises from a start value; 14 interrupts per K. Shown per condition: the first
+; K at which one read sees line 146 (the main loop's slowest phase), and the first K at which all 14 do (its fastest
+; phase: the margin Boom's dispatcher has).
+; The phases: between two interrupts the main loop runs one frame minus the handler, so its phase at the next interrupt
+; moves by that difference. The handler takes the same time whatever the read gives. The first 8 interrupts of a K so
+; move by one constant step and meet every phase of the 7-cycle spin, unless the step is a multiple of 7; the handler
+; of the last 6 is one cycle longer, so their step is another one. One of the two series meets every phase. Without
+; this, which phases were met depended on where the code lay (2026-11-21: c gave 79/82 or 78/80 on the same machine).
 ;   a  screen off, the main loop a NOP sled (2 cycles per instruction)
 ;   b  screen off, the main loop Boom's spin: LDA abs, BEQ back (4 + 3 cycles)
 ;   c  the interrupt at line 144, line 145 a badline (screen on, y-scroll 1): the read comes after the badline's stall
 ;   d  8 sprites over lines 141-161, screen on (y-scroll 3), the spin
 ; Part 2, the soak: the three-interrupt chain of Boom for 500 frames in condition d, the dispatcher's read at the
-; stock C64's K of d (zero margin), about 6000 cycles of work in the line-217 handler, the spin as the main loop.
-; Counted: reads that see line 145 (early), and interrupts out of order. A stock C64 shows 0 and 0.
-; Expected values: a stock PAL C64's (ref/stock_pal.txt); "*" marks a value off the C64's.
+; reference's K of d (zero margin), about 6000 cycles of work in the line-217 handler, the spin as the main loop. The
+; line-217 handler is one cycle longer in every second block of 7 frames, for the same reason as in part 1.
+; Counted: reads that see line 145 (early), and interrupts out of order. The reference shows 0 and 0.
+; Both parts run in mirror mode $c7 (the reset's) and $c0 (Boom's: the stack page is mirrored too). A C64 ignores the
+; mode writes and shows the same values twice. Expected values: the board's C64 core trx64g (step 0, 2026-11-21); the
+; c64re runtime differs in d only (39, 43). "*" marks a value off them.
 
         .cpu "6502"
         * = $0801
@@ -24,7 +32,7 @@
 +       .word 0
 
 NSL     = 110                   ; the delay sled: K = 19 + m, m = 0..NSL
-NSAMP   = 8
+NSAMP   = 14
 NFR     = 500
 SPINF   = $c300                 ; the spin's flag: never set
 NOPS    = $2000                 ; the NOP sled $2000-$2fff
@@ -44,6 +52,9 @@ early   = $c04f                 ; 2
 order   = $c051                 ; 2
 frames  = $c053                 ; 2
 ksoak   = $c055
+mi      = $c056                 ; the mirror mode: 0 $c7, 1 $c0
+pex     = $c057                 ; 1: the handler one cycle longer (setp)
+bcnt    = $c058                 ; the soak's frames left in the block of 7
 
 start   sei
         lda #<title
@@ -67,7 +78,12 @@ start   sei
         #print t_hd
         lda #0
         sta ci
-nextc   jsr cond
+nextc   lda #0
+        sta mi
+nextcm  ldx mi
+        lda mtab,x
+        jsr mode
+        jsr cond
         jsr sweep
         jsr scr_on
         lda #$1b
@@ -80,14 +96,24 @@ nextc   jsr cond
         tax
         ldy #0
         jsr at
+        lda mi                  ; the condition's letter in the first pass
+        bne +
         ldx ci
         lda cname,x
         jsr put
-        jsr space
-        jsr space
-        lda kany                ; information only: which of the 8 phases a K meets is not fixed
++       ldx crow
+        ldy mi
+        lda mcol,y
+        tay
+        jsr at
+        lda kany
         jsr dec8
-        jsr space
+        lda ci
+        asl a
+        tax
+        lda kany
+        cmp exk,x
+        jsr mark
         jsr space
         lda kall
         jsr dec8
@@ -97,11 +123,22 @@ nextc   jsr cond
         lda kall
         cmp exk+1,x
         jsr mark
-        inc ci
+        inc mi
+        lda mi
+        cmp #2
+        beq +
+        jmp nextcm
++       inc ci
         lda ci
         cmp #4
-        bne nextc
-        lda #3                  ; part 2 in condition d
+        beq +
+        jmp nextc
++       lda #0                  ; part 2 in condition d, in both modes
+        sta mi
+nextsm  ldx mi
+        lda mtab,x
+        jsr mode
+        lda #3
         sta ci
         jsr cond
         jsr soak
@@ -109,13 +146,18 @@ nextc   jsr cond
         sta $d011
         lda #0
         sta $d015
-        ldx #7
+        lda mi
+        clc
+        adc #8
+        tax
         ldy #0
         jsr at
-        #print t_soak
-        lda ksoak
-        jsr dec8
-        jsr nl
+        ldx mi
+        lda mnlo,x
+        sta zp_t
+        lda mnhi,x
+        sta zp_t+1
+        jsr prs
         #print t_frames
         lda frames
         sta d24
@@ -140,24 +182,32 @@ nextc   jsr cond
         lda order
         ora order+1
         jsr mark
+        inc mi
+        lda mi
+        cmp #2
+        beq +
+        jmp nextsm
++       ldx #7
+        ldy #0
+        jsr at
+        #print t_soak
+        lda ksoak
+        jsr dec8
+        lda #$c7                ; the reset's mode again
+        jsr mode
         lda #$81                ; the KERNAL's timer A interrupt on again
         sta $dc0d
-        ldx #9
+        ldx #10
         ldy #0
         jsr at
         jmp done
 
-dec16   lda #0                  ; d24 (16 bit) in 5 columns
-        sta d24+2
-        sta dlead
-        ldx #4
-        jmp decx
 
 mark    php                     ; Z from the compare: " " when equal, "*" when not; counts
-        inc nchk
+        jsr cntchk
         plp
         beq +
-        inc nfail
+        jsr cntfail
         lda #$2a
         jmp put
 +       jmp space
@@ -204,6 +254,7 @@ sweep   ldx ci
         sta hits
         sta kany
         sta kall
+        sta pex
         lda #<sweepc
         sta avec
         lda #>sweepc
@@ -247,14 +298,11 @@ setk    lda curk                ; dvec = dsled + NSL - (curk - 19)
         sta dvec+1
         rts
 
-setp    lda samp                ; pvec = psled + 7 - (samp and 7): 3 to 10 cycles after the work, so the main loop's phase moves
-        and #7
-        sta dtmp
+setp    lda #<(psled+1)         ; pvec = psled + 1 - pex: the handler ends 3 or 4 cycles later
         sec
-        lda #<(psled+7)
-        sbc dtmp
+        sbc pex
         sta pvec
-        lda #>(psled+7)
+        lda #>(psled+1)
         sbc #0
         sta pvec+1
         rts
@@ -268,11 +316,12 @@ dsled   .fill NSL, $c9
 
 sweepc  lda #$0f
         sta $d019
-        lda got
+        lda got                 ; hits + (got >= 146), without a branch: the same time for 145 and 146
         cmp #146
-        bcc +
-        inc hits
-+       inc samp
+        lda hits
+        adc #0
+        sta hits
+        inc samp
         lda samp
         cmp #NSAMP
         bne _ph
@@ -296,10 +345,15 @@ _adv    lda #0
         cmp #19+NSL+1
         bcs fin                 ; kall stays 0: the edge was not found
         jsr setk
-_ph     jsr setp
+_ph     lda samp                ; pex = 1 from the 9th interrupt on, without a branch
+        cmp #8
+        lda #0
+        rol a
+        sta pex
+        jsr setp
         jmp (pvec)
-psled   .fill 7, $c9
-        .byte $c5, $ea
+psled   .byte $c9               ; from here CMP #$c5, NOP: 4 cycles
+        .byte $c5, $ea          ; from here CMP $ea: 3 cycles
         rti
 
 fin     ldx savesp              ; back to the caller of sweep or soak, I still set
@@ -322,8 +376,10 @@ soak    lda #0
         sta order+1
         sta frames
         sta frames+1
-        sta samp
-        lda exk+7               ; the stock C64's K of condition d, where all reads see 146 (0 = none recorded: this run's)
+        sta pex
+        lda #7
+        sta bcnt
+        lda exk+7               ; the reference's K of condition d, where all reads see 146 (0 = none recorded: this run's)
         bne +
         lda kall
 +       sta ksoak
@@ -408,8 +464,14 @@ _bot    lda st
         cmp #<NFR
         bne +
         jmp fin
-+       inc samp
-        jsr setp
++       dec bcnt                ; pex changes every 7 frames
+        bne +
+        lda #7
+        sta bcnt
+        lda pex
+        eor #1
+        sta pex
++       jsr setp
         jmp (pvec)
 
 bump    inc order
@@ -431,18 +493,25 @@ c_spr   .byte 0, 0, 0, 1
 cname   .byte $01, $02, $03, $04        ; a b c d
 kstart  .byte 55, 52, 73, 33
 c_line  .byte 145, 145, 144, 145
-; the stock PAL C64's first K with one read of 146 and with all reads of 146, per condition
+mtab    .byte $c7, $c0
+mcol    .byte 6, 19             ; the column of each mode's first K
+mnlo    .byte <t_m7, <t_m0
+mnhi    .byte >t_m7, >t_m0
+; the first K with one read of 146 and with all 14, per condition, on the board's C64 core trx64g (step 0, 2026-11-21,
+; both modes the same; c64re: d 39, 43, the rest equal)
 exk     .byte 61, 62                ; a
         .byte 58, 62                ; b
-        .byte 79, 82                ; c
-        .byte 39, 43                ; d
+        .byte 78, 82                ; c
+        .byte 40, 44                ; d
 
         .include "lib.inc"
 
         .enc "screen"
 title   .null "scpu5 chain"
-t_hd    .null "c  any  all  (k in cycles)"
+t_hd    .null "c c7  any  all  c0 any  all  k cycles"
 t_soak  .null "soak (cond d) at k="
 t_frames .null "frames"
 t_early .null " early"
 t_order .null " order"
+t_m7    .null "c7 "
+t_m0    .null "c0 "

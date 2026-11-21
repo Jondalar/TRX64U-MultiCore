@@ -33,12 +33,8 @@ start   sei
         #print t_nosc
         jmp done
 +       jsr spd20
-        lda $d0b9
-        and #$40
+        lda slow20              ; the speed switch holds 1 MHz: nothing here is a 20 MHz value (the summary says so)
         beq +
-        #print t_slow
-        inc nfail
-        inc nchk
         jmp done
 +       #print t_fast
         lda #$7f
@@ -256,7 +252,6 @@ nmhi    .byte >n0, >n1, >n2, >n3, >n4, >n5, >n6, >n7, >n8
         .enc "screen"
 title   .null "scpu6 20mhz"
 t_nosc  .null "no supercpu: nothing to measure"
-t_slow  .null "speed switch at 1 mhz ($d0b9 bit 6): *"
 t_fast  .null "20 mhz"
 t_cols  .null "load        phi2 expected"
 n0      .null "reg     "

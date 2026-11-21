@@ -12,7 +12,8 @@ for f in scputest/scputest.prg scputest/scputest-0.prg scputest/scputest-1.prg b
          reu/reu-check.prg reu/dmatest.prg reu/dmastart.prg; do
     out=$dir/${f##*/}
     [ -s "$out" ] && continue
-    curl -sSfL -o "$out" "https://raw.githubusercontent.com/libsidplayfp/VICE-testprogs/$SHA/SCPU/$f"
+    curl -sSfL -o "$out.tmp" "https://raw.githubusercontent.com/libsidplayfp/VICE-testprogs/$SHA/SCPU/$f"
+    mv "$out.tmp" "$out"
     echo "${f##*/} $(wc -c < "$out" | tr -d ' ') bytes"
 done
 echo "$dir"

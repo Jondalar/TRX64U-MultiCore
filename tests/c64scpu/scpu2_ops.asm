@@ -3,9 +3,11 @@
 ; (variant x), the branches not taken (n), taken (t) and taken across a page (x), ADC/SBC # in decimal mode (d).
 ; Each case runs once in a stub between "STA $DD0E" (CIA2 timer A starts) and "LDA $DD04"; its cycles are the empty
 ; stub's reading minus its own. Screen off, no sprites, no interrupt source: the count is exact on a C64.
-; Shown: every case whose cycles differ, as  <opcode><variant> <expected>><measured>.
+; All cases run in mirror mode $c7 (the reset's) and again in $c0 (Master's Boom's: zero page and stack are mirrored
+; too), each pass with its own empty-stub reading. A C64 ignores the mode writes.
+; Shown: every case whose cycles differ, as  <m> <opcode><variant> <expected>><measured>  (m: 7 = $c7, 0 = $c0).
 ; The expected cycles are the 6502's; a stock C64 shows none different. On the 65C816 (emulation mode) a case that
-; differs is either the core's fault or a documented 65C816 difference: the README lists the ones known.
+; differs is the core's fault or a documented 65C816 difference; none is known for the documented 6502 opcodes.
 
         .cpu "6502"
         * = $0801
@@ -25,6 +27,8 @@ savesp  = $c044
 nshow   = $c045                 ; entries shown
 jvec    = $c046                 ; 2: where the run jumps (STUB or STUB2)
 got     = $c048
+mi      = $c049                 ; the mirror mode: 0 $c7, 1 $c0
+ncol    = $c04a                 ; entries in the row being written
 
 start   sei
         lda #<title
@@ -41,6 +45,8 @@ start   sei
         lda #$ff
         sta $d019
         jsr scr_off
+        lda #$fa                ; DEN is latched at line $30: this frame's badlines come anyway, so start below them
+        jsr vlin
         lda #0
         sta $d015
         sta $dd0e               ; CIA2 timer A stopped, latch $ffff
@@ -57,10 +63,15 @@ start   sei
         jsr mkstub2
         lda #0
         sta nshow
+        sta ncol
+        sta mi
         ldx #2
         ldy #0
         jsr at
-        ldx #$ff                ; the empty stub
+nextm   ldx mi
+        lda mtab,x
+        jsr mode
+        ldx #$ff                ; the empty stub, in this mode
         jsr runcase
         lda rlo
         sta base
@@ -70,16 +81,22 @@ loop    jsr runcase
         lda base
         sbc rlo
         sta got
-        inc nchk
+        jsr cntchk
         ldx ci
         cmp c_cyc,x
         beq +
-        inc nfail
+        jsr cntfail
         jsr show
 +       ldx ci
         inx
         cpx #NCASE
         bne loop
+        inc mi
+        lda mi
+        cmp #2
+        bne nextm
+        lda #$c7                ; the reset's mode again
+        jsr mode
         jsr scr_on
         ldx #1
         ldy #0
@@ -90,10 +107,14 @@ loop    jsr runcase
         jsr at
         jmp done
 
-show    lda nshow               ; one entry: <op><var> <exp>><got>, four per row, rows 2-20
-        cmp #76
+show    lda nshow               ; one entry: <m> <op><var> <exp>><got>, three per row, rows 2-20
+        cmp #57
         bcs _r
         inc nshow
+        ldx mi
+        lda mchr,x
+        jsr put
+        jsr space
         ldx ci
         lda c_op,x
         jsr hex8
@@ -109,7 +130,16 @@ show    lda nshow               ; one entry: <op><var> <exp>><got>, four per row
         lda got
         jsr dec8
         jsr space
+        inc ncol
+        lda ncol
+        cmp #3
+        bne _r
+        lda #0
+        sta ncol
+        jmp nl
 _r      rts
+
+mtab    .byte $c7, $c0
 
 runcase stx ci                  ; X = the case ($ff: the empty stub); leaves the tail's timer reading in rlo
         lda #$8d                ; STA $DD0E
@@ -260,4 +290,5 @@ mkstub2 lda #$8d                ; STA $DD0E at $32f9, a branch +2 at $32fc (targ
 
         .enc "screen"
 title   .null "scpu2 ops"
-t_hd    .null "cases differing: op var exp>got"
+t_hd    .null "differing: m op var exp>got, m 7=c7 0=c0"
+mchr    .text "70"

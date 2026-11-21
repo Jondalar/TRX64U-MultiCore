@@ -3,9 +3,10 @@
 ;   a.off  reset mirror mode ($c7), screen off (no badlines, no sprites): exact
 ;   b.off  mirror everything ($c0, the mode Master's Boom plays in), screen off: exact
 ;   a.spr  reset mirror mode, screen on, 8 sprites over lines 140-160: within 64 cycles (the start's phase in its line moves
-;          the window's end against the stalls; the C64 itself varies by 10)
+;          the window's end against the stalls; the C64 itself varied by up to 13 between runs)
 ;   b.spr  mirror everything, screen on, 8 sprites: within 64 cycles
-; The expected values are a stock PAL C64's (ref/stock_pal.txt). "*" marks a value off the C64's.
+; The expected values are a stock PAL C64's (ref/stock_pal.txt; the board's trx64g gave the same, step 0 2026-11-21).
+; "*" marks a value off the C64's.
 ; The loads:
 ;   reg   registers only                          zp    zero page and stack
 ;   mem   768 bytes of data (always in a cache)   bigr  reads over 32 KiB, one per 16-byte line
@@ -115,6 +116,7 @@ _go     ldx wi
         sta wvec+1
         lda #$fa
         jsr vlin
+        jsr calib               ; in the mode just set, at line 250: no DMA in the calibration either
         jsr c2start
         jsr callw
         jmp c2stop
@@ -169,7 +171,7 @@ w_mem   ldy #40
 _o      ldx #0
 _i      sta $c800,x
         lda $c900,x
-        inc $ca00,x
+        inc $cb00,x             ; $cb00: not the 8 KiB cache's line index of the loop's own code (T241.1 review)
         dex
         bne _i
         dey
