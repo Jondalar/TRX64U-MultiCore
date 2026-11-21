@@ -149,8 +149,8 @@ begin
 			when others => 
 				if EF = '0' then							--BRK,COP,RTI Native mode
 					NextState <= STATE + 1; 
-				elsif EF = '1' and IR = x"40" then	--RTI Emulation mode
-					NextState <= "0000";
+				elsif EF = '1' and IR = x"40" then	--RTI Emulation mode (T241: one internal cycle more, state 7)
+					NextState <= "0111";
 				else											--BRK,COP Emulation mode
 					NextState <= STATE + 2; 
 				end if; 

@@ -197,16 +197,16 @@ if {[llength $rdy_nets] == 1} {
 } else {
   puts "=== T29: WARNING cpu_rdy net not found ([llength $rdy_nets]), no multicycle path"
 }
-# T182 step 2 (T2, spec 5.4 table): the 65C816 (cpu_0/cpu = s816_cpu) takes a step only on its clock enable core_ce = g_edge && phi2_l, never closer than 3 clk2x cycles
-# (asserted by the bench, sim/tb_c64scpu.v; step 4's 20 MHz enable must keep it). Every register of s816_cpu changes only on that enable, so a path between two of them,
-# or from a register that changes at another time than the enable (the sampled bus data, the port) into them, has N = 3 clk2x periods. NOT a false path. Not covered, left at
-# one period on purpose: the enable's own path (g_edge, phi2_l -> core_ce -> the CE pins), the asynchronous reset rst_q, and cpu_rdy (its own two-period exception above).
-# The one register that does not obey the enable is the XCE branch of A/X/Y/SP in s816_cpu (it writes a constant whenever IR = XCE, whatever EN is): see spec 5.4.
+# T182 step 2 (T2, spec 5.4 table): the 65C816 (cpu_0/cpu = s816_cpu) takes a step only on its clock enable core_ce (scpu_mem.v: tick && ok; at 1 MHz tick is
+# ce_raw = g_edge && phi2_l), never closer than 3 clk2x cycles (scpu_mem.v: `settled` = age[1], age restarts at each enable; asserted by the bench, sim/tb_c64scpu.v).
+# Every register of s816_cpu changes only on that enable (the XCE branch of A/X/Y/SP too: it is gated with EN since tools/scpu_vendor816.py), so a path between two of
+# them has N = 3 clk2x periods. NOT a false path. Not covered, left at one period on purpose: the enable's own path (-> core_ce -> the CE pins), the asynchronous
+# reset rst_q, and cpu_rdy (its own two-period exception above).
 if {[llength $rdy_nets] == 1} {
   set pfx [string range [get_property NAME $rdy_nets] 0 end-[string length cpu_rdy]]
   set seqf {IS_SEQUENTIAL}
   set cpu_r  [get_cells -quiet -hier -filter "$seqf && NAME =~ ${pfx}cpu_0/cpu/*"]
-  set smp_r  [get_cells -quiet -hier -filter "$seqf && (NAME =~ ${pfx}cpu_0/rdy_r_reg* || NAME =~ ${pfx}cpu_0/irq_r_reg* || NAME =~ ${pfx}cpu_0/nmi_r_reg* || NAME =~ ${pfx}cpu_0/din_r_reg*)"]
+  set smp_r  [get_cells -quiet -hier -filter "$seqf && (NAME =~ ${pfx}cpu_0/rdy_r_reg* || NAME =~ ${pfx}cpu_0/irq_r_reg* || NAME =~ ${pfx}cpu_0/din_r_reg* || NAME =~ ${pfx}cpu_0/irq_pen_reg*)"]
   set port_r [get_cells -quiet -hier -filter "$seqf && NAME =~ ${pfx}cpu_0/pport/*"]
   set outp_r [get_cells -quiet -hier -filter "$seqf && (NAME =~ ${pfx}cpu_0/pc_q_reg* || NAME =~ ${pfx}addr_a_reg* || NAME =~ ${pfx}we_a_reg* || NAME =~ ${pfx}dout_a_reg*)"]
   # T182 step 3 (spec 5.5): the memory map beside the CPU (cpu_0/smem = scpu_mem.v), its registers without the cache (cpu_0/smem/cache/*: that has its own single-cycle pipeline,
@@ -216,15 +216,18 @@ if {[llength $rdy_nets] == 1} {
   set smm_r [get_cells -quiet -hier -filter "$seqf && NAME =~ ${pfx}cpu_0/smem/* && NAME !~ ${pfx}cpu_0/smem/cache/*"]
   puts "=== T182 T2 multicycle: cpu regs [llength $cpu_r], sampled-input regs [llength $smp_r], port regs [llength $port_r], consumer regs [llength $outp_r], smem regs [llength $smm_r]"
   if {[llength $cpu_r] < 200 || [llength $smp_r] < 8 || [llength $port_r] < 8 || [llength $outp_r] < 8 || [llength $smm_r] < 100} { error "T182 T2: a register set of the multicycle recipe is (nearly) empty" }
-  # cpu regs -> cpu regs, the sampled inputs (din_r, rdy_r, irq_r, nmi_r: change at phi2_n, a third of a PHI2 cycle before the enable) and the port -> cpu regs,
-  # cpu regs -> the port, pc_q, the arbiter's input stage
+  # three periods, hold 2: cpu regs -> cpu regs, cpu regs -> the port, pc_q and the arbiter's input stage (addr_a, we_a, dout_a), the port -> smem
   foreach {from to} [list $cpu_r $cpu_r  $cpu_r $port_r  $cpu_r $outp_r  $port_r $smm_r] {
     set_multicycle_path 3 -setup -end -from $from -to $to
     set_multicycle_path 2 -hold  -end -from $from -to $to
   }
-  # T182 step 4 (spec 5.6, 5.4 f): at 20 MHz the enable is not tied to phi2_l. An I/O cycle's enable comes in the clock after n_d[1], i.e. two clocks after din_r / rdy_r / irq_r / nmi_r and
-  # the port registers were loaded at the PHI2 fall (they are loaded at the clk edge that ends the n_ev clock; n_d[0] is visible in the next clock, n_d[1] in the one after, core_ce
-  # in that one): two periods, hold 1. At 1 MHz the enable is >= 17 clk2x cycles later, at 20 MHz an enable can come at any other time, but then these registers do not change.
+  # two periods, hold 1: the sampled inputs (din_r, rdy_r, irq_r, irq_pen) and the port -> cpu regs. T182 step 4 (spec 5.6, 5.4 f): din_r, rdy_r, irq_r and the port
+  # registers are loaded at the PHI2 fall (the clk edge that ends the n_ev clock); an I/O cycle's enable comes in the clock after n_d[1], two clocks later, and at 1 MHz
+  # the enable is >= 17 clk2x cycles later. At 20 MHz the enable of a cycle that is not PHI2-synchronous can come one clock after a PHI2 fall: rdy_r is masked there
+  # (rdy_in = ... | mem_free, cpu65816_c64scpu.v), d_in takes the memory's byte in a memory cycle, and the byte din_r gives in an internal cycle is not used (T241 S2
+  # review: it reaches only DR and PCOffset there); irq_r now reaches the CPU only through irq_pen. nmi_r is not in the set
+  # (T241 S2 review): it reaches OLD_NMI_N and NMI_SYNC at every enable (s816_cpu.vhd, the NMI process), so it keeps one period. irq_pen (T241 S2) is loaded at an
+  # enable and read by the CPU at the next one, >= 3 periods later: two periods hold with one to spare.
   foreach {from to} [list $smp_r $cpu_r  $port_r $cpu_r] {
     set_multicycle_path 2 -setup -end -from $from -to $to
     set_multicycle_path 1 -hold  -end -from $from -to $to
@@ -237,7 +240,7 @@ if {[llength $rdy_nets] == 1} {
     set_multicycle_path 2 -setup -end -from $from -to $to
     set_multicycle_path 1 -hold  -end -from $from -to $to
   }
-  puts "=== T182 T2: set_multicycle_path -setup 3 / -hold 2 for the registers of cpu_0/cpu, -setup 2 / -hold 1 from din_r / rdy_r / irq_r / nmi_r / the port into the CPU and from the CPU into smem and its cache (not a false path), cache regs [llength $cch_r]"
+  puts "=== T182 T2: set_multicycle_path -setup 3 / -hold 2 for the registers of cpu_0/cpu, -setup 2 / -hold 1 from din_r / rdy_r / irq_r / irq_pen / the port into the CPU and from the CPU into smem and its cache (not a false path), cache regs [llength $cch_r]"
 } else {
   error "T182 T2: cpu_rdy net not found, the multicycle recipe cannot be scoped"
 }
@@ -249,7 +252,12 @@ proc impl_pass {place_dir} {
   phys_opt_design -directive AggressiveExplore
   if {$::stop eq "place"} { return 1000.0 }
   route_design -directive Explore
-  phys_opt_design -directive AggressiveExplore
+  # T241 S2 (2026-11-21): the routed timing goes into a report before the post-route phys_opt, so that a crash in it leaves the report behind. That phys_opt
+  # runs Explore, not AggressiveExplore: Vivado 2024.1 ended with a segfault in AggressiveExplore's "Critical Path Optimization" here in the builds of 684efe93
+  # and 83358f17 (T208 run 1863 also segfaulted, where is not recorded). Explore completed as a retry in T208 run 1873, after a phys_opt that had ended;
+  # whether it avoids the crash as the first post-route step is untested.
+  report_timing_summary -max_paths 10 -file $::bdir/timing_route_$place_dir.rpt
+  phys_opt_design -directive Explore
   set p [get_timing_paths -setup -max_paths 1]
   if {[llength $p] == 0} { return 1000.0 }
   foreach d {AlternateReplication AggressiveFanoutOpt} {
