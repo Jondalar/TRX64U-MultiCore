@@ -13,7 +13,7 @@ for debugging."
 **Depends on:** T182 (the core), T208 (mirror queue, BA write hold), T217 (the PRG start bench `cores/c64scpu/sim/run_prgrun.sh`).
 **Milestone:** M2.
 
-Open (one line, as in the TODO table): intro fixed (integration, D3); S2 in PR #120: 7/7 benches pass, build green (WNS +0.015 ns); board open
+Open (one line, as in the TODO table): intro fixed (integration, D3); S2 (PR #120) on the board 11-21: Boom in play crashes as before; intro, Metal Dust ok
 
 ---
 
