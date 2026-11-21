@@ -13,7 +13,7 @@ for debugging."
 **Depends on:** T182 (the core), T208 (mirror queue, BA write hold), T217 (the PRG start bench `cores/c64scpu/sim/run_prgrun.sh`).
 **Milestone:** M2.
 
-Open (one line, as in the TODO table): intro fixed (integration, D3); S2 in PR #120: 7/7 benches pass; build: Vivado segfault twice, retry with Explore
+Open (one line, as in the TODO table): intro fixed (integration, D3); S2 in PR #120: 7/7 benches pass, build green (WNS +0.015 ns); board open
 
 ---
 
@@ -508,3 +508,15 @@ Open.
   `timing_route_<directive>.rpt` before the post-route phys_opt, and that phys_opt runs Explore instead of AggressiveExplore. Explore
   completed as a retry in T208 run 1873, after a phys_opt that had ended (T208 run 1863 also segfaulted, where is not recorded); whether it
   avoids the crash as the first post-route step is untested. Whether this stays is Alex's decision.
+
+### 2026-11-21: run 44854024836 (`98abe651`): the c64scpu bitstream is built
+
+- The build (key `mono-c64scpu-d9f3659d12445d77`, the same netlist as the build of `83358f17`): routed at WNS -0.185 ns; the post-route
+  phys_opt with Explore ran to its end without a crash: "=== impl pass 1 (ExtraTimingOpt): WNS 0.015 ns", "=== bitstream:
+  build_mono_c64scpu/c64scpu_mono.bit 1795345 bytes". The builder published the entry and approved `bitstreams`; `cor (large:c64scpu)` green.
+- The worst path, from `timing_route_ExtraTimingOpt.rpt` (after routing) and `timing.rpt` (the end): `cpu_0/smem/tab/q_reg` (the class
+  table's block RAM) -> `cpu_0/cpu/P_reg[1]/D`, 20 logic levels, data path 15.227 ns (-0.185 ns) and 15.028 ns (+0.015 ns); the next one ends
+  at `X_reg[13]` (-0.135 ns after routing) and `PCr_reg[13]/CE` (+0.026 ns at the end). It is T208's path, with 15 ps to spare.
+- `c64scpu.cor` (artifact `cor-large-c64scpu` of the run): 3,559,895 bytes, sha256 `9539de011be1a470805e10c5dbddb64d6a0e54c3c2bfcccc07f82f1d3d9c51e8`
+  (package A's, the one on the board, is 3,532,344 bytes, `42c8b9ee…`). Board step open (S4, Alex): Master's Boom in play, the DMAgic intro,
+  Metal Dust unchanged.
