@@ -1,7 +1,7 @@
 # T253 — The P7 keyboard scan uses the keyboard's I2C bus only, and the applications start it as PR #112 does
 
 **Status:** IN PROGRESS (2026-11-21). Asked by Alex, 2026-11-21.
-Open (one line, as in the TODO table): IN PROGRESS 11-21: S1 PASS, S3 picture and colours; open: S2 10 min, S3 P7 key, S4, host pin
+Open (one line, as in the TODO table): IN PROGRESS 11-21: S1 PASS, S3 picture and colours; open: S2 10 min, S3 P7 key, S4, host and trx64u wiring
 **Repo:** TRX64U-MultiCore — the I2C wiring in the top of every large core (`cores/*/mono/top.v`, `cores/*/mono/host/top.v`)
 and of the host (`host/top.v`); the start of the scan in the applications (`coreapp/src/coreapp.cc`,
 `host-app/software/hostapp/hostapp.cc`, `host-app/software/system/u64ii_init.cc`, `host-app/software/io/i2c/hw_i2c_drv.cc`).
@@ -42,6 +42,12 @@ apart from the keyboard scan NOTHING. Do it." And: "How can one mix the buses?"
     gateware on every board (`app_i2c.v:81`).
   - PR #112 as it is (`c64scpu_t253`) shows the same dropouts. The cause is that the scan runs on the HDMI bus, not the
     way T242 differs from PR #112.
+- **The wiring this branch does not change (the review, 2026-11-21):** `host/top.v` (the host menu and the DFX cores
+  apple2, atari800, vc20) and TRX64-Ultimate's `designs/c64_basic/top.v` (the bitstream of `trx64u`, taken by its pin,
+  `docs/contracts/trx64u-firmware-handover.md`) scan all three buses as before D1. Both applications switch the scan on
+  (`coreapp/src/coreapp.cc`, `host-app/software/hostapp/hostapp.cc`), and the core application reads the EDID every
+  500 ms on every core (`coreapp/src/run.cc`, `picture_tick`). So the DFX cores and `trx64u` can show the dropouts of
+  this spec at 50 Hz on a screen that names no 50 Hz mode. In 0.2.0 they could not: the applications parked the scan.
 - **Why it matters:** T242 ships with 0.2.1. A core whose picture drops out cannot be played.
 - **The parts:**
   - **P1** The scan drives and reads only the bus of the keyboard expander. The other buses carry what they carried
@@ -89,7 +95,8 @@ Scenario: S4 (P1) every core and the host
   stay: they make the same call as PR #112.
 - **D3: the build.** The c64scpu first, on the builder as in T250 D5, for the board (S1-S3). Then every copy of the
   wiring on this branch, built by the pipeline (S4): the 16 copies under `cores/*/mono/`, and `host/top.v` after an
-  approved host change (T94 D13, `contract/host_pin.txt`): open, a question to Alex.
+  approved host change (T94 D13, `contract/host_pin.txt`): open, a question to Alex. TRX64-Ultimate's top (`trx64u`)
+  is that repository's change (the hand-over contract: both sides): open.
 
 ## §4 Out
 
