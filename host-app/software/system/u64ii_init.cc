@@ -135,10 +135,6 @@ void custom_hardware_init()
     i2c->i2c_write_byte(0x42, 0x07, 0xFF); // All pins input on port 1
     i2c->i2c_write_byte(0x42, 0x02, 0x00); // Output Port, all columns selected
 
-    // T242 D1: hand the 1V8 bus back to the keyboard scanner of header P7. The commands above parked it (host/app_i2c.v); only a
-    // manual enable makes i2c_lock/i2c_unlock park it and hand it back around each later transaction (the firmware: u64_config.cc).
-    // Enabling calls no FreeRTOS function, so it is safe before the scheduler.
-    i2c->enable_scan(true, false);
 }
 }
 
