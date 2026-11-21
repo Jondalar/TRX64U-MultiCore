@@ -206,7 +206,7 @@ if {[llength $rdy_nets] == 1} {
   set pfx [string range [get_property NAME $rdy_nets] 0 end-[string length cpu_rdy]]
   set seqf {IS_SEQUENTIAL}
   set cpu_r  [get_cells -quiet -hier -filter "$seqf && NAME =~ ${pfx}cpu_0/cpu/*"]
-  set smp_r  [get_cells -quiet -hier -filter "$seqf && (NAME =~ ${pfx}cpu_0/rdy_r_reg* || NAME =~ ${pfx}cpu_0/irq_r_reg* || NAME =~ ${pfx}cpu_0/nmi_r_reg* || NAME =~ ${pfx}cpu_0/din_r_reg*)"]
+  set smp_r  [get_cells -quiet -hier -filter "$seqf && (NAME =~ ${pfx}cpu_0/rdy_r_reg* || NAME =~ ${pfx}cpu_0/irq_r_reg* || NAME =~ ${pfx}cpu_0/nmi_r_reg* || NAME =~ ${pfx}cpu_0/din_r_reg* || NAME =~ ${pfx}cpu_0/irq_pen_reg*)"]
   set port_r [get_cells -quiet -hier -filter "$seqf && NAME =~ ${pfx}cpu_0/pport/*"]
   set outp_r [get_cells -quiet -hier -filter "$seqf && (NAME =~ ${pfx}cpu_0/pc_q_reg* || NAME =~ ${pfx}addr_a_reg* || NAME =~ ${pfx}we_a_reg* || NAME =~ ${pfx}dout_a_reg*)"]
   # T182 step 3 (spec 5.5): the memory map beside the CPU (cpu_0/smem = scpu_mem.v), its registers without the cache (cpu_0/smem/cache/*: that has its own single-cycle pipeline,
@@ -222,6 +222,8 @@ if {[llength $rdy_nets] == 1} {
     set_multicycle_path 3 -setup -end -from $from -to $to
     set_multicycle_path 2 -hold  -end -from $from -to $to
   }
+  # T241 S2: irq_pen (cpu65816_c64scpu.v) is loaded at a CPU enable (core_ce) and read by the CPU only at the next one, so its paths into the CPU get the
+  # two periods of this set too (enables are at least three periods apart, the premise of the cpu regs rule above); without it they were single-period.
   # T182 step 4 (spec 5.6, 5.4 f): at 20 MHz the enable is not tied to phi2_l. An I/O cycle's enable comes in the clock after n_d[1], i.e. two clocks after din_r / rdy_r / irq_r / nmi_r and
   # the port registers were loaded at the PHI2 fall (they are loaded at the clk edge that ends the n_ev clock; n_d[0] is visible in the next clock, n_d[1] in the one after, core_ce
   # in that one): two periods, hold 1. At 1 MHz the enable is >= 17 clk2x cycles later, at 20 MHz an enable can come at any other time, but then these registers do not change.
@@ -237,7 +239,7 @@ if {[llength $rdy_nets] == 1} {
     set_multicycle_path 2 -setup -end -from $from -to $to
     set_multicycle_path 1 -hold  -end -from $from -to $to
   }
-  puts "=== T182 T2: set_multicycle_path -setup 3 / -hold 2 for the registers of cpu_0/cpu, -setup 2 / -hold 1 from din_r / rdy_r / irq_r / nmi_r / the port into the CPU and from the CPU into smem and its cache (not a false path), cache regs [llength $cch_r]"
+  puts "=== T182 T2: set_multicycle_path -setup 3 / -hold 2 for the registers of cpu_0/cpu, -setup 2 / -hold 1 from din_r / rdy_r / irq_r / nmi_r / irq_pen / the port into the CPU and from the CPU into smem and its cache (not a false path), cache regs [llength $cch_r]"
 } else {
   error "T182 T2: cpu_rdy net not found, the multicycle recipe cannot be scoped"
 }
