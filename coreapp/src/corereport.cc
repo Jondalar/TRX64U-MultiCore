@@ -9,6 +9,7 @@
 #include <string.h>
 
 #include "gitinfo.h"
+#include "../../host-app/software/components/u64_str.h"   // u64_dec: the board's printf has no 64 bit conversion (T251 D1)
 
 // D3: the registers the descriptor names, in its order. Nothing else of the register window is read.
 static void put_regs(BrOut *o, CoreCtx *c)
@@ -80,7 +81,8 @@ static void put_media(BrOut *o, CoreCtx *c)
         uint64_t size = 0;
         bool dir = false;
         if (path && c->fs && c->fs->stat(path, &size, &dir) && !dir) {
-            br_kv(o, d->media[i].name, "%s, %u bytes (%s)", copy, (unsigned)size, path);     // T251: the board's printf has no length modifier
+            char sz[21];
+            br_kv(o, d->media[i].name, "%s, %s bytes (%s)", copy, u64_dec(size, sz), path);     // T251 D1
         } else {
             br_kv(o, d->media[i].name, "%s, size not known", copy);
         }

@@ -1,7 +1,7 @@
 # T251 — The core application's texts show their numbers on the board: no format with a length modifier
 
 **Status:** IN PROGRESS (2026-11-21). Asked by Alex, 2026-11-21.
-Open (one line, as in the TODO table): IN PROGRESS 11-21: S1, S2 PASS; open: review, PR
+Open (one line, as in the TODO table): IN PROGRESS 11-21: S1 PASS, review fixes in; open: S2 on the bundle's image, PR
 **Repo:** TRX64U-MultiCore — the core application (`coreapp/src`, `coreapp/cores`).
 **Number:** T251.
 **Origin:** GitHub issue #121 (a tester, release 0.2.0, C64 Ultimate): "Browsing for ROM shows "%llu" as file size" (the C128
@@ -55,11 +55,15 @@ Scenario: S2 (P1) the size in the file browser
 
 ## §3 Decision
 
-- **D1:** every such format takes `%u` (or `%d` for a signed value) and a cast to `unsigned` (or `int`): 32 bits, the width
-  the printf takes for these letters. A file on the card is below 4 GiB (FAT32). The diag test's value can be larger: above
-  4294967295 its message says "more than 4294967295".
-- **D2:** `small_printf.cc` is not changed: it is the host tree's file, the host application links it too, and the host
-  application has no such format.
+- **D1:** a 64 bit size a person reads goes through `u64_dec()` (`host-app/software/components/u64_str.h`, the helper of
+  the FTP server) and `%s`: a file's size in the file browser (`coreapp/src/menuctl.cc`) and a medium's size in the report
+  (`coreapp/src/corereport.cc`). exFAT is on (`FF_FS_EXFAT 1` in `chan_fat/*/ffconf.h`), so a file can be larger than
+  4 GiB. A 32 bit value takes `%u` or `%d` with a cast. In the three files that D24 holds at their line count
+  (`coreapp/src/diagtest.cc`, `coreapp/cores/apple2_disk.cc`, `coreapp/cores/apple2_hdd.cc`) a 64 bit value says
+  "more than 4294967295" above 32 bits; the 3.5" message of `apple2_disk.cc` only prints 409600 or 819200.
+- **D2:** `small_printf.cc` is not changed: it is the host tree's file, and the host application links it too. The host
+  application's own code (`host-app/software/hostapp`) has no format with a length modifier. `sd_card.cc:204`, which both
+  applications link, has `%lu` inside a comment block: it is not compiled.
 
 ## §4 Out
 
@@ -73,3 +77,9 @@ Nothing is left out.
 - **S2 PASS (2026-11-21):** `COREAPP=.ci/dev/t251-printf-sizes/coreapp.app tests/ui/run.sh features_cores/t251_c128_pick.feature`:
   "1 passed, 0 failed". The C128's "JiffyDOS C128 ROM" row opens the picker; in `games/` the row of `alpha.d64` shows
   "174848 bytes" and `hello.prg` "14 bytes" (picture `t251-c128-pick`: the `.adf` files show "901120 bytes").
+- **The review's fixes (2026-11-21):** D1 and D2 as above; before, D1 cut every size to 32 bits ("a file is below 4 GiB
+  (FAT32)"), which exFAT disproves. `menuctl.cc` and `corereport.cc` include `u64_str.h` by its path, as `apple2_hdd.cc`
+  includes `hdd_rom.h`. `tools/check_d24.py` ok. The four changed files compile with the flags of `tests/coreapp/run.sh`
+  (`c++ -fsyntax-only`, no format warning). S1's search finds only the comment of `coreapp/src/ops.cc:250` again.
+- **S2 again:** the file browser's line changed, so S2 runs again on the RISC-V image of the bundle (T253).
+
