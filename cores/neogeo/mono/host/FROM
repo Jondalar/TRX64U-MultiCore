@@ -5,7 +5,7 @@ Edits to the copies: gideon_vhdl.tcl: the local VHDL names carry $hd/ (set by bu
 T195 (2026-11-09): ui_buttons.v added (copied from host/); top.v, ultimate_sys.vhd and pins.xdc carry the same UI_BUTTON change as host/ (Menu: left and middle, Reset: right, ITU bit 5/7 move).
 
 T253 (2026-11-21): top.v (and the core's own mono/top.v where there is one): after i2c_done the P7 keyboard scan drives and reads the 1.8 V bus
-only; the HDMI and the 3.3 V bus are released (T253 D1). host/top.v gets it only after an approved host change (T94 D13).
+only; the HDMI and the 3.3 V bus are released (T253 D1). host/top.v has the same change (Alex approved the host change, T253 D3; the pin, T94 D13).
 
 Files:
 app_i2c.v
