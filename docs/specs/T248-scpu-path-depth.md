@@ -1,7 +1,7 @@
 # T248 — c64scpu: the class table in LUTs and the decimal adder with a carry select, so the path into the 65C816 is shorter
 
 **Status:** IN PROGRESS (2026-11-21). Asked by Alex, 2026-11-21.
-Open (one line, as in the TODO table): IN PROGRESS 11-21 (Alex: "1+2"); S1-S3 PASS; branch t248-scpu-depth, S4 run open
+Open (one line, as in the TODO table): IN PROGRESS 11-21: S1-S3 PASS; S4 FAIL, +0.648 ns of +3 (was +0.015); next step with Alex
 **Repo:** TRX64U-MultiCore — the core `cores/c64scpu/`: `scpu_cfgtab.v` (made by `tools/scpu_cfgtab.py`) and
 `cpu/s816_addsubbcd.vhd` (made by `tools/scpu_vendor816.py`). No application code.
 **Number:** T248.
@@ -122,4 +122,12 @@ the .cor of S4.
   - **Review (one agent): FAIL**, fixed before the push: two lint checks (the benches were not listed; a script comment held a
     login on an internal host) and the timing of P1's first form. The commit with the login was rebuilt out of the branch, so no
     pushed commit holds it.
-- **Open:** S4 (run 44875582642), S5 (board, with the T241 S2 steps).
+- **S4 FAIL (run 44875582642, green, 2026-11-21):** "=== T248 smem->cpu worst setup slack: 0.648 ns
+  (l2/c64/c64/cpu_0/smem/b_a_reg[13]/C -> l2/c64/c64/cpu_0/cpu/X_reg[13]/D)", against the +3.000 ns of S4.
+  - The design's WNS is +0.432 ns (it was +0.015). Its worst path is now in the host's HDMI scaler
+    (`hout/mtim/yact0_reg[5]` -> `hout/scaler/vacc_reg[*]/R`, 6 levels, clock `pix_mmcm`), not in the core.
+  - The class table is off the path: the worst `sid2x_mmcm` path starts at `b_a` (the sampled CPU address). Its sections:
+    `b_a` clock-to-out 0.478 ns; the address decode to `rd_mem` 5 LUT levels, 5.162 ns; the data mux 0.713 ns; in the CPU the
+    adder for 16 bits and the result mux to `X_reg[13]` 11 LUT levels, 7.896 ns, no CARRY4. 17 levels, 14.249 ns, route 79 %.
+  - LUT 23,344 (it was 23,360), slices 96.7 %.
+- **Open:** the next step after S4 (with Alex), S5 (board, with the T241 S2 steps).
