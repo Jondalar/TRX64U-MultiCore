@@ -367,7 +367,7 @@ def smcbench():
     come when the code says) modifies itself. Line k loads an immediate (the byte the line k-1 stored there a moment before: the pass number), stores it to $02:0C00+k and stores the pass
     number (X) into the immediate of line k+1 - while that line is on its way into the cache (the prefetch started with the first fetch of line k) or just arrived. Two line shapes
     sweep the store through 35..76 clk2x after the line's first fetch (the fill takes 25..94, median 39): A = lda, tay, p NOPs (p 0..3), txa, sta, tya, sta; B = lda, sta, p NOPs (p 0..5),
-    txa, sta. A stale line (the old immediate) would leave the previous pass's number in $02:0C00+k. Before every pass a sweep of 8 KiB of bank 3 (same cache indexes, other tag) evicts
+    txa, sta. A stale line (the old immediate) would leave the previous pass's number in $02:0C00+k. Before every pass a sweep of 8 KiB of bank 3 (the same cache indexes as the lines at $1800: with the 32 KiB cache of T241 D4 too, both lie below $2000; other tag) evicts
     all code lines. Markers: 1 every result right in every pass, 2 a wrong result, 3 end."""
     t = Asm(ORG)
     setup_common(t)
@@ -500,7 +500,7 @@ def starsbench(pad=None):
 def image(kind):
     global SRC
     if kind == "hud":
-        SRC = 0x022800                           # not on the cache index of the HUD stage's code ($12C7-$13FF, index = address bits 12:4): the stage stays in the code cache between two frames
+        SRC = 0x022800                           # not on the cache index of the HUD stage's code ($12C7-$13FF, index = address bits 14:4 since T241 D4, 12:4 before): the stage stays in the code cache between two frames
     if kind == "stz":
         t = stzbench()
     elif kind == "smc":

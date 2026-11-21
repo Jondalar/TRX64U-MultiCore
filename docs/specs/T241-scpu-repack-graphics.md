@@ -583,3 +583,9 @@ Open.
   when the NMI is taken, so an edge that came in the branch's second cycle waits for the next instruction. The new registers are under
   `cpu_0/cpu`, so the build's multicycle recipe counts them with the CPU's (`build_mono.tcl`, `cpu_r`). Expected on the board: scpu4 `bne
   taken` 12/14, scpu5 b and c `any` 58 and 78.
+- The 20 MHz memory path (D4, "RAM fixes"): `scpu_cache.v` has the parameter `IW`; the build sets 11 (`scpu_mem.v` `CIW`): 2048 lines of 16
+  bytes, 32 KiB direct mapped, 8 RAMB36 instead of 2. The suite's scpu6 gave every miss at about 0.3 PHI2 cycles at 20 MHz (conf: 32768 misses,
+  +9869; code: 2048, +625; bigr: 8192, +2528), and with 8 KiB conf and code miss in every access. 11 is the most the continuous lookup allows:
+  class C_KS adds $8000 (`scpu_mem.v`), so only the low 15 bits of p are the CPU address's in every class. Expected: scpu6 conf and code at
+  the full factor; bigr keeps the misses of its first sweep (2048 of 8192 reads). `tb_scpu_cache.v` runs the module at `IW` = 9: PASS
+  (iverilog on the Mac, 2026-11-21). The Metal Dust benches' collisions (hudx, smc) lie below `$2000` in their banks, so they still meet.

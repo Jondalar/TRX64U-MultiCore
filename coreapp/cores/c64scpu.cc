@@ -142,7 +142,7 @@ static uint32_t rd32(CoreCtx *c, uint32_t r)
 }
 
 // ROM_CTRL.b0 clears the valid bits of the line caches (a line fetched before is stale): the ROM images' and the 65816's (T250 D3). The busy
-// bit waited out is the C64 image cache's walker; the 65816's cache clears in 512 clocks, before the next request can come.
+// bit waited out is the C64 image cache's walker; the 65816's cache clears in 2048 clocks, before the next request can come.
 static int flush_cache(CoreCtx *c, const char *role, char *msg, int msglen)
 {
     c->io->wr(SCPU_ROM_CTRL, 0x01);

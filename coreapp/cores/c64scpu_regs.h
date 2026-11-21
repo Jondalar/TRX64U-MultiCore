@@ -14,9 +14,9 @@
 #define SCPU_JOY         SCPU_REG(0x024)              // b0: the host's joystick ports 1 and 2 are swapped before the core (T157); live; back to 0 by COLD
 #define SCPU_STATUS      SCPU_REG(0x030)              // b3 held (Freeze), b4 PAL; b0 SuperCPU ROM valid, b1 20 MHz in effect, b2 emulation mode (E flag)
 #define SCPU_ST_HELD     0x08
-#define SCPU_ROM_CTRL    SCPU_REG(0x040)              // W b0: flush the line caches: the C64 image's, the SuperCPU ROM's and the 65816's 8 KiB cache of SRAM and
+#define SCPU_ROM_CTRL    SCPU_REG(0x040)              // W b0: flush the line caches: the C64 image's, the SuperCPU ROM's and the 65816's 32 KiB cache of SRAM and
                                                       // SuperRAM (c64_core_c64scpu.v scpu_flush); R b0: the C64 image cache's walker is running (the 65816's cache
-                                                      // clears in 512 clocks, not shown)
+                                                      // clears in 2048 clocks, not shown)
 #define SCPU_ROM_BASE    SCPU_REG(0x050)              // 32 bit, little endian: the DDR2 byte address of the C64 ROM image (BASIC, KERNAL), 0x01C00000
 #define SCPU_CHR_ADDR    SCPU_REG(0x090)              // RW 12 bit (090 low, 091 high b3:0): the character ROM store's byte address
 #define SCPU_CHR_DATA    SCPU_REG(0x092)              // W: store the byte at CHR_ADDR, then add 1; R: the byte at CHR_ADDR (2 clocks after a CHR_ADDR write), then add 1

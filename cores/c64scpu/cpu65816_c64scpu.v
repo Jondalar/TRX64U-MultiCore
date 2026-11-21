@@ -9,7 +9,7 @@
 //   - a cycle with neither VDA nor VPA is an internal cycle of the 65816, not a bus access: it is shown to the C64 as a read of $0000 (RAM, no side effect), where the 6510 would
 //     have made a dummy read; it still takes its PHI2 cycle;
 //   - step 3: the memory map is scpu_mem.v (spec T4/T5/T10): the 24-bit address decides, with the configuration table, whether the cycle is the CPU's own memory (SRAM, SuperRAM,
-//     ROM in the DDR2 behind one 8 KiB cache), a C64-bus cycle (the 16-bit address as before, `fwd`) or a SuperCPU hardware register; the CPU's enable is withheld until the data is there;
+//     ROM in the DDR2 behind one 32 KiB cache, T241 D4), a C64-bus cycle (the 16-bit address as before, `fwd`) or a SuperCPU hardware register; the CPU's enable is withheld until the data is there;
 //     $00/$01 go to the port (scpu_pport);
 //   - NMI acknowledge (the keyboard's RESTORE toggle) = the vector pull of $FFFA;
 //   - no turbo (the 6510 wrapper's t_*, dout_early/late, din_r_o stay as ports for c64_turbo_c64u in its NO_TURBO form), no state bus (sb_*, st_a..st_p read 0: the
