@@ -7,4 +7,5 @@ w=$(mktemp -d)
 python3 "$here/cfgtab_exp.py" "$w/cfgtab_exp.hex"
 cd "$w"
 iverilog -g2005 -o tb "$here/tb_cfgtab.v" "$here/../scpu_cfgtab.v"
-vvp tb
+vvp tb | tee "$w/out.txt"
+grep -q 'S1 PASS 4096/4096' "$w/out.txt"
