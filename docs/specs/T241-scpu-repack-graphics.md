@@ -13,7 +13,7 @@ for debugging."
 **Depends on:** T182 (the core), T208 (mirror queue, BA write hold), T217 (the PRG start bench `cores/c64scpu/sim/run_prgrun.sh`).
 **Milestone:** M2.
 
-Open (one line, as in the TODO table): intro fixed (integration, D3); S2 in PR #120: 5/7 benches pass (base/emu tb fixed), build red (segfault), rebuild due
+Open (one line, as in the TODO table): intro fixed (integration, D3); S2 in PR #120: 7/7 benches pass; build: Vivado segfault twice, retry with Explore
 
 ---
 
@@ -493,3 +493,18 @@ Open.
   `OLD_NMI_N` and `NMI_SYNC` at every enable, and at 20 MHz the enable of a cycle that is not PHI2-synchronous can come one clk2x after the
   PHI2 fall (since T182 step 4, not from S2): `nmi_r` is out of the set now and keeps one period. The block's stale comments (the enable
   `g_edge && phi2_l`, the XCE branch that ignored EN, the rule list) now say what the code does.
+
+### 2026-11-21: run 44848905276 (`83358f17`, `[sims]`): all seven benches pass, the build crashes again
+
+- Benches (sim job 136676547470): `c64scpu_base` PASS (112 s), `c64scpu_emu` PASS (95 s), `c64scpu_map`, `c64scpu_speed`, `c64scpu_mirror`
+  PASS, `c64scpu_irq` PASS (1099 s), `c64scpu_mdust` PASS (1803 s).
+- The build (key `mono-c64scpu-3eca68ce5a883edf`): "sampled-input regs 11" (`irq_pen` in, `nmi_r` out). Routed at WNS -0.185 ns, TNS
+  -0.843 ns. The post-route phys_opt (AggressiveExplore) brought it to -0.012 ns on nets of the ALU's adders (`s816_alu/AddSub`, the binary
+  and the BCD correction adders), X, T and `pout_i`; then Vivado 2024.1 ended with the same segfault in "Phase 2 Critical Path Optimization".
+  The build's full `vivado.log` (7,477 lines, read in the builder's work directory of the run) ends there. No bitstream; `bitstreams` rejected, `cor` red.
+- It is the path T208 met (done/T208 §5, 2026-11-14: `smem/tab/q_reg` -> `cpu/T_reg[14]`, 18 logic levels, -0.018 to -0.006 ns after the
+  retries then). The crash came again on a second placement at the same step.
+- Next build (pushed without `[sims]`: the benches ran on this RTL): `build_mono.tcl` writes the routed timing to
+  `timing_route_<directive>.rpt` before the post-route phys_opt, and that phys_opt runs Explore instead of AggressiveExplore. Explore
+  completed as a retry in T208 run 1873, after a phys_opt that had ended (T208 run 1863 also segfaulted, where is not recorded); whether it
+  avoids the crash as the first post-route step is untested. Whether this stays is Alex's decision.
