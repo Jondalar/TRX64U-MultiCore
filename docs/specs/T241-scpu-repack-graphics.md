@@ -618,3 +618,10 @@ Open.
   t241fix (`b7571876`, sha256 `1d4c3ab052d252a1...`) and the application of `c64scpu_t241.cor` (`f59163935`, 1,761,208 bytes),
   joined with `tools/cor_pack.py` `replace_app`; `app_commit` in the manifest set to `f5916393`; `cor_pack.py check` passes;
   3,561,655 bytes, sha256 `fedcb583720b9e68...`, read back the same. Its folder has the ROMs and the settings of t241fix.
+- `c64scpu_241_oldapp` on the board (Alex, 2026-11-21, translated): "no picture dropouts, and the start animation was correct too ..
+  so we have a regression in the application?!" The same bitstream with the application of 2026-11-21 has both faults: the
+  dropouts and the colours come from the application. Between the two applications 15 files differ (`coreapp`, `host-app/software`;
+  `uicore`, `app` and `host/` are equal). Three of them are T242's (#111, the P7 keyboard): `u64ii_init.cc` hands the I2C bus to
+  the keyboard scanner (`enable_scan(true, false)`) instead of setting the expander 0x42, `hw_i2c_drv.cc` has no 2 ms wait after
+  the scanner is parked, `legacy.cc` switches the scanner off before the IPROG. The CDCE synthesizers are on the same buses
+  (`host/app_i2c.v`, the header). Not yet proven which file it is.
