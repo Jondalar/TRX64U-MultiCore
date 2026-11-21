@@ -13,7 +13,7 @@ for debugging."
 **Depends on:** T182 (the core), T208 (mirror queue, BA write hold), T217 (the PRG start bench `cores/c64scpu/sim/run_prgrun.sh`).
 **Milestone:** M2.
 
-Open (one line, as in the TODO table): intro fixed (integration, D3); S2 (PR #120) on the board 11-21: Boom in play crashes as before; intro, Metal Dust ok
+Open (one line, as in the TODO table): intro fixed (D3); Boom crashes with S2 (PR #120); 11-21 suite: IRQ in a taken branch 1 cycle early
 
 ---
 
@@ -538,3 +538,31 @@ Open.
   measuring board run (CIA timers, IRQ count, TI, loop count) was never made. The dispatcher has no margin (it reads `$D012` 62
   cycles after the IRQ starts and needs line 146). A CPU that is one cycle early there reads 145, which has the effect that S2 assumed
   from a different cause.
+
+### 2026-11-21: the T241.1 suite on the c64scpu, over REST
+- The core: `c64scpu_t250.cor` (branch `t250-scpu-net`: this branch's S2 change, T248, T249 and T250's Ethernet). The
+  suite ran over REST (`tests/c64scpu/rest.py`) with no person at the screen. The reference is the board's C64 core trx64g
+  (T241.1 D4). The screens are in T241.1 §5.
+- **Reference (Alex, 2026-11-21):** Master developed and tested Boom on a real SuperCPU, not in VICE alone. So the real
+  SuperCPU runs Boom's interrupt chain. Whether a real 65C816 takes an interrupt after a taken branch as the 6510 does is
+  not an open question for this task: where the c64scpu's timing makes Boom fail, the c64scpu is at fault.
+- **The interrupt in a taken branch (scpu4):** a sled of taken `BNE` gives the lowest and the highest d as 11 and 13;
+  trx64g gives 12 and 14. The nine other sleds give trx64g's values. Both ends move by one cycle and the span stays 3: the
+  values fit a c64scpu that decides the interrupt before the last cycle of a taken branch, as S2 does for every
+  instruction. The 6510 decides it before the second cycle of a taken branch that stays in its page, so an interrupt that
+  rises in that branch's second cycle waits one instruction more.
+- **Boom's spin (scpu5 b and c: `LDA abs`, taken `BEQ`):** the earliest interrupt start is trx64g's (`all` 62 and 82); the
+  latest comes one cycle earlier (`any` 59 and 79, trx64g 58 and 78). The 7-cycle loop gives the same: the 6510 decides
+  before its cycles 4 and 6 (1 to 5 cycles to the start), the c64scpu before its cycles 4 and 7 (1 to 4). So in the spin
+  only the slowest phase is shorter, and the spin alone does not make the dispatcher read line 145.
+- With sprites (scpu5 d) the c64scpu is one cycle later than trx64g (`all` 43 against 44), not earlier. d also measures
+  the VIC (T241.1 D4). The soak at K = 44 (500 frames in each mirror mode): 0 early, 0 out of order.
+- **20 MHz (scpu6):** the loads with cache misses take longer than scpu6 expects (the full factor of scpu3's load):
+  `bigr` 8989 against 6461, `conf` 20381 against 10512, `code` 1780 against 1155 PHI2 cycles. The register load, the I/O
+  reads, the mirrored and the fast writes, and the badline writes give the expected values.
+- **`$02a6` after the reset (scpu1):** the VIC is PAL (312 lines), but `$02a6` is 0 and timer A 17048 (the NTSC values).
+  scpu1 runs CINT again from nine start lines: at 1 MHz it decides PAL from every one; at 20 MHz it decides NTSC from lines
+  0, 100, 180 and 200 and PAL from 210 on. scpu1's model gives the same from the time `$e518` takes at 20 MHz (3504
+  cycles; 40556 at 1 MHz). So at 20 MHz a CINT that starts before about line 200 reaches its PAL test (`$d012` = 0) at
+  line 256, before line 311 has come.
+- Open: the code that runs when the crash's interrupt comes, and whether it is in a taken branch there; S4.
