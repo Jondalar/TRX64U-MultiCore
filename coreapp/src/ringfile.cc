@@ -2560,7 +2560,7 @@ const char *trx_trxring_load(const char *path)
             if (log_hex && !tr_hexeq(log_hex, j.digest_log, 32)) {
                 printf("[RING] the .trxring's log does not match its hash: the machine is where the file says, but a rewind may not be\n");
             }
-            printf("[RING] .trxring loaded: %d frames, %lu + %lu record bytes\n", frames, (unsigned long)j.s0_bytes, (unsigned long)j.s1_bytes);
+            printf("[RING] .trxring loaded: %d frames, %u + %u record bytes\n", frames, (unsigned)j.s0_bytes, (unsigned)j.s1_bytes);   // T251
         }
     }
     fm->fclose(j.f);

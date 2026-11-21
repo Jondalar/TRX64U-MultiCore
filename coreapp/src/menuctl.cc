@@ -16,6 +16,7 @@
 #include <string.h>
 #include <strings.h>
 #include <ctype.h>
+#include "../../host-app/software/components/u64_str.h"   // u64_dec: the board's printf has no 64 bit conversion (T251 D1)
 
 static const char *base_name_of(const char *p);
 
@@ -828,7 +829,8 @@ void MenuCtl::row(int i, char *left, int ln, char *right, int rn, bool *active, 
             const FsEntry &fe = pick_list_[i - 1];
             snprintf(left, ln, "%s%s", fe.name, fe.dir && strcmp(fe.name, "..") ? "/" : "");
             if (!fe.dir && right && rn) {
-                snprintf(right, rn, "%llu bytes", (unsigned long long)fe.size);
+                char sz[21];
+                snprintf(right, rn, "%s bytes", u64_dec(fe.size, sz));     // T251 D1: exFAT files can exceed 4 GiB
             }
             if (!pick_ok_ && sub && sn) {
                 snprintf(sub, sn, "This folder cannot be read");
