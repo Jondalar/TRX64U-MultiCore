@@ -17,10 +17,9 @@ module scpu_area (input wire [7:0] page, output reg [3:0] area);
   end
 endmodule
 
-// a = {area, index}; a is registered at the clock edge, q is the class of that address (LUT ROM behind the address register)
-module scpu_cfgtab (input wire clk, input wire [11:0] a, output wire [3:0] q);
+// a = {area, index}; q is the class one clock later: a LUT ROM in front of the output register q (T248; it was a block RAM)
+module scpu_cfgtab (input wire clk, input wire [11:0] a, output reg [3:0] q);
   (* rom_style = "distributed" *) reg [3:0] t [0:4095];
-  reg [11:0] a_q = 12'd0;
   integer i;
   initial begin
     for (i = 0; i < 4096; i = i + 1) t[i] = 4'd0;
@@ -386,6 +385,5 @@ module scpu_cfgtab (input wire clk, input wire [11:0] a, output wire [3:0] q);
     for (i = 12'h9f0; i <= 12'h9f7; i = i + 1) t[i] = 4'd3;
     for (i = 12'h9f8; i <= 12'h9ff; i = i + 1) t[i] = 4'd8;
   end
-  always @(posedge clk) a_q <= a;
-  assign q = t[a_q];
+  always @(posedge clk) q <= t[a];
 endmodule

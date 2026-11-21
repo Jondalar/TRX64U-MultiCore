@@ -11,7 +11,7 @@ The table: AREAS = 10 page ranges x 256 configuration entries; the entry index i
 header). Each cell is one class of memory; the class numbers are the enum order of the oracle:
   R0 SRAM bank 0, R1 SRAM bank 1, RC internal C64 RAM, UM Ultimax, RL ROML, RH ROMH, IO I/O, CR character ROM, F8 EPROM (the SuperCPU ROM),
   KS kernal shadow, KT kernal trap, CO colour RAM, OP internal colour RAM.
-Output module scpu_cfgtab: LUT ROM (distributed) behind a 12-bit address register, a = {area[3:0], index[7:0]}, q = class of the address taken at the last clock edge; scpu_area: page (address bits 15:8) -> area.
+Output module scpu_cfgtab: a LUT ROM (distributed) in front of the output register q (T248; it was a block RAM), a = {area[3:0], index[7:0]}, q = class of the address one clock later; scpu_area: page (address bits 15:8) -> area.
 """
 import os
 import re
@@ -78,10 +78,9 @@ def make_verilog(areas, cfg):
     for i, (lo, hi) in enumerate(areas):
         v.append("    %s (page >= 8'h%02x && page <= 8'h%02x) area = 4'd%d;" % ("if" if i == 0 else "else if", lo, hi, i))
     v += ["    else area = 4'd15;", "  end", "endmodule", "",
-          "// a = {area, index}; a is registered at the clock edge, q is the class of that address (LUT ROM behind the address register)",
-          "module scpu_cfgtab (input wire clk, input wire [11:0] a, output wire [3:0] q);",
+          "// a = {area, index}; q is the class one clock later: a LUT ROM in front of the output register q (T248; it was a block RAM)",
+          "module scpu_cfgtab (input wire clk, input wire [11:0] a, output reg [3:0] q);",
           "  (* rom_style = \"distributed\" *) reg [3:0] t [0:4095];",
-          "  reg [11:0] a_q = 12'd0;",
           "  integer i;",
           "  initial begin",
           "    for (i = 0; i < 4096; i = i + 1) t[i] = 4'd0;"]
@@ -97,7 +96,7 @@ def make_verilog(areas, cfg):
                 else:
                     v.append("    for (i = 12'h%x%02x; i <= 12'h%x%02x; i = i + 1) t[i] = 4'd%d;" % (ai, j, ai, k, CLASSES.index(cells[j])))
             j = k + 1
-    v += ["  end", "  always @(posedge clk) a_q <= a;", "  assign q = t[a_q];", "endmodule", ""]
+    v += ["  end", "  always @(posedge clk) q <= t[a];", "endmodule", ""]
     return "\n".join(v)
 
 
@@ -124,7 +123,7 @@ def main():
     rc = 0
     areas, cfg = read_txt(open(TXT).read())
     if open(VER).read() != make_verilog(areas, cfg):
-        print("FAIL: cores/c64scpu/scpu_cfgtab.v is not what scpu_cfgtab.txt makes (run tools/scpu_cfgtab.py)")
+        print("FAIL: cores/c64scpu/scpu_cfgtab.v is not what scpu_cfgtab.txt makes (run tools/scpu_cfgtab.py --from-txt)")
         rc = 1
     if oracle and os.path.exists(oracle):
         oa, oc = parse_oracle(oracle)
