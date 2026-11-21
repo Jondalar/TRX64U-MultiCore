@@ -610,3 +610,4 @@ Open.
   dropouts are in, unfortunately". The baseline `c64scpu_t241.cor` (gateware and application of `f59163935`, branch `t241-rmw`,
   2026-11-20) has none. Every core with dropouts (t248 `1131711e`, t250 `6c86f802`, t241fix `b7571876`) has S2 and an
   application of 2026-11-21: the two are not separated yet.
+- Boom on this core (2026-11-21, after the suite): Alex started it: "Läuft" ("it runs").
