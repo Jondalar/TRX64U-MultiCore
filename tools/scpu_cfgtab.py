@@ -2,6 +2,7 @@
 """T182 step 3c: the SuperCPU memory configuration table (VICE scpu64meminit.c) as a checked-in table and the Verilog ROM made from it.
 
   scpu_cfgtab.py [--vice <scpu64meminit.c>]   read the oracle, write cores/c64scpu/scpu_cfgtab.txt and cores/c64scpu/scpu_cfgtab.v
+  scpu_cfgtab.py --from-txt                   no oracle: write only cores/c64scpu/scpu_cfgtab.v from the checked-in .txt
   scpu_cfgtab.py --check                      lint: the Verilog is what the .txt makes; and, when the oracle source is reachable (--vice, $SCPU_VICE_MEMINIT, or the
                                               usual path under ~/Development/C64/Tools/vice), the .txt is what the oracle says. Without the oracle that half is skipped
                                               and says so (the oracle is not in this repository).
@@ -10,7 +11,7 @@ The table: AREAS = 10 page ranges x 256 configuration entries; the entry index i
 header). Each cell is one class of memory; the class numbers are the enum order of the oracle:
   R0 SRAM bank 0, R1 SRAM bank 1, RC internal C64 RAM, UM Ultimax, RL ROML, RH ROMH, IO I/O, CR character ROM, F8 EPROM (the SuperCPU ROM),
   KS kernal shadow, KT kernal trap, CO colour RAM, OP internal colour RAM.
-Output module scpu_cfgtab: synchronous ROM, a = {area[3:0], index[7:0]}, q = class one clock later; scpu_area: page (address bits 15:8) -> area.
+Output module scpu_cfgtab: LUT ROM (distributed) behind a 12-bit address register, a = {area[3:0], index[7:0]}, q = class of the address taken at the last clock edge; scpu_area: page (address bits 15:8) -> area.
 """
 import os
 import re
@@ -77,9 +78,10 @@ def make_verilog(areas, cfg):
     for i, (lo, hi) in enumerate(areas):
         v.append("    %s (page >= 8'h%02x && page <= 8'h%02x) area = 4'd%d;" % ("if" if i == 0 else "else if", lo, hi, i))
     v += ["    else area = 4'd15;", "  end", "endmodule", "",
-          "// a = {area, index}; q is the class one clock later (block ROM)",
-          "module scpu_cfgtab (input wire clk, input wire [11:0] a, output reg [3:0] q);",
-          "  (* rom_style = \"block\" *) reg [3:0] t [0:4095];",
+          "// a = {area, index}; a is registered at the clock edge, q is the class of that address (LUT ROM behind the address register)",
+          "module scpu_cfgtab (input wire clk, input wire [11:0] a, output wire [3:0] q);",
+          "  (* rom_style = \"distributed\" *) reg [3:0] t [0:4095];",
+          "  reg [11:0] a_q = 12'd0;",
           "  integer i;",
           "  initial begin",
           "    for (i = 0; i < 4096; i = i + 1) t[i] = 4'd0;"]
@@ -95,7 +97,7 @@ def make_verilog(areas, cfg):
                 else:
                     v.append("    for (i = 12'h%x%02x; i <= 12'h%x%02x; i = i + 1) t[i] = 4'd%d;" % (ai, j, ai, k, CLASSES.index(cells[j])))
             j = k + 1
-    v += ["  end", "  always @(posedge clk) q <= t[a];", "endmodule", ""]
+    v += ["  end", "  always @(posedge clk) a_q <= a;", "  assign q = t[a_q];", "endmodule", ""]
     return "\n".join(v)
 
 
@@ -106,6 +108,11 @@ def main():
     if "--vice" in argv:
         oracle = argv[argv.index("--vice") + 1]
     oracle = oracle or os.environ.get("SCPU_VICE_MEMINIT") or (DEFAULT_ORACLE if os.path.exists(DEFAULT_ORACLE) else None)
+    if "--from-txt" in argv:
+        areas, cfg = read_txt(open(TXT).read())
+        open(VER, "w").write(make_verilog(areas, cfg))
+        print("wrote", VER)
+        return 0
     if not check:
         if not oracle:
             sys.exit("no oracle source: --vice <scpu64meminit.c>")
