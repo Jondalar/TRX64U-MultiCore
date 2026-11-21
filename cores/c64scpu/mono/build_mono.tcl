@@ -232,8 +232,8 @@ if {[llength $rdy_nets] == 1} {
     set_multicycle_path 2 -setup -end -from $from -to $to
     set_multicycle_path 1 -hold  -end -from $from -to $to
   }
-  # T182 step 4 (spec 5.6): scpu_mem samples the CPU's address, class bits and data in EVERY clock (b_*; the class table's address register a_q and the cache's block RAM addresses) and decides from the
-  # values of the second clock after the enable on: two periods, hold 1. The paths from scpu_mem's registers (the class table is LUTs behind a_q, the cache a block RAM) INTO the CPU (core_ce at the CE pins, the byte of the
+  # T182 step 4 (spec 5.6): scpu_mem samples the CPU's address, class bits and data in EVERY clock (b_*; the cache's block RAM addresses) and decides from the
+  # values of the second clock after the enable on: two periods, hold 1. The paths from scpu_mem's registers (the class table is LUTs in front of its output register q, the cache a block RAM) INTO the CPU (core_ce at the CE pins, the byte of the
   # cache, the class bits to the data mux) are single-period: the old `smm_r -> cpu_r` exception is gone on purpose.
   set cch_r [get_cells -quiet -hier -filter "$seqf && NAME =~ ${pfx}cpu_0/smem/cache/*"]
   foreach {from to} [list $cpu_r $smm_r  $cpu_r $cch_r] {
@@ -287,7 +287,7 @@ report_utilization -file $bdir/utilization.rpt
 report_utilization -hierarchical -hierarchical_depth 8 -file $bdir/utilization_hier.rpt
 report_timing_summary -max_paths 5 -file $bdir/timing.rpt
 report_route_status -file $bdir/route_status.rpt
-# T248 P3: report only. The 5 worst setup paths from the sequential cells (flip-flops, block RAMs) of cpu_0/smem (registers, class table address registers, cache) into those of cpu_0/cpu.
+# T248 P3: report only. The 5 worst setup paths from the sequential cells (flip-flops, block RAMs) of cpu_0/smem (registers, the class table's output register, cache) into those of cpu_0/cpu.
 set t248_n [get_nets -quiet -hier -filter {NAME =~ l2/c64/c64/cpu_rdy}]
 if {[llength $t248_n] == 1} {
   set t248_pfx [string range [get_property NAME $t248_n] 0 end-[string length cpu_rdy]]
@@ -296,7 +296,7 @@ if {[llength $t248_n] == 1} {
   if {[llength $t248_from] == 0 || [llength $t248_to] == 0} {
     puts "=== T248 WARNING: smem->cpu report skipped, smem cells [llength $t248_from], cpu cells [llength $t248_to]"
   } else {
-    report_timing -setup -max_paths 5 -from $t248_from -to $t248_to -file $bdir/timing_smem_cpu.rpt
+    report_timing -setup -max_paths 5 -from $t248_from -to $t248_to -file $bdir/timing.rpt -append
     set t248_p [get_timing_paths -setup -max_paths 1 -from $t248_from -to $t248_to]
     if {[llength $t248_p] == 0} {
       puts "=== T248 WARNING: no setup path from smem to cpu"
