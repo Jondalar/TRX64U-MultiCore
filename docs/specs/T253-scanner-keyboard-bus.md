@@ -1,7 +1,7 @@
 # T253 — The P7 keyboard scan uses the keyboard's I2C bus only, and the applications start it as PR #112 does
 
 **Status:** IN PROGRESS (2026-11-21). Asked by Alex, 2026-11-21.
-Open (one line, as in the TODO table): IN PROGRESS 11-21: c64scpu test build; open: S1-S4, the host pin
+Open (one line, as in the TODO table): IN PROGRESS 11-21: S1 PASS; open: S2-S4, the host pin
 **Repo:** TRX64U-MultiCore — the I2C wiring in the top of every large core (`cores/*/mono/top.v`, `cores/*/mono/host/top.v`)
 and of the host (`host/top.v`); the start of the scan in the applications (`coreapp/src/coreapp.cc`,
 `host-app/software/hostapp/hostapp.cc`, `host-app/software/system/u64ii_init.cc`, `host-app/software/io/i2c/hw_i2c_drv.cc`).
@@ -102,3 +102,9 @@ Scenario: S4 (P1) every core and the host
 
 - **2026-11-21, branch `t253-pr112`** (from `integration` `3ec353c7`): D2 (`b3d8f946`, `cf0f6f73`, `46180837`).
 - **2026-11-21, branch `t253-scpu-test`** (from `t241-scpu-fix`): D2, and D1 in `cores/c64scpu/mono/top.v` (`c64e74e3`).
+- **S1 PASS (2026-11-21):** builder, `t253-vivado.sh` as T250 D5 (`docker run --init`, the heavy lock in the container),
+  tree `c64e74e3`. `route_status.rpt`: 0 nets with routing errors. `timing.rpt`: "All user specified timing constraints
+  are met", WNS +0.008 ns, TNS 0, WHS +0.052 ns. `utilization_hier.rpt`: top 23,696 LUT.
+- **The board file:** `c64scpu_t253k.cor` (3,586,939 bytes) in `/SD/cores/`, with the ROMs and the settings of
+  `c64scpu_t253`: the bitstream of `c64e74e3` (sha256 `083a03c0...`), the application of `fd6b4d47` (PR #112 as it is,
+  sha256 `b5a5265a...`, the same as in `c64scpu_t253`). Between the two builds only D1 differs.
