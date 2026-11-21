@@ -613,3 +613,8 @@ Open.
 - Boom on this core (2026-11-21, after the suite): Alex started it: "Läuft" ("it runs"), "aber nicht spielbar mit den
   Aussetzern" ("but not playable with the dropouts"); asked whether it runs in play, where every build since S2
   crashed: "Ja, ich kann spielen" ("yes, I can play"), "Ohne ruckler oder absturz" ("without stutter or crash").
+- The split of the dropouts (Alex, 2026-11-21, translated: "Just build the old app with the running bitstream, as 241_oldapp ..
+  if that works, we know who the culprit is. It is only packing"): `/SD/cores/c64scpu_241_oldapp.cor` = the bitstream of
+  t241fix (`b7571876`, sha256 `1d4c3ab052d252a1...`) and the application of `c64scpu_t241.cor` (`f59163935`, 1,761,208 bytes),
+  joined with `tools/cor_pack.py` `replace_app`; `app_commit` in the manifest set to `f5916393`; `cor_pack.py check` passes;
+  3,561,655 bytes, sha256 `fedcb583720b9e68...`, read back the same. Its folder has the ROMs and the settings of t241fix.
