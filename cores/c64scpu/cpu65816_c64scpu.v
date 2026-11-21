@@ -143,7 +143,8 @@ wire core_ce;
 // An IRQ that rises in the PHI2-high half of an instruction's last cycle (a raster compare match: vicii_c64scpu.v:535) is taken after the next instruction. A register write that enables a
 // source is not that case: the VIC takes it at the PHI2 fall, where irq_r above is sampled, so the line is first seen in the next cycle with or without irq_pen. The low-phase drop above stays:
 // it still ends the level as soon as the line falls. NMI needs nothing: s816_cpu latches the falling edge at each enable (NMI_SYNC) and reads the latch at the last cycle, which is the same
-// one-cycle delay.
+// one-cycle delay. One exception is in s816_cpu itself (T241 D4, tools/scpu_vendor816.py): in emulation mode the last cycle of a taken branch that stays in its page takes the IRQ level and
+// NMI_SYNC of one enable earlier still, as the 6510 polls such a branch before its second cycle only.
 reg irq_pen = 1'b0;
 always @(posedge clk2x) begin
   if (rst_q) irq_pen <= 1'b0;

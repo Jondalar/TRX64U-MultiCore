@@ -25,6 +25,11 @@ Changes against the upstream files (all of them, nothing else is touched):
     FETCH_PARAM_DUMMY, three PULL (four in native mode), one clock each, and the opcode fetch at the loop top, :2585/:2589); upstream gave it 5 (state control 111 of the third pull: `EF = 1 and IR = x"40"` ends it). The pull of the
     high byte of PC (state 4, STATE_CTRL 111) now goes on to state 7 in that case, and the microcode row of RTI's state 7 (all X upstream, read as zero, never visited: native RTI ends in state 6)
     becomes STATE_CTRL 010 with everything else 0: an internal cycle (no VDA, no VPA, no register load) that ends the instruction. Native mode (EF = 0, 7 cycles) is unchanged. T241 S2.
+  - a taken conditional branch that stays in its page, in emulation mode (EF = 1; IR = $10, $30, ... $F0, the last cycle is state 2), decides IRQ and NMI on their state one enable
+    earlier than every other instruction: the 6510 polls such a branch before its second cycle and not before its last, so an interrupt that comes in its second cycle waits
+    for the next instruction (T241.1 scpu4, 2026-11-21: the taken-branch sled gave 11/13 against the C64's 12/14, every other sled the C64's values). BR_LAST marks that cycle;
+    IRQ_N_D and NMI_SYNC_D hold IRQ_N and NMI_SYNC of the enable before; there IRQ_ACTIVE and NMI_ACTIVE take them, and NMI_SYNC is cleared only when the NMI is taken.
+    A branch that crosses a page (4 cycles) and native mode are unchanged. T241 D4.
 """
 import os
 import re
@@ -171,6 +176,27 @@ def rti_emul(t):
                 "\t\t\t\telsif EF = '1' and IR = x\"40\" then\t--RTI Emulation mode (T241: one internal cycle more, state 7)\n\t\t\t\t\tNextState <= \"0111\";\n")
 
 
+def branch_int(t):
+    """T241 D4: the last cycle of a taken branch in its page (emulation mode) decides IRQ and NMI on their state one enable earlier (docstring above)"""
+    t = sub1(t, "\tsignal NMI_ACTIVE, IRQ_ACTIVE : std_logic;\n",
+             "\tsignal NMI_ACTIVE, IRQ_ACTIVE : std_logic;\n"
+             "\tsignal BR_LAST, IRQ_N_D, NMI_SYNC_D : std_logic;\t-- T241: the last cycle of a taken branch in its page; IRQ_N and NMI_SYNC one enable older (tools/scpu_vendor816.py)\n")
+    t = sub1(t, "\tLAST_CYCLE <= '1' when NextState = \"0000\" else '0';\n",
+             "\tLAST_CYCLE <= '1' when NextState = \"0000\" else '0';\n"
+             "\tBR_LAST <= '1' when IR(4 downto 0) = \"10000\" and STATE = \"0010\" and NextState = \"0000\" and EF = '1' else '0';\t-- T241: Bcc taken, no page crossed\n")
+    t = sub1(t, "\t\t\tOLD_NMI_N <= '1';\n\t\t\tNMI_SYNC <= '0';\n",
+             "\t\t\tOLD_NMI_N <= '1';\n\t\t\tNMI_SYNC <= '0';\n\t\t\tIRQ_N_D <= '1';\n\t\t\tNMI_SYNC_D <= '0';\n")
+    t = sub1(t, "\t\t\t\telsif LAST_CYCLE = '1' and NMI_SYNC = '1' and RDY_IN_DELAYED = '1' and EN = '1' then\n",
+             "\t\t\t\telsif LAST_CYCLE = '1' and NMI_SYNC = '1' and (BR_LAST = '0' or NMI_SYNC_D = '1') and RDY_IN_DELAYED = '1' and EN = '1' then\t-- T241: cleared only when taken\n")
+    t = sub1(t, "\t\t\tif CE = '1' then\n\t\t\t\tRDY_IN_DELAYED <= RDY_IN;\n\t\t\tend if;\n",
+             "\t\t\tif CE = '1' then\n\t\t\t\tRDY_IN_DELAYED <= RDY_IN;\n\t\t\t\tIRQ_N_D <= IRQ_N;\t\t\t-- T241\n\t\t\t\tNMI_SYNC_D <= NMI_SYNC;\n\t\t\tend if;\n")
+    t = sub1(t, "\tIRQ_ACTIVE <= not IRQ_N and not P(2) and RDY_IN_DELAYED;\n",
+             "\tIRQ_ACTIVE <= (not IRQ_N_D and not P(2) and RDY_IN_DELAYED) when BR_LAST = '1' else (not IRQ_N and not P(2) and RDY_IN_DELAYED);\t-- T241\n")
+    t = sub1(t, "\tNMI_ACTIVE <= NMI_SYNC and RDY_IN_DELAYED;\n",
+             "\tNMI_ACTIVE <= (NMI_SYNC_D and RDY_IN_DELAYED) when BR_LAST = '1' else (NMI_SYNC and RDY_IN_DELAYED);\t-- T241\n")
+    return t
+
+
 def cpu(t):
     n = len(t)
     t = re.sub(r'(RDY_OUT\s*:\s*out std_logic;)', r'\1\n\t\t  E_OUT \t: out std_logic;', t, count=1)
@@ -186,6 +212,7 @@ def cpu(t):
     t = t.replace(old, "(P(4) and not (GotInterrupt and EF))", 1)     # T182 (real ROM, 2026-11-08): P(4) is 1 all through emulation mode, so a hardware IRQ/NMI pushed B = 1 and the KERNAL's IRQ entry ($FF48) took every IRQ for a BRK
     t = rmw_write(t)
     t = rti_emul(t)
+    t = branch_int(t)
     i = t.index('port(')
     j = t.index('end P65C816;') if 'end P65C816;' in t else t.index('end s816_cpu;')
     t = t[:i] + t[i:j].lower().replace('std_logic_vector', 'std_logic_vector') + t[j:]      # port names in lower case: the Verilog that instantiates the entity spells them so

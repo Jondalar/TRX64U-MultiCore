@@ -13,7 +13,7 @@ for debugging."
 **Depends on:** T182 (the core), T208 (mirror queue, BA write hold), T217 (the PRG start bench `cores/c64scpu/sim/run_prgrun.sh`).
 **Milestone:** M2.
 
-Open (one line, as in the TODO table): intro fixed (D3); Boom crashes with S2 (PR #120); 11-21 suite: IRQ in a taken branch 1 cycle early
+Open (one line, as in the TODO table): D4 11-21: branch t241-scpu-fix = T241 + S2, T249, T250, branch IRQ rule, 20 MHz RAM; build open
 
 ---
 
@@ -76,6 +76,14 @@ Open (one line, as in the TODO table): intro fixed (D3); Boom crashes with S2 (P
 - **D3 (Alex, 2026-11-20): T241 goes to GitHub and into `integration`; D2 is lifted.** Translated: "T241 can come along now; get it
   ready, i.e. a branch, and then into integration too, please." The branch `t241-scpu` on GitHub carries the fix of `t241-rmw` and the
   bench of `t241-bench` (S2); `integration` gets it by Alex's merge (T239.1 D15).
+
+- **D4 (Alex, 2026-11-21): one clean branch on the T241 core, with the debug parts and the fixes.** Translated: "I would like you to work
+  concentrated on a working core now ... on a branch, clean ... and since the HDMI fault only came between 241 and 248, I think I would like 241
+  as the base, gladly with the debug stuff you just built in for good, and then fix the problems found." Then: "In T241 there are NO
+  dropouts. That is the baseline. Build the CPU and RAM fixes in there." The branch `t241-scpu-fix` starts from `integration` (its c64scpu
+  gateware and application are the T241 core's, `f5916393`; only benches differ, compared 2026-11-21) and takes: S2 (PR #120), T249 (no
+  datasette), T250 (Ethernet, memory over REST), the taken-branch rule (§5, 2026-11-21) and the 20 MHz memory path (T241.1 scpu6: the CPU
+  fixes and the RAM fix). T248 stays out.
 
 ## §4 Out of scope
 
@@ -566,3 +574,12 @@ Open.
   cycles; 40556 at 1 MHz). So at 20 MHz a CINT that starts before about line 200 reaches its PAL test (`$d012` = 0) at
   line 256, before line 311 has come.
 - Open: the code that runs when the crash's interrupt comes, and whether it is in a taken branch there; S4.
+
+### 2026-11-21: the branch `t241-scpu-fix` (D4)
+- From `integration`: `t241-s2-irq` merged (S2), T249's two commits and T250's two commits picked; none conflicted.
+- The taken-branch rule: `tools/scpu_vendor816.py` `branch_int()`, the generated `s816_cpu.vhd` (`--check` ok). In emulation mode, in the last
+  cycle of a taken conditional branch that stays in its page (`BR_LAST`: IR = `$x0` with bit 4 set, state 2, the next state 0), IRQ_ACTIVE
+  takes the IRQ level and NMI_ACTIVE the NMI latch of one enable earlier (`IRQ_N_D`, `NMI_SYNC_D`, loaded at each CE). NMI_SYNC is cleared only
+  when the NMI is taken, so an edge that came in the branch's second cycle waits for the next instruction. The new registers are under
+  `cpu_0/cpu`, so the build's multicycle recipe counts them with the CPU's (`build_mono.tcl`, `cpu_r`). Expected on the board: scpu4 `bne
+  taken` 12/14, scpu5 b and c `any` 58 and 78.

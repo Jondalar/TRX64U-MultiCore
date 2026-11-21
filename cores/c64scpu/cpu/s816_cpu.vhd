@@ -52,6 +52,7 @@ architecture rtl of s816_cpu is
 	signal WAIExec, STPExec : std_logic;
 	signal NMI_SYNC : std_logic;
 	signal NMI_ACTIVE, IRQ_ACTIVE : std_logic;
+	signal BR_LAST, IRQ_N_D, NMI_SYNC_D : std_logic;	-- T241: the last cycle of a taken branch in its page; IRQ_N and NMI_SYNC one enable older (tools/scpu_vendor816.py)
 	signal OLD_NMI_N, OLD_NMI2_N : std_logic;
 	signal RDY_IN_DELAYED : std_logic;
 	signal RMW_DW : std_logic;		-- T241: the modify cycle of a read-modify-write instruction in emulation mode writes the byte it read (tools/scpu_vendor816.py)
@@ -158,6 +159,7 @@ begin
 	end process;
 	
 	LAST_CYCLE <= '1' when NextState = "0000" else '0';
+	BR_LAST <= '1' when IR(4 downto 0) = "10000" and STATE = "0010" and NextState = "0000" and EF = '1' else '0';	-- T241: Bcc taken, no page crossed
 	
 	process(CLK, RST_N)
 	begin
@@ -477,24 +479,28 @@ begin
 		if RST_N = '0' then
 			OLD_NMI_N <= '1';
 			NMI_SYNC <= '0';
+			IRQ_N_D <= '1';
+			NMI_SYNC_D <= '0';
 		elsif rising_edge(CLK) then
 			if CE = '1' and IsResetInterrupt = '0' then
 				OLD_NMI_N <= NMI_N;
 				if NMI_N = '0' and OLD_NMI_N = '1' and NMI_SYNC = '0' then
 					NMI_SYNC <= '1';
-				elsif LAST_CYCLE = '1' and NMI_SYNC = '1' and RDY_IN_DELAYED = '1' and EN = '1' then
+				elsif LAST_CYCLE = '1' and NMI_SYNC = '1' and (BR_LAST = '0' or NMI_SYNC_D = '1') and RDY_IN_DELAYED = '1' and EN = '1' then	-- T241: cleared only when taken
 					NMI_SYNC <= '0';
 				end if;
 			end if;
 			
 			if CE = '1' then
 				RDY_IN_DELAYED <= RDY_IN;
+				IRQ_N_D <= IRQ_N;			-- T241
+				NMI_SYNC_D <= NMI_SYNC;
 			end if;
 		end if;
 	end process; 
 	
-	IRQ_ACTIVE <= not IRQ_N and not P(2) and RDY_IN_DELAYED;
-	NMI_ACTIVE <= NMI_SYNC and RDY_IN_DELAYED;
+	IRQ_ACTIVE <= (not IRQ_N_D and not P(2) and RDY_IN_DELAYED) when BR_LAST = '1' else (not IRQ_N and not P(2) and RDY_IN_DELAYED);	-- T241
+	NMI_ACTIVE <= (NMI_SYNC_D and RDY_IN_DELAYED) when BR_LAST = '1' else (NMI_SYNC and RDY_IN_DELAYED);	-- T241
 	process(CLK, RST_N)
 	begin
 		if RST_N = '0' then
