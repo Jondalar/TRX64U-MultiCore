@@ -77,6 +77,30 @@ series of experiments.
 - The large-core flows (`cores/*/mono/build_mono.tcl`) retry (phys_opt, second placement) only when WNS < 0, so a +0.009 ns
   result is kept as is (Neo Geo). Read the margin, not only the sign.
 
+### 4a. Deep logic where no clock may be added: patterns
+
+A register stage is not always possible: the c64scpu 65C816 takes a step every 3 clk2x at 20 MHz (63.056 / 20 = 3.15), so a
+fourth clock costs speed (T248). Then shorten the logic.
+
+- Read the worst path in sections first. Take each section's time from the report (`Path(ns)` column): block RAM
+  clock-to-out, decode, data mux, arithmetic, flag logic. Shorten the longest section. The density is not the cause when the
+  congestion report has no window above level 5.
+- A block RAM without its output register costs about 2.5 ns clock-to-out, plus the route out of the RAM column
+  (`RAMB18E1` `CLKARDCLK -> DOADO` 2.453 ns, then 1.019 ns route; c64scpu class table, run 44854024836). A small table
+  (thousands of entries of a few bits) can be a LUT ROM behind an address register: the same clock, the same values, and
+  synthesis can merge the table with the decode after it.
+- Arithmetic written as gate-level cells (full adders as sums of products, 4-bit ripple groups) does not use the carry
+  chain: the decimal adder of the SNES core's 65C816 costs 10 LUT levels, 5.685 ns, for 8 bits. Write sums with `+`, so they
+  map to CARRY4.
+- A carry that runs through a correction (decimal adjust) is a carry-select case: compute each nibble for carry in 0 and
+  for carry in 1 in parallel, and let the real carry only select (one mux per nibble).
+- A select that arrives late: compute both candidates and put the mux behind the arithmetic.
+- A sequence that a multicycle recipe gives several clocks can shift its clocks between stages: a lookup that takes its
+  address one clock earlier leaves a full clock to its consumer. Read the earlier stage's path in the report before the move.
+- A rewrite that must keep the function is proven by comparing old and new: every input where the space allows (8-bit
+  operands, all carries and modes), pseudo-random inputs for the rest. Then one Vivado run. T248 §5 has the result of the
+  c64scpu case.
+
 ## 5. DFX specifics (7-series)
 
 - Partition pins are routing nodes, not flip-flops. The edge is the contract (`contract/`); a core never adds a port.
