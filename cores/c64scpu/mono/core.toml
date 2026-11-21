@@ -17,13 +17,13 @@ experimental = true            # since T100 D9.6 a failed flat build turns the r
 # The flat build's own key (ci/lib.sh mono_key) leaves sim/ and mono/reports/ out again.
 sources      = ["cores/c64scpu", ":(exclude)cores/c64scpu/trial", "cores/c1541", ":(exclude)cores/c1541/sim", "cores/c64u", ":(exclude)cores/c64u/sim", "vendor/icepi", "vendor/mister"]
 # The variant: the C64 with one SID (T227 D2: no SID2, the reDIP block runs mono), the sockets' audio, the REU and the ROM and the RAM in the DDR2 behind their caches (no switch for that: it is the only memory path).
-# The defines come to MONO NO_TURBO SID_REDIP SOCK_AUDIO TAPE NO_NET.
+# The defines come to MONO NO_TURBO SID_REDIP SOCK_AUDIO NO_NET. No TAPE: no cassette port block (T249, Alex 2026-11-21: no SuperCPU software comes on tape).
 # The host's menu overlay (mono/host/overlay.v, 3.5 block RAM tiles) is stubbed out (cores/c64scpu/mono/stubs/overlay_stub.v): the generic core application draws on the pixel
 # layer and never writes the overlay's registers.
 # NO_NET = no Ethernet MAC (ultimate_sys g_net 0), the WiFi UART stays.
 # The release build has no JTAG debug master (TRX_TOP_OFF=NO_JTAG_DBG: jtag_dbg, the debug registers, the console read-out and the JTAG
 # DDR2 port fall away, about 690 LUT). A dev build that needs tools/trxdbg.sh builds with `cores/c64scpu/mono/build.sh --jtag`.
-mono_env     = ["TRX_REU=1", "TRX_DEFS=SOCK_AUDIO TAPE NO_NET", "TRX_STUB=overlay", "TRX_TOP_OFF=NO_JTAG_DBG"]
+mono_env     = ["TRX_REU=1", "TRX_DEFS=SOCK_AUDIO NO_NET", "TRX_STUB=overlay", "TRX_TOP_OFF=NO_JTAG_DBG"]
 # The files the person supplies (names only, never files; clean room): the SuperCPU ROM (64, 128 or 256 KiB; without it the core does not start, T182 D2),
 # the C64's KERNAL, BASIC and character ROM, and optionally the 1541 drive ROM and a JiffyDOS 1541 ROM. In /SD/cores/c64scpu/roms/. Never in the repository, a release or a .cfw.
 roms         = ["scpu64.rom", "kernal-901227-03.bin", "basic-901226-01.bin", "chargen-901225-01.bin", "1541 drive", "JiffyDOS 1541 ROM"]
