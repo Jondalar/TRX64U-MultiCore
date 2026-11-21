@@ -1,7 +1,7 @@
 # T253 — The P7 keyboard scan uses the keyboard's I2C bus only, and the applications start it as PR #112 does
 
 **Status:** IN PROGRESS (2026-11-21). Asked by Alex, 2026-11-21.
-Open (one line, as in the TODO table): IN PROGRESS 11-21: S1 PASS, S3 picture and colours; host in; open: S2 10 min, S3 P7 key, S4, trx64u wiring
+Open (one line, as in the TODO table): IN PROGRESS 11-21: S1 PASS, S3 picture and colours; host in; open: S2 10 min, S3 P7 key, S4, trx64u pin (TRX64U-FW)
 **Repo:** TRX64U-MultiCore — the I2C wiring in the top of every large core (`cores/*/mono/top.v`, `cores/*/mono/host/top.v`)
 and of the host (`host/top.v`); the start of the scan in the applications (`coreapp/src/coreapp.cc`,
 `host-app/software/hostapp/hostapp.cc`, `host-app/software/system/u64ii_init.cc`, `host-app/software/io/i2c/hw_i2c_drv.cc`).
@@ -48,7 +48,7 @@ apart from the keyboard scan NOTHING. Do it." And: "How can one mix the buses?"
   (`coreapp/src/coreapp.cc`, `host-app/software/hostapp/hostapp.cc`), and the core application reads the EDID every
   500 ms on every core (`coreapp/src/run.cc`, `picture_tick`). So the DFX cores and `trx64u` can show the dropouts of
   this spec at 50 Hz on a screen that names no 50 Hz mode. In 0.2.0 they could not: the applications parked the scan.
-  `host/top.v` gets D1 (D3); `trx64u` stays open.
+  `host/top.v` gets D1; `trx64u` gets it from TRX64-Ultimate (D3).
 - **Why it matters:** T242 ships with 0.2.1. A core whose picture drops out cannot be played.
 - **The parts:**
   - **P1** The scan drives and reads only the bus of the keyboard expander. The other buses carry what they carried
@@ -99,8 +99,11 @@ Scenario: S4 (P1) every core and the host
   whether the host may be changed for it (T94 D13), answered (translated): "But yes, the file for the host and the large
   cores is changed for the HDMI. All of it. Because if we build the application again and have a similar situation with
   PAL and the monitor's clock again, there are dropouts there too otherwise." The host pin is written again in the same
-  commit (`tools/host_pin.sh --update`). TRX64-Ultimate's top (`trx64u`) is that repository's file; this repository does
-  not touch it (CLAUDE.md): open.
+  commit (`tools/host_pin.sh --update`). TRX64-Ultimate's top (`trx64u`, `trx64g`) is that repository's file; this
+  repository does not touch it (CLAUDE.md). Alex, 2026-11-21 (translated): "No, write to the TRX64U-FW session that it
+  should take the fix into the bitstream. Then you can build the UI normally one last time." Sent the same evening; with
+  the values it sends back, `release/imports/trx64u.pin` and `trx64g.pin` are written again and the package is built
+  once more: open.
 
 ## §4 Out
 
