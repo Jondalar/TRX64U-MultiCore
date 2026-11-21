@@ -252,7 +252,12 @@ proc impl_pass {place_dir} {
   phys_opt_design -directive AggressiveExplore
   if {$::stop eq "place"} { return 1000.0 }
   route_design -directive Explore
-  phys_opt_design -directive AggressiveExplore
+  # T241 S2 (2026-11-21): the routed timing goes into a report before the post-route phys_opt, so that a crash in it leaves the report behind. That phys_opt
+  # runs Explore, not AggressiveExplore: Vivado 2024.1 ended with a segfault in AggressiveExplore's "Critical Path Optimization" here in the builds of 684efe93
+  # and 83358f17 (T208 run 1863 also segfaulted, where is not recorded). Explore completed as a retry in T208 run 1873, after a phys_opt that had ended;
+  # whether it avoids the crash as the first post-route step is untested.
+  report_timing_summary -max_paths 10 -file $::bdir/timing_route_$place_dir.rpt
+  phys_opt_design -directive Explore
   set p [get_timing_paths -setup -max_paths 1]
   if {[llength $p] == 0} { return 1000.0 }
   foreach d {AlternateReplication AggressiveFanoutOpt} {
