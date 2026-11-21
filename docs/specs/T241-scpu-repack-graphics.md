@@ -612,4 +612,4 @@ Open.
   application of 2026-11-21: the two are not separated yet.
 - Boom on this core (2026-11-21, after the suite): Alex started it: "Läuft" ("it runs"), "aber nicht spielbar mit den
   Aussetzern" ("but not playable with the dropouts"); asked whether it runs in play, where every build since S2
-  crashed: "Ja, ich kann spielen" ("yes, I can play").
+  crashed: "Ja, ich kann spielen" ("yes, I can play"), "Ohne ruckler oder absturz" ("without stutter or crash").
