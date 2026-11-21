@@ -1,7 +1,7 @@
 # T242 — A C64 keyboard on header P7 works in the host menu and in every core app
 
 **Status:** DONE (2026-11-20): D1-D6 on `integration` (`748d1d75`); board S1-S5 PASS with package A `t239.1-0210226e` and a
-C64 header keyboard on P7 (D7).
+C64 header keyboard on P7 (D7). D1, D4 and D5 are reverted by T253 D2 (2026-11-21): PR #112 as it is.
 **Repo:** TRX64U-MultiCore — the host app and the generic core app (`host-app/software/system/u64ii_init.cc`, built into both). No gateware change.
 **Number:** T242.
 **Origin:** GitHub issue #111, "P7 Keyboard on Motherboard does not work in Host- and Coreapps". The TRX64U-FW session read the cause from the code. Alex, 2026-11-20 (translated): "regarding the P7 bug, in my opinion the fix is in issue #111"; "wouldn't that be a nice attempt then, to build the host and all core apps once?"
@@ -46,6 +46,11 @@ C64 header keyboard on P7 (D7).
   the board, a keyboard on P7), B (S4 and S5 on the board, S1-S3 by the reporter of #111 with 0.2.1) or C (no board run; ue2emu has
   no P7 scanner, only the bit `scan_enable`), Alex (translated): "A. I'll shut the board down when everything is on it, open it and
   plug in the header keyboard."
+
+- **Reverted (2026-11-21, T253 D2):** D1, D4 and D5. The applications start the scan as PR #112 does (the
+  contributor's `d4baeda9`). With D4 reverted, `enable_scan()` sleeps `vTaskDelay(2)` again after `scan_enable = 0`
+  (`host-app/software/io/i2c/hw_i2c_drv.cc`): while the scan is on, every `i2c_lock` waits two ticks, the core
+  application's EDID read every 500 ms too. D6 stays (PR #112 makes the same call).
 
 ## §4 Out
 

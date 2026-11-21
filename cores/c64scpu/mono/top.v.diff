@@ -8,16 +8,16 @@
 >     // (balls and channel assignment from the boundary scan of 2026-09-30, bit order inside a channel not yet measured: avid_pins.xdc)
 >     output wire [9:2]  AVID_R, AVID_G, AVID_B,
 >     output wire        AVID_CLK, AVID_SYNCn, AVID_FB
-1398c1403,1404
+1399c1404,1405
 <     // GTPs. c64_type 0: no DFX core ships on the VIC path (T164 Q4), so the request is not held to the System Mode's family.
 ---
 >     // GTPs. T222: every row of U16 D2 and the scale at 0x4F01; the request is held to the System Mode's family and to the seven VIC-locked rows
 >     // (this core's mode_req is a C64-type one without a switch); vmode gives the encoder the clock rate of the System Mode.
-1402c1408
+1403c1409
 <         .cdce_rst(por_rst | ~clocks_ok), .gt_rst(gt_rst), .c64_type(1'b0), .fam_v60(mc_cdce_v60), .core_decouple(core_decouple),
 ---
 >         .cdce_rst(por_rst | ~clocks_ok), .gt_rst(gt_rst), .fam_v60(mc_cdce_v60), .vmode(vmode),
-1420a1427,1441
+1421a1428,1442
 >     // T140 D1: the VIC's native picture as S-Video and composite on the A/V port (HDMI and analogue at the same time). The DAC words
 >     // change on sys_clk's rising edge, the DAC takes them on its CLK, the inverted sys_clk, half a clock later.
 >     wire [7:0] av_y, av_c, av_cv;
