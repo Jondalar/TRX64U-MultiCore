@@ -1,12 +1,14 @@
 --------------------------------------------------------------------------------
--- c64u_l2: the VHDL blocks of the c64u core (T103) with flat ports, so the Verilog layer 2 (layer2_c64u.v) can
+-- c64u_l2: the VHDL blocks of the c64u core (T103) with flat ports, so the Verilog layer 2 files (layer2_c64u.v, and the
+-- c128 and c64scpu copies) can
 -- instantiate them. Gideon's records (t_io_req, t_io_resp, t_mem_req_32, ...) are built and taken apart here, as
 -- cores/common/drive_l2.vhd does for the reference core. Four entities:
---   c64u_drive_l2  one drive of the Ultimate app: Gideon's mm_drive (a 1541, 1571 or 1581 as the app selects,
---                  CAPAB_MM_DRIVE) with c64u_drive_mem in front of its memory port, i.e. its own DDR2 port (toggle
---                  handshake), exactly as cores/common/drive_unit.vhd does it for c1541_drive. Used twice: drive A
---                  at 0x10020000 (tags 01-04, image 0x0EE0000), drive B at 0x10022000 (tags 05-08, image 0x0ED0000;
---                  Gideon's tags and bases of ultimate_logic_32.vhd).
+--   c64u_drive_l2  one drive of the Ultimate app: Gideon's mm_drive as a 1541 or a 1581, as the app selects
+--                  (CAPAB_MM_DRIVE; the 1571 is out, T103 Q3: drive_registers.vhd turns a 1571 into a 1541), with
+--                  c64u_drive_mem in front of its memory port, i.e. its own DDR2 port (toggle handshake), exactly as
+--                  cores/common/drive_unit.vhd does it for c1541_drive. The layer 2 files build it once, as drive A at
+--                  0x10020000 (tags 01-04, image 0x0EE0000; Gideon's tags and bases of ultimate_logic_32.vhd); there is
+--                  no drive B (Alex, 2026-10-17).
 --   c64u_gcr_l2    the GCR codec the app's disk image code uses (HARDWARE_GCR, region 0x10060500)
 --   c64u_uci_l2    the UCI (uci_unit_c64u.vhd) behind the cw window
 --   c64u_c2n_l2    Gideon's tape streamer (c2n_playback_io) and recorder (c2n_record) behind the cw window

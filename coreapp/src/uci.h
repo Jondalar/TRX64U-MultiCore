@@ -15,7 +15,7 @@ struct UciHost {
     // The REU of the machine, for CONTROL LOAD_REU / SAVE_REU: 0 and size, offset (bytes) and the image path; -2 the REU is not enabled; -4 its memory is in use
     // (busy has the reason).
     int (*reu)(CoreCtx *c, uint32_t *size, uint32_t *offset, char *img, int imgn, char *busy, int busyn);
-    // Drive idx (0 = A, 1 = B): false when there is none. type: the drive type register (0 1541, 1 1571, 2 1581), addr the IEC address.
+    // Drive idx (0 = A, 1 = B): false when there is none. type: the drive's type in the encoding of its type register (0 1541, 2 1581; 1, the 1571, is out: T103 Q3), addr the IEC address.
     bool (*drive_info)(CoreCtx *c, int idx, uint8_t *type, uint8_t *addr, bool *power);
     // what: 0 mount path, 1 eject, 2 swap, 3 power off, 4 power on. 0 = done, else the reason is in msg.
     int (*drive_do)(CoreCtx *c, int idx, int what, const char *path, char *msg, int msglen);
