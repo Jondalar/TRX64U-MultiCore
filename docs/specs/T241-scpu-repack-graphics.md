@@ -592,3 +592,6 @@ Open.
 - The build (2026-11-21, builder, `vivado-env:2024.1`, as T250 D5: `docker run --init`, the heavy lock in the container; tree of
   `1ca8ae66`, 13 min): routed, 0 routing errors; WNS +0.028 ns (sid2x_mmcm), TNS 0, WHS +0.052 ns; cpu_mmcm +0.158 ns, pix_mmcm
   +0.071 ns. 23,683 LUT; 48 RAMB36 + 36 RAMB18 (66 of 75 tiles; `smem/cache` 8 RAMB36). Bitstream sha256 `1d4c3ab052d252a1...`.
+- Board file (2026-11-21): `/SD/cores/c64scpu_t241fix.cor`, 3,562,795 bytes, sha256 `10f97775184d3e95...` (read back the same), packed at
+  `b7571876` (only the spec differs from the build's tree) with the core application of `tools/dev.sh riscv`. Its folder has the ROMs and
+  the settings of `c64scpu_t241` (Picture 1920 x 1080, Scale Fit).
