@@ -648,5 +648,6 @@ main, Alex answered "Ja" (yes). Every core built green against it in runs 887 an
 not appear in the UI either." Gateware and menus had it out since Q3 (`drive_registers.vhd` turns a write of 1 into the 1541,
 `app/lib/cbm1541/d1541_drive.cc` refuses `DT_1571`). Three places still named it: the header of `cores/c64u/gideon/c64u_l2.vhd`
 (also "used twice", but drive B is not built), a dead branch in `coreapp/src/ringops.cc`, the register comment in `coreapp/src/uci.h`;
-branch `t103-1571-rest` (fc359b86) removes them. The messages for a `.d71` or `.g71` keep naming the 1571 as the reason (Alex:
+branch `t103-1571-rest` removes them (review PASS, run 44877983782 green; merged into `integration` as b8fdab4b, PR #128, by
+Claude with Alex's OK: "merge du bitte, hast mein ok"). The messages for a `.d71` or `.g71` keep naming the 1571 as the reason (Alex:
 "leave it so").
