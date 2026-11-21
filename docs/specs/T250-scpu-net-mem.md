@@ -1,7 +1,7 @@
 # T250 — The c64scpu has Ethernet and memory access over REST, so its tests run without a person at the screen
 
 **Status:** IN PROGRESS (2026-11-21). Asked by Alex, 2026-11-21.
-Open (one line, as in the TODO table): IN PROGRESS 11-21: NO_NET out, read_mem/write_mem, Vivado on the builder; then T241.1 by REST
+Open (one line, as in the TODO table): IN PROGRESS 11-21: S1, S2 PASS; c64scpu_t250.cor on the SD; open: S3, S4 over REST after Alex starts it
 **Repo:** TRX64U-MultiCore — the c64scpu build (`cores/c64scpu/mono/core.toml`) and its application part
 (`coreapp/cores/c64scpu.cc`).
 **Number:** T250.
@@ -83,8 +83,10 @@ Scenario: S4 (P2) a write over REST
 - **D4 (D24):** the two operations are code in the per-core file `coreapp/cores/c64scpu.cc`; the ledger gets an
   exception line with Alex's quotes of the origin as the decision.
 - **D5 (P3):** Alex, 2026-11-21 (translated): "Just build it locally, directly with Vivado, first." The build runs on the
-  builder, in `vivado-env:2024.1`, with `cores/c64scpu/mono/build.sh`, under `ci/lib.sh` `heavy_lock`, outside the
-  pipeline. The pipeline builds the branch again when it is pushed.
+  builder, in `vivado-env:2024.1`, with `cores/c64scpu/mono/build.sh`, outside the pipeline, as the pipeline's build job
+  runs it: `docker run --init`, and `ci/lib.sh` `heavy_lock required` inside the container on the pipeline's own lock
+  files, mounted as `/cache/heavy.lock` and `/cache/multicore/heavy.slot1`. The pipeline builds the branch again when
+  it is pushed.
 
 ## §4 Out
 
@@ -95,4 +97,18 @@ Scenario: S4 (P2) a write over REST
 
 ## §5 Built
 
-Nothing yet.
+- **2026-11-21, branch `t250-scpu-net`** (6c86f802, on T249's ea2586e5): `mono_env` without `NO_NET`;
+  `machine.read_mem` and `machine.write_mem` in `coreapp/cores/c64scpu.cc` with the regions of D2, the flush of D3
+  after a write below `$1000000`; the ledger lines of D4.
+- **S2 PASS:** `test_c64scpu: 367 checks, 0 failed`, one read per region of D2, a write with its flush, a write to the
+  C64 RAM without one, a read of `$F80000` refused. The unit ran alone: `CA_GROUP=c64scpu tests/coreapp/run.sh` does not
+  run it, because c64scpu is no group of `cores.txt`.
+- **S1 PASS:** builder, 7.5 min. `utilization_hier.rpt`: `g_eth.i_eth` (ethernet_interface) 413 LUT, `rmii` 140, `pkh`
+  (pktport_host) 20; top 23,649 LUT (72.5 %; T249's run 44880276432: 22,952, 70.4 %). WNS +0.174 ns.
+- **The first local run hung:** 45 min after `synth_design` with no CPU time. The container had no init process: the
+  synthesis helpers stayed zombies and `synth_design` waited for them. The pipeline's build job runs its container with
+  `--init`. That run also had no lock: `heavy_lock` found no writable `/cache` on the host and ran without one. D5 now
+  says how the second run was made.
+- **Board:** `c64scpu_t250.cor` (3,544,191 bytes, sha256 `98d7a670...`) in `/SD/cores/`, with the ROMs and the settings
+  of `c64scpu_t248`. S3 and S4 wait for Alex to start the core once; the tests then run over REST
+  (`tests/c64scpu/rest.py`, T241.1).
