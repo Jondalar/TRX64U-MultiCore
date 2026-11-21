@@ -659,6 +659,23 @@ int main()
         CHECK_EQ(r.io.flushes, f0 + 1);
         OpIn x1[2] = { in_int("address", 0xF80000), in_int("length", 1) };
         CHECK_EQ(ops_call(&r.c, "machine.read_mem", x1, 2, &rw), OPE_ARG);
+        r.io.events.clear();                                             // SuperRAM: the bytes first, then the flush
+        OpIn w3[2] = { in_int("address", 0x020000), in_str("data", "C0C1") };
+        CHECK_EQ(ops_call(&r.c, "machine.write_mem", w3, 2, &rw), OPE_OK);
+        CHECK_EQ(r.io.ddr[0x01020000u], 0xC0);
+        CHECK_EQ(r.io.ddr[0x01020001u], 0xC1);
+        CHECK(r.ev("ddr_write") >= 0 && r.ev("flush") > r.ev("ddr_write"));
+        CHECK_EQ(r.io.flushes, f0 + 2);
+        OpIn w4[2] = { in_int("address", 0xF60020), in_str("data", "E7") };   // the SIMM window: SuperRAM byte $20, flushed too
+        CHECK_EQ(ops_call(&r.c, "machine.write_mem", w4, 2, &rw), OPE_OK);
+        CHECK_EQ(r.io.ddr[0x01000020u], 0xE7);
+        CHECK_EQ(r.io.flushes, f0 + 3);
+        uint8_t keep = r.io.ddr[0x0201FFFFu];                            // across the end of SRAM bank 1: refused, nothing written, no flush
+        OpIn w5[2] = { in_int("address", 0x01FFFF), in_str("data", "9999") };
+        CHECK_EQ(ops_call(&r.c, "machine.write_mem", w5, 2, &rw), OPE_ARG);
+        CHECK_EQ(r.io.ddr[0x0201FFFFu], keep);
+        CHECK_EQ(r.io.ddr[0x01020000u], 0xC0);
+        CHECK_EQ(r.io.flushes, f0 + 3);
     }
     DONE("test_c64scpu");
 }

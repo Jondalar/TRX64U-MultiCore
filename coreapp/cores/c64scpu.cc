@@ -141,14 +141,15 @@ static uint32_t rd32(CoreCtx *c, uint32_t r)
     return v;
 }
 
-// ROM_CTRL.b0 clears the valid bits of the ROM line caches (a line fetched before is stale), then the walker's busy bit is waited out.
+// ROM_CTRL.b0 clears the valid bits of the line caches (a line fetched before is stale): the ROM images' and the 65816's (T250 D3). The busy
+// bit waited out is the C64 image cache's walker; the 65816's cache clears in 512 clocks, before the next request can come.
 static int flush_cache(CoreCtx *c, const char *role, char *msg, int msglen)
 {
     c->io->wr(SCPU_ROM_CTRL, 0x01);
     uint32_t t0 = c->io->now_ms();
     while (c->io->rd(SCPU_ROM_CTRL) & 0x01) {
         if (c->io->now_ms() - t0 > 100) {
-            snprintf(msg, msglen, "%s: the ROM cache flush did not finish", role);
+            snprintf(msg, msglen, "%s: the cache flush did not finish", role);
             return 1;
         }
         c->io->delay_ms(1);
@@ -403,9 +404,12 @@ static const MediaSlot media[] = {
     CBM1541_1581_MEDIA,
 };
 
-// T250 D2, D3: machine.read_mem / machine.write_mem. The 65816's addresses where scpu_mem.v puts them in the DDR2, and the C64 RAM above
-// them through the RAM window (the RAM under the I/O). The ROM banks $F8-$FF are not mapped (T250 D2). A write into the 65816's RAM goes
-// past the CPU's cache, so the cache is flushed after it; reads need nothing, the cache writes through.
+// T250 D2, D3: machine.read_mem / machine.write_mem. The 65816's stores where scpu_mem.v puts them in the DDR2, and the C64 RAM above
+// them through the RAM window (the RAM under the I/O). The ROM banks $F8-$FF are not mapped (T250 D2). Bank 0 is the SRAM store, where
+// the CPU writes: in the normal configuration it reads $A000-$BFFF and $E000-$FFFF from bank 1 (the BASIC and KERNAL copies) and
+// $D000-$DFFF from the I/O, so a read of bank 0 there gives the RAM below. A write here does not reach the C64 RAM (the CPU's own writes
+// are mirrored there, these are not): to change a byte both sides see, write both addresses. A write into the 65816's RAM goes past the
+// CPU's cache, so the cache is flushed after it; reads need nothing, the cache writes through.
 static const MemRegion scpu_mem_regions[] = {
     { 0x000000u, 0x020000u, MK_DDR, SCPU_SRAM_WIN_OFF, 0, "SRAM (banks 0 and 1)" },
     { 0x020000u, 0xF40000u, MK_DDR, SCPU_SUPERRAM_WIN_OFF + 0x020000u, 0, "SuperRAM (banks $02-$F5)" },
@@ -417,7 +421,7 @@ static const MemMap scpu_mem = { scpu_mem_regions, 4, true, 0 };
 static int op_write_mem(CoreCtx *c, const OpArgs &a, OpOut &o)
 {
     int e = mem_write(scpu_mem, c, a, o);
-    if (e == OPE_OK && (uint32_t)a.i(0) < 0x1000000u && flush_cache(c, "machine.write_mem", o.msg, o.msglen)) return OPE_FAILED;
+    if (e == OPE_OK && (uint32_t)a.i(0) < 0x1000000u && flush_cache(c, "machine.write_mem (the bytes are written)", o.msg, o.msglen)) return OPE_FAILED;
     return e;
 }
 
