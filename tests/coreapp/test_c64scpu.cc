@@ -222,6 +222,7 @@ int main()
         CHECK(sp >= 0 && jf >= 0);
         if (sp >= 0) { CHECK_STR(c64scpu_desc.settings[sp].values[0], "20 MHz"); CHECK_STR(c64scpu_desc.settings[sp].values[1], "1 MHz"); CHECK_EQ(c64scpu_desc.settings[sp].def, 0); }
         if (jf >= 0) { CHECK_STR(c64scpu_desc.settings[jf].values[0], "Off"); CHECK_STR(c64scpu_desc.settings[jf].values[1], "On"); CHECK_EQ(c64scpu_desc.settings[jf].def, 0); }
+        for (int i = 0; i < c64scpu_desc.nsettings; i++) CHECK(strcmp(c64scpu_desc.settings[i].key, "Datasette port") != 0);   // T249 S2: no datasette
     }
 
     // ---- the start with the five files of the card (their names as Alex put them): everything lands where the contract says, in the order
@@ -339,6 +340,16 @@ int main()
         r.io.e[T_ROM_VALID] = 1;
         CHECK_EQ(c64scpu_desc.release(&r.c, msg, sizeof(msg)), 0);
         CHECK(r.ev("mode_unreset") >= 0);
+    }
+    // ---- T249 S2: no datasette (Alex 2026-11-21: no SuperCPU software comes on tape): the op of the old setting is not registered
+    {
+        Rig r;
+        r.all();
+        CHECK(r.boot());
+        OpResult rr;
+        memset(&rr, 0, sizeof(rr));
+        OpIn in = in_int("value", 1);
+        CHECK_EQ(ops_call(&r.c, "c64scpu.set_dset", &in, 1, &rr), OPE_NOT_FOUND);
     }
     // ---- the image the DDR2 does not keep, a core of another version, a flush that never ends: the gate stays 0 and the put says why
     {

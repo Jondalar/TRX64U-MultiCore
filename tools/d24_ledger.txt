@@ -44,9 +44,9 @@ file coreapp/cores/c64_cart_desc.h 72
 file coreapp/cores/c64_go.cc 145
 file coreapp/cores/c64_go.h 7
 file coreapp/cores/c64_regs.h 56
-file coreapp/cores/c64scpu.cc 401
+file coreapp/cores/c64scpu.cc 393
 file coreapp/cores/c64scpu_prg.h 20
-file coreapp/cores/c64scpu_regs.h 35
+file coreapp/cores/c64scpu_regs.h 34
 file coreapp/cores/cbm1541.cc 417
 file coreapp/cores/cbm1541.h 16
 file coreapp/cores/cbm1541_desc.h 79
