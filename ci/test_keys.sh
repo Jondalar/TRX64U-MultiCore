@@ -73,7 +73,7 @@ by_hand="$(bash "$W/hand.sh")"
   CI_REF_TYPE=tag CI_BRANCH=v1.2 GITHUB_REF_NAME=builder-ref GITHUB_REF_TYPE=branch pin_entry "$e" grp
   [ -s "$e/pins/tag.v1.2" ] || exit 13
   e="$W/e2"; mkdir -p "$e"
-  CI_BRANCH=feat/x GITHUB_REF_NAME=builder-ref pin_entry "$e" grp
+  CI_REF_TYPE=branch CI_BRANCH=feat/x GITHUB_REF_NAME=builder-ref pin_entry "$e" grp   # a tag run sets GITHUB_REF_TYPE=tag
   [ -s "$e/pins/branch.feat_x" ] || exit 14 ) || fail "branch / tag handling (code $?)"
 
 # 4 heavy_lock: 'required' under CI without the lock directory refuses, plain and outside CI it lets the run go on (a Mac without /cache)
