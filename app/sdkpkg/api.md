@@ -9,8 +9,8 @@
 1.1.3 An application is a `.u2a` file of kind app. It has an entry `app_main`, which the base runs on a task of its own.
 1.1.4 A library and an application are both called an image.
 1.1.5 Every contract in this document is read from the code of the base, not from the comments of the headers.
-1.1.6 The headers of this package are `libapi.h`, `svctab.h`, `ops.h`, `fsif.h` and `libfmt.h`.
-1.1.7 `libapi.h` is the root. Every other header is reached from it.
+1.1.6 This document covers the contracts declared in `libapi.h`, `svctab.h`, `ops.h`, `fsif.h` and `libfmt.h`.
+1.1.7 `libapi.h` is the root. `svctab.h`, `ops.h` and `fsif.h` are reached from it. `libfmt.h` is not: an image that needs its constants includes it as well. The other headers of `include/` (`glue.h`, `u2p_app.h`, `u2p_ui.h`, `hidden.h`) belong to the older application interface and the build, and are described in the README of the package.
 1.1.8 The calls of the older application interface in `u2p_app.h` are an adapter. `u2p_compat.c` implements each of them with the calls of this document.
 1.1.9 The older calls for a character screen and for keys do not exist. An application brings a description of its screens, and the base draws it.
 
@@ -198,7 +198,7 @@ The system group. It is there for every image.
 #### 4.1.7 `api->sys->machine_handover`
 
 4.1.7.1 `void machine_handover(void)` prepares the machine to jump into other firmware. It does not return control to the base.
-4.1.7.2 The call logs a line, gives the pixel layer back, quiets the link to the rocker, disables the interrupts and stops the network receive.
+4.1.7.2 The call logs a line, gives the pixel layer back, stops the link to the ESP32 that sends the rocker and button events, disables the interrupts and stops the network receive.
 4.1.7.3 There is no way back. The caller jumps to the other code next.
 4.1.7.4 The member is null while a library loaded at core start registers (section 3.2).
 
@@ -265,7 +265,7 @@ Since base 3.0.
 
 The file group. It is the file system of the core, `CoreFs`.
 
-4.4.1 A path starts with `/`. The first element names a medium. The listing of `/` names the media that are mounted. The media of the board are `/flash`, `/sd` and `/usb0` to `/usb3`.
+4.4.1 A path starts with `/`. The first element names a medium. The listing of `/` names the media that are mounted. The media of the board are `/flash`, `/sd` and `/usb0` to `/usb3`. On the board the listing of `/` can also hold the folders `FTP` (when an FTP host is configured) and `Online` (when an online search has results). A path under them reaches the network, not a medium of the board: do not rely on them in an image that has to run without a network.
 4.4.2 A name on a FAT medium is matched without regard to case.
 4.4.3 Under `/flash`, a write, a delete, a mkdir, a rename and a read-write open fail. A read-write open gives a read-only file. Three files are the exception: `/flash/trx64u/c64.cfg`, `/flash/trx64u/boot.cfg` and `/Flash/boot.cfg`.
 4.4.4 On the monolith board profile the flash drive is writable.
@@ -470,42 +470,42 @@ The job group. A job is long work on a task of its own, so that `app_main` can a
 4.6.2 A job has a stack of at least 12 KiB.
 4.6.3 The memory and the files a job takes belong to its application.
 4.6.4 When the person closes the screens, the base marks every job as cancelled and waits up to 4 seconds. When a job or the application task still runs, it refuses to close the screens.
-4.6.4.1 When the application ends, the base marks every job as cancelled, waits up to 5 seconds, and goes on. A job that has not ended by then keeps running. Make a job end when it is cancelled.
-4.6.5 A finished job keeps its handle until `join`. `start` may reuse the slot of a finished job that was not joined. Join a job before you start the next one when you need its result.
-4.6.6 The group is null while a library loaded at core start registers (section 3.2).
+4.6.5 When the application ends, the base marks every job as cancelled, waits up to 5 seconds, and goes on. A job that has not ended by then keeps running. Make a job end when it is cancelled.
+4.6.6 A finished job keeps its handle until `join`. `start` may reuse the slot of a finished job that was not joined. Join a job before you start the next one when you need its result.
+4.6.7 The group is null while a library loaded at core start registers (section 3.2).
 
-#### 4.6.7 `SvcJobH`
+#### 4.6.8 `SvcJobH`
 
 Since base 3.0.
 
 `SvcJobH` is the opaque handle of a job. `start` makes it and `join` frees it.
 
-#### 4.6.8 `api->job->start`
+#### 4.6.9 `api->job->start`
 
-4.6.8.1 `SvcJobH *start(int (*fn)(SvcJobH *j, void *user), void *user, uint32_t stack_bytes)` runs `fn(j, user)` on a new task.
-4.6.8.2 It returns the handle, or null when `fn` is null, all four slots are in use, or the task cannot be made.
-4.6.8.3 The stack is `stack_bytes` rounded down to words, and at least 12288 bytes.
-4.6.8.4 `fn` returns an `int`. `join` returns it.
+4.6.9.1 `SvcJobH *start(int (*fn)(SvcJobH *j, void *user), void *user, uint32_t stack_bytes)` runs `fn(j, user)` on a new task.
+4.6.9.2 It returns the handle, or null when `fn` is null, all four slots are in use, or the task cannot be made.
+4.6.9.3 The stack is `stack_bytes` rounded down to words, and at least 12288 bytes.
+4.6.9.4 `fn` returns an `int`. `join` returns it.
 
-#### 4.6.9 `api->job->cancelled`
+#### 4.6.10 `api->job->cancelled`
 
-4.6.9.1 `bool cancelled(SvcJobH *j)` returns `true` when the job was asked to stop, or when the application is being closed.
-4.6.9.2 The job decides whether it can stop. Nothing stops a job that does not look.
+4.6.10.1 `bool cancelled(SvcJobH *j)` returns `true` when the job was asked to stop, or when the application is being closed.
+4.6.10.2 The job decides whether it can stop. Nothing stops a job that does not look.
 
-#### 4.6.10 `api->job->join`
+#### 4.6.11 `api->job->join`
 
-4.6.10.1 `int join(SvcJobH *j)` waits for the job to end and returns what `fn` returned. It frees the handle.
-4.6.10.2 It returns -1 when `j` is null or is not a started job.
-4.6.10.3 Any task of the application may call it. Never call it from the menu task.
+4.6.11.1 `int join(SvcJobH *j)` waits for the job to end and returns what `fn` returned. It frees the handle.
+4.6.11.2 It returns -1 when `j` is null or is not a started job.
+4.6.11.3 Any task of the application may call it. Never call it from the menu task.
 
-#### 4.6.11 `api->job->running`
+#### 4.6.12 `api->job->running`
 
-4.6.11.1 `bool running(SvcJobH *j)` returns `true` while the job has not ended.
+4.6.12.1 `bool running(SvcJobH *j)` returns `true` while the job has not ended.
 
-#### 4.6.12 `api->job->stop_requested`
+#### 4.6.13 `api->job->stop_requested`
 
-4.6.12.1 `bool stop_requested(void)` returns `true` when the base wants the application's own task to end because its screens are closing.
-4.6.12.2 The application task polls it and returns from `app_main`.
+4.6.13.1 `bool stop_requested(void)` returns `true` when the base wants the application's own task to end because its screens are closing.
+4.6.13.2 The application task polls it and returns from `app_main`.
 
 ### 4.7 `api->trx` (`SvcTrx`)
 
@@ -828,6 +828,7 @@ The library group. A library puts a table of function pointers in its record (`L
 4.10.2.4 `table_size` may be null. It receives the number of bytes the library gave as `exports_size`.
 4.10.2.5 The layout of the table is the library's own header. The caller checks `table_size` before it uses a member.
 4.10.2.6 The table stays valid while the library is loaded. List the library in the `needs` of the image: a library that no loaded image needs may be unloaded when an application is opened and the heap is short.
+4.10.2.7 Known limit: the base does not exclude a library from that unloading because it declares a poll, menu nodes, file actions or settings. After such an unloading a poll of the library, and the menu entries of the library, point into memory that is freed or into other operations. Do not rely on a library that makes these declarations to stay loaded when applications are opened with a short heap.
 
 ### 4.11 The member `size`
 
@@ -1259,6 +1260,7 @@ Since base 3.0.
 6.10.3 The task calls the operation with the core lock, every `period_ms`. The call waits until the core has started, and while the machine is frozen for the menu.
 6.10.4 When the handler sets `more`, the task calls it again at once. After 20 ms in a row it sleeps one period.
 6.10.5 The core holds at most 12 polls. A poll past that is refused. A period of 0 is refused.
+6.10.6 A poll of a library that the base unloads (section 4.10.2.7) is not stopped. Its task goes on and calls the wrong operation.
 
 | Member | Contract |
 |---|---|
