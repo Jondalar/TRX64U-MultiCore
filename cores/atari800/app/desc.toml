@@ -1,0 +1,282 @@
+# The Atari 800 XL's data description (T239.3 D17): what coreapp/cores/atari800.cc holds as tables and strings, as TOML. tools/descrec.py compiles it into the
+# description record (record 6 of the .cor, section layout in coreapp/src/descrec.h); the generic application builds the descriptor from it. What the record
+# cannot hold is code, and stays in the core's C++: init, release, warm_reset, the operations of register_ops, the SIO media write-back and the three
+# functions of the mount slots. Register numbers are cores/atari800/trx/a8_regs.vhd (coreapp/cores/atari800_regs.h).
+machine_info = "RAM size,Video standard"
+
+[core]
+id = "A8XL"
+name = "Atari 800 XL"
+title = "Atari 800 XL"
+short_title = "ATARI"
+folder = "atari800"
+store = "Atari 800 XL Settings"
+min_contract = 1
+reset_ms = 5
+service_op = "atari800.service"
+service_period_ms = 5
+caps = ["sio", "cartridge"]            # the SIO bus its drives sit on and a cartridge port; no IEC, so a Commodore drive library is refused here
+
+# 384 x 288 shown 3 x 3 (1152 x 864), centred on 1920 x 1080: x0 = 384 centres the window, +42 (14 hires pixels x 3) puts the picture itself in the middle (the
+# blanking hides the window's last 28 columns, so the picture sits 14 left); the buffers are in the DDR2 window at 0x01000000 + A8_W_FB
+[video]
+w = 384
+h = 288
+scale = 3
+x0 = 426
+y0 = 108
+fb_base = 0x01D00000
+fb_stride = 0x00100000
+nbuf = 4
+reg_latest = 0x0C0
+reg_seq = 0x0C1
+reg_fb_base = 0x0C4
+reg_fb_stride = 0x0C8
+
+[freeze]
+reg_status = 0x0A8
+mask = 0x02
+timeout_ms = 200
+
+# ---- ROMs: one array at a time behind the ROM aperture (ROM_SEL); the files are never in the repository
+[[rom]]
+role = "XL OS"
+names = ["ATARIXL.ROM"]
+sizes = [16384]
+required = true
+put_op = "atari800.put_os"
+
+[[rom]]
+role = "BASIC"
+names = ["BASIC.ROM", "ATARIBAS.ROM"]
+sizes = [8192]
+required = true
+put_op = "atari800.put_basic"
+
+# ---- settings: the video standard and the RAM size are taken at the next reset; the two flag items share one operation, which rereads both
+[[core_setting]]
+key = "RAM size"
+values = ["64 KB", "128 KB", "320 KB Compy Shop", "320 KB Rambo", "576 KB Compy Shop", "576 KB Rambo", "1088 KB Rambo"]
+when = "reset"
+apply = "atari800.set_ram"
+
+[[core_setting]]
+key = "Video standard"
+values = ["PAL", "NTSC"]
+when = "reset"
+apply = "atari800.set_flags"
+
+[[core_setting]]
+key = "Joystick ports"
+values = ["Normal", "Swapped"]
+apply = "atari800.set_flags"
+
+[[core_setting]]
+key = "CPU speed"
+values = ["1x", "2x", "4x", "8x"]
+apply = "atari800.set_speed"
+
+[[core_setting]]
+key = "LED Load Indicator"
+values = ["On", "Off"]
+apply = "led.load"
+
+# ---- tasks
+[[task]]
+label = "Reset"
+op = "machine.warm_reset"
+closes_menu = true
+
+[[task]]
+label = "Cold start"
+op = "machine.cold_reset"
+closes_menu = true
+
+[[task]]
+label = "Reload ROMs, cold start"
+op = "machine.reload_roms"
+closes_menu = true
+
+[[task]]
+label = "Eject D1:"
+op = "atari800.eject"
+bind = [ { arg = "drive", int = 0 } ]
+
+[[task]]
+label = "Eject D2:"
+op = "atari800.eject"
+bind = [ { arg = "drive", int = 1 } ]
+
+[[task]]
+label = "Eject D3:"
+op = "atari800.eject"
+bind = [ { arg = "drive", int = 2 } ]
+
+[[task]]
+label = "Eject D4:"
+op = "atari800.eject"
+bind = [ { arg = "drive", int = 3 } ]
+
+[[task]]
+label = "Create blank ATR"
+op = "disk.create"
+bind = [ { arg = "path", text = true }, { arg = "format", str = "atr" }, { arg = "name", str = "" } ]
+ask = "Name of the new ATR"
+ask_state = "disk.suggest.atr"
+pick_dir = true
+
+# ---- media slots
+[[media]]
+name = "D1:"
+state = "atari800.d1.image"
+eject_op = "atari800.eject"
+eject_bind = [ { arg = "drive", int = 0 } ]
+exts = ".atr,.xfd"
+mount = "Mount D1:"
+empty_tasks = "Create blank ATR"
+
+[[media]]
+name = "D2:"
+state = "atari800.d2.image"
+eject_op = "atari800.eject"
+eject_bind = [ { arg = "drive", int = 1 } ]
+exts = ".atr,.xfd"
+mount = "Mount D2:"
+empty_tasks = "Create blank ATR"
+
+[[media]]
+name = "D3:"
+state = "atari800.d3.image"
+eject_op = "atari800.eject"
+eject_bind = [ { arg = "drive", int = 2 } ]
+exts = ".atr,.xfd"
+mount = "Mount D3:"
+empty_tasks = "Create blank ATR"
+
+[[media]]
+name = "D4:"
+state = "atari800.d4.image"
+eject_op = "atari800.eject"
+eject_bind = [ { arg = "drive", int = 3 } ]
+exts = ".atr,.xfd"
+mount = "Mount D4:"
+empty_tasks = "Create blank ATR"
+
+# removing the cartridge is a cold start
+[[media]]
+name = "Cartridge"
+state = "atari800.cartridge.image"
+eject_op = "atari800.remove_cart"
+exts = ".car,.rom,.bin"
+mount = "Insert cartridge, cold start"
+eject_closes = true
+
+# ---- file types
+# D1: is the drive the machine boots from, so the first (default) action starts it and closes the menu, as "Run" does for a .xex;
+# "Mount D1:" is the swap for a running game, the others are mounts and nothing more
+[[filetype]]
+ext = ".atr"
+  [[filetype.action]]
+  label = "Mount D1: and cold start"
+  op = "atari800.mount"
+  bind = [ { arg = "path", file = true }, { arg = "drive", int = 0 }, { arg = "boot", int = 1 } ]
+  closes_menu = true
+  [[filetype.action]]
+  label = "Mount D1:"
+  op = "atari800.mount"
+  bind = [ { arg = "path", file = true }, { arg = "drive", int = 0 }, { arg = "boot", int = 0 } ]
+  [[filetype.action]]
+  label = "Mount D2:"
+  op = "atari800.mount"
+  bind = [ { arg = "path", file = true }, { arg = "drive", int = 1 }, { arg = "boot", int = 0 } ]
+  [[filetype.action]]
+  label = "Mount D3:"
+  op = "atari800.mount"
+  bind = [ { arg = "path", file = true }, { arg = "drive", int = 2 }, { arg = "boot", int = 0 } ]
+  [[filetype.action]]
+  label = "Mount D4:"
+  op = "atari800.mount"
+  bind = [ { arg = "path", file = true }, { arg = "drive", int = 3 }, { arg = "boot", int = 0 } ]
+
+[[filetype]]
+ext = ".xfd"
+  [[filetype.action]]
+  label = "Mount D1: and cold start"
+  op = "atari800.mount"
+  bind = [ { arg = "path", file = true }, { arg = "drive", int = 0 }, { arg = "boot", int = 1 } ]
+  closes_menu = true
+  [[filetype.action]]
+  label = "Mount D1:"
+  op = "atari800.mount"
+  bind = [ { arg = "path", file = true }, { arg = "drive", int = 0 }, { arg = "boot", int = 0 } ]
+  [[filetype.action]]
+  label = "Mount D2:"
+  op = "atari800.mount"
+  bind = [ { arg = "path", file = true }, { arg = "drive", int = 1 }, { arg = "boot", int = 0 } ]
+  [[filetype.action]]
+  label = "Mount D3:"
+  op = "atari800.mount"
+  bind = [ { arg = "path", file = true }, { arg = "drive", int = 2 }, { arg = "boot", int = 0 } ]
+  [[filetype.action]]
+  label = "Mount D4:"
+  op = "atari800.mount"
+  bind = [ { arg = "path", file = true }, { arg = "drive", int = 3 }, { arg = "boot", int = 0 } ]
+
+[[filetype]]
+ext = ".xex"
+  [[filetype.action]]
+  label = "Run (boot disk in D1:, cold start)"
+  op = "atari800.run_xex"
+  bind = [ { arg = "path", file = true } ]
+  closes_menu = true
+
+[[filetype]]
+ext = ".obx"
+  [[filetype.action]]
+  label = "Run (boot disk in D1:, cold start)"
+  op = "atari800.run_xex"
+  bind = [ { arg = "path", file = true } ]
+  closes_menu = true
+
+[[filetype]]
+ext = ".com"
+  [[filetype.action]]
+  label = "Run (boot disk in D1:, cold start)"
+  op = "atari800.run_xex"
+  bind = [ { arg = "path", file = true } ]
+  closes_menu = true
+
+[[filetype]]
+ext = ".car"
+  [[filetype.action]]
+  label = "Insert cartridge, cold start"
+  op = "atari800.insert_cart"
+  bind = [ { arg = "path", file = true } ]
+  closes_menu = true
+
+[[filetype]]
+ext = ".rom"
+  [[filetype.action]]
+  label = "Insert cartridge, cold start"
+  op = "atari800.insert_cart"
+  bind = [ { arg = "path", file = true } ]
+  closes_menu = true
+
+[[filetype]]
+ext = ".bin"
+  [[filetype.action]]
+  label = "Insert cartridge, cold start"
+  op = "atari800.insert_cart"
+  bind = [ { arg = "path", file = true } ]
+  closes_menu = true
+
+# ---- hotkeys (hk_defaults.h hk_typing): CTRL is a typing key on this machine, so the modifier is C= + CTRL, which it has no function for; then RESTORE menu, "+" / "-"
+# volume, R reset, J swap joystick ports, P picture mode. Keys as hotkeys.h: 0-63 = col * 8 + row, 64 = RESTORE, 255 = none
+[hotkeys]
+mod = [61, 58]
+actions = [64, 40, 43, 17, 34, 41, 255]
+pc_keys = true
+
+# the slots of the core's own media engine (atari_media.cc); their three functions (spec, mount, eject) are code
+[mount]
+names = ["D1", "D2", "D3", "D4", "Cartridge"]

@@ -721,6 +721,31 @@ class MoreSections(unittest.TestCase):
         self.assertEqual([m.get("replace") for m in r["media"]], ["Replace Cartridge", None, "Replace Disk"])
         self.assertEqual((r["romset"]["version"], r["romset"]["pick"]), (False, False))
 
+    CHOICE = '\n[[core_setting]]\nkey = "Kickstart file (at reload)"\nlabel = "Kickstart file"\nwhen = "reset"\nromset_choice = true\n'
+
+    def test_the_rom_sets_choice_is_a_setting_with_neither_operation_nor_register_bits(self):
+        text = self.a_text + self.CHOICE
+        b = D.compile_text(text)
+        r = D.parse_desc(b)
+        c = [c for c in r["cset"] if c["key"] == "Kickstart file (at reload)"][0]
+        self.assertEqual((c["apply"], c["values"], c["default"], c["when"], c["label"]), (None, ["Auto (3.1 first)"] + ["-"] * 8, 0, "reset", "Kickstart file"))
+        self.assertEqual(D.compile_desc(D.decoded_to_doc(r)), b)
+        for what, bad in (("no rom set behind it", text.replace("[romset]", "[romset_gone]")),
+                          ("another key than the set's choice", text.replace('key = "Kickstart file (at reload)"\nlabel', 'key = "Other"\nlabel')),
+                          ("values of its own", text + 'values = ["a", "b"]\n'),
+                          ("an operation as well", text + 'apply = "x.y"\n')):
+            with self.assertRaises(D.DescError, msg=what):
+                D.compile_text(bad)
+
+    def test_six_media_slots_and_six_mount_names_are_taken_and_seven_are_not(self):
+        def text(n):
+            return self.x_text + "".join('\n[[media]]\nname = "Extra%d"\nstate = "extra.s%d"\n' % (i, i) for i in range(n - 3)) + \
+                '\n[mount]\nnames = [%s]\n' % ", ".join('"S%d"' % i for i in range(n))
+        r = D.parse_desc(D.compile_text(text(6)))
+        self.assertEqual(len(r["media"]), 6)
+        with self.assertRaises(D.DescError):
+            D.compile_text(text(7))
+
     def test_what_the_compiler_refuses(self):
         a, x = self.a_text, self.x_text
         for what, text in (

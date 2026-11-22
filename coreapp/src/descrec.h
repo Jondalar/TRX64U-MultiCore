@@ -110,7 +110,7 @@
 #define DR_VALUES 8192                            // T228 R21: the reDIP:SID filter ranges (FW: base 0..511, offset -1024..1023) and the socket pages
 #define DR_CTABS 16
 #define DR_TASKS 64
-#define DR_MEDIA 4
+#define DR_MEDIA 6
 #define DR_FTYPES 32
 #define DR_FACTS 200
 #define DR_CSETS 330
@@ -119,7 +119,7 @@
 #define DR_SETBINDS 16                            // T239.3 D17: core settings that are register bits
 #define DR_BIND_BYTES 64                          // ... and the bytes one of them maps its values to
 #define DR_CAPS 8
-#define DR_MOUNT 4
+#define DR_MOUNT 6
 #define DR_SECTIONS 17                            // the ids 1 .. 17
 #define DR_RESETW 8                               // reset writes
 #define DR_RAWKEY_HID 255
