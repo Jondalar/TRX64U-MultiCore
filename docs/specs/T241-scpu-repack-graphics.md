@@ -634,3 +634,6 @@ Open.
 - **2026-11-22, merged:** Alex merged #129 into `integration` (`d68f4b3a`): the fixes of `t241-scpu-fix` and
   `t241-s2-irq` ship in 0.2.1. Both branches are deleted.
 - **2026-11-22, issue #135:** the two items open for 0.3.0 (scpu5 d, scpu6 bigr) are GitHub issue #135, asked by Alex: "we do that some other time" (translated).
+- **2026-11-22, the S4 measurement program in the repository:** `tests/scpu_meas/` (`meas.asm`, its `meas.prg`: 64tass output, byte-identical; two
+  end screens of earlier versions). It lay only in a session's scratch folder. Alex (translated): "241 was for the SuperCPU, that may go
+  into the repository too". Outside `cores/c64scpu`, so the core's bitstream key does not move.
