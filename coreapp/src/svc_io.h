@@ -6,10 +6,13 @@
 //   - No call takes a CoreCtx.
 //   - Every access is one byte wide per register: the windows take one byte per access (the DMA window's handshake). A register of 32 bit is four calls, and
 //     the caller holds sync.enter ... sync.leave around the four when the bitstream needs them back to back.
-//   - Task: the register calls (rd, wr, cart_*, bus_*, drv_*, ram_memonly, video_format, stop, mode_reset) belong to a task that holds the core lock (handler, hook,
-//     poll). The bulk calls (ddr_*, rom_*, ram_read, ram_write, eeprom_*) touch no shared state and a job task may call them as well. keys_read and delay_us are any task.
+//   - Task: the register calls (rd, wr, cart_*, bus_*, drv_*, ram_memonly, video_format, stop, mode_reset) and ram_read / ram_write (what they see depends on the
+//     ram_memonly mode and on the machine being stopped, which other lock holders change) belong to a task that holds the core lock (handler, hook, poll, or each step
+//     of an operation the menu steps: the UI node attribute `job`, ctx.job_step). The bulk calls that depend on no mode (ddr_*, ddr_abs_*, rom_*, eeprom_*) and
+//     `window` may run on a job task as well. keys_read and delay_us are any task. Work that needs the machine held for a long time (a dump) is a stepped operation:
+//     the menu calls it again while it answers `more`, each call holds the lock for one step, the menu stays open (the machine frozen) until the last step.
 //   - Errors: none are reported. A core or host without a window ignores a write and reads 0 (the defaults of CoreIo); ddr_abs_* ignores what lies outside its range.
-//   - `io` has 24 members, the 23 of CoreIo named below and bus_rd, which is new in CoreIo (the read side of bus_wr; the default of the interface returns 0). The others of
+//   - `io` has 25 members, the 23 of CoreIo named below, bus_rd and window (the core's own register blocks, declared in its API TOML), bus_rd being new in CoreIo (the read side of bus_wr; the default of the interface returns 0). The others of
 //     io.h (palette, drv_present, drv_buffer, case LEDs, mixer, tone, hotkey registers, matrix keys, joystick lines, bling, product, run_at, now_ms, delay_ms, wall_time) are the
 //     base's own and no library of a core needs them: a library that does names the one it needs and it is appended (append-only).
 #ifndef COREAPP_SVC_IO_H
@@ -70,6 +73,11 @@ typedef struct SvcIo {
     void (*video_format)(uint8_t v);
     // A busy wait of `us` microseconds (CoreIo::delay_us), the same call as sys.delay_us (svc_sys.h). Task: any.
     void (*delay_us)(uint32_t us);
+    // A register window of the core's bitstream outside the register block of rd/wr (its video, mixer, palette or resampler block): the window `name` that the
+    // core's API TOML declares (name, address, size). The base checks the window against the core's address map when it loads the API TOML and hands out its base
+    // address; the library adds the offsets its TOML names and accesses the registers through a volatile pointer, one byte per access as above. Null (and
+    // *size 0) for a name the TOML does not declare or the address map does not grant (a host range). Task: any; the registers' own rules are the core's.
+    volatile uint8_t *(*window)(const char *name, uint32_t *size);
 } SvcIo;
 
 #ifdef __cplusplus

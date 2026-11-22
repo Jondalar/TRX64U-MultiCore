@@ -52,6 +52,10 @@ typedef struct CoreHooks {
     //     (the monitor's release therefore comes a few lines later than it does now).
     //   - It does not block for long: the person waits for the machine to run.
     void (*menu_closed)(void);
+    // The base applied one of its own settings (svc_settings.h: the generic application's settings), `key` its key. The core's hardware that follows the
+    // setting is set here: the C64's paddle swap follows "Joystick Input", whose keyboard part the base sets itself. Called after every change and once after
+    // the start hook. Null: the core follows none. Task: lock, like a setting's apply operation.
+    void (*base_setting_changed)(const char *key);
 } CoreHooks;
 
 #ifdef __cplusplus

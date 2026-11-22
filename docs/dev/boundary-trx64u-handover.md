@@ -114,3 +114,33 @@ The screen of the monitor is not a pending call: the export "textgrid" (`textgri
 | `u64_get_usb_hid_config_value` (weak in `usb_hid.cc`) | Gone. The base image defines it in `mousesink.cc` and reads five mouse settings by name. The base now owns and declares `Mouse Mode`, `Mouse Sensitivity`, `Mouse Acceleration`, `Mouse Wheel Sensitivity`, `Mouse Wheel Direction` (keys and values in `svc_settings.h`), like `Overlay Transparency`, `Color Scheme`, `Filename overflow squeeze`, `Navigation Style` (with its first-run default on the Commodore product) and `Joystick Input`: drop your copies of all ten from the menu TOML (today four of them carry `apply = "ui.fx"`). The stored values carry over because the keys stay. |
 | `trx64u_sid_service`, `trx64u_sid_cancel`, `trx64u_kernal_put`, `trx64u_basic_put`, `trx64u_load_assoc_cfg`, `u64cfg_power_on_keys` | Calls inside your library: `c64.cc` and `c64_go.cc` are yours. |
 | Hooks | `CoreHooks` (`core_hooks.h`): `init`, `release`, `warm_reset`, `cold_start`, `media_flush`, `media_pending` as before, and new `start` and `menu_closed` (not `resume`). `menu_closed` runs on the main loop task without the core lock, after the menu is hidden and before the machine is let go: the ring's pending frame lands there (rules in `core_hooks.h`). |
+
+## The key table of the UI TOML (base 3.3)
+
+The rows of `menukeytab.cc` that name a library's operation (today `KS_MONITOR` with `monitor.key` and `KS_TIMELINE` with the `tw.*`
+operations) move into the core's UI TOML. The base reads them from the menu record and puts them where the generic rows of those
+two scopes stand today: after an application's screens, before the menu's grammar. Rows are tried in the order of the file; the
+first that matches takes the key.
+
+```toml
+[[key]]
+layout = "terminal"      # where the row counts: while a node with this layout is shown; `node = "<id>"` names one node instead
+key = "any"              # "any", or one key: a character ("a", "+"), "return", "esc", "del", "left", "right", "up", "down",
+                         # "home", "f1" .. "f8", "ctrl+<letter>" ("ctrl+o")
+op = "monitor.key"       # the operation the key runs
+pass_key = true          # the key goes to the operation as its int argument "key" (today KF_KEYARG); default false
+directive = true         # the operation's answer text is "close" or "goto SPEC" for the menu (KF_DIRECTIVE); default false
+direct = true            # called on the menu task, not through the executor; the core lock is not held (KF_DIRECT); default false
+```
+
+`KS_MONITOR` becomes `layout = "terminal", key = "any"` with the three flags above; `KS_TIMELINE` becomes one row per key with
+`layout = "timeline"` (today `ctrl+o` runs `tw.monitor` with `directive = true`). The generic rows of `menukeytab.cc` that name
+these operations go when 3.3 reads the table.
+
+## Where a core's menu goes
+
+A library's image carries a menu record of contributions only: nodes, file actions, settings, tabs and a poll (`u2a_pack.py
+--menu` refuses areas, `hide` and `rename`, which only a core's description has). The core's own menu, your `menu.toml`, is the
+core's description: record 6 of the `.cor`, packed by `tools/cor_pack.py pack --desc` together with the data sections of the
+core's `desc.toml`. So your libraries drop `LIB_MENU = menu.toml`; `menu.toml` and `desc.toml` are delivered with the libraries
+and packed into `trx64u.cor` by this repository's pipeline (the hand-over contract gets that line with P4).
