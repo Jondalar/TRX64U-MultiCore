@@ -33,7 +33,8 @@ Hashes are SHA-256 over each part (integrity only, no signatures).
 
 OPTIONAL records of either kind (T104.1 D9, D12), after the others, each once, both announced by the manifest ("records": 1 and
 `desc_size`/`desc_sha256`, `libs_size`/`libs_sha256`). A bundle without them is byte for byte what this tool wrote before they existed.
-  6 desc   the menu description, compiled from TOML (tools/descrec.py; the layout is coreapp/src/descrec.h)
+  6 desc   the menu description, compiled from TOML (tools/descrec.py; the layout is coreapp/src/descrec.h). Since T239.3 D17 it may also carry the core's data
+           sections (the descriptor's identity, ROMs, video, hotkeys, mount slots; cores/vc20/app/desc.toml): its [core] name has to be the manifest's name
   7 libs   the libraries this core needs, a copy in every bundle that needs it (Q5): "TRXL", u32 version 1, u32 count, then for each
            u32 length and the `.u2a` of format 3 (tools/u2a_pack.py), padded with zeros to a multiple of 4
 
@@ -311,6 +312,16 @@ def merge_menus(desc, libs):
     return blob
 
 
+def check_desc(m, desc):
+    """The description by its own reader; one with the core's data sections names the core the manifest names (the application finds its descriptor by that name)."""
+    try:
+        d = descrec.parse_desc(desc)
+    except descrec.DescError as e:
+        raise CorError(str(e))
+    if d.get("core") and d["core"]["name"].lower() != str(m.get("name", "")).lower():
+        raise CorError('desc: the core section names "%s", the manifest "%s"' % (d["core"]["name"], m.get("name")))
+
+
 def optional_records(m, desc, libs, files=None):
     """The manifest keys and the records for the optional description and libraries; nothing at all when both are None (the bytes of a bundle
     without them stay what they were)."""
@@ -320,10 +331,7 @@ def optional_records(m, desc, libs, files=None):
     m["records"] = RECORDS_FORMAT
     body = b""
     if desc is not None:
-        try:
-            descrec.parse_desc(desc)
-        except descrec.DescError as e:
-            raise CorError(str(e))
+        check_desc(m, desc)
         m.update(desc_size=len(desc), desc_sha256=sha(desc))
         body += rec(T_DESC, desc)
     if libs:
@@ -352,10 +360,7 @@ def check_optional(m, recs):
         if m[part + "_size"] != len(recs[t]) or m.get(part + "_sha256") != sha(recs[t]):
             raise CorError("%s: size or SHA-256 mismatch" % part)
     if T_DESC in recs:
-        try:
-            descrec.parse_desc(recs[T_DESC])
-        except descrec.DescError as e:
-            raise CorError(str(e))
+        check_desc(m, recs[T_DESC])
     if T_LIBS in recs:
         libs = parse_libs(recs[T_LIBS])
         if m.get("libs_count") != len(libs):

@@ -414,7 +414,7 @@ def make(base, head, source, files_out=None, branch=None):
             continue
         specs = deps_now[name]
         hit = everything or name not in sims_then or sims_now[name] != sims_then.get(name) or specs != deps_then.get(name) \
-            or bool(changed_code(base, head, specs + [EXC + "cores/*/logo/*"]))   # a core's logo is never a bench input
+            or bool(changed_code(base, head, specs + [EXC + "cores/*/logo/*", EXC + "cores/*/app/*"]))   # a core's logo and its app part are never a bench input
         if not hit:
             continue
         o = owners.get(name, "none")

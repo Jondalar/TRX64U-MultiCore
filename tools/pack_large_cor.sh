@@ -45,6 +45,11 @@ args=(--id "$ID" --name "$NAME" --version "$VER" --bit "$BIT" --app "$APPBIN")
 [ -z "$SHORT" ] || args+=(--short "$SHORT")
 [ -z "$BITC" ] || args+=(--bit-commit "$BITC")
 [ -z "$APPC" ] || args+=(--app-commit "$APPC")
+# T239.3 D17: the core's data description (cores/<id>/app/desc.toml) is record 6; a caller's own --desc (a menu description) is the same record, so a core cannot have both
+if [ -s "$ROOT/cores/$ID/app/desc.toml" ]; then
+    [ -z "$DESC" ] || { echo "cores/$ID/app/desc.toml and --desc $DESC are both record 6: one description per core" >&2; exit 1; }
+    DESC="$ROOT/cores/$ID/app/desc.toml"
+fi
 [ -z "$DESC" ] || args+=(--desc "$DESC")
 [ -z "$OPS" ] || args+=(--ops "$OPS")
 [ -z "$ORIGIN" ] || args+=(--origin "$ORIGIN")

@@ -15,7 +15,7 @@
 # the host it was routed against and the boot app refuses it on any other one. The partials of one
 # package all belong to that host: a .cor is never mixed across packages.
 #
-# The core's logo (T114) is packed in as the bundle's icon when cores/<id>/logo/icon.rgb565 exists.
+# The core's logo (T114) is packed in as the bundle's icon when cores/<id>/logo/icon.rgb565 exists, its data description (cores/<id>/app/desc.toml, T239.3 D17) as record 6.
 #
 # Output: <out>/<core>.cor plus one line per core. Feed them to tools/make_release_mc.sh --cor.
 set -euo pipefail
@@ -86,8 +86,10 @@ for c in "${CORES[@]}"; do
     idir="$(python3 "$HERE/core_toml.py" get "$c" install_dir)"; iold="$(python3 "$HERE/core_toml.py" get "$c" install_old)"
     [ -z "$idir" ] || files+=(--files "$ROOT/cores/$c/$idir")
     [ -z "$iold" ] || files+=(--files-old "$ROOT/cores/$c/$iold")
+    desc=()                                       # record 6: the core's data description, compiled by tools/descrec.py (T239.3 D17); a core with none carries no record
+    [ ! -s "$ROOT/cores/$c/app/desc.toml" ] || desc=(--desc "$ROOT/cores/$c/app/desc.toml")
     heap=(); h="$(python3 "$HERE/core_toml.py" get "$c" heap)"; [ -z "$h" ] || heap=(--heap "$h")   # T239.3 D15: the core's heap, set in its copy of the app
-    python3 "$HERE/cor_pack.py" pack ${heap[@]+"${heap[@]}"} --host-key "$HK" --contract "$CV" -o "$OUT/$c.cor" ${files[@]+"${files[@]}"} \
+    python3 "$HERE/cor_pack.py" pack ${heap[@]+"${heap[@]}"} --host-key "$HK" --contract "$CV" -o "$OUT/$c.cor" ${files[@]+"${files[@]}"} ${desc[@]+"${desc[@]}"} \
         --name "$name" --version "$ver" --partial "$part" --app "$app" \
         --load 0x30000 --entry 0x30000 ${icon[@]+"${icon[@]}"} --short "$(python3 "$HERE/core_toml.py" get "$c" short)" > /dev/null
     python3 "$HERE/cor_pack.py" check --contract "$CV" --host-key "$HK" "$OUT/$c.cor" > /dev/null

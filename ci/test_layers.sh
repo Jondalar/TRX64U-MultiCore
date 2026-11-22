@@ -62,6 +62,11 @@ mkdir -p "$W/b/cores/vc20/logo"; echo "x" >> "$W/b/cores/vc20/logo/icon.rgb565";
 read -r H O C <<< "$(keys2 "$W/b")"
 [ "$H $O $C" = "$HX $OX $CX" ] || { echo "FAIL: a logo file moved a key"; exit 1; }
 git -C "$W/b" reset -q --hard
+# a core's app part (cores/<id>/app/, T239.3 D10/D11) is compiled into the .cor, not into the bitstream: it moves no key either
+mkdir -p "$W/b/cores/vc20/app"; echo "x" >> "$W/b/cores/vc20/app/desc.toml"; git -C "$W/b" add -A
+read -r H O C <<< "$(keys2 "$W/b")"
+[ "$H $O $C" = "$HX $OX $CX" ] || { echo "FAIL: a file of a core's app part moved a key"; exit 1; }
+git -C "$W/b" reset -q --hard
 # a host file
 echo "// x" >> "$W/b/host/ddr2_lean.v"; git -C "$W/b" add -A
 read -r H O C <<< "$(keys "$W/b")"

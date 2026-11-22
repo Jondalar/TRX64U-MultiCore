@@ -46,7 +46,11 @@ inline Menu *menu()
         }
         {
             static DescRecord raw;                   // a copy: descrec_apply writes the base's settings behind the record's own
-            raw = m->rec;
+            if (m->rec.sec) {
+                fprintf(stderr, "the C64's record has data sections: it cannot be copied byte for byte\n");
+                abort();
+            }
+            memcpy((void *)&raw, &m->rec, sizeof(raw));
             descrec_apply(raw, &c64_desc, &m->own_raw);
         }
         Contributor c = { "description", CR_DESC, &m->rec.rec };

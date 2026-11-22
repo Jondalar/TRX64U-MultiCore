@@ -14,6 +14,7 @@
 #include "libscan.h"
 #include "cor.h"
 #include "appindex.h"
+#include "start.h"
 
 struct BundleExtras {
     bool probed;                          // the bundle was opened and its layout read
@@ -26,6 +27,18 @@ struct BundleExtras {
 // Reads the bundle ctx->cor_path names. A path that is no .cor, a bundle that is not this core's or one the host contract does not accept leaves
 // everything null with the reason in why. The description is read, hashed and parsed here; the libraries are only located (lib_load_cor loads them).
 void bundle_read(CoreCtx *c, BundleExtras *out);
+
+// T239.3 D17: the descriptor of a core that has none compiled into the application, made of the data sections of its bundle's description record. `hooks` is the code the
+// record cannot hold (descrec.h CoreHooks; null: none). Each descriptor is made on the heap and kept for the run. A bundle that carries no such record, a damaged one, or a
+// core whose code is missing is refused with a sentence that names the bundle, the record and the section.
+class BundleDescSource : public DescSource {
+public:
+    BundleDescSource(CoreFs *fs, const CoreHooks *hooks) : fs_(fs), hooks_(hooks) { }
+    const CoreDesc *describe(const uint8_t id[4], const Handover *h, char *msg, int msglen) override;
+private:
+    CoreFs *fs_;
+    const CoreHooks *hooks_;
+};
 
 // The route and contributions of a description, the libraries the loader holds, laid on the descriptor `base`: `out` is the descriptor the menu,
 // the settings and the browser use from here on, `mm` what the menu tree needs besides. Names every refusal on the console through `log`.

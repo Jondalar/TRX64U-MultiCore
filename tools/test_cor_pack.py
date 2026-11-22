@@ -381,6 +381,21 @@ class RecordsTest(unittest.TestCase):
             b = Mn.pack_large("amiga1200", "A", "1", full_bit(), APP, icon)
             self.assertEqual(a, b)
 
+    def test_a_description_with_the_cores_data_sections(self):
+        # T239.3 D17: the VIC-20's own description (cores/vc20/app/desc.toml) is record 6 of its bundle; the core section names the manifest's core
+        import descrec
+        with open(os.path.join(os.path.dirname(DESC_TOML), "..", "..", "..", "cores", "vc20", "app", "desc.toml")) as f:
+            desc = descrec.compile_text(f.read())
+        blob, _ = make(desc=desc)
+        m, r = C.parse(blob, C.CONTRACT)
+        self.assertEqual(r[C.T_DESC], desc)
+        C.check_optional(m, r)
+        self.assertTrue(descrec.parse_desc(r[C.T_DESC])["sections"])
+        with self.assertRaisesRegex(C.CorError, "core section names"):
+            make(desc=desc, name="Another Machine")
+        blob, _ = make(desc=desc, libs=[u2a()])                                     # the libraries' menus are merged in: the sections stay
+        self.assertTrue(descrec.parse_desc(C.parse(blob, C.CONTRACT)[1][C.T_DESC])["sections"])
+
     def test_round_trip_both_kinds(self):
         desc = desc_record()
         libs = [u2a(), u2a() + b"xy"]
@@ -659,6 +674,48 @@ class HeapTest(unittest.TestCase):
         for bad in (0x1000, 0x100008 + 1):
             with self.assertRaises(C.CorError):
                 C.app_heap(heap_app(), bad, "x")
+
+
+class PackersCarryTheDescriptionTest(unittest.TestCase):
+    """T239.3 D17 part 2: the packers put cores/<id>/app/desc.toml into record 6 of the .cor, and the bundle checks it."""
+
+    ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
+
+    def desc(self):
+        import descrec
+        with open(os.path.join(self.ROOT, "cores", "vc20", "app", "desc.toml")) as f:
+            return descrec.compile_text(f.read())
+
+    def test_pack_cores_mc_carries_it(self):
+        with tempfile.TemporaryDirectory() as d:
+            bits, apps, out = (os.path.join(d, x) for x in ("bits", "apps", "out"))
+            for x in (bits, apps, out):
+                os.mkdir(x)
+            open(os.path.join(bits, "c64_basic.bit"), "wb").write(full_bit())
+            open(os.path.join(bits, "vc20_partial.bit"), "wb").write(bit_file()[0])
+            open(os.path.join(apps, "vc20.app"), "wb").write(APP)
+            r = subprocess.run([os.path.join(self.ROOT, "tools", "pack_cores_mc.sh"), "--bits", bits, "--app-dir", apps, "--out", out, "--core", "vc20"], capture_output=True, text=True)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            m, rec = C.parse(open(os.path.join(out, "vc20.cor"), "rb").read())
+            self.assertEqual(rec[C.T_DESC], self.desc())
+            self.assertEqual(m["name"], "VIC-20")
+
+    def test_pack_large_cor_carries_it_and_refuses_a_second_description(self):
+        with tempfile.TemporaryDirectory() as d:
+            bit, app, out = (os.path.join(d, x) for x in ("a.bit", "app.bin", "out"))
+            open(bit, "wb").write(full_bit())
+            open(app, "wb").write(APP)
+            cmd = [os.path.join(self.ROOT, "tools", "pack_large_cor.sh"), "--id", "vc20", "--name", "VIC-20", "--version", "0.1", "--bit", bit, "--app-bin", app, "--out", out]
+            r = subprocess.run(cmd, capture_output=True, text=True)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            self.assertEqual(C.parse(open(os.path.join(out, "vc20.cor"), "rb").read())[1][C.T_DESC], self.desc())
+            r = subprocess.run(cmd + ["--desc", os.path.join(self.ROOT, "tests", "coreapp", "golden", "desc_sections.toml")], capture_output=True, text=True)
+            self.assertNotEqual(r.returncode, 0)
+            self.assertIn("one description per core", r.stderr)
+            # a core without cores/<id>/app/desc.toml carries no record
+            r = subprocess.run(cmd[:2] + ["nodesc"] + cmd[3:], capture_output=True, text=True)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            self.assertNotIn(C.T_DESC, C.parse(open(os.path.join(out, "nodesc.cor"), "rb").read())[1])
 
 
 class CoreTomlHeapTest(unittest.TestCase):

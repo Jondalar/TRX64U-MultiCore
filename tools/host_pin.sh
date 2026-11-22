@@ -21,8 +21,8 @@ current() { # <object id> <path>, sorted by path: the host, the shared files, th
   local sec specs l
   for sec in host shared "core:$(layer_reference "$LF")"; do
     specs=(); while IFS= read -r l; do specs+=("$l"); done < <(layer_specs "$LF" "$sec")
-    # a core's logo (cores/<id>/logo/, T114) is a picture, not part of the static: same exclude as tree_key in ci/lib.sh
-    git -C "$ROOT" ls-files -- "${specs[@]}" ':(exclude,glob)cores/*/logo/**'
+    # a core's logo (cores/<id>/logo/, T114) is a picture and its app part (cores/<id>/app/, T239.3) is no gateware: neither is part of the static, same excludes as tree_key in ci/lib.sh
+    git -C "$ROOT" ls-files -- "${specs[@]}" ':(exclude,glob)cores/*/logo/**' ':(exclude,glob)cores/*/app/**'
   done | sort -u | while IFS= read -r l; do
     printf '%s %s\n' "$(git -C "$ROOT" hash-object -- "$ROOT/$l")" "$l"
   done

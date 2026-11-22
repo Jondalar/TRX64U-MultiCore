@@ -518,5 +518,304 @@ class LibraryMenus(unittest.TestCase):
         self.assertEqual(D.merge_lib_menus(base, [])[0], base)
 
 
+VC20 = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "cores", "vc20", "app", "desc.toml")
+
+
+class CoreSections(unittest.TestCase):
+    """T239.3 D17: the data sections of version 6, from the VIC-20's own description."""
+
+    @classmethod
+    def setUpClass(cls):
+        with open(VC20) as f:
+            cls.text = f.read()
+        cls.blob = D.compile_text(cls.text)
+
+    def test_the_vic20_description_is_a_version_6_record_that_reads_back(self):
+        import struct
+        b = self.blob
+        self.assertEqual(struct.unpack_from("<HH", b, 4), (6, D.HEADER_V6))
+        r = D.parse_desc(b)
+        self.assertTrue(r["sections"])
+        self.assertEqual((r["core"]["id"], r["core"]["name"], r["core"]["caps"]), ("VC20", "VIC-20", ["iec", "drive_a"]))
+        self.assertEqual([x["role"] for x in r["rom"]], ["BASIC", "KERNAL", "CHAR", "1541 drive", "JiffyDOS VC-20 KERNAL", "JiffyDOS 1541 ROM"])
+        self.assertEqual(r["video"]["fb_base"], 0x01D00000)
+        self.assertEqual(r["freeze"], {"reg_status": 0xA4, "mask": 2, "timeout_ms": 200, "word": False})
+        self.assertEqual(r["mount"], {"names": ["Drive A"]})
+        self.assertEqual(r["hotkeys"]["mod"], [58, 255])
+        bound = [c["key"] for c in r["cset"] if c.get("reg_bind")]
+        self.assertEqual(bound, ["Memory Expansion (at next reset)", "Block 5 ($A000), when expanded", "Datasette port"])
+        self.assertIsNone(r["cset"][0]["apply"])
+        self.assertEqual(r["restart"], {"clear_ram": 65536, "ram_only": False})
+
+    def test_the_record_compiles_back_to_the_same_bytes(self):
+        self.assertEqual(D.compile_desc(D.decoded_to_doc(D.parse_desc(self.blob))), self.blob)
+
+    def test_a_record_without_sections_stays_what_it_was(self):
+        import struct
+        b = D.compile_text(MIN)
+        self.assertEqual(struct.unpack_from("<HH", b, 4), (4, D.HEADER))
+        self.assertFalse(D.parse_desc(b)["sections"])
+
+    def _sections(self):
+        import struct
+        soff = struct.unpack_from("<I", self.blob, D.HEADER_V5)[0]
+        return soff
+
+    def test_a_section_the_reader_does_not_know_is_refused_by_number(self):
+        import struct
+        b = bytearray(self.blob)
+        struct.pack_into("<I", b, self._sections(), 99)
+        with self.assertRaisesRegex(D.DescError, "section 99"):
+            D.parse_desc(bytes(b))
+
+    def test_a_damaged_section_is_refused_by_name(self):
+        import struct
+        b = bytearray(self.blob)
+        soff = self._sections()
+        struct.pack_into("<I", b, soff + 4, 68)                      # the core section's length: 72 bytes -> 68
+        with self.assertRaisesRegex(D.DescError, "section"):
+            D.parse_desc(bytes(b))
+        b = bytearray(self.blob)
+        struct.pack_into("<I", b, soff + 8 + 4 * 1, 0x7FFFFFF0)       # its name: a string outside the table
+        with self.assertRaises(D.DescError):
+            D.parse_desc(bytes(b))
+
+    def test_the_sections_need_their_flag_and_their_place(self):
+        import struct
+        b = bytearray(self.blob)
+        struct.pack_into("<I", b, 12, struct.unpack_from("<I", b, 12)[0] & ~4)
+        with self.assertRaises(D.DescError):
+            D.parse_desc(bytes(b))
+        b = bytearray(self.blob)
+        struct.pack_into("<I", b, D.HEADER_V5, 100)                   # the sections would start inside the tables
+        with self.assertRaises(D.DescError):
+            D.parse_desc(bytes(b))
+
+    def test_a_rom_name_behind_a_gap_is_refused(self):
+        import struct
+        soff = self._sections()
+        at, sec = soff, None
+        while at < len(self.blob):                                              # walk the sections: id, length, payload
+            sid, ln = struct.unpack_from("<II", self.blob, at)
+            if sid == D.SEC_ROMS:
+                sec = at + 8
+                break
+            at += 8 + ln
+        self.assertIsNotNone(sec)
+        nw = sec + 4 + 4 * (3 + D.ROM_SIZES_MAX)                                # the first entry's name words
+        first = struct.unpack_from("<I", self.blob, nw)[0]
+        self.assertNotEqual(first, D.NONE)
+        b = bytearray(self.blob)
+        struct.pack_into("<II", b, nw, D.NONE, first)                           # NONE, name: the name sits behind a gap
+        with self.assertRaisesRegex(D.DescError, "name behind a gap"):
+            D.parse_desc(bytes(b))
+
+    def test_what_the_compiler_refuses(self):
+        for what, text in (
+                ("apply and reg_bind", self.text.replace('apply = "vc20.set_jiffy"', 'apply = "vc20.set_jiffy"\nreg_bind = { reg = 1, mask = 1 }')),
+                ("neither", self.text.replace('apply = "vc20.set_jiffy"', "")),
+                ("bytes per value", self.text.replace("bytes = [0x00, 0x10]", "bytes = [0x00]")),
+                ("no core", self.text.replace("[core]", "[core_gone]")),
+                ("a flag that is no key", self.text.replace('min_contract = 1', 'min_contract = 1\nmenu_last = true')),
+                ("a rom without a size", self.text.replace("sizes = [4096]", "sizes = []")),
+                ("a scale of 5", self.text.replace("scale = 3", "scale = 5"))):
+            with self.assertRaises(D.DescError, msg=what):
+                D.compile_text(text)
+
+    def test_the_core_section_takes_eight_caps_and_the_reader_holds_the_same_limits(self):
+        import struct
+        caps9 = ", ".join('"c%d"' % i for i in range(9))
+        with self.assertRaises(D.DescError):
+            D.compile_text(self.text.replace('caps = ["iec", "drive_a"]', "caps = [%s]" % caps9))
+        text = self.text.replace('caps = ["iec", "drive_a"]', "caps = [%s]" % caps9[:caps9.rindex(",")])        # eight: fine
+        D.parse_desc(D.compile_text(text))
+        saved = D.CAPS_MAX
+        try:
+            D.CAPS_MAX = 9                                                        # a writer that allows nine: the reader still refuses the record
+            big = D.compile_text(self.text.replace('caps = ["iec", "drive_a"]', "caps = [%s]" % caps9))
+        finally:
+            D.CAPS_MAX = saved
+        with self.assertRaisesRegex(D.DescError, "section core"):
+            D.parse_desc(big)
+        soff = self._sections()
+        for word, value in ((6, 256), (7, 65536), (9, 60001), (16, 65536)):      # min_contract, reset_ms, service_period_ms, live_ms
+            b = bytearray(self.blob)
+            struct.pack_into("<I", b, soff + 8 + 4 * word, value)
+            with self.assertRaisesRegex(D.DescError, "section core", msg=str(word)):
+                D.parse_desc(bytes(b))
+        b = bytearray(self.blob)                                                  # video: reg_latest (the ninth word) above 65535
+        at = soff + 8 + 72 + 8
+        struct.pack_into("<I", b, at + 4 * 8, 65536)
+        with self.assertRaisesRegex(D.DescError, "section video"):
+            D.parse_desc(bytes(b))
+
+    def test_a_file_setting_is_kind_3_and_reads_back(self):
+        # T239.3 D17: a file the person selects (Setting::kind 3), live or reset, no values of its own
+        text = self.text + '\n[[core_setting]]\nkey = "Kit file"\nfile = true\nwhen = "reset"\napply = "vc20.use_kit"\n'
+        b = D.compile_text(text)
+        r = D.parse_desc(b)
+        c = [x for x in r["cset"] if x["key"] == "Kit file"][0]
+        self.assertEqual((c["file"], c["when"], len(c["values"]), c["apply"]), (True, "reset", 1, "vc20.use_kit"))
+        self.assertFalse(any(x["file"] for x in r["cset"] if x["key"] != "Kit file"))
+        self.assertEqual(D.compile_desc(D.decoded_to_doc(r)), b)
+        for what, extra in (("values", 'values = ["a", "b"]'), ("default", 'default = "x"'), ("text", "text = true"), ("reg_bind", "reg_bind = { reg = 1, mask = 1 }"),
+                            ("base", "base = 3"), ("empty", 'empty = "none"')):
+            with self.assertRaises(D.DescError, msg=what):
+                D.compile_text(text + extra + "\n")
+        with self.assertRaises(D.DescError, msg="no apply"):
+            D.compile_text(text.replace('apply = "vc20.use_kit"', ""))
+
+    def test_register_bits_with_a_condition_and_up_to_64_bytes(self):
+        # a reg_bind setting may have a show_state (its offset sits above the time code) and 64 bytes; a text or a file setting may not be register bits
+        vals = ", ".join('"v%d"' % i for i in range(64))
+        by = ", ".join(str(i) for i in range(64))
+        head = '\n[[core_setting]]\nkey = "Wide"\nvalues = [%s]\nwhen = "reset"\nshow_state = "x.on == yes"\nreg_bind = { reg = 5, mask = 255, bytes = [%s] }\n'
+        b = D.compile_text(self.text + head % (vals, by))
+        r = D.parse_desc(b)
+        c = [x for x in r["cset"] if x["key"] == "Wide"][0]
+        self.assertEqual((len(c["reg_bind"]["bytes"]), c["show_state"]), (64, "x.on == yes"))
+        self.assertEqual(D.compile_desc(D.decoded_to_doc(r)), b)
+        with self.assertRaises(D.DescError):
+            D.compile_text(self.text + head % (vals + ', "v64"', by + ", 64"))
+        with self.assertRaises(D.DescError):
+            D.compile_text(self.text + '\n[[core_setting]]\nkey = "T"\ntext = true\nreg_bind = { reg = 5, mask = 1 }\n')
+
+    def test_a_video_of_zeros_is_no_picture_of_the_cores_own(self):
+        # the SuperCPU's picture goes through the host's scaler: scale 0 with every other number 0, and the freeze next to it
+        zero = "\n".join("%s = 0" % k for k in D.VIDEO_INTS)
+        sect = "[video]\n" + zero + "\n\n"
+        i, j = self.text.index("[video]"), self.text.index("[freeze]")
+        text = self.text[:i] + sect + self.text[j:]
+        r = D.parse_desc(D.compile_text(text))
+        self.assertEqual((r["video"]["scale"], r["video"]["w"], r["freeze"]["reg_status"]), (0, 0, 0x0A4))
+        self.assertEqual(D.compile_desc(D.decoded_to_doc(r)), D.compile_text(text))
+        for what, t in (("a width", text.replace("w = 0", "w = 4")), ("a buffer count", text.replace("nbuf = 0", "nbuf = 2"))):
+            with self.assertRaises(D.DescError, msg=what):
+                D.compile_text(t)
+        with self.assertRaises(D.DescError, msg="scale 4"):
+            D.compile_text(self.text.replace("scale = 3", "scale = 4"))
+
+    def test_a_core_with_no_picture_has_an_empty_video_and_still_a_freeze_timeout(self):
+        head = '[core]\nid = "NOPI"\nname = "N"\ntitle = "N"\nshort_title = "N"\nfolder = "n"\nstore = "N"\n'
+        r = D.parse_desc(D.compile_text(head + "[video]\n[freeze]\nreg_status = 0\nmask = 0\ntimeout_ms = 200\n"))
+        self.assertEqual(r["video"]["scale"], 0)
+        self.assertEqual(r["freeze"], {"reg_status": 0, "mask": 0, "timeout_ms": 200, "word": False})
+        with self.assertRaises(D.DescError):                                      # one key of a picture is no picture: the scale is 1 to 3 then
+            D.compile_text(head + "[video]\nw = 320\n[freeze]\nreg_status = 0\nmask = 0\ntimeout_ms = 200\n")
+
+    def test_a_count_that_is_no_number_is_a_description_error(self):
+        for sect, key, bad, more in (("window_media", "nslots", '"2"', ""), ("window_media", "ntracks", "1.5", "nslots = 1\n"), ("sector_media", "nunits", "true", "")):
+            with self.assertRaisesRegex(D.DescError, "'%s' is a number" % key):
+                D.compile_text(self.text + "\n[%s]\n%s%s = %s\n" % (sect, more, key, bad))
+
+    def test_a_library_merged_into_it_keeps_the_sections(self):
+        lib = D.compile_text('[[node]]\nanchor = "F7/settings"\nkind = "op"\nlabel = "L"\nop = "l.go"\n')
+        blob, merged, kept = D.merge_lib_menus(self.blob, [("lib", lib)])
+        r = D.parse_desc(blob)
+        self.assertEqual((merged, r["core"]["id"], len(r["rom"]), r["mount"]["names"]), (["lib"], "VC20", 6, ["Drive A"]))
+        self.assertEqual([n["label"] for n in r["node"]], ["L"])
+
+
+class MoreSections(unittest.TestCase):
+    """T239.3 D17 part 2: sections 7 .. 17 (reset writes ... media replace) from the goldens the C++ test reads (tests/coreapp/test_descsec.cc)."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.a_text, cls.x_text = src("desc_sections.toml"), src("desc_sections_extra.toml")
+        cls.a, cls.x = D.compile_text(cls.a_text), D.compile_text(cls.x_text)
+
+    def test_both_read_back_and_compile_to_the_same_bytes(self):
+        for b in (self.a, self.x):
+            self.assertEqual(D.compile_desc(D.decoded_to_doc(D.parse_desc(b))), b)
+
+    def test_what_the_amiga_tables_hold(self):
+        r = D.parse_desc(self.a)
+        self.assertEqual([(x["reg"], x["value"]) for x in r["reset_write"]], [(0xA3, 0), (0xA6, 0x21)])
+        self.assertEqual(r["id_feature"], {"reg": 0xC, "mask": 8, "value": 8})
+        self.assertEqual(len(r["report_reg"]), 16)
+        self.assertEqual((len(r["rawkeys"]["hid"]), len(r["rawkeys"]["mod"]), r["rawkeys"]["caps_code"]), (0x68, 8, 0x62))
+        self.assertEqual((r["mouse"]["kind"], r["mouse"]["clamp"], r["mouse"]["step"]), ("counters", 4000, 127))
+        self.assertEqual((r["fbwin"]["x_origin"], r["fbwin"]["src_w"], r["fbwin"]["def_cols"]), (182, 753, 90))
+        self.assertEqual((r["romset"]["sizes"], r["romset"]["max"], r["romset"]["version"], r["romset"]["pick"]), ([262144, 524288], 8, True, True))
+        self.assertEqual((r["window_media"]["prefix"], r["window_media"]["nslots"], r["sector_media"]["nunits"]), ("DF", 4, 2))
+        self.assertEqual((r["pad"]["regs"], r["pad"]["per_pad"]), ([464, 0], True))
+
+    def test_what_no_descriptor_has_together(self):
+        r = D.parse_desc(self.x)
+        self.assertTrue(r["rom"][0]["check"] and not r["rom"][1]["check"])
+        self.assertEqual(r["alt_video"]["x0"], -8)
+        self.assertEqual(r["rawkeys"], {"held": True, "caps_usage": 255})
+        self.assertEqual([m.get("replace") for m in r["media"]], ["Replace Cartridge", None, "Replace Disk"])
+        self.assertEqual((r["romset"]["version"], r["romset"]["pick"]), (False, False))
+
+    CHOICE = '\n[[core_setting]]\nkey = "Kickstart file (at reload)"\nlabel = "Kickstart file"\nwhen = "reset"\nromset_choice = true\n'
+
+    def test_the_rom_sets_choice_is_a_setting_with_neither_operation_nor_register_bits(self):
+        text = self.a_text + self.CHOICE
+        b = D.compile_text(text)
+        r = D.parse_desc(b)
+        c = [c for c in r["cset"] if c["key"] == "Kickstart file (at reload)"][0]
+        self.assertEqual((c["apply"], c["values"], c["default"], c["when"], c["label"]), (None, ["Auto (3.1 first)"] + ["-"] * 8, 0, "reset", "Kickstart file"))
+        self.assertEqual(D.compile_desc(D.decoded_to_doc(r)), b)
+        for what, bad in (("no rom set behind it", text.replace("[romset]", "[romset_gone]")),
+                          ("another key than the set's choice", text.replace('key = "Kickstart file (at reload)"\nlabel', 'key = "Other"\nlabel')),
+                          ("values of its own", text + 'values = ["a", "b"]\n'),
+                          ("an operation as well", text + 'apply = "x.y"\n')):
+            with self.assertRaises(D.DescError, msg=what):
+                D.compile_text(bad)
+
+    def test_six_media_slots_and_six_mount_names_are_taken_and_seven_are_not(self):
+        def text(n):
+            return self.x_text + "".join('\n[[media]]\nname = "Extra%d"\nstate = "extra.s%d"\n' % (i, i) for i in range(n - 3)) + \
+                '\n[mount]\nnames = [%s]\n' % ", ".join('"S%d"' % i for i in range(n))
+        r = D.parse_desc(D.compile_text(text(6)))
+        self.assertEqual(len(r["media"]), 6)
+        with self.assertRaises(D.DescError):
+            D.compile_text(text(7))
+
+    def test_what_the_compiler_refuses(self):
+        a, x = self.a_text, self.x_text
+        for what, text in (
+                ("a reset write beyond a byte", a.replace("value = 0x21", "value = 0x121")),
+                ("an id feature with no mask", a.replace("mask = 0x8", "mask = 0")),
+                ("a report register of 3 bytes", a.replace("bytes = 1", "bytes = 3", 1)),
+                ("a mouse kind that does not exist", a.replace('kind = "counters"', 'kind = "ball"')),
+                ("a window media slot count of 5", a.replace("nslots = 4", "nslots = 5")),
+                ("a sector media with no prefix", a.replace('prefix = "HD"\n', "")),
+                ("a rom set of 9", a.replace("max = 8", "max = 9")),
+                ("a rom set with no size", a.replace("sizes = [262144, 524288]", "sizes = []")),
+                ("rawkeys with a short modifier table", a.replace("mod = [ 0x63, 0x60, 0x64, 0x66, 0x63, 0x61, 0x65, 0x67 ]", "mod = [ 0x63 ]")),
+                ("held rawkeys with a table", x.replace("held = true", "held = true\nreg = 1")),
+                ("a fbwin number out of range", a.replace("src_w = 753", "src_w = 40000")),
+                ("a field that is no key", a.replace("[mouse]", "[mouse]\nspeed = 1")),
+                ("sections without a core", x.replace("[core]", "[core_gone]")),
+                ("a replace that is empty", x.replace('replace = "Replace Disk"', 'replace = ""'))):
+            with self.assertRaises(D.DescError, msg=what):
+                D.compile_text(text)
+
+    def test_a_damaged_section_is_refused_by_name(self):
+        import struct
+        soff = struct.unpack_from("<I", self.a, D.HEADER_V5)[0]
+        at, found = soff, {}
+        while at < len(self.a):
+            sid, ln = struct.unpack_from("<II", self.a, at)
+            found[sid] = at
+            at += 8 + ln
+        for sid, name in ((D.SEC_RESETW, "reset writes"), (D.SEC_IDFEAT, "id feature"), (D.SEC_REPORT, "report registers"), (D.SEC_RAWKEYS, "raw keys"), (D.SEC_FBWIN, "picture window"),
+                          (D.SEC_MOUSE, "mouse"), (D.SEC_ROMSET, "rom set"), (D.SEC_WINMEDIA, "window media"), (D.SEC_SECMEDIA, "sector media")):
+            b = bytearray(self.a)
+            struct.pack_into("<I", b, found[sid] + 4, struct.unpack_from("<I", b, found[sid] + 4)[0] + 4)
+            with self.assertRaisesRegex(D.DescError, name, msg=name):
+                D.parse_desc(bytes(b))
+
+    def test_the_pad_with_one_port_may_leave_the_second_register_zero(self):
+        t = self.a_text
+        D.compile_text(t)
+        with self.assertRaises(D.DescError):
+            D.compile_text(t.replace("per_pad = true\n", ""))                     # two ports: both registers are real
+        with self.assertRaises(D.DescError):
+            D.compile_text(t.replace("regs = [0x1D0, 0]", "regs = [0, 0x1D0]"))    # the first never is 0
+
+
 if __name__ == "__main__":
     unittest.main()

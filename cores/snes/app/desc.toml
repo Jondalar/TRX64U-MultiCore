@@ -1,0 +1,126 @@
+# The Super Nintendo's data description (T239.3 D17): what coreapp/cores/snes.cc holds as tables and strings, as TOML. tools/descrec.py compiles it into the
+# description record of the .cor; the generic application builds the descriptor from it. What stays in the core's C++ is code: init, release, the operations
+# of register_ops, the cartridge image's header and mapper handling (snes_rom.cc), the battery RAM's write-back and the three functions of the mount slot.
+# The core has no ROM file: the S-SMP's 64 byte boot ROM is embedded. Register numbers are cores/snes/trx/snes_regs.v (coreapp/cores/snes_regs.h).
+
+[core]
+id = "SNES"
+name = "Super Nintendo"
+title = "Super Nintendo Entertainment System"
+short_title = "SNES"
+folder = "snes"
+store = "SNES Settings"
+min_contract = 1
+reset_ms = 5
+service_op = "snes.service"
+service_period_ms = 16
+needs_program = "Choose a .sfc or .smc file in Library (F3)"
+program_ext = ".sfc"
+caps = ["cartridge", "pad"]
+
+# 512 x 448 at scale 2 is 1024 x 896, centred on 1920 x 1080; four buffers 512 KiB apart at the DDR2 window (0x01000000) + 0x900000
+[video]
+w = 512
+h = 448
+scale = 2
+x0 = 448
+y0 = 92
+fb_base = 0x01900000
+fb_stride = 0x00080000
+nbuf = 4
+reg_latest = 0x0C0
+reg_seq = 0x0C1
+reg_fb_base = 0x0C4
+reg_fb_stride = 0x0C8
+
+[freeze]
+reg_status = 0x0A4
+mask = 0x02
+timeout_ms = 200
+
+[[core_setting]]
+key = "Video standard"
+values = ["Auto (cartridge)", "NTSC", "PAL"]
+when = "reset"
+apply = "snes.set_video"
+
+[[core_setting]]
+key = "Pseudo high resolution"
+values = ["Blend", "512 wide"]
+when = "reset"
+apply = "snes.set_blend"
+
+[[core_setting]]
+key = "Pad map"
+values = ["Default", "Custom"]
+apply = "pad.set_map"
+
+# DSP-n for every cartridge that has a DSP; Auto takes the chip the title says
+[[core_setting]]
+key = "DSP firmware"
+values = ["Auto", "DSP-1", "DSP-2", "DSP-3", "DSP-4"]
+when = "reset"
+apply = "snes.set_dspfw"
+
+[[task]]
+label = "Reset"
+op = "machine.cold_reset"
+closes_menu = true
+
+[[task]]
+label = "Save the battery RAM now"
+op = "snes.save"
+
+[[task]]
+group = "top"
+label = "Sound check"
+op = "snes.sound"
+
+[[task]]
+group = "input"
+label = "Map buttons, pad 1"
+op = "menu.pad_map_1"
+
+[[task]]
+group = "input"
+label = "Map buttons, pad 2"
+op = "menu.pad_map_2"
+
+[[media]]
+name = "Cartridge"
+state = "snes.cartridge.image"
+exts = ".sfc,.smc"
+mount = "Run"
+mounted_tasks = "Save the battery RAM now"
+
+[[filetype]]
+ext = ".sfc"
+  [[filetype.action]]
+  label = "Run"
+  op = "snes.run"
+  bind = [ { arg = "path", file = true } ]
+  closes_menu = true
+
+[[filetype]]
+ext = ".smc"
+  [[filetype.action]]
+  label = "Run"
+  op = "snes.run"
+  bind = [ { arg = "path", file = true } ]
+  closes_menu = true
+
+# hotkeys: the consoles take no key of the keyboard, so the C64 map (CTRL + RESTORE ...) does not collide with anything; keys as hotkeys.h
+[hotkeys]
+mod = [58, 255]
+actions = [64, 40, 43, 17, 34, 41, 255]
+pc_keys = true
+
+[mount]
+names = ["Cartridge"]
+
+# the USB pads: bit n of the register word is the controller's serial bit n
+[pad]
+output = "registers"
+regs = [0x0F4, 0x0F6]
+buttons = ["B", "Y", "Select", "Start", "Up", "Down", "Left", "Right", "A", "X", "L", "R"]
+default = ["face_bottom", "face_left", "select", "start", "up", "down", "left", "right", "face_right", "face_top", "l", "r"]

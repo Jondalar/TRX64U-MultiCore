@@ -22,6 +22,34 @@
 //   200 version 5 only: the restart (T228 R17, CoreDesc::cold_ram_bytes): u32 the machine RAM F8 "Restart core" clears, in bytes from address 0 (0 = the
 //       core's own value; else a multiple of 256, at most 16 MiB), u32 flags (bit 0: the RAM window in its memory-only mode while it clears)
 //
+//   208 version 6 only (T239.3 D17: a record with the core's data sections; the writer keeps version 5 or 4 for one without): u32 offset and u32 size of the sections. They lie
+//       behind the string table to the end of the record (flags bit 2). A section is u32 id, u32 length (a multiple of 4), the length's bytes; each at most once, an id
+//       this reader does not know is refused with its number. Words are u32, strings offsets into the string table (none = 0xFFFFFFFF):
+//         1 core       18 words: id (4 bytes), name, title, short_title, folder, store, min_contract, reset_ms, service_op, service_period_ms, flags (b0 poll_when_frozen, b1 board_caps,
+//                      b2 id_shared, b3 own_volume, b4 no_tone, b5 menu_first), needs_program, program_ext, type_op, run_op, core_id, live_ms, caps (comma separated)
+//         2 video      19 words: w h scale x0 y0 fb_base fb_stride nbuf reg_latest reg_seq reg_fb_base reg_fb_stride bpp pxfmt h60, then the freeze: reg_status mask timeout_ms word
+//                      (scale 0 with every other video word 0: no picture of the core's own, the freeze alone)
+//         3 roms       u32 count, then per ROM 16 words: role, put_op, flags (b0 required, b1 shared, bits 15:8 set), 3 sizes (0 = none), 10 file names (none = end)
+//         4 settings   u32 count, then per entry: the index of the core setting, reg, shift, mask, number of bytes, the bytes padded to a multiple of 4 (RegBind: that setting is those
+//                      register bits and has no operation)
+//         5 hotkeys    22 words: mod_a mod_b, 7 action keys, task count, 4 task keys, vol_key, swap_key, own_keys (low, high), core_op, core_key, core_label, pc_keys
+//         6 mount      u32 count, then that many slot names
+//         7 reset writes   u32 count (1..8), then per entry reg, value (CoreDesc::reset_writes)
+//         8 id feature     3 words: reg, mask (1..255), value (CoreDesc::id_feat_reg, id_feat_mask, id_feat_val)
+//         9 report regs    u32 count (1..24), then per entry name, reg, bytes (1, 2 or 4) (CoreDesc::report_regs)
+//        10 raw keys       6 words: flags (b0 the core's code takes the keys that are down, CoreHooks::rawkeys_held: then reg, code and both tables are 0), reg, caps_usage, caps_code, nhid, nmod,
+//                          then the nhid key codes and the nmod (8) modifier codes, each table padded to a multiple of 4 (CoreDesc::rawkeys)
+//        11 alt video      15 words of section 2's video part (CoreDesc::alt_video)
+//        12 picture window 23 words: reg_feat feat_bit reg_ctrl ctrl_video_off reg_diw_h reg_diw_v reg_skip_x reg_skip_y reg_cols reg_lines x_per_unit x_origin y_origin src_w src_h
+//                          def_skip_x def_skip_y def_cols def_lines interval_ms settle_ms frames_ms min_apply_ms (fbwin.h FbWinSpec; the signed ones as 32 bit two's complement)
+//        13 mouse          7 words: kind (0 counters, 1 pot1351), reg_dx reg_dy reg_btn clamp step interval_ms (mousesink.h MouseSinkSpec)
+//        14 rom set        17 words: flags (b0 CoreHooks::romset_version, b1 CoreHooks::romset_pick), 3 sizes (0 = none), role ext size_text example max choice_key auto_label want head_bytes
+//                          window_off mirror_size mirror_stride clear_below (romset.h RomSetSpec; role, ext, size_text, example, choice_key, auto_label are strings)
+//        15 window media   15 words: prefix nslots base stride max_image mount_reg mount_step track_bytes ntracks dlog_status dlog_track dlog_drive dlog_pop idle_flush_ms max_dirty_ms (winslot.h)
+//        16 sector media   12 words: prefix nunits mount_reg mount_step feat_reg feat_sectors mbox_status mbox_lba mbox_done stage_off idle_sync_ms done_tag_mask (sectors.h)
+//        17 media replace  u32 count, then per entry the index of the media slot (ascending) and the label (MediaSlot::replace)
+//                          (a ROM's flag bit 2 in section 3 says that the core's code checks its content, CoreHooks::rom_check[i])
+//
 //   area   key name flags first_tab ntabs            (flags bit 0: shifted)
 //   tab    id name n widget groups layout      (layout: string offset, 0 = none: "name;key=value;..." how the tab is drawn, contrib.h ui_attr; version 2: reserved, 0)
 //   node   anchor kind label op state order when_state capability id first_bind nbind flags attr      (flags bit 0: closes the menu; attr: string offset, 0 = none,
@@ -38,7 +66,7 @@
 //   fact   label op first_bind nbind flags ask ask_off first_size nsize          (flags bit 0: closes the menu, bit 1: repeat - the ask word names the operation that says how many
 //                                                                       entries there are, T228 R21, bit 2: the data the operation returns is shown as text;
 //                                                                       bits 15:8 the sheet letter; ask_off a signed 16 bit word)
-//   cset   key group first_value nvalues def when apply base                     (when 0: live, 1: at the next reset)
+//   cset   key group first_value nvalues def when apply base                     (when 0: live, 1: at the next reset, 2: a text, 3: a secret text; bit 2 lock_state, bit 3 a file the person selects, bits 15:8 show_state)
 //   A tab's `groups` string is, for an information tab, the comma separated lines it shows (the application's fixed ones); a tasks, media or settings
 //   tab lists the groups its entries name; a system tab lists the groups its layout's `pages` shows (T228 R6).
 //   hide   id         rename id label
@@ -51,12 +79,20 @@
 #include <stdint.h>
 #include "contrib.h"
 #include "pad.h"
+#include "hotkeys.h"
+#include "romsetspec.h"
+#include "winslot.h"
+#include "sectors.h"
+#include "mousesink.h"
+#include "fbwin.h"
+#include "rawkeys.h"
 
 #define DESCREC_MAGIC 0x44585254U                 /* "TRXD" */
-#define DESCREC_VERSION 5
+#define DESCREC_VERSION 6
 #define DESCREC_VERSION_MIN 2                     /* a version 2 record has 0 in the two words version 3 uses (a tab's layout, a node's attributes) */
 #define DESCREC_HEADER 176                        /* versions 2 to 4, and the least a record has */
 #define DESCREC_HEADER_V5 208                     /* version 5: the pad's six words and the restart's two follow */
+#define DESCREC_HEADER_V6 216                     /* version 6: + the offset and size of the data sections */
 #define DESCREC_RESTART_MAX (1u << 24)            /* the most RAM a restart clears: 16 MiB */
 #define DESCREC_NONE 0xFFFFFFFFU
 #define DESCREC_MAX_SIZE 0x20000U                 // 128 KiB: more is not a menu description
@@ -74,11 +110,59 @@
 #define DR_VALUES 8192                            // T228 R21: the reDIP:SID filter ranges (FW: base 0..511, offset -1024..1023) and the socket pages
 #define DR_CTABS 16
 #define DR_TASKS 64
-#define DR_MEDIA 4
+#define DR_MEDIA 6
 #define DR_FTYPES 32
 #define DR_FACTS 200
 #define DR_CSETS 330
 #define DR_TABLES 17
+#define DR_SET_FILE 8                             // T239.3 D17: bit 3 of a core setting's time code: a file the person selects (Setting::kind 3); bit 2 is the lock flag, bits 15:8 the show_state
+#define DR_SETBINDS 16                            // T239.3 D17: core settings that are register bits
+#define DR_BIND_BYTES 64                          // ... and the bytes one of them maps its values to
+#define DR_CAPS 8
+#define DR_MOUNT 6
+#define DR_SECTIONS 17                            // the ids 1 .. 17
+#define DR_RESETW 8                               // reset writes
+#define DR_RAWKEY_HID 255
+#define DR_RAWKEY_MOD 8
+
+// T239.3 D17, version 6: the core's data sections (sections 1 .. 17). Only a record that has them carries this: DescRecord::sec, allocated by the reader, is null for the menu
+// records of libraries and applications, which do not need the room. descrec_core makes the descriptor of it.
+struct DescSections {
+    struct {
+        char id[4];
+        const char *name, *title, *short_title, *folder, *store;
+        uint32_t min_contract, reset_ms;
+        const char *service_op;
+        uint32_t service_period_ms, flags;
+        const char *needs_program, *program_ext, *type_op, *run_op, *core_id;
+        uint32_t live_ms;
+    } ident;
+    char cap_names[DR_CAPS][16];                  // the comma separated list of the core section, one name each
+    const char *caps[DR_CAPS]; int ncaps;
+    bool has_video;
+    VideoDesc video;
+    FreezeDesc freeze;
+    RomSpec roms[ROMS_MAX]; int nroms;
+    RegBind setbind[DR_SETBINDS]; uint8_t setbind_bytes[DR_SETBINDS][DR_BIND_BYTES]; int nsetbind;
+    bool has_hot;
+    HkSpec hot;
+    const char *mount_names[DR_MOUNT]; int nmount;
+    MountSlots mount;                             // made by descrec_core: the names above and the three functions of the core's code
+    // the remaining data tables of CoreDesc (sections 7 .. 17); the records' strings point into the record, the tables live here
+    bool rom_check[ROMS_MAX];                     // section 3 flag bit 2: the core's code checks this ROM's content
+    RegWrite reset_writes[DR_RESETW]; int nreset_writes;
+    bool has_idfeat; uint16_t idf_reg; uint8_t idf_mask, idf_val;
+    ReportReg report_regs[REPORT_REGS_MAX]; int nreport_regs;
+    bool has_rawkeys, rawkeys_held;
+    RawKeySpec rawkeys; uint8_t rk_hid[DR_RAWKEY_HID], rk_mod[DR_RAWKEY_MOD];
+    bool has_alt_video; VideoDesc alt_video;
+    bool has_fbwin; FbWinSpec fbwin;
+    bool has_mouse; MouseSinkSpec mouse;
+    bool has_romset, romset_version, romset_pick;
+    RomSetSpec romset; RomSetLabels romset_labels;
+    bool has_winmedia; WindowMediaSpec winmedia;
+    bool has_secmedia; SectorMediaSpec secmedia;
+};
 
 // What the reader makes of a record. The strings and the sizes point into the record's own bytes: keep them while this is used.
 struct DescRecord {
@@ -112,15 +196,48 @@ struct DescRecord {
     FileType ftypes[DR_FTYPES]; int nftypes;
     FileAction facts[DR_FACTS];
     Setting csettings[DR_CSETS]; int ncsettings;
+    // T239.3 D17, version 6: has the record data sections? Then `sec` holds them (descrec_core makes the descriptor of them); the destructor frees it.
+    bool has_core;
+    DescSections *sec;
+    DescRecord() : sec(0) { }
+    ~DescRecord() { delete sec; }
+    DescRecord(const DescRecord &) = delete;
+    DescRecord &operator=(const DescRecord &) = delete;
 };
 
 // Reads the record. 0 and `out` filled, or a negative number and a sentence in why.
 int descrec_parse(const uint8_t *rec, uint32_t n, DescRecord *out, char *why, int whylen);
 
+// What a descriptor holds that is code, not data (T239.3 D17): the control hooks, the operations' registration, the media write-back and the three functions of the mount
+// slot. In this step the compiled-in code of the core provides them; the record has none of it.
+struct CoreHooks {
+    core_hook_t init, release, warm_reset, cold_start, media_flush;
+    bool (*media_pending)(CoreCtx *c);
+    void (*register_ops)(OpRegistry &r);
+    uint32_t (*rom_key)(CoreCtx *c);
+    const MountSlots *mount_slots;                // its spec, mount and eject are used; n and names come from the record's mount section when it has one
+    // the functions that sit inside data tables (T239.3 D17): each is used only where the record says the core has it (a flag of the section) and is refused when the code has none
+    bool (*rom_check[ROMS_MAX])(const uint8_t *data, uint32_t size);                     // RomSpec::check of entry i
+    int (*romset_version)(const uint8_t *head, int len, uint16_t *ver, uint16_t *rev);    // RomSetSpec::version
+    int (*romset_pick)(const KsCandidate *list, int n, uint16_t want);                    // RomSetSpec::pick
+    void (*rawkeys_held)(CoreCtx *c, const uint8_t *usages, int n);                       // RawKeySpec::held
+    void (*pad_id_loaded)(CoreCtx *c, int type);                                          // PadSpec::id_loaded, set on the record's pad when it has one
+};
+
+// The descriptor of the record's data sections: `out` is made whole from `rec` (which has to outlive it and is written to: the mount slots) and `hooks` (null: no code);
+// nothing is copied from another descriptor. 0, or a negative number and a sentence in why that names the record and the section.
+int descrec_core(DescRecord *rec, const CoreHooks *hooks, CoreDesc *out, char *why, int whylen);
+
 // Lays the record's own menu on `base`: `out` is a copy of it whose tasks, media slots, file types and settings are the record's, the settings followed by
 // those of `base` (the application's own items, T228 D10; a record with no settings leaves the base's); a record without the own tables leaves `out` equal to
 // `base`, except that the record's machine-info line and its pad (T228 R10) are set whenever it has them. The arrays live in `rec`, which has to outlive `out`.
 void descrec_apply(const DescRecord &rec, const CoreDesc *base, CoreDesc *out);
+
+// Does the record's own menu (its tasks, media slots, file types, settings, machine-info line, pad and restart) go onto `base`? Which description wins (T239.3 D17): a record with data
+// sections (the core's identity among them) describes the core completely, so beside a compiled-in descriptor it changes nothing - the compiled-in one wins, the start has used it
+// (start_identify) and the menu is built from it; a descriptor that descrec_core made of a bundle's record is that record, and the menu is built from the record's tables. A record
+// without data sections (a menu.toml) lays its menu on whichever descriptor there is, as before.
+bool descrec_applies(const DescRecord &rec, const CoreDesc *base);
 
 // Was the menu of the library `name` merged into this record when it was packed?
 bool descrec_merged(const DescRecord &rec, const char *name);
