@@ -43,9 +43,18 @@ struct LibApi {
     const SvcNet *net;
     const SvcC64 *c64;
     const SvcLib *lib;                    // base 3.1: the call tables of loaded libraries
+    // base 3.3 (svc_*.h): the generic application's own services, each table size first. io is null on a core without a register window.
+    const SvcSync *sync;
+    const SvcSettings *settings;
+    const SvcCtx *ctx;
+    const SvcIo *io;
+    const SvcBoard *board;
 };
 // The app ABI: SvcFsEntry is frozen at 72 bytes (a 56 byte name); FsEntry carries the whole long name and the bridge (LibLoader::svc_list) converts.
 typedef char svc_fsentry_layout_check[(sizeof(SvcFsEntry) == 72 && sizeof(((SvcFsEntry *)0)->name) == 56) ? 1 : -1];
+// Base 3.3 list_long: SvcFsEntryLong is FsEntry, member for member, so the base hands CoreFs::list the caller's array as it is.
+typedef char svc_fsentrylong_layout_check[(sizeof(SvcFsEntryLong) == sizeof(FsEntry) && sizeof(((SvcFsEntryLong *)0)->name) == FS_NAME_MAX + 1 &&
+                                           offsetof(SvcFsEntryLong, size) == offsetof(FsEntry, size) && offsetof(SvcFsEntryLong, attr) == offsetof(FsEntry, attr)) ? 1 : -1];
 
 // What an application is opened with (T104.3 D6): the action of the menu entry and the file it was on, and room for one line it may
 // leave as its result (the screen's status line, or a transport's answer).

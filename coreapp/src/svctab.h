@@ -12,6 +12,12 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include "svc_fs.h"          // SvcFsEntryLong
+#include "svc_sync.h"        // base 3.3: the groups of LibApi that follow `lib`
+#include "svc_settings.h"
+#include "svc_ctx.h"
+#include "svc_io.h"
+#include "svc_board.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -31,6 +37,13 @@ typedef struct SvcSys {
     int (*flash_read)(uint32_t addr, void *buf, int len);
     // Gets the machine ready to jump into other firmware: the C64 leaves the menu and runs on, interrupts go off. There is no way back.
     void (*machine_handover)(void);
+    // Base 3.3, the members of SvcSysAdd (svc_sys.h), in its order: a library tests `api->sys->size` before it calls one.
+    uint16_t (*ms_timer)(void);
+    void (*yield)(void);
+    void (*delay_us)(uint32_t us);
+    bool (*wall_time)(uint8_t t[6]);
+    const char *(*app_version)(void);
+    const char *(*app_git)(void);
 } SvcSys;
 
 // From the app's own account: what a transient app still holds when it ends is given back with its image (T104.3 D2).
@@ -77,6 +90,8 @@ typedef struct SvcFs {
     bool (*remove)(const char *path);
     bool (*mkdir)(const char *path);
     bool (*rename)(const char *from, const char *to);
+    // Base 3.3, the member of SvcFsAdd (svc_fs.h): the listing with whole names.
+    int (*list_long)(const char *dir, SvcFsEntryLong *out, int max);
 } SvcFs;
 
 // What the base asks the person while the application runs (T104.3 D4): drawn by the base in the current skin, modal over whatever is on screen, answered
@@ -248,6 +263,11 @@ typedef struct LibApi {
     const SvcNet *net;
     const SvcC64 *c64;
     const SvcLib *lib;
+    const SvcSync *sync;                  // base 3.3
+    const SvcSettings *settings;
+    const SvcCtx *ctx;
+    const SvcIo *io;
+    const SvcBoard *board;
 } LibApi;
 #endif
 
