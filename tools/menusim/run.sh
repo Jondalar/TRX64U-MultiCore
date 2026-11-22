@@ -4,6 +4,7 @@
 #
 #   tools/menusim/run.sh <core> [--mode M] [--toml FILE] [--ops FILE] [--stick FILE] [--scale N]     a core's menu in the window
 #   tools/menusim/run.sh <core> --keys F3,DOWN,RETURN --shot out.png [...]                         headless: the keys, one PNG, end
+#   tools/menusim/run.sh <core> --keys K1,K2,... --stats FILE                                       headless: one line of figures per key (T239.3 P7; speed.sh runs it)
 #   tools/menusim/run.sh --host [--mode M] [--scale N] [--keys ... --shot out.png]                 the host application's menu
 #   tools/menusim/run.sh --tree DIR <core>|--host ...                                               the application of another tree (a worktree)
 #   tools/menusim/run.sh --list                                                                     the cores of the core table
@@ -24,7 +25,7 @@ while [ $# -gt 0 ]; do
     *) args+=("$1"); shift ;;
   esac
 done
-[ -n "$HOST" ] || [ ${#args[@]} -gt 0 ] || { sed -n 2,14p "$0" | sed 's/^# \{0,1\}//'; exit 2; }
+[ -n "$HOST" ] || [ ${#args[@]} -gt 0 ] || { sed -n 2,15p "$0" | sed 's/^# \{0,1\}//'; exit 2; }
 ROOT="$TREE"
 
 if pkg-config --exists sdl2 2>/dev/null; then

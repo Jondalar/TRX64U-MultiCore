@@ -51,11 +51,12 @@ void netops_register(OpRegistry &) { }
 // those stub_state_of names below; what they are for is the checks that need the NAMES and the SHAPES: desc_check and tools/descrec.py validate the TRX64U menu record against
 // the registry.
 static int stub_op(CoreCtx *, const OpArgs &, OpOut &) { return OPE_OK; }
-static const char *stub_state(CoreCtx *) { return ""; }
+int stub_state_calls;                                       // how often a menu asked one of these states (tools/menusim --stats counts it per key)
+static const char *stub_state(CoreCtx *) { stub_state_calls++; return ""; }
 // T228: the states that decide which rows the TRX64U menu shows, answered as the board does under the MultiCore host with the ring in the bitstream:
 // Softboot is not offered (DC1), Save frame and Save the ring can run, the Online form's twelve choice rows stay hidden until the choices are loaded
-static const char *stub_multicore(CoreCtx *) { return "MultiCore host"; }
-static const char *stub_yes(CoreCtx *) { return "1"; }
+static const char *stub_multicore(CoreCtx *) { stub_state_calls++; return "MultiCore host"; }
+static const char *stub_yes(CoreCtx *) { stub_state_calls++; return "1"; }
 static state_fn stub_state_of(const std::string &n)
 {
     if (n == "host.multicore") return stub_multicore;
