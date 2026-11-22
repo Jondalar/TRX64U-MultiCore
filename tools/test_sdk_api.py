@@ -50,7 +50,11 @@ def main():
         check(sdk_api.problems(t) == [], "a comment and blank lines change nothing: %s" % sdk_api.problems(t))
 
         locks0 = sdk_api.read_lock(t)
-        check(locks0[-1][2] is False and all(x[2] for x in locks0[:-1]), "the real lock: the newest version is unreleased, the older ones released: %s" % locks0)
+        check(all(x[2] for x in locks0[:-1]), "the real lock: every version before the newest is released: %s" % locks0)
+        if locks0[-1][2]:
+            # the newest is released (the release step): the steps below need an unreleased newest entry, so the copy gets one
+            edit(t, sdk_api.LOCK, lambda s: s[:s.rindex("released = true")] + "released = false" + s[s.rindex("released = true") + len("released = true"):])
+            locks0 = sdk_api.read_lock(t)
 
         # an unreleased version: a member added to a public header is no error, and update brings the hash along
         add_member = lambda s: re.sub(r"(    bool when_frozen;[^\n]*\n)(\};)", r"\1    uint8_t spare;\n\2", s, count=1)
@@ -98,7 +102,7 @@ def main():
         # a lock entry without released = ...: an error that names it
         t4 = make_tree()
         try:
-            edit(t4, sdk_api.LOCK, lambda s: s.replace("released = false\n", "", 1))
+            edit(t4, sdk_api.LOCK, lambda s: re.sub(r"released = (true|false)\n", "", s, count=1))
             p = sdk_api.problems(t4)
             check(len(p) == 1 and "released = true or false" in p[0], "a lock entry with no released line is red: %s" % p)
         finally:
