@@ -1,7 +1,7 @@
 # T254 — A foreign firmware shows the name and version it gives itself, not its bitstream's date
 
 **Status:** IN PROGRESS (2026-11-22). Asked by Alex, 2026-11-22.
-Open (one line, as in the TODO table): IN PROGRESS 11-22: S1-S6 PASS (#130); S7, S8 (D7, D8: entries from before T254) built; open: their emu run, merge, board
+Open (one line, as in the TODO table): IN PROGRESS 11-22: S1-S8 PASS (S7, S8: D7, D8 on t254-old-entries); open: merge, board
 **Repo:** TRX64U-MultiCore — the host application (`host-app/software/hostapp`).
 **Number:** T254.
 **Origin:** Alex, 2026-11-22 (translated): "Can we take something small into 0.2.1 that bothers me visually a lot? ... If it
@@ -214,5 +214,15 @@ Scenario: S8 (P7) the Version column of a firmware packaged without its version
   path does not rename an entry of another path): "test_hostcore: 894 passed, 0 failed" (Mac). `emu_t254_fwname.sh` run 2: the
   first run adds `f_swap.cfw` and `g_swap.cor` without the version line, so under the `.bit` header's name, as a host before
   T254 did; the second run, on the same flash with C= held (T135 S2), finds the files with the line and presses A on both. Its
-  fixture files were made on the Mac and checked (`cor_pack.py check`); the emulator run itself is open: the builder's
-  emulator runs fail since its cache path became a symbolic link (2026-11-22), and a bind mount replaces it.
+  fixture files were made on the Mac and checked (`cor_pack.py check`).
+- **The proof of S7, S8 (builder, 2026-11-22):** `tools/dev.sh test`: "test_hostcore: 894 passed, 0 failed", "apptests ok
+  (tier fast)"; `tools/dev.sh emu`: "tests/hostapp/emu_host: all scenarios passed"; `emu_t254_fwname.sh`: "PASS T254 S3",
+  "PASS T254 S7 (given): run 1 added f_swap.cfw and g_swap.cor as 'u64_mk2_artix 2026/10/25 12:00:00'", "PASS T254 S5",
+  "PASS T254 S7: A renamed run 1's two entries to 'Gideon 3.14' and 'Commodore 1.1.0'; the other three kept their names;
+  five entries", "PASS T254 pictures: ten different screens". S8 read off `t254-9-menu` (run 1: the packaged entry under
+  its old name says "packaged firmware") and `t254-10-renamed` (run 2: the renamed entries; "packaged firmware" stays). The
+  core app's emulator flows were red on the freeze check only: the branch was made before #131 fixed it; it is rebased onto
+  `e3038a98` (#131 merged).
+- **UX review (ux-specialist, 2026-11-22):** PASS. LOW (R5, R7): on the compact canvas (480p) the label is cut to about
+  "packaged f..." (from the glyph widths; this emulator image has no `--screen`, so not seen); R5 allows the cut, and the
+  review's proposal is to leave it. Widening the compact column would take room from every name on that canvas.
