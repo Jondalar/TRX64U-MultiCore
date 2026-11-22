@@ -103,7 +103,8 @@ wait 1500
 monitor m ram 00a0 00a2
 quit
 E2
-awk '/^>R:00a0/{print $2 $3 $4}' "$W/freeze0.log" > "$W/jiffies"
+# T104.2 S9: the monitor's line can follow other console text on the same log line (run 45009429281: "@>R:00a0  00 01 7d"): the first field ends with it
+awk '$1 ~ />R:00a0$/ {print $2 $3 $4}' "$W/freeze0.log" > "$W/jiffies"
 jf() { sed -n "$1p" "$W/jiffies"; }
 # running (1 != 2), frozen under the menu (3 == 4), running again (5 != 6); the control swaps the relation of the middle pair: it must fail
 check_freeze() { [ $(( $(wc -l < "$W/jiffies") )) = 6 ] && [ "$(jf 1)" != "$(jf 2)" ] && [ "$(jf 3)" "$1" "$(jf 4)" ] && [ "$(jf 5)" != "$(jf 6)" ]; }
