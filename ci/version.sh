@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # The version string of a build (T221 D1-D9, replacing T172 D2/D4): every deliverable has its own SemVer in its own file, and the string a display shows is
-#   a release (tag v*)            X.Y.Z                 (D2/D4: a release is the tested build with its version strings rewritten, tools/release_promote.py)
+#   a release (tag v*)            X.Y.Z                 (T239.1 D47: a release takes the files of the pre-release of its tag build)
 #   any other build               X.Y.Z-dev+<sha8>      (D3: branch, integration and main builds alike)
 #
 #   ci/version.sh [bundle]        bundle.toml            the bundle: manifest.json, the .txu and the package (D17)

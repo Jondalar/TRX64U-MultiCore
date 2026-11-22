@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Checks on a built release bundle (T94 P5), used by tools/release_mc.sh before anything is published.
+"""Checks on a built release bundle (T94 P5), used by ci/prerelease.sh before the CI pre-release is published (tools/release_mc.sh takes that bundle over, T239.1 D47).
 
     tools/release_check.py zip <bundle dir> <zip>
 

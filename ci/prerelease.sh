@@ -8,7 +8,7 @@
 #   ci/prerelease.sh        env: CI_PACKAGE_IN (the directory of the package artifact), CI_UPDATE_IN (the directory of the update artifact),
 #                           CI_STAGE (default ./prerelease-stage), PRERELEASE_NO_PUBLISH=1 (tests: stage and check, publish nothing)
 # The bundle's id is the version on a v* tag (manifest.json "version" x.y.z), else the pre-release tag <branch>-<8 hex of the commit>.
-# Checks before anything is published, the ones tools/release_mc.sh made for a release:
+# Checks before anything is published; since T239.1 D47 they are the only ones, tools/release_mc.sh takes these files over as they are:
 #   - tools/check_release_flash.py: the installer writes the flash of the package's .txu (the tested one), never c64_basic.bit;
 #   - tools/release_check.py zip: the zip holds every file of the bundle;
 #   - tools/check_public_tree.py --allow-trx --files on the bundle and the zip: only trx64u.cor and trx64g.cor may carry what the fourth exception allows.
@@ -36,7 +36,7 @@ cors=(); for c in "$P"/*.cor; do [ -e "$c" ] && cors+=(--cor "$c"); done
 [ "${#cors[@]}" -gt 0 ] || die "the package holds no .cor"
 u2as=(); for u in "$P"/*.u2a; do [ -e "$u" ] && u2as+=(--u2a "$u"); done
 W="$(mktemp -d)"; trap 'rm -rf "${W:?}"' EXIT
-# --bit c64_basic.bit, as tools/release_mc.sh gave it: the host key every .cor is checked against, and the bitstream INSTALL.md describes
+# --bit c64_basic.bit: the host key every .cor is checked against, and the bitstream INSTALL.md describes
 bash "$CI_CODE/tools/make_release_mc.sh" --id "$id" --bit "$P/c64_basic.bit" --app "$P/hostapp.app" --bit-commit "$bitc" --app-commit "$appc" \
   --update "$cfw" --update-ue2 "$ue2" --txu "$txu" ${u2as[@]+"${u2as[@]}"} "${cors[@]}" --out "$W" || die "tools/make_release_mc.sh made no bundle"
 D="$W/trx64mc-$id"; ZIP="$W/trx64mc-$id.zip"
