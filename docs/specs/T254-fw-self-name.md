@@ -176,3 +176,11 @@ Scenario: S6 (P6) the cost is bounded
 - **Pull request (2026-11-22):** #130 into `integration`, branch `t254-fw-self-name` (`2210942a`).
 - **Merged (2026-11-22):** Alex merged #130 into `integration` (`5d1bf662`). The branch is deleted; the maintainer's
   checkout keeps its head as `refs/backup/t254-fw-self-name`.
+- **The integration run of the merge (2026-11-22, 45009429281):** the package is built; `trx64host_update_5d1bf662.txu`
+  holds the host bitstream of `d68f4b3a` byte for byte (`txu_pack.py inspect`: host key `5e987948`, the same SHA-256) and
+  the new application. The run is red in one check of the core application's emulator flows ("FAIL freeze: 0000a9 0000c8
+  0000c8 0000c8 000123"): the sixth sample's log line began with "@" (`@>R:00a0  00 01 7d`), and the check
+  (`tests/coreapp/emu/run.sh`, `awk '/^>R:00a0/'`) counted five lines. The six values show the machine running, frozen
+  and running again. T254 does not touch the core application. The host's emulator flows passed.
+- **On the board's SD (2026-11-22):** `/SD/txu/trx64host_update_5d1bf662.txu` (`tools/board_put.sh`, the `.txu` only;
+  the cores of `d68f4b3a` stay). The board test page has the card "Host: firmware names".
