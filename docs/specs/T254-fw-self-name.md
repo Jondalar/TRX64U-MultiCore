@@ -90,7 +90,8 @@ Scenario: S6 (P6) the cost is bounded
   recognised by the text 'TRX64 Ultimate' in the application"). The name is "<vendor> <version>". A file without the line
   keeps today's names.
 - **D2:** the places are the File Browser panel (title; Version row "3.15, full firmware"), the name of the entry that A adds,
-  the start question of S, and the manifest that P writes. The table of official files stays first for P.
+  the start question of S, and the manifest that P writes. The table of official files stays first for P. The Version row of
+  a backup and of a large core of ours stays as it was ("backup of this board", "full firmware").
 - **D3:** the reader reads only the last 512 KiB of the application, in 16 KiB pieces. This covers the measured distances of
   §1 with margin. A line further from the end is not found: the host then shows the `.bit` header's name, as today. Reason:
   P6. The whole application costs 1 s or more for each selected row.

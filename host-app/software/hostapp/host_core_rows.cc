@@ -634,9 +634,11 @@ static void panel_full(HcPanel *p, const char *path)
         return;
     }
     cell(&p->title, cfw_title(g_bcw), HCT_INK);
-    // T254: the version the firmware gives itself, else a package's manifest version unless that is its bitstream's date (packaged before T254)
+    // T254: the version a foreign firmware gives itself, else the manifest version of a package made from one, unless that is its bitstream's date (packaged
+    // before T254) or "unknown". A backup and a large core of ours keep the row as it was.
     const char *kind = g_bcw_origin == COR_ORIGIN_FOREIGN ? "packaged firmware" : (g_bcw_origin == COR_ORIGIN_BACKUP ? "backup of this board" : "full firmware");
-    const char *ver = g_bcw.self_ver[0] ? g_bcw.self_ver : (g_bcw.from_cor && strncmp(g_bcw_mver, "bit ", 4) ? g_bcw_mver : "");
+    const bool mver_ok = g_bcw_origin == COR_ORIGIN_FOREIGN && strncmp(g_bcw_mver, "bit ", 4) && strcmp(g_bcw_mver, "unknown");
+    const char *ver = g_bcw.self_ver[0] ? g_bcw.self_ver : (mver_ok ? g_bcw_mver : "");
     if (ver[0]) {
         snprintf(t, sizeof(t), "%s, %s", ver, kind);
         cell(&p->val[0], t);
