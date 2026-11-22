@@ -55,6 +55,8 @@ static int g_polls;
 static int op_poll(CoreCtx *, const OpArgs &, OpOut &o) { g_polls++; o.more = false; return OPE_OK; }
 static const char *st_slot_a(CoreCtx *) { return "disk-a"; }
 static const char *st_slot_b(CoreCtx *) { return 0; }
+static std::string g_gate;                                        // "zl.gate": a row that hides itself while it has a value
+static const char *st_gate(CoreCtx *) { return g_gate.empty() ? 0 : g_gate.c_str(); }
 
 static void add_lib_ops(OpRegistry *r)
 {
@@ -71,6 +73,7 @@ static void add_lib_ops(OpRegistry *r)
     r->add_op("zl.poll", 0, 0, op_poll);
     r->add_state("zl.drive_a.image", st_slot_a);
     r->add_state("zl.drive_b.image", st_slot_b);
+    r->add_state("zl.gate", st_gate);
 }
 
 static const OpBind b_fast[] = { B_STR("mode", "fast") };
@@ -693,6 +696,36 @@ int main(int argc, char **argv)
         CHECK(t3.find("drive_") == std::string::npos && t3.find("Once") != std::string::npos);
         CHECK_EQ(r3.refused, 0);
         CHECK_EQ(contrib_slots(&d2, (const char **)new const char *[4], 4), 2);
+    }
+
+    // ---- a tab switch that runs an operation: the tree follows what the operation changed, not the pump's next tick (T239.3 P7)
+    {
+        // a cursor key or a tab key asks no state of the registry; but go() ran the screen's start operation ("terminal" starts monitor.open), which
+        // switched a state a node's `hide` reads. The row is gone from the settings tab at once.
+        static const SkelTab tabs5[] = { { "settings", "Settings", 1, TW_SETTINGS, 0, 0 }, { "mon", "Mon", 2, TW_NODES, 0, "terminal" } };
+        static const SkelArea areas[] = { { "F5", "Five", false, tabs5, 2 } };
+        static const Skeleton sk = { areas, 1 };
+        static const LibNodeDecl gn[] = {
+            { "F5/settings", LN_OP, "Gated", "zl.beep", 0, 1, 0, 0, 0, 0, 0, false, "hide=@zl.gate" },
+            { "F5/settings", LN_OP, "Plain", "zl.beep", 0, 2 },
+            { "F5/mon", LN_OP, "Mon row", "zl.beep", 0, 1 },
+        };
+        LibRecord gr;
+        memset(&gr, 0, sizeof(gr));
+        gr.nodes = gn; gr.nnodes = 3;
+        Contributor cg[] = { { "gated", CR_LIB, &gr } };
+        g_gate.clear();
+        Rig r(cg, 1, &sk);
+        struct Op { static int open(CoreCtx *, const OpArgs &, OpOut &) { g_gate = "on"; return OPE_OK; } };
+        ops_of(&r.c)->contributor("mon");
+        CHECK_EQ(ops_of(&r.c)->add_op("monitor.open", 0, 0, Op::open), OPE_OK);
+        r.m->open();
+        r.m->key(KEY_F5);
+        CHECK_STR(join(r.tab("F5", "settings")).c_str(), "Sound | Speed | Gated | Plain");
+        r.m->key('2');                                              // the tab of the terminal: its start operation sets zl.gate
+        CHECK_STR(g_gate.c_str(), "on");
+        CHECK_STR(join(r.tab("F5", "settings")).c_str(), "Sound | Speed | Plain");  // before the fix the tree showed "Sound | Speed | Gated | Plain" until the pump's tick
+        g_gate.clear();
     }
 
     // ---- cond_holds

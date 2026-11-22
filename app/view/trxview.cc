@@ -834,9 +834,10 @@ bool trx_row_texts(lv_obj_t *row, char *lab, char *val, int n)
     return true;
 }
 
-// Give an existing row new content without building it again. The structure has to be the same one trx_row_at() made (a sub line
-// or not, a value or not) - otherwise false and the caller builds the row. Only what differs is written, so LVGL invalidates the
-// labels whose text moved and nothing else: a window that scrolls by one row changes the text of the rows, not their objects.
+// Give an existing row new content without building it again. A row object made by trx_row_at() is changed in place between a heading and a
+// setting, and a value is added or removed; false (the caller builds the pane again) only when a ring is to be added or taken away, the row's height is
+// not a setting's, or the object is not a trx_row_at() row. Only what differs is written, so LVGL invalidates the labels whose text moved and
+// nothing else: a window that scrolls by one row changes the text of the rows, not their objects.
 bool trx_row_retext(lv_obj_t *row, const TrxRow &r_in, int w)
 {
     TrxRow r = r_in;
@@ -859,7 +860,7 @@ bool trx_row_retext(lv_obj_t *row, const TrxRow &r_in, int w)
     // round. The object is changed to what trx_row_at() makes of the other kind (the label's font, colour and place, the value and the mark that a heading
     // has not) instead of the pane being built again; the same properties, so the same picture.
     if (was_head != r.heading) {
-        if (lv_obj_get_height(row) != trx_row_h()) {
+        if (lv_obj_get_height(row) != trx_row_h() || (!r.heading && r.mark)) {   // a heading has no ring: a setting with one is built, the row is not changed halfway
             return false;
         }
         if (r.heading) {
@@ -881,7 +882,7 @@ bool trx_row_retext(lv_obj_t *row, const TrxRow &r_in, int w)
         }
         lv_obj_set_user_data(row, (void *)ud);
     }
-    if (r.heading) {                                            // the pane's shape holds the kinds; a heading in the same place may be another group's (a window that moved by pages)
+    if (r.heading) {                                            // the row is a heading now (changed above if it was a setting); it may be another group's (a window that moved by pages)
         const char *txt = shout(r.label);
         if (strcmp(lv_label_get_text(lab), txt)) {
             lv_label_set_text(lab, txt);

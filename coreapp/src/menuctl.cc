@@ -386,12 +386,14 @@ void MenuCtl::go(int area, int tab)
     entry_mset_ = false;
     if (app_mode_ && moved) {
         app_start();                                                // the application's own tab is shown now: its `enter` operation runs
+        go_ran_ = true;
     } else if (!app_mode_) {
         char ln[24];
         ui_name(cur().layout, ln, sizeof(ln));
         if (const char *eop = menu_layout_enter(ln)) {              // a screen of the core that starts something when it is shown (the monitor's session)
             OpResult er;
             ops_call(c_, eop, 0, 0, &er);
+            go_ran_ = true;
         }
     }
     if (moved && cur().page) {                                      // T228 R21: a page that is opened reads what its device holds (FW at_open_config): a node with ui `open = <op>` runs it
@@ -402,6 +404,7 @@ void MenuCtl::go(int area, int tab)
             if (pe.kind == EK_NODE && tree_.nodes[pe.index].attr && ui_attr(tree_.nodes[pe.index].attr, "open", oop, sizeof(oop)) && oop[0]) {
                 OpResult pr;
                 ops_call(c_, oop, 0, 0, &pr);
+                go_ran_ = true;
             }
         }
     }
@@ -4140,13 +4143,18 @@ MenuCtl::Result MenuCtl::apply(const MenuIntent &in)
         leave();
     }
     // A setting or an operation the key ran may have switched a feature on or off (show_state): the tree is looked at again. A key that only moved the
-    // cursor, the page or the tab changed no state: it asks no state of the registry (every show_state and every hide of the whole tree would be asked
-    // with each cursor key). What changes outside the menu is seen by the pump's tick (every 2 s) and by open().
+    // cursor, the page or the tab asks no state of the registry (every show_state and every hide of the whole tree would be asked with each cursor key) -
+    // unless the tab or page it went to ran an operation (go(): the application's enter, a screen's start, a page's open), which may have flipped one.
+    // What changes outside the menu is seen by the pump's tick (every 2 s) and by open().
     switch (ran_) {
     case MI_NONE: case MI_SWALLOW: case MI_AS: case MI_MOVE: case MI_PAGE: case MI_AREA: case MI_TAB:   // MI_AS: the key it names went through apply() itself
-        break;
+        if (!go_ran_) {
+            break;
+        }
+        // fall through
     default:
         sync_show();
+        go_ran_ = false;
     }
     return r;
 }
@@ -4155,6 +4163,7 @@ MenuCtl::Result MenuCtl::apply_run(const MenuIntent &in)
 {
     MenuIntent cur = in;
     ran_ = MI_NONE;
+    go_ran_ = false;
     for (int guard = 0; guard < 64; guard++) {
         if (cur.id == MI_NONE) {
             return R_NONE;

@@ -307,6 +307,7 @@ private:
     uint32_t show_sig() const;                                      // which show_state settings hold now
     bool sync_show();                                               // a show_state flipped: the tree is made again and the selection keeps its row (true: it was)
     uint8_t ran_ = 0;                                               // the intent apply_run last executed (MI_NONE: none)
+    bool go_ran_ = false;                                           // go() ran an operation since apply_run began (app enter, screen start, page open)
     const char *setting_lock(const Setting &s) const;               // T228 R21: the text of the state that locks a setting row (Setting::lock_state), null: not locked
     uint32_t show_sig_ = 0;
     int last_tab_[MENU_AREAS_MAX];                                  // the tab an area was left on: its key comes back to it
