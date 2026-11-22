@@ -1,0 +1,9 @@
+id           = "ti99"
+name         = "TI-99/4A"
+version      = "0.0.1"
+contract     = 2
+app          = "blueprint"     # the generic application (coreapp/cores/ti99.cc)
+order        = 30              # after the cores already listed (docs/todo/T79.md); placeholder, Alex to set
+experimental = true            # community port of zeldin/Mega99 (LGPL-3.0): never on a release set until Alex says so
+sources      = ["cores/ti99", ":(exclude)cores/ti99/sim"]
+roms         = ["994a_rom_hb.u610", "994a_rom_lb.u611", "994a_grom0.u500", "994a_grom1.u501", "994a_grom2.u502"]   # names only: never in the repository, the CI or a .cor; from the stick (MAME ti99_4a.zip)

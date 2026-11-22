@@ -369,6 +369,25 @@ SNK Neo Geo F8/expert 10 fixed:13:Status
 SNK Neo Geo F8/expert 11 info:Build
 SNK Neo Geo F8/expert 12 info:ROMs
 SNK Neo Geo F8/expert 13 info:Libraries
+TI-99/4A F1/home 0 task:Reset
+TI-99/4A F1/home 1 task:Reload ROMs, reset
+TI-99/4A F5/settings 0 set:32K RAM card
+TI-99/4A F5/settings 1 set:CPU speed
+TI-99/4A F5/settings 2 set:Swap joysticks
+TI-99/4A F8/expert 0 fixed:13:Actions
+TI-99/4A F8/expert 1 fixed:6:Restart core
+TI-99/4A F8/expert 2 fixed:7:Return to host menu
+TI-99/4A F8/expert 3 fixed:13:Network
+TI-99/4A F8/expert 4 fixed:9:WiFi
+TI-99/4A F8/expert 5 fixed:13:Support
+TI-99/4A F8/expert 6 fixed:8:Bug report
+TI-99/4A F8/expert 7 fixed:17:Keys and help
+TI-99/4A F8/expert 8 fixed:13:Reset
+TI-99/4A F8/expert 9 fixed:5:Reset to host defaults
+TI-99/4A F8/expert 10 fixed:13:Status
+TI-99/4A F8/expert 11 info:Build
+TI-99/4A F8/expert 12 info:ROMs
+TI-99/4A F8/expert 13 info:Libraries
 TRX64U F1/home 0 task:Reset
 TRX64U F1/home 1 task:Reload ROMs, reset
 TRX64U F1/home 2 task:Timewarp...

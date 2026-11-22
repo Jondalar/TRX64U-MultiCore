@@ -1,0 +1,30 @@
+core TI99 TI-99/4A
+area F1 Home
+  tab 1 Home
+    task Reset (closes the menu)
+    task Reload ROMs, reset (closes the menu)
+area F3 Library
+  tab 1 Browse
+    browser Browse
+
+area F5 TI-99/4A
+  tab 1 TI-99/4A
+    setting 32K RAM card = Off | On (default On, at next reset)
+    setting CPU speed = Normal (3 MHz) | Fast (default Normal (3 MHz), live)
+    setting Swap joysticks = Off | On (default Off, live)
+area F8 System (shifted)
+  tab 1 System
+    heading Actions
+    fixed Restart core
+    fixed Return to host menu
+    heading Network
+    fixed WiFi
+    heading Support
+    fixed Bug report
+    fixed Keys and help
+    heading Reset
+    fixed Reset to host defaults
+    heading Status
+    info Build
+    info ROMs
+    info Libraries

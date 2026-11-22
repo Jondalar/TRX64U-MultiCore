@@ -21,7 +21,7 @@
 #include "amiga_regs.h"
 #include "trx64u_menu.h"
 
-const CoreDesc *const core_table[] = { &atari800_desc, &nes_desc, &c64_desc, &apple2_desc, &zx_desc, &cpc_desc, &zxnext_desc, &snes_desc, &neogeo_desc, &vc20_desc, &c264_desc, &pet_desc, &c128_desc, &c64scpu_desc, &amiga_desc, &amiga1200_desc, &ddt_mandel_desc, &ddt_novic_desc, &portdiag_desc, &testcore::desc, 0 };
+const CoreDesc *const core_table[] = { &atari800_desc, &nes_desc, &c64_desc, &apple2_desc, &zx_desc, &cpc_desc, &zxnext_desc, &snes_desc, &neogeo_desc, &vc20_desc, &ti99_desc, &c264_desc, &pet_desc, &c128_desc, &c64scpu_desc, &amiga_desc, &amiga1200_desc, &ddt_mandel_desc, &ddt_novic_desc, &portdiag_desc, &testcore::desc, 0 };
 
 static std::string slurp(const std::string &p) { std::ifstream f(p); std::stringstream s; s << f.rdbuf(); return s.str(); }
 
@@ -791,6 +791,7 @@ int main()
     golden(&zxnext_desc, "zxnext");
     golden(&snes_desc, "snes");
     golden(&neogeo_desc, "neogeo");
+    golden(&ti99_desc, "ti99");
     golden(&vc20_desc, "vc20");
     golden(&c264_desc, "c264");
     golden(&pet_desc, "pet");
