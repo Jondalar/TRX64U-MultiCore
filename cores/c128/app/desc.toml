@@ -2,13 +2,6 @@
 # description record (record 6 of the .cor); the generic application builds the descriptor from it. What the record cannot hold is code, and stays in the
 # core's C++: init, release, the operations of register_ops, the USB keyboard's held-key function (rawkeys) and the drive's media functions.
 # Register numbers are the page 0xE000 of coreapp/cores/c128_regs.h (C128_REG(off) = 0xE000 + off).
-#
-# NOT YET PROVEN, so this file is not called desc.toml (tests/coreapp/gen_bundle.py compiles every cores/*/app/desc.toml and the table-driven test compares it):
-# the four "JiffyDOS ... ROM" settings below are rows that the person fills with a file chosen in a file selector (Setting::kind 3, T185 D4). The record
-# has no such kind (a setting's time code: 0 live, 1 reset, 2 text, 3 secret text; descrec.cc reads kind = code - 1), so tools/descrec.py refuses them.
-# With the four rows left out of the compiled-in descriptor the table-driven test compares 2330 fields and one check fails (the next point); with them in, this file is the whole descriptor.
-# The one check: tests/coreapp/test_descgen.cc expects the refusal of a record read without the core's code to name the "mount slots"; this core has a raw-keys function
-# (held mode) and the reader names that first (descrec.cc descrec_core: roms, raw keys, then mount slots).
 machine_info = "40/80 DISPLAY"
 
 [restart]
@@ -153,11 +146,30 @@ when = "reset"
 apply = "c128.set_romset"
 
 # T185 D4: the four JiffyDOS kit files, each chosen in a file selector (kind 3: the text is the file's path, none selected by default; `apply` checks and keeps it,
-# a reset never applies it). The record cannot say this today, so the rows are listed here as the compiled-in descriptor has them:
-#   "JiffyDOS C128 ROM"  apply "c128.use_jiffy_c128"   when reset   kind 3   one value "" (none)
-#   "JiffyDOS C64 ROM"   apply "c128.use_jiffy_c64"    when reset   kind 3   one value "" (none)
-#   "JiffyDOS 1541 ROM"  apply "c128.use_jiffy_1541"   when reset   kind 3   one value "" (none)
-#   "JiffyDOS 1581 ROM"  apply "c128.use_jiffy_1581"   when reset   kind 3   one value "" (none)
+# a reset never applies it)
+[[core_setting]]
+key = "JiffyDOS C128 ROM"
+file = true
+when = "reset"
+apply = "c128.use_jiffy_c128"
+
+[[core_setting]]
+key = "JiffyDOS C64 ROM"
+file = true
+when = "reset"
+apply = "c128.use_jiffy_c64"
+
+[[core_setting]]
+key = "JiffyDOS 1541 ROM"
+file = true
+when = "reset"
+apply = "c128.use_jiffy_1541"
+
+[[core_setting]]
+key = "JiffyDOS 1581 ROM"
+file = true
+when = "reset"
+apply = "c128.use_jiffy_1581"
 
 # drive A (cbm1541_desc.h CBM1541_SETTINGS): the names and the defaults are Gideon's (c1541.cc:46-62): drive on, bus ID 8, no extra RAM, 100 ms swap delay
 [[core_setting]]
