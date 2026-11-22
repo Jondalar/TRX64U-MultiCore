@@ -7,7 +7,8 @@
 #
 # <pre-release tag> is the pre-release the pipeline published in the builds repository (MC_BUILDS_REPO of ci/pkg.env), <branch>-<8 hex of the commit>,
 # e.g. main-51e89821, or v0.2.1-<sha8> for the build of the tag v0.2.1. `latest` takes the newest main-<sha8> one (tools/builds.sh latest). The download needs
-# no token; the notes, bundle.toml and the tag are read with gh api, which needs a gh login.
+# no token, but without one GitHub allows 60 API requests an hour (one per file); the tool hands the token of a gh login to it. The notes, bundle.toml
+# and the tag are read with gh api, which needs that login.
 # Since D42, D43 and D47 the pre-release is the tester bundle itself: every .cor (trx64u.cor and trx64g.cor included), the update files, the .u2a apps,
 # INSTALL.md, ROMS.txt, SHA256SUMS and the zip of all. Nothing is packed, rebuilt or rewritten here; the release holds the bytes of the pre-release.
 #
@@ -44,6 +45,8 @@ while [ $# -gt 0 ]; do
     esac
 done
 die() { echo "$*" >&2; exit 1; }
+# tools/builds.py sends GH_TOKEN to the API only (the rate limit); never to a test API (BUILDS_API)
+if [ -z "${GH_TOKEN:-}" ] && [ -z "${BUILDS_API:-}" ]; then t="$(gh auth token 2>/dev/null || true)"; [ -z "$t" ] || export GH_TOKEN="$t"; unset t; fi
 
 PKG="$OUT/pkg-$VER"
 mkdir -p "$PKG"
