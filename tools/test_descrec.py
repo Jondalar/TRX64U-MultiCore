@@ -591,6 +591,25 @@ class CoreSections(unittest.TestCase):
         with self.assertRaises(D.DescError):
             D.parse_desc(bytes(b))
 
+    def test_a_rom_name_behind_a_gap_is_refused(self):
+        import struct
+        soff = self._sections()
+        at, sec = soff, None
+        while at < len(self.blob):                                              # walk the sections: id, length, payload
+            sid, ln = struct.unpack_from("<II", self.blob, at)
+            if sid == D.SEC_ROMS:
+                sec = at + 8
+                break
+            at += 8 + ln
+        self.assertIsNotNone(sec)
+        nw = sec + 4 + 4 * (3 + D.ROM_SIZES_MAX)                                # the first entry's name words
+        first = struct.unpack_from("<I", self.blob, nw)[0]
+        self.assertNotEqual(first, D.NONE)
+        b = bytearray(self.blob)
+        struct.pack_into("<II", b, nw, D.NONE, first)                           # NONE, name: the name sits behind a gap
+        with self.assertRaisesRegex(D.DescError, "name behind a gap"):
+            D.parse_desc(bytes(b))
+
     def test_what_the_compiler_refuses(self):
         for what, text in (
                 ("apply and reg_bind", self.text.replace('apply = "vc20.set_jiffy"', 'apply = "vc20.set_jiffy"\nreg_bind = { reg = 1, mask = 1 }')),

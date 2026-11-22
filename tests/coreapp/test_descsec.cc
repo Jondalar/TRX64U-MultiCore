@@ -187,6 +187,53 @@ int main(int argc, char **argv)
             CHECK_EQ(parse(b, d, why, sizeof(why)), -1);
             CHECK(strstr(why, "media replace") != 0);
         }
+        // what the packer's reader refuses too (the two readers agree): a ROM name behind a gap, an optional text that is empty, a capability name that is not of a-z 0-9 _
+        {
+            const uint32_t gs = section_at(ex, 3);
+            CHECK(gs != 0);
+            if (gs) {
+                const uint32_t nw = gs + 8 + 4 + 4 * (3 + ROM_SIZES_MAX);       // the first entry's name words
+                Bytes b = ex;
+                CHECK(rd(b, nw) != DESCREC_NONE);
+                patch(b, nw + 4, rd(b, nw));
+                patch(b, nw, DESCREC_NONE);                                      // NONE, name: the name sits behind a gap
+                CHECK_EQ(parse(b, d, why, sizeof(why)), -1);
+                CHECK(strstr(why, "section roms") != 0 && strstr(why, "name behind a gap") != 0);
+            }
+            int empties = 0, capped = 0;
+            for (int which = 1; which <= 2; which++) {
+                const Bytes r2 = slurp(argv[which]);
+                const uint32_t str_off = rd(r2, 16), str_size = rd(r2, 20);
+                CHECK(str_size > 1 && r2[str_off + str_size - 1] == 0);
+                const uint32_t empty_at = str_size - 1;                          // the table's last terminator: an offset that reads as ""
+                const uint32_t cs = section_at(r2, 1), hs = section_at(r2, 5);
+                CHECK(cs != 0);
+                for (uint32_t w = 11; cs && w <= 15; w++) {                      // needs_program program_ext type_op run_op core_id
+                    Bytes b = r2;
+                    patch(b, cs + 8 + 4 * w, empty_at);
+                    CHECK_EQ(parse(b, d, why, sizeof(why)), -1);
+                    CHECK(strstr(why, "section core") != 0);
+                    empties++;
+                }
+                const uint32_t hw[] = { 14, 15, 18, 19, 20 };                    // vol_key swap_key core_op core_key core_label (words 16, 17 are the own keys' mask)
+                for (size_t k = 0; hs && k < sizeof(hw) / sizeof(hw[0]); k++) {
+                    Bytes b = r2;
+                    patch(b, hs + 8 + 4 * hw[k], empty_at);
+                    CHECK_EQ(parse(b, d, why, sizeof(why)), -1);
+                    CHECK(strstr(why, "section hotkeys") != 0);
+                    empties++;
+                }
+                if (cs && rd(r2, cs + 8 + 4 * 17) != DESCREC_NONE) {
+                    Bytes b = r2;
+                    b[str_off + rd(b, cs + 8 + 4 * 17)] = 'A';                   // the first character of the capability list: upper case
+                    CHECK_EQ(parse(b, d, why, sizeof(why)), -1);
+                    CHECK(strstr(why, "section core") != 0 && strstr(why, "capability") != 0);
+                    capped++;
+                }
+            }
+            CHECK(empties >= 5);
+            CHECK(capped >= 1);
+        }
         // the ROM flag bit 2 is known, bit 3 is not
         const uint32_t ra = section_at(ex, 3);
         CHECK(ra != 0);

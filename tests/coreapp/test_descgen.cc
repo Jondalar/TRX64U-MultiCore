@@ -67,11 +67,25 @@ static void eq_actions(const FileAction *a, int na, const FileAction *b, int nb)
     }
 }
 
-// descrec_core with no code refuses at the first section whose function the core's code does not hand over (descrec.cc: the ROM content checks, the rom set's functions,
-// the raw keys' held function, then the mount slots): a core that has one of the earlier ones is refused with that, not with the slots
-static bool names_missing_code(const char *why)
+// descrec_core with no code refuses at the first section whose function the core's code does not hand over, in the order of descrec_core: the ROM content checks, the rom set's
+// functions, the raw keys' held function, the mount slots. The sentence that section gives, from the record's own flags; null when the record needs none of them.
+static const char *first_missing_section(const DescRecord &d)
 {
-    return strstr(why, "mount slots") != 0 || strstr(why, "section roms") != 0 || strstr(why, "section rom set") != 0 || strstr(why, "section raw keys") != 0;
+    for (int i = 0; i < d.sec->nroms; i++) {
+        if (d.sec->rom_check[i]) {
+            return "section roms: entry";
+        }
+    }
+    if (d.sec->has_romset && (d.sec->romset_version || d.sec->romset_pick)) {
+        return "section rom set:";
+    }
+    if (d.sec->has_rawkeys && d.sec->rawkeys_held) {
+        return "section raw keys:";
+    }
+    if (d.sec->nmount) {
+        return "section mount slots:";
+    }
+    return 0;
 }
 
 // every field of the descriptor `want` (the compiled-in one) against `got` (made of the record)
@@ -373,7 +387,9 @@ static int one_core(const std::string &dir, const std::string &id, const std::st
         if (want->mount_slots) {                               // the descriptor with no code: nothing is taken from another descriptor
             CoreDesc bare;
             CHECK_EQ(descrec_core(d, 0, &bare, why, sizeof(why)), -1);
-            CHECK(names_missing_code(why));
+            const char *fm = first_missing_section(*d);
+            CHECK(fm != 0);
+            CHECK(fm && strstr(why, fm) != 0);
         }
     }
 
@@ -421,7 +437,17 @@ static int one_core(const std::string &dir, const std::string &id, const std::st
         BundleDescSource nocode(&fs, 0);
         handover_fill(&h, cor.c_str(), name.c_str(), "0.3.0", 0x820eded2u);
         CHECK_EQ(start_identify((const uint8_t *)want->id, &h, &d, msg, sizeof(msg), 0, &nocode), START_NO_DESCRIPTOR);
-        CHECK(names_missing_code(msg) || strstr(msg, "control hooks") != 0 || strstr(msg, "no such") != 0 || strstr(msg, "has none") != 0);
+        {
+            DescRecord *dm = new DescRecord;
+            char w2[240];
+            CHECK_EQ(parse(rec, dm, w2, sizeof(w2)), 0);
+            const char *fm = first_missing_section(*dm);
+            const char *expect_part = fm ? fm : "the control hooks init and release";    // none of the four sections needs code: the start's own check for init and release
+            CHECK(strstr(msg, expect_part) != 0);
+            if (strstr(msg, expect_part) == 0) {
+                printf("%s: expected \"%s\" in: %s\n", id.c_str(), expect_part, msg);
+            }
+        }
         // the bundle another core's name: the manifest says one name, the hand-over another
         handover_fill(&h, cor.c_str(), "Another Core", "0.3.0", 0x820eded2u);
         CHECK_EQ(start_identify((const uint8_t *)want->id, &h, &d, msg, sizeof(msg), 0, &src), START_COR_MISMATCH);

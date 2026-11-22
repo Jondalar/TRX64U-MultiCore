@@ -1565,7 +1565,10 @@ def _parse_sections(blob, off, size, s, ncset, out):
             for i in range(n):
                 w = words(3 + ROM_SIZES_MAX + ROM_NAMES_MAX, 4 + i * 4 * (3 + ROM_SIZES_MAX + ROM_NAMES_MAX))
                 sizes = [x for x in w[3:3 + ROM_SIZES_MAX] if x]
-                names = [S(x, True) for x in w[3 + ROM_SIZES_MAX:] if x != NONE]
+                nw = w[3 + ROM_SIZES_MAX:]
+                if NONE in nw[:sum(x != NONE for x in nw)]:
+                    raise DescError("%s: entry %d has a name behind a gap" % (what, i))
+                names = [S(x, True) for x in nw if x != NONE]
                 if w[2] & ~0xFF07 or not sizes or not names or w[3 + len(sizes):3 + ROM_SIZES_MAX] != (0,) * (ROM_SIZES_MAX - len(sizes)):
                     raise DescError("%s: entry %d has bad flags, sizes or names" % (what, i))
                 roms.append({"role": S(w[0], True), "put_op": S(w[1], True), "required": bool(w[2] & 1), "shared": bool(w[2] & 2), "check": bool(w[2] & 4), "set": w[2] >> 8, "sizes": sizes, "names": names})

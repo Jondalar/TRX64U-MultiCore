@@ -42,6 +42,17 @@ struct Tab {
     uint32_t off, count;
 };
 
+// An optional text of a record is absent (DESCREC_NONE) or not empty: an offset into another string's terminator reads as "".
+bool opt_ok(const char *s)
+{
+    return !s || s[0];
+}
+
+bool cap_char(char c)
+{
+    return (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_';
+}
+
 bool id_ok(const char *s)
 {
     if (!s || !s[0] || strlen(s) > 31) {
@@ -109,17 +120,21 @@ static int parse_sections(Rd &r, uint32_t off, uint32_t size, DescRecord *out, u
             out->sec->ident.core_id = r.str(SW(15), &bad);
             out->sec->ident.live_ms = SW(16);
             const char *caps = r.str(SW(17), &bad);
-            if (bad || !out->sec->ident.name || !out->sec->ident.name[0] || !out->sec->ident.title || !out->sec->ident.title[0] || !out->sec->ident.short_title || !out->sec->ident.short_title[0] ||
+            if (bad || !opt_ok(out->sec->ident.needs_program) || !opt_ok(out->sec->ident.program_ext) || !opt_ok(out->sec->ident.type_op) || !opt_ok(out->sec->ident.run_op) || !opt_ok(out->sec->ident.core_id) || !out->sec->ident.name || !out->sec->ident.name[0] || !out->sec->ident.title || !out->sec->ident.title[0] || !out->sec->ident.short_title || !out->sec->ident.short_title[0] ||
                 !out->sec->ident.folder || !out->sec->ident.folder[0] || !out->sec->ident.store || !out->sec->ident.store[0] || (out->sec->ident.flags >> 6) || out->sec->ident.min_contract > 255 ||
                 out->sec->ident.reset_ms > 65535 || out->sec->ident.live_ms > 65535 || out->sec->ident.service_period_ms > 60000 ||
                 (out->sec->ident.service_op == 0) != (out->sec->ident.service_period_ms == 0) || (out->sec->ident.service_op && !out->sec->ident.service_op[0])) {
                 return r.fail("description record, section %s: a text is missing or outside the table, a flag is not known, or a number is out of range", nm);
             }
-            for (const char *p = caps; p && *p;) {
+            for (const char *p = caps; p;) {
                 const char *e = strchr(p, ',');
                 size_t l = e ? (size_t)(e - p) : strlen(p);
-                if (out->sec->ncaps >= DR_CAPS || l < 1 || l > 15) {
-                    return r.fail("description record, section %s: a capability name is empty, longer than 15 or one too many (%d)", nm, DR_CAPS);
+                bool chars = true;
+                for (size_t k = 0; k < l; k++) {
+                    chars = chars && cap_char(p[k]);
+                }
+                if (out->sec->ncaps >= DR_CAPS || l < 1 || l > 15 || !chars) {
+                    return r.fail("description record, section %s: a capability name is empty, longer than 15, not of a-z 0-9 _ or one too many (%d)", nm, DR_CAPS);
                 }
                 memcpy(out->sec->cap_names[out->sec->ncaps], p, l);
                 out->sec->cap_names[out->sec->ncaps][l] = 0;
@@ -256,6 +271,7 @@ static int parse_sections(Rd &r, uint32_t off, uint32_t size, DescRecord *out, u
             h.core_key = r.str(SW(o + 5), &bad);
             h.core_label = r.str(SW(o + 6), &bad);
             uint32_t pc = SW(o + 7);
+            bad = bad || !opt_ok(h.vol_key) || !opt_ok(h.swap_key) || !opt_ok(h.core_op) || !opt_ok(h.core_key) || !opt_ok(h.core_label);
             for (int i = 0; i < 2 + HK_NACT + HK_TASKS_MAX; i++) {
                 if (key[i] > 64 && key[i] != HK_NONE) {
                     bad = true;
@@ -420,7 +436,7 @@ static int parse_sections(Rd &r, uint32_t off, uint32_t size, DescRecord *out, u
                     q.sizes[ns++] = SW(1 + k);
                 }
             }
-            if (bad || fl > 3 || ns == 0 || !q.role || !q.ext || !q.size_text || !q.example || !q.choice_key || !q.auto_label || max < 1 || max > ROMSET_MAX || want > 65535 ||
+            if (bad || fl > 3 || ns == 0 || !q.role || !q.role[0] || !q.ext || !q.ext[0] || !q.size_text || !q.size_text[0] || !q.example || !q.example[0] || !q.choice_key || !q.choice_key[0] || !q.auto_label || !q.auto_label[0] || max < 1 || max > ROMSET_MAX || want > 65535 ||
                 head > 255) {
                 return r.fail("description record, section %s: a text is missing or outside the table, or a number is out of range", nm);
             }
@@ -507,7 +523,7 @@ static int parse_sections(Rd &r, uint32_t off, uint32_t size, DescRecord *out, u
         }
         // the third form (desc.h Setting::bind): the item that chooses the member of the core's rom set. Its values are the set's labels, which the record holds as the same strings.
         const RomSetSpec &q = out->sec->romset;
-        if (!out->sec->has_romset || strcasecmp(cs.key, q.choice_key) || cs.nvalues != q.max + 1) {
+        if (!out->sec->has_romset || strcmp(cs.key, q.choice_key) || cs.nvalues != q.max + 1) {
             return r.fail("description record, section %s: core setting %u has neither an operation nor register bits, and is not the rom set's choice", secnames[4], (unsigned)i);
         }
         for (int k = 0; k < cs.nvalues; k++) {
