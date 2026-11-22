@@ -36,6 +36,13 @@ subprocess.check_call([sys.executable, os.path.join(root, "tools/u2a_pack.py"), 
 subprocess.check_call([sys.executable, os.path.join(root, "tools/u2a_pack.py"), os.path.join(out, "fix.elf"), "-o", os.path.join(out, "plain.u2a"),
                        "--kind", "app", "--residence", "transient", "--name", "plain", "--version", "1", "--needs", "base>=3.1"], stdout=subprocess.DEVNULL)
 
+# a library that declares a poll in its menu record and one that declares a file action: neither is evicted when memory is short
+open(os.path.join(out, "pollib.toml"), "w").write('[[node]]\nanchor = "F7/settings"\nkind = "op"\nlabel = "P"\nop = "p.go"\n[poll]\nop = "p.go"\nperiod_ms = 10\n')
+open(os.path.join(out, "menulib.toml"), "w").write('[[file_action]]\next = [".zip"]\nlabel = "Menu lib action"\napp = "unzip"\naction = "here"\n')
+for lib in ("pollib", "menulib"):
+    subprocess.check_call([sys.executable, os.path.join(root, "tools/u2a_pack.py"), os.path.join(out, "testlib_fix.elf"), "-o", os.path.join(out, lib + ".u2a"),
+                           "--kind", "lib", "--name", lib, "--version", "1", "--needs", "base>=3.1", "--menu", os.path.join(out, lib + ".toml")], stdout=subprocess.DEVNULL)
+
 # D8 (holds): a library that imports miniz, and a resident application that needs miniz
 subprocess.check_call([sys.executable, os.path.join(root, "tools/u2a_pack.py"), os.path.join(out, "testlib_fix.elf"), "-o", os.path.join(out, "outerlib.u2a"),
                        "--kind", "lib", "--name", "outerlib", "--version", "1", "--needs", "base>=3.1", "--needs", "miniz>=1.0"], stdout=subprocess.DEVNULL)

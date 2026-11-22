@@ -383,6 +383,35 @@ int main(int argc, char **argv)
                 CHECK(ld.handle_of("miniz") < 0);
                 printf("S6b/S7: in use kept, freed after the end, then evicted\n");
             }
+            // a library that declares a poll, or a file action, is never evicted: unzip is refused, by name and with the figures, and the library stays loaded
+            for (int which = 0; which < 2; which++) {
+                const char *nm = which ? "menulib" : "pollib";
+                fs.put(std::string("/sd/cores/apps/") + nm + ".u2a", slurp(dir + "/" + nm + ".u2a"));
+                HeapHost hh(&testcore::desc, 1u << 24);
+                LibLoader ld(&hh, reg);
+                CoreFile *lf = fs.open((std::string("/sd/cores/apps/") + nm + ".u2a").c_str(), false);
+                CoreFileSource lsrc(lf);
+                int lh = -1;
+                CHECK_EQ(ld.load(&lsrc, &lh, err, sizeof(err)), LIB_OK);
+                fs.close(lf);
+                CHECK(lh >= 0 && ld.contributes(lh));
+                hh.cap = hh.used + uz->image_bytes + mzf->image_bytes + APP_WORK_BYTES - 1;
+                CHECK(!idx.prepare_open(&fs, &ld, *uz, err, sizeof(err)));
+                CHECK(strstr(err, "Not enough memory for unzip (needs ") != 0);
+                CHECK(ld.handle_of(nm) >= 0);
+                printf("S6e: %s with a %s is not evicted; %s\n", nm, which ? "file action" : "poll", err);
+            }
+            // a library that contributes nothing is evictable (S6a above), and the loader says so
+            {
+                HeapHost hh(&testcore::desc, 1u << 24);
+                LibLoader ld(&hh, reg);
+                CoreFile *lf = fs.open(olf->path, false);
+                CoreFileSource lsrc(lf);
+                int lh = -1;
+                CHECK_EQ(ld.load(&lsrc, &lh, err, sizeof(err)), LIB_OK);
+                fs.close(lf);
+                CHECK(!ld.contributes(lh));
+            }
         }
     }
 

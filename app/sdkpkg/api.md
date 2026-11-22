@@ -17,12 +17,12 @@
 ### 1.2 Versions
 
 1.2.1 The API has a major and a minor number. `U2A_ABI_MAJOR` is the major. It is 3.
-1.2.2 `U2A_BASE_MINOR` is the minor of this base. It is 1.
+1.2.2 `U2A_BASE_MINOR` is the minor of this base. It is 2.
 1.2.3 `U2A3_VERSION(major, minor)` makes the number `major << 16 | minor`. A `needs` entry, the `version` of a library and the call `api->lib->find` use this form.
 1.2.4 An image names the majors it knows (`abi_min` to `abi_max`). The loader refuses an image whose range does not hold 3.
 1.2.5 An image states the lowest minor it needs as a `needs` entry named `base`. The loader refuses an image whose `base` entry is above the minor of the base.
 1.2.6 `api->abi_major` and `api->abi_minor` report the version of the running base.
-1.2.7 Every symbol of this document is part of base 3.0, unless its section says base 3.1. Two things came with 3.1: `api->lib` and the members `LibRecord.exports` and `LibRecord.exports_size`.
+1.2.7 Every symbol of this document is part of base 3.0, unless its section says base 3.1 or 3.2. Two things came with 3.1: `api->lib` and the members `LibRecord.exports` and `LibRecord.exports_size`. One thing came with 3.2: the base serves the poll of a library that loads after the core has started (6.10). A library that depends on that writes `needs base >= 3.2`.
 1.2.8 A section of a group or a type states its version in the line `Since base`.
 
 | Symbol | Contract |
@@ -44,7 +44,7 @@
 1.3.3 The executor task runs the operations that the menu, the REST door and the WebSocket door call. It holds the core lock while a handler runs.
 1.3.4 The application task is the task `App`. It runs `app_main`. Its stack is 8192 words, 32 KiB.
 1.3.5 A job task is a task `App job`, made by `api->job->start`.
-1.3.6 A poll task is a task of its own for each poll a record declares. It holds the core lock while the operation runs.
+1.3.6 A poll task is a task of its own for each poll that is served: the polls the record of the core and of the libraries loaded at start declare, and the polls of the libraries and kept applications that load later. It holds the core lock while the operation runs.
 1.3.7 The start-up task runs before the menu loop. It loads the libraries of the `.cor` file and of the libraries folders.
 1.3.8 The core lock serialises the registers, windows and state of the core.
 1.3.9 A call that blocks the caller (`api->dlg`, `api->job->join`, `api->net->send`) is never made from the menu task or the executor task.
@@ -827,8 +827,8 @@ The library group. A library puts a table of function pointers in its record (`L
 4.10.2.3 `min_version` is `U2A3_VERSION(major, minor)`.
 4.10.2.4 `table_size` may be null. It receives the number of bytes the library gave as `exports_size`.
 4.10.2.5 The layout of the table is the library's own header. The caller checks `table_size` before it uses a member.
-4.10.2.6 The table stays valid while the library is loaded. List the library in the `needs` of the image: a library that no loaded image needs may be unloaded when an application is opened and the heap is short.
-4.10.2.7 Known limit: the base does not exclude a library from that unloading because it declares a poll, menu nodes, file actions or settings. After such an unloading a poll of the library, and the menu entries of the library, point into memory that is freed or into other operations. Do not rely on a library that makes these declarations to stay loaded when applications are opened with a short heap.
+4.10.2.6 The table stays valid while the library is loaded. List the library in the `needs` of the image: a library that no loaded image needs and that contributes nothing (4.10.2.7) may be unloaded when an application is opened and the heap is short.
+4.10.2.7 A library that declares a poll, menu nodes, file actions, settings or tabs, in `lib_register` or in its menu record, is never unloaded this way: its poll and its menu entries point into its memory. When the heap is then too short, the base refuses to open the application and says so: `Not enough memory for <application> (needs <n> KB, <m> KB free).` Since base 3.2.
 
 ### 4.11 The member `size`
 
@@ -1251,16 +1251,18 @@ Since base 3.0.
 
 ### 6.10 `LibPollDecl`
 
-Since base 3.0.
+Since base 3.0. The service of a library that loads after the core has started, the stop when the library goes and the refusal at load are base 3.2.
 
 `LibPollDecl` declares an operation the base calls every period.
 
-6.10.1 The base starts one poll task for each poll, once, when the core starts. A library loaded later does not get one.
-6.10.2 The operation has no arguments. It has to exist.
+6.10.1 A poll is served from the moment its library has registered until the library is released or unloaded. The base stops the poll before it removes the operations of the library.
+6.10.2 The operation has no arguments. It has to exist when the poll is added.
 6.10.3 The task calls the operation with the core lock, every `period_ms`. The call waits until the core has started, and while the machine is frozen for the menu.
 6.10.4 When the handler sets `more`, the task calls it again at once. After 20 ms in a row it sleeps one period.
-6.10.5 The core holds at most 12 polls. A poll past that is refused. A period of 0 is refused.
-6.10.6 A poll of a library that the base unloads (section 4.10.2.7) is not stopped. Its task goes on and calls the wrong operation.
+6.10.5 A poll is declared in `LibRecord.poll` or in the `[poll]` of the menu record of the file, not in both. A library that declares both is refused at load.
+6.10.6 A poll the base cannot serve is refused: no operation of that name, an operation with arguments, a period of 0, or no free slot. A library loaded after the core has started is then refused at load, and nothing of it stays. A library loaded before the core starts stays loaded; its poll is dropped and the base writes a line to the log.
+6.10.7 The base serves 16 polls at once after the core has started. The polls of the libraries loaded before start come through the menu merge, which takes 12.
+6.10.8 A library that has a poll is never unloaded to make room (4.10.2.7).
 
 | Member | Contract |
 |---|---|
@@ -1308,7 +1310,7 @@ Since base 3.0.
 | Contributed settings | 16 |
 | Values of one setting | 16 |
 | File types, file actions | 40, 96 |
-| Polls | 12 |
+| Polls | 16 after the core has started, 12 from the libraries loaded before |
 | Tabs of one area | 8 |
 | Entries of a folder in the file picker | 160 |
 | Image size | 1 MiB |

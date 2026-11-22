@@ -11,3 +11,8 @@
 [[lock]]
 version = "3.1"
 headers = "48d9d26a0b188a1b438ce10612a4eaaf0ffff1f4bb4aca87b796648ea3856db9"
+#
+# 3.2 (T239.3 S3): the base serves the poll of a library that loads after the core has started (the headers differ in U2A_BASE_MINOR and comments only)
+[[lock]]
+version = "3.2"
+headers = "1127a2f68032d18a2aec750a817a95df46574485f0966d6ab96a98291ff57df4"

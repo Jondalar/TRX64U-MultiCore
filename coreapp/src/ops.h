@@ -179,6 +179,8 @@ public:
     const StateDef *state_at(int i) const { return i >= 0 && i < nstates_ ? &states_[i] : 0; }
     const EventDef *event_at(int i) const { return i >= 0 && i < nevents_ ? &events_[i] : 0; }
     int nops() const { return nops_; }
+    // Counts every change of the operation list (add_op, drop_owner, rollback): an OpDef pointer found at one count is good while the count is the same.
+    uint32_t generation() const { return gen_; }
     int nstates() const { return nstates_; }
     int nevents() const { return nevents_; }
     RegMark mark() const;
@@ -208,6 +210,7 @@ private:
     StateDef states_[STATES_MAX];
     EventDef events_[EVENTS_MAX];
     int nops_, nstates_, nevents_;
+    uint32_t gen_;
     char err_[200];
 
     bool name_ok(const char *name);

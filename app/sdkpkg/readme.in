@@ -66,9 +66,11 @@ In the source repository a lock file holds that hash for every version, and the 
 - **Major** (`x.0`): anything else. A field that moves, changes size or goes, a changed meaning, a change of `LibRecord` or of a `Lib*Decl`
   (the loader compares the size of the record), a change of the `.u2a` format.
 
-A library that registers a poll (`LibRecord::poll`: an operation without arguments and a period in milliseconds) is polled by the core application
-from the moment it has registered until it is unloaded or, for an application, released. The poll never runs while the menu has stopped the machine.
-A poll the core application cannot serve (no such operation, an operation that takes arguments, a period of 0, no free slot) refuses the library at load.
+A library that declares a poll (`LibRecord::poll`, or `[poll]` in its menu record, not both: an operation without arguments and a period in milliseconds) is
+polled by the core application from the moment it has registered until it is unloaded or, for an application, released (base 3.2). The poll never runs while the
+menu has stopped the machine. A poll the core application cannot serve (no such operation, an operation that takes arguments, a period of 0, no free slot)
+refuses a library that loads after the core has started. A library that loads before the start stays loaded: its poll is dropped and the log says why. A library
+with a poll, menu nodes, file actions, settings or tabs is never unloaded to make room for an application; the application is refused instead.
 
 ## Build a menu record
 

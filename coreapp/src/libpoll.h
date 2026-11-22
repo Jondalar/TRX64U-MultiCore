@@ -1,7 +1,7 @@
 // Where the loader tells the service layer that a library's poll starts or ends (T239.3 S3, U18 R2). The record a library registers may declare one
 // poll (LibPollDecl in libapi.h): an operation without arguments, called every period_ms. The loader owns when the poll begins (the library is
 // registered) and when it ends (the library is released or unloaded); the sink owns the tasks. libload.cc has no task of its own, so the same file
-// runs in tests/loader/ against a sink that only counts.
+// runs in tests/loader/ against the board's LibPolls (service.cc) with no tasks (stack_words 0), whose slots the test steps itself.
 #ifndef COREAPP_LIBPOLL_H
 #define COREAPP_LIBPOLL_H
 

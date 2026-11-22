@@ -701,6 +701,9 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
     trx_ring_engine_init();                                  // the frame ring (ring.cc): buffers and its poll task; the log starts 6 s later when the setting says so
     rest_report = diag_report_rest;                           // T162: GET /v1/report
     static PollTask poll(&board_os, &core_lock, ops_of(&ctx), &ctx, desc->service_op, desc->service_period_ms, desc->poll_when_frozen);
+    if (desc->service_op && !poll.armed()) {
+        printf("[core] %s is not polled: it is not registered, or its name is %d bytes or longer\n", desc->service_op, POLL_OP_MAX - 1);
+    }
     if (desc->service_op && !poll.start("Core poll", 1, 6 * configMINIMAL_STACK_SIZE)) {
         printf("[core] the poll task did not start; %s is not served\n", desc->service_op);
     }

@@ -412,6 +412,17 @@ uint32_t LibLoader::resident_bytes() const
     return n;
 }
 
+static bool record_contributes(const LibRecord &r)
+{
+    return (r.poll.op && r.poll.op[0]) || r.nnodes > 0 || r.nfile_actions > 0 || r.nsettings > 0 || r.ntabs > 0;
+}
+
+bool LibLoader::contributes(int handle) const
+{
+    const LibInfo *li = info(handle);
+    return li && (record_contributes(li->record) || (li->menu && record_contributes(li->menu->rec)));
+}
+
 bool LibLoader::unserved_text(const char *, const LibRecord &, char *, int)
 {
     // nodes, file actions, settings, tabs and the poll of a record are served now: the menu merge (contrib.h) takes the first four, the poll task
@@ -668,13 +679,14 @@ int LibLoader::load(LibSource *src, int *handle, char *err, int errlen)
     }
     s.ndep = ndeps;
 
+    // the poll of the library: lib_register's record or the menu record carries it, not both (the one the other would silently replace)
+    RegMark mark = reg_->mark();
+    bool had_error = reg_->error()[0] != 0;
+    LibRecord rec;
+    memset(&rec, 0, sizeof(rec));
+    rec.struct_size = sizeof(rec);
     if (h.register_offset != U2A3_NONE) {
         // D10.2: the library registers what it contributes under its own name; a failure takes back everything it got in
-        RegMark mark = reg_->mark();
-        bool had_error = reg_->error()[0] != 0;
-        LibRecord rec;
-        memset(&rec, 0, sizeof(rec));
-        rec.struct_size = sizeof(rec);
         LibHost::Entry e = { s.info.name, base + h.register_offset, base, img };
         cur_ = si;                                      // what lib_register takes from api->mem is the image's
         int rc = host_->call_register(e, &api_, &rec);
@@ -704,11 +716,6 @@ int LibLoader::load(LibSource *src, int *handle, char *err, int errlen)
             }
             if (r != OPE_OK) {
                 bad = fail(LIB_REGISTER, err, errlen, "Library \"%s\" is refused: %s", name, reg_->error());
-            } else if (polls_ && rec.poll.op && rec.poll.op[0]) {
-                char why[120];
-                if (!polls_->add(s.info.name, rec.poll.op, rec.poll.period_ms, why, sizeof(why))) {
-                    bad = fail(LIB_REGISTER, err, errlen, "Library \"%s\" is refused: %s", name, why);
-                }
             }
         }
         if (bad) {
@@ -720,6 +727,32 @@ int LibLoader::load(LibSource *src, int *handle, char *err, int errlen)
             return bad;
         }
         s.info.record = rec;
+    }
+    // the poll: served from here (set_poll_sink) or by the merge at boot; the same rules either way. Two polls refuse the library at boot too.
+    const LibPollDecl *pd = rec.poll.op && rec.poll.op[0] ? &rec.poll : 0;
+    if (menu.d && menu.d->rec.poll.op && menu.d->rec.poll.op[0]) {
+        if (pd) {
+            reg_->rollback(mark);
+            if (!had_error) {
+                reg_->clear_error();
+            }
+            discard(si);
+            return fail(LIB_REGISTER, err, errlen, "Library \"%s\" is refused: it declares a poll in lib_register and in its menu record; one is allowed.", name);
+        }
+        pd = &menu.d->rec.poll;
+    }
+    if (pd && polls_) {
+        char why[120];
+        if (!polls_->add(s.info.name, pd->op, pd->period_ms, why, sizeof(why))) {
+            reg_->rollback(mark);
+            if (!had_error) {
+                reg_->clear_error();
+            }
+            discard(si);
+            return fail(LIB_REGISTER, err, errlen, "Library \"%s\" is refused: %s", name, why);
+        }
+    }
+    if (h.register_offset != U2A3_NONE) {
         char note[LIB_ERR_MAX];
         if (unserved_text(s.info.name, rec, note, sizeof(note))) {
             api_.log(note);                             // the record is kept, nothing serves it (libapi.h): the log must not say a plain "ok"

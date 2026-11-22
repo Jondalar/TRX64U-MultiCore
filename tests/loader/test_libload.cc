@@ -746,6 +746,8 @@ static void spin(VirtOs &os, LibPolls &lp, uint32_t ms)
     }
 }
 
+static std::vector<uint8_t> with_menu(Img m, const std::vector<uint8_t> &rec, uint32_t offset_delta = 0);
+
 static void polls()
 {
     World w(U2A_BASE_MINOR);
@@ -842,6 +844,34 @@ static void polls()
     CHECK_EQ(lp.count(), 0);
     CHECK(w.reg.find_op("pa.tick") == 0);
 
+    // a poll the library declares in its menu record is served like one of lib_register, from the load to the unload; in both records it is refused
+    w.m.twins["pa"] = [](const LibHost::Entry &, const LibApi *, LibRecord *rec) {
+        static LibOpDecl ops[1] = { { "pa.tick", 0, 0, h_polled<0> } };
+        rec->ops = ops; rec->nops = 1;
+        return 0;
+    };
+    memset(g_polled, 0, sizeof(g_polled));
+    CHECK_EQ(w.load(with_menu(Img("pa", "A"), read_file("menu_poll.bin")), &h, err), LIB_OK);
+    CHECK_EQ(lp.count(), 1);
+    spin(os, lp, 1000);
+    printf("S3 pa with its poll in the menu record (10 ms), 1000 ms: %d calls\n", g_polled[0]);
+    CHECK(g_polled[0] >= 98 && g_polled[0] <= 101);
+    // an add that is refused leaves the owner's poll running; one that is accepted replaces it in its own slot
+    char why[120];
+    CHECK(!lp.add("pa", "pa.missing", 10, why, sizeof(why)));
+    CHECK_EQ(lp.count(), 1);
+    a0 = g_polled[0];
+    spin(os, lp, 100);
+    CHECK(g_polled[0] >= a0 + 9);
+    CHECK(lp.add("pa", "pa.tick", 20, why, sizeof(why)));
+    CHECK_EQ(lp.count(), 1);
+    CHECK_EQ(w.ld->unload(h, err, sizeof(err)), LIB_OK);
+    CHECK_EQ(lp.count(), 0);
+    w.m.twins["pa"] = twin_poll<0>;
+    refused("a poll in lib_register and in the menu record", w, with_menu(Img("pa", "A"), read_file("menu_poll.bin")), LIB_REGISTER, "pa", "one is allowed");
+    CHECK_EQ(lp.count(), 0);
+    CHECK(w.reg.find_op("pa.tick") == 0);
+
     // no sink (a loader whose core has not started): the library loads, the record keeps the declaration for the menu merge
     World w2(U2A_BASE_MINOR);
     w2.m.twins["pb"] = twin_poll<1>;
@@ -851,7 +881,7 @@ static void polls()
 
 // A library's own menu record (T104.1 D9, libmenu.h): header flag bit 0 and the offset in `reserved`; read and checked before anything is spent, kept by the
 // slot, freed with it. Refused by name: an offset outside the file, a record that is damaged, one that gives a route.
-static std::vector<uint8_t> with_menu(Img m, const std::vector<uint8_t> &rec, uint32_t offset_delta = 0)
+static std::vector<uint8_t> with_menu(Img m, const std::vector<uint8_t> &rec, uint32_t offset_delta)
 {
     m.flags = U2A3_FLAG_MENU;
     std::vector<uint8_t> f = build(m);

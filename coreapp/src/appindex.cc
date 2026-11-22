@@ -404,7 +404,7 @@ bool AppIndex::prepare_open(CoreFs *fs, LibLoader *ld, const AppEntry &a, char *
             again = false;
             for (int h = 0; h < LIB_MAX; h++) {
                 const LibInfo *li = ld->info(h);
-                if (!li || li->kind != U2A3_KIND_LIB || ld->uses(h) > 0) {
+                if (!li || li->kind != U2A3_KIND_LIB || ld->uses(h) > 0 || ld->contributes(h)) {   // a poll, menu nodes, actions, settings or tabs stay
                     continue;
                 }
                 bool wanted = false;

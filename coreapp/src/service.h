@@ -49,6 +49,8 @@ private:
     uint32_t last_, spin_until_, burst_from_;
     bool bursting_;
     volatile bool running_;
+    const OpDef *op_;                                      // the operation found at registry generation gen_; used only under the core lock
+    uint32_t gen_;
     static void main(void *self);
 };
 

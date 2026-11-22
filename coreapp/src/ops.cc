@@ -5,7 +5,7 @@
 #include <string.h>
 #include <strings.h>
 
-OpRegistry::OpRegistry() : owner_("?"), nops_(0), nstates_(0), nevents_(0)
+OpRegistry::OpRegistry() : owner_("?"), nops_(0), nstates_(0), nevents_(0), gen_(0)
 {
     memset(ops_, 0, sizeof(ops_));
     memset(states_, 0, sizeof(states_));
@@ -77,6 +77,7 @@ int OpRegistry::add_op(const char *name, const ArgSpec *args, int nargs, op_fn f
         snprintf(err_, sizeof(err_), "%s: no room for operation \"%s\" (OPS_MAX)", owner_, name);
         return OPE_FAILED;
     }
+    gen_++;
     OpDef &d = ops_[nops_++];
     d.name = name;
     d.owner = owner_;
@@ -124,6 +125,7 @@ RegMark OpRegistry::mark() const
 
 void OpRegistry::rollback(const RegMark &m)
 {
+    gen_++;
     if (m.nops >= 0 && m.nops < nops_) {
         memset(&ops_[m.nops], 0, sizeof(OpDef) * (nops_ - m.nops));
         nops_ = m.nops;
@@ -140,6 +142,7 @@ void OpRegistry::rollback(const RegMark &m)
 
 void OpRegistry::drop_owner(const char *name)
 {
+    gen_++;
     int k = 0;
     for (int i = 0; i < nops_; i++) {
         if (ops_[i].owner && !strcmp(ops_[i].owner, name)) {

@@ -9,7 +9,7 @@ bool poll_allowed(const CoreCtx *c, bool when_frozen)
 
 PollTask::PollTask(OsPort *os, CoreLock *lock, const OpRegistry *reg, CoreCtx *c, const char *op, uint16_t period_ms, bool when_frozen)
     : os_(os), lock_(lock), reg_(reg), c_(c), armed_(false), period_(period_ms ? period_ms : 1), when_frozen_(when_frozen),
-      last_(os->now_ms() - period_), spin_until_(os->now_ms()), burst_from_(0), bursting_(false), running_(false)
+      last_(os->now_ms() - period_), spin_until_(os->now_ms()), burst_from_(0), bursting_(false), running_(false), op_(0), gen_(0)
 {
     name_[0] = 0;
     if (op && reg->find_op(op)) {                      // as before: an operation that is not registered when the poll is made is never polled
@@ -19,7 +19,7 @@ PollTask::PollTask(OsPort *os, CoreLock *lock, const OpRegistry *reg, CoreCtx *c
 
 PollTask::PollTask(OsPort *os, CoreLock *lock, const OpRegistry *reg, CoreCtx *c)
     : os_(os), lock_(lock), reg_(reg), c_(c), armed_(false), period_(POLL_IDLE_MS), when_frozen_(false), last_(os->now_ms()),
-      spin_until_(os->now_ms()), burst_from_(0), bursting_(false), running_(false)
+      spin_until_(os->now_ms()), burst_from_(0), bursting_(false), running_(false), op_(0), gen_(0)
 {
     name_[0] = 0;
 }
@@ -30,6 +30,7 @@ bool PollTask::arm(const char *op, uint16_t period_ms, bool when_frozen)
         return false;
     }
     armed_ = false;
+    op_ = 0;
     strcpy(name_, op);
     period_ = period_ms ? period_ms : 1;
     when_frozen_ = when_frozen;
@@ -46,8 +47,7 @@ uint32_t PollTask::step()
         return POLL_IDLE_MS;
     }
     uint32_t now = os_->now_ms();
-    bool wf = when_frozen_;
-    if (!poll_allowed(c_, wf)) {
+    if (!poll_allowed(c_, when_frozen_)) {
         return period_;
     }
     uint32_t since = now - last_;
@@ -58,8 +58,13 @@ uint32_t PollTask::step()
     OpArgs none;
     OpResult r;
     lock_->lock();
-    // what the unlocked look above saw may be stale: the menu froze the machine while this task waited for the lock, or the library went
-    const OpDef *op = armed_ ? reg_->find_op(name_) : 0;
+    // what the unlocked look above saw may be stale: the menu froze the machine while this task waited for the lock, or the library went.
+    // The registry moves its entries when a contributor is dropped, so the name is looked up again whenever its generation changed.
+    if (armed_ && (!op_ || gen_ != reg_->generation())) {
+        op_ = reg_->find_op(name_);
+        gen_ = reg_->generation();
+    }
+    const OpDef *op = armed_ ? op_ : 0;
     if (!op || !poll_allowed(c_, when_frozen_)) {
         lock_->unlock();
         return period_;
@@ -144,8 +149,12 @@ bool LibPolls::add(const char *owner, const char *op, uint16_t period_ms, char *
         snprintf(why, whylen, "poll operation \"%s\" takes arguments; a poll takes none", op);
         return false;
     }
-    drop(owner);                                           // the same owner again: its poll is replaced
-    int k = -1;
+    int k = -1;                                            // the same owner again: its poll is replaced, in its own slot, and only once the new one is secured
+    for (int i = 0; i < LIB_POLLS_MAX && k < 0; i++) {
+        if (slot_[i].used && !strcmp(slot_[i].owner, owner)) {
+            k = i;
+        }
+    }
     for (int i = 0; i < LIB_POLLS_MAX && k < 0; i++) {
         if (!slot_[i].used) {
             k = i;
@@ -166,6 +175,7 @@ bool LibPolls::add(const char *owner, const char *op, uint16_t period_ms, char *
         }
         s.started = true;
     }
+    s.t->disarm();
     s.t->arm(op, period_ms, false);                        // a library's poll never runs while the machine is frozen (run.cc)
     snprintf(s.owner, sizeof(s.owner), "%s", owner);
     s.used = true;

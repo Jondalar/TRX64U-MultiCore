@@ -107,11 +107,15 @@ public:
     void use(int handle);
     void unuse(int handle);
     int uses(int handle) const;
+    // True when the library declares anything the base serves from the library's memory: a poll, menu nodes, file actions, settings or tabs, in its
+    // lib_register record or in its menu record. Such a library is never evicted (AppIndex::prepare_open): the poll would call into freed code and the
+    // merged menu would point into freed strings.
+    bool contributes(int handle) const;
     // Frees a resident library nothing uses (its registrations go with it). LIB_STATE for an application, a handle not loaded, or a library in use.
     int unload(int handle, char *err, int errlen);
 
     // Where the poll a library declares is served (T239.3 S3): a library that registers after this is called has its poll added to the sink, and the
-    // poll ends when the library is released or unloaded. A poll the sink refuses refuses the library. Null: no poll is served (the libraries
+    // poll ends when the library is released or unloaded. A poll the sink refuses refuses the library, and so does a poll in lib_register and in the menu record. Null: no poll is served (the libraries
     // loaded before the core starts get theirs from the menu merge, run.cc, which calls this afterwards).
     void set_poll_sink(LibPollSink *s) { polls_ = s; }
 

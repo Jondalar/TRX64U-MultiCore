@@ -114,7 +114,8 @@ struct LibSettingDecl {
     const char *apply;                    // the operation that takes `value`
 };
 // One poll for the record: `op` is called every period_ms (at least 1) while the library is loaded and the core runs. `op` is registered by the
-// library or by the base and takes no arguments; a poll the base cannot serve refuses the library. The poll never runs while the machine is frozen
+// library or by the base and takes no arguments; the same poll may stand in the menu record instead, not in both (the library is refused). A poll the base cannot serve refuses a
+// library loaded after the core has started; one loaded before loses its poll and the log says why (the menu merge). The poll never runs while the machine is frozen
 // by the menu: when_frozen is not read (the service layer's rule since 2026-10-20), a library has to leave it false.
 struct LibPollDecl {
     const char *op;                       // null: no poll

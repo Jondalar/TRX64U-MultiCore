@@ -259,6 +259,14 @@ int main()
             CHECK(lp.add(o, "base.noop", 10, why, sizeof(why)));
         }
         CHECK(!lp.add("one_more", "base.noop", 10, why, sizeof(why)) && strstr(why, "no room"));
+        // with every slot used the owner's own slot is reused; a replacement that is refused leaves the old poll running
+        CHECK(lp.add("libc", "libc.poll", 20, why, sizeof(why)));
+        CHECK_EQ(lp.count(), LIB_POLLS_MAX);
+        CHECK(!lp.add("libb", "libb.nothing", 10, why, sizeof(why)));
+        CHECK_EQ(lp.count(), LIB_POLLS_MAX);
+        int k0 = g_calls[1];
+        spin(100);
+        CHECK(g_calls[1] >= k0 + 3);
         // a poll that is not allowed (the machine is frozen) is not called; thawed, it is
         lc.frozen = true;
         int f0 = g_calls[1];
