@@ -32,7 +32,7 @@ namespace {
 class BoardLibHost : public DescLibHost {
 public:
     explicit BoardLibHost(const CoreDesc *d) : DescLibHost(d) { }
-    // FreeRTOS' heap (heap_4) hands out 16-byte aligned blocks; the loader asks for size + alignment and aligns inside, so a 4096 alignment works too
+    // FreeRTOS' heap (heap_5) hands out 16-byte aligned blocks; the loader asks for size + alignment and aligns inside, so a 4096 alignment works too
     void *alloc(uint32_t n) { return pvPortMalloc(n); }
     void release(void *p) { vPortFree(p); }
     uint32_t addr_of(const void *p) { return (uint32_t)(uintptr_t)p; }          // no MMU: the CPU sees the byte where it is

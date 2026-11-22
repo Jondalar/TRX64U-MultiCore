@@ -25,7 +25,8 @@ SRCS_C   =	itu.c \
 			tasks.c \
 			timers.c \
 			port.c \
-			heap_4.c \
+			heap_5.c \
+			heapcfg.c \
 			ff.c \
 			ffsystem.c \
 			ffunicode.c \
@@ -340,7 +341,7 @@ OPTIONS += -gdwarf-2 -Os -DRISCV -DU64=2 -DUSB2513 -DOS -DIOBASE=0x10000000 -DU2
 OPTIONS += -I$(PATH_SW)/../../coreapp/ffconf
 OPTIONS += -DFLASH_EXTRA_PROTECTION=1 -DTRX_HOSTAPP=1 -DTRX_COREAPP=1 -I$(PATH_SW)/hostapp
 OPTIONS += -I$(PATH_SW)/lvgl -DLV_CONF_INCLUDE_SIMPLE -DLV_LVGL_H_INCLUDE_SIMPLE
-OPTIONS += -DconfigTOTAL_HEAP_SIZE=0x7A0000
+# T239.3 D15: heap_5 with one region defined at the first allocation (coreapp/src/heapcfg.c); its size is the heap word of the image, set per core by the packer
 OPTIONS += -DCORE_OWN_IMAGE_C64    # T228 R25: the shared image leaves the TRX64U C64 out (coreapp/src/table.cc); it has an image of its own (target own)
 OPTIONS += $(COREAPP_EXTRA)      # #93: -DLISTGROW_START=40 -DLISTGROW_HARD=60 for the mock-up image that shows the "more entries not shown" line; never for a board
 COPTIONS = $(OPTIONS) -std=gnu99
@@ -348,7 +349,7 @@ CPPOPT   = $(OPTIONS) -std=gnu++11 -fno-exceptions -fno-rtti -fno-threadsafe-sta
 LINK 	 = linker.x
 LIBS    = ../../../libs/riscv/lwip/result/liblwip.a
 LIBS   += ../../../libs/riscv/lvgl/result/liblvgl.a
-LFLAGS   = --gc-sections --wrap=outbyte --wrap=malloc --wrap=_malloc_r --wrap=free --wrap=_free_r --wrap=realloc --wrap=_realloc_r --wrap=calloc --wrap=_calloc_r
+LFLAGS   = --gc-sections --wrap=pvPortMalloc --wrap=_sbrk --wrap=outbyte --wrap=malloc --wrap=_malloc_r --wrap=free --wrap=_free_r --wrap=realloc --wrap=_realloc_r --wrap=calloc --wrap=_calloc_r
 LINKMETHOD = ld
 
 VERSION_COMPONENT = coreapp          # T221: ci/version.sh <component> names the SemVer file the TRXVSTAMP field starts from
@@ -356,12 +357,13 @@ include ../../../common/rules.mk
 
 # T228 R25 (Alex 2026-11-18): an image of its own for one core - `make own OWN=trx64u OWN_DESC=c64_desc OWN_HEAP=0x...` after the shared build.
 # The same objects as the shared image, except the core table, which holds that core only (table.cc with -DCORE_ONLY: --gc-sections then drops
-# every other core's code and data), and the heap, which is that core's (heap_4.c with its configTOTAL_HEAP_SIZE). Results beside coreapp.*:
-# result/coreapp_$(OWN).bin, .elf and .app. The two objects are always compiled again, so a changed OWN_HEAP is never served stale.
+# every other core's code and data), and heapcfg.c, whose default heap word is OWN_HEAP (T239.3 D15: the packer sets the word per core; OWN_HEAP is what an
+# unpacked image of its own, a bench or the emulator, runs with). Results beside coreapp.*: result/coreapp_$(OWN).bin, .elf and .app. The two objects are
+# always compiled again, so a changed OWN_HEAP is never served stale.
 OWN      ?= trx64u
 OWN_DESC ?= c64_desc
 OWN_HEAP ?= 0x7A0000
-OWN_OBJS  = $(filter-out $(OUTPUT)/table.o $(OUTPUT)/heap_4.o,$(ALL_OBJS)) $(OUTPUT)/table_$(OWN).o $(OUTPUT)/heap_4_$(OWN).o
+OWN_OBJS  = $(filter-out $(OUTPUT)/table.o $(OUTPUT)/heapcfg.o,$(ALL_OBJS)) $(OUTPUT)/table_$(OWN).o $(OUTPUT)/heapcfg_$(OWN).o
 
 own: $(RESULT)/$(PRJ)_$(OWN).bin $(RESULT)/$(PRJ)_$(OWN).elf $(RESULT)/$(PRJ)_$(OWN).app
 
@@ -369,12 +371,12 @@ $(OUTPUT)/table_$(OWN).o: table.cc own_force
 	@echo Compiling $(<F) for the image of $(OWN) only
 	@$(CPP) $(CPPOPT) -UCORE_OWN_IMAGE_C64 -DCORE_ONLY=$(OWN_DESC) $(PATH_INC) -B. -c -o $@ $<
 
-$(OUTPUT)/heap_4_$(OWN).o: heap_4.c own_force
-	@echo Compiling $(<F) with the heap of $(OWN): $(OWN_HEAP)
-	@$(CC) $(COPTIONS) -UconfigTOTAL_HEAP_SIZE -DconfigTOTAL_HEAP_SIZE=$(OWN_HEAP) $(PATH_INC) -B. -c -o $@ $<
+$(OUTPUT)/heapcfg_$(OWN).o: heapcfg.c own_force
+	@echo Compiling $(<F) with the default heap of $(OWN): $(OWN_HEAP)
+	@$(CC) $(COPTIONS) -DHEAPCFG_DEFAULT=$(OWN_HEAP) $(PATH_INC) -B. -c -o $@ $<
 
 # after the shared link (it builds every object); the object paths stand in the recipe only, so make's VPATH search keeps the names of `all`
-$(OUTPUT)/$(PRJ)_$(OWN).out: $(LINK) $(OUTPUT)/$(PRJ).out $(OUTPUT)/table_$(OWN).o $(OUTPUT)/heap_4_$(OWN).o
+$(OUTPUT)/$(PRJ)_$(OWN).out: $(LINK) $(OUTPUT)/$(PRJ).out $(OUTPUT)/table_$(OWN).o $(OUTPUT)/heapcfg_$(OWN).o
 	@echo Linking the image of $(OWN)
 	$(LD) $(LLIB) $(LFLAGS) -T $(LINK) -Map=$(OUTPUT)/$(PRJ)_$(OWN).map -o $@ $(OWN_OBJS) $(LIBS)
 	@$(SIZE) $@
