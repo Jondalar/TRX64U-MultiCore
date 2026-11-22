@@ -306,8 +306,10 @@ void lib_board_load(CoreCtx *c, LibBootReport *rep, const BundleExtras *bundle)
         }
         res = all;
     }
-    printf("[lib] %d loaded, %d refused; resident %u bytes, heap free %u -> %u\n", res.loaded, res.refused, (unsigned)loader.resident_bytes(),
-           (unsigned)free_before, (unsigned)xPortGetFreeHeapSize());
+    // images: image + bss of what stays; accounts: everything the heap gave the loaded images and has not got back (their blocks with headers, files, menu
+    // records, the images); the heap free drops by about that much plus the block headers of the heap itself, and rises by it when the images go (S14)
+    printf("[lib] %d loaded, %d refused; images %u bytes, accounts %u bytes, heap free %u -> %u\n", res.loaded, res.refused, (unsigned)loader.resident_bytes(),
+           (unsigned)loader.held_total(), (unsigned)free_before, (unsigned)xPortGetFreeHeapSize());
     // The board test of the library build path (docs/specs/T104.1 5.5): app/lib/testlib registers test.echo and test.version, and the only way
     // to see its RISC-V code run before a menu or the REST door can call it is to call it here. Present only when that file is on the stick.
     if (ops_of(c)->find_op("test.echo")) {

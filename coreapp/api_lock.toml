@@ -16,3 +16,9 @@ headers = "48d9d26a0b188a1b438ce10612a4eaaf0ffff1f4bb4aca87b796648ea3856db9"
 [[lock]]
 version = "3.2"
 headers = "1127a2f68032d18a2aec750a817a95df46574485f0966d6ab96a98291ff57df4"
+#
+# 3.3 (T239.3 S13, S14): the budget record of a file (libfmt.h U2a3Budget, U2A3_FLAG_BUDGET, U2A3_BUDGET_NONE), refusals with LIB_BUDGET, and the account of an image that
+# includes what its operations take from api->mem (the registry runs a handler under OpScope; ops.h declares set_scope)
+[[lock]]
+version = "3.3"
+headers = "31658eced1cb0e8838680185cd80c9a7f2b2dcfc5028ba022fbb73ec7b249820"

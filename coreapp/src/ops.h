@@ -159,9 +159,14 @@ struct RegMark {
     int nops, nstates, nevents;
 };
 
+// Who is running (opscope.h): the registry tells the loader whose code an operation or a state getter is, so what it takes from api->mem goes to that library's account.
+class OpScope;
+
 class OpRegistry {
 public:
     OpRegistry();
+    void set_scope(OpScope *s) { scope_ = s; }
+    OpScope *scope() const { return scope_; }
 
     // The contributor whose registrations follow. A name has one owner: the first registration wins, a second is refused and
     // error() names both.
@@ -206,6 +211,7 @@ public:
 
 private:
     const char *owner_;
+    OpScope *scope_;
     OpDef ops_[OPS_MAX];
     StateDef states_[STATES_MAX];
     EventDef events_[EVENTS_MAX];

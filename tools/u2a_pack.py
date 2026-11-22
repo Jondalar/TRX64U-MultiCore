@@ -12,6 +12,12 @@ Two ways of getting position-independent words are understood:
 Everything else that would need a fix-up at run time is refused by name: absolute HI20/LO12 pairs, GOT and PLT entries, TLS, 64-bit.
 
     u2a_pack.py image.elf -o x.u2a --kind lib --name cbm1541 --version 1 --needs base>=3.1 --capability drive_a
+    u2a_pack.py image.elf -o x.u2a --kind lib --name mylib --budget image=8192 --budget heap=4096 --budget ops=3 --budget settings=2
+
+--budget KEY=VALUE (repeatable) declares the budget of the file (coreapp/src/libfmt.h U2a3Budget): image (payload + bss, bytes), heap (bytes held at once
+through api->mem), ops, states, events, nodes, file_actions, settings, tabs, polls (what lib_register and the menu record bring). A key left out has no figure of its
+own and the limit is the platform's. The packer refuses an image over its own budget; the loader refuses a library over any figure at load. A file with a
+budget needs base >= 3.3: the packer adds that dependency, or raises a lower one.
     u2a_pack.py image.elf --dump-image image.bin     # only the flat image, for tests
 """
 import argparse
@@ -28,6 +34,10 @@ NEED_SIZE = 20
 NONE = 0xFFFFFFFF
 NAME_MAX = 16
 IMAGE_MAX = 0x100000
+FLAG_MENU, FLAG_BUDGET = 1, 2
+BUDGET_NONE = 0xFFFFFFFF
+BUDGET_KEYS = ("image", "heap", "ops", "states", "events", "nodes", "file_actions", "settings", "tabs", "polls")   # the members of U2a3Budget behind `size`, in order
+BUDGET_BASE = (3 << 16) | 3        # the base API that reads a budget record (U2A_BASE_MINOR 3)
 
 EM_RISCV = 243
 ET_EXEC, ET_DYN = 2, 3
@@ -188,6 +198,32 @@ def parse_need(text):
     raise PackError("a dependency reads name>=version, got %r" % text)
 
 
+def parse_budget(items):
+    """{key: value} from ['image=8192', 'ops=3', ...]; a key twice, an unknown key, or a value that is no number from 0 to 0xFFFFFFFE is an error."""
+    out = {}
+    for it in items:
+        k, eq, v = it.partition("=")
+        k = k.strip()
+        if not eq or k not in BUDGET_KEYS:
+            raise PackError("a budget reads key=number with the key one of %s, got %r" % (", ".join(BUDGET_KEYS), it))
+        if k in out:
+            raise PackError("the budget names %s twice" % k)
+        try:
+            n = int(v.strip(), 0)
+        except ValueError:
+            raise PackError("the budget %s is no number: %r" % (k, v))
+        if not 0 <= n < BUDGET_NONE:
+            raise PackError("the budget %s=%d is outside 0 .. %d" % (k, n, BUDGET_NONE - 1))
+        out[k] = n
+    return out
+
+
+def budget_blob(budget):
+    """The record behind the header: its size, then the figures in the order of BUDGET_KEYS (a key left out: no figure)."""
+    words = [budget.get(k, BUDGET_NONE) for k in BUDGET_KEYS]
+    return struct.pack("<I%dI" % len(words), 4 + 4 * len(words), *words)
+
+
 def field(text, what, may_be_empty=False):
     b = text.encode("ascii")
     ok = all(c in b"abcdefghijklmnopqrstuvwxyz0123456789_" for c in b)
@@ -197,7 +233,7 @@ def field(text, what, may_be_empty=False):
 
 
 def pack(elf_bytes, kind, name, version, needs=(), capability="", residence=None, align=16, link_base=0, manifest=b"",
-         register_sym="lib_register", main_sym="app_main", abi=(3, 3), menu=b""):
+         register_sym="lib_register", main_sym="app_main", abi=(3, 3), menu=b"", budget=None):
     elf = Elf(elf_bytes)
     img, bss = build_image(elf, link_base)
     table = collect(elf, img, bss, link_base)
@@ -223,6 +259,18 @@ def pack(elf_bytes, kind, name, version, needs=(), capability="", residence=None
         if main == NONE:
             raise PackError("an app needs an app_main symbol")
         residence = residence or "transient"          # an app with screens (T104.3 D0) has lib_register too: it registers what they bind to while it is open
+    budget_bytes = b""
+    if budget:
+        if "image" in budget and len(img) + bss > budget["image"]:
+            raise PackError("the image is %d bytes with its bss, over its declared budget of %d bytes" % (len(img) + bss, budget["image"]))
+        needs = list(needs)
+        for i, (n, v) in enumerate(needs):
+            if n == "base":
+                needs[i] = (n, max(v, BUDGET_BASE))
+                break
+        else:
+            needs.append(("base", BUDGET_BASE))
+        budget_bytes = budget_blob(budget)
     if len(needs) > 4:
         raise PackError("at most 4 dependencies")
     if align < 4 or align > 4096 or align & (align - 1):
@@ -234,7 +282,7 @@ def pack(elf_bytes, kind, name, version, needs=(), capability="", residence=None
     needs_blob = b"".join(field(n, "dependency name") + struct.pack("<I", v) for n, v in needs)
     img_blob = pad4(bytes(img))
     reloc_blob = b"".join(struct.pack("<I", o) for o in table)
-    needs_off = HEADER_SIZE
+    needs_off = HEADER_SIZE + len(budget_bytes)
     payload_off = needs_off + len(needs_blob)
     reloc_off = payload_off + len(img_blob)
     manifest_off = reloc_off + len(reloc_blob) if manifest else 0
@@ -245,11 +293,11 @@ def pack(elf_bytes, kind, name, version, needs=(), capability="", residence=None
         menu_pad = b"\0" * (-end % 4)
         menu_off = end + len(menu_pad)
     hdr = struct.pack("<IHHHHBBBBI16sI16sIIIIIIIIIIII", MAGIC, HEADER_SIZE, 3, abi[0], abi[1],
-                      1 if kind == "lib" else 2, 1 if residence == "resident" else 0, 2, len(needs), 1 if menu else 0,
+                      1 if kind == "lib" else 2, 1 if residence == "resident" else 0, 2, len(needs), (FLAG_MENU if menu else 0) | (FLAG_BUDGET if budget else 0),
                       field(name, "name"), version, field(capability, "capability", True),
                       payload_off, len(img), bss, align, reg, main, reloc_off, len(table), needs_off, manifest_off, len(manifest), menu_off)
     assert len(hdr) == HEADER_SIZE, len(hdr)
-    return hdr + needs_blob + img_blob + reloc_blob + manifest + menu_pad + menu, bytes(img), table
+    return hdr + budget_bytes + needs_blob + img_blob + reloc_blob + manifest + menu_pad + menu, bytes(img), table
 
 
 def main(argv=None):
@@ -267,6 +315,7 @@ def main(argv=None):
     ap.add_argument("--align", type=int, default=16)
     ap.add_argument("--link-base", type=lambda s: int(s, 0), default=0)
     ap.add_argument("--manifest", help="JSON manifest of an app, carried unchanged")
+    ap.add_argument("--budget", action="append", default=[], metavar="KEY=N", help="declare a figure of the budget: image, heap, ops, states, events, nodes, file_actions, settings, tabs, polls")
     ap.add_argument("--menu", help="the nodes, file actions, settings, tabs and poll of this file as TOML (tools/descrec.py): carried as a menu record")
     a = ap.parse_args(argv)
     try:
@@ -292,7 +341,7 @@ def main(argv=None):
         if not a.name or not a.out:
             ap.error("--name and -o are required")
         blob, img, table = pack(data, a.kind, a.name, parse_version(a.version), [parse_need(n) for n in a.needs], a.capability,
-                                a.residence, a.align, a.link_base, manifest, menu=menu)
+                                a.residence, a.align, a.link_base, manifest, menu=menu, budget=parse_budget(a.budget) or None)
         open(a.out, "wb").write(blob)
         if a.dump_image:
             open(a.dump_image, "wb").write(img)

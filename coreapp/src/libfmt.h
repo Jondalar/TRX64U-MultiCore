@@ -2,7 +2,7 @@
 // relocation table, its dependencies and its residence. The writer is tools/u2a_pack.py; the reader is libload.cc. All values are
 // little-endian; every offset is a file offset and a multiple of 4.
 //
-//   header (104) | needs (20 each) | payload (the image, linked at 0) | relocation table (u32 each) | manifest (JSON, apps)
+//   header (104) | budget (header flag U2A3_FLAG_BUDGET, U2a3Budget) | needs (20 each) | payload (the image, linked at 0) | relocation table (u32 each) | manifest (JSON, apps)
 //
 // The image is linked at address 0, so an offset into the image is also its link-time address. The relocation table lists the offset of
 // every 32-bit word that holds such an address. The loader adds the address it placed the image at to each of those words. Nothing else
@@ -33,12 +33,31 @@
 // The application binary interface the base offers, as major.minor. A file carries the majors it knows (abi_min .. abi_max); the
 // minor is a dependency like any other: `needs base >= 3.1` (D11). Version numbers are major << 16 | minor.
 #define U2A_ABI_MAJOR 3
-#define U2A_BASE_MINOR 2                /* 3.1 (T197): api->lib, the call tables libraries export; 3.2 (T239.3 S3): the poll of a library that loads after the core has started */
+#define U2A_BASE_MINOR 3                /* 3.1 (T197): api->lib, the call tables libraries export; 3.2 (T239.3 S3): the poll of a library that loads after the core has started; 3.3 (T239.3 S13, S14): the budget record, a library's memory account */
 #define U2A3_VERSION(major, minor) ((uint32_t)(((major) << 16) | (minor)))
 
 // Limits the loader enforces before it allocates anything.
 #define U2A3_IMAGE_MAX 0x00100000U      /* payload + bss, 1 MiB */
 #define U2A3_ALIGN_MAX 4096U
+
+/* The budget a library declares (T239.3 S13): header flag U2A3_FLAG_BUDGET says the record stands directly behind the header (file offset
+ * U2A3_HEADER_SIZE); the needs, the image and everything else follow it, each at the offset the header names. `size` is the size of the record as the packer
+ * wrote it; a later base API appends members and the size grows, so a loader reads the members it knows and ignores the rest. Every other member is a
+ * ceiling: U2A3_BUDGET_NONE says "no figure of its own", and the limit is then the one of the platform (the image: U2A3_IMAGE_MAX, the heap: the
+ * heap, a registration: the room of the table). The loader refuses the library that is over a figure, with a message that names the library, the
+ * figure and the limit. */
+#define U2A3_FLAG_BUDGET 2U
+#define U2A3_BUDGET_NONE 0xFFFFFFFFU
+struct U2a3Budget {
+    uint32_t size;                      /* sizeof(U2a3Budget) of the writer, at least that of this header */
+    uint32_t image;                     /* payload + bss, bytes */
+    uint32_t heap;                      /* bytes held at once through api->mem (the sizes the library asked for; realloc holds old and new block together) */
+    uint32_t ops, states, events;       /* what lib_register registers */
+    uint32_t nodes, file_actions, settings, tabs, polls;   /* what the record of lib_register and the menu record declare together */
+};
+#define U2A3_BUDGET_SIZE 44
+typedef char u2a3_budget_size_check[(sizeof(U2a3Budget) == U2A3_BUDGET_SIZE) ? 1 : -1];
+#define U2A3_BUDGET_MAX 256U            /* a record of more bytes is not a budget */
 
 struct U2a3Need {
     char name[U2A3_NAME_MAX];           /* "base", or the name another library provides */

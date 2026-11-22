@@ -10,6 +10,7 @@
 #include <vector>
 #include <map>
 #include <functional>
+#include <memory>
 #include "check.h"
 #include "libload.h"
 #include "libmenu.h"
@@ -23,6 +24,15 @@
 #endif
 
 extern "C" int lib_register(const LibApi *api, LibRecord *out);      // app/lib/testlib/testlib.cc, compiled for the host: the twin
+
+// the heap of the process, counted: a menu record is two blocks (the bytes and the decoded table) that must go back with the slot
+static long g_live;
+void *operator new(size_t n) { g_live++; return malloc(n ? n : 1); }
+void *operator new[](size_t n) { g_live++; return malloc(n ? n : 1); }
+void operator delete(void *p) noexcept { if (p) { g_live--; free(p); } }
+void operator delete[](void *p) noexcept { if (p) { g_live--; free(p); } }
+void operator delete(void *p, size_t) noexcept { if (p) { g_live--; free(p); } }
+void operator delete[](void *p, size_t) noexcept { if (p) { g_live--; free(p); } }
 
 // ---------------------------------------------------------------------------------------------------------- the model of the machine
 
@@ -48,6 +58,8 @@ struct Model : LibHost {
     {
         arena = (uint8_t *)aligned_alloc(4096, ARENA_SIZE);
         reset_arena();
+        entries.reserve(256);                                  // the model's own lists must not grow inside a measurement of the process heap
+        blks.reserve(256);
     }
     ~Model() { free(arena); }
     void reset_arena() { memset(arena, FILL, ARENA_SIZE); blks.clear(); }
@@ -175,6 +187,7 @@ struct Img {
     std::vector<uint32_t> relocs;
     uint16_t abi_min, abi_max, fmt;
     uint32_t flags = 0, reserved = 0;
+    std::vector<uint8_t> budget;                  // the record behind the header (U2a3Budget bytes); empty: no budget, no flag
     Img(const char *n, const char *marker) : kind(U2A3_KIND_LIB), residence(U2A3_RES_RESIDENT), name(n), version(U2A3_VERSION(1, 0)),
           payload(64, 0), bss(32), align(16), reg(0), main(U2A3_NONE), abi_min(3), abi_max(3), fmt(3)
     {
@@ -195,16 +208,17 @@ static void putname(std::vector<uint8_t> &v, const std::string &s) { for (int i 
 
 static std::vector<uint8_t> build(const Img &m)
 {
-    uint32_t needs_off = U2A3_HEADER_SIZE;
+    uint32_t needs_off = U2A3_HEADER_SIZE + (uint32_t)m.budget.size();
     uint32_t pay_off = needs_off + (uint32_t)m.needs.size() * U2A3_NEED_SIZE;
     uint32_t rel_off = pay_off + (uint32_t)m.payload.size();
     std::vector<uint8_t> v;
     put32(v, U2A3_MAGIC); put16(v, U2A3_HEADER_SIZE); put16(v, m.fmt); put16(v, m.abi_min); put16(v, m.abi_max);
     v.push_back(m.kind); v.push_back(m.residence); v.push_back(U2A3_ARCH_RISCV32); v.push_back((uint8_t)m.needs.size());
-    put32(v, m.flags); putname(v, m.name); put32(v, m.version); putname(v, m.cap);
+    put32(v, m.flags | (m.budget.empty() ? 0 : U2A3_FLAG_BUDGET)); putname(v, m.name); put32(v, m.version); putname(v, m.cap);
     put32(v, pay_off); put32(v, (uint32_t)m.payload.size()); put32(v, m.bss); put32(v, m.align); put32(v, m.reg); put32(v, m.main);
     put32(v, rel_off); put32(v, (uint32_t)m.relocs.size()); put32(v, needs_off); put32(v, 0); put32(v, 0); put32(v, m.reserved);
     CHECK_EQ(v.size(), U2A3_HEADER_SIZE);
+    v.insert(v.end(), m.budget.begin(), m.budget.end());
     for (size_t i = 0; i < m.needs.size(); i++) { putname(v, m.needs[i].first); put32(v, m.needs[i].second); }
     v.insert(v.end(), m.payload.begin(), m.payload.end());
     for (size_t i = 0; i < m.relocs.size(); i++) { put32(v, m.relocs[i]); }
@@ -273,18 +287,20 @@ static void refused(const char *what, World &w, const std::vector<uint8_t> &f, i
 {
     std::string heap = w.m.shape();
     int ops = w.reg.nops(), st = w.reg.nstates(), ev = w.reg.nevents(), count = w.ld->count();
-    uint32_t resident = w.ld->resident_bytes();
+    uint32_t resident = w.ld->resident_bytes(), held = w.ld->held_total();
+    long live = g_live;
     char err[LIB_ERR_MAX] = "";
     int h = 0;
     int got = w.load(f, &h, err);
+    long live_after = g_live;                                          // before any temporary of the checks below
     bool ok = got == rc && h == -1;
     ok = ok && (!n1 || strstr(err, n1)) && (!n2 || strstr(err, n2)) && (!n3 || strstr(err, n3));
     ok = ok && heap == w.m.shape() && ops == w.reg.nops() && st == w.reg.nstates() && ev == w.reg.nevents() && count == w.ld->count();
-    ok = ok && resident == w.ld->resident_bytes();
+    ok = ok && resident == w.ld->resident_bytes() && held == w.ld->held_total() && live == live_after;
     g_checks++;
     if (!ok) {
-        printf("FAIL %s: rc %d (want %d), handle %d, text \"%s\"; heap %s -> %s; ops %d -> %d\n", what, got, rc, h, err, heap.c_str(),
-               w.m.shape().c_str(), ops, w.reg.nops());
+        printf("FAIL %s: rc %d (want %d), handle %d, text \"%s\"; heap %s -> %s; ops %d -> %d; process heap blocks %ld -> %ld, held %u -> %u\n", what, got, rc, h, err, heap.c_str(),
+               w.m.shape().c_str(), ops, w.reg.nops(), live, live_after, (unsigned)held, (unsigned)w.ld->held_total());
         g_fails++;
     }
 }
@@ -892,15 +908,6 @@ static std::vector<uint8_t> with_menu(Img m, const std::vector<uint8_t> &rec, ui
     return f;
 }
 
-// the heap of the process, counted: a menu record is two blocks (the bytes and the decoded table) that must go back with the slot
-static long g_live;
-void *operator new(size_t n) { g_live++; return malloc(n ? n : 1); }
-void *operator new[](size_t n) { g_live++; return malloc(n ? n : 1); }
-void operator delete(void *p) noexcept { if (p) { g_live--; free(p); } }
-void operator delete[](void *p) noexcept { if (p) { g_live--; free(p); } }
-void operator delete(void *p, size_t) noexcept { if (p) { g_live--; free(p); } }
-void operator delete[](void *p, size_t) noexcept { if (p) { g_live--; free(p); } }
-
 static void menu_record()
 {
     std::vector<uint8_t> rec = read_file("menu_lib.bin");
@@ -934,7 +941,7 @@ static void menu_record()
     std::vector<uint8_t> hides = read_file("menu_hide.bin");
     refused("menu that hides", w, with_menu(Img("alpha", "A"), hides), LIB_BAD_FILE, "alpha", "hides and renames");
     Img f2("alpha", "A");
-    f2.flags = 2;
+    f2.flags = 4;
     refused("an unknown flag", w, build(f2), LIB_BAD_FILE, "alpha", "header flags");
     Img r1("alpha", "A");
     r1.reserved = 16;                                               // a reserved word without the flag
@@ -1245,6 +1252,380 @@ static void files()
     CHECK_EQ(arc, 3);
 }
 
+
+// ------------------------------------------------------------------------------------------ the budget and the account (T239.3 S13, S14)
+
+static U2a3Budget bud_open()
+{
+    U2a3Budget b;
+    memset(&b, 0xFF, sizeof(b));
+    b.size = U2A3_BUDGET_SIZE;
+    return b;
+}
+
+static std::vector<uint8_t> bud_bytes(const U2a3Budget &b)
+{
+    std::vector<uint8_t> v(sizeof(b));
+    memcpy(v.data(), &b, sizeof(b));
+    return v;
+}
+
+// A twin that registers what a library of the given counts registers: names prefix.o0 ..., kept alive with the twin.
+struct RegStore {
+    std::vector<std::string> names;
+    std::vector<LibOpDecl> ops;
+    std::vector<LibStateDecl> st;
+    std::vector<LibEventDecl> ev;
+    std::vector<LibSettingDecl> sets;
+    std::vector<LibTabDecl> tabs;
+};
+static Model::Twin reg_twin(const std::string &prefix, int nops, int nstates, int nevents, int nsettings = 0, int ntabs = 0, const char *area = "F5")
+{
+    std::shared_ptr<RegStore> r(new RegStore);
+    r->names.reserve(nops + nstates + nevents + 1);
+    for (int i = 0; i < nops; i++) { r->names.push_back(prefix + ".o" + std::to_string(i)); }
+    for (int i = 0; i < nstates; i++) { r->names.push_back(prefix + ".s" + std::to_string(i)); }
+    for (int i = 0; i < nevents; i++) { r->names.push_back(prefix + ".e" + std::to_string(i)); }
+    int k = 0;
+    for (int i = 0; i < nops; i++) { LibOpDecl d = { r->names[k++].c_str(), 0, 0, h_nop }; r->ops.push_back(d); }
+    for (int i = 0; i < nstates; i++) { LibStateDecl d = { r->names[k++].c_str(), [](CoreCtx *) -> const char * { return "v"; } }; r->st.push_back(d); }
+    for (int i = 0; i < nevents; i++) { LibEventDecl d = { r->names[k++].c_str(), 0 }; r->ev.push_back(d); }
+    for (int i = 0; i < nsettings; i++) { LibSettingDecl d; memset(&d, 0, sizeof(d)); d.key = "k"; d.apply = "x.y"; r->sets.push_back(d); }
+    for (int i = 0; i < ntabs; i++) { LibTabDecl d; memset(&d, 0, sizeof(d)); d.area = area; d.id = "t"; d.name = "T"; r->tabs.push_back(d); }
+    return [r](const LibHost::Entry &, const LibApi *, LibRecord *rec) {
+        rec->ops = r->ops.data(); rec->nops = (int)r->ops.size();
+        rec->states = r->st.data(); rec->nstates = (int)r->st.size();
+        rec->events = r->ev.data(); rec->nevents = (int)r->ev.size();
+        rec->settings = r->sets.data(); rec->nsettings = (int)r->sets.size();
+        rec->tabs = r->tabs.data(); rec->ntabs = (int)r->tabs.size();
+        return 0;
+    };
+}
+
+static const LibApi *g_hp_api;
+static int h_hp_grow(CoreCtx *, const OpArgs &, OpOut &o)
+{
+    void *p = g_hp_api->mem->malloc(32);
+    snprintf(o.msg, o.msglen, "%s", p ? "ok" : "denied");
+    return p ? OPE_OK : OPE_FAILED;
+}
+static int h_hp_realloc(CoreCtx *, const OpArgs &, OpOut &o)
+{
+    void *p = g_hp_api->mem->malloc(16);
+    memset(p, 0x5C, 16);
+    void *q = g_hp_api->mem->realloc(p, 90);                  // 90 with 16 and 64 held: the old and the new block are held together
+    snprintf(o.msg, o.msglen, "%s %d", q ? "grown" : "kept", p && ((uint8_t *)p)[15] == 0x5C);
+    return OPE_OK;
+}
+static std::vector<std::string> g_log;
+static void log_to_test(const char *t) { g_log.push_back(t); }
+
+// S13: the budget a file declares, and the limits of the tables. Each refusal names the library, the figure and the limit, and nothing of it stays
+// (refused() compares the heap, the registry, the accounts and the process heap before and after).
+static void budgets()
+{
+    char err[LIB_ERR_MAX] = "";
+    int h = -1;
+    {   // the image
+        World w(U2A_BASE_MINOR);
+        w.m.twins["bigimg"] = [](const LibHost::Entry &, const LibApi *, LibRecord *) { return 0; };
+        Img b("bigimg", "B");                                              // 64 bytes of payload and 32 of bss
+        U2a3Budget bd = bud_open();
+        bd.image = 64;
+        b.budget = bud_bytes(bd);
+        refused("image over its budget", w, build(b), LIB_BUDGET, "bigimg", "96", "64");
+        bd.image = 96;
+        b.budget = bud_bytes(bd);
+        CHECK_EQ(w.load(build(b), &h, err), LIB_OK);                        // at the figure it is in
+        CHECK_STR(w.ld->info(h)->name, "bigimg");
+    }
+    {   // what lib_register registers: operations, state values, events
+        World w(U2A_BASE_MINOR);
+        w.m.twins["opsy"] = reg_twin("opsy", 3, 2, 1);
+        Img o("opsy", "O");
+        U2a3Budget bd = bud_open();
+        bd.ops = 2;
+        o.budget = bud_bytes(bd);
+        refused("operations over the budget", w, build(o), LIB_BUDGET, "opsy", "3 operations", "budget of 2");
+        bd.ops = 3; bd.states = 1;
+        o.budget = bud_bytes(bd);
+        refused("state values over the budget", w, build(o), LIB_BUDGET, "opsy", "2 state values", "budget of 1");
+        bd.states = 2; bd.events = 0;
+        o.budget = bud_bytes(bd);
+        refused("events over the budget", w, build(o), LIB_BUDGET, "opsy", "1 events", "budget of 0");
+        bd.events = 1;
+        o.budget = bud_bytes(bd);
+        CHECK_EQ(w.load(build(o), &h, err), LIB_OK);                        // exactly the figures
+        CHECK_EQ(w.reg.nops(), 3);
+        CHECK_EQ(w.reg.nstates(), 2);
+        CHECK_EQ(w.reg.nevents(), 1);
+        // a figure left open is the platform's: no budget at all loads as before
+        w.m.twins["free1"] = reg_twin("free1", 5, 0, 0);
+        CHECK_EQ(w.load(build(Img("free1", "F")), &h, err), LIB_OK);
+        CHECK_EQ(w.reg.nops(), 8);
+    }
+    {   // the settings, nodes and tabs of the record and the menu record together; the poll
+        World w(U2A_BASE_MINOR);
+        std::vector<uint8_t> rec = read_file("menu_lib.bin");                // 1 node, 1 tab, 1 setting, 1 file action, 1 poll
+        Img a("alpha", "A");
+        U2a3Budget bd = bud_open();
+        bd.nodes = 0;
+        a.budget = bud_bytes(bd);
+        refused("nodes of the menu record over the budget", w, with_menu(a, rec), LIB_BUDGET, "alpha", "1 menu nodes", "budget of 0");
+        bd = bud_open(); bd.tabs = 0;
+        a.budget = bud_bytes(bd);
+        refused("tabs over the budget", w, with_menu(a, rec), LIB_BUDGET, "alpha", "1 tabs", "budget of 0");
+        bd = bud_open(); bd.polls = 0;
+        a.budget = bud_bytes(bd);
+        refused("polls over the budget", w, with_menu(a, rec), LIB_BUDGET, "alpha", "1 polls", "budget of 0");
+        bd = bud_open(); bd.settings = 0;
+        a.budget = bud_bytes(bd);
+        refused("settings over the budget", w, with_menu(a, rec), LIB_BUDGET, "alpha", "1 settings", "budget of 0");
+        bd = bud_open(); bd.file_actions = 0;
+        a.budget = bud_bytes(bd);
+        refused("file actions over the budget", w, with_menu(a, rec), LIB_BUDGET, "alpha", "1 file actions", "budget of 0");
+        // the record of lib_register and the menu record add up
+        w.m.twins["alpha"] = reg_twin("alpha", 0, 0, 0, 2, 0);
+        bd = bud_open(); bd.settings = 2;
+        a.budget = bud_bytes(bd);
+        refused("both records together", w, with_menu(a, rec), LIB_BUDGET, "alpha", "3 settings", "budget of 2");
+        bd.settings = 3; bd.nodes = 1; bd.tabs = 1; bd.polls = 1; bd.file_actions = 1;
+        a.budget = bud_bytes(bd);
+        CHECK_EQ(w.load(with_menu(a, rec), &h, err), LIB_OK);
+    }
+    {   // the tables: a library over the room that is left is refused, undeclared or not
+        World w(U2A_BASE_MINOR);
+        w.reg.contributor("fill");
+        std::vector<std::string> names;                                      // the registry keeps the pointers: the names live as long as the registry
+        names.reserve(OPS_MAX + STATES_MAX + EVENTS_MAX);
+        for (int i = 0; i < OPS_MAX - 1; i++) { names.push_back("fill.o" + std::to_string(i)); CHECK_EQ(w.reg.add_op(names.back().c_str(), 0, 0, h_nop), OPE_OK); }
+        for (int i = 0; i < STATES_MAX - 1; i++) { names.push_back("fill.s" + std::to_string(i)); CHECK_EQ(w.reg.add_state(names.back().c_str(), [](CoreCtx *) -> const char * { return "v"; }), OPE_OK); }
+        for (int i = 0; i < EVENTS_MAX - 1; i++) { names.push_back("fill.e" + std::to_string(i)); CHECK_EQ(w.reg.add_event(names.back().c_str(), 0), OPE_OK); }
+        w.m.twins["two"] = reg_twin("two", 2, 0, 0);
+        refused("operations table", w, build(Img("two", "T")), LIB_BUDGET, "two", "2 operations", "holds 400 and 399");
+        w.m.twins["two"] = reg_twin("two", 0, 2, 0);
+        refused("state table", w, build(Img("two", "T")), LIB_BUDGET, "two", "2 state values", "holds 320 and 319");
+        w.m.twins["two"] = reg_twin("two", 0, 0, 2);
+        refused("event table", w, build(Img("two", "T")), LIB_BUDGET, "two", "2 events", "holds 8 and 7");
+        w.m.twins["two"] = reg_twin("two", 1, 1, 1);
+        CHECK_EQ(w.load(build(Img("two", "T")), &h, err), LIB_OK);          // one of each is what is left
+        CHECK_EQ(w.reg.nops(), OPS_MAX);
+    }
+    {   // the settings of every library together are CONTRIB_SETTINGS_MAX, the tabs of an area MENU_STRIP_TABS
+        World w(U2A_BASE_MINOR);
+        w.m.twins["sa"] = reg_twin("sa", 0, 0, 0, 12, 6);
+        w.m.twins["sb"] = reg_twin("sb", 0, 0, 0, 5, 3);
+        CHECK_EQ(w.load(build(Img("sa", "A")), &h, err), LIB_OK);
+        refused("settings table", w, build(Img("sb", "B")), LIB_BUDGET, "sb", "5 settings", "holds 16 and 12");
+        w.m.twins["sb"] = reg_twin("sb", 0, 0, 0, 4, 3);
+        refused("tab strip", w, build(Img("sb", "B")), LIB_BUDGET, "sb", "3 tabs to area F5", "holds 8 and 6");
+        w.m.twins["sb"] = reg_twin("sb", 0, 0, 0, 4, 2);
+        CHECK_EQ(w.load(build(Img("sb", "B")), &h, err), LIB_OK);
+        w.m.twins["sc"] = reg_twin("sc", 0, 0, 0, 0, 3, "F6");              // another area has its own strip
+        CHECK_EQ(w.load(build(Img("sc", "C")), &h, err), LIB_OK);
+    }
+    {   // the heap: the figure of api->mem; over it at load, the library is refused; later, the request is refused and told once
+        World w(U2A_BASE_MINOR);
+        CoreCtx cx;
+        memset(&cx, 0, sizeof(cx));
+        w.ld->set_ctx(&cx);
+        w.ld->set_log(log_to_test);
+        g_log.clear();
+        w.m.twins["hq"] = [](const LibHost::Entry &, const LibApi *api, LibRecord *) { void *p = api->mem->malloc(200); CHECK(p == 0); return 0; };
+        Img q("hq", "Q");
+        U2a3Budget bd = bud_open();
+        bd.heap = 100;
+        q.budget = bud_bytes(bd);
+        refused("heap over the budget at load", w, build(q), LIB_BUDGET, "hq", "200 bytes", "budget of 100");
+        CHECK(g_log.empty());                                               // a refusal at load is the load's sentence, not a log line
+        static LibOpDecl hp_ops[3] = { { "hp.grow", 0, 0, h_hp_grow }, { "hp.realloc", 0, 0, h_hp_realloc }, { 0, 0, 0, 0 } };
+        w.m.twins["hp"] = [](const LibHost::Entry &, const LibApi *api, LibRecord *rec) {
+            g_hp_api = api;
+            void *a = api->mem->malloc(64);
+            CHECK(a != 0);
+            rec->ops = hp_ops; rec->nops = 2;
+            return 0;
+        };
+        Img p("hp", "P");
+        p.budget = bud_bytes(bd);
+        CHECK_EQ(w.load(build(p), &h, err), LIB_OK);
+        CHECK_EQ(w.ld->account_bytes(h), 64u);
+        CHECK_STR(call(w, "hp.grow").c_str(), "ok");                        // 96 of 100 ...
+        CHECK_EQ(w.ld->account_bytes(h), 96u);
+        CHECK_STR(call(w, "hp.grow").c_str(), "ERR denied");                // ... and 128 is over; the answer is a null pointer
+        CHECK_EQ(w.ld->account_bytes(h), 96u);
+        CHECK_EQ(w.ld->account_blocks(h), 2);
+        int told = 0;
+        for (size_t i = 0; i < g_log.size(); i++) { told += g_log[i].find("declared heap budget of 100") != std::string::npos; }
+        CHECK_EQ(told, 1);
+        CHECK_EQ(w.ld->account_blocks(-1), 0);                              // none of it went to nobody
+        CHECK_EQ(w.ld->unload(h, err, sizeof(err)), LIB_OK);
+        CHECK_EQ(w.ld->held_total(), 0u);
+        // realloc holds the old and the new block together (64 held by the library's own block, 16 + 90 would be 170)
+        CHECK_EQ(w.load(build(p), &h, err), LIB_OK);
+        CHECK_STR(call(w, "hp.realloc").c_str(), "kept 1");
+        CHECK_EQ(w.ld->account_bytes(h), 80u);                              // the 64 of lib_register and the 16 that stayed
+    }
+    {   // the real file: the packer wrote the budget, the loader enforces it
+        World w(U2A_BASE_MINOR);
+        w.m.caps.push_back("drive_a");
+        std::vector<uint8_t> ok = read_file("testlib.budget.u2a"), tight = read_file("testlib.ops0.u2a");
+        CHECK(ok.size() > U2A3_HEADER_SIZE + U2A3_BUDGET_SIZE);
+        uint32_t fl;
+        memcpy(&fl, ok.data() + 16, 4);
+        CHECK_EQ(fl & U2A3_FLAG_BUDGET, U2A3_FLAG_BUDGET);
+        CHECK_EQ(w.load(ok, &h, err), LIB_OK);                              // image=4096 heap=0 ops=1 states=1
+        CHECK_EQ(w.reg.nops(), 1);
+        World w2(U2A_BASE_MINOR);
+        refused("the packed budget of ops=0", w2, tight, LIB_BUDGET, "testlib", "1 operations", "budget of 0");
+        World w3(2);                                                         // a base that is older than the budget refuses the dependency the packer added
+        refused("a base older than 3.3", w3, ok, LIB_NEEDS, "testlib", "needs base 3.3");
+    }
+    {   // a budget record that is not one
+        World w(U2A_BASE_MINOR);
+        U2a3Budget bd = bud_open();
+        Img a("alpha", "A");
+        bd.size = 8;
+        a.budget = bud_bytes(bd);
+        refused("budget record too small", w, build(a), LIB_BAD_FILE, "alpha", "budget record");
+        bd.size = U2A3_BUDGET_SIZE + 2;
+        a.budget = bud_bytes(bd);
+        refused("budget record of an odd size", w, build(a), LIB_BAD_FILE, "alpha", "budget record");
+        bd.size = U2A3_BUDGET_SIZE + 16;                                    // longer than the bytes the writer put in: it runs into the dependencies
+        a.budget = bud_bytes(bd);
+        a.needs.push_back(std::make_pair(std::string("base"), U2A3_VERSION(3, 0)));
+        refused("budget record over the dependencies", w, build(a), LIB_BAD_FILE, "alpha", "overlaps");
+        // a record of a later minor is longer and still read: the figures it has are the figures
+        bd = bud_open();
+        bd.ops = 0;
+        bd.size = U2A3_BUDGET_SIZE + 8;
+        std::vector<uint8_t> big = bud_bytes(bd);
+        big.resize(U2A3_BUDGET_SIZE + 8, 0);
+        Img g("gamma", "G");                                                 // registers one operation
+        g.budget = big;
+        refused("figures of a longer record", w, build(g), LIB_BUDGET, "gamma", "1 operations", "budget of 0");
+        bd.ops = 1;
+        big = bud_bytes(bd);
+        big.resize(U2A3_BUDGET_SIZE + 8, 0);
+        g.budget = big;
+        CHECK_EQ(w.load(build(g), &h, err), LIB_OK);
+    }
+}
+
+// S14: what a library took, it gives back. The account of an image is its block, its blocks of api->mem (also those that its operations take later, whoever
+// calls them), its files and its menu record; unloading it returns the heap to what it was before the load.
+static const LibApi *g_acct_api;
+static int h_acct_grow(CoreCtx *, const OpArgs &, OpOut &o)
+{
+    void *p = g_acct_api->mem->malloc(48);
+    snprintf(o.msg, o.msglen, "%s", p ? "ok" : "none");
+    return p ? OPE_OK : OPE_FAILED;
+}
+static int h_acct_chain(CoreCtx *, const OpArgs &, OpOut &o)             // acct.chain: one block of its own, then an operation of the other library, then one more of its own
+{
+    void *a = g_acct_api->mem->malloc(32);
+    OpResult r;
+    int rc = g_acct_api->ops->call("bacct.grow", 0, 0, &r);
+    void *b = g_acct_api->mem->malloc(32);
+    snprintf(o.msg, o.msglen, "%d", rc == OPE_OK && a && b);
+    return OPE_OK;
+}
+static int h_bacct_grow(CoreCtx *, const OpArgs &, OpOut &o)
+{
+    void *p = g_acct_api->mem->malloc(64);
+    snprintf(o.msg, o.msglen, "%s", p ? "ok" : "none");
+    return p ? OPE_OK : OPE_FAILED;
+}
+
+static void accounts()
+{
+    World w(U2A_BASE_MINOR);
+    FakeFs disk;
+    disk.put_size("/USB0/x.bin", 16);
+    CoreCtx cx;
+    memset(&cx, 0, sizeof(cx));
+    cx.fs = &disk;
+    w.ld->set_ctx(&cx);
+    char err[LIB_ERR_MAX] = "";
+    static LibOpDecl aops[2] = { { "acct.grow", 0, 0, h_acct_grow }, { "acct.chain", 0, 0, h_acct_chain } };
+    static LibOpDecl bops[1] = { { "bacct.grow", 0, 0, h_bacct_grow } };
+    w.m.twins["acct"] = [](const LibHost::Entry &, const LibApi *api, LibRecord *rec) {
+        g_acct_api = api;
+        void *a = api->mem->malloc(64);
+        void *b = api->mem->malloc(128);
+        CHECK(a && b);
+        api->mem->free(a);                                                  // one given back, one kept
+        rec->ops = aops; rec->nops = 2;
+        return 0;
+    };
+    w.m.twins["bacct"] = [](const LibHost::Entry &, const LibApi *, LibRecord *rec) { rec->ops = bops; rec->nops = 1; return 0; };
+
+    w.m.twins["facct"] = [](const LibHost::Entry &, const LibApi *api, LibRecord *) {
+        SvcFile *f = api->fs->open("/USB0/x.bin", false);                   // never closed by the library
+        CHECK(f != 0);
+        CHECK(api->mem->malloc(100) != 0);
+        return 0;
+    };
+    w.m.twins["xacct"] = [](const LibHost::Entry &, const LibApi *api, LibRecord *) { CHECK(api->mem->malloc(256) != 0); CHECK(api->mem->malloc(16) != 0); return 5; };
+    std::vector<uint8_t> rec = read_file("menu_lib.bin");
+    std::string shape0 = w.m.shape();
+    uint32_t used0 = w.m.used_bytes();
+    long live0 = g_live;
+    int ha = -1, hb = -1;
+    CHECK_EQ(w.load(build(Img("acct", "A")), &ha, err), LIB_OK);
+    CHECK_EQ(w.load(build(Img("bacct", "B")), &hb, err), LIB_OK);
+    // the model rounds every block to 16 and the sizes here are rounded already: what the heap gave is exactly what the account says
+    CHECK_EQ(w.m.used_bytes() - used0, w.ld->held_total());
+    CHECK(w.ld->held_bytes(ha) > w.ld->info(ha)->image_size && w.ld->held_bytes(hb) > w.ld->info(hb)->image_size);
+    uint32_t a0 = w.ld->held_bytes(ha), b0 = w.ld->held_bytes(hb);
+
+    // an operation of the library takes memory later, on the task that called it: it is the library's
+    CHECK_STR(call(w, "acct.grow").c_str(), "ok");
+    CHECK_STR(call(w, "acct.grow").c_str(), "ok");
+    CHECK_EQ(w.ld->account_blocks(ha), 3);
+    CHECK_EQ(w.ld->account_bytes(ha), 128u + 48 + 48);
+    CHECK_EQ(w.ld->account_blocks(-1), 0);
+    CHECK_EQ(w.m.used_bytes() - used0, w.ld->held_total());
+    CHECK(w.ld->held_bytes(ha) > a0);
+    // an operation that calls another library's: each block goes where its code is, and the current account is back when the call returns
+    CHECK_STR(call(w, "acct.chain").c_str(), "1");
+    CHECK_EQ(w.ld->account_blocks(ha), 5);
+    CHECK_EQ(w.ld->account_blocks(hb), 1);
+    CHECK_EQ(w.ld->account_bytes(hb), 64u);
+    CHECK(w.ld->held_bytes(hb) > b0);
+    CHECK_EQ(w.ld->current(), -1);
+    CHECK_EQ(w.m.used_bytes() - used0, w.ld->held_total());
+
+    // unloading gives all of it back: the heap is what it was before the first load
+    CHECK_EQ(w.ld->unload(ha, err, sizeof(err)), LIB_OK);
+    CHECK_EQ(w.ld->account_blocks(ha), 0);
+    CHECK_EQ(w.m.used_bytes() - used0, w.ld->held_total());
+    CHECK_EQ(w.ld->unload(hb, err, sizeof(err)), LIB_OK);
+    CHECK_EQ(w.ld->held_total(), 0u);
+    CHECK_EQ(w.m.used_bytes(), used0);
+    CHECK(shape0 == w.m.shape());
+    CHECK_EQ(g_live, live0);
+
+    // files and the menu record are on the account too
+    int hf = -1;
+    CHECK_EQ(w.load(with_menu(Img("facct", "F"), rec), &hf, err), LIB_OK);
+    CHECK(g_live > live0);                                                  // the menu record
+    CHECK_EQ(disk.open_files, 1);
+    CHECK_EQ(w.ld->account_files(hf), 1);
+    CHECK(w.ld->held_bytes(hf) > w.m.used_bytes() - used0);                 // the model's arena holds the image, the block and the handle; the menu record is on the process heap
+    CHECK_EQ(w.ld->unload(hf, err, sizeof(err)), LIB_OK);
+    CHECK_EQ(disk.open_files, 0);
+    CHECK_EQ(w.ld->held_total(), 0u);
+    CHECK_EQ(w.m.used_bytes(), used0);
+    CHECK(shape0 == w.m.shape());
+    CHECK_EQ(g_live, live0);
+
+    // a library that fails after it took memory leaves nothing: the account is emptied with the refused image
+    refused("a library that fails after it took memory", w, build(Img("xacct", "X")), LIB_REGISTER, "xacct", "lib_register failed (5)");
+    CHECK_EQ(w.ld->account_blocks(-1), 0);
+    CHECK(shape0 == w.m.shape());
+}
+
 int main()
 {
     setvbuf(stdout, 0, _IONBF, 0);                                  // a mutant may crash: what it said before has to be out
@@ -1257,5 +1638,7 @@ int main()
     failures();
     apps();
     files();
+    budgets();
+    accounts();
     DONE("test_libload");
 }

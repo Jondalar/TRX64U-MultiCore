@@ -3,6 +3,7 @@
 #
 #   APP_NAME = unzip          APP_VERSION = 1.0           APP_RES = transient | resident        APP_MENU = app.toml (optional)
 #   APP_KIND = lib            a library (T197): resident, entry lib_register, no u2p_compat; APP_NEEDS = "base>=3.1" "other>=1.0" (space separated, quoted)
+#   APP_BUDGET = image=65536 heap=1048576 ops=4          the budget of the file, as LIB_BUDGET of lib.mk (the loader refuses what is over it)
 #   APP_REG = 1               an application with screens: it has lib_register, the operations and state values they bind to
 #   APP_CSRCS = src/unzip.c ...                           APP_CCSRCS = glue.cc                  APP_INC = -Isrc/miniz
 #   include <repo>/app/lib/app.mk          (in the SDK package: include <package>/mk/app.mk)
@@ -43,7 +44,7 @@ $(APP_NAME).elf: $(OBJS) $(APP_DIR)lib.ld
 	$(LD_RV) -m elf32lriscv --emit-relocs --gc-sections -e $(if $(filter lib,$(APP_KIND)),lib_register,app_main) $(if $(APP_REG),-u lib_register) -T $(APP_DIR)lib.ld $(OBJS) -o $@
 
 $(APP_OUT): $(APP_NAME).elf $(DEPMENU)
-	python3 $(SDK_TOOLS)/u2a_pack.py $< -o $@ --kind $(APP_KIND) --residence $(APP_RES) --name $(APP_NAME) --version $(APP_VERSION) $(foreach n,$(APP_NEEDS),--needs '$(n)') $(if $(APP_MENU),--menu $(APP_MENU))
+	python3 $(SDK_TOOLS)/u2a_pack.py $< -o $@ --kind $(APP_KIND) --residence $(APP_RES) --name $(APP_NAME) --version $(APP_VERSION) $(foreach n,$(APP_NEEDS),--needs '$(n)') $(if $(APP_MENU),--menu $(APP_MENU)) $(foreach b,$(APP_BUDGET),--budget '$(b)')
 
 clean:
 	rm -rf obj $(APP_NAME).elf $(APP_OUT)

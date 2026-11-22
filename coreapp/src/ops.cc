@@ -1,11 +1,12 @@
 #include "ops.h"
+#include "opscope.h"
 #include "ctx.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
 
-OpRegistry::OpRegistry() : owner_("?"), nops_(0), nstates_(0), nevents_(0), gen_(0)
+OpRegistry::OpRegistry() : owner_("?"), scope_(0), nops_(0), nstates_(0), nevents_(0), gen_(0)
 {
     memset(ops_, 0, sizeof(ops_));
     memset(states_, 0, sizeof(states_));
@@ -407,7 +408,11 @@ int OpRegistry::run(CoreCtx *c, const OpDef *d, const OpArgs &a, OpResult *r) co
     r->more = false;
     r->ndata = 0;
     OpOut o = { r->msg, (int)sizeof(r->msg), false, r->data, OP_DATA_MAX, 0 };
+    int scope_prev = scope_ ? scope_->enter(d->owner) : 0;
     r->code = d->fn(c, a, o);
+    if (scope_) {
+        scope_->leave(scope_prev);
+    }
     if (r->code == OPE_OK) {
         for (int k = 0; k < d->nargs && k < a.n; k++) {
             if (d->args[k].type == AT_PATH && a.s(k)) {
@@ -446,7 +451,11 @@ const char *OpRegistry::state(CoreCtx *c, const char *name, uint32_t *rev)
             continue;
         }
         StateDef &s = states_[i];
+        int scope_prev = scope_ ? scope_->enter(s.owner) : 0;
         const char *v = s.get(c);
+        if (scope_) {
+            scope_->leave(scope_prev);
+        }
         uint32_t h = v ? name_hash(v) + 1 : 0;              // no value is its own hash
         if (!s.seen || h != s.hash) {
             s.seen = true;

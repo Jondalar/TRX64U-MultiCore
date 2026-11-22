@@ -4,6 +4,11 @@
 #   LIB_SRCS = testlib.cc     LIB_CAP =             (LIB_RES = resident|transient; LIB_MANIFEST = manifest.json)
 #   include <repo>/app/lib/lib.mk          (in the SDK package: include <package>/mk/lib.mk)
 #
+# LIB_BUDGET = image=8192 heap=4096 ops=3 settings=2 declares what the library will take (T239.3 S13): image (code, data and bss, bytes), heap (bytes held at once through
+# api->mem), ops, states, events, nodes, file_actions, settings, tabs and polls (what lib_register and the menu record bring). The packer refuses an image over its own
+# image figure; the loader refuses the library at load when anything is over, naming the figure and the limit. A figure left out is the platform's limit. With a budget
+# the file needs base >= 3.3 (the packer sees to it).
+#
 # LIB_SRCS may list any number of .cc and .c files; each one is compiled (with hidden.h, C and C++: -fvisibility=hidden leaves extern declarations alone,
 # so a call or a data reference to another file would go through the PLT and GOT, which the loader does not fill) and all are linked into one image. LIB_MENU = menu.toml carries the library's
 # menu record in the image (tools/descrec.py). LIB_INC = -Idir ... adds include paths. LIB_LIBC = 1 links the memcpy/memset/division of sdk/libc.c.
@@ -50,7 +55,7 @@ $(LIB_NAME).elf: $(LIB_OBJS) $(LIB_DIR)lib.ld
 $(LIB_OUT): $(LIB_NAME).elf $(LIB_MENU)
 	python3 $(SDK_TOOLS)/u2a_pack.py $< -o $@ --kind $(LIB_KIND) --residence $(LIB_RES) --name $(LIB_NAME) \
 	    --version $(LIB_VERSION) $(foreach n,$(LIB_NEEDS),--needs '$(n)') $(if $(LIB_CAP),--capability $(LIB_CAP)) \
-	    $(if $(LIB_MANIFEST),--manifest $(LIB_MANIFEST)) $(if $(LIB_MENU),--menu $(LIB_MENU)) --link-base $(LIB_BASE)
+	    $(if $(LIB_MANIFEST),--manifest $(LIB_MANIFEST)) $(if $(LIB_MENU),--menu $(LIB_MENU)) $(foreach b,$(LIB_BUDGET),--budget '$(b)') --link-base $(LIB_BASE)
 
 clean:
 	rm -f $(LIB_OBJS) $(LIB_OBJS:.o=.d) $(LIB_NAME).elf $(LIB_OUT)

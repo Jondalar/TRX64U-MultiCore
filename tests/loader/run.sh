@@ -21,6 +21,20 @@ PASS=0
 python3 "$ROOT/tools/u2a_pack.py" "$TST/fixtures/testlib.at0.elf" -o "$T/testlib.u2a" --name testlib --version 1 --needs 'base>=3.0' > /dev/null
 python3 "$ROOT/tools/u2a_pack.py" "$TST/fixtures/testlib.at1000.elf" --link-base 0x1000 --raw-image "$T/testlib.at1000.raw" > /dev/null
 
+# T239.3 S13: the budget the packer writes (--budget) and the loader enforces: one file that fits (the packer adds `base>=3.3`), one that declares no operation,
+# and the packer's own refusal of an image over its figure
+python3 "$ROOT/tools/u2a_pack.py" "$TST/fixtures/testlib.at0.elf" -o "$T/testlib.budget.u2a" --name testlib --version 1 --needs 'base>=3.0' \
+  --budget image=4096 --budget heap=0 --budget ops=1 --budget states=1 > /dev/null
+python3 "$ROOT/tools/u2a_pack.py" "$TST/fixtures/testlib.at0.elf" -o "$T/testlib.ops0.u2a" --name testlib --version 1 --budget ops=0 > /dev/null
+if python3 "$ROOT/tools/u2a_pack.py" "$TST/fixtures/testlib.at0.elf" -o "$T/testlib.big.u2a" --name testlib --version 1 --budget image=8 > /dev/null 2> "$T/pack.err"; then
+  echo "u2a_pack accepted an image over its declared budget" >&2; exit 1
+fi
+grep -q "over its declared budget of 8 bytes" "$T/pack.err" || { echo "u2a_pack refused, but not with the budget sentence: $(cat "$T/pack.err")" >&2; exit 1; }
+if python3 "$ROOT/tools/u2a_pack.py" "$TST/fixtures/testlib.at0.elf" -o "$T/testlib.bad.u2a" --name testlib --version 1 --budget colour=3 > /dev/null 2> "$T/pack.err"; then
+  echo "u2a_pack accepted a budget key it does not know" >&2; exit 1
+fi
+[ ! -e "$T/testlib.big.u2a" ] && [ ! -e "$T/testlib.bad.u2a" ] || { echo "u2a_pack left a file behind after a refusal" >&2; exit 1; }
+
 # T104.1: the menu records of a library file (libmenu.h), compiled by the real tool; one with a route and one that hides are the refusals
 python3 "$ROOT/tools/descrec.py" compile "$TST/menu_lib.toml" "$T/menu_lib.bin"
 python3 - "$T" "$TST" <<'PY'
@@ -43,7 +57,7 @@ build() {   # build OUT SRCDIR
   $CXX "${LA[@]}" -o "$1" "${LF[@]}"
 }
 # the fixtures the generators above left in $T and the test reads through FIXDIR: named, so that they are part of every unit's key (T100 D14)
-CC_EXTRA="$T/testlib.u2a $T/testlib.at1000.raw $T/menu_lib.bin $T/menu_route.bin $T/menu_hide.bin $T/menu_poll.bin"
+CC_EXTRA="$T/testlib.u2a $T/testlib.budget.u2a $T/testlib.ops0.u2a $T/testlib.at1000.raw $T/menu_lib.bin $T/menu_route.bin $T/menu_hide.bin $T/menu_poll.bin"
 run() {
   local key t0=$SECONDS; loader_args "$SRC"; key="$(cc_key loader "test libload" -- "${LA[@]}" -- "${LF[@]}")"
   if cc_cached libload "$key" test; then PASS=$((PASS + 1)); return 0; fi

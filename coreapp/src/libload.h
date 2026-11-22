@@ -10,6 +10,7 @@
 #include "libapi.h"
 #include "libpoll.h"
 #include "ops.h"
+#include "opscope.h"
 
 // Where a file comes from: the flash, a stick, or a record of the .cor already in memory.
 class LibSource {
@@ -65,7 +66,8 @@ enum LibRc {
     LIB_DUPLICATE = -6,         // something of that name is loaded already
     LIB_REGISTER = -7,          // lib_register failed or what it registered was refused
     LIB_STATE = -8,             // finish() of a resident image, or of a handle that is not loaded
-    LIB_NOT_APP = -9            // run() of an image that has no app_main, or a host that cannot run one
+    LIB_NOT_APP = -9,           // run() of an image that has no app_main, or a host that cannot run one
+    LIB_BUDGET = -10            // the image, the heap or the registrations are over the budget the file declares, or over the limit of a table (T239.3 S13)
 };
 
 #define LIB_MAX 12              // images loaded at once
@@ -83,7 +85,7 @@ struct LibInfo {
     uint8_t *menu_bytes;
 };
 
-class LibLoader {
+class LibLoader : private OpScope {
 public:
     // base_minor: the minor of the ABI this base offers (a library `needs base >= 3.x`). The tests lower it.
     LibLoader(LibHost *host, OpRegistry *reg, uint16_t base_minor = U2A_BASE_MINOR);
@@ -131,11 +133,13 @@ public:
     uint32_t room() const { return host_->room(); }
     void set_sys_extra(int (*flash_read)(uint32_t, void *, int), void (*handover)(void)) { sys_.flash_read = flash_read; sys_.machine_handover = handover; }
     // Whose account the allocations and files of api->mem / api->fs go to from now on: the application whose tasks run (-1: nobody's). run() sets it
-    // for the call; the base sets it for as long as an application's screens or jobs are up.
+    // for the call; the base sets it for as long as an application's screens or jobs are up; the registry sets it to the image of the handler it runs
+    // (OpScope, enter/leave below), so what an operation takes later is the library's too.
     void set_current(int handle) { cur_ = handle; }
     int current() const { return cur_; }
 
-    // Blocks handed out by api->mem: to the application that runs (or registers) now, else to nobody (never given back by the loader).
+    // Blocks handed out by api->mem: to the image whose code runs now (it registers, one of its handlers runs, or it is the application that is open), else
+    // to nobody (never given back by the loader).
     int account_blocks(int handle) const;     // handle -1: the blocks of nobody
     uint32_t account_bytes(int handle) const;
     int account_files(int handle) const;      // files opened through api->fs and not closed yet
@@ -146,7 +150,12 @@ public:
     const LibInfo *info(int handle) const;
     int handle_of(const char *name) const;    // the slot of a loaded image by name, -1: not loaded
     int count() const { return count_; }
-    uint32_t resident_bytes() const;      // heap held by images that stay, what Q7's budget counts
+    uint32_t resident_bytes() const;      // heap held by the images that stay (image and bss), what Q7's budget counts
+    // The whole account of one image (T239.3 S14): everything the heap gave for it and has not got back - the image with its bss and alignment, the blocks of api->mem
+    // with their headers, the handles of api->fs, the menu record the file carries. handle -1: what nobody's account holds. Unloading or releasing the image returns
+    // all of it; the heap free before the load is the heap free after.
+    uint32_t held_bytes(int handle) const;
+    uint32_t held_total() const;          // the accounts of every loaded image and of nobody together
     // Always false: everything a record declares is served (the menu merge, contrib.h; the poll, set_poll_sink above).
     static bool unserved_text(const char *name, const LibRecord &rec, char *out, int outlen);
     int unserved_count() const;           // always 0 (see above)
@@ -159,6 +168,12 @@ private:
         int dep[U2A3_NEEDS_MAX];          // the slots this image counted as used when it loaded; unuse()d when it goes
         int ndep;
         void *raw;                        // what the heap gave; the image lies in it, aligned
+        uint32_t raw_size;                // the bytes asked for it (image, bss, alignment)
+        uint32_t menu_cost;               // the bytes of the menu record (the record and its bytes, from the heap by new)
+        uint32_t heap_limit;              // the declared heap budget (U2A3_BUDGET_NONE: none): the most api->mem holds for this image at once
+        uint32_t blk_bytes;               // what its blocks hold now (the sizes asked for), the figure the limit is held against
+        bool heap_denied;                 // an allocation was refused for the limit; the first one is told (heap_want, heap_had)
+        uint32_t heap_want, heap_had;
     };
     LibHost *host_;
     OpRegistry *reg_;
@@ -183,6 +198,10 @@ private:
     SvcFs fs_;
     SvcFile *files_[LIB_MAX + 1];         // the open files of api->fs, one list per slot as acct_
 
+    // OpScope (opscope.h): the registry runs a library's handler; its allocations are that library's from here to leave()
+    int enter(const char *owner) override;
+    void leave(int prev) override { cur_ = prev; }
+    bool over_budget(const char *name, const U2a3Budget &b, const LibRecord *rec, const LibRecord *menu, char *err, int errlen) const;
     static void *svc_malloc(uint32_t n);
     static void svc_free(void *p);
     static void *svc_realloc(void *p, uint32_t n);

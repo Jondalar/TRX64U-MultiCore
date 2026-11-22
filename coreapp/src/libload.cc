@@ -1,6 +1,7 @@
 #include "libload.h"
 #include "libmenu.h"
 #include "ctx.h"
+#include "contrib.h"
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
@@ -17,6 +18,7 @@ LibLoader::LibLoader(LibHost *host, OpRegistry *reg, uint16_t base_minor)
     memset(acct_, 0, sizeof(acct_));
     memset(files_, 0, sizeof(files_));
     s_ld = this;
+    reg_->set_scope(this);
     sys_.size = sizeof(sys_);
     sys_.log = svc_log;
     sys_.ms = svc_ms;
@@ -67,9 +69,24 @@ LibLoader::LibLoader(LibHost *host, OpRegistry *reg, uint16_t base_minor)
 
 LibLoader::~LibLoader()
 {
+    if (reg_->scope() == static_cast<OpScope *>(this)) {
+        reg_->set_scope(0);
+    }
     if (s_ld == this) {
         s_ld = 0;
     }
+}
+
+// The registry runs a handler of `owner`: a loaded image of that name becomes the current account until leave(); an owner that is none (the core's own
+// handlers, an image still being loaded, whose register call has set it already) leaves the current one alone.
+int LibLoader::enter(const char *owner)
+{
+    int prev = cur_;
+    int h = owner ? handle_of(owner) : -1;
+    if (h >= 0) {
+        cur_ = h;
+    }
+    return prev;
 }
 
 // ---- the service table (T104.3 D2)
@@ -86,14 +103,45 @@ void *LibLoader::svc_malloc(uint32_t n)
     if (n > 0x7FFFFFF0u - sizeof(Blk)) {
         return 0;
     }
+    // the heap budget of the image whose code runs: what its blocks hold plus this one may not pass it; the figure is reserved before the heap is asked
+    // and given back when the heap has no room
+    L->host_->enter();
+    int owner = L->cur_;
+    if (owner >= 0) {
+        Slot &s = L->slot_[owner];
+        if (s.heap_limit != U2A3_BUDGET_NONE && (uint64_t)s.blk_bytes + n > s.heap_limit) {
+            bool first = !s.heap_denied;
+            if (first) {
+                s.heap_denied = true;
+                s.heap_want = n;
+                s.heap_had = s.blk_bytes;
+            }
+            bool loading = !s.used;
+            L->host_->leave();
+            if (first && !loading) {
+                char line[LIB_ERR_MAX];
+                snprintf(line, sizeof(line), "\"%s\": %u bytes asked with %u held, over its declared heap budget of %u; the request is refused.", s.info.name,
+                         (unsigned)n, (unsigned)s.blk_bytes, (unsigned)s.heap_limit);
+                L->api_.log(line);
+            }
+            return 0;
+        }
+        s.blk_bytes += n;
+    }
+    L->host_->leave();
     Blk *b = (Blk *)L->host_->alloc(sizeof(Blk) + n);
     if (!b) {
+        if (owner >= 0) {
+            L->host_->enter();
+            L->slot_[owner].blk_bytes -= n;
+            L->host_->leave();
+        }
         return 0;
     }
     L->host_->enter();
-    Blk **head = L->list_of(L->cur_);
+    Blk **head = L->list_of(owner);
     b->size = n;
-    b->owner = L->cur_;
+    b->owner = owner;
     b->prev = 0;
     b->next = *head;
     if (*head) {
@@ -120,6 +168,9 @@ void LibLoader::svc_free(void *p)
     }
     if (b->next) {
         b->next->prev = b->prev;
+    }
+    if (b->owner >= 0) {
+        L->slot_[b->owner].blk_bytes -= b->size;
     }
     L->host_->leave();
     L->host_->release(b);
@@ -344,6 +395,35 @@ uint32_t LibLoader::account_bytes(int handle) const
     return n;
 }
 
+// What one account holds of the heap, as the heap gave it: every block with the header the loader put in front of it, every file handle, and for a
+// loaded image its own block (image, bss, alignment) and its menu record. This is the figure that comes back when the image goes.
+uint32_t LibLoader::held_bytes(int handle) const
+{
+    int a = handle < 0 || handle >= LIB_MAX ? LIB_MAX : handle;
+    uint32_t n = 0;
+    for (const Blk *b = acct_[a]; b; b = b->next) {
+        n += b->size + (uint32_t)sizeof(Blk);
+    }
+    for (const SvcFile *f = files_[a]; f; f = f->next) {
+        n += (uint32_t)sizeof(SvcFile);
+    }
+    if (a < LIB_MAX && slot_[a].used) {
+        n += slot_[a].raw_size + slot_[a].menu_cost;
+    }
+    return n;
+}
+
+uint32_t LibLoader::held_total() const
+{
+    uint32_t n = held_bytes(-1);
+    for (int i = 0; i < LIB_MAX; i++) {
+        if (slot_[i].used) {
+            n += held_bytes(i);
+        }
+    }
+    return n;
+}
+
 void LibLoader::set_log(void (*fn)(const char *text))
 {
     api_.log = fn ? fn : no_log;
@@ -465,6 +545,97 @@ static bool range_ok(uint32_t off, uint32_t len, uint32_t total)
     return off <= total && len <= total - off;
 }
 
+// What a record and a menu record bring of each kind that a table holds (the menu record has no operations, state values or events).
+struct Counts {
+    int nodes, file_actions, settings, tabs, polls;
+};
+
+static int nn(int n) { return n > 0 ? n : 0; }
+
+static void add_counts(Counts *c, const LibRecord *r)
+{
+    if (!r) {
+        return;
+    }
+    c->nodes += nn(r->nnodes);
+    c->file_actions += nn(r->nfile_actions);
+    c->settings += nn(r->nsettings);
+    c->tabs += nn(r->ntabs);
+    c->polls += r->poll.op && r->poll.op[0];
+}
+
+static int tabs_in_area(const LibRecord *r, const char *area)
+{
+    int n = 0;
+    for (int i = 0; r && i < r->ntabs; i++) {
+        n += r->tabs[i].area && !strcmp(r->tabs[i].area, area);
+    }
+    return n;
+}
+
+// Is what the library brings (`rec`: what lib_register returned, null before it ran; `menu`: its menu record) over the figures it declared, or over the room that
+// is left in a table? The declared figure is checked first; a figure left open is the table's own. false: fits; true: `err` says which figure and which limit.
+// The tables are the ones the registry and the menu merge hold (ops.h, contrib.h, menutree.h); what other loaded images already take counts against them.
+bool LibLoader::over_budget(const char *name, const U2a3Budget &b, const LibRecord *rec, const LibRecord *menu, char *err, int errlen) const
+{
+    Counts mine = { 0, 0, 0, 0, 0 }, others = { 0, 0, 0, 0, 0 };
+    add_counts(&mine, rec);
+    add_counts(&mine, menu);
+    for (int i = 0; i < LIB_MAX; i++) {
+        if (slot_[i].used) {
+            add_counts(&others, &slot_[i].info.record);
+            add_counts(&others, slot_[i].info.menu ? &slot_[i].info.menu->rec : 0);
+        }
+    }
+    struct Row {
+        const char *what;
+        int n;
+        uint32_t declared;
+        int taken, cap;                       // cap 0: the table has no limit of its own that the loader can see
+    };
+    const Row rows[] = {
+        { "operations", rec ? nn(rec->nops) : 0, b.ops, reg_->nops(), OPS_MAX },
+        { "state values", rec ? nn(rec->nstates) : 0, b.states, reg_->nstates(), STATES_MAX },
+        { "events", rec ? nn(rec->nevents) : 0, b.events, reg_->nevents(), EVENTS_MAX },
+        { "menu nodes", mine.nodes, b.nodes, others.nodes, MENU_NODES_MAX },
+        { "file actions", mine.file_actions, b.file_actions, others.file_actions, CONTRIB_ACTIONS_MAX },
+        { "settings", mine.settings, b.settings, others.settings, CONTRIB_SETTINGS_MAX },
+        { "tabs", mine.tabs, b.tabs, 0, 0 },
+        { "polls", mine.polls, b.polls, 0, 0 },
+    };
+    for (unsigned i = 0; i < sizeof(rows) / sizeof(rows[0]); i++) {
+        const Row &r = rows[i];
+        if (r.declared != U2A3_BUDGET_NONE && (uint32_t)r.n > r.declared) {
+            snprintf(err, errlen, "Library \"%s\" is refused: it brings %d %s, over its declared budget of %u.", name, r.n, r.what, (unsigned)r.declared);
+            return true;
+        }
+        if (r.cap && r.taken + r.n > r.cap) {
+            snprintf(err, errlen, "Library \"%s\" is refused: it brings %d %s, the table holds %d and %d are taken.", name, r.n, r.what, r.cap, r.taken);
+            return true;
+        }
+    }
+    // the tab strip of an area holds MENU_STRIP_TABS tabs, whoever brought them
+    int nrt = rec ? nn(rec->ntabs) : 0, nmt = menu ? nn(menu->ntabs) : 0;
+    for (int k = 0; k < nrt + nmt; k++) {
+        const LibTabDecl *t = k < nrt ? &rec->tabs[k] : &menu->tabs[k - nrt];
+        if (!t->area) {
+            continue;
+        }
+        int in_area = tabs_in_area(rec, t->area) + tabs_in_area(menu, t->area), taken = 0;
+        for (int i = 0; i < LIB_MAX; i++) {
+            if (slot_[i].used) {
+                taken += tabs_in_area(&slot_[i].info.record, t->area) + tabs_in_area(slot_[i].info.menu ? &slot_[i].info.menu->rec : 0, t->area);
+            }
+        }
+        if (taken + in_area > MENU_STRIP_TABS) {
+            snprintf(err, errlen, "Library \"%s\" is refused: it brings %d tabs to area %s, the tab strip holds %d and %d are taken.", name, in_area, t->area,
+                     MENU_STRIP_TABS, taken);
+            return true;
+        }
+    }
+    return false;
+}
+
 int LibLoader::load(LibSource *src, int *handle, char *err, int errlen)
 {
     *handle = -1;
@@ -486,7 +657,7 @@ int LibLoader::load(LibSource *src, int *handle, char *err, int errlen)
     }
     const char *name = h.name;
 
-    if ((h.flags & ~U2A3_FLAG_MENU) || (!(h.flags & U2A3_FLAG_MENU) && h.reserved)) {
+    if ((h.flags & ~(U2A3_FLAG_MENU | U2A3_FLAG_BUDGET)) || (!(h.flags & U2A3_FLAG_MENU) && h.reserved)) {
         return fail(LIB_BAD_FILE, err, errlen, "\"%s\" sets header flags (0x%X) or reserved bits (0x%X) this base does not know.", name,
                     (unsigned)h.flags, (unsigned)h.reserved);
     }
@@ -534,6 +705,21 @@ int LibLoader::load(LibSource *src, int *handle, char *err, int errlen)
     if (h.manifest_size && !range_ok(h.manifest_offset, h.manifest_size, fsize)) {
         return fail(LIB_BAD_FILE, err, errlen, "\"%s\": the manifest lies outside the file.", name);
     }
+    // the budget (libfmt.h U2a3Budget): directly behind the header; every figure it leaves open is the platform's limit
+    U2a3Budget bud;
+    memset(&bud, 0xFF, sizeof(bud));
+    if (h.flags & U2A3_FLAG_BUDGET) {
+        uint32_t bsz = 0;
+        if (!range_ok(U2A3_HEADER_SIZE, 4, fsize) || !src->read(U2A3_HEADER_SIZE, &bsz, 4) || bsz < U2A3_BUDGET_SIZE || bsz > U2A3_BUDGET_MAX || (bsz & 3) ||
+            !range_ok(U2A3_HEADER_SIZE, bsz, fsize) || !src->read(U2A3_HEADER_SIZE, &bud, sizeof(bud)) ||
+            (h.needs_count && h.needs_offset < U2A3_HEADER_SIZE + bsz) || h.payload_offset < U2A3_HEADER_SIZE + bsz) {
+            return fail(LIB_BAD_FILE, err, errlen, "\"%s\": the budget record is malformed, or it overlaps the dependencies or the image.", name);
+        }
+    }
+    if (bud.image != U2A3_BUDGET_NONE && isize > bud.image) {
+        return fail(LIB_BUDGET, err, errlen, "Library \"%s\" is refused: its image is %u bytes with its bss, over its declared budget of %u bytes.", name,
+                    (unsigned)isize, (unsigned)bud.image);
+    }
     // the menu record (libmenu.h): read and checked here, kept by the slot once the load has succeeded, freed with any refusal below
     struct MenuGuard {
         DescRecord *d;
@@ -545,6 +731,12 @@ int LibLoader::load(LibSource *src, int *handle, char *err, int errlen)
         char mw[160];
         if (libmenu_read(src, fsize, h.reserved, &menu.d, &menu.b, mw, sizeof(mw), h.kind == U2A3_KIND_APP) != 0) {
             return fail(LIB_BAD_FILE, err, errlen, "\"%s\": %s.", name, mw);
+        }
+    }
+    {   // what the menu record alone brings is known before any memory is spent: over the budget or the room of a table, the library is refused here
+        char why[LIB_ERR_MAX];
+        if (over_budget(name, bud, 0, menu.d ? &menu.d->rec : 0, why, sizeof(why))) {
+            return fail(LIB_BUDGET, err, errlen, "%s", why);
         }
     }
     // the entry points are checked before any relocation, long before anything runs: an entry outside the image would jump into
@@ -673,6 +865,12 @@ int LibLoader::load(LibSource *src, int *handle, char *err, int errlen)
     s.info.image_size = isize;
     s.info.main_addr = h.main_offset == U2A3_NONE ? 0 : base + h.main_offset;
     s.raw = raw;
+    s.raw_size = isize + h.align;
+    s.heap_limit = bud.heap;
+    if (menu.d && menu.b) {
+        uint32_t total = menu.b[8] | menu.b[9] << 8 | menu.b[10] << 16 | (uint32_t)menu.b[11] << 24;
+        s.menu_cost = (uint32_t)sizeof(DescRecord) + total;
+    }
     for (int i = 0; i < ndeps; i++) {
         s.dep[i] = deps[i];
         use(deps[i]);
@@ -692,7 +890,11 @@ int LibLoader::load(LibSource *src, int *handle, char *err, int errlen)
         int rc = host_->call_register(e, &api_, &rec);
         cur_ = -1;
         int bad = LIB_OK;
-        if (rc != 0) {
+        char why[LIB_ERR_MAX];
+        if (s.heap_denied) {                            // what the library could not get is the reason, whatever lib_register made of it
+            bad = fail(LIB_BUDGET, err, errlen, "Library \"%s\" is refused: lib_register asked for %u bytes of heap with %u held, over its declared budget of %u bytes.", name,
+                       (unsigned)s.heap_want, (unsigned)s.heap_had, (unsigned)s.heap_limit);
+        } else if (rc != 0) {
             bad = fail(LIB_REGISTER, err, errlen, "Library \"%s\": lib_register failed (%d).", name, rc);
         } else if (rec.struct_size != sizeof(rec)) {
             bad = fail(LIB_REGISTER, err, errlen, "Library \"%s\" was built against another record layout (%u bytes, this base %u).", name,
@@ -702,6 +904,8 @@ int LibLoader::load(LibSource *src, int *handle, char *err, int errlen)
             bad = fail(LIB_REGISTER, err, errlen, "Library \"%s\" returned a record with a count and no list.", name);
         } else if (rec.exports && rec.exports_size < sizeof(uint32_t)) {
             bad = fail(LIB_REGISTER, err, errlen, "Library \"%s\" returned a call table with no size.", name);
+        } else if (over_budget(name, bud, &rec, menu.d ? &menu.d->rec : 0, why, sizeof(why))) {
+            bad = fail(LIB_BUDGET, err, errlen, "%s", why);
         } else {
             reg_->contributor(s.info.name);
             int r = OPE_OK;
