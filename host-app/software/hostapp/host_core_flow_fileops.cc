@@ -334,7 +334,7 @@ void hc_fo_browse_add(const HcFoEnv &e, const char *path, bool full, cfw_result_
             hc_fo_refuse_full(bcw_res, t, sizeof(t), &tone);
             note(e, t, tone);
         } else {
-            hc_fo_add_full(e, path, bcw.name, bcw.file_size);
+            hc_fo_add_full(e, path, cfw_title(bcw), bcw.file_size);     // T254: the name the firmware gives itself, else the .bit header's
         }
         return;
     }

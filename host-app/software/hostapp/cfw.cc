@@ -38,6 +38,68 @@ bool cfw_is_name(const char *name)
     return l > 4 && (!strcasecmp(name + l - 4, ".cfw") || !strcasecmp(name + l - 4, ".ue2"));
 }
 
+// ---- T254: the name and version a foreign firmware gives itself, by the rule of the backup (update_trx.cc, fw_version) -------------------
+// Measured 2026-11-22 in the application of Commodore 1.1.0 and 1.2.1, Gideon 3.15a and TRX64-Ultimate 0.3.1: "Software version:   <v>\n"
+// in its version report, 249 to 254 KB before the application's end; "TRX64 Ultimate" only in TRX64-Ultimate's, 353 and 389 KB before it.
+// The host reads its SD card at 12.5 MHz (T149 D5): the File Browser reads only the application's last SELF_TAIL bytes, about a third of it.
+#define SELF_TAIL (512u * 1024u)
+static bool self_ver_char(uint8_t c)
+{
+    return (c >= '0' && c <= '9') || (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || c == '.' || c == '-';
+}
+
+bool cfw_read_self(CorSource &src, CfwInfo &ci)
+{
+    static const char key[] = "Software version:";
+    static const char trx[] = "TRX64 Ultimate";
+    enum { CHUNK = 16384, OVER = 64 };                  // a match that starts in a chunk is read whole: the key, its spaces and the version fit in OVER
+    static uint8_t buf[CHUNK + OVER];
+    const uint32_t kl = sizeof(key) - 1, tl = sizeof(trx) - 1;
+    ci.self_name[0] = 0;
+    ci.self_ver[0] = 0;
+    const uint32_t base = ci.app_data, len = ci.app_len;
+    if (!len || (uint64_t)base + len > src.size()) {
+        return false;
+    }
+    char ver[sizeof(ci.self_ver)] = "";
+    bool is_trx = false;
+    for (uint32_t o = len > SELF_TAIL ? len - SELF_TAIL : 0; o < len && !(ver[0] && is_trx); o += CHUNK) {
+        const uint32_t m = len - o < (uint32_t)sizeof(buf) ? len - o : (uint32_t)sizeof(buf);
+        if (!src.read(base + o, buf, m)) {
+            return false;
+        }
+        const uint32_t starts = m < (uint32_t)CHUNK ? m : (uint32_t)CHUNK;
+        for (uint32_t i = 0; i < starts; i++) {
+            if (!ver[0] && buf[i] == 'S' && i + kl <= m && !memcmp(buf + i, key, kl)) {
+                uint32_t j = i + kl;
+                while (j < m && buf[j] == ' ') {
+                    j++;
+                }
+                int k = 0;
+                while (j < m && k < (int)sizeof(ver) - 1 && self_ver_char(buf[j])) {
+                    ver[k++] = (char)buf[j++];
+                }
+                ver[k] = 0;                             // k == 0: a key with nothing after it, the search goes on
+            }
+            if (!is_trx && buf[i] == 'T' && i + tl <= m && !memcmp(buf + i, trx, tl)) {
+                is_trx = true;
+            }
+        }
+    }
+    if (!ver[0]) {
+        return false;
+    }
+    const char *vendor = is_trx ? "TRX64 Ultimate" : ver[0] == '1' ? "Commodore" : ver[0] == '3' ? "Gideon" : "Firmware";
+    snprintf(ci.self_ver, sizeof(ci.self_ver), "%s", ver);
+    snprintf(ci.self_name, sizeof(ci.self_name), "%s %s", vendor, ver);
+    return true;
+}
+
+const char *cfw_title(const CfwInfo &ci)
+{
+    return ci.self_name[0] ? ci.self_name : ci.name;
+}
+
 static uint32_t be16(const uint8_t *p) { return ((uint32_t)p[0] << 8) | p[1]; }
 static uint32_t be32(const uint8_t *p) { return ((uint32_t)p[0] << 24) | ((uint32_t)p[1] << 16) | ((uint32_t)p[2] << 8) | p[3]; }
 static uint32_t le32(const uint8_t *p) { return p[0] | ((uint32_t)p[1] << 8) | ((uint32_t)p[2] << 16) | ((uint32_t)p[3] << 24); }
