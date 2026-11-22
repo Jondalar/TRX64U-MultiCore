@@ -1,0 +1,453 @@
+# The PET's data description (T239.3 D17): what coreapp/cores/pet.cc holds as tables and strings, as TOML. tools/descrec.py compiles it into the description record
+# (record 6 of the .cor); the generic application builds the descriptor from it. What the record cannot hold is code, and stays in the core's C++: init, release, the
+# operations of register_ops, the model's ROM choice (rom_key), the drive and tape slots' media functions. Register numbers are cores/pet/rtl/trx/pet_regs.v
+# (coreapp/cores/pet_regs.h); the settings are register bits.
+#
+# NOT YET PROVEN, so this file is not called desc.toml (tests/coreapp/gen_bundle.py compiles every cores/*/app/desc.toml and the table-driven test compares it).
+# tools/descrec.py refuses it for two reasons, and the table-driven test passes with both lifted (3200 fields compared, 0 failed):
+#   1. the five "Pad ... key" settings map 50 values to a register byte each (padkeys.h padkey_codes); a setting holds at most 32 bytes
+#      (tools/descrec.py SETBIND_BYTES_MAX, coreapp/src/descrec.h DR_BIND_BYTES);
+#   2. a register-bit setting that also has a show_state ("RAM", "SuperPET CPU", "SuperPET RAM") is refused: tools/descrec.py tests the time code with the
+#      show_state's offset packed above it (`wcode >= 2` in the reg_bind check, where the reader strips it first).
+machine_info = "Model,RAM"
+
+[restart]
+clear_ram = 32768                      # the machine's 32 KiB of RAM
+
+[core]
+id = "PET1"
+name = "Commodore PET"
+title = "Commodore PET"
+short_title = "PET"
+folder = "pet"
+store = "PET Settings"
+min_contract = 1
+reset_ms = 20
+service_op = "pet.service"
+service_period_ms = 20
+type_op = "pet.type_script"
+run_op = "pet.run_prg"
+caps = ["tape", "pad"]                 # the cassette 1 slot and the USB pads: the capabilities only let the word through the menu check
+
+# 640 x 400 shown 2 x 2 (1280 x 800), centred on 1920 x 1080; the buffers are the core's reset values of FB_BASE / FB_STRIDE
+[video]
+w = 640
+h = 400
+scale = 2
+x0 = 320
+y0 = 140
+fb_base = 0x01D00000
+fb_stride = 0x00100000
+nbuf = 4
+reg_latest = 0x0C0
+reg_seq = 0x0C1
+reg_fb_base = 0x0C4
+reg_fb_stride = 0x0C8
+
+[freeze]
+reg_status = 0x0A4
+mask = 0x02
+timeout_ms = 200
+
+# CTRL + RESTORE menu, + R reset, + "+" / "-" volume, + J swap joystick ports, + P picture mode. Keys as hotkeys.h: 0-63 = col * 8 + row, 64 = RESTORE, 255 = none.
+# CTRL is a typing key of the PET's keyboard? No: pc_keys names the USB keyboard's keys in the menu items, as for every core that is no C64 family keyboard
+[hotkeys]
+mod = [58, 255]
+actions = [64, 40, 43, 17, 34, 41, 255]
+pc_keys = true
+
+# the slots of the core's own media engine: the two drives of the dual unit and the cassette; their three functions are code
+[mount]
+names = ["Drive 8", "Drive 8.1", "Tape"]
+
+# the USB pads' button words go to PET_PAD1 / PET_PAD2; the core turns each button into the key its setting names
+[pad]
+output = "registers"
+regs = [0x160, 0x162]
+buttons = ["Up", "Down", "Left", "Right", "Fire"]
+default = ["up", "down", "left", "right", "face_bottom"]
+
+# the keys the pad-key settings offer (padkeys.h padkey_names), shown as "Key 8", "Key Space"
+[lists]
+padkeys = ["None", "Key 8", "Key 2", "Key 4", "Key 6", "Key 5", "Key 0", "Key 1",
+    "Key 3", "Key 7", "Key 9", "Key Space", "Key Return", "Key Cursor up", "Key Cursor down", "Key Cursor left",
+    "Key Cursor right", "Key Home", "Key Del", "Key Stop", "Key W", "Key A", "Key S", "Key D",
+    "Key Q", "Key E", "Key Z", "Key X", "Key +", "Key -", "Key *", "Key /",
+    "Key B", "Key C", "Key F", "Key G", "Key H", "Key I", "Key J", "Key K",
+    "Key L", "Key M", "Key N", "Key O", "Key P", "Key R", "Key T", "Key U",
+    "Key V", "Key Y"]
+
+# ---- ROMs: VICE's file names first, then the generic ones. The scan only has to see that a file of the role is there; which one goes into the machine is the model's
+[[rom]]
+role = "BASIC"
+names = ["basic-4.901465-23-20-21.bin", "basic-2.901465-01-02.bin", "basic-1.901439-09-05-02-06.bin", "basic4.bin", "basic2.bin", "basic.bin", "basic"]
+sizes = [8192, 12288]
+required = true
+put_op = "pet.put_basic"
+
+[[rom]]
+role = "Editor"
+names = ["edit-4-40-n-60Hz.901499-01.bin", "edit-4-40-n-50Hz.901498-01.bin", "edit-4-40-b-60Hz.ts.bin", "edit-4-80-b-60Hz.901474-03.bin", "edit-2-n.901447-24.bin", "edit-2-b.901474-01.bin", "edit-1-n.901439-03.bin", "edit.bin"]
+sizes = [2048]
+required = true
+put_op = "pet.put_editor"
+
+[[rom]]
+role = "KERNAL"
+names = ["kernal-4.901465-22.bin", "kernal-2.901465-03.bin", "kernal-1.901439-04-07.bin", "kernal.bin", "kernal"]
+sizes = [4096]
+required = true
+put_op = "pet.put_kernal"
+
+[[rom]]
+role = "Characters"
+names = ["characters.901640-01.bin", "characters-2.901447-10.bin", "characters-1.901447-08.bin", "chargen.bin", "chargen", "characters.bin"]
+sizes = [2048, 4096]
+required = true
+put_op = "pet.put_char"
+
+# the disk drive's (optional: the drive setting names the pair that is put)
+[[rom]]
+role = "4040 DOS"
+names = ["dos4040-901468-14-16.bin", "dos4040.bin"]
+sizes = [12288]
+put_op = "pet.put_dos4040"
+
+[[rom]]
+role = "4040 controller"
+names = ["ctl4040.bin", "4040-controller.bin"]
+sizes = [2048]
+put_op = "pet.put_ctl4040"
+
+[[rom]]
+role = "8250 DOS"
+names = ["dos1001-901887+8-01.bin", "dos8250.bin", "dos1001", "dos1001.bin"]
+sizes = [16384]
+put_op = "pet.put_dos8250"
+
+[[rom]]
+role = "8250 controller"
+names = ["ctl8250.bin", "8250-controller.bin"]
+sizes = [2048]
+put_op = "pet.put_ctl8250"
+
+# the SuperPET's 6809 side (optional: the 6502 runs without them), VICE's names
+[[rom]]
+role = "Waterloo A000"
+names = ["waterloo-a000.901898-01.bin"]
+sizes = [4096]
+put_op = "pet.put_wl_a"
+
+[[rom]]
+role = "Waterloo B000"
+names = ["waterloo-b000.901898-02.bin"]
+sizes = [4096]
+put_op = "pet.put_wl_b"
+
+[[rom]]
+role = "Waterloo C000"
+names = ["waterloo-c000.901898-03.bin"]
+sizes = [4096]
+put_op = "pet.put_wl_c"
+
+[[rom]]
+role = "Waterloo D000"
+names = ["waterloo-d000.901898-04.bin"]
+sizes = [4096]
+put_op = "pet.put_wl_d"
+
+[[rom]]
+role = "Waterloo E000"
+names = ["waterloo-e000.901897-01.bin"]
+sizes = [4096, 2048]
+put_op = "pet.put_wl_e"
+
+[[rom]]
+role = "Waterloo F000"
+names = ["waterloo-f000.901898-05.bin"]
+sizes = [4096]
+put_op = "pet.put_wl_f"
+
+# ---- settings: bits of the core's registers. The SuperPET (model 5) is an 8032 plus its board; "2001 + BASIC 2" is the 2001 board with the 3032's ROM set and comes last so that
+# the stored settings of the other models keep their index. PET_MODEL's byte is the board (pet_hw_model)
+[[core_setting]]
+key = "Model (at next reset)"
+label = "Model"
+values = ["2001", "3032", "4032", "8032", "8096", "SuperPET", "2001 + BASIC 2"]
+default = 2
+when = "reset"
+reg_bind = { reg = 0x0A1, mask = 7, bytes = [0, 1, 2, 3, 4, 5, 0] }
+
+[[core_setting]]
+key = "CPU speed"
+values = ["x1", "x2", "x3", "x4", "x5", "x6", "x7", "x8"]
+reg_bind = { reg = 0x0A2, mask = 7 }
+
+[[core_setting]]
+key = "Diag (at next reset)"
+label = "Diag jumper"
+values = ["Off", "On"]
+when = "reset"
+reg_bind = { reg = 0x0A3, mask = 1 }
+
+[[core_setting]]
+key = "Picture rate"
+label = "Refresh rate"
+group = "video"
+values = ["60 Hz", "50 Hz"]
+reg_bind = { reg = 0x0A5, mask = 1 }
+
+[[core_setting]]
+key = "Phosphor"
+group = "video"
+values = ["Green", "Amber", "White"]
+reg_bind = { reg = 0x0A6, mask = 3 }
+
+# listed for the 2001, 3032 and 4032 only: the CRTC models always have 32 KiB, the SuperPET has its own row
+[[core_setting]]
+key = "RAM (at next reset)"
+label = "RAM"
+values = ["8 KiB", "16 KiB", "32 KiB"]
+default = 2
+when = "reset"
+show_state = "pet.ramrow"
+reg_bind = { reg = 0x0A7, mask = 3 }
+
+# the dual unit of ieee_drive: drives 0 and 1. PET_DRV_CTL b0 device 8 on, b1 4040
+[[core_setting]]
+key = "Drive 8 (at next reset)"
+label = "Drive"
+values = ["Off", "4040 (D64)", "8250 (D80, D82)"]
+when = "reset"
+reg_bind = { reg = 0x0D0, mask = 3, bytes = [0, 3, 1] }
+
+# PET_TAPE_PIN: b0 motor pin driven, b4 READ / SENSE pins are the PET's inputs (proven by a real datasette LOAD, GitHub #26); b1 WRITE out stays 0 until a SAVE on real tape is proven
+[[core_setting]]
+key = "Datasette port"
+values = ["Off (file only)", "External datasette"]
+reg_bind = { reg = 0x152, mask = 0x1F, bytes = [0x00, 0x11] }
+
+# listed only while the model is the SuperPET (the only one that looks at it); "Program ($EFF8)": the 6502 starts and hands over by writing $EFF8 b0 = 0
+[[core_setting]]
+key = "SuperPET CPU (at next reset)"
+label = "SuperPET CPU"
+values = ["6502", "6809", "Program ($EFF8)"]
+when = "reset"
+show_state = "pet.superpet"
+reg_bind = { reg = 0x0AA, mask = 3 }
+
+# the SuperPET's 96 KiB = 32 KiB + the 64 KiB bank RAM (4 KiB banks behind $9000); 32 KiB = the ROM behind $9000. The default is the whole machine
+[[core_setting]]
+key = "SuperPET RAM (at next reset)"
+label = "SuperPET RAM"
+values = ["32 KiB", "96 KiB"]
+default = 1
+when = "reset"
+show_state = "pet.superpet"
+reg_bind = { reg = 0x0AE, mask = 1, bytes = [0, 1] }
+
+# how the host's C64 keys become PET keys
+[[core_setting]]
+key = "Keyboard mapping"
+group = "input"
+values = ["Symbolic (key legend)", "Positional (PET key place)"]
+reg_bind = { reg = 0x0AB, mask = 1 }
+
+# pad / joystick as keys (padkeys.h): the five buttons are the same on both USB pads and both joystick ports; each setting is the C64 key (col * 8 + row, +64 = SHIFT as well,
+# 255 none) its button presses, written to one register byte. The defaults are the number pad's 8 2 4 6 for the four directions and SPACE for fire
+[[core_setting]]
+key = "Pad up key"
+label = "Pad / joystick up"
+group = "input"
+list = "padkeys"
+default = 1
+reg_bind = { reg = 0x164, mask = 0xFF, bytes = [255, 27, 59, 11, 19, 16, 35, 56, 8, 24, 32, 60, 1, 71, 7, 66, 2, 51, 0, 63, 9, 10, 13, 18, 62, 14, 12, 23, 40, 43, 49, 55, 28, 20, 21, 26, 29, 33, 34, 37, 42, 36, 39, 38, 41, 17, 22, 30, 31, 25] }
+
+[[core_setting]]
+key = "Pad down key"
+label = "Pad / joystick down"
+group = "input"
+list = "padkeys"
+default = 2
+reg_bind = { reg = 0x165, mask = 0xFF, bytes = [255, 27, 59, 11, 19, 16, 35, 56, 8, 24, 32, 60, 1, 71, 7, 66, 2, 51, 0, 63, 9, 10, 13, 18, 62, 14, 12, 23, 40, 43, 49, 55, 28, 20, 21, 26, 29, 33, 34, 37, 42, 36, 39, 38, 41, 17, 22, 30, 31, 25] }
+
+[[core_setting]]
+key = "Pad left key"
+label = "Pad / joystick left"
+group = "input"
+list = "padkeys"
+default = 3
+reg_bind = { reg = 0x166, mask = 0xFF, bytes = [255, 27, 59, 11, 19, 16, 35, 56, 8, 24, 32, 60, 1, 71, 7, 66, 2, 51, 0, 63, 9, 10, 13, 18, 62, 14, 12, 23, 40, 43, 49, 55, 28, 20, 21, 26, 29, 33, 34, 37, 42, 36, 39, 38, 41, 17, 22, 30, 31, 25] }
+
+[[core_setting]]
+key = "Pad right key"
+label = "Pad / joystick right"
+group = "input"
+list = "padkeys"
+default = 4
+reg_bind = { reg = 0x167, mask = 0xFF, bytes = [255, 27, 59, 11, 19, 16, 35, 56, 8, 24, 32, 60, 1, 71, 7, 66, 2, 51, 0, 63, 9, 10, 13, 18, 62, 14, 12, 23, 40, 43, 49, 55, 28, 20, 21, 26, 29, 33, 34, 37, 42, 36, 39, 38, 41, 17, 22, 30, 31, 25] }
+
+[[core_setting]]
+key = "Pad fire key"
+label = "Pad / joystick fire"
+group = "input"
+list = "padkeys"
+default = 11
+reg_bind = { reg = 0x168, mask = 0xFF, bytes = [255, 27, 59, 11, 19, 16, 35, 56, 8, 24, 32, 60, 1, 71, 7, 66, 2, 51, 0, 63, 9, 10, 13, 18, 62, 14, 12, 23, 40, 43, 49, 55, 28, 20, 21, 26, 29, 33, 34, 37, 42, 36, 39, 38, 41, 17, 22, 30, 31, 25] }
+
+[[core_setting]]
+key = "Pad map"
+group = "input"
+values = ["Default", "Custom"]
+apply = "pad.set_map"
+
+# ---- tasks
+[[task]]
+label = "Reset"
+op = "machine.cold_reset"
+closes_menu = true
+
+[[task]]
+label = "Reload ROMs, reset"
+op = "machine.reload_roms"
+closes_menu = true
+
+[[task]]
+label = "Tape: Play"
+op = "pet.tape_play"
+closes_menu = true
+
+[[task]]
+label = "Tape: Stop"
+op = "pet.tape_stop"
+
+[[task]]
+label = "Tape: Rewind"
+op = "pet.tape_rewind"
+
+[[task]]
+label = "Tape: Eject"
+op = "pet.tape_eject"
+
+[[task]]
+label = "Map buttons, pad 1"
+op = "menu.pad_map_1"
+group = "input"
+
+[[task]]
+label = "Map buttons, pad 2"
+op = "menu.pad_map_2"
+group = "input"
+
+# ---- media slots
+[[media]]
+name = "Program"
+state = "pet.program"
+
+[[media]]
+name = "Drive 8"
+state = "pet.drive8"
+eject_op = "pet.eject_d0"
+exts = ".d64,.d80,.d82"
+mount = "Mount in Drive 8"
+
+[[media]]
+name = "Drive 8.1"
+state = "pet.drive81"
+eject_op = "pet.eject_d1"
+exts = ".d64,.d80,.d82"
+mount = "Mount in Drive 8.1"
+
+[[media]]
+name = "Tape"
+state = "pet.tape.image"
+eject_op = "pet.tape_eject"
+exts = ".tap"
+mount = "Insert tape"
+mounted_tasks = "Tape: Play,Tape: Stop,Tape: Rewind"
+
+# ---- file types
+[[filetype]]
+ext = ".prg"
+  [[filetype.action]]
+  label = "Load"
+  op = "pet.load_prg"
+  bind = [ { arg = "path", file = true } ]
+  [[filetype.action]]
+  label = "Load + run"
+  op = "pet.run_prg"
+  bind = [ { arg = "path", file = true } ]
+  closes_menu = true
+
+[[filetype]]
+ext = ".p00"
+  [[filetype.action]]
+  label = "Load"
+  op = "pet.load_prg"
+  bind = [ { arg = "path", file = true } ]
+  [[filetype.action]]
+  label = "Load + run"
+  op = "pet.run_prg"
+  bind = [ { arg = "path", file = true } ]
+  closes_menu = true
+
+[[filetype]]
+ext = ".d64"
+  [[filetype.action]]
+  label = "Mount in Drive 8"
+  op = "pet.mount_d0"
+  bind = [ { arg = "path", file = true } ]
+  [[filetype.action]]
+  label = "Mount in Drive 8.1"
+  op = "pet.mount_d1"
+  bind = [ { arg = "path", file = true } ]
+  [[filetype.action]]
+  label = "Run Disk"
+  op = "pet.mount_run"
+  bind = [ { arg = "path", file = true } ]
+  closes_menu = true
+
+[[filetype]]
+ext = ".d80"
+  [[filetype.action]]
+  label = "Mount in Drive 8"
+  op = "pet.mount_d0"
+  bind = [ { arg = "path", file = true } ]
+  [[filetype.action]]
+  label = "Mount in Drive 8.1"
+  op = "pet.mount_d1"
+  bind = [ { arg = "path", file = true } ]
+  [[filetype.action]]
+  label = "Run Disk"
+  op = "pet.mount_run"
+  bind = [ { arg = "path", file = true } ]
+  closes_menu = true
+
+[[filetype]]
+ext = ".d82"
+  [[filetype.action]]
+  label = "Mount in Drive 8"
+  op = "pet.mount_d0"
+  bind = [ { arg = "path", file = true } ]
+  [[filetype.action]]
+  label = "Mount in Drive 8.1"
+  op = "pet.mount_d1"
+  bind = [ { arg = "path", file = true } ]
+  [[filetype.action]]
+  label = "Run Disk"
+  op = "pet.mount_run"
+  bind = [ { arg = "path", file = true } ]
+  closes_menu = true
+
+# the PET asks for PLAY itself (the sense line is the play bit): "Insert tape and play" presses it, the PET's motor then runs the tape
+[[filetype]]
+ext = ".tap"
+  [[filetype.action]]
+  label = "Insert tape"
+  op = "pet.tape_insert"
+  bind = [ { arg = "path", file = true }, { arg = "play", int = 0 } ]
+  [[filetype.action]]
+  label = "Insert tape and play"
+  op = "pet.tape_insert"
+  bind = [ { arg = "path", file = true }, { arg = "play", int = 1 } ]
+  closes_menu = true
