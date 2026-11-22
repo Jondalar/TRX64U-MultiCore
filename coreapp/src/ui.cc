@@ -482,29 +482,30 @@ static void status_set(const char *st, bool bad)
     }
 }
 
-// Does the pane stand as it is - same title, status, row count, window size and row kinds - so that the rows alone may be
-// written again? Fills the per-row hashes of what each row shows. (T104, board 2026-10-22: scrolling past the window's last
-// row rebuilt the whole pane per step; the rows are the same objects, only their text moved.)
+// Does the pane stand as it is - same title, status, whether the window is shorter than the list - so that the rows alone may be written again?
+// Fills the per-row hashes of what each row shows. (T104, board 2026-10-22: scrolling past the window's last row rebuilt the whole pane per step;
+// the rows are the same objects, only their text moved.) What a row is - a heading or a setting, with the ring or not - and how many rows the window
+// has (a heading never ends it) are not the pane's shape: the row objects are changed, made or taken away one by one (the in-place pass of
+// ui_menu_render), and a row that cannot be changed in place makes the pane be built again.
 static bool list_inplace(MenuCtl &m, TrxWindow *w_out, uint32_t *rowh, uint32_t *shape_out)
 {
     int room;
     TrxWindow w = list_window(m, &room);
-    if (w.count != g_rown || w.count > UI_ROWS_MAX) {
+    if (w.count < 1 || w.count > UI_ROWS_MAX) {
         return false;
     }
     uint32_t sh = 2166136261u;                                          // the title is written in place (a folder with as many rows is the same pane)
-    sh = (sh ^ (uint32_t)w.count) * 16777619u;
     sh = (sh ^ (uint32_t)(w.count < m.rows())) * 16777619u;
     sh = (sh ^ (uint32_t)status_extra(m)) * 16777619u;                  // the lines of the status note: the label stands higher and the window is shorter
     char left[120], right[120];
     bool active;
     for (int i = 0; i < w.count; i++) {
         m.row(w.first + i, left, sizeof(left), right, sizeof(right), &active, 0, 0);
-        sh = (sh ^ (uint32_t)((m.heading(w.first + i) ? 3 : 1) | (m.row_reset(w.first + i) ? 4 : 0))) * 16777619u;     // a heading, a row, with the ring or not (a value is made or removed in place)
         uint32_t h = 2166136261u;
         h = sig_str(h, left);
         h = sig_str(h, right);
-        h = (h ^ (uint32_t)active ^ (uint32_t)((w.first + i == m.selected()) << 1)) * 16777619u;
+        h = (h ^ (uint32_t)active ^ (uint32_t)((w.first + i == m.selected()) << 1) ^ (uint32_t)(m.title_row(w.first + i) << 2) ^
+             (uint32_t)(m.row_reset(w.first + i) << 3)) * 16777619u;      // a heading proper and a ring are drawn another way (trx_row_retext)
         rowh[i] = h;
     }
     *w_out = w;
@@ -698,8 +699,15 @@ void ui_menu_render(MenuCtl &m)
                 char left[120], right[120];
                 bool active, ok = true;
                 int cw = trx_content_w() - 2 * t.space_lg;
+                lv_obj_t *par = lv_obj_get_parent(g_row[0]);
+                const int rx = lv_obj_get_x(g_row[0]), ry = lv_obj_get_y(g_row[0]), rw = lv_obj_get_width(g_row[0]);
+                for (int i = w.count; i < g_rown; i++) {                 // the window is shorter now (a heading never ends it): the rows below it go
+                    lv_obj_delete(g_row[i]);
+                    g_row[i] = 0;
+                }
                 for (int i = 0; ok && i < w.count; i++) {
-                    if (rowh[i] == g_rowh[i]) {
+                    const bool made = i >= g_rown;
+                    if (!made && rowh[i] == g_rowh[i]) {
                         continue;
                     }
                     m.row(w.first + i, left, sizeof(left), right, sizeof(right), &active, 0, 0);
@@ -711,8 +719,14 @@ void ui_menu_render(MenuCtl &m)
                     r.dim = !active;
                     r.mark = m.row_reset(w.first + i);
                     r.heading = m.title_row(w.first + i);                // an information line is a row with its value, only a heading proper is drawn quiet
-                    ok = trx_row_retext(g_row[i], r, cw);
+                    if (made) {                                          // the window is longer now: the row is built as the pane's build makes it, below the last
+                        r.selected = r.strong = r.selected && !m.heading(w.first + i);
+                        g_row[i] = trx_row_at(par, rx, ry + i * (trx_row_h() + 1), rw, r, 0);
+                    } else {
+                        ok = trx_row_retext(g_row[i], r, cw);
+                    }
                 }
+                g_rown = w.count;
                 if (ok) {
                     if (g_title && strcmp(lv_label_get_text(g_title), m.title())) {
                         int room = trx_content_w() - 2 * t.space_lg - 240;
@@ -730,6 +744,10 @@ void ui_menu_render(MenuCtl &m)
                     }
                     status_set(status_line(m), m.status_bad());
                     memcpy(g_rowh, rowh, sizeof(uint32_t) * w.count);
+                    for (int i = 0; i < w.count; i++) {                  // the kinds of the rows the window shows now (the bench's probe)
+                        g_rowhead[i] = m.heading(w.first + i);
+                        g_rowtitle[i] = m.title_row(w.first + i);
+                    }
                     g_first = w.first;
                     g_rowfirst = w.first;
                     g_rowsel = m.selected();

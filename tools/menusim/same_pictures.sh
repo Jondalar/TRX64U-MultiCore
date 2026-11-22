@@ -4,7 +4,7 @@
 # pixel. A pair that differs is named with the number of pixels, the box they lie in and the first one; the run ends 1 when any differs.
 #
 #   tools/menusim/same_pictures.sh --before TREE --after TREE [--mode M]... [--keys-file F]... <core>...
-#   --keys-file F   a key sequence file of tools/menusim (default: speed_keys.txt and speed_keys_long.txt, both)
+#   --keys-file F   a key sequence file of tools/menusim (default: speed_keys.txt, speed_keys_long.txt and speed_keys_pages.txt, all three)
 # The tools are this tree's (menusim.cc, run.sh); only the application sources come from TREE (run.sh --tree).
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -21,7 +21,7 @@ while [ $# -gt 0 ]; do
 done
 [ -n "$BEFORE" ] && [ -n "$AFTER" ] && [ ${#CORES[@]} -gt 0 ] || { sed -n 2,9p "$0" | sed 's/^# \{0,1\}//'; exit 2; }
 [ ${#MODES[@]} -gt 0 ] || MODES=(1080p)
-[ ${#FILES[@]} -gt 0 ] || FILES=(speed_keys.txt speed_keys_long.txt)
+[ ${#FILES[@]} -gt 0 ] || FILES=(speed_keys.txt speed_keys_long.txt speed_keys_pages.txt)
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 bad=0; total=0
 for c in "${CORES[@]}"; do for m in "${MODES[@]}"; do for f in "${FILES[@]}"; do
