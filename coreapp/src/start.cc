@@ -55,11 +55,13 @@ StartResult start_identify(const uint8_t id[4], const Handover *h, const CoreDes
 {
     *desc = 0;
     const CoreDesc *d = core_find((const char *)id);
+    bool from_bundle = false;
     if (!d && src) {                                           // T239.3 D17: no descriptor compiled in: the bundle's data description makes one
         d = src->describe(id, h, msg, msglen);
         if (!d) {
             return START_NO_DESCRIPTOR;
         }
+        from_bundle = true;                                    // the bundle the hand-over names is the machine: its record's name and ID were checked against it
     }
     if (!d) {
         snprintf(msg, msglen, "This application has no description for the core with the ID %c%c%c%c. The core stays held.",
@@ -67,7 +69,7 @@ StartResult start_identify(const uint8_t id[4], const Handover *h, const CoreDes
         return START_NO_DESCRIPTOR;
     }
     bool have = h && handover_valid(h);
-    if (d->id_shared) {
+    if (d->id_shared && !from_bundle) {
         // One gateware, several machines (T104 5.5: the Amiga and the A1200 answer with the same ID word): the ID block cannot say which
         // descriptor is meant, the bundle's name can. Without a name there is nothing to choose by, and nothing is guessed.
         const CoreDesc *named = 0;

@@ -196,6 +196,34 @@ static const FileType filetypes[] = { { ".prg", prg_actions, 2 }, { ".p00", prg_
   hotkeys, mount slots and the register bits of a setting (`reg_bind`). `cores/vc20/app/desc.toml` is the example; `descrec_core` (`descrec.cc`) makes the
   `CoreDesc` of the record and `BundleDescSource` (`bundle.h`) finds it in the bundle when no descriptor is compiled in (`start_identify`). Function hooks
   (`init`, `release`, `register_ops`, the media write-back, the mount slot's three functions) are code and come from `CoreHooks`, not from the record.
+  Every data field of `CoreDesc` has a place in the record, so any core can be described: the sections are
+
+  | section | TOML | `CoreDesc` field |
+  |---|---|---|
+  | 1 core | `[core]` | id, cor_name, title, short_title, folder, store, min_contract, reset_ms, service_op/period, flags (poll_when_frozen, board_caps, id_shared, own_volume, no_tone, menu_first), needs_program, program_ext, type_op, run_op, core_id, live_ms, caps |
+  | 2 video | `[video]`, `[freeze]` | video, freeze |
+  | 3 roms | `[[rom]]` | roms (`check = true`: the content check is a hook) |
+  | 4 setting register bits | `reg_bind` in a `[[core_setting]]` | Setting::bind |
+  | 5 hotkeys | `[hotkeys]` | hotkeys |
+  | 6 mount slots | `[mount]` | mount_slots (names; the functions are hooks) |
+  | 7 reset writes | `[[reset_write]]` | reset_writes |
+  | 8 id feature | `[id_feature]` | id_feat_reg, id_feat_mask, id_feat_val |
+  | 9 report registers | `[[report_reg]]` | report_regs |
+  | 10 raw keys | `[rawkeys]` | rawkeys (`held = true`: the keys-down function is a hook) |
+  | 11 alternative video | `[alt_video]` | alt_video |
+  | 12 picture window | `[fbwin]` | fbwin |
+  | 13 mouse | `[mouse]` | mouse |
+  | 14 rom set | `[romset]` | romset (`version`, `pick`: hooks) |
+  | 15 window media | `[window_media]` | window_media |
+  | 16 sector media | `[sector_media]` | sector_media |
+  | 17 media replace | `replace` in a `[[media]]` | MediaSlot::replace |
+
+  The menu tables (tasks, media, file types, settings), the pad (`[pad]`), the restart (`[restart]`) and `machine_info` are the older record parts. The keys of every
+  table are listed at the top of `tools/descrec.py`. `menu_rec` is the record itself, not a field of it. Hooks that sit inside these tables come from `CoreHooks`
+  (`rom_check[i]`, `romset_version`, `romset_pick`, `rawkeys_held`, `pad_id_loaded`); a hook the record names and the code lacks refuses the record with a sentence.
+  Which description wins: while a descriptor is compiled in for the core, it is the core, `start_identify` uses it and a record with data sections beside it changes nothing at
+  run time (`descrec_applies`); only a core with no compiled-in descriptor is made of the record (`CoreDesc::from_record`). The packers (`tools/pack_cores_mc.sh`,
+  `tools/pack_large_cor.sh`) put `cores/<id>/app/desc.toml` into record 6, and a core cannot also hand a menu description (one record 6). `cores/*/app/` moves no bitstream key.
 
 The golden menu `tests/coreapp/golden/menu_vc20.txt` shows what the whitelist menu builds out of such a descriptor: a tab or area with no entry is dropped.
 

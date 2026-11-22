@@ -757,10 +757,15 @@ run contrib test_contrib.cc $CONSRC
 BUNSRC="descrec.cc libmenu.cc bundle.cc libload.cc libscan.cc instfiles.cc instcore.cc handover.cc $PICSRC"   # handover.cc: bundle.cc reads the hand-over (T239.3 D17)
 CARGS="$BUN" RARGS="$BUN"
 run bundle test_bundle.cc $BUNSRC
-# T239.3 D17: the VIC-20's data description (cores/vc20/app/desc.toml) compiled by the real tool, made into a descriptor by the generic reader (from the record and from a bundle by
-# start_identify), and compared field by field with the compiled-in vc20_desc; a damaged record or an unknown section is refused by name
-CARGS="$BUN/desc_vc20.bin $BUN/vc20.cor $BUN/vc20_old.cor" RARGS="$CARGS"
-run descgen test_descgen.cc $VC20 descrec.cc libmenu.cc bundle.cc libload.cc libscan.cc instfiles.cc instcore.cc start.cc handover.cc desc_check.cc
+# T239.3 D17: the data description of every core that has one (cores/*/app/desc.toml, found by gen_bundle.py's glob) compiled by the real tool, made into a descriptor by the generic
+# reader (from the record and from a bundle by start_identify), and compared field by field with the compiled-in descriptor of the same core; a damaged record or an unknown section
+# is refused by name. It links every core, as the uicover walk does, and the application's real table under another name (compiled_table.cc) next to an empty one for the start.
+ALLCORES="amiga.cc $ATARI nes.cc ines.cc apple2.cc apple2_disk.cc apple2_nib.cc apple2_woz.cc apple2_hdd.cc zx.cc zx_snap.cc tape_pulses.cc tape_deck.cc cpc.cc cpc_disk.cc zxnext.cc snes.cc neogeo.cc snes_rom.cc neoset.cc vc20.cc c264.cc pet.cc c128.cc c64scpu.cc ddt_mandel.cc ddt_novic.cc portdiag.cc xinput.cc diagtest.cc cbm_run.cc $C64"
+CARGS="$BUN/app" RARGS="$CARGS"
+run descgen test_descgen.cc compiled_table.cc $ALLCORES freeze.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc descrec.cc libmenu.cc bundle.cc libload.cc libscan.cc instfiles.cc instcore.cc start.cc handover.cc desc_check.cc
+# T239.3 D17 part 2: the tables of the sections 7 .. 17 (the Amiga 1200's, from golden/desc_sections.toml, and what no descriptor has together, golden/desc_sections_extra.toml)
+CARGS="$BUN/desc_sections.bin $BUN/desc_sections_extra.bin" RARGS="$CARGS"
+run descsec test_descsec.cc amiga.cc $C64 $BASEL descrec.cc
 CARGS="$BUN" RARGS="$BUN"
 # T104.2 D10: a library merged at pack time is not added again, the application's own record serves a start without a .cor and never beats the .cor's, the record's own menu replaces the descriptor's tables
 

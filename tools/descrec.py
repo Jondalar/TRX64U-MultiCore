@@ -22,9 +22,27 @@ Source (TOML; every key is checked, an unknown one is an error - a typo must not
                                    # poll_when_frozen, board_caps, id_shared, own_volume, no_tone, menu_first
     [video]                        # section 2 with [freeze]: CoreDesc::video (w, h, scale, x0, y0, fb_base, fb_stride, nbuf, reg_latest, reg_seq, reg_fb_base, reg_fb_stride, and bpp,
     [freeze]                       # pxfmt, h60 where 0 is not meant) and CoreDesc::freeze (reg_status, mask, timeout_ms, word)
-    [[rom]]                        # section 3: a RomSpec - role, names (first match wins), sizes, required, set, shared, put_op (the content check is code and stays so)
+    [[rom]]                        # section 3: a RomSpec - role, names (first match wins), sizes, required, set, shared, put_op; check = true says the core's code checks the content
+                                   # (CoreHooks::rom_check[i]; the check is code and stays so)
     [hotkeys]                      # section 5: a HkSpec - mod, actions (7), tasks, own_keys, vol_key, swap_key, core_op + core_key + core_label, pc_keys
     [mount]                        # section 6: names = the slots of CoreDesc::mount_slots; their three functions (spec, mount, eject) are code
+    [[reset_write]]                # section 7: RegWrite, written with every settings commit - reg, value (1 .. 8 of them)
+    [id_feature]                   # section 8: CoreDesc::id_feat_reg / mask / val - reg, mask (not 0), value: how an id_shared core is told apart by its gateware
+    [[report_reg]]                 # section 9: ReportReg of the bug report - name, reg, bytes (1, 2 or 4); 1 .. 24 of them
+    [rawkeys]                      # section 10: RawKeySpec, a USB keyboard as the core's own key events - reg, hid (the machine's code per HID usage, 0xFF none), mod (8 codes),
+                                   # caps_usage, caps_code; or held = true + caps_usage: the core's code takes the keys that are down (CoreHooks::rawkeys_held), no tables
+    [alt_video]                    # section 11: CoreDesc::alt_video, the keys of [video]
+    [fbwin]                        # section 12: FbWinSpec, the picture window - reg_feat feat_bit reg_ctrl ctrl_video_off reg_diw_h reg_diw_v reg_skip_x reg_skip_y reg_cols reg_lines
+                                   # x_per_unit x_origin y_origin src_w src_h def_skip_x def_skip_y def_cols def_lines interval_ms settle_ms frames_ms min_apply_ms
+    [mouse]                        # section 13: MouseSinkSpec - kind ("counters" | "pot1351"), reg_dx reg_dy reg_btn clamp step interval_ms
+    [romset]                       # section 14: RomSetSpec, a ROM chosen out of a directory - role ext sizes size_text example max choice_key auto_label want head_bytes window_off
+                                   # mirror_size mirror_stride clear_below; version = true and pick = true say the core's code has the two functions (CoreHooks::romset_version, romset_pick)
+    [window_media]                 # section 15: WindowMediaSpec - prefix nslots base stride max_image mount_reg mount_step track_bytes ntracks dlog_status dlog_track dlog_drive dlog_pop
+                                   # idle_flush_ms max_dirty_ms
+    [sector_media]                 # section 16: SectorMediaSpec - prefix nunits mount_reg mount_step feat_reg feat_sectors mbox_status mbox_lba mbox_done stage_off idle_sync_ms done_tag_mask
+    # a [[media]] with replace = "<label>" (section 17): MediaSlot::replace, the file action that replaces the file of a filled slot
+    # Which description wins (T239.3 D17): while a descriptor for the core is compiled in, it is the core and a record with these sections changes nothing at run time
+    # (coreapp/src/descrec.h descrec_applies); a core without one is made of the record (descrec_core) and its code supplies only the hooks. menu_rec is the record itself.
     # and in a [[core_setting]] (section 4): reg_bind = { reg = 161, shift = 0, mask = 31, bytes = [0, 1, 2] } in place of `apply`: the setting is those register bits
     # (regset.h RegBind; bytes has one entry per value, or none: the value itself)
 
@@ -796,13 +814,16 @@ def compile_desc(doc, merged=()):
     if len(set(hk_keys)) != len(hk_keys):
         raise DescError("tasks: two hotkeys have the same default key (%s)" % ", ".join(hk_keys))
 
+    replaces = []              # (media index, label): the file action that replaces the file of a filled slot (MediaSlot::replace), section 17
     for m in _opt(doc, "media", list, "description", []):
-        _only(m, {"group", "name", "state", "eject_op", "eject_bind", "exts", "mount", "empty_tasks", "mounted_tasks", "eject_closes"}, "media")
+        _only(m, {"group", "name", "state", "eject_op", "eject_bind", "exts", "mount", "empty_tasks", "mounted_tasks", "eject_closes", "replace"}, "media")
         name = _need(m, "name", str, "media")
         what = "media " + name
         if "eject_op" not in m and "eject_bind" in m:
             raise DescError("%s: eject_bind without eject_op" % what)
         fb, nb = bind_list(_opt(m, "eject_bind", list, what, []), what)
+        if "replace" in m:
+            replaces.append((len(t["media"]), text_key(m, "replace", what)))
         t["media"].append((st.add(name), st.add(_need(m, "state", str, what)), st.add(text_key(m, "eject_op", what)), fb, nb, st.add(group_name(m, what)),
                            st.add(text_key(m, "exts", what)), st.add(text_key(m, "mount", what)), st.add(text_key(m, "empty_tasks", what)),
                            st.add(text_key(m, "mounted_tasks", what)), 1 if _opt(m, "eject_closes", bool, what, False) else 0))
@@ -985,7 +1006,7 @@ def compile_desc(doc, merged=()):
     for k in ORDER:
         if len(t[k]) > LIMITS[k]:
             raise DescError("%d %s entries; the board takes %d" % (len(t[k]), k, LIMITS[k]))
-    sect_bytes = _sections(doc, setbinds, st)
+    sect_bytes = _sections(doc, setbinds, st, replaces)
     # layout: header, tables in ORDER, strings, then the data sections (version 6)
     version, header = (VERSION, HEADER_V6) if sect_bytes else (5, HEADER_V5) if pad_words or restart_words else (4, HEADER)
     pos = header
@@ -1075,8 +1096,9 @@ def _pad_words(pad, t, st):
         regs = [0, 1]
     else:
         regs = _need(pad, "regs", list, "pad")
-        if len(regs) != 2 or not all(isinstance(x, int) and not isinstance(x, bool) and 0 < x <= 0xFFFF for x in regs):
-            raise DescError("pad: regs are the two players' registers")
+        one_port = _opt(pad, "per_pad", bool, "pad", False)           # one port (pad.h by_id): the second register is never picked and may be 0, as the Amiga's
+        if len(regs) != 2 or not all(isinstance(x, int) and not isinstance(x, bool) and (0 < x or (one_port and i == 1)) and x <= 0xFFFF for i, x in enumerate(regs)):
+            raise DescError("pad: regs are the two players' registers (the second may be 0 for a core with one port, per_pad)")
     dflt = _need(pad, "default", list, "pad")
     if len(dflt) != len(names):
         raise DescError("pad: default has one source per button")
@@ -1094,8 +1116,12 @@ def _pad_words(pad, t, st):
 # into the record's string table, NONE = null.
 
 SEC_CORE, SEC_VIDEO, SEC_ROMS, SEC_SETBIND, SEC_HOTKEYS, SEC_MOUNT = 1, 2, 3, 4, 5, 6
-SEC_NAMES = {SEC_CORE: "core", SEC_VIDEO: "video", SEC_ROMS: "roms", SEC_SETBIND: "setting register bits", SEC_HOTKEYS: "hotkeys", SEC_MOUNT: "mount slots"}
-SEC_KEYS = ("core", "video", "freeze", "rom", "hotkeys", "mount")           # the top-level TOML keys that make a record version 6
+(SEC_RESETW, SEC_IDFEAT, SEC_REPORT, SEC_RAWKEYS, SEC_ALTVIDEO, SEC_FBWIN, SEC_MOUSE, SEC_ROMSET, SEC_WINMEDIA, SEC_SECMEDIA, SEC_REPLACE) = range(7, 18)
+SEC_NAMES = {SEC_CORE: "core", SEC_VIDEO: "video", SEC_ROMS: "roms", SEC_SETBIND: "setting register bits", SEC_HOTKEYS: "hotkeys", SEC_MOUNT: "mount slots",
+             SEC_RESETW: "reset writes", SEC_IDFEAT: "id feature", SEC_REPORT: "report registers", SEC_RAWKEYS: "raw keys", SEC_ALTVIDEO: "alternative video",
+             SEC_FBWIN: "picture window", SEC_MOUSE: "mouse", SEC_ROMSET: "rom set", SEC_WINMEDIA: "window media", SEC_SECMEDIA: "sector media", SEC_REPLACE: "media replace"}
+SEC_KEYS = ("core", "video", "freeze", "rom", "hotkeys", "mount", "reset_write", "id_feature", "report_reg", "rawkeys", "alt_video", "fbwin", "mouse", "romset",
+            "window_media", "sector_media")           # the top-level TOML keys that make a record version 6 (and `replace` in a [[media]])
 CORE_FLAGS = ("poll_when_frozen", "board_caps", "id_shared", "own_volume", "no_tone", "menu_first")
 CORE_REQ = ("name", "title", "short_title", "folder", "store")
 CORE_OPT = ("service_op", "needs_program", "program_ext", "type_op", "run_op", "core_id")
@@ -1154,9 +1180,8 @@ def _sec_core(c, st):
     return struct.pack("<%dI" % len(w), *w)
 
 
-def _sec_video(v, fz, st):
-    _only(v, set(VIDEO_INTS), "video")
-    _only(fz, set(FREEZE_INTS) | {"word"}, "freeze")
+def _video_words(v, what="video"):
+    _only(v, set(VIDEO_INTS), what)
     vals = {}
     for k in VIDEO_INTS:
         if k in ("x0", "y0"):
@@ -1169,7 +1194,12 @@ def _sec_video(v, fz, st):
             vals[k] = _int_in(v, k, 0, 65535, "video")
     if vals["scale"] not in (1, 2, 3) or vals["nbuf"] > 8 or vals["bpp"] not in (0, 2, 4) or vals["pxfmt"] > 4:
         raise DescError("video: scale 1 .. 3, nbuf at most 8, bpp 0, 2 or 4, pxfmt at most 4")
-    w = [vals[k] for k in VIDEO_INTS]
+    return [vals[k] for k in VIDEO_INTS]
+
+
+def _sec_video(v, fz, st):
+    w = _video_words(v)
+    _only(fz, set(FREEZE_INTS) | {"word"}, "freeze")
     w += [_int_in(fz, "reg_status", 0, 65535, "freeze"), _int_in(fz, "mask", 0, 255, "freeze"), _int_in(fz, "timeout_ms", 0, 65535, "freeze"),
           1 if _opt(fz, "word", bool, "freeze", False) else 0]
     return struct.pack("<%dI" % len(w), *w)
@@ -1180,7 +1210,7 @@ def _sec_roms(roms, st):
         raise DescError("rom: 1 to %d entries" % ROMS_MAX)
     out = struct.pack("<I", len(roms))
     for r in roms:
-        _only(r, {"role", "names", "sizes", "required", "set", "shared", "put_op"}, "rom")
+        _only(r, {"role", "names", "sizes", "required", "set", "shared", "put_op", "check"}, "rom")
         role = _need(r, "role", str, "rom")
         what = "rom " + role
         names = _need(r, "names", list, what)
@@ -1189,7 +1219,7 @@ def _sec_roms(roms, st):
             raise DescError("%s: 1 to %d file names" % (what, ROM_NAMES_MAX))
         if not 1 <= len(sizes) <= ROM_SIZES_MAX or not all(isinstance(x, int) and not isinstance(x, bool) and 0 < x < 2 ** 32 for x in sizes):
             raise DescError("%s: 1 to %d sizes in bytes" % (what, ROM_SIZES_MAX))
-        flags = (1 if _opt(r, "required", bool, what, False) else 0) | (2 if _opt(r, "shared", bool, what, False) else 0) | (_int_in(r, "set", 0, 255, what, 0) << 8)
+        flags = (1 if _opt(r, "required", bool, what, False) else 0) | (2 if _opt(r, "shared", bool, what, False) else 0) | (4 if _opt(r, "check", bool, what, False) else 0) | (_int_in(r, "set", 0, 255, what, 0) << 8)
         w = [st.add(role), st.add(_need(r, "put_op", str, what)), flags] + sizes + [0] * (ROM_SIZES_MAX - len(sizes)) + [st.add(x) for x in names] + [NONE] * (ROM_NAMES_MAX - len(names))
         out += struct.pack("<%dI" % len(w), *w)
     return out
@@ -1239,12 +1269,147 @@ def _sec_setbind(binds):
     return out
 
 
-def _sections(doc, setbinds, st):
+# The sections of the data a C++ descriptor holds as small structs (T239.3 D17): a table of fields, each a word. kind "u<bits>" an unsigned number, "i<bits>" a signed
+# one (stored as 32 bit two's complement), "t" a text (a string table offset, required), "o" an optional text (none = NONE). One table writes and reads a section,
+# and coreapp/src/descrec.cc reads the same words in the same order.
+MOUSE_KINDS = ("counters", "pot1351")                   # mousesink.h MouseKind
+FBWIN_FIELDS = (("reg_feat", "u16"), ("feat_bit", "u8"), ("reg_ctrl", "u16"), ("ctrl_video_off", "u8"), ("reg_diw_h", "u16"), ("reg_diw_v", "u16"), ("reg_skip_x", "u16"),
+                ("reg_skip_y", "u16"), ("reg_cols", "u16"), ("reg_lines", "u16"), ("x_per_unit", "i16"), ("x_origin", "i16"), ("y_origin", "i16"), ("src_w", "i16"),
+                ("src_h", "i16"), ("def_skip_x", "u16"), ("def_skip_y", "u16"), ("def_cols", "u16"), ("def_lines", "u16"), ("interval_ms", "u16"), ("settle_ms", "u16"),
+                ("frames_ms", "u16"), ("min_apply_ms", "u16"))
+MOUSE_FIELDS = (("kind", "k"), ("reg_dx", "u16"), ("reg_dy", "u16"), ("reg_btn", "u16"), ("clamp", "i16"), ("step", "i16"), ("interval_ms", "u8"))
+WINMEDIA_FIELDS = (("prefix", "t"), ("nslots", "u3"), ("base", "u32"), ("stride", "u32"), ("max_image", "u32"), ("mount_reg", "u16"), ("mount_step", "u16"),
+                   ("track_bytes", "u32"), ("ntracks", "u8"), ("dlog_status", "u16"), ("dlog_track", "u16"), ("dlog_drive", "u16"), ("dlog_pop", "u16"),
+                   ("idle_flush_ms", "u16"), ("max_dirty_ms", "u16"))
+SECMEDIA_FIELDS = (("prefix", "t"), ("nunits", "u2"), ("mount_reg", "u16"), ("mount_step", "u16"), ("feat_reg", "u16"), ("feat_sectors", "u8"), ("mbox_status", "u16"),
+                   ("mbox_lba", "u16"), ("mbox_done", "u16"), ("stage_off", "u32"), ("idle_sync_ms", "u16"), ("done_tag_mask", "u8"))
+ROMSET_FIELDS = (("role", "t"), ("ext", "t"), ("size_text", "t"), ("example", "t"), ("max", "u4"), ("choice_key", "t"), ("auto_label", "t"), ("want", "u16"),
+                 ("head_bytes", "u8"), ("window_off", "u32"), ("mirror_size", "u32"), ("mirror_stride", "u32"), ("clear_below", "u32"))
+ROMSET_MAX_, ROMSET_SIZES_ = 8, 3
+RESETW_MAX, REPORT_MAX = 8, 24
+RAWKEY_MODS = 8
+_RANGES = {"u": lambda b: (0, 2 ** b - 1), "i": lambda b: (-2 ** (b - 1), 2 ** (b - 1) - 1)}
+
+
+def _field_words(d, fields, what, st):
+    out = []
+    for k, kind in fields:
+        v = d.get(k)
+        if kind in ("t", "o"):
+            if v is None and kind == "t":
+                raise DescError("%s: %r is missing" % (what, k))
+            if v is not None and (not isinstance(v, str) or not v):
+                raise DescError("%s: %r is a text, not empty" % (what, k))
+            out.append(st.add(v))
+        elif kind == "k":
+            if v not in MOUSE_KINDS:
+                raise DescError("%s: %r is one of %s" % (what, k, ", ".join(MOUSE_KINDS)))
+            out.append(MOUSE_KINDS.index(v))
+        else:
+            lo, hi = _RANGES[kind[0]](int(kind[1:]))
+            out.append(_int_in(d, k, lo, hi, what) & 0xFFFFFFFF)
+    return out
+
+
+def _field_dict(w, fields, what, s):
+    d = {}
+    for (k, kind), x in zip(fields, w):
+        if kind in ("t", "o"):
+            if x == NONE and kind == "o":
+                continue
+            v = s(x)
+            if not v:
+                raise DescError("%s: a text is missing" % what)
+            d[k] = v
+        elif kind == "k":
+            if x >= len(MOUSE_KINDS):
+                raise DescError("%s: the mouse kind is not known" % what)
+            d[k] = MOUSE_KINDS[x]
+        else:
+            lo, hi = _RANGES[kind[0]](int(kind[1:]))
+            v = x - 2 ** 32 if kind[0] == "i" and x >= 2 ** 31 else x
+            if not lo <= v <= hi:
+                raise DescError("%s: %r is out of range" % (what, k))
+            d[k] = v
+    return d
+
+
+def _sec_fields(d, fields, what, st, extra=()):
+    _only(d, {k for k, _ in fields} | set(extra), what)
+    return struct.pack("<%dI" % len(fields), *_field_words(d, fields, what, st))
+
+
+def _sec_resetw(lst):
+    if not 1 <= len(lst) <= RESETW_MAX:
+        raise DescError("reset_write: 1 to %d entries" % RESETW_MAX)
+    out = struct.pack("<I", len(lst))
+    for r in lst:
+        _only(r, {"reg", "value"}, "reset_write")
+        out += struct.pack("<2I", _int_in(r, "reg", 0, 65535, "reset_write"), _int_in(r, "value", 0, 255, "reset_write"))
+    return out
+
+
+def _sec_idfeat(d):
+    _only(d, {"reg", "mask", "value"}, "id_feature")
+    return struct.pack("<3I", _int_in(d, "reg", 0, 65535, "id_feature"), _int_in(d, "mask", 1, 255, "id_feature"), _int_in(d, "value", 0, 255, "id_feature"))
+
+
+def _sec_report(lst, st):
+    if not 1 <= len(lst) <= REPORT_MAX:
+        raise DescError("report_reg: 1 to %d entries" % REPORT_MAX)
+    out = struct.pack("<I", len(lst))
+    for r in lst:
+        _only(r, {"name", "reg", "bytes"}, "report_reg")
+        by = _int_in(r, "bytes", 1, 4, "report_reg")
+        if by == 3:
+            raise DescError("report_reg: bytes is 1, 2 or 4")
+        out += struct.pack("<3I", st.add(_need(r, "name", str, "report_reg")), _int_in(r, "reg", 0, 65535, "report_reg"), by)
+    return out
+
+
+def _byte_list(v, n_lo, n_hi, what, k):
+    if not isinstance(v, list) or not n_lo <= len(v) <= n_hi or not all(isinstance(x, int) and not isinstance(x, bool) and 0 <= x <= 255 for x in v):
+        raise DescError("%s: %r is %s numbers 0 .. 255" % (what, k, ("%d to %d" % (n_lo, n_hi)) if n_lo != n_hi else str(n_lo)))
+    return bytes(v) + bytes(-len(v) % 4)
+
+
+def _sec_rawkeys(r):
+    _only(r, {"reg", "hid", "mod", "caps_usage", "caps_code", "held"}, "rawkeys")
+    held = _opt(r, "held", bool, "rawkeys", False)
+    usage = _int_in(r, "caps_usage", 0, 255, "rawkeys")
+    if held:       # the core's code reads the keys that are down (CoreHooks::rawkeys_held); no key queue, no tables
+        if any(k in r for k in ("reg", "hid", "mod", "caps_code")):
+            raise DescError("rawkeys: held has no reg, hid, mod or caps_code")
+        return struct.pack("<6I", 1, 0, usage, 0, 0, 0)
+    hid = _byte_list(r.get("hid"), 1, 255, "rawkeys", "hid")
+    mod = _byte_list(r.get("mod"), RAWKEY_MODS, RAWKEY_MODS, "rawkeys", "mod")
+    return struct.pack("<6I", 0, _int_in(r, "reg", 0, 65535, "rawkeys"), usage, _int_in(r, "caps_code", 0, 255, "rawkeys"), len(r["hid"]), RAWKEY_MODS) + hid + mod
+
+
+def _sec_romset(r, st):
+    _only(r, {k for k, _ in ROMSET_FIELDS} | {"sizes", "version", "pick"}, "romset")
+    sizes = _need(r, "sizes", list, "romset")
+    if not 1 <= len(sizes) <= ROMSET_SIZES_ or not all(isinstance(x, int) and not isinstance(x, bool) and 0 < x < 2 ** 32 for x in sizes):
+        raise DescError("romset: 1 to %d sizes in bytes" % ROMSET_SIZES_)
+    if not 1 <= r.get("max", 0) <= ROMSET_MAX_:
+        raise DescError("romset: max is 1 to %d" % ROMSET_MAX_)
+    flags = (1 if _opt(r, "version", bool, "romset", False) else 0) | (2 if _opt(r, "pick", bool, "romset", False) else 0)
+    return struct.pack("<I%dI" % ROMSET_SIZES_, flags, *(sizes + [0] * (ROMSET_SIZES_ - len(sizes)))) + struct.pack("<%dI" % len(ROMSET_FIELDS), *_field_words(r, ROMSET_FIELDS, "romset", st))
+
+
+def _sec_replace(items, st):
+    out = struct.pack("<I", len(items))
+    for idx, txt in items:
+        out += struct.pack("<2I", idx, st.add(txt))
+    return out
+
+
+def _sections(doc, setbinds, st, replaces=()):
     """The bytes behind the string table: the sections in the order of their ids. Empty when the document has none of their keys."""
     secs = []
     if "core" in doc:
         secs.append((SEC_CORE, _sec_core(_need(doc, "core", dict, "description"), st)))
-    elif any(k in doc for k in SEC_KEYS) or setbinds:
+    elif any(k in doc for k in SEC_KEYS) or setbinds or replaces:
         raise DescError("a record with a core's data sections needs [core] (its identity)")
     if "video" in doc or "freeze" in doc:
         secs.append((SEC_VIDEO, _sec_video(_need(doc, "video", dict, "description"), _need(doc, "freeze", dict, "description"), st)))
@@ -1258,6 +1423,35 @@ def _sections(doc, setbinds, st):
         secs.append((SEC_HOTKEYS, _sec_hotkeys(_need(doc, "hotkeys", dict, "description"), st)))
     if "mount" in doc:
         secs.append((SEC_MOUNT, _sec_mount(_need(doc, "mount", dict, "description"), st)))
+    if "reset_write" in doc:
+        secs.append((SEC_RESETW, _sec_resetw(_need(doc, "reset_write", list, "description"))))
+    if "id_feature" in doc:
+        secs.append((SEC_IDFEAT, _sec_idfeat(_need(doc, "id_feature", dict, "description"))))
+    if "report_reg" in doc:
+        secs.append((SEC_REPORT, _sec_report(_need(doc, "report_reg", list, "description"), st)))
+    if "rawkeys" in doc:
+        secs.append((SEC_RAWKEYS, _sec_rawkeys(_need(doc, "rawkeys", dict, "description"))))
+    if "alt_video" in doc:
+        w = _video_words(_need(doc, "alt_video", dict, "description"), "alt_video")
+        secs.append((SEC_ALTVIDEO, struct.pack("<%dI" % len(w), *w)))
+    if "fbwin" in doc:
+        secs.append((SEC_FBWIN, _sec_fields(_need(doc, "fbwin", dict, "description"), FBWIN_FIELDS, "fbwin", st)))
+    if "mouse" in doc:
+        secs.append((SEC_MOUSE, _sec_fields(_need(doc, "mouse", dict, "description"), MOUSE_FIELDS, "mouse", st)))
+    if "romset" in doc:
+        secs.append((SEC_ROMSET, _sec_romset(_need(doc, "romset", dict, "description"), st)))
+    if "window_media" in doc:
+        w = _need(doc, "window_media", dict, "description")
+        if not 1 <= w.get("nslots", 0) <= 4 or not 1 <= w.get("ntracks", 0) <= 160:
+            raise DescError("window_media: nslots is 1 to 4, ntracks 1 to 160")
+        secs.append((SEC_WINMEDIA, _sec_fields(w, WINMEDIA_FIELDS, "window_media", st)))
+    if "sector_media" in doc:
+        w = _need(doc, "sector_media", dict, "description")
+        if not 1 <= w.get("nunits", 0) <= 2:
+            raise DescError("sector_media: nunits is 1 or 2")
+        secs.append((SEC_SECMEDIA, _sec_fields(w, SECMEDIA_FIELDS, "sector_media", st)))
+    if replaces:
+        secs.append((SEC_REPLACE, _sec_replace(replaces, st)))
     return b"".join(struct.pack("<II", i, len(p)) + p for i, p in secs)
 
 
@@ -1332,9 +1526,9 @@ def _parse_sections(blob, off, size, s, ncset, out):
                 w = words(3 + ROM_SIZES_MAX + ROM_NAMES_MAX, 4 + i * 4 * (3 + ROM_SIZES_MAX + ROM_NAMES_MAX))
                 sizes = [x for x in w[3:3 + ROM_SIZES_MAX] if x]
                 names = [S(x, True) for x in w[3 + ROM_SIZES_MAX:] if x != NONE]
-                if w[2] & ~0xFF03 or not sizes or not names or w[3 + len(sizes):3 + ROM_SIZES_MAX] != (0,) * (ROM_SIZES_MAX - len(sizes)):
+                if w[2] & ~0xFF07 or not sizes or not names or w[3 + len(sizes):3 + ROM_SIZES_MAX] != (0,) * (ROM_SIZES_MAX - len(sizes)):
                     raise DescError("%s: entry %d has bad flags, sizes or names" % (what, i))
-                roms.append({"role": S(w[0], True), "put_op": S(w[1], True), "required": bool(w[2] & 1), "shared": bool(w[2] & 2), "set": w[2] >> 8, "sizes": sizes, "names": names})
+                roms.append({"role": S(w[0], True), "put_op": S(w[1], True), "required": bool(w[2] & 1), "shared": bool(w[2] & 2), "check": bool(w[2] & 4), "set": w[2] >> 8, "sizes": sizes, "names": names})
             out["rom"] = roms
         elif sid == SEC_SETBIND:
             n, = words(1)
@@ -1378,7 +1572,7 @@ def _parse_sections(blob, off, size, s, ncset, out):
                 h["core_op"], h["core_key"], h["core_label"] = S(rest[4], True), S(rest[5], True), S(rest[6], True)
             h["pc_keys"] = bool(rest[7])
             out["hotkeys"] = h
-        else:
+        elif sid == SEC_MOUNT:
             n, = words(1)
             if not 1 <= n <= MOUNT_NAMES_MAX or len(p) != 4 + 4 * n:
                 raise DescError("%s: %d slots, or the length does not fit them" % (what, n))
@@ -1386,6 +1580,85 @@ def _parse_sections(blob, off, size, s, ncset, out):
             if not all(1 <= len(x) <= 9 for x in names):
                 raise DescError("%s: a slot name is empty or longer than 9" % what)
             out["mount"] = {"names": names}
+        elif sid == SEC_RESETW:
+            n, = words(1)
+            if not 1 <= n <= RESETW_MAX or len(p) != 4 + 8 * n:
+                raise DescError("%s: %d entries, or the length does not fit them" % (what, n))
+            out["reset_write"] = []
+            for i in range(n):
+                reg, val = words(2, 4 + 8 * i)
+                if reg > 65535 or val > 255:
+                    raise DescError("%s: entry %d is out of range" % (what, i))
+                out["reset_write"].append({"reg": reg, "value": val})
+        elif sid == SEC_IDFEAT:
+            if len(p) != 12:
+                raise DescError("%s: %d bytes, 12 expected" % (what, len(p)))
+            reg, mask, val = words(3)
+            if reg > 65535 or not 1 <= mask <= 255 or val > 255:
+                raise DescError("%s: a value is out of range" % what)
+            out["id_feature"] = {"reg": reg, "mask": mask, "value": val}
+        elif sid == SEC_REPORT:
+            n, = words(1)
+            if not 1 <= n <= REPORT_MAX or len(p) != 4 + 12 * n:
+                raise DescError("%s: %d entries, or the length does not fit them" % (what, n))
+            out["report_reg"] = []
+            for i in range(n):
+                nm, reg, by = words(3, 4 + 12 * i)
+                if not S(nm) or reg > 65535 or by not in (1, 2, 4):
+                    raise DescError("%s: entry %d has no name, or a bad register or width" % (what, i))
+                out["report_reg"].append({"name": S(nm), "reg": reg, "bytes": by})
+        elif sid == SEC_RAWKEYS:
+            flags, reg, usage, code, nh, nm = words(6)
+            if flags > 1 or reg > 65535 or usage > 255 or code > 255 or nh > 255 or len(p) != 24 + nh + (-nh % 4) + nm + (-nm % 4):
+                raise DescError("%s: a value is out of range, or the length does not fit the tables" % what)
+            if flags:
+                if reg or code or nh or nm:
+                    raise DescError("%s: a held-keys core has no tables" % what)
+                out["rawkeys"] = {"held": True, "caps_usage": usage}
+            else:
+                if not nh or nm != RAWKEY_MODS:
+                    raise DescError("%s: the key table is empty, or the modifier table is not %d long" % (what, RAWKEY_MODS))
+                out["rawkeys"] = {"reg": reg, "hid": list(p[24:24 + nh]), "mod": list(p[24 + nh + (-nh % 4):24 + nh + (-nh % 4) + nm]), "caps_usage": usage, "caps_code": code}
+        elif sid == SEC_ALTVIDEO:
+            if len(p) != 4 * len(VIDEO_INTS):
+                raise DescError("%s: %d bytes" % (what, len(p)))
+            v = dict(zip(VIDEO_INTS, words(len(VIDEO_INTS))))
+            for k in ("x0", "y0"):
+                v[k] = v[k] - 2 ** 32 if v[k] >= 2 ** 31 else v[k]
+            if v["scale"] not in (1, 2, 3) or v["nbuf"] > 8 or v["bpp"] not in (0, 2, 4) or v["pxfmt"] > 4 or max(v[k] for k in ("reg_latest", "reg_seq", "reg_fb_base", "reg_fb_stride", "h60")) > 65535:
+                raise DescError("%s: a value is out of range" % what)
+            out["alt_video"] = v
+        elif sid in (SEC_FBWIN, SEC_MOUSE, SEC_WINMEDIA, SEC_SECMEDIA):
+            key, fields = {SEC_FBWIN: ("fbwin", FBWIN_FIELDS), SEC_MOUSE: ("mouse", MOUSE_FIELDS), SEC_WINMEDIA: ("window_media", WINMEDIA_FIELDS),
+                           SEC_SECMEDIA: ("sector_media", SECMEDIA_FIELDS)}[sid]
+            if len(p) != 4 * len(fields):
+                raise DescError("%s: %d bytes, %d expected" % (what, len(p), 4 * len(fields)))
+            out[key] = _field_dict(words(len(fields)), fields, what, s)
+            if (key == "window_media" and not 1 <= out[key]["ntracks"] <= 160) or (key == "window_media" and not 1 <= out[key]["nslots"] <= 4) or \
+               (key == "sector_media" and not 1 <= out[key]["nunits"] <= 2):
+                raise DescError("%s: a count is out of range" % what)
+        elif sid == SEC_ROMSET:
+            if len(p) != 4 * (1 + ROMSET_SIZES_ + len(ROMSET_FIELDS)):
+                raise DescError("%s: %d bytes" % (what, len(p)))
+            w = words(1 + ROMSET_SIZES_ + len(ROMSET_FIELDS))
+            sizes = [x for x in w[1:1 + ROMSET_SIZES_] if x]
+            d = _field_dict(w[1 + ROMSET_SIZES_:], ROMSET_FIELDS, what, s)
+            if w[0] > 3 or not sizes or w[1 + len(sizes):1 + ROMSET_SIZES_] != (0,) * (ROMSET_SIZES_ - len(sizes)) or not 1 <= d["max"] <= ROMSET_MAX_:
+                raise DescError("%s: flags, sizes or the count are out of range" % what)
+            d["sizes"] = sizes
+            d["version"], d["pick"] = bool(w[0] & 1), bool(w[0] & 2)
+            out["romset"] = d
+        elif sid == SEC_REPLACE:
+            n, = words(1)
+            if not 1 <= n <= len(out["media"]) or len(p) != 4 + 8 * n:
+                raise DescError("%s: %d entries, or the length does not fit them" % (what, n))
+            last = -1
+            for i in range(n):
+                idx, o = words(2, 4 + 8 * i)
+                if idx <= last or idx >= len(out["media"]) or not S(o):
+                    raise DescError("%s: entry %d names no media slot (in order), or has no text" % (what, i))
+                last = idx
+                out["media"][idx]["replace"] = S(o)
     if (SEC_VIDEO in seen) != ("video" in out) or SEC_CORE not in seen:
         raise DescError("description record: the data sections have no core section")
     if any("reg_bind" not in c and c["apply"] is None for c in out["cset"]):
@@ -1719,8 +1992,8 @@ def decoded_to_doc(rec):
             d = {"name": m["name"], "state": m["state"]}
             if m["group"] is not None:
                 d["group"] = m["group"]
-            for k_ in ("exts", "mount", "empty_tasks", "mounted_tasks"):
-                if m[k_] is not None:
+            for k_ in ("exts", "mount", "empty_tasks", "mounted_tasks", "replace"):
+                if m.get(k_) is not None:
                     d[k_] = m[k_]
             if m["eject_closes"]:
                 d["eject_closes"] = True

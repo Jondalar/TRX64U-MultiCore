@@ -6,9 +6,11 @@ board are tested against what the tools write (T104.1 D9, D12).
                               of before), large.cor (a large core with the description), other.cor (another core's name),
                               merged.cor (the description with the menu of the library gamma merged in), desc_trx64u.bin (the menu of TRX64U),
                               diag.cor (the diag core's .cor as the packer makes it: record 8 holds cores/diag/sd, earlier versions from cores/diag/superseded),
-                              nofiles.cor (the same core without record 8), desc_vc20.bin (the VIC-20's data description, cores/vc20/app/desc.toml),
-                              vc20.cor (the VIC-20's bundle with it, T239.3 D17) and vc20_old.cor (the same bundle without the record)
+                              nofiles.cor (the same core without record 8), app/index.txt, app/<id>.bin, app/<id>.cor, app/<id>_old.cor (the
+                              data description of every cores/*/app/desc.toml, its bundle and the same bundle without the record, T239.3 D17),
+                              desc_sections.bin and desc_sections_extra.bin (the tables of the sections 7 .. 17)
 """
+import glob
 import os
 import struct
 import sys
@@ -72,11 +74,22 @@ def main(out):
     files = C.collect_files(os.path.join(diag, "sd"), os.path.join(diag, "superseded"))
     open(os.path.join(out, "diag.cor"), "wb").write(C.pack_large("diag", "Port Diagnostics", "0.1", bit, bytes(0x60 for _ in range(64)), files=files))
     open(os.path.join(out, "nofiles.cor"), "wb").write(C.pack_large("diag", "Port Diagnostics", "0.1", bit, bytes(0x60 for _ in range(64))))
-    # T239.3 D17: the VIC-20's data description as the packer makes it, and the bundle that carries it
-    vc20 = descrec.compile_text(open(os.path.join(here, "..", "..", "cores", "vc20", "app", "desc.toml")).read())
-    open(os.path.join(out, "desc_vc20.bin"), "wb").write(vc20)
-    open(os.path.join(out, "vc20.cor"), "wb").write(C.pack(name="VIC-20", desc=vc20, **kw))
-    open(os.path.join(out, "vc20_old.cor"), "wb").write(C.pack(name="VIC-20", **kw))
+    # T239.3 D17: the data description of every core that has one (cores/*/app/desc.toml) as the packer makes it, and the bundle that carries it; index.txt names them
+    app = os.path.join(out, "app")
+    os.makedirs(app, exist_ok=True)
+    lines = []
+    for toml in sorted(glob.glob(os.path.join(here, "..", "..", "cores", "*", "app", "desc.toml"))):
+        cid = os.path.basename(os.path.dirname(os.path.dirname(toml)))
+        blob = descrec.compile_text(open(toml).read())
+        name = descrec.parse_desc(blob)["core"]["name"]
+        open(os.path.join(app, cid + ".bin"), "wb").write(blob)
+        open(os.path.join(app, cid + ".cor"), "wb").write(C.pack(name=name, desc=blob, **kw))
+        open(os.path.join(app, cid + "_old.cor"), "wb").write(C.pack(name=name, **kw))
+        lines.append("%s %s\n" % (cid, name))
+    open(os.path.join(app, "index.txt"), "w").write("".join(lines))
+    # T239.3 D17 part 2: the tables of sections 7 .. 17 (tests/coreapp/test_descsec.cc): the Amiga 1200's, and what no descriptor has together
+    for n in ("desc_sections", "desc_sections_extra"):
+        open(os.path.join(out, n + ".bin"), "wb").write(descrec.compile_text(open(os.path.join(gold, n + ".toml")).read()))
 
 
 if __name__ == "__main__":

@@ -564,8 +564,8 @@ class CoreSections(unittest.TestCase):
     def test_a_section_the_reader_does_not_know_is_refused_by_number(self):
         import struct
         b = bytearray(self.blob)
-        struct.pack_into("<I", b, self._sections(), 9)
-        with self.assertRaisesRegex(D.DescError, "section 9"):
+        struct.pack_into("<I", b, self._sections(), 99)
+        with self.assertRaisesRegex(D.DescError, "section 99"):
             D.parse_desc(bytes(b))
 
     def test_a_damaged_section_is_refused_by_name(self):
@@ -609,6 +609,82 @@ class CoreSections(unittest.TestCase):
         r = D.parse_desc(blob)
         self.assertEqual((merged, r["core"]["id"], len(r["rom"]), r["mount"]["names"]), (["lib"], "VC20", 6, ["Drive A"]))
         self.assertEqual([n["label"] for n in r["node"]], ["L"])
+
+
+class MoreSections(unittest.TestCase):
+    """T239.3 D17 part 2: sections 7 .. 17 (reset writes ... media replace) from the goldens the C++ test reads (tests/coreapp/test_descsec.cc)."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.a_text, cls.x_text = src("desc_sections.toml"), src("desc_sections_extra.toml")
+        cls.a, cls.x = D.compile_text(cls.a_text), D.compile_text(cls.x_text)
+
+    def test_both_read_back_and_compile_to_the_same_bytes(self):
+        for b in (self.a, self.x):
+            self.assertEqual(D.compile_desc(D.decoded_to_doc(D.parse_desc(b))), b)
+
+    def test_what_the_amiga_tables_hold(self):
+        r = D.parse_desc(self.a)
+        self.assertEqual([(x["reg"], x["value"]) for x in r["reset_write"]], [(0xA3, 0), (0xA6, 0x21)])
+        self.assertEqual(r["id_feature"], {"reg": 0xC, "mask": 8, "value": 8})
+        self.assertEqual(len(r["report_reg"]), 16)
+        self.assertEqual((len(r["rawkeys"]["hid"]), len(r["rawkeys"]["mod"]), r["rawkeys"]["caps_code"]), (0x68, 8, 0x62))
+        self.assertEqual((r["mouse"]["kind"], r["mouse"]["clamp"], r["mouse"]["step"]), ("counters", 4000, 127))
+        self.assertEqual((r["fbwin"]["x_origin"], r["fbwin"]["src_w"], r["fbwin"]["def_cols"]), (182, 753, 90))
+        self.assertEqual((r["romset"]["sizes"], r["romset"]["max"], r["romset"]["version"], r["romset"]["pick"]), ([262144, 524288], 8, True, True))
+        self.assertEqual((r["window_media"]["prefix"], r["window_media"]["nslots"], r["sector_media"]["nunits"]), ("DF", 4, 2))
+        self.assertEqual((r["pad"]["regs"], r["pad"]["per_pad"]), ([464, 0], True))
+
+    def test_what_no_descriptor_has_together(self):
+        r = D.parse_desc(self.x)
+        self.assertTrue(r["rom"][0]["check"] and not r["rom"][1]["check"])
+        self.assertEqual(r["alt_video"]["x0"], -8)
+        self.assertEqual(r["rawkeys"], {"held": True, "caps_usage": 255})
+        self.assertEqual([m.get("replace") for m in r["media"]], ["Replace Cartridge", None, "Replace Disk"])
+        self.assertEqual((r["romset"]["version"], r["romset"]["pick"]), (False, False))
+
+    def test_what_the_compiler_refuses(self):
+        a, x = self.a_text, self.x_text
+        for what, text in (
+                ("a reset write beyond a byte", a.replace("value = 0x21", "value = 0x121")),
+                ("an id feature with no mask", a.replace("mask = 0x8", "mask = 0")),
+                ("a report register of 3 bytes", a.replace("bytes = 1", "bytes = 3", 1)),
+                ("a mouse kind that does not exist", a.replace('kind = "counters"', 'kind = "ball"')),
+                ("a window media slot count of 5", a.replace("nslots = 4", "nslots = 5")),
+                ("a sector media with no prefix", a.replace('prefix = "HD"\n', "")),
+                ("a rom set of 9", a.replace("max = 8", "max = 9")),
+                ("a rom set with no size", a.replace("sizes = [262144, 524288]", "sizes = []")),
+                ("rawkeys with a short modifier table", a.replace("mod = [ 0x63, 0x60, 0x64, 0x66, 0x63, 0x61, 0x65, 0x67 ]", "mod = [ 0x63 ]")),
+                ("held rawkeys with a table", x.replace("held = true", "held = true\nreg = 1")),
+                ("a fbwin number out of range", a.replace("src_w = 753", "src_w = 40000")),
+                ("a field that is no key", a.replace("[mouse]", "[mouse]\nspeed = 1")),
+                ("sections without a core", x.replace("[core]", "[core_gone]")),
+                ("a replace that is empty", x.replace('replace = "Replace Disk"', 'replace = ""'))):
+            with self.assertRaises(D.DescError, msg=what):
+                D.compile_text(text)
+
+    def test_a_damaged_section_is_refused_by_name(self):
+        import struct
+        soff = struct.unpack_from("<I", self.a, D.HEADER_V5)[0]
+        at, found = soff, {}
+        while at < len(self.a):
+            sid, ln = struct.unpack_from("<II", self.a, at)
+            found[sid] = at
+            at += 8 + ln
+        for sid, name in ((D.SEC_RESETW, "reset writes"), (D.SEC_IDFEAT, "id feature"), (D.SEC_REPORT, "report registers"), (D.SEC_RAWKEYS, "raw keys"), (D.SEC_FBWIN, "picture window"),
+                          (D.SEC_MOUSE, "mouse"), (D.SEC_ROMSET, "rom set"), (D.SEC_WINMEDIA, "window media"), (D.SEC_SECMEDIA, "sector media")):
+            b = bytearray(self.a)
+            struct.pack_into("<I", b, found[sid] + 4, struct.unpack_from("<I", b, found[sid] + 4)[0] + 4)
+            with self.assertRaisesRegex(D.DescError, name, msg=name):
+                D.parse_desc(bytes(b))
+
+    def test_the_pad_with_one_port_may_leave_the_second_register_zero(self):
+        t = self.a_text
+        D.compile_text(t)
+        with self.assertRaises(D.DescError):
+            D.compile_text(t.replace("per_pad = true\n", ""))                     # two ports: both registers are real
+        with self.assertRaises(D.DescError):
+            D.compile_text(t.replace("regs = [0x1D0, 0]", "regs = [0, 0x1D0]"))    # the first never is 0
 
 
 if __name__ == "__main__":

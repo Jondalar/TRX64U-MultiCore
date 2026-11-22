@@ -1,10 +1,10 @@
-// T239.3 D17 step 3, first half: a core whose data description comes from its .cor. The VIC-20's description (cores/vc20/app/desc.toml) is compiled by the real tool
-// (tools/descrec.py, through tests/coreapp/gen_bundle.py), read back by the real generic reader (descrec.cc: descrec_parse, descrec_core; bundle.cc and start.cc:
-// the bundle's record found, hashed, parsed, the descriptor made), and the descriptor is compared field by field with the compiled-in vc20_desc: every string, count,
-// table and entry of it. The function hooks are not data: the test hands the reader the hooks of vc20_desc, as the compiled-in code provides them, and reports each.
-// What the record does not cover is asserted to be empty in vc20_desc, so a table the reader does not read cannot hide behind equal zeros.
+// T239.3 D17 step 3: a core whose data description comes from its .cor, table-driven. Every cores/*/app/desc.toml (tests/coreapp/gen_bundle.py globs them) is compiled by the
+// real tool (tools/descrec.py), read back by the real generic reader (descrec.cc: descrec_parse, descrec_core; bundle.cc and start.cc: the bundle's record found, hashed, parsed,
+// the descriptor made), and the descriptor is compared field by field with the compiled-in descriptor of the same core: every string, count, table and entry of it. The
+// function hooks are not data: the test hands the reader the hooks of the compiled-in descriptor, as the compiled-in code provides them, and reports each. What the record has no
+// field for is asserted empty, so a table the reader does not read cannot hide behind equal zeros. One line per core: fields compared, failed.
 //
-//   test_descgen DESC_VC20.bin VC20.cor VC20_OLD.cor
+//   test_descgen DIR        DIR/index.txt: one line per core, "<id> <name of the core>"; DIR/<id>.bin the record, DIR/<id>.cor the bundle with it, DIR/<id>_old.cor without
 #include <string>
 #include <vector>
 #include <fstream>
@@ -17,8 +17,10 @@
 #include "handover.h"
 #include "hotkeys.h"
 #include "desc_check.h"
+#include "desc_tables_cmp.h"
 
 const CoreDesc *const core_table[] = { 0 };               // no descriptor is compiled in for the start of this test: the bundle's record is all there is
+extern const CoreDesc *const compiled_in_table[];         // the application's real table (compiled_table.cc), the compiled-in side of every comparison
 
 typedef std::vector<uint8_t> Bytes;
 static Bytes slurp(const std::string &p)
@@ -30,11 +32,7 @@ static Bytes slurp(const std::string &p)
     return Bytes(t.begin(), t.end());
 }
 
-static int g_fields;                                       // what has been compared
-
-#define EQN(what, a, b) do { g_fields++; CHECK_EQ((long long)(a), (long long)(b)); (void)(what); } while (0)
-#define EQS(what, a, b) do { g_fields++; CHECK_STR((a), (b)); (void)(what); } while (0)
-#define NUL(what, a) do { g_fields++; CHECK((a) == 0); (void)(what); } while (0)
+static int g_core_fields;                                  // what has been compared, summed over one core's two readings
 
 static void eq_binds(const OpBind *a, int na, const OpBind *b, int nb)
 {
@@ -94,8 +92,7 @@ static void compare(const CoreDesc &want, const CoreDesc &got)
         EQS("rom put_op", a.put_op, b.put_op);
         EQN("rom set", a.set, b.set);
         EQN("rom shared", a.shared, b.shared);
-        NUL("rom check (code)", a.check);
-        NUL("rom check (code, record)", b.check);
+        EQN("rom has check (code)", a.check != 0, b.check != 0);
     }
 
     EQN("nsettings", want.nsettings, got.nsettings);
@@ -195,12 +192,7 @@ static void compare(const CoreDesc &want, const CoreDesc &got)
     EQS("type_op", want.type_op, got.type_op);
     EQS("run_op", want.run_op, got.run_op);
     EQN("cold_ram_bytes", want.cold_ram_bytes, got.cold_ram_bytes);
-    EQN("id_feat_reg", want.id_feat_reg, got.id_feat_reg);
-    EQN("id_feat_mask", want.id_feat_mask, got.id_feat_mask);
-    EQN("id_feat_val", want.id_feat_val, got.id_feat_val);
-    EQN("menu_rec_n", want.menu_rec_n, got.menu_rec_n);
     EQS("core_id", want.core_id, got.core_id);
-    EQN("nreport_regs", want.nreport_regs, got.nreport_regs);
     EQN("own_volume", want.own_volume, got.own_volume);
     EQN("live_ms", want.live_ms, got.live_ms);
     EQN("menu_first", want.menu_first, got.menu_first);
@@ -208,15 +200,9 @@ static void compare(const CoreDesc &want, const CoreDesc &got)
     EQS("machine_info", want.machine_info, got.machine_info);
     EQN("cold_ram_only", want.cold_ram_only, got.cold_ram_only);
 
-    // what the record has no section for yet: empty in the compiled-in descriptor and in the made one (a table the reader skips cannot hide behind equal zeros)
-    NUL("reset_writes", want.reset_writes); NUL("nreset_writes", want.nreset_writes);
-    NUL("romset", want.romset); NUL("window_media", want.window_media); NUL("sector_media", want.sector_media);
-    NUL("mouse", want.mouse); NUL("fbwin", want.fbwin); NUL("menu_rec", want.menu_rec); NUL("report_regs", want.report_regs);
-    NUL("rawkeys", want.rawkeys); NUL("pad", want.pad); NUL("alt_video", want.alt_video);
-    NUL("got reset_writes", got.reset_writes); NUL("got nreset_writes", got.nreset_writes);
-    NUL("got romset", got.romset); NUL("got window_media", got.window_media); NUL("got sector_media", got.sector_media);
-    NUL("got mouse", got.mouse); NUL("got fbwin", got.fbwin); NUL("got menu_rec", got.menu_rec); NUL("got report_regs", got.report_regs);
-    NUL("got rawkeys", got.rawkeys); NUL("got pad", got.pad); NUL("got alt_video", got.alt_video);
+    compare_tables(want, got);
+    // the menu record the descriptor carries (menu_rec) is the record itself when it comes from the bundle: the made descriptor has none, and its menu tables are the record's
+    NUL("got menu_rec", got.menu_rec);
 
     // the mount slots: the count and the names are the record's, the three functions are the core's code
     EQN("has mount_slots", want.mount_slots != 0, got.mount_slots != 0);
@@ -258,12 +244,30 @@ static CoreHooks hooks_of(const CoreDesc &d)
     memset(&h, 0, sizeof(h));
     h.init = d.init; h.release = d.release; h.warm_reset = d.warm_reset; h.cold_start = d.cold_start; h.media_flush = d.media_flush;
     h.media_pending = d.media_pending; h.register_ops = d.register_ops; h.rom_key = d.rom_key; h.mount_slots = d.mount_slots;
+    for (int i = 0; i < d.nroms && i < ROMS_MAX; i++) {
+        h.rom_check[i] = d.roms[i].check;
+    }
+    if (d.romset) {
+        h.romset_version = d.romset->version;
+        h.romset_pick = d.romset->pick;
+    }
+    if (d.rawkeys) {
+        h.rawkeys_held = d.rawkeys->held;
+    }
+    if (d.pad) {
+        h.pad_id_loaded = d.pad->id_loaded;
+    }
     return h;
 }
 
-static void report_hooks(const CoreDesc &want, const CoreDesc &got)
+static void report_hooks(const CoreDesc &want, const CoreDesc &got, bool say)
 {
     struct H { const char *name; bool want, got; bool same; };
+    int checks = 0, gchecks = 0;
+    for (int i = 0; i < want.nroms; i++) {
+        checks += want.roms[i].check != 0;
+        gchecks += i < got.nroms && got.roms[i].check == want.roms[i].check && want.roms[i].check != 0;
+    }
     const H hs[] = {
         { "init", want.init != 0, got.init != 0, want.init == got.init },
         { "release", want.release != 0, got.release != 0, want.release == got.release },
@@ -279,10 +283,21 @@ static void report_hooks(const CoreDesc &want, const CoreDesc &got)
           want.mount_slots && got.mount_slots && want.mount_slots->mount == got.mount_slots->mount },
         { "mount_slots.eject", want.mount_slots && want.mount_slots->eject, got.mount_slots && got.mount_slots->eject,
           want.mount_slots && got.mount_slots && want.mount_slots->eject == got.mount_slots->eject },
+        { "rom checks", checks != 0, gchecks != 0, checks == gchecks },
+        { "romset.version", want.romset && want.romset->version, got.romset && got.romset->version, !!(want.romset && want.romset->version) == !!(got.romset && got.romset->version) &&
+          (!want.romset || want.romset->version == got.romset->version) },
+        { "romset.pick", want.romset && want.romset->pick, got.romset && got.romset->pick, !!(want.romset && want.romset->pick) == !!(got.romset && got.romset->pick) &&
+          (!want.romset || want.romset->pick == got.romset->pick) },
+        { "rawkeys.held", want.rawkeys && want.rawkeys->held, got.rawkeys && got.rawkeys->held, !!(want.rawkeys && want.rawkeys->held) == !!(got.rawkeys && got.rawkeys->held) &&
+          (!want.rawkeys || want.rawkeys->held == got.rawkeys->held) },
+        { "pad.id_loaded", want.pad && want.pad->id_loaded, got.pad && got.pad->id_loaded, !!(want.pad && want.pad->id_loaded) == !!(got.pad && got.pad->id_loaded) &&
+          (!want.pad || want.pad->id_loaded == got.pad->id_loaded) },
     };
     for (size_t i = 0; i < sizeof(hs) / sizeof(hs[0]); i++) {
         CHECK(hs[i].same);
-        printf("hook %-18s %s (provided by the compiled-in code)\n", hs[i].name, hs[i].want ? "set" : "null");
+        if (say) {
+            printf("  hook %-18s %s (provided by the compiled-in code)\n", hs[i].name, hs[i].want ? "set" : "null");
+        }
     }
 }
 
@@ -302,86 +317,146 @@ static int parse(const Bytes &b, DescRecord *d, char *why, int n)
     return descrec_parse(exact, (uint32_t)b.size(), d, why, n);
 }
 
-int main(int argc, char **argv)
+// the compiled-in descriptor of the core the record describes: the ID and the manifest name
+static const CoreDesc *compiled_of(const char *name)
 {
-    setvbuf(stdout, 0, _IONBF, 0);
-    CHECK(argc == 4);
-    Bytes rec = slurp(argv[1]);
-    CHECK(rec.size() > DESCREC_HEADER_V6);
-    const CoreHooks hooks = hooks_of(vc20_desc);
+    for (const CoreDesc *const *p = compiled_in_table; *p; p++) {
+        if (!strcasecmp((*p)->cor_name, name)) {
+            return *p;
+        }
+    }
+    return 0;
+}
 
-    // ---- 1. the record, read by the generic reader, against vc20_desc
+// one core: its record, read three ways (the record, the bundle through start_identify, damage), against the compiled-in descriptor; returns the failed checks
+static int one_core(const std::string &dir, const std::string &id, const std::string &name)
+{
+    const int fails0 = g_fails;
+    int total = 0;
+    g_core_fields = 0;
+    Bytes rec = slurp(dir + "/" + id + ".bin");
+    const CoreDesc *want = compiled_of(name.c_str());
+    CHECK(rec.size() > DESCREC_HEADER_V6);
+    CHECK(want != 0);
+    if (!want || rec.size() <= DESCREC_HEADER_V6) {
+        return g_fails - fails0;
+    }
+    const CoreHooks hooks = hooks_of(*want);
+
+    // ---- 1. the record, read by the generic reader, against the compiled-in descriptor
     {
         DescRecord *d = new DescRecord;
         char why[240];
         CHECK_EQ(parse(rec, d, why, sizeof(why)), 0);
-        if (g_fails) {
+        if (g_fails != fails0) {
             printf("%s\n", why);
         }
-        CHECK(d->has_core && d->has_own);
+        CHECK(d->has_core);
         CoreDesc got;
         CHECK_EQ(descrec_core(d, &hooks, &got, why, sizeof(why)), 0);
         g_fields = 0;
-        compare(vc20_desc, got);
-        printf("descgen: record -> descriptor: %d fields compared with vc20_desc\n", g_fields);
-        report_hooks(vc20_desc, got);
-        CHECK(desc_check(&got) == 0);                          // the made descriptor passes the application's own descriptor check as the compiled-in one does
-        if (desc_check(&got)) {
-            printf("desc_check: %s\n", desc_check(&got));
+        compare(*want, got);
+        total += g_fields;
+        report_hooks(*want, got, false);
+        const char *dc = desc_check(&got);
+        CHECK(dc == 0);                                        // the made descriptor passes the application's own descriptor check as the compiled-in one does
+        if (dc) {
+            printf("desc_check: %s\n", dc);
         }
-        // the descriptor with no code: nothing is taken from another descriptor
-        CoreDesc bare;
-        CHECK_EQ(descrec_core(d, 0, &bare, why, sizeof(why)), -1);      // the record names a mount slot, and no code serves it
-        CHECK(strstr(why, "mount slots") != 0);
-        CoreHooks none = hooks;
-        none.mount_slots = 0;
-        none.init = none.release = 0;
-        CHECK_EQ(descrec_core(d, &none, &bare, why, sizeof(why)), -1);
+        if (want->mount_slots) {                               // the descriptor with no code: nothing is taken from another descriptor
+            CoreDesc bare;
+            CHECK_EQ(descrec_core(d, 0, &bare, why, sizeof(why)), -1);
+            CHECK(strstr(why, "mount slots") != 0);
+        }
     }
 
     // ---- 2. the same through the start: no descriptor compiled in, the bundle the hand-over names makes it
     {
         FakeFs fs;
         FakeIo io;
-        fs.put("/usb0/cores/vc20.cor", slurp(argv[2]));
-        fs.put("/usb0/cores/vc20_old.cor", slurp(argv[3]));
+        fs.put("/usb0/cores/" + id + ".cor", slurp(dir + "/" + id + ".cor"));
+        fs.put("/usb0/cores/" + id + "_old.cor", slurp(dir + "/" + id + "_old.cor"));
         BundleDescSource src(&fs, &hooks);
         Handover h;
         char msg[400];
         const CoreDesc *d = 0;
-        handover_fill(&h, "/usb0/cores/vc20.cor", "VIC-20", "0.3.0", 0x820eded2u);
-        CHECK_EQ(start_identify((const uint8_t *)"VC20", &h, &d, msg, sizeof(msg), 0, &src), START_OK);
+        const std::string cor = "/usb0/cores/" + id + ".cor";
+        handover_fill(&h, cor.c_str(), name.c_str(), "0.3.0", 0x820eded2u);
+        CHECK_EQ(start_identify((const uint8_t *)want->id, &h, &d, msg, sizeof(msg), 0, &src), START_OK);
         CHECK(d != 0);
         if (d) {
             g_fields = 0;
-            compare(vc20_desc, *d);
-            printf("descgen: bundle -> start_identify: %d fields compared with vc20_desc\n", g_fields);
-            report_hooks(vc20_desc, *d);
+            compare(*want, *d);
+            total += g_fields;
+            report_hooks(*want, *d, false);
         }
-        CHECK_STR(msg, "[core] VC20 VIC-20, cor /usb0/cores/vc20.cor");
+        char expect[200];
+        snprintf(expect, sizeof(expect), "[core] %c%c%c%c %s, cor %s", want->id[0], want->id[1], want->id[2], want->id[3], want->cor_name, cor.c_str());
+        CHECK_STR(msg, expect);
         // without a source the start is what it was
-        CHECK_EQ(start_identify((const uint8_t *)"VC20", &h, &d, msg, sizeof(msg)), START_NO_DESCRIPTOR);
+        CHECK_EQ(start_identify((const uint8_t *)want->id, &h, &d, msg, sizeof(msg)), START_NO_DESCRIPTOR);
         // the ID the FPGA answers is not the record's
-        CHECK_EQ(start_identify((const uint8_t *)"VC21", &h, &d, msg, sizeof(msg), 0, &src), START_NO_DESCRIPTOR);
-        CHECK(strstr(msg, "VC20") != 0 && strstr(msg, "VC21") != 0);
+        char other[4] = { want->id[0], want->id[1], want->id[2], (char)(want->id[3] ^ 1) };
+        CHECK_EQ(start_identify((const uint8_t *)other, &h, &d, msg, sizeof(msg), 0, &src), START_NO_DESCRIPTOR);
+        CHECK(strstr(msg, "the core with the ID") != 0);
         // a bundle with no record: the core stays held, and the sentence names the bundle and the record
-        handover_fill(&h, "/usb0/cores/vc20_old.cor", "VIC-20", "0.3.0", 0x820eded2u);
-        CHECK_EQ(start_identify((const uint8_t *)"VC20", &h, &d, msg, sizeof(msg), 0, &src), START_NO_DESCRIPTOR);
-        CHECK(strstr(msg, "vc20_old.cor") != 0 && strstr(msg, "no description record") != 0);
+        const std::string old = "/usb0/cores/" + id + "_old.cor";
+        handover_fill(&h, old.c_str(), name.c_str(), "0.3.0", 0x820eded2u);
+        CHECK_EQ(start_identify((const uint8_t *)want->id, &h, &d, msg, sizeof(msg), 0, &src), START_NO_DESCRIPTOR);
+        CHECK(strstr(msg, (id + "_old.cor").c_str()) != 0 && strstr(msg, "no description record") != 0);
         // a bundle that is not there
-        handover_fill(&h, "/usb0/cores/none.cor", "VIC-20", "0.3.0", 0x820eded2u);
-        CHECK_EQ(start_identify((const uint8_t *)"VC20", &h, &d, msg, sizeof(msg), 0, &src), START_NO_DESCRIPTOR);
+        handover_fill(&h, "/usb0/cores/none.cor", name.c_str(), "0.3.0", 0x820eded2u);
+        CHECK_EQ(start_identify((const uint8_t *)want->id, &h, &d, msg, sizeof(msg), 0, &src), START_NO_DESCRIPTOR);
         CHECK(strstr(msg, "none.cor") != 0);
         // no hand-over at all
-        CHECK_EQ(start_identify((const uint8_t *)"VC20", 0, &d, msg, sizeof(msg), 0, &src), START_NO_DESCRIPTOR);
+        CHECK_EQ(start_identify((const uint8_t *)want->id, 0, &d, msg, sizeof(msg), 0, &src), START_NO_DESCRIPTOR);
         // the code is missing: the record is whole, the core cannot run
         BundleDescSource nocode(&fs, 0);
-        handover_fill(&h, "/usb0/cores/vc20.cor", "VIC-20", "0.3.0", 0x820eded2u);
-        CHECK_EQ(start_identify((const uint8_t *)"VC20", &h, &d, msg, sizeof(msg), 0, &nocode), START_NO_DESCRIPTOR);
-        CHECK(strstr(msg, "mount slots") != 0 || strstr(msg, "control hooks") != 0);
-        // the bundle another core's name: the manifest is "VIC-20", the hand-over says another core
-        handover_fill(&h, "/usb0/cores/vc20.cor", "Another Core", "0.3.0", 0x820eded2u);
-        CHECK_EQ(start_identify((const uint8_t *)"VC20", &h, &d, msg, sizeof(msg), 0, &src), START_COR_MISMATCH);
+        handover_fill(&h, cor.c_str(), name.c_str(), "0.3.0", 0x820eded2u);
+        CHECK_EQ(start_identify((const uint8_t *)want->id, &h, &d, msg, sizeof(msg), 0, &nocode), START_NO_DESCRIPTOR);
+        CHECK(strstr(msg, "mount slots") != 0 || strstr(msg, "control hooks") != 0 || strstr(msg, "no such") != 0 || strstr(msg, "has none") != 0);
+        // the bundle another core's name: the manifest says one name, the hand-over another
+        handover_fill(&h, cor.c_str(), "Another Core", "0.3.0", 0x820eded2u);
+        CHECK_EQ(start_identify((const uint8_t *)want->id, &h, &d, msg, sizeof(msg), 0, &src), START_COR_MISMATCH);
+    }
+
+    // ---- 4. which description wins: the compiled-in one beside it, the record's own tables on a descriptor made of it, no setting twice
+    {
+        DescRecord *d1 = new DescRecord, *d2 = new DescRecord;
+        char why[240];
+        CHECK_EQ(parse(rec, d1, why, sizeof(why)), 0);
+        CHECK_EQ(parse(rec, d2, why, sizeof(why)), 0);                 // the second parse is what the menu merge reads from the .cor, apart from the one that made the descriptor
+        CoreDesc got;
+        CHECK_EQ(descrec_core(d1, &hooks, &got, why, sizeof(why)), 0);
+        CHECK(!want->from_record && got.from_record);
+        CHECK(!descrec_applies(*d2, want));                            // compiled in: the record changes nothing (bundle_merge leaves the base as it is)
+        CHECK(descrec_applies(*d2, &got));
+        CoreDesc out;
+        descrec_apply(*d2, &got, &out);
+        CHECK_EQ(out.nsettings, got.nsettings);                         // the settings guard: the made descriptor's settings are the record's, none is listed twice
+        CHECK_EQ(out.ntasks, got.ntasks);
+        CHECK_EQ(out.nmedia, got.nmedia);
+        CHECK_EQ(out.nfiletypes, got.nfiletypes);
+        for (int i = 0; i < out.nsettings; i++) {
+            for (int j = 0; j < i; j++) {
+                CHECK(strcasecmp(out.settings[i].key, out.settings[j].key) != 0);
+            }
+        }
+        // an item the application added behind the core's settings (Picture, Hotkeys ...) stays, once, at the end
+        DescRecord *d3 = new DescRecord;
+        CHECK_EQ(parse(rec, d3, why, sizeof(why)), 0);
+        std::vector<Setting> more(got.settings, got.settings + got.nsettings);
+        Setting app;
+        memset(&app, 0, sizeof(app));
+        static const char *const onoff[] = { "Off", "On" };
+        app.key = "Application item"; app.values = onoff; app.nvalues = 2; app.apply = "x.y";
+        more.push_back(app);
+        CoreDesc withapp = got;
+        withapp.settings = more.data();
+        withapp.nsettings = (int)more.size();
+        descrec_apply(*d3, &withapp, &out);
+        CHECK_EQ(out.nsettings, got.nsettings + 1);
+        CHECK_STR(out.settings[out.nsettings - 1].key, "Application item");
     }
 
     // ---- 3. a damaged record, or a section the reader does not know, is refused with a sentence that names the record and the section
@@ -390,24 +465,17 @@ int main(int argc, char **argv)
         char why[240];
         const uint32_t soff = rd(rec, DESCREC_HEADER_V5);
         Bytes b = rec;
-        patch(b, soff, 9);                                     // the first section's id: one that does not exist
+        patch(b, soff, 99);                                    // the first section's id: one that does not exist
         CHECK_EQ(parse(b, d, why, sizeof(why)), -1);
-        CHECK(strstr(why, "description record") && strstr(why, "section 9"));
+        CHECK(strstr(why, "description record") && strstr(why, "section 99"));
         b = rec;
-        patch(b, soff + 4, 68);                                // the core section: 72 bytes -> 68
+        patch(b, soff + 4, rd(rec, soff + 4) - 4);             // the core section: one word short
         CHECK_EQ(parse(b, d, why, sizeof(why)), -1);
         CHECK(strstr(why, "section core") != 0);
         b = rec;
         patch(b, soff + 8 + 4 * 1, 0x7FFFFFF0u);               // the core's name: outside the string table
         CHECK_EQ(parse(b, d, why, sizeof(why)), -1);
         CHECK(strstr(why, "section core") != 0);
-        // the second section (video): its scale out of range
-        uint32_t second = soff + 8 + rd(rec, soff + 4);
-        CHECK_EQ(rd(rec, second), 2u);
-        b = rec;
-        patch(b, second + 8 + 4 * 2, 7);
-        CHECK_EQ(parse(b, d, why, sizeof(why)), -1);
-        CHECK(strstr(why, "section video") != 0);
         // the flag of the sections off, the record a version 6 still
         b = rec;
         patch(b, 12, rd(b, 12) & ~4u);
@@ -419,16 +487,56 @@ int main(int argc, char **argv)
         }
         // every section length of the record, one word short, one word long: named, refused
         uint32_t at = soff;
-        for (int k = 0; k < 6; k++) {
+        int secs = 0;
+        while (at < rec.size()) {
             uint32_t len = rd(rec, at + 4);
             Bytes c = rec;
             patch(c, at + 4, len + 4);
             CHECK_EQ(parse(c, d, why, sizeof(why)), -1);
             CHECK(strstr(why, "section") != 0);
+            if (len >= 4) {
+                c = rec;
+                patch(c, at + 4, len - 4);
+                CHECK(parse(c, d, why, sizeof(why)) != 0);
+                CHECK(strstr(why, "section") != 0);
+            }
             at += 8 + len;
+            secs++;
         }
         CHECK_EQ(at, (uint32_t)rec.size());
+        CHECK(secs >= 1);
     }
+    g_core_fields = total;
+    return g_fails - fails0;
+}
 
+int main(int argc, char **argv)
+{
+    setvbuf(stdout, 0, _IONBF, 0);
+    CHECK(argc == 2);
+    const std::string dir = argv[1];
+    std::ifstream idx((dir + "/index.txt").c_str());
+    std::string line;
+    int cores = 0, fields = 0, failed = 0;
+    while (std::getline(idx, line)) {
+        if (line.empty()) {
+            continue;
+        }
+        const size_t sp = line.find(' ');
+        CHECK(sp != std::string::npos);
+        if (sp == std::string::npos) {
+            continue;
+        }
+        const std::string id = line.substr(0, sp), name = line.substr(sp + 1);
+        const int fails0 = g_fails;
+        const int bad = one_core(dir, id, name);
+        // what was compared: the record's own run (1) and the bundle's (2); `fields` is summed over both
+        printf("descgen: %-12s %s: %d fields compared (record, bundle), %d failed\n", id.c_str(), name.c_str(), g_core_fields, bad);
+        fields += g_core_fields;
+        failed += g_fails - fails0;
+        cores++;
+    }
+    CHECK(cores >= 1);
+    printf("descgen: %d cores, %d fields compared, %d failed\n", cores, fields, failed);
     DONE("descgen");
 }

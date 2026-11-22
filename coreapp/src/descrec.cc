@@ -58,7 +58,8 @@ bool id_ok(const char *s)
 }
 
 // T239.3 D17: the data sections of a version 6 record. Every refusal names the record and the section.
-static const char *const sec_name[DR_SECTIONS + 1] = { "", "core", "video", "roms", "setting register bits", "hotkeys", "mount slots" };
+static const char *const secnames[DR_SECTIONS + 1] = { "", "core", "video", "roms", "setting register bits", "hotkeys", "mount slots", "reset writes", "id feature", "report registers",
+                                                         "raw keys", "alternative video", "picture window", "mouse", "rom set", "window media", "sector media", "media replace" };
 
 static int parse_sections(Rd &r, uint32_t off, uint32_t size, DescRecord *out, uint32_t ncset)
 {
@@ -74,7 +75,7 @@ static int parse_sections(Rd &r, uint32_t off, uint32_t size, DescRecord *out, u
         if (id < 1 || id > DR_SECTIONS) {
             return r.fail("description record, section %u: this application does not know it", (unsigned)id);
         }
-        const char *nm = sec_name[id];
+        const char *nm = secnames[id];
         if ((seen >> id & 1) || (len & 3) || len > end - pos - 8) {
             return r.fail("description record, section %s: twice, not a multiple of 4, or longer than the record", nm);
         }
@@ -161,9 +162,10 @@ static int parse_sections(Rd &r, uint32_t off, uint32_t size, DescRecord *out, u
                 d.role = r.str(SW(o), &bad);
                 d.put_op = r.str(SW(o + 1), &bad);
                 uint32_t fl = SW(o + 2);
-                if (bad || !d.role || !d.role[0] || !d.put_op || !d.put_op[0] || (fl & ~0xFF03u)) {
+                if (bad || !d.role || !d.role[0] || !d.put_op || !d.put_op[0] || (fl & ~0xFF07u)) {
                     return r.fail("description record, section %s: entry %u has a bad role, operation or flag", nm, (unsigned)i);
                 }
+                out->rom_check[i] = (fl & 4) != 0;
                 d.required = fl & 1;
                 d.shared = (fl & 2) != 0;
                 d.set = (uint8_t)(fl >> 8);
@@ -270,7 +272,7 @@ static int parse_sections(Rd &r, uint32_t off, uint32_t size, DescRecord *out, u
             }
             h.pc_keys = pc != 0;
             out->has_hot = true;
-        } else {
+        } else if (id == 6) {
             if (len < 4) {
                 return r.fail("description record, section %s: cut off", nm);
             }
@@ -285,16 +287,219 @@ static int parse_sections(Rd &r, uint32_t off, uint32_t size, DescRecord *out, u
                 }
             }
             out->nmount = (int)n;
+        } else if (id == 7) {
+            if (len < 4 || SW(0) < 1 || SW(0) > DR_RESETW || len != 4 + 8 * SW(0)) {
+                return r.fail("description record, section %s: the count (1 to %d) or the length does not fit", nm, DR_RESETW);
+            }
+            out->nreset_writes = (int)SW(0);
+            for (int i = 0; i < out->nreset_writes; i++) {
+                uint32_t reg = SW(1 + 2 * i), val = SW(2 + 2 * i);
+                if (reg > 65535 || val > 255) {
+                    return r.fail("description record, section %s: entry %d is out of range", nm, i);
+                }
+                out->reset_writes[i].reg = (uint16_t)reg;
+                out->reset_writes[i].value = (uint8_t)val;
+            }
+        } else if (id == 8) {
+            NEED(3);
+            if (SW(0) > 65535 || SW(1) < 1 || SW(1) > 255 || SW(2) > 255) {
+                return r.fail("description record, section %s: a value is out of range", nm);
+            }
+            out->idf_reg = (uint16_t)SW(0); out->idf_mask = (uint8_t)SW(1); out->idf_val = (uint8_t)SW(2);
+            out->has_idfeat = true;
+        } else if (id == 9) {
+            if (len < 4 || SW(0) < 1 || SW(0) > REPORT_REGS_MAX || len != 4 + 12 * SW(0)) {
+                return r.fail("description record, section %s: the count (1 to %d) or the length does not fit", nm, REPORT_REGS_MAX);
+            }
+            out->nreport_regs = (int)SW(0);
+            for (int i = 0; i < out->nreport_regs; i++) {
+                ReportReg &d = out->report_regs[i];
+                d.name = r.str(SW(1 + 3 * i), &bad);
+                uint32_t reg = SW(2 + 3 * i), by = SW(3 + 3 * i);
+                if (bad || !d.name || !d.name[0] || reg > 65535 || (by != 1 && by != 2 && by != 4)) {
+                    return r.fail("description record, section %s: entry %d has no name, or a bad register or width", nm, i);
+                }
+                d.reg = (uint16_t)reg;
+                d.bytes = (uint8_t)by;
+            }
+        } else if (id == 10) {
+            if (len < 24) {
+                return r.fail("description record, section %s: cut off", nm);
+            }
+            uint32_t fl = SW(0), reg = SW(1), usage = SW(2), code = SW(3), nh = SW(4), nm_ = SW(5);
+            if (fl > 1 || reg > 65535 || usage > 255 || code > 255 || nh > DR_RAWKEY_HID || nm_ > DR_RAWKEY_MOD || len != 24 + ((nh + 3) & ~3u) + ((nm_ + 3) & ~3u) ||
+                (fl ? (reg || code || nh || nm_) : (nh == 0 || nm_ != DR_RAWKEY_MOD))) {
+                return r.fail("description record, section %s: a value is out of range, or the tables do not fit", nm);
+            }
+            RawKeySpec &k = out->rawkeys;
+            memset(&k, 0, sizeof(k));
+            for (uint32_t i = 0; i < nh; i++) {
+                out->rk_hid[i] = r.p[b + 24 + i];
+            }
+            for (uint32_t i = 0; i < nm_; i++) {
+                out->rk_mod[i] = r.p[b + 24 + ((nh + 3) & ~3u) + i];
+            }
+            k.reg_key = (uint16_t)reg;
+            k.hid = nh ? out->rk_hid : 0;
+            k.nhid = (uint8_t)nh;
+            k.mod = nm_ ? out->rk_mod : 0;
+            k.caps_usage = (uint8_t)usage;
+            k.caps_code = (uint8_t)code;
+            out->rawkeys_held = fl != 0;
+            out->has_rawkeys = true;
+        } else if (id == 11) {
+            NEED(15);
+            VideoDesc &v = out->alt_video;
+            memset(&v, 0, sizeof(v));
+            v.w = SW(0); v.h = SW(1);
+            uint32_t scale = SW(2), nbuf = SW(7), bpp = SW(12), pxfmt = SW(13), h60 = SW(14);
+            uint32_t reg[4] = { SW(8), SW(9), SW(10), SW(11) };
+            if (scale < 1 || scale > 3 || nbuf > 8 || (bpp != 0 && bpp != 2 && bpp != 4) || pxfmt > 4 || h60 > 65535 || reg[0] > 65535 || reg[1] > 65535 || reg[2] > 65535 || reg[3] > 65535) {
+                return r.fail("description record, section %s: a number is out of range", nm);
+            }
+            v.x0 = (int32_t)SW(3); v.y0 = (int32_t)SW(4);
+            v.fb_base = SW(5); v.fb_stride = SW(6);
+            v.scale = (uint8_t)scale; v.nbuf = (uint8_t)nbuf; v.bpp = (uint8_t)bpp; v.pxfmt = (uint8_t)pxfmt; v.h60 = (uint16_t)h60;
+            v.reg_latest = (uint16_t)reg[0]; v.reg_seq = (uint16_t)reg[1]; v.reg_fb_base = (uint16_t)reg[2]; v.reg_fb_stride = (uint16_t)reg[3];
+            out->has_alt_video = true;
+        } else if (id == 12) {
+            NEED(23);
+            FbWinSpec &f = out->fbwin;
+            memset(&f, 0, sizeof(f));
+            uint32_t w[23];
+            for (int i = 0; i < 23; i++) {
+                w[i] = SW(i);
+            }
+            bool ok = w[1] < 256 && w[3] < 256;
+            for (int i = 0; i < 23; i++) {
+                if (i >= 10 && i <= 14) {                      // the signed ones
+                    ok = ok && ((int32_t)w[i] >= -32768 && (int32_t)w[i] <= 32767);
+                } else if (i != 1 && i != 3) {
+                    ok = ok && w[i] <= 65535;
+                }
+            }
+            if (!ok) {
+                return r.fail("description record, section %s: a number is out of range", nm);
+            }
+            f.reg_feat = (uint16_t)w[0]; f.feat_bit = (uint8_t)w[1]; f.reg_ctrl = (uint16_t)w[2]; f.ctrl_video_off = (uint8_t)w[3];
+            f.reg_diw_h = (uint16_t)w[4]; f.reg_diw_v = (uint16_t)w[5]; f.reg_skip_x = (uint16_t)w[6]; f.reg_skip_y = (uint16_t)w[7];
+            f.reg_cols = (uint16_t)w[8]; f.reg_lines = (uint16_t)w[9];
+            f.x_per_unit = (int16_t)w[10]; f.x_origin = (int16_t)w[11]; f.y_origin = (int16_t)w[12]; f.src_w = (int16_t)w[13]; f.src_h = (int16_t)w[14];
+            f.def_skip_x = (uint16_t)w[15]; f.def_skip_y = (uint16_t)w[16]; f.def_cols = (uint16_t)w[17]; f.def_lines = (uint16_t)w[18];
+            f.interval_ms = (uint16_t)w[19]; f.settle_ms = (uint16_t)w[20]; f.frames_ms = (uint16_t)w[21]; f.min_apply_ms = (uint16_t)w[22];
+            out->has_fbwin = true;
+        } else if (id == 13) {
+            NEED(7);
+            MouseSinkSpec &m = out->mouse;
+            memset(&m, 0, sizeof(m));
+            if (SW(0) > 1 || SW(1) > 65535 || SW(2) > 65535 || SW(3) > 65535 || (int32_t)SW(4) < -32768 || (int32_t)SW(4) > 32767 || (int32_t)SW(5) < -32768 ||
+                (int32_t)SW(5) > 32767 || SW(6) > 255) {
+                return r.fail("description record, section %s: a number is out of range", nm);
+            }
+            m.kind = SW(0) ? MOUSE_POT1351 : MOUSE_COUNTERS;
+            m.reg_dx = (uint16_t)SW(1); m.reg_dy = (uint16_t)SW(2); m.reg_btn = (uint16_t)SW(3);
+            m.clamp = (int16_t)SW(4); m.step = (int16_t)SW(5); m.interval_ms = (uint8_t)SW(6);
+            out->has_mouse = true;
+        } else if (id == 14) {
+            NEED(17);
+            RomSetSpec &q = out->romset;
+            q = RomSetSpec();
+            uint32_t fl = SW(0);
+            q.role = r.str(SW(4), &bad); q.ext = r.str(SW(5), &bad); q.size_text = r.str(SW(6), &bad); q.example = r.str(SW(7), &bad);
+            q.choice_key = r.str(SW(9), &bad); q.auto_label = r.str(SW(10), &bad);
+            uint32_t max = SW(8), want = SW(11), head = SW(12);
+            int ns = 0;
+            for (int k = 0; k < ROMSET_SIZES; k++) {
+                if (SW(1 + k)) {
+                    if (ns != k) {
+                        return r.fail("description record, section %s: a size behind a gap", nm);
+                    }
+                    q.sizes[ns++] = SW(1 + k);
+                }
+            }
+            if (bad || fl > 3 || ns == 0 || !q.role || !q.ext || !q.size_text || !q.example || !q.choice_key || !q.auto_label || max < 1 || max > ROMSET_MAX || want > 65535 ||
+                head > 255) {
+                return r.fail("description record, section %s: a text is missing or outside the table, or a number is out of range", nm);
+            }
+            q.max = (int)max;
+            q.want = (uint16_t)want;
+            q.head_bytes = (uint8_t)head;
+            q.window_off = SW(13); q.mirror_size = SW(14); q.mirror_stride = SW(15); q.clear_below = SW(16);
+            RomSetLabels &l = out->romset_labels;
+            snprintf(l.text[0], ROMSET_NAME, "%s", q.auto_label);
+            for (int i = 1; i <= ROMSET_MAX; i++) {
+                strcpy(l.text[i], "-");
+            }
+            for (int i = 0; i <= ROMSET_MAX; i++) {
+                l.item[i] = l.text[i];
+            }
+            q.labels = &l;
+            out->romset_version = (fl & 1) != 0;
+            out->romset_pick = (fl & 2) != 0;
+            out->has_romset = true;
+        } else if (id == 15) {
+            NEED(15);
+            WindowMediaSpec &w = out->winmedia;
+            memset(&w, 0, sizeof(w));
+            w.prefix = r.str(SW(0), &bad);
+            uint32_t ns = SW(1), nt = SW(8);
+            uint32_t u16[8] = { SW(5), SW(6), SW(9), SW(10), SW(11), SW(12), SW(13), SW(14) };
+            bool ok = !bad && w.prefix && w.prefix[0] && ns >= 1 && ns <= WIN_SLOTS_MAX && nt >= 1 && nt <= WIN_TRACKS_MAX;
+            for (int i = 0; i < 8; i++) {
+                ok = ok && u16[i] <= 65535;
+            }
+            if (!ok) {
+                return r.fail("description record, section %s: the prefix, a count or a number is out of range", nm);
+            }
+            w.nslots = (uint8_t)ns; w.base = SW(2); w.stride = SW(3); w.max_image = SW(4);
+            w.mount_reg = (uint16_t)u16[0]; w.mount_step = (uint16_t)u16[1]; w.track_bytes = SW(7); w.ntracks = (uint16_t)nt;
+            w.dlog_status = (uint16_t)u16[2]; w.dlog_track = (uint16_t)u16[3]; w.dlog_drive = (uint16_t)u16[4]; w.dlog_pop = (uint16_t)u16[5];
+            w.idle_flush_ms = (uint16_t)u16[6]; w.max_dirty_ms = (uint16_t)u16[7];
+            out->has_winmedia = true;
+        } else if (id == 16) {
+            NEED(12);
+            SectorMediaSpec &q = out->secmedia;
+            memset(&q, 0, sizeof(q));
+            q.prefix = r.str(SW(0), &bad);
+            uint32_t nu = SW(1);
+            uint32_t v[9] = { SW(2), SW(3), SW(4), SW(5), SW(6), SW(7), SW(8), SW(10), SW(11) };
+            bool ok = !bad && q.prefix && q.prefix[0] && nu >= 1 && nu <= SEC_UNITS_MAX && v[3] <= 255 && v[8] <= 255;
+            for (int i = 0; i < 8; i++) {
+                if (i != 3) {
+                    ok = ok && v[i] <= 65535;
+                }
+            }
+            if (!ok) {
+                return r.fail("description record, section %s: the prefix, a count or a number is out of range", nm);
+            }
+            q.nunits = (uint8_t)nu; q.mount_reg = (uint16_t)v[0]; q.mount_step = (uint16_t)v[1]; q.feat_reg = (uint16_t)v[2]; q.feat_sectors = (uint8_t)v[3];
+            q.mbox_status = (uint16_t)v[4]; q.mbox_lba = (uint16_t)v[5]; q.mbox_done = (uint16_t)v[6]; q.stage_off = SW(9);
+            q.idle_sync_ms = (uint16_t)v[7]; q.done_tag_mask = (uint8_t)v[8];
+            out->has_secmedia = true;
+        } else {
+            if (len < 4 || SW(0) < 1 || SW(0) > (uint32_t)out->nmedia || len != 4 + 8 * SW(0)) {
+                return r.fail("description record, section %s: the count (1 to the media slots, %d) or the length does not fit", nm, out->nmedia);
+            }
+            int last = -1;
+            for (uint32_t i = 0; i < SW(0); i++) {
+                uint32_t idx = SW(1 + 2 * i);
+                const char *t = r.str(SW(2 + 2 * i), &bad);
+                if (bad || !t || !t[0] || (int)idx <= last || idx >= (uint32_t)out->nmedia) {
+                    return r.fail("description record, section %s: entry %u names no media slot (in order), or has no text", nm, (unsigned)i);
+                }
+                last = (int)idx;
+                out->media[idx].replace = t;
+            }
         }
 #undef SW
 #undef NEED
     }
     if (!(seen & 2)) {
-        return r.fail("description record, section %s: missing (the data sections need the core's identity)", sec_name[1]);
+        return r.fail("description record, section %s: missing (the data sections need the core's identity)", secnames[1]);
     }
     for (uint32_t i = 0; i < ncset; i++) {
         if (!out->csettings[i].apply && !out->csettings[i].bind) {
-            return r.fail("description record, section %s: core setting %u has neither an operation nor register bits", sec_name[4], (unsigned)i);
+            return r.fail("description record, section %s: core setting %u has neither an operation nor register bits", secnames[4], (unsigned)i);
         }
     }
     return 0;
@@ -841,6 +1046,11 @@ void descrec_apply(const DescRecord &rec, const CoreDesc *base, CoreDesc *out)
     }
 }
 
+bool descrec_applies(const DescRecord &rec, const CoreDesc *base)
+{
+    return !rec.has_core || base->from_record;
+}
+
 bool descrec_merged(const DescRecord &rec, const char *name)
 {
     if (!rec.merged || !name || !name[0]) {
@@ -911,6 +1121,7 @@ int descrec_core(DescRecord *rec, const CoreHooks *hooks, CoreDesc *out, char *w
     out->pad = rec->has_pad ? &rec->pad : 0;
     out->cold_ram_bytes = rec->restart_clear;
     out->cold_ram_only = rec->restart_ram_only;
+    out->from_record = true;
     out->hotkeys = rec->has_hot ? &rec->hot : 0;
     if (hooks) {
         out->init = hooks->init;
@@ -922,6 +1133,50 @@ int descrec_core(DescRecord *rec, const CoreHooks *hooks, CoreDesc *out, char *w
         out->register_ops = hooks->register_ops;
         out->rom_key = hooks->rom_key;
         out->mount_slots = hooks->mount_slots;
+    }
+    // the remaining data tables; where a table holds a function, the record's flag says the core has it and the code has to
+    out->reset_writes = rec->nreset_writes ? rec->reset_writes : 0;
+    out->nreset_writes = rec->nreset_writes;
+    if (rec->has_idfeat) {
+        out->id_feat_reg = rec->idf_reg;
+        out->id_feat_mask = rec->idf_mask;
+        out->id_feat_val = rec->idf_val;
+    }
+    out->report_regs = rec->nreport_regs ? rec->report_regs : 0;
+    out->nreport_regs = rec->nreport_regs;
+    out->alt_video = rec->has_alt_video ? &rec->alt_video : 0;
+    out->fbwin = rec->has_fbwin ? &rec->fbwin : 0;
+    out->mouse = rec->has_mouse ? &rec->mouse : 0;
+    out->window_media = rec->has_winmedia ? &rec->winmedia : 0;
+    out->sector_media = rec->has_secmedia ? &rec->secmedia : 0;
+    for (int i = 0; i < rec->nroms; i++) {
+        if (rec->rom_check[i]) {
+            if (!hooks || !hooks->rom_check[i]) {
+                snprintf(why, whylen, "description record, section roms: entry %d says the core's code checks its content, and the code has no such check", i);
+                return -1;
+            }
+            rec->roms[i].check = hooks->rom_check[i];
+        }
+    }
+    if (rec->has_romset) {
+        if ((rec->romset_version && (!hooks || !hooks->romset_version)) || (rec->romset_pick && (!hooks || !hooks->romset_pick))) {
+            snprintf(why, whylen, "description record, section rom set: it names a version or pick function, and the code of the core has none");
+            return -1;
+        }
+        rec->romset.version = rec->romset_version ? hooks->romset_version : 0;
+        rec->romset.pick = rec->romset_pick ? hooks->romset_pick : 0;
+        out->romset = &rec->romset;
+    }
+    if (rec->has_rawkeys) {
+        if (rec->rawkeys_held && (!hooks || !hooks->rawkeys_held)) {
+            snprintf(why, whylen, "description record, section raw keys: it says the core takes the keys that are down, and the code of the core has no such function");
+            return -1;
+        }
+        rec->rawkeys.held = rec->rawkeys_held ? hooks->rawkeys_held : 0;
+        out->rawkeys = &rec->rawkeys;
+    }
+    if (rec->has_pad && hooks && hooks->pad_id_loaded) {
+        rec->pad.id_loaded = hooks->pad_id_loaded;
     }
     if (rec->nmount) {
         if (!hooks || !hooks->mount_slots) {
