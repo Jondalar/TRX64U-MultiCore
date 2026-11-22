@@ -51,12 +51,29 @@ relocates it. The entry point is the function `lib_register`, which fills a `Lib
 `LIB_NEEDS` names the base API version the library needs. `LIB_INC = -Idir` adds include paths. `LIB_LIBC = 1` links `memcpy`, `memset` and
 integer division from `sdk/libc.c`; the code runs without a C library and without a hardware divider.
 
+## Declare a budget
+
+A library or an application may declare what it takes. Put `LIB_BUDGET` (`APP_BUDGET` for `app.mk`) in the Makefile, a list of `key=number` words:
+
+```make
+LIB_BUDGET = image=8192 heap=4096 ops=3 states=1 settings=2 tabs=1
+```
+
+The keys are `image` (code, data and bss, bytes), `heap` (bytes held at once through `api->mem`), `ops`, `states`, `events`, `nodes`, `file_actions`, `settings`,
+`tabs` and `polls` (what `lib_register` and the menu record bring). A key left out has no figure of its own, and the limit is the platform's: 1 MiB for the image,
+the heap of the core, the room left in the tables. A file without a budget loads as before.
+
+The packer refuses an image over its own `image` figure. The loader refuses a library that is over any figure, or over the room left in a table, with a sentence that
+names the library, the figure and the limit, for example `Library "mylib" is refused: it brings 7 operations, over its declared budget of 5.` Nothing of it stays: no
+registration, no memory. A file with a budget needs base 3.3; the packer adds `base>=3.3` to its dependencies. Every block a library takes from `api->mem`, also in its
+operations later, is on its own account, and unloading the library gives all of it back. `api.md` section 8 has the contract.
+
 ## The version of the base API
 
 This package is base API @ABI_MAJOR@.@ABI_MINOR@. The same number is `U2A_ABI_MAJOR` and `U2A_BASE_MINOR` in `include/libfmt.h`, the `base_api` line of
 `image/version.toml` (the core application image of this package), and the `base_api` line of `VERSION`. A library or an application says in `LIB_NEEDS`
 (`base>=@ABI_MAJOR@.@ABI_MINOR@`) which base API it needs; the loader refuses a file that needs a newer base, with a message that names both versions
-("needs base 3.2, this base is 3.1"), and a file built for another major.
+("needs base 3.3, this base is 3.2"), and a file built for another major.
 
 The public headers of this package are the files of `include/`. Their content hash, comments and blanks left out, starts with `@API_HASH@`.
 In the source repository a lock file holds that hash for every version, and the lint is red when the headers change and the version does not.

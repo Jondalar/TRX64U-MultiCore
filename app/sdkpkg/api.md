@@ -17,23 +17,25 @@
 ### 1.2 Versions
 
 1.2.1 The API has a major and a minor number. `U2A_ABI_MAJOR` is the major. It is 3.
-1.2.2 `U2A_BASE_MINOR` is the minor of this base. It is 2.
+1.2.2 `U2A_BASE_MINOR` is the minor of this base. It is 3.
 1.2.3 `U2A3_VERSION(major, minor)` makes the number `major << 16 | minor`. A `needs` entry, the `version` of a library and the call `api->lib->find` use this form.
 1.2.4 An image names the majors it knows (`abi_min` to `abi_max`). The loader refuses an image whose range does not hold 3.
 1.2.5 An image states the lowest minor it needs as a `needs` entry named `base`. The loader refuses an image whose `base` entry is above the minor of the base.
 1.2.6 `api->abi_major` and `api->abi_minor` report the version of the running base.
-1.2.7 Every symbol of this document is part of base 3.0, unless its section says base 3.1 or 3.2. Two things came with 3.1: `api->lib` and the members `LibRecord.exports` and `LibRecord.exports_size`. One thing came with 3.2: the base serves the poll of a library that loads after the core has started (6.10). A library that depends on that writes `needs base >= 3.2`.
+1.2.7 Every symbol of this document is part of base 3.0, unless its section says base 3.1, 3.2 or 3.3. Two things came with 3.1: `api->lib` and the members `LibRecord.exports` and `LibRecord.exports_size`. One thing came with 3.2: the base serves the poll of a library that loads after the core has started (6.10). Two things came with 3.3: the budget record of a file and its refusals (section 8), and the account of an image, which now also holds what the operations of the image take from `api->mem` later (4.2.2, 8.5). A library that depends on one of them writes `needs base >= 3.2` or `needs base >= 3.3`.
 1.2.8 A section of a group or a type states its version in the line `Since base`.
 
 | Symbol | Contract |
 |---|---|
 | `U2A_ABI_MAJOR` | The major number of the API, 3. A base of another major refuses the image. |
-| `U2A_BASE_MINOR` | The minor number of the API this base offers, 1. |
+| `U2A_BASE_MINOR` | The minor number of the API this base offers, 3. |
 | `U2A3_VERSION` | `U2A3_VERSION(major, minor)` is `major << 16 \| minor`. |
 | `U2A3_NAME_MAX` | The size of a name field, 16 bytes. A name has 1 to 15 characters of `a-z`, `0-9` and `_`, and a NUL. |
 | `U2A3_NEEDS_MAX` | The number of `needs` entries of an image, at most 4. |
 | `U2A3_IMAGE_MAX` | The size of the image (payload and zeroed memory), at most 1 MiB. |
 | `U2A3_ALIGN_MAX` | The largest alignment an image may ask for, 4096 bytes. |
+| `U2A3_FLAG_BUDGET` | The header flag 2 of a file: the budget record stands directly behind the header (section 8). A base older than 3.3 refuses a file that sets it. |
+| `U2A3_BUDGET_NONE` | The value 0xFFFFFFFF of a figure in the budget record: the image declares no figure of its own (8.2). |
 | `PRG_APP_NEED` | The name `standalone`. A `needs` entry with this name names no library. The base does not offer the application while the board runs under the MultiCore host. |
 | `CART_APP_NEED` | The name `cart_port`. A `needs` entry with this name names no library. The base offers the application only where `api->c64` is not null. |
 
@@ -209,16 +211,16 @@ Since base 3.0.
 The memory group. It is there for every image.
 
 4.2.1 The memory comes from the heap of the core.
-4.2.2 The base records every block with its owner. The owner is the application that is open at the time of the call, whatever code makes the call, or the image whose `lib_register` is running. With neither, the block has no owner.
+4.2.2 The base records every block with its owner. The owner is the image whose code takes the block: the image whose `lib_register` is running, the image whose operation or state getter the registry is running (whoever called it), or the application that is open at the time of the call. With none of these, the block has no owner.
 4.2.3 A block that has no owner is never freed by the base.
-4.2.4 The base frees the blocks of a transient application when it is freed, and the blocks of a library when its load fails or it is unloaded. A resident application keeps its blocks.
+4.2.4 The base frees the blocks of a transient application when it is freed, and the blocks of a library when its load fails or it is unloaded. A resident application keeps its blocks. An image that declared a heap figure holds at most that many bytes at once (8.1, 8.4).
 4.2.5 Free a block only with `api->mem->free`. A block from another allocator is not accepted.
 4.2.6 Every block has a header of 16 bytes. On the board the block is 16-byte aligned.
 4.2.7 Any task may call the group.
 
 #### 4.2.8 `api->mem->malloc`
 
-4.2.8.1 `void *malloc(uint32_t n)` returns a block of `n` bytes, or null when the heap has no room or `n` is above 0x7FFFFFE0.
+4.2.8.1 `void *malloc(uint32_t n)` returns a block of `n` bytes, or null when the heap has no room, when `n` is above 0x7FFFFFE0, or when the blocks of the image with this one would pass the heap figure of its budget (8.4.4).
 4.2.8.2 The contents are not cleared.
 4.2.8.3 A request for 0 bytes returns a block.
 
@@ -1314,3 +1316,64 @@ Since base 3.0.
 | Tabs of one area | 8 |
 | Entries of a folder in the file picker | 160 |
 | Image size | 1 MiB |
+| Heap an image holds through `api->mem` | the heap itself, or the figure of its budget (section 8) |
+
+## 8. The budget and the account of an image
+
+### 8.1 Declaring a budget
+
+8.1.1 An image may declare a budget: ceilings for its size, for the heap it holds and for what it registers.
+8.1.2 The build declares it in one place, the makefile of the image: `LIB_BUDGET` for `lib.mk`, `APP_BUDGET` for `app.mk`. The value is a list of `key=number` words, for example `LIB_BUDGET = image=8192 heap=4096 ops=3 settings=2`. `u2a_pack.py --budget key=number` does the same by hand.
+8.1.3 The packer writes the budget into the file: a record directly behind the header, and the header flag `U2A3_FLAG_BUDGET`. The dependencies, the image and the other parts follow at the offsets the header names.
+8.1.4 A file with a budget needs base 3.3. The packer adds the dependency `base>=3.3` to the file, or raises a lower `base` dependency to it. A base older than 3.3 refuses the file.
+8.1.5 The packer refuses an image that is over its own `image` figure, before it writes the file. It cannot know the registrations of `lib_register`: the loader checks them (8.4).
+8.1.6 A figure is a number from 0 to 4294967294. The figure 0 is a figure: the image declares that it brings none of that kind.
+8.1.7 These are the keys.
+
+| Key | What it limits |
+|---|---|
+| `image` | The size of the image in bytes: payload and zeroed memory (bss), without the alignment. |
+| `heap` | The bytes the image holds at once through `api->mem`. The sizes asked for count, not the headers of the blocks. `realloc` holds the old and the new block together while it runs. |
+| `ops`, `states`, `events` | What `lib_register` registers: operations, state values, events. |
+| `nodes`, `file_actions`, `settings`, `tabs`, `polls` | What the record `lib_register` returns and the menu record of the file declare together. |
+
+### 8.2 What an open figure means
+
+8.2.1 A key left out has no figure of its own. The file holds `U2A3_BUDGET_NONE` for it.
+8.2.2 The limit is then the limit of the platform: for the image, 1 MiB (`U2A3_IMAGE_MAX`); for the heap, the heap of the core; for operations, state values and events, the room that is left in the registry (5.6); for nodes, file actions, settings and tabs, the room of the menu merge (section 7); for polls, the room of the poll slots (6.10).
+8.2.3 A file without a budget loads as it did before base 3.3. Its figures are all open.
+8.2.4 A budget record of a later minor may be longer. The loader reads the figures it knows and ignores the rest.
+
+### 8.3 The limits of the tables
+
+8.3.1 The loader checks what an image brings against the room that is left in the tables, with or without a budget. It counts what the images loaded already take.
+8.3.2 The registry holds 400 operations, 320 state values and 8 events, over the base and every image. The loader checks `lib_register`'s counts against what is free.
+8.3.3 The images together may contribute 16 settings, 96 file actions and 320 menu nodes. Of one area they may add tabs until the tab strip holds 8.
+8.3.4 The loader does not see what the description of the core takes of these tables. The check is a necessary condition. A contribution the menu merge cannot place is refused by name at the merge (section 6), as before.
+
+### 8.4 The refusal
+
+8.4.1 An image over a figure of its budget, or over the room of a table, is refused at load. The loader returns the code `LIB_BUDGET` and a sentence that names the image, the figure and the limit.
+8.4.2 Nothing of the image stays. Its registrations, its poll, its blocks and its memory are given back (8.5.4).
+8.4.3 The loader checks in this order. The image size is checked before any memory is spent. The counts of the menu record are checked before any memory is spent. The heap is checked while `lib_register` runs. The counts of both records are checked after `lib_register` returns and before the first registration.
+8.4.4 A request for memory that would pass the `heap` figure returns null. While `lib_register` runs, the first such request also refuses the load, even if `lib_register` returns 0. After the load the request returns null and the base writes one line to the log for the image.
+8.4.5 The sentence reaches the screen, the System page and the log like every other refusal of the loader. These are the forms:
+
+| Over | The sentence |
+|---|---|
+| the image | `Library "mylib" is refused: its image is 5120 bytes with its bss, over its declared budget of 4096 bytes.` |
+| a declared figure | `Library "mylib" is refused: it brings 7 operations, over its declared budget of 5.` |
+| a table | `Library "mylib" is refused: it brings 5 settings, the table holds 16 and 12 are taken.` |
+| a tab strip | `Library "mylib" is refused: it brings 3 tabs to area F5, the tab strip holds 8 and 6 are taken.` |
+| the heap, at load | `Library "mylib" is refused: lib_register asked for 200 bytes of heap with 0 held, over its declared budget of 100 bytes.` |
+
+### 8.5 The account
+
+8.5.1 Everything the heap gives for an image is on the account of that image: its own block (code, data, bss and the alignment), the blocks of `api->mem`, the handles of `api->fs` and the menu record of the file.
+8.5.2 A block of `api->mem` goes to the image whose code takes it: the image whose `lib_register` runs, the image whose operation or state getter the registry runs (whoever called it), or the application that is open. An operation that calls an operation of another image takes its own blocks on its own account and the other's on the other's account. The previous image is current again when the call returns.
+8.5.3 Unloading a library, or releasing an application, gives back its whole account: heap free before the load equals heap free after the unload.
+8.5.4 A load that is refused gives back its whole account too.
+8.5.5 The base reports the account at the start of the core in the log line `[lib] N loaded, M refused; images A bytes, accounts B bytes, heap free X -> Y`. `A` is the image and bss of the images that stay. `B` is everything the heap gave the images and has not got back, with the block headers of the base. `X - Y` is `B` and the block headers of the heap itself.
+8.5.6 A poll is the one thing that is not on the account of its image. The poll slots keep the task of a slot for the next image that polls (1.3.6). An image with a poll leaves that task in the pool when it goes, and the heap free after the unload is lower by the task and its stack until a slot is used again.
+8.5.7 A block taken while no image is current has no owner and is never freed (4.2.3).
+8.5.8 The current image is one value that all tasks share. When an operation of an image runs on one task while an application task takes memory at the same moment, the block of the application task may be put on the account of the image. It is freed when that account goes.
