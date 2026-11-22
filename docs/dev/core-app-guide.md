@@ -192,6 +192,10 @@ static const FileType filetypes[] = { { ".prg", prg_actions, 2 }, { ".p00", prg_
 - Libraries (`.u2a`, `libfmt.h`, `libload.*`, `libboard.cc`) add settings, tasks, file actions and menu nodes at run time from `<root>/trx/lib` or from the
   `.cor` itself (record 7); the drive library `cbm1541` is built in and spliced into a descriptor by macros (`cores/cbm1541_desc.h`).
 - A core can describe its menu as data instead of C++ tables: `menu.toml`, compiled by `tools/descrec.py` into the `.cor`'s record 6 (`descrec.h`).
+- A core can also describe the rest of its descriptor as data (T239.3 D17, record version 6, sections behind the string table): identity, ROMs, video and freeze,
+  hotkeys, mount slots and the register bits of a setting (`reg_bind`). `cores/vc20/app/desc.toml` is the example; `descrec_core` (`descrec.cc`) makes the
+  `CoreDesc` of the record and `BundleDescSource` (`bundle.h`) finds it in the bundle when no descriptor is compiled in (`start_identify`). Function hooks
+  (`init`, `release`, `register_ops`, the media write-back, the mount slot's three functions) are code and come from `CoreHooks`, not from the record.
 
 The golden menu `tests/coreapp/golden/menu_vc20.txt` shows what the whitelist menu builds out of such a descriptor: a tab or area with no entry is dropped.
 

@@ -754,9 +754,14 @@ CONSRC="descrec.cc $PICSRC"
 CARGS="$BUN/desc_test.bin $BUN/desc_default.bin" RARGS="$CARGS"
 run contrib test_contrib.cc $CONSRC
 
-BUNSRC="descrec.cc libmenu.cc bundle.cc libload.cc libscan.cc instfiles.cc instcore.cc $PICSRC"
+BUNSRC="descrec.cc libmenu.cc bundle.cc libload.cc libscan.cc instfiles.cc instcore.cc handover.cc $PICSRC"   # handover.cc: bundle.cc reads the hand-over (T239.3 D17)
 CARGS="$BUN" RARGS="$BUN"
 run bundle test_bundle.cc $BUNSRC
+# T239.3 D17: the VIC-20's data description (cores/vc20/app/desc.toml) compiled by the real tool, made into a descriptor by the generic reader (from the record and from a bundle by
+# start_identify), and compared field by field with the compiled-in vc20_desc; a damaged record or an unknown section is refused by name
+CARGS="$BUN/desc_vc20.bin $BUN/vc20.cor $BUN/vc20_old.cor" RARGS="$CARGS"
+run descgen test_descgen.cc $VC20 descrec.cc libmenu.cc bundle.cc libload.cc libscan.cc instfiles.cc instcore.cc start.cc handover.cc desc_check.cc
+CARGS="$BUN" RARGS="$BUN"
 # T104.2 D10: a library merged at pack time is not added again, the application's own record serves a start without a .cor and never beats the .cor's, the record's own menu replaces the descriptor's tables
 
 SVC="uic_json.cc uic_sha.cc uic_svc.cc uic_net.cc svcjson.cc svc.cc httpreq.cc rest.cc rpc.cc rpccontract.cc wsproto.cc"
@@ -837,7 +842,7 @@ PASS=$((PASS + 1))
 # and the Mac build of apps/unzip runs inside the real loader over the FakeFs; the test needs no RISC-V instruction.
 python3 -I "$TST/gen_unzip.py" "$T/unzipfx" "$ROOT"
 UZ="$T/unzipfx"; ATARI_NOSTUB="${ATARI/appindex_stub.cc/appindex.cc}"   # the real index instead of the stub the base links
-UZSRC="descrec.cc libmenu.cc bundle.cc libload.cc libscan.cc unzip.c miniz.c miniz_tinfl.c miniz_zip.c miniz_lib.cc u2p_compat.c glue.cc desc_check.cc menutree.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc $ATARI_NOSTUB nes.cc ines.cc $C64"
+UZSRC="descrec.cc libmenu.cc bundle.cc handover.cc libload.cc libscan.cc unzip.c miniz.c miniz_tinfl.c miniz_zip.c miniz_lib.cc u2p_compat.c glue.cc desc_check.cc menutree.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc $ATARI_NOSTUB nes.cc ines.cc $C64"
 CC_EXTRA="$UZ/unzip.u2a $UZ/unzip2.u2a $UZ/miniz.u2a $UZ/ziplist.u2a $UZ/otherlib.u2a $UZ/plain.u2a $UZ/t.zip $UZ/manifest.txt"
 CARGS="$UZ" RARGS="$UZ"
 run unzip test_unzip.cc $UZSRC

@@ -57,6 +57,249 @@ bool id_ok(const char *s)
 
 }
 
+// T239.3 D17: the data sections of a version 6 record. Every refusal names the record and the section.
+static const char *const sec_name[DR_SECTIONS + 1] = { "", "core", "video", "roms", "setting register bits", "hotkeys", "mount slots" };
+
+static int parse_sections(Rd &r, uint32_t off, uint32_t size, DescRecord *out, uint32_t ncset)
+{
+    uint32_t seen = 0;
+    bool bad = false;
+    uint32_t pos = off;
+    const uint32_t end = off + size;
+    while (pos < end) {
+        if (end - pos < 8) {
+            return r.fail("description record: a section header is cut off");
+        }
+        uint32_t id = r.u32(pos), len = r.u32(pos + 4);
+        if (id < 1 || id > DR_SECTIONS) {
+            return r.fail("description record, section %u: this application does not know it", (unsigned)id);
+        }
+        const char *nm = sec_name[id];
+        if ((seen >> id & 1) || (len & 3) || len > end - pos - 8) {
+            return r.fail("description record, section %s: twice, not a multiple of 4, or longer than the record", nm);
+        }
+        seen |= 1u << id;
+        const uint32_t b = pos + 8;
+        pos = b + len;
+#define SW(i) r.u32(b + 4 * (uint32_t)(i))
+#define NEED(words) do { if (len != 4 * (uint32_t)(words)) { return r.fail("description record, section %s: %u bytes, %u expected", nm, (unsigned)len, 4 * (unsigned)(words)); } } while (0)
+        if (id == 1) {
+            NEED(18);
+            uint32_t idw = SW(0);
+            for (int i = 0; i < 4; i++) {
+                out->ident.id[i] = (char)(idw >> (8 * i));
+            }
+            out->ident.name = r.str(SW(1), &bad);
+            out->ident.title = r.str(SW(2), &bad);
+            out->ident.short_title = r.str(SW(3), &bad);
+            out->ident.folder = r.str(SW(4), &bad);
+            out->ident.store = r.str(SW(5), &bad);
+            out->ident.min_contract = SW(6);
+            out->ident.reset_ms = SW(7);
+            out->ident.service_op = r.str(SW(8), &bad);
+            out->ident.service_period_ms = SW(9);
+            out->ident.flags = SW(10);
+            out->ident.needs_program = r.str(SW(11), &bad);
+            out->ident.program_ext = r.str(SW(12), &bad);
+            out->ident.type_op = r.str(SW(13), &bad);
+            out->ident.run_op = r.str(SW(14), &bad);
+            out->ident.core_id = r.str(SW(15), &bad);
+            out->ident.live_ms = SW(16);
+            const char *caps = r.str(SW(17), &bad);
+            if (bad || !out->ident.name || !out->ident.name[0] || !out->ident.title || !out->ident.title[0] || !out->ident.short_title || !out->ident.short_title[0] ||
+                !out->ident.folder || !out->ident.folder[0] || !out->ident.store || !out->ident.store[0] || (out->ident.flags >> 6) || out->ident.min_contract > 255 ||
+                out->ident.reset_ms > 65535 || out->ident.live_ms > 65535 || out->ident.service_period_ms > 60000 ||
+                (out->ident.service_op == 0) != (out->ident.service_period_ms == 0) || (out->ident.service_op && !out->ident.service_op[0])) {
+                return r.fail("description record, section %s: a text is missing or outside the table, a flag is not known, or a number is out of range", nm);
+            }
+            for (const char *p = caps; p && *p;) {
+                const char *e = strchr(p, ',');
+                size_t l = e ? (size_t)(e - p) : strlen(p);
+                if (out->ncaps >= DR_CAPS || l < 1 || l > 15) {
+                    return r.fail("description record, section %s: a capability name is empty, longer than 15 or one too many (%d)", nm, DR_CAPS);
+                }
+                memcpy(out->cap_names[out->ncaps], p, l);
+                out->cap_names[out->ncaps][l] = 0;
+                out->caps[out->ncaps] = out->cap_names[out->ncaps];
+                out->ncaps++;
+                p = e ? e + 1 : 0;
+            }
+            out->has_core = true;
+        } else if (id == 2) {
+            NEED(19);
+            VideoDesc &v = out->video;
+            memset(&v, 0, sizeof(v));
+            v.w = SW(0); v.h = SW(1);
+            uint32_t scale = SW(2), nbuf = SW(7), bpp = SW(12), pxfmt = SW(13), h60 = SW(14);
+            v.x0 = (int32_t)SW(3); v.y0 = (int32_t)SW(4);
+            v.fb_base = SW(5); v.fb_stride = SW(6);
+            uint32_t reg[4] = { SW(8), SW(9), SW(10), SW(11) };
+            FreezeDesc &f = out->freeze;
+            memset(&f, 0, sizeof(f));
+            uint32_t fr = SW(15), fm = SW(16), ft = SW(17), fw = SW(18);
+            if (scale < 1 || scale > 3 || nbuf > 8 || (bpp != 0 && bpp != 2 && bpp != 4) || pxfmt > 4 || h60 > 65535 || reg[0] > 65535 || reg[1] > 65535 || reg[2] > 65535 ||
+                reg[3] > 65535 || fr > 65535 || fm > 255 || ft > 65535 || fw > 1) {
+                return r.fail("description record, section %s: a number is out of range", nm);
+            }
+            v.scale = (uint8_t)scale; v.nbuf = (uint8_t)nbuf; v.bpp = (uint8_t)bpp; v.pxfmt = (uint8_t)pxfmt; v.h60 = (uint16_t)h60;
+            v.reg_latest = (uint16_t)reg[0]; v.reg_seq = (uint16_t)reg[1]; v.reg_fb_base = (uint16_t)reg[2]; v.reg_fb_stride = (uint16_t)reg[3];
+            f.reg_status = (uint16_t)fr; f.mask = (uint8_t)fm; f.timeout_ms = (uint16_t)ft; f.word = fw != 0;
+            out->has_video = true;
+        } else if (id == 3) {
+            if (len < 4) {
+                return r.fail("description record, section %s: cut off", nm);
+            }
+            uint32_t n = SW(0);
+            const uint32_t ew = 3 + ROM_SIZES_MAX + ROM_NAMES_MAX;
+            if (n < 1 || n > ROMS_MAX || len != 4 + n * 4 * ew) {
+                return r.fail("description record, section %s: %u entries, or the length does not fit them", nm, (unsigned)n);
+            }
+            for (uint32_t i = 0; i < n; i++) {
+                const uint32_t o = 1 + i * ew;
+                RomSpec &d = out->roms[i];
+                memset(&d, 0, sizeof(d));
+                d.role = r.str(SW(o), &bad);
+                d.put_op = r.str(SW(o + 1), &bad);
+                uint32_t fl = SW(o + 2);
+                if (bad || !d.role || !d.role[0] || !d.put_op || !d.put_op[0] || (fl & ~0xFF03u)) {
+                    return r.fail("description record, section %s: entry %u has a bad role, operation or flag", nm, (unsigned)i);
+                }
+                d.required = fl & 1;
+                d.shared = (fl & 2) != 0;
+                d.set = (uint8_t)(fl >> 8);
+                int ns = 0;
+                for (int k = 0; k < ROM_SIZES_MAX; k++) {
+                    uint32_t z = SW(o + 3 + k);
+                    if (z) {
+                        if (ns != k) {
+                            return r.fail("description record, section %s: entry %u has a size behind a gap", nm, (unsigned)i);
+                        }
+                        d.sizes[ns++] = z;
+                    }
+                }
+                int nn = 0;
+                for (int k = 0; k < ROM_NAMES_MAX; k++) {
+                    uint32_t w = SW(o + 3 + ROM_SIZES_MAX + k);
+                    if (w != DESCREC_NONE) {
+                        if (nn != k) {
+                            return r.fail("description record, section %s: entry %u has a name behind a gap", nm, (unsigned)i);
+                        }
+                        d.names[nn++] = r.str(w, &bad);
+                        if (bad || !d.names[nn - 1][0]) {
+                            return r.fail("description record, section %s: entry %u has an empty name or one outside the table", nm, (unsigned)i);
+                        }
+                    }
+                }
+                if (ns == 0 || nn == 0) {
+                    return r.fail("description record, section %s: entry %u has no size or no name", nm, (unsigned)i);
+                }
+            }
+            out->nroms = (int)n;
+        } else if (id == 4) {
+            if (len < 4) {
+                return r.fail("description record, section %s: cut off", nm);
+            }
+            uint32_t n = SW(0), at = 1;
+            if (n < 1 || n > DR_SETBINDS) {
+                return r.fail("description record, section %s: %u entries (1 to %d)", nm, (unsigned)n, DR_SETBINDS);
+            }
+            for (uint32_t i = 0; i < n; i++) {
+                if (len / 4 < at + 5) {
+                    return r.fail("description record, section %s: entry %u is cut off", nm, (unsigned)i);
+                }
+                uint32_t idx = SW(at), reg = SW(at + 1), shift = SW(at + 2), mask = SW(at + 3), nb = SW(at + 4);
+                uint32_t padw = (nb + 3) / 4;
+                if (idx >= ncset || reg > 65535 || shift > 7 || mask < 1 || mask > 255 || nb > DR_BIND_BYTES || len / 4 < at + 5 + padw ||
+                    out->csettings[idx].bind || (nb && nb != (uint32_t)out->csettings[idx].nvalues)) {
+                    return r.fail("description record, section %s: entry %u names no core setting (or twice), or has a bad register, shift, mask or byte list", nm, (unsigned)i);
+                }
+                RegBind &d = out->setbind[i];
+                d.reg = (uint16_t)reg;
+                d.shift = (uint8_t)shift;
+                d.mask = (uint8_t)mask;
+                d.bytes = 0;
+                if (nb) {
+                    for (uint32_t k = 0; k < nb; k++) {
+                        out->setbind_bytes[i][k] = r.p[b + 4 * (at + 5) + k];
+                    }
+                    d.bytes = out->setbind_bytes[i];
+                }
+                out->csettings[idx].bind = &d;
+                at += 5 + padw;
+            }
+            if (at * 4 != len) {
+                return r.fail("description record, section %s: the length does not fit its entries", nm);
+            }
+            out->nsetbind = (int)n;
+        } else if (id == 5) {
+            NEED(22);
+            HkSpec &h = out->hot;
+            memset(&h, 0, sizeof(h));
+            uint32_t key[2 + HK_NACT + HK_TASKS_MAX];
+            for (int i = 0; i < 2 + HK_NACT; i++) {
+                key[i] = SW(i);
+            }
+            uint32_t nt = SW(2 + HK_NACT);
+            for (int i = 0; i < HK_TASKS_MAX; i++) {
+                key[2 + HK_NACT + i] = SW(3 + HK_NACT + i);
+            }
+            const uint32_t o = 3 + HK_NACT + HK_TASKS_MAX;
+            h.vol_key = r.str(SW(o), &bad);
+            h.swap_key = r.str(SW(o + 1), &bad);
+            h.own_keys = (uint64_t)SW(o + 2) | (uint64_t)SW(o + 3) << 32;
+            h.core_op = r.str(SW(o + 4), &bad);
+            h.core_key = r.str(SW(o + 5), &bad);
+            h.core_label = r.str(SW(o + 6), &bad);
+            uint32_t pc = SW(o + 7);
+            for (int i = 0; i < 2 + HK_NACT + HK_TASKS_MAX; i++) {
+                if (key[i] > 64 && key[i] != HK_NONE) {
+                    bad = true;
+                }
+            }
+            if (bad || nt > HK_TASKS_MAX || pc > 1 || (h.core_op == 0) != (h.core_key == 0) || (h.core_op == 0) != (h.core_label == 0)) {
+                return r.fail("description record, section %s: a key, the task count or a text is out of range", nm);
+            }
+            h.def.mod_a = (uint8_t)key[0];
+            h.def.mod_b = (uint8_t)key[1];
+            for (int i = 0; i < HK_NACT; i++) {
+                h.def.act[i] = (uint8_t)key[2 + i];
+            }
+            h.def.ntask = (uint8_t)nt;
+            for (int i = 0; i < HK_TASKS_MAX; i++) {
+                h.def.task[i] = (uint8_t)key[2 + HK_NACT + i];
+            }
+            h.pc_keys = pc != 0;
+            out->has_hot = true;
+        } else {
+            if (len < 4) {
+                return r.fail("description record, section %s: cut off", nm);
+            }
+            uint32_t n = SW(0);
+            if (n < 1 || n > DR_MOUNT || len != 4 + 4 * n) {
+                return r.fail("description record, section %s: %u slots, or the length does not fit them", nm, (unsigned)n);
+            }
+            for (uint32_t i = 0; i < n; i++) {
+                out->mount_names[i] = r.str(SW(1 + i), &bad);
+                if (bad || !out->mount_names[i] || !out->mount_names[i][0] || strlen(out->mount_names[i]) > 9) {
+                    return r.fail("description record, section %s: slot %u has no name, or one longer than 9", nm, (unsigned)i);
+                }
+            }
+            out->nmount = (int)n;
+        }
+#undef SW
+#undef NEED
+    }
+    if (!(seen & 2)) {
+        return r.fail("description record, section %s: missing (the data sections need the core's identity)", sec_name[1]);
+    }
+    for (uint32_t i = 0; i < ncset; i++) {
+        if (!out->csettings[i].apply && !out->csettings[i].bind) {
+            return r.fail("description record, section %s: core setting %u has neither an operation nor register bits", sec_name[4], (unsigned)i);
+        }
+    }
+    return 0;
+}
+
 int descrec_parse(const uint8_t *rec, uint32_t n, DescRecord *out, char *why, int whylen)
 {
     Rd r = { rec, n, 0, 0, why, whylen };
@@ -72,12 +315,12 @@ int descrec_parse(const uint8_t *rec, uint32_t n, DescRecord *out, char *why, in
     if (ver < DESCREC_VERSION_MIN || ver > DESCREC_VERSION) {         // version 2 is version 3 without a layout and attributes (those words were 0); 4 widens the media slot and gives the header's last word a use
         return r.fail("description record: version %u, this application reads %u to %u", (unsigned)ver, DESCREC_VERSION_MIN, DESCREC_VERSION);
     }
-    const uint32_t hdr = ver >= 5 ? DESCREC_HEADER_V5 : DESCREC_HEADER;    // version 5 carries the pad's words behind the machine-info line
+    const uint32_t hdr = ver >= 6 ? DESCREC_HEADER_V6 : ver >= 5 ? DESCREC_HEADER_V5 : DESCREC_HEADER;    // version 5 carries the pad's words behind the machine-info line, 6 the sections' place
     if ((vh >> 16) != hdr || r.u32(8) != n || n < hdr) {
         return r.fail("description record: the header or the length does not match the file");
     }
     uint32_t flags = r.u32(12);
-    if (flags & ~3u) {
+    if ((flags & ~(ver >= 6 ? 7u : 3u)) || ((flags & 4) != 0) != (ver >= 6)) {
         return r.fail("description record: flags 0x%x are not known", (unsigned)flags);
     }
     r.str_off = r.u32(16);
@@ -493,7 +736,7 @@ int descrec_parse(const uint8_t *rec, uint32_t n, DescRecord *out, char *why, in
         d.apply = r.str(W(e, 6), &bad);
         d.base = (int32_t)W(e, 7);
         d.label = r.str(W(e, 8), &bad);                          // what the menu shows (null: the key); the key stays what the .cfg and REST name
-        if (bad || !d.key || !d.key[0] || !d.apply || !d.apply[0] || nv < (when >= 2 ? 1u : 2u) || (uint64_t)fv + nv > tb[V].count || df >= nv || when > 3) {
+        if (bad || !d.key || !d.key[0] || (d.apply ? !d.apply[0] : ver < 6) || nv < (when >= 2 ? 1u : 2u) || (uint64_t)fv + nv > tb[V].count || df >= nv || when > 3) {
             return r.fail("description record: core setting %u has a bad string, value run, default or time", (unsigned)i);
         }
         d.values = out->values + fv;
@@ -508,6 +751,15 @@ int descrec_parse(const uint8_t *rec, uint32_t n, DescRecord *out, char *why, in
         }
     }
     out->ncsettings = (int)tb[Q].count;
+    if (ver >= 6) {                                            // T239.3 D17: the data sections, behind the string table to the record's end
+        uint32_t soff = r.u32(DESCREC_HEADER_V5), ssz = r.u32(DESCREC_HEADER_V5 + 4);
+        if (soff < r.str_off + r.str_size || (uint64_t)soff + ssz != n || ssz == 0) {
+            return r.fail("description record: the data sections lie outside the record");
+        }
+        if (parse_sections(r, soff, ssz, out, tb[Q].count) != 0) {
+            return -1;
+        }
+    }
     out->has_own = (flags & 2) != 0;
     if (out->has_own != (tb[K].count || tb[M].count || tb[Y].count || tb[Q].count)) {
         return r.fail("description record: the own-menu flag and the tables of the own menu disagree");
@@ -558,16 +810,32 @@ void descrec_apply(const DescRecord &rec, const CoreDesc *base, CoreDesc *out)
         // Directory, Hotkeys, menubuild.cc) stand behind the record's own, so a core whose menu is a record has them as every other core does. The copy goes to
         // fixed places in the record's table, so a second call with the same base gives the same table. A record that has no settings of its own leaves the
         // base's as they are. When both do not fit into DR_CSETS the base's are dropped and the line says so.
-        if (base->nsettings > 0) {
-            if (rec.ncsettings + base->nsettings <= DR_CSETS) {
-                Setting *tab = const_cast<DescRecord &>(rec).csettings;
-                for (int i = 0; i < base->nsettings; i++) {
-                    tab[rec.ncsettings + i] = base->settings[i];
+        if (base->nsettings > 0 && base->settings != rec.csettings) {          // T239.3 D17: a descriptor made of this record (descrec_core) holds them already
+            Setting *tab = const_cast<DescRecord &>(rec).csettings;
+            int add = 0;
+            for (int i = 0; i < base->nsettings; i++) {
+                bool dup = false;                              // a record with data sections is the core's descriptor: the settings of it that `base` carries (the application's items were
+                for (int j = 0; rec.has_core && j < rec.ncsettings && !dup; j++) {          // added behind them) are not listed twice
+                    dup = !strcasecmp(base->settings[i].key, rec.csettings[j].key);
                 }
-                out->nsettings = rec.ncsettings + base->nsettings;
+                if (!dup) {
+                    add++;
+                }
+            }
+            if (rec.ncsettings + add <= DR_CSETS) {
+                int n = rec.ncsettings;
+                for (int i = 0; i < base->nsettings; i++) {
+                    bool dup = false;
+                    for (int j = 0; rec.has_core && j < rec.ncsettings && !dup; j++) {
+                        dup = !strcasecmp(base->settings[i].key, rec.csettings[j].key);
+                    }
+                    if (!dup) {
+                        tab[n++] = base->settings[i];
+                    }
+                }
+                out->nsettings = n;
             } else {
-                printf("[menu] description: %d settings and %d of the application's do not fit into %d; the application's are not listed\n", rec.ncsettings,
-                       base->nsettings, DR_CSETS);
+                printf("[menu] description: %d settings and %d of the application's do not fit into %d; the application's are not listed\n", rec.ncsettings, add, DR_CSETS);
             }
         }
     }
@@ -591,4 +859,81 @@ bool descrec_merged(const DescRecord &rec, const char *name)
         p = e + 1;
     }
     return false;
+}
+
+int descrec_core(DescRecord *rec, const CoreHooks *hooks, CoreDesc *out, char *why, int whylen)
+{
+    if (!rec->has_core) {
+        snprintf(why, whylen, "description record: it has no data sections (no core section)");
+        return -1;
+    }
+    memset(out, 0, sizeof(*out));
+    memcpy(out->id, rec->ident.id, 4);
+    out->cor_name = rec->ident.name;
+    out->title = rec->ident.title;
+    out->short_title = rec->ident.short_title;
+    out->folder = rec->ident.folder;
+    out->store = rec->ident.store;
+    out->min_contract = rec->ident.min_contract;
+    out->roms = rec->nroms ? rec->roms : 0;
+    out->nroms = rec->nroms;
+    out->settings = rec->ncsettings ? rec->csettings : 0;
+    out->nsettings = rec->ncsettings;
+    out->tasks = rec->ntasks ? rec->tasks : 0;
+    out->ntasks = rec->ntasks;
+    out->filetypes = rec->nftypes ? rec->ftypes : 0;
+    out->nfiletypes = rec->nftypes;
+    out->media = rec->nmedia ? rec->media : 0;
+    out->nmedia = rec->nmedia;
+    if (rec->has_video) {
+        out->video = rec->video;
+        out->freeze = rec->freeze;
+    }
+    out->reset_ms = (uint16_t)rec->ident.reset_ms;
+    out->service_op = rec->ident.service_op;
+    out->service_period_ms = (uint16_t)rec->ident.service_period_ms;
+    const uint32_t fl = rec->ident.flags;
+    out->poll_when_frozen = (fl & 1) != 0;
+    out->board_caps = (fl & 2) != 0;
+    out->id_shared = (fl & 4) != 0;
+    out->own_volume = (fl & 8) != 0;
+    out->no_tone = (fl & 16) != 0;
+    out->menu_first = (fl & 32) != 0;
+    out->needs_program = rec->ident.needs_program;
+    out->program_ext = rec->ident.program_ext;
+    out->type_op = rec->ident.type_op;
+    out->run_op = rec->ident.run_op;
+    out->core_id = rec->ident.core_id;
+    out->live_ms = (uint16_t)rec->ident.live_ms;
+    out->caps = rec->ncaps ? rec->caps : 0;
+    out->ncaps = rec->ncaps;
+    out->machine_info = rec->machine_info;
+    out->pad = rec->has_pad ? &rec->pad : 0;
+    out->cold_ram_bytes = rec->restart_clear;
+    out->cold_ram_only = rec->restart_ram_only;
+    out->hotkeys = rec->has_hot ? &rec->hot : 0;
+    if (hooks) {
+        out->init = hooks->init;
+        out->release = hooks->release;
+        out->warm_reset = hooks->warm_reset;
+        out->cold_start = hooks->cold_start;
+        out->media_flush = hooks->media_flush;
+        out->media_pending = hooks->media_pending;
+        out->register_ops = hooks->register_ops;
+        out->rom_key = hooks->rom_key;
+        out->mount_slots = hooks->mount_slots;
+    }
+    if (rec->nmount) {
+        if (!hooks || !hooks->mount_slots) {
+            snprintf(why, whylen, "description record, section mount slots: the core's code has no functions for the slots");
+            return -1;
+        }
+        rec->mount.n = rec->nmount;
+        rec->mount.names = rec->mount_names;
+        rec->mount.spec = hooks->mount_slots->spec;
+        rec->mount.mount = hooks->mount_slots->mount;
+        rec->mount.eject = hooks->mount_slots->eject;
+        out->mount_slots = &rec->mount;
+    }
+    return 0;
 }
