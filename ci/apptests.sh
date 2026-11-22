@@ -123,7 +123,7 @@ if [ "$tier" = auto ]; then
   fcount=0
   for f in "${fundamental[@]}"; do [ -e "$f" ] || continue; fcount=$((fcount + $( { git diff --name-only "$base" -- "$f"; git ls-files -o --exclude-standard -- "$f"; } 2>/dev/null | wc -l))); done
   case "$br" in
-    main|integration|HEAD) tier=integration; echo "=== apptests: tier auto -> integration (branch $br)" ;;
+    main|HEAD) tier=integration; echo "=== apptests: tier auto -> integration (branch $br)" ;;
     *) if [ "$fcount" -gt 0 ]; then tier=integration; echo "=== apptests: tier auto -> integration (branch $br touches $fcount fundamental file(s))"
        else tier=fast; scoped=1; echo "=== apptests: tier auto -> fast, scoped to the suites the branch $br touches (no fundamental file touched)"; fi ;;
   esac
