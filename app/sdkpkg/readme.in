@@ -13,13 +13,17 @@ The file `VERSION` names the SDK version, the base API version (@ABI_MAJOR@.@ABI
 | `mk/` | `lib.mk` (a library), `app.mk` (an application of C files), `lib.ld` (the linker script), `sdkroot.mk` (finds the package). |
 | `sdk/` | The C sources that `app.mk` links into an application. `lib.mk` links `sdk/libc.c` when `LIB_LIBC = 1`. |
 | `tools/` | `u2a_pack.py` (image to `.u2a`), `descrec.py` (menu TOML to menu record), `cor_pack.py` (`.cor` bundle). |
-| `image/` | `coreapp.bin`, the core application image of this SDK version, and its `version.toml`. Every `.cor` carries this image. |
+| `image/` | `coreapp.bin`, the shared core application image of this SDK version, and its `version.toml`. See "The application image". |
+| `licenses/` | The licence texts of the third-party code the image links. `NOTICE` names it. |
 | `example/` | A library of two source files with a menu TOML and a host test. |
 
 ## Requirements
 
-- A RISC-V GCC for 32 bit (`riscv32-unknown-elf-gcc`, or `riscv64-elf-gcc` with an rv32 multilib), GNU make and Python 3.
+- A RISC-V GCC for 32 bit with the newlib headers, for example `riscv32-unknown-elf-gcc` as in the TRX64 build image, GNU make and Python 3.
+  The public headers (`fsif.h`, reached through `ops.h` and `libapi.h`) include `<stdlib.h>`, `<string.h>` and `<strings.h>`. A compiler without
+  a C library, such as the Homebrew `riscv64-elf-gcc` (rv32 multilib, no newlib headers), stops at `stdlib.h: No such file or directory`.
 - A host C++ compiler, for the example's test only.
+- Pillow (`pip install pillow`), only when `cor_pack.py --icon` gets a `.png`. The other tools use Python's own modules.
 
 Set `RV_PREFIX` to the compiler's prefix, for example `RV_PREFIX=riscv32-unknown-elf-`.
 
@@ -52,15 +56,37 @@ The menu of a library is a TOML file. `descrec.py` lists every key.
 
 ## Build a `.cor`
 
+A `.cor` is one container: the core's bitstream, the application image, the menu record and the libraries. `cor_pack.py` writes two kinds.
+
+A core that does not fit the host's partition is one full bitstream (a large or monolithic core):
+
+```
+python3 tools/cor_pack.py pack-large -o mycore.cor --id mycore --name "My Core" --version 1.0.0 \
+    --bit core.bit --app image/coreapp.bin --desc menu.toml --lib mylib.u2a
+```
+
+A core that runs in the host's partition is a partial bitstream routed against one host:
+
 ```
 python3 tools/cor_pack.py pack -o mycore.cor --name "My Core" --version 1.0.0 \
     --partial core.bit --app image/coreapp.bin --host-key <host key> \
     --desc menu.toml --lib mylib.u2a
 ```
 
-`--partial` is the partial bitstream of the core. `--host-key` is the key of the host the bitstream was routed against.
-`--heap <bytes>` sets the heap of the core application for this core. `python3 tools/cor_pack.py check mycore.cor` checks the bundle.
-For the other options read the head of `tools/cor_pack.py`.
+This package does not make that partial bitstream or the host key: both come from routing the core against the host's checkpoint and floorplan, which
+are in the TRX64U-MultiCore repository and not in this package. `python3 tools/cor_pack.py hostkey host.bit` prints the key of a host bitstream.
+Until the host's routing inputs are published, a partial core cannot be built from the package alone; `pack` is here for the cores built in that repository.
+
+Both commands take `--heap <bytes>` (the heap of the core application for this core), `--icon`, `--short` and `--files`.
+`--ops <list>` checks every operation name and binding of `--desc` against a list of what the application exports; the tool that writes that list
+is not in this package yet (see below). `python3 tools/cor_pack.py check mycore.cor` checks the bundle. For the other options read the head of
+`tools/cor_pack.py`.
+
+## The application image
+
+`image/coreapp.bin` is the shared core application image: one image for every core, the heap comes from the core's own record. It leaves the
+TRX64U C64 core out of its table. TRX64U has an image of its own (`coreapp_trx64u.bin`), and this package does not carry it. So a `.cor` packed
+with this image does not run TRX64U. A core of any other kind needs only this image.
 
 ## The example
 
@@ -76,11 +102,16 @@ make test
 
 ## Not in this package yet
 
+- The ABI document: the services of `LibApi`, `OpArgs`/`OpOut` and the bindings of the menu record. Today the comments of the headers are
+  the only description.
 - The menu simulator. It builds from the sources of the core application.
+- The host's routing inputs (checkpoint, floorplan), which a partial core needs to get its bitstream and host key.
+- The image of TRX64U (`coreapp_trx64u.bin`). It goes when the TRX64U parts are libraries (T239.3 D12) or when its own image is dropped (D15).
 - The shared 1541 drive library. It uses the core application's `CoreIo` and file headers, which are not public.
-- The tool that writes the list of a core's operations (`--ops` of `descrec.py`).
+- The tool that writes the list of a core's operations, the input of `--ops` of `cor_pack.py`.
 - A test rig for descriptor hooks and operations against a model of a core.
 
 ## Licence
 
-GNU General Public License, version 3 or later: `LICENSE`. `NOTICE` names the source commit and the origin of the interface headers.
+GNU General Public License, version 3 or later: `LICENSE`. `image/coreapp.bin` also links FreeRTOS, lwIP, LVGL and FatFs under their own
+licences: the texts are in `licenses/`, and `NOTICE` names them, the source commit and the origin of the interface headers.

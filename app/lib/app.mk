@@ -5,7 +5,7 @@
 #   APP_KIND = lib            a library (T197): resident, entry lib_register, no u2p_compat; APP_NEEDS = "base>=3.1" "other>=1.0" (space separated, quoted)
 #   APP_REG = 1               an application with screens: it has lib_register, the operations and state values they bind to
 #   APP_CSRCS = src/unzip.c ...                           APP_CCSRCS = glue.cc                  APP_INC = -Isrc/miniz
-#   include <repo>/app/lib/app.mk          (in the SDK package: include ../../mk/app.mk)
+#   include <repo>/app/lib/app.mk          (in the SDK package: include <package>/mk/app.mk)
 #
 # The compiler is the build image's (make RV_PREFIX=riscv32-unknown-elf-) or riscv64-elf-*. Division is sdk/libc.c's (-mno-div; libgcc's is not position independent).
 APP_DIR  := $(dir $(lastword $(MAKEFILE_LIST)))

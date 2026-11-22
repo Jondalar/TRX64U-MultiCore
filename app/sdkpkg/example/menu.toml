@@ -1,5 +1,5 @@
 # The menu record of the example library: a tab with one button, and an action on files that end in .txt.
-# The operation names are the ones example.cc declares.
+# The operation names are the ones example.cc declares. `file = true` binds the selected file to the argument.
 [[tab]]
 area = "F5"
 id = "example"
@@ -25,4 +25,4 @@ order = 2
 ext = [".txt"]
 label = "Greet by file"
 op = "example.greet"
-bind = [ { arg = "name", str = "file" } ]
+bind = [ { arg = "name", file = true } ]

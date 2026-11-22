@@ -19,7 +19,8 @@
 # third-party parts (lwip, lvgl, FreeRTOS, chan_fat, httpd) are links into our copy of Gideon's software, so its
 # tree belongs in the key.
 #
-# T174 D1: this stage BUILDS images and nothing else - minutes, and package and update wait for it. The host tests, the render benches and the
+# T174 D1: this stage BUILDS images and, since T239.3 D17, the SDK package with its check (tools/sdk_check.sh builds the example library and runs its host test; whether
+# that test belongs in the stage `render` is Alex's decision, open) - minutes, and package and update wait for it. The host tests, the render benches and the
 # 64 bit file benches are the stage `render` (ci/render.sh) with a key of its own; they no longer sit in front of the package.
 # Incremental: the build runs in a persistent tree per branch (/cache/multicore/build/ci-<branch>, tools/treesync.py copies only the files whose
 # content changed, so make rebuilds only what changed); the heavy slot is let go as soon as the images are built (R1c).
@@ -181,17 +182,18 @@ else
   # .app's 12-byte header would sit on the entry point - that is what shipped on 2026-10-15 and left the
   # Atari and the NES executing their own load address (T93 5.12).
   for c in $BLUEPRINT_CORES; do cp "$H/u64ii/riscv/coreapp/result/coreapp.bin" "$out/coreapps/$c.app"; done
-  # T239.3 D17 / P8: the SDK package (tools/sdk_pack.sh) from this build's sources and its coreapp.bin, into the hand-over beside the images (the artifact
-  # handoff-trxapps), and its check (tools/sdk_check.sh): the example library and its menu record built from the unpacked package alone. The sources of the
-  # package are in the stage key above (app/ with app/sdkpkg, the packer tools, the two scripts).
-  SDK_COMMIT="${SDK_COMMIT:-$(cd "$ROOT" && git rev-parse --short=8 HEAD 2>/dev/null || echo unknown)}" bash "$B/tools/sdk_pack.sh" "$out"
-  RV_PREFIX=riscv32-unknown-elf- bash "$B/tools/sdk_check.sh" "$out"/trx64-sdk-*.tar.gz
   command -v ccache >/dev/null && ccache --show-stats | head -8 || true
   echo "=== trxapps: images built in $((SECONDS - _t_b))s"
 
   # T174 R1c: the RISC-V build is done and this stage holds nothing else that needs Vivado's slot: let it go before the cache entry is written
   # (heavy_lock keeps its lock on fd 9 and HEAVY_SLOT; Alex, T100 D14 open item 2). Run 1133 held slot 0 for 36 minutes of tests.
   if [ -n "${HEAVY_SLOT:-}" ]; then exec 9>&-; echo "heavy slot $HEAVY_SLOT released after the build"; unset HEAVY_SLOT; fi
+
+  # T239.3 D17 / P8: the SDK package (tools/sdk_pack.sh) from this build's sources and its coreapp.bin, after the heavy slot is let go, into the hand-over beside the images (the artifact
+  # handoff-trxapps), and its check (tools/sdk_check.sh): the example library and its menu record built from the unpacked package alone. The sources of the
+  # package are in the stage key above (app/ with app/sdkpkg, the packer tools, the two scripts).
+  SDK_COMMIT="${SDK_COMMIT:-$(cd "$ROOT" && git rev-parse --short=8 HEAD 2>/dev/null || echo unknown)}" bash "$B/tools/sdk_pack.sh" "$out"
+  RV_PREFIX=riscv32-unknown-elf- bash "$B/tools/sdk_check.sh" "$out"/trx64-sdk-*.tar.gz
 
   if [ -n "$cache" ]; then
     mkdir -p "$cache.tmp.$$"

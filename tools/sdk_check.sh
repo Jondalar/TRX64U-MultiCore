@@ -26,10 +26,12 @@ want="$(sed -n 's/^coreapp_sha256 //p' "$P/VERSION")"
 have="$( (sha256sum "$P/image/coreapp.bin" 2>/dev/null || shasum -a 256 "$P/image/coreapp.bin") | cut -d' ' -f1)"
 [ "$want" = "$have" ] || fail "image/coreapp.bin does not match VERSION"
 
-# the build sees the package and the compiler, not the repository: a PATH without it, no repository variable
+# The build runs with an empty environment but PATH (the compiler is on it) and HOME: no GIT_DIR or other variable of the CI reaches it. That
+# the build read nothing of the repository is shown by the grep of its dependency files, its log and the image below.
 cd "$P/example"
-make RV_PREFIX="$RV" >"$W/make.log" 2>&1 || { cat "$W/make.log" >&2; fail "make of the example"; }
-make menu >>"$W/make.log" 2>&1 || { cat "$W/make.log" >&2; fail "make menu of the example"; }
+CLEAN=(env -i PATH="$PATH" HOME="$W" LANG=C)
+"${CLEAN[@]}" make RV_PREFIX="$RV" >"$W/make.log" 2>&1 || { cat "$W/make.log" >&2; fail "make of the example"; }
+"${CLEAN[@]}" make menu >>"$W/make.log" 2>&1 || { cat "$W/make.log" >&2; fail "make menu of the example"; }
 [ -s example.u2a ] && [ -s example.menu.bin ] || fail "example.u2a or example.menu.bin missing"
 python3 "$P/tools/descrec.py" dump example.menu.bin >/dev/null || fail "the menu record does not read back"
 # every object of both sources was made (lib.mk compiles every file of LIB_SRCS)
@@ -42,6 +44,6 @@ grep -q "include/libapi.h" ./*.d || fail "the dependency files name no header of
 dep_hdrs="$(cat ./*.d | tr -d '\\' | tr ' ' '\n' | grep "/include/" | sort -u | wc -l | tr -d ' ')"
 tst="skipped (no host C++ compiler)"
 if command -v "${CXX_HOST:-c++}" >/dev/null 2>&1; then
-  make test >"$W/test.log" 2>&1 && tst="$(tail -1 "$W/test.log")" || { cat "$W/test.log" >&2; fail "the host test"; }
+  "${CLEAN[@]}" make test CXX_HOST="${CXX_HOST:-c++}" >"$W/test.log" 2>&1 && tst="$(tail -1 "$W/test.log")" || { cat "$W/test.log" >&2; fail "the host test"; }
 fi
 echo "sdk_check: ok: trx64-sdk-$ver: example.u2a $(wc -c < example.u2a | tr -d " ") bytes, menu record $(wc -c < example.menu.bin | tr -d " ") bytes, $nd dependency files with $dep_hdrs package headers, none names $ROOT; $tst"

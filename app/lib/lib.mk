@@ -2,13 +2,15 @@
 #
 #   LIB_NAME = testlib        LIB_VERSION = 1       LIB_NEEDS = "base>=3.0"      LIB_KIND = lib
 #   LIB_SRCS = testlib.cc     LIB_CAP =             (LIB_RES = resident|transient; LIB_MANIFEST = manifest.json)
-#   include <repo>/app/lib/lib.mk          (in the SDK package: include ../../mk/lib.mk)
+#   include <repo>/app/lib/lib.mk          (in the SDK package: include <package>/mk/lib.mk)
 #
-# LIB_SRCS may list any number of .cc and .c files; each one is compiled and all are linked into one image. LIB_MENU = menu.toml carries the library's
+# LIB_SRCS may list any number of .cc and .c files; each one is compiled (with hidden.h, C and C++: -fvisibility=hidden leaves extern declarations alone,
+# so a call or a data reference to another file would go through the PLT and GOT, which the loader does not fill) and all are linked into one image. LIB_MENU = menu.toml carries the library's
 # menu record in the image (tools/descrec.py). LIB_INC = -Idir ... adds include paths. LIB_LIBC = 1 links the memcpy/memset/division of sdk/libc.c.
 #
-# The compiler is the RISC-V one of the build image (make RV_PREFIX=riscv32-unknown-elf-, what ci/trxapps.sh does) or riscv64-elf-* (the
-# default, a Mac with the rv32 multilib). The CPU is the application's: rv32im with no divider and NO compressed instructions
+# The compiler is the RISC-V one of the build image (make RV_PREFIX=riscv32-unknown-elf-, what ci/trxapps.sh does). It needs the newlib headers:
+# the public headers include <stdlib.h> and <string.h> (fsif.h), so a riscv64-elf-* with an rv32 multilib but no libc headers (the default below,
+# a Homebrew Mac) does not compile them. The CPU is the application's: rv32im with no divider and NO compressed instructions
 # (CPU_EXTENSION_RISCV_C is false in the cpu_unit wrapper, the core application builds -march=rv32im -mno-div), so an image built with
 # the C extension would trap on its first instruction. The code is
 # position independent without a dynamic linker: -fPIE -mcmodel=medany -mno-relax makes every jump and data access pc-relative, and
@@ -25,7 +27,7 @@ LIB_OUT  ?= $(LIB_NAME).u2a
 LIB_BASE ?= 0
 LIB_CXXFLAGS = -march=rv32im -mabi=ilp32 -mno-div -Os -ffreestanding -fPIE -mcmodel=medany -mno-relax -msmall-data-limit=0 \
                -fno-exceptions -fno-rtti -fno-threadsafe-statics -fno-asynchronous-unwind-tables -fvisibility=hidden \
-               -std=gnu++11 $(SDK_INC) $(LIB_INC)
+               -std=gnu++11 $(SDK_INC) $(LIB_INC) -include $(SDK_HIDDEN)
 LIB_CFLAGS   = -march=rv32im -mabi=ilp32 -mno-div -Os -ffreestanding -fPIE -mcmodel=medany -mno-relax -msmall-data-limit=0 -fno-builtin \
                -fno-asynchronous-unwind-tables -fvisibility=hidden $(SDK_INC) $(LIB_INC) -include $(SDK_HIDDEN)
 CC_RV    ?= $(RV_PREFIX)gcc

@@ -9,9 +9,10 @@
 #             computed by the compiler (-MM) from coreapp/src and app/sdk, flat
 #   mk/       app/lib/{lib.mk,app.mk,sdkroot.mk,lib.ld}: the same files the tree builds with; sdkroot.mk finds the package's layout
 #   sdk/      the C sources app.mk links into an application (libc.c, u2p_compat.c; lib.mk links libc.c on request)
-#   tools/    u2a_pack.py, descrec.py, cor_pack.py (every module they import is Python's own, or descrec.py)
+#   tools/    u2a_pack.py, descrec.py, cor_pack.py (the modules they import are Python's own, or descrec.py; cor_pack.py needs Pillow for a PNG --icon only)
 #   image/    coreapp.bin, the app core image of this build, and its version.toml
 #   example/  app/sdkpkg/example: a library of two files with a menu TOML and a host test
+#   licenses/ the licence texts of the third-party code coreapp.bin links (FreeRTOS, lwIP, LVGL, FatFs), copied from vendor/gideon/software
 # The package carries no ROM: tools/check_no_roms.sh runs over the finished directory and the pack fails if it finds one.
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -29,7 +30,7 @@ commit="${SDK_COMMIT:-$( (cd "$ROOT" && git rev-parse --short=8 HEAD 2>/dev/null
 name="trx64-sdk-$ver"
 P="$out/$name"
 rm -rf "$P" "$out/$name.tar.gz"
-mkdir -p "$P/include" "$P/mk" "$P/sdk" "$P/tools" "$P/image"
+mkdir -p "$P/include" "$P/mk" "$P/sdk" "$P/tools" "$P/image" "$P/licenses"
 
 # the headers: the compiler names them
 CXX=""
@@ -54,13 +55,21 @@ cp "$ROOT/coreapp/version.toml" "$P/image/version.toml"
 cp -r "$ROOT/app/sdkpkg/example" "$P/example"
 find "$P/example" \( -name '*.o' -o -name '*.d' -o -name '*.elf' -o -name '*.u2a' -o -name '*.bin' -o -name test_example \) -delete
 cp "$ROOT/LICENSE" "$P/LICENSE"
+V="$ROOT/vendor/gideon/software"
+cp "$V/FreeRTOS/License/license.txt" "$P/licenses/FreeRTOS.txt"
+cp "$V/lwip/COPYING" "$P/licenses/lwIP.txt"
+cp "$V/lvgl/LICENCE.txt" "$P/licenses/LVGL.txt"
+cp "$V/chan_fat/ff14/LICENSE.txt" "$P/licenses/FatFs.txt"
 sed -e "s/@SDK_VERSION@/$ver/g" -e "s/@ABI_MAJOR@/$abi_major/g" -e "s/@ABI_MINOR@/$abi_minor/g" "$ROOT/app/sdkpkg/readme.in" > "$P/README.md"
 cat > "$P/NOTICE" <<NOTICE
 TRX64 SDK $ver, source commit $commit.
 
 Every file of this package is under the GNU General Public License, version 3 or later (LICENSE), except where a file's own header says
-otherwise. The service tables (include/svctab.h), the application interface (include/u2p_app.h) and the C runtime (sdk/libc.c,
+otherwise, and except the third-party code that image/coreapp.bin links: FreeRTOS, lwIP, LVGL and FatFs, each under its own licence
+(licenses/). The service tables (include/svctab.h), the application interface (include/u2p_app.h) and the C runtime (sdk/libc.c,
 sdk/u2p_compat.c) follow the names and layout of the TRX64 line's application interface, GPL-3.0; the headers say so.
+Some headers name PROVENANCE.md and files under vendor/gideon/: those are files of the TRX64U-MultiCore source repository, which this package
+does not carry.
 The package carries no ROM image.
 NOTICE
 cat > "$P/VERSION" <<VERSION
@@ -74,7 +83,10 @@ VERSION
 # the ROM check of the repository over the finished package
 "$ROOT/tools/check_no_roms.sh" "$P" > "$t/roms.txt" 2>&1 && romres="ROM check: clean ($(tail -1 "$t/roms.txt"))" || { cat "$t/roms.txt" >&2; echo "sdk_pack: the ROM check found something in $P" >&2; exit 1; }
 
-# the tarball: fixed order, no owner, so the same tree packs to the same bytes
-( cd "$out" && tar --sort=name --owner=0 --group=0 --numeric-owner -czf "$name.tar.gz" "$name" 2>/dev/null || tar -czf "$name.tar.gz" "$name" )
+# the tarball: files in byte order, mtime 0, owner 0, no gzip timestamp or name, so the same tree packs to the same bytes (GNU tar and bsdtar)
+TZ=UTC find "$P" -exec touch -h -t 197001010000 {} +
+if tar --version 2>/dev/null | grep -q 'GNU tar'; then own=(--owner=0 --group=0); else own=(--uid 0 --gid 0); fi
+( cd "$out" && find "$name" | LC_ALL=C sort > "$t/list" \
+  && COPYFILE_DISABLE=1 tar "${own[@]}" --numeric-owner --no-recursion -cf - -T "$t/list" | gzip -n -9 > "$name.tar.gz" )
 echo "=== sdk_pack: $name ($(wc -c < "$out/$name.tar.gz") bytes), base $abi_major.$abi_minor, commit $commit; $romres"
 du -sk "$P"/* | sed 's|'"$P"'/||' | awk '{printf "    %-10s %s KiB\n", $2, $1}'
