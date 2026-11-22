@@ -12,7 +12,7 @@ repo already) and the other cores I do not know yet. Plus a registry for cores a
 **Depends on:** T192 and T213 (app layers, D24), T221 (SemVer per deliverable), T238 (support model), T100 D8 (releases on GitHub).
 **Milestone:** after release 0.2.0.
 
-Open (one line, as in the TODO table): Epic 11-19; D1-D13; children decided (T239.1 D1-D20, .2 D1-D5, .3 D1-D5, .4 D1-D6); build A next
+Open (one line, as in the TODO table): Epic 11-19; D1-D13; A (T239.1) done 11-22; next: D (T239.2); .3 D1-D5, .4 D1-D6 decided
 
 ---
 
@@ -47,7 +47,7 @@ The children carry the scenarios. Order by D13 (Alex 2026-11-19: "machst Du eine
 
 | Child | Step | What is true when it is done | Builds on | Spec |
 |---|---|---|---|---|
-| T239.1 | A | GitHub is the development home of host, app and SDK: pull requests and CI run there, private material sits in a Gitea side repository | D11 | [T239.1](T239.1-github-home.md) |
+| T239.1 | A | GitHub is the development home of host, app and SDK: pull requests and CI run there, private material sits in a Gitea side repository | D11 | [T239.1](done/T239.1-github-home.md) |
 | T239.2 | D | Every host gateware release publishes its static checkpoint and a core template, so DFX cores are built outside this repository | D2, D3; T239.1 | [T239.2](T239.2-platform-checkpoint.md) |
 | T239.3 | B | The app core has an API for sub-apps and libraries; trx64u and the drive libraries ride on it, and the SDK ships it | D9, D10; T239.1, T239.2 | [T239.3](T239.3-app-core-sdk.md) |
 | T239.4 | C | The host menu lists the central registry over HTTPS, installs a core or a host update from it, and refuses what does not check out | D3, D5-D9; T239.2, T239.3 | [T239.4](T239.4-registry-tls.md) |
