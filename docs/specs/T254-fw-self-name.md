@@ -1,7 +1,7 @@
 # T254 — A foreign firmware shows the name and version it gives itself, not its bitstream's date
 
 **Status:** IN PROGRESS (2026-11-22). Asked by Alex, 2026-11-22.
-Open (one line, as in the TODO table): IN PROGRESS 11-22: built, units PASS; open: emulator pictures, review, merge
+Open (one line, as in the TODO table): IN PROGRESS 11-22: S1-S6 PASS (units, ue2emu); open: UX and code review, merge
 **Repo:** TRX64U-MultiCore — the host application (`host-app/software/hostapp`).
 **Number:** T254.
 **Origin:** Alex, 2026-11-22 (translated): "Can we take something small into 0.2.1 that bothers me visually a lot? ... If it
@@ -118,3 +118,14 @@ Scenario: S6 (P6) the cost is bounded
   TRX64-Ultimate file 17 reads (both texts found).
 - **The units (2026-11-22, on the Mac):** `test_cfwicon` "43 checks, 0 failed"; `tests/hostapp/run_fwconvert.sh` "test_fwconvert:
   0 failed", "run_fwconvert: ok".
+- **S2 to S5 PASS (2026-11-22):** `tests/hostapp/emu_t254_fwname.sh` on the builder with this branch's `hostapp_emu.elf`
+  (`tools/dev.sh riscv`, rc 0) and the emulator kit of the CI cache: "PASS T254 S3: A added the entry as 'Gideon 3.15'",
+  "PASS T254 S5: P wrote a_gideon.cor with the name 'Gideon 3.15' and the version '3.15'", "PASS T254 pictures: nine
+  different screens". The pictures (kept outside the repository): `t254-1` the panel "Gideon 3.15", Version "3.15, full
+  firmware"; `t254-2` "TRX64 Ultimate 0.3.1", "0.3.1, full firmware"; `t254-3` the file without the line: "u64_mk2_artix
+  2026/10/25 12:00:00", "full firmware", as before; `t254-4` the package of before T254: "Commodore 1.2.1", "1.2.1, packaged
+  firmware"; `t254-5` "Gideon 3.15 replaces the host. The way back is to switch the power off and on."; `t254-8` the .cor that
+  P wrote: "Gideon 3.15", "3.15, packaged firmware"; `t254-9` the boot menu: "Gideon 3.15" with Gideon's icon, "full
+  firmware". The test of S3's icon: `test_cfwicon` (above).
+- **The emulator flow's first run (2026-11-22):** after P the list starts at `..` again; picture 8 showed the `.cfw`. The flow
+  now presses DOWN twice; the second run is the one above.

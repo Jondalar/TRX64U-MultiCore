@@ -47,7 +47,7 @@ P="$out/t254"
   printf 'key up\nwait 400\nkey up\nwait 400\nkey up\nwait 3000\n'                                 # back on a_gideon.cfw
   printf 'key s\nwait 3000\npng %s-5-start-ask.png\nkey space\nwait 2000\n' "$P"                    # the question, then any other key cancels
   printf 'key a\nwait 4000\npng %s-6-added.png\n' "$P"
-  printf 'key p\nwait 40000\npng %s-7-packaged.png\nkey down\nwait 3000\npng %s-8-packaged-panel.png\n' "$P" "$P"
+  printf 'key p\nwait 40000\npng %s-7-packaged.png\nkey down\nwait 500\nkey down\nwait 3000\npng %s-8-packaged-panel.png\n' "$P" "$P"   # the list starts at .. again: a_gideon.cor is row 2"
   printf 'key f1\nwait 2500\npng %s-9-menu.png\nquit\n' "$P"; } > "$w/flow.ctl"
 cp "$kit/flash.bin" "$out/flash.bin"
 ( cd "$w" && nice -n 15 timeout 600 "$UE2EMU" run --board c64u --trx-io=on --icap --cor-dir "$w/cors" --core-dir "$w/profiles" --firmware "$img/hostapp_emu.elf" \
