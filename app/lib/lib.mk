@@ -13,7 +13,8 @@
 # loaded with the exporter in front of whatever needs that name (LIB_NEEDS = "ring>=1"); the packer adds `base>=3.2`.
 #
 # The packer refuses an image with a constructor or a destructor (D19): a non-empty .init_array, .fini_array, .ctors or .dtors, or a reference to __cxa_atexit or atexit (a global object
-# with a constructor or destructor brings one). The loader runs none; initialise in lib_register. make shows the packer's message.
+# with a constructor or destructor brings one). The loader runs none; initialise in lib_register. The check runs on the objects in front of ld (u2a_pack.py --check-objects): ld
+# itself would stop on the undefined __cxa_atexit of a destructor before the packer saw the image, so make shows the packer's message, not ld's.
 #
 # LIB_SRCS may list any number of .cc and .c files; each one is compiled (with hidden.h, C and C++: -fvisibility=hidden leaves extern declarations alone,
 # so a call or a data reference to another file would go through the PLT and GOT, which the loader does not fill) and all are linked into one image. LIB_MENU = menu.toml carries the library's
@@ -56,6 +57,7 @@ libc_sdk.o: $(SDK_SRC)/libc.c
 	$(CC_RV) $(LIB_CFLAGS) -MMD -MP -c $< -o $@
 
 $(LIB_NAME).elf: $(LIB_OBJS) $(LIB_DIR)lib.ld
+	python3 $(SDK_TOOLS)/u2a_pack.py --check-objects $(LIB_OBJS)
 	$(LD_RV) -m elf32lriscv --emit-relocs --defsym=__lib_base=$(LIB_BASE) -T $(LIB_DIR)lib.ld $(LIB_OBJS) -o $@
 
 $(LIB_OUT): $(LIB_NAME).elf $(LIB_MENU)

@@ -6,6 +6,8 @@ riscv64-elf-ld (`make -C app/lib/testlib fixtures`), and a rebuild from source w
 R_RISCV_RELATIVE path has no real-linker input: no installed binutils builds -pie for a bare-metal RISC-V target. It is tested on ELF
 files this test writes itself, so it proves the reader, not the linker's output.
 """
+import contextlib
+import io
 import os
 import shutil
 import struct
@@ -276,8 +278,49 @@ def no_constructors():
             e, out = os.path.join(d, "x.elf"), os.path.join(d, "x.bin")
             open(e, "wb").write(elf)
             check(P.main([e, "--dump-image", out]) == 1 and not os.path.exists(out), sym + " is refused on the command line too, and nothing is written")
+    # the check comes before build_image: an image that build_image refuses (empty) and holds a constructor says D19, not "empty"
+    refused("D19 before the image rules", lambda: pk(build_elf(P.ET_EXEC, b"", dyn=False, syms=plain, extra=[(".init_array", 4)])), "(D19)")
+    # --check-objects: the same check on relocatable objects, in front of ld (an object is ET_REL, which the image reader refuses)
+    import tempfile
+    with tempfile.TemporaryDirectory() as d:
+        rel = lambda elf: elf[:16] + struct.pack("<H", P.ET_REL) + elf[18:]  # noqa: E731
+        good, bad, ctor = (os.path.join(d, n) for n in ("good.o", "bad.o", "ctor.o"))
+        open(good, "wb").write(rel(build_elf(P.ET_EXEC, bytes(64), dyn=False, syms=plain)))
+        open(bad, "wb").write(rel(build_elf(P.ET_EXEC, bytes(64), dyn=False, extra_relas=[(".text", [(12, 18, 0, 4)])],
+                                            syms=[("dtor_obj.o", 0, 0, FILE, ABS), ("__static_init", 8, 16, FUNC_L, 1), ("lib_register", 0, 0, FUNC_G, 1), ("__cxa_atexit", 0, 0, UND, 0)], nlocal=2)))
+        open(ctor, "wb").write(rel(build_elf(P.ET_EXEC, bytes(64), dyn=False, syms=plain, extra=[(".init_array", 4)])))
+        check(P.main(["--check-objects", good]) == 0, "--check-objects passes an object with no constructor")
+        for o, needle in ((bad, "__cxa_atexit"), (ctor, ".init_array")):
+            err = io.StringIO()
+            with contextlib.redirect_stderr(err):
+                rc = P.main(["--check-objects", good, o])
+            check(rc == 1 and needle in err.getvalue() and os.path.basename(o) in err.getvalue() and "(D19)" in err.getvalue(),
+                  "--check-objects refuses %s, naming the file and %s: %s" % (os.path.basename(o), needle, err.getvalue()))
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            rc = P.main(["--check-objects", os.path.join(FIX, "testlib.at0.elf")])
+        check(rc == 1 and "relocatable" in err.getvalue(), "--check-objects takes objects, not a linked image: %s" % err.getvalue())
     # a defined atexit (a libc that brings it) or another undefined symbol is not this refusal
     check(pk(build_elf(P.ET_EXEC, bytes(64), dyn=False, syms=plain + [("atexit", 4, 4, FUNC_G, 1)]))[0][:4] == struct.pack("<I", P.MAGIC), "a defined atexit is not refused here")
+
+
+def real_constructors():
+    """D19 with the real compiler and linker (tests/loader/d19): a global with a constructor and one with a destructor, built through app/lib/lib.mk. The build
+    must stop in the packer's check of the objects, with the D19 message; a destructor must not reach ld, which would stop on the undefined __cxa_atexit."""
+    prefix = next((p for p in ("riscv32-unknown-elf-", "riscv64-elf-") if shutil.which(p + "g++")), None)
+    if not prefix:
+        print("(no RISC-V g++ installed: the D19 fixtures of tests/loader/d19 are not built)")
+        return
+    d19 = os.path.join(ROOT, "tests", "loader", "d19")
+    try:
+        for src, needle in (("ctor.cc", "_GLOBAL__sub_I"), ("dtor.cc", "__cxa_atexit")):
+            r = subprocess.run(["make", "-C", d19, "SRC=" + src, "RV_PREFIX=" + prefix], capture_output=True, text=True)
+            check(r.returncode != 0 and "no constructor or destructor (D19)" in r.stderr and needle in r.stderr and "undefined reference" not in r.stderr,
+                  "lib.mk stops on %s in the packer's D19 check, not in ld: rc %d, %s" % (src, r.returncode, r.stderr[-300:]))
+            check(not os.path.exists(os.path.join(d19, "d19.elf")) and not os.path.exists(os.path.join(d19, "d19.u2a")), "%s leaves no image behind" % src)
+            subprocess.run(["make", "-C", d19, "SRC=" + src, "clean"], capture_output=True)
+    finally:
+        subprocess.run(["make", "-C", d19, "clean"], capture_output=True)
 
 
 def menu_record():
@@ -401,6 +444,7 @@ def main():
     rebuild_check(packed)
     synthetic()
     no_constructors()
+    real_constructors()
     print("test_u2a_pack: %d checks, %d failed" % (checks, fails))
     return 1 if fails else 0
 

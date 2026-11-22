@@ -13,6 +13,8 @@ Everything else that would need a fix-up at run time is refused by name: absolut
 
 T239.3 D19: the loader runs no constructor and no destructor, so an image with a non-empty .init_array, .fini_array, .ctors or .dtors, or with an undefined
 __cxa_atexit or atexit, is refused; the message names the section or symbol and, where the relocations tell it, the function and the object.
+The check runs on the linked image and, in front of the link, on the objects: a global object with a destructor leaves __cxa_atexit undefined, and ld would stop on
+that before a packer ran, so lib.mk and app.mk run `u2a_pack.py --check-objects a.o b.o ...` first.
 
     u2a_pack.py image.elf -o x.u2a --kind lib --name cbm1541 --version 1 --needs base>=3.1 --capability drive_a
     u2a_pack.py image.elf -o x.u2a --kind lib --name mylib --budget image=8192 --budget heap_keep=2048 --budget heap_peak=4096 --budget ops=3 --budget settings=2
@@ -28,6 +30,7 @@ budget needs base >= 3.2: the packer adds that dependency, or raises a lower one
 (coreapp/src/libfmt.h U2A3_FLAG_EXPORTS), so the loader of a folder puts the library in front of whatever needs that name, and refuses the library when lib_register does not
 return every name listed. A file with a list needs base >= 3.2: the packer adds that dependency, or raises a lower one.
 
+    u2a_pack.py --check-objects a.o b.o              # only the D19 check, on relocatable objects (before the link)
     u2a_pack.py image.elf --dump-image image.bin     # only the flat image, for tests
 """
 import argparse
@@ -51,7 +54,7 @@ BUDGET_KEYS = ("image", "heap_keep", "heap_peak", "ops", "states", "events", "no
 BASE_32 = (3 << 16) | 2            # the base API that reads a budget record and a list of exported names (3.2): a file that has one needs it
 
 EM_RISCV = 243
-ET_EXEC, ET_DYN = 2, 3
+ET_REL, ET_EXEC, ET_DYN = 1, 2, 3
 PT_LOAD = 1
 SHT_SYMTAB, SHT_RELA, SHT_DYNSYM = 2, 4, 11
 SHF_ALLOC = 2
@@ -75,7 +78,7 @@ def rname(t):
 
 
 class Elf:
-    def __init__(self, data):
+    def __init__(self, data, relocatable=False):
         self.d = data
         if data[:4] != b"\x7fELF" or data[4] != 1 or data[5] != 1:
             raise PackError("not a little-endian ELF32 file")
@@ -83,8 +86,8 @@ class Elf:
          self.shnum, self.shstrndx) = struct.unpack_from("<HHIIIIIHHHHHH", data, 16)
         if machine != EM_RISCV:
             raise PackError("not a RISC-V ELF (machine %d)" % machine)
-        if self.type not in (ET_EXEC, ET_DYN):
-            raise PackError("neither ET_EXEC nor ET_DYN (type %d)" % self.type)
+        if self.type not in ((ET_REL,) if relocatable else (ET_EXEC, ET_DYN)):
+            raise PackError(("not a relocatable object (type %d)" if relocatable else "neither ET_EXEC nor ET_DYN (type %d)") % self.type)
         self.segments = []
         for i in range(self.phnum):
             p_type, off, vaddr, _pa, filesz, memsz, _fl, _al = struct.unpack_from("<IIIIIIII", data, self.phoff + i * self.phentsize)
@@ -186,16 +189,7 @@ def refuse_constructors(elf):
     """D19: a non-empty .init_array, .fini_array, .ctors or .dtors, or an undefined atexit / __cxa_atexit, is an error that names the section or symbol
     and, where a relocation tells, the function and the object it comes from."""
     syms = elf.symtab()
-    for i, s in enumerate(elf.sections):
-        base = s.get("name", "")
-        if s["size"] and any(base == n or base.startswith(n + ".") for n in CTOR_SECTIONS):
-            who = ""
-            for _off, symi in _relocs_into(elf, i):
-                if symi < len(syms) and syms[symi][0]:
-                    obj = _object_of(syms, symi)
-                    who = " (it holds %s%s)" % (syms[symi][0], " from " + obj if obj else "")
-                    break
-            raise PackError("the image has a non-empty %s%s, %d bytes: %s" % (base, who, s["size"], D19))
+    # a destructor in front: it brings an .init_array as well, and the call to __cxa_atexit is what says "destructor"
     for idx, sym in enumerate(syms):
         if sym[5] == SHN_UNDEF and sym[0] in ATEXIT_SYMBOLS:
             where = ""
@@ -209,11 +203,20 @@ def refuse_constructors(elf):
                             where = " (called from %s%s)" % (f[0], " in " + obj if obj else "")
                             break
             raise PackError("the image refers to %s%s, which registers a destructor to run at exit: %s" % (sym[0], where, D19))
+    for i, s in enumerate(elf.sections):
+        base = s.get("name", "")
+        if s["size"] and any(base == n or base.startswith(n + ".") for n in CTOR_SECTIONS):
+            who = ""
+            for _off, symi in _relocs_into(elf, i):
+                if symi < len(syms) and syms[symi][0]:
+                    obj = _object_of(syms, symi)
+                    who = " (it holds %s%s)" % (syms[symi][0], " from " + obj if obj else "")
+                    break
+            raise PackError("the image has a non-empty %s%s, %d bytes: %s" % (base, who, s["size"], D19))
 
 
 def collect(elf, img, bss, link_base):
     """The relocation table (sorted image offsets). Rewrites img in place for RELATIVE entries."""
-    refuse_constructors(elf)
     table = set()
     total = len(img) + bss
     syms = elf.symbols()
@@ -346,6 +349,7 @@ def field(text, what, may_be_empty=False):
 def pack(elf_bytes, kind, name, version, needs=(), capability="", residence=None, align=16, link_base=0, manifest=b"",
          register_sym="lib_register", main_sym="app_main", abi=(3, 3), menu=b"", budget=None, exports=None):
     elf = Elf(elf_bytes)
+    refuse_constructors(elf)          # in front of build_image: an orphan .init_array behind .bss would fail there first, without the D19 message
     img, bss = build_image(elf, link_base)
     table = collect(elf, img, bss, link_base)
     syms = elf.symbols()
@@ -419,7 +423,8 @@ def pack(elf_bytes, kind, name, version, needs=(), capability="", residence=None
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("elf")
+    ap.add_argument("elf", nargs="+", help="the linked image (with --check-objects: the relocatable objects)")
+    ap.add_argument("--check-objects", action="store_true", help="only the D19 check (no constructor, no destructor) on the objects given; for the build, before ld")
     ap.add_argument("-o", "--out")
     ap.add_argument("--dump-image", help="write only the flat image (linked at 0 form) here")
     ap.add_argument("--raw-image", help="write the flat image exactly as linked (for a test that compares two link bases)")
@@ -437,6 +442,16 @@ def main(argv=None):
     ap.add_argument("--menu", help="the nodes, file actions, settings, tabs and poll of this file as TOML (tools/descrec.py): carried as a menu record")
     a = ap.parse_args(argv)
     try:
+        if a.check_objects:
+            for o in a.elf:
+                try:
+                    refuse_constructors(Elf(open(o, "rb").read(), relocatable=True))
+                except PackError as e:
+                    raise PackError("%s: %s" % (o, e))
+            return 0
+        if len(a.elf) != 1:
+            ap.error("one ELF image (several files only with --check-objects)")
+        a.elf = a.elf[0]
         data = open(a.elf, "rb").read()
         manifest = open(a.manifest, "rb").read() + b"\0" if a.manifest else b""
         menu = b""
@@ -452,6 +467,7 @@ def main(argv=None):
                 return 0
         if a.dump_image and not a.out:
             elf = Elf(data)
+            refuse_constructors(elf)
             img, bss = build_image(elf, a.link_base)
             collect(elf, img, bss, a.link_base)
             open(a.dump_image, "wb").write(bytes(img))

@@ -9,6 +9,7 @@
 #   APP_CSRCS = src/unzip.c ...                           APP_CCSRCS = glue.cc                  APP_INC = -Isrc/miniz
 #   include <repo>/app/lib/app.mk          (in the SDK package: include <package>/mk/app.mk)
 #
+# A constructor or a destructor in an object is refused before the link (u2a_pack.py --check-objects, T239.3 D19): the loader runs none.
 # The compiler is the build image's (make RV_PREFIX=riscv32-unknown-elf-) or riscv64-elf-*. Division is sdk/libc.c's (-mno-div; libgcc's is not position independent).
 APP_DIR  := $(dir $(lastword $(MAKEFILE_LIST)))
 include $(APP_DIR)sdkroot.mk
@@ -42,6 +43,7 @@ obj/sdk/%.o: $(SDK_SRC)/%.c
 	$(CC_RV) $(CFLAGS_RV) -c $< -o $@
 
 $(APP_NAME).elf: $(OBJS) $(APP_DIR)lib.ld
+	python3 $(SDK_TOOLS)/u2a_pack.py --check-objects $(OBJS)
 	$(LD_RV) -m elf32lriscv --emit-relocs --gc-sections -e $(if $(filter lib,$(APP_KIND)),lib_register,app_main) $(if $(APP_REG),-u lib_register) -T $(APP_DIR)lib.ld $(OBJS) -o $@
 
 $(APP_OUT): $(APP_NAME).elf $(DEPMENU)
