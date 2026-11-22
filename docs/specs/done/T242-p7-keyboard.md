@@ -1,6 +1,7 @@
 # T242 — A C64 keyboard on header P7 works in the host menu and in every core app
 
-**Status:** BUILDING (2026-11-20): D1-D6 on `t239.1`; board scenarios open.
+**Status:** DONE (2026-11-20): D1-D6 on `integration` (`748d1d75`); board S1-S5 PASS with package A `t239.1-0210226e` and a
+C64 header keyboard on P7 (D7). D1, D4 and D5 are reverted by T253 D2 (2026-11-21): PR #112 as it is.
 **Repo:** TRX64U-MultiCore — the host app and the generic core app (`host-app/software/system/u64ii_init.cc`, built into both). No gateware change.
 **Number:** T242.
 **Origin:** GitHub issue #111, "P7 Keyboard on Motherboard does not work in Host- and Coreapps". The TRX64U-FW session read the cause from the code. Alex, 2026-11-20 (translated): "regarding the P7 bug, in my opinion the fix is in issue #111"; "wouldn't that be a nice attempt then, to build the host and all core apps once?"
@@ -41,6 +42,15 @@
 - **D4:** `enable_scan()` no longer sleeps after `scan_enable = 0`. `host/app_i2c.v` keeps the master busy until the scanner has stopped between two transactions, so the first command waits in hardware. With the scanner on, the firmware's `vTaskDelay(2)` cost every `i2c_lock` 5-10 ms; the core app takes the lock every 500 ms for its EDID poll in the main loop, ahead of `Video::poll`.
 - **D5:** `custom_hardware_init()` no longer writes the keyboard expander 0x42. `host/c64u_keyboard.v` sets its port directions before every line it scans and may be parked inside a line; writes from the init changed them there, and after the enable that line could read as all keys down for one scan, on any board. With C= in that line the power-on check (T135 D2) would stop in the menu.
 - **D6 (Alex, 2026-11-20): the scanner is off before the hand-over, as in PR #112.** `legacy_jump()` calls `i2c->enable_scan(false, false)` before `legacy_clocks()`: its first command parks the scanner between two transactions and it stays parked, so no scanner transaction runs on the I2C bus at the IPROG into the firmware or a large core, and CDCE open stays set as in 0.2.0. PR #112 (a contributor, tested on an Ultimate 64 Elite II) fixed #111 too; its hand-over line is taken over, the rest would enable the scanner a second time in each app. Alex (translated): "yes, better safe than sorry. Then take that over. Comment it in the PR accordingly."
+- **D7 (Alex, 2026-11-20): S1-S5 run on the board with package A (`t239.1-0210226e`), a C64 header keyboard on P7.** Asked A (all on
+  the board, a keyboard on P7), B (S4 and S5 on the board, S1-S3 by the reporter of #111 with 0.2.1) or C (no board run; ue2emu has
+  no P7 scanner, only the bit `scan_enable`), Alex (translated): "A. I'll shut the board down when everything is on it, open it and
+  plug in the header keyboard."
+
+- **Reverted (2026-11-21, T253 D2):** D1, D4 and D5. The applications start the scan as PR #112 does (the
+  contributor's `d4baeda9`). With D4 reverted, `enable_scan()` sleeps `vTaskDelay(2)` again after `scan_enable = 0`
+  (`host-app/software/io/i2c/hw_i2c_drv.cc`): while the scan is on, every `i2c_lock` waits two ticks, the core
+  application's EDID read every 500 ms too. D6 stays (PR #112 makes the same call).
 
 ## §4 Out
 
@@ -54,3 +64,9 @@
 - `d478ae57` (D4, D5) on `t239.1`; the run with the unfixed D1 was cancelled. Full GitHub run 44737131946 carries D1-D5.
 - Run 44737131946: apptests and images green with D1-D5 (host app, core app and every core's app built). Its collect went red for a reason outside T242 (T239.1 §5, step 17).
 - `b4b6f086` (D6) on `t239.1`, co-author the PR's author; PR #112 commented (it is not merged as it is). D1-D5 are in the pre-release `t239.1-7eb32b4b` (run 44780149112); D6 comes with the next run.
+- Board test 2026-11-20 (Alex; package A `t239.1-0210226e`, the host updated from the File Browser first; checklist "Board Test
+  11-20", 21:46-21:58 CET), every item PASS: S3 (C= held on the P7 keyboard at power-on with Direct boot on: the host menu, no direct
+  start), S1 (P7 keys in the host menu), S2 (P7 keys in a core's menu), S4 (a full firmware started from the host), S5 (the built-in
+  C64U keyboard in the host menu and in a core's menu). Alex: "alles geklappt !!!" (everything worked). T242 is DONE and moves to
+  `docs/specs/done/`.
+- Issue #111 closed on 2026-11-20 with the board confirmation and "ships with release 0.2.1" (Alex chose: comment now and close).

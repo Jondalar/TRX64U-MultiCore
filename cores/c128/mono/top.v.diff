@@ -12,11 +12,11 @@
 >     // (balls and channel assignment from the boundary scan of 2026-09-30, bit order inside a channel not yet measured: avid_pins.xdc)
 >     output wire [9:2]  AVID_R, AVID_G, AVID_B,
 >     output wire        AVID_CLK, AVID_SYNCn, AVID_FB
-1394c1399
+1399c1404
 <     // GTPs. c64_type 0: no DFX core ships on the VIC path (T164 Q4), so the request is not held to the System Mode's family.
 ---
 >     // GTPs. c64_type 0 (T194, Alex 2026-11-09: every HDMI mode like the other cores): no VIC path (NO_VIC_SCALER), both pictures come from the pixel layer.
-1414a1420,1428
+1419a1425,1433
 >     );
 > 
 >     // T140 D1: the VIC's native picture as S-Video and composite on the A/V port (HDMI and analogue at the same time). The DAC words
@@ -26,7 +26,7 @@
 >         .clk(sys_clk), .vmode(vmode_sys), .pix(pix_color), .px(pix_x), .py(pix_y),
 >         .pal_clk(cpu_clk), .pal_we(pal_we), .pal_addr(pal_addr), .pal_wdata(pal_wdata),
 >         .y_o(av_y), .c_o(av_c), .cv_o(av_cv)
-1415a1430,1435
+1420a1435,1440
 >     // which word goes to which ball: c128_avpins.v (T140 D24: the luma pin carries the Y word, the board found Y and CV on the wrong groups)
 >     c128_avpins avpins (.y(av_y), .c(av_c), .cv(av_cv), .AVID_R(AVID_R), .AVID_G(AVID_G), .AVID_B(AVID_B));
 >     assign AVID_SYNCn = 1'b1;           // the sync is in the Y and CV words

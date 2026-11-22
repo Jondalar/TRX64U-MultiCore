@@ -112,7 +112,7 @@ fi
 # those changes, and say in the commit why.
 # driver=2 (2026-10-16): what a PASS is worth changed - the output of a negative control, marked
 # "ctl| ", no longer counts as the bench's own FAIL. Every bench is measured again once.
-versions="trx64-sim-env:4 driver=2 $(tool_versions)"
+versions="trx64-sim-env:4 image=$(image_id sim) driver=2 $(tool_versions)"
 
 # deps_of <bench>: the specs of its line in ci/sims.deps, macros replaced, on one line.
 # Exit 3: no line for it; 1: the file is wrong (a macro that is not defined).
@@ -323,6 +323,21 @@ fi
 
 [ "$n_run" -eq 0 ] || heavy_lock
 
+# roms_gate <bench> <dir>: the pinned upstream ROMs the bench reads (ci/roms.txt, T239.1 D12) are made to exist under <dir>. Sets rom_verdict:
+# empty = go on; "SKIPPED (no ROM: <path>)" = a source could not be reached (not red, not cached); "FAIL (ROM ...)" = size or SHA-256 wrong.
+roms_gate() {
+  local out rc
+  rom_verdict=""
+  [ -n "$(python3 -I "$ROOT/ci/roms.py" need "$1")" ] || return 0
+  out="$(python3 -I "$ROOT/ci/roms.py" fetch --root "$2" --bench "$1" --strict 2>&1)"; rc=$?
+  printf '%s\n' "$out" >> "$logdir/$1.out"
+  case $rc in
+    0) ;;
+    3) rom_verdict="SKIPPED (no ROM: $(printf '%s\n' "$out" | sed -n 's/^roms: MISSING \([^ ]*\) .*/\1/p' | head -1))" ;;
+    *) rom_verdict="FAIL (ROM: $(printf '%s\n' "$out" | sed -n 's/^roms: BAD \([^ ]*\) .*/\1/p' | head -1))" ;;
+  esac
+}
+
 # run_one <bench>: in a worker. What the stage prints for the bench goes to
 # $logdir/<bench>.out, the verdict to <bench>.result (verdict|seconds|kind|note).
 run_one() {
@@ -334,9 +349,13 @@ run_one() {
   rm -f "$logdir/$name.deps" "$logdir/$name.out"
   if [ -n "$check" ]; then
     if ! sb="$(sandbox "$name")"; then echo "no sandbox for $name" > "$logdir/$name.out"; echo "no sandbox||$kind|" > "$logdir/$name.result"; return 0; fi
+    roms_gate "$name" "$sb"
+    if [ -n "$rom_verdict" ]; then rm -rf "$sb"; printf '%s|0|%s|\n' "$rom_verdict" "$kind" > "$logdir/$name.result"; printf -- '--- done %s: %s\n' "$name" "$rom_verdict"; return 0; fi
     (cd "$sb" && timeout "$tmo" bash -c "set -o pipefail; $cmd") > "$log" 2>&1 < /dev/null
     rc=$?
     rm -rf "$sb"
+  elif roms_gate "$name" "$ROOT"; [ -n "$rom_verdict" ]; then
+    printf '%s|0|%s|\n' "$rom_verdict" "$kind" > "$logdir/$name.result"; printf -- '--- done %s: %s\n' "$name" "$rom_verdict"; return 0
   elif [ "$kind" = recorded ] || { [ -n "$shim" ] && [ "$shim" != key-only ]; }; then
     # T174 D5: every bench runs under the preload (a bench without a record gets one from this run). The preload logs every file the process tree opens; python reads its sources (no stale .pyc stands in for them)
     PYTHONDONTWRITEBYTECODE=1 PYTHONPYCACHEPREFIX="$logdir/$name.pyc" LD_PRELOAD="$shim" SIM_READS_ROOT="$ROOT" SIM_DEPS_LOG="$logdir/$name.deps" \
@@ -455,6 +474,9 @@ for i in "${!names[@]}"; do
   note=""
   case "$verdict" in
     PASS*) ;;
+    SKIPPED*) note="  (T239.1 S3: not red)" ;;
+    "FAIL (ROM:"*) # a wrong ROM hash is the ROM supply failing, not the core: red whoever owns the bench (T239.1 S16)
+       failed+=("$name"); failed_at+=("other $name: $verdict") ;;
     *) # reported and not fatal only when the lane that owns the bench is an experimental core (T94 D8, the owner by ci/sims.lane since D10);
        # the host lane's and an unowned bench's failure is always the pipeline's problem
        core="$(owner_core "$name")"

@@ -67,9 +67,10 @@ module tb;
     wire kb_scl_low, kb_sda_low;
     wire [63:0] keys; wire [15:0] kb_status;
 
-    // buses {3.3 V, HDMI, 1.8 V}: open drain, top.v's mux
-    wire [2:0] scl_lo = own ? a_scl_lo : {i2c_done & kb_scl_low, kb_scl_low & i2c_done, kb_scl_low & i2c_done};
-    wire [2:0] sda_lo = own ? a_sda_lo : {i2c_done & kb_sda_low, kb_sda_low & i2c_done, kb_sda_low & i2c_done};
+    // buses {3.3 V, HDMI, 1.8 V}: open drain, top.v's mux. The scan drives the 1.8 V bus only (T253 D1); the
+    // synthesizer master, which drives the 1.8 V and the HDMI bus before i2c_done, is not modelled (scl_low = sda_low = 0).
+    wire [2:0] scl_lo = own ? a_scl_lo : {1'b0, 1'b0, kb_scl_low & i2c_done};
+    wire [2:0] sda_lo = own ? a_sda_lo : {1'b0, 1'b0, kb_sda_low & i2c_done};
     wire p_kbd, p_codec, p_cdce0, p_cdce1, p_edid, p_hub, s_hub;
     wire [2:0] scl = ~(scl_lo | {s_hub, 2'b00});
     wire [2:0] sda = ~(sda_lo | {p_hub, p_edid | p_cdce1, p_kbd | p_codec | p_cdce0});
@@ -78,7 +79,7 @@ module tb;
         .rdata(rdata), .scan_en(scan_en), .i2c_done(i2c_done), .kb_pause(kb_pause), .kb_parked(kb_parked),
         .own(own), .scl_lo(a_scl_lo), .sda_lo(a_sda_lo), .scl_in(scl), .sda_in(sda),
         .hold(hold), .parked(parked));
-    c64u_keyboard kb (.clk(kclk), .rst(~i2c_done), .sda_in(sda[0] & sda[1] & sda[2]),
+    c64u_keyboard kb (.clk(kclk), .rst(~i2c_done), .sda_in(sda[0]),
         .scl_low(kb_scl_low), .sda_low(kb_sda_low), .keys(keys), .status(kb_status),
         .pause(kb_pause), .parked(kb_parked));
 

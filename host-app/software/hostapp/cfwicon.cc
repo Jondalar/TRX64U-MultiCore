@@ -20,6 +20,16 @@ int cfw_icon_kind(const char *name)
     if (n == 3 && !strncmp(name, "top", 3)) {
         return CFW_ICON_KIND_TRX64;
     }
+    // T254: the name a firmware gives itself (cfw_read_self), which a menu entry added with A carries since. The icon stays the one the
+    // .bit header's name gives: Commodore's firmware is built from Gideon's, its bitstreams say "u64_mk2_artix" too (measured in
+    // update_1.2.1.cfw and c64u 1.1.0, 2026-11-22); TRX64-Ultimate's say "top".
+    // Only the exact shape counts ("Gideon 3.", "Commodore 1.", "TRX64 Ultimate <digit>"), so a large core's own name ("Commodore 128") keeps the generic icon.
+    if (!strncmp(name, "Gideon 3.", 9) || !strncmp(name, "Commodore 1.", 12)) {
+        return CFW_ICON_KIND_GIDEON;
+    }
+    if (!strncmp(name, "TRX64 Ultimate ", 15) && name[15] >= '0' && name[15] <= '9') {
+        return CFW_ICON_KIND_TRX64;
+    }
     return CFW_ICON_KIND_GENERIC;
 }
 

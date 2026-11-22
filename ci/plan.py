@@ -3,7 +3,7 @@
 
   ci/plan.py make --base <commit>|none [--head HEAD] [--branch B] [--source <text>] [--out plan.json] [--files-out f] [--pretty]
                                     the plan of the diff base..head (base none = no base known: everything is named; --branch B or
-                                    GITHUB_REF_NAME / the checkout decides the scope: main, integ-*, release/* and tags build everything
+                                    GITHUB_REF_NAME / the checkout decides the scope: main, integration, integ-*, release/* and tags build everything
                                     that changed (D2.6-8), any other branch only the cores it touches plus host, reference core and null (D2 addendum))
   ci/plan.py has <plan.json> <target>      exit 0 when the plan names the target ("host", "dfx:vc20", "large:amiga1200", "aux",
                                            "app:core", ...), the lane runs ("lane:host", "lane:dfx:vc20", "lane:large:amiga1200") or "fundamental" (full benches);
@@ -13,7 +13,9 @@
   ci/plan.py lanes                         the lanes of this tree, one per line: host, core:<id> (DFX), large:<id>
 
 The diff is evaluated by git itself (pathspecs with :(exclude), exactly as ci/lib.sh hashes them), in the repository this file
-sits in. Paths -> targets: host and the descriptors' sources as ci/lib.sh keys them, the static rows of ci/targets.txt,
+sits in, or in the checkout CI_DATA_ROOT names (ci/keys.sh --data): that tree is only read; code_hash.py, simreads.py and
+tools/core_toml.py always come from this file's own tree (core_toml.py runs with python3 -I).
+Paths -> targets: host and the descriptors' sources as ci/lib.sh keys them, the static rows of ci/targets.txt,
 consumers by the `expand` rows. Sims: a bench of ci/sims.txt with a line in ci/sims.deps runs when its declared inputs
 changed (or its own lines in sims.txt / sims.deps / the owner row) AND the lane that owns it (ci/sims.lane, T100 D10) fires - the host lane,
 a DFX core's lane, a large core's lane - or its own bench source (simscope) changed. Benches owned by `none` (source trees that are never
@@ -32,8 +34,9 @@ import json, os, re, subprocess, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import code_hash
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.dirname(HERE)
+HERE = os.path.dirname(os.path.abspath(__file__))      # the code: this file's folder (code_hash.py, simreads.py)
+CODE = os.path.dirname(HERE)                           # its tree (tools/core_toml.py)
+ROOT = os.environ.get("CI_DATA_ROOT") or CODE          # the tree that is read: git, host/layers.txt, the cores, ci/targets.txt, ci/sims.*
 EXC = ":(exclude)"
 
 
@@ -45,8 +48,8 @@ def git(*a, check=True):
 
 
 def core_toml(*a):
-    return subprocess.run([sys.executable, os.path.join(ROOT, "tools", "core_toml.py")] + list(a),
-                          capture_output=True, text=True, check=True).stdout.strip()
+    return subprocess.run([sys.executable, "-I", os.path.join(CODE, "tools", "core_toml.py")] + list(a),
+                          capture_output=True, text=True, check=True, env=dict(os.environ, CI_DATA_ROOT=ROOT)).stdout.strip()
 
 
 def changed_in(base, head, specs):
@@ -89,7 +92,7 @@ def fundamental_specs(kind="benches"):
     """The pathspecs of ci/fundamental.txt, the one list (T174 D2.6): section [all] plus [benches] (touching one runs the full benches) or
     [apptests] (ci/apptests.sh escalates its tier to integration). A path outside every section is an error, so no list can hide a second copy."""
     out, sec = [], None
-    for line in open(os.path.join(HERE, "fundamental.txt"), encoding="utf-8").read().split("\n"):
+    for line in open(os.path.join(ROOT, "ci", "fundamental.txt"), encoding="utf-8").read().split("\n"):
         line = re.sub(r"\s+#.*$", "", line).strip()
         if not line or line.startswith("#"):
             continue
@@ -106,15 +109,16 @@ def fundamental_specs(kind="benches"):
 
 
 def full_scope(branch):
-    """main, integration branches, release branches and tags build and test everything that changed; any other branch only its own core(s) and app(s)."""
-    return branch == "main" or branch.startswith(("integ-", "release/")) or os.environ.get("GITHUB_REF_TYPE") == "tag"
+    """main, integration, integration branches, release branches and tags build and test everything that changed; any other branch only its own core(s)
+    and app(s). t239.1 counts as main while T239.1 D9 lasts (its S8 proof needs the package)."""
+    return branch in ("main", "integration", "t239.1") or branch.startswith(("integ-", "release/")) or os.environ.get("GITHUB_REF_TYPE") == "tag"
 
 
 # ---- ci/targets.txt -------------------------------------------------------------------------------------------------
 
 def read_targets(text=None):
     limits, rows, expand = {}, [], []
-    for line in (text if text is not None else open(os.path.join(HERE, "targets.txt"), encoding="utf-8").read()).split("\n"):
+    for line in (text if text is not None else open(os.path.join(ROOT, "ci", "targets.txt"), encoding="utf-8").read()).split("\n"):
         line = re.sub(r"\s+#.*$", "", line).strip()
         if not line or line.startswith("#"):
             continue
@@ -282,7 +286,7 @@ def make(base, head, source, files_out=None, branch=None):
     everything = base == "none"
     changed = set()
     notes = []
-    branch = branch or os.environ.get("GITHUB_REF_NAME") or git("rev-parse", "--abbrev-ref", "HEAD").strip()
+    branch = branch or os.environ.get("CI_BRANCH") or os.environ.get("GITHUB_REF_NAME") or git("rev-parse", "--abbrev-ref", "HEAD").strip()
     scoped = not full_scope(branch)
     docs_only = False
     if not everything:

@@ -352,8 +352,16 @@ def render(a, cors, bit_len, alen, dest):
     w("your old firmware stays as a core and keeps starting first. This file is the whole guide: what to download, where")
     w("to put it, and what to press.")
     w("")
-    w("This bundle contains **no ROM, Kickstart or disk image**. You bring those yourself (section 5).")
+    w("This bundle contains **no ROM, Kickstart or disk image** that you have to supply or copy; you bring those yourself (section 5).")
     w("")
+    trx = {os.path.basename(f) for f, m in cors}
+    if "trx64g.cor" in trx:
+        w("The exceptions are inside the TRX64 files: `trx64g.cor` carries the C64 BASIC ROM and the MOD player cartridge image that Gideon's")
+        w("Ultimate application links, as his firmware does%s." % ("; `trx64u.cor` carries the MOD player image for Play MOD" if "trx64u.cor" in trx else ""))
+        w("")
+    elif "trx64u.cor" in trx:
+        w("The exception is inside `trx64u.cor`: the MOD player cartridge image for Play MOD.")
+        w("")
     w("## 1. What you need")
     w("")
     w("- A C64 Ultimate (C64U). It is the only board on which the firmware is known to work. A C64C Ultimate can contain")
@@ -442,7 +450,7 @@ def render(a, cors, bit_len, alen, dest):
     w("")
     w("```")
     w("/cores/                      the .cor files of this bundle, and any .cfw full firmware")
-    w("    trx64.cor  vc20.cor  amiga.cor  ...")
+    w("    trx64u.cor  trx64g.cor  vc20.cor  amiga.cor  ...")
     if u2as:
         w("    apps/                    applications every core reads (T180 D9), from this bundle; never a core's folder:")
         w("        unzip.u2a            Unzip here / Unzip to folder / Extract one file, on a .zip in the F3 browser")

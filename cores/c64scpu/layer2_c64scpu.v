@@ -339,7 +339,12 @@ module layer2_c64scpu #(
     wire [12:0] uci_addr;
     wire  [7:0] uci_rdata, pb_rdata, rc_rdata;
     wire        uci_irq, drva_irq, rc_irq;
-    wire [31:0] core_caps = host_caps | `CAPAB_HARDWARE_GCR | `CAPAB_C2N_STREAMER | `CAPAB_C2N_RECORDER |
+`ifdef TAPE
+    localparam [31:0] TAPE_CAPS = `CAPAB_C2N_STREAMER | `CAPAB_C2N_RECORDER;
+`else
+    localparam [31:0] TAPE_CAPS = 32'd0;                  // no cassette block (T249): the word does not name one
+`endif
+    wire [31:0] core_caps = host_caps | `CAPAB_HARDWARE_GCR | TAPE_CAPS |
                             `CAPAB_RAM_EXPANSION | `CAPAB_MM_DRIVE | `CAPAB_EXTENDED_REU | `CAPAB_COMMAND_INTF;
 
     // this core's own register page (c64scpu_regs.v) at cw_addr[16:12] = 4'hE; the c64u window answers everything else

@@ -75,8 +75,18 @@ def lines(bench, cache=None):
     return sorted(set(b or []) | set(c))
 
 
+def pinned():
+    """the paths ci/roms.txt pins: fetched, never tracked; a read of one is recorded as ci/roms.txt (T239.1 D12)"""
+    try:
+        return set(l.split()[2] for l in open(os.path.join(ROOT, "ci", "roms.txt"), encoding="utf-8").read().split("\n")
+                   if l.strip() and not l.lstrip().startswith("#"))
+    except FileNotFoundError:
+        return set()
+
+
 def normalize(log):
     files, dirs = tracked()
+    pins = pinned()
     out = set()
     for l in open(log, encoding="utf-8", errors="surrogateescape").read().split("\n"):
         if not l:
@@ -85,7 +95,9 @@ def normalize(log):
         p = p.rstrip("/")
         if not p or GLOB.search(p):
             continue
-        if tag == "" and p in files:
+        if p in pins:
+            out.add("ci/roms.txt")
+        elif tag == "" and p in files:
             out.add(p)
         elif tag == "?" and p not in files and os.path.dirname(p) in dirs:
             out.add("?" + p)

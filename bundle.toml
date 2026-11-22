@@ -2,4 +2,4 @@
 # (a release: x.y.z, a test build: x.y.z-dev+<sha8>). The version of every part is in its own file: contract/version.toml (host gateware),
 # host-app/version.toml (host menu), coreapp/version.toml (generic core app), cores/<id>/core.toml (a core); ci/package.sh writes them into the
 # manifest.json of a package. Bumped on the way to main (D8), never on a feature branch.
-version = "0.2.0"
+version = "0.2.1"

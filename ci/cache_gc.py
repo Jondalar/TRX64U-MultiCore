@@ -3,7 +3,7 @@
 
 An entry of $CI_BIT_CACHE (default /cache/multicore/bit) is a directory <group>-<16 hex>: host-<H>,
 core-<core>-<C>, aux-<A>, c64u-<K>, ue2-<K>. It stays if
-  1. a pin of a branch that still exists says so, or a permanent pin (main, integ-m1, v* tags),
+  1. a pin of a branch that still exists says so, or a permanent pin (main, integ-m1, integration, v* tags),
   2. its DONE is younger than --days, or
   3. it is among the --history newest unpinned entries of its group.
 A host also stays while a kept core entry was routed against it; a core entry whose host is gone
@@ -18,7 +18,7 @@ when neither can be read nothing is deleted.
 """
 import argparse, json, os, re, shutil, subprocess, sys, time
 
-PERMANENT_BRANCHES = {"main", "integ-m1"}
+PERMANENT_BRANCHES = {"main", "integ-m1", "integration"}
 ENTRY = re.compile(r"^(?P<group>.+)-(?P<key>[0-9a-f]{16})$")
 OOC = re.compile(r"^(?P<group>ooc_.+)_(?P<key>[0-9a-f]{16})\.(?P<ext>dcp|stub\.v)$")
 

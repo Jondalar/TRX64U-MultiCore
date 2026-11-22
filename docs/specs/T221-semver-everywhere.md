@@ -244,3 +244,12 @@ a release build's short strings fit), and a large core's test version is cut to 
 - The boot row of a converted large `.cor` shows its manifest version ("Test Vendor image|9.9|foreign|", D13 `large_version`) instead of "full firmware"; the render bench expects that.
 
 - **Main run 2247 (2026-11-16):** the package stage stamped `out/coreapp.elf`, which `ci/package.sh` never copied out of the trxapps stage (only hostapp.app/.elf and coreapp.bin): `FileNotFoundError`. The ELF is copied now (branch runs build no package, so it showed first on main).
+
+- **2026-11-22, T239.1 D47:** the release no longer runs the promote of D4. `tools/release_mc.sh` takes the files of the pre-release of
+  the tag build over as they are; that build carries the plain x.y.z, because `ci/version.sh` gives it under a tag. `tools/release_promote.py`
+  is no longer called.
+
+- **2026-11-22, release 0.2.1 (Alex):** only the bundle, the host menu, the generic core app and the host gateware go to 0.2.1. The cores
+  keep their versions, although their gateware changed (T253): a core's `version` is in its `core.toml`, which is part of its bitstream key, so
+  raising it rebuilds every changed core in Vivado (13 cores, about 2 hours, one approval). Alex (translated): "Do not raise the cores ... we are
+  about to take that on anyway, with the separation of app and core from the host." An exception to D8 for this release.

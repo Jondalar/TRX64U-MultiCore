@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "corefolder.h"
+#include "keyboard.h"
 
 // T148: a core reads its ROMs from its own folder only. What lies in the old places is copied there first (rom_import: it does nothing once
 // every spec has its file), then the folder is scanned. Without a .cor path (a developer start) the old search over the roots stays.
@@ -121,6 +122,16 @@ static int need_program(CoreCtx *c, char *msg, int msglen)
     return 0;
 }
 
+bool boot_offers_return(const CoreCtx *c)
+{
+    return !c->board || c->board->can_return_host;
+}
+
+bool boot_leave_key(int key)
+{
+    return key == KEY_BREAK || key == KEY_ESCAPE;
+}
+
 BootResult boot_start(CoreCtx *c, BootUi *ui)
 {
     const CoreDesc *d = c->desc;
@@ -137,6 +148,8 @@ BootResult boot_start(CoreCtx *c, BootUi *ui)
     RomWait wait;
     bool told = false;
     bool refused = false;                         // a ROM set found and refused: told at once, looked at again after 5 s (T104 5.1)
+    const bool way_back = boot_offers_return(c);
+    char shown[400];
     while (d->nroms || d->romset) {
         RomStatus st = d->nroms ? scan_roms(c, res, msg, sizeof(msg)) : ROM_FOUND;
         if (st == ROM_FOUND && d->romset) {
@@ -154,11 +167,21 @@ BootResult boot_start(CoreCtx *c, BootUi *ui)
         }
         refused = d->romset && st >= ROM_WRONG_SIZE;
         if (wait.step(st, msg)) {
-            ui->message("ROM files", msg, true);
+            snprintf(shown, sizeof(shown), "%s%s", msg, way_back ? "\n\nPress RUN/STOP to return to the host menu." : "");
+            ui->message("ROM files", shown, true);
             told = true;
         }
         ui->tick();
-        c->io->delay_ms(refused ? 5000 : wait.delay_ms());
+        for (uint32_t waited = 0, total = refused ? 5000 : wait.delay_ms(); waited < total; waited += 50) {
+            if (way_back && ui->leave_asked()) {
+                char err[120];
+                if (!ui->return_to_host(err, sizeof(err))) {          // it does not come back when it works; the core stays held and the wait goes on
+                    snprintf(shown, sizeof(shown), "%s\n\nThe way back did not work: %s", msg, err);
+                    ui->message("ROM files", shown, true);
+                }
+            }
+            c->io->delay_ms(50);
+        }
     }
     if (told) {
         ui->clear();

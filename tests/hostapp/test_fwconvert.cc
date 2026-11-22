@@ -199,7 +199,13 @@ int main(int argc, char **argv)
     FwConvPlan pl;
     { FwKnown k = { "00", "Commodore", "C64 Ultimate", "1.1.0" };
       fwcv_names(ci, &k, &pl); CHECK(!strcmp(pl.name, "Commodore C64 Ultimate") && !strcmp(pl.version, "1.1.0"));
-      fwcv_names(ci, 0, &pl); CHECK(!strcmp(pl.name, "top 2026/10/25 12:00:00") && !strcmp(pl.version, "bit 2026/10/25")); }
+      fwcv_names(ci, 0, &pl); CHECK(!strcmp(pl.name, "top 2026/10/25 12:00:00") && !strcmp(pl.version, "bit 2026/10/25"));
+      // T254: the name and version the firmware gives itself come before the header's; the table stays first
+      CfwInfo cs = ci;
+      snprintf(cs.self_name, sizeof(cs.self_name), "Commodore 1.2.1");
+      snprintf(cs.self_ver, sizeof(cs.self_ver), "1.2.1");
+      fwcv_names(cs, 0, &pl); CHECK(!strcmp(pl.name, "Commodore 1.2.1") && !strcmp(pl.version, "1.2.1"));
+      fwcv_names(cs, &k, &pl); CHECK(!strcmp(pl.name, "Commodore C64 Ultimate") && !strcmp(pl.version, "1.1.0")); }
 
     // the conversion: the same bytes as the python packer
     {

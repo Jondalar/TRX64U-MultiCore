@@ -364,13 +364,13 @@ static const char *state_auto_diag(CoreCtx *c)
     long da = s->t_has[1] ? (long)(uint32_t)(now - s->t_last[1]) : -1;
     long ha = s->n_hchg ? (long)(uint32_t)(now - s->dg_hchg) : -1;
     snprintf(diag_buf, sizeof(diag_buf),
-             "shown=%d auto=%s st=%02x sw=%u since_sw=%u vic_age=%ld vdc_age=%ld quiet=%d oth=%d dec=%d "
+             "shown=%d auto=%s st=%02x sw=%u since_sw=%u vic_age=%d vdc_age=%d quiet=%d oth=%d dec=%d "
              "last(vic=%u cram=%u vdc=%u fl=%u seq=%d) fr=%u frv=%u mv=%u md=%u "
-             "hash(ok=%u v=%08x hf=%u hc=%u hc_age=%ld hs=%u drop=%u nonew=%u inv=%u) still=%08x",
-             e.shown, auto_on(c) ? "on" : "off", (unsigned)e.st, (unsigned)act_switch_ms(c), (unsigned)(uint32_t)(now - s->sw_ms), va, da,
+             "hash(ok=%u v=%08x hf=%u hc=%u hc_age=%d hs=%u drop=%u nonew=%u inv=%u) still=%08x",
+             e.shown, auto_on(c) ? "on" : "off", (unsigned)e.st, (unsigned)act_switch_ms(c), (unsigned)(uint32_t)(now - s->sw_ms), (int)va, (int)da,
              e.shown_quiet ? 1 : 0, e.other_active ? 1 : 0, e.w, (unsigned)s->dg_v, (unsigned)s->dg_cr, (unsigned)s->dg_d, (unsigned)s->dg_f, s->act_seq,
              (unsigned)s->n_fr, (unsigned)s->n_fr_vdc, (unsigned)s->n_mark_vic, (unsigned)s->n_mark_vdc,
-             (unsigned)s->hash_ok, (unsigned)s->hash, (unsigned)s->hash_frames, (unsigned)s->n_hchg, ha, (unsigned)s->n_hs, (unsigned)s->n_hdrop,
+             (unsigned)s->hash_ok, (unsigned)s->hash, (unsigned)s->hash_frames, (unsigned)s->n_hchg, (int)ha, (unsigned)s->n_hs, (unsigned)s->n_hdrop,
              (unsigned)s->n_hnonew, (unsigned)s->n_hinv, (unsigned)s->dg_st);
     return diag_buf;
 }

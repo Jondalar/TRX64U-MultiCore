@@ -26,7 +26,7 @@
 # PASS / "fails as it must" mean. A comment-only edit leaves every cached unit valid. tools/check_cc_key_version.py (lint) refuses a commit that changes the code
 # of the three files (comments, blank lines and this line left out) without raising the number. A suite's own run.sh is still part of its units' keys
 # (the function closures and the dependency lists), because it is the test.
-CC_KEY_VERSION=3
+CC_KEY_VERSION=4
 # Needs $ROOT, $CXX and $T of the caller (T: the suite's scratch directory).
 CC_PY="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/ctlcache.py"
 CC_SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -48,7 +48,7 @@ _cc_key_py() {   # _cc_key_py SUITE ID RUNARGS ; stdin: the -MM output
   local suite="$1" id="$2" runargs="$3" key
   # shellcheck disable=SC2086
   key="$(python3 -I "$CC_PY" key --key-version "$CC_KEY_VERSION" --root "$ROOT" --tmp "$T" --mode "$CC_MODE" --suite-dir "tests/$suite" --runargs "$runargs" \
-    --id "$id | $("${CXX:-c++}" --version 2>/dev/null | head -1) | $suite" --extra ${CC_EXTRA:-} 2>/dev/null)" || return 0
+    --id "$id | $("${CXX:-c++}" --version 2>/dev/null | head -1) | image $("$ROOT/ci/image_id.sh" build 2>/dev/null || true) | $suite" --extra ${CC_EXTRA:-} 2>/dev/null)" || return 0
   [ -n "$key" ] || return 0
   printf '%s\n%s\n' "$runargs" "${CC_EXTRA:-}" > "$T/ccargs/$key"   # what cc_store needs again
   printf '%s' "$key"

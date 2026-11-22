@@ -18,7 +18,7 @@
 #   nightly      integration with the caches ignored (-f and CONTROLS_ALL=1).
 # Suites: hostapp coreapp coreapp:cross coreapp:<core>... loader (T174 D3: `coreapp` is the shared group only, see core_groups below; names from tests/coreapp/cores.txt) | view coreapp_render hostapp_render | hostapp_emu coreapp_emu. Naming suites runs exactly those, at the tier's strictness.
 # Before anything runs a plan line says which suites run and which are cached ("will run: ..., skipped: ... (inputs unchanged)"), with the files
-# of `git diff BASE` (BASE default: merge-base with origin/main, else HEAD~1) that touch each suite. --plan goes further, down to the units:
+# of `git diff BASE` (BASE default: the plan's base, else merge-base with origin/integration, else HEAD~1; none of them: every suite runs) that touch each suite. --plan goes further, down to the units:
 # the suites walk through their keys with nothing built or run (CC_DRYRUN) and print "plan: would run ..." for each unit that has no valid cache entry.
 #
 # Per-suite cache, the mechanism of ci/sims.sh: a suite has a key over the content of exactly the files it reads (below), the
@@ -90,12 +90,34 @@ while [ $# -gt 0 ]; do
     *) suites+=("$1"); shift ;;
   esac
 done
-if [ -z "$base" ]; then base="$(git merge-base HEAD origin/main 2>/dev/null || git rev-parse HEAD~1 2>/dev/null || git rev-parse HEAD)"; fi
+# T239.1: the base of "touched" is the base of the plan job (plan.json base.commit, the last green run or the merge-base, ci/plan.sh); a CI checkout is
+# shallow (depth 1: no origin/integration, no HEAD~1), so that commit is fetched when it is missing. Without a plan: the merge-base with origin/integration (the trunk, D48), else HEAD~1.
+# A base that cannot be had is never "nothing touched": base stays empty, the tier becomes integration and every suite runs (said out loud below).
+have_commit() { [ -n "$1" ] && [ "$1" != none ] && git cat-file -e "$1^{commit}" 2>/dev/null; }
+base_from_plan() {
+  [ -f "$HANDOFF/plan.json" ] || return 1
+  local c; c="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["base"]["commit"])' "$HANDOFF/plan.json" 2>/dev/null)" || return 1
+  have_commit "$c" || { [ -n "$c" ] && [ "$c" != none ] && git fetch -q --depth 1 origin "$c" 2>/dev/null; } || return 1
+  have_commit "$c" && { echo "$c"; echo "=== apptests: base ${c:0:8} from the plan (plan.json)" >&2; }
+}
+base_src=""
+if [ -n "$base" ]; then base_src="given"
+else
+  if base="$(base_from_plan)" && [ -n "$base" ]; then base_src=plan
+  elif base="$(git merge-base HEAD origin/integration 2>/dev/null)" && have_commit "$base"; then base_src="merge-base with origin/integration"
+  elif base="$(git rev-parse --verify -q HEAD~1 2>/dev/null)" && have_commit "$base"; then base_src="HEAD~1"
+  else base=""; fi
+fi
 # T174 D2 (Alex): on a feature branch only what the diff touches runs (fast, plus the emulator scripts of touched UI); controls, render benches and
 # the emulator list come at the merge into main, at night, or when a FUNDAMENTAL file is touched (shared headers, the view layer, the test machinery,
 # the build system). Docs-only changes trigger nothing. On main (or in a detached CI checkout of main) `auto` is integration.
 fundamental=(); while IFS= read -r _f; do [ -z "$_f" ] || fundamental+=("$_f"); done < <(python3 "$ROOT/ci/plan.py" fundamental apptests)   # ci/fundamental.txt: [all] + [apptests], the one list (also read by plan.py for the benches)
 [ ${#fundamental[@]} -gt 0 ] || { echo "apptests: ci/fundamental.txt gave no paths" >&2; exit 1; }
+if [ -z "$base" ]; then
+  echo "=== apptests: NO DIFF BASE (no plan.json base, no origin/integration, no HEAD~1): nothing can be called untouched, every suite runs (tier integration)"
+  [ "$tier" != auto ] || tier=integration
+  scoped=""
+fi
 if [ "$tier" = auto ]; then
   br="${CI_BRANCH:-$(git rev-parse --abbrev-ref HEAD 2>/dev/null)}"
   fcount=0
@@ -151,7 +173,7 @@ for s in "${suites[@]}"; do
   key="$(suite_key "$s")" || { echo "=== $s: no key" >&2; fails+=("$s"); continue; }
   printf -v "skey_${s//:/_}" %s "$key"
   k="$(kind_of "$s")"
-  if [ -n "${scoped:-}" ] && [ "$nt" = 0 ]; then skip+=("$s"); continue; fi   # branch scope: nothing of it touched, main's cache stands
+  if [ -n "${scoped:-}" ] && [ "$nt" = 0 ]; then skip+=("$s"); continue; fi   # branch scope: nothing of it touched, integration's cache stands
   if [ "$k" = render ]; then will+=("${s}[$nt files; units decide]"); continue; fi
   if [ -z "$force" ] && [ -n "$cache_on" ] && { [ -f "$ok_dir/$s.$key" ] || { [ "$tier" = fast ] && [ -f "$ok_dir/fast-$s.$key" ]; }; }; then skip+=("$s"); else will+=("${s}[$nt files]"); fi
 done
@@ -160,7 +182,7 @@ echo "=== apptests plan (tier $tier, base ${base:0:8}): will run: ${will[*]:-not
 
 run_one() {   # run_one suite : returns the suite's status
   local s="$1" k key sc v
-  case " ${skip[*]:-} " in *" $s "*) if [ -n "$scoped" ]; then echo "=== apptests $s: not touched by this branch (cache of main stands)"; return 0; fi ;; esac
+  case " ${skip[*]:-} " in *" $s "*) if [ -n "$scoped" ]; then echo "=== apptests $s: not touched by this branch (cache of integration stands)"; return 0; fi ;; esac
   k="$(kind_of "$s")"; v="skey_${s//:/_}"; key="${!v}"; sc="$(script_of "$s")"
   if [ "$k" = emu ]; then
     # T174 D2.8: the emulator suites run here, in ue2emu (ci/ue2emu.sh: the local binary or the UE2EMU_IMAGE container), on the images ci/trxapps.sh built
@@ -171,7 +193,7 @@ run_one() {   # run_one suite : returns the suite's status
     mkdir -p "$eout"
     case "$s" in
       hostapp_emu) nice -n 15 "$sc" "$imgs" "$eout" || erc=$? ;;
-      coreapp_emu) nice -n 15 "$sc" "$imgs/coreapp_trx64u.app" || erc=$? ;;   # T228 R25: tests/coreapp/emu/run.sh runs trx64u, which has its own image
+      coreapp_emu) EMU_LOGS="$eout" nice -n 15 "$sc" "$imgs/coreapp_trx64u.app" || erc=$? ;;   # T228 R25: tests/coreapp/emu/run.sh runs trx64u, which has its own image
       *)           nice -n 15 "$sc" "$imgs/coreapp.app" || erc=$? ;;
     esac
     if [ $erc -eq 77 ]; then
@@ -180,7 +202,7 @@ run_one() {   # run_one suite : returns the suite's status
       return 0
     fi
     if [ $erc -ne 0 ]; then echo "=== apptests $s: FAIL after $((SECONDS - t1))s" >&2; return 1; fi
-    echo "=== apptests $s: done in $((SECONDS - t1))s (PNGs and logs in $eout)"
+    echo "=== apptests $s: done in $((SECONDS - t1))s (output in $eout)"
     if [ -z "$plan" ] && [ -n "$cache_on" ]; then printf '%s %s\n' "$(git -C "$ROOT" rev-parse --short=8 HEAD)" "$(date -u +%FT%TZ)" > "$ok_dir/$s.$key"; fi
     return 0
   fi

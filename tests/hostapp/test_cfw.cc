@@ -443,12 +443,94 @@ static void s_ue2(void)
     CHECK(cfw_is_name("x.ue2") && cfw_is_name("/USB1/C64U_V1.1.0.UE2") && !cfw_is_name(".ue2"));
 }
 
+// T254: the name and version a foreign firmware gives itself (cfw_read_self): the line of its version report in the application, read in the
+// application's last 512 KiB; the distances from the end are the measured ones (cfw.cc).
+static void put_text(Buf &b, size_t at, const char *s, size_t n = 0) { memcpy(b.data() + at, s, n ? n : strlen(s)); }
+
+static bool self_of(const Buf &img, CfwInfo &ci, unsigned *reads = 0)
+{
+    MemSrc s;
+    s.d = img;
+    if (cfw_probe(s, ID_50T, ci) != CFW_OK) return false;
+    s.reads = 0;
+    bool r = cfw_read_self(s, ci);
+    if (reads) *reads = s.reads;
+    return r;
+}
+
+static void s_self(void)
+{
+    CfwInfo ci;
+    unsigned reads = 0;
+    Buf g = gideon();
+    CHECK(probe(g, ci) == CFW_OK);
+    const size_t gend = ci.app_data + ci.app_len;
+    // the updater before the bitstreams holds both texts and a version: not the application's, not read
+    put_text(g, 0x1000, "TRX64 Ultimate");
+    put_text(g, 0x2000, "Software version:   9.9\n");
+    // no line in the application: nothing named, the title stays the .bit header's
+    CHECK(!self_of(g, ci) && !ci.self_name[0] && !ci.self_ver[0]);
+    CHECK(!strcmp(cfw_title(ci), "u64_mk2_artix 2026/09/10 11:00:57"));
+    // Gideon: "3.15", 250 KB before the end, as in 3.15a
+    Buf g315 = g;
+    put_text(g315, gend - 250000, "Software version:   3.15\n   Build date:");
+    CHECK(self_of(g315, ci, &reads) && !strcmp(ci.self_ver, "3.15") && !strcmp(ci.self_name, "Gideon 3.15"));
+    CHECK(!strcmp(cfw_title(ci), "Gideon 3.15") && !strcmp(ci.name, "u64_mk2_artix 2026/09/10 11:00:57"));   // the header's name stays (the icon reads it)
+    CHECK(reads <= 33);                                                  // the last 512 KiB in 16 KiB pieces: a third of a 1.2 MB application
+    // Commodore: "1.2.1"; any other first digit: "Firmware"
+    Buf g121 = g;
+    put_text(g121, gend - 249580, "Software version:   1.2.1\n");
+    CHECK(self_of(g121, ci) && !strcmp(ci.self_name, "Commodore 1.2.1") && !strcmp(ci.self_ver, "1.2.1"));
+    Buf g20 = g;
+    put_text(g20, gend - 1000, "Software version:   2.0-beta\n");
+    CHECK(self_of(g20, ci) && !strcmp(ci.self_name, "Firmware 2.0-beta"));
+    // a key with no version after it is passed over; the first with one counts
+    Buf gk = g;
+    put_text(gk, gend - 300000, "Software version:\0\0\0", 20);
+    put_text(gk, gend - 200000, "Software version:   3.15\n");
+    put_text(gk, gend - 100000, "Software version:   3.99\n");
+    CHECK(self_of(gk, ci) && !strcmp(ci.self_ver, "3.15"));
+    // a key and a name across the edge of two 16 KiB pieces (the scan starts 512 KiB before the end)
+    Buf ge = g;
+    const size_t edge = gend - 512 * 1024 + 16384;
+    put_text(ge, edge - 5, "Software version:   1.1.0\n");
+    CHECK(self_of(ge, ci) && !strcmp(ci.self_name, "Commodore 1.1.0"));
+    put_text(ge, edge + 16384 - 7, "TRX64 Ultimate");
+    CHECK(self_of(ge, ci) && !strcmp(ci.self_name, "TRX64 Ultimate 1.1.0"));
+    // more than 512 KiB before the end: not read (the File Browser's bound), the title stays the header's
+    Buf gfar = g;
+    put_text(gfar, gend - 600000, "Software version:   3.15\n");
+    CHECK(!self_of(gfar, ci) && !strcmp(cfw_title(ci), "u64_mk2_artix 2026/09/10 11:00:57"));
+    // TRX64-Ultimate: its name 389 and 353 KB before the end, the line 254 KB before it (0.3.1, measured)
+    Buf t = trx64u();
+    CHECK(probe(t, ci) == CFW_OK);
+    const size_t tend = ci.app_data + ci.app_len;
+    put_text(t, tend - 388785, "monitor (VICE-superset) on TRX64 Ultimate hardware (trxmon):");
+    put_text(t, tend - 253896, "Software version:   0.3.1\n");
+    CHECK(self_of(t, ci) && !strcmp(ci.self_name, "TRX64 Ultimate 0.3.1") && !strcmp(ci.self_ver, "0.3.1"));
+    CHECK(!strcmp(ci.name, "top 2026/10/10 18:23:21"));
+    // D1a: TRX64-Ultimate RC1 (this layout): the Gideon base's line 252,956 B before the end and no TRX64 text in the application: not named
+    Buf rc1 = trx64u();
+    put_text(rc1, 0x1000, "TRX64 Ultimate");                               // the updater's text does not count
+    put_text(rc1, tend - 252956, "Software version:   3.15\n");
+    CHECK(!self_of(rc1, ci) && !ci.self_name[0] && !strcmp(cfw_title(ci), "top 2026/10/10 18:23:21"));
+    // an application that does not fit the file: nothing read, nothing named
+    CHECK(probe(g315, ci) == CFW_OK);
+    {
+        MemSrc s;
+        s.d = g315;
+        ci.app_len = (uint32_t)(s.d.size() - ci.app_data + 1);
+        CHECK(!cfw_read_self(s, ci) && !ci.self_name[0]);
+    }
+}
+
 int main(int argc, char **argv)
 {
     if (argc > 1 && !strcmp(argv[1], "--real")) return real(argc, argv);
     s1();
     s2();
     s_ue2();
+    s_self();
     printf("test_cfw: %d checks, %d failed\n", checks, fails);
     return fails != 0;
 }

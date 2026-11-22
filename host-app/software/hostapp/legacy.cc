@@ -510,8 +510,8 @@ static void legacy_clocks(void)
     static const uint8_t init_hdmi_60[8] = { 0x57, 0x00, 0x01, 0x01, 0x55, 0xF7, 0x82, 0x89 };
     volatile uint8_t *scan_reg = (volatile uint8_t *)(U64II_HW_I2C_BASE + 8);   // b0 scan_enable, b1 CDCE open
     bool rev15 = (U2PIO_BOARDREV >> 3) == 0x15;
-    i2c->i2c_lock("legacy_clocks");   // clears scan_enable (and so CDCE open); the bus is the app's from here
-    *scan_reg = 0x02;
+    i2c->i2c_lock("legacy_clocks");   // the scanner is off (T242 D6, legacy_jump): the lock and the unlock write nothing to +8
+    *scan_reg = 0x02;                 // CDCE open, scan_enable 0; it stays so up to the IPROG
     i2c->set_channel(rev15 ? I2C_CHANNEL_HDMI : I2C_CHANNEL_1V8);
     int e1 = i2c->i2c_write_block(0xC8, 0x14, init_ntsc, 8);
     i2c->set_channel(rev15 ? I2C_CHANNEL_1V8 : I2C_CHANNEL_HDMI);
@@ -527,6 +527,11 @@ void legacy_jump(const LegacyPlan *p)
     printf("[host] legacy handover: %u bytes to 0x%08x, WBSTAR 0x%08x\n", (unsigned)p->stage_len, (unsigned)CFW_APP_ADDR, (unsigned)p->flash_addr);
     uint8_t seq[CFW_IPROG_LEN];
     cfw_iprog_seq(p->flash_addr, seq);
+
+    // T242 D6 (from PR #112): the P7 scanner off. The first command of legacy_clocks() parks it between two transactions
+    // (host/app_i2c.v) and it stays parked, so no scanner transaction runs on the I2C bus when the IPROG starts the firmware or
+    // the large core (both come here); and the unlock no longer writes +8, so CDCE open stays set as legacy_clocks() left it.
+    i2c->enable_scan(false, false);
 
     legacy_clocks();
 

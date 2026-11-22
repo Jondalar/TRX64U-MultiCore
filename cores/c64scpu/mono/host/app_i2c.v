@@ -9,7 +9,8 @@
 // 100 kHz, four quarter-bit phases per bit, clock stretching honoured.
 //
 // Sharing: our keyboard scanner (c64u_keyboard) has the buses while the app
-// leaves them alone. The app claims them with its first command while
+// leaves them alone (top.v connects it to the 1.8 V bus only and releases the
+// HDMI and the 3.3 V bus, T253 D1). The app claims them with its first command while
 // scan_enable is 0 (Gideon's driver clears it before every locked access);
 // the master stays busy until the scanner has stopped between two
 // transactions (kb_parked), then drives the pins (own). scan_enable = 1

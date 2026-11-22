@@ -2637,7 +2637,7 @@ static void scenarios_t137(const char *out)
     hostui_test_browse_keep("/Usb0/cores");                                  // rows: .. / gideon.cor / vendor.cor
     hostui_test_key(KEY_DOWN); hostui_test_key(KEY_DOWN);
     hostui_test_browse_right(rp, sizeof(rp));
-    CHECK(strstr(rp, "title=Test Vendor image|Version=packaged firmware|"));
+    CHECK(strstr(rp, "title=Test Vendor image|Version=9.9, packaged firmware|"));    // T254 D2: the version of the table's row, which the manifest holds
     CHECK(!has("P package"));                                              // not for a .cor
     g_saves = 0;
     hostui_test_key('a');

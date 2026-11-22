@@ -158,6 +158,14 @@ class Vice:
         elif a in (0xD0BD, 0xD0BF):
             self.dos = 0
 
+    # T241 S2: scpu64mem.c:81-86 (mem_mirrors) and :1473-1476 (mem_set_mirroring): the pages of bank 0 whose stores also go to the C64 RAM, as (first page, last page); None = nothing
+    MIRRORS = [0x80bf, 0x80bf, 0x003f, 0x023f, 0x407f, 0x407f, 0xc0ff, 0xc0ff, 0x0407, 0x0407, 0, 0, 0x00ff, 0x02ff, 0x00ff, 0x02ff]
+
+    def mirror_range(self):
+        o = self.optim
+        m = self.MIRRORS[(1 if o & 1 else 0) | (2 if o & 4 else 0) | (4 if o & 0x40 else 0) | (8 if o & 0x80 else 0)]
+        return None if m == 0 else (m >> 8, m & 255)
+
     def read(self, a):
         v = 0
         if a == 0xD0B0: v = 0x40
@@ -267,4 +275,5 @@ def main():
         print("+DEXPECT=" + ",".join("%08x:%02x" % (a, v) for a, v in e))
 
 
-main()
+if __name__ == "__main__":
+    main()

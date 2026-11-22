@@ -31,5 +31,6 @@ cores/c128/sim/run_vdcreset.sh|needs the real C128 ROMs (C128_ROMDIR), which nev
 cores/pet/sim/run_models.sh|one case of run_boot.sh (pet_boot), which is listed
 cores/pet/sim/run_disk.sh|needs the person's DOS ROMs (ROMDIR)
 cores/c64scpu/sim/run_prgrun.sh|T217: needs the real scpu64.rom and C64 ROMs (C64_ROMDIR), which never go into the repository or CI; local proof of the .prg start only
+cores/c64scpu/sim/run_irqmir.sh|T241 S2: the diagnosis bench of the mirror-everything mode at 1 MHz (IRQs taken vs underflows); no negative control, not a proof; by hand
 cores/c128/sim/run_prgrun.sh|T217: needs the real C128 ROMs (C128_ROMDIR), which never go into the repository or CI; local proof of the .prg start only
 cores/pet/sim/run_chrwin.sh|one case of run_boot.sh (pet_boot), which is listed (T216: the 4 KiB character ROM window)

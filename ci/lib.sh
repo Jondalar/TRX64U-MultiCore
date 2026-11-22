@@ -7,9 +7,14 @@
 # agreed with the TRX64-Ultimate session 2026-10-13). Only /cache/heavy.lock stays shared (slot 0 of
 # heavy_lock below, which gives this repository CI_HEAVY_SLOTS Vivado runs at a time). A stage
 # that finished writes its directory completely and a file DONE last.
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Two trees: CI_CODE is the one this file sits in, and every script and Python file below runs from it; ROOT is the one whose files are read (the git
+# index, host/layers.txt, the cores' descriptors, ci/vivado.env, ci/bitstream.sh). They are the same tree unless CI_DATA_ROOT names another checkout:
+# ci/keys.sh --data sets it, so the builder can run the key code of its trusted ref from a folder of its own over an outside commit's tree, which is
+# only read (T239.1 D14). Python runs with -I: nothing of ROOT is on a module path.
+CI_CODE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT="${CI_DATA_ROOT:-$CI_CODE}"
 # shellcheck source=pkg.env
-source "$ROOT/ci/pkg.env"
+source "$CI_CODE/ci/pkg.env"
 RUN_ID="${CI_RUN_ID:-${GITHUB_RUN_ID:-local}}"
 if [ -n "${CI_HANDOFF:-}" ]; then
   HANDOFF="$CI_HANDOFF"
@@ -38,9 +43,9 @@ need_stage() {
 # --- build by change (T100 D9, ci/plan.py) -----------------------------------------------------------------------
 # plan_has <target>: 0 when the plan of this run names the target (host, aux, dfx:<core>, large:<core>, app:<kind>). Without a
 # plan (a stage run alone, the release, a local run) everything is named: the stage builds as it did before D9.
-plan_has() { python3 "$ROOT/ci/plan.py" has "$HANDOFF/plan.json" "$1"; }
+plan_has() { CI_DATA_ROOT="$ROOT" python3 -I "$CI_CODE/ci/plan.py" has "$HANDOFF/plan.json" "$1"; }
 # plan_limit <host|core|large>: the minutes one Vivado run of that kind may take (CI_LIMIT_SECONDS replaces it, for the benches).
-plan_limit() { python3 "$ROOT/ci/plan.py" limit "$1" "$HANDOFF/plan.json"; }
+plan_limit() { CI_DATA_ROOT="$ROOT" python3 -I "$CI_CODE/ci/plan.py" limit "$1" "$HANDOFF/plan.json"; }
 
 # vivado_limited <kind> <rc file> <command...>: the command with the time limit of its kind; its exit code goes to the rc file
 # (the caller pipes the output into a filter, which would lose it). 124 = stopped at the limit (D9.4: that target is red, the
@@ -77,7 +82,11 @@ plan_note() { echo "plan: $2 - $3"; printf '%s: %s\n' "$2" "$3" >> "$1/plan_resu
 _lap_t=$SECONDS
 lap() { local d=$((SECONDS - _lap_t)); _lap_t=$SECONDS; printf '%dm%02ds' $((d / 60)) $((d % 60)); }
 
-branch_slug() { printf '%s' "${GITHUB_REF_NAME:-$(git -C "$ROOT" rev-parse --abbrev-ref HEAD)}" | tr '/' '_'; }
+# ci_branch / ci_ref_type: the ref the run is for. CI_BRANCH and CI_REF_TYPE come first: on a runner of the builder repository GITHUB_REF_NAME names
+# that repository's ref, not the ref of the commit that is built (T239.1 D9).
+ci_branch() { printf '%s' "${CI_BRANCH:-${GITHUB_REF_NAME:-$(git -C "$ROOT" rev-parse --abbrev-ref HEAD)}}"; }
+ci_ref_type() { printf '%s' "${CI_REF_TYPE:-${GITHUB_REF_TYPE:-}}"; }
+branch_slug() { ci_branch | tr '/' '_'; }
 
 # T215: every content key hashes the NORMALISED content of a file (ci/code_hash.py: comments cut out, tree-sitter), the same function ci/plan.py
 # decides "changed" with; a comment never moves a key, and neither does a documentation file (is_doc: FROM, *.md, README*, PROVENANCE*, LICENSE*, COPYING*; 2026-11-15).
@@ -87,7 +96,7 @@ branch_slug() { printf '%s' "${GITHUB_REF_NAME:-$(git -C "$ROOT" rev-parse --abb
 # and the free text in $KEY_EXTRA. Only the content counts, not commits: a push
 # that leaves these files alone gets the same key.
 tree_key() {
-  python3 "$ROOT/ci/code_hash.py" check >&2 || return 1
+  python3 -I "$CI_CODE/ci/code_hash.py" check >&2 || return 1
   # the body goes to a file first, in a subshell with pipefail: a failing index / sha256 stage fails the key, it never yields a key from fewer lines
   local body; body="$(mktemp)"
   (
@@ -96,7 +105,7 @@ tree_key() {
     # set -e / pipefail are off on the left of `|| {...}` (bash ignores them there): every stage ends in an explicit `|| exit 1`
     local idx; idx="$(mktemp)" || exit 1
     git -C "$ROOT" ls-files -s -- "$@" ':(exclude,glob)cores/*/logo/**' > "$idx" || { rm -f "$idx"; exit 1; }
-    (cd "$ROOT" && python3 ci/code_hash.py index < "$idx") || { rm -f "$idx"; exit 1; }
+    (cd "$ROOT" && python3 -I "$CI_CODE/ci/code_hash.py" index < "$idx") || { rm -f "$idx"; exit 1; }
     rm -f "$idx"
     if [ -d "$ROOT/vendor/gideon" ]; then
       # Only what the gateware reads: the VHDL and the files beside it (vendor_gideon.sh `files`). The software of the two
@@ -107,7 +116,7 @@ tree_key() {
       (cd "$ROOT" && { find vendor/gideon/fpga vendor/gideon/target/simulation -type f || exit 1
                         ls vendor/gideon/LICENSE.txt vendor/gideon/software/io/usb/nano_minimal.nan vendor/gideon/software/portable/riscv/bootloader_u64ii.c vendor/gideon/tools/parse_nano.py || exit 1; }) > "$gl" || { rm -f "$gl"; exit 1; }
       LC_ALL=C sort "$gl" > "$gl.s" || { rm -f "$gl" "$gl.s"; exit 1; }
-      (cd "$ROOT" && xargs python3 ci/code_hash.py sha256 < "$gl.s") || { rm -f "$gl" "$gl.s"; exit 1; }
+      (cd "$ROOT" && xargs python3 -I "$CI_CODE/ci/code_hash.py" sha256 < "$gl.s") || { rm -f "$gl" "$gl.s"; exit 1; }
       rm -f "$gl" "$gl.s"
     fi
     printf '%s\n' "${KEY_EXTRA:-}"
@@ -124,7 +133,7 @@ tree_key() {
 # ':(exclude)' only narrows the others.
 files_key() {
   local spec list names
-  python3 "$ROOT/ci/code_hash.py" check >&2 || return 1
+  python3 -I "$CI_CODE/ci/code_hash.py" check >&2 || return 1
   for spec in "$@"; do
     case "$spec" in ':(exclude)'*) continue ;; esac
     if [ -z "$(git -C "$ROOT" ls-files -- "$spec" | head -1)" ]; then
@@ -135,13 +144,13 @@ files_key() {
   list="$(mktemp)"; names="$(mktemp)"
   git -C "$ROOT" ls-files -s -- "$@" > "$list" || { rm -f "$list" "$names"; echo "files_key: git ls-files failed, no key" >&2; return 1; }
   # documentation (ci/code_hash.py is_doc) never enters a key: `keep` drops it from the list
-  awk -F'\t' '{ split($1, a, " "); if (a[1] != "160000") print $2 }' "$list" | (cd "$ROOT" && python3 ci/code_hash.py keep) > "$names" || { rm -f "$list" "$names"; return 1; }
+  awk -F'\t' '{ split($1, a, " "); if (a[1] != "160000") print $2 }' "$list" | (cd "$ROOT" && python3 -I "$CI_CODE/ci/code_hash.py" keep) > "$names" || { rm -f "$list" "$names"; return 1; }
   local body; body="$(mktemp)"
   (
     set -eo pipefail
     awk -F'\t' '{ split($1, a, " "); if (a[1] == "160000") print "submodule", a[2], $2 }' "$list" || exit 1
     local hp; hp="$(mktemp)" || exit 1
-    (cd "$ROOT" && python3 ci/code_hash.py hash-paths < "$names") > "$hp" || { rm -f "$hp"; exit 1; }
+    (cd "$ROOT" && python3 -I "$CI_CODE/ci/code_hash.py" hash-paths < "$names") > "$hp" || { rm -f "$hp"; exit 1; }
     paste -d' ' "$hp" "$names" || { rm -f "$hp"; exit 1; }
     rm -f "$hp"
   ) > "$body" || { rm -f "$list" "$names" "$body"; echo "files_key: a stage failed, no key" >&2; return 1; }
@@ -177,7 +186,7 @@ mono_key() {
   done < <(layer_specs "$lf" shared)
   while IFS= read -r l; do specs+=("$l"); done < <(layer_specs "$lf" "core:$2")
   specs+=(":(exclude)cores/$2/sim" ":(exclude)cores/$2/mono/reports")
-  env="$(python3 "$(layer_root "$lf")/tools/core_toml.py" env "$2" | tr '\n' ' ')"
+  env="$(core_toml_of "$(layer_root "$lf")" env "$2" | tr '\n' ' ')"
   KEY_EXTRA="mono $2 $1 vivado-env:2024.1 env=$env" tree_key "${specs[@]}"
 }
 
@@ -195,10 +204,11 @@ aux_key() {
 cache_put() {
   local src="$1" dst="$2"
   mkdir -p "$(dirname "$dst")"
-  rm -rf "$dst.tmp.$$"
-  cp -R "$src" "$dst.tmp.$$"
+  local tmp; tmp="$(mktemp -d "$dst.tmp.XXXXXX")"
+  chmod 755 "$tmp"
+  cp -R "$src/." "$tmp/"
   rm -rf "$dst"
-  mv "$dst.tmp.$$" "$dst"
+  mv "$tmp" "$dst"
 }
 
 # pin_entry <entry dir> [group]: this branch uses the entry (T87 D14). Writes pins/branch.<slug>
@@ -210,9 +220,9 @@ pin_entry() {
   local entry="$1" base group slug other
   base="$(basename "$entry")"
   group="${2:-${base%-*}}"
-  if [ "${GITHUB_REF_TYPE:-}" = tag ]; then
+  if [ "$(ci_ref_type)" = tag ]; then
     mkdir -p "$entry/pins"
-    git -C "$ROOT" rev-parse HEAD > "$entry/pins/tag.${GITHUB_REF_NAME:-unknown}"
+    git -C "$ROOT" rev-parse HEAD > "$entry/pins/tag.$(ci_branch)"
     return 0
   fi
   slug="$(branch_slug)"
@@ -228,16 +238,18 @@ pin_entry() {
 # layer_root <layers file>: the repository the file belongs to (host/layers.txt -> the root), so
 # the helpers also work on a scratch clone whose path is not $ROOT.
 layer_root() { local d="${1%/layers.txt}"; printf '%s' "${d%/host}"; }
+# core_toml_of <tree> <args...>: tools/core_toml.py of CI_CODE over the core descriptors of <tree> (the code never comes from the tree it reads).
+core_toml_of() { local t="$1"; shift; CI_DATA_ROOT="$t" python3 -I "$CI_CODE/tools/core_toml.py" "$@"; }
 # layer_sections <layers file>: the names of the sections ("host", "shared", "ignore") plus one
 # "core:<name>" per core descriptor (T94 D1: cores/<name>/core.toml replaced the core: sections).
 layer_sections() {
   sed -n -E 's/^(host|shared|ignore):[[:space:]]*$/\1/p' "$1"
-  python3 "$(layer_root "$1")/tools/core_toml.py" list | sed 's/^/core:/'
+  core_toml_of "$(layer_root "$1")" list | sed 's/^/core:/'
 }
 # layer_specs <layers file> <section>: the pathspecs of one section, one per line. A core's are
 # the sources of its descriptor.
 layer_specs() {
-  case "$2" in core:*) python3 "$(layer_root "$1")/tools/core_toml.py" sources "${2#core:}"; return ;; esac
+  case "$2" in core:*) core_toml_of "$(layer_root "$1")" sources "${2#core:}"; return ;; esac
   awk -v want="$2" '
     /^[[:space:]]*(#|$)/ { next }
     /^(host|shared|ignore):[[:space:]]*$/ { sec = $0; sub(/:.*/, "", sec); next }
@@ -246,7 +258,7 @@ layer_specs() {
     sec == want { sub(/[[:space:]]+$/, ""); print }' "$1"
 }
 # layer_cores <layers file>: the core names in build order (core.toml order field).
-layer_cores() { python3 "$(layer_root "$1")/tools/core_toml.py" list; }
+layer_cores() { core_toml_of "$(layer_root "$1")" list; }
 # layer_reference <layers file>: the core the static is routed with.
 layer_reference() { sed -n 's/^reference:[[:space:]]*//p' "$1" | head -1; }
 
@@ -288,39 +300,15 @@ core_key() { printf '%s %s impl=%s/%s\n' "$1" "$2" "${T79_PLACE:-}" "${T79_ROUTE
 # manifest_get <manifest.json> <field>: one top-level string field.
 manifest_get() { python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get(sys.argv[2], ""))' "$1" "$2"; }
 
-# The update files of stage update are the .cfw/.ue2 only (T172). trx64host_update_<file_id>.txu is stage package's file of the same package version
-# and the sweep must not touch it (run 1128: it matched on the name prefix, the .txu was deleted and its SHA256SUMS line dropped).
-# update_file_names: the Gitea files listing (JSON, stdin) -> names of the update files in it.
-update_file_names() {
-  python3 -c 'import json,sys
-for r in json.load(sys.stdin):
-    n = r["name"]
-    if n.startswith(("trx64_update_", "trx64host_update_")) and n.endswith((".cfw", ".ue2")): print(n)'
-}
-# update_sums_without_ours: a SHA256SUMS (stdin) without the lines of update files (.cfw/.ue2).
-update_sums_without_ours() { grep -vE ' (trx64_update_|trx64host_update_).*\.(cfw|ue2)$'; }
-
-# publish_files <dir> [reset]: every file of <dir> into the generic package
-# $MC_PKG (ci/pkg.env, never the firmware repository's), versions <branch>-<8 digit commit> and <branch>-latest of the
-# Gitea registry. A file cannot be replaced in place, so the old one is deleted
-# first; with "reset" the whole version goes first. Needs PACKAGE_TOKEN.
+# publish_files <dir>: the pre-release <branch>-<8 digit commit> of the builds repository ($MC_BUILDS_REPO, ci/pkg.env) from the files of <dir>, which must hold the
+# SHA256SUMS of the others. Draft, one file at a time with a retry, digests compared with SHA256SUMS, then published; on main, t239.1 and a v* tag it fails without
+# BUILDS_TOKEN. ci/publish_release.py has the rest.
 publish_files() {
-  local dir="$1" reset="${2:-}" owner version f
-  if [ -z "${PACKAGE_TOKEN:-}" ]; then
-    echo "PACKAGE_TOKEN is not set for this repository; nothing is published"
-    return 0
-  fi
-  owner="${GITHUB_REPOSITORY%%/*}"
-  local api="${GITHUB_SERVER_URL}/api/packages/${owner}/generic/${MC_PKG}"
-  for version in "$(branch_slug)-$(git -C "$ROOT" rev-parse --short=8 HEAD)" "$(branch_slug)-latest"; do
-    [ -z "$reset" ] || curl -s -o /dev/null -X DELETE -H "Authorization: token ${PACKAGE_TOKEN}" "$api/$version" || true
-    for f in "$dir"/*; do
-      curl -s -o /dev/null -X DELETE -H "Authorization: token ${PACKAGE_TOKEN}" "$api/$version/$(basename "$f")" || true
-      curl -sf -X PUT -H "Authorization: token ${PACKAGE_TOKEN}" --upload-file "$f" "$api/$version/$(basename "$f")"
-    done
-    echo "published $MC_PKG $version"
-  done
+  python3 -I "$CI_CODE/ci/publish_release.py" --dir "$1" --tag "$(branch_slug)-$(git -C "$ROOT" rev-parse --short=8 HEAD)" --sha "$(git -C "$ROOT" rev-parse HEAD)"
 }
+
+# image_id <build|sim>: what the keys of the caches that hold the image's tools' output add (ci/image_id.sh).
+image_id() { "$CI_CODE/ci/image_id.sh" "$1"; }
 
 # heavy_lock: the Vivado runs of one machine are limited by SLOTS (T100 D11). Slot 0 is /cache/heavy.lock, the lock the
 # TRX64-Ultimate repository takes as well (its semantics are unchanged: one holder); the further slots are this repository's own,
@@ -330,11 +318,16 @@ publish_files() {
 # of one host because they share its kernel; the builder reaches /cache over NFS, where flock becomes a POSIX lock on the NAS - the
 # slot files are on the same volume, so all builder jobs see each other, while a NAS-local process does not see a builder lock
 # (NAS and builder each run their own heavy stages). Idempotent: a script that calls it again keeps its slot; held until it exits.
-# Tests: CI_HEAVY_LOCK (slot 0 file) and CI_HEAVY_SLOT_DIR (directory of the other slots) replace the /cache paths.
+# heavy_lock required: the Vivado callers (bitstream*.sh) refuse to run under CI without the lock. Tests: CI_HEAVY_LOCK (slot 0 file) and CI_HEAVY_SLOT_DIR (directory of the other slots) replace the /cache paths.
 heavy_lock() {
   [ -z "${HEAVY_SLOT:-}" ] || return 0
   local lock0="${CI_HEAVY_LOCK:-/cache/heavy.lock}" dir="${CI_HEAVY_SLOT_DIR:-/cache/multicore}" n i f waited=""
-  [ -d "$(dirname "$lock0")" ] && [ -w "$(dirname "$lock0")" ] && command -v flock >/dev/null || return 0
+  if ! { [ -d "$(dirname "$lock0")" ] && [ -w "$(dirname "$lock0")" ] && command -v flock >/dev/null; }; then
+    # a Vivado caller passes "required": under CI a Vivado run without the lock would break the two-slot limit (D27), so it fails
+    # instead of running unlocked; every other caller keeps running without the lock when there is none
+    [ "${1:-}" != required ] || [ -z "${CI:-}" ] || { echo "heavy_lock: no $lock0 or no flock under CI: not running without the lock" >&2; return 1; }
+    return 0
+  fi
   n="${CI_HEAVY_SLOTS:-2}"
   mkdir -p "$dir" 2>/dev/null || n=1
   while :; do
@@ -377,8 +370,12 @@ heavy_trylock() {
 
 # cache_gc_if_free: the janitor under a heavy slot when one is free; skipped, not waited for, when every slot is busy.
 cache_gc_if_free() {
+  if [ -e "${CI_BIT_CACHE:-/cache/multicore/bit}/.fetched" ]; then
+    echo "cache_gc skipped: $CI_BIT_CACHE holds entries restored from the builds repository (ci/fetch_bits.sh), not a cache to keep"
+    return 0
+  fi
   if heavy_trylock; then
-    "$ROOT/ci/cache_gc.sh" || echo "cache_gc failed (the build is fine)"
+    "$CI_CODE/ci/cache_gc.sh" || echo "cache_gc failed (the build is fine)"
   else
     echo "cache_gc skipped: every heavy slot is busy (a Vivado run elsewhere); a later run cleans up"
   fi
@@ -388,7 +385,7 @@ cache_gc_if_free() {
 # (a release, T221) the bundle version x.y.z every display shows (ci/version.sh), on any other build the commit (8 digits). The names:
 # trx64host_update_<file_id>.txu (stage package) and .cfw/.ue2 (stage update; a build that is no release adds the date). tools/check_bundle.py checks them.
 file_id() {
-  if [ "${GITHUB_REF_TYPE:-}" = tag ]; then "$ROOT/ci/version.sh" bundle; else git -C "$ROOT" rev-parse --short=8 HEAD; fi
+  if [ "$(ci_ref_type)" = tag ]; then "$CI_CODE/ci/version.sh" bundle; else git -C "$ROOT" rev-parse --short=8 HEAD; fi
 }
 
 # build_update_host <manifest.json> <null_full.bit> <hostapp.app> <outdir>: the MultiCore host update
@@ -403,18 +400,19 @@ build_update_host() {
   fi
   local id bitc appc
   # the id the installer shows in its title: a release's version (file_id), any other build's branch and commit
-  if [ "${GITHUB_REF_TYPE:-}" = tag ]; then id="$(file_id)"; else id="$(branch_slug)-$(git -C "$ROOT" rev-parse --short=8 HEAD)"; fi
+  if [ "$(ci_ref_type)" = tag ]; then id="$(file_id)"; else id="$(branch_slug)-$(git -C "$ROOT" rev-parse --short=8 HEAD)"; fi
   # Eight digits, not the whole sha: the manifest record keeps 16 bytes NUL-terminated for each
   # (tools/trx_pkg.py:40-41), and a 40-character sha is refused there - which is what run 51 showed.
   bitc="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["trx64_commit"][:8])' "$manifest")"
   appc="$(python3 -c 'import json,sys; m=json.load(open(sys.argv[1])); print((m.get("trxapps_commit") or m["trx64_commit"])[:8])' "$manifest")"
-  "$ROOT/tools/make_update.sh" --native --id "$id" --bit-commit "$bitc" --app-commit "$appc" \
+  "$CI_CODE/tools/make_update.sh" --native --id "$id" --bit-commit "$bitc" --app-commit "$appc" \
       --out "$out" "$bit" "$app"
 }
 
 # T174 D2.8: the emulator the app suites run in (tests/coreapp/emu/run.sh, tests/hostapp/emu_host.sh). A Linux image whose entrypoint is `ue2emu`; the
 # tag is the pinned emulator release (u64-emulator v0.7.0 = 4612884e7a63, S44). This is the ONE place that names it (UE2EMU_IMAGE in the environment
-# overrides); ci/ue2emu.sh runs it. The CI jobs have no docker: they run in u64-build-env:emu-$UE2EMU_TAG (ci/emu/build.sh), which has ue2emu on PATH.
+# overrides); ci/ue2emu.sh runs it. The CI jobs have no docker: on GitHub they run in the image ghcr.io/<owner>/trx64u-emu (ci/emu/Dockerfile, built by ci-images.yml), in the Gitea
+# workflows (by hand, T239.1 D45) in u64-build-env:emu-$UE2EMU_TAG (ci/emu/build.sh); both have ue2emu on PATH.
 UE2EMU_TAG="v0.7.0"
 UE2EMU_IMAGE="${UE2EMU_IMAGE:-ue2emu:$UE2EMU_TAG}"
 # The kit the emulator needs and the repository must not hold (ROMs, the flash image, the VIC-20 profile, a DFX .cor): a directory, never in git.

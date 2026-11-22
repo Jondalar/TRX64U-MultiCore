@@ -93,7 +93,7 @@ c264_tedsnd: cores/c264/sim cores/c264/rtl
 pet_boot: cores/pet/sim cores/pet/rtl
 pet_spet: cores/pet/sim cores/pet/rtl
 pet_keys: cores/pet/sim cores/pet/rtl
-pet_wl: cores/pet/sim cores/pet/rtl
+pet_wl: cores/pet/sim cores/pet/rtl ci/roms.txt
 pet_tape: cores/pet/sim cores/pet/rtl
 # G06 and T29: c64_core under Verilator
 # T12 §14.8: c64_core with trx_dbg, dma_win, trx_sys and the cartridge's DDR2 side under Verilator
@@ -143,7 +143,7 @@ amiga_lat: cores/amiga/sim cores/amiga/rtl/trx designs/ddr2_test/sim cores/amiga
 atari_gate: @a8
 atari_machine: @reads
 # T108: the disk bench also compiles the application's SIO responder and what it includes
-@a8disk = @a8 coreapp/cores/atari_sio.cc coreapp/cores/atari_sio.h coreapp/cores/atari_atr.cc coreapp/cores/atari_atr.h coreapp/cores/atari_disk.h coreapp/cores/atari800_regs.h coreapp/src/fsif.h coreapp/src/io.h
+@a8disk = @a8 ci/roms.txt coreapp/cores/atari_sio.cc coreapp/cores/atari_sio.h coreapp/cores/atari_atr.cc coreapp/cores/atari_atr.h coreapp/cores/atari_disk.h coreapp/cores/atari800_regs.h coreapp/src/fsif.h coreapp/src/io.h
 atari_disk: @a8disk
 atari_disk_ghost: @a8disk
 atari_disk_nobaud: @a8disk

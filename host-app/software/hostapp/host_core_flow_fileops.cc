@@ -128,7 +128,8 @@ void fo_run(const HcFoEnv &e, const FoPlan &plan, bool move, bool replace)
 }
 
 // The entry goes into the menu (the part the bundle and the firmware share after their checks).
-bool add_entry(const HcFoEnv &e, const char *name, const char *path, const char *hash, uint32_t size, uint32_t hdr, const char *what)
+bool add_entry(const HcFoEnv &e, const char *name, const char *path, const char *hash, uint32_t size, uint32_t hdr, const char *what,
+               const char *old_name)
 {
     FileStat fst;
     if (!hostfs_stat(path, &fst.size, &fst.mtime)) {
@@ -143,14 +144,15 @@ bool add_entry(const HcFoEnv &e, const char *name, const char *path, const char 
         note(e, t, HCT_BAD);
         return false;
     }
-    int ar = hc_entry_add(name, path, hash, size, fst.mtime, hdr);
+    int ar = hc_entry_add(name, path, hash, size, fst.mtime, hdr, old_name);     // T254 D7: an entry named old_name takes name
     if (ar == HCR_REFUSED) {
         note(e, "cannot add: the name has a '|' or a line break", HCT_BAD);
         return false;
     }
     e.after_add(e.ctx, ar, path);
     char b[120];
-    snprintf(b, sizeof(b), "%s is in the boot menu", name);
+    int m = hc_in_menu(path);                                   // T254: a refresh keeps the entry's name (T198 D17): the note names what the menu shows
+    snprintf(b, sizeof(b), "%s is in the boot menu", m >= 0 ? hc_cfg().e[m].name : name);
     note(e, b, HCT_OK);
     return true;
 }
@@ -302,12 +304,12 @@ bool hc_fo_add_bundle(const HcFoEnv &e, const char *path, const CorInfo &ci)
         note(e, cor_result_str(r), HCT_BAD);
         return false;
     }
-    return add_entry(e, ci.name, path, ci.sha[COR_PART_PARTIAL], ci.file_size, ci.hdr_digest, "bundle");
+    return add_entry(e, ci.name, path, ci.sha[COR_PART_PARTIAL], ci.file_size, ci.hdr_digest, "bundle", nullptr);
 }
 
 // A firmware image goes into the menu after the same read that starts it; it has no part hashes to check (D2: the
 // bitstream is compared with the flash file at every start).
-bool hc_fo_add_full(const HcFoEnv &e, const char *path, const char *name, uint32_t size)
+bool hc_fo_add_full(const HcFoEnv &e, const char *path, const char *name, uint32_t size, const char *old_name)
 {
     if (!cfw_is_name(path)) {
         // a large .cor: the full SHA-256 check of its parts runs here, once (T115 section 7); a start trusts the entry
@@ -322,7 +324,7 @@ bool hc_fo_add_full(const HcFoEnv &e, const char *path, const char *name, uint32
             return false;
         }
     }
-    return add_entry(e, name, path, "", size, 0, "firmware");
+    return add_entry(e, name, path, "", size, 0, "firmware", old_name);
 }
 
 void hc_fo_browse_add(const HcFoEnv &e, const char *path, bool full, cfw_result_t bcw_res, const CfwInfo &bcw, cor_result_t bci_res, const CorInfo &bci)
@@ -334,7 +336,9 @@ void hc_fo_browse_add(const HcFoEnv &e, const char *path, bool full, cfw_result_
             hc_fo_refuse_full(bcw_res, t, sizeof(t), &tone);
             note(e, t, tone);
         } else {
-            hc_fo_add_full(e, path, bcw.name, bcw.file_size);
+            // T254: the name the firmware gives itself, else the .bit header's. D7: an entry of this file that still has the .bit header's
+            // name (the one A gave before T254) takes the new name; a name the person gave stays (D6)
+            hc_fo_add_full(e, path, cfw_title(bcw), bcw.file_size, bcw.name);
         }
         return;
     }

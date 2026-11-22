@@ -10,14 +10,14 @@ Legend: **in** = built and reachable today · **off** = the code is there, a bui
 the board, a core could not have it.
 
 **Read this before the columns.** `L1` and `trx64` describe **the bitstream CI builds today**, and that
-is still the T79 debug build. Three lines in `.gitea/workflows/bitstream.yml` decide it for the host
+is still the T79 debug build. Three settings in `ci/vivado.env` (the one place of the build options, T239.1 D13) decide it for the host
 and every core, because nothing reads `core.toml`'s `features`:
 
-| line | value | what it does |
+| setting | value | what it does |
 |---|---|---|
-| `:87` | `TRX_SID: redip2` | builds reDIP's **two** SIDs (`SID_REDIP`), so `sid_resid8 = 0` (`trx64/c64_core.v:885-889`) and the application shows no reSID8. **Against the decision of 2026-10-14** (T25.4 §3.3, T25.5 §1), but it was taken out for a reason: reSID8 costs **more LUTs**. T25.4 §166-169 states it: "+127 LUT incl. SRL/RAM, +8 %; scaled to Vivado about **+110 LUT**", with **2.5 BRAM tiles freed** and FF +1,130. |
-| `:88` | `TRX_FEATURES: jtag` | JTAG debug master on; `uci`, `streams` off in the host and `reu`, `sampler`, `turbo` off in every core |
-| `:89-90` | `T79_GREYBOX`, `T79_FLOOR: B` | the trial's grey-box partial and compact floorplan |
+| `TRX_SID` | `redip2` | builds reDIP's **two** SIDs (`SID_REDIP`), so `sid_resid8 = 0` (`trx64/c64_core.v:885-889`) and the application shows no reSID8. **Against the decision of 2026-10-14** (T25.4 §3.3, T25.5 §1), but it was taken out for a reason: reSID8 costs **more LUTs**. T25.4 §166-169 states it: "+127 LUT incl. SRL/RAM, +8 %; scaled to Vivado about **+110 LUT**", with **2.5 BRAM tiles freed** and FF +1,130. |
+| `TRX_FEATURES` | `jtag` | JTAG debug master on; `uci`, `streams` off in the host and `reu`, `sampler`, `turbo` off in every core |
+| `T79_GREYBOX`, `T79_FLOOR` | `1`, `B` | the trial's grey-box partial and compact floorplan |
 
 Measured, not inferred: the run that built the host image now on the board (`0e8fb06e58872c33`, run
 828 job 4839, 2026-10-14 21:11) printed `=== SID: reDIP` and `=== features off: reu sampler uci turbo
@@ -100,7 +100,7 @@ None of these six files has a single `ifdef`, so leaving them out is not a switc
   cartridge port, the 1541 drive A, the IEC bus. That is the P1 set of T103, estimated at
   **12,750–13,450 LUT (71–75 %)** against the reference core's measured 14,103 (78.35 %).
 - **One host rebuild away, for every core at once:** UCI, the UDP streams, and reSID8 as well -
-  all three hang on the same two lines of `bitstream.yml`. None of it is free: UCI plus streams cost
+  all three hang on the same two settings of `ci/vivado.env` (`TRX_SID`, `TRX_FEATURES`). None of it is free: UCI plus streams cost
   ~740 LUT in the host from mixed-tool figures, never measured on the current host, and reSID8 costs
   about **+110 LUT** in the core (Vivado-scaled, T25.4 §166-169) while freeing 2.5 BRAM tiles.
   **That cost is why it went out** (Alex, 2026-10-16, translated: "it was out here because back then

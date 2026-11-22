@@ -6,7 +6,7 @@
 #
 # The .cor is the core's partial bound to the AXSS word of the host it was routed against (tools/pack_cores_mc.sh), plus the blueprint application. Both
 # parts are looked up under the keys this very tree has (ci/lib.sh host_key / ooc_key / core_key, the build options of the Vivado step of
-# .gitea/workflows/vivado.yml read from there, not copied): when the tree's gateware was built (by a lane of a push, of this branch or of main) the entries
+# ci/vivado.env): when the tree's gateware was built (by a lane of a push, of this branch or of main) the entries
 # are there and the .cor is packed in seconds; when it was not, the script says which key is missing and what the cache does have - the bitstream is built
 # by the lane of a push, never here. App-only changes keep the gateware key, so they hit. Defaults: --app-dir $CI_HANDOFF/trxapps/coreapps (ci/trxapps.sh
 # has built it), --out $CI_HANDOFF/cor. DFX cores only (core.toml delivery .cor); a large core's .cor is packed by ci/package.sh.
@@ -23,18 +23,8 @@ die() { echo "ci/pack_one.sh: $*" >&2; exit 1; }
 printf '%s\n' $(python3 "$ROOT/tools/core_toml.py" list-cor) | grep -qx "$core" || die "$core is no .cor core of this tree (tools/core_toml.py list-cor); a large core's .cor is packed by ci/package.sh"
 [ -s "$appdir/$core.app" ] || die "no $appdir/$core.app (run ci/trxapps.sh first: tools/dev.sh cor does)"
 
-# the build options of the lanes: the env of the step `Vivado` in vivado.yml, the one place that has them
-while IFS='=' read -r k v; do [ -z "$k" ] || export "$k=$v"; done < <(python3 -I - "$ROOT/.gitea/workflows/vivado.yml" <<'PY'
-import re, sys
-t = open(sys.argv[1], encoding="utf-8").read()
-i = t.index("- name: Vivado")
-env = t[i:].split("env:", 1)[1].split("run:", 1)[0]
-for line in env.split("\n"):
-    m = re.match(r'^\s+((?:TRX|T79|T16)_[A-Z0-9_]+):\s*"?([^"#\n]*?)"?\s*(?:#.*)?$', line)
-    if m:
-        print("%s=%s" % (m.group(1), m.group(2).strip()))
-PY
-)
+# the build options of the lanes: ci/vivado.env, the one place that has them
+while IFS='=' read -r k v; do case "$k" in ''|'#'*) continue ;; esac; export "$k=$v"; done < "$ROOT/ci/vivado.env"
 # the part string is part of every key: the one the c64u branch of ci/bitstream.sh builds with (a hard-coded short name gave other keys - found against the cached dc11e82f entry)
 part="$(sed -n 's/^  c64u) part=\([^;]*\);.*/\1/p' "$ROOT/ci/bitstream.sh")"
 [ -n "$part" ] || die "no c64u part in ci/bitstream.sh"

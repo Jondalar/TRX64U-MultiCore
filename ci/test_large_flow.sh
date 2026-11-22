@@ -30,6 +30,8 @@ echo "| Slice LUTs | 1 |" > "$b/utilization.rpt"; echo done > "$log"
 EOF2
 chmod +x "$W/bin/vivado"
 export PATH="$W/bin:$PATH" FAKE_LOG="$W/vivado.calls" CI_BIT_CACHE="$W/cache/bit" TRX_CACHE="$W/cache" CI_HANDOFF="$W/handoff"
+# the heavy lock of this test is its own: the shared /cache/heavy.lock exists only on the builder, and a test must not take a real Vivado slot
+export CI_HEAVY_LOCK="$W/heavy.lock" CI_HEAVY_SLOT_DIR="$W/slots"
 export GITHUB_REF_NAME=scratch1 GITHUB_RUN_ID=1 CI_GC_BRANCHES="$W/branches"
 printf 'main\nscratch1\n' > "$W/branches"
 stage() { : > "$FAKE_LOG"; "$R/ci/bitstream_mono.sh" amiga1200 > "$W/out.txt" 2>&1; }

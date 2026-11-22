@@ -129,6 +129,10 @@ question of every child is answered (T239.1 D1-D20, T239.2 D1-D5, T239.3 D1-D5, 
   published with each host gateware release (D2). B: the app core with its API for sub-apps and libraries, the SDK cut (D10).
   C: the registry with TLS in the host and the TRNG in the null core (D6-D8). Reason given with the question: after A nothing
   has to go through the export any more. Alex: "passt" (fits), and asked for an epic with the todos as specs.
+- **D14 (Alex, 2026-11-22): a new community core is built in its contributor's own repository and comes in through the registry
+  (D5), not into this repository.** On pull request #102 (TI-99/4A, from a fork), translated: "we can look at #102 sometime, but
+  it would be one more core with us, and I actually want [the author of #102] and whoever wants to build a core themselves in a
+  repository and then fill the registry." Our experimental cores stay under D12.
 
 ## §4 Out
 

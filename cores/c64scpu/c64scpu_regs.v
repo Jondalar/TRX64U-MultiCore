@@ -11,7 +11,7 @@
 //   T182 step 3 (spec T10): 054-057 SROM_BASE R 0x03080000;  058 SROM_LOG2 RW b4:0 (16/17/18; reset 17; not touched by COLD);  05C ROM_VALID RW b0 (reset 0; not touched by COLD:
 //                     the image stays in the DDR2; 0 holds the 65816 in reset);  060 SCPU_SW RW b1:0 (b0 speed switch 1 = 20 MHz, b1 JiffyDOS; reset and COLD 0x01)
 //                     064-067 DEV_CYC R 32 bit: CPU enables withheld because the CPU's own memory (DDR2 behind the cache) was not ready - the deviation from the original (D8)
-//                     068-06B CACHE_HITS R, 06C-06F CACHE_MISSES R  32 bit (the 8 KiB cache of the CPU's SRAM / SuperRAM / ROM, D9)
+//                     068-06B CACHE_HITS R, 06C-06F CACHE_MISSES R  32 bit (the 32 KiB cache of the CPU's SRAM / SuperRAM / ROM, D9, T241 D4)
 //   090 CHR_ADDR_LO, 091 CHR_ADDR_HI (b3:0)  RW   the character ROM store's byte address (0..4095)
 //   092 CHR_DATA   W: store the byte at CHR_ADDR and add 1;  R: the byte at CHR_ADDR (allow 2 clocks after a CHR_ADDR write), then add 1
 //   0A0-0A3 ROM_WAITS R   32 bit: CPU cycles held by a missed ROM line;  0A4-0A5 ROM_FILL_MAX R   16 bit: the longest line fetch in core clocks

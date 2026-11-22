@@ -643,3 +643,11 @@ Heartbeat (8 SIDs, REU, samples) sounds good (Alex).
 `t103-c64u` (contract 2: pins and ADC for the sockets, the packet port, the new host pin) the host of every core on
 main, Alex answered "Ja" (yes). Every core built green against it in runs 887 and 891; only c64u ran on the board.
 
+
+**The 1571 remnants (Alex, 2026-11-21).** Asked about the drive, Alex said (translated): "The 1571 part should then go out and
+not appear in the UI either." Gateware and menus had it out since Q3 (`drive_registers.vhd` turns a write of 1 into the 1541,
+`app/lib/cbm1541/d1541_drive.cc` refuses `DT_1571`). Three places still named it: the header of `cores/c64u/gideon/c64u_l2.vhd`
+(also "used twice", but drive B is not built), a dead branch in `coreapp/src/ringops.cc`, the register comment in `coreapp/src/uci.h`;
+branch `t103-1571-rest` removes them (review PASS, run 44877983782 green; merged into `integration` as b8fdab4b, PR #128, by
+Claude with Alex's OK: "merge du bitte, hast mein ok"). The messages for a `.d71` or `.g71` keep naming the 1571 as the reason (Alex:
+"leave it so").

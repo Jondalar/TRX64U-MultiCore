@@ -50,6 +50,16 @@ int main(int argc, char **argv)
     CHECK(cfw_icon_kind("tops") == CFW_ICON_KIND_GENERIC);
     CHECK(cfw_icon_kind("u64 2026/01/01 00:00:00") == CFW_ICON_KIND_GENERIC);
     CHECK(cfw_icon_kind("") == CFW_ICON_KIND_GENERIC);
+    // T254: an entry added with A carries the name the firmware gives itself; the vendor word picks the icon the header's name picked
+    CHECK(cfw_icon_kind("Gideon 3.15") == CFW_ICON_KIND_GIDEON);
+    CHECK(cfw_icon_kind("Commodore 1.2.1") == CFW_ICON_KIND_GIDEON);
+    CHECK(cfw_icon_kind("TRX64 Ultimate 0.3.1") == CFW_ICON_KIND_TRX64);
+    CHECK(cfw_icon_kind("Firmware 2.0") == CFW_ICON_KIND_GENERIC);
+    CHECK(cfw_icon_kind("Gideons 3.15") == CFW_ICON_KIND_GENERIC && cfw_icon_kind("TRX64U 1.0") == CFW_ICON_KIND_GENERIC);   // whole words
+    // only the shape cfw_read_self gives: a large core's own name keeps the generic icon when its .cor has none
+    CHECK(cfw_icon_kind("Commodore 128") == CFW_ICON_KIND_GENERIC && cfw_icon_kind("Commodore PET") == CFW_ICON_KIND_GENERIC);
+    CHECK(cfw_icon_kind("Commodore 264 (C16, Plus/4)") == CFW_ICON_KIND_GENERIC && cfw_icon_kind("TRX64 Ultimate (Gideon app)") == CFW_ICON_KIND_GENERIC);
+    CHECK(cfw_icon_kind("Gideon") == CFW_ICON_KIND_GENERIC && cfw_icon_kind("Commodore 1") == CFW_ICON_KIND_GENERIC);
 
     // the built-in arrays are the bytes of the logo files, and three different pictures
     const char *srcs[3] = { argv[1], argv[2], argv[3] };

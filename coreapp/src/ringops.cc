@@ -254,7 +254,7 @@ static void src_fill(CoreCtx *c, TrxC64reSrc *src)
     src->reu_size = cfg_value(c, "REU Size", 0);
     CbmDrive *d = (CbmDrive *)c->drive;
     if (d && d->type() != DT_UNSET) {
-        src->drive_type = d->type() == DT_1581 ? "1581" : (d->type() == DT_1571 ? "1571" : "1541");
+        src->drive_type = d->type() == DT_1581 ? "1581" : "1541";      // no 1571: the drive library refuses it (T103 Q3)
         src->drive_power = d->powered();
         src->drive_unit = d->bus_id();
         src->disk_path = d->image_path();

@@ -983,7 +983,7 @@ static int to_ticks(uint32_t n, bool us, uint32_t tpus256, uint32_t *out, int li
 {
     uint64_t v = us ? ((uint64_t)n * tpus256 + 255) / 256 : n;       // a time in microseconds rounds up: a wait is never shorter than asked
     if (v < 1 || v > PD_ARG_MAX) {
-        return fail(e, line, "%u %s is %llu clocks at this clock; the engine counts 1 .. %u", (unsigned)n, us ? "us" : "clocks", (unsigned long long)v, (unsigned)PD_ARG_MAX);
+        return fail(e, line, "%u %s is %s%u clocks at this clock; the engine counts 1 .. %u", (unsigned)n, us ? "us" : "clocks", v > 0xFFFFFFFFull ? "more than " : "", (unsigned)(v > 0xFFFFFFFFull ? 0xFFFFFFFFull : v), (unsigned)PD_ARG_MAX);   // T251: no length modifier on the board
     }
     *out = (uint32_t)v;
     return 0;

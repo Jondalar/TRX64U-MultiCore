@@ -137,10 +137,14 @@ void hc_entry_ver(int i, char *out, size_t n)
     bool ok = st == ES_OK || st == ES_CHANGED;
     const char *ver = ok ? hc_einfo(i).version : "";
     // T221 D13: a large core shows its version like every core; "full firmware" stays for a full image that names none (a .cfw)
-    if (ver[0]) {
+    if (ver[0] && hc_efull(i) && !strncmp(ver, "bit ", 4)) {
+        // T254 D8: a firmware packaged without its version (before T254, or from an application without the version line) has its
+        // bitstream's date as version (fwconvert.cc, fwcv_names): the row says what the entry is, as "full firmware" does for a .cfw (D5)
+        snprintf(out, n, "%s", "packaged firmware");
+    } else if (ver[0]) {
         snprintf(out, n, "%s", ver[0] == 'v' || ver[0] == 'V' ? ver + 1 : ver);
         // T223 D7: the table shows x.y.z only; "-dev+<sha8>" or any other pre-release/build part is for the header chips and the entry's info view.
-        // A string that is no SemVer (a hash, "bit 2026/09/10") stays as it is.
+        // A string that is no SemVer (a hash) stays as it is; the "bit <date>" of a packaged firmware is handled above (T254 D8).
         const char *q = out;
         for (int part = 0; part < 3; part++) {
             if (!isdigit((unsigned char)*q)) {
@@ -433,6 +437,7 @@ int g_bci_res;
 CfwInfo g_bcw;
 int g_bcw_res;
 int g_bcw_origin;
+char g_bcw_mver[24];                                  // T254: a large .cor's manifest version, "" for a .cfw/.ue2
 MediaInfo g_mi;
 int g_mi_for = -2;
 uint32_t g_mi_gen;
@@ -467,11 +472,18 @@ static void probe_full(const char *path)
     g_bci_res = COR_ERR_IO;                                            // this row is no .cor: the .cor reading of the last row does not stay valid for it
     g_bcw_res = s ? cfw_probe(*s, CFW_IDCODE_XC7A50T, g_bcw) : CFW_ERR_IO;
     g_bcw_origin = COR_ORIGIN_TRX;
+    g_bcw_mver[0] = 0;
     if (s && g_bcw_res == CFW_OK && g_bcw.from_cor) {                 // T137 D1: who made this .cor
         static CorInfo oc;
         if (cor_probe(*s, oc) == COR_ERR_LARGE) {
             g_bcw_origin = oc.origin;
+            snprintf(g_bcw_mver, sizeof(g_bcw_mver), "%s", oc.version);
         }
+    }
+    // T254: a foreign firmware names itself: a .cfw/.ue2, and a packaged one whose manifest still says its bitstream's date ("bit <date>",
+    // packaged before T254). One packaged since carries the name and version in its manifest.
+    if (s && g_bcw_res == CFW_OK && (cfw_is_name(path) || (g_bcw_origin == COR_ORIGIN_FOREIGN && !strncmp(g_bcw_mver, "bit ", 4)))) {
+        cfw_read_self(*s, g_bcw);
     }
     delete s;
     g_bci_for = hc_nav().bsel;
@@ -625,8 +637,18 @@ static void panel_full(HcPanel *p, const char *path)
         cell(&p->err, cfw_result_str((cfw_result_t)g_bcw_res), HCT_MUTED);
         return;
     }
-    cell(&p->title, g_bcw.name, HCT_INK);
-    cell(&p->val[0], g_bcw_origin == COR_ORIGIN_FOREIGN ? "packaged firmware" : (g_bcw_origin == COR_ORIGIN_BACKUP ? "backup of this board" : "full firmware"));
+    cell(&p->title, cfw_title(g_bcw), HCT_INK);
+    // T254: the version a foreign firmware gives itself, else the manifest version of a package made from one, unless that is its bitstream's date (packaged
+    // before T254) or "unknown". A backup and a large core of ours keep the row as it was.
+    const char *kind = g_bcw_origin == COR_ORIGIN_FOREIGN ? "packaged firmware" : (g_bcw_origin == COR_ORIGIN_BACKUP ? "backup of this board" : "full firmware");
+    const bool mver_ok = g_bcw_origin == COR_ORIGIN_FOREIGN && strncmp(g_bcw_mver, "bit ", 4) && strcmp(g_bcw_mver, "unknown");
+    const char *ver = g_bcw.self_ver[0] ? g_bcw.self_ver : (mver_ok ? g_bcw_mver : "");
+    if (ver[0]) {
+        snprintf(t, sizeof(t), "%s, %s", ver, kind);
+        cell(&p->val[0], t);
+    } else {
+        cell(&p->val[0], kind);
+    }
     cell(&p->val[1], "none, it replaces the host");
     cell(&p->val[2], g_bcw.part);
     snprintf(t, sizeof(t), "%u B bitstream", (unsigned)g_bcw.bit_len);

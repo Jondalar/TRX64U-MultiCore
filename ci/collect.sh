@@ -5,6 +5,9 @@
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 export CI_COLLECT_ONLY=1   # Alex 2026-11-08: collecting never builds; a lane the cache lacks is red here (its vivado child builds it)
+# the build options of the lanes (ci/vivado.env, the one place that has them) are part of the host and core keys: without them collect
+# looks for other entries than ci/keys.sh named (run 44737131946: host-8ac9fb31... instead of host-cd508203...). Loaded as ci/pack_one.sh does.
+while IFS='=' read -r k v; do case "$k" in ''|'#'*) continue ;; esac; export "$k=$v"; done < "$ROOT/ci/vivado.env"
 n=0
 for lane in $(python3 "$ROOT/ci/plan.py" lanes); do
   case "$lane" in host) st=bit-host ;; core:*) st="bit-${lane#core:}" ;; large:*) st="large-${lane#large:}" ;; *) continue ;; esac
@@ -14,3 +17,18 @@ for lane in $(python3 "$ROOT/ci/plan.py" lanes); do
   n=$((n + 1))
 done
 echo "=== collect: $n lane(s) from the cache in $(lap)"
+# T239.1 D43: trx64u.cor and trx64g.cor, packed and published by the builder (ci/imports.py) and restored by ci/fetch_bits.sh with the bitstreams, go to
+# the package as bit-imports. A cache that was not restored from the builds repository (the Gitea builder's own) holds none: no TRX64 .cor then, as before.
+imp="$HANDOFF/bit-imports"; rm -rf "$imp"
+cache="${CI_BIT_CACHE:-/cache/multicore/bit}"
+if [ -e "$cache/.fetched" ]; then
+  mkdir -p "$imp"
+  names="$(python3 -I "$ROOT/ci/imports.py" names)"
+  for e in $names; do
+    id="${e#imp-}"; id="${id%-*}"
+    [ -f "$cache/$e/DONE" ] && [ -s "$cache/$e/$id.cor" ] || { echo "collect: $e is not in $cache (ci/fetch_bits.sh restores it)" >&2; exit 1; }
+    cp "$cache/$e/$id.cor" "$imp/"
+    echo "=== collect $id.cor: from $e"
+  done
+  touch "$imp/DONE"
+fi

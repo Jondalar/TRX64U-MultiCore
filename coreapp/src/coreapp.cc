@@ -14,6 +14,7 @@
 #include "trx_io.h"
 #include "gitinfo.h"
 #include "startlog.h"
+#include "i2c_drv.h"
 #include "start.h"
 #include "ui.h"
 #include "hw.h"
@@ -76,6 +77,19 @@ extern "C" void ultimate_main(void *a)
     printf("\n*** TRX64 core application %s (%s) ***\n", APP_VERSION_STRING, APP_BUILD_DATE);
     printf("*** FPGA Capabilities: %8x ***\n\n", getFpgaCapabilities());
     STARTLOG("phase main: the scheduler runs, the app starts");
+    // #111: the P7 keyboard matrix of the U64 Elite II is read by the gateware over the I2C expander 0x21
+    // (host/c64u_keyboard.v). custom_hardware_init() has sent I2C commands by now, which parked the scanner;
+    // it gets the buses back only once scan_enable is 1, and i2c_unlock() writes that only after this call
+    // (Gideon's firmware makes it in u64_config.cc). Before that both expander ports go to input: init left
+    // port 0 as output 0x00, and a scanner that resumes in the middle of a row would read a whole row as
+    // pressed (in the host app that can be C=). Here and not in custom_hardware_init(): the lock waits with
+    // vTaskDelay, so the scheduler has to run.
+    i2c->i2c_lock("P7 keyboard");
+    i2c->set_channel(I2C_CHANNEL_1V8);
+    i2c->i2c_write_byte(0x42, 0x06, 0xFF);
+    i2c->i2c_write_byte(0x42, 0x07, 0xFF);
+    i2c->i2c_unlock();
+    i2c->enable_scan(true, false);
     puts("Executing init functions.");
     InitFunction :: executeAll();
     STARTLOG("phase init functions done");
