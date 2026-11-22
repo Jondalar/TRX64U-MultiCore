@@ -1,7 +1,7 @@
 # T253 — The P7 keyboard scan uses the keyboard's I2C bus only, and the applications start it as PR #112 does
 
 **Status:** IN PROGRESS (2026-11-21). Asked by Alex, 2026-11-21.
-Open (one line, as in the TODO table): IN PROGRESS 11-22: S1, S4 PASS, S3 picture and colours; open: S2 10 min, S3 P7 key, trx64u pin (main-52f9a7ec)
+Open (one line, as in the TODO table): IN PROGRESS 11-22: S1, S4 PASS, S3 picture and colours; open: S2 10 min, S3 P7 key, trx64u pin (TRX64-Ultimate 0.3.1)
 **Repo:** TRX64U-MultiCore — the I2C wiring in the top of every large core (`cores/*/mono/top.v`, `cores/*/mono/host/top.v`)
 and of the host (`host/top.v`); the start of the scan in the applications (`coreapp/src/coreapp.cc`,
 `host-app/software/hostapp/hostapp.cc`, `host-app/software/system/u64ii_init.cc`, `host-app/software/io/i2c/hw_i2c_drv.cc`).
@@ -173,3 +173,14 @@ Scenario: S4 (P1) every core and the host
   `31e69921` to `52f9a7ec`, `c392beed` is the one commit that changes the gateware (the others: documentation,
   `ci/sims.txt`, `tools/gh_*.py`). A changed pin builds on `integration` only: the builder publishes the import entries
   of its `KEYCODE_REF` (T239.1 D43).
+- **The pin waits for TRX64-Ultimate 0.3.1 (2026-11-22):** asked which package version it names as good (contract
+  §2), the TRX64U-FW session answered (translated): "please do NOT pin main-52f9a7ec - release 0.3.1 is on its way, the pin
+  comes after it." It reports Alex's decision there: 0.3.1, a patch release with the I2C fix (`c392beed`). Its application
+  version is 0.3.1 (`d94aa68e`), so `ultimate.app` and trx64g's `APP_SHA256` change. The bitstream is to stay
+  `c950aa55...` (gateware_key `63ae8d25e42300b8`); the session confirms that on the finished package. The pin takes the Gitea
+  release `trx64-main-d94aa68e` (manifest version 0.3.1); the session sends VERSION, PKG_VERSION, SEMVER, BIT_SHA256 and
+  APP_SHA256 (D3). The builder's import store then needs the new `ultimate.app` beside the bitstream (T239.1 D43). No
+  board has run this bitstream yet; TRX64-Ultimate's own board test is open with Alex.
+- **trx64u.cor until the pin moves:** it carries the bitstream of `main-31e69921`, without D1. The core application starts
+  the scan on every core (`coreapp/src/coreapp.cc:92`) and reads the EDID every 500 ms (`coreapp/src/picture.cc:794-840`).
+  These are the conditions of `c64scpu_t253`, the build without D1. Not measured on trx64u.
