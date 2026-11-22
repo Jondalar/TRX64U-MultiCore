@@ -69,8 +69,10 @@ jobs:
       - uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684   # v4.2.3
         with:
           path: ${{ env.CI_TEMP }}/ci-cache
-          key: ci-cache-sim-${{ github.sha }}
+          # T239.1: one key per matrix leg (a leg that saves under the shared key makes every later leg "not saving"); the leg restores its own newest, else any
+          key: ci-cache-sim-${{ inputs.target }}-${{ github.sha }}
           restore-keys: |
+            ci-cache-sim-${{ inputs.target }}-
             ci-cache-sim-
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093   # v4.3.0
         continue-on-error: true

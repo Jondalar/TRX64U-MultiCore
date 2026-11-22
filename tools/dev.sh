@@ -48,8 +48,8 @@ lap() { printf '=== dev.sh %s: %s took %ds\n' "$mode" "$1" $((SECONDS - t0)); t0
 python3 -I tools/treesync.py "$ROOT" "$tree" --host "$host" ${clean:+--clean}
 lap "tree sync"
 abs="$(ssh "$host" "cd $tree && pwd")"
-# the files this branch changed against main (merge-base), plus untracked ones: the base of "changed" in the builder's tree (img_setup)
-mbase0="$(git merge-base HEAD origin/main 2>/dev/null || git merge-base HEAD main 2>/dev/null || true)"
+# the files this branch changed against integration (merge-base, D48), plus untracked ones: the base of "changed" in the builder's tree (img_setup)
+mbase0="$(git merge-base HEAD origin/integration 2>/dev/null || git merge-base HEAD integration 2>/dev/null || true)"
 { [ -z "$mbase0" ] || git diff --name-only "$mbase0"; git ls-files -o --exclude-standard; } | sort -u | ssh "$host" "cat > $tree/.dev-changed"
 
 # what runs in the container (bash -c); the tree is /work, the CI cache is /cache, ccache is /ccache
@@ -59,7 +59,7 @@ git config --global --add safe.directory /work
 [ -e .git ] || git init -q
 git add -A >/dev/null 2>&1 || true   # ci/render.sh keys over git ls-files: the dev tree needs an index
 # the tree has no commit (a commit would change the version stamp every run), so "changed" needs a base TREE: the index without the files this
-# branch changed against main (.dev-changed, written by dev.sh), so `git diff BASE` and the plan name exactly those files (ci/apptests.sh --base)
+# branch changed against integration (.dev-changed, written by dev.sh), so `git diff BASE` and the plan name exactly those files (ci/apptests.sh --base)
 rm -f .dev-base
 if [ -s .dev-changed ]; then
   tr "\\n" "\\0" < .dev-changed | xargs -0 git rm --cached -q --ignore-unmatch -- >/dev/null 2>&1 || true
@@ -114,13 +114,13 @@ if [ "$mode" = cor ]; then
 fi
 
 if [ "$mode" = emu ] || [ "$mode" = integrate ]; then
-  # which app(s) this branch touches: the diff against main plus untracked files (the working tree is what counts)
-  mbase="$(git merge-base HEAD origin/main 2>/dev/null || git merge-base HEAD main 2>/dev/null || true)"
+  # which app(s) this branch touches: the diff against integration plus untracked files (the working tree is what counts)
+  mbase="$(git merge-base HEAD origin/integration 2>/dev/null || git merge-base HEAD integration 2>/dev/null || true)"
   files="$( { [ -z "$mbase" ] || git diff --name-only "$mbase"; git ls-files -o --exclude-standard; } | sort -u)"
   core_touched="" host_touched=""
   printf '%s\n' "$files" | grep -qE '^(coreapp/|app/|apps/|vendor/gideon/(software|tools|target)/|tests/(ui|coreapp)/)' && core_touched=1
   printf '%s\n' "$files" | grep -qE '^(host-app/|app/|vendor/gideon/(software|tools|target)/|tests/hostapp/)' && host_touched=1
-  [ -n "$mbase" ] || { echo "=== dev.sh $mode: no merge-base with main found: both apps count as touched" >&2; core_touched=1 host_touched=1; }
+  [ -n "$mbase" ] || { echo "=== dev.sh $mode: no merge-base with integration found: both apps count as touched" >&2; core_touched=1 host_touched=1; }
   # the emulator scripts run on the builder, outside the build container (the emulator is a container of its own: ci/ue2emu.sh)
   if [ -z "$host_touched$core_touched" ]; then
     echo "=== dev.sh $mode: neither app is touched by this branch: no emulator script was run"
