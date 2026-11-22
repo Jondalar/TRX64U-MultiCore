@@ -79,7 +79,7 @@ run="$(cat <<EOF
 #!/bin/bash
 export PATH="\$PATH:/srv/.qpkg/container-station/bin"   # the NAS (DEV_HOST) has docker there
 cd "$abs" || exit 1
-docker run --rm --init --cpus=${DEV_CPUS:-6} ${CCACHE_DISABLE:+-e CCACHE_DISABLE=1} ${UPDATE_GOLDEN:+-e UPDATE_GOLDEN=1} ${CI_APPTESTS_FORCE:+-e CI_APPTESTS_FORCE=1} -e JOBS="${JOBS:-$(( ${DEV_CPUS:-6} - 1 ))}" -e CI_BUILD_JOBS="${DEV_CPUS:-6}" -e HOST_UID=\$(id -u) -e HOST_GID=\$(id -g) \\
+docker run --rm --init --cpus=${DEV_CPUS:-6} ${CCACHE_DISABLE:+-e CCACHE_DISABLE=1} ${UPDATE_GOLDEN:+-e UPDATE_GOLDEN=1} ${CI_APPTESTS_FORCE:+-e CI_APPTESTS_FORCE=1} -e SDK_COMMIT="$(git rev-parse --short=8 HEAD)" -e JOBS="${JOBS:-$(( ${DEV_CPUS:-6} - 1 ))}" -e CI_BUILD_JOBS="${DEV_CPUS:-6}" -e HOST_UID=\$(id -u) -e HOST_GID=\$(id -g) \\
   -v "$abs":/work -w /work -v /srv/trx64-build/cache:/cache -v /srv/containers/1541ultimate-ci/ccache:/ccache \\
   u64-build-env:ci bash -c '$img_setup
 if [ -f /opt/esp/esp-idf/export.sh ]; then set +u; . /opt/esp/esp-idf/export.sh >/dev/null; set -u; fi

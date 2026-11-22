@@ -184,7 +184,7 @@ else
   # T239.3 D17 / P8: the SDK package (tools/sdk_pack.sh) from this build's sources and its coreapp.bin, into the hand-over beside the images (the artifact
   # handoff-trxapps), and its check (tools/sdk_check.sh): the example library and its menu record built from the unpacked package alone. The sources of the
   # package are in the stage key above (app/ with app/sdkpkg, the packer tools, the two scripts).
-  SDK_COMMIT="$(cd "$ROOT" && git rev-parse --short=8 HEAD 2>/dev/null || echo unknown)" bash "$B/tools/sdk_pack.sh" "$out"
+  SDK_COMMIT="${SDK_COMMIT:-$(cd "$ROOT" && git rev-parse --short=8 HEAD 2>/dev/null || echo unknown)}" bash "$B/tools/sdk_pack.sh" "$out"
   RV_PREFIX=riscv32-unknown-elf- bash "$B/tools/sdk_check.sh" "$out"/trx64-sdk-*.tar.gz
   command -v ccache >/dev/null && ccache --show-stats | head -8 || true
   echo "=== trxapps: images built in $((SECONDS - _t_b))s"
