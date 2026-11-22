@@ -88,3 +88,4 @@ Nothing is left out.
   `t251-c128-pick`, kept outside the repository).
 - **Merged (2026-11-22):** Alex merged #129 into `integration` (`d68f4b3a`); with it T241, T249, T250, T251 and
   T253. The bundle's branches are deleted, `t251-printf-sizes` among them.
+- **Board (2026-11-22), cores `d68f4b3a`:** Alex's C128 card PASS: no dropout, the keys type, and a .d64 shows its size in bytes.
