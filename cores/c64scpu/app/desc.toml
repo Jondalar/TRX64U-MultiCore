@@ -2,13 +2,6 @@
 # description record (record 6 of the .cor); the generic application builds the descriptor from it. What the record cannot hold is code, and stays in the core's
 # C++: init, release, cold_start, the operations of register_ops and the drive's media functions. Register numbers are the page 0xE000 of
 # coreapp/cores/c64scpu_regs.h (SCPU_REG(off) = 0xE000 + off).
-#
-# NOT YET PROVEN, so this file is not called desc.toml (tests/coreapp/gen_bundle.py compiles every cores/*/app/desc.toml and the table-driven test compares it):
-# the compiled-in descriptor has a video of zeros (the picture goes through the host's scaler, there are no buffers and no registers) next to a freeze register.
-# The record's video section holds both, and its reader refuses a scale below 1; a core with a freeze and no picture of its own cannot be written down. The [video]
-# below says scale = 1 where the compiled-in descriptor says 0 (and nothing else), the one deviation of this file. With the compiled-in scale set to 1 the table-driven test
-# compares 2066 fields and one check fails: tests/coreapp/test_descgen.cc expects the refusal of a record read without the core's code to name the "mount slots"; this core
-# has a ROM content check (the SuperCPU ROM) and the reader names that first (descrec.cc descrec_core: roms, raw keys, then mount slots).
 machine_info = "SuperCPU speed"
 
 [restart]
@@ -29,11 +22,11 @@ type_op = "c64scpu.type_script"        # Run Disk: reset, type LOAD"*",8,1 and R
 run_op = "c64scpu.run_prg"             # Mount & Run of a file inside a disk image
 caps = ["iec", "drive_a"]
 
-# the picture goes through the host's scaler (the VIC-II): no buffers, no registers
+# the picture goes through the host's scaler (the VIC-II): no buffers, no registers; scale 0 with every other number 0 says so, and the freeze below stands alone
 [video]
 w = 0
 h = 0
-scale = 1
+scale = 0
 x0 = 0
 y0 = 0
 fb_base = 0
