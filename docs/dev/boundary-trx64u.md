@@ -7,12 +7,14 @@ What the base must add, in the order it can be built:
 (a) Base 3.2 (built on another branch): named exports (`LibRecord` lists {name, major, table, size}; `SvcLib::find` and `LIB_NEEDS` match export names first), the library budgets, the D19 refusal (`lib.mk` stops a library with `.init_array`, `.fini_array` or `__cxa_atexit`), and the SDK header `C64Api`. Rows: 6.3, 7, 12.4.
 
 (b) Base 3.3, the new groups and members, with the contracts of section 11 as decided:
-- `sync` (six calls). A mutex with priority inheritance, and `enter` and `leave`: a short critical section that nests and holds no blocking call (D20 puts the 32-bit TRX register accesses into the TRX64-Ultimate library).
-- `settings` (13 calls, `cfg_value` and `cfg_text` among them), `ctx` (9 calls), `io` (the 15 calls of `CoreIo`).
-- `board` (5 calls): `fpga_caps`, `is_commodore`, `esp32_rpc`, `video_set_system`, `video_set_pll`. Each has its second user named in 11.5. The calls for the UI look, the name squeeze, the keyboard joystick, the colour timings and the I2C bus are not in it (4.4).
-- `sys` gets `ms_timer`, `yield`, `delay_us`, `wall_time` (11.6). `net.gated` is not a member: it is the state `net.gated`, read with `ops->state`.
-- Base operations and settings: the operations `machine.put_builtin_rom` and `board.sid_sockets`, the state `net.gated`, and four settings of the generic application (`Overlay Transparency`, `Color Scheme`, `Filename overflow squeeze`, `Joystick Input`).
-- Two core hooks of the descriptor, `start` and `resume` (12.1), and a `grid` parameter for the layout `terminal` with the SDK header `textgrid.h` (12.2).
+- `sync` (six calls: `mutex_new`, `mutex_lock`, `mutex_unlock`, `mutex_free`, `enter`, `leave`; header `svc_sync.h`). A mutex with priority inheritance, and `enter` and `leave`: a short critical section that nests and holds no blocking call (D20 puts the 32-bit TRX register accesses into the TRX64-Ultimate library).
+- `settings` (13 calls, `cfg_value` and `cfg_text` among them), `ctx` (10 calls, `media_source` among them), `io` (19 calls: the 15 of `CoreIo` named in 8.2 and `cart_rd`, `bus_rd`, `ddr_abs_read`, `ddr_abs_write`). Headers `svc_settings.h`, `svc_ctx.h`, `svc_io.h`.
+- `board` (6 calls, `svc_board.h`): `fpga_caps`, `is_commodore`, `esp32_rpc`, `video_set_system`, `video_set_pll`, `sid_socket(socket, state, shunt, filter_caps)`. Each has its second user named in 11.5. The calls for the UI look, the name squeeze, the keyboard joystick, the colour timings and the I2C bus are not in it (4.4).
+- `sys` gets `ms_timer`, `yield`, `delay_us`, `wall_time`, `app_version`, `app_git` (11.6, `svc_sys.h`); `fs` gets `list_long` (`svc_fs.h`). `net.gated` is not a member: it is the state `net.gated`, read with `ops->state`.
+- Base operations and settings: the operation `machine.put_builtin_rom`, the states `set.<key>` and `net.gated`, and four settings of the generic application (`Overlay Transparency`, `Color Scheme`, `Filename overflow squeeze`, `Joystick Input`).
+- Two core hooks, `start` and `menu_closed` (12.1, table `CoreHooks` of `core_hooks.h`), and a `grid` parameter for the layout `terminal` with the SDK header `textgrid.h` (12.2).
+- The export interfaces of the shared libraries (6.1): `c64cart_api.h` ("c64cart"), `cbm1541_api.h` ("cbm1541"), `uci_api.h` ("uci"), `sid_api.h` ("sid"), `tempdisk_api.h` ("tempdisk"), all major 1, none takes a `CoreCtx`.
+- The contract of every 3.3 call is in the headers of `coreapp/src` named above; section 11 stays as the index. The pending lists of the TRX64-Ultimate libraries with the final name of each call are in `boundary-trx64u-handover.md`.
 - `SvcTrx`, `SvcRing` and `SvcC64` leave `LibApi` (D20) when the TRX64-Ultimate libraries export "trx", "ring" and "c64"; the tables in `appsvc.cc` go.
 
 (c) Base fixes that are not API:
@@ -27,7 +29,7 @@ What TRX64-Ultimate does:
 - Exports "trx" and "ring" (major 1, the layouts of its `app_api.h`; "ring" adds `dump`, `save`, `load`, `trace_writes`, `load_entry`, `save_native`) and "c64" (major 1, `C64Api`); provides a text grid for the layout `terminal`.
 - Puts the 32-bit TRX register accesses, the `resid8` byte writes and the `slim` read into its library, with `sync.enter` and `sync.leave` around the 32-bit ones.
 - Drops `FileManager` for `api->fs`, which removes the constructors that D19 refuses (3.4); writes the monitor's `plat_*` over `api` (section 10); keeps its own copy of the colour timing table (4.4).
-- Calls `ring` and `monitor` from the core hooks `start` and `resume` through `SvcLib`; reads the settings named in 4.4 through `settings.value`.
+- Calls `ring` and `monitor` from the core hooks `start` and `menu_closed` through `SvcLib`; reads the settings named in 4.4 through `settings.value`.
 
 ## 1. General
 
@@ -188,7 +190,7 @@ The calls are defined in section 11. This table names the symbol, the call and t
 | `xQueueCreateMutex` (`xSemaphoreCreateMutex`) | ring | `sync.mutex_new` | `ring.cc:2811`. The uses in `rfile` and `rops` fall away (3.4). Priority inheritance is part of the contract. |
 | `xQueueSemaphoreTake` (`xSemaphoreTake`) | ring | `sync.mutex_lock` | `portMAX_DELAY` (`ring.cc:180`) and 0 (`ring.cc:1949`). Both timeouts are needed. |
 | `xQueueGenericSend` (`xSemaphoreGive`) | ring | `sync.mutex_unlock` | |
-| `xQueueSemaphoreTake`, `xQueueGenericSend` (use in `cfg`) | cfg | falls away | Inline code of `I2C_Driver::i2c_lock` (`i2c_drv.h:46-62`, `xSemaphoreTake(mutex, 5000)`). The lock is inside the base operation `board.sid_sockets` (4.4). |
+| `xQueueSemaphoreTake`, `xQueueGenericSend` (use in `cfg`) | cfg | falls away | Inline code of `I2C_Driver::i2c_lock` (`i2c_drv.h:46-62`, `xSemaphoreTake(mutex, 5000)`). The lock is inside the base call `board.sid_socket` (4.4). |
 
 `vQueueDelete` has no use in the moving source (3.4). `sync.mutex_free` is in the group only so that a library can free a mutex it made.
 
@@ -212,7 +214,7 @@ A call enters the group only when a second user is named or when the service bel
 | Symbol | Users | Target | Note |
 |---|---|---|---|
 | `hw_esp32_rpc` | ops, cfg | `board.esp32_rpc` | Power mode, wake on Wi-Fi, power off, power cycle. One shared UART with one reply table (`hw.cc:444`); a library cannot own it. Second user: `rocker_report_task` of the base (`hw.cc:409`). |
-| `i2c`, `I2C_Driver::i2c_write_byte` | cfg | the base operation `board.sid_sockets(ctrl)` | What the code does with I2C: it writes the SID socket expander (device 0x40 on the 1.8 V channel): lock, channel, two byte writes (register 1 gets `ctrl`, register 3 gets 0), unlock (`u64cfg.cc:1250-1256`). `ctrl` is built in the library from the enable, type, shunt and capacitor settings of the two sockets (`u64cfg.cc:1236-1249`). No second user: the other I2C code of the base is the keyboard expander at 0x42 (`coreapp.cc:87-92`), which no library touches. So there is no raw `i2c_write` in the API. The base registers the operation (as `machine.put_builtin_rom`, 3.1) and owns the lock and the channel. |
+| `i2c`, `I2C_Driver::i2c_write_byte` | cfg | `board.sid_socket(socket, state, shunt, filter_caps)` | What the code does with I2C: it writes the SID socket expander (device 0x40 on the 1.8 V channel): lock, channel, two byte writes (register 1 gets `ctrl`, register 3 gets 0), unlock (`u64cfg.cc:1250-1256`). `ctrl` is built in the library from the enable, type, shunt and capacitor settings of the two sockets (`u64cfg.cc:1236-1249`). No second user: the other I2C code of the base is the keyboard expander at 0x42 (`coreapp.cc:87-92`), which no library touches. So there is no raw `i2c_write` in the API. Final form: a call `board.sid_socket(socket, state, shunt, filter_caps)`, `state` one of `SID_SOCKET_OFF` 0, `SID_SOCKET_ON` 1, `SID_SOCKET_ON_TYPE1` 2 (regulator bits 00, 10, 11 of the socket's nibble; the old code wrote `typ == 1 ? 3 : 2`, `u64cfg.cc:1245`); `shunt` is bit 2, `filter_caps` is the value of the setting and the base inverts it into bit 3 (`1 - V(...)`, `u64cfg.cc:1242`). The base keeps the control byte of both sockets, replaces the nibble of the one named, and writes registers 1 and 3 under the "SID Configuration" lock. |
 | `getFpgaCapabilities` | ops, rfile | `board.fpga_caps` | The ITU capability register, four bytes (`itu.c:19`). Not the TRX `CAPS`. Second users: the library `uci` (`uci.cc:520`, `1388`), and the base (`hw.cc`, `board.cc`). |
 | `isCommodoreBoard` | ops | `board.is_commodore` | `product.cc:92`. One library user (the first-run default of `Navigation Style`, `trx64u_ops.cc:71`). Kept because the product is a base fact that no library can derive; the base uses it too (`a64_assembly.h:35`). |
 | `picture_set_system` | cfg | `board.video_set_system` | `picture.cc:543`. Second users: `c128.cc:433`, `c64scpu.cc:105`, `portdiag.cc:63`, each in the operation that follows a change of the Picture; they are libraries or cores of their own once D9 and D10 apply. |
@@ -287,7 +289,7 @@ Today the users of these libraries are the trx64u files and `c64.cc` only (the d
 | `trx_ring_commit`, `error`, `find`, `fps`, `fps_x100`, `frame`, `frame_cycles`, `land`, `landed`, `log_read`, `reachable`, `status`, `trace_ctl`, `trace_read`, `trace_status`, `trace_whowrote` (16) | mon | the export "ring" (major 1) of the ring library, found with `api->lib->find` | A call between their libraries (D20). `fps`, `fps_x100` and `frame_cycles` are three functions over `C64_VIDEOFORMAT`; the monitor can also take them from the export "trx" (`video`). |
 | `uic_json_get` | msrv | `theirs` | `gate_refused` reads `method` and `id` of a JSON-RPC frame. trxmon has `json_parse`, `json_get`, `json_str` (`trxmon/json.h`), which the monitor library already links. |
 | `video_sys_name` | cfg | `theirs` | One log line (`u64cfg.cc:268`). The library prints the label of the `System Mode` setting (`settings.text`) or the number. |
-| `app_version_string` | rfile | `theirs` | The library writes its own `LIB_VERSION`. The field `appVersion` of every `.c64re` then names the ring library, not the application image (2.12). Any reader of that field sees a different string. |
+| `app_version_string` | rfile | `new-api` `sys.app_version`, `sys.app_git` | Final form (spec section 5): the base gives the version text of the application image and its short commit hash, and the library writes them into the `appVersion` field it makes (2.12). The ring's `LIB_VERSION` is not used for it. |
 | `nf_copy` | rfile | `theirs` | Eight lines (`newfile.cc`) that copy at most `n` characters. With a full `snprintf` (`%.*s`, 2.10) it is not needed. |
 | plat glue of the monitor (`plat_*`) | mon | theirs, over `api` | Section 10. |
 | engine and screen of trxmon | mon | theirs | Their own `apps/trxmon/src` (D4). |
@@ -412,6 +414,7 @@ The state and the fields of the running core that a handler reads or writes.
 | `job_step` | `bool (*)(void)` | `c->job_step` | `newdisk.cc` and every operation that writes a file in steps |
 | `job_cancelled` | `bool (*)(void)` | `c->job_cancel` | |
 | `job_progress` | `void (*)(int pct, const char *path)` | `c->job_pct`, `c->job_path` | |
+| `media_source` | `bool (*)(const char *slot, char *buf, int len)` | the path of the mounted medium of a media slot, by the slot's name in the descriptor (`MountSlots::names`, `MediaSlot::name`) | the ring and monitor libraries; any library that names the medium a core has in a slot |
 
 ### 11.4 `io` (`SvcIo`)
 
@@ -430,7 +433,7 @@ The windows of the running core. The calls are those of `CoreIo`. The signatures
 
 ### 11.5 `board` (`SvcBoard`)
 
-The services of the board and of the video of the application. Each call is a base function today. None is a register: the code that needs the register writes it with the header of 8.3. A call is here only with its second user named (1.8, 4.4). Not in the group: `ui_set_look`, `ui_set_name_squeeze` and `keyboard_joystick` (settings of the generic application), `video_color_timing` (a table the library carries), `i2c_write` (the base operation `board.sid_sockets`).
+The services of the board and of the video of the application. Each call is a base function today. None is a register: the code that needs the register writes it with the header of 8.3. A call is here only with its second user named (1.8, 4.4). Not in the group: `ui_set_look`, `ui_set_name_squeeze` and `keyboard_joystick` (settings of the generic application), `video_color_timing` (a table the library carries), `i2c_write` (the call `board.sid_socket` of the same group, 11.5).
 
 | Call | Signature | Replaces | Second user |
 |---|---|---|---|
@@ -439,6 +442,7 @@ The services of the board and of the video of the application. Each call is a ba
 | `esp32_rpc` | `int (*)(uint8_t cmd, const uint8_t *args, int nargs, uint8_t *reply, int maxreply, int timeout_ms)` | `hw_esp32_rpc` | `rocker_report_task` of the base (`hw.cc:409`) |
 | `video_set_system` | `void (*)(int sys)` | `picture_set_system` | `c128.cc:433`, `c64scpu.cc:105`, `portdiag.cc:63` |
 | `video_set_pll` | `void (*)(int sys, int ppm)` | `SetVideoPll`, `ResetHdmiPll` | the base's video path (`videomode.cc:374-376`, offset 0); no second library |
+| `sid_socket` | `int (*)(int socket, int state, bool shunt, bool filter_caps)` | `I2C_Driver::i2c_write_byte` of `write_sid_sockets` | c64scpu and c128 can drive the same sockets; the encoding is board knowledge (spec section 5). 0 done, < 0 a bad argument |
 
 ### 11.6 Members added to `SvcSys`
 
@@ -448,6 +452,8 @@ The services of the board and of the video of the application. Each call is a ba
 | `sys.yield` | `void (*)(void)` | `plat_yield`, `taskYIELD` | any library that loops and waits for a task. Gives the processor to a ready task of the same priority; returns at once when none is. `sleep_ms(0)` is no yield (4.3). |
 | `sys.delay_us` | `void (*)(uint32_t us)` | `CoreIo::delay_us` | `atari_sio.cc`, `apple2_disk.cc`, `apple2_hdd.cc` |
 | `sys.wall_time` | `bool (*)(uint8_t t[6])` | `get_fattime`, `rtc_time_valid`, `CoreIo::wall_time` | `amiga.cc`, `neogeo.cc`, `snes.cc`, `zxnext.cc`, `update.cc` |
+| `sys.app_version` | `const char *(*)(void)` | `app_version_string` | any library that writes the version of the application into a file it makes (the ring's `appVersion`) |
+| `sys.app_git` | `const char *(*)(void)` | `app_version_hash` (`gitinfo.c`) | the same; the short hash of the commit of the application image |
 
 `SvcNet` gets no member. The REST gate is the state `net.gated` of the registry (3.3).
 
@@ -461,12 +467,12 @@ The services of the board and of the video of the application. Each call is a ba
 | H3 `rom_put` | `trx64u_kernal_put`, `trx64u_basic_put` from `op_put_kernal`, `op_put_basic` (`c64.cc:72`, `80`) | The two operations move with `c64.cc`; the descriptor names them as the `put_op` of the ROM roles (`roms[]`, `c64.cc:89-93`). The fast-reset patch is made against the KERNAL copy that the operation receives. |
 | H4 `before_run` | `trx64u_load_assoc_cfg` from `queue_prg` and `op_run_crt` (`c64.cc:295`, `600`) | The operations move with `c64.cc`; the call is inside the library. |
 
-Two hooks remain, because the generic application calls them. Both are `core_hook_t` slots of the descriptor, named in the core's data (D8) and implemented in the core's library; they are not members of `LibRecord`. A core that leaves them null is as before.
+Two hooks remain, because the generic application calls them. Both are members of the table `CoreHooks` (`core_hooks.h`, the export "corehooks"), named in the core's data (D8) and implemented in the core's library; they are not members of `LibRecord`. A core that leaves them null is as before.
 
 | Id | Hook | Called when | Used for |
 |---|---|---|---|
 | H1 | `start` | once, after the groups of 2.4 are installed and before the polls start (`run.cc:691-692` today) | The core's library calls the export of the ring library (its init, which reads `Timewarp Ring`; `ring_autostart` becomes a variable of that library) and of the monitor library. The library names both in `LIB_NEEDS`. |
-| H5 | `resume` | the menu closes and the machine is about to run (`run.cc:795-800`) | The core's library calls the monitor export `release` and the ring exports `pending` and `unfreeze` through `SvcLib`. |
+| H5 | `menu_closed` | the menu closes and the machine is about to run, after the menu is hidden and before the machine is let go (`run.cc:795-800`) | The core's library calls the monitor export `release` and the ring exports `pending` and `unfreeze` through `SvcLib`. It has no result. |
 
 12.2 Calls and their replacements:
 
@@ -483,8 +489,8 @@ Two hooks remain, because the generic application calls them. Both are `core_hoo
 | `diag` | `trx_ring_trace_status`, `trx_ring_trace_read` (`diag.cc:120-126`, `246`) | The export "ring" of `api->lib->find` on the base side (`LibLoader::svc_lib_find`). The diag core shows "no trace" when the library is not loaded. |
 | `diag` | `trx_target_path` (`diag.cc:185`) | `ctx.target_path`, moved into the core application (6.2). |
 | `menuflows`, `netfs`, `netops` | `cfg_value`, `cfg_text` | `settings.cfg_value`, `settings.cfg_text`, moved into the core application (6.2). `menuflows.cc:44` reads the key `Leave Menu on Mount` and `netops.cc` reads keys of the trx64u menu (`Use DHCP`, `Debug Stream Mode`, `Network Password`, the host names); a key of one core's menu in generic code is a point for the ledger (D24). |
-| `c64_cart` | `trx64u_uci_df1c` (`c64_cart.cc:656`) | The table `uci`, a member `slot_enable` that writes `CMD_IF_SLOT_ENABLE_REG` and `CMD_IF_SLOT_BASE_REG` after the same capability test (`trx64u_ops.cc:287-293`). Both libraries stay here (D12). The registers are the UCI's own. |
-| `usb_hid` | `u64_get_usb_hid_config_value` (weak in `host-app/software/io/usb/usb_hid.cc:418`, defined at `u64cfg.cc:1671`) | A generic function of the core application. It answers `mouse_sink_scaling` first, then reads settings by keys that the core's API TOML names (mouse mode, wheel, sensitivity, acceleration: `u64cfg.cc:1676-1693`). The row `mouse_sink_scaling` has the kind `base`. |
+| `c64_cart` | `trx64u_uci_df1c` (`c64_cart.cc:656`) | Decided: the shared UCI library owns the `$DF1C` handling. `c64_cart.cc` calls the export "uci" (`uci_api.h`): `set_slot_enable(1)` then `set_slot_base(0x47)`, the order `trx64u_uci_df1c` wrote (`trx64u_ops.cc:290-291`). The capability test of that function (`desc_has_capability("uci")` and the board probe, `trx64u_ops.cc:289`) is made inside the two writes with `sys.has_capability("uci")` (3.1: the same test over the descriptor struck with the probes). The registers are the UCI's own (`command_intf.h:15-16`). No call into the TRX64-Ultimate library remains, and the ring uses the same three calls for its `cmd_if_*`. |
+| `usb_hid` | `u64_get_usb_hid_config_value` (weak in `host-app/software/io/usb/usb_hid.cc:418`, defined at `u64cfg.cc:1671`) | Decided: the base image defines the function, in `mousesink.cc` beside `mouse_sink_scaling`, and no call into the TRX64-Ultimate library remains. A library cannot define the strong symbol that the image's weak reference binds at link time. The body is what `u64cfg.cc:1671-1693` does: `mouse_sink_scaling` first, then the five items 0x55, 0x56, 0x57, 0x5D, 0x5E read from the core's settings (`Mouse Mode`, `Mouse Wheel Sensitivity`, `Mouse Wheel Direction`, `Mouse Sensitivity`, `Mouse Acceleration`) with the Settings object and the lookup by `generation`; 0x58 answers 0; the driver's default for a core without the setting. The five names are menu keys of the trx64u menu today, so the ledger of D24 gets one line for them (open point). No `LibApi` member. |
 | `appsvc` | the 15 `trx_ring_*` of `g_ring`, `trx_ring_landed`, `trx_ring_frame_cycles`, `trx_ring_fps`, `trx_ring_fps_x100`, `trx_ring_reachable` (`appsvc.cc:150-251`) | D20: the table leaves the base. The exports "ring" and "trx" of the libraries replace `g_ring` and `g_trx` (12.4). |
 | `tests` | `board_stubs.cc` stubs the symbols of the moving code; `trx64u_menu.h` and `render.cc` read the menu record | The tests of the moving code go with it (R9). The stubs go away when the symbols do. |
 
@@ -530,3 +536,47 @@ The debug block has no owner today (`s_owned`, `appsvc.cc:120`), and `appsvc_end
 - The comment of `sleep_ms` in `svctab.h` (done in the commit of this page); the comment at `libapi.h:21` that says the poll is "not served yet" is stale (2.5) and is corrected with the poll change.
 
 13.4 Not measured or not decided: `.init_array` in the seven objects (2.9); the size of each library against `U2A3_IMAGE_MAX` (R5, measured by the TRX64-Ultimate session, spec section 5); the time of a poll under the core lock; the symbols of `c64.cc` and `c64_go.cc` (2.11, 12.5); how the end of an application reaches the library that holds a debug block (12.4).
+
+## 14. The pending lists of the TRX64-Ultimate libraries (U18 `pending_api.h`, branch `u18`)
+
+14.1 The three libraries declare the calls that base 3.1 lacks and link against none of them. The count is base 59, ring 44, monitor 3. The table of each library with the final name, header, signature and note is `docs/dev/boundary-trx64u-handover.md`. This section adds the rows that sections 3 to 12 did not have (the names the libraries use, the members of `CoreCtx` and `CoreIo` that `nm` does not show) and records the decisions of the reading.
+
+| Pending name (library) | Final form | Note |
+|---|---|---|
+| `settings_store` (base) | `settings.find` + `settings.set` | `Settings::set` stores and writes the `.cfg` and does not apply (`settings.cc:270-290`); the call is a composition, no member of its own. |
+| `settings_override` (base, ring) | `settings.find` + `settings.override_value` + `settings.apply` | `override_value` does not apply (`settings.cc:148`). The ring's `settings_override(c, key, value)` returned 0 when the setting had the value: `value` is compared by the library. No member of its own. |
+| `settings_extra_get`, `settings_extra_set` (base) | `settings.extra_get`, `settings.extra_set` | 4.1. |
+| `machine_started`, `machine_frozen`, `machine_paused`, `menu_is_open` (base) | `ctx.state` | Bits `CTX_STARTED`, `CTX_PAUSED`, `CTX_FROZEN`, `CTX_MENU_OPEN`. |
+| `machine_set_paused`, `menu_media_dir`, `ui_notice` (base) | `ctx.set_paused`, `ctx.media_dir`, `ctx.notice` | 4.5. |
+| `ui_notice_pending` (base) | removed: `ctx.notice(text, only_if_free)` | The only reason to ask was the rule of `u64cfg.cc:1229` (write only when none waits). |
+| `board_has_uci` (base) | `sys.has_capability("uci")` | 3.1: the same test over the struck descriptor. |
+| `corefolder_dir` (base) | `ctx.core_folder(NULL, ...)` | 4.5. |
+| `io_ddr_read`, `io_ddr_write`, `io_keys_read` (base) | `io.ddr_read`, `io.ddr_write`, `io.keys_read` | 8.2. |
+| `sys_delay_us` (base) | `sys.delay_us` | 4.3. |
+| `boot_cold_reset`, `boot_put_builtin_rom`, `media_writeback` (base) | operations `machine.cold_reset`, `machine.put_builtin_rom` (new), `media.flush_for_core` | 3.1. |
+| `hw_esp32_rpc`, `SetVideoPll` + `ResetHdmiPll`, `picture_set_system` (base) | `board.esp32_rpc`, `board.video_set_pll`, `board.video_set_system` | 4.4. |
+| `video_color_timing`, `video_sys_name` (base) | theirs | 4.4, 6.3. |
+| `mouse_sink_scaling` (base) | removed | 6.2, 12.2 (`usb_hid`). |
+| `tempdisk_set` (base) | export "tempdisk" (`tempdisk_api.h`) | D12: the temp RAM disk stays central. The only caller is `fx_ui` (`trx64u_ops.cc:76`); the base already mounts the disk (`coreapp.cc:101`). |
+| `c64_cart_*` (base 6, ring 8) | export "c64cart" (`c64cart_api.h`) | 6.1. The ring's `CoreCtx *` arguments go. |
+| `sid_*` (base 6) | export "sid" (`sid_api.h`) | 6.1. |
+| `uci_start` and `struct UciHost` (base) | export "uci" (`uci_api.h`), `start(const UciHost *)` | 6.1. The callbacks lose the `CoreCtx *`. |
+| `cbm1541_drive` and the 15 `cbm_drive_*` (base) | export "cbm1541" (`cbm1541_api.h`) | 6.1. The class does not cross the library boundary: `set_options` (the five `set_*`), `drive_info` (`type`, `bus_id`, `powered`, `image_name`, `last_dir`, `mode`, `swap_delay_ms`), `create`, `slot_mount`, `slot_eject`. `mount` and `eject` are `slot_mount` and `slot_eject` with a spec (`cbm1541.cc:drive_mount`: a leading `ro ` or `unlinked ` is the mode). |
+| `sync_mutex_create`, `sync_mutex_lock`, `sync_mutex_unlock`, `sync_enter`, `sync_leave` (ring, monitor) | `sync.mutex_new`, `sync.mutex_lock`, `sync.mutex_unlock`, `sync.enter`, `sync.leave` | 4.2. `SYNC_FOREVER` is `0xFFFFFFFF`. |
+| `sys_ms_timer`, `sys_yield` (ring, monitor) | `sys.ms_timer`, `sys.yield` | 4.3. `getMsTimer` returns `uint16_t` (`itu.h:122`); the ring declares `uint32_t`, which has to follow. |
+| `c64_stop` (ring) | `io.stop` | 8.2. |
+| `c64_mode`, `c64_cartridge_type`, `c64_reu_enable`, `c64_reu_size`, `c64_sampler_enable` and their setters (ring) | `io.cart_rd`, `io.cart_wr` at `C64_CARTREGS_BASE` + 0, 5, 8, 9, 0xE | The offsets are the library's own constants (core API TOML, D8). A write of MODE for the cartridge mapping stays `c64.cart_mode` of the `C64Api`. |
+| `c64_dma_memonly`, `c64_set_dma_memonly`, `c64_videoformat` (ring) | `io.bus_rd(3)`, `io.ram_memonly`, `io.bus_rd(1)` | `bus_rd` is new in `CoreIo`: no read of the `C64_IO_BASE` block exists (`io.h`). |
+| `cmd_if_slot_enable`, `cmd_if_set_slot_enable`, `cmd_if_set_slot_base` (ring) | export "uci": `slot_enable`, `set_slot_enable`, `set_slot_base` | The same three calls as `trx64u_uci_df1c` (12.2). |
+| `c64_cart_ram`, `drive_a_image` (ring) | `io.ddr_abs_read`, `io.ddr_abs_write` at `0x00EF0000` and `0x00EE0000` | Both lie in the range the board allows (`hw.cc:116-139`: `0x00EA8000` to `0x00F00000`). A pointer is not a call; the library copies in blocks. |
+| `core_eeprom_read`, `core_eeprom_write` (ring) | export "c64cart": `eeprom_get`, `eeprom_put` | `ringops.cc:241-246` and `c64_cart.cc:471-493` write the 2048 bytes at +2048 and a byte at 0. The offsets stay in the cartridge library; `io.eeprom_read` and `io.eeprom_write` exist for it. |
+| `fpga_capabilities` (ring) | `board.fpga_caps` | 4.4. |
+| `get_fattime`, `rtc_time_valid` (ring) | `sys.wall_time` | 4.3. The year is `2000 + t[0]`. |
+| `app_version_string` (ring) | `sys.app_version` | 6.3. |
+| `ops_job_step`, `ops_job_progress`, `ops_job_cancelled` (ring) | `ctx.job_step`, `ctx.job_progress`, `ctx.job_cancelled` | 4.5. `job_cancelled` reads and clears (the operation sets `job_cancel` back itself, `cbm1541.cc:127`). |
+| `trx_target_path` (ring) | `ctx.target_path` | 6.2. |
+| `cbm1541_slot_mount`, `cbm1541_drive_a` (ring) | export "cbm1541": `slot_mount`, `drive_info(0, ...)` | `src_fill` (`ringops.cc:248-262`) reads exactly type, power, unit, image path and mode. |
+| `trx64u_uci_df1c` (from `c64_cart.cc`) | export "uci" | 12.2. |
+| `u64_get_usb_hid_config_value` (weak in `usb_hid.cc`) | base image, `mousesink.cc` | 12.2. |
+| `trx64u_sid_service`, `trx64u_sid_cancel`, `trx64u_kernal_put`, `trx64u_basic_put`, `trx64u_load_assoc_cfg`, `u64cfg_power_on_keys` (from `c64.cc`, `c64_go.cc`) | calls inside the TRX64-Ultimate library | 12.1, 12.2: `c64.cc` and `c64_go.cc` move with the core. |
+
