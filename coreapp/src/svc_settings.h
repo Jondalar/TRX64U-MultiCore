@@ -82,8 +82,12 @@ typedef struct SvcSettings {
 //   "Color Scheme"                    the menu's colours (replaces ui_set_look): "Standard Blue", "Ultimate Black", "C128 Style", "Commodore Blue", "Commodore 1", "Commodore 2",
 //                                     "Commodore 3"; default 1.
 //   "Filename overflow squeeze"       where a long name is shortened (replaces ui_set_name_squeeze): "None", "Beginning", "Middle", "End"; default 0.
-//   "Joystick Input"                  the keyboard joystick, six positions; the base derives keyb_joy_select (position & 1) and wasd_to_joy (the mask 0, 0, 1, 1, 3, 3 by
-//                                     position) from it. The hardware the position also drives is the core's: its library reads the setting with `value`.
+//   "Navigation Style"                how the menu reads letter keys: "Quick Search", "WASD Cursors" (W, A, S, D move the cursor); default 0, and 1 on the
+//                                     Commodore product (board.is_commodore) while the person has stored no value.
+//   "Joystick Input"                  the keyboard as a joystick: "Normal", "Swapped", "WASD Port 2", "WASD Port 1", "WASD P2 No KB", "WASD P1 No KB"; default 0.
+//                                     The base's keyboard driver takes from it which port the keyboard joystick drives and whether W, A, S, D act as its
+//                                     directions (and still type); hardware of the core that follows the position is set by the core's library, which reads
+//                                     the setting by key.
 // The USB mouse, for every core whose descriptor has a mouse (CoreDesc::mouse). The base's mouse sink reads them by key (the USB driver's config callback lives in the base image,
 // mousesink.cc), so no library defines it and no key of a core's menu is in generic code:
 //   "Mouse Mode"                      "Cursor keys", "Wheel: cursor keys", "Wheel: joystick"; default 0.

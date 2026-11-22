@@ -27,7 +27,7 @@ typedef struct SvcCtx {
     uint32_t size;
     // The four flags as bits CTX_*. Task: any (a snapshot; the flags change on other tasks).
     uint32_t (*state)(void);
-    // Pause (on) or resume (off): C64_STOP stays asserted after the menu closes while paused (CoreCtx::paused). It sets the flag only; the stop itself is the
+    // Pause (on) or resume (off): the machine stays stopped (io.stop) after the menu closes while paused (CoreCtx::paused). It sets the flag only; the stop itself is the
     // menu's close. The caller tests CTX_STARTED first (op_pause_toggle answers "not running yet" when it is clear). Task: lock.
     void (*set_paused)(bool on);
     // A line the screen shows when the menu next opens, told once (CoreCtx::notice, notice_pending). `only_if_free` true: written only when no notice waits
