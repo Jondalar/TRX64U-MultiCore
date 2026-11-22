@@ -117,25 +117,48 @@ The screen of the monitor is not a pending call: the export "textgrid" (`textgri
 
 ## The key table of the UI TOML (base 3.3)
 
-The rows of `menukeytab.cc` that name a library's operation (today `KS_MONITOR` with `monitor.key` and `KS_TIMELINE` with the `tw.*`
-operations) move into the core's UI TOML. The base reads them from the menu record and puts them where the generic rows of those
-two scopes stand today: after an application's screens, before the menu's grammar. Rows are tried in the order of the file; the
-first that matches takes the key.
+The rows of `menukeytab.cc` for the monitor and Timewarp scopes (`KS_MONITOR`, `KS_TIMELINE`) move into the core's UI TOML, all of
+them, the declines and the swallow included. The base reads them from the menu record (`tools/descrec.py` takes `[[key]]` with base
+3.3; until then the writer refuses it) and puts them where those generic rows stand today: after an application's screens, before
+the menu's grammar. Rows are tried in the order of the file; the first that matches takes the key. Each field maps one part of
+today's `KeyRow`:
 
 ```toml
 [[key]]
-layout = "terminal"      # where the row counts: while a node with this layout is shown; `node = "<id>"` names one node instead
-key = "any"              # "any", or one key: a character ("a", "+"), "return", "esc", "del", "left", "right", "up", "down",
-                         # "home", "f1" .. "f8", "ctrl+<letter>" ("ctrl+o")
-op = "monitor.key"       # the operation the key runs
-pass_key = true          # the key goes to the operation as its int argument "key" (today KF_KEYARG); default false
-directive = true         # the operation's answer text is "close" or "goto SPEC" for the menu (KF_DIRECTIVE); default false
-direct = true            # called on the menu task, not through the executor; the core lock is not held (KF_DIRECT); default false
+layout = "terminal"      # the scope: while a node with this layout is shown; `node = "<id>"` names one node instead
+key = "any"              # one key, or "any" (every key); `codes = [32, 126]` instead takes a range of key codes (the swallow)
+do = "op"                # "op" (MI_OP, the default when `op` is given), "decline" (MI_DECLINE: the key goes on to the menu's
+                         # grammar) or "swallow" (MI_SWALLOW: the key is spent, nothing happens)
+op = "monitor.key"       # the operation (do = "op")
+value = -10              # the operation's int argument "value" (KF_ARG); absent: none
+pass_key = true          # the key goes to the operation as its int argument "key" (KF_KEYARG); default false
+status = true            # the answer text is shown in the status line (KF_STATUS); default false
+status_ok = true         # also when the operation succeeded (KF_STATUS_OK); default false
+close = true             # the menu closes after the operation (KF_CLOSE); default false
+directive = true         # the answer text is "close" or "goto SPEC" for the menu (KF_DIRECTIVE); default false
+direct = true            # called on the menu task, not through the executor, without the core lock (KF_DIRECT); default false
+when = "!monitor.wants_stop"   # the row counts only while this state holds (non-empty, not "0" or "no"); "!" negates
 ```
 
-`KS_MONITOR` becomes `layout = "terminal", key = "any"` with the three flags above; `KS_TIMELINE` becomes one row per key with
-`layout = "timeline"` (today `ctrl+o` runs `tw.monitor` with `directive = true`). The generic rows of `menukeytab.cc` that name
-these operations go when 3.3 reads the table.
+Key names are those of `uiapp.cc` `key_code` (`up`, `down`, `left`, `right`, `return`, `esc`, `del`, `runstop`, `space`, `home`,
+`pgup`, `pgdn`, `tab`, `f1` .. `f8`) plus `f10`, `scrlock`, `menu`, `ctrl+<letter>` and one printable character; in the key table
+"any" means every key. With the table read from the record, the generic `KS_MONITOR` and `KS_TIMELINE` rows of `menukeytab.cc` go.
+
+## The windows of a core's API TOML (base 3.3)
+
+Until the API TOML of T213.1 has its full format, it holds the register windows `io.window` hands out; `tools/descrec.py` compiles
+them into the core's description record (D11):
+
+```toml
+[[window]]
+name = "audio_mixer"     # the name io.window takes
+address = 0xA0000500     # the CPU address of the block
+size = 0x14              # bytes
+```
+
+At load the base refuses a window that covers a register the base drives itself (I2C, MDIO, the USB hub reset, power, RESTORE, the
+HDMI PLL reset, the keyboard scan, the case LED select): split such a block into the runs you write. The case LED select is reached
+through `board.case_led_select` instead. `io.bus_wr` and `io.bus_rd` take every offset of the bus-side I/O block.
 
 ## Where a core's menu goes
 
