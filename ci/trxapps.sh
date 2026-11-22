@@ -61,7 +61,7 @@ BLUEPRINT_CORES="${BLUEPRINT_CORES:-atari800 nes apple2 zx cpc zxnext snes neoge
 # image (the core app Makefile's target `own`), each with its own core only and its own heap; the shared image leaves them out (table.cc).
 # trx64u: 0x950000 (the shared image keeps 0x7A0000). Its own image ends its static part at 12.4 MB of the 14.4 MB region with 0x7A0000;
 # 0x950000 leaves 312 KB between the end of the static part and the region's end, where the start-up stack grows down (linker.x
-# __crt0_stack_begin; the shared image ran with 87 KB there before R25).
+# __crt0_stack_begin).
 OWN_IMAGES="${OWN_IMAGES:-trx64u:c64_desc:0x950000}"
 
 if [ -n "$cache" ] && [ -f "$cache/DONE" ]; then

@@ -96,6 +96,24 @@ class ImportsTest(unittest.TestCase):
         m, recs = C.parse(open(out, "rb").read())
         self.assertEqual((m["version"], recs[C.T_APP]), ("1.2.3-dev+deadbeef", APP))
 
+    def test_finish_heap(self):
+        def img(heap, end):
+            return APP + C.HEAP_MAGIC + struct.pack("<4I", heap, end, 0xE90000, 0x20000)
+        self.write("release/imports/h.pin", 'ID=h\nNAME="H"\nSEMVER=1.2.3\nBIT_SHA256=%s\nHEAP=0x950000\n' % ("1" * 64))
+        cor = os.path.join(self.root, "h.cor")
+        open(cor, "wb").write(C.pack_large(cid="h", name="H", version="1.2.3", bit=full_bit(), app=APP))
+        out = os.path.join(self.root, "out_h.cor")
+        app = os.path.join(self.root, "coreapp_h.bin")
+        open(app, "wb").write(img(0x7A0000, 0x4F39B4))
+        I.finish(cor, out, app=app, root=self.root)
+        got = C.parse(open(out, "rb").read())[1][C.T_APP]
+        o = got.index(C.HEAP_MAGIC) + len(C.HEAP_MAGIC)
+        self.assertEqual(struct.unpack_from("<I", got, o)[0], 0x950000, "the run's image gets the pin's heap")
+        open(app, "wb").write(img(0x7A0000, 0x67584C))            # 0x67584C + 0x950000 + 0x20000 is beyond 0xE90000
+        with self.assertRaises(I.ImportError_) as e:
+            I.finish(cor, out, app=app, root=self.root)
+        self.assertIn("too much", str(e.exception))
+
 
 if __name__ == "__main__":
     unittest.main()

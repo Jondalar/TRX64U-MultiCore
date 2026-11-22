@@ -219,7 +219,13 @@ def finish(cor, out, app=None, app_commit=None, root=ROOT):
     else:
         if not app:
             raise ImportError_("%s has no APP_FILE: give the run's application image (--app)" % cid)
-        blob = C.replace_app(blob, open(app, "rb").read())
+        img = open(app, "rb").read()
+        if pin.get("HEAP"):
+            try:
+                img = C.app_heap(img, int(pin["HEAP"], 0), cid)     # T239.3 D15: the pin's heap into the run's image, and the fit check
+            except (C.CorError, ValueError) as e:
+                raise ImportError_("%s: %s" % (os.path.basename(cor), e))
+        blob = C.replace_app(blob, img)
         if app_commit:
             fields["app_commit"] = app_commit
     v = version_of(pin, root)
