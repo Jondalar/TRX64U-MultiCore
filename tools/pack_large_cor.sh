@@ -2,7 +2,7 @@
 # Pack the .cor of one LARGE core (a full 50T bitstream started by IPROG; T115 section 7 "The large .cor").
 #
 #   tools/pack_large_cor.sh --id <core id> --name "<menu name>" --version <v> --bit <id>_mono.bit --app-bin <coreapp.bin> \
-#       [--icon cores/<id>/logo/icon.rgb565] [--short <tile text>] [--bit-commit <sha>] [--app-commit <sha>] [--origin trx|foreign|backup] [--flash-id <chip>] [--out <dir>] [--desc menu.toml --ops ops.txt]
+#       [--icon cores/<id>/logo/icon.rgb565] [--short <tile text>] [--bit-commit <sha>] [--app-commit <sha>] [--heap <bytes>] [--origin trx|foreign|backup] [--flash-id <chip>] [--out <dir>] [--desc menu.toml --ops ops.txt]
 #
 # The same two inputs as tools/pack_cfw_mc.sh (the flat bitstream of ci/bitstream_mono.sh and the generic core application coreapp.bin,
 # the raw image linked to 0x30000), packed with tools/cor_pack.py pack-large instead of into an updater: no container image, no
@@ -12,7 +12,7 @@
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
-ID="" NAME="" VER="" BIT="" APPBIN="" ICON="" BITC="" APPC="" OUT="$ROOT/dist" DESC="" OPS="" ORIGIN="" FLASHID="" SHORT="" FILESDIR=""
+ID="" NAME="" VER="" BIT="" APPBIN="" ICON="" BITC="" APPC="" OUT="$ROOT/dist" DESC="" OPS="" ORIGIN="" FLASHID="" SHORT="" FILESDIR="" HEAP=""
 usage() { sed -n '2,12p' "$0"; exit 2; }
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -28,6 +28,7 @@ while [ $# -gt 0 ]; do
         --origin) ORIGIN="$2"; shift 2;;
         --flash-id) FLASHID="$2"; shift 2;;
         --out) OUT="$2"; shift 2;;
+        --heap) HEAP="$2"; shift 2;;                # T239.3 D15: the core's heap in bytes; default: the core's descriptor `heap`, else the image's own
         --desc) DESC="$2"; shift 2;;
         --ops) OPS="$2"; shift 2;;
         --files) FILESDIR="$2"; shift 2;;          # record 8 from a folder of the caller (an imported core has no cores/<id>/core.toml: trx64u, T228 R21 item 7)
@@ -54,10 +55,12 @@ for d in "$ROOT/cores/$ID/mono/core.toml" "$ROOT/cores/$ID/core.toml"; do
     [ -f "$d" ] || continue
     idir="$(TRX_CORE_DESC="$d" python3 "$HERE/core_toml.py" get "$ID" install_dir)"
     iold="$(TRX_CORE_DESC="$d" python3 "$HERE/core_toml.py" get "$ID" install_old)"
+    [ -n "$HEAP" ] || HEAP="$(TRX_CORE_DESC="$d" python3 "$HERE/core_toml.py" get "$ID" heap)"
     [ -z "$idir" ] || args+=(--files "$ROOT/cores/$ID/$idir")
     [ -z "$iold" ] || args+=(--files-old "$ROOT/cores/$ID/$iold")
     break
 done
+[ -z "$HEAP" ] || args+=(--heap "$HEAP")
 python3 "$HERE/cor_pack.py" pack-large -o "$OUT/$ID.cor" "${args[@]}"
 python3 "$HERE/cor_pack.py" check "$OUT/$ID.cor" > /dev/null
 ls -l "$OUT/$ID.cor"

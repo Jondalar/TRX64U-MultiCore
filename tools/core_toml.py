@@ -76,7 +76,15 @@ SCHEMA = {
     # ci/plan.py, ci/sims.sh without a bench named, ci/orchestrate.py check, tools/gen_roms_txt.py leave it out). Default true. --check, get, sources and env
     # still read it; the core application keeps its code (table.cc) and its unit tests (tests/coreapp/run.sh) still run.
     "pipeline":     ("bool", False),
+    # T239.3 D15 (D11, D13): the core's heap in bytes. The packer writes it into the heap word of the core's copy of the application image
+    # (tools/cor_pack.py --heap, coreapp/src/heapcfg.c) and the application defines its FreeRTOS heap_5 region of that size at start; the board
+    # parses no TOML. Absent = HEAP_DEFAULT, the heap every core had before. At least HEAP_MIN, a multiple of 16, at most HEAP_MAX; whether the image
+    # fits with it is the packer's check.
+    "heap":         ("int",  False),
 }
+HEAP_DEFAULT = 0x7A0000
+HEAP_MIN = 0x10000
+HEAP_MAX = 0xE60000                           # the application region's length (host-app/target/u64ii/riscv/coreapp/linker.x)
 APPS = ("blueprint", "ultimate", "none")
 DELIVERIES = ("cor", "cfw")
 
@@ -103,8 +111,8 @@ def parse(path):
             out[key] = [v.strip().strip('"') for v in val[1:val.rindex("]")].split(",") if v.strip()]
         elif val in ("true", "false"):
             out[key] = val == "true"
-        elif re.match(r"^-?\d+$", val):
-            out[key] = int(val)
+        elif re.match(r"^(-?\d+|0x[0-9a-fA-F]+)$", val):     # T239.3 D15: a size may be written 0x7A0000
+            out[key] = int(val, 16) if val.startswith("0x") else int(val)
         elif val.startswith('"'):
             out[key] = val[1:val.rindex('"')]
         else:
@@ -183,6 +191,8 @@ def check():
             bad += err("name %r is %d characters, at most 30 (T209 D17: it is the row's text in the boot menu)" % (t["name"], len(t["name"])))
         if "short" in t and not re.fullmatch(r"[A-Za-z0-9+/.]{1,4}", str(t["short"])):
             bad += err("short %r is not 1 to 4 of A-Z a-z 0-9 + / ." % (t["short"],))
+        if isinstance(t.get("heap"), int) and not isinstance(t.get("heap"), bool) and not (HEAP_MIN <= t["heap"] <= HEAP_MAX and t["heap"] % 16 == 0):
+            bad += err("heap 0x%x is not a multiple of 16 between 0x%x and 0x%x" % (t["heap"], HEAP_MIN, HEAP_MAX))
         if t.get("id") != name:
             bad += err("id %r is not the directory name %r" % (t.get("id"), name))
         if t.get("app") not in APPS and "app" in t:

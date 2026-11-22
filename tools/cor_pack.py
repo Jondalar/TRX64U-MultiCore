@@ -27,7 +27,7 @@ only rises when the partition's edge changes, and a host re-routed with the same
 Hashes are SHA-256 over each part (integrity only, no signatures).
 
   cor_pack.py pack  -o core.cor --name N --version V --partial P.bit|P.bin --app A.bin --host-key K
-                    [--load 0x30000] [--entry 0x30000] [--contract 2] [--fpga xc7a50t] [--icon I.rgb565|I.png]
+                    [--load 0x30000] [--entry 0x30000] [--contract 2] [--fpga xc7a50t] [--icon I.rgb565|I.png] [--heap BYTES]
   cor_pack.py check core.cor [--contract 2] [--host-key K]   exit 0 = intact, prints the manifest
   cor_pack.py hostkey host.bit                   prints the AXSS word of a full bitstream (the host key)
 
@@ -57,7 +57,7 @@ the host writes for the IPROG). No `contract`, no `host_key`, no partial record:
 manifest names the FPGA by IDCODE (`idcode`, 8 hex); the host refuses another one when the entry is added and again at the start.
 
   cor_pack.py pack-large -o core.cor --id I --name N --version V --bit B.bit --app A.bin [--icon I.rgb565|I.png]
-                    [--map auto|identity|gideon_bl4] [--bit-commit C] [--app-commit C]
+                    [--map auto|identity|gideon_bl4] [--bit-commit C] [--app-commit C] [--heap BYTES]
   cor_pack.py check core.cor                     both kinds
 """
 import argparse
@@ -90,6 +90,13 @@ LARGE_APP_ADDR = 0x30000                  # cfw.h CFW_APP_ADDR: load and entry o
 LARGE_APP_MAX = 0x400000                  # cfw.h CFW_APP_MAX
 LARGE_BIT_MAX = 0x800000                  # cfw.h CFW_BIT_MAX
 MAPS = ("identity", "gideon_bl4")
+# T239.3 D15: the heap word. The application image carries one record `TRXHEAP:` (coreapp/src/heapcfg.c): heap size, image end (the linker's _end),
+# end of the application region (__heap_limit) and the stack reserve, four little-endian words. The packer sets the heap from the core's core.toml `heap`
+# in the copy it packs and refuses an image whose end + heap + reserve does not fit the region.
+HEAP_MAGIC = b"TRXHEAP:"
+HEAP_WORDS = 4
+HEAP_DEFAULT = 0x7A0000                   # coreapp/src/heapcfg.c: what the image says when the core's TOML sets nothing
+HEAP_MIN = 0x10000
 CONTRACT = 2
 ICON_BYTES = 32 * 32 * 2
 BIT_MAGIC = bytes([0x00, 0x09, 0x0F, 0xF0, 0x0F, 0xF0, 0x0F, 0xF0, 0x0F, 0xF0, 0x00, 0x00, 0x01])
@@ -407,11 +414,43 @@ def put_short(m, short):
     m["short"] = short
 
 
-def pack(name, version, partial, app, load, entry, host_key, contract=CONTRACT, fpga="xc7a50t", icon=None, desc=None, libs=None, files=None, short=None):
+def app_heap(app, heap, core):
+    """T239.3 D15: `app` with the heap word set to `heap` (the core's core.toml `heap`; None keeps the image's own, the default). The image must hold one
+    TRXHEAP record; one without it is left alone when no heap is asked for (an imported core's own app) and refused when one is. Refused too: an image whose
+    end + heap + stack reserve is beyond the end of the application region; the message names the core, the figures and the limit."""
+    at, i = [], -1
+    while True:
+        i = app.find(HEAP_MAGIC, i + 1)
+        if i < 0:
+            break
+        at.append(i + len(HEAP_MAGIC))
+    if not at:
+        if heap is None:
+            return app
+        raise CorError("app (%s): no %s record in the image, so heap 0x%x cannot be set" % (core, HEAP_MAGIC.decode(), heap))
+    if len(at) > 1:
+        raise CorError("app (%s): %d %s records in the image, one expected" % (core, len(at), HEAP_MAGIC.decode()))
+    o = at[0]
+    if o + 4 * HEAP_WORDS > len(app):
+        raise CorError("app (%s): the %s record is cut off" % (core, HEAP_MAGIC.decode()))
+    cur, image_end, region_end, reserve = struct.unpack_from("<4I", app, o)
+    if heap is None:
+        heap = cur
+    if heap < HEAP_MIN or heap % 16:
+        raise CorError("core %s: heap 0x%x is below 0x%x or not a multiple of 16" % (core, heap, HEAP_MIN))
+    need = ((image_end + 15) & ~15) + heap + reserve
+    if need > region_end:
+        raise CorError("core %s: image end 0x%x + heap 0x%x + stack reserve 0x%x = 0x%x, the application region ends at 0x%x (%d bytes too much)"
+                       % (core, image_end, heap, reserve, need, region_end, need - region_end))
+    return app[:o] + struct.pack("<I", heap) + app[o + 4:]
+
+
+def pack(name, version, partial, app, load, entry, host_key, contract=CONTRACT, fpga="xc7a50t", icon=None, desc=None, libs=None, files=None, short=None, heap=None):
     partial = bit_config_data(partial)
     check_partial(partial)
     if not app:
         raise CorError("app: empty")
+    app = app_heap(app, heap, name)
     if not (load <= entry < load + len(app)):
         raise CorError("app: entry outside the image")
     # Record 3 is the raw image: the boot app copies it to app_load and jumps to app_entry. A `.app` file is that
@@ -606,7 +645,7 @@ FLASH_ID_MAX = 40
 
 
 def pack_large(cid, name, version, bit, app, icon=None, map_kind="auto", bit_commit=None, app_commit=None,
-               fpga="xc7a50t", desc=None, libs=None, files=None, origin=None, flash_id=None, short=None):
+               fpga="xc7a50t", desc=None, libs=None, files=None, origin=None, flash_id=None, short=None, heap=None):
     """A .cor that carries a LARGE core: the full bitstream and the application (see the docstring).
     origin (T137 D1): None or "trx" writes no key (the bytes of every .cor before T137); "foreign" and "backup" write `origin`; a backup also
     writes flash_bit, flash_app and flash_id (D2: the chip the parts were read from, so they are written back only to the layout they came from)."""
@@ -622,6 +661,7 @@ def pack_large(cid, name, version, bit, app, icon=None, map_kind="auto", bit_com
         raise CorError("bitstream: IDCODE %08x is not the XC7A50T (%08x)" % (idcode, IDCODE_XC7A50T))
     if not app:
         raise CorError("app: empty")
+    app = app_heap(app, heap, cid)
     if len(app) > LARGE_APP_MAX:
         raise CorError("app: %d bytes, the host stages at most %d" % (len(app), LARGE_APP_MAX))
     if len(app) > 12:
@@ -753,6 +793,7 @@ def main(argv=None):
     p.add_argument("--fpga", default="xc7a50t")
     p.add_argument("--icon")
     p.add_argument("--short", help="T209 D15: the text tile's short name (core.toml `short`)")
+    p.add_argument("--heap", type=lambda s: int(s, 0), help="T239.3 D15: the core's heap in bytes (core.toml `heap`), set in the packed copy of the application")
     p.add_argument("--desc", help="the menu description (TOML, tools/descrec.py): record 6")
     p.add_argument("--ops", help="the operations and states the application exports (tests/coreapp/golden/ops_trx64u.txt): every name and binding of --desc is checked against it")
     p.add_argument("--lib", action="append", default=[], help="a library (.u2a of format 3) this core needs: record 7; repeat for more")
@@ -767,6 +808,7 @@ def main(argv=None):
     g.add_argument("--app", required=True, help="the application image (coreapp.bin, raw, linked to 0x30000)")
     g.add_argument("--icon")
     g.add_argument("--short", help="T209 D15: the text tile's short name (core.toml `short`)")
+    g.add_argument("--heap", type=lambda s: int(s, 0), help="T239.3 D15: the core's heap in bytes (core.toml `heap`), set in the packed copy of the application")
     g.add_argument("--desc", help="the menu description (TOML): record 6")
     g.add_argument("--ops", help="what the application exports (tests/coreapp/golden/ops_trx64u.txt): every name and binding of --desc is checked against it")
     g.add_argument("--lib", action="append", default=[], help="a library (.u2a) this core needs: record 7")
@@ -797,13 +839,13 @@ def main(argv=None):
             entry = a.load if a.entry is None else a.entry
             blob = pack(a.name, a.version, open(a.partial, "rb").read(), open(a.app, "rb").read(),
                         a.load, entry, a.host_key, a.contract, a.fpga,
-                        load_icon(a.icon) if a.icon else None, *read_extras(a), short=a.short)
+                        load_icon(a.icon) if a.icon else None, *read_extras(a), short=a.short, heap=a.heap)
             open(a.out, "wb").write(blob)
             print("%s: %d bytes" % (a.out, len(blob)))
         elif a.cmd == "pack-large":
             blob = pack_large(a.id, a.name, a.version, open(a.bit, "rb").read(), open(a.app, "rb").read(),
                               load_icon(a.icon) if a.icon else None, a.map, a.bit_commit, a.app_commit, "xc7a50t", *read_extras(a),
-                              origin=a.origin, flash_id=a.flash_id, short=a.short)
+                              origin=a.origin, flash_id=a.flash_id, short=a.short, heap=a.heap)
             open(a.out, "wb").write(blob)
             print("%s: %d bytes" % (a.out, len(blob)))
         elif a.cmd == "files-record":

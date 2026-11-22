@@ -16,3 +16,5 @@ OPS=tests/coreapp/golden/ops_trx64u.txt
 FILES=release/imports/trx64u_files
 # T228: deactivated on 2026-11-17 (Alex, "only deactivate! do not delete .. first we fix the UI, then we build the core again", translated) by a
 # line that set PIPELINE to false (ci/package.sh packed nothing then); the line is gone since 2026-11-18: T228 is merged, trx64u ships in 0.2.0.
+# T239.3 D15: the heap of this core (T228 R25: 0x950000, the OWN_HEAP of ci/trxapps.sh), written into the heap word of the application by the packer
+HEAP=0x950000

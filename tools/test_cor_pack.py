@@ -599,5 +599,101 @@ class FilesTest(unittest.TestCase):
         self.assertTrue(all(o for f in files if f[0] in ("tests/cd32.toml", "tests/stick2.toml") for o in [f[2]]))
 
 
+def heap_app(heap=0x7A0000, image_end=0x400000, region_end=0xE90000, reserve=0x20000, extra=b"\x5a" * 64):
+    """An application image that carries the TRXHEAP record (coreapp/src/heapcfg.c)."""
+    return APP + C.HEAP_MAGIC + struct.pack("<4I", heap, image_end, region_end, reserve) + extra
+
+
+class HeapTest(unittest.TestCase):
+    """T239.3 D15: the packer writes the core's heap into its copy of the app and refuses an image that does not fit."""
+
+    def words(self, app):
+        o = app.index(C.HEAP_MAGIC) + len(C.HEAP_MAGIC)
+        return struct.unpack_from("<4I", app, o)
+
+    def test_fill_sets_only_the_heap_word(self):
+        app = heap_app()
+        out = C.app_heap(app, 0x950000, "vic20")
+        self.assertEqual(self.words(out), (0x950000, 0x400000, 0xE90000, 0x20000))
+        self.assertEqual(len(out), len(app))
+        o = app.index(C.HEAP_MAGIC) + len(C.HEAP_MAGIC)
+        self.assertEqual(out[:o], app[:o])
+        self.assertEqual(out[o + 4:], app[o + 4:])
+
+    def test_no_heap_keeps_the_default(self):
+        app = heap_app()
+        self.assertEqual(C.app_heap(app, None, "vic20"), app)
+        self.assertEqual(C.app_heap(APP, None, "trx64g"), APP)            # an app without the record (Gideon's) is left alone
+
+    def test_pack_and_pack_large_carry_the_filled_copy(self):
+        blob, _ = make(app=heap_app(), heap=0x600000)
+        self.assertEqual(self.words(C.parse(blob, C.CONTRACT)[1][C.T_APP])[0], 0x600000)
+        blob, _ = make(app=heap_app())
+        self.assertEqual(self.words(C.parse(blob, C.CONTRACT)[1][C.T_APP])[0], 0x7A0000)
+
+    def test_refusal_names_core_figure_and_limit(self):
+        with self.assertRaises(C.CorError) as e:
+            C.app_heap(heap_app(), 0xB00000, "vic20")
+        msg = str(e.exception)
+        self.assertIn("vic20", msg)
+        self.assertIn("0xb00000", msg)
+        self.assertIn("0xe90000", msg)
+        with self.assertRaises(C.CorError) as e:
+            make(app=heap_app(), heap=0xB00000)                           # through pack as well
+        self.assertIn("0xe90000", str(e.exception))
+
+    def test_default_that_does_not_fit_is_refused_too(self):
+        with self.assertRaises(C.CorError):
+            C.app_heap(heap_app(image_end=0xA00000), None, "big")
+
+    def test_exact_fit_passes_one_more_does_not(self):
+        C.app_heap(heap_app(), 0xE90000 - 0x20000 - 0x400000, "x")
+        with self.assertRaises(C.CorError):
+            C.app_heap(heap_app(), 0xE90000 - 0x20000 - 0x400000 + 16, "x")
+
+    def test_heap_without_record_or_with_two_is_refused(self):
+        with self.assertRaises(C.CorError):
+            C.app_heap(APP, 0x100000, "x")
+        with self.assertRaises(C.CorError):
+            C.app_heap(heap_app() + heap_app(), 0x100000, "x")
+        for bad in (0x1000, 0x100008 + 1):
+            with self.assertRaises(C.CorError):
+                C.app_heap(heap_app(), bad, "x")
+
+
+class CoreTomlHeapTest(unittest.TestCase):
+    """T239.3 D15: the `heap` key of core.toml."""
+
+    def test_hex_and_decimal_and_range(self):
+        import core_toml as T
+        with tempfile.TemporaryDirectory() as d:
+            f = d + "/c.toml"
+            open(f, "w").write('id = "x"\nheap = 0x950000\norder = 07\n')
+            self.assertEqual(T.parse(f)["heap"], 0x950000)
+            self.assertEqual(T.parse(f)["order"], 7)
+        self.assertIn("heap", T.SCHEMA)
+        self.assertEqual(T.SCHEMA["heap"], ("int", False))
+
+    def test_check_refuses_a_bad_heap(self):
+        import core_toml as T
+        saved = T.ROOT, T.CORES
+        with tempfile.TemporaryDirectory() as d:
+            os.makedirs(d + "/cores/x"); os.makedirs(d + "/contract")
+            open(d + "/contract/VERSION", "w").write(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "contract", "VERSION")).read())
+            base = 'id = "x"\nname = "X"\nversion = "0.1.0"\ncontract = %s\napp = "blueprint"\norder = 1\nexperimental = true\nsources = ["cores/x"]\n' % open(d + "/contract/VERSION").read().strip()
+            try:
+                T.ROOT, T.CORES = d, d + "/cores"
+                res = {}
+                for heap in ("0x950000", "0x1000", "0x7A0001", "0xF00000"):
+                    open(d + "/cores/x/core.toml", "w").write(base + "heap = %s\n" % heap)
+                    import io, contextlib
+                    buf = io.StringIO()
+                    with contextlib.redirect_stdout(buf):
+                        res[heap] = T.check()
+                self.assertEqual(res, {"0x950000": 0, "0x1000": 1, "0x7A0001": 1, "0xF00000": 1})
+            finally:
+                T.ROOT, T.CORES = saved
+
+
 if __name__ == "__main__":
     unittest.main()

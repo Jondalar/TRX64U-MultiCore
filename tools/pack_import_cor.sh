@@ -14,6 +14,9 @@
 # a different file is refused and nothing is packed. The packing itself is tools/pack_large_cor.sh (IDCODE, sync word, map and hashes are
 # checked there and again by `cor_pack.py check`).
 #
+# HEAP= (T239.3 D15): the heap in bytes of a core that has no core.toml here (trx64u); tools/cor_pack.py writes it into the heap word of the packed
+# copy of our application and refuses an image that does not fit. A pin without it keeps the image's own default; an application without the word (trx64g) is untouched.
+#
 # SEMVER= (T230 P-1): `x.y.z` (PKG_VERSION is a release) or `x.y.z-dev+<sha8>` (<sha8> = the one of PKG_VERSION); anything else is refused. The package's
 # manifest.json (downloaded with the bitstream, or --manifest) has "version" from TRX64-Ultimate's APPL_VERSION_NUMBER: when present, the x.y.z of
 # SEMVER must equal it; an older package without the field is logged and passed. With --bit and no --manifest nothing is downloaded and the check is skipped.
@@ -35,7 +38,7 @@ while [ $# -gt 0 ]; do
     esac
 done
 [ -f "$PIN" ] && [ -n "$OUT" ] || { sed -n '2,10p' "$0" >&2; exit 2; }
-ID="" NAME="" VERSION="" SEMVER="" PKG_VERSION="" BIT_FILE="" BIT_SHA256="" ICON="" APP_FILE="" APP_SHA256="" DESC="" OPS="" FILES=""
+ID="" NAME="" VERSION="" SEMVER="" PKG_VERSION="" BIT_FILE="" BIT_SHA256="" ICON="" APP_FILE="" APP_SHA256="" DESC="" OPS="" FILES="" HEAP=""
 # shellcheck disable=SC1090
 . "$PIN"
 # T221 D15 / T230 P-1: the version of an imported core is the SemVer its pin copies from the TRX64-Ultimate package (SEMVER=); a pin without one shows the commit.
@@ -83,5 +86,5 @@ cp "$BIT" "$W/${ID}_mono.bit"
 # the menu of a core of ours (T104.2 D10): record 6, every name and binding checked against what the application exports; a menu without the check is no menu
 rel() { case "$1" in /*) echo "$1";; *) echo "$ROOT/$1";; esac; }
 [ -z "$DESC$OPS" ] || { [ -n "$DESC" ] && [ -n "$OPS" ] && [ -f "$(rel "$DESC")" ] && [ -f "$(rel "$OPS")" ]; } || { echo "$PIN: DESC and OPS go together and name existing files" >&2; exit 2; }
-"$HERE/pack_large_cor.sh" ${DESC:+--desc "$(rel "$DESC")" --ops "$(rel "$OPS")"} ${FILES:+--files "$(rel "$FILES")"} --id "$ID" --name "$NAME" --version "$VERSION" --bit "$W/${ID}_mono.bit" --app-bin "$APPBIN" \
+"$HERE/pack_large_cor.sh" ${DESC:+--desc "$(rel "$DESC")" --ops "$(rel "$OPS")"} ${FILES:+--files "$(rel "$FILES")"} ${HEAP:+--heap "$HEAP"} --id "$ID" --name "$NAME" --version "$VERSION" --bit "$W/${ID}_mono.bit" --app-bin "$APPBIN" \
     --icon "$ROOT/$ICON" --bit-commit "${PKG_VERSION##*-}" ${APPC:+--app-commit "$APPC"} --out "$OUT"
