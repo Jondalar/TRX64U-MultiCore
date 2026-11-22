@@ -8,31 +8,7 @@
 
 #include <stdint.h>
 
-#define SID_HDR_BYTES 0x80
-#define SID_HDR_READ  0x7E            // the bytes FW reads from a .sid
-#define SID_SSL_BYTES 512             // the song-lengths table the player takes (cart image +0x3000)
-
-struct SidTune {
-    uint8_t hdr[SID_HDR_BYTES];       // FW's sid_header: the file's header (big endian words) until sid_plan swaps it to the player's little endian form
-    int version;                      // header_version
-    uint32_t data_offset;
-    int songs;                        // number_of_songs
-    bool mus;                         // mus_file: a .mus / .str file, or a .sid whose flag bit 0 says "MUS data"
-    bool sid;                         // sid_file: the file itself is a .sid
-    bool valid;                       // the header is usable (header_valid)
-    uint16_t flags;                   // 0x76/0x77
-    uint16_t song, default_song;
-    uint16_t start, end, header_location;
-    int skip;                         // bytesToSkip: the bytes at data_offset that are not music data
-    uint8_t extra_lo;                 // unused, keeps the struct a multiple of 4 on every compiler
-};
-
-// One SID the tune asks for (t_sid_definition): base is the high byte pair of the address as the FPGA decodes it (0x40 = $D400), type 1 6581, 2 8580,
-// 3 either / not said.
-struct SidReq {
-    uint8_t base;
-    uint8_t type;
-};
+#include "sid_api.h"                  // SidTune, SidReq, SID_HDR_BYTES, SID_HDR_READ, SID_SSL_BYTES: the one definition, the SDK's
 
 // FileTypeSID::fetch_context_items: the header of the file, or a made-up one for a .mus / .str. `name` is the file's name (the title of a .mus is
 // its name without the extension, underscores as blanks), `ext_mus` says the extension is MUS or STR. `n` bytes of the file's start are in `head`.
