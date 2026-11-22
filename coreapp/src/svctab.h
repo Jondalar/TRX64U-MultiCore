@@ -24,7 +24,7 @@ typedef struct SvcSys {
     uint32_t size;
     void (*log)(const char *text);
     uint32_t (*ms)(void);                 // milliseconds since start
-    void (*sleep_ms)(uint32_t ms);        // at least ms (rounded up to the tick plus one); 0 only yields
+    void (*sleep_ms)(uint32_t ms);        // at least ms (the tick is 5 ms): from 5 ms on the whole ticks plus one, below that one tick, also for 0
     const char *(*core_name)(void);
     bool (*has_capability)(const char *capability);
     // The flash the firmware boots from, len bytes from addr. len, or -1 when the range is not in the flash. The monolith reads its SPI flash.
@@ -81,7 +81,7 @@ typedef struct SvcFs {
 
 // What the base asks the person while the application runs (T104.3 D4): drawn by the base in the current skin, modal over whatever is on screen, answered
 // with the cursor keys, RETURN and the C64's left arrow. A call blocks the calling task - never the base's own, so an application calls them from its own
-// task or a job - until the person answered. RUN/STOP, ESC and the left arrow cancel. Without a screen they log and answer "cancelled".
+// task or a job - until the person answered. RUN/STOP, ESC and the left arrow cancel. Without a screen the group is a null pointer.
 #define SVC_BUTTON_OK 1
 #define SVC_BUTTON_YES 2
 #define SVC_BUTTON_NO 4

@@ -16,7 +16,7 @@
 // and takes the registrations back when the application is freed.
 //
 // Of the six lists of D4 the loader registers operations, state values and events (the three the registry has). Menu nodes, file actions
-// and settings are merged into the menu by contrib.h (D8); the poll of a library is declared here and kept, and not served yet.
+// and settings, and the tabs, are merged into the menu by contrib.h (D8); the poll of a record gets a task of its own at the start of the core (run.cc).
 #ifndef COREAPP_LIBAPI_H
 #define COREAPP_LIBAPI_H
 
@@ -115,11 +115,11 @@ struct LibSettingDecl {
 struct LibPollDecl {
     const char *op;                       // null: no poll
     uint16_t period_ms;
-    bool when_frozen;
+    bool when_frozen;                     // not read: a poll never runs while the machine is frozen
 };
 
 // A tab a contributor adds to an area of the route (T104.1 D8, Alex 2026-10-26): appended after the tabs the area has, with the next free printed number
-// unless `n` says one; a refusal by name when the area is not on the route, the id is taken, or the area has six tabs. `widget` is a TabWidget of menutree.h.
+// unless `n` says one; a refusal by name when the area is not on the route, the id is taken, or the area has eight tabs (MENU_STRIP_TABS). `widget` is a TabWidget of menutree.h.
 struct LibTabDecl {
     const char *area;                     // "F5"
     const char *id;                       // lower case, [a-z0-9_]
