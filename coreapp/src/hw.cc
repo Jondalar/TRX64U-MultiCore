@@ -96,6 +96,7 @@ public:
     uint8_t cart_rd(uint32_t reg) { return *(volatile uint8_t *)(C64_CARTREGS_BASE + reg); }
     void cart_wr(uint32_t reg, uint8_t v) { *(volatile uint8_t *)(C64_CARTREGS_BASE + reg) = v; }
     void bus_wr(uint32_t off, uint8_t v) { *(volatile uint8_t *)(C64_IO_BASE + off) = v; }
+    uint8_t bus_rd(uint32_t off) { return *(volatile uint8_t *)(C64_IO_BASE + off); }
     void eeprom_read(uint32_t off, void *p, uint32_t n)
     {
         for (uint32_t i = 0; i < n; i++) {

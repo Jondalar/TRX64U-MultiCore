@@ -52,8 +52,9 @@ open(t + "/menu_poll.bin", "wb").write(descrec.compile_text('[poll]\nop = "pa.ti
 PY
 
 loader_args() {   # loader_args SRCDIR: the compiler flags LA and the files LF of the test, for the product in SRCDIR
-  LA=($FLAGS "-DFIXDIR=\"$T\"" -I"$1" -I"$SRC" -I"$ROOT/host-app/software/hostapp" -I"$ROOT/tests/coreapp")
-  LF=("$TST/test_libload.cc" "$1/libload.cc" "$1/libmenu.cc" "$1/descrec.cc" "$1/ops.cc" "$1/service.cc" "$ROOT/app/lib/testlib/testlib.cc")
+  LA=($FLAGS "-DFIXDIR=\"$T\"" -I"$1" -I"$SRC" -I"$ROOT/host-app/software/hostapp" -I"$ROOT/tests/coreapp" -I"$ROOT/app/video")
+  LF=("$TST/test_libload.cc" "$1/libload.cc" "$1/libmenu.cc" "$1/descrec.cc" "$1/ops.cc" "$1/service.cc" "$ROOT/app/lib/testlib/testlib.cc"
+      "$1/libsvc.cc" "$1/settings.cc" "$1/cfgfile.cc" "$1/corefolder.cc" "$ROOT/tests/coreapp/sha256_cc.cc")      # base 3.3: the groups of api (libsvc.cc) over a real Settings and corefolder
 }
 build() {   # build OUT SRCDIR
   loader_args "$2"

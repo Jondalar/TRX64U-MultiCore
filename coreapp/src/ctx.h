@@ -111,6 +111,10 @@ struct CoreCtx {
 // T198: the file the settings live in - the config of this run, else the core's own .cfg.
 static inline const char *ctx_settings_path(const CoreCtx *c) { return c->settings_path[0] ? c->settings_path : c->cfg_path; }
 
+// base 3.3 (svc_ctx.h target_path, libsvc.cc): where a new file of the menu goes: media_dir, else the first medium of the root except /flash; `ext` is added when `name` has none.
+// False when there is no medium (out is not written).
+bool ctx_target_path(CoreCtx *c, const char *name, const char *ext, char *out, int n);
+
 static inline void mount_notify(CoreCtx *c, int slot)
 {
     if (c->mount_changed) {

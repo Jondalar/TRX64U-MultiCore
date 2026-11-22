@@ -5,8 +5,10 @@
 #include <string.h>
 #include <strings.h>
 
+static uint32_t s_generation;
+
 Settings::Settings(const Setting *items, int n, const char *store, CoreFs *fs, const char *cfg_path, FlashLayer *flash)
-    : items_(items), n_(n > SETTINGS_MAX ? SETTINGS_MAX : n), store_(store), fs_(fs), flash_(flash),
+    : items_(items), gen_(++s_generation), n_(n > SETTINGS_MAX ? SETTINGS_MAX : n), store_(store), fs_(fs), flash_(flash),
       save_failed_(false), notice_pending_(false)
 {
     strncpy(cfg_path_, cfg_path ? cfg_path : "", sizeof(cfg_path_) - 1);
@@ -252,6 +254,7 @@ bool Settings::export_config(const char *path, const char *const *mk, const char
 
 void Settings::rebind(const char *path)
 {
+    gen_ = ++s_generation;
     snprintf(cfg_path_, sizeof(cfg_path_), "%s", path ? path : "");
     safe_ = false;                                     // a config loaded on purpose: its changes are written as always
     save_failed_ = false;

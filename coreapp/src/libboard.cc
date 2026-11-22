@@ -6,8 +6,17 @@
 #include "u64.h"
 #include "usb_base.h"
 #include "usb_hub.h"
+#include "gitinfo.h"
+#include "regset.h"
+#include "rest.h"
+#include "hw.h"
+#include "itu.h"
+#include "product.h"
+#include "picture.h"
+#include "i2c_drv.h"
 #include "FreeRTOS.h"
 #include "task.h"
+#include "semphr.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -28,6 +37,9 @@ __asm__(".pushsection .text.lib_icache_sweep, \"ax\", @progbits\n"
         ".popsection\n");
 
 namespace {
+
+extern "C" void SetVideoPll(t_video_mode mode, int ppm);
+extern "C" void ResetHdmiPll(void);
 
 class BoardLibHost : public DescLibHost {
 public:
@@ -52,6 +64,39 @@ public:
     void delay_ms(uint32_t ms) { vTaskDelay(ms >= 5 ? pdMS_TO_TICKS(ms) + 1 : 1); }
     void enter() { portENTER_CRITICAL(); }
     void leave() { portEXIT_CRITICAL(); }
+    // base 3.3 (svc_sync.h, svc_sys.h, svc_board.h). A mutex is a FreeRTOS one with priority inheritance; the lock waits the ticks of timeout_ms rounded up to the 5 ms tick.
+    void *mutex_new() { return (void *)xSemaphoreCreateMutex(); }
+    bool mutex_lock(void *m, uint32_t timeout_ms)
+    {
+        TickType_t t = timeout_ms == 0xFFFFFFFFu ? portMAX_DELAY : (timeout_ms == 0 ? 0 : pdMS_TO_TICKS(timeout_ms) + 1);
+        return m && xSemaphoreTake((SemaphoreHandle_t)m, t) == pdTRUE;
+    }
+    void mutex_unlock(void *m) { if (m) { xSemaphoreGive((SemaphoreHandle_t)m); } }
+    void mutex_free(void *m) { if (m) { vSemaphoreDelete((SemaphoreHandle_t)m); } }
+    uint16_t ms_timer() { return getMsTimer(); }
+    const char *app_version() { return APP_VERSION_STRING; }
+    const char *app_git() { return APP_VERSION_HASH; }
+    void yield() { taskYIELD(); }
+    uint32_t fpga_caps() { return getFpgaCapabilities(); }
+    bool is_commodore() { return isCommodoreBoard(); }
+    int esp32_rpc(uint8_t cmd, const uint8_t *args, int nargs, uint8_t *reply, int maxreply, int timeout_ms) { return hw_esp32_rpc(cmd, args, nargs, reply, maxreply, timeout_ms); }
+    void video_set_system(CoreCtx *c, int sys) { if (c) { picture_set_system(c, sys); } }
+    void video_set_pll(int sys, int ppm)
+    {
+        SetVideoPll((t_video_mode)sys, ppm);
+        ResetHdmiPll();
+    }
+    // The SID sockets' expander (0x40 on the 1.8 V channel), under the bus lock the keyboard scan shares.
+    bool sid_i2c_open()
+    {
+        if (!i2c || !i2c->i2c_lock("SID Configuration")) {
+            return false;
+        }
+        i2c->set_channel(I2C_CHANNEL_1V8);
+        return true;
+    }
+    void sid_i2c_write(uint8_t reg, uint8_t v) { i2c->i2c_write_byte(0x40, reg, v); }
+    void sid_i2c_close() { i2c->i2c_unlock(); }
     // The owner of the handler a task runs (libload.h): kept by task, as the build has no thread-local storage. A task that is in no handler has no entry.
     // A table that is full drops the new entry: the task's allocations then go to the application that is open, as before the scope existed.
     int task_scope()
@@ -283,6 +328,9 @@ void lib_board_load(CoreCtx *c, LibBootReport *rep, const BundleExtras *bundle)
     static BoardLibHost host(c->desc);
     static LibLoader loader(&host, ops_of(c));                  // lives as long as the libraries do: for ever
     g_loader = &loader;
+    loader.add_services();                                      // base 3.3 (libsvc.cc): the groups sync, settings, ctx, io and board
+    loader.set_settings_apply(regset_apply_setting);
+    loader.set_gate_probe([]() -> bool { return rest_uic != 0; });
     loader.set_log(lib_log);
     // The rescue from a crashing library (libguard.h): decided before anything of the stick is touched, and before the wait for it.
     static LibGuard g(c->fs, c->board && c->board->boot_cfg ? c->board->boot_cfg : FS_FLASH_BOOT_MULTICORE);

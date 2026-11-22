@@ -58,6 +58,47 @@ public:
     // The lists of an application's blocks and files are touched by its tasks and the base's: a host with tasks gives a critical section.
     virtual void enter() { }
     virtual void leave() { }
+    // ---- base 3.3 (svc_sync.h, svc_sys.h, svc_board.h): what the machine gives a library beyond the heap. The defaults serve a host with one task and no board:
+    // a mutex is one flag in a block of the heap (a second lock waits for nothing and times out), the rest answers "not there".
+    virtual void *mutex_new()
+    {
+        uint8_t *p = (uint8_t *)alloc(16);
+        if (p) {
+            *p = 0;
+        }
+        return p;
+    }
+    // timeout_ms 0 tries once, SYNC_FOREVER (0xFFFFFFFF) waits without a limit, any other value waits that long (the board rounds up to its tick)
+    virtual bool mutex_lock(void *m, uint32_t timeout_ms)
+    {
+        (void)timeout_ms;
+        uint8_t *p = (uint8_t *)m;
+        if (!p || *p) {
+            return false;
+        }
+        *p = 1;
+        return true;
+    }
+    virtual void mutex_unlock(void *m) { if (m) { *(uint8_t *)m = 0; } }
+    virtual void mutex_free(void *m) { if (m) { release(m); } }
+    virtual uint16_t ms_timer() { return (uint16_t)now_ms(); }            // the 1 ms hardware counter of the ITU, 16 bit
+    virtual const char *app_version() { return ""; }                      // the version text of the application image, and its short git hash (gitinfo.h)
+    virtual const char *app_git() { return ""; }
+    virtual void yield() { }
+    virtual uint32_t fpga_caps() { return 0; }                            // the ITU capability register
+    virtual bool is_commodore() { return false; }
+    virtual int esp32_rpc(uint8_t cmd, const uint8_t *args, int nargs, uint8_t *reply, int maxreply, int timeout_ms)
+    {
+        (void)cmd; (void)args; (void)nargs; (void)reply; (void)maxreply; (void)timeout_ms;
+        return -3;                                                        // no link
+    }
+    virtual void video_set_system(struct CoreCtx *c, int sys) { (void)c; (void)sys; }
+    virtual void video_set_pll(int sys, int ppm) { (void)sys; (void)ppm; }
+    // The SID sockets' expander (0x40 on the 1.8 V channel): open takes the bus lock "SID Configuration" and picks the channel (false: no bus, or no lock),
+    // write is one register, close gives the lock back.
+    virtual bool sid_i2c_open() { return false; }
+    virtual void sid_i2c_write(uint8_t reg, uint8_t v) { (void)reg; (void)v; }
+    virtual void sid_i2c_close() { }
     enum { LIB_HOST_CANNOT_RUN = -0x7FFF };
 
 protected:
@@ -85,6 +126,13 @@ enum LibRc {
 #define LIB_ERR_MAX 240
 
 struct DescRecord;
+struct CoreCtx;
+// One mutex of api->sync (svc_sync.h): the host's own object and the place in the account of the library that made it.
+struct SvcMutex {
+    void *h;
+    SvcMutex *next, *prev;
+    int32_t owner;
+};
 struct LibInfo {
     char name[U2A3_NAME_MAX];
     uint32_t version;
@@ -136,8 +184,16 @@ public:
     // loaded before the core starts get theirs from the menu merge, run.cc, which calls this afterwards).
     void set_poll_sink(LibPollSink *s) { polls_ = s; }
 
-    // The context the operations of api->ops run with (the menu's CoreCtx); none: api->ops answers OPE_UNSUPPORTED.
-    void set_ctx(CoreCtx *c) { ctx_ = c; }
+    // The context the operations of api->ops run with (the menu's CoreCtx); none: api->ops answers OPE_UNSUPPORTED. It is also the core that the groups settings, ctx, io
+    // and board of base 3.3 act on; api->io is null for a context without a register window (no io, or a core with no machine: CoreDesc::menu_first).
+    void set_ctx(CoreCtx *c);
+    // Base 3.3 (libsvc.cc, svc_*.h): fills the groups sync, settings, ctx, io and board of api. The core application calls it once, when it makes the loader (libboard.cc), and links
+    // libsvc.cc; a loader of another application (the host's zip reader) does not, and its api has those five groups null. The members 3.3 added to api->sys and api->fs are in every loader.
+    void add_services();
+    // How a setting's value is put into the core (SvcSettings::apply): the application hands over regset_apply_setting (regset.h). Null: apply does nothing.
+    void set_settings_apply(void (*fn)(CoreCtx *, int)) { apply_ = fn; }
+    // The state "net.gated" (svc_settings.h): true while the REST token gate is on. Null: never gated.
+    void set_gate_probe(bool (*fn)(void)) { gated_ = fn; }
     // The groups the base fills in itself (appsvc.cc): dialogs, jobs, the debug block, the network. Null: the application finds a null pointer.
     void set_dlg(const SvcDlg *t) { api_.dlg = t; }
     void set_job(const SvcJob *t) { api_.job = t; }
@@ -218,6 +274,21 @@ private:
     SvcLib lib_;
     SvcFs fs_;
     SvcFile *files_[LIB_MAX + 1];         // the open files of api->fs, one list per slot as acct_
+    // base 3.3 (libsvc.cc): the groups the base fills for every library and application
+    SvcSync sync_;
+    SvcSettings settings_;
+    SvcCtx ctxtab_;
+    SvcIo io_;
+    SvcBoard board_;
+    SvcMutex *mus_[LIB_MAX + 1];          // the mutexes of api->sync, one list per slot as acct_
+    void (*apply_)(CoreCtx *, int);
+    bool (*gated_)(void);
+    uint8_t sid_ctrl_;                    // the control byte of the two SID sockets (board.sid_socket)
+    friend struct LibSvc;
+    bool services_;                       // add_services ran
+    const char *(*extra_state_)(CoreCtx *, const char *);   // libsvc.cc: "set.<key>" and "net.gated", before the registry
+    void free_mutexes(int si);
+    uint32_t mutex_bytes(int a) const;
 
     // OpScope (opscope.h): the registry runs a library's handler; its allocations are that library's from here to leave()
     int enter(int slot) override;
@@ -243,6 +314,13 @@ private:
     static bool svc_fsync(SvcFile *f);
     static void svc_close(SvcFile *f);
     static int svc_list(const char *dir, SvcFsEntry *out, int max);
+    static int svc_list_long(const char *dir, SvcFsEntryLong *out, int max);
+    static uint16_t svc_ms_timer(void);
+    static void svc_yield(void);
+    static void svc_delay_us(uint32_t us);
+    static bool svc_wall_time(uint8_t t[6]);
+    static const char *svc_app_version(void);
+    static const char *svc_app_git(void);
     static bool svc_stat(const char *path, uint64_t *size, bool *dir);
     static int svc_load(const char *path, void *buf, uint32_t max);
     static bool svc_save(const char *path, const void *buf, uint32_t len);
@@ -250,6 +328,7 @@ private:
     static bool svc_mkdir(const char *path);
     static bool svc_rename(const char *from, const char *to);
     static CoreFs *fs_of();               // the core's CoreFs, null without a context
+    static LibLoader *self();             // the one loader of the application (the service functions carry no context)
     void free_account(int si);
     Blk **list_of(int owner) { return &acct_[owner < 0 ? LIB_MAX : owner]; }
 

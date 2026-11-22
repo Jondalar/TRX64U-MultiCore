@@ -10,13 +10,15 @@ static void no_log(const char *) { }
 
 // The service table's functions are plain C pointers without a context: they reach the one loader of the application through this.
 static LibLoader *s_ld;
+LibLoader *LibLoader::self() { return s_ld; }
 
 LibLoader::LibLoader(LibHost *host, OpRegistry *reg, uint16_t base_minor)
-    : host_(host), reg_(reg), base_minor_(base_minor), polls_(0), count_(0), cur_(-1), ctx_(0), c64api_(0)
+    : host_(host), reg_(reg), base_minor_(base_minor), polls_(0), count_(0), cur_(-1), ctx_(0), apply_(0), gated_(0), sid_ctrl_(0), services_(false), extra_state_(0), c64api_(0)
 {
     memset(slot_, 0, sizeof(slot_));
     memset(acct_, 0, sizeof(acct_));
     memset(files_, 0, sizeof(files_));
+    memset(mus_, 0, sizeof(mus_));
     s_ld = this;
     reg_->set_scope(this);
     sys_.size = sizeof(sys_);
@@ -51,6 +53,18 @@ LibLoader::LibLoader(LibHost *host, OpRegistry *reg, uint16_t base_minor)
     fs_.remove = svc_remove;
     fs_.mkdir = svc_mkdir;
     fs_.rename = svc_rename;
+    sys_.ms_timer = svc_ms_timer;                       // base 3.3 (svc_sys.h, svc_fs.h)
+    sys_.yield = svc_yield;
+    sys_.delay_us = svc_delay_us;
+    sys_.wall_time = svc_wall_time;
+    sys_.app_version = svc_app_version;
+    sys_.app_git = svc_app_git;
+    fs_.list_long = svc_list_long;
+    memset(&sync_, 0, sizeof(sync_));
+    memset(&settings_, 0, sizeof(settings_));
+    memset(&ctxtab_, 0, sizeof(ctxtab_));
+    memset(&io_, 0, sizeof(io_));
+    memset(&board_, 0, sizeof(board_));
     api_.struct_size = sizeof(api_);
     api_.abi_major = U2A_ABI_MAJOR;
     api_.abi_minor = base_minor;
@@ -65,6 +79,37 @@ LibLoader::LibLoader(LibHost *host, OpRegistry *reg, uint16_t base_minor)
     api_.net = 0;
     api_.c64 = 0;
     api_.lib = &lib_;
+    api_.sync = 0;                                      // add_services
+    api_.settings = 0;
+    api_.ctx = 0;
+    api_.io = 0;                                        // and set_ctx: a context with a register window
+    api_.board = 0;
+}
+
+void LibLoader::set_ctx(CoreCtx *c)
+{
+    ctx_ = c;
+    api_.io = services_ && c && c->io && !(c->desc && c->desc->menu_first) ? &io_ : 0;
+}
+
+void LibLoader::free_mutexes(int si)
+{
+    SvcMutex **head = &mus_[si < 0 ? LIB_MAX : si];
+    while (*head) {
+        SvcMutex *m = *head;
+        *head = m->next;
+        host_->mutex_free(m->h);
+        host_->release(m);
+    }
+}
+
+uint32_t LibLoader::mutex_bytes(int a) const
+{
+    uint32_t n = 0;
+    for (const SvcMutex *m = mus_[a]; m; m = m->next) {
+        n += (uint32_t)sizeof(SvcMutex);
+    }
+    return n;
 }
 
 LibLoader::~LibLoader()
@@ -292,7 +337,16 @@ const void *LibLoader::svc_lib_find(const char *name, uint32_t min_version, uint
 const char *LibLoader::svc_state(const char *name, uint32_t *rev)
 {
     LibLoader *L = s_ld;
-    return L->ctx_ ? L->reg_->state(L->ctx_, name, rev) : 0;
+    if (!L->ctx_) {
+        return 0;
+    }
+    if (L->extra_state_ && (!strncmp(name, "set.", 4) || !strcmp(name, "net.gated"))) {       // base 3.3 (svc_settings.h): states of the base, not of the registry
+        if (rev) {
+            *rev = 0;
+        }
+        return L->extra_state_(L->ctx_, name);
+    }
+    return L->reg_->state(L->ctx_, name, rev);
 }
 
 // ---- api->fs: the core's CoreFs with the rule of fsif.h applied here as well, so a CoreFs that forgets it does not open the flash to an app
@@ -393,6 +447,51 @@ int LibLoader::svc_list(const char *dir, SvcFsEntry *out, int max)
     s_ld->host_->release(tmp);
     return n;
 }
+// base 3.3 list_long: SvcFsEntryLong is FsEntry (libapi.h checks it), so the caller's array is the listing's. max <= 0 counts: CoreFs::list stops at max, so the count is taken with the
+// 72 byte entries of list_short in a block of the heap that doubles until the listing fits (-1 when the heap has no room for it).
+int LibLoader::svc_list_long(const char *dir, SvcFsEntryLong *out, int max)
+{
+    CoreFs *fs = fs_of();
+    if (!fs || !dir) {
+        return -1;
+    }
+    if (max > 0) {
+        return fs->list(dir, (FsEntry *)out, max);
+    }
+    for (int cap = 64; cap <= 16384; cap *= 2) {
+        FsEntryShort *tmp = (FsEntryShort *)s_ld->host_->alloc((uint32_t)cap * sizeof(FsEntryShort));
+        if (!tmp) {
+            return -1;
+        }
+        int n = fs->list_short(dir, tmp, cap);
+        s_ld->host_->release(tmp);
+        if (n < cap) {
+            return n;
+        }
+    }
+    return -1;
+}
+uint16_t LibLoader::svc_ms_timer(void) { return s_ld->host_->ms_timer(); }
+void LibLoader::svc_yield(void) { s_ld->host_->yield(); }
+const char *LibLoader::svc_app_version(void) { return s_ld->host_->app_version(); }
+const char *LibLoader::svc_app_git(void) { return s_ld->host_->app_git(); }
+void LibLoader::svc_delay_us(uint32_t us)
+{
+    CoreIo *io = s_ld->ctx_ ? s_ld->ctx_->io : 0;
+    if (io) {
+        io->delay_us(us);
+    }
+}
+bool LibLoader::svc_wall_time(uint8_t t[6])
+{
+    CoreIo *io = s_ld->ctx_ ? s_ld->ctx_->io : 0;
+    uint8_t w[6];
+    if (!io || !io->wall_time(w) || w[0] < 20) {                      // no clock, or one that was never set (the year reads before 2020)
+        return false;
+    }
+    memcpy(t, w, 6);
+    return true;
+}
 bool LibLoader::svc_stat(const char *path, uint64_t *size, bool *dir) { CoreFs *fs = fs_of(); return fs && path && fs->stat(path, size, dir); }
 int LibLoader::svc_load(const char *path, void *buf, uint32_t max) { CoreFs *fs = fs_of(); return fs && path ? fs->load(path, buf, max) : -1; }
 
@@ -438,6 +537,7 @@ void LibLoader::free_account(int si)
         f->fs->close(f->f);
         host_->release(f);
     }
+    free_mutexes(si);
     Blk **head = list_of(si);
     while (*head) {
         Blk *b = *head;
@@ -476,6 +576,7 @@ uint32_t LibLoader::held_bytes(int handle) const
     for (const SvcFile *f = files_[a]; f; f = f->next) {
         n += (uint32_t)sizeof(SvcFile);
     }
+    n += mutex_bytes(a);
     if (a < LIB_MAX && slot_[a].used) {
         n += slot_[a].raw_size + slot_[a].menu_cost;
     }

@@ -1,0 +1,469 @@
+// Base 3.3 of the library API (T239.3 section 5): the groups sync, settings, ctx, io and board that follow `lib` in LibApi (the members added to SvcSys and SvcFs are in libload.cc).
+// They are the generic application's own services, the contracts are the comments of the svc_*.h headers. Pure: what needs the
+// machine (a mutex, the 1 ms counter, the ESP32, the PLL, the SID expander) is a LibHost virtual, what needs the core is the CoreCtx the loader was given (set_ctx).
+#include "libload.h"
+#include "ctx.h"
+#include "corefolder.h"
+#include <stdio.h>
+#include <string.h>
+#include <strings.h>
+#include <ctype.h>
+
+struct LibSvc {
+    static LibLoader *L() { return LibLoader::self(); }
+    static CoreCtx *C() { return L() ? L()->ctx_ : 0; }
+    static CoreIo *IO() { CoreCtx *c = C(); return c ? c->io : 0; }
+    static Settings *S() { CoreCtx *c = C(); return c ? c->settings : 0; }
+    static bool six(const Settings *s, int ix) { return s && ix >= 0 && ix < s->count(); }
+
+    // ---- sync (svc_sync.h)
+    static SvcMutex *mutex_new()
+    {
+        LibLoader *l = L();
+        SvcMutex *m = (SvcMutex *)l->host_->alloc(sizeof(SvcMutex));
+        if (!m) {
+            return 0;
+        }
+        m->h = l->host_->mutex_new();
+        if (!m->h) {
+            l->host_->release(m);
+            return 0;
+        }
+        int owner = l->owner();
+        m->owner = owner;
+        l->host_->enter();
+        SvcMutex **head = &l->mus_[owner < 0 ? LIB_MAX : owner];
+        m->prev = 0;
+        m->next = *head;
+        if (*head) {
+            (*head)->prev = m;
+        }
+        *head = m;
+        l->host_->leave();
+        return m;
+    }
+    static bool mutex_lock(SvcMutex *m, uint32_t timeout_ms) { return m && L()->host_->mutex_lock(m->h, timeout_ms); }
+    static void mutex_unlock(SvcMutex *m)
+    {
+        if (m) {
+            L()->host_->mutex_unlock(m->h);
+        }
+    }
+    static void mutex_free(SvcMutex *m)
+    {
+        if (!m) {
+            return;
+        }
+        LibLoader *l = L();
+        l->host_->enter();
+        SvcMutex **head = &l->mus_[m->owner < 0 ? LIB_MAX : m->owner];
+        if (m->prev) {
+            m->prev->next = m->next;
+        } else {
+            *head = m->next;
+        }
+        if (m->next) {
+            m->next->prev = m->prev;
+        }
+        l->host_->leave();
+        l->host_->mutex_free(m->h);
+        l->host_->release(m);
+    }
+    static void enter() { L()->host_->enter(); }
+    static void leave() { L()->host_->leave(); }
+
+    // ---- settings (svc_settings.h)
+    static uint32_t generation() { Settings *s = S(); return s ? s->generation() : 0; }
+    static int find(const char *key) { Settings *s = S(); return s && key ? s->find(key) : -1; }
+    static int value(int ix)
+    {
+        Settings *s = S();
+        return six(s, ix) && !s->item(ix).kind ? s->value(ix) : -1;
+    }
+    static const char *text(int ix)
+    {
+        Settings *s = S();
+        return six(s, ix) ? s->text(ix) : "";
+    }
+    static int layer(int ix)
+    {
+        Settings *s = S();
+        return six(s, ix) ? (int)s->layer(ix) : -1;
+    }
+    static bool set(int ix, int v)
+    {
+        Settings *s = S();
+        return six(s, ix) && !s->item(ix).kind && s->set(ix, v);
+    }
+    static void override_value(int ix, int v)
+    {
+        Settings *s = S();
+        if (six(s, ix)) {
+            s->override_value(ix, v);
+        }
+    }
+    static void apply(int ix)
+    {
+        LibLoader *l = L();
+        CoreCtx *c = l->ctx_;
+        if (c && six(c->settings, ix) && l->apply_) {
+            l->apply_(c, ix);
+        }
+    }
+    static bool info(int ix, int *nvalues, int *base)
+    {
+        Settings *s = S();
+        if (!six(s, ix)) {
+            return false;
+        }
+        if (nvalues) {
+            *nvalues = s->item(ix).nvalues;
+        }
+        if (base) {
+            *base = s->item(ix).base;
+        }
+        return true;
+    }
+    static bool extra_get(const char *key, char *val, int n)
+    {
+        Settings *s = S();
+        if (!s || !key || !val || n <= 0) {
+            return false;
+        }
+        return s->extra_get(key, val, n);
+    }
+    static bool extra_set(const char *key, const char *val)
+    {
+        Settings *s = S();
+        return s && key && val && s->extra_set(key, val);
+    }
+    static int cfg_value(const char *key, int def)
+    {
+        Settings *s = S();
+        int ix = s && key ? s->find(key) : -1;
+        return ix >= 0 && !s->item(ix).kind ? s->value(ix) : def;
+    }
+    static const char *cfg_text(const char *key)
+    {
+        Settings *s = S();
+        int ix = s && key ? s->find(key) : -1;
+        const char *t = ix >= 0 ? s->text(ix) : "";
+        while (*t == ' ') {
+            t++;
+        }
+        return t;
+    }
+
+    // ---- ctx (svc_ctx.h)
+    static uint32_t state()
+    {
+        CoreCtx *c = C();
+        if (!c) {
+            return 0;
+        }
+        return (c->started ? CTX_STARTED : 0u) | (c->paused ? CTX_PAUSED : 0u) | (c->frozen ? CTX_FROZEN : 0u) | (c->menu_open ? CTX_MENU_OPEN : 0u);
+    }
+    static void set_paused(bool on)
+    {
+        CoreCtx *c = C();
+        if (c) {
+            c->paused = on;
+        }
+    }
+    static bool notice(const char *text, bool only_if_free)
+    {
+        CoreCtx *c = C();
+        if (!c || !text || (only_if_free && c->notice_pending)) {
+            return false;
+        }
+        snprintf(c->notice, sizeof(c->notice), "%s", text);
+        c->notice_pending = true;
+        return true;
+    }
+    static const char *media_dir()
+    {
+        CoreCtx *c = C();
+        return c ? c->media_dir : "";
+    }
+    static bool target_path(const char *name, const char *ext, char *out, int n)
+    {
+        CoreCtx *c = C();
+        return c && name && out && n > 0 && ctx_target_path(c, name, ext ? ext : "", out, n);
+    }
+    static bool core_folder(const char *sub, char *out, int n)
+    {
+        CoreCtx *c = C();
+        if (!out || n <= 0) {
+            return false;
+        }
+        out[0] = 0;
+        if (!c || !c->cor_path[0]) {
+            return false;
+        }
+        return sub && sub[0] ? corefolder_sub(c->cor_path, sub, out, n) : corefolder_dir(c->cor_path, out, n);
+    }
+    static bool job_step() { CoreCtx *c = C(); return c && c->job_step; }
+    static bool job_cancelled()
+    {
+        CoreCtx *c = C();
+        bool was = c && c->job_cancel;
+        if (was) {
+            c->job_cancel = false;
+        }
+        return was;
+    }
+    static void job_progress(int pct, const char *path)
+    {
+        CoreCtx *c = C();
+        if (!c) {
+            return;
+        }
+        c->job_pct = pct < 0 ? 0 : (pct > 100 ? 100 : pct);
+        if (path) {
+            snprintf(c->job_path, sizeof(c->job_path), "%s", path);
+        }
+    }
+    // the name of a slot without its colon, compared without regard to case
+    static bool same_slot(const char *have, const char *want)
+    {
+        size_t hl = strlen(have), wl = strlen(want);
+        hl -= hl && have[hl - 1] == ':';
+        wl -= wl && want[wl - 1] == ':';
+        return hl == wl && !strncasecmp(have, want, hl);
+    }
+    static bool media_source(const char *slot, char *buf, int len)
+    {
+        CoreCtx *c = C();
+        if (!buf || len <= 0) {
+            return false;
+        }
+        buf[0] = 0;
+        if (!c || !c->desc || !slot || !slot[0]) {
+            return false;
+        }
+        const MountSlots *ms = c->desc->mount_slots;
+        for (int i = 0; ms && i < ms->n; i++) {
+            if (same_slot(ms->names[i], slot)) {
+                const char *spec = ms->spec(c, i);
+                if (!spec || !spec[0]) {
+                    return false;
+                }
+                snprintf(buf, len, "%s", spec);
+                return true;
+            }
+        }
+        // a media slot of the descriptor: what its state says, when that is a spec (the medium's path, a word in front allowed; a path starts with '/')
+        for (int i = 0; i < c->desc->nmedia; i++) {
+            const MediaSlot &m = c->desc->media[i];
+            if (m.name && m.state && same_slot(m.name, slot)) {
+                const char *t = c->ops ? c->ops->state(c, m.state, 0) : 0;
+                if (!t || !(t[0] == '/' || strstr(t, " /"))) {
+                    return false;
+                }
+                snprintf(buf, len, "%s", t);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // ---- io (svc_io.h)
+    static uint8_t rd(uint32_t reg) { CoreIo *io = IO(); return io ? io->rd(reg) : 0; }
+    static void wr(uint32_t reg, uint8_t v) { CoreIo *io = IO(); if (io) io->wr(reg, v); }
+    static void ddr_read(uint32_t off, void *p, uint32_t n) { CoreIo *io = IO(); if (io) io->ddr_read(off, p, n); else memset(p, 0, n); }
+    static void ddr_write(uint32_t off, const void *p, uint32_t n) { CoreIo *io = IO(); if (io) io->ddr_write(off, p, n); }
+    static void rom_read(uint32_t off, void *p, uint32_t n) { CoreIo *io = IO(); if (io) io->rom_read(off, p, n); else memset(p, 0, n); }
+    static void rom_write(uint32_t off, const void *p, uint32_t n) { CoreIo *io = IO(); if (io) io->rom_write(off, p, n); }
+    static void ram_read(uint32_t a, void *p, uint32_t n) { CoreIo *io = IO(); if (io) io->ram_read(a, p, n); else memset(p, 0, n); }
+    static void ram_write(uint32_t a, const void *p, uint32_t n) { CoreIo *io = IO(); if (io) io->ram_write(a, p, n); }
+    static void ram_memonly(bool on) { CoreIo *io = IO(); if (io) io->ram_memonly(on); }
+    static uint8_t drv_rd(uint32_t off) { CoreIo *io = IO(); return io ? io->drv_rd(off) : 0; }
+    static void drv_wr(uint32_t off, uint8_t v) { CoreIo *io = IO(); if (io) io->drv_wr(off, v); }
+    static void ddr_abs_read(uint32_t a, void *p, uint32_t n) { CoreIo *io = IO(); if (io) io->ddr_abs_read(a, p, n); else memset(p, 0, n); }
+    static void ddr_abs_write(uint32_t a, const void *p, uint32_t n) { CoreIo *io = IO(); if (io) io->ddr_abs_write(a, p, n); }
+    static uint8_t cart_rd(uint32_t reg) { CoreIo *io = IO(); return io ? io->cart_rd(reg) : 0; }
+    static void cart_wr(uint32_t reg, uint8_t v) { CoreIo *io = IO(); if (io) io->cart_wr(reg, v); }
+    static void bus_wr(uint32_t off, uint8_t v) { CoreIo *io = IO(); if (io) io->bus_wr(off, v); }
+    static uint8_t bus_rd(uint32_t off) { CoreIo *io = IO(); return io ? io->bus_rd(off) : 0; }
+    static void eeprom_read(uint32_t off, void *p, uint32_t n) { CoreIo *io = IO(); if (io) io->eeprom_read(off, p, n); else memset(p, 0, n); }
+    static void eeprom_write(uint32_t off, const void *p, uint32_t n) { CoreIo *io = IO(); if (io) io->eeprom_write(off, p, n); }
+    static bool keys_read(uint8_t m[8], bool *restore) { CoreIo *io = IO(); return io && io->keys_read(m, restore); }
+    static void stop(bool on) { CoreIo *io = IO(); if (io) io->stop(on); }
+    static void mode_reset(bool on) { CoreIo *io = IO(); if (io) io->mode_reset(on); }
+    static void video_format(uint8_t v) { CoreIo *io = IO(); if (io) io->video_format(v); }
+    static volatile uint8_t *window(const char *name, uint32_t *size)
+    {
+        (void)name;
+        if (size) {
+            *size = 0;                                   // the API TOML's windows are read in a later step: none is granted yet
+        }
+        return 0;
+    }
+
+    // ---- board (svc_board.h)
+    static uint32_t fpga_caps() { return L()->host_->fpga_caps(); }
+    static bool is_commodore() { return L()->host_->is_commodore(); }
+    static int esp32_rpc(uint8_t cmd, const uint8_t *args, int nargs, uint8_t *reply, int maxreply, int timeout_ms)
+    {
+        return L()->host_->esp32_rpc(cmd, args, nargs, reply, maxreply, timeout_ms);
+    }
+    static void video_set_system(int sys) { L()->host_->video_set_system(C(), sys); }
+    static void video_set_pll(int sys, int ppm) { L()->host_->video_set_pll(sys, ppm); }
+    // The control byte of the expander: bits 3:0 socket 0, 7:4 socket 1. A nibble: bits 1:0 the supply (00 off, 10 on, 11 on for a 6581), bit 2 the 1 kOhm shunt, bit 3 the
+    // filter capacitor option, inverted (the setting says 1 for "capacitors on", the line says 0).
+    static int sid_socket(int socket, int state, bool shunt, bool filter_caps)
+    {
+        LibLoader *l = L();
+        if (socket < 0 || socket > 1 || state < SID_SOCKET_OFF || state > SID_SOCKET_ON_TYPE1) {
+            return -1;
+        }
+        uint8_t supply = state == SID_SOCKET_OFF ? 0 : (state == SID_SOCKET_ON ? 2 : 3);
+        uint8_t nib = (uint8_t)(supply | (shunt ? 4 : 0) | (filter_caps ? 0 : 8));
+        l->sid_ctrl_ = socket ? (uint8_t)((l->sid_ctrl_ & 0x0F) | (nib << 4)) : (uint8_t)((l->sid_ctrl_ & 0xF0) | nib);
+        if (l->host_->sid_i2c_open()) {
+            l->host_->sid_i2c_write(0x01, l->sid_ctrl_);
+            l->host_->sid_i2c_write(0x03, 0x00);
+            l->host_->sid_i2c_close();
+        }
+        return 0;
+    }
+    static void case_led_select(uint8_t v) { CoreIo *io = IO(); if (io) io->case_led_select(v); }
+
+    // "set.<Key>" (a space in the key is written '_', the case is folded): the value in force of the setting <Key> as text, null when the core has no such setting;
+    // "net.gated": "yes" while the REST token gate is on.
+    static const char *extra_state(CoreCtx *c, const char *name)
+    {
+        if (!strcmp(name, "net.gated")) {
+            LibLoader *l = L();
+            return l && l->gated_ && l->gated_() ? "yes" : 0;
+        }
+        if (!c || !c->settings) {
+            return 0;
+        }
+        const Settings *s = c->settings;
+        for (int i = 0; i < s->count(); i++) {
+            const char *a = s->item(i).key, *b = name + 4;
+            while (*a && *b && (*a == ' ' ? '_' : tolower((unsigned char)*a)) == (*b == ' ' ? '_' : tolower((unsigned char)*b))) {
+                a++;
+                b++;
+            }
+            if (!*a && !*b) {
+                const Setting &it = s->item(i);
+                return it.kind ? s->text(i) : it.values[s->value(i)];
+            }
+        }
+        return 0;
+    }
+
+    static bool has_window(const CoreCtx *c) { return c && c->io && !(c->desc && c->desc->menu_first); }
+};
+
+void LibLoader::add_services()
+{
+    services_ = true;
+    extra_state_ = LibSvc::extra_state;
+    api_.sync = &sync_;
+    api_.settings = &settings_;
+    api_.ctx = &ctxtab_;
+    api_.board = &board_;
+    api_.io = LibSvc::has_window(ctx_) ? &io_ : 0;
+    memset(&sync_, 0, sizeof(sync_));
+    sync_.size = sizeof(sync_);
+    sync_.mutex_new = LibSvc::mutex_new;
+    sync_.mutex_lock = LibSvc::mutex_lock;
+    sync_.mutex_unlock = LibSvc::mutex_unlock;
+    sync_.mutex_free = LibSvc::mutex_free;
+    sync_.enter = LibSvc::enter;
+    sync_.leave = LibSvc::leave;
+
+    memset(&settings_, 0, sizeof(settings_));
+    settings_.size = sizeof(settings_);
+    settings_.generation = LibSvc::generation;
+    settings_.find = LibSvc::find;
+    settings_.value = LibSvc::value;
+    settings_.text = LibSvc::text;
+    settings_.layer = LibSvc::layer;
+    settings_.set = LibSvc::set;
+    settings_.override_value = LibSvc::override_value;
+    settings_.apply = LibSvc::apply;
+    settings_.info = LibSvc::info;
+    settings_.extra_get = LibSvc::extra_get;
+    settings_.extra_set = LibSvc::extra_set;
+    settings_.cfg_value = LibSvc::cfg_value;
+    settings_.cfg_text = LibSvc::cfg_text;
+
+    memset(&ctxtab_, 0, sizeof(ctxtab_));
+    ctxtab_.size = sizeof(ctxtab_);
+    ctxtab_.state = LibSvc::state;
+    ctxtab_.set_paused = LibSvc::set_paused;
+    ctxtab_.notice = LibSvc::notice;
+    ctxtab_.media_dir = LibSvc::media_dir;
+    ctxtab_.target_path = LibSvc::target_path;
+    ctxtab_.core_folder = LibSvc::core_folder;
+    ctxtab_.job_step = LibSvc::job_step;
+    ctxtab_.job_cancelled = LibSvc::job_cancelled;
+    ctxtab_.job_progress = LibSvc::job_progress;
+    ctxtab_.media_source = LibSvc::media_source;
+
+    memset(&io_, 0, sizeof(io_));
+    io_.size = sizeof(io_);
+    io_.rd = LibSvc::rd;
+    io_.wr = LibSvc::wr;
+    io_.ddr_read = LibSvc::ddr_read;
+    io_.ddr_write = LibSvc::ddr_write;
+    io_.rom_read = LibSvc::rom_read;
+    io_.rom_write = LibSvc::rom_write;
+    io_.ram_read = LibSvc::ram_read;
+    io_.ram_write = LibSvc::ram_write;
+    io_.ram_memonly = LibSvc::ram_memonly;
+    io_.drv_rd = LibSvc::drv_rd;
+    io_.drv_wr = LibSvc::drv_wr;
+    io_.ddr_abs_read = LibSvc::ddr_abs_read;
+    io_.ddr_abs_write = LibSvc::ddr_abs_write;
+    io_.cart_rd = LibSvc::cart_rd;
+    io_.cart_wr = LibSvc::cart_wr;
+    io_.bus_wr = LibSvc::bus_wr;
+    io_.bus_rd = LibSvc::bus_rd;
+    io_.eeprom_read = LibSvc::eeprom_read;
+    io_.eeprom_write = LibSvc::eeprom_write;
+    io_.keys_read = LibSvc::keys_read;
+    io_.stop = LibSvc::stop;
+    io_.mode_reset = LibSvc::mode_reset;
+    io_.video_format = LibSvc::video_format;
+    io_.delay_us = LibLoader::svc_delay_us;           // the same call as sys.delay_us
+    io_.window = LibSvc::window;
+
+    memset(&board_, 0, sizeof(board_));
+    board_.size = sizeof(board_);
+    board_.fpga_caps = LibSvc::fpga_caps;
+    board_.is_commodore = LibSvc::is_commodore;
+    board_.esp32_rpc = LibSvc::esp32_rpc;
+    board_.video_set_system = LibSvc::video_set_system;
+    board_.video_set_pll = LibSvc::video_set_pll;
+    board_.sid_socket = LibSvc::sid_socket;
+    board_.case_led_select = LibSvc::case_led_select;
+}
+
+// where a file of the menu goes: the folder the menu was on (MenuCtl::note_folder), else the first medium; the extension is added when the name has none
+bool ctx_target_path(CoreCtx *c, const char *name, const char *ext, char *out, int n)
+{
+    char dir[200];
+    snprintf(dir, sizeof(dir), "%s", c->media_dir);
+    if (!dir[0] && c->fs) {
+        FsEntry r[4];
+        int k = c->fs->list("/", r, 4);
+        for (int i = 0; i < k; i++) {
+            if (strcasecmp(r[i].name, "flash")) {
+                snprintf(dir, sizeof(dir), "/%s", r[i].name);
+                break;
+            }
+        }
+    }
+    if (!dir[0]) {
+        return false;
+    }
+    const char *dot = strrchr(name, '.');
+    int dl = (int)strlen(dir);
+    snprintf(out, n, "%s%s%s%s", dir, dl && dir[dl - 1] == '/' ? "" : "/", name, dot ? "" : ext);
+    return true;
+}

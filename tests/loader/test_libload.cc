@@ -53,6 +53,19 @@ struct Model : LibHost {
     std::map<std::string, MainTwin> mains;
     uint32_t clock = 1000;
     std::vector<Entry> entries;
+    // base 3.3: a critical section that counts its depth, and a model of the SID sockets' I2C expander that records what it was written
+    int depth = 0, max_depth = 0, sid_opens = 0, sid_closes = 0;
+    std::vector<std::pair<int, int> > sid_writes;
+    bool sid_present = true;
+    uint32_t caps_v = 0x1234;
+    const char *app_version() override { return "9.8.7-test"; }
+    const char *app_git() override { return "abc1234"; }
+    void enter() override { depth++; if (depth > max_depth) { max_depth = depth; } }
+    void leave() override { depth--; }
+    bool sid_i2c_open() override { sid_opens += sid_present; return sid_present; }
+    void sid_i2c_write(uint8_t reg, uint8_t v) override { sid_writes.push_back(std::make_pair((int)reg, (int)v)); }
+    void sid_i2c_close() override { sid_closes++; }
+    uint32_t fpga_caps() override { return caps_v; }
 
     Model() : allocs(0), releases(0), syncs(0), register_calls(0), fail_alloc(false)
     {
@@ -2006,6 +2019,335 @@ static void named_exports()
     }
 }
 
+
+// ---------------------------------------------------------------------------------------------------- base 3.3: the groups of api (libsvc.cc)
+
+static const LibApi *g_sapi;
+static SvcMutex *g_kept_mutex;
+static const char *const v_speed[] = { "Slow", "Fast" };
+static const char *const v_name[] = { "abc" };
+static const char *const v_mode[] = { "Cursor keys", "Wheel" };
+static const char *const v_range[] = { "1", "2", "3", "4" };
+static Setting mk_setting(const char *key, const char *const *values, int nvalues, int def, uint8_t kind = 0, int base = 0)
+{
+    Setting s;
+    memset(&s, 0, sizeof(s));
+    s.key = key; s.values = values; s.nvalues = nvalues; s.def = def; s.kind = kind; s.base = base;
+    return s;
+}
+static int s_apply_ix = -1;
+static CoreCtx *s_apply_ctx;
+static const char *const m_names[] = { "Drive A", "Tape" };
+static const char *m_spec(CoreCtx *, int i) { return i == 0 ? "ro /usb0/x.d64" : 0; }
+static std::string st_of(const LibApi *api, const char *name)
+{
+    const char *t = api->ops->state(name, 0);
+    return t ? t : "(null)";
+}
+
+static void services()
+{
+    char err[LIB_ERR_MAX];
+    int h = -1;
+    // a loader that was not given the services (the host's reader of zip files): its groups are null and its tables end where base 3.2 ended
+    {
+        World w(U2A_BASE_MINOR);
+        w.m.twins["alpha"] = [](const LibHost::Entry &, const LibApi *api, LibRecord *) { g_sapi = api; return 0; };
+        CHECK_EQ(w.load(build(Img("alpha", "A")), &h, err), LIB_OK);
+        CHECK(!g_sapi->sync && !g_sapi->settings && !g_sapi->ctx && !g_sapi->io && !g_sapi->board);
+        CHECK(g_sapi->sys->size == sizeof(SvcSys) && g_sapi->fs->size == sizeof(SvcFs) && g_sapi->fs->list_long);      // the members added to sys and fs are in every loader
+    }
+    World w(U2A_BASE_MINOR);
+    w.ld->add_services();
+    FakeFs disk;
+    FakeIo io;
+    CoreDesc desc;
+    memset(&desc, 0, sizeof(desc));
+    CoreCtx cx;
+    memset(&cx, 0, sizeof(cx));
+    cx.fs = &disk;
+    cx.desc = &desc;
+    w.m.twins["alpha"] = [](const LibHost::Entry &, const LibApi *api, LibRecord *) {
+        g_sapi = api;
+        g_kept_mutex = api->sync->mutex_new();                 // never freed by the library
+        return 0;
+    };
+    std::string shape0 = w.m.shape();
+    CHECK_EQ(w.load(build(Img("alpha", "A")), &h, err), LIB_OK);
+    const LibApi *api = g_sapi;
+    CHECK(api->sync && api->settings && api->ctx && api->board && !api->io);              // no context yet: no register window
+    CHECK_EQ(api->sys->size, sizeof(SvcSys));
+    CHECK_EQ(api->fs->size, sizeof(SvcFs));
+    CHECK(api->sys->ms_timer && api->sys->yield && api->sys->delay_us && api->sys->wall_time && api->sys->app_version && api->sys->app_git && api->fs->list_long);
+    CHECK_EQ(api->sync->size, sizeof(SvcSync));
+    CHECK_EQ(api->io == 0 ? 0 : 1, 0);
+
+    // ---- io: a core with a register window gets the group, one without does not (no io, or a core with no machine)
+    cx.io = &io;
+    w.ld->set_ctx(&cx);
+    CHECK(api->io != 0 && api->io->size == sizeof(SvcIo));
+    api->io->wr(0x10, 0x5A);
+    CHECK_EQ(api->io->rd(0x10), 0x5A);
+    CHECK_EQ(io.regs[0x10], 0x5A);
+    CHECK_EQ(api->io->bus_rd(3), 0);                                                      // the default of CoreIo
+    uint32_t wsz = 77;
+    CHECK(api->io->window("video", &wsz) == 0 && wsz == 0);
+    api->io->delay_us(250);
+    CHECK_EQ(io.us, 250);
+    uint8_t keys[8] = { 0 };
+    bool rest = true;
+    io.key(3, true);
+    CHECK(api->io->keys_read(keys, &rest) && keys[0] == 8 && !rest);
+    api->io->stop(true);
+    CHECK(io.stopped);
+    api->io->video_format(0x21);
+    CHECK_EQ(io.vfmt, 0x21);
+    uint8_t buf4[4] = { 1, 2, 3, 4 };
+    api->io->ddr_write(16, buf4, 4);
+    uint8_t back4[4] = { 0 };
+    api->io->ddr_read(16, back4, 4);
+    CHECK(!memcmp(buf4, back4, 4));
+    desc.menu_first = true;                                                               // a core with no machine: no window
+    w.ld->set_ctx(&cx);
+    CHECK(api->io == 0);
+    desc.menu_first = false;
+    cx.io = 0;
+    w.ld->set_ctx(&cx);
+    CHECK(api->io == 0);
+    cx.io = &io;
+    w.ld->set_ctx(&cx);
+    CHECK(api->io != 0);
+
+    // ---- sys
+    CHECK_EQ(api->sys->ms_timer(), (uint16_t)w.m.clock);
+    CHECK_STR(api->sys->app_version(), "9.8.7-test");
+    CHECK_STR(api->sys->app_git(), "abc1234");
+    uint8_t wt[6] = { 9, 9, 9, 9, 9, 9 };
+    CHECK(!api->sys->wall_time(wt) && wt[0] == 9);                                        // the model has no clock: t is not written
+    uint64_t us0 = io.us;
+    api->sys->delay_us(40);
+    CHECK_EQ(io.us - us0, 40);
+    api->sys->yield();
+
+    // ---- fs.list_long: a name of 100 characters is whole
+    std::string longname(100, 'n');
+    disk.put_size("/USB0/" + longname + ".d64", 5);
+    disk.put_size("/USB0/b.d64", 5);
+    SvcFsEntryLong *ll = new SvcFsEntryLong[4];
+    CHECK_EQ(api->fs->list_long("/USB0", ll, 4), 2);
+    bool seen_long = false;
+    for (int i = 0; i < 2; i++) { seen_long |= !strcmp(ll[i].name, (longname + ".d64").c_str()) && ll[i].size == 5; }
+    CHECK(seen_long);
+    CHECK_EQ(api->fs->list_long("/USB0", ll, 1), 1);
+    CHECK_EQ(api->fs->list_long("/USB0", ll, 0), 2);
+    CHECK_EQ(api->fs->list_long("/nowhere", ll, 4), -1);
+    SvcFsEntry short_e[4];
+    CHECK_EQ(api->fs->list("/USB0", short_e, 4), 2);
+    bool cut = false;
+    for (int i = 0; i < 2; i++) { cut |= strlen(short_e[i].name) == 55; }
+    CHECK(cut);                                                                           // the old call still cuts at 55
+    delete[] ll;
+
+    // ---- sync: a critical section nests, a mutex times out on a second lock and is gone with its library
+    const SvcSync *sy = api->sync;
+    CHECK_EQ(w.m.depth, 0);
+    sy->enter();
+    sy->enter();
+    CHECK_EQ(w.m.depth, 2);
+    sy->leave();
+    CHECK_EQ(w.m.depth, 1);
+    sy->leave();
+    CHECK_EQ(w.m.depth, 0);
+    SvcMutex *mu = sy->mutex_new();
+    CHECK(mu != 0);
+    CHECK(sy->mutex_lock(mu, 0));
+    CHECK(!sy->mutex_lock(mu, 0));                                                        // not recursive: the second try fails at once
+    CHECK(!sy->mutex_lock(mu, 20));
+    sy->mutex_unlock(mu);
+    CHECK(sy->mutex_lock(mu, SYNC_FOREVER));
+    sy->mutex_unlock(mu);
+    CHECK(!sy->mutex_lock(0, 0));
+    sy->mutex_unlock(0);
+    sy->mutex_free(0);
+    uint32_t held_with = w.ld->held_total();
+    sy->mutex_free(mu);
+    CHECK(w.ld->held_total() < held_with);
+
+    // ---- settings over a real Settings
+    Setting items[4] = { mk_setting("Speed", v_speed, 2, 0), mk_setting("Name", v_name, 1, 0, 1), mk_setting("Mouse Mode", v_mode, 2, 1),
+                         mk_setting("Range", v_range, 4, 0, 0, 8) };
+    disk.put_text("/USB0/core.cfg", "");
+    Settings st(items, 4, "store", &disk, "/USB0/core.cfg", 0);
+    st.load();
+    const SvcSettings *se = api->settings;
+    CHECK_EQ(se->generation(), 0);                                                        // no Settings object yet
+    CHECK_EQ(se->find("speed"), -1);
+    cx.settings = &st;
+    uint32_t g0 = se->generation();
+    CHECK(g0 != 0);
+    CHECK_EQ(se->find("SPEED"), 0);
+    CHECK_EQ(se->find("mouse mode"), 2);
+    CHECK_EQ(se->find("nothing"), -1);
+    CHECK_EQ(se->value(0), 0);
+    CHECK_EQ(se->value(2), 1);
+    CHECK_EQ(se->value(1), -1);                                                           // a text setting has no value index
+    CHECK_EQ(se->value(9), -1);
+    CHECK_EQ(se->value(-1), -1);
+    CHECK_EQ(se->layer(0), 0);
+    CHECK_STR(se->text(1), "abc");
+    CHECK_STR(se->text(0), "");
+    CHECK_STR(se->text(9), "");
+    CHECK(se->set(0, 1));
+    CHECK_EQ(se->value(0), 1);
+    CHECK_EQ(se->layer(0), 2);
+    CHECK_STR(disk.text("/USB0/core.cfg").find("Speed") != std::string::npos ? "written" : "not written", "written");
+    CHECK(!se->set(0, 2) && !se->set(9, 0) && !se->set(1, 0));                            // a bad value, a bad index, a text setting
+    CHECK_EQ(se->value(0), 1);
+    se->override_value(0, 0);
+    CHECK_EQ(se->value(0), 0);
+    CHECK_EQ(se->layer(0), 2);                                                            // the stored layer is the same
+    se->override_value(1, 0);                                                             // a text setting: nothing
+    se->override_value(0, 7);                                                             // a bad value: nothing
+    CHECK_EQ(se->value(0), 0);
+    int nv = -1, base = -1;
+    CHECK(se->info(3, &nv, &base) && nv == 4 && base == 8);
+    nv = base = -5;
+    CHECK(!se->info(4, &nv, &base) && nv == -5 && base == -5);
+    CHECK_EQ(se->cfg_value("Speed", 9), 0);
+    CHECK_EQ(se->cfg_value("Nothing", 9), 9);
+    CHECK_EQ(se->cfg_value("Name", 9), 9);                                                // a text setting has no value
+    CHECK_STR(se->cfg_text("Name"), "abc");
+    CHECK_STR(se->cfg_text("Speed"), "");
+    CHECK_STR(se->cfg_text("Nothing"), "");
+    char xv[8] = "";
+    CHECK(se->extra_set("Pad 1 map", "u,d,l,r"));
+    CHECK(se->extra_get("pad 1 MAP", xv, sizeof(xv)) && !strcmp(xv, "u,d,l,r"));
+    CHECK(se->extra_get("Pad 1 map", xv, 4) && !strcmp(xv, "u,d"));                       // cut to n - 1
+    CHECK(!se->extra_get("Pad 2 map", xv, sizeof(xv)));
+    CHECK(!se->extra_set("Other", "x"));
+    // apply: the application's way of putting a value into the core, with the setting's index
+    s_apply_ix = -1;
+    se->apply(2);
+    CHECK_EQ(s_apply_ix, -1);                                                             // no hook given: nothing happens
+    w.ld->set_settings_apply([](CoreCtx *c, int ix) { s_apply_ctx = c; s_apply_ix = ix; });
+    se->apply(2);
+    CHECK(s_apply_ix == 2 && s_apply_ctx == &cx);
+    se->apply(9);
+    CHECK_EQ(s_apply_ix, 2);
+    // the states of the base
+    CHECK_STR(st_of(api, "set.Speed").c_str(), "Slow");
+    CHECK_STR(st_of(api, "set.mouse_mode").c_str(), "Wheel");
+    CHECK_STR(st_of(api, "set.Name").c_str(), "abc");
+    CHECK_STR(st_of(api, "set.nothing").c_str(), "(null)");
+    CHECK_STR(st_of(api, "net.gated").c_str(), "(null)");
+    w.ld->set_gate_probe([]() -> bool { return true; });
+    CHECK_STR(st_of(api, "net.gated").c_str(), "yes");
+    // a new config counts the generation up
+    st.rebind("/USB0/other.cfg");
+    CHECK(se->generation() != g0);
+    cx.settings = 0;                                                                      // no settings object: every call fails as a bad index does
+    CHECK(se->find("Speed") == -1 && se->value(0) == -1 && !se->set(0, 0) && !se->extra_set("Pad 1 map", "x") && se->cfg_value("Speed", 4) == 4);
+    cx.settings = &st;
+
+    // ---- ctx
+    const SvcCtx *cc = api->ctx;
+    CHECK_EQ(cc->state(), 0);
+    cx.started = true; cx.frozen = true; cx.menu_open = true;
+    CHECK_EQ(cc->state(), CTX_STARTED | CTX_FROZEN | CTX_MENU_OPEN);
+    cc->set_paused(true);
+    CHECK(cx.paused && (cc->state() & CTX_PAUSED));
+    cc->set_paused(false);
+    CHECK(!cx.paused);
+    CHECK(cc->notice("first", true) && cx.notice_pending && !strcmp(cx.notice, "first"));
+    CHECK(!cc->notice("second", true) && !strcmp(cx.notice, "first"));                    // only if free: a waiting notice stays
+    CHECK(cc->notice("third", false) && !strcmp(cx.notice, "third"));                     // the other rule replaces it
+    std::string longtext(300, 'x');
+    CHECK(cc->notice(longtext.c_str(), false) && strlen(cx.notice) == 199);
+    CHECK_STR(cc->media_dir(), "");
+    snprintf(cx.media_dir, sizeof(cx.media_dir), "/usb0/Saves");
+    CHECK_STR(cc->media_dir(), "/usb0/Saves");
+    char path[40];
+    CHECK(cc->target_path("snap", ".bin", path, sizeof(path)) && !strcmp(path, "/usb0/Saves/snap.bin"));
+    CHECK(cc->target_path("snap.reu", ".bin", path, sizeof(path)) && !strcmp(path, "/usb0/Saves/snap.reu"));
+    CHECK(cc->target_path("a-very-long-name-that-does-not-fit", ".bin", path, 20) && strlen(path) == 19);   // cut, not refused
+    cx.media_dir[0] = 0;
+    disk.put_size("/flash/x", 1);
+    disk.put_size("/usb0/y", 1);
+    CHECK(cc->target_path("snap", ".bin", path, sizeof(path)) && !strcmp(path, "/usb0/snap.bin"));          // the first medium except /flash
+    CoreFs *fs_keep = cx.fs;
+    cx.fs = 0;
+    path[0] = 'Q';
+    CHECK(!cc->target_path("snap", ".bin", path, sizeof(path)) && path[0] == 'Q');                          // no medium: out is not written
+    cx.fs = fs_keep;
+    char cf[64] = "x";
+    CHECK(!cc->core_folder(0, cf, sizeof(cf)) && cf[0] == 0);                                               // not started from a .cor
+    snprintf(cx.cor_path, sizeof(cx.cor_path), "/usb0/cores/foo.cor");
+    CHECK(cc->core_folder(0, cf, sizeof(cf)) && !strcmp(cf, "/usb0/cores/foo"));
+    CHECK(cc->core_folder("saves", cf, sizeof(cf)) && !strcmp(cf, "/usb0/cores/foo/saves"));
+    CHECK(cc->core_folder("my stuff", cf, sizeof(cf)) && !strcmp(cf, "/usb0/cores/foo/my stuff"));
+    CHECK(!cc->core_folder("saves", cf, 10) && cf[0] == 0);                                                 // does not fit
+    CHECK(!cc->job_step());
+    cx.job_step = true;
+    CHECK(cc->job_step());
+    CHECK(!cc->job_cancelled());
+    cx.job_cancel = true;
+    CHECK(cc->job_cancelled() && !cc->job_cancelled());                                                     // read and cleared
+    cc->job_progress(42, "/usb0/out.bin");
+    CHECK(cx.job_pct == 42 && !strcmp(cx.job_path, "/usb0/out.bin"));
+    cc->job_progress(100, 0);
+    CHECK(cx.job_pct == 100 && !strcmp(cx.job_path, "/usb0/out.bin"));                                      // null keeps the path
+    // media_source over the mount slots of the descriptor
+    MountSlots ms;
+    memset(&ms, 0, sizeof(ms));
+    ms.n = 2;
+    ms.names = m_names;
+    ms.spec = m_spec;
+    desc.mount_slots = &ms;
+    char src[40] = "junk";
+    CHECK(cc->media_source("Drive A", src, sizeof(src)) && !strcmp(src, "ro /usb0/x.d64"));
+    CHECK(cc->media_source("drive a:", src, sizeof(src)) && !strcmp(src, "ro /usb0/x.d64"));
+    CHECK(!cc->media_source("Tape", src, sizeof(src)) && src[0] == 0);                                      // an empty slot
+    strcpy(src, "junk");
+    CHECK(!cc->media_source("Nope", src, sizeof(src)) && src[0] == 0);                                      // no such slot
+    CHECK(cc->media_source("Drive A", src, 9) && !strcmp(src, "ro /usb0"));                                 // cut to len - 1
+    desc.mount_slots = 0;
+    CHECK(!cc->media_source("Drive A", src, sizeof(src)));
+
+    // ---- board
+    const SvcBoard *bd = api->board;
+    CHECK_EQ(bd->fpga_caps(), 0x1234);
+    CHECK(!bd->is_commodore());
+    uint8_t reply[8];
+    CHECK_EQ(bd->esp32_rpc(0x0F, 0, 0, reply, sizeof(reply), 0), -3);                                       // the model has no link
+    // the SID sockets: the control byte of both sockets, written with register 3 cleared, under the bus lock
+    w.m.sid_writes.clear();
+    CHECK_EQ(bd->sid_socket(0, SID_SOCKET_ON, true, false), 0);                                             // 2 | shunt 4 | caps off 8
+    CHECK(w.m.sid_writes.size() == 2 && w.m.sid_writes[0] == std::make_pair(1, 0x0E) && w.m.sid_writes[1] == std::make_pair(3, 0));
+    CHECK_EQ(bd->sid_socket(1, SID_SOCKET_ON_TYPE1, false, true), 0);                                       // 3 | no shunt | caps on
+    CHECK(w.m.sid_writes.size() == 4 && w.m.sid_writes[2] == std::make_pair(1, 0x3E));                      // the nibble of socket 0 stayed
+    CHECK_EQ(bd->sid_socket(0, SID_SOCKET_OFF, false, true), 0);
+    CHECK(w.m.sid_writes[4] == std::make_pair(1, 0x30));
+    CHECK_EQ(bd->sid_socket(1, SID_SOCKET_ON, true, true), 0);                                              // 2 | 4
+    CHECK(w.m.sid_writes[6] == std::make_pair(1, 0x60));
+    CHECK_EQ(w.m.sid_opens, 4);
+    CHECK_EQ(w.m.sid_closes, 4);
+    CHECK_EQ(bd->sid_socket(2, SID_SOCKET_ON, false, false), -1);
+    CHECK_EQ(bd->sid_socket(-1, SID_SOCKET_ON, false, false), -1);
+    CHECK_EQ(bd->sid_socket(0, 3, false, false), -1);
+    CHECK_EQ(bd->sid_socket(0, -1, false, false), -1);
+    CHECK(w.m.sid_writes.size() == 8 && w.m.sid_opens == 4);                                                // a bad argument writes nothing
+    w.m.sid_present = false;
+    CHECK_EQ(bd->sid_socket(0, SID_SOCKET_ON, false, false), 0);                                            // no expander: nothing to do, not an error
+    CHECK(w.m.sid_writes.size() == 8);
+    bd->case_led_select(0x21);
+    CHECK(io.led_log.size() == 1 && io.led_log[0].v == 0x21);
+
+    // ---- the library that is still holding a mutex goes with it: the heap is what it was
+    CHECK(g_kept_mutex != 0);
+    CHECK_EQ(w.ld->unload(h, err, sizeof(err)), LIB_OK);
+    CHECK(shape0 == w.m.shape());
+}
+
 int main()
 {
     setvbuf(stdout, 0, _IONBF, 0);                                  // a mutant may crash: what it said before has to be out
@@ -2022,5 +2364,6 @@ int main()
     accounts();
     scopes();
     named_exports();
+    services();
     DONE("test_libload");
 }

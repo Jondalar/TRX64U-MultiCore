@@ -33,6 +33,8 @@ public:
     void load();
 
     int count() const { return n_; }
+    // Counts up with every new Settings object and every rebind (a new config): equal generation, equal indexes (SvcSettings::generation).
+    uint32_t generation() const { return gen_; }
     const Setting &item(int i) const { return items_[i]; }
     int value(int i) const;
     Layer layer(int i) const;
@@ -95,6 +97,7 @@ public:
 
 private:
     const Setting *items_;
+    uint32_t gen_;
     int n_;
     const char *store_;
     CoreFs *fs_;

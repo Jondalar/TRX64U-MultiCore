@@ -752,25 +752,7 @@ static int op_clear_reboot(CoreCtx *c, const OpArgs &, OpOut &o)
 // where a file of the menu goes: the folder the menu was on (MenuCtl::note_folder), else the first medium; the extension is added when the name has none
 bool trx_target_path(CoreCtx *c, const char *name, const char *ext, char *out, int n)
 {
-    char dir[200];
-    snprintf(dir, sizeof(dir), "%s", c->media_dir);
-    if (!dir[0]) {
-        FsEntry r[4];
-        int k = c->fs->list("/", r, 4);
-        for (int i = 0; i < k; i++) {
-            if (strcasecmp(r[i].name, "flash")) {
-                snprintf(dir, sizeof(dir), "/%s", r[i].name);
-                break;
-            }
-        }
-    }
-    if (!dir[0]) {
-        return false;
-    }
-    const char *dot = strrchr(name, '.');
-    int dl = (int)strlen(dir);
-    snprintf(out, n, "%s%s%s%s", dir, dl && dir[dl - 1] == '/' ? "" : "/", name, dot ? "" : ext);
-    return true;
+    return ctx_target_path(c, name, ext, out, n);                // the base's (libsvc.cc): api->ctx->target_path of base 3.3
 }
 
 static int write_ddr(CoreCtx *c, const char *path, uint32_t off, uint32_t len, bool ram, char *msg, int msglen)
