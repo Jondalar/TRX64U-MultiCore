@@ -676,6 +676,14 @@ class CoreSections(unittest.TestCase):
         with self.assertRaises(D.DescError, msg="scale 4"):
             D.compile_text(self.text.replace("scale = 3", "scale = 4"))
 
+    def test_a_core_with_no_picture_has_an_empty_video_and_still_a_freeze_timeout(self):
+        head = '[core]\nid = "NOPI"\nname = "N"\ntitle = "N"\nshort_title = "N"\nfolder = "n"\nstore = "N"\n'
+        r = D.parse_desc(D.compile_text(head + "[video]\n[freeze]\nreg_status = 0\nmask = 0\ntimeout_ms = 200\n"))
+        self.assertEqual(r["video"]["scale"], 0)
+        self.assertEqual(r["freeze"], {"reg_status": 0, "mask": 0, "timeout_ms": 200, "word": False})
+        with self.assertRaises(D.DescError):                                      # one key of a picture is no picture: the scale is 1 to 3 then
+            D.compile_text(head + "[video]\nw = 320\n[freeze]\nreg_status = 0\nmask = 0\ntimeout_ms = 200\n")
+
     def test_a_count_that_is_no_number_is_a_description_error(self):
         for sect, key, bad, more in (("window_media", "nslots", '"2"', ""), ("window_media", "ntracks", "1.5", "nslots = 1\n"), ("sector_media", "nunits", "true", "")):
             with self.assertRaisesRegex(D.DescError, "'%s' is a number" % key):

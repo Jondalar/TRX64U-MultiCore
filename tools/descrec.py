@@ -1215,8 +1215,12 @@ def _scale_ok(v, may_be_none):
     return v["scale"] in (1, 2, 3) or (may_be_none and v["scale"] == 0 and not any(v[k] for k in VIDEO_INTS))
 
 
-def _video_words(v, what="video"):
+def _video_words(v, what="video", none_ok=False):
     _only(v, set(VIDEO_INTS), what)
+    if none_ok and not any(v.get(k) for k in VIDEO_INTS):       # [video] with no key, or every key zero: a core with no picture of its own (all words zero)
+        for k in VIDEO_INTS:
+            _int_in(v, k, 0, 0, what, 0)
+        return [0] * len(VIDEO_INTS)
     vals = {}
     for k in VIDEO_INTS:
         if k in ("x0", "y0"):
@@ -1227,13 +1231,13 @@ def _video_words(v, what="video"):
             vals[k] = _int_in(v, k, 0, 65535, "video", 0)
         else:
             vals[k] = _int_in(v, k, 0, 65535, "video")
-    if not _scale_ok(vals, what == "video") or vals["nbuf"] > 8 or vals["bpp"] not in (0, 2, 4) or vals["pxfmt"] > 4:
+    if not _scale_ok(vals, False) or vals["nbuf"] > 8 or vals["bpp"] not in (0, 2, 4) or vals["pxfmt"] > 4:
         raise DescError("%s: scale 1 .. 3 (0 only in [video], with every other number 0: a core whose picture goes through the host's scaler), nbuf at most 8, bpp 0, 2 or 4, pxfmt at most 4" % what)
     return [vals[k] for k in VIDEO_INTS]
 
 
 def _sec_video(v, fz, st):
-    w = _video_words(v)
+    w = _video_words(v, "video", True)
     _only(fz, set(FREEZE_INTS) | {"word"}, "freeze")
     w += [_int_in(fz, "reg_status", 0, 65535, "freeze"), _int_in(fz, "mask", 0, 255, "freeze"), _int_in(fz, "timeout_ms", 0, 65535, "freeze"),
           1 if _opt(fz, "word", bool, "freeze", False) else 0]

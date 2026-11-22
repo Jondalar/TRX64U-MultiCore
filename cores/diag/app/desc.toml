@@ -1,0 +1,208 @@
+# The Port Diagnostics core's data description (T239.3 D17): the tables of its descriptor, compiled by tools/descrec.py into the description record of the .cor (record 6,
+# layout in coreapp/src/descrec.h). The core has no machine: no picture of its own, no ROM. What the record cannot hold is code and stays in the core's C++: init, release,
+# the operations of register_ops (the runner, the A/V registers, the presets) and the state values of the live page. Register numbers are coreapp/cores/portdiag_regs.h.
+
+[core]
+id = "DIAG"
+name = "Port Diagnostics"
+title = "Port Diagnostics"
+short_title = "DIAG"
+folder = "diag"
+store = "Port Diagnostics Settings"
+min_contract = 1
+reset_ms = 20
+live_ms = 250                          # the live page's rows are read again this often
+menu_first = true
+core_id = "diag"
+caps = ["pad"]                         # only lets the XInput driver claim a pad for the xpad test; the core has no pad service
+
+# no picture of its own: an empty [video] is all zero (the application's screens are all there is); nothing to stop, so the freeze waits for no bit, but its timeout is the descriptor's 200 ms
+[video]
+
+[freeze]
+reg_status = 0
+mask = 0
+timeout_ms = 200
+
+# the register state the bug report prints
+
+[[report_reg]]
+name = "caps"
+reg = 0x06
+bytes = 1
+
+[[report_reg]]
+name = "status"
+reg = 0x11
+bytes = 1
+
+[[report_reg]]
+name = "pc"
+reg = 0x16
+bytes = 2
+
+[[report_reg]]
+name = "fifo level"
+reg = 0x34
+bytes = 2
+
+[[report_reg]]
+name = "ticks per us x256"
+reg = 0x0C
+bytes = 4
+
+[[report_reg]]
+name = "live pins"
+reg = 0x40
+bytes = 2
+
+# ---- the A/V page (T201): one row per knob of the test picture's encoder, written to its register at once (pd.avN is the knob N of the test runner's table,
+# coreapp/src/diagtest.cc dt_av_knobs, which carries the register values behind these labels). Rows are in the order of that table.
+[lists]
+bits = ["MSB first", "Reversed"]
+
+[[core_setting]]
+key = "Standard"
+values = ["PAL 50 Hz", "NTSC 60 Hz", "PAL 60 Hz", "NTSC 50 Hz"]
+apply = "pd.av0"
+
+[[core_setting]]
+key = "Groups"
+values = ["Y=A, C=B, CVBS=C", "Y=A, C=C, CVBS=B", "Y=B, C=A, CVBS=C", "Y=C, C=A, CVBS=B", "Y=B, C=C, CVBS=A", "Y=C, C=B, CVBS=A"]
+default = 5
+apply = "pd.av1"
+
+[[core_setting]]
+key = "Bits A"
+list = "bits"
+apply = "pd.av2"
+
+[[core_setting]]
+key = "Bits B"
+list = "bits"
+apply = "pd.av3"
+
+[[core_setting]]
+key = "Bits C"
+list = "bits"
+apply = "pd.av4"
+
+[[core_setting]]
+key = "V sign"
+values = ["Normal", "Inverted"]
+default = 1
+apply = "pd.av5"
+
+[[core_setting]]
+key = "Subcarrier trim"
+values = ["-480 Hz", "-450 Hz", "-420 Hz", "-390 Hz", "-360 Hz", "-330 Hz", "-300 Hz", "-270 Hz", "-240 Hz", "-210 Hz", "-180 Hz", "-150 Hz", "-120 Hz", "-90 Hz", "-60 Hz", "-30 Hz", "0 Hz", "+30 Hz", "+60 Hz", "+90 Hz", "+120 Hz", "+150 Hz", "+180 Hz", "+210 Hz", "+240 Hz", "+270 Hz", "+300 Hz", "+330 Hz", "+360 Hz", "+390 Hz", "+420 Hz", "+450 Hz", "+480 Hz"]
+default = 16
+apply = "pd.av6"
+
+[[core_setting]]
+key = "Burst start"
+values = ["16", "18", "20", "22", "24", "26", "28", "30", "32", "36", "40"]
+default = 6
+apply = "pd.av7"
+
+[[core_setting]]
+key = "Burst end"
+values = ["90", "94", "96", "98", "99", "100", "102", "104", "106", "110"]
+default = 4
+apply = "pd.av8"
+
+[[core_setting]]
+key = "Burst level"
+values = ["0 %", "50 %", "75 %", "100 %", "125 %", "150 %"]
+default = 3
+apply = "pd.av9"
+
+[[core_setting]]
+key = "Chroma gain"
+values = ["0 %", "50 %", "75 %", "100 %", "125 %", "150 %", "190 %"]
+default = 3
+apply = "pd.av10"
+
+[[core_setting]]
+key = "Sync level"
+values = ["0", "8", "16", "24", "32"]
+apply = "pd.av11"
+
+[[core_setting]]
+key = "Blank level"
+values = ["64", "68", "73", "77", "80", "84", "88"]
+default = 3
+apply = "pd.av12"
+
+[[core_setting]]
+key = "White level"
+values = ["8/16", "9/16", "10/16", "11/16", "12/16", "13/16", "14/16", "15/16", "16/16"]
+default = 3
+apply = "pd.av13"
+
+[[core_setting]]
+key = "Equalizing"
+values = ["Off", "On"]
+apply = "pd.av14"
+
+[[core_setting]]
+key = "Vsync length"
+values = ["3 lines", "2.5 lines", "6 lines"]
+apply = "pd.av15"
+
+[[core_setting]]
+key = "Vsync position"
+values = ["-8", "-4", "0", "+4", "+8"]
+default = 2
+apply = "pd.av16"
+
+[[core_setting]]
+key = "Lines 60 Hz"
+values = ["263", "262"]
+apply = "pd.av17"
+
+# ---- tasks
+[[task]]
+label = "Pick a test and run it"
+op = "pd.pick"
+
+[[task]]
+label = "Write the example tests"
+op = "pd.install"
+
+[[task]]
+label = "Save A/V preset"
+op = "pd.av_save"
+bind = [ { arg = "name", text = true } ]
+ask = "Preset name"
+
+# ---- the live page: the state values are read from the registers at every redraw
+[[media]]
+name = "Port 1"
+state = "pd.port1"
+
+[[media]]
+name = "Port 2"
+state = "pd.port2"
+
+[[media]]
+name = "Comparators"
+state = "pd.cmp"
+
+[[media]]
+name = "Last test"
+state = "pd.last"
+
+# a .toml in the browser is a test or an A/V preset; `key` is the letter that runs the item in the action sheet
+[[filetype]]
+ext = ".toml"
+  [[filetype.action]]
+  label = "Run test"
+  op = "pd.run"
+  bind = [ { arg = "path", file = true } ]
+  key = "R"
+  [[filetype.action]]
+  label = "Load A/V preset"
+  op = "pd.av_load"
+  bind = [ { arg = "path", file = true } ]
+  key = "L"
