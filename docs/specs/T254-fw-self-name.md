@@ -1,7 +1,7 @@
 # T254 — A foreign firmware shows the name and version it gives itself, not its bitstream's date
 
 **Status:** IN PROGRESS (2026-11-22). Asked by Alex, 2026-11-22.
-Open (one line, as in the TODO table): IN PROGRESS 11-22: S1-S6 PASS, UX and code review done; open: merge into integration
+Open (one line, as in the TODO table): IN PROGRESS 11-22: S1-S6 PASS, UX and code review done; open: merge into integration (#130)
 **Repo:** TRX64U-MultiCore — the host application (`host-app/software/hostapp`).
 **Number:** T254.
 **Origin:** Alex, 2026-11-22 (translated): "Can we take something small into 0.2.1 that bothers me visually a lot? ... If it
@@ -173,3 +173,4 @@ Scenario: S6 (P6) the cost is bounded
   has been empty since 2026-11-21: `dev.sh test` gives "no key" for every suite, and `dev.sh emu` skips the host's
   emulator flows ("no emulator kit"). The runs above used the script `dev.sh` writes, with the builder's cache mounted by
   hand, and `UE2EMU_KIT` set for the emulator. Nothing on the builder was changed.
+- **Pull request (2026-11-22):** #130 into `integration`, branch `t254-fw-self-name` (`2210942a`).
