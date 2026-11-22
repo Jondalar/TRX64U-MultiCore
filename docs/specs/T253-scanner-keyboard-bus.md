@@ -1,7 +1,7 @@
 # T253 — The P7 keyboard scan uses the keyboard's I2C bus only, and the applications start it as PR #112 does
 
 **Status:** IN PROGRESS (2026-11-21). Asked by Alex, 2026-11-21.
-Open (one line, as in the TODO table): IN PROGRESS 11-22: S1, S4 PASS, S3 picture and colours; open: S2 10 min, S3 P7 key, trx64u pin (TRX64-Ultimate 0.3.1)
+Open (one line, as in the TODO table): IN PROGRESS 11-22: S1, S4 PASS, S3 picture and colours; open: S2 10 min, S3 P7 key, import store + merge (pin 0.3.1)
 **Repo:** TRX64U-MultiCore — the I2C wiring in the top of every large core (`cores/*/mono/top.v`, `cores/*/mono/host/top.v`)
 and of the host (`host/top.v`); the start of the scan in the applications (`coreapp/src/coreapp.cc`,
 `host-app/software/hostapp/hostapp.cc`, `host-app/software/system/u64ii_init.cc`, `host-app/software/io/i2c/hw_i2c_drv.cc`).
@@ -184,3 +184,11 @@ Scenario: S4 (P1) every core and the host
 - **trx64u.cor until the pin moves:** it carries the bitstream of `main-31e69921`, without D1. The core application starts
   the scan on every core (`coreapp/src/coreapp.cc:92`) and reads the EDID every 500 ms (`coreapp/src/picture.cc:794-840`).
   These are the conditions of `c64scpu_t253`, the build without D1. Not measured on trx64u.
+- **The pin moves to 0.3.1 (2026-11-22):** the TRX64U-FW session sent the values of the release: VERSION `d94aa68e`, SEMVER
+  0.3.1, PKG_VERSION `main-d94aa68e`, BIT_SHA256 `c950aa55...`, trx64g's APP_SHA256 `32b17761...`. Checked against Gitea's
+  package `trx64-ultimate/main-d94aa68e`: `c64_basic.bit` and `ultimate.app` have these SHA-256 (`SHA256SUMS`: OK);
+  `manifest.json` has "version": "0.3.1", app_commit `eb3e6be6`, gateware_key `63ae8d25e42300b8`, bitstream_from "cache
+  c392beed". The bitstream is the one of `main-52f9a7ec`. The Gitea prerelease `trx64-main-d94aa68e` exists, so the pin
+  carries `SEMVER=0.3.1` (contract §2). `trx64u.pin` and `trx64g.pin` are written again (D3). Until the pin is on
+  `integration`, the branch's collect job is red (T239.1 D43). The builder's import store needs `c950aa55...` and
+  `32b17761...` before the run on `integration` (filled by hand, T239.1 D43): open, Alex.
