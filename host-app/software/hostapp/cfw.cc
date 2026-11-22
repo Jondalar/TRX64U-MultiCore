@@ -89,6 +89,11 @@ bool cfw_read_self(CorSource &src, CfwInfo &ci)
     if (!ver[0]) {
         return false;
     }
+    // D1a: a bitstream of the design "top" is a TRX64 build (cfwicon.cc). Without the TRX64 text its version line is the Gideon base's: TRX64-Ultimate RC1
+    // (692f643d) says "3.15" and would be named "Gideon 3.15". It keeps the name it had.
+    if (!is_trx && !strncmp(ci.name, "top", 3) && (ci.name[3] == ' ' || !ci.name[3])) {
+        return false;
+    }
     const char *vendor = is_trx ? "TRX64 Ultimate" : ver[0] == '1' ? "Commodore" : ver[0] == '3' ? "Gideon" : "Firmware";
     snprintf(ci.self_ver, sizeof(ci.self_ver), "%s", ver);
     snprintf(ci.self_name, sizeof(ci.self_name), "%s %s", vendor, ver);

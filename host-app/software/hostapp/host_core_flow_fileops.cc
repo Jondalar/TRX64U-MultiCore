@@ -150,7 +150,8 @@ bool add_entry(const HcFoEnv &e, const char *name, const char *path, const char 
     }
     e.after_add(e.ctx, ar, path);
     char b[120];
-    snprintf(b, sizeof(b), "%s is in the boot menu", name);
+    int m = hc_in_menu(path);                                   // T254: a refresh keeps the entry's name (T198 D17): the note names what the menu shows
+    snprintf(b, sizeof(b), "%s is in the boot menu", m >= 0 ? hc_cfg().e[m].name : name);
     note(e, b, HCT_OK);
     return true;
 }

@@ -1,7 +1,7 @@
 # T254 — A foreign firmware shows the name and version it gives itself, not its bitstream's date
 
 **Status:** IN PROGRESS (2026-11-22). Asked by Alex, 2026-11-22.
-Open (one line, as in the TODO table): IN PROGRESS 11-22: S1-S6 PASS (units, ue2emu), UX review PASS; open: code review, merge
+Open (one line, as in the TODO table): IN PROGRESS 11-22: S1-S6 PASS, UX and code review done; open: merge into integration
 **Repo:** TRX64U-MultiCore — the host application (`host-app/software/hostapp`).
 **Number:** T254.
 **Origin:** Alex, 2026-11-22 (translated): "Can we take something small into 0.2.1 that bothers me visually a lot? ... If it
@@ -89,6 +89,10 @@ Scenario: S6 (P6) the cost is bounded
   "Firmware". The text "TRX64 Ultimate" in the application gives "TRX64 Ultimate" (the proposal Alex accepted: "TRX64 is
   recognised by the text 'TRX64 Ultimate' in the application"). The name is "<vendor> <version>". A file without the line
   keeps today's names.
+- **D1a (the code review, 2026-11-22):** a bitstream of the design `top` is a TRX64 build (the rule of `cfw_icon_kind`).
+  Without the text "TRX64 Ultimate" in its application, its line is the version of the Gideon base it was built on.
+  TRX64-Ultimate RC1 (`692f643d`) says "Software version:   3.15" and has the text only in its updater: D1 alone names it
+  "Gideon 3.15". Such a file keeps today's name ("top 2026/10/10 18:23:21").
 - **D2:** the places are the File Browser panel (title; Version row "3.15, full firmware"), the name of the entry that A adds,
   the start question of S, and the manifest that P writes. The table of official files stays first for P. The Version row of
   a backup and of a large core of ours stays as it was ("backup of this board", "full firmware").
@@ -96,10 +100,13 @@ Scenario: S6 (P6) the cost is bounded
   §1 with margin. A line further from the end is not found: the host then shows the `.bit` header's name, as today. Reason:
   P6. The whole application costs 1 s or more for each selected row.
 - **D4:** the boot menu does not read the file at start: the icon of a firmware entry comes from the entry's name. The first
-  word of the new names picks the icon that the `.bit` header picked before: "Gideon" and "Commodore" give Gideon's icon
-  (Commodore's bitstreams have the design `u64_mk2_artix` too), "TRX64" gives the TRX64 icon.
+  word of the new names picks the icon that the `.bit` header picked before: "Gideon 3." and "Commodore 1." give Gideon's
+  icon (Commodore's bitstreams have the design `u64_mk2_artix` too), "TRX64 Ultimate <digit>" gives the TRX64 icon. Only
+  this shape counts, so the name of a large core ("Commodore 128") keeps the generic icon when its `.cor` has no icon.
+  A firmware named "Firmware <version>" (D1) gets the generic icon.
 - **D5:** the boot menu reads nothing new and `boot.cfg` does not change. The Version column of a `.cfw` entry stays "full
   firmware": the entry's name has the version.
+- **D6:** A on a file that is in the menu keeps the entry's name (T198 D17). Its note names the entry as the menu shows it.
 
 ## §4 Out of scope
 
@@ -140,3 +147,29 @@ Scenario: S6 (P6) the cost is bounded
 - **Seen in the UX review, not part of T254 (a proposal for Alex):** the panel of a full firmware takes the rows of a
   `.cor` ("Core: 10181 B bitstream", "SHA-256: map gideon_bl4", "Contract: none, it replaces the host"), and the FPGA row
   spells the chip two ways (`7a50tfgg484` in a `.cfw`, `xc7a50t` in a `.cor`).
+- **Code review (2026-11-22, one review agent over `integration...HEAD`):**
+  - **TRX64-Ultimate RC1 named "Gideon 3.15"** (the agent read `trx64_update_692f643d_20261010.cfw` and `.ue2`): fixed by
+    D1a. Test: `s_self` plants RC1's line without the text into the RC1 layout (`trx64u()`).
+  - **The render bench** (`tests/hostapp/render/render.cc`) expected "Version=packaged firmware" for a `.cor` packaged from a
+    file of the table (version 9.9). D2 shows "9.9, packaged firmware": the expectation follows. The bench was not run (no
+    benches before a merge, Alex 2026-11-15); it runs at night.
+  - **The icon by name was too wide** ("Commodore 128" without an icon record got Gideon's icon): D4 now takes the exact
+    shape. `test_cfwicon` checks "Commodore 128", "Commodore PET", "Commodore 264 (C16, Plus/4)", "TRX64 Ultimate (Gideon
+    app)".
+  - **A on an entry added before T254** said "Gideon 3.15 is in the boot menu" while the row kept its old name: D6.
+  - **R (restore):** no change. A `.cfw` is restored only when the table has it (its name is the table's). A backup has
+    the name of its manifest. Every other file is refused before a name is shown (`host_core_flow_restore.cc`).
+  - Clean: the scan's edges (the agent swept the key and the text around every 16 KiB edge, 124,225 checks), bounds, the
+    static buffer (only the UI task calls it), stale state of the panel, the A and S paths (REST too), the convert flow,
+    formats, the D24 and public-tree checks.
+- **After the fixes (2026-11-22, on the Mac):** `test_cfw` "41066 checks, 0 failed"; `test_cfwicon` "46 checks, 0 failed";
+  `run_fwconvert` ok. The scratch reader: the four files as in S1; RC1 (`.cfw` and `.ue2`) keeps "top 2026/10/10
+  18:23:21".
+- **On the builder after the fixes (2026-11-22):** `tools/dev.sh riscv` rc 0. The fast tier with the CI cache: "apptests ok
+  (tier fast)"; hostapp ran again: `test_cfw` "41066 checks, 0 failed", `test_cfwicon` "46 checks, 0 failed", `test_fwconvert`
+  "0 failed". `tests/hostapp/emu_t254_fwname.sh`: S3, S5 and the pictures PASS as above. `tests/hostapp/emu_host.sh` ran
+  before the fixes: "tests/hostapp/emu_host: all scenarios passed" (seven flows).
+- **How these ran (2026-11-22):** `tools/dev.sh` mounts `/srv/trx64-build/cache` as `/cache`. On the builder that folder
+  has been empty since 2026-11-21: `dev.sh test` gives "no key" for every suite, and `dev.sh emu` skips the host's
+  emulator flows ("no emulator kit"). The runs above used the script `dev.sh` writes, with the builder's cache mounted by
+  hand, and `UE2EMU_KIT` set for the emulator. Nothing on the builder was changed.

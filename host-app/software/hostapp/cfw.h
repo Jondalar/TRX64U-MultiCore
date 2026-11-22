@@ -67,8 +67,8 @@ bool cfw_is_name(const char *name);
 // "Software version:   <version>" of the version report in its application, and the vendor from the version's first digit (1 Commodore,
 // 3 Gideon, any other "Firmware"); the text "TRX64 Ultimate" names TRX64-Ultimate. Only the application's last 512 KiB are read (app_data,
 // app_len of cfw_probe; the measured distances are in cfw.cc): a .cfw's updater can hold both texts (TRX64-Ultimate's does), and a key with
-// no version after it is passed over. Sets ci.self_name and ci.self_ver and returns true when the application says its version; false leaves them empty (cannot
-// read, or no such line in the part read).
+// no version after it is passed over. A TRX64 build (the design "top") without the TRX64 text is not named (its line is the Gideon base's). Sets ci.self_name and
+// ci.self_ver and returns true when the application says its version; false leaves them empty (cannot read, no such line in the part read, or that TRX64 case).
 bool cfw_read_self(CorSource &src, CfwInfo &ci);
 
 // What a person reads as the firmware's name: the name it gives itself (T254), else the .bit header's "<design> <date> <time>".

@@ -509,6 +509,11 @@ static void s_self(void)
     put_text(t, tend - 253896, "Software version:   0.3.1\n");
     CHECK(self_of(t, ci) && !strcmp(ci.self_name, "TRX64 Ultimate 0.3.1") && !strcmp(ci.self_ver, "0.3.1"));
     CHECK(!strcmp(ci.name, "top 2026/10/10 18:23:21"));
+    // D1a: TRX64-Ultimate RC1 (this layout): the Gideon base's line 252,956 B before the end and no TRX64 text in the application: not named
+    Buf rc1 = trx64u();
+    put_text(rc1, 0x1000, "TRX64 Ultimate");                               // the updater's text does not count
+    put_text(rc1, tend - 252956, "Software version:   3.15\n");
+    CHECK(!self_of(rc1, ci) && !ci.self_name[0] && !strcmp(cfw_title(ci), "top 2026/10/10 18:23:21"));
     // an application that does not fit the file: nothing read, nothing named
     CHECK(probe(g315, ci) == CFW_OK);
     {
