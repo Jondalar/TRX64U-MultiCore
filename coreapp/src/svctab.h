@@ -24,7 +24,7 @@ typedef struct SvcSys {
     uint32_t size;
     void (*log)(const char *text);
     uint32_t (*ms)(void);                 // milliseconds since start
-    void (*sleep_ms)(uint32_t ms);        // at least ms (rounded up to the tick plus one); 0 only yields
+    void (*sleep_ms)(uint32_t ms);        // ms of 5 or more: pdMS_TO_TICKS(ms) + 1 ticks; less, 0 included: one tick of 5 ms. No yield
     const char *(*core_name)(void);
     bool (*has_capability)(const char *capability);
     // The flash the firmware boots from, len bytes from addr. len, or -1 when the range is not in the flash. The monolith reads its SPI flash.
