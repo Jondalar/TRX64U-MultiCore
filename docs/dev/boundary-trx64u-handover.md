@@ -160,6 +160,12 @@ At load the base refuses a window that covers a register the base drives itself 
 HDMI PLL reset, the keyboard scan, the case LED select): split such a block into the runs you write. The case LED select is reached
 through `board.case_led_select` instead. `io.bus_wr` and `io.bus_rd` take every offset of the bus-side I/O block.
 
+A core delivers its two TOML contracts as two files: `menu.toml` (UI TOML: menu, key table) and `desc.toml` (API TOML: the core's
+data sections and `[[window]]`). With 3.3, `cor_pack.py pack` takes `--desc` more than once and compiles them into one record 6; a
+table or key present in both is refused. Granted to trx64u (checked against the base's own writes): `u64_userport` (+0x05),
+`u64_hdmi_connectors` (+0x08, +0x09), `u64_pwm_duty` (+0x0D) of the U64 block, `speaker_enable` (0xA000000C, write only: a read
+returns the board revision), the mixers, the resampler and both palettes.
+
 ## Where a core's menu goes
 
 A library's image carries a menu record of contributions only: nodes, file actions, settings, tabs and a poll (`u2a_pack.py
