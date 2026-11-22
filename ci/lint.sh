@@ -97,6 +97,10 @@ check "no v1 UI state: selftest" python3 tools/check_no_v1_ui.py --selftest
 # T211 S1 (D1): the host app names its keys itself; no Gideon page/help/tasks code treated as an F key
 check "host key names (T211 S1)" bash -c 'python3 -I tools/check_host_keys.py --selftest && python3 -I tools/check_host_keys.py'
 check "u2a_pack test" python3 tools/test_u2a_pack.py
+# T239.3 S1: the API document of the SDK (app/sdkpkg/api.md) has a section for every symbol of the public headers of the core application (libapi.h, svctab.h, ops.h, libfmt.h);
+# the unit test has a complete document and one with a missing section, and runs the real headers against the real document
+check "API document of the SDK (T239.3 S1)" python3 -I tools/check_api_doc.py
+check "API document: unit test (T239.3 S1)" python3 -I tools/test_check_api_doc.py
 check "release checks test" python3 tools/test_release_check.py
 check "release bundle test" python3 tools/test_make_release_mc.py
 check "builds repository reader (T239.1 S8)" python3 -W ignore tools/test_builds.py
