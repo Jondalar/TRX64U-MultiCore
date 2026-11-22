@@ -518,5 +518,98 @@ class LibraryMenus(unittest.TestCase):
         self.assertEqual(D.merge_lib_menus(base, [])[0], base)
 
 
+VC20 = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "cores", "vc20", "app", "desc.toml")
+
+
+class CoreSections(unittest.TestCase):
+    """T239.3 D17: the data sections of version 6, from the VIC-20's own description."""
+
+    @classmethod
+    def setUpClass(cls):
+        with open(VC20) as f:
+            cls.text = f.read()
+        cls.blob = D.compile_text(cls.text)
+
+    def test_the_vic20_description_is_a_version_6_record_that_reads_back(self):
+        import struct
+        b = self.blob
+        self.assertEqual(struct.unpack_from("<HH", b, 4), (6, D.HEADER_V6))
+        r = D.parse_desc(b)
+        self.assertTrue(r["sections"])
+        self.assertEqual((r["core"]["id"], r["core"]["name"], r["core"]["caps"]), ("VC20", "VIC-20", ["iec", "drive_a"]))
+        self.assertEqual([x["role"] for x in r["rom"]], ["BASIC", "KERNAL", "CHAR", "1541 drive", "JiffyDOS VC-20 KERNAL", "JiffyDOS 1541 ROM"])
+        self.assertEqual(r["video"]["fb_base"], 0x01D00000)
+        self.assertEqual(r["freeze"], {"reg_status": 0xA4, "mask": 2, "timeout_ms": 200, "word": False})
+        self.assertEqual(r["mount"], {"names": ["Drive A"]})
+        self.assertEqual(r["hotkeys"]["mod"], [58, 255])
+        bound = [c["key"] for c in r["cset"] if c.get("reg_bind")]
+        self.assertEqual(bound, ["Memory Expansion (at next reset)", "Block 5 ($A000), when expanded", "Datasette port"])
+        self.assertIsNone(r["cset"][0]["apply"])
+        self.assertEqual(r["restart"], {"clear_ram": 65536, "ram_only": False})
+
+    def test_the_record_compiles_back_to_the_same_bytes(self):
+        self.assertEqual(D.compile_desc(D.decoded_to_doc(D.parse_desc(self.blob))), self.blob)
+
+    def test_a_record_without_sections_stays_what_it_was(self):
+        import struct
+        b = D.compile_text(MIN)
+        self.assertEqual(struct.unpack_from("<HH", b, 4), (4, D.HEADER))
+        self.assertFalse(D.parse_desc(b)["sections"])
+
+    def _sections(self):
+        import struct
+        soff = struct.unpack_from("<I", self.blob, D.HEADER_V5)[0]
+        return soff
+
+    def test_a_section_the_reader_does_not_know_is_refused_by_number(self):
+        import struct
+        b = bytearray(self.blob)
+        struct.pack_into("<I", b, self._sections(), 9)
+        with self.assertRaisesRegex(D.DescError, "section 9"):
+            D.parse_desc(bytes(b))
+
+    def test_a_damaged_section_is_refused_by_name(self):
+        import struct
+        b = bytearray(self.blob)
+        soff = self._sections()
+        struct.pack_into("<I", b, soff + 4, 68)                      # the core section's length: 72 bytes -> 68
+        with self.assertRaisesRegex(D.DescError, "section"):
+            D.parse_desc(bytes(b))
+        b = bytearray(self.blob)
+        struct.pack_into("<I", b, soff + 8 + 4 * 1, 0x7FFFFFF0)       # its name: a string outside the table
+        with self.assertRaises(D.DescError):
+            D.parse_desc(bytes(b))
+
+    def test_the_sections_need_their_flag_and_their_place(self):
+        import struct
+        b = bytearray(self.blob)
+        struct.pack_into("<I", b, 12, struct.unpack_from("<I", b, 12)[0] & ~4)
+        with self.assertRaises(D.DescError):
+            D.parse_desc(bytes(b))
+        b = bytearray(self.blob)
+        struct.pack_into("<I", b, D.HEADER_V5, 100)                   # the sections would start inside the tables
+        with self.assertRaises(D.DescError):
+            D.parse_desc(bytes(b))
+
+    def test_what_the_compiler_refuses(self):
+        for what, text in (
+                ("apply and reg_bind", self.text.replace('apply = "vc20.set_jiffy"', 'apply = "vc20.set_jiffy"\nreg_bind = { reg = 1, mask = 1 }')),
+                ("neither", self.text.replace('apply = "vc20.set_jiffy"', "")),
+                ("bytes per value", self.text.replace("bytes = [0x00, 0x10]", "bytes = [0x00]")),
+                ("no core", self.text.replace("[core]", "[core_gone]")),
+                ("a flag that is no key", self.text.replace('min_contract = 1', 'min_contract = 1\nmenu_last = true')),
+                ("a rom without a size", self.text.replace("sizes = [4096]", "sizes = []")),
+                ("a scale of 5", self.text.replace("scale = 3", "scale = 5"))):
+            with self.assertRaises(D.DescError, msg=what):
+                D.compile_text(text)
+
+    def test_a_library_merged_into_it_keeps_the_sections(self):
+        lib = D.compile_text('[[node]]\nanchor = "F7/settings"\nkind = "op"\nlabel = "L"\nop = "l.go"\n')
+        blob, merged, kept = D.merge_lib_menus(self.blob, [("lib", lib)])
+        r = D.parse_desc(blob)
+        self.assertEqual((merged, r["core"]["id"], len(r["rom"]), r["mount"]["names"]), (["lib"], "VC20", 6, ["Drive A"]))
+        self.assertEqual([n["label"] for n in r["node"]], ["L"])
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -381,6 +381,21 @@ class RecordsTest(unittest.TestCase):
             b = Mn.pack_large("amiga1200", "A", "1", full_bit(), APP, icon)
             self.assertEqual(a, b)
 
+    def test_a_description_with_the_cores_data_sections(self):
+        # T239.3 D17: the VIC-20's own description (cores/vc20/app/desc.toml) is record 6 of its bundle; the core section names the manifest's core
+        import descrec
+        with open(os.path.join(os.path.dirname(DESC_TOML), "..", "..", "..", "cores", "vc20", "app", "desc.toml")) as f:
+            desc = descrec.compile_text(f.read())
+        blob, _ = make(desc=desc)
+        m, r = C.parse(blob, C.CONTRACT)
+        self.assertEqual(r[C.T_DESC], desc)
+        C.check_optional(m, r)
+        self.assertTrue(descrec.parse_desc(r[C.T_DESC])["sections"])
+        with self.assertRaisesRegex(C.CorError, "core section names"):
+            make(desc=desc, name="Another Machine")
+        blob, _ = make(desc=desc, libs=[u2a()])                                     # the libraries' menus are merged in: the sections stay
+        self.assertTrue(descrec.parse_desc(C.parse(blob, C.CONTRACT)[1][C.T_DESC])["sections"])
+
     def test_round_trip_both_kinds(self):
         desc = desc_record()
         libs = [u2a(), u2a() + b"xy"]
