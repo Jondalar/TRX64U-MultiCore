@@ -27,13 +27,15 @@
 | S1 | P4 | `ddt_mandel.cor` is a valid large .cor (`cor_pack.py check`), the host lists it as full firmware | `tools/pack_large_cor.sh` ends with `cor_pack.py check`; the host row (`cor_probe == COR_ERR_LARGE`) | CI `package`, then board: boot menu lists "DDT Mandelbrot" |
 | S2 | P1, P2 | The flat design routes at 100 MHz (engines) and 148.87 MHz (pixel): WNS >= 0; DSP48E1 = 6 x engines, nothing else in DSP | Vivado `utilization.rpt`, `timing.rpt` of lane `large-ddt_mandel` | CI `bit-mono` |
 | S3 | P2 | From the boot menu the core starts; HDMI shows 1920 x 1080 / 50 Hz, the Mandelbrot in the middle, the splash text for about 10 s | board step by hand, photo | board session |
-| S4 | P6 | The splash row 2 names the engine count the design has (the parameter `MANDEL_CORES`) | bench `ddt_mandel_pix` (text frame, engines = `DDT_NE`) and the photo of S3 | CI `sims`, board |
-| S5 | P3 | Fire + direction on port 2: pan, zoom in/out, iterations +/-, RESTORE resets the view; the picture follows | bench `ddt_mandel_joy` (fire + up = zoom in, against `mandel_model.py`); the rest of the keys by hand on the board, photo | CI `sims` (integration), board |
-| S6 | P2 | The picture scanned out by the HDMI timing equals DDT's picture (model written from his code), scaled 4 x, centred, text overlay as his | bench `ddt_mandel_pix`: every pixel of a 1080p frame against `mandel_model.py` | CI `sims` (integration), local |
+| S4 | P6 | **DROPPED (D10).** ~~The splash row 2 names the engine count the design has (the parameter `MANDEL_CORES`)~~ | none in CI; the bench stays in `cores/ddt_mandel/sim/` for use by hand | by hand |
+| S5 | P3 | **DROPPED (D10).** ~~Fire + direction on port 2: pan, zoom in/out, iterations +/-, RESTORE resets the view; the picture follows~~ | none in CI; the bench stays in `cores/ddt_mandel/sim/` for use by hand | by hand |
+| S6 | P2 | **DROPPED (D10).** ~~The picture scanned out by the HDMI timing equals DDT's picture (model written from his code), scaled 4 x, centred, text overlay as his~~ | none in CI; the bench stays in `cores/ddt_mandel/sim/` for use by hand | by hand |
 | S7 | P5 | A power cycle brings the host back (the scratch file does not start itself); when the demo is the boot default, C= or port-1 fire at power-on shows the menu | board step: power cycle after S3, and once with the demo as the default entry; reading of `legacy.h`, `bootcfg.h` | board session |
 | S8 | P5 | The partial lane is gone and nothing else names it: lanes, plan, lint, `ddt_novic` still build | `python3 ci/orchestrate.py check`, `tools/core_toml.py --check`, `tools/check_large_copies.py`, `tools/check_d24.py`, `tools/check_ddt_tree.py`, `tools/check_todo.py` | local, CI lint |
 
 Negative controls: none (no flash, no persistence).
+
+S4, S5, S6 are dropped by D10. Still open: S1, S2, S3, S7, S8.
 
 ## §3 Decision
 
@@ -48,6 +50,7 @@ Alex's: the demo plus HDMI only; no menu; a large core packed as `.cor`; replace
 - **D7 The way back.** None in the core. `legacy.h`: "Nothing returns: a power cycle loads the host again" (the scratch file `/Flash/legacy/fullcore.bit` is read only for the IPROG, the configuration flash is not written). Alex power-cycles.
 - **D8 Partial core removed (PROPOSAL).** Deleted: `cores/ddt_mandel/{core.toml,core_sources.tcl,layer2_ddt_mandel.v}`, the glue only the partial core used (`trx/ddt_mandel_core.v`, `ddt_mandel_video.v`, `ddt_palette.v`), its Verilator benches (`ddt_mandel_pix/joy/pins`), `coreapp/cores/ddt_mandel.cc` with its table, header, Makefile, ledger, test and golden entries. Kept: `rtl/`, `trx/` files `ddt_novic` reads (`ddt_regs.v`, `ddt_dots.v`, `ddt_pixw.v`, `ddt_clk_load.v`, `c64_font_rom.v`), `ddt_regs.h`, the sim helpers `ddt_novic` uses.
 - **D9 Own copies.** The HDMI files and the two ROM images (palette, font) are copies in `cores/ddt_mandel/mono/` (T164 3a Q1: "Copies instead."); `mono/host/FROM` names the source commit and lists the files (`tools/check_large_copies.py`).
+- **D10 No tests of his core code.** Alex, 2026-11-22: "We do not need to test his core code ... basically it should only build, then we run it once, and after that we freeze it." The benches `ddt_mandel_pix` and `ddt_mandel_joy` are out of `ci/sims.txt`, `ci/sims.lane` and `ci/sims.deps`; their sources stay in `cores/ddt_mandel/sim/` for use by hand. S4, S5, S6 are dropped. Freezing the core after the board run (S3) is open, not done.
 
 ## §4 Out
 
@@ -78,7 +81,8 @@ Alex's: the demo plus HDMI only; no menu; a large core packed as `.cor`; replace
 - **What the host starts after the power cycle (read in `bootcfg.h` / `bootcfg.cc`, not tried on the board):** the entry named by `default=` in `/Flash/boot.cfg`; with `direct=1` (absent = 1) it starts at power-on without the menu, with `countdown>0` after the countdown. `bootcfg_add` makes the entry the default when there is none (`def < 0`). So on a board with no default, adding `ddt_mandel.cor` makes the demo the default and every power-on starts it again; the escape is the one the host has for every default: a held C= key or fire on port 1 at power-on shows the menu (`bootcfg.h`). Not changed here (the host is frozen); the board step S7 must include "added as the first entry, power cycle, C= / port-1 fire shows the menu". Open question for Alex below.
 - **`host/layers.txt`:** one line in `ignore:` (`cores/ddt_mandel`, with `trx/` excluded because `ddt_novic` owns that in its key), the same line every large core added; the file is not part of the host pin (`tools/host_pin.sh --check` clean).
 - **Removed with the partial lane:** `core.toml`, `core_sources.tcl`, `layer2_ddt_mandel.v`, `trx/ddt_{mandel_core,mandel_video,palette}.v`, `sim/tb_ddt_mandel.v`, `coreapp/cores/ddt_mandel.cc` and its entries (`table.cc`, `cores.h`, Makefile, `d24_ledger.txt` file line and the `cores.h` count 23 -> 22, `check_core_id.py`, `tests/coreapp/*`, golden `menu_ddt_mandel.txt`), `ddt_mandel_pins` in `ci/sims.*`. Kept for `ddt_novic`: `trx/{ddt_regs,ddt_dots,ddt_pixw,ddt_clk_load,c64_font_rom}.v`, `sim/{mk_l2ports.py,ddr2e_model.v,run_pins.sh}`, `coreapp/cores/ddt_regs.h`.
+- 2026-11-22, run #86 (45053073122), job `apptests / Apptests` red in two units, both because the tree lost the ddt_mandel application: (1) `coreapp:cross` `test_keywalk` (`DIFF want DDT Mandelbrot (mandelbrUlt) F1/home ...`, `test_keywalk.cc:203` and `:213`): `tests/coreapp/golden/keywalk.txt` (51 lines) and `ids.txt` (15 lines) still listed the removed application; those lines are removed. (2) `coreapp_render` `render.cc:1607` (`ucn_leg > 480`): the walk now has 19 cores and exactly 480 legends; the floor is `>= 480`. The sims `ddt_mandel_pix`, `ddt_mandel_joy` leave CI (D10).
 
 ---
 
-Open (one line, as in the TODO table): IN PROGRESS 11-22: spec, code; open: Vivado WNS/DSP, board S3, S7; 20 or 19 engines
+Open (one line, as in the TODO table): IN PROGRESS 11-22: open: Vivado WNS/DSP, board S3, S7, freeze after board run; no CI tests of his code (D10)

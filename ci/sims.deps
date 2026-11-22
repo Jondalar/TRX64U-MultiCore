@@ -285,10 +285,6 @@ amiga1200_motorwire: cores/amiga1200/sim/motorwire cores/amiga1200/mono/host/bli
 amiga_motorpath: cores/amiga/sim cores/amiga/rtl cores/amiga/layer2_amiga.v host/sim/mig_ui_model.v cores/amiga/mono/host/ddr2_port.v
 atari_led: @reads
 
-# T255: the DDT Mandelbrot benches build mono/ddt_mandel_hd.v (the large core's picture path) under Verilator from cores/ddt_mandel (DDT's engines in rtl/, our glue in trx/ and mono/, the
-# models of CARRY4 and xpm_memory_tdpram in sim/); the model (mandel_model.py) reads the palette colours, the text screen and the font (cores/ddt_mandel/mono/mem).
-ddt_mandel_pix: cores/ddt_mandel
-ddt_mandel_joy: cores/ddt_mandel
 ddt_novic_pix: cores/ddt_novic cores/ddt_mandel/trx cores/ddt_mandel/sim host/mem/ovl_font8.mem
 ddt_novic_pins: cores/ddt_novic/layer2_ddt_novic.v cores/ddt_mandel/sim/run_pins.sh tools/check_layer2_pins.py host/top.v
 hdmi_out: host/sim/hdmi_out host/sim/mig_ui_model.v host/hdmi_out.v host/hdmi_timing.v host/mode_req.v host/cdce_mode.v host/tmds_rep.v host/vic_scaler.v host/pal_ram.v host/overlay.v host/pix_layer.v host/c64_text.v host/dfx_decouple.v host/hdmi_enc host/hdmi_modes.vh vendor/icepi/hdmi
