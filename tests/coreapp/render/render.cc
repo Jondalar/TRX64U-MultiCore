@@ -42,7 +42,6 @@ extern const CoreDesc c128_desc;
 extern const CoreDesc vc20_desc;
 extern const CoreDesc amiga1200_desc;
 extern const CoreDesc amiga_desc;
-extern const CoreDesc ddt_mandel_desc;
 extern const CoreDesc ddt_novic_desc;
 #include "picture.h"
 #include "volume.h"
@@ -777,7 +776,7 @@ static void modes_picture_row(const char *out)
 static void ddt_menu(const char *out)
 {
     char p[512];
-    const struct { const CoreDesc *d; const char *name; } cores[] = { { &ddt_mandel_desc, "ddt_mandel" }, { &ddt_novic_desc, "ddt_novic" } };
+    const struct { const CoreDesc *d; const char *name; } cores[] = { { &ddt_novic_desc, "ddt_novic" } };
     for (const auto &k : cores) {
         CoreDesc *kb = board_desc(k.d);
         Rig r(kb, "/usb0/cores/ddt.cfg");

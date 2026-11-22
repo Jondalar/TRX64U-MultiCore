@@ -41,7 +41,7 @@ def bad_links(text):
 CORES = [
     dict(id="ddt_mandel", match=("mandelbrot",), title="DDT Mandelbrot (mandelbrUlt)", folder="ddt_mandel",
          files="none", needed="nothing",
-         sources="coreapp/cores/ddt_mandel.cc (no ROM list in the descriptor)"),
+         sources="cores/ddt_mandel/mono/core.toml (a large core without an application: no ROM list)"),
     dict(id="ddt_novic", match=("no vic",), title="DDT Look Ma, No VIC", folder="ddt_novic",
          files="none", needed="nothing",
          sources="coreapp/cores/ddt_novic.cc (no ROM list in the descriptor)"),
@@ -224,7 +224,7 @@ PARAS = {
         "offered here.",
     ],
     "ddt_mandel": [
-        "Needs **no ROM**. DDT's Mandelbrot generator starts by itself; the joystick in port 2 pans and zooms.",
+        "Needs **no ROM**. A large core: DDT's Mandelbrot generator with 20 engines, HDMI output only, no menu. It starts by itself; the joystick in port 2 pans and zooms. The way back to the host is a power cycle.",
     ],
     "ddt_novic": [
         "Needs **no ROM**. DDT's demo starts by itself.",
