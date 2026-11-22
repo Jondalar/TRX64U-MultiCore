@@ -140,7 +140,8 @@ static int parse_sections(Rd &r, uint32_t off, uint32_t size, DescRecord *out, u
             FreezeDesc &f = out->sec->freeze;
             memset(&f, 0, sizeof(f));
             uint32_t fr = SW(15), fm = SW(16), ft = SW(17), fw = SW(18);
-            if (scale < 1 || scale > 3 || nbuf > 8 || (bpp != 0 && bpp != 2 && bpp != 4) || pxfmt > 4 || h60 > 65535 || reg[0] > 65535 || reg[1] > 65535 || reg[2] > 65535 ||
+            bool no_pic = scale == 0 && !(v.w | v.h | (uint32_t)v.x0 | (uint32_t)v.y0 | v.fb_base | v.fb_stride | nbuf | bpp | pxfmt | h60 | reg[0] | reg[1] | reg[2] | reg[3]);   // no picture of the core's own: the host's scaler shows it, the record holds a freeze alone
+            if ((!no_pic && (scale < 1 || scale > 3)) || nbuf > 8 || (bpp != 0 && bpp != 2 && bpp != 4) || pxfmt > 4 || h60 > 65535 || reg[0] > 65535 || reg[1] > 65535 || reg[2] > 65535 ||
                 reg[3] > 65535 || fr > 65535 || fm > 255 || ft > 65535 || fw > 1) {
                 return r.fail("description record, section %s: a number is out of range", nm);
             }
@@ -214,7 +215,7 @@ static int parse_sections(Rd &r, uint32_t off, uint32_t size, DescRecord *out, u
                 uint32_t idx = SW(at), reg = SW(at + 1), shift = SW(at + 2), mask = SW(at + 3), nb = SW(at + 4);
                 uint32_t padw = (nb + 3) / 4;
                 if (idx >= ncset || reg > 65535 || shift > 7 || mask < 1 || mask > 255 || nb > DR_BIND_BYTES || len / 4 < at + 5 + padw ||
-                    out->csettings[idx].bind || (nb && nb != (uint32_t)out->csettings[idx].nvalues)) {
+                    out->csettings[idx].bind || out->csettings[idx].kind || (nb && nb != (uint32_t)out->csettings[idx].nvalues)) {
                     return r.fail("description record, section %s: entry %u names no core setting (or twice), or has a bad register, shift, mask or byte list", nm, (unsigned)i);
                 }
                 RegBind &d = out->sec->setbind[i];
@@ -934,6 +935,8 @@ int descrec_parse(const uint8_t *rec, uint32_t n, DescRecord *out, char *why, in
             d.show_state = r.str((when >> 8) - 1, &bad);
             when &= 0xFF;
         }
+        const bool file = (when & DR_SET_FILE) != 0;           // T239.3 D17: a file the person selects (Setting::kind 3); its time code is live or reset as any other's
+        when &= ~(uint32_t)DR_SET_FILE;
         if (when & 4) {                                        // T228 R21: the last value string is the state that locks the row (its text replaces the value); old records never set the flag
             if (nv >= 1 && (uint64_t)fv + nv <= tb[V].count) {
                 d.lock_state = out->values[fv + nv - 1];
@@ -944,14 +947,18 @@ int descrec_parse(const uint8_t *rec, uint32_t n, DescRecord *out, char *why, in
         d.apply = r.str(W(e, 6), &bad);
         d.base = (int32_t)W(e, 7);
         d.label = r.str(W(e, 8), &bad);                          // what the menu shows (null: the key); the key stays what the .cfg and REST name
-        if (bad || !d.key || !d.key[0] || (d.apply ? !d.apply[0] : ver < 6) || nv < (when >= 2 ? 1u : 2u) || (uint64_t)fv + nv > tb[V].count || df >= nv || when > 3) {
+        if (bad || !d.key || !d.key[0] || (d.apply ? !d.apply[0] : ver < 6) || nv < (when >= 2 || file ? 1u : 2u) || (uint64_t)fv + nv > tb[V].count || df >= nv || when > 3 ||
+            (file && (when > 1 || nv != 1 || d.base || !d.apply))) {
             return r.fail("description record: core setting %u has a bad string, value run, default or time", (unsigned)i);
         }
         d.values = out->values + fv;
         d.nvalues = (int)nv;
         d.def = (int)df;
         d.when = (uint8_t)(when >= 2 ? 0 : when);
-        d.kind = (uint8_t)(when >= 2 ? when - 1 : 0);      // 2: a text, 3: a secret text (its default is values[0], `base` its longest length)
+        d.kind = (uint8_t)(file ? 3 : when >= 2 ? when - 1 : 0);      // 2: a text, 3: a secret text (its default is values[0], `base` its longest length)
+        if (file) {
+            out->values[fv] = "";                                  // none selected: the record has no empty strings, it holds a blank
+        }
         for (uint32_t j = 0; j < i; j++) {
             if (!strcasecmp(out->csettings[j].key, d.key)) {
                 return r.fail("description record: core setting \"%s\" twice", d.key);

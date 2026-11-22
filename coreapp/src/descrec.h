@@ -28,6 +28,7 @@
 //         1 core       18 words: id (4 bytes), name, title, short_title, folder, store, min_contract, reset_ms, service_op, service_period_ms, flags (b0 poll_when_frozen, b1 board_caps,
 //                      b2 id_shared, b3 own_volume, b4 no_tone, b5 menu_first), needs_program, program_ext, type_op, run_op, core_id, live_ms, caps (comma separated)
 //         2 video      19 words: w h scale x0 y0 fb_base fb_stride nbuf reg_latest reg_seq reg_fb_base reg_fb_stride bpp pxfmt h60, then the freeze: reg_status mask timeout_ms word
+//                      (scale 0 with every other video word 0: no picture of the core's own, the freeze alone)
 //         3 roms       u32 count, then per ROM 16 words: role, put_op, flags (b0 required, b1 shared, bits 15:8 set), 3 sizes (0 = none), 10 file names (none = end)
 //         4 settings   u32 count, then per entry: the index of the core setting, reg, shift, mask, number of bytes, the bytes padded to a multiple of 4 (RegBind: that setting is those
 //                      register bits and has no operation)
@@ -65,7 +66,7 @@
 //   fact   label op first_bind nbind flags ask ask_off first_size nsize          (flags bit 0: closes the menu, bit 1: repeat - the ask word names the operation that says how many
 //                                                                       entries there are, T228 R21, bit 2: the data the operation returns is shown as text;
 //                                                                       bits 15:8 the sheet letter; ask_off a signed 16 bit word)
-//   cset   key group first_value nvalues def when apply base                     (when 0: live, 1: at the next reset)
+//   cset   key group first_value nvalues def when apply base                     (when 0: live, 1: at the next reset, 2: a text, 3: a secret text; bit 2 lock_state, bit 3 a file the person selects, bits 15:8 show_state)
 //   A tab's `groups` string is, for an information tab, the comma separated lines it shows (the application's fixed ones); a tasks, media or settings
 //   tab lists the groups its entries name; a system tab lists the groups its layout's `pages` shows (T228 R6).
 //   hide   id         rename id label
@@ -114,8 +115,9 @@
 #define DR_FACTS 200
 #define DR_CSETS 330
 #define DR_TABLES 17
+#define DR_SET_FILE 8                             // T239.3 D17: bit 3 of a core setting's time code: a file the person selects (Setting::kind 3); bit 2 is the lock flag, bits 15:8 the show_state
 #define DR_SETBINDS 16                            // T239.3 D17: core settings that are register bits
-#define DR_BIND_BYTES 32                          // ... and the bytes one of them maps its values to
+#define DR_BIND_BYTES 64                          // ... and the bytes one of them maps its values to
 #define DR_CAPS 8
 #define DR_MOUNT 4
 #define DR_SECTIONS 17                            // the ids 1 .. 17

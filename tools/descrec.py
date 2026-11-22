@@ -21,7 +21,8 @@ Source (TOML; every key is checked, an unknown one is an error - a typo must not
     min_contract = 1               # reset_ms, service_op + service_period_ms, live_ms, type_op, run_op, needs_program, program_ext, core_id, caps = ["iec"], and the flags
                                    # poll_when_frozen, board_caps, id_shared, own_volume, no_tone, menu_first
     [video]                        # section 2 with [freeze]: CoreDesc::video (w, h, scale, x0, y0, fb_base, fb_stride, nbuf, reg_latest, reg_seq, reg_fb_base, reg_fb_stride, and bpp,
-    [freeze]                       # pxfmt, h60 where 0 is not meant) and CoreDesc::freeze (reg_status, mask, timeout_ms, word)
+    [freeze]                       # pxfmt, h60 where 0 is not meant) and CoreDesc::freeze (reg_status, mask, timeout_ms, word); scale 0 with every other number 0 = the core has no
+                                   # picture of its own (it goes through the host's scaler) and a freeze alone
     [[rom]]                        # section 3: a RomSpec - role, names (first match wins), sizes, required, set, shared, put_op; check = true says the core's code checks the content
                                    # (CoreHooks::rom_check[i]; the check is code and stays so)
     [hotkeys]                      # section 5: a HkSpec - mod, actions (7), tasks, own_keys, vol_key, swap_key, core_op + core_key + core_label, pc_keys
@@ -42,6 +43,8 @@ Source (TOML; every key is checked, an unknown one is an error - a typo must not
     [sector_media]                 # section 16: SectorMediaSpec - prefix nunits mount_reg mount_step feat_reg feat_sectors mbox_status mbox_lba mbox_done stage_off idle_sync_ms done_tag_mask
     # a [[core_setting]] (section 4) with reg_bind = { reg = 161, shift = 0, mask = 31, bytes = [0, 1, 2] } in place of `apply`: the setting is those register bits
     # (regset.h RegBind; bytes has one entry per value, or none: the value itself)
+    # a [[core_setting]] with file = true, when = "live" | "reset" and apply (kind 3): a file the person selects in a file selector, the text is its path, none by default; apply takes one
+    # text argument "path" (Setting::kind 3; no values, default, base, text, secret or reg_bind). reg_bind takes up to 64 bytes (one per value)
     # a [[media]] with replace = "<label>" (section 17): MediaSlot::replace, the file action that replaces the file of a filled slot
     # Which description wins (T239.3 D17): while a descriptor for the core is compiled in, it is the core and a record with these sections changes nothing at run time
     # (coreapp/src/descrec.h descrec_applies); a core without one is made of the record (descrec_core) and its code supplies only the hooks. menu_rec is the record itself.
@@ -196,6 +199,7 @@ ESIZE_V3_MEDIA = 24
 ORDER = ("area", "tab", "node", "action", "setting", "hide", "rename", "bind", "ext", "size", "value", "ctab", "task", "media", "ftype", "fact", "cset")
 OWN = ("task", "media", "ftype", "fact", "cset")          # the tables of the core's own menu (flag bit 1)
 INFO_LINES = ("Core", "Application", "Network", "Media", "ROMs", "Libraries")   # menutree.cc menu_info_labels, the application's fixed lines
+FILE_FLAG = 8              # the time code of a core setting: the setting is a file the person selects (Setting::kind 3); bit 2 is the lock flag, bits 15:8 the show_state
 WHEN = {"live": 0, "reset": 1}
 WIDGETS = ("info", "browser", "media", "settings", "tasks", "system", "nodes")
 NODE_KINDS = {"op": 0, "setting": 1, "state": 2, "widget": 3, "group": 4}
@@ -908,7 +912,7 @@ def compile_desc(doc, merged=()):
     setbinds = []
     lists = _opt(doc, "lists", dict, "description", {})
     for cs in _opt(doc, "core_setting", list, "description", []):
-        _only(cs, {"key", "group", "values", "list", "range", "unit", "default", "when", "apply", "base", "text", "secret", "maxlen", "show_state", "lock_state", "label", "empty", "pick", "reg_bind"}, "core_setting")
+        _only(cs, {"key", "group", "values", "list", "range", "unit", "default", "when", "apply", "base", "text", "secret", "maxlen", "show_state", "lock_state", "label", "empty", "pick", "reg_bind", "file"}, "core_setting")
         key = _need(cs, "key", str, "core_setting")
         what = "core_setting " + key
         if key.lower() in seen_set:
@@ -922,10 +926,21 @@ def compile_desc(doc, merged=()):
             raise DescError("%s: when is live or reset" % what)
         base = _opt(cs, "base", int, what, 0)
         wcode = WHEN[when]
-        if _opt(cs, "text", bool, what, False) or _opt(cs, "secret", bool, what, False):
+        kind_code = 0                       # Setting::kind: 0 a choice among values, 1 a text, 2 a secret text, 3 a file the person selects
+        if _opt(cs, "file", bool, what, False):
+            # T239.3 D17: a file the person selects in a file selector (Setting::kind 3): the text is the file's path, none selected by default; `apply` is the operation that checks a
+            # chosen path and keeps it (one text argument "path"). The time code keeps its live / reset; FILE_FLAG says the kind (the reader gives values[0] back as "")
+            if cs.get("text") or cs.get("secret") or any(k in cs for k in ("values", "list", "range", "unit", "default", "maxlen", "empty", "pick", "base", "reg_bind")) or "apply" not in cs:
+                raise DescError("%s: a file setting has an apply and none of text, secret, values, list, range, unit, default, maxlen, empty, pick, base, reg_bind" % what)
+            kind_code = 3
+            wcode |= FILE_FLAG
+            vals = [" "]                    # the record has no empty strings
+            default = 0
+        elif _opt(cs, "text", bool, what, False) or _opt(cs, "secret", bool, what, False):
             # a text the person types: values[0] is its default, base its longest length (T104.2 UI)
             vals = [_opt(cs, "default", str, what, "")]
             wcode = 3 if _opt(cs, "secret", bool, what, False) else 2
+            kind_code = wcode - 1
             base = _opt(cs, "maxlen", int, what, 40)
             default = 0
             if vals[0] == "":
@@ -980,8 +995,8 @@ def compile_desc(doc, merged=()):
                 t["_big"][big] = fv
         if "reg_bind" in cs:
             rb = _need(cs, "reg_bind", dict, what)
-            if wcode >= 2 or len(vals) < 2 or base != 0:
-                raise DescError("%s: reg_bind is for a choice among values (no text, no base)" % what)
+            if kind_code or len(vals) < 2 or base != 0:
+                raise DescError("%s: reg_bind is for a choice among values (no text, no file, no base)" % what)
             if "bytes" in rb and len(rb["bytes"]) != len(vals):
                 raise DescError("%s: reg_bind bytes has one entry per value (%d)" % (what, len(vals)))
             setbinds.append((len(t["cset"]), rb))
@@ -1131,7 +1146,7 @@ FREEZE_INTS = ("reg_status", "mask", "timeout_ms")
 ROMS_MAX, ROM_NAMES_MAX, ROM_SIZES_MAX = 14, 10, 3
 HK_ACTIONS = 7                                                              # coreapp/src/hotkeys.h HK_NACT
 SETBIND_MAX = 16
-SETBIND_BYTES_MAX = 32
+SETBIND_BYTES_MAX = 64
 MOUNT_NAMES_MAX = 4
 CAP_RE = r"[a-z0-9_]{1,15}"
 CAPS_MAX = 8                                                                # coreapp/src/descrec.h DR_CAPS
@@ -1180,6 +1195,11 @@ def _sec_core(c, st):
     return struct.pack("<%dI" % len(w), *w)
 
 
+def _scale_ok(v, may_be_none):
+    """scale 1 .. 3; 0 is no picture of the core's own (CoreDesc::video all zeros: the SuperCPU's picture goes through the host's scaler) and only then, in [video] and not in [alt_video]."""
+    return v["scale"] in (1, 2, 3) or (may_be_none and v["scale"] == 0 and not any(v[k] for k in VIDEO_INTS))
+
+
 def _video_words(v, what="video"):
     _only(v, set(VIDEO_INTS), what)
     vals = {}
@@ -1192,8 +1212,8 @@ def _video_words(v, what="video"):
             vals[k] = _int_in(v, k, 0, 65535, "video", 0)
         else:
             vals[k] = _int_in(v, k, 0, 65535, "video")
-    if vals["scale"] not in (1, 2, 3) or vals["nbuf"] > 8 or vals["bpp"] not in (0, 2, 4) or vals["pxfmt"] > 4:
-        raise DescError("video: scale 1 .. 3, nbuf at most 8, bpp 0, 2 or 4, pxfmt at most 4")
+    if not _scale_ok(vals, what == "video") or vals["nbuf"] > 8 or vals["bpp"] not in (0, 2, 4) or vals["pxfmt"] > 4:
+        raise DescError("%s: scale 1 .. 3 (0 only in [video], with every other number 0: a core whose picture goes through the host's scaler), nbuf at most 8, bpp 0, 2 or 4, pxfmt at most 4" % what)
     return [vals[k] for k in VIDEO_INTS]
 
 
@@ -1514,7 +1534,7 @@ def _parse_sections(blob, off, size, s, ncset, out):
             v = dict(zip(VIDEO_INTS, w))
             for k in ("x0", "y0"):
                 v[k] = v[k] - 2 ** 32 if v[k] >= 2 ** 31 else v[k]
-            if v["scale"] not in (1, 2, 3) or v["nbuf"] > 8 or v["bpp"] not in (0, 2, 4) or v["pxfmt"] > 4 or v["h60"] > 65535 or max(v[k] for k in ("reg_latest", "reg_seq", "reg_fb_base", "reg_fb_stride")) > 65535 or w[-4] > 65535 or w[-3] > 255 or w[-2] > 65535 or w[-1] > 1:
+            if not _scale_ok(v, True) or v["nbuf"] > 8 or v["bpp"] not in (0, 2, 4) or v["pxfmt"] > 4 or v["h60"] > 65535 or max(v[k] for k in ("reg_latest", "reg_seq", "reg_fb_base", "reg_fb_stride")) > 65535 or w[-4] > 65535 or w[-3] > 255 or w[-2] > 65535 or w[-1] > 1:
                 raise DescError("%s: a value is out of range" % what)
             out["video"] = v
             out["freeze"] = {"reg_status": w[-4], "mask": w[-3], "timeout_ms": w[-2], "word": bool(w[-1])}
@@ -1539,7 +1559,8 @@ def _parse_sections(blob, off, size, s, ncset, out):
             for _ in range(n):
                 idx, reg, shift, mask, nb = words(5, at)
                 at += 20
-                if idx >= ncset or reg > 65535 or shift > 7 or not 1 <= mask <= 255 or nb > SETBIND_BYTES_MAX or len(p) < at + nb + (-nb % 4) or (nb and nb != len(out["cset"][idx]["values"])):
+                if idx >= ncset or reg > 65535 or shift > 7 or not 1 <= mask <= 255 or nb > SETBIND_BYTES_MAX or len(p) < at + nb + (-nb % 4) or (nb and nb != len(out["cset"][idx]["values"])) \
+                        or out["cset"][idx]["when"] in ("text", "secret") or out["cset"][idx]["file"]:
                     raise DescError("%s: an entry names no core setting, or has a bad register, shift, mask or bytes" % what)
                 by = list(p[at:at + nb])
                 at += nb + (-nb % 4)
@@ -1626,7 +1647,7 @@ def _parse_sections(blob, off, size, s, ncset, out):
             v = dict(zip(VIDEO_INTS, words(len(VIDEO_INTS))))
             for k in ("x0", "y0"):
                 v[k] = v[k] - 2 ** 32 if v[k] >= 2 ** 31 else v[k]
-            if v["scale"] not in (1, 2, 3) or v["nbuf"] > 8 or v["bpp"] not in (0, 2, 4) or v["pxfmt"] > 4 or max(v[k] for k in ("reg_latest", "reg_seq", "reg_fb_base", "reg_fb_stride", "h60")) > 65535:
+            if not _scale_ok(v, False) or v["nbuf"] > 8 or v["bpp"] not in (0, 2, 4) or v["pxfmt"] > 4 or max(v[k] for k in ("reg_latest", "reg_seq", "reg_fb_base", "reg_fb_stride", "h60")) > 65535:
                 raise DescError("%s: a value is out of range" % what)
             out["alt_video"] = v
         elif sid in (SEC_FBWIN, SEC_MOUSE, SEC_WINMEDIA, SEC_SECMEDIA):
@@ -1847,6 +1868,8 @@ def parse_desc(blob):
         base = base - 2 ** 32 if base >= 2 ** 31 else base
         show = s((when >> 8) - 1) if when >> 8 else None
         when &= 0xFF
+        file = bool(when & FILE_FLAG)                                 # T239.3 D17: a file the person selects (Setting::kind 3), live or reset like any other
+        when &= ~FILE_FLAG
         lock = None
         if when & 4:                                                  # the last value string is the state that locks the row (T228 R21)
             if nv < 1 or fv + nv > len(out["value"]):
@@ -1854,10 +1877,10 @@ def parse_desc(blob):
             lock = out["value"][fv + nv - 1]
             nv -= 1
             when &= 3
-        if not s(key) or (not s(apply) and (apply != NONE or ver < 6)) or nv < (1 if when >= 2 else 2) or fv + nv > len(out["value"]) or df >= nv or when > 3:
+        if not s(key) or (not s(apply) and (apply != NONE or ver < 6)) or nv < (1 if when >= 2 or file else 2) or fv + nv > len(out["value"]) or df >= nv or when > 3 or (file and (when > 1 or nv != 1 or base != 0 or not s(apply))):
             raise DescError("description record: a bad core setting")
         out["cset"].append({"key": s(key), "group": s(group), "values": out["value"][fv:fv + nv], "default": df, "when": {0: "live", 1: "reset", 2: "text", 3: "secret"}[when],
-                            "apply": s(apply), "base": base, "show_state": show, "label": s(label), "lock_state": lock})
+                            "apply": s(apply), "base": base, "show_state": show, "label": s(label), "lock_state": lock, "file": file})
     if out["own"] != bool(out["task"] or out["media"] or out["ftype"] or out["cset"]):
         raise DescError("description record: the own-menu flag and the tables of the own menu disagree")
     out["sections"] = False
@@ -2041,7 +2064,9 @@ def decoded_to_doc(rec):
                 d["apply"] = c["apply"]
             if c.get("reg_bind"):
                 d["reg_bind"] = dict(c["reg_bind"])
-            if c["when"] in ("text", "secret"):          # a text the person types: values[0] is its default (a blank stands for none), base its longest length, values[1] what an empty text shows
+            if c.get("file"):                            # a file the person selects: no values of its own (the record's one value is a blank), no default, no base
+                d = {"key": c["key"], "apply": c["apply"], "file": True, "when": c["when"]}
+            elif c["when"] in ("text", "secret"):          # a text the person types: values[0] is its default (a blank stands for none), base its longest length, values[1] what an empty text shows
                 d = {"key": c["key"], "apply": c["apply"], "default": c["values"][0].strip(), "maxlen": c["base"]}
                 d["secret" if c["when"] == "secret" else "text"] = True
                 if len(c["values"]) > 1:

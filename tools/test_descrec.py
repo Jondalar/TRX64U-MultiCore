@@ -630,6 +630,52 @@ class CoreSections(unittest.TestCase):
         with self.assertRaisesRegex(D.DescError, "section video"):
             D.parse_desc(bytes(b))
 
+    def test_a_file_setting_is_kind_3_and_reads_back(self):
+        # T239.3 D17: a file the person selects (Setting::kind 3), live or reset, no values of its own
+        text = self.text + '\n[[core_setting]]\nkey = "Kit file"\nfile = true\nwhen = "reset"\napply = "vc20.use_kit"\n'
+        b = D.compile_text(text)
+        r = D.parse_desc(b)
+        c = [x for x in r["cset"] if x["key"] == "Kit file"][0]
+        self.assertEqual((c["file"], c["when"], len(c["values"]), c["apply"]), (True, "reset", 1, "vc20.use_kit"))
+        self.assertFalse(any(x["file"] for x in r["cset"] if x["key"] != "Kit file"))
+        self.assertEqual(D.compile_desc(D.decoded_to_doc(r)), b)
+        for what, extra in (("values", 'values = ["a", "b"]'), ("default", 'default = "x"'), ("text", "text = true"), ("reg_bind", "reg_bind = { reg = 1, mask = 1 }"),
+                            ("base", "base = 3"), ("empty", 'empty = "none"')):
+            with self.assertRaises(D.DescError, msg=what):
+                D.compile_text(text + extra + "\n")
+        with self.assertRaises(D.DescError, msg="no apply"):
+            D.compile_text(text.replace('apply = "vc20.use_kit"', ""))
+
+    def test_register_bits_with_a_condition_and_up_to_64_bytes(self):
+        # a reg_bind setting may have a show_state (its offset sits above the time code) and 64 bytes; a text or a file setting may not be register bits
+        vals = ", ".join('"v%d"' % i for i in range(64))
+        by = ", ".join(str(i) for i in range(64))
+        head = '\n[[core_setting]]\nkey = "Wide"\nvalues = [%s]\nwhen = "reset"\nshow_state = "x.on == yes"\nreg_bind = { reg = 5, mask = 255, bytes = [%s] }\n'
+        b = D.compile_text(self.text + head % (vals, by))
+        r = D.parse_desc(b)
+        c = [x for x in r["cset"] if x["key"] == "Wide"][0]
+        self.assertEqual((len(c["reg_bind"]["bytes"]), c["show_state"]), (64, "x.on == yes"))
+        self.assertEqual(D.compile_desc(D.decoded_to_doc(r)), b)
+        with self.assertRaises(D.DescError):
+            D.compile_text(self.text + head % (vals + ', "v64"', by + ", 64"))
+        with self.assertRaises(D.DescError):
+            D.compile_text(self.text + '\n[[core_setting]]\nkey = "T"\ntext = true\nreg_bind = { reg = 5, mask = 1 }\n')
+
+    def test_a_video_of_zeros_is_no_picture_of_the_cores_own(self):
+        # the SuperCPU's picture goes through the host's scaler: scale 0 with every other number 0, and the freeze next to it
+        zero = "\n".join("%s = 0" % k for k in D.VIDEO_INTS)
+        sect = "[video]\n" + zero + "\n\n"
+        i, j = self.text.index("[video]"), self.text.index("[freeze]")
+        text = self.text[:i] + sect + self.text[j:]
+        r = D.parse_desc(D.compile_text(text))
+        self.assertEqual((r["video"]["scale"], r["video"]["w"], r["freeze"]["reg_status"]), (0, 0, 0x0A4))
+        self.assertEqual(D.compile_desc(D.decoded_to_doc(r)), D.compile_text(text))
+        for what, t in (("a width", text.replace("w = 0", "w = 4")), ("a buffer count", text.replace("nbuf = 0", "nbuf = 2"))):
+            with self.assertRaises(D.DescError, msg=what):
+                D.compile_text(t)
+        with self.assertRaises(D.DescError, msg="scale 4"):
+            D.compile_text(self.text.replace("scale = 3", "scale = 4"))
+
     def test_a_count_that_is_no_number_is_a_description_error(self):
         for sect, key, bad, more in (("window_media", "nslots", '"2"', ""), ("window_media", "ntracks", "1.5", "nslots = 1\n"), ("sector_media", "nunits", "true", "")):
             with self.assertRaisesRegex(D.DescError, "'%s' is a number" % key):

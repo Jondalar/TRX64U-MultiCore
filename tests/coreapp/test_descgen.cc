@@ -67,6 +67,13 @@ static void eq_actions(const FileAction *a, int na, const FileAction *b, int nb)
     }
 }
 
+// descrec_core with no code refuses at the first section whose function the core's code does not hand over (descrec.cc: the ROM content checks, the rom set's functions,
+// the raw keys' held function, then the mount slots): a core that has one of the earlier ones is refused with that, not with the slots
+static bool names_missing_code(const char *why)
+{
+    return strstr(why, "mount slots") != 0 || strstr(why, "section roms") != 0 || strstr(why, "section rom set") != 0 || strstr(why, "section raw keys") != 0;
+}
+
 // every field of the descriptor `want` (the compiled-in one) against `got` (made of the record)
 static void compare(const CoreDesc &want, const CoreDesc &got)
 {
@@ -366,7 +373,7 @@ static int one_core(const std::string &dir, const std::string &id, const std::st
         if (want->mount_slots) {                               // the descriptor with no code: nothing is taken from another descriptor
             CoreDesc bare;
             CHECK_EQ(descrec_core(d, 0, &bare, why, sizeof(why)), -1);
-            CHECK(strstr(why, "mount slots") != 0);
+            CHECK(names_missing_code(why));
         }
     }
 
@@ -414,7 +421,7 @@ static int one_core(const std::string &dir, const std::string &id, const std::st
         BundleDescSource nocode(&fs, 0);
         handover_fill(&h, cor.c_str(), name.c_str(), "0.3.0", 0x820eded2u);
         CHECK_EQ(start_identify((const uint8_t *)want->id, &h, &d, msg, sizeof(msg), 0, &nocode), START_NO_DESCRIPTOR);
-        CHECK(strstr(msg, "mount slots") != 0 || strstr(msg, "control hooks") != 0 || strstr(msg, "no such") != 0 || strstr(msg, "has none") != 0);
+        CHECK(names_missing_code(msg) || strstr(msg, "control hooks") != 0 || strstr(msg, "no such") != 0 || strstr(msg, "has none") != 0);
         // the bundle another core's name: the manifest says one name, the hand-over another
         handover_fill(&h, cor.c_str(), "Another Core", "0.3.0", 0x820eded2u);
         CHECK_EQ(start_identify((const uint8_t *)want->id, &h, &d, msg, sizeof(msg), 0, &src), START_COR_MISMATCH);
