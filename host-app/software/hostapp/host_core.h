@@ -143,7 +143,8 @@ void hc_start_safe_set(bool on);                            // T224 D2: the next
 void hc_start_config_set(const char *name);             // T198: the config the next hc_start_sequence hands over (one-shot, "" = plain)
 int hc_entry_remove(int i);
 int hc_entry_rename(int i, const char *name);            // HCR_REFUSED: the name cannot be used (nothing changed)
-int hc_entry_add(const char *name, const char *path, const char *hash, unsigned size, unsigned mtime, unsigned hdr);   // HCR_REFUSED: full, or a bad name
+int hc_entry_add(const char *name, const char *path, const char *hash, unsigned size, unsigned mtime, unsigned hdr,
+                 const char *old_name = nullptr);    // HCR_REFUSED: full, or a bad name. T254 D7: the entry of `path`, if it is named `old_name`, takes `name`
 int hc_entry_migrate(int i, StartFs &fs, bool fw);       // the full check of an old entry stored once (HCR_REFUSED: nothing stored); the host's own rewrite, not an edit by the person
 int hc_direct_toggle(void);                              // direct boot on/off
 int hc_autostart(bool on, int secs);                     // autostart on/off; secs 1..60 (0: keep), clamped by bootcfg_autostart

@@ -137,10 +137,14 @@ void hc_entry_ver(int i, char *out, size_t n)
     bool ok = st == ES_OK || st == ES_CHANGED;
     const char *ver = ok ? hc_einfo(i).version : "";
     // T221 D13: a large core shows its version like every core; "full firmware" stays for a full image that names none (a .cfw)
-    if (ver[0]) {
+    if (ver[0] && hc_efull(i) && !strncmp(ver, "bit ", 4)) {
+        // T254 D8: a firmware packaged without its version (before T254, or from an application without the version line) has its
+        // bitstream's date as version (fwconvert.cc, fwcv_names): the row says what the entry is, as "full firmware" does for a .cfw (D5)
+        snprintf(out, n, "%s", "packaged firmware");
+    } else if (ver[0]) {
         snprintf(out, n, "%s", ver[0] == 'v' || ver[0] == 'V' ? ver + 1 : ver);
         // T223 D7: the table shows x.y.z only; "-dev+<sha8>" or any other pre-release/build part is for the header chips and the entry's info view.
-        // A string that is no SemVer (a hash, "bit 2026/09/10") stays as it is.
+        // A string that is no SemVer (a hash) stays as it is; the "bit <date>" of a packaged firmware is handled above (T254 D8).
         const char *q = out;
         for (int part = 0; part < 3; part++) {
             if (!isdigit((unsigned char)*q)) {

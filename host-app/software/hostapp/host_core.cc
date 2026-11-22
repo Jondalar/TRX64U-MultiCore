@@ -448,8 +448,14 @@ int hc_entry_rename(int i, const char *name)
     return hc_cfg_save();
 }
 
-int hc_entry_add(const char *name, const char *path, const char *hash, unsigned size, unsigned mtime, unsigned hdr)
+int hc_entry_add(const char *name, const char *path, const char *hash, unsigned size, unsigned mtime, unsigned hdr, const char *old_name)
 {
+    // T254 D7: the entry of this file still has the name A gave it before T254 (old_name, the .bit header's): it takes the new name with
+    // this refresh, in the same save. Any other name is the person's (T198 D17) and stays: bootcfg_add refreshes an entry without its name.
+    int m = old_name && strcmp(name, old_name) ? hc_in_menu(path) : -1;
+    if (m >= 0 && !strcmp(g_cfg.e[m].name, old_name) && !bootcfg_rename(&g_cfg, m, name)) {
+        return HCR_REFUSED;
+    }
     if (!bootcfg_add(&g_cfg, name, path, hash, size, mtime, hdr)) {
         return HCR_REFUSED;
     }

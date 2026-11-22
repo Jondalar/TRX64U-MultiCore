@@ -205,6 +205,19 @@ static void commands()
         CHECK(hc_entry_add(nm, pa, "", 1, 1, 1) == HCR_OK);
     }
     CHECK(hc_entry_add("one too many", "/SD/y.cor", "", 1, 1, 1) == HCR_REFUSED && hc_cfg().n == BOOT_MAX);
+    // T254 D7: A on a firmware whose entry still has the name A gave it before T254 (the .bit header's) renames the entry in the same
+    // save; an entry with another name keeps it (T198 D17); the rename goes by the path, never by the name alone
+    fresh();
+    bootcfg_rename(&ref, 1, "Gideon 3.15");
+    bootcfg_add(&ref, "Gideon 3.15", "/SD/b.cor", "", 5, 6, 0);
+    CHECK(hc_entry_add("Gideon 3.15", "/SD/b.cor", "", 5, 6, 0, "Beta") == HCR_OK && fmt(hc_cfg()) == fmt(ref) && g_disk == fmt(ref) && g_saves == 1);
+    fresh();
+    bootcfg_add(&ref, "Gideon 3.15", "/SD/b.cor", "", 5, 6, 0);
+    CHECK(hc_entry_add("Gideon 3.15", "/SD/b.cor", "", 5, 6, 0, "u64_mk2_artix 2026/10/25 12:00:00") == HCR_OK && fmt(hc_cfg()) == fmt(ref)
+          && !strcmp(hc_cfg().e[1].name, "Beta"));
+    fresh();
+    bootcfg_add(&ref, "Gideon 3.15", "/SD/n.cor", "", 5, 6, 0);
+    CHECK(hc_entry_add("Gideon 3.15", "/SD/n.cor", "", 5, 6, 0, "Alpha") == HCR_OK && fmt(hc_cfg()) == fmt(ref) && !strcmp(hc_cfg().e[0].name, "Alpha"));
     // direct boot and autostart
     fresh();
     ref.direct = !ref.direct;

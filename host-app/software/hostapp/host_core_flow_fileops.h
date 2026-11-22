@@ -57,7 +57,7 @@ void hc_fo_delete_run(const HcFoEnv &e, const HcFoRow &row, const char *path);  
 void hc_fo_refuse(cor_result_t r, const CorInfo &ci, char *out, int cap, int *tone);
 void hc_fo_refuse_full(cfw_result_t r, char *out, int cap, int *tone);
 bool hc_fo_add_bundle(const HcFoEnv &e, const char *path, const CorInfo &ci);
-bool hc_fo_add_full(const HcFoEnv &e, const char *path, const char *name, uint32_t size);
+bool hc_fo_add_full(const HcFoEnv &e, const char *path, const char *name, uint32_t size, const char *old_name = nullptr);   // old_name: T254 D7
 void hc_fo_browse_add(const HcFoEnv &e, const char *path, bool full, cfw_result_t bcw_res, const CfwInfo &bcw, cor_result_t bci_res, const CorInfo &bci);
 void hc_fo_recheck(const HcFoEnv &e, int sel);                                      // R in the menu: the entry again, in full
 

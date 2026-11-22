@@ -1,7 +1,7 @@
 # T254 — A foreign firmware shows the name and version it gives itself, not its bitstream's date
 
 **Status:** IN PROGRESS (2026-11-22). Asked by Alex, 2026-11-22.
-Open (one line, as in the TODO table): IN PROGRESS 11-22: S1-S6 PASS, merged (#130, 5d1bf662); open: §4 (entries from before T254), board
+Open (one line, as in the TODO table): IN PROGRESS 11-22: S1-S8 PASS; D7, D8 in PR #132 (t254-old-entries); open: merge, board
 **Repo:** TRX64U-MultiCore — the host application (`host-app/software/hostapp`).
 **Number:** T254.
 **Origin:** Alex, 2026-11-22 (translated): "Can we take something small into 0.2.1 that bothers me visually a lot? ... If it
@@ -36,6 +36,8 @@ rule as the backup": "Yes, put that in too."
     (`cfwicon.cc`, `cfw_icon_kind`).
   - **P4** S: the start question.
   - **P5** P: the name and the version in the manifest.
+  - **P7** what was made before T254: the boot menu entry keeps the `.bit` header's name (T198 D17: A again refreshes only the
+    hash), and a `.cor` packaged then shows its manifest version "bit <date>" in the boot menu's Version column (§4 until D7, D8).
   - **P6** the cost: the host reads its SD card at 12.5 MHz (T149 D5). The File Browser reads the selected row when the
     selection moves. An application has 1.0 to 1.7 MB.
 
@@ -71,6 +73,16 @@ Scenario: S6 (P6) the cost is bounded
   Given an application without the TRX64 text
   When the host reads it
   Then it reads only the last 512 KiB of the application
+
+Scenario: S7 (P7) A on an entry from before T254
+  Given entries that A added under the .bit header's name: a .cfw and a packaged .cor whose application had no version line then
+  When the files carry the version line ("3.14", "1.1.0") and A adds each of them again
+  Then the entries take the names "Gideon 3.14" and "Commodore 1.1.0"; the other entries keep theirs
+
+Scenario: S8 (P7) the Version column of a firmware packaged without its version
+  Given the entry of a .cor whose manifest version is "bit 2026/10/25"
+  When the boot menu shows it
+  Then its Version column says "packaged firmware"
 ```
 
 | # | Solves | Test | Where it runs |
@@ -81,6 +93,8 @@ Scenario: S6 (P6) the cost is bounded
 | S4 | P4 | the same script: picture `t254-5-start-ask` | builder (ue2emu) |
 | S5 | P5 | the same script: the manifest; `tests/hostapp/test_fwconvert.cc` (the table first) | builder; host tests |
 | S6 | P6 | `tests/hostapp/test_cfw.cc` `s_self` (the reads of the scan) | host tests |
+| S7 | P7 | `tests/hostapp/emu_t254_fwname.sh` run 2: the `boot.cfg` lines; `tests/hostapp/test_hostcore.cc` (D7: by the path; another name stays) | builder (ue2emu); host tests |
+| S8 | P7 | the same script: pictures `t254-9-menu` (run 1) and `t254-10-renamed` (run 2) | builder (ue2emu) |
 
 ## §3 Decision
 
@@ -107,12 +121,21 @@ Scenario: S6 (P6) the cost is bounded
 - **D5:** the boot menu reads nothing new and `boot.cfg` does not change. The Version column of a `.cfw` entry stays "full
   firmware": the entry's name has the version.
 - **D6:** A on a file that is in the menu keeps the entry's name (T198 D17). Its note names the entry as the menu shows it.
+- **D7 (Alex, 2026-11-22, on the proposal for §4, translated: "That is good, add it too, please."):** A on a firmware (a `.cfw`, a
+  `.ue2` or a packaged `.cor`) whose entry still has the name A gave it before T254, the `.bit` header's name of that file
+  (`CfwInfo.name`), gives the entry the name of D1. Any other name is the person's and stays (D6). Only A does it; R in the boot
+  menu keeps the name, as before. The rename and the refresh are one save of `boot.cfg` (`hc_entry_add`, `old_name`).
+- **D8 (the same answer):** an entry of a full image whose version is "bit <date>" shows "packaged firmware" in the boot
+  menu's Version column, as a `.cfw` shows "full firmware" (D5). `fwconvert.cc` writes "bit <date>" for a firmware without its
+  version: one packaged before T254, or one whose application has no version line. The boot menu reads nothing new. The width,
+  with the glyphs of `lv_font_montserrat_14`: 143 px with the margin; the column has 150 px, on the compact canvas (480p) 96 px,
+  where the text is cut with "..." (ux-review R5).
 
 ## §4 Out of scope
 
-- **To decide with Alex (asked 2026-11-22):** an entry added before T254 keeps its name. T198 D17: the person names the entries;
-  A again refreshes only the hash. A `.cor` packaged before T254 keeps "bit <date>" as the manifest version, so the boot menu
-  shows that date until P packages the file again.
+- **Decided with Alex (2026-11-22): D7, D8.** Until then this section held: an entry added before T254 keeps its name, and a
+  `.cor` packaged before T254 shows "bit <date>" in the boot menu. The manifest of such a `.cor` still says "bit <date>" until P
+  packages the file again; only the Version column of the boot menu reads it differently.
 
 ## §5 Built
 
@@ -184,3 +207,23 @@ Scenario: S6 (P6) the cost is bounded
   and running again. T254 does not touch the core application. The host's emulator flows passed.
 - **On the board's SD (2026-11-22):** `/SD/txu/trx64host_update_5d1bf662.txu` (`tools/board_put.sh`, the `.txu` only;
   the cores of `d68f4b3a` stay). The board test page has the card "Host: firmware names".
+- **2026-11-22, branch `t254-old-entries` (D7, D8):** `host_core.cc` `hc_entry_add` takes `old_name`: the entry of the path, if
+  it has that name, takes the new name in the same save. `host_core_flow_fileops.cc`: A (`hc_fo_browse_add`) passes the `.bit`
+  header's name; the bundle path and R pass none. `host_core_rows.cc` `hc_entry_ver` (D8). The comment of `LROW_VER_W`
+  (`hostui.cc`) names the new label. Tests: `test_hostcore.cc`, three checks (renamed in one save; another name stays; a new
+  path does not rename an entry of another path): "test_hostcore: 894 passed, 0 failed" (Mac). `emu_t254_fwname.sh` run 2: the
+  first run adds `f_swap.cfw` and `g_swap.cor` without the version line, so under the `.bit` header's name, as a host before
+  T254 did; the second run, on the same flash with C= held (T135 S2), finds the files with the line and presses A on both. Its
+  fixture files were made on the Mac and checked (`cor_pack.py check`).
+- **The proof of S7, S8 (builder, 2026-11-22):** `tools/dev.sh test`: "test_hostcore: 894 passed, 0 failed", "apptests ok
+  (tier fast)"; `tools/dev.sh emu`: "tests/hostapp/emu_host: all scenarios passed"; `emu_t254_fwname.sh`: "PASS T254 S3",
+  "PASS T254 S7 (given): run 1 added f_swap.cfw and g_swap.cor as 'u64_mk2_artix 2026/10/25 12:00:00'", "PASS T254 S5",
+  "PASS T254 S7: A renamed run 1's two entries to 'Gideon 3.14' and 'Commodore 1.1.0'; the other three kept their names;
+  five entries", "PASS T254 pictures: ten different screens". S8 read off `t254-9-menu` (run 1: the packaged entry under
+  its old name says "packaged firmware") and `t254-10-renamed` (run 2: the renamed entries; "packaged firmware" stays). The
+  core app's emulator flows were red on the freeze check only: the branch was made before #131 fixed it; it is rebased onto
+  `e3038a98` (#131 merged).
+- **UX review (ux-specialist, 2026-11-22):** PASS. LOW (R5, R7): on the compact canvas (480p) the label is cut to about
+  "packaged f..." (from the glyph widths; this emulator image has no `--screen`, so not seen); R5 allows the cut, and the
+  review's proposal is to leave it. Widening the compact column would take room from every name on that canvas.
+- **The pull request (2026-11-22):** #132 into `integration`, after the integration run of #131 (45021023294) was green.
