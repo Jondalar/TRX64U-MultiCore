@@ -1,0 +1,390 @@
+# NOT PACKED YET: it is named desc.pending.toml because tests/coreapp/test_descgen.cc expects the descriptor made without code to fail on "mount slots", and for a core
+# with a ROM content check (check = true) and mount slots descrec_core names the missing ROM check first. Every field compares equal; that one message is the only failure. Rename it to desc.toml then.
+# The Apple //e's data description (T239.3 D17): what coreapp/cores/apple2.cc holds as tables and strings, as TOML. tools/descrec.py compiles it into the
+# description record (record 6 of the .cor, section layout in coreapp/src/descrec.h); the generic application builds the descriptor from it. What the record
+# cannot hold is code, and stays in the core's C++: init, release, warm_reset, the operations of register_ops, the content check of the System ROM, the floppy
+# and slot 7 write-back and the three functions of the mount slots. Register numbers are cores/apple2/rtl/trx/a2_regs.vhd (coreapp/cores/apple2_regs.h).
+
+[core]
+id = "APL2"
+name = "Apple IIe"
+title = "Apple IIe"
+short_title = "APPLE II"
+folder = "apple2"
+store = "Apple IIe Settings"
+min_contract = 1
+reset_ms = 10
+service_op = "apple2.service"
+service_period_ms = 1
+poll_when_frozen = true
+caps = ["floppy"]                      # a floppy drive on slot 6 and a hard disk on slot 7: no SIO, no IEC, no cartridge
+
+# 560 x 384 shown 2 x 2 (1120 x 768), centred on 1920 x 1080 (the board kit's window: 400, 156); the buffers are in the DDR2 window at 0x01000000 + A2_W_FB
+[video]
+w = 560
+h = 384
+scale = 2
+x0 = 400
+y0 = 156
+fb_base = 0x01D00000
+fb_stride = 0x00100000
+nbuf = 4
+reg_latest = 0x0C0
+reg_seq = 0x0C1
+reg_fb_base = 0x0C4
+reg_fb_stride = 0x0C8
+
+[freeze]
+reg_status = 0x0A4
+mask = 0x02
+timeout_ms = 200
+
+# ---- ROMs (never in the repository)
+# the monitor's RESET vector $FA62 at $3FFC is checked by the core's code: a file of another layout is refused, not guessed at
+[[rom]]
+role = "System ROM"
+names = ["apple2e.rom"]
+sizes = [16384]
+required = true
+check = true
+put_op = "apple2.put_sys"
+
+[[rom]]
+role = "Video ROM"
+names = ["apple2e-video.rom"]
+sizes = [8192]
+required = true
+put_op = "apple2.put_chr"
+
+# the Disk II boot ROM goes into the core only while a disk is mounted (with none in the drive the monitor would spin on it and never reach BASIC)
+[[rom]]
+role = "Disk II ROM"
+names = ["diskii.rom"]
+sizes = [256]
+put_op = "apple2.put_diskrom"
+
+# ---- settings: the first five share one register, every item rereads all of them
+[[core_setting]]
+key = "Display"
+values = ["Colour", "Black and white", "Green", "Amber"]
+apply = "apple2.set_cfg"
+
+[[core_setting]]
+key = "Palette"
+values = ["Original", "IIgs", "AppleWin"]
+apply = "apple2.set_cfg"
+
+[[core_setting]]
+key = "Scanlines"
+values = ["Off", "On"]
+apply = "apple2.set_cfg"
+
+[[core_setting]]
+key = "Character ROM set"
+values = ["First 4 KB", "Second 4 KB"]
+apply = "apple2.set_cfg"
+
+[[core_setting]]
+key = "Joystick ports"
+values = ["Normal", "Swapped"]
+apply = "apple2.set_cfg"
+
+# the machine's CAPS LOCK: on, off, or the C64U's SHIFT LOCK
+[[core_setting]]
+key = "CAPS LOCK"
+values = ["On", "Off", "Follow SHIFT LOCK"]
+default = 2
+apply = "apple2.set_caps"
+
+[[core_setting]]
+key = "LED Load Indicator"
+values = ["On", "Off"]
+apply = "led.load"
+
+# ---- tasks
+[[task]]
+label = "Reset (Ctrl-Reset)"
+op = "machine.warm_reset"
+closes_menu = true
+
+[[task]]
+label = "Cold start"
+op = "machine.cold_reset"
+closes_menu = true
+
+[[task]]
+label = "Reload ROMs, cold start"
+op = "machine.reload_roms"
+closes_menu = true
+
+[[task]]
+label = "Eject D1:"
+op = "apple2.eject"
+bind = [ { arg = "drive", int = 0 } ]
+
+[[task]]
+label = "Eject D2:"
+op = "apple2.eject"
+bind = [ { arg = "drive", int = 1 } ]
+
+[[task]]
+label = "Eject S7 unit 1"
+op = "apple2.hdd_eject"
+bind = [ { arg = "unit", int = 0 } ]
+
+[[task]]
+label = "Eject S7 unit 2"
+op = "apple2.hdd_eject"
+bind = [ { arg = "unit", int = 1 } ]
+
+[[task]]
+label = "Create blank DSK"
+op = "disk.create"
+bind = [ { arg = "path", text = true }, { arg = "format", str = "apple2_dsk" }, { arg = "name", str = "" } ]
+ask = "Name of the new DSK"
+ask_state = "disk.suggest.apple2_dsk"
+pick_dir = true
+
+# ---- media slots: D1 and D2 are the Disk II drives of slot 6, S7.1 and S7.2 the units of the hard disk card in slot 7
+[[media]]
+name = "D1:"
+state = "apple2.d1.image"
+eject_op = "apple2.eject"
+eject_bind = [ { arg = "drive", int = 0 } ]
+exts = ".dsk,.do,.nib,.woz,.po,.2mg"
+mount = "Mount D1:"
+empty_tasks = "Create blank DSK"
+
+[[media]]
+name = "D2:"
+state = "apple2.d2.image"
+eject_op = "apple2.eject"
+eject_bind = [ { arg = "drive", int = 1 } ]
+exts = ".dsk,.do,.nib,.woz,.po,.2mg"
+mount = "Mount D2:"
+empty_tasks = "Create blank DSK"
+
+[[media]]
+name = "S7.1:"
+state = "apple2.s71.image"
+eject_op = "apple2.hdd_eject"
+eject_bind = [ { arg = "unit", int = 0 } ]
+exts = ".hdv,.po,.2mg"
+mount = "Mount S7 unit 1"
+
+[[media]]
+name = "S7.2:"
+state = "apple2.s72.image"
+eject_op = "apple2.hdd_eject"
+eject_bind = [ { arg = "unit", int = 1 } ]
+exts = ".hdv,.po,.2mg"
+mount = "Mount S7 unit 2"
+
+# ---- file types
+[[filetype]]
+ext = ".dsk"
+  [[filetype.action]]
+  label = "Mount D1: and cold start"
+  op = "apple2.mount"
+  bind = [ { arg = "path", file = true }, { arg = "drive", int = 0 }, { arg = "boot", int = 1 } ]
+  closes_menu = true
+  [[filetype.action]]
+  label = "Mount D1:"
+  op = "apple2.mount"
+  bind = [ { arg = "path", file = true }, { arg = "drive", int = 0 }, { arg = "boot", int = 0 } ]
+  [[filetype.action]]
+  label = "Mount D2:"
+  op = "apple2.mount"
+  bind = [ { arg = "path", file = true }, { arg = "drive", int = 1 }, { arg = "boot", int = 0 } ]
+
+[[filetype]]
+ext = ".do"
+  [[filetype.action]]
+  label = "Mount D1: and cold start"
+  op = "apple2.mount"
+  bind = [ { arg = "path", file = true }, { arg = "drive", int = 0 }, { arg = "boot", int = 1 } ]
+  closes_menu = true
+  [[filetype.action]]
+  label = "Mount D1:"
+  op = "apple2.mount"
+  bind = [ { arg = "path", file = true }, { arg = "drive", int = 0 }, { arg = "boot", int = 0 } ]
+  [[filetype.action]]
+  label = "Mount D2:"
+  op = "apple2.mount"
+  bind = [ { arg = "path", file = true }, { arg = "drive", int = 1 }, { arg = "boot", int = 0 } ]
+
+[[filetype]]
+ext = ".nib"
+  [[filetype.action]]
+  label = "Mount D1: and cold start"
+  op = "apple2.mount"
+  bind = [ { arg = "path", file = true }, { arg = "drive", int = 0 }, { arg = "boot", int = 1 } ]
+  closes_menu = true
+  [[filetype.action]]
+  label = "Mount D1:"
+  op = "apple2.mount"
+  bind = [ { arg = "path", file = true }, { arg = "drive", int = 0 }, { arg = "boot", int = 0 } ]
+  [[filetype.action]]
+  label = "Mount D2:"
+  op = "apple2.mount"
+  bind = [ { arg = "path", file = true }, { arg = "drive", int = 1 }, { arg = "boot", int = 0 } ]
+
+[[filetype]]
+ext = ".woz"
+  [[filetype.action]]
+  label = "Mount D1: and cold start"
+  op = "apple2.mount"
+  bind = [ { arg = "path", file = true }, { arg = "drive", int = 0 }, { arg = "boot", int = 1 } ]
+  closes_menu = true
+  [[filetype.action]]
+  label = "Mount D1:"
+  op = "apple2.mount"
+  bind = [ { arg = "path", file = true }, { arg = "drive", int = 0 }, { arg = "boot", int = 0 } ]
+  [[filetype.action]]
+  label = "Mount D2:"
+  op = "apple2.mount"
+  bind = [ { arg = "path", file = true }, { arg = "drive", int = 1 }, { arg = "boot", int = 0 } ]
+
+# a .po is a floppy at 143,360 bytes and a volume at any other size; a .2mg of a floppy is 64 bytes longer than the image it holds
+[[filetype]]
+ext = ".po"
+  [[filetype.action]]
+  label = "Mount D1: and cold start"
+  op = "apple2.mount"
+  bind = [ { arg = "path", file = true }, { arg = "drive", int = 0 }, { arg = "boot", int = 1 } ]
+  size_in = [143360]
+  closes_menu = true
+  [[filetype.action]]
+  label = "Mount D1:"
+  op = "apple2.mount"
+  bind = [ { arg = "path", file = true }, { arg = "drive", int = 0 }, { arg = "boot", int = 0 } ]
+  size_in = [143360]
+  [[filetype.action]]
+  label = "Mount D2:"
+  op = "apple2.mount"
+  bind = [ { arg = "path", file = true }, { arg = "drive", int = 1 }, { arg = "boot", int = 0 } ]
+  size_in = [143360]
+  [[filetype.action]]
+  label = "Mount S7 unit 1 and cold start"
+  op = "apple2.hdd_mount"
+  bind = [ { arg = "path", file = true }, { arg = "unit", int = 0 }, { arg = "boot", int = 1 } ]
+  closes_menu = true
+  [[filetype.action]]
+  label = "Mount S7 unit 1"
+  op = "apple2.hdd_mount"
+  bind = [ { arg = "path", file = true }, { arg = "unit", int = 0 }, { arg = "boot", int = 0 } ]
+  [[filetype.action]]
+  label = "Mount S7 unit 2"
+  op = "apple2.hdd_mount"
+  bind = [ { arg = "path", file = true }, { arg = "unit", int = 1 }, { arg = "boot", int = 0 } ]
+
+[[filetype]]
+ext = ".2mg"
+  [[filetype.action]]
+  label = "Mount D1: and cold start"
+  op = "apple2.mount"
+  bind = [ { arg = "path", file = true }, { arg = "drive", int = 0 }, { arg = "boot", int = 1 } ]
+  size_in = [143424, 233024]
+  closes_menu = true
+  [[filetype.action]]
+  label = "Mount D1:"
+  op = "apple2.mount"
+  bind = [ { arg = "path", file = true }, { arg = "drive", int = 0 }, { arg = "boot", int = 0 } ]
+  size_in = [143424, 233024]
+  [[filetype.action]]
+  label = "Mount D2:"
+  op = "apple2.mount"
+  bind = [ { arg = "path", file = true }, { arg = "drive", int = 1 }, { arg = "boot", int = 0 } ]
+  size_in = [143424, 233024]
+  [[filetype.action]]
+  label = "Mount S7 unit 1 and cold start"
+  op = "apple2.hdd_mount"
+  bind = [ { arg = "path", file = true }, { arg = "unit", int = 0 }, { arg = "boot", int = 1 } ]
+  closes_menu = true
+  [[filetype.action]]
+  label = "Mount S7 unit 1"
+  op = "apple2.hdd_mount"
+  bind = [ { arg = "path", file = true }, { arg = "unit", int = 0 }, { arg = "boot", int = 0 } ]
+  [[filetype.action]]
+  label = "Mount S7 unit 2"
+  op = "apple2.hdd_mount"
+  bind = [ { arg = "path", file = true }, { arg = "unit", int = 1 }, { arg = "boot", int = 0 } ]
+
+# ProDOS hard disk volumes (T89.1)
+[[filetype]]
+ext = ".hdv"
+  [[filetype.action]]
+  label = "Mount S7 unit 1 and cold start"
+  op = "apple2.hdd_mount"
+  bind = [ { arg = "path", file = true }, { arg = "unit", int = 0 }, { arg = "boot", int = 1 } ]
+  closes_menu = true
+  [[filetype.action]]
+  label = "Mount S7 unit 1"
+  op = "apple2.hdd_mount"
+  bind = [ { arg = "path", file = true }, { arg = "unit", int = 0 }, { arg = "boot", int = 0 } ]
+  [[filetype.action]]
+  label = "Mount S7 unit 2"
+  op = "apple2.hdd_mount"
+  bind = [ { arg = "path", file = true }, { arg = "unit", int = 1 }, { arg = "boot", int = 0 } ]
+
+# ---- the state block of the bug report (reads without side effects only)
+[[report_reg]]
+name = "ID"
+reg = 0x000
+bytes = 4
+
+[[report_reg]]
+name = "CAPS2"
+reg = 0x005
+bytes = 1
+
+[[report_reg]]
+name = "CTRL"
+reg = 0x0A0
+bytes = 1
+
+[[report_reg]]
+name = "CFG"
+reg = 0x0A1
+bytes = 1
+
+[[report_reg]]
+name = "CAPS"
+reg = 0x0A2
+bytes = 1
+
+[[report_reg]]
+name = "STATUS (b0 reset, b1 held, b2 cold)"
+reg = 0x0A4
+bytes = 1
+
+[[report_reg]]
+name = "FRAMES"
+reg = 0x0A8
+bytes = 2
+
+[[report_reg]]
+name = "FB_LATEST"
+reg = 0x0C0
+bytes = 1
+
+[[report_reg]]
+name = "FRAME_SEQ"
+reg = 0x0C1
+bytes = 1
+
+[[report_reg]]
+name = "WIN_SEL"
+reg = 0x0D4
+bytes = 1
+
+# ---- hotkeys (hk_defaults.h hk_typing): CTRL is a typing key on this machine, so the modifier is C= + CTRL, which it has no function for; then RESTORE menu, "+" / "-"
+# volume, R reset, J swap joystick ports, P picture mode. Keys as hotkeys.h: 0-63 = col * 8 + row, 64 = RESTORE, 255 = none
+[hotkeys]
+mod = [61, 58]
+actions = [64, 40, 43, 17, 34, 41, 255]
+pc_keys = true
+
+# the slots of the core's own media engine; their three functions (spec, mount, eject) are code
+[mount]
+names = ["D1", "D2", "S7.1", "S7.2"]
