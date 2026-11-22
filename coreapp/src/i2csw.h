@@ -28,11 +28,12 @@ const char *i2csw_extend(const CoreDesc *d, CoreDesc *out, Setting *store);
 // The operations behind the rows. For a core with the capability only.
 void i2csw_register(OpRegistry &r);
 
-// What the rows do on the board (the I2C driver); the native builds get functions that do nothing, a test puts its own in.
+// What the rows do on the board (the I2C driver); the native builds get functions that do nothing, a test puts its own in. False: the I2C lock was not
+// had (another task held it past its timeout), nothing was done.
 struct I2cSwHw {
-    void (*scan)(bool on);                     // on: the scanner has the buses between the application's transactions (T242 D1); off: parked, as before T242
-    void (*park_wait)(int ticks);              // the sleep after scan_enable = 0: 0 (T242 D4), 2 (before T242, PR #112)
-    void (*expander)(int which);               // 1: the init's writes before T242; 2: PR #112's (both ports input); 0: none (T242 D5)
+    bool (*scan)(bool on);                     // on: the scanner has the buses between the application's transactions (T242 D1); off: parked, as before T242
+    bool (*park_wait)(int ticks);              // the sleep after scan_enable = 0 while the scanner runs: 0 (T242 D4), 2 (PR #112: the firmware's driver)
+    bool (*expander)(int which);               // 1: the init's three writes before T242; 2: those and then PR #112's two (both ports input); 0: none (T242 D5)
 };
 extern I2cSwHw i2csw_hw;
 

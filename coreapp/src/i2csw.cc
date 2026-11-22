@@ -2,6 +2,7 @@
 #include "ops.h"
 #include "picture.h"
 #include "settings.h"
+#include <stdio.h>
 #include <string.h>
 #include <strings.h>
 
@@ -11,10 +12,13 @@
 // On: T242 D1. Off: as before T242, one command parks the scanner and the application keeps the buses (host/app_i2c.v: want, kb_pause, own); with
 // `scanning` false the unlocks hand nothing back. Both inside the lock: a task in the middle of a two-transaction read (the EDID) must not lose the buses
 // between the two.
-static void board_scan(bool on)
+static bool board_scan(bool on)
 {
-    if (!i2c || !i2c->i2c_lock("I2C switches")) {
-        return;
+    if (!i2c) {
+        return true;
+    }
+    if (!i2c->i2c_lock("I2C switches")) {
+        return false;
     }
     if (on) {
         i2c->enable_scan(true, false);
@@ -24,39 +28,45 @@ static void board_scan(bool on)
         i2c->i2c_probe(0x40);                  // the first command claims the buses; 0x40 is the port expander the init writes
     }
     i2c->i2c_unlock();
+    return true;
 }
 
-static void board_park_wait(int ticks)
+// The driver sleeps only while the scanner runs (`scanning`), so this matters with the scanner on: before T242 the core application never slept here.
+static bool board_park_wait(int ticks)
 {
     if (i2c) {
         i2c->set_park_wait(ticks);
     }
+    return true;
 }
 
-// Before T242 the init wrote the first three (T242 D5 took them out); PR #112 set both ports to input before it enabled the scanner. On the 1.8 V bus, as
-// both did.
-static void board_expander(int which)
+// Before T242 the init wrote the first three (T242 D5 took them out). PR #112 kept them and set both ports to input after them, before it enabled the
+// scanner. On the 1.8 V bus, as both did.
+static bool board_expander(int which)
 {
-    if (!i2c || !which || !i2c->i2c_lock("I2C switches")) {
-        return;
+    if (!i2c || !which) {
+        return true;
+    }
+    if (!i2c->i2c_lock("I2C switches")) {
+        return false;
     }
     i2c->set_channel(I2C_CHANNEL_1V8);
-    if (which == 1) {
-        i2c->i2c_write_byte(0x42, 0x06, 0x00);
-        i2c->i2c_write_byte(0x42, 0x07, 0xFF);
-        i2c->i2c_write_byte(0x42, 0x02, 0x00);
-    } else {
+    i2c->i2c_write_byte(0x42, 0x06, 0x00);
+    i2c->i2c_write_byte(0x42, 0x07, 0xFF);
+    i2c->i2c_write_byte(0x42, 0x02, 0x00);
+    if (which == 2) {
         i2c->i2c_write_byte(0x42, 0x06, 0xFF);
         i2c->i2c_write_byte(0x42, 0x07, 0xFF);
     }
     i2c->i2c_unlock();
+    return true;
 }
 
 I2cSwHw i2csw_hw = { board_scan, board_park_wait, board_expander };
 #else
-static void no_scan(bool) { }
-static void no_park_wait(int) { }
-static void no_expander(int) { }
+static bool no_scan(bool) { return true; }
+static bool no_park_wait(int) { return true; }
+static bool no_expander(int) { return true; }
 I2cSwHw i2csw_hw = { no_scan, no_park_wait, no_expander };
 #endif
 
@@ -112,10 +122,16 @@ const char *i2csw_extend(const CoreDesc *d, CoreDesc *out, Setting *store)
     return 0;
 }
 
-static int op_scan(CoreCtx *, const OpArgs &a, OpOut &)
+// The lock not had: the row would show a value that was never applied, so the change is refused and says why.
+static int busy(OpOut &o)
 {
-    i2csw_hw.scan(a.i(0) != 0);
-    return OPE_OK;
+    snprintf(o.msg, o.msglen, "The I2C bus stayed busy: nothing was changed, try again");
+    return OPE_BUSY;
+}
+
+static int op_scan(CoreCtx *, const OpArgs &a, OpOut &o)
+{
+    return i2csw_hw.scan(a.i(0) != 0) ? OPE_OK : busy(o);
 }
 
 static int op_poll(CoreCtx *, const OpArgs &a, OpOut &)
@@ -124,16 +140,14 @@ static int op_poll(CoreCtx *, const OpArgs &a, OpOut &)
     return OPE_OK;
 }
 
-static int op_wait(CoreCtx *, const OpArgs &a, OpOut &)
+static int op_wait(CoreCtx *, const OpArgs &a, OpOut &o)
 {
-    i2csw_hw.park_wait(a.i(0) ? 2 : 0);
-    return OPE_OK;
+    return i2csw_hw.park_wait(a.i(0) ? 2 : 0) ? OPE_OK : busy(o);
 }
 
-static int op_expander(CoreCtx *, const OpArgs &a, OpOut &)
+static int op_expander(CoreCtx *, const OpArgs &a, OpOut &o)
 {
-    i2csw_hw.expander(a.i(0));
-    return OPE_OK;
+    return i2csw_hw.expander(a.i(0)) ? OPE_OK : busy(o);
 }
 
 static const ArgSpec two_args[] = { ARG_INT("value", 0, 1) };

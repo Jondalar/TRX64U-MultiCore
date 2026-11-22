@@ -97,4 +97,18 @@ Scenario: S3 (P1, P2) the board
 
 ## §5 Built
 
-- **2026-11-21, branch `t252-i2c-switches`** (from `integration` `3ec353c7`).
+- **2026-11-21, branch `t252-i2c-switches`** (from `integration` `3ec353c7`), `553b6a56`: D2, D3. `tools/check_d24.py` ok
+  (`portdiag.cc` keeps its line count).
+- **S1 PASS (2026-11-21):** `CA_GROUP=shared tests/coreapp/run.sh`: "test_i2csw: 72 checks, 0 failed"; the group: "36 test
+  programs passed, 40 parallel controls ..., every negative control failed as it must".
+- **S2 PASS (2026-11-21):** `tools/dev.sh riscv --branch t252-i2c-switches`: "dev.sh riscv: ok", `coreapp.bin` sha256
+  `4c54080b...`. `tools/dev.sh cor diag` cannot pack it: "diag is no .cor core of this tree ... a large core's .cor is packed by
+  ci/package.sh".
+- **The board file:** `diag_t252.cor` (3,485,659 bytes), packed with `tools/pack_large_cor.sh` as `ci/package.sh` does, named
+  "Port Diagnostics T252" so the boot menu tells it from `diag.cor`. The bitstream is the pipeline's entry
+  `bit-mono-diag-27d069ea27f30f6f` of the builds repository (from `cfcd9f62`, 2026-11-19, WNS +0.165 ns, SHA256SUMS checked):
+  nothing under `cores/diag` (without `sd`, `superseded`, `sim`), `cores/common` or `contract` changed since. Its
+  `app_i2c.v`, `c64u_keyboard.v` and `mode_ctl.v` are the c64scpu's (`cores/*/mono/host/`); `cdce_mode.v` differs.
+- **Not seen in ue2emu:** `tests/ui` cannot drive this core. Its Home page redraws the live pins every 250 ms, so the
+  harness's `settle` (the same revision twice, 120 ms apart) never ends: "the menu does not come to rest", with this
+  image and with one without T252 (`t251-printf-sizes`).
