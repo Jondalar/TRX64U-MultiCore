@@ -96,6 +96,19 @@ static const SvcC64 g_c64 = {
     sizeof(SvcC64), c64_peek, c64_poke, c64_dma_read, c64_dma_write, c64_cart_setup_bus, c64_cart_restore_bus, c64_cart_mode, c64_cart_detect,
 };
 
+static void trx_reset_c64(void);
+
+// C64Api (c64_api.h, export "c64" major 1): the members of SvcC64 in their order, then dma_read_frozen and cart_preference, which the base does not have (null: a library
+// of the core that has them exports its own table), and reset, the warm reset through the core's operation.
+static const C64Api g_c64api = {
+    sizeof(C64Api), c64_peek, c64_poke, c64_dma_read, c64_dma_write, c64_cart_setup_bus, c64_cart_restore_bus, c64_cart_mode, c64_cart_detect, 0, 0, trx_reset_c64,
+};
+
+const C64Api *appsvc_c64_api(void)
+{
+    return appsvc_c64() ? &g_c64api : 0;
+}
+
 const SvcC64 *appsvc_c64(void)
 {
     return g_ctx && g_ctx->desc && !memcmp(g_ctx->desc->id, "TRX2", 4) ? &g_c64 : 0;       // the C64 descriptor of the TRX64 line (cores/c64.cc)

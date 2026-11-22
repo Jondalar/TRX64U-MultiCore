@@ -725,7 +725,7 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
     appsvc_init(&ctx);
     app_host.install();
     app_host.set_end_hook(appsvc_end);
-    app_host.set_machine_groups(appsvc_trx(), appsvc_net(), appsvc_c64(), appsvc_flash_read, appsvc_handover);
+    app_host.set_machine_groups(appsvc_trx(), appsvc_net(), appsvc_c64(), appsvc_flash_read, appsvc_handover, appsvc_c64_api());
     // T175: the diag core's runner asks the person through the application host's dialogs, on a task of its own (portdiag.h)
     struct DiagHost : PdHost {
         BoardOs *os;

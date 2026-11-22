@@ -35,6 +35,9 @@ if python3 "$ROOT/tools/u2a_pack.py" "$TST/fixtures/testlib.at0.elf" -o "$T/test
 fi
 [ ! -e "$T/testlib.big.u2a" ] && [ ! -e "$T/testlib.bad.u2a" ] || { echo "u2a_pack left a file behind after a refusal" >&2; exit 1; }
 
+# T239.3 D20: a file that lists the names it exports (--export), read by the loader
+python3 "$ROOT/tools/u2a_pack.py" "$TST/fixtures/testlib.at0.elf" -o "$T/testlib.exports.u2a" --name testlib --version 1 --export ring=1 --export trx=2 > /dev/null
+
 # T104.1: the menu records of a library file (libmenu.h), compiled by the real tool; one with a route and one that hides are the refusals
 python3 "$ROOT/tools/descrec.py" compile "$TST/menu_lib.toml" "$T/menu_lib.bin"
 python3 - "$T" "$TST" <<'PY'
@@ -57,7 +60,7 @@ build() {   # build OUT SRCDIR
   $CXX "${LA[@]}" -o "$1" "${LF[@]}"
 }
 # the fixtures the generators above left in $T and the test reads through FIXDIR: named, so that they are part of every unit's key (T100 D14)
-CC_EXTRA="$T/testlib.u2a $T/testlib.budget.u2a $T/testlib.ops0.u2a $T/testlib.at1000.raw $T/menu_lib.bin $T/menu_route.bin $T/menu_hide.bin $T/menu_poll.bin"
+CC_EXTRA="$T/testlib.u2a $T/testlib.exports.u2a $T/testlib.budget.u2a $T/testlib.ops0.u2a $T/testlib.at1000.raw $T/menu_lib.bin $T/menu_route.bin $T/menu_hide.bin $T/menu_poll.bin"
 run() {
   local key t0=$SECONDS; loader_args "$SRC"; key="$(cc_key loader "test libload" -- "${LA[@]}" -- "${LF[@]}")"
   if cc_cached libload "$key" test; then PASS=$((PASS + 1)); return 0; fi

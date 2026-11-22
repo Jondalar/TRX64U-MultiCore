@@ -5,11 +5,13 @@
 
 #include "ctx.h"
 #include "svctab.h"
+#include "c64_api.h"
 
 // What the tables need to reach the core and the registry (the operations a reset goes through).
 void appsvc_init(CoreCtx *c);
 
 const SvcC64 *appsvc_c64(void);                         // null when the core is not the C64
+const C64Api *appsvc_c64_api(void);                     // the same table as api->c64 as C64Api (c64_api.h), what api->lib->find answers under C64_API_NAME; null when the core is not the C64
 const SvcTrx *appsvc_trx(void);                         // null unless the ID block reads "TRX2"
 const SvcNet *appsvc_net(void);
 

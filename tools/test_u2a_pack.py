@@ -353,10 +353,51 @@ def budget_record():
         check(P.main([elf, "-o", out, "--name", "testlib", "--budget", "image=4096", "--budget", "ops=1"]) == 0 and hdr(open(out, "rb").read())["flags"] == 2, "--budget packs")
 
 
+def exports_record():
+    """T239.3 D20: the names a library exports stand in the file (header flag 4, a count, then name and major), behind the budget record when there is one."""
+    data = open(os.path.join(FIX, "testlib.at0.elf"), "rb").read()
+    base30 = [("base", P.parse_version("3.0"))]
+    check(P.parse_export("ring=1") == ("ring", 1) and P.parse_export("trx>=2") == ("trx", 2), "parse_export: name=major and name>=major")
+    blob = P.pack(data, "lib", "testlib", 1, base30, exports=[("ring", 1), ("trx", 2)])[0]
+    h = hdr(blob)
+    check(h["flags"] == 4 and h["header_size"] == 104, "flag 4 says a list of exported names follows the header")
+    count = struct.unpack_from("<I", blob, P.HEADER_SIZE)[0]
+    e0 = struct.unpack_from("<16sI", blob, P.HEADER_SIZE + 4)
+    e1 = struct.unpack_from("<16sI", blob, P.HEADER_SIZE + 24)
+    check(count == 2 and e0[0].rstrip(b"\0") == b"ring" and e0[1] == 1 and e1[0].rstrip(b"\0") == b"trx" and e1[1] == 2, "the list: the count, then name and major of each")
+    check(h["needs_off"] == P.HEADER_SIZE + 4 + 40 and h["payload_off"] == h["needs_off"] + 20, "the needs and the image follow the list")
+    need = struct.unpack_from("<16sI", blob, h["needs_off"])
+    check(need[0].rstrip(b"\0") == b"base" and need[1] == (3 << 16 | 2), "a base dependency below 3.2 is raised to it")
+    b2 = P.pack(data, "lib", "testlib", 1, [], exports=[("ring", 1)])[0]
+    check(hdr(b2)["needs"] == 1 and struct.unpack_from("<16sI", b2, hdr(b2)["needs_off"])[1] == (3 << 16 | 2), "no base dependency: the packer adds base 3.2")
+    # with a budget in front, the list stands behind it
+    bud = P.parse_budget(["image=4096"])
+    b3 = P.pack(data, "lib", "testlib", 1, base30, budget=bud, exports=[("ring", 1)])[0]
+    h3 = hdr(b3)
+    check(h3["flags"] == 6 and struct.unpack_from("<I", b3, P.HEADER_SIZE + 48)[0] == 1, "budget and exports: flags 6, the list behind the 48 bytes of the budget")
+    check(h3["needs_off"] == P.HEADER_SIZE + 48 + 4 + 20, "the needs follow both records")
+    plain = P.pack(data, "lib", "testlib", 1, base30)[0]
+    check(image_of(blob) == image_of(plain) and hdr(plain)["flags"] == 0, "the image is the same with and without the list; a file without it has flags 0")
+    refused("an app that exports", lambda: P.pack(data, "app", "testlib", 1, base30, exports=[("ring", 1)], main_sym="lib_register"), "only a library")
+    refused("nine exports", lambda: P.pack(data, "lib", "testlib", 1, base30, exports=[("n%d" % i, 1) for i in range(9)]), "one to 8")
+    refused("an export twice", lambda: P.pack(data, "lib", "testlib", 1, base30, exports=[("ring", 1), ("ring", 1)]), "twice")
+    refused("an export with a capital", lambda: P.pack(data, "lib", "testlib", 1, base30, exports=[("Ring", 1)]), "1..15")
+    refused("export major 0", lambda: P.parse_export("ring=0"), "outside")
+    refused("export without major", lambda: P.parse_export("ring"), "name=major")
+    refused("export major no number", lambda: P.parse_export("ring=x"), "no number")
+    import tempfile
+    with tempfile.TemporaryDirectory() as d:
+        out = os.path.join(d, "x.u2a")
+        elf = os.path.join(FIX, "testlib.at0.elf")
+        check(P.main([elf, "-o", out, "--name", "testlib", "--export", "ring=1", "--export", "trx=2"]) == 0 and hdr(open(out, "rb").read())["flags"] == 4, "--export packs")
+        check(P.main([elf, "-o", out + "2", "--name", "testlib", "--export", "ring"]) == 1 and not os.path.exists(out + "2"), "--export without a major is refused and writes no file")
+
+
 def main():
     packed = real_fixtures()
     menu_record()
     budget_record()
+    exports_record()
     rebuild_check(packed)
     synthetic()
     no_constructors()

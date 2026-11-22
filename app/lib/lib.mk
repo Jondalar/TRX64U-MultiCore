@@ -9,6 +9,9 @@
 # image figure; the loader refuses the library at load when anything is over, naming the figure and the limit. A figure left out is the platform's limit. With a budget
 # the file needs base >= 3.2 (the packer sees to it).
 #
+# LIB_EXPORTS = ring=1 trx=1 lists the names the library exports with the major of each table (LibRecord export_list, api.md section 9): the file carries them so that a folder of libraries is
+# loaded with the exporter in front of whatever needs that name (LIB_NEEDS = "ring>=1"); the packer adds `base>=3.2`.
+#
 # The packer refuses an image with a constructor or a destructor (D19): a non-empty .init_array, .fini_array, .ctors or .dtors, or a reference to __cxa_atexit or atexit (a global object
 # with a constructor or destructor brings one). The loader runs none; initialise in lib_register. make shows the packer's message.
 #
@@ -58,7 +61,7 @@ $(LIB_NAME).elf: $(LIB_OBJS) $(LIB_DIR)lib.ld
 $(LIB_OUT): $(LIB_NAME).elf $(LIB_MENU)
 	python3 $(SDK_TOOLS)/u2a_pack.py $< -o $@ --kind $(LIB_KIND) --residence $(LIB_RES) --name $(LIB_NAME) \
 	    --version $(LIB_VERSION) $(foreach n,$(LIB_NEEDS),--needs '$(n)') $(if $(LIB_CAP),--capability $(LIB_CAP)) \
-	    $(if $(LIB_MANIFEST),--manifest $(LIB_MANIFEST)) $(if $(LIB_MENU),--menu $(LIB_MENU)) $(foreach b,$(LIB_BUDGET),--budget '$(b)') --link-base $(LIB_BASE)
+	    $(if $(LIB_MANIFEST),--manifest $(LIB_MANIFEST)) $(if $(LIB_MENU),--menu $(LIB_MENU)) $(foreach b,$(LIB_BUDGET),--budget '$(b)') $(foreach x,$(LIB_EXPORTS),--export '$(x)') --link-base $(LIB_BASE)
 
 clean:
 	rm -f $(LIB_OBJS) $(LIB_OBJS:.o=.d) $(LIB_NAME).elf $(LIB_OUT)

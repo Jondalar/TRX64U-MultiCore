@@ -53,6 +53,8 @@ struct LibFile {
     char name[U2A3_NAME_MAX];
     uint32_t version;
     uint32_t image_bytes;
+    int nexports;                         // the names it exports (U2A3_FLAG_EXPORTS): an application's need on one of them is met by this file (D20)
+    U2a3ExportName exports[U2A3_EXPORTS_MAX];
 };
 
 class AppIndex {
@@ -80,6 +82,8 @@ public:
     // ---- libraries of the apps folders (T197)
     int nlibs() const { return nlibs_; }
     const LibFile *find_lib(const char *name, uint32_t min_version = 0) const;
+    // The file that meets a need: one that exports `name` at the major of min_version or later (the lowest), else the library of that name at that version or later.
+    const LibFile *find_lib_for(const char *name, uint32_t min_version) const;
     // Does an application fit the loader window (the heap the board can give, `room`) with the libraries it needs that `loaded` does not have yet, plus
     // APP_WORK_BYTES? Missing or too old a library: no. `ld` (may be null) says which libraries are in memory already.
     bool fits(const AppEntry &a, uint32_t room, const LibLoader *ld) const;

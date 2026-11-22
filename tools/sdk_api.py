@@ -25,7 +25,7 @@ import re
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-ROOTS = ["libapi.h", "libfmt.h", "glue.h", "u2p_app.h", "u2p_ui.h", "hidden.h"]
+ROOTS = ["libapi.h", "libfmt.h", "c64_api.h", "glue.h", "u2p_app.h", "u2p_ui.h", "hidden.h"]
 DIRS = ["coreapp/src", "app/sdk"]
 LOCK = "coreapp/api_lock.toml"
 VERSION_TOML = "coreapp/version.toml"

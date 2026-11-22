@@ -22,7 +22,7 @@
 1.2.4 An image names the majors it knows (`abi_min` to `abi_max`). The loader refuses an image whose range does not hold 3.
 1.2.5 An image states the lowest minor it needs as a `needs` entry named `base`. The loader refuses an image whose `base` entry is above the minor of the base.
 1.2.6 `api->abi_major` and `api->abi_minor` report the version of the running base.
-1.2.7 Every symbol of this document is part of base 3.0, unless its section says base 3.1 or 3.2. Two things came with 3.1: `api->lib` and the members `LibRecord.exports` and `LibRecord.exports_size`. Four things came with 3.2: the base serves the poll of a library that loads after the core has started (6.10), the budget record of a file and its refusals (section 8), the account of an image, which now also holds what the operations of the image take from `api->mem` later (4.2.2, 8.5), and the named exports of a library (section 9). A library that depends on one of them writes `needs base >= 3.1` or `needs base >= 3.2`.
+1.2.7 Every symbol of this document is part of base 3.0, unless its section says base 3.1 or 3.2. Two things came with 3.1: `api->lib` and the members `LibRecord.exports` and `LibRecord.exports_size`. Four things came with 3.2: the base serves the poll of a library that loads after the core has started (6.10), the budget record of a file and its refusals (section 8), the account of an image, which now also holds what the operations of the image take from `api->mem` later (4.2.2, 8.5), and the named exports of a library with the table `C64Api` (section 9). A library that depends on one of them writes `needs base >= 3.1` or `needs base >= 3.2`.
 1.2.8 A section of a group or a type states its version in the line `Since base`.
 1.2.9 There is one base minor per release of the SDK, not one per change. A minor that a release of the SDK has shipped never changes again. Until then everything that is added to the API stays under the minor of the coming release: SDK 0.2.0 is base 3.2, and base 3.1 is released.
 
@@ -36,6 +36,8 @@
 | `U2A3_IMAGE_MAX` | The size of the image (payload and zeroed memory), at most 1 MiB. |
 | `U2A3_ALIGN_MAX` | The largest alignment an image may ask for, 4096 bytes. |
 | `U2A3_FLAG_BUDGET` | The header flag 2 of a file: the budget record stands directly behind the header (section 8). A base older than 3.2 refuses a file that sets it. |
+| `U2A3_FLAG_EXPORTS` | The header flag 4 of a file: the list of the names the library exports stands behind the budget record, or directly behind the header when there is none (9.3). A base older than 3.2 refuses a file that sets it. |
+| `U2A3_EXPORTS_MAX` | The number of names a library exports, at most 8 (also `LIB_EXPORTS_MAX` for the record). |
 | `U2A3_BUDGET_NONE` | The value 0xFFFFFFFF of a figure in the budget record: the image declares no figure of its own (8.2). |
 | `PRG_APP_NEED` | The name `standalone`. A `needs` entry with this name names no library. The base does not offer the application while the board runs under the MultiCore host. |
 | `CART_APP_NEED` | The name `cart_port`. A `needs` entry with this name names no library. The base offers the application only where `api->c64` is not null. |
@@ -72,7 +74,7 @@ Since base 3.0.
 2.1.4 The start-up task loads the libraries of the core at start. The menu task loads a library an application needs, with the core lock held.
 2.1.5 The base clears `*out` and sets `out->struct_size` before the call. A library leaves `struct_size` as it is.
 2.1.6 The function fills `*out` and returns 0. Any other value refuses the load. The base then takes back everything the image registered and frees the image.
-2.1.7 The base refuses the load too when `out->struct_size` changed, when a count is negative or has no list, when `exports` is set and `exports_size` is below 4, and when the registry refuses a name.
+2.1.7 The base refuses the load too when `out->struct_size` changed, when a count is negative or has no list, when `exports` is set and `exports_size` is below 4, when the list `export_list` is malformed or lacks a name the file lists (9.2), and when the registry refuses a name.
 2.1.8 The base copies `*out`. The lists it points to are not copied. They stay in the image.
 2.1.9 The base registers `out->ops`, `out->states` and `out->events` under the name of the image. The menu merge reads `nodes`, `file_actions`, `settings`, `tabs` and `poll` (section 6).
 2.1.10 Memory a library takes from `api->mem` inside `lib_register` belongs to the library. It is freed when the library is unloaded or when the load fails.
@@ -143,6 +145,8 @@ Since base 3.0.
 3.2.6 `api->dlg`, `api->job`, `api->trx`, `api->net` and `api->c64` are null. `api->sys->flash_read` and `api->sys->machine_handover` are null.
 3.2.7 The base fills these members later in the same object. An image that keeps `api` reads the members at the time of the call.
 3.2.8 A library or an application loaded after the start sees every group the core has.
+3.2.9 `api->trx`, the ring table `api->trx->ring` and `api->c64` leave the base API. They come from libraries, through `api->lib->find` (4.10, section 9): the names `trx`, `ring` and `c64`, each at major 1. New code asks `api->lib->find`. The three pointers stay in `LibApi` and keep their meaning until the cut of `LibApi` that comes with the next change of its major; the base fills them as before.
+3.2.10 The base itself answers `find("c64", ...)` with a `C64Api` table (9.4). It does not answer `trx` or `ring`: their layouts belong to the libraries of the core that has them.
 
 | Member | Group | Present |
 |---|---|---|
@@ -519,6 +523,7 @@ Since base 3.0.
 
 The debug block of the TRX bitstream: the register window, the run control of the machine, and the frame ring.
 
+4.7.0 Since base 3.2 this group leaves the base API (3.2.9): new code finds the table `trx` (major 1) with `api->lib->find`. The pointer stays until the cut.
 4.7.1 The group is null unless the ID block of the core reads `TRX2`.
 4.7.2 The base makes the table when it installs the application host at core start. `ring` is not null only when the engine was present at that time.
 4.7.3 The base releases the debug block when the application ends (see `release`).
@@ -779,6 +784,7 @@ Since base 3.0.
 
 The bus group of the C64, for the cartridge tools while the machine is stopped.
 
+4.9.0 Since base 3.2 this group leaves the base API (3.2.9): new code finds the table `c64` (major 1, the type `C64Api` of section 9.4) with `api->lib->find`. The pointer stays until the cut.
 4.9.1 The group is null unless the descriptor of the core has the id `TRX2`.
 4.9.2 The group is not in `lib_register` of a library loaded at core start (section 3.2).
 4.9.3 Every call goes through the memory window of the core. `dma_read` and `dma_write` do not wrap at 0xFFFF: a range that runs past it reads or writes past the window.
@@ -822,16 +828,16 @@ The bus group of the C64, for the cartridge tools while the machine is stopped.
 
 Since base 3.1.
 
-The library group. A library puts a table of function pointers in its record (`LibRecord.exports`). An image that needs the library finds the table here.
+The library group. A library puts a table of function pointers in its record (`LibRecord.exports`), or several under names (`LibRecord.export_list`, since base 3.2). An image that needs the library finds the table here.
 
 4.10.1 The group is there for every image. A base of version 3.0 has no `lib` member: test `api->struct_size` or `api->abi_minor`.
 
 #### 4.10.2 `api->lib->find`
 
-4.10.2.1 `const void *find(const char *name, uint32_t min_version, uint32_t *table_size)` returns the call table of the library `name`.
-4.10.2.2 It returns null when `name` is null, no library of that name is loaded, its version is below `min_version`, or it has no table.
-4.10.2.3 `min_version` is `U2A3_VERSION(major, minor)`.
-4.10.2.4 `table_size` may be null. It receives the number of bytes the library gave as `exports_size`.
+4.10.2.1 `const void *find(const char *name, uint32_t min_version, uint32_t *table_size)` returns a call table by name. Since base 3.2 it searches the export names first (section 9), then the names of the libraries, as it did before.
+4.10.2.2 It returns null when `name` is null, nothing is exported under that name at the major of `min_version` or later, no library of that name is loaded, its version is below `min_version`, or it has no table.
+4.10.2.3 `min_version` is `U2A3_VERSION(major, minor)`. For an export name only the major counts: an export has a major and no minor, and a table grows by appending within its major (9.1).
+4.10.2.4 `table_size` may be null. It receives the number of bytes of the table: `size` of the export, or `exports_size` of the library.
 4.10.2.5 The layout of the table is the library's own header. The caller checks `table_size` before it uses a member.
 4.10.2.6 The table stays valid while the library is loaded. List the library in the `needs` of the image: a library that no loaded image needs and that contributes nothing (4.10.2.7) may be unloaded when an application is opened and the heap is short.
 4.10.2.7 A library that declares a poll, menu nodes, file actions, settings or tabs, in `lib_register` or in its menu record, is never unloaded this way: its poll and its menu entries point into its memory. When the heap is then too short, the base refuses to open the application and says so: `Not enough memory for <application> (needs <n> KB, <m> KB free).` Since base 3.2.
@@ -1081,6 +1087,8 @@ Since base 3.0.
 | `LibRecord.ntabs` | The count of `tabs`. |
 | `LibRecord.exports` | Since base 3.1. The call table of the library, found with `api->lib->find`. Null: none. |
 | `LibRecord.exports_size` | Since base 3.1. The size of the table in bytes. At least 4 when `exports` is set. |
+| `LibRecord.export_list` | Since base 3.2. The named tables of the library (`LibExportDecl`), found with `api->lib->find` by name and major (section 9). Null: none. A library built before 3.2 leaves it zero. |
+| `LibRecord.nexport_list` | Since base 3.2. The count of `export_list`, at most 8. |
 
 ### 6.2 `LibOpDecl`
 
@@ -1303,6 +1311,19 @@ Since base 3.0.
 6.12.2 A node declaration with `$slot` in its anchor, label, operation, state, condition or id, a binding text with `$slot`, a file action with `$slot` in its label, operation or a binding text, or a setting with `$slot` in its group, key or operation is made once for each slot, with `$slot` replaced by the slot name.
 6.12.3 A core with no slot gets none. A core has at most 8 slots.
 
+### 6.13 `LibExportDecl`
+
+Since base 3.2.
+
+`LibExportDecl` is one table of a library under a name. The record lists them in `export_list`. Section 9 has the rules.
+
+| Member | Contract |
+|---|---|
+| `LibExportDecl.name` | The name of the table: 1 to 15 characters of `a-z`, `0-9` and `_`. It is not the name of another loaded library. |
+| `LibExportDecl.major` | The major version of the layout of the table, at least 1. |
+| `LibExportDecl.table` | The table: a block that starts with a `uint32_t` `size`, in the image or in memory the library keeps. It is not null. |
+| `LibExportDecl.size` | The size of the table in bytes, at least 4. `find` hands it back as `table_size`. |
+
 ## 7. Limits
 
 | Limit | Value |
@@ -1318,6 +1339,7 @@ Since base 3.0.
 | File types, file actions | 40, 96 |
 | Polls | 16 after the core has started, 12 from the libraries loaded before |
 | Tabs of one area | 8 |
+| Named tables of one library | 8 |
 | Entries of a folder in the file picker | 160 |
 | Image size | 1 MiB |
 | Heap an image holds through `api->mem` | the heap itself, or the `heap_peak` figure of its budget (section 8) |
@@ -1384,3 +1406,42 @@ Since base 3.0.
 8.5.7 A block taken while no image is current has no owner and is never freed (4.2.3).
 8.5.8 The owner of a handler is kept per task. While the registry runs an operation or a state getter of an image on one task, that image is the owner for that task alone; the other tasks keep theirs, and the task gets back the owner it had when the handler returns. The application that is open is the owner of every task that is in no handler. A task whose application is released while it is in a handler of a library gets no owner when the handler returns: its blocks are nobody's (8.5.7).
 8.5.9 The account does not cover everything an image causes yet. What is on it: `lib_register`, the operations and state getters of the image, and the application that is open. What is not: a call through an export table (`api->lib->find`) takes its blocks on the account of the caller, not of the library behind the table; the start hook and the other hooks of a core, and any engine a library starts there; the memory behind the jobs and sockets a library starts through `api->job` and `api->net`.
+
+## 9. Named exports and the C64 table
+
+### 9.1 Exports and `find`
+
+Since base 3.2.
+
+9.1.1 A library may offer several call tables. Each is an entry of `LibRecord.export_list` (`LibExportDecl`): a name, a major, the table and its size. A library built before 3.2 offers none, or the one table of `LibRecord.exports` under its own name.
+9.1.2 `api->lib->find` looks for the export `name` first. It takes the entry with the lowest major that is at least the major of `min_version`, from any loaded library. When there is none it looks for the library of that name, as in base 3.1.
+9.1.3 A table starts with `uint32_t size`, its own size in bytes. Within a major a table is only appended to. A caller checks `size` before it reads a member, and a member is there when its pointer is not null. Removing or reordering a member makes the next major.
+9.1.4 A provider that changes a layout can export the old and the new major together under one name. `find` gives each caller the lowest major it can use.
+9.1.5 The loader refuses a library whose export is malformed, whose name and major another loaded library exports already, whose export has the name of another loaded library, or whose own name is an export name of a loaded library. The refusal names the library and the export.
+9.1.6 The tables leave with the library. The base keeps no copy.
+9.1.7 A library built against base 3.2 that must also run on a base of 3.1 writes `export_list` only when `LIB_RECORD_COVERS(out->struct_size, export_list)` holds. A library that lists `needs base >= 3.2` need not ask: the packer adds that dependency to every file with a list.
+
+### 9.2 What the file lists
+
+9.2.1 The packer writes the names and majors of the exports into the file (`--export name=major`, `LIB_EXPORTS` in `lib.mk`, `APP_EXPORTS` in `app.mk`). They are the static form of `export_list`: the base reads them before any image runs.
+9.2.2 The loader refuses a library whose `lib_register` does not return every name and major its file lists.
+9.2.3 A library may return more exports than its file lists. They are found by `find`, but they take no part in the load order (9.3).
+
+### 9.3 Needs on an export name
+
+9.3.1 A `needs` entry of a file resolves against export names first, then against library names. A library can need `ring>=1` whatever the library that provides `ring` is called. The major of the entry is compared with the major of the export, and the minor is not read.
+9.3.2 A need that is met by an export counts as a use of the library that exports it, as a need on its name does. The library stays loaded while an image that needs it is loaded.
+9.3.3 The loader of a folder reads the lists of the files before it loads one, and puts a file in front of every file that needs a name it exports. A need on an export name that a folder does not list in any file is refused by the loader at load, with the sentence `"x" needs "ring" 1.0, which is not loaded.`
+9.3.4 A need on an export of a lower major is refused with both versions: `"x" needs "trx" 3.0, 2.0 is loaded.`
+9.3.5 The own table of the base (9.4) is no loaded library. It cannot be listed in `needs`. Ask `api->lib->find` for it and test the result.
+
+### 9.4 The C64 table
+
+Since base 3.2.
+
+9.4.1 The table `C64Api` is declared in the header `c64_api.h` of the package. The name is `C64_API_NAME`, `"c64"`, and the major is `C64_API_MAJOR`, 1. A library of a core of the C64 family exports it. Several cores can provide it, and the shared libraries use it.
+9.4.2 The members, in this order: `size`, `peek`, `poke`, `dma_read`, `dma_write`, `cart_setup_bus`, `cart_restore_bus`, `cart_mode`, `cart_detect` (the members of `api->c64`, 4.9), then `dma_read_frozen`, `cart_preference` and `reset`.
+9.4.3 `dma_read_frozen(addr, dst, len)` reads C64 memory as the tools of the machine see it while it is frozen: the screen it had, not the menu over it. It returns the number of bytes read.
+9.4.4 `cart_preference()` returns the cartridge preference: 0 Auto, 1 Internal, 2 External, 3 Manual.
+9.4.5 `reset()` resets the C64. It replaces `api->trx->reset_c64`, which calls the same operation.
+9.4.6 While no library exports `c64` the base answers `find("c64", ...)` with its own table, when the core is the C64: the members of `api->c64` and `reset`. `dma_read_frozen` and `cart_preference` are null in that table. A library of the core that has them exports a `c64` of major 1, which takes the place of the base's table.

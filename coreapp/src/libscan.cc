@@ -75,6 +75,20 @@ void lib_wait_for_stick(CoreFs *fs, LibMountEnv *env, bool roms_in_flash, LibWai
 
 static bool is_lib(const LibMeta &m) { return m.valid && m.kind == U2A3_KIND_LIB; }
 
+// Does file m give what a need of this name asks for: its own name, or a name it exports?
+static bool gives(const LibMeta &m, const char *name)
+{
+    if (!strcmp(m.name, name)) {
+        return true;
+    }
+    for (int e = 0; e < m.nexports; e++) {
+        if (!strcmp(m.exp_name[e], name)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 // Does file i need something that a file still to be loaded provides?
 static bool waits(const LibMeta *m, int n, int i, const bool *placed)
 {
@@ -83,7 +97,7 @@ static bool waits(const LibMeta *m, int n, int i, const bool *placed)
             continue;
         }
         for (int j = 0; j < n; j++) {
-            if (is_lib(m[j]) && !placed[j] && !strcmp(m[j].name, m[i].need[k])) {
+            if (is_lib(m[j]) && !placed[j] && gives(m[j], m[i].need[k])) {
                 return true;
             }
         }
@@ -118,7 +132,7 @@ int lib_dep_order(const LibMeta *m, int n, int *order, int *cycle)
         }
         for (int k = 0; k < m[i].nneeds; k++) {
             for (int j = 0; j < n; j++) {
-                if (is_lib(m[j]) && !placed[j] && !strcmp(m[j].name, m[i].need[k]) && strcmp(m[i].need[k], "base")) {
+                if (is_lib(m[j]) && !placed[j] && gives(m[j], m[i].need[k]) && strcmp(m[i].need[k], "base")) {
                     reach[i][j] = true;
                 }
             }
@@ -210,7 +224,18 @@ void read_meta(CoreFs *fs, Cand *c)
                 memcpy(m.need[i], nd.name, U2A3_NAME_MAX);
             }
         }
+        U2a3ExportName ex[U2A3_EXPORTS_MAX];
+        int nex = 0;
+        if (ok && (h.flags & U2A3_FLAG_EXPORTS)) {
+            FileSource src(f, c->base, c->len);
+            nex = lib_read_exports(&src, h, ex);
+            ok = nex >= 0;                                  // a malformed list is the loader's refusal to word
+            for (int e = 0; ok && e < nex; e++) {
+                memcpy(m.exp_name[e], ex[e].name, U2A3_NAME_MAX);
+            }
+        }
         if (ok) {
+            m.nexports = nex;
             m.valid = true;
             m.kind = h.kind;
             m.version = h.version;

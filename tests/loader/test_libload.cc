@@ -195,6 +195,7 @@ struct Img {
     uint16_t abi_min, abi_max, fmt;
     uint32_t flags = 0, reserved = 0;
     std::vector<uint8_t> budget;                  // the record behind the header (U2a3Budget bytes); empty: no budget, no flag
+    std::vector<uint8_t> exp;                     // the list of exported names behind the budget (a count, then U2a3ExportName entries); empty: none, no flag
     Img(const char *n, const char *marker) : kind(U2A3_KIND_LIB), residence(U2A3_RES_RESIDENT), name(n), version(U2A3_VERSION(1, 0)),
           payload(64, 0), bss(32), align(16), reg(0), main(U2A3_NONE), abi_min(3), abi_max(3), fmt(3)
     {
@@ -215,17 +216,18 @@ static void putname(std::vector<uint8_t> &v, const std::string &s) { for (int i 
 
 static std::vector<uint8_t> build(const Img &m)
 {
-    uint32_t needs_off = U2A3_HEADER_SIZE + (uint32_t)m.budget.size();
+    uint32_t needs_off = U2A3_HEADER_SIZE + (uint32_t)m.budget.size() + (uint32_t)m.exp.size();
     uint32_t pay_off = needs_off + (uint32_t)m.needs.size() * U2A3_NEED_SIZE;
     uint32_t rel_off = pay_off + (uint32_t)m.payload.size();
     std::vector<uint8_t> v;
     put32(v, U2A3_MAGIC); put16(v, U2A3_HEADER_SIZE); put16(v, m.fmt); put16(v, m.abi_min); put16(v, m.abi_max);
     v.push_back(m.kind); v.push_back(m.residence); v.push_back(U2A3_ARCH_RISCV32); v.push_back((uint8_t)m.needs.size());
-    put32(v, m.flags | (m.budget.empty() ? 0 : U2A3_FLAG_BUDGET)); putname(v, m.name); put32(v, m.version); putname(v, m.cap);
+    put32(v, m.flags | (m.budget.empty() ? 0 : U2A3_FLAG_BUDGET) | (m.exp.empty() ? 0 : U2A3_FLAG_EXPORTS)); putname(v, m.name); put32(v, m.version); putname(v, m.cap);
     put32(v, pay_off); put32(v, (uint32_t)m.payload.size()); put32(v, m.bss); put32(v, m.align); put32(v, m.reg); put32(v, m.main);
     put32(v, rel_off); put32(v, (uint32_t)m.relocs.size()); put32(v, needs_off); put32(v, 0); put32(v, 0); put32(v, m.reserved);
     CHECK_EQ(v.size(), U2A3_HEADER_SIZE);
     v.insert(v.end(), m.budget.begin(), m.budget.end());
+    v.insert(v.end(), m.exp.begin(), m.exp.end());
     for (size_t i = 0; i < m.needs.size(); i++) { putname(v, m.needs[i].first); put32(v, m.needs[i].second); }
     v.insert(v.end(), m.payload.begin(), m.payload.end());
     for (size_t i = 0; i < m.relocs.size(); i++) { put32(v, m.relocs[i]); }
@@ -503,7 +505,7 @@ static void refusals()
     refused("main 2-aligned", w, build(e3c), LIB_BAD_FILE, "app_main", "4-aligned");
     // header flags and the reserved word are zero in format 3: anything else is a feature this base does not have
     Img f1 = ok;
-    f1.flags = 4;                                                   // bit 0 is the menu record (libmenu.h)
+    f1.flags = 8;                                                   // bit 0 is the menu record (libmenu.h), 1 the budget, 2 the exported names
     refused("flags set", w, build(f1), LIB_BAD_FILE, "alpha", "flags");
     Img f2 = ok;
     f2.reserved = 0x80000000u;
@@ -948,7 +950,7 @@ static void menu_record()
     std::vector<uint8_t> hides = read_file("menu_hide.bin");
     refused("menu that hides", w, with_menu(Img("alpha", "A"), hides), LIB_BAD_FILE, "alpha", "hides and renames");
     Img f2("alpha", "A");
-    f2.flags = 4;
+    f2.flags = 8;
     refused("an unknown flag", w, build(f2), LIB_BAD_FILE, "alpha", "header flags");
     Img r1("alpha", "A");
     r1.reserved = 16;                                               // a reserved word without the flag
@@ -1740,6 +1742,270 @@ static void scopes()
     (void)used0;
 }
 
+// ------------------------------------------------------------------------------------------------ T239.3 D20: named exports
+
+struct ExpTab { uint32_t size; uint32_t member; };
+static ExpTab g_ring_tab = { sizeof(ExpTab), 11 };
+static ExpTab g_trx_tab = { 12, 22 };
+static ExpTab g_trx2_tab = { sizeof(ExpTab), 33 };
+static ExpTab g_old_tab = { sizeof(ExpTab), 44 };
+static C64Api g_base_c64 = { sizeof(C64Api), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+static LibExportDecl g_ringlib_exports[] = { { "ring", 1, &g_ring_tab, sizeof(ExpTab) }, { "trx", 2, &g_trx_tab, 12 } };
+static LibExportDecl g_c64_lib1[] = { { "c64", 1, &g_trx_tab, 12 } };
+static LibExportDecl g_c64_lib2[] = { { "c64", 2, &g_trx2_tab, sizeof(ExpTab) } };
+static LibExportDecl g_dup_in_record[] = { { "ring", 1, &g_ring_tab, 8 }, { "ring", 1, &g_ring_tab, 8 } };
+static LibExportDecl g_bad_major[] = { { "ring", 0, &g_ring_tab, 8 } };
+static LibExportDecl g_bad_name[] = { { "Ring", 1, &g_ring_tab, 8 } };
+static LibExportDecl g_no_table[] = { { "ring", 1, 0, 8 } };
+static LibExportDecl g_small[] = { { "ring", 1, &g_ring_tab, 3 } };
+static LibExportDecl g_like_lib[] = { { "ringlib", 1, &g_ring_tab, 8 } };
+static const LibApi *g_xapi;
+static const LibExportDecl *g_xlist;
+static int g_xn;
+
+static int twin_exports(const LibHost::Entry &, const LibApi *api, LibRecord *rec)
+{
+    g_xapi = api;
+    rec->export_list = g_xlist;
+    rec->nexport_list = g_xn;
+    return 0;
+}
+static int twin_old_table(const LibHost::Entry &, const LibApi *api, LibRecord *rec)
+{
+    g_xapi = api;
+    rec->exports = &g_old_tab;                                   // the one table of base 3.1, found by the name of the library
+    rec->exports_size = sizeof(ExpTab);
+    return 0;
+}
+
+static std::vector<uint8_t> exp_bytes(const char *a, uint32_t amaj, const char *b = 0, uint32_t bmaj = 0)
+{
+    std::vector<uint8_t> v;
+    put32(v, b ? 2 : 1);
+    putname(v, a); put32(v, amaj);
+    if (b) { putname(v, b); put32(v, bmaj); }
+    return v;
+}
+
+static void use_exports(World &w, const char *name, const LibExportDecl *list, int n)
+{
+    g_xlist = list;
+    g_xn = n;
+    w.m.twins[name] = twin_exports;
+}
+
+static void named_exports()
+{
+    char err[LIB_ERR_MAX];
+    int h = -1;
+    uint32_t sz = 0;
+    // the record is read through struct_size: a record of base 3.1 ends before the list
+    CHECK(LIB_RECORD_COVERS(sizeof(LibRecord), export_list));
+    CHECK(!LIB_RECORD_COVERS(offsetof(LibRecord, exports_size) + sizeof(uint32_t), export_list));
+
+    {   // one library exports two tables: found by name and major
+        World w(U2A_BASE_MINOR);
+        use_exports(w, "ringlib", g_ringlib_exports, 2);
+        Img p("ringlib", "R");
+        p.exp = exp_bytes("ring", 1, "trx", 2);
+        CHECK_EQ(w.load(build(p), &h, err), LIB_OK);
+        const SvcLib *lib = g_xapi->lib;
+        CHECK(lib && lib->find);
+        CHECK(lib->find("ring", U2A3_VERSION(1, 0), &sz) == &g_ring_tab && sz == sizeof(ExpTab));
+        CHECK(lib->find("trx", U2A3_VERSION(2, 0), &sz) == &g_trx_tab && sz == 12);
+        CHECK(lib->find("ring", U2A3_VERSION(1, 0), 0) == &g_ring_tab);              // the size may be left out
+        // a major above the one asked for is found too (the lowest that is at least it); the minor of the version means nothing to an export
+        CHECK(lib->find("trx", U2A3_VERSION(1, 7), &sz) == &g_trx_tab && sz == 12);
+        // a major that is too low is not found, nor is a name nobody exports, nor a null name
+        sz = 99;
+        CHECK(lib->find("trx", U2A3_VERSION(3, 0), &sz) == 0 && sz == 99);
+        CHECK(lib->find("ring", U2A3_VERSION(2, 0), &sz) == 0);
+        CHECK(lib->find("uci", U2A3_VERSION(1, 0), &sz) == 0);
+        CHECK(lib->find(0, U2A3_VERSION(1, 0), &sz) == 0);
+        // the name of the library is not an export name: this library has no single table (`exports`), so by its name there is none
+        CHECK(lib->find("ringlib", U2A3_VERSION(1, 0), &sz) == 0);
+        CHECK_EQ(w.ld->handle_providing("ring", U2A3_VERSION(1, 0)), h);
+        CHECK_EQ(w.ld->handle_providing("ring", U2A3_VERSION(2, 0)), -1);
+        CHECK_EQ(w.ld->handle_providing("ringlib", U2A3_VERSION(1, 0)), h);
+        CHECK_EQ(w.ld->handle_providing("trx", U2A3_VERSION(3, 0)), -1);
+        CHECK_EQ(w.ld->handle_providing("nobody", 0), -1);
+        // the exports leave with the library
+        CHECK_EQ(w.ld->unload(h, err, sizeof(err)), LIB_OK);
+        CHECK(lib->find("ring", U2A3_VERSION(1, 0), &sz) == 0);
+    }
+    {   // a library of base 3.1 (one table, no list) is found by its name as before; its table is not found by any other name
+        World w(U2A_BASE_MINOR);
+        w.m.twins["beta"] = twin_old_table;
+        CHECK_EQ(w.load(build(Img("beta", "B")), &h, err), LIB_OK);
+        const SvcLib *lib = g_xapi->lib;
+        CHECK(lib->find("beta", U2A3_VERSION(1, 0), &sz) == &g_old_tab && sz == sizeof(ExpTab));
+        CHECK(lib->find("beta", U2A3_VERSION(2, 0), &sz) == 0);                          // its version is 1.0
+        CHECK(lib->find("ring", U2A3_VERSION(1, 0), &sz) == 0);
+        // it loads next to a library with a list: export names are searched first, then library names
+        use_exports(w, "ringlib", g_ringlib_exports, 2);
+        Img p("ringlib", "R");
+        CHECK_EQ(w.load(build(p), &h, err), LIB_OK);                                     // the list in the record, none in the file: found, not part of the order
+        CHECK(lib->find("ring", U2A3_VERSION(1, 0), &sz) == &g_ring_tab);
+        CHECK(lib->find("beta", U2A3_VERSION(1, 0), &sz) == &g_old_tab);
+    }
+    {   // a need on an export name: the provider is loaded first, whatever it is called
+        World w(U2A_BASE_MINOR);
+        use_exports(w, "ringlib", g_ringlib_exports, 2);
+        Img c("alpha", "A");
+        c.needs.push_back(std::make_pair(std::string("ring"), U2A3_VERSION(1, 0)));
+        refused("a need on an export that is not loaded yet", w, build(c), LIB_NEEDS, "alpha", "\"ring\" 1.0", "not loaded");
+        Img p("ringlib", "R");
+        p.exp = exp_bytes("ring", 1, "trx", 2);
+        CHECK_EQ(w.load(build(p), &h, err), LIB_OK);
+        int ph = h;
+        CHECK_EQ(w.ld->uses(ph), 0);
+        CHECK_EQ(w.load(build(c), &h, err), LIB_OK);
+        CHECK_EQ(w.ld->uses(ph), 1);                                                     // the provider is the dependency: the consumer keeps it loaded
+        CHECK_EQ(w.ld->unload(ph, err, sizeof(err)), LIB_STATE);
+        Img c2("beta", "B");
+        c2.needs.push_back(std::make_pair(std::string("trx"), U2A3_VERSION(3, 0)));
+        refused("a need on an export at a higher major", w, build(c2), LIB_NEEDS, "beta", "\"trx\" 3.0", "2.0 is loaded");
+        Img c3("gamma", "G");
+        c3.needs.push_back(std::make_pair(std::string("ringlib"), U2A3_VERSION(1, 0)));
+        c3.needs.push_back(std::make_pair(std::string("trx"), U2A3_VERSION(2, 0)));
+        CHECK_EQ(w.load(build(c3), &h, err), LIB_OK);                                    // the name of the library still works, beside an export name
+        CHECK_EQ(w.ld->uses(ph), 3);
+        CHECK_EQ(w.ld->handle_providing("trx", U2A3_VERSION(2, 0)), ph);
+    }
+    {   // what the file lists, lib_register has to return
+        World w(U2A_BASE_MINOR);
+        use_exports(w, "ringlib", g_ringlib_exports, 1);                                 // returns "ring" 1 only
+        Img p("ringlib", "R");
+        p.exp = exp_bytes("ring", 1, "trx", 2);
+        refused("a listed export that lib_register does not return", w, build(p), LIB_REGISTER, "ringlib", "\"trx\" 2", "does not return it");
+        Img q("ringlib", "R");
+        q.exp = exp_bytes("ring", 2);                                                    // the major differs
+        refused("a listed export at another major", w, build(q), LIB_REGISTER, "ringlib", "\"ring\" 2");
+        Img r("ringlib", "R");
+        r.exp = exp_bytes("ring", 1);
+        CHECK_EQ(w.load(build(r), &h, err), LIB_OK);
+    }
+    {   // the record is checked
+        struct Case { const char *what; const LibExportDecl *list; int n; const char *word; } cases[] = {
+            { "a count over the list", g_ringlib_exports, 9, "9 exported tables" },
+            { "a negative count", g_ringlib_exports, -1, "-1 exported tables" },
+            { "a count and no list", 0, 1, "1 exported tables" },
+            { "a name twice with one major", g_dup_in_record, 2, "twice" },
+            { "major 0", g_bad_major, 1, "malformed" },
+            { "a name that is no name", g_bad_name, 1, "malformed" },
+            { "no table", g_no_table, 1, "malformed" },
+            { "a table of 3 bytes", g_small, 1, "malformed" },
+        };
+        for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
+            World w(U2A_BASE_MINOR);
+            use_exports(w, "ringlib", cases[i].list, cases[i].n);
+            refused(cases[i].what, w, build(Img("ringlib", "R")), LIB_REGISTER, "ringlib", cases[i].word);
+        }
+    }
+    {   // names are not shared: two libraries do not export one name at one major, an export is not the name of a library, a library is not named like an export
+        World w(U2A_BASE_MINOR);
+        use_exports(w, "ringlib", g_ringlib_exports, 2);
+        CHECK_EQ(w.load(build(Img("ringlib", "R")), &h, err), LIB_OK);
+        w.m.twins["beta"] = [](const LibHost::Entry &, const LibApi *, LibRecord *rec) { rec->export_list = g_ringlib_exports; rec->nexport_list = 1; return 0; };
+        refused("the same export of another library", w, build(Img("beta", "B")), LIB_REGISTER, "beta", "\"ring\" 1 is exported by \"ringlib\" already");
+        use_exports(w, "beta", g_c64_lib2, 1);                                           // another major of another name is fine
+        CHECK_EQ(w.load(build(Img("beta", "B")), &h, err), LIB_OK);
+        w.m.twins["alpha"] = [](const LibHost::Entry &, const LibApi *, LibRecord *rec) { rec->export_list = g_like_lib; rec->nexport_list = 1; return 0; };
+        refused("an export named like a loaded library", w, build(Img("alpha", "A")), LIB_REGISTER, "alpha", "is the name of the library");
+        CHECK_EQ(w.load(build(Img("gamma", "G")), &h, err), LIB_OK);
+        refused("a library named like an export", w, build(Img("ring", "N")), LIB_DUPLICATE, "ring", "name of a table", "ringlib");
+    }
+    {   // the list of the file
+        struct Case { const char *what; std::vector<uint8_t> rec; } cases[4];
+        cases[0].what = "no entry"; put32(cases[0].rec, 0);
+        cases[1].what = "nine entries"; put32(cases[1].rec, 9); for (int i = 0; i < 9; i++) { putname(cases[1].rec, "a"); put32(cases[1].rec, i + 1); }
+        cases[2].what = "a name of capitals"; cases[2].rec = exp_bytes("Ring", 1);
+        cases[3].what = "major 0"; cases[3].rec = exp_bytes("ring", 0);
+        for (int i = 0; i < 4; i++) {
+            World w(U2A_BASE_MINOR);
+            use_exports(w, "ringlib", g_ringlib_exports, 2);
+            Img p("ringlib", "R");
+            p.exp = cases[i].rec;
+            refused(cases[i].what, w, build(p), LIB_BAD_FILE, "ringlib", "exported names");
+        }
+        World w(U2A_BASE_MINOR);
+        use_exports(w, "ringlib", g_ringlib_exports, 2);
+        Img twice("ringlib", "R");
+        twice.exp = exp_bytes("ring", 1, "ring", 1);
+        refused("a name and major twice", w, build(twice), LIB_BAD_FILE, "ringlib", "exported names");
+        Img app("ringlib", "R");
+        app.kind = U2A3_KIND_APP;
+        app.residence = U2A3_RES_TRANSIENT;
+        app.main = 8;
+        app.exp = exp_bytes("ring", 1);
+        refused("an application that exports", w, build(app), LIB_BAD_FILE, "ringlib", "exported names");
+        // the list overlaps the dependencies: needs_off in the header is the one the writer chose, so cut the record short in the file
+        Img ov("ringlib", "R");
+        ov.exp = exp_bytes("ring", 1);
+        ov.needs.push_back(std::make_pair(std::string("base"), U2A3_VERSION(3, 0)));
+        std::vector<uint8_t> f = build(ov);
+        uint32_t early = U2A3_HEADER_SIZE + 4;                                           // inside the list
+        memcpy(&f[88], &early, 4);
+        refused("a list that overlaps the dependencies", w, f, LIB_BAD_FILE, "ringlib", "exported names");
+        // with a budget in front the list stands behind it
+        Img b("ringlib", "R");
+        b.budget = bud_bytes(bud_open());
+        b.exp = exp_bytes("ring", 1, "trx", 2);
+        CHECK_EQ(w.load(build(b), &h, err), LIB_OK);
+        U2a3ExportName e2[U2A3_EXPORTS_MAX];
+        MemSource ms(build(b));
+        U2a3Header hd;
+        CHECK(ms.read(0, &hd, sizeof(hd)));
+        CHECK_EQ(lib_read_exports(&ms, hd, e2), 2);
+        CHECK(!strcmp(e2[0].name, "ring") && e2[0].major == 1 && !strcmp(e2[1].name, "trx") && e2[1].major == 2);
+    }
+    {   // the file the packer writes (--export ring=1 --export trx=2): the loader reads its list, and holds lib_register to it
+        World w(U2A_BASE_MINOR);
+        std::vector<uint8_t> f = read_file("testlib.exports.u2a");
+        refused("a packed list that lib_register does not return", w, f, LIB_REGISTER, "testlib", "\"ring\" 1", "does not return it");
+        use_exports(w, "testlib", g_ringlib_exports, 2);
+        CHECK_EQ(w.load(f, &h, err), LIB_OK);
+        CHECK(g_xapi->lib->find("trx", U2A3_VERSION(2, 0), &sz) == &g_trx_tab);
+        U2a3Header hd;
+        memcpy(&hd, f.data(), sizeof(hd));
+        CHECK_EQ(hd.flags & (U2A3_FLAG_EXPORTS | U2A3_FLAG_BUDGET), U2A3_FLAG_EXPORTS);
+        U2a3Need nd;
+        memcpy(&nd, f.data() + hd.needs_offset, sizeof(nd));
+        CHECK(!strcmp(nd.name, "base") && nd.min_version == U2A3_VERSION(3, 2));         // the packer added the dependency
+    }
+    {   // the base's own table of "c64"
+        World w(U2A_BASE_MINOR);
+        use_exports(w, "ringlib", g_ringlib_exports, 2);
+        CHECK_EQ(w.load(build(Img("ringlib", "R")), &h, err), LIB_OK);
+        const SvcLib *lib = g_xapi->lib;
+        CHECK(lib->find("c64", U2A3_VERSION(1, 0), &sz) == 0);                           // the core is no C64: nothing is answered
+        w.ld->set_c64_api(&g_base_c64);
+        CHECK(lib->find("c64", U2A3_VERSION(1, 0), &sz) == &g_base_c64 && sz == sizeof(C64Api));
+        CHECK(lib->find("c64", U2A3_VERSION(2, 0), &sz) == 0);
+        // a library that exports "c64" at the same major wins; one at a higher major does not shadow the base's table for a caller of major 1
+        use_exports(w, "alpha", g_c64_lib1, 1);
+        CHECK_EQ(w.load(build(Img("alpha", "A")), &h, err), LIB_OK);
+        CHECK(lib->find("c64", U2A3_VERSION(1, 0), &sz) == &g_trx_tab && sz == 12);
+        World w2(U2A_BASE_MINOR);
+        use_exports(w2, "gamma", g_c64_lib2, 1);
+        w2.ld->set_c64_api(&g_base_c64);
+        CHECK_EQ(w2.load(build(Img("gamma", "G")), &h, err), LIB_OK);
+        const SvcLib *lib2 = g_xapi->lib;
+        CHECK(lib2->find("c64", U2A3_VERSION(1, 0), &sz) == &g_base_c64);
+        CHECK(lib2->find("c64", U2A3_VERSION(2, 0), &sz) == &g_trx2_tab);
+        // a need on "c64" is met by a library that exports it
+        Img c("beta", "B");
+        c.needs.push_back(std::make_pair(std::string("c64"), U2A3_VERSION(2, 0)));
+        CHECK_EQ(w2.load(build(c), &h, err), LIB_OK);
+        // the base's table is no loaded library: a need on "c64" is not met by it (the library that needs it names the table's provider, or reads api->lib at run time)
+        World w3(U2A_BASE_MINOR);
+        w3.ld->set_c64_api(&g_base_c64);
+        Img d("beta", "B");
+        d.needs.push_back(std::make_pair(std::string("c64"), U2A3_VERSION(1, 0)));
+        refused("a need on the base's own c64 table", w3, build(d), LIB_NEEDS, "beta", "\"c64\" 1.0", "not loaded");
+    }
+}
+
 int main()
 {
     setvbuf(stdout, 0, _IONBF, 0);                                  // a mutant may crash: what it said before has to be out
@@ -1755,5 +2021,6 @@ int main()
     budgets();
     accounts();
     scopes();
+    named_exports();
     DONE("test_libload");
 }

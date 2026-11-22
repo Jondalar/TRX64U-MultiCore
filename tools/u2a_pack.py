@@ -21,6 +21,13 @@ __cxa_atexit or atexit, is refused; the message names the section or symbol and,
 loader refuses the file when the image and this figure do not fit the room of the heap), heap_peak (the most it holds at once through api->mem: a ceiling), ops, states, events, nodes, file_actions, settings, tabs, polls (what lib_register and the menu record bring). A key left out has no figure of its
 own and the limit is the platform's. The packer refuses an image over its own budget; the loader refuses a library over any figure at load. A file with a
 budget needs base >= 3.2: the packer adds that dependency, or raises a lower one.
+
+    u2a_pack.py image.elf -o x.u2a --kind lib --name ringlib --export ring=1 --export trx=1
+
+--export NAME=MAJOR (repeatable, at most 8) lists a name the library exports (coreapp/src/libapi.h LibExportDecl) with the major of the layout of its table. The file carries the list
+(coreapp/src/libfmt.h U2A3_FLAG_EXPORTS), so the loader of a folder puts the library in front of whatever needs that name, and refuses the library when lib_register does not
+return every name listed. A file with a list needs base >= 3.2: the packer adds that dependency, or raises a lower one.
+
     u2a_pack.py image.elf --dump-image image.bin     # only the flat image, for tests
 """
 import argparse
@@ -37,10 +44,11 @@ NEED_SIZE = 20
 NONE = 0xFFFFFFFF
 NAME_MAX = 16
 IMAGE_MAX = 0x100000
-FLAG_MENU, FLAG_BUDGET = 1, 2
+FLAG_MENU, FLAG_BUDGET, FLAG_EXPORTS = 1, 2, 4
+EXPORTS_MAX = 8
 BUDGET_NONE = 0xFFFFFFFF
 BUDGET_KEYS = ("image", "heap_keep", "heap_peak", "ops", "states", "events", "nodes", "file_actions", "settings", "tabs", "polls")   # the members of U2a3Budget behind `size`, in order
-BUDGET_BASE = (3 << 16) | 2        # the base API that reads a budget record (3.2)
+BASE_32 = (3 << 16) | 2            # the base API that reads a budget record and a list of exported names (3.2): a file that has one needs it
 
 EM_RISCV = 243
 ET_EXEC, ET_DYN = 2, 3
@@ -298,6 +306,35 @@ def budget_blob(budget):
     return struct.pack("<I%dI" % len(words), 4 + 4 * len(words), *words)
 
 
+def parse_export(text):
+    """(name, major) from 'ring=1' or 'ring>=1': the name a library exports and the major of the layout of that table."""
+    for op in (">=", "="):
+        if op in text:
+            n, v = text.split(op, 1)
+            break
+    else:
+        raise PackError("an export reads name=major, got %r" % text)
+    try:
+        major = int(v.strip(), 0)
+    except ValueError:
+        raise PackError("the major of the export %r is no number: %r" % (n.strip(), v))
+    if not 1 <= major <= 0xFFFF:
+        raise PackError("the major of the export %r is outside 1 .. 65535" % n.strip())
+    return n.strip(), major
+
+
+def exports_blob(exports):
+    """The record behind the budget: the count, then name and major of each (libfmt.h U2a3ExportName)."""
+    if not 1 <= len(exports) <= EXPORTS_MAX:
+        raise PackError("a library exports one to %d names, got %d" % (EXPORTS_MAX, len(exports)))
+    seen = set()
+    for n, m in exports:
+        if (n, m) in seen:
+            raise PackError("the export %s=%d is listed twice" % (n, m))
+        seen.add((n, m))
+    return struct.pack("<I", len(exports)) + b"".join(field(n, "export name") + struct.pack("<I", m) for n, m in exports)
+
+
 def field(text, what, may_be_empty=False):
     b = text.encode("ascii")
     ok = all(c in b"abcdefghijklmnopqrstuvwxyz0123456789_" for c in b)
@@ -307,7 +344,7 @@ def field(text, what, may_be_empty=False):
 
 
 def pack(elf_bytes, kind, name, version, needs=(), capability="", residence=None, align=16, link_base=0, manifest=b"",
-         register_sym="lib_register", main_sym="app_main", abi=(3, 3), menu=b"", budget=None):
+         register_sym="lib_register", main_sym="app_main", abi=(3, 3), menu=b"", budget=None, exports=None):
     elf = Elf(elf_bytes)
     img, bss = build_image(elf, link_base)
     table = collect(elf, img, bss, link_base)
@@ -337,14 +374,20 @@ def pack(elf_bytes, kind, name, version, needs=(), capability="", residence=None
     if budget:
         if "image" in budget and len(img) + bss > budget["image"]:
             raise PackError("the image is %d bytes with its bss, over its declared budget of %d bytes" % (len(img) + bss, budget["image"]))
+        budget_bytes = budget_blob(budget)
+    exports_bytes = b""
+    if exports:
+        if kind != "lib":
+            raise PackError("only a library exports a table")
+        exports_bytes = exports_blob(exports)
+    if budget or exports:
         needs = list(needs)
         for i, (n, v) in enumerate(needs):
             if n == "base":
-                needs[i] = (n, max(v, BUDGET_BASE))
+                needs[i] = (n, max(v, BASE_32))
                 break
         else:
-            needs.append(("base", BUDGET_BASE))
-        budget_bytes = budget_blob(budget)
+            needs.append(("base", BASE_32))
     if len(needs) > 4:
         raise PackError("at most 4 dependencies")
     if align < 4 or align > 4096 or align & (align - 1):
@@ -356,7 +399,7 @@ def pack(elf_bytes, kind, name, version, needs=(), capability="", residence=None
     needs_blob = b"".join(field(n, "dependency name") + struct.pack("<I", v) for n, v in needs)
     img_blob = pad4(bytes(img))
     reloc_blob = b"".join(struct.pack("<I", o) for o in table)
-    needs_off = HEADER_SIZE + len(budget_bytes)
+    needs_off = HEADER_SIZE + len(budget_bytes) + len(exports_bytes)
     payload_off = needs_off + len(needs_blob)
     reloc_off = payload_off + len(img_blob)
     manifest_off = reloc_off + len(reloc_blob) if manifest else 0
@@ -367,11 +410,11 @@ def pack(elf_bytes, kind, name, version, needs=(), capability="", residence=None
         menu_pad = b"\0" * (-end % 4)
         menu_off = end + len(menu_pad)
     hdr = struct.pack("<IHHHHBBBBI16sI16sIIIIIIIIIIII", MAGIC, HEADER_SIZE, 3, abi[0], abi[1],
-                      1 if kind == "lib" else 2, 1 if residence == "resident" else 0, 2, len(needs), (FLAG_MENU if menu else 0) | (FLAG_BUDGET if budget else 0),
+                      1 if kind == "lib" else 2, 1 if residence == "resident" else 0, 2, len(needs), (FLAG_MENU if menu else 0) | (FLAG_BUDGET if budget else 0) | (FLAG_EXPORTS if exports else 0),
                       field(name, "name"), version, field(capability, "capability", True),
                       payload_off, len(img), bss, align, reg, main, reloc_off, len(table), needs_off, manifest_off, len(manifest), menu_off)
     assert len(hdr) == HEADER_SIZE, len(hdr)
-    return hdr + budget_bytes + needs_blob + img_blob + reloc_blob + manifest + menu_pad + menu, bytes(img), table
+    return hdr + budget_bytes + exports_bytes + needs_blob + img_blob + reloc_blob + manifest + menu_pad + menu, bytes(img), table
 
 
 def main(argv=None):
@@ -390,6 +433,7 @@ def main(argv=None):
     ap.add_argument("--link-base", type=lambda s: int(s, 0), default=0)
     ap.add_argument("--manifest", help="JSON manifest of an app, carried unchanged")
     ap.add_argument("--budget", action="append", default=[], metavar="KEY=N", help="declare a figure of the budget: image, heap_keep, heap_peak, ops, states, events, nodes, file_actions, settings, tabs, polls")
+    ap.add_argument("--export", action="append", default=[], metavar="NAME=MAJOR", help="a name the library exports (LibRecord export_list) with the major of its table; the file lists it so that a folder is loaded in order (T239.3 D20)")
     ap.add_argument("--menu", help="the nodes, file actions, settings, tabs and poll of this file as TOML (tools/descrec.py): carried as a menu record")
     a = ap.parse_args(argv)
     try:
@@ -415,7 +459,7 @@ def main(argv=None):
         if not a.name or not a.out:
             ap.error("--name and -o are required")
         blob, img, table = pack(data, a.kind, a.name, parse_version(a.version), [parse_need(n) for n in a.needs], a.capability,
-                                a.residence, a.align, a.link_base, manifest, menu=menu, budget=parse_budget(a.budget) or None)
+                                a.residence, a.align, a.link_base, manifest, menu=menu, budget=parse_budget(a.budget) or None, exports=[parse_export(x) for x in a.export] or None)
         open(a.out, "wb").write(blob)
         if a.dump_image:
             open(a.dump_image, "wb").write(img)

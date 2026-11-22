@@ -12,7 +12,7 @@ static void no_log(const char *) { }
 static LibLoader *s_ld;
 
 LibLoader::LibLoader(LibHost *host, OpRegistry *reg, uint16_t base_minor)
-    : host_(host), reg_(reg), base_minor_(base_minor), polls_(0), count_(0), cur_(-1), ctx_(0)
+    : host_(host), reg_(reg), base_minor_(base_minor), polls_(0), count_(0), cur_(-1), ctx_(0), c64api_(0)
 {
     memset(slot_, 0, sizeof(slot_));
     memset(acct_, 0, sizeof(acct_));
@@ -212,9 +212,74 @@ int LibLoader::svc_call(const char *name, const OpIn *in, int nin, OpResult *r)
     return L->reg_->call(L->ctx_, name, in, nin, r);
 }
 
+// What `find` and a `needs` entry resolve a name against, in this order: a table a loaded library exports under that name (the lowest major that is at least the one
+// asked for; the minor of min_version means nothing to an export, which has a major only), then the library of that name at that version or later.
+const LibLoader::Slot *LibLoader::provider(const char *name, uint32_t min_version, const LibExportDecl **ex, uint32_t *below) const
+{
+    uint32_t want = min_version >> 16;
+    const Slot *best = 0;
+    *ex = 0;
+    *below = 0;
+    for (int i = 0; i < LIB_MAX; i++) {
+        const Slot &s = slot_[i];
+        if (!s.used || s.info.kind != U2A3_KIND_LIB || !LIB_RECORD_COVERS(s.info.record.struct_size, export_list)) {
+            continue;
+        }
+        for (int k = 0; k < s.info.record.nexport_list; k++) {
+            const LibExportDecl *e = &s.info.record.export_list[k];
+            if (strcmp(e->name, name)) {
+                continue;
+            }
+            if (e->major >= want) {
+                if (!*ex || e->major < (*ex)->major) {
+                    best = &s;
+                    *ex = e;
+                }
+            } else if (e->major > *below) {
+                *below = e->major;
+            }
+        }
+    }
+    return best;
+}
+
+int LibLoader::handle_providing(const char *name, uint32_t min_version) const
+{
+    const LibExportDecl *ex;
+    uint32_t below;
+    const Slot *s = name ? provider(name, min_version, &ex, &below) : 0;
+    if (!s && name) {
+        s = find(name);
+        if (s && (s->info.kind != U2A3_KIND_LIB || s->info.version < min_version)) {
+            s = 0;
+        }
+    }
+    return s ? (int)(s - slot_) : -1;
+}
+
 const void *LibLoader::svc_lib_find(const char *name, uint32_t min_version, uint32_t *table_size)
 {
-    const Slot *s = name ? s_ld->find(name) : 0;
+    if (!name) {
+        return 0;
+    }
+    const LibExportDecl *ex;
+    uint32_t below;
+    const Slot *p = s_ld->provider(name, min_version, &ex, &below);
+    // the base's own table of "c64" competes as a major of its own: the lowest major that is at least the one asked for wins
+    const C64Api *own = s_ld->c64api_;
+    if (own && !strcmp(name, C64_API_NAME) && C64_API_MAJOR >= (min_version >> 16) && (!p || C64_API_MAJOR < ex->major)) {
+        if (table_size) {
+            *table_size = own->size;
+        }
+        return own;
+    }
+    if (p) {
+        if (table_size) {
+            *table_size = ex->size;
+        }
+        return ex->table;
+    }
+    const Slot *s = s_ld->find(name);
     if (!s || s->info.kind != U2A3_KIND_LIB || s->info.version < min_version || !s->info.record.exports) {
         return 0;
     }
@@ -640,6 +705,91 @@ bool LibLoader::over_budget(const char *name, const U2a3Budget &b, const LibReco
     return false;
 }
 
+// The names a file exports (libfmt.h U2a3ExportName), read from the header and its record alone, before anything runs: the number of entries (0: the file has none), or -1 when the
+// record is malformed, lies outside the file, overlaps the needs or the image, holds a name twice, or belongs to an application.
+int lib_read_exports(LibSource *src, const U2a3Header &h, U2a3ExportName *out)
+{
+    if (!(h.flags & U2A3_FLAG_EXPORTS)) {
+        return 0;
+    }
+    uint32_t fsize = src->size(), bsz = 0, cnt = 0;
+    if (h.flags & U2A3_FLAG_BUDGET) {
+        if (!range_ok(U2A3_HEADER_SIZE, 4, fsize) || !src->read(U2A3_HEADER_SIZE, &bsz, 4) || bsz < U2A3_BUDGET_SIZE || bsz > U2A3_BUDGET_MAX || (bsz & 3)) {
+            return -1;
+        }
+    }
+    uint32_t eoff = U2A3_HEADER_SIZE + bsz;
+    if (h.kind != U2A3_KIND_LIB || !range_ok(eoff, 4, fsize) || !src->read(eoff, &cnt, 4) || cnt < 1 || cnt > U2A3_EXPORTS_MAX ||
+        !range_ok(eoff + 4, cnt * U2A3_EXPORT_NAME_SIZE, fsize) || !src->read(eoff + 4, out, cnt * U2A3_EXPORT_NAME_SIZE)) {
+        return -1;
+    }
+    uint32_t end = eoff + 4 + cnt * U2A3_EXPORT_NAME_SIZE;
+    if ((h.needs_count && h.needs_offset < end) || h.payload_offset < end) {
+        return -1;
+    }
+    for (uint32_t i = 0; i < cnt; i++) {
+        if (!field_ok(out[i].name, false) || out[i].major < 1) {
+            return -1;
+        }
+        for (uint32_t j = 0; j < i; j++) {
+            if (!strcmp(out[i].name, out[j].name) && out[i].major == out[j].major) {
+                return -1;
+            }
+        }
+    }
+    return (int)cnt;
+}
+
+// What lib_register returned as named tables (LibExportDecl): well formed, free of the names others hold, and at least what the file lists. Slot si is the one that loads.
+bool LibLoader::exports_bad(int si, const LibRecord &rec, const U2a3ExportName *file, int nfile, char *why, int whylen) const
+{
+    int n = LIB_RECORD_COVERS(rec.struct_size, export_list) ? rec.nexport_list : 0;
+    if (n < 0 || n > LIB_EXPORTS_MAX || (n && !rec.export_list)) {
+        snprintf(why, whylen, "it returned %d exported tables (at most %d, and a count needs a list).", n, LIB_EXPORTS_MAX);
+        return true;
+    }
+    for (int i = 0; i < n; i++) {
+        const LibExportDecl &e = rec.export_list[i];
+        if (!e.name || !field_ok(e.name, false) || e.major < 1 || !e.table || e.size < sizeof(uint32_t)) {
+            snprintf(why, whylen, "export %d is malformed (a name of [a-z0-9_], a major from 1, a table of at least 4 bytes).", i);
+            return true;
+        }
+        for (int j = 0; j < i; j++) {
+            if (!strcmp(rec.export_list[j].name, e.name) && rec.export_list[j].major == e.major) {
+                snprintf(why, whylen, "it exports \"%s\" %u twice.", e.name, (unsigned)e.major);
+                return true;
+            }
+        }
+        for (int k = 0; k < LIB_MAX; k++) {
+            const Slot &o = slot_[k];
+            if (k == si || !o.used || o.info.kind != U2A3_KIND_LIB) {
+                continue;
+            }
+            if (!strcmp(o.info.name, e.name)) {
+                snprintf(why, whylen, "its export \"%s\" is the name of the library \"%s\".", e.name, o.info.name);
+                return true;
+            }
+            for (int m = 0; m < o.info.record.nexport_list && LIB_RECORD_COVERS(o.info.record.struct_size, export_list); m++) {
+                if (!strcmp(o.info.record.export_list[m].name, e.name) && o.info.record.export_list[m].major == e.major) {
+                    snprintf(why, whylen, "\"%s\" %u is exported by \"%s\" already.", e.name, (unsigned)e.major, o.info.name);
+                    return true;
+                }
+            }
+        }
+    }
+    for (int f = 0; f < nfile; f++) {
+        bool there = false;
+        for (int i = 0; i < n && !there; i++) {
+            there = !strcmp(rec.export_list[i].name, file[f].name) && rec.export_list[i].major == file[f].major;
+        }
+        if (!there) {
+            snprintf(why, whylen, "its file lists the export \"%s\" %u and lib_register does not return it.", file[f].name, (unsigned)file[f].major);
+            return true;
+        }
+    }
+    return false;
+}
+
 int LibLoader::load(LibSource *src, int *handle, char *err, int errlen)
 {
     *handle = -1;
@@ -661,7 +811,7 @@ int LibLoader::load(LibSource *src, int *handle, char *err, int errlen)
     }
     const char *name = h.name;
 
-    if ((h.flags & ~(U2A3_FLAG_MENU | U2A3_FLAG_BUDGET)) || (!(h.flags & U2A3_FLAG_MENU) && h.reserved)) {
+    if ((h.flags & ~(U2A3_FLAG_MENU | U2A3_FLAG_BUDGET | U2A3_FLAG_EXPORTS)) || (!(h.flags & U2A3_FLAG_MENU) && h.reserved)) {
         return fail(LIB_BAD_FILE, err, errlen, "\"%s\" sets header flags (0x%X) or reserved bits (0x%X) this base does not know.", name,
                     (unsigned)h.flags, (unsigned)h.reserved);
     }
@@ -723,6 +873,13 @@ int LibLoader::load(LibSource *src, int *handle, char *err, int errlen)
             return fail(LIB_BAD_FILE, err, errlen, "\"%s\": the budget keeps %u bytes of heap and allows a peak of %u.", name, (unsigned)bud.heap_keep, (unsigned)bud.heap_peak);
         }
     }
+    // the names it exports (libfmt.h U2a3ExportName): behind the budget record, or behind the header; read now, held against what lib_register returns
+    U2a3ExportName fexp[U2A3_EXPORTS_MAX];
+    int nfexp = lib_read_exports(src, h, fexp);
+    if (nfexp < 0) {
+        return fail(LIB_BAD_FILE, err, errlen, "\"%s\": the list of exported names is malformed (a library has one to %d names, each [a-z0-9_] and a major from 1, none twice), or it overlaps the dependencies or the image.", name,
+                    U2A3_EXPORTS_MAX);
+    }
     if (bud.image != U2A3_BUDGET_NONE && isize > bud.image) {
         return fail(LIB_BUDGET, err, errlen, "Library \"%s\" is refused: its image is %u bytes with its bss, over its declared budget of %u bytes.", name,
                     (unsigned)isize, (unsigned)bud.image);
@@ -776,13 +933,23 @@ int LibLoader::load(LibSource *src, int *handle, char *err, int errlen)
         if (!strcmp(nd.name, PRG_APP_NEED) || !strcmp(nd.name, CART_APP_NEED)) {
             continue;                                         // not a library: AppIndex decides where such an application is offered (libfmt.h)
         }
-        const Slot *dep = find(nd.name);
+        // a table a loaded library exports under that name comes first, then a library of that name (D20)
+        const LibExportDecl *ex = 0;
+        uint32_t below = 0;
+        const Slot *dep = provider(nd.name, nd.min_version, &ex, &below);
         if (!dep) {
-            return fail(LIB_NEEDS, err, errlen, "\"%s\" needs \"%s\" %s, which is not loaded.", name, nd.name, vw);
-        }
-        if (dep->info.version < nd.min_version) {
-            version_text(vh, dep->info.version);
-            return fail(LIB_NEEDS, err, errlen, "\"%s\" needs \"%s\" %s, %s is loaded.", name, nd.name, vw, vh);
+            dep = find(nd.name);
+            if (!dep) {
+                if (below) {
+                    version_text(vh, U2A3_VERSION(below, 0));
+                    return fail(LIB_NEEDS, err, errlen, "\"%s\" needs \"%s\" %s, %s is loaded.", name, nd.name, vw, vh);
+                }
+                return fail(LIB_NEEDS, err, errlen, "\"%s\" needs \"%s\" %s, which is not loaded.", name, nd.name, vw);
+            }
+            if (dep->info.version < nd.min_version) {
+                version_text(vh, dep->info.version);
+                return fail(LIB_NEEDS, err, errlen, "\"%s\" needs \"%s\" %s, %s is loaded.", name, nd.name, vw, vh);
+            }
         }
         deps[ndeps++] = (int)(dep - slot_);
     }
@@ -795,6 +962,13 @@ int LibLoader::load(LibSource *src, int *handle, char *err, int errlen)
     if (const Slot *twin = find(name)) {
         version_text(vh, twin->info.version);
         return fail(LIB_DUPLICATE, err, errlen, "\"%s\" is loaded already (%s).", name, vh);
+    }
+    {   // a name that a loaded library exports is not free for another library: find would always answer the export
+        const LibExportDecl *ex = 0;
+        uint32_t below = 0;
+        if (const Slot *owner = provider(name, 0, &ex, &below)) {
+            return fail(LIB_DUPLICATE, err, errlen, "\"%s\" is the name of a table that \"%s\" exports.", name, owner->info.name);
+        }
     }
     int si = -1;
     for (int i = 0; i < LIB_MAX; i++) {
@@ -916,6 +1090,8 @@ int LibLoader::load(LibSource *src, int *handle, char *err, int errlen)
             bad = fail(LIB_REGISTER, err, errlen, "Library \"%s\" returned a record with a count and no list.", name);
         } else if (rec.exports && rec.exports_size < sizeof(uint32_t)) {
             bad = fail(LIB_REGISTER, err, errlen, "Library \"%s\" returned a call table with no size.", name);
+        } else if (exports_bad(si, rec, fexp, nfexp, why, sizeof(why))) {
+            bad = fail(LIB_REGISTER, err, errlen, "Library \"%s\" is refused: %s", name, why);
         } else if (over_budget(name, bud, &rec, menu.d ? &menu.d->rec : 0, why, sizeof(why))) {
             bad = fail(LIB_BUDGET, err, errlen, "%s", why);
         } else {

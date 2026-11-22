@@ -132,12 +132,14 @@ bool AppIndex::read_file(CoreFs *fs, const char *path, AppEntry &a, LibLog *log,
     }
     h.name[U2A3_NAME_MAX - 1] = 0;
     if (h.kind != U2A3_KIND_APP) {
+        int nex = lib && h.kind == U2A3_KIND_LIB ? lib_read_exports(&src, h, lib->exports) : 0;      // before the file is closed
         fs->close(cf);
         if (lib && h.kind == U2A3_KIND_LIB) {                       // T197: a library of the folder, kept for the applications that need it; not an entry
             snprintf(lib->path, sizeof(lib->path), "%s", path);
             memcpy(lib->name, h.name, sizeof(lib->name));
             lib->version = h.version;
             lib->image_bytes = h.payload_size + h.bss_size + h.align;
+            lib->nexports = nex > 0 ? nex : 0;                       // a malformed list is the loader's to refuse when the library loads
             return false;
         }
         say(log, "[app] %s: \"%s\" is a library, not an application", path, h.name);
@@ -362,19 +364,38 @@ const LibFile *AppIndex::find_lib(const char *name, uint32_t min_version) const
     return 0;
 }
 
+const LibFile *AppIndex::find_lib_for(const char *name, uint32_t min_version) const
+{
+    const LibFile *best = 0;
+    uint32_t best_major = 0;
+    for (int i = 0; name && i < nlibs_; i++) {
+        for (int e = 0; e < libs_[i].nexports; e++) {
+            const U2a3ExportName &x = libs_[i].exports[e];
+            if (!strcmp(x.name, name) && x.major >= (min_version >> 16) && (!best || x.major < best_major)) {
+                best = &libs_[i];
+                best_major = x.major;
+            }
+        }
+    }
+    return best ? best : find_lib(name, min_version);
+}
+
 bool AppIndex::need_bytes(const AppEntry &a, const LibLoader *ld, uint64_t *need) const
 {
     uint64_t n = (uint64_t)a.image_bytes + APP_WORK_BYTES;
     for (int k = 0; k < a.nneeds; k++) {
-        int h = ld ? ld->handle_of(a.needs[k].name) : -1;
+        int h = ld ? ld->handle_providing(a.needs[k].name, a.needs[k].min_version) : -1;
+        if (h < 0 && ld) {
+            h = ld->handle_of(a.needs[k].name);                      // loaded, too old: the loader's sentence names both versions
+        }
         const LibInfo *li = h >= 0 ? ld->info(h) : 0;
         if (li) {
-            if (li->version < a.needs[k].min_version) {
+            if (!strcmp(li->name, a.needs[k].name) && li->version < a.needs[k].min_version) {
                 return false;
             }
             continue;                                                // in memory: its bytes are gone from the room already
         }
-        const LibFile *lf = find_lib(a.needs[k].name, a.needs[k].min_version);
+        const LibFile *lf = find_lib_for(a.needs[k].name, a.needs[k].min_version);
         if (!lf) {
             return false;
         }
@@ -409,7 +430,7 @@ bool AppIndex::prepare_open(CoreFs *fs, LibLoader *ld, const AppEntry &a, char *
                 }
                 bool wanted = false;
                 for (int k = 0; k < a.nneeds; k++) {
-                    wanted |= !strcasecmp(a.needs[k].name, li->name);
+                    wanted |= !strcasecmp(a.needs[k].name, li->name) || ld->handle_providing(a.needs[k].name, a.needs[k].min_version) == h;
                 }
                 if (!wanted && ld->unload(h, 0, 0) == LIB_OK) {
                     again = true;
@@ -429,11 +450,14 @@ bool AppIndex::load_needs(CoreFs *fs, LibLoader *ld, const AppEntry &a, char *er
 {
     for (int k = 0; k < a.nneeds; k++) {
         const char *name = a.needs[k].name;
-        int h = ld->handle_of(name);
+        int h = ld->handle_providing(name, a.needs[k].min_version);
+        if (h < 0) {
+            h = ld->handle_of(name);
+        }
         if (h >= 0) {
             continue;                                                // loaded; the loader checks the version of the one in memory
         }
-        const LibFile *lf = find_lib(name, a.needs[k].min_version);
+        const LibFile *lf = find_lib_for(name, a.needs[k].min_version);
         if (!lf) {
             snprintf(err, errlen, "%s needs the library \"%s\" %u.%u, which is not in the apps folder.", a.name, name, (unsigned)(a.needs[k].min_version >> 16),
                      (unsigned)(a.needs[k].min_version & 0xFFFF));

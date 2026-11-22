@@ -2,7 +2,7 @@
 // relocation table, its dependencies and its residence. The writer is tools/u2a_pack.py; the reader is libload.cc. All values are
 // little-endian; every offset is a file offset and a multiple of 4.
 //
-//   header (104) | budget (header flag U2A3_FLAG_BUDGET, U2a3Budget) | needs (20 each) | payload (the image, linked at 0) | relocation table (u32 each) | manifest (JSON, apps)
+//   header (104) | budget (header flag U2A3_FLAG_BUDGET, U2a3Budget) | exports (header flag U2A3_FLAG_EXPORTS, U2a3Exports) | needs (20 each) | payload (the image, linked at 0) | relocation table (u32 each) | manifest (JSON, apps)
 //
 // The image is linked at address 0, so an offset into the image is also its link-time address. The relocation table lists the offset of
 // every 32-bit word that holds such an address. The loader adds the address it placed the image at to each of those words. Nothing else
@@ -60,6 +60,20 @@ struct U2a3Budget {
 typedef char u2a3_budget_size_check[(sizeof(U2a3Budget) == U2A3_BUDGET_SIZE) ? 1 : -1];
 #define U2A3_BUDGET_MAX 256U            /* a record of more bytes is not a budget */
 
+/* The names a library exports (T239.3 D20, base 3.2): header flag U2A3_FLAG_EXPORTS says a list stands directly behind the budget record (behind the header when there is
+ * none): a count, then that many entries of the size of a need. It is the static form of LibRecord's export list (libapi.h LibExportDecl): the order in which a folder of
+ * libraries is loaded reads it before any image runs, so a library that needs "ring" is loaded after the one that exports it, whatever that one is called. The loader refuses
+ * a library whose lib_register does not return every name and major the file lists. A library may export more in its record than the file lists; those are found
+ * by `find` but do not take part in the order. */
+#define U2A3_FLAG_EXPORTS 4U
+#define U2A3_EXPORTS_MAX 8
+struct U2a3ExportName {
+    char name[U2A3_NAME_MAX];           /* [a-z0-9_] */
+    uint32_t major;                     /* the major version of the layout of the table, at least 1 */
+};
+#define U2A3_EXPORT_NAME_SIZE 20
+typedef char u2a3_export_name_size_check[(sizeof(U2a3ExportName) == U2A3_EXPORT_NAME_SIZE) ? 1 : -1];
+
 struct U2a3Need {
     char name[U2A3_NAME_MAX];           /* "base", or the name another library provides */
     uint32_t min_version;               /* major << 16 | minor: the one provided has to be at least this */
@@ -75,7 +89,7 @@ struct U2a3Header {
     uint8_t residence;                  /*  13  U2A3_RES_* */
     uint8_t arch;                       /*  14  U2A3_ARCH_* */
     uint8_t needs_count;                /*  15  at most U2A3_NEEDS_MAX */
-    uint32_t flags;                     /*  16  0 */
+    uint32_t flags;                     /*  16  U2A3_FLAG_MENU, U2A3_FLAG_BUDGET, U2A3_FLAG_EXPORTS */
     char name[U2A3_NAME_MAX];           /*  20  what it provides (a library); the contributor name of its registrations */
     uint32_t version;                   /*  36  what it provides, major << 16 | minor */
     char capability[U2A3_NAME_MAX];     /*  40  the core has to have it ("drive_a"); empty: none needed (Q10) */

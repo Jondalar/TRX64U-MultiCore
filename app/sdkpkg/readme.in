@@ -68,6 +68,15 @@ names the library, the figure and the limit, for example `Library "mylib" is ref
 registration, no memory. A file with a budget needs base 3.2; the packer adds `base>=3.2` to its dependencies. Every block a library takes from `api->mem`, also in its
 operations later, is on its own account, and unloading the library gives all of it back. `api.md` section 8 has the contract.
 
+## Constructors, exports and the C64 table
+
+The loader runs no constructor and no destructor (D19). The packer refuses an image that holds one (a non-empty `.init_array`, `.fini_array`, `.ctors` or `.dtors`, or `__cxa_atexit`,
+`atexit`) and names the section or symbol, so a global object with a constructor does not build into a library: set the state up in `lib_register`.
+
+A library offers call tables under names (`LibRecord.export_list`, `LIB_EXPORTS = ring=1 trx=1` in `lib.mk`), and what needs one asks `api->lib->find("ring", U2A3_VERSION(1, 0), &size)` or lists
+it in `LIB_NEEDS` (`ring>=1`), whatever the providing library is called; a folder of libraries is loaded with the provider in front. `include/c64_api.h` declares the table `c64` (major 1) that the
+cores of the C64 family provide. `api->trx`, `api->trx->ring` and `api->c64` leave the base API: new code uses `api->lib->find`. `api.md` section 9 has the contract.
+
 ## The version of the base API
 
 This package is base API @ABI_MAJOR@.@ABI_MINOR@. The same number is `U2A_ABI_MAJOR` and `U2A_BASE_MINOR` in `include/libfmt.h`, the `base_api` line of

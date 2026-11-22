@@ -8,6 +8,7 @@
 #include <stdint.h>
 #include "libfmt.h"
 #include "libapi.h"
+#include "c64_api.h"
 #include "libpoll.h"
 #include "ops.h"
 #include "opscope.h"
@@ -95,6 +96,10 @@ struct LibInfo {
     uint8_t *menu_bytes;
 };
 
+// The names and majors a file exports (header flag U2A3_FLAG_EXPORTS), at most U2A3_EXPORTS_MAX into `out`: how many (0: none), -1 when the record is malformed. Needs only the header,
+// so the order of a folder (libscan.cc) and the list of the apps folder (appindex.cc) know what a file provides before it is loaded.
+int lib_read_exports(LibSource *src, const U2a3Header &h, U2a3ExportName *out);
+
 class LibLoader : private OpScope {
 public:
     // base_minor: the minor of the ABI this base offers (a library `needs base >= 3.x`). The tests lower it.
@@ -139,6 +144,9 @@ public:
     void set_trx(const SvcTrx *t) { api_.trx = t; }
     void set_net(const SvcNet *t) { api_.net = t; }
     void set_c64(const SvcC64 *t) { api_.c64 = t; }
+    // The table the base itself offers under the export name C64_API_NAME (c64_api.h, base 3.2): api->lib->find answers it for that name unless a loaded library exports a lower or equal major of
+    // that name. Null: the base has none (the core is no C64) and find answers only what libraries export.
+    void set_c64_api(const C64Api *t) { c64api_ = t; }
     // The bytes the heap can still give (the loader window of a board); a host with no such limit says "all". AppIndex asks it (T197 P4).
     uint32_t room() const { return host_->room(); }
     void set_sys_extra(int (*flash_read)(uint32_t, void *, int), void (*handover)(void)) { sys_.flash_read = flash_read; sys_.machine_handover = handover; }
@@ -159,6 +167,9 @@ public:
 
     const LibInfo *info(int handle) const;
     int handle_of(const char *name) const;    // the slot of a loaded image by name, -1: not loaded
+    // The slot of the loaded library that provides `name` at the major of `min_version` or later: one that exports the name (LibExportDecl), else the library of that
+    // name at that version or later - what a `needs` entry resolves against (D20). -1: none.
+    int handle_providing(const char *name, uint32_t min_version) const;
     int count() const { return count_; }
     uint32_t resident_bytes() const;      // heap held by the images that stay (image and bss), what Q7's budget counts
     // The whole account of one image (T239.3 S14): everything the heap gave for it and has not got back - the image with its bss and alignment, the blocks of api->mem
@@ -246,6 +257,11 @@ private:
     void discard(int si);                 // gives the image of a slot back and empties it
     int fail(int rc, char *err, int errlen, const char *fmt, ...);
     const Slot *find(const char *name) const;
+    // The loaded library that exports `name` with the lowest major that is at least the major of min_version (*ex is that entry); *below is the highest major of the name that is
+    // lower, 0 when none (a refusal can say "1.0 is loaded"). Null: no library exports it at that major.
+    const Slot *provider(const char *name, uint32_t min_version, const LibExportDecl **ex, uint32_t *below) const;
+    bool exports_bad(int si, const LibRecord &rec, const U2a3ExportName *file, int nfile, char *why, int whylen) const;
+    const C64Api *c64api_;
 };
 
 #endif

@@ -5,7 +5,7 @@
 #
 # <version> is the SDK SemVer, kept in one place: app/sdkpkg/SDK_VERSION. The app core image defaults to <out dir>/coreapp.bin (the
 # stage trxapps puts it there). What goes in, and from where:
-#   include/  every header a library or an application includes: the closure of libapi.h, libfmt.h, glue.h, u2p_app.h, u2p_ui.h and hidden.h,
+#   include/  every header a library or an application includes: the closure of libapi.h, libfmt.h, c64_api.h, glue.h, u2p_app.h, u2p_ui.h and hidden.h,
 #             from coreapp/src and app/sdk (tools/sdk_api.py), flat
 #   mk/       app/lib/{lib.mk,app.mk,sdkroot.mk,lib.ld}: the same files the tree builds with; sdkroot.mk finds the package's layout
 #   sdk/      the C sources app.mk links into an application (libc.c, u2p_compat.c; lib.mk links libc.c on request)

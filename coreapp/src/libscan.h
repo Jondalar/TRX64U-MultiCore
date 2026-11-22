@@ -80,12 +80,15 @@ struct LibMeta {
     uint32_t version;
     int nneeds;
     char need[U2A3_NEEDS_MAX][U2A3_NAME_MAX];
+    int nexports;                        // the names it exports (U2A3_FLAG_EXPORTS): a library that needs one is loaded after this one, whatever this one is called
+    char exp_name[U2A3_EXPORTS_MAX][U2A3_NAME_MAX];
 };
 
 // The order to load n files in. order[] receives indexes: first every library whose dependencies are in front of it (ties in the given
 // order), then the libraries that lie behind a cycle (the loader refuses them with "not loaded"), then what is not a library or not valid
 // (the loader or the caller refuses them). A library that is part of a cycle - or needs its own name - is not in order[]; cycle[i] is the
-// lowest index of its group, -1 for everyone else. "base" is not a file and never an edge; a name no file provides is the loader's to refuse.
+// lowest index of its group, -1 for everyone else. "base" is not a file and never an edge; a name no file provides is the loader's to refuse. A file provides its own
+// name and every name it exports (LibMeta::exp_name): a need on an exported name puts the exporter in front (D20).
 // Returns the number of entries in order[].
 int lib_dep_order(const LibMeta *m, int n, int *order, int *cycle);
 

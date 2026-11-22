@@ -6,6 +6,8 @@
 #include <string>
 #include <vector>
 #include <functional>
+#include <deque>
+#include <map>
 #include "check.h"
 #include "fakes.h"
 #include "cores.h"
@@ -23,8 +25,10 @@ struct Img {
     uint32_t version;
     std::vector<std::pair<std::string, uint32_t> > needs;
     uint32_t reg, main;
+    std::vector<std::pair<std::string, uint32_t> > exp;            // the names it exports (U2A3_FLAG_EXPORTS)
     Img(const char *n) : kind(U2A3_KIND_LIB), residence(U2A3_RES_RESIDENT), name(n), version(U2A3_VERSION(1, 0)), reg(0), main(U2A3_NONE) { }
     Img &need(const char *n, uint32_t v = U2A3_VERSION(1, 0)) { needs.push_back(std::make_pair(std::string(n), v)); return *this; }
+    Img &exports(const char *n, uint32_t major = 1) { exp.push_back(std::make_pair(std::string(n), major)); return *this; }
     Img &capability(const char *c) { cap = c; return *this; }
     Img &ver(uint32_t major, uint32_t minor) { version = U2A3_VERSION(major, minor); return *this; }
     Img &app() { kind = U2A3_KIND_APP; residence = U2A3_RES_TRANSIENT; reg = U2A3_NONE; main = 0; return *this; }
@@ -36,13 +40,18 @@ static void putname(Bytes &v, const std::string &s) { for (int i = 0; i < 16; i+
 
 static Bytes build(const Img &m)
 {
-    uint32_t needs_off = U2A3_HEADER_SIZE, pay_off = needs_off + (uint32_t)m.needs.size() * U2A3_NEED_SIZE, psize = 64;
+    uint32_t exp_size = m.exp.empty() ? 0 : 4 + (uint32_t)m.exp.size() * U2A3_EXPORT_NAME_SIZE;
+    uint32_t needs_off = U2A3_HEADER_SIZE + exp_size, pay_off = needs_off + (uint32_t)m.needs.size() * U2A3_NEED_SIZE, psize = 64;
     Bytes v;
     put32(v, U2A3_MAGIC); put16(v, U2A3_HEADER_SIZE); put16(v, 3); put16(v, 3); put16(v, 3);
     v.push_back(m.kind); v.push_back(m.residence); v.push_back(U2A3_ARCH_RISCV32); v.push_back((uint8_t)m.needs.size());
-    put32(v, 0); putname(v, m.name); put32(v, m.version); putname(v, m.cap);
+    put32(v, m.exp.empty() ? 0 : U2A3_FLAG_EXPORTS); putname(v, m.name); put32(v, m.version); putname(v, m.cap);
     put32(v, pay_off); put32(v, psize); put32(v, 16); put32(v, 16); put32(v, m.reg); put32(v, m.main);
     put32(v, pay_off + psize); put32(v, 0); put32(v, needs_off); put32(v, 0); put32(v, 0); put32(v, 0);
+    if (!m.exp.empty()) {
+        put32(v, (uint32_t)m.exp.size());
+        for (size_t i = 0; i < m.exp.size(); i++) { putname(v, m.exp[i].first); put32(v, m.exp[i].second); }
+    }
     for (size_t i = 0; i < m.needs.size(); i++) { putname(v, m.needs[i].first); put32(v, m.needs[i].second); }
     v.resize(v.size() + psize, 0);
     return v;
@@ -59,8 +68,11 @@ struct Host : DescLibHost {
     int allocs, releases;
     std::vector<std::string> registered;
     std::vector<std::string> declares;       // libraries whose record carries two nodes and a poll
+    std::map<std::string, std::vector<std::pair<std::string, uint32_t> > > exporters;   // library -> the tables its record returns (name, major)
+    std::vector<LibExportDecl *> kept;
+    std::deque<std::string> names;            // the export names the records point at
     explicit Host(const CoreDesc *d) : DescLibHost(d), allocs(0), releases(0) { }
-    ~Host() { for (size_t i = 0; i < live.size(); i++) { free(live[i]); } }
+    ~Host() { for (size_t i = 0; i < live.size(); i++) { free(live[i]); } for (size_t i = 0; i < kept.size(); i++) { delete[] kept[i]; } }
     void *alloc(uint32_t n) override { allocs++; void *p = malloc(n); live.push_back(p); return p; }
     void release(void *p) override
     {
@@ -73,6 +85,21 @@ struct Host : DescLibHost {
     int call_register(const Entry &e, const LibApi *api, LibRecord *rec) override
     {
         registered.push_back(e.name);
+        std::map<std::string, std::vector<std::pair<std::string, uint32_t> > >::const_iterator x = exporters.find(e.name);
+        if (x != exporters.end()) {
+            static uint32_t table[2] = { sizeof(table), 0 };
+            LibExportDecl *list = new LibExportDecl[x->second.size()];
+            for (size_t i = 0; i < x->second.size(); i++) {
+                names.push_back(x->second[i].first);
+                list[i].name = names.back().c_str();
+                list[i].major = x->second[i].second;
+                list[i].table = table;
+                list[i].size = sizeof(table);
+            }
+            kept.push_back(list);
+            rec->export_list = list;
+            rec->nexport_list = (int)x->second.size();
+        }
         for (size_t i = 0; i < declares.size(); i++) {
             if (declares[i] == e.name) {
                 static const LibNodeDecl nodes[2] = { };
@@ -182,6 +209,50 @@ int main()
         }
         CHECK(addr_ok);
         CHECK_STR(w.r.summary, "5 loaded");
+    }
+    // ---- D20: a need on a name another library exports; the exporter goes first, whatever it is called and whatever its file is called
+    {
+        World w;
+        w.add(L1 "a.u2a", Img("monitor").need("ring").need("uci", U2A3_VERSION(1, 0)));     // needs two export names
+        w.add(L1 "b.u2a", Img("ringlib").exports("ring", 1).exports("trx", 1).need("uci"));    // exports two, needs one
+        w.add(L1 "c.u2a", Img("ucilib").exports("uci", 1));
+        w.add(L1 "d.u2a", Img("other"));
+        w.host.exporters["ringlib"].push_back(std::make_pair(std::string("ring"), 1u));
+        w.host.exporters["ringlib"].push_back(std::make_pair(std::string("trx"), 1u));
+        w.host.exporters["ucilib"].push_back(std::make_pair(std::string("uci"), 1u));
+        w.run();
+        CHECK_EQ(w.r.loaded, 4); CHECK_EQ(w.r.refused, 0);
+        std::vector<std::string> want; want.push_back("ucilib"); want.push_back("ringlib"); want.push_back("monitor"); want.push_back("other");
+        CHECK(w.host.registered == want);
+        int ph = w.ld.handle_of("ringlib"), uh = w.ld.handle_of("ucilib");
+        CHECK(ph >= 0 && uh >= 0);
+        CHECK_EQ(w.ld.uses(ph), 1);                                    // the monitor's need is met by the exporter, which it keeps loaded
+        CHECK_EQ(w.ld.uses(uh), 2);                                    // the monitor's and the ring library's
+        CHECK_EQ(w.ld.handle_providing("trx", U2A3_VERSION(1, 0)), ph);
+        // without the lists of the files the exporter has no place in the order: the need is the loader's to refuse
+        World v;
+        v.add(L1 "a.u2a", Img("monitor").need("ring"));
+        v.add(L1 "b.u2a", Img("ringlib"));
+        v.host.exporters["ringlib"].push_back(std::make_pair(std::string("ring"), 1u));
+        v.run();
+        CHECK_EQ(v.r.loaded, 1); CHECK_EQ(v.r.refused, 1);              // the monitor's file is first and nothing lists "ring": the loader refuses the monitor by name
+        CHECK(v.log.find("[lib] monitor v1.0 : refused: \"monitor\" needs \"ring\" 1.0, which is not loaded.") >= 0);
+        // a file that lists a name lib_register does not return is refused, and so is what needs it
+        World u;
+        u.add(L1 "a.u2a", Img("monitor").need("ring"));
+        u.add(L1 "b.u2a", Img("ringlib").exports("ring", 1));
+        u.run();
+        CHECK_EQ(u.r.loaded, 0); CHECK_EQ(u.r.refused, 2);
+        CHECK(u.log.find("[lib] ringlib v1.0 : refused: Library \"ringlib\" is refused: its file lists the export \"ring\" 1 and lib_register does not return it.") >= 0);
+        CHECK(u.log.find("\"monitor\" needs \"ring\" 1.0, which is not loaded.") >= 0);
+        // two libraries that need what the other exports are a cycle
+        World c;
+        c.add(L1 "a.u2a", Img("pp").exports("xx").need("yy"));
+        c.add(L1 "b.u2a", Img("qq").exports("yy").need("xx"));
+        c.add(L1 "c.u2a", Img("free"));
+        c.run();
+        CHECK_EQ(c.r.loaded, 1); CHECK_EQ(c.r.refused, 2);
+        CHECK(c.log.find("Library \"pp\" is part of a dependency cycle (pp, qq) and is not loaded.") >= 0);
     }
     // ---- a version too old is the loader's sentence, with both numbers; the dependent of a refused library follows
     {
@@ -363,6 +434,25 @@ int main()
         n = lib_dep_order(m, 4, order, cyc);
         CHECK_EQ(n, 0);
         CHECK(cyc[0] == 0 && cyc[1] == 0 && cyc[2] == 0 && cyc[3] == 3);
+    }
+    // ---- the order on made-up metadata: a need on an exported name
+    {
+        LibMeta m[3];
+        memset(m, 0, sizeof(m));
+        for (int i = 0; i < 3; i++) { m[i].valid = true; m[i].kind = U2A3_KIND_LIB; }
+        strcpy(m[0].name, "user"); m[0].nneeds = 1; strcpy(m[0].need[0], "ring");
+        strcpy(m[1].name, "other");
+        strcpy(m[2].name, "ringlib"); m[2].nexports = 2; strcpy(m[2].exp_name[0], "trx"); strcpy(m[2].exp_name[1], "ring");
+        int order[3], cyc[3];
+        CHECK_EQ(lib_dep_order(m, 3, order, cyc), 3);
+        CHECK(order[0] == 1 && order[1] == 2 && order[2] == 0);          // "other" is ready first; then the exporter, then what needs "ring"
+        m[2].nexports = 0;                                               // the list is gone: no edge, the files keep their order
+        CHECK_EQ(lib_dep_order(m, 3, order, cyc), 3);
+        CHECK(order[0] == 0 && order[1] == 1 && order[2] == 2);
+        // a library that needs a name it exports itself is a cycle of one
+        m[2].nexports = 1; strcpy(m[2].exp_name[0], "self"); m[2].nneeds = 1; strcpy(m[2].need[0], "self");
+        CHECK_EQ(lib_dep_order(m, 3, order, cyc), 2);
+        CHECK_EQ(cyc[2], 2);
     }
     DONE("test_libscan");
 }

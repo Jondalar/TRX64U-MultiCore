@@ -21,6 +21,7 @@
 #ifndef COREAPP_LIBAPI_H
 #define COREAPP_LIBAPI_H
 
+#include <stddef.h>
 #include <stdint.h>
 #include "ops.h"
 #include "fsif.h"
@@ -134,6 +135,19 @@ struct LibTabDecl {
     uint8_t n;                            // 0: the next free number
 };
 
+// One table of a library under a name (base 3.2): a library may export several, and what asks for a table asks by name and major, not by the name of the library
+// that provides it. `table` is a table of function pointers in the image (or a block the library keeps), `size` its size in bytes (at least 4; the table starts with a
+// uint32_t `size` of its own, and a caller checks it before it uses a member). Within a major the table is only appended to. The name is 1 to 15 characters of
+// [a-z0-9_] and is not the name of another loaded library or export of the same major; the major is at least 1. The same names, with their majors, stand in the
+// file (U2A3_FLAG_EXPORTS, libfmt.h), which is what orders the load of a folder.
+struct LibExportDecl {
+    const char *name;
+    uint32_t major;
+    const void *table;
+    uint32_t size;
+};
+#define LIB_EXPORTS_MAX 8                // at most U2A3_EXPORTS_MAX entries in a record
+
 struct LibRecord {
     uint32_t struct_size;
     const LibOpDecl *ops;                 int nops;
@@ -148,7 +162,14 @@ struct LibRecord {
     // library's own header. Null: none. Last in the record, so a library built before it (zero here) is read as it was.
     const void *exports;
     uint32_t exports_size;
+    // T239.3 D20 (base 3.2): the named tables of the library, found with api->lib->find by name and major (LibExportDecl above). Appended after the last member of
+    // 3.1, so a library built before it leaves them zero. A library built against 3.2 that must also run on a base of 3.1 writes them only when
+    // LIB_RECORD_COVERS(out->struct_size, export_list) holds; one that `needs base >= 3.2` need not ask.
+    const LibExportDecl *export_list;
+    int nexport_list;
 };
+// Does a record of this struct_size have the member? (a record of an older base ends before it)
+#define LIB_RECORD_COVERS(size, member) ((size) >= offsetof(LibRecord, member) + sizeof(((const LibRecord *)0)->member))
 
 typedef int (*lib_register_fn)(const LibApi *api, LibRecord *out);
 
