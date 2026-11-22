@@ -9,7 +9,7 @@
 1.1.3 An application is a `.u2a` file of kind app. It has an entry `app_main`, which the base runs on a task of its own.
 1.1.4 A library and an application are both called an image.
 1.1.5 Every contract in this document is read from the code of the base, not from the comments of the headers.
-1.1.6 This document covers the contracts declared in `libapi.h`, `svctab.h`, `ops.h`, `fsif.h` and `libfmt.h`.
+1.1.6 This document covers the contracts declared in `libapi.h`, `svctab.h`, `ops.h`, `fsif.h` and `libfmt.h`, and in the headers of the groups that base 3.3 added: `svc_sync.h`, `svc_settings.h`, `svc_ctx.h`, `svc_io.h`, `svc_board.h` and `svc_fs.h`.
 1.1.7 `libapi.h` is the root. `svctab.h`, `ops.h` and `fsif.h` are reached from it. `libfmt.h` is not: an image that needs its constants includes it as well. The other headers of `include/` (`glue.h`, `u2p_app.h`, `u2p_ui.h`, `hidden.h`) belong to the older application interface and the build, and are described in the README of the package.
 1.1.8 The calls of the older application interface in `u2p_app.h` are an adapter. `u2p_compat.c` implements each of them with the calls of this document.
 1.1.9 The older calls for a character screen and for keys do not exist. An application brings a description of its screens, and the base draws it.
@@ -17,19 +17,19 @@
 ### 1.2 Versions
 
 1.2.1 The API has a major and a minor number. `U2A_ABI_MAJOR` is the major. It is 3.
-1.2.2 `U2A_BASE_MINOR` is the minor of this base. It is 2.
+1.2.2 `U2A_BASE_MINOR` is the minor of this base. It is 3.
 1.2.3 `U2A3_VERSION(major, minor)` makes the number `major << 16 | minor`. A `needs` entry, the `version` of a library and the call `api->lib->find` use this form.
 1.2.4 An image names the majors it knows (`abi_min` to `abi_max`). The loader refuses an image whose range does not hold 3.
 1.2.5 An image states the lowest minor it needs as a `needs` entry named `base`. The loader refuses an image whose `base` entry is above the minor of the base.
 1.2.6 `api->abi_major` and `api->abi_minor` report the version of the running base.
-1.2.7 Every symbol of this document is part of base 3.0, unless its section says base 3.1 or 3.2. Two things came with 3.1: `api->lib` and the members `LibRecord.exports` and `LibRecord.exports_size`. Four things came with 3.2: the base serves the poll of a library that loads after the core has started (6.10), the budget record of a file and its refusals (section 8), the account of an image, which now also holds what the operations of the image take from `api->mem` later (4.2.2, 8.5), and the named exports of a library with the table `C64Api` (section 9). A library that depends on one of them writes `needs base >= 3.1` or `needs base >= 3.2`.
+1.2.7 Every symbol of this document is part of base 3.0, unless its section says base 3.1, 3.2 or 3.3. Two things came with 3.1: `api->lib` and the members `LibRecord.exports` and `LibRecord.exports_size`. Four things came with 3.2: the base serves the poll of a library that loads after the core has started (6.10), the budget record of a file and its refusals (section 8), the account of an image, which now also holds what the operations of the image take from `api->mem` later (4.2.2, 8.5), and the named exports of a library with the table `C64Api` (section 9). Base 3.3 added the groups `api->sync`, `api->settings`, `api->ctx`, `api->io` and `api->board` (4.12 to 4.16), the members `ms_timer`, `yield`, `delay_us`, `wall_time`, `app_version` and `app_git` of `api->sys` (4.1.8 to 4.1.13), `list_long` of `api->fs` (4.4.24), and the states `set.<key>` and `net.gated` (4.13.5). A library that depends on one of them writes `needs base >= 3.1`, `needs base >= 3.2` or `needs base >= 3.3`.
 1.2.8 A section of a group or a type states its version in the line `Since base`.
-1.2.9 There is one base minor per release of the SDK, not one per change. A minor that a release of the SDK has shipped never changes again. Until then everything that is added to the API stays under the minor of the coming release: SDK 0.2.0 is base 3.2, and base 3.1 is released.
+1.2.9 There is one base minor per release of the SDK, not one per change. A minor that a release of the SDK has shipped never changes again. Until then everything that is added to the API stays under the minor of the coming release: SDK 0.3.0 is base 3.3. Base 3.2 (SDK 0.2.0) and base 3.1 are released.
 
 | Symbol | Contract |
 |---|---|
 | `U2A_ABI_MAJOR` | The major number of the API, 3. A base of another major refuses the image. |
-| `U2A_BASE_MINOR` | The minor number of the API this base offers, 2. |
+| `U2A_BASE_MINOR` | The minor number of the API this base offers, 3. |
 | `U2A3_VERSION` | `U2A3_VERSION(major, minor)` is `major << 16 \| minor`. |
 | `U2A3_NAME_MAX` | The size of a name field, 16 bytes. A name has 1 to 15 characters of `a-z`, `0-9` and `_`, and a NUL. |
 | `U2A3_NEEDS_MAX` | The number of `needs` entries of an image, at most 4. |
@@ -123,7 +123,7 @@ Since base 3.0.
 
 | Member | Contract |
 |---|---|
-| `api->struct_size` | `sizeof(LibApi)` of the base. A base older than 3.1 is smaller by the member `lib`. |
+| `api->struct_size` | `sizeof(LibApi)` of the base. A base older than 3.1 is smaller by the member `lib`, and a base older than 3.3 by the five groups after it. |
 | `api->abi_major` | `U2A_ABI_MAJOR` of the base. |
 | `api->abi_minor` | `U2A_BASE_MINOR` of the base. |
 
@@ -147,6 +147,7 @@ Since base 3.0.
 3.2.8 A library or an application loaded after the start sees every group the core has.
 3.2.9 `api->trx`, the ring table `api->trx->ring` and `api->c64` leave the base API. They come from libraries, through `api->lib->find` (4.10, section 9): the names `trx`, `ring` and `c64`, each at major 1. New code asks `api->lib->find`. The three pointers stay in `LibApi` and keep their meaning until the cut of `LibApi` that comes with the next change of its major; the base fills them as before.
 3.2.10 The base itself answers `find("c64", ...)` with a `C64Api` table (9.4). It does not answer `trx` or `ring`: their layouts belong to the libraries of the core that has them.
+3.2.11 The core is handed to the base later too. Until then `api->io` is null, and the calls of `api->settings` and `api->ctx` answer as for a bad index (4.13.1, 4.14). `api->sync` and `api->board` work, except `video_set_system` and `case_led_select`, which do nothing.
 
 | Member | Group | Present |
 |---|---|---|
@@ -160,6 +161,11 @@ Since base 3.0.
 | `api->net` | `SvcNet` | Always, after the start. |
 | `api->c64` | `SvcC64` | Null unless the descriptor of the core has the id `TRX2`. |
 | `api->lib` | `SvcLib` | Always. |
+| `api->sync` | `SvcSync` | Always. Since base 3.3. |
+| `api->settings` | `SvcSettings` | Always. Since base 3.3. |
+| `api->ctx` | `SvcCtx` | Always. Since base 3.3. |
+| `api->io` | `SvcIo` | Null on a core without a register window. Since base 3.3. |
+| `api->board` | `SvcBoard` | Always. Since base 3.3. |
 
 ## 4. The call tables
 
@@ -211,6 +217,52 @@ The system group. It is there for every image.
 4.1.7.2 The call logs a line, gives the pixel layer back, stops the link to the ESP32 that sends the rocker and button events, disables the interrupts and stops the network receive.
 4.1.7.3 There is no way back. The caller jumps to the other code next.
 4.1.7.4 The member is null while a library loaded at core start registers (section 3.2).
+
+#### 4.1.8 `api->sys->ms_timer`
+
+Since base 3.3.
+
+4.1.8.1 `uint16_t ms_timer(void)` returns the 1 ms hardware counter of the ITU. It is free running and 16 bit wide, so it wraps every 65.536 s.
+4.1.8.2 Use differences: take a span as `(uint16_t)(now - then)`. It is valid for spans below 65 s. Never compare two readings with `<` or `>`.
+4.1.8.3 It is no replacement for `ms`, which counts in steps of 5 ms and is 32 bit wide.
+4.1.8.4 Any task may call it.
+
+#### 4.1.9 `api->sys->yield`
+
+Since base 3.3.
+
+4.1.9.1 `void yield(void)` gives the processor to a ready task of the same priority. It returns at once when none is ready.
+4.1.9.2 `sleep_ms(0)` is no yield: it sleeps one tick of 5 ms.
+4.1.9.3 Any task may call it, but not between `api->sync->enter` and `leave`.
+
+#### 4.1.10 `api->sys->delay_us`
+
+Since base 3.3.
+
+4.1.10.1 `void delay_us(uint32_t us)` waits `us` microseconds by looping. The unit is 10 us, rounded down. Below 10 it returns at once.
+4.1.10.2 The task does not sleep, and no other task of its priority runs meanwhile. The call is for a few microseconds up to a few milliseconds (the handshakes of the SID chips, SIO timing). A longer wait is `sleep_ms`.
+4.1.10.3 It does nothing while the core has not been handed over to the base (section 3.2). Any task may call it.
+
+#### 4.1.11 `api->sys->wall_time`
+
+Since base 3.3.
+
+4.1.11.1 `bool wall_time(uint8_t t[6])` reads the wall clock of the board: `t[0]` is the year of 2000 plus `t[0]` (0 to 99), then month 1 to 12, day 1 to 31, hour, minute and second.
+4.1.11.2 It returns `false` when the board has no clock, or when it was never set (the year reads before 2020). `t` is then not written.
+4.1.11.3 Any task may call it.
+
+#### 4.1.12 `api->sys->app_version`
+
+Since base 3.3.
+
+4.1.12.1 `const char *app_version(void)` returns the version text of the application image that runs: what the version file of the application and the commit make.
+4.1.12.2 The string ends with a NUL, belongs to the base, is valid for the life of the application and is never null. A library writes it into what it saves.
+
+#### 4.1.13 `api->sys->app_git`
+
+Since base 3.3.
+
+4.1.13.1 `const char *app_git(void)` returns the short git hash of the commit of the application image. The same rules as for `app_version` hold.
 
 ### 4.2 `api->mem` (`SvcMem`)
 
@@ -377,6 +429,31 @@ Since base 3.0.
 
 4.4.23.1 `bool rename(const char *from, const char *to)` moves a file or a folder.
 4.4.23.2 It returns `false` when either path is under `/flash`, or the file manager refuses.
+
+#### 4.4.24 `api->fs->list_long`
+
+Since base 3.3.
+
+4.4.24.1 `int list_long(const char *dir, SvcFsEntryLong *out, int max)` lists `dir` into `out[0 .. max - 1]` with whole names. `list` cuts a name to 55 characters.
+4.4.24.2 It returns the number of entries written, never more than `max`. It returns -1 when `dir` is not a folder, the medium cannot be read, or `fs` fails (4.4.7).
+4.4.24.3 A `max` of 0 or less writes nothing and returns the number of entries the folder has. The base counts them in a block of the heap of 72 bytes an entry and returns -1 when the heap has no room for it.
+4.4.24.4 `out` is the caller's, on the heap of the image or on its stack. An entry has 264 bytes, so a long listing is taken in a block of the heap and freed afterwards.
+4.4.24.5 The folders come first, as in `list`. A task that may block calls it: the medium is read.
+
+#### 4.4.25 `SvcFsEntryLong`
+
+Since base 3.3.
+
+`SvcFsEntryLong` is one entry of the listing of `list_long`, with the layout of `FsEntry` of the base. Its size is 272 bytes.
+
+| Member | Contract |
+|---|---|
+| `SvcFsEntryLong.name` | The whole name, at most 255 characters and a NUL. |
+| `SvcFsEntryLong.fdate` | The FAT packed date of the last change. 0 when unknown. |
+| `SvcFsEntryLong.ftime` | The FAT packed time of the last change. 0 when unknown. |
+| `SvcFsEntryLong.attr` | Bit 0 hidden, bit 1 system, bit 2 read only. |
+| `SvcFsEntryLong.dir` | `true` for a folder. |
+| `SvcFsEntryLong.size` | The size in bytes. |
 
 ### 4.5 `api->dlg` (`SvcDlg`)
 
@@ -851,6 +928,337 @@ Since base 3.0.
 4.11.1.1 Every call table starts with `uint32_t size`, the size of the table in bytes.
 4.11.1.2 A newer base adds members at the end. A member is there when `size` covers it and its pointer is not null.
 4.11.1.3 `size` is `sizeof` of the table in the base that made it.
+
+### 4.12 `api->sync` (`SvcSync`)
+
+Since base 3.3.
+
+The synchronisation group: a mutex and a short critical section, for an image that runs more than one task. The base fills it for every image of the core application.
+
+4.12.1 The calls are for a task. No call is allowed from an interrupt.
+4.12.2 No call takes a context. The base knows its own.
+4.12.3 A mutex belongs to the image that made it, on the same account as the blocks of `api->mem`. When the image is unloaded or freed, the base frees every mutex it still holds, also one that is locked. An image must not leave a task waiting on a mutex past its own end.
+
+#### 4.12.4 `SvcMutex`
+
+Since base 3.3.
+
+`SvcMutex` is the opaque handle of a mutex. `mutex_new` makes it and `mutex_free` frees it.
+
+#### 4.12.5 `SYNC_FOREVER`
+
+Since base 3.3.
+
+`SYNC_FOREVER` is the value 0xFFFFFFFF for the `timeout_ms` of `mutex_lock`: wait without a limit.
+
+#### 4.12.6 `api->sync->mutex_new`
+
+4.12.6.1 `struct SvcMutex *mutex_new(void)` makes a mutex with priority inheritance. It is not recursive: a second lock by the task that holds it waits for its own unlock, or times out.
+4.12.6.2 It returns null when the heap has no room. The memory is the base's, on the account of the image whose code runs.
+4.12.6.3 Any task may call it.
+
+#### 4.12.7 `api->sync->mutex_lock`
+
+4.12.7.1 `bool mutex_lock(struct SvcMutex *m, uint32_t timeout_ms)` takes the mutex.
+4.12.7.2 A `timeout_ms` of 0 tries once and returns at once. `SYNC_FOREVER` waits without a limit. Any other value waits that long, rounded up to the tick of 5 ms: `pdMS_TO_TICKS(timeout_ms) + 1` ticks.
+4.12.7.3 It returns `true` when the mutex is taken, and `false` on a timeout or when `m` is null.
+4.12.7.4 A task that may block calls it. A task between `enter` and `leave` does not.
+
+#### 4.12.8 `api->sync->mutex_unlock`
+
+4.12.8.1 `void mutex_unlock(struct SvcMutex *m)` gives the mutex back. Only the task that took it may give it back.
+4.12.8.2 A mutex that is not held, and a null `m`, do nothing.
+
+#### 4.12.9 `api->sync->mutex_free`
+
+4.12.9.1 `void mutex_free(struct SvcMutex *m)` frees the mutex and takes it off the account of its image.
+4.12.9.2 A null `m` does nothing. A mutex that is held, or that a task waits for, is not freed: the result is not defined.
+4.12.9.3 Any task may call it.
+
+#### 4.12.10 `api->sync->enter`
+
+4.12.10.1 `void enter(void)` opens a critical section. It is the critical section of the RTOS (`taskENTER_CRITICAL`) and nests with a counter: every `enter` has a `leave` on the same task.
+4.12.10.2 It is for a few register accesses: the four byte accesses of one 32 bit register of the TRX block, or a flag that is set and tested in one go.
+4.12.10.3 Between `enter` and `leave` the task calls nothing that blocks: not `sleep_ms`, `yield`, a `delay_us` of more than a few microseconds, a mutex call, a file, socket, dialog or log call, and nothing that enters another library.
+4.12.10.4 An image that ends with a section open is a defect the base cannot repair.
+
+#### 4.12.11 `api->sync->leave`
+
+4.12.11.1 `void leave(void)` closes the section `enter` opened. See 4.12.10.
+
+### 4.13 `api->settings` (`SvcSettings`)
+
+Since base 3.3.
+
+The settings group: the settings of the running core by key, as the base holds them. A setting has three layers: the default of its declaration (0), the flash of the host (1) and the `.cfg` file of the core (2). The value in force is the one of the topmost layer that has one, and one place to write: the file.
+
+4.13.1 No call takes a context. The group acts on the running core. Before the base has handed the core over (while `lib_register` of a library loaded at core start runs, section 3.2) there are no settings: every call answers as for a bad index.
+4.13.2 `generation`, `find`, `value`, `text`, `layer`, `info`, `cfg_value`, `cfg_text` and `extra_get` read, and any task may call them. `set`, `override_value`, `apply` and `extra_set` change the state of the core. The task that calls them holds the core lock: a handler, a core hook or a poll. `apply` must not be called from a job.
+4.13.3 An index (from `find`) stays valid while `generation` is the same. When the generation changed, find the keys again.
+4.13.4 A bad index gives -1 (an `int`), `false` (a `bool`) or the empty string (a text). Nothing asserts.
+4.13.5 Besides the group, `api->ops->state` answers two states of the base that belong here: `set.<key>`, the value in force of the setting `<key>` as text (a list setting gives its label, a text setting its text with the leading blanks; a space in the key may be written `_`, the case is folded; null when the core has no such setting), and `net.gated`, the text `yes` while the REST token gate is on and null otherwise.
+
+#### 4.13.6 `api->settings->generation`
+
+4.13.6.1 `uint32_t generation(void)` counts up whenever the set of settings, or its indexes, changed: a new settings object (the base makes one when it merges what the libraries contribute) and every loading of another configuration.
+4.13.6.2 It returns 0 while the core has no settings.
+
+#### 4.13.7 `api->settings->find`
+
+4.13.7.1 `int find(const char *key)` returns the index of the setting named `key`, compared without regard to case, or -1 when the core has none or `key` is null.
+
+#### 4.13.8 `api->settings->value`
+
+4.13.8.1 `int value(int ix)` returns the value in force: for a list the position of its label, for a range setting the position too (the number the menu shows is `base` plus the position, see `info`).
+4.13.8.2 An override of `override_value` wins over the stored value.
+4.13.8.3 It returns -1 for a bad index and for a text setting, which has no value index. Use `text`.
+
+#### 4.13.9 `api->settings->text`
+
+4.13.9.1 `const char *text(int ix)` returns the text in force of a text setting: the text of the core layer, else the default, with the leading blanks kept.
+4.13.9.2 It returns the empty string for a setting that is no text and for a bad index.
+4.13.9.3 The pointer belongs to the base. It is valid until that setting is written again or `generation` changes. Copy it at once.
+
+#### 4.13.10 `api->settings->layer`
+
+4.13.10.1 `int layer(int ix)` returns where the value comes from: 0 the default of the declaration, 1 the flash of the host, 2 the file of the core. It returns -1 for a bad index.
+
+#### 4.13.11 `api->settings->set`
+
+4.13.11.1 `bool set(int ix, int value)` stores the list position `value` in the core layer and marks the setting changed. It ends an override of the same setting.
+4.13.11.2 The file is written at once when Auto Save Config is on. With it off the value is held and the file waits for the next save, and the call still returns `true`.
+4.13.11.3 It does not run the operation of the setting. `apply` does that.
+4.13.11.4 It returns `false` when the index or the value is bad, and for a text setting (nothing changes). It returns `false` too when the core has no place for a file or the file could not be written. The value holds in memory then.
+
+#### 4.13.12 `api->settings->override_value`
+
+4.13.12.1 `void override_value(int ix, int value)` sets a value for this run only. It is never stored and never written into a `.cfg` or an exported configuration. `value` returns it from now on.
+4.13.12.2 A bad index, a bad value and a text setting do nothing. The call does not run the operation of the setting: call `apply` after it.
+
+#### 4.13.13 `api->settings->apply`
+
+4.13.13.1 `void apply(int ix)` puts the value in force into the core, on the calling task. A setting with an operation calls it with the value plus `base`. A setting bound to register bits writes the register that holds them. A setting that selects a file does nothing here.
+4.13.13.2 A bad index does nothing. The base logs the failure of an operation.
+
+#### 4.13.14 `api->settings->info`
+
+4.13.14.1 `bool info(int ix, int *nvalues, int *base)` returns the number of labels, or of range steps, and the base: the menu shows `base` plus the position, and the operation of a range setting receives it.
+4.13.14.2 It returns `false` for a bad index. The two numbers are then not written. Either pointer may be null.
+
+#### 4.13.15 `api->settings->extra_get`
+
+4.13.15.1 `bool extra_get(const char *key, char *val, int n)` reads a key of the core's own that is no choice from a list: the keys with the prefix `Pad ` (the recorded pad maps). The settings file keeps them beside the settings. The match ignores the case.
+4.13.15.2 It returns `false` when the key is not there, or when an argument is null or `n` is below 1. `val` is then not written. A value longer than `n - 1` characters is cut.
+
+#### 4.13.16 `api->settings->extra_set`
+
+4.13.16.1 `bool extra_set(const char *key, const char *val)` stores such a key. The core keeps at most 4 keys of at most 23 characters, with values of at most 79 characters.
+4.13.16.2 It returns `false` for a key without the prefix `Pad `, a key or value that is too long, no room, or a file that could not be written (the value holds in memory). With Auto Save Config off the file waits for the next save, and the call returns `true`.
+
+#### 4.13.17 `api->settings->cfg_value`
+
+4.13.17.1 `int cfg_value(const char *key, int def)` returns the value of the setting named `key` as `value` does, and `def` when the core has no such setting, when `key` is null, and for a text setting.
+
+#### 4.13.18 `api->settings->cfg_text`
+
+4.13.18.1 `const char *cfg_text(const char *key)` returns the text of the text setting `key` with the leading blanks skipped. It never returns null: it returns the empty string when the core has no such setting or the setting is no text.
+4.13.18.2 The pointer lives as long as that of `text`.
+
+### 4.14 `api->ctx` (`SvcCtx`)
+
+Since base 3.3.
+
+The context group: the state and the fields of the running core that a handler, a hook or a job reads or writes. No call takes a context. Before the base has handed the core over (section 3.2) the calls fail: `state` returns 0, `notice`, `target_path`, `core_folder` and `media_source` return `false`, `media_dir` returns the empty string, and `set_paused`, `job_progress` do nothing.
+
+4.14.1 Task classes: any task, a task that holds the core lock (an operation or state handler, a core hook, a poll), and the task of a job. A string the base returns belongs to the base and is valid until the call that changes it. Copy it at once.
+
+#### 4.14.2 `CTX_STARTED`, `CTX_PAUSED`, `CTX_FROZEN`, `CTX_MENU_OPEN`
+
+Since base 3.3.
+
+| Symbol | Contract |
+|---|---|
+| `CTX_STARTED` | Bit 0 of `state`: the core has been released once. |
+| `CTX_PAUSED` | Bit 1: Pause is on. The machine stays held after the menu closes, until Resume. |
+| `CTX_FROZEN` | Bit 2: the machine is stopped for the menu. |
+| `CTX_MENU_OPEN` | Bit 3: the menu is on the screen, frozen or not. |
+
+#### 4.14.3 `api->ctx->state`
+
+4.14.3.1 `uint32_t state(void)` returns the four flags as the bits of 4.14.2. It is a snapshot: the flags change on other tasks. Any task may call it.
+
+#### 4.14.4 `api->ctx->set_paused`
+
+4.14.4.1 `void set_paused(bool on)` sets or clears Pause. It sets the flag only. The machine is stopped when the menu closes.
+4.14.4.2 The caller tests `CTX_STARTED` first. The task holds the core lock.
+
+#### 4.14.5 `api->ctx->notice`
+
+4.14.5.1 `bool notice(const char *text, bool only_if_free)` stores a line that the screen shows once, when the menu next opens. The text is cut to 199 characters.
+4.14.5.2 With `only_if_free` true it stores the line only when no notice waits. With it false the line replaces a waiting one.
+4.14.5.3 It returns `true` when the line was stored, and `false` when a notice waits and `only_if_free` is true, or when `text` is null. Any task may call it.
+
+#### 4.14.6 `api->ctx->media_dir`
+
+4.14.6.1 `const char *media_dir(void)` returns the folder the menu was on when a task asks for a name: where a new file goes. It is the empty string when there is none, and never null. Any task may call it.
+
+#### 4.14.7 `api->ctx->target_path`
+
+4.14.7.1 `bool target_path(const char *name, const char *ext, char *out, int n)` makes the full path of a new file `name` on the medium the menu saves to: the folder of `media_dir`, or else the first medium of the root except `/flash`.
+4.14.7.2 `ext`, for example `.bin`, is added when `name` has no extension. A path that does not fit `n` is cut.
+4.14.7.3 It returns `false` when there is no medium. `out` is then not written. Any task may call it.
+
+#### 4.14.8 `api->ctx->core_folder`
+
+4.14.8.1 `bool core_folder(const char *sub, char *out, int n)` writes the folder the `.cor` file of the core installed its data into: the folder of the `.cor` file, then the name of the file without the extension, with no slash at the end. With `sub` ("roms", "saves", "configs", any name) it writes that sub folder of it. A null or empty `sub` is the core folder itself.
+4.14.8.2 It returns `false`, and `out` is the empty string, when the core was not started from a `.cor` file (JTAG, developer) or the path does not fit `n`.
+4.14.8.3 The base makes the core folder, `roms`, `saves` and `configs` at the start, when the medium can be written. Another sub folder is the image's to make. Any task may call it.
+
+#### 4.14.9 `api->ctx->job_step`
+
+4.14.9.1 `bool job_step(void)` is the protocol of a long write in steps. It returns `true` when the menu steps this operation: do one chunk per call and answer `more` in the `OpResult` until done. It returns `false` when every chunk runs in this call.
+4.14.9.2 The task holds the core lock, inside the handler of the operation.
+
+#### 4.14.10 `api->ctx->job_cancelled`
+
+4.14.10.1 `bool job_cancelled(void)` returns `true` when the person asked to drop the running write. The call clears the flag, so a second call returns `false`.
+4.14.10.2 The operation then removes its partial file and answers done. The task holds the core lock, inside the handler.
+
+#### 4.14.11 `api->ctx->job_progress`
+
+4.14.11.1 `void job_progress(int pct, const char *path)` reports where the write is: `pct` from 0 to 100 (a value outside is clipped), and the file being written once it is placed. A null `path` keeps the one reported before. The menu reads it the next time it draws.
+4.14.11.2 The task holds the core lock, inside the handler.
+
+#### 4.14.12 `api->ctx->media_source`
+
+4.14.12.1 `bool media_source(const char *slot, char *buf, int len)` writes what is in the media slot `slot`, as the engine's own spec: the path of the medium, with a word in front when the engine needs one (`ro /usb0/x.d64`, `unlinked /usb0/x.d64`, `folder /usb0/set`). A path starts with `/`.
+4.14.12.2 `slot` is the name of a mount slot of the core without its colon (`D1`, `Drive A`, `Cartridge`), or the name of a media slot of its description with the colon (`D1:`) or without. The case is ignored. The mount slots are searched first. A media slot gives its state text when that text is a spec.
+4.14.12.3 It returns `true` with the spec in `buf`, cut to `len - 1` characters. It returns `false`, with `buf` the empty string, for no such slot and for an empty one. Any task may call it.
+
+### 4.15 `api->io` (`SvcIo`)
+
+Since base 3.3.
+
+The io group: the hardware of the running core, as the base's own `CoreIo` has it. Each member is a window of the core with offsets relative to that window. The header names no register of any core: the registers are the core's own.
+
+4.15.1 The group is null on a core without a register window: a core with no machine (the diag core), and a context with no `CoreIo`. A library tests `api->io` before the first call. It is also null while `lib_register` of a library loaded at core start runs (section 3.2).
+4.15.2 No call takes a context. Every access is one byte wide per register: the windows take one byte per access. A register of 32 bit is four calls. The caller holds `api->sync->enter` and `leave` around the four when the bitstream needs them back to back.
+4.15.3 The register calls (`rd`, `wr`, `cart_rd`, `cart_wr`, `bus_rd`, `bus_wr`, `drv_rd`, `drv_wr`, `ram_memonly`, `video_format`, `stop`, `mode_reset`), `ram_read` and `ram_write` belong to a task that holds the core lock. What the last two see depends on `ram_memonly` and on whether the machine is stopped. The bulk calls that depend on no mode (`ddr_read`, `ddr_write`, `ddr_abs_read`, `ddr_abs_write`, `rom_read`, `rom_write`, `eeprom_read`, `eeprom_write`) and `window` may also run on a job task. `keys_read` and `delay_us` are for any task.
+4.15.4 Work that holds the machine for a long time, a dump for example, is a stepped operation (4.14.9): the menu calls it again while it answers `more`, and each call holds the lock for one step.
+4.15.5 No call reports an error. A core or host without a window ignores a write and reads 0. A bulk read of a window the core does not have gives zeros.
+
+#### 4.15.6 `api->io->rd`, `api->io->wr`
+
+4.15.6.1 `uint8_t rd(uint32_t reg)` and `void wr(uint32_t reg, uint8_t v)` read and write the byte register `reg` of the register block of the core. The register numbers are the core's.
+
+#### 4.15.7 `api->io->ddr_read`, `api->io->ddr_write`
+
+4.15.7.1 `void ddr_read(uint32_t off, void *p, uint32_t n)` and `void ddr_write(uint32_t off, const void *p, uint32_t n)` read and write `n` bytes of the DDR2 window of the core, at `off` from its start (the address 0x01000000 of the address space).
+4.15.7.2 A write is complete when the call returns: the base reads the last byte back. The caller keeps `off + n` inside the window of the core.
+
+#### 4.15.8 `api->io->rom_read`, `api->io->rom_write`
+
+4.15.8.1 `void rom_read(uint32_t off, void *p, uint32_t n)` and `void rom_write(uint32_t off, const void *p, uint32_t n)` access the ROM aperture, 32 KB, with `off` from its start. What lies at which offset is the core's.
+
+#### 4.15.9 `api->io->ram_read`, `api->io->ram_write`, `api->io->ram_memonly`
+
+4.15.9.1 `void ram_read(uint32_t addr, void *p, uint32_t n)` and `void ram_write(uint32_t addr, const void *p, uint32_t n)` access the base RAM window, 64 KB per page of the core. `addr` is the address of the machine. The access is byte by byte.
+4.15.9.2 `void ram_memonly(bool on)` selects the path. With `on` every byte goes to the second port of the RAM, the I/O range included. Otherwise an access in the I/O range is a bus cycle through the decoding of the machine. The caller puts it back to `false`.
+
+#### 4.15.10 `api->io->drv_rd`, `api->io->drv_wr`
+
+4.15.10.1 `uint8_t drv_rd(uint32_t off)` and `void drv_wr(uint32_t off, uint8_t v)` access the byte registers of the window of the built-in drive, `off` from the window. A core without a drive window reads 0 and ignores the write.
+
+#### 4.15.11 `api->io->ddr_abs_read`, `api->io->ddr_abs_write`
+
+4.15.11.1 `void ddr_abs_read(uint32_t addr, void *p, uint32_t n)` and `void ddr_abs_write(uint32_t addr, const void *p, uint32_t n)` access the fixed DDR2 areas of the drive and the cartridge port. Only the absolute addresses 0x00EA8000 up to 0x00F00000 are served.
+4.15.11.2 A range that is not wholly inside is ignored on a write and reads as zeros. A write is fenced and read back as `ddr_write` is.
+
+#### 4.15.12 `api->io->cart_rd`, `api->io->cart_wr`
+
+4.15.12.1 `uint8_t cart_rd(uint32_t reg)` and `void cart_wr(uint32_t reg, uint8_t v)` access the byte registers of the control block of the cartridge port, `reg` from the block. A core without it reads 0 and ignores the write.
+
+#### 4.15.13 `api->io->bus_wr`, `api->io->bus_rd`
+
+4.15.13.1 `void bus_wr(uint32_t off, uint8_t v)` and `uint8_t bus_rd(uint32_t off)` access the byte registers of the I/O block on the bus side of the core, `off` from the start of the block. `bus_rd` reads the byte that `bus_wr` writes.
+4.15.13.2 A core or host without the block reads 0 and ignores the write.
+
+#### 4.15.14 `api->io->eeprom_read`, `api->io->eeprom_write`
+
+4.15.14.1 `void eeprom_read(uint32_t off, void *p, uint32_t n)` and `void eeprom_write(uint32_t off, const void *p, uint32_t n)` access the EEPROM window of the cartridge port. Byte 0 is the dirty flag: a read gives it, and any write of it clears it. The 2 KB of data begin at offset 2048. One byte per access. A core without the window reads 0.
+
+#### 4.15.15 `api->io->keys_read`
+
+4.15.15.1 `bool keys_read(uint8_t m[8], bool *restore)` reads the physical keys now: `m[col]` bit `row` is 1 for a key that is down, the matrix as the scan of the menu reads it, in one critical section, and the level of RESTORE in `*restore`.
+4.15.15.2 It returns `false` when this host cannot say. `m` and `*restore` are then not written. Any task may call it.
+
+#### 4.15.16 `api->io->stop`, `api->io->mode_reset`
+
+4.15.16.1 `void stop(bool on)` holds the machine (`on`) or lets it run.
+4.15.16.2 `void mode_reset(bool on)` holds the application of the core in reset (`on`) or releases it.
+
+#### 4.15.17 `api->io->video_format`
+
+4.15.17.1 `void video_format(uint8_t v)` writes the video format register of the host, one byte: the bits of the system mode for the mode controller of the host. A host or core without it ignores the write.
+
+#### 4.15.18 `api->io->delay_us`
+
+4.15.18.1 `void delay_us(uint32_t us)` is the same call as `api->sys->delay_us` (4.1.10). Any task may call it.
+
+#### 4.15.19 `api->io->window`
+
+4.15.19.1 `volatile uint8_t *window(const char *name, uint32_t *size)` returns the base address of a register window of the bitstream that the API description of the core declares by `name`, and its size in `*size`.
+4.15.19.2 As built in base 3.3 no description is read: it returns null and writes 0 to `*size` (a null `size` is allowed). A caller treats a null result as a window the core does not grant.
+
+### 4.16 `api->board` (`SvcBoard`)
+
+Since base 3.3.
+
+The board group: the base operations a library calls by name, and the SID sockets. No call takes a context. The task is the task of a handler, hook, poll or job, and a call that waits says so. No call is allowed from an interrupt.
+
+#### 4.16.1 `SID_SOCKET_OFF`, `SID_SOCKET_ON`, `SID_SOCKET_ON_TYPE1`
+
+Since base 3.3.
+
+| Symbol | Contract |
+|---|---|
+| `SID_SOCKET_OFF` | The supply of a socket: the regulator is off (bits 1:0 of its nibble are 00). |
+| `SID_SOCKET_ON` | The socket is supplied (bits 1:0 are 10). |
+| `SID_SOCKET_ON_TYPE1` | The socket is supplied for a 6581, the type 1 of the detection (bits 1:0 are 11). |
+
+#### 4.16.2 `api->board->fpga_caps`
+
+4.16.2.1 `uint32_t fpga_caps(void)` returns the capability register of the bitstream, four bytes, as the FPGA reports it. The meaning of a bit is the bitstream's: a library keeps its own constants for the bits it tests. Any task may call it.
+
+#### 4.16.3 `api->board->is_commodore`
+
+4.16.3.1 `bool is_commodore(void)` returns `true` on the board sold under Commodore's name and `false` on the other badge of the same board. Any task may call it.
+
+#### 4.16.4 `api->board->esp32_rpc`
+
+4.16.4.1 `int esp32_rpc(uint8_t cmd, const uint8_t *args, int nargs, uint8_t *reply, int maxreply, int timeout_ms)` sends one request to the ESP32 control module (power mode, wake on Wi-Fi, power off, power cycle, GET commands) over the one UART of the board.
+4.16.4.2 `cmd` is the command, `args` are its `nargs` bytes, at most 100. With `timeout_ms` above 0 the call waits for the answer: it returns the number of bytes of the whole answer packet, copied to `reply`, at most `maxreply`. The first byte is the command, a header of 4 bytes and a 4 byte error code follow.
+4.16.4.3 With `timeout_ms` of 0 or below it sends and does not wait. It returns 0 when sent (the power off commands).
+4.16.4.4 It returns -1 when no answer came in time, -2 when `nargs` is out of range, and -3 when there is no link or no buffer. It waits up to `timeout_ms` for the answer and 1 s for a buffer.
+
+#### 4.16.5 `api->board->video_set_system`
+
+4.16.5.1 `void video_set_system(int sys)` gives the picture layer a new system mode: `sys` is the index of the colour timings (PAL, NTSC, ...) of the System Mode setting. The HDMI mode of the layer and the Picture row are picked again. The task holds the core lock.
+
+#### 4.16.6 `api->board->video_set_pll`
+
+4.16.6.1 `void video_set_pll(int sys, int ppm)` sets the video PLL for the system mode `sys` with the offset `ppm` of the colour clock, -100 to 100, and then resets the HDMI PLL. 0 is the nominal clock. The task holds the core lock.
+
+#### 4.16.7 `api->board->sid_socket`
+
+4.16.7.1 `int sid_socket(int socket, int state, bool shunt, bool filter_caps)` sets the supply of one SID socket. The expander at address 0x40 on the 1.8 V I2C channel takes one control byte for both sockets: bits 3:0 are socket 0 and bits 7:4 socket 1.
+4.16.7.2 A nibble is the supply (bits 1:0: 00 for `SID_SOCKET_OFF`, 10 for `SID_SOCKET_ON`, 11 for `SID_SOCKET_ON_TYPE1`), the shunt of 1 kOhm in bit 2 (`shunt`) and the option of the filter capacitor in bit 3. `filter_caps` is the setting of the core as it holds it, 0 or 1, and the base inverts it into bit 3.
+4.16.7.3 The base keeps the control byte. It starts at 0 when the application starts. A call replaces the nibble of `socket` and leaves the other one, then writes register 1 of the expander with the byte and register 3 with 0. The write holds the bus lock named `SID Configuration`, which the keyboard scan shares, and waits for it.
+4.16.7.4 It returns 0 when done, and also when there is nothing to do because the board has no expander or the bus lock was not obtained. It returns -1 for a `socket` outside 0 to 1 or a `state` outside the three values. Nothing is written then. The task holds the core lock.
+
+#### 4.16.8 `api->board->case_led_select`
+
+4.16.8.1 `void case_led_select(uint8_t v)` writes the source select of the two case LEDs: the high nibble for LED 1, the low nibble for LED 0, each a source code of the board. The task holds the core lock.
 
 ## 5. Operation types
 

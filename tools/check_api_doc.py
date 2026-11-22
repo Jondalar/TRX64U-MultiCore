@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """T239.3 S1: the API document of the SDK (app/sdkpkg/api.md) covers every symbol of the public headers of the core application.
 
-The headers are read from coreapp/src: libapi.h, svctab.h, ops.h and libfmt.h. The symbols are
+The headers are read from coreapp/src: libapi.h, svctab.h, ops.h and libfmt.h, and the headers of the groups that base 3.3 added (GROUP_HEADERS: svc_sync.h,
+svc_settings.h, svc_ctx.h, svc_io.h, svc_board.h, svc_fs.h; the Add structs of svc_sys.h and svc_fs.h repeat members of SvcSys and SvcFs and are not read). The symbols are
 
   api->NAME            each member of LibApi (struct_size, abi_major, abi_minor, log and the nine call tables)
   api->GROUP->NAME     each member of a call table; a table behind a table member (SvcTrx.ring -> SvcRing) is api->trx->ring->NAME
@@ -33,7 +34,10 @@ OPS_NAMES = ["in_int", "in_str", "in_blob", "OP_ARGS_MAX", "OP_MSG_MAX", "OP_DAT
 OPS_MACRO_PREFIXES = ("ARG_", "B_")
 FMT_NAMES = ["U2A_ABI_MAJOR", "U2A_BASE_MINOR", "U2A3_VERSION", "U2A3_NAME_MAX", "U2A3_NEEDS_MAX", "U2A3_IMAGE_MAX", "U2A3_ALIGN_MAX",
              "PRG_APP_NEED", "CART_APP_NEED", "U2A3_FLAG_BUDGET", "U2A3_BUDGET_NONE", "U2A3_FLAG_EXPORTS", "U2A3_EXPORTS_MAX"]
-SVC_MACRO_PREFIXES = ("SVC_BUTTON_", "U2P_TRACE_HIT_")
+SVC_MACRO_PREFIXES = ("SVC_BUTTON_", "U2P_TRACE_HIT_", "CTX_", "SYNC_")
+# base 3.3: one header for each group that follows `lib` in LibApi (their structs, enums, macros and opaque handles are read like those of svctab.h)
+GROUP_HEADERS = ["svc_sync.h", "svc_settings.h", "svc_ctx.h", "svc_io.h", "svc_board.h", "svc_fs.h"]
+NOT_SYMBOLS = {"SvcFsAdd", "SvcSysAdd"}
 SINCE_TYPES = ("AppCtx", "LibRecord")        # and every Lib*Decl
 
 
@@ -107,9 +111,10 @@ def structs(text):
 
 
 def enums(text):
+    """{name: [enumerators]}; an enum with no name is listed under ''."""
     found = {}
-    for m in re.finditer(r"enum\s+(\w+)\s*\{(.*?)\}", text, flags=re.S):
-        found[m.group(1)] = [e.split("=")[0].strip() for e in m.group(2).split(",") if e.split("=")[0].strip()]
+    for m in re.finditer(r"enum\s*(\w*)\s*\{(.*?)\}", text, flags=re.S):
+        found.setdefault(m.group(1), []).extend(e.split("=")[0].strip() for e in m.group(2).split(",") if e.split("=")[0].strip())
     return found
 
 
@@ -135,9 +140,14 @@ def symbols(src, strict):
     libapi, svctab, ops, fmt = (read(src, n) for n in ("libapi.h", "svctab.h", "ops.h", "libfmt.h"))
     if libapi is None or svctab is None:
         return sym, ["%s: libapi.h or svctab.h is missing" % src]
+    extra = [t for t in (read(src, n) for n in GROUP_HEADERS) if t is not None]
     st = structs(libapi)
     for k, v in structs(svctab).items():
         st.setdefault(k, v)
+    for t in extra:
+        for k, v in structs(t).items():
+            if k not in NOT_SYMBOLS:
+                st.setdefault(k, v)
     if "LibApi" not in st:
         return sym, ["LibApi is not in libapi.h"]
 
@@ -173,12 +183,13 @@ def symbols(src, strict):
                 if name != "":
                     sym["%s.%s" % (s, name)] = "member"
     # the opaque handles of svctab.h
-    for n in re.findall(r"^\s*struct\s+(\w+)\s*;", svctab, flags=re.M):
+    for n in [n for t in [svctab] + extra for n in re.findall(r"^\s*struct\s+(\w+)\s*;", t, flags=re.M)]:
         if n not in st and not (ops and re.search(r"\b(struct|enum)\s+%s\b" % n, ops)):
             sym[n] = "type"
-    for text in (libapi, svctab):
+    for text in [libapi, svctab] + extra:
         for e, vals in enums(text).items():
-            sym[e] = "type"
+            if e:
+                sym[e] = "type"
             for v in vals:
                 sym[v] = "enumerator"
         for t in fn_typedefs(text):

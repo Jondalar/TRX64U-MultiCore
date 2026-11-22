@@ -100,11 +100,47 @@ def check(cond, what):
         print("FAIL %s" % what)
 
 
-def run(doc_text):
+SYNC = """
+struct SvcMutex;
+enum { SYNC_OK = 0, SYNC_BAD = 1 };
+#define SYNC_FOREVER 0xFFFFFFFFu
+typedef struct SvcSync { uint32_t size; struct SvcMutex *(*mutex_new)(void); void (*enter)(void); } SvcSync;
+typedef struct SvcFsAdd { int (*not_a_symbol)(void); } SvcFsAdd;
+"""
+SYNC_DOC = """
+## `api->sync` (`SvcSync`)
+
+Since base 3.3.
+
+### `api->sync->mutex_new`
+
+Makes a mutex.
+
+### `api->sync->enter`
+
+Enters.
+
+### `SvcMutex`
+
+The handle.
+
+### `SYNC_FOREVER`
+
+Wait without a limit.
+
+### `SYNC_OK`, `SYNC_BAD`
+
+The two values of an anonymous enum.
+"""
+
+
+def run(doc_text, group=False):
     d = tempfile.mkdtemp(prefix="apidoc.")
     try:
         os.makedirs(os.path.join(d, "src"))
-        open(os.path.join(d, "src", "libapi.h"), "w").write(LIBAPI)
+        open(os.path.join(d, "src", "libapi.h"), "w").write(LIBAPI.replace("const SvcLib *lib;", "const SvcLib *lib;\n    const SvcSync *sync;") if group else LIBAPI)
+        if group:
+            open(os.path.join(d, "src", "svc_sync.h"), "w").write(SYNC)
         open(os.path.join(d, "src", "svctab.h"), "w").write(SVCTAB)
         open(os.path.join(d, "api.md"), "w").write(doc_text)
         return C.check(os.path.join(d, "src"), os.path.join(d, "api.md"), strict=False)
@@ -134,6 +170,14 @@ def main():
 
     errs, _ = run(DOC + "\nBody prose that calls `api->sys->logx` and reads `AppCtx.actionx`.\n")
     check(len(errs) == 2 and all("stale" in e for e in errs), "a stale symbol in body prose fails: %s" % errs)
+
+    # base 3.3: the headers of the groups after `lib` are read as well (their members, enumerators, macros, opaque handles), and the Add structs are not symbols
+    errs, n = run(DOC + SYNC_DOC, group=True)
+    check(errs == [] and n == 18 + 8, "a group header is read: %s, %d symbols" % (errs, n))
+    errs, _ = run(DOC + SYNC_DOC.replace("### `api->sync->enter`\n\nEnters.\n", ""), group=True)
+    check(len(errs) == 1 and "`api->sync->enter`" in errs[0], "a member of a group header is checked: %s" % errs)
+    errs, _ = run(DOC + SYNC_DOC.replace("### `SYNC_OK`, `SYNC_BAD`\n\nThe two values of an anonymous enum.\n", ""), group=True)
+    check(len(errs) == 2 and "SYNC_OK" in errs[0] + errs[1] and "SYNC_BAD" in errs[0] + errs[1], "the enumerators of an anonymous enum are checked: %s" % errs)
 
     errs, n = C.check()
     check(errs == [], "the real headers and the real document agree: %s" % errs[:5])
