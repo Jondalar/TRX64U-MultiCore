@@ -16,7 +16,13 @@ menu_first = true
 core_id = "diag"
 caps = ["pad"]                         # only lets the XInput driver claim a pad for the xpad test; the core has no pad service
 
-# no [video] and no [freeze]: the descriptor has no picture (all zero) and a freeze timeout of 200 ms, which a record cannot hold without a picture scale of 1 to 3
+# no picture of its own: an empty [video] is all zero (the application's screens are all there is); nothing to stop, so the freeze waits for no bit, but its timeout is the descriptor's 200 ms
+[video]
+
+[freeze]
+reg_status = 0
+mask = 0
+timeout_ms = 200
 
 # the register state the bug report prints
 

@@ -1180,8 +1180,12 @@ def _sec_core(c, st):
     return struct.pack("<%dI" % len(w), *w)
 
 
-def _video_words(v, what="video"):
+def _video_words(v, what="video", none_ok=False):
     _only(v, set(VIDEO_INTS), what)
+    if none_ok and not any(v.get(k) for k in VIDEO_INTS):       # [video] with no key, or every key zero: a core with no picture of its own (all words zero)
+        for k in VIDEO_INTS:
+            _int_in(v, k, 0, 0, what, 0)
+        return [0] * len(VIDEO_INTS)
     vals = {}
     for k in VIDEO_INTS:
         if k in ("x0", "y0"):
@@ -1198,7 +1202,7 @@ def _video_words(v, what="video"):
 
 
 def _sec_video(v, fz, st):
-    w = _video_words(v)
+    w = _video_words(v, "video", True)
     _only(fz, set(FREEZE_INTS) | {"word"}, "freeze")
     w += [_int_in(fz, "reg_status", 0, 65535, "freeze"), _int_in(fz, "mask", 0, 255, "freeze"), _int_in(fz, "timeout_ms", 0, 65535, "freeze"),
           1 if _opt(fz, "word", bool, "freeze", False) else 0]
@@ -1514,7 +1518,8 @@ def _parse_sections(blob, off, size, s, ncset, out):
             v = dict(zip(VIDEO_INTS, w))
             for k in ("x0", "y0"):
                 v[k] = v[k] - 2 ** 32 if v[k] >= 2 ** 31 else v[k]
-            if v["scale"] not in (1, 2, 3) or v["nbuf"] > 8 or v["bpp"] not in (0, 2, 4) or v["pxfmt"] > 4 or v["h60"] > 65535 or max(v[k] for k in ("reg_latest", "reg_seq", "reg_fb_base", "reg_fb_stride")) > 65535 or w[-4] > 65535 or w[-3] > 255 or w[-2] > 65535 or w[-1] > 1:
+            none = not any(v.values())                                                  # no picture of its own: every word zero
+            if (v["scale"] not in (1, 2, 3) and not none) or v["nbuf"] > 8 or v["bpp"] not in (0, 2, 4) or v["pxfmt"] > 4 or v["h60"] > 65535 or max(v[k] for k in ("reg_latest", "reg_seq", "reg_fb_base", "reg_fb_stride")) > 65535 or w[-4] > 65535 or w[-3] > 255 or w[-2] > 65535 or w[-1] > 1:
                 raise DescError("%s: a value is out of range" % what)
             out["video"] = v
             out["freeze"] = {"reg_status": w[-4], "mask": w[-3], "timeout_ms": w[-2], "word": bool(w[-1])}

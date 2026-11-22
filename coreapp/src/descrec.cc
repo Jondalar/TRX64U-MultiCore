@@ -140,7 +140,8 @@ static int parse_sections(Rd &r, uint32_t off, uint32_t size, DescRecord *out, u
             FreezeDesc &f = out->sec->freeze;
             memset(&f, 0, sizeof(f));
             uint32_t fr = SW(15), fm = SW(16), ft = SW(17), fw = SW(18);
-            if (scale < 1 || scale > 3 || nbuf > 8 || (bpp != 0 && bpp != 2 && bpp != 4) || pxfmt > 4 || h60 > 65535 || reg[0] > 65535 || reg[1] > 65535 || reg[2] > 65535 ||
+            const bool nopic = !v.w && !v.h && !scale && !v.x0 && !v.y0 && !v.fb_base && !v.fb_stride && !nbuf && !bpp && !pxfmt && !h60 && !reg[0] && !reg[1] && !reg[2] && !reg[3];   // a core with no picture of its own
+            if ((!nopic && (scale < 1 || scale > 3)) || nbuf > 8 || (bpp != 0 && bpp != 2 && bpp != 4) || pxfmt > 4 || h60 > 65535 || reg[0] > 65535 || reg[1] > 65535 || reg[2] > 65535 ||
                 reg[3] > 65535 || fr > 65535 || fm > 255 || ft > 65535 || fw > 1) {
                 return r.fail("description record, section %s: a number is out of range", nm);
             }

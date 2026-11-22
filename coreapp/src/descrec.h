@@ -27,7 +27,7 @@
 //       this reader does not know is refused with its number. Words are u32, strings offsets into the string table (none = 0xFFFFFFFF):
 //         1 core       18 words: id (4 bytes), name, title, short_title, folder, store, min_contract, reset_ms, service_op, service_period_ms, flags (b0 poll_when_frozen, b1 board_caps,
 //                      b2 id_shared, b3 own_volume, b4 no_tone, b5 menu_first), needs_program, program_ext, type_op, run_op, core_id, live_ms, caps (comma separated)
-//         2 video      19 words: w h scale x0 y0 fb_base fb_stride nbuf reg_latest reg_seq reg_fb_base reg_fb_stride bpp pxfmt h60, then the freeze: reg_status mask timeout_ms word
+//         2 video      19 words: w h scale x0 y0 fb_base fb_stride nbuf reg_latest reg_seq reg_fb_base reg_fb_stride bpp pxfmt h60 (all 15 zero: a core with no picture of its own), then the freeze: reg_status mask timeout_ms word
 //         3 roms       u32 count, then per ROM 16 words: role, put_op, flags (b0 required, b1 shared, bits 15:8 set), 3 sizes (0 = none), 10 file names (none = end)
 //         4 settings   u32 count, then per entry: the index of the core setting, reg, shift, mask, number of bytes, the bytes padded to a multiple of 4 (RegBind: that setting is those
 //                      register bits and has no operation)
