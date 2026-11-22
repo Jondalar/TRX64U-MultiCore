@@ -248,8 +248,8 @@ module ddt_mandel_hd #(
     wire frame_start = t_vs && !vs_q;
 
     // the raw port-2 contacts into the pixel clock (his joy_n_pix_ff1/2)
-    reg [4:0] joy_n_pix_ff1 = 5'h1f;
-    reg [4:0] joy_n_pix_ff2 = 5'h1f;
+    (* ASYNC_REG = "TRUE" *) reg [4:0] joy_n_pix_ff1 = 5'h1f;
+    (* ASYNC_REG = "TRUE" *) reg [4:0] joy_n_pix_ff2 = 5'h1f;
     always @(posedge pix_clk) begin
         joy_n_pix_ff1 <= joy_n;
         joy_n_pix_ff2 <= joy_n_pix_ff1;

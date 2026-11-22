@@ -1,7 +1,7 @@
 #!/bin/sh
 # T255: the bench of the Mandelbrot large core's picture path under Verilator: ddt_mandel_hd (mono/ddt_mandel_hd.v) behind the HDMI timing of the core's own copy (mono/host/hdmi_timing.v), DDT's
 # engines as he wrote them (rtl/, trx/), the Xilinx primitives CARRY4 and xpm_memory_tdpram as models (sim/), the model of the picture (mandel_model.py, written from his code) as the expectation.
-# Not part of the CI (Alex: no benches before a merge); run by hand, niced:  sh cores/ddt_mandel/sim/run.sh [mode ...]
+# Tier 2 in ci/sims.txt: runs on pushes to integration, never before a merge (Alex: no benches before a merge); by hand, niced:  sh cores/ddt_mandel/sim/run.sh [mode ...]
 # modes: pix       the default view: a whole 1080p frame equals the model with the splash text, and without it after the splash counter ran out
 #        joy       pix, then fire + up on port 2: the frame equals the model of the zoomed view
 # The joystick's debounce clock is scaled 100 : 1 (JOY_CLK_HZ) so that the bench does not wait 8 ms of simulated time per contact; the logic is the same. 2 engines (DDT_NE): the picture does not depend on the count.

@@ -2,6 +2,8 @@ Copy of the host files cores/ddt_mandel/mono/build_mono.tcl reads: the HDMI chai
 branch t164, hdmi_timing fix included; the HDMI files of diag are the host's of that commit, T253's change is in top.v / app_i2c.v only and touches none of these).
 T164 3a Q1 (Alex, 2026-11-01): "Copies instead." A change in host/ does not move this core's cache key or its build; a host fix reaches this core only by copying it in here on purpose,
 then update this line. The files need not equal host/ (no lint compares them).
+hdmi_enc/hdmi.v is taken again from host/ at 5d2a2ac4a (2026-11-22, T255 review): it carries the T181 timing fix (the last active line
+registered, ey_m1), which the diag copy predates.
 Edits to the copies: hdmi_modes.vh is ddt_hdmi_modes.vh (cdce_mode.v and hdmi_timing.v include that name: Vivado runs in host/, where an include of "hdmi_modes.vh" could read host/hdmi_modes.vh
 instead of this copy). Nothing else. hdmi_enc/ is the host's fork of vendor/icepi/hdmi (the three unforked files come from the vendor tree, build_mono.tcl).
 The core's own HDMI top (mono/ddt_hdmi.v) is hdmi_out.v of the host without the mode request, VIC scaler, overlay, pixel layer and freeze text; the clock chain and the synthesizer's I2C of mono/top.v are

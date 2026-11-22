@@ -17,7 +17,7 @@ repository has no LICENSE file and the GitHub licence field is empty. The link t
 
 CHANGED (CC BY 4.0 asks that changes are marked):
   trx/screen_matrix.v           his screen_matrix.v with three changes (T168, T255): row 2 reads the engine count of the design (the parameter ENGINES, the digits of "20" in his file; his TODO asks for the
-                                actual count: this large core has 20 engines, the partial core of T168 had 8), the character lookup has two register stages and a clock port (the address and the table
+                                actual count: this large core has 20 engines, the partial core of T168 had 6), the character lookup has two register stages and a clock port (the address and the table
                                 do not share one clock at 148.87 MHz). rtl/screen_matrix.v.diff is the difference. This is the file that is built.
   trx/pixel_gen_mandelbrot.sv   his engine, pipelined: his single clock (two 25 x 25 products, the 50 bit sum, the compare and the update of z in one path) missed 100 MHz by 2.3 ns on the
                                 XC7A50T. Now three registered stages and two pixels per engine take turns in the loop (an iteration of one pixel every second clock, one of the engine every clock);
