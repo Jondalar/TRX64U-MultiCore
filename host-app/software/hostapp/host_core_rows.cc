@@ -433,6 +433,7 @@ int g_bci_res;
 CfwInfo g_bcw;
 int g_bcw_res;
 int g_bcw_origin;
+char g_bcw_mver[24];                                  // T254: a large .cor's manifest version, "" for a .cfw/.ue2
 MediaInfo g_mi;
 int g_mi_for = -2;
 uint32_t g_mi_gen;
@@ -467,11 +468,18 @@ static void probe_full(const char *path)
     g_bci_res = COR_ERR_IO;                                            // this row is no .cor: the .cor reading of the last row does not stay valid for it
     g_bcw_res = s ? cfw_probe(*s, CFW_IDCODE_XC7A50T, g_bcw) : CFW_ERR_IO;
     g_bcw_origin = COR_ORIGIN_TRX;
+    g_bcw_mver[0] = 0;
     if (s && g_bcw_res == CFW_OK && g_bcw.from_cor) {                 // T137 D1: who made this .cor
         static CorInfo oc;
         if (cor_probe(*s, oc) == COR_ERR_LARGE) {
             g_bcw_origin = oc.origin;
+            snprintf(g_bcw_mver, sizeof(g_bcw_mver), "%s", oc.version);
         }
+    }
+    // T254: a foreign firmware names itself: a .cfw/.ue2, and a packaged one whose manifest still says its bitstream's date ("bit <date>",
+    // packaged before T254). One packaged since carries the name and version in its manifest.
+    if (s && g_bcw_res == CFW_OK && (cfw_is_name(path) || (g_bcw_origin == COR_ORIGIN_FOREIGN && !strncmp(g_bcw_mver, "bit ", 4)))) {
+        cfw_read_self(*s, g_bcw);
     }
     delete s;
     g_bci_for = hc_nav().bsel;
@@ -625,8 +633,18 @@ static void panel_full(HcPanel *p, const char *path)
         cell(&p->err, cfw_result_str((cfw_result_t)g_bcw_res), HCT_MUTED);
         return;
     }
-    cell(&p->title, g_bcw.name, HCT_INK);
-    cell(&p->val[0], g_bcw_origin == COR_ORIGIN_FOREIGN ? "packaged firmware" : (g_bcw_origin == COR_ORIGIN_BACKUP ? "backup of this board" : "full firmware"));
+    cell(&p->title, cfw_title(g_bcw), HCT_INK);
+    // T254: the version a foreign firmware gives itself, else the manifest version of a package made from one, unless that is its bitstream's date (packaged
+    // before T254) or "unknown". A backup and a large core of ours keep the row as it was.
+    const char *kind = g_bcw_origin == COR_ORIGIN_FOREIGN ? "packaged firmware" : (g_bcw_origin == COR_ORIGIN_BACKUP ? "backup of this board" : "full firmware");
+    const bool mver_ok = g_bcw_origin == COR_ORIGIN_FOREIGN && strncmp(g_bcw_mver, "bit ", 4) && strcmp(g_bcw_mver, "unknown");
+    const char *ver = g_bcw.self_ver[0] ? g_bcw.self_ver : (mver_ok ? g_bcw_mver : "");
+    if (ver[0]) {
+        snprintf(t, sizeof(t), "%s, %s", ver, kind);
+        cell(&p->val[0], t);
+    } else {
+        cell(&p->val[0], kind);
+    }
     cell(&p->val[1], "none, it replaces the host");
     cell(&p->val[2], g_bcw.part);
     snprintf(t, sizeof(t), "%u B bitstream", (unsigned)g_bcw.bit_len);

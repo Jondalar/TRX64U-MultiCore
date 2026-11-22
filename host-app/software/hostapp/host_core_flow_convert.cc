@@ -158,7 +158,8 @@ bool ConvertJob::run()
         CV_REFUSE(title, "Cancelled while reading the file.", "");
     }
     known = fw_known_lookup(hex);
-    icon = cenv.icon(cenv.ctx, path, ci.name);
+    cfw_read_self(*srcp, ci);                               // T254: the name and version it gives itself, for the manifest when the table has no row
+    icon = cenv.icon(cenv.ctx, path, ci.name);              // the .bit header's name picks the icon
     cr = fwcv_plan(*hostfs_fo(), ci, known, true, dst, &plan);
     if (cr == FWCV_ERR_NOROOM || cr == FWCV_ERR_FS) {
         ui_size_text(a, sizeof(a), plan.size);

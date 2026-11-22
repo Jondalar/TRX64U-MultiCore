@@ -53,6 +53,11 @@ void fwcv_names(const CfwInfo &ci, const FwKnown *known, FwConvPlan *p)
         snprintf(p->version, sizeof(p->version), "%s", known->version);
         return;
     }
+    if (ci.self_name[0]) {                                  // T254: the name and version the firmware gives itself (cfw_read_self)
+        snprintf(p->name, sizeof(p->name), "%s", ci.self_name);
+        snprintf(p->version, sizeof(p->version), "%s", ci.self_ver);
+        return;
+    }
     snprintf(p->name, sizeof(p->name), "%s", ci.name);
     const char *sp = strchr(ci.name, ' ');                  // "<design> <date> <time>"
     if (sp && sp[1]) {

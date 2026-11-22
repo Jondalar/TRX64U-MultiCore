@@ -56,10 +56,23 @@ struct CfwInfo {
     uint32_t file_size;
     bool from_cor;          // a large .cor (T115 section 7): name and part are the manifest's, the SHA-256 values below are set
     char bit_sha[65], app_sha[65];
+    char self_name[48];     // T254: the name the firmware gives itself ("Commodore 1.2.1"), set by cfw_read_self; "" when not read or not said
+    char self_ver[24];      // T254: its version ("1.2.1"), same source; `name` stays the .bit header's (the icon kind reads it)
 };
 
 // True for a file name ending in .cfw (any case).
 bool cfw_is_name(const char *name);
+
+// T254: the name and version a foreign firmware gives itself, by the rule of the backup (update_trx.cc, fw_version): the line
+// "Software version:   <version>" of the version report in its application, and the vendor from the version's first digit (1 Commodore,
+// 3 Gideon, any other "Firmware"); the text "TRX64 Ultimate" names TRX64-Ultimate. Only the application's last 512 KiB are read (app_data,
+// app_len of cfw_probe; the measured distances are in cfw.cc): a .cfw's updater can hold both texts (TRX64-Ultimate's does), and a key with
+// no version after it is passed over. A TRX64 build (the design "top") without the TRX64 text is not named (its line is the Gideon base's). Sets ci.self_name and
+// ci.self_ver and returns true when the application says its version; false leaves them empty (cannot read, no such line in the part read, or that TRX64 case).
+bool cfw_read_self(CorSource &src, CfwInfo &ci);
+
+// What a person reads as the firmware's name: the name it gives itself (T254), else the .bit header's "<design> <date> <time>".
+const char *cfw_title(const CfwInfo &ci);
 
 // Reads and checks the image. running_idcode: the IDCODE of the FPGA the host runs on. A file that starts with the .cor magic is read
 // as a large core: the manifest, its IDCODE against running_idcode AND against the IDCODE inside the bitstream, the map against the AXSS

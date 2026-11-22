@@ -819,7 +819,7 @@ void hc_ui_input(int k, HcUiResult *res)
                     if (pr.res != CFW_OK) {
                         hc_ui_refuse_full(pr.res);
                     } else {
-                        g_env.start_any(g_env.ctx, path, pr.cw->name, 0, true);
+                        g_env.start_any(g_env.ctx, path, cfw_title(*pr.cw), 0, true);     // T254: the name the firmware gives itself
                     }
                 } else if (pr.res != COR_OK) {
                     hc_ui_refuse(pr.res, *pr.ci);
