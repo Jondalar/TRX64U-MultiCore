@@ -118,12 +118,14 @@ class T(unittest.TestCase):
         self.assertEqual(r.stdout.split(), ["a.bit", "SHA256SUMS"])
         r = self.sh(os.path.join(HERE, "builds.sh"), "fetch", "main-0000000a", "nope", out)
         self.assertEqual(r.returncode, 1)
-        # tools/release_mc.sh refuses a pre-release that carries a TRX64 .cor (D16) before it packs anything
-        bad = {"c64_basic.bit": BIN, "manifest.json": b"{}", "trx64u.cor": b"x"}
+        # tools/release_mc.sh (D47) takes a pre-release with trx64u.cor over: it passes the download, SHA256SUMS and the ROM check, and stops at the
+        # host check because the pre-release has no .txu
+        bad = {"trx64u.cor": b"x"}
         self.gh.add_release("main-0000000b", dict(bad, SHA256SUMS=self.sums(bad)))
         r = self.sh(os.path.join(HERE, "release_mc.sh"), "main-0000000b", "--out", os.path.join(self.tmp, "dist"))
         self.assertEqual(r.returncode, 1)
-        self.assertIn("carries no TRX64 .cor", r.stderr)
+        self.assertIn("2 files downloaded, SHA256SUMS ok", r.stdout)
+        self.assertIn("no trx64host_update_*.txu", r.stderr)
 
 
 if __name__ == "__main__":
