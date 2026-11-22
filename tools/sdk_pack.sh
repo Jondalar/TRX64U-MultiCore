@@ -13,6 +13,7 @@
 #   image/    coreapp.bin, the app core image of this build, and its version.toml
 #   example/  app/sdkpkg/example: a library of two files with a menu TOML and a host test
 #   licenses/ the licence texts of the third-party code coreapp.bin links (FreeRTOS, lwIP, LVGL, FatFs), copied from vendor/gideon/software
+#   api.md    app/sdkpkg/api.md: the API document; tools/check_api_doc.py (lint) keeps it complete against the headers
 # The package carries no ROM: tools/check_no_roms.sh runs over the finished directory and the pack fails if it finds one.
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -60,6 +61,7 @@ cp "$V/FreeRTOS/License/license.txt" "$P/licenses/FreeRTOS.txt"
 cp "$V/lwip/COPYING" "$P/licenses/lwIP.txt"
 cp "$V/lvgl/LICENCE.txt" "$P/licenses/LVGL.txt"
 cp "$V/chan_fat/ff14/LICENSE.txt" "$P/licenses/FatFs.txt"
+cp "$ROOT/app/sdkpkg/api.md" "$P/api.md"
 sed -e "s/@SDK_VERSION@/$ver/g" -e "s/@ABI_MAJOR@/$abi_major/g" -e "s/@ABI_MINOR@/$abi_minor/g" "$ROOT/app/sdkpkg/readme.in" > "$P/README.md"
 cat > "$P/NOTICE" <<NOTICE
 TRX64 SDK $ver, source commit $commit.

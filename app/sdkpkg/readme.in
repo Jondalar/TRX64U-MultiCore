@@ -3,12 +3,15 @@
 This package builds a library for the generic core application, the menu record of that library, and a `.cor` bundle that carries both.
 It needs nothing from the TRX64 repository.
 
+The document [`api.md`](api.md) is the contract of the interface a library and an application use.
+
 The file `VERSION` names the SDK version, the base API version (@ABI_MAJOR@.@ABI_MINOR@), the source commit and the SHA-256 of `image/coreapp.bin`.
 
 ## Contents
 
 | Folder | Content |
 |---|---|
+| `api.md` | The API of the core application: the entry points, the call tables, the operation types and the record of a library. Read it before the headers. |
 | `include/` | The headers a library or an application includes: `libapi.h` and everything it includes, `libfmt.h`, `glue.h`, `u2p_app.h`, `u2p_ui.h`, `hidden.h`. |
 | `mk/` | `lib.mk` (a library), `app.mk` (an application of C files), `lib.ld` (the linker script), `sdkroot.mk` (finds the package). |
 | `sdk/` | The C sources that `app.mk` links into an application. `lib.mk` links `sdk/libc.c` when `LIB_LIBC = 1`. |

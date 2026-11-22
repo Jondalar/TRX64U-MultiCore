@@ -19,7 +19,7 @@ tar -xzf "$tgz" -C "$W"
 P="$(echo "$W"/trx64-sdk-*)"
 [ -d "$P" ] || fail "no trx64-sdk-* folder in $tgz"
 ver="$(sed -n 's/^sdk //p' "$P/VERSION")"
-for f in VERSION README.md LICENSE NOTICE include/libapi.h include/libfmt.h mk/lib.mk mk/app.mk mk/lib.ld tools/u2a_pack.py tools/descrec.py tools/cor_pack.py image/coreapp.bin example/Makefile; do
+for f in VERSION README.md api.md LICENSE NOTICE include/libapi.h include/libfmt.h mk/lib.mk mk/app.mk mk/lib.ld tools/u2a_pack.py tools/descrec.py tools/cor_pack.py image/coreapp.bin example/Makefile; do
   [ -f "$P/$f" ] || fail "the package lacks $f"
 done
 want="$(sed -n 's/^coreapp_sha256 //p' "$P/VERSION")"
