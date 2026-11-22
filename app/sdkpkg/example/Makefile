@@ -6,7 +6,7 @@ LIB_VERSION = 1
 LIB_NEEDS = base>=3.0
 LIB_SRCS = example.cc greet.cc
 LIB_MENU = menu.toml
-LIB_BUDGET = image=16384 heap=0 ops=1 states=1 events=0 nodes=2 file_actions=1 settings=0 tabs=1 polls=0
+LIB_BUDGET = image=16384 heap_keep=0 heap_peak=0 ops=1 states=1 events=0 nodes=2 file_actions=1 settings=0 tabs=1 polls=0
 include ../mk/lib.mk
 
 menu: example.menu.bin

@@ -3,7 +3,7 @@
 #
 #   APP_NAME = unzip          APP_VERSION = 1.0           APP_RES = transient | resident        APP_MENU = app.toml (optional)
 #   APP_KIND = lib            a library (T197): resident, entry lib_register, no u2p_compat; APP_NEEDS = "base>=3.1" "other>=1.0" (space separated, quoted)
-#   APP_BUDGET = image=65536 heap=1048576 ops=4          the budget of the file, as LIB_BUDGET of lib.mk (the loader refuses what is over it)
+#   APP_BUDGET = image=65536 heap_peak=1048576 ops=4          the budget of the file, as LIB_BUDGET of lib.mk (the loader refuses what is over it)
 #   APP_REG = 1               an application with screens: it has lib_register, the operations and state values they bind to
 #   APP_CSRCS = src/unzip.c ...                           APP_CCSRCS = glue.cc                  APP_INC = -Isrc/miniz
 #   include <repo>/app/lib/app.mk          (in the SDK package: include <package>/mk/app.mk)

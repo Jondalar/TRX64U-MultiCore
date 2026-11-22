@@ -77,16 +77,19 @@ LibLoader::~LibLoader()
     }
 }
 
-// The registry runs a handler of `owner`: a loaded image of that name becomes the current account until leave(); an owner that is none (the core's own
-// handlers, an image still being loaded, whose register call has set it already) leaves the current one alone.
-int LibLoader::enter(const char *owner)
+// The registry runs a handler of the image in `slot`: it is the owner of the calling task until leave(), which puts back what that task had. Other tasks keep theirs.
+int LibLoader::enter(int slot)
 {
-    int prev = cur_;
-    int h = owner ? handle_of(owner) : -1;
-    if (h >= 0) {
-        cur_ = h;
-    }
+    int prev = host_->task_scope();
+    host_->set_task_scope(slot);
     return prev;
+}
+
+// Whose account the calling task works on: the image of the handler it runs, as long as that image is loaded, else the application that is open.
+int LibLoader::owner() const
+{
+    int t = host_->task_scope();
+    return t >= 0 && t < LIB_MAX && slot_[t].used ? t : cur_;
 }
 
 // ---- the service table (T104.3 D2)
@@ -105,8 +108,8 @@ void *LibLoader::svc_malloc(uint32_t n)
     }
     // the heap budget of the image whose code runs: what its blocks hold plus this one may not pass it; the figure is reserved before the heap is asked
     // and given back when the heap has no room
+    int owner = L->owner();
     L->host_->enter();
-    int owner = L->cur_;
     if (owner >= 0) {
         Slot &s = L->slot_[owner];
         if (s.heap_limit != U2A3_BUDGET_NONE && (uint64_t)s.blk_bytes + n > s.heap_limit) {
@@ -120,7 +123,7 @@ void *LibLoader::svc_malloc(uint32_t n)
             L->host_->leave();
             if (first && !loading) {
                 char line[LIB_ERR_MAX];
-                snprintf(line, sizeof(line), "\"%s\": %u bytes asked with %u held, over its declared heap budget of %u; the request is refused.", s.info.name,
+                snprintf(line, sizeof(line), "\"%s\": %u bytes asked with %u held, over its declared heap peak of %u; the request is refused.", s.info.name,
                          (unsigned)n, (unsigned)s.blk_bytes, (unsigned)s.heap_limit);
                 L->api_.log(line);
             }
@@ -254,10 +257,11 @@ SvcFile *LibLoader::svc_open(const char *path, bool rw)
         L->host_->release(h);
         return 0;
     }
+    int owner = L->owner();
     L->host_->enter();
-    SvcFile **head = &L->files_[L->cur_ < 0 ? LIB_MAX : L->cur_];
+    SvcFile **head = &L->files_[owner < 0 ? LIB_MAX : owner];
     h->fs = fs;
-    h->owner = L->cur_;
+    h->owner = owner;
     h->prev = 0;
     h->next = *head;
     if (*head) {
@@ -715,6 +719,9 @@ int LibLoader::load(LibSource *src, int *handle, char *err, int errlen)
             (h.needs_count && h.needs_offset < U2A3_HEADER_SIZE + bsz) || h.payload_offset < U2A3_HEADER_SIZE + bsz) {
             return fail(LIB_BAD_FILE, err, errlen, "\"%s\": the budget record is malformed, or it overlaps the dependencies or the image.", name);
         }
+        if (bud.heap_keep != U2A3_BUDGET_NONE && bud.heap_peak != U2A3_BUDGET_NONE && bud.heap_keep > bud.heap_peak) {
+            return fail(LIB_BAD_FILE, err, errlen, "\"%s\": the budget keeps %u bytes of heap and allows a peak of %u.", name, (unsigned)bud.heap_keep, (unsigned)bud.heap_peak);
+        }
     }
     if (bud.image != U2A3_BUDGET_NONE && isize > bud.image) {
         return fail(LIB_BUDGET, err, errlen, "Library \"%s\" is refused: its image is %u bytes with its bss, over its declared budget of %u bytes.", name,
@@ -800,6 +807,11 @@ int LibLoader::load(LibSource *src, int *handle, char *err, int errlen)
         return fail(LIB_NO_ROOM, err, errlen, "No room for \"%s\": %d images are loaded.", name, LIB_MAX);
     }
 
+    // what the library says it keeps, with its image, has to fit the room of the heap before the heap is asked for the image (T239.3 D1)
+    if (bud.heap_keep != U2A3_BUDGET_NONE && (uint64_t)isize + h.align + bud.heap_keep > host_->room()) {
+        return fail(LIB_NO_ROOM, err, errlen, "Library \"%s\" is refused: it keeps %u bytes of heap and its image takes %u, the heap has room for %u.", name,
+                    (unsigned)bud.heap_keep, (unsigned)(isize + h.align), (unsigned)host_->room());
+    }
     // the image, from the heap, aligned
     uint8_t *raw = (uint8_t *)host_->alloc(isize + h.align);
     if (!raw) {
@@ -866,7 +878,7 @@ int LibLoader::load(LibSource *src, int *handle, char *err, int errlen)
     s.info.main_addr = h.main_offset == U2A3_NONE ? 0 : base + h.main_offset;
     s.raw = raw;
     s.raw_size = isize + h.align;
-    s.heap_limit = bud.heap;
+    s.heap_limit = bud.heap_peak;
     if (menu.d && menu.b) {
         uint32_t total = menu.b[8] | menu.b[9] << 8 | menu.b[10] << 16 | (uint32_t)menu.b[11] << 24;
         s.menu_cost = (uint32_t)sizeof(DescRecord) + total;
@@ -892,7 +904,7 @@ int LibLoader::load(LibSource *src, int *handle, char *err, int errlen)
         int bad = LIB_OK;
         char why[LIB_ERR_MAX];
         if (s.heap_denied) {                            // what the library could not get is the reason, whatever lib_register made of it
-            bad = fail(LIB_BUDGET, err, errlen, "Library \"%s\" is refused: lib_register asked for %u bytes of heap with %u held, over its declared budget of %u bytes.", name,
+            bad = fail(LIB_BUDGET, err, errlen, "Library \"%s\" is refused: lib_register asked for %u bytes of heap with %u held, over its declared heap peak of %u bytes.", name,
                        (unsigned)s.heap_want, (unsigned)s.heap_had, (unsigned)s.heap_limit);
         } else if (rc != 0) {
             bad = fail(LIB_REGISTER, err, errlen, "Library \"%s\": lib_register failed (%d).", name, rc);
@@ -907,7 +919,7 @@ int LibLoader::load(LibSource *src, int *handle, char *err, int errlen)
         } else if (over_budget(name, bud, &rec, menu.d ? &menu.d->rec : 0, why, sizeof(why))) {
             bad = fail(LIB_BUDGET, err, errlen, "%s", why);
         } else {
-            reg_->contributor(s.info.name);
+            reg_->contributor_in(s.info.name, si);
             int r = OPE_OK;
             for (int i = 0; i < rec.nops && r == OPE_OK; i++) {
                 r = reg_->add_op(rec.ops[i].name, rec.ops[i].args, rec.ops[i].nargs, rec.ops[i].fn);

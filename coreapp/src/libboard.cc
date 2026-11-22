@@ -31,7 +31,7 @@ namespace {
 
 class BoardLibHost : public DescLibHost {
 public:
-    explicit BoardLibHost(const CoreDesc *d) : DescLibHost(d) { }
+    explicit BoardLibHost(const CoreDesc *d) : DescLibHost(d) { memset(ts_, 0, sizeof(ts_)); }
     // FreeRTOS' heap (heap_5) hands out 16-byte aligned blocks; the loader asks for size + alignment and aligns inside, so a 4096 alignment works too
     void *alloc(uint32_t n) { return pvPortMalloc(n); }
     void release(void *p) { vPortFree(p); }
@@ -52,6 +52,52 @@ public:
     void delay_ms(uint32_t ms) { vTaskDelay(ms >= 5 ? pdMS_TO_TICKS(ms) + 1 : 1); }
     void enter() { portENTER_CRITICAL(); }
     void leave() { portEXIT_CRITICAL(); }
+    // The owner of the handler a task runs (libload.h): kept by task, as the build has no thread-local storage. A task that is in no handler has no entry.
+    // A table that is full drops the new entry: the task's allocations then go to the application that is open, as before the scope existed.
+    int task_scope()
+    {
+        void *t = (void *)xTaskGetCurrentTaskHandle();
+        int v = -1;
+        portENTER_CRITICAL();
+        for (int i = 0; i < SCOPE_TASKS; i++) {
+            if (ts_[i].task == t) {
+                v = ts_[i].slot;
+                break;
+            }
+        }
+        portEXIT_CRITICAL();
+        return v;
+    }
+    void set_task_scope(int slot)
+    {
+        void *t = (void *)xTaskGetCurrentTaskHandle();
+        portENTER_CRITICAL();
+        int at = -1, free_at = -1;
+        for (int i = 0; i < SCOPE_TASKS; i++) {
+            if (ts_[i].task == t) {
+                at = i;
+                break;
+            }
+            if (!ts_[i].task && free_at < 0) {
+                free_at = i;
+            }
+        }
+        if (slot < 0) {
+            if (at >= 0) {
+                ts_[at].task = 0;
+            }
+        } else if (at >= 0) {
+            ts_[at].slot = slot;
+        } else if (free_at >= 0) {
+            ts_[free_at].task = t;
+            ts_[free_at].slot = slot;
+        }
+        portEXIT_CRITICAL();
+    }
+
+private:
+    enum { SCOPE_TASKS = 24 };
+    struct { void *task; int slot; } ts_[SCOPE_TASKS];
 };
 
 class ConsoleLog : public LibLog {

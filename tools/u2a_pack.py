@@ -12,10 +12,10 @@ Two ways of getting position-independent words are understood:
 Everything else that would need a fix-up at run time is refused by name: absolute HI20/LO12 pairs, GOT and PLT entries, TLS, 64-bit.
 
     u2a_pack.py image.elf -o x.u2a --kind lib --name cbm1541 --version 1 --needs base>=3.1 --capability drive_a
-    u2a_pack.py image.elf -o x.u2a --kind lib --name mylib --budget image=8192 --budget heap=4096 --budget ops=3 --budget settings=2
+    u2a_pack.py image.elf -o x.u2a --kind lib --name mylib --budget image=8192 --budget heap_keep=2048 --budget heap_peak=4096 --budget ops=3 --budget settings=2
 
---budget KEY=VALUE (repeatable) declares the budget of the file (coreapp/src/libfmt.h U2a3Budget): image (payload + bss, bytes), heap (bytes held at once
-through api->mem), ops, states, events, nodes, file_actions, settings, tabs, polls (what lib_register and the menu record bring). A key left out has no figure of its
+--budget KEY=VALUE (repeatable) declares the budget of the file (coreapp/src/libfmt.h U2a3Budget): image (payload + bss, bytes), heap_keep (the bytes it holds through api->mem when idle: the
+loader refuses the file when the image and this figure do not fit the room of the heap), heap_peak (the most it holds at once through api->mem: a ceiling), ops, states, events, nodes, file_actions, settings, tabs, polls (what lib_register and the menu record bring). A key left out has no figure of its
 own and the limit is the platform's. The packer refuses an image over its own budget; the loader refuses a library over any figure at load. A file with a
 budget needs base >= 3.3: the packer adds that dependency, or raises a lower one.
     u2a_pack.py image.elf --dump-image image.bin     # only the flat image, for tests
@@ -36,7 +36,7 @@ NAME_MAX = 16
 IMAGE_MAX = 0x100000
 FLAG_MENU, FLAG_BUDGET = 1, 2
 BUDGET_NONE = 0xFFFFFFFF
-BUDGET_KEYS = ("image", "heap", "ops", "states", "events", "nodes", "file_actions", "settings", "tabs", "polls")   # the members of U2a3Budget behind `size`, in order
+BUDGET_KEYS = ("image", "heap_keep", "heap_peak", "ops", "states", "events", "nodes", "file_actions", "settings", "tabs", "polls")   # the members of U2a3Budget behind `size`, in order
 BUDGET_BASE = (3 << 16) | 3        # the base API that reads a budget record (U2A_BASE_MINOR 3)
 
 EM_RISCV = 243
@@ -215,6 +215,8 @@ def parse_budget(items):
         if not 0 <= n < BUDGET_NONE:
             raise PackError("the budget %s=%d is outside 0 .. %d" % (k, n, BUDGET_NONE - 1))
         out[k] = n
+    if "heap_keep" in out and "heap_peak" in out and out["heap_keep"] > out["heap_peak"]:
+        raise PackError("the budget keeps %d bytes of heap and allows a peak of %d" % (out["heap_keep"], out["heap_peak"]))
     return out
 
 
@@ -315,7 +317,7 @@ def main(argv=None):
     ap.add_argument("--align", type=int, default=16)
     ap.add_argument("--link-base", type=lambda s: int(s, 0), default=0)
     ap.add_argument("--manifest", help="JSON manifest of an app, carried unchanged")
-    ap.add_argument("--budget", action="append", default=[], metavar="KEY=N", help="declare a figure of the budget: image, heap, ops, states, events, nodes, file_actions, settings, tabs, polls")
+    ap.add_argument("--budget", action="append", default=[], metavar="KEY=N", help="declare a figure of the budget: image, heap_keep, heap_peak, ops, states, events, nodes, file_actions, settings, tabs, polls")
     ap.add_argument("--menu", help="the nodes, file actions, settings, tabs and poll of this file as TOML (tools/descrec.py): carried as a menu record")
     a = ap.parse_args(argv)
     try:

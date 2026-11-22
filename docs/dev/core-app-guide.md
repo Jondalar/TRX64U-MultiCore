@@ -199,7 +199,7 @@ static const FileType filetypes[] = { { ".prg", prg_actions, 2 }, { ".p00", prg_
   in `libfmt.h`, `base_api` in `coreapp/version.toml`): a `.u2a` that `needs base>=x.y` is refused on a lower base with both numbers named. The public headers of the SDK
   are locked per version in `coreapp/api_lock.toml`; `python3 tools/sdk_api.py check` (lint) says what to do after a change.
 - A library or application may declare a budget (`LIB_BUDGET` in `app/lib/lib.mk`, `APP_BUDGET` in `app.mk`, `u2a_pack.py --budget key=number`; `U2a3Budget` in `libfmt.h`, header flag
-  `U2A3_FLAG_BUDGET`, base 3.3): ceilings for the image, the heap held through `api->mem` and the registrations. `LibLoader::load` refuses an image over a figure, or over the room
+  `U2A3_FLAG_BUDGET`, base 3.3): ceilings for the image, the registrations and the peak of the heap held through `api->mem`, and the permanent figure of that heap (`heap_keep`, checked against the room of the heap before the image is placed). `LibLoader::load` refuses an image over a figure, or over the room
   left in a table (`OPS_MAX`, `STATES_MAX`, `EVENTS_MAX`, the contributed settings, file actions and nodes, the tab strip), with `LIB_BUDGET` and a sentence that names the image, the
   figure and the limit; nothing of it stays. A figure left open is the platform's limit. Every heap block of an image is on its account (`LibLoader::held_bytes`): the blocks of
   its operations too (`OpScope`, `opscope.h`), so unloading it gives the heap back. The `[lib]` line of `libboard.cc` prints the images, the accounts and the heap free. See `app/sdkpkg/api.md` section 8.

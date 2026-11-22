@@ -271,15 +271,15 @@ def budget_record():
     base30 = [("base", P.parse_version("3.0"))]
     plain = P.pack(data, "lib", "testlib", 1, base30)[0]
     check(hdr(plain)["flags"] == 0 and hdr(plain)["needs_off"] == P.HEADER_SIZE, "a file without a budget has flags 0 and its needs behind the header, as before")
-    bud = P.parse_budget(["image=4096", "heap=0", "ops=0x1", "polls=0"])
-    check(bud == {"image": 4096, "heap": 0, "ops": 1, "polls": 0}, "parse_budget: decimal, hex and zero")
+    bud = P.parse_budget(["image=4096", "heap_keep=0", "heap_peak=0", "ops=0x1", "polls=0"])
+    check(bud == {"image": 4096, "heap_keep": 0, "heap_peak": 0, "ops": 1, "polls": 0}, "parse_budget: decimal, hex and zero")
     blob, img, _ = P.pack(data, "lib", "testlib", 1, base30, budget=bud)
     h = hdr(blob)
-    rec = struct.unpack_from("<11I", blob, P.HEADER_SIZE)
+    rec = struct.unpack_from("<12I", blob, P.HEADER_SIZE)
     check(h["flags"] == 2 and h["header_size"] == 104, "flag 2 says a budget record follows the header")
-    check(rec[0] == 44 and rec[1] == 4096 and rec[2] == 0 and rec[3] == 1 and rec[10] == 0, "the record: size, image, heap, ops, polls")
-    check(all(v == P.BUDGET_NONE for v in rec[4:10]), "a key left out is U2A3_BUDGET_NONE")
-    check(h["needs_off"] == P.HEADER_SIZE + 44 and h["payload_off"] == h["needs_off"] + 20, "the needs and the image follow the record")
+    check(rec[0] == 48 and rec[1] == 4096 and rec[2] == 0 and rec[3] == 0 and rec[4] == 1 and rec[11] == 0, "the record: size, image, heap_keep, heap_peak, ops, polls")
+    check(all(v == P.BUDGET_NONE for v in rec[5:11]), "a key left out is U2A3_BUDGET_NONE")
+    check(h["needs_off"] == P.HEADER_SIZE + 48 and h["payload_off"] == h["needs_off"] + 20, "the needs and the image follow the record")
     need = struct.unpack_from("<16sI", blob, h["needs_off"])
     check(need[0].rstrip(b"\0") == b"base" and need[1] == (3 << 16 | 3), "a base dependency below 3.3 is raised to it")
     check(image_of(blob) == img and image_of(plain) == image_of(blob), "the image is the same with and without the budget")
@@ -288,6 +288,7 @@ def budget_record():
     b3 = P.pack(data, "lib", "testlib", 1, [], budget=bud)[0]
     check(hdr(b3)["needs"] == 1 and struct.unpack_from("<16sI", b3, hdr(b3)["needs_off"])[1] == (3 << 16 | 3), "without a base dependency the packer adds one")
     refused("four needs and no base", lambda: P.pack(data, "lib", "testlib", 1, [("a%d" % i, 0) for i in range(4)], budget=bud), "at most 4")
+    refused("a keep over the peak", lambda: P.parse_budget(["heap_keep=100", "heap_peak=99"]), "keeps 100 bytes of heap and allows a peak of 99")
     refused("an image over its figure", lambda: P.pack(data, "lib", "testlib", 1, base30, budget={"image": 8}), "over its declared budget of 8 bytes")
     # the figure counts payload and bss: one byte less than that is refused, exactly that packs
     full = len(P.build_image(P.Elf(data), 0)[0]) + P.build_image(P.Elf(data), 0)[1]

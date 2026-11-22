@@ -56,10 +56,10 @@ integer division from `sdk/libc.c`; the code runs without a C library and withou
 A library or an application may declare what it takes. Put `LIB_BUDGET` (`APP_BUDGET` for `app.mk`) in the Makefile, a list of `key=number` words:
 
 ```make
-LIB_BUDGET = image=8192 heap=4096 ops=3 states=1 settings=2 tabs=1
+LIB_BUDGET = image=8192 heap_keep=2048 heap_peak=4096 ops=3 states=1 settings=2 tabs=1
 ```
 
-The keys are `image` (code, data and bss, bytes), `heap` (bytes held at once through `api->mem`), `ops`, `states`, `events`, `nodes`, `file_actions`, `settings`,
+The keys are `image` (code, data and bss, bytes), `heap_keep` (the bytes the image holds through `api->mem` when it is idle: the loader refuses it when the image and this figure do not fit the room of the heap), `heap_peak` (the most it holds at once: a ceiling), `ops`, `states`, `events`, `nodes`, `file_actions`, `settings`,
 `tabs` and `polls` (what `lib_register` and the menu record bring). A key left out has no figure of its own, and the limit is the platform's: 1 MiB for the image,
 the heap of the core, the room left in the tables. A file without a budget loads as before.
 

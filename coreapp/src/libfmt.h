@@ -43,7 +43,7 @@
 /* The budget a library declares (T239.3 S13): header flag U2A3_FLAG_BUDGET says the record stands directly behind the header (file offset
  * U2A3_HEADER_SIZE); the needs, the image and everything else follow it, each at the offset the header names. `size` is the size of the record as the packer
  * wrote it; a later base API appends members and the size grows, so a loader reads the members it knows and ignores the rest. Every other member is a
- * ceiling: U2A3_BUDGET_NONE says "no figure of its own", and the limit is then the one of the platform (the image: U2A3_IMAGE_MAX, the heap: the
+ * ceiling (heap_keep is a promise the loader checks against the room of the heap, not a ceiling): U2A3_BUDGET_NONE says "no figure of its own", and the limit is then the one of the platform (the image: U2A3_IMAGE_MAX, the peak: the
  * heap, a registration: the room of the table). The loader refuses the library that is over a figure, with a message that names the library, the
  * figure and the limit. */
 #define U2A3_FLAG_BUDGET 2U
@@ -51,11 +51,12 @@
 struct U2a3Budget {
     uint32_t size;                      /* sizeof(U2a3Budget) of the writer, at least that of this header */
     uint32_t image;                     /* payload + bss, bytes */
-    uint32_t heap;                      /* bytes held at once through api->mem (the sizes the library asked for; realloc holds old and new block together) */
+    uint32_t heap_keep;                 /* bytes the library holds through api->mem when it is idle: the loader refuses it when its image and this figure do not fit the room of the heap */
+    uint32_t heap_peak;                 /* the most it holds at once through api->mem (the sizes asked for; realloc holds old and new block together): a ceiling, not a reservation */
     uint32_t ops, states, events;       /* what lib_register registers */
     uint32_t nodes, file_actions, settings, tabs, polls;   /* what the record of lib_register and the menu record declare together */
 };
-#define U2A3_BUDGET_SIZE 44
+#define U2A3_BUDGET_SIZE 48
 typedef char u2a3_budget_size_check[(sizeof(U2a3Budget) == U2A3_BUDGET_SIZE) ? 1 : -1];
 #define U2A3_BUDGET_MAX 256U            /* a record of more bytes is not a budget */
 

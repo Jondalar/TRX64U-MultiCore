@@ -4,8 +4,8 @@
 #   LIB_SRCS = testlib.cc     LIB_CAP =             (LIB_RES = resident|transient; LIB_MANIFEST = manifest.json)
 #   include <repo>/app/lib/lib.mk          (in the SDK package: include <package>/mk/lib.mk)
 #
-# LIB_BUDGET = image=8192 heap=4096 ops=3 settings=2 declares what the library will take (T239.3 S13): image (code, data and bss, bytes), heap (bytes held at once through
-# api->mem), ops, states, events, nodes, file_actions, settings, tabs and polls (what lib_register and the menu record bring). The packer refuses an image over its own
+# LIB_BUDGET = image=8192 heap_keep=2048 heap_peak=4096 ops=3 settings=2 declares what the library will take (T239.3 S13): image (code, data and bss, bytes), heap_keep (bytes it holds
+# through api->mem when idle; the loader refuses the library when image and this figure do not fit the room of the heap), heap_peak (the most it holds at once: a ceiling), ops, states, events, nodes, file_actions, settings, tabs and polls (what lib_register and the menu record bring). The packer refuses an image over its own
 # image figure; the loader refuses the library at load when anything is over, naming the figure and the limit. A figure left out is the platform's limit. With a budget
 # the file needs base >= 3.3 (the packer sees to it).
 #

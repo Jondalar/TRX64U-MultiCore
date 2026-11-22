@@ -129,6 +129,13 @@ struct Model : LibHost {
     }
     uint32_t now_ms() override { return clock; }
     void delay_ms(uint32_t ms) override { clock += ms; }
+    uint32_t room_v = 0xFFFFFFFFu;
+    uint32_t room() override { return room_v; }
+    // two tasks of the model: the owner of a handler is kept by task (libload.h); a test switches the task it speaks for
+    int cur_task = 1;
+    std::map<int, int> scopes;
+    int task_scope() override { std::map<int, int>::iterator i = scopes.find(cur_task); return i == scopes.end() ? -1 : i->second; }
+    void set_task_scope(int slot) override { if (slot < 0) { scopes.erase(cur_task); } else { scopes[cur_task] = slot; } }
 
     uint8_t *ptr(uint32_t addr) { return arena + (addr - ARENA_BASE); }
     // the shape of the heap: what must be the same after a refused load
@@ -1434,9 +1441,9 @@ static void budgets()
         w.m.twins["hq"] = [](const LibHost::Entry &, const LibApi *api, LibRecord *) { void *p = api->mem->malloc(200); CHECK(p == 0); return 0; };
         Img q("hq", "Q");
         U2a3Budget bd = bud_open();
-        bd.heap = 100;
+        bd.heap_peak = 100;
         q.budget = bud_bytes(bd);
-        refused("heap over the budget at load", w, build(q), LIB_BUDGET, "hq", "200 bytes", "budget of 100");
+        refused("heap over the budget at load", w, build(q), LIB_BUDGET, "hq", "200 bytes", "heap peak of 100");
         CHECK(g_log.empty());                                               // a refusal at load is the load's sentence, not a log line
         static LibOpDecl hp_ops[3] = { { "hp.grow", 0, 0, h_hp_grow }, { "hp.realloc", 0, 0, h_hp_realloc }, { 0, 0, 0, 0 } };
         w.m.twins["hp"] = [](const LibHost::Entry &, const LibApi *api, LibRecord *rec) {
@@ -1456,7 +1463,7 @@ static void budgets()
         CHECK_EQ(w.ld->account_bytes(h), 96u);
         CHECK_EQ(w.ld->account_blocks(h), 2);
         int told = 0;
-        for (size_t i = 0; i < g_log.size(); i++) { told += g_log[i].find("declared heap budget of 100") != std::string::npos; }
+        for (size_t i = 0; i < g_log.size(); i++) { told += g_log[i].find("declared heap peak of 100") != std::string::npos; }
         CHECK_EQ(told, 1);
         CHECK_EQ(w.ld->account_blocks(-1), 0);                              // none of it went to nobody
         CHECK_EQ(w.ld->unload(h, err, sizeof(err)), LIB_OK);
@@ -1466,6 +1473,29 @@ static void budgets()
         CHECK_STR(call(w, "hp.realloc").c_str(), "kept 1");
         CHECK_EQ(w.ld->account_bytes(h), 80u);                              // the 64 of lib_register and the 16 that stayed
     }
+    {   // the permanent figure is checked against the room of the heap before anything is placed; a keep above the peak is no budget
+        World w(U2A_BASE_MINOR);
+        w.m.twins["hk"] = [](const LibHost::Entry &, const LibApi *, LibRecord *) { return 0; };
+        Img k("hk", "K");
+        U2a3Budget bd = bud_open();
+        bd.heap_keep = 4000;
+        bd.heap_peak = 9000;
+        k.budget = bud_bytes(bd);
+        w.m.room_v = 4000 + 96 + 16 - 1;                                    // the image with its bss (96) and the alignment (16) and the 4000 it keeps: one byte short
+        refused("keep over the room", w, build(k), LIB_NO_ROOM, "hk", "keeps 4000 bytes", "room for 4111");
+        w.m.room_v = 4000 + 96 + 16;
+        CHECK_EQ(w.load(build(k), &h, err), LIB_OK);
+        CHECK_EQ(w.ld->unload(h, err, sizeof(err)), LIB_OK);
+        bd.heap_keep = 9001;
+        k.budget = bud_bytes(bd);
+        w.m.room_v = 0xFFFFFFFFu;
+        refused("keep over peak", w, build(k), LIB_BAD_FILE, "hk", "keeps 9001", "peak of 9000");
+        bd.heap_peak = U2A3_BUDGET_NONE;                                    // a library that declares no keep is not asked for room
+        bd.heap_keep = U2A3_BUDGET_NONE;
+        k.budget = bud_bytes(bd);
+        w.m.room_v = 0;
+        CHECK_EQ(w.load(build(k), &h, err), LIB_OK);
+    }
     {   // the real file: the packer wrote the budget, the loader enforces it
         World w(U2A_BASE_MINOR);
         w.m.caps.push_back("drive_a");
@@ -1474,7 +1504,7 @@ static void budgets()
         uint32_t fl;
         memcpy(&fl, ok.data() + 16, 4);
         CHECK_EQ(fl & U2A3_FLAG_BUDGET, U2A3_FLAG_BUDGET);
-        CHECK_EQ(w.load(ok, &h, err), LIB_OK);                              // image=4096 heap=0 ops=1 states=1
+        CHECK_EQ(w.load(ok, &h, err), LIB_OK);                              // image=4096 heap_peak=0 ops=1 states=1
         CHECK_EQ(w.reg.nops(), 1);
         World w2(U2A_BASE_MINOR);
         refused("the packed budget of ops=0", w2, tight, LIB_BUDGET, "testlib", "1 operations", "budget of 0");
@@ -1626,6 +1656,90 @@ static void accounts()
     CHECK(shape0 == w.m.shape());
 }
 
+// S14: the owner of a handler is the calling task's. A library's operation runs on one task while the application on another opens, is released, or takes memory:
+// what each takes goes to its own account, and the owner the task had is the one it gets back (the model switches between two tasks).
+static World *g_sc_w;
+static const LibApi *g_sc_api;
+static int g_sc_mode, g_sc_app;
+static int h_sc_run(CoreCtx *, const OpArgs &, OpOut &o)
+{
+    Model &m = g_sc_w->m;
+    void *mine = g_sc_api->mem->malloc(32);                                 // task 1, in the handler: the library's
+    m.cur_task = 2;                                                         // the application's task, at the same moment
+    if (g_sc_mode == 1) { g_sc_w->ld->set_current(g_sc_app); }              // the application opens
+    if (g_sc_mode == 2) { char e[LIB_ERR_MAX]; CHECK_EQ(g_sc_w->ld->release(g_sc_app, e, sizeof(e)), LIB_OK); }   // and is released
+    void *theirs = g_sc_api->mem->malloc(48);                               // task 2: the application's, or nobody's once it is gone
+    m.cur_task = 1;
+    void *again = g_sc_api->mem->malloc(16);                                // task 1 is still in its handler
+    snprintf(o.msg, o.msglen, "%d", mine && theirs && again);
+    return OPE_OK;
+}
+
+static void scopes()
+{
+    World w(U2A_BASE_MINOR);
+    g_sc_w = &w;
+    CoreCtx cx;
+    memset(&cx, 0, sizeof(cx));
+    w.ld->set_ctx(&cx);
+    char err[LIB_ERR_MAX] = "";
+    static LibOpDecl sops[1] = { { "sc.run", 0, 0, h_sc_run } };
+    w.m.twins["sc"] = [](const LibHost::Entry &, const LibApi *api, LibRecord *rec) { g_sc_api = api; rec->ops = sops; rec->nops = 1; return 0; };
+    w.m.mains["scapp"] = [](const LibHost::Entry &, const LibApi *, AppCtx *) { return 0; };
+    int hl = -1;
+    CHECK_EQ(w.load(build(Img("sc", "S")), &hl, err), LIB_OK);
+    uint32_t used0 = w.m.used_bytes();
+    Img a("scapp", "A");
+    a.kind = U2A3_KIND_APP;
+    a.residence = U2A3_RES_TRANSIENT;
+    a.reg = U2A3_NONE;
+    a.main = 4;
+
+    // the application is open on the base's say; the library's handler runs on another task: its blocks are the library's, the application's are its own
+    CHECK_EQ(w.load(build(a), &g_sc_app, err), LIB_OK);
+    w.ld->set_current(g_sc_app);
+    g_sc_mode = 0;
+    CHECK_STR(call(w, "sc.run").c_str(), "1");
+    CHECK_EQ(w.ld->account_blocks(hl), 2);
+    CHECK_EQ(w.ld->account_bytes(hl), 48u);
+    CHECK_EQ(w.ld->account_blocks(g_sc_app), 1);
+    CHECK_EQ(w.ld->account_bytes(g_sc_app), 48u);
+    CHECK_EQ(w.ld->account_blocks(-1), 0);
+    CHECK_EQ(w.ld->current(), g_sc_app);                                    // the call has left the task as it found it
+    CHECK(w.m.scopes.empty());
+    char e2[LIB_ERR_MAX];
+    CHECK_EQ(w.ld->release(g_sc_app, e2, sizeof(e2)), LIB_OK);
+    CHECK_EQ(w.ld->current(), -1);
+
+    // the application opens while the handler runs: when the handler returns, the task's blocks are the application's, not nobody's
+    CHECK_EQ(w.load(build(a), &g_sc_app, err), LIB_OK);
+    w.ld->set_current(-1);
+    g_sc_mode = 1;
+    CHECK_STR(call(w, "sc.run").c_str(), "1");
+    CHECK_EQ(w.ld->current(), g_sc_app);
+    CHECK_EQ(w.ld->account_blocks(-1), 0);
+    CHECK_EQ(w.ld->account_blocks(g_sc_app), 1);                            // the 48 of the application's task
+    void *later = g_sc_api->mem->malloc(24);                                // on task 1 after the handler: the application's
+    CHECK(later != 0);
+    CHECK_EQ(w.ld->account_blocks(g_sc_app), 2);
+    CHECK_EQ(w.ld->account_blocks(-1), 0);
+    CHECK_EQ(w.ld->release(g_sc_app, e2, sizeof(e2)), LIB_OK);
+
+    // the application is released while the handler runs: the task does not get the dead handle back, and what it takes is not refused
+    CHECK_EQ(w.load(build(a), &g_sc_app, err), LIB_OK);
+    w.ld->set_current(g_sc_app);
+    g_sc_mode = 2;
+    int dead = g_sc_app;
+    CHECK_STR(call(w, "sc.run").c_str(), "1");
+    CHECK_EQ(w.ld->current(), -1);
+    CHECK_EQ(w.ld->account_blocks(dead), 0);
+    CHECK_EQ(w.ld->account_blocks(-1), 1);                                  // the 48 of the task whose application had gone: nobody's, never null
+    void *after = g_sc_api->mem->malloc(24);
+    CHECK(after != 0);
+    CHECK_EQ(w.ld->account_blocks(-1), 2);
+    (void)used0;
+}
+
 int main()
 {
     setvbuf(stdout, 0, _IONBF, 0);                                  // a mutant may crash: what it said before has to be out
@@ -1640,5 +1754,6 @@ int main()
     files();
     budgets();
     accounts();
+    scopes();
     DONE("test_libload");
 }

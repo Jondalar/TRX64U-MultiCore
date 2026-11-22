@@ -6,7 +6,7 @@
 #include <string.h>
 #include <strings.h>
 
-OpRegistry::OpRegistry() : owner_("?"), scope_(0), nops_(0), nstates_(0), nevents_(0), gen_(0)
+OpRegistry::OpRegistry() : owner_("?"), owner_scope_(-1), scope_(0), nops_(0), nstates_(0), nevents_(0), gen_(0)
 {
     memset(ops_, 0, sizeof(ops_));
     memset(states_, 0, sizeof(states_));
@@ -83,7 +83,8 @@ int OpRegistry::add_op(const char *name, const ArgSpec *args, int nargs, op_fn f
     d.name = name;
     d.owner = owner_;
     d.args = args;
-    d.nargs = nargs;
+    d.nargs = (int16_t)nargs;
+    d.scope = owner_scope_;
     d.fn = fn;
     return OPE_OK;
 }
@@ -114,6 +115,7 @@ int OpRegistry::add_state(const char *name, state_fn get)
     s.name = name;
     s.nh = (uint16_t)name_hash(name);
     s.owner = owner_;
+    s.scope = owner_scope_;
     s.get = get;
     return OPE_OK;
 }
@@ -408,9 +410,10 @@ int OpRegistry::run(CoreCtx *c, const OpDef *d, const OpArgs &a, OpResult *r) co
     r->more = false;
     r->ndata = 0;
     OpOut o = { r->msg, (int)sizeof(r->msg), false, r->data, OP_DATA_MAX, 0 };
-    int scope_prev = scope_ ? scope_->enter(d->owner) : 0;
+    bool scoped = scope_ && d->scope >= 0;           // the core's own handlers (scope -1) take no detour
+    int scope_prev = scoped ? scope_->enter(d->scope) : 0;
     r->code = d->fn(c, a, o);
-    if (scope_) {
+    if (scoped) {
         scope_->leave(scope_prev);
     }
     if (r->code == OPE_OK) {
@@ -451,9 +454,10 @@ const char *OpRegistry::state(CoreCtx *c, const char *name, uint32_t *rev)
             continue;
         }
         StateDef &s = states_[i];
-        int scope_prev = scope_ ? scope_->enter(s.owner) : 0;
+        bool scoped = scope_ && s.scope >= 0;
+        int scope_prev = scoped ? scope_->enter(s.scope) : 0;
         const char *v = s.get(c);
-        if (scope_) {
+        if (scoped) {
             scope_->leave(scope_prev);
         }
         uint32_t h = v ? name_hash(v) + 1 : 0;              // no value is its own hash

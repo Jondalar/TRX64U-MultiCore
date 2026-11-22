@@ -48,12 +48,22 @@ public:
         return LIB_HOST_CANNOT_RUN;
     }
     virtual uint32_t room() { return 0xFFFFFFFFu; }
+    // Whose handler the calling task runs (the slot of an image, -1 none): one value per task, so that a handler on one task does not move the account of
+    // another. A host with tasks keeps it by task; the default keeps one value for the host, which is right for one task.
+    virtual int task_scope() { return task_scope_; }
+    virtual void set_task_scope(int slot) { task_scope_ = slot; }
     virtual uint32_t now_ms() { return 0; }
     virtual void delay_ms(uint32_t ms) { (void)ms; }
     // The lists of an application's blocks and files are touched by its tasks and the base's: a host with tasks gives a critical section.
     virtual void enter() { }
     virtual void leave() { }
     enum { LIB_HOST_CANNOT_RUN = -0x7FFF };
+
+protected:
+    LibHost() : task_scope_(-1) { }
+
+private:
+    int task_scope_;
 };
 
 enum LibRc {
@@ -133,10 +143,10 @@ public:
     uint32_t room() const { return host_->room(); }
     void set_sys_extra(int (*flash_read)(uint32_t, void *, int), void (*handover)(void)) { sys_.flash_read = flash_read; sys_.machine_handover = handover; }
     // Whose account the allocations and files of api->mem / api->fs go to from now on: the application whose tasks run (-1: nobody's). run() sets it
-    // for the call; the base sets it for as long as an application's screens or jobs are up; the registry sets it to the image of the handler it runs
-    // (OpScope, enter/leave below), so what an operation takes later is the library's too.
+    // for the call; the base sets it for as long as an application's screens or jobs are up. That value is the one of every task. A handler of a loaded
+    // image the registry runs (OpScope, enter/leave below) has the image as its owner for the calling task only, and the task's owner comes first.
     void set_current(int handle) { cur_ = handle; }
-    int current() const { return cur_; }
+    int current() const { return owner(); }
 
     // Blocks handed out by api->mem: to the image whose code runs now (it registers, one of its handlers runs, or it is the application that is open), else
     // to nobody (never given back by the loader).
@@ -170,7 +180,7 @@ private:
         void *raw;                        // what the heap gave; the image lies in it, aligned
         uint32_t raw_size;                // the bytes asked for it (image, bss, alignment)
         uint32_t menu_cost;               // the bytes of the menu record (the record and its bytes, from the heap by new)
-        uint32_t heap_limit;              // the declared heap budget (U2A3_BUDGET_NONE: none): the most api->mem holds for this image at once
+        uint32_t heap_limit;              // the declared heap peak (U2A3_BUDGET_NONE: none): the most api->mem holds for this image at once
         uint32_t blk_bytes;               // what its blocks hold now (the sizes asked for), the figure the limit is held against
         bool heap_denied;                 // an allocation was refused for the limit; the first one is told (heap_want, heap_had)
         uint32_t heap_want, heap_had;
@@ -189,7 +199,7 @@ private:
         int32_t owner;                    // the slot, or -1
     } __attribute__((aligned(16)));
     Blk *acct_[LIB_MAX + 1];              // the lists: one per slot, the last one is nobody's
-    int cur_;                             // the slot whose code runs now, -1 none
+    int cur_;                             // the slot of the application that is open (and of an image's lib_register or app_main as run() calls it), -1 none
     CoreCtx *ctx_;
     SvcSys sys_;
     SvcMem mem_;
@@ -199,8 +209,9 @@ private:
     SvcFile *files_[LIB_MAX + 1];         // the open files of api->fs, one list per slot as acct_
 
     // OpScope (opscope.h): the registry runs a library's handler; its allocations are that library's from here to leave()
-    int enter(const char *owner) override;
-    void leave(int prev) override { cur_ = prev; }
+    int enter(int slot) override;
+    void leave(int prev) override { host_->set_task_scope(prev); }
+    int owner() const;                    // the account of the calling task: its handler's image, else cur_
     bool over_budget(const char *name, const U2a3Budget &b, const LibRecord *rec, const LibRecord *menu, char *err, int errlen) const;
     static void *svc_malloc(uint32_t n);
     static void svc_free(void *p);

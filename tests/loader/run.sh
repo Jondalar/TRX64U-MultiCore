@@ -24,7 +24,7 @@ python3 "$ROOT/tools/u2a_pack.py" "$TST/fixtures/testlib.at1000.elf" --link-base
 # T239.3 S13: the budget the packer writes (--budget) and the loader enforces: one file that fits (the packer adds `base>=3.3`), one that declares no operation,
 # and the packer's own refusal of an image over its figure
 python3 "$ROOT/tools/u2a_pack.py" "$TST/fixtures/testlib.at0.elf" -o "$T/testlib.budget.u2a" --name testlib --version 1 --needs 'base>=3.0' \
-  --budget image=4096 --budget heap=0 --budget ops=1 --budget states=1 > /dev/null
+  --budget image=4096 --budget heap_keep=0 --budget heap_peak=0 --budget ops=1 --budget states=1 > /dev/null
 python3 "$ROOT/tools/u2a_pack.py" "$TST/fixtures/testlib.at0.elf" -o "$T/testlib.ops0.u2a" --name testlib --version 1 --budget ops=0 > /dev/null
 if python3 "$ROOT/tools/u2a_pack.py" "$TST/fixtures/testlib.at0.elf" -o "$T/testlib.big.u2a" --name testlib --version 1 --budget image=8 > /dev/null 2> "$T/pack.err"; then
   echo "u2a_pack accepted an image over its declared budget" >&2; exit 1
