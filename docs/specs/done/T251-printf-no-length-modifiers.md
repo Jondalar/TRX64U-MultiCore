@@ -1,7 +1,7 @@
 # T251 — The core application's texts show their numbers on the board: no format with a length modifier
 
-**Status:** IN PROGRESS (2026-11-21). Asked by Alex, 2026-11-21.
-Open (one line, as in the TODO table): IN PROGRESS 11-22: S1 PASS, S2 PASS on the bundle's RISC-V image; open: the merge (integ-0.2.1)
+**Status:** DONE (2026-11-22), on `integration` (`d68f4b3a`, #129): S1, S2 PASS. Asked by Alex, 2026-11-21.
+Open (one line, as in the TODO table): Done 11-22: S1, S2 PASS; on integration with #129 (d68f4b3a), ships in 0.2.1
 **Repo:** TRX64U-MultiCore — the core application (`coreapp/src`, `coreapp/cores`).
 **Number:** T251.
 **Origin:** GitHub issue #121 (a tester, release 0.2.0, C64 Ultimate): "Browsing for ROM shows "%llu" as file size" (the C128
@@ -86,3 +86,5 @@ Nothing is left out.
   `572ea62e`): `COREAPP=<that folder>/coreapp.app tests/ui/run.sh features_cores/t251_c128_pick.feature`: "1 passed,
   0 failed, 0 errors". `alpha.d64` shows "174848 bytes", `hello.prg` "14 bytes", the `.adf` files "901120 bytes" (picture
   `t251-c128-pick`, kept outside the repository).
+- **Merged (2026-11-22):** Alex merged #129 into `integration` (`d68f4b3a`); with it T241, T249, T250, T251 and
+  T253. The bundle's branches are deleted, `t251-printf-sizes` among them.

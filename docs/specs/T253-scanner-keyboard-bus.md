@@ -1,7 +1,7 @@
 # T253 — The P7 keyboard scan uses the keyboard's I2C bus only, and the applications start it as PR #112 does
 
 **Status:** IN PROGRESS (2026-11-21). Asked by Alex, 2026-11-21.
-Open (one line, as in the TODO table): IN PROGRESS 11-22: S1, S4 PASS, S3 picture and colours; open: S2 10 min, S3 P7 key, merge (pin 0.3.1)
+Open (one line, as in the TODO table): IN PROGRESS 11-22: S1, S4 PASS, S3 picture and colours; open: S2 10 min, S3 P7 key
 **Repo:** TRX64U-MultiCore — the I2C wiring in the top of every large core (`cores/*/mono/top.v`, `cores/*/mono/host/top.v`)
 and of the host (`host/top.v`); the start of the scan in the applications (`coreapp/src/coreapp.cc`,
 `host-app/software/hostapp/hostapp.cc`, `host-app/software/system/u64ii_init.cc`, `host-app/software/io/i2c/hw_i2c_drv.cc`).
@@ -206,3 +206,12 @@ Scenario: S4 (P1) every core and the host
   `7072f400...`). It holds `c64_basic.bit` and `ultimate.app` byte for byte. Started from the host's File Browser with S
   over the host's `/v1/ui`; the start question was answered yes. `GET /v1/info` then gave "firmware_version": "0.3.1",
   "git_commit_hash": "eb3e6be".
+- **Merged (2026-11-22):** Alex merged #129 into `integration` (`d68f4b3a`). The builder published
+  `bit-imp-trx64g-9025da3d66a0f8e8` (07:56:07Z) and `bit-imp-trx64u-8bc03ceb4fcf0e77` (07:56:12Z). Their `SHA256SUMS`
+  give the SHA-256 of the pack of 2026-11-22 (`b4d6b4db...`, `9b86d0e2...`): the builder's .cor and the local pack are
+  the same bytes.
+- **The branches after the merge (2026-11-22):** deleted, locally and on GitHub where they were: `integ-0.2.1`,
+  `t241-scpu-fix`, `t241-s2-irq`, `t251-printf-sizes`, `t253-pr112` (merged), and, as agreed with Alex before the merge,
+  `t248-old` (every file it touches is the same in `t248-scpu-depth`), `t249-scpu-no-tape`, `t250-scpu-net`,
+  `t253-scpu-test`, `t239.1-before-rewrite`, `t239.1-leftovers`. The maintainer's checkout keeps their heads as
+  `refs/backup/<branch>`. Kept: `t241.1-scpu-suite`, `t248-scpu-depth`, `t248-alu`, `t252-i2c-switches`.

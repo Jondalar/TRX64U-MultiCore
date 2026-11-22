@@ -1,7 +1,8 @@
 # T249 — c64scpu: no datasette
 
-**Status:** IN PROGRESS (2026-11-21). Asked by Alex, 2026-11-21.
-Open (one line, as in the TODO table): IN PROGRESS 11-22: S1, S2 PASS (integ-0.2.1), S3 by reading, keywalk golden new; open: the merge
+**Status:** DONE (2026-11-22), on `integration` (`d68f4b3a`, #129): S1, S2 PASS, S3 by reading (the check its scenario
+names). Asked by Alex, 2026-11-21.
+Open (one line, as in the TODO table): Done 11-22: S1, S2 PASS, S3 by reading; on integration with #129 (d68f4b3a), ships in 0.2.1
 **Repo:** TRX64U-MultiCore — `cores/c64scpu/mono/core.toml`, `coreapp/cores/c64scpu.cc`, `coreapp/cores/c64scpu_regs.h`.
 **Number:** T249.
 **Origin:** Alex, 2026-11-21 (translated): "And then, before you optimise further: the datasette out of the core, there is no
@@ -87,3 +88,5 @@ Scenario: S3 (P2) an old settings file still loads
   "test c64scpu: cached PASS 634753d90fa22773"; "119 test programs passed, 215 parallel controls (JOBS=2), every negative
   control failed as it must". The apptests job of run 44948262543 ran no unit ("tier fast, base HEAD~1 ... will run:
   nothing").
+- **Merged (2026-11-22):** Alex merged #129 into `integration` (`d68f4b3a`); with it T241, T249, T250, T251 and
+  T253. The bundle's branches are deleted, `t249-scpu-no-tape` among them.

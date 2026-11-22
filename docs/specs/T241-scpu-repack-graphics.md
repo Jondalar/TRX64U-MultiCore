@@ -631,4 +631,5 @@ Open.
 - **2026-11-21, the colours:** Alex (translated), on `c64scpu_t253k`: "Boot colours of the CMD start? Super. All good."
 - **2026-11-21, #108 for 0.2.1:** asked whether Boom's state is enough for 0.2.1 and the rest of #108 moves to 0.3.0, Alex
   answered (translated) "All good." Open for 0.3.0: scpu5 d, bigr.
-
+- **2026-11-22, merged:** Alex merged #129 into `integration` (`d68f4b3a`): the fixes of `t241-scpu-fix` and
+  `t241-s2-irq` ship in 0.2.1. Both branches are deleted.

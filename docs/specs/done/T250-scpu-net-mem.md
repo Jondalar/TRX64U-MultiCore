@@ -1,7 +1,7 @@
 # T250 — The c64scpu has Ethernet and memory access over REST, so its tests run without a person at the screen
 
-**Status:** IN PROGRESS (2026-11-21). Asked by Alex, 2026-11-21.
-Open (one line, as in the TODO table): IN PROGRESS 11-21: S1-S4 PASS; open: the merge (integ-0.2.1, without T248)
+**Status:** DONE (2026-11-22), on `integration` (`d68f4b3a`, #129): S1-S4 PASS. Asked by Alex, 2026-11-21.
+Open (one line, as in the TODO table): Done 11-22: S1-S4 PASS; on integration with #129 (d68f4b3a), ships in 0.2.1
 **Repo:** TRX64U-MultiCore — the c64scpu build (`cores/c64scpu/mono/core.toml`) and its application part
 (`coreapp/cores/c64scpu.cc`).
 **Number:** T250.
@@ -139,3 +139,5 @@ Scenario: S4 (P2) a write over REST
 - **2026-11-21, `integ-0.2.1`:** T250's two commits (`713de049`, `c658cb1a`) are picked onto `t241-scpu-fix` without
   T248 (T241 §5); the branch `t250-scpu-net` that stacks on T248 is not merged. The c64scpu of the bundle was built twice
   on the builder: `t241fix` (`b7571876`, WNS +0.028 ns) and T253 S1 (`c64e74e3` of the local branch `t253-scpu-test`, WNS +0.008 ns), not from S1's tree here.
+- **Merged (2026-11-22):** Alex merged #129 into `integration` (`d68f4b3a`); with it T241, T249, T250, T251 and
+  T253. The bundle's branches are deleted, `t250-scpu-net` among them.
