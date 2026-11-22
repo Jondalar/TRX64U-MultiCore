@@ -500,9 +500,21 @@ static int parse_sections(Rd &r, uint32_t off, uint32_t size, DescRecord *out, u
         return r.fail("description record, section %s: missing (the data sections need the core's identity)", secnames[1]);
     }
     for (uint32_t i = 0; i < ncset; i++) {
-        if (!out->csettings[i].apply && !out->csettings[i].bind) {
-            return r.fail("description record, section %s: core setting %u has neither an operation nor register bits", secnames[4], (unsigned)i);
+        Setting &cs = out->csettings[i];
+        if (cs.apply || cs.bind) {
+            continue;
         }
+        // the third form (desc.h Setting::bind): the item that chooses the member of the core's rom set. Its values are the set's labels, which the record holds as the same strings.
+        const RomSetSpec &q = out->sec->romset;
+        if (!out->sec->has_romset || strcasecmp(cs.key, q.choice_key) || cs.nvalues != q.max + 1) {
+            return r.fail("description record, section %s: core setting %u has neither an operation nor register bits, and is not the rom set's choice", secnames[4], (unsigned)i);
+        }
+        for (int k = 0; k < cs.nvalues; k++) {
+            if (strcmp(cs.values[k], out->sec->romset_labels.item[k])) {
+                return r.fail("description record, section %s: core setting %u (the rom set's choice) has other values than the set's labels", secnames[4], (unsigned)i);
+            }
+        }
+        cs.values = out->sec->romset_labels.item;
     }
     return 0;
 }

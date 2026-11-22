@@ -42,6 +42,8 @@ Source (TOML; every key is checked, an unknown one is an error - a typo must not
     [sector_media]                 # section 16: SectorMediaSpec - prefix nunits mount_reg mount_step feat_reg feat_sectors mbox_status mbox_lba mbox_done stage_off idle_sync_ms done_tag_mask
     # a [[core_setting]] (section 4) with reg_bind = { reg = 161, shift = 0, mask = 31, bytes = [0, 1, 2] } in place of `apply`: the setting is those register bits
     # (regset.h RegBind; bytes has one entry per value, or none: the value itself)
+    # a [[core_setting]] with romset_choice = true in place of `apply` and reg_bind: the item that chooses the member of the [romset] (its choice_key is this key); no values,
+    # the record holds the set's labels (auto_label, then "-" for each of max places) and the reader hands the setting the labels of the set (desc.h Setting::bind)
     # a [[media]] with replace = "<label>" (section 17): MediaSlot::replace, the file action that replaces the file of a filled slot
     # Which description wins (T239.3 D17): while a descriptor for the core is compiled in, it is the core and a record with these sections changes nothing at run time
     # (coreapp/src/descrec.h descrec_applies); a core without one is made of the record (descrec_core) and its code supplies only the hooks. menu_rec is the record itself.
@@ -189,7 +191,7 @@ RESTART_CLEAR_MAX = 1 << 24 # the most RAM a restart clears (16 MiB)
 NONE = 0xFFFFFFFF
 MAX_SIZE = 0x20000
 LIMITS = dict(area=8, tab=32, node=320, action=24, setting=16, hide=16, rename=16, bind=700, ext=48, size=16, value=8192, ctab=16,
-              task=64, media=4, ftype=32, fact=200, cset=330)
+              task=64, media=6, ftype=32, fact=200, cset=330)
 ESIZE = dict(area=20, tab=24, node=52, action=40, setting=32, hide=4, rename=8, bind=16, ext=4, size=4, value=4, ctab=24,
              task=36, media=44, ftype=24, fact=36, cset=36)
 ESIZE_V3_MEDIA = 24
@@ -908,12 +910,20 @@ def compile_desc(doc, merged=()):
     setbinds = []
     lists = _opt(doc, "lists", dict, "description", {})
     for cs in _opt(doc, "core_setting", list, "description", []):
-        _only(cs, {"key", "group", "values", "list", "range", "unit", "default", "when", "apply", "base", "text", "secret", "maxlen", "show_state", "lock_state", "label", "empty", "pick", "reg_bind"}, "core_setting")
+        _only(cs, {"key", "group", "values", "list", "range", "unit", "default", "when", "apply", "base", "text", "secret", "maxlen", "show_state", "lock_state", "label", "empty", "pick", "reg_bind", "romset_choice"}, "core_setting")
         key = _need(cs, "key", str, "core_setting")
         what = "core_setting " + key
         if key.lower() in seen_set:
             raise DescError("%s: the key is taken" % what)
-        if ("reg_bind" in cs) == ("apply" in cs):
+        choice = _opt(cs, "romset_choice", bool, what, False)
+        if choice:
+            # the third form (desc.h Setting::bind): the item that chooses the member of the core's rom set; no operation, no register bits, and its values are the set's labels
+            rs = doc.get("romset")
+            if "reg_bind" in cs or "apply" in cs or any(k in cs for k in ("values", "list", "range", "text", "secret", "base")):
+                raise DescError("%s: romset_choice takes no apply, reg_bind, values, list, range, text, secret or base (its values are the rom set's labels)" % what)
+            if not isinstance(rs, dict) or rs.get("choice_key") != key or not isinstance(rs.get("max"), int) or not isinstance(rs.get("auto_label"), str):
+                raise DescError("%s: romset_choice needs a [romset] whose choice_key is this key" % what)
+        elif ("reg_bind" in cs) == ("apply" in cs):
             raise DescError("%s: exactly one of apply (an operation) and reg_bind (the register bits it is, T239.3 D17)" % what)
         _app_owned(what, key, cs.get("apply") or "")
         seen_set.add(key.lower())
@@ -935,6 +945,11 @@ def compile_desc(doc, merged=()):
                 vals.append(cs.get("empty") or "Not set")    # what the row shows while the text is empty (values[1])
             if pick:
                 vals.append(pick)           # T228 R21: the state whose text holds the rows of the list RETURN opens (picklist.h); values[2]
+        elif choice:
+            vals = [rs["auto_label"]] + ["-"] * rs["max"]       # romsetspec.h ROMSET_LABELS: Auto's text, then "-" for each place of the set
+            default = _opt(cs, "default", int, what, 0)
+            if not 0 <= default < len(vals):
+                raise DescError("%s: default %s is not an index of the rom set's choice" % (what, default))
         else:
             if "list" in cs:
                 vals = lists.get(cs["list"])
@@ -1132,7 +1147,7 @@ ROMS_MAX, ROM_NAMES_MAX, ROM_SIZES_MAX = 14, 10, 3
 HK_ACTIONS = 7                                                              # coreapp/src/hotkeys.h HK_NACT
 SETBIND_MAX = 16
 SETBIND_BYTES_MAX = 32
-MOUNT_NAMES_MAX = 4
+MOUNT_NAMES_MAX = 6
 CAP_RE = r"[a-z0-9_]{1,15}"
 CAPS_MAX = 8                                                                # coreapp/src/descrec.h DR_CAPS
 
@@ -1662,8 +1677,12 @@ def _parse_sections(blob, off, size, s, ncset, out):
                 out["media"][idx]["replace"] = S(o)
     if SEC_CORE not in seen:
         raise DescError("description record: the data sections have no core section")
-    if any("reg_bind" not in c and c["apply"] is None for c in out["cset"]):
-        raise DescError("description record, section setting register bits: a core setting has neither an operation nor register bits")
+    rs = out.get("romset")
+    for c in out["cset"]:
+        if "reg_bind" not in c and c["apply"] is None:
+            # the third form: the rom set's choice (desc.h Setting::bind), whose values are the set's labels
+            if not rs or c["key"] != rs["choice_key"] or c["values"] != [rs["auto_label"]] + ["-"] * rs["max"]:
+                raise DescError("description record, section setting register bits: a core setting has neither an operation nor register bits, and is not the rom set's choice")
 
 
 # ---- the reader (the same checks as descrec.cc) ----------------------------------------------------------------------------
@@ -2039,6 +2058,9 @@ def decoded_to_doc(rec):
             d = {"key": c["key"], "values": c["values"], "default": c["default"], "when": c["when"], "base": c["base"]}
             if c["apply"] is not None:
                 d["apply"] = c["apply"]
+            elif not c.get("reg_bind"):                  # the rom set's choice: its values are the set's labels, the compiler makes them again
+                d["romset_choice"] = True
+                del d["values"], d["base"]
             if c.get("reg_bind"):
                 d["reg_bind"] = dict(c["reg_bind"])
             if c["when"] in ("text", "secret"):          # a text the person types: values[0] is its default (a blank stands for none), base its longest length, values[1] what an empty text shows
