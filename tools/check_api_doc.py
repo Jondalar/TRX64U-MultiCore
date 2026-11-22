@@ -12,7 +12,7 @@ The headers are read from coreapp/src: libapi.h, svctab.h, ops.h and libfmt.h. T
 
 A symbol is documented when the document has a heading with the symbol as a code span (`like this`), or a table row whose first cell is the
 symbol as a code span, and the section or the row has text. A group (api->GROUP) and every Lib*Decl, LibRecord and AppCtx section also states
-the base version in a line that holds "Since base". A code span of the document that names a symbol in the form api->... or TYPE.member and
+the base version in a line that holds "Since base". A code span anywhere in the document (prose included) that names a symbol in the form api->... or TYPE.member and
 is not in the headers is stale and fails the check.
 
 Usage: tools/check_api_doc.py [--src DIR] [--doc FILE]     exit 1 and one line for each missing, empty or stale symbol
@@ -228,19 +228,20 @@ def symbols(src, strict):
 
 
 def parse_doc(path):
-    """({symbol: (kind, text)}, {code span: ...}) from the headings and the first cells of the rows of the document."""
-    lines = open(path, encoding="utf-8").read().split("\n")
-    heads = [(i, m.group(2)) for i, l in enumerate(lines) for m in [re.match(r"^(#+)\s+(.*)$", l)] if m]
+    """({symbol: (kind, text)}, {every code span of the document}); a symbol is documented by a heading or the first cell of a row, a span anywhere counts for the stale check."""
+    text = open(path, encoding="utf-8").read()
+    lines = text.split("\n")
+    heads = [(i, m.group(2)) for i, line in enumerate(lines) for m in [re.match(r"^(#+)\s+(.*)$", line)] if m]
     doc = {}
-    spans = set()
+    spans = set(re.findall(r"`([^`\n]+)`", text))        # every code span of the document, prose too: the stale check reads them all
     for n, (i, title) in enumerate(heads):
         end = heads[n + 1][0] if n + 1 < len(heads) else len(lines)
         body = "\n".join(lines[i + 1:end]).strip()
         for s in re.findall(r"`([^`]+)`", title):
             spans.add(s)
             doc.setdefault(s, ("heading", body))
-    for l in lines:
-        m = re.match(r"^\|\s*(.+?)\s*\|\s*(.*?)\s*\|(?:\s*(.*?)\s*\|)?\s*$", l)
+    for line in lines:
+        m = re.match(r"^\|\s*(.+?)\s*\|\s*(.*?)\s*\|(?:\s*(.*?)\s*\|)?\s*$", line)
         if not m or set(m.group(1)) <= set("-: "):
             continue
         for s in re.findall(r"`([^`]+)`", m.group(1)):

@@ -132,6 +132,9 @@ def main():
     errs, _ = run(DOC + "\n### `api->sys->gone`\n\nA call that is not in the headers.\n")
     check(len(errs) == 1 and "stale" in errs[0], "a stale symbol fails: %s" % errs)
 
+    errs, _ = run(DOC + "\nBody prose that calls `api->sys->logx` and reads `AppCtx.actionx`.\n")
+    check(len(errs) == 2 and all("stale" in e for e in errs), "a stale symbol in body prose fails: %s" % errs)
+
     errs, n = C.check()
     check(errs == [], "the real headers and the real document agree: %s" % errs[:5])
     check(n > 300, "the real headers have symbols (%d)" % n)
