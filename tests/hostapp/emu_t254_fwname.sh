@@ -103,7 +103,7 @@ then echo "PASS T254 S5: P wrote a_gideon.cor with the name 'Gideon 3.15' and th
 else echo "FAIL T254 S5: the .cor that P wrote is missing or names something else (see $out/t254-cor.txt)"; FAIL=1; fi
 # S7, S8, run 2: the same flash; f_swap.cfw and g_swap.cor now carry the version line. C= held at power-on shows the menu instead of
 # starting the default (T135 S2); F3 > USB0 > cores; A on f_swap.cfw and on g_swap.cor; F1. A work directory of its own: the stick's image
-# is made again from the folder, which holds what run 1 wrote (a_gideon.cor) and the two new files.
+# is made again from the folder, so the row of f_swap.cfw is counted in that folder, whatever run 1 left in it.
 cp "$w/run2/f_swap.cfw" "$w/run2/g_swap.cor" "$w/stick/cores/"
 row="$(ls "$w/stick/cores" | LC_ALL=C sort | grep -n '^f_swap\.cfw$' | cut -d: -f1)"      # its row below ".."
 { printf 'hold cbm\nwait 3000\nrelease cbm\nwait 15000\nkey f3\nwait 1500\nkey down\nwait 500\nkey down\nwait 500\nkey return\nwait 2500\n'
