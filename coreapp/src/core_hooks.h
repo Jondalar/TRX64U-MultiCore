@@ -42,10 +42,10 @@ typedef struct CoreHooks {
     // held and lands what the menu chose: the monitor's release (breakpoints and observers disarmed, the hold given back), the ring's pending frame and its unfreeze.
     // No result: it cannot refuse. The rules of the task, from close_menu in run.cc:
     //   - Which task: the application's main loop, the task that runs the menu; once per close, never from a poll, an operation handler or a job.
-    //   - The core lock is NOT held. open_menu has set `frozen` and passed the lock once, so no poll is in the core and none starts until the close ends (when the core had
-    //     started; before the first start there is no freeze and a poll may run). An operation on the executor (a REST request) may run at the same time, as it may against the
-    //     monitor's release today. The calls of the "lock" class are allowed here (no poll is in the core); the hook protects state it shares with its own tasks or with the
-    //     executor by its own mutex (sync).
+    //   - The core lock is NOT held. open_menu has set `frozen` and passed the lock once, so no ordinary poll is in the core and none starts until the close ends (when
+    //     the core had started; before the first start there is no freeze and a poll may run). A poll declared `when_frozen` keeps running while the menu is open, so it
+    //     may run at the same time, and so may an operation on the executor (a REST request). The hook protects state it shares with its own tasks, its when_frozen
+    //     poll or the executor by its own mutex (sync).
     //   - State seen from the hook: ctx.state still has CTX_MENU_OPEN and CTX_FROZEN set (the base clears both after it) and the menu is already hidden; the machine is
     //     still stopped when it was frozen, the base releases it (io.stop off) after the hook returns, so a state loaded here is where the machine runs on.
     //   - Order: it takes the place of the base's mon_release and trx_ring_pending/trx_ring_unfreeze calls, and runs where the second pair runs today, after the menu is hidden

@@ -4,14 +4,18 @@
 // (base 3.2) under any name the TOML uses ("textgrid" is the name of the monitor's).
 //
 // The grid: `cols` columns (80 for the monitor) and up to TG_ROWS_MAX rows of text, one attribute per row, a cursor cell. The screen is redrawn when `sig` changes; the base
-// calls `render` first on each redraw and the other calls after it. Keys go through the operations that exist (monitor.key); there is no key call here.
+// calls `render` first on each redraw and the other calls after it. `enter` runs when the node is entered and `tick` on every pass of the menu loop while it is shown,
+// so no generic code names a library's operation for them. Keys go through the key table of the core's UI TOML (a row naming the library's key operation, as
+// monitor.key today); there is no key call here.
 //
-// Rules: `size` first; within a major, members are only appended; removing or reordering one makes the next major. Every call takes no CoreCtx. Task: the UI task of the base (or the sub-app's
-// task); a library keeps the calls short and never blocks in them. Strings are owned by the library and valid
-// until the next `render`. Without a loaded library the base shows an empty screen.
+// Rules: `size` first; within a major, members are only appended; removing or reordering one makes the next major. Every call takes no CoreCtx.
+// Task: every call (enter, tick and the drawing calls) runs on the base's menu task, the main loop that runs the menu and draws it, one after the other and never at
+// the same time; a library's own tasks (its polls, a when_frozen poll included) share state with them only under the library's own mutex (sync). A library keeps the
+// calls short and never blocks in them. Strings are owned by the library and valid until the next `render`. Without a loaded library the base shows an empty screen.
 #ifndef COREAPP_TEXTGRID_H
 #define COREAPP_TEXTGRID_H
 
+#include <stdbool.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -51,6 +55,11 @@ typedef struct TextGrid {
     void (*cursor)(int *x, int *y);
     // A hash of what render built (mon_sig): equal sig, equal screen, no redraw.
     uint32_t (*sig)(void);
+    // The node was entered (monitor.open today). Null: nothing to do.
+    void (*enter)(void);
+    // One pass of the menu loop while the node is shown and no key is waiting (monitor.tick today: stops, finished run-tos, the live log). Returns true when the grid
+    // changed, so the base redraws (it then calls render and sig as above). Null: the grid changes only on keys.
+    bool (*tick)(void);
 } TextGrid;
 
 #ifdef __cplusplus

@@ -104,7 +104,7 @@ Kinds: base = a call, state or operation of the base (also `io.*` register calls
 | `sys_yield()` | `sys.yield` | `svc_sys.h` | `void (*)(void)` | Not the same as `sleep_ms(0)`. |
 | `sync_enter()`, `sync_leave()` | `sync.enter`, `sync.leave` | `svc_sync.h` | `void (*)(void)` | |
 
-The screen of the monitor is not a pending call: the export "textgrid" (`textgrid.h`, major 1: `render`, `cols`, `rows`, `line`, `attr`, `blank_rows`, `cursor`, `sig`) that a node with layout "terminal" and `grid = "textgrid"` names.
+The screen of the monitor is not a pending call: the export "textgrid" (`textgrid.h`, major 1: `render`, `cols`, `rows`, `line`, `attr`, `blank_rows`, `cursor`, `sig`, `enter`, `tick`; `enter` and `tick` replace the base's calls of `monitor.open` and `monitor.tick` by name in `menuflows.cc`, so those operations become calls inside your library) that a node with layout "terminal" and `grid = "textgrid"` names.
 
 ## From our side into your code
 
