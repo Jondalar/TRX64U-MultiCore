@@ -1,7 +1,7 @@
 # T254 — A foreign firmware shows the name and version it gives itself, not its bitstream's date
 
 **Status:** IN PROGRESS (2026-11-22). Asked by Alex, 2026-11-22.
-Open (one line, as in the TODO table): IN PROGRESS 11-22: S1-S8 PASS, merged (#130, #132); open: D9 (F1 shows the firmware's version), D7 on the board
+Open (one line, as in the TODO table): IN PROGRESS 11-22: S1-S8 PASS, merged (#130, #132); D10: re-pack, no fix; later: the installer writes the version
 **Repo:** TRX64U-MultiCore — the host application (`host-app/software/hostapp`).
 **Number:** T254.
 **Origin:** Alex, 2026-11-22 (translated): "Can we take something small into 0.2.1 that bothers me visually a lot? ... If it
@@ -134,6 +134,10 @@ Scenario: S8 (P7) the Version column of a firmware packaged without its version
   the firmware's own version (3.15, 1.2.1), not "packaged firmware". Replaces D8. Seen with host `352a6b41`: F1 showed
   "packaged firmware" for Gideon 3.15a and Commodore 1.2.1. Their `.cor` files were packaged before T254, so the manifest
   names only the bitstream's date; the version line is in the firmware's application, where the File Browser reads it (D3).
+- **D10 (Alex, 2026-11-22, translated: "Re-packing is enough ... after 0.2.1 no new user has the issue. The main thing is that the
+  'installer' for Gideon's runtime, which installs MultiCore, knows it too. But that does NOT have to be done NOW"):** D9 gets no
+  code. A `.cor` packed before T254 is packed again (`fwconvert.cc` writes the firmware's own version since T254). Later, not
+  now: the installer that installs MultiCore from Gideon's runtime writes the version into the `.cor` it makes as well.
 
 ## §4 Out of scope
 
