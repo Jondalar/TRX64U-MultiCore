@@ -329,8 +329,17 @@ public:
             }
             break;
         case 2: {
-            char lan[24], wifi[24];
-            net_addresses(lan, sizeof(lan), wifi, sizeof(wifi));
+            // The header asks for this line on every render, so every key press asked four interfaces and the WiFi driver for their addresses. The addresses
+            // are read at most once a second (a link that came up shows on the next render after that second).
+            static char lan[24], wifi[24];
+            static uint32_t net_at;
+            static bool net_known;
+            uint32_t now = ctx.io->now_ms();
+            if (!net_known || now - net_at >= 1000) {
+                net_addresses(lan, sizeof(lan), wifi, sizeof(wifi));
+                net_at = now;
+                net_known = true;
+            }
             net_chip_text(out, n, lan, wifi, NET_NONE_TEXT);                       // "LAN x" / "WiFi x", the cable first
             break;
         }

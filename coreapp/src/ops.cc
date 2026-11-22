@@ -86,6 +86,15 @@ int OpRegistry::add_op(const char *name, const ArgSpec *args, int nargs, op_fn f
     return OPE_OK;
 }
 
+static uint32_t name_hash(const char *s)
+{
+    uint32_t h = 2166136261u;
+    for (; *s; s++) {
+        h = (h ^ (uint8_t)*s) * 16777619u;
+    }
+    return h;
+}
+
 int OpRegistry::add_state(const char *name, state_fn get)
 {
     if (!name_ok(name)) {
@@ -101,6 +110,7 @@ int OpRegistry::add_state(const char *name, state_fn get)
     }
     StateDef &s = states_[nstates_++];
     s.name = name;
+    s.nh = (uint16_t)name_hash(name);
     s.owner = owner_;
     s.get = get;
     return OPE_OK;
@@ -213,8 +223,9 @@ const OpDef *OpRegistry::find_op(const char *name) const
 
 const StateDef *OpRegistry::find_state(const char *name) const
 {
+    const uint16_t nh = name ? (uint16_t)name_hash(name) : 0;
     for (int i = 0; name && i < nstates_; i++) {
-        if (!strcmp(states_[i].name, name)) {
+        if (states_[i].nh == nh && !strcmp(states_[i].name, name)) {
             return &states_[i];
         }
     }
@@ -424,24 +435,16 @@ int OpRegistry::call(CoreCtx *c, const char *name, const OpIn *in, int nin, OpRe
     return run(c, d, a, r);
 }
 
-static uint32_t fnv(const char *s)
-{
-    uint32_t h = 2166136261u;
-    for (; *s; s++) {
-        h = (h ^ (uint8_t)*s) * 16777619u;
-    }
-    return h;
-}
-
 const char *OpRegistry::state(CoreCtx *c, const char *name, uint32_t *rev)
 {
+    const uint16_t nh = name ? (uint16_t)name_hash(name) : 0;
     for (int i = 0; name && i < nstates_; i++) {
-        if (strcmp(states_[i].name, name)) {
+        if (states_[i].nh != nh || strcmp(states_[i].name, name)) {   // the hash first: most names share a long prefix, and the menu asks about 100 times a key
             continue;
         }
         StateDef &s = states_[i];
         const char *v = s.get(c);
-        uint32_t h = v ? fnv(v) + 1 : 0;              // no value is its own hash
+        uint32_t h = v ? name_hash(v) + 1 : 0;              // no value is its own hash
         if (!s.seen || h != s.hash) {
             s.seen = true;
             s.hash = h;

@@ -133,6 +133,7 @@ struct StateDef {
     state_fn get;
     uint32_t rev;                         // counts the changes seen by state()
     uint32_t hash;
+    uint16_t nh;                          // the low half of the name's hash: a lookup compares it before the text (it fills the padding after `seen`: no RAM)
     bool seen;
 };
 
@@ -149,7 +150,7 @@ struct EventDef {
 };
 
 #define OPS_MAX 400                       // T228 review: trx64u's record and an application's own (TREX CRT: about 30 ops, 41 states) did not fit
-#define STATES_MAX 320                    // in 300 / 200; 20 bytes an entry on RV32, so the two cost 4.4 KB more of static RAM
+#define STATES_MAX 320                    // in 300 / 200; 24 bytes an entry on RV32, so the two cost 4.4 KB more of static RAM
 #define EVENTS_MAX 8
 
 // What the registry held at one moment: a loader takes one before a library registers and gives it back when the library fails, so a

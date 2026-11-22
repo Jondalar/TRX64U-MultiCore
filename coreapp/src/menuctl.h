@@ -305,7 +305,8 @@ private:
     void unheading();                                               // the selection is not on a heading
     void build_tree();                                              // menu_build_for, then the rows a flat list leaves out (a hide node, a show_state setting that is off)
     uint32_t show_sig() const;                                      // which show_state settings hold now
-    void sync_show();                                               // a show_state flipped: the tree is made again and the selection keeps its row
+    bool sync_show();                                               // a show_state flipped: the tree is made again and the selection keeps its row (true: it was)
+    uint8_t ran_ = 0;                                               // the intent apply_run last executed (MI_NONE: none)
     const char *setting_lock(const Setting &s) const;               // T228 R21: the text of the state that locks a setting row (Setting::lock_state), null: not locked
     uint32_t show_sig_ = 0;
     int last_tab_[MENU_AREAS_MAX];                                  // the tab an area was left on: its key comes back to it
@@ -326,7 +327,7 @@ private:
     int chooser_sel_;
     int page_rows_;                                                // the rows the F3 list shows, told by the screen (set_page_rows); 10 until it has
     bool search_edit_;
-    uint32_t last_relist_ = 0, last_live_ = 0;                     // the pump: when the folder was last read again, when a live register was last shown
+    uint32_t last_relist_ = 0, last_live_ = 0, last_show_ = 0;                     // the pump: when the folder was last read again, when a live register was last shown
     // a copy of the file type's actions plus the ones every file has (view, copy, move, rename, delete, favourite)
     enum { CHOOSER_MAX = 300 };                                    // T228 R21: a tune with up to 256 songs lists them all, as FW's action list does
     FileAction chooser_buf_[CHOOSER_MAX];

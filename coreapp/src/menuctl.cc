@@ -181,10 +181,10 @@ uint32_t MenuCtl::show_sig() const
     return h;
 }
 
-void MenuCtl::sync_show()
+bool MenuCtl::sync_show()
 {
     if (show_sig() == show_sig_) {
-        return;
+        return false;
     }
     const MenuTab &was = cur();
     char was_id[40];
@@ -230,6 +230,7 @@ void MenuCtl::sync_show()
             break;
         }
     }
+    return true;
 }
 
 // The tree from the descriptor and what is contributed to it (contrib.h). The run loop calls it again once the libraries are loaded.
@@ -2645,6 +2646,12 @@ bool MenuCtl::pump(bool quiet)
             changed = true;
         }
     }
+    if (now - last_show_ >= 2000) {                                  // what the machine holds changed outside the menu: a show_state or a hide flipped (a key press that ran no operation does not look)
+        last_show_ = now;
+        if (sync_show()) {
+            changed = true;
+        }
+    }
     return changed;
 }
 
@@ -4132,13 +4139,22 @@ MenuCtl::Result MenuCtl::apply(const MenuIntent &in)
     if (r == R_CLOSE) {
         leave();
     }
-    sync_show();                                                     // a setting the key changed may have switched a feature on or off (show_state)
+    // A setting or an operation the key ran may have switched a feature on or off (show_state): the tree is looked at again. A key that only moved the
+    // cursor, the page or the tab changed no state: it asks no state of the registry (every show_state and every hide of the whole tree would be asked
+    // with each cursor key). What changes outside the menu is seen by the pump's tick (every 2 s) and by open().
+    switch (ran_) {
+    case MI_NONE: case MI_SWALLOW: case MI_AS: case MI_MOVE: case MI_PAGE: case MI_AREA: case MI_TAB:   // MI_AS: the key it names went through apply() itself
+        break;
+    default:
+        sync_show();
+    }
     return r;
 }
 
 MenuCtl::Result MenuCtl::apply_run(const MenuIntent &in)
 {
     MenuIntent cur = in;
+    ran_ = MI_NONE;
     for (int guard = 0; guard < 64; guard++) {
         if (cur.id == MI_NONE) {
             return R_NONE;
@@ -4154,6 +4170,7 @@ MenuCtl::Result MenuCtl::apply_run(const MenuIntent &in)
         bool took = true;
         Result r = run_intent(cur, &took);
         if (took) {
+            ran_ = cur.id;
             return r;
         }
         if (cur.row < 0 || !resolve_from(cur.key, cur.stage, cur.row + 1, &next)) {   // an intent that declined: the next row of its stage, then the stages after it
