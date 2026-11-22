@@ -12,7 +12,7 @@ repo already) and the other cores I do not know yet. Plus a registry for cores a
 **Depends on:** T192 and T213 (app layers, D24), T221 (SemVer per deliverable), T238 (support model), T100 D8 (releases on GitHub).
 **Milestone:** after release 0.2.0.
 
-Open (one line, as in the TODO table): Epic 11-19; D1-D16; A (T239.1) done 11-22; next: D (T239.2); .3 D1-D12, .4 D1-D6 decided
+Open (one line, as in the TODO table): Epic 11-19; D1-D16; A (T239.1) done 11-22; next: D (T239.2); .3 D1-D14, .4 D1-D6 decided
 
 ---
 
