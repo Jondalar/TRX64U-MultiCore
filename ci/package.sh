@@ -167,14 +167,20 @@ if [ -n "$mono" ]; then
     core="$(basename "$bit" _mono.bit)"
     echo "=== large .cor of $core"
     desc="$ROOT/cores/$core/mono/core.toml"
+    # T255 D6: app = "none" (the core's bitstream has no CPU): the application record is a 128 byte placeholder, not the generic core application
+    appbin="$out/coreapp.bin"
+    if [ "$(TRX_CORE_DESC="$desc" python3 "$ROOT/tools/core_toml.py" get "$core" app)" = none ]; then
+      appbin="$out/.noapp_$core.bin"; head -c 128 /dev/zero > "$appbin"
+    fi
     if ! "$ROOT/tools/pack_large_cor.sh" --id "$core" --name "$(TRX_CORE_DESC="$desc" python3 "$ROOT/tools/core_toml.py" get "$core" name)" \
         --version "$("$ROOT/ci/version.sh" with "$(TRX_CORE_DESC="$desc" python3 "$ROOT/tools/core_toml.py" get "$core" version)")" \
-      --short "$(TRX_CORE_DESC="$desc" python3 "$ROOT/tools/core_toml.py" get "$core" short)" --bit "$bit" --app-bin "$out/coreapp.bin" \
+      --short "$(TRX_CORE_DESC="$desc" python3 "$ROOT/tools/core_toml.py" get "$core" short)" --bit "$bit" --app-bin "$appbin" \
         --bit-commit "$(git -C "$ROOT" rev-parse --short=8 HEAD)" --app-commit "$(cut -c1-8 "$trxapps/trxapps_commit")" --out "$out"; then
       echo "the large .cor of $core could not be packed" >&2
       rm -f "$out/$core.cor"
       mark_red package "cor-$core" "tools/pack_large_cor.sh failed"
     fi
+    rm -f "$out/.noapp_$core.bin"
   done
   for bit in "$mono"/*_mono.bit; do [ -e "$bit" ] && cp "$bit" "$out/"; done
   cp "$mono"/*_mono.timing.rpt "$mono"/*_mono.steps.txt "$mono"/*_mono.vivado.log.gz "$out/" 2>/dev/null || true

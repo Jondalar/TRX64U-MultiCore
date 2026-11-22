@@ -1,12 +1,11 @@
 #!/bin/sh
-# T168 S5: a DDT core drives nothing on the slot or the IEC bus (tools/check_layer2_pins.py reads the wrapper and the host's decoupler list in host/top.v), for either core:
-#   sh cores/ddt_mandel/sim/run_pins.sh ddt_mandel | ddt_novic
+# T168 S5: a DDT partial core drives nothing on the slot or the IEC bus (tools/check_layer2_pins.py reads the wrapper and the host's decoupler list in host/top.v):
+#   sh cores/ddt_mandel/sim/run_pins.sh ddt_novic       (ddt_mandel is a large core since T255: no partition edge)
 set -e
 here=$(cd "$(dirname "$0")" && pwd)
 root=$(cd "$here/../../.." && pwd)
 core=${1:?core id}
 case $core in
-  ddt_mandel) coremod=ddt_mandel_core ;;
   ddt_novic)  coremod=ddt_novic_core ;;
   *) echo "unknown core $core"; exit 2 ;;
 esac

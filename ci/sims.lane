@@ -204,10 +204,9 @@ amiga1200_motorpath: large:amiga1200
 amiga1200_motorwire: large:amiga1200
 amiga_motorpath: large:amiga
 atari_led: core:atari800
-# T168 (DDT's demos as partial cores)
-ddt_mandel_pix: core:ddt_mandel
-ddt_mandel_joy: core:ddt_mandel
-ddt_mandel_pins: core:ddt_mandel
+# T168 / T255 (DDT's demos: ddt_mandel is a large core, ddt_novic a partial one)
+ddt_mandel_pix: large:ddt_mandel
+ddt_mandel_joy: large:ddt_mandel
 ddt_novic_pix: core:ddt_novic
 ddt_novic_pins: core:ddt_novic
 hdmi_out: host

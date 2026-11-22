@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""T168: an independent model of the picture mandelbrUlt makes, for the bench of ddt_mandel (tb_ddt_mandel.v). Written from the CODE of DDT's
+"""T168: an independent model of the picture mandelbrUlt makes, for the bench of the large core (tb_ddt_hd.v). Written from the CODE of DDT's
 pixel_gen_mandelbrot.sv (Q3.22, three 25 x 25 signed products truncated by >>> 22 / >>> 21 into 25 bit, the escape test |z|^2 > 4 on the exact 50 bit squares,
 the iteration count rule), fb_scanline_writer.sv (the pixel coordinates: the corner is centre - 176 or 128 scales + half a scale, one scale per pixel, all in 25 bit),
 joystick_buttons.sv / top.v (the view registers) and mandel_video_pattern.v (palette index, the 44 x 25 text overlay with the C64 font), none of it from the RTL of the core.
 The colours are the RGB values the palette was made from (the comments of palette_yuv_256.hex), the font is Gideon's overlay font (host/mem/ovl_font8.mem), the text
 screen is read from trx/screen_matrix.v.
 
-  mandel_model.py <out.hex> [--text] [--zoom N] [--iters 128] [--cx -2097152] [--cy 0] [--scale 35747] [--rot 0]
+  mandel_model.py <out.hex> [--text] [--zoom N] [--iters 128] [--cx -2097152] [--cy 0] [--scale 35747] [--rot 0] [--engines 20]
 writes 352 x 256 RGB565 words, one 4 digit hex per line, row after row.
 """
 import os, re, sys
@@ -70,7 +70,7 @@ def palette():
     return cols
 
 
-def text_screen():
+def text_screen(engines=20):
     """trx/screen_matrix.v: 44 x 25 screen codes, from its assignments (`idx = ...;` sets the row, `mem[idx + k] = 8'dN;` a cell)."""
     src = open(os.path.join(ROOT, "cores", "ddt_mandel", "trx", "screen_matrix.v")).read()
     src = re.sub(r"//[^\n]*", "", src)
@@ -85,6 +85,10 @@ def text_screen():
             idx = int(m.group(4))
         else:
             mem[idx + int(m.group(5))] = int(m.group(6))
+    # T255: row 2 starts with the engine count of the design (screen_matrix.v takes it from the parameter ENGINES; two digits, a blank for a leading zero)
+    mem[2 * 44 + 0] = 48 + engines // 10 if engines >= 10 else 32
+    mem[2 * 44 + 1] = 48 + engines % 10
+    mem[2 * 44 + 2] = 32
     return mem
 
 
@@ -95,7 +99,7 @@ def font():
 def main():
     args = sys.argv[1:]
     out = args.pop(0)
-    opt = {"--iters": 128, "--cx": -2097152, "--cy": 0, "--scale": (3 << 22) // W, "--rot": 0, "--zoom": 0}
+    opt = {"--iters": 128, "--cx": -2097152, "--cy": 0, "--scale": (3 << 22) // W, "--rot": 0, "--zoom": 0, "--engines": 20}
     text = False
     while args:
         a = args.pop(0)
@@ -108,7 +112,7 @@ def main():
         scale >>= 1
     its = render(opt["--cx"], opt["--cy"], scale, opt["--iters"])
     pal = palette()
-    scr, fnt = text_screen(), font()
+    scr, fnt = text_screen(opt["--engines"]), font()
     words = []
     for y in range(H):
         for x in range(W):
