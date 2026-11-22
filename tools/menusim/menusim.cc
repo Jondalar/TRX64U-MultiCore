@@ -188,8 +188,10 @@ static void fill_stick(Rig *r)
 // One line per key press, taken after the UI has settled: the pixels the display's flush callback received (the sum of the areas, as the board's
 // software renderer has to draw them), the flush calls, the objects of the screen that lie in those areas (LVGL does not count what it draws; this is
 // every visible object whose box meets a flushed area, the objects the renderer has to consider), the path ui.cc took (a selection restyle, a retext in
-// place, or the pane built again), the times, and what the stubs count: state functions asked, file lists and writes. The flush callback is wrapped,
-// nothing else is touched: what is drawn is what the run without --stats draws.
+// place, or the pane built again), the times, and what the stubs count: state functions asked, file lists and writes. Only the flush callback is
+// wrapped; the application is not touched. The settle loop runs at least two and up to 20 more LVGL passes after a key, and each pass reads the rig's clock (which steps
+// 50 ms per read in the headless mode), so the simulated time runs further per key than in a --keys/--shot run: anything timed (a toast's timeout, an
+// animation) can differ between a --stats/--shots run and a run without them. Two trees run with the same press() are compared fairly.
 extern int stub_state_calls;                                  // tests/coreapp/board_stubs.cc: the state functions of the TRX64U's operations that the stubs answer
 static lv_display_flush_cb_t g_flush_orig;
 static long g_fl_px;
