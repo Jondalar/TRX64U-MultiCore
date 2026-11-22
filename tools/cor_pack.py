@@ -48,7 +48,7 @@ OPTIONAL records of either kind (T104.1 D9, D12), after the others, each once, b
            file, except one that is byte for byte (size and hash) an earlier version listed in the entry (coreapp/src/instfiles.cc).
            Manifest: files_size, files_sha256, files_count. Source: the core's descriptor (core.toml `install_dir`, `install_old`).
 
-  cor_pack.py pack ... [--desc D.toml] [--lib L.u2a ...] [--files DIR [--files-old DIR]]      (also for pack-large)
+  cor_pack.py pack ... [--desc D.toml [--desc E.toml]] [--lib L.u2a ...] [--files DIR [--files-old DIR]]      (also for pack-large)
   cor_pack.py files-record DIR [--old DIR] -o F.rec            only the record 8 (for the application's benches)
 
 LARGE cores (T115 §7 "The extended .cor"): a core that does not fit layer 2 is one FULL bitstream of the 50T (host and core
@@ -775,9 +775,9 @@ def read_extras(a):
     desc = None
     if a.desc:
         try:
-            desc = descrec.compile_checked(open(a.desc).read(), open(a.ops).read() if a.ops else None, what=a.desc)
+            desc = descrec.compile_files([(f, open(f).read()) for f in a.desc], open(a.ops).read() if a.ops else None)
         except descrec.DescError as e:
-            raise CorError("%s: %s" % (a.desc, e))
+            raise CorError("%s: %s" % (" + ".join(a.desc), e))
     files = collect_files(a.files, a.files_old) if a.files else None
     return desc, [open(f, "rb").read() for f in a.lib] or None, files
 
@@ -799,7 +799,7 @@ def main(argv=None):
     p.add_argument("--icon")
     p.add_argument("--short", help="T209 D15: the text tile's short name (core.toml `short`)")
     p.add_argument("--heap", type=lambda s: int(s, 0), help="T239.3 D15: the core's heap in bytes (core.toml `heap`), set in the packed copy of the application")
-    p.add_argument("--desc", help="the menu description (TOML, tools/descrec.py): record 6")
+    p.add_argument("--desc", action="append", default=[], help="the menu description (TOML, tools/descrec.py): record 6; repeat for a core's menu.toml and desc.toml (one record; a table or key in two files is refused)")
     p.add_argument("--ops", help="the operations and states the application exports (tests/coreapp/golden/ops_trx64u.txt): every name and binding of --desc is checked against it")
     p.add_argument("--lib", action="append", default=[], help="a library (.u2a of format 3) this core needs: record 7; repeat for more")
     p.add_argument("--files", help="a folder: every file below it is installed into the core's folder at the same relative path: record 8")
@@ -814,7 +814,7 @@ def main(argv=None):
     g.add_argument("--icon")
     g.add_argument("--short", help="T209 D15: the text tile's short name (core.toml `short`)")
     g.add_argument("--heap", type=lambda s: int(s, 0), help="T239.3 D15: the core's heap in bytes (core.toml `heap`), set in the packed copy of the application")
-    g.add_argument("--desc", help="the menu description (TOML): record 6")
+    g.add_argument("--desc", action="append", default=[], help="the menu description (TOML): record 6; repeat for a core's menu.toml and desc.toml (one record; a table or key in two files is refused)")
     g.add_argument("--ops", help="what the application exports (tests/coreapp/golden/ops_trx64u.txt): every name and binding of --desc is checked against it")
     g.add_argument("--lib", action="append", default=[], help="a library (.u2a) this core needs: record 7")
     g.add_argument("--files", help="a folder: every file below it is installed into the core's folder at the same relative path: record 8")

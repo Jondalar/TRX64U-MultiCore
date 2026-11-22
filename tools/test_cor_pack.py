@@ -4,6 +4,8 @@ wrong host key refused (T84 D5b).
 
   python3 tools/test_cor_pack.py        (also collected by python3 -m pytest tools/test_cor_pack.py)
 """
+import contextlib
+import io
 import os
 import hashlib
 import json
@@ -15,6 +17,7 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import cor_pack as C  # noqa: E402
+import descrec  # noqa: E402
 
 
 def bit_file(words=300):
@@ -530,6 +533,53 @@ class RecordsTest(unittest.TestCase):
             self.assertEqual(C.main(["pack-large", "-o", o + "3", "--id", "x", "--name", "A", "--version", "1", "--bit", b, "--app", a,
                                       "--desc", DESC_TOML, "--lib", l1]), 0)
             self.assertEqual(C.main(["check", o + "3"]), 0)
+
+    def test_desc_more_than_once_compiles_the_files_into_one_record(self):
+        """T239.3 base 3.3: a core's menu.toml (menu, key table) and desc.toml (core data, windows) are one record 6; a table or key in both files is refused naming both."""
+        menu = 'key = [ { layout = "timeline", key = "esc", op = "tw.cancel", close = true } ]\n[[task]]\nlabel = "Dump"\nop = "ring.dump"\njob = true\n'
+        desc = ('[core]\nid = "VC20"\nname = "T"\ntitle = "T"\nshort_title = "T"\nfolder = "t"\nstore = "t"\n'
+                '[[window]]\nname = "audio_mixer"\naddress = 0xA0000500\nsize = 0x14\n')
+        bit, _ = bit_file()
+        with tempfile.TemporaryDirectory() as d:
+            p, a, o, m_, d_ = (os.path.join(d, n) for n in ("p.bit", "a.bin", "c.cor", "menu.toml", "desc.toml"))
+            open(p, "wb").write(bit)
+            open(a, "wb").write(APP)
+            open(m_, "w").write(menu)
+            open(d_, "w").write(desc)
+            args = ["pack", "-o", o, "--name", "T", "--version", "1", "--partial", p, "--app", a, "--host-key", "820eded2"]
+            self.assertEqual(C.main(args + ["--desc", m_, "--desc", d_]), 0)
+            self.assertEqual(C.main(["check", o]), 0)
+            m, r = C.parse(open(o, "rb").read())
+            rec = descrec.parse_desc(r[C.T_DESC])
+            self.assertEqual((rec["core"]["name"], len(rec["key"]), rec["window"][0]["name"], rec["task"][0]["job"]), ("T", 1, "audio_mixer", True))
+            self.assertEqual(r[C.T_DESC], descrec.compile_files([("a", menu), ("b", desc)]))
+            self.assertEqual(r[C.T_DESC], descrec.compile_desc({**descrec.toml_loads(menu), **descrec.toml_loads(desc)}))
+            # the order of the files does not change the record
+            o2 = o + "2"
+            self.assertEqual(C.main(["pack", "-o", o2, "--name", "T", "--version", "1", "--partial", p, "--app", a, "--host-key", "820eded2", "--desc", d_, "--desc", m_]), 0)
+            self.assertEqual(C.parse(open(o2, "rb").read())[1][C.T_DESC], r[C.T_DESC])
+            # one file is what it always was
+            only = os.path.join(d, "only.toml")
+            open(only, "w").write(menu)
+            o3 = o + "3"
+            self.assertEqual(C.main(args[:2] + [o3] + args[3:] + ["--desc", only]), 0)
+            self.assertEqual(C.parse(open(o3, "rb").read())[1][C.T_DESC], descrec.compile_text(menu))
+            # a table in both files: refused, both files named, nothing written
+            twice = os.path.join(d, "twice.toml")
+            open(twice, "w").write(menu)
+            o4 = o + "4"
+            buf = io.StringIO()
+            with contextlib.redirect_stderr(buf):
+                self.assertEqual(C.main(args[:2] + [o4] + args[3:] + ["--desc", m_, "--desc", twice]), 1)
+            self.assertIn("menu.toml", buf.getvalue())
+            self.assertIn("twice.toml", buf.getvalue())
+            self.assertIn("'key'", buf.getvalue())
+            self.assertFalse(os.path.exists(o4))
+            # the large form takes it too
+            b = os.path.join(d, "x.bit")
+            open(b, "wb").write(full_bit())
+            self.assertEqual(C.main(["pack-large", "-o", o + "5", "--id", "x", "--name", "T", "--version", "1", "--bit", b, "--app", a, "--desc", m_, "--desc", d_]), 0)
+            self.assertEqual(C.parse(open(o + "5", "rb").read())[1][C.T_DESC], r[C.T_DESC])
 
 
 def lib_with_menu(name, menu):
