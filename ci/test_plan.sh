@@ -230,19 +230,19 @@ chk "$D96" || fail "D9-6: $(head -c 600 "$W/p.json")"
 # control: the previous COMMIT as the base (what a plan without the green-run rule would do) misses A's change and must fail the check
 planrun PLAN_BASE="$A6"
 if chk "$D96"; then fail "D9-6 control: a plan diffed against the previous commit passed the check"; fi
-# fallback: no green run on the branch -> the merge-base with main. The scenario builds its own main: the scratch repo gets origin/main at
+# fallback: no green run on the branch -> the merge-base with integration (D48). The scenario builds its own trunk: the scratch repo gets origin/integration at
 # $BASE (its branch point) and no remote, so nothing depends on the refs of the checkout this test runs in (the lint checkout of the
-# pipeline has no origin/main: run 159).
+# pipeline has no origin/integration: run 159).
 cat > "$W/bin/curl" <<'CURL'
 #!/usr/bin/env bash
 echo '{"workflow_runs":[{"id":11,"path":"pipeline.yml@refs/heads/scratch","status":"completed","conclusion":"failure","head_branch":"scratch","event":"push","head_repository":{"full_name":"o/r"},"head_sha":"0000"}]}'
 CURL
 G remote remove origin
-G update-ref refs/remotes/origin/main "$BASE"
-G update-ref refs/heads/main "$BASE"
+G update-ref refs/remotes/origin/integration "$BASE"
+G update-ref refs/heads/integration "$BASE"
 {
   planrun X=1
-  chk 'p["base"]["source"].startswith("merge-base with main") and p["base"]["commit"] == "'"$BASE"'"' || fail "D9-6: no green run, no merge-base fallback: $(cat "$W/plan.log" | head -5)"
+  chk 'p["base"]["source"].startswith("merge-base with integration") and p["base"]["commit"] == "'"$BASE"'"' || fail "D9-6: no green run, no merge-base fallback: $(cat "$W/plan.log" | head -5)"
 }
 echo "D9-6 ok (base = last green run 10, not the previous commit; both A's and B's cores planned; control against the previous commit fails; no green run -> merge-base)"
 # ---- D9-7 (T164) a large core's benches read its own copy of the host files, never the live host/ ---------------------------------------

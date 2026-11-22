@@ -9,7 +9,7 @@ moves whenever the harness's behaviour does. This check compares, commit by comm
 - comments, blank lines and the CC_KEY_VERSION line left out (shell: full-line and trailing ' # ...' comments; python: the syntax tree without
 docstrings; C: /* */ and // comments) - and refuses a step whose code differs while CC_KEY_VERSION did not go up, or went down.
 
-  tools/check_cc_key_version.py [--root DIR] [--base REF]    check the repository (default: the current one, base = merge-base with origin/main, else HEAD~1)
+  tools/check_cc_key_version.py [--root DIR] [--base REF]    check the repository (default: the current one, base = merge-base with origin/integration, else HEAD~1)
   tools/check_cc_key_version.py selftest                     the scenarios on a throw-away repository, each with its control
 """
 import ast
@@ -111,7 +111,7 @@ def step(label, old, new, ignore):
 def check(root, base=None, ignore=False):
     bad = []
     if base is None:
-        rc, mb = git(root, "merge-base", "HEAD", "origin/main")
+        rc, mb = git(root, "merge-base", "HEAD", "origin/integration")
         base = mb.strip() if rc == 0 and mb.strip() else None
     rc, head = git(root, "rev-parse", "HEAD")
     head = head.strip()

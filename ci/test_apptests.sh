@@ -111,11 +111,11 @@ python3 "$R/ci/plan.py" fundamental apptests | grep -qx 'cores/common' && fail "
 python3 "$R/ci/plan.py" fundamental benches | grep -qx 'app/view' || fail "an [all] path is missing from the benches list"
 echo "ok   fundamental: one list in ci/fundamental.txt, [all] + [apptests] escalate, a plain change stays fast"
 
-# (2c) T239.1: a CI checkout is shallow (depth 1: no origin/main, no HEAD~1). The base comes from the plan's plan.json (fetched when missing); without
+# (2c) T239.1: a CI checkout is shallow (depth 1: no origin/integration, no HEAD~1). The base comes from the plan's plan.json (fetched when missing); without
 # any base nothing counts as untouched and every suite is planned. Control: the same checkout with a base from the plan sees the touched suite only.
 echo "int x_$RANDOM;" >> "$R/coreapp/src/ops.cc"; G add -A; G commit -q -m touch_coreapp
 S="$W/shallow"; git clone -q --depth 1 --no-local "file://$R" "$S" 2>/dev/null
-git -C "$S" update-ref -d refs/remotes/origin/main 2>/dev/null || true
+git -C "$S" update-ref -d refs/remotes/origin/integration 2>/dev/null || true
 git -C "$S" rev-parse -q --verify HEAD~1 >/dev/null 2>&1 && fail "scenario error: the shallow checkout has a HEAD~1"
 HO="$W/handoff"; mkdir -p "$HO"; rm -f "$HO/plan.json"
 o="$( cd "$S" && CI_HANDOFF="$HO" CI_BRANCH=feature/x ci/apptests.sh --plan hostapp 2>&1 )" || true

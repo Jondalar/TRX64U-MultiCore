@@ -8,8 +8,8 @@
 #
 # The base G (Alex, 2026-10-25: "a)"): the head commit of the newest completed run of this workflow on this branch whose
 # conclusion is success, other than this run; a push of several commits, or one after a red or cancelled run, therefore builds
-# everything changed since G. No green run: the merge-base with main. On main without a green run: nothing is known and the plan
-# names everything ("none"). A base that cannot be fetched (rebased away) falls back to the merge-base, then to "none":
+# everything changed since G. No green run: the merge-base with integration, the trunk (T239.1 D48). On integration and on main without a green run
+# nothing is known and the plan names everything ("none"). A base that cannot be fetched (rebased away) falls back to the merge-base, then to "none":
 # never to "nothing changed".
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -63,13 +63,13 @@ fetch_commit() {
   git -C "$ROOT" fetch -q --depth 1 origin "$1" 2>/dev/null && git -C "$ROOT" cat-file -e "$1^{commit}" 2>/dev/null
 }
 
-# merge_base_main: the merge-base of HEAD and origin/main, or nothing
-merge_base_main() {
+# merge_base_trunk: the merge-base of HEAD and origin/integration (the trunk, D48), or nothing
+merge_base_trunk() {
   if [ "$(git -C "$ROOT" rev-parse --is-shallow-repository 2>/dev/null)" = true ]; then
     git -C "$ROOT" fetch -q --unshallow origin 2>/dev/null || git -C "$ROOT" fetch -q --depth 2000 origin 2>/dev/null || true
   fi
-  git -C "$ROOT" fetch -q origin main 2>/dev/null || true
-  git -C "$ROOT" merge-base HEAD origin/main 2>/dev/null || git -C "$ROOT" merge-base HEAD main 2>/dev/null || true
+  git -C "$ROOT" fetch -q origin integration 2>/dev/null || true
+  git -C "$ROOT" merge-base HEAD origin/integration 2>/dev/null || git -C "$ROOT" merge-base HEAD integration 2>/dev/null || true
 }
 
 # find_base: prints "<commit> <source text>"
@@ -92,9 +92,9 @@ find_base() {
     echo "$g last green run ${run} of $branch"; return 0
   fi
   [ -z "${g:-}" ] || echo "plan: the commit $g of the last green run cannot be fetched (rebased away?)" >&2
-  if [ "$branch" != main ]; then
-    mb="$(merge_base_main)"
-    if [ -n "$mb" ]; then echo "$mb merge-base with main (no usable green run of $branch)"; return 0; fi
+  if [ "$branch" != main ] && [ "$branch" != integration ]; then
+    mb="$(merge_base_trunk)"
+    if [ -n "$mb" ]; then echo "$mb merge-base with integration (no usable green run of $branch)"; return 0; fi
   fi
   echo "none no green run and no merge-base: nothing known, everything is built"
 }

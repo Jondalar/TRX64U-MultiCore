@@ -18,7 +18,7 @@
 #   nightly      integration with the caches ignored (-f and CONTROLS_ALL=1).
 # Suites: hostapp coreapp coreapp:cross coreapp:<core>... loader (T174 D3: `coreapp` is the shared group only, see core_groups below; names from tests/coreapp/cores.txt) | view coreapp_render hostapp_render | hostapp_emu coreapp_emu. Naming suites runs exactly those, at the tier's strictness.
 # Before anything runs a plan line says which suites run and which are cached ("will run: ..., skipped: ... (inputs unchanged)"), with the files
-# of `git diff BASE` (BASE default: the plan's base, else merge-base with origin/main, else HEAD~1; none of them: every suite runs) that touch each suite. --plan goes further, down to the units:
+# of `git diff BASE` (BASE default: the plan's base, else merge-base with origin/integration, else HEAD~1; none of them: every suite runs) that touch each suite. --plan goes further, down to the units:
 # the suites walk through their keys with nothing built or run (CC_DRYRUN) and print "plan: would run ..." for each unit that has no valid cache entry.
 #
 # Per-suite cache, the mechanism of ci/sims.sh: a suite has a key over the content of exactly the files it reads (below), the
@@ -91,7 +91,7 @@ while [ $# -gt 0 ]; do
   esac
 done
 # T239.1: the base of "touched" is the base of the plan job (plan.json base.commit, the last green run or the merge-base, ci/plan.sh); a CI checkout is
-# shallow (depth 1: no origin/main, no HEAD~1), so that commit is fetched when it is missing. Without a plan: the merge-base with origin/main, else HEAD~1.
+# shallow (depth 1: no origin/integration, no HEAD~1), so that commit is fetched when it is missing. Without a plan: the merge-base with origin/integration (the trunk, D48), else HEAD~1.
 # A base that cannot be had is never "nothing touched": base stays empty, the tier becomes integration and every suite runs (said out loud below).
 have_commit() { [ -n "$1" ] && [ "$1" != none ] && git cat-file -e "$1^{commit}" 2>/dev/null; }
 base_from_plan() {
@@ -104,7 +104,7 @@ base_src=""
 if [ -n "$base" ]; then base_src="given"
 else
   if base="$(base_from_plan)" && [ -n "$base" ]; then base_src=plan
-  elif base="$(git merge-base HEAD origin/main 2>/dev/null)" && have_commit "$base"; then base_src="merge-base with origin/main"
+  elif base="$(git merge-base HEAD origin/integration 2>/dev/null)" && have_commit "$base"; then base_src="merge-base with origin/integration"
   elif base="$(git rev-parse --verify -q HEAD~1 2>/dev/null)" && have_commit "$base"; then base_src="HEAD~1"
   else base=""; fi
 fi
@@ -114,7 +114,7 @@ fi
 fundamental=(); while IFS= read -r _f; do [ -z "$_f" ] || fundamental+=("$_f"); done < <(python3 "$ROOT/ci/plan.py" fundamental apptests)   # ci/fundamental.txt: [all] + [apptests], the one list (also read by plan.py for the benches)
 [ ${#fundamental[@]} -gt 0 ] || { echo "apptests: ci/fundamental.txt gave no paths" >&2; exit 1; }
 if [ -z "$base" ]; then
-  echo "=== apptests: NO DIFF BASE (no plan.json base, no origin/main, no HEAD~1): nothing can be called untouched, every suite runs (tier integration)"
+  echo "=== apptests: NO DIFF BASE (no plan.json base, no origin/integration, no HEAD~1): nothing can be called untouched, every suite runs (tier integration)"
   [ "$tier" != auto ] || tier=integration
   scoped=""
 fi
@@ -123,7 +123,7 @@ if [ "$tier" = auto ]; then
   fcount=0
   for f in "${fundamental[@]}"; do [ -e "$f" ] || continue; fcount=$((fcount + $( { git diff --name-only "$base" -- "$f"; git ls-files -o --exclude-standard -- "$f"; } 2>/dev/null | wc -l))); done
   case "$br" in
-    main|HEAD) tier=integration; echo "=== apptests: tier auto -> integration (branch $br)" ;;
+    main|integration|HEAD) tier=integration; echo "=== apptests: tier auto -> integration (branch $br)" ;;
     *) if [ "$fcount" -gt 0 ]; then tier=integration; echo "=== apptests: tier auto -> integration (branch $br touches $fcount fundamental file(s))"
        else tier=fast; scoped=1; echo "=== apptests: tier auto -> fast, scoped to the suites the branch $br touches (no fundamental file touched)"; fi ;;
   esac
@@ -173,7 +173,7 @@ for s in "${suites[@]}"; do
   key="$(suite_key "$s")" || { echo "=== $s: no key" >&2; fails+=("$s"); continue; }
   printf -v "skey_${s//:/_}" %s "$key"
   k="$(kind_of "$s")"
-  if [ -n "${scoped:-}" ] && [ "$nt" = 0 ]; then skip+=("$s"); continue; fi   # branch scope: nothing of it touched, main's cache stands
+  if [ -n "${scoped:-}" ] && [ "$nt" = 0 ]; then skip+=("$s"); continue; fi   # branch scope: nothing of it touched, integration's cache stands
   if [ "$k" = render ]; then will+=("${s}[$nt files; units decide]"); continue; fi
   if [ -z "$force" ] && [ -n "$cache_on" ] && { [ -f "$ok_dir/$s.$key" ] || { [ "$tier" = fast ] && [ -f "$ok_dir/fast-$s.$key" ]; }; }; then skip+=("$s"); else will+=("${s}[$nt files]"); fi
 done
@@ -182,7 +182,7 @@ echo "=== apptests plan (tier $tier, base ${base:0:8}): will run: ${will[*]:-not
 
 run_one() {   # run_one suite : returns the suite's status
   local s="$1" k key sc v
-  case " ${skip[*]:-} " in *" $s "*) if [ -n "$scoped" ]; then echo "=== apptests $s: not touched by this branch (cache of main stands)"; return 0; fi ;; esac
+  case " ${skip[*]:-} " in *" $s "*) if [ -n "$scoped" ]; then echo "=== apptests $s: not touched by this branch (cache of integration stands)"; return 0; fi ;; esac
   k="$(kind_of "$s")"; v="skey_${s//:/_}"; key="${!v}"; sc="$(script_of "$s")"
   if [ "$k" = emu ]; then
     # T174 D2.8: the emulator suites run here, in ue2emu (ci/ue2emu.sh: the local binary or the UE2EMU_IMAGE container), on the images ci/trxapps.sh built
