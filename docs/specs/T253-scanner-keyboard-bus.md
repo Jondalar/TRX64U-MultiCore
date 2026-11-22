@@ -1,7 +1,7 @@
 # T253 — The P7 keyboard scan uses the keyboard's I2C bus only, and the applications start it as PR #112 does
 
 **Status:** IN PROGRESS (2026-11-21). Asked by Alex, 2026-11-21.
-Open (one line, as in the TODO table): IN PROGRESS 11-22: S1, S4 PASS, S3 picture and colours; open: S2 10 min, S3 P7 key, import store + merge (pin 0.3.1)
+Open (one line, as in the TODO table): IN PROGRESS 11-22: S1, S4 PASS, S3 picture and colours; open: S2 10 min, S3 P7 key, merge (pin 0.3.1)
 **Repo:** TRX64U-MultiCore — the I2C wiring in the top of every large core (`cores/*/mono/top.v`, `cores/*/mono/host/top.v`)
 and of the host (`host/top.v`); the start of the scan in the applications (`coreapp/src/coreapp.cc`,
 `host-app/software/hostapp/hostapp.cc`, `host-app/software/system/u64ii_init.cc`, `host-app/software/io/i2c/hw_i2c_drv.cc`).
@@ -191,4 +191,18 @@ Scenario: S4 (P1) every core and the host
   c392beed". The bitstream is the one of `main-52f9a7ec`. The Gitea prerelease `trx64-main-d94aa68e` exists, so the pin
   carries `SEMVER=0.3.1` (contract §2). `trx64u.pin` and `trx64g.pin` are written again (D3). Until the pin is on
   `integration`, the branch's collect job is red (T239.1 D43). The builder's import store needs `c950aa55...` and
-  `32b17761...` before the run on `integration` (filled by hand, T239.1 D43): open, Alex.
+  `32b17761...` before the run on `integration` (filled by hand, T239.1 D43): filled 2026-11-22 (below).
+- **0.3.1 released, the import store filled (2026-11-22):** Alex (translated): "TRX64U is tested and released as 0.3.1.
+  ... Finish it now with the pin." The newest TRX64-Ultimate release on Gitea is still `trx64-main-d94aa68e` (9 files), the
+  one the pins name. The builder's import store now holds `c950aa55...` (1,782,841 bytes) and `32b17761...` (1,685,036
+  bytes) beside the files of 2026-11-20; `sha256sum` on the builder gives the file names. Nothing in the store was removed.
+- **Both import entries packed (2026-11-22):** `ci/imports.py pack` at `f8b8800c`, in a throwaway worktree, from a store
+  with the same three files. `imp-trx64u-8bc03ceb4fcf0e77` gives `trx64u.cor` (1,892,625 bytes, the stand-in application).
+  `imp-trx64g-9025da3d66a0f8e8` gives `trx64g.cor` (3,470,464 bytes). `tools/cor_pack.py check` passes on both: version
+  0.3.1, kind large, idcode `0362c093`. Both manifests name `c950aa55...`; `trx64g.cor` holds `ultimate.app` without its
+  12-byte record (`8ba6bad7...`, named in its manifest). The builder publishes the two entries when the pin is on
+  `integration` (T239.1 D43).
+- **0.3.1 on the board (2026-11-22):** `/SD/cfws/trx64_update_d94aa68e_20261122.cfw` is the file of the package (SHA-256
+  `7072f400...`). It holds `c64_basic.bit` and `ultimate.app` byte for byte. Started from the host's File Browser with S
+  over the host's `/v1/ui`; the start question was answered yes. `GET /v1/info` then gave "firmware_version": "0.3.1",
+  "git_commit_hash": "eb3e6be".
