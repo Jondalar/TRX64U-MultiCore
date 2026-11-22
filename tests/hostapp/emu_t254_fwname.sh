@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # T254 S1-S5: a foreign firmware shows the name and version it gives itself, through the real host application in ue2emu. The stick's cores/ holds
 # synthetic firmware files (tests/hostapp/mkconvtest.py's vendor layout, no vendor bytes): a Gideon-like .cfw whose application says
-# "Software version:   3.15", a TRX64-Ultimate-like .ue2 ("TRX64 Ultimate", "0.3.1"), a .cfw without the line, and a .cor packaged before T254
-# (manifest version "bit 2026/10/25") whose application says "1.2.1". The walk: F3 > USB0 > cores, each row's panel (PNG), S on the .cfw (the
-# question, PNG, cancelled), A (boot.cfg), P (the .cor's manifest), the packaged row's panel (PNG), F1 (PNG).
+# "Software version:   3.15", a TRX64-Ultimate-like .ue2 ("TRX64 Ultimate", "0.3.1"), a .cfw without the line, a .cor packaged before T254
+# (manifest version "bit 2026/10/25") whose application says "1.2.1", and a Commodore-like .cfw ("1.2.1"). The walk: F3 > USB0 > cores, each
+# row's panel (PNG), S on the .cfw (the question, PNG, cancelled), A (boot.cfg), P (the .cor's manifest), the packaged row's panel (PNG), A on the
+# .ue2 and the Commodore-like .cfw, F1 (PNG: the three entries with their icons).
 #
 #   tests/hostapp/emu_t254_fwname.sh <images dir with hostapp_emu.elf> <out dir>
 set -uo pipefail
@@ -36,6 +37,7 @@ bit_t = TC.full_bit(frames=2500)
 open(d + "/a_gideon.cfw", "wb").write(M.vendor_image(bit_g, app_with(200000, (90000, b"Software version:   3.15\n   Build date:")), True))
 open(d + "/b_trx.ue2", "wb").write(M.vendor_image(bit_t, app_with(200000, (150000, b"on TRX64 Ultimate hardware"), (60000, b"Software version:   0.3.1\n")), False))
 open(d + "/c_plain.cfw", "wb").write(M.vendor_image(bit_g, app_with(200000), True))
+open(d + "/e_c121.cfw", "wb").write(M.vendor_image(bit_g, app_with(200000, (70000, b"Software version:   1.2.1\n")), True))
 old_app = app_with(200000, (80000, b"Software version:   1.2.1\n"))[12:]
 open(d + "/d_old.cor", "wb").write(C.pack_large("fw-0a1b2c3d", "u64_mk2_artix 2026/10/25 12:00:00", "bit 2026/10/25", bit_g, old_app, bytes(2048), origin="foreign"))
 PY
@@ -48,6 +50,7 @@ P="$out/t254"
   printf 'key s\nwait 3000\npng %s-5-start-ask.png\nkey space\nwait 2000\n' "$P"                    # the question, then any other key cancels
   printf 'key a\nwait 4000\npng %s-6-added.png\n' "$P"
   printf 'key p\nwait 40000\npng %s-7-packaged.png\nkey down\nwait 500\nkey down\nwait 3000\npng %s-8-packaged-panel.png\n' "$P" "$P"   # the list starts at .. again: a_gideon.cor is row 2"
+  printf 'key down\nwait 3000\nkey a\nwait 4000\nkey down\nwait 500\nkey down\nwait 500\nkey down\nwait 3000\nkey a\nwait 4000\n'   # A on b_trx.ue2 and on e_c121.cfw
   printf 'key f1\nwait 2500\npng %s-9-menu.png\nquit\n' "$P"; } > "$w/flow.ctl"
 cp "$kit/flash.bin" "$out/flash.bin"
 ( cd "$w" && nice -n 15 timeout 600 "$UE2EMU" run --board c64u --trx-io=on --icap --cor-dir "$w/cors" --core-dir "$w/profiles" --firmware "$img/hostapp_emu.elf" \
@@ -65,8 +68,9 @@ f = Fat(open(sys.argv[1], "rb").read()[0x580000:])
 e = f.find("boot.cfg")
 sys.stdout.write(f.read(e).decode() if e else "NO BOOT.CFG\n")
 PY
-if grep -q '^core=/USB0/cores/a_gideon.cfw|Gideon 3.15|' "$out/t254-boot.cfg"; then echo "PASS T254 S3: A added the entry as 'Gideon 3.15'"
-else echo "FAIL T254 S3: no boot.cfg line 'core=/USB0/cores/a_gideon.cfw|Gideon 3.15|' (see $out/t254-boot.cfg)"; FAIL=1; fi
+if grep -q '^core=/USB0/cores/a_gideon.cfw|Gideon 3.15|' "$out/t254-boot.cfg" && grep -q '^core=/USB0/cores/b_trx.ue2|TRX64 Ultimate 0.3.1|' "$out/t254-boot.cfg" \
+    && grep -q '^core=/USB0/cores/e_c121.cfw|Commodore 1.2.1|' "$out/t254-boot.cfg"; then echo "PASS T254 S3: A added the entries as 'Gideon 3.15', 'TRX64 Ultimate 0.3.1', 'Commodore 1.2.1'"
+else echo "FAIL T254 S3: boot.cfg lacks a line of the three entries (see $out/t254-boot.cfg)"; FAIL=1; fi
 # S5: the manifest of the .cor that P wrote
 cor="$(find "$w" -name a_gideon.cor | head -1)"
 if [ -n "$cor" ] && python3 "$ROOT/tools/cor_pack.py" check "$cor" > "$out/t254-cor.txt" 2>&1 && python3 -I - "$ROOT/tools" "$cor" >> "$out/t254-cor.txt" <<'PY'

@@ -1,7 +1,7 @@
 # T254 — A foreign firmware shows the name and version it gives itself, not its bitstream's date
 
 **Status:** IN PROGRESS (2026-11-22). Asked by Alex, 2026-11-22.
-Open (one line, as in the TODO table): IN PROGRESS 11-22: S1-S6 PASS (units, ue2emu); open: UX and code review, merge
+Open (one line, as in the TODO table): IN PROGRESS 11-22: S1-S6 PASS (units, ue2emu), UX review PASS; open: code review, merge
 **Repo:** TRX64U-MultiCore — the host application (`host-app/software/hostapp`).
 **Number:** T254.
 **Origin:** Alex, 2026-11-22 (translated): "Can we take something small into 0.2.1 that bothers me visually a lot? ... If it
@@ -130,3 +130,13 @@ Scenario: S6 (P6) the cost is bounded
   firmware". The test of S3's icon: `test_cfwicon` (above).
 - **The emulator flow's first run (2026-11-22):** after P the list starts at `..` again; picture 8 showed the `.cfw`. The flow
   now presses DOWN twice; the second run is the one above.
+- **UX review PASS (2026-11-22, the `ux-specialist` agent over the nine pictures):** the titles, the Version row and the
+  question fit and name the same thing. Low findings: the title and the Version row both say the version (D2 keeps the
+  version in its row); a file without the line still has the `.bit` header's title (D1: as before). The pictures of the
+  icons of a TRX64 and a Commodore entry were missing: the flow now adds `b_trx.ue2` and a Commodore-like `e_c121.cfw` too.
+  Its third run: "PASS T254 S3: A added the entries as 'Gideon 3.15', 'TRX64 Ultimate 0.3.1', 'Commodore 1.2.1'"; `t254-9`
+  shows them with Gideon's icon, the TRX64 icon and Gideon's icon. Not checked: other screen modes (the emulator image on
+  the builder refuses `--screen`; the host's canvas is 960x540 in every mode).
+- **Seen in the UX review, not part of T254 (a proposal for Alex):** the panel of a full firmware takes the rows of a
+  `.cor` ("Core: 10181 B bitstream", "SHA-256: map gideon_bl4", "Contract: none, it replaces the host"), and the FPGA row
+  spells the chip two ways (`7a50tfgg484` in a `.cfw`, `xc7a50t` in a `.cor`).
