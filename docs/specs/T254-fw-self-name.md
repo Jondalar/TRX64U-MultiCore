@@ -1,7 +1,7 @@
 # T254 — A foreign firmware shows the name and version it gives itself, not its bitstream's date
 
 **Status:** IN PROGRESS (2026-11-22). Asked by Alex, 2026-11-22.
-Open (one line, as in the TODO table): IN PROGRESS 11-22: S1-S8 PASS, merged (#130, #132); board PASS on host 5d1bf662; open: D7, D8 on the board
+Open (one line, as in the TODO table): IN PROGRESS 11-22: S1-S8 PASS, merged (#130, #132); open: D9 (F1 shows the firmware's version), D7 on the board
 **Repo:** TRX64U-MultiCore — the host application (`host-app/software/hostapp`).
 **Number:** T254.
 **Origin:** Alex, 2026-11-22 (translated): "Can we take something small into 0.2.1 that bothers me visually a lot? ... If it
@@ -130,6 +130,10 @@ Scenario: S8 (P7) the Version column of a firmware packaged without its version
   version: one packaged before T254, or one whose application has no version line. The boot menu reads nothing new. The width,
   with the glyphs of `lv_font_montserrat_14`: 143 px with the margin; the column has 150 px, on the compact canvas (480p) 96 px,
   where the text is cut with "..." (ux-review R5).
+- **D9 (Alex, 2026-11-22, on the board, translated: "It does .. but the version should be there"):** the Version column shows
+  the firmware's own version (3.15, 1.2.1), not "packaged firmware". Replaces D8. Seen with host `352a6b41`: F1 showed
+  "packaged firmware" for Gideon 3.15a and Commodore 1.2.1. Their `.cor` files were packaged before T254, so the manifest
+  names only the bitstream's date; the version line is in the firmware's application, where the File Browser reads it (D3).
 
 ## §4 Out of scope
 
