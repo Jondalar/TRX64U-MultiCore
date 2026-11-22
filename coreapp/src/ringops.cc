@@ -1,6 +1,6 @@
 // Timewarp as operations and state values (T104.2 UI, Alex 2026-10-28: everything declarative). The engine is ring.cc (TRX64-Ultimate's frame ring driver); this file is what
 // the menu says to it: start and stop, scrub a frame or a second, back to live, mark, resume here, write and load a .c64re. menu.toml F2 draws it (screens.cc layout
-// "timeline"), the keys of that layout call these operations (menuctl.cc).
+// "timeline"), the keys of that layout call these operations (the key table at the top of cores/trx64u/menu.toml).
 #include "ringops.h"
 #include "trx64u_ops.h"
 #include "trx_ring.h"

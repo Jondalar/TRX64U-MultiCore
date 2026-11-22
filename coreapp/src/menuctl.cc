@@ -2150,7 +2150,11 @@ bool MenuCtl::tick()
     }
     if (r.more) {
         char s[240];
-        snprintf(s, sizeof(s), "Writing %s: %d%s  (<- cancels)", c_->job_path, c_->job_pct, "%");
+        if (c_->job_path[0]) {
+            snprintf(s, sizeof(s), "Writing %s: %d%s  (<- cancels)", c_->job_path, c_->job_pct, "%");
+        } else {
+            snprintf(s, sizeof(s), "%s: %d%s  (<- cancels)", t.label, c_->job_pct, "%");     // a job that names no file (base 3.3: a task with job = true)
+        }
         set_status(s, false);
         return true;
     }
@@ -2440,6 +2444,12 @@ MenuCtl::Result MenuCtl::run_task(const Task &t, const char *text)
     OpResult r;
     if (t.ask && t.pick_dir) {
         return start_job(t, text);
+    }
+    if (t.job) {                                                    // base 3.3: a stepped operation, called again while it answers `more`, with the progress line and a cancel (start_job, tick)
+        if (t.ask) {
+            note_folder();
+        }
+        return start_job(t, text ? text : "", true);                // the operation places the name itself (bare), as the node attribute `job` does
     }
     if (t.ask) {
         note_folder();
@@ -4079,8 +4089,7 @@ bool MenuCtl::stage_on(int stage) const
     case KS_SHEET: return chooser_ && !entry_ && !pick_ && !busy_;
     case KS_APP: return app_mode_ && !busy_ && !entry_ && !pick_ && !chooser_;
     case KS_APP_TERM: return layout_is("terminal") && app_mode_ && !busy_ && !entry_ && !pick_;
-    case KS_MONITOR: return layout_is("terminal") && !app_mode_ && !busy_ && !entry_ && !pick_;
-    case KS_TIMELINE: return layout_is("timeline") && !busy_ && !entry_ && !pick_;
+    case KS_CORE: return c_->merge && c_->merge->nkeys > 0 && !app_mode_ && !busy_ && !entry_ && !pick_;      // the rows of the core's record say which tab they are for (core_row_next)
     case KS_BUSY: return busy_;
     case KS_PICK: return pick_;
     case KS_ENTRY: return entry_;
@@ -4090,8 +4099,37 @@ bool MenuCtl::stage_on(int stage) const
     }
 }
 
+// The first row of the core's key table (the record's section 18) from `from` on that is for the tab shown, holds this key and whose state holds; -1 when none. A row says where it is
+// for: `layout` the layout of the tab (layout_is), `node` the id of the tab.
+int MenuCtl::core_row_next(int k, int from) const
+{
+    const MenuMerge *mm = c_->merge;
+    for (int i = mm ? from : 0; mm && i < mm->nkeys; i++) {
+        const CoreKey &r = mm->keys[i];
+        if (!(r.row.lo < 0 || (k >= r.row.lo && k <= r.row.hi)) || (r.layout ? !layout_is(r.layout) : strcmp(tab_id(), r.node))) {
+            continue;
+        }
+        if (r.row.when && !when_holds(c_, r.row.when)) {
+            continue;
+        }
+        return i;
+    }
+    return -1;
+}
+
+// A row of the key table by its number in the intent: the rows of menukeytab.cc, then the core's own (descrec.h section 18).
+const KeyRow *MenuCtl::row_at(int idx) const
+{
+    int n;
+    const KeyRow *rows = menu_keymap(&n);
+    if (idx >= 0 && idx < n) {
+        return &rows[idx];
+    }
+    return idx >= n && c_->merge && idx - n < c_->merge->nkeys ? &c_->merge->keys[idx - n].row : 0;
+}
+
 // The first row, in the first live stage from `stage`, that holds this key (row `from` onwards in that stage). A live stage that swallows and holds no row for the key is an
-// intent of its own (MI_SWALLOW with no row).
+// intent of its own (MI_SWALLOW with no row). The rows of KS_CORE are numbered after those of menukeytab.cc.
 bool MenuCtl::resolve_from(int k, int stage, int from, MenuIntent *out) const
 {
     int n;
@@ -4101,13 +4139,22 @@ bool MenuCtl::resolve_from(int k, int stage, int from, MenuIntent *out) const
             continue;
         }
         int cur = s == stage ? from : 0;
-        const KeyRow *r = menu_keymap_next(s, k, &cur, when_holds, c_);
+        const KeyRow *r;
+        int idx;
+        if (s == KS_CORE) {
+            int ci = core_row_next(k, cur > n ? cur - n : 0);
+            r = ci >= 0 ? &c_->merge->keys[ci].row : 0;
+            idx = n + ci;
+        } else {
+            r = menu_keymap_next(s, k, &cur, when_holds, c_);
+            idx = r ? (int)(r - rows) : -1;
+        }
         if (r) {
             out->id = r->intent;
             out->arg = r->arg;
             out->key = k;
             out->stage = (int8_t)s;
-            out->row = (int16_t)(r - rows);
+            out->row = (int16_t)idx;
             return true;
         }
         if (menu_stage_swallows(s)) {
@@ -4285,9 +4332,7 @@ MenuCtl::Result MenuCtl::run_row_op(const KeyRow &row, int k, bool *took)
 
 MenuCtl::Result MenuCtl::run_intent(const MenuIntent &in, bool *took)
 {
-    int n;
-    const KeyRow *rows = menu_keymap(&n);
-    const KeyRow *row = in.row >= 0 && in.row < n ? &rows[in.row] : 0;
+    const KeyRow *row = row_at(in.row);
     const int k = in.key;
     *took = true;
     switch (in.id) {

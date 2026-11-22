@@ -49,6 +49,15 @@
 //        16 sector media   12 words: prefix nunits mount_reg mount_step feat_reg feat_sectors mbox_status mbox_lba mbox_done stage_off idle_sync_ms done_tag_mask (sectors.h)
 //        17 media replace  u32 count, then per entry the index of the media slot (ascending) and the label (MediaSlot::replace)
 //                          (a ROM's flag bit 2 in section 3 says that the core's code checks its content, CoreHooks::rom_check[i])
+//        18 key rows       T239.3 base 3.3, the key table of a core's UI TOML ([[key]]); u32 count (1 .. DR_KEYS), then per row 9 words: layout (string, none), node (string, none) - exactly
+//                          one of them -, lo, hi (both 0xFFFFFFFF: every key; else 0 <= lo <= hi <= 0x1FF), do (0 op, 1 decline, 2 swallow), op (string, none; present exactly for do 0), value
+//                          (32 bit two's complement; 0 unless flags bit 0), flags (menuintent.h KF_ARG 1, KF_KEYARG 2, KF_STATUS 4, KF_STATUS_OK 8, KF_CLOSE 32, KF_DIRECTIVE 64,
+//                          KF_DIRECT 128; none for a decline or a swallow; KF_ARG and KF_KEYARG not together), when (string, none: a state name, "!" in front: while it has none).
+//                          The rows are CoreKey (menuintent.h), stage KS_CORE, tried in the record's order where an application's screens end and the menu's grammar begins.
+//        19 windows        the register windows of a core's API TOML ([[window]]); u32 count (1 .. DR_WINDOWS), then per window 3 words: name (string, a-z 0-9 _, once), address, size (1 .. 0x100000,
+//                          the block ends below 4 GiB). A window that covers a byte of a register the base drives itself (basereg.def) is refused with the register's name and code reference.
+//                          descrec_window finds one by name (io.window).
+//                          Sections 18 and 19 need no core section (a menu.toml carries the key table, a desc.toml the windows); sections 1 .. 17 need it.
 //
 //   area   key name flags first_tab ntabs            (flags bit 0: shifted)
 //   tab    id name n widget groups layout      (layout: string offset, 0 = none: "name;key=value;..." how the tab is drawn, contrib.h ui_attr; version 2: reserved, 0)
@@ -58,7 +67,8 @@
 //   setting group key first_value nvalues lo hi def apply     (nvalues 0: a range lo .. hi)
 //   ctab   area id name widget groups n     (a tab added to an area of the route, T104.1 D8)
 //   The core's own menu (T104.2 D10), the five tables a C++ descriptor carried as Task / MediaSlot / FileType / Setting arrays:
-//   task   label op first_bind nbind flags ask ask_state pick_label group       (flags bit 0: closes the menu, bit 1: a folder is picked first,
+//   task   label op first_bind nbind flags ask ask_state pick_label group       (flags bit 0: closes the menu, bit 1: a folder is picked first, bit 2 (base 3.3): a job, a stepped
+//                                                                               operation with the progress line and a cancel (Task::job; not with a hotkey or a folder),
 //                                                                               bits 15:8 the default key of its hotkey, T228 R1: 'A'-'Z', '0'-'9', 0 none;
 //                                                                               bits 31:16 the offset + 1 of its show_state text, T228 R21, 0 none)
 //   media  name state eject_op first_bind nbind group [version 4: exts mount empty_tasks mounted_tasks flags(bit 0: eject closes the menu)]
@@ -120,7 +130,11 @@
 #define DR_BIND_BYTES 64                          // ... and the bytes one of them maps its values to
 #define DR_CAPS 8
 #define DR_MOUNT 6
-#define DR_SECTIONS 17                            // the ids 1 .. 17
+#define DR_SECTIONS 19                            // the ids 1 .. 19
+#define DR_KEYS 64                                // base 3.3: rows of the key table
+#define DR_WINDOWS 32                             // base 3.3: register windows
+#define DR_WINDOW_MAX 0x100000u                   // the largest window, bytes
+#define DESCREC_KEY_MAX 0x1FF                     // the largest key code of a key row
 #define DR_RESETW 8                               // reset writes
 #define DR_RAWKEY_HID 255
 #define DR_RAWKEY_MOD 8
@@ -164,6 +178,12 @@ struct DescSections {
     bool has_secmedia; SectorMediaSpec secmedia;
 };
 
+// A register window of a core's API TOML (section 19): io.window hands out `address` for `name`; `size` is the block's length in bytes. The name points into the record.
+struct DescWindow {
+    const char *name;
+    uint32_t address, size;
+};
+
 // What the reader makes of a record. The strings and the sizes point into the record's own bytes: keep them while this is used.
 struct DescRecord {
     bool has_route;                               // the record gives the route; else the default one stays
@@ -196,6 +216,9 @@ struct DescRecord {
     FileType ftypes[DR_FTYPES]; int nftypes;
     FileAction facts[DR_FACTS];
     Setting csettings[DR_CSETS]; int ncsettings;
+    // T239.3 base 3.3 (sections 18 and 19): the core's key table and register windows
+    CoreKey keys[DR_KEYS]; int nkeys;
+    DescWindow windows[DR_WINDOWS]; int nwindows;
     // T239.3 D17, version 6: has the record data sections? Then `sec` holds them (descrec_core makes the descriptor of them); the destructor frees it.
     bool has_core;
     DescSections *sec;
@@ -207,6 +230,19 @@ struct DescRecord {
 
 // Reads the record. 0 and `out` filled, or a negative number and a sentence in why.
 int descrec_parse(const uint8_t *rec, uint32_t n, DescRecord *out, char *why, int whylen);
+
+// The window `name` of the record (io.window of the base calls it with the core's name of the window): null when the record declares none of that name. The record was checked at
+// load: no window covers a register the base drives itself.
+const DescWindow *descrec_window(const DescRecord &rec, const char *name);
+
+// The registers the base drives itself (basereg.def): the first one that the block [address, address + size) covers, else null. `ref` is the code that drives it.
+struct BaseReg {
+    const char *name;
+    uint32_t address, bytes;
+    const char *ref;
+};
+const BaseReg *descrec_base_reg_hit(uint32_t address, uint32_t size);
+const BaseReg *descrec_base_regs(int *n);
 
 // What a descriptor holds that is code, not data (T239.3 D17): the control hooks, the operations' registration, the media write-back and the three functions of the mount
 // slot. In this step the compiled-in code of the core provides them; the record has none of it.

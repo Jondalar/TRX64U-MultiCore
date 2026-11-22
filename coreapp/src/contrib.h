@@ -21,6 +21,7 @@
 #include "settings.h"
 #include "libapi.h"
 #include "menutree.h"
+#include "menuintent.h"
 
 enum ContribRank { CR_DESC = 0, CR_LIB = 1, CR_APP = 2 };
 
@@ -120,6 +121,10 @@ struct MenuMerge {
     FileType filetypes[CONTRIB_FILETYPES_MAX];
     FileAction actions[CONTRIB_ACTIONS_MAX];
     int nactions;
+    // T239.3 base 3.3: the key table of the core's description (descrec.h section 18; the rows live in the record, which outlives this). contrib_merge clears it; the caller that has the
+    // description sets it (bundle_merge, the tests' trx64u menu).
+    const CoreKey *keys;
+    int nkeys;
 };
 
 // Merges the contributions into `d`. `reg` (optional) is asked whether the operations and states the contributions name exist and whether

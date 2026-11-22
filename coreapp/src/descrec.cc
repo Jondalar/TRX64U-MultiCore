@@ -70,7 +70,41 @@ bool id_ok(const char *s)
 
 // T239.3 D17: the data sections of a version 6 record. Every refusal names the record and the section.
 static const char *const secnames[DR_SECTIONS + 1] = { "", "core", "video", "roms", "setting register bits", "hotkeys", "mount slots", "reset writes", "id feature", "report registers",
-                                                         "raw keys", "alternative video", "picture window", "mouse", "rom set", "window media", "sector media", "media replace" };
+                                                         "raw keys", "alternative video", "picture window", "mouse", "rom set", "window media", "sector media", "media replace", "key rows", "windows" };
+
+// T239.3 base 3.3: the registers the base drives itself (basereg.def; tools/descrec.py reads the same file)
+static const BaseReg g_base_regs[] = {
+#define BASE_REG(n, a, s, r) { #n, a, s, r },
+#include "basereg.def"
+#undef BASE_REG
+};
+
+const BaseReg *descrec_base_regs(int *n)
+{
+    *n = (int)(sizeof(g_base_regs) / sizeof(g_base_regs[0]));
+    return g_base_regs;
+}
+
+const BaseReg *descrec_base_reg_hit(uint32_t address, uint32_t size)
+{
+    for (unsigned i = 0; i < sizeof(g_base_regs) / sizeof(g_base_regs[0]); i++) {
+        const BaseReg &g = g_base_regs[i];
+        if ((uint64_t)address < (uint64_t)g.address + g.bytes && (uint64_t)g.address < (uint64_t)address + size) {
+            return &g;
+        }
+    }
+    return 0;
+}
+
+const DescWindow *descrec_window(const DescRecord &rec, const char *name)
+{
+    for (int i = 0; name && i < rec.nwindows; i++) {
+        if (!strcmp(rec.windows[i].name, name)) {
+            return &rec.windows[i];
+        }
+    }
+    return 0;
+}
 
 static int parse_sections(Rd &r, uint32_t off, uint32_t size, DescRecord *out, uint32_t ncset)
 {
@@ -78,8 +112,6 @@ static int parse_sections(Rd &r, uint32_t off, uint32_t size, DescRecord *out, u
     bool bad = false;
     uint32_t pos = off;
     const uint32_t end = off + size;
-    out->sec = new DescSections;                                  // a record without sections never gets one (descrec.h)
-    memset(out->sec, 0, sizeof(*out->sec));
     while (pos < end) {
         if (end - pos < 8) {
             return r.fail("description record: a section header is cut off");
@@ -89,6 +121,10 @@ static int parse_sections(Rd &r, uint32_t off, uint32_t size, DescRecord *out, u
             return r.fail("description record, section %u: this application does not know it", (unsigned)id);
         }
         const char *nm = secnames[id];
+        if (id <= 17 && !out->sec) {                                  // the core's data sections get their room; a record of the key table or the windows alone never does (descrec.h)
+            out->sec = new DescSections;
+            memset(out->sec, 0, sizeof(*out->sec));
+        }
         if ((seen >> id & 1) || (len & 3) || len > end - pos - 8) {
             return r.fail("description record, section %s: twice, not a multiple of 4, or longer than the record", nm);
         }
@@ -495,6 +531,63 @@ static int parse_sections(Rd &r, uint32_t off, uint32_t size, DescRecord *out, u
             q.mbox_status = (uint16_t)v[4]; q.mbox_lba = (uint16_t)v[5]; q.mbox_done = (uint16_t)v[6]; q.stage_off = SW(9);
             q.idle_sync_ms = (uint16_t)v[7]; q.done_tag_mask = (uint8_t)v[8];
             out->sec->has_secmedia = true;
+        } else if (id == 18) {
+            if (len < 4 || SW(0) < 1 || SW(0) > DR_KEYS || len != 4 + 36 * SW(0)) {
+                return r.fail("description record, section %s: the count (1 to %d) or the length does not fit", nm, DR_KEYS);
+            }
+            for (uint32_t i = 0; i < SW(0); i++) {
+                const uint32_t w = 1 + 9 * i;
+                CoreKey &k = out->keys[i];
+                memset(&k, 0, sizeof(k));
+                k.layout = r.str(SW(w), &bad);
+                k.node = r.str(SW(w + 1), &bad);
+                const uint32_t lo = SW(w + 2), hi = SW(w + 3), act = SW(w + 4), val = SW(w + 6), fl = SW(w + 7);
+                const char *op = r.str(SW(w + 5), &bad);
+                const char *when = r.str(SW(w + 8), &bad);
+                // the same rules as tools/descrec.py _row_checks
+                bool ok = !bad && (k.layout != 0) != (k.node != 0) && (!k.layout || (id_ok(k.layout) && strlen(k.layout) <= 23)) && (!k.node || id_ok(k.node)) &&
+                          (lo == DESCREC_NONE ? hi == DESCREC_NONE : (lo <= hi && hi <= DESCREC_KEY_MAX)) && act <= 2 && (fl & ~(uint32_t)(KF_ARG | KF_KEYARG | KF_STATUS | KF_STATUS_OK | KF_CLOSE | KF_DIRECTIVE | KF_DIRECT)) == 0 &&
+                          !((fl & KF_ARG) && (fl & KF_KEYARG)) && (act == 0) == (op != 0) && (!op || op[0]) && ((fl & KF_ARG) || val == 0) && (act == 0 || fl == 0);
+                if (ok && when) {
+                    const char *wn = when[0] == '!' ? when + 1 : when;
+                    ok = wn[0] && wn[0] != '!';
+                }
+                if (!ok) {
+                    return r.fail("description record, section %s: row %u has a bad string, scope, key range, action or flag", nm, (unsigned)(i + 1));
+                }
+                k.row.stage = KS_CORE;
+                k.row.lo = lo == DESCREC_NONE ? -1 : (int16_t)lo;
+                k.row.hi = lo == DESCREC_NONE ? -1 : (int16_t)hi;
+                k.row.intent = act == 0 ? MI_OP : act == 1 ? MI_DECLINE : MI_SWALLOW;
+                k.row.arg = (int32_t)val;
+                k.row.op = op;
+                k.row.flags = (uint16_t)fl;
+                k.row.when = when;
+            }
+            out->nkeys = (int)SW(0);
+        } else if (id == 19) {
+            if (len < 4 || SW(0) < 1 || SW(0) > DR_WINDOWS || len != 4 + 12 * SW(0)) {
+                return r.fail("description record, section %s: the count (1 to %d) or the length does not fit", nm, DR_WINDOWS);
+            }
+            for (uint32_t i = 0; i < SW(0); i++) {
+                DescWindow &d = out->windows[i];
+                d.name = r.str(SW(1 + 3 * i), &bad);
+                d.address = SW(2 + 3 * i);
+                d.size = SW(3 + 3 * i);
+                if (bad || !id_ok(d.name) || d.size < 1 || d.size > DR_WINDOW_MAX || (uint64_t)d.address + d.size > 0x100000000ull) {
+                    return r.fail("description record, section %s: window %u has no name of a-z 0-9 _, or a size outside 1 .. 0x%X, or ends above 4 GiB", nm, (unsigned)(i + 1), DR_WINDOW_MAX);
+                }
+                if (const BaseReg *g = descrec_base_reg_hit(d.address, d.size)) {
+                    return r.fail("description record, section %s: window \"%s\" covers %s (0x%08X, %u byte%s), a register the base drives itself (%s); split the block into the runs the core writes",
+                                  nm, d.name, g->name, (unsigned)g->address, (unsigned)g->bytes, g->bytes == 1 ? "" : "s", g->ref);
+                }
+                for (uint32_t j = 0; j < i; j++) {
+                    if (!strcmp(out->windows[j].name, d.name)) {
+                        return r.fail("description record, section %s: the name \"%s\" twice", nm, d.name);
+                    }
+                }
+            }
+            out->nwindows = (int)SW(0);
         } else {
             if (len < 4 || SW(0) < 1 || SW(0) > (uint32_t)out->nmedia || len != 4 + 8 * SW(0)) {
                 return r.fail("description record, section %s: the count (1 to the media slots, %d) or the length does not fit", nm, out->nmedia);
@@ -513,13 +606,16 @@ static int parse_sections(Rd &r, uint32_t off, uint32_t size, DescRecord *out, u
 #undef SW
 #undef NEED
     }
-    if (!(seen & 2)) {
+    if (!(seen & 2) && (seen & 0x3FFFEu)) {          // sections 1 .. 17 need the core's identity; the key table and the windows (18, 19) do not
         return r.fail("description record, section %s: missing (the data sections need the core's identity)", secnames[1]);
     }
     for (uint32_t i = 0; i < ncset; i++) {
         Setting &cs = out->csettings[i];
         if (cs.apply || cs.bind) {
             continue;
+        }
+        if (!out->sec) {
+            return r.fail("description record, section %s: core setting %u has neither an operation nor register bits, and is not the rom set's choice", secnames[4], (unsigned)i);
         }
         // the third form (desc.h Setting::bind): the item that chooses the member of the core's rom set. Its values are the set's labels, which the record holds as the same strings.
         const RomSetSpec &q = out->sec->romset;
@@ -853,14 +949,15 @@ int descrec_parse(const uint8_t *rec, uint32_t n, DescRecord *out, char *why, in
         d.pick_label = r.str(W(e, 7), &bad);
         d.group = r.str(W(e, 8), &bad);
         const char hk = (char)(fl >> 8);                       // T228 R1: bits 15:8 the default key of the task's hotkey, 0 none
-        if (bad || !d.label || !d.label[0] || !d.op || !d.op[0] || (fl & 0xFFFFu & ~0xFF03u) || (uint64_t)fb + nb > tb[B].count || (!d.ask && (d.ask_state || (fl & 2) || d.pick_label)) ||
-            (d.pick_label && !(fl & 2)) || (hk && !((hk >= 'A' && hk <= 'Z') || (hk >= '0' && hk <= '9')))) {
+        if (bad || !d.label || !d.label[0] || !d.op || !d.op[0] || (fl & 0xFFFFu & ~0xFF07u) || (uint64_t)fb + nb > tb[B].count || (!d.ask && (d.ask_state || (fl & 2) || d.pick_label)) ||
+            (d.pick_label && !(fl & 2)) || (hk && !((hk >= 'A' && hk <= 'Z') || (hk >= '0' && hk <= '9'))) || ((fl & 4) && (hk || (fl & 2)))) {
             return r.fail("description record: task %u has a bad string, flag or binding run", (unsigned)i);
         }
         d.bind = nb ? out->binds + fb : 0;
         d.nbind = (int)nb;
         d.closes_menu = fl & 1;
         d.pick_dir = (fl & 2) != 0;
+        d.job = (fl & 4) != 0;                                 // base 3.3: a stepped operation with the progress line (not with a hotkey or a folder, checked above)
         d.hotkey = hk;
         if (fl >> 16) {                                        // the condition that lists the task (the offset + 1 of its text above the flags' low 16 bits)
             d.show_state = r.str((fl >> 16) - 1, &bad);

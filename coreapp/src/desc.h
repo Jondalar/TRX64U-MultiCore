@@ -127,6 +127,9 @@ struct Task {
     char hotkey;
     // T228 R21: the task is listed only while this condition holds (contrib.h cond_holds, a state name with the same forms as a node's when_state); null: always. Last, as hotkey.
     const char *show_state;
+    // T239.3 base 3.3: a stepped operation (the node attribute `job`): the menu calls the operation again while it answers `more`, with the progress line (CoreCtx::job_pct) and a cancel
+    // (CoreCtx::job_cancel). Last, as show_state.
+    bool job;
 };
 
 struct FileAction {

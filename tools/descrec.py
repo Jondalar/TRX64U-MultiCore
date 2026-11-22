@@ -176,11 +176,32 @@ Source (TOML; every key is checked, an unknown one is an error - a typo must not
     default = ["up", "down", "left", "right", "face_bottom"]  # per button: up down left right (D-pad or stick), a position face_right face_bottom
                                    # face_left face_top l r select start (resolved per pad, pad.h PAD_ROLE_*), button1 .. button32, none
 
+    # T239.3 base 3.3 (sections 18 and 19, version 6; they need no [core]): the key table of a core's UI TOML (menu.toml) and the register windows of its API TOML (desc.toml).
+    # Both files are one record: cor_pack.py pack --desc menu.toml --desc desc.toml (a table or key present in two files is refused with both names).
+    [[key]]                        # a row of the key table (replaces the KS_MONITOR and KS_TIMELINE rows of menukeytab.cc); rows are tried in file order, after an application's
+                                   # screens and before the grammar of the menu, the first that matches takes the key. `key = [ {..}, {..} ]` is the same table (one line a row)
+    layout = "terminal"            # the scope: while the shown tab has this layout (home desk split settings status library timeline terminal app grid) ...
+    node = "monitor"               # ... or, instead of layout, while the shown tab has this id; exactly one of them. Rows do not apply in an application's screens
+    key = "any"                    # one key (up down left right return esc del runstop space home pgup pgdn tab f1 .. f8 f10 scrlock menu ctrl+<letter> or one printable
+                                   # character), or "any" (every key); or codes = [32, 126] (a range of key codes, inclusive) - exactly one of key and codes
+    do = "op"                      # op (the default when `op` is given), decline (the key goes on to the menu's grammar) or swallow (the key is spent)
+    op = "monitor.key"             # the operation (do = op)
+    value = -10                    # the operation's int argument "value" (KF_ARG); pass_key = true sends the key as its int argument "key" instead (KF_KEYARG): not both
+    status = true                  # the answer's text is the status line, bad when the operation failed (KF_STATUS)      status_ok: also when it succeeded (KF_STATUS_OK)
+    close = true                   # the menu closes after it (KF_CLOSE)      directive: the answer's text is "close" or "goto SPEC" for the menu (KF_DIRECTIVE)
+    direct = true                  # called on the menu task, without the core lock (KF_DIRECT)      when = "!monitor.wants_stop": the row counts only while that state has a text
+    [[window]]                     # a register window io.window hands out by name; refused when it covers a register the base drives itself (coreapp/src/basereg.def)
+    name = "audio_mixer"           # a-z, 0-9, _ (at most 31), once per record
+    address = 0xA0000500
+    size = 0x14                    # bytes, 1 .. 0x100000
+    # a [[task]] with job = true runs as a stepped operation (the menu calls it while it answers `more`, with the progress line and a cancel): no hotkey, no pick_dir
+
     hide = ["some_node_id"]        # nodes of other contributors the description hides; a key at the top of the file, before the first table
     [[rename]]
     id = "some_node_id"
     label = "New label"
 """
+import os
 import re
 import struct
 
@@ -585,7 +606,7 @@ def compile_desc(doc, merged=()):
     """doc: the parsed TOML (a dict). Returns the record's bytes. `merged`: the names of the libraries whose menus were merged into it (merge_lib_menus)."""
     _expand_apps(doc)
     _only(doc, {"area", "node", "file_action", "setting", "hide", "rename", "tab", "poll", "task", "media", "filetype", "core_setting", "lists", "machine_info",
-                "pad", "restart"} | set(SEC_KEYS), "description")
+                "pad", "restart", "key", "window"} | set(SEC_KEYS), "description")
     st = _Strings()
     t = {k: [] for k in ORDER}
 
@@ -789,7 +810,7 @@ def compile_desc(doc, merged=()):
 
     hotkeys = []
     for tk in _opt(doc, "task", list, "description", []):
-        _only(tk, {"group", "label", "op", "bind", "closes_menu", "ask", "ask_state", "pick_dir", "pick_label", "hotkey", "show_state"}, "task")
+        _only(tk, {"group", "label", "op", "bind", "closes_menu", "ask", "ask_state", "pick_dir", "pick_label", "hotkey", "show_state", "job"}, "task")
         label = _need(tk, "label", str, "task")
         what = "task " + label
         fb, nb = bind_list(_opt(tk, "bind", list, what, []), what)
@@ -805,7 +826,10 @@ def compile_desc(doc, merged=()):
             raise DescError("%s: a hotkey runs the task while the core runs, where nothing can be asked; a task with ask has none" % what)
         if hk:
             hotkeys.append(label)
-        flags = (1 if _opt(tk, "closes_menu", bool, what, False) else 0) | (2 if _opt(tk, "pick_dir", bool, what, False) else 0) | (ord(hk) << 8 if hk else 0)   # bits 15:8 the hotkey
+        job = _opt(tk, "job", bool, what, False)
+        if job and (hk or tk.get("pick_dir")):
+            raise DescError("%s: a job is a stepped operation the menu runs with its progress line; it has no hotkey (nothing shows the progress while the core runs) and no pick_dir (that task is stepped already)" % what)
+        flags = (1 if _opt(tk, "closes_menu", bool, what, False) else 0) | (2 if _opt(tk, "pick_dir", bool, what, False) else 0) | (4 if job else 0) | (ord(hk) << 8 if hk else 0)   # bit 2 job, bits 15:8 the hotkey
         show = _opt(tk, "show_state", str, what, None)                   # the row is listed only while this condition holds (contrib.h cond_holds); bits 31:16 the text's offset + 1, as a file action's
         if show:
             so = st.add(show) + 1
@@ -1147,9 +1171,11 @@ def _pad_words(pad, t, st):
 
 SEC_CORE, SEC_VIDEO, SEC_ROMS, SEC_SETBIND, SEC_HOTKEYS, SEC_MOUNT = 1, 2, 3, 4, 5, 6
 (SEC_RESETW, SEC_IDFEAT, SEC_REPORT, SEC_RAWKEYS, SEC_ALTVIDEO, SEC_FBWIN, SEC_MOUSE, SEC_ROMSET, SEC_WINMEDIA, SEC_SECMEDIA, SEC_REPLACE) = range(7, 18)
+SEC_KEYROWS, SEC_WINDOWS = 18, 19      # base 3.3: the key table of the UI TOML and the register windows of the API TOML; they need no [core] (a menu.toml carries the key table)
 SEC_NAMES = {SEC_CORE: "core", SEC_VIDEO: "video", SEC_ROMS: "roms", SEC_SETBIND: "setting register bits", SEC_HOTKEYS: "hotkeys", SEC_MOUNT: "mount slots",
              SEC_RESETW: "reset writes", SEC_IDFEAT: "id feature", SEC_REPORT: "report registers", SEC_RAWKEYS: "raw keys", SEC_ALTVIDEO: "alternative video",
-             SEC_FBWIN: "picture window", SEC_MOUSE: "mouse", SEC_ROMSET: "rom set", SEC_WINMEDIA: "window media", SEC_SECMEDIA: "sector media", SEC_REPLACE: "media replace"}
+             SEC_FBWIN: "picture window", SEC_MOUSE: "mouse", SEC_ROMSET: "rom set", SEC_WINMEDIA: "window media", SEC_SECMEDIA: "sector media", SEC_REPLACE: "media replace",
+             SEC_KEYROWS: "key rows", SEC_WINDOWS: "windows"}
 SEC_KEYS = ("core", "video", "freeze", "rom", "hotkeys", "mount", "reset_write", "id_feature", "report_reg", "rawkeys", "alt_video", "fbwin", "mouse", "romset",
             "window_media", "sector_media")           # the top-level TOML keys that make a record version 6 (and `replace` in a [[media]])
 CORE_FLAGS = ("poll_when_frozen", "board_caps", "id_shared", "own_volume", "no_tone", "menu_first")
@@ -1443,6 +1469,175 @@ def _sec_replace(items, st):
     return out
 
 
+# ---- the key table and the register windows (T239.3 base 3.3) --------------------------------------------------------------
+# Sections 18 and 19. They belong to two different files of a core (the key table to its UI TOML menu.toml, the windows to its API TOML desc.toml), so they need no [core]:
+# a record that has only these is a menu record of version 6 whose sections are these. Both are checked here and in descrec.cc by the same rules.
+#
+# key rows   u32 count (1 .. KEYS_MAX), then per row 9 words: layout (string, none), node (string, none) - exactly one of them -, lo, hi (both 0xFFFFFFFF: every key; else 0 <= lo <= hi
+#            <= 0x1FF), do (0 op, 1 decline, 2 swallow), op (string, none; present exactly for do = 0), value (the operation's argument, 32 bit two's complement; 0 unless flags bit 0),
+#            flags (menuintent.h KF_ARG 1, KF_KEYARG 2, KF_STATUS 4, KF_STATUS_OK 8, KF_CLOSE 32, KF_DIRECTIVE 64, KF_DIRECT 128; none for a decline or a swallow), when (string, none)
+# windows    u32 count (1 .. WINDOWS_MAX), then per window 3 words: name (string), address, size (bytes)
+#
+# The rows are tried in the order of the record, where the generic rows of the monitor and Timewarp stood (menukeytab.cc, stage KS_CORE); layout names the layout of the shown
+# tab (menuctl.cc layout_is), node the id of the shown tab.
+KEYS_MAX = 64
+WINDOWS_MAX = 32
+WINDOW_SIZE_MAX = 0x100000             # a block of the I/O space is at most 1 MiB (the video block of the U64 core is the largest, 0x10000)
+KEY_FLAGS = {"pass_key": 2, "status": 4, "status_ok": 8, "close": 32, "directive": 64, "direct": 128}      # menuintent.h KF_*; `value` is KF_ARG (1)
+KF_ARG = 1
+KEY_KEYS = {"layout", "node", "key", "codes", "do", "op", "value", "when"} | set(KEY_FLAGS)
+KEY_DO = ("op", "decline", "swallow")
+KEY_ANY = 0xFFFFFFFF
+KEY_CODE_MAX = 0x1FF
+# The names of the keys: host-app/software/io/c64/keyboard.h (tools/test_descrec.py reads that file and compares). `ctrl+<letter>` only for the letters the keyboard delivers.
+KEY_NAMES = {"up": 0x91, "down": 0x12, "left": 0x9D, "right": 0x1D, "return": 0x0D, "esc": 0x1B, "del": 0x08, "runstop": 0x11, "space": 0x20, "home": 0x13, "pgup": 0x92, "pgdn": 0x95,
+             "tab": 0x09, "f1": 0x85, "f2": 0x89, "f3": 0x86, "f4": 0x8A, "f5": 0x87, "f6": 0x8B, "f7": 0x88, "f8": 0x8C, "f10": 0x8E, "scrlock": 0xA3, "menu": 0x1FE}
+KEY_CTRL = {"a": 0x01, "b": 0x02, "c": 0x03, "d": 0x04, "e": 0x05, "i": 0x09, "j": 0x0A, "k": 0x0B, "l": 0x0C, "n": 0x0E, "o": 0x0F, "p": 0x10, "r": 0xBA, "v": 0x16, "z": 0x1A}
+BASEREG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "coreapp", "src", "basereg.def")
+_BASEREG = []
+
+
+def base_registers():
+    """The registers the base drives itself: [(name, address, bytes, code reference)], read from coreapp/src/basereg.def (the table descrec.cc includes)."""
+    if not _BASEREG:
+        with open(BASEREG_FILE) as f:
+            lines = f.read().splitlines()
+        for line in lines:
+            m = re.match(r'BASE_REG\(\s*(\w+)\s*,\s*(0x[0-9A-Fa-f]+)\s*,\s*(\d+)\s*,\s*"([^"]+)"\s*\)\s*$', line)
+            if m:
+                _BASEREG.append((m.group(1), int(m.group(2), 16), int(m.group(3)), m.group(4)))
+        if not _BASEREG:
+            raise DescError("%s: no register of the base is listed" % BASEREG_FILE)
+    return list(_BASEREG)
+
+
+def window_conflict(address, size):
+    """The first register of the base that the block [address, address + size) covers, as (name, address, bytes, code reference); None when it covers none."""
+    for reg in base_registers():
+        if address < reg[1] + reg[2] and reg[1] < address + size:
+            return reg
+    return None
+
+
+def _key_code(name, what):
+    if not isinstance(name, str) or not name:
+        raise DescError("%s: key is a name or one printable character" % what)
+    if name in KEY_NAMES:
+        return KEY_NAMES[name]
+    if name.startswith("ctrl+"):
+        if name[5:] not in KEY_CTRL:
+            raise DescError("%s: key %r - ctrl+ takes one of the letters %s" % (what, name, ", ".join(sorted(KEY_CTRL))))
+        return KEY_CTRL[name[5:]]
+    if len(name) == 1 and 0x21 <= ord(name) <= 0x7E:
+        return ord(name)
+    raise DescError("%s: key %r is not a key name (%s, ctrl+<letter>), \"any\" or one printable character" % (what, name, ", ".join(KEY_NAMES)))
+
+
+def _key_name(code):
+    """The TOML key that makes this code (the reader's answer, so that decoding and compiling again gives the same bytes)."""
+    for n, c in KEY_NAMES.items():
+        if c == code:
+            return {"key": n}
+    for n, c in KEY_CTRL.items():
+        if c == code:
+            return {"key": "ctrl+" + n}
+    if 0x21 <= code <= 0x7E:
+        return {"key": chr(code)}
+    return {"codes": [code, code]}
+
+
+def _row_checks(layout, node, lo, hi, do, op, value, flags, when, what):
+    """The rules both readers hold a key row to (descrec.cc parse_sections, id 18)."""
+    if (layout is None) == (node is None):
+        raise DescError("%s: exactly one of layout and node" % what)
+    if layout is not None and not re.fullmatch(r"[a-z0-9_]{1,23}", layout):
+        raise DescError("%s: layout %r is a layout name (a-z, 0-9, _, at most 23)" % (what, layout))
+    if node is not None and not re.fullmatch(r"[a-z0-9_]{1,31}", node):
+        raise DescError("%s: node %r is a tab id (a-z, 0-9, _, at most 31)" % (what, node))
+    if not ((lo == KEY_ANY and hi == KEY_ANY) or (lo <= hi <= KEY_CODE_MAX)):
+        raise DescError("%s: the keys are every key or a range of codes 0 .. %d" % (what, KEY_CODE_MAX))
+    if do > 2 or flags & ~(KF_ARG | 2 | 4 | 8 | 32 | 64 | 128) or (flags & KF_ARG and flags & 2):
+        raise DescError("%s: an unknown action or flag, or both value and pass_key" % what)
+    if (do == 0) != (op is not None) or (op is not None and not op) or (not flags & KF_ARG and value) or (do and flags):
+        raise DescError("%s: an op row has an operation and the flags for it; a decline or a swallow has neither" % what)
+    if when is not None:
+        name = when[1:] if when.startswith("!") else when
+        if not name or name.startswith("!"):
+            raise DescError("%s: when is a state name, \"!\" in front of it for none" % what)
+
+
+def _sec_keys(rows, st):
+    if not isinstance(rows, list) or not 1 <= len(rows) <= KEYS_MAX or not all(isinstance(r, dict) for r in rows):
+        raise DescError("key: 1 to %d rows, each a table" % KEYS_MAX)
+    out = [struct.pack("<I", len(rows))]
+    for i, r in enumerate(rows):
+        what = "key row %d" % (i + 1)
+        _only(r, KEY_KEYS, what)
+        layout = _opt(r, "layout", str, what, None)
+        node = _opt(r, "node", str, what, None)
+        if ("key" in r) == ("codes" in r):
+            raise DescError("%s: exactly one of key and codes" % what)
+        if "key" in r:
+            k = _need(r, "key", str, what)
+            lo = hi = KEY_ANY if k == "any" else _key_code(k, what)
+        else:
+            c = _need(r, "codes", list, what)
+            if len(c) != 2 or not all(isinstance(x, int) and not isinstance(x, bool) and 0 <= x <= KEY_CODE_MAX for x in c) or c[0] > c[1]:
+                raise DescError("%s: codes = [lo, hi], 0 .. %d, lo not above hi" % (what, KEY_CODE_MAX))
+            lo, hi = c
+        op = _opt(r, "op", str, what, None)
+        do = _opt(r, "do", str, what, "op" if op is not None else None)
+        if do is None:
+            raise DescError("%s: do is op, decline or swallow (op alone means do = \"op\")" % what)
+        if do not in KEY_DO:
+            raise DescError("%s: do %r (one of %s)" % (what, do, ", ".join(KEY_DO)))
+        flags = 0
+        value = 0
+        if "value" in r:
+            value = _need(r, "value", int, what)
+            if not -2 ** 31 <= value < 2 ** 31:
+                raise DescError("%s: value does not fit 32 bits" % what)
+            flags |= KF_ARG
+        for k, bit in KEY_FLAGS.items():
+            if _opt(r, k, bool, what, False):
+                flags |= bit
+        when = _opt(r, "when", str, what, None)
+        _row_checks(layout, node, lo, hi, KEY_DO.index(do), op, value & 0xFFFFFFFF, flags, when, what)
+        out.append(struct.pack("<9I", st.add(layout), st.add(node), lo, hi, KEY_DO.index(do), st.add(op), value & 0xFFFFFFFF, flags, st.add(when)))
+    return b"".join(out)
+
+
+def _window_check(name, address, size, what):
+    if not isinstance(name, str) or not re.fullmatch(r"[a-z0-9_]{1,31}", name):
+        raise DescError("%s: name is a-z, 0-9 and _, 1 to 31 characters" % what)
+    if not 1 <= size <= WINDOW_SIZE_MAX or address + size > 2 ** 32:
+        raise DescError("%s (%s): size is 1 .. 0x%X bytes and the block ends below 4 GiB" % (what, name, WINDOW_SIZE_MAX))
+    reg = window_conflict(address, size)
+    if reg:
+        raise DescError("%s (%s): covers %s (0x%08X, %d byte%s), a register the base drives itself (%s); split the block into the runs the core writes"
+                        % (what, name, reg[0], reg[1], reg[2], "" if reg[2] == 1 else "s", reg[3]))
+
+
+def _sec_windows(rows, st):
+    if not isinstance(rows, list) or not 1 <= len(rows) <= WINDOWS_MAX or not all(isinstance(r, dict) for r in rows):
+        raise DescError("window: 1 to %d entries, each a table" % WINDOWS_MAX)
+    out, names = [struct.pack("<I", len(rows))], set()
+    for i, r in enumerate(rows):
+        what = "window %d" % (i + 1)
+        _only(r, {"name", "address", "size"}, what)
+        name = _need(r, "name", str, what)
+        address = _need(r, "address", int, what)
+        size = _need(r, "size", int, what)
+        if not 0 <= address < 2 ** 32:
+            raise DescError("%s (%s): address is a 32 bit number" % (what, name))
+        _window_check(name, address, size, what)
+        if name in names:
+            raise DescError("%s: the name %r twice" % (what, name))
+        names.add(name)
+        out.append(struct.pack("<3I", st.add(name), address, size))
+    return b"".join(out)
+
+
 def _sections(doc, setbinds, st, replaces=()):
     """The bytes behind the string table: the sections in the order of their ids. Empty when the document has none of their keys."""
     secs = []
@@ -1490,6 +1685,10 @@ def _sections(doc, setbinds, st, replaces=()):
         secs.append((SEC_SECMEDIA, _sec_fields(w, SECMEDIA_FIELDS, "sector_media", st)))
     if replaces:
         secs.append((SEC_REPLACE, _sec_replace(replaces, st)))
+    if "key" in doc:
+        secs.append((SEC_KEYROWS, _sec_keys(doc["key"], st)))
+    if "window" in doc:
+        secs.append((SEC_WINDOWS, _sec_windows(doc["window"], st)))
     return b"".join(struct.pack("<II", i, len(p)) + p for i, p in secs)
 
 
@@ -1703,7 +1902,63 @@ def _parse_sections(blob, off, size, s, ncset, out):
                     raise DescError("%s: entry %d names no media slot (in order), or has no text" % (what, i))
                 last = idx
                 out["media"][idx]["replace"] = S(o)
-    if SEC_CORE not in seen:
+        elif sid == SEC_KEYROWS:
+            n, = words(1)
+            if not 1 <= n <= KEYS_MAX or len(p) != 4 + 36 * n:
+                raise DescError("%s: %d rows, or the length does not fit them" % (what, n))
+            rows = []
+            for i in range(n):
+                lay, node, lo, hi, do, op, val, fl, wh = words(9, 4 + 36 * i)
+                rwhat = "%s, row %d" % (what, i + 1)
+                if lay != NONE and not S(lay):
+                    raise DescError("%s: an empty layout" % rwhat)
+                if node != NONE and not S(node):
+                    raise DescError("%s: an empty node" % rwhat)
+                if op != NONE and not S(op):
+                    raise DescError("%s: an empty operation" % rwhat)
+                if wh != NONE and not S(wh):
+                    raise DescError("%s: an empty condition" % rwhat)
+                try:
+                    _row_checks(S(lay), S(node), lo, hi, do, S(op), val, fl, S(wh), rwhat)
+                except DescError as e:
+                    raise DescError("%s (%s)" % (rwhat, e))
+                row = {}
+                if lay != NONE:
+                    row["layout"] = S(lay)
+                else:
+                    row["node"] = S(node)
+                if lo == KEY_ANY:
+                    row["key"] = "any"
+                elif lo == hi:
+                    row.update(_key_name(lo))
+                else:
+                    row["codes"] = [lo, hi]
+                row["do"] = KEY_DO[do]
+                if op != NONE:
+                    row["op"] = S(op)
+                if fl & KF_ARG:
+                    row["value"] = val - 2 ** 32 if val >= 2 ** 31 else val
+                for k, bit in KEY_FLAGS.items():
+                    if fl & bit:
+                        row[k] = True
+                if wh != NONE:
+                    row["when"] = S(wh)
+                rows.append(row)
+            out["key"] = rows
+        elif sid == SEC_WINDOWS:
+            n, = words(1)
+            if not 1 <= n <= WINDOWS_MAX or len(p) != 4 + 12 * n:
+                raise DescError("%s: %d windows, or the length does not fit them" % (what, n))
+            wins, names = [], set()
+            for i in range(n):
+                nm, addr, size = words(3, 4 + 12 * i)
+                _window_check(S(nm), addr, size, "%s, window %d" % (what, i + 1))
+                if S(nm) in names:
+                    raise DescError("%s: the name %r twice" % (what, S(nm)))
+                names.add(S(nm))
+                wins.append({"name": S(nm), "address": addr, "size": size})
+            out["window"] = wins
+    if SEC_CORE not in seen and any(i <= SEC_REPLACE for i in seen):
         raise DescError("description record: the data sections have no core section")
     rs = out.get("romset")
     for c in out["cset"]:
@@ -1860,10 +2115,10 @@ def parse_desc(blob):
     out["task"] = []
     for label, op, fb, nb, fl, ask, ask_state, pick_label, group in tabs["task"]:
         hk = (fl >> 8) & 0xFF
-        if not s(label) or not s(op) or fl & 0xFFFF & ~0xFF03 or fb + nb > len(out["bind"]) or (s(ask) is None and (ask_state != NONE or fl & 2 or pick_label != NONE)) or \
-                (pick_label != NONE and not fl & 2) or (hk and not (chr(hk).isalnum() and chr(hk).isascii() and chr(hk) == chr(hk).upper())):
+        if not s(label) or not s(op) or fl & 0xFFFF & ~0xFF07 or fb + nb > len(out["bind"]) or (s(ask) is None and (ask_state != NONE or fl & 2 or pick_label != NONE)) or \
+                (pick_label != NONE and not fl & 2) or (hk and not (chr(hk).isalnum() and chr(hk).isascii() and chr(hk) == chr(hk).upper())) or (fl & 4 and (hk or fl & 2)):
             raise DescError("description record: a bad task")
-        out["task"].append({"label": s(label), "op": s(op), "bind": out["bind"][fb:fb + nb], "closes_menu": bool(fl & 1), "pick_dir": bool(fl & 2),
+        out["task"].append({"label": s(label), "op": s(op), "bind": out["bind"][fb:fb + nb], "closes_menu": bool(fl & 1), "pick_dir": bool(fl & 2), "job": bool(fl & 4),
                             "ask": s(ask), "ask_state": s(ask_state), "pick_label": s(pick_label), "group": s(group), "hotkey": chr(hk) if hk else "", "show_state": s((fl >> 16) - 1) if fl >> 16 else None})
     out["media"] = []
     for me in tabs["media"]:
@@ -1915,7 +2170,7 @@ def parse_desc(blob):
         if soff < so + ss or soff + ssize != n or ssize == 0:
             raise DescError("description record: the sections lie outside the record")
         _parse_sections(blob, soff, ssize, s, len(out["cset"]), out)
-        out["sections"] = True
+        out["sections"] = "core" in out                              # the core's data sections; a record of the key table or the windows alone has none
     return out
 
 
@@ -2017,7 +2272,7 @@ def decoded_to_doc(rec):
         doc["pad"] = d
     if rec.get("restart"):
         doc["restart"] = dict(rec["restart"])
-    for k in SEC_KEYS:
+    for k in SEC_KEYS + ("key", "window"):
         if k in rec:
             doc[k] = rec[k]
     if rec["task"]:
@@ -2031,6 +2286,8 @@ def decoded_to_doc(rec):
                     d[k] = t[k]
             if t["pick_dir"]:
                 d["pick_dir"] = True
+            if t.get("job"):
+                d["job"] = True
             if t.get("hotkey"):
                 d["hotkey"] = t["hotkey"]
             if t.get("show_state"):
@@ -2126,8 +2383,8 @@ def merge_lib_menus(desc_blob, libs):
     kept = []
     for name, blob in sorted(libs, key=lambda x: x[0]):
         rec = parse_desc(blob)
-        if rec["route"] or rec["hide"] or rec["rename"] or rec["own"] or rec.get("pad") or rec.get("restart"):
-            kept.append((name, "its record gives a route, hides or renames what others contribute, or carries a core's own tables, pad or restart"))
+        if rec["route"] or rec["hide"] or rec["rename"] or rec["own"] or rec.get("pad") or rec.get("restart") or rec.get("key") or rec.get("window"):
+            kept.append((name, "its record gives a route, hides or renames what others contribute, or carries a core's own tables, pad, restart, key table or windows"))
             continue
         if rec["poll"]:
             kept.append((name, "it declares a poll, of which a description has one"))
@@ -2259,6 +2516,22 @@ def check_ops(rec, ops, states):
         if name and "$slot" not in name and name not in states:
             bad.append('%s: "%s" reads state "%s", which the application does not export' % (what, label, name))
 
+    for i, kr in enumerate(rec.get("key") or []):                    # base 3.3: the operation of a key row takes `value` or `key` as its one int argument, or none
+        if kr["do"] != "op":
+            pass
+        elif "$slot" in kr["op"]:
+            continue
+        elif kr["op"] not in ops:
+            bad.append('key row %d: operation "%s" is not exported by the application' % (i + 1, kr["op"]))
+        else:
+            args = ops[kr["op"]]
+            want = ["value"] if "value" in kr else ["key"] if kr.get("pass_key") else []
+            if [a["name"] for a in args] != want or any(a["type"] not in ("int", "enum", "bool") for a in args):
+                bad.append('key row %d: operation "%s" takes (%s), the row gives (%s)' % (i + 1, kr["op"], ", ".join(a["name"] for a in args), ", ".join(want)))
+            elif "value" in kr and not args[0]["lo"] <= kr["value"] <= args[0]["hi"]:
+                bad.append('key row %d: value %d is outside %d .. %d of "%s"' % (i + 1, kr["value"], args[0]["lo"], args[0]["hi"], kr["op"]))
+        if kr.get("when"):
+            state_ok("key row %d" % (i + 1), kr.get("op") or kr["do"], kr["when"].lstrip("!").split()[0])
     for tk in rec["task"]:
         add(_bind_problem(ops, "task", tk["label"], tk["op"], tk["bind"], False, False, bool(tk["ask"])))
         if tk["ask"]:
@@ -2309,6 +2582,37 @@ def check_ops(rec, ops, states):
         if a is None or a:
             bad.append('poll: "%s" is not an exported operation without arguments' % rec["poll"]["op"])
     return bad
+
+
+def merge_docs(docs):
+    """One document of several: `docs` is a list of (file name, parsed TOML dict). A top-level table or key that two files both have is refused with both names
+    (T239.3 base 3.3: a core's menu.toml and desc.toml are one record 6; each file has what the other has not)."""
+    out, owner = {}, {}
+    for name, doc in docs:
+        for k, v in doc.items():
+            if k in out:
+                raise DescError("%s and %s both define %r; a table or key is in one file only" % (owner[k], name, k))
+            out[k] = v
+            owner[k] = name
+    return out
+
+
+def compile_files(files, ops_text=None):
+    """The record of one or more TOML files ((name, text) pairs): the files are read one by one and merged (merge_docs), then compiled as one. Errors of a
+    file's own syntax name the file; a table in two files names both."""
+    docs = []
+    for name, text in files:
+        try:
+            docs.append((name, toml_loads(text)))
+        except DescError as e:
+            raise DescError("%s: %s" % (name, e))
+    blob = compile_desc(merge_docs(docs)) if len(docs) > 1 else compile_desc(docs[0][1])
+    if ops_text is not None:
+        ops, states = load_ops(ops_text)
+        bad = check_ops(parse_desc(blob), ops, states)
+        if bad:
+            raise DescError("%s: %d problem(s) against the application's operations:\n  %s" % (" + ".join(n for n, _ in files), len(bad), "\n  ".join(bad)))
+    return blob
 
 
 def compile_checked(text, ops_text=None, *, what="description"):

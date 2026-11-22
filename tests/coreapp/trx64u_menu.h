@@ -55,6 +55,8 @@ inline Menu *menu()
         }
         Contributor c = { "description", CR_DESC, &m->rec.rec };
         contrib_merge(&m->own, m->rec.has_route ? &m->rec.skel : 0, &m->rec.ov, &c, 1, 0, &m->desc, &m->mm);
+        m->mm.keys = m->rec.keys;                // bundle.cc bundle_merge does the same: the description's key table (base 3.3)
+        m->mm.nkeys = m->rec.nkeys;
     }
     return m;
 }

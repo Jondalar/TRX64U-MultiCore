@@ -200,6 +200,10 @@ int bundle_merge(CoreCtx *c, const CoreDesc *base, const BundleExtras *x, LibLoa
         base = &own;
     }
     int refused = contrib_merge(base, skel, ov, cs, n, ops_of(c), out, mm);
+    if (x && x->desc && x->desc->nkeys) {                         // base 3.3: the description's key table is the menu's (MenuCtl stage KS_CORE); the rows live in the record
+        mm->keys = x->desc->keys;
+        mm->nkeys = x->desc->nkeys;
+    }
     for (int i = 0; log && i < mm->nerr; i++) {
         char line[CONTRIB_ERR_LEN + 24];
         snprintf(line, sizeof(line), "[menu] refused: %s", mm->err[i]);

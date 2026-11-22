@@ -17,6 +17,32 @@
 # the machine line of F1 (T212 D13/D15): the values of these settings
 machine_info = "System Mode,REU Size"
 
+# The key table (base 3.3, the rows that stood in coreapp/src/menukeytab.cc as KS_MONITOR and KS_TIMELINE; `key = [..]` is the array form of [[key]]): tried in this order, after an
+# application's screens and before the menu's grammar. The monitor is trxmon's - every key is its own, what closes the menu stays the menu's (the menu button, RUN/STOP while the
+# machine stands). Timewarp (trx_timewarp_ui.cc): LEFT and RIGHT one frame, UP and DOWN one second, PAGE UP/DOWN (F1 and F7) ten seconds, HOME the oldest frame, RETURN rewinds there
+# and runs, RUN/STOP and ESC cancel, C= O opens the monitor; a letter or digit is nobody's there.
+key = [
+  { layout = "terminal", key = "f10", do = "decline" },
+  { layout = "terminal", key = "scrlock", do = "decline" },
+  { layout = "terminal", key = "menu", do = "decline" },
+  { layout = "terminal", key = "runstop", do = "decline", when = "!monitor.wants_stop" },
+  { layout = "terminal", key = "any", op = "monitor.key", pass_key = true, directive = true, direct = true },
+  { layout = "timeline", key = "left", op = "tw.step", value = -1, status = true },
+  { layout = "timeline", key = "right", op = "tw.step", value = 1, status = true },
+  { layout = "timeline", key = "up", op = "tw.seconds", value = -1, status = true },
+  { layout = "timeline", key = "down", op = "tw.seconds", value = 1, status = true },
+  { layout = "timeline", key = "pgup", op = "tw.seconds", value = -10, status = true },
+  { layout = "timeline", key = "f1", op = "tw.seconds", value = -10, status = true },
+  { layout = "timeline", key = "pgdn", op = "tw.seconds", value = 10, status = true },
+  { layout = "timeline", key = "f7", op = "tw.seconds", value = 10, status = true },
+  { layout = "timeline", key = "home", op = "tw.oldest", status = true },
+  { layout = "timeline", key = "ctrl+o", op = "tw.monitor", directive = true },
+  { layout = "timeline", key = "runstop", op = "tw.cancel", close = true },
+  { layout = "timeline", key = "esc", op = "tw.cancel", close = true },
+  { layout = "timeline", key = "return", op = "tw.resume", status_ok = true, close = true },
+  { layout = "timeline", codes = [32, 126], do = "swallow" },
+]
+
 [[area]]
 key = "F1"
 name = "Home"
@@ -562,7 +588,7 @@ bind = [ { arg = "drive", int = 3 }, { arg = "name", text = true } ]
 ask = "Name of the RAM disk image"
 show_state = "reu.mp3.d"
 
-# R1: the Timewarp page - its keys are the layout's (coreapp/src/menukeytab.cc, KS_TIMELINE); this node is what RETURN does, and the page needs an entry
+# R1: the Timewarp page - its keys are the rows of the key table at the top of this file (layout timeline); this node is what RETURN does, and the page needs an entry
 [[node]]
 anchor = "F1/timewarp/bar"
 kind = "op"
@@ -572,7 +598,7 @@ order = 10
 closes_menu = true
 ui = { primary = true }
 
-# R1: the Monitor page - the terminal is the layout and every key is the monitor's (KS_MONITOR); this entry is what the page needs to exist
+# R1: the Monitor page - the terminal is the layout and every key is the monitor's (the key table at the top of this file, layout terminal); this entry is what the page needs to exist
 [[node]]
 anchor = "F1/monitor/bar"
 kind = "op"

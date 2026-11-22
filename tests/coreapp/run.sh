@@ -766,6 +766,9 @@ run descgen test_descgen.cc compiled_table.cc $ALLCORES freeze.cc menuctl.cc pic
 # T239.3 D17 part 2: the tables of the sections 7 .. 17 (the Amiga 1200's, from golden/desc_sections.toml, and what no descriptor has together, golden/desc_sections_extra.toml)
 CARGS="$BUN/desc_sections.bin $BUN/desc_sections_extra.bin" RARGS="$CARGS"
 run descsec test_descsec.cc amiga.cc $C64 $BASEL descrec.cc
+# T239.3 base 3.3: the key table, the register windows (and the registers the base drives itself) and the job flag of a task, from golden/desc_keys.toml as the real tool compiles it
+CARGS="$BUN/desc_keys.bin" RARGS="$CARGS"
+run deckeys test_deckeys.cc descrec.cc
 CARGS="$BUN" RARGS="$BUN"
 # T104.2 D10: a library merged at pack time is not added again, the application's own record serves a start without a .cor and never beats the .cor's, the record's own menu replaces the descriptor's tables
 

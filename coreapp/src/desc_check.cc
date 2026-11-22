@@ -333,6 +333,9 @@ const char *desc_check_with(const CoreDesc *d, const OpRegistry &reg)
         if (tk.pick_dir && !text(tk.ask)) {
             return fail("tasks: \"%s\" picks a folder for a name it does not ask", tk.label);
         }
+        if (tk.job && (tk.pick_dir || tk.hotkey)) {
+            return fail("tasks: \"%s\" is a job (a stepped operation with the progress line): it has no hotkey and no folder to pick (that task is stepped already)", tk.label);
+        }
     }
     for (int i = 0; i < d->nfiletypes; i++) {
         const FileType &f = d->filetypes[i];

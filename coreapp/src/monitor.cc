@@ -499,7 +499,7 @@ static int op_run(CoreCtx *c, const OpArgs &a, OpOut &o)
 }
 static const ArgSpec line_arg[] = { ARG_STRING("line", 60) };
 
-// T192.3 leak 2: the monitor's keys are an operation, not a branch of the menu controller. The key table (menukeytab.cc) sends every key of the monitor's screen to it; the answer
+// T192.3 leak 2: the monitor's keys are an operation, not a branch of the menu controller. The key table (the `key` rows of coreapp/cores/trx64u/menu.toml) sends every key of the monitor's screen to it; the answer
 // is what the controller does next: "goto F8" (the line `diag`: the System tab, F8; the session is released first), "close" (`x`: resume and leave), else nothing.
 static int op_key(CoreCtx *c, const OpArgs &a, OpOut &o)
 {
