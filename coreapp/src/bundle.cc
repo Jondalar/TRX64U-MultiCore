@@ -111,6 +111,13 @@ const CoreDesc *BundleDescSource::describe(const uint8_t id[4], const Handover *
     }
     BundleExtras x;
     read_cor_at(fs_, h->path, start_host_key(h), 0, &x);
+    // the record and its bytes are freed with every refusal; only the descriptor that is returned keeps them (its strings live in them)
+    struct Keep {
+        BundleExtras &x;
+        bool kept;
+        explicit Keep(BundleExtras &e) : x(e), kept(false) { }
+        ~Keep() { if (!kept) { delete x.desc; delete[] x.desc_bytes; } }
+    } keep(x);
     if (!x.desc) {
         snprintf(msg, msglen, "%s, and the bundle %s has no description record to make one of%s%s. The core stays held.", who, h->path, x.why[0] ? ": " : "", x.why);
         return 0;
@@ -142,6 +149,7 @@ const CoreDesc *BundleDescSource::describe(const uint8_t id[4], const Handover *
         delete d;
         return 0;
     }
+    keep.kept = true;
     return d;                                                   // the record and its bytes stay: the descriptor's strings live in them
 }
 

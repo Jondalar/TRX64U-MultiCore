@@ -357,7 +357,7 @@ static int one_core(const std::string &dir, const std::string &id, const std::st
         g_fields = 0;
         compare(*want, got);
         total += g_fields;
-        report_hooks(*want, got, false);
+        report_hooks(*want, got, true);
         const char *dc = desc_check(&got);
         CHECK(dc == 0);                                        // the made descriptor passes the application's own descriptor check as the compiled-in one does
         if (dc) {

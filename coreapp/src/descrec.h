@@ -123,40 +123,9 @@
 #define DR_RAWKEY_HID 255
 #define DR_RAWKEY_MOD 8
 
-// What the reader makes of a record. The strings and the sizes point into the record's own bytes: keep them while this is used.
-struct DescRecord {
-    bool has_route;                               // the record gives the route; else the default one stays
-    Skeleton skel;
-    SkelArea areas[DR_AREAS];
-    SkelTab tabs[DR_TABS];
-    LibRecord rec;                                // the description's own nodes, file actions and settings (rank CR_DESC)
-    LibNodeDecl nodes[DR_NODES];
-    LibFileActionDecl actions[DR_ACTIONS];
-    LibSettingDecl settings[DR_SETTINGS];
-    OpBind binds[DR_BINDS];
-    const char *exts[DR_EXTS];
-    uint32_t sizes[DR_SIZES];
-    const char *values[DR_VALUES];
-    const char *hide[DR_HIDE];
-    NodeRename rename[DR_RENAME];
-    LibTabDecl ctabs[DR_CTABS];
-    Overrides ov;
-    // the core's own menu (flag bit 1): what descrec_apply puts into the descriptor in place of its C++ tables
-    const char *machine_info;                     // version 4: the settings (comma separated) whose values make Home's machine line (CoreDesc::machine_info), or null
-    const char *merged;                           // the names of the libraries whose menus were merged in at pack time (comma separated), or null
-    bool has_pad;                                 // version 5 (T228 R10): the record declares the core's pad; descrec_apply makes `pad` the descriptor's
-    PadSpec pad;                                  // its names point into `values`, its def_map into pad_def
-    uint8_t pad_def[PAD_BUTTONS_MAX];
-    uint32_t restart_clear;                       // version 5 (T228 R17): the bytes "Restart core" clears (CoreDesc::cold_ram_bytes), 0: the core's own value
-    bool restart_ram_only;                        // ... through the RAM window in its memory-only mode (CoreDesc::cold_ram_only)
-    bool has_own;
-    Task tasks[DR_TASKS]; int ntasks;
-    MediaSlot media[DR_MEDIA]; int nmedia;
-    FileType ftypes[DR_FTYPES]; int nftypes;
-    FileAction facts[DR_FACTS];
-    Setting csettings[DR_CSETS]; int ncsettings;
-    // T239.3 D17, version 6: the core's data sections. descrec_core makes the descriptor of them.
-    bool has_core;
+// T239.3 D17, version 6: the core's data sections (sections 1 .. 17). Only a record that has them carries this: DescRecord::sec, allocated by the reader, is null for the menu
+// records of libraries and applications, which do not need the room. descrec_core makes the descriptor of it.
+struct DescSections {
     struct {
         char id[4];
         const char *name, *title, *short_title, *folder, *store;
@@ -191,6 +160,47 @@ struct DescRecord {
     RomSetSpec romset; RomSetLabels romset_labels;
     bool has_winmedia; WindowMediaSpec winmedia;
     bool has_secmedia; SectorMediaSpec secmedia;
+};
+
+// What the reader makes of a record. The strings and the sizes point into the record's own bytes: keep them while this is used.
+struct DescRecord {
+    bool has_route;                               // the record gives the route; else the default one stays
+    Skeleton skel;
+    SkelArea areas[DR_AREAS];
+    SkelTab tabs[DR_TABS];
+    LibRecord rec;                                // the description's own nodes, file actions and settings (rank CR_DESC)
+    LibNodeDecl nodes[DR_NODES];
+    LibFileActionDecl actions[DR_ACTIONS];
+    LibSettingDecl settings[DR_SETTINGS];
+    OpBind binds[DR_BINDS];
+    const char *exts[DR_EXTS];
+    uint32_t sizes[DR_SIZES];
+    const char *values[DR_VALUES];
+    const char *hide[DR_HIDE];
+    NodeRename rename[DR_RENAME];
+    LibTabDecl ctabs[DR_CTABS];
+    Overrides ov;
+    // the core's own menu (flag bit 1): what descrec_apply puts into the descriptor in place of its C++ tables
+    const char *machine_info;                     // version 4: the settings (comma separated) whose values make Home's machine line (CoreDesc::machine_info), or null
+    const char *merged;                           // the names of the libraries whose menus were merged in at pack time (comma separated), or null
+    bool has_pad;                                 // version 5 (T228 R10): the record declares the core's pad; descrec_apply makes `pad` the descriptor's
+    PadSpec pad;                                  // its names point into `values`, its def_map into pad_def
+    uint8_t pad_def[PAD_BUTTONS_MAX];
+    uint32_t restart_clear;                       // version 5 (T228 R17): the bytes "Restart core" clears (CoreDesc::cold_ram_bytes), 0: the core's own value
+    bool restart_ram_only;                        // ... through the RAM window in its memory-only mode (CoreDesc::cold_ram_only)
+    bool has_own;
+    Task tasks[DR_TASKS]; int ntasks;
+    MediaSlot media[DR_MEDIA]; int nmedia;
+    FileType ftypes[DR_FTYPES]; int nftypes;
+    FileAction facts[DR_FACTS];
+    Setting csettings[DR_CSETS]; int ncsettings;
+    // T239.3 D17, version 6: has the record data sections? Then `sec` holds them (descrec_core makes the descriptor of them); the destructor frees it.
+    bool has_core;
+    DescSections *sec;
+    DescRecord() : sec(0) { }
+    ~DescRecord() { delete sec; }
+    DescRecord(const DescRecord &) = delete;
+    DescRecord &operator=(const DescRecord &) = delete;
 };
 
 // Reads the record. 0 and `out` filled, or a negative number and a sentence in why.

@@ -57,6 +57,8 @@ static int version_a(const uint8_t *, int, uint16_t *, uint16_t *) { return 0; }
 static int pick_a(const KsCandidate *, int, uint16_t) { return 0; }
 static void held_a(CoreCtx *, const uint8_t *, int) {}
 
+static void pad_a(CoreCtx *, int) { }
+
 int main(int argc, char **argv)
 {
     setvbuf(stdout, 0, _IONBF, 0);
@@ -84,14 +86,18 @@ int main(int argc, char **argv)
         CHECK(g_fields > 150);
         CHECK(got.romset->version == amiga1200_desc.romset->version && got.romset->pick == amiga1200_desc.romset->pick);
         CHECK(got.id_shared && got.id_feat_mask == amiga1200_desc.id_feat_mask);
+        // the pad's identity hook goes onto the record's pad
+        hooks.pad_id_loaded = pad_a;
+        CHECK_EQ(descrec_core(d, &hooks, &got, why, sizeof(why)), 0);
+        CHECK(got.pad != 0 && got.pad->id_loaded == pad_a);
         // the record names the ROM set's two functions; a core whose code has none is refused by section
         hooks.romset_pick = 0;
         CHECK_EQ(descrec_core(d, &hooks, &got, why, sizeof(why)), -1);
         CHECK(strstr(why, "section rom set") != 0);
         // the record's ROM set gets its own labels: Auto's text first, "-" behind
-        CHECK_STR(d->romset_labels.text[0], amiga1200_desc.romset->auto_label);
-        CHECK_STR(d->romset_labels.text[1], "-");
-        CHECK(d->romset.labels == &d->romset_labels);
+        CHECK_STR(d->sec->romset_labels.text[0], amiga1200_desc.romset->auto_label);
+        CHECK_STR(d->sec->romset_labels.text[1], "-");
+        CHECK(d->sec->romset.labels == &d->sec->romset_labels);
     }
 
     // ---- 2. what no descriptor has together
@@ -140,8 +146,6 @@ int main(int argc, char **argv)
         hooks.romset_pick = pick_a;
         CHECK_EQ(descrec_core(d, &hooks, &got, why, sizeof(why)), 0);
         CHECK(got.romset->version == 0 && got.romset->pick == 0);
-        // the pad's identity hook goes onto a record's pad
-        hooks.pad_id_loaded = 0;
     }
 
     // ---- 3. damage, by section

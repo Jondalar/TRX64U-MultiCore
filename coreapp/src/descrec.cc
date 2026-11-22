@@ -67,6 +67,8 @@ static int parse_sections(Rd &r, uint32_t off, uint32_t size, DescRecord *out, u
     bool bad = false;
     uint32_t pos = off;
     const uint32_t end = off + size;
+    out->sec = new DescSections;                                  // a record without sections never gets one (descrec.h)
+    memset(out->sec, 0, sizeof(*out->sec));
     while (pos < end) {
         if (end - pos < 8) {
             return r.fail("description record: a section header is cut off");
@@ -88,54 +90,54 @@ static int parse_sections(Rd &r, uint32_t off, uint32_t size, DescRecord *out, u
             NEED(18);
             uint32_t idw = SW(0);
             for (int i = 0; i < 4; i++) {
-                out->ident.id[i] = (char)(idw >> (8 * i));
+                out->sec->ident.id[i] = (char)(idw >> (8 * i));
             }
-            out->ident.name = r.str(SW(1), &bad);
-            out->ident.title = r.str(SW(2), &bad);
-            out->ident.short_title = r.str(SW(3), &bad);
-            out->ident.folder = r.str(SW(4), &bad);
-            out->ident.store = r.str(SW(5), &bad);
-            out->ident.min_contract = SW(6);
-            out->ident.reset_ms = SW(7);
-            out->ident.service_op = r.str(SW(8), &bad);
-            out->ident.service_period_ms = SW(9);
-            out->ident.flags = SW(10);
-            out->ident.needs_program = r.str(SW(11), &bad);
-            out->ident.program_ext = r.str(SW(12), &bad);
-            out->ident.type_op = r.str(SW(13), &bad);
-            out->ident.run_op = r.str(SW(14), &bad);
-            out->ident.core_id = r.str(SW(15), &bad);
-            out->ident.live_ms = SW(16);
+            out->sec->ident.name = r.str(SW(1), &bad);
+            out->sec->ident.title = r.str(SW(2), &bad);
+            out->sec->ident.short_title = r.str(SW(3), &bad);
+            out->sec->ident.folder = r.str(SW(4), &bad);
+            out->sec->ident.store = r.str(SW(5), &bad);
+            out->sec->ident.min_contract = SW(6);
+            out->sec->ident.reset_ms = SW(7);
+            out->sec->ident.service_op = r.str(SW(8), &bad);
+            out->sec->ident.service_period_ms = SW(9);
+            out->sec->ident.flags = SW(10);
+            out->sec->ident.needs_program = r.str(SW(11), &bad);
+            out->sec->ident.program_ext = r.str(SW(12), &bad);
+            out->sec->ident.type_op = r.str(SW(13), &bad);
+            out->sec->ident.run_op = r.str(SW(14), &bad);
+            out->sec->ident.core_id = r.str(SW(15), &bad);
+            out->sec->ident.live_ms = SW(16);
             const char *caps = r.str(SW(17), &bad);
-            if (bad || !out->ident.name || !out->ident.name[0] || !out->ident.title || !out->ident.title[0] || !out->ident.short_title || !out->ident.short_title[0] ||
-                !out->ident.folder || !out->ident.folder[0] || !out->ident.store || !out->ident.store[0] || (out->ident.flags >> 6) || out->ident.min_contract > 255 ||
-                out->ident.reset_ms > 65535 || out->ident.live_ms > 65535 || out->ident.service_period_ms > 60000 ||
-                (out->ident.service_op == 0) != (out->ident.service_period_ms == 0) || (out->ident.service_op && !out->ident.service_op[0])) {
+            if (bad || !out->sec->ident.name || !out->sec->ident.name[0] || !out->sec->ident.title || !out->sec->ident.title[0] || !out->sec->ident.short_title || !out->sec->ident.short_title[0] ||
+                !out->sec->ident.folder || !out->sec->ident.folder[0] || !out->sec->ident.store || !out->sec->ident.store[0] || (out->sec->ident.flags >> 6) || out->sec->ident.min_contract > 255 ||
+                out->sec->ident.reset_ms > 65535 || out->sec->ident.live_ms > 65535 || out->sec->ident.service_period_ms > 60000 ||
+                (out->sec->ident.service_op == 0) != (out->sec->ident.service_period_ms == 0) || (out->sec->ident.service_op && !out->sec->ident.service_op[0])) {
                 return r.fail("description record, section %s: a text is missing or outside the table, a flag is not known, or a number is out of range", nm);
             }
             for (const char *p = caps; p && *p;) {
                 const char *e = strchr(p, ',');
                 size_t l = e ? (size_t)(e - p) : strlen(p);
-                if (out->ncaps >= DR_CAPS || l < 1 || l > 15) {
+                if (out->sec->ncaps >= DR_CAPS || l < 1 || l > 15) {
                     return r.fail("description record, section %s: a capability name is empty, longer than 15 or one too many (%d)", nm, DR_CAPS);
                 }
-                memcpy(out->cap_names[out->ncaps], p, l);
-                out->cap_names[out->ncaps][l] = 0;
-                out->caps[out->ncaps] = out->cap_names[out->ncaps];
-                out->ncaps++;
+                memcpy(out->sec->cap_names[out->sec->ncaps], p, l);
+                out->sec->cap_names[out->sec->ncaps][l] = 0;
+                out->sec->caps[out->sec->ncaps] = out->sec->cap_names[out->sec->ncaps];
+                out->sec->ncaps++;
                 p = e ? e + 1 : 0;
             }
             out->has_core = true;
         } else if (id == 2) {
             NEED(19);
-            VideoDesc &v = out->video;
+            VideoDesc &v = out->sec->video;
             memset(&v, 0, sizeof(v));
             v.w = SW(0); v.h = SW(1);
             uint32_t scale = SW(2), nbuf = SW(7), bpp = SW(12), pxfmt = SW(13), h60 = SW(14);
             v.x0 = (int32_t)SW(3); v.y0 = (int32_t)SW(4);
             v.fb_base = SW(5); v.fb_stride = SW(6);
             uint32_t reg[4] = { SW(8), SW(9), SW(10), SW(11) };
-            FreezeDesc &f = out->freeze;
+            FreezeDesc &f = out->sec->freeze;
             memset(&f, 0, sizeof(f));
             uint32_t fr = SW(15), fm = SW(16), ft = SW(17), fw = SW(18);
             if (scale < 1 || scale > 3 || nbuf > 8 || (bpp != 0 && bpp != 2 && bpp != 4) || pxfmt > 4 || h60 > 65535 || reg[0] > 65535 || reg[1] > 65535 || reg[2] > 65535 ||
@@ -145,7 +147,7 @@ static int parse_sections(Rd &r, uint32_t off, uint32_t size, DescRecord *out, u
             v.scale = (uint8_t)scale; v.nbuf = (uint8_t)nbuf; v.bpp = (uint8_t)bpp; v.pxfmt = (uint8_t)pxfmt; v.h60 = (uint16_t)h60;
             v.reg_latest = (uint16_t)reg[0]; v.reg_seq = (uint16_t)reg[1]; v.reg_fb_base = (uint16_t)reg[2]; v.reg_fb_stride = (uint16_t)reg[3];
             f.reg_status = (uint16_t)fr; f.mask = (uint8_t)fm; f.timeout_ms = (uint16_t)ft; f.word = fw != 0;
-            out->has_video = true;
+            out->sec->has_video = true;
         } else if (id == 3) {
             if (len < 4) {
                 return r.fail("description record, section %s: cut off", nm);
@@ -157,7 +159,7 @@ static int parse_sections(Rd &r, uint32_t off, uint32_t size, DescRecord *out, u
             }
             for (uint32_t i = 0; i < n; i++) {
                 const uint32_t o = 1 + i * ew;
-                RomSpec &d = out->roms[i];
+                RomSpec &d = out->sec->roms[i];
                 memset(&d, 0, sizeof(d));
                 d.role = r.str(SW(o), &bad);
                 d.put_op = r.str(SW(o + 1), &bad);
@@ -165,7 +167,7 @@ static int parse_sections(Rd &r, uint32_t off, uint32_t size, DescRecord *out, u
                 if (bad || !d.role || !d.role[0] || !d.put_op || !d.put_op[0] || (fl & ~0xFF07u)) {
                     return r.fail("description record, section %s: entry %u has a bad role, operation or flag", nm, (unsigned)i);
                 }
-                out->rom_check[i] = (fl & 4) != 0;
+                out->sec->rom_check[i] = (fl & 4) != 0;
                 d.required = fl & 1;
                 d.shared = (fl & 2) != 0;
                 d.set = (uint8_t)(fl >> 8);
@@ -196,7 +198,7 @@ static int parse_sections(Rd &r, uint32_t off, uint32_t size, DescRecord *out, u
                     return r.fail("description record, section %s: entry %u has no size or no name", nm, (unsigned)i);
                 }
             }
-            out->nroms = (int)n;
+            out->sec->nroms = (int)n;
         } else if (id == 4) {
             if (len < 4) {
                 return r.fail("description record, section %s: cut off", nm);
@@ -215,16 +217,16 @@ static int parse_sections(Rd &r, uint32_t off, uint32_t size, DescRecord *out, u
                     out->csettings[idx].bind || (nb && nb != (uint32_t)out->csettings[idx].nvalues)) {
                     return r.fail("description record, section %s: entry %u names no core setting (or twice), or has a bad register, shift, mask or byte list", nm, (unsigned)i);
                 }
-                RegBind &d = out->setbind[i];
+                RegBind &d = out->sec->setbind[i];
                 d.reg = (uint16_t)reg;
                 d.shift = (uint8_t)shift;
                 d.mask = (uint8_t)mask;
                 d.bytes = 0;
                 if (nb) {
                     for (uint32_t k = 0; k < nb; k++) {
-                        out->setbind_bytes[i][k] = r.p[b + 4 * (at + 5) + k];
+                        out->sec->setbind_bytes[i][k] = r.p[b + 4 * (at + 5) + k];
                     }
-                    d.bytes = out->setbind_bytes[i];
+                    d.bytes = out->sec->setbind_bytes[i];
                 }
                 out->csettings[idx].bind = &d;
                 at += 5 + padw;
@@ -232,10 +234,10 @@ static int parse_sections(Rd &r, uint32_t off, uint32_t size, DescRecord *out, u
             if (at * 4 != len) {
                 return r.fail("description record, section %s: the length does not fit its entries", nm);
             }
-            out->nsetbind = (int)n;
+            out->sec->nsetbind = (int)n;
         } else if (id == 5) {
             NEED(22);
-            HkSpec &h = out->hot;
+            HkSpec &h = out->sec->hot;
             memset(&h, 0, sizeof(h));
             uint32_t key[2 + HK_NACT + HK_TASKS_MAX];
             for (int i = 0; i < 2 + HK_NACT; i++) {
@@ -271,7 +273,7 @@ static int parse_sections(Rd &r, uint32_t off, uint32_t size, DescRecord *out, u
                 h.def.task[i] = (uint8_t)key[2 + HK_NACT + i];
             }
             h.pc_keys = pc != 0;
-            out->has_hot = true;
+            out->sec->has_hot = true;
         } else if (id == 6) {
             if (len < 4) {
                 return r.fail("description record, section %s: cut off", nm);
@@ -281,39 +283,39 @@ static int parse_sections(Rd &r, uint32_t off, uint32_t size, DescRecord *out, u
                 return r.fail("description record, section %s: %u slots, or the length does not fit them", nm, (unsigned)n);
             }
             for (uint32_t i = 0; i < n; i++) {
-                out->mount_names[i] = r.str(SW(1 + i), &bad);
-                if (bad || !out->mount_names[i] || !out->mount_names[i][0] || strlen(out->mount_names[i]) > 9) {
+                out->sec->mount_names[i] = r.str(SW(1 + i), &bad);
+                if (bad || !out->sec->mount_names[i] || !out->sec->mount_names[i][0] || strlen(out->sec->mount_names[i]) > 9) {
                     return r.fail("description record, section %s: slot %u has no name, or one longer than 9", nm, (unsigned)i);
                 }
             }
-            out->nmount = (int)n;
+            out->sec->nmount = (int)n;
         } else if (id == 7) {
             if (len < 4 || SW(0) < 1 || SW(0) > DR_RESETW || len != 4 + 8 * SW(0)) {
                 return r.fail("description record, section %s: the count (1 to %d) or the length does not fit", nm, DR_RESETW);
             }
-            out->nreset_writes = (int)SW(0);
-            for (int i = 0; i < out->nreset_writes; i++) {
+            out->sec->nreset_writes = (int)SW(0);
+            for (int i = 0; i < out->sec->nreset_writes; i++) {
                 uint32_t reg = SW(1 + 2 * i), val = SW(2 + 2 * i);
                 if (reg > 65535 || val > 255) {
                     return r.fail("description record, section %s: entry %d is out of range", nm, i);
                 }
-                out->reset_writes[i].reg = (uint16_t)reg;
-                out->reset_writes[i].value = (uint8_t)val;
+                out->sec->reset_writes[i].reg = (uint16_t)reg;
+                out->sec->reset_writes[i].value = (uint8_t)val;
             }
         } else if (id == 8) {
             NEED(3);
             if (SW(0) > 65535 || SW(1) < 1 || SW(1) > 255 || SW(2) > 255) {
                 return r.fail("description record, section %s: a value is out of range", nm);
             }
-            out->idf_reg = (uint16_t)SW(0); out->idf_mask = (uint8_t)SW(1); out->idf_val = (uint8_t)SW(2);
-            out->has_idfeat = true;
+            out->sec->idf_reg = (uint16_t)SW(0); out->sec->idf_mask = (uint8_t)SW(1); out->sec->idf_val = (uint8_t)SW(2);
+            out->sec->has_idfeat = true;
         } else if (id == 9) {
             if (len < 4 || SW(0) < 1 || SW(0) > REPORT_REGS_MAX || len != 4 + 12 * SW(0)) {
                 return r.fail("description record, section %s: the count (1 to %d) or the length does not fit", nm, REPORT_REGS_MAX);
             }
-            out->nreport_regs = (int)SW(0);
-            for (int i = 0; i < out->nreport_regs; i++) {
-                ReportReg &d = out->report_regs[i];
+            out->sec->nreport_regs = (int)SW(0);
+            for (int i = 0; i < out->sec->nreport_regs; i++) {
+                ReportReg &d = out->sec->report_regs[i];
                 d.name = r.str(SW(1 + 3 * i), &bad);
                 uint32_t reg = SW(2 + 3 * i), by = SW(3 + 3 * i);
                 if (bad || !d.name || !d.name[0] || reg > 65535 || (by != 1 && by != 2 && by != 4)) {
@@ -331,25 +333,25 @@ static int parse_sections(Rd &r, uint32_t off, uint32_t size, DescRecord *out, u
                 (fl ? (reg || code || nh || nm_) : (nh == 0 || nm_ != DR_RAWKEY_MOD))) {
                 return r.fail("description record, section %s: a value is out of range, or the tables do not fit", nm);
             }
-            RawKeySpec &k = out->rawkeys;
+            RawKeySpec &k = out->sec->rawkeys;
             memset(&k, 0, sizeof(k));
             for (uint32_t i = 0; i < nh; i++) {
-                out->rk_hid[i] = r.p[b + 24 + i];
+                out->sec->rk_hid[i] = r.p[b + 24 + i];
             }
             for (uint32_t i = 0; i < nm_; i++) {
-                out->rk_mod[i] = r.p[b + 24 + ((nh + 3) & ~3u) + i];
+                out->sec->rk_mod[i] = r.p[b + 24 + ((nh + 3) & ~3u) + i];
             }
             k.reg_key = (uint16_t)reg;
-            k.hid = nh ? out->rk_hid : 0;
+            k.hid = nh ? out->sec->rk_hid : 0;
             k.nhid = (uint8_t)nh;
-            k.mod = nm_ ? out->rk_mod : 0;
+            k.mod = nm_ ? out->sec->rk_mod : 0;
             k.caps_usage = (uint8_t)usage;
             k.caps_code = (uint8_t)code;
-            out->rawkeys_held = fl != 0;
-            out->has_rawkeys = true;
+            out->sec->rawkeys_held = fl != 0;
+            out->sec->has_rawkeys = true;
         } else if (id == 11) {
             NEED(15);
-            VideoDesc &v = out->alt_video;
+            VideoDesc &v = out->sec->alt_video;
             memset(&v, 0, sizeof(v));
             v.w = SW(0); v.h = SW(1);
             uint32_t scale = SW(2), nbuf = SW(7), bpp = SW(12), pxfmt = SW(13), h60 = SW(14);
@@ -361,10 +363,10 @@ static int parse_sections(Rd &r, uint32_t off, uint32_t size, DescRecord *out, u
             v.fb_base = SW(5); v.fb_stride = SW(6);
             v.scale = (uint8_t)scale; v.nbuf = (uint8_t)nbuf; v.bpp = (uint8_t)bpp; v.pxfmt = (uint8_t)pxfmt; v.h60 = (uint16_t)h60;
             v.reg_latest = (uint16_t)reg[0]; v.reg_seq = (uint16_t)reg[1]; v.reg_fb_base = (uint16_t)reg[2]; v.reg_fb_stride = (uint16_t)reg[3];
-            out->has_alt_video = true;
+            out->sec->has_alt_video = true;
         } else if (id == 12) {
             NEED(23);
-            FbWinSpec &f = out->fbwin;
+            FbWinSpec &f = out->sec->fbwin;
             memset(&f, 0, sizeof(f));
             uint32_t w[23];
             for (int i = 0; i < 23; i++) {
@@ -387,10 +389,10 @@ static int parse_sections(Rd &r, uint32_t off, uint32_t size, DescRecord *out, u
             f.x_per_unit = (int16_t)w[10]; f.x_origin = (int16_t)w[11]; f.y_origin = (int16_t)w[12]; f.src_w = (int16_t)w[13]; f.src_h = (int16_t)w[14];
             f.def_skip_x = (uint16_t)w[15]; f.def_skip_y = (uint16_t)w[16]; f.def_cols = (uint16_t)w[17]; f.def_lines = (uint16_t)w[18];
             f.interval_ms = (uint16_t)w[19]; f.settle_ms = (uint16_t)w[20]; f.frames_ms = (uint16_t)w[21]; f.min_apply_ms = (uint16_t)w[22];
-            out->has_fbwin = true;
+            out->sec->has_fbwin = true;
         } else if (id == 13) {
             NEED(7);
-            MouseSinkSpec &m = out->mouse;
+            MouseSinkSpec &m = out->sec->mouse;
             memset(&m, 0, sizeof(m));
             if (SW(0) > 1 || SW(1) > 65535 || SW(2) > 65535 || SW(3) > 65535 || (int32_t)SW(4) < -32768 || (int32_t)SW(4) > 32767 || (int32_t)SW(5) < -32768 ||
                 (int32_t)SW(5) > 32767 || SW(6) > 255) {
@@ -399,10 +401,10 @@ static int parse_sections(Rd &r, uint32_t off, uint32_t size, DescRecord *out, u
             m.kind = SW(0) ? MOUSE_POT1351 : MOUSE_COUNTERS;
             m.reg_dx = (uint16_t)SW(1); m.reg_dy = (uint16_t)SW(2); m.reg_btn = (uint16_t)SW(3);
             m.clamp = (int16_t)SW(4); m.step = (int16_t)SW(5); m.interval_ms = (uint8_t)SW(6);
-            out->has_mouse = true;
+            out->sec->has_mouse = true;
         } else if (id == 14) {
             NEED(17);
-            RomSetSpec &q = out->romset;
+            RomSetSpec &q = out->sec->romset;
             q = RomSetSpec();
             uint32_t fl = SW(0);
             q.role = r.str(SW(4), &bad); q.ext = r.str(SW(5), &bad); q.size_text = r.str(SW(6), &bad); q.example = r.str(SW(7), &bad);
@@ -425,7 +427,7 @@ static int parse_sections(Rd &r, uint32_t off, uint32_t size, DescRecord *out, u
             q.want = (uint16_t)want;
             q.head_bytes = (uint8_t)head;
             q.window_off = SW(13); q.mirror_size = SW(14); q.mirror_stride = SW(15); q.clear_below = SW(16);
-            RomSetLabels &l = out->romset_labels;
+            RomSetLabels &l = out->sec->romset_labels;
             snprintf(l.text[0], ROMSET_NAME, "%s", q.auto_label);
             for (int i = 1; i <= ROMSET_MAX; i++) {
                 strcpy(l.text[i], "-");
@@ -434,12 +436,12 @@ static int parse_sections(Rd &r, uint32_t off, uint32_t size, DescRecord *out, u
                 l.item[i] = l.text[i];
             }
             q.labels = &l;
-            out->romset_version = (fl & 1) != 0;
-            out->romset_pick = (fl & 2) != 0;
-            out->has_romset = true;
+            out->sec->romset_version = (fl & 1) != 0;
+            out->sec->romset_pick = (fl & 2) != 0;
+            out->sec->has_romset = true;
         } else if (id == 15) {
             NEED(15);
-            WindowMediaSpec &w = out->winmedia;
+            WindowMediaSpec &w = out->sec->winmedia;
             memset(&w, 0, sizeof(w));
             w.prefix = r.str(SW(0), &bad);
             uint32_t ns = SW(1), nt = SW(8);
@@ -455,10 +457,10 @@ static int parse_sections(Rd &r, uint32_t off, uint32_t size, DescRecord *out, u
             w.mount_reg = (uint16_t)u16[0]; w.mount_step = (uint16_t)u16[1]; w.track_bytes = SW(7); w.ntracks = (uint16_t)nt;
             w.dlog_status = (uint16_t)u16[2]; w.dlog_track = (uint16_t)u16[3]; w.dlog_drive = (uint16_t)u16[4]; w.dlog_pop = (uint16_t)u16[5];
             w.idle_flush_ms = (uint16_t)u16[6]; w.max_dirty_ms = (uint16_t)u16[7];
-            out->has_winmedia = true;
+            out->sec->has_winmedia = true;
         } else if (id == 16) {
             NEED(12);
-            SectorMediaSpec &q = out->secmedia;
+            SectorMediaSpec &q = out->sec->secmedia;
             memset(&q, 0, sizeof(q));
             q.prefix = r.str(SW(0), &bad);
             uint32_t nu = SW(1);
@@ -475,7 +477,7 @@ static int parse_sections(Rd &r, uint32_t off, uint32_t size, DescRecord *out, u
             q.nunits = (uint8_t)nu; q.mount_reg = (uint16_t)v[0]; q.mount_step = (uint16_t)v[1]; q.feat_reg = (uint16_t)v[2]; q.feat_sectors = (uint8_t)v[3];
             q.mbox_status = (uint16_t)v[4]; q.mbox_lba = (uint16_t)v[5]; q.mbox_done = (uint16_t)v[6]; q.stage_off = SW(9);
             q.idle_sync_ms = (uint16_t)v[7]; q.done_tag_mask = (uint8_t)v[8];
-            out->has_secmedia = true;
+            out->sec->has_secmedia = true;
         } else {
             if (len < 4 || SW(0) < 1 || SW(0) > (uint32_t)out->nmedia || len != 4 + 8 * SW(0)) {
                 return r.fail("description record, section %s: the count (1 to the media slots, %d) or the length does not fit", nm, out->nmedia);
@@ -508,7 +510,8 @@ static int parse_sections(Rd &r, uint32_t off, uint32_t size, DescRecord *out, u
 int descrec_parse(const uint8_t *rec, uint32_t n, DescRecord *out, char *why, int whylen)
 {
     Rd r = { rec, n, 0, 0, why, whylen };
-    memset(out, 0, sizeof(*out));
+    delete out->sec;                                              // a record parsed again gives up what the first parse allocated
+    memset((void *)out, 0, sizeof(*out));
     if (n < DESCREC_HEADER || n > DESCREC_MAX_SIZE) {
         return r.fail("description record: %u bytes (%u to %u are allowed)", (unsigned)n, DESCREC_HEADER, DESCREC_MAX_SIZE);
     }
@@ -1078,15 +1081,15 @@ int descrec_core(DescRecord *rec, const CoreHooks *hooks, CoreDesc *out, char *w
         return -1;
     }
     memset(out, 0, sizeof(*out));
-    memcpy(out->id, rec->ident.id, 4);
-    out->cor_name = rec->ident.name;
-    out->title = rec->ident.title;
-    out->short_title = rec->ident.short_title;
-    out->folder = rec->ident.folder;
-    out->store = rec->ident.store;
-    out->min_contract = rec->ident.min_contract;
-    out->roms = rec->nroms ? rec->roms : 0;
-    out->nroms = rec->nroms;
+    memcpy(out->id, rec->sec->ident.id, 4);
+    out->cor_name = rec->sec->ident.name;
+    out->title = rec->sec->ident.title;
+    out->short_title = rec->sec->ident.short_title;
+    out->folder = rec->sec->ident.folder;
+    out->store = rec->sec->ident.store;
+    out->min_contract = rec->sec->ident.min_contract;
+    out->roms = rec->sec->nroms ? rec->sec->roms : 0;
+    out->nroms = rec->sec->nroms;
     out->settings = rec->ncsettings ? rec->csettings : 0;
     out->nsettings = rec->ncsettings;
     out->tasks = rec->ntasks ? rec->tasks : 0;
@@ -1095,34 +1098,34 @@ int descrec_core(DescRecord *rec, const CoreHooks *hooks, CoreDesc *out, char *w
     out->nfiletypes = rec->nftypes;
     out->media = rec->nmedia ? rec->media : 0;
     out->nmedia = rec->nmedia;
-    if (rec->has_video) {
-        out->video = rec->video;
-        out->freeze = rec->freeze;
+    if (rec->sec->has_video) {
+        out->video = rec->sec->video;
+        out->freeze = rec->sec->freeze;
     }
-    out->reset_ms = (uint16_t)rec->ident.reset_ms;
-    out->service_op = rec->ident.service_op;
-    out->service_period_ms = (uint16_t)rec->ident.service_period_ms;
-    const uint32_t fl = rec->ident.flags;
+    out->reset_ms = (uint16_t)rec->sec->ident.reset_ms;
+    out->service_op = rec->sec->ident.service_op;
+    out->service_period_ms = (uint16_t)rec->sec->ident.service_period_ms;
+    const uint32_t fl = rec->sec->ident.flags;
     out->poll_when_frozen = (fl & 1) != 0;
     out->board_caps = (fl & 2) != 0;
     out->id_shared = (fl & 4) != 0;
     out->own_volume = (fl & 8) != 0;
     out->no_tone = (fl & 16) != 0;
     out->menu_first = (fl & 32) != 0;
-    out->needs_program = rec->ident.needs_program;
-    out->program_ext = rec->ident.program_ext;
-    out->type_op = rec->ident.type_op;
-    out->run_op = rec->ident.run_op;
-    out->core_id = rec->ident.core_id;
-    out->live_ms = (uint16_t)rec->ident.live_ms;
-    out->caps = rec->ncaps ? rec->caps : 0;
-    out->ncaps = rec->ncaps;
+    out->needs_program = rec->sec->ident.needs_program;
+    out->program_ext = rec->sec->ident.program_ext;
+    out->type_op = rec->sec->ident.type_op;
+    out->run_op = rec->sec->ident.run_op;
+    out->core_id = rec->sec->ident.core_id;
+    out->live_ms = (uint16_t)rec->sec->ident.live_ms;
+    out->caps = rec->sec->ncaps ? rec->sec->caps : 0;
+    out->ncaps = rec->sec->ncaps;
     out->machine_info = rec->machine_info;
     out->pad = rec->has_pad ? &rec->pad : 0;
     out->cold_ram_bytes = rec->restart_clear;
     out->cold_ram_only = rec->restart_ram_only;
     out->from_record = true;
-    out->hotkeys = rec->has_hot ? &rec->hot : 0;
+    out->hotkeys = rec->sec->has_hot ? &rec->sec->hot : 0;
     if (hooks) {
         out->init = hooks->init;
         out->release = hooks->release;
@@ -1135,60 +1138,60 @@ int descrec_core(DescRecord *rec, const CoreHooks *hooks, CoreDesc *out, char *w
         out->mount_slots = hooks->mount_slots;
     }
     // the remaining data tables; where a table holds a function, the record's flag says the core has it and the code has to
-    out->reset_writes = rec->nreset_writes ? rec->reset_writes : 0;
-    out->nreset_writes = rec->nreset_writes;
-    if (rec->has_idfeat) {
-        out->id_feat_reg = rec->idf_reg;
-        out->id_feat_mask = rec->idf_mask;
-        out->id_feat_val = rec->idf_val;
+    out->reset_writes = rec->sec->nreset_writes ? rec->sec->reset_writes : 0;
+    out->nreset_writes = rec->sec->nreset_writes;
+    if (rec->sec->has_idfeat) {
+        out->id_feat_reg = rec->sec->idf_reg;
+        out->id_feat_mask = rec->sec->idf_mask;
+        out->id_feat_val = rec->sec->idf_val;
     }
-    out->report_regs = rec->nreport_regs ? rec->report_regs : 0;
-    out->nreport_regs = rec->nreport_regs;
-    out->alt_video = rec->has_alt_video ? &rec->alt_video : 0;
-    out->fbwin = rec->has_fbwin ? &rec->fbwin : 0;
-    out->mouse = rec->has_mouse ? &rec->mouse : 0;
-    out->window_media = rec->has_winmedia ? &rec->winmedia : 0;
-    out->sector_media = rec->has_secmedia ? &rec->secmedia : 0;
-    for (int i = 0; i < rec->nroms; i++) {
-        if (rec->rom_check[i]) {
+    out->report_regs = rec->sec->nreport_regs ? rec->sec->report_regs : 0;
+    out->nreport_regs = rec->sec->nreport_regs;
+    out->alt_video = rec->sec->has_alt_video ? &rec->sec->alt_video : 0;
+    out->fbwin = rec->sec->has_fbwin ? &rec->sec->fbwin : 0;
+    out->mouse = rec->sec->has_mouse ? &rec->sec->mouse : 0;
+    out->window_media = rec->sec->has_winmedia ? &rec->sec->winmedia : 0;
+    out->sector_media = rec->sec->has_secmedia ? &rec->sec->secmedia : 0;
+    for (int i = 0; i < rec->sec->nroms; i++) {
+        if (rec->sec->rom_check[i]) {
             if (!hooks || !hooks->rom_check[i]) {
                 snprintf(why, whylen, "description record, section roms: entry %d says the core's code checks its content, and the code has no such check", i);
                 return -1;
             }
-            rec->roms[i].check = hooks->rom_check[i];
+            rec->sec->roms[i].check = hooks->rom_check[i];
         }
     }
-    if (rec->has_romset) {
-        if ((rec->romset_version && (!hooks || !hooks->romset_version)) || (rec->romset_pick && (!hooks || !hooks->romset_pick))) {
+    if (rec->sec->has_romset) {
+        if ((rec->sec->romset_version && (!hooks || !hooks->romset_version)) || (rec->sec->romset_pick && (!hooks || !hooks->romset_pick))) {
             snprintf(why, whylen, "description record, section rom set: it names a version or pick function, and the code of the core has none");
             return -1;
         }
-        rec->romset.version = rec->romset_version ? hooks->romset_version : 0;
-        rec->romset.pick = rec->romset_pick ? hooks->romset_pick : 0;
-        out->romset = &rec->romset;
+        rec->sec->romset.version = rec->sec->romset_version ? hooks->romset_version : 0;
+        rec->sec->romset.pick = rec->sec->romset_pick ? hooks->romset_pick : 0;
+        out->romset = &rec->sec->romset;
     }
-    if (rec->has_rawkeys) {
-        if (rec->rawkeys_held && (!hooks || !hooks->rawkeys_held)) {
+    if (rec->sec->has_rawkeys) {
+        if (rec->sec->rawkeys_held && (!hooks || !hooks->rawkeys_held)) {
             snprintf(why, whylen, "description record, section raw keys: it says the core takes the keys that are down, and the code of the core has no such function");
             return -1;
         }
-        rec->rawkeys.held = rec->rawkeys_held ? hooks->rawkeys_held : 0;
-        out->rawkeys = &rec->rawkeys;
+        rec->sec->rawkeys.held = rec->sec->rawkeys_held ? hooks->rawkeys_held : 0;
+        out->rawkeys = &rec->sec->rawkeys;
     }
     if (rec->has_pad && hooks && hooks->pad_id_loaded) {
         rec->pad.id_loaded = hooks->pad_id_loaded;
     }
-    if (rec->nmount) {
+    if (rec->sec->nmount) {
         if (!hooks || !hooks->mount_slots) {
             snprintf(why, whylen, "description record, section mount slots: the core's code has no functions for the slots");
             return -1;
         }
-        rec->mount.n = rec->nmount;
-        rec->mount.names = rec->mount_names;
-        rec->mount.spec = hooks->mount_slots->spec;
-        rec->mount.mount = hooks->mount_slots->mount;
-        rec->mount.eject = hooks->mount_slots->eject;
-        out->mount_slots = &rec->mount;
+        rec->sec->mount.n = rec->sec->nmount;
+        rec->sec->mount.names = rec->sec->mount_names;
+        rec->sec->mount.spec = hooks->mount_slots->spec;
+        rec->sec->mount.mount = hooks->mount_slots->mount;
+        rec->sec->mount.eject = hooks->mount_slots->eject;
+        out->mount_slots = &rec->sec->mount;
     }
     return 0;
 }
