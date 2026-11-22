@@ -1,0 +1,6 @@
+*.o
+*.d
+*.elf
+*.u2a
+*.bin
+test_example

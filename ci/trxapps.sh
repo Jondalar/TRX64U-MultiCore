@@ -43,7 +43,7 @@ out="$(stage_dir trxapps)"
 # the shell would be served out of the cache and never reach the board.
 key=""; cache=""
 if [ -z "$inplace" ]; then
-  key="$(cd "$ROOT" && set -o pipefail && git ls-files -s -- host-app coreapp uicore ci/version.sh app apps/unzip apps/miniz apps/trex_crt apps/softboot cores/apple2/rtl/roms vendor/gideon/software vendor/gideon/tools vendor/gideon/target vendor/gideon/roms > "$out/.keyall" && cut -f2 "$out/.keyall" | python3 ci/code_hash.py keep > "$out/.keynames" && [ -s "$out/.keynames" ] && { awk -F'\t' 'NR==FNR{k[$0];next} ($2 in k)' "$out/.keynames" "$out/.keyall"; printf 'image %s\n' "$(image_id build)"; } | sha256sum | cut -c1-16)" || { echo "trxapps: stage key failed" >&2; exit 1; }
+  key="$(cd "$ROOT" && set -o pipefail && git ls-files -s -- host-app coreapp uicore ci/version.sh app tools/sdk_pack.sh tools/sdk_check.sh tools/check_no_roms.sh tools/u2a_pack.py tools/descrec.py tools/cor_pack.py LICENSE apps/unzip apps/miniz apps/trex_crt apps/softboot cores/apple2/rtl/roms vendor/gideon/software vendor/gideon/tools vendor/gideon/target vendor/gideon/roms > "$out/.keyall" && cut -f2 "$out/.keyall" | python3 ci/code_hash.py keep > "$out/.keynames" && [ -s "$out/.keynames" ] && { awk -F'\t' 'NR==FNR{k[$0];next} ($2 in k)' "$out/.keynames" "$out/.keyall"; printf 'image %s\n' "$(image_id build)"; } | sha256sum | cut -c1-16)" || { echo "trxapps: stage key failed" >&2; exit 1; }
   rm -f "$out/.keynames" "$out/.keyall"
   cache="${CI_TRXAPPS_CACHE:-/cache/trxapps}/$key"
 fi
@@ -156,7 +156,7 @@ else
   # instead of building and cleaning every run (the stage key above is coarser: any change in app/ or coreapp/ rebuilds the stage, but not these two).
   libapp() {   # libapp DIR NAME.u2a : DIR relative to the tree
     local d="$1" n="$2" k c
-    k="$( (cd "$ROOT" && git ls-files -s -- "$d" apps/miniz app/lib/app.mk app/sdk coreapp/src tools/u2a_pack.py tools/descrec.py > "$out/.liball" && cut -f2 "$out/.liball" | python3 ci/code_hash.py keep > "$out/.libnames" && [ -s "$out/.libnames" ] && awk -F'\t' 'NR==FNR{k[$0];next} ($2 in k)' "$out/.libnames" "$out/.liball"; rm -f "$out/.libnames" "$out/.liball"; riscv32-unknown-elf-gcc --version | head -1; echo "$d $n") | sha256sum | cut -c1-16)"
+    k="$( (cd "$ROOT" && git ls-files -s -- "$d" apps/miniz app/lib/app.mk app/lib/lib.mk app/lib/sdkroot.mk app/lib/lib.ld app/sdk coreapp/src tools/u2a_pack.py tools/descrec.py > "$out/.liball" && cut -f2 "$out/.liball" | python3 ci/code_hash.py keep > "$out/.libnames" && [ -s "$out/.libnames" ] && awk -F'\t' 'NR==FNR{k[$0];next} ($2 in k)' "$out/.libnames" "$out/.liball"; rm -f "$out/.libnames" "$out/.liball"; riscv32-unknown-elf-gcc --version | head -1; echo "$d $n") | sha256sum | cut -c1-16)"
     c="${CI_TRXAPPS_CACHE:-/cache/trxapps}/lib-apps/$k"
     if [ -f "$c/$n" ]; then echo "=== trxapps $n: from cache $c (key $k)"; cp "$c/$n" "$out/"; return 0; fi
     nice -n 15 make -j"$J" -C "$B/$d" RV_PREFIX=riscv32-unknown-elf- "$n"
@@ -181,6 +181,11 @@ else
   # .app's 12-byte header would sit on the entry point - that is what shipped on 2026-10-15 and left the
   # Atari and the NES executing their own load address (T93 5.12).
   for c in $BLUEPRINT_CORES; do cp "$H/u64ii/riscv/coreapp/result/coreapp.bin" "$out/coreapps/$c.app"; done
+  # T239.3 D17 / P8: the SDK package (tools/sdk_pack.sh) from this build's sources and its coreapp.bin, into the hand-over beside the images (the artifact
+  # handoff-trxapps), and its check (tools/sdk_check.sh): the example library and its menu record built from the unpacked package alone. The sources of the
+  # package are in the stage key above (app/ with app/sdkpkg, the packer tools, the two scripts).
+  SDK_COMMIT="$(cd "$ROOT" && git rev-parse --short=8 HEAD 2>/dev/null || echo unknown)" bash "$B/tools/sdk_pack.sh" "$out"
+  RV_PREFIX=riscv32-unknown-elf- bash "$B/tools/sdk_check.sh" "$out"/trx64-sdk-*.tar.gz
   command -v ccache >/dev/null && ccache --show-stats | head -8 || true
   echo "=== trxapps: images built in $((SECONDS - _t_b))s"
 

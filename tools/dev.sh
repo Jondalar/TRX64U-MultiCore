@@ -103,6 +103,8 @@ case "$mode" in riscv|emu|cor|integrate)
   for f in hostapp.app hostapp.elf coreapp.app coreapp.bin coreapp.elf coreapp_trx64u.app coreapp_trx64u.bin coreapp_trx64u.elf testlib.u2a unzip.u2a miniz.u2a; do   # T228 R25: trx64u's own image
     scp -q "$host:$tree/.dev-out/trxapps/$f" "$out/" 2>/dev/null || echo "(no $f in the result)"
   done
+  rm -rf "$out"/trx64-sdk-*   # the SDK package of the build (tools/sdk_pack.sh): the tarball, unpacked beside it
+  if scp -q "$host:$tree/.dev-out/trxapps/trx64-sdk-*.tar.gz" "$out/" 2>/dev/null; then tar -xzf "$out"/trx64-sdk-*.tar.gz -C "$out" && chmod -R a+rX "$out"/trx64-sdk-*; else echo "(no SDK package in the result)"; fi
   ls -l "$out"; shasum -a 256 "$out"/hostapp.app "$out"/coreapp.bin 2>/dev/null || sha256sum "$out"/hostapp.app "$out"/coreapp.bin
   lap "images to $out" ;;
 esac

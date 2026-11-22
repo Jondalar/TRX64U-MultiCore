@@ -1,0 +1,86 @@
+# TRX64 SDK @SDK_VERSION@
+
+This package builds a library for the generic core application, the menu record of that library, and a `.cor` bundle that carries both.
+It needs nothing from the TRX64 repository.
+
+The file `VERSION` names the SDK version, the base API version (@ABI_MAJOR@.@ABI_MINOR@), the source commit and the SHA-256 of `image/coreapp.bin`.
+
+## Contents
+
+| Folder | Content |
+|---|---|
+| `include/` | The headers a library or an application includes: `libapi.h` and everything it includes, `libfmt.h`, `glue.h`, `u2p_app.h`, `u2p_ui.h`, `hidden.h`. |
+| `mk/` | `lib.mk` (a library), `app.mk` (an application of C files), `lib.ld` (the linker script), `sdkroot.mk` (finds the package). |
+| `sdk/` | The C sources that `app.mk` links into an application. `lib.mk` links `sdk/libc.c` when `LIB_LIBC = 1`. |
+| `tools/` | `u2a_pack.py` (image to `.u2a`), `descrec.py` (menu TOML to menu record), `cor_pack.py` (`.cor` bundle). |
+| `image/` | `coreapp.bin`, the core application image of this SDK version, and its `version.toml`. Every `.cor` carries this image. |
+| `example/` | A library of two source files with a menu TOML and a host test. |
+
+## Requirements
+
+- A RISC-V GCC for 32 bit (`riscv32-unknown-elf-gcc`, or `riscv64-elf-gcc` with an rv32 multilib), GNU make and Python 3.
+- A host C++ compiler, for the example's test only.
+
+Set `RV_PREFIX` to the compiler's prefix, for example `RV_PREFIX=riscv32-unknown-elf-`.
+
+## Build a library
+
+1. Write a `Makefile` that names the library and includes `mk/lib.mk`:
+
+   ```make
+   LIB_NAME = mylib
+   LIB_VERSION = 1
+   LIB_NEEDS = base>=3.0
+   LIB_SRCS = mylib.cc helper.cc
+   LIB_MENU = menu.toml
+   include <path to the package>/mk/lib.mk
+   ```
+
+2. Run `make RV_PREFIX=riscv32-unknown-elf-`. The result is `mylib.u2a`.
+
+`lib.mk` compiles every file of `LIB_SRCS` (`.cc` and `.c`) and links them into one image. The image is position independent: the loader
+relocates it. The entry point is the function `lib_register`, which fills a `LibRecord` with the library's operations and state values.
+`LIB_NEEDS` names the base API version the library needs. `LIB_INC = -Idir` adds include paths. `LIB_LIBC = 1` links `memcpy`, `memset` and
+integer division from `sdk/libc.c`; the code runs without a C library and without a hardware divider.
+
+## Build a menu record
+
+The menu of a library is a TOML file. `descrec.py` lists every key.
+
+- `LIB_MENU = menu.toml` in the Makefile puts the record into the `.u2a`.
+- `python3 tools/descrec.py compile menu.toml menu.bin` makes the record alone. `python3 tools/descrec.py dump menu.bin` reads it back.
+
+## Build a `.cor`
+
+```
+python3 tools/cor_pack.py pack -o mycore.cor --name "My Core" --version 1.0.0 \
+    --partial core.bit --app image/coreapp.bin --host-key <host key> \
+    --desc menu.toml --lib mylib.u2a
+```
+
+`--partial` is the partial bitstream of the core. `--host-key` is the key of the host the bitstream was routed against.
+`--heap <bytes>` sets the heap of the core application for this core. `python3 tools/cor_pack.py check mycore.cor` checks the bundle.
+For the other options read the head of `tools/cor_pack.py`.
+
+## The example
+
+```
+cd example
+make RV_PREFIX=riscv32-unknown-elf-
+make menu
+make test
+```
+
+`make` builds `example.u2a` from `example.cc` and `greet.cc`, with `menu.toml` as its menu record. `make menu` writes `example.menu.bin`.
+`make test` builds `example.cc` and `greet.cc` with the host compiler, registers the library against a fake `LibApi` and calls its operation.
+
+## Not in this package yet
+
+- The menu simulator. It builds from the sources of the core application.
+- The shared 1541 drive library. It uses the core application's `CoreIo` and file headers, which are not public.
+- The tool that writes the list of a core's operations (`--ops` of `descrec.py`).
+- A test rig for descriptor hooks and operations against a model of a core.
+
+## Licence
+
+GNU General Public License, version 3 or later: `LICENSE`. `NOTICE` names the source commit and the origin of the interface headers.
