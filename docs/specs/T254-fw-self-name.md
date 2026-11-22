@@ -1,7 +1,7 @@
 # T254 — A foreign firmware shows the name and version it gives itself, not its bitstream's date
 
 **Status:** IN PROGRESS (2026-11-22). Asked by Alex, 2026-11-22.
-Open (one line, as in the TODO table): IN PROGRESS 11-22: S1-S8 PASS, all merged (#130, #132 352a6b41); open: board
+Open (one line, as in the TODO table): IN PROGRESS 11-22: S1-S8 PASS, merged (#130, #132); board PASS on host 5d1bf662; open: D7, D8 on the board
 **Repo:** TRX64U-MultiCore — the host application (`host-app/software/hostapp`).
 **Number:** T254.
 **Origin:** Alex, 2026-11-22 (translated): "Can we take something small into 0.2.1 that bothers me visually a lot? ... If it
@@ -229,3 +229,7 @@ Scenario: S8 (P7) the Version column of a firmware packaged without its version
 - **The pull request (2026-11-22):** #132 into `integration`, after the integration run of #131 (45021023294) was green.
 - **Merged (2026-11-22):** Alex merged #132 into `integration` (`352a6b41`). The branch is deleted, its head kept as
   `refs/backup/t254-old-entries`; its builder tree is removed.
+- **Board (2026-11-22), host `5d1bf662`:** Alex's results, all PASS: the host update installs, and the T254 card holds (the panel
+  titles, the Version row, the start question, the panel within about a second). D7 and D8 (#132) were not on that host. The host
+  update `trx64host_update_352a6b41.txu` is in `/SD/txu/` for the next board session; its host bitstream is byte-identical
+  (`9e694fb8...`), only the application is new.

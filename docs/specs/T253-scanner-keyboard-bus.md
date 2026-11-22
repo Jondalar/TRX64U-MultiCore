@@ -1,7 +1,7 @@
 # T253 — The P7 keyboard scan uses the keyboard's I2C bus only, and the applications start it as PR #112 does
 
 **Status:** IN PROGRESS (2026-11-21). Asked by Alex, 2026-11-21.
-Open (one line, as in the TODO table): IN PROGRESS 11-22: S1, S4 PASS, S3 picture and colours; open: S2 10 min, S3 P7 key
+Open (one line, as in the TODO table): IN PROGRESS 11-22: S1, S3, S4 PASS (board 11-22); open: S2, the log at minute 10 (Alex saw 10 min, no dropout)
 **Repo:** TRX64U-MultiCore — the I2C wiring in the top of every large core (`cores/*/mono/top.v`, `cores/*/mono/host/top.v`)
 and of the host (`host/top.v`); the start of the scan in the applications (`coreapp/src/coreapp.cc`,
 `host-app/software/hostapp/hostapp.cc`, `host-app/software/system/u64ii_init.cc`, `host-app/software/io/i2c/hw_i2c_drv.cc`).
@@ -215,3 +215,7 @@ Scenario: S4 (P1) every core and the host
   `t248-old` (every file it touches is the same in `t248-scpu-depth`), `t249-scpu-no-tape`, `t250-scpu-net`,
   `t253-scpu-test`, `t239.1-before-rewrite`, `t239.1-leftovers`. The maintainer's checkout keeps their heads as
   `refs/backup/<branch>`. Kept: `t241.1-scpu-suite`, `t248-scpu-depth`, `t248-alu`, `t252-i2c-switches`.
+- **Board (2026-11-22), the 0.2.1 package (cores `d68f4b3a`, host `5d1bf662`):** Alex's results on the test page, all PASS. The host:
+  the picture and the P7 keyboard. c64scpu ran 10 minutes without a dropout, and the keys type. C128, Amiga 1200 and trx64u: no
+  dropout, the keys arrive. trx64u and trx64g (0.3.1) start. With that, S3 (the P7 keys) is proven. Not read: `GET /v1/report` of
+  c64scpu at minute 10. The coordinator missed it, and the core was closed before the read; the report at 14:46 is the host's.
