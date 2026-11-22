@@ -2,13 +2,6 @@
 # (record 6 of the .cor); the generic application builds the descriptor from it. What the record cannot hold is code, and stays in the core's C++: init, release, the
 # operations of register_ops, the model's ROM choice (rom_key), the drive and tape slots' media functions. Register numbers are cores/pet/rtl/trx/pet_regs.v
 # (coreapp/cores/pet_regs.h); the settings are register bits.
-#
-# NOT YET PROVEN, so this file is not called desc.toml (tests/coreapp/gen_bundle.py compiles every cores/*/app/desc.toml and the table-driven test compares it).
-# tools/descrec.py refuses it for two reasons, and the table-driven test passes with both lifted (3200 fields compared, 0 failed):
-#   1. the five "Pad ... key" settings map 50 values to a register byte each (padkeys.h padkey_codes); a setting holds at most 32 bytes
-#      (tools/descrec.py SETBIND_BYTES_MAX, coreapp/src/descrec.h DR_BIND_BYTES);
-#   2. a register-bit setting that also has a show_state ("RAM", "SuperPET CPU", "SuperPET RAM") is refused: tools/descrec.py tests the time code with the
-#      show_state's offset packed above it (`wcode >= 2` in the reg_bind check, where the reader strips it first).
 machine_info = "Model,RAM"
 
 [restart]
