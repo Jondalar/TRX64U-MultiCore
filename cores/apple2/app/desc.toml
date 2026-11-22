@@ -1,5 +1,3 @@
-# NOT PACKED YET: it is named desc.pending.toml because tests/coreapp/test_descgen.cc expects the descriptor made without code to fail on "mount slots", and for a core
-# with a ROM content check (check = true) and mount slots descrec_core names the missing ROM check first. Every field compares equal; that one message is the only failure. Rename it to desc.toml then.
 # The Apple //e's data description (T239.3 D17): what coreapp/cores/apple2.cc holds as tables and strings, as TOML. tools/descrec.py compiles it into the
 # description record (record 6 of the .cor, section layout in coreapp/src/descrec.h); the generic application builds the descriptor from it. What the record
 # cannot hold is code, and stays in the core's C++: init, release, warm_reset, the operations of register_ops, the content check of the System ROM, the floppy
