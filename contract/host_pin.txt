@@ -81,7 +81,7 @@ a7a39e954a1da7a25a9f21e475060466e96caeea cores/common/drv_dbg.v
 54cc6541854fb8d5450da94fc67e1df06593f821 cores/common/trx_engine.v
 d917bf6b9355e5eb781e214d2d7a5f9f843913a5 cores/common/trx_io.v
 a0f286560cdb313a32232aa18a167215ad9864d1 cores/common/trx_sys.v
-c58a7f7fb2360e5faf578c3658ab9829fa9b2d84 host/app_i2c.v
+233932782e4c4607ea3746782b1a8dfd010cca7c host/app_i2c.v
 8a15b7b3a882c00363a135c1f94bcc3ee348abee host/app_input.v
 a9c6227d75bc92b19436f1223bfbb6180456eaee host/bling_io.v
 9f20c2013e4947b13306a14767c12354c84508f2 host/bling_keyboard.v
@@ -156,7 +156,7 @@ a2e00c0eebb3f1ead5880554edd560692bb40c4e host/rvlite_wrapper_dc.vhd
 86fcf811727c6ad96bae6c0da541a982e5907278 host/stream_mux.v
 649cc874d88e64f8e2e0bbe93c7ee065401d6056 host/tmds.v
 94d45d79013a688e3ae6e791ac2ce181d6775efd host/tmds_rep.v
-17edc523fe128d5bee561b8b1c4c99648e40d772 host/top.v
+dd61b70d518db80e2be75b245eed33d707fc86d3 host/top.v
 0fafdec72a58ee11150e687f1e030da458631425 host/trx_gain.v
 6e523747af775bc14452518b0e396f57e016f668 host/trx_tone.v
 3ff720a3ddb63b9bc2a23e4538178373dc06dc92 host/uci_unit.vhd

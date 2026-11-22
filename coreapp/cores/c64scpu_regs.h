@@ -12,10 +12,11 @@
 #define SCPU_ID0         0x000                        // page 0: "SCPU" (the host's ID block, bytes S C P U)
 #define SCPU_CAPS        SCPU_REG(0x004)              // 0x01: this page, layout version 1 (step 1); 0x02: with the SuperCPU registers below (steps 2-4)
 #define SCPU_JOY         SCPU_REG(0x024)              // b0: the host's joystick ports 1 and 2 are swapped before the core (T157); live; back to 0 by COLD
-#define SCPU_PIN_CTRL  0x078                        // c64u_io PIN_CTRL (page 0): b0 MOTOR out, b1 WRITE out, b4 READ / SENSE pins feed the machine; b2 (streamer drives READ) and b3 (SENSE pull) stay 0 with an external datasette (T214)
 #define SCPU_STATUS      SCPU_REG(0x030)              // b3 held (Freeze), b4 PAL; b0 SuperCPU ROM valid, b1 20 MHz in effect, b2 emulation mode (E flag)
 #define SCPU_ST_HELD     0x08
-#define SCPU_ROM_CTRL    SCPU_REG(0x040)              // W b0: flush the ROM line caches (the C64 image's and the SuperCPU ROM's); R b0: a flush is running
+#define SCPU_ROM_CTRL    SCPU_REG(0x040)              // W b0: flush the line caches: the C64 image's, the SuperCPU ROM's and the 65816's 32 KiB cache of SRAM and
+                                                      // SuperRAM (c64_core_c64scpu.v scpu_flush); R b0: the C64 image cache's walker is running (the 65816's cache
+                                                      // clears in 2048 clocks, not shown)
 #define SCPU_ROM_BASE    SCPU_REG(0x050)              // 32 bit, little endian: the DDR2 byte address of the C64 ROM image (BASIC, KERNAL), 0x01C00000
 #define SCPU_CHR_ADDR    SCPU_REG(0x090)              // RW 12 bit (090 low, 091 high b3:0): the character ROM store's byte address
 #define SCPU_CHR_DATA    SCPU_REG(0x092)              // W: store the byte at CHR_ADDR, then add 1; R: the byte at CHR_ADDR (2 clocks after a CHR_ADDR write), then add 1
@@ -40,6 +41,8 @@
 #define SCPU_SROM_WIN_OFF  0x02080000u                // = SCPU_SROM_DDR_ADDR - 0x01000000, the offset inside the application's DDR2 window
 #define SCPU_SRAM_WIN_OFF  0x02000000u                // T217: the 65816's SRAM bank 0 ($0000-$FFFF) in the application's DDR2 window = 0x03000000 - 0x01000000 (scpu_mem.v sram(): p = 0x1000000 + addr,
                                                       // scpu_cache.v: p is the byte address minus 0x02000000). The CPU's page 0 and the BASIC pointers live here, not in the C64 RAM window.
+#define SCPU_SUPERRAM_WIN_OFF 0x01000000u             // T250 D2: SuperRAM byte 0 in the application's DDR2 window = 0x02000000 - 0x01000000 (c64scpu_ddrx.v
+                                                      // SC_BASE_W; scpu_mem.v: banks $02-$F5 at p = the 24-bit address, $F6/$F7 at p = the low 17 bits)
 #define SCPU_SROM_MAX      262144u
 
 // ---- the C64 ROMs (step 1's path, unchanged) -----------------------------------------------------------------------------------------

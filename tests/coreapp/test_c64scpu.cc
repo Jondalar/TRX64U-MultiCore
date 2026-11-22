@@ -222,6 +222,7 @@ int main()
         CHECK(sp >= 0 && jf >= 0);
         if (sp >= 0) { CHECK_STR(c64scpu_desc.settings[sp].values[0], "20 MHz"); CHECK_STR(c64scpu_desc.settings[sp].values[1], "1 MHz"); CHECK_EQ(c64scpu_desc.settings[sp].def, 0); }
         if (jf >= 0) { CHECK_STR(c64scpu_desc.settings[jf].values[0], "Off"); CHECK_STR(c64scpu_desc.settings[jf].values[1], "On"); CHECK_EQ(c64scpu_desc.settings[jf].def, 0); }
+        for (int i = 0; i < c64scpu_desc.nsettings; i++) CHECK(strcmp(c64scpu_desc.settings[i].key, "Datasette port") != 0);   // T249 S2: no datasette
     }
 
     // ---- the start with the five files of the card (their names as Alex put them): everything lands where the contract says, in the order
@@ -339,6 +340,16 @@ int main()
         r.io.e[T_ROM_VALID] = 1;
         CHECK_EQ(c64scpu_desc.release(&r.c, msg, sizeof(msg)), 0);
         CHECK(r.ev("mode_unreset") >= 0);
+    }
+    // ---- T249 S2: no datasette (Alex 2026-11-21: no SuperCPU software comes on tape): the op of the old setting is not registered
+    {
+        Rig r;
+        r.all();
+        CHECK(r.boot());
+        OpResult rr;
+        memset(&rr, 0, sizeof(rr));
+        OpIn in = in_int("value", 1);
+        CHECK_EQ(ops_call(&r.c, "c64scpu.set_dset", &in, 1, &rr), OPE_NOT_FOUND);
     }
     // ---- the image the DDR2 does not keep, a core of another version, a flush that never ends: the gate stays 0 and the put says why
     {
@@ -613,6 +624,58 @@ int main()
             CHECK(!cbm_key_for(0x00, &k));
             CHECK(!cbm_key_for(0xA0, &k));
         }
+    }
+    // ---- T250 S2: machine.read_mem / machine.write_mem. Each region of T250 D2 reaches its window offset; a write into the 65816's RAM
+    // is followed by one cache flush, a write into the C64 RAM by none; the ROM banks $F8-$FF are not mapped
+    {
+        Rig r;
+        for (uint32_t i = 0; i < 4; i++) {
+            r.io.ddr[0x0200C000u + i] = (uint8_t)(0x11 + i);              // SRAM bank 0, $00C000
+            r.io.ddr[0x0201F000u + i] = (uint8_t)(0x21 + i);              // SRAM bank 1, $01F000
+            r.io.ddr[0x01020000u + i] = (uint8_t)(0x31 + i);              // SuperRAM, $020000
+            r.io.ddr[0x01000010u + i] = (uint8_t)(0x41 + i);              // SuperRAM byte $10, seen at $F60010
+            r.io.ram[0x0400u + i] = (uint8_t)(0x51 + i);                  // C64 RAM $0400, seen at $1000400
+        }
+        struct Rd { int32_t addr; uint8_t first; } rds[] = { { 0x00C000, 0x11 }, { 0x01F000, 0x21 }, { 0x020000, 0x31 }, { 0xF60010, 0x41 }, { 0x1000400, 0x51 } };
+        for (auto &x : rds) {
+            OpIn in[2] = { in_int("address", x.addr), in_int("length", 4) };
+            OpResult rr;
+            CHECK_EQ(ops_call(&r.c, "machine.read_mem", in, 2, &rr), OPE_OK);
+            CHECK_EQ(rr.ndata, 4);
+            CHECK_EQ(rr.data[0], x.first);
+            CHECK_EQ(rr.data[3], (uint8_t)(x.first + 3));
+        }
+        int f0 = r.io.flushes;
+        OpResult rw;
+        OpIn w1[2] = { in_int("address", 0x01F100), in_str("data", "A1B2C3D4") };
+        CHECK_EQ(ops_call(&r.c, "machine.write_mem", w1, 2, &rw), OPE_OK);
+        CHECK_EQ(r.io.ddr[0x0201F100u], 0xA1);
+        CHECK_EQ(r.io.ddr[0x0201F103u], 0xD4);
+        CHECK_EQ(r.io.flushes, f0 + 1);
+        OpIn w2[2] = { in_int("address", 0x100C000), in_str("data", "5A5B") };
+        CHECK_EQ(ops_call(&r.c, "machine.write_mem", w2, 2, &rw), OPE_OK);
+        CHECK_EQ(r.io.ram[0xC000u], 0x5A);
+        CHECK_EQ(r.io.ram[0xC001u], 0x5B);
+        CHECK_EQ(r.io.flushes, f0 + 1);
+        OpIn x1[2] = { in_int("address", 0xF80000), in_int("length", 1) };
+        CHECK_EQ(ops_call(&r.c, "machine.read_mem", x1, 2, &rw), OPE_ARG);
+        r.io.events.clear();                                             // SuperRAM: the bytes first, then the flush
+        OpIn w3[2] = { in_int("address", 0x020000), in_str("data", "C0C1") };
+        CHECK_EQ(ops_call(&r.c, "machine.write_mem", w3, 2, &rw), OPE_OK);
+        CHECK_EQ(r.io.ddr[0x01020000u], 0xC0);
+        CHECK_EQ(r.io.ddr[0x01020001u], 0xC1);
+        CHECK(r.ev("ddr_write") >= 0 && r.ev("flush") > r.ev("ddr_write"));
+        CHECK_EQ(r.io.flushes, f0 + 2);
+        OpIn w4[2] = { in_int("address", 0xF60020), in_str("data", "E7") };   // the SIMM window: SuperRAM byte $20, flushed too
+        CHECK_EQ(ops_call(&r.c, "machine.write_mem", w4, 2, &rw), OPE_OK);
+        CHECK_EQ(r.io.ddr[0x01000020u], 0xE7);
+        CHECK_EQ(r.io.flushes, f0 + 3);
+        uint8_t keep = r.io.ddr[0x0201FFFFu];                            // across the end of SRAM bank 1: refused, nothing written, no flush
+        OpIn w5[2] = { in_int("address", 0x01FFFF), in_str("data", "9999") };
+        CHECK_EQ(ops_call(&r.c, "machine.write_mem", w5, 2, &rw), OPE_ARG);
+        CHECK_EQ(r.io.ddr[0x0201FFFFu], keep);
+        CHECK_EQ(r.io.ddr[0x01020000u], 0xC0);
+        CHECK_EQ(r.io.flushes, f0 + 3);
     }
     DONE("test_c64scpu");
 }

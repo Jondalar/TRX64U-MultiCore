@@ -262,16 +262,17 @@ module scpu_mem (
     assign mir_drv = ma_drv; assign mir_a = ma_a; assign mir_d = ma_d;
 
     // ---- the cache -----------------------------------------------------------------------------------------------------------------------
+    localparam   CIW = 11;                              // the cache's index bits: 2048 lines, 32 KiB (T241 D4; scpu_cache.v says why 11 is the most)
     wire         wbusy, flushing;
-    wire [140:0] cq;
+    wire [149-CIW:0] cq;
     reg          wr_go = 1'b0, rd_done = 1'b0, rd_if = 1'b0;
     reg  [20:0]  rd_ln = 21'd0;
     reg  [24:0]  w_p = 25'd0;
     reg   [7:0]  w_d = 8'd0;
-    wire         hit = cq[140] && cq[139:128] == d_rp[24:13] && !flushing;
+    wire         hit = cq[149-CIW] && cq[148-CIW:128] == d_rp[24:CIW+4] && !flushing;
     wire         f_go = need_rd && !hit;
-    scpu_cache cache (
-        .clk(clk2x), .flush(flush), .ix(a_out[12:4]), .cq_o(cq), .f_go(f_go), .f_if(b_vpa), .f_line(d_rp[24:4]), .rd_done(rd_done), .rd_if(rd_if), .rd_ln(rd_ln),
+    scpu_cache #(.IW(CIW)) cache (
+        .clk(clk2x), .flush(flush), .ix(a_out[CIW+3:4]), .cq_o(cq), .f_go(f_go), .f_if(b_vpa), .f_line(d_rp[24:4]), .rd_done(rd_done), .rd_if(rd_if), .rd_ln(rd_ln),
         .wr_go(wr_go), .w_p(w_p), .wr_d(w_d), .wbusy(wbusy), .flushing_o(flushing),
         .s_req_tgl(s_req_tgl), .s_req_line(s_req_line), .s_done_tgl(s_done_tgl), .fill(fill),
         .sw_req_tgl(sw_req_tgl), .sw_req_addr(sw_req_addr), .sw_req_data(sw_req_data), .sw_done_tgl(sw_done_tgl),

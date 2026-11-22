@@ -140,7 +140,7 @@ int a2_hdd_mount(CoreCtx *c, const char *path, int unit, char *msg, int msglen)
     uint64_t blocks = bytes / BLOCK;
     if (blocks == 0 || (bytes % BLOCK) != 0) {
         c->fs->close(f);
-        snprintf(msg, msglen, "%s is %llu bytes: a ProDOS volume is a whole number of 512 byte blocks", path, (unsigned long long)bytes);
+        snprintf(msg, msglen, "%s is %s%u bytes: a ProDOS volume is a whole number of 512 byte blocks", path, bytes > 0xFFFFFFFFull ? "more than " : "", (unsigned)(bytes > 0xFFFFFFFFull ? 0xFFFFFFFFull : bytes));   // T251 D1
         return 1;
     }
     if (blocks > MAX_BLOCKS) {

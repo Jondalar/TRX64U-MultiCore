@@ -24,7 +24,8 @@ module tb_scpu_cache;
     reg s_done_tgl = 1'b0, sw_done_tgl = 1'b0;
     reg [127:0] fill = 128'd0;
     wire [31:0] n_hit, n_miss;
-    scpu_cache dut (.clk(clk), .flush(flush), .ix(ix), .cq_o(cq), .f_go(f_go), .f_if(f_if), .f_line(f_line), .rd_done(rd_done), .rd_if(rd_if), .rd_ln(rd_ln),
+    // IW = 9: the races need no more than 512 lines; the build has IW = 11 (scpu_mem.v CIW, T241 D4)
+    scpu_cache #(.IW(9)) dut (.clk(clk), .flush(flush), .ix(ix), .cq_o(cq), .f_go(f_go), .f_if(f_if), .f_line(f_line), .rd_done(rd_done), .rd_if(rd_if), .rd_ln(rd_ln),
         .wr_go(wr_go), .w_p(w_p), .wr_d(wr_d), .wbusy(wbusy), .flushing_o(flushing),
         .s_req_tgl(s_req_tgl), .s_req_line(s_req_line), .s_done_tgl(s_done_tgl), .fill(fill),
         .sw_req_tgl(sw_req_tgl), .sw_req_addr(sw_req_addr), .sw_req_data(sw_req_data), .sw_done_tgl(sw_done_tgl), .n_hit(n_hit), .n_miss(n_miss));

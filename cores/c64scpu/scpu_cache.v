@@ -1,22 +1,27 @@
-// T182 step 3 (D9, P-A, Alex 2026-11-05): the ONE 8 KiB write-through cache in front of everything the CPU owns in the DDR2 - SCPU SRAM (128 KiB at 0x03000000),
-// SuperRAM (16 MiB at 0x02000000) and the SuperCPU ROM (at 0x03080000). Written for this project; the structure (512 lines of 16 bytes, direct mapped, the block
+// T182 step 3 (D9, P-A, Alex 2026-11-05): the ONE write-through cache in front of everything the CPU owns in the DDR2 - SCPU SRAM (128 KiB at 0x03000000),
+// SuperRAM (16 MiB at 0x02000000) and the SuperCPU ROM (at 0x03080000). Written for this project; the structure (2^IW lines of 16 bytes, direct mapped, the block
 // RAM word {valid, tag, line}, the flush walker, the toggle handshake with c64scpu_ddrx.v) is that of c64scpu_romc.v.
+// Size (T241 D4, 2026-11-21): IW = 11, 2048 lines, 32 KiB (8 RAMB36), was 9 (512 lines, 8 KiB, 2 RAMB36). The T241.1 suite measured every miss at about 0.3 PHI2 cycles
+// at 20 MHz, and scpu6's loads that an 8 KiB direct-mapped cache misses (two reads 8 KiB apart, code blocks 1 KiB apart) ran 1.5 to 1.9 times slower than the real
+// SuperCPU's static RAM. 11 is the most the continuous lookup allows: scpu_mem.v's class C_KS adds $8000, so only the low 15 bits of p are the CPU address's in every class.
 //
-// Address: `p` is the DDR2 byte address minus 0x02000000, 25 bits (bit 24 = 0x03000000 and up: SRAM and ROM; bit 24 = 0: SuperRAM). Index = p[12:4], tag = p[24:13].
-// Clock: clk2x (the CPU's), ungated. T182 step 4 (spec 5.6): the lookup is continuous. `ix` is the index of the CPU's address (a_out[12:4]: the low 13 bits of p are the CPU
-// address's low 13 bits for every class), `cq` (the line, valid bit and tag) follows it one clock later; scpu_mem.v compares the tag, picks the byte and decides. A miss is
+// Address: `p` is the DDR2 byte address minus 0x02000000, 25 bits (bit 24 = 0x03000000 and up: SRAM and ROM; bit 24 = 0: SuperRAM). Index = p[IW+3:4], tag = p[24:IW+4].
+// Clock: clk2x (the CPU's), ungated. T182 step 4 (spec 5.6): the lookup is continuous. `ix` is the index of the CPU's address (a_out[IW+3:4]: the low 15 bits of p are the
+// CPU address's low 15 bits for every class), `cq` (the line, valid bit and tag) follows it one clock later; scpu_mem.v compares the tag, picks the byte and decides. A miss is
 // started by `f_go` (one clock, `f_line` = p >> 4): the line comes from the DDR2 (job S of c64scpu_ddrx.v), is written to cm and `cq` shows it a clock later; the CPU's enable
 // is withheld meanwhile by scpu_mem.v (that is the DEV_CYC). A fetch starts only when no write is open and not within `quiet` clocks of the last one.
 // Write (wr_go, one clock, in the clock after the CPU's enable; w_p and wr_d registered by scpu_mem.v at that enable; `cq` still shows the line of the cycle that ended):
 // write-through. A hit replaces the byte in the line, every write also goes to the DDR2 as a byte write (job SW, one open at a time: `wbusy`). No write allocate.
-// flush (a pulse): all valid bits clear in 512 clocks; `flushing_o` is high meanwhile (scpu_mem.v: lookups miss, no fetch); a line that arrives for a fetch that was open at the flush is dropped.
+// flush (a pulse): all valid bits clear in 2^IW clocks; `flushing_o` is high meanwhile (scpu_mem.v: lookups miss, no fetch); a line that arrives for a fetch that was open at the flush is dropped.
 // `SCPU_MUT_NOFLUSH`: the flush is ignored (negative control for the ROM_CTRL flush of the bench). `SCPU_MUT_NOKILL`: the write-to-prefetched-line guard is off, `SCPU_MUT_NOPGOWR`: a prefetch may start in the clock of a CPU write `SCPU_MUT_NOINVDEFER`: the invalidate of a killed line drops a byte write to another line (controls of the mdust smc bench and of tb_scpu_cache.v). Next-line prefetch of program-stream lines (T208): see below.
 `timescale 1ns / 1ps
-module scpu_cache (
+module scpu_cache #(
+    parameter IW = 11                           // index bits: 2^IW lines of 16 bytes (11: 32 KiB; tb_scpu_cache.v runs 9)
+) (
     input  wire         clk,
     input  wire         flush,
-    input  wire  [8:0]  ix,                     // index of the CPU's address (continuous)
-    output wire [140:0] cq_o,                   // {valid, tag, line} of ix, one clock later
+    input  wire [IW-1:0] ix,                    // index of the CPU's address (continuous)
+    output wire [149-IW:0] cq_o,                // {valid, tag (21 - IW bits), line} of ix, one clock later
     input  wire         f_go,                   // start the fetch of line f_line
     input  wire         f_if,                   // ... for a program-stream fetch (vpa)
     input  wire [20:0]  f_line,
@@ -41,13 +46,13 @@ module scpu_cache (
     output reg  [31:0]  n_hit = 32'd0,
     output reg  [31:0]  n_miss = 32'd0
 );
-    (* ram_style = "block" *) reg [140:0] cm [0:511];
+    (* ram_style = "block" *) reg [149-IW:0] cm [0:(1 << IW) - 1];
     integer qi;
-    initial for (qi = 0; qi < 512; qi = qi + 1) cm[qi] = 141'd0;
-    reg  [140:0] cq = 141'd0;
+    initial for (qi = 0; qi < (1 << IW); qi = qi + 1) cm[qi] = {(150 - IW){1'b0}};
+    reg  [149-IW:0] cq = {(150 - IW){1'b0}};
     assign cq_o = cq;
-    wire [8:0]   idx = w_p[12:4];              // the write's line
-    wire [11:0]  tag = w_p[24:13];
+    wire [IW-1:0]   idx = w_p[IW+3:4];          // the write's line
+    wire [20-IW:0]  tag = w_p[24:IW+4];
     wire [3:0]   off = w_p[3:0];
 
     (* ASYNC_REG = "TRUE" *) reg [2:0] sd_s = 3'b000, wd_s = 3'b000;
@@ -55,7 +60,7 @@ module scpu_cache (
     wire s_ev = sd_s[2] != sd_s[1];
     wire w_ev = wd_s[2] != wd_s[1];
 
-    reg  [8:0]   fcnt = 9'd0;
+    reg  [IW-1:0] fcnt = {IW{1'b0}};
     reg          flushing = 1'b0;
     assign flushing_o = flushing;
     reg          st_wait = 1'b0;
@@ -70,8 +75,8 @@ module scpu_cache (
     // Coherence: the CPU runs while the line is on its way, so a write to that line (wr_go, same p >> 4 as s_req_line) while the fetch is open or in the 3 clocks after its fill (`cq`
     // may still show the old line then and the write cannot update it) is remembered in kill_q: one clock later the line's index is invalidated (inval), and a fill still to come is
     // dropped (as a flush does). A demand fill never needs this: the CPU is held.
-    wire tag_ok = cq[139:128] == tag;
-    wire wr_hit  = cq[140] && tag_ok && !flushing;
+    wire tag_ok = cq[148-IW:128] == tag;
+    wire wr_hit  = cq[149-IW] && tag_ok && !flushing;
     wire wr_byte = wr_go && wr_hit;
     reg  [20:0]  stream = 21'd0;
     reg          stream_v = 1'b0;
@@ -138,18 +143,18 @@ module scpu_cache (
         merged = cq[127:0];
         merged[8 * off +: 8] = wr_d;
     end
-    wire [8:0]   wr_a = flushing ? fcnt : (wr_byte && !inval) ? idx : s_req_line[8:0];     // the open fetch's index (also the line to invalidate: s_req_line cannot change before kill_q has acted, quiet / wb hold every new fetch; a pending inval is deferred while a byte write has the port)
-    wire [140:0] wr_w = (flushing || inval) ? 141'd0 : wr_byte ? {1'b1, tag, merged} : {1'b1, s_req_line[20:9], fill};
+    wire [IW-1:0] wr_a = flushing ? fcnt : (wr_byte && !inval) ? idx : s_req_line[IW-1:0];     // the open fetch's index (also the line to invalidate: s_req_line cannot change before kill_q has acted, quiet / wb hold every new fetch; a pending inval is deferred while a byte write has the port)
+    wire [149-IW:0] wr_w = (flushing || inval) ? {(150 - IW){1'b0}} : wr_byte ? {1'b1, tag, merged} : {1'b1, s_req_line[20:IW], fill};
     always @(posedge clk)
         if (flushing || inval || wr_byte || wr_fill) cm[wr_a] <= wr_w;
     always @(posedge clk) begin
 `ifdef SCPU_MUT_NOFLUSH
         flushing <= 1'b0;
 `else
-        if (flush) begin flushing <= 1'b1; fcnt <= 9'd0; end
+        if (flush) begin flushing <= 1'b1; fcnt <= {IW{1'b0}}; end
         else if (flushing) begin
-            fcnt <= fcnt + 9'd1;
-            if (fcnt == 9'd511) flushing <= 1'b0;
+            fcnt <= fcnt + 1'b1;
+            if (fcnt == {IW{1'b1}}) flushing <= 1'b0;
         end
 `endif
     end

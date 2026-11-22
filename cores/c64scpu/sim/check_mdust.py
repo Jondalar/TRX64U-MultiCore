@@ -103,7 +103,7 @@ def check_hud(r, lines):
     worst = max(warm, key=lambda p: p[1] - p[0])
     best = min(warm, key=lambda p: p[1] - p[0])
     text = "%d of %d later chains slower than writes + 1; worst %d writes in %d PHI2 cycles, best %d writes in %d" % (len(bad), len(warm), worst[0], worst[1], best[0], best[1])
-    # hudx: the scroll's reads from SuperRAM bank 2 sit on the cache index of the stage's code (direct-mapped, address bits 12:4), the code is evicted between two frames
+    # hudx: the scroll's reads from SuperRAM bank 2 sit on the cache index of the stage's code (direct-mapped, address bits 14:4 since T241 D4: both are below $2000 in their bank, so they still meet), the code is evicted between two frames
     r.chk("write spacing" + (" (code evicted every frame)" if r.label == "hudx" else ""), not bad, text)
     return r
 
