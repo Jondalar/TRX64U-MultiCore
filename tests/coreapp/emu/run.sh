@@ -103,7 +103,8 @@ wait 1500
 monitor m ram 00a0 00a2
 quit
 E2
-awk '/^>R:00a0/{print $2 $3 $4}' "$W/freeze0.log" > "$W/jiffies"
+# T104.2 S9: the monitor's line can follow other console text on the same log line (run 45009429281: "@>R:00a0  00 01 7d"): the first field ends with it
+awk '$1 ~ />R:00a0$/ {print $2 $3 $4}' "$W/freeze0.log" > "$W/jiffies"
 jf() { sed -n "$1p" "$W/jiffies"; }
 # running (1 != 2), frozen under the menu (3 == 4), running again (5 != 6); the control swaps the relation of the middle pair: it must fail
 check_freeze() { [ $(( $(wc -l < "$W/jiffies") )) = 6 ] && [ "$(jf 1)" != "$(jf 2)" ] && [ "$(jf 3)" "$1" "$(jf 4)" ] && [ "$(jf 5)" != "$(jf 6)" ]; }
@@ -130,7 +131,7 @@ import sys, re
 ref = open(sys.argv[1], 'rb').read()
 got = {}
 for l in open(sys.argv[2], errors='replace'):
-    m = re.match(r'>R:([0-9a-f]{4})  ((?:[0-9a-f]{2} )+)', l)
+    m = re.search(r'>R:([0-9a-f]{4})  ((?:[0-9a-f]{2} )+)', l)          # T104.2 S9: the answer can follow other console text on its line
     if m: got[int(m.group(1), 16)] = bytes(int(x, 16) for x in m.group(2).split())
 bad = 0
 for a, b in got.items():
@@ -168,7 +169,8 @@ expect-console "start \$$sa (CPU address set)" 3000
 quit
 E2
 done
-if grep -q '^\.;100b' "$W/low0.log" && grep -q '^>R:2000  42' "$W/low0.log"; then echo "PASS low.prg: PC=\$100B, \$2000=\$42"; else echo "FAIL low.prg: not at \$100B"; grep -E '^\.;|^>R' "$W/low0.log"; FAIL=1; fi
+# T104.2 S9: no line anchor: the monitor's answer can follow other console text on its line (the freeze check above)
+if grep -q '\.;100b' "$W/low0.log" && grep -q '>R:2000  42' "$W/low0.log"; then echo "PASS low.prg: PC=\$100B, \$2000=\$42"; else echo "FAIL low.prg: not at \$100B"; grep -E '\.;|>R:' "$W/low0.log"; FAIL=1; fi
 
 # S10 reset: Home (F1), its first row Reset asks "Reset the machine?" (RETURN confirms) and brings READY back while a program runs
 for want in 0 1; do
