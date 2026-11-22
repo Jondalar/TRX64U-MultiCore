@@ -11,6 +11,9 @@ Two ways of getting position-independent words are understood:
 
 Everything else that would need a fix-up at run time is refused by name: absolute HI20/LO12 pairs, GOT and PLT entries, TLS, 64-bit.
 
+T239.3 D19: the loader runs no constructor and no destructor, so an image with a non-empty .init_array, .fini_array, .ctors or .dtors, or with an undefined
+__cxa_atexit or atexit, is refused; the message names the section or symbol and, where the relocations tell it, the function and the object.
+
     u2a_pack.py image.elf -o x.u2a --kind lib --name cbm1541 --version 1 --needs base>=3.1 --capability drive_a
     u2a_pack.py image.elf -o x.u2a --kind lib --name mylib --budget image=8192 --budget heap_keep=2048 --budget heap_peak=4096 --budget ops=3 --budget settings=2
 
@@ -103,6 +106,18 @@ class Elf:
                         out.setdefault(self.cstr(strtab + name), value)
         return out
 
+    def symtab(self):
+        """Every symbol of the static symbol table in table order: (name, value, size, bind, type, shndx). Empty without one."""
+        out = []
+        for s in self.sections:
+            if s["type"] == SHT_SYMTAB:
+                strtab = self.sections[s["link"]]["off"]
+                for k in range(s["size"] // 16):
+                    name, value, size, info, _other, shndx = struct.unpack_from("<IIIBBH", self.d, s["off"] + k * 16)
+                    out.append((self.cstr(strtab + name) if name else "", value, size, info >> 4, info & 15, shndx))
+                break
+        return out
+
     def relocs(self, sec):
         for k in range(sec["size"] // 12):
             off, info, add = struct.unpack_from("<IIi", self.d, sec["off"] + k * 12)
@@ -132,8 +147,65 @@ def build_image(elf, link_base):
     return img, bss
 
 
+# D19 (T239.3): the loader runs no constructor and no destructor. What would hold one is refused here, by name.
+CTOR_SECTIONS = (".preinit_array", ".init_array", ".fini_array", ".ctors", ".dtors")
+ATEXIT_SYMBOLS = ("__cxa_atexit", "atexit")
+STT_FUNC, STT_FILE, STB_LOCAL = 2, 4, 0
+D19 = "the loader runs no constructor or destructor (D19): initialise in lib_register and release in the operation or the library's own call that ends the work; a global object with a constructor or a destructor is not allowed"
+
+
+def _object_of(syms, idx):
+    """The object file a LOCAL symbol came from: the STT_FILE symbol in front of it in the table (locals are grouped per file). None for a global one."""
+    if idx <= 0 or idx >= len(syms) or syms[idx][3] != STB_LOCAL:
+        return None
+    for k in range(idx - 1, 0, -1):
+        if syms[k][4] == STT_FILE:
+            return syms[k][0] or None
+        if syms[k][3] != STB_LOCAL:
+            return None
+    return None
+
+
+def _relocs_into(elf, sec_index):
+    """The relocations (offset, symbol index) whose target is the section with this index (an --emit-relocs section, sh_info)."""
+    for sec in elf.sections:
+        if sec["type"] == SHT_RELA and sec["info"] == sec_index:
+            for off, _typ, symi, _add in elf.relocs(sec):
+                yield off, symi
+
+
+def refuse_constructors(elf):
+    """D19: a non-empty .init_array, .fini_array, .ctors or .dtors, or an undefined atexit / __cxa_atexit, is an error that names the section or symbol
+    and, where a relocation tells, the function and the object it comes from."""
+    syms = elf.symtab()
+    for i, s in enumerate(elf.sections):
+        base = s.get("name", "")
+        if s["size"] and any(base == n or base.startswith(n + ".") for n in CTOR_SECTIONS):
+            who = ""
+            for _off, symi in _relocs_into(elf, i):
+                if symi < len(syms) and syms[symi][0]:
+                    obj = _object_of(syms, symi)
+                    who = " (it holds %s%s)" % (syms[symi][0], " from " + obj if obj else "")
+                    break
+            raise PackError("the image has a non-empty %s%s, %d bytes: %s" % (base, who, s["size"], D19))
+    for idx, sym in enumerate(syms):
+        if sym[5] == SHN_UNDEF and sym[0] in ATEXIT_SYMBOLS:
+            where = ""
+            for i, s in enumerate(elf.sections):
+                for off, symi in _relocs_into(elf, i):
+                    if symi != idx or where:
+                        continue
+                    for k, f in enumerate(syms):
+                        if f[4] == STT_FUNC and f[5] == i and f[1] <= off < f[1] + max(f[2], 1) and f[0]:
+                            obj = _object_of(syms, k)
+                            where = " (called from %s%s)" % (f[0], " in " + obj if obj else "")
+                            break
+            raise PackError("the image refers to %s%s, which registers a destructor to run at exit: %s" % (sym[0], where, D19))
+
+
 def collect(elf, img, bss, link_base):
     """The relocation table (sorted image offsets). Rewrites img in place for RELATIVE entries."""
+    refuse_constructors(elf)
     table = set()
     total = len(img) + bss
     syms = elf.symbols()

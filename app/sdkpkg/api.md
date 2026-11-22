@@ -77,6 +77,9 @@ Since base 3.0.
 2.1.9 The base registers `out->ops`, `out->states` and `out->events` under the name of the image. The menu merge reads `nodes`, `file_actions`, `settings`, `tabs` and `poll` (section 6).
 2.1.10 Memory a library takes from `api->mem` inside `lib_register` belongs to the library. It is freed when the library is unloaded or when the load fails.
 2.1.11 Not every group of `api` is there during `lib_register` of a library loaded at core start (section 3.2).
+2.1.12 The loader runs no constructor and no destructor. It does not walk `.init_array` or `.fini_array`, and nothing calls a function registered with `atexit` or `__cxa_atexit` when the library is unloaded.
+2.1.13 The packer refuses an image that would hold one: a non-empty `.init_array`, `.fini_array`, `.ctors` or `.dtors`, or an undefined reference to `__cxa_atexit` or `atexit`. The message names the section or the symbol and, where the relocations tell it, the function and the object it comes from. `lib.mk` shows it.
+2.1.14 A global object with a constructor or a destructor is therefore not allowed. Hold the state in a plain structure, set it up in `lib_register` and release it where the library ends its work.
 
 ### 2.2 `app_main` (`app_main_fn`)
 

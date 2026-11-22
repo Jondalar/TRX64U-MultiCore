@@ -73,21 +73,27 @@ def relocate(img, table, base):
     return bytes(b)
 
 
-def build_elf(etype, image, bss=0, relas=(), dyn=True, symbols=None, got=0, base=0):
-    """A minimal RISC-V ELF32: one PT_LOAD at `base`, one .text, one .rela.dyn / .rela.text, a symbol table."""
+def build_elf(etype, image, bss=0, relas=(), dyn=True, symbols=None, got=0, base=0, syms=None, nlocal=0, extra=(), extra_relas=()):
+    """A minimal RISC-V ELF32: one PT_LOAD at `base`, one .text, one .rela.dyn / .rela.text, a symbol table.
+
+    syms: a symbol table of (name, value, size, info, shndx) behind the null symbol, locals first (nlocal of them), instead of `symbols`.
+    extra: more allocated sections, (name, size); extra_relas: relocation sections of a section by name, (section, [(offset, type, addend, symbol index)])."""
     symbols = symbols or {}
-    shstr = b"\0.text\0.rela.dyn\0.rela.text\0.symtab\0.strtab\0.shstrtab\0.got\0"
+    names = [".text", ".rela.dyn", ".rela.text", ".symtab", ".strtab", ".shstrtab", ".got"] + [n for n, _sz in extra] + [".rela" + sec for sec, _r in extra_relas]
+    shstr = b"\0" + b"".join(n.encode() + b"\0" for n in names)
     nm = lambda n: shstr.index(b"\0" + n.encode() + b"\0") + 1  # noqa: E731
     strtab = b"\0"
     symtab = b"\0" * 16
-    for name, val in symbols.items():
-        symtab += struct.pack("<IIIBBH", len(strtab), val, 0, 0x12, 0, 1)
-        strtab += name.encode() + b"\0"
+    if syms is None:
+        syms = [(name, val, 0, 0x12, 1) for name, val in symbols.items()]
+        nlocal = 0
+    for name, val, size, info, shndx in syms:
+        symtab += struct.pack("<IIIBBH", len(strtab) if name else 0, val, size, info, 0, shndx)
+        strtab += (name.encode() + b"\0") if name else b""
     rela = b"".join(struct.pack("<IIi", o, (0 << 8) | t, a) for o, t, a in relas)
     off_img = 52 + 32
     body = bytes(image)
     pos = off_img + len(body)
-    secs = []   # (name, type, flags, addr, off, size, link, info, entsize, data)
     blobs = []
 
     def put(data, align=4):
@@ -105,11 +111,17 @@ def build_elf(etype, image, bss=0, relas=(), dyn=True, symbols=None, got=0, base
     sh = [(0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
           (nm(".text"), 1, 6, base, off_img, len(body), 0, 0, 0, 0),
           (nm(rela_name), 4, 2 if dyn else 0x40, 0, o_rela, len(rela), 3, 1, 4, 12),
-          (nm(".symtab"), 2, 0, 0, o_sym, len(symtab), 4, 1, 4, 16),
+          (nm(".symtab"), 2, 0, 0, o_sym, len(symtab), 4, 1 + nlocal, 4, 16),
           (nm(".strtab"), 3, 0, 0, o_str, len(strtab), 0, 0, 1, 0),
           (nm(".shstrtab"), 3, 0, 0, o_shs, len(shstr), 0, 0, 1, 0)]
     if got:
         sh.append((nm(".got"), 1, 3, base, off_img, got, 0, 0, 4, 0))
+    for n, size in extra:
+        sh.append((nm(n), 1, 3, base, off_img, size, 0, 0, 4, 0))
+    for sec, rl in extra_relas:
+        data = b"".join(struct.pack("<IIi", o, (si << 8) | t, a) for o, t, a, si in rl)
+        target = 1 if sec == ".text" else [n for n, _sz in extra].index(sec) + (7 if got else 6)
+        sh.append((nm(".rela" + sec), 4, 0x40, 0, put(data), len(data), 3, target, 4, 12))
     pos += -pos % 4
     shoff = pos
     out = bytearray(shoff + 40 * len(sh))
@@ -231,6 +243,43 @@ def synthetic():
     refused("need syntax", lambda: P.parse_need("base3"), "name>=version")
 
 
+def no_constructors():
+    """D19: the loader runs no constructor and no destructor; the packer refuses what would hold one, naming the section or symbol and, where a
+    relocation tells it, the function and the object."""
+    FILE, FUNC_L, FUNC_G, UND = 0x04, 0x02, 0x12, 0x10
+    ABS = 0xFFF1
+    plain = [("lib_register", 0, 0, FUNC_G, 1)]
+    ok = pk(build_elf(P.ET_EXEC, bytes(64), dyn=False, syms=plain))
+    check(ok[0][:4] == struct.pack("<I", P.MAGIC), "a library with no constructor and no atexit is packed")
+    check(pk(build_elf(P.ET_EXEC, bytes(64), dyn=False, syms=plain, extra=[(".init_array", 0)]))[2] == [], "an empty .init_array is no constructor")
+    for sec in (".init_array", ".fini_array", ".ctors", ".dtors", ".init_array.00100"):
+        refused("section " + sec, lambda sec=sec: pk(build_elf(P.ET_EXEC, bytes(64), dyn=False, syms=plain, extra=[(sec, 4)])), sec)
+        refused("section " + sec + " says D19", lambda sec=sec: pk(build_elf(P.ET_EXEC, bytes(64), dyn=False, syms=plain, extra=[(sec, 4)])), "no constructor or destructor (D19)")
+    # the relocation of the entry names the function, and a local one the object it came from
+    objsyms = [("ctor_obj.o", 0, 0, FILE, ABS), ("_GLOBAL__sub_I_cache", 8, 12, FUNC_L, 1), ("lib_register", 0, 0, FUNC_G, 1)]
+    elf = build_elf(P.ET_EXEC, bytes(64), dyn=False, syms=objsyms, nlocal=2, extra=[(".init_array", 4)], extra_relas=[(".init_array", [(0, 1, 0, 2)])])
+    refused("init_array names the function", lambda: pk(elf), "_GLOBAL__sub_I_cache")
+    refused("init_array names the object", lambda: pk(elf), "from ctor_obj.o")
+    elf = build_elf(P.ET_EXEC, bytes(64), dyn=False, syms=[("lib_register", 0, 0, FUNC_G, 1), ("init_global", 8, 12, FUNC_G, 1)], extra=[(".init_array", 4)],
+                    extra_relas=[(".init_array", [(0, 1, 0, 2)])])
+    refused("a global function has no object to name", lambda: pk(elf), "it holds init_global)")
+    # an undefined atexit or __cxa_atexit: the call names the function and the object
+    for sym in ("__cxa_atexit", "atexit"):
+        syms = [("dtor_obj.o", 0, 0, FILE, ABS), ("__static_initialization", 8, 16, FUNC_L, 1), ("lib_register", 0, 0, FUNC_G, 1), (sym, 0, 0, UND, 0)]
+        elf = build_elf(P.ET_EXEC, bytes(64), dyn=False, syms=syms, nlocal=2, extra_relas=[(".text", [(12, 18, 0, 4)])])
+        refused(sym, lambda elf=elf: pk(elf), sym)
+        refused(sym + " names the caller", lambda elf=elf: pk(elf), "called from __static_initialization in dtor_obj.o")
+        refused(sym + " says D19", lambda elf=elf: pk(elf), "no constructor or destructor (D19)")
+        # the other tool paths read the same check: --dump-image refuses it as well
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            e, out = os.path.join(d, "x.elf"), os.path.join(d, "x.bin")
+            open(e, "wb").write(elf)
+            check(P.main([e, "--dump-image", out]) == 1 and not os.path.exists(out), sym + " is refused on the command line too, and nothing is written")
+    # a defined atexit (a libc that brings it) or another undefined symbol is not this refusal
+    check(pk(build_elf(P.ET_EXEC, bytes(64), dyn=False, syms=plain + [("atexit", 4, 4, FUNC_G, 1)]))[0][:4] == struct.pack("<I", P.MAGIC), "a defined atexit is not refused here")
+
+
 def menu_record():
     """T104.1: a library's own menu record, behind the manifest (header flag bit 0, the `reserved` word is its offset)."""
     import descrec
@@ -310,6 +359,7 @@ def main():
     budget_record()
     rebuild_check(packed)
     synthetic()
+    no_constructors()
     print("test_u2a_pack: %d checks, %d failed" % (checks, fails))
     return 1 if fails else 0
 

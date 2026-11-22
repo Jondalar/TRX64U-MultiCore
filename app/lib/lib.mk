@@ -9,6 +9,9 @@
 # image figure; the loader refuses the library at load when anything is over, naming the figure and the limit. A figure left out is the platform's limit. With a budget
 # the file needs base >= 3.2 (the packer sees to it).
 #
+# The packer refuses an image with a constructor or a destructor (D19): a non-empty .init_array, .fini_array, .ctors or .dtors, or a reference to __cxa_atexit or atexit (a global object
+# with a constructor or destructor brings one). The loader runs none; initialise in lib_register. make shows the packer's message.
+#
 # LIB_SRCS may list any number of .cc and .c files; each one is compiled (with hidden.h, C and C++: -fvisibility=hidden leaves extern declarations alone,
 # so a call or a data reference to another file would go through the PLT and GOT, which the loader does not fill) and all are linked into one image. LIB_MENU = menu.toml carries the library's
 # menu record in the image (tools/descrec.py). LIB_INC = -Idir ... adds include paths. LIB_LIBC = 1 links the memcpy/memset/division of sdk/libc.c.
