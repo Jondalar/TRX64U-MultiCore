@@ -42,6 +42,7 @@ def main():
     try:
         check(sdk_api.problems(t) == [], "the tree as it is passes: %s" % sdk_api.problems(t))
         ver = sdk_api.version(t)
+        nlocks = len(sdk_api.read_lock(t))
         check(sdk_api.version(t) == sdk_api.version(REAL), "the version is the real one")
 
         # a comment and a blank line in a public header are no API change
@@ -49,7 +50,7 @@ def main():
         check(sdk_api.problems(t) == [], "a comment and blank lines change nothing: %s" % sdk_api.problems(t))
 
         # a member added under the same version is red, naming the version and the way out
-        edit(t, "coreapp/src/libapi.h", lambda s: s.replace("    bool when_frozen;\n};", "    bool when_frozen;\n    uint8_t spare;\n};", 1))
+        edit(t, "coreapp/src/libapi.h", lambda s: re.sub(r"(    bool when_frozen;[^\n]*\n)(\};)", r"\1    uint8_t spare;\n\2", s, count=1))
         p = sdk_api.problems(t)
         check(len(p) == 1 and "changed under base API " + ver in p[0] and "U2A_BASE_MINOR" in p[0], "a header change under the same version is red: %s" % p)
 
@@ -63,7 +64,7 @@ def main():
         with open(os.path.join(t, sdk_api.LOCK), "a", encoding="utf-8") as f:
             f.write(sdk_api.lock_entry(t))
         check(sdk_api.problems(t) == [], "the new version with its lock passes: %s" % sdk_api.problems(t))
-        check(sdk_api.read_lock(t)[0][0] == ver and len(sdk_api.read_lock(t)) == 2, "the old lock stays")
+        check(sdk_api.read_lock(t)[-2][0] == ver and len(sdk_api.read_lock(t)) == nlocks + 1, "the old lock stays")
 
         # a lock that is not newest, or the same version twice: red
         with open(os.path.join(t, sdk_api.LOCK), "a", encoding="utf-8") as f:
