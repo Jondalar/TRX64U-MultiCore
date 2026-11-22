@@ -1508,8 +1508,8 @@ static void budgets()
         CHECK_EQ(w.reg.nops(), 1);
         World w2(U2A_BASE_MINOR);
         refused("the packed budget of ops=0", w2, tight, LIB_BUDGET, "testlib", "1 operations", "budget of 0");
-        World w3(2);                                                         // a base that is older than the budget refuses the dependency the packer added
-        refused("a base older than 3.3", w3, ok, LIB_NEEDS, "testlib", "needs base 3.3");
+        World w3(1);                                                         // a base that is older than the budget refuses the dependency the packer added
+        refused("a base older than 3.2", w3, ok, LIB_NEEDS, "testlib", "needs base 3.2");
     }
     {   // a budget record that is not one
         World w(U2A_BASE_MINOR);

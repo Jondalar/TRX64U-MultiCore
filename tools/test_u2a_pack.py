@@ -281,12 +281,12 @@ def budget_record():
     check(all(v == P.BUDGET_NONE for v in rec[5:11]), "a key left out is U2A3_BUDGET_NONE")
     check(h["needs_off"] == P.HEADER_SIZE + 48 and h["payload_off"] == h["needs_off"] + 20, "the needs and the image follow the record")
     need = struct.unpack_from("<16sI", blob, h["needs_off"])
-    check(need[0].rstrip(b"\0") == b"base" and need[1] == (3 << 16 | 3), "a base dependency below 3.3 is raised to it")
+    check(need[0].rstrip(b"\0") == b"base" and need[1] == (3 << 16 | 2), "a base dependency below 3.2 is raised to it")
     check(image_of(blob) == img and image_of(plain) == image_of(blob), "the image is the same with and without the budget")
     b2 = P.pack(data, "lib", "testlib", 1, [("base", P.parse_version("3.5"))], budget=bud)[0]
-    check(struct.unpack_from("<16sI", b2, hdr(b2)["needs_off"])[1] == (3 << 16 | 5), "a base dependency above 3.3 stays")
+    check(struct.unpack_from("<16sI", b2, hdr(b2)["needs_off"])[1] == (3 << 16 | 5), "a base dependency above 3.2 stays")
     b3 = P.pack(data, "lib", "testlib", 1, [], budget=bud)[0]
-    check(hdr(b3)["needs"] == 1 and struct.unpack_from("<16sI", b3, hdr(b3)["needs_off"])[1] == (3 << 16 | 3), "without a base dependency the packer adds one")
+    check(hdr(b3)["needs"] == 1 and struct.unpack_from("<16sI", b3, hdr(b3)["needs_off"])[1] == (3 << 16 | 2), "without a base dependency the packer adds one")
     refused("four needs and no base", lambda: P.pack(data, "lib", "testlib", 1, [("a%d" % i, 0) for i in range(4)], budget=bud), "at most 4")
     refused("a keep over the peak", lambda: P.parse_budget(["heap_keep=100", "heap_peak=99"]), "keeps 100 bytes of heap and allows a peak of 99")
     refused("an image over its figure", lambda: P.pack(data, "lib", "testlib", 1, base30, budget={"image": 8}), "over its declared budget of 8 bytes")

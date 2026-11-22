@@ -21,7 +21,7 @@ PASS=0
 python3 "$ROOT/tools/u2a_pack.py" "$TST/fixtures/testlib.at0.elf" -o "$T/testlib.u2a" --name testlib --version 1 --needs 'base>=3.0' > /dev/null
 python3 "$ROOT/tools/u2a_pack.py" "$TST/fixtures/testlib.at1000.elf" --link-base 0x1000 --raw-image "$T/testlib.at1000.raw" > /dev/null
 
-# T239.3 S13: the budget the packer writes (--budget) and the loader enforces: one file that fits (the packer adds `base>=3.3`), one that declares no operation,
+# T239.3 S13: the budget the packer writes (--budget) and the loader enforces: one file that fits (the packer adds `base>=3.2`), one that declares no operation,
 # and the packer's own refusal of an image over its figure
 python3 "$ROOT/tools/u2a_pack.py" "$TST/fixtures/testlib.at0.elf" -o "$T/testlib.budget.u2a" --name testlib --version 1 --needs 'base>=3.0' \
   --budget image=4096 --budget heap_keep=0 --budget heap_peak=0 --budget ops=1 --budget states=1 > /dev/null

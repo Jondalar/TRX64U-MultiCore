@@ -17,7 +17,7 @@ Everything else that would need a fix-up at run time is refused by name: absolut
 --budget KEY=VALUE (repeatable) declares the budget of the file (coreapp/src/libfmt.h U2a3Budget): image (payload + bss, bytes), heap_keep (the bytes it holds through api->mem when idle: the
 loader refuses the file when the image and this figure do not fit the room of the heap), heap_peak (the most it holds at once through api->mem: a ceiling), ops, states, events, nodes, file_actions, settings, tabs, polls (what lib_register and the menu record bring). A key left out has no figure of its
 own and the limit is the platform's. The packer refuses an image over its own budget; the loader refuses a library over any figure at load. A file with a
-budget needs base >= 3.3: the packer adds that dependency, or raises a lower one.
+budget needs base >= 3.2: the packer adds that dependency, or raises a lower one.
     u2a_pack.py image.elf --dump-image image.bin     # only the flat image, for tests
 """
 import argparse
@@ -37,7 +37,7 @@ IMAGE_MAX = 0x100000
 FLAG_MENU, FLAG_BUDGET = 1, 2
 BUDGET_NONE = 0xFFFFFFFF
 BUDGET_KEYS = ("image", "heap_keep", "heap_peak", "ops", "states", "events", "nodes", "file_actions", "settings", "tabs", "polls")   # the members of U2a3Budget behind `size`, in order
-BUDGET_BASE = (3 << 16) | 3        # the base API that reads a budget record (U2A_BASE_MINOR 3)
+BUDGET_BASE = (3 << 16) | 2        # the base API that reads a budget record (3.2)
 
 EM_RISCV = 243
 ET_EXEC, ET_DYN = 2, 3

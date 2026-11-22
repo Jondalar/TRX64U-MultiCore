@@ -17,24 +17,25 @@
 ### 1.2 Versions
 
 1.2.1 The API has a major and a minor number. `U2A_ABI_MAJOR` is the major. It is 3.
-1.2.2 `U2A_BASE_MINOR` is the minor of this base. It is 3.
+1.2.2 `U2A_BASE_MINOR` is the minor of this base. It is 2.
 1.2.3 `U2A3_VERSION(major, minor)` makes the number `major << 16 | minor`. A `needs` entry, the `version` of a library and the call `api->lib->find` use this form.
 1.2.4 An image names the majors it knows (`abi_min` to `abi_max`). The loader refuses an image whose range does not hold 3.
 1.2.5 An image states the lowest minor it needs as a `needs` entry named `base`. The loader refuses an image whose `base` entry is above the minor of the base.
 1.2.6 `api->abi_major` and `api->abi_minor` report the version of the running base.
-1.2.7 Every symbol of this document is part of base 3.0, unless its section says base 3.1, 3.2 or 3.3. Two things came with 3.1: `api->lib` and the members `LibRecord.exports` and `LibRecord.exports_size`. One thing came with 3.2: the base serves the poll of a library that loads after the core has started (6.10). Two things came with 3.3: the budget record of a file and its refusals (section 8), and the account of an image, which now also holds what the operations of the image take from `api->mem` later (4.2.2, 8.5). A library that depends on one of them writes `needs base >= 3.2` or `needs base >= 3.3`.
+1.2.7 Every symbol of this document is part of base 3.0, unless its section says base 3.1 or 3.2. Two things came with 3.1: `api->lib` and the members `LibRecord.exports` and `LibRecord.exports_size`. Four things came with 3.2: the base serves the poll of a library that loads after the core has started (6.10), the budget record of a file and its refusals (section 8), the account of an image, which now also holds what the operations of the image take from `api->mem` later (4.2.2, 8.5), and the named exports of a library (section 9). A library that depends on one of them writes `needs base >= 3.1` or `needs base >= 3.2`.
 1.2.8 A section of a group or a type states its version in the line `Since base`.
+1.2.9 There is one base minor per release of the SDK, not one per change. A minor that a release of the SDK has shipped never changes again. Until then everything that is added to the API stays under the minor of the coming release: SDK 0.2.0 is base 3.2, and base 3.1 is released.
 
 | Symbol | Contract |
 |---|---|
 | `U2A_ABI_MAJOR` | The major number of the API, 3. A base of another major refuses the image. |
-| `U2A_BASE_MINOR` | The minor number of the API this base offers, 3. |
+| `U2A_BASE_MINOR` | The minor number of the API this base offers, 2. |
 | `U2A3_VERSION` | `U2A3_VERSION(major, minor)` is `major << 16 \| minor`. |
 | `U2A3_NAME_MAX` | The size of a name field, 16 bytes. A name has 1 to 15 characters of `a-z`, `0-9` and `_`, and a NUL. |
 | `U2A3_NEEDS_MAX` | The number of `needs` entries of an image, at most 4. |
 | `U2A3_IMAGE_MAX` | The size of the image (payload and zeroed memory), at most 1 MiB. |
 | `U2A3_ALIGN_MAX` | The largest alignment an image may ask for, 4096 bytes. |
-| `U2A3_FLAG_BUDGET` | The header flag 2 of a file: the budget record stands directly behind the header (section 8). A base older than 3.3 refuses a file that sets it. |
+| `U2A3_FLAG_BUDGET` | The header flag 2 of a file: the budget record stands directly behind the header (section 8). A base older than 3.2 refuses a file that sets it. |
 | `U2A3_BUDGET_NONE` | The value 0xFFFFFFFF of a figure in the budget record: the image declares no figure of its own (8.2). |
 | `PRG_APP_NEED` | The name `standalone`. A `needs` entry with this name names no library. The base does not offer the application while the board runs under the MultiCore host. |
 | `CART_APP_NEED` | The name `cart_port`. A `needs` entry with this name names no library. The base offers the application only where `api->c64` is not null. |
@@ -1325,7 +1326,7 @@ Since base 3.0.
 8.1.1 An image may declare a budget: ceilings for its size, for the heap it holds and for what it registers.
 8.1.2 The build declares it in one place, the makefile of the image: `LIB_BUDGET` for `lib.mk`, `APP_BUDGET` for `app.mk`. The value is a list of `key=number` words, for example `LIB_BUDGET = image=8192 heap_keep=2048 heap_peak=4096 ops=3 settings=2`. `u2a_pack.py --budget key=number` does the same by hand.
 8.1.3 The packer writes the budget into the file: a record directly behind the header, and the header flag `U2A3_FLAG_BUDGET`. The dependencies, the image and the other parts follow at the offsets the header names.
-8.1.4 A file with a budget needs base 3.3. The packer adds the dependency `base>=3.3` to the file, or raises a lower `base` dependency to it. A base older than 3.3 refuses the file.
+8.1.4 A file with a budget needs base 3.2. The packer adds the dependency `base>=3.2` to the file, or raises a lower `base` dependency to it. A base older than 3.2 refuses the file.
 8.1.5 The packer refuses an image that is over its own `image` figure, before it writes the file. It cannot know the registrations of `lib_register`: the loader checks them (8.4).
 8.1.6 A figure is a number from 0 to 4294967294. The figure 0 is a figure: the image declares that it brings none of that kind. `heap_keep` above `heap_peak` is no budget: the packer and the loader refuse it.
 8.1.7 These are the keys.
@@ -1342,7 +1343,7 @@ Since base 3.0.
 
 8.2.1 A key left out has no figure of its own. The file holds `U2A3_BUDGET_NONE` for it.
 8.2.2 The limit is then the limit of the platform: for the image, 1 MiB (`U2A3_IMAGE_MAX`); for the peak of the heap, the heap of the core; for the permanent heap, no figure (nothing is checked); for operations, state values and events, the room that is left in the registry (5.6); for nodes, file actions, settings and tabs, the room of the menu merge (section 7); for polls, the room of the poll slots (6.10).
-8.2.3 A file without a budget loads as it did before base 3.3. Its figures are all open.
+8.2.3 A file without a budget loads as it did before base 3.2. Its figures are all open.
 8.2.4 A budget record of a later minor may be longer. The loader reads the figures it knows and ignores the rest.
 
 ### 8.3 The limits of the tables

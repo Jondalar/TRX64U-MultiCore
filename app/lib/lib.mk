@@ -7,7 +7,7 @@
 # LIB_BUDGET = image=8192 heap_keep=2048 heap_peak=4096 ops=3 settings=2 declares what the library will take (T239.3 S13): image (code, data and bss, bytes), heap_keep (bytes it holds
 # through api->mem when idle; the loader refuses the library when image and this figure do not fit the room of the heap), heap_peak (the most it holds at once: a ceiling), ops, states, events, nodes, file_actions, settings, tabs and polls (what lib_register and the menu record bring). The packer refuses an image over its own
 # image figure; the loader refuses the library at load when anything is over, naming the figure and the limit. A figure left out is the platform's limit. With a budget
-# the file needs base >= 3.3 (the packer sees to it).
+# the file needs base >= 3.2 (the packer sees to it).
 #
 # LIB_SRCS may list any number of .cc and .c files; each one is compiled (with hidden.h, C and C++: -fvisibility=hidden leaves extern declarations alone,
 # so a call or a data reference to another file would go through the PLT and GOT, which the loader does not fill) and all are linked into one image. LIB_MENU = menu.toml carries the library's

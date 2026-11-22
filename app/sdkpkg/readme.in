@@ -65,7 +65,7 @@ the heap of the core, the room left in the tables. A file without a budget loads
 
 The packer refuses an image over its own `image` figure. The loader refuses a library that is over any figure, or over the room left in a table, with a sentence that
 names the library, the figure and the limit, for example `Library "mylib" is refused: it brings 7 operations, over its declared budget of 5.` Nothing of it stays: no
-registration, no memory. A file with a budget needs base 3.3; the packer adds `base>=3.3` to its dependencies. Every block a library takes from `api->mem`, also in its
+registration, no memory. A file with a budget needs base 3.2; the packer adds `base>=3.2` to its dependencies. Every block a library takes from `api->mem`, also in its
 operations later, is on its own account, and unloading the library gives all of it back. `api.md` section 8 has the contract.
 
 ## The version of the base API
@@ -76,7 +76,7 @@ This package is base API @ABI_MAJOR@.@ABI_MINOR@. The same number is `U2A_ABI_MA
 ("needs base 3.3, this base is 3.2"), and a file built for another major.
 
 The public headers of this package are the files of `include/`. Their content hash, comments and blanks left out, starts with `@API_HASH@`.
-In the source repository a lock file holds that hash for every version, and the lint is red when the headers change and the version does not.
+In the source repository a lock file holds that hash for every version, and the lint is red when the headers of a released version change. There is one base minor per SDK release: what is added before the release stays under the coming minor (SDK 0.2.0 is base 3.2).
 
 - **Minor** (`@ABI_MAJOR@.x`): an addition that a library built before it can ignore. A new call table at the end of `LibApi`, a new function at the
   end of a call table (every table carries its size), a new value of an enum.

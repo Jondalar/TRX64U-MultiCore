@@ -6,11 +6,16 @@ in include/: the include closure (quote includes, found in coreapp/src or app/sd
 hash of that closure with comments and white space taken out, so a comment fix is no API change. A header change under the same version, a
 version with no lock, a lock for a version the headers do not carry, and a lock list that is not in ascending order are errors.
 
+One base minor per SDK release, not one per change: an entry of the lock says released = true or released = false. The hash of a released version
+is fixed (a change of the headers under it is red). The hash of an unreleased version may change, so what is added before the release stays under
+its minor; only the newest entry can be unreleased, and `update` rewrites its hash. To release a version, run `update` once and set released = true.
+
   sdk_api.py headers      the shipped headers, one repository path a line (tools/sdk_pack.sh copies exactly these)
   sdk_api.py version      major.minor of the base API (libfmt.h)
   sdk_api.py hash         the hash of the public headers
   sdk_api.py hash-dir <d> the hash of the .h files of a folder, as the package's include/ (tools/sdk_check.sh)
-  sdk_api.py lock         the lock entry for the current headers, to append to coreapp/api_lock.toml after a version change
+  sdk_api.py lock         the lock entry for the current headers (released = false), to append to coreapp/api_lock.toml after a version change
+  sdk_api.py update       rewrite the hash of the newest entry in coreapp/api_lock.toml to the current headers; refused for a released one
   sdk_api.py check        the lint: version, lock and headers agree; coreapp/version.toml shows the same base_api
   sdk_api.py selftest
 """
@@ -93,16 +98,17 @@ def version(root=ROOT):
 
 
 def read_lock(root=ROOT):
-    """[(version, hash)] in file order."""
+    """[(version, hash, released)] in file order."""
     with open(os.path.join(root, LOCK), encoding="utf-8") as f:
         src = f.read()
     out = []
     for blk in re.split(r"^\[\[lock\]\]\s*$", src, flags=re.M)[1:]:
         v = re.search(r'^version\s*=\s*"(\d+\.\d+)"\s*(#.*)?$', blk, re.M)
         h = re.search(r'^headers\s*=\s*"([0-9a-f]{64})"\s*(#.*)?$', blk, re.M)
-        if not v or not h:
-            raise ValueError("%s: a [[lock]] needs version = \"x.y\" and headers = \"<sha256>\"" % LOCK)
-        out.append((v.group(1), h.group(1)))
+        rel = re.search(r'^released\s*=\s*(true|false)\s*(#.*)?$', blk, re.M)
+        if not v or not h or not rel:
+            raise ValueError("%s: a [[lock]] needs version = \"x.y\", released = true or false, and headers = \"<sha256>\"" % LOCK)
+        out.append((v.group(1), h.group(1), rel.group(1) == "true"))
     return out
 
 
@@ -111,7 +117,24 @@ def _key(v):
 
 
 def lock_entry(root=ROOT):
-    return '[[lock]]\nversion = "%s"\nheaders = "%s"\n' % (version(root), api_hash(root))
+    return '[[lock]]\nversion = "%s"\nreleased = false\nheaders = "%s"\n' % (version(root), api_hash(root))
+
+
+def update(root=ROOT):
+    """The hash of the newest, unreleased entry follows the headers. Returns the version."""
+    locks = read_lock(root)
+    if not locks or locks[-1][0] != version(root):
+        raise ValueError("%s: the newest lock is not the base API %s of %s: add its lock first (lock)" % (LOCK, version(root), LIBFMT))
+    if locks[-1][2]:
+        raise ValueError("%s: base API %s is released, its hash never changes: raise U2A_BASE_MINOR for an addition" % (LOCK, locks[-1][0]))
+    p = os.path.join(root, LOCK)
+    with open(p, encoding="utf-8") as f:
+        src = f.read()
+    head, _, tail = src.rpartition("[[lock]]")
+    tail = re.sub(r'^(headers\s*=\s*")[0-9a-f]{64}(")', lambda m: m.group(1) + api_hash(root) + m.group(2), tail, count=1, flags=re.M)
+    with open(p, "w", encoding="utf-8") as f:
+        f.write(head + "[[lock]]" + tail)
+    return locks[-1][0]
 
 
 def problems(root=ROOT):
@@ -124,17 +147,21 @@ def problems(root=ROOT):
         locks = read_lock(root)
     except (ValueError, OSError) as e:
         return [str(e)]
-    vs = [v for v, _ in locks]
+    vs = [v for v, _, _ in locks]
     if any(_key(a) >= _key(b) for a, b in zip(vs, vs[1:])):
         errs.append("%s: the locks are not in ascending order of version, or a version is there twice: %s" % (LOCK, ", ".join(vs)))
     if not locks or locks[-1][0] != ver:
         errs.append("%s: the newest lock is %s, the base API of %s is %s: add the lock of this version "
                     "(python3 tools/sdk_api.py lock) or put the version back" % (LOCK, vs[-1] if vs else "(none)", LIBFMT, ver))
     else:
-        if locks[-1][1] != now:
+        # an unreleased version is not held to its hash (update brings it along); a released one is
+        if locks[-1][2] and locks[-1][1] != now:
             errs.append("the public headers of the SDK changed under base API %s (hash %s, locked %s): raise U2A_BASE_MINOR in %s for an "
                         "addition or U2A_ABI_MAJOR for anything else, then add the lock of the new version (python3 tools/sdk_api.py lock). "
-                        "A comment or a blank is no change." % (ver, now[:12], locks[-1][1][:12], LIBFMT))
+                        "A comment or a blank is no change. The version is released: an addition belongs to the next one." % (ver, now[:12], locks[-1][1][:12], LIBFMT))
+    for v, _, rel in locks[:-1]:
+        if not rel:
+            errs.append("%s: base API %s is not released, and a newer version is locked: only the newest version can be unreleased (one minor per SDK release)" % (LOCK, v))
     # what the generic app's version file shows
     try:
         with open(os.path.join(root, VERSION_TOML), encoding="utf-8") as f:
@@ -172,12 +199,15 @@ def main(argv):
             print(hash_files([os.path.join(d, n) for n in sorted(os.listdir(d)) if n.endswith(".h")]))
         elif cmd == "lock":
             sys.stdout.write(lock_entry())
+        elif cmd == "update":
+            print("sdk api: the lock of base API %s now holds %s" % (update(), api_hash()[:12]))
         elif cmd == "check":
             errs = problems()
             for e in errs:
                 print("FAIL: " + e)
             if not errs:
-                print("sdk api ok: base API %s, %d public headers, hash %s" % (version(), len(headers()), api_hash()[:12]))
+                rel = read_lock()[-1][2]
+                print("sdk api ok: base API %s (%s), %d public headers, hash %s" % (version(), "released" if rel else "not released, its lock follows the headers", len(headers()), api_hash()[:12]))
             return 1 if errs else 0
         elif cmd == "selftest":
             selftest()
