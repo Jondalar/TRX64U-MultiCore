@@ -1,3 +1,6 @@
+# NOT PACKED YET: it is named desc.pending.toml because tests/coreapp/test_descgen.cc (report_hooks) counts two null mount_slots as different: the Next has no mount slots in the compiled-in
+# descriptor and none in the record, and the three mount_slots rows fail on that. Every field compares equal; those three rows (6 failed checks, run twice: record and bundle) are the only failure. Rename it to desc.toml
+# once report_hooks counts two null mount_slots as the same.
 # The ZX Spectrum Next's data description (T239.3 D17): what coreapp/cores/zxnext.cc holds as tables and strings, as TOML. tools/descrec.py compiles it into
 # the description record of the .cor; the generic application builds the descriptor from it. What stays in the core's C++ is code: init, release, the
 # operations of register_ops (including the service: the card, the clock, the default image). The core has no ROM: the Next's boot ROM is in its
