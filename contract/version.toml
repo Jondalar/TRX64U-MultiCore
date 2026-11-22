@@ -1,3 +1,3 @@
 # The host gateware (layer 1), T221 D5/D7. Its MAJOR is the contract of the partition (D12): a change of layer2_ports.txt that an older core cannot
 # live with raises it. Not under host/: that folder is the host's content hash (host/layers.txt), and a version bump must not move the host key.
-version = "0.2.0"
+version = "0.2.1"

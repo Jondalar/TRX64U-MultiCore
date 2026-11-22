@@ -1,5 +1,7 @@
 name: Pipeline
 
+# T239.1 D51 (Alex, 2026-11-22): tests run on the way into integration; a push to main or a v* tag runs no test job (lint, keys,
+# apptests, sim, emu): integration has tested that content. It only builds, packs and publishes.
 # T239.1 S6 (replaces the dispatching parent of T174 D4): the job graph of the pipeline. One job per child of ci/children.txt (job id = child name; `ci/orchestrate.py check`
 # holds this file to the table), each calling its own workflow with `uses:`. The plan job decides which children run (`if:`); a job whose need was red or
 # cancelled does not start. The bitstreams are not a job: the builder builds the keys the plan job's work order names as missing (D11, D13) and releases the
@@ -142,7 +144,7 @@ jobs:
   lint:
     name: Lint
     needs: plan
-    if: ${{ !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.docs_only != 'true' }}
+    if: ${{ !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.docs_only != 'true' && !(github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))) }}
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/jondalar/trx64u-sim@sha256:3e366a085f3ff5bfec33b5fa08359a625034038803b8b89f3406691683a625e0
@@ -171,7 +173,7 @@ jobs:
   keys:
     name: Key tests (ci/keys.sh)
     needs: plan
-    if: ${{ !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.docs_only != 'true' }}
+    if: ${{ !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.docs_only != 'true' && !(github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))) }}
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/jondalar/trx64u-build@sha256:706a976b56de400970d5af3bac9358d063c1d87defe6a3630d3ed26c5bae0c08
@@ -195,7 +197,7 @@ jobs:
 
   apptests:
     needs: plan
-    if: ${{ !cancelled() && needs.plan.result == 'success' && contains(fromJSON(needs.plan.outputs.children), 'apptests') }}
+    if: ${{ !cancelled() && needs.plan.result == 'success' && contains(fromJSON(needs.plan.outputs.children), 'apptests') && !(github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))) }}
     uses: ./.github/workflows/apptests.yml
 
   images:
@@ -206,7 +208,7 @@ jobs:
   # one leg per bench owner (ci/sims.lane); a hosted job stops after 6 h
   sim:
     needs: plan
-    if: ${{ !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.sim_owners != '[]' }}
+    if: ${{ !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.sim_owners != '[]' && !(github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))) }}
     strategy:
       fail-fast: false
       max-parallel: 6
@@ -243,7 +245,7 @@ jobs:
   # D23: after update, where update ran; its kit takes this run's VIC-20 .cor and host image (no .ue2 since T239.1 step 17)
   emu:
     needs: [plan, images, update]
-    if: ${{ !cancelled() && needs.plan.result == 'success' && needs.images.result == 'success' && needs.update.result == 'success' && contains(fromJSON(needs.plan.outputs.children), 'emu') }}
+    if: ${{ !cancelled() && needs.plan.result == 'success' && needs.images.result == 'success' && needs.update.result == 'success' && contains(fromJSON(needs.plan.outputs.children), 'emu') && !(github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))) }}
     uses: ./.github/workflows/emu.yml
 
   # D1: the package of a push to main, t239.1 (during D9) or a v* tag becomes a pre-release of the builds repository. The environment `builds` lets only those refs in; the
