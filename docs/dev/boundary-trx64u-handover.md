@@ -167,3 +167,11 @@ A library's image carries a menu record of contributions only: nodes, file actio
 core's description: record 6 of the `.cor`, packed by `tools/cor_pack.py pack --desc` together with the data sections of the
 core's `desc.toml`. So your libraries drop `LIB_MENU = menu.toml`; `menu.toml` and `desc.toml` are delivered with the libraries
 and packed into `trx64u.cor` by this repository's pipeline (the hand-over contract gets that line with P4).
+
+## Long operations (base 3.3)
+
+Work that needs the machine for long is a stepped operation: the menu calls it again while it answers `more`, each call holds the
+core lock for one step, the progress line shows `ctx.job_progress`, and ← cancels (`ctx.job_cancelled`). A UI node takes it with
+the attribute `job`; with 3.3 a `[[task]]` takes `job = true` as well (the menu's job path already runs a Task). Commands that
+arrive on a task without the lock (a `direct` key row, as the monitor's terminal) are queued and run step by step by the
+library's own poll (lock held), never inside the key handler.
