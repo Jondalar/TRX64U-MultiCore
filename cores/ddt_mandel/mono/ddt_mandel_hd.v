@@ -4,12 +4,13 @@
 // 4 x scan-out in the pixel clock.
 //
 // Scan-out: the frame buffer is 352 x 256; each pixel is shown 4 x 4 (1408 x 1024), centred in the 1920 x 1080 active area of the timing (borders 256 / 28). The pipeline
-// below takes the timing's counters (t_*) and gives the colour 8 clocks later, the counters with it. Stages (pix_clk):
+// below takes the timing's counters (t_*) and gives the colour 9 clocks later, the counters with it. Stages (pix_clk):
 //   S1 ax, ay       position in the active area
 //   S2 fx, fy       frame buffer pixel and window flag
 //   S3 row bases    fy * 352 as two partial sums; the text cell (fx / 8, fy / 8)
 //   S4 address      to the frame buffer (BRAM, one clock); text: character address
-//   S5 iter8        the byte of the frame buffer; text: the character code
+//   S5 iter8        the byte of the frame buffer (the cascaded BRAM output); text: the character code
+//   S5b             a pure register stage behind S5 (the BRAM clock-to-out and its route leave no room for the arithmetic of S6)
 //   S6 palette index (his rotation arithmetic); text: ASCII code
 //   S7 RGB565       palette ROM; text: the font row
 //   S8 RGB888       text bit or palette colour, expanded
@@ -301,10 +302,23 @@ module ddt_mandel_hd #(
         end
     end
 
+    // S5b: registers only
+    reg [7:0]  iter5b;
+    reg [2:0]  fxl5b, fyl5b;
+    reg        inw5b, txa5b, de5b, hs5b, vs5b;
+    reg [11:0] cx5b;
+    reg [10:0] cy5b;
+    reg [7:0]  code5b;
+    always @(posedge pix_clk) begin
+        iter5b <= iter5; code5b <= code5;
+        fxl5b <= fxl5; fyl5b <= fyl5; inw5b <= inw5; txa5b <= txa5;
+        de5b <= de5; hs5b <= hs5; vs5b <= vs5; cx5b <= cx5; cy5b <= cy5;
+    end
+
     // S6: the palette index; the ASCII code of the character (his code is a C64 screen code: below 32 it is a letter, + 64)
-    wire [7:0] palette_iter_minus1 = (iter5 == 8'd0) ? 8'd0 : (iter5 - 8'd1);
+    wire [7:0] palette_iter_minus1 = (iter5b == 8'd0) ? 8'd0 : (iter5b - 8'd1);
     wire [8:0] palette_sum = {1'b0, palette_iter_minus1} + {1'b0, palette_rot};
-    wire [7:0] palette_index = (iter5 == 8'd0) ? 8'd0 :
+    wire [7:0] palette_index = (iter5b == 8'd0) ? 8'd0 :
                                ((palette_sum >= 9'd255) ? (palette_sum - 9'd255 + 9'd1) : (palette_sum[7:0] + 8'd1));
     reg [7:0]  pidx6;
     reg [6:0]  ascii6;
@@ -314,9 +328,9 @@ module ddt_mandel_hd #(
     reg [10:0] cy6;
     always @(posedge pix_clk) begin
         pidx6 <= palette_index;
-        ascii6 <= (code5[6:0] < 7'd32) ? (code5[6:0] + 7'd64) : code5[6:0];
-        fxl6 <= fxl5; fyl6 <= fyl5; inw6 <= inw5; txa6 <= txa5;
-        de6 <= de5; hs6 <= hs5; vs6 <= vs5; cx6 <= cx5; cy6 <= cy5;
+        ascii6 <= (code5b[6:0] < 7'd32) ? (code5b[6:0] + 7'd64) : code5b[6:0];
+        fxl6 <= fxl5b; fyl6 <= fyl5b; inw6 <= inw5b; txa6 <= txa5b;
+        de6 <= de5b; hs6 <= hs5b; vs6 <= vs5b; cx6 <= cx5b; cy6 <= cy5b;
     end
 
     // S7: the colour (palette ROM) and the font row. The font is Gideon's 8 x 8 overlay font, as in the partial core (trx/c64_font_rom.v).
