@@ -6,7 +6,7 @@
 # <version> is the SDK SemVer, kept in one place: app/sdkpkg/SDK_VERSION. The app core image defaults to <out dir>/coreapp.bin (the
 # stage trxapps puts it there). What goes in, and from where:
 #   include/  every header a library or an application includes: the closure of libapi.h, libfmt.h, glue.h, u2p_app.h, u2p_ui.h and hidden.h,
-#             computed by the compiler (-MM) from coreapp/src and app/sdk, flat
+#             from coreapp/src and app/sdk (tools/sdk_api.py), flat
 #   mk/       app/lib/{lib.mk,app.mk,sdkroot.mk,lib.ld}: the same files the tree builds with; sdkroot.mk finds the package's layout
 #   sdk/      the C sources app.mk links into an application (libc.c, u2p_compat.c; lib.mk links libc.c on request)
 #   tools/    u2a_pack.py, descrec.py, cor_pack.py (the modules they import are Python's own, or descrec.py; cor_pack.py needs Pillow for a PNG --icon only)
@@ -33,15 +33,12 @@ P="$out/$name"
 rm -rf "$P" "$out/$name.tar.gz"
 mkdir -p "$P/include" "$P/mk" "$P/sdk" "$P/tools" "$P/image" "$P/licenses"
 
-# the headers: the compiler names them
-CXX=""
-for c in riscv32-unknown-elf-g++ riscv64-elf-g++ c++ g++; do command -v "$c" >/dev/null 2>&1 && { CXX="$c"; break; }; done
-[ -n "$CXX" ] || { echo "sdk_pack: no C++ compiler for the include closure" >&2; exit 1; }
+# the headers: tools/sdk_api.py names them (the include closure of the public roots), the same list the lock of the base API hashes (coreapp/api_lock.toml)
 t="$(mktemp -d)"; trap 'rm -rf "$t"' EXIT
-printf '#include "libapi.h"\n#include "libfmt.h"\n#include "glue.h"\n#include "u2p_app.h"\n#include "u2p_ui.h"\n#include "hidden.h"\n' > "$t/public.cc"
-"$CXX" -x c++ -MM -I"$ROOT/coreapp/src" -I"$ROOT/app/sdk" "$t/public.cc" | tr -d '\\' | tr ' ' '\n' \
-  | grep -E "^($ROOT/)?(coreapp/src|app/sdk)/[^/]+\.h$" | sort -u > "$t/headers"
+python3 -I "$ROOT/tools/sdk_api.py" headers > "$t/headers" || { echo "sdk_pack: the list of public headers failed" >&2; exit 1; }
 [ "$(wc -l < "$t/headers")" -ge 6 ] || { echo "sdk_pack: the include closure is too small:" >&2; cat "$t/headers" >&2; exit 1; }
+python3 -I "$ROOT/tools/sdk_api.py" check > "$t/api.txt" || { cat "$t/api.txt" >&2; echo "sdk_pack: the base API, its lock and the headers do not agree" >&2; exit 1; }
+api_hash="$(python3 -I "$ROOT/tools/sdk_api.py" hash)"
 while read -r h; do
   case "$h" in /*) f="$h" ;; *) f="$ROOT/$h" ;; esac
   [ ! -e "$P/include/$(basename "$f")" ] || { echo "sdk_pack: two headers named $(basename "$f")" >&2; exit 1; }
@@ -62,7 +59,7 @@ cp "$V/lwip/COPYING" "$P/licenses/lwIP.txt"
 cp "$V/lvgl/LICENCE.txt" "$P/licenses/LVGL.txt"
 cp "$V/chan_fat/ff14/LICENSE.txt" "$P/licenses/FatFs.txt"
 cp "$ROOT/app/sdkpkg/api.md" "$P/api.md"
-sed -e "s/@SDK_VERSION@/$ver/g" -e "s/@ABI_MAJOR@/$abi_major/g" -e "s/@ABI_MINOR@/$abi_minor/g" "$ROOT/app/sdkpkg/readme.in" > "$P/README.md"
+sed -e "s/@SDK_VERSION@/$ver/g" -e "s/@ABI_MAJOR@/$abi_major/g" -e "s/@ABI_MINOR@/$abi_minor/g" -e "s/@API_HASH@/${api_hash:0:12}/g" "$ROOT/app/sdkpkg/readme.in" > "$P/README.md"
 cat > "$P/NOTICE" <<NOTICE
 TRX64 SDK $ver, source commit $commit.
 
@@ -78,6 +75,7 @@ cat > "$P/VERSION" <<VERSION
 sdk $ver
 base_api $abi_major.$abi_minor
 abi_major $abi_major
+api_headers_sha256 $api_hash
 commit $commit
 coreapp_sha256 $( (sha256sum "$P/image/coreapp.bin" 2>/dev/null || shasum -a 256 "$P/image/coreapp.bin") | cut -d' ' -f1)
 VERSION

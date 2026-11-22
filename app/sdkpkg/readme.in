@@ -6,6 +6,7 @@ It needs nothing from the TRX64 repository.
 The document [`api.md`](api.md) is the contract of the interface a library and an application use.
 
 The file `VERSION` names the SDK version, the base API version (@ABI_MAJOR@.@ABI_MINOR@), the source commit and the SHA-256 of `image/coreapp.bin`.
+It also names the SHA-256 of the public headers (`api_headers_sha256`, see "The version of the base API").
 
 ## Contents
 
@@ -49,6 +50,25 @@ Set `RV_PREFIX` to the compiler's prefix, for example `RV_PREFIX=riscv32-unknown
 relocates it. The entry point is the function `lib_register`, which fills a `LibRecord` with the library's operations and state values.
 `LIB_NEEDS` names the base API version the library needs. `LIB_INC = -Idir` adds include paths. `LIB_LIBC = 1` links `memcpy`, `memset` and
 integer division from `sdk/libc.c`; the code runs without a C library and without a hardware divider.
+
+## The version of the base API
+
+This package is base API @ABI_MAJOR@.@ABI_MINOR@. The same number is `U2A_ABI_MAJOR` and `U2A_BASE_MINOR` in `include/libfmt.h`, the `base_api` line of
+`image/version.toml` (the core application image of this package), and the `base_api` line of `VERSION`. A library or an application says in `LIB_NEEDS`
+(`base>=@ABI_MAJOR@.@ABI_MINOR@`) which base API it needs; the loader refuses a file that needs a newer base, with a message that names both versions
+("needs base 3.2, this base is 3.1"), and a file built for another major.
+
+The public headers of this package are the files of `include/`. Their content hash, comments and blanks left out, starts with `@API_HASH@`.
+In the source repository a lock file holds that hash for every version, and the lint is red when the headers change and the version does not.
+
+- **Minor** (`@ABI_MAJOR@.x`): an addition that a library built before it can ignore. A new call table at the end of `LibApi`, a new function at the
+  end of a call table (every table carries its size), a new value of an enum.
+- **Major** (`x.0`): anything else. A field that moves, changes size or goes, a changed meaning, a change of `LibRecord` or of a `Lib*Decl`
+  (the loader compares the size of the record), a change of the `.u2a` format.
+
+A library that registers a poll (`LibRecord::poll`: an operation without arguments and a period in milliseconds) is polled by the core application
+from the moment it has registered until it is unloaded or, for an application, released. The poll never runs while the menu has stopped the machine.
+A poll the core application cannot serve (no such operation, an operation that takes arguments, a period of 0, no free slot) refuses the library at load.
 
 ## Build a menu record
 

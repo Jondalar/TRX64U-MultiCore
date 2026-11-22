@@ -1,0 +1,13 @@
+# The lock of the base API (T239.3 S5, tools/sdk_api.py): for every version of the base API (U2A_ABI_MAJOR.U2A_BASE_MINOR in coreapp/src/libfmt.h),
+# the hash of the public headers the SDK ships, comments and white space taken out. The lint is red when the headers differ from the newest lock
+# under the same version, and when the version has no lock. A new version appends one entry (python3 tools/sdk_api.py lock) and never edits an old one.
+#
+#   minor: an addition a library built before it can ignore: a new call table at the end of LibApi, a new function at the end of a call table
+#          (every table carries its size), a new value of an enum
+#   major: anything else, a change of LibRecord, of a Lib*Decl or of the file format included: libload.cc compares the size of the record and the
+#          ABI major of the file, and refuses a library built against another one
+#
+# 3.1 (T197): api->lib, the call tables libraries export
+[[lock]]
+version = "3.1"
+headers = "48d9d26a0b188a1b438ce10612a4eaaf0ffff1f4bb4aca87b796648ea3856db9"

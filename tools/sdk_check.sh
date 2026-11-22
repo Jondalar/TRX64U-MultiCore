@@ -26,6 +26,17 @@ want="$(sed -n 's/^coreapp_sha256 //p' "$P/VERSION")"
 have="$( (sha256sum "$P/image/coreapp.bin" 2>/dev/null || shasum -a 256 "$P/image/coreapp.bin") | cut -d' ' -f1)"
 [ "$want" = "$have" ] || fail "image/coreapp.bin does not match VERSION"
 
+# S5 (T239.3): the base API of the package is one number in the four places that name it, and the hash VERSION names is the hash of include/
+maj="$(sed -n 's/^#define U2A_ABI_MAJOR \([0-9]*\).*/\1/p' "$P/include/libfmt.h")"
+min="$(sed -n 's/^#define U2A_BASE_MINOR \([0-9]*\).*/\1/p' "$P/include/libfmt.h")"
+[ -n "$maj" ] && [ -n "$min" ] || fail "include/libfmt.h has no base API version"
+[ "$(sed -n 's/^base_api //p' "$P/VERSION")" = "$maj.$min" ] || fail "VERSION names base_api $(sed -n 's/^base_api //p' "$P/VERSION"), include/libfmt.h is $maj.$min"
+[ "$(sed -n 's/^base_api *= *"\([^"]*\)".*/\1/p' "$P/image/version.toml")" = "$maj.$min" ] || fail "image/version.toml names another base_api than include/libfmt.h ($maj.$min)"
+grep -q "This package is base API $maj.$min\." "$P/README.md" || fail "README.md names another base API than include/libfmt.h ($maj.$min)"
+hv="$(sed -n 's/^api_headers_sha256 //p' "$P/VERSION")"
+[ "$hv" = "$(python3 -I "$ROOT/tools/sdk_api.py" hash-dir "$P/include")" ] || fail "the hash of the public headers in VERSION is not the hash of include/"
+grep -q "${hv:0:12}" "$P/README.md" || fail "README.md does not carry the hash of the public headers"
+
 # The build runs with an empty environment but PATH (the compiler is on it) and HOME: no GIT_DIR or other variable of the CI reaches it. That
 # the build read nothing of the repository is shown by the grep of its dependency files, its log and the image below.
 cd "$P/example"
@@ -46,4 +57,4 @@ tst="skipped (no host C++ compiler)"
 if command -v "${CXX_HOST:-c++}" >/dev/null 2>&1; then
   "${CLEAN[@]}" make test CXX_HOST="${CXX_HOST:-c++}" >"$W/test.log" 2>&1 && tst="$(tail -1 "$W/test.log")" || { cat "$W/test.log" >&2; fail "the host test"; }
 fi
-echo "sdk_check: ok: trx64-sdk-$ver: example.u2a $(wc -c < example.u2a | tr -d " ") bytes, menu record $(wc -c < example.menu.bin | tr -d " ") bytes, $nd dependency files with $dep_hdrs package headers, none names $ROOT; $tst"
+echo "sdk_check: ok: trx64-sdk-$ver: base API $maj.$min (VERSION, README, image/version.toml, include/libfmt.h agree), headers ${hv:0:12}: example.u2a $(wc -c < example.u2a | tr -d " ") bytes, menu record $(wc -c < example.menu.bin | tr -d " ") bytes, $nd dependency files with $dep_hdrs package headers, none names $ROOT; $tst"

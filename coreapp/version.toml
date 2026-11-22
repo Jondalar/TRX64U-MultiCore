@@ -1,2 +1,5 @@
 # The generic core application, T221 D6/D18: its own deliverable, its own version. Bumped on the way to main (D8).
 version = "0.2.1"
+# The base API this image offers to libraries and applications (T239.3 S5): the same number as U2A_ABI_MAJOR.U2A_BASE_MINOR in coreapp/src/libfmt.h,
+# checked by tools/sdk_api.py (lint). The SDK package names it in VERSION and README.md.
+base_api = "3.1"

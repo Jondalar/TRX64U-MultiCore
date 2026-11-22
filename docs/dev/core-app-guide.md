@@ -191,6 +191,11 @@ static const FileType filetypes[] = { { ".prg", prg_actions, 2 }, { ".p00", prg_
 - `MediaSlot { name, state, eject_op, ... }` is a row on the status page: `state` names the state value that says what is in the slot.
 - Libraries (`.u2a`, `libfmt.h`, `libload.*`, `libboard.cc`) add settings, tasks, file actions and menu nodes at run time from `<root>/trx/lib` or from the
   `.cor` itself (record 7); the drive library `cbm1541` is built in and spliced into a descriptor by macros (`cores/cbm1541_desc.h`).
+- A library may declare one poll in its record (`LibRecord::poll`, `libapi.h`): an operation without arguments that the service layer calls every `period_ms` while
+  the library is loaded and the machine runs (`LibPolls`, `service.h`; never while the menu has frozen the machine). The loader adds it when the library registers and ends it when
+  the library is unloaded or the application is released; a poll that cannot be served refuses the library. The base API has a version (`U2A_ABI_MAJOR.U2A_BASE_MINOR`
+  in `libfmt.h`, `base_api` in `coreapp/version.toml`): a `.u2a` that `needs base>=x.y` is refused on a lower base with both numbers named. The public headers of the SDK
+  are locked per version in `coreapp/api_lock.toml`; `python3 tools/sdk_api.py check` (lint) says what to do after a change.
 - A core can describe its menu as data instead of C++ tables: `menu.toml`, compiled by `tools/descrec.py` into the `.cor`'s record 6 (`descrec.h`).
 
 The golden menu `tests/coreapp/golden/menu_vc20.txt` shows what the whitelist menu builds out of such a descriptor: a tab or area with no entry is dropped.

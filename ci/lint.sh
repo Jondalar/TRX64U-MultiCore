@@ -212,7 +212,8 @@ check "select.sh" bash -c '
   EXPECT=2   t sims-tier GITHUB_REF_NAME=main GITHUB_EVENT_NAME=workflow_dispatch SIMS_INPUT=true SELECT_MSG=x &&
   EXPECT=2   t sims-tier GITHUB_REF_NAME=integ-m1 GITHUB_EVENT_NAME=push'
 # T221 S1/S2: every deliverable has its own x.y.z in its own file, the build strings are made from them (ci/version.sh)
-check "versions (T221 S2)" python3 tools/check_versions.py
+check "versions (T221 S2, base API lock T239.3 S5)" python3 tools/check_versions.py
+check "base API lock test (T239.3 S5)" python3 tools/test_sdk_api.py
 check "version strings (T221 S1)" ci/test_version.sh
 check "workflow" python3 - <<'PY'
 import glob, os, sys, yaml
