@@ -1,7 +1,7 @@
 # T253 — The P7 keyboard scan uses the keyboard's I2C bus only, and the applications start it as PR #112 does
 
 **Status:** IN PROGRESS (2026-11-21). Asked by Alex, 2026-11-21.
-Open (one line, as in the TODO table): IN PROGRESS 11-21: S1 PASS, S3 picture and colours; host in; open: S2 10 min, S3 P7 key, S4, trx64u pin (TRX64U-FW)
+Open (one line, as in the TODO table): IN PROGRESS 11-22: S1, S4 PASS, S3 picture and colours; open: S2 10 min, S3 P7 key, trx64u pin (main-52f9a7ec)
 **Repo:** TRX64U-MultiCore — the I2C wiring in the top of every large core (`cores/*/mono/top.v`, `cores/*/mono/host/top.v`)
 and of the host (`host/top.v`); the start of the scan in the applications (`coreapp/src/coreapp.cc`,
 `host-app/software/hostapp/hostapp.cc`, `host-app/software/system/u64ii_init.cc`, `host-app/software/io/i2c/hw_i2c_drv.cc`).
@@ -156,4 +156,20 @@ Scenario: S4 (P1) every core and the host
 - **The build of every core:** a feature branch builds only the cores it touches, so after a host change the DFX
   cores have no bitstream against the new host and the package fails (`ci/plan.py` `full_scope`). The bundle is
   pushed as `integ-0.2.1`: full scope, every core, the sims, the package.
-
+- **S4 PASS (2026-11-22):** run 44948262543 on `integ-0.2.1` (`572ea62e`), full scope: green. 25 jobs passed; 5 were
+  skipped by their conditions (the builder's approval, `cor`, `update`, `emu`, `Pre-release`). The package has 20 `.cor`
+  (13 large cores, 5 DFX cores, trx64u, trx64g), `trx64host_update_572ea62e.txu` and the applications; `SHA256SUMS`
+  checked. Every build's `timing.rpt`: "All user specified timing constraints are met". WNS: host +0.109 ns, the large
+  cores +0.007 ns (cpc) to +0.231 ns (c128), c64scpu +0.008 ns. trx64u and trx64g carry the pinned bitstream of
+  `main-31e69921`, without D1.
+- **The units (2026-11-22):** the run's apptests job ran none ("tier fast, base HEAD~1 ... will run: nothing"). On the
+  Mac, tree `572ea62e`: `tests/coreapp/run.sh`: "119 test programs passed, 215 parallel controls (JOBS=2), every
+  negative control failed as it must"; `tests/hostapp/run.sh`: rc 0, each test passed.
+- **On the board (2026-11-22):** the package is on the SD (`tools/board_put.sh`): the `.cor` in `/SD/cores/`, the host
+  update in `/SD/txu/`.
+- **trx64u's bitstream (2026-11-22):** TRX64-Ultimate `c392beed` puts D1 into `designs/c64_basic/top.v` (the same mux
+  and `kb_sda_in = sda18_in`). Its main `52f9a7ec` (a CI change after it) is green (run 2996). The package
+  `main-52f9a7ec`: `c64_basic.bit` sha256 `c950aa551912deca...`; `ultimate.app` is the pinned one (`fa70a66d...`). From
+  `31e69921` to `52f9a7ec`, `c392beed` is the one commit that changes the gateware (the others: documentation,
+  `ci/sims.txt`, `tools/gh_*.py`). A changed pin builds on `integration` only: the builder publishes the import entries
+  of its `KEYCODE_REF` (T239.1 D43).
