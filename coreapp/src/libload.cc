@@ -11,7 +11,7 @@ static void no_log(const char *) { }
 static LibLoader *s_ld;
 
 LibLoader::LibLoader(LibHost *host, OpRegistry *reg, uint16_t base_minor)
-    : host_(host), reg_(reg), base_minor_(base_minor), count_(0), cur_(-1), ctx_(0)
+    : host_(host), reg_(reg), base_minor_(base_minor), polls_(0), count_(0), cur_(-1), ctx_(0)
 {
     memset(slot_, 0, sizeof(slot_));
     memset(acct_, 0, sizeof(acct_));
@@ -360,6 +360,14 @@ int LibLoader::fail(int rc, char *err, int errlen, const char *fmt, ...)
     return rc;
 }
 
+void LibLoader::retire(const Slot &s)
+{
+    if (polls_) {
+        polls_->drop(s.info.name);
+    }
+    reg_->drop_owner(s.info.name);
+}
+
 void LibLoader::discard(int si)
 {
     for (int i = 0; i < slot_[si].ndep; i++) {
@@ -696,6 +704,11 @@ int LibLoader::load(LibSource *src, int *handle, char *err, int errlen)
             }
             if (r != OPE_OK) {
                 bad = fail(LIB_REGISTER, err, errlen, "Library \"%s\" is refused: %s", name, reg_->error());
+            } else if (polls_ && rec.poll.op && rec.poll.op[0]) {
+                char why[120];
+                if (!polls_->add(s.info.name, rec.poll.op, rec.poll.period_ms, why, sizeof(why))) {
+                    bad = fail(LIB_REGISTER, err, errlen, "Library \"%s\" is refused: %s", name, why);
+                }
             }
         }
         if (bad) {
@@ -771,7 +784,7 @@ int LibLoader::release(int handle, char *err, int errlen)
     if (s.info.residence == U2A3_RES_RESIDENT) {
         return fail(LIB_STATE, err, errlen, "\"%s\" is resident and stays loaded.", s.info.name);
     }
-    reg_->drop_owner(s.info.name);                      // its operations, state values and events go before the code they point into
+    retire(s);                                          // its poll, operations, state values and events go before the code they point into
     if (cur_ == handle) {
         cur_ = -1;
     }
@@ -808,7 +821,7 @@ int LibLoader::unload(int handle, char *err, int errlen)
     if (s.info.kind != U2A3_KIND_LIB || s.uses > 0) {
         return fail(LIB_STATE, err, errlen, "\"%s\" is not an unused library.", s.info.name);
     }
-    reg_->drop_owner(s.info.name);
+    retire(s);
     if (cur_ == handle) {
         cur_ = -1;
     }

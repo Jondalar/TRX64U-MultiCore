@@ -8,6 +8,7 @@
 #include <stdint.h>
 #include "libfmt.h"
 #include "libapi.h"
+#include "libpoll.h"
 #include "ops.h"
 
 // Where a file comes from: the flash, a stick, or a record of the .cor already in memory.
@@ -109,6 +110,11 @@ public:
     // Frees a resident library nothing uses (its registrations go with it). LIB_STATE for an application, a handle not loaded, or a library in use.
     int unload(int handle, char *err, int errlen);
 
+    // Where the poll a library declares is served (T239.3 S3): a library that registers after this is called has its poll added to the sink, and the
+    // poll ends when the library is released or unloaded. A poll the sink refuses refuses the library. Null: no poll is served (the libraries
+    // loaded before the core starts get theirs from the menu merge, run.cc, which calls this afterwards).
+    void set_poll_sink(LibPollSink *s) { polls_ = s; }
+
     // The context the operations of api->ops run with (the menu's CoreCtx); none: api->ops answers OPE_UNSUPPORTED.
     void set_ctx(CoreCtx *c) { ctx_ = c; }
     // The groups the base fills in itself (appsvc.cc): dialogs, jobs, the debug block, the network. Null: the application finds a null pointer.
@@ -137,7 +143,7 @@ public:
     int handle_of(const char *name) const;    // the slot of a loaded image by name, -1: not loaded
     int count() const { return count_; }
     uint32_t resident_bytes() const;      // heap held by images that stay, what Q7's budget counts
-    // Always false since 2026-10-26: everything a record declares is served (the menu merge, contrib.h; the poll task, run.cc).
+    // Always false: everything a record declares is served (the menu merge, contrib.h; the poll, set_poll_sink above).
     static bool unserved_text(const char *name, const LibRecord &rec, char *out, int outlen);
     int unserved_count() const;           // always 0 (see above)
 
@@ -154,6 +160,7 @@ private:
     OpRegistry *reg_;
     uint16_t base_minor_;
     LibApi api_;
+    LibPollSink *polls_;
     Slot slot_[LIB_MAX];
     int count_;
 
@@ -201,6 +208,7 @@ private:
     void free_account(int si);
     Blk **list_of(int owner) { return &acct_[owner < 0 ? LIB_MAX : owner]; }
 
+    void retire(const Slot &s);           // the library goes: its poll ends, then its operations, state values and events
     void discard(int si);                 // gives the image of a slot back and empties it
     int fail(int rc, char *err, int errlen, const char *fmt, ...);
     const Slot *find(const char *name) const;

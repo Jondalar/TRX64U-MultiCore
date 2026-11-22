@@ -38,6 +38,11 @@ static int h_service(CoreCtx *, const OpArgs &, OpOut &o)
 
 static int h_busy(CoreCtx *, const OpArgs &, OpOut &o) { o.more = true; return OPE_OK; }
 
+// T239.3 S3: the polls of the libraries. Each op counts its own calls.
+static int g_calls[4];
+template <int N> static int h_count(CoreCtx *, const OpArgs &, OpOut &) { g_calls[N]++; return OPE_OK; }
+static int h_arg(CoreCtx *, const OpArgs &, OpOut &) { return OPE_OK; }
+
 #define PERIOD 10
 #define TICK 1
 
@@ -178,6 +183,90 @@ int main()
         ro.t = 120;
         rp.step();
         CHECK_EQ(g_core.answered, 1);
+    }
+
+    // S3: LibPolls. A poll counts calls while its library is there, at its own period, and none after drop(); the slot is used again by the next one.
+    {
+        VirtOs lo;
+        CoreLock ll(&lo);
+        OpRegistry lreg;
+        CoreCtx lc;
+        memset(&lc, 0, sizeof(lc));
+        lc.started = true;
+        static const ArgSpec one_arg[] = { ARG_INT("n", 0, 9) };
+        lreg.contributor("base");
+        lreg.add_op("base.noop", 0, 0, h_arg);
+        lreg.contributor("liba");
+        lreg.add_op("liba.poll", 0, 0, h_count<0>);
+        lreg.add_op("liba.arg", one_arg, 1, h_arg);
+        lreg.contributor("libb");
+        lreg.add_op("libb.poll", 0, 0, h_count<1>);
+        LibPolls lp(&lo, &ll, &lreg, &lc, 0);
+        char why[120];
+        memset(g_calls, 0, sizeof(g_calls));
+        CHECK(lp.add("liba", "liba.poll", 10, why, sizeof(why)));
+        CHECK(lp.add("libb", "libb.poll", 25, why, sizeof(why)));
+        CHECK_EQ(lp.count(), 2);
+        auto spin = [&](uint32_t ms) {                      // the slots stepped as their own tasks would be, 1 ms apart
+            uint32_t wake[LIB_POLLS_MAX] = { 0 };
+            uint32_t end = lo.t + ms;
+            for (; lo.t < end; lo.t++) {
+                for (int i = 0; i < LIB_POLLS_MAX; i++) {
+                    if (lp.slot(i) && lo.t >= wake[i]) {
+                        wake[i] = lo.t + lp.slot(i)->step();
+                    }
+                }
+            }
+        };
+        spin(1000);
+        printf("S3 two polls, 1000 ms: liba (10 ms) %d calls, libb (25 ms) %d calls\n", g_calls[0], g_calls[1]);
+        CHECK(g_calls[0] >= 98 && g_calls[0] <= 101);
+        CHECK(g_calls[1] >= 39 && g_calls[1] <= 41);
+        // the library goes: its poll ends before its operations do, and nothing is polled after
+        lp.drop("liba");
+        lreg.drop_owner("liba");
+        int a0 = g_calls[0], b0 = g_calls[1];
+        spin(500);
+        printf("S3 liba dropped: liba %d -> %d calls, libb %d -> %d calls\n", a0, g_calls[0], b0, g_calls[1]);
+        CHECK_EQ(g_calls[0], a0);
+        CHECK(g_calls[1] >= b0 + 19);
+        CHECK_EQ(lp.count(), 1);
+        // the registry moved libb's entry down when liba's went; the poll still calls libb's operation, by name
+        lreg.contributor("libc");
+        lreg.add_op("libc.poll", 0, 0, h_count<2>);
+        CHECK(lp.add("libc", "libc.poll", 10, why, sizeof(why)));       // takes the slot liba left
+        CHECK_EQ(lp.count(), 2);
+        int c0 = g_calls[2];
+        spin(200);
+        CHECK(g_calls[2] >= c0 + 18);
+        // the same owner again replaces its poll
+        CHECK(lp.add("libc", "libc.poll", 50, why, sizeof(why)));
+        CHECK_EQ(lp.count(), 2);
+        c0 = g_calls[2];
+        spin(500);
+        CHECK(g_calls[2] >= c0 + 9 && g_calls[2] <= c0 + 11);
+        // a poll the service cannot serve is refused with a sentence, and nothing starts
+        CHECK(!lp.add("libd", "libd.nothing", 10, why, sizeof(why)) && strstr(why, "libd.nothing") && strstr(why, "not registered"));
+        lreg.contributor("libe");
+        lreg.add_op("libe.arg", one_arg, 1, h_arg);
+        CHECK(!lp.add("libe", "libe.arg", 10, why, sizeof(why)) && strstr(why, "takes arguments"));
+        CHECK(!lp.add("libb2", "libb.poll", 0, why, sizeof(why)) && strstr(why, "no period"));
+        CHECK_EQ(lp.count(), 2);
+        // no room: the slots are all in use
+        for (int i = lp.count(); i < LIB_POLLS_MAX; i++) {
+            char o[8];
+            snprintf(o, sizeof(o), "x%d", i);
+            CHECK(lp.add(o, "base.noop", 10, why, sizeof(why)));
+        }
+        CHECK(!lp.add("one_more", "base.noop", 10, why, sizeof(why)) && strstr(why, "no room"));
+        // a poll that is not allowed (the machine is frozen) is not called; thawed, it is
+        lc.frozen = true;
+        int f0 = g_calls[1];
+        spin(200);
+        CHECK_EQ(g_calls[1], f0);
+        lc.frozen = false;
+        spin(200);
+        CHECK(g_calls[1] > f0);
     }
     DONE("test_service");
 }

@@ -705,12 +705,17 @@ void coreapp_run(const CoreDesc *desc, const Handover *h, const BoardProfile *bo
         printf("[core] the poll task did not start; %s is not served\n", desc->service_op);
     }
     // The polls the description and the libraries declared (T104.1 D6, Q9): each on a task of its own above the menu's, under the core lock, none
-    // while the machine is frozen (Alex 2026-10-20: poll_when_frozen is gone).
+    // while the machine is frozen (Alex 2026-10-20: poll_when_frozen is gone). Those of the libraries loaded from here on are added by the loader
+    // when they register, and end when they are released (T239.3 S3).
+    static LibPolls lib_polls(&board_os, &core_lock, ops_of(&ctx), &ctx, 6 * configMINIMAL_STACK_SIZE);
     for (int i = 0; i < merge.npolls; i++) {
-        PollTask *lp = new PollTask(&board_os, &core_lock, ops_of(&ctx), &ctx, merge.polls[i].op, merge.polls[i].period_ms, false);
-        if (!lp->start("Lib poll", 1, 6 * configMINIMAL_STACK_SIZE)) {
-            printf("[core] the poll task of %s did not start; %s is not served\n", merge.polls[i].owner, merge.polls[i].op);
+        char why[120];
+        if (!lib_polls.add(merge.polls[i].owner, merge.polls[i].op, merge.polls[i].period_ms, why, sizeof(why))) {
+            printf("[core] the poll of %s did not start; %s is not served (%s)\n", merge.polls[i].owner, merge.polls[i].op, why);
         }
+    }
+    if (lib_board_loader()) {
+        lib_board_loader()->set_poll_sink(&lib_polls);
     }
     // The application host (T104.3): app.open from a menu entry, the application's task, its screens and its dialogs. The loader exists whatever the libraries did.
     static AppHost app_host(&ctx, lib_board_loader(), &app_index, &board_os, &core_lock, menu, &board_host);

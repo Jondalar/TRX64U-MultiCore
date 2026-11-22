@@ -15,6 +15,8 @@
 #include "libmenu.h"
 #include "ctx.h"
 #include "fakes.h"
+#include "hostos.h"
+#include "service.h"
 
 #ifndef FIXDIR
 #error FIXDIR is the directory of testlib.u2a and testlib.at1000.raw (tests/loader/run.sh makes them)
@@ -665,6 +667,188 @@ static void unserved()
 }
 
 
+// ---------------------------------------------------------------------------------------------------------------- S4: the version of the base
+
+// A .u2a that needs base >= 3.(m+1) is refused on a base that provides 3.m, by name and with both versions; one that needs 3.m loads. The loader is the
+// one the board makes: no lowered minor, the constant of libfmt.h.
+static void base_version()
+{
+    World w(U2A_BASE_MINOR);
+    char want_have[16], want_need[16], err[LIB_ERR_MAX];
+    snprintf(want_have, sizeof(want_have), "%u.%u", (unsigned)U2A_ABI_MAJOR, (unsigned)U2A_BASE_MINOR);
+    snprintf(want_need, sizeof(want_need), "%u.%u", (unsigned)U2A_ABI_MAJOR, (unsigned)U2A_BASE_MINOR + 1);
+    int h = -1;
+    Img newer("alpha", "A");
+    newer.needs.push_back(std::make_pair(std::string("base"), U2A3_VERSION(U2A_ABI_MAJOR, U2A_BASE_MINOR + 1)));
+    refused("needs the next minor of the base", w, build(newer), LIB_NEEDS, "alpha", want_need, want_have);
+    {
+        MemSource src(build(newer));
+        w.ld->load(&src, &h, err, sizeof(err));
+        char sentence[96];
+        snprintf(sentence, sizeof(sentence), "\"alpha\" needs base %s, this base is %s.", want_need, want_have);
+        CHECK_STR(err, sentence);
+    }
+    Img major("alpha", "A");
+    major.needs.push_back(std::make_pair(std::string("base"), U2A3_VERSION(U2A_ABI_MAJOR + 1, 0)));
+    refused("needs the next major of the base", w, build(major), LIB_NEEDS, "alpha", "4.0", want_have);
+    Img same("alpha", "A");
+    same.needs.push_back(std::make_pair(std::string("base"), U2A3_VERSION(U2A_ABI_MAJOR, U2A_BASE_MINOR)));
+    CHECK_EQ(w.load(build(same), &h, err), LIB_OK);                         // exactly what the base provides is enough
+    Img older("beta", "B");
+    older.needs.push_back(std::make_pair(std::string("base"), U2A3_VERSION(U2A_ABI_MAJOR, 0)));
+    CHECK_EQ(w.load(build(older), &h, err), LIB_OK);
+    // an application is held to the same: refused at its load, before anything of it is placed
+    Img app("tapp", "T");
+    app.kind = U2A3_KIND_APP;
+    app.residence = U2A3_RES_TRANSIENT;
+    app.reg = U2A3_NONE;
+    app.main = 4;
+    app.needs.push_back(std::make_pair(std::string("base"), U2A3_VERSION(U2A_ABI_MAJOR, U2A_BASE_MINOR + 1)));
+    refused("an app that needs the next minor of the base", w, build(app), LIB_NEEDS, "tapp", want_need, want_have);
+    // the version the library sees is the one the check used
+    static unsigned seen_minor, seen_major;
+    w.m.twins["gamma"] = [](const LibHost::Entry &, const LibApi *api, LibRecord *) { seen_major = api->abi_major; seen_minor = api->abi_minor; return 0; };
+    Img g("gamma", "G");
+    CHECK_EQ(w.load(build(g), &h, err), LIB_OK);
+    CHECK_EQ(seen_major, (unsigned)U2A_ABI_MAJOR);
+    CHECK_EQ(seen_minor, (unsigned)U2A_BASE_MINOR);
+}
+
+// ---------------------------------------------------------------------------------------------------------------- S3: the poll of a library
+
+static int g_polled[3];
+template <int N> static int h_polled(CoreCtx *, const OpArgs &, OpOut &) { g_polled[N]++; return OPE_OK; }
+static int h_polled_arg(CoreCtx *, const OpArgs &, OpOut &) { return OPE_OK; }
+static const ArgSpec polled_arg[] = { ARG_INT("n", 0, 9) };
+
+template <int N> static int twin_poll(const LibHost::Entry &, const LibApi *, LibRecord *rec)
+{
+    static LibOpDecl ops[3];
+    static const char *names[3] = { "pa.tick", "pb.tick", "pc.tick" };
+    ops[N].name = names[N]; ops[N].args = 0; ops[N].nargs = 0; ops[N].fn = N == 0 ? h_polled<0> : N == 1 ? h_polled<1> : h_polled<2>;
+    rec->ops = &ops[N];
+    rec->nops = 1;
+    rec->poll.op = names[N];
+    rec->poll.period_ms = N == 0 ? 10 : 20;
+    return 0;
+}
+
+// The service task steps every armed slot as its own task would; `ms` of virtual time in 1 ms steps.
+static void spin(VirtOs &os, LibPolls &lp, uint32_t ms)
+{
+    uint32_t wake[LIB_POLLS_MAX] = { 0 };
+    for (uint32_t end = os.t + ms; os.t < end; os.t++) {
+        for (int i = 0; i < LIB_POLLS_MAX; i++) {
+            if (lp.slot(i) && os.t >= wake[i]) {
+                wake[i] = os.t + lp.slot(i)->step();
+            }
+        }
+    }
+}
+
+static void polls()
+{
+    World w(U2A_BASE_MINOR);
+    VirtOs os;
+    CoreLock lock(&os);
+    CoreCtx cx;
+    memset(&cx, 0, sizeof(cx));
+    cx.started = true;
+    LibPolls lp(&os, &lock, &w.reg, &cx, 0);
+    w.ld->set_ctx(&cx);
+    w.ld->set_poll_sink(&lp);
+    w.m.twins["pa"] = twin_poll<0>;
+    w.m.twins["pb"] = twin_poll<1>;
+    w.m.twins["pc"] = twin_poll<2>;
+    char err[LIB_ERR_MAX];
+    int h = -1;
+    memset(g_polled, 0, sizeof(g_polled));
+
+    // a library: polled at its period from its registration, until it is unloaded
+    std::string heap0 = w.m.shape();
+    CHECK_EQ(w.load(build(Img("pa", "A")), &h, err), LIB_OK);
+    int ha = h;
+    CHECK_EQ(lp.count(), 1);
+    spin(os, lp, 1000);
+    printf("S3 library pa (10 ms), 1000 ms: %d calls\n", g_polled[0]);
+    CHECK(g_polled[0] >= 98 && g_polled[0] <= 101);
+    // a second one beside it, at its own period
+    CHECK_EQ(w.load(build(Img("pb", "B")), &h, err), LIB_OK);
+    int hb = h;
+    CHECK_EQ(lp.count(), 2);
+    int a0 = g_polled[0];
+    spin(os, lp, 1000);
+    printf("S3 pa and pb (20 ms), 1000 ms: pa %d calls, pb %d calls\n", g_polled[0] - a0, g_polled[1]);
+    CHECK(g_polled[0] - a0 >= 98 && g_polled[1] >= 49 && g_polled[1] <= 51);
+    // unloaded: nothing is polled after, the other goes on
+    CHECK_EQ(w.ld->unload(ha, err, sizeof(err)), LIB_OK);
+    CHECK_EQ(lp.count(), 1);
+    a0 = g_polled[0];
+    int b0 = g_polled[1];
+    spin(os, lp, 500);
+    printf("S3 pa unloaded: pa %d -> %d calls, pb %d -> %d calls\n", a0, g_polled[0], b0, g_polled[1]);
+    CHECK_EQ(g_polled[0], a0);
+    CHECK(g_polled[1] >= b0 + 24);
+    CHECK_EQ(w.ld->unload(hb, err, sizeof(err)), LIB_OK);
+    CHECK_EQ(lp.count(), 0);
+    b0 = g_polled[1];
+    spin(os, lp, 300);
+    CHECK_EQ(g_polled[1], b0);
+    CHECK(heap0 == w.m.shape());
+
+    // a transient application with screens (it registers, and its poll lives while it is kept open): the poll ends when it is released
+    w.m.twins["pc"] = twin_poll<2>;
+    w.m.mains["pc"] = [](const LibHost::Entry &, const LibApi *, AppCtx *) { return 0; };
+    Img app("pc", "C");
+    app.kind = U2A3_KIND_APP;
+    app.residence = U2A3_RES_TRANSIENT;
+    app.main = 4;
+    CHECK_EQ(w.load(build(app), &h, err), LIB_OK);
+    int arc = 0;
+    CHECK_EQ(w.ld->run(h, "", "", 0, 0, &arc, err, sizeof(err), true), LIB_OK);
+    CHECK_EQ(lp.count(), 1);
+    spin(os, lp, 1000);
+    printf("S3 transient app pc (20 ms), kept open 1000 ms: %d calls\n", g_polled[2]);
+    CHECK(g_polled[2] >= 49 && g_polled[2] <= 51);
+    CHECK_EQ(w.ld->release(h, err, sizeof(err)), LIB_OK);
+    CHECK_EQ(lp.count(), 0);
+    int c0 = g_polled[2];
+    spin(os, lp, 300);
+    printf("S3 pc released: %d -> %d calls\n", c0, g_polled[2]);
+    CHECK_EQ(g_polled[2], c0);
+    CHECK(heap0 == w.m.shape());
+    // run() without keep frees a transient app at once, with its poll
+    CHECK_EQ(w.load(build(app), &h, err), LIB_OK);
+    CHECK_EQ(w.ld->run(h, "", "", 0, 0, &arc, err, sizeof(err)), LIB_OK);
+    CHECK_EQ(lp.count(), 0);
+
+    // a poll the service cannot serve refuses the library, by name, and nothing of it stays
+    w.m.twins["pa"] = [](const LibHost::Entry &, const LibApi *, LibRecord *rec) {
+        static LibOpDecl ops[1] = { { "pa.arg", polled_arg, 1, h_polled_arg } };
+        rec->ops = ops; rec->nops = 1;
+        rec->poll.op = "pa.arg"; rec->poll.period_ms = 10;
+        return 0;
+    };
+    refused("a poll that takes arguments", w, build(Img("pa", "A")), LIB_REGISTER, "pa", "pa.arg", "takes arguments");
+    w.m.twins["pa"] = [](const LibHost::Entry &, const LibApi *, LibRecord *rec) { rec->poll.op = "pa.missing"; rec->poll.period_ms = 10; return 0; };
+    refused("a poll of an operation nobody registered", w, build(Img("pa", "A")), LIB_REGISTER, "pa", "pa.missing", "not registered");
+    w.m.twins["pa"] = [](const LibHost::Entry &, const LibApi *, LibRecord *rec) {
+        static LibOpDecl ops[1] = { { "pa.tick", 0, 0, h_polled<0> } };
+        rec->ops = ops; rec->nops = 1;
+        rec->poll.op = "pa.tick"; rec->poll.period_ms = 0;
+        return 0;
+    };
+    refused("a poll with no period", w, build(Img("pa", "A")), LIB_REGISTER, "pa", "no period");
+    CHECK_EQ(lp.count(), 0);
+    CHECK(w.reg.find_op("pa.tick") == 0);
+
+    // no sink (a loader whose core has not started): the library loads, the record keeps the declaration for the menu merge
+    World w2(U2A_BASE_MINOR);
+    w2.m.twins["pb"] = twin_poll<1>;
+    CHECK_EQ(w2.load(build(Img("pb", "B")), &h, err), LIB_OK);
+    CHECK(w2.ld->info(h) && !strcmp(w2.ld->info(h)->record.poll.op, "pb.tick"));
+}
+
 // A library's own menu record (T104.1 D9, libmenu.h): header flag bit 0 and the offset in `reserved`; read and checked before anything is spent, kept by the
 // slot, freed with it. Refused by name: an offset outside the file, a record that is damaged, one that gives a route.
 static std::vector<uint8_t> with_menu(Img m, const std::vector<uint8_t> &rec, uint32_t offset_delta = 0)
@@ -1036,6 +1220,8 @@ int main()
     setvbuf(stdout, 0, _IONBF, 0);                                  // a mutant may crash: what it said before has to be out
     menu_record();
     unserved();
+    base_version();
+    polls();
     coexist();
     refusals();
     failures();

@@ -16,7 +16,8 @@
 // and takes the registrations back when the application is freed.
 //
 // Of the six lists of D4 the loader registers operations, state values and events (the three the registry has). Menu nodes, file actions
-// and settings, and the tabs, are merged into the menu by contrib.h (D8); the poll of a record gets a task of its own at the start of the core (run.cc).
+// and settings, and the tabs, are merged into the menu by contrib.h (D8); the poll is run by the service task (service.h LibPolls) from the moment
+// the library has registered until it is released or unloaded.
 #ifndef COREAPP_LIBAPI_H
 #define COREAPP_LIBAPI_H
 
@@ -112,6 +113,9 @@ struct LibSettingDecl {
     int32_t def;
     const char *apply;                    // the operation that takes `value`
 };
+// One poll for the record: `op` is called every period_ms (at least 1) while the library is loaded and the core runs. `op` is registered by the
+// library or by the base and takes no arguments; a poll the base cannot serve refuses the library. The poll never runs while the machine is frozen
+// by the menu: when_frozen is not read (the service layer's rule since 2026-10-20), a library has to leave it false.
 struct LibPollDecl {
     const char *op;                       // null: no poll
     uint16_t period_ms;
